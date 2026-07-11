@@ -1,0 +1,92 @@
+= Lapis Cloud
+:description: Föderierte Mitgliederverwaltung für Vereine und Parteien — mit meritokratischer Governance-Schicht.
+:toc:
+:toc-placement: preamble
+:icons: font
+
+[.lead]
+*Standard-Mitgliederverwaltung, libertär erweitert.* +
+Vollständige Vereins- und Parteiverwaltung als Basis, meritokratische Governance als Alleinstellung.
+
+image:https://img.shields.io/github/license/Lapis-Philosophorum-Network/Lapis-Cloud[Apache 2.0]
+
+== Über Lapis Cloud
+
+Lapis Cloud ist die Weiterentwicklung der PZB (PdV Parteizentralbank) — ein **föderierter Server-Verbund**
+mit Privatrechtsgesellschafts-Charakter für die Mitgliederverwaltung von Vereinen und Parteien. Jeder Server
+ist souverän, kann sich aber mit anderen Lapis-Cloud-Instanzen föderieren.
+
+Lapis Cloud deckt zwei orthogonale Schichten ab:
+
+. **Standard-Mitgliederverwaltung** — alles, was eine moderne Vereins- oder Parteiverwaltung braucht
+  (Mitgliederstammdaten, Beitragsverwaltung, Veranstaltungen, Kommunikation, DSGVO, Berichtswesen,
+  Spendenbescheinigungen etc.), auf einem Niveau, das parallele Spezialtools überflüssig macht.
+. **Innovative libertäre Erweiterungen** — meritokratische Abstimmungen, interne Währung ("Libertaler"),
+  internes Crowdfunding, Pseudonymität mit Transparenz, Sezessionsrecht über Föderation.
+
+Der ausdrückliche Anspruch: **De-facto-Standard** für Mitgliederverwaltung von Vereinen und Parteien werden —
+Vollständigkeit vor Eleganz, Compliance-First (DSGVO, Vereinsrecht, Parteiengesetz, Steuerrecht), bedienbar
+ohne IT-Vorkenntnisse.
+
+Ursprünglich für die https://www.partei-der-vernunft.de[Partei der Vernunft (PdV)] entwickelt, ist Lapis Cloud
+als Open-Source-Projekt offen für beliebige Organisationen — politische Parteien, klassische Vereine,
+Berufsverbände, Genossenschaften, Stiftungen, NGOs.
+
+TIP: Konzeptionelle Details, Roadmap und Designentscheidungen werden im Projekt-Vault gepflegt, nicht in
+diesem Repository. Dieses README beschreibt nur den technischen Rahmen.
+
+== Verwandte Projekte
+
+* **Lapis Net** — vollständig dezentrales P2P-Schwesterprojekt, teilt die libertären Grundprinzipien
+  (meritokratisches Scoring, Selbstorganisation, freiwillige Vereinigung), unterscheidet sich aber in der
+  Implementierung (P2P-Knoten statt föderierte Server, kryptografisches Vertrauen statt Server-Föderation).
+* **PZB** (https://gitlab.com/pdv7/pzb) — das bestehende Vorgänger-Repository. Bleibt als **Referenz**
+  erhalten (Architektur-Entscheidungen, Code-Patterns), wird aber nicht 1:1 übernommen — Lapis Cloud ist
+  eine saubere Neuimplementierung.
+* https://kuml.dev[kUML] — die Modellierungssprache, die für alle Diagramme in diesem Repository verwendet
+  wird (siehe unten).
+
+== Technologie-Stack
+
+* **Sprache**: https://kotlinlang.org[Kotlin]
+* **Server-Framework**: https://ktor.io[Ktor]
+* **Datenbankzugriff**: https://www.jetbrains.com/exposed[Exposed] (Kotlin SQL Framework)
+* **Datenbank-Migrationen**: https://flywaydb.org[Flyway]
+* **WebUI-Framework**: https://kvision.io[KVision] (Kotlin/JS)
+* **Frontend-Backend-Kommunikation**: https://github.com/rjaros/kilua-rpc[Kilua RPC] (typsichere RPC
+  zwischen KVision-Client und Ktor-Server)
+* **KI-Assistenz / Agentic Layer**: https://koog.ai[Koog] (JetBrains, Kotlin-natives Agent-Framework,
+  Multi-LLM ohne Lock-in)
+
+NOTE: Das konkrete Build-Setup (Gradle-Multimodul-Struktur, Persistenz-Schicht) folgt in einer Folge-Session.
+Dieses Repository enthält aktuell nur das Projekt-Grundgerüst.
+
+== Dokumentations-Konvention
+
+Einheitlich über alle Lapis- und kUML-Projekte (siehe `CLAUDE.md`):
+
+* **Alle Dokumentation in Asciidoctor** (`.adoc`) — keine `README.md`
+* **Alle Diagramme in kUML**, keine PlantUML/Mermaid/draw.io/ASCII-Art
+* **Diagramm-Einbindung über das `[kuml]`-Macro** der https://github.com/kuml-dev/kuml-asciidoc[kuml-asciidoc]-Extension
+  (Maven Central) — Quelltext inline im `.adoc`-Dokument, kein vorgerendertes Bild
+
+[source,asciidoc]
+----
+[kuml, dateiname-ohne-extension, svg]
+----
+<kUML-Quelltext>
+----
+----
+
+== Branch- und Entwicklungs-Workflow
+
+* Default-Branch ist **`master`**, niemals `main`
+* Feature-Branches bleiben **lokal** und werden nicht gepusht
+* Release per lokalem Squash-Merge auf `master`, danach Push
+* Niemals `--force` ohne explizite Anweisung
+
+Details: `CLAUDE.md` in diesem Repository.
+
+== Lizenz
+
+Apache License 2.0 — siehe `LICENSE`.
