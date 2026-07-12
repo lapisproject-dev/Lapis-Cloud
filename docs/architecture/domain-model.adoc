@@ -1,0 +1,255 @@
+= Domain Model — V0.1.5 (Beitraege, Dokumente, Kommunikation)
+:description: Datenmodell fuer Beitragsverwaltung, Dokumentenablage und Kommunikation, inklusive Member/Account-Foundation-Stub.
+:toc:
+:toc-placement: preamble
+:icons: font
+
+== Kontext
+
+Dieses Dokument beschreibt das Datenmodell, das mit V0.1.5 eingefuehrt wurde: Beitragsverwaltung,
+Dokumentenablage und Kommunikation (Mailinglisten + Direktnachrichten). `Member` und `Account` sind
+hier nur als **Foundation-Stub** modelliert — so granular, wie die drei V0.1.5-Bereiche sie als
+Fremdschluessel brauchen. Das vollstaendige Mitglieder-Stammdatenmodell (Antrags-/Austrittsworkflow,
+Rollen- und Berechtigungskonzept, Auth/Session) folgt in V0.1.2-V0.1.4 und ersetzt diesen Stub, ohne
+die hier definierten Fremdschluessel zu brechen.
+
+Persistenz-Erzeugung: Da die `uml-to-exposed`-MDA-Pipeline (ADR-0016) fuer dieses Repository noch
+nicht existiert, sind die Exposed-Tabellen unter `lapis-server/src/main/kotlin/.../db/tables` von Hand
+geschrieben. Dieses Diagramm bleibt bis dahin ein **dokumentarisches** Artefakt, keine Codegen-Quelle.
+
+== Diagramm
+
+[kuml, domain-model, svg]
+----
+classDiagram(name = "Lapis Cloud Domain Model — V0.1.5") {
+
+    // ── Foundation (V0.1.2-V0.1.4 stub — see CLAUDE.md Vorab-Befund) ──────
+
+    val memberStatus = enumOf(name = "MemberStatus") {
+        literal(name = "ANTRAG")
+        literal(name = "AKTIV")
+        literal(name = "GAST")
+        literal(name = "AUSGETRETEN")
+    }
+
+    val accountRole = enumOf(name = "AccountRole") {
+        literal(name = "MEMBER")
+        literal(name = "BOARD")
+        literal(name = "TREASURER")
+        literal(name = "ADMIN")
+    }
+
+    val member = classOf(name = "Member") {
+        attribute(name = "id", type = "UUID")
+        attribute(name = "displayName", type = "String")
+        attribute(name = "email", type = "String")
+        attribute(name = "status", type = memberStatus, defaultValue = "ANTRAG")
+        attribute(name = "joinedAt", type = "LocalDate")
+    }
+
+    val account = classOf(name = "Account") {
+        attribute(name = "id", type = "UUID")
+        attribute(name = "memberId", type = "UUID")
+        attribute(name = "passwordHash", type = "String", isReadOnly = false)
+        attribute(name = "oidcSubject", type = "String")
+        attribute(name = "role", type = accountRole, defaultValue = "MEMBER")
+    }
+
+    association(source = member, target = account) {
+        source { multiplicity(spec = "1"); role = "member" }
+        target { multiplicity(spec = "0..1"); role = "account" }
+    }
+
+    // ── Beitragsverwaltung ──────────────────────────────────────────────
+
+    val billingInterval = enumOf(name = "BillingInterval") {
+        literal(name = "MONTHLY")
+        literal(name = "QUARTERLY")
+        literal(name = "YEARLY")
+    }
+
+    val contributionStatus = enumOf(name = "ContributionStatus") {
+        literal(name = "OPEN")
+        literal(name = "PAID")
+        literal(name = "WAIVED")
+        literal(name = "OVERDUE")
+    }
+
+    val membershipTier = classOf(name = "MembershipTier") {
+        attribute(name = "id", type = "UUID")
+        attribute(name = "name", type = "String")
+        attribute(name = "description", type = "String")
+        attribute(name = "contributionAmount", type = "Decimal")
+        attribute(name = "billingInterval", type = billingInterval)
+        attribute(name = "active", type = "Boolean", defaultValue = "true")
+    }
+
+    val contribution = classOf(name = "Contribution") {
+        attribute(name = "id", type = "UUID")
+        attribute(name = "memberId", type = "UUID")
+        attribute(name = "membershipTierId", type = "UUID")
+        attribute(name = "periodStart", type = "LocalDate")
+        attribute(name = "periodEnd", type = "LocalDate")
+        attribute(name = "amountDue", type = "Decimal")
+        attribute(name = "status", type = contributionStatus, defaultValue = "OPEN")
+        attribute(name = "paidAt", type = "LocalDateTime")
+        attribute(name = "paidAmount", type = "Decimal")
+        attribute(name = "note", type = "String")
+        attribute(name = "createdAt", type = "LocalDateTime")
+    }
+
+    association(source = member, target = contribution) {
+        source { multiplicity(spec = "1"); navigable = false }
+        target { multiplicity(spec = "0..*"); role = "contributions" }
+    }
+
+    association(source = membershipTier, target = contribution) {
+        source { multiplicity(spec = "1"); navigable = false }
+        target { multiplicity(spec = "0..*"); role = "contributions" }
+    }
+
+    // ── Dokumentenablage ────────────────────────────────────────────────
+
+    val documentAccessLevel = enumOf(name = "DocumentAccessLevel") {
+        literal(name = "PUBLIC_MEMBERS")
+        literal(name = "BOARD_ONLY")
+        literal(name = "ADMIN_ONLY")
+    }
+
+    val documentFolder = classOf(name = "DocumentFolder") {
+        attribute(name = "id", type = "UUID")
+        attribute(name = "name", type = "String")
+        attribute(name = "parentFolderId", type = "UUID")
+    }
+
+    association(source = documentFolder, target = documentFolder) {
+        source { multiplicity(spec = "0..1"); role = "parent"; navigable = true }
+        target { multiplicity(spec = "0..*"); role = "children" }
+    }
+
+    val document = classOf(name = "Document") {
+        attribute(name = "id", type = "UUID")
+        attribute(name = "folderId", type = "UUID")
+        attribute(name = "title", type = "String")
+        attribute(name = "currentVersionId", type = "UUID")
+        attribute(name = "createdBy", type = "UUID")
+        attribute(name = "createdAt", type = "LocalDateTime")
+        attribute(name = "accessLevel", type = documentAccessLevel, defaultValue = "BOARD_ONLY")
+        attribute(name = "isDeleted", type = "Boolean", defaultValue = "false")
+    }
+
+    association(source = documentFolder, target = document) {
+        source { multiplicity(spec = "1"); navigable = false }
+        target { multiplicity(spec = "0..*"); role = "documents" }
+    }
+
+    val documentVersion = classOf(name = "DocumentVersion") {
+        attribute(name = "id", type = "UUID")
+        attribute(name = "documentId", type = "UUID")
+        attribute(name = "versionNumber", type = "Int")
+        attribute(name = "fileName", type = "String")
+        attribute(name = "mimeType", type = "String")
+        attribute(name = "fileSizeBytes", type = "Long")
+        attribute(name = "storageKey", type = "String")
+        attribute(name = "checksumSha256", type = "String")
+        attribute(name = "uploadedBy", type = "UUID")
+        attribute(name = "uploadedAt", type = "LocalDateTime")
+        attribute(name = "changeNote", type = "String")
+    }
+
+    association(source = document, target = documentVersion) {
+        aggregation = AggregationKind.COMPOSITE
+        source { multiplicity(spec = "1") }
+        target { multiplicity(spec = "1..*"); role = "versions" }
+    }
+
+    dependency(client = document, supplier = member, name = "createdBy")
+    dependency(client = documentVersion, supplier = member, name = "uploadedBy")
+
+    // ── Kommunikation ───────────────────────────────────────────────────
+
+    val mailingMessageStatus = enumOf(name = "MailingMessageStatus") {
+        literal(name = "DRAFT")
+        literal(name = "QUEUED")
+        literal(name = "SENT")
+        literal(name = "FAILED")
+    }
+
+    val deliveryStatus = enumOf(name = "DeliveryStatus") {
+        literal(name = "SENT")
+        literal(name = "BOUNCED")
+        literal(name = "SKIPPED_UNSUBSCRIBED")
+    }
+
+    val mailingList = classOf(name = "MailingList") {
+        attribute(name = "id", type = "UUID")
+        attribute(name = "name", type = "String")
+        attribute(name = "description", type = "String")
+        attribute(name = "createdBy", type = "UUID")
+    }
+
+    val mailingListSubscription = classOf(name = "MailingListSubscription") {
+        attribute(name = "id", type = "UUID")
+        attribute(name = "mailingListId", type = "UUID")
+        attribute(name = "memberId", type = "UUID")
+        attribute(name = "subscribedAt", type = "LocalDateTime")
+        attribute(name = "unsubscribedAt", type = "LocalDateTime")
+    }
+
+    association(source = mailingList, target = mailingListSubscription) {
+        aggregation = AggregationKind.COMPOSITE
+        source { multiplicity(spec = "1") }
+        target { multiplicity(spec = "0..*"); role = "subscriptions" }
+    }
+
+    dependency(client = mailingListSubscription, supplier = member, name = "subscriber")
+
+    val mailingMessage = classOf(name = "MailingMessage") {
+        attribute(name = "id", type = "UUID")
+        attribute(name = "mailingListId", type = "UUID")
+        attribute(name = "subject", type = "String")
+        attribute(name = "bodyText", type = "String")
+        attribute(name = "sentBy", type = "UUID")
+        attribute(name = "sentAt", type = "LocalDateTime")
+        attribute(name = "status", type = mailingMessageStatus, defaultValue = "DRAFT")
+    }
+
+    association(source = mailingList, target = mailingMessage) {
+        source { multiplicity(spec = "1"); navigable = false }
+        target { multiplicity(spec = "0..*"); role = "messages" }
+    }
+
+    val mailingDeliveryLog = classOf(name = "MailingDeliveryLog") {
+        attribute(name = "id", type = "UUID")
+        attribute(name = "mailingMessageId", type = "UUID")
+        attribute(name = "memberId", type = "UUID")
+        attribute(name = "deliveredAt", type = "LocalDateTime")
+        attribute(name = "deliveryStatus", type = deliveryStatus)
+    }
+
+    association(source = mailingMessage, target = mailingDeliveryLog) {
+        aggregation = AggregationKind.COMPOSITE
+        source { multiplicity(spec = "1") }
+        target { multiplicity(spec = "0..*"); role = "deliveryLog" }
+    }
+
+    val directMessage = classOf(name = "DirectMessage") {
+        attribute(name = "id", type = "UUID")
+        attribute(name = "senderId", type = "UUID")
+        attribute(name = "recipientId", type = "UUID")
+        attribute(name = "body", type = "String")
+        attribute(name = "sentAt", type = "LocalDateTime")
+        attribute(name = "readAt", type = "LocalDateTime")
+    }
+
+    dependency(client = directMessage, supplier = member, name = "sender/recipient")
+
+    comment(
+        text = "Foundation-Stub: Member/Account werden hier nur so granular modelliert, wie " +
+            "V0.1.5 (Beitraege/Dokumente/Kommunikation) sie als Fremdschluessel braucht. " +
+            "Volles Mitglieder-Stammdatenmodell folgt in V0.1.2-V0.1.4 und ersetzt diesen Stub, " +
+            "ohne die hier definierten FKs zu brechen.",
+        firstAnchor = member,
+    )
+}
+----

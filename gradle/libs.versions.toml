@@ -1,0 +1,57 @@
+[versions]
+kotlin                  = "2.4.0"
+kvision                 = "9.6.0"
+ktor                    = "3.5.1"
+logback                 = "1.5.38"
+kotest                  = "6.2.2"
+ktlint-plugin           = "14.2.0"
+ksp                     = "2.3.9"
+kilua-rpc               = "0.0.45"
+kotlinx-serialization   = "1.11.0"
+kotlinx-datetime        = "0.8.0"
+exposed                 = "1.3.1"
+flyway                  = "12.11.0"
+postgresql              = "42.7.13"
+h2                      = "2.4.240"
+hikaricp                = "7.1.0"
+
+[plugins]
+kotlin-multiplatform    = { id = "org.jetbrains.kotlin.multiplatform", version.ref = "kotlin" }
+kotlin-jvm              = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }
+kotlin-serialization    = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }
+kvision                 = { id = "io.kvision", version.ref = "kvision" }
+ktlint                  = { id = "org.jlleitschuh.gradle.ktlint", version.ref = "ktlint-plugin" }
+ksp                     = { id = "com.google.devtools.ksp", version.ref = "ksp" }
+kilua-rpc               = { id = "dev.kilua.rpc", version.ref = "kilua-rpc" }
+
+[libraries]
+kvision-core                    = { module = "io.kvision:kvision", version.ref = "kvision" }
+kvision-bootstrap               = { module = "io.kvision:kvision-bootstrap", version.ref = "kvision" }
+kvision-common-remote           = { module = "io.kvision:kvision-common-remote", version.ref = "kvision" }
+ktor-server-core                = { module = "io.ktor:ktor-server-core", version.ref = "ktor" }
+ktor-server-netty                = { module = "io.ktor:ktor-server-netty", version.ref = "ktor" }
+ktor-server-call-logging        = { module = "io.ktor:ktor-server-call-logging", version.ref = "ktor" }
+ktor-server-content-negotiation = { module = "io.ktor:ktor-server-content-negotiation", version.ref = "ktor" }
+ktor-serialization-kotlinx-json = { module = "io.ktor:ktor-serialization-kotlinx-json", version.ref = "ktor" }
+ktor-server-compression         = { module = "io.ktor:ktor-server-compression", version.ref = "ktor" }
+ktor-server-partial-content     = { module = "io.ktor:ktor-server-partial-content", version.ref = "ktor" }
+ktor-server-auto-head-response  = { module = "io.ktor:ktor-server-auto-head-response", version.ref = "ktor" }
+ktor-server-status-pages        = { module = "io.ktor:ktor-server-status-pages", version.ref = "ktor" }
+ktor-server-test-host           = { module = "io.ktor:ktor-server-test-host", version.ref = "ktor" }
+logback-classic                 = { module = "ch.qos.logback:logback-classic", version.ref = "logback" }
+kotest-runner-junit5            = { module = "io.kotest:kotest-runner-junit5", version.ref = "kotest" }
+kotest-assertions-core          = { module = "io.kotest:kotest-assertions-core", version.ref = "kotest" }
+kilua-rpc-ktor                  = { module = "dev.kilua:kilua-rpc-ktor", version.ref = "kilua-rpc" }
+kilua-rpc-ksp-processor          = { module = "dev.kilua:kilua-rpc-ksp-processor", version.ref = "kilua-rpc" }
+kotlinx-serialization-json       = { module = "org.jetbrains.kotlinx:kotlinx-serialization-json", version.ref = "kotlinx-serialization" }
+kotlinx-datetime                = { module = "org.jetbrains.kotlinx:kotlinx-datetime", version.ref = "kotlinx-datetime" }
+exposed-core                    = { module = "org.jetbrains.exposed:exposed-core", version.ref = "exposed" }
+exposed-jdbc                    = { module = "org.jetbrains.exposed:exposed-jdbc", version.ref = "exposed" }
+exposed-dao                     = { module = "org.jetbrains.exposed:exposed-dao", version.ref = "exposed" }
+exposed-java-time                = { module = "org.jetbrains.exposed:exposed-java-time", version.ref = "exposed" }
+exposed-kotlin-datetime         = { module = "org.jetbrains.exposed:exposed-kotlin-datetime", version.ref = "exposed" }
+flyway-core                     = { module = "org.flywaydb:flyway-core", version.ref = "flyway" }
+flyway-database-postgresql      = { module = "org.flywaydb:flyway-database-postgresql", version.ref = "flyway" }
+postgresql                      = { module = "org.postgresql:postgresql", version.ref = "postgresql" }
+h2                               = { module = "com.h2database:h2", version.ref = "h2" }
+hikaricp                        = { module = "com.zaxxer:HikariCP", version.ref = "hikaricp" }

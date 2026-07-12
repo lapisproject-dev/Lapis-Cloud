@@ -58,8 +58,11 @@ diesem Repository. Dieses README beschreibt nur den technischen Rahmen.
 * **KI-Assistenz / Agentic Layer**: https://koog.ai[Koog] (JetBrains, Kotlin-natives Agent-Framework,
   Multi-LLM ohne Lock-in)
 
-NOTE: Das konkrete Build-Setup (Gradle-Multimodul-Struktur, Persistenz-Schicht) folgt in einer Folge-Session.
-Dieses Repository enthält aktuell nur das Projekt-Grundgerüst.
+NOTE: Gradle-Multimodul-Struktur (`lapis-shared`/`lapis-server`/`lapis-client`) und Kilua-RPC-Wiring stehen
+(V0.1.1). Seit V0.1.5 sind Beitragsverwaltung, Dokumentenablage und Kommunikation (Mailinglisten,
+Direktnachrichten) als erste fachliche Bereiche implementiert — auf einem Mitglieder-Foundation-Stub, da das
+volle Mitglieder-Stammdatenmodell (V0.1.2-V0.1.4) noch aussteht. Details siehe
+link:docs/architecture/domain-model.adoc[Domain-Model-Dokumentation] und `CLAUDE.md`.
 
 == Dokumentations-Konvention
 
