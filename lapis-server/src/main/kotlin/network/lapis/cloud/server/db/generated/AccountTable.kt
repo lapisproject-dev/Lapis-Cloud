@@ -16,6 +16,9 @@ public object AccountTable : Table("account") {
 
     override val primaryKey: PrimaryKey = PrimaryKey(id)
 
+    // Note: 1 index(es) declared on this entity are not emitted —
+    // Exposed's index {} DSL needs typed column references, not wired up in this wave.
+
     // Note: 1 check constraint(s) declared on this entity are not
     // emitted — Exposed's check {} DSL needs a typed Op<Boolean>, not a raw SQL string.
 }

@@ -51,12 +51,12 @@
 // fallback") would be misleading here: this is intentionally opaque JSON-as-text (encoded/decoded
 // in DsgvoService, never queried as JSON by the DB), not an unsupported-json-type workaround.
 //
-// Widened 4000 -> 8000 by 09-konsensierung.kuml.kts (V0.2.5, Systemisches Konsensieren): every
+// Widened 4000 -> 8000 by 09-systemic-consensus.kuml.kts (V0.2.5, Systemic Consensus): every
 // PersonalDataContributor.erase() call always returns one TableErasureOutcome per *covered*
 // table (not just touched ones, see PersonalDataContributor KDoc), and DsgvoService.executeErasure
 // concatenates ALL contributors' outcomes for the subject into this ONE shared column — a budget
-// WahlPersonalData's own KDoc already flagged as a live risk once "a 7-table contributor" landed.
-// KonsensierungPersonalData is the 8th contributor (5 more tables), which pushed a
+// ElectionPersonalData's own KDoc already flagged as a live risk once "a 7-table contributor" landed.
+// SystemicConsensusPersonalData is the 8th contributor (5 more tables), which pushed a
 // comprehensive-erasure test (a member touching every domain) past 4000 chars even with
 // maximally terse retentionReason strings — DsgvoServiceTest caught this immediately. Doubling to
 // 8000 buys headroom for this domain and at least one more comparably-sized future wave; a

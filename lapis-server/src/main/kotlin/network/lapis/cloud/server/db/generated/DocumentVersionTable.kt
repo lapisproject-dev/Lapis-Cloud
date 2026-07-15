@@ -22,4 +22,7 @@ public object DocumentVersionTable : Table("document_version") {
     public val documentId: Column<Uuid> = reference("document_id", DocumentTable.id)
 
     override val primaryKey: PrimaryKey = PrimaryKey(id)
+
+    // Note: 2 index(es) declared on this entity are not emitted —
+    // Exposed's index {} DSL needs typed column references, not wired up in this wave.
 }

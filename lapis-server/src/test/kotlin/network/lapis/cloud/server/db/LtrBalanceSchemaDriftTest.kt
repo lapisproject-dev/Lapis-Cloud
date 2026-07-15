@@ -15,7 +15,7 @@ import java.io.File
  *
  * Verifies that `lapis-server/src/main/kuml/08-ltr-balance.kuml.kts` is a faithful model of both
  * (a) the real, Flyway-migrated H2 schema (`ltr_balance`, created inside
- * `V8__meritokratische_abstimmungen.sql`), and (b) the hand-written `LtrBalanceTable` Exposed
+ * `V8__meritokratische_voteen.sql`), and (b) the hand-written `LtrBalanceTable` Exposed
  * object.
  *
  * Mirrors [SchemaDriftTest] (foundation domain) — see its KDoc for the full designModelStrategy

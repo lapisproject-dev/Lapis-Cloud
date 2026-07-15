@@ -1,12 +1,12 @@
-// Governance domain — gremium/gremium_mitgliedschaft/sitzung/tagesordnungspunkt/anwesenheit/
-// beschluss/antrag (V6__governance.sql + V7__antragsverwaltung.sql; the beschluss.resolution_mode/
-// abstimmung_id/wahl_id columns added by V8__meritokratische_abstimmungen.sql /
-// V9__demokratische_wahlen.sql are also modelled here since they live on this domain's own
-// `beschluss` table — see the beschluss entity's own comments below for why abstimmung_id/
-// wahl_id are plain columns, not associations).
+// Governance domain — committee/committee_membership/meeting/agendaItem/attendance/
+// resolution/motion (V6__governance.sql + V7__motionsverwaltung.sql; the resolution.resolution_mode/
+// vote_id/election_id columns added by V8__meritokratische_voteen.sql /
+// V9__demokratische_electionen.sql are also modelled here since they live on this domain's own
+// `resolution` table — see the resolution entity's own comments below for why vote_id/
+// election_id are plain columns, not associations).
 //
-// abstimmung/abstimmung_option/abstimmung_stimme (V8) and wahl/* (V9) are OUT of scope for this
-// file — they are later waves (06-abstimmung.kuml.kts / 07-wahl.kuml.kts per the retrofit plan's
+// vote/vote_option/vote_ballot (V8) and election/* (V9) are OUT of scope for this
+// file — they are later waves (06-vote.kuml.kts / 07-election.kuml.kts per the retrofit plan's
 // per-domain file layout) even though they happen to live in the same hand-written
 // GovernanceTables.kt file today (option B means the hand-written .kt file's own internal
 // organisation is decoupled from this retrofit's per-domain .kuml.kts split).
@@ -23,12 +23,12 @@
 // owned) stubs, same pattern as prior domains' Member stubs — purely so UmlToErmTransformer can
 // resolve this domain's real FK columns within this single-file evaluation. protocol_document_id
 // (name mismatch vs. the association-derived default) is pinned via «Column».fkEntity against
-// this Document stub rather than a UML association — see sitzung's own comment below.
+// this Document stub rather than a UML association — see meeting's own comment below.
 //
 // N-way multi-role-FK-collision finding (this is the domain the retrofit plan's risk note was
-// written for): sitzung has FOUR independent FKs to member (called_by/chair_member_id/
-// minute_taker_member_id/presenter_member_id — the last one is actually on tagesordnungspunkt,
-// not sitzung, but is the same collision family). Empirically verified with a standalone
+// written for): meeting has FOUR independent FKs to member (called_by/chair_member_id/
+// minute_taker_member_id/presenter_member_id — the last one is actually on agendaItem,
+// not meeting, but is the same collision family). Empirically verified with a standalone
 // reproduction script (four associations from one class to Member, each with a distinct role)
 // against this exact kUML version before writing this file: UmlToErmTransformer's collision
 // mechanism (`fkEntity.hasAttributeNamed(defaultBaseName)` in addForeignKey) does scale past
@@ -47,41 +47,41 @@
 //
 // Several further FK columns across this domain also fail to match the association-derived
 // default name (same naming-gap class already discovered in document/communication/dsgvo) and are
-// likewise modelled as plain «Column» UUID attributes: anwesenheit.represented_by_member_id,
-// beschluss.recorded_by, antrag.target_gremium_id (default would be "gremium_id", not
-// "target_gremium_id"), antrag.submitter_member_id, antrag.reviewed_by.
+// likewise modelled as plain «Column» UUID attributes: attendance.represented_by_member_id,
+// resolution.recorded_by, motion.target_committee_id (default would be "committee_id", not
+// "target_committee_id"), motion.submitter_member_id, motion.reviewed_by.
 //
 // FKs that DO match the association-derived default and are modelled as real UML associations:
-// gremium_mitgliedschaft.gremium_id/member_id, sitzung.gremium_id, tagesordnungspunkt.sitzung_id,
-// anwesenheit.sitzung_id/member_id (the first-declared member_id association — see anwesenheit's
-// own comment for why this one is safe despite the multi-FK-to-member pattern), beschluss.
-// sitzung_id, antrag.sitzung_id/tagesordnungspunkt_id/beschluss_id.
+// committee_membership.committee_id/member_id, meeting.committee_id, agendaItem.meeting_id,
+// attendance.meeting_id/member_id (the first-declared member_id association — see attendance's
+// own comment for why this one is safe despite the multi-FK-to-member pattern), resolution.
+// meeting_id, motion.meeting_id/agenda_item_id/resolution_id.
 //
-// beschluss.abstimmung_id / beschluss.wahl_id / beschluss.konsensierung_id (added by V8/V9/V0.2.5
+// resolution.vote_id / resolution.election_id / resolution.systemic_consensus_id (added by V8/V9/V0.2.5
 // respectively): modelled as plain nullable UUID «Column» attributes, NOT UML associations,
-// because Abstimmung/Wahl/Konsensierung entities don't exist in this domain's own script —
+// because Vote/Election/SystemicConsensus entities don't exist in this domain's own script —
 // exactly the same forward-reference-breaks-the-cycle workaround already used for
-// document.current_version_id in the document wave. The abstimmung/wahl/konsensierung domains'
-// OWN scripts (06-abstimmung.kuml.kts / 07-wahl.kuml.kts / 09-konsensierung.kuml.kts, later
-// waves) declare the real «FK» association from their side instead (Abstimmung.beschlussId ->
-// Beschluss, Wahl.beschlussId -> Beschluss, Konsensierung.beschlussId -> Beschluss), which is a
-// clean forward reference with no cycle problem in that direction since Beschluss already exists
+// document.current_version_id in the document wave. The vote/election/systemic_consensus domains'
+// OWN scripts (06-vote.kuml.kts / 07-election.kuml.kts / 09-systemic-consensus.kuml.kts, later
+// waves) declare the real «FK» association from their side instead (Vote.resolutionId ->
+// Resolution, Election.resolutionId -> Resolution, SystemicConsensus.resolutionId -> Resolution), which is a
+// clean forward reference with no cycle problem in that direction since Resolution already exists
 // (as a stub) by then. Left as plain columns rather than pinned via «Column».fkEntity for the
 // same reason as document.current_version_id: the real risk is genuine bidirectional Kotlin
-// `object`-initializer circularity at the Exposed layer (beschluss <-> abstimmung, beschluss <->
-// wahl and beschluss <-> konsensierung are all truly bidirectional), which «Column».fkEntity's
+// `object`-initializer circularity at the Exposed layer (resolution <-> vote, resolution <->
+// election and resolution <-> systemic_consensus are all truly bidirectional), which «Column».fkEntity's
 // later-pass resolution sidesteps at the script-evaluation level but not at the generated-Kotlin
 // level. Consequence: the generated SQL/Flyway baseline also lacks these three FK constraints
 // (present in the pre-swap hand-written V6/V8/V9 migrations, for the first two) — a deliberate,
 // pre-existing trade-off, not a new regression.
 //
 // Eight enum columns in this domain, all modelled with only an «Column».enumType tag and no
-// «Column».sqlType override (post-87563ff convention — see 06-abstimmung.kuml.kts/
-// 07-wahl.kuml.kts's own current attribute shape): gremium.type, gremium_mitgliedschaft.rolle,
-// sitzung.format, sitzung.status, anwesenheit.status, beschluss.status, beschluss.resolution_mode
-// (V0.2.5 adds the ResolutionMode.SYSTEMISCHER_KONSENS literal, widening the generated VARCHAR
+// «Column».sqlType override (post-87563ff convention — see 06-vote.kuml.kts/
+// 07-election.kuml.kts's own current attribute shape): committee.type, committee_membership.role,
+// meeting.format, meeting.status, attendance.status, resolution.status, resolution.resolution_mode
+// (V0.2.5 adds the ResolutionMode.SYSTEMIC_CONSENSUS literal, widening the generated VARCHAR
 // column to fit its 20 characters — the widening is automatic, derived from the longest literal,
-// no manual override needed), antrag.status.
+// no manual override needed), motion.status.
 import dev.kuml.profile.erm.ermMappingProfile
 import dev.kuml.uml.Multiplicity
 import dev.kuml.uml.dsl.applyProfile
@@ -101,7 +101,7 @@ classDiagram(name = "Governance") {
     }
 
     // Document-domain-owned stub — id-only, mirrors the Member stub above. Only exists here so
-    // UmlToErmTransformer can resolve sitzung.protocol_document_id's «Column».fkEntity target.
+    // UmlToErmTransformer can resolve meeting.protocol_document_id's «Column».fkEntity target.
     val document = classOf(name = "Document") {
         stereotype("Entity") { "tableName" to "document"; "kotlinObjectName" to "DocumentTable" }
         attribute(name = "id", type = "UUID") {
@@ -110,67 +110,67 @@ classDiagram(name = "Governance") {
         }
     }
 
-    val gremiumType = enumOf(name = "GremiumType") {
-        literal(name = "VORSTAND")
-        literal(name = "ARBEITSKREIS")
-        literal(name = "AUSSCHUSS")
-        literal(name = "SONSTIGES")
-        literal(name = "MITGLIEDERVERSAMMLUNG")
+    val committeeType = enumOf(name = "CommitteeType") {
+        literal(name = "EXECUTIVE_BOARD")
+        literal(name = "WORKING_GROUP")
+        literal(name = "COMMISSION")
+        literal(name = "OTHER")
+        literal(name = "GENERAL_ASSEMBLY")
     }
 
-    val gremiumRolle = enumOf(name = "GremiumRolle") {
-        literal(name = "VORSITZ")
-        literal(name = "STELLV_VORSITZ")
-        literal(name = "SCHRIFTFUEHRUNG")
-        literal(name = "MITGLIED")
-        literal(name = "BEISITZ")
+    val committeeRole = enumOf(name = "CommitteeRole") {
+        literal(name = "CHAIR")
+        literal(name = "DEPUTY_CHAIR")
+        literal(name = "SECRETARY")
+        literal(name = "MEMBER")
+        literal(name = "ASSESSOR")
     }
 
-    val sitzungsFormat = enumOf(name = "SitzungsFormat") {
-        literal(name = "PRAESENZ")
+    val meetingsFormat = enumOf(name = "MeetingFormat") {
+        literal(name = "IN_PERSON")
         literal(name = "ONLINE")
         literal(name = "HYBRID")
     }
 
-    val sitzungsStatus = enumOf(name = "SitzungsStatus") {
-        literal(name = "GEPLANT")
-        literal(name = "DURCHGEFUEHRT")
-        literal(name = "ABGESAGT")
+    val meetingsStatus = enumOf(name = "MeetingStatus") {
+        literal(name = "PLANNED")
+        literal(name = "HELD")
+        literal(name = "CANCELLED")
     }
 
-    val anwesenheitStatus = enumOf(name = "AnwesenheitStatus") {
-        literal(name = "ANWESEND")
-        literal(name = "ENTSCHULDIGT")
-        literal(name = "UNENTSCHULDIGT")
-        literal(name = "VERTRETEN")
+    val attendanceStatus = enumOf(name = "AttendanceStatus") {
+        literal(name = "PRESENT")
+        literal(name = "EXCUSED")
+        literal(name = "UNEXCUSED")
+        literal(name = "REPRESENTED")
     }
 
-    val beschlussStatus = enumOf(name = "BeschlussStatus") {
-        literal(name = "ANGENOMMEN")
-        literal(name = "ABGELEHNT")
-        literal(name = "VERTAGT")
+    val resolutionStatus = enumOf(name = "ResolutionStatus") {
+        literal(name = "ADOPTED")
+        literal(name = "REJECTED")
+        literal(name = "POSTPONED")
     }
 
     val resolutionMode = enumOf(name = "ResolutionMode") {
-        literal(name = "GREMIUM_QUORUM")
-        literal(name = "MERITOKRATISCH")
-        literal(name = "DEMOKRATISCH")
-        literal(name = "SYSTEMISCHER_KONSENS")
+        literal(name = "COMMITTEE_QUORUM")
+        literal(name = "MERITOCRATIC")
+        literal(name = "DEMOCRATIC")
+        literal(name = "SYSTEMIC_CONSENSUS")
     }
 
-    val antragStatus = enumOf(name = "AntragStatus") {
-        literal(name = "EINGEREICHT")
-        literal(name = "GEPRUEFT")
-        literal(name = "ABGELEHNT_VORPRUEFUNG")
-        literal(name = "TERMINIERT")
-        literal(name = "BESCHLOSSEN")
-        literal(name = "ABGELEHNT")
-        literal(name = "VERTAGT")
-        literal(name = "ZURUECKGEZOGEN")
+    val motionStatus = enumOf(name = "MotionStatus") {
+        literal(name = "SUBMITTED")
+        literal(name = "REVIEWED")
+        literal(name = "REJECTED_PRELIMINARY")
+        literal(name = "SCHEDULED")
+        literal(name = "RESOLVED")
+        literal(name = "REJECTED")
+        literal(name = "POSTPONED")
+        literal(name = "WITHDRAWN")
     }
 
-    val gremium = classOf(name = "Gremium") {
-        stereotype("Entity") { "tableName" to "gremium"; "kotlinObjectName" to "GremiumTable" }
+    val committee = classOf(name = "Committee") {
+        stereotype("Entity") { "tableName" to "committee"; "kotlinObjectName" to "CommitteeTable" }
 
         attribute(name = "id", type = "UUID") {
             stereotype("Id")
@@ -179,8 +179,8 @@ classDiagram(name = "Governance") {
         attribute(name = "name", type = "String") {
             stereotype("Column") { "columnName" to "name"; "sqlType" to "VARCHAR(200)" }
         }
-        attribute(name = "type", type = gremiumType) {
-            stereotype("Column") { "columnName" to "type"; "enumType" to "network.lapis.cloud.shared.domain.GremiumType" }
+        attribute(name = "type", type = committeeType) {
+            stereotype("Column") { "columnName" to "type"; "enumType" to "network.lapis.cloud.shared.domain.CommitteeType" }
         }
         attribute(name = "description", type = "String") {
             stereotype("Column") { "columnName" to "description"; "sqlType" to "VARCHAR(1000)" }
@@ -198,17 +198,17 @@ classDiagram(name = "Governance") {
         }
     }
 
-    val gremiumMitgliedschaft = classOf(name = "GremiumMitgliedschaft") {
-        stereotype("Entity") { "tableName" to "gremium_mitgliedschaft"; "kotlinObjectName" to "GremiumMitgliedschaftTable" }
-        stereotype("Index") { "columns" to listOf("gremium_id"); "name" to "idx_gremium_mitgliedschaft_gremium" }
-        stereotype("Index") { "columns" to listOf("member_id"); "name" to "idx_gremium_mitgliedschaft_member" }
+    val committeeMembership = classOf(name = "CommitteeMembership") {
+        stereotype("Entity") { "tableName" to "committee_membership"; "kotlinObjectName" to "CommitteeMembershipTable" }
+        stereotype("Index") { "columns" to listOf("committee_id"); "name" to "idx_committee_membership_committee" }
+        stereotype("Index") { "columns" to listOf("member_id"); "name" to "idx_committee_membership_member" }
 
         attribute(name = "id", type = "UUID") {
             stereotype("Id")
             stereotype("Column") { "columnName" to "id" }
         }
-        attribute(name = "rolle", type = gremiumRolle) {
-            stereotype("Column") { "columnName" to "rolle"; "enumType" to "network.lapis.cloud.shared.domain.GremiumRolle" }
+        attribute(name = "role", type = committeeRole) {
+            stereotype("Column") { "columnName" to "role"; "enumType" to "network.lapis.cloud.shared.domain.CommitteeRole" }
         }
         attribute(name = "since", type = "LocalDate") {
             stereotype("Column") { "columnName" to "since" }
@@ -219,21 +219,21 @@ classDiagram(name = "Governance") {
         }
     }
 
-    // gremium_mitgliedschaft.gremium_id -> gremium (id): association-derived default matches.
-    association(source = gremium, target = gremiumMitgliedschaft, id = "assoc-gremium-mitgliedschaft") {
+    // committee_membership.committee_id -> committee (id): association-derived default matches.
+    association(source = committee, target = committeeMembership, id = "assoc-committee-membership") {
         source { multiplicity("1") }
-        target { multiplicity("0..*"); role = "gremiumId" }
+        target { multiplicity("0..*"); role = "committeeId" }
     }
 
-    // gremium_mitgliedschaft.member_id -> member (id): association-derived default matches.
-    association(source = member, target = gremiumMitgliedschaft, id = "assoc-member-gremium-mitgliedschaft") {
+    // committee_membership.member_id -> member (id): association-derived default matches.
+    association(source = member, target = committeeMembership, id = "assoc-member-committee-membership") {
         source { multiplicity("1") }
         target { multiplicity("0..*"); role = "memberId" }
     }
 
-    val sitzung = classOf(name = "Sitzung") {
-        stereotype("Entity") { "tableName" to "sitzung"; "kotlinObjectName" to "SitzungTable" }
-        stereotype("Index") { "columns" to listOf("gremium_id"); "name" to "idx_sitzung_gremium" }
+    val meeting = classOf(name = "Meeting") {
+        stereotype("Entity") { "tableName" to "meeting"; "kotlinObjectName" to "MeetingTable" }
+        stereotype("Index") { "columns" to listOf("committee_id"); "name" to "idx_meeting_committee" }
 
         attribute(name = "id", type = "UUID") {
             stereotype("Id")
@@ -249,11 +249,11 @@ classDiagram(name = "Governance") {
             multiplicity = Multiplicity(0, 1)
             stereotype("Column") { "columnName" to "location"; "sqlType" to "VARCHAR(300)" }
         }
-        attribute(name = "format", type = sitzungsFormat) {
-            stereotype("Column") { "columnName" to "format"; "enumType" to "network.lapis.cloud.shared.domain.SitzungsFormat" }
+        attribute(name = "format", type = meetingsFormat) {
+            stereotype("Column") { "columnName" to "format"; "enumType" to "network.lapis.cloud.shared.domain.MeetingFormat" }
         }
-        attribute(name = "status", type = sitzungsStatus) {
-            stereotype("Column") { "columnName" to "status"; "enumType" to "network.lapis.cloud.shared.domain.SitzungsStatus" }
+        attribute(name = "status", type = meetingsStatus) {
+            stereotype("Column") { "columnName" to "status"; "enumType" to "network.lapis.cloud.shared.domain.MeetingStatus" }
         }
         // Real FK -> member (id), nullable. Plain «Column» UUID attribute — see the file header
         // comment (N=4 multi-role-FK-collision case; the FIRST association processed for a given
@@ -291,20 +291,20 @@ classDiagram(name = "Governance") {
         }
     }
 
-    // sitzung.gremium_id -> gremium (id): association-derived default matches.
-    association(source = gremium, target = sitzung, id = "assoc-gremium-sitzung") {
+    // meeting.committee_id -> committee (id): association-derived default matches.
+    association(source = committee, target = meeting, id = "assoc-committee-meeting") {
         source { multiplicity("1") }
-        target { multiplicity("0..*"); role = "gremiumId" }
+        target { multiplicity("0..*"); role = "committeeId" }
     }
 
-    val tagesordnungspunkt = classOf(name = "Tagesordnungspunkt") {
-        stereotype("Entity") { "tableName" to "tagesordnungspunkt"; "kotlinObjectName" to "TagesordnungspunktTable" }
+    val agendaItem = classOf(name = "AgendaItem") {
+        stereotype("Entity") { "tableName" to "agenda_item"; "kotlinObjectName" to "AgendaItemTable" }
         stereotype("Index") {
-            "columns" to listOf("sitzung_id", "position")
+            "columns" to listOf("meeting_id", "position")
             "unique" to true
-            "name" to "uq_tagesordnungspunkt_position"
+            "name" to "uq_agenda_item_position"
         }
-        stereotype("Index") { "columns" to listOf("sitzung_id"); "name" to "idx_tagesordnungspunkt_sitzung" }
+        stereotype("Index") { "columns" to listOf("meeting_id"); "name" to "idx_agenda_item_meeting" }
 
         attribute(name = "id", type = "UUID") {
             stereotype("Id")
@@ -316,13 +316,13 @@ classDiagram(name = "Governance") {
         attribute(name = "title", type = "String") {
             stereotype("Column") { "columnName" to "title"; "sqlType" to "VARCHAR(300)" }
         }
-        // Widened from VARCHAR(1000) to VARCHAR(4000) by V7__antragsverwaltung.sql.
+        // Widened from VARCHAR(1000) to VARCHAR(4000) by V7__motionsverwaltung.sql.
         attribute(name = "description", type = "String") {
             multiplicity = Multiplicity(0, 1)
             stereotype("Column") { "columnName" to "description"; "sqlType" to "VARCHAR(4000)" }
         }
         // Real FK -> member (id), nullable. Plain «Column» UUID attribute — same naming-gap class
-        // as sitzung's member-referencing columns (default would be "member_id", not
+        // as meeting's member-referencing columns (default would be "member_id", not
         // "presenter_member_id").
         attribute(name = "presenterMemberId", type = "UUID") {
             multiplicity = Multiplicity(0, 1)
@@ -330,27 +330,27 @@ classDiagram(name = "Governance") {
         }
     }
 
-    // tagesordnungspunkt.sitzung_id -> sitzung (id): association-derived default matches.
-    association(source = sitzung, target = tagesordnungspunkt, id = "assoc-sitzung-tagesordnungspunkt") {
+    // agendaItem.meeting_id -> meeting (id): association-derived default matches.
+    association(source = meeting, target = agendaItem, id = "assoc-meeting-agenda_item") {
         source { multiplicity("1") }
-        target { multiplicity("0..*"); role = "sitzungId" }
+        target { multiplicity("0..*"); role = "meetingId" }
     }
 
-    val anwesenheit = classOf(name = "Anwesenheit") {
-        stereotype("Entity") { "tableName" to "anwesenheit"; "kotlinObjectName" to "AnwesenheitTable" }
+    val attendance = classOf(name = "Attendance") {
+        stereotype("Entity") { "tableName" to "attendance"; "kotlinObjectName" to "AttendanceTable" }
         stereotype("Index") {
-            "columns" to listOf("sitzung_id", "member_id")
+            "columns" to listOf("meeting_id", "member_id")
             "unique" to true
-            "name" to "uq_anwesenheit_member"
+            "name" to "uq_attendance_member"
         }
-        stereotype("Index") { "columns" to listOf("sitzung_id"); "name" to "idx_anwesenheit_sitzung" }
+        stereotype("Index") { "columns" to listOf("meeting_id"); "name" to "idx_attendance_meeting" }
 
         attribute(name = "id", type = "UUID") {
             stereotype("Id")
             stereotype("Column") { "columnName" to "id" }
         }
-        attribute(name = "status", type = anwesenheitStatus) {
-            stereotype("Column") { "columnName" to "status"; "enumType" to "network.lapis.cloud.shared.domain.AnwesenheitStatus" }
+        attribute(name = "status", type = attendanceStatus) {
+            stereotype("Column") { "columnName" to "status"; "enumType" to "network.lapis.cloud.shared.domain.AttendanceStatus" }
         }
         // Real FK -> member (id), nullable. Plain «Column» UUID attribute — association-to-FK
         // naming would derive "member_id" (already claimed by the memberId association below),
@@ -368,24 +368,24 @@ classDiagram(name = "Governance") {
         }
     }
 
-    // anwesenheit.sitzung_id -> sitzung (id): association-derived default matches.
-    association(source = sitzung, target = anwesenheit, id = "assoc-sitzung-anwesenheit") {
+    // attendance.meeting_id -> meeting (id): association-derived default matches.
+    association(source = meeting, target = attendance, id = "assoc-meeting-attendance") {
         source { multiplicity("1") }
-        target { multiplicity("0..*"); role = "sitzungId" }
+        target { multiplicity("0..*"); role = "meetingId" }
     }
 
-    // anwesenheit.member_id -> member (id): association-derived default matches. Safe despite
+    // attendance.member_id -> member (id): association-derived default matches. Safe despite
     // this entity ALSO having represented_by_member_id, because that second FK is modelled as a
     // plain «Column» attribute (see above), never as a competing association — so there is no
-    // ordering-dependent collision to worry about here, unlike sitzung's four-way case.
-    association(source = member, target = anwesenheit, id = "assoc-member-anwesenheit") {
+    // ordering-dependent collision to worry about here, unlike meeting's four-way case.
+    association(source = member, target = attendance, id = "assoc-member-attendance") {
         source { multiplicity("1") }
         target { multiplicity("0..*"); role = "memberId" }
     }
 
-    val beschluss = classOf(name = "Beschluss") {
-        stereotype("Entity") { "tableName" to "beschluss"; "kotlinObjectName" to "BeschlussTable" }
-        stereotype("Index") { "columns" to listOf("sitzung_id"); "name" to "idx_beschluss_sitzung" }
+    val resolution = classOf(name = "Resolution") {
+        stereotype("Entity") { "tableName" to "resolution"; "kotlinObjectName" to "ResolutionTable" }
+        stereotype("Index") { "columns" to listOf("meeting_id"); "name" to "idx_resolution_meeting" }
 
         attribute(name = "id", type = "UUID") {
             stereotype("Id")
@@ -412,8 +412,8 @@ classDiagram(name = "Governance") {
         attribute(name = "quorumMet", type = "Boolean") {
             stereotype("Column") { "columnName" to "quorum_met" }
         }
-        attribute(name = "status", type = beschlussStatus) {
-            stereotype("Column") { "columnName" to "status"; "enumType" to "network.lapis.cloud.shared.domain.BeschlussStatus" }
+        attribute(name = "status", type = resolutionStatus) {
+            stereotype("Column") { "columnName" to "status"; "enumType" to "network.lapis.cloud.shared.domain.ResolutionStatus" }
         }
         attribute(name = "decidedAt", type = "LocalDateTime") {
             stereotype("Column") { "columnName" to "decided_at" }
@@ -424,67 +424,67 @@ classDiagram(name = "Governance") {
             stereotype("Column") { "columnName" to "recorded_by"; "fkEntity" to "Member" }
         }
         attribute(name = "resolutionMode", type = resolutionMode) {
-            defaultValue = "GREMIUM_QUORUM"
+            defaultValue = "COMMITTEE_QUORUM"
             stereotype("Column") { "columnName" to "resolution_mode"; "enumType" to "network.lapis.cloud.shared.domain.ResolutionMode" }
         }
-        // Forward reference into the (not-yet-modelled-in-this-file) abstimmung domain — plain
+        // Forward reference into the (not-yet-modelled-in-this-file) vote domain — plain
         // nullable UUID «Column» attribute, NOT a UML association, exactly like
         // document.current_version_id's circular-reference workaround in the document wave. The
-        // abstimmung domain's own script declares the real «FK» association from its side
-        // instead (Abstimmung.beschlussId -> Beschluss), a clean forward reference since Beschluss
+        // vote domain's own script declares the real «FK» association from its side
+        // instead (Vote.resolutionId -> Resolution), a clean forward reference since Resolution
         // already exists (as a stub) by then. See the file header comment.
-        attribute(name = "abstimmungId", type = "UUID") {
+        attribute(name = "voteId", type = "UUID") {
             multiplicity = Multiplicity(0, 1)
-            stereotype("Column") { "columnName" to "abstimmung_id" }
+            stereotype("Column") { "columnName" to "vote_id" }
         }
-        // Same forward-reference workaround as abstimmungId above, but into the wahl domain.
-        attribute(name = "wahlId", type = "UUID") {
+        // Same forward-reference workaround as voteId above, but into the election domain.
+        attribute(name = "electionId", type = "UUID") {
             multiplicity = Multiplicity(0, 1)
-            stereotype("Column") { "columnName" to "wahl_id" }
+            stereotype("Column") { "columnName" to "election_id" }
         }
-        // Same forward-reference workaround as abstimmungId/wahlId above, but into the
-        // konsensierung domain (V0.2.5, 09-konsensierung.kuml.kts).
-        attribute(name = "konsensierungId", type = "UUID") {
+        // Same forward-reference workaround as voteId/electionId above, but into the
+        // systemic_consensus domain (V0.2.5, 09-systemic-consensus.kuml.kts).
+        attribute(name = "systemicConsensusId", type = "UUID") {
             multiplicity = Multiplicity(0, 1)
-            stereotype("Column") { "columnName" to "konsensierung_id" }
+            stereotype("Column") { "columnName" to "systemic_consensus_id" }
         }
     }
 
-    // beschluss.sitzung_id -> sitzung (id): association-derived default matches.
-    association(source = sitzung, target = beschluss, id = "assoc-sitzung-beschluss") {
+    // resolution.meeting_id -> meeting (id): association-derived default matches.
+    association(source = meeting, target = resolution, id = "assoc-meeting-resolution") {
         source { multiplicity("1") }
-        target { multiplicity("0..*"); role = "sitzungId" }
+        target { multiplicity("0..*"); role = "meetingId" }
     }
 
-    // beschluss.tagesordnungspunkt_id -> tagesordnungspunkt (id): association-derived default
-    // matches. Nullable on the beschluss side (0..1 target multiplicity in
+    // resolution.agenda_item_id -> agendaItem (id): association-derived default
+    // matches. Nullable on the resolution side (0..1 target multiplicity in
     // UmlToErmTransformer's role-based FK-nullability derivation).
-    association(source = tagesordnungspunkt, target = beschluss, id = "assoc-tagesordnungspunkt-beschluss") {
+    association(source = agendaItem, target = resolution, id = "assoc-agenda_item-resolution") {
         source { multiplicity("0..1") }
-        target { multiplicity("0..*"); role = "tagesordnungspunktId" }
+        target { multiplicity("0..*"); role = "agendaItemId" }
     }
 
-    val antrag = classOf(name = "Antrag") {
-        stereotype("Entity") { "tableName" to "antrag"; "kotlinObjectName" to "AntragTable" }
-        stereotype("Index") { "columns" to listOf("target_gremium_id"); "name" to "idx_antrag_target_gremium" }
-        stereotype("Index") { "columns" to listOf("status"); "name" to "idx_antrag_status" }
-        stereotype("Index") { "columns" to listOf("submitter_member_id"); "name" to "idx_antrag_submitter" }
-        stereotype("Index") { "columns" to listOf("sitzung_id"); "name" to "idx_antrag_sitzung" }
+    val motion = classOf(name = "Motion") {
+        stereotype("Entity") { "tableName" to "motion"; "kotlinObjectName" to "MotionTable" }
+        stereotype("Index") { "columns" to listOf("target_committee_id"); "name" to "idx_motion_target_committee" }
+        stereotype("Index") { "columns" to listOf("status"); "name" to "idx_motion_status" }
+        stereotype("Index") { "columns" to listOf("submitter_member_id"); "name" to "idx_motion_submitter" }
+        stereotype("Index") { "columns" to listOf("meeting_id"); "name" to "idx_motion_meeting" }
 
         attribute(name = "id", type = "UUID") {
             stereotype("Id")
             stereotype("Column") { "columnName" to "id" }
         }
-        // Real FK -> gremium (id), NOT NULL. Plain «Column» UUID attribute — association-to-FK
-        // naming would derive "gremium_id", not the real schema's "target_gremium_id".
-        attribute(name = "targetGremiumId", type = "UUID") {
-            stereotype("Column") { "columnName" to "target_gremium_id"; "fkEntity" to "Gremium" }
+        // Real FK -> committee (id), NOT NULL. Plain «Column» UUID attribute — association-to-FK
+        // naming would derive "committee_id", not the real schema's "target_committee_id".
+        attribute(name = "targetCommitteeId", type = "UUID") {
+            stereotype("Column") { "columnName" to "target_committee_id"; "fkEntity" to "Committee" }
         }
         attribute(name = "title", type = "String") {
             stereotype("Column") { "columnName" to "title"; "sqlType" to "VARCHAR(300)" }
         }
-        attribute(name = "begruendung", type = "String") {
-            stereotype("Column") { "columnName" to "begruendung"; "sqlType" to "VARCHAR(4000)" }
+        attribute(name = "rationale", type = "String") {
+            stereotype("Column") { "columnName" to "rationale"; "sqlType" to "VARCHAR(4000)" }
         }
         attribute(name = "text", type = "String") {
             stereotype("Column") { "columnName" to "text"; "sqlType" to "VARCHAR(4000)" }
@@ -494,8 +494,8 @@ classDiagram(name = "Governance") {
         attribute(name = "submitterMemberId", type = "UUID") {
             stereotype("Column") { "columnName" to "submitter_member_id"; "fkEntity" to "Member" }
         }
-        attribute(name = "status", type = antragStatus) {
-            stereotype("Column") { "columnName" to "status"; "enumType" to "network.lapis.cloud.shared.domain.AntragStatus" }
+        attribute(name = "status", type = motionStatus) {
+            stereotype("Column") { "columnName" to "status"; "enumType" to "network.lapis.cloud.shared.domain.MotionStatus" }
         }
         attribute(name = "submittedAt", type = "LocalDateTime") {
             stereotype("Column") { "columnName" to "submitted_at" }
@@ -520,22 +520,22 @@ classDiagram(name = "Governance") {
         }
     }
 
-    // antrag.sitzung_id -> sitzung (id): association-derived default matches. Nullable.
-    association(source = sitzung, target = antrag, id = "assoc-sitzung-antrag") {
+    // motion.meeting_id -> meeting (id): association-derived default matches. Nullable.
+    association(source = meeting, target = motion, id = "assoc-meeting-motion") {
         source { multiplicity("0..1") }
-        target { multiplicity("0..*"); role = "sitzungId" }
+        target { multiplicity("0..*"); role = "meetingId" }
     }
 
-    // antrag.tagesordnungspunkt_id -> tagesordnungspunkt (id): association-derived default
+    // motion.agenda_item_id -> agendaItem (id): association-derived default
     // matches. Nullable.
-    association(source = tagesordnungspunkt, target = antrag, id = "assoc-tagesordnungspunkt-antrag") {
+    association(source = agendaItem, target = motion, id = "assoc-agenda_item-motion") {
         source { multiplicity("0..1") }
-        target { multiplicity("0..*"); role = "tagesordnungspunktId" }
+        target { multiplicity("0..*"); role = "agendaItemId" }
     }
 
-    // antrag.beschluss_id -> beschluss (id): association-derived default matches. Nullable.
-    association(source = beschluss, target = antrag, id = "assoc-beschluss-antrag") {
+    // motion.resolution_id -> resolution (id): association-derived default matches. Nullable.
+    association(source = resolution, target = motion, id = "assoc-resolution-motion") {
         source { multiplicity("0..1") }
-        target { multiplicity("0..*"); role = "beschlussId" }
+        target { multiplicity("0..*"); role = "resolutionId" }
     }
 }

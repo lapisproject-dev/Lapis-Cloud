@@ -2,219 +2,219 @@ package network.lapis.cloud.shared.rpc
 
 import dev.kilua.rpc.annotations.RpcService
 import kotlinx.datetime.LocalDate
-import network.lapis.cloud.shared.domain.AbstimmungDto
-import network.lapis.cloud.shared.domain.AbstimmungOpenInput
-import network.lapis.cloud.shared.domain.AntragDto
-import network.lapis.cloud.shared.domain.AntragInput
-import network.lapis.cloud.shared.domain.AntragPruefungsEntscheidung
-import network.lapis.cloud.shared.domain.AntragResolutionInput
-import network.lapis.cloud.shared.domain.AntragStatus
-import network.lapis.cloud.shared.domain.AnwesenheitDto
-import network.lapis.cloud.shared.domain.AnwesenheitInput
-import network.lapis.cloud.shared.domain.BeschlussDto
-import network.lapis.cloud.shared.domain.BeschlussInput
-import network.lapis.cloud.shared.domain.GremiumDto
-import network.lapis.cloud.shared.domain.GremiumInput
-import network.lapis.cloud.shared.domain.GremiumMitgliedschaftDto
-import network.lapis.cloud.shared.domain.GremiumMitgliedschaftInput
+import network.lapis.cloud.shared.domain.AgendaItemDto
+import network.lapis.cloud.shared.domain.AgendaItemInput
+import network.lapis.cloud.shared.domain.AttendanceDto
+import network.lapis.cloud.shared.domain.AttendanceInput
+import network.lapis.cloud.shared.domain.CommitteeDto
+import network.lapis.cloud.shared.domain.CommitteeInput
+import network.lapis.cloud.shared.domain.CommitteeMembershipDto
+import network.lapis.cloud.shared.domain.CommitteeMembershipInput
+import network.lapis.cloud.shared.domain.MeetingDetailDto
+import network.lapis.cloud.shared.domain.MeetingDto
+import network.lapis.cloud.shared.domain.MeetingInput
+import network.lapis.cloud.shared.domain.MeetingStatus
+import network.lapis.cloud.shared.domain.MotionDto
+import network.lapis.cloud.shared.domain.MotionInput
+import network.lapis.cloud.shared.domain.MotionResolutionInput
+import network.lapis.cloud.shared.domain.MotionReviewDecision
+import network.lapis.cloud.shared.domain.MotionStatus
 import network.lapis.cloud.shared.domain.ProtocolDraftDto
 import network.lapis.cloud.shared.domain.QuorumResultDto
-import network.lapis.cloud.shared.domain.SitzungDetailDto
-import network.lapis.cloud.shared.domain.SitzungDto
-import network.lapis.cloud.shared.domain.SitzungInput
-import network.lapis.cloud.shared.domain.SitzungsStatus
-import network.lapis.cloud.shared.domain.StimmeDto
-import network.lapis.cloud.shared.domain.StimmeInput
-import network.lapis.cloud.shared.domain.TagesordnungspunktDto
-import network.lapis.cloud.shared.domain.TagesordnungspunktInput
+import network.lapis.cloud.shared.domain.ResolutionDto
+import network.lapis.cloud.shared.domain.ResolutionInput
+import network.lapis.cloud.shared.domain.VoteBallotDto
+import network.lapis.cloud.shared.domain.VoteBallotInput
+import network.lapis.cloud.shared.domain.VoteDto
+import network.lapis.cloud.shared.domain.VoteOpenInput
 
 /**
- * Gremien- und Sitzungsverwaltung (V0.2.1): Gremien/Arbeitskreise, Mitgliedschaften darin,
- * Sitzungen mit Tagesordnung/Anwesenheit/Beschlussfaehigkeit sowie ein Beschlussbuch. Reads
- * (listGremien/getSitzungDetail/listBeschluesse/etc.) are open to any authenticated member —
+ * Committee and meeting management (V0.2.1): Committees/working groups, memberships within them,
+ * meetings with agenda/attendance/quorum, and a resolution book. Reads
+ * (listCommittees/getMeetingDetail/listResolutions/etc.) are open to any authenticated member —
  * a deliberate simplification versus [network.lapis.cloud.shared.domain.DocumentAccessLevel]'s
- * three-tier model, to keep this wave's scope bounded; worth revisiting if some Gremien need
- * confidentiality. Write operations that manage a specific Gremium's meetings/agenda/attendance/
- * resolutions require that Gremium's leadership role (VORSITZ/STELLV_VORSITZ/SCHRIFTFUEHRUNG) or
+ * three-tier model, to keep this wave's scope bounded; worth revisiting if some Committees need
+ * confidentiality. Write operations that manage a specific Committee's meetings/agenda/attendance/
+ * resolutions require that Committee's leadership role (CHAIR/DEPUTY_CHAIR/SECRETARY) or
  * global BOARD/ADMIN — see `network.lapis.cloud.server.security.GovernanceAuthorization`.
  *
- * Antragsverwaltung (V0.2.2) extends this same interface rather than fragmenting into a parallel
- * `IAntragService` — an Antrag's lifecycle is tightly coupled to Sitzung/Tagesordnungspunkt/
- * Beschluss, which this interface already spans. See [AntragDto] KDoc for the full lifecycle and
- * `GovernanceAuthorization.canSubmitAntrag` for submission rules (broad participation right for
- * the Mitgliederversammlung, any-role Gremium membership for a specific Gremium).
+ * Motion management (V0.2.2) extends this same interface rather than fragmenting into a parallel
+ * `IMotionService` — an Motion's lifecycle is tightly coupled to Meeting/AgendaItem/
+ * Resolution, which this interface already spans. See [MotionDto] KDoc for the full lifecycle and
+ * `GovernanceAuthorization.canSubmitMotion` for submission rules (broad participation right for
+ * the General Assembly, any-role Committee membership for a specific Committee).
  *
- * Meritokratische Abstimmungen (V0.2.3) extends this same interface once more: an eBay/Vickrey
- * basket auction opened on a [AntragStatus.TERMINIERT] Antrag (`openAbstimmung`), per-member LTR
- * staking into one of the auction's baskets (`castStimme`), and a settlement close
- * (`closeAbstimmung`) that runs the Vickrey settlement and writes into the *same* Beschlussbuch as
- * [recordBeschluss]/[resolveAntrag] via [network.lapis.cloud.shared.domain.ResolutionMode
- * .MERITOKRATISCH] — see [network.lapis.cloud.shared.domain.AbstimmungDto] KDoc for the full
- * lifecycle and `network.lapis.cloud.server.rpc.AbstimmungSettlement` for the settlement algorithm
- * itself. This is a parallel *resolution* path for an already-[AntragStatus.TERMINIERT] Antrag,
+ * Meritokratische Voteen (V0.2.3) extends this same interface once more: an eBay/Vickrey
+ * basket auction opened on a [MotionStatus.SCHEDULED] Motion (`openVote`), per-member LTR
+ * staking into one of the auction's baskets (`castVoteBallot`), and a settlement close
+ * (`closeVote`) that runs the Vickrey settlement and writes into the *same* resolution book as
+ * [recordResolution]/[resolveMotion] via [network.lapis.cloud.shared.domain.ResolutionMode
+ * .MERITOCRATIC] — see [network.lapis.cloud.shared.domain.VoteDto] KDoc for the full
+ * lifecycle and `network.lapis.cloud.server.rpc.VoteSettlement` for the settlement algorithm
+ * itself. This is a parallel *resolution* path for an already-[MotionStatus.SCHEDULED] Motion,
  * not a parallel submission/review/scheduling pipeline — those steps are unchanged.
  *
- * Explicitly out of scope for this wave (see roadmap's separate bullets): Demokratische Wahlen,
- * Systemisches Konsensieren, floor amendments to an Antrag's text. The [recordBeschluss]/
- * [resolveAntrag] Gremium-Quorum path remains a straightforward decision log with a
- * Ja/Nein/Enthaltung tally for every Antrag that does not go through a meritocratic Abstimmung.
+ * Explicitly out of scope for this wave (see roadmap's separate bullets): Demokratische Electionen,
+ * Systemic Consensus, floor amendments to an Motion's text. The [recordResolution]/
+ * [resolveMotion] Committee-Quorum path remains a straightforward decision log with a
+ * Ja/Nein/Enthaltung tally for every Motion that does not go through a meritocratic Vote.
  */
 @RpcService
 interface IGovernanceService {
-    suspend fun listGremien(activeOnly: Boolean = true): List<GremiumDto>
+    suspend fun listCommittees(activeOnly: Boolean = true): List<CommitteeDto>
 
     /** Role: BOARD/ADMIN — committee structure itself is an org-wide governance decision. */
-    suspend fun createGremium(input: GremiumInput): GremiumDto
+    suspend fun createCommittee(input: CommitteeInput): CommitteeDto
 
     /** Role: BOARD/ADMIN. */
-    suspend fun updateGremium(
+    suspend fun updateCommittee(
         id: String,
-        input: GremiumInput,
-    ): GremiumDto
+        input: CommitteeInput,
+    ): CommitteeDto
 
-    suspend fun listGremiumMitglieder(
-        gremiumId: String,
+    suspend fun listCommitteeMembers(
+        committeeId: String,
         activeOnly: Boolean = true,
-    ): List<GremiumMitgliedschaftDto>
+    ): List<CommitteeMembershipDto>
 
     /** Role: BOARD/ADMIN. */
-    suspend fun addGremiumMitglied(
-        gremiumId: String,
-        input: GremiumMitgliedschaftInput,
-    ): GremiumMitgliedschaftDto
+    suspend fun addCommitteeMember(
+        committeeId: String,
+        input: CommitteeMembershipInput,
+    ): CommitteeMembershipDto
 
     /** Role: BOARD/ADMIN. */
-    suspend fun endGremiumMitgliedschaft(
-        mitgliedschaftId: String,
+    suspend fun endCommitteeMembership(
+        membershipId: String,
         until: LocalDate,
-    ): GremiumMitgliedschaftDto
+    ): CommitteeMembershipDto
 
-    suspend fun listSitzungen(
-        gremiumId: String? = null,
-        status: SitzungsStatus? = null,
-    ): List<SitzungDto>
+    suspend fun listMeetings(
+        committeeId: String? = null,
+        status: MeetingStatus? = null,
+    ): List<MeetingDto>
 
-    suspend fun getSitzungDetail(sitzungId: String): SitzungDetailDto
+    suspend fun getMeetingDetail(meetingId: String): MeetingDetailDto
 
-    /** Role: Gremium-Vorsitz/-Stellv./Schriftfuehrung/Board/Admin (see class KDoc). */
-    suspend fun createSitzung(input: SitzungInput): SitzungDto
+    /** Role: Committee-Vorsitz/-Stellv./Schriftfuehrung/Board/Admin (see class KDoc). */
+    suspend fun createMeeting(input: MeetingInput): MeetingDto
 
-    /** Role: Gremium-Vorsitz/-Stellv./Schriftfuehrung/Board/Admin. */
-    suspend fun updateSitzungStatus(
-        sitzungId: String,
-        status: SitzungsStatus,
-    ): SitzungDto
+    /** Role: Committee-Vorsitz/-Stellv./Schriftfuehrung/Board/Admin. */
+    suspend fun updateMeetingStatus(
+        meetingId: String,
+        status: MeetingStatus,
+    ): MeetingDto
 
-    /** Role: Gremium-Vorsitz/-Stellv./Schriftfuehrung/Board/Admin. */
-    suspend fun addTagesordnungspunkt(
-        sitzungId: String,
-        input: TagesordnungspunktInput,
-    ): TagesordnungspunktDto
+    /** Role: Committee-Vorsitz/-Stellv./Schriftfuehrung/Board/Admin. */
+    suspend fun addAgendaItem(
+        meetingId: String,
+        input: AgendaItemInput,
+    ): AgendaItemDto
 
-    /** Role: Gremium-Vorsitz/-Stellv./Schriftfuehrung/Board/Admin. */
-    suspend fun removeTagesordnungspunkt(id: String)
+    /** Role: Committee-Vorsitz/-Stellv./Schriftfuehrung/Board/Admin. */
+    suspend fun removeAgendaItem(id: String)
 
-    /** Role: Gremium-Vorsitz/-Stellv./Schriftfuehrung/Board/Admin. */
+    /** Role: Committee-Vorsitz/-Stellv./Schriftfuehrung/Board/Admin. */
     suspend fun recordAttendance(
-        sitzungId: String,
-        input: AnwesenheitInput,
-    ): AnwesenheitDto
+        meetingId: String,
+        input: AttendanceInput,
+    ): AttendanceDto
 
-    suspend fun getAttendance(sitzungId: String): List<AnwesenheitDto>
+    suspend fun getAttendance(meetingId: String): List<AttendanceDto>
 
-    suspend fun checkQuorum(sitzungId: String): QuorumResultDto
+    suspend fun checkQuorum(meetingId: String): QuorumResultDto
 
-    /** Role: Gremium-Vorsitz/-Stellv./Schriftfuehrung/Board/Admin. */
-    suspend fun recordBeschluss(
-        sitzungId: String,
-        input: BeschlussInput,
-    ): BeschlussDto
+    /** Role: Committee-Vorsitz/-Stellv./Schriftfuehrung/Board/Admin. */
+    suspend fun recordResolution(
+        meetingId: String,
+        input: ResolutionInput,
+    ): ResolutionDto
 
-    suspend fun listBeschluesse(
-        gremiumId: String? = null,
-        sitzungId: String? = null,
-    ): List<BeschlussDto>
+    suspend fun listResolutions(
+        committeeId: String? = null,
+        meetingId: String? = null,
+    ): List<ResolutionDto>
 
-    suspend fun generateProtocolDraft(sitzungId: String): ProtocolDraftDto
+    suspend fun generateProtocolDraft(meetingId: String): ProtocolDraftDto
 
     /**
      * Role: any member with [network.lapis.cloud.shared.domain.MemberStatus.AKTIV] when the
-     * target is the Mitgliederversammlung; any active [GremiumMitgliedschaftDto] (any
-     * [network.lapis.cloud.shared.domain.GremiumRolle]) of the target Gremium otherwise; or
-     * BOARD/ADMIN. See `GovernanceAuthorization.canSubmitAntrag`.
+     * target is the General Assembly; any active [CommitteeMembershipDto] (any
+     * [network.lapis.cloud.shared.domain.CommitteeRole]) of the target Committee otherwise; or
+     * BOARD/ADMIN. See `GovernanceAuthorization.canSubmitMotion`.
      */
-    suspend fun submitAntrag(input: AntragInput): AntragDto
+    suspend fun submitMotion(input: MotionInput): MotionDto
 
-    suspend fun listAntraege(
-        targetGremiumId: String? = null,
-        status: AntragStatus? = null,
-    ): List<AntragDto>
+    suspend fun listMotions(
+        targetCommitteeId: String? = null,
+        status: MotionStatus? = null,
+    ): List<MotionDto>
 
-    suspend fun getAntrag(id: String): AntragDto
+    suspend fun getMotion(id: String): MotionDto
 
     /**
-     * Role: the submitter themself while [AntragStatus.EINGEREICHT], or that Gremium's leadership/
+     * Role: the submitter themself while [MotionStatus.SUBMITTED], or that Committee's leadership/
      * BOARD/ADMIN at any status.
      */
-    suspend fun withdrawAntrag(id: String): AntragDto
+    suspend fun withdrawMotion(id: String): MotionDto
 
-    /** Role: target Gremium leadership (VORSITZ/STELLV_VORSITZ/SCHRIFTFUEHRUNG) or BOARD/ADMIN. */
-    suspend fun reviewAntrag(
+    /** Role: target Committee leadership (CHAIR/DEPUTY_CHAIR/SECRETARY) or BOARD/ADMIN. */
+    suspend fun reviewMotion(
         id: String,
-        decision: AntragPruefungsEntscheidung,
+        decision: MotionReviewDecision,
         note: String? = null,
-    ): AntragDto
+    ): MotionDto
 
-    /** Role: target Gremium leadership or BOARD/ADMIN. Requires [AntragStatus.GEPRUEFT] or [AntragStatus.VERTAGT]. */
-    suspend fun scheduleAntrag(
+    /** Role: target Committee leadership or BOARD/ADMIN. Requires [MotionStatus.REVIEWED] or [MotionStatus.POSTPONED]. */
+    suspend fun scheduleMotion(
         id: String,
-        sitzungId: String,
+        meetingId: String,
         position: Int,
-    ): AntragDto
+    ): MotionDto
 
-    /** Role: target Gremium leadership or BOARD/ADMIN. Requires [AntragStatus.TERMINIERT]. */
-    suspend fun resolveAntrag(
+    /** Role: target Committee leadership or BOARD/ADMIN. Requires [MotionStatus.SCHEDULED]. */
+    suspend fun resolveMotion(
         id: String,
-        input: AntragResolutionInput,
-    ): AntragDto
+        input: MotionResolutionInput,
+    ): MotionDto
 
     /**
-     * Role: target Gremium leadership or BOARD/ADMIN. Requires [AntragStatus.TERMINIERT] and no
-     * already-open/-closed Abstimmung for this Antrag.
+     * Role: target Committee leadership or BOARD/ADMIN. Requires [MotionStatus.SCHEDULED] and no
+     * already-open/-closed Vote for this Motion.
      */
-    suspend fun openAbstimmung(input: AbstimmungOpenInput): AbstimmungDto
+    suspend fun openVote(input: VoteOpenInput): VoteDto
 
     /**
-     * Role: any member eligible for the Abstimmung's underlying Sitzung/Gremium (same
-     * eligibility set `checkQuorum` uses for that Sitzung) — see
-     * `network.lapis.cloud.server.rpc.GovernanceService.castStimme` KDoc. Requires
-     * [network.lapis.cloud.shared.domain.AbstimmungStatus.OFFEN]. Upserts one ballot per member;
+     * Role: any member eligible for the Vote's underlying Meeting/Committee (same
+     * eligibility set `checkQuorum` uses for that Meeting) — see
+     * `network.lapis.cloud.server.rpc.GovernanceService.castVoteBallot` KDoc. Requires
+     * [network.lapis.cloud.shared.domain.VoteStatus.OPEN]. Upserts one ballot per member;
      * a second call overwrites the member's own prior stake/option, it does not add a second
      * ballot.
      */
-    suspend fun castStimme(input: StimmeInput): StimmeDto
+    suspend fun castVoteBallot(input: VoteBallotInput): VoteBallotDto
 
     /**
-     * Role: target Gremium leadership or BOARD/ADMIN. Requires
-     * [network.lapis.cloud.shared.domain.AbstimmungStatus.OFFEN]; runs the Vickrey settlement,
-     * writes the resulting Beschluss, and transitions the underlying Antrag.
+     * Role: target Committee leadership or BOARD/ADMIN. Requires
+     * [network.lapis.cloud.shared.domain.VoteStatus.OPEN]; runs the Vickrey settlement,
+     * writes the resulting Resolution, and transitions the underlying Motion.
      */
-    suspend fun closeAbstimmung(abstimmungId: String): AbstimmungDto
+    suspend fun closeVote(voteId: String): VoteDto
 
     /**
-     * Role: target Gremium leadership or BOARD/ADMIN. Requires
-     * [network.lapis.cloud.shared.domain.AbstimmungStatus.OFFEN]; no settlement runs, no Beschluss
-     * is created, the underlying Antrag stays [AntragStatus.TERMINIERT].
+     * Role: target Committee leadership or BOARD/ADMIN. Requires
+     * [network.lapis.cloud.shared.domain.VoteStatus.OPEN]; no settlement runs, no Resolution
+     * is created, the underlying Motion stays [MotionStatus.SCHEDULED].
      */
-    suspend fun abortAbstimmung(abstimmungId: String): AbstimmungDto
+    suspend fun abortVote(voteId: String): VoteDto
 
-    suspend fun getAbstimmung(abstimmungId: String): AbstimmungDto
+    suspend fun getVote(voteId: String): VoteDto
 
     /**
      * Transparency read of every ballot cast so far, including staked/settled amounts — open to
-     * any authenticated member, not just the Abstimmung's own participants. Pseudonymization of
+     * any authenticated member, not just the Vote's own participants. Pseudonymization of
      * ballots is future scope (see the implementation plan's open decision points); `memberId`/
      * `memberDisplayName` are exposed like every other DTO in this interface for now.
      */
-    suspend fun listStimmen(abstimmungId: String): List<StimmeDto>
+    suspend fun listVoteBallots(voteId: String): List<VoteBallotDto>
 }

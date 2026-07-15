@@ -242,7 +242,7 @@ class ServiceIntegrationTest :
                     routing {
                         post("/test/create-folder") {
                             val service = DocumentService(call)
-                            val folder = service.createFolder("Vorstandsunterlagen")
+                            val folder = service.createFolder("Executive Board Documents")
                             call.respondText(folder.id)
                         }
                         post("/test/create-document/{folderId}/{level}") {
@@ -250,7 +250,7 @@ class ServiceIntegrationTest :
                             val doc =
                                 service.createDocument(
                                     call.parameters["folderId"]!!,
-                                    "Geheimdokument",
+                                    "Secretdokument",
                                     DocumentAccessLevel.valueOf(call.parameters["level"]!!),
                                 )
                             call.respondText(doc.id)

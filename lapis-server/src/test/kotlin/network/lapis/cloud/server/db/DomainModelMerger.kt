@@ -17,7 +17,7 @@ import dev.kuml.uml.UmlClass
  * ## Background
  *
  * Several domain scripts declare the *same* conceptual entity independently — e.g. `Member`,
- * `Antrag`, `Sitzung`, `Gremium`, `Beschluss` each appear, fully or as an id-only stub, in
+ * `Motion`, `Meeting`, `Committee`, `Resolution` each appear, fully or as an id-only stub, in
  * multiple `.kuml.kts` files (a file needs a minimal stub of a foreign-domain entity purely so
  * `UmlToErmTransformer` can resolve an association's target within that single-file evaluation —
  * see e.g. `01-contribution.kuml.kts`'s header comment). Every declaration gets its own

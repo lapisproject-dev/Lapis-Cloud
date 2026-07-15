@@ -154,7 +154,7 @@ class DsgvoSchemaDriftTest :
         test("outcome_summary on both tables is modelled as plain VARCHAR(8000), not ErmDataType.Json") {
             // JSON-encoded-as-string, not an unsupported-json-type workaround — see the .kuml.kts
             // file header comment. Both real columns are plain VARCHAR(8000) (widened from
-            // VARCHAR(4000) by V0.2.5/09-konsensierung.kuml.kts -- see that file's own header
+            // VARCHAR(4000) by V0.2.5/09-systemic-consensus.kuml.kts -- see that file's own header
             // comment for why) with no JSON-specific DB feature (no CHECK, no native JSON column
             // type). The explicit «Column».sqlType override is parsed by UmlErmTypeMapper
             // .mapOverride's VARCHAR(n) regex into ErmDataType.Varchar(8000), pinning the correct

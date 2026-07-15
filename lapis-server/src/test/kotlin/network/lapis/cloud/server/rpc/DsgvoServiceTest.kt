@@ -328,7 +328,7 @@ class DsgvoServiceTest :
                         }
                         post("/test/request-erasure/{subjectId}") {
                             val service = DsgvoService(call)
-                            val request = service.requestErasure(call.parameters["subjectId"]!!, "Testantrag Art. 17 DSGVO")
+                            val request = service.requestErasure(call.parameters["subjectId"]!!, "Testmotion Art. 17 DSGVO")
                             call.respondText(request.id)
                         }
                         post("/test/decide/{requestId}/{approve}") {
@@ -458,7 +458,7 @@ class DsgvoServiceTest :
                             val request =
                                 service.requestErasure(
                                     call.parameters["subjectId"]!!,
-                                    "Testantrag hart",
+                                    "Testmotion hart",
                                     ErasureMode.HARD_DELETE_WHERE_UNCONSTRAINED,
                                 )
                             call.respondText(request.id)

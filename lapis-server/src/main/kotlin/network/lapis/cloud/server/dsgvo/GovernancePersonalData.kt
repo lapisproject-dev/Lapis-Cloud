@@ -3,15 +3,15 @@ package network.lapis.cloud.server.dsgvo
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 import kotlinx.serialization.json.putJsonArray
-import network.lapis.cloud.server.db.generated.AbstimmungStimmeTable
-import network.lapis.cloud.server.db.generated.AbstimmungTable
-import network.lapis.cloud.server.db.generated.AntragTable
-import network.lapis.cloud.server.db.generated.AnwesenheitTable
-import network.lapis.cloud.server.db.generated.BeschlussTable
-import network.lapis.cloud.server.db.generated.GremiumMitgliedschaftTable
-import network.lapis.cloud.server.db.generated.GremiumTable
-import network.lapis.cloud.server.db.generated.SitzungTable
-import network.lapis.cloud.server.db.generated.TagesordnungspunktTable
+import network.lapis.cloud.server.db.generated.AgendaItemTable
+import network.lapis.cloud.server.db.generated.AttendanceTable
+import network.lapis.cloud.server.db.generated.CommitteeMembershipTable
+import network.lapis.cloud.server.db.generated.CommitteeTable
+import network.lapis.cloud.server.db.generated.MeetingTable
+import network.lapis.cloud.server.db.generated.MotionTable
+import network.lapis.cloud.server.db.generated.ResolutionTable
+import network.lapis.cloud.server.db.generated.VoteBallotTable
+import network.lapis.cloud.server.db.generated.VoteTable
 import network.lapis.cloud.shared.domain.ErasureMode
 import org.jetbrains.exposed.v1.core.ResultRow
 import org.jetbrains.exposed.v1.core.eq
@@ -21,23 +21,23 @@ import org.jetbrains.exposed.v1.jdbc.update
 import kotlin.uuid.Uuid
 
 /**
- * Owns [GremiumMitgliedschaftTable]/[SitzungTable]/[TagesordnungspunktTable]/[AnwesenheitTable]/
- * [BeschlussTable] — the five member-FK-bearing tables of the Gremien-/Sitzungsverwaltung wave
- * (V0.2.1) — plus [AntragTable] (Antragsverwaltung, V0.2.2) and [AbstimmungTable]/
- * [AbstimmungStimmeTable] (Meritokratische Abstimmungen, V0.2.3), the same domain area.
- * [GremiumTable] itself has no member FK and is instead listed in
- * [PersonalDataRegistry.noPersonalDataAllowlist]; so does `abstimmung_option` (no member FK at
+ * Owns [CommitteeMembershipTable]/[MeetingTable]/[AgendaItemTable]/[AttendanceTable]/
+ * [ResolutionTable] — the five member-FK-bearing tables of the committee/meeting management wave
+ * (V0.2.1) — plus [MotionTable] (motion management, V0.2.2) and [VoteTable]/
+ * [VoteBallotTable] (meritocratic voting, V0.2.3), the same domain area.
+ * [CommitteeTable] itself has no member FK and is instead listed in
+ * [PersonalDataRegistry.noPersonalDataAllowlist]; so does `vote_option` (no member FK at
  * all -- only the ballots staked into an option carry personal data, not the basket itself).
- * [AntragTable.targetGremiumId] references `gremium`, not `member`, so only
+ * [MotionTable.targetCommitteeId] references `committee`, not `member`, so only
  * `submitter_member_id`/`reviewed_by` are subject to `PersonalDataCoverageTest`'s
- * `information_schema` FK walk — both covered simply by adding [AntragTable] here. Likewise
- * [AbstimmungTable.antragId]/`.sitzungId`/`.beschlussId` reference `antrag`/`sitzung`/`beschluss`,
+ * `information_schema` FK walk — both covered simply by adding [MotionTable] here. Likewise
+ * [VoteTable.motionId]/`.meetingId`/`.resolutionId` reference `motion`/`meeting`/`resolution`,
  * not `member` -- only `opened_by` is a member FK.
  *
  * Retain-with-reason across the board, consistent with [ContributionPersonalData]/
  * [DocumentPersonalData] precedent — governance records (who chaired a meeting, attendance
- * history behind a Beschlussfaehigkeit determination, the resolution text itself, an Antrag's
- * motion text and review rationale, a Vickrey ballot's staked/settled LTR amounts) are
+ * history behind a quorum determination, the resolution text itself, a Motion's motion text and
+ * review rationale, a Vickrey ballot's staked/settled LTR amounts) are
  * organizational/legal-defensibility records (and, for ballots, also the member's property
  * record), not purely personal data, and all FK pointers resolve to the now-anonymized
  * [network.lapis.cloud.server.db.generated.MemberTable] row post-erasure (see
@@ -45,137 +45,137 @@ import kotlin.uuid.Uuid
  */
 object GovernancePersonalData : PersonalDataContributor {
     override val sectionKey = "governance"
-    override val displayName = "Gremien und Sitzungen"
+    override val displayName = "Committees and Meetings"
     override val coveredTables =
         setOf(
-            GremiumMitgliedschaftTable,
-            SitzungTable,
-            TagesordnungspunktTable,
-            AnwesenheitTable,
-            BeschlussTable,
-            AntragTable,
-            AbstimmungTable,
-            AbstimmungStimmeTable,
+            CommitteeMembershipTable,
+            MeetingTable,
+            AgendaItemTable,
+            AttendanceTable,
+            ResolutionTable,
+            MotionTable,
+            VoteTable,
+            VoteBallotTable,
         )
 
     override fun export(memberId: Uuid) =
         buildJsonObject {
             putJsonArray("committeeMemberships") {
-                (GremiumMitgliedschaftTable innerJoin GremiumTable)
+                (CommitteeMembershipTable innerJoin CommitteeTable)
                     .selectAll()
-                    .where { GremiumMitgliedschaftTable.memberId eq memberId }
+                    .where { CommitteeMembershipTable.memberId eq memberId }
                     .forEach { row ->
                         add(
                             buildJsonObject {
-                                put("id", row[GremiumMitgliedschaftTable.id].toString())
-                                put("gremiumName", row[GremiumTable.name])
-                                put("rolle", row[GremiumMitgliedschaftTable.rolle].name)
-                                put("since", row[GremiumMitgliedschaftTable.since].toString())
-                                put("until", row[GremiumMitgliedschaftTable.until]?.toString())
+                                put("id", row[CommitteeMembershipTable.id].toString())
+                                put("committeeName", row[CommitteeTable.name])
+                                put("role", row[CommitteeMembershipTable.role].name)
+                                put("since", row[CommitteeMembershipTable.since].toString())
+                                put("until", row[CommitteeMembershipTable.until]?.toString())
                             },
                         )
                     }
             }
             putJsonArray("meetingsCalled") {
-                SitzungTable
+                MeetingTable
                     .selectAll()
-                    .where { SitzungTable.calledBy eq memberId }
-                    .forEach { row -> add(sitzungSummaryJson(row)) }
+                    .where { MeetingTable.calledBy eq memberId }
+                    .forEach { row -> add(meetingSummaryJson(row)) }
             }
             putJsonArray("meetingsChaired") {
-                SitzungTable
+                MeetingTable
                     .selectAll()
-                    .where { SitzungTable.chairMemberId eq memberId }
-                    .forEach { row -> add(sitzungSummaryJson(row)) }
+                    .where { MeetingTable.chairMemberId eq memberId }
+                    .forEach { row -> add(meetingSummaryJson(row)) }
             }
             putJsonArray("meetingsAsMinuteTaker") {
-                SitzungTable
+                MeetingTable
                     .selectAll()
-                    .where { SitzungTable.minuteTakerMemberId eq memberId }
-                    .forEach { row -> add(sitzungSummaryJson(row)) }
+                    .where { MeetingTable.minuteTakerMemberId eq memberId }
+                    .forEach { row -> add(meetingSummaryJson(row)) }
             }
             putJsonArray("agendaItemsPresented") {
-                TagesordnungspunktTable
+                AgendaItemTable
                     .selectAll()
-                    .where { TagesordnungspunktTable.presenterMemberId eq memberId }
+                    .where { AgendaItemTable.presenterMemberId eq memberId }
                     .forEach { row ->
                         add(
                             buildJsonObject {
-                                put("id", row[TagesordnungspunktTable.id].toString())
-                                put("sitzungId", row[TagesordnungspunktTable.sitzungId].toString())
-                                put("title", row[TagesordnungspunktTable.title])
+                                put("id", row[AgendaItemTable.id].toString())
+                                put("meetingId", row[AgendaItemTable.meetingId].toString())
+                                put("title", row[AgendaItemTable.title])
                             },
                         )
                     }
             }
             putJsonArray("attendances") {
-                AnwesenheitTable
+                AttendanceTable
                     .selectAll()
-                    .where { AnwesenheitTable.memberId eq memberId }
-                    .forEach { row -> add(anwesenheitJson(row)) }
+                    .where { AttendanceTable.memberId eq memberId }
+                    .forEach { row -> add(attendanceJson(row)) }
             }
             putJsonArray("attendedAsProxyFor") {
-                AnwesenheitTable
+                AttendanceTable
                     .selectAll()
-                    .where { AnwesenheitTable.representedByMemberId eq memberId }
-                    .forEach { row -> add(anwesenheitJson(row)) }
+                    .where { AttendanceTable.representedByMemberId eq memberId }
+                    .forEach { row -> add(attendanceJson(row)) }
             }
             putJsonArray("resolutionsRecorded") {
-                BeschlussTable
+                ResolutionTable
                     .selectAll()
-                    .where { BeschlussTable.recordedBy eq memberId }
+                    .where { ResolutionTable.recordedBy eq memberId }
                     .forEach { row ->
                         add(
                             buildJsonObject {
-                                put("id", row[BeschlussTable.id].toString())
-                                put("sitzungId", row[BeschlussTable.sitzungId].toString())
-                                put("number", row[BeschlussTable.number])
-                                put("title", row[BeschlussTable.title])
-                                put("status", row[BeschlussTable.status].name)
+                                put("id", row[ResolutionTable.id].toString())
+                                put("meetingId", row[ResolutionTable.meetingId].toString())
+                                put("number", row[ResolutionTable.number])
+                                put("title", row[ResolutionTable.title])
+                                put("status", row[ResolutionTable.status].name)
                             },
                         )
                     }
             }
-            putJsonArray("antraegeSubmitted") {
-                AntragTable
+            putJsonArray("motionsSubmitted") {
+                MotionTable
                     .selectAll()
-                    .where { AntragTable.submitterMemberId eq memberId }
-                    .forEach { row -> add(antragSummaryJson(row)) }
+                    .where { MotionTable.submitterMemberId eq memberId }
+                    .forEach { row -> add(motionSummaryJson(row)) }
             }
-            putJsonArray("antraegeReviewed") {
-                AntragTable
+            putJsonArray("motionsReviewed") {
+                MotionTable
                     .selectAll()
-                    .where { AntragTable.reviewedBy eq memberId }
-                    .forEach { row -> add(antragSummaryJson(row)) }
+                    .where { MotionTable.reviewedBy eq memberId }
+                    .forEach { row -> add(motionSummaryJson(row)) }
             }
-            putJsonArray("abstimmungenOpened") {
-                AbstimmungTable
+            putJsonArray("votesOpened") {
+                VoteTable
                     .selectAll()
-                    .where { AbstimmungTable.openedBy eq memberId }
+                    .where { VoteTable.openedBy eq memberId }
                     .forEach { row ->
                         add(
                             buildJsonObject {
-                                put("id", row[AbstimmungTable.id].toString())
-                                put("antragId", row[AbstimmungTable.antragId].toString())
-                                put("title", row[AbstimmungTable.title])
-                                put("status", row[AbstimmungTable.status].name)
+                                put("id", row[VoteTable.id].toString())
+                                put("motionId", row[VoteTable.motionId].toString())
+                                put("title", row[VoteTable.title])
+                                put("status", row[VoteTable.status].name)
                             },
                         )
                     }
             }
-            putJsonArray("stimmenCast") {
-                AbstimmungStimmeTable
+            putJsonArray("ballotsCast") {
+                VoteBallotTable
                     .selectAll()
-                    .where { AbstimmungStimmeTable.memberId eq memberId }
+                    .where { VoteBallotTable.memberId eq memberId }
                     .forEach { row ->
                         add(
                             buildJsonObject {
-                                put("id", row[AbstimmungStimmeTable.id].toString())
-                                put("abstimmungId", row[AbstimmungStimmeTable.abstimmungId].toString())
-                                put("optionId", row[AbstimmungStimmeTable.optionId].toString())
-                                put("stakeLtr", row[AbstimmungStimmeTable.stakeLtr].toPlainString())
-                                put("settledLtr", row[AbstimmungStimmeTable.settledLtr]?.toPlainString())
-                                put("castAt", row[AbstimmungStimmeTable.castAt].toString())
+                                put("id", row[VoteBallotTable.id].toString())
+                                put("voteId", row[VoteBallotTable.voteId].toString())
+                                put("optionId", row[VoteBallotTable.optionId].toString())
+                                put("stakeLtr", row[VoteBallotTable.stakeLtr].toPlainString())
+                                put("settledLtr", row[VoteBallotTable.settledLtr]?.toPlainString())
+                                put("castAt", row[VoteBallotTable.castAt].toString())
                             },
                         )
                     }
@@ -186,117 +186,117 @@ object GovernancePersonalData : PersonalDataContributor {
         memberId: Uuid,
         mode: ErasureMode,
     ): List<TableErasureOutcome> {
-        val mitgliedschaftCount =
-            GremiumMitgliedschaftTable.selectAll().where { GremiumMitgliedschaftTable.memberId eq memberId }.count()
+        val membershipCount =
+            CommitteeMembershipTable.selectAll().where { CommitteeMembershipTable.memberId eq memberId }.count()
 
-        val sitzungCount =
-            SitzungTable
+        val meetingCount =
+            MeetingTable
                 .selectAll()
                 .where {
-                    (SitzungTable.calledBy eq memberId) or
-                        (SitzungTable.chairMemberId eq memberId) or
-                        (SitzungTable.minuteTakerMemberId eq memberId)
+                    (MeetingTable.calledBy eq memberId) or
+                        (MeetingTable.chairMemberId eq memberId) or
+                        (MeetingTable.minuteTakerMemberId eq memberId)
                 }.count()
 
-        val tagesordnungspunktCount =
-            TagesordnungspunktTable.selectAll().where { TagesordnungspunktTable.presenterMemberId eq memberId }.count()
+        val agendaItemCount =
+            AgendaItemTable.selectAll().where { AgendaItemTable.presenterMemberId eq memberId }.count()
 
-        val anwesenheitCondition =
-            (AnwesenheitTable.memberId eq memberId) or (AnwesenheitTable.representedByMemberId eq memberId)
-        val anwesenheitCount = AnwesenheitTable.selectAll().where { anwesenheitCondition }.count()
-        AnwesenheitTable.update({ anwesenheitCondition }) {
+        val attendanceCondition =
+            (AttendanceTable.memberId eq memberId) or (AttendanceTable.representedByMemberId eq memberId)
+        val attendanceCount = AttendanceTable.selectAll().where { attendanceCondition }.count()
+        AttendanceTable.update({ attendanceCondition }) {
             it[note] = null
         }
 
-        val beschlussCount = BeschlussTable.selectAll().where { BeschlussTable.recordedBy eq memberId }.count()
+        val resolutionCount = ResolutionTable.selectAll().where { ResolutionTable.recordedBy eq memberId }.count()
 
-        val antragCondition = (AntragTable.submitterMemberId eq memberId) or (AntragTable.reviewedBy eq memberId)
-        val antragCount = AntragTable.selectAll().where { antragCondition }.count()
+        val motionCondition = (MotionTable.submitterMemberId eq memberId) or (MotionTable.reviewedBy eq memberId)
+        val motionCount = MotionTable.selectAll().where { motionCondition }.count()
 
-        val abstimmungCount = AbstimmungTable.selectAll().where { AbstimmungTable.openedBy eq memberId }.count()
+        val voteCount = VoteTable.selectAll().where { VoteTable.openedBy eq memberId }.count()
 
-        val stimmeCount = AbstimmungStimmeTable.selectAll().where { AbstimmungStimmeTable.memberId eq memberId }.count()
+        val ballotCount = VoteBallotTable.selectAll().where { VoteBallotTable.memberId eq memberId }.count()
 
         return listOf(
             TableErasureOutcome(
-                table = "gremium_mitgliedschaft",
-                rowsRetained = mitgliedschaftCount.toInt(),
-                retentionReason = "Rechenschaftspflichtiger Nachweis, wer wann welches Amt in welchem Gremium innehatte.",
+                table = "committee_membership",
+                rowsRetained = membershipCount.toInt(),
+                retentionReason = "Accountability record of who held which office on which Committee, and when.",
             ),
             TableErasureOutcome(
-                table = "sitzung",
-                rowsRetained = sitzungCount.toInt(),
-                retentionReason = "Sitzungs-Metadaten sind ein Organisationsdatensatz, kein reines Personendatum.",
+                table = "meeting",
+                rowsRetained = meetingCount.toInt(),
+                retentionReason = "Meeting metadata is an organizational record, not purely personal data.",
             ),
             TableErasureOutcome(
-                table = "tagesordnungspunkt",
-                rowsRetained = tagesordnungspunktCount.toInt(),
-                retentionReason = "Tagesordnungs-Inhalt ist ein Organisationsdatensatz, kein reines Personendatum.",
+                table = "agenda_item",
+                rowsRetained = agendaItemCount.toInt(),
+                retentionReason = "Agenda content is an organizational record, not purely personal data.",
             ),
             TableErasureOutcome(
-                table = "anwesenheit",
-                rowsRetained = anwesenheitCount.toInt(),
+                table = "attendance",
+                rowsRetained = attendanceCount.toInt(),
                 retentionReason =
-                    "Wird als Nachweis der historischen Beschlussfaehigkeit benoetigt; nur die " +
-                        "Freitext-Notiz wurde geloescht.",
+                    "Needed as evidence of historical quorum; only the free-text note was " +
+                        "erased.",
             ),
             TableErasureOutcome(
-                table = "beschluss",
-                rowsRetained = beschlussCount.toInt(),
+                table = "resolution",
+                rowsRetained = resolutionCount.toInt(),
                 retentionReason =
-                    "Der Beschlusstext selbst ist der materielle Rechtsnachweis (ein Verein muss " +
-                        "beweisen koennen, was beschlossen wurde) -- anders als ContributionTable's " +
-                        "beilaeufige Notiz waere ein Loeschen hier selbst ein Compliance-Problem.",
+                    "The resolution text itself is the material legal record (an association " +
+                        "must be able to prove what was resolved) -- unlike ContributionTable's " +
+                        "incidental note, erasing this would itself be a compliance problem.",
             ),
             TableErasureOutcome(
-                table = "antrag",
-                rowsRetained = antragCount.toInt(),
+                table = "motion",
+                rowsRetained = motionCount.toInt(),
                 retentionReason =
-                    "Der Antragstext und die Pruefungsbegruendung sind rechenschaftspflichtige " +
-                        "Verwaltungsvorgaenge (wer hat was beantragt, wer hat es wie geprueft) -- " +
-                        "analog zum beschluss-Praezedenzfall bleibt auch review_note vollstaendig " +
-                        "erhalten, kein Feld wird geloescht.",
+                    "The motion text and review rationale are accountability-relevant " +
+                        "administrative records (who moved what, who reviewed it and how) -- " +
+                        "same precedent as resolution, so review_note is also kept in full, no " +
+                        "field is erased.",
             ),
             TableErasureOutcome(
-                table = "abstimmung",
-                rowsRetained = abstimmungCount.toInt(),
+                table = "vote",
+                rowsRetained = voteCount.toInt(),
                 retentionReason =
-                    "Wer eine Abstimmung eroeffnet hat, ist Teil des rechenschaftspflichtigen " +
-                        "Beschlussvorgangs -- analog zum beschluss-Praezedenzfall.",
+                    "Who opened a Vote is part of the accountable resolution process -- same " +
+                        "precedent as resolution.",
             ),
             TableErasureOutcome(
-                table = "abstimmung_stimme",
-                rowsRetained = stimmeCount.toInt(),
+                table = "vote_ballot",
+                rowsRetained = ballotCount.toInt(),
                 retentionReason =
-                    "Die gestakte und abgerechnete LTR-Summe ist zugleich Eigentumsnachweis des " +
-                        "Mitglieds und Bestandteil der Vickrey-Abrechnung anderer Mitglieder -- " +
-                        "Loeschen wuerde beides beschaedigen. Kein Feld wird geloescht.",
+                    "The staked and settled LTR amount is both the member's own property record " +
+                        "and part of other members' Vickrey settlement -- erasing it would damage " +
+                        "both. No field is erased.",
             ),
         )
     }
 }
 
-private fun sitzungSummaryJson(row: ResultRow) =
+private fun meetingSummaryJson(row: ResultRow) =
     buildJsonObject {
-        put("id", row[SitzungTable.id].toString())
-        put("title", row[SitzungTable.title])
-        put("scheduledAt", row[SitzungTable.scheduledAt].toString())
-        put("status", row[SitzungTable.status].name)
+        put("id", row[MeetingTable.id].toString())
+        put("title", row[MeetingTable.title])
+        put("scheduledAt", row[MeetingTable.scheduledAt].toString())
+        put("status", row[MeetingTable.status].name)
     }
 
-private fun anwesenheitJson(row: ResultRow) =
+private fun attendanceJson(row: ResultRow) =
     buildJsonObject {
-        put("id", row[AnwesenheitTable.id].toString())
-        put("sitzungId", row[AnwesenheitTable.sitzungId].toString())
-        put("status", row[AnwesenheitTable.status].name)
-        put("recordedAt", row[AnwesenheitTable.recordedAt].toString())
+        put("id", row[AttendanceTable.id].toString())
+        put("meetingId", row[AttendanceTable.meetingId].toString())
+        put("status", row[AttendanceTable.status].name)
+        put("recordedAt", row[AttendanceTable.recordedAt].toString())
     }
 
-private fun antragSummaryJson(row: ResultRow) =
+private fun motionSummaryJson(row: ResultRow) =
     buildJsonObject {
-        put("id", row[AntragTable.id].toString())
-        put("targetGremiumId", row[AntragTable.targetGremiumId].toString())
-        put("title", row[AntragTable.title])
-        put("status", row[AntragTable.status].name)
-        put("submittedAt", row[AntragTable.submittedAt].toString())
+        put("id", row[MotionTable.id].toString())
+        put("targetCommitteeId", row[MotionTable.targetCommitteeId].toString())
+        put("title", row[MotionTable.title])
+        put("status", row[MotionTable.status].name)
+        put("submittedAt", row[MotionTable.submittedAt].toString())
     }

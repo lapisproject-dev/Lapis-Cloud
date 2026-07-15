@@ -17,4 +17,7 @@ public object DirectMessageTable : Table("direct_message") {
     public val readAt: Column<LocalDateTime?> = datetime("read_at").nullable()
 
     override val primaryKey: PrimaryKey = PrimaryKey(id)
+
+    // Note: 2 index(es) declared on this entity are not emitted —
+    // Exposed's index {} DSL needs typed column references, not wired up in this wave.
 }

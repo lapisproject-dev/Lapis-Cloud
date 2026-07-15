@@ -51,11 +51,11 @@ class DomainModelMergerTest :
             // 40 distinct `"tableName" to "..."` values across the 10 .kuml.kts files (verified by
             // grepping `grep -oh '"tableName" to "[a-z_]*"' lapis-server/src/main/kuml/*.kuml.kts |
             // sort -u | wc -l`; 58 total «Entity» declarations minus 18 cross-domain-stub
-            // duplicates: member appears in 7 files (6 dropped), antrag/sitzung/beschluss each
-            // appear in 4 files (3 dropped each), gremium appears in 3 files (2 dropped),
+            // duplicates: member appears in 7 files (6 dropped), motion/meeting/resolution each
+            // appear in 4 files (3 dropped each), committee appears in 3 files (2 dropped),
             // membership_tier appears in 2 files (1 dropped) -> 6+3+3+3+2+1 = 18 dropped.
-            // 09-konsensierung.kuml.kts (V0.2.5) is what pushed member/antrag/sitzung/beschluss/
-            // gremium's counts up by one file each versus the pre-V0.2.5 13-dropped baseline.
+            // 09-systemic-consensus.kuml.kts (V0.2.5) is what pushed member/motion/meeting/resolution/
+            // committee's counts up by one file each versus the pre-V0.2.5 13-dropped baseline.
             val distinctTableNames = 40
 
             val result =
@@ -93,32 +93,32 @@ class DomainModelMergerTest :
                     "DirectMessageTable.kt",
                     "ErasureRequestTable.kt",
                     "DsgvoAuditLogTable.kt",
-                    "GremiumTable.kt",
-                    "GremiumMitgliedschaftTable.kt",
-                    "SitzungTable.kt",
-                    "TagesordnungspunktTable.kt",
-                    "AnwesenheitTable.kt",
-                    "BeschlussTable.kt",
-                    "AntragTable.kt",
-                    "AbstimmungTable.kt",
-                    "AbstimmungOptionTable.kt",
-                    "AbstimmungStimmeTable.kt",
-                    "WahlTable.kt",
-                    "WahlKandidaturTable.kt",
-                    "WahlOptionTable.kt",
-                    "WahlWahlvorstandTable.kt",
-                    "WahlWahlberechtigtTable.kt",
-                    "WahlTeilnahmeTable.kt",
-                    "WahlFreigabeTable.kt",
-                    "WahlStimmzettelTable.kt",
-                    "WahlStimmzettelAuswahlTable.kt",
+                    "CommitteeTable.kt",
+                    "CommitteeMembershipTable.kt",
+                    "MeetingTable.kt",
+                    "AgendaItemTable.kt",
+                    "AttendanceTable.kt",
+                    "ResolutionTable.kt",
+                    "MotionTable.kt",
+                    "VoteTable.kt",
+                    "VoteOptionTable.kt",
+                    "VoteBallotTable.kt",
+                    "ElectionTable.kt",
+                    "ElectionCandidacyTable.kt",
+                    "ElectionOptionTable.kt",
+                    "ElectionBoardMemberTable.kt",
+                    "ElectionEligibleVoterTable.kt",
+                    "ElectionParticipationTable.kt",
+                    "ElectionTallyApprovalTable.kt",
+                    "ElectionBallotTable.kt",
+                    "ElectionBallotSelectionTable.kt",
                     "LtrBalanceTable.kt",
-                    "KonsensierungTable.kt",
-                    "KonsensierungOptionTable.kt",
-                    "KonsensierungStimmberechtigtTable.kt",
-                    "KonsensierungTeilnahmeTable.kt",
-                    "KonsensierungStimmzettelTable.kt",
-                    "KonsensierungWiderstandTable.kt",
+                    "SystemicConsensusTable.kt",
+                    "SystemicConsensusOptionTable.kt",
+                    "SystemicConsensusEligibleVoterTable.kt",
+                    "SystemicConsensusParticipationTable.kt",
+                    "SystemicConsensusBallotTable.kt",
+                    "SystemicConsensusResistanceTable.kt",
                 )
         }
 

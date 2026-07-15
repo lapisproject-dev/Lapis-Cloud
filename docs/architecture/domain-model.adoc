@@ -1,63 +1,62 @@
-= Domain Model — V0.1.5 (Beitraege, Dokumente, Kommunikation)
-:description: Datenmodell fuer Beitragsverwaltung, Dokumentenablage und Kommunikation, inklusive Member/Account-Foundation-Stub.
+= Domain Model — V0.1.5 (Contributions, Documents, Communication)
+:description: Data model for contribution management, document storage, and communication, including the Member/Account Foundation stub.
 :toc:
 :toc-placement: preamble
 :icons: font
 
-== Kontext
+== Context
 
-Dieses Dokument beschreibt das Datenmodell, das mit V0.1.5 eingefuehrt wurde: Beitragsverwaltung,
-Dokumentenablage und Kommunikation (Mailinglisten + Direktnachrichten). `Member` und `Account` sind
-hier nur als **Foundation-Stub** modelliert — so granular, wie die drei V0.1.5-Bereiche sie als
-Fremdschluessel brauchen. Das vollstaendige Mitglieder-Stammdatenmodell (Antrags-/Austrittsworkflow,
-Rollen- und Berechtigungskonzept, Auth/Session) folgt in V0.1.2-V0.1.4 und ersetzt diesen Stub, ohne
-die hier definierten Fremdschluessel zu brechen.
+This document describes the data model introduced with V0.1.5: contribution management,
+document storage, and communication (mailing lists + direct messages). `Member` and `Account` are
+modelled here only as a **Foundation stub** — as granular as the three V0.1.5 areas need them as
+foreign keys. The full member master-data model (application/withdrawal workflow, role and
+permission concept, auth/session) follows in V0.1.2-V0.1.4 and replaces this stub without breaking
+the foreign keys defined here.
 
-Persistenz-Erzeugung: Die `uml-to-erm`/`erm-to-exposed`-MDA-Pipeline (ADR-0016, kUML-Module
-`kuml-transform-uml-to-erm` + `kuml-codegen-m2m-exposed`, Maven Central) existiert seit V3.4.x —
-der `dev.kuml` Gradle-*Plugin* selbst ist allerdings unveroeffentlicht. Fuer **Foundation**
-(`Member`/`Account`, dieser Stub; `lapis-server/src/main/kuml/00-foundation.kuml.kts`),
-**Beitragsverwaltung** (`MembershipTier`/`Contribution`;
-`lapis-server/src/main/kuml/01-contribution.kuml.kts`), **Dokumentenablage**
+Persistence generation: the `uml-to-erm`/`erm-to-exposed` MDA pipeline (ADR-0016, kUML modules
+`kuml-transform-uml-to-erm` + `kuml-codegen-m2m-exposed`, Maven Central) has existed since V3.4.x —
+the `dev.kuml` Gradle *plugin* itself, however, is unpublished. For **Foundation**
+(`Member`/`Account`, this stub; `lapis-server/src/main/kuml/00-foundation.kuml.kts`),
+**contribution management** (`MembershipTier`/`Contribution`;
+`lapis-server/src/main/kuml/01-contribution.kuml.kts`), **document storage**
 (`DocumentFolder`/`Document`/`DocumentVersion`;
-`lapis-server/src/main/kuml/02-document.kuml.kts`) und **Kommunikation**
+`lapis-server/src/main/kuml/02-document.kuml.kts`), and **communication**
 (`MailingList`/`MailingListSubscription`/`MailingMessage`/`MailingDeliveryLog`/`DirectMessage`;
-`lapis-server/src/main/kuml/03-communication.kuml.kts`) sind diese `.kuml.kts`-Dateien seit der
-MDA-Persistence-Retrofit-Welle das versionierte, per domaenenspezifischem `SchemaDriftTest`
+`lapis-server/src/main/kuml/03-communication.kuml.kts`), these `.kuml.kts` files have, since the
+MDA persistence retrofit wave, been the versioned source-of-truth model — verified per domain by a
+dedicated `SchemaDriftTest`
 (`lapis-server/src/test/kotlin/network/lapis/cloud/server/db/{SchemaDriftTest,
-ContributionSchemaDriftTest, DocumentSchemaDriftTest, CommunicationSchemaDriftTest}.kt`) gegen das
-echte Flyway-migrierte Schema und die handgeschriebenen Exposed-`Table`-Objekte verifizierte
-Source-of-Truth-Modell — nicht mehr rein dokumentarisch. Die handgeschriebenen Exposed-Tabellen
-unter `lapis-server/src/main/kotlin/.../db/tables` bleiben bewusst der kompilierte/tatsaechlich
-importierte Artefakt (designModelStrategy Option B: Enum-zu-VARCHAR-Downgrade und fehlender
-Kotlin-Objektnamen-Override machen einen vollstaendigen generierten-und-kompilierten Swap fuer
-dieses Repository aktuell verlustbehaftet bzw. disruptiv — siehe die Kopfkommentare in den
-jeweiligen `.kuml.kts`-Dateien und CLAUDE.md's kUML-Repo-Konventionen im Vault fuer die volle
-Begruendung). Die Dokumentenablage-Domaene brachte einen weiteren, ueber Foundation/
-Beitragsverwaltung hinausgehenden Modellierungs-Kompromiss mit sich: `document.folder_id`,
-`document.created_by` und `document_version.uploaded_by` sind als einfache `«Column»`-UUID-
-Attribute statt als UML-Assoziationen modelliert, weil `UmlToErmTransformer`s Assoziations-zu-FK-
-Spaltennamensableitung (`snake_case(singular(Zielklasse)) + "_id"`) nicht mit den echten
-Spaltennamen uebereinstimmt und keine DSL-seitige Override-Moeglichkeit existiert (Details in
-`02-document.kuml.kts`s Kopfkommentar). Die Kommunikations-Domaene bestaetigt denselben
-Namensableitungs-Kompromiss (`mailing_list.created_by`, `mailing_message.sent_by`) und deckt
-zusaetzlich den im Retrofit-Plan als Risiko benannten Fall zweier Assoziationen von derselben
-Klasse zum selben Ziel auf: `direct_message.sender_id` und `direct_message.recipient_id`
-referenzieren beide `member`, aber `UmlToErmTransformer`s Rollennamen-basierte Kollisions-
-Aufloesung liefert bei einem echten Assoziationspaar nur `member_id`/`<rolle>_id`, nie beide
-gewuenschten Spaltennamen gemeinsam — empirisch verifiziert waehrend dieser Welle. Beide
-Fremdschluessel sind daher ebenfalls als einfache `«Column»`-Attribute modelliert (Details in
-`03-communication.kuml.kts`s Kopfkommentar und `CommunicationSchemaDriftTest`). Damit sind alle
-vier V0.1.5-Domaenen (Foundation, Beitragsverwaltung, Dokumentenablage, Kommunikation) nicht mehr
-rein dokumentarisch, sondern durch je einen `SchemaDriftTest` verifiziert.
+ContributionSchemaDriftTest, DocumentSchemaDriftTest, CommunicationSchemaDriftTest}.kt`) against
+the real Flyway-migrated schema and the hand-written Exposed `Table` objects — no longer purely
+documentary. The hand-written Exposed tables under
+`lapis-server/src/main/kotlin/.../db/tables` remain, deliberately, the compiled/actually-imported
+artifact (designModelStrategy option B: the enum-to-VARCHAR downgrade and the missing Kotlin
+object-name override currently make a full generated-and-compiled swap lossy/disruptive for this
+repository — see the header comments in the respective `.kuml.kts` files and CLAUDE.md's
+kUML-Repo-Konventionen in the vault for the full rationale). The document-storage domain brought
+one further modelling trade-off beyond Foundation/contribution management: `document.folder_id`,
+`document.created_by`, and `document_version.uploaded_by` are modelled as plain `«Column»` UUID
+attributes rather than UML associations, because `UmlToErmTransformer`'s association-to-FK
+column-name derivation (`snake_case(singular(targetClass)) + "_id"`) doesn't match the real column
+names and no DSL-side override exists (details in `02-document.kuml.kts`'s header comment). The
+communication domain confirms the same naming-derivation trade-off (`mailing_list.created_by`,
+`mailing_message.sent_by`) and additionally surfaces the case the retrofit plan flagged as a risk —
+two associations from the same class to the same target: `direct_message.sender_id` and
+`direct_message.recipient_id` both reference `member`, but `UmlToErmTransformer`'s role-name-based
+collision resolution only ever yields `member_id`/`<role>_id` for a genuine association pair, never
+both desired column names together — verified empirically during this wave. Both foreign keys are
+therefore likewise modelled as plain `«Column»` attributes (details in `03-communication.kuml.kts`'s
+header comment and `CommunicationSchemaDriftTest`). With this, all four V0.1.5 domains (Foundation,
+contribution management, document storage, communication) are no longer purely documentary but each
+verified by its own `SchemaDriftTest`.
 
-== Diagramm
+== Diagram
 
 [kuml, domain-model, svg]
 ----
 classDiagram(name = "Lapis Cloud Domain Model — V0.1.5") {
 
-    // ── Foundation (V0.1.2-V0.1.4 stub — see CLAUDE.md Vorab-Befund) ──────
+    // ── Foundation (V0.1.2-V0.1.4 stub — see CLAUDE.md preliminary findings) ──────
 
     val memberStatus = enumOf(name = "MemberStatus") {
         literal(name = "ANTRAG")
@@ -94,7 +93,7 @@ classDiagram(name = "Lapis Cloud Domain Model — V0.1.5") {
         target { multiplicity(spec = "0..1"); role = "account" }
     }
 
-    // ── Beitragsverwaltung ──────────────────────────────────────────────
+    // ── Contribution management ──────────────────────────────────────────────
 
     val billingInterval = enumOf(name = "BillingInterval") {
         literal(name = "MONTHLY")
@@ -142,7 +141,7 @@ classDiagram(name = "Lapis Cloud Domain Model — V0.1.5") {
         target { multiplicity(spec = "0..*"); role = "contributions" }
     }
 
-    // ── Dokumentenablage ────────────────────────────────────────────────
+    // ── Document storage ────────────────────────────────────────────────
 
     val documentAccessLevel = enumOf(name = "DocumentAccessLevel") {
         literal(name = "PUBLIC_MEMBERS")
@@ -200,7 +199,7 @@ classDiagram(name = "Lapis Cloud Domain Model — V0.1.5") {
     dependency(client = document, supplier = member, name = "createdBy")
     dependency(client = documentVersion, supplier = member, name = "uploadedBy")
 
-    // ── Kommunikation ───────────────────────────────────────────────────
+    // ── Communication ───────────────────────────────────────────────────
 
     val mailingMessageStatus = enumOf(name = "MailingMessageStatus") {
         literal(name = "DRAFT")
@@ -279,10 +278,10 @@ classDiagram(name = "Lapis Cloud Domain Model — V0.1.5") {
     dependency(client = directMessage, supplier = member, name = "sender/recipient")
 
     comment(
-        text = "Foundation-Stub: Member/Account werden hier nur so granular modelliert, wie " +
-            "V0.1.5 (Beitraege/Dokumente/Kommunikation) sie als Fremdschluessel braucht. " +
-            "Volles Mitglieder-Stammdatenmodell folgt in V0.1.2-V0.1.4 und ersetzt diesen Stub, " +
-            "ohne die hier definierten FKs zu brechen.",
+        text = "Foundation stub: Member/Account are modelled here only as granularly as " +
+            "V0.1.5 (contributions/documents/communication) needs them as foreign keys. " +
+            "The full member master-data model follows in V0.1.2-V0.1.4 and replaces this stub, " +
+            "without breaking the FKs defined here.",
         firstAnchor = member,
     )
 }

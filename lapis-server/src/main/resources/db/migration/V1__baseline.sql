@@ -17,15 +17,15 @@ CREATE TABLE document_folder (
     parent_folder_id UUID NULL
 );
 
-CREATE TABLE gremium (
+CREATE TABLE committee (
     id UUID NOT NULL PRIMARY KEY,
     name VARCHAR(200) NOT NULL,
-    type VARCHAR(21) NOT NULL,
+    type VARCHAR(16) NOT NULL,
     description VARCHAR(1000) NOT NULL,
     active BOOLEAN NOT NULL DEFAULT TRUE,
     quorum_percent INTEGER NOT NULL DEFAULT 50,
     created_at TIMESTAMP NOT NULL,
-    CHECK (type IN ('VORSTAND', 'ARBEITSKREIS', 'AUSSCHUSS', 'SONSTIGES', 'MITGLIEDERVERSAMMLUNG'))
+    CHECK (type IN ('EXECUTIVE_BOARD', 'WORKING_GROUP', 'COMMISSION', 'OTHER', 'GENERAL_ASSEMBLY'))
 );
 
 CREATE TABLE member (
@@ -109,14 +109,14 @@ CREATE TABLE erasure_request (
     CHECK (status IN ('REQUESTED', 'APPROVED', 'REJECTED', 'COMPLETED'))
 );
 
-CREATE TABLE gremium_mitgliedschaft (
+CREATE TABLE committee_membership (
     id UUID NOT NULL PRIMARY KEY,
-    rolle VARCHAR(15) NOT NULL,
+    role VARCHAR(12) NOT NULL,
     since DATE NOT NULL,
     until DATE NULL,
-    gremium_id UUID NOT NULL,
+    committee_id UUID NOT NULL,
     member_id UUID NOT NULL,
-    CHECK (rolle IN ('VORSITZ', 'STELLV_VORSITZ', 'SCHRIFTFUEHRUNG', 'MITGLIED', 'BEISITZ'))
+    CHECK (role IN ('CHAIR', 'DEPUTY_CHAIR', 'SECRETARY', 'MEMBER', 'ASSESSOR'))
 );
 
 CREATE TABLE ltr_balance (
@@ -139,22 +139,22 @@ CREATE TABLE document_version (
     document_id UUID NOT NULL
 );
 
-CREATE TABLE sitzung (
+CREATE TABLE meeting (
     id UUID NOT NULL PRIMARY KEY,
     title VARCHAR(300) NOT NULL,
     scheduled_at TIMESTAMP NOT NULL,
     location VARCHAR(300) NULL,
-    format VARCHAR(8) NOT NULL,
-    status VARCHAR(13) NOT NULL,
+    format VARCHAR(9) NOT NULL,
+    status VARCHAR(9) NOT NULL,
     called_by UUID NULL,
     called_at TIMESTAMP NULL,
     chair_member_id UUID NULL,
     minute_taker_member_id UUID NULL,
     protocol_document_id UUID NULL,
     created_at TIMESTAMP NOT NULL,
-    gremium_id UUID NOT NULL,
-    CHECK (format IN ('PRAESENZ', 'ONLINE', 'HYBRID')),
-    CHECK (status IN ('GEPLANT', 'DURCHGEFUEHRT', 'ABGESAGT'))
+    committee_id UUID NOT NULL,
+    CHECK (format IN ('IN_PERSON', 'ONLINE', 'HYBRID')),
+    CHECK (status IN ('PLANNED', 'HELD', 'CANCELLED'))
 );
 
 CREATE TABLE mailing_list_subscription (
@@ -190,24 +190,24 @@ CREATE TABLE dsgvo_audit_log (
     CHECK (action IN ('EXPORT', 'ERASURE_REQUESTED', 'ERASURE_APPROVED', 'ERASURE_REJECTED', 'ERASURE_EXECUTED'))
 );
 
-CREATE TABLE tagesordnungspunkt (
+CREATE TABLE agenda_item (
     id UUID NOT NULL PRIMARY KEY,
     position INTEGER NOT NULL,
     title VARCHAR(300) NOT NULL,
     description VARCHAR(4000) NULL,
     presenter_member_id UUID NULL,
-    sitzung_id UUID NOT NULL
+    meeting_id UUID NOT NULL
 );
 
-CREATE TABLE anwesenheit (
+CREATE TABLE attendance (
     id UUID NOT NULL PRIMARY KEY,
-    status VARCHAR(14) NOT NULL,
+    status VARCHAR(11) NOT NULL,
     represented_by_member_id UUID NULL,
     note VARCHAR(500) NULL,
     recorded_at TIMESTAMP NOT NULL,
-    sitzung_id UUID NOT NULL,
+    meeting_id UUID NOT NULL,
     member_id UUID NOT NULL,
-    CHECK (status IN ('ANWESEND', 'ENTSCHULDIGT', 'UNENTSCHULDIGT', 'VERTRETEN'))
+    CHECK (status IN ('PRESENT', 'EXCUSED', 'UNEXCUSED', 'REPRESENTED'))
 );
 
 CREATE TABLE mailing_delivery_log (
@@ -219,7 +219,7 @@ CREATE TABLE mailing_delivery_log (
     CHECK (delivery_status IN ('SENT', 'BOUNCED', 'SKIPPED_UNSUBSCRIBED'))
 );
 
-CREATE TABLE beschluss (
+CREATE TABLE resolution (
     id UUID NOT NULL PRIMARY KEY,
     number VARCHAR(50) NOT NULL,
     title VARCHAR(300) NOT NULL,
@@ -228,63 +228,63 @@ CREATE TABLE beschluss (
     votes_no INTEGER NOT NULL,
     votes_abstain INTEGER NOT NULL,
     quorum_met BOOLEAN NOT NULL,
-    status VARCHAR(10) NOT NULL,
+    status VARCHAR(9) NOT NULL,
     decided_at TIMESTAMP NOT NULL,
     recorded_by UUID NOT NULL,
-    resolution_mode VARCHAR(20) NOT NULL DEFAULT 'GREMIUM_QUORUM',
-    abstimmung_id UUID NULL,
-    wahl_id UUID NULL,
-    konsensierung_id UUID NULL,
-    sitzung_id UUID NOT NULL,
-    tagesordnungspunkt_id UUID NULL,
-    CHECK (status IN ('ANGENOMMEN', 'ABGELEHNT', 'VERTAGT')),
-    CHECK (resolution_mode IN ('GREMIUM_QUORUM', 'MERITOKRATISCH', 'DEMOKRATISCH', 'SYSTEMISCHER_KONSENS'))
+    resolution_mode VARCHAR(18) NOT NULL DEFAULT 'COMMITTEE_QUORUM',
+    vote_id UUID NULL,
+    election_id UUID NULL,
+    systemic_consensus_id UUID NULL,
+    meeting_id UUID NOT NULL,
+    agenda_item_id UUID NULL,
+    CHECK (status IN ('ADOPTED', 'REJECTED', 'POSTPONED')),
+    CHECK (resolution_mode IN ('COMMITTEE_QUORUM', 'MERITOCRATIC', 'DEMOCRATIC', 'SYSTEMIC_CONSENSUS'))
 );
 
-CREATE TABLE antrag (
+CREATE TABLE motion (
     id UUID NOT NULL PRIMARY KEY,
-    target_gremium_id UUID NOT NULL,
+    target_committee_id UUID NOT NULL,
     title VARCHAR(300) NOT NULL,
-    begruendung VARCHAR(4000) NOT NULL,
+    rationale VARCHAR(4000) NOT NULL,
     text VARCHAR(4000) NOT NULL,
     submitter_member_id UUID NOT NULL,
-    status VARCHAR(21) NOT NULL,
+    status VARCHAR(20) NOT NULL,
     submitted_at TIMESTAMP NOT NULL,
     reviewed_by UUID NULL,
     reviewed_at TIMESTAMP NULL,
     review_note VARCHAR(1000) NULL,
     withdrawn_at TIMESTAMP NULL,
-    sitzung_id UUID NULL,
-    tagesordnungspunkt_id UUID NULL,
-    beschluss_id UUID NULL,
-    CHECK (status IN ('EINGEREICHT', 'GEPRUEFT', 'ABGELEHNT_VORPRUEFUNG', 'TERMINIERT', 'BESCHLOSSEN', 'ABGELEHNT', 'VERTAGT', 'ZURUECKGEZOGEN'))
+    meeting_id UUID NULL,
+    agenda_item_id UUID NULL,
+    resolution_id UUID NULL,
+    CHECK (status IN ('SUBMITTED', 'REVIEWED', 'REJECTED_PRELIMINARY', 'SCHEDULED', 'RESOLVED', 'REJECTED', 'POSTPONED', 'WITHDRAWN'))
 );
 
-CREATE TABLE abstimmung (
+CREATE TABLE vote (
     id UUID NOT NULL PRIMARY KEY,
     title VARCHAR(300) NOT NULL,
-    status VARCHAR(11) NOT NULL,
+    status VARCHAR(7) NOT NULL,
     opened_by UUID NOT NULL,
     opened_at TIMESTAMP NOT NULL,
     closed_at TIMESTAMP NULL,
     winner_option_id UUID NULL,
     second_price_ltr DECIMAL(18, 2) NULL,
-    antrag_id UUID NOT NULL,
-    sitzung_id UUID NOT NULL,
-    beschluss_id UUID NULL,
-    CHECK (status IN ('OFFEN', 'GESCHLOSSEN', 'ABGEBROCHEN'))
+    motion_id UUID NOT NULL,
+    meeting_id UUID NOT NULL,
+    resolution_id UUID NULL,
+    CHECK (status IN ('OPEN', 'CLOSED', 'ABORTED'))
 );
 
-CREATE TABLE wahl (
+CREATE TABLE election (
     id UUID NOT NULL PRIMARY KEY,
     title VARCHAR(300) NOT NULL,
-    wahl_typ VARCHAR(14) NOT NULL,
-    geheim BOOLEAN NOT NULL,
-    sitze_count INTEGER NOT NULL,
-    ziel_gremium_id UUID NULL,
-    ziel_rolle VARCHAR(15) NULL,
+    election_type VARCHAR(13) NOT NULL,
+    secret BOOLEAN NOT NULL,
+    seat_count INTEGER NOT NULL,
+    target_committee_id UUID NULL,
+    target_role VARCHAR(12) NULL,
     required_majority_percent INTEGER NOT NULL,
-    status VARCHAR(27) NOT NULL,
+    status VARCHAR(23) NOT NULL,
     opened_by UUID NOT NULL,
     opened_at TIMESTAMP NOT NULL,
     candidate_list_approved_at TIMESTAMP NULL,
@@ -292,155 +292,155 @@ CREATE TABLE wahl (
     voting_closed_at TIMESTAMP NULL,
     tally_threshold INTEGER NOT NULL,
     tally_run_at TIMESTAMP NULL,
-    antrag_id UUID NOT NULL,
-    sitzung_id UUID NOT NULL,
-    beschluss_id UUID NULL,
-    CHECK (wahl_typ IN ('JA_NEIN', 'EINZELWAHL', 'MEHRFACHWAHL', 'LISTENWAHL', 'RANGLISTENWAHL')),
-    CHECK (ziel_rolle IN ('VORSITZ', 'STELLV_VORSITZ', 'SCHRIFTFUEHRUNG', 'MITGLIED', 'BEISITZ')),
-    CHECK (status IN ('VORBEREITUNG', 'KANDIDATENLISTE_FREIGEGEBEN', 'OFFEN', 'GESCHLOSSEN', 'AUSGEZAEHLT', 'ABGEBROCHEN'))
+    motion_id UUID NOT NULL,
+    meeting_id UUID NOT NULL,
+    resolution_id UUID NULL,
+    CHECK (election_type IN ('YES_NO', 'SINGLE_CHOICE', 'MULTI_CHOICE', 'LIST_VOTE', 'RANKED_CHOICE')),
+    CHECK (target_role IN ('CHAIR', 'DEPUTY_CHAIR', 'SECRETARY', 'MEMBER', 'ASSESSOR')),
+    CHECK (status IN ('PREPARATION', 'CANDIDATE_LIST_RELEASED', 'OPEN', 'CLOSED', 'TALLIED', 'ABORTED'))
 );
 
-CREATE TABLE konsensierung (
+CREATE TABLE systemic_consensus (
     id UUID NOT NULL PRIMARY KEY,
     title VARCHAR(300) NOT NULL,
-    status VARCHAR(11) NOT NULL,
-    geheim BOOLEAN NOT NULL,
-    skala_max INTEGER NOT NULL,
-    aggregation VARCHAR(10) NOT NULL,
-    tiebreak_regel VARCHAR(25) NOT NULL,
-    gk_tragfaehig_schwelle DECIMAL(4, 3) NOT NULL,
-    gk_warn_schwelle DECIMAL(4, 3) NOT NULL,
-    passivloesung_auto BOOLEAN NOT NULL,
-    verbindlichkeit VARCHAR(10) NOT NULL,
-    max_runden INTEGER NOT NULL,
-    runde INTEGER NOT NULL,
+    status VARCHAR(10) NOT NULL,
+    secret BOOLEAN NOT NULL,
+    scale_max INTEGER NOT NULL,
+    aggregation VARCHAR(4) NOT NULL,
+    tiebreak_rule VARCHAR(21) NOT NULL,
+    group_conflict_viable_threshold DECIMAL(4, 3) NOT NULL,
+    group_conflict_warn_threshold DECIMAL(4, 3) NOT NULL,
+    status_quo_option_auto BOOLEAN NOT NULL,
+    bindingness VARCHAR(8) NOT NULL,
+    max_rounds INTEGER NOT NULL,
+    round INTEGER NOT NULL,
     winner_option_id UUID NULL,
     opened_by UUID NOT NULL,
     opened_at TIMESTAMP NOT NULL,
-    bewertung_opened_at TIMESTAMP NULL,
-    bewertung_closed_at TIMESTAMP NULL,
+    rating_opened_at TIMESTAMP NULL,
+    rating_closed_at TIMESTAMP NULL,
     tally_run_at TIMESTAMP NULL,
-    antrag_id UUID NOT NULL,
-    sitzung_id UUID NOT NULL,
-    beschluss_id UUID NULL,
-    CHECK (status IN ('SAMMLUNG', 'BEWERTUNG', 'GESCHLOSSEN', 'AUSGEWERTET', 'ABGEBROCHEN')),
-    CHECK (aggregation IN ('MITTELWERT', 'SUMME')),
-    CHECK (tiebreak_regel IN ('NIEDRIGSTER_MAXWIDERSTAND', 'NIEDRIGSTE_STDABW', 'WIEDERHOLUNG')),
-    CHECK (verbindlichkeit IN ('SONDIERUNG', 'BESCHLUSS'))
+    motion_id UUID NOT NULL,
+    meeting_id UUID NOT NULL,
+    resolution_id UUID NULL,
+    CHECK (status IN ('COLLECTION', 'RATING', 'CLOSED', 'EVALUATED', 'ABORTED')),
+    CHECK (aggregation IN ('MEAN', 'SUM')),
+    CHECK (tiebreak_rule IN ('LOWEST_MAX_RESISTANCE', 'LOWEST_STD_DEV', 'REPEAT')),
+    CHECK (bindingness IN ('ADVISORY', 'BINDING'))
 );
 
-CREATE TABLE abstimmung_option (
+CREATE TABLE vote_option (
     id UUID NOT NULL PRIMARY KEY,
     label VARCHAR(200) NOT NULL,
     position INTEGER NOT NULL,
-    abstimmung_id UUID NOT NULL
+    vote_id UUID NOT NULL
 );
 
-CREATE TABLE wahl_kandidatur (
+CREATE TABLE election_candidacy (
     id UUID NOT NULL PRIMARY KEY,
     motivation_text VARCHAR(1000) NULL,
     submitted_at TIMESTAMP NOT NULL,
     withdrawn_at TIMESTAMP NULL,
-    wahl_id UUID NOT NULL,
+    election_id UUID NOT NULL,
     member_id UUID NOT NULL
 );
 
-CREATE TABLE wahl_wahlvorstand (
+CREATE TABLE election_board_member (
     id UUID NOT NULL PRIMARY KEY,
     appointed_at TIMESTAMP NOT NULL,
-    wahl_id UUID NOT NULL,
+    election_id UUID NOT NULL,
     member_id UUID NOT NULL
 );
 
-CREATE TABLE wahl_wahlberechtigt (
+CREATE TABLE election_eligible_voter (
     id UUID NOT NULL PRIMARY KEY,
-    wahl_id UUID NOT NULL,
+    election_id UUID NOT NULL,
     member_id UUID NOT NULL
 );
 
-CREATE TABLE wahl_teilnahme (
+CREATE TABLE election_participation (
     id UUID NOT NULL PRIMARY KEY,
     voted_at TIMESTAMP NOT NULL,
-    wahl_id UUID NOT NULL,
+    election_id UUID NOT NULL,
     member_id UUID NOT NULL
 );
 
-CREATE TABLE wahl_freigabe (
+CREATE TABLE election_tally_approval (
     id UUID NOT NULL PRIMARY KEY,
     approved_at TIMESTAMP NOT NULL,
-    wahl_id UUID NOT NULL,
+    election_id UUID NOT NULL,
     member_id UUID NOT NULL
 );
 
-CREATE TABLE wahl_stimmzettel (
+CREATE TABLE election_ballot (
     id UUID NOT NULL PRIMARY KEY,
     receipt_code VARCHAR(40) NOT NULL,
     cast_at TIMESTAMP NOT NULL,
-    wahl_id UUID NOT NULL,
+    election_id UUID NOT NULL,
     member_id UUID NULL
 );
 
-CREATE TABLE konsensierung_option (
+CREATE TABLE systemic_consensus_option (
     id UUID NOT NULL PRIMARY KEY,
     label VARCHAR(200) NOT NULL,
     position INTEGER NOT NULL,
-    is_passivloesung BOOLEAN NOT NULL,
-    created_by UUID NOT NULL,
-    konsensierung_id UUID NOT NULL
+    is_status_quo_option BOOLEAN NOT NULL,
+    systemic_consensus_id UUID NOT NULL,
+    created_by UUID NOT NULL
 );
 
-CREATE TABLE konsensierung_stimmberechtigt (
+CREATE TABLE systemic_consensus_eligible_voter (
     id UUID NOT NULL PRIMARY KEY,
-    runde INTEGER NOT NULL,
-    konsensierung_id UUID NOT NULL,
+    systemic_consensus_id UUID NOT NULL,
+    round INTEGER NOT NULL,
     member_id UUID NOT NULL
 );
 
-CREATE TABLE konsensierung_teilnahme (
+CREATE TABLE systemic_consensus_participation (
     id UUID NOT NULL PRIMARY KEY,
+    systemic_consensus_id UUID NOT NULL,
     voted_at TIMESTAMP NOT NULL,
-    runde INTEGER NOT NULL,
-    konsensierung_id UUID NOT NULL,
+    round INTEGER NOT NULL,
     member_id UUID NOT NULL
 );
 
-CREATE TABLE konsensierung_stimmzettel (
+CREATE TABLE systemic_consensus_ballot (
     id UUID NOT NULL PRIMARY KEY,
+    systemic_consensus_id UUID NOT NULL,
     receipt_code VARCHAR(40) NOT NULL,
     cast_at TIMESTAMP NOT NULL,
-    runde INTEGER NOT NULL,
-    konsensierung_id UUID NOT NULL,
+    round INTEGER NOT NULL,
     member_id UUID NULL
 );
 
-CREATE TABLE abstimmung_stimme (
+CREATE TABLE vote_ballot (
     id UUID NOT NULL PRIMARY KEY,
     option_id UUID NOT NULL,
     stake_ltr DECIMAL(18, 2) NOT NULL,
     settled_ltr DECIMAL(18, 2) NULL,
     cast_at TIMESTAMP NOT NULL,
-    abstimmung_id UUID NOT NULL,
+    vote_id UUID NOT NULL,
     member_id UUID NOT NULL
 );
 
-CREATE TABLE wahl_option (
+CREATE TABLE election_option (
     id UUID NOT NULL PRIMARY KEY,
     label VARCHAR(200) NOT NULL,
     position INTEGER NOT NULL,
-    kandidatur_id UUID NULL,
-    wahl_id UUID NOT NULL
+    candidacy_id UUID NULL,
+    election_id UUID NOT NULL
 );
 
-CREATE TABLE konsensierung_widerstand (
+CREATE TABLE systemic_consensus_resistance (
     id UUID NOT NULL PRIMARY KEY,
-    wert INTEGER NOT NULL,
-    stimmzettel_id UUID NOT NULL,
+    resistance_value INTEGER NOT NULL,
+    ballot_id UUID NOT NULL,
     option_id UUID NOT NULL
 );
 
-CREATE TABLE wahl_stimmzettel_auswahl (
+CREATE TABLE election_ballot_selection (
     id UUID NOT NULL PRIMARY KEY,
-    stimmzettel_id UUID NOT NULL,
+    ballot_id UUID NOT NULL,
     option_id UUID NOT NULL
 );
 
@@ -469,71 +469,71 @@ ALTER TABLE erasure_request ADD CONSTRAINT fk_erasure_request_decided_by FOREIGN
 ALTER TABLE dsgvo_audit_log ADD CONSTRAINT fk_dsgvo_audit_log_actor_member_id FOREIGN KEY (actor_member_id) REFERENCES member(id);
 ALTER TABLE dsgvo_audit_log ADD CONSTRAINT fk_dsgvo_audit_log_subject_member_id FOREIGN KEY (subject_member_id) REFERENCES member(id);
 ALTER TABLE dsgvo_audit_log ADD CONSTRAINT fk_dsgvo_audit_log_request_id FOREIGN KEY (request_id) REFERENCES erasure_request(id);
-ALTER TABLE gremium_mitgliedschaft ADD CONSTRAINT fk_gremium_mitgliedschaft_gremium_id FOREIGN KEY (gremium_id) REFERENCES gremium(id);
-ALTER TABLE gremium_mitgliedschaft ADD CONSTRAINT fk_gremium_mitgliedschaft_member_id FOREIGN KEY (member_id) REFERENCES member(id);
-ALTER TABLE sitzung ADD CONSTRAINT fk_sitzung_called_by FOREIGN KEY (called_by) REFERENCES member(id);
-ALTER TABLE sitzung ADD CONSTRAINT fk_sitzung_chair_member_id FOREIGN KEY (chair_member_id) REFERENCES member(id);
-ALTER TABLE sitzung ADD CONSTRAINT fk_sitzung_minute_taker_member_id FOREIGN KEY (minute_taker_member_id) REFERENCES member(id);
-ALTER TABLE sitzung ADD CONSTRAINT fk_sitzung_protocol_document_id FOREIGN KEY (protocol_document_id) REFERENCES document(id);
-ALTER TABLE sitzung ADD CONSTRAINT fk_sitzung_gremium_id FOREIGN KEY (gremium_id) REFERENCES gremium(id);
-ALTER TABLE tagesordnungspunkt ADD CONSTRAINT fk_tagesordnungspunkt_presenter_member_id FOREIGN KEY (presenter_member_id) REFERENCES member(id);
-ALTER TABLE tagesordnungspunkt ADD CONSTRAINT fk_tagesordnungspunkt_sitzung_id FOREIGN KEY (sitzung_id) REFERENCES sitzung(id);
-ALTER TABLE anwesenheit ADD CONSTRAINT fk_anwesenheit_represented_by_member_id FOREIGN KEY (represented_by_member_id) REFERENCES member(id);
-ALTER TABLE anwesenheit ADD CONSTRAINT fk_anwesenheit_sitzung_id FOREIGN KEY (sitzung_id) REFERENCES sitzung(id);
-ALTER TABLE anwesenheit ADD CONSTRAINT fk_anwesenheit_member_id FOREIGN KEY (member_id) REFERENCES member(id);
-ALTER TABLE beschluss ADD CONSTRAINT fk_beschluss_recorded_by FOREIGN KEY (recorded_by) REFERENCES member(id);
-ALTER TABLE beschluss ADD CONSTRAINT fk_beschluss_sitzung_id FOREIGN KEY (sitzung_id) REFERENCES sitzung(id);
-ALTER TABLE beschluss ADD CONSTRAINT fk_beschluss_tagesordnungspunkt_id FOREIGN KEY (tagesordnungspunkt_id) REFERENCES tagesordnungspunkt(id);
-ALTER TABLE antrag ADD CONSTRAINT fk_antrag_target_gremium_id FOREIGN KEY (target_gremium_id) REFERENCES gremium(id);
-ALTER TABLE antrag ADD CONSTRAINT fk_antrag_submitter_member_id FOREIGN KEY (submitter_member_id) REFERENCES member(id);
-ALTER TABLE antrag ADD CONSTRAINT fk_antrag_reviewed_by FOREIGN KEY (reviewed_by) REFERENCES member(id);
-ALTER TABLE antrag ADD CONSTRAINT fk_antrag_sitzung_id FOREIGN KEY (sitzung_id) REFERENCES sitzung(id);
-ALTER TABLE antrag ADD CONSTRAINT fk_antrag_tagesordnungspunkt_id FOREIGN KEY (tagesordnungspunkt_id) REFERENCES tagesordnungspunkt(id);
-ALTER TABLE antrag ADD CONSTRAINT fk_antrag_beschluss_id FOREIGN KEY (beschluss_id) REFERENCES beschluss(id);
-ALTER TABLE abstimmung ADD CONSTRAINT fk_abstimmung_opened_by FOREIGN KEY (opened_by) REFERENCES member(id);
-ALTER TABLE abstimmung ADD CONSTRAINT fk_abstimmung_antrag_id FOREIGN KEY (antrag_id) REFERENCES antrag(id);
-ALTER TABLE abstimmung ADD CONSTRAINT fk_abstimmung_sitzung_id FOREIGN KEY (sitzung_id) REFERENCES sitzung(id);
-ALTER TABLE abstimmung ADD CONSTRAINT fk_abstimmung_beschluss_id FOREIGN KEY (beschluss_id) REFERENCES beschluss(id);
-ALTER TABLE abstimmung_option ADD CONSTRAINT fk_abstimmung_option_abstimmung_id FOREIGN KEY (abstimmung_id) REFERENCES abstimmung(id);
-ALTER TABLE abstimmung_stimme ADD CONSTRAINT fk_abstimmung_stimme_option_id FOREIGN KEY (option_id) REFERENCES abstimmung_option(id);
-ALTER TABLE abstimmung_stimme ADD CONSTRAINT fk_abstimmung_stimme_abstimmung_id FOREIGN KEY (abstimmung_id) REFERENCES abstimmung(id);
-ALTER TABLE abstimmung_stimme ADD CONSTRAINT fk_abstimmung_stimme_member_id FOREIGN KEY (member_id) REFERENCES member(id);
-ALTER TABLE wahl ADD CONSTRAINT fk_wahl_ziel_gremium_id FOREIGN KEY (ziel_gremium_id) REFERENCES gremium(id);
-ALTER TABLE wahl ADD CONSTRAINT fk_wahl_opened_by FOREIGN KEY (opened_by) REFERENCES member(id);
-ALTER TABLE wahl ADD CONSTRAINT fk_wahl_antrag_id FOREIGN KEY (antrag_id) REFERENCES antrag(id);
-ALTER TABLE wahl ADD CONSTRAINT fk_wahl_sitzung_id FOREIGN KEY (sitzung_id) REFERENCES sitzung(id);
-ALTER TABLE wahl ADD CONSTRAINT fk_wahl_beschluss_id FOREIGN KEY (beschluss_id) REFERENCES beschluss(id);
-ALTER TABLE wahl_kandidatur ADD CONSTRAINT fk_wahl_kandidatur_wahl_id FOREIGN KEY (wahl_id) REFERENCES wahl(id);
-ALTER TABLE wahl_kandidatur ADD CONSTRAINT fk_wahl_kandidatur_member_id FOREIGN KEY (member_id) REFERENCES member(id);
-ALTER TABLE wahl_option ADD CONSTRAINT fk_wahl_option_kandidatur_id FOREIGN KEY (kandidatur_id) REFERENCES wahl_kandidatur(id);
-ALTER TABLE wahl_option ADD CONSTRAINT fk_wahl_option_wahl_id FOREIGN KEY (wahl_id) REFERENCES wahl(id);
-ALTER TABLE wahl_wahlvorstand ADD CONSTRAINT fk_wahl_wahlvorstand_wahl_id FOREIGN KEY (wahl_id) REFERENCES wahl(id);
-ALTER TABLE wahl_wahlvorstand ADD CONSTRAINT fk_wahl_wahlvorstand_member_id FOREIGN KEY (member_id) REFERENCES member(id);
-ALTER TABLE wahl_wahlberechtigt ADD CONSTRAINT fk_wahl_wahlberechtigt_wahl_id FOREIGN KEY (wahl_id) REFERENCES wahl(id);
-ALTER TABLE wahl_wahlberechtigt ADD CONSTRAINT fk_wahl_wahlberechtigt_member_id FOREIGN KEY (member_id) REFERENCES member(id);
-ALTER TABLE wahl_teilnahme ADD CONSTRAINT fk_wahl_teilnahme_wahl_id FOREIGN KEY (wahl_id) REFERENCES wahl(id);
-ALTER TABLE wahl_teilnahme ADD CONSTRAINT fk_wahl_teilnahme_member_id FOREIGN KEY (member_id) REFERENCES member(id);
-ALTER TABLE wahl_freigabe ADD CONSTRAINT fk_wahl_freigabe_wahl_id FOREIGN KEY (wahl_id) REFERENCES wahl(id);
-ALTER TABLE wahl_freigabe ADD CONSTRAINT fk_wahl_freigabe_member_id FOREIGN KEY (member_id) REFERENCES member(id);
-ALTER TABLE wahl_stimmzettel ADD CONSTRAINT fk_wahl_stimmzettel_wahl_id FOREIGN KEY (wahl_id) REFERENCES wahl(id);
-ALTER TABLE wahl_stimmzettel ADD CONSTRAINT fk_wahl_stimmzettel_member_id FOREIGN KEY (member_id) REFERENCES member(id);
-ALTER TABLE wahl_stimmzettel_auswahl ADD CONSTRAINT fk_wahl_stimmzettel_auswahl_stimmzettel_id FOREIGN KEY (stimmzettel_id) REFERENCES wahl_stimmzettel(id);
-ALTER TABLE wahl_stimmzettel_auswahl ADD CONSTRAINT fk_wahl_stimmzettel_auswahl_option_id FOREIGN KEY (option_id) REFERENCES wahl_option(id);
+ALTER TABLE committee_membership ADD CONSTRAINT fk_committee_membership_committee_id FOREIGN KEY (committee_id) REFERENCES committee(id);
+ALTER TABLE committee_membership ADD CONSTRAINT fk_committee_membership_member_id FOREIGN KEY (member_id) REFERENCES member(id);
+ALTER TABLE meeting ADD CONSTRAINT fk_meeting_called_by FOREIGN KEY (called_by) REFERENCES member(id);
+ALTER TABLE meeting ADD CONSTRAINT fk_meeting_chair_member_id FOREIGN KEY (chair_member_id) REFERENCES member(id);
+ALTER TABLE meeting ADD CONSTRAINT fk_meeting_minute_taker_member_id FOREIGN KEY (minute_taker_member_id) REFERENCES member(id);
+ALTER TABLE meeting ADD CONSTRAINT fk_meeting_protocol_document_id FOREIGN KEY (protocol_document_id) REFERENCES document(id);
+ALTER TABLE meeting ADD CONSTRAINT fk_meeting_committee_id FOREIGN KEY (committee_id) REFERENCES committee(id);
+ALTER TABLE agenda_item ADD CONSTRAINT fk_agenda_item_presenter_member_id FOREIGN KEY (presenter_member_id) REFERENCES member(id);
+ALTER TABLE agenda_item ADD CONSTRAINT fk_agenda_item_meeting_id FOREIGN KEY (meeting_id) REFERENCES meeting(id);
+ALTER TABLE attendance ADD CONSTRAINT fk_attendance_represented_by_member_id FOREIGN KEY (represented_by_member_id) REFERENCES member(id);
+ALTER TABLE attendance ADD CONSTRAINT fk_attendance_meeting_id FOREIGN KEY (meeting_id) REFERENCES meeting(id);
+ALTER TABLE attendance ADD CONSTRAINT fk_attendance_member_id FOREIGN KEY (member_id) REFERENCES member(id);
+ALTER TABLE resolution ADD CONSTRAINT fk_resolution_recorded_by FOREIGN KEY (recorded_by) REFERENCES member(id);
+ALTER TABLE resolution ADD CONSTRAINT fk_resolution_meeting_id FOREIGN KEY (meeting_id) REFERENCES meeting(id);
+ALTER TABLE resolution ADD CONSTRAINT fk_resolution_agenda_item_id FOREIGN KEY (agenda_item_id) REFERENCES agenda_item(id);
+ALTER TABLE motion ADD CONSTRAINT fk_motion_target_committee_id FOREIGN KEY (target_committee_id) REFERENCES committee(id);
+ALTER TABLE motion ADD CONSTRAINT fk_motion_submitter_member_id FOREIGN KEY (submitter_member_id) REFERENCES member(id);
+ALTER TABLE motion ADD CONSTRAINT fk_motion_reviewed_by FOREIGN KEY (reviewed_by) REFERENCES member(id);
+ALTER TABLE motion ADD CONSTRAINT fk_motion_meeting_id FOREIGN KEY (meeting_id) REFERENCES meeting(id);
+ALTER TABLE motion ADD CONSTRAINT fk_motion_agenda_item_id FOREIGN KEY (agenda_item_id) REFERENCES agenda_item(id);
+ALTER TABLE motion ADD CONSTRAINT fk_motion_resolution_id FOREIGN KEY (resolution_id) REFERENCES resolution(id);
+ALTER TABLE vote ADD CONSTRAINT fk_vote_opened_by FOREIGN KEY (opened_by) REFERENCES member(id);
+ALTER TABLE vote ADD CONSTRAINT fk_vote_motion_id FOREIGN KEY (motion_id) REFERENCES motion(id);
+ALTER TABLE vote ADD CONSTRAINT fk_vote_meeting_id FOREIGN KEY (meeting_id) REFERENCES meeting(id);
+ALTER TABLE vote ADD CONSTRAINT fk_vote_resolution_id FOREIGN KEY (resolution_id) REFERENCES resolution(id);
+ALTER TABLE vote_option ADD CONSTRAINT fk_vote_option_vote_id FOREIGN KEY (vote_id) REFERENCES vote(id);
+ALTER TABLE vote_ballot ADD CONSTRAINT fk_vote_ballot_option_id FOREIGN KEY (option_id) REFERENCES vote_option(id);
+ALTER TABLE vote_ballot ADD CONSTRAINT fk_vote_ballot_vote_id FOREIGN KEY (vote_id) REFERENCES vote(id);
+ALTER TABLE vote_ballot ADD CONSTRAINT fk_vote_ballot_member_id FOREIGN KEY (member_id) REFERENCES member(id);
+ALTER TABLE election ADD CONSTRAINT fk_election_target_committee_id FOREIGN KEY (target_committee_id) REFERENCES committee(id);
+ALTER TABLE election ADD CONSTRAINT fk_election_opened_by FOREIGN KEY (opened_by) REFERENCES member(id);
+ALTER TABLE election ADD CONSTRAINT fk_election_motion_id FOREIGN KEY (motion_id) REFERENCES motion(id);
+ALTER TABLE election ADD CONSTRAINT fk_election_meeting_id FOREIGN KEY (meeting_id) REFERENCES meeting(id);
+ALTER TABLE election ADD CONSTRAINT fk_election_resolution_id FOREIGN KEY (resolution_id) REFERENCES resolution(id);
+ALTER TABLE election_candidacy ADD CONSTRAINT fk_election_candidacy_election_id FOREIGN KEY (election_id) REFERENCES election(id);
+ALTER TABLE election_candidacy ADD CONSTRAINT fk_election_candidacy_member_id FOREIGN KEY (member_id) REFERENCES member(id);
+ALTER TABLE election_option ADD CONSTRAINT fk_election_option_candidacy_id FOREIGN KEY (candidacy_id) REFERENCES election_candidacy(id);
+ALTER TABLE election_option ADD CONSTRAINT fk_election_option_election_id FOREIGN KEY (election_id) REFERENCES election(id);
+ALTER TABLE election_board_member ADD CONSTRAINT fk_election_board_member_election_id FOREIGN KEY (election_id) REFERENCES election(id);
+ALTER TABLE election_board_member ADD CONSTRAINT fk_election_board_member_member_id FOREIGN KEY (member_id) REFERENCES member(id);
+ALTER TABLE election_eligible_voter ADD CONSTRAINT fk_election_eligible_voter_election_id FOREIGN KEY (election_id) REFERENCES election(id);
+ALTER TABLE election_eligible_voter ADD CONSTRAINT fk_election_eligible_voter_member_id FOREIGN KEY (member_id) REFERENCES member(id);
+ALTER TABLE election_participation ADD CONSTRAINT fk_election_participation_election_id FOREIGN KEY (election_id) REFERENCES election(id);
+ALTER TABLE election_participation ADD CONSTRAINT fk_election_participation_member_id FOREIGN KEY (member_id) REFERENCES member(id);
+ALTER TABLE election_tally_approval ADD CONSTRAINT fk_election_tally_approval_election_id FOREIGN KEY (election_id) REFERENCES election(id);
+ALTER TABLE election_tally_approval ADD CONSTRAINT fk_election_tally_approval_member_id FOREIGN KEY (member_id) REFERENCES member(id);
+ALTER TABLE election_ballot ADD CONSTRAINT fk_election_ballot_election_id FOREIGN KEY (election_id) REFERENCES election(id);
+ALTER TABLE election_ballot ADD CONSTRAINT fk_election_ballot_member_id FOREIGN KEY (member_id) REFERENCES member(id);
+ALTER TABLE election_ballot_selection ADD CONSTRAINT fk_election_ballot_selection_ballot_id FOREIGN KEY (ballot_id) REFERENCES election_ballot(id);
+ALTER TABLE election_ballot_selection ADD CONSTRAINT fk_election_ballot_selection_option_id FOREIGN KEY (option_id) REFERENCES election_option(id);
 ALTER TABLE ltr_balance ADD CONSTRAINT fk_ltr_balance_member_id FOREIGN KEY (member_id) REFERENCES member(id);
-ALTER TABLE konsensierung ADD CONSTRAINT fk_konsensierung_opened_by FOREIGN KEY (opened_by) REFERENCES member(id);
-ALTER TABLE konsensierung ADD CONSTRAINT fk_konsensierung_antrag_id FOREIGN KEY (antrag_id) REFERENCES antrag(id);
-ALTER TABLE konsensierung ADD CONSTRAINT fk_konsensierung_sitzung_id FOREIGN KEY (sitzung_id) REFERENCES sitzung(id);
-ALTER TABLE konsensierung ADD CONSTRAINT fk_konsensierung_beschluss_id FOREIGN KEY (beschluss_id) REFERENCES beschluss(id);
-ALTER TABLE konsensierung_option ADD CONSTRAINT fk_konsensierung_option_created_by FOREIGN KEY (created_by) REFERENCES member(id);
-ALTER TABLE konsensierung_option ADD CONSTRAINT fk_konsensierung_option_konsensierung_id FOREIGN KEY (konsensierung_id) REFERENCES konsensierung(id);
-ALTER TABLE konsensierung_stimmberechtigt ADD CONSTRAINT fk_konsensierung_stimmberechtigt_konsensierung_id FOREIGN KEY (konsensierung_id) REFERENCES konsensierung(id);
-ALTER TABLE konsensierung_stimmberechtigt ADD CONSTRAINT fk_konsensierung_stimmberechtigt_member_id FOREIGN KEY (member_id) REFERENCES member(id);
-ALTER TABLE konsensierung_teilnahme ADD CONSTRAINT fk_konsensierung_teilnahme_konsensierung_id FOREIGN KEY (konsensierung_id) REFERENCES konsensierung(id);
-ALTER TABLE konsensierung_teilnahme ADD CONSTRAINT fk_konsensierung_teilnahme_member_id FOREIGN KEY (member_id) REFERENCES member(id);
-ALTER TABLE konsensierung_stimmzettel ADD CONSTRAINT fk_konsensierung_stimmzettel_konsensierung_id FOREIGN KEY (konsensierung_id) REFERENCES konsensierung(id);
-ALTER TABLE konsensierung_stimmzettel ADD CONSTRAINT fk_konsensierung_stimmzettel_member_id FOREIGN KEY (member_id) REFERENCES member(id);
-ALTER TABLE konsensierung_widerstand ADD CONSTRAINT fk_konsensierung_widerstand_stimmzettel_id FOREIGN KEY (stimmzettel_id) REFERENCES konsensierung_stimmzettel(id);
-ALTER TABLE konsensierung_widerstand ADD CONSTRAINT fk_konsensierung_widerstand_option_id FOREIGN KEY (option_id) REFERENCES konsensierung_option(id);
+ALTER TABLE systemic_consensus ADD CONSTRAINT fk_systemic_consensus_opened_by FOREIGN KEY (opened_by) REFERENCES member(id);
+ALTER TABLE systemic_consensus ADD CONSTRAINT fk_systemic_consensus_motion_id FOREIGN KEY (motion_id) REFERENCES motion(id);
+ALTER TABLE systemic_consensus ADD CONSTRAINT fk_systemic_consensus_meeting_id FOREIGN KEY (meeting_id) REFERENCES meeting(id);
+ALTER TABLE systemic_consensus ADD CONSTRAINT fk_systemic_consensus_resolution_id FOREIGN KEY (resolution_id) REFERENCES resolution(id);
+ALTER TABLE systemic_consensus_option ADD CONSTRAINT fk_systemic_consensus_option_systemic_consensus_id FOREIGN KEY (systemic_consensus_id) REFERENCES systemic_consensus(id);
+ALTER TABLE systemic_consensus_option ADD CONSTRAINT fk_systemic_consensus_option_created_by FOREIGN KEY (created_by) REFERENCES member(id);
+ALTER TABLE systemic_consensus_eligible_voter ADD CONSTRAINT fk_systemic_consensus_eligible_voter_systemic_consensus_id FOREIGN KEY (systemic_consensus_id) REFERENCES systemic_consensus(id);
+ALTER TABLE systemic_consensus_eligible_voter ADD CONSTRAINT fk_systemic_consensus_eligible_voter_member_id FOREIGN KEY (member_id) REFERENCES member(id);
+ALTER TABLE systemic_consensus_participation ADD CONSTRAINT fk_systemic_consensus_participation_systemic_consensus_id FOREIGN KEY (systemic_consensus_id) REFERENCES systemic_consensus(id);
+ALTER TABLE systemic_consensus_participation ADD CONSTRAINT fk_systemic_consensus_participation_member_id FOREIGN KEY (member_id) REFERENCES member(id);
+ALTER TABLE systemic_consensus_ballot ADD CONSTRAINT fk_systemic_consensus_ballot_systemic_consensus_id FOREIGN KEY (systemic_consensus_id) REFERENCES systemic_consensus(id);
+ALTER TABLE systemic_consensus_ballot ADD CONSTRAINT fk_systemic_consensus_ballot_member_id FOREIGN KEY (member_id) REFERENCES member(id);
+ALTER TABLE systemic_consensus_resistance ADD CONSTRAINT fk_systemic_consensus_resistance_ballot_id FOREIGN KEY (ballot_id) REFERENCES systemic_consensus_ballot(id);
+ALTER TABLE systemic_consensus_resistance ADD CONSTRAINT fk_systemic_consensus_resistance_option_id FOREIGN KEY (option_id) REFERENCES systemic_consensus_option(id);
 
 -- Indexes
 
@@ -553,52 +553,52 @@ CREATE INDEX idx_erasure_request_subject ON erasure_request (subject_member_id);
 CREATE INDEX idx_erasure_request_status ON erasure_request (status);
 CREATE INDEX idx_dsgvo_audit_log_subject ON dsgvo_audit_log (subject_member_id);
 CREATE INDEX idx_dsgvo_audit_log_request ON dsgvo_audit_log (request_id);
-CREATE INDEX idx_gremium_mitgliedschaft_gremium ON gremium_mitgliedschaft (gremium_id);
-CREATE INDEX idx_gremium_mitgliedschaft_member ON gremium_mitgliedschaft (member_id);
-CREATE INDEX idx_sitzung_gremium ON sitzung (gremium_id);
-CREATE UNIQUE INDEX uq_tagesordnungspunkt_position ON tagesordnungspunkt (sitzung_id, position);
-CREATE INDEX idx_tagesordnungspunkt_sitzung ON tagesordnungspunkt (sitzung_id);
-CREATE UNIQUE INDEX uq_anwesenheit_member ON anwesenheit (sitzung_id, member_id);
-CREATE INDEX idx_anwesenheit_sitzung ON anwesenheit (sitzung_id);
-CREATE INDEX idx_beschluss_sitzung ON beschluss (sitzung_id);
-CREATE INDEX idx_antrag_target_gremium ON antrag (target_gremium_id);
-CREATE INDEX idx_antrag_status ON antrag (status);
-CREATE INDEX idx_antrag_submitter ON antrag (submitter_member_id);
-CREATE INDEX idx_antrag_sitzung ON antrag (sitzung_id);
-CREATE INDEX idx_abstimmung_antrag ON abstimmung (antrag_id);
-CREATE INDEX idx_abstimmung_status ON abstimmung (status);
-CREATE INDEX idx_abstimmung_option_abstimmung ON abstimmung_option (abstimmung_id);
-CREATE UNIQUE INDEX uq_abstimmung_stimme_member ON abstimmung_stimme (abstimmung_id, member_id);
-CREATE INDEX idx_abstimmung_stimme_abstimmung ON abstimmung_stimme (abstimmung_id);
-CREATE INDEX idx_abstimmung_stimme_member ON abstimmung_stimme (member_id);
-CREATE INDEX idx_wahl_antrag ON wahl (antrag_id);
-CREATE INDEX idx_wahl_sitzung ON wahl (sitzung_id);
-CREATE INDEX idx_wahl_status ON wahl (status);
-CREATE INDEX idx_wahl_kandidatur_wahl ON wahl_kandidatur (wahl_id);
-CREATE INDEX idx_wahl_kandidatur_member ON wahl_kandidatur (member_id);
-CREATE INDEX idx_wahl_option_wahl ON wahl_option (wahl_id);
-CREATE UNIQUE INDEX uq_wahl_wahlvorstand_member ON wahl_wahlvorstand (wahl_id, member_id);
-CREATE INDEX idx_wahl_wahlvorstand_wahl ON wahl_wahlvorstand (wahl_id);
-CREATE UNIQUE INDEX uq_wahl_wahlberechtigt_member ON wahl_wahlberechtigt (wahl_id, member_id);
-CREATE INDEX idx_wahl_wahlberechtigt_wahl ON wahl_wahlberechtigt (wahl_id);
-CREATE UNIQUE INDEX uq_wahl_teilnahme_member ON wahl_teilnahme (wahl_id, member_id);
-CREATE INDEX idx_wahl_teilnahme_wahl ON wahl_teilnahme (wahl_id);
-CREATE UNIQUE INDEX uq_wahl_freigabe_member ON wahl_freigabe (wahl_id, member_id);
-CREATE INDEX idx_wahl_freigabe_wahl ON wahl_freigabe (wahl_id);
-CREATE UNIQUE INDEX uq_wahl_stimmzettel_member ON wahl_stimmzettel (wahl_id, member_id);
-CREATE INDEX idx_wahl_stimmzettel_wahl ON wahl_stimmzettel (wahl_id);
-CREATE INDEX idx_wahl_stimmzettel_auswahl_stimmzettel ON wahl_stimmzettel_auswahl (stimmzettel_id);
-CREATE INDEX idx_wahl_stimmzettel_auswahl_option ON wahl_stimmzettel_auswahl (option_id);
-CREATE INDEX idx_konsensierung_antrag ON konsensierung (antrag_id);
-CREATE INDEX idx_konsensierung_sitzung ON konsensierung (sitzung_id);
-CREATE INDEX idx_konsensierung_status ON konsensierung (status);
-CREATE INDEX idx_konsensierung_option_konsensierung ON konsensierung_option (konsensierung_id);
-CREATE UNIQUE INDEX uq_konsensierung_stimmberechtigt_member_runde ON konsensierung_stimmberechtigt (konsensierung_id, member_id, runde);
-CREATE INDEX idx_konsensierung_stimmberechtigt_konsensierung ON konsensierung_stimmberechtigt (konsensierung_id);
-CREATE UNIQUE INDEX uq_konsensierung_teilnahme_member_runde ON konsensierung_teilnahme (konsensierung_id, member_id, runde);
-CREATE INDEX idx_konsensierung_teilnahme_konsensierung ON konsensierung_teilnahme (konsensierung_id);
-CREATE UNIQUE INDEX uq_konsensierung_stimmzettel_member_runde ON konsensierung_stimmzettel (konsensierung_id, member_id, runde);
-CREATE INDEX idx_konsensierung_stimmzettel_konsensierung ON konsensierung_stimmzettel (konsensierung_id);
-CREATE INDEX idx_konsensierung_widerstand_stimmzettel ON konsensierung_widerstand (stimmzettel_id);
-CREATE INDEX idx_konsensierung_widerstand_option ON konsensierung_widerstand (option_id);
+CREATE INDEX idx_committee_membership_committee ON committee_membership (committee_id);
+CREATE INDEX idx_committee_membership_member ON committee_membership (member_id);
+CREATE INDEX idx_meeting_committee ON meeting (committee_id);
+CREATE UNIQUE INDEX uq_agenda_item_position ON agenda_item (meeting_id, position);
+CREATE INDEX idx_agenda_item_meeting ON agenda_item (meeting_id);
+CREATE UNIQUE INDEX uq_attendance_member ON attendance (meeting_id, member_id);
+CREATE INDEX idx_attendance_meeting ON attendance (meeting_id);
+CREATE INDEX idx_resolution_meeting ON resolution (meeting_id);
+CREATE INDEX idx_motion_target_committee ON motion (target_committee_id);
+CREATE INDEX idx_motion_status ON motion (status);
+CREATE INDEX idx_motion_submitter ON motion (submitter_member_id);
+CREATE INDEX idx_motion_meeting ON motion (meeting_id);
+CREATE INDEX idx_vote_motion ON vote (motion_id);
+CREATE INDEX idx_vote_status ON vote (status);
+CREATE INDEX idx_vote_option_vote ON vote_option (vote_id);
+CREATE UNIQUE INDEX uq_vote_ballot_member ON vote_ballot (vote_id, member_id);
+CREATE INDEX idx_vote_ballot_vote ON vote_ballot (vote_id);
+CREATE INDEX idx_vote_ballot_member ON vote_ballot (member_id);
+CREATE INDEX idx_election_motion ON election (motion_id);
+CREATE INDEX idx_election_meeting ON election (meeting_id);
+CREATE INDEX idx_election_status ON election (status);
+CREATE INDEX idx_election_candidacy_election ON election_candidacy (election_id);
+CREATE INDEX idx_election_candidacy_member ON election_candidacy (member_id);
+CREATE INDEX idx_election_option_election ON election_option (election_id);
+CREATE UNIQUE INDEX uq_election_board_member_member ON election_board_member (election_id, member_id);
+CREATE INDEX idx_election_board_member_election ON election_board_member (election_id);
+CREATE UNIQUE INDEX uq_election_eligible_voter_member ON election_eligible_voter (election_id, member_id);
+CREATE INDEX idx_election_eligible_voter_election ON election_eligible_voter (election_id);
+CREATE UNIQUE INDEX uq_election_participation_member ON election_participation (election_id, member_id);
+CREATE INDEX idx_election_participation_election ON election_participation (election_id);
+CREATE UNIQUE INDEX uq_election_tally_approval_member ON election_tally_approval (election_id, member_id);
+CREATE INDEX idx_election_tally_approval_election ON election_tally_approval (election_id);
+CREATE UNIQUE INDEX uq_election_ballot_member ON election_ballot (election_id, member_id);
+CREATE INDEX idx_election_ballot_election ON election_ballot (election_id);
+CREATE INDEX idx_election_ballot_selection_ballot ON election_ballot_selection (ballot_id);
+CREATE INDEX idx_election_ballot_selection_option ON election_ballot_selection (option_id);
+CREATE INDEX idx_systemic_consensus_motion ON systemic_consensus (motion_id);
+CREATE INDEX idx_systemic_consensus_meeting ON systemic_consensus (meeting_id);
+CREATE INDEX idx_systemic_consensus_status ON systemic_consensus (status);
+CREATE INDEX idx_systemic_consensus_option_systemic_consensus ON systemic_consensus_option (systemic_consensus_id);
+CREATE UNIQUE INDEX uq_systemic_consensus_eligible_voter_member_round ON systemic_consensus_eligible_voter (systemic_consensus_id, member_id, round);
+CREATE INDEX idx_systemic_consensus_eligible_voter_systemic_consensus ON systemic_consensus_eligible_voter (systemic_consensus_id);
+CREATE UNIQUE INDEX uq_systemic_consensus_participation_member_round ON systemic_consensus_participation (systemic_consensus_id, member_id, round);
+CREATE INDEX idx_systemic_consensus_participation_systemic_consensus ON systemic_consensus_participation (systemic_consensus_id);
+CREATE UNIQUE INDEX uq_systemic_consensus_ballot_member_round ON systemic_consensus_ballot (systemic_consensus_id, member_id, round);
+CREATE INDEX idx_systemic_consensus_ballot_systemic_consensus ON systemic_consensus_ballot (systemic_consensus_id);
+CREATE INDEX idx_systemic_consensus_resistance_ballot ON systemic_consensus_resistance (ballot_id);
+CREATE INDEX idx_systemic_consensus_resistance_option ON systemic_consensus_resistance (option_id);
 

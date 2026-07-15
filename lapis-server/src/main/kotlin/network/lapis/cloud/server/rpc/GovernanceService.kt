@@ -5,54 +5,54 @@ import kotlinx.datetime.LocalDate
 import kotlinx.datetime.LocalDateTime
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
-import network.lapis.cloud.server.db.generated.AbstimmungOptionTable
-import network.lapis.cloud.server.db.generated.AbstimmungStimmeTable
-import network.lapis.cloud.server.db.generated.AbstimmungTable
-import network.lapis.cloud.server.db.generated.AntragTable
-import network.lapis.cloud.server.db.generated.AnwesenheitTable
-import network.lapis.cloud.server.db.generated.BeschlussTable
-import network.lapis.cloud.server.db.generated.GremiumMitgliedschaftTable
-import network.lapis.cloud.server.db.generated.GremiumTable
+import network.lapis.cloud.server.db.generated.AgendaItemTable
+import network.lapis.cloud.server.db.generated.AttendanceTable
+import network.lapis.cloud.server.db.generated.CommitteeMembershipTable
+import network.lapis.cloud.server.db.generated.CommitteeTable
+import network.lapis.cloud.server.db.generated.MeetingTable
 import network.lapis.cloud.server.db.generated.MemberTable
-import network.lapis.cloud.server.db.generated.SitzungTable
-import network.lapis.cloud.server.db.generated.TagesordnungspunktTable
+import network.lapis.cloud.server.db.generated.MotionTable
+import network.lapis.cloud.server.db.generated.ResolutionTable
+import network.lapis.cloud.server.db.generated.VoteBallotTable
+import network.lapis.cloud.server.db.generated.VoteOptionTable
+import network.lapis.cloud.server.db.generated.VoteTable
 import network.lapis.cloud.server.economy.LtrBalanceProvider
 import network.lapis.cloud.server.economy.PlaceholderLtrBalanceProvider
 import network.lapis.cloud.server.security.ForbiddenException
-import network.lapis.cloud.server.security.canRecordForSitzung
-import network.lapis.cloud.server.security.canSubmitAntrag
+import network.lapis.cloud.server.security.canRecordForMeeting
+import network.lapis.cloud.server.security.canSubmitMotion
 import network.lapis.cloud.server.security.requireRole
 import network.lapis.cloud.server.security.resolveCurrentMember
-import network.lapis.cloud.shared.domain.AbstimmungDto
-import network.lapis.cloud.shared.domain.AbstimmungOpenInput
-import network.lapis.cloud.shared.domain.AbstimmungOptionDto
-import network.lapis.cloud.shared.domain.AbstimmungStatus
 import network.lapis.cloud.shared.domain.AccountRole
-import network.lapis.cloud.shared.domain.AntragDto
-import network.lapis.cloud.shared.domain.AntragInput
-import network.lapis.cloud.shared.domain.AntragPruefungsEntscheidung
-import network.lapis.cloud.shared.domain.AntragResolutionInput
-import network.lapis.cloud.shared.domain.AntragStatus
-import network.lapis.cloud.shared.domain.AnwesenheitDto
-import network.lapis.cloud.shared.domain.AnwesenheitInput
-import network.lapis.cloud.shared.domain.BeschlussDto
-import network.lapis.cloud.shared.domain.BeschlussInput
-import network.lapis.cloud.shared.domain.BeschlussStatus
-import network.lapis.cloud.shared.domain.GremiumDto
-import network.lapis.cloud.shared.domain.GremiumInput
-import network.lapis.cloud.shared.domain.GremiumMitgliedschaftDto
-import network.lapis.cloud.shared.domain.GremiumMitgliedschaftInput
+import network.lapis.cloud.shared.domain.AgendaItemDto
+import network.lapis.cloud.shared.domain.AgendaItemInput
+import network.lapis.cloud.shared.domain.AttendanceDto
+import network.lapis.cloud.shared.domain.AttendanceInput
+import network.lapis.cloud.shared.domain.CommitteeDto
+import network.lapis.cloud.shared.domain.CommitteeInput
+import network.lapis.cloud.shared.domain.CommitteeMembershipDto
+import network.lapis.cloud.shared.domain.CommitteeMembershipInput
+import network.lapis.cloud.shared.domain.MeetingDetailDto
+import network.lapis.cloud.shared.domain.MeetingDto
+import network.lapis.cloud.shared.domain.MeetingInput
+import network.lapis.cloud.shared.domain.MeetingStatus
+import network.lapis.cloud.shared.domain.MotionDto
+import network.lapis.cloud.shared.domain.MotionInput
+import network.lapis.cloud.shared.domain.MotionResolutionInput
+import network.lapis.cloud.shared.domain.MotionReviewDecision
+import network.lapis.cloud.shared.domain.MotionStatus
 import network.lapis.cloud.shared.domain.ProtocolDraftDto
 import network.lapis.cloud.shared.domain.QuorumResultDto
+import network.lapis.cloud.shared.domain.ResolutionDto
+import network.lapis.cloud.shared.domain.ResolutionInput
 import network.lapis.cloud.shared.domain.ResolutionMode
-import network.lapis.cloud.shared.domain.SitzungDetailDto
-import network.lapis.cloud.shared.domain.SitzungDto
-import network.lapis.cloud.shared.domain.SitzungInput
-import network.lapis.cloud.shared.domain.SitzungsStatus
-import network.lapis.cloud.shared.domain.StimmeDto
-import network.lapis.cloud.shared.domain.StimmeInput
-import network.lapis.cloud.shared.domain.TagesordnungspunktDto
-import network.lapis.cloud.shared.domain.TagesordnungspunktInput
+import network.lapis.cloud.shared.domain.ResolutionStatus
+import network.lapis.cloud.shared.domain.VoteBallotDto
+import network.lapis.cloud.shared.domain.VoteBallotInput
+import network.lapis.cloud.shared.domain.VoteDto
+import network.lapis.cloud.shared.domain.VoteOpenInput
+import network.lapis.cloud.shared.domain.VoteOptionDto
+import network.lapis.cloud.shared.domain.VoteStatus
 import network.lapis.cloud.shared.rpc.IGovernanceService
 import org.jetbrains.exposed.v1.core.Op
 import org.jetbrains.exposed.v1.core.ResultRow
@@ -73,37 +73,37 @@ import kotlin.uuid.Uuid
 
 private val BOARD_ROLES = arrayOf(AccountRole.BOARD, AccountRole.ADMIN)
 
-/** Meritokratische Abstimmungen (V0.2.3): server-side floor, never trusted from a client. */
+/** Meritokratische Voteen (V0.2.3): server-side floor, never trusted from a client. */
 private val MIN_STAKE_LTR: BigDecimal = BigDecimal("0.01")
 private val ZERO_LTR: BigDecimal = BigDecimal.ZERO.setScale(2)
 
 /**
- * DoS caps on [network.lapis.cloud.shared.domain.AbstimmungOpenInput.optionLabels] — well above
+ * DoS caps on [network.lapis.cloud.shared.domain.VoteOpenInput.optionLabels] — well above
  * any realistic Sachentscheidung's option count/label length, but bounded so a careless or
- * malicious caller cannot make `openAbstimmung` insert an unbounded number of
- * [network.lapis.cloud.server.db.generated.AbstimmungOptionTable] rows or exceed that table's
+ * malicious caller cannot make `openVote` insert an unbounded number of
+ * [network.lapis.cloud.server.db.generated.VoteOptionTable] rows or exceed that table's
  * `label VARCHAR(200)` column with a confusing DB-level error instead of a clean 409.
  */
 private const val MAX_ABSTIMMUNG_OPTIONS = 50
 private const val MAX_OPTION_LABEL_LENGTH = 200
 
 /**
- * Gremien- und Sitzungsverwaltung (V0.2.1). Reads (`listGremien`/`getSitzungDetail`/
- * `listBeschluesse`/etc.) only require a resolvable [network.lapis.cloud.server.security
+ * Committee and meeting management (V0.2.1). Reads (`listCommittees`/`getMeetingDetail`/
+ * `listResolutions`/etc.) only require a resolvable [network.lapis.cloud.server.security
  * .CurrentMember] (any authenticated member) — see [IGovernanceService] KDoc for why this is a
  * deliberate simplification versus [network.lapis.cloud.shared.domain.DocumentAccessLevel]'s
- * tiered model. Writes that manage a specific Gremium's meetings/agenda/attendance/resolutions
- * require that Gremium's leadership role or global BOARD/ADMIN, checked via
- * [network.lapis.cloud.server.security.canRecordForSitzung] (see `GovernanceAuthorization.kt`).
+ * tiered model. Writes that manage a specific Committee's meetings/agenda/attendance/resolutions
+ * require that Committee's leadership role or global BOARD/ADMIN, checked via
+ * [network.lapis.cloud.server.security.canRecordForMeeting] (see `GovernanceAuthorization.kt`).
  *
- * Member display names for the multiple-FK-to-member tables ([SitzungTable] has three: called
- * by/chair/minute-taker; [AnwesenheitTable] has two: attendee/proxy) are resolved via
+ * Member display names for the multiple-FK-to-member tables ([MeetingTable] has three: called
+ * by/chair/minute-taker; [AttendanceTable] has two: attendee/proxy) are resolved via
  * [memberDisplayName], a small follow-up lookup per id, rather than aliased multi-joins — kept
  * simple and correct rather than optimized, consistent with this codebase's "simple-transaction"
- * style (see [ContributionService]/[MailingService]). Single-member-FK joins ([GremiumTable] via
- * [SitzungTable]/[GremiumMitgliedschaftTable] via `member`) still use a plain `innerJoin`.
+ * style (see [ContributionService]/[MailingService]). Single-member-FK joins ([CommitteeTable] via
+ * [MeetingTable]/[CommitteeMembershipTable] via `member`) still use a plain `innerJoin`.
  *
- * Meritokratische Abstimmungen (V0.2.3): [ltrBalanceProvider] defaults to
+ * Meritokratische Voteen (V0.2.3): [ltrBalanceProvider] defaults to
  * [PlaceholderLtrBalanceProvider] so `Application.module`'s single-arg
  * `GovernanceService(call)` construction is unaffected; V0.6's ledger-backed implementation only
  * has to change that one default, not every call site. See [LtrBalanceProvider] KDoc for the
@@ -113,23 +113,23 @@ class GovernanceService(
     private val call: ApplicationCall,
     private val ltrBalanceProvider: LtrBalanceProvider = PlaceholderLtrBalanceProvider(),
 ) : IGovernanceService {
-    override suspend fun listGremien(activeOnly: Boolean): List<GremiumDto> {
+    override suspend fun listCommittees(activeOnly: Boolean): List<CommitteeDto> {
         resolveCurrentMember(call)
         return transaction {
-            val baseQuery = GremiumTable.selectAll()
-            val query = if (activeOnly) baseQuery.where { GremiumTable.active eq true } else baseQuery
-            query.map { it.toGremiumDto() }
+            val baseQuery = CommitteeTable.selectAll()
+            val query = if (activeOnly) baseQuery.where { CommitteeTable.active eq true } else baseQuery
+            query.map { it.toCommitteeDto() }
         }
     }
 
-    override suspend fun createGremium(input: GremiumInput): GremiumDto {
+    override suspend fun createCommittee(input: CommitteeInput): CommitteeDto {
         val current = resolveCurrentMember(call)
         current.requireRole(*BOARD_ROLES)
         val now = nowLocalDateTime()
         return transaction {
             val id = Uuid.random()
-            GremiumTable.insert {
-                it[GremiumTable.id] = id
+            CommitteeTable.insert {
+                it[CommitteeTable.id] = id
                 it[name] = input.name
                 it[type] = input.type
                 it[description] = input.description
@@ -137,164 +137,164 @@ class GovernanceService(
                 it[quorumPercent] = input.quorumPercent
                 it[createdAt] = now
             }
-            GremiumTable
+            CommitteeTable
                 .selectAll()
-                .where { GremiumTable.id eq id }
+                .where { CommitteeTable.id eq id }
                 .single()
-                .toGremiumDto()
+                .toCommitteeDto()
         }
     }
 
-    override suspend fun updateGremium(
+    override suspend fun updateCommittee(
         id: String,
-        input: GremiumInput,
-    ): GremiumDto {
+        input: CommitteeInput,
+    ): CommitteeDto {
         val current = resolveCurrentMember(call)
         current.requireRole(*BOARD_ROLES)
-        val gremiumId = id.toGremiumUuid()
+        val committeeId = id.toCommitteeUuid()
         return transaction {
             val updated =
-                GremiumTable.update({ GremiumTable.id eq gremiumId }) {
+                CommitteeTable.update({ CommitteeTable.id eq committeeId }) {
                     it[name] = input.name
                     it[type] = input.type
                     it[description] = input.description
                     it[active] = input.active
                     it[quorumPercent] = input.quorumPercent
                 }
-            if (updated == 0) throw NotFoundException("Gremium $id not found")
-            GremiumTable
+            if (updated == 0) throw NotFoundException("Committee $id not found")
+            CommitteeTable
                 .selectAll()
-                .where { GremiumTable.id eq gremiumId }
+                .where { CommitteeTable.id eq committeeId }
                 .single()
-                .toGremiumDto()
+                .toCommitteeDto()
         }
     }
 
-    override suspend fun listGremiumMitglieder(
-        gremiumId: String,
+    override suspend fun listCommitteeMembers(
+        committeeId: String,
         activeOnly: Boolean,
-    ): List<GremiumMitgliedschaftDto> {
+    ): List<CommitteeMembershipDto> {
         resolveCurrentMember(call)
-        val gId = gremiumId.toGremiumUuid()
+        val gId = committeeId.toCommitteeUuid()
         return transaction {
-            val conditions = mutableListOf<Op<Boolean>>(GremiumMitgliedschaftTable.gremiumId eq gId)
-            if (activeOnly) conditions += GremiumMitgliedschaftTable.until.isNull()
-            (GremiumMitgliedschaftTable innerJoin MemberTable)
+            val conditions = mutableListOf<Op<Boolean>>(CommitteeMembershipTable.committeeId eq gId)
+            if (activeOnly) conditions += CommitteeMembershipTable.until.isNull()
+            (CommitteeMembershipTable innerJoin MemberTable)
                 .selectAll()
                 .where { conditions.reduce { a, b -> a and b } }
-                .map { it.toGremiumMitgliedschaftDto() }
+                .map { it.toCommitteeMembershipDto() }
         }
     }
 
-    override suspend fun addGremiumMitglied(
-        gremiumId: String,
-        input: GremiumMitgliedschaftInput,
-    ): GremiumMitgliedschaftDto {
+    override suspend fun addCommitteeMember(
+        committeeId: String,
+        input: CommitteeMembershipInput,
+    ): CommitteeMembershipDto {
         val current = resolveCurrentMember(call)
         current.requireRole(*BOARD_ROLES)
-        val gId = gremiumId.toGremiumUuid()
+        val gId = committeeId.toCommitteeUuid()
         val memberId = input.memberId.toMemberUuid()
         return transaction {
-            GremiumTable.selectAll().where { GremiumTable.id eq gId }.singleOrNull()
-                ?: throw NotFoundException("Gremium $gremiumId not found")
+            CommitteeTable.selectAll().where { CommitteeTable.id eq gId }.singleOrNull()
+                ?: throw NotFoundException("Committee $committeeId not found")
             val activeExists =
-                GremiumMitgliedschaftTable
+                CommitteeMembershipTable
                     .selectAll()
                     .where {
-                        (GremiumMitgliedschaftTable.gremiumId eq gId) and
-                            (GremiumMitgliedschaftTable.memberId eq memberId) and
-                            (GremiumMitgliedschaftTable.until.isNull())
+                        (CommitteeMembershipTable.committeeId eq gId) and
+                            (CommitteeMembershipTable.memberId eq memberId) and
+                            (CommitteeMembershipTable.until.isNull())
                     }.count() > 0
             if (activeExists) {
                 throw ConflictException(
-                    "Member ${input.memberId} already has an active membership in Gremium $gremiumId",
+                    "Member ${input.memberId} already has an active membership in Committee $committeeId",
                 )
             }
             val id = Uuid.random()
-            GremiumMitgliedschaftTable.insert {
-                it[GremiumMitgliedschaftTable.id] = id
-                it[GremiumMitgliedschaftTable.gremiumId] = gId
-                it[GremiumMitgliedschaftTable.memberId] = memberId
-                it[rolle] = input.rolle
+            CommitteeMembershipTable.insert {
+                it[CommitteeMembershipTable.id] = id
+                it[CommitteeMembershipTable.committeeId] = gId
+                it[CommitteeMembershipTable.memberId] = memberId
+                it[role] = input.role
                 it[since] = input.since
                 it[until] = null
             }
-            (GremiumMitgliedschaftTable innerJoin MemberTable)
+            (CommitteeMembershipTable innerJoin MemberTable)
                 .selectAll()
-                .where { GremiumMitgliedschaftTable.id eq id }
+                .where { CommitteeMembershipTable.id eq id }
                 .single()
-                .toGremiumMitgliedschaftDto()
+                .toCommitteeMembershipDto()
         }
     }
 
-    override suspend fun endGremiumMitgliedschaft(
-        mitgliedschaftId: String,
+    override suspend fun endCommitteeMembership(
+        membershipId: String,
         until: LocalDate,
-    ): GremiumMitgliedschaftDto {
+    ): CommitteeMembershipDto {
         val current = resolveCurrentMember(call)
         current.requireRole(*BOARD_ROLES)
-        val id = mitgliedschaftId.toMitgliedschaftUuid()
+        val id = membershipId.toMembershipUuid()
         return transaction {
             val updated =
-                GremiumMitgliedschaftTable.update({ GremiumMitgliedschaftTable.id eq id }) {
-                    it[GremiumMitgliedschaftTable.until] = until
+                CommitteeMembershipTable.update({ CommitteeMembershipTable.id eq id }) {
+                    it[CommitteeMembershipTable.until] = until
                 }
-            if (updated == 0) throw NotFoundException("GremiumMitgliedschaft $mitgliedschaftId not found")
-            (GremiumMitgliedschaftTable innerJoin MemberTable)
+            if (updated == 0) throw NotFoundException("CommitteeMembership $membershipId not found")
+            (CommitteeMembershipTable innerJoin MemberTable)
                 .selectAll()
-                .where { GremiumMitgliedschaftTable.id eq id }
+                .where { CommitteeMembershipTable.id eq id }
                 .single()
-                .toGremiumMitgliedschaftDto()
+                .toCommitteeMembershipDto()
         }
     }
 
-    override suspend fun listSitzungen(
-        gremiumId: String?,
-        status: SitzungsStatus?,
-    ): List<SitzungDto> {
+    override suspend fun listMeetings(
+        committeeId: String?,
+        status: MeetingStatus?,
+    ): List<MeetingDto> {
         resolveCurrentMember(call)
         return transaction {
             val conditions = mutableListOf<Op<Boolean>>()
-            if (gremiumId != null) conditions += (SitzungTable.gremiumId eq gremiumId.toGremiumUuid())
-            if (status != null) conditions += (SitzungTable.status eq status)
-            val baseQuery = (SitzungTable innerJoin GremiumTable).selectAll()
+            if (committeeId != null) conditions += (MeetingTable.committeeId eq committeeId.toCommitteeUuid())
+            if (status != null) conditions += (MeetingTable.status eq status)
+            val baseQuery = (MeetingTable innerJoin CommitteeTable).selectAll()
             val query = if (conditions.isEmpty()) baseQuery else baseQuery.where { conditions.reduce { a, b -> a and b } }
-            query.map { it.toSitzungDto() }
+            query.map { it.toMeetingDto() }
         }
     }
 
-    override suspend fun getSitzungDetail(sitzungId: String): SitzungDetailDto {
+    override suspend fun getMeetingDetail(meetingId: String): MeetingDetailDto {
         resolveCurrentMember(call)
-        val sId = sitzungId.toSitzungUuid()
+        val sId = meetingId.toMeetingUuid()
         return transaction {
-            val sitzung = loadSitzung(sId)
-            SitzungDetailDto(
-                sitzung = sitzung,
-                tagesordnung = loadTagesordnung(sId),
-                anwesenheit = loadAnwesenheit(sId),
-                beschluesse = loadBeschluesse(sId),
-                quorum = computeQuorum(sId, sitzung.gremiumId.toGremiumUuid(), sitzung.scheduledAt.date),
+            val meeting = loadMeeting(sId)
+            MeetingDetailDto(
+                meeting = meeting,
+                agenda = loadAgenda(sId),
+                attendance = loadAttendance(sId),
+                resolutions = loadResolutions(sId),
+                quorum = computeQuorum(sId, meeting.committeeId.toCommitteeUuid(), meeting.scheduledAt.date),
             )
         }
     }
 
-    override suspend fun createSitzung(input: SitzungInput): SitzungDto {
+    override suspend fun createMeeting(input: MeetingInput): MeetingDto {
         val current = resolveCurrentMember(call)
-        val gId = input.gremiumId.toGremiumUuid()
+        val gId = input.committeeId.toCommitteeUuid()
         return transaction {
-            GremiumTable.selectAll().where { GremiumTable.id eq gId }.singleOrNull()
-                ?: throw NotFoundException("Gremium ${input.gremiumId} not found")
-            if (!current.canRecordForSitzung(gId)) throw ForbiddenException()
+            CommitteeTable.selectAll().where { CommitteeTable.id eq gId }.singleOrNull()
+                ?: throw NotFoundException("Committee ${input.committeeId} not found")
+            if (!current.canRecordForMeeting(gId)) throw ForbiddenException()
             val id = Uuid.random()
             val now = nowLocalDateTime()
-            SitzungTable.insert {
-                it[SitzungTable.id] = id
-                it[SitzungTable.gremiumId] = gId
+            MeetingTable.insert {
+                it[MeetingTable.id] = id
+                it[MeetingTable.committeeId] = gId
                 it[title] = input.title
                 it[scheduledAt] = input.scheduledAt
                 it[location] = input.location
                 it[format] = input.format
-                it[status] = SitzungsStatus.GEPLANT
+                it[status] = MeetingStatus.PLANNED
                 it[calledBy] = current.memberId
                 it[calledAt] = now
                 it[chairMemberId] = input.chairMemberId?.let(Uuid::parse)
@@ -302,73 +302,73 @@ class GovernanceService(
                 it[protocolDocumentId] = null
                 it[createdAt] = now
             }
-            loadSitzung(id)
+            loadMeeting(id)
         }
     }
 
-    override suspend fun updateSitzungStatus(
-        sitzungId: String,
-        status: SitzungsStatus,
-    ): SitzungDto {
+    override suspend fun updateMeetingStatus(
+        meetingId: String,
+        status: MeetingStatus,
+    ): MeetingDto {
         val current = resolveCurrentMember(call)
-        val sId = sitzungId.toSitzungUuid()
+        val sId = meetingId.toMeetingUuid()
         return transaction {
-            val gremiumId = requireSitzungGremiumId(sId)
-            if (!current.canRecordForSitzung(gremiumId)) throw ForbiddenException()
-            SitzungTable.update({ SitzungTable.id eq sId }) { it[SitzungTable.status] = status }
-            loadSitzung(sId)
+            val committeeId = requireMeetingCommitteeId(sId)
+            if (!current.canRecordForMeeting(committeeId)) throw ForbiddenException()
+            MeetingTable.update({ MeetingTable.id eq sId }) { it[MeetingTable.status] = status }
+            loadMeeting(sId)
         }
     }
 
-    override suspend fun addTagesordnungspunkt(
-        sitzungId: String,
-        input: TagesordnungspunktInput,
-    ): TagesordnungspunktDto {
+    override suspend fun addAgendaItem(
+        meetingId: String,
+        input: AgendaItemInput,
+    ): AgendaItemDto {
         val current = resolveCurrentMember(call)
-        val sId = sitzungId.toSitzungUuid()
+        val sId = meetingId.toMeetingUuid()
         return transaction {
-            val gremiumId = requireSitzungGremiumId(sId)
-            if (!current.canRecordForSitzung(gremiumId)) throw ForbiddenException()
-            insertTagesordnungspunkt(sId, input)
+            val committeeId = requireMeetingCommitteeId(sId)
+            if (!current.canRecordForMeeting(committeeId)) throw ForbiddenException()
+            insertAgendaItem(sId, input)
         }
     }
 
-    override suspend fun removeTagesordnungspunkt(id: String) {
+    override suspend fun removeAgendaItem(id: String) {
         val current = resolveCurrentMember(call)
-        val topId = id.toTagesordnungspunktUuid()
+        val topId = id.toAgendaItemUuid()
         transaction {
             val row =
-                TagesordnungspunktTable.selectAll().where { TagesordnungspunktTable.id eq topId }.singleOrNull()
-                    ?: throw NotFoundException("Tagesordnungspunkt $id not found")
-            val gremiumId = requireSitzungGremiumId(row[TagesordnungspunktTable.sitzungId])
-            if (!current.canRecordForSitzung(gremiumId)) throw ForbiddenException()
-            TagesordnungspunktTable.deleteWhere { TagesordnungspunktTable.id eq topId }
+                AgendaItemTable.selectAll().where { AgendaItemTable.id eq topId }.singleOrNull()
+                    ?: throw NotFoundException("AgendaItem $id not found")
+            val committeeId = requireMeetingCommitteeId(row[AgendaItemTable.meetingId])
+            if (!current.canRecordForMeeting(committeeId)) throw ForbiddenException()
+            AgendaItemTable.deleteWhere { AgendaItemTable.id eq topId }
         }
     }
 
     override suspend fun recordAttendance(
-        sitzungId: String,
-        input: AnwesenheitInput,
-    ): AnwesenheitDto {
+        meetingId: String,
+        input: AttendanceInput,
+    ): AttendanceDto {
         val current = resolveCurrentMember(call)
-        val sId = sitzungId.toSitzungUuid()
+        val sId = meetingId.toMeetingUuid()
         val memberId = input.memberId.toMemberUuid()
         return transaction {
-            val gremiumId = requireSitzungGremiumId(sId)
-            if (!current.canRecordForSitzung(gremiumId)) throw ForbiddenException()
+            val committeeId = requireMeetingCommitteeId(sId)
+            if (!current.canRecordForMeeting(committeeId)) throw ForbiddenException()
             val now = nowLocalDateTime()
             val existing =
-                AnwesenheitTable
+                AttendanceTable
                     .selectAll()
-                    .where { (AnwesenheitTable.sitzungId eq sId) and (AnwesenheitTable.memberId eq memberId) }
+                    .where { (AttendanceTable.meetingId eq sId) and (AttendanceTable.memberId eq memberId) }
                     .singleOrNull()
             val id =
                 if (existing == null) {
                     val newId = Uuid.random()
-                    AnwesenheitTable.insert {
-                        it[AnwesenheitTable.id] = newId
-                        it[AnwesenheitTable.sitzungId] = sId
-                        it[AnwesenheitTable.memberId] = memberId
+                    AttendanceTable.insert {
+                        it[AttendanceTable.id] = newId
+                        it[AttendanceTable.meetingId] = sId
+                        it[AttendanceTable.memberId] = memberId
                         it[status] = input.status
                         it[representedByMemberId] = input.representedByMemberId?.let(Uuid::parse)
                         it[note] = input.note
@@ -376,8 +376,8 @@ class GovernanceService(
                     }
                     newId
                 } else {
-                    val existingId = existing[AnwesenheitTable.id]
-                    AnwesenheitTable.update({ AnwesenheitTable.id eq existingId }) {
+                    val existingId = existing[AttendanceTable.id]
+                    AttendanceTable.update({ AttendanceTable.id eq existingId }) {
                         it[status] = input.status
                         it[representedByMemberId] = input.representedByMemberId?.let(Uuid::parse)
                         it[note] = input.note
@@ -385,300 +385,300 @@ class GovernanceService(
                     }
                     existingId
                 }
-            AnwesenheitTable
+            AttendanceTable
                 .selectAll()
-                .where { AnwesenheitTable.id eq id }
+                .where { AttendanceTable.id eq id }
                 .single()
-                .toAnwesenheitDto()
+                .toAttendanceDto()
         }
     }
 
-    override suspend fun getAttendance(sitzungId: String): List<AnwesenheitDto> {
+    override suspend fun getAttendance(meetingId: String): List<AttendanceDto> {
         resolveCurrentMember(call)
-        val sId = sitzungId.toSitzungUuid()
-        return transaction { loadAnwesenheit(sId) }
+        val sId = meetingId.toMeetingUuid()
+        return transaction { loadAttendance(sId) }
     }
 
-    override suspend fun checkQuorum(sitzungId: String): QuorumResultDto {
+    override suspend fun checkQuorum(meetingId: String): QuorumResultDto {
         resolveCurrentMember(call)
-        val sId = sitzungId.toSitzungUuid()
+        val sId = meetingId.toMeetingUuid()
         return transaction {
-            val sitzung = loadSitzung(sId)
-            computeQuorum(sId, sitzung.gremiumId.toGremiumUuid(), sitzung.scheduledAt.date)
+            val meeting = loadMeeting(sId)
+            computeQuorum(sId, meeting.committeeId.toCommitteeUuid(), meeting.scheduledAt.date)
         }
     }
 
-    override suspend fun recordBeschluss(
-        sitzungId: String,
-        input: BeschlussInput,
-    ): BeschlussDto {
+    override suspend fun recordResolution(
+        meetingId: String,
+        input: ResolutionInput,
+    ): ResolutionDto {
         val current = resolveCurrentMember(call)
-        val sId = sitzungId.toSitzungUuid()
+        val sId = meetingId.toMeetingUuid()
         return transaction {
-            val gremiumId = requireSitzungGremiumId(sId)
-            if (!current.canRecordForSitzung(gremiumId)) throw ForbiddenException()
-            val sitzung = loadSitzung(sId)
-            insertBeschlussRow(sId, gremiumId, sitzung.scheduledAt.date, input, current)
+            val committeeId = requireMeetingCommitteeId(sId)
+            if (!current.canRecordForMeeting(committeeId)) throw ForbiddenException()
+            val meeting = loadMeeting(sId)
+            insertResolutionRow(sId, committeeId, meeting.scheduledAt.date, input, current)
         }
     }
 
-    override suspend fun listBeschluesse(
-        gremiumId: String?,
-        sitzungId: String?,
-    ): List<BeschlussDto> {
+    override suspend fun listResolutions(
+        committeeId: String?,
+        meetingId: String?,
+    ): List<ResolutionDto> {
         resolveCurrentMember(call)
         return transaction {
             when {
-                sitzungId != null -> {
-                    val sId = sitzungId.toSitzungUuid()
-                    BeschlussTable.selectAll().where { BeschlussTable.sitzungId eq sId }.map { it.toBeschlussDto() }
+                meetingId != null -> {
+                    val sId = meetingId.toMeetingUuid()
+                    ResolutionTable.selectAll().where { ResolutionTable.meetingId eq sId }.map { it.toResolutionDto() }
                 }
-                gremiumId != null -> {
-                    val gId = gremiumId.toGremiumUuid()
-                    (BeschlussTable innerJoin SitzungTable)
+                committeeId != null -> {
+                    val gId = committeeId.toCommitteeUuid()
+                    (ResolutionTable innerJoin MeetingTable)
                         .selectAll()
-                        .where { SitzungTable.gremiumId eq gId }
-                        .map { it.toBeschlussDto() }
+                        .where { MeetingTable.committeeId eq gId }
+                        .map { it.toResolutionDto() }
                 }
-                else -> BeschlussTable.selectAll().map { it.toBeschlussDto() }
+                else -> ResolutionTable.selectAll().map { it.toResolutionDto() }
             }
         }
     }
 
-    override suspend fun generateProtocolDraft(sitzungId: String): ProtocolDraftDto {
+    override suspend fun generateProtocolDraft(meetingId: String): ProtocolDraftDto {
         resolveCurrentMember(call)
-        val sId = sitzungId.toSitzungUuid()
+        val sId = meetingId.toMeetingUuid()
         return transaction {
-            val sitzung = loadSitzung(sId)
+            val meeting = loadMeeting(sId)
             ProtocolDraftDto(
-                sitzung = sitzung,
-                anwesenheit = loadAnwesenheit(sId),
-                tagesordnung = loadTagesordnung(sId),
-                beschluesse = loadBeschluesse(sId),
-                quorum = computeQuorum(sId, sitzung.gremiumId.toGremiumUuid(), sitzung.scheduledAt.date),
+                meeting = meeting,
+                attendance = loadAttendance(sId),
+                agenda = loadAgenda(sId),
+                resolutions = loadResolutions(sId),
+                quorum = computeQuorum(sId, meeting.committeeId.toCommitteeUuid(), meeting.scheduledAt.date),
                 generatedAt = nowLocalDateTime(),
             )
         }
     }
 
-    override suspend fun submitAntrag(input: AntragInput): AntragDto {
+    override suspend fun submitMotion(input: MotionInput): MotionDto {
         val current = resolveCurrentMember(call)
-        val gId = input.targetGremiumId.toGremiumUuid()
+        val gId = input.targetCommitteeId.toCommitteeUuid()
         return transaction {
-            GremiumTable.selectAll().where { GremiumTable.id eq gId }.singleOrNull()
-                ?: throw NotFoundException("Gremium ${input.targetGremiumId} not found")
-            if (!current.canSubmitAntrag(gId)) throw ForbiddenException()
+            CommitteeTable.selectAll().where { CommitteeTable.id eq gId }.singleOrNull()
+                ?: throw NotFoundException("Committee ${input.targetCommitteeId} not found")
+            if (!current.canSubmitMotion(gId)) throw ForbiddenException()
             val id = Uuid.random()
             val now = nowLocalDateTime()
-            AntragTable.insert {
-                it[AntragTable.id] = id
-                it[targetGremiumId] = gId
+            MotionTable.insert {
+                it[MotionTable.id] = id
+                it[targetCommitteeId] = gId
                 it[title] = input.title
-                it[begruendung] = input.begruendung
+                it[rationale] = input.rationale
                 it[text] = input.text
                 it[submitterMemberId] = current.memberId
-                it[status] = AntragStatus.EINGEREICHT
+                it[status] = MotionStatus.SUBMITTED
                 it[submittedAt] = now
                 it[reviewedBy] = null
                 it[reviewedAt] = null
                 it[reviewNote] = null
-                it[sitzungId] = null
-                it[tagesordnungspunktId] = null
-                it[beschlussId] = null
+                it[meetingId] = null
+                it[agendaItemId] = null
+                it[resolutionId] = null
                 it[withdrawnAt] = null
             }
-            loadAntrag(id)
+            loadMotion(id)
         }
     }
 
-    override suspend fun listAntraege(
-        targetGremiumId: String?,
-        status: AntragStatus?,
-    ): List<AntragDto> {
+    override suspend fun listMotions(
+        targetCommitteeId: String?,
+        status: MotionStatus?,
+    ): List<MotionDto> {
         resolveCurrentMember(call)
         return transaction {
             val conditions = mutableListOf<Op<Boolean>>()
-            if (targetGremiumId != null) conditions += (AntragTable.targetGremiumId eq targetGremiumId.toGremiumUuid())
-            if (status != null) conditions += (AntragTable.status eq status)
-            val baseQuery = (AntragTable innerJoin GremiumTable).selectAll()
+            if (targetCommitteeId != null) conditions += (MotionTable.targetCommitteeId eq targetCommitteeId.toCommitteeUuid())
+            if (status != null) conditions += (MotionTable.status eq status)
+            val baseQuery = (MotionTable innerJoin CommitteeTable).selectAll()
             val query = if (conditions.isEmpty()) baseQuery else baseQuery.where { conditions.reduce { a, b -> a and b } }
-            query.map { it.toAntragDto() }
+            query.map { it.toMotionDto() }
         }
     }
 
-    override suspend fun getAntrag(id: String): AntragDto {
+    override suspend fun getMotion(id: String): MotionDto {
         resolveCurrentMember(call)
-        val aId = id.toAntragUuid()
-        return transaction { loadAntrag(aId) }
+        val aId = id.toMotionUuid()
+        return transaction { loadMotion(aId) }
     }
 
-    override suspend fun withdrawAntrag(id: String): AntragDto {
+    override suspend fun withdrawMotion(id: String): MotionDto {
         val current = resolveCurrentMember(call)
-        val aId = id.toAntragUuid()
+        val aId = id.toMotionUuid()
         return transaction {
             val row =
-                AntragTable.selectAll().where { AntragTable.id eq aId }.singleOrNull()
-                    ?: throw NotFoundException("Antrag $id not found")
-            val gremiumId = row[AntragTable.targetGremiumId]
-            val submitterId = row[AntragTable.submitterMemberId]
-            val status = row[AntragTable.status]
-            val submitterWithdrawingOwnPending = current.memberId == submitterId && status == AntragStatus.EINGEREICHT
-            if (!submitterWithdrawingOwnPending && !current.canRecordForSitzung(gremiumId)) throw ForbiddenException()
-            if (status == AntragStatus.ZURUECKGEZOGEN) throw ConflictException("Antrag $id already withdrawn")
-            AntragTable.update({ AntragTable.id eq aId }) {
-                it[AntragTable.status] = AntragStatus.ZURUECKGEZOGEN
+                MotionTable.selectAll().where { MotionTable.id eq aId }.singleOrNull()
+                    ?: throw NotFoundException("Motion $id not found")
+            val committeeId = row[MotionTable.targetCommitteeId]
+            val submitterId = row[MotionTable.submitterMemberId]
+            val status = row[MotionTable.status]
+            val submitterWithdrawingOwnPending = current.memberId == submitterId && status == MotionStatus.SUBMITTED
+            if (!submitterWithdrawingOwnPending && !current.canRecordForMeeting(committeeId)) throw ForbiddenException()
+            if (status == MotionStatus.WITHDRAWN) throw ConflictException("Motion $id already withdrawn")
+            MotionTable.update({ MotionTable.id eq aId }) {
+                it[MotionTable.status] = MotionStatus.WITHDRAWN
                 it[withdrawnAt] = nowLocalDateTime()
             }
-            loadAntrag(aId)
+            loadMotion(aId)
         }
     }
 
-    override suspend fun reviewAntrag(
+    override suspend fun reviewMotion(
         id: String,
-        decision: AntragPruefungsEntscheidung,
+        decision: MotionReviewDecision,
         note: String?,
-    ): AntragDto {
+    ): MotionDto {
         val current = resolveCurrentMember(call)
-        val aId = id.toAntragUuid()
+        val aId = id.toMotionUuid()
         return transaction {
             val row =
-                AntragTable.selectAll().where { AntragTable.id eq aId }.singleOrNull()
-                    ?: throw NotFoundException("Antrag $id not found")
-            val gremiumId = row[AntragTable.targetGremiumId]
-            if (!current.canRecordForSitzung(gremiumId)) throw ForbiddenException()
-            val status = row[AntragTable.status]
-            if (status != AntragStatus.EINGEREICHT) {
-                throw ConflictException("Antrag $id is $status, expected EINGEREICHT")
+                MotionTable.selectAll().where { MotionTable.id eq aId }.singleOrNull()
+                    ?: throw NotFoundException("Motion $id not found")
+            val committeeId = row[MotionTable.targetCommitteeId]
+            if (!current.canRecordForMeeting(committeeId)) throw ForbiddenException()
+            val status = row[MotionTable.status]
+            if (status != MotionStatus.SUBMITTED) {
+                throw ConflictException("Motion $id is $status, expected SUBMITTED")
             }
             val newStatus =
                 when (decision) {
-                    AntragPruefungsEntscheidung.ANNEHMEN -> AntragStatus.GEPRUEFT
-                    AntragPruefungsEntscheidung.ABLEHNEN -> AntragStatus.ABGELEHNT_VORPRUEFUNG
+                    MotionReviewDecision.ACCEPT -> MotionStatus.REVIEWED
+                    MotionReviewDecision.REJECT -> MotionStatus.REJECTED_PRELIMINARY
                 }
             val now = nowLocalDateTime()
-            AntragTable.update({ AntragTable.id eq aId }) {
-                it[AntragTable.status] = newStatus
+            MotionTable.update({ MotionTable.id eq aId }) {
+                it[MotionTable.status] = newStatus
                 it[reviewedBy] = current.memberId
                 it[reviewedAt] = now
                 it[reviewNote] = note
             }
-            loadAntrag(aId)
+            loadMotion(aId)
         }
     }
 
-    override suspend fun scheduleAntrag(
+    override suspend fun scheduleMotion(
         id: String,
-        sitzungId: String,
+        meetingId: String,
         position: Int,
-    ): AntragDto {
+    ): MotionDto {
         val current = resolveCurrentMember(call)
-        val aId = id.toAntragUuid()
-        val sId = sitzungId.toSitzungUuid()
+        val aId = id.toMotionUuid()
+        val sId = meetingId.toMeetingUuid()
         return transaction {
             val row =
-                AntragTable.selectAll().where { AntragTable.id eq aId }.singleOrNull()
-                    ?: throw NotFoundException("Antrag $id not found")
-            val gremiumId = row[AntragTable.targetGremiumId]
-            if (!current.canRecordForSitzung(gremiumId)) throw ForbiddenException()
-            val status = row[AntragTable.status]
-            if (status != AntragStatus.GEPRUEFT && status != AntragStatus.VERTAGT) {
-                throw ConflictException("Antrag $id is $status, expected GEPRUEFT or VERTAGT")
+                MotionTable.selectAll().where { MotionTable.id eq aId }.singleOrNull()
+                    ?: throw NotFoundException("Motion $id not found")
+            val committeeId = row[MotionTable.targetCommitteeId]
+            if (!current.canRecordForMeeting(committeeId)) throw ForbiddenException()
+            val status = row[MotionTable.status]
+            if (status != MotionStatus.REVIEWED && status != MotionStatus.POSTPONED) {
+                throw ConflictException("Motion $id is $status, expected REVIEWED or POSTPONED")
             }
-            val sitzungRow =
-                SitzungTable.selectAll().where { SitzungTable.id eq sId }.singleOrNull()
-                    ?: throw NotFoundException("Sitzung $sitzungId not found")
-            if (sitzungRow[SitzungTable.gremiumId] != gremiumId) {
-                throw ConflictException("Sitzung $sitzungId does not belong to Antrag $id's target Gremium")
+            val meetingRow =
+                MeetingTable.selectAll().where { MeetingTable.id eq sId }.singleOrNull()
+                    ?: throw NotFoundException("Meeting $meetingId not found")
+            if (meetingRow[MeetingTable.committeeId] != committeeId) {
+                throw ConflictException("Meeting $meetingId does not belong to Motion $id's target Committee")
             }
-            if (sitzungRow[SitzungTable.status] != SitzungsStatus.GEPLANT) {
-                throw ConflictException("Sitzung $sitzungId is not GEPLANT")
+            if (meetingRow[MeetingTable.status] != MeetingStatus.PLANNED) {
+                throw ConflictException("Meeting $meetingId is not PLANNED")
             }
             val top =
-                insertTagesordnungspunkt(
+                insertAgendaItem(
                     sId,
-                    TagesordnungspunktInput(
+                    AgendaItemInput(
                         position = position,
-                        title = row[AntragTable.title],
-                        description = row[AntragTable.begruendung],
-                        presenterMemberId = row[AntragTable.submitterMemberId].toString(),
+                        title = row[MotionTable.title],
+                        description = row[MotionTable.rationale],
+                        presenterMemberId = row[MotionTable.submitterMemberId].toString(),
                     ),
                 )
-            AntragTable.update({ AntragTable.id eq aId }) {
-                it[AntragTable.status] = AntragStatus.TERMINIERT
-                it[AntragTable.sitzungId] = sId
-                it[AntragTable.tagesordnungspunktId] = Uuid.parse(top.id)
+            MotionTable.update({ MotionTable.id eq aId }) {
+                it[MotionTable.status] = MotionStatus.SCHEDULED
+                it[MotionTable.meetingId] = sId
+                it[MotionTable.agendaItemId] = Uuid.parse(top.id)
             }
-            loadAntrag(aId)
+            loadMotion(aId)
         }
     }
 
-    override suspend fun resolveAntrag(
+    override suspend fun resolveMotion(
         id: String,
-        input: AntragResolutionInput,
-    ): AntragDto {
+        input: MotionResolutionInput,
+    ): MotionDto {
         val current = resolveCurrentMember(call)
-        val aId = id.toAntragUuid()
+        val aId = id.toMotionUuid()
         return transaction {
             val row =
-                AntragTable.selectAll().where { AntragTable.id eq aId }.singleOrNull()
-                    ?: throw NotFoundException("Antrag $id not found")
-            val gremiumId = row[AntragTable.targetGremiumId]
-            if (!current.canRecordForSitzung(gremiumId)) throw ForbiddenException()
-            if (row[AntragTable.status] != AntragStatus.TERMINIERT) {
-                throw ConflictException("Antrag $id is ${row[AntragTable.status]}, expected TERMINIERT")
+                MotionTable.selectAll().where { MotionTable.id eq aId }.singleOrNull()
+                    ?: throw NotFoundException("Motion $id not found")
+            val committeeId = row[MotionTable.targetCommitteeId]
+            if (!current.canRecordForMeeting(committeeId)) throw ForbiddenException()
+            if (row[MotionTable.status] != MotionStatus.SCHEDULED) {
+                throw ConflictException("Motion $id is ${row[MotionTable.status]}, expected SCHEDULED")
             }
-            val sId = row[AntragTable.sitzungId] ?: throw ConflictException("Antrag $id has no scheduled Sitzung")
-            val topId = row[AntragTable.tagesordnungspunktId]
-            val sitzung = loadSitzung(sId)
-            val beschlussInput =
-                BeschlussInput(
-                    tagesordnungspunktId = topId?.toString(),
-                    title = row[AntragTable.title],
-                    text = row[AntragTable.text],
+            val sId = row[MotionTable.meetingId] ?: throw ConflictException("Motion $id has no scheduled Meeting")
+            val topId = row[MotionTable.agendaItemId]
+            val meeting = loadMeeting(sId)
+            val resolutionInput =
+                ResolutionInput(
+                    agendaItemId = topId?.toString(),
+                    title = row[MotionTable.title],
+                    text = row[MotionTable.text],
                     votesYes = input.votesYes,
                     votesNo = input.votesNo,
                     votesAbstain = input.votesAbstain,
                     status = input.status,
                 )
-            val beschluss = insertBeschlussRow(sId, gremiumId, sitzung.scheduledAt.date, beschlussInput, current)
-            val newAntragStatus =
+            val resolution = insertResolutionRow(sId, committeeId, meeting.scheduledAt.date, resolutionInput, current)
+            val newMotionStatus =
                 when (input.status) {
-                    BeschlussStatus.ANGENOMMEN -> AntragStatus.BESCHLOSSEN
-                    BeschlussStatus.ABGELEHNT -> AntragStatus.ABGELEHNT
-                    BeschlussStatus.VERTAGT -> AntragStatus.VERTAGT
+                    ResolutionStatus.ADOPTED -> MotionStatus.RESOLVED
+                    ResolutionStatus.REJECTED -> MotionStatus.REJECTED
+                    ResolutionStatus.POSTPONED -> MotionStatus.POSTPONED
                 }
-            AntragTable.update({ AntragTable.id eq aId }) {
-                it[AntragTable.status] = newAntragStatus
-                it[AntragTable.beschlussId] = Uuid.parse(beschluss.id)
+            MotionTable.update({ MotionTable.id eq aId }) {
+                it[MotionTable.status] = newMotionStatus
+                it[MotionTable.resolutionId] = Uuid.parse(resolution.id)
             }
-            loadAntrag(aId)
+            loadMotion(aId)
         }
     }
 
-    override suspend fun openAbstimmung(input: AbstimmungOpenInput): AbstimmungDto {
+    override suspend fun openVote(input: VoteOpenInput): VoteDto {
         val current = resolveCurrentMember(call)
-        val aId = input.antragId.toAntragUuid()
+        val aId = input.motionId.toMotionUuid()
         return transaction {
-            val antragRow =
-                AntragTable.selectAll().where { AntragTable.id eq aId }.singleOrNull()
-                    ?: throw NotFoundException("Antrag ${input.antragId} not found")
-            val gremiumId = antragRow[AntragTable.targetGremiumId]
-            if (!current.canRecordForSitzung(gremiumId)) throw ForbiddenException()
-            if (antragRow[AntragTable.status] != AntragStatus.TERMINIERT) {
-                throw ConflictException("Antrag ${input.antragId} is ${antragRow[AntragTable.status]}, expected TERMINIERT")
+            val motionRow =
+                MotionTable.selectAll().where { MotionTable.id eq aId }.singleOrNull()
+                    ?: throw NotFoundException("Motion ${input.motionId} not found")
+            val committeeId = motionRow[MotionTable.targetCommitteeId]
+            if (!current.canRecordForMeeting(committeeId)) throw ForbiddenException()
+            if (motionRow[MotionTable.status] != MotionStatus.SCHEDULED) {
+                throw ConflictException("Motion ${input.motionId} is ${motionRow[MotionTable.status]}, expected SCHEDULED")
             }
             val sId =
-                antragRow[AntragTable.sitzungId]
-                    ?: throw ConflictException("Antrag ${input.antragId} has no scheduled Sitzung")
-            val hasActiveAbstimmung =
-                AbstimmungTable
+                motionRow[MotionTable.meetingId]
+                    ?: throw ConflictException("Motion ${input.motionId} has no scheduled Meeting")
+            val hasActiveVote =
+                VoteTable
                     .selectAll()
                     .where {
-                        (AbstimmungTable.antragId eq aId) and
-                            (AbstimmungTable.status inList listOf(AbstimmungStatus.OFFEN, AbstimmungStatus.GESCHLOSSEN))
+                        (VoteTable.motionId eq aId) and
+                            (VoteTable.status inList listOf(VoteStatus.OPEN, VoteStatus.CLOSED))
                     }.count() > 0
-            if (hasActiveAbstimmung) {
-                throw ConflictException("Antrag ${input.antragId} already has an open or resolved Abstimmung")
+            if (hasActiveVote) {
+                throw ConflictException("Motion ${input.motionId} already has an open or resolved Vote")
             }
             val distinctLabels =
                 input.optionLabels
@@ -686,71 +686,71 @@ class GovernanceService(
                     .filter { it.isNotBlank() }
                     .distinct()
             if (distinctLabels.size < 2) {
-                throw ConflictException("openAbstimmung requires at least 2 distinct non-blank option labels")
+                throw ConflictException("openVote requires at least 2 distinct non-blank option labels")
             }
             if (distinctLabels.size > MAX_ABSTIMMUNG_OPTIONS) {
-                throw ConflictException("openAbstimmung accepts at most $MAX_ABSTIMMUNG_OPTIONS distinct option labels")
+                throw ConflictException("openVote accepts at most $MAX_ABSTIMMUNG_OPTIONS distinct option labels")
             }
             if (distinctLabels.any { it.length > MAX_OPTION_LABEL_LENGTH }) {
                 throw ConflictException("Option labels must be at most $MAX_OPTION_LABEL_LENGTH characters")
             }
             val id = Uuid.random()
             val now = nowLocalDateTime()
-            AbstimmungTable.insert {
-                it[AbstimmungTable.id] = id
-                it[AbstimmungTable.antragId] = aId
-                it[AbstimmungTable.sitzungId] = sId
-                it[title] = antragRow[AntragTable.title]
-                it[status] = AbstimmungStatus.OFFEN
+            VoteTable.insert {
+                it[VoteTable.id] = id
+                it[VoteTable.motionId] = aId
+                it[VoteTable.meetingId] = sId
+                it[title] = motionRow[MotionTable.title]
+                it[status] = VoteStatus.OPEN
                 it[openedBy] = current.memberId
                 it[openedAt] = now
                 it[closedAt] = null
                 it[winnerOptionId] = null
                 it[secondPriceLtr] = null
-                it[beschlussId] = null
+                it[resolutionId] = null
             }
             distinctLabels.forEachIndexed { index, label ->
-                AbstimmungOptionTable.insert {
-                    it[AbstimmungOptionTable.id] = Uuid.random()
-                    it[AbstimmungOptionTable.abstimmungId] = id
-                    it[AbstimmungOptionTable.label] = label
+                VoteOptionTable.insert {
+                    it[VoteOptionTable.id] = Uuid.random()
+                    it[VoteOptionTable.voteId] = id
+                    it[VoteOptionTable.label] = label
                     it[position] = index
                 }
             }
-            loadAbstimmung(id)
+            loadVote(id)
         }
     }
 
     /**
-     * Eligibility mirrors [computeQuorum]'s [eligibleMemberIds] set for the Abstimmung's
-     * underlying Sitzung -- staking LTR into a basket is, per the concept document, a right
+     * Eligibility mirrors [computeQuorum]'s [eligibleMemberIds] set for the Vote's
+     * underlying Meeting -- staking LTR into a basket is, per the concept document, a right
      * exercised by the same constituency that would otherwise cast a headcount vote on this
-     * Antrag, not an org-wide free-for-all (see the implementation plan's open decision point
+     * Motion, not an org-wide free-for-all (see the implementation plan's open decision point
      * (c) for the alternative considered and deferred).
      */
-    override suspend fun castStimme(input: StimmeInput): StimmeDto {
+    override suspend fun castVoteBallot(input: VoteBallotInput): VoteBallotDto {
         val current = resolveCurrentMember(call)
-        val abId = input.abstimmungId.toAbstimmungUuid()
-        val optId = input.optionId.toAbstimmungOptionUuid()
+        val abId = input.voteId.toVoteUuid()
+        val optId = input.optionId.toVoteOptionUuid()
         return transaction {
-            val abstimmungRow =
-                AbstimmungTable.selectAll().where { AbstimmungTable.id eq abId }.singleOrNull()
-                    ?: throw NotFoundException("Abstimmung ${input.abstimmungId} not found")
-            if (abstimmungRow[AbstimmungTable.status] != AbstimmungStatus.OFFEN) {
+            val voteRow =
+                VoteTable.selectAll().where { VoteTable.id eq abId }.singleOrNull()
+                    ?: throw NotFoundException("Vote ${input.voteId} not found")
+            if (voteRow[VoteTable.status] != VoteStatus.OPEN) {
                 throw ConflictException(
-                    "Abstimmung ${input.abstimmungId} is ${abstimmungRow[AbstimmungTable.status]}, expected OFFEN",
+                    "Vote ${input.voteId} is ${voteRow[VoteTable.status]}, expected OPEN",
                 )
             }
-            AbstimmungOptionTable
+            VoteOptionTable
                 .selectAll()
-                .where { (AbstimmungOptionTable.id eq optId) and (AbstimmungOptionTable.abstimmungId eq abId) }
+                .where { (VoteOptionTable.id eq optId) and (VoteOptionTable.voteId eq abId) }
                 .singleOrNull()
-                ?: throw NotFoundException("Option ${input.optionId} does not belong to Abstimmung ${input.abstimmungId}")
+                ?: throw NotFoundException("Option ${input.optionId} does not belong to Vote ${input.voteId}")
 
-            val sitzung = loadSitzung(abstimmungRow[AbstimmungTable.sitzungId])
-            val gremiumRow =
-                GremiumTable.selectAll().where { GremiumTable.id eq sitzung.gremiumId.toGremiumUuid() }.single()
-            val eligible = eligibleMemberIds(gremiumRow, sitzung.scheduledAt.date)
+            val meeting = loadMeeting(voteRow[VoteTable.meetingId])
+            val committeeRow =
+                CommitteeTable.selectAll().where { CommitteeTable.id eq meeting.committeeId.toCommitteeUuid() }.single()
+            val eligible = eligibleMemberIds(committeeRow, meeting.scheduledAt.date)
             if (current.memberId !in eligible) throw ForbiddenException()
 
             val stake = input.stakeLtr
@@ -764,280 +764,280 @@ class GovernanceService(
 
             val now = nowLocalDateTime()
             val existing =
-                AbstimmungStimmeTable
+                VoteBallotTable
                     .selectAll()
                     .where {
-                        (AbstimmungStimmeTable.abstimmungId eq abId) and (AbstimmungStimmeTable.memberId eq current.memberId)
+                        (VoteBallotTable.voteId eq abId) and (VoteBallotTable.memberId eq current.memberId)
                     }.singleOrNull()
             val id =
                 if (existing == null) {
                     val newId = Uuid.random()
-                    AbstimmungStimmeTable.insert {
-                        it[AbstimmungStimmeTable.id] = newId
-                        it[AbstimmungStimmeTable.abstimmungId] = abId
-                        it[AbstimmungStimmeTable.optionId] = optId
-                        it[AbstimmungStimmeTable.memberId] = current.memberId
+                    VoteBallotTable.insert {
+                        it[VoteBallotTable.id] = newId
+                        it[VoteBallotTable.voteId] = abId
+                        it[VoteBallotTable.optionId] = optId
+                        it[VoteBallotTable.memberId] = current.memberId
                         it[stakeLtr] = normalizedStake
                         it[settledLtr] = null
                         it[castAt] = now
                     }
                     newId
                 } else {
-                    val existingId = existing[AbstimmungStimmeTable.id]
-                    AbstimmungStimmeTable.update({ AbstimmungStimmeTable.id eq existingId }) {
-                        it[AbstimmungStimmeTable.optionId] = optId
+                    val existingId = existing[VoteBallotTable.id]
+                    VoteBallotTable.update({ VoteBallotTable.id eq existingId }) {
+                        it[VoteBallotTable.optionId] = optId
                         it[stakeLtr] = normalizedStake
                         it[settledLtr] = null
                         it[castAt] = now
                     }
                     existingId
                 }
-            AbstimmungStimmeTable
+            VoteBallotTable
                 .selectAll()
-                .where { AbstimmungStimmeTable.id eq id }
+                .where { VoteBallotTable.id eq id }
                 .single()
-                .toStimmeDto()
+                .toVoteBallotDto()
         }
     }
 
     /**
      * Runs the Vickrey settlement ([computeVickreySettlement]) and writes it into the same
-     * Beschlussbuch [recordBeschluss]/[resolveAntrag] use, tagged
-     * [ResolutionMode.MERITOKRATISCH] -- see [insertBeschlussRow]. `votesYes`/`votesNo` are
-     * populated informationally only for the default 2-option JA/NEIN shape (headcount of ballots
+     * resolution book [recordResolution]/[resolveMotion] use, tagged
+     * [ResolutionMode.MERITOCRATIC] -- see [insertResolutionRow]. `votesYes`/`votesNo` are
+     * populated informationally only for the default 2-option YES/NO shape (headcount of ballots
      * per label, not LTR-weighted); any other option count leaves them at `0/0/0` since the
-     * weighted result lives in the Abstimmung itself, not in headcount fields designed for the
-     * Gremium-Quorum path. The winning *basket's* label decides [BeschlussStatus]: a basket
-     * labelled `"NEIN"` (case-insensitive) resolves [BeschlussStatus.ABGELEHNT], any other winning
+     * weighted result lives in the Vote itself, not in headcount fields designed for the
+     * Committee-Quorum path. The winning *basket's* label decides [ResolutionStatus]: a basket
+     * labelled `"NO"` (case-insensitive) resolves [ResolutionStatus.REJECTED], any other winning
      * basket (including a >2-option Sachentscheidung's winning project) resolves
-     * [BeschlussStatus.ANGENOMMEN], and a tie (no winner) resolves [BeschlussStatus.VERTAGT] --
+     * [ResolutionStatus.ADOPTED], and a tie (no winner) resolves [ResolutionStatus.POSTPONED] --
      * documented decision point (a) from the implementation plan.
      */
-    override suspend fun closeAbstimmung(abstimmungId: String): AbstimmungDto {
+    override suspend fun closeVote(voteId: String): VoteDto {
         val current = resolveCurrentMember(call)
-        val abId = abstimmungId.toAbstimmungUuid()
+        val abId = voteId.toVoteUuid()
         return transaction {
-            val abstimmungRow =
-                AbstimmungTable.selectAll().where { AbstimmungTable.id eq abId }.singleOrNull()
-                    ?: throw NotFoundException("Abstimmung $abstimmungId not found")
-            val antragRow =
-                AntragTable.selectAll().where { AntragTable.id eq abstimmungRow[AbstimmungTable.antragId] }.single()
-            val gremiumId = antragRow[AntragTable.targetGremiumId]
-            if (!current.canRecordForSitzung(gremiumId)) throw ForbiddenException()
+            val voteRow =
+                VoteTable.selectAll().where { VoteTable.id eq abId }.singleOrNull()
+                    ?: throw NotFoundException("Vote $voteId not found")
+            val motionRow =
+                MotionTable.selectAll().where { MotionTable.id eq voteRow[VoteTable.motionId] }.single()
+            val committeeId = motionRow[MotionTable.targetCommitteeId]
+            if (!current.canRecordForMeeting(committeeId)) throw ForbiddenException()
             // Re-checked inside the transaction: guards against a concurrent second close (or a
             // cast-vs-close race) between the read above and this point.
-            if (abstimmungRow[AbstimmungTable.status] != AbstimmungStatus.OFFEN) {
-                throw ConflictException("Abstimmung $abstimmungId is ${abstimmungRow[AbstimmungTable.status]}, expected OFFEN")
+            if (voteRow[VoteTable.status] != VoteStatus.OPEN) {
+                throw ConflictException("Vote $voteId is ${voteRow[VoteTable.status]}, expected OPEN")
             }
 
-            val optionRows = AbstimmungOptionTable.selectAll().where { AbstimmungOptionTable.abstimmungId eq abId }.toList()
-            val optionIds = optionRows.map { it[AbstimmungOptionTable.id] }
-            val labelByOptionId = optionRows.associate { it[AbstimmungOptionTable.id] to it[AbstimmungOptionTable.label] }
-            val stimmeRows = AbstimmungStimmeTable.selectAll().where { AbstimmungStimmeTable.abstimmungId eq abId }.toList()
+            val optionRows = VoteOptionTable.selectAll().where { VoteOptionTable.voteId eq abId }.toList()
+            val optionIds = optionRows.map { it[VoteOptionTable.id] }
+            val labelByOptionId = optionRows.associate { it[VoteOptionTable.id] to it[VoteOptionTable.label] }
+            val ballotRows = VoteBallotTable.selectAll().where { VoteBallotTable.voteId eq abId }.toList()
             val ballots =
-                stimmeRows.map {
+                ballotRows.map {
                     Ballot(
-                        memberId = it[AbstimmungStimmeTable.memberId],
-                        optionId = it[AbstimmungStimmeTable.optionId],
-                        stake = it[AbstimmungStimmeTable.stakeLtr],
+                        memberId = it[VoteBallotTable.memberId],
+                        optionId = it[VoteBallotTable.optionId],
+                        stake = it[VoteBallotTable.stakeLtr],
                     )
                 }
             val settlement = computeVickreySettlement(ballots, optionIds)
             val now = nowLocalDateTime()
 
-            stimmeRows.forEach { row ->
-                val stimmeId = row[AbstimmungStimmeTable.id]
-                val memberId = row[AbstimmungStimmeTable.memberId]
+            ballotRows.forEach { row ->
+                val ballotId = row[VoteBallotTable.id]
+                val memberId = row[VoteBallotTable.memberId]
                 val settled = settlement.charges[memberId] ?: ZERO_LTR
-                AbstimmungStimmeTable.update({ AbstimmungStimmeTable.id eq stimmeId }) {
+                VoteBallotTable.update({ VoteBallotTable.id eq ballotId }) {
                     it[settledLtr] = settled
                 }
             }
 
-            val beschlussStatus =
+            val resolutionStatus =
                 when (val winnerId = settlement.winnerOptionId) {
-                    null -> BeschlussStatus.VERTAGT
+                    null -> ResolutionStatus.POSTPONED
                     else -> {
                         val winnerLabel = labelByOptionId.getValue(winnerId)
-                        if (winnerLabel.equals("NEIN", ignoreCase = true)) BeschlussStatus.ABGELEHNT else BeschlussStatus.ANGENOMMEN
+                        if (winnerLabel.equals("NO", ignoreCase = true)) ResolutionStatus.REJECTED else ResolutionStatus.ADOPTED
                     }
                 }
             val (votesYes, votesNo) =
                 if (optionRows.size == 2) {
-                    val yes = stimmeRows.count { labelByOptionId[it[AbstimmungStimmeTable.optionId]].equals("JA", ignoreCase = true) }
-                    val no = stimmeRows.count { labelByOptionId[it[AbstimmungStimmeTable.optionId]].equals("NEIN", ignoreCase = true) }
+                    val yes = ballotRows.count { labelByOptionId[it[VoteBallotTable.optionId]].equals("YES", ignoreCase = true) }
+                    val no = ballotRows.count { labelByOptionId[it[VoteBallotTable.optionId]].equals("NO", ignoreCase = true) }
                     yes to no
                 } else {
                     0 to 0
                 }
 
-            val sId = abstimmungRow[AbstimmungTable.sitzungId]
-            val sitzung = loadSitzung(sId)
-            val beschlussInput =
-                BeschlussInput(
-                    tagesordnungspunktId = antragRow[AntragTable.tagesordnungspunktId]?.toString(),
-                    title = antragRow[AntragTable.title],
-                    text = antragRow[AntragTable.text],
+            val sId = voteRow[VoteTable.meetingId]
+            val meeting = loadMeeting(sId)
+            val resolutionInput =
+                ResolutionInput(
+                    agendaItemId = motionRow[MotionTable.agendaItemId]?.toString(),
+                    title = motionRow[MotionTable.title],
+                    text = motionRow[MotionTable.text],
                     votesYes = votesYes,
                     votesNo = votesNo,
                     votesAbstain = 0,
-                    status = beschlussStatus,
+                    status = resolutionStatus,
                 )
-            val beschluss =
-                insertBeschlussRow(
+            val resolution =
+                insertResolutionRow(
                     sId,
-                    gremiumId,
-                    sitzung.scheduledAt.date,
-                    beschlussInput,
+                    committeeId,
+                    meeting.scheduledAt.date,
+                    resolutionInput,
                     current,
-                    resolutionMode = ResolutionMode.MERITOKRATISCH,
-                    abstimmungId = abId,
+                    resolutionMode = ResolutionMode.MERITOCRATIC,
+                    voteId = abId,
                 )
 
-            val newAntragStatus =
-                when (beschlussStatus) {
-                    BeschlussStatus.ANGENOMMEN -> AntragStatus.BESCHLOSSEN
-                    BeschlussStatus.ABGELEHNT -> AntragStatus.ABGELEHNT
-                    BeschlussStatus.VERTAGT -> AntragStatus.VERTAGT
+            val newMotionStatus =
+                when (resolutionStatus) {
+                    ResolutionStatus.ADOPTED -> MotionStatus.RESOLVED
+                    ResolutionStatus.REJECTED -> MotionStatus.REJECTED
+                    ResolutionStatus.POSTPONED -> MotionStatus.POSTPONED
                 }
-            AntragTable.update({ AntragTable.id eq antragRow[AntragTable.id] }) {
-                it[AntragTable.status] = newAntragStatus
-                it[AntragTable.beschlussId] = Uuid.parse(beschluss.id)
+            MotionTable.update({ MotionTable.id eq motionRow[MotionTable.id] }) {
+                it[MotionTable.status] = newMotionStatus
+                it[MotionTable.resolutionId] = Uuid.parse(resolution.id)
             }
 
-            AbstimmungTable.update({ AbstimmungTable.id eq abId }) {
-                it[status] = AbstimmungStatus.GESCHLOSSEN
+            VoteTable.update({ VoteTable.id eq abId }) {
+                it[status] = VoteStatus.CLOSED
                 it[closedAt] = now
                 it[winnerOptionId] = settlement.winnerOptionId
                 it[secondPriceLtr] = settlement.secondPrice
-                it[beschlussId] = Uuid.parse(beschluss.id)
+                it[resolutionId] = Uuid.parse(resolution.id)
             }
-            loadAbstimmung(abId)
+            loadVote(abId)
         }
     }
 
-    override suspend fun abortAbstimmung(abstimmungId: String): AbstimmungDto {
+    override suspend fun abortVote(voteId: String): VoteDto {
         val current = resolveCurrentMember(call)
-        val abId = abstimmungId.toAbstimmungUuid()
+        val abId = voteId.toVoteUuid()
         return transaction {
-            val abstimmungRow =
-                AbstimmungTable.selectAll().where { AbstimmungTable.id eq abId }.singleOrNull()
-                    ?: throw NotFoundException("Abstimmung $abstimmungId not found")
-            val antragRow =
-                AntragTable.selectAll().where { AntragTable.id eq abstimmungRow[AbstimmungTable.antragId] }.single()
-            if (!current.canRecordForSitzung(antragRow[AntragTable.targetGremiumId])) throw ForbiddenException()
-            if (abstimmungRow[AbstimmungTable.status] != AbstimmungStatus.OFFEN) {
-                throw ConflictException("Abstimmung $abstimmungId is ${abstimmungRow[AbstimmungTable.status]}, expected OFFEN")
+            val voteRow =
+                VoteTable.selectAll().where { VoteTable.id eq abId }.singleOrNull()
+                    ?: throw NotFoundException("Vote $voteId not found")
+            val motionRow =
+                MotionTable.selectAll().where { MotionTable.id eq voteRow[VoteTable.motionId] }.single()
+            if (!current.canRecordForMeeting(motionRow[MotionTable.targetCommitteeId])) throw ForbiddenException()
+            if (voteRow[VoteTable.status] != VoteStatus.OPEN) {
+                throw ConflictException("Vote $voteId is ${voteRow[VoteTable.status]}, expected OPEN")
             }
-            AbstimmungTable.update({ AbstimmungTable.id eq abId }) {
-                it[status] = AbstimmungStatus.ABGEBROCHEN
+            VoteTable.update({ VoteTable.id eq abId }) {
+                it[status] = VoteStatus.ABORTED
                 it[closedAt] = nowLocalDateTime()
             }
-            loadAbstimmung(abId)
+            loadVote(abId)
         }
     }
 
-    override suspend fun getAbstimmung(abstimmungId: String): AbstimmungDto {
+    override suspend fun getVote(voteId: String): VoteDto {
         resolveCurrentMember(call)
-        val abId = abstimmungId.toAbstimmungUuid()
-        return transaction { loadAbstimmung(abId) }
+        val abId = voteId.toVoteUuid()
+        return transaction { loadVote(abId) }
     }
 
-    override suspend fun listStimmen(abstimmungId: String): List<StimmeDto> {
+    override suspend fun listVoteBallots(voteId: String): List<VoteBallotDto> {
         resolveCurrentMember(call)
-        val abId = abstimmungId.toAbstimmungUuid()
+        val abId = voteId.toVoteUuid()
         return transaction {
-            AbstimmungTable.selectAll().where { AbstimmungTable.id eq abId }.singleOrNull()
-                ?: throw NotFoundException("Abstimmung $abstimmungId not found")
-            AbstimmungStimmeTable
+            VoteTable.selectAll().where { VoteTable.id eq abId }.singleOrNull()
+                ?: throw NotFoundException("Vote $voteId not found")
+            VoteBallotTable
                 .selectAll()
-                .where { AbstimmungStimmeTable.abstimmungId eq abId }
-                .map { it.toStimmeDto() }
+                .where { VoteBallotTable.voteId eq abId }
+                .map { it.toVoteBallotDto() }
         }
     }
 
-    private fun loadSitzung(id: Uuid): SitzungDto =
-        (SitzungTable innerJoin GremiumTable)
+    private fun loadMeeting(id: Uuid): MeetingDto =
+        (MeetingTable innerJoin CommitteeTable)
             .selectAll()
-            .where { SitzungTable.id eq id }
+            .where { MeetingTable.id eq id }
             .singleOrNull()
-            ?.toSitzungDto()
-            ?: throw NotFoundException("Sitzung $id not found")
+            ?.toMeetingDto()
+            ?: throw NotFoundException("Meeting $id not found")
 
-    private fun requireSitzungGremiumId(sitzungId: Uuid): Uuid =
-        SitzungTable
+    private fun requireMeetingCommitteeId(meetingId: Uuid): Uuid =
+        MeetingTable
             .selectAll()
-            .where { SitzungTable.id eq sitzungId }
+            .where { MeetingTable.id eq meetingId }
             .singleOrNull()
-            ?.get(SitzungTable.gremiumId)
-            ?: throw NotFoundException("Sitzung $sitzungId not found")
+            ?.get(MeetingTable.committeeId)
+            ?: throw NotFoundException("Meeting $meetingId not found")
 
-    private fun loadTagesordnung(sitzungId: Uuid): List<TagesordnungspunktDto> =
-        TagesordnungspunktTable
+    private fun loadAgenda(meetingId: Uuid): List<AgendaItemDto> =
+        AgendaItemTable
             .selectAll()
-            .where { TagesordnungspunktTable.sitzungId eq sitzungId }
-            .orderBy(TagesordnungspunktTable.position, SortOrder.ASC)
-            .map { it.toTagesordnungspunktDto() }
+            .where { AgendaItemTable.meetingId eq meetingId }
+            .orderBy(AgendaItemTable.position, SortOrder.ASC)
+            .map { it.toAgendaItemDto() }
 
-    private fun loadAnwesenheit(sitzungId: Uuid): List<AnwesenheitDto> =
-        AnwesenheitTable
+    private fun loadAttendance(meetingId: Uuid): List<AttendanceDto> =
+        AttendanceTable
             .selectAll()
-            .where { AnwesenheitTable.sitzungId eq sitzungId }
-            .map { it.toAnwesenheitDto() }
+            .where { AttendanceTable.meetingId eq meetingId }
+            .map { it.toAttendanceDto() }
 
-    private fun loadBeschluesse(sitzungId: Uuid): List<BeschlussDto> =
-        BeschlussTable
+    private fun loadResolutions(meetingId: Uuid): List<ResolutionDto> =
+        ResolutionTable
             .selectAll()
-            .where { BeschlussTable.sitzungId eq sitzungId }
-            .map { it.toBeschlussDto() }
+            .where { ResolutionTable.meetingId eq meetingId }
+            .map { it.toResolutionDto() }
 
-    private fun loadAntrag(id: Uuid): AntragDto =
-        (AntragTable innerJoin GremiumTable)
+    private fun loadMotion(id: Uuid): MotionDto =
+        (MotionTable innerJoin CommitteeTable)
             .selectAll()
-            .where { AntragTable.id eq id }
+            .where { MotionTable.id eq id }
             .singleOrNull()
-            ?.toAntragDto()
-            ?: throw NotFoundException("Antrag $id not found")
+            ?.toMotionDto()
+            ?: throw NotFoundException("Motion $id not found")
 
-    private fun loadAbstimmung(id: Uuid): AbstimmungDto =
-        AbstimmungTable
+    private fun loadVote(id: Uuid): VoteDto =
+        VoteTable
             .selectAll()
-            .where { AbstimmungTable.id eq id }
+            .where { VoteTable.id eq id }
             .singleOrNull()
-            ?.toAbstimmungDto()
-            ?: throw NotFoundException("Abstimmung $id not found")
+            ?.toVoteDto()
+            ?: throw NotFoundException("Vote $id not found")
 
     /**
-     * Shared insert path for [addTagesordnungspunkt] and [scheduleAntrag] (V0.2.2) — the latter
-     * populates [TagesordnungspunktInput] from the Antrag (`title`/`begruendung`/submitter) rather
+     * Shared insert path for [addAgendaItem] and [scheduleMotion] (V0.2.2) — the latter
+     * populates [AgendaItemInput] from the Motion (`title`/`rationale`/submitter) rather
      * than duplicating the position-collision check and insert logic. Must run inside an
      * already-open `transaction {}` (both call sites do).
      */
-    private fun insertTagesordnungspunkt(
+    private fun insertAgendaItem(
         sId: Uuid,
-        input: TagesordnungspunktInput,
-    ): TagesordnungspunktDto {
+        input: AgendaItemInput,
+    ): AgendaItemDto {
         val positionTaken =
-            TagesordnungspunktTable
+            AgendaItemTable
                 .selectAll()
                 .where {
-                    (TagesordnungspunktTable.sitzungId eq sId) and (TagesordnungspunktTable.position eq input.position)
+                    (AgendaItemTable.meetingId eq sId) and (AgendaItemTable.position eq input.position)
                 }.count() > 0
-        if (positionTaken) throw ConflictException("Position ${input.position} already used for Sitzung $sId")
+        if (positionTaken) throw ConflictException("Position ${input.position} already used for Meeting $sId")
         val id = Uuid.random()
-        TagesordnungspunktTable.insert {
-            it[TagesordnungspunktTable.id] = id
-            it[TagesordnungspunktTable.sitzungId] = sId
+        AgendaItemTable.insert {
+            it[AgendaItemTable.id] = id
+            it[AgendaItemTable.meetingId] = sId
             it[position] = input.position
             it[title] = input.title
             it[description] = input.description
             it[presenterMemberId] = input.presenterMemberId?.let(Uuid::parse)
         }
-        return TagesordnungspunktTable
+        return AgendaItemTable
             .selectAll()
-            .where { TagesordnungspunktTable.id eq id }
+            .where { AgendaItemTable.id eq id }
             .single()
-            .toTagesordnungspunktDto()
+            .toAgendaItemDto()
     }
 
     private fun memberDisplayName(memberId: Uuid?): String? =
@@ -1051,169 +1051,168 @@ class GovernanceService(
 
     private fun nowLocalDateTime(): LocalDateTime = Clock.System.now().toLocalDateTime(TimeZone.currentSystemDefault())
 
-    private fun ResultRow.toGremiumDto(): GremiumDto =
-        GremiumDto(
-            id = this[GremiumTable.id].toString(),
-            name = this[GremiumTable.name],
-            type = this[GremiumTable.type],
-            description = this[GremiumTable.description],
-            active = this[GremiumTable.active],
-            quorumPercent = this[GremiumTable.quorumPercent],
-            createdAt = this[GremiumTable.createdAt],
+    private fun ResultRow.toCommitteeDto(): CommitteeDto =
+        CommitteeDto(
+            id = this[CommitteeTable.id].toString(),
+            name = this[CommitteeTable.name],
+            type = this[CommitteeTable.type],
+            description = this[CommitteeTable.description],
+            active = this[CommitteeTable.active],
+            quorumPercent = this[CommitteeTable.quorumPercent],
+            createdAt = this[CommitteeTable.createdAt],
         )
 
-    private fun ResultRow.toGremiumMitgliedschaftDto(): GremiumMitgliedschaftDto =
-        GremiumMitgliedschaftDto(
-            id = this[GremiumMitgliedschaftTable.id].toString(),
-            gremiumId = this[GremiumMitgliedschaftTable.gremiumId].toString(),
-            memberId = this[GremiumMitgliedschaftTable.memberId].toString(),
+    private fun ResultRow.toCommitteeMembershipDto(): CommitteeMembershipDto =
+        CommitteeMembershipDto(
+            id = this[CommitteeMembershipTable.id].toString(),
+            committeeId = this[CommitteeMembershipTable.committeeId].toString(),
+            memberId = this[CommitteeMembershipTable.memberId].toString(),
             memberDisplayName = this[MemberTable.displayName],
-            rolle = this[GremiumMitgliedschaftTable.rolle],
-            since = this[GremiumMitgliedschaftTable.since],
-            until = this[GremiumMitgliedschaftTable.until],
+            role = this[CommitteeMembershipTable.role],
+            since = this[CommitteeMembershipTable.since],
+            until = this[CommitteeMembershipTable.until],
         )
 
-    private fun ResultRow.toSitzungDto(): SitzungDto =
-        SitzungDto(
-            id = this[SitzungTable.id].toString(),
-            gremiumId = this[SitzungTable.gremiumId].toString(),
-            gremiumName = this[GremiumTable.name],
-            title = this[SitzungTable.title],
-            scheduledAt = this[SitzungTable.scheduledAt],
-            location = this[SitzungTable.location],
-            format = this[SitzungTable.format],
-            status = this[SitzungTable.status],
-            calledById = this[SitzungTable.calledBy]?.toString(),
-            calledByDisplayName = memberDisplayName(this[SitzungTable.calledBy]),
-            calledAt = this[SitzungTable.calledAt],
-            chairMemberId = this[SitzungTable.chairMemberId]?.toString(),
-            chairDisplayName = memberDisplayName(this[SitzungTable.chairMemberId]),
-            minuteTakerMemberId = this[SitzungTable.minuteTakerMemberId]?.toString(),
-            minuteTakerDisplayName = memberDisplayName(this[SitzungTable.minuteTakerMemberId]),
-            protocolDocumentId = this[SitzungTable.protocolDocumentId]?.toString(),
-            createdAt = this[SitzungTable.createdAt],
+    private fun ResultRow.toMeetingDto(): MeetingDto =
+        MeetingDto(
+            id = this[MeetingTable.id].toString(),
+            committeeId = this[MeetingTable.committeeId].toString(),
+            committeeName = this[CommitteeTable.name],
+            title = this[MeetingTable.title],
+            scheduledAt = this[MeetingTable.scheduledAt],
+            location = this[MeetingTable.location],
+            format = this[MeetingTable.format],
+            status = this[MeetingTable.status],
+            calledById = this[MeetingTable.calledBy]?.toString(),
+            calledByDisplayName = memberDisplayName(this[MeetingTable.calledBy]),
+            calledAt = this[MeetingTable.calledAt],
+            chairMemberId = this[MeetingTable.chairMemberId]?.toString(),
+            chairDisplayName = memberDisplayName(this[MeetingTable.chairMemberId]),
+            minuteTakerMemberId = this[MeetingTable.minuteTakerMemberId]?.toString(),
+            minuteTakerDisplayName = memberDisplayName(this[MeetingTable.minuteTakerMemberId]),
+            protocolDocumentId = this[MeetingTable.protocolDocumentId]?.toString(),
+            createdAt = this[MeetingTable.createdAt],
         )
 
-    private fun ResultRow.toTagesordnungspunktDto(): TagesordnungspunktDto =
-        TagesordnungspunktDto(
-            id = this[TagesordnungspunktTable.id].toString(),
-            sitzungId = this[TagesordnungspunktTable.sitzungId].toString(),
-            position = this[TagesordnungspunktTable.position],
-            title = this[TagesordnungspunktTable.title],
-            description = this[TagesordnungspunktTable.description],
-            presenterMemberId = this[TagesordnungspunktTable.presenterMemberId]?.toString(),
-            presenterDisplayName = memberDisplayName(this[TagesordnungspunktTable.presenterMemberId]),
+    private fun ResultRow.toAgendaItemDto(): AgendaItemDto =
+        AgendaItemDto(
+            id = this[AgendaItemTable.id].toString(),
+            meetingId = this[AgendaItemTable.meetingId].toString(),
+            position = this[AgendaItemTable.position],
+            title = this[AgendaItemTable.title],
+            description = this[AgendaItemTable.description],
+            presenterMemberId = this[AgendaItemTable.presenterMemberId]?.toString(),
+            presenterDisplayName = memberDisplayName(this[AgendaItemTable.presenterMemberId]),
         )
 
-    private fun ResultRow.toAnwesenheitDto(): AnwesenheitDto =
-        AnwesenheitDto(
-            id = this[AnwesenheitTable.id].toString(),
-            sitzungId = this[AnwesenheitTable.sitzungId].toString(),
-            memberId = this[AnwesenheitTable.memberId].toString(),
-            memberDisplayName = memberDisplayName(this[AnwesenheitTable.memberId]).orEmpty(),
-            status = this[AnwesenheitTable.status],
-            representedByMemberId = this[AnwesenheitTable.representedByMemberId]?.toString(),
-            representedByDisplayName = memberDisplayName(this[AnwesenheitTable.representedByMemberId]),
-            note = this[AnwesenheitTable.note],
-            recordedAt = this[AnwesenheitTable.recordedAt],
+    private fun ResultRow.toAttendanceDto(): AttendanceDto =
+        AttendanceDto(
+            id = this[AttendanceTable.id].toString(),
+            meetingId = this[AttendanceTable.meetingId].toString(),
+            memberId = this[AttendanceTable.memberId].toString(),
+            memberDisplayName = memberDisplayName(this[AttendanceTable.memberId]).orEmpty(),
+            status = this[AttendanceTable.status],
+            representedByMemberId = this[AttendanceTable.representedByMemberId]?.toString(),
+            representedByDisplayName = memberDisplayName(this[AttendanceTable.representedByMemberId]),
+            note = this[AttendanceTable.note],
+            recordedAt = this[AttendanceTable.recordedAt],
         )
 
     /**
-     * Follow-up-queries the options ([AbstimmungOptionTable]) and their computed basket totals
-     * (summed from [AbstimmungStimmeTable], never stored) for this Abstimmung — same
+     * Follow-up-queries the options ([VoteOptionTable]) and their computed basket totals
+     * (summed from [VoteBallotTable], never stored) for this Vote — same
      * "simple-transaction" style as [memberDisplayName], not an optimized single join.
      */
-    private fun ResultRow.toAbstimmungDto(): AbstimmungDto {
-        val abstimmungId = this[AbstimmungTable.id]
+    private fun ResultRow.toVoteDto(): VoteDto {
+        val voteId = this[VoteTable.id]
         val stakesByOption =
-            AbstimmungStimmeTable
+            VoteBallotTable
                 .selectAll()
-                .where { AbstimmungStimmeTable.abstimmungId eq abstimmungId }
-                .groupBy({ it[AbstimmungStimmeTable.optionId] }, { it[AbstimmungStimmeTable.stakeLtr] })
+                .where { VoteBallotTable.voteId eq voteId }
+                .groupBy({ it[VoteBallotTable.optionId] }, { it[VoteBallotTable.stakeLtr] })
                 .mapValues { (_, stakes) -> stakes.fold(ZERO_LTR) { acc, stake -> acc + stake } }
         val options =
-            AbstimmungOptionTable
+            VoteOptionTable
                 .selectAll()
-                .where { AbstimmungOptionTable.abstimmungId eq abstimmungId }
-                .orderBy(AbstimmungOptionTable.position, SortOrder.ASC)
+                .where { VoteOptionTable.voteId eq voteId }
+                .orderBy(VoteOptionTable.position, SortOrder.ASC)
                 .map { optRow ->
-                    val optionId = optRow[AbstimmungOptionTable.id]
-                    AbstimmungOptionDto(
+                    val optionId = optRow[VoteOptionTable.id]
+                    VoteOptionDto(
                         id = optionId.toString(),
-                        abstimmungId = abstimmungId.toString(),
-                        label = optRow[AbstimmungOptionTable.label],
-                        position = optRow[AbstimmungOptionTable.position],
+                        voteId = voteId.toString(),
+                        label = optRow[VoteOptionTable.label],
+                        position = optRow[VoteOptionTable.position],
                         basketTotalLtr = stakesByOption[optionId] ?: ZERO_LTR,
                     )
                 }
-        return AbstimmungDto(
-            id = abstimmungId.toString(),
-            antragId = this[AbstimmungTable.antragId].toString(),
-            sitzungId = this[AbstimmungTable.sitzungId].toString(),
-            title = this[AbstimmungTable.title],
-            status = this[AbstimmungTable.status],
+        return VoteDto(
+            id = voteId.toString(),
+            motionId = this[VoteTable.motionId].toString(),
+            meetingId = this[VoteTable.meetingId].toString(),
+            title = this[VoteTable.title],
+            status = this[VoteTable.status],
             options = options,
-            winnerOptionId = this[AbstimmungTable.winnerOptionId]?.toString(),
-            secondPriceLtr = this[AbstimmungTable.secondPriceLtr],
-            openedById = this[AbstimmungTable.openedBy].toString(),
-            openedByDisplayName = memberDisplayName(this[AbstimmungTable.openedBy]).orEmpty(),
-            openedAt = this[AbstimmungTable.openedAt],
-            closedAt = this[AbstimmungTable.closedAt],
-            beschlussId = this[AbstimmungTable.beschlussId]?.toString(),
+            winnerOptionId = this[VoteTable.winnerOptionId]?.toString(),
+            secondPriceLtr = this[VoteTable.secondPriceLtr],
+            openedById = this[VoteTable.openedBy].toString(),
+            openedByDisplayName = memberDisplayName(this[VoteTable.openedBy]).orEmpty(),
+            openedAt = this[VoteTable.openedAt],
+            closedAt = this[VoteTable.closedAt],
+            resolutionId = this[VoteTable.resolutionId]?.toString(),
         )
     }
 
-    private fun ResultRow.toStimmeDto(): StimmeDto =
-        StimmeDto(
-            id = this[AbstimmungStimmeTable.id].toString(),
-            abstimmungId = this[AbstimmungStimmeTable.abstimmungId].toString(),
-            optionId = this[AbstimmungStimmeTable.optionId].toString(),
-            memberId = this[AbstimmungStimmeTable.memberId].toString(),
-            memberDisplayName = memberDisplayName(this[AbstimmungStimmeTable.memberId]).orEmpty(),
-            stakeLtr = this[AbstimmungStimmeTable.stakeLtr],
-            settledLtr = this[AbstimmungStimmeTable.settledLtr],
-            castAt = this[AbstimmungStimmeTable.castAt],
+    private fun ResultRow.toVoteBallotDto(): VoteBallotDto =
+        VoteBallotDto(
+            id = this[VoteBallotTable.id].toString(),
+            voteId = this[VoteBallotTable.voteId].toString(),
+            optionId = this[VoteBallotTable.optionId].toString(),
+            memberId = this[VoteBallotTable.memberId].toString(),
+            memberDisplayName = memberDisplayName(this[VoteBallotTable.memberId]).orEmpty(),
+            stakeLtr = this[VoteBallotTable.stakeLtr],
+            settledLtr = this[VoteBallotTable.settledLtr],
+            castAt = this[VoteBallotTable.castAt],
         )
 
-    private fun ResultRow.toAntragDto(): AntragDto =
-        AntragDto(
-            id = this[AntragTable.id].toString(),
-            targetGremiumId = this[AntragTable.targetGremiumId].toString(),
-            targetGremiumName = this[GremiumTable.name],
-            targetGremiumType = this[GremiumTable.type],
-            title = this[AntragTable.title],
-            begruendung = this[AntragTable.begruendung],
-            text = this[AntragTable.text],
-            submitterMemberId = this[AntragTable.submitterMemberId].toString(),
-            submitterDisplayName = memberDisplayName(this[AntragTable.submitterMemberId]).orEmpty(),
-            status = this[AntragTable.status],
-            submittedAt = this[AntragTable.submittedAt],
-            reviewedById = this[AntragTable.reviewedBy]?.toString(),
-            reviewedByDisplayName = memberDisplayName(this[AntragTable.reviewedBy]),
-            reviewedAt = this[AntragTable.reviewedAt],
-            reviewNote = this[AntragTable.reviewNote],
-            sitzungId = this[AntragTable.sitzungId]?.toString(),
-            tagesordnungspunktId = this[AntragTable.tagesordnungspunktId]?.toString(),
-            beschlussId = this[AntragTable.beschlussId]?.toString(),
+    private fun ResultRow.toMotionDto(): MotionDto =
+        MotionDto(
+            id = this[MotionTable.id].toString(),
+            targetCommitteeId = this[MotionTable.targetCommitteeId].toString(),
+            targetCommitteeName = this[CommitteeTable.name],
+            targetCommitteeType = this[CommitteeTable.type],
+            title = this[MotionTable.title],
+            rationale = this[MotionTable.rationale],
+            text = this[MotionTable.text],
+            submitterMemberId = this[MotionTable.submitterMemberId].toString(),
+            submitterDisplayName = memberDisplayName(this[MotionTable.submitterMemberId]).orEmpty(),
+            status = this[MotionTable.status],
+            submittedAt = this[MotionTable.submittedAt],
+            reviewedById = this[MotionTable.reviewedBy]?.toString(),
+            reviewedByDisplayName = memberDisplayName(this[MotionTable.reviewedBy]),
+            reviewedAt = this[MotionTable.reviewedAt],
+            reviewNote = this[MotionTable.reviewNote],
+            meetingId = this[MotionTable.meetingId]?.toString(),
+            agendaItemId = this[MotionTable.agendaItemId]?.toString(),
+            resolutionId = this[MotionTable.resolutionId]?.toString(),
         )
 
-    private fun String.toGremiumUuid(): Uuid = runCatching { Uuid.parse(this) }.getOrElse { throw NotFoundException("Invalid id: $this") }
+    private fun String.toCommitteeUuid(): Uuid = runCatching { Uuid.parse(this) }.getOrElse { throw NotFoundException("Invalid id: $this") }
 
     private fun String.toMemberUuid(): Uuid = runCatching { Uuid.parse(this) }.getOrElse { throw NotFoundException("Invalid id: $this") }
 
-    private fun String.toSitzungUuid(): Uuid = runCatching { Uuid.parse(this) }.getOrElse { throw NotFoundException("Invalid id: $this") }
+    private fun String.toMeetingUuid(): Uuid = runCatching { Uuid.parse(this) }.getOrElse { throw NotFoundException("Invalid id: $this") }
 
-    private fun String.toMitgliedschaftUuid(): Uuid =
+    private fun String.toMembershipUuid(): Uuid =
         runCatching { Uuid.parse(this) }.getOrElse { throw NotFoundException("Invalid id: $this") }
 
-    private fun String.toTagesordnungspunktUuid(): Uuid =
+    private fun String.toAgendaItemUuid(): Uuid =
         runCatching { Uuid.parse(this) }.getOrElse { throw NotFoundException("Invalid id: $this") }
 
-    private fun String.toAntragUuid(): Uuid = runCatching { Uuid.parse(this) }.getOrElse { throw NotFoundException("Invalid id: $this") }
+    private fun String.toMotionUuid(): Uuid = runCatching { Uuid.parse(this) }.getOrElse { throw NotFoundException("Invalid id: $this") }
 
-    private fun String.toAbstimmungUuid(): Uuid =
-        runCatching { Uuid.parse(this) }.getOrElse { throw NotFoundException("Invalid id: $this") }
+    private fun String.toVoteUuid(): Uuid = runCatching { Uuid.parse(this) }.getOrElse { throw NotFoundException("Invalid id: $this") }
 
-    private fun String.toAbstimmungOptionUuid(): Uuid =
+    private fun String.toVoteOptionUuid(): Uuid =
         runCatching { Uuid.parse(this) }.getOrElse { throw NotFoundException("Invalid id: $this") }
 }

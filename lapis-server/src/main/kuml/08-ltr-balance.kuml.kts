@@ -1,7 +1,7 @@
-// LTR-Balance domain — ltr_balance (created inside V8__meritokratische_abstimmungen.sql, NOT its
+// LTR-Balance domain — ltr_balance (created inside V8__meritokratische_voteen.sql, NOT its
 // own V-file: the migration's own header comment explains why — "ltr_balance -> ALTER TABLE
-// beschluss (FK-Ziel abstimmung existiert erst danach)" — i.e. ltr_balance's CREATE TABLE had to
-// land physically before the later `ALTER TABLE beschluss ADD COLUMN abstimmung_id ...` in the
+// resolution (FK-Ziel vote existiert erst danach)" — i.e. ltr_balance's CREATE TABLE had to
+// land physically before the later `ALTER TABLE resolution ADD COLUMN vote_id ...` in the
 // same migration file, so it was folded into V8 rather than getting a dedicated V-number).
 //
 // This is the versioned source-of-truth *model* for the schema shape (ADR-0016), verified
@@ -36,7 +36,7 @@
 // the primary key. Modelling member_id as a plain «Column» UUID attribute carrying BOTH «Id» and
 // an explicit columnName tag is therefore the only way to reproduce this exact shape — consistent
 // with (and an even more direct case of) the plain-«Column»-attribute fallback already used
-// throughout document/communication/dsgvo/governance/abstimmung/wahl for FK-name-mismatch cases;
+// throughout document/communication/dsgvo/governance/vote/election for FK-name-mismatch cases;
 // here the reason isn't a name mismatch but a structural one (PK-that-is-also-FK). The real FK
 // target (member) is still independently pinned via LtrBalanceSchemaDriftTest's
 // information_schema introspection against the live H2-migrated schema, exactly like every prior

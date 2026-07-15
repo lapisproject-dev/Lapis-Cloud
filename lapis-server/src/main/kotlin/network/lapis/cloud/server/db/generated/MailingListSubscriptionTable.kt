@@ -16,4 +16,7 @@ public object MailingListSubscriptionTable : Table("mailing_list_subscription") 
     public val memberId: Column<Uuid> = reference("member_id", MemberTable.id)
 
     override val primaryKey: PrimaryKey = PrimaryKey(id)
+
+    // Note: 2 index(es) declared on this entity are not emitted —
+    // Exposed's index {} DSL needs typed column references, not wired up in this wave.
 }

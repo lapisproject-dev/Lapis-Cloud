@@ -5,13 +5,13 @@ import dev.kuml.erm.model.ErmModel
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldContainExactlyInAnyOrder
 import io.kotest.matchers.shouldBe
-import network.lapis.cloud.server.db.generated.AntragTable
-import network.lapis.cloud.server.db.generated.AnwesenheitTable
-import network.lapis.cloud.server.db.generated.BeschlussTable
-import network.lapis.cloud.server.db.generated.GremiumMitgliedschaftTable
-import network.lapis.cloud.server.db.generated.GremiumTable
-import network.lapis.cloud.server.db.generated.SitzungTable
-import network.lapis.cloud.server.db.generated.TagesordnungspunktTable
+import network.lapis.cloud.server.db.generated.AgendaItemTable
+import network.lapis.cloud.server.db.generated.AttendanceTable
+import network.lapis.cloud.server.db.generated.CommitteeMembershipTable
+import network.lapis.cloud.server.db.generated.CommitteeTable
+import network.lapis.cloud.server.db.generated.MeetingTable
+import network.lapis.cloud.server.db.generated.MotionTable
+import network.lapis.cloud.server.db.generated.ResolutionTable
 import org.jetbrains.exposed.v1.jdbc.JdbcTransaction
 import org.jetbrains.exposed.v1.jdbc.transactions.transaction
 import java.io.File
@@ -20,14 +20,14 @@ import java.io.File
  * ADR-0016 (MDA persistence pipeline) — governance domain.
  *
  * Verifies that `lapis-server/src/main/kuml/05-governance.kuml.kts` is a faithful model of both
- * (a) the real, Flyway-migrated H2 schema (`gremium`/`gremium_mitgliedschaft`/`sitzung`/
- * `tagesordnungspunkt`/`anwesenheit`/`beschluss`/`antrag` — V6__governance.sql +
- * V7__antragsverwaltung.sql, plus the beschluss.resolution_mode/abstimmung_id/wahl_id columns
- * added by V8/V9), and (b) the hand-written `GremiumTable`/`GremiumMitgliedschaftTable`/
- * `SitzungTable`/`TagesordnungspunktTable`/`AnwesenheitTable`/`BeschlussTable`/`AntragTable`
- * Exposed objects (the `AbstimmungTable`/`AbstimmungOptionTable`/`AbstimmungStimmeTable` objects
+ * (a) the real, Flyway-migrated H2 schema (`committee`/`committee_membership`/`meeting`/
+ * `agenda_item`/`attendance`/`resolution`/`motion` — V6__governance.sql +
+ * V7__motionsverwaltung.sql, plus the resolution.resolution_mode/vote_id/election_id columns
+ * added by V8/V9), and (b) the hand-written `CommitteeTable`/`CommitteeMembershipTable`/
+ * `MeetingTable`/`AgendaItemTable`/`AttendanceTable`/`ResolutionTable`/`MotionTable`
+ * Exposed objects (the `VoteTable`/`VoteOptionTable`/`VoteBallotTable` objects
  * in the same hand-written `GovernanceTables.kt` file are OUT of scope here — later
- * abstimmung-domain wave).
+ * vote-domain wave).
  *
  * Mirrors [SchemaDriftTest] (foundation domain), [ContributionSchemaDriftTest] (contribution
  * domain), [DocumentSchemaDriftTest] (document domain), [CommunicationSchemaDriftTest]
@@ -50,21 +50,21 @@ class GovernanceSchemaDriftTest :
                 setOf(
                     "member",
                     "document",
-                    "gremium",
-                    "gremium_mitgliedschaft",
-                    "sitzung",
-                    "tagesordnungspunkt",
-                    "anwesenheit",
-                    "beschluss",
-                    "antrag",
+                    "committee",
+                    "committee_membership",
+                    "meeting",
+                    "agenda_item",
+                    "attendance",
+                    "resolution",
+                    "motion",
                 )
         }
 
         // ── (1) Model vs. real H2-migrated schema ───────────────────────────────
 
-        test("gremium table shape matches the real migrated schema") {
-            val entity = model.entities.single { it.name == "gremium" }
-            val real = transaction { introspectGovernanceTable("gremium") }
+        test("committee table shape matches the real migrated schema") {
+            val entity = model.entities.single { it.name == "committee" }
+            val real = transaction { introspectGovernanceTable("committee") }
 
             entity.attributes.map { it.name }.toSet() shouldBe real.columns.keys
             entity.attributes.forEach { attr ->
@@ -76,9 +76,9 @@ class GovernanceSchemaDriftTest :
             real.foreignKeys.keys shouldBe emptySet()
         }
 
-        test("gremium_mitgliedschaft table shape matches the real migrated schema") {
-            val entity = model.entities.single { it.name == "gremium_mitgliedschaft" }
-            val real = transaction { introspectGovernanceTable("gremium_mitgliedschaft") }
+        test("committee_membership table shape matches the real migrated schema") {
+            val entity = model.entities.single { it.name == "committee_membership" }
+            val real = transaction { introspectGovernanceTable("committee_membership") }
 
             entity.attributes.map { it.name }.toSet() shouldBe real.columns.keys
             entity.attributes.forEach { attr ->
@@ -88,16 +88,16 @@ class GovernanceSchemaDriftTest :
                 }
             }
             // Both FKs match UmlToErmTransformer's association-derived default name exactly
-            // ("gremium_id" / "member_id"), so both are real UML associations.
-            real.foreignKeys["gremium_id"] shouldBe "gremium"
+            // ("committee_id" / "member_id"), so both are real UML associations.
+            real.foreignKeys["committee_id"] shouldBe "committee"
             real.foreignKeys["member_id"] shouldBe "member"
-            model.entityNameOf(entity.attributeByName("gremium_id")?.foreignKey?.targetEntityId ?: "") shouldBe "gremium"
+            model.entityNameOf(entity.attributeByName("committee_id")?.foreignKey?.targetEntityId ?: "") shouldBe "committee"
             model.entityNameOf(entity.attributeByName("member_id")?.foreignKey?.targetEntityId ?: "") shouldBe "member"
         }
 
-        test("sitzung table shape matches the real migrated schema") {
-            val entity = model.entities.single { it.name == "sitzung" }
-            val real = transaction { introspectGovernanceTable("sitzung") }
+        test("meeting table shape matches the real migrated schema") {
+            val entity = model.entities.single { it.name == "meeting" }
+            val real = transaction { introspectGovernanceTable("meeting") }
 
             entity.attributes.map { it.name }.toSet() shouldBe real.columns.keys
             entity.attributes.forEach { attr ->
@@ -106,9 +106,9 @@ class GovernanceSchemaDriftTest :
                     col.nullable shouldBe attr.nullable
                 }
             }
-            // gremium_id matches the association-derived default and is a real UML association.
-            real.foreignKeys["gremium_id"] shouldBe "gremium"
-            model.entityNameOf(entity.attributeByName("gremium_id")?.foreignKey?.targetEntityId ?: "") shouldBe "gremium"
+            // committee_id matches the association-derived default and is a real UML association.
+            real.foreignKeys["committee_id"] shouldBe "committee"
+            model.entityNameOf(entity.attributeByName("committee_id")?.foreignKey?.targetEntityId ?: "") shouldBe "committee"
 
             // The N=4 multi-role-FK-collision case this domain was specifically flagged for in
             // the retrofit plan: all three real member-FKs on this table (called_by,
@@ -136,9 +136,9 @@ class GovernanceSchemaDriftTest :
             ) shouldBe "document"
         }
 
-        test("tagesordnungspunkt table shape matches the real migrated schema") {
-            val entity = model.entities.single { it.name == "tagesordnungspunkt" }
-            val real = transaction { introspectGovernanceTable("tagesordnungspunkt") }
+        test("agenda_item table shape matches the real migrated schema") {
+            val entity = model.entities.single { it.name == "agenda_item" }
+            val real = transaction { introspectGovernanceTable("agenda_item") }
 
             entity.attributes.map { it.name }.toSet() shouldBe real.columns.keys
             entity.attributes.forEach { attr ->
@@ -147,8 +147,8 @@ class GovernanceSchemaDriftTest :
                     col.nullable shouldBe attr.nullable
                 }
             }
-            real.foreignKeys["sitzung_id"] shouldBe "sitzung"
-            model.entityNameOf(entity.attributeByName("sitzung_id")?.foreignKey?.targetEntityId ?: "") shouldBe "sitzung"
+            real.foreignKeys["meeting_id"] shouldBe "meeting"
+            model.entityNameOf(entity.attributeByName("meeting_id")?.foreignKey?.targetEntityId ?: "") shouldBe "meeting"
 
             // presenter_member_id -> member: plain «Column» attribute (default would be
             // "member_id", not "presenter_member_id") — pinned instead via «Column».fkEntity.
@@ -156,28 +156,28 @@ class GovernanceSchemaDriftTest :
             model.entityNameOf(entity.attributeByName("presenter_member_id")?.foreignKey?.targetEntityId ?: "") shouldBe "member"
         }
 
-        test("tagesordnungspunkt's composite UNIQUE constraint is pinned via a class-level «Index»") {
-            // uq_tagesordnungspunkt_position UNIQUE (sitzung_id, position) — pinned via a
+        test("agenda_item's composite UNIQUE constraint is pinned via a class-level «Index»") {
+            // uq_agenda_item_position UNIQUE (meeting_id, position) — pinned via a
             // class-level «Index» (composite, unique=true), same mechanism as contribution's/
             // document's/communication's own composite UNIQUE constraints.
-            val real = transaction { introspectGovernanceTable("tagesordnungspunkt") }
-            real.compositeUniqueConstraints shouldContainExactlyInAnyOrder listOf(setOf("sitzung_id", "position"))
+            val real = transaction { introspectGovernanceTable("agenda_item") }
+            real.compositeUniqueConstraints shouldContainExactlyInAnyOrder listOf(setOf("meeting_id", "position"))
 
-            val entity = model.entities.single { it.name == "tagesordnungspunkt" }
+            val entity = model.entities.single { it.name == "agenda_item" }
             entity.attributes.none { it.unique } shouldBe true
-            entity.indexes.single { it.name == "uq_tagesordnungspunkt_position" }.let {
+            entity.indexes.single { it.name == "uq_agenda_item_position" }.let {
                 it.unique shouldBe true
                 it.attributeIds.toSet() shouldBe
                     setOf(
-                        entity.attributeByName("sitzung_id")!!.id,
+                        entity.attributeByName("meeting_id")!!.id,
                         entity.attributeByName("position")!!.id,
                     )
             }
         }
 
-        test("anwesenheit table shape matches the real migrated schema") {
-            val entity = model.entities.single { it.name == "anwesenheit" }
-            val real = transaction { introspectGovernanceTable("anwesenheit") }
+        test("attendance table shape matches the real migrated schema") {
+            val entity = model.entities.single { it.name == "attendance" }
+            val real = transaction { introspectGovernanceTable("attendance") }
 
             entity.attributes.map { it.name }.toSet() shouldBe real.columns.keys
             entity.attributes.forEach { attr ->
@@ -186,9 +186,9 @@ class GovernanceSchemaDriftTest :
                     col.nullable shouldBe attr.nullable
                 }
             }
-            real.foreignKeys["sitzung_id"] shouldBe "sitzung"
+            real.foreignKeys["meeting_id"] shouldBe "meeting"
             real.foreignKeys["member_id"] shouldBe "member"
-            model.entityNameOf(entity.attributeByName("sitzung_id")?.foreignKey?.targetEntityId ?: "") shouldBe "sitzung"
+            model.entityNameOf(entity.attributeByName("meeting_id")?.foreignKey?.targetEntityId ?: "") shouldBe "meeting"
             model.entityNameOf(entity.attributeByName("member_id")?.foreignKey?.targetEntityId ?: "") shouldBe "member"
 
             // represented_by_member_id -> member: plain «Column» attribute (default "member_id"
@@ -200,27 +200,27 @@ class GovernanceSchemaDriftTest :
             ) shouldBe "member"
         }
 
-        test("anwesenheit's composite UNIQUE constraint is pinned via a class-level «Index»") {
-            // uq_anwesenheit_member UNIQUE (sitzung_id, member_id) — pinned via a class-level
+        test("attendance's composite UNIQUE constraint is pinned via a class-level «Index»") {
+            // uq_attendance_member UNIQUE (meeting_id, member_id) — pinned via a class-level
             // «Index» (composite, unique=true).
-            val real = transaction { introspectGovernanceTable("anwesenheit") }
-            real.compositeUniqueConstraints shouldContainExactlyInAnyOrder listOf(setOf("sitzung_id", "member_id"))
+            val real = transaction { introspectGovernanceTable("attendance") }
+            real.compositeUniqueConstraints shouldContainExactlyInAnyOrder listOf(setOf("meeting_id", "member_id"))
 
-            val entity = model.entities.single { it.name == "anwesenheit" }
+            val entity = model.entities.single { it.name == "attendance" }
             entity.attributes.none { it.unique } shouldBe true
-            entity.indexes.single { it.name == "uq_anwesenheit_member" }.let {
+            entity.indexes.single { it.name == "uq_attendance_member" }.let {
                 it.unique shouldBe true
                 it.attributeIds.toSet() shouldBe
                     setOf(
-                        entity.attributeByName("sitzung_id")!!.id,
+                        entity.attributeByName("meeting_id")!!.id,
                         entity.attributeByName("member_id")!!.id,
                     )
             }
         }
 
-        test("beschluss table shape matches the real migrated schema") {
-            val entity = model.entities.single { it.name == "beschluss" }
-            val real = transaction { introspectGovernanceTable("beschluss") }
+        test("resolution table shape matches the real migrated schema") {
+            val entity = model.entities.single { it.name == "resolution" }
+            val real = transaction { introspectGovernanceTable("resolution") }
 
             entity.attributes.map { it.name }.toSet() shouldBe real.columns.keys
             entity.attributes.forEach { attr ->
@@ -229,35 +229,35 @@ class GovernanceSchemaDriftTest :
                     col.nullable shouldBe attr.nullable
                 }
             }
-            real.foreignKeys["sitzung_id"] shouldBe "sitzung"
-            real.foreignKeys["tagesordnungspunkt_id"] shouldBe "tagesordnungspunkt"
-            model.entityNameOf(entity.attributeByName("sitzung_id")?.foreignKey?.targetEntityId ?: "") shouldBe "sitzung"
+            real.foreignKeys["meeting_id"] shouldBe "meeting"
+            real.foreignKeys["agenda_item_id"] shouldBe "agenda_item"
+            model.entityNameOf(entity.attributeByName("meeting_id")?.foreignKey?.targetEntityId ?: "") shouldBe "meeting"
             model.entityNameOf(
-                entity.attributeByName("tagesordnungspunkt_id")?.foreignKey?.targetEntityId ?: "",
-            ) shouldBe "tagesordnungspunkt"
+                entity.attributeByName("agenda_item_id")?.foreignKey?.targetEntityId ?: "",
+            ) shouldBe "agenda_item"
 
             // recorded_by -> member: plain «Column» attribute (default would be "member_id", not
             // "recorded_by") — pinned instead via «Column».fkEntity.
             real.foreignKeys["recorded_by"] shouldBe "member"
             model.entityNameOf(entity.attributeByName("recorded_by")?.foreignKey?.targetEntityId ?: "") shouldBe "member"
 
-            // abstimmung_id / wahl_id: forward references into the later abstimmung/wahl waves,
+            // vote_id / election_id: forward references into the later vote/election waves,
             // modelled as plain nullable UUID «Column» attributes rather than pinned via
-            // «Column».fkEntity — beschluss<->abstimmung and beschluss<->wahl are both genuinely
+            // «Column».fkEntity — resolution<->vote and resolution<->election are both genuinely
             // bidirectional, so the real risk is Kotlin `object`-initializer circularity at the
             // Exposed layer, same reasoning as document.current_version_id. Since the SQL/Flyway
             // baseline is now generated from this same model, the real schema (unlike the
             // pre-swap hand-written V6/V8/V9 migrations) consequently has no FK here either — a
             // deliberate, pre-existing trade-off, not a new regression.
-            real.foreignKeys["abstimmung_id"] shouldBe null
-            real.foreignKeys["wahl_id"] shouldBe null
-            entity.attributeByName("abstimmung_id")?.foreignKey shouldBe null
-            entity.attributeByName("wahl_id")?.foreignKey shouldBe null
+            real.foreignKeys["vote_id"] shouldBe null
+            real.foreignKeys["election_id"] shouldBe null
+            entity.attributeByName("vote_id")?.foreignKey shouldBe null
+            entity.attributeByName("election_id")?.foreignKey shouldBe null
         }
 
-        test("antrag table shape matches the real migrated schema") {
-            val entity = model.entities.single { it.name == "antrag" }
-            val real = transaction { introspectGovernanceTable("antrag") }
+        test("motion table shape matches the real migrated schema") {
+            val entity = model.entities.single { it.name == "motion" }
+            val real = transaction { introspectGovernanceTable("motion") }
 
             entity.attributes.map { it.name }.toSet() shouldBe real.columns.keys
             entity.attributes.forEach { attr ->
@@ -266,24 +266,24 @@ class GovernanceSchemaDriftTest :
                     col.nullable shouldBe attr.nullable
                 }
             }
-            // sitzung_id/tagesordnungspunkt_id/beschluss_id all match the association-derived
+            // meeting_id/agenda_item_id/resolution_id all match the association-derived
             // default and are real UML associations.
-            real.foreignKeys["sitzung_id"] shouldBe "sitzung"
-            real.foreignKeys["tagesordnungspunkt_id"] shouldBe "tagesordnungspunkt"
-            real.foreignKeys["beschluss_id"] shouldBe "beschluss"
-            model.entityNameOf(entity.attributeByName("sitzung_id")?.foreignKey?.targetEntityId ?: "") shouldBe "sitzung"
+            real.foreignKeys["meeting_id"] shouldBe "meeting"
+            real.foreignKeys["agenda_item_id"] shouldBe "agenda_item"
+            real.foreignKeys["resolution_id"] shouldBe "resolution"
+            model.entityNameOf(entity.attributeByName("meeting_id")?.foreignKey?.targetEntityId ?: "") shouldBe "meeting"
             model.entityNameOf(
-                entity.attributeByName("tagesordnungspunkt_id")?.foreignKey?.targetEntityId ?: "",
-            ) shouldBe "tagesordnungspunkt"
-            model.entityNameOf(entity.attributeByName("beschluss_id")?.foreignKey?.targetEntityId ?: "") shouldBe "beschluss"
+                entity.attributeByName("agenda_item_id")?.foreignKey?.targetEntityId ?: "",
+            ) shouldBe "agenda_item"
+            model.entityNameOf(entity.attributeByName("resolution_id")?.foreignKey?.targetEntityId ?: "") shouldBe "resolution"
 
-            // target_gremium_id / submitter_member_id / reviewed_by: plain «Column» attributes —
-            // none match the association-derived default ("gremium_id" / "member_id" / "member_id")
+            // target_committee_id / submitter_member_id / reviewed_by: plain «Column» attributes —
+            // none match the association-derived default ("committee_id" / "member_id" / "member_id")
             // — pinned instead via «Column».fkEntity.
-            real.foreignKeys["target_gremium_id"] shouldBe "gremium"
+            real.foreignKeys["target_committee_id"] shouldBe "committee"
             real.foreignKeys["submitter_member_id"] shouldBe "member"
             real.foreignKeys["reviewed_by"] shouldBe "member"
-            model.entityNameOf(entity.attributeByName("target_gremium_id")?.foreignKey?.targetEntityId ?: "") shouldBe "gremium"
+            model.entityNameOf(entity.attributeByName("target_committee_id")?.foreignKey?.targetEntityId ?: "") shouldBe "committee"
             model.entityNameOf(
                 entity.attributeByName("submitter_member_id")?.foreignKey?.targetEntityId ?: "",
             ) shouldBe "member"
@@ -292,140 +292,140 @@ class GovernanceSchemaDriftTest :
 
         // ── (2) Model vs. hand-written Exposed Table objects ────────────────────
 
-        test("gremium entity column-name set matches the hand-written GremiumTable 1:1") {
+        test("committee entity column-name set matches the hand-written CommitteeTable 1:1") {
             model.entities
-                .single { it.name == "gremium" }
+                .single { it.name == "committee" }
                 .attributes
-                .map { it.name } shouldContainExactlyInAnyOrder GremiumTable.columns.map { it.name }
+                .map { it.name } shouldContainExactlyInAnyOrder CommitteeTable.columns.map { it.name }
         }
 
-        test("gremium_mitgliedschaft entity column-name set matches the hand-written GremiumMitgliedschaftTable 1:1") {
+        test("committee_membership entity column-name set matches the hand-written CommitteeMembershipTable 1:1") {
             model.entities
-                .single { it.name == "gremium_mitgliedschaft" }
+                .single { it.name == "committee_membership" }
                 .attributes
-                .map { it.name } shouldContainExactlyInAnyOrder GremiumMitgliedschaftTable.columns.map { it.name }
+                .map { it.name } shouldContainExactlyInAnyOrder CommitteeMembershipTable.columns.map { it.name }
         }
 
-        test("sitzung entity column-name set matches the hand-written SitzungTable 1:1") {
+        test("meeting entity column-name set matches the hand-written MeetingTable 1:1") {
             model.entities
-                .single { it.name == "sitzung" }
+                .single { it.name == "meeting" }
                 .attributes
-                .map { it.name } shouldContainExactlyInAnyOrder SitzungTable.columns.map { it.name }
+                .map { it.name } shouldContainExactlyInAnyOrder MeetingTable.columns.map { it.name }
         }
 
-        test("tagesordnungspunkt entity column-name set matches the hand-written TagesordnungspunktTable 1:1") {
+        test("agenda_item entity column-name set matches the hand-written AgendaItemTable 1:1") {
             model.entities
-                .single { it.name == "tagesordnungspunkt" }
+                .single { it.name == "agenda_item" }
                 .attributes
-                .map { it.name } shouldContainExactlyInAnyOrder TagesordnungspunktTable.columns.map { it.name }
+                .map { it.name } shouldContainExactlyInAnyOrder AgendaItemTable.columns.map { it.name }
         }
 
-        test("anwesenheit entity column-name set matches the hand-written AnwesenheitTable 1:1") {
+        test("attendance entity column-name set matches the hand-written AttendanceTable 1:1") {
             model.entities
-                .single { it.name == "anwesenheit" }
+                .single { it.name == "attendance" }
                 .attributes
-                .map { it.name } shouldContainExactlyInAnyOrder AnwesenheitTable.columns.map { it.name }
+                .map { it.name } shouldContainExactlyInAnyOrder AttendanceTable.columns.map { it.name }
         }
 
-        test("beschluss entity column-name set matches the hand-written BeschlussTable 1:1") {
+        test("resolution entity column-name set matches the hand-written ResolutionTable 1:1") {
             model.entities
-                .single { it.name == "beschluss" }
+                .single { it.name == "resolution" }
                 .attributes
-                .map { it.name } shouldContainExactlyInAnyOrder BeschlussTable.columns.map { it.name }
+                .map { it.name } shouldContainExactlyInAnyOrder ResolutionTable.columns.map { it.name }
         }
 
-        test("antrag entity column-name set matches the hand-written AntragTable 1:1") {
+        test("motion entity column-name set matches the hand-written MotionTable 1:1") {
             model.entities
-                .single { it.name == "antrag" }
+                .single { it.name == "motion" }
                 .attributes
-                .map { it.name } shouldContainExactlyInAnyOrder AntragTable.columns.map { it.name }
+                .map { it.name } shouldContainExactlyInAnyOrder MotionTable.columns.map { it.name }
         }
 
         // ── (3) Enum-fidelity gap closure ────────────────────────────────────────
 
-        test("gremium.type is modelled as a real ErmDataType.Enum column") {
+        test("committee.type is modelled as a real ErmDataType.Enum column") {
             // Same gap-closure as all prior domains' enum columns — with the «Column».sqlType
             // override removed, kUML's enum-to-Enum+CHECK fallback path applies.
-            val type = model.entities.single { it.name == "gremium" }.attributeByName("type")
+            val type = model.entities.single { it.name == "committee" }.attributeByName("type")
             type?.type shouldBe
                 ErmDataType.Enum(
-                    name = "GremiumType",
-                    values = listOf("VORSTAND", "ARBEITSKREIS", "AUSSCHUSS", "SONSTIGES", "MITGLIEDERVERSAMMLUNG"),
-                    externalFqName = "network.lapis.cloud.shared.domain.GremiumType",
+                    name = "CommitteeType",
+                    values = listOf("EXECUTIVE_BOARD", "WORKING_GROUP", "COMMISSION", "OTHER", "GENERAL_ASSEMBLY"),
+                    externalFqName = "network.lapis.cloud.shared.domain.CommitteeType",
                 )
         }
 
-        test("gremium_mitgliedschaft.rolle is modelled as a real ErmDataType.Enum column") {
-            val rolle = model.entities.single { it.name == "gremium_mitgliedschaft" }.attributeByName("rolle")
-            rolle?.type shouldBe
+        test("committee_membership.role is modelled as a real ErmDataType.Enum column") {
+            val role = model.entities.single { it.name == "committee_membership" }.attributeByName("role")
+            role?.type shouldBe
                 ErmDataType.Enum(
-                    name = "GremiumRolle",
-                    values = listOf("VORSITZ", "STELLV_VORSITZ", "SCHRIFTFUEHRUNG", "MITGLIED", "BEISITZ"),
-                    externalFqName = "network.lapis.cloud.shared.domain.GremiumRolle",
+                    name = "CommitteeRole",
+                    values = listOf("CHAIR", "DEPUTY_CHAIR", "SECRETARY", "MEMBER", "ASSESSOR"),
+                    externalFqName = "network.lapis.cloud.shared.domain.CommitteeRole",
                 )
         }
 
-        test("sitzung.format/status are modelled as real ErmDataType.Enum columns") {
-            val format = model.entities.single { it.name == "sitzung" }.attributeByName("format")
-            val status = model.entities.single { it.name == "sitzung" }.attributeByName("status")
+        test("meeting.format/status are modelled as real ErmDataType.Enum columns") {
+            val format = model.entities.single { it.name == "meeting" }.attributeByName("format")
+            val status = model.entities.single { it.name == "meeting" }.attributeByName("status")
             format?.type shouldBe
                 ErmDataType.Enum(
-                    name = "SitzungsFormat",
-                    values = listOf("PRAESENZ", "ONLINE", "HYBRID"),
-                    externalFqName = "network.lapis.cloud.shared.domain.SitzungsFormat",
+                    name = "MeetingFormat",
+                    values = listOf("IN_PERSON", "ONLINE", "HYBRID"),
+                    externalFqName = "network.lapis.cloud.shared.domain.MeetingFormat",
                 )
             status?.type shouldBe
                 ErmDataType.Enum(
-                    name = "SitzungsStatus",
-                    values = listOf("GEPLANT", "DURCHGEFUEHRT", "ABGESAGT"),
-                    externalFqName = "network.lapis.cloud.shared.domain.SitzungsStatus",
-                )
-        }
-
-        test("anwesenheit.status is modelled as a real ErmDataType.Enum column") {
-            val status = model.entities.single { it.name == "anwesenheit" }.attributeByName("status")
-            status?.type shouldBe
-                ErmDataType.Enum(
-                    name = "AnwesenheitStatus",
-                    values = listOf("ANWESEND", "ENTSCHULDIGT", "UNENTSCHULDIGT", "VERTRETEN"),
-                    externalFqName = "network.lapis.cloud.shared.domain.AnwesenheitStatus",
+                    name = "MeetingStatus",
+                    values = listOf("PLANNED", "HELD", "CANCELLED"),
+                    externalFqName = "network.lapis.cloud.shared.domain.MeetingStatus",
                 )
         }
 
-        test("beschluss.status/resolution_mode are modelled as real ErmDataType.Enum columns") {
-            val status = model.entities.single { it.name == "beschluss" }.attributeByName("status")
-            val resolutionMode = model.entities.single { it.name == "beschluss" }.attributeByName("resolution_mode")
+        test("attendance.status is modelled as a real ErmDataType.Enum column") {
+            val status = model.entities.single { it.name == "attendance" }.attributeByName("status")
             status?.type shouldBe
                 ErmDataType.Enum(
-                    name = "BeschlussStatus",
-                    values = listOf("ANGENOMMEN", "ABGELEHNT", "VERTAGT"),
-                    externalFqName = "network.lapis.cloud.shared.domain.BeschlussStatus",
+                    name = "AttendanceStatus",
+                    values = listOf("PRESENT", "EXCUSED", "UNEXCUSED", "REPRESENTED"),
+                    externalFqName = "network.lapis.cloud.shared.domain.AttendanceStatus",
+                )
+        }
+
+        test("resolution.status/resolution_mode are modelled as real ErmDataType.Enum columns") {
+            val status = model.entities.single { it.name == "resolution" }.attributeByName("status")
+            val resolutionMode = model.entities.single { it.name == "resolution" }.attributeByName("resolution_mode")
+            status?.type shouldBe
+                ErmDataType.Enum(
+                    name = "ResolutionStatus",
+                    values = listOf("ADOPTED", "REJECTED", "POSTPONED"),
+                    externalFqName = "network.lapis.cloud.shared.domain.ResolutionStatus",
                 )
             resolutionMode?.type shouldBe
                 ErmDataType.Enum(
                     name = "ResolutionMode",
-                    values = listOf("GREMIUM_QUORUM", "MERITOKRATISCH", "DEMOKRATISCH", "SYSTEMISCHER_KONSENS"),
+                    values = listOf("COMMITTEE_QUORUM", "MERITOCRATIC", "DEMOCRATIC", "SYSTEMIC_CONSENSUS"),
                     externalFqName = "network.lapis.cloud.shared.domain.ResolutionMode",
                 )
         }
 
-        test("antrag.status is modelled as a real ErmDataType.Enum column") {
-            val status = model.entities.single { it.name == "antrag" }.attributeByName("status")
+        test("motion.status is modelled as a real ErmDataType.Enum column") {
+            val status = model.entities.single { it.name == "motion" }.attributeByName("status")
             status?.type shouldBe
                 ErmDataType.Enum(
-                    name = "AntragStatus",
+                    name = "MotionStatus",
                     values =
                         listOf(
-                            "EINGEREICHT",
-                            "GEPRUEFT",
-                            "ABGELEHNT_VORPRUEFUNG",
-                            "TERMINIERT",
-                            "BESCHLOSSEN",
-                            "ABGELEHNT",
-                            "VERTAGT",
-                            "ZURUECKGEZOGEN",
+                            "SUBMITTED",
+                            "REVIEWED",
+                            "REJECTED_PRELIMINARY",
+                            "SCHEDULED",
+                            "RESOLVED",
+                            "REJECTED",
+                            "POSTPONED",
+                            "WITHDRAWN",
                         ),
-                    externalFqName = "network.lapis.cloud.shared.domain.AntragStatus",
+                    externalFqName = "network.lapis.cloud.shared.domain.MotionStatus",
                 )
         }
     })

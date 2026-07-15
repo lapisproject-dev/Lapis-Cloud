@@ -2,11 +2,11 @@ package network.lapis.cloud.server.security
 
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
-import network.lapis.cloud.server.db.generated.GremiumMitgliedschaftTable
-import network.lapis.cloud.server.db.generated.GremiumTable
+import network.lapis.cloud.server.db.generated.CommitteeMembershipTable
+import network.lapis.cloud.server.db.generated.CommitteeTable
 import network.lapis.cloud.server.db.generated.MemberTable
-import network.lapis.cloud.shared.domain.GremiumRolle
-import network.lapis.cloud.shared.domain.GremiumType
+import network.lapis.cloud.shared.domain.CommitteeRole
+import network.lapis.cloud.shared.domain.CommitteeType
 import network.lapis.cloud.shared.domain.MemberStatus
 import org.jetbrains.exposed.v1.core.and
 import org.jetbrains.exposed.v1.core.eq
@@ -21,44 +21,44 @@ import kotlin.time.Clock
 import kotlin.uuid.Uuid
 
 /**
- * Authorization helpers for Gremien-/Sitzungsverwaltung (V0.2.1). [Gremium][network.lapis.cloud
- * .shared.domain.GremiumDto] create/update stays BOARD/ADMIN-only ([requireRole], existing
+ * Authorization helpers for Gremien-/Meetingsverwaltung (V0.2.1). [Committee][network.lapis.cloud
+ * .shared.domain.CommitteeDto] create/update stays BOARD/ADMIN-only ([requireRole], existing
  * pattern in `network.lapis.cloud.server.rpc.GovernanceService`) since committee structure itself
- * is an org-wide governance decision. Sitzung/Tagesordnung/Anwesenheit/Beschluss management uses
- * the functions below, which resolve the Gremium behind the resource and check for an *active*
- * (as-of-today) [GremiumRolle] membership entitled to that action, OR global BOARD/ADMIN via
+ * is an org-wide governance decision. Meeting/Agenda/Attendance/Resolution management uses
+ * the functions below, which resolve the Committee behind the resource and check for an *active*
+ * (as-of-today) [CommitteeRole] membership entitled to that action, OR global BOARD/ADMIN via
  * [isPrivileged].
  *
  * Each function opens its own `transaction {}`, mirroring [resolveCurrentMember]'s style —
  * Exposed transactions nest without opening a second physical transaction, so calling these from
  * inside an already-open `transaction {}` (as `GovernanceService` typically does) is safe.
  */
-fun CurrentMember.canManageGremium(gremiumId: Uuid): Boolean =
-    isPrivileged || hasGremiumRolle(gremiumId, GremiumRolle.VORSITZ, GremiumRolle.STELLV_VORSITZ)
+fun CurrentMember.canManageCommittee(committeeId: Uuid): Boolean =
+    isPrivileged || hasCommitteeRole(committeeId, CommitteeRole.CHAIR, CommitteeRole.DEPUTY_CHAIR)
 
-fun CurrentMember.canRecordForSitzung(gremiumId: Uuid): Boolean =
+fun CurrentMember.canRecordForMeeting(committeeId: Uuid): Boolean =
     isPrivileged ||
-        hasGremiumRolle(gremiumId, GremiumRolle.VORSITZ, GremiumRolle.STELLV_VORSITZ, GremiumRolle.SCHRIFTFUEHRUNG)
+        hasCommitteeRole(committeeId, CommitteeRole.CHAIR, CommitteeRole.DEPUTY_CHAIR, CommitteeRole.SECRETARY)
 
 /**
- * Antragsverwaltung (V0.2.2) submission rule. Asymmetric on purpose: submitting *to* the
- * Mitgliederversammlung is a broad participation right (any [MemberStatus.AKTIV] member, mirroring
- * every member's stake in a general assembly), while submitting *to* a specific Gremium requires
- * an active membership of that Gremium — any [GremiumRolle], not just leadership, so a
+ * Motionsverwaltung (V0.2.2) submission rule. Asymmetric on purpose: submitting *to* the
+ * General Assembly is a broad participation right (any [MemberStatus.AKTIV] member, mirroring
+ * every member's stake in a general assembly), while submitting *to* a specific Committee requires
+ * an active membership of that Committee — any [CommitteeRole], not just leadership, so a
  * rank-and-file committee member can propose something to their own committee, but a non-member
  * cannot.
  */
-fun CurrentMember.canSubmitAntrag(targetGremiumId: Uuid): Boolean {
+fun CurrentMember.canSubmitMotion(targetCommitteeId: Uuid): Boolean {
     if (isPrivileged) return true
-    val gremiumType =
+    val committeeType =
         transaction {
-            GremiumTable
+            CommitteeTable
                 .selectAll()
-                .where { GremiumTable.id eq targetGremiumId }
+                .where { CommitteeTable.id eq targetCommitteeId }
                 .singleOrNull()
-                ?.get(GremiumTable.type)
+                ?.get(CommitteeTable.type)
         } ?: return false
-    return if (gremiumType == GremiumType.MITGLIEDERVERSAMMLUNG) {
+    return if (committeeType == CommitteeType.GENERAL_ASSEMBLY) {
         transaction {
             MemberTable
                 .selectAll()
@@ -66,13 +66,13 @@ fun CurrentMember.canSubmitAntrag(targetGremiumId: Uuid): Boolean {
                 .count() > 0
         }
     } else {
-        hasGremiumRolle(targetGremiumId, *GremiumRolle.entries.toTypedArray())
+        hasCommitteeRole(targetCommitteeId, *CommitteeRole.entries.toTypedArray())
     }
 }
 
-private fun CurrentMember.hasGremiumRolle(
-    gremiumId: Uuid,
-    vararg roles: GremiumRolle,
+private fun CurrentMember.hasCommitteeRole(
+    committeeId: Uuid,
+    vararg roles: CommitteeRole,
 ): Boolean {
     val today =
         Clock.System
@@ -80,16 +80,16 @@ private fun CurrentMember.hasGremiumRolle(
             .toLocalDateTime(TimeZone.currentSystemDefault())
             .date
     return transaction {
-        GremiumMitgliedschaftTable
+        CommitteeMembershipTable
             .selectAll()
             .where {
-                (GremiumMitgliedschaftTable.gremiumId eq gremiumId) and
-                    (GremiumMitgliedschaftTable.memberId eq memberId) and
-                    (GremiumMitgliedschaftTable.rolle inList roles.toList()) and
-                    (GremiumMitgliedschaftTable.since lessEq today) and
+                (CommitteeMembershipTable.committeeId eq committeeId) and
+                    (CommitteeMembershipTable.memberId eq memberId) and
+                    (CommitteeMembershipTable.role inList roles.toList()) and
+                    (CommitteeMembershipTable.since lessEq today) and
                     (
-                        GremiumMitgliedschaftTable.until.isNull() or
-                            (GremiumMitgliedschaftTable.until greaterEq today)
+                        CommitteeMembershipTable.until.isNull() or
+                            (CommitteeMembershipTable.until greaterEq today)
                     )
             }.count() > 0
     }

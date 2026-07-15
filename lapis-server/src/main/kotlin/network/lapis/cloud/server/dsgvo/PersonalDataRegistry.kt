@@ -26,8 +26,8 @@ object PersonalDataRegistry {
             CommunicationPersonalData,
             GovernancePersonalData,
             LtrPersonalData,
-            WahlPersonalData,
-            KonsensierungPersonalData,
+            ElectionPersonalData,
+            SystemicConsensusPersonalData,
         )
 
     /**
@@ -38,30 +38,30 @@ object PersonalDataRegistry {
      */
     val noPersonalDataAllowlist: Map<String, String> =
         mapOf(
-            "membership_tier" to "Reine Produktdefinition (Beitragshoehe/-intervall), kein Personenbezug.",
-            "document_folder" to "Reine Organisationsstruktur, kein Personenbezug.",
-            "gremium" to "Reine Organisationsstruktur, kein Personenbezug.",
-            "abstimmung_option" to
-                "Der Korb (Option) selbst hat keinen Member-FK -- nur die in ihn gestakten " +
-                "abstimmung_stimme-Zeilen tragen Personenbezug (siehe GovernancePersonalData).",
-            "wahl_option" to
-                "Die Option selbst hat keinen Member-FK -- nur die zugehoerige wahl_kandidatur-Zeile " +
-                "(ein Hop weiter, siehe WahlPersonalData) traegt Personenbezug.",
-            "wahl_stimmzettel_auswahl" to
-                "Die Auswahl-Zeile hat keinen eigenen Member-FK -- sie loest erst ueber " +
-                "wahl_stimmzettel (zwei Hops weiter, siehe WahlPersonalData) zu einem Mitglied auf, " +
-                "und dort nur auf dem nicht-geheimen Pfad.",
-            "konsensierung_widerstand" to
-                "Der Widerstandswert selbst hat keinen eigenen Member-FK -- er loest erst ueber " +
-                "konsensierung_stimmzettel (zwei Hops weiter, siehe KonsensierungPersonalData) zu " +
-                "einem Mitglied auf, und dort nur auf dem nicht-geheimen Pfad.",
+            "membership_tier" to "Pure product definition (fee amount/interval), no personal data.",
+            "document_folder" to "Pure organizational structure, no personal data.",
+            "committee" to "Pure organizational structure, no personal data.",
+            "vote_option" to
+                "The basket (option) itself has no member FK -- only the vote_ballot rows staked " +
+                "into it carry personal data (see GovernancePersonalData).",
+            "election_option" to
+                "The option itself has no member FK -- only the associated election_candidacy row " +
+                "(one hop further, see ElectionPersonalData) carries personal data.",
+            "election_ballot_selection" to
+                "The selection row has no member FK of its own -- it only resolves to a member via " +
+                "election_ballot (two hops further, see ElectionPersonalData), and there only on " +
+                "the non-secret path.",
+            "systemic_consensus_resistance" to
+                "The resistance value itself has no member FK of its own -- it only resolves to a " +
+                "member via systemic_consensus_ballot (two hops further, see " +
+                "SystemicConsensusPersonalData), and there only on the non-secret path.",
             "erasure_request" to
-                "Verwaltet den Loeschprozess selbst und referenziert Mitglieder nur per UUID. Bleibt " +
-                "nach der Loeschung als Verfahrensnachweis bestehen (siehe dsgvo.adoc).",
+                "Manages the erasure process itself and references members only by UUID. Persists " +
+                "after erasure as a procedural record (see dsgvo.adoc).",
             "dsgvo_audit_log" to
-                "Bewusst NICHT vom Loesch-Walk erfasst: referenziert das Subjekt nur per UUID, " +
-                "Rechenschaftspflicht (Art. 5 Abs. 2 DSGVO) ist eigene Rechtsgrundlage fuer die " +
-                "Aufbewahrung. Siehe dsgvo.adoc \"Audit-Log-Datenschutz\".",
+                "Deliberately NOT covered by the erasure walk: references the subject only by UUID, " +
+                "accountability (Art. 5(2) GDPR) is its own legal basis for retention. See " +
+                "dsgvo.adoc \"Audit log data protection\".",
         )
 
     init {

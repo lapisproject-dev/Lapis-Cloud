@@ -23,12 +23,12 @@ import network.lapis.cloud.server.rpc.ContributionService
 import network.lapis.cloud.server.rpc.DirectMessageService
 import network.lapis.cloud.server.rpc.DocumentService
 import network.lapis.cloud.server.rpc.DsgvoService
+import network.lapis.cloud.server.rpc.ElectionService
 import network.lapis.cloud.server.rpc.GovernanceService
-import network.lapis.cloud.server.rpc.KonsensierungService
 import network.lapis.cloud.server.rpc.MailingService
 import network.lapis.cloud.server.rpc.MemberService
 import network.lapis.cloud.server.rpc.PingService
-import network.lapis.cloud.server.rpc.WahlService
+import network.lapis.cloud.server.rpc.SystemicConsensusService
 import network.lapis.cloud.server.security.ForbiddenException
 import network.lapis.cloud.server.security.UnauthenticatedException
 import network.lapis.cloud.shared.Greeting
@@ -36,12 +36,12 @@ import network.lapis.cloud.shared.rpc.IContributionService
 import network.lapis.cloud.shared.rpc.IDirectMessageService
 import network.lapis.cloud.shared.rpc.IDocumentService
 import network.lapis.cloud.shared.rpc.IDsgvoService
+import network.lapis.cloud.shared.rpc.IElectionService
 import network.lapis.cloud.shared.rpc.IGovernanceService
-import network.lapis.cloud.shared.rpc.IKonsensierungService
 import network.lapis.cloud.shared.rpc.IMailingService
 import network.lapis.cloud.shared.rpc.IMemberService
 import network.lapis.cloud.shared.rpc.IPingService
-import network.lapis.cloud.shared.rpc.IWahlService
+import network.lapis.cloud.shared.rpc.ISystemicConsensusService
 import java.io.File
 
 fun main() {
@@ -84,8 +84,8 @@ fun Application.module() {
         registerService(IDirectMessageService::class) { call -> DirectMessageService(call) }
         registerService(IDsgvoService::class) { call -> DsgvoService(call) }
         registerService(IGovernanceService::class) { call -> GovernanceService(call) }
-        registerService(IWahlService::class) { call -> WahlService(call) }
-        registerService(IKonsensierungService::class) { call -> KonsensierungService(call) }
+        registerService(IElectionService::class) { call -> ElectionService(call) }
+        registerService(ISystemicConsensusService::class) { call -> SystemicConsensusService(call) }
     }
 
     routing {

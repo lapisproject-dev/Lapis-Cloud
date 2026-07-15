@@ -12,7 +12,7 @@ import kotlin.uuid.Uuid
  * constructor parameter (default [PlaceholderLtrBalanceProvider]) so
  * `Application.module`'s `registerService(IGovernanceService::class) { call -> GovernanceService(call) }`
  * stays unchanged, and V0.6 only has to swap in a ledger-backed implementation at that one call
- * site — no changes anywhere else. Deliberately read-only: `GovernanceService.castStimme`
+ * site — no changes anywhere else. Deliberately read-only: `GovernanceService.castVoteBallot`
  * validates `stake <= freeBalance(member)`, but never debits through this interface — there is no
  * writable ledger yet in this wave. Implementations must run inside the caller's already-open
  * `transaction {}`, consistent with the rest of this codebase's "simple-transaction" style.

@@ -1,97 +1,98 @@
 = Lapis Cloud
-:description: Föderierte Mitgliederverwaltung für Vereine und Parteien — mit meritokratischer Governance-Schicht.
+:description: Federated membership management for associations and parties — with a meritocratic governance layer.
 :toc:
 :toc-placement: preamble
 :icons: font
 
-image::docs/images/lc-banner.png[Lapis Cloud — Föderierte Mitgliederverwaltung mit meritokratischer Governance,link=https://github.com/Lapis-Philosophorum-Network/Lapis-Cloud]
+image::docs/images/lc-banner.png[Lapis Cloud — federated membership management with meritocratic governance,link=https://github.com/Lapis-Philosophorum-Network/Lapis-Cloud]
 
 [.lead]
-*Standard-Mitgliederverwaltung, libertär erweitert.* +
-Vollständige Vereins- und Parteiverwaltung als Basis, meritokratische Governance als Alleinstellung.
+*Standard membership management, libertarian-extended.* +
+Full association and party administration as the foundation, meritocratic governance as the differentiator.
 
 image:https://img.shields.io/github/license/Lapis-Philosophorum-Network/Lapis-Cloud[Apache 2.0]
 
-== Über Lapis Cloud
+== About Lapis Cloud
 
-Lapis Cloud ist die Weiterentwicklung der PZB (PdV Parteizentralbank) — ein **föderierter Server-Verbund**
-mit Privatrechtsgesellschafts-Charakter für die Mitgliederverwaltung von Vereinen und Parteien. Jeder Server
-ist souverän, kann sich aber mit anderen Lapis-Cloud-Instanzen föderieren.
+Lapis Cloud is the successor to the PZB (PdV Party Central Bank) — a **federated server network**
+with a private-law-association character for the membership management of associations and parties.
+Every server is sovereign but can federate with other Lapis Cloud instances.
 
-Lapis Cloud deckt zwei orthogonale Schichten ab:
+Lapis Cloud covers two orthogonal layers:
 
-. **Standard-Mitgliederverwaltung** — alles, was eine moderne Vereins- oder Parteiverwaltung braucht
-  (Mitgliederstammdaten, Beitragsverwaltung, Veranstaltungen, Kommunikation, DSGVO, Berichtswesen,
-  Spendenbescheinigungen etc.), auf einem Niveau, das parallele Spezialtools überflüssig macht.
-. **Innovative libertäre Erweiterungen** — meritokratische Abstimmungen, interne Währung ("Libertaler"),
-  internes Crowdfunding, Pseudonymität mit Transparenz, Sezessionsrecht über Föderation.
+. **Standard membership management** — everything a modern association or party administration needs
+  (member master data, contribution management, events, communication, GDPR, reporting,
+  donation receipts, etc.), at a level that makes parallel specialist tools unnecessary.
+. **Innovative libertarian extensions** — meritocratic voting, an internal currency ("Libertaler"),
+  internal crowdfunding, pseudonymity with transparency, a right of secession via federation.
 
-Der ausdrückliche Anspruch: **De-facto-Standard** für Mitgliederverwaltung von Vereinen und Parteien werden —
-Vollständigkeit vor Eleganz, Compliance-First (DSGVO, Vereinsrecht, Parteiengesetz, Steuerrecht), bedienbar
-ohne IT-Vorkenntnisse.
+The explicit ambition: to become the **de facto standard** for membership management of associations
+and parties — completeness over elegance, compliance-first (GDPR, association law, party law, tax law),
+usable without prior IT knowledge.
 
-Ursprünglich für die https://www.partei-der-vernunft.de[Partei der Vernunft (PdV)] entwickelt, ist Lapis Cloud
-als Open-Source-Projekt offen für beliebige Organisationen — politische Parteien, klassische Vereine,
-Berufsverbände, Genossenschaften, Stiftungen, NGOs.
+Originally developed for the https://www.partei-der-vernunft.de[Partei der Vernunft (PdV)], Lapis Cloud
+is open source and open to any organization — political parties, traditional associations,
+professional bodies, cooperatives, foundations, NGOs.
 
-TIP: Konzeptionelle Details, Roadmap und Designentscheidungen werden im Projekt-Vault gepflegt, nicht in
-diesem Repository. Dieses README beschreibt nur den technischen Rahmen.
+TIP: Conceptual details, roadmap, and design decisions are maintained in the project vault, not in
+this repository. This README describes only the technical scope.
 
-== Verwandte Projekte
+== Related Projects
 
-* **Lapis Net** — vollständig dezentrales P2P-Schwesterprojekt, teilt die libertären Grundprinzipien
-  (meritokratisches Scoring, Selbstorganisation, freiwillige Vereinigung), unterscheidet sich aber in der
-  Implementierung (P2P-Knoten statt föderierte Server, kryptografisches Vertrauen statt Server-Föderation).
-* **PZB** (https://gitlab.com/pdv7/pzb) — das bestehende Vorgänger-Repository. Bleibt als **Referenz**
-  erhalten (Architektur-Entscheidungen, Code-Patterns), wird aber nicht 1:1 übernommen — Lapis Cloud ist
-  eine saubere Neuimplementierung.
-* https://kuml.dev[kUML] — die Modellierungssprache, die für alle Diagramme in diesem Repository verwendet
-  wird (siehe unten).
+* **Lapis Net** — a fully decentralized P2P sister project, sharing the same libertarian core principles
+  (meritocratic scoring, self-organization, voluntary association) but differing in implementation
+  (P2P nodes instead of federated servers, cryptographic trust instead of server federation).
+* **PZB** (https://gitlab.com/pdv7/pzb) — the existing predecessor repository. Kept as a **reference**
+  (architecture decisions, code patterns) but not adopted 1:1 — Lapis Cloud is
+  a clean reimplementation.
+* https://kuml.dev[kUML] — the modeling language used for every diagram in this repository
+  (see below).
 
-== Technologie-Stack
+== Technology Stack
 
-* **Sprache**: https://kotlinlang.org[Kotlin]
-* **Server-Framework**: https://ktor.io[Ktor]
-* **Datenbankzugriff**: https://www.jetbrains.com/exposed[Exposed] (Kotlin SQL Framework)
-* **Datenbank-Migrationen**: https://flywaydb.org[Flyway]
-* **WebUI-Framework**: https://kvision.io[KVision] (Kotlin/JS)
-* **Frontend-Backend-Kommunikation**: https://github.com/rjaros/kilua-rpc[Kilua RPC] (typsichere RPC
-  zwischen KVision-Client und Ktor-Server)
-* **KI-Assistenz / Agentic Layer**: https://koog.ai[Koog] (JetBrains, Kotlin-natives Agent-Framework,
-  Multi-LLM ohne Lock-in)
+* **Language**: https://kotlinlang.org[Kotlin]
+* **Server framework**: https://ktor.io[Ktor]
+* **Database access**: https://www.jetbrains.com/exposed[Exposed] (Kotlin SQL framework)
+* **Database migrations**: https://flywaydb.org[Flyway]
+* **Web UI framework**: https://kvision.io[KVision] (Kotlin/JS)
+* **Frontend-backend communication**: https://github.com/rjaros/kilua-rpc[Kilua RPC] (type-safe RPC
+  between the KVision client and the Ktor server)
+* **AI assistance / agentic layer**: https://koog.ai[Koog] (JetBrains, Kotlin-native agent framework,
+  multi-LLM without lock-in)
 
-NOTE: Gradle-Multimodul-Struktur (`lapis-shared`/`lapis-server`/`lapis-client`) und Kilua-RPC-Wiring stehen
-(V0.1.1). Seit V0.1.5 sind Beitragsverwaltung, Dokumentenablage und Kommunikation (Mailinglisten,
-Direktnachrichten) als erste fachliche Bereiche implementiert — auf einem Mitglieder-Foundation-Stub, da das
-volle Mitglieder-Stammdatenmodell (V0.1.2-V0.1.4) noch aussteht. Details siehe
-link:docs/architecture/domain-model.adoc[Domain-Model-Dokumentation] und `CLAUDE.md`.
+NOTE: The Gradle multi-module structure (`lapis-shared`/`lapis-server`/`lapis-client`) and Kilua RPC
+wiring are in place (V0.1.1). Since V0.1.5, contribution management, document storage, and
+communication (mailing lists, direct messages) are implemented as the first functional areas — on top
+of a member Foundation stub, since the full member master-data model (V0.1.2-V0.1.4) is still
+pending. See link:docs/architecture/domain-model.adoc[domain model documentation] and `CLAUDE.md`
+for details.
 
-== Dokumentations-Konvention
+== Documentation Convention
 
-Einheitlich über alle Lapis- und kUML-Projekte (siehe `CLAUDE.md`):
+Consistent across all Lapis and kUML projects (see `CLAUDE.md`):
 
-* **Alle Dokumentation in Asciidoctor** (`.adoc`) — keine `README.md`
-* **Alle Diagramme in kUML**, keine PlantUML/Mermaid/draw.io/ASCII-Art
-* **Diagramm-Einbindung über das `[kuml]`-Macro** der https://github.com/kuml-dev/kuml-asciidoc[kuml-asciidoc]-Extension
-  (Maven Central) — Quelltext inline im `.adoc`-Dokument, kein vorgerendertes Bild
+* **All documentation in Asciidoctor** (`.adoc`) — no `README.md`
+* **All diagrams in kUML**, no PlantUML/Mermaid/draw.io/ASCII art
+* **Diagrams embedded via the `[kuml]` macro** of the https://github.com/kuml-dev/kuml-asciidoc[kuml-asciidoc]
+  extension (Maven Central) — source inline in the `.adoc` document, never a pre-rendered image
 
 [source,asciidoc]
 ----
-[kuml, dateiname-ohne-extension, svg]
+[kuml, filename-without-extension, svg]
 ----
-<kUML-Quelltext>
+<kUML source>
 ----
 ----
 
-== Branch- und Entwicklungs-Workflow
+== Branch and Development Workflow
 
-* Default-Branch ist **`master`**, niemals `main`
-* Feature-Branches bleiben **lokal** und werden nicht gepusht
-* Release per lokalem Squash-Merge auf `master`, danach Push
-* Niemals `--force` ohne explizite Anweisung
+* The default branch is always **`master`**, never `main`
+* Feature branches stay **local** and are never pushed
+* Releases happen via a local squash-merge onto `master`, then push
+* Never `--force` push without an explicit instruction
 
-Details: `CLAUDE.md` in diesem Repository.
+Details: `CLAUDE.md` in this repository.
 
-== Lizenz
+== License
 
-Apache License 2.0 — siehe `LICENSE`.
+Apache License 2.0 — see `LICENSE`.
