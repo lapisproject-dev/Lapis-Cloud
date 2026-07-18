@@ -449,9 +449,9 @@ ADMIN roles as `getGeneralLedgerAccount`.
 
 Line lists (`StatementLineDto`) omit accounts with a zero net balance in the requested scope — they
 are a derived-from-journal view, not a complete chart-of-accounts listing. Still explicitly out of
-scope (unchanged from V0.3.1's list above): fiscal-year close/Saldenvortrag,
-Mittelverwendungsrechnung/Rücklagen (V0.3.4), Kassenbuch (V0.3.5), Kostenstellen (V0.3.6),
-non-calendar fiscal years.
+scope (unchanged from V0.3.1's list above): fiscal-year close/Saldenvortrag, Kassenbuch (V0.3.5),
+Kostenstellen (V0.3.6), non-calendar fiscal years. (Mittelverwendungsrechnung/Rücklagen, originally
+listed here as a later non-goal, shipped in V0.3.4 -- see below.)
 
 [#four-sphere-separation]
 === Four-sphere Gemeinnützigkeit separation (V0.3.3)
@@ -506,3 +506,82 @@ TREASURER/BOARD/ADMIN roles as the other statement methods.
 Explicitly out of scope for V0.3.3: a four-sphere balance sheet, §64 Abs.3 AO
 Freigrenze/taxability evaluation of the wirtschaftlicher Geschäftsbetrieb surplus, and any
 dedicated inter-sphere-transfer tracking workflow — all deferred to later waves.
+
+=== Mittelverwendungsrechnung + Rücklagen (V0.3.4)
+
+**This is a treasurer's Nachweis (evidence) aid for §55 AO ("zeitnahe Mittelverwendung") and §62 AO
+(Rücklagenbildung) -- it is NOT an automated Gemeinnützigkeit compliance verdict.** It is the
+second-highest legal-risk wave in the accounting backlog after V0.3.3, and is scoped deliberately
+conservatively: no percentage-cap enforcement, no automatic exemption application, no certification
+of tax-exempt status one way or the other.
+
+**Reserves are ordinary `EQUITY` ledger accounts, not a new persisted entity.** A treasurer moves
+funds into a reserve via a normal balanced double-entry posting (e.g. debit a general equity
+account, credit the reserve account) -- exactly the same mechanism as every other booking in this
+codebase. The *only* schema addition this wave makes is one nullable enum column,
+`LedgerAccount.reserveType`
+(`network.lapis.cloud.shared.domain.ReserveType`: `PROJEKTRUECKLAGE`, `FREIE_RUECKLAGE`,
+`WIEDERBESCHAFFUNGSRUECKLAGE`, `BETRIEBSMITTELRUECKLAGE`), which makes an `EQUITY` account
+machine-classifiable by its §62 AO reserve category. A dedicated `Reserve`/`ReserveAllocation`
+entity was deliberately rejected as over-scoped -- it would duplicate the ledger that already
+tracks these balances via ordinary postings. `reserveType` may only be set on an `EQUITY` account
+(`AccountingService.requireReserveTypeOnlyOnEquity`, a service-layer cross-column guard, same class
+of constraint as the balance invariant -- not expressible as a single-row `CHECK`). §62 Abs.1 Nr.4
+(Rücklage zum Erwerb von Gesellschaftsrechten) is not offered as a literal -- out of scope, rare for
+a Verein/Partei. **The §62 Abs.1 Nr.3 freie-Rücklage percentage cap is deliberately NOT enforced in
+code** -- it is a number a human must configure and verify against current law (see
+`ReserveType.FREIE_RUECKLAGE` KDoc); this codebase does not hard-code an assumed percentage.
+
+**`network.lapis.cloud.server.rpc.UseOfFundsCalculator`** (pure, unit-tested without a database,
+same idiom as `FinancialStatementCalculator`/`GeneralLedgerCalculator`/`JournalEntryBalance`)
+derives the read-only `UseOfFundsStatementDto` (`lapis-shared/.../domain/UseOfFunds.kt`) from the
+existing `POSTED` postings plus each account's `reserveType`:
+
+* **Mittelzufluss/Mittelverwendung** (`UseOfFundsYearDto.fundsReceived`/`fundsUsed`) -- the year's
+  `INCOME`/`EXPENSE` flow, same derivation as the GuV.
+* **Rücklagen-Zuführung** (`fundsAllocatedToReserves`, `reserveMovements`) -- the year's net
+  Zuführung to `EQUITY` accounts carrying each `ReserveType`, broken down per type (always four
+  entries, zero-filled), plus each type's cumulative closing balance.
+* **Per-sphere disaggregation** (`receivedBySphere`/`usedBySphere`) -- purely informational; always
+  four `GemeinnuetzigkeitSphere` entries, zero-filled.
+* **Mittelvortrag / §55 AO timely-use clock** (`timelyUseObligationRemaining`, `overdueAmount`) -- a
+  FIFO "vintage pot": each year's income enters the pot as a new vintage dated to that year; each
+  year's expense and *net positive* reserve allocation consume the pot oldest-vintage-first (a
+  reserve allocation legitimately removes funds from the §55 clock); a *net negative* allocation
+  (dissolution) returns funds to the pot as a **new, current-year vintage** -- a deliberate,
+  explicitly flagged simplification (the alternative -- re-deriving the dissolved funds' original
+  vintage -- is genuinely ambiguous, and re-dating is the conservative choice, never less likely to
+  flag work as time-barred). A vintage is overdue once strictly more than `timelyUseYears`
+  (`UseOfFundsStatementDto.timelyUseYears`, currently `2` -- the historically-interpreted "by the
+  end of the second fiscal year following receipt", surfaced as data rather than a silent constant
+  because it should be verified against current AO guidance) fiscal years have elapsed since its
+  vintage year. The pot is floored at `0`, never negative.
+
+**The clock is anchored at inception and is org-wide, not per-sphere.** `statement` always rolls the
+FIFO pot forward from the organization's *earliest* fiscal year with any activity through
+`toFiscalYear` -- never merely from `fromFiscalYear` -- because windowing the roll-forward itself
+would silently corrupt the reported Mittelvortrag/overdue figures whenever the requested window
+starts after inception; `fromFiscalYear`/`toFiscalYear` only slice which years are *reported*.
+The clock is deliberately aggregate (not split per `GemeinnuetzigkeitSphere`) because surpluses
+legitimately move between spheres and a per-sphere clock would misstate the obligation --
+per-sphere received/used is informational only, same "cash-line sphere is informational" tradeoff
+V0.3.3 already accepted for Bestandskonten. `getUseOfFundsStatement` (role: TREASURER/BOARD/ADMIN,
+same as every other statement method) validates `fromFiscalYear <= toFiscalYear` and both years in
+range with `BadRequestException`, then loads one `UseOfFundsCalculator.YearFacts` per calendar year
+with any `POSTED` activity (`AccountingService.loadYearFacts`) and delegates to the pure calculator.
+Only `POSTED` postings contribute -- same "DRAFT is provisional" rule as every other statement.
+
+**Reserve movements are keyed by the ledger account's `reserveType`, never by `posting.sphere`.**
+A reserve-transfer posting's two lines are `EQUITY` and still each carry the mandatory (V0.3.3)
+per-line sphere, which remains purely informational for these lines -- the reserve-movement loader
+groups strictly by the target account's `reserveType`, so a transfer whose debit and credit lines
+happen to name different spheres still books cleanly and is counted exactly once under its reserve
+type.
+
+Explicitly, deliberately out of scope for V0.3.4 (see `UseOfFundsCalculator`/`ReserveType` KDoc for
+the full list, each flagged individually): the §62 Abs.1 Nr.3 freie-Rücklage percentage-cap
+enforcement; automatic application of the §55 Abs.1 Nr.5 Satz 4 small-organization
+(≤45.000 EUR) exemption; any automated "Gemeinnützigkeit lost/retained" verdict or certification;
+§64 AO Freigrenze evaluation (later compliance-bundle territory); Kassenbuch (V0.3.5); general-purpose
+Kostenstellen (V0.3.6); non-calendar fiscal years; and any client/KVision UI (this is a backend-only
+wave).

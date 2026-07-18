@@ -111,6 +111,16 @@
 //    multi-currency, Beleg/attachment storage, automatic Contribution<->journal reconciliation
 //    (seam: a nullable journal_entry.contribution_id later), bank import (MT940/CAMT), DATEV/
 //    ELSTER export.
+//
+// §62 AO Ruecklagen (V0.3.4): ledger_account.reserve_type (nullable enum, see `reserveType` below
+// and the dedicated comment ahead of the `ledgerAccount` classOf) is the ONLY schema addition this
+// wave makes. Reserves themselves are deliberately NOT a new persisted entity -- they are ordinary
+// EQUITY ledger_account rows that funds get transferred into via normal balanced double-entry
+// postings (see network.lapis.cloud.shared.domain.UseOfFunds / network.lapis.cloud.server.rpc
+// .UseOfFundsCalculator's KDoc for the full §55/§62 AO Mittelverwendungsrechnung derivation, which
+// is computed read-only from existing POSTED postings and needs no further schema). This mirrors
+// V0.3.2/V0.3.3's "derive a report from the existing journal, add at most one classificatory
+// column" pattern rather than introducing a parallel allocation ledger.
 import dev.kuml.profile.erm.ermMappingProfile
 import dev.kuml.uml.Multiplicity
 import dev.kuml.uml.dsl.applyProfile
@@ -167,6 +177,20 @@ classDiagram(name = "Accounting") {
         literal(name = "WIRTSCHAFTLICHER_GESCHAEFTSBETRIEB") // KOST1 = 4
     }
 
+    // §62 AO reserve categories (V0.3.4), settable per EQUITY ledger_account -- see the dedicated
+    // comment ahead of `ledgerAccount.reserveType` below for the placement/nullability rationale.
+    // Literal order is load-bearing: AccountingSchemaDriftTest asserts ErmDataType.Enum.values in
+    // exactly this order, matching network.lapis.cloud.shared.domain.ReserveType. §62 Abs.1 Nr.4
+    // (Ruecklage zum Erwerb von Gesellschaftsrechten) is deliberately not offered -- out of scope,
+    // rare for a Verein/Partei. Subsection citations here are a modelling aid, not a legal opinion
+    // -- verify against the current AO before relying on them.
+    val reserveType = enumOf(name = "ReserveType") {
+        literal(name = "PROJEKTRUECKLAGE") // §62 Abs.1 Nr.1 -- zweckgebundene/Projekt-/Zweckerhaltungsruecklage
+        literal(name = "FREIE_RUECKLAGE") // §62 Abs.1 Nr.3 -- percentage-capped general reserve
+        literal(name = "WIEDERBESCHAFFUNGSRUECKLAGE") // §62 Abs.1 Nr.2 -- replacement reserve
+        literal(name = "BETRIEBSMITTELRUECKLAGE") // §62 Abs.1 Nr.1 sub-case -- operating-funds reserve
+    }
+
     val ledgerAccount = classOf(name = "LedgerAccount") {
         stereotype("Entity") { "tableName" to "ledger_account"; "kotlinObjectName" to "LedgerAccountTable" }
         stereotype("Index") {
@@ -201,6 +225,22 @@ classDiagram(name = "Accounting") {
         attribute(name = "active", type = "Boolean") {
             defaultValue = "TRUE"
             stereotype("Column") { "columnName" to "active" }
+        }
+        // §62 AO reserve category (V0.3.4). NULLABLE -- most ledger_account rows are ordinary
+        // Bestands-/Erfolgskonten, not reserves; only a treasurer-designated EQUITY reserve account
+        // carries one. Placement is per-LedgerAccount (not per-Posting, unlike `sphere` above)
+        // because reserves are modelled as ordinary EQUITY accounts (see file header) -- the
+        // *account itself* is the reserve, so its §62 category is a property of the account, not of
+        // any individual booking line into it. Cross-column rule "reserveType only on an EQUITY
+        // account" is enforced at the service layer (AccountingService), not here -- same class of
+        // constraint as the balance invariant, not expressible as a single-row CHECK. Deliberately
+        // NO `sqlType` override -- see the proven nullable-enum path this follows (election
+        // .targetRole/CommitteeRole, dsgvo_audit_log.actorRole/AccountRole): omitting `sqlType` lets
+        // the generator auto-size VARCHAR to the longest literal ("WIEDERBESCHAFFUNGSRUECKLAGE" = 27
+        // chars) and keeps the enum-fallback CHECK constraint.
+        attribute(name = "reserveType", type = reserveType) {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") { "columnName" to "reserve_type"; "enumType" to "network.lapis.cloud.shared.domain.ReserveType" }
         }
     }
 

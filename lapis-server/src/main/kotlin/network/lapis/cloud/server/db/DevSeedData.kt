@@ -9,6 +9,7 @@ import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.BillingInterval
 import network.lapis.cloud.shared.domain.LedgerAccountType
 import network.lapis.cloud.shared.domain.MemberStatus
+import network.lapis.cloud.shared.domain.ReserveType
 import org.jetbrains.exposed.v1.jdbc.insert
 import org.jetbrains.exposed.v1.jdbc.selectAll
 import org.jetbrains.exposed.v1.jdbc.transactions.transaction
@@ -92,6 +93,7 @@ object DevSeedData {
         val name: String,
         val accountClass: Int,
         val type: LedgerAccountType,
+        val reserveType: ReserveType? = null,
     )
 
     val demoLedgerAccounts =
@@ -128,6 +130,10 @@ object DevSeedData {
             // Klasse 2/9 -- Eigenkapital/Vortrags-/statistische Konten. (LOW/MED confidence.)
             SeedLedgerAccount("20000", "Vereinsvermögen / Ergebnisvortrag", 2, LedgerAccountType.EQUITY),
             SeedLedgerAccount("90000", "Saldenvorträge Sachkonten / Eröffnungsbilanz", 9, LedgerAccountType.EQUITY),
+            // §62 AO Rücklagen (V0.3.4) -- ordinary EQUITY accounts, machine-classified via
+            // reserveType. See ReserveType KDoc / 10-accounting.kuml.kts file header.
+            SeedLedgerAccount("21000", "Projektrücklage (§62 Abs.1 Nr.1 AO)", 2, LedgerAccountType.EQUITY, ReserveType.PROJEKTRUECKLAGE),
+            SeedLedgerAccount("21500", "Freie Rücklage (§62 Abs.1 Nr.3 AO)", 2, LedgerAccountType.EQUITY, ReserveType.FREIE_RUECKLAGE),
         )
 
     /**
@@ -196,6 +202,7 @@ object DevSeedData {
                     it[accountClass] = seed.accountClass
                     it[type] = seed.type
                     it[active] = true
+                    it[reserveType] = seed.reserveType
                 }
             }
         }

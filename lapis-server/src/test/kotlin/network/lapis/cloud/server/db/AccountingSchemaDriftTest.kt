@@ -126,6 +126,14 @@ class AccountingSchemaDriftTest :
             real.columns.getValue("sphere").nullable shouldBe false
         }
 
+        test("ledger_account.reserve_type is nullable -- most accounts are not a designated §62 AO reserve") {
+            val entity = model.entities.single { it.name == "ledger_account" }
+            entity.attributeByName("reserve_type")?.nullable shouldBe true
+
+            val real = transaction { introspectAccountingTable("ledger_account") }
+            real.columns.getValue("reserve_type").nullable shouldBe true
+        }
+
         // ── (2) Model vs. generated Exposed Table objects ────────────────────
 
         test("ledger_account entity column-name set matches the generated LedgerAccountTable 1:1") {
@@ -184,6 +192,23 @@ class AccountingSchemaDriftTest :
                             "WIRTSCHAFTLICHER_GESCHAEFTSBETRIEB",
                         ),
                     externalFqName = "network.lapis.cloud.shared.domain.GemeinnuetzigkeitSphere",
+                )
+        }
+
+        test("ledger_account.reserve_type is modelled as a real ErmDataType.Enum column") {
+            val reserveType = model.entities.single { it.name == "ledger_account" }.attributeByName("reserve_type")
+
+            reserveType?.type shouldBe
+                ErmDataType.Enum(
+                    name = "ReserveType",
+                    values =
+                        listOf(
+                            "PROJEKTRUECKLAGE",
+                            "FREIE_RUECKLAGE",
+                            "WIEDERBESCHAFFUNGSRUECKLAGE",
+                            "BETRIEBSMITTELRUECKLAGE",
+                        ),
+                    externalFqName = "network.lapis.cloud.shared.domain.ReserveType",
                 )
         }
     })

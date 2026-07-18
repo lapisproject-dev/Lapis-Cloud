@@ -12,6 +12,7 @@ import network.lapis.cloud.shared.domain.JournalEntryInput
 import network.lapis.cloud.shared.domain.JournalEntryStatus
 import network.lapis.cloud.shared.domain.LedgerAccountDto
 import network.lapis.cloud.shared.domain.LedgerAccountInput
+import network.lapis.cloud.shared.domain.UseOfFundsStatementDto
 
 /**
  * SKR42 chart of accounts + double-entry bookkeeping (V0.3.1, chart swapped from SKR49 in
@@ -120,4 +121,20 @@ interface IAccountingService {
         from: LocalDate? = null,
         to: LocalDate,
     ): FourSphereIncomeStatementDto
+
+    /**
+     * Role: TREASURER/BOARD/ADMIN. §55 AO Mittelverwendungsrechnung (use-of-funds/timely-use
+     * tracking) + §62 AO Rücklagen (reserve formation) over `[fromFiscalYear, toFiscalYear]`
+     * (calendar years, both inclusive). Only [JournalEntryStatus.POSTED] postings contribute --
+     * same "DRAFT is provisional" rule as every other statement method. The §55 AO timely-use
+     * clock is anchored at inception (rolled forward from the earliest fiscal year with activity),
+     * never windowed to [fromFiscalYear] -- see [UseOfFundsStatementDto] KDoc for why. This is a
+     * treasurer's Nachweis aid, not an automated compliance verdict -- see
+     * `network.lapis.cloud.shared.domain.UseOfFunds` file KDoc for what is deliberately NOT
+     * enforced (freie-Rücklage percentage cap, small-org exemption, §64 AO Freigrenze).
+     */
+    suspend fun getUseOfFundsStatement(
+        fromFiscalYear: Int,
+        toFiscalYear: Int,
+    ): UseOfFundsStatementDto
 }

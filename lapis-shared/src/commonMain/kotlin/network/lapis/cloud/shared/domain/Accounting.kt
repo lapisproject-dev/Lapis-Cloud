@@ -56,11 +56,44 @@ enum class GemeinnuetzigkeitSphere(
 }
 
 /**
+ * The four §62 AO reserve categories a treasurer may designate an `EQUITY` [LedgerAccountDto] as
+ * (V0.3.4). Reserves are deliberately modelled as ordinary equity ledger accounts (see
+ * `10-accounting.kuml.kts` file header and [network.lapis.cloud.server.rpc.UseOfFundsCalculator]
+ * KDoc for the full rationale) -- [ReserveType] is what makes such an account machine-classifiable
+ * for the §55/§62 AO Mittelverwendungsrechnung. [PROJEKTRUECKLAGE] (§62 Abs.1 Nr.1,
+ * zweckgebundene/Projekt-/Zweckerhaltungsruecklage -- earmarked for a specific future
+ * tax-privileged-purpose project, no statutory percentage cap but must be usable/plausible),
+ * [FREIE_RUECKLAGE] (§62 Abs.1 Nr.3 -- general reserve, capped at a statutory percentage of surplus
+ * from Vermögensverwaltung and of surplus from Zweckbetrieb/wirtschaftlicher
+ * Geschäftsbetrieb -- **that cap is NOT enforced here**; it is a number a human must configure and
+ * verify against current law, not a constant this codebase assumes), [WIEDERBESCHAFFUNGSRUECKLAGE]
+ * (§62 Abs.1 Nr.2 -- replacement reserve for depreciable assets), [BETRIEBSMITTELRUECKLAGE]
+ * (legally a Nr.1 sub-case, surfaced as its own literal because it has a distinct
+ * operating-funds-for-recurring-obligations purpose, e.g. payroll/rent). §62 Abs.1 Nr.4 (Rücklage
+ * zum Erwerb von Gesellschaftsrechten) is deliberately not offered -- out of scope, rare for a
+ * Verein/Partei. [paragraphRef] is a KDoc-level documentation hint carried as a constructor
+ * property -- **verify against the current AO before relying on it**; kotlinx.serialization still
+ * encodes/decodes the enum by its literal name, never by this property.
+ */
+@Serializable
+enum class ReserveType(
+    val paragraphRef: String,
+) {
+    PROJEKTRUECKLAGE("§62 Abs.1 Nr.1 AO"),
+    FREIE_RUECKLAGE("§62 Abs.1 Nr.3 AO"),
+    WIEDERBESCHAFFUNGSRUECKLAGE("§62 Abs.1 Nr.2 AO"),
+    BETRIEBSMITTELRUECKLAGE("§62 Abs.1 Nr.1 AO"),
+}
+
+/**
  * One SKR42 Konto. [accountNumber] is the five-digit (or shorter, some system accounts are
  * shorter) SKR42 number whose leading digit is the Kontenklasse (0-9) -- see the `.kuml.kts` file
  * header for why the Gemeinnützigkeit sphere is NOT derivable from that class under SKR42.
  * [accountClass] is that leading digit, carried as its own field for reporting purposes rather
- * than re-parsed from [accountNumber] on every read.
+ * than re-parsed from [accountNumber] on every read. [reserveType] (V0.3.4) is non-null only for a
+ * treasurer-designated §62 AO reserve account -- see [ReserveType] KDoc; it is only ever set when
+ * [type] is [LedgerAccountType.EQUITY], enforced at the service layer
+ * (`network.lapis.cloud.server.rpc.AccountingService`).
  */
 @Serializable
 data class LedgerAccountDto(
@@ -70,8 +103,10 @@ data class LedgerAccountDto(
     val accountClass: Int,
     val type: LedgerAccountType,
     val active: Boolean,
+    val reserveType: ReserveType? = null,
 )
 
+/** [reserveType] defaults to `null` so existing call sites stay source-compatible -- see [ReserveType]/[LedgerAccountDto] KDoc. */
 @Serializable
 data class LedgerAccountInput(
     val accountNumber: String,
@@ -79,6 +114,7 @@ data class LedgerAccountInput(
     val accountClass: Int,
     val type: LedgerAccountType,
     val active: Boolean = true,
+    val reserveType: ReserveType? = null,
 )
 
 /**

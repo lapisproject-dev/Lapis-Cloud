@@ -4,6 +4,7 @@ package network.lapis.cloud.server.db.generated
 
 import kotlin.uuid.Uuid
 import network.lapis.cloud.shared.domain.LedgerAccountType
+import network.lapis.cloud.shared.domain.ReserveType
 import org.jetbrains.exposed.v1.core.Column
 import org.jetbrains.exposed.v1.core.Table
 
@@ -15,6 +16,7 @@ public object LedgerAccountTable : Table("ledger_account") {
     public val type: Column<LedgerAccountType> = enumerationByName<LedgerAccountType>("type", 9)
     public val active: Column<Boolean> = bool("active")
     // TODO default = "TRUE"
+    public val reserveType: Column<ReserveType?> = enumerationByName<ReserveType>("reserve_type", 27).nullable()
 
     override val primaryKey: PrimaryKey = PrimaryKey(id)
 

@@ -37,6 +37,7 @@ import network.lapis.cloud.shared.domain.LedgerAccountType
 import network.lapis.cloud.shared.domain.MemberStatus
 import network.lapis.cloud.shared.domain.PostingInput
 import network.lapis.cloud.shared.domain.PostingSide
+import network.lapis.cloud.shared.domain.ReserveType
 import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.core.inList
 import org.jetbrains.exposed.v1.jdbc.deleteWhere
@@ -94,6 +95,7 @@ class AccountingServiceTest :
             number: String,
             type: LedgerAccountType,
             accountClass: Int = 0,
+            reserveType: ReserveType? = null,
         ): Uuid {
             val id = Uuid.random()
             transaction {
@@ -104,6 +106,7 @@ class AccountingServiceTest :
                     it[LedgerAccountTable.accountClass] = accountClass
                     it[LedgerAccountTable.type] = type
                     it[active] = true
+                    it[LedgerAccountTable.reserveType] = reserveType
                 }
             }
             createdLedgerAccountIds += id
@@ -1047,6 +1050,331 @@ class AccountingServiceTest :
                     .status shouldBe HttpStatusCode.Unauthorized
             }
         }
+
+        test("treasurer can create an EQUITY LedgerAccount with a reserveType; it round-trips in the DTO") {
+            testApplication {
+                application {
+                    install(StatusPages) { installAccountingExceptionHandlers() }
+                    routing { registerAccountingTestRoutes() }
+                }
+                val treasurer = createTestMember("acct-treasurer-reserve-create@example.org", AccountRole.TREASURER)
+
+                val created =
+                    client
+                        .post(
+                            "/test/create-ledger-account?number=0950&name=Testruecklage&class=2&type=EQUITY" +
+                                "&reserveType=PROJEKTRUECKLAGE",
+                        ) { header("X-Member-Id", treasurer.toString()) }
+                        .bodyAsText()
+                val parts = created.split(":")
+                parts[2] shouldBe "EQUITY"
+                parts[4] shouldBe "PROJEKTRUECKLAGE"
+                createdLedgerAccountIds += Uuid.parse(parts[0])
+            }
+        }
+
+        test("reserveType on a non-EQUITY LedgerAccount is rejected with BadRequest; nothing persisted") {
+            testApplication {
+                application {
+                    install(StatusPages) { installAccountingExceptionHandlers() }
+                    routing { registerAccountingTestRoutes() }
+                }
+                val treasurer = createTestMember("acct-treasurer-reserve-invalid@example.org", AccountRole.TREASURER)
+                val countBefore = transaction { LedgerAccountTable.selectAll().count() }
+
+                val response =
+                    client.post(
+                        "/test/create-ledger-account?number=0951&name=Falsch&class=1&type=ASSET&reserveType=FREIE_RUECKLAGE",
+                    ) { header("X-Member-Id", treasurer.toString()) }
+                response.status shouldBe HttpStatusCode.BadRequest
+
+                val countAfter = transaction { LedgerAccountTable.selectAll().count() }
+                countAfter shouldBe countBefore
+            }
+        }
+
+        test(
+            "getUseOfFundsStatement: income/reserve-allocation/expense across two fiscal years, " +
+                "excludes DRAFT, reserve keyed by account not posting.sphere",
+        ) {
+            testApplication {
+                application {
+                    install(StatusPages) { installAccountingExceptionHandlers() }
+                    routing { registerAccountingTestRoutes() }
+                }
+                val treasurer = createTestMember("acct-treasurer-use-of-funds@example.org", AccountRole.TREASURER)
+                val board = createTestMember("acct-board-use-of-funds@example.org", AccountRole.BOARD)
+                val plainMember = createTestMember("acct-plain-use-of-funds@example.org", AccountRole.MEMBER)
+                val kasse = createLedgerAccount("0952", LedgerAccountType.ASSET)
+                val beitraege = createLedgerAccount("4010", LedgerAccountType.INCOME, accountClass = 4)
+                val miete = createLedgerAccount("6320", LedgerAccountType.EXPENSE, accountClass = 6)
+                val vereinsvermoegen = createLedgerAccount("2010", LedgerAccountType.EQUITY, accountClass = 2)
+                val projektruecklage =
+                    createLedgerAccount("2110", LedgerAccountType.EQUITY, accountClass = 2, reserveType = ReserveType.PROJEKTRUECKLAGE)
+
+                // Baseline timelyUseObligationRemaining strictly before this test's own fixtures --
+                // the §55 AO clock is inception-anchored (rolled forward from the *whole DB's*
+                // earliest activity, not just this test's), so other tests' postings in earlier
+                // years already contribute to the pot by year 2050. Diffing against this baseline
+                // (same "delta, not absolute total" idiom the Bilanz/Jahresabschluss tests use for
+                // cumulative-since-inception figures) keeps the assertions below exact and
+                // order-independent regardless of what those other tests contributed.
+                val obligationBefore2050 =
+                    BigDecimal(
+                        client
+                            .get("/test/use-of-funds?from=2049&to=2049") { header("X-Member-Id", treasurer.toString()) }
+                            .bodyAsText()
+                            .split("#")[0]
+                            .split(":")[4],
+                    )
+
+                // Fiscal year 2050: 1000 income, plus a 300 reserve allocation whose two lines
+                // deliberately carry DIFFERENT spheres -- the reserve-movement loader must key off
+                // the ledger account's reserveType, not posting.sphere (see
+                // AccountingService.loadYearFacts KDoc).
+                client.post(
+                    "/test/post-entry?${
+                        entryParams(
+                            LocalDate(2050, 2, 1),
+                            "Spende-2050",
+                            listOf(
+                                PostingInput(
+                                    kasse.toString(),
+                                    PostingSide.DEBIT,
+                                    BigDecimal("1000.00"),
+                                    sphere = GemeinnuetzigkeitSphere.IDEELLER_BEREICH,
+                                ),
+                                PostingInput(
+                                    beitraege.toString(),
+                                    PostingSide.CREDIT,
+                                    BigDecimal("1000.00"),
+                                    sphere = GemeinnuetzigkeitSphere.IDEELLER_BEREICH,
+                                ),
+                            ),
+                        )
+                    }",
+                ) { header("X-Member-Id", treasurer.toString()) }
+                client.post(
+                    "/test/post-entry?${
+                        entryParams(
+                            LocalDate(2050, 3, 1),
+                            "Ruecklagenzufuehrung-2050",
+                            listOf(
+                                PostingInput(
+                                    vereinsvermoegen.toString(),
+                                    PostingSide.DEBIT,
+                                    BigDecimal("300.00"),
+                                    sphere = GemeinnuetzigkeitSphere.IDEELLER_BEREICH,
+                                ),
+                                PostingInput(
+                                    projektruecklage.toString(),
+                                    PostingSide.CREDIT,
+                                    BigDecimal("300.00"),
+                                    sphere = GemeinnuetzigkeitSphere.VERMOEGENSVERWALTUNG,
+                                ),
+                            ),
+                        )
+                    }",
+                ) { header("X-Member-Id", treasurer.toString()) }
+                // DRAFT in the same year -- must not move any figure.
+                client.post(
+                    "/test/save-draft?${
+                        entryParams(
+                            LocalDate(2050, 4, 1),
+                            "Entwurf-UseOfFunds",
+                            listOf(
+                                PostingInput(
+                                    beitraege.toString(),
+                                    PostingSide.CREDIT,
+                                    BigDecimal("9999.00"),
+                                    sphere = GemeinnuetzigkeitSphere.IDEELLER_BEREICH,
+                                ),
+                            ),
+                        )
+                    }",
+                ) { header("X-Member-Id", treasurer.toString()) }
+
+                // Fiscal year 2051: 400 expense.
+                client.post(
+                    "/test/post-entry?${
+                        entryParams(
+                            LocalDate(2051, 5, 1),
+                            "Miete-2051",
+                            listOf(
+                                PostingInput(
+                                    miete.toString(),
+                                    PostingSide.DEBIT,
+                                    BigDecimal("400.00"),
+                                    sphere = GemeinnuetzigkeitSphere.IDEELLER_BEREICH,
+                                ),
+                                PostingInput(
+                                    kasse.toString(),
+                                    PostingSide.CREDIT,
+                                    BigDecimal("400.00"),
+                                    sphere = GemeinnuetzigkeitSphere.IDEELLER_BEREICH,
+                                ),
+                            ),
+                        )
+                    }",
+                ) { header("X-Member-Id", treasurer.toString()) }
+
+                val response =
+                    client
+                        .get("/test/use-of-funds?from=2050&to=2051") { header("X-Member-Id", treasurer.toString()) }
+                        .bodyAsText()
+                val (yearsRaw, reserveMovementsRaw, totalsRaw) = response.split("#")
+                val years =
+                    yearsRaw.split(";").associate { row ->
+                        val p = row.split(":")
+                        p[0].toInt() to p
+                    }
+                years.keys shouldBe setOf(2050, 2051)
+
+                val year2050 = years.getValue(2050)
+                BigDecimal(year2050[1]).compareTo(BigDecimal("1000.00")) shouldBe 0 // fundsReceived
+                BigDecimal(year2050[2]).compareTo(BigDecimal.ZERO) shouldBe 0 // fundsUsed
+                BigDecimal(year2050[3]).compareTo(BigDecimal("300.00")) shouldBe 0 // fundsAllocatedToReserves
+                // obligation delta: +1000 income, -300 reserve allocation = +700 vs. the baseline.
+                (BigDecimal(year2050[4]) - obligationBefore2050).compareTo(BigDecimal("700.00")) shouldBe 0
+
+                val year2051 = years.getValue(2051)
+                BigDecimal(year2051[1]).compareTo(BigDecimal.ZERO) shouldBe 0
+                BigDecimal(year2051[2]).compareTo(BigDecimal("400.00")) shouldBe 0
+                BigDecimal(year2051[3]).compareTo(BigDecimal.ZERO) shouldBe 0
+                // obligation delta: 2050's +700 minus this year's 400 expense = +300 vs. the baseline.
+                (BigDecimal(year2051[4]) - obligationBefore2050).compareTo(BigDecimal("300.00")) shouldBe 0
+
+                // Reserve movement counted once, under PROJEKTRUECKLAGE, keyed by the account, not the sphere.
+                val reserveRows = reserveMovementsRaw.split("|").flatMap { it.split(",") }
+                val projektRows2050 = reserveRows.filter { it.startsWith("2050:${ReserveType.PROJEKTRUECKLAGE}:") }
+                projektRows2050.size shouldBe 1
+                val projektParts2050 = projektRows2050.single().split(":")
+                BigDecimal(projektParts2050[2]).compareTo(BigDecimal("300.00")) shouldBe 0 // allocated
+                BigDecimal(projektParts2050[3]).compareTo(BigDecimal("300.00")) shouldBe 0 // closingBalance
+                val projektRows2051 = reserveRows.filter { it.startsWith("2051:${ReserveType.PROJEKTRUECKLAGE}:") }
+                val projektParts2051 = projektRows2051.single().split(":")
+                BigDecimal(projektParts2051[2]).compareTo(BigDecimal.ZERO) shouldBe 0 // allocated (nothing new)
+                BigDecimal(projektParts2051[3]).compareTo(BigDecimal("300.00")) shouldBe 0 // closingBalance carried forward
+
+                val totalsParts = totalsRaw.split(":")
+                BigDecimal(totalsParts[0]).compareTo(BigDecimal("1000.00")) shouldBe 0
+                BigDecimal(totalsParts[1]).compareTo(BigDecimal("400.00")) shouldBe 0
+                BigDecimal(totalsParts[2]).compareTo(BigDecimal("300.00")) shouldBe 0
+                // closingTimelyUseObligation is cumulative-since-inception (== year2051's own
+                // obligation figure) -- delta vs. the baseline, same reasoning as above.
+                (BigDecimal(totalsParts[3]) - obligationBefore2050).compareTo(BigDecimal("300.00")) shouldBe 0
+                totalsParts[5] shouldBe "2"
+
+                // Authorization: BOARD may read, plain MEMBER is forbidden, unauthenticated is unauthorized.
+                client
+                    .get("/test/use-of-funds?from=2050&to=2051") { header("X-Member-Id", board.toString()) }
+                    .status shouldBe HttpStatusCode.OK
+                client
+                    .get("/test/use-of-funds?from=2050&to=2051") { header("X-Member-Id", plainMember.toString()) }
+                    .status shouldBe HttpStatusCode.Forbidden
+                client.get("/test/use-of-funds?from=2050&to=2051").status shouldBe HttpStatusCode.Unauthorized
+            }
+        }
+
+        test("getUseOfFundsStatement: a later single-year window still reflects the earlier year's carried-forward obligation") {
+            testApplication {
+                application {
+                    install(StatusPages) { installAccountingExceptionHandlers() }
+                    routing { registerAccountingTestRoutes() }
+                }
+                val treasurer = createTestMember("acct-treasurer-use-of-funds-inception@example.org", AccountRole.TREASURER)
+                val kasse = createLedgerAccount("0953", LedgerAccountType.ASSET)
+                val beitraege = createLedgerAccount("4011", LedgerAccountType.INCOME, accountClass = 4)
+                val miete = createLedgerAccount("6321", LedgerAccountType.EXPENSE, accountClass = 6)
+
+                // Baseline strictly before this test's own fixtures -- see the analogous comment in
+                // the scenario test above for why a delta (not an absolute total) is required here.
+                val obligationBefore2060 =
+                    BigDecimal(
+                        client
+                            .get("/test/use-of-funds?from=2059&to=2059") { header("X-Member-Id", treasurer.toString()) }
+                            .bodyAsText()
+                            .split("#")[0]
+                            .split(":")[4],
+                    )
+
+                // Year 2060: 800 income. Year 2061: 300 expense. Only 2061 is requested.
+                client.post(
+                    "/test/post-entry?${
+                        entryParams(
+                            LocalDate(2060, 2, 1),
+                            "Spende-2060",
+                            listOf(
+                                PostingInput(
+                                    kasse.toString(),
+                                    PostingSide.DEBIT,
+                                    BigDecimal("800.00"),
+                                    sphere = GemeinnuetzigkeitSphere.IDEELLER_BEREICH,
+                                ),
+                                PostingInput(
+                                    beitraege.toString(),
+                                    PostingSide.CREDIT,
+                                    BigDecimal("800.00"),
+                                    sphere = GemeinnuetzigkeitSphere.IDEELLER_BEREICH,
+                                ),
+                            ),
+                        )
+                    }",
+                ) { header("X-Member-Id", treasurer.toString()) }
+                client.post(
+                    "/test/post-entry?${
+                        entryParams(
+                            LocalDate(2061, 3, 1),
+                            "Miete-2061",
+                            listOf(
+                                PostingInput(
+                                    miete.toString(),
+                                    PostingSide.DEBIT,
+                                    BigDecimal("300.00"),
+                                    sphere = GemeinnuetzigkeitSphere.IDEELLER_BEREICH,
+                                ),
+                                PostingInput(
+                                    kasse.toString(),
+                                    PostingSide.CREDIT,
+                                    BigDecimal("300.00"),
+                                    sphere = GemeinnuetzigkeitSphere.IDEELLER_BEREICH,
+                                ),
+                            ),
+                        )
+                    }",
+                ) { header("X-Member-Id", treasurer.toString()) }
+
+                val response =
+                    client
+                        .get("/test/use-of-funds?from=2061&to=2061") { header("X-Member-Id", treasurer.toString()) }
+                        .bodyAsText()
+                val year2061 = response.split("#")[0].split(":")
+                year2061[0] shouldBe "2061"
+                // 800 - 300 = +500 vs. the baseline, reflecting the 2060 carry-forward even though
+                // only 2061 was requested.
+                (BigDecimal(year2061[4]) - obligationBefore2060).compareTo(BigDecimal("500.00")) shouldBe 0
+            }
+        }
+
+        test("getUseOfFundsStatement rejects fromFiscalYear > toFiscalYear and out-of-range years with 400") {
+            testApplication {
+                application {
+                    install(StatusPages) { installAccountingExceptionHandlers() }
+                    routing { registerAccountingTestRoutes() }
+                }
+                val treasurer = createTestMember("acct-treasurer-use-of-funds-range@example.org", AccountRole.TREASURER)
+
+                client
+                    .get("/test/use-of-funds?from=2055&to=2050") { header("X-Member-Id", treasurer.toString()) }
+                    .status shouldBe HttpStatusCode.BadRequest
+                client
+                    .get("/test/use-of-funds?from=0&to=2050") { header("X-Member-Id", treasurer.toString()) }
+                    .status shouldBe HttpStatusCode.BadRequest
+                client
+                    .get("/test/use-of-funds?from=2050&to=${Int.MAX_VALUE}") { header("X-Member-Id", treasurer.toString()) }
+                    .status shouldBe HttpStatusCode.BadRequest
+            }
+        }
     })
 
 private fun StatusPagesConfig.installAccountingExceptionHandlers() {
@@ -1079,9 +1407,10 @@ private fun Route.registerAccountingTestRoutes() {
                     name = q["name"]!!,
                     accountClass = q["class"]!!.toInt(),
                     type = LedgerAccountType.valueOf(q["type"]!!),
+                    reserveType = q["reserveType"]?.let { ReserveType.valueOf(it) },
                 ),
             )
-        call.respondText("${dto.id}:${dto.accountNumber}:${dto.type}:${dto.active}")
+        call.respondText("${dto.id}:${dto.accountNumber}:${dto.type}:${dto.active}:${dto.reserveType}")
     }
     get("/test/list-ledger-accounts") {
         val service = AccountingService(call)
@@ -1156,6 +1485,26 @@ private fun Route.registerAccountingTestRoutes() {
             )
         val perSphere = dto.spheres.joinToString(";") { "${it.sphere}:${it.totalIncome}:${it.totalExpense}:${it.result}" }
         call.respondText("$perSphere#${dto.totalIncome}:${dto.totalExpense}:${dto.result}")
+    }
+    get("/test/use-of-funds") {
+        val service = AccountingService(call)
+        val q = call.request.queryParameters
+        val dto = service.getUseOfFundsStatement(q["from"]!!.toInt(), q["to"]!!.toInt())
+        // Per-year rows: fiscalYear:fundsReceived:fundsUsed:fundsAllocatedToReserves:obligation:overdue, semicolon-joined.
+        val years =
+            dto.years.joinToString(";") { year ->
+                "${year.fiscalYear}:${year.fundsReceived}:${year.fundsUsed}:${year.fundsAllocatedToReserves}:" +
+                    "${year.timelyUseObligationRemaining}:${year.overdueAmount}"
+            }
+        // Per-year reserve movements: fiscalYear:reserveType:allocated:closingBalance, pipe-joined across all years/types.
+        val reserveMovements =
+            dto.years.joinToString("|") { year ->
+                year.reserveMovements.joinToString(",") { "${year.fiscalYear}:${it.reserveType}:${it.allocated}:${it.closingBalance}" }
+            }
+        call.respondText(
+            "$years#$reserveMovements#${dto.totalFundsReceived}:${dto.totalFundsUsed}:${dto.totalFundsAllocatedToReserves}:" +
+                "${dto.closingTimelyUseObligation}:${dto.closingOverdue}:${dto.timelyUseYears}",
+        )
     }
 }
 

@@ -17,6 +17,7 @@ import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.AnnualFinancialStatementDto
 import network.lapis.cloud.shared.domain.BalanceSheetDto
 import network.lapis.cloud.shared.domain.FourSphereIncomeStatementDto
+import network.lapis.cloud.shared.domain.GemeinnuetzigkeitSphere
 import network.lapis.cloud.shared.domain.GeneralLedgerDto
 import network.lapis.cloud.shared.domain.IncomeStatementDto
 import network.lapis.cloud.shared.domain.JournalEntryDto
@@ -24,8 +25,11 @@ import network.lapis.cloud.shared.domain.JournalEntryInput
 import network.lapis.cloud.shared.domain.JournalEntryStatus
 import network.lapis.cloud.shared.domain.LedgerAccountDto
 import network.lapis.cloud.shared.domain.LedgerAccountInput
+import network.lapis.cloud.shared.domain.LedgerAccountType
 import network.lapis.cloud.shared.domain.PostingDto
 import network.lapis.cloud.shared.domain.PostingInput
+import network.lapis.cloud.shared.domain.ReserveType
+import network.lapis.cloud.shared.domain.UseOfFundsStatementDto
 import network.lapis.cloud.shared.rpc.IAccountingService
 import org.jetbrains.exposed.v1.core.Op
 import org.jetbrains.exposed.v1.core.ResultRow
@@ -78,6 +82,7 @@ class AccountingService(
     override suspend fun createLedgerAccount(input: LedgerAccountInput): LedgerAccountDto {
         val current = resolveCurrentMember(call)
         current.requireRole(*TREASURY_ROLES)
+        requireReserveTypeOnlyOnEquity(input.type, input.reserveType)
         return transaction {
             val duplicate =
                 LedgerAccountTable
@@ -96,6 +101,7 @@ class AccountingService(
                     it[accountClass] = input.accountClass
                     it[type] = input.type
                     it[active] = input.active
+                    it[reserveType] = input.reserveType
                 }
             } catch (e: ExposedSQLException) {
                 // Application-level pre-check above is racy under concurrency on its own -- the
@@ -299,6 +305,25 @@ class AccountingService(
         }
     }
 
+    override suspend fun getUseOfFundsStatement(
+        fromFiscalYear: Int,
+        toFiscalYear: Int,
+    ): UseOfFundsStatementDto {
+        val current = resolveCurrentMember(call)
+        current.requireRole(*ACCOUNTING_READ_ROLES)
+        if (fromFiscalYear !in FISCAL_YEAR_RANGE || toFiscalYear !in FISCAL_YEAR_RANGE) {
+            throw BadRequestException(
+                "fromFiscalYear/toFiscalYear must be 4-digit calendar years in $FISCAL_YEAR_RANGE, got $fromFiscalYear/$toFiscalYear",
+            )
+        }
+        if (fromFiscalYear > toFiscalYear) {
+            throw BadRequestException("fromFiscalYear ($fromFiscalYear) must not be after toFiscalYear ($toFiscalYear)")
+        }
+        return transaction {
+            UseOfFundsCalculator.statement(loadYearFacts(throughYear = toFiscalYear), fromFiscalYear, toFiscalYear)
+        }
+    }
+
     override suspend fun getAnnualFinancialStatement(fiscalYear: Int): AnnualFinancialStatementDto {
         val current = resolveCurrentMember(call)
         current.requireRole(*ACCOUNTING_READ_ROLES)
@@ -422,6 +447,84 @@ class AccountingService(
             }
     }
 
+    /**
+     * Loads one [UseOfFundsCalculator.YearFacts] per calendar year with any `POSTED` activity
+     * through [throughYear] (inclusive) -- feeds [UseOfFundsCalculator.statement]. Only `POSTED`
+     * postings contribute (same "DRAFT is provisional" rule as every other loader). `INCOME`/
+     * `EXPENSE` postings are summed already signed by their normal-balance side (see
+     * [GeneralLedgerCalculator.normalBalanceSideOf]) into that year's flow + per-sphere
+     * disaggregation; `EQUITY` postings on a [LedgerAccountTable.reserveType]-tagged account are
+     * summed the same way into that year's net reserve allocation (positive = net Zuführung,
+     * negative = net Auflösung/dissolution) -- see [UseOfFundsCalculator] KDoc. `EQUITY` postings on
+     * a non-reserve account (`reserveType == null`, e.g. a plain Vereinsvermögen/Ergebnisvortrag
+     * account) do not affect the statement at all. [UseOfFundsCalculator.YearFacts.reserveClosingByType]
+     * is the *cumulative* reserve balance per type through the end of that year -- carried forward
+     * incrementally here, one calendar year at a time in ascending order, so it is correct even for
+     * a year with zero reserve activity of its own. Years with zero activity at all are simply
+     * absent from the returned list -- [UseOfFundsCalculator.statement] fills such gap years in
+     * itself (see that object's KDoc).
+     */
+    private fun loadYearFacts(throughYear: Int): List<UseOfFundsCalculator.YearFacts> {
+        val periodEnd = LocalDate(throughYear, 12, 31)
+        val rows =
+            (PostingTable innerJoin JournalEntryTable innerJoin LedgerAccountTable)
+                .selectAll()
+                .where { (JournalEntryTable.status eq JournalEntryStatus.POSTED) and (JournalEntryTable.entryDate lessEq periodEnd) }
+                .toList()
+
+        val rowsByYear = rows.groupBy { it[JournalEntryTable.entryDate].year }
+        val cumulativeReserveClosing = mutableMapOf<ReserveType, BigDecimal>()
+
+        return rowsByYear.keys.sorted().map { year ->
+            var income = BigDecimal.ZERO
+            var expense = BigDecimal.ZERO
+            val incomeBySphere = mutableMapOf<GemeinnuetzigkeitSphere, BigDecimal>()
+            val expenseBySphere = mutableMapOf<GemeinnuetzigkeitSphere, BigDecimal>()
+            val reserveAllocationByType = mutableMapOf<ReserveType, BigDecimal>()
+
+            rowsByYear.getValue(year).forEach { row ->
+                val type = row[LedgerAccountTable.type]
+                val amount = row[PostingTable.amount]
+                val normalSide = GeneralLedgerCalculator.normalBalanceSideOf(type)
+                val signed = if (row[PostingTable.side] == normalSide) amount else amount.negate()
+
+                when (type) {
+                    LedgerAccountType.INCOME -> {
+                        income += signed
+                        val sphere = row[PostingTable.sphere]
+                        incomeBySphere[sphere] = (incomeBySphere[sphere] ?: BigDecimal.ZERO) + signed
+                    }
+                    LedgerAccountType.EXPENSE -> {
+                        expense += signed
+                        val sphere = row[PostingTable.sphere]
+                        expenseBySphere[sphere] = (expenseBySphere[sphere] ?: BigDecimal.ZERO) + signed
+                    }
+                    LedgerAccountType.EQUITY -> {
+                        val reserveType = row[LedgerAccountTable.reserveType]
+                        if (reserveType != null) {
+                            reserveAllocationByType[reserveType] = (reserveAllocationByType[reserveType] ?: BigDecimal.ZERO) + signed
+                        }
+                    }
+                    LedgerAccountType.ASSET, LedgerAccountType.LIABILITY -> Unit
+                }
+            }
+
+            reserveAllocationByType.forEach { (type, delta) ->
+                cumulativeReserveClosing[type] = (cumulativeReserveClosing[type] ?: BigDecimal.ZERO) + delta
+            }
+
+            UseOfFundsCalculator.YearFacts(
+                fiscalYear = year,
+                income = income,
+                expense = expense,
+                incomeBySphere = incomeBySphere,
+                expenseBySphere = expenseBySphere,
+                reserveAllocationByType = reserveAllocationByType,
+                reserveClosingByType = cumulativeReserveClosing.toMap(),
+            )
+        }
+    }
+
     /** Inserts a new [JournalEntryTable] row plus its [PostingTable] rows in the caller's transaction. */
     private fun insertJournalEntry(
         input: JournalEntryInput,
@@ -457,6 +560,21 @@ class AccountingService(
     private fun requireBalanced(postings: List<PostingInput>) {
         val result = JournalEntryBalance.validateBalanced(postings)
         if (!result.balanced) throw ConflictException(result.reason ?: "Journal entry not balanced")
+    }
+
+    /**
+     * §62 AO [ReserveType] is only meaningful on an `EQUITY`-typed [LedgerAccountTable] row (see
+     * [ReserveType] KDoc: reserves are modelled as ordinary equity accounts) -- this is a
+     * cross-column rule that no single-row `CHECK` constraint can express, so it is enforced here,
+     * the same class of service-layer guard as [JournalEntryBalance]'s balance invariant.
+     */
+    private fun requireReserveTypeOnlyOnEquity(
+        type: LedgerAccountType,
+        reserveType: ReserveType?,
+    ) {
+        if (reserveType != null && type != LedgerAccountType.EQUITY) {
+            throw BadRequestException("reserveType $reserveType may only be set on an EQUITY LedgerAccount, got $type")
+        }
     }
 
     /** Every referenced [LedgerAccountTable] row must exist and be [LedgerAccountTable.active]. */
@@ -513,6 +631,7 @@ class AccountingService(
             accountClass = this[LedgerAccountTable.accountClass],
             type = this[LedgerAccountTable.type],
             active = this[LedgerAccountTable.active],
+            reserveType = this[LedgerAccountTable.reserveType],
         )
 
     private fun ResultRow.toPostingDto(): PostingDto =
