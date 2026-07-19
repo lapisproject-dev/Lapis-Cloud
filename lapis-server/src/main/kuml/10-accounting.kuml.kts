@@ -361,6 +361,16 @@ classDiagram(name = "Accounting") {
         attribute(name = "createdAt", type = "LocalDateTime") {
             stereotype("Column") { "columnName" to "created_at" }
         }
+        // V0.4.1 Spendenbescheinigung: nullable donor attribution. Only meaningful when this
+        // entry contains at least one posting against an INCOME ledger account -- enforced at
+        // the service layer (AccountingService), not a CHECK constraint, same class of
+        // cross-row invariant as the balance check. Plain «Column» UUID attribute, not a UML
+        // association -- association-derived FK naming would yield "member_id", not the real
+        // "donor_member_id" column (same naming-gap class as `createdBy` above).
+        attribute(name = "donorMemberId", type = "UUID") {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") { "columnName" to "donor_member_id"; "fkEntity" to "Member" }
+        }
     }
 
     val posting = classOf(name = "Posting") {

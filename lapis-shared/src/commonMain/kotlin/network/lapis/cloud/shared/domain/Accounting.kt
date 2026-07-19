@@ -195,6 +195,14 @@ data class PostingInput(
     val costCenterId: String? = null,
 )
 
+/**
+ * [donorMemberId]/[donorMemberDisplayName] (V0.4.1 Spendenbescheinigung) are non-null only when
+ * this entry has been attributed to a donating member -- see `10-accounting.kuml.kts` file header
+ * (`donor_member_id`) and `network.lapis.cloud.server.rpc.AccountingService`'s
+ * `requireDonationIncomePosting` for the validation (must reference at least one posting against
+ * an `INCOME` ledger account). `createdBy` remains the treasurer who booked the entry, never the
+ * donor -- these are deliberately two distinct fields.
+ */
 @Serializable
 data class JournalEntryDto(
     val id: String,
@@ -207,6 +215,8 @@ data class JournalEntryDto(
     val postedAt: LocalDateTime?,
     val createdAt: LocalDateTime,
     val postings: List<PostingDto>,
+    val donorMemberId: String? = null,
+    val donorMemberDisplayName: String? = null,
 )
 
 /**
@@ -214,7 +224,9 @@ data class JournalEntryDto(
  * [PostingSide.CREDIT] line, and Σdebit must equal Σcredit for `postJournalEntry`/
  * `postDraftEntry` to succeed -- see `network.lapis.cloud.server.rpc.JournalEntryBalance` KDoc.
  * `saveDraftEntry` accepts an incomplete/unbalanced set of [postings] (that is the point of a
- * draft).
+ * draft). [donorMemberId] (V0.4.1) defaults to `null` -- see [JournalEntryDto] KDoc; when set, the
+ * entry must reference an existing member (`NotFoundException` otherwise) and contain at least
+ * one posting against an `INCOME` ledger account (`BadRequestException` otherwise).
  */
 @Serializable
 data class JournalEntryInput(
@@ -222,6 +234,7 @@ data class JournalEntryInput(
     val description: String,
     val voucherReference: String? = null,
     val postings: List<PostingInput> = emptyList(),
+    val donorMemberId: String? = null,
 )
 
 /** One row of the Hauptbuch (general ledger) for a single [GeneralLedgerDto.ledgerAccountId]. */

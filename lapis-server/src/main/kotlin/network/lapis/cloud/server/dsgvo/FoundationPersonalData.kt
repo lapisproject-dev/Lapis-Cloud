@@ -36,6 +36,11 @@ object FoundationPersonalData : PersonalDataContributor {
             put("status", memberRow[MemberTable.status].name)
             put("joinedAt", memberRow[MemberTable.joinedAt].toString())
             put("anonymizedAt", memberRow[MemberTable.anonymizedAt]?.toString())
+            // V0.4.1 postal address -- PII, exported alongside displayName/email.
+            put("street", memberRow[MemberTable.street])
+            put("postalCode", memberRow[MemberTable.postalCode])
+            put("city", memberRow[MemberTable.city])
+            put("country", memberRow[MemberTable.country])
 
             val accountRow = AccountTable.selectAll().where { AccountTable.memberId eq memberId }.singleOrNull()
             if (accountRow != null) {
@@ -56,6 +61,11 @@ object FoundationPersonalData : PersonalDataContributor {
                 it[displayName] = "Geloeschtes Mitglied"
                 it[email] = placeholderEmail
                 it[anonymizedAt] = nowUtc()
+                // V0.4.1 postal address -- PII, nulled out alongside displayName/email on anonymization.
+                it[street] = null
+                it[postalCode] = null
+                it[city] = null
+                it[country] = null
             }
         val accountsDeleted = AccountTable.deleteWhere { AccountTable.memberId eq memberId }
         return listOf(

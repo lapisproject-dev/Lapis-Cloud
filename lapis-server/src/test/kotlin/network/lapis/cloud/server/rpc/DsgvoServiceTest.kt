@@ -27,6 +27,7 @@ import network.lapis.cloud.server.db.generated.DocumentTable
 import network.lapis.cloud.server.db.generated.DocumentVersionTable
 import network.lapis.cloud.server.db.generated.DsgvoAuditLogTable
 import network.lapis.cloud.server.db.generated.ErasureRequestTable
+import network.lapis.cloud.server.db.generated.JournalEntryTable
 import network.lapis.cloud.server.db.generated.MailingDeliveryLogTable
 import network.lapis.cloud.server.db.generated.MailingListSubscriptionTable
 import network.lapis.cloud.server.db.generated.MailingListTable
@@ -42,6 +43,7 @@ import network.lapis.cloud.shared.domain.DocumentAccessLevel
 import network.lapis.cloud.shared.domain.DsgvoAuditAction
 import network.lapis.cloud.shared.domain.ErasureMode
 import network.lapis.cloud.shared.domain.ErasureStatus
+import network.lapis.cloud.shared.domain.JournalEntryStatus
 import network.lapis.cloud.shared.domain.MemberStatus
 import org.jetbrains.exposed.v1.core.and
 import org.jetbrains.exposed.v1.core.eq
@@ -201,6 +203,21 @@ class DsgvoServiceTest :
                             val manifest = service.exportManifest(call.parameters["memberId"]!!)
                             call.respondText(manifest.sectionCounts.entries.joinToString(",") { "${it.key}=${it.value}" })
                         }
+                        // V0.4.1: exercises the only production write path for the postal address
+                        // (MemberService.updateMemberAddress) -- see IMemberService KDoc.
+                        post("/test/update-address/{memberId}") {
+                            val service = MemberService(call)
+                            val query = call.request.queryParameters
+                            val dto =
+                                service.updateMemberAddress(
+                                    call.parameters["memberId"]!!,
+                                    query["street"],
+                                    query["postalCode"],
+                                    query["city"],
+                                    query["country"],
+                                )
+                            call.respondText(dto.id)
+                        }
                     }
                 }
 
@@ -230,14 +247,31 @@ class DsgvoServiceTest :
                 client.post("/test/send-mail/$messageId") { header("X-Member-Id", subjectHeader) }
                 client.post("/test/send-dm/$TREASURER_ID") { header("X-Member-Id", subjectHeader) }
 
-                // Manifest (RPC surface): every one of the four registered contributors
-                // participates, and the contributions count reflects the actual row Exposed query
-                // pulled (a JsonArray), not a hardcoded placeholder.
+                // V0.4.1 postal address: written through the only production write path
+                // (MemberService.updateMemberAddress, self-service here), then checked to survive
+                // export verbatim, then to be nulled by erasure -- see the erasure test.
+                client.post(
+                    "/test/update-address/$subjectHeader" +
+                        "?street=Musterstrasse-1&postalCode=38100&city=Braunschweig&country=DE",
+                ) { header("X-Member-Id", subjectHeader) }
+
+                // V0.4.1 donor attribution: a JournalEntry booked/created by TREASURER (not the
+                // subject) but attributed to the subject as donorMemberId must still surface in the
+                // subject's own export -- AccountingPersonalData's export walk matches donorMemberId
+                // alongside createdBy (see that object's KDoc). Inserted directly, like
+                // insertDocumentVersion below, since exercising the full postJournalEntry
+                // double-entry/ledger-account machinery is out of scope for this DSGVO-focused test.
+                insertDonationJournalEntry(subject, createdBy = Uuid.parse(TREASURER_ID))
+
+                // Manifest (RPC surface): every registered contributor participates, and the
+                // contributions count reflects the actual row Exposed query pulled (a JsonArray),
+                // not a hardcoded placeholder.
                 val manifestSelf = client.get("/test/export-manifest/$subjectHeader") { header("X-Member-Id", subjectHeader) }.bodyAsText()
                 manifestSelf shouldContain "foundation=1"
                 manifestSelf shouldContain "contributions=1"
                 manifestSelf shouldContain "documents=1"
                 manifestSelf shouldContain "communication=1"
+                manifestSelf shouldContain "accounting=1"
 
                 // ADMIN can export someone else's data too (self-or-ADMIN).
                 val manifestByAdmin = client.get("/test/export-manifest/$subjectHeader") { header("X-Member-Id", ADMIN_ID) }
@@ -263,11 +297,21 @@ class DsgvoServiceTest :
                 bundleText shouldContain "\"contributions\""
                 bundleText shouldContain "\"documents\""
                 bundleText shouldContain "\"communication\""
+                bundleText shouldContain "\"accounting\""
                 bundleText shouldContain "Vertrauliche Buchhalter-Notiz"
                 bundleText shouldContain "DSGVO-Testdokument"
                 bundleText shouldContain "DSGVO-Testliste"
                 bundleText shouldContain "DSGVO-Betreff"
                 bundleText shouldContain "Von Testmitglied gesendet"
+                // V0.4.1 postal address fields, exported alongside displayName/email (see
+                // FoundationPersonalData.export).
+                bundleText shouldContain "Musterstrasse-1"
+                bundleText shouldContain "38100"
+                bundleText shouldContain "Braunschweig"
+                // V0.4.1 donor attribution: the entry is present in the subject's own export and
+                // is correctly attributed via the "donorMemberId" role (not "createdBy", which
+                // belongs to TREASURER here) -- see AccountingPersonalData.export.
+                bundleText shouldContain "\"role\":\"donorMemberId\""
                 bundleText shouldContain "\"direction\":\"SENT\""
 
                 // Every export call (manifest self, manifest by ADMIN, HTTP bundle by subject) is
@@ -349,6 +393,19 @@ class DsgvoServiceTest :
                             val service = DsgvoService(call)
                             call.respondText(service.listAuditLog().joinToString(",") { it.action.name })
                         }
+                        post("/test/update-address/{memberId}") {
+                            val service = MemberService(call)
+                            val query = call.request.queryParameters
+                            val dto =
+                                service.updateMemberAddress(
+                                    call.parameters["memberId"]!!,
+                                    query["street"],
+                                    query["postalCode"],
+                                    query["city"],
+                                    query["country"],
+                                )
+                            call.respondText(dto.id)
+                        }
                     }
                 }
 
@@ -360,6 +417,18 @@ class DsgvoServiceTest :
                 client.post("/test/subscribe/$listId") { header("X-Member-Id", subjectHeader) }
                 client.post("/test/send-dm/$TREASURER_ID") { header("X-Member-Id", subjectHeader) }
                 client.post("/test/send-dm/$subjectHeader") { header("X-Member-Id", TREASURER_ID) }
+
+                // V0.4.1 postal address: set before erasure so we can prove ANONYMIZE nulls all
+                // four fields (see FoundationPersonalData.erase).
+                client.post(
+                    "/test/update-address/$subjectHeader" +
+                        "?street=Alte-Strasse-5&postalCode=99999&city=Loeschstadt&country=DE",
+                ) { header("X-Member-Id", subjectHeader) }
+
+                // V0.4.1 donor attribution: a JournalEntry attributed to the subject as donor must
+                // be reported as retained (never anonymized/deleted) by erasure -- GoBD/§257 HGB/
+                // §147 AO, see AccountingPersonalData.erase KDoc.
+                insertDonationJournalEntry(subject, createdBy = Uuid.parse(TREASURER_ID))
 
                 // Non-ADMIN cannot list/decide/execute -- ADMIN-only, unlike export/request which
                 // are self-or-ADMIN.
@@ -388,6 +457,22 @@ class DsgvoServiceTest :
                     memberRow[MemberTable.displayName] shouldBe "Geloeschtes Mitglied"
                     memberRow[MemberTable.email] shouldContain "@deleted.invalid"
                     (memberRow[MemberTable.anonymizedAt] != null) shouldBe true
+                    // V0.4.1 postal address: nulled alongside displayName/email, see
+                    // FoundationPersonalData.erase.
+                    memberRow[MemberTable.street] shouldBe null
+                    memberRow[MemberTable.postalCode] shouldBe null
+                    memberRow[MemberTable.city] shouldBe null
+                    memberRow[MemberTable.country] shouldBe null
+
+                    // V0.4.1 donor attribution: the JournalEntry row survives verbatim -- neither
+                    // the row nor its donorMemberId FK is touched by erasure, see
+                    // AccountingPersonalData.erase KDoc.
+                    val donationEntry =
+                        JournalEntryTable
+                            .selectAll()
+                            .where { JournalEntryTable.donorMemberId eq subject }
+                            .single()
+                    donationEntry[JournalEntryTable.description] shouldBe "DSGVO-Testspende"
 
                     val accountRemaining = AccountTable.selectAll().where { AccountTable.memberId eq subject }.count()
                     accountRemaining shouldBe 0L
@@ -536,6 +621,32 @@ private fun insertDocumentVersion(
 }
 
 /**
+ * Inserted directly against [JournalEntryTable] rather than via [AccountingService.postJournalEntry]
+ * -- setting up a balanced double-entry posting against an active [network.lapis.cloud.server.db.generated.LedgerAccountTable]
+ * row is unrelated machinery this DSGVO-focused test has no need to exercise (see call site KDoc).
+ * [donorMemberId] is deliberately distinct from [createdBy] so [AccountingPersonalData]'s export/
+ * erasure walk is proven to match on *either* column, not just `created_by`.
+ */
+private fun insertDonationJournalEntry(
+    donorMemberId: Uuid,
+    createdBy: Uuid,
+) {
+    transaction {
+        JournalEntryTable.insert {
+            it[id] = Uuid.random()
+            it[entryDate] = LocalDate(2027, 3, 10)
+            it[description] = "DSGVO-Testspende"
+            it[voucherReference] = null
+            it[JournalEntryTable.createdBy] = createdBy
+            it[status] = JournalEntryStatus.POSTED
+            it[postedAt] = LocalDateTime(2027, 3, 10, 9, 0)
+            it[createdAt] = LocalDateTime(2027, 3, 10, 9, 0)
+            it[JournalEntryTable.donorMemberId] = donorMemberId
+        }
+    }
+}
+
+/**
  * Deletes every row this Spec created, in FK-safe child-before-parent order, so no state leaks
  * into other Spec classes sharing the same H2 in-memory database (see class KDoc). Deliberately
  * hard-deletes the member rows themselves (unlike [network.lapis.cloud.server.dsgvo.FoundationPersonalData],
@@ -558,6 +669,9 @@ private fun cleanUpDsgvoTestData(
         DirectMessageTable.deleteWhere { (senderId inList memberIds) or (recipientId inList memberIds) }
         DocumentVersionTable.deleteWhere { uploadedBy inList memberIds }
         DocumentTable.deleteWhere { createdBy inList memberIds }
+        // Only donorMemberId can reference a test subject here -- createdBy is always the fixed
+        // dev-seeded TREASURER_ID, which is never in memberIds and must not be touched.
+        JournalEntryTable.deleteWhere { donorMemberId inList memberIds }
         ContributionTable.deleteWhere { memberId inList memberIds }
         AccountTable.deleteWhere { memberId inList memberIds }
         MemberTable.deleteWhere { id inList memberIds }

@@ -20,6 +20,7 @@ public object JournalEntryTable : Table("journal_entry") {
     public val status: Column<JournalEntryStatus> = enumerationByName<JournalEntryStatus>("status", 6)
     public val postedAt: Column<LocalDateTime?> = datetime("posted_at").nullable()
     public val createdAt: Column<LocalDateTime> = datetime("created_at")
+    public val donorMemberId: Column<Uuid?> = optReference("donor_member_id", MemberTable.id)
 
     override val primaryKey: PrimaryKey = PrimaryKey(id)
 

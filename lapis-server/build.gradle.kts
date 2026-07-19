@@ -36,6 +36,7 @@ dependencies {
     implementation(libs.flyway.database.postgresql)
     implementation(libs.postgresql)
     implementation(libs.hikaricp)
+    implementation(libs.pdfbox)
 
     testImplementation(libs.ktor.server.test.host)
     testImplementation(libs.kotest.runner.junit5)

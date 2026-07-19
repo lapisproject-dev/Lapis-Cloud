@@ -32,25 +32,25 @@ import io.kotest.matchers.string.shouldContain
 class DomainModelMergerTest :
     FunSpec({
 
-        // ── Test 1: merging the real 9 domain scripts ───────────────────────────────────
+        // ── Test 1: merging the real 12 domain scripts ───────────────────────────────────
 
         test(
-            "merging the real 11 domain scripts succeeds and the uml-to-erm -> erm-to-exposed chain " +
+            "merging the real 12 domain scripts succeeds and the uml-to-erm -> erm-to-exposed chain " +
                 "produces exactly one Table file per distinct table name",
         ) {
             val scriptFiles =
                 requireNotNull(KumlModelLoader.kumlSourceDir.listFiles { f -> f.name.endsWith(".kuml.kts") }) {
                     "kUML source dir not found or not a directory: ${KumlModelLoader.kumlSourceDir.absolutePath}"
                 }.sortedBy { it.name }
-            scriptFiles shouldHaveSize 11
+            scriptFiles shouldHaveSize 12
 
             val diagrams = scriptFiles.map { KumlModelLoader.loadUmlDiagram(it) }
 
             val merged = DomainModelMerger.merge(diagrams)
 
-            // 44 distinct `"tableName" to "..."` values across the 11 .kuml.kts files (verified by
+            // 45 distinct `"tableName" to "..."` values across the 12 .kuml.kts files (verified by
             // grepping `grep -oh '"tableName" to "[a-z_]*"' lapis-server/src/main/kuml/*.kuml.kts |
-            // sort -u | wc -l`; 67 total «Entity» declarations minus 23 cross-domain-stub
+            // sort -u | wc -l`; 68 total «Entity» declarations minus 23 cross-domain-stub
             // duplicates: member appears in 11 files (10 dropped, every domain stubs it),
             // motion/meeting/resolution each appear in 4 files (3 dropped each), committee appears
             // in 3 files (2 dropped), document and membership_tier each appear in 2 files (1
@@ -59,7 +59,11 @@ class DomainModelMergerTest :
             // 22-dropped baseline; it adds 4 real tables (ledger_account/journal_entry/posting from
             // V0.3.1, plus cost_center added in V0.3.6) and does not touch
             // motion/meeting/resolution/committee/document at all.
-            val distinctTableNames = 44
+            // 11-organization-settings.kuml.kts (V0.4.1) adds exactly one more real table
+            // (organization_settings), with NO cross-domain Member stub at all (no FK to member) --
+            // so it contributes +1 «Entity» declaration and +0 drops versus the V0.3.1 baseline
+            // above (44 -> 45).
+            val distinctTableNames = 45
 
             val result =
                 UmlToExposedViaErmScriptTransformer().transform(
@@ -126,6 +130,7 @@ class DomainModelMergerTest :
                     "JournalEntryTable.kt",
                     "PostingTable.kt",
                     "CostCenterTable.kt",
+                    "OrganizationSettingsTable.kt",
                 )
         }
 

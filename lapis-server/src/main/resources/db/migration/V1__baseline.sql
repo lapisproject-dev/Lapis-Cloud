@@ -17,6 +17,24 @@ CREATE TABLE document_folder (
     parent_folder_id UUID NULL
 );
 
+-- V0.4.1 Serienbrief/PDF engine: the issuing association's own letterhead/bank/Gemeinnuetzigkeit
+-- data. Exactly one row by convention (see 11-organization-settings.kuml.kts file header) --
+-- seeded unconditionally below (not via DevSeedData, which is opt-in/demo-gated and must never
+-- gate a real capability like letterhead data existing at all).
+CREATE TABLE organization_settings (
+    id UUID NOT NULL PRIMARY KEY,
+    name VARCHAR(300) NOT NULL,
+    street VARCHAR(200) NULL,
+    postal_code VARCHAR(20) NULL,
+    city VARCHAR(200) NULL,
+    country VARCHAR(100) NULL,
+    bank_iban VARCHAR(34) NULL,
+    bank_bic VARCHAR(11) NULL,
+    tax_exemption_authority VARCHAR(300) NULL,
+    tax_exemption_date DATE NULL,
+    is_political_party BOOLEAN NOT NULL DEFAULT FALSE
+);
+
 CREATE TABLE committee (
     id UUID NOT NULL PRIMARY KEY,
     name VARCHAR(200) NOT NULL,
@@ -56,6 +74,10 @@ CREATE TABLE member (
     status VARCHAR(11) NOT NULL,
     joined_at DATE NOT NULL,
     anonymized_at TIMESTAMP NULL,
+    street VARCHAR(200) NULL,
+    postal_code VARCHAR(20) NULL,
+    city VARCHAR(200) NULL,
+    country VARCHAR(100) NULL,
     membership_tier_id UUID NULL,
     CHECK (status IN ('ANTRAG', 'AKTIV', 'GAST', 'AUSGETRETEN'))
 );
@@ -155,6 +177,7 @@ CREATE TABLE journal_entry (
     status VARCHAR(6) NOT NULL,
     posted_at TIMESTAMP NULL,
     created_at TIMESTAMP NOT NULL,
+    donor_member_id UUID NULL,
     CHECK (status IN ('DRAFT', 'POSTED'))
 );
 
@@ -580,6 +603,7 @@ ALTER TABLE systemic_consensus_ballot ADD CONSTRAINT fk_systemic_consensus_ballo
 ALTER TABLE systemic_consensus_resistance ADD CONSTRAINT fk_systemic_consensus_resistance_ballot_id FOREIGN KEY (ballot_id) REFERENCES systemic_consensus_ballot(id);
 ALTER TABLE systemic_consensus_resistance ADD CONSTRAINT fk_systemic_consensus_resistance_option_id FOREIGN KEY (option_id) REFERENCES systemic_consensus_option(id);
 ALTER TABLE journal_entry ADD CONSTRAINT fk_journal_entry_created_by FOREIGN KEY (created_by) REFERENCES member(id);
+ALTER TABLE journal_entry ADD CONSTRAINT fk_journal_entry_donor_member_id FOREIGN KEY (donor_member_id) REFERENCES member(id);
 ALTER TABLE posting ADD CONSTRAINT fk_posting_journal_entry_id FOREIGN KEY (journal_entry_id) REFERENCES journal_entry(id);
 ALTER TABLE posting ADD CONSTRAINT fk_posting_ledger_account_id FOREIGN KEY (ledger_account_id) REFERENCES ledger_account(id);
 ALTER TABLE posting ADD CONSTRAINT fk_posting_cost_center_id FOREIGN KEY (cost_center_id) REFERENCES cost_center(id);
@@ -656,4 +680,13 @@ CREATE INDEX idx_journal_entry_status ON journal_entry (status);
 CREATE INDEX idx_posting_journal_entry ON posting (journal_entry_id);
 CREATE INDEX idx_posting_ledger_account ON posting (ledger_account_id);
 CREATE UNIQUE INDEX uq_cost_center_code ON cost_center (code);
+
+-- V0.4.1 Serienbrief/PDF engine: exactly one organization_settings row must exist from first
+-- migration onward, in every environment (not just LAPIS_SEED_DEMO_DATA=true demo deployments) --
+-- unlike every other row in this codebase, letterhead data existing at all is a real capability
+-- precondition, not sample/demo data, so it is seeded here directly rather than via DevSeedData.
+-- Fixed sentinel id, mirrors DevSeedData's own '...-0000-0000000000f1' (standardTierId) pattern.
+-- ADMIN can (and should) overwrite every field via updateOrganizationSettings afterward.
+INSERT INTO organization_settings (id, name)
+VALUES ('00000000-0000-0000-0000-0000000000f2', 'Verein/Partei (bitte in Organisationseinstellungen konfigurieren)');
 

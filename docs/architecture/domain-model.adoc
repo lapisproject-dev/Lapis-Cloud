@@ -78,6 +78,15 @@ classDiagram(name = "Lapis Cloud Domain Model — V0.1.5") {
         attribute(name = "email", type = "String")
         attribute(name = "status", type = memberStatus, defaultValue = "ANTRAG")
         attribute(name = "joinedAt", type = "LocalDate")
+        // Postal address (V0.4.1 Serienbrief/PDF engine) -- all four nullable, since not every
+        // member has provided one and email-only members may never need it. Written only via
+        // IMemberService.updateMemberAddress (self-or-privileged); read by the Beitragsrechnung/
+        // Spendenbescheinigung mail-merge templates -- see the Serienbrief-/PDF-Engine section
+        // below.
+        attribute(name = "street", type = "String")
+        attribute(name = "postalCode", type = "String")
+        attribute(name = "city", type = "String")
+        attribute(name = "country", type = "String")
     }
 
     val account = classOf(name = "Account") {
@@ -394,6 +403,12 @@ classDiagram(name = "Lapis Cloud Domain Model — Accounting (V0.3.1)") {
         attribute(name = "status", type = journalEntryStatus, defaultValue = "DRAFT")
         attribute(name = "postedAt", type = "LocalDateTime")
         attribute(name = "createdAt", type = "LocalDateTime")
+        // Donor attribution (V0.4.1 Serienbrief/PDF engine) -- nullable, distinct from createdBy
+        // (the booking treasurer, never the donor). Set only when this entry is attributed to a
+        // donating Member for Spendenbescheinigung mail-merge purposes; requireDonationIncomePosting
+        // requires at least one posting against an INCOME LedgerAccount whenever this is set. See
+        // the Serienbrief-/PDF-Engine section below.
+        attribute(name = "donorMemberId", type = "UUID")
     }
 
     val gemeinnuetzigkeitSphere = enumOf(name = "GemeinnuetzigkeitSphere") {
@@ -431,9 +446,17 @@ classDiagram(name = "Lapis Cloud Domain Model — Accounting (V0.3.1)") {
         target { multiplicity(spec = "0..*"); role = "postings" }
     }
 
-    dependency(client = journalEntry, supplier = member, name = "createdBy")
+    // Combined into a single dependency (like DirectMessage's own sender/recipient in the V0.1.5
+    // diagram above) rather than two separate dependency() calls between the same client/supplier
+    // pair.
+    dependency(client = journalEntry, supplier = member, name = "createdBy/donorMemberId")
 }
 ----
+
+`JournalEntry.donorMemberId` (nullable, added V0.4.1) is the minimal bridge attributing a posted
+entry to a donating `Member` for Spendenbescheinigung mail-merge purposes -- see the
+Serienbrief-/PDF-Engine section below for the full rationale and why this is deliberately not a
+full donation-management module (no campaigns/pledges/recurring-donation scheduling).
 
 Explicit non-goals for V0.3.1 (see `lapis-server/src/main/kuml/10-accounting.kuml.kts`'s header
 comment for the full list): P&L/balance-sheet derivation, §55 AO Mittelverwendungsrechnung,
@@ -730,3 +753,76 @@ budgets, forecasts, variance/actual-vs-budget tracking; hierarchical/nested cost
 cross-cost-center allocation rules; and any crowdfunding/auction-specific fields or logic -- V0.6 is
 a later, separate wave that will *consume* this classification mechanism (attach campaigns to a
 `CostCenter`), not extend it now.
+
+== Serienbrief-/PDF-Engine (V0.4.1)
+
+Mail-merges three letter templates -- Beitragsrechnung (membership dues invoice), Spendenbescheinigung
+(§ 50 EStDV / § 10b or § 34g EStG donation receipt), and Einladung (invitation letter) -- from the
+existing `Member`/`Contribution`/`JournalEntry` domains plus one genuinely new domain introduced this
+wave, `OrganizationSettings` (`lapis-server/src/main/kuml/11-organization-settings.kuml.kts`, verified
+by its own `OrganizationSettingsSchemaDriftTest`). PDF generation itself
+(`network.lapis.cloud.server.pdf.{LetterPdfBuilder,BeitragsrechnungPdfGenerator,
+SpendenbescheinigungPdfGenerator,EinladungPdfGenerator,GermanAmountInWords}`) is built on **Apache
+PDFBox** (Apache-2.0), chosen over openhtmltopdf specifically because this product (non-profit/
+political-party) has a hard permissive-license-only constraint and openhtmltopdf's licensing is
+dual/LGPL-flavoured per module -- see `LetterPdfBuilder` KDoc for the full trade-off (hand-rolled
+word-wrap/page-break instead of HTML/CSS templating).
+
+Two small, deliberately minimal schema additions on already-documented domains feed the templates:
+
+* `Member.street`/`postalCode`/`city`/`country` (all nullable, see the Foundation diagram above) --
+  the recipient postal address. The **only** production write path is
+  `IMemberService.updateMemberAddress` (self-or-privileged, mirrors the `BOARD_ONLY` document-access
+  privilege check), added specifically because the templates would otherwise be unreachable outside
+  raw SQL.
+* `JournalEntry.donorMemberId` (nullable, see the Accounting diagram above) -- the minimal bridge
+  attributing a posted entry to a donating `Member`, distinct from `createdBy` (the booking
+  treasurer). Deliberately not a full donation-management module (no campaigns/pledges/recurring
+  donations).
+
+[kuml, domain-model-organization-settings, svg]
+----
+classDiagram(name = "Lapis Cloud Domain Model — Organization Settings (V0.4.1)") {
+
+    val organizationSettings = classOf(name = "OrganizationSettings") {
+        attribute(name = "id", type = "UUID")
+        attribute(name = "name", type = "String")
+        attribute(name = "street", type = "String")
+        attribute(name = "postalCode", type = "String")
+        attribute(name = "city", type = "String")
+        attribute(name = "country", type = "String")
+        attribute(name = "bankIban", type = "String")
+        attribute(name = "bankBic", type = "String")
+        attribute(name = "taxExemptionAuthority", type = "String")
+        attribute(name = "taxExemptionDate", type = "LocalDate")
+        // V0.4.1 fix wave: selects the Spendenbescheinigung's legal basis -- false (default,
+        // gemeinnuetziger Verein, § 10b EStG deduction) or true (political party, § 34g EStG tax
+        // credit). See SpendenbescheinigungPdfGenerator KDoc.
+        attribute(name = "isPoliticalParty", type = "Boolean", defaultValue = "false")
+    }
+
+    comment(
+        text = "Single-row, admin-editable settings entity -- the issuing organization's own " +
+            "letterhead (name/address), bank details, and Gemeinnuetzigkeit tax-exemption " +
+            "reference. Deliberately NOT a general-purpose CMS/settings system: exactly one row, " +
+            "seeded once in V1__baseline.sql with a fixed sentinel id. No associations at all -- " +
+            "no FK to Member or any other table (readable by TREASURER/BOARD/ADMIN via " +
+            "IOrganizationSettingsService.getOrganizationSettings, writable ADMIN-only via " +
+            "updateOrganizationSettings).",
+        firstAnchor = organizationSettings,
+    )
+}
+----
+
+**Delivery**: generated PDF bytes travel over plain Ktor HTTP routes
+(`network.lapis.cloud.server.routes.registerMailmergeRoutes`), never Kilua RPC -- mirroring
+`registerDocumentRoutes`' own idiom for binary payloads exactly. Beitragsrechnung/Spendenbescheinigung
+require TREASURER/BOARD/ADMIN (matching `AccountingService`'s own read tier); Einladung requires
+BOARD/ADMIN (matching `DocumentService`'s governance-correspondence precedent). Beitragsrechnung/
+Spendenbescheinigung PDFs are additionally archived into the existing Document/DocumentVersion store
+(`ADMIN_ONLY` access level) for retention; Einladung is not (ephemeral governance correspondence).
+
+Explicitly out of scope for V0.4.1 (this is the first of two V0.4 waves): any Letterxpress/Pingen
+postal-dispatch API integration -- V0.4.2, a separate later wave, consumes these PDF bytes and
+dispatches them; this wave only produces and exposes them over HTTP. No bulk/batch mail-merge UI, no
+KVision client screens, no donation campaign/pledge management, no automated tax-authority reporting.

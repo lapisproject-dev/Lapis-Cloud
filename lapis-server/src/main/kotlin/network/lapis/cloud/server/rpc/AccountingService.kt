@@ -207,7 +207,9 @@ class AccountingService(
         val current = resolveCurrentMember(call)
         current.requireRole(*TREASURY_ROLES)
         return transaction {
-            insertJournalEntry(input, current.memberId, JournalEntryStatus.DRAFT, postedAt = null)
+            val donorMemberId = input.donorMemberId?.toAccountingUuid("Member")
+            if (donorMemberId != null) requireExistingMember(donorMemberId)
+            insertJournalEntry(input, current.memberId, JournalEntryStatus.DRAFT, postedAt = null, donorMemberId = donorMemberId)
         }
     }
 
@@ -222,7 +224,16 @@ class AccountingService(
                 loadCashRegisterAccountIds(input.postings.map { it.ledgerAccountId.toAccountingUuid("LedgerAccount") })
             requireVoucherForCashPostings(input.voucherReference, cashAccountIds)
             requireNonNegativeCashBalances(input.postings, cashAccountIds)
-            insertJournalEntry(input, current.memberId, JournalEntryStatus.POSTED, postedAt = nowLocalDateTime())
+            val donorMemberId = input.donorMemberId?.toAccountingUuid("Member")
+            if (donorMemberId != null) requireExistingMember(donorMemberId)
+            requireDonationIncomePosting(input.postings, donorMemberId)
+            insertJournalEntry(
+                input,
+                current.memberId,
+                JournalEntryStatus.POSTED,
+                postedAt = nowLocalDateTime(),
+                donorMemberId = donorMemberId,
+            )
         }
     }
 
@@ -256,6 +267,7 @@ class AccountingService(
             val cashAccountIds = loadCashRegisterAccountIds(postings.map { it.ledgerAccountId.toAccountingUuid("LedgerAccount") })
             requireVoucherForCashPostings(entryRow[JournalEntryTable.voucherReference], cashAccountIds)
             requireNonNegativeCashBalances(postings, cashAccountIds)
+            requireDonationIncomePosting(postings, entryRow[JournalEntryTable.donorMemberId])
             JournalEntryTable.update({ JournalEntryTable.id eq entryId }) {
                 it[status] = JournalEntryStatus.POSTED
                 it[postedAt] = nowLocalDateTime()
@@ -275,14 +287,17 @@ class AccountingService(
         from: LocalDate?,
         to: LocalDate?,
         status: JournalEntryStatus?,
+        donorMemberId: String?,
     ): List<JournalEntryDto> {
         val current = resolveCurrentMember(call)
         current.requireRole(*ACCOUNTING_READ_ROLES)
+        val donorId = donorMemberId?.toAccountingUuid("Member")
         return transaction {
             val conditions = mutableListOf<Op<Boolean>>()
             if (from != null) conditions += (JournalEntryTable.entryDate greaterEq from)
             if (to != null) conditions += (JournalEntryTable.entryDate lessEq to)
             if (status != null) conditions += (JournalEntryTable.status eq status)
+            if (donorId != null) conditions += (JournalEntryTable.donorMemberId eq donorId)
             val baseQuery = JournalEntryTable.selectAll()
             val query = if (conditions.isEmpty()) baseQuery else baseQuery.where { conditions.reduce { a, b -> a and b } }
             query
@@ -743,6 +758,7 @@ class AccountingService(
         createdBy: Uuid,
         status: JournalEntryStatus,
         postedAt: LocalDateTime?,
+        donorMemberId: Uuid? = null,
     ): JournalEntryDto {
         val id = Uuid.random()
         JournalEntryTable.insert {
@@ -754,6 +770,7 @@ class AccountingService(
             it[JournalEntryTable.status] = status
             it[JournalEntryTable.postedAt] = postedAt
             it[createdAt] = nowLocalDateTime()
+            it[JournalEntryTable.donorMemberId] = donorMemberId
         }
         input.postings.forEach { posting ->
             PostingTable.insert {
@@ -773,6 +790,47 @@ class AccountingService(
     private fun requireBalanced(postings: List<PostingInput>) {
         val result = JournalEntryBalance.validateBalanced(postings)
         if (!result.balanced) throw ConflictException(result.reason ?: "Journal entry not balanced")
+    }
+
+    /**
+     * V0.4.1 Spendenbescheinigung donor attribution: [memberId] must exist as a [MemberTable]
+     * row -- this is a static existing-entity check (not a business-rule check like
+     * [requireDonationIncomePosting]), so [NotFoundException], the same tier
+     * [requireActiveLedgerAccounts]/[requireActiveCostCenters] already use for a referenced id
+     * that does not resolve to a real row.
+     */
+    private fun requireExistingMember(memberId: Uuid) {
+        val exists = MemberTable.selectAll().where { MemberTable.id eq memberId }.count() > 0
+        if (!exists) throw NotFoundException("Member $memberId not found")
+    }
+
+    /**
+     * V0.4.1 Spendenbescheinigung donor attribution: when [donorMemberId] is set, [postings] must
+     * contain at least one line against an `INCOME`-typed [LedgerAccountTable] row -- otherwise a
+     * receipt could later be generated for an entry that never actually recorded any income
+     * (e.g. a plain reimbursement wrongly tagged with a donor). Deliberately NOT hard-coded to a
+     * specific account number (e.g. "40450") -- any future donation-designated `INCOME` account
+     * keeps working without a code change. A no-op when [donorMemberId] is `null`. This is a
+     * static input-shape rule over [postings] plus one lookup of the referenced accounts' `type`
+     * (same tier as [requireReserveTypeOnlyOnEquity]), hence [BadRequestException].
+     */
+    private fun requireDonationIncomePosting(
+        postings: List<PostingInput>,
+        donorMemberId: Uuid?,
+    ) {
+        if (donorMemberId == null) return
+        val ledgerAccountIds = postings.map { it.ledgerAccountId.toAccountingUuid("LedgerAccount") }.distinct()
+        val hasIncomePosting =
+            ledgerAccountIds.isNotEmpty() &&
+                LedgerAccountTable
+                    .selectAll()
+                    .where { (LedgerAccountTable.id inList ledgerAccountIds) and (LedgerAccountTable.type eq LedgerAccountType.INCOME) }
+                    .count() > 0
+        if (!hasIncomePosting) {
+            throw BadRequestException(
+                "donorMemberId $donorMemberId is set but the entry has no posting against an INCOME LedgerAccount",
+            )
+        }
     }
 
     /**
@@ -1046,6 +1104,7 @@ class AccountingService(
 
     private fun ResultRow.toJournalEntryDto(postings: List<PostingDto>): JournalEntryDto {
         val createdBy = this[JournalEntryTable.createdBy]
+        val donorMemberId = this[JournalEntryTable.donorMemberId]
         return JournalEntryDto(
             id = this[JournalEntryTable.id].toString(),
             entryDate = this[JournalEntryTable.entryDate],
@@ -1057,6 +1116,8 @@ class AccountingService(
             postedAt = this[JournalEntryTable.postedAt],
             createdAt = this[JournalEntryTable.createdAt],
             postings = postings,
+            donorMemberId = donorMemberId?.toString(),
+            donorMemberDisplayName = donorMemberId?.let { memberDisplayName(it) },
         )
     }
 }

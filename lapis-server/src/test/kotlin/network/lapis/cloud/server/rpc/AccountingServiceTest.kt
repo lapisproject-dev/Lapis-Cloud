@@ -154,10 +154,12 @@ class AccountingServiceTest :
             description: String,
             postings: List<PostingInput>,
             voucher: String? = null,
+            donorMemberId: String? = null,
         ): String =
             buildString {
                 append("date=$date&description=$description&postings=${postingsParam(postings)}")
                 if (voucher != null) append("&voucher=$voucher")
+                if (donorMemberId != null) append("&donorMemberId=$donorMemberId")
             }
 
         test("treasurer can create a LedgerAccount; a plain member is forbidden") {
@@ -244,6 +246,182 @@ class AccountingServiceTest :
                 val body = response.bodyAsText().split(":")
                 body[1] shouldBe "POSTED"
                 body[2] shouldBe "2"
+            }
+        }
+
+        test("postJournalEntry with donorMemberId + an INCOME posting succeeds and round-trips donorMemberId/donorMemberDisplayName") {
+            testApplication {
+                application {
+                    install(StatusPages) { installAccountingExceptionHandlers() }
+                    routing { registerAccountingTestRoutes() }
+                }
+                val treasurer = createTestMember("acct-treasurer-donor@example.org", AccountRole.TREASURER)
+                val donor = createTestMember("acct-donor@example.org", AccountRole.MEMBER)
+                val kasse = createLedgerAccount("9001", LedgerAccountType.ASSET)
+                val spenden = createLedgerAccount("9101", LedgerAccountType.INCOME, accountClass = 2)
+
+                val postings =
+                    listOf(
+                        PostingInput(
+                            kasse.toString(),
+                            PostingSide.DEBIT,
+                            BigDecimal("100.00"),
+                            sphere = GemeinnuetzigkeitSphere.IDEELLER_BEREICH,
+                        ),
+                        PostingInput(
+                            spenden.toString(),
+                            PostingSide.CREDIT,
+                            BigDecimal("100.00"),
+                            sphere = GemeinnuetzigkeitSphere.IDEELLER_BEREICH,
+                        ),
+                    )
+                val response =
+                    client.post(
+                        "/test/post-entry?${
+                            entryParams(LocalDate(2026, 3, 5), "Spende", postings, donorMemberId = donor.toString())
+                        }",
+                    ) {
+                        header("X-Member-Id", treasurer.toString())
+                    }
+                response.status shouldBe HttpStatusCode.OK
+                val entryId = response.bodyAsText().split(":")[0]
+
+                val donorRoundTrip =
+                    client.get("/test/get-entry-donor/$entryId") { header("X-Member-Id", treasurer.toString()) }
+                donorRoundTrip.bodyAsText() shouldBe "$entryId:$donor:Accounting Testmitglied"
+            }
+        }
+
+        test("postJournalEntry with donorMemberId referencing a nonexistent member is rejected with NotFound") {
+            testApplication {
+                application {
+                    install(StatusPages) { installAccountingExceptionHandlers() }
+                    routing { registerAccountingTestRoutes() }
+                }
+                val treasurer = createTestMember("acct-treasurer-donor-404@example.org", AccountRole.TREASURER)
+                val kasse = createLedgerAccount("9002", LedgerAccountType.ASSET)
+                val spenden = createLedgerAccount("9102", LedgerAccountType.INCOME, accountClass = 2)
+                val postings =
+                    listOf(
+                        PostingInput(
+                            kasse.toString(),
+                            PostingSide.DEBIT,
+                            BigDecimal("10.00"),
+                            sphere = GemeinnuetzigkeitSphere.IDEELLER_BEREICH,
+                        ),
+                        PostingInput(
+                            spenden.toString(),
+                            PostingSide.CREDIT,
+                            BigDecimal("10.00"),
+                            sphere = GemeinnuetzigkeitSphere.IDEELLER_BEREICH,
+                        ),
+                    )
+                val response =
+                    client.post(
+                        "/test/post-entry?${
+                            entryParams(
+                                LocalDate(2026, 3, 6),
+                                "Spende",
+                                postings,
+                                donorMemberId = "00000000-0000-0000-0000-00000000dead",
+                            )
+                        }",
+                    ) {
+                        header("X-Member-Id", treasurer.toString())
+                    }
+                response.status shouldBe HttpStatusCode.NotFound
+            }
+        }
+
+        test("postJournalEntry with donorMemberId set but no INCOME posting is rejected with BadRequest") {
+            testApplication {
+                application {
+                    install(StatusPages) { installAccountingExceptionHandlers() }
+                    routing { registerAccountingTestRoutes() }
+                }
+                val treasurer = createTestMember("acct-treasurer-donor-noincome@example.org", AccountRole.TREASURER)
+                val donor = createTestMember("acct-donor-noincome@example.org", AccountRole.MEMBER)
+                val kasse = createLedgerAccount("9003", LedgerAccountType.ASSET)
+                val bank = createLedgerAccount("9004", LedgerAccountType.ASSET)
+                val postings =
+                    listOf(
+                        PostingInput(
+                            kasse.toString(),
+                            PostingSide.DEBIT,
+                            BigDecimal("10.00"),
+                            sphere = GemeinnuetzigkeitSphere.IDEELLER_BEREICH,
+                        ),
+                        PostingInput(
+                            bank.toString(),
+                            PostingSide.CREDIT,
+                            BigDecimal("10.00"),
+                            sphere = GemeinnuetzigkeitSphere.IDEELLER_BEREICH,
+                        ),
+                    )
+                val response =
+                    client.post(
+                        "/test/post-entry?${
+                            entryParams(LocalDate(2026, 3, 7), "Umbuchung", postings, donorMemberId = donor.toString())
+                        }",
+                    ) {
+                        header("X-Member-Id", treasurer.toString())
+                    }
+                response.status shouldBe HttpStatusCode.BadRequest
+            }
+        }
+
+        test("listJournal(donorMemberId=X) returns only that donor's entries; omitted argument is fully backward compatible") {
+            testApplication {
+                application {
+                    install(StatusPages) { installAccountingExceptionHandlers() }
+                    routing { registerAccountingTestRoutes() }
+                }
+                val treasurer = createTestMember("acct-treasurer-donor-list@example.org", AccountRole.TREASURER)
+                val donorA = createTestMember("acct-donor-a@example.org", AccountRole.MEMBER)
+                val donorB = createTestMember("acct-donor-b@example.org", AccountRole.MEMBER)
+                val kasse = createLedgerAccount("9005", LedgerAccountType.ASSET)
+                val spenden = createLedgerAccount("9103", LedgerAccountType.INCOME, accountClass = 2)
+
+                suspend fun postDonation(
+                    date: LocalDate,
+                    donorMemberId: String,
+                ): String {
+                    val postings =
+                        listOf(
+                            PostingInput(
+                                kasse.toString(),
+                                PostingSide.DEBIT,
+                                BigDecimal("5.00"),
+                                sphere = GemeinnuetzigkeitSphere.IDEELLER_BEREICH,
+                            ),
+                            PostingInput(
+                                spenden.toString(),
+                                PostingSide.CREDIT,
+                                BigDecimal("5.00"),
+                                sphere = GemeinnuetzigkeitSphere.IDEELLER_BEREICH,
+                            ),
+                        )
+                    return client
+                        .post("/test/post-entry?${entryParams(date, "Spende", postings, donorMemberId = donorMemberId)}") {
+                            header("X-Member-Id", treasurer.toString())
+                        }.bodyAsText()
+                        .split(":")[0]
+                }
+
+                val entryA = postDonation(LocalDate(2026, 4, 1), donorA.toString())
+                postDonation(LocalDate(2026, 4, 2), donorB.toString())
+
+                val filtered =
+                    client.get("/test/list-journal?donorMemberId=$donorA") { header("X-Member-Id", treasurer.toString()) }
+                val filteredIds = filtered.bodyAsText().split(";").map { it.split(":")[0] }
+                filteredIds shouldBe listOf(entryA)
+
+                // Regression: no donorMemberId argument at all -- from/to/status filters unaffected,
+                // both donations (and everything else this spec created) are still listed.
+                val unfiltered =
+                    client.get("/test/list-journal?from=2026-04-01&to=2026-04-02") { header("X-Member-Id", treasurer.toString()) }
+                val unfilteredIds = unfiltered.bodyAsText().split(";").map { it.split(":")[0] }
+                (entryA in unfilteredIds) shouldBe true
             }
         }
 
@@ -2628,6 +2806,13 @@ private fun Route.registerAccountingTestRoutes() {
         val postingSpheres = dto.postings.joinToString("|") { "${it.side}:${it.sphere}" }
         call.respondText("${dto.id}:${dto.status}:${dto.postings.size}:$postingSpheres")
     }
+    // V0.4.1 donor-attribution round-trip -- separate route from /test/get-entry so that
+    // existing route's response format (and every test asserting on it) never has to change.
+    get("/test/get-entry-donor/{id}") {
+        val service = AccountingService(call)
+        val dto = service.getJournalEntry(call.parameters["id"]!!)
+        call.respondText("${dto.id}:${dto.donorMemberId}:${dto.donorMemberDisplayName}")
+    }
     get("/test/list-journal") {
         val service = AccountingService(call)
         val q = call.request.queryParameters
@@ -2636,6 +2821,7 @@ private fun Route.registerAccountingTestRoutes() {
                 from = q["from"]?.let { LocalDate.parse(it) },
                 to = q["to"]?.let { LocalDate.parse(it) },
                 status = q["status"]?.let { JournalEntryStatus.valueOf(it) },
+                donorMemberId = q["donorMemberId"],
             )
         call.respondText(list.joinToString(";") { "${it.id}:${it.entryDate}:${it.status}" })
     }
@@ -2733,6 +2919,7 @@ private suspend fun readJournalEntryInput(call: ApplicationCall): JournalEntryIn
         description = q["description"]!!,
         voucherReference = q["voucher"],
         postings = postings,
+        donorMemberId = q["donorMemberId"],
     )
 }
 

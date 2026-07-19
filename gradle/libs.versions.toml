@@ -15,6 +15,7 @@ postgresql              = "42.7.13"
 h2                      = "2.4.240"
 hikaricp                = "7.1.0"
 kuml                    = "0.36.1"
+pdfbox                  = "3.0.8"
 
 [plugins]
 kotlin-multiplatform    = { id = "org.jetbrains.kotlin.multiplatform", version.ref = "kotlin" }
@@ -57,6 +58,12 @@ flyway-database-postgresql      = { module = "org.flywaydb:flyway-database-postg
 postgresql                      = { module = "org.postgresql:postgresql", version.ref = "postgresql" }
 h2                               = { module = "com.h2database:h2", version.ref = "h2" }
 hikaricp                        = { module = "com.zaxxer:HikariCP", version.ref = "hikaricp" }
+
+# V0.4.1 Serienbrief/PDF engine (Beitragsrechnung/Spendenbescheinigung/Einladung). Apache-2.0,
+# unambiguously permissive end to end -- see BeitragsrechnungPdfGenerator's sibling
+# LetterPdfBuilder KDoc for why this was picked over openhtmltopdf (dual/LGPL-flavoured
+# licensing per-module, too ambiguous for this product's hard permissive-license-only constraint).
+pdfbox                           = { module = "org.apache.pdfbox:pdfbox", version.ref = "pdfbox" }
 
 # kUML MDA persistence pipeline (ADR-0016) — test-scoped only (SchemaDriftTest evaluates
 # design.kuml.kts and diffs the generated SQL DDL / Exposed Kotlin against the real schema

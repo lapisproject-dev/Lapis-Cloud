@@ -19,6 +19,7 @@ import network.lapis.cloud.server.db.DatabaseConfig
 import network.lapis.cloud.server.db.DevSeedData
 import network.lapis.cloud.server.routes.registerDocumentRoutes
 import network.lapis.cloud.server.routes.registerDsgvoRoutes
+import network.lapis.cloud.server.routes.registerMailmergeRoutes
 import network.lapis.cloud.server.rpc.AccountingService
 import network.lapis.cloud.server.rpc.ContributionService
 import network.lapis.cloud.server.rpc.DirectMessageService
@@ -28,6 +29,7 @@ import network.lapis.cloud.server.rpc.ElectionService
 import network.lapis.cloud.server.rpc.GovernanceService
 import network.lapis.cloud.server.rpc.MailingService
 import network.lapis.cloud.server.rpc.MemberService
+import network.lapis.cloud.server.rpc.OrganizationSettingsService
 import network.lapis.cloud.server.rpc.PingService
 import network.lapis.cloud.server.rpc.SystemicConsensusService
 import network.lapis.cloud.server.security.ForbiddenException
@@ -42,6 +44,7 @@ import network.lapis.cloud.shared.rpc.IElectionService
 import network.lapis.cloud.shared.rpc.IGovernanceService
 import network.lapis.cloud.shared.rpc.IMailingService
 import network.lapis.cloud.shared.rpc.IMemberService
+import network.lapis.cloud.shared.rpc.IOrganizationSettingsService
 import network.lapis.cloud.shared.rpc.IPingService
 import network.lapis.cloud.shared.rpc.ISystemicConsensusService
 import java.io.File
@@ -89,6 +92,7 @@ fun Application.module() {
         registerService(IElectionService::class) { call -> ElectionService(call) }
         registerService(ISystemicConsensusService::class) { call -> SystemicConsensusService(call) }
         registerService(IAccountingService::class) { call -> AccountingService(call) }
+        registerService(IOrganizationSettingsService::class) { call -> OrganizationSettingsService(call) }
     }
 
     routing {
@@ -97,6 +101,7 @@ fun Application.module() {
         }
         registerDocumentRoutes(documentStorageRoot)
         registerDsgvoRoutes()
+        registerMailmergeRoutes(documentStorageRoot)
         getAllServiceManagers().forEach { applyRoutes(it) }
     }
 }

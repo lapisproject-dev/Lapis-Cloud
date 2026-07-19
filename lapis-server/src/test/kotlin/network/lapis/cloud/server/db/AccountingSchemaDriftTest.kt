@@ -94,6 +94,16 @@ class AccountingSchemaDriftTest :
             entity.attributeByName("voucher_reference")?.nullable shouldBe true
         }
 
+        test("journal_entry.donor_member_id is a nullable FK -> member (V0.4.1 Spendenbescheinigung)") {
+            val entity = model.entities.single { it.name == "journal_entry" }
+            val real = transaction { introspectAccountingTable("journal_entry") }
+
+            real.foreignKeys["donor_member_id"] shouldBe "member"
+            model.entityNameOf(entity.attributeByName("donor_member_id")?.foreignKey?.targetEntityId ?: "") shouldBe "member"
+            entity.attributeByName("donor_member_id")?.nullable shouldBe true
+            real.columns.getValue("donor_member_id").nullable shouldBe true
+        }
+
         test("posting table shape matches the real migrated schema") {
             val entity = model.entities.single { it.name == "posting" }
             val real = transaction { introspectAccountingTable("posting") }

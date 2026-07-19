@@ -23,4 +23,23 @@ interface IMemberService {
 
     /** Resolves the caller's member context from the `X-Member-Id` request header stand-in. */
     suspend fun getCurrentMember(): MemberDto
+
+    /**
+     * V0.4.1: the only production write path for [MemberDto.street]/[MemberDto.postalCode]/
+     * [MemberDto.city]/[MemberDto.country] -- without this, the postal address required by the
+     * Beitragsrechnung/Spendenbescheinigung mailmerge templates (see `MailmergeRoutes`) could only
+     * ever be populated via raw SQL. Self-or-privileged: a member may update their own address, and
+     * ADMIN/BOARD may update any member's (e.g. when correcting an address on a donor's or fellow
+     * member's behalf) -- same `isPrivileged` check `DocumentAccessLevel.BOARD_ONLY` already uses.
+     * All four fields are nullable and passed together; passing `null` for a field clears it. Throws
+     * `ForbiddenException` if the caller is neither the target member nor privileged, `NotFoundException`
+     * if `memberId` does not resolve to an existing member.
+     */
+    suspend fun updateMemberAddress(
+        memberId: String,
+        street: String?,
+        postalCode: String?,
+        city: String?,
+        country: String?,
+    ): MemberDto
 }

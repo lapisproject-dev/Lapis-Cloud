@@ -1,6 +1,13 @@
 // Foundation domain — member/account (V1__foundation.sql), plus the forward-referenced
 // membership_tier_id FK column added by V2__contributions.sql.
 //
+// V0.4.1: `member` gains a minimal, single, nullable postal address (street/postalCode/city/
+// country) -- needed by the Serienbrief/PDF-Engine (Beitragsrechnung/Spendenbescheinigung/
+// Einladung all mail-merge a member's postal address) and reused as-is by V0.4.2's later postal
+// (Letterxpress) dispatch. Deliberately no separate Address entity/billing-vs-shipping split --
+// see 02 Projekte/Lapis Cloud V0.4.md scope guidance. All four fields are nullable: not every
+// member has provided a postal address yet, and an email-only member may never need one.
+//
 // This is the versioned source-of-truth *model* for the schema shape (ADR-0016), verified
 // against both the real Flyway-migrated H2 schema and the hand-written Exposed Table objects
 // (network.lapis.cloud.server.db.tables.FoundationTables.kt) by SchemaDriftTest. Per ADR-0016's
@@ -71,6 +78,23 @@ classDiagram(name = "Foundation") {
         attribute(name = "anonymizedAt", type = "LocalDateTime") {
             multiplicity = Multiplicity(0, 1)
             stereotype("Column") { "columnName" to "anonymized_at" }
+        }
+        // V0.4.1 postal address (Serienbrief/PDF engine) -- see file header. All four nullable.
+        attribute(name = "street", type = "String") {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") { "columnName" to "street"; "sqlType" to "VARCHAR(200)" }
+        }
+        attribute(name = "postalCode", type = "String") {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") { "columnName" to "postal_code"; "sqlType" to "VARCHAR(20)" }
+        }
+        attribute(name = "city", type = "String") {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") { "columnName" to "city"; "sqlType" to "VARCHAR(200)" }
+        }
+        attribute(name = "country", type = "String") {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") { "columnName" to "country"; "sqlType" to "VARCHAR(100)" }
         }
     }
 

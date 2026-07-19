@@ -64,6 +64,18 @@ class SchemaDriftTest :
             real.foreignKeys["membership_tier_id"] shouldBe "membership_tier"
         }
 
+        test("member.street/postal_code/city/country are nullable (V0.4.1 postal address)") {
+            val entity = model.entities.single { it.name == "member" }
+            val real = transaction { introspectTable("member") }
+
+            listOf("street", "postal_code", "city", "country").forEach { column ->
+                withClue("column '$column'") {
+                    entity.attributeByName(column)?.nullable shouldBe true
+                    real.columns.getValue(column).nullable shouldBe true
+                }
+            }
+        }
+
         test("account table shape matches the real migrated schema") {
             val entity = model.entities.single { it.name == "account" }
             val real = transaction { introspectTable("account") }

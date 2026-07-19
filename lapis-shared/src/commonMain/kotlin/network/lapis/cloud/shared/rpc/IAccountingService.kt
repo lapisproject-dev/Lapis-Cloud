@@ -65,11 +65,18 @@ interface IAccountingService {
     /** Role: TREASURER/ADMIN. */
     suspend fun getJournalEntry(id: String): JournalEntryDto
 
-    /** Role: TREASURER/ADMIN. Grundbuch (journal), chronologically ordered by [entryDate]. */
+    /**
+     * Role: TREASURER/ADMIN. Grundbuch (journal), chronologically ordered by [entryDate].
+     * [donorMemberId] (V0.4.1, default `null`) narrows the result to entries attributed to that
+     * donor -- see [network.lapis.cloud.shared.domain.JournalEntryDto.donorMemberId] KDoc. A
+     * natural, low-cost extension of the existing filter set for treasury auditing; not required
+     * by the Spendenbescheinigung PDF route itself, which loads one entry directly by id.
+     */
     suspend fun listJournal(
         from: LocalDate? = null,
         to: LocalDate? = null,
         status: JournalEntryStatus? = null,
+        donorMemberId: String? = null,
     ): List<JournalEntryDto>
 
     /**

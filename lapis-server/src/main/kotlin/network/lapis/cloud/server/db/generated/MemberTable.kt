@@ -18,6 +18,10 @@ public object MemberTable : Table("member") {
     public val status: Column<MemberStatus> = enumerationByName<MemberStatus>("status", 11)
     public val joinedAt: Column<LocalDate> = date("joined_at")
     public val anonymizedAt: Column<LocalDateTime?> = datetime("anonymized_at").nullable()
+    public val street: Column<String?> = varchar("street", 200).nullable()
+    public val postalCode: Column<String?> = varchar("postal_code", 20).nullable()
+    public val city: Column<String?> = varchar("city", 200).nullable()
+    public val country: Column<String?> = varchar("country", 100).nullable()
     public val membershipTierId: Column<Uuid?> = optReference("membership_tier_id", MembershipTierTable.id)
 
     override val primaryKey: PrimaryKey = PrimaryKey(id)
