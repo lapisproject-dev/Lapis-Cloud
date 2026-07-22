@@ -43,10 +43,10 @@
 // plain nullable «Column» UUID attribute rather than a UML association for the same reason (no
 // DSL-level way to override the derived default name without an actual attribute-name collision).
 //
-// outcome_summary (both tables, VARCHAR(8000) as of V0.2.5 -- widened from VARCHAR(4000), see
-// below): a JSON-encoded-as-string column (List<TableErasureOutcomeDto>, see DsgvoService/
-// ErasureRequestTable/DsgvoAuditLogTable KDoc) — modelled explicitly as
-// «Column».sqlType="VARCHAR(8000)" / plain String attribute, NOT relying on kUML's
+// outcome_summary (both tables, unbounded `text` as of V0.6.6 -- widened VARCHAR(4000) ->
+// VARCHAR(8000) -> `text`, see below): a JSON-encoded-as-string column (List<TableErasureOutcomeDto>,
+// see DsgvoService/ErasureRequestTable/DsgvoAuditLogTable KDoc) — modelled explicitly as a plain
+// String attribute with an explicit «Column».sqlType override, NOT relying on kUML's
 // ErmDataType.Json fallback path. The emitter's Json-fallback comment ("ErmDataType.Json
 // fallback") would be misleading here: this is intentionally opaque JSON-as-text (encoded/decoded
 // in DsgvoService, never queried as JSON by the DB), not an unsupported-json-type workaround.
@@ -58,9 +58,18 @@
 // ElectionPersonalData's own KDoc already flagged as a live risk once "a 7-table contributor" landed.
 // SystemicConsensusPersonalData is the 8th contributor (5 more tables), which pushed a
 // comprehensive-erasure test (a member touching every domain) past 4000 chars even with
-// maximally terse retentionReason strings — DsgvoServiceTest caught this immediately. Doubling to
-// 8000 buys headroom for this domain and at least one more comparably-sized future wave; a
-// genuinely unbounded number of future contributors would eventually need a real schema change
+// maximally terse retentionReason strings — DsgvoServiceTest caught this immediately. The V0.2.5
+// note that "8000 buys headroom for ... at least one more comparably-sized future wave" undersold
+// how fast this grows: seven more contributors landed between V0.5.3 and V0.6.5 (AuditLog, Backup,
+// DsgvoCompliance, Crowdfunding, PeerTransfer, Politician, PriceOracle), pushing a comprehensive
+// erasure past 8000 chars (8670) and breaking DsgvoServiceTest again — exactly the failure mode
+// 14-audit-log.kuml.kts's `before_snapshot`/`after_snapshot` KDoc already predicted for this exact
+// column ("Originally VARCHAR(8000) (mirroring dsgvo_audit_log.outcome_summary), but that was
+// falsified during review ... ANY fixed VARCHAR length is just a bigger deadline until the same
+// failure recurs"). Fixed the same way that column was: `sqlType to "text"` (unbounded), matching
+// `text("outcome_summary")` on both hand-maintained Table objects. A capped VARCHAR is structurally
+// wrong for a column whose size scales with the number of registered PersonalDataContributors, which
+// has no upper bound this codebase can predict in advance
 // (e.g. per-contributor rows instead of one big JSON blob) rather than another width bump.
 //
 // dsgvo_audit_log is the append-only/no-update table flagged in the retrofit plan's per-domain
@@ -185,7 +194,7 @@ classDiagram(name = "Dsgvo") {
         // JSON-encoded-as-string, not ErmDataType.Json — see the file header comment.
         attribute(name = "outcomeSummary", type = "String") {
             multiplicity = Multiplicity(0, 1)
-            stereotype("Column") { "columnName" to "outcome_summary"; "sqlType" to "VARCHAR(8000)" }
+            stereotype("Column") { "columnName" to "outcome_summary"; "sqlType" to "text" }
         }
     }
 
@@ -229,7 +238,7 @@ classDiagram(name = "Dsgvo") {
         // JSON-encoded-as-string, not ErmDataType.Json — see the file header comment.
         attribute(name = "outcomeSummary", type = "String") {
             multiplicity = Multiplicity(0, 1)
-            stereotype("Column") { "columnName" to "outcome_summary"; "sqlType" to "VARCHAR(8000)" }
+            stereotype("Column") { "columnName" to "outcome_summary"; "sqlType" to "text" }
         }
         attribute(name = "legalBasis", type = "String") {
             multiplicity = Multiplicity(0, 1)

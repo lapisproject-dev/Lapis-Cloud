@@ -50,21 +50,27 @@
 // document's "kein strategischer Vorteil durch Status-Reset" claim structurally, not just by
 // convention.
 //
-// **FK-naming choice**: every FK to `member` on `politician_profile`/`politician_weight_snapshot`
-// is a plain «Column» UUID attribute with «Column».fkEntity="Member", NOT a UML association --
-// `politician_profile` alone has THREE (`member_id`, `granted_by_member_id`,
-// `revoked_by_member_id`), and an association's class-derived default FK column name could only
-// ever match one of them. Exactly the same idiom `crowdfunding_project.submitter_member_id`/
-// `reviewed_by` and `peer_transfer`'s three member FKs already use (see 17-crowdfunding.kuml.kts
-// and 18-peer-transfer.kuml.kts file headers). `politician_reaction.rater_member_id` is the one
-// exception -- it is the ONLY member FK on that table, so a real UML association is used (same
-// "single FK to Member on this table -> real association" idiom as
-// `crowdfunding_reaction.member_id`).
+// **FK-naming choice**: every FK to `member` in this file -- including
+// `politician_reaction.rater_member_id` -- is a plain «Column» UUID attribute with
+// «Column».fkEntity="Member", NOT a UML association. `politician_profile` alone has THREE
+// (`member_id`, `granted_by_member_id`, `revoked_by_member_id`), and an association's
+// class-derived default FK column name could only ever match one of them. `rater_member_id` is
+// the ONLY member FK on `politician_reaction`, but a real UML association still doesn't fit: an
+// association's derived column name comes from the association's own default (which would be
+// "member_id", matching `crowdfunding_reaction.member_id`'s case), NOT from the target-role label
+// -- `role = "raterMemberId"` does not rename the generated column, it is purely a UML-level
+// label (confirmed the hard way: UmlToErmTransformer produced `member_id`, not `rater_member_id`,
+// which broke `PoliticianSchemaDriftTest` until this was switched to the plain-«Column» idiom).
+// Exactly the same idiom `crowdfunding_project.submitter_member_id`/`reviewed_by`,
+// `motion.submitter_member_id`, and `peer_transfer`'s three member FKs already use (see
+// 05-governance.kuml.kts, 17-crowdfunding.kuml.kts and 18-peer-transfer.kuml.kts file headers) --
+// a UML association is only safe here when its association-derived default name is *already* the
+// real column name, never as a way to request a custom one.
 //
 // This file, symmetrically, carries a minimal id-only Member stub (owned by Foundation) purely so
-// UmlToErmTransformer can resolve every «Column».fkEntity override plus the one association within
-// this single-file evaluation -- same cross-domain-stub pattern every other domain in this
-// codebase already establishes.
+// UmlToErmTransformer can resolve every «Column».fkEntity override within this single-file
+// evaluation -- same cross-domain-stub pattern every other domain in this codebase already
+// establishes.
 //
 // **11-organization-settings.kuml.kts also gains one new field this wave**:
 // `politicianRankingEnabled` (NOT NULL, defaults FALSE) -- see that file's own header addendum.
@@ -82,8 +88,8 @@ classDiagram(name = "Politician") {
 
     // Foundation-owned stub — id-only, mirrors the cross-domain-stub pattern established by every
     // prior domain's own Member stub. Resolves member_id/granted_by_member_id/revoked_by_member_id/
-    // computed_by_member_id's «Column».fkEntity overrides and the rater_member_id association
-    // below, all within this single-file evaluation.
+    // computed_by_member_id/rater_member_id's «Column».fkEntity overrides, all within this
+    // single-file evaluation.
     val member = classOf(name = "Member") {
         stereotype("Entity") { "tableName" to "member"; "kotlinObjectName" to "MemberTable" }
         attribute(name = "id", type = "UUID") {
@@ -186,14 +192,11 @@ classDiagram(name = "Politician") {
         attribute(name = "castAt", type = "LocalDateTime") {
             stereotype("Column") { "columnName" to "cast_at" }
         }
-    }
-
-    // politician_reaction.rater_member_id -> member (id): the ONLY member FK on this table, so a
-    // real UML association is used here (unlike politician_profile's three member FKs above) --
-    // see file header "FK-naming choice".
-    association(source = member, target = politicianReaction, id = "assoc-member-politician_reaction") {
-        source { multiplicity("1") }
-        target { multiplicity("0..*"); role = "raterMemberId" }
+        // Real FK -> member (id), NOT NULL. Plain «Column» UUID attribute, not a UML association
+        // -- see file header "FK-naming choice" for why an association can't produce this name.
+        attribute(name = "raterMemberId", type = "UUID") {
+            stereotype("Column") { "columnName" to "rater_member_id"; "fkEntity" to "Member" }
+        }
     }
 
     val politicianWeightSnapshot = classOf(name = "PoliticianWeightSnapshot") {

@@ -6,6 +6,7 @@ import io.kotest.matchers.shouldBe
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.LocalDateTime
 import kotlinx.datetime.TimeZone
+import kotlinx.datetime.atTime
 import kotlinx.datetime.toInstant
 import network.lapis.cloud.shared.domain.AnchorAsset
 import network.lapis.cloud.shared.domain.PriceOracleConfigDto
@@ -78,7 +79,12 @@ class PriceOracleOrchestratorTest :
         test("normal median: three agreeing sources -> LIVE, true median, all three contributing") {
             val orchestrator =
                 PriceOracleOrchestrator(
-                    sources = listOf(FakeSource("a", BigDecimal("100")), FakeSource("b", BigDecimal("101")), FakeSource("c", BigDecimal("102"))),
+                    sources =
+                        listOf(
+                            FakeSource("a", BigDecimal("100")),
+                            FakeSource("b", BigDecimal("101")),
+                            FakeSource("c", BigDecimal("102")),
+                        ),
                 )
             val outcome = orchestrator.currentQuote(testConfig()) as QuoteOutcome.Ok
             outcome.quote.status shouldBe PriceStatus.LIVE
@@ -99,7 +105,12 @@ class PriceOracleOrchestratorTest :
         test("outlier rejection: a far-off source is dropped, median computed over survivors, status DEGRADED") {
             val orchestrator =
                 PriceOracleOrchestrator(
-                    sources = listOf(FakeSource("a", BigDecimal("100")), FakeSource("b", BigDecimal("101")), FakeSource("c", BigDecimal("150"))),
+                    sources =
+                        listOf(
+                            FakeSource("a", BigDecimal("100")),
+                            FakeSource("b", BigDecimal("101")),
+                            FakeSource("c", BigDecimal("150")),
+                        ),
                 )
             val outcome = orchestrator.currentQuote(testConfig(minQuorum = 2, outlierThresholdBps = 300)) as QuoteOutcome.Ok
             outcome.quote.status shouldBe PriceStatus.DEGRADED
@@ -119,7 +130,12 @@ class PriceOracleOrchestratorTest :
         test("quorum-halt after outlier rejection: survivors drop below minQuorum, no cache -> Halt") {
             val orchestrator =
                 PriceOracleOrchestrator(
-                    sources = listOf(FakeSource("a", BigDecimal("100")), FakeSource("b", BigDecimal("200")), FakeSource("c", BigDecimal("300"))),
+                    sources =
+                        listOf(
+                            FakeSource("a", BigDecimal("100")),
+                            FakeSource("b", BigDecimal("200")),
+                            FakeSource("c", BigDecimal("300")),
+                        ),
                 )
             // provisional median 200; deviations of 100 and 300 from 200 are both 50% >> 1% threshold -> both dropped, 1 survivor < minQuorum 2.
             val outcome = orchestrator.currentQuote(testConfig(minQuorum = 2, outlierThresholdBps = 100))
@@ -129,7 +145,12 @@ class PriceOracleOrchestratorTest :
         test("spread-too-wide halt: survivors pass quorum but their own spread exceeds maxSpreadBps, no cache -> Halt") {
             val orchestrator =
                 PriceOracleOrchestrator(
-                    sources = listOf(FakeSource("a", BigDecimal("100")), FakeSource("b", BigDecimal("120")), FakeSource("c", BigDecimal("140"))),
+                    sources =
+                        listOf(
+                            FakeSource("a", BigDecimal("100")),
+                            FakeSource("b", BigDecimal("120")),
+                            FakeSource("c", BigDecimal("140")),
+                        ),
                 )
             // Generous outlier threshold (50%) so all three survive outlier rejection, but the
             // resulting spread (140-100)/120 ~= 33% exceeds a tight 5% (500bps) maxSpreadBps cap.
@@ -137,7 +158,9 @@ class PriceOracleOrchestratorTest :
             (outcome is QuoteOutcome.Halt) shouldBe true
         }
 
-        test("cache hit avoids needing a live quorum: prime the cache, then every source fails within TTL -> Ok/CACHED with the cached price") {
+        test(
+            "cache hit avoids needing a live quorum: prime the cache, then every source fails within TTL -> Ok/CACHED with the cached price",
+        ) {
             val clock = FakeClock()
             val livePrice = BigDecimal("101")
             val a = MutablePriceSource("a", livePrice)
@@ -179,7 +202,12 @@ class PriceOracleOrchestratorTest :
         test("status boundary: full source agreement -> LIVE, reduced (but sufficient) quorum -> DEGRADED") {
             val orchestratorFull =
                 PriceOracleOrchestrator(
-                    sources = listOf(FakeSource("a", BigDecimal("100")), FakeSource("b", BigDecimal("100")), FakeSource("c", BigDecimal("100"))),
+                    sources =
+                        listOf(
+                            FakeSource("a", BigDecimal("100")),
+                            FakeSource("b", BigDecimal("100")),
+                            FakeSource("c", BigDecimal("100")),
+                        ),
                 )
             (orchestratorFull.currentQuote(testConfig(minQuorum = 2)) as QuoteOutcome.Ok).quote.status shouldBe PriceStatus.LIVE
 

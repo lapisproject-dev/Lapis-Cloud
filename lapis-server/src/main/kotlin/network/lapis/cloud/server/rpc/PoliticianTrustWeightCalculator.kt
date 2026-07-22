@@ -81,7 +81,11 @@ internal object PoliticianTrustWeightCalculator {
 
         // Distinct raters across ALL active politicians combined, counted once per person -- not
         // once per vote (see class KDoc "single shared pool").
-        val distinctRaters: Set<Uuid> = reactionsByProfile.values.flatten().map { (raterId, _) -> raterId }.toSet()
+        val distinctRaters: Set<Uuid> =
+            reactionsByProfile.values
+                .flatten()
+                .map { (raterId, _) -> raterId }
+                .toSet()
         val pool: BigDecimal =
             distinctRaters.fold(ZERO_2DP) { acc, raterId -> acc + (raterBalances[raterId] ?: ZERO_2DP) }
 

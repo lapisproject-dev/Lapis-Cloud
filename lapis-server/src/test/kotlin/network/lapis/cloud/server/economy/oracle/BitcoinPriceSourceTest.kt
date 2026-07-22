@@ -32,7 +32,8 @@ class BitcoinPriceSourceTest :
                 install(ContentNegotiation) { json() }
             }
 
-        fun jsonResponse(body: String) = respond(body, HttpStatusCode.OK, headersOf(HttpHeaders.ContentType, "application/json"))
+        fun MockRequestHandleScope.jsonResponse(body: String) =
+            respond(body, HttpStatusCode.OK, headersOf(HttpHeaders.ContentType, "application/json"))
 
         // ── Wire-format parsing (happy path) ──────────────────────────────
 
@@ -46,7 +47,9 @@ class BitcoinPriceSourceTest :
             (result?.price?.compareTo(BigDecimal("58123.45")) ?: -1) shouldBe 0
         }
 
-        test("KrakenBitcoinPriceSource parses a realistic ticker response, including the renamed pair key, into the correct BigDecimal price") {
+        test(
+            "KrakenBitcoinPriceSource parses a realistic ticker response, including the renamed pair key, into the correct BigDecimal price",
+        ) {
             val client =
                 mockClient {
                     jsonResponse(
@@ -118,7 +121,11 @@ class BitcoinPriceSourceTest :
 
         test("a non-allowlisted baseUrl host is rejected by the SSRF guard before any HTTP request is made") {
             val callCount = AtomicInteger(0)
-            val client = mockClient { _ -> callCount.incrementAndGet(); jsonResponse("""{"data":{"amount":"1"}}""") }
+            val client =
+                mockClient { _ ->
+                    callCount.incrementAndGet()
+                    jsonResponse("""{"data":{"amount":"1"}}""")
+                }
             val source = CoinbaseBitcoinPriceSource(httpClient = client, baseUrl = "https://evil.example.com")
 
             val result = source.fetchPrice("EUR")
@@ -129,7 +136,11 @@ class BitcoinPriceSourceTest :
 
         test("a non-allowlisted internal/link-local baseUrl host is rejected by the SSRF guard before any HTTP request is made") {
             val callCount = AtomicInteger(0)
-            val client = mockClient { _ -> callCount.incrementAndGet(); jsonResponse("""{"last":"1"}""") }
+            val client =
+                mockClient { _ ->
+                    callCount.incrementAndGet()
+                    jsonResponse("""{"last":"1"}""")
+                }
             val source = BitstampBitcoinPriceSource(httpClient = client, baseUrl = "https://169.254.169.254")
 
             val result = source.fetchPrice("EUR")
@@ -140,7 +151,11 @@ class BitcoinPriceSourceTest :
 
         test("a plain-HTTP (non-HTTPS) allowlisted host is rejected by the SSRF guard before any HTTP request is made") {
             val callCount = AtomicInteger(0)
-            val client = mockClient { _ -> callCount.incrementAndGet(); jsonResponse("""{"error":[],"result":{"X":{"c":["1"]}}}""") }
+            val client =
+                mockClient { _ ->
+                    callCount.incrementAndGet()
+                    jsonResponse("""{"error":[],"result":{"X":{"c":["1"]}}}""")
+                }
             val source = KrakenBitcoinPriceSource(httpClient = client, baseUrl = "http://api.kraken.com")
 
             val result = source.fetchPrice("EUR")

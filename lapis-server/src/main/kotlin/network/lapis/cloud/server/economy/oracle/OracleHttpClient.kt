@@ -9,6 +9,7 @@ import io.ktor.client.statement.bodyAsChannel
 import io.ktor.http.URLProtocol
 import io.ktor.http.Url
 import io.ktor.serialization.kotlinx.json.json
+import io.ktor.utils.io.readAvailable
 import kotlinx.serialization.json.Json
 
 /**

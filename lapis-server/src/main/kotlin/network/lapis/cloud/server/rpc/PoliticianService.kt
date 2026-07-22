@@ -294,8 +294,14 @@ class PoliticianService(
         requirePoliticianRankingEnabled()
         return transaction {
             val query = profileJoin().selectAll()
-            val rows = (if (includeFormer) query else query.where { PoliticianProfileTable.status eq PoliticianProfileStatus.ACTIVE }).toList()
-            val activeIds = rows.filter { it[PoliticianProfileTable.status] == PoliticianProfileStatus.ACTIVE }.map { it[PoliticianProfileTable.id] }
+            val rows =
+                (if (includeFormer) query else query.where { PoliticianProfileTable.status eq PoliticianProfileStatus.ACTIVE })
+                    .toList()
+            val activeIds =
+                rows
+                    .filter {
+                        it[PoliticianProfileTable.status] == PoliticianProfileStatus.ACTIVE
+                    }.map { it[PoliticianProfileTable.id] }
             val weights = computeWeights(activeIds)
             rows.map { it.toProfileDto(weights[it[PoliticianProfileTable.id]] ?: ZERO_WEIGHT_RESULT) }
         }
@@ -474,7 +480,10 @@ class PoliticianService(
         val groupedByProfile = reactionRows.groupBy { it[PoliticianReactionTable.politicianProfileId] }
         val reactionsByProfile: Map<Uuid, List<Pair<Uuid, PoliticianReactionValue>>> =
             activeProfileIds.associateWith { profileId ->
-                groupedByProfile[profileId]?.map { row -> row[PoliticianReactionTable.raterMemberId] to row[PoliticianReactionTable.reactionValue] }
+                groupedByProfile[profileId]?.map { row ->
+                    row[PoliticianReactionTable.raterMemberId] to
+                        row[PoliticianReactionTable.reactionValue]
+                }
                     ?: emptyList()
             }
         val distinctRaters = reactionRows.map { it[PoliticianReactionTable.raterMemberId] }.toSet()
@@ -526,12 +535,15 @@ class PoliticianService(
      * Exposed's implicit FK-based join resolution can't tell which path to use -- same
      * disambiguation `CrowdfundingService.projectJoin` KDoc documents.
      */
-    private fun profileJoin() =
-        PoliticianProfileTable.join(MemberTable, JoinType.INNER, PoliticianProfileTable.memberId, MemberTable.id)
+    private fun profileJoin() = PoliticianProfileTable.join(MemberTable, JoinType.INNER, PoliticianProfileTable.memberId, MemberTable.id)
 
     private fun memberDisplayName(memberId: Uuid?): String? =
         memberId?.let { id ->
-            MemberTable.selectAll().where { MemberTable.id eq id }.singleOrNull()?.get(MemberTable.displayName)
+            MemberTable
+                .selectAll()
+                .where { MemberTable.id eq id }
+                .singleOrNull()
+                ?.get(MemberTable.displayName)
         }
 
     private fun ResultRow.toProfileDto(weight: PoliticianTrustWeightCalculator.TrustWeightResult): PoliticianProfileDto =

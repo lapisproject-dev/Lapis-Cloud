@@ -38,8 +38,7 @@ interface LtrBalanceProvider {
      * the result at all; a member present but with no ledger rows maps to [BigDecimal.ZERO].
      * Read-only -- does not lock any row, unlike [lockForDebit].
      */
-    fun freeBalances(memberIds: Collection<Uuid>): Map<Uuid, BigDecimal> =
-        memberIds.associateWith { freeBalance(it) }
+    fun freeBalances(memberIds: Collection<Uuid>): Map<Uuid, BigDecimal> = memberIds.associateWith { freeBalance(it) }
 
     /**
      * Takes a row-level lock (`SELECT ... FOR UPDATE`) serializing concurrent debit-causing

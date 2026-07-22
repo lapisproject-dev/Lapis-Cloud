@@ -149,8 +149,8 @@ class PriceOracleService(
                 it[referenceId] = null
                 it[note] =
                     "Price-Oracle-Konvertierung: $donationAmount ${config.donationCurrency} @ ${quote.medianPrice} " +
-                        "${config.anchorAsset} (${quote.status}) -> $ltrMinted LTR" +
-                        (input.note?.let { " -- $it" } ?: "")
+                    "${config.anchorAsset} (${quote.status}) -> $ltrMinted LTR" +
+                    (input.note?.let { " -- $it" } ?: "")
                 it[createdBy] = current.memberId
                 it[createdAt] = now
             }
@@ -159,15 +159,20 @@ class PriceOracleService(
             PriceOracleConversionTable.insert {
                 it[id] = conversionId
                 it[memberId] = targetId
-                it[donationAmount] = donationAmount
+                // Qualified with the table name here (unlike the other columns in this block) --
+                // donationAmount/ltrMinted/sourcesUsed are also local vals in this function's
+                // scope, which would otherwise shadow the implicit PriceOracleConversionTable
+                // receiver and break the DSL's Column<S> resolution (a local BigDecimal/String
+                // is not a Column).
+                it[PriceOracleConversionTable.donationAmount] = donationAmount
                 it[donationCurrency] = config.donationCurrency
                 it[anchorAsset] = config.anchorAsset
                 it[anchorPrice] = quote.medianPrice
                 it[anchorUnitsPerLtr] = config.anchorUnitsPerLtr
-                it[ltrMinted] = ltrMinted
+                it[PriceOracleConversionTable.ltrMinted] = ltrMinted
                 it[priceStatus] = quote.status
                 it[sourceCount] = quote.contributingSourceIds.size
-                it[sourcesUsed] = sourcesUsed
+                it[PriceOracleConversionTable.sourcesUsed] = sourcesUsed
                 it[priceTimestamp] = priceTimestampLocal
                 it[ltrLedgerEntryId] = ledgerEntryId
                 it[createdById] = current.memberId

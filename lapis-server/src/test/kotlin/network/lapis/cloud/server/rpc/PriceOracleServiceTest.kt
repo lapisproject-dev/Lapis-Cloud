@@ -170,8 +170,9 @@ class PriceOracleServiceTest :
                     transaction {
                         LtrLedgerEntryTable
                             .selectAll()
-                            .where { (LtrLedgerEntryTable.memberId eq member) and (LtrLedgerEntryTable.entryType eq LtrLedgerEntryType.MINT) }
-                            .single()
+                            .where {
+                                (LtrLedgerEntryTable.memberId eq member) and (LtrLedgerEntryTable.entryType eq LtrLedgerEntryType.MINT)
+                            }.single()
                     }
                 ledgerRow[LtrLedgerEntryTable.id].toString() shouldBe ledgerEntryId
                 ledgerRow[LtrLedgerEntryTable.amountLtr].compareTo(BigDecimal("200.00")) shouldBe 0

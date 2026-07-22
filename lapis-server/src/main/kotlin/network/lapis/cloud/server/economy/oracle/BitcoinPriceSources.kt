@@ -109,7 +109,11 @@ class KrakenBitcoinPriceSource(
             val bytes = response.readCappedBodyOrNull() ?: return null
             val parsed = ORACLE_JSON.decodeFromString<KrakenTickerResponse>(bytes.decodeToString())
             if (parsed.error.isNotEmpty()) return null
-            val lastTradeClose = parsed.result.values.firstOrNull()?.c?.firstOrNull() ?: return null
+            val lastTradeClose =
+                parsed.result.values
+                    .firstOrNull()
+                    ?.c
+                    ?.firstOrNull() ?: return null
             val price = runCatching { BigDecimal(lastTradeClose) }.getOrNull() ?: return null
             if (price.signum() <= 0) return null
             SourcePriceResult(sourceId = id, price = price, observedAt = Clock.System.now())

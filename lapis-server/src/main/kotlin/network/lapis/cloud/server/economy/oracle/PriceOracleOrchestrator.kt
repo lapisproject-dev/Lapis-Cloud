@@ -126,7 +126,9 @@ class PriceOracleOrchestrator(
         val now = clock.now()
         val sourceIds = survivors.map { it.sourceId }
         cache.set(CachedQuote(price = finalMedian, sourceIds = sourceIds, timestamp = now))
-        return QuoteOutcome.Ok(PriceQuote(status = status, medianPrice = finalMedian, contributingSourceIds = sourceIds, priceTimestamp = now))
+        return QuoteOutcome.Ok(
+            PriceQuote(status = status, medianPrice = finalMedian, contributingSourceIds = sourceIds, priceTimestamp = now),
+        )
     }
 
     private fun cacheFallbackOrHalt(
@@ -149,7 +151,7 @@ class PriceOracleOrchestrator(
                 ),
             )
         }
-        val expiredReason = "$reason; cached price expired (age=${age}, ttl=${config.cacheTtlSeconds}s)"
+        val expiredReason = "$reason; cached price expired (age=$age, ttl=${config.cacheTtlSeconds}s)"
         logger.warn { "Price-Oracle halted: $expiredReason" }
         return QuoteOutcome.Halt(expiredReason)
     }

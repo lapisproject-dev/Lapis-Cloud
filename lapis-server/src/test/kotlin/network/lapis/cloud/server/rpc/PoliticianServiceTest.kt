@@ -22,7 +22,6 @@ import kotlinx.coroutines.runBlocking
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.LocalDateTime
 import network.lapis.cloud.server.db.DatabaseConfig
-import network.lapis.cloud.server.db.DevSeedData
 import network.lapis.cloud.server.db.generated.AccountTable
 import network.lapis.cloud.server.db.generated.LtrLedgerEntryTable
 import network.lapis.cloud.server.db.generated.MemberTable
@@ -44,6 +43,7 @@ import org.jetbrains.exposed.v1.jdbc.deleteWhere
 import org.jetbrains.exposed.v1.jdbc.insert
 import org.jetbrains.exposed.v1.jdbc.selectAll
 import org.jetbrains.exposed.v1.jdbc.transactions.transaction
+import org.jetbrains.exposed.v1.jdbc.update
 import java.math.BigDecimal
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
@@ -214,7 +214,9 @@ class PoliticianServiceTest :
             }
         }
 
-        test("updateMandateText: passing no mandateText explicitly clears it to null (unlike grantPoliticianStatus's null-preserving upsert)") {
+        test(
+            "updateMandateText: passing no mandateText explicitly clears it to null (unlike grantPoliticianStatus's null-preserving upsert)",
+        ) {
             testApplication {
                 application {
                     install(StatusPages) { installPoliticianExceptionHandlers() }
@@ -528,13 +530,25 @@ class PoliticianServiceTest :
                 client.post("/test/grant?memberId=$politicianHigh") { header("X-Member-Id", BOARD_ID) }
                 client.post("/test/grant?memberId=$politicianLow") { header("X-Member-Id", BOARD_ID) }
 
+                // The shared-pool trust weight is apportioned by BASKET ratio, not by which
+                // specific rater cast a vote (see PoliticianTrustWeightCalculator's "single shared
+                // pool" KDoc, grounded in the concept doc's "Der Pool wird proportional zu den
+                // Korb-Inhalten ... verteilt"). A rater with a bigger LTR balance liking a
+                // politician does NOT, by itself, outrank a politician liked by a lower-balance
+                // rater -- only a bigger basket (more net likes) does. politicianHigh therefore
+                // needs a strictly bigger basket (2 distinct likers) than politicianLow (1 liker),
+                // not just a richer individual rater, to deterministically outrank it for any
+                // positive pool.
                 val rater1 = createTestMember("pol-top-r1@example.org")
                 val rater2 = createTestMember("pol-top-r2@example.org")
+                val rater3 = createTestMember("pol-top-r3@example.org")
                 mintLtr(rater1, BigDecimal("100.00"))
                 mintLtr(rater2, BigDecimal("1.00"))
+                mintLtr(rater3, BigDecimal("1.00"))
 
                 client.post("/test/rate?politicianId=$politicianHigh&value=LIKE") { header("X-Member-Id", rater1.toString()) }
-                client.post("/test/rate?politicianId=$politicianLow&value=LIKE") { header("X-Member-Id", rater2.toString()) }
+                client.post("/test/rate?politicianId=$politicianHigh&value=LIKE") { header("X-Member-Id", rater2.toString()) }
+                client.post("/test/rate?politicianId=$politicianLow&value=LIKE") { header("X-Member-Id", rater3.toString()) }
 
                 // High limit here (not the dashboard's real Top-6) so this test's ordering assertion
                 // is not accidentally truncated by other ACTIVE politicians earlier tests in this
@@ -575,7 +589,12 @@ class PoliticianServiceTest :
                         row[PoliticianProfileTable.id]
                     }
                 val reactionCount =
-                    transaction { PoliticianReactionTable.selectAll().where { PoliticianReactionTable.politicianProfileId eq profileId }.count() }
+                    transaction {
+                        PoliticianReactionTable
+                            .selectAll()
+                            .where { PoliticianReactionTable.politicianProfileId eq profileId }
+                            .count()
+                    }
                 val snapshotCount =
                     transaction {
                         PoliticianWeightSnapshotTable
@@ -591,7 +610,9 @@ class PoliticianServiceTest :
             }
         }
 
-        test("re-grant after revoke reactivates the SAME profile row, weight starts back at 0 (no strategic advantage from a status reset)") {
+        test(
+            "re-grant after revoke reactivates the SAME profile row, weight starts back at 0 (no strategic advantage from a status reset)",
+        ) {
             testApplication {
                 application {
                     install(StatusPages) { installPoliticianExceptionHandlers() }

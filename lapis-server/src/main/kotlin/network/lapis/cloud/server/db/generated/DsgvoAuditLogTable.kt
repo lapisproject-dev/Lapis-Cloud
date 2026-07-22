@@ -18,7 +18,7 @@ public object DsgvoAuditLogTable : Table("dsgvo_audit_log") {
     public val action: Column<DsgvoAuditAction> = enumerationByName<DsgvoAuditAction>("action", 17)
     public val subjectMemberId: Column<Uuid> = reference("subject_member_id", MemberTable.id)
     public val requestId: Column<Uuid?> = optReference("request_id", ErasureRequestTable.id)
-    public val outcomeSummary: Column<String?> = varchar("outcome_summary", 8000).nullable()
+    public val outcomeSummary: Column<String?> = text("outcome_summary").nullable()
     public val legalBasis: Column<String?> = varchar("legal_basis", 500).nullable()
 
     override val primaryKey: PrimaryKey = PrimaryKey(id)

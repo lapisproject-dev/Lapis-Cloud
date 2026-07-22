@@ -172,7 +172,7 @@ CREATE TABLE erasure_request (
     decision_note VARCHAR(1000) NULL,
     executed_at TIMESTAMP NULL,
     legal_hold BOOLEAN NOT NULL DEFAULT FALSE,
-    outcome_summary VARCHAR(8000) NULL,
+    outcome_summary TEXT NULL,
     CHECK (mode IN ('ANONYMIZE', 'HARD_DELETE_WHERE_UNCONSTRAINED')),
     CHECK (status IN ('REQUESTED', 'APPROVED', 'REJECTED', 'COMPLETED'))
 );
@@ -286,7 +286,7 @@ CREATE TABLE dsgvo_audit_log (
     action VARCHAR(17) NOT NULL,
     subject_member_id UUID NOT NULL,
     request_id UUID NULL,
-    outcome_summary VARCHAR(8000) NULL,
+    outcome_summary TEXT NULL,
     legal_basis VARCHAR(500) NULL,
     CHECK (actor_role IN ('MEMBER', 'BOARD', 'TREASURER', 'ADMIN')),
     CHECK (action IN ('EXPORT', 'ERASURE_REQUESTED', 'ERASURE_APPROVED', 'ERASURE_REJECTED', 'ERASURE_EXECUTED'))

@@ -24,7 +24,7 @@ public object ErasureRequestTable : Table("erasure_request") {
     public val executedAt: Column<LocalDateTime?> = datetime("executed_at").nullable()
     public val legalHold: Column<Boolean> = bool("legal_hold")
     // TODO default = "FALSE"
-    public val outcomeSummary: Column<String?> = varchar("outcome_summary", 8000).nullable()
+    public val outcomeSummary: Column<String?> = text("outcome_summary").nullable()
 
     override val primaryKey: PrimaryKey = PrimaryKey(id)
 
