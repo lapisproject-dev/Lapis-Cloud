@@ -111,13 +111,11 @@ Contributions/Documents/Communication slice, the V0.3 accounting slices, the V0.
 slice, and the V0.6.5 Price-Oracle slice — not updated for every wave since) and `CLAUDE.md` for
 further detail.
 
-CAUTION: The V0.6.4 guest/Gast rating basket cut (`PoliticianProfileDto` exposes
-`memberTrustWeight` only, not the concept's three-way Mitglieder-/Gäste-/Gesamtbewertung) is an
-*open product decision*, not an accepted final scope narrowing — it still needs an explicit
-accept/reject from the product owner. See `CHANGELOG.md` `[0.6.0]` "Known limitations" for the
-full reasoning (no operational Gast identity/exit workflow exists anywhere in this codebase to
-source a guest basket from). This note is cross-referenced here, not just in the changelog, so it
-is not missed.
+NOTE: The V0.6.4 guest/Gast rating basket cut (`PoliticianProfileDto` exposes `memberTrustWeight`
+only, not the concept's three-way Mitglieder-/Gäste-/Gesamtbewertung) is **accepted scope**
+(product-owner sign-off 2026-07-22) for as long as no operational Gast identity model exists in
+this codebase. Revisit once one lands (tracked for V0.7.2/V0.8). See `CHANGELOG.md` `[0.6.0]`
+"Known limitations" for the full reasoning.
 
 === Auction opt-in (V0.6.2)
 
