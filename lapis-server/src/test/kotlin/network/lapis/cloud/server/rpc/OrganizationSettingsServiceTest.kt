@@ -20,9 +20,9 @@ import kotlinx.datetime.LocalDate
 import network.lapis.cloud.server.db.DatabaseConfig
 import network.lapis.cloud.server.db.DevSeedData
 import network.lapis.cloud.server.db.generated.OrganizationSettingsTable
-import network.lapis.cloud.server.security.ForbiddenException
-import network.lapis.cloud.server.security.UnauthenticatedException
 import network.lapis.cloud.shared.domain.OrganizationSettingsInput
+import network.lapis.cloud.shared.rpc.ForbiddenException
+import network.lapis.cloud.shared.rpc.UnauthenticatedException
 import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.jdbc.transactions.transaction
 import org.jetbrains.exposed.v1.jdbc.update

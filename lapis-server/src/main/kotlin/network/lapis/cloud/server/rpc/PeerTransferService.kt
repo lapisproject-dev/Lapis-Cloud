@@ -19,7 +19,9 @@ import network.lapis.cloud.shared.domain.LtrLedgerReferenceType
 import network.lapis.cloud.shared.domain.PeerTransferCharacterization
 import network.lapis.cloud.shared.domain.PeerTransferInput
 import network.lapis.cloud.shared.domain.PeerTransferResultDto
+import network.lapis.cloud.shared.rpc.ConflictException
 import network.lapis.cloud.shared.rpc.IPeerTransferService
+import network.lapis.cloud.shared.rpc.NotFoundException
 import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.jdbc.insert
 import org.jetbrains.exposed.v1.jdbc.selectAll

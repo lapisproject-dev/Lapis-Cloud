@@ -25,6 +25,7 @@ import network.lapis.cloud.shared.domain.TechnicalOrganizationalMeasureDto
 import network.lapis.cloud.shared.domain.TechnicalOrganizationalMeasureInput
 import network.lapis.cloud.shared.domain.TomCategory
 import network.lapis.cloud.shared.rpc.IDsgvoComplianceService
+import network.lapis.cloud.shared.rpc.NotFoundException
 import org.jetbrains.exposed.v1.core.ResultRow
 import org.jetbrains.exposed.v1.core.SortOrder
 import org.jetbrains.exposed.v1.core.and

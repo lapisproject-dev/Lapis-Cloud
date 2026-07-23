@@ -21,8 +21,6 @@ import kotlinx.datetime.LocalDate
 import kotlinx.datetime.LocalDateTime
 import network.lapis.cloud.server.db.DatabaseConfig
 import network.lapis.cloud.server.db.DevSeedData
-import network.lapis.cloud.server.security.ForbiddenException
-import network.lapis.cloud.server.security.UnauthenticatedException
 import network.lapis.cloud.shared.domain.AvvStatus
 import network.lapis.cloud.shared.domain.BreachDeadlineStatus
 import network.lapis.cloud.shared.domain.BreachStatus
@@ -34,6 +32,9 @@ import network.lapis.cloud.shared.domain.ProcessingAgreementInput
 import network.lapis.cloud.shared.domain.RiskLevel
 import network.lapis.cloud.shared.domain.TechnicalOrganizationalMeasureInput
 import network.lapis.cloud.shared.domain.TomCategory
+import network.lapis.cloud.shared.rpc.ForbiddenException
+import network.lapis.cloud.shared.rpc.NotFoundException
+import network.lapis.cloud.shared.rpc.UnauthenticatedException
 
 private const val ADMIN_ID = "00000000-0000-0000-0000-000000000001"
 private const val BOARD_ID = "00000000-0000-0000-0000-000000000002"

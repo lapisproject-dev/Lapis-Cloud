@@ -15,7 +15,6 @@ import network.lapis.cloud.server.db.generated.SystemicConsensusOptionTable
 import network.lapis.cloud.server.db.generated.SystemicConsensusParticipationTable
 import network.lapis.cloud.server.db.generated.SystemicConsensusResistanceTable
 import network.lapis.cloud.server.db.generated.SystemicConsensusTable
-import network.lapis.cloud.server.security.ForbiddenException
 import network.lapis.cloud.server.security.canManageSystemicConsensus
 import network.lapis.cloud.server.security.isPrivileged
 import network.lapis.cloud.server.security.resolveCurrentMember
@@ -34,7 +33,10 @@ import network.lapis.cloud.shared.domain.SystemicConsensusOptionInput
 import network.lapis.cloud.shared.domain.SystemicConsensusOptionResultDto
 import network.lapis.cloud.shared.domain.SystemicConsensusResultDto
 import network.lapis.cloud.shared.domain.SystemicConsensusStatus
+import network.lapis.cloud.shared.rpc.ConflictException
+import network.lapis.cloud.shared.rpc.ForbiddenException
 import network.lapis.cloud.shared.rpc.ISystemicConsensusService
+import network.lapis.cloud.shared.rpc.NotFoundException
 import org.jetbrains.exposed.v1.core.Op
 import org.jetbrains.exposed.v1.core.ResultRow
 import org.jetbrains.exposed.v1.core.and

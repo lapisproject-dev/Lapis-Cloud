@@ -23,8 +23,8 @@ import network.lapis.cloud.server.backup.MANIFEST_ENTRY_NAME
 import network.lapis.cloud.server.db.DatabaseConfig
 import network.lapis.cloud.server.db.DevSeedData
 import network.lapis.cloud.server.rpc.BackupService
-import network.lapis.cloud.server.security.ForbiddenException
-import network.lapis.cloud.server.security.UnauthenticatedException
+import network.lapis.cloud.shared.rpc.ForbiddenException
+import network.lapis.cloud.shared.rpc.UnauthenticatedException
 import java.nio.file.Files
 import java.util.zip.ZipInputStream
 

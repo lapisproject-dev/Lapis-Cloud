@@ -19,10 +19,12 @@ import kotlinx.datetime.LocalDate
 import kotlinx.datetime.LocalDateTime
 import network.lapis.cloud.server.db.DatabaseConfig
 import network.lapis.cloud.server.db.DevSeedData
-import network.lapis.cloud.server.security.ForbiddenException
-import network.lapis.cloud.server.security.UnauthenticatedException
 import network.lapis.cloud.shared.domain.ContributionStatus
 import network.lapis.cloud.shared.domain.DocumentAccessLevel
+import network.lapis.cloud.shared.rpc.ConflictException
+import network.lapis.cloud.shared.rpc.ForbiddenException
+import network.lapis.cloud.shared.rpc.NotFoundException
+import network.lapis.cloud.shared.rpc.UnauthenticatedException
 
 /**
  * Exercises the domain services (Contributions/Documents/Mailing/DirectMessages) end to end

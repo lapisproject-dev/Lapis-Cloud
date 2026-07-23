@@ -16,7 +16,9 @@ import network.lapis.cloud.shared.domain.BoardMembershipDto
 import network.lapis.cloud.shared.domain.BoardMembershipInput
 import network.lapis.cloud.shared.domain.TransparenzregisterReminderDto
 import network.lapis.cloud.shared.domain.TransparenzregisterReportDto
+import network.lapis.cloud.shared.rpc.ConflictException
 import network.lapis.cloud.shared.rpc.IBoardMembershipService
+import network.lapis.cloud.shared.rpc.NotFoundException
 import org.jetbrains.exposed.v1.core.ResultRow
 import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.core.isNull

@@ -20,7 +20,6 @@ import network.lapis.cloud.server.db.generated.VoteOptionTable
 import network.lapis.cloud.server.db.generated.VoteTable
 import network.lapis.cloud.server.economy.LedgerBackedLtrBalanceProvider
 import network.lapis.cloud.server.economy.LtrBalanceProvider
-import network.lapis.cloud.server.security.ForbiddenException
 import network.lapis.cloud.server.security.canRecordForMeeting
 import network.lapis.cloud.server.security.canSubmitMotion
 import network.lapis.cloud.server.security.requireRole
@@ -58,7 +57,10 @@ import network.lapis.cloud.shared.domain.VoteDto
 import network.lapis.cloud.shared.domain.VoteOpenInput
 import network.lapis.cloud.shared.domain.VoteOptionDto
 import network.lapis.cloud.shared.domain.VoteStatus
+import network.lapis.cloud.shared.rpc.ConflictException
+import network.lapis.cloud.shared.rpc.ForbiddenException
 import network.lapis.cloud.shared.rpc.IGovernanceService
+import network.lapis.cloud.shared.rpc.NotFoundException
 import org.jetbrains.exposed.v1.core.Op
 import org.jetbrains.exposed.v1.core.ResultRow
 import org.jetbrains.exposed.v1.core.SortOrder

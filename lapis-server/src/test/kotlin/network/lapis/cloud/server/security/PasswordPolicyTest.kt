@@ -3,6 +3,7 @@ package network.lapis.cloud.server.security
 import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
+import network.lapis.cloud.shared.rpc.WeakPasswordException
 
 /** Pure tests of [PasswordPolicy] -- no DB access. */
 class PasswordPolicyTest :

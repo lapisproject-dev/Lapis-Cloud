@@ -45,7 +45,7 @@ interface IBoardMembershipService {
      * Role: BOARD/ADMIN. Ends the [BoardMembershipDto] identified by [boardMembershipId] as of
      * [endedAt] (resignation, recall/Abwahl, term expiry -- this system cannot distinguish which,
      * the caller's own governance-process records are the source of truth for that) and records a
-     * `LEFT` [TransparenzregisterReminderDto]. Throws `ConflictException` if that membership is
+     * `LEFT` [TransparenzregisterReminderDto]. Throws [ConflictException] if that membership is
      * already ended.
      */
     suspend fun endBoardMembership(
@@ -77,7 +77,7 @@ interface IBoardMembershipService {
      * Role: BOARD/ADMIN. Manual acknowledgement that the caller has updated the real
      * Transparenzregister entry themselves -- **NOT** a verification that the filing actually
      * happened, see [network.lapis.cloud.shared.domain.TransparenzregisterReminderDto] KDoc. Throws
-     * `ConflictException` if [reminderId] is already resolved (idempotency guard against a double
+     * [ConflictException] if [reminderId] is already resolved (idempotency guard against a double
      * acknowledgement being misread as two separate filings).
      */
     suspend fun resolveTransparenzregisterReminder(reminderId: String): TransparenzregisterReminderDto

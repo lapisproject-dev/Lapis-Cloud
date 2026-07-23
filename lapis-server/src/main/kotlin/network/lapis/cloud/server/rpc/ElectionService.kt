@@ -20,7 +20,6 @@ import network.lapis.cloud.server.db.generated.ElectionTallyApprovalTable
 import network.lapis.cloud.server.db.generated.MeetingTable
 import network.lapis.cloud.server.db.generated.MemberTable
 import network.lapis.cloud.server.db.generated.MotionTable
-import network.lapis.cloud.server.security.ForbiddenException
 import network.lapis.cloud.server.security.canManageElection
 import network.lapis.cloud.server.security.canStandAsCandidate
 import network.lapis.cloud.server.security.isElectionBoard
@@ -46,7 +45,10 @@ import network.lapis.cloud.shared.domain.ReceiptVerificationDto
 import network.lapis.cloud.shared.domain.ResolutionInput
 import network.lapis.cloud.shared.domain.ResolutionMode
 import network.lapis.cloud.shared.domain.ResolutionStatus
+import network.lapis.cloud.shared.rpc.ConflictException
+import network.lapis.cloud.shared.rpc.ForbiddenException
 import network.lapis.cloud.shared.rpc.IElectionService
+import network.lapis.cloud.shared.rpc.NotFoundException
 import org.jetbrains.exposed.v1.core.Op
 import org.jetbrains.exposed.v1.core.ResultRow
 import org.jetbrains.exposed.v1.core.SortOrder

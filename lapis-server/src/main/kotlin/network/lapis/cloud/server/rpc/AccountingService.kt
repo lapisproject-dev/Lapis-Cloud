@@ -1,7 +1,5 @@
 package network.lapis.cloud.server.rpc
 
-import dev.kilua.rpc.AbstractServiceException
-import dev.kilua.rpc.annotations.RpcServiceException
 import io.ktor.server.application.ApplicationCall
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.LocalDateTime
@@ -54,7 +52,10 @@ import network.lapis.cloud.shared.domain.PostingSide
 import network.lapis.cloud.shared.domain.PostingSnapshot
 import network.lapis.cloud.shared.domain.ReserveType
 import network.lapis.cloud.shared.domain.UseOfFundsStatementDto
+import network.lapis.cloud.shared.rpc.BadRequestException
+import network.lapis.cloud.shared.rpc.ConflictException
 import network.lapis.cloud.shared.rpc.IAccountingService
+import network.lapis.cloud.shared.rpc.NotFoundException
 import org.jetbrains.exposed.v1.core.Op
 import org.jetbrains.exposed.v1.core.ResultRow
 import org.jetbrains.exposed.v1.core.SortOrder
@@ -79,11 +80,6 @@ private val ACCOUNTING_READ_ROLES = arrayOf(AccountRole.TREASURER, AccountRole.B
 
 /** Smallest/largest calendar year [getAnnualFinancialStatement] accepts as a `fiscalYear`. */
 private val FISCAL_YEAR_RANGE = 1000..9999
-
-@RpcServiceException
-class BadRequestException(
-    override val message: String,
-) : AbstractServiceException()
 
 /**
  * SKR42 chart of accounts + double-entry bookkeeping (V0.3.1, chart swapped from SKR49 in

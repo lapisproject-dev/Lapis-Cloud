@@ -32,7 +32,7 @@ import network.lapis.cloud.shared.domain.ReceiptVerificationDto
  * Explicitly out of scope for this wave (see [network.lapis.cloud.shared.domain.ElectionType] KDoc):
  * [network.lapis.cloud.shared.domain.ElectionType.LIST_VOTE]/
  * [network.lapis.cloud.shared.domain.ElectionType.RANKED_CHOICE] (rejected by [openElection] with a
- * `network.lapis.cloud.server.rpc.ConflictException`), cryptographic ballot secrecy (a practical
+ * `network.lapis.cloud.shared.rpc.ConflictException`), cryptographic ballot secrecy (a practical
  * DB-level table-split is used instead -- see `network.lapis.cloud.server.db.tables.ElectionTables`
  * KDoc), and threshold-signature Vier-Augen (modeled as a plain N-of-M approval count instead).
  */

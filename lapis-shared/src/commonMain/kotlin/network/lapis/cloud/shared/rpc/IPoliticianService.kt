@@ -14,7 +14,7 @@ import network.lapis.cloud.shared.domain.PoliticianWeightSnapshotDto
  *
  * Every method here additionally requires
  * `network.lapis.cloud.shared.domain.OrganizationSettingsDto.politicianRankingEnabled == true` --
- * a [network.lapis.cloud.server.rpc.ConflictException] otherwise, same
+ * a [network.lapis.cloud.shared.rpc.ConflictException] otherwise, same
  * `requirePostalMailEnabled`-style gate `network.lapis.cloud.server.rpc.PostalMailService` already
  * establishes for its own opt-in flag. This applies even to [grantPoliticianStatus] -- a BOARD
  * member cannot silently activate the feature by granting status while it is toggled off.

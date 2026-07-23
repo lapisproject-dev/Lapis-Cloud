@@ -4,6 +4,8 @@ import dev.kilua.rpc.types.Decimal
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.LocalDateTime
 import kotlinx.serialization.Serializable
+import network.lapis.cloud.shared.rpc.BadRequestException
+import network.lapis.cloud.shared.rpc.NotFoundException
 
 /**
  * SKR42 chart of accounts + double-entry bookkeeping (V0.3.1, chart swapped from SKR49 in
@@ -239,15 +241,15 @@ data class JournalEntryDto(
  * `postDraftEntry` to succeed -- see `network.lapis.cloud.server.rpc.JournalEntryBalance` KDoc.
  * `saveDraftEntry` accepts an incomplete/unbalanced set of [postings] (that is the point of a
  * draft). [donorMemberId] (V0.4.1) defaults to `null` -- see [JournalEntryDto] KDoc; when set, the
- * entry must reference an existing member (`NotFoundException` otherwise) and contain at least
- * one posting against an `INCOME` ledger account (`BadRequestException` otherwise).
+ * entry must reference an existing member ([NotFoundException] otherwise) and contain at least
+ * one posting against an `INCOME` ledger account ([BadRequestException] otherwise).
  *
  * [externalDonorId] (V0.5.1 §25 PartG) is the non-member counterpart -- mutually exclusive with
- * [donorMemberId] (`BadRequestException` if both are set). [donorCategory] is required exactly
+ * [donorMemberId] ([BadRequestException] if both are set). [donorCategory] is required exactly
  * when this is a member donation ([donorMemberId] set, must not be [DonorCategory.ANONYMOUS]) or an
  * explicit anonymous donation (neither id set, [donorCategory] == [DonorCategory.ANONYMOUS]);
  * when [externalDonorId] is set, [donorCategory] must be left `null` here -- the effective category
- * is snapshotted from the referenced [ExternalDonorDto] instead (`BadRequestException` if a caller
+ * is snapshotted from the referenced [ExternalDonorDto] instead ([BadRequestException] if a caller
  * also passes one, to keep a single source of truth) -- see [JournalEntryDto] KDoc and
  * `AccountingService.requireDonorMutualExclusionAndCategory` for the full validation matrix.
  */

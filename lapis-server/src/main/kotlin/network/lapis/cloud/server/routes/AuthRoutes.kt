@@ -22,9 +22,9 @@ import network.lapis.cloud.server.security.PasswordPolicy
 import network.lapis.cloud.server.security.PasswordResetTokenStore
 import network.lapis.cloud.server.security.SESSION_COOKIE_NAME
 import network.lapis.cloud.server.security.SessionStore
-import network.lapis.cloud.server.security.WeakPasswordException
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.MemberStatus
+import network.lapis.cloud.shared.rpc.WeakPasswordException
 import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.core.lowerCase
 import org.jetbrains.exposed.v1.jdbc.selectAll

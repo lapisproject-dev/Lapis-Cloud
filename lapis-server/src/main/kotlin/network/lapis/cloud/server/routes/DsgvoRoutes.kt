@@ -14,10 +14,10 @@ import kotlinx.serialization.json.put
 import network.lapis.cloud.server.db.generated.DsgvoAuditLogTable
 import network.lapis.cloud.server.dsgvo.PersonalDataRegistry
 import network.lapis.cloud.server.dsgvo.nowUtc
-import network.lapis.cloud.server.security.ForbiddenException
 import network.lapis.cloud.server.security.resolveCurrentMember
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.DsgvoAuditAction
+import network.lapis.cloud.shared.rpc.ForbiddenException
 import org.jetbrains.exposed.v1.jdbc.insert
 import org.jetbrains.exposed.v1.jdbc.transactions.transaction
 import kotlin.uuid.Uuid

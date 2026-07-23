@@ -1,7 +1,5 @@
 package network.lapis.cloud.server.rpc
 
-import dev.kilua.rpc.AbstractServiceException
-import dev.kilua.rpc.annotations.RpcServiceException
 import io.ktor.server.application.ApplicationCall
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
@@ -18,7 +16,9 @@ import network.lapis.cloud.shared.domain.MailingListDto
 import network.lapis.cloud.shared.domain.MailingListSubscriptionDto
 import network.lapis.cloud.shared.domain.MailingMessageDto
 import network.lapis.cloud.shared.domain.MailingMessageStatus
+import network.lapis.cloud.shared.rpc.ConflictException
 import network.lapis.cloud.shared.rpc.IMailingService
+import network.lapis.cloud.shared.rpc.NotFoundException
 import org.jetbrains.exposed.v1.core.ResultRow
 import org.jetbrains.exposed.v1.core.and
 import org.jetbrains.exposed.v1.core.eq
@@ -31,11 +31,6 @@ import kotlin.time.Clock
 import kotlin.uuid.Uuid
 
 private val BOARD_ROLES = arrayOf(AccountRole.BOARD, AccountRole.ADMIN)
-
-@RpcServiceException
-class ConflictException(
-    override val message: String,
-) : AbstractServiceException()
 
 class MailingService(
     private val call: ApplicationCall,

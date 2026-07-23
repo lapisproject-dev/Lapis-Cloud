@@ -1,7 +1,5 @@
 package network.lapis.cloud.server.rpc
 
-import dev.kilua.rpc.AbstractServiceException
-import dev.kilua.rpc.annotations.RpcServiceException
 import io.ktor.server.application.ApplicationCall
 import network.lapis.cloud.server.db.generated.AccountTable
 import network.lapis.cloud.server.db.generated.MemberTable
@@ -12,15 +10,11 @@ import network.lapis.cloud.server.security.extractSessionToken
 import network.lapis.cloud.server.security.resolveCurrentMember
 import network.lapis.cloud.shared.domain.SessionInfoDto
 import network.lapis.cloud.shared.rpc.IAuthService
+import network.lapis.cloud.shared.rpc.InvalidPasswordException
 import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.jdbc.selectAll
 import org.jetbrains.exposed.v1.jdbc.transactions.transaction
 import org.jetbrains.exposed.v1.jdbc.update
-
-@RpcServiceException
-class InvalidPasswordException(
-    override val message: String = "Current password is incorrect",
-) : AbstractServiceException()
 
 /**
  * V0.7.1 Authentifizierung -- self-service password management for an already-authenticated

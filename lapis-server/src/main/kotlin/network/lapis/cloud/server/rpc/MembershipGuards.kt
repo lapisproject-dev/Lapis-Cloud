@@ -1,8 +1,8 @@
 package network.lapis.cloud.server.rpc
 
 import network.lapis.cloud.server.db.generated.MemberTable
-import network.lapis.cloud.server.security.ForbiddenException
 import network.lapis.cloud.shared.domain.MemberStatus
+import network.lapis.cloud.shared.rpc.ForbiddenException
 import org.jetbrains.exposed.v1.core.and
 import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.jdbc.selectAll

@@ -54,10 +54,9 @@ import network.lapis.cloud.server.rpc.PostalMailService
 import network.lapis.cloud.server.rpc.PriceOracleService
 import network.lapis.cloud.server.rpc.RegistrationService
 import network.lapis.cloud.server.rpc.SystemicConsensusService
-import network.lapis.cloud.server.security.ForbiddenException
 import network.lapis.cloud.server.security.LoginRateLimiter
-import network.lapis.cloud.server.security.UnauthenticatedException
 import network.lapis.cloud.shared.Greeting
+import network.lapis.cloud.shared.rpc.ForbiddenException
 import network.lapis.cloud.shared.rpc.IAccountingService
 import network.lapis.cloud.shared.rpc.IAuctionService
 import network.lapis.cloud.shared.rpc.IAuditLogService
@@ -83,6 +82,7 @@ import network.lapis.cloud.shared.rpc.IPostalMailService
 import network.lapis.cloud.shared.rpc.IPriceOracleService
 import network.lapis.cloud.shared.rpc.IRegistrationService
 import network.lapis.cloud.shared.rpc.ISystemicConsensusService
+import network.lapis.cloud.shared.rpc.UnauthenticatedException
 import java.io.File
 
 fun main() {

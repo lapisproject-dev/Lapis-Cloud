@@ -1,12 +1,6 @@
 package network.lapis.cloud.server.security
 
-import dev.kilua.rpc.AbstractServiceException
-import dev.kilua.rpc.annotations.RpcServiceException
-
-@RpcServiceException
-class WeakPasswordException(
-    override val message: String,
-) : AbstractServiceException()
+import network.lapis.cloud.shared.rpc.WeakPasswordException
 
 /**
  * Minimal password-strength gate for [network.lapis.cloud.server.rpc.AuthService.changePassword]

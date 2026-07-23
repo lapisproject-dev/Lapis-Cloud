@@ -32,8 +32,6 @@ import network.lapis.cloud.server.db.generated.PostalDeliveryLogTable
 import network.lapis.cloud.server.db.generated.PostingTable
 import network.lapis.cloud.server.postal.PostalDispatchOutcome
 import network.lapis.cloud.server.postal.PostalMailProvider
-import network.lapis.cloud.server.security.ForbiddenException
-import network.lapis.cloud.server.security.UnauthenticatedException
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.BillingInterval
 import network.lapis.cloud.shared.domain.ContributionStatus
@@ -44,6 +42,11 @@ import network.lapis.cloud.shared.domain.MemberStatus
 import network.lapis.cloud.shared.domain.PostalDeliveryStatus
 import network.lapis.cloud.shared.domain.PostalInvitationDispatchInput
 import network.lapis.cloud.shared.domain.PostingSide
+import network.lapis.cloud.shared.rpc.BadRequestException
+import network.lapis.cloud.shared.rpc.ConflictException
+import network.lapis.cloud.shared.rpc.ForbiddenException
+import network.lapis.cloud.shared.rpc.NotFoundException
+import network.lapis.cloud.shared.rpc.UnauthenticatedException
 import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.core.inList
 import org.jetbrains.exposed.v1.jdbc.deleteWhere

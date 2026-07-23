@@ -31,7 +31,7 @@ interface IAuditLogService {
      */
     suspend fun listAuditLog(query: AuditLogListQuery = AuditLogListQuery()): List<AuditLogEntryDto>
 
-    /** Role: TREASURER/BOARD/ADMIN. Throws `NotFoundException` if [id] does not resolve to a row. */
+    /** Role: TREASURER/BOARD/ADMIN. Throws [NotFoundException] if [id] does not resolve to a row. */
     suspend fun getAuditLogEntry(id: String): AuditLogEntryDto
 
     /**
@@ -43,7 +43,7 @@ interface IAuditLogService {
      *
      * The number of rows *matched* by whatever combination of bounds is supplied -- no bounds, one
      * bound, or an explicit two-sided range -- is capped server-side at a fixed maximum before any
-     * row is loaded or rehashed; exceeding it throws `BadRequestException` demanding a narrower
+     * row is loaded or rehashed; exceeding it throws [BadRequestException] demanding a narrower
      * range. This is a DoS guard against unbounded rehashing of an ever-growing, never-purged
      * table, and applies uniformly regardless of which parameters are `null` -- there is no
      * parameter combination that bypasses it.

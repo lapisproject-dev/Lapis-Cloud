@@ -2,6 +2,7 @@ package network.lapis.cloud.shared.domain
 
 import kotlinx.datetime.LocalDateTime
 import kotlinx.serialization.Serializable
+import network.lapis.cloud.shared.rpc.ConflictException
 
 /**
  * Demokratische Electionen (V0.2.4): one-person-one-vote elections/ballots, structurally distinct
@@ -11,7 +12,7 @@ import kotlinx.serialization.Serializable
  *
  * [LIST_VOTE]/[RANKED_CHOICE] are reserved for forward compatibility (DTO/DB shape only, so a
  * later wave does not need another migration) but are rejected by
- * `ElectionService.openElection` in this wave with a `ConflictException` -- D'Hondt/Sainte-Laguë and
+ * `ElectionService.openElection` in this wave with a [ConflictException] -- D'Hondt/Sainte-Laguë and
  * Schulze/Ranked-Pairs/STV are each a real, non-trivial algorithm, explicitly out of scope for
  * the "standard implementation, no novel algorithm" framing of V0.2.4.
  */

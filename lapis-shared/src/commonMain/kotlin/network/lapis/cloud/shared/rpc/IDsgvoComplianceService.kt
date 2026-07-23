@@ -42,7 +42,7 @@ interface IDsgvoComplianceService {
     /** Role: ADMIN. */
     suspend fun createProcessingAgreement(input: ProcessingAgreementInput): ProcessingAgreementDto
 
-    /** Role: ADMIN. Throws `NotFoundException` if [id] does not resolve to a row. */
+    /** Role: ADMIN. Throws [NotFoundException] if [id] does not resolve to a row. */
     suspend fun updateProcessingAgreement(
         id: String,
         input: ProcessingAgreementInput,
@@ -54,7 +54,7 @@ interface IDsgvoComplianceService {
     /** Role: ADMIN. `version` starts at 1. */
     suspend fun createTechnicalOrganizationalMeasure(input: TechnicalOrganizationalMeasureInput): TechnicalOrganizationalMeasureDto
 
-    /** Role: ADMIN. Throws `NotFoundException` if [id] does not resolve to a row. `version` increments by 1. */
+    /** Role: ADMIN. Throws [NotFoundException] if [id] does not resolve to a row. `version` increments by 1. */
     suspend fun updateTechnicalOrganizationalMeasure(
         id: String,
         input: TechnicalOrganizationalMeasureInput,
@@ -66,7 +66,7 @@ interface IDsgvoComplianceService {
     /** Role: BOARD/ADMIN. `version` starts at 1, `status` defaults to `DRAFT`. */
     suspend fun createDpiaAssessment(input: DpiaAssessmentInput): DpiaAssessmentDto
 
-    /** Role: BOARD/ADMIN. Throws `NotFoundException` if [id] does not resolve to a row. `version` increments by 1. */
+    /** Role: BOARD/ADMIN. Throws [NotFoundException] if [id] does not resolve to a row. `version` increments by 1. */
     suspend fun updateDpiaAssessment(
         id: String,
         input: DpiaAssessmentInput,
@@ -78,7 +78,7 @@ interface IDsgvoComplianceService {
     /** Role: BOARD/ADMIN. `status` defaults to `REPORTED`. */
     suspend fun createDataBreachIncident(input: DataBreachIncidentInput): DataBreachIncidentDto
 
-    /** Role: BOARD/ADMIN. Throws `NotFoundException` if [id] does not resolve to a row. */
+    /** Role: BOARD/ADMIN. Throws [NotFoundException] if [id] does not resolve to a row. */
     suspend fun updateDataBreachIncident(
         id: String,
         input: DataBreachIncidentInput,

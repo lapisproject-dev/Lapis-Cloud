@@ -22,7 +22,7 @@ import network.lapis.cloud.shared.domain.CreateAuctionListingInput
  *
  * Every participant method below (everything except the ADMIN governance methods) calls a
  * `requireAuctionEnabled` guard first -- if `OrganizationSettingsDto.auctionEnabled` is `false`
- * (the default), the call is rejected with a `ConflictException` and has zero side effects. Same
+ * (the default), the call is rejected with a [ConflictException] and has zero side effects. Same
  * `requirePostalMailEnabled`/`requirePoliticianRankingEnabled`-style gate
  * [network.lapis.cloud.server.rpc.PostalMailService]/[network.lapis.cloud.server.rpc.PoliticianService]
  * already establish for their own opt-in flags -- **stronger here**: unlike those two,
@@ -131,7 +131,7 @@ interface IAuctionService {
 
     /**
      * Role: MEMBER+, caller must be AKTIV. Explicitly forces the lazy-close evaluation for one
-     * auction -- rejected with `ConflictException` if `endsAt` has not passed yet (no early
+     * auction -- rejected with [ConflictException] if `endsAt` has not passed yet (no early
      * settlement). Idempotent once already SETTLED/CLOSED_NO_SALE.
      */
     suspend fun settleAuction(id: String): AuctionDto

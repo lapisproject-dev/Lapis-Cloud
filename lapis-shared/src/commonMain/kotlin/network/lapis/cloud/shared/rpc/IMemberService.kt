@@ -33,7 +33,7 @@ interface IMemberService {
      * ADMIN/BOARD may update any member's (e.g. when correcting an address on a donor's or fellow
      * member's behalf) -- same `isPrivileged` check `DocumentAccessLevel.BOARD_ONLY` already uses.
      * All four fields are nullable and passed together; passing `null` for a field clears it. Throws
-     * `ForbiddenException` if the caller is neither the target member nor privileged, `NotFoundException`
+     * [ForbiddenException] if the caller is neither the target member nor privileged, [NotFoundException]
      * if `memberId` does not resolve to an existing member.
      */
     suspend fun updateMemberAddress(
@@ -50,8 +50,8 @@ interface IMemberService {
      * address fields [updateMemberAddress] already covers (see
      * `network.lapis.cloud.shared.domain.BeneficialOwnerDataGapDto`). Same self-or-privileged
      * authorization as [updateMemberAddress]. Both fields are nullable and passed together; passing
-     * `null` for a field clears it. Throws `ForbiddenException` if the caller is neither the target
-     * member nor privileged, `NotFoundException` if `memberId` does not resolve to an existing
+     * `null` for a field clears it. Throws [ForbiddenException] if the caller is neither the target
+     * member nor privileged, [NotFoundException] if `memberId` does not resolve to an existing
      * member.
      */
     suspend fun updateMemberBeneficialOwnerData(

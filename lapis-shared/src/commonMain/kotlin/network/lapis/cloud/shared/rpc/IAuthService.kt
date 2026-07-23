@@ -36,8 +36,8 @@ import network.lapis.cloud.shared.domain.SessionInfoDto
 interface IAuthService {
     /**
      * Role: any authenticated member, self-service only -- changes the CALLER's own password.
-     * [currentPassword] must match the caller's existing hash (`InvalidPasswordException` if not);
-     * [newPassword] must satisfy the server-side strength policy (`WeakPasswordException` if not,
+     * [currentPassword] must match the caller's existing hash ([InvalidPasswordException] if not);
+     * [newPassword] must satisfy the server-side strength policy ([WeakPasswordException] if not,
      * see `network.lapis.cloud.server.security.PasswordPolicy`). On success, every OTHER live
      * session belonging to this member is revoked (the caller's own current session stays valid)
      * -- see `network.lapis.cloud.server.security.SessionStore.revokeAllForMember`.

@@ -61,7 +61,7 @@ interface IAccountingService {
      * and nothing is persisted. When [network.lapis.cloud.shared.domain.OrganizationSettingsDto
      * .isPoliticalParty] is `true` and this entry carries a donor (member, external, or explicit
      * anonymous), the §25 PartG compliance check also runs: a `PROHIBITED` verdict rejects the
-     * whole entry with `ConflictException` (nothing persisted); an `ALLOWED` verdict with
+     * whole entry with [ConflictException] (nothing persisted); an `ALLOWED` verdict with
      * additional duties still succeeds -- duties are never a posting blocker, see
      * `network.lapis.cloud.server.rpc.PartyDonationComplianceCalculator` KDoc and
      * [getDonationDutyReport]. A complete no-op for a plain gemeinnuetziger Verein
@@ -169,11 +169,11 @@ interface IAccountingService {
      * [network.lapis.cloud.shared.domain.LedgerAccountDto.isCashRegister] account over
      * `[from, to]` (both inclusive; `from == null` means "since inception") -- see [KassenbuchDto]
      * KDoc. Only [JournalEntryStatus.POSTED] postings contribute -- same "DRAFT is provisional"
-     * rule as [getGeneralLedgerAccount]. Rejects with `ConflictException` if [ledgerAccountId]
+     * rule as [getGeneralLedgerAccount]. Rejects with [ConflictException] if [ledgerAccountId]
      * names an existing account that is not [network.lapis.cloud.shared.domain.LedgerAccountDto
      * .isCashRegister] (wrong kind of resource for this endpoint -- requires a DB lookup of the
      * account's persisted state to evaluate, same tier as [getGeneralLedgerAccount]'s other
-     * existing-entity-wrong-state checks), and `NotFoundException` if it does not exist at all --
+     * existing-entity-wrong-state checks), and [NotFoundException] if it does not exist at all --
      * mirrors [getGeneralLedgerAccount]'s existing not-found behavior.
      */
     suspend fun getKassenbuch(
@@ -185,7 +185,7 @@ interface IAccountingService {
     /**
      * Role: TREASURER/ADMIN. Kostenstellen-/Projektbuchhaltung (V0.3.6): creates a new, open-ended
      * [CostCenterDto] -- see that DTO's KDoc. Rejects a duplicate [CostCenterInput.code] and a
-     * blank [CostCenterInput.code] with `BadRequestException`.
+     * blank [CostCenterInput.code] with [BadRequestException].
      */
     suspend fun createCostCenter(input: CostCenterInput): CostCenterDto
 
@@ -210,7 +210,7 @@ interface IAccountingService {
     /**
      * Role: TREASURER/ADMIN. V0.5.1 §25 PartG donor identity for a non-member donor -- see
      * [ExternalDonorDto] KDoc. Rejects a blank [ExternalDonorInput.displayName] with
-     * `BadRequestException`. NOT gated on [network.lapis.cloud.shared.domain.OrganizationSettingsDto
+     * [BadRequestException]. NOT gated on [network.lapis.cloud.shared.domain.OrganizationSettingsDto
      * .isPoliticalParty] -- useful to a plain gemeinnuetziger Verein too (attributing a non-member
      * donation for a §10b EStG receipt); only the compliance *check* itself is party-gated.
      */

@@ -21,7 +21,9 @@ import network.lapis.cloud.shared.domain.OraclePriceStatusDto
 import network.lapis.cloud.shared.domain.PriceOracleConfigDto
 import network.lapis.cloud.shared.domain.PriceOracleConfigInput
 import network.lapis.cloud.shared.domain.PriceOracleConversionDto
+import network.lapis.cloud.shared.rpc.ConflictException
 import network.lapis.cloud.shared.rpc.IPriceOracleService
+import network.lapis.cloud.shared.rpc.NotFoundException
 import org.jetbrains.exposed.v1.core.ResultRow
 import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.jdbc.insert

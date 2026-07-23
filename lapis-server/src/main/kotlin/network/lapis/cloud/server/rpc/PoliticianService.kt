@@ -20,7 +20,9 @@ import network.lapis.cloud.shared.domain.PoliticianProfileStatus
 import network.lapis.cloud.shared.domain.PoliticianReactionDto
 import network.lapis.cloud.shared.domain.PoliticianReactionValue
 import network.lapis.cloud.shared.domain.PoliticianWeightSnapshotDto
+import network.lapis.cloud.shared.rpc.ConflictException
 import network.lapis.cloud.shared.rpc.IPoliticianService
+import network.lapis.cloud.shared.rpc.NotFoundException
 import org.jetbrains.exposed.v1.core.JoinType
 import org.jetbrains.exposed.v1.core.ResultRow
 import org.jetbrains.exposed.v1.core.SortOrder

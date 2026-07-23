@@ -26,10 +26,11 @@ import network.lapis.cloud.server.db.generated.MemberTable
 import network.lapis.cloud.server.db.generated.SessionTable
 import network.lapis.cloud.server.security.PasswordHasher
 import network.lapis.cloud.server.security.SessionStore
-import network.lapis.cloud.server.security.UnauthenticatedException
-import network.lapis.cloud.server.security.WeakPasswordException
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.MemberStatus
+import network.lapis.cloud.shared.rpc.InvalidPasswordException
+import network.lapis.cloud.shared.rpc.UnauthenticatedException
+import network.lapis.cloud.shared.rpc.WeakPasswordException
 import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.core.inList
 import org.jetbrains.exposed.v1.jdbc.deleteWhere

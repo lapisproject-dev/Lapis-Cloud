@@ -10,7 +10,9 @@ import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.AuditChainVerificationResultDto
 import network.lapis.cloud.shared.domain.AuditLogEntryDto
 import network.lapis.cloud.shared.domain.AuditLogListQuery
+import network.lapis.cloud.shared.rpc.BadRequestException
 import network.lapis.cloud.shared.rpc.IAuditLogService
+import network.lapis.cloud.shared.rpc.NotFoundException
 import org.jetbrains.exposed.v1.core.Op
 import org.jetbrains.exposed.v1.core.ResultRow
 import org.jetbrains.exposed.v1.core.SortOrder

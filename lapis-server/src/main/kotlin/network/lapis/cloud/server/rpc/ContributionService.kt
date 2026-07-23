@@ -1,7 +1,5 @@
 package network.lapis.cloud.server.rpc
 
-import dev.kilua.rpc.AbstractServiceException
-import dev.kilua.rpc.annotations.RpcServiceException
 import io.ktor.server.application.ApplicationCall
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.LocalDateTime
@@ -10,7 +8,6 @@ import kotlinx.datetime.toLocalDateTime
 import network.lapis.cloud.server.db.generated.ContributionTable
 import network.lapis.cloud.server.db.generated.MemberTable
 import network.lapis.cloud.server.db.generated.MembershipTierTable
-import network.lapis.cloud.server.security.ForbiddenException
 import network.lapis.cloud.server.security.isPrivileged
 import network.lapis.cloud.server.security.requireRole
 import network.lapis.cloud.server.security.resolveCurrentMember
@@ -21,7 +18,9 @@ import network.lapis.cloud.shared.domain.MemberContributionSummaryDto
 import network.lapis.cloud.shared.domain.MemberStatus
 import network.lapis.cloud.shared.domain.MembershipTierDto
 import network.lapis.cloud.shared.domain.MembershipTierInput
+import network.lapis.cloud.shared.rpc.ForbiddenException
 import network.lapis.cloud.shared.rpc.IContributionService
+import network.lapis.cloud.shared.rpc.NotFoundException
 import org.jetbrains.exposed.v1.core.JoinType
 import org.jetbrains.exposed.v1.core.Op
 import org.jetbrains.exposed.v1.core.ResultRow
@@ -37,11 +36,6 @@ import org.jetbrains.exposed.v1.jdbc.update
 import java.math.BigDecimal
 import kotlin.time.Clock
 import kotlin.uuid.Uuid
-
-@RpcServiceException
-class NotFoundException(
-    override val message: String,
-) : AbstractServiceException()
 
 private val TREASURY_ROLES = arrayOf(AccountRole.TREASURER, AccountRole.ADMIN)
 private val BOARD_ROLES = arrayOf(AccountRole.BOARD, AccountRole.ADMIN)

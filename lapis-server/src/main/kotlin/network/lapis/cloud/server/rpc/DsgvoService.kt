@@ -13,7 +13,6 @@ import network.lapis.cloud.server.dsgvo.PersonalDataRegistry
 import network.lapis.cloud.server.dsgvo.TableErasureOutcome
 import network.lapis.cloud.server.dsgvo.nowUtc
 import network.lapis.cloud.server.security.CurrentMember
-import network.lapis.cloud.server.security.ForbiddenException
 import network.lapis.cloud.server.security.requireRole
 import network.lapis.cloud.server.security.resolveCurrentMember
 import network.lapis.cloud.shared.domain.AccountRole
@@ -24,7 +23,10 @@ import network.lapis.cloud.shared.domain.ErasureRequestDto
 import network.lapis.cloud.shared.domain.ErasureStatus
 import network.lapis.cloud.shared.domain.ExportManifestDto
 import network.lapis.cloud.shared.domain.TableErasureOutcomeDto
+import network.lapis.cloud.shared.rpc.ConflictException
+import network.lapis.cloud.shared.rpc.ForbiddenException
 import network.lapis.cloud.shared.rpc.IDsgvoService
+import network.lapis.cloud.shared.rpc.NotFoundException
 import org.jetbrains.exposed.v1.core.JoinType
 import org.jetbrains.exposed.v1.core.ResultRow
 import org.jetbrains.exposed.v1.core.eq
