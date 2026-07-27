@@ -4,6 +4,39 @@ All notable changes to this project are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and adheres to
 [Semantic Versioning](https://semver.org/).
 
+## [0.8.1] — 2026-07-27
+
+### Added
+
+**Federation protocol Grundgerüst** — the foundational, content-agnostic infrastructure for server-to-server federation between Lapis Cloud instances (V0.8), using a deliberate **hybrid protocol**: an ActivityPub-compatible core (Actor documents, inbox/outbox, `Follow`/`Accept`/`Reject`/`Undo` handshake, HTTP Signature delivery) plus a namespaced `lapis:` JSON-LD extension vocabulary for this project's own differentiator (LTR amounts, vote weights, pseudonym-reputation-anchors). Rationale: a pure ActivityPub approach has no native vocabulary for Meritokratie-specific data, while a pure custom protocol would forgo real Fediverse tooling/interoperability — a strategic goal in its own right (broader reach amplifies adoption of the underlying libertarian structural mechanics by other organizations federating or forking, "Ideologie-Übernahme durch Reichweite"). Mirrors the sibling identity decision (OIDC core + custom Trust-Anchor governance) already used elsewhere in this project.
+
+Each server instance federates as a single ActivityPub Actor representing the *organization* itself (this codebase is single-tenant — one `organization_settings` row per deployment), not individual members, with an RSA-2048 keypair used for **HTTP Signatures (draft-cavage scheme)** — chosen deliberately over the newer RFC 9421 because essentially all deployed Fediverse software (Mastodon, Pleroma/Akkoma, Misskey/Firefish) still speaks draft-cavage as of this wave, and real interoperability with that software is this wave's explicit strategic goal; RFC 9421 support can be added additively later if adoption shifts (the signing-string construction is already isolated so this is a pure addition, not a rewrite). Signed headers: `(request-target) host date digest`, algorithm `rsa-sha256`.
+
+New public endpoints: `GET /federation/actor` (Actor document, JSON-LD `application/activity+json`), `POST /federation/inbox` (signed Activity delivery from untrusted remote servers — HTTP-Signature-verified with a 5-minute freshness/replay window, rate-limited per source IP, payload-size- and JSON-nesting-depth-bounded, with signature verification happening *before* any JSON parsing), `GET /federation/outbox` (a minimal, capped `OrderedCollection` of outbound Activities). A new ADMIN-only RPC surface (`IFederationService`) manages the `Follow`/`Accept`/`Reject`/`Undo` relationship lifecycle between organizations — inbound `Follow` requires explicit ADMIN approval, deliberately no auto-accept — recorded in a dedicated, append-only event log (`federation_relationship_event`) alongside a full inbox-delivery audit trail (`federation_inbox_delivery_log`) for forensics on every request the public inbox receives, verified or not. Remote actor-key/document fetches reuse the price-oracle's SSRF-hardening *pattern* (HTTPS-only, no redirects, bounded timeouts/response size) but not its fixed-hostname allowlist mechanism, which cannot apply to inherently open-ended federation targets — instead resolving DNS and rejecting private/loopback/link-local/reserved IP ranges (a known residual DNS-rebinding TOCTOU gap between address-check and connection is documented, not silently accepted).
+
+`federation_relationship.remote_actor_uri` carries a hard `UNIQUE` constraint (one row per remote actor for the server's lifetime) — re-establishing federation after a terminal (`REJECTED`/`UNDONE`) status therefore *updates* that same row back to `PENDING` rather than inserting a second one; the row's full history remains reconstructable via the still-append-only event log regardless of how many times its status cycles through terminal and back.
+
+**Explicit scope boundary**: this wave builds the federation protocol layer only. No existing content type (crowdfunding projects, politician profiles, governance resolutions) is wired into outbound federation yet — which content federates first, and how, is a separate product-scope decision left to a later wave. The `lapis:` extension vocabulary is proven with a serialization round-trip test (a populated extension survives encode→decode byte-for-byte; a vanilla/non-Lapis-Cloud ActivityPub parser decodes the same JSON cleanly, ignoring the unknown block; an unused extension is entirely absent from the wire, not null-valued) but carries no real content type's data yet.
+
+Also out of scope for V0.8.1 (separate, already-planned waves): OIDC guest access (V0.8.2, a different identity mechanism authenticating individual members, not server-to-server delivery), automatic inter-server Trust-Anchor governance (V0.8.3 — this wave's Follow handshake requires explicit ADMIN approval for every inbound relationship), and the guest timeline badge/UI (V0.8.4).
+
+### Security
+
+- New public, unauthenticated-until-signature-verified surface (`/federation/inbox`) — hardened with a dedicated per-IP rate limiter (checked before any body read), a hard request-body size cap enforced before JSON parsing, and a linear, non-recursive JSON-nesting-depth scan before typed decoding (even building a `JsonElement` tree is itself recursive and could otherwise overflow the stack on deep-but-small attacker input), on top of HTTP Signature verification and a replay guard.
+- `federation_actor_key.private_key_pem` is this codebase's first genuinely round-trippable secret (every prior secret — password hashes, session tokens — is a one-way digest, never read back); stored as plaintext PEM, same DB-is-the-trust-boundary posture already applied to every other sensitive column in this schema (e.g. `organization_settings.bank_iban`), not a new exception. Included in the full-organization export/restore bundle at the same sensitivity tier as `account.password_hash`, since the restore mechanism exists for genuine organization secession and a migrating organization should keep its federation identity.
+
+### Known limitations (tracked for later versions)
+
+- No content type is actually federated yet — planned for a later V0.8.x wave once the product decision on which content type federates first is made.
+- Inbound Follow requires manual ADMIN approval; no automatic inter-server trust pools yet — planned for V0.8.3 (Trust-Anchor governance).
+- The remote-actor SSRF guard has a known DNS-rebinding TOCTOU gap between address-check and actual connection — full closure requires pinning the resolved IP for the connection itself.
+- No key rotation for the local Actor's keypair yet.
+- No delivery retry — a failed outbound POST (network error, remote unreachable) is logged but not retried/queued; no background-job infrastructure exists anywhere in this codebase yet.
+
+### Verification
+
+`./gradlew clean check` — 919 tests total (67 new federation-specific tests across 8 test classes: `HttpSignaturesTest`, `FederationHttpClientSsrfTest`, `FederationInboxRateLimiterTest`, `FederationRelationshipStateMachineTest`, `ActivityPubExtensionRoundTripTest`, `FederationSchemaDriftTest`, `FederationServiceTest`, `FederationRoutesTest`), 0 failures, ktlint clean.
+
 ## [0.7.4] — 2026-07-23
 
 ### Fixed

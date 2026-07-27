@@ -40,6 +40,14 @@ private const val STORAGE_KEY_COLUMN = "storage_key"
  * there is deliberately no at-rest encryption of the bundle file itself here, left to the operator
  * or a later wave, not silently assumed.
  *
+ * **V0.8.1 addition**: the bundle now also carries `federation_actor_key.private_key_pem` -- this
+ * server's own ActivityPub Actor private key, deliberately INCLUDED (not added to
+ * [OrganizationSchemaCatalog.EXCLUDED_TABLES]), same sensitivity tier as `account.password_hash`
+ * above. This restore mechanism exists for genuine organization secession/migration to a new
+ * server (see class KDoc "Sezessionsrecht"), and a migrating organization should keep its
+ * federation identity -- same actor URI, same keypair, same established relationships -- exactly
+ * as it keeps its ledger/governance history.
+ *
  * **Streaming / DoS**: no table's rows and no table's full JSONL text are ever collected into a
  * `List`/`String` in memory -- each row is read from the JDBC [java.sql.ResultSet], immediately
  * JSON-encoded, and immediately written to the ZIP output stream, one row at a time. [JDBC_FETCH_SIZE]

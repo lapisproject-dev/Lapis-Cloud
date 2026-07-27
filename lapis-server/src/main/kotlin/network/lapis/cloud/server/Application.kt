@@ -22,12 +22,17 @@ import network.lapis.cloud.server.db.DatabaseConfig
 import network.lapis.cloud.server.db.DevSeedData
 import network.lapis.cloud.server.economy.oracle.PriceOracleOrchestrator
 import network.lapis.cloud.server.economy.oracle.defaultBitcoinOracleSources
+import network.lapis.cloud.server.federation.FederationActorKeyProvisioner
+import network.lapis.cloud.server.federation.FederationConfig
+import network.lapis.cloud.server.federation.FederationInboxRateLimiter
+import network.lapis.cloud.server.federation.FederationReplayGuard
 import network.lapis.cloud.server.mail.NoOpPasswordResetMailer
 import network.lapis.cloud.server.postal.LetterxpressPostalMailProvider
 import network.lapis.cloud.server.routes.registerAuthRoutes
 import network.lapis.cloud.server.routes.registerBackupRoutes
 import network.lapis.cloud.server.routes.registerDocumentRoutes
 import network.lapis.cloud.server.routes.registerDsgvoRoutes
+import network.lapis.cloud.server.routes.registerFederationRoutes
 import network.lapis.cloud.server.routes.registerMailmergeRoutes
 import network.lapis.cloud.server.rpc.AccountingService
 import network.lapis.cloud.server.rpc.AuctionService
@@ -42,6 +47,7 @@ import network.lapis.cloud.server.rpc.DocumentService
 import network.lapis.cloud.server.rpc.DsgvoComplianceService
 import network.lapis.cloud.server.rpc.DsgvoService
 import network.lapis.cloud.server.rpc.ElectionService
+import network.lapis.cloud.server.rpc.FederationService
 import network.lapis.cloud.server.rpc.GovernanceService
 import network.lapis.cloud.server.rpc.LtrLedgerService
 import network.lapis.cloud.server.rpc.MailingService
@@ -70,6 +76,7 @@ import network.lapis.cloud.shared.rpc.IDocumentService
 import network.lapis.cloud.shared.rpc.IDsgvoComplianceService
 import network.lapis.cloud.shared.rpc.IDsgvoService
 import network.lapis.cloud.shared.rpc.IElectionService
+import network.lapis.cloud.shared.rpc.IFederationService
 import network.lapis.cloud.shared.rpc.IGovernanceService
 import network.lapis.cloud.shared.rpc.ILtrLedgerService
 import network.lapis.cloud.shared.rpc.IMailingService
@@ -148,6 +155,15 @@ fun Application.module() {
     val passwordResetRateLimiter = LoginRateLimiter()
     val passwordResetMailer = NoOpPasswordResetMailer()
 
+    // V0.8.1 Federation-Grundgerüst -- this server's own ActivityPub Actor keypair must exist from
+    // first boot onward (unconditional, not LAPIS_SEED_DEMO_DATA-gated, see
+    // FederationActorKeyProvisioner KDoc), and the two in-memory inbox guards are constructed once
+    // here (same singleton lifecycle as loginRateLimiter/priceOracleOrchestrator above).
+    FederationActorKeyProvisioner.ensureProvisioned(FederationConfig.actorUri)
+    FederationConfig.warnIfNotPubliclyReachable()
+    val federationInboxRateLimiter = FederationInboxRateLimiter()
+    val federationReplayGuard = FederationReplayGuard()
+
     install(CallLogging)
     install(Compression)
     // V0.7.3 Basis-Mehrseiten-UI: PartialContent (HTTP Range, for large JS/asset bundles) and
@@ -193,6 +209,7 @@ fun Application.module() {
         registerService(IAuctionService::class) { call -> AuctionService(call) }
         registerService(IAuthService::class) { call -> AuthService(call) }
         registerService(IRegistrationService::class) { call -> RegistrationService(call, registrationRateLimiter) }
+        registerService(IFederationService::class) { call -> FederationService(call) }
     }
 
     routing {
@@ -207,6 +224,7 @@ fun Application.module() {
         registerMailmergeRoutes(documentStorageRoot)
         registerBackupRoutes(DatabaseConfig.connect(), documentStorageRoot)
         registerAuthRoutes(loginRateLimiter, cookieSecure, passwordResetRateLimiter, passwordResetMailer)
+        registerFederationRoutes(federationInboxRateLimiter, federationReplayGuard)
         getAllServiceManagers().forEach { applyRoutes(it) }
         // Registered last: literal routes above (/api/..., RPC service paths) always win over this
         // catch-all in Ktor's routing trie regardless of registration order, but keeping it last

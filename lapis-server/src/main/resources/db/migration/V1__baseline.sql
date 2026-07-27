@@ -1250,3 +1250,68 @@ INSERT INTO price_oracle_config
 VALUES ('00000000-0000-0000-0000-0000000000f5', 'BITCOIN_BTC', 'EUR', 0.000001,
     300, 2, 300, 1000, CURRENT_TIMESTAMP);
 
+-- V0.8.1 Federation-Grundgerüst: server-to-server ActivityPub-compatible federation between whole
+-- Lapis-Cloud instances (organizations). See 24-federation.kuml.kts file header for the full
+-- fachlich model.
+
+CREATE TABLE federation_actor_key (
+    id UUID PRIMARY KEY,
+    actor_uri VARCHAR(2048) NOT NULL UNIQUE,
+    public_key_pem TEXT NOT NULL,
+    private_key_pem TEXT NOT NULL,
+    created_at TIMESTAMP NOT NULL
+);
+-- Deliberately NO seed INSERT here, unlike every other singleton table above -- actor_uri depends
+-- on LAPIS_PUBLIC_BASE_URL, unknown at migration-authoring time. FederationActorKeyProvisioner
+-- inserts the single row (fixed sentinel id '...-0000-0000000000f6', next unused slot after
+-- price_oracle_config's own '...-f5') idempotently on first Application.module() boot instead.
+-- Still registered in OrganizationRestoreService.SEEDED_SINGLETON_ROWS so a fresh restore target
+-- is not mistaken for "already holds data".
+
+CREATE TABLE federation_relationship (
+    id UUID PRIMARY KEY,
+    direction VARCHAR(8) NOT NULL CHECK (direction IN ('OUTBOUND', 'INBOUND')),
+    status VARCHAR(8) NOT NULL CHECK (status IN ('PENDING', 'ACTIVE', 'REJECTED', 'UNDONE')),
+    remote_actor_uri VARCHAR(2048) NOT NULL UNIQUE,
+    remote_inbox_uri VARCHAR(2048) NOT NULL,
+    remote_public_key_pem TEXT,
+    initiated_activity_id VARCHAR(2048) NOT NULL,
+    created_at TIMESTAMP NOT NULL,
+    updated_at TIMESTAMP NOT NULL
+);
+CREATE INDEX idx_federation_relationship_status ON federation_relationship (status);
+
+CREATE TABLE federation_relationship_event (
+    id UUID PRIMARY KEY,
+    relationship_id UUID NOT NULL,
+    event_type VARCHAR(15) NOT NULL CHECK (event_type IN
+        ('FOLLOW_SENT', 'FOLLOW_RECEIVED', 'ACCEPT_SENT', 'ACCEPT_RECEIVED',
+         'REJECT_SENT', 'REJECT_RECEIVED', 'UNDO_SENT', 'UNDO_RECEIVED')),
+    activity_id VARCHAR(2048),
+    activity_json TEXT NOT NULL,
+    occurred_at TIMESTAMP NOT NULL
+);
+CREATE INDEX idx_federation_relationship_event_relationship ON federation_relationship_event (relationship_id);
+
+CREATE TABLE federation_inbox_delivery_log (
+    id UUID PRIMARY KEY,
+    received_at TIMESTAMP NOT NULL,
+    remote_host VARCHAR(255) NOT NULL,
+    key_id VARCHAR(2048),
+    signature_verified BOOLEAN NOT NULL,
+    reject_reason VARCHAR(64),
+    activity_type VARCHAR(64),
+    activity_id VARCHAR(2048),
+    body_sha256 VARCHAR(64),
+    body_byte_size INTEGER
+);
+CREATE INDEX idx_federation_inbox_delivery_log_received_at ON federation_inbox_delivery_log (received_at);
+
+-- FK constraint, named per this file's established `fk_<table>_<column>` convention (see the big
+-- ALTER TABLE block above) -- kept local to this wave's own append block (added via ALTER TABLE
+-- rather than inline in the CREATE TABLE above, same as every other real FK in this file) because
+-- both federation_relationship_event and its target federation_relationship are themselves defined
+-- above, in this same append block, not in the historical block earlier in the file.
+ALTER TABLE federation_relationship_event
+    ADD CONSTRAINT fk_federation_relationship_event_relationship_id FOREIGN KEY (relationship_id) REFERENCES federation_relationship(id);
+

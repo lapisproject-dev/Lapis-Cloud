@@ -47,13 +47,26 @@ private val CROWDFUNDING_SUBMISSION_GATE_SEED_ID = "00000000-0000-0000-0000-0000
 /** Fixed sentinel id of the single `price_oracle_config` row Flyway seeds -- see `V1__baseline.sql`/`PriceOracleService`. */
 private val PRICE_ORACLE_CONFIG_SEED_ID = "00000000-0000-0000-0000-0000000000f5"
 
-/** Tables that Flyway itself seeds exactly one singleton row into -- see [OrganizationRestoreService.findNonSeedRows]. */
+/**
+ * Fixed sentinel id of the single `federation_actor_key` row -- UNLIKE every other id in this map,
+ * NOT Flyway-seeded (see `24-federation.kuml.kts` file header): `FederationActorKeyProvisioner`
+ * inserts it idempotently on first `Application.module()` boot instead, because `actor_uri`
+ * depends on `LAPIS_PUBLIC_BASE_URL`, unknown at migration-authoring time. Registered here anyway
+ * for the exact same reason every other singleton row is -- otherwise this row would always be
+ * non-empty by the time any restore could run (provisioning happens unconditionally at boot,
+ * before a restore call could ever execute), permanently blocking restore on every server without
+ * `allowNonEmptyTarget=true`.
+ */
+private val FEDERATION_ACTOR_KEY_SEED_ID = "00000000-0000-0000-0000-0000000000f6"
+
+/** Tables that Flyway itself seeds exactly one singleton row into (or, for `federation_actor_key`, a row provisioned at first boot instead -- see that entry's own comment) -- see [OrganizationRestoreService.findNonSeedRows]. */
 private val SEEDED_SINGLETON_ROWS: Map<String, Pair<String, String>> =
     mapOf(
         "organization_settings" to ("id" to ORGANIZATION_SETTINGS_SEED_ID),
         "audit_log_chain_state" to ("id" to AUDIT_LOG_CHAIN_STATE_SEED_ID),
         "crowdfunding_submission_gate" to ("id" to CROWDFUNDING_SUBMISSION_GATE_SEED_ID),
         "price_oracle_config" to ("id" to PRICE_ORACLE_CONFIG_SEED_ID),
+        "federation_actor_key" to ("id" to FEDERATION_ACTOR_KEY_SEED_ID),
     )
 
 /** Result of a successful [OrganizationRestoreService.restore] call -- a failed restore throws instead of returning, see that method's KDoc. */

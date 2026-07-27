@@ -35,14 +35,14 @@ class DomainModelMergerTest :
         // ── Test 1: merging the real 22 domain scripts ───────────────────────────────────
 
         test(
-            "merging the real 24 domain scripts succeeds and the uml-to-erm -> erm-to-exposed chain " +
+            "merging the real 25 domain scripts succeeds and the uml-to-erm -> erm-to-exposed chain " +
                 "produces exactly one Table file per distinct table name",
         ) {
             val scriptFiles =
                 requireNotNull(KumlModelLoader.kumlSourceDir.listFiles { f -> f.name.endsWith(".kuml.kts") }) {
                     "kUML source dir not found or not a directory: ${KumlModelLoader.kumlSourceDir.absolutePath}"
                 }.sortedBy { it.name }
-            scriptFiles shouldHaveSize 24
+            scriptFiles shouldHaveSize 25
 
             val diagrams = scriptFiles.map { KumlModelLoader.loadUmlDiagram(it) }
 
@@ -146,7 +146,14 @@ class DomainModelMergerTest :
             // contributes +3 «Entity» declarations (the stub + 2 real tables) and +1 drop (the stub
             // merges into the already-existing member entity) versus the V0.7.1 baseline above
             // (70 -> 72).
-            val distinctTableNames = 72
+            // 24-federation.kuml.kts (V0.8.1 Federation-Grundgerüst) adds exactly four more real
+            // tables (federation_actor_key, federation_relationship, federation_relationship_event,
+            // federation_inbox_delivery_log), WITH NO cross-domain Member stub at all -- none of the
+            // four tables have any FK to member (the federated Actor is the organization itself, not
+            // a Member; federation_relationship_event's only FK is same-file, to
+            // federation_relationship) -- so it contributes +4 «Entity» declarations and +0 drops
+            // versus the V0.7.2 baseline above (72 -> 76).
+            val distinctTableNames = 76
 
             val result =
                 UmlToExposedViaErmScriptTransformer().transform(
@@ -241,6 +248,10 @@ class DomainModelMergerTest :
                     "SessionTable.kt",
                     "MembershipAgreementAcknowledgmentTable.kt",
                     "PasswordResetTokenTable.kt",
+                    "FederationActorKeyTable.kt",
+                    "FederationRelationshipTable.kt",
+                    "FederationRelationshipEventTable.kt",
+                    "FederationInboxDeliveryLogTable.kt",
                 )
         }
 
