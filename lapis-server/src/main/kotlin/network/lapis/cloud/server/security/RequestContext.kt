@@ -6,6 +6,7 @@ import network.lapis.cloud.server.db.generated.AccountTable
 import network.lapis.cloud.server.db.generated.MemberTable
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.DocumentAccessLevel
+import network.lapis.cloud.shared.domain.MemberStatus
 import network.lapis.cloud.shared.rpc.ForbiddenException
 import network.lapis.cloud.shared.rpc.UnauthenticatedException
 import org.jetbrains.exposed.v1.core.eq
@@ -37,10 +38,27 @@ private val logger = KotlinLogging.logger {}
  * of this codebase's ~700 existing tests (905 `header("X-Member-Id", ...)` call sites) keeps
  * working unmodified. [AuthTestMode.trustedHeaderAuthEnabled] is structurally `false` in any real
  * (Postgres) deployment — see that object's KDoc for the full defense-in-depth reasoning.
+ *
+ * [isGuest] (V0.8.2 OIDC-Gastzugang-Federation) is `true` iff this [CurrentMember] was resolved via
+ * a [network.lapis.cloud.server.db.generated.MemberTable] row with
+ * `status == `[network.lapis.cloud.shared.domain.MemberStatus.GAST]` -- see
+ * [network.lapis.cloud.server.federation.OidcGuestMemberStore] KDoc for the full "guest = real
+ * Member row" design decision. Existing `status`-checking gates
+ * ([network.lapis.cloud.server.rpc.requireActiveMembership] and friends) already exclude
+ * [network.lapis.cloud.shared.domain.MemberStatus.GAST] structurally and do not need this field --
+ * it exists as a POSITIVE, greppable signal for any future call site that wants to special-case a
+ * guest explicitly, rather than relying on "GAST fails requireActiveMembership" tribal knowledge.
+ * **Known gap, flagged not silently fixed**: role-only gates (`requireRole`, `isPrivileged`,
+ * `canAccessDocumentAtLevel(PUBLIC_MEMBERS)` which returns `true` for ANY resolved [CurrentMember]
+ * regardless of `status`) do NOT consult [isGuest] -- a guest session (always `role = MEMBER`)
+ * currently reads `PUBLIC_MEMBERS`-level documents exactly like a real member. Deliberately left
+ * unchanged this wave (no document-access scoping was requested, and changing it either way is a
+ * product-scope decision, not an oversight) -- see the V0.8.2 plan's "Open design questions".
  */
 data class CurrentMember(
     val memberId: Uuid,
     val role: AccountRole,
+    val isGuest: Boolean = false,
 )
 
 private const val MEMBER_ID_HEADER = "X-Member-Id"
@@ -94,7 +112,11 @@ private fun resolveFromTrustedHeader(call: ApplicationCall): CurrentMember? {
                 .where { MemberTable.id eq memberId }
                 .singleOrNull()
                 ?: return@transaction null
-        CurrentMember(memberId = memberId, role = row[AccountTable.role])
+        CurrentMember(
+            memberId = memberId,
+            role = row[AccountTable.role],
+            isGuest = row[MemberTable.status] == MemberStatus.GAST,
+        )
     }
 }
 

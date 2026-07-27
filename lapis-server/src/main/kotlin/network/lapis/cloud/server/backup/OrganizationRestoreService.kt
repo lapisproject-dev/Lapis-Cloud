@@ -59,7 +59,18 @@ private val PRICE_ORACLE_CONFIG_SEED_ID = "00000000-0000-0000-0000-0000000000f5"
  */
 private val FEDERATION_ACTOR_KEY_SEED_ID = "00000000-0000-0000-0000-0000000000f6"
 
-/** Tables that Flyway itself seeds exactly one singleton row into (or, for `federation_actor_key`, a row provisioned at first boot instead -- see that entry's own comment) -- see [OrganizationRestoreService.findNonSeedRows]. */
+/**
+ * Fixed sentinel id of the single `oidc_signing_key` row -- UNLIKE most other ids in this map (but
+ * LIKE `federation_actor_key` above), NOT Flyway-seeded (see `25-oidc-guest-federation.kuml.kts`
+ * file header / `OidcSigningKeyProvisioner`): the keypair is generated at first
+ * `Application.module()` boot instead. Registered here for the exact same reason
+ * `federation_actor_key` is -- otherwise this row would always be non-empty by the time any
+ * restore could run, permanently blocking restore on every server without
+ * `allowNonEmptyTarget=true`.
+ */
+private val OIDC_SIGNING_KEY_SEED_ID = "00000000-0000-0000-0000-0000000000f7"
+
+/** Tables that Flyway itself seeds exactly one singleton row into (or, for `federation_actor_key`/`oidc_signing_key`, a row provisioned at first boot instead -- see those entries' own comments) -- see [OrganizationRestoreService.findNonSeedRows]. */
 private val SEEDED_SINGLETON_ROWS: Map<String, Pair<String, String>> =
     mapOf(
         "organization_settings" to ("id" to ORGANIZATION_SETTINGS_SEED_ID),
@@ -67,6 +78,7 @@ private val SEEDED_SINGLETON_ROWS: Map<String, Pair<String, String>> =
         "crowdfunding_submission_gate" to ("id" to CROWDFUNDING_SUBMISSION_GATE_SEED_ID),
         "price_oracle_config" to ("id" to PRICE_ORACLE_CONFIG_SEED_ID),
         "federation_actor_key" to ("id" to FEDERATION_ACTOR_KEY_SEED_ID),
+        "oidc_signing_key" to ("id" to OIDC_SIGNING_KEY_SEED_ID),
     )
 
 /** Result of a successful [OrganizationRestoreService.restore] call -- a failed restore throws instead of returning, see that method's KDoc. */

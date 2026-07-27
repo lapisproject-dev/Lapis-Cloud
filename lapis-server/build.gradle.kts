@@ -58,6 +58,10 @@ dependencies {
     // V0.7.1 Authentifizierung — see PasswordHasher KDoc for why bcrypt over Argon2id.
     implementation(libs.bcrypt)
 
+    // V0.8.2 OIDC-Gastzugang-Federation — see gradle/libs.versions.toml for why a library was
+    // chosen over hand-rolling (departure from V0.8.1's HTTP-Signatures posture).
+    implementation(libs.nimbus.jose.jwt)
+
     // Pre-existing gap found+fixed during V0.7.3 review round 1: h2 was testImplementation-only,
     // so `DatabaseConfig`'s own documented "LAPIS_DB_URL unset -> in-memory H2, zero external
     // setup" default was actually unusable via `./gradlew :lapis-server:run` (H2 driver missing

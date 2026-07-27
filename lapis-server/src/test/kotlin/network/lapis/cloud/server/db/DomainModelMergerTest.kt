@@ -35,14 +35,14 @@ class DomainModelMergerTest :
         // ── Test 1: merging the real 22 domain scripts ───────────────────────────────────
 
         test(
-            "merging the real 25 domain scripts succeeds and the uml-to-erm -> erm-to-exposed chain " +
+            "merging the real 26 domain scripts succeeds and the uml-to-erm -> erm-to-exposed chain " +
                 "produces exactly one Table file per distinct table name",
         ) {
             val scriptFiles =
                 requireNotNull(KumlModelLoader.kumlSourceDir.listFiles { f -> f.name.endsWith(".kuml.kts") }) {
                     "kUML source dir not found or not a directory: ${KumlModelLoader.kumlSourceDir.absolutePath}"
                 }.sortedBy { it.name }
-            scriptFiles shouldHaveSize 25
+            scriptFiles shouldHaveSize 26
 
             val diagrams = scriptFiles.map { KumlModelLoader.loadUmlDiagram(it) }
 
@@ -153,7 +153,18 @@ class DomainModelMergerTest :
             // a Member; federation_relationship_event's only FK is same-file, to
             // federation_relationship) -- so it contributes +4 «Entity» declarations and +0 drops
             // versus the V0.7.2 baseline above (72 -> 76).
-            val distinctTableNames = 76
+            // 25-oidc-guest-federation.kuml.kts (V0.8.2 OIDC-Gastzugang-Federation) adds exactly
+            // nine more real tables (oidc_signing_key, oidc_client_registration,
+            // oidc_client_redirect_uri, oidc_authorization_code, oidc_issued_token,
+            // oidc_home_server_registration, oidc_rp_login_attempt, oidc_guest_profile,
+            // oidc_guest_login_event), WITH its own cross-domain Member stub
+            // (oidc_authorization_code.member_id/oidc_issued_token.member_id/
+            // oidc_guest_profile.member_id all resolve through it; oidc_guest_login_event.member_id
+            // is deliberately a plain, non-FK column, see that file's own header) -- so it
+            // contributes +10 «Entity» declarations (the stub + 9 real tables) and +1 drop (the
+            // stub merges into the already-existing member entity) versus the V0.8.1 baseline
+            // above (76 -> 85).
+            val distinctTableNames = 85
 
             val result =
                 UmlToExposedViaErmScriptTransformer().transform(
@@ -252,6 +263,15 @@ class DomainModelMergerTest :
                     "FederationRelationshipTable.kt",
                     "FederationRelationshipEventTable.kt",
                     "FederationInboxDeliveryLogTable.kt",
+                    "OidcSigningKeyTable.kt",
+                    "OidcClientRegistrationTable.kt",
+                    "OidcClientRedirectUriTable.kt",
+                    "OidcAuthorizationCodeTable.kt",
+                    "OidcIssuedTokenTable.kt",
+                    "OidcHomeServerRegistrationTable.kt",
+                    "OidcRpLoginAttemptTable.kt",
+                    "OidcGuestProfileTable.kt",
+                    "OidcGuestLoginEventTable.kt",
                 )
         }
 

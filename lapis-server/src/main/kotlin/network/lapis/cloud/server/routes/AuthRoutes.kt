@@ -15,6 +15,7 @@ import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import network.lapis.cloud.server.db.generated.AccountTable
 import network.lapis.cloud.server.db.generated.MemberTable
+import network.lapis.cloud.server.federation.OidcBackChannelLogoutNotifier
 import network.lapis.cloud.server.mail.PasswordResetMailer
 import network.lapis.cloud.server.security.LoginRateLimiter
 import network.lapis.cloud.server.security.PasswordHasher
@@ -175,7 +176,21 @@ fun Route.registerAuthRoutes(
 
     post("/api/auth/logout") {
         val rawToken = call.request.cookies[SESSION_COOKIE_NAME]
-        if (rawToken != null) SessionStore.revoke(rawToken)
+        if (rawToken != null) {
+            val resolved = SessionStore.resolve(rawToken)
+            SessionStore.revoke(rawToken)
+            // V0.8.2 OIDC-Gastzugang-Federation: best-effort courtesy notification to every RP
+            // holding a live grant for this member (if this member went out as a guest elsewhere)
+            // -- see OidcBackChannelLogoutNotifier KDoc "Deliberately awaited inline". This local
+            // logout has already succeeded by this point (revoke() above), but despite the
+            // `notifyAsync` name this call is awaited inline, not launched in the background --
+            // it bounds this HTTP response's latency by federationHttpClient's per-target timeout
+            // (a few seconds) times the number of live RP grants, sequentially. Not truly
+            // fire-and-forget; see the KDoc for why no background-scope idiom exists here yet.
+            if (resolved != null) {
+                OidcBackChannelLogoutNotifier.notifyAsync(resolved.memberId)
+            }
+        }
         // Idempotent by design -- an absent/unknown/already-revoked cookie still yields 204, same
         // as a successful logout. See SessionStore.revoke KDoc.
         call.response.cookies.append(

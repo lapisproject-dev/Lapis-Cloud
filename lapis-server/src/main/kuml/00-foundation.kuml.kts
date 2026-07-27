@@ -163,6 +163,17 @@ classDiagram(name = "Foundation") {
     val account = classOf(name = "Account") {
         stereotype("Entity") { "tableName" to "account"; "kotlinObjectName" to "AccountTable" }
         stereotype("Index") { "columns" to listOf("member_id"); "unique" to true; "name" to "uq_account_member_id" }
+        // V0.8.2 OIDC-Gastzugang-Federation: (oidc_issuer, oidc_subject) jointly identify a
+        // federated principal (iss+sub, globally unique per OIDC spec) -- unique together so the
+        // same home-server identity always resolves to the same local guest Member row on repeat
+        // visits. Postgres/H2 both treat NULL as distinct per unique-index row, so ordinary local
+        // accounts (both columns NULL) never collide with each other or with a real guest row --
+        // see 25-oidc-guest-federation.kuml.kts file header.
+        stereotype("Index") {
+            "columns" to listOf("oidc_issuer", "oidc_subject")
+            "unique" to true
+            "name" to "uq_account_oidc_issuer_subject"
+        }
 
         attribute(name = "id", type = "UUID") {
             stereotype("Id")
@@ -175,6 +186,14 @@ classDiagram(name = "Foundation") {
         attribute(name = "oidcSubject", type = "String") {
             multiplicity = Multiplicity(0, 1)
             stereotype("Column") { "columnName" to "oidc_subject"; "sqlType" to "VARCHAR(200)" }
+        }
+        // V0.8.2 OIDC-Gastzugang-Federation: the federated identity's issuer (home-server origin),
+        // paired with oidcSubject above -- see this class's «Index» stereotype and
+        // 25-oidc-guest-federation.kuml.kts file header. Nullable: only set for a guest account
+        // created via the OIDC Relying Party flow; a real local member never has one.
+        attribute(name = "oidcIssuer", type = "String") {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") { "columnName" to "oidc_issuer"; "sqlType" to "VARCHAR(2048)" }
         }
         attribute(name = "role", type = accountRole) {
             stereotype("Column") { "columnName" to "role"; "enumType" to "network.lapis.cloud.shared.domain.AccountRole" }

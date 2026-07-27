@@ -84,6 +84,15 @@ fun renderLoginScreen(container: SimplePanel) {
             link("Noch kein Konto? Jetzt Mitglied werden.", url = "#${Routes.REGISTER}")
         }
 
+        // V0.8.2 OIDC-Gastzugang-Federation: a plain, full-page-navigation link (NOT an SPA hash
+        // route) to the server-rendered "log in with your home server" entry point -- see
+        // `network.lapis.cloud.server.routes.OidcRoutes` KDoc. This is the only UI touch-point this
+        // wave makes; the guest timeline badge is a separate wave (V0.8.4).
+        div {
+            marginTop = 8.px
+            link("Gast eines anderen Lapis-Cloud-Servers? Mit Heimatserver anmelden.", url = "/federation/oidc/rp/login")
+        }
+
         renderForgotPasswordToggle(this)
     }
 }

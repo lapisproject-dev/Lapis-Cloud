@@ -11,6 +11,14 @@ public object AccountTable : Table("account") {
     public val id: Column<Uuid> = uuid("id")
     public val passwordHash: Column<String?> = varchar("password_hash", 200).nullable()
     public val oidcSubject: Column<String?> = varchar("oidc_subject", 200).nullable()
+
+    // V0.8.2 OIDC-Gastzugang-Federation: paired with oidcSubject above to identify a federated
+    // principal (iss+sub). NO .uniqueIndex() here (Exposed's single-column uniqueIndex() cannot
+    // express the composite (oidc_issuer, oidc_subject) constraint) -- the real composite unique
+    // index is created by the Flyway migration append block, verified by
+    // OidcGuestFederationSchemaDriftTest.
+    public val oidcIssuer: Column<String?> = varchar("oidc_issuer", 2048).nullable()
+
     public val role: Column<AccountRole> = enumerationByName<AccountRole>("role", 9)
     public val memberId: Column<Uuid> = reference("member_id", MemberTable.id)
 

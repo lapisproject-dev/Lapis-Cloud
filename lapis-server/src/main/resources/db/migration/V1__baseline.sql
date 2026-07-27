@@ -1315,3 +1315,133 @@ CREATE INDEX idx_federation_inbox_delivery_log_received_at ON federation_inbox_d
 ALTER TABLE federation_relationship_event
     ADD CONSTRAINT fk_federation_relationship_event_relationship_id FOREIGN KEY (relationship_id) REFERENCES federation_relationship(id);
 
+-- V0.8.2 OIDC-Gastzugang-Federation: individual-MEMBER identity federation (Authorization Code +
+-- PKCE, RFC 7591 Dynamic Client Registration) -- a DIFFERENT mechanism from the server-to-server
+-- content-federation block above. See 25-oidc-guest-federation.kuml.kts file header for the full
+-- fachlich model.
+
+ALTER TABLE account ADD COLUMN oidc_issuer VARCHAR(2048) NULL;
+CREATE UNIQUE INDEX uq_account_oidc_issuer_subject ON account (oidc_issuer, oidc_subject);
+
+CREATE TABLE oidc_signing_key (
+    id UUID PRIMARY KEY,
+    kid VARCHAR(64) NOT NULL UNIQUE,
+    public_key_pem TEXT NOT NULL,
+    private_key_pem TEXT NOT NULL,
+    created_at TIMESTAMP NOT NULL
+);
+-- Deliberately NO seed INSERT here -- same reasoning as federation_actor_key above:
+-- OidcSigningKeyProvisioner inserts the single row (fixed sentinel id
+-- '...-0000-0000000000f7', next unused slot after federation_actor_key's own '...-f6')
+-- idempotently on first Application.module() boot instead. Registered in
+-- OrganizationRestoreService.SEEDED_SINGLETON_ROWS for the same "fresh restore target" reasoning.
+
+CREATE TABLE oidc_client_registration (
+    id UUID PRIMARY KEY,
+    client_id VARCHAR(64) NOT NULL UNIQUE,
+    client_secret_hash VARCHAR(64) NOT NULL,
+    client_name VARCHAR(200) NOT NULL,
+    backchannel_logout_uri VARCHAR(2048),
+    created_at TIMESTAMP NOT NULL
+);
+
+CREATE TABLE oidc_client_redirect_uri (
+    id UUID PRIMARY KEY,
+    client_registration_id UUID NOT NULL,
+    redirect_uri VARCHAR(2048) NOT NULL
+);
+CREATE INDEX idx_oidc_client_redirect_uri_client ON oidc_client_redirect_uri (client_registration_id);
+
+CREATE TABLE oidc_authorization_code (
+    id UUID PRIMARY KEY,
+    code_hash VARCHAR(64) NOT NULL UNIQUE,
+    client_registration_id UUID NOT NULL,
+    member_id UUID NOT NULL,
+    redirect_uri VARCHAR(2048) NOT NULL,
+    scope VARCHAR(500) NOT NULL,
+    code_challenge VARCHAR(128) NOT NULL,
+    nonce VARCHAR(255),
+    created_at TIMESTAMP NOT NULL,
+    expires_at TIMESTAMP NOT NULL,
+    consumed_at TIMESTAMP
+);
+CREATE INDEX idx_oidc_authorization_code_expires_at ON oidc_authorization_code (expires_at);
+
+CREATE TABLE oidc_issued_token (
+    id UUID PRIMARY KEY,
+    client_registration_id UUID NOT NULL,
+    member_id UUID NOT NULL,
+    access_token_hash VARCHAR(64) NOT NULL UNIQUE,
+    refresh_token_hash VARCHAR(64) NOT NULL UNIQUE,
+    scope VARCHAR(500) NOT NULL,
+    issued_at TIMESTAMP NOT NULL,
+    access_expires_at TIMESTAMP NOT NULL,
+    refresh_expires_at TIMESTAMP NOT NULL,
+    revoked_at TIMESTAMP
+);
+CREATE INDEX idx_oidc_issued_token_member ON oidc_issued_token (member_id);
+
+CREATE TABLE oidc_home_server_registration (
+    id UUID PRIMARY KEY,
+    issuer_url VARCHAR(2048) NOT NULL UNIQUE,
+    authorization_endpoint VARCHAR(2048) NOT NULL,
+    token_endpoint VARCHAR(2048) NOT NULL,
+    jwks_uri VARCHAR(2048) NOT NULL,
+    client_id VARCHAR(200) NOT NULL,
+    client_secret VARCHAR(500) NOT NULL,
+    registered_at TIMESTAMP NOT NULL
+);
+
+CREATE TABLE oidc_rp_login_attempt (
+    id UUID PRIMARY KEY,
+    state_hash VARCHAR(64) NOT NULL UNIQUE,
+    home_server_registration_id UUID NOT NULL,
+    code_verifier VARCHAR(128) NOT NULL,
+    nonce VARCHAR(255) NOT NULL,
+    redirect_uri VARCHAR(2048) NOT NULL,
+    created_at TIMESTAMP NOT NULL,
+    expires_at TIMESTAMP NOT NULL,
+    consumed_at TIMESTAMP
+);
+CREATE INDEX idx_oidc_rp_login_attempt_expires_at ON oidc_rp_login_attempt (expires_at);
+
+CREATE TABLE oidc_guest_profile (
+    id UUID PRIMARY KEY,
+    member_id UUID NOT NULL,
+    picture_url VARCHAR(2048),
+    homeserver_url VARCHAR(2048) NOT NULL,
+    membership_status VARCHAR(100),
+    granted_scope VARCHAR(500) NOT NULL,
+    last_login_at TIMESTAMP NOT NULL
+);
+CREATE UNIQUE INDEX uq_oidc_guest_profile_member_id ON oidc_guest_profile (member_id);
+
+-- member_id is DELIBERATELY plain UUID, NO FOREIGN KEY -- see 25-oidc-guest-federation.kuml.kts
+-- file header and OidcGuestLoginEventTable KDoc. Pinned by OidcGuestFederationSchemaDriftTest.
+CREATE TABLE oidc_guest_login_event (
+    id UUID PRIMARY KEY,
+    occurred_at TIMESTAMP NOT NULL,
+    event_type VARCHAR(27) NOT NULL CHECK (event_type IN
+        ('RP_LOGIN_SUCCESS', 'RP_LOGIN_FAILED', 'ISSUER_TOKEN_ISSUED', 'ISSUER_TOKEN_ISSUE_FAILED',
+         'BACKCHANNEL_LOGOUT_RECEIVED', 'BACKCHANNEL_LOGOUT_SENT')),
+    member_id UUID,
+    remote_party VARCHAR(2048),
+    reason VARCHAR(255)
+);
+CREATE INDEX idx_oidc_guest_login_event_occurred_at ON oidc_guest_login_event (occurred_at);
+
+ALTER TABLE oidc_client_redirect_uri
+    ADD CONSTRAINT fk_oidc_client_redirect_uri_client_registration_id FOREIGN KEY (client_registration_id) REFERENCES oidc_client_registration(id);
+ALTER TABLE oidc_authorization_code
+    ADD CONSTRAINT fk_oidc_authorization_code_client_registration_id FOREIGN KEY (client_registration_id) REFERENCES oidc_client_registration(id);
+ALTER TABLE oidc_authorization_code
+    ADD CONSTRAINT fk_oidc_authorization_code_member_id FOREIGN KEY (member_id) REFERENCES member(id);
+ALTER TABLE oidc_issued_token
+    ADD CONSTRAINT fk_oidc_issued_token_client_registration_id FOREIGN KEY (client_registration_id) REFERENCES oidc_client_registration(id);
+ALTER TABLE oidc_issued_token
+    ADD CONSTRAINT fk_oidc_issued_token_member_id FOREIGN KEY (member_id) REFERENCES member(id);
+ALTER TABLE oidc_rp_login_attempt
+    ADD CONSTRAINT fk_oidc_rp_login_attempt_home_server_registration_id FOREIGN KEY (home_server_registration_id) REFERENCES oidc_home_server_registration(id);
+ALTER TABLE oidc_guest_profile
+    ADD CONSTRAINT fk_oidc_guest_profile_member_id FOREIGN KEY (member_id) REFERENCES member(id);
+

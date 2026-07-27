@@ -41,6 +41,7 @@ object PersonalDataRegistry {
             AuctionPersonalData,
             SessionPersonalData,
             RegistrationPersonalData,
+            OidcGuestPersonalData,
         )
 
     /**
@@ -77,6 +78,11 @@ object PersonalDataRegistry {
                 "dsgvo.adoc \"Audit log data protection\".",
             "price_oracle_config" to
                 "Pure single-row oracle policy (anchor/peg/TTL/thresholds), no member FK, no personal data.",
+            "oidc_guest_login_event" to
+                "Forensic security-monitoring log, deliberately no member FK (references the subject only " +
+                "by an unconstrained UUID) -- same accountability-is-its-own-legal-basis treatment as " +
+                "dsgvo_audit_log. Never appears in the information_schema FK walk (no real FK exists), " +
+                "listed here purely for documentation -- see 25-oidc-guest-federation.kuml.kts file header.",
         )
 
     init {

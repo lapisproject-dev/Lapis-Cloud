@@ -26,6 +26,7 @@ import network.lapis.cloud.server.federation.FederationActorKeyProvisioner
 import network.lapis.cloud.server.federation.FederationConfig
 import network.lapis.cloud.server.federation.FederationInboxRateLimiter
 import network.lapis.cloud.server.federation.FederationReplayGuard
+import network.lapis.cloud.server.federation.OidcSigningKeyProvisioner
 import network.lapis.cloud.server.mail.NoOpPasswordResetMailer
 import network.lapis.cloud.server.postal.LetterxpressPostalMailProvider
 import network.lapis.cloud.server.routes.registerAuthRoutes
@@ -34,6 +35,7 @@ import network.lapis.cloud.server.routes.registerDocumentRoutes
 import network.lapis.cloud.server.routes.registerDsgvoRoutes
 import network.lapis.cloud.server.routes.registerFederationRoutes
 import network.lapis.cloud.server.routes.registerMailmergeRoutes
+import network.lapis.cloud.server.routes.registerOidcRoutes
 import network.lapis.cloud.server.rpc.AccountingService
 import network.lapis.cloud.server.rpc.AuctionService
 import network.lapis.cloud.server.rpc.AuditLogService
@@ -164,6 +166,14 @@ fun Application.module() {
     val federationInboxRateLimiter = FederationInboxRateLimiter()
     val federationReplayGuard = FederationReplayGuard()
 
+    // V0.8.2 OIDC-Gastzugang-Federation -- this server's own OIDC JWS signing keypair must exist
+    // from first boot onward too (unconditional, same reasoning as FederationActorKeyProvisioner
+    // above, but a SEPARATE keypair for a SEPARATE cryptographic purpose). The DCR registration
+    // endpoint reuses loginRateLimiter's own class (LoginRateLimiter) as a generic per-IP throttle,
+    // not because it is a login-failure guard -- see registerOidcRoutes' "/register" handler KDoc.
+    OidcSigningKeyProvisioner.ensureProvisioned()
+    val oidcRegistrationRateLimiter = LoginRateLimiter()
+
     install(CallLogging)
     install(Compression)
     // V0.7.3 Basis-Mehrseiten-UI: PartialContent (HTTP Range, for large JS/asset bundles) and
@@ -225,6 +235,7 @@ fun Application.module() {
         registerBackupRoutes(DatabaseConfig.connect(), documentStorageRoot)
         registerAuthRoutes(loginRateLimiter, cookieSecure, passwordResetRateLimiter, passwordResetMailer)
         registerFederationRoutes(federationInboxRateLimiter, federationReplayGuard)
+        registerOidcRoutes(cookieSecure, oidcRegistrationRateLimiter)
         getAllServiceManagers().forEach { applyRoutes(it) }
         // Registered last: literal routes above (/api/..., RPC service paths) always win over this
         // catch-all in Ktor's routing trie regardless of registration order, but keeping it last

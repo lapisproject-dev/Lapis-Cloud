@@ -65,6 +65,8 @@ object FoundationPersonalData : PersonalDataContributor {
                 // Never export the credential values themselves — only whether one is set.
                 put("hasPasswordLogin", accountRow[AccountTable.passwordHash] != null)
                 put("hasOidcLogin", accountRow[AccountTable.oidcSubject] != null)
+                // V0.8.2 OIDC-Gastzugang-Federation: exported alongside hasOidcLogin above.
+                put("oidcHomeServerIssuer", accountRow[AccountTable.oidcIssuer])
             }
         }
 

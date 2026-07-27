@@ -3,6 +3,7 @@ package network.lapis.cloud.server.rpc
 import io.ktor.server.application.ApplicationCall
 import network.lapis.cloud.server.db.generated.AccountTable
 import network.lapis.cloud.server.db.generated.MemberTable
+import network.lapis.cloud.server.federation.OidcBackChannelLogoutNotifier
 import network.lapis.cloud.server.security.PasswordHasher
 import network.lapis.cloud.server.security.PasswordPolicy
 import network.lapis.cloud.server.security.SessionStore
@@ -48,6 +49,12 @@ class AuthService(
         // knowledge of currentPassword) stays valid -- see IAuthService.changePassword KDoc.
         val ownRawToken = extractSessionToken(call)
         SessionStore.revokeAllForMember(current.memberId, exceptRawToken = ownRawToken)
+        // V0.8.2 OIDC-Gastzugang-Federation: best-effort courtesy notification to every RP holding
+        // a live grant for this member -- see OidcBackChannelLogoutNotifier KDoc "Deliberately
+        // awaited inline". Never throws -- but IS awaited inline (not backgrounded), so this call
+        // adds up to federationHttpClient's per-target timeout times the number of live RP grants
+        // to this RPC's latency. The local revocation above has already succeeded by this point.
+        OidcBackChannelLogoutNotifier.notifyAsync(current.memberId)
     }
 
     override suspend fun getSessionInfo(): SessionInfoDto {

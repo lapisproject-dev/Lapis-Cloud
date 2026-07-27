@@ -18,6 +18,13 @@ hikaricp                = "7.1.0"
 kuml                    = "0.36.1"
 pdfbox                  = "3.0.8"
 bcrypt                  = "0.10.2"
+# V0.8.2 OIDC-Gastzugang-Federation: JOSE/JWT sign+verify (ID Tokens, Logout Tokens). Deliberate
+# departure from the "hand-roll before heavy dependency" posture V0.8.1 established for HTTP
+# Signatures -- see OidcJwt.kt KDoc "Why a library, not hand-rolled" for the full rationale
+# (attacker-controlled `alg` header, industry-wide alg-confusion/none-alg CVE history). Apache-2.0,
+# pure JVM, zero transitive deps -- matches this repo's hard permissive-license/no-native-deps
+# posture (same tier as pdfbox/bcrypt).
+nimbus-jose-jwt         = "10.2"
 
 [plugins]
 kotlin-multiplatform    = { id = "org.jetbrains.kotlin.multiplatform", version.ref = "kotlin" }
@@ -92,6 +99,10 @@ pdfbox                           = { module = "org.apache.pdfbox:pdfbox", versio
 # Argon2id (pure-JVM, zero JNI/native code, one Apache-2.0 transitive dependency, matching this
 # repo's hard permissive-license / no-native-deps posture).
 bcrypt                           = { module = "at.favre.lib:bcrypt", version.ref = "bcrypt" }
+
+# V0.8.2 OIDC-Gastzugang-Federation -- see the [versions] entry above for the library-choice
+# rationale.
+nimbus-jose-jwt                  = { module = "com.nimbusds:nimbus-jose-jwt", version.ref = "nimbus-jose-jwt" }
 
 # kUML MDA persistence pipeline (ADR-0016) — test-scoped only (SchemaDriftTest evaluates
 # design.kuml.kts and diffs the generated SQL DDL / Exposed Kotlin against the real schema
