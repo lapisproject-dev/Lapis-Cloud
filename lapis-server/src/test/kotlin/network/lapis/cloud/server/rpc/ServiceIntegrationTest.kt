@@ -19,12 +19,19 @@ import kotlinx.datetime.LocalDate
 import kotlinx.datetime.LocalDateTime
 import network.lapis.cloud.server.db.DatabaseConfig
 import network.lapis.cloud.server.db.DevSeedData
+import network.lapis.cloud.server.db.generated.AccountTable
+import network.lapis.cloud.server.db.generated.MemberTable
+import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.ContributionStatus
 import network.lapis.cloud.shared.domain.DocumentAccessLevel
+import network.lapis.cloud.shared.domain.MemberStatus
 import network.lapis.cloud.shared.rpc.ConflictException
 import network.lapis.cloud.shared.rpc.ForbiddenException
 import network.lapis.cloud.shared.rpc.NotFoundException
 import network.lapis.cloud.shared.rpc.UnauthenticatedException
+import org.jetbrains.exposed.v1.jdbc.insert
+import org.jetbrains.exposed.v1.jdbc.transactions.transaction
+import kotlin.uuid.Uuid
 
 /**
  * Exercises the domain services (Contributions/Documents/Mailing/DirectMessages) end to end
@@ -48,6 +55,35 @@ class ServiceIntegrationTest :
             // deployment, so bypassing the LAPIS_SEED_DEMO_DATA opt-in gate here is safe (the
             // H2-in-memory guard inside seedIfEmpty still applies).
             DevSeedData.seedIfEmpty(force = true)
+        }
+
+        /**
+         * Direct-DB `Member(status=GAST)` + `Account(role=MEMBER)` insert, mirroring the identical
+         * idiom used across the suite (e.g. `CrowdfundingServiceTest`/`PoliticianServiceTest`'s own
+         * `createTestMember(..., status = MemberStatus.GAST)`) -- this is exactly the shape
+         * [network.lapis.cloud.server.federation.OidcGuestMemberStore] produces for a real federated
+         * guest, so resolving this member via the trusted `X-Member-Id` test header exercises the
+         * same [network.lapis.cloud.server.security.CurrentMember.isGuest] path a real guest session
+         * would.
+         */
+        fun createTestGuestMember(email: String): Uuid {
+            val id = Uuid.random()
+            transaction {
+                MemberTable.insert {
+                    it[MemberTable.id] = id
+                    it[displayName] = "Gast-Testmitglied (Document-Guest-Access-Test)"
+                    it[MemberTable.email] = email
+                    it[status] = MemberStatus.GAST
+                    it[joinedAt] = LocalDate(2026, 1, 1)
+                    it[membershipTierId] = null
+                }
+                AccountTable.insert {
+                    it[AccountTable.id] = Uuid.random()
+                    it[memberId] = id
+                    it[AccountTable.role] = AccountRole.MEMBER
+                }
+            }
+            return id
         }
 
         test("contribution lifecycle: generate for seeded tier, list, mark paid, summary reflects it") {
@@ -297,6 +333,79 @@ class ServiceIntegrationTest :
                 val versionsForMember =
                     client.get("/test/list-versions/$adminOnlyDocId") { header("X-Member-Id", MEMBER_ID) }
                 versionsForMember.status shouldBe HttpStatusCode.Forbidden
+            }
+        }
+
+        test(
+            "documents: a guest session is excluded from PUBLIC_MEMBERS in listDocuments and listVersions rejects it, while a real member's access is unchanged",
+        ) {
+            testApplication {
+                application {
+                    install(StatusPages) {
+                        exception<ForbiddenException> { call, cause ->
+                            call.respondText(cause.message, status = HttpStatusCode.Forbidden)
+                        }
+                        exception<NotFoundException> { call, cause ->
+                            call.respondText(cause.message, status = HttpStatusCode.NotFound)
+                        }
+                    }
+                    routing {
+                        post("/test/create-folder") {
+                            val service = DocumentService(call)
+                            val folder = service.createFolder("Satzungen (Guest-Scope-Test)")
+                            call.respondText(folder.id)
+                        }
+                        post("/test/create-document/{folderId}") {
+                            val service = DocumentService(call)
+                            val doc =
+                                service.createDocument(
+                                    call.parameters["folderId"]!!,
+                                    "Vereinssatzung (Guest-Scope-Test)",
+                                    DocumentAccessLevel.PUBLIC_MEMBERS,
+                                )
+                            call.respondText(doc.id)
+                        }
+                        get("/test/list-documents/{folderId}") {
+                            val service = DocumentService(call)
+                            val docs = service.listDocuments(call.parameters["folderId"]!!)
+                            call.respondText(docs.joinToString(",") { it.id })
+                        }
+                        get("/test/list-versions/{documentId}") {
+                            val service = DocumentService(call)
+                            val versions = service.listVersions(call.parameters["documentId"]!!)
+                            call.respondText(versions.size.toString())
+                        }
+                    }
+                }
+
+                val guestId = createTestGuestMember("svc-guest-doc-scope@example.org")
+
+                val folderId = client.post("/test/create-folder") { header("X-Member-Id", BOARD_ID) }.bodyAsText()
+                val publicDocId =
+                    client
+                        .post("/test/create-document/$folderId") { header("X-Member-Id", BOARD_ID) }
+                        .bodyAsText()
+
+                // Regression: a real local member (plain MEMBER role) still sees and can read a
+                // PUBLIC_MEMBERS document exactly as before this fix -- the fix must not tighten
+                // access for anyone who is NOT a guest.
+                val listedByMember =
+                    client.get("/test/list-documents/$folderId") { header("X-Member-Id", MEMBER_ID) }.bodyAsText()
+                (publicDocId in listedByMember.split(",")) shouldBe true
+                val versionsForMember =
+                    client.get("/test/list-versions/$publicDocId") { header("X-Member-Id", MEMBER_ID) }
+                versionsForMember.status shouldBe HttpStatusCode.OK
+
+                // The fix: a guest session (role = MEMBER, status = GAST) is excluded from
+                // PUBLIC_MEMBERS-level documents -- filtered out of listDocuments, and listVersions
+                // rejects a direct-by-id attempt with Forbidden, exactly like the BOARD_ONLY/
+                // ADMIN_ONLY tiers already did for non-privileged callers.
+                val listedByGuest =
+                    client.get("/test/list-documents/$folderId") { header("X-Member-Id", guestId.toString()) }.bodyAsText()
+                (publicDocId in listedByGuest.split(",")) shouldBe false
+                val versionsForGuest =
+                    client.get("/test/list-versions/$publicDocId") { header("X-Member-Id", guestId.toString()) }
+                versionsForGuest.status shouldBe HttpStatusCode.Forbidden
             }
         }
 

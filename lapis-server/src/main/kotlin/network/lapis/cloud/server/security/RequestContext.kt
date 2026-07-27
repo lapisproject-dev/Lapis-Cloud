@@ -48,12 +48,13 @@ private val logger = KotlinLogging.logger {}
  * [network.lapis.cloud.shared.domain.MemberStatus.GAST] structurally and do not need this field --
  * it exists as a POSITIVE, greppable signal for any future call site that wants to special-case a
  * guest explicitly, rather than relying on "GAST fails requireActiveMembership" tribal knowledge.
- * **Known gap, flagged not silently fixed**: role-only gates (`requireRole`, `isPrivileged`,
- * `canAccessDocumentAtLevel(PUBLIC_MEMBERS)` which returns `true` for ANY resolved [CurrentMember]
- * regardless of `status`) do NOT consult [isGuest] -- a guest session (always `role = MEMBER`)
- * currently reads `PUBLIC_MEMBERS`-level documents exactly like a real member. Deliberately left
- * unchanged this wave (no document-access scoping was requested, and changing it either way is a
- * product-scope decision, not an oversight) -- see the V0.8.2 plan's "Open design questions".
+ * [canAccessDocumentAtLevel] is exactly such a call site: `PUBLIC_MEMBERS`-level document access
+ * requires `isGuest == false` (closed gap, see that function's KDoc -- V0.8.2 originally shipped
+ * this role-only and flagged it as a known, deliberately-left-open gap; a later wave closed it).
+ * `BOARD_ONLY`/`ADMIN_ONLY` never needed an explicit [isGuest] check to begin with: a guest's
+ * `role` is always [network.lapis.cloud.shared.domain.AccountRole.MEMBER] (never `BOARD`/`ADMIN` --
+ * no write path in this codebase elevates a guest's `Account.role` after creation), so
+ * [isPrivileged] and `role == ADMIN` already excluded a guest transitively.
  */
 data class CurrentMember(
     val memberId: Uuid,
@@ -132,10 +133,21 @@ val CurrentMember.isPrivileged: Boolean
  * the ADMIN role specifically, not just "privileged" (BOARD or ADMIN), otherwise BOARD_ONLY and
  * ADMIN_ONLY collapse into the same check. Used identically by [DocumentAccessLevel]-filtered
  * reads (listDocuments/listVersions) and the HTTP download route so the two never drift apart.
+ *
+ * `PUBLIC_MEMBERS` means "visible to members of THIS organization" and therefore additionally
+ * requires [CurrentMember.isGuest] to be `false` -- a federated OIDC guest (V0.8.2) always
+ * resolves with `role = MEMBER` (see [network.lapis.cloud.server.federation.OidcGuestMemberStore])
+ * but is not actually a member of the visited organization, so a bare role check alone would
+ * wrongly grant PUBLIC_MEMBERS-tier internal-document access (statutes, meeting minutes, board
+ * correspondence -- a fundamentally different content domain than the Timeline access the
+ * Gastzugang concept actually describes for guests). `BOARD_ONLY`/`ADMIN_ONLY` need no separate
+ * guest check: a guest's `role` can never be `BOARD`/`ADMIN` (nothing in this codebase elevates a
+ * guest's `Account.role` after creation), so [isPrivileged] and `role == ADMIN` already exclude a
+ * guest transitively.
  */
 fun CurrentMember.canAccessDocumentAtLevel(level: DocumentAccessLevel): Boolean =
     when (level) {
-        DocumentAccessLevel.PUBLIC_MEMBERS -> true
+        DocumentAccessLevel.PUBLIC_MEMBERS -> !isGuest
         DocumentAccessLevel.BOARD_ONLY -> isPrivileged
         DocumentAccessLevel.ADMIN_ONLY -> role == AccountRole.ADMIN
     }

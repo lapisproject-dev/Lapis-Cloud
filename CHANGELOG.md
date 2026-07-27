@@ -4,6 +4,20 @@ All notable changes to this project are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and adheres to
 [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Fixed
+
+**Closes the guest/`PUBLIC_MEMBERS` document-access gap V0.8.2 itself disclosed.** `canAccessDocumentAtLevel(PUBLIC_MEMBERS)` was role-only and returned `true` for ANY resolved `CurrentMember` — and a federated OIDC guest (V0.8.2) always resolves with `role = MEMBER` (see `OidcGuestMemberStore`), so a guest session could read `PUBLIC_MEMBERS`-tier documents (statutes, meeting minutes, board correspondence) exactly like a real local member. V0.8.2's own `CurrentMember` KDoc and CHANGELOG entry ("Scope boundary") flagged this explicitly at the time as a deliberate, not-yet-decided product-scope question rather than silently shipping it as settled behavior.
+
+`PUBLIC_MEMBERS` means "visible to members of *this* organization" — a fundamentally different, internal-document-storage content domain from the Timeline (social posts/reactions) the project's own Gastzugang concept describes for guests ("Inhalte konsumieren, kommentieren und ... eigene Beiträge sichtbar machen"); that concept is explicit that anything beyond baseline Timeline read/comment access is a local-server-policy decision, not an automatic grant, and a guest — while technically holding `role = MEMBER` as an implementation detail of how V0.8.2 represents a guest identity — is not actually a member of the visited organization. `canAccessDocumentAtLevel(PUBLIC_MEMBERS)` now additionally requires `CurrentMember.isGuest == false`. `BOARD_ONLY`/`ADMIN_ONLY` needed no change and were verified unaffected: a guest's `Account.role` is always `MEMBER` (never `BOARD`/`ADMIN`), and no write path anywhere in this codebase elevates a guest's role after creation (`OidcGuestMemberStore` only ever inserts `role = MEMBER`, and every other `AccountTable`-role-write call site either creates an unrelated brand-new `AKTIV` member or writes an unrelated `CommitteeMembership`/`ElectionOption` role, not `Account.role`) — `isPrivileged`/`role == ADMIN` were therefore already structurally unreachable by a guest before this fix, confirmed rather than assumed.
+
+Applies uniformly everywhere document access is gated — `DocumentService.listDocuments`/`listVersions` and the `/api/documents/{id}/download` HTTP route — since both call sites share the one `canAccessDocumentAtLevel` function; no call site needed its own separate fix. `CurrentMember`'s KDoc "Known gap, flagged not silently fixed" paragraph is updated to describe this closed state.
+
+### Verification
+
+`./gradlew clean check` — 966 `lapis-server` tests (6 new: 4 pure unit tests directly table-driving `canAccessDocumentAtLevel`/`isPrivileged` across every `DocumentAccessLevel` × role × `isGuest` combination, 1 `DocumentService`-layer integration test proving a guest is filtered out of `listDocuments`/rejected by `listVersions` on a `PUBLIC_MEMBERS` document while a real member's access is unchanged, 1 HTTP-route-level test proving the same on the real `/api/documents/{id}/download` route end to end), 0 failures, ktlint clean.
+
 ## [0.8.2] — 2026-07-27
 
 ### Added
