@@ -1,5 +1,4 @@
 package network.lapis.cloud.server.routes
-
 import io.ktor.http.ContentType
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
@@ -15,12 +14,11 @@ import io.ktor.server.routing.get
 import io.ktor.server.routing.post
 import io.ktor.utils.io.readAvailable
 import kotlinx.datetime.LocalDateTime
-import kotlinx.datetime.TimeZone
-import kotlinx.datetime.toLocalDateTime
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
+import network.lapis.cloud.server.db.DbClock
 import network.lapis.cloud.server.db.generated.FederationActorKeyTable
 import network.lapis.cloud.server.db.generated.FederationInboxDeliveryLogTable
 import network.lapis.cloud.server.db.generated.FederationRelationshipEventTable
@@ -51,7 +49,6 @@ import org.jetbrains.exposed.v1.jdbc.insert
 import org.jetbrains.exposed.v1.jdbc.selectAll
 import org.jetbrains.exposed.v1.jdbc.transactions.transaction
 import java.security.MessageDigest
-import kotlin.time.Clock
 import kotlin.uuid.Uuid
 
 /** Hard cap on a raw `POST /federation/inbox` body -- DoS guard, enforced BEFORE any JSON parsing (see class KDoc "Ordering"). Generous for a small Activity + `lapis:` extension block, far below the 25 MiB document-upload cap. */
@@ -483,4 +480,4 @@ private fun exceedsMaxJsonNestingDepth(
 
 private fun sha256Hex(bytes: ByteArray): String = MessageDigest.getInstance("SHA-256").digest(bytes).joinToString("") { "%02x".format(it) }
 
-private fun nowLocalDateTime(): LocalDateTime = Clock.System.now().toLocalDateTime(TimeZone.currentSystemDefault())
+private fun nowLocalDateTime(): LocalDateTime = DbClock.nowLocalDateTime()

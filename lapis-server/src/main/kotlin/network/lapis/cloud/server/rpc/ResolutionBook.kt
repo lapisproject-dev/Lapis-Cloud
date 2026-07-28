@@ -1,10 +1,9 @@
 package network.lapis.cloud.server.rpc
 
 import kotlinx.datetime.LocalDate
-import kotlinx.datetime.TimeZone
-import kotlinx.datetime.toLocalDateTime
 import kotlinx.serialization.json.Json
 import network.lapis.cloud.server.audit.AuditLogRecorder
+import network.lapis.cloud.server.db.DbClock
 import network.lapis.cloud.server.db.generated.AttendanceTable
 import network.lapis.cloud.server.db.generated.CommitteeTable
 import network.lapis.cloud.server.db.generated.MeetingTable
@@ -29,7 +28,6 @@ import org.jetbrains.exposed.v1.core.inList
 import org.jetbrains.exposed.v1.jdbc.insert
 import org.jetbrains.exposed.v1.jdbc.selectAll
 import kotlin.math.ceil
-import kotlin.time.Clock
 import kotlin.uuid.Uuid
 
 /**
@@ -164,7 +162,7 @@ internal fun insertResolutionRow(
 ): ResolutionDto {
     val quorum = computeQuorum(sId, committeeId, scheduledDate)
     val committeeRow = CommitteeTable.selectAll().where { CommitteeTable.id eq committeeId }.single()
-    val now = Clock.System.now().toLocalDateTime(TimeZone.currentSystemDefault())
+    val now = DbClock.nowLocalDateTime()
     val number = nextResolutionNumber(committeeId, committeeRow[CommitteeTable.type].name, now.year)
     val id = Uuid.random()
     ResolutionTable.insert {

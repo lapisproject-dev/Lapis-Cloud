@@ -1,8 +1,6 @@
 package network.lapis.cloud.server.backup
-
 import kotlinx.datetime.LocalDateTime
-import kotlinx.datetime.TimeZone
-import kotlinx.datetime.toLocalDateTime
+import network.lapis.cloud.server.db.DbClock
 import network.lapis.cloud.server.db.generated.BackupOperationLogTable
 import network.lapis.cloud.server.security.CurrentMember
 import network.lapis.cloud.shared.domain.BackupOperationStatus
@@ -12,13 +10,12 @@ import org.jetbrains.exposed.v1.jdbc.JdbcTransaction
 import org.jetbrains.exposed.v1.jdbc.insert
 import org.jetbrains.exposed.v1.jdbc.transactions.transaction
 import java.sql.Connection
-import kotlin.time.Clock
 import kotlin.uuid.Uuid
 
 /** Hard cap applied to [network.lapis.cloud.server.db.generated.BackupOperationLogTable.errorMessage]'s `VARCHAR(2000)` column. */
 private const val ERROR_MESSAGE_MAX_LENGTH = 2000
 
-internal fun nowLocalDateTime(): LocalDateTime = Clock.System.now().toLocalDateTime(TimeZone.currentSystemDefault())
+internal fun nowLocalDateTime(): LocalDateTime = DbClock.nowLocalDateTime()
 
 /** Lowercase hex encoding, byte-masked (`and 0xFF`) so negative [Byte] values never sign-extend into the string -- same idiom `registerDocumentRoutes`/`archiveGeneratedPdf` already use for their own SHA-256 checksums. */
 internal fun ByteArray.toHexLower(): String = joinToString("") { "%02x".format(it.toInt() and 0xFF) }

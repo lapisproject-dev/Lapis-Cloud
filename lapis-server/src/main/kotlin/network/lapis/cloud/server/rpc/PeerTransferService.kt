@@ -1,10 +1,8 @@
 package network.lapis.cloud.server.rpc
-
 import io.github.oshai.kotlinlogging.KotlinLogging
 import io.ktor.server.application.ApplicationCall
 import kotlinx.datetime.LocalDateTime
-import kotlinx.datetime.TimeZone
-import kotlinx.datetime.toLocalDateTime
+import network.lapis.cloud.server.db.DbClock
 import network.lapis.cloud.server.db.generated.LtrLedgerEntryTable
 import network.lapis.cloud.server.db.generated.MemberTable
 import network.lapis.cloud.server.db.generated.PeerTransferTable
@@ -28,7 +26,6 @@ import org.jetbrains.exposed.v1.jdbc.selectAll
 import org.jetbrains.exposed.v1.jdbc.transactions.transaction
 import java.math.BigDecimal
 import java.math.RoundingMode
-import kotlin.time.Clock
 import kotlin.uuid.Uuid
 
 private val PEER_TRANSFER_TREASURY_ROLES = arrayOf(AccountRole.TREASURER, AccountRole.BOARD, AccountRole.ADMIN)
@@ -244,7 +241,7 @@ class PeerTransferService(
     private fun memberDisplayName(memberId: Uuid): String =
         MemberTable.selectAll().where { MemberTable.id eq memberId }.single()[MemberTable.displayName]
 
-    private fun nowLocalDateTime(): LocalDateTime = Clock.System.now().toLocalDateTime(TimeZone.currentSystemDefault())
+    private fun nowLocalDateTime(): LocalDateTime = DbClock.nowLocalDateTime()
 
     private fun String.toMemberUuidOrThrow(): Uuid =
         runCatching { Uuid.parse(this) }.getOrElse { throw NotFoundException("Invalid id: $this") }

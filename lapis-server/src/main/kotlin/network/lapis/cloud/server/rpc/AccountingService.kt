@@ -1,12 +1,10 @@
 package network.lapis.cloud.server.rpc
-
 import io.ktor.server.application.ApplicationCall
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.LocalDateTime
-import kotlinx.datetime.TimeZone
-import kotlinx.datetime.toLocalDateTime
 import kotlinx.serialization.json.Json
 import network.lapis.cloud.server.audit.AuditLogRecorder
+import network.lapis.cloud.server.db.DbClock
 import network.lapis.cloud.server.db.generated.CostCenterTable
 import network.lapis.cloud.server.db.generated.ExternalDonorTable
 import network.lapis.cloud.server.db.generated.JournalEntryTable
@@ -72,7 +70,6 @@ import org.jetbrains.exposed.v1.jdbc.selectAll
 import org.jetbrains.exposed.v1.jdbc.transactions.transaction
 import org.jetbrains.exposed.v1.jdbc.update
 import java.math.BigDecimal
-import kotlin.time.Clock
 import kotlin.uuid.Uuid
 
 private val TREASURY_ROLES = arrayOf(AccountRole.TREASURER, AccountRole.ADMIN)
@@ -1635,7 +1632,7 @@ class AccountingService(
             ?.get(ExternalDonorTable.displayName)
             .orEmpty()
 
-    private fun nowLocalDateTime(): LocalDateTime = Clock.System.now().toLocalDateTime(TimeZone.currentSystemDefault())
+    private fun nowLocalDateTime(): LocalDateTime = DbClock.nowLocalDateTime()
 
     private fun String.toAccountingUuid(kind: String): Uuid =
         runCatching { Uuid.parse(this) }.getOrElse { throw NotFoundException("Invalid $kind id: $this") }

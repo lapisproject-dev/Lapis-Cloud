@@ -1,8 +1,7 @@
 package network.lapis.cloud.server.rpc
 
 import io.ktor.server.application.ApplicationCall
-import kotlinx.datetime.TimeZone
-import kotlinx.datetime.toLocalDateTime
+import network.lapis.cloud.server.db.DbClock
 import network.lapis.cloud.server.db.generated.DirectMessageTable
 import network.lapis.cloud.server.db.generated.MemberTable
 import network.lapis.cloud.server.security.resolveCurrentMember
@@ -20,7 +19,6 @@ import org.jetbrains.exposed.v1.jdbc.insert
 import org.jetbrains.exposed.v1.jdbc.selectAll
 import org.jetbrains.exposed.v1.jdbc.transactions.transaction
 import org.jetbrains.exposed.v1.jdbc.update
-import kotlin.time.Clock
 import kotlin.uuid.Uuid
 
 /**
@@ -40,7 +38,7 @@ class DirectMessageService(
     ): DirectMessageDto {
         val current = resolveCurrentMember(call)
         val recipient = Uuid.parse(recipientId)
-        val now = Clock.System.now().toLocalDateTime(TimeZone.currentSystemDefault())
+        val now = DbClock.nowLocalDateTime()
         return transaction {
             val id = Uuid.random()
             DirectMessageTable.insert {
@@ -80,7 +78,7 @@ class DirectMessageService(
     override suspend fun markRead(messageId: String) {
         val current = resolveCurrentMember(call)
         val id = Uuid.parse(messageId)
-        val now = Clock.System.now().toLocalDateTime(TimeZone.currentSystemDefault())
+        val now = DbClock.nowLocalDateTime()
         transaction {
             DirectMessageTable.update(
                 { (DirectMessageTable.id eq id) and (DirectMessageTable.recipientId eq current.memberId) },

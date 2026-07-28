@@ -1,13 +1,11 @@
 package network.lapis.cloud.server.audit
 
 import kotlinx.datetime.LocalDateTime
-import kotlinx.datetime.TimeZone
-import kotlinx.datetime.toLocalDateTime
+import network.lapis.cloud.server.db.DbClock
 import network.lapis.cloud.server.db.generated.OidcGuestLoginEventTable
 import network.lapis.cloud.shared.domain.OidcLoginEventType
 import org.jetbrains.exposed.v1.jdbc.insert
 import org.jetbrains.exposed.v1.jdbc.transactions.transaction
-import kotlin.time.Clock
 import kotlin.uuid.Uuid
 
 /**
@@ -26,7 +24,7 @@ object OidcLoginAuditRecorder {
         remoteParty: String? = null,
         reason: String? = null,
     ) {
-        val now: LocalDateTime = Clock.System.now().toLocalDateTime(TimeZone.currentSystemDefault())
+        val now: LocalDateTime = DbClock.nowLocalDateTime()
         transaction {
             OidcGuestLoginEventTable.insert {
                 it[id] = Uuid.random()

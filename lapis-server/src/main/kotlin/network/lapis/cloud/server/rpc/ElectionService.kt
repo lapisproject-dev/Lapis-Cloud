@@ -6,6 +6,7 @@ import kotlinx.datetime.LocalDateTime
 import kotlinx.datetime.LocalTime
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
+import network.lapis.cloud.server.db.DbClock
 import network.lapis.cloud.server.db.generated.CommitteeMembershipTable
 import network.lapis.cloud.server.db.generated.CommitteeTable
 import network.lapis.cloud.server.db.generated.ElectionBallotSelectionTable
@@ -971,7 +972,7 @@ class ElectionService(
                 ?.get(MemberTable.displayName)
         }
 
-    private fun nowLocalDateTime(): LocalDateTime = Clock.System.now().toLocalDateTime(TimeZone.currentSystemDefault())
+    private fun nowLocalDateTime(): LocalDateTime = DbClock.nowLocalDateTime()
 
     /**
      * Retries a small, bounded number of times on a receipt-code collision (astronomically

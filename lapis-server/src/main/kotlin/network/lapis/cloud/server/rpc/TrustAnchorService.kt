@@ -1,9 +1,7 @@
 package network.lapis.cloud.server.rpc
-
 import io.ktor.server.application.ApplicationCall
 import kotlinx.datetime.LocalDateTime
-import kotlinx.datetime.TimeZone
-import kotlinx.datetime.toLocalDateTime
+import network.lapis.cloud.server.db.DbClock
 import network.lapis.cloud.server.db.generated.TrustAnchorSigningKeyTable
 import network.lapis.cloud.server.db.generated.TrustedExternalAnchorTable
 import network.lapis.cloud.server.federation.OneHopResolution
@@ -30,7 +28,6 @@ import network.lapis.cloud.shared.rpc.ITrustAnchorService
 import network.lapis.cloud.shared.rpc.NotFoundException
 import org.jetbrains.exposed.v1.exceptions.ExposedSQLException
 import org.jetbrains.exposed.v1.jdbc.transactions.transaction
-import kotlin.time.Clock
 
 /**
  * V0.8.3 Trust-Anchor-Governance RPC surface -- see [ITrustAnchorService] KDoc and
@@ -196,5 +193,5 @@ class TrustAnchorService(
         current.requireRole(AccountRole.ADMIN)
     }
 
-    private fun nowLocalDateTime(): LocalDateTime = Clock.System.now().toLocalDateTime(TimeZone.currentSystemDefault())
+    private fun nowLocalDateTime(): LocalDateTime = DbClock.nowLocalDateTime()
 }

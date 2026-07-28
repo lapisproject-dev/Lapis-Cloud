@@ -1,9 +1,7 @@
 package network.lapis.cloud.server.rpc
-
 import io.ktor.server.application.ApplicationCall
 import kotlinx.datetime.LocalDateTime
-import kotlinx.datetime.TimeZone
-import kotlinx.datetime.toLocalDateTime
+import network.lapis.cloud.server.db.DbClock
 import network.lapis.cloud.server.db.generated.AccountTable
 import network.lapis.cloud.server.db.generated.MemberTable
 import network.lapis.cloud.server.db.generated.MembershipAgreementAcknowledgmentTable
@@ -30,7 +28,6 @@ import org.jetbrains.exposed.v1.jdbc.insert
 import org.jetbrains.exposed.v1.jdbc.selectAll
 import org.jetbrains.exposed.v1.jdbc.transactions.transaction
 import org.jetbrains.exposed.v1.jdbc.update
-import kotlin.time.Clock
 import kotlin.uuid.Uuid
 
 private val REGISTRATION_BOARD_ROLES = arrayOf(AccountRole.BOARD, AccountRole.ADMIN)
@@ -278,5 +275,5 @@ class RegistrationService(
     private fun String.toMemberUuidOrThrow(): Uuid =
         runCatching { Uuid.parse(this) }.getOrElse { throw NotFoundException("Invalid id: $this") }
 
-    private fun nowLocalDateTime(): LocalDateTime = Clock.System.now().toLocalDateTime(TimeZone.currentSystemDefault())
+    private fun nowLocalDateTime(): LocalDateTime = DbClock.nowLocalDateTime()
 }

@@ -1,8 +1,6 @@
 package network.lapis.cloud.server.federation
-
 import kotlinx.datetime.LocalDateTime
-import kotlinx.datetime.TimeZone
-import kotlinx.datetime.toLocalDateTime
+import network.lapis.cloud.server.db.DbClock
 import network.lapis.cloud.server.db.generated.AccountTable
 import network.lapis.cloud.server.db.generated.MemberTable
 import network.lapis.cloud.server.db.generated.OidcGuestProfileTable
@@ -15,7 +13,6 @@ import org.jetbrains.exposed.v1.jdbc.selectAll
 import org.jetbrains.exposed.v1.jdbc.transactions.transaction
 import org.jetbrains.exposed.v1.jdbc.update
 import java.security.MessageDigest
-import kotlin.time.Clock
 import kotlin.uuid.Uuid
 
 /** Claims about a guest, extracted from a verified home-server ID Token -- see `network.lapis.cloud.server.routes.OidcRoutes` KDoc "RP callback". */
@@ -127,5 +124,5 @@ object OidcGuestMemberStore {
         return "guest+$hex@federation.invalid"
     }
 
-    private fun nowLocalDateTime(): LocalDateTime = Clock.System.now().toLocalDateTime(TimeZone.currentSystemDefault())
+    private fun nowLocalDateTime(): LocalDateTime = DbClock.nowLocalDateTime()
 }

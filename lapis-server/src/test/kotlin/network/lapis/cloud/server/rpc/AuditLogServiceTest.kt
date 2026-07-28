@@ -25,6 +25,7 @@ import kotlinx.serialization.json.Json
 import network.lapis.cloud.server.audit.AuditHashChain
 import network.lapis.cloud.server.audit.AuditLogRecorder
 import network.lapis.cloud.server.db.DatabaseConfig
+import network.lapis.cloud.server.db.DbClock
 import network.lapis.cloud.server.db.DevSeedData
 import network.lapis.cloud.server.db.generated.AccountTable
 import network.lapis.cloud.server.db.generated.AuditLogEntryTable
@@ -226,6 +227,82 @@ class AuditLogServiceTest :
                     .limit(1)
                     .single()[AuditLogEntryTable.sequenceNumber]
             }
+
+        // ── DbClock / timestamp-precision root-cause fix (2026-07-28) ────────────────
+        //
+        // Background: Clock.System.now() can return nanosecond-precision Instants, but every
+        // TIMESTAMP column in this schema (H2 MODE=PostgreSQL locally, real PostgreSQL in
+        // production) silently TRUNCATES stored values to microsecond precision. AuditHashChain
+        // folds occurredAt.toString() into its SHA-256 input, so a hash computed from the
+        // full-precision, pre-insert value could differ from a hash recomputed after a fresh
+        // read-back of the (silently truncated) stored value -- indistinguishable from real
+        // tampering. This was invisible on macOS (whose JDK clock never returns sub-microsecond
+        // jitter in the first place, so the truncation was always a silent no-op locally) and
+        // only ever surfaced on the Linux CI runner. See CHANGELOG.md for the full account.
+
+        test("DbClock.nowLocalDateTime() truncates to microsecond precision at capture, before any DB interaction") {
+            // Sanity check that truncation is really happening, not merely assumed -- captured
+            // value's nanosecond component must already be a multiple of 1000 the instant it's
+            // returned, with zero DB round-trip involved yet.
+            repeat(20) {
+                val captured = DbClock.nowLocalDateTime()
+                (captured.nanosecond % 1000) shouldBe 0
+            }
+        }
+
+        test(
+            "AuditLogRecorder: occurredAt captured in-memory is byte-identical to occurredAt read back fresh from the DB, and the hash computed from each is identical",
+        ) {
+            val entityId = Uuid.random()
+            val capturedOccurredAt: LocalDateTime =
+                transaction {
+                    val before = DbClock.nowLocalDateTime()
+                    AuditLogRecorder.record(
+                        actorMemberId = null,
+                        actorRole = null,
+                        entityType = AuditEntityType.RESOLUTION,
+                        entityId = entityId,
+                        action = AuditAction.CREATE,
+                        after = "test-after",
+                        occurredAt = before,
+                    )
+                    before
+                }
+
+            // Genuinely fresh SELECT in a NEW transaction -- not the same in-memory row/object,
+            // exercising exactly the read-back path verifyChainIntegrity itself depends on.
+            val readBackRow =
+                transaction {
+                    AuditLogEntryTable
+                        .selectAll()
+                        .where { AuditLogEntryTable.entityId eq entityId }
+                        .single()
+                }
+            val readBackOccurredAt = transaction { readBackRow[AuditLogEntryTable.occurredAt] }
+
+            readBackOccurredAt shouldBe capturedOccurredAt
+            (readBackOccurredAt.nanosecond % 1000) shouldBe 0
+
+            // The actual failure mode this whole fix is about: hash computed from the in-memory,
+            // pre-insert value must equal hash computed from a fresh, post-insert, re-SELECTed row.
+            val chainInputTemplate = { occurredAt: LocalDateTime ->
+                AuditHashChain.ChainInput(
+                    sequenceNumber = 1,
+                    occurredAt = occurredAt,
+                    actorMemberId = null,
+                    actorRole = null,
+                    entityType = AuditEntityType.RESOLUTION,
+                    entityId = entityId,
+                    action = AuditAction.CREATE,
+                    beforeSnapshot = null,
+                    afterSnapshot = "test-after",
+                    previousEntryHash = null,
+                )
+            }
+            val hashFromCapturedValue = AuditHashChain.computeHash(chainInputTemplate(capturedOccurredAt))
+            val hashFromFreshReadBack = AuditHashChain.computeHash(chainInputTemplate(readBackOccurredAt))
+            hashFromCapturedValue shouldBe hashFromFreshReadBack
+        }
 
         // ── AuditLogRecorder: chain mechanics ────────────────────────────────────────
 

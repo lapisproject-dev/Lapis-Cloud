@@ -3,8 +3,7 @@ package network.lapis.cloud.server.rpc
 import io.ktor.server.application.ApplicationCall
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.LocalDateTime
-import kotlinx.datetime.TimeZone
-import kotlinx.datetime.toLocalDateTime
+import network.lapis.cloud.server.db.DbClock
 import network.lapis.cloud.server.db.generated.ContributionTable
 import network.lapis.cloud.server.db.generated.MemberTable
 import network.lapis.cloud.server.db.generated.MembershipTierTable
@@ -34,7 +33,6 @@ import org.jetbrains.exposed.v1.jdbc.selectAll
 import org.jetbrains.exposed.v1.jdbc.transactions.transaction
 import org.jetbrains.exposed.v1.jdbc.update
 import java.math.BigDecimal
-import kotlin.time.Clock
 import kotlin.uuid.Uuid
 
 private val TREASURY_ROLES = arrayOf(AccountRole.TREASURER, AccountRole.ADMIN)
@@ -102,7 +100,7 @@ class ContributionService(
         val current = resolveCurrentMember(call)
         current.requireRole(*TREASURY_ROLES)
         val tierId = membershipTierId.toTierUuid()
-        val now = Clock.System.now().toLocalDateTime(TimeZone.currentSystemDefault())
+        val now = DbClock.nowLocalDateTime()
         return transaction {
             val tierRow =
                 MembershipTierTable.selectAll().where { MembershipTierTable.id eq tierId }.singleOrNull()

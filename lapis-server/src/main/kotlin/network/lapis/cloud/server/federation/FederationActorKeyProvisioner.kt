@@ -1,14 +1,12 @@
 package network.lapis.cloud.server.federation
 
 import kotlinx.datetime.LocalDateTime
-import kotlinx.datetime.TimeZone
-import kotlinx.datetime.toLocalDateTime
+import network.lapis.cloud.server.db.DbClock
 import network.lapis.cloud.server.db.generated.FederationActorKeyTable
 import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.jdbc.insert
 import org.jetbrains.exposed.v1.jdbc.selectAll
 import org.jetbrains.exposed.v1.jdbc.transactions.transaction
-import kotlin.time.Clock
 import kotlin.uuid.Uuid
 
 /**
@@ -44,7 +42,7 @@ object FederationActorKeyProvisioner {
             if (exists) return@transaction
 
             val keyPair = FederationKeyPairGenerator.generate()
-            val now: LocalDateTime = Clock.System.now().toLocalDateTime(TimeZone.currentSystemDefault())
+            val now: LocalDateTime = DbClock.nowLocalDateTime()
             FederationActorKeyTable.insert {
                 it[id] = FEDERATION_ACTOR_KEY_ID
                 it[FederationActorKeyTable.actorUri] = actorUri

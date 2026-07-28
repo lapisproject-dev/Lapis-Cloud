@@ -1,8 +1,7 @@
 package network.lapis.cloud.server.rpc
 
 import io.ktor.server.application.ApplicationCall
-import kotlinx.datetime.TimeZone
-import kotlinx.datetime.toLocalDateTime
+import network.lapis.cloud.server.db.DbClock
 import network.lapis.cloud.server.db.generated.DocumentFolderTable
 import network.lapis.cloud.server.db.generated.DocumentTable
 import network.lapis.cloud.server.db.generated.DocumentVersionTable
@@ -28,7 +27,6 @@ import org.jetbrains.exposed.v1.jdbc.selectAll
 import org.jetbrains.exposed.v1.jdbc.transactions.transaction
 import org.jetbrains.exposed.v1.jdbc.update
 import kotlin.uuid.Uuid
-import kotlin.time.Clock as KotlinClock
 
 /**
  * Metadata-only. File bytes are handled by
@@ -86,7 +84,7 @@ class DocumentService(
     ): DocumentDto {
         val current = resolveCurrentMember(call)
         current.requireRole(AccountRole.BOARD, AccountRole.ADMIN)
-        val now = KotlinClock.System.now().toLocalDateTime(TimeZone.currentSystemDefault())
+        val now = DbClock.nowLocalDateTime()
         return transaction {
             val id = Uuid.random()
             DocumentTable.insert {

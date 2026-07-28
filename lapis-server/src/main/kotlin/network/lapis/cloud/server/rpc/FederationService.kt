@@ -1,5 +1,4 @@
 package network.lapis.cloud.server.rpc
-
 import io.github.oshai.kotlinlogging.KotlinLogging
 import io.ktor.client.request.header
 import io.ktor.client.request.post
@@ -10,8 +9,7 @@ import io.ktor.http.Url
 import io.ktor.http.contentType
 import io.ktor.server.application.ApplicationCall
 import kotlinx.datetime.LocalDateTime
-import kotlinx.datetime.TimeZone
-import kotlinx.datetime.toLocalDateTime
+import network.lapis.cloud.server.db.DbClock
 import network.lapis.cloud.server.db.generated.FederationActorKeyTable
 import network.lapis.cloud.server.db.generated.FederationRelationshipTable
 import network.lapis.cloud.server.federation.ACTIVITY_JSON_CONTENT_TYPE
@@ -43,7 +41,6 @@ import org.jetbrains.exposed.v1.core.ResultRow
 import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.jdbc.selectAll
 import org.jetbrains.exposed.v1.jdbc.transactions.transaction
-import kotlin.time.Clock
 import kotlin.uuid.Uuid
 
 private val logger = KotlinLogging.logger {}
@@ -298,7 +295,7 @@ class FederationService(
 
     private fun newActivityId(): String = "${FederationConfig.actorUri}/activities/${Uuid.random()}"
 
-    private fun nowLocalDateTime(): LocalDateTime = Clock.System.now().toLocalDateTime(TimeZone.currentSystemDefault())
+    private fun nowLocalDateTime(): LocalDateTime = DbClock.nowLocalDateTime()
 
     private fun String.toRelationshipUuidOrThrow(): Uuid =
         runCatching { Uuid.parse(this) }.getOrElse { throw NotFoundException("Invalid id: $this") }

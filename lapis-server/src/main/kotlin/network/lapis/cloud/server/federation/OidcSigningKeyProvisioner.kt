@@ -1,8 +1,7 @@
 package network.lapis.cloud.server.federation
 
 import kotlinx.datetime.LocalDateTime
-import kotlinx.datetime.TimeZone
-import kotlinx.datetime.toLocalDateTime
+import network.lapis.cloud.server.db.DbClock
 import network.lapis.cloud.server.db.generated.OidcSigningKeyTable
 import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.jdbc.insert
@@ -10,7 +9,6 @@ import org.jetbrains.exposed.v1.jdbc.selectAll
 import org.jetbrains.exposed.v1.jdbc.transactions.transaction
 import java.security.KeyPairGenerator
 import java.security.SecureRandom
-import kotlin.time.Clock
 import kotlin.uuid.Uuid
 
 /**
@@ -57,7 +55,7 @@ object OidcSigningKeyProvisioner {
             val generator = KeyPairGenerator.getInstance("RSA")
             generator.initialize(RSA_KEY_SIZE_BITS, SecureRandom())
             val keyPair = generator.generateKeyPair()
-            val now: LocalDateTime = Clock.System.now().toLocalDateTime(TimeZone.currentSystemDefault())
+            val now: LocalDateTime = DbClock.nowLocalDateTime()
             OidcSigningKeyTable.insert {
                 it[id] = OIDC_SIGNING_KEY_ID
                 it[kid] = Uuid.random().toString()

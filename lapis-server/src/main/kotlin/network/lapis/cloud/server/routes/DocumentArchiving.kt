@@ -1,7 +1,6 @@
 package network.lapis.cloud.server.routes
 
-import kotlinx.datetime.TimeZone
-import kotlinx.datetime.toLocalDateTime
+import network.lapis.cloud.server.db.DbClock
 import network.lapis.cloud.server.db.generated.DocumentFolderTable
 import network.lapis.cloud.server.db.generated.DocumentTable
 import network.lapis.cloud.server.db.generated.DocumentVersionTable
@@ -13,7 +12,6 @@ import org.jetbrains.exposed.v1.jdbc.transactions.transaction
 import org.jetbrains.exposed.v1.jdbc.update
 import java.io.File
 import java.security.MessageDigest
-import kotlin.time.Clock
 import kotlin.uuid.Uuid
 
 /**
@@ -40,7 +38,7 @@ fun archiveGeneratedPdf(
     uploadedBy: Uuid,
     accessLevel: DocumentAccessLevel,
 ): Uuid {
-    val now = Clock.System.now().toLocalDateTime(TimeZone.currentSystemDefault())
+    val now = DbClock.nowLocalDateTime()
     val checksum = MessageDigest.getInstance("SHA-256").digest(bytes).joinToString("") { "%02x".format(it.toInt() and 0xFF) }
 
     return transaction {

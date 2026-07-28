@@ -16,8 +16,7 @@ import io.ktor.server.routing.get
 import io.ktor.server.routing.post
 import io.ktor.utils.io.ByteReadChannel
 import io.ktor.utils.io.readAvailable
-import kotlinx.datetime.TimeZone
-import kotlinx.datetime.toLocalDateTime
+import network.lapis.cloud.server.db.DbClock
 import network.lapis.cloud.server.db.generated.DocumentTable
 import network.lapis.cloud.server.db.generated.DocumentVersionTable
 import network.lapis.cloud.server.security.canAccessDocumentAtLevel
@@ -33,7 +32,6 @@ import org.jetbrains.exposed.v1.jdbc.update
 import java.io.File
 import java.nio.file.Files
 import java.security.MessageDigest
-import kotlin.time.Clock
 import kotlin.uuid.Uuid
 
 /** Hard cap on a single uploaded document version — DoS guard, rejected before fully buffering. */
@@ -130,7 +128,7 @@ fun Route.registerDocumentRoutes(storageRoot: File) {
         }
 
         val checksum = digest.digest().joinToString("") { "%02x".format(it.toInt() and 0xFF) }
-        val now = Clock.System.now().toLocalDateTime(TimeZone.currentSystemDefault())
+        val now = DbClock.nowLocalDateTime()
 
         transaction {
             val nextVersionNumber =

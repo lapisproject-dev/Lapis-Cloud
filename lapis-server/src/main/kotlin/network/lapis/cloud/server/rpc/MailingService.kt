@@ -1,8 +1,7 @@
 package network.lapis.cloud.server.rpc
 
 import io.ktor.server.application.ApplicationCall
-import kotlinx.datetime.TimeZone
-import kotlinx.datetime.toLocalDateTime
+import network.lapis.cloud.server.db.DbClock
 import network.lapis.cloud.server.db.generated.MailingDeliveryLogTable
 import network.lapis.cloud.server.db.generated.MailingListSubscriptionTable
 import network.lapis.cloud.server.db.generated.MailingListTable
@@ -27,7 +26,6 @@ import org.jetbrains.exposed.v1.jdbc.insert
 import org.jetbrains.exposed.v1.jdbc.selectAll
 import org.jetbrains.exposed.v1.jdbc.transactions.transaction
 import org.jetbrains.exposed.v1.jdbc.update
-import kotlin.time.Clock
 import kotlin.uuid.Uuid
 
 private val BOARD_ROLES = arrayOf(AccountRole.BOARD, AccountRole.ADMIN)
@@ -85,7 +83,7 @@ class MailingService(
     override suspend fun subscribe(mailingListId: String) {
         val current = resolveCurrentMember(call)
         val listId = Uuid.parse(mailingListId)
-        val now = Clock.System.now().toLocalDateTime(TimeZone.currentSystemDefault())
+        val now = DbClock.nowLocalDateTime()
         transaction {
             val existing =
                 MailingListSubscriptionTable
@@ -113,7 +111,7 @@ class MailingService(
     override suspend fun unsubscribe(mailingListId: String) {
         val current = resolveCurrentMember(call)
         val listId = Uuid.parse(mailingListId)
-        val now = Clock.System.now().toLocalDateTime(TimeZone.currentSystemDefault())
+        val now = DbClock.nowLocalDateTime()
         transaction {
             MailingListSubscriptionTable.update(
                 {
@@ -134,7 +132,7 @@ class MailingService(
         current.requireRole(*BOARD_ROLES)
         val listId = Uuid.parse(mailingListId)
         val targetMemberId = Uuid.parse(memberId)
-        val now = Clock.System.now().toLocalDateTime(TimeZone.currentSystemDefault())
+        val now = DbClock.nowLocalDateTime()
         transaction {
             val existing =
                 MailingListSubscriptionTable
@@ -204,7 +202,7 @@ class MailingService(
         val current = resolveCurrentMember(call)
         current.requireRole(*BOARD_ROLES)
         val id = Uuid.parse(messageId)
-        val now = Clock.System.now().toLocalDateTime(TimeZone.currentSystemDefault())
+        val now = DbClock.nowLocalDateTime()
         return transaction {
             val message =
                 MailingMessageTable.selectAll().where { MailingMessageTable.id eq id }.singleOrNull()

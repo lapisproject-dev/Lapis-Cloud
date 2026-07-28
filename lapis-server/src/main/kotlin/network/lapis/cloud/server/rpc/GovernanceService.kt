@@ -1,10 +1,8 @@
 package network.lapis.cloud.server.rpc
-
 import io.ktor.server.application.ApplicationCall
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.LocalDateTime
-import kotlinx.datetime.TimeZone
-import kotlinx.datetime.toLocalDateTime
+import network.lapis.cloud.server.db.DbClock
 import network.lapis.cloud.server.db.generated.AgendaItemTable
 import network.lapis.cloud.server.db.generated.AttendanceTable
 import network.lapis.cloud.server.db.generated.BoardMembershipTable
@@ -75,7 +73,6 @@ import org.jetbrains.exposed.v1.jdbc.transactions.transaction
 import org.jetbrains.exposed.v1.jdbc.update
 import java.math.BigDecimal
 import java.math.RoundingMode
-import kotlin.time.Clock
 import kotlin.uuid.Uuid
 
 private val BOARD_ROLES = arrayOf(AccountRole.BOARD, AccountRole.ADMIN)
@@ -1318,7 +1315,7 @@ class GovernanceService(
                 ?.get(MemberTable.displayName)
         }
 
-    private fun nowLocalDateTime(): LocalDateTime = Clock.System.now().toLocalDateTime(TimeZone.currentSystemDefault())
+    private fun nowLocalDateTime(): LocalDateTime = DbClock.nowLocalDateTime()
 
     private fun ResultRow.toCommitteeDto(): CommitteeDto =
         CommitteeDto(

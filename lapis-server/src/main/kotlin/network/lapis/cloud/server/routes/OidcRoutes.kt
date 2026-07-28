@@ -26,6 +26,7 @@ import kotlinx.datetime.toInstant
 import kotlinx.datetime.toLocalDateTime
 import kotlinx.serialization.json.Json
 import network.lapis.cloud.server.audit.OidcLoginAuditRecorder
+import network.lapis.cloud.server.db.DbClock
 import network.lapis.cloud.server.db.generated.AccountTable
 import network.lapis.cloud.server.db.generated.MemberTable
 import network.lapis.cloud.server.db.generated.OidcAuthorizationCodeTable
@@ -1266,7 +1267,7 @@ private fun errorPageHtml(message: String): String =
     <body><h1>Anmeldung fehlgeschlagen</h1><p>${htmlEscape(message)}</p></body></html>
     """.trimIndent()
 
-private fun nowLocalDateTime(): LocalDateTime = Clock.System.now().toLocalDateTime(TimeZone.UTC)
+private fun nowLocalDateTime(): LocalDateTime = DbClock.nowLocalDateTime(TimeZone.UTC)
 
 private fun plus(
     start: LocalDateTime,

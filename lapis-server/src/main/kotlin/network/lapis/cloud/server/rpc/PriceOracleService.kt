@@ -5,10 +5,12 @@ import io.ktor.server.application.ApplicationCall
 import kotlinx.datetime.LocalDateTime
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
+import network.lapis.cloud.server.db.DbClock
 import network.lapis.cloud.server.db.generated.LtrLedgerEntryTable
 import network.lapis.cloud.server.db.generated.MemberTable
 import network.lapis.cloud.server.db.generated.PriceOracleConfigTable
 import network.lapis.cloud.server.db.generated.PriceOracleConversionTable
+import network.lapis.cloud.server.db.truncatedToDbPrecision
 import network.lapis.cloud.server.economy.oracle.PriceOracleOrchestrator
 import network.lapis.cloud.server.economy.oracle.QuoteOutcome
 import network.lapis.cloud.server.security.requireRole
@@ -32,7 +34,6 @@ import org.jetbrains.exposed.v1.jdbc.transactions.transaction
 import org.jetbrains.exposed.v1.jdbc.update
 import java.math.BigDecimal
 import java.math.RoundingMode
-import kotlin.time.Clock
 import kotlin.uuid.Uuid
 
 /** The single seeded [PriceOracleConfigTable] row's fixed id -- see `V1__baseline.sql`'s unconditional seed `INSERT` and `19-price-oracle.kuml.kts`'s file header for the exactly-one-row-by-convention rationale. Next unused `...-0000-0000000000fN` slot after `crowdfunding_submission_gate`'s own `...-f4`. */
@@ -103,7 +104,10 @@ class PriceOracleService(
                     haltReason = null,
                     medianPrice = outcome.quote.medianPrice,
                     sourceIds = outcome.quote.contributingSourceIds,
-                    priceTimestamp = outcome.quote.priceTimestamp.toLocalDateTime(TimeZone.currentSystemDefault()),
+                    priceTimestamp =
+                        outcome.quote.priceTimestamp
+                            .toLocalDateTime(TimeZone.currentSystemDefault())
+                            .truncatedToDbPrecision(),
                 )
             is QuoteOutcome.Halt ->
                 OraclePriceStatusDto(
@@ -134,7 +138,7 @@ class PriceOracleService(
 
         val ltrMinted = computeLtrMinted(donationAmount, config.anchorUnitsPerLtr, quote.medianPrice)
         val now = nowLocalDateTime()
-        val priceTimestampLocal = quote.priceTimestamp.toLocalDateTime(TimeZone.currentSystemDefault())
+        val priceTimestampLocal = quote.priceTimestamp.toLocalDateTime(TimeZone.currentSystemDefault()).truncatedToDbPrecision()
         val sourcesUsed = quote.contributingSourceIds.joinToString(",")
 
         return transaction {
@@ -248,7 +252,7 @@ class PriceOracleService(
             .single()
             .toPriceOracleConversionDto()
 
-    private fun nowLocalDateTime(): LocalDateTime = Clock.System.now().toLocalDateTime(TimeZone.currentSystemDefault())
+    private fun nowLocalDateTime(): LocalDateTime = DbClock.nowLocalDateTime()
 
     private fun String.toMemberUuidOrThrow(): Uuid =
         runCatching { Uuid.parse(this) }.getOrElse { throw NotFoundException("Invalid id: $this") }

@@ -1,14 +1,12 @@
 package network.lapis.cloud.server.federation
 
 import kotlinx.datetime.LocalDateTime
-import kotlinx.datetime.TimeZone
-import kotlinx.datetime.toLocalDateTime
+import network.lapis.cloud.server.db.DbClock
 import network.lapis.cloud.server.db.generated.TrustAnchorSigningKeyTable
 import network.lapis.cloud.shared.domain.TrustAnchorSigningKeyStatus
 import org.jetbrains.exposed.v1.jdbc.insert
 import java.security.KeyPairGenerator
 import java.security.SecureRandom
-import kotlin.time.Clock
 import kotlin.uuid.Uuid
 
 private const val RSA_KEY_SIZE_BITS = 2048
@@ -69,4 +67,4 @@ internal object TrustAnchorKeyMaterial {
  * name in this package (same reasoning [network.lapis.cloud.server.federation.OidcJwt]'s own
  * `JWT_`-prefixed private constants KDoc documents).
  */
-internal fun trustAnchorNowLocalDateTime(): LocalDateTime = Clock.System.now().toLocalDateTime(TimeZone.currentSystemDefault())
+internal fun trustAnchorNowLocalDateTime(): LocalDateTime = DbClock.nowLocalDateTime()
