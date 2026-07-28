@@ -130,13 +130,16 @@ documentation] (covers the V0.1.5 Contributions/Documents/Communication slice, t
 slices, the V0.4.1 mail-merge slice, and the V0.6.5 Price-Oracle slice — not updated for every wave
 since) and `CLAUDE.md` for further detail.
 
-NOTE: The V0.6.4 guest/Gast rating basket cut (`PoliticianProfileDto` exposes `memberTrustWeight`
+NOTE: The V0.6.4 guest/Gast rating basket cut (`PoliticianProfileDto` exposed `memberTrustWeight`
 only, not the concept's three-way Mitglieder-/Gäste-/Gesamtbewertung) was accepted scope
 (product-owner sign-off 2026-07-22) for as long as no operational Gast identity model existed in
-this codebase. **That condition is now met** — V0.8.2 gives every guest a real `Member(status =
-GAST)` row — so whether to revisit the rating-basket cut is now a live, open product decision
-rather than a deferred one. Not yet revisited as of this release. See `CHANGELOG.md` `[0.6.0]`
-"Known limitations" for the original reasoning.
+this codebase. **Closed**: once V0.8.2 gave every guest a real `Member(status = GAST)` row, the
+guest/combined rating basket was implemented (`guestTrustWeight`/`combinedTrustWeight`, a
+deliberately unweighted vote-count mechanic for the guest side — see `CHANGELOG.md` for why an
+LTR-weighted guest pool isn't possible yet, since no guest LTR-earning mechanism exists). No
+client UI for Politician Profiles exists yet (backend/RPC-only, unchanged from V0.6.4). See
+`CHANGELOG.md` `[0.6.0]` for the original scope-cut reasoning and the latest `[Unreleased]` entry
+for the closure.
 
 === Auction opt-in (V0.6.2)
 
