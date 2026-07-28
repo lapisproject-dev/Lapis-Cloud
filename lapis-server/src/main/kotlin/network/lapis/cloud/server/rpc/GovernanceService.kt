@@ -529,10 +529,51 @@ class GovernanceService(
     override suspend fun submitMotion(input: MotionInput): MotionDto {
         val current = resolveCurrentMember(call)
         val gId = input.targetCommitteeId.toCommitteeUuid()
+        val amendsId = input.amendsMotionId?.toMotionUuid()
         return transaction {
             CommitteeTable.selectAll().where { CommitteeTable.id eq gId }.singleOrNull()
                 ?: throw NotFoundException("Committee ${input.targetCommitteeId} not found")
             if (!current.canSubmitMotion(gId)) throw ForbiddenException()
+            // Änderungsantrag (V0.2.6): validate the amendment's target before inserting. Reuses
+            // plain canSubmitMotion above for the amendment itself -- any member entitled to
+            // submit to this Committee may amend, not only the target's original submitter,
+            // mirroring real floor-amendment practice.
+            //
+            // forUpdate(): locks the target row FOR UPDATE for the rest of this transaction --
+            // same "every mutating method locks the row FOR UPDATE first" discipline as
+            // CrowdfundingService.requireProjectRow/AuctionService/PoliticianService.
+            // requireProfileRowByMember/RegistrationService.requireApplicationRow. Without this,
+            // a concurrent resolveMotion/closeVote on the SAME target (which now also takes this
+            // lock, see their own KDoc) could read the target as still non-terminal, pass its own
+            // requireNoPendingAmendments check, and finalize the target in the gap before this
+            // INSERT below commits -- leaving a freshly-submitted amendment permanently pending
+            // against an already-terminal main motion, and a later resolveMotion/closeVote on
+            // THAT amendment would then silently overwrite currentText on the already-finalized
+            // target (its unconditional write below is not itself guarded by the target's
+            // status). Locking here closes the gap: whichever transaction acquires the target
+            // row's lock first now runs to completion before the other can even read it.
+            if (amendsId != null) {
+                val targetRow =
+                    MotionTable
+                        .selectAll()
+                        .where { MotionTable.id eq amendsId }
+                        .forUpdate()
+                        .singleOrNull()
+                        ?: throw NotFoundException("Motion ${input.amendsMotionId} not found")
+                if (targetRow[MotionTable.amendsMotionId] != null) {
+                    throw ConflictException(
+                        "Motion ${input.amendsMotionId} is itself an amendment -- amendments of amendments are not supported",
+                    )
+                }
+                if (targetRow[MotionTable.targetCommitteeId] != gId) {
+                    throw ConflictException(
+                        "Amendment's targetCommitteeId must match the amended Motion's own target Committee",
+                    )
+                }
+                if (targetRow[MotionTable.status] !in NON_TERMINAL_MOTION_STATUSES) {
+                    throw ConflictException("Motion ${input.amendsMotionId} is ${targetRow[MotionTable.status]}, not amendable")
+                }
+            }
             val id = Uuid.random()
             val now = nowLocalDateTime()
             MotionTable.insert {
@@ -551,6 +592,8 @@ class GovernanceService(
                 it[agendaItemId] = null
                 it[resolutionId] = null
                 it[withdrawnAt] = null
+                it[MotionTable.amendsMotionId] = amendsId
+                it[MotionTable.currentText] = null
             }
             loadMotion(id)
         }
@@ -559,12 +602,14 @@ class GovernanceService(
     override suspend fun listMotions(
         targetCommitteeId: String?,
         status: MotionStatus?,
+        amendsMotionId: String?,
     ): List<MotionDto> {
         resolveCurrentMember(call)
         return transaction {
             val conditions = mutableListOf<Op<Boolean>>()
             if (targetCommitteeId != null) conditions += (MotionTable.targetCommitteeId eq targetCommitteeId.toCommitteeUuid())
             if (status != null) conditions += (MotionTable.status eq status)
+            if (amendsMotionId != null) conditions += (MotionTable.amendsMotionId eq amendsMotionId.toMotionUuid())
             val baseQuery = (MotionTable innerJoin CommitteeTable).selectAll()
             val query = if (conditions.isEmpty()) baseQuery else baseQuery.where { conditions.reduce { a, b -> a and b } }
             query.map { it.toMotionDto() }
@@ -590,10 +635,16 @@ class GovernanceService(
             val submitterWithdrawingOwnPending = current.memberId == submitterId && status == MotionStatus.SUBMITTED
             if (!submitterWithdrawingOwnPending && !current.canRecordForMeeting(committeeId)) throw ForbiddenException()
             if (status == MotionStatus.WITHDRAWN) throw ConflictException("Motion $id already withdrawn")
+            val now = nowLocalDateTime()
             MotionTable.update({ MotionTable.id eq aId }) {
                 it[MotionTable.status] = MotionStatus.WITHDRAWN
-                it[withdrawnAt] = nowLocalDateTime()
+                it[withdrawnAt] = now
             }
+            // Änderungsantrag (V0.2.6): a withdrawn main Motion procedurally no longer exists to
+            // be amended -- auto-cascade WITHDRAWN onto every still-pending amendment rather than
+            // leaving them orphaned. Only for a MAIN motion (amendsMotionId == null); withdrawing
+            // an amendment itself has no cascade of its own.
+            if (row[MotionTable.amendsMotionId] == null) cascadeWithdrawPendingAmendments(aId, now)
             loadMotion(aId)
         }
     }
@@ -627,6 +678,12 @@ class GovernanceService(
                 it[reviewedAt] = now
                 it[reviewNote] = note
             }
+            // Änderungsantrag (V0.2.6): a preliminarily-rejected main Motion is procedurally moot,
+            // same reasoning as withdrawMotion's cascade -- but NOT for ACCEPT (REVIEWED), which
+            // keeps the main Motion alive, so its amendments correctly stay pending too.
+            if (newStatus == MotionStatus.REJECTED_PRELIMINARY && row[MotionTable.amendsMotionId] == null) {
+                cascadeWithdrawPendingAmendments(aId, now)
+            }
             loadMotion(aId)
         }
     }
@@ -658,20 +715,47 @@ class GovernanceService(
             if (meetingRow[MeetingTable.status] != MeetingStatus.PLANNED) {
                 throw ConflictException("Meeting $meetingId is not PLANNED")
             }
-            val top =
-                insertAgendaItem(
-                    sId,
-                    AgendaItemInput(
-                        position = position,
-                        title = row[MotionTable.title],
-                        description = row[MotionTable.rationale],
-                        presenterMemberId = row[MotionTable.submitterMemberId].toString(),
-                    ),
-                )
+
+            // Änderungsantrag (V0.2.6): an amendment must land on its target main Motion's EXACT
+            // SAME Meeting AND AgendaItem -- voting on an amendment separately from its own
+            // motion's meeting/agenda point makes no procedural sense. Enforced server-side, not
+            // merely trusted from the caller. Reuses the target's existing AgendaItem row rather
+            // than creating a second one; `position` is ignored for an amendment.
+            val amendsId = row[MotionTable.amendsMotionId]
+            val topId: Uuid =
+                if (amendsId != null) {
+                    val targetRow =
+                        MotionTable.selectAll().where { MotionTable.id eq amendsId }.singleOrNull()
+                            ?: throw NotFoundException("Target Motion $amendsId not found")
+                    val targetMeetingId =
+                        targetRow[MotionTable.meetingId]
+                            ?: throw ConflictException(
+                                "Target Motion $amendsId must be scheduled before its amendments can be scheduled",
+                            )
+                    if (targetMeetingId != sId) {
+                        throw ConflictException(
+                            "Amendment $id must be scheduled onto its target Motion's own Meeting ($targetMeetingId), not $meetingId",
+                        )
+                    }
+                    targetRow[MotionTable.agendaItemId]
+                        ?: throw ConflictException("Target Motion $amendsId has no AgendaItem yet")
+                } else {
+                    Uuid.parse(
+                        insertAgendaItem(
+                            sId,
+                            AgendaItemInput(
+                                position = position,
+                                title = row[MotionTable.title],
+                                description = row[MotionTable.rationale],
+                                presenterMemberId = row[MotionTable.submitterMemberId].toString(),
+                            ),
+                        ).id,
+                    )
+                }
             MotionTable.update({ MotionTable.id eq aId }) {
                 it[MotionTable.status] = MotionStatus.SCHEDULED
                 it[MotionTable.meetingId] = sId
-                it[MotionTable.agendaItemId] = Uuid.parse(top.id)
+                it[MotionTable.agendaItemId] = topId
             }
             loadMotion(aId)
         }
@@ -684,22 +768,37 @@ class GovernanceService(
         val current = resolveCurrentMember(call)
         val aId = id.toMotionUuid()
         return transaction {
+            // forUpdate(): locks this Motion row (main or amendment) FOR UPDATE for the rest of
+            // this transaction -- pairs with submitMotion's own forUpdate() lock on a target row
+            // (see that KDoc for the exact race this closes) and with closeVote's equivalent lock
+            // below. For a MAIN motion this also serializes against a second concurrent
+            // resolveMotion/closeVote call finalizing the same motion twice.
             val row =
-                MotionTable.selectAll().where { MotionTable.id eq aId }.singleOrNull()
+                MotionTable
+                    .selectAll()
+                    .where { MotionTable.id eq aId }
+                    .forUpdate()
+                    .singleOrNull()
                     ?: throw NotFoundException("Motion $id not found")
             val committeeId = row[MotionTable.targetCommitteeId]
             if (!current.canRecordForMeeting(committeeId)) throw ForbiddenException()
             if (row[MotionTable.status] != MotionStatus.SCHEDULED) {
                 throw ConflictException("Motion $id is ${row[MotionTable.status]}, expected SCHEDULED")
             }
+            // Änderungsantrag (V0.2.6) ordering guard: a MAIN motion may not resolve while any of
+            // its amendments is still pending -- see requireNoPendingAmendments KDoc.
+            if (row[MotionTable.amendsMotionId] == null) requireNoPendingAmendments(aId)
             val sId = row[MotionTable.meetingId] ?: throw ConflictException("Motion $id has no scheduled Meeting")
             val topId = row[MotionTable.agendaItemId]
             val meeting = loadMeeting(sId)
+            // Änderungsantrag (V0.2.6): the (possibly-amended) main motion's CURRENT working text,
+            // not the immutable original -- see MotionDto.effectiveText KDoc.
+            val effectiveText = row[MotionTable.currentText] ?: row[MotionTable.text]
             val resolutionInput =
                 ResolutionInput(
                     agendaItemId = topId?.toString(),
                     title = row[MotionTable.title],
-                    text = row[MotionTable.text],
+                    text = effectiveText,
                     votesYes = input.votesYes,
                     votesNo = input.votesNo,
                     votesAbstain = input.votesAbstain,
@@ -715,6 +814,17 @@ class GovernanceService(
             MotionTable.update({ MotionTable.id eq aId }) {
                 it[MotionTable.status] = newMotionStatus
                 it[MotionTable.resolutionId] = Uuid.parse(resolution.id)
+            }
+            // Änderungsantrag (V0.2.6) adoption: an ADOPTED amendment copies its own text into its
+            // target main motion's current working text -- full-text replacement,
+            // "last-adopted-wins" for multiple sequential amendments (see MotionDto KDoc for the
+            // disclosed simplification). Must run BEFORE auditResolutionCreate below
+            // (AuditLogRecorder's deadlock-avoidance "last write" contract).
+            val amendsId = row[MotionTable.amendsMotionId]
+            if (amendsId != null && input.status == ResolutionStatus.ADOPTED) {
+                MotionTable.update({ MotionTable.id eq amendsId }) {
+                    it[MotionTable.currentText] = row[MotionTable.text]
+                }
             }
             // V0.5.3 GoBD audit log: called last, after MotionTable.update, so this satisfies
             // AuditLogRecorder's deadlock-avoidance contract -- see auditResolutionCreate KDoc.
@@ -934,8 +1044,15 @@ class GovernanceService(
             val voteRow =
                 VoteTable.selectAll().where { VoteTable.id eq abId }.singleOrNull()
                     ?: throw NotFoundException("Vote $voteId not found")
+            // forUpdate(): same lock discipline as resolveMotion's own Motion-row read -- see its
+            // KDoc for the submitMotion race this closes; closeVote is the second path capable of
+            // finalizing a main motion, so it needs the identical lock.
             val motionRow =
-                MotionTable.selectAll().where { MotionTable.id eq voteRow[VoteTable.motionId] }.single()
+                MotionTable
+                    .selectAll()
+                    .where { MotionTable.id eq voteRow[VoteTable.motionId] }
+                    .forUpdate()
+                    .single()
             val committeeId = motionRow[MotionTable.targetCommitteeId]
             if (!current.canRecordForMeeting(committeeId)) throw ForbiddenException()
             // Re-checked inside the transaction: guards against a concurrent second close (or a
@@ -943,6 +1060,10 @@ class GovernanceService(
             if (voteRow[VoteTable.status] != VoteStatus.OPEN) {
                 throw ConflictException("Vote $voteId is ${voteRow[VoteTable.status]}, expected OPEN")
             }
+            // Änderungsantrag (V0.2.6) ordering guard: same invariant resolveMotion enforces --
+            // required for soundness here too, since closeVote is a second path capable of
+            // finalizing a main motion that still has pending amendments.
+            if (motionRow[MotionTable.amendsMotionId] == null) requireNoPendingAmendments(motionRow[MotionTable.id])
 
             val optionRows = VoteOptionTable.selectAll().where { VoteOptionTable.voteId eq abId }.toList()
             val optionIds = optionRows.map { it[VoteOptionTable.id] }
@@ -987,11 +1108,14 @@ class GovernanceService(
 
             val sId = voteRow[VoteTable.meetingId]
             val meeting = loadMeeting(sId)
+            // Änderungsantrag (V0.2.6): current working text, not the immutable original -- same
+            // as resolveMotion, see MotionDto.effectiveText KDoc.
+            val effectiveText = motionRow[MotionTable.currentText] ?: motionRow[MotionTable.text]
             val resolutionInput =
                 ResolutionInput(
                     agendaItemId = motionRow[MotionTable.agendaItemId]?.toString(),
                     title = motionRow[MotionTable.title],
-                    text = motionRow[MotionTable.text],
+                    text = effectiveText,
                     votesYes = votesYes,
                     votesNo = votesNo,
                     votesAbstain = 0,
@@ -1025,6 +1149,15 @@ class GovernanceService(
                 it[winnerOptionId] = settlement.winnerOptionId
                 it[secondPriceLtr] = settlement.secondPrice
                 it[resolutionId] = Uuid.parse(resolution.id)
+            }
+            // Änderungsantrag (V0.2.6) adoption via the Vickrey path -- same mechanic as
+            // resolveMotion, must run BEFORE auditResolutionCreate below (deadlock-avoidance
+            // "last write" contract).
+            val amendsId = motionRow[MotionTable.amendsMotionId]
+            if (amendsId != null && resolutionStatus == ResolutionStatus.ADOPTED) {
+                MotionTable.update({ MotionTable.id eq amendsId }) {
+                    it[MotionTable.currentText] = motionRow[MotionTable.text]
+                }
             }
             // V0.5.3 GoBD audit log: called last, after VoteTable.update, so this satisfies
             // AuditLogRecorder's deadlock-avoidance contract -- see auditResolutionCreate KDoc.
@@ -1070,6 +1203,25 @@ class GovernanceService(
                 .selectAll()
                 .where { VoteBallotTable.voteId eq abId }
                 .map { it.toVoteBallotDto() }
+        }
+    }
+
+    /**
+     * Änderungsantrag (V0.2.6): a withdrawn or preliminarily-rejected main Motion is procedurally
+     * moot to amend -- auto-transitions every still-[NON_TERMINAL_MOTION_STATUSES] amendment of
+     * [motionId] to [MotionStatus.WITHDRAWN], reusing the caller's own [now] timestamp. Called
+     * from [withdrawMotion] and [reviewMotion] (REJECT branch only); [MotionStatus.POSTPONED]
+     * deliberately never calls this -- see both call sites' own comments.
+     */
+    private fun cascadeWithdrawPendingAmendments(
+        motionId: Uuid,
+        now: LocalDateTime,
+    ) {
+        MotionTable.update({
+            (MotionTable.amendsMotionId eq motionId) and (MotionTable.status inList NON_TERMINAL_MOTION_STATUSES.toList())
+        }) {
+            it[MotionTable.status] = MotionStatus.WITHDRAWN
+            it[withdrawnAt] = now
         }
     }
 
@@ -1312,6 +1464,9 @@ class GovernanceService(
             meetingId = this[MotionTable.meetingId]?.toString(),
             agendaItemId = this[MotionTable.agendaItemId]?.toString(),
             resolutionId = this[MotionTable.resolutionId]?.toString(),
+            amendsMotionId = this[MotionTable.amendsMotionId]?.toString(),
+            currentText = this[MotionTable.currentText],
+            effectiveText = this[MotionTable.currentText] ?: this[MotionTable.text],
         )
 
     private fun String.toCommitteeUuid(): Uuid = runCatching { Uuid.parse(this) }.getOrElse { throw NotFoundException("Invalid id: $this") }

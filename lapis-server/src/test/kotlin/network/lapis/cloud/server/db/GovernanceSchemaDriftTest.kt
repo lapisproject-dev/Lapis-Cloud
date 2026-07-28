@@ -288,6 +288,12 @@ class GovernanceSchemaDriftTest :
                 entity.attributeByName("submitter_member_id")?.foreignKey?.targetEntityId ?: "",
             ) shouldBe "member"
             model.entityNameOf(entity.attributeByName("reviewed_by")?.foreignKey?.targetEntityId ?: "") shouldBe "member"
+
+            // amends_motion_id (V0.2.6 Änderungsantrag): genuinely self-referential -- plain
+            // «Column» attribute, no FK at either layer, mirroring
+            // document_folder.parent_folder_id's/member.reviewed_by's established precedent.
+            real.foreignKeys["amends_motion_id"] shouldBe null
+            entity.attributeByName("amends_motion_id")?.foreignKey shouldBe null
         }
 
         // ── (2) Model vs. hand-written Exposed Table objects ────────────────────

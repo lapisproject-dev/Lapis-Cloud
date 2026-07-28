@@ -9,16 +9,19 @@ import network.lapis.cloud.server.db.generated.AttendanceTable
 import network.lapis.cloud.server.db.generated.CommitteeTable
 import network.lapis.cloud.server.db.generated.MeetingTable
 import network.lapis.cloud.server.db.generated.MemberTable
+import network.lapis.cloud.server.db.generated.MotionTable
 import network.lapis.cloud.server.db.generated.ResolutionTable
 import network.lapis.cloud.server.security.CurrentMember
 import network.lapis.cloud.shared.domain.AttendanceStatus
 import network.lapis.cloud.shared.domain.AuditAction
 import network.lapis.cloud.shared.domain.AuditEntityType
+import network.lapis.cloud.shared.domain.MotionStatus
 import network.lapis.cloud.shared.domain.QuorumResultDto
 import network.lapis.cloud.shared.domain.ResolutionDto
 import network.lapis.cloud.shared.domain.ResolutionInput
 import network.lapis.cloud.shared.domain.ResolutionMode
 import network.lapis.cloud.shared.domain.ResolutionSnapshot
+import network.lapis.cloud.shared.rpc.ConflictException
 import org.jetbrains.exposed.v1.core.ResultRow
 import org.jetbrains.exposed.v1.core.and
 import org.jetbrains.exposed.v1.core.eq
@@ -28,6 +31,45 @@ import org.jetbrains.exposed.v1.jdbc.selectAll
 import kotlin.math.ceil
 import kotlin.time.Clock
 import kotlin.uuid.Uuid
+
+/**
+ * Änderungsantrag (V0.2.6): every [MotionStatus] that is NOT yet a terminal outcome -- used both
+ * as "still amendable" ([GovernanceService.submitMotion]) and as the amendment-ordering guard's
+ * "pending" set ([requireNoPendingAmendments]). [MotionStatus.WITHDRAWN]/[MotionStatus.RESOLVED]/
+ * [MotionStatus.REJECTED]/[MotionStatus.REJECTED_PRELIMINARY] are the terminal statuses.
+ */
+internal val NON_TERMINAL_MOTION_STATUSES: Set<MotionStatus> =
+    setOf(MotionStatus.SUBMITTED, MotionStatus.REVIEWED, MotionStatus.SCHEDULED, MotionStatus.POSTPONED)
+
+/**
+ * Änderungsantrag (V0.2.6) ordering guard: a main Motion (`amendsMotionId == null`) may not
+ * finalize (transition to a terminal [MotionStatus]) while it still has any amendment in a
+ * [NON_TERMINAL_MOTION_STATUSES] status -- voting on/adopting a main motion before its own
+ * pending amendments have been decided would make [network.lapis.cloud.shared.domain.MotionDto
+ * .effectiveText] ambiguous (an amendment adopted AFTER the main motion resolved could never
+ * actually apply).
+ *
+ * Called from every path capable of transitioning a scheduled Motion to a terminal status --
+ * [GovernanceService.resolveMotion] (Committee-Quorum) and [GovernanceService.closeVote]
+ * (Meritokratische Vote) are the two paths where an amendment procedurally makes sense (adopting
+ * a Sachantrag's text); `ElectionService.tally`/`SystemicConsensusService.evaluate` also call this
+ * for full invariant soundness, since they too can transition a Motion carrying pending
+ * amendments to RESOLVED/REJECTED/POSTPONED even though amending an Election's/
+ * SystemicConsensus's underlying Motion has no real procedural meaning -- same "leaving it
+ * unguarded would be a silent bypass of the same invariant" reasoning the Vote path already
+ * needed. Must run inside an already-open `transaction {}` (all call sites do).
+ */
+internal fun requireNoPendingAmendments(motionId: Uuid) {
+    val pending =
+        MotionTable
+            .selectAll()
+            .where {
+                (MotionTable.amendsMotionId eq motionId) and (MotionTable.status inList NON_TERMINAL_MOTION_STATUSES.toList())
+            }.count()
+    if (pending > 0) {
+        throw ConflictException("Motion $motionId has $pending pending amendment(s); resolve/withdraw them first")
+    }
+}
 
 /**
  * Shared resolution book write path -- originally private to [GovernanceService] (`computeQuorum`/

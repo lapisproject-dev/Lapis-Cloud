@@ -598,6 +598,24 @@ class ElectionService(
             if (approvalCount < threshold) {
                 throw ConflictException("Election $electionId has $approvalCount/$threshold required Tally approvals")
             }
+            // Änderungsantrag (V0.2.6) ordering guard: tally() also finalizes the underlying
+            // Motion to a terminal status (RESOLVED/REJECTED/POSTPONED below), so it needs the
+            // same soundness guard GovernanceService.resolveMotion/closeVote enforce -- see
+            // requireNoPendingAmendments KDoc. Amending an Election's underlying Motion has no
+            // real procedural meaning, but leaving this path unguarded would be a silent bypass
+            // of the same invariant.
+            //
+            // forUpdate(): same lock discipline as GovernanceService.resolveMotion/closeVote's own
+            // Motion-row read -- see that KDoc for the submitMotion race this closes. The lock is
+            // held for the rest of this transaction, so the later re-read at the bottom of this
+            // function (before MotionTable.update) sees the same locked row.
+            val electionMotionRow =
+                MotionTable
+                    .selectAll()
+                    .where { MotionTable.id eq electionRow[ElectionTable.motionId] }
+                    .forUpdate()
+                    .single()
+            if (electionMotionRow[MotionTable.amendsMotionId] == null) requireNoPendingAmendments(electionMotionRow[MotionTable.id])
 
             val optionRows =
                 ElectionOptionTable
@@ -780,11 +798,14 @@ class ElectionService(
             val meeting = MeetingTable.selectAll().where { MeetingTable.id eq electionRow[ElectionTable.meetingId] }.single()
             val committeeId = requireMotionCommitteeId(electionRow[ElectionTable.motionId])
             val motionRow = MotionTable.selectAll().where { MotionTable.id eq electionRow[ElectionTable.motionId] }.single()
+            // Änderungsantrag (V0.2.6): current working text, not the immutable original -- same
+            // as GovernanceService.resolveMotion/closeVote, see MotionDto.effectiveText KDoc.
+            val effectiveText = motionRow[MotionTable.currentText] ?: motionRow[MotionTable.text]
             val resolutionInput =
                 ResolutionInput(
                     agendaItemId = motionRow[MotionTable.agendaItemId]?.toString(),
                     title = motionRow[MotionTable.title],
-                    text = motionRow[MotionTable.text],
+                    text = effectiveText,
                     votesYes = votesYes,
                     votesNo = votesNo,
                     votesAbstain = votesAbstain,

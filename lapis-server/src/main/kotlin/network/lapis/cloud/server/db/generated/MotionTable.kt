@@ -26,6 +26,16 @@ public object MotionTable : Table("motion") {
     public val agendaItemId: Column<Uuid?> = optReference("agenda_item_id", AgendaItemTable.id)
     public val resolutionId: Column<Uuid?> = optReference("resolution_id", ResolutionTable.id)
 
+    // Änderungsantrag (V0.2.6): genuinely self-referential FK -> motion(id) itself. No
+    // .references() here, matching DocumentFolderTable.parentFolderId's established precedent --
+    // UmlToErmTransformer skips self-referential UML associations at the model layer, and this
+    // hand-written table deliberately mirrors that (no real FK constraint either).
+    public val amendsMotionId: Column<Uuid?> = uuid("amends_motion_id").nullable()
+
+    // Current, possibly-amended working text -- null while unamended. See MotionDto KDoc
+    // (lapis-shared) for the full mechanic; prefer MotionDto.effectiveText over this raw column.
+    public val currentText: Column<String?> = varchar("current_text", 4000).nullable()
+
     override val primaryKey: PrimaryKey = PrimaryKey(id)
 
     // Note: 4 index(es) declared on this entity are not emitted —

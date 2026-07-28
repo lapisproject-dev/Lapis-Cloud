@@ -51,6 +51,13 @@
 // resolution.recorded_by, motion.target_committee_id (default would be "committee_id", not
 // "target_committee_id"), motion.submitter_member_id, motion.reviewed_by.
 //
+// motion.amends_motion_id (V0.2.6 Änderungsantrag support) is this domain's own genuinely
+// self-referential FK -- the second case of this pattern in the codebase after
+// document_folder.parent_folder_id (02-document.kuml.kts). Same treatment: plain nullable UUID
+// «Column» attribute, no «Column».fkEntity tag (fkEntity only resolves references to a DIFFERENT
+// already-declared entity, not a self-reference), no real FK constraint at either the Exposed or
+// the generated-SQL layer -- see motion's own attribute comment below.
+//
 // FKs that DO match the association-derived default and are modelled as real UML associations:
 // committee_membership.committee_id/member_id, meeting.committee_id, agendaItem.meeting_id,
 // attendance.meeting_id/member_id (the first-declared member_id association — see attendance's
@@ -470,6 +477,9 @@ classDiagram(name = "Governance") {
         stereotype("Index") { "columns" to listOf("status"); "name" to "idx_motion_status" }
         stereotype("Index") { "columns" to listOf("submitter_member_id"); "name" to "idx_motion_submitter" }
         stereotype("Index") { "columns" to listOf("meeting_id"); "name" to "idx_motion_meeting" }
+        // V0.2.6 Änderungsantrag: index on the self-referential FK for efficient
+        // "list this main Motion's amendments" lookups (listMotions(amendsMotionId=...)).
+        stereotype("Index") { "columns" to listOf("amends_motion_id"); "name" to "idx_motion_amends_motion" }
 
         attribute(name = "id", type = "UUID") {
             stereotype("Id")
@@ -517,6 +527,24 @@ classDiagram(name = "Governance") {
         attribute(name = "withdrawnAt", type = "LocalDateTime") {
             multiplicity = Multiplicity(0, 1)
             stereotype("Column") { "columnName" to "withdrawn_at" }
+        }
+        // Real FK -> motion (id) itself, nullable, genuinely SELF-referential (V0.2.6
+        // Änderungsantrag support). UmlToErmTransformer skips self-referential UML associations,
+        // and there is no «Column».fkEntity workaround for a self-reference either (fkEntity
+        // targets a DIFFERENT already-declared entity) -- plain nullable UUID «Column» attribute,
+        // no fkEntity tag, exactly matching document_folder.parent_folder_id's established
+        // precedent (02-document.kuml.kts file header). The real FK constraint is consequently
+        // absent from the generated baseline too, same deliberate trade-off as parent_folder_id --
+        // not a new regression class.
+        attribute(name = "amendsMotionId", type = "UUID") {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") { "columnName" to "amends_motion_id" }
+        }
+        // Current, possibly-amended working text -- null while unamended. See MotionDto KDoc
+        // (lapis-shared) for the full amendment mechanic.
+        attribute(name = "currentText", type = "String") {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") { "columnName" to "current_text"; "sqlType" to "VARCHAR(4000)" }
         }
     }
 

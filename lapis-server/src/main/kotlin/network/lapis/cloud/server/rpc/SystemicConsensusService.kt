@@ -492,12 +492,29 @@ class SystemicConsensusService(
                         else -> ResolutionStatus.ADOPTED
                     }
                 val meeting = MeetingTable.selectAll().where { MeetingTable.id eq row[SystemicConsensusTable.meetingId] }.single()
-                val motionRow = MotionTable.selectAll().where { MotionTable.id eq row[SystemicConsensusTable.motionId] }.single()
+                // forUpdate(): same lock discipline as GovernanceService.resolveMotion/closeVote's
+                // own Motion-row read -- see that KDoc for the submitMotion race this closes.
+                val motionRow =
+                    MotionTable
+                        .selectAll()
+                        .where { MotionTable.id eq row[SystemicConsensusTable.motionId] }
+                        .forUpdate()
+                        .single()
+                // Änderungsantrag (V0.2.6) ordering guard: this BINDING branch also finalizes the
+                // underlying Motion to a terminal status, so it needs the same soundness guard
+                // GovernanceService.resolveMotion/closeVote enforce -- see
+                // requireNoPendingAmendments KDoc. An ADVISORY SystemicConsensus never reaches
+                // this branch (never writes a Resolution, never touches Motion status), so no
+                // guard is needed there.
+                if (motionRow[MotionTable.amendsMotionId] == null) requireNoPendingAmendments(motionRow[MotionTable.id])
+                // Current working text, not the immutable original -- same as
+                // GovernanceService.resolveMotion/closeVote, see MotionDto.effectiveText KDoc.
+                val effectiveText = motionRow[MotionTable.currentText] ?: motionRow[MotionTable.text]
                 val resolutionInput =
                     ResolutionInput(
                         agendaItemId = motionRow[MotionTable.agendaItemId]?.toString(),
                         title = motionRow[MotionTable.title],
-                        text = motionRow[MotionTable.text],
+                        text = effectiveText,
                         votesYes = 0,
                         votesNo = 0,
                         votesAbstain = 0,

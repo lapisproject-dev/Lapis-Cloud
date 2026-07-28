@@ -54,10 +54,15 @@ import network.lapis.cloud.shared.domain.VoteOpenInput
  * itself. This is a parallel *resolution* path for an already-[MotionStatus.SCHEDULED] Motion,
  * not a parallel submission/review/scheduling pipeline — those steps are unchanged.
  *
- * Explicitly out of scope for this wave (see roadmap's separate bullets): Demokratische Electionen,
- * Systemic Consensus, floor amendments to an Motion's text. The [recordResolution]/
- * [resolveMotion] Committee-Quorum path remains a straightforward decision log with a
- * Ja/Nein/Enthaltung tally for every Motion that does not go through a meritocratic Vote.
+ * Änderungsantrag / amendment support (V0.2.6) extends [submitMotion]/[scheduleMotion]/
+ * [resolveMotion] once more: a Motion may itself target another Motion for amendment
+ * ([network.lapis.cloud.shared.domain.MotionDto.amendsMotionId]) -- see that DTO's KDoc for the
+ * full mechanic and its deliberate scope simplifications (full-text replacement, no ranked
+ * competing-amendment engine).
+ *
+ * The [recordResolution]/[resolveMotion] Committee-Quorum path remains a straightforward decision
+ * log with a Ja/Nein/Enthaltung tally for every Motion that does not go through a meritocratic
+ * Vote, Election, or SystemicConsensus.
  */
 @RpcService
 interface IGovernanceService {
@@ -153,12 +158,21 @@ interface IGovernanceService {
      * target is the General Assembly; any active [CommitteeMembershipDto] (any
      * [network.lapis.cloud.shared.domain.CommitteeRole]) of the target Committee otherwise; or
      * BOARD/ADMIN. See `GovernanceAuthorization.canSubmitMotion`.
+     *
+     * V0.2.6: when [network.lapis.cloud.shared.domain.MotionInput.amendsMotionId] is set, this
+     * submits an Änderungsantrag instead of an ordinary main motion -- the same submission right
+     * applies (reusing plain `canSubmitMotion`, not restricted to the target's original
+     * submitter), but the target Motion must exist, must not itself already be an amendment, must
+     * share this input's `targetCommitteeId`, and must still be in a non-terminal
+     * [MotionStatus] (otherwise `NotFoundException`/`ConflictException`).
      */
     suspend fun submitMotion(input: MotionInput): MotionDto
 
+    /** V0.2.6: [amendsMotionId] filters to exactly one main Motion's amendments. */
     suspend fun listMotions(
         targetCommitteeId: String? = null,
         status: MotionStatus? = null,
+        amendsMotionId: String? = null,
     ): List<MotionDto>
 
     suspend fun getMotion(id: String): MotionDto
@@ -176,14 +190,32 @@ interface IGovernanceService {
         note: String? = null,
     ): MotionDto
 
-    /** Role: target Committee leadership or BOARD/ADMIN. Requires [MotionStatus.REVIEWED] or [MotionStatus.POSTPONED]. */
+    /**
+     * Role: target Committee leadership or BOARD/ADMIN. Requires [MotionStatus.REVIEWED] or
+     * [MotionStatus.POSTPONED].
+     *
+     * V0.2.6: an amendment ([network.lapis.cloud.shared.domain.MotionDto.amendsMotionId] non-null)
+     * must land on its target main Motion's EXACT SAME Meeting -- enforced server-side, not just
+     * trusted from the caller -- and reuses that target's own AgendaItem rather than creating a
+     * second one; `position` is ignored for an amendment. The target main Motion must already be
+     * scheduled onto a Meeting itself.
+     */
     suspend fun scheduleMotion(
         id: String,
         meetingId: String,
         position: Int,
     ): MotionDto
 
-    /** Role: target Committee leadership or BOARD/ADMIN. Requires [MotionStatus.SCHEDULED]. */
+    /**
+     * Role: target Committee leadership or BOARD/ADMIN. Requires [MotionStatus.SCHEDULED].
+     *
+     * V0.2.6: resolving a main Motion (`amendsMotionId == null`) is rejected with
+     * `ConflictException` while it still has any amendment in a non-terminal status. Resolving an
+     * amendment [network.lapis.cloud.shared.domain.ResolutionStatus.ADOPTED] copies that
+     * amendment's own text into the target main Motion's current working text
+     * ([network.lapis.cloud.shared.domain.MotionDto.currentText]); resolving the main Motion
+     * itself later uses [network.lapis.cloud.shared.domain.MotionDto.effectiveText].
+     */
     suspend fun resolveMotion(
         id: String,
         input: MotionResolutionInput,

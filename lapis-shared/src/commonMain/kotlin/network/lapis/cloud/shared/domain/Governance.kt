@@ -262,9 +262,45 @@ enum class MotionStatus {
 enum class MotionReviewDecision { ACCEPT, REJECT }
 
 /**
- * `text` is the motion text itself and becomes [ResolutionDto.text] verbatim at resolution --
- * deliberately no amendment/"Aenderungsmotion" support in this wave (floor amendments are a
- * distinct Robert's-Rules-style feature with real complexity, out of scope here; see roadmap).
+ * `text` is the motion text as originally submitted and is NEVER mutated after submission -- the
+ * historical/audit record of what was proposed. [effectiveText] (`currentText ?: text`) is what
+ * actually becomes [ResolutionDto.text] verbatim when this Motion is itself resolved
+ * (`GovernanceService.resolveMotion`/`closeVote`, and -- V0.2.6 soundness extension, see below --
+ * `ElectionService.tally`/`SystemicConsensusService.evaluate` too).
+ *
+ * Änderungsantrag / amendment support (V0.2.6, closing a gap explicitly named in this project's
+ * original requirements but left unbuilt through V0.2.2-V0.2.5): [amendsMotionId] null means an
+ * ordinary main motion; non-null means this row IS an amendment targeting that main Motion.
+ * Amendments reuse the exact same [MotionStatus] lifecycle as an ordinary motion (submit/review/
+ * schedule/resolve/withdraw) -- no separate lighter-weight state machine -- because the same
+ * committee-leadership due diligence applies to an amendment as to any other motion, and reuse
+ * keeps this Standard-CRUD-artig rather than a Robert's-Rules-of-Order engine.
+ *
+ * Deliberate simplifications (explicitly scoped down, not silently under-built -- mirrors how
+ * V0.8.3's Trust-Anchor wave explicitly scoped a complex real-world spec to a single-level
+ * subset):
+ * - **Full-text replacement, not diff/patch.** An amendment proposes its own complete replacement
+ *   [text] for the main motion -- no partial/line-level edit mechanic.
+ * - **An amendment must be scheduled onto the EXACT SAME Meeting AND AgendaItem as its target
+ *   main motion** (`GovernanceService.scheduleMotion`, enforced server-side, reuses the target's
+ *   own AgendaItem row rather than creating a second one).
+ * - **Ordering: amendments must resolve before their target main motion.** `resolveMotion`/
+ *   `closeVote` (and, for full soundness across every path that can finalize a scheduled Motion,
+ *   `ElectionService.tally`/`SystemicConsensusService.evaluate` too) reject with
+ *   `ConflictException` while any amendment targeting that main motion is still
+ *   SUBMITTED/REVIEWED/SCHEDULED/POSTPONED.
+ * - **Adoption**: an amendment resolved [ResolutionStatus.ADOPTED] copies its own [text] into its
+ *   target main motion's [currentText]. The main motion's own later resolution uses
+ *   [effectiveText], not [text].
+ * - **Multiple competing amendments are NOT ranked** ("weitestgehender Antrag zuerst" and similar
+ *   real Geschäftsordnung precedence rules are deliberately unimplemented). Each ADOPTED
+ *   amendment sequentially overwrites [currentText] -- "last-adopted-wins".
+ * - **No amendments-of-amendments** -- `submitMotion` rejects an [amendsMotionId] that itself
+ *   already has a non-null `amendsMotionId` (flat, one-level structure only).
+ * - **A withdrawn/preliminarily-rejected main motion moots its own pending amendments** --
+ *   `withdrawMotion`/`reviewMotion(REJECT)` auto-transition any still-non-terminal amendment to
+ *   [MotionStatus.WITHDRAWN]. [MotionStatus.POSTPONED] does NOT cascade -- the main motion is
+ *   still alive and will be rescheduled, so its amendments correctly stay pending too.
  */
 @Serializable
 data class MotionDto(
@@ -286,6 +322,14 @@ data class MotionDto(
     val meetingId: String?,
     val agendaItemId: String?,
     val resolutionId: String?,
+    // Änderungsantrag (V0.2.6). Null = ordinary main motion; non-null = this row IS an amendment
+    // targeting that main Motion's id. See KDoc above for the full mechanic.
+    val amendsMotionId: String? = null,
+    // Current, possibly-amended working text -- null while unamended. Prefer [effectiveText].
+    val currentText: String? = null,
+    // Convenience: currentText ?: text -- what resolveMotion/closeVote/ElectionService.tally/
+    // SystemicConsensusService.evaluate actually copy into the resulting Resolution. Always populated.
+    val effectiveText: String = text,
 )
 
 @Serializable
@@ -294,6 +338,9 @@ data class MotionInput(
     val title: String,
     val rationale: String,
     val text: String,
+    // Änderungsantrag (V0.2.6): non-null submits this Motion as an amendment targeting the named
+    // main Motion instead of an ordinary motion. See MotionDto KDoc.
+    val amendsMotionId: String? = null,
 )
 
 @Serializable

@@ -385,6 +385,11 @@ CREATE TABLE motion (
     meeting_id UUID NULL,
     agenda_item_id UUID NULL,
     resolution_id UUID NULL,
+    -- V0.2.6 Änderungsantrag. amends_motion_id is genuinely self-referential (motion -> motion) --
+    -- deliberately no FK constraint, same treatment member.reviewed_by/document_folder.
+    -- parent_folder_id already get (see 02-document.kuml.kts file header).
+    amends_motion_id UUID NULL,
+    current_text VARCHAR(4000) NULL,
     CHECK (status IN ('SUBMITTED', 'REVIEWED', 'REJECTED_PRELIMINARY', 'SCHEDULED', 'RESOLVED', 'REJECTED', 'POSTPONED', 'WITHDRAWN'))
 );
 
@@ -1134,6 +1139,7 @@ CREATE INDEX idx_motion_target_committee ON motion (target_committee_id);
 CREATE INDEX idx_motion_status ON motion (status);
 CREATE INDEX idx_motion_submitter ON motion (submitter_member_id);
 CREATE INDEX idx_motion_meeting ON motion (meeting_id);
+CREATE INDEX idx_motion_amends_motion ON motion (amends_motion_id);
 CREATE INDEX idx_vote_motion ON vote (motion_id);
 CREATE INDEX idx_vote_status ON vote (status);
 CREATE INDEX idx_vote_option_vote ON vote_option (vote_id);

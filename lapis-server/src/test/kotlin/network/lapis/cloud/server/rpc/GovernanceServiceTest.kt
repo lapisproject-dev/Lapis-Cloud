@@ -1550,6 +1550,575 @@ class GovernanceServiceTest :
                 stake shouldBe BigDecimal("12.34")
             }
         }
+
+        // ── Änderungsantrag / amendment support (V0.2.6) ─────────────────────────
+
+        test(
+            "submitMotion (Änderungsantrag): rejects a non-existent target, an amendment-of-amendment, a " +
+                "targetCommitteeId mismatch, and an already-terminal (WITHDRAWN) target; happy path populates " +
+                "amendsMotionId/currentText=null/effectiveText=text",
+        ) {
+            testApplication {
+                application {
+                    install(StatusPages) { installGovernanceExceptionHandlers() }
+                    routing {
+                        registerGovernanceTestRoutes()
+                        registerMotionTestRoutes()
+                    }
+                }
+
+                val committeeA =
+                    client
+                        .post("/test/create-committee/AK%20AendA/WORKING_GROUP/50") { header("X-Member-Id", BOARD_ID) }
+                        .bodyAsText()
+                createdCommitteeIds += Uuid.parse(committeeA)
+                val committeeB =
+                    client
+                        .post("/test/create-committee/AK%20AendB/WORKING_GROUP/50") { header("X-Member-Id", BOARD_ID) }
+                        .bodyAsText()
+                createdCommitteeIds += Uuid.parse(committeeB)
+
+                val memberA = createTestMember("aend-submit-memberA@example.org")
+                val memberB = createTestMember("aend-submit-memberB@example.org")
+                client.post("/test/add-member/$committeeA/$memberA/MEMBER") { header("X-Member-Id", BOARD_ID) }
+                client.post("/test/add-member/$committeeB/$memberB/MEMBER") { header("X-Member-Id", BOARD_ID) }
+
+                // Not found.
+                val notFound =
+                    client.post(
+                        "/test/submit-motion/$committeeA?amends=${Uuid.random()}",
+                    ) { header("X-Member-Id", memberA.toString()) }
+                notFound.status shouldBe HttpStatusCode.NotFound
+
+                val mainMotionId =
+                    client
+                        .post("/test/submit-motion/$committeeA") { header("X-Member-Id", memberA.toString()) }
+                        .bodyAsText()
+                        .substringBefore(":")
+
+                // Amendment-of-amendment: submit a first amendment, then try to amend IT.
+                val amendmentId =
+                    client
+                        .post(
+                            "/test/submit-motion/$committeeA?amends=$mainMotionId",
+                        ) { header("X-Member-Id", memberA.toString()) }
+                        .bodyAsText()
+                        .substringBefore(":")
+                val amendmentOfAmendment =
+                    client.post(
+                        "/test/submit-motion/$committeeA?amends=$amendmentId",
+                    ) { header("X-Member-Id", memberA.toString()) }
+                amendmentOfAmendment.status shouldBe HttpStatusCode.Conflict
+
+                // targetCommitteeId mismatch: mainMotionId belongs to committeeA, submitted under committeeB.
+                val mismatch =
+                    client.post(
+                        "/test/submit-motion/$committeeB?amends=$mainMotionId",
+                    ) { header("X-Member-Id", memberB.toString()) }
+                mismatch.status shouldBe HttpStatusCode.Conflict
+
+                // Already-terminal target: withdraw a fresh main Motion, then try to amend it.
+                val withdrawnMotionId =
+                    client
+                        .post("/test/submit-motion/$committeeA") { header("X-Member-Id", memberA.toString()) }
+                        .bodyAsText()
+                        .substringBefore(":")
+                client.post("/test/withdraw-motion/$withdrawnMotionId") { header("X-Member-Id", memberA.toString()) }
+                val terminalTarget =
+                    client.post(
+                        "/test/submit-motion/$committeeA?amends=$withdrawnMotionId",
+                    ) { header("X-Member-Id", memberA.toString()) }
+                terminalTarget.status shouldBe HttpStatusCode.Conflict
+
+                // Happy path (the earlier amendmentId submission): amendsMotionId set, currentText
+                // null, effectiveText == its own submitted text.
+                val amendmentFull =
+                    client
+                        .get("/test/get-motion-full/$amendmentId") { header("X-Member-Id", memberA.toString()) }
+                        .bodyAsText()
+                val parts = amendmentFull.split(":")
+                parts[0] shouldBe MotionStatus.SUBMITTED.name
+                parts[2] shouldBe mainMotionId
+                parts[3] shouldBe ""
+                parts[4] shouldBe "Motionstext"
+            }
+        }
+
+        test(
+            "scheduleMotion (Änderungsantrag): rejects scheduling before the target main Motion is itself " +
+                "scheduled, rejects a mismatched Meeting, and reuses the target's own AgendaItem on success",
+        ) {
+            testApplication {
+                application {
+                    install(StatusPages) { installGovernanceExceptionHandlers() }
+                    routing {
+                        registerGovernanceTestRoutes()
+                        registerMotionTestRoutes()
+                    }
+                }
+
+                val committeeId =
+                    client
+                        .post("/test/create-committee/AK%20AendSchedule/WORKING_GROUP/50") { header("X-Member-Id", BOARD_ID) }
+                        .bodyAsText()
+                createdCommitteeIds += Uuid.parse(committeeId)
+                val chair = createTestMember("aend-schedule-chair@example.org")
+                client.post("/test/add-member/$committeeId/$chair/CHAIR") { header("X-Member-Id", BOARD_ID) }
+
+                val mainMotionId =
+                    client
+                        .post("/test/submit-motion/$committeeId") { header("X-Member-Id", chair.toString()) }
+                        .bodyAsText()
+                        .substringBefore(":")
+                client.post("/test/review-motion/$mainMotionId/ACCEPT") { header("X-Member-Id", chair.toString()) }
+
+                val amendmentId =
+                    client
+                        .post(
+                            "/test/submit-motion/$committeeId?amends=$mainMotionId",
+                        ) { header("X-Member-Id", chair.toString()) }
+                        .bodyAsText()
+                        .substringBefore(":")
+                client.post("/test/review-motion/$amendmentId/ACCEPT") { header("X-Member-Id", chair.toString()) }
+
+                val meetingA =
+                    client
+                        .post("/test/create-meeting/$committeeId/2026/8/10/18") { header("X-Member-Id", chair.toString()) }
+                        .bodyAsText()
+                        .substringBefore(":")
+
+                // Target main Motion not yet scheduled: rejected.
+                val beforeMainScheduled =
+                    client.post("/test/schedule-motion/$amendmentId/$meetingA/1") { header("X-Member-Id", chair.toString()) }
+                beforeMainScheduled.status shouldBe HttpStatusCode.Conflict
+
+                val mainScheduled =
+                    client
+                        .post("/test/schedule-motion/$mainMotionId/$meetingA/1") { header("X-Member-Id", chair.toString()) }
+                        .bodyAsText()
+                val mainAgendaItemId = mainScheduled.substringAfter(":")
+
+                // Mismatched Meeting: a second PLANNED Meeting under the same Committee.
+                val meetingB =
+                    client
+                        .post("/test/create-meeting/$committeeId/2026/8/11/18") { header("X-Member-Id", chair.toString()) }
+                        .bodyAsText()
+                        .substringBefore(":")
+                val mismatchedMeeting =
+                    client.post("/test/schedule-motion/$amendmentId/$meetingB/1") { header("X-Member-Id", chair.toString()) }
+                mismatchedMeeting.status shouldBe HttpStatusCode.Conflict
+
+                // Correct Meeting: succeeds, reuses the main Motion's own AgendaItem.
+                val amendmentScheduled =
+                    client
+                        .post("/test/schedule-motion/$amendmentId/$meetingA/1") { header("X-Member-Id", chair.toString()) }
+                        .bodyAsText()
+                amendmentScheduled.substringBefore(":") shouldBe MotionStatus.SCHEDULED.name
+                amendmentScheduled.substringAfter(":") shouldBe mainAgendaItemId
+            }
+        }
+
+        test(
+            "resolveMotion (Änderungsantrag) ordering guard + adoption: a main Motion cannot resolve while its " +
+                "amendment is SUBMITTED or SCHEDULED; succeeds once the amendment is resolved, and the resulting " +
+                "Resolution.text is the adopted amendment's text, not the original",
+        ) {
+            testApplication {
+                application {
+                    install(StatusPages) { installGovernanceExceptionHandlers() }
+                    routing {
+                        registerGovernanceTestRoutes()
+                        registerMotionTestRoutes()
+                    }
+                }
+
+                val committeeId =
+                    client
+                        .post("/test/create-committee/AK%20AendOrder/WORKING_GROUP/50") { header("X-Member-Id", BOARD_ID) }
+                        .bodyAsText()
+                createdCommitteeIds += Uuid.parse(committeeId)
+                val chair = createTestMember("aend-order-chair@example.org")
+                client.post("/test/add-member/$committeeId/$chair/CHAIR") { header("X-Member-Id", BOARD_ID) }
+
+                val mainMotionId =
+                    client
+                        .post("/test/submit-motion/$committeeId") { header("X-Member-Id", chair.toString()) }
+                        .bodyAsText()
+                        .substringBefore(":")
+                client.post("/test/review-motion/$mainMotionId/ACCEPT") { header("X-Member-Id", chair.toString()) }
+                val meetingId =
+                    client
+                        .post("/test/create-meeting/$committeeId/2026/9/1/18") { header("X-Member-Id", chair.toString()) }
+                        .bodyAsText()
+                        .substringBefore(":")
+                client.post("/test/schedule-motion/$mainMotionId/$meetingId/1") { header("X-Member-Id", chair.toString()) }
+
+                val amendmentId =
+                    client
+                        .post(
+                            "/test/submit-motion/$committeeId?amends=$mainMotionId&text=Geaenderter%20Text",
+                        ) { header("X-Member-Id", chair.toString()) }
+                        .bodyAsText()
+                        .substringBefore(":")
+
+                // SUBMITTED amendment blocks the main Motion.
+                val blockedSubmitted =
+                    client.post("/test/resolve-motion/$mainMotionId/ADOPTED") { header("X-Member-Id", chair.toString()) }
+                blockedSubmitted.status shouldBe HttpStatusCode.Conflict
+
+                client.post("/test/review-motion/$amendmentId/ACCEPT") { header("X-Member-Id", chair.toString()) }
+                client.post("/test/schedule-motion/$amendmentId/$meetingId/1") { header("X-Member-Id", chair.toString()) }
+
+                // SCHEDULED amendment still blocks the main Motion.
+                val blockedScheduled =
+                    client.post("/test/resolve-motion/$mainMotionId/ADOPTED") { header("X-Member-Id", chair.toString()) }
+                blockedScheduled.status shouldBe HttpStatusCode.Conflict
+
+                client.post("/test/resolve-motion/$amendmentId/ADOPTED") { header("X-Member-Id", chair.toString()) }
+
+                val mainResolved =
+                    client
+                        .post("/test/resolve-motion/$mainMotionId/ADOPTED") { header("X-Member-Id", chair.toString()) }
+                        .bodyAsText()
+                mainResolved.substringBefore(":") shouldBe MotionStatus.RESOLVED.name
+                val mainResolutionId = mainResolved.substringAfter(":")
+
+                val mainFull =
+                    client
+                        .get("/test/get-motion-full/$mainMotionId") { header("X-Member-Id", chair.toString()) }
+                        .bodyAsText()
+                        .split(":")
+                mainFull[3] shouldBe "Geaenderter Text"
+                mainFull[4] shouldBe "Geaenderter Text"
+
+                val resolutionText =
+                    transaction {
+                        ResolutionTable.selectAll().where { ResolutionTable.id eq Uuid.parse(mainResolutionId) }.single()[
+                            ResolutionTable.text,
+                        ]
+                    }
+                resolutionText shouldBe "Geaenderter Text"
+            }
+        }
+
+        test(
+            "resolveMotion (Änderungsantrag): a REJECTED amendment leaves the main Motion's working text " +
+                "unaffected; two sequential ADOPTED amendments apply last-adopted-wins",
+        ) {
+            testApplication {
+                application {
+                    install(StatusPages) { installGovernanceExceptionHandlers() }
+                    routing {
+                        registerGovernanceTestRoutes()
+                        registerMotionTestRoutes()
+                    }
+                }
+
+                val committeeId =
+                    client
+                        .post("/test/create-committee/AK%20AendSequential/WORKING_GROUP/50") { header("X-Member-Id", BOARD_ID) }
+                        .bodyAsText()
+                createdCommitteeIds += Uuid.parse(committeeId)
+                val chair = createTestMember("aend-sequential-chair@example.org")
+                client.post("/test/add-member/$committeeId/$chair/CHAIR") { header("X-Member-Id", BOARD_ID) }
+
+                val mainMotionId =
+                    client
+                        .post(
+                            "/test/submit-motion/$committeeId?text=Originaltext",
+                        ) { header("X-Member-Id", chair.toString()) }
+                        .bodyAsText()
+                        .substringBefore(":")
+                client.post("/test/review-motion/$mainMotionId/ACCEPT") { header("X-Member-Id", chair.toString()) }
+                val meetingId =
+                    client
+                        .post("/test/create-meeting/$committeeId/2026/9/2/18") { header("X-Member-Id", chair.toString()) }
+                        .bodyAsText()
+                        .substringBefore(":")
+                client.post("/test/schedule-motion/$mainMotionId/$meetingId/1") { header("X-Member-Id", chair.toString()) }
+
+                suspend fun scheduleAndResolveAmendment(
+                    text: String,
+                    resolutionStatus: ResolutionStatus,
+                ) {
+                    val amendmentId =
+                        client
+                            .post(
+                                "/test/submit-motion/$committeeId?amends=$mainMotionId&text=$text",
+                            ) { header("X-Member-Id", chair.toString()) }
+                            .bodyAsText()
+                            .substringBefore(":")
+                    client.post("/test/review-motion/$amendmentId/ACCEPT") { header("X-Member-Id", chair.toString()) }
+                    client.post("/test/schedule-motion/$amendmentId/$meetingId/1") { header("X-Member-Id", chair.toString()) }
+                    client.post(
+                        "/test/resolve-motion/$amendmentId/$resolutionStatus",
+                    ) { header("X-Member-Id", chair.toString()) }
+                }
+
+                // REJECTED: main Motion's working text unaffected.
+                scheduleAndResolveAmendment("Abgelehnte%20Aenderung", ResolutionStatus.REJECTED)
+                val afterRejected =
+                    client
+                        .get("/test/get-motion-full/$mainMotionId") { header("X-Member-Id", chair.toString()) }
+                        .bodyAsText()
+                        .split(":")
+                afterRejected[3] shouldBe ""
+                afterRejected[4] shouldBe "Originaltext"
+
+                // First ADOPTED amendment.
+                scheduleAndResolveAmendment("Aenderung%20V2", ResolutionStatus.ADOPTED)
+                val afterFirstAdopted =
+                    client
+                        .get("/test/get-motion-full/$mainMotionId") { header("X-Member-Id", chair.toString()) }
+                        .bodyAsText()
+                        .split(":")
+                afterFirstAdopted[3] shouldBe "Aenderung V2"
+
+                // Second ADOPTED amendment: last-adopted-wins, overwrites V2.
+                scheduleAndResolveAmendment("Aenderung%20V3", ResolutionStatus.ADOPTED)
+                val afterSecondAdopted =
+                    client
+                        .get("/test/get-motion-full/$mainMotionId") { header("X-Member-Id", chair.toString()) }
+                        .bodyAsText()
+                        .split(":")
+                afterSecondAdopted[3] shouldBe "Aenderung V3"
+                afterSecondAdopted[4] shouldBe "Aenderung V3"
+            }
+        }
+
+        test(
+            "Änderungsantrag cascade: withdrawing or preliminarily rejecting a main Motion auto-withdraws its " +
+                "still-pending amendments (a no-op for an already-terminal one); POSTPONED does NOT cascade",
+        ) {
+            testApplication {
+                application {
+                    install(StatusPages) { installGovernanceExceptionHandlers() }
+                    routing {
+                        registerGovernanceTestRoutes()
+                        registerMotionTestRoutes()
+                    }
+                }
+
+                val committeeId =
+                    client
+                        .post("/test/create-committee/AK%20AendCascade/WORKING_GROUP/50") { header("X-Member-Id", BOARD_ID) }
+                        .bodyAsText()
+                createdCommitteeIds += Uuid.parse(committeeId)
+                val chair = createTestMember("aend-cascade-chair@example.org")
+                client.post("/test/add-member/$committeeId/$chair/CHAIR") { header("X-Member-Id", BOARD_ID) }
+
+                // (1) withdrawMotion cascades a pending amendment, leaves an already-terminal one alone.
+                val mainId1 =
+                    client
+                        .post("/test/submit-motion/$committeeId") { header("X-Member-Id", chair.toString()) }
+                        .bodyAsText()
+                        .substringBefore(":")
+                val pendingAmendmentId =
+                    client
+                        .post(
+                            "/test/submit-motion/$committeeId?amends=$mainId1",
+                        ) { header("X-Member-Id", chair.toString()) }
+                        .bodyAsText()
+                        .substringBefore(":")
+                val terminalAmendmentId =
+                    client
+                        .post(
+                            "/test/submit-motion/$committeeId?amends=$mainId1",
+                        ) { header("X-Member-Id", chair.toString()) }
+                        .bodyAsText()
+                        .substringBefore(":")
+                client.post("/test/withdraw-motion/$terminalAmendmentId") { header("X-Member-Id", chair.toString()) }
+
+                client.post("/test/withdraw-motion/$mainId1") { header("X-Member-Id", chair.toString()) }
+
+                val amendmentsAfterWithdraw =
+                    client
+                        .get("/test/list-amendments/$mainId1") { header("X-Member-Id", chair.toString()) }
+                        .bodyAsText()
+                        .split(";")
+                        .associate { entry -> entry.substringBefore(":") to entry.substringAfter(":") }
+                amendmentsAfterWithdraw.getValue(pendingAmendmentId) shouldBe MotionStatus.WITHDRAWN.name
+                amendmentsAfterWithdraw.getValue(terminalAmendmentId) shouldBe MotionStatus.WITHDRAWN.name
+
+                // (2) reviewMotion(REJECT) cascades a pending amendment.
+                val mainId2 =
+                    client
+                        .post("/test/submit-motion/$committeeId") { header("X-Member-Id", chair.toString()) }
+                        .bodyAsText()
+                        .substringBefore(":")
+                val amendmentId2 =
+                    client
+                        .post(
+                            "/test/submit-motion/$committeeId?amends=$mainId2",
+                        ) { header("X-Member-Id", chair.toString()) }
+                        .bodyAsText()
+                        .substringBefore(":")
+                client.post("/test/review-motion/$mainId2/REJECT") { header("X-Member-Id", chair.toString()) }
+                val amendment2Full =
+                    client
+                        .get("/test/get-motion-full/$amendmentId2") { header("X-Member-Id", chair.toString()) }
+                        .bodyAsText()
+                amendment2Full.substringBefore(":") shouldBe MotionStatus.WITHDRAWN.name
+
+                // (3) POSTPONED does NOT cascade: a main Motion resolved POSTPONED (no amendments yet),
+                // then a fresh amendment submitted against it afterwards, stays untouched/pending.
+                val mainId3 =
+                    client
+                        .post("/test/submit-motion/$committeeId") { header("X-Member-Id", chair.toString()) }
+                        .bodyAsText()
+                        .substringBefore(":")
+                client.post("/test/review-motion/$mainId3/ACCEPT") { header("X-Member-Id", chair.toString()) }
+                val meetingId3 =
+                    client
+                        .post("/test/create-meeting/$committeeId/2026/9/3/18") { header("X-Member-Id", chair.toString()) }
+                        .bodyAsText()
+                        .substringBefore(":")
+                client.post("/test/schedule-motion/$mainId3/$meetingId3/1") { header("X-Member-Id", chair.toString()) }
+                client.post("/test/resolve-motion/$mainId3/POSTPONED") { header("X-Member-Id", chair.toString()) }
+
+                val amendmentId3 =
+                    client
+                        .post(
+                            "/test/submit-motion/$committeeId?amends=$mainId3",
+                        ) { header("X-Member-Id", chair.toString()) }
+                        .bodyAsText()
+                        .substringBefore(":")
+                val amendment3Full =
+                    client
+                        .get("/test/get-motion-full/$amendmentId3") { header("X-Member-Id", chair.toString()) }
+                        .bodyAsText()
+                amendment3Full.substringBefore(":") shouldBe MotionStatus.SUBMITTED.name
+            }
+        }
+
+        test("listMotions(amendsMotionId = ...) returns exactly one main Motion's amendments") {
+            testApplication {
+                application {
+                    install(StatusPages) { installGovernanceExceptionHandlers() }
+                    routing {
+                        registerGovernanceTestRoutes()
+                        registerMotionTestRoutes()
+                    }
+                }
+
+                val committeeId =
+                    client
+                        .post("/test/create-committee/AK%20AendList/WORKING_GROUP/50") { header("X-Member-Id", BOARD_ID) }
+                        .bodyAsText()
+                createdCommitteeIds += Uuid.parse(committeeId)
+                val chair = createTestMember("aend-list-chair@example.org")
+                client.post("/test/add-member/$committeeId/$chair/CHAIR") { header("X-Member-Id", BOARD_ID) }
+
+                val mainA =
+                    client
+                        .post("/test/submit-motion/$committeeId") { header("X-Member-Id", chair.toString()) }
+                        .bodyAsText()
+                        .substringBefore(":")
+                val mainB =
+                    client
+                        .post("/test/submit-motion/$committeeId") { header("X-Member-Id", chair.toString()) }
+                        .bodyAsText()
+                        .substringBefore(":")
+                val amendmentA1 =
+                    client
+                        .post("/test/submit-motion/$committeeId?amends=$mainA") { header("X-Member-Id", chair.toString()) }
+                        .bodyAsText()
+                        .substringBefore(":")
+                val amendmentA2 =
+                    client
+                        .post("/test/submit-motion/$committeeId?amends=$mainA") { header("X-Member-Id", chair.toString()) }
+                        .bodyAsText()
+                        .substringBefore(":")
+                client.post("/test/submit-motion/$committeeId?amends=$mainB") { header("X-Member-Id", chair.toString()) }
+
+                val amendmentsOfA =
+                    client
+                        .get("/test/list-amendments/$mainA") { header("X-Member-Id", chair.toString()) }
+                        .bodyAsText()
+                        .split(";")
+                        .map { it.substringBefore(":") }
+                        .toSet()
+                amendmentsOfA shouldBe setOf(amendmentA1, amendmentA2)
+            }
+        }
+
+        test(
+            "closeVote (Änderungsantrag): enforces the same ordering guard as resolveMotion, and an ADOPTED " +
+                "amendment via the Vickrey path also updates the main Motion's currentText",
+        ) {
+            testApplication {
+                application {
+                    install(StatusPages) { installGovernanceExceptionHandlers() }
+                    routing {
+                        registerGovernanceTestRoutes()
+                        registerMotionTestRoutes()
+                        registerVoteTestRoutes()
+                    }
+                }
+
+                val committeeId =
+                    client
+                        .post("/test/create-committee/AK%20AendVote/EXECUTIVE_BOARD/50") { header("X-Member-Id", BOARD_ID) }
+                        .bodyAsText()
+                createdCommitteeIds += Uuid.parse(committeeId)
+                val chair = createTestMember("aend-vote-chair@example.org")
+                val voter = createTestMember("aend-vote-voter@example.org")
+                client.post("/test/add-member/$committeeId/$chair/CHAIR") { header("X-Member-Id", BOARD_ID) }
+                client.post("/test/add-member/$committeeId/$voter/MEMBER") { header("X-Member-Id", BOARD_ID) }
+                seedLtrBalance(voter, BigDecimal("50.00"))
+
+                val (mainMotionId, meetingId) = client.createTerminierterMotion(committeeId, chair, voter, 2026, 11, 25)
+
+                val amendmentId =
+                    client
+                        .post(
+                            "/test/submit-motion/$committeeId?amends=$mainMotionId&text=Vote-Geaendert",
+                        ) { header("X-Member-Id", chair.toString()) }
+                        .bodyAsText()
+                        .substringBefore(":")
+                client.post("/test/review-motion/$amendmentId/ACCEPT") { header("X-Member-Id", chair.toString()) }
+                client.post("/test/schedule-motion/$amendmentId/$meetingId/1") { header("X-Member-Id", chair.toString()) }
+
+                val opened =
+                    client.post("/test/open-vote/$mainMotionId") { header("X-Member-Id", chair.toString()) }.bodyAsText()
+                val voteId = opened.substringBefore(":")
+                val jaOptionId =
+                    opened
+                        .split(":", limit = 3)[2]
+                        .split(";")
+                        .first { it.endsWith("=YES") }
+                        .substringBefore("=")
+                client.post("/test/cast-vote-ballot/$voteId/$jaOptionId/10.00") { header("X-Member-Id", voter.toString()) }
+
+                // Amendment still SCHEDULED (pending): closeVote must be blocked, same guard as resolveMotion.
+                val blockedClose = client.post("/test/close-vote/$voteId") { header("X-Member-Id", chair.toString()) }
+                blockedClose.status shouldBe HttpStatusCode.Conflict
+
+                client.post("/test/resolve-motion/$amendmentId/ADOPTED") { header("X-Member-Id", chair.toString()) }
+
+                val closed =
+                    client.post("/test/close-vote/$voteId") { header("X-Member-Id", chair.toString()) }.bodyAsText()
+                val closedParts = closed.split(":")
+                closedParts[0] shouldBe VoteStatus.CLOSED.name
+                val resolutionId = closedParts[3]
+
+                val resolutionText =
+                    transaction {
+                        ResolutionTable.selectAll().where { ResolutionTable.id eq Uuid.parse(resolutionId) }.single()[
+                            ResolutionTable.text,
+                        ]
+                    }
+                resolutionText shouldBe "Vote-Geaendert"
+
+                val mainFull =
+                    client
+                        .get("/test/get-motion-full/$mainMotionId") { header("X-Member-Id", chair.toString()) }
+                        .bodyAsText()
+                        .split(":")
+                mainFull[3] shouldBe "Vote-Geaendert"
+                mainFull[4] shouldBe "Vote-Geaendert"
+            }
+        }
     })
 
 /**
@@ -1707,6 +2276,7 @@ private fun Route.registerMotionTestRoutes() {
                     title = q["title"] ?: "Testmotion",
                     rationale = rationale,
                     text = q["text"] ?: "Motionstext",
+                    amendsMotionId = q["amends"],
                 ),
             )
         call.respondText("${a.id}:${a.status}")
@@ -1715,6 +2285,20 @@ private fun Route.registerMotionTestRoutes() {
         val service = GovernanceService(call)
         val a = service.getMotion(call.parameters["id"]!!)
         call.respondText("${a.status}:${a.resolutionId ?: ""}")
+    }
+    // Änderungsantrag (V0.2.6): full-detail read exposing amendsMotionId/currentText/
+    // effectiveText -- a separate route from get-motion above so that route's pre-existing
+    // exact-equality assertions ("$status:$resolutionId") stay unaffected by this wave.
+    get("/test/get-motion-full/{id}") {
+        val service = GovernanceService(call)
+        val a = service.getMotion(call.parameters["id"]!!)
+        call.respondText("${a.status}:${a.resolutionId ?: ""}:${a.amendsMotionId ?: ""}:${a.currentText ?: ""}:${a.effectiveText}")
+    }
+    // Änderungsantrag (V0.2.6): listMotions(amendsMotionId = ...), ids joined for assertion.
+    get("/test/list-amendments/{motionId}") {
+        val service = GovernanceService(call)
+        val amendments = service.listMotions(amendsMotionId = call.parameters["motionId"]!!)
+        call.respondText(amendments.joinToString(";") { "${it.id}:${it.status}" })
     }
     post("/test/review-motion/{id}/{decision}") {
         val service = GovernanceService(call)
