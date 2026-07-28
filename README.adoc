@@ -64,7 +64,7 @@ this repository. This README describes only the technical scope.
 
 == Status
 
-As of *V0.7.3* (tag `v0.7.1`), seven major waves are complete (see `CHANGELOG.md` for full
+As of *V0.8.4* (tag `v0.8.0`), eight major waves are complete (see `CHANGELOG.md` for full
 detail):
 
 * **V0.1 — Project foundation & standard membership management**: Gradle multi-module structure,
@@ -104,22 +104,39 @@ detail):
   see "What doesn't work yet"). A real multi-screen web UI (login, registration, dashboard, member
   administration, contributions, documents, mailing/direct-messages) replacing the previous
   four-service tech demo, served same-origin from the Ktor server.
+* **V0.8 — Federation (complete, tag `v0.8.0`)**: server-to-server content-federation protocol
+  Grundgerüst (ActivityPub-hybrid core + a namespaced `lapis:` JSON-LD extension vocabulary for
+  Meritokratie-specific data, HTTP-Signature-verified inbox/outbox, no content type wired in yet);
+  OIDC-based individual-member guest access (every server is both an OIDC Issuer for its own
+  members and a Relying Party for guests from other instances, Authorization Code Flow with PKCE,
+  Dynamic Client Registration as the open default — a guest is represented as a real
+  `Member(status = GAST)` row, closing the identity-model gap the V0.6.4 note below used to flag);
+  Trust-Anchor-Governance (a deliberately single-level OpenID Federation 1.0 subset — explicitly a
+  UX-comfort layer, never a security gate for federation/guest-login/DCR); and a navbar guest badge
+  (violet indicator + hover/focus/tap popover disclosing the guest's home server, WCAG-AA
+  contrast-verified, screen-reader accessible). Content/Timeline-level guest marking is not built —
+  this codebase has no "Timeline"/"Post" content entity yet, see "What doesn't work yet".
 
 Every wave went through this project's mandatory plan → implement → independent review →
-independent security audit pipeline before merging. Known limitations (Letterxpress wire format
-and the oracle's price-source wire formats not verified against live docs, no Sammelbestätigung
+independent security audit pipeline before merging — the V0.8 waves additionally went through a
+dedicated adversarial live-attack phase each, given the project's own "most security-critical
+version in the backlog" classification for federation work; V0.8.1's pass found and fixed a real
+IPv6 Unique-Local-Address SSRF gap live. Known limitations (Letterxpress wire format and the
+oracle's price-source wire formats not verified against live docs, no Sammelbestätigung
 aggregation, no full GoBD tamper-evidence/TSE, no persistent oracle halt-queue, no guest/Gast
-participants anywhere in the LTR economy, federation not yet built) are tracked in `CHANGELOG.md`.
-See link:docs/architecture/domain-model.adoc[domain model documentation] (covers the V0.1.5
-Contributions/Documents/Communication slice, the V0.3 accounting slices, the V0.4.1 mail-merge
-slice, and the V0.6.5 Price-Oracle slice — not updated for every wave since) and `CLAUDE.md` for
-further detail.
+participation in the LTR economy yet, DNS-rebinding TOCTOU gap in the federation SSRF guard) are
+tracked in `CHANGELOG.md`. See link:docs/architecture/domain-model.adoc[domain model
+documentation] (covers the V0.1.5 Contributions/Documents/Communication slice, the V0.3 accounting
+slices, the V0.4.1 mail-merge slice, and the V0.6.5 Price-Oracle slice — not updated for every wave
+since) and `CLAUDE.md` for further detail.
 
 NOTE: The V0.6.4 guest/Gast rating basket cut (`PoliticianProfileDto` exposes `memberTrustWeight`
-only, not the concept's three-way Mitglieder-/Gäste-/Gesamtbewertung) is **accepted scope**
-(product-owner sign-off 2026-07-22) for as long as no operational Gast identity model exists in
-this codebase. Revisit once one lands (tracked for V0.7.2/V0.8). See `CHANGELOG.md` `[0.6.0]`
-"Known limitations" for the full reasoning.
+only, not the concept's three-way Mitglieder-/Gäste-/Gesamtbewertung) was accepted scope
+(product-owner sign-off 2026-07-22) for as long as no operational Gast identity model existed in
+this codebase. **That condition is now met** — V0.8.2 gives every guest a real `Member(status =
+GAST)` row — so whether to revisit the rating-basket cut is now a live, open product decision
+rather than a deferred one. Not yet revisited as of this release. See `CHANGELOG.md` `[0.6.0]`
+"Known limitations" for the original reasoning.
 
 === Auction opt-in (V0.6.2)
 
@@ -143,13 +160,15 @@ legal counsel — not something this project can decide once for everyone. See `
 * **UI coverage beyond the core domains.** Governance, accounting, compliance, and the entire LTR
   economy have no UI yet — reachable only via Kilua RPC / the HTTP routes. Needs its own future
   prioritization decision, not yet scheduled as a numbered wave.
-* **Federation (multi-server operation) is not built** — planned for V0.8.
-* **Two known, disclosed, not-yet-fixed gaps found during review** (tracked as follow-up waves):
-  `PeerTransferService.transferLtr`/`GovernanceService.castVoteBallot` don't gate on active
-  membership (an `ANTRAG` applicant could in principle stake/transfer LTR before board approval);
-  and RPC error responses for `@RpcServiceException` subclasses (defined in the JVM-only
-  `lapis-server` module) fail to deserialize cleanly on the Kotlin/JS client — the authorization
-  boundary itself is unaffected, only the error's wire shape is wrong.
+* **No content type is actually federated yet.** V0.8.1 built the ActivityPub-hybrid protocol
+  layer; no existing content type (crowdfunding projects, politician profiles, governance
+  resolutions) is wired into outbound federation. A future wave's own explicit product decision.
+* **No guest participation in the LTR economy.** A federated guest (V0.8.2) is authenticated and
+  represented, but not wired into LTR staking/posting/earning — that mechanics is deliberately not
+  built yet, a separate scope decision from identity itself.
+* **`PeerTransferService.transferLtr`/`GovernanceService.castVoteBallot` don't gate on active
+  membership** (known, disclosed gap, tracked as a follow-up wave): an `ANTRAG` applicant could in
+  principle stake/transfer LTR before board approval.
 
 None of this is a secret gap. See the project vault's Lapis Cloud roadmap for the up-to-date wave
 plan.
