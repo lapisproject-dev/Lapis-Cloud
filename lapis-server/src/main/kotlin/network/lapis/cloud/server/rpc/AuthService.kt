@@ -3,6 +3,7 @@ package network.lapis.cloud.server.rpc
 import io.ktor.server.application.ApplicationCall
 import network.lapis.cloud.server.db.generated.AccountTable
 import network.lapis.cloud.server.db.generated.MemberTable
+import network.lapis.cloud.server.db.generated.OidcGuestProfileTable
 import network.lapis.cloud.server.federation.OidcBackChannelLogoutNotifier
 import network.lapis.cloud.server.security.PasswordHasher
 import network.lapis.cloud.server.security.PasswordPolicy
@@ -59,9 +60,17 @@ class AuthService(
 
     override suspend fun getSessionInfo(): SessionInfoDto {
         val current = resolveCurrentMember(call)
-        val displayName =
+        // Left-join onto OidcGuestProfileTable (V0.8.4 Guest Badge): yields a non-null
+        // homeserverUrl for a genuine GAST member (always has a 1:1 profile row -- see
+        // OidcGuestMemberStore.resolveOrCreateGuestMember) and null for a real, non-guest member
+        // (no matching row) -- no separate `if (isGuest)` branch/query needed.
+        val (displayName, homeserverUrl) =
             transaction {
-                MemberTable.selectAll().where { MemberTable.id eq current.memberId }.single()[MemberTable.displayName]
+                (MemberTable leftJoin OidcGuestProfileTable)
+                    .selectAll()
+                    .where { MemberTable.id eq current.memberId }
+                    .single()
+                    .let { it[MemberTable.displayName] to it.getOrNull(OidcGuestProfileTable.homeserverUrl) }
             }
         // Only a real, token-resolved session has a meaningful expiry -- the test-only trusted-
         // X-Member-Id fallback (see RequestContext.resolveCurrentMember KDoc) has no SessionTable
@@ -76,6 +85,8 @@ class AuthService(
             displayName = displayName,
             role = current.role,
             expiresAt = expiresAt,
+            isGuest = current.isGuest,
+            homeserverUrl = homeserverUrl,
         )
     }
 }

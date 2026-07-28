@@ -23,7 +23,10 @@ import kotlinx.datetime.LocalDate
 import network.lapis.cloud.server.db.DatabaseConfig
 import network.lapis.cloud.server.db.generated.AccountTable
 import network.lapis.cloud.server.db.generated.MemberTable
+import network.lapis.cloud.server.db.generated.OidcGuestProfileTable
 import network.lapis.cloud.server.db.generated.SessionTable
+import network.lapis.cloud.server.federation.OidcGuestClaims
+import network.lapis.cloud.server.federation.OidcGuestMemberStore
 import network.lapis.cloud.server.security.PasswordHasher
 import network.lapis.cloud.server.security.SessionStore
 import network.lapis.cloud.shared.domain.AccountRole
@@ -186,7 +189,56 @@ class AuthServiceTest :
                 val response = client.get("/test/session-info") { header("Authorization", "Bearer ${issued.rawToken}") }
                 response.status shouldBe HttpStatusCode.OK
                 val body = response.bodyAsText()
-                body shouldBe "$member:MEMBER:${issued.expiresAt}"
+                body shouldBe "$member:MEMBER:${issued.expiresAt}:false:-"
+            }
+        }
+
+        // V0.8.4 Guest Badge -- regression guard for the leftJoin onto OidcGuestProfileTable: a
+        // real, non-guest member must NOT accidentally pick up an unrelated homeserverUrl.
+        test("getSessionInfo: a real (non-guest) member has isGuest=false and homeserverUrl=null") {
+            testApplication {
+                application {
+                    install(StatusPages) { installAuthServiceExceptionHandlers() }
+                    routing { registerAuthServiceTestRoutes() }
+                }
+
+                val member = createTestMember("auth-service-non-guest@example.org")
+                val issued = SessionStore.createSession(member)
+
+                val response = client.get("/test/session-info") { header("Authorization", "Bearer ${issued.rawToken}") }
+                response.status shouldBe HttpStatusCode.OK
+                response.bodyAsText() shouldBe "$member:MEMBER:${issued.expiresAt}:false:-"
+            }
+        }
+
+        // V0.8.4 Guest Badge -- a genuine federated OIDC guest (V0.8.2 OidcGuestMemberStore) has
+        // isGuest=true and its OidcGuestProfileTable.homeserverUrl surfaced verbatim.
+        test("getSessionInfo: a GAST member has isGuest=true and homeserverUrl from OidcGuestProfileTable") {
+            testApplication {
+                application {
+                    install(StatusPages) { installAuthServiceExceptionHandlers() }
+                    routing { registerAuthServiceTestRoutes() }
+                }
+
+                val issuer = "https://home-${Uuid.random()}.example"
+                val subject = "guest-subject-${Uuid.random()}"
+                val claims =
+                    OidcGuestClaims(
+                        issuer = issuer,
+                        subject = subject,
+                        name = "Session-Info Test Guest",
+                        picture = null,
+                        preferredUsername = "guest-session-info",
+                        homeserverUrl = issuer,
+                        membershipStatus = "AKTIV",
+                    )
+                val member = OidcGuestMemberStore.resolveOrCreateGuestMember(claims, "openid profile_basic")
+                createdMemberIds += member
+                val issued = SessionStore.createSession(member)
+
+                val response = client.get("/test/session-info") { header("Authorization", "Bearer ${issued.rawToken}") }
+                response.status shouldBe HttpStatusCode.OK
+                response.bodyAsText() shouldBe "$member:MEMBER:${issued.expiresAt}:true:$issuer"
             }
         }
     })
@@ -194,6 +246,7 @@ class AuthServiceTest :
 private fun cleanUpAuthServiceTestData(memberIds: List<Uuid>) {
     if (memberIds.isEmpty()) return
     transaction {
+        OidcGuestProfileTable.deleteWhere { OidcGuestProfileTable.memberId inList memberIds }
         SessionTable.deleteWhere { SessionTable.memberId inList memberIds }
         AccountTable.deleteWhere { AccountTable.memberId inList memberIds }
         MemberTable.deleteWhere { MemberTable.id inList memberIds }
@@ -221,6 +274,6 @@ private fun Route.registerAuthServiceTestRoutes() {
     }
     get("/test/session-info") {
         val info = AuthService(call).getSessionInfo()
-        call.respondText("${info.memberId}:${info.role}:${info.expiresAt}")
+        call.respondText("${info.memberId}:${info.role}:${info.expiresAt}:${info.isGuest}:${info.homeserverUrl ?: "-"}")
     }
 }

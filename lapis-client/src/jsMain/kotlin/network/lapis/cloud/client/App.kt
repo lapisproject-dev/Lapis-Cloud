@@ -2,6 +2,7 @@ package network.lapis.cloud.client
 
 import io.kvision.Application
 import io.kvision.html.Link
+import io.kvision.html.span
 import io.kvision.navbar.Nav
 import io.kvision.navbar.Navbar
 import io.kvision.navbar.nav
@@ -84,7 +85,20 @@ private fun refreshNavbar(navbar: Navbar) {
     }
 
     val rightNav: Nav = navbar.nav(rightAlign = true)
-    rightNav.navLinkDisabled("${session.displayName} (${session.role})")
+    // V0.8.4 Guest Badge: a federated OIDC guest session gets a visual indicator in place of the
+    // ordinary "(role)" display -- a non-guest session's display below is completely unchanged.
+    // homeserverUrl != null is a defensive guard (see GuestBadge.kt guestBadge KDoc): it should
+    // always be set for a real guest (OidcGuestProfileTable is 1:1 with a GAST member), but the
+    // DTO models it as nullable, so we don't force-unwrap without a check -- falling back to the
+    // ordinary display is safer than crashing or showing a badge with no home-server text.
+    if (session.isGuest && session.homeserverUrl != null) {
+        rightNav.span(className = "nav-item nav-link disabled d-flex align-items-center gap-2") {
+            guestBadge(session.homeserverUrl!!)
+            span("${session.displayName} (Gast)")
+        }
+    } else {
+        rightNav.navLinkDisabled("${session.displayName} (${session.role})")
+    }
     val logoutLink = rightNav.navLink("Abmelden", url = "javascript:void(0)")
     logoutLink.onClick {
         AppScope.launch {
