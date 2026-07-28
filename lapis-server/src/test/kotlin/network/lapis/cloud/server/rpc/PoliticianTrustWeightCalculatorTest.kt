@@ -128,4 +128,109 @@ class PoliticianTrustWeightCalculatorTest :
 
             result.getValue(politician).memberTrustWeight.compareTo(ZERO_2DP) shouldBe 0
         }
+
+        // ── computeGuestTrustWeights (guest-rating wave) ─────────────────────────
+        // Interim, plain-unweighted-count weighting -- see that function's own KDoc for why it is
+        // NOT run through LargestRemainderApportionment like computeMemberTrustWeights is.
+
+        test("computeGuestTrustWeights: empty input map returns an empty result") {
+            PoliticianTrustWeightCalculator.computeGuestTrustWeights(emptyMap()) shouldBe emptyMap()
+        }
+
+        test("computeGuestTrustWeights: single profile, 2 likes 1 dislike -> guestTrustWeight = 1.00") {
+            val politician = Uuid.random()
+            val guest1 = Uuid.random()
+            val guest2 = Uuid.random()
+            val guest3 = Uuid.random()
+            val reactionsByProfile =
+                mapOf(
+                    politician to
+                        listOf(
+                            guest1 to PoliticianReactionValue.LIKE,
+                            guest2 to PoliticianReactionValue.LIKE,
+                            guest3 to PoliticianReactionValue.DISLIKE,
+                        ),
+                )
+
+            val result = PoliticianTrustWeightCalculator.computeGuestTrustWeights(reactionsByProfile)
+
+            result.getValue(politician).guestLikeCount shouldBe 2
+            result.getValue(politician).guestDislikeCount shouldBe 1
+            result.getValue(politician).guestTrustWeight.compareTo(BigDecimal("1.00")) shouldBe 0
+        }
+
+        test("computeGuestTrustWeights: dislikes exceeding likes floors guestTrustWeight at zero, never negative") {
+            val politician = Uuid.random()
+            val guest1 = Uuid.random()
+            val guest2 = Uuid.random()
+            val guest3 = Uuid.random()
+            val reactionsByProfile =
+                mapOf(
+                    politician to
+                        listOf(
+                            guest1 to PoliticianReactionValue.LIKE,
+                            guest2 to PoliticianReactionValue.DISLIKE,
+                            guest3 to PoliticianReactionValue.DISLIKE,
+                        ),
+                )
+
+            val result = PoliticianTrustWeightCalculator.computeGuestTrustWeights(reactionsByProfile)
+
+            result.getValue(politician).guestLikeCount shouldBe 1
+            result.getValue(politician).guestDislikeCount shouldBe 2
+            result.getValue(politician).guestTrustWeight.compareTo(ZERO_2DP) shouldBe 0
+        }
+
+        test("computeGuestTrustWeights: multiple profiles are computed independently, no shared-pool interaction") {
+            val politicianA = Uuid.random()
+            val politicianB = Uuid.random()
+            val guest1 = Uuid.random()
+            val guest2 = Uuid.random()
+            val guest3 = Uuid.random()
+            val reactionsByProfile =
+                mapOf(
+                    politicianA to
+                        listOf(
+                            guest1 to PoliticianReactionValue.LIKE,
+                            guest2 to PoliticianReactionValue.LIKE,
+                        ),
+                    politicianB to listOf(guest3 to PoliticianReactionValue.LIKE),
+                )
+
+            val result = PoliticianTrustWeightCalculator.computeGuestTrustWeights(reactionsByProfile)
+
+            // Unlike computeMemberTrustWeights, there is no shared pool to split -- A's weight is
+            // its own raw count (2.00), completely unaffected by B's raters or count.
+            result.getValue(politicianA).guestTrustWeight.compareTo(BigDecimal("2.00")) shouldBe 0
+            result.getValue(politicianB).guestTrustWeight.compareTo(BigDecimal("1.00")) shouldBe 0
+        }
+
+        test("computeGuestTrustWeights: a profile with an empty reaction list is still represented, with zero weight") {
+            val politicianWithVotes = Uuid.random()
+            val politicianWithNone = Uuid.random()
+            val guest = Uuid.random()
+            val reactionsByProfile =
+                mapOf(
+                    politicianWithVotes to listOf(guest to PoliticianReactionValue.LIKE),
+                    politicianWithNone to emptyList(),
+                )
+
+            val result = PoliticianTrustWeightCalculator.computeGuestTrustWeights(reactionsByProfile)
+
+            result.keys shouldBe setOf(politicianWithVotes, politicianWithNone)
+            result.getValue(politicianWithNone).guestTrustWeight.compareTo(ZERO_2DP) shouldBe 0
+        }
+
+        // Regression: computeMemberTrustWeights' own formula is untouched by this wave -- only its
+        // caller-side inputs are now pre-filtered by raterType before reaching it.
+        test("computeMemberTrustWeights regression: unaffected by the computeGuestTrustWeights addition") {
+            val politician = Uuid.random()
+            val rater = Uuid.random()
+            val reactionsByProfile = mapOf(politician to listOf(rater to PoliticianReactionValue.LIKE))
+            val raterBalances = mapOf(rater to BigDecimal("5.00"))
+
+            val result = PoliticianTrustWeightCalculator.computeMemberTrustWeights(reactionsByProfile, raterBalances)
+
+            result.getValue(politician).memberTrustWeight.compareTo(BigDecimal("5.00")) shouldBe 0
+        }
     })

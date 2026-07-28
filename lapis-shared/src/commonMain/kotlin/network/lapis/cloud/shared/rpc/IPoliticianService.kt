@@ -19,10 +19,15 @@ import network.lapis.cloud.shared.domain.PoliticianWeightSnapshotDto
  * establishes for its own opt-in flag. This applies even to [grantPoliticianStatus] -- a BOARD
  * member cannot silently activate the feature by granting status while it is toggled off.
  *
- * **Scope-cut (Gast rating basket)**: member-only this wave -- see `20-politician.kuml.kts` file
- * header "Scope-cut: member-only rating, no Gast basket" (no operational Gast identity model
- * exists in this codebase yet, same absence [IPeerTransferService] KDoc documents for its own
- * Gast-recipient scope-cut).
+ * **Gast rating basket (CLOSED, guest-rating wave)**: the V0.6.4 "member-only rating, no Gast
+ * basket" scope cut -- see `20-politician.kuml.kts` file header -- is closed now that V0.8.2's
+ * OIDC guest-identity federation makes `MemberStatus.GAST` a real, reachable status. [castRating]/
+ * [retractRating] now accept a GAST-status caller too (via
+ * `network.lapis.cloud.server.rpc.requireActiveOrGuestMembership`, still excluding
+ * ANTRAG/AUSGETRETEN/ABGELEHNT). [getTopPoliticians] sorts by the COMBINED (member+guest) weight;
+ * [listPoliticians]/[getPoliticianProfile] expose all three (member/guest/combined) separately.
+ * See [network.lapis.cloud.shared.domain.PoliticianProfileDto] KDoc for the exact weight shapes,
+ * including the disclosed guest-weighting interim simplification.
  *
  * **Scope-cut (real-name enforcement)**: a documented no-op -- see `20-politician.kuml.kts` file
  * header "Scope-cut: real-name enforcement is a documented no-op" (no pseudonym-display layer
@@ -50,9 +55,11 @@ interface IPoliticianService {
     /**
      * Role: BOARD/ADMIN. Flips [PoliticianProfileDto.status] to FORMER, sets `revokedAt`/
      * `revokedBy`, and irreversibly deletes every [PoliticianReactionDto]/[PoliticianWeightSnapshotDto]
-     * row for this profile ("Bewertungsstatistik wird geloescht") -- the profile row itself is
-     * kept, still reachable via [getPoliticianProfile]. A later [grantPoliticianStatus] on the
-     * same member reactivates this same row starting back at Korb=0.
+     * row for this profile -- MEMBER-cast and GAST-cast reactions alike, and every persisted
+     * member/guest/combined snapshot column ("Bewertungsstatistik wird geloescht: ... Mitglieder,
+     * Gäste, Gesamt") -- the profile row itself is kept, still reachable via
+     * [getPoliticianProfile]. A later [grantPoliticianStatus] on the same member reactivates this
+     * same row starting back at Korb=0 for both baskets.
      */
     suspend fun revokePoliticianStatus(memberId: String): PoliticianProfileDto
 
@@ -63,18 +70,20 @@ interface IPoliticianService {
     ): PoliticianProfileDto
 
     /**
-     * Role: MEMBER+, caller must be [network.lapis.cloud.shared.domain.MemberStatus.AKTIV].
-     * Upsert-on-unique-key, same idiom as [ICrowdfundingService.castReaction] -- casting again
-     * with a different [value] changes the rating, it does not add a second one. Rating itself
-     * costs the rater nothing (no LTR debit). [politicianMemberId] must reference an ACTIVE
-     * profile.
+     * Role: MEMBER+, caller must be [network.lapis.cloud.shared.domain.MemberStatus.AKTIV] OR
+     * [network.lapis.cloud.shared.domain.MemberStatus.GAST] (guest-rating wave -- ANTRAG/
+     * AUSGETRETEN/ABGELEHNT remain excluded). Upsert-on-unique-key, same idiom as
+     * [ICrowdfundingService.castReaction] -- casting again with a different [value] changes the
+     * rating, it does not add a second one. Rating itself costs the rater nothing (no LTR debit),
+     * for both members and guests. [politicianMemberId] must reference an ACTIVE profile. The
+     * returned [PoliticianReactionDto.raterType] reflects the caller's status at cast time.
      */
     suspend fun castRating(
         politicianMemberId: String,
         value: PoliticianReactionValue,
     ): PoliticianReactionDto
 
-    /** Role: MEMBER+ (for themselves only). No-op if the caller has no rating on this politician. */
+    /** Role: MEMBER+ or GAST (for themselves only) -- same gate as [castRating]. No-op if the caller has no rating on this politician. */
     suspend fun retractRating(politicianMemberId: String)
 
     /**
@@ -91,7 +100,13 @@ interface IPoliticianService {
     /** Any authenticated member. */
     suspend fun getPoliticianProfile(memberId: String): PoliticianProfileDto
 
-    /** Any authenticated member. Dashboard Top-N (ACTIVE only), sorted descending by `memberTrustWeight`, ties broken by ascending member id. */
+    /**
+     * Any authenticated member. Dashboard Top-N (ACTIVE only), sorted descending by
+     * `combinedTrustWeight` (member + guest, per the concept's "Top-6... Mitglieder + Gäste
+     * zusammengefasst"), ties broken by ascending member id. Separate member-only/guest-only
+     * rankings can be built by the caller from [listPoliticians]'s per-politician
+     * `memberTrustWeight`/`guestTrustWeight` fields.
+     */
     suspend fun getTopPoliticians(limit: Int = 6): List<PoliticianProfileDto>
 
     /**

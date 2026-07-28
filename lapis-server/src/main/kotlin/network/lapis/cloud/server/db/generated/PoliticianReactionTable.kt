@@ -4,6 +4,7 @@ package network.lapis.cloud.server.db.generated
 
 import kotlin.uuid.Uuid
 import kotlinx.datetime.LocalDateTime
+import network.lapis.cloud.shared.domain.PoliticianRaterType
 import network.lapis.cloud.shared.domain.PoliticianReactionValue
 import org.jetbrains.exposed.v1.core.Column
 import org.jetbrains.exposed.v1.core.Table
@@ -15,6 +16,7 @@ public object PoliticianReactionTable : Table("politician_reaction") {
     public val reactionValue: Column<PoliticianReactionValue> = enumerationByName<PoliticianReactionValue>("reaction_value", 7)
     public val castAt: Column<LocalDateTime> = datetime("cast_at")
     public val raterMemberId: Column<Uuid> = reference("rater_member_id", MemberTable.id)
+    public val raterType: Column<PoliticianRaterType> = enumerationByName<PoliticianRaterType>("rater_type", 6)
 
     override val primaryKey: PrimaryKey = PrimaryKey(id)
 

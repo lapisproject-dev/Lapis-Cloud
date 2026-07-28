@@ -25,3 +25,27 @@ fun requireActiveMembership(memberId: Uuid) {
             .count() > 0
     if (!isActive) throw ForbiddenException()
 }
+
+/**
+ * Guest-inclusive counterpart to [requireActiveMembership] -- allows [MemberStatus.AKTIV] AND
+ * [MemberStatus.GAST] specifically, still excludes ANTRAG/AUSGETRETEN/ABGELEHNT. Introduced for
+ * the [PoliticianService] guest-rating wave (`castRating`/`retractRating`) that closes V0.6.4's
+ * own "member-only rating, no Gast basket" scope cut now that V0.8.2's OIDC guest-identity
+ * federation makes GAST a real, reachable status -- see [PoliticianService] class KDoc "Guest-
+ * rating weighting". [requireActiveMembership] itself is untouched; every other call site
+ * (Crowdfunding, PeerTransfer, etc.) keeps excluding GAST exactly as before.
+ *
+ * Returns the freshly-read [MemberStatus] (not `Unit`) so a caller that also needs to classify the
+ * row it is about to write (e.g. `PoliticianReactionTable.raterType`) does not need a second query
+ * for the same member row.
+ */
+fun requireActiveOrGuestMembership(memberId: Uuid): MemberStatus {
+    val status =
+        MemberTable
+            .selectAll()
+            .where { MemberTable.id eq memberId }
+            .singleOrNull()
+            ?.get(MemberTable.status)
+    if (status != MemberStatus.AKTIV && status != MemberStatus.GAST) throw ForbiddenException()
+    return status
+}

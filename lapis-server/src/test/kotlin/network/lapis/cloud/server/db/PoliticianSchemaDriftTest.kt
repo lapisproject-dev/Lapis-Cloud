@@ -99,6 +99,15 @@ class PoliticianSchemaDriftTest :
                     externalFqName = "network.lapis.cloud.shared.domain.PoliticianReactionValue",
                 )
 
+            // Guest-rating wave: rater_type distinguishes a MEMBER-cast from a GAST-cast reaction.
+            entity.attributeByName("rater_type")?.type shouldBe
+                ErmDataType.Enum(
+                    name = "PoliticianRaterType",
+                    values = listOf("MEMBER", "GAST"),
+                    externalFqName = "network.lapis.cloud.shared.domain.PoliticianRaterType",
+                )
+            entity.attributeByName("rater_type")?.nullable shouldBe false
+
             real.uniqueConstraints shouldContainExactlyInAnyOrder listOf(setOf("politician_profile_id", "rater_member_id"))
         }
 
@@ -114,6 +123,14 @@ class PoliticianSchemaDriftTest :
             real.foreignKeys["politician_profile_id"] shouldBe "politician_profile"
             real.foreignKeys["computed_by_member_id"] shouldBe "member"
             entity.attributeByName("member_trust_weight")?.type shouldBe ErmDataType.Decimal(18, 2)
+
+            // Guest-rating wave: guest-side and combined-side equivalents of the member_* columns.
+            entity.attributeByName("guest_trust_weight")?.type shouldBe ErmDataType.Decimal(18, 2)
+            entity.attributeByName("combined_trust_weight")?.type shouldBe ErmDataType.Decimal(18, 2)
+            entity.attributeByName("guest_trust_weight")?.nullable shouldBe false
+            entity.attributeByName("guest_like_count")?.nullable shouldBe false
+            entity.attributeByName("guest_dislike_count")?.nullable shouldBe false
+            entity.attributeByName("combined_trust_weight")?.nullable shouldBe false
 
             real.uniqueConstraints shouldContainExactlyInAnyOrder listOf(setOf("politician_profile_id", "period_month"))
         }

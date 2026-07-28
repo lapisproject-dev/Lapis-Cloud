@@ -33,13 +33,45 @@ private val ZERO_2DP: BigDecimal = BigDecimal.ZERO.setScale(2)
  * called fresh against the CURRENT reaction rows and CURRENT LTR balances -- same "derive, don't
  * cache" idiom [network.lapis.cloud.server.economy.LedgerBackedLtrBalanceProvider]/
  * [CrowdfundingWeightDecay.currentWeight] already establish for their own live-computed numbers.
+ *
+ * ## Guest-rating wave addition -- a second, deliberately DIFFERENT pool mechanic
+ *
+ * [computeMemberTrustWeights] (unchanged by this addition) still only ever sees MEMBER-cast
+ * reactions. [computeGuestTrustWeights] is a separate, structurally simpler function for
+ * GAST-cast reactions -- see its own KDoc for why it is a plain unweighted count rather than a
+ * second shared-LTR-pool apportionment.
  */
 internal object PoliticianTrustWeightCalculator {
-    data class TrustWeightResult(
+    data class MemberTrustWeightResult(
         val memberLikeCount: Int,
         val memberDislikeCount: Int,
         val memberTrustWeight: BigDecimal,
     )
+
+    data class GuestTrustWeightResult(
+        val guestLikeCount: Int,
+        val guestDislikeCount: Int,
+        val guestTrustWeight: BigDecimal,
+    )
+
+    /**
+     * Merges one politician's [MemberTrustWeightResult] and [GuestTrustWeightResult] -- the shape
+     * [network.lapis.cloud.server.rpc.PoliticianService] actually threads through
+     * `computeWeights`/`loadProfile`/`toProfileDto`. [combinedTrustWeight] is the literal sum --
+     * see [network.lapis.cloud.shared.domain.PoliticianProfileDto] KDoc for why this sum is NOT a
+     * "fair blend" of two commensurable units, just the concept's literal "Mitglieder + Gäste
+     * zusammengefasst".
+     */
+    data class TrustWeightResult(
+        val memberLikeCount: Int,
+        val memberDislikeCount: Int,
+        val memberTrustWeight: BigDecimal,
+        val guestLikeCount: Int,
+        val guestDislikeCount: Int,
+        val guestTrustWeight: BigDecimal,
+    ) {
+        val combinedTrustWeight: BigDecimal get() = memberTrustWeight + guestTrustWeight
+    }
 
     /**
      * [reactionsByProfile] must contain one entry per ACTIVE politician profile the caller wants a
@@ -55,7 +87,7 @@ internal object PoliticianTrustWeightCalculator {
      * [raterBalances] over the exact same distinct-rater set this function would derive from
      * [reactionsByProfile]).
      *
-     * Returns one [TrustWeightResult] per key of [reactionsByProfile] -- a politician with an
+     * Returns one [MemberTrustWeightResult] per key of [reactionsByProfile] -- a politician with an
      * empty/all-cancelling-out reaction list (Korb == 0) is still present, with
      * `memberTrustWeight == ZERO`, per "Politiker mit Korb-Inhalt 0 bekommen kein
      * Vertrauensgewicht" (they are represented, not omitted).
@@ -63,7 +95,7 @@ internal object PoliticianTrustWeightCalculator {
     fun computeMemberTrustWeights(
         reactionsByProfile: Map<Uuid, List<Pair<Uuid, PoliticianReactionValue>>>,
         raterBalances: Map<Uuid, BigDecimal>,
-    ): Map<Uuid, TrustWeightResult> {
+    ): Map<Uuid, MemberTrustWeightResult> {
         if (reactionsByProfile.isEmpty()) return emptyMap()
 
         val countsByProfile: Map<Uuid, Pair<Int, Int>> =
@@ -93,10 +125,48 @@ internal object PoliticianTrustWeightCalculator {
 
         return reactionsByProfile.keys.associateWith { profileId ->
             val (likes, dislikes) = countsByProfile.getValue(profileId)
-            TrustWeightResult(
+            MemberTrustWeightResult(
                 memberLikeCount = likes,
                 memberDislikeCount = dislikes,
                 memberTrustWeight = weightsByProfile[profileId] ?: ZERO_2DP,
+            )
+        }
+    }
+
+    /**
+     * Interim guest-side weighting -- see [network.lapis.cloud.shared.domain.PoliticianProfileDto]
+     * KDoc "guestTrustWeight is deliberately NOT LTR-weighted" for the full rationale. Deliberately
+     * NOT a shared/apportioned pool like [computeMemberTrustWeights]: there is no scarce,
+     * guest-held resource to redistribute -- a guest structurally cannot hold LTR yet (no guest
+     * LTR-earning mechanism exists anywhere in this codebase). [guestTrustWeight] is simply the
+     * raw basket (`max(0, likes - dislikes)`) as a scale-2 [BigDecimal] -- the same idiom
+     * `17-crowdfunding.kuml.kts`'s completely-unweighted Verteilungs-Korb already establishes.
+     *
+     * Forward path once real guest LTR-earning ships: replace this function's body with a second
+     * call into [computeMemberTrustWeights] itself, fed real guest LTR balances via a
+     * [network.lapis.cloud.server.economy.LtrBalanceProvider]-style seam -- a one-function swap,
+     * not a rewrite of the aggregation/query plumbing around it. Do NOT "upgrade" this by wrapping
+     * it in [LargestRemainderApportionment] with a synthetic flat per-guest balance in the
+     * meantime -- that would misleadingly resemble the real shared-pool mechanic (and would not
+     * even equal this plain count once any guest rates more than one politician, since the shared
+     * pool only counts a distinct rater's contribution once) while protecting an invariant
+     * (Σ result == pool exactly) that doesn't correspond to anything real for a fictitious pool.
+     *
+     * [reactionsByProfile] has the identical contract to [computeMemberTrustWeights]'s own
+     * parameter, scoped to GAST-cast reactions only -- one entry per ACTIVE politician profile the
+     * caller wants a result for, including profiles with an empty reaction list.
+     */
+    fun computeGuestTrustWeights(
+        reactionsByProfile: Map<Uuid, List<Pair<Uuid, PoliticianReactionValue>>>,
+    ): Map<Uuid, GuestTrustWeightResult> {
+        if (reactionsByProfile.isEmpty()) return emptyMap()
+        return reactionsByProfile.mapValues { (_, reactions) ->
+            val likes = reactions.count { (_, value) -> value == PoliticianReactionValue.LIKE }
+            val dislikes = reactions.count { (_, value) -> value == PoliticianReactionValue.DISLIKE }
+            GuestTrustWeightResult(
+                guestLikeCount = likes,
+                guestDislikeCount = dislikes,
+                guestTrustWeight = BigDecimal((likes - dislikes).coerceAtLeast(0)).setScale(2),
             )
         }
     }

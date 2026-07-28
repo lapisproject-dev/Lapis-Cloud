@@ -33,6 +33,7 @@ import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.LtrLedgerEntryType
 import network.lapis.cloud.shared.domain.MemberStatus
 import network.lapis.cloud.shared.domain.PoliticianProfileStatus
+import network.lapis.cloud.shared.domain.PoliticianRaterType
 import network.lapis.cloud.shared.domain.PoliticianReactionValue
 import network.lapis.cloud.shared.rpc.ConflictException
 import network.lapis.cloud.shared.rpc.ForbiddenException
@@ -676,18 +677,409 @@ class PoliticianServiceTest :
 
         // ── Error cases ───────────────────────────────────────────────────────
 
-        test("castRating: rejected for a non-AKTIV rater") {
+        // GAST is now an ALLOWED rater status -- see the "guest-rating" tests below. Only
+        // ANTRAG/AUSGETRETEN/ABGELEHNT remain excluded by requireActiveOrGuestMembership.
+        test("castRating: rejected for an ANTRAG (not-yet-approved) rater") {
             testApplication {
                 application {
                     install(StatusPages) { installPoliticianExceptionHandlers() }
                     routing { registerPoliticianTestRoutes() }
                 }
-                val politician = createTestMember("pol-nonaktiv-target@example.org")
+                val politician = createTestMember("pol-nonaktiv-target-antrag@example.org")
                 client.post("/test/grant?memberId=$politician") { header("X-Member-Id", BOARD_ID) }
-                val gast = createTestMember("pol-nonaktiv-rater@example.org", status = MemberStatus.GAST)
+                val applicant = createTestMember("pol-nonaktiv-rater-antrag@example.org", status = MemberStatus.ANTRAG)
 
-                val response = client.post("/test/rate?politicianId=$politician&value=LIKE") { header("X-Member-Id", gast.toString()) }
+                val response =
+                    client.post("/test/rate?politicianId=$politician&value=LIKE") { header("X-Member-Id", applicant.toString()) }
                 response.status shouldBe HttpStatusCode.Forbidden
+            }
+        }
+
+        test("castRating: rejected for an AUSGETRETEN (departed) rater") {
+            testApplication {
+                application {
+                    install(StatusPages) { installPoliticianExceptionHandlers() }
+                    routing { registerPoliticianTestRoutes() }
+                }
+                val politician = createTestMember("pol-nonaktiv-target-ausgetreten@example.org")
+                client.post("/test/grant?memberId=$politician") { header("X-Member-Id", BOARD_ID) }
+                val departed = createTestMember("pol-nonaktiv-rater-ausgetreten@example.org", status = MemberStatus.AUSGETRETEN)
+
+                val response =
+                    client.post("/test/rate?politicianId=$politician&value=LIKE") { header("X-Member-Id", departed.toString()) }
+                response.status shouldBe HttpStatusCode.Forbidden
+            }
+        }
+
+        test("castRating: rejected for an ABGELEHNT (rejected applicant) rater") {
+            testApplication {
+                application {
+                    install(StatusPages) { installPoliticianExceptionHandlers() }
+                    routing { registerPoliticianTestRoutes() }
+                }
+                val politician = createTestMember("pol-nonaktiv-target-abgelehnt@example.org")
+                client.post("/test/grant?memberId=$politician") { header("X-Member-Id", BOARD_ID) }
+                val rejected = createTestMember("pol-nonaktiv-rater-abgelehnt@example.org", status = MemberStatus.ABGELEHNT)
+
+                val response =
+                    client.post("/test/rate?politicianId=$politician&value=LIKE") { header("X-Member-Id", rejected.toString()) }
+                response.status shouldBe HttpStatusCode.Forbidden
+            }
+        }
+
+        test("retractRating: rejected for an ANTRAG rater, symmetric with castRating") {
+            testApplication {
+                application {
+                    install(StatusPages) { installPoliticianExceptionHandlers() }
+                    routing { registerPoliticianTestRoutes() }
+                }
+                val politician = createTestMember("pol-retract-antrag-target@example.org")
+                client.post("/test/grant?memberId=$politician") { header("X-Member-Id", BOARD_ID) }
+                val applicant = createTestMember("pol-retract-antrag-rater@example.org", status = MemberStatus.ANTRAG)
+
+                val response =
+                    client.post("/test/retract?politicianId=$politician") { header("X-Member-Id", applicant.toString()) }
+                response.status shouldBe HttpStatusCode.Forbidden
+            }
+        }
+
+        // ── Guest rating (closes the V0.6.4 scope cut) ──────────────────────────
+
+        test("castRating: a GAST rater succeeds; persisted reaction has raterType=GAST; getMyRating reflects it") {
+            testApplication {
+                application {
+                    install(StatusPages) { installPoliticianExceptionHandlers() }
+                    routing { registerPoliticianTestRoutes() }
+                }
+                val politician = createTestMember("pol-guest-cast-target@example.org")
+                client.post("/test/grant?memberId=$politician") { header("X-Member-Id", BOARD_ID) }
+                val guest = createTestMember("pol-guest-cast-rater@example.org", status = MemberStatus.GAST)
+
+                val response = client.post("/test/rate?politicianId=$politician&value=LIKE") { header("X-Member-Id", guest.toString()) }
+                response.status shouldBe HttpStatusCode.OK
+
+                val persistedRaterType =
+                    transaction {
+                        val profileId =
+                            PoliticianProfileTable.selectAll().where { PoliticianProfileTable.memberId eq politician }.single()[
+                                PoliticianProfileTable.id,
+                            ]
+                        PoliticianReactionTable
+                            .selectAll()
+                            .where {
+                                (PoliticianReactionTable.politicianProfileId eq profileId) and
+                                    (PoliticianReactionTable.raterMemberId eq guest)
+                            }.single()[PoliticianReactionTable.raterType]
+                    }
+                persistedRaterType shouldBe PoliticianRaterType.GAST
+
+                val myRating = client.get("/test/my-rating/$politician") { header("X-Member-Id", guest.toString()) }.bodyAsText()
+                myRating shouldBe "LIKE"
+            }
+        }
+
+        test("retractRating: a GAST rater can retract their own guest vote") {
+            testApplication {
+                application {
+                    install(StatusPages) { installPoliticianExceptionHandlers() }
+                    routing { registerPoliticianTestRoutes() }
+                }
+                val politician = createTestMember("pol-guest-retract-target@example.org")
+                client.post("/test/grant?memberId=$politician") { header("X-Member-Id", BOARD_ID) }
+                val guest = createTestMember("pol-guest-retract-rater@example.org", status = MemberStatus.GAST)
+
+                client.post("/test/rate?politicianId=$politician&value=LIKE") { header("X-Member-Id", guest.toString()) }
+                val retractResponse =
+                    client.post("/test/retract?politicianId=$politician") { header("X-Member-Id", guest.toString()) }
+                retractResponse.status shouldBe HttpStatusCode.OK
+
+                val myRating = client.get("/test/my-rating/$politician") { header("X-Member-Id", guest.toString()) }.bodyAsText()
+                myRating shouldBe "none"
+            }
+        }
+
+        test("castRating: a GAST rater recasting LIKE -> DISLIKE updates the same row, raterType stays GAST") {
+            testApplication {
+                application {
+                    install(StatusPages) { installPoliticianExceptionHandlers() }
+                    routing { registerPoliticianTestRoutes() }
+                }
+                val politician = createTestMember("pol-guest-recast-target@example.org")
+                client.post("/test/grant?memberId=$politician") { header("X-Member-Id", BOARD_ID) }
+                val guest = createTestMember("pol-guest-recast-rater@example.org", status = MemberStatus.GAST)
+
+                client.post("/test/rate?politicianId=$politician&value=LIKE") { header("X-Member-Id", guest.toString()) }
+                client.post("/test/rate?politicianId=$politician&value=DISLIKE") { header("X-Member-Id", guest.toString()) }
+
+                val profileId =
+                    transaction {
+                        PoliticianProfileTable.selectAll().where { PoliticianProfileTable.memberId eq politician }.single()[
+                            PoliticianProfileTable.id,
+                        ]
+                    }
+                val rows =
+                    transaction {
+                        PoliticianReactionTable
+                            .selectAll()
+                            .where {
+                                (PoliticianReactionTable.politicianProfileId eq profileId) and
+                                    (PoliticianReactionTable.raterMemberId eq guest)
+                            }.toList()
+                    }
+                rows.size shouldBe 1
+                rows.single()[PoliticianReactionTable.raterType] shouldBe PoliticianRaterType.GAST
+                rows.single()[PoliticianReactionTable.reactionValue] shouldBe PoliticianReactionValue.DISLIKE
+            }
+        }
+
+        test("guest and member baskets are isolated: a pure guest LIKE does not move memberTrustWeight") {
+            testApplication {
+                application {
+                    install(StatusPages) { installPoliticianExceptionHandlers() }
+                    routing { registerPoliticianTestRoutes() }
+                }
+                val politician = createTestMember("pol-isolation-guest-only@example.org")
+                client.post("/test/grant?memberId=$politician") { header("X-Member-Id", BOARD_ID) }
+                val guest = createTestMember("pol-isolation-guest-rater@example.org", status = MemberStatus.GAST)
+
+                // No LTR minted for the guest at all -- proves guestTrustWeight is not silently
+                // reading ltrBalanceProvider for guests, and proves member pool isolation.
+                client.post("/test/rate?politicianId=$politician&value=LIKE") { header("X-Member-Id", guest.toString()) }
+
+                val profile = client.get("/test/profile/$politician") { header("X-Member-Id", MEMBER_ID) }.bodyAsText()
+                val fields = profile.split(":")
+                // memberLikeCount:memberDislikeCount:memberTrustWeight:status:guestLikeCount:guestDislikeCount:guestTrustWeight:combinedTrustWeight
+                fields[0] shouldBe "0" // memberLikeCount
+                BigDecimal(fields[2]).compareTo(BigDecimal.ZERO.setScale(2)) shouldBe 0 // memberTrustWeight untouched
+                fields[4] shouldBe "1" // guestLikeCount
+                BigDecimal(fields[6]).compareTo(BigDecimal("1.00")) shouldBe 0 // guestTrustWeight -- pure vote count, no LTR minted
+                BigDecimal(fields[7]).compareTo(BigDecimal("1.00")) shouldBe 0 // combinedTrustWeight == guestTrustWeight here
+            }
+        }
+
+        test("guest and member baskets are isolated: a pure member LIKE does not move guestTrustWeight") {
+            testApplication {
+                application {
+                    install(StatusPages) { installPoliticianExceptionHandlers() }
+                    routing { registerPoliticianTestRoutes() }
+                }
+                val politician = createTestMember("pol-isolation-member-only@example.org")
+                client.post("/test/grant?memberId=$politician") { header("X-Member-Id", BOARD_ID) }
+                val member = createTestMember("pol-isolation-member-rater@example.org")
+                mintLtr(member, BigDecimal("10.00"))
+
+                client.post("/test/rate?politicianId=$politician&value=LIKE") { header("X-Member-Id", member.toString()) }
+
+                val profile = client.get("/test/profile/$politician") { header("X-Member-Id", MEMBER_ID) }.bodyAsText()
+                val fields = profile.split(":")
+                BigDecimal(fields[2]).compareTo(BigDecimal("10.00")) shouldBe 0 // memberTrustWeight
+                fields[4] shouldBe "0" // guestLikeCount
+                BigDecimal(fields[6]).compareTo(BigDecimal.ZERO.setScale(2)) shouldBe 0 // guestTrustWeight untouched
+                BigDecimal(fields[7]).compareTo(BigDecimal("10.00")) shouldBe 0 // combinedTrustWeight == memberTrustWeight here
+            }
+        }
+
+        test("guestTrustWeight floors at 0 when guest dislikes exceed likes") {
+            testApplication {
+                application {
+                    install(StatusPages) { installPoliticianExceptionHandlers() }
+                    routing { registerPoliticianTestRoutes() }
+                }
+                val politician = createTestMember("pol-guest-floor@example.org")
+                client.post("/test/grant?memberId=$politician") { header("X-Member-Id", BOARD_ID) }
+                val guest1 = createTestMember("pol-guest-floor-1@example.org", status = MemberStatus.GAST)
+                val guest2 = createTestMember("pol-guest-floor-2@example.org", status = MemberStatus.GAST)
+
+                client.post("/test/rate?politicianId=$politician&value=DISLIKE") { header("X-Member-Id", guest1.toString()) }
+                client.post("/test/rate?politicianId=$politician&value=DISLIKE") { header("X-Member-Id", guest2.toString()) }
+
+                val profile = client.get("/test/profile/$politician") { header("X-Member-Id", MEMBER_ID) }.bodyAsText()
+                val fields = profile.split(":")
+                fields[4] shouldBe "0" // guestLikeCount
+                fields[5] shouldBe "2" // guestDislikeCount
+                BigDecimal(fields[6]).compareTo(BigDecimal.ZERO.setScale(2)) shouldBe 0 // floored at 0, not negative
+            }
+        }
+
+        test("combinedTrustWeight == memberTrustWeight + guestTrustWeight with both nonzero") {
+            testApplication {
+                application {
+                    install(StatusPages) { installPoliticianExceptionHandlers() }
+                    routing { registerPoliticianTestRoutes() }
+                }
+                val politician = createTestMember("pol-combined-arithmetic@example.org")
+                client.post("/test/grant?memberId=$politician") { header("X-Member-Id", BOARD_ID) }
+                val member = createTestMember("pol-combined-arithmetic-member@example.org")
+                val guest = createTestMember("pol-combined-arithmetic-guest@example.org", status = MemberStatus.GAST)
+                mintLtr(member, BigDecimal("42.00"))
+
+                client.post("/test/rate?politicianId=$politician&value=LIKE") { header("X-Member-Id", member.toString()) }
+                client.post("/test/rate?politicianId=$politician&value=LIKE") { header("X-Member-Id", guest.toString()) }
+
+                val profile = client.get("/test/profile/$politician") { header("X-Member-Id", MEMBER_ID) }.bodyAsText()
+                val fields = profile.split(":")
+                val memberWeight = BigDecimal(fields[2])
+                val guestWeight = BigDecimal(fields[6])
+                val combinedWeight = BigDecimal(fields[7])
+                memberWeight.compareTo(BigDecimal("42.00")) shouldBe 0
+                guestWeight.compareTo(BigDecimal("1.00")) shouldBe 0
+                combinedWeight.compareTo(memberWeight + guestWeight) shouldBe 0
+            }
+        }
+
+        test(
+            "getTopPoliticians: combined weight can flip the ordering the old member-only sort key would have produced",
+        ) {
+            testApplication {
+                application {
+                    install(StatusPages) { installPoliticianExceptionHandlers() }
+                    routing { registerPoliticianTestRoutes() }
+                }
+                // A: low memberTrustWeight, high guestTrustWeight. B: high memberTrustWeight, zero
+                // guestTrustWeight. Engineered so the OLD member-only sort would rank B above A, but
+                // the NEW combined sort ranks A above B -- a test that fails under the old key.
+                val politicianA = createTestMember("pol-combined-flip-a@example.org")
+                val politicianB = createTestMember("pol-combined-flip-b@example.org")
+                client.post("/test/grant?memberId=$politicianA") { header("X-Member-Id", BOARD_ID) }
+                client.post("/test/grant?memberId=$politicianB") { header("X-Member-Id", BOARD_ID) }
+
+                val memberForA = createTestMember("pol-combined-flip-member-a@example.org")
+                val memberForB = createTestMember("pol-combined-flip-member-b@example.org")
+                mintLtr(memberForA, BigDecimal("1.00"))
+                mintLtr(memberForB, BigDecimal("100.00"))
+                client.post("/test/rate?politicianId=$politicianA&value=LIKE") { header("X-Member-Id", memberForA.toString()) }
+                client.post("/test/rate?politicianId=$politicianB&value=LIKE") { header("X-Member-Id", memberForB.toString()) }
+
+                // A gets 200 guest likes -- dwarfs B's pure-member weight for the COMBINED sort.
+                repeat(200) { i ->
+                    val guest = createTestMember("pol-combined-flip-guest-$i@example.org", status = MemberStatus.GAST)
+                    client.post("/test/rate?politicianId=$politicianA&value=LIKE") { header("X-Member-Id", guest.toString()) }
+                }
+
+                val top = client.get("/test/top?limit=1000") { header("X-Member-Id", MEMBER_ID) }.bodyAsText()
+                val ids = top.split(",").filter { it.isNotBlank() }
+                val indexA = ids.indexOf(politicianA.toString())
+                val indexB = ids.indexOf(politicianB.toString())
+                (indexA >= 0 && indexB >= 0 && indexA < indexB) shouldBe true
+            }
+        }
+
+        test("revokePoliticianStatus: wipes guest reactions too, alongside member reactions") {
+            testApplication {
+                application {
+                    install(StatusPages) { installPoliticianExceptionHandlers() }
+                    routing { registerPoliticianTestRoutes() }
+                }
+                val politician = createTestMember("pol-revoke-guest@example.org")
+                client.post("/test/grant?memberId=$politician") { header("X-Member-Id", BOARD_ID) }
+                val member = createTestMember("pol-revoke-guest-member@example.org")
+                val guest = createTestMember("pol-revoke-guest-guest@example.org", status = MemberStatus.GAST)
+                mintLtr(member, BigDecimal("10.00"))
+                client.post("/test/rate?politicianId=$politician&value=LIKE") { header("X-Member-Id", member.toString()) }
+                client.post("/test/rate?politicianId=$politician&value=LIKE") { header("X-Member-Id", guest.toString()) }
+                client.post("/test/snapshot?periodMonth=2031-06-01") { header("X-Member-Id", BOARD_ID) }
+
+                client.post("/test/revoke?memberId=$politician") { header("X-Member-Id", BOARD_ID) }
+
+                val profileId =
+                    transaction {
+                        PoliticianProfileTable.selectAll().where { PoliticianProfileTable.memberId eq politician }.single()[
+                            PoliticianProfileTable.id,
+                        ]
+                    }
+                val totalReactionCount =
+                    transaction {
+                        PoliticianReactionTable.selectAll().where { PoliticianReactionTable.politicianProfileId eq profileId }.count()
+                    }
+                val guestReactionCount =
+                    transaction {
+                        PoliticianReactionTable
+                            .selectAll()
+                            .where {
+                                (PoliticianReactionTable.politicianProfileId eq profileId) and
+                                    (PoliticianReactionTable.raterType eq PoliticianRaterType.GAST)
+                            }.count()
+                    }
+                val snapshotCount =
+                    transaction {
+                        PoliticianWeightSnapshotTable
+                            .selectAll()
+                            .where { PoliticianWeightSnapshotTable.politicianProfileId eq profileId }
+                            .count()
+                    }
+                totalReactionCount shouldBe 0L
+                guestReactionCount shouldBe 0L
+                snapshotCount shouldBe 0L
+            }
+        }
+
+        test("snapshotWeights: guest/combined fields persist matching the live-computed values; getWeightHistory returns them") {
+            testApplication {
+                application {
+                    install(StatusPages) { installPoliticianExceptionHandlers() }
+                    routing { registerPoliticianTestRoutes() }
+                }
+                val politician = createTestMember("pol-snapshot-guest@example.org")
+                client.post("/test/grant?memberId=$politician") { header("X-Member-Id", BOARD_ID) }
+                val member = createTestMember("pol-snapshot-guest-member@example.org")
+                val guest = createTestMember("pol-snapshot-guest-guest@example.org", status = MemberStatus.GAST)
+                mintLtr(member, BigDecimal("7.00"))
+                client.post("/test/rate?politicianId=$politician&value=LIKE") { header("X-Member-Id", member.toString()) }
+                client.post("/test/rate?politicianId=$politician&value=LIKE") { header("X-Member-Id", guest.toString()) }
+
+                client.post("/test/snapshot?periodMonth=2031-07-15") { header("X-Member-Id", BOARD_ID) }
+
+                val profileId =
+                    transaction {
+                        PoliticianProfileTable.selectAll().where { PoliticianProfileTable.memberId eq politician }.single()[
+                            PoliticianProfileTable.id,
+                        ]
+                    }
+                val snapshotRow =
+                    transaction {
+                        PoliticianWeightSnapshotTable
+                            .selectAll()
+                            .where {
+                                (PoliticianWeightSnapshotTable.politicianProfileId eq profileId) and
+                                    (PoliticianWeightSnapshotTable.periodMonth eq LocalDate(2031, 7, 1))
+                            }.single()
+                    }
+                snapshotRow[PoliticianWeightSnapshotTable.guestLikeCount] shouldBe 1
+                snapshotRow[PoliticianWeightSnapshotTable.guestTrustWeight].compareTo(BigDecimal("1.00")) shouldBe 0
+                snapshotRow[PoliticianWeightSnapshotTable.memberTrustWeight].compareTo(BigDecimal("7.00")) shouldBe 0
+                snapshotRow[PoliticianWeightSnapshotTable.combinedTrustWeight].compareTo(BigDecimal("8.00")) shouldBe 0
+            }
+        }
+
+        // ── Concurrency (guest side) ─────────────────────────────────────────
+
+        test(
+            "revokePoliticianStatus racing a GAST castRating on the same profile: end state is always consistent -- " +
+                "never a stray guest reaction row surviving alongside status=FORMER",
+        ) {
+            testApplication {
+                application {
+                    install(StatusPages) { installPoliticianExceptionHandlers() }
+                    routing { registerPoliticianTestRoutes() }
+                }
+                val politician = createTestMember("pol-race-guest-target@example.org")
+                client.post("/test/grant?memberId=$politician") { header("X-Member-Id", BOARD_ID) }
+                val guest = createTestMember("pol-race-guest-rater@example.org", status = MemberStatus.GAST)
+
+                runConcurrentRevokeAndRate(client, politician, guest)
+
+                val profileRow =
+                    transaction { PoliticianProfileTable.selectAll().where { PoliticianProfileTable.memberId eq politician }.single() }
+                val status = profileRow[PoliticianProfileTable.status]
+                val profileId = profileRow[PoliticianProfileTable.id]
+                val reactionCount =
+                    transaction {
+                        PoliticianReactionTable.selectAll().where { PoliticianReactionTable.politicianProfileId eq profileId }.count()
+                    }
+
+                if (status == PoliticianProfileStatus.FORMER) {
+                    reactionCount shouldBe 0L
+                }
             }
         }
 
@@ -1075,7 +1467,12 @@ private fun Route.registerPoliticianTestRoutes() {
     get("/test/profile/{memberId}") {
         val service = PoliticianService(call)
         val p = service.getPoliticianProfile(call.parameters["memberId"]!!)
-        call.respondText("${p.memberLikeCount}:${p.memberDislikeCount}:${p.memberTrustWeight}:${p.status}")
+        // Appended AFTER the original four fields (index-stable for existing tests):
+        // guestLikeCount:guestDislikeCount:guestTrustWeight:combinedTrustWeight.
+        call.respondText(
+            "${p.memberLikeCount}:${p.memberDislikeCount}:${p.memberTrustWeight}:${p.status}:" +
+                "${p.guestLikeCount}:${p.guestDislikeCount}:${p.guestTrustWeight}:${p.combinedTrustWeight}",
+        )
     }
     get("/test/list") {
         val service = PoliticianService(call)

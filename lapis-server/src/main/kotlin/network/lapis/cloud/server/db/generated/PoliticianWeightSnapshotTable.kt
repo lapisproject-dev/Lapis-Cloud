@@ -18,6 +18,10 @@ public object PoliticianWeightSnapshotTable : Table("politician_weight_snapshot"
     public val memberTrustWeight: Column<BigDecimal> = decimal("member_trust_weight", 18, 2)
     public val memberLikeCount: Column<Int> = integer("member_like_count")
     public val memberDislikeCount: Column<Int> = integer("member_dislike_count")
+    public val guestTrustWeight: Column<BigDecimal> = decimal("guest_trust_weight", 18, 2)
+    public val guestLikeCount: Column<Int> = integer("guest_like_count")
+    public val guestDislikeCount: Column<Int> = integer("guest_dislike_count")
+    public val combinedTrustWeight: Column<BigDecimal> = decimal("combined_trust_weight", 18, 2)
     public val computedAt: Column<LocalDateTime> = datetime("computed_at")
     public val computedByMemberId: Column<Uuid> = reference("computed_by_member_id", MemberTable.id)
 

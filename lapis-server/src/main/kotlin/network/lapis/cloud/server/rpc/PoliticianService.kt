@@ -15,8 +15,10 @@ import network.lapis.cloud.server.economy.LtrBalanceProvider
 import network.lapis.cloud.server.security.requireRole
 import network.lapis.cloud.server.security.resolveCurrentMember
 import network.lapis.cloud.shared.domain.AccountRole
+import network.lapis.cloud.shared.domain.MemberStatus
 import network.lapis.cloud.shared.domain.PoliticianProfileDto
 import network.lapis.cloud.shared.domain.PoliticianProfileStatus
+import network.lapis.cloud.shared.domain.PoliticianRaterType
 import network.lapis.cloud.shared.domain.PoliticianReactionDto
 import network.lapis.cloud.shared.domain.PoliticianReactionValue
 import network.lapis.cloud.shared.domain.PoliticianWeightSnapshotDto
@@ -44,7 +46,18 @@ private val POLITICIAN_BOARD_ROLES = arrayOf(AccountRole.BOARD, AccountRole.ADMI
 
 private val ZERO_2DP: BigDecimal = BigDecimal.ZERO.setScale(2)
 
-private val ZERO_WEIGHT_RESULT = PoliticianTrustWeightCalculator.TrustWeightResult(0, 0, ZERO_2DP)
+private val ZERO_MEMBER_RESULT = PoliticianTrustWeightCalculator.MemberTrustWeightResult(0, 0, ZERO_2DP)
+private val ZERO_GUEST_RESULT = PoliticianTrustWeightCalculator.GuestTrustWeightResult(0, 0, ZERO_2DP)
+
+private val ZERO_WEIGHT_RESULT =
+    PoliticianTrustWeightCalculator.TrustWeightResult(
+        memberLikeCount = 0,
+        memberDislikeCount = 0,
+        memberTrustWeight = ZERO_2DP,
+        guestLikeCount = 0,
+        guestDislikeCount = 0,
+        guestTrustWeight = ZERO_2DP,
+    )
 
 /**
  * Politiker-Profile und Politiker-Ranking (V0.6.4) -- see [IPoliticianService] KDoc and
@@ -70,7 +83,24 @@ private val ZERO_WEIGHT_RESULT = PoliticianTrustWeightCalculator.TrustWeightResu
  * on `politician_reaction` after `revokePoliticianStatus`'s delete-scan already ran while the
  * profile is left `status=FORMER`: whichever transaction wins the lock commits fully (delete-then-
  * flip, or insert-then-commit) before the other proceeds, and if revoke wins second it re-reads and
- * sweeps up whatever the rating transaction just committed.
+ * sweeps up whatever the rating transaction just committed. The guest-rating addition below follows
+ * this EXACT SAME discipline -- [requireActiveOrGuestMembership] is a plain unlocked read of the
+ * rater's own row, in the identical position [requireActiveMembership] always occupied, so no new
+ * race class is introduced by allowing a GAST-status rater through.
+ *
+ * ## Guest-rating weighting (closes the V0.6.4 scope cut)
+ *
+ * [castRating]/[retractRating] now accept a [MemberStatus.GAST] caller too (via
+ * [requireActiveOrGuestMembership], not [requireActiveMembership]) now that V0.8.2's OIDC
+ * guest-identity federation makes GAST a real, reachable status. [PoliticianReactionDto.raterType]
+ * ([network.lapis.cloud.shared.domain.PoliticianRaterType]) is frozen at cast time from the
+ * rater's status at that moment. [computeWeights] splits `politician_reaction` by [raterType] and
+ * feeds each half through a DELIBERATELY DIFFERENT calculation:
+ * [PoliticianTrustWeightCalculator.computeMemberTrustWeights] (unchanged, LTR-weighted shared pool)
+ * for MEMBER rows, [PoliticianTrustWeightCalculator.computeGuestTrustWeights] (plain unweighted
+ * vote count) for GAST rows -- see that second function's KDoc for why a guest structurally cannot
+ * be run through the same LTR-weighted pool mechanic today (no guest LTR-earning mechanism exists).
+ * `combinedTrustWeight` is the literal sum of both, which [getTopPoliticians] sorts by.
  *
  * ## First-grant race
  *
@@ -171,9 +201,14 @@ class PoliticianService(
                 it[revokedAt] = now
                 it[revokedByMemberId] = current.memberId
             }
-            // "Bewertungsstatistik wird geloescht" -- see IPoliticianService.revokePoliticianStatus
-            // KDoc. Both deletes run AFTER the status flip, still inside this same locked
-            // transaction, so no reader can observe status=FORMER alongside surviving rows.
+            // "Bewertungsstatistik wird geloescht: ... (Mitglieder, Gäste, Gesamt)" -- see
+            // IPoliticianService.revokePoliticianStatus KDoc. Both deletes run AFTER the status
+            // flip, still inside this same locked transaction, so no reader can observe
+            // status=FORMER alongside surviving rows. Neither delete is conditioned on
+            // PoliticianReactionTable.raterType/on which snapshot columns exist -- a WHOLE-ROW
+            // delete by politicianProfileId already sweeps up MEMBER-cast and GAST-cast reactions
+            // together, and every persisted member_*/guest_*/combined_* snapshot column along with
+            // it, a direct consequence of this domain's single-table (not per-kind-table) schema.
             PoliticianWeightSnapshotTable.deleteWhere { PoliticianWeightSnapshotTable.politicianProfileId eq profileId }
             PoliticianReactionTable.deleteWhere { PoliticianReactionTable.politicianProfileId eq profileId }
             loadProfile(profileId)
@@ -200,8 +235,10 @@ class PoliticianService(
 
     /**
      * See class KDoc "Revoke-vs-rate concurrency" -- locks the profile row FOR UPDATE before
-     * reading its status. [requireActiveMembership] gates the RATER's own membership status (a
-     * plain read on [MemberTable], unrelated to the profile lock above).
+     * reading its status. [requireActiveOrGuestMembership] gates the RATER's own membership status
+     * (a plain read on [MemberTable], unrelated to the profile lock above) -- see class KDoc
+     * "Guest-rating weighting" for why this is [requireActiveOrGuestMembership], not
+     * [requireActiveMembership], since the guest-rating wave.
      */
     override suspend fun castRating(
         politicianMemberId: String,
@@ -212,7 +249,8 @@ class PoliticianService(
         val targetMemberId = politicianMemberId.toMemberUuidOrThrow()
         val now = nowLocalDateTime()
         return transaction {
-            requireActiveMembership(current.memberId)
+            val raterStatus = requireActiveOrGuestMembership(current.memberId)
+            val raterType = if (raterStatus == MemberStatus.GAST) PoliticianRaterType.GAST else PoliticianRaterType.MEMBER
             val profileRow = requireProfileRowByMember(targetMemberId, forUpdate = true)
             if (profileRow[PoliticianProfileTable.status] != PoliticianProfileStatus.ACTIVE) {
                 throw ConflictException("PoliticianProfile for member $targetMemberId is not ACTIVE -- ratings are not open")
@@ -233,6 +271,7 @@ class PoliticianService(
                         it[PoliticianReactionTable.politicianProfileId] = profileId
                         it[raterMemberId] = current.memberId
                         it[reactionValue] = value
+                        it[PoliticianReactionTable.raterType] = raterType
                         it[castAt] = now
                     }
                     newId
@@ -240,6 +279,10 @@ class PoliticianService(
                     val existingId = existing[PoliticianReactionTable.id]
                     PoliticianReactionTable.update({ PoliticianReactionTable.id eq existingId }) {
                         it[reactionValue] = value
+                        // Re-freshed on every recast (cheap) rather than relying on an unstated
+                        // "raterType never changes for a memberId" invariant -- a member's status
+                        // could in principle change between casts (e.g. GAST -> AKTIV onboarding).
+                        it[PoliticianReactionTable.raterType] = raterType
                         it[castAt] = now
                     }
                     existingId
@@ -252,12 +295,13 @@ class PoliticianService(
         }
     }
 
+    /** See [castRating] KDoc -- same [requireActiveOrGuestMembership] gate. */
     override suspend fun retractRating(politicianMemberId: String) {
         val current = resolveCurrentMember(call)
         requirePoliticianRankingEnabled()
         val targetMemberId = politicianMemberId.toMemberUuidOrThrow()
         transaction {
-            requireActiveMembership(current.memberId)
+            requireActiveOrGuestMembership(current.memberId)
             val profileRow = requireProfileRowByMember(targetMemberId, forUpdate = true)
             val profileId = profileRow[PoliticianProfileTable.id]
             PoliticianReactionTable.deleteWhere {
@@ -339,7 +383,9 @@ class PoliticianService(
             val weights = computeWeights(activeIds)
             rows
                 .map { it.toProfileDto(weights[it[PoliticianProfileTable.id]] ?: ZERO_WEIGHT_RESULT) }
-                .sortedWith(compareByDescending<PoliticianProfileDto> { it.memberTrustWeight }.thenBy { it.memberId })
+                // Sorted by COMBINED (member + guest) weight, per the concept's explicit "Top-6...
+                // Mitglieder + Gäste zusammengefasst" -- see IPoliticianService.getTopPoliticians KDoc.
+                .sortedWith(compareByDescending<PoliticianProfileDto> { it.combinedTrustWeight }.thenBy { it.memberId })
                 .take(limit)
         }
     }
@@ -373,6 +419,10 @@ class PoliticianService(
                     it[memberTrustWeight] = result.memberTrustWeight
                     it[memberLikeCount] = result.memberLikeCount
                     it[memberDislikeCount] = result.memberDislikeCount
+                    it[guestTrustWeight] = result.guestTrustWeight
+                    it[guestLikeCount] = result.guestLikeCount
+                    it[guestDislikeCount] = result.guestDislikeCount
+                    it[combinedTrustWeight] = result.combinedTrustWeight
                     it[computedAt] = now
                     it[computedByMemberId] = current.memberId
                 }
@@ -468,9 +518,11 @@ class PoliticianService(
      * One query for every relevant profile's reactions (`politicianProfileId inList
      * activeProfileIds`), grouped in Kotlin -- NOT one query per profile. Bounded by the number of
      * active politicians passed in, same "closes the N+1/DoS gap" reasoning
-     * `CrowdfundingService.reactionCountsByProject` KDoc documents. Delegates the actual weight
-     * math to [PoliticianTrustWeightCalculator] -- see that object's KDoc for the shared-pool
-     * algorithm.
+     * `CrowdfundingService.reactionCountsByProject` KDoc documents. Splits the rows by
+     * [PoliticianReactionTable.raterType] and feeds each half through a DIFFERENT calculation --
+     * see [PoliticianService] class KDoc "Guest-rating weighting" and
+     * [PoliticianTrustWeightCalculator]'s own KDoc for the shared-pool (member) vs. plain-count
+     * (guest) algorithms.
      */
     private fun computeWeights(activeProfileIds: List<Uuid>): Map<Uuid, PoliticianTrustWeightCalculator.TrustWeightResult> {
         if (activeProfileIds.isEmpty()) return emptyMap()
@@ -480,17 +532,40 @@ class PoliticianService(
                 .where { PoliticianReactionTable.politicianProfileId inList activeProfileIds }
                 .toList()
         val groupedByProfile = reactionRows.groupBy { it[PoliticianReactionTable.politicianProfileId] }
-        val reactionsByProfile: Map<Uuid, List<Pair<Uuid, PoliticianReactionValue>>> =
+
+        fun reactionsOfType(type: PoliticianRaterType): Map<Uuid, List<Pair<Uuid, PoliticianReactionValue>>> =
             activeProfileIds.associateWith { profileId ->
-                groupedByProfile[profileId]?.map { row ->
-                    row[PoliticianReactionTable.raterMemberId] to
-                        row[PoliticianReactionTable.reactionValue]
-                }
+                groupedByProfile[profileId]
+                    ?.filter { it[PoliticianReactionTable.raterType] == type }
+                    ?.map { row -> row[PoliticianReactionTable.raterMemberId] to row[PoliticianReactionTable.reactionValue] }
                     ?: emptyList()
             }
-        val distinctRaters = reactionRows.map { it[PoliticianReactionTable.raterMemberId] }.toSet()
-        val raterBalances = ltrBalanceProvider.freeBalances(distinctRaters)
-        return PoliticianTrustWeightCalculator.computeMemberTrustWeights(reactionsByProfile, raterBalances)
+
+        val memberReactionsByProfile = reactionsOfType(PoliticianRaterType.MEMBER)
+        val guestReactionsByProfile = reactionsOfType(PoliticianRaterType.GAST)
+
+        val distinctMemberRaters =
+            reactionRows
+                .filter { it[PoliticianReactionTable.raterType] == PoliticianRaterType.MEMBER }
+                .map { it[PoliticianReactionTable.raterMemberId] }
+                .toSet()
+        val raterBalances = ltrBalanceProvider.freeBalances(distinctMemberRaters)
+
+        val memberResults = PoliticianTrustWeightCalculator.computeMemberTrustWeights(memberReactionsByProfile, raterBalances)
+        val guestResults = PoliticianTrustWeightCalculator.computeGuestTrustWeights(guestReactionsByProfile)
+
+        return activeProfileIds.associateWith { profileId ->
+            val member = memberResults[profileId] ?: ZERO_MEMBER_RESULT
+            val guest = guestResults[profileId] ?: ZERO_GUEST_RESULT
+            PoliticianTrustWeightCalculator.TrustWeightResult(
+                memberLikeCount = member.memberLikeCount,
+                memberDislikeCount = member.memberDislikeCount,
+                memberTrustWeight = member.memberTrustWeight,
+                guestLikeCount = guest.guestLikeCount,
+                guestDislikeCount = guest.guestDislikeCount,
+                guestTrustWeight = guest.guestTrustWeight,
+            )
+        }
     }
 
     private fun loadWeightHistory(
@@ -520,6 +595,10 @@ class PoliticianService(
                     memberTrustWeight = row[PoliticianWeightSnapshotTable.memberTrustWeight],
                     memberLikeCount = row[PoliticianWeightSnapshotTable.memberLikeCount],
                     memberDislikeCount = row[PoliticianWeightSnapshotTable.memberDislikeCount],
+                    guestTrustWeight = row[PoliticianWeightSnapshotTable.guestTrustWeight],
+                    guestLikeCount = row[PoliticianWeightSnapshotTable.guestLikeCount],
+                    guestDislikeCount = row[PoliticianWeightSnapshotTable.guestDislikeCount],
+                    combinedTrustWeight = row[PoliticianWeightSnapshotTable.combinedTrustWeight],
                     computedAt = row[PoliticianWeightSnapshotTable.computedAt],
                 )
             }
@@ -562,6 +641,10 @@ class PoliticianService(
             memberTrustWeight = weight.memberTrustWeight,
             memberLikeCount = weight.memberLikeCount,
             memberDislikeCount = weight.memberDislikeCount,
+            guestTrustWeight = weight.guestTrustWeight,
+            guestLikeCount = weight.guestLikeCount,
+            guestDislikeCount = weight.guestDislikeCount,
+            combinedTrustWeight = weight.combinedTrustWeight,
         )
 
     private fun ResultRow.toReactionDto(politicianMemberId: Uuid): PoliticianReactionDto =
@@ -570,6 +653,7 @@ class PoliticianService(
             politicianMemberId = politicianMemberId.toString(),
             value = this[PoliticianReactionTable.reactionValue],
             castAt = this[PoliticianReactionTable.castAt],
+            raterType = this[PoliticianReactionTable.raterType],
         )
 
     private fun nowLocalDateTime(): LocalDateTime = Clock.System.now().toLocalDateTime(TimeZone.currentSystemDefault())

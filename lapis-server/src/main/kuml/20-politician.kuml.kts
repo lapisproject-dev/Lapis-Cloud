@@ -22,16 +22,20 @@
 // `IPoliticianService.snapshotWeights` call, unique-indexed so the same month can never be
 // snapshotted twice for the same politician.
 //
-// **Scope-cut: member-only rating, no Gast basket.** The concept document's Mitglied/Gast
-// two-basket mechanic needs an operational Gast (guest) identity -- `MemberStatus.GAST`
-// (00-foundation.kuml.kts) is an inert enum literal nothing in this codebase ever sets, queries,
-// or transitions a member into (verified, same absence 18-peer-transfer.kuml.kts's own header
-// documents when scope-cutting a Gast transfer recipient). Building a permanently-empty guest
-// basket against a status nothing can reach would be decorative, not a real feature. This wave
-// ships member-only rating; no `guest_*` columns exist anywhere in this file -- a future wave
-// (dependent on a real member-management overhaul introducing an operational Gast status) adds
-// them additively once there is something real to compute over. See
-// network.lapis.cloud.shared.rpc.IPoliticianService KDoc for the same scope-cut restated at the
+// **Scope-cut CLOSED (guest-rating wave): member-only rating, no Gast basket.** The concept
+// document's Mitglied/Gast two-basket mechanic originally needed an operational Gast (guest)
+// identity that did not exist -- `MemberStatus.GAST` (00-foundation.kuml.kts) was, at V0.6.4 ship
+// time, an inert enum literal nothing in this codebase ever set, queried, or transitioned a
+// member into. V0.8.2's OIDC guest-identity federation (`OidcGuestMemberStore`) closed that gap:
+// every federated OIDC guest is now a real `member` row with `status = GAST`. This wave therefore
+// reopens the two-basket mechanic: `politician_reaction.rater_type` (below) distinguishes a
+// MEMBER-cast from a GAST-cast reaction, and `politician_weight_snapshot` gains
+// `guest_trust_weight`/`guest_like_count`/`guest_dislike_count`/`combined_trust_weight` alongside
+// the pre-existing `member_*` columns. See
+// network.lapis.cloud.server.rpc.PoliticianTrustWeightCalculator KDoc "Guest-rating wave addition"
+// for why the guest-side weight is a plain unweighted vote count, NOT a second shared-LTR-pool
+// apportionment (a guest structurally cannot hold LTR yet -- no guest-earning mechanism exists).
+// See network.lapis.cloud.shared.rpc.IPoliticianService KDoc for the same closure restated at the
 // RPC-contract level.
 //
 // **Scope-cut: real-name enforcement is a documented no-op.** The concept document's "Politiker
@@ -110,6 +114,13 @@ classDiagram(name = "Politician") {
     val politicianReactionValue = enumOf(name = "PoliticianReactionValue") {
         literal(name = "LIKE")
         literal(name = "DISLIKE")
+    }
+
+    // Literal order is load-bearing, same reason as above -- matches
+    // network.lapis.cloud.shared.domain.PoliticianRaterType. Guest-rating wave addition.
+    val politicianRaterType = enumOf(name = "PoliticianRaterType") {
+        literal(name = "MEMBER")
+        literal(name = "GAST")
     }
 
     val politicianProfile = classOf(name = "PoliticianProfile") {
@@ -197,6 +208,16 @@ classDiagram(name = "Politician") {
         attribute(name = "raterMemberId", type = "UUID") {
             stereotype("Column") { "columnName" to "rater_member_id"; "fkEntity" to "Member" }
         }
+        // Guest-rating wave addition. Frozen at cast time from CurrentMember.isGuest -- a
+        // historical fact about HOW this vote was cast, not re-derived from the rater's current
+        // status on every read (mirrors cast_at's own "immutable historical fact" character). See
+        // network.lapis.cloud.server.rpc.PoliticianService KDoc "Guest-rating weighting".
+        attribute(name = "raterType", type = politicianRaterType) {
+            stereotype("Column") {
+                "columnName" to "rater_type"
+                "enumType" to "network.lapis.cloud.shared.domain.PoliticianRaterType"
+            }
+        }
     }
 
     val politicianWeightSnapshot = classOf(name = "PoliticianWeightSnapshot") {
@@ -231,6 +252,22 @@ classDiagram(name = "Politician") {
         }
         attribute(name = "memberDislikeCount", type = "Int") {
             stereotype("Column") { "columnName" to "member_dislike_count" }
+        }
+        // Guest-rating wave addition -- see PoliticianTrustWeightCalculator.computeGuestTrustWeights
+        // KDoc: a plain unweighted vote count, NOT a second shared-LTR-pool apportionment.
+        attribute(name = "guestTrustWeight", type = "BigDecimal") {
+            stereotype("Column") { "columnName" to "guest_trust_weight"; "sqlType" to "DECIMAL(18,2)" }
+        }
+        attribute(name = "guestLikeCount", type = "Int") {
+            stereotype("Column") { "columnName" to "guest_like_count" }
+        }
+        attribute(name = "guestDislikeCount", type = "Int") {
+            stereotype("Column") { "columnName" to "guest_dislike_count" }
+        }
+        // Literal sum member_trust_weight + guest_trust_weight -- see PoliticianProfileDto KDoc
+        // for why this is NOT a "fair blend" of two commensurable units.
+        attribute(name = "combinedTrustWeight", type = "BigDecimal") {
+            stereotype("Column") { "columnName" to "combined_trust_weight"; "sqlType" to "DECIMAL(18,2)" }
         }
         attribute(name = "computedAt", type = "LocalDateTime") {
             stereotype("Column") { "columnName" to "computed_at" }

@@ -853,15 +853,24 @@ CREATE TABLE politician_profile (
     CHECK (status IN ('ACTIVE', 'FORMER'))
 );
 
+-- rater_type (guest-rating wave, closes the V0.6.4 scope cut -- see 20-politician.kuml.kts file
+-- header): frozen at cast time from CurrentMember.isGuest, distinguishes a MEMBER-cast from a
+-- GAST-cast reaction so the two baskets can be aggregated separately.
 CREATE TABLE politician_reaction (
     id UUID NOT NULL PRIMARY KEY,
     politician_profile_id UUID NOT NULL,
     reaction_value VARCHAR(7) NOT NULL,
     cast_at TIMESTAMP NOT NULL,
     rater_member_id UUID NOT NULL,
-    CHECK (reaction_value IN ('LIKE', 'DISLIKE'))
+    rater_type VARCHAR(6) NOT NULL,
+    CHECK (reaction_value IN ('LIKE', 'DISLIKE')),
+    CHECK (rater_type IN ('MEMBER', 'GAST'))
 );
 
+-- guest_trust_weight / guest_like_count / guest_dislike_count / combined_trust_weight
+-- (guest-rating wave): guest-side and combined-side equivalents of the pre-existing member_*
+-- columns -- see PoliticianTrustWeightCalculator.computeGuestTrustWeights KDoc for why
+-- guest_trust_weight is a plain unweighted vote count, not a second LTR-weighted pool.
 CREATE TABLE politician_weight_snapshot (
     id UUID NOT NULL PRIMARY KEY,
     politician_profile_id UUID NOT NULL,
@@ -869,6 +878,10 @@ CREATE TABLE politician_weight_snapshot (
     member_trust_weight DECIMAL(18, 2) NOT NULL,
     member_like_count INT NOT NULL,
     member_dislike_count INT NOT NULL,
+    guest_trust_weight DECIMAL(18, 2) NOT NULL,
+    guest_like_count INT NOT NULL,
+    guest_dislike_count INT NOT NULL,
+    combined_trust_weight DECIMAL(18, 2) NOT NULL,
     computed_at TIMESTAMP NOT NULL,
     computed_by_member_id UUID NOT NULL
 );
