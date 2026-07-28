@@ -1445,3 +1445,50 @@ ALTER TABLE oidc_rp_login_attempt
 ALTER TABLE oidc_guest_profile
     ADD CONSTRAINT fk_oidc_guest_profile_member_id FOREIGN KEY (member_id) REFERENCES member(id);
 
+-- V0.8.3 Trust-Anchor-Governance: a deliberately-scoped, single-level CORE subset of OpenID
+-- Federation 1.0 (RFC 9678), layered on top of the OIDC-guest-federation block above. See
+-- 26-trust-anchor.kuml.kts file header for the full fachlich model, the "UX comfort, not a
+-- security mechanism" framing, and why revocation needs more than expiry alone.
+
+CREATE TABLE trust_anchor_signing_key (
+    id UUID PRIMARY KEY,
+    kid VARCHAR(64) NOT NULL UNIQUE,
+    public_key_pem TEXT NOT NULL,
+    private_key_pem TEXT NOT NULL,
+    status VARCHAR(8) NOT NULL CHECK (status IN ('ACTIVE', 'RETIRED', 'REVOKED')),
+    created_at TIMESTAMP NOT NULL,
+    retired_at TIMESTAMP,
+    revoked_at TIMESTAMP
+);
+CREATE INDEX idx_trust_anchor_signing_key_status ON trust_anchor_signing_key (status);
+-- Deliberately NO seed INSERT here -- same reasoning as federation_actor_key/oidc_signing_key
+-- above: TrustAnchorSigningKeyProvisioner inserts the first row (fixed sentinel id
+-- '...-0000-0000000000f8', next unused slot after oidc_signing_key's own '...-f7') idempotently
+-- on first Application.module() boot instead. Registered in
+-- OrganizationRestoreService.SEEDED_SINGLETON_ROWS for the same "fresh restore target" reasoning
+-- (UNLIKE federation_actor_key/oidc_signing_key, this table is rotation-capable -- more rows can
+-- legitimately accumulate over a server's lifetime, which is correctly treated as "not a fresh
+-- target" by that same pre-flight check, not a false positive).
+
+CREATE TABLE trust_anchor_pool_member (
+    id UUID PRIMARY KEY,
+    home_server_uri VARCHAR(2048) NOT NULL UNIQUE,
+    added_at TIMESTAMP NOT NULL
+);
+
+CREATE TABLE trusted_external_anchor (
+    id UUID PRIMARY KEY,
+    anchor_entity_uri VARCHAR(2048) NOT NULL UNIQUE,
+    added_at TIMESTAMP NOT NULL
+);
+
+CREATE TABLE trust_anchor_event (
+    id UUID PRIMARY KEY,
+    occurred_at TIMESTAMP NOT NULL,
+    event_type VARCHAR(22) NOT NULL CHECK (event_type IN
+        ('KEY_PROVISIONED', 'KEY_ROTATED', 'KEY_REVOKED', 'POOL_MEMBER_ADDED', 'POOL_MEMBER_REMOVED',
+         'TRUSTED_ANCHOR_ADDED', 'TRUSTED_ANCHOR_REMOVED')),
+    subject VARCHAR(2048) NOT NULL
+);
+CREATE INDEX idx_trust_anchor_event_occurred_at ON trust_anchor_event (occurred_at);
+

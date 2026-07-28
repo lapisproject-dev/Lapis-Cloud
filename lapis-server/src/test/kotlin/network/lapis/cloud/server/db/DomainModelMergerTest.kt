@@ -35,14 +35,14 @@ class DomainModelMergerTest :
         // ── Test 1: merging the real 22 domain scripts ───────────────────────────────────
 
         test(
-            "merging the real 26 domain scripts succeeds and the uml-to-erm -> erm-to-exposed chain " +
+            "merging the real 27 domain scripts succeeds and the uml-to-erm -> erm-to-exposed chain " +
                 "produces exactly one Table file per distinct table name",
         ) {
             val scriptFiles =
                 requireNotNull(KumlModelLoader.kumlSourceDir.listFiles { f -> f.name.endsWith(".kuml.kts") }) {
                     "kUML source dir not found or not a directory: ${KumlModelLoader.kumlSourceDir.absolutePath}"
                 }.sortedBy { it.name }
-            scriptFiles shouldHaveSize 26
+            scriptFiles shouldHaveSize 27
 
             val diagrams = scriptFiles.map { KumlModelLoader.loadUmlDiagram(it) }
 
@@ -164,7 +164,14 @@ class DomainModelMergerTest :
             // contributes +10 «Entity» declarations (the stub + 9 real tables) and +1 drop (the
             // stub merges into the already-existing member entity) versus the V0.8.1 baseline
             // above (76 -> 85).
-            val distinctTableNames = 85
+            // 26-trust-anchor.kuml.kts (V0.8.3 Trust-Anchor-Governance) adds exactly four more real
+            // tables (trust_anchor_signing_key, trust_anchor_pool_member, trusted_external_anchor,
+            // trust_anchor_event), WITH NO cross-domain Member stub at all -- none of the four
+            // tables have any FK to member (Trust-Anchor governance is entirely server-to-server/
+            // organization-level, same reasoning 24-federation.kuml.kts's own four tables already
+            // established) -- so it contributes +4 «Entity» declarations and +0 drops versus the
+            // V0.8.2 baseline above (85 -> 89).
+            val distinctTableNames = 89
 
             val result =
                 UmlToExposedViaErmScriptTransformer().transform(
@@ -272,6 +279,10 @@ class DomainModelMergerTest :
                     "OidcRpLoginAttemptTable.kt",
                     "OidcGuestProfileTable.kt",
                     "OidcGuestLoginEventTable.kt",
+                    "TrustAnchorSigningKeyTable.kt",
+                    "TrustAnchorPoolMemberTable.kt",
+                    "TrustedExternalAnchorTable.kt",
+                    "TrustAnchorEventTable.kt",
                 )
         }
 

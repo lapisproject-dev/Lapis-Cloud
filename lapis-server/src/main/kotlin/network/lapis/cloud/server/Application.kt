@@ -27,6 +27,7 @@ import network.lapis.cloud.server.federation.FederationConfig
 import network.lapis.cloud.server.federation.FederationInboxRateLimiter
 import network.lapis.cloud.server.federation.FederationReplayGuard
 import network.lapis.cloud.server.federation.OidcSigningKeyProvisioner
+import network.lapis.cloud.server.federation.TrustAnchorSigningKeyProvisioner
 import network.lapis.cloud.server.mail.NoOpPasswordResetMailer
 import network.lapis.cloud.server.postal.LetterxpressPostalMailProvider
 import network.lapis.cloud.server.routes.registerAuthRoutes
@@ -36,6 +37,7 @@ import network.lapis.cloud.server.routes.registerDsgvoRoutes
 import network.lapis.cloud.server.routes.registerFederationRoutes
 import network.lapis.cloud.server.routes.registerMailmergeRoutes
 import network.lapis.cloud.server.routes.registerOidcRoutes
+import network.lapis.cloud.server.routes.registerTrustAnchorRoutes
 import network.lapis.cloud.server.rpc.AccountingService
 import network.lapis.cloud.server.rpc.AuctionService
 import network.lapis.cloud.server.rpc.AuditLogService
@@ -62,6 +64,7 @@ import network.lapis.cloud.server.rpc.PostalMailService
 import network.lapis.cloud.server.rpc.PriceOracleService
 import network.lapis.cloud.server.rpc.RegistrationService
 import network.lapis.cloud.server.rpc.SystemicConsensusService
+import network.lapis.cloud.server.rpc.TrustAnchorService
 import network.lapis.cloud.server.security.LoginRateLimiter
 import network.lapis.cloud.shared.Greeting
 import network.lapis.cloud.shared.rpc.ForbiddenException
@@ -91,6 +94,7 @@ import network.lapis.cloud.shared.rpc.IPostalMailService
 import network.lapis.cloud.shared.rpc.IPriceOracleService
 import network.lapis.cloud.shared.rpc.IRegistrationService
 import network.lapis.cloud.shared.rpc.ISystemicConsensusService
+import network.lapis.cloud.shared.rpc.ITrustAnchorService
 import network.lapis.cloud.shared.rpc.UnauthenticatedException
 import java.io.File
 
@@ -174,6 +178,13 @@ fun Application.module() {
     OidcSigningKeyProvisioner.ensureProvisioned()
     val oidcRegistrationRateLimiter = LoginRateLimiter()
 
+    // V0.8.3 Trust-Anchor-Governance -- this server's own Trust-Anchor signing key must exist from
+    // first boot onward too (unconditional, same reasoning as FederationActorKeyProvisioner/
+    // OidcSigningKeyProvisioner above, but a THIRD, separate keypair for a THIRD, separate
+    // cryptographic purpose). Provisioning the key does NOT itself activate the Trust Anchor role
+    // -- see registerTrustAnchorRoutes KDoc "opt-in via non-empty pool".
+    TrustAnchorSigningKeyProvisioner.ensureProvisioned()
+
     install(CallLogging)
     install(Compression)
     // V0.7.3 Basis-Mehrseiten-UI: PartialContent (HTTP Range, for large JS/asset bundles) and
@@ -220,6 +231,7 @@ fun Application.module() {
         registerService(IAuthService::class) { call -> AuthService(call) }
         registerService(IRegistrationService::class) { call -> RegistrationService(call, registrationRateLimiter) }
         registerService(IFederationService::class) { call -> FederationService(call) }
+        registerService(ITrustAnchorService::class) { call -> TrustAnchorService(call) }
     }
 
     routing {
@@ -236,6 +248,7 @@ fun Application.module() {
         registerAuthRoutes(loginRateLimiter, cookieSecure, passwordResetRateLimiter, passwordResetMailer)
         registerFederationRoutes(federationInboxRateLimiter, federationReplayGuard)
         registerOidcRoutes(cookieSecure, oidcRegistrationRateLimiter)
+        registerTrustAnchorRoutes()
         getAllServiceManagers().forEach { applyRoutes(it) }
         // Registered last: literal routes above (/api/..., RPC service paths) always win over this
         // catch-all in Ktor's routing trie regardless of registration order, but keeping it last

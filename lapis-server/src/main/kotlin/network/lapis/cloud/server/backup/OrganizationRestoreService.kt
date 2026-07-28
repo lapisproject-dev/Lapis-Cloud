@@ -70,7 +70,18 @@ private val FEDERATION_ACTOR_KEY_SEED_ID = "00000000-0000-0000-0000-0000000000f6
  */
 private val OIDC_SIGNING_KEY_SEED_ID = "00000000-0000-0000-0000-0000000000f7"
 
-/** Tables that Flyway itself seeds exactly one singleton row into (or, for `federation_actor_key`/`oidc_signing_key`, a row provisioned at first boot instead -- see those entries' own comments) -- see [OrganizationRestoreService.findNonSeedRows]. */
+/**
+ * Fixed sentinel id of the FIRST `trust_anchor_signing_key` row -- UNLIKE every other id in this
+ * map (including `federation_actor_key`/`oidc_signing_key`), this table is rotation-capable, so
+ * more rows can legitimately accumulate over a server's lifetime (see
+ * `26-trust-anchor.kuml.kts` file header / `TrustAnchorSigningKeyProvisioner`). Registered here for
+ * the exact same "fresh restore target" reasoning `federation_actor_key`/`oidc_signing_key` are --
+ * a server that has since rotated will correctly show up as non-empty on this table by
+ * [findNonSeedRows], which is the correct/desired behavior, not a false positive.
+ */
+private val TRUST_ANCHOR_SIGNING_KEY_SEED_ID = "00000000-0000-0000-0000-0000000000f8"
+
+/** Tables that Flyway itself seeds exactly one singleton row into (or, for `federation_actor_key`/`oidc_signing_key`/`trust_anchor_signing_key`, a row provisioned at first boot instead -- see those entries' own comments) -- see [OrganizationRestoreService.findNonSeedRows]. */
 private val SEEDED_SINGLETON_ROWS: Map<String, Pair<String, String>> =
     mapOf(
         "organization_settings" to ("id" to ORGANIZATION_SETTINGS_SEED_ID),
@@ -79,6 +90,7 @@ private val SEEDED_SINGLETON_ROWS: Map<String, Pair<String, String>> =
         "price_oracle_config" to ("id" to PRICE_ORACLE_CONFIG_SEED_ID),
         "federation_actor_key" to ("id" to FEDERATION_ACTOR_KEY_SEED_ID),
         "oidc_signing_key" to ("id" to OIDC_SIGNING_KEY_SEED_ID),
+        "trust_anchor_signing_key" to ("id" to TRUST_ANCHOR_SIGNING_KEY_SEED_ID),
     )
 
 /** Result of a successful [OrganizationRestoreService.restore] call -- a failed restore throws instead of returning, see that method's KDoc. */
