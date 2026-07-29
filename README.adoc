@@ -31,7 +31,7 @@ The explicit ambition: to become the **de facto standard** for membership manage
 and parties — completeness over elegance, compliance-first (GDPR, association law, party law, tax law),
 usable without prior IT knowledge.
 
-Originally developed for the https://www.partei-der-vernunft.de[Partei der Vernunft (PdV)], Lapis Cloud
+Originally developed for the https://www.parteidervernunft.de[Partei der Vernunft (PdV)], Lapis Cloud
 is open source and open to any organization — political parties, traditional associations,
 professional bodies, cooperatives, foundations, NGOs.
 
