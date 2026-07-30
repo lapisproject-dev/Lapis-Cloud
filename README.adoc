@@ -64,8 +64,14 @@ this repository. This README describes only the technical scope.
 
 == Status
 
-As of *V0.8.4* (tag `v0.8.0`), eight major waves are complete (see `CHANGELOG.md` for full
-detail):
+As of tag `v0.9.0`, eight major waves are complete (see `CHANGELOG.md` for full detail). `v0.9.0`
+itself is a hardening/retrofit release, not a new numbered wave: it closes the V0.7.2 ANTRAG
+membership-gate audit's disclosed gaps (including the `addCommitteeMember`/`appointElectionBoard`/
+`tally` root cause and a related session-revocation gap in `rejectApplication`), a DNS-rebinding
+TOCTOU gap in the federation SSRF guard, a GoBD hash-chain timestamp-precision bug, and adds two
+retrofits to earlier waves — Änderungsantrag (amendment motion) support for Governance (V0.2.6)
+and the V0.6.4 guest/Gast rating-basket closure (Politician Guest Rating, V0.8.5). See
+`CHANGELOG.md` `[0.9.0]` for full detail on every item.
 
 * **V0.1 — Project foundation & standard membership management**: Gradle multi-module structure,
   Ktor server, KVision client, Kilua RPC wiring, CI/CD, member master data, join/leave workflow,
@@ -124,8 +130,9 @@ version in the backlog" classification for federation work; V0.8.1's pass found 
 IPv6 Unique-Local-Address SSRF gap live. Known limitations (Letterxpress wire format and the
 oracle's price-source wire formats not verified against live docs, no Sammelbestätigung
 aggregation, no full GoBD tamper-evidence/TSE, no persistent oracle halt-queue, no guest/Gast
-participation in the LTR economy yet, DNS-rebinding TOCTOU gap in the federation SSRF guard) are
-tracked in `CHANGELOG.md`. See link:docs/architecture/domain-model.adoc[domain model
+participation in the LTR economy yet) are tracked in `CHANGELOG.md`. The DNS-rebinding TOCTOU gap
+in the federation SSRF guard, disclosed in this list until `v0.9.0`, is now closed — see
+`CHANGELOG.md` `[0.9.0]`. See link:docs/architecture/domain-model.adoc[domain model
 documentation] (covers the V0.1.5 Contributions/Documents/Communication slice, the V0.3 accounting
 slices, the V0.4.1 mail-merge slice, and the V0.6.5 Price-Oracle slice — not updated for every wave
 since) and `CLAUDE.md` for further detail.
@@ -138,8 +145,7 @@ guest/combined rating basket was implemented (`guestTrustWeight`/`combinedTrustW
 deliberately unweighted vote-count mechanic for the guest side — see `CHANGELOG.md` for why an
 LTR-weighted guest pool isn't possible yet, since no guest LTR-earning mechanism exists). No
 client UI for Politician Profiles exists yet (backend/RPC-only, unchanged from V0.6.4). See
-`CHANGELOG.md` `[0.6.0]` for the original scope-cut reasoning and the latest `[Unreleased]` entry
-for the closure.
+`CHANGELOG.md` `[0.6.0]` for the original scope-cut reasoning and `[0.9.0]` for the closure.
 
 === Auction opt-in (V0.6.2)
 

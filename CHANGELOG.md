@@ -6,6 +6,8 @@ All notable changes to this project are documented here. Format follows
 
 ## [Unreleased]
 
+## [0.9.0] — 2026-07-30
+
 ### Fixed
 
 **DNS-rebinding TOCTOU gap closed in the federation SSRF guard — disclosed since V0.8.1,
