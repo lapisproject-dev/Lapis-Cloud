@@ -169,6 +169,7 @@ legal counsel — not something this project can decide once for everyone. See `
 * **No guest participation in the LTR economy.** A federated guest (V0.8.2) is authenticated and
   represented, but not wired into LTR staking/posting/earning — that mechanics is deliberately not
   built yet, a separate scope decision from identity itself.
+
 None of this is a secret gap. See the project vault's Lapis Cloud roadmap for the up-to-date wave
 plan.
 
