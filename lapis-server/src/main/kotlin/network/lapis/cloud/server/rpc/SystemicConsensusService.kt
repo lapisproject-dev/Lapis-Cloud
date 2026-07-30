@@ -286,10 +286,13 @@ class SystemicConsensusService(
             // ballot before board approval. Defense in depth: the eligible check below only
             // re-validates against the SystemicConsensusEligibleVoterTable snapshot taken at
             // freezeOptions/reopenRating time, itself derived from eligibleMemberIds -- for a
-            // non-GENERAL_ASSEMBLY Committee that is raw Committee membership, never re-checked
-            // against the seated member's live status (see GovernanceService.addCommitteeMember
-            // KDoc). Member-only (AKTIV), not requireActiveOrGuestMembership -- guests never get
-            // vote weight in this project's concept.
+            // non-GENERAL_ASSEMBLY Committee that is raw Committee membership. As of the
+            // addCommitteeMember root-cause fix (2026-07-30), GovernanceService.addCommitteeMember
+            // re-validates the seated member's status at seat-time, so this check stays as an
+            // independent second layer (defense in depth against any future seating path that
+            // bypasses addCommitteeMember, or a legacy row predating that fix). Member-only
+            // (AKTIV), not requireActiveOrGuestMembership -- guests never get vote weight in this
+            // project's concept.
             requireActiveMembership(current.memberId)
             val row = requireSystemicConsensusRow(kId)
             if (row[SystemicConsensusTable.status] != SystemicConsensusStatus.RATING) {

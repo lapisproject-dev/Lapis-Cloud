@@ -224,6 +224,19 @@ class ElectionService(
             distinctIds.forEach { mId ->
                 MemberTable.selectAll().where { MemberTable.id eq mId }.singleOrNull()
                     ?: throw NotFoundException("Member $mId not found")
+                // ANTRAG membership-gate audit follow-up (2026-07-30): appointElectionBoard shares
+                // the same seating-without-status-recheck gap class as
+                // GovernanceService.addCommitteeMember -- an election-board seat grants
+                // isElectionBoardMember/isElectionBoard authority (Vier-Augen tally-approval
+                // counting via approveTally, and operational control via
+                // openVoting/closeVoting/tally for a non-privileged appointee). Checked per
+                // appointed member, not the caller (caller's canManageElection is already checked
+                // above). forUpdate = true (round-3 audit fix, 2026-07-30): this check gates an
+                // ElectionBoardMemberTable insert further down in this SAME transaction -- without
+                // the row lock, a concurrent leaveMembership() could commit in between, appointing
+                // a board member from an already-stale status read. See requireActiveMembership
+                // KDoc "forUpdate".
+                requireActiveMembership(mId, forUpdate = true)
             }
             val targetCommitteeId = electionRow[ElectionTable.targetCommitteeId]
             if (targetCommitteeId != null) {
@@ -428,10 +441,12 @@ class ElectionService(
             // board approval. Defense in depth: the eligible check below only re-validates against
             // the ElectionEligibleVoterTable snapshot taken at openVoting time, which itself derives
             // from eligibleMemberIds -- for a non-GENERAL_ASSEMBLY Committee that is raw Committee
-            // membership, never re-checked against the seated member's live status (see
-            // GovernanceService.addCommitteeMember KDoc). Member-only (AKTIV), not
-            // requireActiveOrGuestMembership -- guests never get vote weight in this project's
-            // concept.
+            // membership. As of the addCommitteeMember root-cause fix (2026-07-30),
+            // GovernanceService.addCommitteeMember re-validates the seated member's status at
+            // seat-time, so this check stays as an independent second layer (defense in depth
+            // against any future seating path that bypasses addCommitteeMember, or a legacy row
+            // predating that fix). Member-only (AKTIV), not requireActiveOrGuestMembership --
+            // guests never get vote weight in this project's concept.
             requireActiveMembership(current.memberId)
             val electionRow = requireElectionRow(wId)
             if (electionRow[ElectionTable.status] != ElectionStatus.OPEN) {
@@ -771,6 +786,26 @@ class ElectionService(
                                 .selectAll()
                                 .where { ElectionCandidacyTable.id eq candidacyId }
                                 .single()[ElectionCandidacyTable.memberId]
+                        // ANTRAG membership-gate audit follow-up (2026-07-30), round-2 review
+                        // finding: this winner-seating branch is a SEPARATE seat-creation path from
+                        // GovernanceService.addCommitteeMember -- it writes CommitteeMembershipTable
+                        // directly and was never routed through that method, so the addCommitteeMember
+                        // root-cause fix above does NOT cover it despite comments elsewhere in this
+                        // file (castElectionBallot) assuming Committee seats only ever originate
+                        // there. canStandAsCandidate only re-checks AKTIV at submitCandidacy time
+                        // (ElectionAuthorization.kt); a candidate who was AKTIV then but calls
+                        // leaveMembership (-> AUSGETRETEN) before tally() runs would otherwise be
+                        // seated here with no live status recheck at all -- for an EXECUTIVE_BOARD
+                        // targetCommittee that means a departed member becoming a real, audited
+                        // Vorstand seat (BoardMembershipEvents.recordBoardJoin) below. Same gate,
+                        // same semantics as addCommitteeMember: AKTIV-only, applied to the winner
+                        // being seated, not the caller (current.isElectionBoard(wId) already gates
+                        // the caller above). forUpdate = true (round-3 audit fix, 2026-07-30): this
+                        // check gates a CommitteeMembershipTable insert a few lines below in this
+                        // SAME transaction -- without the row lock, a concurrent leaveMembership()
+                        // could commit in between, seating the winner from an already-stale status
+                        // read. See requireActiveMembership KDoc "forUpdate".
+                        requireActiveMembership(winnerMemberId, forUpdate = true)
                         // Guarded seat, mirroring the single-active-membership invariant
                         // GovernanceService.addCommitteeMember enforces (GovernanceService.kt
                         // ~200-212): an incumbent who wins re-election (or is elected into a new

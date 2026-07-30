@@ -669,6 +669,129 @@ class ElectionServiceTest :
             }
         }
 
+        // ── addCommitteeMember/tally status-gate (round-2 review, 2026-07-30) ────────────
+        // appointElectionBoard: per-appointee requireActiveMembership added alongside the
+        // GovernanceService.addCommitteeMember fix (same gap class -- an election-board seat grants
+        // real authority: isElectionBoardMember/approveTally, isElectionBoard/openVoting/closeVoting/
+        // tally).
+
+        test("appointElectionBoard rejects an ANTRAG appointee") {
+            testApplication {
+                application {
+                    install(StatusPages) { installElectionExceptionHandlers() }
+                    routing { registerElectionTestRoutes() }
+                }
+
+                val committeeId = createTestCommittee("Board Gate Antrag")
+                val chair = createTestMember("election-boardgate-antrag-chair@example.org")
+                addMember(committeeId, chair, CommitteeRole.CHAIR)
+                val applicant = createTestMember("election-boardgate-antrag-applicant@example.org", status = MemberStatus.ANTRAG)
+                val others = (1..3).map { createTestMember("election-boardgate-antrag-other$it@example.org") }
+
+                val meetingId = createTestMeeting(committeeId, LocalDateTime(2026, 9, 1, 18, 0))
+                val motionId = createTerminierterMotion(committeeId, meetingId, chair)
+                val electionId =
+                    client
+                        .post("/test/open-election/$motionId/YES_NO") { header("X-Member-Id", chair.toString()) }
+                        .bodyAsText()
+                        .substringBefore(":")
+
+                val memberIds = (others + applicant).joinToString(",")
+                val rejected =
+                    client.post("/test/appoint-election-board/$electionId?memberIds=$memberIds") {
+                        header("X-Member-Id", chair.toString())
+                    }
+                rejected.status shouldBe HttpStatusCode.Forbidden
+
+                val allowed =
+                    client
+                        .post("/test/appoint-election-board/$electionId?memberIds=${others.joinToString(",")}") {
+                            header("X-Member-Id", chair.toString())
+                        }.bodyAsText()
+                allowed shouldBe "3"
+            }
+        }
+
+        // Round-2 review finding: ElectionService.tally's EXECUTIVE_BOARD/Committee winner-seating
+        // branch is a SEPARATE seat-creation path (direct CommitteeMembershipTable.insert), never
+        // routed through GovernanceService.addCommitteeMember -- so that method's status gate alone
+        // does not close this path. canStandAsCandidate only re-checks AKTIV at submitCandidacy
+        // time; a candidate who leaves membership (-> AUSGETRETEN) after submitting a candidacy but
+        // before tally() runs must not be silently seated as a real Vorstand member. Fixed alongside
+        // this review round (requireActiveMembership(winnerMemberId) added to tally()'s seating loop).
+        test("tally rejects seating a winning candidate who left membership between candidacy and tally") {
+            testApplication {
+                application {
+                    install(StatusPages) { installElectionExceptionHandlers() }
+                    routing { registerElectionTestRoutes() }
+                }
+
+                val hostCommittee = createTestCommittee("General Assembly TallyGate", CommitteeType.GENERAL_ASSEMBLY)
+                val targetCommittee = createTestCommittee("Executive Board TallyGate Ziel")
+                val chair = createTestMember("election-tallygate-chair@example.org")
+                addMember(hostCommittee, chair, CommitteeRole.CHAIR)
+                val candidate = createTestMember("election-tallygate-cand@example.org")
+                val voter = createTestMember("election-tallygate-voter@example.org")
+                val electionBoardMembers = (1..3).map { createTestMember("election-tallygate-wv$it@example.org") }
+
+                val meetingId = createTestMeeting(hostCommittee, LocalDateTime(2026, 5, 2, 18, 0))
+                val motionId = createTerminierterMotion(hostCommittee, meetingId, chair)
+
+                val opened =
+                    client
+                        .post(
+                            "/test/open-election/$motionId/SINGLE_CHOICE?targetCommitteeId=$targetCommittee&seatCount=1&secret=false",
+                        ) { header("X-Member-Id", chair.toString()) }
+                        .bodyAsText()
+                val electionId = opened.substringBefore(":")
+                client.post("/test/appoint-election-board/$electionId?memberIds=${electionBoardMembers.joinToString(",")}") {
+                    header("X-Member-Id", chair.toString())
+                }
+                // Candidate is genuinely AKTIV at submission time -- canStandAsCandidate's own gate
+                // is satisfied, proving this is not the trivial "never eligible to stand" case.
+                client.post("/test/submit-candidacy/$electionId") { header("X-Member-Id", candidate.toString()) }
+                client.post("/test/release-kandidatenliste/$electionId") { header("X-Member-Id", chair.toString()) }
+                client.post("/test/open-voting/$electionId") { header("X-Member-Id", electionBoardMembers[0].toString()) }
+
+                val optionId =
+                    transaction {
+                        ElectionOptionTable.selectAll().where { ElectionOptionTable.electionId eq Uuid.parse(electionId) }.single()[
+                            ElectionOptionTable.id,
+                        ]
+                    }
+                client.post("/test/cast-election-ballot/$electionId?selectedOptionIds=$optionId") {
+                    header("X-Member-Id", voter.toString())
+                }
+                client.post("/test/close-voting/$electionId") { header("X-Member-Id", electionBoardMembers[0].toString()) }
+                client.post("/test/release-tally/$electionId") { header("X-Member-Id", electionBoardMembers[0].toString()) }
+                client.post("/test/release-tally/$electionId") { header("X-Member-Id", electionBoardMembers[1].toString()) }
+
+                // Candidate leaves membership after voting closes but before the board tallies --
+                // exactly the residual window canStandAsCandidate's submission-time-only check
+                // cannot cover.
+                transaction {
+                    MemberTable.update({ MemberTable.id eq candidate }) { it[status] = MemberStatus.AUSGETRETEN }
+                }
+
+                val tallyResponse = client.post("/test/tally/$electionId") { header("X-Member-Id", electionBoardMembers[0].toString()) }
+                tallyResponse.status shouldBe HttpStatusCode.Forbidden
+
+                val seated =
+                    transaction {
+                        CommitteeMembershipTable
+                            .selectAll()
+                            .where {
+                                (CommitteeMembershipTable.committeeId eq targetCommittee) and
+                                    (CommitteeMembershipTable.memberId eq candidate)
+                            }.count()
+                    }
+                seated shouldBe 0
+                val boardMembershipRows =
+                    transaction { BoardMembershipTable.selectAll().where { BoardMembershipTable.memberId eq candidate }.count() }
+                boardMembershipRows shouldBe 0
+            }
+        }
+
         test("authorization: non-Committee-leadership member cannot openElection; ineligible member cannot castElectionBallot") {
             testApplication {
                 application {

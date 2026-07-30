@@ -199,6 +199,25 @@ class GovernanceService(
         val gId = committeeId.toCommitteeUuid()
         val memberId = input.memberId.toMemberUuid()
         return transaction {
+            // ANTRAG membership-gate audit follow-up (2026-07-30): closes the root cause the
+            // V0.7.2 ANTRAG membership-gate audit (commit 5082d55) identified but deliberately
+            // deferred -- this is the seating path itself, not a downstream vote-casting call
+            // site. Committee membership feeds eligibleMemberIds (CommitteeEligibility.kt) for
+            // every non-GENERAL_ASSEMBLY Committee's Quorum/Vote/Motion eligibility, and
+            // canSubmitMotion's non-GENERAL_ASSEMBLY branch, and SystemicConsensusService
+            // .addOption's eligibleMembersOf -- so a status-blind seat here silently grants
+            // real governance standing (voting, motion submission, Systemic-Consensus
+            // participation) to a member the org never actually admitted, or already let go.
+            // Member-only (AKTIV), not requireActiveOrGuestMembership -- Committee seating is
+            // fundamentally a voting-eligibility mechanism and this project's own concept states
+            // "Keine Stimmrechte für Gäste". Checked on the SEATED member (input.memberId), not
+            // the caller -- the caller's BOARD/ADMIN role is already separately enforced above
+            // via requireRole. forUpdate = true (round-3 audit fix, 2026-07-30): this check mints
+            // a new CommitteeMembershipTable row further down in this SAME transaction -- without
+            // the row lock, a concurrent leaveMembership() could commit between this read and that
+            // INSERT, seating a member from a status read that was already stale. See
+            // requireActiveMembership KDoc "forUpdate".
+            requireActiveMembership(memberId, forUpdate = true)
             val committeeRow =
                 CommitteeTable.selectAll().where { CommitteeTable.id eq gId }.singleOrNull()
                     ?: throw NotFoundException("Committee $committeeId not found")
@@ -912,9 +931,12 @@ class GovernanceService(
             // an ANTRAG applicant must not be able to cast a governance vote (and stake LTR on it)
             // before board approval. Defense in depth: eligibleMemberIds below only re-checks live
             // AKTIV status for a GENERAL_ASSEMBLY Committee -- for any other Committee type,
-            // eligibility is Committee membership alone (CommitteeMembershipTable), which
-            // addCommitteeMember never re-validates against the seated member's own status (see
-            // that method's KDoc). Member-only (AKTIV), not requireActiveOrGuestMembership -- this
+            // eligibility is Committee membership alone (CommitteeMembershipTable). As of the
+            // addCommitteeMember root-cause fix (2026-07-30), addCommitteeMember re-validates the
+            // seated member's status at seat-time, so a fresh non-AKTIV row can no longer be
+            // created there -- this check stays as an independent second layer (defense in depth
+            // against any future seating path that bypasses addCommitteeMember, or a legacy row
+            // predating that fix). Member-only (AKTIV), not requireActiveOrGuestMembership -- this
             // project's own concept states "Keine Stimmrechte für Gäste": guests never get vote
             // weight, full stop.
             requireActiveMembership(current.memberId)

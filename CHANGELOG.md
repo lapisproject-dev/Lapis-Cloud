@@ -108,8 +108,9 @@ would be correct for any of the five fixed methods.
   `LtrLedgerService.mintLtr` (privileged-only, `TREASURER`/`BOARD`/`ADMIN`, never member-initiated),
   `PeerTransferService.executeArbitrationTransfer` (privileged-only, same reasoning),
   `ElectionService.submitCandidacy` (`canStandAsCandidate()` already does a live AKTIV check).
-- **Not fixed in this wave, flagged for follow-up:** `GovernanceService.addCommitteeMember` never
-  validates the target member's status before seating them into a Committee — the actual root cause
+- ~~**Not fixed in this wave, flagged for follow-up:** `GovernanceService.addCommitteeMember` never
+  validates the target member's status before seating them into a Committee~~ **Resolved — see
+  "addCommitteeMember status gate closes the root cause" below.** — the actual root cause
   enabling the Committee-membership-based eligibility gap above; `GovernanceService.submitMotion` and
   `SystemicConsensusService.addOption` share the same structural "Committee-membership without a live
   status recheck" pattern (via `canSubmitMotion`/`eligibleMembersOf`) but carry no direct LTR/binding-vote
@@ -138,6 +139,68 @@ current DB state and is unaffected by a lingering session, so the practical expo
 one CrowdfundingService gap removes is the only one that mattered. Both `castReaction`/`retractReaction`
 now have ANTRAG-rejected / ABGELEHNT-rejected / AUSGETRETEN-rejected / AKTIV-still-succeeds regression
 tests in `CrowdfundingServiceTest`, matching the house style the original wave established.
+
+**addCommitteeMember status gate closes the root cause the ANTRAG membership-gate audit above
+identified but deliberately deferred.** `GovernanceService.addCommitteeMember` now calls
+`requireActiveMembership` on `input.memberId` — the member being seated — before writing the
+`CommitteeMembershipTable` row, rejecting `ANTRAG`/`AUSGETRETEN`/`ABGELEHNT`/`GAST` targets with
+`403 Forbidden`. Checked on the seatee, not the caller: the caller's `BOARD`/`ADMIN` role is
+already separately enforced by the existing `requireRole` call above. `ElectionService
+.appointElectionBoard` got the identical per-appointee gate for the same reason — an election-board
+seat grants `isElectionBoardMember`/`isElectionBoard` authority (Vier-Augen tally-approval counting
+via `approveTally`, operational control via `openVoting`/`closeVoting`/`tally`) to whoever is
+appointed, so it is exposed to the same "seat a non-AKTIV member" gap class as Committee seating.
+`castVoteBallot`/`castElectionBallot`/`castResistanceBallot`'s own `requireActiveMembership` calls
+(added by the audit above) remain as an explicit second layer, since Committee/election-board
+membership can still exist from a legacy pre-fix row or a future seating path that bypasses these
+two methods — their KDoc/inline comments were updated to say so accurately rather than implying the
+gap is fully closed everywhere.
+
+**Round-2 review of this fix (2026-07-30) found and closed one more sibling gap the fix's own
+inventory missed: `ElectionService.tally`'s winner-seating branch.** `tally`'s `EXECUTIVE_BOARD`/
+Committee winner-seating loop writes `CommitteeMembershipTable` directly — it is a second,
+independent seat-creation path that was never routed through `addCommitteeMember`, so that method's
+new gate did not cover it despite comments elsewhere in `ElectionService` assuming Committee seats
+only ever originate there. `canStandAsCandidate` only re-checks live `AKTIV` status at
+`submitCandidacy` time; a candidate who is genuinely `AKTIV` when they stand, then calls
+`leaveMembership` (→ `AUSGETRETEN`) any time before the election board runs `tally`, would otherwise
+have been seated with no live status recheck at all — for an `EXECUTIVE_BOARD` targetCommittee that
+means a departed member becoming a real, `BoardMembershipEvents`-audited Vorstand seat
+(Transparenzregister-relevant). `tally` now calls `requireActiveMembership(winnerMemberId)` per
+winning candidate before the existing single-active-membership-row seating logic runs; since the
+whole method is one `transaction {}`, a disqualified winner aborts the entire tally (fail-closed —
+the election board must resolve the situation and re-tally, rather than silently skipping just that
+seat). New tests: `addCommitteeMember`/`appointElectionBoard` now have direct ANTRAG/AUSGETRETEN/
+ABGELEHNT/GAST-rejected and AKTIV-still-succeeds coverage (`GovernanceServiceTest`/
+`ElectionServiceTest`, previously only exercised indirectly as setup for the `castVoteBallot`/
+`castElectionBallot` defense-in-depth tests — those two tests now seed the Committee-membership row
+directly via the table instead of through the now-gated RPC call, since seating a non-AKTIV member
+through the public API is exactly what the fix prevents); `tally` has a new regression test proving
+a winner who leaves membership after voting closes but before tally is rejected and nothing is
+seated.
+
+**Round-3 review of this fix (2026-07-30) found and closed a TOCTOU gap in all three seat-minting
+call sites the round-1/round-2 fixes added.** `requireActiveMembership` performed a plain, non-locking
+`SELECT` — under the project's Postgres/READ COMMITTED setup that neither blocks a concurrent writer
+nor is blocked by one, so a concurrent `leaveMembership()` (or any other status-changing transaction)
+could commit its `UPDATE MemberTable SET status = ...` in the gap between this check and the later
+`INSERT` that mints a new seat, seating a member from a status read that was already stale by commit
+time. Every other structurally identical "check a row's status, then act on it later in the same
+transaction" call site in this codebase already closes exactly this race with a `SELECT ... FOR
+UPDATE` row lock (`RegistrationService.approveApplication`/`rejectApplication`,
+`PoliticianService`'s revoke-vs-rate guard, `AuctionService`, `CrowdfundingService`,
+`GovernanceService.resolveMotion`/`closeVote`, `ElectionService.tally`'s own Motion-row read) — the
+three new `requireActiveMembership` call sites that mint a Committee/election-board seat
+(`GovernanceService.addCommitteeMember`, `ElectionService.appointElectionBoard`,
+`ElectionService.tally`'s winner-seating loop) were the only exception. `requireActiveMembership` now
+takes an optional `forUpdate: Boolean = false` parameter (default preserves the historical behavior
+for the many pre-existing callers that only gate an in-place action — casting a ballot, placing a
+bid, staking LTR — rather than minting a new persistent row); all three seat-minting call sites now
+pass `forUpdate = true`. (Implementation note: the row lock could not simply be bolted onto the old
+`count() > 0` existence check — Postgres rejects `FOR UPDATE` combined with an aggregate function —
+so the helper was rewritten to `singleOrNull()`-and-compare, matching the style
+`requireActiveOrGuestMembership` already used.) `./gradlew clean check` reconfirmed green (1077+
+tests, zero failures) both before and after, including a from-cache re-run for reproducibility.
 
 ### Known limitations (tracked for later versions)
 

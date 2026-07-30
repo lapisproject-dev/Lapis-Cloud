@@ -1284,7 +1284,24 @@ class GovernanceServiceTest :
                 val chair = createTestMember("abst-antrag-chair@example.org")
                 val applicant = createTestMember("abst-antrag-applicant@example.org", status = MemberStatus.ANTRAG)
                 client.post("/test/add-member/$committeeId/$chair/CHAIR") { header("X-Member-Id", BOARD_ID) }
-                client.post("/test/add-member/$committeeId/$applicant/MEMBER") { header("X-Member-Id", BOARD_ID) }
+                // Round-2 review fix (2026-07-30): addCommitteeMember now itself rejects a non-AKTIV
+                // seatee (see GovernanceService.kt), so the RPC route can no longer be used to
+                // reproduce the "already Committee member with non-AKTIV status" precondition this
+                // test needs -- that is exactly the fix working as intended. Seat directly via the
+                // table instead, simulating a legacy row that predates the fix (or a future seating
+                // path that bypasses addCommitteeMember), so this test keeps proving what its own
+                // comment above claims: castVoteBallot's independent gate still rejects the caller
+                // even when Committee-membership eligibility alone would otherwise admit them.
+                transaction {
+                    CommitteeMembershipTable.insert {
+                        it[id] = Uuid.random()
+                        it[CommitteeMembershipTable.committeeId] = Uuid.parse(committeeId)
+                        it[memberId] = applicant
+                        it[role] = CommitteeRole.MEMBER
+                        it[since] = LocalDate(2020, 1, 1)
+                        it[until] = null
+                    }
+                }
                 seedLtrBalance(applicant, BigDecimal("50.00"))
 
                 val (motionId, _) = client.createTerminierterMotion(committeeId, chair, chair, 2026, 11, 4)
@@ -1326,7 +1343,19 @@ class GovernanceServiceTest :
                 val chair = createTestMember("abst-ausgetreten-chair@example.org")
                 val departed = createTestMember("abst-ausgetreten-departed@example.org", status = MemberStatus.AUSGETRETEN)
                 client.post("/test/add-member/$committeeId/$chair/CHAIR") { header("X-Member-Id", BOARD_ID) }
-                client.post("/test/add-member/$committeeId/$departed/MEMBER") { header("X-Member-Id", BOARD_ID) }
+                // Round-2 review fix (2026-07-30): see the identical comment in the ANTRAG variant of
+                // this test above -- addCommitteeMember now rejects a non-AKTIV seatee itself, so seat
+                // directly via the table to keep reproducing the "already Committee member" precondition.
+                transaction {
+                    CommitteeMembershipTable.insert {
+                        it[id] = Uuid.random()
+                        it[CommitteeMembershipTable.committeeId] = Uuid.parse(committeeId)
+                        it[memberId] = departed
+                        it[role] = CommitteeRole.MEMBER
+                        it[since] = LocalDate(2020, 1, 1)
+                        it[until] = null
+                    }
+                }
                 seedLtrBalance(departed, BigDecimal("50.00"))
 
                 val (motionId, _) = client.createTerminierterMotion(committeeId, chair, chair, 2026, 11, 5)
@@ -1385,6 +1414,109 @@ class GovernanceServiceTest :
                 val memberCast =
                     client.post("/test/cast-vote-ballot/$voteId/$jaOptionId/10.00") { header("X-Member-Id", member.toString()) }
                 memberCast.status shouldBe HttpStatusCode.OK
+            }
+        }
+
+        // ── addCommitteeMember status-gate (round-2 review, 2026-07-30) ──────────────────
+        // Direct coverage of the gate itself (requireActiveMembership(memberId) added to
+        // addCommitteeMember) -- the tests above only exercised it indirectly as setup for the
+        // castVoteBallot defense-in-depth tests. All four excluded MemberStatus values
+        // (ANTRAG/AUSGETRETEN/ABGELEHNT/GAST) plus an AKTIV regression, one seat attempt each.
+
+        test("addCommitteeMember: rejected for an ANTRAG target member") {
+            testApplication {
+                application {
+                    install(StatusPages) { installGovernanceExceptionHandlers() }
+                    routing { registerGovernanceTestRoutes() }
+                }
+                val committeeId =
+                    client
+                        .post("/test/create-committee/Status Gate%20Antrag/EXECUTIVE_BOARD/50") { header("X-Member-Id", BOARD_ID) }
+                        .bodyAsText()
+                createdCommitteeIds += Uuid.parse(committeeId)
+                val applicant = createTestMember("status-gate-antrag@example.org", status = MemberStatus.ANTRAG)
+
+                val response =
+                    client.post("/test/add-member/$committeeId/$applicant/MEMBER") { header("X-Member-Id", BOARD_ID) }
+                response.status shouldBe HttpStatusCode.Forbidden
+            }
+        }
+
+        test("addCommitteeMember: rejected for an AUSGETRETEN target member") {
+            testApplication {
+                application {
+                    install(StatusPages) { installGovernanceExceptionHandlers() }
+                    routing { registerGovernanceTestRoutes() }
+                }
+                val committeeId =
+                    client
+                        .post(
+                            "/test/create-committee/Status Gate%20Ausgetreten/EXECUTIVE_BOARD/50",
+                        ) { header("X-Member-Id", BOARD_ID) }
+                        .bodyAsText()
+                createdCommitteeIds += Uuid.parse(committeeId)
+                val departed = createTestMember("status-gate-ausgetreten@example.org", status = MemberStatus.AUSGETRETEN)
+
+                val response =
+                    client.post("/test/add-member/$committeeId/$departed/MEMBER") { header("X-Member-Id", BOARD_ID) }
+                response.status shouldBe HttpStatusCode.Forbidden
+            }
+        }
+
+        test("addCommitteeMember: rejected for an ABGELEHNT target member") {
+            testApplication {
+                application {
+                    install(StatusPages) { installGovernanceExceptionHandlers() }
+                    routing { registerGovernanceTestRoutes() }
+                }
+                val committeeId =
+                    client
+                        .post("/test/create-committee/Status Gate%20Abgelehnt/EXECUTIVE_BOARD/50") { header("X-Member-Id", BOARD_ID) }
+                        .bodyAsText()
+                createdCommitteeIds += Uuid.parse(committeeId)
+                val rejected = createTestMember("status-gate-abgelehnt@example.org", status = MemberStatus.ABGELEHNT)
+
+                val response =
+                    client.post("/test/add-member/$committeeId/$rejected/MEMBER") { header("X-Member-Id", BOARD_ID) }
+                response.status shouldBe HttpStatusCode.Forbidden
+            }
+        }
+
+        test("addCommitteeMember: rejected for a GAST target member") {
+            testApplication {
+                application {
+                    install(StatusPages) { installGovernanceExceptionHandlers() }
+                    routing { registerGovernanceTestRoutes() }
+                }
+                val committeeId =
+                    client
+                        .post("/test/create-committee/Status Gate%20Gast/EXECUTIVE_BOARD/50") { header("X-Member-Id", BOARD_ID) }
+                        .bodyAsText()
+                createdCommitteeIds += Uuid.parse(committeeId)
+                val guest = createTestMember("status-gate-gast@example.org", status = MemberStatus.GAST)
+
+                val response =
+                    client.post("/test/add-member/$committeeId/$guest/MEMBER") { header("X-Member-Id", BOARD_ID) }
+                response.status shouldBe HttpStatusCode.Forbidden
+            }
+        }
+
+        test("addCommitteeMember: an AKTIV target member still succeeds exactly as before (regression)") {
+            testApplication {
+                application {
+                    install(StatusPages) { installGovernanceExceptionHandlers() }
+                    routing { registerGovernanceTestRoutes() }
+                }
+                val committeeId =
+                    client
+                        .post("/test/create-committee/Status Gate%20Aktiv/EXECUTIVE_BOARD/50") { header("X-Member-Id", BOARD_ID) }
+                        .bodyAsText()
+                createdCommitteeIds += Uuid.parse(committeeId)
+                val member = createTestMember("status-gate-aktiv@example.org", status = MemberStatus.AKTIV)
+
+                val response =
+                    client.post("/test/add-member/$committeeId/$member/MEMBER") { header("X-Member-Id", BOARD_ID) }
+                response.status shouldBe HttpStatusCode.OK
             }
         }
 
