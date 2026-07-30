@@ -727,6 +727,128 @@ class SystemicConsensusServiceTest :
             }
         }
 
+        // ── ANTRAG membership-gate audit (2026-07-30) ────────────────────────────
+        // Closes the gap disclosed since V0.7.2: an ANTRAG applicant must not be able to cast a
+        // (potentially BINDING) resistance ballot before board approval. These tests deliberately
+        // seat the non-AKTIV member into the Committee via addMember BEFORE freezeOptions snapshots
+        // eligibility, so the member is genuinely present in SystemicConsensusEligibleVoterTable --
+        // proving the fix closes the real gap-class, not just the trivial "never eligible" case the
+        // existing outsider test above already covers.
+
+        test("castResistanceBallot: rejected for an ANTRAG member present in the eligible-voter snapshot") {
+            testApplication {
+                application {
+                    install(StatusPages) { installSystemicConsensusExceptionHandlers() }
+                    routing { registerSystemicConsensusTestRoutes() }
+                }
+
+                val committeeId = createTestCommittee("SK Antrag Gate Executive Board")
+                val chair = createTestMember("sk-antrag-chair@example.org")
+                addMember(committeeId, chair, CommitteeRole.CHAIR)
+                val applicant = createTestMember("sk-antrag-applicant@example.org", status = MemberStatus.ANTRAG)
+                addMember(committeeId, applicant, CommitteeRole.MEMBER)
+
+                val meetingId = createTestMeeting(committeeId, LocalDateTime(2026, 10, 1, 18, 0))
+                val motionId = createTerminierterMotion(committeeId, meetingId, chair)
+                val systemicConsensusId =
+                    client
+                        .post(
+                            "/test/open-systemic_consensus/$motionId?statusQuoOptionAuto=false",
+                        ) { header("X-Member-Id", chair.toString()) }
+                        .bodyAsText()
+                        .substringBefore(":")
+                val optionId =
+                    client
+                        .post(
+                            "/test/add-option/$systemicConsensusId?label=Option",
+                        ) { header("X-Member-Id", chair.toString()) }
+                        .bodyAsText()
+                client.post("/test/freeze-optionen/$systemicConsensusId") { header("X-Member-Id", chair.toString()) }
+
+                val applicantCast =
+                    client.post(
+                        "/test/cast-resistance/$systemicConsensusId?resistances=$optionId:5",
+                    ) { header("X-Member-Id", applicant.toString()) }
+                applicantCast.status shouldBe HttpStatusCode.Forbidden
+            }
+        }
+
+        test("castResistanceBallot: rejected for an AUSGETRETEN member present in the eligible-voter snapshot") {
+            testApplication {
+                application {
+                    install(StatusPages) { installSystemicConsensusExceptionHandlers() }
+                    routing { registerSystemicConsensusTestRoutes() }
+                }
+
+                val committeeId = createTestCommittee("SK Ausgetreten Gate Executive Board")
+                val chair = createTestMember("sk-ausgetreten-chair@example.org")
+                addMember(committeeId, chair, CommitteeRole.CHAIR)
+                val departed = createTestMember("sk-ausgetreten-departed@example.org", status = MemberStatus.AUSGETRETEN)
+                addMember(committeeId, departed, CommitteeRole.MEMBER)
+
+                val meetingId = createTestMeeting(committeeId, LocalDateTime(2026, 10, 2, 18, 0))
+                val motionId = createTerminierterMotion(committeeId, meetingId, chair)
+                val systemicConsensusId =
+                    client
+                        .post(
+                            "/test/open-systemic_consensus/$motionId?statusQuoOptionAuto=false",
+                        ) { header("X-Member-Id", chair.toString()) }
+                        .bodyAsText()
+                        .substringBefore(":")
+                val optionId =
+                    client
+                        .post(
+                            "/test/add-option/$systemicConsensusId?label=Option",
+                        ) { header("X-Member-Id", chair.toString()) }
+                        .bodyAsText()
+                client.post("/test/freeze-optionen/$systemicConsensusId") { header("X-Member-Id", chair.toString()) }
+
+                val departedCast =
+                    client.post(
+                        "/test/cast-resistance/$systemicConsensusId?resistances=$optionId:5",
+                    ) { header("X-Member-Id", departed.toString()) }
+                departedCast.status shouldBe HttpStatusCode.Forbidden
+            }
+        }
+
+        test("castResistanceBallot: an AKTIV member still succeeds exactly as before (regression)") {
+            testApplication {
+                application {
+                    install(StatusPages) { installSystemicConsensusExceptionHandlers() }
+                    routing { registerSystemicConsensusTestRoutes() }
+                }
+
+                val committeeId = createTestCommittee("SK Aktiv Regression Executive Board")
+                val chair = createTestMember("sk-aktiv-regression-chair@example.org")
+                addMember(committeeId, chair, CommitteeRole.CHAIR)
+                val member = createTestMember("sk-aktiv-regression-member@example.org", status = MemberStatus.AKTIV)
+                addMember(committeeId, member, CommitteeRole.MEMBER)
+
+                val meetingId = createTestMeeting(committeeId, LocalDateTime(2026, 10, 3, 18, 0))
+                val motionId = createTerminierterMotion(committeeId, meetingId, chair)
+                val systemicConsensusId =
+                    client
+                        .post(
+                            "/test/open-systemic_consensus/$motionId?statusQuoOptionAuto=false",
+                        ) { header("X-Member-Id", chair.toString()) }
+                        .bodyAsText()
+                        .substringBefore(":")
+                val optionId =
+                    client
+                        .post(
+                            "/test/add-option/$systemicConsensusId?label=Option",
+                        ) { header("X-Member-Id", chair.toString()) }
+                        .bodyAsText()
+                client.post("/test/freeze-optionen/$systemicConsensusId") { header("X-Member-Id", chair.toString()) }
+
+                val memberCast =
+                    client.post(
+                        "/test/cast-resistance/$systemicConsensusId?resistances=$optionId:5",
+                    ) { header("X-Member-Id", member.toString()) }
+                memberCast.status shouldBe HttpStatusCode.OK
+            }
+        }
+
         test("removeOption never removes the status quo option option, and only the proposer or leadership may remove a regular option") {
             testApplication {
                 application {

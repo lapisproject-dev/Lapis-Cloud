@@ -244,6 +244,18 @@ class CrowdfundingService(
         val pId = projectId.toProjectUuid()
         val now = nowLocalDateTime()
         return transaction {
+            // ANTRAG membership-gate audit round 1 (2026-07-30): castReaction/retractReaction were
+            // not covered by the wave's own inventory sweep (only submitProject was checked in this
+            // file) -- the Verteilungs-Korb basket is "LTR-unweighted" (17-crowdfunding.kuml.kts
+            // header point 2) but still a binding vote that determines the real-EUR monthly
+            // distribution split (computeMonthlyDistribution below). An ANTRAG applicant (who can
+            // log in by design, see PeerTransferService's own KDoc) or an ABGELEHNT applicant with
+            // a still-live session (rejectApplication does not call
+            // SessionStore.revokeAllForMember, unlike leaveMembership) must not get a vote in that
+            // split before board approval. Same idiom as submitProject in this file: AKTIV-only,
+            // not requireActiveOrGuestMembership -- Crowdfunding is explicitly still GAST-excluded
+            // per this project's own "Known limitations".
+            requireActiveMembership(current.memberId)
             val projectRow = requireProjectRow(pId)
             if (effectiveStatusOf(projectRow, now) != CrowdfundingProjectStatus.APPROVED) {
                 throw ConflictException("Project $projectId is not yet approved -- reactions/donations are not open")
@@ -284,6 +296,11 @@ class CrowdfundingService(
         val current = resolveCurrentMember(call)
         val pId = projectId.toProjectUuid()
         transaction {
+            // Same gate as castReaction above, for symmetry with every other cast/retract pair in
+            // this codebase (e.g. PoliticianService.castRating/retractRating) -- not a privilege
+            // concern on its own (retracting only removes influence), but keeping both sides of the
+            // pair under the identical gate avoids a second, potentially-drifting rule.
+            requireActiveMembership(current.memberId)
             CrowdfundingReactionTable.deleteWhere {
                 (CrowdfundingReactionTable.projectId eq pId) and (CrowdfundingReactionTable.memberId eq current.memberId)
             }

@@ -240,6 +240,11 @@ class AuctionService(
         val id = auctionId.toAuctionUuid()
         val now = nowLocalDateTime()
         return transaction {
+            // ANTRAG membership-gate audit (2026-07-30): this call was the sole gap found in this
+            // file -- createListing/placeBid/settleAuction all already call requireActiveMembership
+            // as their first transaction statement, but buyNow itself did not, despite spending LTR
+            // (AUCTION_SALE_OUT below) and settling ownership transfer. Same idiom as the sibling
+            // methods in this file.
             requireActiveMembership(current.memberId)
             val row = lockAndCloseIfDue(id, now)
             if (row[AuctionTable.status] != AuctionStatus.OPEN) {

@@ -908,6 +908,16 @@ class GovernanceService(
         val abId = input.voteId.toVoteUuid()
         val optId = input.optionId.toVoteOptionUuid()
         return transaction {
+            // ANTRAG membership-gate audit (2026-07-30): closes the gap disclosed since V0.7.2 --
+            // an ANTRAG applicant must not be able to cast a governance vote (and stake LTR on it)
+            // before board approval. Defense in depth: eligibleMemberIds below only re-checks live
+            // AKTIV status for a GENERAL_ASSEMBLY Committee -- for any other Committee type,
+            // eligibility is Committee membership alone (CommitteeMembershipTable), which
+            // addCommitteeMember never re-validates against the seated member's own status (see
+            // that method's KDoc). Member-only (AKTIV), not requireActiveOrGuestMembership -- this
+            // project's own concept states "Keine Stimmrechte für Gäste": guests never get vote
+            // weight, full stop.
+            requireActiveMembership(current.memberId)
             val voteRow =
                 VoteTable.selectAll().where { VoteTable.id eq abId }.singleOrNull()
                     ?: throw NotFoundException("Vote ${input.voteId} not found")

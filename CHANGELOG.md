@@ -8,6 +8,110 @@ All notable changes to this project are documented here. Format follows
 
 ### Fixed
 
+**ANTRAG membership-gate audit — closes the gap disclosed since V0.7.2.** `PeerTransferService.transferLtr`
+and `GovernanceService.castVoteBallot` now call `requireActiveMembership` before any state-changing
+read/write, closing the gap V0.7.2's own "Known limitations" first disclosed (an `ANTRAG` applicant —
+who can log in by design to check their pending application status, see `AuthRoutes.kt`'s login-gate
+KDoc — could in principle stake/transfer LTR or cast a governance vote before board approval). The gap
+was confirmed still open by reading both methods directly on `master` HEAD: neither called
+`requireActiveMembership`/`requireActiveOrGuestMembership` (`rpc/MembershipGuards.kt`), unlike
+`CrowdfundingService`/`AuctionService`/`PoliticianService`, which already reuse those gates correctly.
+
+A systematic audit of every LTR-spending and vote/ballot/rating/resistance-casting RPC method across
+`PeerTransferService`, `GovernanceService`, `ElectionService`, `SystemicConsensusService`,
+`LtrLedgerService`, `CrowdfundingService`, `AuctionService`, and `PoliticianService` found three sibling
+gaps in the same class, all fixed identically: `ElectionService.castElectionBallot` and
+`SystemicConsensusService.castResistanceBallot` relied solely on a Committee-eligibility snapshot
+(`ElectionEligibleVoterTable`/`SystemicConsensusEligibleVoterTable`, both derived from
+`CommitteeEligibility.eligibleMemberIds`) that never re-checks the caller's live membership status for a
+non-`GENERAL_ASSEMBLY` Committee — root cause: `GovernanceService.addCommitteeMember` never validates the
+seated member's own status before seating them (flagged, not fixed, in this wave — see below); and
+`AuctionService.buyNow` — despite `createListing`/`placeBid`/`settleAuction` in the same file already
+calling `requireActiveMembership` correctly — was itself missing the gate entirely, spending LTR
+(`AUCTION_SALE_OUT`) and settling ownership transfer with no membership check at all.
+
+All five fixes use `requireActiveMembership` (AKTIV-only), not the guest-inclusive
+`requireActiveOrGuestMembership`: LTR transfer/auction actions cannot involve GAST members at all
+(V0.8.2's own disclosed "no guest participation in the LTR economy yet" limitation), and binding
+governance votes are member-only per this project's own concept ("Keine Stimmrechte für Gäste" — guests
+never get vote weight, full stop). No case in this audit was found where the guest-inclusive variant
+would be correct for any of the five fixed methods.
+
+**Complete audit inventory:**
+- **Fixed (gap → `requireActiveMembership` added):** `PeerTransferService.transferLtr`,
+  `GovernanceService.castVoteBallot`, `ElectionService.castElectionBallot`,
+  `SystemicConsensusService.castResistanceBallot`, `AuctionService.buyNow`.
+- **Audited and confirmed already correct, unchanged:** `CrowdfundingService.submitProject`,
+  `AuctionService.createListing`/`placeBid`/`settleAuction`, `PoliticianService.castRating`/
+  `retractRating` (correctly using the guest-inclusive `requireActiveOrGuestMembership`),
+  `LtrLedgerService.mintLtr` (privileged-only, `TREASURER`/`BOARD`/`ADMIN`, never member-initiated),
+  `PeerTransferService.executeArbitrationTransfer` (privileged-only, same reasoning),
+  `ElectionService.submitCandidacy` (`canStandAsCandidate()` already does a live AKTIV check).
+- **Not fixed in this wave, flagged for follow-up:** `GovernanceService.addCommitteeMember` never
+  validates the target member's status before seating them into a Committee — the actual root cause
+  enabling the Committee-membership-based eligibility gap above; `GovernanceService.submitMotion` and
+  `SystemicConsensusService.addOption` share the same structural "Committee-membership without a live
+  status recheck" pattern (via `canSubmitMotion`/`eligibleMembersOf`) but carry no direct LTR/binding-vote
+  consequence on their own and were judged lower priority/out of this audit's explicit scope
+  (LTR spend/stake/transfer and vote/ballot/rating/resistance casting).
+- `README.adoc`'s "What doesn't work yet" section still names this exact gap — intentionally not edited
+  in this wave per this project's standing convention (README/version-bump/tag catch-up happens only
+  after human merge review); needs a matching edit once this fix lands on `master`.
+
+**Independent round-1 security review found and closed one more sibling gap the wave's own inventory
+missed: `CrowdfundingService.castReaction`/`retractReaction`.** Neither call was in the "Complete audit
+inventory" above — only `submitProject` was checked in this file. The Verteilungs-Korb (distribution
+basket) reaction is documented as "LTR-**unweighted**" (`17-crowdfunding.kuml.kts` header point 2), which
+is why it slipped past a search scoped to LTR-spending calls, but it is still a binding one-member-one-vote
+decision that directly drives the real monthly EUR donation pool's proportional split
+(`computeMonthlyDistribution`) — squarely the same "binding governance action reachable by a non-AKTIV
+caller" class this wave otherwise fixed. Neither method called `requireActiveMembership`; both now do, as
+the first statement inside their `transaction {}` (same idiom as `submitProject` in the same file).
+Severity is compounded by a second, narrower finding from the same review: `RegistrationService
+.rejectApplication` does not call `SessionStore.revokeAllForMember` (unlike `leaveMembership`, which
+does) — a rejected (`ABGELEHNT`) applicant's session(s) from their `ANTRAG` period remain valid until
+natural 8-hour expiry, so the missing gate was reachable by a rejected applicant, not just a still-pending
+one. Not fixed in this round — see "Known limitations" below; every state-changing method that matters is
+already independently protected by its own live-status `requireActiveMembership` check, which reads
+current DB state and is unaffected by a lingering session, so the practical exposure window closing this
+one CrowdfundingService gap removes is the only one that mattered. Both `castReaction`/`retractReaction`
+now have ANTRAG-rejected / ABGELEHNT-rejected / AUSGETRETEN-rejected / AKTIV-still-succeeds regression
+tests in `CrowdfundingServiceTest`, matching the house style the original wave established.
+
+### Known limitations (tracked for later versions)
+
+- **`RegistrationService.rejectApplication` does not revoke the applicant's existing session(s).**
+  Found during the round-1 security review of the ANTRAG membership-gate audit above. Every
+  state-changing RPC method with LTR/binding-governance consequences independently re-checks live
+  `MemberTable.status` via `requireActiveMembership`/`requireActiveOrGuestMembership` inside its own
+  transaction, so a lingering post-rejection session cannot bypass any of those gates — but a future
+  method that forgets the gate (as `CrowdfundingService.castReaction`/`retractReaction` did until this
+  round) would be reachable for up to the remainder of the session's 8-hour lifetime after rejection,
+  not just during the `ANTRAG` window. Fixing this at the source (revoke on `rejectApplication`, same
+  `SessionStore.revokeAllForMember` call `leaveMembership` already makes) would remove that residual
+  exposure window entirely regardless of future per-method gate coverage; deferred to a follow-up wave
+  since it is a defense-in-depth hardening, not a currently-exploitable path against any live method.
+
+### Security
+
+Adds explicit `requireActiveMembership` gates to `PeerTransferService.transferLtr`,
+`GovernanceService.castVoteBallot`, `ElectionService.castElectionBallot`,
+`SystemicConsensusService.castResistanceBallot`, and `AuctionService.buyNow` — all previously reachable
+by an authenticated `ANTRAG`/`AUSGETRETEN`/`ABGELEHNT` caller under specific conditions (the first two
+confirmed directly reachable by any such caller; the latter three additionally required the caller to
+already be seated in a non-`GENERAL_ASSEMBLY` Committee via an unguarded `addCommitteeMember` call, or —
+for `buyNow` — simply required `auctionEnabled=true`, no Committee involved at all). Verified end to end
+against a live server (H2 in-memory, real self-registration → `ANTRAG` → real `transferLtr`/
+`castVoteBallot` RPC call → `403 Forbidden`), not just at the unit-test layer. 26 new test cases across
+`PeerTransferServiceTest`/`GovernanceServiceTest`/`ElectionServiceTest`/`SystemicConsensusServiceTest`/
+`AuctionServiceTest`, each covering an `ANTRAG` rejection, an `AUSGETRETEN` (or `ABGELEHNT`) rejection,
+and an explicit `AKTIV` regression proving the legitimate case is unaffected; the Committee-membership
+paths (`castVoteBallot`/`castElectionBallot`/`castResistanceBallot`) deliberately seat the non-AKTIV
+member into the Committee first, proving the fix closes the real gap-class and not just the trivial
+"never a Committee member" case the pre-existing outsider/authz tests already covered.
+
+### Fixed
+
 **GoBD audit-log hash-chain tamper-evidence guarantee undermined by a timestamp-precision mismatch (root-cause fix) — discovered via a GitHub Actions CI failure that had gone unactioned for 7+ days.** `Clock.System.now()` can return nanosecond-precision `Instant`s (confirmed on the Linux CI runner: `2026-07-29T00:42:18.185317372`), but every `TIMESTAMP` column in this schema — H2 running in `MODE=PostgreSQL` locally, real PostgreSQL in production, since Postgres has never supported sub-microsecond `TIMESTAMP` precision — silently truncates stored values to 6 fractional digits on write. `AuditHashChain.canonicalPayload` folds `ChainInput.occurredAt.toString()` into its SHA-256 input; `AuditLogRecorder.record` computed `entryHash` from the full-nanosecond-precision value BEFORE the INSERT truncated it, so any later read-back-and-recompute (`verifyChainIntegrity`'s entire purpose) produced a hash mismatch indistinguishable from real tampering — a genuine correctness defect in a compliance-critical (GoBD §146 AO revision-safety) feature, not a cosmetic test-flakiness issue. Verification runs on this codebase's own developer machine never caught it: macOS's JDK wall-clock resolution never produces sub-microsecond `Instant` values in the first place (confirmed empirically — every sampled `Instant.now()` nanosecond field is already an exact multiple of 1000), so the truncation was always a silent no-op locally; only Linux CI, which genuinely does return nanosecond-jitter timestamps, ever exercised the bug. All four `AuditLogServiceTest` failures (including both `verifyChainIntegrity` cases) plus three `SessionStoreTest`/`AuthServiceTest`-family failures reported by CI trace to this one root cause.
 
 New `network.lapis.cloud.server.db.DbClock.nowLocalDateTime()` — truncates to microsecond precision via `java.time.LocalDateTime.truncatedTo(ChronoUnit.MICROS)` at the moment of capture, before the value is used for anything (hashing, business logic, or insertion), verified against a real H2-in-`MODE=PostgreSQL` round-trip test (`DbClockTest`). Every one of the 25 duplicated `nowLocalDateTime()`/`nowUtc()`/`trustAnchorNowLocalDateTime()` function definitions across the codebase (23 matching the `nowLocalDateTime` name exactly, plus `dsgvo/DsgvoSupport.kt`'s `nowUtc()` and `federation/TrustAnchorKeyMaterial.kt`'s `trustAnchorNowLocalDateTime()`), plus 14 further inline (never-wrapped-in-a-function) `Clock.System.now().toLocalDateTime(...)` call sites across 10 more files, now delegate to this single utility — eliminating both the precision bug and the duplication-and-drift risk that made the bug possible to reintroduce in the first place. `PriceOracleService`'s externally-sourced `priceTimestamp` (not itself hash-dependent, but persisted) is also routed through the new `LocalDateTime.truncatedToDbPrecision()` extension for storage-value hygiene/consistency.

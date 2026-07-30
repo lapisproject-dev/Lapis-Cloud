@@ -481,6 +481,89 @@ class AuctionServiceTest :
             }
         }
 
+        // ── ANTRAG membership-gate audit (2026-07-30) ────────────────────────────
+        // Closes a sibling gap found while auditing this file (already "correctly gated" per
+        // createListing/placeBid/settleAuction) -- buyNow itself was missing requireActiveMembership
+        // despite spending LTR (AUCTION_SALE_OUT) and settling ownership transfer.
+
+        test("buyNow: rejected for an ANTRAG buyer") {
+            enableAuctionDirectly()
+            testApplication {
+                application {
+                    install(StatusPages) { installAuctionExceptionHandlers() }
+                    routing { registerAuctionTestRoutes() }
+                }
+                val seller = createTestMember("buynow-antrag-seller@example.org")
+                val buyer = createTestMember("buynow-antrag-buyer@example.org", status = MemberStatus.ANTRAG)
+                mintLtr(seller, BigDecimal("1.00"))
+                mintLtr(buyer, BigDecimal("100.00"))
+
+                val auctionId =
+                    client
+                        .post(
+                            "/test/create-listing?title=Bike&description=D&startingBid=1.00&buyNowPrice=50.00&durationHours=24",
+                        ) { header("X-Member-Id", seller.toString()) }
+                        .bodyAsText()
+                        .split("|")[0]
+
+                val response = client.post("/test/buy-now?auctionId=$auctionId") { header("X-Member-Id", buyer.toString()) }
+                response.status shouldBe HttpStatusCode.Forbidden
+                freeBalanceOf(buyer).compareTo(BigDecimal("100.00")) shouldBe 0
+            }
+        }
+
+        test("buyNow: rejected for an AUSGETRETEN buyer") {
+            enableAuctionDirectly()
+            testApplication {
+                application {
+                    install(StatusPages) { installAuctionExceptionHandlers() }
+                    routing { registerAuctionTestRoutes() }
+                }
+                val seller = createTestMember("buynow-ausgetreten-seller@example.org")
+                val buyer = createTestMember("buynow-ausgetreten-buyer@example.org", status = MemberStatus.AUSGETRETEN)
+                mintLtr(seller, BigDecimal("1.00"))
+                mintLtr(buyer, BigDecimal("100.00"))
+
+                val auctionId =
+                    client
+                        .post(
+                            "/test/create-listing?title=Bike&description=D&startingBid=1.00&buyNowPrice=50.00&durationHours=24",
+                        ) { header("X-Member-Id", seller.toString()) }
+                        .bodyAsText()
+                        .split("|")[0]
+
+                val response = client.post("/test/buy-now?auctionId=$auctionId") { header("X-Member-Id", buyer.toString()) }
+                response.status shouldBe HttpStatusCode.Forbidden
+            }
+        }
+
+        test("buyNow: an AKTIV buyer still succeeds exactly as before (regression)") {
+            enableAuctionDirectly()
+            testApplication {
+                application {
+                    install(StatusPages) { installAuctionExceptionHandlers() }
+                    routing { registerAuctionTestRoutes() }
+                }
+                val seller = createTestMember("buynow-aktiv-regression-seller@example.org")
+                val buyer = createTestMember("buynow-aktiv-regression-buyer@example.org", status = MemberStatus.AKTIV)
+                mintLtr(seller, BigDecimal("1.00"))
+                mintLtr(buyer, BigDecimal("100.00"))
+
+                val auctionId =
+                    client
+                        .post(
+                            "/test/create-listing?title=Bike&description=D&startingBid=1.00&buyNowPrice=50.00&durationHours=24",
+                        ) { header("X-Member-Id", seller.toString()) }
+                        .bodyAsText()
+                        .split("|")[0]
+
+                val response = client.post("/test/buy-now?auctionId=$auctionId") { header("X-Member-Id", buyer.toString()) }
+                response.status shouldBe HttpStatusCode.OK
+                freeBalanceOf(buyer).compareTo(BigDecimal("50.00")) shouldBe 0
+                freeBalanceOf(seller).compareTo(BigDecimal("50.99")) shouldBe 0
+            }
+        }
+
         // ── Lazy-Close ────────────────────────────────────────────────────────
 
         test(

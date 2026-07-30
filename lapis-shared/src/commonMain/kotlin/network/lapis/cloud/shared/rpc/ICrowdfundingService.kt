@@ -43,18 +43,19 @@ interface ICrowdfundingService {
     ): CrowdfundingProjectDto
 
     /**
-     * Role: MEMBER+ (any authenticated member, for themselves only). One Like OR Dislike per
-     * member per project -- calling again with a different [value] changes the existing
-     * reaction, it does not add a second one. Requires the project's `effectiveStatus` to be
-     * [CrowdfundingProjectStatus.APPROVED] (donations are not yet open on a still-PENDING or
-     * REJECTED project).
+     * Role: MEMBER+, caller must be [network.lapis.cloud.shared.domain.MemberStatus.AKTIV] (for
+     * themselves only) -- see `CrowdfundingService.castReaction` KDoc, ANTRAG membership-gate
+     * audit round 1 (2026-07-30). One Like OR Dislike per member per project -- calling again with
+     * a different [value] changes the existing reaction, it does not add a second one. Requires
+     * the project's `effectiveStatus` to be [CrowdfundingProjectStatus.APPROVED] (donations are
+     * not yet open on a still-PENDING or REJECTED project).
      */
     suspend fun castReaction(
         projectId: String,
         value: CrowdfundingReactionValue,
     ): CrowdfundingReactionDto
 
-    /** Role: MEMBER+ (any authenticated member, for themselves only). No-op if the caller has no reaction on this project. */
+    /** Role: MEMBER+, caller must be AKTIV (for themselves only) -- same gate as [castReaction]. No-op if the caller has no reaction on this project. */
     suspend fun retractReaction(projectId: String)
 
     /**

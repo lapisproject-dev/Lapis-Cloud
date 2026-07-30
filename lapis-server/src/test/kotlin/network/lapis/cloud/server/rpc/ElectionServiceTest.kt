@@ -713,6 +713,110 @@ class ElectionServiceTest :
             }
         }
 
+        // ── ANTRAG membership-gate audit (2026-07-30) ────────────────────────────
+        // Closes the gap disclosed since V0.7.2: an ANTRAG applicant must not be able to cast a
+        // binding personnel/YES-NO vote before board approval. These tests deliberately seat the
+        // non-AKTIV member into the Committee via addMember BEFORE openVoting snapshots
+        // eligibility, so the member is genuinely present in ElectionEligibleVoterTable -- proving
+        // the fix closes the real gap-class, not just the trivial "never eligible" case the
+        // existing outsider test above already covers.
+
+        test("castElectionBallot: rejected for an ANTRAG member present in the eligible-voter snapshot") {
+            testApplication {
+                application {
+                    install(StatusPages) { installElectionExceptionHandlers() }
+                    routing { registerElectionTestRoutes() }
+                }
+
+                val committeeId = createTestCommittee("Antrag Gate Executive Board")
+                val chair = createTestMember("election-antrag-chair@example.org")
+                addMember(committeeId, chair, CommitteeRole.CHAIR)
+                val applicant = createTestMember("election-antrag-applicant@example.org", status = MemberStatus.ANTRAG)
+                addMember(committeeId, applicant, CommitteeRole.MEMBER)
+                val electionBoardMembers = (1..3).map { createTestMember("election-antrag-wv$it@example.org") }
+
+                val meetingId = createTestMeeting(committeeId, LocalDateTime(2026, 10, 1, 18, 0))
+                val motionId = createTerminierterMotion(committeeId, meetingId, chair)
+                val electionId =
+                    client
+                        .post("/test/open-election/$motionId/YES_NO") { header("X-Member-Id", chair.toString()) }
+                        .bodyAsText()
+                        .substringBefore(":")
+                client.post("/test/appoint-election-board/$electionId?memberIds=${electionBoardMembers.joinToString(",")}") {
+                    header("X-Member-Id", chair.toString())
+                }
+                client.post("/test/open-voting/$electionId") { header("X-Member-Id", electionBoardMembers[0].toString()) }
+
+                val applicantCast =
+                    client.post("/test/cast-election-ballot/$electionId?answer=YES") { header("X-Member-Id", applicant.toString()) }
+                applicantCast.status shouldBe HttpStatusCode.Forbidden
+            }
+        }
+
+        test("castElectionBallot: rejected for an AUSGETRETEN member present in the eligible-voter snapshot") {
+            testApplication {
+                application {
+                    install(StatusPages) { installElectionExceptionHandlers() }
+                    routing { registerElectionTestRoutes() }
+                }
+
+                val committeeId = createTestCommittee("Ausgetreten Gate Executive Board")
+                val chair = createTestMember("election-ausgetreten-chair@example.org")
+                addMember(committeeId, chair, CommitteeRole.CHAIR)
+                val departed = createTestMember("election-ausgetreten-departed@example.org", status = MemberStatus.AUSGETRETEN)
+                addMember(committeeId, departed, CommitteeRole.MEMBER)
+                val electionBoardMembers = (1..3).map { createTestMember("election-ausgetreten-wv$it@example.org") }
+
+                val meetingId = createTestMeeting(committeeId, LocalDateTime(2026, 10, 2, 18, 0))
+                val motionId = createTerminierterMotion(committeeId, meetingId, chair)
+                val electionId =
+                    client
+                        .post("/test/open-election/$motionId/YES_NO") { header("X-Member-Id", chair.toString()) }
+                        .bodyAsText()
+                        .substringBefore(":")
+                client.post("/test/appoint-election-board/$electionId?memberIds=${electionBoardMembers.joinToString(",")}") {
+                    header("X-Member-Id", chair.toString())
+                }
+                client.post("/test/open-voting/$electionId") { header("X-Member-Id", electionBoardMembers[0].toString()) }
+
+                val departedCast =
+                    client.post("/test/cast-election-ballot/$electionId?answer=YES") { header("X-Member-Id", departed.toString()) }
+                departedCast.status shouldBe HttpStatusCode.Forbidden
+            }
+        }
+
+        test("castElectionBallot: an AKTIV member still succeeds exactly as before (regression)") {
+            testApplication {
+                application {
+                    install(StatusPages) { installElectionExceptionHandlers() }
+                    routing { registerElectionTestRoutes() }
+                }
+
+                val committeeId = createTestCommittee("Aktiv Regression Executive Board")
+                val chair = createTestMember("election-aktiv-regression-chair@example.org")
+                addMember(committeeId, chair, CommitteeRole.CHAIR)
+                val member = createTestMember("election-aktiv-regression-member@example.org", status = MemberStatus.AKTIV)
+                addMember(committeeId, member, CommitteeRole.MEMBER)
+                val electionBoardMembers = (1..3).map { createTestMember("election-aktiv-regression-wv$it@example.org") }
+
+                val meetingId = createTestMeeting(committeeId, LocalDateTime(2026, 10, 3, 18, 0))
+                val motionId = createTerminierterMotion(committeeId, meetingId, chair)
+                val electionId =
+                    client
+                        .post("/test/open-election/$motionId/YES_NO") { header("X-Member-Id", chair.toString()) }
+                        .bodyAsText()
+                        .substringBefore(":")
+                client.post("/test/appoint-election-board/$electionId?memberIds=${electionBoardMembers.joinToString(",")}") {
+                    header("X-Member-Id", chair.toString())
+                }
+                client.post("/test/open-voting/$electionId") { header("X-Member-Id", electionBoardMembers[0].toString()) }
+
+                val memberCast =
+                    client.post("/test/cast-election-ballot/$electionId?answer=YES") { header("X-Member-Id", member.toString()) }
+                memberCast.status shouldBe HttpStatusCode.OK
+            }
+        }
+
         test(
             "secret ballot secrecy: election_ballot.cast_at is decoupled from election_participation.voted_at, " +
                 "not a bit-identical join key back to the voter",

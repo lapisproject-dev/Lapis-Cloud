@@ -61,6 +61,14 @@ class PeerTransferService(
         val normalizedAmount = validateAndNormalizeAmount(input.amountLtr)
         val now = nowLocalDateTime()
         return transaction {
+            // ANTRAG membership-gate audit (2026-07-30): closes the gap disclosed since V0.7.2 --
+            // an ANTRAG applicant (who may log in by design to check their pending application
+            // status, see AuthRoutes.kt's login-gate KDoc) must not be able to stake/transfer LTR
+            // before board approval. Same idiom as CrowdfundingService.submitProject/
+            // AuctionService.createListing: first statement inside the transaction, before any
+            // state-changing read/write. Member-only (AKTIV), not requireActiveOrGuestMembership --
+            // GAST cannot hold/spend LTR at all yet, see V0.8.2's own disclosed limitation.
+            requireActiveMembership(current.memberId)
             // current.memberId is already authenticated via resolveCurrentMember and therefore
             // always exists -- checked anyway as defense in depth, symmetric with the recipient
             // check right below, so lockBothAccounts never receives an unverified id.

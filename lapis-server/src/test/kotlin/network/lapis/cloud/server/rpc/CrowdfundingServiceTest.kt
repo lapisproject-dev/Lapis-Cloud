@@ -379,6 +379,102 @@ class CrowdfundingServiceTest :
             }
         }
 
+        // ── ANTRAG membership-gate audit round 1 (2026-07-30) ────────────────────
+        // castReaction/retractReaction were not covered by the original wave's own inventory
+        // sweep of this file (only submitProject was checked) -- closes the same gap class for the
+        // Verteilungs-Korb basket, which is LTR-unweighted but still a binding vote over the real
+        // monthly EUR distribution split.
+
+        test("castReaction: rejected for an ANTRAG member, AKTIV still succeeds (regression)") {
+            testApplication {
+                application {
+                    install(StatusPages) { installCrowdfundingExceptionHandlers() }
+                    routing { registerCrowdfundingTestRoutes() }
+                }
+                val submitter = createTestMember("cf-gate-submitter@example.org")
+                mintLtr(submitter, BigDecimal("5.00"))
+                val projectId =
+                    client
+                        .post("/test/submit-project?title=Gate-Test&weight=1.00") { header("X-Member-Id", submitter.toString()) }
+                        .bodyAsText()
+                        .substringBefore(":")
+                val pId = Uuid.parse(projectId)
+                createdProjectIds += pId
+                client.post("/test/approve-project/$projectId") { header("X-Member-Id", BOARD_ID) }
+
+                val antrag = createTestMember("cf-gate-antrag@example.org", status = MemberStatus.ANTRAG)
+                val rejected = client.post("/test/cast-reaction/$projectId/LIKE") { header("X-Member-Id", antrag.toString()) }
+                rejected.status shouldBe HttpStatusCode.Forbidden
+                val reactionRowCount =
+                    transaction {
+                        CrowdfundingReactionTable
+                            .selectAll()
+                            .where { (CrowdfundingReactionTable.projectId eq pId) and (CrowdfundingReactionTable.memberId eq antrag) }
+                            .count()
+                    }
+                reactionRowCount shouldBe 0L
+
+                val aktiv = createTestMember("cf-gate-aktiv@example.org")
+                val accepted = client.post("/test/cast-reaction/$projectId/LIKE") { header("X-Member-Id", aktiv.toString()) }
+                accepted.status shouldBe HttpStatusCode.OK
+            }
+        }
+
+        test("castReaction: rejected for an ABGELEHNT or AUSGETRETEN member") {
+            testApplication {
+                application {
+                    install(StatusPages) { installCrowdfundingExceptionHandlers() }
+                    routing { registerCrowdfundingTestRoutes() }
+                }
+                val submitter = createTestMember("cf-gate2-submitter@example.org")
+                mintLtr(submitter, BigDecimal("5.00"))
+                val projectId =
+                    client
+                        .post("/test/submit-project?title=Gate-Test-2&weight=1.00") { header("X-Member-Id", submitter.toString()) }
+                        .bodyAsText()
+                        .substringBefore(":")
+                createdProjectIds += Uuid.parse(projectId)
+                client.post("/test/approve-project/$projectId") { header("X-Member-Id", BOARD_ID) }
+
+                val abgelehnt = createTestMember("cf-gate2-abgelehnt@example.org", status = MemberStatus.ABGELEHNT)
+                val abgelehntResponse =
+                    client.post("/test/cast-reaction/$projectId/LIKE") { header("X-Member-Id", abgelehnt.toString()) }
+                abgelehntResponse.status shouldBe HttpStatusCode.Forbidden
+
+                val ausgetreten = createTestMember("cf-gate2-ausgetreten@example.org", status = MemberStatus.AUSGETRETEN)
+                val ausgetretenResponse =
+                    client.post("/test/cast-reaction/$projectId/LIKE") { header("X-Member-Id", ausgetreten.toString()) }
+                ausgetretenResponse.status shouldBe HttpStatusCode.Forbidden
+            }
+        }
+
+        test("retractReaction: rejected for a non-AKTIV member, AKTIV still succeeds (regression)") {
+            testApplication {
+                application {
+                    install(StatusPages) { installCrowdfundingExceptionHandlers() }
+                    routing { registerCrowdfundingTestRoutes() }
+                }
+                val submitter = createTestMember("cf-gate3-submitter@example.org")
+                mintLtr(submitter, BigDecimal("5.00"))
+                val projectId =
+                    client
+                        .post("/test/submit-project?title=Gate-Test-3&weight=1.00") { header("X-Member-Id", submitter.toString()) }
+                        .bodyAsText()
+                        .substringBefore(":")
+                createdProjectIds += Uuid.parse(projectId)
+                client.post("/test/approve-project/$projectId") { header("X-Member-Id", BOARD_ID) }
+
+                val aktiv = createTestMember("cf-gate3-aktiv@example.org")
+                client.post("/test/cast-reaction/$projectId/LIKE") { header("X-Member-Id", aktiv.toString()) }
+                val regression = client.post("/test/retract-reaction/$projectId") { header("X-Member-Id", aktiv.toString()) }
+                regression.status shouldBe HttpStatusCode.OK
+
+                val antrag = createTestMember("cf-gate3-antrag@example.org", status = MemberStatus.ANTRAG)
+                val rejected = client.post("/test/retract-reaction/$projectId") { header("X-Member-Id", antrag.toString()) }
+                rejected.status shouldBe HttpStatusCode.Forbidden
+            }
+        }
+
         test("computeMonthlyDistribution: TREASURY-only, per-payer minimum deducted once, proportional split, idempotent re-run") {
             testApplication {
                 application {

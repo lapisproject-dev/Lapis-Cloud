@@ -423,6 +423,16 @@ class ElectionService(
         val current = resolveCurrentMember(call)
         val wId = input.electionId.toUuidOrNotFound("Election")
         return transaction {
+            // ANTRAG membership-gate audit (2026-07-30): closes the gap disclosed since V0.7.2 --
+            // an ANTRAG applicant must not be able to cast a binding personnel/YES-NO vote before
+            // board approval. Defense in depth: the eligible check below only re-validates against
+            // the ElectionEligibleVoterTable snapshot taken at openVoting time, which itself derives
+            // from eligibleMemberIds -- for a non-GENERAL_ASSEMBLY Committee that is raw Committee
+            // membership, never re-checked against the seated member's live status (see
+            // GovernanceService.addCommitteeMember KDoc). Member-only (AKTIV), not
+            // requireActiveOrGuestMembership -- guests never get vote weight in this project's
+            // concept.
+            requireActiveMembership(current.memberId)
             val electionRow = requireElectionRow(wId)
             if (electionRow[ElectionTable.status] != ElectionStatus.OPEN) {
                 throw ConflictException("Election ${input.electionId} is ${electionRow[ElectionTable.status]}, expected OPEN")

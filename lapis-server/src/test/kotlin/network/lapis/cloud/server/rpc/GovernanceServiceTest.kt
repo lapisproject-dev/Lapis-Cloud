@@ -1254,6 +1254,140 @@ class GovernanceServiceTest :
             }
         }
 
+        // ── ANTRAG membership-gate audit (2026-07-30) ────────────────────────────
+        // Closes the gap disclosed since V0.7.2: an ANTRAG applicant must not be able to cast a
+        // governance vote (and stake LTR on it) before board approval. These tests deliberately
+        // seat the non-AKTIV member into the Committee via addCommitteeMember FIRST -- proving the
+        // fix closes the real gap-class (Committee-membership eligibility with no live status
+        // recheck), not just the trivial "never a Committee member" case the existing outsider
+        // test above already covers.
+
+        test("castVoteBallot: rejected for an ANTRAG member even when seated in the Committee") {
+            testApplication {
+                application {
+                    install(StatusPages) { installGovernanceExceptionHandlers() }
+                    routing {
+                        registerGovernanceTestRoutes()
+                        registerMotionTestRoutes()
+                        registerVoteTestRoutes()
+                    }
+                }
+
+                val committeeId =
+                    client
+                        .post(
+                            "/test/create-committee/Executive Board%20Antrag%20Gate/EXECUTIVE_BOARD/50",
+                        ) { header("X-Member-Id", BOARD_ID) }
+                        .bodyAsText()
+                createdCommitteeIds += Uuid.parse(committeeId)
+
+                val chair = createTestMember("abst-antrag-chair@example.org")
+                val applicant = createTestMember("abst-antrag-applicant@example.org", status = MemberStatus.ANTRAG)
+                client.post("/test/add-member/$committeeId/$chair/CHAIR") { header("X-Member-Id", BOARD_ID) }
+                client.post("/test/add-member/$committeeId/$applicant/MEMBER") { header("X-Member-Id", BOARD_ID) }
+                seedLtrBalance(applicant, BigDecimal("50.00"))
+
+                val (motionId, _) = client.createTerminierterMotion(committeeId, chair, chair, 2026, 11, 4)
+                val opened =
+                    client.post("/test/open-vote/$motionId") { header("X-Member-Id", chair.toString()) }.bodyAsText()
+                val voteId = opened.substringBefore(":")
+                val jaOptionId =
+                    opened
+                        .split(":", limit = 3)[2]
+                        .split(";")
+                        .first { it.endsWith("=YES") }
+                        .substringBefore("=")
+
+                val applicantCast =
+                    client.post("/test/cast-vote-ballot/$voteId/$jaOptionId/10.00") { header("X-Member-Id", applicant.toString()) }
+                applicantCast.status shouldBe HttpStatusCode.Forbidden
+            }
+        }
+
+        test("castVoteBallot: rejected for an AUSGETRETEN member even when seated in the Committee") {
+            testApplication {
+                application {
+                    install(StatusPages) { installGovernanceExceptionHandlers() }
+                    routing {
+                        registerGovernanceTestRoutes()
+                        registerMotionTestRoutes()
+                        registerVoteTestRoutes()
+                    }
+                }
+
+                val committeeId =
+                    client
+                        .post(
+                            "/test/create-committee/Executive Board%20Ausgetreten%20Gate/EXECUTIVE_BOARD/50",
+                        ) { header("X-Member-Id", BOARD_ID) }
+                        .bodyAsText()
+                createdCommitteeIds += Uuid.parse(committeeId)
+
+                val chair = createTestMember("abst-ausgetreten-chair@example.org")
+                val departed = createTestMember("abst-ausgetreten-departed@example.org", status = MemberStatus.AUSGETRETEN)
+                client.post("/test/add-member/$committeeId/$chair/CHAIR") { header("X-Member-Id", BOARD_ID) }
+                client.post("/test/add-member/$committeeId/$departed/MEMBER") { header("X-Member-Id", BOARD_ID) }
+                seedLtrBalance(departed, BigDecimal("50.00"))
+
+                val (motionId, _) = client.createTerminierterMotion(committeeId, chair, chair, 2026, 11, 5)
+                val opened =
+                    client.post("/test/open-vote/$motionId") { header("X-Member-Id", chair.toString()) }.bodyAsText()
+                val voteId = opened.substringBefore(":")
+                val jaOptionId =
+                    opened
+                        .split(":", limit = 3)[2]
+                        .split(";")
+                        .first { it.endsWith("=YES") }
+                        .substringBefore("=")
+
+                val departedCast =
+                    client.post("/test/cast-vote-ballot/$voteId/$jaOptionId/10.00") { header("X-Member-Id", departed.toString()) }
+                departedCast.status shouldBe HttpStatusCode.Forbidden
+            }
+        }
+
+        test("castVoteBallot: an AKTIV member seated in the Committee still succeeds exactly as before (regression)") {
+            testApplication {
+                application {
+                    install(StatusPages) { installGovernanceExceptionHandlers() }
+                    routing {
+                        registerGovernanceTestRoutes()
+                        registerMotionTestRoutes()
+                        registerVoteTestRoutes()
+                    }
+                }
+
+                val committeeId =
+                    client
+                        .post(
+                            "/test/create-committee/Executive Board%20Aktiv%20Regression/EXECUTIVE_BOARD/50",
+                        ) { header("X-Member-Id", BOARD_ID) }
+                        .bodyAsText()
+                createdCommitteeIds += Uuid.parse(committeeId)
+
+                val chair = createTestMember("abst-aktiv-regression-chair@example.org")
+                val member = createTestMember("abst-aktiv-regression-member@example.org", status = MemberStatus.AKTIV)
+                client.post("/test/add-member/$committeeId/$chair/CHAIR") { header("X-Member-Id", BOARD_ID) }
+                client.post("/test/add-member/$committeeId/$member/MEMBER") { header("X-Member-Id", BOARD_ID) }
+                seedLtrBalance(member, BigDecimal("50.00"))
+
+                val (motionId, _) = client.createTerminierterMotion(committeeId, chair, chair, 2026, 11, 6)
+                val opened =
+                    client.post("/test/open-vote/$motionId") { header("X-Member-Id", chair.toString()) }.bodyAsText()
+                val voteId = opened.substringBefore(":")
+                val jaOptionId =
+                    opened
+                        .split(":", limit = 3)[2]
+                        .split(";")
+                        .first { it.endsWith("=YES") }
+                        .substringBefore("=")
+
+                val memberCast =
+                    client.post("/test/cast-vote-ballot/$voteId/$jaOptionId/10.00") { header("X-Member-Id", member.toString()) }
+                memberCast.status shouldBe HttpStatusCode.OK
+            }
+        }
+
         test(
             "Meritokratische Vote state guards: openVote requires SCHEDULED and rejects a second " +
                 "Vote on the same Motion; castVoteBallot/closeVote reject once CLOSED",

@@ -72,14 +72,17 @@ class PeerTransferServiceTest :
 
         afterSpec { cleanUpPeerTransferTestData(createdMemberIds) }
 
-        fun createTestMember(email: String): Uuid {
+        fun createTestMember(
+            email: String,
+            status: MemberStatus = MemberStatus.AKTIV,
+        ): Uuid {
             val id = Uuid.random()
             transaction {
                 MemberTable.insert {
                     it[MemberTable.id] = id
                     it[displayName] = "Peer-Transfer Testmitglied"
                     it[MemberTable.email] = email
-                    it[status] = MemberStatus.AKTIV
+                    it[MemberTable.status] = status
                     it[joinedAt] = LocalDate(2026, 1, 1)
                     it[membershipTierId] = null
                 }
@@ -268,6 +271,87 @@ class PeerTransferServiceTest :
                         header("X-Member-Id", sender.toString())
                     }
                 unknown.status shouldBe HttpStatusCode.NotFound
+            }
+        }
+
+        // ── ANTRAG membership-gate audit (2026-07-30) ────────────────────────────
+        // Closes the gap disclosed since V0.7.2: an ANTRAG applicant (allowed to log in by design
+        // to check their pending application status, see AuthRoutes.kt's login-gate KDoc) must not
+        // be able to stake/transfer LTR before board approval.
+
+        test("transferLtr: rejected for an ANTRAG sender") {
+            testApplication {
+                application {
+                    install(StatusPages) { installPeerTransferExceptionHandlers() }
+                    routing { registerPeerTransferTestRoutes() }
+                }
+                val sender = createTestMember("pt-antrag-sender@example.org", status = MemberStatus.ANTRAG)
+                val recipient = createTestMember("pt-antrag-recipient@example.org")
+                mintLtr(sender, BigDecimal("10.00"))
+
+                val response =
+                    client.post("/test/transfer?recipientId=$recipient&amount=1.00&characterization=SONSTIGES") {
+                        header("X-Member-Id", sender.toString())
+                    }
+                response.status shouldBe HttpStatusCode.Forbidden
+                freeBalanceOf(sender).compareTo(BigDecimal("10.00")) shouldBe 0
+                freeBalanceOf(recipient).compareTo(BigDecimal.ZERO.setScale(2)) shouldBe 0
+            }
+        }
+
+        test("transferLtr: rejected for an AUSGETRETEN sender") {
+            testApplication {
+                application {
+                    install(StatusPages) { installPeerTransferExceptionHandlers() }
+                    routing { registerPeerTransferTestRoutes() }
+                }
+                val sender = createTestMember("pt-ausgetreten-sender@example.org", status = MemberStatus.AUSGETRETEN)
+                val recipient = createTestMember("pt-ausgetreten-recipient@example.org")
+                mintLtr(sender, BigDecimal("10.00"))
+
+                val response =
+                    client.post("/test/transfer?recipientId=$recipient&amount=1.00&characterization=SONSTIGES") {
+                        header("X-Member-Id", sender.toString())
+                    }
+                response.status shouldBe HttpStatusCode.Forbidden
+            }
+        }
+
+        test("transferLtr: rejected for an ABGELEHNT sender") {
+            testApplication {
+                application {
+                    install(StatusPages) { installPeerTransferExceptionHandlers() }
+                    routing { registerPeerTransferTestRoutes() }
+                }
+                val sender = createTestMember("pt-abgelehnt-sender@example.org", status = MemberStatus.ABGELEHNT)
+                val recipient = createTestMember("pt-abgelehnt-recipient@example.org")
+                mintLtr(sender, BigDecimal("10.00"))
+
+                val response =
+                    client.post("/test/transfer?recipientId=$recipient&amount=1.00&characterization=SONSTIGES") {
+                        header("X-Member-Id", sender.toString())
+                    }
+                response.status shouldBe HttpStatusCode.Forbidden
+            }
+        }
+
+        test("transferLtr: an AKTIV sender still succeeds exactly as before the membership gate was added (regression)") {
+            testApplication {
+                application {
+                    install(StatusPages) { installPeerTransferExceptionHandlers() }
+                    routing { registerPeerTransferTestRoutes() }
+                }
+                val sender = createTestMember("pt-aktiv-regression-sender@example.org", status = MemberStatus.AKTIV)
+                val recipient = createTestMember("pt-aktiv-regression-recipient@example.org")
+                mintLtr(sender, BigDecimal("10.00"))
+
+                val response =
+                    client.post("/test/transfer?recipientId=$recipient&amount=3.00&characterization=SONSTIGES") {
+                        header("X-Member-Id", sender.toString())
+                    }
+                response.status shouldBe HttpStatusCode.OK
+                freeBalanceOf(sender).compareTo(BigDecimal("7.00")) shouldBe 0
+                freeBalanceOf(recipient).compareTo(BigDecimal("3.00")) shouldBe 0
             }
         }
 
