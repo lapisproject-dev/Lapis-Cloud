@@ -2,6 +2,7 @@ package network.lapis.cloud.server.rpc
 
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
+import io.kotest.matchers.shouldNotBe
 import io.ktor.client.HttpClient
 import io.ktor.client.request.get
 import io.ktor.client.request.header
@@ -298,6 +299,48 @@ class RegistrationServiceTest :
                 val reason =
                     transaction { MemberTable.selectAll().where { MemberTable.id eq applicant }.single()[MemberTable.rejectionReason] }
                 reason shouldBe "Unvollstaendige Unterlagen"
+            }
+        }
+
+        test(
+            "rejectApplication: every live session the applicant already established is revoked (session-hygiene gap closed, V0.7.2 audit commit 5082d55)",
+        ) {
+            testApplication {
+                application {
+                    install(StatusPages) { installRegistrationExceptionHandlers() }
+                    routing { registerRegistrationTestRoutes(LoginRateLimiter()) }
+                }
+                val applicant = createTestMember("reg-reject-session@example.org", MemberStatus.ANTRAG)
+                val session = SessionStore.createSession(applicant)
+                val otherSession = SessionStore.createSession(applicant)
+
+                // Sanity: both sessions are genuinely live before the rejection.
+                SessionStore.resolve(session.rawToken) shouldNotBe null
+                SessionStore.resolve(otherSession.rawToken) shouldNotBe null
+
+                val rejected =
+                    client.post("/test/reject/$applicant?reason=Unvollstaendige+Unterlagen") { header("X-Member-Id", BOARD_ID) }
+                rejected.status shouldBe HttpStatusCode.OK
+                statusOf(applicant) shouldBe MemberStatus.ABGELEHNT
+
+                // Real behavioral assertion, same mechanism resolveCurrentMember uses in production --
+                // not a "was the method called" check.
+                SessionStore.resolve(session.rawToken) shouldBe null
+                SessionStore.resolve(otherSession.rawToken) shouldBe null
+            }
+        }
+
+        test("rejectApplication: an applicant with no live session (never logged in) is still rejected without error") {
+            testApplication {
+                application {
+                    install(StatusPages) { installRegistrationExceptionHandlers() }
+                    routing { registerRegistrationTestRoutes(LoginRateLimiter()) }
+                }
+                val applicant = createTestMember("reg-reject-no-session@example.org", MemberStatus.ANTRAG)
+
+                val rejected = client.post("/test/reject/$applicant?reason=Kein+Login") { header("X-Member-Id", BOARD_ID) }
+                rejected.status shouldBe HttpStatusCode.OK
+                statusOf(applicant) shouldBe MemberStatus.ABGELEHNT
             }
         }
 

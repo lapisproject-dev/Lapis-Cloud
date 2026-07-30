@@ -141,17 +141,34 @@ tests in `CrowdfundingServiceTest`, matching the house style the original wave e
 
 ### Known limitations (tracked for later versions)
 
-- **`RegistrationService.rejectApplication` does not revoke the applicant's existing session(s).**
-  Found during the round-1 security review of the ANTRAG membership-gate audit above. Every
-  state-changing RPC method with LTR/binding-governance consequences independently re-checks live
-  `MemberTable.status` via `requireActiveMembership`/`requireActiveOrGuestMembership` inside its own
-  transaction, so a lingering post-rejection session cannot bypass any of those gates — but a future
-  method that forgets the gate (as `CrowdfundingService.castReaction`/`retractReaction` did until this
-  round) would be reachable for up to the remainder of the session's 8-hour lifetime after rejection,
-  not just during the `ANTRAG` window. Fixing this at the source (revoke on `rejectApplication`, same
-  `SessionStore.revokeAllForMember` call `leaveMembership` already makes) would remove that residual
-  exposure window entirely regardless of future per-method gate coverage; deferred to a follow-up wave
-  since it is a defense-in-depth hardening, not a currently-exploitable path against any live method.
+- ~~**`RegistrationService.rejectApplication` does not revoke the applicant's existing session(s).**~~
+  **Resolved — see "Rejected applicants' pre-existing sessions are now revoked" below.** Found during
+  the round-1 security review of the ANTRAG membership-gate audit above. Every state-changing RPC
+  method with LTR/binding-governance consequences independently re-checks live `MemberTable.status`
+  via `requireActiveMembership`/`requireActiveOrGuestMembership` inside its own transaction, so a
+  lingering post-rejection session could not bypass any of those gates — but a future method that
+  forgets the gate (as `CrowdfundingService.castReaction`/`retractReaction` did until this round) would
+  have been reachable for up to the remainder of the session's 8-hour lifetime after rejection, not
+  just during the `ANTRAG` window. Fixing this at the source (revoke on `rejectApplication`, same
+  `SessionStore.revokeAllForMember` call `leaveMembership` already makes) removes that residual
+  exposure window entirely regardless of future per-method gate coverage — it was a defense-in-depth
+  hardening, not a currently-exploitable path against any live method, but is now closed rather than
+  deferred.
+
+**Rejected applicants' pre-existing sessions are now revoked — session-hygiene gap the V0.7.2
+ANTRAG-membership-gate audit (commit `5082d55`) found and deliberately deferred, now closed.**
+`RegistrationService.rejectApplication` transitions a Member from `ANTRAG` to `ABGELEHNT` but
+previously never revoked any session the applicant had already established while still `ANTRAG` --
+unlike the sibling `leaveMembership` (`AKTIV` -> `AUSGETRETEN`), which has always called
+`SessionStore.revokeAllForMember` immediately after its transaction commits. `rejectApplication`
+now does the same, for the applicant being acted on (not the BOARD/ADMIN caller). This is
+complementary to, not a replacement for, `AuthRoutes.kt`'s existing V0.7.2 login gate, which
+already blocks a NEW login for an `ABGELEHNT` account but did nothing about a session that already
+existed before the rejection decision. Practical exposure was already contained (every LTR/
+governance write path is independently AKTIV-gated per the same audit), but the session itself
+outliving the rejection was a real, avoidable hygiene gap. New tests in `RegistrationServiceTest`
+confirm genuine revocation (both a live-session case with multiple sessions, and a no-live-session
+regression case that must not throw).
 
 ### Security
 

@@ -162,6 +162,17 @@ class RegistrationService(
         }
     }
 
+    /**
+     * BOARD/ADMIN-only rejection of an [MemberStatus.ANTRAG] applicant -- see
+     * [IRegistrationService.rejectApplication] KDoc. Every live session the applicant already
+     * established (while still ANTRAG) is revoked after the transaction commits, mirroring
+     * [leaveMembership]'s "revoke after commit, outside the lock" placement -- once ABGELEHNT, the
+     * applicant must not remain logged in anywhere. Closes the session-hygiene gap the V0.7.2
+     * ANTRAG-membership-gate audit (commit 5082d55) found and deliberately deferred; complementary
+     * to, not a replacement for, `AuthRoutes.kt`'s login gate, which independently blocks a NEW login
+     * for an ABGELEHNT account but does nothing about a session that already existed before this
+     * decision.
+     */
     override suspend fun rejectApplication(
         memberId: String,
         reason: String,
@@ -171,22 +182,25 @@ class RegistrationService(
         if (reason.isBlank()) throw ConflictException("rejectApplication requires a non-blank reason")
         val targetId = memberId.toMemberUuidOrThrow()
         val now = nowLocalDateTime()
-        return transaction {
-            requireApplicationRow(targetId, forUpdate = true)
-            val updated =
-                MemberTable.update({
-                    (MemberTable.id eq targetId) and (MemberTable.status eq MemberStatus.ANTRAG)
-                }) {
-                    it[status] = MemberStatus.ABGELEHNT
-                    it[rejectionReason] = reason
-                    it[reviewedBy] = current.memberId
-                    it[reviewedAt] = now
+        val result =
+            transaction {
+                requireApplicationRow(targetId, forUpdate = true)
+                val updated =
+                    MemberTable.update({
+                        (MemberTable.id eq targetId) and (MemberTable.status eq MemberStatus.ANTRAG)
+                    }) {
+                        it[status] = MemberStatus.ABGELEHNT
+                        it[rejectionReason] = reason
+                        it[reviewedBy] = current.memberId
+                        it[reviewedAt] = now
+                    }
+                if (updated == 0) {
+                    throw ConflictException("Application $memberId was concurrently decided -- retry")
                 }
-            if (updated == 0) {
-                throw ConflictException("Application $memberId was concurrently decided -- retry")
+                loadMember(targetId)
             }
-            loadMember(targetId)
-        }
+        SessionStore.revokeAllForMember(targetId)
+        return result
     }
 
     override suspend fun createMemberDirect(input: AdminCreateMemberInput): MemberDto {
