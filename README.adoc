@@ -169,9 +169,18 @@ legal counsel — not something this project can decide once for everyone. See `
 * **No guest participation in the LTR economy.** A federated guest (V0.8.2) is authenticated and
   represented, but not wired into LTR staking/posting/earning — that mechanics is deliberately not
   built yet, a separate scope decision from identity itself.
-* **`PeerTransferService.transferLtr`/`GovernanceService.castVoteBallot` don't gate on active
-  membership** (known, disclosed gap, tracked as a follow-up wave): an `ANTRAG` applicant could in
-  principle stake/transfer LTR before board approval.
+* **DNS-rebinding TOCTOU gap in the federation SSRF guard** (`requireSafeFederationUrl`, disclosed
+  since V0.8.1): the target host's DNS is resolved and validated, but the actual HTTP connection
+  that follows performs its own, independent resolution — a malicious DNS server could rebind
+  between the two. Closing this fully requires pinning the validated IP for the actual connection.
+* **`GovernanceService.addCommitteeMember` never validates the seated member's status.** A
+  Committee-membership-based voting-eligibility path (`castVoteBallot`/`castElectionBallot`/
+  `castResistanceBallot`) therefore still depends on the seating call itself being used correctly —
+  those three cast methods are independently gated to `AKTIV`-only as defense in depth, but the
+  root cause (an `ANTRAG` member could in principle be seated onto a Committee) is unfixed.
+* **`RegistrationService.rejectApplication` does not revoke the caller's session** the way
+  `leaveMembership` does — a rejected (`ABGELEHNT`) applicant's existing session can outlive their
+  rejection, though every write path that matters is independently `AKTIV`-gated.
 
 None of this is a secret gap. See the project vault's Lapis Cloud roadmap for the up-to-date wave
 plan.
