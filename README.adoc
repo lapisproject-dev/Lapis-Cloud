@@ -169,10 +169,6 @@ legal counsel — not something this project can decide once for everyone. See `
 * **No guest participation in the LTR economy.** A federated guest (V0.8.2) is authenticated and
   represented, but not wired into LTR staking/posting/earning — that mechanics is deliberately not
   built yet, a separate scope decision from identity itself.
-* **DNS-rebinding TOCTOU gap in the federation SSRF guard** (`requireSafeFederationUrl`, disclosed
-  since V0.8.1): the target host's DNS is resolved and validated, but the actual HTTP connection
-  that follows performs its own, independent resolution — a malicious DNS server could rebind
-  between the two. Closing this fully requires pinning the validated IP for the actual connection.
 * **`GovernanceService.addCommitteeMember` never validates the seated member's status.** A
   Committee-membership-based voting-eligibility path (`castVoteBallot`/`castElectionBallot`/
   `castResistanceBallot`) therefore still depends on the seating call itself being used correctly —
