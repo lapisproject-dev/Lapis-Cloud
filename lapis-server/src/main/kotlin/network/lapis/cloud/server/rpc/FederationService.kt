@@ -307,7 +307,7 @@ class FederationService(
         actorKeyRow: ResultRow,
     ) {
         runCatching {
-            requireSafeFederationUrl(inboxUri)
+            val target = requireSafeFederationUrl(inboxUri)
             val bodyBytes = activityJson.toByteArray(Charsets.UTF_8)
             val url = Url(inboxUri)
             val signed =
@@ -319,7 +319,7 @@ class FederationService(
                     keyId = "${actorKeyRow[FederationActorKeyTable.actorUri]}#main-key",
                     privateKeyPem = actorKeyRow[FederationActorKeyTable.privateKeyPem],
                 )
-            federationHttpClient().use { client ->
+            federationHttpClient(target).use { client ->
                 client.post(inboxUri) {
                     header(HttpHeaders.Date, signed.dateHeader)
                     header("Digest", signed.digestHeader)

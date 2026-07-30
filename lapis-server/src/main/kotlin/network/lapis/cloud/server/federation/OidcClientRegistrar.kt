@@ -69,8 +69,8 @@ object OidcClientRegistrar {
         backchannelLogoutUri: String,
     ): OidcClientRegistrationOutcome =
         runCatching {
-            requireSafeFederationUrl(registrationEndpoint)
-            federationHttpClient().use { client ->
+            val target = requireSafeFederationUrl(registrationEndpoint)
+            federationHttpClient(target).use { client ->
                 val response: HttpResponse =
                     client.post(registrationEndpoint) {
                         contentType(ContentType.Application.Json)

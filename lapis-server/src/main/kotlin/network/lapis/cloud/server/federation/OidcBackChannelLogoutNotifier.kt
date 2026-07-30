@@ -107,8 +107,8 @@ object OidcBackChannelLogoutNotifier {
 
             val delivered =
                 runCatching {
-                    requireSafeFederationUrl(logoutUri)
-                    federationHttpClient().use { client ->
+                    val target = requireSafeFederationUrl(logoutUri)
+                    federationHttpClient(target).use { client ->
                         val response =
                             client.post(logoutUri) {
                                 setBody(FormDataContent(Parameters.build { append("logout_token", logoutToken) }))

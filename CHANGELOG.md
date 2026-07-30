@@ -8,6 +8,67 @@ All notable changes to this project are documented here. Format follows
 
 ### Fixed
 
+**DNS-rebinding TOCTOU gap closed in the federation SSRF guard — disclosed since V0.8.1,
+`requireSafeFederationUrl`/`federationHttpClient`.** The guard previously validated a resolved address
+and then let Ktor's CIO client engine perform its own, independent, later DNS resolution for the actual
+connection — a malicious DNS server could answer with a public, safe-looking address at
+`requireSafeFederationUrl`-check-time and a private/internal address (`127.0.0.1`, a cloud metadata
+endpoint, an internal service) at actual-connect-time, completely bypassing the SSRF guard.
+
+`requireSafeFederationUrl` now returns a `SafeFederationTarget` (the original hostname plus the specific
+validated `InetAddress`, the first of an `InetAddress.getAllByName` result where — unchanged from the
+original design — ALL resolved addresses must be safe, not just one; a resolver answering with one safe
+and one unsafe address for the same name is itself untrustworthy). A new Ktor client plugin
+(`FederationIpPinningPlugin`, installed by `federationHttpClient(target)`) rewrites the outgoing request's
+URL host to that pinned address's literal string immediately before the request reaches the engine —
+`java.net.InetSocketAddress` (which Ktor CIO's own `Endpoint.connect()` builds directly from
+`request.url.host`) performs no DNS lookup for a literal IP, so there is no second resolution anywhere in
+the fetch path. There is no fallback to a sibling address on connect failure — one resolution, one
+address, one connection attempt, matching this project's existing no-retry-queue posture for federation
+delivery.
+
+**TLS certificate validation was not weakened by this change.** TLS SNI and hostname verification are
+explicitly pinned to the ORIGINAL hostname (`CIOEngineConfig.https.serverName = target.originalHost`,
+which `Endpoint.connect()`'s handshake block never overwrites once explicitly set), and an explicit
+`Host:` header preserves correct virtual-host routing for the remote server. Confirmed by two new tests
+against a REAL CIO+TLS connection to a self-signed certificate (`FederationIpPinningTest` "T3"/"T3b"): a
+certificate covering the SNI'd hostname is accepted even though the socket target is a loopback IP, and a
+certificate that does NOT cover the hostname actually used for SNI is still correctly rejected — IP
+pinning does not silently bypass hostname verification.
+
+Chosen over a CIO-internal resolver/connector hook (verified against the actual pinned Ktor 3.5.1
+`ktor-client-cio` sources: `CIOEngineConfig` exposes no such hook, and the classes that actually resolve
+and connect, `Endpoint`/`ConnectionFactory`, are `internal` to that module — no clean extension point
+exists) and over an engine swap to `ktor-client-java` (`java.net.http.HttpClient` has no DNS-resolver hook
+either, so the same literal-IP-rewrite trick would still be required, while adding an unprecedented
+dependency and requiring the entire verification pass to be redone against a different engine's
+Host-header-override and connection-reuse behavior, for no additional robustness).
+
+Applied once, in `FederationHttpClient.kt` — every one of the 9 call sites across 6 files that build a
+federation HTTP request (`fetchActorDocument`, `TrustAnchorResolver.fetchCompactJwt`,
+`OidcClientRegistrar.register`, `OidcBackChannelLogoutNotifier.notify`,
+`FederationService.deliverActivity`, and four sites in `OidcRoutes.kt` — RP-side token exchange, RP-side
+and Issuer-side back-channel-logout JWKS fetches, and OIDC discovery-document fetch) was mechanically
+updated to capture and pass the `SafeFederationTarget`; the old zero-argument `federationHttpClient()`
+no longer exists, so the compiler enforces that no call site can silently keep using the unpinned path.
+
+New test coverage (`FederationIpPinningTest`, 7 cases): a genuine DNS-rebinding simulation via a
+`java.net.spi.InetAddressResolverProvider` test double (`RebindingSimulationInetAddressResolverProvider`,
+narrowly scoped to one synthetic `.invalid` hostname, verified transparent to every other test in this
+module) proving the attack precondition is real and that the plugin uses the captured, pinned address
+rather than re-resolving; the TLS hostname-verification pair described above; and a regression test for a
+real bug found live while building this suite — `HttpRequestBuilder.url` (a mutable `URLBuilder`) leaves
+an unspecified port as the raw `0` sentinel rather than normalizing it to the protocol's default port the
+way the immutable `Url.port` getter does, so the plugin's Host-header logic had to replicate that
+normalization itself to avoid emitting `host:0` for every ordinary (no-explicit-port) federation request.
+The existing `FederationHttpClientSsrfTest` suite (11 cases, including the V0.8.1 IPv6-ULA fix) needed no
+changes and passes unchanged — its assertions only ever check `runCatching { requireSafeFederationUrl(...) }.isFailure`,
+unaffected by the return type changing from `Unit` to `SafeFederationTarget`.
+
+`README.adoc`'s "What doesn't work yet" section names this exact gap by name — intentionally not edited
+in this wave per this project's standing convention (README/version-bump/tag catch-up happens only after
+human merge review); needs a matching edit once this fix lands on `master`.
+
 **ANTRAG membership-gate audit — closes the gap disclosed since V0.7.2.** `PeerTransferService.transferLtr`
 and `GovernanceService.castVoteBallot` now call `requireActiveMembership` before any state-changing
 read/write, closing the gap V0.7.2's own "Known limitations" first disclosed (an `ANTRAG` applicant —

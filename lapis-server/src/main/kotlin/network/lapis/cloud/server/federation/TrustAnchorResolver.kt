@@ -83,8 +83,8 @@ internal object TrustAnchorResolver {
 
     private suspend fun fetchCompactJwt(url: String): String? =
         runCatching {
-            requireSafeFederationUrl(url)
-            federationHttpClient().use { client ->
+            val target = requireSafeFederationUrl(url)
+            federationHttpClient(target).use { client ->
                 val response = client.get(url)
                 if (!response.status.isSuccess()) return@use null
                 val bytes = response.readCappedFederationBodyOrNull() ?: return@use null

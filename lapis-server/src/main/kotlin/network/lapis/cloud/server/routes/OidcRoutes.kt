@@ -642,8 +642,8 @@ fun Route.registerOidcRoutes(
         val tokenResponse =
             runCatching {
                 val tokenEndpoint = registration[OidcHomeServerRegistrationTable.tokenEndpoint]
-                requireSafeFederationUrl(tokenEndpoint)
-                federationHttpClient().use { client ->
+                val target = requireSafeFederationUrl(tokenEndpoint)
+                federationHttpClient(target).use { client ->
                     val response =
                         client.post(tokenEndpoint) {
                             setBody(
@@ -686,8 +686,8 @@ fun Route.registerOidcRoutes(
         val jwksJson =
             runCatching {
                 val jwksUri = registration[OidcHomeServerRegistrationTable.jwksUri]
-                requireSafeFederationUrl(jwksUri)
-                federationHttpClient().use { client ->
+                val target = requireSafeFederationUrl(jwksUri)
+                federationHttpClient(target).use { client ->
                     val response = client.get(jwksUri)
                     if (!response.status.isSuccess()) return@use null
                     response.readCappedFederationBodyOrNull()?.toString(Charsets.UTF_8)
@@ -823,8 +823,8 @@ fun Route.registerOidcRoutes(
         val jwksJson =
             runCatching {
                 val jwksUri = registration[OidcHomeServerRegistrationTable.jwksUri]
-                requireSafeFederationUrl(jwksUri)
-                federationHttpClient().use { client ->
+                val target = requireSafeFederationUrl(jwksUri)
+                federationHttpClient(target).use { client ->
                     val response = client.get(jwksUri)
                     if (!response.status.isSuccess()) return@use null
                     response.readCappedFederationBodyOrNull()?.toString(Charsets.UTF_8)
@@ -1181,8 +1181,8 @@ private suspend fun issueTokens(
 private suspend fun fetchDiscoveryDocument(homeServer: String): OidcDiscoveryDto? =
     runCatching {
         val discoveryUrl = "$homeServer/.well-known/openid-configuration"
-        requireSafeFederationUrl(discoveryUrl)
-        federationHttpClient().use { client ->
+        val target = requireSafeFederationUrl(discoveryUrl)
+        federationHttpClient(target).use { client ->
             val response = client.get(discoveryUrl)
             if (!response.status.isSuccess()) return@use null
             val bytes = response.readCappedFederationBodyOrNull() ?: return@use null

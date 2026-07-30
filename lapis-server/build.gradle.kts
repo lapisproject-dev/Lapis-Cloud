@@ -79,6 +79,9 @@ dependencies {
     // Test-only fake HTTP responder for LetterxpressPostalMailProviderTest — see
     // gradle/libs.versions.toml.
     testImplementation(libs.ktor.client.mock)
+    // Test-only self-signed-cert generator for FederationIpPinningTest's TLS hostname-verification
+    // test (DNS-rebinding fix) — see gradle/libs.versions.toml.
+    testImplementation(libs.ktor.network.tls.certificates)
 
     // kUML MDA persistence pipeline (ADR-0016) — see gradle/libs.versions.toml for why these
     // are test-scoped only. Drives SchemaDriftTest: evaluates src/main/kuml/*.kuml.kts via
@@ -123,4 +126,18 @@ tasks.test {
     // X-Member-Id trusted-header fallback (see that object's KDoc "Two independent locks"). A real
     // server process started outside this Gradle `test` task JVM never has this property set.
     systemProperty("lapis.test.mode", "true")
+    // DNS-rebinding fix (feature/dns-rebinding-fix): FederationIpPinningTest's "T1" group proves
+    // the rebinding-attack precondition is real by having a custom java.net.spi.InetAddressResolverProvider
+    // test double (RebindingSimulationInetAddressResolverProvider) return a different address on
+    // successive lookups of a synthetic hostname. Without disabling the JVM's OWN positive
+    // address-cache (sun.net.InetAddressCachePolicy, which sits in front of the resolver SPI and
+    // would otherwise serve the first lookup's result on every subsequent call within this cache's
+    // TTL, masking the very thing T1 needs to observe), the second lookup would come back from that
+    // cache instead of hitting the test double's resolver a second time. "sun.net.inetaddr.ttl" is
+    // the standard system-property fallback InetAddressCachePolicy reads when the primary
+    // java.security property ("networkaddress.cache.ttl") is unset -- setting it here, as a JVM
+    // argument, takes effect from JVM startup regardless of which test class in this module happens
+    // to trigger the first DNS resolution. Test-JVM-only; a real server process never has this set.
+    systemProperty("sun.net.inetaddr.ttl", "0")
+    systemProperty("sun.net.inetaddr.negative.ttl", "0")
 }

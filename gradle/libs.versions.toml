@@ -66,6 +66,10 @@ ktor-client-content-negotiation = { module = "io.ktor:ktor-client-content-negoti
 # fake/mocked HTTP responder, never the real Letterxpress API (unreachable from this sandbox and,
 # more fundamentally, house rule -- unit tests never call a real third-party API).
 ktor-client-mock                 = { module = "io.ktor:ktor-client-mock", version.ref = "ktor" }
+# Test-only: FederationIpPinningTest's TLS hostname-verification test (DNS-rebinding fix,
+# feature/dns-rebinding-fix) uses this first-party Ktor test-cert generator (buildKeyStore) to
+# self-sign a server certificate for a specific hostname, without pulling in Bouncy Castle.
+ktor-network-tls-certificates    = { module = "io.ktor:ktor-network-tls-certificates", version.ref = "ktor" }
 logback-classic                 = { module = "ch.qos.logback:logback-classic", version.ref = "logback" }
 # House rule (CLAUDE.md "Kotlin-Code-Konvention"): logging exclusively via kotlin-logging, never
 # java.util.logging/direct SLF4J/println. kotlin-logging-jvm is the JVM-target artifact of the
