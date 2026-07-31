@@ -14,6 +14,7 @@ import io.ktor.server.routing.get
 import io.ktor.server.routing.post
 import io.ktor.utils.io.jvm.javaio.toOutputStream
 import io.ktor.utils.io.readAvailable
+import kotlinx.serialization.Serializable
 import network.lapis.cloud.server.backup.IncompatibleBundleException
 import network.lapis.cloud.server.backup.NonEmptyTargetException
 import network.lapis.cloud.server.backup.OrganizationExportService
@@ -36,6 +37,37 @@ import kotlin.time.Clock
  * past this (Review-Pflicht: revisit before a very large deployment).
  */
 private const val MAX_RESTORE_BUNDLE_BYTES = 512L * 1024 * 1024
+
+/**
+ * The successful-restore response body -- MUST be a typed `@Serializable` class, not a raw
+ * `mapOf(...)` of heterogeneous value types (`Int`/`Long`/`List<String>` mixed in one map).
+ *
+ * **Real bug, found and fixed by the V1.0 E2E wave's Scenario 6 (Organization-Snapshot-Konsistenz)
+ * -- see `network.lapis.cloud.server.e2e.OrganizationSnapshotJourneyTest`.** The route used to
+ * `call.respond(HttpStatusCode.OK, mapOf("tablesRestored" to Int, "totalRowCount" to Long,
+ * "blobsRestored" to Int, "warnings" to List<String>))`. Ktor's `kotlinx.serialization`
+ * content-negotiation infers a serializer for an untyped `Map`/`List` by inspecting its element
+ * type (`SerializerLookupKt.guessSerializer`/`elementSerializer`) -- which only works when every
+ * element/value is of the SAME type (see, e.g., `registerDocumentRoutes`' own
+ * `mapOf("versionId" to versionId.toString())`, a `Map<String, String>`, which this failure mode
+ * does NOT affect). A map whose VALUES span three different types throws
+ * `IllegalStateException: Serializing collections of different element types is not yet
+ * supported`, mapped by no `StatusPages` handler -- i.e. every genuinely SUCCESSFUL restore over
+ * real HTTP crashed with a 500, unconditionally. This had gone completely undetected because every
+ * pre-existing test either (a) only exercises the ADMIN-only role-check rejection path (never
+ * reaches this `respond` call, see `BackupRoutesAuthorizationTest`) or (b) calls
+ * [network.lapis.cloud.server.backup.OrganizationRestoreService.restore] directly as a plain Kotlin
+ * method, bypassing this HTTP route entirely (see
+ * [network.lapis.cloud.server.backup.OrganizationBackupRoundTripTest]) -- Scenario 6 was the first
+ * test in this codebase to drive a genuinely successful restore through the real HTTP surface.
+ */
+@Serializable
+private data class RestoreResultResponse(
+    val tablesRestored: Int,
+    val totalRowCount: Long,
+    val blobsRestored: Int,
+    val warnings: List<String>,
+)
 
 /**
  * Full-organization export/restore (V0.5.4 Backup-/Restore-/Datenexport-Garantie) -- ADMIN only,
@@ -104,11 +136,11 @@ fun Route.registerBackupRoutes(
                 val result = restoreService.restore(current, tempFile, allowNonEmptyTarget)
                 call.respond(
                     HttpStatusCode.OK,
-                    mapOf(
-                        "tablesRestored" to result.tablesRestored.size,
-                        "totalRowCount" to result.tablesRestored.sumOf { it.rowCount },
-                        "blobsRestored" to result.blobsRestored,
-                        "warnings" to result.warnings,
+                    RestoreResultResponse(
+                        tablesRestored = result.tablesRestored.size,
+                        totalRowCount = result.tablesRestored.sumOf { it.rowCount },
+                        blobsRestored = result.blobsRestored,
+                        warnings = result.warnings,
                     ),
                 )
             } catch (e: IncompatibleBundleException) {

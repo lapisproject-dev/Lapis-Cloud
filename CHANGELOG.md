@@ -6,6 +6,158 @@ All notable changes to this project are documented here. Format follows
 
 ## [Unreleased]
 
+### Added
+
+**V1.0 "Pilot-Produktivbetrieb" end-to-end integration test wave — six real, cross-domain journey
+scenarios, on top of the pre-existing 1,079 `lapis-server` per-service tests.** Every existing
+`*ServiceTest`/`*RoutesTest`/`*SchemaDriftTest` file (the codebase's overwhelming majority of test
+coverage) verifies exactly one service in isolation, mounting only that service's own hand-picked
+routes and constructing it directly — a proven, fast, house-standard pattern, but one that cannot by
+construction catch a defect that only manifests where two or more domains actually meet: a session
+that outlives the status change that should have killed it, a status gate that one write path
+enforces and a structurally identical sibling path forgets, a response type that only breaks once a
+real success path is driven through the real HTTP route instead of called as a plain Kotlin method.
+This wave adds a new, deliberately different second layer: `E2eSupport.kt` mounts the **real, fully
+wired `network.lapis.cloud.server.module()`** — every route, every one of `initRpc`'s
+`registerService` calls, the complete `StatusPages`/session-cookie/`CallLogging` middleware stack —
+in a single `testApplication`, and each of the six scenarios drives it as one continuous story using
+**real `/api/auth/login` calls and real session cookies** (not a bypass header) wherever a scenario's
+narrative logs in as somebody, real plain-HTTP routes (mailmerge PDFs, backup export/restore) via
+`client.get/post`, and small per-scenario throwaway routes that construct an RPC service class
+directly (`GovernanceService(call)`, `AccountingService(call)`, ...) — the same construction
+`initRpc`'s own factories use — layered onto that same real `module()`-wired application, so a
+genuinely wire-level Kilua JSON-RPC call is the only thing elided (see "Known limitations" below for
+why). Each scenario is written as a single Kotest `test()` block spanning several existing waves' RPC
+surfaces end to end (self-registration → board approval → LTR economy → governance vote → GoBD audit
+chain, in one continuous session), asserting the **seam** between domains — e.g. an LTR balance drop
+proven through an independent `LtrLedgerService` read rather than the writer's own return value, or a
+Committee seat's live eligibility proven to pick up a just-minted row rather than a stale snapshot —
+not re-litigating any single domain's already-covered internal logic.
+
+- **Scenario 1 — membership-to-governance journey** (`MembershipToGovernanceJourneyTest`): real
+  self-registration → real login → the V0.9.0 ANTRAG vote-gate proven to actually hold for a funded
+  applicant (ruling out "insufficient balance" as an alternative explanation for the 403, and probing
+  a non-existent `voteId` to distinguish "gate present" from "gate silently removed") → board approval
+  → the **same** session cookie now succeeds (proving the status gate re-reads live DB state on every
+  call, not a cached login-time claim) → a real Contribution generated, paid, and manually booked into
+  accounting (the real two-call seam, not an automatic posting) → an invoice PDF generated from that
+  same paid Contribution, verified via its archived-document title → a full governance cycle with a
+  real Vickrey-settled Meritocratic vote → the GoBD audit hash chain recording the settlement
+  Resolution, with `verifyChainIntegrity()` still passing over the scenario's own chain segment. No
+  production bug found — confirms `markContributionPaid` posts correctly against a member created via
+  real self-registration, not just `DevSeedData`'s fixed seed IDs.
+- **Scenario 2 — LTR economy journey** (`LtrEconomyJourneyTest`): a pre-existing seeded AKTIV member
+  logs in for real, is minted LTR by TREASURER, stakes it into a real Crowdfunding project submission
+  under the same session (balance drop proven via an independent `LtrLedgerService` read, not
+  Crowdfunding's own write path), gets board approval, receives a real Like from a second, freshly
+  registered member via a real session, and two more scenario-private members fund the EUR pool through
+  real TREASURER-generated-and-paid Contributions — `computeMonthlyDistribution`'s `amountEur` is
+  asserted as an **exact** `BigDecimal` derived from the real paid sum minus the per-payer platform
+  deduction (not merely `> 0`), and a re-run over the identical period is asserted idempotent (no
+  duplicate distribution row). No production bug found — the Contribution-funds-the-pool /
+  Crowdfunding-apportions-it seam works as documented.
+- **Scenario 3 — federation guest journey** (`FederationGuestJourneyTest`): one continuous story behind
+  a single OIDC-federated guest session (minted directly via `OidcGuestMemberStore` +
+  `SessionStore.createSession`, since this sandbox has no outbound network egress for a real
+  browser-redirect RP-callback flow) that casts a real Politician rating (200 OK,
+  `raterType = GAST` persisted), is refused (403, with a DB check proving no row was created) on a real
+  LTR-economy write, and is excluded from a `PUBLIC_MEMBERS` document while a BOARD read of the
+  identical call includes it — proving access-level filtering, not an empty result for everyone. The
+  wave's highest-value assertion: a guest Like is verified, in two stages, to actually move
+  `guestTrustWeight` and `combinedTrustWeight` (guest-only, then combined with a second real AKTIV
+  member's rating, asserted equal to the literal sum) — both stages passed on the first run against
+  current production code. No production bug found; this scenario combines several independently
+  already-correct gates behind one guest identity rather than uncovering a new defect.
+- **Scenario 4 — governance status machine journey** (`GovernanceStatusMachineJourneyTest`): real
+  self-registration → the V0.9.0 `addCommitteeMember` status gate refuses seating a still-ANTRAG
+  applicant onto a Committee → board approval → the **identical** seat call now succeeds → the
+  newly-seated member casts a real ballot eligible only via that just-created seat (proving
+  `eligibleMemberIds` reads live state, not a stale snapshot) → self-service `leaveMembership`
+  (AKTIV → AUSGETRETEN) → a fresh vote-casting attempt from the exited member's own prior session.
+  Confirms, via direct DB read, the known-and-deliberately-deferred gap that `leaveMembership` does not
+  retire the member's open `CommitteeMembershipTable` row (see "Known limitations" below). Also traces
+  and documents a stronger-than-planned guarantee: `leaveMembership` revokes every live session
+  belonging to the caller, including the one that just called it, so the final replay attempt fails
+  with 401 (dead session) rather than the originally-expected 403 (live session, stale status) — a
+  live session paired with `AUSGETRETEN` status is not actually reachable via this exit path at all.
+- **Scenario 5 — exit/rejection consequences cascade journey** (`ExitCascadeJourneyTest`): two real
+  self-registrations (A, B). BOARD rejects B, proving the V0.9.0 session-hygiene fix (rejection now
+  revokes a session that was genuinely live at rejection time, not a hand-inserted row). BOARD approves
+  A, who accumulates real cross-domain history (LTR mint + Crowdfunding stake, a paid Contribution, a
+  donation JournalEntry) before calling `leaveMembership()` herself. Proves continued lockout across
+  two independent layers after exit — A's own dead session now fails 401 on both an LTR call and a
+  Governance call, and separately, the H2-only `X-Member-Id` trusted-header fallback still resolves A's
+  identity (no status check at that layer) but `requireActiveMembership` re-reads A's live,
+  now-AUSGETRETEN status and refuses with 403, proving the gate holds via the fallback authentication
+  path too, not just the cookie path. The payoff: after A's exit, a privileged TREASURER read shows A's
+  LTR balance unchanged, `AccountingService.listJournal` still returns A's real JournalEntry unchanged
+  and POSTED, and `AuditLogService.verifyChainIntegrity()` still passes over the chain segment covering
+  it — concrete proof that exit does not retroactively alter or break the GoBD hash chain covering a
+  former member's own prior postings.
+- **Scenario 6 — organization backup/restore snapshot consistency journey**
+  (`OrganizationSnapshotJourneyTest`): a condensed register → approve → contribute → vote → audit
+  journey, written entirely by real HTTP/RPC calls against a fresh source H2 instance, exported via the
+  real ADMIN-only `GET /api/backup/export`, restored into a second fresh target H2 instance via the
+  real `POST /api/backup/restore`, then re-verified entirely through the target's own real RPC/HTTP
+  surface — including an unscoped GoBD hash-chain re-verification, the first time in this codebase a
+  hash chain built by real business-logic writes is proven to survive a byte-for-byte export/restore
+  round trip. Found and fixed a real production bug — see "Fixed" below.
+
+`./gradlew clean check` (rerun from clean, not from build cache) — **1,085 `lapis-server` tests, 0
+failures, 0 errors, ktlint clean** (6 new tests, one per scenario above, each a single continuous
+Kotest `test()` block; up from the pre-existing 1,079).
+
+### Fixed
+
+**`POST /api/backup/restore`'s success response crashed every genuinely successful restore over real
+HTTP with a 500 — found and fixed by Scenario 6.** The route replied with
+`mapOf("tablesRestored" to Int, "totalRowCount" to Long, "blobsRestored" to Int, "warnings" to
+List<String>)` — a raw `Map` whose *values* span three different types. Ktor's `kotlinx.serialization`
+content negotiation infers a serializer for an untyped `Map`/`List` by inspecting its element type,
+which only works when every value is the same type; a mixed-type map throws
+`IllegalStateException: Serializing collections of different element types is not yet supported`,
+unhandled by any `StatusPages` mapping. This had gone completely undetected because every pre-existing
+test either only exercised the ADMIN-only role-check rejection path (never reaches this `respond`
+call) or called `OrganizationRestoreService.restore()` directly as a plain Kotlin method, bypassing
+the HTTP route entirely — Scenario 6 is the first test in this codebase to drive a genuinely
+successful restore through the real HTTP surface. Fixed by replying with a typed `@Serializable
+RestoreResultResponse` data class instead of the raw map. `BackupRoutes.kt`.
+
+### Known limitations (tracked for later versions)
+
+- **Kilua RPC's JVM client stub is a no-op — a genuinely wire-level Kilua JSON-RPC call cannot be
+  driven from a JVM test in this codebase at all.** This is why `E2eSupport`'s real-`module()`
+  scenarios, like every pre-existing `*ServiceTest`/`ServiceIntegrationTest`, construct RPC service
+  classes directly rather than issuing a literal RPC envelope over the wire — the same,
+  already-house-endorsed definition of "real RPC call" this codebase has always used, just now layered
+  onto a fully (not partially) wired application with real login/session flows on top. A test-tooling
+  gap, not a production defect.
+- **`leaveMembership` does not retire an already-open `CommitteeMembershipTable` seat.** Confirmed live
+  by Scenario 4 through the real `GovernanceService.listCommitteeMembers(activeOnly = true)` read path
+  (plus a direct DB read of the underlying row): after a member self-exits (AKTIV → AUSGETRETEN), that
+  call still lists them as an active seat holder. The V0.9.0
+  `addCommitteeMember`/`appointElectionBoard`/`tally` status gates close the *seating* side of this gap
+  (a non-AKTIV member can no longer be newly seated) but nothing yet retires a seat that was already
+  open before the seatholder's status changed — structurally the same open question applies to any
+  other status transition away from AKTIV (e.g. `rejectApplication`), though only the `leaveMembership`
+  path has been live-verified by this wave.
+- **`computeMonthlyDistribution` writes a decision/allocation record only — it never posts a
+  `JournalEntry`.** `CrowdfundingService.computeMonthlyDistribution` inserts
+  `CrowdfundingDistributionTable` rows (who gets how much of the monthly EUR pool) but calls no
+  accounting-posting path at all; the actual EUR transfer implied by that allocation is not booked into
+  the GoBD-audited ledger by this method. Scenario 2 asserts this as the wave's own documented,
+  deliberate scope cut, not as a newly discovered gap — pinned down by a global `JournalEntryTable`
+  before/after row-count comparison across the distribution run, so that wiring up automatic posting
+  later breaks the assertion and forces this entry to be revisited rather than silently rotting.
+- **Scenario 6 additionally flagged, but did not fix, two further backup/restore findings:** (1) the
+  HTTP restore route can never reach `OrganizationRestoreService`'s "primary supported" fresh-target
+  path in practice, since ADMIN-only auth requires an existing member row that a truly empty target
+  does not have — a chicken-and-egg gap independently confirmed by `AdminBootstrap`'s own KDoc; (2)
+  `session` rows are **not** excluded from the organization export/restore bundle
+  (`OrganizationSchemaCatalog`'s only exclusion is `flyway_schema_history`, a deliberate V0.5.4
+  security-loop scope decision) — proven concretely by replaying a source-issued raw session token
+  against the restored target, where it is still live.
+
 ## [0.9.0] — 2026-07-30
 
 ### Fixed
