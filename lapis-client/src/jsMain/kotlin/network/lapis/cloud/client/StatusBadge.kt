@@ -36,3 +36,14 @@ fun Container.typeBadge(
     text: String,
     color: String,
 ): Span = span(text) { addCssClasses("badge rounded-pill border border-$color text-$color") }
+
+/**
+ * Accounting UI wave, design decision D9: promotes the plain `if (active) "Aktiv" else "Inaktiv"`
+ * ternary every screen with a deactivate-able entity (`CommitteesScreen` included) previously wrote
+ * inline into one generic helper -- zero domain-specific knowledge, so it belongs here rather than
+ * in a per-domain labels file. Used by `LedgerScreen.kt` (accounts), and by the later cost-center/
+ * donor screens. `CommitteesScreen.kt`'s own pre-existing inline version is deliberately left
+ * untouched this wave -- retrofitting it is out of scope, avoid unrelated diff noise.
+ */
+fun Container.activeStatusBadge(active: Boolean): Span =
+    statusBadge(if (active) "Aktiv" else "Inaktiv", if (active) "success" else "secondary")

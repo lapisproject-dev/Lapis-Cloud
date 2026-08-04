@@ -50,6 +50,15 @@ fun renderDashboardScreen(container: SimplePanel) {
     navTile(nav, "Gremien", Routes.COMMITTEES)
     navTile(nav, "Sitzungen", Routes.MEETINGS)
     navTile(nav, "Anträge", Routes.MOTIONS)
+    // Accounting UI wave, design decision D15: same placement/role-gating as the navbar link --
+    // see `App.kt` `refreshNavbar`.
+    if (AppState.hasRole(AccountRole.TREASURER, AccountRole.BOARD, AccountRole.ADMIN)) {
+        navTile(nav, "Kontenplan & Journal", Routes.LEDGER)
+        navTile(nav, "Finanzberichte", Routes.FINANCIAL_REPORTS)
+        navTile(nav, "Gemeinnützigkeits-Berichte", Routes.COMPLIANCE_REPORTS)
+        navTile(nav, "Kostenstellen", Routes.COST_CENTERS)
+        navTile(nav, "Spender", Routes.DONORS)
+    }
     if (AppState.hasRole(AccountRole.BOARD, AccountRole.ADMIN)) {
         navTile(nav, "Mitgliederverwaltung", Routes.MEMBERS)
     }

@@ -8,6 +8,58 @@ All notable changes to this project are documented here. Format follows
 
 ### Added
 
+**Accounting UI wave — five new screens (Ledger & Journal, Financial Reports, Nonprofit Compliance
+Reports, Cost Centers, Donors), on `feature/accounting-ui`. Wave complete.** The pilots (PdV, ELB)
+picked Accounting as their #2 UI priority after Governance ("Schatzmeister-Tagesgeschäft" — the
+treasurer's day-to-day tool). All five screens surface the already-implemented, already-tested
+`IAccountingService`/`AccountingService` SKR42 double-entry backend end to end for the first time —
+accounting/treasury work that previously required a developer with direct RPC/API access is now
+usable from the browser. Consistently gated TREASURER/BOARD/ADMIN at the route level, with every
+mutating action further narrowed to TREASURER/ADMIN in-screen (`TREASURY_ROLES`/
+`ACCOUNTING_READ_ROLES`, matching the server's own split exactly) — a BOARD caller reaches every
+screen but sees write affordances on none of them. Every monetary figure across all five screens is
+a `Decimal` returned verbatim by the server and rendered through the shared `Money.kt`
+(`formatMoney`/`moneySpan`) — no client-side re-rounding or re-deriving of a figure the server has
+already computed, the one recurring exception being typed sign comparisons used purely to drive
+`warnIfNegative` styling. **No backend/RPC changes across the whole wave** — the pre-existing
+`IAccountingService` surface was sufficient as-is for all five screens, so unlike the Governance UI
+wave below, no gap was found here that needed a new server-side method.
+
+- **`LedgerScreen.kt`** (`#/ledger`) — SKR42 Kontenplan (list/create/deactivate) and the Journal
+  (Grundbuch) draft/post workflow, plus a per-account Hauptbuch/Kassenbuch drill-down. A bespoke
+  posting-confirmation modal renders the full balanced Soll/Haben table before an irreversible post;
+  since neither RPC offers an update/delete path for an existing draft, an "Als neuen Entwurf
+  duplizieren" action fills a new-entry form from a wrong draft's data instead of silently resubmitting
+  it. Makes day-to-day SKR42 bookkeeping (opening/managing accounts, drafting and posting journal
+  entries, reading the general/cash ledger) usable without developer access for the first time.
+- **`FinancialReportsScreen.kt`** (`#/financial-reports`) — GuV, Bilanz (with a visible "ausgeglichen"
+  sanity badge for the server-guaranteed `balanced` flag) and Jahresabschluss, purely read-only.
+  Jahresabschluss reuses the same GuV/Bilanz rendering functions as the standalone tabs so it can
+  never drift from them. Makes org-wide financial statements — previously only obtainable via a raw
+  RPC call — a self-service report for TREASURER/BOARD.
+- **`NonprofitComplianceReportsScreen.kt`** (`#/compliance-reports`) — Vier-Sphären-Ergebnisrechnung
+  (all four `GemeinnuetzigkeitSphere` rows in server-returned order, expand-in-place income/expense
+  detail reusing `FinancialReportsScreen`'s own line-table renderer) and Mittelverwendungsrechnung
+  (§55/§62 AO), with a persistent, non-dismissible banner stating this is a Nachweis-Hilfe for the
+  board, not an automated compliance verdict, and the timely-use-window figure interpolated live from
+  the DTO rather than hardcoded. The single most gemeinnützigkeitsrechtlich sensitive report pair in
+  the system, surfaced to the board for the first time without needing a developer to run a query.
+- **`CostCentersScreen.kt`** (`#/cost-centers`) — Kostenstellen-/Projektbuchhaltung (DATEV KOST2 sense):
+  list/create/deactivate plus a date-range-scoped report with a distinct "Nicht zugeordnet" row for
+  untagged postings and a bold grand-total row, both reconciled figures rendered verbatim from the
+  server. Makes project/event-scoped cost tracking (e.g. tagging postings to "SOMMERFEST-2027") a
+  treasurer self-service task.
+- **`DonorsScreen.kt`** (`#/donors`) — external-donor CRM-lite CRUD (a distinct, non-Member entity,
+  never merged into the member list) plus the calendar-year-scoped §25 PartG
+  Spendenrecht-Pflichten-Report: per-donor open-duties table and a separate per-donation
+  anonymous-forwarding table, both captioned to make clear this is not a prohibited-donation list —
+  those are hard-blocked server-side at post time. Makes party-donation-law disclosure-duty tracking
+  usable without a developer querying the database directly.
+- New `jsTest` coverage per screen (`LedgerScreenTest.kt`, `FinancialReportsScreenTest.kt`,
+  `NonprofitComplianceReportsScreenTest.kt`, `CostCentersScreenTest.kt`, `DonorsScreenTest.kt`), plus
+  first-consumer coverage for the shared `AccountingLabels.kt`/`Money.kt` files. `./gradlew clean
+  check` green throughout every screen's commit, including ktlint.
+
 **Governance UI wave — three new screens (Committees & Membership "Gremien", Meetings "Sitzungen",
 Motions & Voting "Anträge"), on `feature/governance-ui`.** The V1.0 pre-production readiness check
 found 13 backend domains with zero client UI, reachable only via Kilua RPC/raw HTTP; the pilots

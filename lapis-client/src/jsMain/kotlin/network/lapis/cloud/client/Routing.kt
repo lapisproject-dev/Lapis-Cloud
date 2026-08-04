@@ -28,6 +28,36 @@ object Routes {
     const val COMMITTEES = "/committees"
     const val MEETINGS = "/meetings"
     const val MOTIONS = "/motions"
+
+    // Accounting UI wave: unlike Governance, every single `IAccountingService` method requires at
+    // least TREASURER/BOARD/ADMIN server-side (see that interface's own class KDoc) -- there is no
+    // plain-MEMBER-readable Accounting RPC at all. This route therefore gates at the route level
+    // with `requireRole`, not `requireAuth` -- a deliberate deviation from the Governance UI wave's
+    // routing posture, verified against every `requireRole` call site in `AccountingService.kt`.
+    const val LEDGER = "/ledger"
+
+    // Screen 2 of 5 -- GuV/Bilanz/Jahresabschluss, purely read-only (`getIncomeStatement`/
+    // `getBalanceSheet`/`getAnnualFinancialStatement` are all `ACCOUNTING_READ_ROLES`, same
+    // TREASURER/BOARD/ADMIN tier as [LEDGER]'s route guard below).
+    const val FINANCIAL_REPORTS = "/financial-reports"
+
+    // Screen 3 of 5 -- Vier-Sphären-Ergebnisrechnung + Mittelverwendungsrechnung, purely
+    // read-only (`getFourSphereIncomeStatement`/`getUseOfFundsStatement` are both
+    // `ACCOUNTING_READ_ROLES`, same TREASURER/BOARD/ADMIN tier as [LEDGER]/[FINANCIAL_REPORTS]).
+    const val COMPLIANCE_REPORTS = "/compliance-reports"
+
+    // Screen 4 of 5 -- Kostenstellen CRUD (`createCostCenter`/`deactivateCostCenter`, both
+    // `TREASURY_ROLES`) + report (`listCostCenters`/`getCostCenterReport`, both
+    // `ACCOUNTING_READ_ROLES`) -- same route-level TREASURER/BOARD/ADMIN guard as [LEDGER], with
+    // the narrower TREASURER/ADMIN write-gating handled inside the screen itself.
+    const val COST_CENTERS = "/cost-centers"
+
+    // Screen 5 of 5 -- external donor CRM-lite CRUD (`createExternalDonor`/`deactivateExternalDonor`,
+    // both `TREASURY_ROLES`) + §25 PartG duty report (`listExternalDonors`/`getExternalDonor`/
+    // `getDonationDutyReport`, all `ACCOUNTING_READ_ROLES`) -- same route-level TREASURER/BOARD/ADMIN
+    // guard as [LEDGER]/[COST_CENTERS], with the narrower TREASURER/ADMIN write-gating handled
+    // inside the screen itself.
+    const val DONORS = "/donors"
 }
 
 private var appRouting: Routing? = null
@@ -116,6 +146,23 @@ fun initRouting(pageContainer: SimplePanel) {
     routing.kvOn(Routes.MOTIONS) {
         requireAuth(routing) { show(::renderMotionsScreen) }
     }
+    routing.kvOn(Routes.LEDGER) {
+        requireRole(routing, AccountRole.TREASURER, AccountRole.BOARD, AccountRole.ADMIN) { show(::renderLedgerScreen) }
+    }
+    routing.kvOn(Routes.FINANCIAL_REPORTS) {
+        requireRole(routing, AccountRole.TREASURER, AccountRole.BOARD, AccountRole.ADMIN) { show(::renderFinancialReportsScreen) }
+    }
+    routing.kvOn(Routes.COMPLIANCE_REPORTS) {
+        requireRole(routing, AccountRole.TREASURER, AccountRole.BOARD, AccountRole.ADMIN) {
+            show(::renderNonprofitComplianceReportsScreen)
+        }
+    }
+    routing.kvOn(Routes.COST_CENTERS) {
+        requireRole(routing, AccountRole.TREASURER, AccountRole.BOARD, AccountRole.ADMIN) { show(::renderCostCentersScreen) }
+    }
+    routing.kvOn(Routes.DONORS) {
+        requireRole(routing, AccountRole.TREASURER, AccountRole.BOARD, AccountRole.ADMIN) { show(::renderDonorsScreen) }
+    }
     routing.kvOn("/") {
         routing.navigate(if (AppState.isAuthenticated) Routes.DASHBOARD else Routes.LOGIN)
     }
@@ -148,6 +195,14 @@ private inline fun requireAuth(
     }
 }
 
+/**
+ * Accounting UI wave design review, "Additional decision not on the original list": the denial
+ * copy used to hardcode "...nur für Vorstand/Admin sichtbar", written when [MEMBERS] was the only
+ * `requireRole`-gated route (BOARD/ADMIN). Reusing it verbatim for the new Accounting routes
+ * (TREASURER/BOARD/ADMIN) would show a MEMBER an inaccurate role list, so the message is
+ * generalized to be role-neutral -- applies retroactively to `/members` too with no loss of
+ * meaning.
+ */
 private inline fun requireRole(
     routing: Routing,
     vararg roles: AccountRole,
@@ -156,7 +211,7 @@ private inline fun requireRole(
     if (!AppState.isAuthenticated) {
         routing.navigate(Routes.LOGIN)
     } else if (!AppState.hasRole(*roles)) {
-        notifyError("Kein Zugriff -- diese Seite ist nur für Vorstand/Admin sichtbar.")
+        notifyError("Kein Zugriff -- für diesen Bereich fehlt Ihnen die Berechtigung.")
         routing.navigate(Routes.DASHBOARD)
     } else {
         body()

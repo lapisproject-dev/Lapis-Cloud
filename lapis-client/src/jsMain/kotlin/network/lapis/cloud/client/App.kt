@@ -83,6 +83,16 @@ private fun refreshNavbar(navbar: Navbar) {
     leftNav.navLink("Gremien", url = "#${Routes.COMMITTEES}")
     leftNav.navLink("Sitzungen", url = "#${Routes.MEETINGS}")
     leftNav.navLink("Anträge", url = "#${Routes.MOTIONS}")
+    // Accounting UI wave, design decision D15: inserted immediately after "Anträge" and before
+    // "Mitgliederverwaltung" -- gated on TREASURER/BOARD/ADMIN (the same three roles the LEDGER
+    // route itself requires), so a plain MEMBER never even sees this link render.
+    if (AppState.hasRole(AccountRole.TREASURER, AccountRole.BOARD, AccountRole.ADMIN)) {
+        leftNav.navLink("Kontenplan & Journal", url = "#${Routes.LEDGER}")
+        leftNav.navLink("Finanzberichte", url = "#${Routes.FINANCIAL_REPORTS}")
+        leftNav.navLink("Gemeinnützigkeits-Berichte", url = "#${Routes.COMPLIANCE_REPORTS}")
+        leftNav.navLink("Kostenstellen", url = "#${Routes.COST_CENTERS}")
+        leftNav.navLink("Spender", url = "#${Routes.DONORS}")
+    }
     if (AppState.hasRole(AccountRole.BOARD, AccountRole.ADMIN)) {
         leftNav.navLink("Mitgliederverwaltung", url = "#${Routes.MEMBERS}")
     }
