@@ -8,6 +8,59 @@ All notable changes to this project are documented here. Format follows
 
 ### Added
 
+**Governance UI wave — three new screens (Committees & Membership "Gremien", Meetings "Sitzungen",
+Motions & Voting "Anträge"), on `feature/governance-ui`.** The V1.0 pre-production readiness check
+found 13 backend domains with zero client UI, reachable only via Kilua RPC/raw HTTP; the pilots
+(PdV, ELB) picked Governance first (committees, meetings, motions/voting are day-to-day board
+business). All three screens ship against the already-implemented, already-tested
+`IGovernanceService`/`GovernanceService` backend, routed at `#/committees`, `#/meetings` and
+`#/motions` with matching nav links and dashboard tiles, open to any authenticated member
+(`IGovernanceService`'s reads require no role at all — role gates apply only to the write actions
+below). Governance business that previously required a developer with direct RPC/API access is now
+usable end to end from the browser:
+
+- **Gremien** (`CommitteesScreen.kt`): committee directory (list + BOARD/ADMIN-only create/edit) and
+  per-committee membership roster (BOARD/ADMIN-only add-member, sourced from the already
+  AKTIV-filtered `IMemberService.listMembers()`, and end-membership via a small dated-confirmation
+  modal). All four write actions are strictly global BOARD/ADMIN — committee leadership does not
+  qualify here, unlike the two screens below.
+- **Sitzungen** (`MeetingsScreen.kt`): filterable meeting list with a single combined
+  agenda+attendance+resolutions+quorum detail view; BOARD/ADMIN/committee-leadership-gated creation
+  and PLANNED → HELD/CANCELLED status transitions; ordered agenda add/remove; per-eligible-member
+  attendance recording with a live pass/fail quorum display; a Committee-Quorum resolution book; and
+  an always-visible protocol draft (inline preview + browser-print, backed by a new `@media print`
+  stylesheet in `index.html`) — deliberately no client-generated downloadable file this wave, browser
+  print covers the interim need until the future Serienbrief-/PDF-Engine (V0.4).
+- **Anträge** (`MotionsScreen.kt`): the full Motion lifecycle — submit (target-Committee picker
+  scoped to what the caller actually qualifies for), amend (rendered indented beneath its parent,
+  with the amendment-ordering guard surfaced proactively as a warning rather than left to a server
+  error), review, schedule (against a Committee's PLANNED Meetings), and resolve via either a
+  Committee-Quorum vote or a Meritocratic Vote — plus that Vote's own sub-flow (`openVote`/
+  `castVoteBallot`/`closeVote`/`abortVote`) as one screen rather than a separate `VotesScreen.kt`,
+  since a Vote only ever exists in the context of one `SCHEDULED` Motion. Sealed-bid by design while
+  OPEN (ballot count and the caller's own ballot only, never running totals or a leaderboard — a
+  deliberate UI-level choice per the design review's Jobs' final call: "if the mechanism wants sealed
+  bids, the interface should feel sealed"), full reveal once CLOSED. Reuses the Meetings screen's own
+  resolution rendering so a Resolution looks identical on both screens.
+- **Real backend gap found and fixed while building the Motions screen (not a UI-authoring
+  mistake): `IGovernanceService.listVotes(motionId, status)`.** Every Vote-scoped method
+  (`getVote`/`castVoteBallot`/`closeVote`/`abortVote`/`listVoteBallots`) required already knowing a
+  specific Vote's id, which only ever reached a client as the return value of the one `openVote` call
+  that created it — a second visitor to a Motion, or a page reload, had no RPC path back to an
+  already-OPEN Vote's id at all. Added as a small, read-only, no-role-required, purely additive
+  method mirroring `listMotions`'s own optional-filter shape, in `GovernanceService.kt`, with new
+  `GovernanceServiceTest.kt` coverage. No other backend/RPC behavior changed — the Committees and
+  Meetings screens needed no backend changes at all.
+- Shared infrastructure introduced across the wave: `StatusBadge.kt` (`statusBadge`/`typeBadge`,
+  solid = lifecycle status vs. outline = fixed category, per the UI/UX-Design-Team review) and
+  `GovernanceAuthzUi.kt` (`canRecordForMeeting`, a pure client-side mirror of
+  `GovernanceAuthorization.canRecordForMeeting`), both reused across all three screens' role gating
+  and badges.
+- New `jsTest` coverage per screen — `CommitteesScreenTest.kt`, `MeetingsScreenTest.kt`,
+  `GovernanceAuthzUiTest.kt`, `MotionsScreenTest.kt` (label/color completeness, hue coverage, and
+  authorization branch coverage) — plus the `GovernanceServiceTest.kt` addition above.
+- `./gradlew clean check` green throughout, including ktlint.
+
 **V1.0 "Pilot-Produktivbetrieb" end-to-end integration test wave — six real, cross-domain journey
 scenarios, on top of the pre-existing 1,079 `lapis-server` per-service tests.** Every existing
 `*ServiceTest`/`*RoutesTest`/`*SchemaDriftTest` file (the codebase's overwhelming majority of test

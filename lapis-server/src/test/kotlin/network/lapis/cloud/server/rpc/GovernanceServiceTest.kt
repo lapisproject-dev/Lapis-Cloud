@@ -1592,6 +1592,77 @@ class GovernanceServiceTest :
         }
 
         test(
+            "listVotes (Governance UI wave addition): discovers a Motion's OPEN Vote by motionId " +
+                "alone, without the caller having been the one that called openVote -- and status " +
+                "filtering narrows correctly once the Vote is CLOSED",
+        ) {
+            testApplication {
+                application {
+                    install(StatusPages) { installGovernanceExceptionHandlers() }
+                    routing {
+                        registerGovernanceTestRoutes()
+                        registerMotionTestRoutes()
+                        registerVoteTestRoutes()
+                    }
+                }
+
+                val committeeId =
+                    client
+                        .post("/test/create-committee/Executive Board%20List%20Votes/EXECUTIVE_BOARD/50") {
+                            header("X-Member-Id", BOARD_ID)
+                        }.bodyAsText()
+                createdCommitteeIds += Uuid.parse(committeeId)
+
+                val chair = createTestMember("list-votes-chair@example.org")
+                val member = createTestMember("list-votes-member@example.org")
+                client.post("/test/add-member/$committeeId/$chair/CHAIR") { header("X-Member-Id", BOARD_ID) }
+                client.post("/test/add-member/$committeeId/$member/MEMBER") { header("X-Member-Id", BOARD_ID) }
+                seedLtrBalance(member, BigDecimal("50.00"))
+
+                val (motionId, _) = client.createTerminierterMotion(committeeId, chair, member, 2026, 11, 4)
+
+                // No Vote opened yet: a fresh client session (no in-memory VoteDto from openVote)
+                // must see an empty list, not an error. `member` (not `chair`, who will be the one
+                // to actually call openVote below) -- read requires no role at all, any
+                // authenticated member may call this.
+                client.get("/test/list-votes/$motionId") { header("X-Member-Id", member.toString()) }.bodyAsText() shouldBe ""
+
+                val opened =
+                    client.post("/test/open-vote/$motionId") { header("X-Member-Id", chair.toString()) }.bodyAsText()
+                val voteId = opened.substringBefore(":")
+                val jaOptionId =
+                    opened
+                        .split(":", limit = 3)[2]
+                        .split(";")
+                        .first { it.endsWith("=YES") }
+                        .substringBefore("=")
+
+                // The exact gap this method closes: `member`, who never called openVote itself
+                // (that was `chair`), can now find the OPEN Vote's id from the Motion alone.
+                client.get("/test/list-votes/$motionId") { header("X-Member-Id", member.toString()) }.bodyAsText() shouldBe
+                    "$voteId:OPEN"
+                client
+                    .get("/test/list-votes/$motionId?status=OPEN") { header("X-Member-Id", member.toString()) }
+                    .bodyAsText() shouldBe "$voteId:OPEN"
+                client
+                    .get("/test/list-votes/$motionId?status=CLOSED") { header("X-Member-Id", member.toString()) }
+                    .bodyAsText() shouldBe ""
+
+                client.post("/test/cast-vote-ballot/$voteId/$jaOptionId/5.00") { header("X-Member-Id", member.toString()) }
+                client.post("/test/close-vote/$voteId") { header("X-Member-Id", chair.toString()) }
+
+                client.get("/test/list-votes/$motionId") { header("X-Member-Id", member.toString()) }.bodyAsText() shouldBe
+                    "$voteId:CLOSED"
+                client
+                    .get("/test/list-votes/$motionId?status=OPEN") { header("X-Member-Id", member.toString()) }
+                    .bodyAsText() shouldBe ""
+                client
+                    .get("/test/list-votes/$motionId?status=CLOSED") { header("X-Member-Id", member.toString()) }
+                    .bodyAsText() shouldBe "$voteId:CLOSED"
+            }
+        }
+
+        test(
             "Meritokratische Vote validation: stake below the 0.01 LTR floor and stake exceeding the " +
                 "member's free LTR balance are both rejected server-side, never trusting the client amount",
         ) {
@@ -2692,6 +2763,12 @@ private fun Route.registerVoteTestRoutes() {
         val service = GovernanceService(call)
         val ballots = service.listVoteBallots(call.parameters["voteId"]!!)
         call.respondText(ballots.joinToString(";") { "${it.memberId}:${it.stakeLtr}:${it.settledLtr ?: ""}" })
+    }
+    get("/test/list-votes/{motionId}") {
+        val service = GovernanceService(call)
+        val statusParam = call.request.queryParameters["status"]?.let { VoteStatus.valueOf(it) }
+        val votes = service.listVotes(motionId = call.parameters["motionId"], status = statusParam)
+        call.respondText(votes.joinToString(";") { "${it.id}:${it.status}" })
     }
     get("/test/resolution-for-meeting/{meetingId}") {
         val service = GovernanceService(call)

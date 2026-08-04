@@ -47,6 +47,9 @@ fun renderDashboardScreen(container: SimplePanel) {
     navTile(nav, "Beitragsübersicht", Routes.CONTRIBUTIONS)
     navTile(nav, "Dokumentenablage", Routes.DOCUMENTS)
     navTile(nav, "Kommunikation", Routes.COMMUNICATION)
+    navTile(nav, "Gremien", Routes.COMMITTEES)
+    navTile(nav, "Sitzungen", Routes.MEETINGS)
+    navTile(nav, "Anträge", Routes.MOTIONS)
     if (AppState.hasRole(AccountRole.BOARD, AccountRole.ADMIN)) {
         navTile(nav, "Mitgliederverwaltung", Routes.MEMBERS)
     }

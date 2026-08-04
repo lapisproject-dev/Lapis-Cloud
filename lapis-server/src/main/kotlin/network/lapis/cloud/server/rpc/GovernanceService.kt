@@ -1222,6 +1222,25 @@ class GovernanceService(
         return transaction { loadVote(abId) }
     }
 
+    /**
+     * Governance UI wave addition (see [IGovernanceService.listVotes] KDoc for the gap this
+     * closes) -- mirrors [listMotions]'s optional-filter/no-role-required shape exactly.
+     */
+    override suspend fun listVotes(
+        motionId: String?,
+        status: VoteStatus?,
+    ): List<VoteDto> {
+        resolveCurrentMember(call)
+        return transaction {
+            val conditions = mutableListOf<Op<Boolean>>()
+            if (motionId != null) conditions += (VoteTable.motionId eq motionId.toMotionUuid())
+            if (status != null) conditions += (VoteTable.status eq status)
+            val baseQuery = VoteTable.selectAll()
+            val query = if (conditions.isEmpty()) baseQuery else baseQuery.where { conditions.reduce { a, b -> a and b } }
+            query.map { it.toVoteDto() }
+        }
+    }
+
     override suspend fun listVoteBallots(voteId: String): List<VoteBallotDto> {
         resolveCurrentMember(call)
         val abId = voteId.toVoteUuid()

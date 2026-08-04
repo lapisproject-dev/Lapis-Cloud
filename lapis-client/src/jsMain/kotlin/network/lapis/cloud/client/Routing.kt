@@ -19,6 +19,15 @@ object Routes {
     const val CONTRIBUTIONS = "/contributions"
     const val DOCUMENTS = "/documents"
     const val COMMUNICATION = "/communication"
+
+    // Governance UI wave: reads are open to any authenticated member (see `IGovernanceService`
+    // KDoc -- no RPC method in this interface requires a role to READ), so all three routes use
+    // `requireAuth`, not `requireRole`, exactly like CONTRIBUTIONS/DOCUMENTS/COMMUNICATION.
+    // Privileged write actions (create committee, add member, ...) are gated inside each screen
+    // instead, mirroring `DocumentsScreen`'s `canManage` posture -- see the approved plan §2/§4.
+    const val COMMITTEES = "/committees"
+    const val MEETINGS = "/meetings"
+    const val MOTIONS = "/motions"
 }
 
 private var appRouting: Routing? = null
@@ -97,6 +106,15 @@ fun initRouting(pageContainer: SimplePanel) {
     }
     routing.kvOn(Routes.COMMUNICATION) {
         requireAuth(routing) { show(::renderCommunicationScreen) }
+    }
+    routing.kvOn(Routes.COMMITTEES) {
+        requireAuth(routing) { show(::renderCommitteesScreen) }
+    }
+    routing.kvOn(Routes.MEETINGS) {
+        requireAuth(routing) { show(::renderMeetingsScreen) }
+    }
+    routing.kvOn(Routes.MOTIONS) {
+        requireAuth(routing) { show(::renderMotionsScreen) }
     }
     routing.kvOn("/") {
         routing.navigate(if (AppState.isAuthenticated) Routes.DASHBOARD else Routes.LOGIN)

@@ -27,6 +27,7 @@ import network.lapis.cloud.shared.domain.VoteBallotDto
 import network.lapis.cloud.shared.domain.VoteBallotInput
 import network.lapis.cloud.shared.domain.VoteDto
 import network.lapis.cloud.shared.domain.VoteOpenInput
+import network.lapis.cloud.shared.domain.VoteStatus
 
 /**
  * Committee and meeting management (V0.2.1): Committees/working groups, memberships within them,
@@ -252,6 +253,23 @@ interface IGovernanceService {
     suspend fun abortVote(voteId: String): VoteDto
 
     suspend fun getVote(voteId: String): VoteDto
+
+    /**
+     * Governance UI wave (V0.9.1 client) addition, not part of the original V0.2.3 Meritokratische-
+     * Vote design: every other Vote-scoped method in this interface ([getVote]/[castVoteBallot]/
+     * [closeVote]/[abortVote]/[listVoteBallots]) requires the caller to already know a specific
+     * Vote's id, which through V0.2.6 only ever reached a client as the return value of the one
+     * [openVote] call that created it. A second visitor opening the same Motion later in the same
+     * browser session (or the very first visitor after a page reload) had no RPC path back to an
+     * already-[VoteStatus.OPEN] Vote's id at all -- a real gap the Motions & Voting UI wave
+     * surfaced, not a UI-authoring mistake (see that wave's CHANGELOG entry). [motionId]/[status]
+     * mirror [listMotions]'s own optional-filter shape; reads require no role, same posture as
+     * every other read in this interface.
+     */
+    suspend fun listVotes(
+        motionId: String? = null,
+        status: VoteStatus? = null,
+    ): List<VoteDto>
 
     /**
      * Transparency read of every ballot cast so far, including staked/settled amounts — open to

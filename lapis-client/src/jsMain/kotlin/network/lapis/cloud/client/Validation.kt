@@ -44,6 +44,18 @@ object Validation {
         password: String,
         confirmation: String,
     ): Boolean = password == confirmation
+
+    /**
+     * Governance UI wave (Motions & Voting screen): UX pre-check for `VoteBallotInput.stakeLtr`'s
+     * plain-text input -- see the design review's implementation note ("no numeric/Decimal input
+     * widget has a precedent in this client yet ... a plain `text` input with a client-side
+     * numeric-and-non-negative check ... mirroring this file's existing pure-function style").
+     * The server's own floor (currently 0.01 LTR, `GovernanceService.MIN_STAKE_LTR`) is
+     * deliberately NOT duplicated here -- same "loose mirror, not the security boundary" posture
+     * every other function in this object already documents; a stake that passes this check but
+     * misses the server's exact floor still gets a clear `guarded()` conflict toast.
+     */
+    fun isPositiveDecimal(value: String): Boolean = value.trim().toDoubleOrNull()?.let { it > 0.0 } ?: false
 }
 
 /**

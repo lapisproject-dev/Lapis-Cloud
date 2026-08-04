@@ -80,6 +80,9 @@ private fun refreshNavbar(navbar: Navbar) {
     leftNav.navLink("Beiträge", url = "#${Routes.CONTRIBUTIONS}")
     leftNav.navLink("Dokumente", url = "#${Routes.DOCUMENTS}")
     leftNav.navLink("Kommunikation", url = "#${Routes.COMMUNICATION}")
+    leftNav.navLink("Gremien", url = "#${Routes.COMMITTEES}")
+    leftNav.navLink("Sitzungen", url = "#${Routes.MEETINGS}")
+    leftNav.navLink("Anträge", url = "#${Routes.MOTIONS}")
     if (AppState.hasRole(AccountRole.BOARD, AccountRole.ADMIN)) {
         leftNav.navLink("Mitgliederverwaltung", url = "#${Routes.MEMBERS}")
     }

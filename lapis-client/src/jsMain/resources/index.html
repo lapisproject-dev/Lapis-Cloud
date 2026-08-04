@@ -4,6 +4,29 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Lapis Cloud</title>
+    <!--
+      Governance UI wave (Sitzungen / Meetings screen): global print stylesheet backing the
+      "Protokoll" tab's "Drucken" button (`window.print()` in `MeetingsScreen.kt`) -- per the
+      approved UI/UX-Design-Team design decisions, D5. Added once, globally, rather than per
+      screen: hides all normal app chrome (navbar, filters, forms, other sections) and prints only
+      the currently-rendered `.protocol-print-area` container, so print/"Save as PDF" output is a
+      clean protocol document, not a screenshot of the whole app shell. Plain CSS class selector
+      (not an element `id`) -- no `id`-setting precedent exists elsewhere in this KVision client.
+    -->
+    <style media="print">
+        body * {
+            visibility: hidden;
+        }
+        .protocol-print-area, .protocol-print-area * {
+            visibility: visible;
+        }
+        .protocol-print-area {
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 100%;
+        }
+    </style>
     <script type="text/javascript" src="main.bundle.js"></script>
 </head>
 <body>
