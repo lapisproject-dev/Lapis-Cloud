@@ -123,6 +123,19 @@ and the V0.6.4 guest/Gast rating-basket closure (Politician Guest Rating, V0.8.5
   contrast-verified, screen-reader accessible). Content/Timeline-level guest marking is not built —
   this codebase has no "Timeline"/"Post" content entity yet, see "What doesn't work yet".
 
+**Since `v0.9.0` (on `master`, not yet tagged):** a V1.0-readiness review with this project's two
+real pilot organizations found that 13 backend domains had zero client UI, reachable only via
+Kilua RPC / raw HTTP — a treasurer or board member without developer access could not use any of
+them. The pilots picked Governance and Accounting as the two highest-priority gaps to close first.
+Both are done: a **Governance UI** (committees/working-group membership, meeting management with a
+live-recalculated quorum display and a printable protocol/Beschlussbuch draft, and the full
+motion/amendment/voting workflow) and an **Accounting UI** (the SKR42 chart of accounts and
+journal with a draft-then-post workflow, GuV/Bilanz/Jahresabschluss, the four-sphere
+Gemeinnützigkeit report and the §55/§62 AO Mittelverwendungsrechnung, cost centers, and external
+donors/§50 EStDV donation-duty reporting) — both real KVision screens over the already-tested RPC
+backends, both went through this project's mandatory UI/UX-Design-Team review before
+implementation. See `CHANGELOG.md`'s `[Unreleased]` section for full detail on both waves.
+
 Every wave went through this project's mandatory plan → implement → independent review →
 independent security audit pipeline before merging — the V0.8 waves additionally went through a
 dedicated adversarial live-attack phase each, given the project's own "most security-critical
@@ -166,9 +179,12 @@ legal counsel — not something this project can decide once for everyone. See `
   reset "would be sent" — same honestly-disclosed-stub posture `MailingService.sendMailingMessage`
   has had since V0.4/V0.1.5. A real SMTP-backed implementation is a drop-in replacement whenever an
   operator can verify one end to end.
-* **UI coverage beyond the core domains.** Governance, accounting, compliance, and the entire LTR
-  economy have no UI yet — reachable only via Kilua RPC / the HTTP routes. Needs its own future
-  prioritization decision, not yet scheduled as a numbered wave.
+* **UI coverage beyond Governance and Accounting.** Compliance (Transparenzregister, §25 PartG,
+  audit log, backup/restore, DSGVO), mail-merge/postal dispatch, and the LTR economy (Crowdfunding,
+  Auction, Peer-Transfer, Politician Profiles) still have no UI — reachable only via Kilua RPC / the
+  HTTP routes. Governance and Accounting closed the same gap for their domains, see above; the
+  remaining domains are lower day-to-day usage frequency per the pilots' own prioritization and are
+  not yet scheduled as numbered waves.
 * **No content type is actually federated yet.** V0.8.1 built the ActivityPub-hybrid protocol
   layer; no existing content type (crowdfunding projects, politician profiles, governance
   resolutions) is wired into outbound federation. A future wave's own explicit product decision.
