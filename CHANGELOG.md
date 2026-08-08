@@ -6,6 +6,8 @@ All notable changes to this project are documented here. Format follows
 
 ## [Unreleased]
 
+## [0.10.0] — 2026-08-04
+
 ### Added
 
 **Accounting UI wave — five new screens (Ledger & Journal, Financial Reports, Nonprofit Compliance

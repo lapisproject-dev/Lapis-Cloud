@@ -64,7 +64,7 @@ this repository. This README describes only the technical scope.
 
 == Status
 
-As of tag `v0.9.0`, eight major waves are complete (see `CHANGELOG.md` for full detail). `v0.9.0`
+As of tag `v0.10.0`, eight major waves are complete (see `CHANGELOG.md` for full detail). `v0.9.0`
 itself is a hardening/retrofit release, not a new numbered wave: it closes the V0.7.2 ANTRAG
 membership-gate audit's disclosed gaps (including the `addCommitteeMember`/`appointElectionBoard`/
 `tally` root cause and a related session-revocation gap in `rejectApplication`), a DNS-rebinding
@@ -123,18 +123,18 @@ and the V0.6.4 guest/Gast rating-basket closure (Politician Guest Rating, V0.8.5
   contrast-verified, screen-reader accessible). Content/Timeline-level guest marking is not built —
   this codebase has no "Timeline"/"Post" content entity yet, see "What doesn't work yet".
 
-**Since `v0.9.0` (on `master`, not yet tagged):** a V1.0-readiness review with this project's two
-real pilot organizations found that 13 backend domains had zero client UI, reachable only via
-Kilua RPC / raw HTTP — a treasurer or board member without developer access could not use any of
-them. The pilots picked Governance and Accounting as the two highest-priority gaps to close first.
-Both are done: a **Governance UI** (committees/working-group membership, meeting management with a
-live-recalculated quorum display and a printable protocol/Beschlussbuch draft, and the full
-motion/amendment/voting workflow) and an **Accounting UI** (the SKR42 chart of accounts and
-journal with a draft-then-post workflow, GuV/Bilanz/Jahresabschluss, the four-sphere
+**`v0.10.0`** is a UI-only release, closing the two highest-priority items a V1.0-readiness review
+found with this project's two real pilot organizations: 13 backend domains had zero client UI,
+reachable only via Kilua RPC / raw HTTP — a treasurer or board member without developer access
+could not use any of them. The pilots picked Governance and Accounting as the two highest-priority
+gaps to close first. Both are done: a **Governance UI** (committees/working-group membership,
+meeting management with a live-recalculated quorum display and a printable protocol/Beschlussbuch
+draft, and the full motion/amendment/voting workflow) and an **Accounting UI** (the SKR42 chart of
+accounts and journal with a draft-then-post workflow, GuV/Bilanz/Jahresabschluss, the four-sphere
 Gemeinnützigkeit report and the §55/§62 AO Mittelverwendungsrechnung, cost centers, and external
 donors/§50 EStDV donation-duty reporting) — both real KVision screens over the already-tested RPC
 backends, both went through this project's mandatory UI/UX-Design-Team review before
-implementation. See `CHANGELOG.md`'s `[Unreleased]` section for full detail on both waves.
+implementation. See `CHANGELOG.md` `[0.10.0]` for full detail on both waves.
 
 Every wave went through this project's mandatory plan → implement → independent review →
 independent security audit pipeline before merging — the V0.8 waves additionally went through a
