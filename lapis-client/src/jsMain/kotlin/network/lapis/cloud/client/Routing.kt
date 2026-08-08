@@ -58,6 +58,46 @@ object Routes {
     // guard as [LEDGER]/[COST_CENTERS], with the narrower TREASURER/ADMIN write-gating handled
     // inside the screen itself.
     const val DONORS = "/donors"
+
+    // Compliance UI wave, screen 1 of 5 -- GoBD-revisionssicheres Prüfprotokoll, purely read-only
+    // (`IAuditLogService` has no write method at all -- see that interface's own KDoc). Role gate
+    // verified against `AuditLogService.kt`'s `AUDIT_READ_ROLES` constant: TREASURER/BOARD/ADMIN,
+    // the same tier as [LEDGER]/[FINANCIAL_REPORTS]/[COMPLIANCE_REPORTS]/[COST_CENTERS]/[DONORS].
+    const val AUDIT_LOG = "/audit-log"
+
+    // Compliance UI wave, screen 2 of 5 -- full-organization export/restore + operations log.
+    // Role gate verified against `BackupService.kt`/`BackupRoutes.kt`'s `requireRole` call sites:
+    // ADMIN only, uniformly, for every one of `IBackupService`'s methods AND both raw HTTP routes
+    // (`/api/backup/export`, `/api/backup/restore`) -- narrower than every other route in this
+    // file (the first ADMIN-only route in this client).
+    const val BACKUP = "/backup"
+
+    // Compliance UI wave, screen 3 of 5 -- AVV-Register/TOMs/DSFA/Datenpannenmeldung. Role gate
+    // verified against `DsgvoComplianceService.kt`'s `COMPLIANCE_READ_ROLES` constant: BOARD/ADMIN,
+    // deliberately WITHOUT TREASURER/MEMBER (unlike [AUDIT_LOG]) -- see `IDsgvoComplianceService`
+    // KDoc "organizational DSGVO-compliance records, not treasury records". The narrower
+    // `AVV_TOM_WRITE_ROLES` (ADMIN only) is gated inside the screen itself, not at route level.
+    const val DSGVO_COMPLIANCE = "/dsgvo-compliance"
+
+    // Compliance UI wave, screen 4 of 5 -- member-facing DSGVO rights (Auskunft/Löschung, Art.
+    // 15/17/20 DSGVO) plus an ADMIN-only decide/execute queue for erasure requests + DSGVO audit
+    // trail. Role gate verified against `DsgvoService.kt`'s actual call sites: `exportManifest`/
+    // `requestErasure` are `requireSelfOrAdmin` (any authenticated member acting on themselves --
+    // the only case this screen's self-service tier calls), while `listErasureRequests`/
+    // `decideErasure`/`executeErasure`/`listAuditLog` are `requireRole(ADMIN)`. Unlike every
+    // `requireRole`-gated route above, this route uses plain `requireAuth` -- the narrower ADMIN
+    // tier is gated INSIDE the screen (`AppState.hasRole(ADMIN)`), mirroring [CONTRIBUTIONS]'s own
+    // `requireAuth`-at-route/`canManage`-in-screen shape, because every authenticated member (not
+    // just ADMIN) needs to reach this route for their own Auskunft/Löschung rights.
+    const val DSGVO_RIGHTS = "/dsgvo-rights"
+
+    // Compliance UI wave, screen 5 of 5 -- board roster + §20 GwG Transparenzregister report/
+    // reminders. Role gate verified against `BoardMembershipService.kt`'s `BOARD_ADMIN_ROLES`
+    // constant: BOARD/ADMIN, uniformly, for every one of `IBoardMembershipService`'s six methods --
+    // no narrower write tier exists on this interface, unlike [DSGVO_COMPLIANCE], so (mirroring
+    // [AUDIT_LOG]'s "route guard is the only guard" posture, just for a screen with real write
+    // actions) there is no in-screen `canManage` split either.
+    const val BOARD_MEMBERSHIP = "/board-membership"
 }
 
 private var appRouting: Routing? = null
@@ -162,6 +202,21 @@ fun initRouting(pageContainer: SimplePanel) {
     }
     routing.kvOn(Routes.DONORS) {
         requireRole(routing, AccountRole.TREASURER, AccountRole.BOARD, AccountRole.ADMIN) { show(::renderDonorsScreen) }
+    }
+    routing.kvOn(Routes.AUDIT_LOG) {
+        requireRole(routing, AccountRole.TREASURER, AccountRole.BOARD, AccountRole.ADMIN) { show(::renderAuditLogScreen) }
+    }
+    routing.kvOn(Routes.BACKUP) {
+        requireRole(routing, AccountRole.ADMIN) { show(::renderBackupScreen) }
+    }
+    routing.kvOn(Routes.DSGVO_COMPLIANCE) {
+        requireRole(routing, AccountRole.BOARD, AccountRole.ADMIN) { show(::renderDsgvoComplianceScreen) }
+    }
+    routing.kvOn(Routes.DSGVO_RIGHTS) {
+        requireAuth(routing) { show(::renderDsgvoRightsScreen) }
+    }
+    routing.kvOn(Routes.BOARD_MEMBERSHIP) {
+        requireRole(routing, AccountRole.BOARD, AccountRole.ADMIN) { show(::renderBoardMembershipScreen) }
     }
     routing.kvOn("/") {
         routing.navigate(if (AppState.isAuthenticated) Routes.DASHBOARD else Routes.LOGIN)

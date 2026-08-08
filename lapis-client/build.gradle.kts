@@ -1,6 +1,14 @@
 plugins {
     alias(libs.plugins.kotlin.multiplatform)
     alias(libs.plugins.kvision)
+    // Compliance UI wave, screen 2 of 5 (`BackupScreen.kt`/`BackupHttp.kt`): the first `@Serializable`
+    // class defined directly in this module (`RestoreSuccessResult`, mirroring the server's raw-HTTP
+    // `/api/backup/restore` response shape -- deliberately not an RPC DTO, so it does not belong in
+    // `lapis-shared`). Every other `@Serializable` type this module already decodes (audit-log
+    // snapshots, RPC DTOs, ...) is compiled inside `lapis-shared` (which already applies this plugin,
+    // see that module's own `build.gradle.kts`) and only *consumed* here via the generated
+    // `kotlinx-serialization-json` runtime -- so this plugin was never needed in this module before.
+    alias(libs.plugins.kotlin.serialization)
 }
 
 kotlin {

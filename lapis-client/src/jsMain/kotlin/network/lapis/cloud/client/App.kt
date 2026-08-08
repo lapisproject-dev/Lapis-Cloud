@@ -80,6 +80,11 @@ private fun refreshNavbar(navbar: Navbar) {
     leftNav.navLink("Beiträge", url = "#${Routes.CONTRIBUTIONS}")
     leftNav.navLink("Dokumente", url = "#${Routes.DOCUMENTS}")
     leftNav.navLink("Kommunikation", url = "#${Routes.COMMUNICATION}")
+    // Compliance UI wave, screen 4 of 5: unconditional, alongside "Beiträge"/"Dokumente" -- the
+    // ADMIN-only "Anträge verwalten" queue lives INSIDE this same screen (see `Routes.DSGVO_RIGHTS`
+    // KDoc), so the nav label itself does not need to fork per role -- don't fork a nav label on a
+    // role check when the destination screen already self-adapts (design decision, nav grouping).
+    leftNav.navLink("Meine Daten", url = "#${Routes.DSGVO_RIGHTS}")
     leftNav.navLink("Gremien", url = "#${Routes.COMMITTEES}")
     leftNav.navLink("Sitzungen", url = "#${Routes.MEETINGS}")
     leftNav.navLink("Anträge", url = "#${Routes.MOTIONS}")
@@ -92,9 +97,24 @@ private fun refreshNavbar(navbar: Navbar) {
         leftNav.navLink("Gemeinnützigkeits-Berichte", url = "#${Routes.COMPLIANCE_REPORTS}")
         leftNav.navLink("Kostenstellen", url = "#${Routes.COST_CENTERS}")
         leftNav.navLink("Spender", url = "#${Routes.DONORS}")
+        // Compliance UI wave: same TREASURER/BOARD/ADMIN tier as the rest of this group -- see
+        // `Routes.AUDIT_LOG` KDoc for the `AUDIT_READ_ROLES` verification.
+        leftNav.navLink("Prüfprotokoll", url = "#${Routes.AUDIT_LOG}")
     }
     if (AppState.hasRole(AccountRole.BOARD, AccountRole.ADMIN)) {
         leftNav.navLink("Mitgliederverwaltung", url = "#${Routes.MEMBERS}")
+        // Compliance UI wave, screen 3 of 5: same BOARD/ADMIN tier as "Mitgliederverwaltung" --
+        // see `Routes.DSGVO_COMPLIANCE` KDoc for the `COMPLIANCE_READ_ROLES` verification.
+        leftNav.navLink("DSGVO-Compliance", url = "#${Routes.DSGVO_COMPLIANCE}")
+        // Compliance UI wave, screen 5 of 5: same BOARD/ADMIN tier -- see `Routes.BOARD_MEMBERSHIP`
+        // KDoc for the `BOARD_ADMIN_ROLES` verification (uniform across all six RPC methods).
+        leftNav.navLink("Vorstand & Transparenzregister", url = "#${Routes.BOARD_MEMBERSHIP}")
+    }
+    // Compliance UI wave, screen 2 of 5: the first ADMIN-only nav entry in this client -- see
+    // `Routes.BACKUP` KDoc for the `requireRole` verification (every `IBackupService` method and
+    // both raw HTTP routes require ADMIN, uniformly, narrower than every other group above).
+    if (AppState.hasRole(AccountRole.ADMIN)) {
+        leftNav.navLink("Backup & Wiederherstellung", url = "#${Routes.BACKUP}")
     }
 
     val rightNav: Nav = navbar.nav(rightAlign = true)

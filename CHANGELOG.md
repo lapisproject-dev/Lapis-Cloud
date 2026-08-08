@@ -6,6 +6,96 @@ All notable changes to this project are documented here. Format follows
 
 ## [Unreleased]
 
+### Added
+
+**Compliance UI wave — five new screens (Audit Log, Backup & Restore, DSGVO-Compliance, DSGVO
+Rights, Board Membership), on `feature/compliance-ui`. Wave complete.** The pilots (PdV, ELB) picked
+Compliance as their #3 UI-gap-closure priority, after Governance and Accounting UI (both v0.10.0).
+All five screens surface the already-implemented, already-tested `IAuditLogService`/
+`IBackupService`/`IDsgvoComplianceService`/`IDsgvoService`/`IBoardMembershipService` backends end to
+end for the first time, per the approved plan + UI/UX-Design-Team review (root `CLAUDE.md`
+"UI/UX-Design-Team"). Because this domain covers legally load-bearing GoBD audit-trail integrity,
+GDPR erasure rights, and board-composition transparency reporting, the design review paid particular
+attention to three things carried consistently across the wave: the audit log's immutability is
+never contradicted by an edit affordance anywhere in the UI; a GDPR erasure request's
+approve/decide/execute distinction and irreversibility is unmistakable (bespoke confirmation modals
+matching `LedgerScreen.kt`'s `postingConfirmDialog` rigor); and every compliance-verdict-shaped
+display (risk bands, deadline clocks, reminder acknowledgements) reads as a documentation aid, never
+an automated legal verdict — the same "Nachweis-Hilfe, not automated compliance verdict" honesty
+precedent Accounting UI's Mittelverwendungsrechnung banner already established, repeated as its own
+unconditional, non-dismissible banner on the DSFA, Breach, and Transparenzregister-reminder tabs.
+**No backend/RPC changes were needed anywhere in this wave** — all six pre-existing service
+interfaces matched their own documented contract exactly, with one real build-config fix along the
+way (`lapis-client` had no `kotlinx-serialization` compiler plugin applied — needed once
+`BackupHttp.kt` became the module's first locally-defined `@Serializable` class).
+
+- **`AuditLogScreen.kt`** (`#/audit-log`, TREASURER/BOARD/ADMIN) — the GoBD hash-chain audit log:
+  keyset-paginated, filterable (entity type/id/actor/date range) list; a per-entry detail view with
+  structured before/after snapshot rendering (decoded against the four existing snapshot DTOs, with
+  a raw-text fallback for a future entity type or malformed data); and a one-button "Kette prüfen"
+  chain-integrity check surfacing the real cryptographic `verifyChainIntegrity` result as an
+  unambiguous pass/fail, never a default "assumed valid" state. `IAuditLogService` has no write
+  method at all by design, so this screen carries zero edit affordance anywhere — makes proving the
+  audit trail hasn't been tampered with a self-service task instead of a developer-run query.
+- **`BackupScreen.kt`** (`#/backup`, ADMIN only — the first ADMIN-only route/nav-entry in this
+  client) — full-organization export/restore against the two raw HTTP routes (bundle bytes never
+  travel over Kilua RPC) plus the operations-log audit trail of who exported/restored, when, and with
+  what outcome. Restore gets `postingConfirmDialog`-grade irreversibility rigor (bold "NICHT
+  rückgängig zu machen" warning, file name/size shown before commit, an extra line when the target
+  organization already holds data that would be merged/overwritten); the three real server exceptions
+  (`IncompatibleBundleException`/400, `NonEmptyTargetException`/409,
+  `RestoreIncompleteException`/422) each render their own distinct message instead of one generic
+  error toast. Makes organization backup/restore usable without direct server/API access.
+- **`DsgvoComplianceScreen.kt`** (`#/dsgvo-compliance`, BOARD/ADMIN) — the DSGVO-Vollausbau admin
+  tooling: four sub-registers (Verarbeitungsverzeichnis/AVV, technisch-organisatorische
+  Maßnahmen/TOM, Datenschutz-Folgenabschätzung/DSFA, Datenpannen) as one screen, reusing
+  `NonprofitComplianceReportsScreen.kt`'s toggle-button tab pattern. Write-form visibility differs per
+  tab (AVV/TOM: ADMIN only; DSFA/Breach: BOARD/ADMIN), matching the server's own role split exactly.
+  The Breach tab re-sorts the server's list client-side into an escalation-first order (OVERDUE first,
+  each group by deadline ascending, with an extra `border-danger` outline on overdue rows) so a missed
+  Art. 33 72-hour notification window is never below the fold. Makes AVV-Register, TOM, DSFA/DPIA, and
+  Datenpannenmeldung — previously developer/API-only — board-self-service compliance record-keeping.
+- **`DsgvoRightsScreen.kt`** (`#/dsgvo-rights`, unconditional nav entry "Meine Daten") — member-facing
+  Auskunft (Art. 15/20 DSGVO export) and Löschung/"Recht auf Vergessenwerden" (Art. 17 DSGVO) for any
+  authenticated member's own data, plus an ADMIN-only decide/execute queue and DSGVO audit trail
+  stacked below when present. Every erasure request's REQUESTED → APPROVED/REJECTED → COMPLETED
+  progress renders as a shared three-pill step tracker on both the requester's own status card and
+  every ADMIN queue row, so the two-party workflow (member requests, ADMIN decides, ADMIN separately
+  executes — never the same click) is visually undeniable; the chosen `ErasureMode` is explained in
+  plain language three times across the workflow, ending in a `BackupScreen.kt`-grade irreversibility
+  confirm dialog before the final delete. Makes GDPR data-subject rights (self-service export/erasure
+  request, and the board's decide/execute/audit obligations) usable without a developer in the loop
+  for the first time. **Known, deliberately undisguised gap**: `IDsgvoService` has no self-facing "get
+  my own erasure request" read endpoint, so a member's post-submit status card is session-only (not
+  persisted across reloads); a permanent caption under the submit button says so explicitly, and this
+  is flagged here as a candidate follow-up (a small `getMyErasureRequest`-shaped backend addition) for
+  a future wave rather than worked around with a fake client-side cache.
+- **`BoardMembershipScreen.kt`** (`#/board-membership`, BOARD/ADMIN) — the wave's fifth and final
+  screen: the live board ("Vorstand") roster, an administrative appoint/end form, the §20 GwG
+  Transparenzregister beneficial-owner-completeness report (each data gap named by the specific
+  missing field, e.g. Geburtsdatum/Staatsangehörigkeit), and the reminder-acknowledgement history.
+  Confirmed via `BoardMembershipEvents.kt`/`GovernanceService.kt`/`ElectionService.kt` that the board
+  roster is a committee-agnostic read-model kept automatically in sync with `EXECUTIVE_BOARD`
+  committee membership — not a second, independently-entered dataset — so the screen links back to
+  `CommitteesScreen.kt`'s `EXECUTIVE_BOARD` committee rather than presenting itself as the only place
+  a board seat changes; a displaced-incumbent heads-up (single-holder seats like CHAIR/DEPUTY_CHAIR/
+  SECRETARY) is surfaced client-side before submission as a purely informational confirm dialog. The
+  reminder list's resolve button is labeled "Ich habe das Register aktualisiert" rather than a generic
+  "Erledigt", so acknowledging a reminder states the exact human claim being made — this system never
+  verifies or files a Transparenzregister entry itself. Makes §20 GwG board-transparency reporting and
+  reminder tracking usable without a developer querying the database directly.
+- Shared `ComplianceLabels.kt` (mirroring `AccountingLabels.kt`'s shape) holds the wave's badge
+  label/color tables across all five screens, growing to its full twelve-enum set by the final screen
+  (`AuditAction`/`AuditEntityType`/`BackupOperationType`/`BackupOperationStatus`/`AvvStatus`/
+  `TomCategory`/`DsfaStatus`/`BreachStatus`/`BreachDeadlineStatus`/`DpiaRiskBand`/`RiskLevel`/
+  `ErasureStatus`/`ErasureMode`/`DsgvoAuditAction`/`BoardChangeType`).
+- New `jsTest` coverage per screen (`AuditLogScreenTest.kt`, `BackupHttpTest.kt`,
+  `DsgvoComplianceScreenTest.kt`, `DsgvoRightsScreenTest.kt`, `BoardMembershipScreenTest.kt`) plus
+  matching `ComplianceLabelsTest.kt` additions for every new enum, covering the pure filter-parsing,
+  chain-verification-copy, HTTP-status-to-outcome mapping, breach re-sort/rank, step-tracker state
+  machine, and displaced-incumbent/beneficial-owner-gap builder functions factored out of each screen.
+  `./gradlew clean check` green throughout every screen's commit, including ktlint.
+
 ## [0.10.0] — 2026-08-04
 
 ### Added
