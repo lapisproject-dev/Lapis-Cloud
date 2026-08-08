@@ -211,7 +211,7 @@ private fun restoreConfirmDialog(
     onConfirm: () -> Unit,
 ) {
     val modal = Modal(caption = "Wiederherstellung bestätigen")
-    modal.div("Diese Wiederherstellung ist NICHT rückgängig zu machen.") { addCssClass("fw-bold text-danger") }
+    modal.div("Diese Wiederherstellung ist NICHT rückgängig zu machen.") { addCssClasses("fw-bold text-danger") }
     modal.div(
         "Sie überschreibt Daten mit dem Stand aus der hochgeladenen Datei. Bereits vorhandene Daten in der " +
             "Zielorganisation können dabei verloren gehen.",
@@ -225,7 +225,7 @@ private fun restoreConfirmDialog(
         modal.div(
             "„Ziel überschreiben\" ist aktiviert: diese Organisation hat bereits Daten. Sie werden mit den " +
                 "Daten aus der Datei zusammengeführt/überschrieben.",
-        ) { addCssClass("fw-bold text-danger mt-1") }
+        ) { addCssClasses("fw-bold text-danger mt-1") }
     }
 
     modal.addButton(Button("Abbrechen", style = ButtonStyle.SECONDARY).apply { onClick { modal.hide() } })

@@ -100,6 +100,9 @@ private fun refreshNavbar(navbar: Navbar) {
         // Compliance UI wave: same TREASURER/BOARD/ADMIN tier as the rest of this group -- see
         // `Routes.AUDIT_LOG` KDoc for the `AUDIT_READ_ROLES` verification.
         leftNav.navLink("Prüfprotokoll", url = "#${Routes.AUDIT_LOG}")
+        // Mail-merge/Postal-Dispatch UI wave: same TREASURER/BOARD/ADMIN tier -- see
+        // `Routes.POSTAL_MAIL` KDoc for the `FINANCIAL_DISPATCH_ROLES` verification.
+        leftNav.navLink("Postversand", url = "#${Routes.POSTAL_MAIL}")
     }
     if (AppState.hasRole(AccountRole.BOARD, AccountRole.ADMIN)) {
         leftNav.navLink("Mitgliederverwaltung", url = "#${Routes.MEMBERS}")

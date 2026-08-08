@@ -298,7 +298,7 @@ private fun renderUseOfFundsYearRow(
     headerRow.moneySpan(year.timelyUseObligationRemaining).width = 110.px
     val overdueSpan = headerRow.moneySpan(year.overdueAmount)
     overdueSpan.width = 110.px
-    if (hasOverdueAmount(year.overdueAmount)) overdueSpan.addCssClass("text-danger fw-bold")
+    if (hasOverdueAmount(year.overdueAmount)) overdueSpan.addCssClasses("text-danger fw-bold")
     val toggleButton =
         headerRow.button("Details ein-/ausblenden", style = ButtonStyle.OUTLINESECONDARY) {
             addCssClasses("flex-grow-1")

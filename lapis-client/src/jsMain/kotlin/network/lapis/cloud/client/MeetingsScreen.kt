@@ -1,5 +1,6 @@
 package network.lapis.cloud.client
 
+import io.kvision.form.check.checkBox
 import io.kvision.form.select.select
 import io.kvision.form.text.text
 import io.kvision.form.text.textArea
@@ -8,6 +9,7 @@ import io.kvision.html.button
 import io.kvision.html.div
 import io.kvision.html.h1
 import io.kvision.html.h2
+import io.kvision.html.link
 import io.kvision.html.p
 import io.kvision.panel.SimplePanel
 import io.kvision.panel.hPanel
@@ -30,6 +32,8 @@ import network.lapis.cloud.shared.domain.MeetingFormat
 import network.lapis.cloud.shared.domain.MeetingInput
 import network.lapis.cloud.shared.domain.MeetingStatus
 import network.lapis.cloud.shared.domain.MemberSummaryDto
+import network.lapis.cloud.shared.domain.PostalDeliveryStatus
+import network.lapis.cloud.shared.domain.PostalInvitationDispatchInput
 import network.lapis.cloud.shared.domain.ProtocolDraftDto
 import network.lapis.cloud.shared.domain.QuorumResultDto
 import network.lapis.cloud.shared.domain.ResolutionDto
@@ -38,6 +42,7 @@ import network.lapis.cloud.shared.domain.ResolutionMode
 import network.lapis.cloud.shared.domain.ResolutionStatus
 import network.lapis.cloud.shared.rpc.IGovernanceService
 import network.lapis.cloud.shared.rpc.IMemberService
+import network.lapis.cloud.shared.rpc.IPostalMailService
 
 /**
  * Governance UI wave, screen 2 of 3 -- "Sitzungen" (Meetings: agenda, attendance, quorum,
@@ -74,6 +79,16 @@ import network.lapis.cloud.shared.rpc.IMemberService
  * Committee branch (this uses "active as of today", not "active as of the meeting's date") -- an
  * accepted UI-picker simplification for typical near-term meetings, exactly the same simplification
  * `CommitteesScreen`'s own roster view already makes.
+ *
+ * Mail-merge/Postal-Dispatch UI wave, design decisions D5/D6: [renderEinladungSection] adds a free
+ * PDF download ([MailmergeHttp.submitEinladungPdfDownload], `GOVERNANCE_DOC_ROLES`) and a real
+ * Letterxpress postal dispatch ([IPostalMailService.dispatchEinladungByPost],
+ * `GOVERNANCE_DISPATCH_ROLES`) entry point -- both strictly BOARD/ADMIN, narrower than this screen's
+ * own per-Committee `canManage` (which also admits CHAIR/DEPUTY_CHAIR/SECRETARY). The section only
+ * renders at all when `canManage` is true (same gate as Agenda/Attendance/Resolution editing); a
+ * Committee officer who can manage the meeting but is not globally BOARD/ADMIN sees a plain-language
+ * explanation instead of a vanished control. Recipients are sourced from the same `eligibleMembers`
+ * this screen already computes for attendance -- no new RPC call needed.
  */
 fun renderMeetingsScreen(container: SimplePanel) {
     val session = AppState.session
@@ -300,6 +315,7 @@ private fun renderMeetingDetail(
 
         panel.removeAll()
         renderMeetingMeta(panel, detail.meeting, canManage, onChanged)
+        renderEinladungSection(panel, detail.meeting, canManage, isBoardOrAdmin, eligibleMembers)
         renderAgendaSection(panel, detail, canManage, eligibleMembers, onChanged)
         renderAttendanceSection(panel, detail, canManage, eligibleMembers, onChanged)
         renderResolutionSection(panel, detail, canManage, onChanged)
@@ -360,6 +376,178 @@ private fun renderMeetingMeta(
         }
     }
 }
+
+/**
+ * D6: gated on the meeting-level `canManage` (same gate as Agenda/Attendance/Resolution editing) --
+ * a plain member with no management role over this meeting never sees this section at all. Inside
+ * that gate, both Einladung actions (free PDF and postal dispatch) are further narrowed to global
+ * BOARD/ADMIN, which is strictly narrower than `canManage` (a per-Committee CHAIR/DEPUTY_CHAIR/
+ * SECRETARY also passes `canManage` but not this narrower check) -- see file KDoc.
+ *
+ * [meeting.location] is nullable ([MeetingDto.location]) but [PostalInvitationDispatchInput.location]
+ * is not -- the form's location field is therefore required regardless of whether the meeting
+ * already has one on file, and both submit handlers validate it non-blank before proceeding.
+ */
+private fun renderEinladungSection(
+    panel: SimplePanel,
+    meeting: MeetingDto,
+    canManage: Boolean,
+    isBoardOrAdminGlobal: Boolean,
+    eligibleMembers: List<MemberSummaryDto>,
+) {
+    if (!canManage) return
+    panel.h2("Einladung") { addCssClass("h5") }
+
+    if (!isBoardOrAdminGlobal) {
+        panel.div(
+            "Der Versand von Einladungen ist Vorstand und Administration vorbehalten -- als " +
+                "Sitzungsleitung/Protokollführung dieses Gremiums können Sie die Sitzung verwalten, aber " +
+                "keine Einladungen verschicken.",
+        ) { addCssClasses("text-muted small") }
+        return
+    }
+
+    panel.div(
+        "Versand einer Einladung an ausgewählte Mitglieder -- als PDF zum Herunterladen (kostenlos, bis zu " +
+            "1.000 Empfänger) oder per Post (kostenpflichtig über Letterxpress, bis zu 50 Empfänger, " +
+            "erfordert eine vollständige Anschrift jedes Empfängers).",
+    ) { addCssClasses("text-muted small") }
+
+    if (eligibleMembers.isEmpty()) {
+        panel.p("Keine berechtigten Mitglieder gefunden.")
+        return
+    }
+
+    val formPanel = panel.vPanel(spacing = 6) { addCssClasses("border rounded p-3") }
+    val titleInput = formPanel.text(value = meeting.title, label = "Titel")
+    val eventDateTimeInput = formPanel.text(value = meeting.scheduledAt.toString(), label = "Termin (JJJJ-MM-TTTHH:MM)")
+    val locationInput = formPanel.text(value = meeting.location.orEmpty(), label = "Ort")
+    val bodyTextInput = formPanel.textArea(label = "Einladungstext", rows = 4)
+
+    formPanel.p("Empfänger") { addCssClasses("fw-bold mb-1") }
+    val recipientsPanel = formPanel.vPanel(spacing = 2) { addCssClasses("border rounded p-2") }
+    val quickToggleRow = recipientsPanel.hPanel(spacing = 8)
+    val selectAllLink = quickToggleRow.link("Alle auswählen", url = "javascript:void(0)")
+    val deselectAllLink = quickToggleRow.link("Alle abwählen", url = "javascript:void(0)")
+    // Unchecked by default -- a costly/PII-sharing action must never default to "everyone selected".
+    val checkboxesByMember =
+        eligibleMembers.associateWith { member -> recipientsPanel.checkBox(label = member.displayName) }
+    selectAllLink.onClick { checkboxesByMember.values.forEach { checkbox -> checkbox.value = true } }
+    deselectAllLink.onClick { checkboxesByMember.values.forEach { checkbox -> checkbox.value = false } }
+
+    val errorBox =
+        formPanel.div().apply {
+            addCssClass("text-danger")
+            hide()
+        }
+    val outcomePanel = formPanel.vPanel(spacing = 4)
+
+    fun selectedRecipients(): List<MemberSummaryDto> = checkboxesByMember.filterValues { it.value }.keys.toList()
+
+    val actionRow = formPanel.hPanel(spacing = 8)
+    val downloadButton = actionRow.button("Als PDF herunterladen", style = ButtonStyle.OUTLINEPRIMARY)
+    downloadButton.onClick {
+        errorBox.hide()
+        val recipients = selectedRecipients()
+        val title = titleInput.value.orEmpty().trim()
+        val eventDateTimeText = eventDateTimeInput.value.orEmpty().trim()
+        val location = locationInput.value.orEmpty().trim()
+        val bodyText = bodyTextInput.value.orEmpty().trim()
+        val eventDateTime = runCatching { LocalDateTime.parse(eventDateTimeText) }.getOrNull()
+        if (
+            recipients.isEmpty() ||
+            !Validation.isNonBlank(title) ||
+            eventDateTime == null ||
+            !Validation.isNonBlank(location) ||
+            !Validation.isNonBlank(bodyText)
+        ) {
+            errorBox.content =
+                "Bitte mindestens eine Empfängerin/einen Empfänger sowie Titel, einen gültigen Termin " +
+                "(JJJJ-MM-TTTHH:MM), Ort und Einladungstext angeben."
+            errorBox.show()
+            return@onClick
+        }
+        MailmergeHttp.submitEinladungPdfDownload(title, eventDateTime, location, bodyText, recipients.map { it.id })
+    }
+
+    // D7: the postal-dispatch button is fetched-and-populated asynchronously (whether
+    // postalMailEnabled is true) -- the free-PDF download button above is never gated by this flag,
+    // since it never touches Letterxpress.
+    val postalActionPanel = formPanel.vPanel(spacing = 4)
+    AppScope.launch {
+        if (isPostalMailEnabled()) {
+            val postalButton = postalActionPanel.button("Per Post versenden", style = ButtonStyle.OUTLINEDANGER)
+            postalButton.onClick {
+                errorBox.hide()
+                val recipients = selectedRecipients()
+                val title = titleInput.value.orEmpty().trim()
+                val eventDateTimeText = eventDateTimeInput.value.orEmpty().trim()
+                val location = locationInput.value.orEmpty().trim()
+                val bodyText = bodyTextInput.value.orEmpty().trim()
+                val eventDateTime = runCatching { LocalDateTime.parse(eventDateTimeText) }.getOrNull()
+                if (
+                    recipients.isEmpty() ||
+                    !Validation.isNonBlank(title) ||
+                    eventDateTime == null ||
+                    !Validation.isNonBlank(location) ||
+                    !Validation.isNonBlank(bodyText)
+                ) {
+                    errorBox.content =
+                        "Bitte mindestens eine Empfängerin/einen Empfänger sowie Titel, einen gültigen Termin " +
+                        "(JJJJ-MM-TTTHH:MM), Ort und Einladungstext angeben."
+                    errorBox.show()
+                    return@onClick
+                }
+                if (recipients.size > MAX_POSTAL_INVITATION_RECIPIENTS_UI) {
+                    errorBox.content =
+                        "Postversand ist auf $MAX_POSTAL_INVITATION_RECIPIENTS_UI Empfänger begrenzt (aktuell " +
+                        "ausgewählt: ${recipients.size}) -- für mehr Empfänger bitte das PDF herunterladen und " +
+                        "selbst verteilen."
+                    errorBox.show()
+                    return@onClick
+                }
+
+                postalEinladungDispatchConfirmDialog(recipients.map { it.displayName }) {
+                    postalButton.disabled = true
+                    outcomePanel.removeAll()
+                    AppScope.launch {
+                        val results =
+                            guarded {
+                                rpcService<IPostalMailService>().dispatchEinladungByPost(
+                                    PostalInvitationDispatchInput(
+                                        title = title,
+                                        eventDateTime = eventDateTime,
+                                        location = location,
+                                        bodyText = bodyText,
+                                        recipientMemberIds = recipients.map { it.id },
+                                    ),
+                                )
+                            }
+                        postalButton.disabled = false
+                        if (results != null) {
+                            val sentCount = results.count { it.status == PostalDeliveryStatus.SENT }
+                            if (sentCount == results.size) {
+                                notifySuccess("$sentCount von ${results.size} Briefen erfolgreich übergeben.")
+                            } else {
+                                notifyError("${results.size - sentCount} von ${results.size} Briefen fehlgeschlagen -- Details unten.")
+                            }
+                            results.forEach { log -> outcomePanel.renderPostalDispatchOutcome(log) }
+                        }
+                    }
+                }
+            }
+        } else {
+            postalActionPanel.postalMailDisabledNotice()
+        }
+    }
+}
+
+/**
+ * Client-side pre-check mirroring `PostalMailService`'s `MAX_POSTAL_INVITATION_RECIPIENTS` (50) --
+ * the server remains authoritative; this only avoids submitting a request the caller can already
+ * see will be rejected.
+ */
+private const val MAX_POSTAL_INVITATION_RECIPIENTS_UI = 50
 
 private fun renderAgendaSection(
     panel: SimplePanel,

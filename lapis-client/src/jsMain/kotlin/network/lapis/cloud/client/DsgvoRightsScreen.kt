@@ -317,9 +317,9 @@ private fun executeErasureConfirmDialog(
     onConfirm: () -> Unit,
 ) {
     val modal = Modal(caption = "Löschung endgültig ausführen")
-    modal.div("Diese Löschung ist ENDGÜLTIG und kann nicht rückgängig gemacht werden.") { addCssClass("fw-bold text-danger") }
+    modal.div("Diese Löschung ist ENDGÜLTIG und kann nicht rückgängig gemacht werden.") { addCssClasses("fw-bold text-danger") }
     modal.div("Betroffenes Mitglied: ${request.subjectDisplayName}")
-    modal.div("Gewählter Modus: ${erasureModeLabel(request.mode)}") { addCssClass("fw-bold mt-1") }
+    modal.div("Gewählter Modus: ${erasureModeLabel(request.mode)}") { addCssClasses("fw-bold mt-1") }
     modal.div(erasureModeDescription(request.mode))
     request.decisionNote?.takeIf { it.isNotBlank() }?.let { note ->
         modal.div("Entscheidungsnotiz: $note") { addCssClasses("small text-muted mt-1") }

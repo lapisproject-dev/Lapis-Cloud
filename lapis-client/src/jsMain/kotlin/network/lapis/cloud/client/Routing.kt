@@ -98,6 +98,14 @@ object Routes {
     // [AUDIT_LOG]'s "route guard is the only guard" posture, just for a screen with real write
     // actions) there is no in-screen `canManage` split either.
     const val BOARD_MEMBERSHIP = "/board-membership"
+
+    // Mail-merge/Postal-Dispatch UI wave -- read-only Letterxpress postal-dispatch audit trail
+    // (design decisions D7/D8). Role gate verified against `PostalMailService.kt`'s
+    // `FINANCIAL_DISPATCH_ROLES` constant (the tier `listPostalDeliveryLog` itself requires):
+    // TREASURER/BOARD/ADMIN, the narrowest tier that needs to *reach* this screen at all -- the
+    // narrower BOARD/ADMIN-only Einladung dispatch (`GOVERNANCE_DISPATCH_ROLES`) is gated inside
+    // `MeetingsScreen.kt`'s Einladung section, not at route level.
+    const val POSTAL_MAIL = "/postal-mail"
 }
 
 private var appRouting: Routing? = null
@@ -217,6 +225,9 @@ fun initRouting(pageContainer: SimplePanel) {
     }
     routing.kvOn(Routes.BOARD_MEMBERSHIP) {
         requireRole(routing, AccountRole.BOARD, AccountRole.ADMIN) { show(::renderBoardMembershipScreen) }
+    }
+    routing.kvOn(Routes.POSTAL_MAIL) {
+        requireRole(routing, AccountRole.TREASURER, AccountRole.BOARD, AccountRole.ADMIN) { show(::renderPostalMailScreen) }
     }
     routing.kvOn("/") {
         routing.navigate(if (AppState.isAuthenticated) Routes.DASHBOARD else Routes.LOGIN)

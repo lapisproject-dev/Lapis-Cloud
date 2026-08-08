@@ -7,6 +7,7 @@ import io.kvision.html.button
 import io.kvision.html.div
 import io.kvision.html.h1
 import io.kvision.html.h2
+import io.kvision.html.link
 import io.kvision.html.p
 import io.kvision.panel.SimplePanel
 import io.kvision.panel.hPanel
@@ -19,7 +20,9 @@ import kotlinx.datetime.toLocalDateTime
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.ContributionDto
 import network.lapis.cloud.shared.domain.ContributionStatus
+import network.lapis.cloud.shared.domain.PostalDeliveryStatus
 import network.lapis.cloud.shared.rpc.IContributionService
+import network.lapis.cloud.shared.rpc.IPostalMailService
 import kotlin.time.Clock
 
 /**
@@ -31,6 +34,20 @@ import kotlin.time.Clock
  * `markContributionWaived`'s own role check) -- the tier-administration sub-panel
  * (`generateContributionsForPeriod`) is TREASURER/ADMIN only, matching `createMembershipTier`'s
  * own role check.
+ *
+ * Mail-merge/Postal-Dispatch UI wave, design decision D3: [renderContributionRow] additionally
+ * renders a "Rechnung (PDF)" download link ([MailmergeHttp.invoiceUrl]) -- only inside
+ * [renderOrgWideContributions] (already TREASURER/BOARD/ADMIN-gated by the caller, matching
+ * `MailmergeRoutes.kt`'s `FINANCIAL_DOC_ROLES` exactly), never inside [renderOwnSummary]. A member
+ * cannot self-serve their own invoice this wave -- see [MailmergeHttp] KDoc for the verified
+ * server-side access tier this deliberately mirrors.
+ *
+ * Design decision D5: the same row additionally renders a "Per Post versenden" postal-dispatch
+ * trigger (`IPostalMailService.dispatchBeitragsrechnungByPost`, matching `FINANCIAL_DISPATCH_ROLES`
+ * -- the same TREASURER/BOARD/ADMIN tier as the row itself, no extra in-row gating needed) next to
+ * the PDF link, gated by [isPostalMailEnabled] (D7) and confirmed via [postalDispatchConfirmDialog]
+ * (D5) -- see `PostalMailScreen.kt`'s file KDoc for the "address never touches the browser"
+ * load-bearing finding that shapes that dialog's copy.
  */
 fun renderContributionsScreen(container: SimplePanel) {
     val session =
@@ -133,6 +150,7 @@ private fun renderOrgWideContributions(root: SimplePanel) {
     fun refresh() {
         listPanel.removeAll()
         AppScope.launch {
+            val postalMailEnabled = isPostalMailEnabled()
             val contributions =
                 guarded { rpcService<IContributionService>().listContributions(status = ContributionStatus.OPEN) } ?: return@launch
             if (contributions.isEmpty()) {
@@ -140,7 +158,7 @@ private fun renderOrgWideContributions(root: SimplePanel) {
                 return@launch
             }
             contributions.forEach { contribution ->
-                renderContributionRow(listPanel, contribution, canMarkPaid, canWaive, ::refresh)
+                renderContributionRow(listPanel, contribution, canMarkPaid, canWaive, postalMailEnabled, ::refresh)
             }
         }
     }
@@ -152,13 +170,48 @@ private fun renderContributionRow(
     contribution: ContributionDto,
     canMarkPaid: Boolean,
     canWaive: Boolean,
+    postalMailEnabled: Boolean,
     onChanged: () -> Unit,
 ) {
-    val row = parent.hPanel(spacing = 8) { addCssClasses("border rounded p-2 align-items-center") }
+    val container = parent.vPanel(spacing = 2)
+    val row = container.hPanel(spacing = 8) { addCssClasses("border rounded p-2 align-items-center") }
     row.div(
         "${contribution.memberDisplayName}: ${contribution.periodStart}–${contribution.periodEnd}: " +
             "${contribution.amountDue} (${contribution.status})",
     ) { addCssClass("flex-grow-1") }
+
+    // D3: only rendered here (renderOrgWideContributions, TREASURER/BOARD/ADMIN-gated by the
+    // caller) -- never on renderOwnSummary. See MailmergeHttp KDoc for why.
+    row.link("Rechnung (PDF)", url = MailmergeHttp.invoiceUrl(contribution.id), target = "_blank")
+
+    val outcomePanel = container.vPanel(spacing = 2)
+    if (postalMailEnabled) {
+        val postalButton = row.button("Per Post versenden", style = ButtonStyle.OUTLINEDANGER)
+        postalButton.onClick {
+            postalDispatchConfirmDialog(
+                caption = "Beitragsrechnung per Post versenden",
+                recipientDisplayName = contribution.memberDisplayName,
+                documentLabel = "Beitragsrechnung ${contribution.periodStart}–${contribution.periodEnd}",
+            ) {
+                postalButton.disabled = true
+                outcomePanel.removeAll()
+                AppScope.launch {
+                    val result = guarded { rpcService<IPostalMailService>().dispatchBeitragsrechnungByPost(contribution.id) }
+                    postalButton.disabled = false
+                    if (result != null) {
+                        if (result.status == PostalDeliveryStatus.SENT) {
+                            notifySuccess("Brief an ${result.recipientDisplayName} wurde an Letterxpress übergeben.")
+                        } else {
+                            notifyError("Postversand fehlgeschlagen.")
+                        }
+                        outcomePanel.renderPostalDispatchOutcome(result)
+                    }
+                }
+            }
+        }
+    } else {
+        row.postalMailDisabledNotice()
+    }
 
     if (canMarkPaid) {
         val payButton = row.button("Als bezahlt markieren", style = ButtonStyle.SUCCESS)

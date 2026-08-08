@@ -58,6 +58,9 @@ fun renderDashboardScreen(container: SimplePanel) {
         navTile(nav, "Gemeinnützigkeits-Berichte", Routes.COMPLIANCE_REPORTS)
         navTile(nav, "Kostenstellen", Routes.COST_CENTERS)
         navTile(nav, "Spender", Routes.DONORS)
+        // Mail-merge/Postal-Dispatch UI wave: same TREASURER/BOARD/ADMIN tier/placement as the
+        // navbar link -- see `Routes.POSTAL_MAIL` KDoc.
+        navTile(nav, "Postversand", Routes.POSTAL_MAIL)
     }
     if (AppState.hasRole(AccountRole.BOARD, AccountRole.ADMIN)) {
         navTile(nav, "Mitgliederverwaltung", Routes.MEMBERS)

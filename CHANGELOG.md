@@ -8,6 +8,69 @@ All notable changes to this project are documented here. Format follows
 
 ### Added
 
+**Mail-merge/Postal-Dispatch UI wave — admin mailing-list authoring, invoice/receipt/Einladung PDF
+documents, and real Letterxpress postal dispatch, on `feature/mailmerge-ui`. Wave complete — the
+fourth and final wave of the pilots' (PdV, ELB) UI-gap-closure plan, after Governance, Accounting, and
+Compliance UI.** Surfaces the already-implemented, already-tested `IMailingService`/`IPostalMailService`
+backends plus the two `/api/mailmerge/...pdf` HTTP routes end to end for the first time. The wave's own
+scope-narrowing finding held up under review: `CommunicationScreen.kt` (V0.7.3) already covered the
+member-facing mailing-list self-service side, so the real remaining surface was six previously-
+unreachable admin-authoring RPC methods, two PDF download routes, and `IPostalMailService`'s four
+methods — smaller than the domain name suggests. **One load-bearing design finding shapes every postal
+dispatch confirm dialog**: no RPC or route in this wave's scope ever returns a member's raw postal
+address to the client (`MemberSummaryDto` is `{id, displayName}` only, `PostalDeliveryLogDto` carries
+only a display name, the PDF routes stream bytes) — the "member's postal address data is only shown to
+appropriately-privileged staff" requirement is satisfied *by construction*, not by a client-side check,
+so every dispatch confirm dialog shows a recipient's display name and a plain statement that a letter
+goes "to the address on file, resolved server-side," never a fetched/fabricated address line. Because
+postal dispatch triggers a real external Letterxpress API call with real cost and mails a real physical
+letter, every dispatch trigger gets `BackupScreen.kt`-restore/`DsgvoRightsScreen.kt`-erasure-grade
+irreversibility rigor (bespoke `Modal`, bold "ENDGÜLTIG"/real-cost warning, recipient + document detail
+row) — and because all three dispatch RPCs return their result normally even on failure (a
+`PostalDispatchOutcome.Failed` is a legitimate business outcome, not a thrown exception), every dispatch
+call site renders the outcome inline and distinctly for SENT vs. FAILED, never a bare success toast that
+could misreport a real per-letter failure as if it went fine. **No backend/RPC changes were needed** —
+every method's role-gating (including the two PDF routes deliberately NOT offering the self-service
+carve-out `IContributionService`/donors get elsewhere, and `dispatchEinladungByPost` deliberately
+excluding TREASURER while the other two dispatch methods include it) matched the plan's verified role
+table exactly.
+
+- **`CommunicationScreen.kt`** admin extension (BOARD/ADMIN, additive block below the existing
+  member-facing Mailinglisten/Postfach panels, never a second tab) — mailing-list creation, an
+  admin-forced-subscribe member picker, message compose/draft, and a `confirmDialog`-tier "Senden"
+  action, plus a permanent caption stating plainly that "gesendet" is today an internal log entry
+  (one `MailingDeliveryLogDto` row per active subscriber, `DeliveryStatus.SENT` unconditionally) —
+  not a real external send yet, matching this codebase's stub-mailer honesty precedent
+  (`NoOpPasswordResetMailer`) rather than implying real delivery.
+- **`ContributionsScreen.kt`/`LedgerScreen.kt`** — "Rechnung (PDF)"/"Spendenbescheinigung (PDF)"
+  download links (staff-facing views only — `renderOrgWideContributions`/`renderJournalEntryDetail`,
+  never the member's own summary; both PDF routes are TREASURER/BOARD/ADMIN-gated server-side,
+  deliberately more conservative than `IContributionService`'s own "member can see their own data"
+  carve-out) plus, next to each, a real "Per Post versenden" postal-dispatch trigger for the same
+  document (`dispatchBeitragsrechnungByPost`/`dispatchSpendenbescheinigungByPost`).
+- **`MeetingsScreen.kt`** Einladung section (gated on the existing meeting-level `canManage`, but its
+  two actions narrowed further to global BOARD/ADMIN — strictly narrower than `canManage`, which also
+  admits a Committee's CHAIR/DEPUTY_CHAIR/SECRETARY; that narrower case renders a plain-language
+  explanation instead of a vanished control) — a free PDF download (hidden-form POST-download, the
+  first POST-triggered-file-download idiom in this client, since `/api/mailmerge/invitations` is a
+  multipart POST no plain `<a href>` can trigger) and a batch postal dispatch
+  (`dispatchEinladungByPost`, capped client-side at the same 50-recipient limit the server enforces,
+  unchecked-by-default recipient checklist sourced from the same `eligibleMembers` this screen already
+  computes for attendance — no new RPC call needed). The aggregate toast reflects partial failure
+  (`"$n von $total Briefen erfolgreich übergeben"` vs. an explicit failure count), never a blanket
+  success toast when any recipient's letter failed.
+- **`PostalMailScreen.kt`** (new, `#/postal-mail`, TREASURER/BOARD/ADMIN) — read-only Letterxpress
+  dispatch audit trail (`listPostalDeliveryLog`), plus the shared confirm-dialog/outcome-rendering
+  helpers every dispatch trigger above reuses. A top banner explains plainly when
+  `OrganizationSettings.postalMailEnabled` is off (no update-settings UI exists yet — out of scope for
+  this "standard frontend over an existing surface" wave) rather than letting every dispatch trigger
+  fail with an unexplained `ConflictException` toast.
+- New `MailmergeHttp.submitEinladungPdfDownload` (hidden-form POST-download) alongside the existing
+  `invoiceUrl`/`receiptUrl` GET-URL builders; new `PostalMailScreenTest.kt` covering the pure
+  `PostalDeliveryStatus` label/color table (including the documented-but-dead-today `QUEUED` branch,
+  kept per this codebase's `legalHoldIndicator` precedent, not deleted as unreachable).
+  `./gradlew clean check` green throughout every commit, including ktlint.
+
 **Compliance UI wave — five new screens (Audit Log, Backup & Restore, DSGVO-Compliance, DSGVO
 Rights, Board Membership), on `feature/compliance-ui`. Wave complete.** The pilots (PdV, ELB) picked
 Compliance as their #3 UI-gap-closure priority, after Governance and Accounting UI (both v0.10.0).

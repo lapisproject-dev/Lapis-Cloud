@@ -14,6 +14,7 @@ import io.kvision.html.button
 import io.kvision.html.div
 import io.kvision.html.h1
 import io.kvision.html.h2
+import io.kvision.html.link
 import io.kvision.html.p
 import io.kvision.modal.Modal
 import io.kvision.panel.SimplePanel
@@ -36,6 +37,7 @@ import network.lapis.cloud.shared.domain.LedgerAccountDto
 import network.lapis.cloud.shared.domain.LedgerAccountInput
 import network.lapis.cloud.shared.domain.LedgerAccountType
 import network.lapis.cloud.shared.domain.MemberSummaryDto
+import network.lapis.cloud.shared.domain.PostalDeliveryStatus
 import network.lapis.cloud.shared.domain.PostingDto
 import network.lapis.cloud.shared.domain.PostingInput
 import network.lapis.cloud.shared.domain.PostingSide
@@ -43,6 +45,7 @@ import network.lapis.cloud.shared.domain.ReserveType
 import network.lapis.cloud.shared.rpc.IAccountingService
 import network.lapis.cloud.shared.rpc.IMemberService
 import network.lapis.cloud.shared.rpc.IOrganizationSettingsService
+import network.lapis.cloud.shared.rpc.IPostalMailService
 import kotlin.time.Clock
 
 /**
@@ -78,6 +81,21 @@ import kotlin.time.Clock
  * [renderPostingLinesRow]) -- `MotionsScreen.renderOpenVoteForm`'s comma-separated-text shortcut for
  * Vote option labels only works for a flat list of strings; a posting line carries five structured
  * fields (account/side/amount/sphere/cost center) that cannot be flattened the same way.
+ *
+ * Mail-merge/Postal-Dispatch UI wave, design decision D3: [renderDonorInfo] additionally renders a
+ * "Spendenbescheinigung (PDF)" download link ([MailmergeHttp.receiptUrl]) when the journal entry is
+ * `POSTED` and has a member-attributed donor (`donorMemberId != null`) -- the receipt route requires
+ * a donor's postal address, which only a Member record carries; an external/anonymous donor has no
+ * receipt route to link to. No extra in-screen gating needed -- `renderJournalEntryDetail`'s only
+ * caller is already TREASURER/BOARD/ADMIN-only via the `/ledger` route, matching
+ * `MailmergeRoutes.kt`'s `FINANCIAL_DOC_ROLES` exactly (see [MailmergeHttp] KDoc).
+ *
+ * Design decision D5: the same block additionally renders a "Per Post versenden" postal-dispatch
+ * trigger (`IPostalMailService.dispatchSpendenbescheinigungByPost`, matching
+ * `FINANCIAL_DISPATCH_ROLES` -- the same TREASURER/BOARD/ADMIN tier as the route itself), gated by
+ * [isPostalMailEnabled] (D7) and confirmed via [postalDispatchConfirmDialog] (D5) -- see
+ * `PostalMailScreen.kt`'s file KDoc for the "address never touches the browser" load-bearing
+ * finding that shapes that dialog's copy.
  */
 fun renderLedgerScreen(container: SimplePanel) {
     val canManage = AppState.hasRole(AccountRole.TREASURER, AccountRole.ADMIN)
@@ -652,6 +670,47 @@ private fun renderDonorInfo(
         val row = panel.hPanel(spacing = 8) { addCssClasses("align-items-center") }
         row.div(label) { addCssClasses("flex-grow-1") }
         entry.donorCategory?.let { row.typeBadge(donorCategoryLabel(it), donorCategoryColor(it)) }
+    }
+
+    // D3: receipt route requires a POSTED entry with a member-attributed donor (external-donor-only
+    // or anonymous entries have no `/api/mailmerge/donations/{id}/receipt.pdf` route to link to).
+    if (entry.status == JournalEntryStatus.POSTED && entry.donorMemberId != null) {
+        val actionRow = panel.hPanel(spacing = 8) { addCssClasses("align-items-center") }
+        actionRow.link("Spendenbescheinigung (PDF)", url = MailmergeHttp.receiptUrl(entry.id), target = "_blank")
+        val outcomePanel = panel.vPanel(spacing = 2)
+
+        // D5/D7: postal dispatch trigger next to the PDF link, same TREASURER/BOARD/ADMIN tier as
+        // the route itself -- fetched once here rather than threaded down from the caller, since
+        // this block only exists for a POSTED entry with a donor attribution in the first place.
+        AppScope.launch {
+            if (isPostalMailEnabled()) {
+                val postalButton = actionRow.button("Per Post versenden", style = ButtonStyle.OUTLINEDANGER)
+                postalButton.onClick {
+                    postalDispatchConfirmDialog(
+                        caption = "Spendenbescheinigung per Post versenden",
+                        recipientDisplayName = entry.donorMemberDisplayName ?: entry.donorMemberId.orEmpty(),
+                        documentLabel = "Spendenbescheinigung ${entry.entryDate}",
+                    ) {
+                        postalButton.disabled = true
+                        outcomePanel.removeAll()
+                        AppScope.launch {
+                            val result = guarded { rpcService<IPostalMailService>().dispatchSpendenbescheinigungByPost(entry.id) }
+                            postalButton.disabled = false
+                            if (result != null) {
+                                if (result.status == PostalDeliveryStatus.SENT) {
+                                    notifySuccess("Brief an ${result.recipientDisplayName} wurde an Letterxpress übergeben.")
+                                } else {
+                                    notifyError("Postversand fehlgeschlagen.")
+                                }
+                                outcomePanel.renderPostalDispatchOutcome(result)
+                            }
+                        }
+                    }
+                }
+            } else {
+                actionRow.postalMailDisabledNotice()
+            }
+        }
     }
 }
 
