@@ -23,10 +23,12 @@ enum class AuditAction { CREATE, UPDATE, POST }
 /**
  * The entity kinds this wave's bounded audit-log scope covers -- see file header. Literal order
  * here is load-bearing (`AuditLogSchemaDriftTest` pins it against `14-audit-log.kuml.kts`'s
- * `auditEntityType` enum).
+ * `auditEntityType` enum). `CONFERENCE_RECORDING` (V1.0 Videokonferenzen, Wave 2 "Aufzeichnung")
+ * was appended LAST -- see `network.lapis.cloud.server.rpc.ConferenceRecordingService` KDoc for
+ * why start/stop are audited.
  */
 @Serializable
-enum class AuditEntityType { JOURNAL_ENTRY, PARTY_DONATION_VERDICT, RESOLUTION, BOARD_MEMBERSHIP }
+enum class AuditEntityType { JOURNAL_ENTRY, PARTY_DONATION_VERDICT, RESOLUTION, BOARD_MEMBERSHIP, CONFERENCE_RECORDING }
 
 /**
  * One immutable, hash-chained audit-log row -- see `AuditLogRecorder`/`AuditLogService` KDoc.

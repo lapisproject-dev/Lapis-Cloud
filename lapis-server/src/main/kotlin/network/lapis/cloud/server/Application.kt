@@ -19,8 +19,14 @@ import io.ktor.server.response.respondText
 import io.ktor.server.routing.get
 import io.ktor.server.routing.routing
 import network.lapis.cloud.server.conference.ConferenceConfig
+import network.lapis.cloud.server.conference.ConferenceRecordingConfig
+import network.lapis.cloud.server.conference.FfmpegGalleryComposer
 import network.lapis.cloud.server.conference.HttpLiveKitAdminClient
+import network.lapis.cloud.server.conference.HttpLiveKitEgressClient
 import network.lapis.cloud.server.conference.LiveKitAdminClient
+import network.lapis.cloud.server.conference.LiveKitEgressClient
+import network.lapis.cloud.server.conference.RecordingComposer
+import network.lapis.cloud.server.conference.RecordingPoller
 import network.lapis.cloud.server.db.DatabaseConfig
 import network.lapis.cloud.server.db.DevSeedData
 import network.lapis.cloud.server.economy.oracle.PriceOracleOrchestrator
@@ -35,6 +41,7 @@ import network.lapis.cloud.server.mail.NoOpPasswordResetMailer
 import network.lapis.cloud.server.postal.LetterxpressPostalMailProvider
 import network.lapis.cloud.server.routes.registerAuthRoutes
 import network.lapis.cloud.server.routes.registerBackupRoutes
+import network.lapis.cloud.server.routes.registerConferenceRecordingRoutes
 import network.lapis.cloud.server.routes.registerDocumentRoutes
 import network.lapis.cloud.server.routes.registerDsgvoRoutes
 import network.lapis.cloud.server.routes.registerFederationRoutes
@@ -47,6 +54,7 @@ import network.lapis.cloud.server.rpc.AuditLogService
 import network.lapis.cloud.server.rpc.AuthService
 import network.lapis.cloud.server.rpc.BackupService
 import network.lapis.cloud.server.rpc.BoardMembershipService
+import network.lapis.cloud.server.rpc.ConferenceRecordingService
 import network.lapis.cloud.server.rpc.ConferenceService
 import network.lapis.cloud.server.rpc.ContributionService
 import network.lapis.cloud.server.rpc.CrowdfundingService
@@ -78,6 +86,7 @@ import network.lapis.cloud.shared.rpc.IAuditLogService
 import network.lapis.cloud.shared.rpc.IAuthService
 import network.lapis.cloud.shared.rpc.IBackupService
 import network.lapis.cloud.shared.rpc.IBoardMembershipService
+import network.lapis.cloud.shared.rpc.IConferenceRecordingService
 import network.lapis.cloud.shared.rpc.IConferenceService
 import network.lapis.cloud.shared.rpc.IContributionService
 import network.lapis.cloud.shared.rpc.ICrowdfundingService
@@ -215,6 +224,41 @@ fun Application.module() {
     val conferenceLeaveRateLimiter = FederationInboxRateLimiter(maxRequests = 30, window = 1.minutes)
     val conferenceListRateLimiter = FederationInboxRateLimiter(maxRequests = 60, window = 1.minutes)
 
+    // V1.0 Videokonferenzen (Kleinsitzung), Wave 2 "Aufzeichnung" -- ConferenceRecordingConfig.load()
+    // is pure string parsing (no I/O, see that class's own KDoc), so it is safe to call
+    // unconditionally here regardless of whether LAPIS_RECORDING_ENABLED is set, same posture
+    // conferenceConfig above already establishes. The ffmpeg availability probe, by contrast, IS
+    // real I/O (spawns a process) -- run exactly ONCE here at startup (never per-RPC-call, see
+    // ConferenceRecordingConfig.probeFfmpegAvailable KDoc) and its result is threaded into every
+    // ConferenceRecordingService construction below via the constructor's ffmpegAvailable
+    // parameter, not re-probed per request. Degrades honestly (WARN-logged, ffmpegAvailable=false)
+    // rather than crashing server startup -- a deployment may legitimately want conferencing
+    // without recording.
+    val conferenceRecordingConfig = ConferenceRecordingConfig.load()
+    val ffmpegAvailable = ConferenceRecordingConfig.probeFfmpegAvailable(conferenceRecordingConfig.ffmpegPath)
+
+    // V1.0 Wave 2 "Aufzeichnung", poller/composition/storage step -- RecordingPoller is the ONLY
+    // thing that ever calls a LiveKitEgressClient Twirp method or runs ffmpeg (see that class's own
+    // KDoc "Mechanism"). Constructed unconditionally (same "cheap to construct, gated on use"
+    // posture as liveKitAdminClient above) but `.start()` is only called when
+    // conferenceRecordingConfig.enabled holds -- a deployment with recording disabled must never
+    // spawn the poll loop at all, not even one that immediately no-ops every tick.
+    val liveKitEgressClient: LiveKitEgressClient =
+        HttpLiveKitEgressClient(conferenceConfig.livekitApiUrl, conferenceConfig.apiKey, conferenceConfig.apiSecret)
+    val recordingComposer: RecordingComposer =
+        FfmpegGalleryComposer(conferenceRecordingConfig.ffmpegPath, conferenceRecordingConfig.composeTimeoutMinutes)
+    val recordingPoller =
+        RecordingPoller(
+            liveKitAdminClient = liveKitAdminClient,
+            liveKitEgressClient = liveKitEgressClient,
+            recordingConfig = conferenceRecordingConfig,
+            documentStorageRoot = documentStorageRoot,
+            composer = recordingComposer,
+        )
+    if (conferenceRecordingConfig.enabled) {
+        recordingPoller.start()
+    }
+
     install(CallLogging)
     install(Compression)
     // V0.7.3 Basis-Mehrseiten-UI: PartialContent (HTTP Range, for large JS/asset bundles) and
@@ -272,6 +316,9 @@ fun Application.module() {
                 listRateLimiter = conferenceListRateLimiter,
             )
         }
+        registerService(IConferenceRecordingService::class) { call ->
+            ConferenceRecordingService(call, ffmpegAvailable, config = conferenceConfig, recordingConfig = conferenceRecordingConfig)
+        }
     }
 
     routing {
@@ -282,6 +329,7 @@ fun Application.module() {
             call.respondText(Greeting.message())
         }
         registerDocumentRoutes(documentStorageRoot)
+        registerConferenceRecordingRoutes(documentStorageRoot)
         registerDsgvoRoutes()
         registerMailmergeRoutes(documentStorageRoot)
         registerBackupRoutes(DatabaseConfig.connect(), documentStorageRoot)

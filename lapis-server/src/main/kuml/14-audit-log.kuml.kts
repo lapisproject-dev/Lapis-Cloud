@@ -136,14 +136,20 @@ classDiagram(name = "AuditLog") {
         literal(name = "POST")
     }
 
-    // The four entity kinds this wave's bounded scope audits -- see file header. Literal order is
+    // The entity kinds this wave's bounded scope audits -- see file header. Literal order is
     // load-bearing: AuditLogSchemaDriftTest asserts ErmDataType.Enum.values in exactly this order,
-    // matching network.lapis.cloud.shared.domain.AuditEntityType.
+    // matching network.lapis.cloud.shared.domain.AuditEntityType. CONFERENCE_RECORDING (V1.0
+    // Videokonferenzen Wave 2 "Aufzeichnung") was appended LAST, after the original four -- see
+    // that domain's own ConferenceRecordingService KDoc for why start/stop are audited (this
+    // wave's own §32 BGB/GoBD framing: "who started recording this meeting, when" is precisely the
+    // fact that must be provable). Additive append only -- never reorder existing literals, see
+    // this enum's own "cheap to extend, expensive to reorder" note class-wide.
     val auditEntityType = enumOf(name = "AuditEntityType") {
         literal(name = "JOURNAL_ENTRY")
         literal(name = "PARTY_DONATION_VERDICT")
         literal(name = "RESOLUTION")
         literal(name = "BOARD_MEMBERSHIP")
+        literal(name = "CONFERENCE_RECORDING")
     }
 
     // Genesis-singleton row (see file header) -- gapless sequence_number + hash-chain

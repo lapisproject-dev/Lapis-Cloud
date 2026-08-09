@@ -323,6 +323,12 @@ fun decodeAuditSnapshot(
             AuditEntityType.RESOLUTION -> lenientSnapshotJson.decodeFromString<ResolutionSnapshot>(raw)
             AuditEntityType.BOARD_MEMBERSHIP -> lenientSnapshotJson.decodeFromString<BoardMembershipSnapshot>(raw)
             AuditEntityType.PARTY_DONATION_VERDICT -> lenientSnapshotJson.decodeFromString<PartyDonationVerdictSnapshot>(raw)
+            // V1.0 Videokonferenzen, Wave 2 "Aufzeichnung" -- ConferenceRecordingService's
+            // AuditLogRecorder.record calls never populate before/after (no dedicated snapshot
+            // type exists for this entity type yet), so there is deliberately nothing to decode
+            // here -- falls through to the same raw-text fallback a future/unknown entityType
+            // already gets, see this function's own KDoc.
+            AuditEntityType.CONFERENCE_RECORDING -> null
         }
     }.getOrNull()
 

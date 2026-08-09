@@ -342,6 +342,10 @@ class ConferenceService(
             transaction {
                 ConferenceRoomTable.update({ ConferenceRoomTable.id eq id }) { it[endedAt] = now }
                 closeAllOpenParticipations(id, now)
+                // V1.0 Wave 2 "Aufzeichnung" -- server-internal bridge, NOT a new IConferenceService
+                // method. Must be the LAST statement in this transaction -- see
+                // ConferenceRecordingCoordinator KDoc "deadlock-avoidance contract".
+                ConferenceRecordingCoordinator.stopActiveRecordingsForRoom(id, current.memberId, current.role)
             }
         }
         return transaction {

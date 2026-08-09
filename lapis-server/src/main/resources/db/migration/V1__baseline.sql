@@ -639,7 +639,7 @@ CREATE TABLE audit_log_entry (
     entry_hash VARCHAR(64) NOT NULL,
     previous_entry_hash VARCHAR(64) NULL,
     CHECK (actor_role IN ('MEMBER', 'BOARD', 'TREASURER', 'ADMIN')),
-    CHECK (entity_type IN ('JOURNAL_ENTRY', 'PARTY_DONATION_VERDICT', 'RESOLUTION', 'BOARD_MEMBERSHIP')),
+    CHECK (entity_type IN ('JOURNAL_ENTRY', 'PARTY_DONATION_VERDICT', 'RESOLUTION', 'BOARD_MEMBERSHIP', 'CONFERENCE_RECORDING')),
     CHECK (action IN ('CREATE', 'UPDATE', 'POST'))
 );
 
@@ -1547,4 +1547,61 @@ CREATE INDEX idx_conference_participation_member ON conference_participation (me
 ALTER TABLE conference_room ADD CONSTRAINT fk_conference_room_created_by_member_id FOREIGN KEY (created_by_member_id) REFERENCES member(id);
 ALTER TABLE conference_participation ADD CONSTRAINT fk_conference_participation_room_id FOREIGN KEY (room_id) REFERENCES conference_room(id);
 ALTER TABLE conference_participation ADD CONSTRAINT fk_conference_participation_member_id FOREIGN KEY (member_id) REFERENCES member(id);
+
+-- V1.0 Videokonferenzen (Kleinsitzung), Wave 2 "Aufzeichnung" -- see 28-conference-recording.kuml.kts
+-- file header for the full fachlich model. Track Egress does not transcode: one raw file per
+-- published track, hence conference_recording_track's one-row-per-egress shape;
+-- conference_recording is the per-MEETING lifecycle record the eventual composed
+-- document/document_version (Dokumentenablage, NOT a bespoke byte-storage column here) hangs off
+-- of via the nullable document_id. status is a real, authoritative five-state machine
+-- (RECORDING/STOPPING/PROCESSING/READY/FAILED) -- stopped_at/ready_at are denormalized display
+-- timestamps, not the state machine's own source of truth.
+
+CREATE TABLE conference_recording (
+    id UUID NOT NULL PRIMARY KEY,
+    room_id UUID NOT NULL,
+    started_by_member_id UUID NOT NULL,
+    started_at TIMESTAMP NOT NULL,
+    stopped_at TIMESTAMP NULL,
+    ready_at TIMESTAMP NULL,
+    status VARCHAR(10) NOT NULL,
+    access_level VARCHAR(14) NOT NULL,
+    document_id UUID NULL,
+    raw_dir VARCHAR(64) NOT NULL,
+    duration_seconds BIGINT NULL,
+    file_size_bytes BIGINT NULL,
+    failure_reason VARCHAR(500) NULL,
+    compose_attempts INT NOT NULL DEFAULT 0,
+    CHECK (status IN ('RECORDING', 'STOPPING', 'PROCESSING', 'READY', 'FAILED')),
+    CHECK (access_level IN ('PUBLIC_MEMBERS', 'BOARD_ONLY', 'ADMIN_ONLY'))
+);
+CREATE INDEX idx_conference_recording_room ON conference_recording (room_id);
+CREATE INDEX idx_conference_recording_status ON conference_recording (status);
+CREATE INDEX idx_conference_recording_started_by ON conference_recording (started_by_member_id);
+
+CREATE TABLE conference_recording_track (
+    id UUID NOT NULL PRIMARY KEY,
+    recording_id UUID NOT NULL,
+    egress_id VARCHAR(64) NOT NULL,
+    livekit_track_id VARCHAR(64) NOT NULL,
+    participant_identity VARCHAR(64) NOT NULL,
+    track_source VARCHAR(19) NOT NULL,
+    status VARCHAR(8) NOT NULL,
+    started_at_epoch_nanos BIGINT NULL,
+    ended_at_epoch_nanos BIGINT NULL,
+    file_name VARCHAR(512) NULL,
+    duration_ms BIGINT NULL,
+    size_bytes BIGINT NULL,
+    CHECK (track_source IN ('CAMERA', 'MICROPHONE', 'SCREEN_SHARE', 'SCREEN_SHARE_AUDIO', 'UNKNOWN')),
+    CHECK (status IN ('STARTING', 'ACTIVE', 'COMPLETE', 'FAILED', 'ABORTED'))
+);
+CREATE UNIQUE INDEX uq_conference_recording_track_egress_id ON conference_recording_track (egress_id);
+CREATE INDEX idx_conference_recording_track_recording ON conference_recording_track (recording_id);
+
+-- Foreign Keys
+
+ALTER TABLE conference_recording ADD CONSTRAINT fk_conference_recording_room_id FOREIGN KEY (room_id) REFERENCES conference_room(id);
+ALTER TABLE conference_recording ADD CONSTRAINT fk_conference_recording_started_by_member_id FOREIGN KEY (started_by_member_id) REFERENCES member(id);
+ALTER TABLE conference_recording ADD CONSTRAINT fk_conference_recording_document_id FOREIGN KEY (document_id) REFERENCES document(id);
+ALTER TABLE conference_recording_track ADD CONSTRAINT fk_conference_recording_track_recording_id FOREIGN KEY (recording_id) REFERENCES conference_recording(id);
 

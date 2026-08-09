@@ -20,10 +20,14 @@ import kotlin.js.Promise
  * this codebase (see `build.gradle.kts` KDoc on the `npm("livekit-client", "2.21.0")` line).
  *
  * **Deliberately minimal.** No `Track.Source` enum, no `ConnectionState`, no `RoomConnectOptions`,
- * no egress/recording types, no `VideoPresets`, no `ActiveSpeakersChanged` (that belongs to the
- * design review's D3 speaking-priority reflow for 13-25 participants -- a later, polish-pass step,
- * not this one). `"screen_share"` is discriminated by string-comparing [TrackPublication.source] to
- * that literal client-side (see `ConferenceScreen.kt`), never a dedicated enum type here.
+ * no `VideoPresets`, no `ActiveSpeakersChanged` (that belongs to the design review's D3
+ * speaking-priority reflow for 13-25 participants -- a later, polish-pass step, not this one).
+ * `"screen_share"` is discriminated by string-comparing [TrackPublication.source] to that literal
+ * client-side (see `ConferenceScreen.kt`), never a dedicated enum type here. [Room.isRecording]/
+ * [RoomEvent.RecordingStatusChanged] (Wave 2 "Aufzeichnung") are the ONE exception to "no
+ * egress/recording types here" -- this is the client's sole recording-related surface, deliberately
+ * NOT the Twirp Egress API itself (that lives server-side only, `LiveKitEgressClient.kt`); the
+ * browser only ever needs to know WHETHER the room is being recorded, never how.
  *
  * A field or method missing here is a DELIBERATE omission, not an oversight -- add only what a
  * concrete call site in [network.lapis.cloud.client.livekit.LiveKitRoomSession]/`ConferenceScreen.kt`
@@ -67,6 +71,17 @@ external class Room(
 ) {
     val localParticipant: LocalParticipant
     val remoteParticipants: dynamic // JS Map<identity, RemoteParticipant> -- see LiveKitRoomSession.seedRoster
+
+    /**
+     * V1.0 Videokonferenzen (Kleinsitzung), Wave 2 "Aufzeichnung" -- server-authoritative: `true`
+     * whenever ANY egress (this wave: per-track egress) is currently active against this room,
+     * pushed to every connected client the instant it changes (see [RoomEvent.RecordingStatusChanged]).
+     * This is the design review's D1 badge signal -- LiveKit itself, never client-side RPC polling
+     * and never spoofable by a participant. Read once right after `connect()` resolves (see
+     * `LiveKitRoomSession.connect` "late-joiner seed") so a participant who joins an
+     * ALREADY-recording room sees the indicator immediately, not only on the next transition.
+     */
+    val isRecording: Boolean
 
     fun connect(
         url: String,
@@ -132,4 +147,11 @@ external object RoomEvent {
     val LocalTrackPublished: String
     val LocalTrackUnpublished: String
     val DataReceived: String
+
+    /** V1.0 Videokonferenzen (Kleinsitzung), Wave 2 "Aufzeichnung" -- see [Room.isRecording] KDoc.
+     * Fires with a single JS `boolean` argument (`(isRecording: boolean) => void`), unlike this
+     * file's other events -- `LiveKitRoomSession.wireEvents` reads that single argument off the
+     * listener's first parameter and ignores the other three, same "extra Kotlin lambda parameters
+     * simply bind to `undefined`" pattern already used there for zero/one-argument JS events. */
+    val RecordingStatusChanged: String
 }

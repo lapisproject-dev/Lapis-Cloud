@@ -1,4 +1,4 @@
-= Local LiveKit/coturn Stack (Videokonferenzen, Wave 1)
+= Local LiveKit/coturn/Egress/Redis Stack (Videokonferenzen, Wave 1 + Wave 2 "Aufzeichnung")
 :toc:
 :toc-placement: preamble
 :icons: font
@@ -27,6 +27,18 @@ browser-side `livekit-client` integration have all been live-verified against ex
   Gradle's Kotlin/JS plugin bootstraps its own).
 * A Chromium- or Firefox-based browser with a webcam/microphone for the two-profile manual
   recipe below (or two separate machines/devices).
+* **Wave 2 "Aufzeichnung" only**: `ffmpeg` on the HOST machine's `PATH` (or pointed at via
+  `LAPIS_FFMPEG_PATH`) -- NOT inside any container. `RecordingPoller`'s composition step
+  (`RecordingComposer`, see that class's own KDoc) shells out to the host binary the same way the
+  Ktor server itself runs outside Docker in this dev recipe (see "Running the app against this
+  stack" below). `brew install ffmpeg` on macOS, `apt install ffmpeg` on Debian/Ubuntu. Without it,
+  `ConferenceRecordingConfig.probeFfmpegAvailable` reports `false` at server startup (logged once as
+  a WARN) and `ConferenceRecordingAvailabilityDto.ffmpegAvailable` stays `false` -- recording still
+  starts and raw tracks still land in `egress-out/`, but every recording gets stuck in `PROCESSING`
+  until `ffmpeg` is installed and the server restarted (see "Wave 2 Aufzeichnung" below for the full
+  env surface). This is independent of the `egress`/`redis` containers, which need no `ffmpeg` of
+  their own -- Track Egress writes raw, uncomposed files; composition is this repository's own code,
+  not LiveKit's.
 
 == Quick start
 
@@ -63,8 +75,32 @@ LAPIS_LIVEKIT_API_KEY=devkey \
 LAPIS_LIVEKIT_API_SECRET='lapis-dev-livekit-secret-32bytes-min!!' \
 LAPIS_TURN_URLS='turn:127.0.0.1:3478?transport=udp,turn:127.0.0.1:3478?transport=tcp' \
 LAPIS_TURN_SHARED_SECRET='lapis-dev-turn-shared-secret-32bytes-min!!' \
+LAPIS_RECORDING_ENABLED=true \
+LAPIS_EGRESS_OUTPUT_HOST_DIR="$(cd .. && pwd)/deploy/local/egress-out" \
 ../gradlew run
 ----
+
+`LAPIS_RECORDING_ENABLED=true` opts into Wave 2 "Aufzeichnung" on top of the Wave 1 trio above --
+requires the `redis`/`egress` services from this SAME `docker-compose.yml` to already be up (see
+"Wave 2 Aufzeichnung" below) and `ffmpeg` on the server's own host `PATH` (see "Prerequisites"
+above).
+
+**`LAPIS_EGRESS_OUTPUT_HOST_DIR` is NOT optional with this exact recipe -- a real bug found live
+during this wave's completion step (2026-08-09), corrected here rather than worked around.**
+`ConferenceRecordingConfig`'s own default for this var is the relative string
+`deploy/local/egress-out`, which is only correct if the JVM's working directory is the repo root.
+But the recipe above does `cd lapis-server` first, and Gradle's `application` plugin's `run` task
+defaults its child process's working directory to the *subproject* dir -- so with the bare default
+(no `LAPIS_EGRESS_OUTPUT_HOST_DIR` override), the server actually looks for raw track files under
+`lapis-server/deploy/local/egress-out` (nonexistent), while `egress` keeps writing the real bytes to
+the repo-root `deploy/local/egress-out` regardless (its own bind mount in `docker-compose.yml` is
+fixed and knows nothing about the server's working directory). Symptom: `RecordingPoller` logs
+`could not resolve raw file '...' -- skipping this track` followed by `no resolvable video track ...
+FAILED`, for every recording, unconditionally -- confirmed live: composition failed 100% of the time
+against the bare documented recipe before this fix, and succeeded (`READY`, real playable MP4, see
+"Live verification results" below) immediately after adding the explicit absolute-path override
+above. Every other `LAPIS_RECORDING_*`/`LAPIS_EGRESS_OUTPUT_CONTAINER_DIR` var has a working local
+default and does not need to be set for this recipe.
 
 `LAPIS_TURN_URLS`/`LAPIS_TURN_SHARED_SECRET` must match `turnserver.conf`'s own `static-auth-secret`
 -- see `TurnCredentialMinter.kt` KDoc for how the server turns this shared secret into a fresh,
@@ -182,6 +218,96 @@ LiveKit's own device prompt fires) remains legitimately open for a later polish 
 |`docker compose up` fails to bind `3478/udp` or `7882/udp`
 |Another process (often a VPN client or another LiveKit/coturn instance) is already using that port
 -- `lsof -i :3478` / `lsof -i :7882` to find it.
+
+|A recording never leaves `RECORDING`/`STOPPING` (no track egresses ever start, or
+`StartTrackEgress` calls throw `LiveKitAdminException`), and `docker compose -f
+deploy/local/docker-compose.yml logs egress` shows a repeating `"no response from servers"` /
+`"context deadline exceeded"` around a `redis` dial
+|**The classic Wave 2 Redis-connectivity symptom.** `egress` (and `livekit-server` itself, once
+`redis:` is set in `livekit.yaml`) cannot reach the `redis` container -- check, in order: (1)
+`docker compose -f deploy/local/docker-compose.yml ps` shows `redis` as `Up` (not restarting/
+exited); (2) `egress.yaml`'s `redis.address` and `livekit.yaml`'s `redis.address` both read
+EXACTLY `redis:6379` (the compose SERVICE name, never `localhost`/`127.0.0.1` -- those only resolve
+inside a container to that container itself); (3) `redis` was started as part of the SAME `docker
+compose up` as `livekit`/`egress` (all four services share one `lapis-conference-dev_default`
+network by being in the same compose file/`up` invocation -- starting `redis` via a separate,
+unrelated `docker run` would put it on a different network, unreachable by name). Confirm a clean
+connection with `docker compose -f deploy/local/docker-compose.yml logs egress \| grep redis`,
+which on a healthy stack shows a single `connecting to redis {"addr": "redis:6379"}` INFO line and
+nothing further about it (see "Live verification results, Wave 2 infra step" below for what a
+healthy startup log looks like end to end).
+
+|A `READY` recording never appears after a call ends -- the recording stays `PROCESSING` forever
+|`ffmpeg` is missing/not on `PATH` on the machine running the Ktor server -- see "Prerequisites"
+above. Check the server's own startup log for `ffmpeg -version did not complete` /
+`ffmpeg probe failed` (`ConferenceRecordingConfig.probeFfmpegAvailable`'s WARN), and confirm via
+`GET`ting `IConferenceRecordingService.getRecordingAvailability` (or just looking at whether the
+moderator's "Aufzeichnung starten" button is visible at all -- design review D14 hides it entirely
+when unavailable) that `ffmpegAvailable == true` before assuming this is a poller bug.
+
+|Every recording goes `FAILED` with `Die Aufzeichnung konnte nicht zusammengesetzt werden.`, and the
+server log shows `RecordingPoller: could not resolve raw file '...' -- skipping this track` even
+though `docker exec lapis-conference-dev-egress ls /out/<recordingId>/` shows the file is really
+there
+|**The `LAPIS_EGRESS_OUTPUT_HOST_DIR` working-directory mismatch -- see "Running the app against
+this stack" above, which now sets this var explicitly for exactly this reason.** If you started the
+server your own way (not via the documented recipe) and are still hitting this: confirm your
+process's actual working directory (`lsof -p <pid> | grep cwd` on macOS/Linux) and either `cd` to
+the repo root before `../gradlew run`, or set `LAPIS_EGRESS_OUTPUT_HOST_DIR` to an absolute path
+yourself. Live-verified 2026-08-09: this is not a hypothetical, every single recording attempted
+against the bare documented recipe (before the fix above) failed this exact way, 100% reproducible.
+
+|A recording that previously worked starts failing the SAME way right after you manually cleared
+out `deploy/local/egress-out/` while the stack was already running (e.g. to save disk space between
+test runs)
+|**Observed once, 2026-08-09, on Colima -- not fully root-caused, but reproducibly worked around by
+restarting the `egress` container.** `rm -rf deploy/local/egress-out/*` while `egress` is still
+running produced a track egress that logged a completely normal `egress_active` -> `egress_ending`
+-> `egress_complete` lifecycle (HTTP-level success, no error anywhere in the container's own log)
+but left **zero bytes** anywhere under `/out` inside the container afterwards -- `docker exec
+lapis-conference-dev-egress ls -la /out` came back empty even immediately after `egress_complete`.
+A plain `docker compose -f deploy/local/docker-compose.yml restart egress` immediately before the
+next recording attempt made the very next run succeed cleanly (confirmed: real `READY` recording,
+real playable MP4, see "Live verification results" below). Best current hypothesis: a Colima
+virtiofs/9p bind-mount consistency quirk when the host removes directory entries out from under an
+already-running container's open mount, not (yet) confirmed against native Linux Docker. If you
+routinely clear `egress-out/` between test sessions, restart the `egress` container afterwards
+rather than assuming the next recording will "just work".
+
+|In the in-call moderator view, "Aufzeichnung beenden" used to change to a permanently disabled
+"Aufzeichnung wird beendet ..." that never resolved to "Aufzeichnung starten", even though the
+recording had already reached a terminal state (`READY`/`FAILED`) -- confirmed via the Lobby's own
+"Aufzeichnungen" list, which showed the correct final status
+|**FIXED in review-round-1 of this wave's own code review (2026-08-09).** Root cause, found during
+this wave's own live verification the same day: `ConferenceScreen.kt`'s in-call recording-detail
+line and moderator button label were refreshed by exactly one mechanism --
+`refreshRecordingState()`, called only from inside the `onRecordingStatusChanged` LiveKit-push
+handler (see that file's own "D1/D2" KDoc). LiveKit flips `room.isRecording` back to `false` as
+soon as the LAST track egress ends -- which is always *before* `RecordingPoller`'s own
+`STOPPING -> PROCESSING -> READY`/`FAILED` transition, sometimes by a wide margin for a long
+composition. There was no separate signal (poll or push) for that second, often-longer phase while
+a moderator stayed in the call view, so the button could be left showing a stale in-flight label.
+Observed **inconsistently**, not on every run: one `FAILED`-path recording left the button stuck
+even after a full page reload and rejoin of the same room; a later `READY`-path recording
+self-corrected to "Aufzeichnung starten" on an equivalent reload+rejoin -- the exact trigger
+condition for the stuck case was not isolated at the time.
+
+**Fix**: `enterCall` now runs a periodic `pollInFlightRecordingStatus` loop (15s interval, close to
+`RecordingPoller`'s own 10s default tick) for as long as the tracked recording sits in
+`STOPPING`/`PROCESSING`. Each tick falls back to `listRecordings(roomId)` -- not just
+`getActiveRecording(roomId)`, which server-side (`ACTIVE_RECORDING_STATUSES`) never returns anything
+past `STOPPING` -- to find the SAME recording id's true, possibly-terminal status. On reaching
+`READY`/`FAILED` the control unsticks (reverts to an actionable "Aufzeichnung starten") and a toast
+now surfaces the outcome to the moderator. Deliberately not run through `guarded {}` (would re-toast
+a transient network hiccup on every tick); see `ConferenceScreen.kt`'s own KDoc on
+`pollInFlightRecordingStatus` for the full reasoning, and `ConferenceScreenTest.kt` for the new
+`conferenceRecordingNeedsPoll`/`conferenceFindRecordingById` unit coverage.
+
+**One narrow residual gap, disclosed rather than silently left**: `listRecordings`' access-level
+filter (`ConferenceRecordingAccess.mayAccess`) can still hide a recording from a moderator who is
+neither its starter nor privileged enough for its `accessLevel` (e.g. a plain room-creator moderator
+stopping another BOARD/ADMIN member's `ADMIN_ONLY` recording) -- for that narrow case the button
+stays exactly as stuck as before this fix, never worse. Not root-caused/closed here.
 |===
 
 == What's running
@@ -198,9 +324,16 @@ multiplexes both over one HTTP port).
 |`coturn` (`coturn/coturn:4.17.0-alpine`)
 |TURN relay for NAT traversal (port `3478` + relay range `51000-51019/udp`). See "coturn's role is
 mostly symbolic here" below for why this matters less than it sounds on a single dev machine.
-|===
 
-No Redis -- single-node LiveKit doesn't need it (only a multi-node LiveKit deployment would).
+|`redis` (`redis:7.4-alpine`, added Wave 2 "Aufzeichnung")
+|Message queue LiveKit's Egress service uses to communicate with `livekit-server` -- see "Wave 2
+Aufzeichnung -- Egress + Redis" below. Compose-internal only, no published ports.
+
+|`egress` (`livekit/egress:v1.13.0`, added Wave 2 "Aufzeichnung")
+|Runs Track Egress jobs (`StartTrackEgress`/`StopEgress`/`ListEgress`, driven through Redis, never
+addressed directly) -- writes raw per-track recording files to the bind-mounted `./egress-out/`
+(gitignored). See "Wave 2 Aufzeichnung" below.
+|===
 
 == Why not `livekit-server --dev`
 
@@ -318,11 +451,240 @@ manual pass described in "Two-profile browser recipe" above):
   rendering itself as proven, even though the underlying WebRTC transport is now proven solid by the
   chat-over-data-channel result above.
 
+== Wave 2 "Aufzeichnung" -- Egress + Redis
+
+`redis`/`egress` join the stack for Track-Egress-based meeting recording (see
+`ConferenceRecordingConfig`/`LiveKitEgressClient`/`IConferenceRecordingService` KDoc for the
+server-side half). Re-uses the same `livekit.yaml` API key/secret -- `egress.yaml` MUST carry the
+SAME `api_key`/`api_secret` (both files' own headers cross-reference this).
+
+**The `livekit.yaml` change is real, not cosmetic**: adding a `redis:` block switches
+`livekit-server` from its Wave 1 single-node in-process router to the Redis-backed router --
+LiveKit's own self-hosting docs state Egress needs this to communicate with the server at all. The
+FIRST thing verified in this wave, before writing any recording code, was that this switch does NOT
+regress plain Wave 1 conferencing: `LAPIS_LIVEKIT_IT=true ./gradlew :lapis-server:test --tests
+"*.LiveKitLiveIntegrationTest"` still passes against the Redis-enabled stack, and the LiveKit
+container's own Twirp access log still shows real `CreateRoom`/`ListParticipants`/`DeleteRoom`
+calls succeeding, with `nodeIP: 127.0.0.1` unchanged in the startup log line.
+
+**Two deliberately separate output-directory env vars -- the single most likely bug in this wave if
+collapsed into one.** `LiveKit Track Egress`'s `DirectFileOutput.filepath` is a path INSIDE the
+`egress` container (`LAPIS_EGRESS_OUTPUT_CONTAINER_DIR`, default `/out`); the Ktor server reads
+those SAME bytes back from the HOST filesystem (`LAPIS_EGRESS_OUTPUT_HOST_DIR`, default
+`deploy/local/egress-out`, gitignored) because in local dev it runs outside Docker entirely.
+Conflating the two produces a `FileNotFoundException` on the composer side (a later step) that
+looks exactly like "egress silently produced nothing". On Colima/macOS the bind-mounted files
+surface as the host user (verified live below); on native Linux Docker they may land root-owned --
+if the Ktor process cannot read `deploy/local/egress-out/`, add a `user:` override to the `egress`
+service in `docker-compose.yml` matching your host UID/GID.
+
+Full recording-related env surface (`ConferenceRecordingConfig`): `LAPIS_RECORDING_ENABLED` (master
+opt-in, default `false`, see "Running the app against this stack" above for the full recipe with it
+turned on), `LAPIS_EGRESS_OUTPUT_CONTAINER_DIR`/`LAPIS_EGRESS_OUTPUT_HOST_DIR` (see above),
+`LAPIS_FFMPEG_PATH` (default `ffmpeg`, resolved via `PATH` if not absolute -- see "Prerequisites"
+above for the HOST-machine `ffmpeg` install this needs), `LAPIS_RECORDING_POLL_INTERVAL_SECONDS`/
+`_EGRESS_TIMEOUT_MINUTES`/`_MAX_DURATION_MINUTES`/`_COMPOSE_TIMEOUT_MINUTES`/`_MAX_TRACKS`/
+`_KEEP_RAW` (all consumed by `RecordingPoller`, the single application-scoped coroutine that drives
+`RECORDING -> STOPPING -> PROCESSING -> READY`/`FAILED` -- see that class's own KDoc for the full
+state machine). `ConferenceRecordingConfig.load()` remains string-parsing only (no I/O), so
+`./gradlew clean check` never needs `ffmpeg`/Docker even though every one of these vars is now fully
+wired end to end (poller, `ffmpeg`-based gallery composition, Dokumentenablage archiving, and the
+`ConferenceScreen.kt`/`ConferenceRecordingsPanel.kt` client UI all landed as of this wave's
+storage/poller and client-UI steps).
+
+**Recordings inflate `OrganizationExportService` backups -- not a hypothetical, a real and
+potentially large size increase.** A composed recording is archived as an ordinary `document` under
+`documentStorageRoot` (see "Storage and access" reasoning in the wave plan -- reused deliberately for
+soft-delete/versioning/DSGVO-export reuse), and `OrganizationExportService` walks
+`documentStorageRoot` in full for every backup. A single Vorstandssitzung recording easily runs into
+the hundreds of MB; a `deploy/local/README.adoc`-scale dev instance won't notice, but an operator
+running regular backups against a real deployment WILL see backup size and duration grow
+substantially the moment recording is turned on for real meetings. Excluding recordings from backups
+(or a separate, opt-in "include recordings" backup mode) is an explicit, undecided question for a
+later wave -- this wave does not silently make that call either way; it is flagged here and in
+`CHANGELOG.md`'s own Wave 2 entry precisely so it is not discovered by surprise the first time a
+backup takes ten times as long as before.
+
+=== Live verification results (2026-08-09, Wave 2 infra step)
+
+Performed with `livekit-cli` (`livekit/egress`'s sibling CLI image) publishing a real synthetic
+video track into a real room -- no browser needed for this infra-only step's own verification, see
+`LiveKitEgressClient`/`LiveKitParticipantInfo` KDoc for the exact recipe:
+
+* `redis`/`egress` both start cleanly against this stack; `egress` logs `service ready` (a
+  `not enough cpu for some egress types` WARNING is expected/harmless on a laptop-class dev
+  machine -- Track Egress itself never launches Chrome, unlike Room/Web Composite Egress, so it
+  is far less CPU-hungry than that warning implies).
+* `ListParticipants` against a room with one real connected, publishing participant returned real
+  `tracks[]` data (`sid`/`type`/`source`/`muted`, plus simulcast layers/codecs this wave does not
+  read) -- closing Wave 1's own disclosed "only verified for the empty-roster case" gap for
+  `LiveKitParticipantInfo`.
+* `StartTrackEgress` -> `ListEgress` -> `StopEgress` against that same real track produced the full
+  real lifecycle `EGRESS_STARTING -> EGRESS_ACTIVE -> EGRESS_ENDING -> EGRESS_COMPLETE`, with a real
+  `.mp4` file (LiveKit's own extension choice, matching the published H.264 track) landing at the
+  expected path inside `deploy/local/egress-out/`, readable directly as the host user, confirmed
+  via `file` reporting `ISO Media, MP4 v2`.
+* `ListEgress`'s response array field name is confirmed `items` (not `egress_items`/`egresses`) --
+  closes the plan's own "unverified until observed" flag for that field name.
+* A `StopEgress` call using a `roomRecord: true` token WITHOUT a `room` claim was empirically
+  ACCEPTED by LiveKit (unlike `ListParticipants`/`RemoveParticipant`'s `roomAdmin` grant, which
+  requires room-scoping) -- `LiveKitEgressClient.stopEgress` still takes/mints a room-scoped token
+  anyway, purely for least-privilege, not because LiveKit requires it.
+
+=== Live verification results (2026-08-09, Wave 2 completion step -- full pipeline)
+
+Performed against a real running `deploy/local/` stack (`redis`/`livekit`/`coturn`/`egress`) plus a
+real `lapis-server` process (`LAPIS_RECORDING_ENABLED=true`, `LAPIS_RECORDING_POLL_INTERVAL_SECONDS=5`
+for faster iteration, otherwise the documented recipe) and a real Chromium-based browser session
+logged in as a seeded `BOARD` member. **One real constraint of this specific sandboxed browser
+environment, disclosed rather than worked around**: `getUserMedia`/`getDisplayMedia` (camera/
+microphone) are blocked at the browser-automation layer -- every attempt to enable camera/microphone
+from the browser UI itself correctly surfaced a real, truthful "Requested device not found"/
+"Permission denied" error (itself a live confirmation that Wave 1's own mic/camera-toggle-state bug
+fix still holds: the buttons never lied about being "on"), but produced zero published media tracks
+from the browser side. To still exercise the real Track-Egress-through-composition pipeline end to
+end, a second, independent participant was joined into the same LiveKit room using the official
+`livekit/livekit-cli` Docker image's `room join --publish-demo` (a real H.264 simulcast video track,
+published over a real SDP/ICE/DTLS session, subscribed to and recorded by the real `egress`
+container) -- everything downstream of "a track exists" (poller discovery, `StartTrackEgress`, the
+composed `.mp4`, the Dokumentenablage archive, the media route, the Lobby list) is therefore
+real-pipeline-verified; only the literal "record a real webcam frame from the browser" step could
+not be exercised in this environment.
+
+What was verified live, all in a single moderator session unless noted:
+
+* **D7 start-confirm dialog** -- exact copy present as specified: primary button reads "Aufzeichnung
+  jetzt starten" (never "OK"/"Bestätigen"), body states both the irreversibility and instant
+  visibility-to-everyone facts, `Zugriffsebene` select defaults to "Vorstand" (`BOARD_ONLY`) with the
+  explanatory line about ordinary Mitglieder losing access under that default.
+* **D1/D2 persistent badge** -- appeared the moment the LiveKit-level `room.isRecording` flag flipped
+  true (i.e. as soon as `RecordingPoller` actually started the first `StartTrackEgress`, not merely
+  when `startRecording` was called), rendered as `● Aufzeichnung läuft`, calm-red not alarm-red as
+  specified; `document.title` gained a real `● ` prefix at the same moment. **Not exercised**: the
+  D1 must-fix "verify against every Wave 1 layout mode + fullscreen" checklist item -- this session
+  only ever had the default gallery-grid layout on screen (no screen-share was tested this session,
+  since the synthetic livekit-cli participant does not publish a screen-share source), so the badge's
+  survival across screen-share-stage/fullscreen specifically remains **unverified this step**, same
+  disclosure posture as the wave plan's own honesty requirement.
+* **D3 notice banner** -- appeared simultaneously with the badge, exact specified copy ("Diese
+  Besprechung wird ab jetzt aufgezeichnet."), both "Verstanden" and "Besprechung verlassen" present
+  side by side, dismissed only by clicking "Verstanden" (no auto-fade observed over the session's
+  multi-minute duration).
+* **D4 late-joiner banner** -- verified by disconnecting and reconnecting to an already-recording
+  room (full page reload, fresh `LiveKitRoomSession.connect()`): both badge and banner appeared
+  immediately on the reconnect, before any user action, exactly as specified. **Caveat, disclosed
+  honestly**: this reconnect used the SAME member identity as the original moderator, not a second,
+  genuinely different member -- the Claude Browser sandbox's tabs share one cookie jar/session
+  (confirmed via `document.cookie` and by a second tab auto-showing the first tab's logged-in
+  identity), so true concurrent multi-member browser testing (the shape Wave 1's own "two independent
+  browser sessions logged in as two different seeded members" verification used) was **not
+  reproduced in this environment for Wave 2**. The code path exercised (a fresh `connect()` arriving
+  after the recording-start transition already happened) is the one D4 actually guards; only the
+  "different human" framing is unverified.
+* **D8 stop-confirm** -- real inline confirm dialog, not a bare single click: states the recording
+  will be automatically composed, and explicitly that raw recordings are retained if composition
+  fails ("bleiben die Rohaufnahmen erhalten") -- matching D13 verbatim before D13 was even reached.
+* **D13 raw-file retention on FAILED** -- confirmed with real bytes, not just log lines: a recording
+  that reached `FAILED` (zero resolvable video tracks, see "Troubleshooting" above for why) left its
+  real 30 MB raw `.mp4` sitting untouched under `egress-out/<recordingId>/` -- exactly Jobs'
+  won't-ship-without item, confirmed live.
+* **D12 FAILED prominence + sanitized reason** -- the Lobby's "Aufzeichnungen" list rendered the
+  failed item with status "Fehlgeschlagen", the fixed German constant
+  `Die Aufzeichnung konnte nicht zusammengesetzt werden.` (never raw ffmpeg/Twirp text), and the
+  D13-mandated next-step copy about contacting an administrator to recover the retained raw footage.
+  **Not verified**: sort-to-front ordering relative to other, non-failed recordings -- this session
+  never had more than one recording per room, so the "FAILED sorted before READY/RECORDING" ordering
+  claim rests on the unit tests referenced in the step-3 commit message, not on this live session.
+* **Full successful pipeline, end to end** -- after fixing the `LAPIS_EGRESS_OUTPUT_HOST_DIR` bug
+  (see "Troubleshooting" above), a second recording reached `READY` with a real, playable 49-second,
+  ≈4.29 MB (4,490,513 bytes) H.264/AAC MP4: `RecordingPoller` discovered the livekit-cli participant's
+  published track and started `StartTrackEgress` within one poll tick; `StopEgress` on the stop
+  request produced a real finalized file; `FfmpegGalleryComposer` composed it (single-cell gallery
+  layout, since only one track existed) into a new file of the exact byte size later served back;
+  `DocumentArchiving.archiveGeneratedFile` created a real `document`/`document_version` row under a
+  real, auto-created "Aufzeichnungen" `DocumentFolder`, confirmed by navigating to
+  `#/documents` and seeing `Aufzeichnung <recordingId>` listed inside it; the Lobby's
+  "Aufzeichnungen" section showed status "Bereit", duration `0:49`, size "≈ 4 MB", a real inline
+  `<video controls>` player rendering actual composed frames (the livekit-cli demo clip's stock
+  sky/sun/tree scene), and a separate "Herunterladen" link (`/api/conference/recordings/<id>/media`,
+  D9's "not the same click target as inline playback" requirement) distinct from the player.
+* **Media route, verified with real HTTP semantics, not just "it rendered"**: an unauthenticated
+  `curl` against the media URL returned a real `401`; an authenticated `fetch` with
+  `Range: bytes=0-1023` returned a real `206 Partial Content`, `Content-Type: video/mp4`,
+  `Content-Range: bytes 0-1023/4490513`, `Accept-Ranges: bytes`, `Content-Disposition: inline` --
+  the exact contract the plan specifies, confirmed byte-for-byte against the file's real total size,
+  and confirming the already-installed `PartialContent` plugin does supply free Range/206 support for
+  this new route exactly as the plan assumed it would.
+* **Raw-file cleanup on success** -- confirmed `egress-out/<recordingId>/` was empty again
+  immediately after the recording reached `READY` (raw deleted, `LAPIS_RECORDING_KEEP_RAW` was left
+  at its `false` default) -- the successful-compose branch of D13's "delete ONLY on success" rule,
+  the mirror image of the FAILED-path retention confirmed above.
+
+**Two real bugs found live during this step, neither present in the shipped implementation's own
+unit tests** (both detailed with full repro/workaround in "Troubleshooting" above, and both flagged
+again in `CHANGELOG.md`'s Wave 2 entry):
+
+1. The documented `cd lapis-server; ../gradlew run` recipe, combined with `ConferenceRecordingConfig`'s
+   own relative-path default for `LAPIS_EGRESS_OUTPUT_HOST_DIR`, made every recording fail 100% of
+   the time out of the box -- fixed in this step by adding an explicit absolute-path override to the
+   README's own recipe, not by changing the shipped default (a source-code default change is outside
+   this documentation-only step's scope; flagged as a candidate fast-follow).
+2. A Colima bind-mount quirk (best-effort root-caused, not fully confirmed) where clearing
+   `egress-out/`'s contents while the `egress` container keeps running can silently break that
+   container's subsequent writes into the same mount, despite the container's own log claiming a
+   normal, error-free `egress_complete`.
+
+**One real, disclosed client-side gap found live -- FIXED in review-round-1 of this wave's own code
+review (2026-08-09)** (full detail in "Troubleshooting" above and `CHANGELOG.md`'s Wave 2 entry): the
+in-call moderator recording button could get stuck on a permanently disabled "Aufzeichnung wird
+beendet ..." label after the underlying recording had already reached a terminal state, because the
+client only refreshed that label reactively from LiveKit's own `RecordingStatusChanged` push (which
+stops being useful once the *last* egress track itself ends -- well before this repository's own,
+often much longer, composition phase finishes). Observed inconsistently (once stuck, once
+self-corrected under what appeared to be the same repro steps); the Lobby's independently-loaded
+"Aufzeichnungen" list was correct in every case tested. Fixed with a periodic
+`pollInFlightRecordingStatus` reconciliation loop -- see "Troubleshooting" above for the full fix
+detail.
+
 == Not covered here
 
 * No TLS/`wss://` termination -- everything is plain `ws://`/`http://` on loopback.
-* No production deployment story: no Redis/multi-node LiveKit, no autoscaling, no certificate setup,
-  no embedded-TURN-vs-standalone-coturn comparison (both remain open questions for the production
-  deployment wave).
-* No `livekit-egress` container -- recording/streaming is out of scope for Wave 1 entirely, see the
-  Videokonferenzen concept note.
+* No production deployment story: this Redis is single-node/compose-internal (added purely so
+  Egress can talk to `livekit-server`, not for multi-node LiveKit clustering), no autoscaling, no
+  certificate setup, no embedded-TURN-vs-standalone-coturn comparison (all remain open questions
+  for the production deployment wave).
+* No RTMP live-streaming egress -- Wave 3's job, see the Videokonferenzen concept note. Track Egress
+  (recording) itself IS covered as of Wave 2, see below. The Redis + Egress infrastructure this wave
+  adds is exactly the prerequisite Wave 3 needs, so that later wave becomes substantially cheaper.
+* No S3-compatible (or any other) object storage for recordings -- the Dokumentenablage/local-disk
+  default (`documentStorageRoot`) is the only backend this wave implements, per the concept note's
+  own 2026-08-01 decision. LiveKit Egress supports S3/GCP/Azure sinks natively; a later wave would
+  change `DirectFileOutput` plus the archive step, not the whole storage model.
+* No recording retention policy / automatic deletion, no per-participant recording opt-out, no
+  auto-transcript/live-subtitles, no chapter markers, no WebM/VP9 alternate output format, no
+  four-tier Moderator/Präsentator/Teilnehmer/Zuhörer role model, no E2EE interaction (E2EE does not
+  exist yet either). See `IConferenceRecordingService`'s own class KDoc "Out of scope this wave" for
+  the complete, deliberately-cut list this file does not repeat in full.
+* **One known, NOT-YET-CLOSED gap from the wave's own design review, carried forward
+  honestly rather than silently worked around**: D11's "partial-composition flag" -- a recording
+  composed "from the survivors" after an egress timeout (at least one video track completed, but not
+  all of them) renders with the IDENTICAL "Bereit" badge as a clean, complete recording.
+  `ConferenceRecordingDto` has no `composedFromPartialTracks`-shaped field as of this wave's own
+  completion step. Both `ConferenceScreen.kt` and `ConferenceRecordingsPanel.kt` flag this in their
+  own file KDoc (search `D11` in either file) as a Jobs'-final-verdict "must-fix" item that did not
+  land in this wave -- a genuine, disclosed gap, not an oversight discovered later. See
+  `CHANGELOG.md`'s Wave 2 entry "Still open" for the same disclosure.
+* **A second, live-discovered client-side gap, also not closed in this step**: the in-call
+  moderator's recording button can get stuck on a stale "Aufzeichnung wird beendet ..." label past
+  the recording's actual terminal state -- see "Live verification results (Wave 2 completion step)"
+  and "Troubleshooting" above for the full repro and a candidate fix (a light periodic
+  `refreshRecordingState()` poll while a recording is non-terminal). Not fixed here because it is a
+  functional client-code change and this step's scope is documentation/verification/changelog only.
+* True concurrent multi-member browser verification (two independently logged-in seeded members,
+  the shape Wave 1's own two-profile recipe used) was **not reproduced for Wave 2** in the Claude
+  Browser sandbox this step's live verification ran in -- its tabs share one cookie jar/session, so
+  a second tab always inherited the first tab's login rather than allowing a second, independent
+  member identity. D4 (late-joiner banner) was instead verified via a same-identity reconnect, which
+  exercises the relevant code path but not the "different human" framing; D1's cross-layout-mode/
+  fullscreen badge-survival checklist item and any manual QA involving two humans on camera at once
+  remain open for a session with unrestricted browser/device access.

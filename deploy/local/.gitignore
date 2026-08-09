@@ -1,0 +1,5 @@
+# V1.0 Videokonferenzen, Wave 2 "Aufzeichnung" -- the egress container's raw per-track output sink
+# (docker-compose.yml's `egress` service bind-mounts this directory to /out; the Ktor server reads
+# the same bytes back from here via LAPIS_EGRESS_OUTPUT_HOST_DIR, see ConferenceRecordingConfig
+# KDoc). Real recorded audio/video of real participants must never be committed to this repository.
+egress-out/

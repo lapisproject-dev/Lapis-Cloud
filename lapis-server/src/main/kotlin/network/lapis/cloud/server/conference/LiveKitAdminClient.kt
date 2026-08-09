@@ -246,14 +246,19 @@ data class LiveKitRoomInfo(
 
 /**
  * `POST .../ListParticipants` response element (`livekit.ParticipantInfo`). Field NAMES follow
- * [LiveKitRoomInfo]'s confirmed snake_case convention, but -- unlike [LiveKitRoomInfo] -- this
- * exact shape was only verified for the EMPTY-roster case (`{"participants":[]}`, no room ever had
- * a real participant during this wave's verification pass, which has no live WebRTC client). A
- * human should re-verify these field names against a room with an actual connected participant (or
- * `livekit.proto`'s `ParticipantInfo` message directly) before a future wave's `ConferenceService`
- * depends on them for anything more than "participant is present" existence checks -- same
- * disclosed-uncertainty discipline as
- * [network.lapis.cloud.server.postal.LetterxpressPostalMailProvider]'s KDoc.
+ * [LiveKitRoomInfo]'s confirmed snake_case convention. Wave 1 originally shipped this shape
+ * verified only for the EMPTY-roster case -- [tracks] (V1.0 Wave 2 "Aufzeichnung") closes that gap:
+ * verified against a REAL connected participant with a real published video track (`docker compose
+ * -f deploy/local/docker-compose.yml up -d` + `livekit/livekit-cli`'s `room join --publish-demo`,
+ * 2026-08-09). Real verified sample (trimmed to the fields this codebase actually reads -- the raw
+ * response additionally carries `permission`/`region`/`is_publisher`/`kind`/`attributes`/
+ * `disconnect_reason` and more, all covered by [LIVEKIT_JSON]'s `ignoreUnknownKeys`):
+ * ```json
+ * {"sid":"PA_WJT5hYBQPSm6","identity":"probe-publisher","state":"ACTIVE",
+ *  "tracks":[{"sid":"TR_VCnrGXdDfrQmBL","type":"VIDEO","name":"demo","muted":false,
+ *             "source":"CAMERA", "...(simulcast layers, codecs, mime_type, etc. -- not read here)"}],
+ *  "joined_at":"1786260143","joined_at_ms":"1786260143075","name":""}
+ * ```
  */
 @Serializable
 data class LiveKitParticipantInfo(
@@ -262,6 +267,27 @@ data class LiveKitParticipantInfo(
     val name: String = "",
     val state: String = "",
     @SerialName("joined_at") val joinedAtEpochSeconds: String = "0",
+    val tracks: List<LiveKitTrackInfo> = emptyList(),
+)
+
+/**
+ * One element of [LiveKitParticipantInfo.tracks] (`livekit.TrackInfo`) -- only the four fields
+ * [network.lapis.cloud.server.RecordingPoller] (a later wave) actually needs to decide which tracks
+ * need their own `StartTrackEgress`: [sid] (the `track_id` [LiveKitEgressClient.startTrackEgress]
+ * takes), [type] (`AUDIO`/`VIDEO`, real verified value `"VIDEO"` above), [source] (`CAMERA`/
+ * `MICROPHONE`/`SCREEN_SHARE`/`SCREEN_SHARE_AUDIO`/`UNKNOWN` per `livekit.proto`'s `TrackSource`
+ * enum -- only `CAMERA` empirically observed so far, the rest transcribed from the proto and
+ * unverified against a live sample until a future wave actually exercises a microphone/screen-share
+ * publish against this stack), and [muted]. Every other field on the real wire response (simulcast
+ * `layers`, `codecs`, `mime_type`, `width`/`height`, `stream`, `version`, ...) is deliberately NOT
+ * declared here -- this wave never reads them, see [LIVEKIT_JSON]'s `ignoreUnknownKeys`.
+ */
+@Serializable
+data class LiveKitTrackInfo(
+    val sid: String = "",
+    val type: String = "",
+    val source: String = "",
+    val muted: Boolean = false,
 )
 
 @Serializable

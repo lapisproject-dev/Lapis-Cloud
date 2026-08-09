@@ -63,5 +63,45 @@ services:
       - "127.0.0.1:51000-51019:51000-51019/udp"
     restart: unless-stopped
 
-# No Redis -- single-node LiveKit does not need it (only a multi-node LiveKit deployment, out of
-# scope for local development and for Wave 1 in general, needs a shared Redis for room-state sync).
+  # V1.0 Videokonferenzen, Wave 2 "Aufzeichnung" -- new. The OLD trailing comment here read "No
+  # Redis -- single-node LiveKit does not need it". That was correct for Wave 1 and stops being
+  # correct the moment `egress` (below) joins the stack: LiveKit's own self-hosting docs state "The
+  # Egress service uses Redis messaging queues to load balance and communicate with your LiveKit
+  # server" -- both processes must point at the SAME Redis instance (see livekit.yaml's new
+  # `redis:` block and egress.yaml's own `redis:` block, both `redis:6379`, the compose service name
+  # below).
+  redis:
+    image: redis:7.4-alpine # verified on Docker Hub, 2026-08-09
+    container_name: lapis-conference-dev-redis
+    command: ["redis-server", "--save", "", "--appendonly", "no"]
+    restart: unless-stopped
+    # DELIBERATELY NO `ports:` -- Redis is reachable only on the compose-internal network (livekit +
+    # egress). Publishing 6379, even on 127.0.0.1, would expose an unauthenticated Redis to every
+    # process on the dev machine for zero benefit -- a STRICTER posture than the audit-round-1
+    # `127.0.0.1:`-bind fix above, not a looser one.
+
+  egress:
+    # Pinned deliberately to the well-soaked v1.13.0 (Docker Hub, verified 2026-08-09) rather than
+    # a newer line -- matches this repo's pin-exact-and-soaked posture (gradle/libs.versions.toml,
+    # livekit-server:v1.13.5 above). Egress versions are numbered INDEPENDENTLY of livekit-server
+    # versions; v1.13.0-egress is not "the matching build" for v1.13.5-server, it is simply the
+    # current stable egress line. Re-verify on Docker Hub before bumping.
+    image: livekit/egress:v1.13.0
+    container_name: lapis-conference-dev-egress
+    environment:
+      EGRESS_CONFIG_FILE: /etc/egress.yaml
+    volumes:
+      - ./egress.yaml:/etc/egress.yaml:ro
+      # The raw per-track sink -- CONTAINER path (/out). The Ktor server reads the SAME bytes from
+      # the HOST path (./egress-out, gitignored) because in local dev it runs outside Docker -- see
+      # LAPIS_EGRESS_OUTPUT_CONTAINER_DIR/LAPIS_EGRESS_OUTPUT_HOST_DIR in ConferenceRecordingConfig
+      # KDoc for why these are two deliberately separate env vars, never collapsed into one.
+      - ./egress-out:/out
+      - /tmp # egress scratch space
+    cap_add:
+      - SYS_ADMIN # documented as required since egress v1.7.6 (Chrome sandbox); Track Egress itself
+      # never launches Chrome, but the image expects the cap and it is cheap to grant in a dev stack.
+    depends_on: [redis, livekit]
+    restart: unless-stopped
+    # No published ports -- egress is driven entirely through Redis; nothing outside the compose
+    # network ever talks to it directly.

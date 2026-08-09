@@ -35,14 +35,14 @@ class DomainModelMergerTest :
         // ── Test 1: merging the real 22 domain scripts ───────────────────────────────────
 
         test(
-            "merging the real 28 domain scripts succeeds and the uml-to-erm -> erm-to-exposed chain " +
+            "merging the real 29 domain scripts succeeds and the uml-to-erm -> erm-to-exposed chain " +
                 "produces exactly one Table file per distinct table name",
         ) {
             val scriptFiles =
                 requireNotNull(KumlModelLoader.kumlSourceDir.listFiles { f -> f.name.endsWith(".kuml.kts") }) {
                     "kUML source dir not found or not a directory: ${KumlModelLoader.kumlSourceDir.absolutePath}"
                 }.sortedBy { it.name }
-            scriptFiles shouldHaveSize 28
+            scriptFiles shouldHaveSize 29
 
             val diagrams = scriptFiles.map { KumlModelLoader.loadUmlDiagram(it) }
 
@@ -177,7 +177,14 @@ class DomainModelMergerTest :
             // resolve through it) -- so it contributes +3 «Entity» declarations (the stub + 2 real
             // tables) and +1 drop (the stub merges into the already-existing member entity) versus
             // the V0.8.3 baseline above (89 -> 91).
-            val distinctTableNames = 91
+            // 28-conference-recording.kuml.kts (V1.0 Videokonferenzen, Wave 2 "Aufzeichnung") adds
+            // exactly two more real tables (conference_recording, conference_recording_track), WITH
+            // THREE cross-domain stubs (Member, ConferenceRoom, Document -- conference_recording
+            // has FKs to all three: started_by_member_id, room_id, document_id) -- so it
+            // contributes +5 «Entity» declarations (3 stubs + 2 real tables) and +3 drops (all
+            // three stubs merge into the already-existing member/conference_room/document
+            // entities) versus the V1.0-Wave-1 baseline above (91 -> 93).
+            val distinctTableNames = 93
 
             val result =
                 UmlToExposedViaErmScriptTransformer().transform(
@@ -291,6 +298,8 @@ class DomainModelMergerTest :
                     "TrustAnchorEventTable.kt",
                     "ConferenceRoomTable.kt",
                     "ConferenceParticipationTable.kt",
+                    "ConferenceRecordingTable.kt",
+                    "ConferenceRecordingTrackTable.kt",
                 )
         }
 

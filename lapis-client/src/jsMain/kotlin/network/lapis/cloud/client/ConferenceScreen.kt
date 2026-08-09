@@ -1,6 +1,7 @@
 package network.lapis.cloud.client
 
 import io.kvision.core.Overflow
+import io.kvision.form.select.select
 import io.kvision.form.text.text
 import io.kvision.html.Button
 import io.kvision.html.ButtonStyle
@@ -15,15 +16,22 @@ import io.kvision.panel.vPanel
 import io.kvision.utils.px
 import kotlinx.browser.document
 import kotlinx.browser.window
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.datetime.LocalDateTime
 import network.lapis.cloud.client.livekit.LiveKitRoomSession
 import network.lapis.cloud.client.livekit.Track
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.ConferenceChatMessage
 import network.lapis.cloud.shared.domain.ConferenceJoinTokenDto
+import network.lapis.cloud.shared.domain.ConferenceRecordingDto
+import network.lapis.cloud.shared.domain.ConferenceRecordingStatus
 import network.lapis.cloud.shared.domain.ConferenceRole
 import network.lapis.cloud.shared.domain.ConferenceRoomDto
 import network.lapis.cloud.shared.domain.ConferenceRoomInput
+import network.lapis.cloud.shared.domain.DocumentAccessLevel
+import network.lapis.cloud.shared.rpc.IConferenceRecordingService
 import network.lapis.cloud.shared.rpc.IConferenceService
 import org.w3c.dom.HTMLElement
 import org.w3c.dom.HTMLInputElement
@@ -93,6 +101,74 @@ import kotlin.time.Clock
  * Without one of these, the camera/microphone stay active after navigating away. The `beforeunload`
  * listener is explicitly removed again inside the destroy hook so repeated visits to this screen in
  * one page session don't accumulate stale listeners.
+ *
+ * ## V1.0 Videokonferenzen (Kleinsitzung), Wave 2 "Aufzeichnung" -- recording UI
+ *
+ * This step ran the mandatory UI/UX-Design-Team review (root `CLAUDE.md` "UI/UX-Design-Team")
+ * BEFORE writing any code -- see the wave's own design-review document for the full discussion.
+ * Load-bearing decisions (D-numbers match that review):
+ *
+ * - **D1/D2 -- the persistent recording badge is driven by [network.lapis.cloud.client.livekit.LiveKitRoomSession]'s
+ *   `onRecordingStatusChanged` callback, i.e. by LiveKit's OWN [network.lapis.cloud.client.livekit.Room.isRecording],
+ *   never by polling [IConferenceRecordingService].** Server-authoritative, pushed instantly to every
+ *   connected client, correct for late joiners (D4), unspoofable by a participant. Rendered via the
+ *   shared [statusBadge] grammar (`text-bg-danger` pill) -- chrome-level (built right after the
+ *   moderator row, before the screen-share stage / video grid), so a layout-mode switch can never
+ *   make it disappear.
+ * - **D3/D4 -- the one-time notice banner** ("Diese Besprechung wird ab jetzt aufgezeichnet.") fires
+ *   on the SAME `onRecordingStatusChanged` signal, both on a live `false -> true` transition AND on
+ *   the synchronous late-joiner seed [network.lapis.cloud.client.livekit.LiveKitRoomSession] performs
+ *   right after `connect()` resolves (see that class's KDoc "Recording signal"). Non-blocking,
+ *   dual-action ("Verstanden" / "Besprechung verlassen", no auto-fade, no silent timeout) --
+ *   deliberately NOT a click-gate modal, which would hide the speaker's video at the exact moment
+ *   recording starts. "Besprechung verlassen" delegates to the real leave button's own DOM element
+ *   (`leaveButton.getElement()?.click()`) rather than duplicating the leave flow, so there is exactly
+ *   ONE place that implements "leave this call".
+ * - **D5 -- no audit trail of "Verstanden".** Explicitly not logged (see design review D5
+ *   rationale) -- the persistent badge is what establishes notice was structurally available.
+ * - **D6 -- control placement/weight.** "Aufzeichnung starten"/"-beenden" lives in the SAME
+ *   moderator row as "Für alle beenden" (never the personal Mikrofon/Kamera/Bildschirm/Chat/Verlassen
+ *   bar, per Wave 1's own D5/D6 Tesler precedent), styled [ButtonStyle.WARNING] -- one step less
+ *   alarming than "Für alle beenden"'s [ButtonStyle.OUTLINEDANGER], because starting a recording is
+ *   *disclosive*, not *destructive*.
+ * - **D7/D8 -- confirm dialogs.** [startRecordingConfirmDialog] matches the literal
+ *   `PostalMailScreen.postalDispatchConfirmDialog` bar: named primary button ("Aufzeichnung jetzt
+ *   starten", never "OK"), states irreversibility AND immediate room-wide visibility, and the
+ *   [DocumentAccessLevel] select carries an explanatory line making the BOARD_ONLY default's
+ *   consequence concrete. [stopRecordingConfirmDialog] is real but lighter, matching
+ *   `removeParticipantConfirmDialog`'s "no danger-red body text, still a genuine confirm step" tier.
+ * - **D9 -- the Lobby's "Aufzeichnungen" section** is built entirely in `ConferenceRecordingsPanel.kt`,
+ *   wired into [renderLobby] -- recordings OUTLIVE their room, so they must stay reachable long after
+ *   the room itself is gone. See that file's own KDoc for D9/D11/D12/D13.
+ * - **D10 -- status copy**: [conferenceRecordingStatusLabel] is the ONE place this mapping exists;
+ *   both this file and `ConferenceRecordingsPanel.kt` call it, never hand-write the German text.
+ * - **D14 -- availability gating is invisible, not disabled-and-confusing.** [refreshRecordingState]
+ *   (inside [enterCall]) hides the moderator's recording button entirely when
+ *   [IConferenceRecordingService.getRecordingAvailability] reports `enabled=false`, rather than
+ *   showing a disabled dead button. The SAME gate is why this screen never calls
+ *   `getActiveRecording`/`listRecordings` before checking availability first -- both throw
+ *   [network.lapis.cloud.shared.rpc.ConflictException] when recording is unconfigured (see
+ *   `ConferenceRecordingService.requireRecordingEnabled` server-side), which `guarded {}` would
+ *   otherwise surface as a spurious toast on every Lobby load / every call entry.
+ * - **D15 -- terminology lock**: "Aufzeichnung" everywhere (badge, banner, dialogs, Lobby section) --
+ *   never "Aufnahme", never "Recording".
+ * - **D16 -- accessibility**: the notice banner's real DOM element gets `role="alert"` (implicit
+ *   `aria-live="assertive"`) via `addAfterInsertHook`, so a screen-reader user is told recording has
+ *   started with the same immediacy as a sighted user sees the banner appear.
+ *
+ * **D11's partial-composition flag is a KNOWN, NOT-YET-CLOSED gap carried over from this wave's
+ * storage/poller step** -- [ConferenceRecordingDto] has no `composedFromPartialTracks`-shaped field
+ * as of this step, so a recording composed "from the survivors" after an egress timeout renders with
+ * the identical "Bereit" badge as a clean one. This step's file list is client-UI-only and does not
+ * touch the shared DTO/server poller; flagged here (per the design review's own D11 must-fix, Jobs'
+ * final verdict) rather than silently worked around, so a later step closes it deliberately instead
+ * of it being rediscovered as a surprise.
+ *
+ * **`document.title` prefix**: [conferenceRecordingDocumentTitle] prepends "● " while
+ * `onRecordingStatusChanged` reports `true`, restored via the ORIGINAL title captured once at the
+ * very top of [enterCall] (`baseDocumentTitle`) -- both on a live stop transition AND, explicitly, on
+ * every path back to the Lobby ([returnToLobby]'s `originalTitle` parameter), since disconnecting
+ * does not reliably fire a final `RecordingStatusChanged(false)` push.
  */
 fun renderConferenceScreen(container: SimplePanel) {
     val root =
@@ -172,6 +248,10 @@ private fun renderLobby(
     val refreshButton = refreshRow.button("Aktualisieren", style = ButtonStyle.OUTLINESECONDARY)
     val roomsPanel = lobbyPanel.vPanel(spacing = 8)
 
+    // Wave 2 "Aufzeichnung", D9: recordings OUTLIVE their room, so this section belongs in the
+    // LOBBY, not only inside a live call -- see ConferenceRecordingsPanel.kt's own file KDoc.
+    val recordingsSection = lobbyPanel.vPanel(spacing = 8)
+
     fun loadRooms() {
         roomsPanel.removeAll()
         roomsPanel.div("Wird geladen …") { addCssClasses("text-muted small") }
@@ -182,13 +262,20 @@ private fun renderLobby(
                 roomsPanel.div("Derzeit keine aktive Besprechung.") { addCssClasses("text-muted small") }
             } else {
                 rooms.forEach { room ->
-                    renderRoomCard(roomsPanel, room, lobbyPanel, callPanel, setActiveSession) { loadRooms() }
+                    renderRoomCard(roomsPanel, room, lobbyPanel, callPanel, setActiveSession) {
+                        loadRooms()
+                        renderConferenceRecordingsPanel(recordingsSection)
+                    }
                 }
             }
         }
     }
 
-    refreshButton.onClick { loadRooms() }
+    refreshButton.onClick {
+        loadRooms()
+        renderConferenceRecordingsPanel(recordingsSection)
+    }
+    renderConferenceRecordingsPanel(recordingsSection)
 
     createButton.onClick {
         val title =
@@ -271,6 +358,10 @@ private fun enterCall(
     callPanel.removeAll()
     callPanel.show()
 
+    // Wave 2 "Aufzeichnung": captured BEFORE anything can prefix it, restored on every path back to
+    // the Lobby -- see file KDoc "`document.title` prefix".
+    val baseDocumentTitle = document.title
+
     val localMemberId = AppState.session?.memberId
     // D-item "moderator-only actions": a UX nicety over the server's own re-checked authority (see
     // file KDoc "Route/nav posture") -- compares the CALLER's own member id to the room's creator,
@@ -318,14 +409,249 @@ private fun enterCall(
     // (Tesler: near-identical destructive actions placed next to each other is a classic slip-inducing
     // layout). Not rendered at all for a plain participant, same "don't tease an action the server
     // will reject" posture `AuctionScreen.kt`'s own ADMIN-only Verwaltung panel documents.
+    var moderatorRowRef: SimplePanel? = null
     val endButton =
         if (canModerate) {
             val moderatorRow = callPanel.hPanel(spacing = 8) { addCssClasses("align-items-center") }
+            moderatorRowRef = moderatorRow
             moderatorRow.div("Moderator:") { addCssClasses("text-muted small") }
             moderatorRow.button("Für alle beenden", style = ButtonStyle.OUTLINEDANGER)
         } else {
             null
         }
+
+    // --- Recording indicator + moderator control (Wave 2 "Aufzeichnung", see file KDoc for the
+    // full D-item list) -- chrome-level, built right after the moderator row and BEFORE the
+    // screen-share stage / video grid, so a layout-mode switch can never make the badge disappear
+    // (design review D1). Everything here must be declared BEFORE `session = LiveKitRoomSession(...)`
+    // below, since `onRecordingStatusChanged` closes over it -- see file KDoc's own reasoning on
+    // local-declaration ordering; conversely `leaveButton`'s real DOM element (already built above,
+    // in the control bar) is used instead of the `session`-dependent leave flow (declared further
+    // down) for exactly the same reason, see [bannerLeaveButton] below.
+    var recordingAvailable = false
+    var activeRecordingDto: ConferenceRecordingDto? = null
+    var recordButton: Button? = null
+    var recordingBannerAcknowledged = false
+
+    // D1/D2: reuses the shared `statusBadge` grammar (solid `text-bg-danger` pill) rather than a
+    // hand-rolled colored-dot element -- calm/factual (no pulse animation, no exclamation icon), not
+    // an "error" alert box.
+    val recordingBadge = callPanel.statusBadge("● Aufzeichnung läuft", "danger")
+    recordingBadge.hide()
+    val recordingDetailLine = callPanel.div { addCssClasses("text-muted small") }
+    recordingDetailLine.hide()
+
+    // D3/D4: non-blocking, dual-action, no auto-fade, no silent timeout -- see file KDoc.
+    val recordingBanner = callPanel.vPanel(spacing = 6) { addCssClasses("border border-danger rounded p-2") }
+    recordingBanner.hide()
+    // D16: a screen-reader user must be told with the same immediacy a sighted user sees the banner.
+    recordingBanner.addAfterInsertHook { vnode -> (vnode.elm as? HTMLElement)?.setAttribute("role", "alert") }
+    recordingBanner.div(CONFERENCE_RECORDING_BANNER_TEXT) { addCssClass("fw-bold") }
+    val recordingBannerButtons = recordingBanner.hPanel(spacing = 8) { addCssClasses("flex-wrap") }
+    val recordingBannerAckButton = recordingBannerButtons.button("Verstanden", style = ButtonStyle.PRIMARY)
+    val recordingBannerLeaveButton = recordingBannerButtons.button("Besprechung verlassen", style = ButtonStyle.OUTLINESECONDARY)
+    recordingBannerAckButton.onClick {
+        recordingBannerAcknowledged = true
+        recordingBanner.hide()
+    }
+    // Delegates to the REAL leave button's own DOM element rather than duplicating the leave flow
+    // (which lives on `session`, declared further down this function) -- see block comment above.
+    recordingBannerLeaveButton.onClick { leaveButton.getElement()?.click() }
+
+    fun updateRecordingDetailLine() {
+        val active = activeRecordingDto
+        if (active != null) {
+            recordingDetailLine.content = conferenceRecordingStartedLabel(active.startedByDisplayName, active.startedAt)
+            recordingDetailLine.show()
+        } else {
+            recordingDetailLine.hide()
+        }
+    }
+
+    fun updateRecordButtonLabel() {
+        val btn = recordButton ?: return
+        when (activeRecordingDto?.status) {
+            ConferenceRecordingStatus.RECORDING -> {
+                btn.text = "Aufzeichnung beenden"
+                btn.disabled = false
+            }
+            ConferenceRecordingStatus.STOPPING -> {
+                btn.text = "Aufzeichnung wird beendet …"
+                btn.disabled = true
+            }
+            ConferenceRecordingStatus.PROCESSING -> {
+                // Review-round-1 fix (2026-08-09): PROCESSING can now reach this button too, via
+                // `pollInFlightRecordingStatus` below -- without this branch it fell into the
+                // `else` case and showed an ENABLED "Aufzeichnung starten" label whose click handler
+                // then silently did nothing ([onRecordButtonClicked] only ever handles a `null` or
+                // `RECORDING` active recording), a live-looking but dead button. Same disabled tier
+                // as STOPPING.
+                btn.text = "Aufzeichnung wird zusammengeführt …"
+                btn.disabled = true
+            }
+            else -> {
+                btn.text = "Aufzeichnung starten"
+                btn.disabled = false
+            }
+        }
+    }
+
+    fun onRecordButtonClicked() {
+        val btn = recordButton ?: return
+        val active = activeRecordingDto
+        if (active == null) {
+            if (!recordingCanStart(canModerate = canModerate, recordingAvailable = recordingAvailable, activeRecording = active)) return
+            startRecordingConfirmDialog { accessLevel ->
+                btn.disabled = true
+                AppScope.launch {
+                    val result = guarded { rpcService<IConferenceRecordingService>().startRecording(room.id, accessLevel) }
+                    btn.disabled = false
+                    // Rule: only update UI state once the guarded {} call's result confirms success --
+                    // never optimistically before the RPC resolves.
+                    if (result != null) {
+                        activeRecordingDto = result
+                        notifySuccess("Aufzeichnung gestartet.")
+                        updateRecordingDetailLine()
+                        updateRecordButtonLabel()
+                    }
+                }
+            }
+        } else if (active.status == ConferenceRecordingStatus.RECORDING) {
+            stopRecordingConfirmDialog {
+                btn.disabled = true
+                AppScope.launch {
+                    val result = guarded { rpcService<IConferenceRecordingService>().stopRecording(active.id) }
+                    btn.disabled = false
+                    if (result != null) {
+                        activeRecordingDto = result
+                        notifySuccess("Aufzeichnung wird beendet.")
+                        updateRecordingDetailLine()
+                        updateRecordButtonLabel()
+                    }
+                }
+            }
+        }
+    }
+
+    fun ensureRecordButton() {
+        val existing = recordButton
+        if (existing != null) {
+            // Re-shows a button that a PREVIOUS refresh hid because availability had flipped false in
+            // between (e.g. a transient LiveKit/ffmpeg hiccup) -- creating it once and never touching
+            // visibility again would otherwise strand it hidden forever once that happens.
+            existing.show()
+            return
+        }
+        val row = moderatorRowRef ?: return
+        val btn = row.button("Aufzeichnung starten", style = ButtonStyle.WARNING)
+        btn.addCssClass("ms-2")
+        btn.onClick { onRecordButtonClicked() }
+        recordButton = btn
+    }
+
+    // D14: invisible, not disabled-and-confusing, when unconfigured -- and the reason
+    // getActiveRecording is never called before this check: it THROWS ConflictException when
+    // recording is unconfigured server-side (see file KDoc "D14").
+    suspend fun refreshRecordingState() {
+        val availability = guarded { rpcService<IConferenceRecordingService>().getRecordingAvailability() }
+        recordingAvailable = availability?.enabled == true
+        if (canModerate && recordingAvailable) {
+            ensureRecordButton()
+        } else {
+            recordButton?.hide()
+        }
+        if (!recordingAvailable) {
+            activeRecordingDto = null
+            updateRecordingDetailLine()
+            return
+        }
+        // Role: MEMBER+ -- every participant, not only the moderator, may see who is recording and
+        // since when (see IConferenceRecordingService.getActiveRecording KDoc "everyone in the room
+        // has a legal right to know").
+        val recordings = guarded { rpcService<IConferenceRecordingService>().getActiveRecording(room.id) }
+        activeRecordingDto = recordings?.singleOrNull()
+        updateRecordingDetailLine()
+        updateRecordButtonLabel()
+    }
+
+    /**
+     * Review-round-1 fix (2026-08-09) for the disclosed gap `CHANGELOG.md`'s Wave 2 entry and
+     * `deploy/local/README.adoc`'s Troubleshooting table both flag ("in-call moderator button gets
+     * stuck on a permanently disabled 'Aufzeichnung wird beendet …' label past the recording's
+     * actual terminal state"), live-verified 2026-08-09.
+     *
+     * Root cause (see file KDoc "D1/D2"): [refreshRecordingState] only ever runs from inside the
+     * `onRecordingStatusChanged` LiveKit-push handler below, which fires once per `RECORDING.
+     * isRecording` true<->false transition. That flag flips `false` the moment the LAST track's
+     * egress ends -- well before `RecordingPoller`'s own `STOPPING -> PROCESSING -> READY`/`FAILED`
+     * composition phase (seconds to minutes) actually finishes. Nothing ever refreshes the button
+     * again after that one push, so whatever snapshot it captured (often still `STOPPING`) sticks
+     * forever.
+     *
+     * This periodic poll is the follow-up signal the design review's own README candidate fix asked
+     * for ("a light periodic `refreshRecordingState()` poll while a recording is non-terminal,
+     * stopped once terminal"), refined in one respect: [refreshRecordingState]'s own
+     * `getActiveRecording` call is not enough on its own, because it (deliberately, server-side --
+     * see `ACTIVE_RECORDING_STATUSES`) only ever returns `RECORDING`/`STOPPING` rows; once the
+     * poller advances a row to `PROCESSING`, `getActiveRecording` silently stops returning it at
+     * all. This loop instead falls back to `listRecordings(room.id)` (no status filter server-side)
+     * to find the SAME recording id and read its true, possibly-terminal status.
+     *
+     * Deliberately NOT run through `guarded {}` -- that wrapper shows a user-facing error toast per
+     * failed call (see `AppState.kt` KDoc "every screen's data-loading/mutating coroutine goes
+     * through this wrapper"), correct for a user-initiated action but wrong for a silent background
+     * poll: a transient network hiccup would otherwise re-toast on every tick for as long as the
+     * hiccup lasts. Failures here are swallowed and simply retried on the next tick.
+     *
+     * Interval matches the README's own suggested 15-30s cadence (chosen at the lower end -- the
+     * server-side poller's own default tick is 10s, see `ConferenceRecordingConfig
+     * .DEFAULT_POLL_INTERVAL_SECONDS`, so polling much slower than that would just add needless
+     * extra latency on top of it). Runs for the coroutine's own un-cancelled lifetime (same posture
+     * as every other `AppScope.launch` in this function) but self-terminates the moment `leftCall`
+     * flips, on any exit path (Verlassen, Für alle beenden, `onDisconnected`).
+     *
+     * Known residual gap, not closed by this fix: `listRecordings`' access-level filter
+     * (`ConferenceRecordingAccess.mayAccess`) can hide a recording from a moderator who is neither
+     * its starter nor privileged enough for its `accessLevel` (e.g. a plain room-creator moderator
+     * stopping another BOARD/ADMIN member's `ADMIN_ONLY` recording) -- for that narrow case the
+     * fallback lookup keeps coming back empty and the button stays exactly as stuck as before this
+     * fix, never worse. Not root-caused/closed here, same "flagged, not silently worked around"
+     * posture the rest of this wave's disclosed gaps already follow.
+     */
+    suspend fun pollInFlightRecordingStatus() {
+        while (!leftCall) {
+            delay(CONFERENCE_RECORDING_POLL_INTERVAL_MS)
+            if (leftCall) break
+            val stalled = activeRecordingDto?.takeIf { conferenceRecordingNeedsPoll(it.status) } ?: continue
+            val resolved =
+                try {
+                    conferenceFindRecordingById(
+                        rpcService<IConferenceRecordingService>().listRecordings(room.id),
+                        stalled.id,
+                    )
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (e: Throwable) {
+                    null
+                }
+            if (resolved == null || resolved.status == stalled.status) continue
+            activeRecordingDto =
+                when (resolved.status) {
+                    ConferenceRecordingStatus.READY -> {
+                        notifySuccess("Aufzeichnung ist bereit.")
+                        null
+                    }
+                    ConferenceRecordingStatus.FAILED -> {
+                        notifyError("Aufzeichnung fehlgeschlagen.")
+                        null
+                    }
+                    else -> resolved
+                }
+            updateRecordingDetailLine()
+            updateRecordButtonLabel()
+        }
+    }
+    AppScope.launch { pollInFlightRecordingStatus() }
 
     // --- Screen-share stage (hidden until a "screen_share"-sourced track subscribes) --------------
     val stageDiv =
@@ -584,12 +910,31 @@ private fun enterCall(
                 val entry = ensureTile(joinToken.identity, joinToken.displayName, isLocal = true)
                 setTileVideo(entry, track?.attach())
             },
+            // Wave 2 "Aufzeichnung" -- see file KDoc "D1/D2" / "D3/D4" and
+            // LiveKitRoomSession.connect's own "late-joiner seed" comment for why this fires both on
+            // every live transition AND once, synchronously, right after connect.
+            onRecordingStatusChanged = { isRecording ->
+                if (isRecording) {
+                    recordingBadge.show()
+                    document.title = conferenceRecordingDocumentTitle(baseDocumentTitle, isRecording = true)
+                    if (!recordingBannerAcknowledged) recordingBanner.show()
+                } else {
+                    recordingBadge.hide()
+                    document.title = baseDocumentTitle
+                    recordingBanner.hide()
+                    recordingBannerAcknowledged = false
+                }
+                // A single reactive RPC read triggered by a LiveKit PUSH event, not polling (see
+                // file KDoc "D1/D2") -- keeps the detail line/moderator button label in sync for
+                // every participant, not only whoever clicked start/stop.
+                AppScope.launch { refreshRecordingState() }
+            },
             onChat = { message -> appendChatLine(message.senderDisplayName, message.text, isOwn = false) },
             onDisconnected = {
                 if (!leftCall) {
                     leftCall = true
                     notifyInfo("Die Besprechung wurde beendet oder die Verbindung getrennt.")
-                    returnToLobby(callPanel, lobbyPanel, setActiveSession, onReturnedToLobby)
+                    returnToLobby(callPanel, lobbyPanel, setActiveSession, onReturnedToLobby, baseDocumentTitle)
                 }
             },
         )
@@ -605,7 +950,7 @@ private fun enterCall(
         val connected = guarded { session.connect(joinToken.serverUrl, joinToken.token, joinToken.turnServers) }
         if (connected == null) {
             setActiveSession(null)
-            returnToLobby(callPanel, lobbyPanel, setActiveSession, onReturnedToLobby)
+            returnToLobby(callPanel, lobbyPanel, setActiveSession, onReturnedToLobby, baseDocumentTitle)
             return@launch
         }
         // Each device independently, each wrapped in its own `guarded {}` -- a missing/denied camera
@@ -732,7 +1077,7 @@ private fun enterCall(
             guarded { session.disconnect() }
             guarded { rpcService<IConferenceService>().leaveRoom(room.id) }
             setActiveSession(null)
-            returnToLobby(callPanel, lobbyPanel, setActiveSession, onReturnedToLobby)
+            returnToLobby(callPanel, lobbyPanel, setActiveSession, onReturnedToLobby, baseDocumentTitle)
         }
     }
 
@@ -747,7 +1092,7 @@ private fun enterCall(
                     notifySuccess("Besprechung \"${result.title}\" wurde für alle beendet.")
                 }
                 setActiveSession(null)
-                returnToLobby(callPanel, lobbyPanel, setActiveSession, onReturnedToLobby)
+                returnToLobby(callPanel, lobbyPanel, setActiveSession, onReturnedToLobby, baseDocumentTitle)
             }
         }
     }
@@ -759,16 +1104,26 @@ private fun clearElement(element: HTMLElement) {
     }
 }
 
+/**
+ * @param originalTitle Wave 2 "Aufzeichnung" -- restores `document.title` on every path back to the
+ *   Lobby. Necessary in addition to `onRecordingStatusChanged(false)`'s own reset (see that
+ *   callback in [enterCall]) because disconnecting does not reliably fire a final
+ *   `RecordingStatusChanged(false)` push -- `null` is only ever passed by a caller outside
+ *   [enterCall], which does not exist today (kept nullable/defaulted so this function's contract
+ *   does not silently assume every future caller is recording-aware).
+ */
 private fun returnToLobby(
     callPanel: SimplePanel,
     lobbyPanel: SimplePanel,
     setActiveSession: (LiveKitRoomSession?) -> Unit,
     onReturnedToLobby: () -> Unit,
+    originalTitle: String? = null,
 ) {
     setActiveSession(null)
     callPanel.removeAll()
     callPanel.hide()
     lobbyPanel.show()
+    if (originalTitle != null) document.title = originalTitle
     onReturnedToLobby()
 }
 
@@ -807,6 +1162,71 @@ private fun removeParticipantConfirmDialog(
     modal.addButton(Button("Abbrechen", style = ButtonStyle.SECONDARY).apply { onClick { modal.hide() } })
     modal.addButton(
         Button("Entfernen", style = ButtonStyle.DANGER).apply {
+            onClick {
+                modal.hide()
+                onConfirm()
+            }
+        },
+    )
+    modal.show()
+}
+
+/**
+ * Design review D7 -- matches the LITERAL `PostalMailScreen.postalDispatchConfirmDialog` bar: a
+ * named primary button (never "OK"/"Bestätigen"), body copy stating both facts a moderator needs
+ * before committing (irreversibility once people have spoken, immediate room-wide visibility), and
+ * the [DocumentAccessLevel] select carries its own explanatory line so the BOARD_ONLY default's
+ * consequence is legible AT THE MOMENT of the choice, not discovered weeks later. [onConfirm]
+ * receives the chosen access level; cancelling calls nothing.
+ */
+private fun startRecordingConfirmDialog(onConfirm: (DocumentAccessLevel) -> Unit) {
+    val modal = Modal(caption = "Aufzeichnung starten")
+    modal.div(
+        "Diese Aufzeichnung kann NICHT rückgängig gemacht werden, sobald Teilnehmende gesprochen haben.",
+    ) { addCssClasses("fw-bold text-danger") }
+    modal.div(
+        "Alle aktuell anwesenden Teilnehmenden sehen sofort, dass aufgezeichnet wird -- unabhängig " +
+            "davon, wer die Aufzeichnung startet.",
+    ) { addCssClasses("small mb-2") }
+    val accessOptions = DocumentAccessLevel.entries.map { it.name to conferenceRecordingAccessLevelLabel(it) }
+    val accessSelect =
+        modal.select(options = accessOptions, value = DocumentAccessLevel.BOARD_ONLY.name, label = "Zugriffsebene")
+    modal.div(
+        "Bei \"Vorstand\" können anwesende Mitglieder, die nicht dem Vorstand angehören, die " +
+            "Aufzeichnung später NICHT ansehen -- wählen Sie \"Mitglieder\", wenn die Aufnahme allen " +
+            "Teilnehmenden zugänglich sein soll.",
+    ) { addCssClasses("text-muted small mb-2") }
+    modal.addButton(Button("Abbrechen", style = ButtonStyle.SECONDARY).apply { onClick { modal.hide() } })
+    modal.addButton(
+        Button("Aufzeichnung jetzt starten", style = ButtonStyle.WARNING).apply {
+            onClick {
+                val level = accessSelect.value?.let { DocumentAccessLevel.valueOf(it) } ?: DocumentAccessLevel.BOARD_ONLY
+                modal.hide()
+                onConfirm(level)
+            }
+        },
+    )
+    modal.show()
+}
+
+/**
+ * Design review D8 -- "lighter but real": stopping is not destructive by itself, but it IS the
+ * irreversible trigger into composition (bounded `compose_attempts`, raw-file deletion on success).
+ * Matches [removeParticipantConfirmDialog]'s tier (no danger-red body text), not
+ * [endRoomConfirmDialog]'s full weight -- still a genuine confirm step, never a bare single click.
+ */
+private fun stopRecordingConfirmDialog(onConfirm: () -> Unit) {
+    val modal = Modal(caption = "Aufzeichnung beenden")
+    modal.div(
+        "Die Aufzeichnung wird beendet und danach automatisch zu einer Videodatei zusammengeführt.",
+    ) { addCssClass("fw-bold") }
+    modal.div(
+        "Dieser Vorgang lässt sich nicht wiederholen -- schlägt er fehl, bleiben die Rohaufnahmen " +
+            "erhalten und ein Administrator kann helfen.",
+    ) { addCssClasses("text-muted small") }
+    modal.addButton(Button("Abbrechen", style = ButtonStyle.SECONDARY).apply { onClick { modal.hide() } })
+    modal.addButton(
+        Button("Aufzeichnung beenden", style = ButtonStyle.DANGER).apply {
             onClick {
                 modal.hide()
                 onConfirm()
@@ -865,4 +1285,143 @@ internal fun conferenceInitials(displayName: String): String {
         parts.size == 1 -> parts.first().take(2).uppercase()
         else -> (parts.first().take(1) + parts.last().take(1)).uppercase()
     }
+}
+
+// ------------------------------------------------------------------------------------------------
+// Wave 2 "Aufzeichnung" -- pure recording helpers. `internal`, not `private`, so
+// `ConferenceRecordingsPanel.kt` (same package) reuses the SAME copy/formatting rather than
+// duplicating it -- design review D10 "status copy: plain German, mapped once, used everywhere".
+// ------------------------------------------------------------------------------------------------
+
+/** Design review D3 -- the one-time notice banner's exact, terminology-locked (D15) copy. A
+ * top-level constant, not inlined at the one call site, so [ConferenceScreenTest] can assert
+ * against the SAME literal the UI actually renders. */
+internal const val CONFERENCE_RECORDING_BANNER_TEXT = "Diese Besprechung wird ab jetzt aufgezeichnet."
+
+/** Review-round-1 fix (2026-08-09) -- poll interval for `enterCall`'s local
+ * `pollInFlightRecordingStatus` loop. See that function's own KDoc for why this exists and why 15s
+ * (the README's own suggested lower bound, close to the server-side poller's 10s default tick). */
+internal const val CONFERENCE_RECORDING_POLL_INTERVAL_MS = 15_000L
+
+/** Review-round-1 fix (2026-08-09) -- whether [enterCall]'s local `pollInFlightRecordingStatus`
+ * loop still needs to keep polling for the currently-tracked recording. `STOPPING` is included,
+ * not only `PROCESSING`: the LiveKit-push-triggered [refreshRecordingState] can itself observe a
+ * still-`STOPPING` row if the server-side poller has not yet ticked, and that row still needs to
+ * be watched until it moves on. `null`/`RECORDING`/`READY`/`FAILED` all mean "nothing to poll for"
+ * -- `null` because there is no tracked recording, `RECORDING` because the control is already
+ * correctly enabled and LiveKit's own push covers it, `READY`/`FAILED` because those are terminal. */
+internal fun conferenceRecordingNeedsPoll(status: ConferenceRecordingStatus?): Boolean =
+    status == ConferenceRecordingStatus.STOPPING || status == ConferenceRecordingStatus.PROCESSING
+
+/** Review-round-1 fix (2026-08-09) -- pure lookup used by [enterCall]'s local
+ * `pollInFlightRecordingStatus`: finds the recording matching [stalledId] inside a
+ * `listRecordings()` batch. Needed because
+ * `IConferenceRecordingService.getActiveRecording` only ever returns `RECORDING`/`STOPPING` rows
+ * (`ACTIVE_RECORDING_STATUSES` server-side) -- once the poller advances a row to `PROCESSING`/
+ * `READY`/`FAILED`, `getActiveRecording` silently stops returning it, and `listRecordings` (which
+ * has no status filter) is the only way left to find out what actually happened to it. */
+internal fun conferenceFindRecordingById(
+    recordings: List<ConferenceRecordingDto>,
+    stalledId: String,
+): ConferenceRecordingDto? = recordings.firstOrNull { it.id == stalledId }
+
+/** Design review D10's status-copy table -- the ONE place this mapping exists. Never "processing"/
+ * other technical jargon (D10's own explicit example). */
+internal fun conferenceRecordingStatusLabel(status: ConferenceRecordingStatus): String =
+    when (status) {
+        ConferenceRecordingStatus.RECORDING -> "Wird aufgezeichnet"
+        ConferenceRecordingStatus.STOPPING -> "Wird beendet …"
+        ConferenceRecordingStatus.PROCESSING -> "Wird zusammengeführt …"
+        ConferenceRecordingStatus.READY -> "Bereit"
+        ConferenceRecordingStatus.FAILED -> "Fehlgeschlagen"
+    }
+
+/** Bootstrap hue per [ConferenceRecordingStatus], for [statusBadge] in `ConferenceRecordingsPanel.kt`
+ * (see that file's own D10/D12 reasoning for why FAILED reuses "danger" but is ALSO sorted to the
+ * top by [conferenceRecordingListSorted] -- color alone is never the only signal here). */
+internal fun conferenceRecordingStatusColor(status: ConferenceRecordingStatus): String =
+    when (status) {
+        ConferenceRecordingStatus.RECORDING -> "danger"
+        ConferenceRecordingStatus.STOPPING -> "warning"
+        ConferenceRecordingStatus.PROCESSING -> "info"
+        ConferenceRecordingStatus.READY -> "success"
+        ConferenceRecordingStatus.FAILED -> "danger"
+    }
+
+/** D7's Zugriffsebene select / the Lobby list's own access-level display -- German labels for
+ * [DocumentAccessLevel], deliberately spelling out the CONSEQUENCE-bearing name ("Vorstand", not the
+ * enum literal `BOARD_ONLY`) since D7 requires the choice to be legible at the moment it is made. */
+internal fun conferenceRecordingAccessLevelLabel(level: DocumentAccessLevel): String =
+    when (level) {
+        DocumentAccessLevel.PUBLIC_MEMBERS -> "Mitglieder"
+        DocumentAccessLevel.BOARD_ONLY -> "Vorstand"
+        DocumentAccessLevel.ADMIN_ONLY -> "Administration"
+    }
+
+/**
+ * Gates the moderator's "Aufzeichnung starten" control -- mirrors the server's OWN gate
+ * (`ConferenceRecordingService.startRecording`: creator-or-BOARD/ADMIN, recording configured, no
+ * already-active recording for this room) as a UX nicety, exactly like [conferenceIsModerator]/
+ * [conferenceCanRemove] already do for Wave 1's own moderator actions -- the server re-checks
+ * independently regardless. [activeRecording] non-`null` (RECORDING or STOPPING, the only statuses
+ * [IConferenceRecordingService.getActiveRecording] ever returns) blocks a second recording -- this
+ * wave forbids multiple simultaneous recordings per room.
+ */
+internal fun recordingCanStart(
+    canModerate: Boolean,
+    recordingAvailable: Boolean,
+    activeRecording: ConferenceRecordingDto?,
+): Boolean = canModerate && recordingAvailable && activeRecording == null
+
+/** The in-call detail line's "Aufzeichnung gestartet von X um HH:MM" copy -- zero-padded 24h time,
+ * matching this codebase's plain-German, non-technical copy posture throughout this screen. */
+internal fun conferenceRecordingStartedLabel(
+    startedByDisplayName: String,
+    startedAt: LocalDateTime,
+): String {
+    val hour = startedAt.hour.toString().padStart(2, '0')
+    val minute = startedAt.minute.toString().padStart(2, '0')
+    return "Aufzeichnung gestartet von $startedByDisplayName um $hour:$minute"
+}
+
+/** `mm:ss` under an hour, `h:mm:ss` at/above -- `null` (composition not finished yet, or the value
+ * is simply unknown) renders as an em dash, never a blank string or "0:00" (which would misleadingly
+ * imply a known, zero-length recording). */
+internal fun conferenceRecordingDurationLabel(seconds: Long?): String {
+    if (seconds == null) return "–"
+    val totalSeconds = seconds.coerceAtLeast(0)
+    val hours = totalSeconds / 3600
+    val minutes = (totalSeconds % 3600) / 60
+    val secs = totalSeconds % 60
+    return if (hours > 0) {
+        "$hours:${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}"
+    } else {
+        "$minutes:${secs.toString().padStart(2, '0')}"
+    }
+}
+
+/** `document.title` prefix while `isRecording` -- a plain "● " marker (not an emoji, to avoid
+ * platform-inconsistent tab-title rendering) so a BACKGROUNDED tab still signals recording, per the
+ * design review's own "optionally prefix document.title" note. */
+internal fun conferenceRecordingDocumentTitle(
+    baseTitle: String,
+    isRecording: Boolean,
+): String = if (isRecording) "● $baseTitle" else baseTitle
+
+/**
+ * Design review D12: a FAILED recording must not wait to be discovered by someone browsing a long
+ * list -- sorted to the front, ahead of everything else, WITHOUT disturbing the server's own
+ * newest-first ordering within either partition (Kotlin's `sortedByDescending` is a STABLE sort, so
+ * "FAILED first" is the only change this makes; relative order inside "FAILED" and inside
+ * "everything else" is preserved exactly as the server returned it).
+ */
+internal fun conferenceRecordingListSorted(recordings: List<ConferenceRecordingDto>): List<ConferenceRecordingDto> =
+    recordings.sortedByDescending { it.status == ConferenceRecordingStatus.FAILED }
+
+/** Rough, human-scale file-size label for the Lobby's download link (D9: "given file sizes running
+ * into hundreds of MB on metered/mobile connections") -- deliberately coarse (whole megabytes, no
+ * decimal), this is a heads-up before a large download, not a precise byte count. */
+internal fun conferenceRecordingFileSizeLabel(bytes: Long): String {
+    val megabytes = (bytes / 1_000_000L).coerceAtLeast(if (bytes > 0) 1L else 0L)
+    return "≈ $megabytes MB"
 }

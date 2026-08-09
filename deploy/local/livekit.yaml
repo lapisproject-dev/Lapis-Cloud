@@ -51,3 +51,18 @@ keys:
 
 logging:
   level: info
+
+# V1.0 Videokonferenzen, Wave 2 "Aufzeichnung" -- Wave 1 shipped WITHOUT this block (see the OLD
+# trailing docker-compose.yml comment this replaced: "No Redis -- single-node LiveKit does not
+# need it"). That was true then and stops being true now that `egress` joins the stack: LiveKit's
+# own self-hosting docs state the Egress service uses Redis message queues to load-balance and
+# communicate with the LiveKit server, and BOTH processes must point at the SAME Redis instance --
+# see deploy/local/egress.yaml's own `redis:` block (address must match byte-for-byte) and
+# docker-compose.yml's new `redis` service. Adding this block switches livekit-server from its
+# single-node in-process router to the Redis-backed router -- a REAL behavioural change to this
+# otherwise live-verified file. It must NOT disturb `rtc.node_ip: 127.0.0.1` above (still the single
+# most load-bearing line in this file) -- re-run the Wave 1 two-profile browser recipe UNCHANGED as
+# the first live check of Wave 2, before touching recording at all. See README.adoc "Live
+# verification results" for that re-run's outcome.
+redis:
+  address: redis:6379

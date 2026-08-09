@@ -34,6 +34,17 @@ private external interface PublishDataOptions {
  * dynamic value directly, rather than growing the pinned external-interface surface for a single
  * field only this method touches.
  *
+ * **Recording signal** (V1.0 Wave 2 "Aufzeichnung"): [onRecordingStatusChanged] is invoked BOTH (a)
+ * on every `RoomEvent.RecordingStatusChanged` push from LiveKit for the lifetime of the connection,
+ * AND (b) exactly once, synchronously, right after [connect]'s underlying `room.connect(...)`
+ * promise resolves, with [Room.isRecording]'s value AT THAT MOMENT -- design review D4 "late joiners
+ * get the banner too": `RecordingStatusChanged` only fires on a CHANGE, so a participant joining a
+ * room that is ALREADY recording would otherwise see neither the persistent badge nor the one-time
+ * notice banner until some LATER stop/start transition, if one ever happens before they leave. This
+ * class never reads [Room.isRecording] itself outside these two call sites -- `ConferenceScreen.kt`
+ * owns all resulting UI state (badge visibility, banner, `document.title`), this class only relays
+ * the raw signal.
+ *
  * **Chat trust boundary** (see [ConferenceChatMessage] KDoc): a `DataReceived` payload's own
  * `senderMemberId`/`senderDisplayName` fields are attacker-controllable by any room participant. This
  * class OVERWRITES both with the SDK-supplied [RemoteParticipant.identity]/`.name` of the participant
@@ -49,6 +60,7 @@ class LiveKitRoomSession(
     private val onParticipantJoined: (identity: String, displayName: String) -> Unit,
     private val onParticipantLeft: (identity: String) -> Unit,
     private val onLocalVideoTrack: (Track?) -> Unit,
+    private val onRecordingStatusChanged: (isRecording: Boolean) -> Unit,
     private val onChat: (ConferenceChatMessage) -> Unit,
     private val onDisconnected: () -> Unit,
 ) {
@@ -90,6 +102,10 @@ class LiveKitRoomSession(
         wireEvents(newRoom)
         room = newRoom
         newRoom.connect(serverUrl, token).await()
+        // See class KDoc "Recording signal" -- the late-joiner seed, fired once per connect, BEFORE
+        // seedRoster (ordering between the two does not matter functionally, but this mirrors the
+        // "recording state is a room-level fact, established before the roster is" precedence).
+        onRecordingStatusChanged(newRoom.isRecording)
         seedRoster(newRoom)
     }
 
@@ -115,6 +131,13 @@ class LiveKitRoomSession(
             onRemoteTrackGone(participant.identity, track, publication)
         }
         room.on(RoomEvent.Disconnected) { _, _, _, _ -> onDisconnected() }
+        room.on(RoomEvent.RecordingStatusChanged) { p0, _, _, _ ->
+            // p0 is a raw JS boolean primitive here (LiveKit calls the listener with exactly one
+            // argument), not one of this file's own `external interface` types -- see
+            // `LiveKitJs.kt` file KDoc "Values returned from a Promise<dynamic>..." for why
+            // `unsafeCast` (not `as`/`as?`) is this codebase's uniform cast discipline regardless.
+            onRecordingStatusChanged(p0.unsafeCast<Boolean>())
+        }
         room.on(RoomEvent.DataReceived) { p0, p1, _, p3 ->
             val payload = p0.unsafeCast<org.khronos.webgl.Uint8Array?>() ?: return@on
             val participant = p1.unsafeCast<RemoteParticipant?>() ?: return@on

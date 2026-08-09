@@ -8,6 +8,230 @@ All notable changes to this project are documented here. Format follows
 
 ### Added
 
+**Videokonferenzen (Kleinsitzung), V1.0 Wave 2 „Aufzeichnung" — server-side meeting recording via
+LiveKit Track Egress plus an own asynchronous ffmpeg composition, on
+`feature/video-konferenz-wave2-aufzeichnung`.** Implements exactly the concept note's 2026-08-01
+decision: the server records raw per-participant tracks in real time, and a separate, later poller-
+driven step composes them into one gallery-layout video. Backend, RPC, persistence, poller,
+composition, storage/access wiring, and a functional client UI are all complete and live-verified
+end to end (see "Live verification" below); two real bugs and one real, disclosed client-side gap
+were found during this wave's own live verification and are documented honestly below rather than
+silently patched over or hidden — the same posture Wave 1 established for its own bug disclosures.
+
+- **Infrastructure** (`deploy/local/`) — `redis:7.4-alpine` (compose-internal only, no published
+  ports) and `livekit/egress:v1.13.0` join the Wave 1 stack; `livekit.yaml` gains a `redis:` block,
+  switching `livekit-server` from its Wave 1 single-node router to the Redis-backed one Egress needs
+  to talk to it — re-verified live that this change does **not** regress plain Wave 1 conferencing
+  (`LiveKitLiveIntegrationTest` still green against the Redis-enabled stack) before any recording
+  code was written. New `egress.yaml` (same DEV-ONLY committed-secret posture as `livekit.yaml`).
+  Two deliberately separate env vars for the container-vs-host output-path split
+  (`LAPIS_EGRESS_OUTPUT_CONTAINER_DIR`/`LAPIS_EGRESS_OUTPUT_HOST_DIR`) — see "Bugs found" below for
+  why collapsing them (or trusting the shipped default blindly) breaks every recording.
+- **Server-side LiveKit Egress integration** — `LiveKitEgressClient`/`HttpLiveKitEgressClient`
+  (`StartTrackEgress`/`StopEgress`/`ListEgress`, mirrors `HttpLiveKitAdminClient`'s existing shape),
+  a third `LiveKitAccessToken.mintEgressToken` shape (`roomRecord`-only grant, never mixed with
+  `roomJoin`/`roomCreate`/`roomAdmin`), and `LiveKitParticipantInfo` extended with real, live-verified
+  `tracks[]` data — closing Wave 1's own disclosed "only verified for the empty-roster case" gap. Every
+  wire shape was captured against a real LiveKit v1.13.5 + egress v1.13.0 container, not reconstructed
+  from documentation alone; `ListEgress`'s response array field name is confirmed `items`.
+- **`RecordingPoller`** — the single application-scoped coroutine (one `while (isActive)` loop, not
+  one coroutine per recording) driving `RECORDING -> STOPPING -> PROCESSING -> READY`/`FAILED`.
+  `RECORDING` discovers newly-published tracks via `ListParticipants` and starts one Track Egress per
+  track; `STOPPING` requests `StopEgress` and waits for terminal track status (bounded by an egress
+  timeout, composing from survivors if ≥1 video track completed, else `FAILED`); `PROCESSING` runs
+  composition under a `Semaphore(1)` (one ffmpeg process system-wide), capped at 2 attempts. Every
+  non-terminal state carries a wall-clock deadline, not a retry counter, so nothing can get stuck
+  forever — server-restart reconciliation picks up crashed rows on the first tick after boot, mirroring
+  Wave 1's own lazy reconciliation.
+- **`FfmpegGalleryComposer`** — real `ProcessBuilder`/ffmpeg composition (external binary, not
+  `org.bytedeco:ffmpeg-platform`, to avoid ~150 MB of per-platform native binaries in a build that
+  already carries a Kotlin/JS client), black-canvas-plus-per-input-`overlay` with
+  `enable='gte(t,offset)'` gating — deliberately not `xstack`, since tracks start/stop at different
+  offsets as people join/leave — gallery-grid vs. presentation (screen-share + camera strip) layout.
+  The argument-list construction is split into a pure, process-free `FfmpegArgumentBuilder` so the
+  filter graph is unit-testable without ever running ffmpeg. Live-verified against the real binary:
+  synthetic clips with a late "join" composed into a real, valid MP4 with the late joiner's cell
+  correctly black until its own offset.
+- **Storage and access** — reuses the existing Dokumentenablage as the recording's storage backend
+  (new streaming `DocumentArchiving.archiveGeneratedFile` sibling of `archiveGeneratedPdf`, never
+  buffers the composed file into a `ByteArray`) rather than inventing a fourth, standalone access
+  axis: a composed recording becomes a real `document`/`document_version` under a `"Aufzeichnungen"`
+  folder, with the moderator-chosen `DocumentAccessLevel` (default `BOARD_ONLY`) as its access rule,
+  widened by exactly one predicate (`ConferenceRecordingAccess.mayAccess`) so a non-BOARD moderator
+  never loses access to their own recording — used identically at all three call sites (`listRecordings`
+  filter, `mediaUrl` computation, and the media route itself). New `GET
+  /api/conference/recordings/{id}/media` route: bytes never travel over Kilua RPC, `respondFile` +
+  `video/mp4` + `Content-Disposition: inline`, Range/206 seeking for free from the already-installed
+  `PartialContent` plugin. **Fixed a real pre-existing bug this wave would otherwise have made worse**:
+  `registerDocumentRoutes`' download handler used to `Files.readAllBytes` the whole file into memory —
+  fine for the 25 MiB document cap it was written for, a live OOM risk once a hundreds-of-MB recording
+  reaches the very same route as an ordinary document. Replaced with a streaming response; verified with
+  a new regression test asserting a `Range:` request returns a real `206`.
+- **`RecordingRawFiles.resolveWithin`** — the *only* way a LiveKit-reported raw filename becomes a
+  `File`: basename-only, rejects `..`, resolves strictly under `{hostRawRoot}/{recordingId}/`, and
+  requires `toRealPath()` containment (defeats a symlink planted in the bind mount) — the highest-value
+  security test in the wave. **Raw files are retained, never deleted, on any `FAILED` transition**
+  (design review's D13, a Jobs' won't-ship-without item) — deleted only on the successful-compose
+  branch, and only then unless `LAPIS_RECORDING_KEEP_RAW`. Both halves of this rule are live-verified
+  with real bytes, not just log lines (see "Live verification" below).
+- **Persistence** — new `conference_recording`/`conference_recording_track` tables
+  (`28-conference-recording.kuml.kts` + baseline DDL + hand-written Exposed tables, same
+  edit-the-baseline-in-place posture Wave 1 established), `AuditEntityType` gains
+  `CONFERENCE_RECORDING` (audited on start/stop, justified by the concept note's own §32 BGB/GoBD
+  framing), `ConferencePersonalData` extended to cover both new tables with retain-with-reason
+  outcomes (`PersonalDataCoverageTest` would otherwise fail the build). **Operator note**: composed
+  recordings now live under `documentStorageRoot`, which `OrganizationExportService` walks in full for
+  every backup — a single Vorstandssitzung recording easily runs into the hundreds of MB, so backups
+  will noticeably grow in size and duration the moment recording is used for real meetings. Excluding
+  recordings from backups is an explicit, undecided question for a later wave, not a silent choice
+  made here.
+- **RPC** — a new, separate `IConferenceRecordingService` (not new methods on `IConferenceService`,
+  following the `IPriceOracleService`-vs-`ILtrLedgerService` precedent): `getRecordingAvailability`/
+  `startRecording`/`stopRecording`/`getActiveRecording`/`listRecordings`. Write operations gate on
+  creator-or-BOARD/ADMIN; reads gate on `DocumentAccessLevel`, a completely different predicate
+  `IConferenceService` never touches. `getActiveRecording` is deliberately **never** gated on
+  `DocumentAccessLevel` — everyone in the room has a legal right to know it is being recorded,
+  regardless of who may later watch it back. `failureReason` is a security boundary: populated only
+  from fixed German constants, raw ffmpeg stderr/Twirp bodies go to `kotlin-logging` and nowhere near a
+  DTO. No `deleteRecording` — deleting a recording is deleting a document, and
+  `IDocumentService.deleteDocument` already does exactly that.
+- **Client UI** (`ConferenceScreen.kt`/new `ConferenceRecordingsPanel.kt`) — ran the mandatory
+  UI/UX-Design-Team review before writing code (11 designers, Jobs' final "GO, conditional on six
+  must-fix items" verdict; all six landed in this wave). A persistent, chrome-level "● Aufzeichnung
+  läuft" badge and a non-blocking notice banner ("Verstanden"/"Besprechung verlassen"), both driven
+  entirely by LiveKit's own `RoomEvent.RecordingStatusChanged`/`Room.isRecording` signal — server-
+  authoritative, pushed instantly, correct for late joiners, unspoofable by a participant — never by
+  RPC polling. "Aufzeichnung starten"/"-beenden" live in the separate moderator row next to "Für alle
+  beenden" (disclosive WARNING styling, not destructive DANGER, per Tesler's precedent from Wave 1's
+  own D5/D6), gated invisible (not disabled) when recording is unconfigured. Bespoke confirm dialogs
+  for both start (PostalMailScreen-bar copy, `Zugriffsebene` select, default Vorstand) and stop
+  (lighter but real — no bare single-click stop of a legally significant recording). The Lobby gains a
+  new "Aufzeichnungen" section — recordings outlive their room, so this is reachable independent of any
+  live call — with FAILED items sorted to the front, an inline `<video controls>` player, and a
+  separate download link for READY items. Double-submit protection and non-optimistic UI state
+  (checking the `guarded {}` result before updating any label) on every button, per this wave's own
+  non-negotiable rules and Wave 1's own mic/camera-toggle bug-fix precedent.
+- **Testing** — hermetic coverage across config parsing, wire shapes (`MockEngine`, real captured
+  fixtures), the poller's state machine, the pure ffmpeg argument builder, the raw-file security
+  resolver, the recording-routes authorization matrix, personal-data coverage, and 32 client-side
+  `ConferenceScreenTest` cases (recording-can-start, status labels, banner text, duration formatting,
+  document-title prefix, FAILED-sort ordering). New opt-in `LiveKitEgressLiveIntegrationTest`
+  (`LAPIS_LIVEKIT_IT=true`, same skip-unless-enabled posture as `LiveKitLiveIntegrationTest`):
+  `ListEgress` on a fresh room returns empty, and `StartTrackEgress` for a bogus track id proves the
+  `roomRecord` grant is honoured (accepted with a real `EgressInfo`, not rejected with a `401`) —
+  **one real, empirically-observed correction to the wave's own plan, recorded rather than silently
+  adjusted**: `StartTrackEgress` for a track that will never exist does **not** fail synchronously as
+  the plan expected; Track Egress is SDK-based (the egress worker subscribes and waits), so the call
+  returns a normal `EGRESS_STARTING` immediately and only fails ~30 s later, once the worker's own
+  subscribe-timeout elapses — this test's second half closes `LiveKitEgressInfo`'s own long-standing
+  "`EGRESS_FAILED` remains unverified" disclosure by observing exactly that.
+- **Live verification (2026-08-09)**, against a real running `deploy/local/` stack plus a real browser
+  session: the D7 start-confirm dialog, the D1/D2 badge, the D3 notice banner, the D4 late-joiner
+  banner (via a fresh reconnect to an already-recording room), the D8 stop-confirm, and the D12 FAILED
+  presentation with its sanitized failure reason all matched their specified copy exactly. A full
+  successful recording — seeded with a real synthetic video track published via the official
+  `livekit-cli` Docker image, since this sandbox's own browser cannot grant camera/microphone access —
+  reached `READY` with a real, playable 49-second MP4: archived as a real document under a real
+  "Aufzeichnungen" folder, served through the new media route with real, byte-exact `206 Partial
+  Content`/`Range` semantics, and rendered in the Lobby with a working inline player and a separate
+  download link. D13 raw-file retention on `FAILED` was confirmed with real bytes (a real 30 MB raw
+  file left untouched after a failed composition), and raw-file cleanup on success was equally
+  confirmed (the raw directory was empty again immediately after `READY`). Full detail, exact
+  reproduction steps, and everything that could **not** be verified in this environment (true
+  concurrent multi-member browser sessions; the badge's survival across every Wave 1 layout mode and
+  fullscreen) are in `deploy/local/README.adoc`'s "Live verification results (Wave 2 completion step)".
+- **Two real bugs found live during this wave's own verification, neither caught by the shipped unit
+  tests, both documented rather than silently patched around**:
+  1. **Every recording failed 100% of the time against the exact recipe this README itself
+     documents.** `ConferenceRecordingConfig`'s default for `LAPIS_EGRESS_OUTPUT_HOST_DIR` is the
+     relative string `deploy/local/egress-out`, correct only if the server process's working
+     directory is the repo root — but the documented recipe does `cd lapis-server` first, and
+     Gradle's `application` plugin's `run` task defaults its child process's working directory to the
+     *subproject* dir. Every recording therefore looked for its raw files in
+     `lapis-server/deploy/local/egress-out` (nonexistent) and failed with "no resolvable video track".
+     Fixed in `deploy/local/README.adoc`'s own recipe (an explicit absolute-path override); the
+     shipped source default itself was deliberately left unchanged, since a functional code fix is
+     outside this step's documentation-only scope — flagged as a candidate fast-follow.
+  2. A Colima bind-mount quirk (observed once, not fully root-caused): clearing `egress-out/`'s
+     contents while the `egress` container keeps running can silently break that container's
+     subsequent writes into the same mount — the container's own log still claims a normal, error-free
+     `egress_complete`, but zero bytes land on disk. A `docker compose restart egress` immediately
+     resolved it. Documented in `deploy/local/README.adoc`'s Troubleshooting table.
+- **One real, disclosed client-side gap found live — fixed in review-round-1 of this wave's own code
+  review (2026-08-09), after being deliberately left open in the step that first found it**: the
+  in-call moderator's recording button could get stuck on a permanently disabled "Aufzeichnung wird
+  beendet …" label past the recording's actual terminal state, because `ConferenceScreen.kt` only
+  refreshed that label reactively from LiveKit's own `RecordingStatusChanged` push — which stops
+  firing usefully once the *last* egress track itself ends, well before this repository's own, often
+  much longer, composition phase actually finishes. Observed inconsistently (stuck once, self-corrected
+  once under what appeared to be the same repro steps); the Lobby's independently-loaded
+  "Aufzeichnungen" list was correct in every case tested. **Fix**: `enterCall` now runs a periodic
+  `pollInFlightRecordingStatus` loop (15s interval) while the tracked recording sits in
+  `STOPPING`/`PROCESSING`, falling back to `listRecordings(roomId)` — not just
+  `getActiveRecording(roomId)`, which server-side (`ACTIVE_RECORDING_STATUSES`) never returns anything
+  past `STOPPING` — to find the same recording id's true, possibly-terminal status. On reaching
+  `READY`/`FAILED` the control unsticks (reverts to an actionable "Aufzeichnung starten") and a toast
+  now surfaces the outcome, closing the review's explicit ask about whether the UI honestly reflects a
+  terminal state, including `FAILED`, rather than hanging. Not run through `guarded {}` (would re-toast
+  a transient network hiccup on every tick); five new `ConferenceScreenTest` cases cover the two pure
+  helpers behind the loop (`conferenceRecordingNeedsPoll`/`conferenceFindRecordingById`). One narrow
+  residual gap, disclosed rather than silently left: `listRecordings`' access-level filter can still
+  hide the recording from a moderator who is neither its starter nor privileged enough for its
+  `accessLevel` — for that case the button stays exactly as stuck as before this fix, never worse. Full
+  detail: `deploy/local/README.adoc`'s Troubleshooting table.
+- **Two real server-side bugs found and fixed in review-round-2 of this wave's own code review
+  (2026-08-09), both closing check-then-act/error-path gaps missed by the shipped unit tests
+  (which only ever exercised the sequential or happy-path shape of each)**:
+  1. **`startRecording`'s "one active recording per room" invariant was a plain read-then-insert
+     with no row lock.** Under Postgres `READ_COMMITTED` (this codebase's isolation level, no
+     override in `DatabaseConfig`), two genuinely concurrent `startRecording` calls for the same
+     room — two moderators, two browser tabs, or a double-click before the confirm dialog even
+     opens — could both read "no active recording" and both insert a `RECORDING` row, producing two
+     simultaneous recordings for one room. Same bug class this codebase has closed with a row lock
+     several times before (`LtrBalanceProvider`, `PasswordResetTokenStore`, `AuditLogRecorder`,
+     `FederationRelationshipStore`, `CrowdfundingService.approveProject`/`rejectProject`,
+     membership `approveApplication`/`rejectApplication`, auction reservations) — this service had
+     simply never gotten the same treatment. **Fix**: the room row is now read with `.forUpdate()`
+     before the active-recording check, serializing concurrent attempts on the same room; a new
+     genuinely-concurrent two-thread test (`ConferenceRecordingServiceTest`) replaces the previous
+     sequential-only regression test. Verified against a real, throwaway Postgres 16 container
+     (not just the default H2 test database) with a deliberate control experiment: with
+     `.forUpdate()` removed, the exact same test reproduces a double-insert on every run; with it
+     restored, exactly one attempt wins every time.
+  2. **`RecordingPoller`'s `STOPPING`-egress-timeout-to-`FAILED` safety net was unreachable during
+     a sustained LiveKit Egress outage.** `handleStopping` returned immediately from its
+     `ListEgress`-failure `catch` block, before ever reaching the elapsed-time check a few lines
+     below — so a recording that entered `STOPPING` during (or just before) a LiveKit Egress
+     Twirp-API outage or misconfiguration stayed `STOPPING` forever, regardless of wall-clock time,
+     directly contradicting the class KDoc's own claim that this deadline is what prevents an
+     indefinite hang. Client-side this manifested exactly as the round-1 fix above was meant to
+     prevent: a permanently stuck "Aufzeichnung wird beendet …" button, because the server-side row
+     genuinely never changed. **Fix**: the egress-timeout check is now factored into its own
+     `applyEgressTimeout` helper and run on BOTH exit paths of `handleStopping` — the normal
+     "`ListEgress` succeeded, tracks still non-terminal" path (using the freshly-refreshed track
+     statuses) and the "`ListEgress` itself is failing" path (using the last DB-known track statuses
+     from before the failed call) — so a sustained outage can no longer defeat the one safety net
+     designed specifically for a stuck egress. Three new `RecordingPollerTest` cases cover the
+     outage-past-timeout-with-survivors, outage-past-timeout-without-survivors, and
+     outage-before-timeout (no premature `FAILED`) shapes.
+- **Still open from the Wave 2 design review, deliberately deferred, not silently dropped**: D11's
+  "partial-composition flag" — a recording composed "from the survivors" after an egress timeout (at
+  least one video track completed, but not all of them) renders with the identical "Bereit" badge as a
+  clean, complete recording; `ConferenceRecordingDto` has no `composedFromPartialTracks`-shaped field
+  yet. Named as a Jobs'-final-verdict "must-fix" item in both `ConferenceScreen.kt`'s and
+  `ConferenceRecordingsPanel.kt`'s own file KDoc (search `D11`) — a genuine, disclosed gap for a
+  follow-up step, not an oversight.
+- **Explicitly out of scope for this wave** (see the concept note and `IConferenceRecordingService`'s
+  own class KDoc for the complete list): auto-transcript/live subtitles, chapter markers tied to
+  Tagesordnungspunkte, WebM/VP9 alternate output, RTMP live-streaming (Wave 3 — the Redis+Egress
+  infrastructure this wave adds is exactly Wave 3's prerequisite, making it substantially cheaper),
+  "Termin → Konferenzraum" integration, S3-compatible object storage (the concept note's own default
+  is local Dokumentenablage for small instances, both pilots qualify), a four-tier
+  Moderator/Präsentator/Teilnehmer/Zuhörer role model, per-participant recording opt-out, recording
+  retention/automatic deletion, federated guest access to recordings, webhooks of any kind (the
+  signature-verification recipe is recorded in `RecordingPoller`'s own KDoc so the option stays cheap
+  later, but no route is added), and multiple simultaneous recordings per room.
+
 **Videokonferenzen (Kleinsitzung), V1.0 Wave 1 — self-hosted LiveKit-based video conferencing for
 small meetings, on `feature/video-konferenz-wave1`.** First application (per the concept note):
 Vorstandssitzungen. Own infrastructure on LiveKit rather than an embedded third-party widget or a
@@ -148,6 +372,21 @@ Governance/Accounting UI waves were.
     check. Loopback-only binding closes this off for local development; the compose file now carries
     an explicit warning against copying the loopback-bind-plus-committed-secret combination toward a
     real deployment without changing both.
+- **One more real bug found during independent merge verification (2026-08-09), fixed the same day**:
+  a recording stopped before any participant ever published an unmuted audio/video track (e.g. no
+  camera/microphone permission ever granted for the whole meeting) fell through `RecordingPoller`'s
+  `STOPPING` handler into the same `egressTimeoutMinutes` wait (default 30 minutes) a genuinely-stuck
+  egress uses — even though `handleRecording` (the only `StartTrackEgress` call site) only ever runs
+  while `status == RECORDING`, so a `STOPPING` row's final track set can never grow and there was
+  categorically nothing to wait for. Reproduced live (a moderator who started and immediately stopped
+  a recording with no device permission ever granted saw "Aufzeichnung wird beendet …" hang with no
+  ETA); fixed with an immediate `trackRows.isEmpty()` fast-fail (`FAILED`, "Es wurde keine Audio- oder
+  Videospur aufgezeichnet.", zero LiveKit calls made) instead of the pointless wait, re-verified live
+  after the fix (FAILED within one poll tick instead of up to 30 minutes) plus a new
+  `RecordingPollerTest` case. Separately, this same verification pass independently confirmed real
+  Track Egress recording end to end against a fresh `deploy/local/` stack (a genuine `.ogg` audio file
+  captured to disk, `egress_complete` with code 0) and re-ran the opt-in `LiveKitEgressLiveIntegrationTest`
+  against a live container.
 
 **LTR-Wirtschaft UI wave — LTR-Konto, Crowdfunding, Auktion, Politiker, Price-Oracle, on
 `feature/ltr-economy-ui`. Wave complete — the fifth and final wave of the pilots' (PdV, ELB)

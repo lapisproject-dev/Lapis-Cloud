@@ -60,6 +60,10 @@ fun auditEntityTypeLabel(entityType: AuditEntityType): String =
         AuditEntityType.PARTY_DONATION_VERDICT -> "Spendenprüfung"
         AuditEntityType.RESOLUTION -> "Beschluss"
         AuditEntityType.BOARD_MEMBERSHIP -> "Vorstandsmitgliedschaft"
+        // V1.0 Videokonferenzen, Wave 2 "Aufzeichnung" -- "Aufzeichnung" is the ONLY term used
+        // across badge/banner/dialog/Lobby for this concept, see the Wave 2 design review's D15
+        // "Terminology lock".
+        AuditEntityType.CONFERENCE_RECORDING -> "Aufzeichnung"
     }
 
 fun auditEntityTypeColor(entityType: AuditEntityType): String =
@@ -68,6 +72,7 @@ fun auditEntityTypeColor(entityType: AuditEntityType): String =
         AuditEntityType.PARTY_DONATION_VERDICT -> "danger"
         AuditEntityType.RESOLUTION -> "dark"
         AuditEntityType.BOARD_MEMBERSHIP -> "secondary"
+        AuditEntityType.CONFERENCE_RECORDING -> "info"
     }
 
 // ------------------------------------------------------------------------------------------------

@@ -23,12 +23,18 @@ import kotlin.uuid.Uuid
  * [network.lapis.cloud.server.federation.OidcJwt]'s own "why a library, not hand-rolled" KDoc says
  * does NOT need a JOSE library's alg-confusion defenses (this is a signer, not a verifier).
  *
- * **The two shapes are never mixed, and are structurally distinguishable by their `video` grant
+ * **The three shapes are never mixed, and are structurally distinguishable by their `video` grant
  * alone**: [mintParticipantToken] sets `roomJoin`/`canPublish`/`canSubscribe`/`canPublishData` and
- * NEVER `roomCreate`/`roomAdmin`/`roomList`; [mintAdminToken] sets `roomCreate`/`roomAdmin`/
- * `roomList` and NEVER `roomJoin`. Only [mintParticipantToken]'s output is ever serialized into a
- * DTO reaching a browser (a future wave's `ConferenceJoinTokenDto.token`) -- [mintAdminToken]'s
- * output lives exclusively inside [LiveKitAdminClient], server-internal, one mint per Twirp call.
+ * NEVER `roomCreate`/`roomAdmin`/`roomList`/`roomRecord`; [mintAdminToken] sets `roomCreate`/
+ * `roomAdmin`/`roomList` and NEVER `roomJoin`/`roomRecord`; [mintEgressToken] (V1.0 Wave 2
+ * "Aufzeichnung") sets EXACTLY `roomRecord` (+ `room`) and NEVER `roomJoin`/`roomCreate`/
+ * `roomAdmin`/`roomList` -- the narrowest possible grant for the one thing
+ * [LiveKitEgressClient]'s Twirp calls (`StartTrackEgress`/`StopEgress`/`ListEgress`) need, matching
+ * this class's own least-privilege posture for the other two shapes. Only [mintParticipantToken]'s
+ * output is ever serialized into a DTO reaching a browser (a future wave's
+ * `ConferenceJoinTokenDto.token`) -- [mintAdminToken]'s and [mintEgressToken]'s outputs both live
+ * exclusively server-internal ([LiveKitAdminClient]/[LiveKitEgressClient] respectively), one mint
+ * per Twirp call, never cached, never reused.
  *
  * **Empirically verified against a live LiveKit v1.13.5 instance (2026-08-09, via
  * `deploy/local/docker-compose.yml`)**, correcting an assumption from the LiveKit server-API docs
@@ -129,6 +135,40 @@ object LiveKitAccessToken {
                 "roomList" to true,
             )
         if (room != null) videoGrant["room"] = room
+        val claims =
+            JWTClaimsSet
+                .Builder()
+                .issuer(apiKey)
+                .notBeforeTime(toJavaDate(now))
+                .expirationTime(toJavaDate(expiresAt))
+                .jwtID(Uuid.random().toString())
+                .claim("video", videoGrant)
+                .build()
+        return sign(claims, apiSecret)
+    }
+
+    /**
+     * V1.0 Wave 2 "Aufzeichnung" -- mints a server-internal token for exactly one
+     * [LiveKitEgressClient] Twirp call (`StartTrackEgress`/`StopEgress`/`ListEgress`). Grants
+     * EXACTLY `roomRecord` (+ `room`, always required here -- unlike [mintAdminToken]'s optional
+     * `room`, every [LiveKitEgressClient] call is inherently room-scoped) and NEVER `roomJoin`/
+     * `roomCreate`/`roomAdmin`/`roomList` -- see class KDoc "The three shapes are never mixed".
+     * Same 60-second TTL as [mintAdminToken] (via the shared [ADMIN_TOKEN_TTL_SECONDS] default),
+     * freshly minted per call, never cached.
+     */
+    fun mintEgressToken(
+        apiKey: String,
+        apiSecret: String,
+        room: String,
+        ttlSeconds: Long = ADMIN_TOKEN_TTL_SECONDS,
+        now: Instant = Clock.System.now(),
+    ): String {
+        val expiresAt = now + ttlSeconds.seconds
+        val videoGrant =
+            linkedMapOf<String, Any>(
+                "room" to room,
+                "roomRecord" to true,
+            )
         val claims =
             JWTClaimsSet
                 .Builder()

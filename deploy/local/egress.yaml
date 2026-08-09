@@ -1,0 +1,22 @@
+# Lapis Cloud -- V1.0 Videokonferenzen, Wave 2 "Aufzeichnung", LOCAL DEVELOPMENT ONLY.
+#
+# Config for the sibling `egress` service in docker-compose.yml -- see this repository's kUML
+# Track-Egress decision (concept note "03 Bereiche/Lapis Cloud/Videokonferenzen.md", 2026-08-01):
+# the server records raw per-participant tracks in real time via LiveKit Track Egress, and a
+# separate later batch job composes the gallery video (see ConferenceRecordingConfig/
+# RecordingComposer KDoc for the server-side half of this).
+#
+# Same DEV-ONLY committed-secret header style and disclosure as livekit.yaml -- `api_key`/
+# `api_secret` below MUST equal livekit.yaml's own `keys.devkey` entry byte-for-byte (egress
+# authenticates against the LiveKit server's Twirp API using the SAME admin credential
+# LiveKitEgressClient/LiveKitAdminClient mint tokens against), and `redis.address` MUST equal
+# livekit.yaml's own new `redis:` block -- both processes must point at the SAME Redis instance
+# (see docker-compose.yml's new `redis`/`egress` services and their own comments for why this
+# wasn't needed in Wave 1).
+log_level: info
+api_key: devkey
+api_secret: lapis-dev-livekit-secret-32bytes-min!! # MUST equal livekit.yaml's keys.devkey
+ws_url: ws://livekit:7880 # compose service name, NOT localhost -- resolved inside the container
+insecure: true # plain ws://, dev only -- same posture livekit.yaml's own header documents
+redis:
+  address: redis:6379

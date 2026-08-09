@@ -88,6 +88,48 @@ class LiveKitAccessTokenTest :
             grant["room"] shouldBe ROOM_NAME
         }
 
+        // ── mintEgressToken (V1.0 Wave 2 "Aufzeichnung") ────────────────────
+
+        test("mintEgressToken grants EXACTLY roomRecord + room, never roomJoin/roomCreate/roomAdmin/roomList") {
+            val jwt = LiveKitAccessToken.mintEgressToken(apiKey = API_KEY, apiSecret = API_SECRET, room = ROOM_NAME)
+
+            val signed = verify(jwt)
+            signed.jwtClaimsSet.issuer shouldBe API_KEY
+            val grant = videoGrant(signed)
+            grant["roomRecord"] shouldBe true
+            grant["room"] shouldBe ROOM_NAME
+            grant.containsKey("roomJoin").shouldBeFalse()
+            grant.containsKey("roomCreate").shouldBeFalse()
+            grant.containsKey("roomAdmin").shouldBeFalse()
+            grant.containsKey("roomList").shouldBeFalse()
+        }
+
+        test("mintEgressToken expires after ADMIN_TOKEN_TTL_SECONDS (60s) by default, same as mintAdminToken") {
+            val now = Instant.fromEpochMilliseconds(1_700_000_000_000)
+            val jwt = LiveKitAccessToken.mintEgressToken(apiKey = API_KEY, apiSecret = API_SECRET, room = ROOM_NAME, now = now)
+
+            val claims = verify(jwt).jwtClaimsSet
+            claims.expirationTime.toInstant().toKotlinInstant() shouldBe (now + LiveKitAccessToken.ADMIN_TOKEN_TTL_SECONDS.seconds)
+        }
+
+        test("mintEgressToken carries a unique jti per call") {
+            val first = LiveKitAccessToken.mintEgressToken(apiKey = API_KEY, apiSecret = API_SECRET, room = ROOM_NAME)
+            val second = LiveKitAccessToken.mintEgressToken(apiKey = API_KEY, apiSecret = API_SECRET, room = ROOM_NAME)
+
+            verify(first).jwtClaimsSet.jwtid shouldNotBe verify(second).jwtClaimsSet.jwtid
+        }
+
+        test("mintEgressToken never literally contains the raw apiSecret string") {
+            val jwt = LiveKitAccessToken.mintEgressToken(apiKey = API_KEY, apiSecret = API_SECRET, room = ROOM_NAME)
+            jwt.shouldNotContain(API_SECRET)
+        }
+
+        test("mintEgressToken with a secret shorter than 32 bytes propagates nimbus's own KeyLengthException") {
+            shouldThrow<KeyLengthException> {
+                LiveKitAccessToken.mintEgressToken(apiKey = API_KEY, apiSecret = "too-short", room = ROOM_NAME)
+            }
+        }
+
         test("mintAdminToken expires after ADMIN_TOKEN_TTL_SECONDS (60s) by default") {
             val now = Instant.fromEpochMilliseconds(1_700_000_000_000)
             val jwt = LiveKitAccessToken.mintAdminToken(apiKey = API_KEY, apiSecret = API_SECRET, now = now)

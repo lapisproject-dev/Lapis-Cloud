@@ -7,10 +7,10 @@ import io.ktor.http.HttpStatusCode
 import io.ktor.http.content.PartData
 import io.ktor.http.content.forEachPart
 import io.ktor.server.application.call
+import io.ktor.server.http.content.LocalFileContent
 import io.ktor.server.request.receiveMultipart
 import io.ktor.server.response.header
 import io.ktor.server.response.respond
-import io.ktor.server.response.respondBytes
 import io.ktor.server.routing.Route
 import io.ktor.server.routing.get
 import io.ktor.server.routing.post
@@ -30,7 +30,6 @@ import org.jetbrains.exposed.v1.jdbc.selectAll
 import org.jetbrains.exposed.v1.jdbc.transactions.transaction
 import org.jetbrains.exposed.v1.jdbc.update
 import java.io.File
-import java.nio.file.Files
 import java.security.MessageDigest
 import kotlin.uuid.Uuid
 
@@ -215,9 +214,14 @@ fun Route.registerDocumentRoutes(storageRoot: File) {
                 .withParameter(ContentDisposition.Parameters.FileName, versionRow[DocumentVersionTable.fileName])
                 .toString(),
         )
-        call.respondBytes(
-            bytes = Files.readAllBytes(file.toPath()),
-            contentType = ContentType.parse(versionRow[DocumentVersionTable.mimeType]),
-        )
+        // V1.0 Wave 2 "Aufzeichnung" fix: was `respondBytes(Files.readAllBytes(...))` -- fine for
+        // the MAX_UPLOAD_BYTES (25 MiB) cap this route itself enforces on upload, but a document
+        // reached via a conference recording (`registerConferenceRecordingRoutes`' own media route
+        // hits this SAME underlying storage) can run to hundreds of megabytes, and a recording IS a
+        // document -- see that route's own KDoc. LocalFileContent streams from disk (Ktor's
+        // ReadChannelContent) instead of buffering the whole file, and as a side effect gets free
+        // HTTP Range/206 support from the already-installed PartialContent plugin -- strictly
+        // better for every existing document too, not only recordings.
+        call.respond(LocalFileContent(file, ContentType.parse(versionRow[DocumentVersionTable.mimeType])))
     }
 }
