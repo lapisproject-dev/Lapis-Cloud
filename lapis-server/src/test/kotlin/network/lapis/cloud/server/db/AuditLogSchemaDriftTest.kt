@@ -125,7 +125,16 @@ class AuditLogSchemaDriftTest :
             entity.attributeByName("entity_type")?.type shouldBe
                 ErmDataType.Enum(
                     name = "AuditEntityType",
-                    values = listOf("JOURNAL_ENTRY", "PARTY_DONATION_VERDICT", "RESOLUTION", "BOARD_MEMBERSHIP", "CONFERENCE_RECORDING"),
+                    values =
+                        listOf(
+                            "JOURNAL_ENTRY",
+                            "PARTY_DONATION_VERDICT",
+                            "RESOLUTION",
+                            "BOARD_MEMBERSHIP",
+                            "CONFERENCE_RECORDING",
+                            "CONFERENCE_STREAM",
+                            "CONFERENCE_STREAM_DESTINATION",
+                        ),
                     externalFqName = "network.lapis.cloud.shared.domain.AuditEntityType",
                 )
             entity.attributeByName("action")?.type shouldBe

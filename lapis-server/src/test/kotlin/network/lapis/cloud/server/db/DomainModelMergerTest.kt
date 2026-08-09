@@ -35,14 +35,14 @@ class DomainModelMergerTest :
         // ── Test 1: merging the real 22 domain scripts ───────────────────────────────────
 
         test(
-            "merging the real 29 domain scripts succeeds and the uml-to-erm -> erm-to-exposed chain " +
+            "merging the real 30 domain scripts succeeds and the uml-to-erm -> erm-to-exposed chain " +
                 "produces exactly one Table file per distinct table name",
         ) {
             val scriptFiles =
                 requireNotNull(KumlModelLoader.kumlSourceDir.listFiles { f -> f.name.endsWith(".kuml.kts") }) {
                     "kUML source dir not found or not a directory: ${KumlModelLoader.kumlSourceDir.absolutePath}"
                 }.sortedBy { it.name }
-            scriptFiles shouldHaveSize 29
+            scriptFiles shouldHaveSize 30
 
             val diagrams = scriptFiles.map { KumlModelLoader.loadUmlDiagram(it) }
 
@@ -184,7 +184,16 @@ class DomainModelMergerTest :
             // contributes +5 «Entity» declarations (3 stubs + 2 real tables) and +3 drops (all
             // three stubs merge into the already-existing member/conference_room/document
             // entities) versus the V1.0-Wave-1 baseline above (91 -> 93).
-            val distinctTableNames = 93
+            // 29-conference-streaming.kuml.kts (V1.0 Videokonferenzen, Wave 3 "Externes Streaming")
+            // adds exactly three more real tables (conference_stream_destination, conference_stream,
+            // conference_stream_target), WITH TWO cross-domain stubs (Member, ConferenceRoom --
+            // conference_stream_destination.created_by_member_id/conference_stream
+            // .started_by_member_id resolve through Member, conference_stream.room_id resolves
+            // through ConferenceRoom; unlike Wave 2, streaming never produces a Dokumentenablage
+            // row, so there is no Document stub here) -- so it contributes +5 «Entity» declarations
+            // (2 stubs + 3 real tables) and +2 drops (both stubs merge into the already-existing
+            // member/conference_room entities) versus the V1.0-Wave-2 baseline above (93 -> 96).
+            val distinctTableNames = 96
 
             val result =
                 UmlToExposedViaErmScriptTransformer().transform(
@@ -300,6 +309,9 @@ class DomainModelMergerTest :
                     "ConferenceParticipationTable.kt",
                     "ConferenceRecordingTable.kt",
                     "ConferenceRecordingTrackTable.kt",
+                    "ConferenceStreamDestinationTable.kt",
+                    "ConferenceStreamTable.kt",
+                    "ConferenceStreamTargetTable.kt",
                 )
         }
 

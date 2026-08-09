@@ -8,6 +8,140 @@ All notable changes to this project are documented here. Format follows
 
 ### Added
 
+**Videokonferenzen (Kleinsitzung), V1.0 Wave 3 „Externes Streaming" — RTMP-composited-egress live
+streaming to external platforms (YouTube/Twitch/PeerTube/Owncast/generic RTMP), on
+`feature/video-konferenz-wave3-streaming`.** Everything here was verified against the REAL running
+LiveKit v1.13.5 + egress v1.13.0 stack, not reconstructed from documentation alone (see "Live
+verification" below); seven live findings materially shaped the design, most importantly finding 7
+below, which is a launch-blocking correctness fix, not an enhancement.
+
+- **Persistence + crypto** — three new tables (`conference_stream_destination`/`conference_stream`/
+  `conference_stream_target`), and this codebase's **first at-rest encryption primitive**:
+  `network.lapis.cloud.server.crypto.SecretBox` (AES-256-GCM, fresh `Cipher` per call, the
+  destination's own UUID as GCM AAD so a ciphertext copied between rows fails to decrypt, versioned
+  `v1:<iv>:<ct>` storage format, fail-fast at startup if streaming is enabled and
+  `LAPIS_SECRET_ENCRYPTION_KEY` is missing/undecodable/wrong-length — never a silent downgrade to
+  plaintext). Deliberately generic so later waves (SMTP passwords, PSP credentials) reuse the same
+  primitive rather than inventing a second scheme.
+- **`IConferenceStreamingService`** — a THIRD, separate conference RPC service (not folded into
+  `IConferenceService`/`IConferenceRecordingService`): ADMIN-only destination credential CRUD
+  (`listDestinations`/`createDestination`/`updateDestination`/`setDestinationEnabled`/
+  `deleteDestination`), a narrower moderator-facing target picker (`listStreamTargets`, no url/key),
+  and the room-creator-or-BOARD/ADMIN stream lifecycle (`startStream`/`pauseStream`/`resumeStream`/
+  `stopStream`/`getActiveStream`/`listStreams`). The stream key is **never** returned to any client,
+  under any role, at any time — `ConferenceStreamDestinationDto.streamKeyMask` is always the constant
+  `"********"`. `startStream` calls LiveKit synchronously (the one deliberate divergence from Wave
+  2's `startRecording`) — see that interface's own KDoc for the full two-transaction ordering.
+- **`StreamPoller`** — mirrors `RecordingPoller`'s shape (one application-scoped coroutine, no
+  in-memory state), matches per-URL `stream_results` back to `conference_stream_target` rows via a
+  `url_fingerprint` computed server-side (LiveKit both REDACTS and REORDERS the URLs it echoes back —
+  live-verified, neither exact-URL nor index matching works), drives `LIVE -> FAILED`, reconciles
+  orphan `STARTING` rows, enforces `maxDurationMinutes`, auto-stops on room end, and maps LiveKit's
+  raw per-URL errors (which can echo the destination HOST back, live-verified) onto a fixed sanitized
+  German vocabulary — raw LiveKit text never reaches a DTO.
+- **Client — `ConferenceStreamDestinationsScreen.kt`** (new, ADMIN-only, `Routes.CONFERENCE_STREAM_DESTINATIONS`,
+  nav entry "Stream-Ziele" alongside "Backup & Wiederherstellung"): list/create/edit/enable/delete.
+  Stream-key field is `type="password"`, always empty on edit with placeholder "unverändert lassen",
+  never prefilled, with a lock glyph and a real, VISIBLE re-masking confirmation on save ("Gespeichert
+  — Schlüssel wird nicht erneut angezeigt.") rather than a silent reset.
+- **Client — `ConferenceScreen.kt`, THE WAVE 2 BADGE FIX (finding 7, launch-blocking, see Jobs'
+  conditional-go verdict item 1)**: live-verified that LiveKit sets `Room.isRecording`
+  (`active_recording`) to `true` for ANY active egress, including a STREAMING-only one with no
+  recording at all — the pre-Wave-3 badge, which trusted that boolean directly, would have shown a
+  false "● Aufzeichnung läuft" on every participant's screen the moment a stream-only egress started,
+  a DSGVO-relevant false statement in exactly the surface Wave 2 built for legal transparency. Fixed:
+  `onRecordingStatusChanged` is now used PURELY as an instant refresh trigger; the badge always
+  renders from SERVER state (`getActiveRecording` + `getActiveStream`), so "Aufzeichnung läuft",
+  "Live-Stream läuft → <Labels>", and both together render as DISTINCT, independently stacked rows
+  (never merged into one line, distinct glyphs "●"/"◆" so the distinction never relies on red-vs-red
+  alone). `document.title`'s "● " prefix logic extended to cover both signals.
+- **Client — persistent stream indicator + moderator controls**: a danger-styled badge naming
+  destination LABELS only (never url/key), a `role="alert"` `aria-live="assertive"` notice banner
+  ("Diese Besprechung wird ab jetzt live gestreamt.", "Verstanden"/"Besprechung verlassen", shown to
+  every participant including late joiners, source-of-truth is always a fresh `getActiveStream` read,
+  never a stale cached value). Recording and streaming controls live in SPATIALLY SEPARATE groups,
+  each under its own "Aufzeichnung:"/"Live-Stream:" sub-header (never a shared row/dropdown) — the
+  sharpest risk the design review identified (three destructive-adjacent buttons — end meeting, stop
+  recording, stop streaming — in one control surface). "Live-Stream starten …" opens a dialog whose
+  destination checklist DOUBLES as the confirm surface itself (no re-typing): a live summary line
+  names the selected destinations by label and restates irrevocability as the selection changes,
+  primary button reads "Jetzt live gehen" (never "OK"), plus a mandatory static Hinweis that secret
+  ballots require a MANUAL pause (no automatic protection exists this version — the concept note's
+  hard-wired lock needs a Governance-module integration that does not exist yet, a half-built version
+  would be worse than none). "Stream unterbrechen"/"Stream fortsetzen"/"Stream beenden" each behind
+  their own `ConfirmDialog`, restating the noun they act on; the pause dialog states plainly that
+  the platform sees an interruption and may end the broadcast (LiveKit has NO pause primitive —
+  pause is honestly stop, resume is honestly a fresh egress with a new `livekit_egress_id`, never
+  implied seamless). Per-destination status renders THREE distinct states ("Verbindung wird
+  hergestellt…"/"Live"/"Beendet"/"Fehlgeschlagen"), never a binary "streaming: yes" — a partial
+  failure (one of three platforms down) stays visible.
+- **Infrastructure** (`deploy/local/`) — `rtmp-sink` (`bluenviron/mediamtx`, digest-pinned) joins the
+  stack as a real RTMP test destination, so an end-to-end stream is verifiable without any
+  YouTube/Twitch account: RTMP ingest (1935) reachable only on the compose-internal network, ONLY
+  the HLS playback port published (`127.0.0.1:8888`, same loopback-only bind posture every other port
+  in this stack uses). `egress.yaml` gains a documented, commented-out `template_base` knob naming
+  the exact Room-Composite failure signature (`error_code 412`, `"Start signal not received"`) this
+  wave's own live verification hit when `template.livekit.io` is unreachable.
+
+**Explicitly out of scope this wave** (see `IConferenceStreamingService` KDoc for the full,
+authoritative list) — none of the following is implied anywhere in the UI: automatic stream pause
+during secret ballots (no Governance/voting integration exists), a Restream/StreamYard integration
+(generic RTMP fully covers the manual case), a YouTube Data API auto-create-live-event hook,
+simulcast/quality-ladder tuning beyond the two fixed latency profiles, automatic backup-recording on
+stream drop, mid-stream destination add/remove (the destination set is fixed at start), and
+self-hosting the Room-Composite template.
+
+**Live verification (2026-08-09, client-UI + infra step)**: `docker compose -f deploy/local/docker-compose.yml
+up -d` brought up the full stack including the new `rtmp-sink` service; a real `ffmpeg` H.264/AAC
+test-pattern push from a throwaway container on the same compose network to
+`rtmp://rtmp-sink:1935/live/lapis-e2e` produced the exact expected log line (`stream is available
+and online, 2 tracks (H264, MPEG-4 Audio)`), and `http://127.0.0.1:8888/live/lapis-e2e/index.m3u8`
+resolved through a real HLS-session redirect to a genuine `#EXTM3U` playlist naming both renditions —
+confirming real media reachable from the host, not merely "the container started". `docker compose
+... config` validates cleanly with the digest-pinned `rtmp-sink` image and its loopback-only port
+binding. `egress.yaml`'s `template_base` comment addition was confirmed comment-only (the `egress`
+container still reaches `service ready` against Redis after a restart, unaffected). The full
+moderator-facing client flow against a real browser session and the `error_code 412` signature
+itself were verified in this wave's later verification step (below), not in this one.
+
+**Live verification (2026-08-09, dedicated end-to-end verification step)**: the full moderator flow
+was driven against a real running server (`LAPIS_STREAMING_ENABLED=true`, real
+`LAPIS_SECRET_ENCRYPTION_KEY`) and a real browser session (ADMIN `amara.admin@example.org`, then a
+separate, genuinely different MEMBER login `max.mitglied@example.org` — not a same-identity
+reconnect), plus a real `livekit/livekit-cli room join --publish-demo` synthetic participant for
+real published media. Every mandatory proof from the wave plan was closed: a real ciphertext
+(`v1:`-prefixed, plaintext absent) landed in `conference_stream_destination.stream_key_ciphertext`;
+every captured RPC response (`createDestination`/`startStream`/`getActiveStream`, ADMIN and MEMBER
+alike) never carried the plaintext key; a real multi-destination `StartParticipantEgress` reached
+`EGRESS_ACTIVE` with BOTH `rtmp-sink` targets publishing simultaneously (`stream is available and
+online, 2 tracks (H264, MPEG-4 Audio)` for both keys, real HLS playback confirmed at
+`http://127.0.0.1:8888/live/<key>/index.m3u8`); a destination pointed at an unresolvable host
+surfaced the FIXED sanitized German failure text within one poll tick while the OTHER, good
+destination in the SAME stream kept running unaffected — closing the plan's own "does one bad URL
+kill the whole egress?" open question: **no, per-target failure is isolated**; `pauseStream` produced
+a real RTMP EOF on the sink side while the meeting stayed connected, `resumeStream` produced a
+genuinely NEW `livekit_egress_id` and `restartCount: 1`; and the plain MEMBER's `getActiveStream`
+response, joining an already-live stream as a true late joiner, carried destination labels and
+platforms only — no url, no key — with the D3 banner shown immediately on join. New opt-in automated
+coverage: `LiveKitStreamEgressLiveIntegrationTest.kt` (same `LAPIS_LIVEKIT_IT=true` gate as its
+sibling `LiveKitEgressLiveIntegrationTest.kt`, spawns real `livekit-cli` publishers via `docker run`,
+confirmed hermetically SKIPPED — not failed — when the gate is unset).
+
+**Two real client bugs found live during this step, both fixed in place (not deferred)**: (1) the
+top status badge kept reading "◆ Live-Stream läuft → …" for the ENTIRE duration a stream was
+`PAUSED` — a literal false statement in the exact transparency surface finding 7/D8 exists to keep
+honest, caused by `conferenceStatusBadgeRows` hardcoding the verb "läuft" regardless of
+`ConferenceStreamDto.status` while the correctly-worded `conferenceStreamStatusLabel` mapping
+function sat unused as dead code (only ever exercised by its own unit test). Fixed by wiring
+`conferenceStreamBadgeVerbPhrase(status)` into the badge row, so `PAUSED` now reads "ist
+unterbrochen" in a calm `secondary` color, matching `conferenceStreamStatusColor`. (2) the
+per-destination "Live" chips stayed frozen at their last value indefinitely while `PAUSED`, because
+`StreamPoller.handlePaused` deliberately does not touch `conference_stream_target` rows once there is
+no live egress left to poll — `updateStreamTargetsPanel` now hides the (necessarily stale) per-target
+chips while `PAUSED` rather than rendering a contradicting "Live" status underneath the now-honest
+"ist unterbrochen" badge. Four new `ConferenceStreamingUiTest.kt` unit tests pin both the fix and the
+underlying `conferenceStreamBadgeVerbPhrase` mapping.
+
 **Videokonferenzen (Kleinsitzung), V1.0 Wave 2 „Aufzeichnung" — server-side meeting recording via
 LiveKit Track Egress plus an own asynchronous ffmpeg composition, on
 `feature/video-konferenz-wave2-aufzeichnung`.** Implements exactly the concept note's 2026-08-01

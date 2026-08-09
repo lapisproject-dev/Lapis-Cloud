@@ -1,6 +1,7 @@
 package network.lapis.cloud.client
 
 import io.kvision.core.Overflow
+import io.kvision.form.check.checkBox
 import io.kvision.form.select.select
 import io.kvision.form.text.text
 import io.kvision.html.Button
@@ -30,9 +31,16 @@ import network.lapis.cloud.shared.domain.ConferenceRecordingStatus
 import network.lapis.cloud.shared.domain.ConferenceRole
 import network.lapis.cloud.shared.domain.ConferenceRoomDto
 import network.lapis.cloud.shared.domain.ConferenceRoomInput
+import network.lapis.cloud.shared.domain.ConferenceStreamDto
+import network.lapis.cloud.shared.domain.ConferenceStreamLatencyMode
+import network.lapis.cloud.shared.domain.ConferenceStreamLayout
+import network.lapis.cloud.shared.domain.ConferenceStreamStatus
+import network.lapis.cloud.shared.domain.ConferenceStreamTargetDto
+import network.lapis.cloud.shared.domain.ConferenceStreamTargetStatus
 import network.lapis.cloud.shared.domain.DocumentAccessLevel
 import network.lapis.cloud.shared.rpc.IConferenceRecordingService
 import network.lapis.cloud.shared.rpc.IConferenceService
+import network.lapis.cloud.shared.rpc.IConferenceStreamingService
 import org.w3c.dom.HTMLElement
 import org.w3c.dom.HTMLInputElement
 import org.w3c.dom.events.Event
@@ -169,6 +177,70 @@ import kotlin.time.Clock
  * very top of [enterCall] (`baseDocumentTitle`) -- both on a live stop transition AND, explicitly, on
  * every path back to the Lobby ([returnToLobby]'s `originalTitle` parameter), since disconnecting
  * does not reliably fire a final `RecordingStatusChanged(false)` push.
+ *
+ * ## V1.0 Videokonferenzen (Kleinsitzung), Wave 3 "Externes Streaming" -- streaming UI + the Wave 2
+ * badge fix
+ *
+ * Ran the mandatory UI/UX-Design-Team review (root `CLAUDE.md`) before writing code, same as Wave 2
+ * -- see that wave's own review document, decisions D1-D14, Jobs' conditional-go verdict. Load-bearing
+ * decisions:
+ *
+ * - **D8, launch-blocking -- the Wave 2 badge was LYING.** Live-verified finding: LiveKit sets
+ *   `Room.isRecording` (the flag [onRecordingStatusChanged] mirrors) to `true` for ANY active egress,
+ *   including a STREAMING-only one with no recording at all. The pre-Wave-3 badge trusted that raw
+ *   boolean directly, so starting a stream alone would have shown a false "Aufzeichnung läuft" on
+ *   every participant's screen -- a DSGVO-relevant false statement in exactly the surface Wave 2 built
+ *   for legal transparency. **The fix**: [onRecordingStatusChanged] is now used PURELY as an instant
+ *   REFRESH TRIGGER (see [onMediaStatusPush]) -- the badge itself always renders from SERVER state
+ *   ([IConferenceRecordingService.getActiveRecording] + [IConferenceStreamingService.getActiveStream],
+ *   via [refreshRecordingState]/[refreshStreamState]), never from the pushed boolean. See
+ *   [conferenceStatusBadgeRows]/[conferenceMediaDocumentTitle].
+ * - **D3 -- recording and streaming render as DISTINCT badge rows, never merged.** Merging "3
+ *   Plattformen live" into one line with the recording badge would lose exactly the information (which
+ *   platforms) the concept note's transparency requirement demands. [conferenceStatusBadgeRows]
+ *   returns 0-2 rows; both render simultaneously, stacked, when both are active. Distinct glyphs
+ *   ("●" recording, "◆" streaming) so the distinction does not rely on red-vs-red alone.
+ * - **D5, must-mock-before-code -- recording and streaming controls are SPATIALLY SEPARATE groups**,
+ *   each under its own small "Aufzeichnung:"/"Live-Stream:" sub-header, never a shared row or dropdown
+ *   -- see [recordingControlsRowRef]/[streamingControlsRowRef]. Every confirm dialog restates the noun
+ *   it acts on ("Stream **beenden**?", never a bare "Wirklich beenden?") -- see
+ *   [pauseStreamConfirmDialog]/[resumeStreamConfirmDialog]/[stopStreamConfirmDialog]. "Für alle
+ *   beenden" (ending the whole meeting) stays in its own pre-existing `moderatorRow`, spatially
+ *   separated from both media control groups, per Wave 1's own precedent.
+ * - **D2 -- no re-typing on the start-stream dialog.** [startStreamDialog]'s destination checklist
+ *   doubles as the confirm surface itself: a live summary line ([conferenceStreamStartSummary]) names
+ *   the SELECTED destinations by LABEL (never url/key) and restates irrevocability in plain German as
+ *   the selection changes, and the primary button reads "Jetzt live gehen" -- never "OK"/"Bestätigen".
+ * - **The mandatory secret-ballot Hinweis** ([CONFERENCE_STREAM_SECRET_BALLOT_HINWEIS]) is static,
+ *   unconditional text in [startStreamDialog] -- no UI copy anywhere claims automatic pause protection
+ *   exists, per [IConferenceStreamingService] KDoc "No automatic stream pause during secret ballots".
+ * - **D7 -- honest per-destination status, never a binary "streaming: yes".**
+ *   [ConferenceStreamTargetStatusDto.status] renders as three distinct states via
+ *   [conferenceStreamTargetStatusLabel] ("Verbindung wird hergestellt…"/"Live"/"Beendet"/
+ *   "Fehlgeschlagen"), one row per destination ([updateStreamTargetsPanel]) -- a partial failure (one
+ *   of three platforms down) stays visible instead of being averaged into one aggregate signal.
+ *   [pollInFlightStreamStatus] re-polls [IConferenceStreamingService.getActiveStream] while any target
+ *   is still `PENDING` (the real ~12s async LiveKit-connect window, live-verified, see
+ *   [IConferenceStreamingService.startStream] KDoc), or the top-level status is `STARTING`/`STOPPING`
+ *   -- see [conferenceStreamNeedsPoll].
+ * - **D6 -- pause is honestly stop+restart, never implied seamless.** [pauseStreamConfirmDialog]'s
+ *   copy states plainly that the platform sees an interruption and may end the broadcast; resume shows
+ *   a real button-disabled "in flight" state while the new egress connects (rule 2, double-submit
+ *   protection), never a silent instant jump back to "Live-Stream läuft".
+ * - **D11 -- unconfigured is invisible, not disabled.** [refreshStreamState] hides
+ *   [streamingControlsRowRef] entirely when [IConferenceStreamingService.getStreamingAvailability]
+ *   reports `enabled=false`, and never calls [IConferenceStreamingService.getActiveStream]/
+ *   `.listStreamTargets` before that check (both throw `ConflictException` when streaming is
+ *   unconfigured) -- exactly Wave 2's own `refreshRecordingState`/D14 posture, independently applied.
+ * - **Terminology lock**: "Live-Stream"/"Stream-Ziel"/"Stream-Schlüssel" everywhere, matching
+ *   [IConferenceStreamingService]'s own vocabulary -- never "Broadcast", never "Übertragung" as a
+ *   button label (only as body prose).
+ *
+ * Credential material (`rtmpUrl`, the stream key) never appears anywhere in this file --
+ * [ConferenceStreamTargetDto] (the ONLY destination shape this screen ever receives, via
+ * [IConferenceStreamingService.listStreamTargets]) carries no such fields at all; see
+ * `ConferenceStreamDestinationsScreen.kt` for the ADMIN-only credential CRUD surface, which is a
+ * completely separate screen/route.
  */
 fun renderConferenceScreen(container: SimplePanel) {
     val root =
@@ -408,38 +480,71 @@ private fun enterCall(
     // D5/D6: "end for everyone" gets its own, spatially separate row -- never adjacent to "Verlassen"
     // (Tesler: near-identical destructive actions placed next to each other is a classic slip-inducing
     // layout). Not rendered at all for a plain participant, same "don't tease an action the server
-    // will reject" posture `AuctionScreen.kt`'s own ADMIN-only Verwaltung panel documents.
-    var moderatorRowRef: SimplePanel? = null
+    // will reject" posture `AuctionScreen.kt`'s own ADMIN-only Verwaltung panel documents. Wave 3, D5:
+    // this row stays reserved for "Für alle beenden" ONLY -- recording/streaming controls each get
+    // their OWN, further spatially separate row below (see [recordingControlsRowRef]/
+    // [streamingControlsRowRef]), never sharing this one.
     val endButton =
         if (canModerate) {
             val moderatorRow = callPanel.hPanel(spacing = 8) { addCssClasses("align-items-center") }
-            moderatorRowRef = moderatorRow
             moderatorRow.div("Moderator:") { addCssClasses("text-muted small") }
             moderatorRow.button("Für alle beenden", style = ButtonStyle.OUTLINEDANGER)
         } else {
             null
         }
 
-    // --- Recording indicator + moderator control (Wave 2 "Aufzeichnung", see file KDoc for the
-    // full D-item list) -- chrome-level, built right after the moderator row and BEFORE the
-    // screen-share stage / video grid, so a layout-mode switch can never make the badge disappear
-    // (design review D1). Everything here must be declared BEFORE `session = LiveKitRoomSession(...)`
-    // below, since `onRecordingStatusChanged` closes over it -- see file KDoc's own reasoning on
-    // local-declaration ordering; conversely `leaveButton`'s real DOM element (already built above,
-    // in the control bar) is used instead of the `session`-dependent leave flow (declared further
-    // down) for exactly the same reason, see [bannerLeaveButton] below.
+    // --- Recording + streaming indicator/controls (Wave 2 "Aufzeichnung" + Wave 3 "Externes
+    // Streaming", see file KDoc for the full D-item list) -- chrome-level, built right after the
+    // moderator row and BEFORE the screen-share stage / video grid, so a layout-mode switch can
+    // never make either badge disappear (design review D1, reconfirmed Wave 3). Everything here
+    // must be declared BEFORE `session = LiveKitRoomSession(...)` below, since
+    // `onRecordingStatusChanged` closes over it (Wave 3: now purely as a REFRESH TRIGGER, see
+    // [onMediaStatusPush] and file KDoc "D8") -- see file KDoc's own reasoning on local-declaration
+    // ordering; conversely `leaveButton`'s real DOM element (already built above, in the control
+    // bar) is used instead of the `session`-dependent leave flow (declared further down) for
+    // exactly the same reason, see [bannerLeaveButton]/[streamBannerLeaveButton] below.
     var recordingAvailable = false
     var activeRecordingDto: ConferenceRecordingDto? = null
     var recordButton: Button? = null
     var recordingBannerAcknowledged = false
 
-    // D1/D2: reuses the shared `statusBadge` grammar (solid `text-bg-danger` pill) rather than a
-    // hand-rolled colored-dot element -- calm/factual (no pulse animation, no exclamation icon), not
-    // an "error" alert box.
-    val recordingBadge = callPanel.statusBadge("● Aufzeichnung läuft", "danger")
-    recordingBadge.hide()
+    var streamingAvailable = false
+    var streamMaxDestinations = 3
+    var activeStreamDto: ConferenceStreamDto? = null
+    var streamStartButton: Button? = null
+    var streamPauseButton: Button? = null
+    var streamResumeButton: Button? = null
+    var streamStopButton: Button? = null
+    var streamBannerAcknowledged = false
+
+    // D5: recording and streaming get their own, spatially separate control groups -- never a
+    // shared row, never a shared dropdown -- each with a small labeled sub-header, mirroring the
+    // pre-existing `moderatorRow`'s own "Moderator:" label pattern. Hidden/shown per-feature by
+    // [refreshRecordingState]/[refreshStreamState] once availability is known (D11).
+    var recordingControlsRowRef: SimplePanel? = null
+    var streamingControlsRowRef: SimplePanel? = null
+    if (canModerate) {
+        val recordingRow = callPanel.hPanel(spacing = 8) { addCssClasses("align-items-center flex-wrap") }
+        recordingRow.div("Aufzeichnung:") { addCssClasses("text-muted small") }
+        recordingControlsRowRef = recordingRow
+
+        val streamingRow = callPanel.hPanel(spacing = 8) { addCssClasses("align-items-center flex-wrap") }
+        streamingRow.div("Live-Stream:") { addCssClasses("text-muted small") }
+        streamingControlsRowRef = streamingRow
+    }
+
+    // D8/D3: a combined container for 0-2 badge rows (recording/streaming render as DISTINCT rows,
+    // never merged), so the fix for finding 7 (LiveKit's active_recording flag is true for a
+    // streaming-only egress too) has somewhere honest to render -- see [conferenceStatusBadgeRows].
+    val statusBadgesPanel = callPanel.vPanel(spacing = 4)
+    statusBadgesPanel.hide()
     val recordingDetailLine = callPanel.div { addCssClasses("text-muted small") }
     recordingDetailLine.hide()
+    val streamDetailLine = callPanel.div { addCssClasses("text-muted small") }
+    streamDetailLine.hide()
+    // D7: one row per destination, honest interim/terminal states -- see [updateStreamTargetsPanel].
+    val streamTargetsPanel = callPanel.vPanel(spacing = 2) { addCssClasses("ms-2") }
+    streamTargetsPanel.hide()
 
     // D3/D4: non-blocking, dual-action, no auto-fade, no silent timeout -- see file KDoc.
     val recordingBanner = callPanel.vPanel(spacing = 6) { addCssClasses("border border-danger rounded p-2") }
@@ -458,6 +563,37 @@ private fun enterCall(
     // (which lives on `session`, declared further down this function) -- see block comment above.
     recordingBannerLeaveButton.onClick { leaveButton.getElement()?.click() }
 
+    // Wave 3 -- same shape/discipline as the recording banner above, own text/own acknowledge state
+    // (D3: the two facts -- "is being recorded" / "is being streamed" -- must stay independently
+    // dismissable, never coupled).
+    val streamBanner = callPanel.vPanel(spacing = 6) { addCssClasses("border border-danger rounded p-2") }
+    streamBanner.hide()
+    streamBanner.addAfterInsertHook { vnode -> (vnode.elm as? HTMLElement)?.setAttribute("role", "alert") }
+    streamBanner.div(CONFERENCE_STREAM_BANNER_TEXT) { addCssClass("fw-bold") }
+    val streamBannerButtons = streamBanner.hPanel(spacing = 8) { addCssClasses("flex-wrap") }
+    val streamBannerAckButton = streamBannerButtons.button("Verstanden", style = ButtonStyle.PRIMARY)
+    val streamBannerLeaveButton = streamBannerButtons.button("Besprechung verlassen", style = ButtonStyle.OUTLINESECONDARY)
+    streamBannerAckButton.onClick {
+        streamBannerAcknowledged = true
+        streamBanner.hide()
+    }
+    streamBannerLeaveButton.onClick { leaveButton.getElement()?.click() }
+
+    // D8: the ONE place either badge row or the document.title prefix is ever rendered -- always
+    // from `activeRecordingDto`/`activeStreamDto` (server state), never from a raw LiveKit push
+    // boolean. Declared first so every updater below can end by calling it.
+    fun updateStatusBadgesAndTitle() {
+        statusBadgesPanel.removeAll()
+        val rows = conferenceStatusBadgeRows(activeRecordingDto, activeStreamDto)
+        if (rows.isEmpty()) {
+            statusBadgesPanel.hide()
+        } else {
+            statusBadgesPanel.show()
+            rows.forEach { row -> statusBadgesPanel.statusBadge(row.text, row.color) }
+        }
+        document.title = conferenceMediaDocumentTitle(baseDocumentTitle, activeRecordingDto != null, activeStreamDto != null)
+    }
+
     fun updateRecordingDetailLine() {
         val active = activeRecordingDto
         if (active != null) {
@@ -466,6 +602,53 @@ private fun enterCall(
         } else {
             recordingDetailLine.hide()
         }
+        updateStatusBadgesAndTitle()
+    }
+
+    /**
+     * Live-verification fix (2026-08-09, Wave 3 verification step) -- while [activeStreamDto] is
+     * [ConferenceStreamStatus.PAUSED], the per-target `PENDING`/`ACTIVE`/`FINISHED`/`FAILED` chips
+     * are hidden rather than rendered from [ConferenceStreamDto.targets]' last-known values. Found
+     * live: [StreamPoller][network.lapis.cloud.server.conference.StreamPoller]'s own `handlePaused`
+     * deliberately does NOT touch `conference_stream_target` rows while paused (there is no egress
+     * left to poll, see that method's own KDoc) -- so every target row keeps reporting whatever
+     * status it had the instant BEFORE `pauseStream` stopped the egress (typically `ACTIVE`, i.e.
+     * "Live"). Rendering that stale value verbatim produced a real, reproducible bug: pausing a
+     * genuinely live two-destination stream against the real Colima stack left both per-destination
+     * chips reading "Live" indefinitely, even though `rtmp-sink`'s own logs showed a real RTMP EOF
+     * on both connections. The honest fix is the same "we don't know right now" discipline D7 already
+     * established for the `PENDING` interim state -- while paused there genuinely is no live
+     * per-target signal to show, so none is shown; the top badge's "ist unterbrochen" (see
+     * [conferenceStreamBadgeVerbPhrase]) and the moderator's "Stream fortsetzen" button already
+     * communicate the state without a stale, contradicting "Live" chip underneath.
+     */
+    fun updateStreamTargetsPanel() {
+        streamTargetsPanel.removeAll()
+        val active = activeStreamDto
+        val targets = active?.targets.orEmpty()
+        if (targets.isEmpty() || active?.status == ConferenceStreamStatus.PAUSED) {
+            streamTargetsPanel.hide()
+        } else {
+            streamTargetsPanel.show()
+            targets.forEach { target ->
+                val row = streamTargetsPanel.hPanel(spacing = 6) { addCssClasses("align-items-center flex-wrap") }
+                row.statusBadge(conferenceStreamTargetStatusLabel(target.status), conferenceStreamTargetStatusColor(target.status))
+                row.div(target.label) { addCssClasses("small") }
+                target.failureReason?.let { reason -> row.div(reason) { addCssClasses("text-danger small") } }
+            }
+        }
+    }
+
+    fun updateStreamDetailLine() {
+        val active = activeStreamDto
+        if (active != null) {
+            streamDetailLine.content = conferenceStreamStartedLabel(active.startedByDisplayName, active.startedAt, active.layout)
+            streamDetailLine.show()
+        } else {
+            streamDetailLine.hide()
+        }
+        updateStreamTargetsPanel()
+        updateStatusBadgesAndTitle()
     }
 
     fun updateRecordButtonLabel() {
@@ -492,6 +675,60 @@ private fun enterCall(
             else -> {
                 btn.text = "Aufzeichnung starten"
                 btn.disabled = false
+            }
+        }
+    }
+
+    // Wave 3, D6: resume shows a real "in flight" transitional state (button-disabled while the
+    // NEW egress connects, see [onStreamResumeClicked]) rather than jumping straight back to
+    // steady-state "Live-Stream läuft" -- so this function only ever governs which of the four
+    // buttons is VISIBLE per [ConferenceStreamStatus], never their disabled-while-in-flight state
+    // (each click handler owns that directly around its own `guarded {}` call, rule 2).
+    fun updateStreamButtonsVisibility() {
+        val startBtn = streamStartButton
+        val pauseBtn = streamPauseButton
+        val resumeBtn = streamResumeButton
+        val stopBtn = streamStopButton
+        if (startBtn == null || pauseBtn == null || resumeBtn == null || stopBtn == null) return
+        stopBtn.text = "Stream beenden"
+        when (activeStreamDto?.status) {
+            null, ConferenceStreamStatus.ENDED, ConferenceStreamStatus.FAILED -> {
+                startBtn.show()
+                startBtn.disabled = !conferenceStreamCanStart(canModerate, streamingAvailable, activeStreamDto)
+                pauseBtn.hide()
+                resumeBtn.hide()
+                stopBtn.hide()
+            }
+            ConferenceStreamStatus.STARTING -> {
+                startBtn.hide()
+                pauseBtn.hide()
+                resumeBtn.hide()
+                stopBtn.show()
+                stopBtn.disabled = false
+            }
+            ConferenceStreamStatus.LIVE -> {
+                startBtn.hide()
+                resumeBtn.hide()
+                pauseBtn.show()
+                pauseBtn.disabled = false
+                stopBtn.show()
+                stopBtn.disabled = false
+            }
+            ConferenceStreamStatus.PAUSED -> {
+                startBtn.hide()
+                pauseBtn.hide()
+                resumeBtn.show()
+                resumeBtn.disabled = false
+                stopBtn.show()
+                stopBtn.disabled = false
+            }
+            ConferenceStreamStatus.STOPPING -> {
+                startBtn.hide()
+                pauseBtn.hide()
+                resumeBtn.hide()
+                stopBtn.show()
+                stopBtn.disabled = true
+                stopBtn.text = "Stream wird beendet …"
             }
         }
     }
@@ -533,6 +770,131 @@ private fun enterCall(
         }
     }
 
+    // Wave 3: opens [startStreamDialog] -- the destination checklist doubles as the confirm surface
+    // itself (D2, no re-typing). `listStreamTargets` is only ever called from here, after
+    // `streamingAvailable`/`canModerate` are already known true (the button is disabled/hidden
+    // otherwise, see [updateStreamButtonsVisibility]/[conferenceStreamCanStart]).
+    fun onStreamStartClicked() {
+        if (!conferenceStreamCanStart(canModerate, streamingAvailable, activeStreamDto)) return
+        val startBtn = streamStartButton ?: return
+        startBtn.disabled = true
+        AppScope.launch {
+            val targets = guarded { rpcService<IConferenceStreamingService>().listStreamTargets() }
+            startBtn.disabled = false
+            if (targets.isNullOrEmpty()) {
+                notifyError(
+                    "Keine freigegebenen Stream-Ziele vorhanden -- bitte eine Administratorin oder " +
+                        "einen Administrator kontaktieren.",
+                )
+                return@launch
+            }
+            val participantOptions =
+                tiles.values.map { entry -> entry.identity to (entry.displayName + if (entry.isLocal) " (Sie)" else "") }
+            startStreamDialog(
+                targets,
+                streamMaxDestinations,
+                participantOptions,
+            ) { destinationIds, layout, latencyMode, participantIdentity ->
+                startBtn.disabled = true
+                AppScope.launch {
+                    val result =
+                        guarded {
+                            rpcService<IConferenceStreamingService>().startStream(
+                                room.id,
+                                destinationIds,
+                                layout,
+                                latencyMode,
+                                participantIdentity,
+                            )
+                        }
+                    startBtn.disabled = false
+                    // Rule: only update UI state once the guarded {} call's result confirms success --
+                    // never optimistically before the RPC resolves.
+                    if (result != null) {
+                        val wasStreaming = activeStreamDto != null
+                        activeStreamDto = result
+                        updateStreamDetailLine()
+                        updateStreamButtonsVisibility()
+                        // The actor's own action is a deterministic "streaming just started" signal --
+                        // shown immediately rather than waiting for the LiveKit push (which, per finding
+                        // 7, WILL also arrive, but timing is not guaranteed, see file KDoc "D8").
+                        if (!wasStreaming && !streamBannerAcknowledged) streamBanner.show()
+                        notifySuccess("Live-Stream wird gestartet.")
+                    }
+                }
+            }
+        }
+    }
+
+    fun onStreamPauseClicked() {
+        val stream = activeStreamDto ?: return
+        val labels = stream.targets.joinToString(", ") { it.label }
+        pauseStreamConfirmDialog(labels) {
+            val btn = streamPauseButton ?: return@pauseStreamConfirmDialog
+            btn.disabled = true
+            AppScope.launch {
+                val result = guarded { rpcService<IConferenceStreamingService>().pauseStream(stream.id) }
+                btn.disabled = false
+                if (result != null) {
+                    activeStreamDto = result
+                    updateStreamDetailLine()
+                    updateStreamButtonsVisibility()
+                    notifyInfo("Stream unterbrochen.")
+                }
+            }
+        }
+    }
+
+    fun onStreamResumeClicked() {
+        val stream = activeStreamDto ?: return
+        resumeStreamConfirmDialog {
+            val btn = streamResumeButton ?: return@resumeStreamConfirmDialog
+            // D6: a real, visible "in flight" state while the NEW egress connects -- never an
+            // instant, silently-optimistic jump back to "Live-Stream läuft".
+            btn.disabled = true
+            btn.text = "Stream wird fortgesetzt …"
+            AppScope.launch {
+                val result = guarded { rpcService<IConferenceStreamingService>().resumeStream(stream.id) }
+                btn.disabled = false
+                btn.text = "Stream fortsetzen"
+                if (result != null) {
+                    activeStreamDto = result
+                    updateStreamDetailLine()
+                    updateStreamButtonsVisibility()
+                    notifySuccess("Stream wird fortgesetzt …")
+                }
+            }
+        }
+    }
+
+    fun onStreamStopClicked() {
+        val stream = activeStreamDto ?: return
+        val labels = stream.targets.joinToString(", ") { it.label }
+        stopStreamConfirmDialog(labels) {
+            val btn = streamStopButton ?: return@stopStreamConfirmDialog
+            btn.disabled = true
+            AppScope.launch {
+                val result = guarded { rpcService<IConferenceStreamingService>().stopStream(stream.id) }
+                btn.disabled = false
+                if (result != null) {
+                    activeStreamDto =
+                        if (result.status == ConferenceStreamStatus.ENDED || result.status == ConferenceStreamStatus.FAILED) {
+                            null
+                        } else {
+                            result
+                        }
+                    updateStreamDetailLine()
+                    updateStreamButtonsVisibility()
+                    if (activeStreamDto == null) {
+                        streamBanner.hide()
+                        streamBannerAcknowledged = false
+                    }
+                    notifySuccess("Live-Stream wird beendet.")
+                }
+            }
+        }
+    }
+
     fun ensureRecordButton() {
         val existing = recordButton
         if (existing != null) {
@@ -542,22 +904,53 @@ private fun enterCall(
             existing.show()
             return
         }
-        val row = moderatorRowRef ?: return
+        val row = recordingControlsRowRef ?: return
         val btn = row.button("Aufzeichnung starten", style = ButtonStyle.WARNING)
-        btn.addCssClass("ms-2")
         btn.onClick { onRecordButtonClicked() }
         recordButton = btn
     }
 
-    // D14: invisible, not disabled-and-confusing, when unconfigured -- and the reason
+    // Wave 3: D5's own dedicated control group -- see [recordingControlsRowRef]/[ensureRecordButton]
+    // sibling reasoning. All four buttons are created together (their VISIBILITY, not existence, is
+    // what [updateStreamButtonsVisibility] governs per [ConferenceStreamStatus]).
+    fun ensureStreamControls() {
+        if (streamStartButton != null) {
+            updateStreamButtonsVisibility()
+            return
+        }
+        val row = streamingControlsRowRef ?: return
+        val startBtn = row.button("Live-Stream starten …", style = ButtonStyle.WARNING)
+        startBtn.onClick { onStreamStartClicked() }
+        streamStartButton = startBtn
+
+        val pauseBtn = row.button("Stream unterbrechen", style = ButtonStyle.OUTLINEWARNING)
+        pauseBtn.onClick { onStreamPauseClicked() }
+        streamPauseButton = pauseBtn
+
+        val resumeBtn = row.button("Stream fortsetzen", style = ButtonStyle.WARNING)
+        resumeBtn.onClick { onStreamResumeClicked() }
+        streamResumeButton = resumeBtn
+
+        val stopBtn = row.button("Stream beenden", style = ButtonStyle.OUTLINEDANGER)
+        stopBtn.onClick { onStreamStopClicked() }
+        streamStopButton = stopBtn
+
+        updateStreamButtonsVisibility()
+    }
+
+    // D14/D11: invisible, not disabled-and-confusing, when unconfigured -- and the reason
     // getActiveRecording is never called before this check: it THROWS ConflictException when
-    // recording is unconfigured server-side (see file KDoc "D14").
+    // recording is unconfigured server-side (see file KDoc "D14"). Also hides/shows the WHOLE
+    // "Aufzeichnung:" control group ([recordingControlsRowRef]), not just the button, so a plain
+    // participant (for whom that row was never created, `canModerate == false`) is unaffected.
     suspend fun refreshRecordingState() {
         val availability = guarded { rpcService<IConferenceRecordingService>().getRecordingAvailability() }
         recordingAvailable = availability?.enabled == true
         if (canModerate && recordingAvailable) {
+            recordingControlsRowRef?.show()
             ensureRecordButton()
         } else {
+            recordingControlsRowRef?.hide()
             recordButton?.hide()
         }
         if (!recordingAvailable) {
@@ -572,6 +965,68 @@ private fun enterCall(
         activeRecordingDto = recordings?.singleOrNull()
         updateRecordingDetailLine()
         updateRecordButtonLabel()
+    }
+
+    // Wave 3 -- mirrors [refreshRecordingState] exactly, for the independent streaming availability
+    // gate (D11): [IConferenceStreamingService.getStreamingAvailability] never throws, but
+    // `getActiveStream`/`listStreamTargets` DO throw `ConflictException` when streaming is
+    // unconfigured -- so this function checks availability FIRST, same discipline.
+    suspend fun refreshStreamState() {
+        val availability = guarded { rpcService<IConferenceStreamingService>().getStreamingAvailability() }
+        streamingAvailable = availability?.enabled == true
+        streamMaxDestinations = availability?.maxDestinations ?: streamMaxDestinations
+        if (canModerate && streamingAvailable) {
+            streamingControlsRowRef?.show()
+            ensureStreamControls()
+        } else {
+            streamingControlsRowRef?.hide()
+            streamStartButton?.hide()
+            streamPauseButton?.hide()
+            streamResumeButton?.hide()
+            streamStopButton?.hide()
+        }
+        if (!streamingAvailable) {
+            activeStreamDto = null
+            updateStreamDetailLine()
+            return
+        }
+        // Role: MEMBER+, AKTIV -- NEVER privilege-gated, same "everyone in the room has a legal
+        // right to know" rule [IConferenceStreamingService.getActiveStream] KDoc establishes.
+        val streams = guarded { rpcService<IConferenceStreamingService>().getActiveStream(room.id) }
+        activeStreamDto = streams?.singleOrNull()
+        updateStreamDetailLine()
+        updateStreamButtonsVisibility()
+    }
+
+    /**
+     * Wave 3, D8 -- the SOLE place [onRecordingStatusChanged]'s raw LiveKit push is acted on. The
+     * pushed boolean is used PURELY as an instant "something changed, go check" trigger; it is
+     * NEVER trusted as the badge's own source of truth (finding 7: LiveKit sets
+     * `Room.isRecording` for a STREAMING-only egress too, which would otherwise show a false
+     * "Aufzeichnung läuft" on every screen). Both [refreshRecordingState] and [refreshStreamState]
+     * re-read SERVER state on every push -- including the synchronous "late-joiner seed" push
+     * `LiveKitRoomSession.connect()` performs right after connecting (see that class's own KDoc),
+     * which is also how a late joiner ends up seeing an already-accurate banner immediately (D4).
+     *
+     * The one-time notice banners fire on a LOCAL `null -> non-null` transition detected here
+     * (before/after this function's own refresh calls) -- NOT on the raw pushed boolean, since one
+     * push can be caused by either subsystem (or, rarely, both) changing at once.
+     */
+    suspend fun onMediaStatusPush() {
+        val wasRecording = activeRecordingDto != null
+        val wasStreaming = activeStreamDto != null
+        refreshRecordingState()
+        refreshStreamState()
+        if (!wasRecording && activeRecordingDto != null && !recordingBannerAcknowledged) recordingBanner.show()
+        if (wasRecording && activeRecordingDto == null) {
+            recordingBanner.hide()
+            recordingBannerAcknowledged = false
+        }
+        if (!wasStreaming && activeStreamDto != null && !streamBannerAcknowledged) streamBanner.show()
+        if (wasStreaming && activeStreamDto == null) {
+            streamBanner.hide()
+            streamBannerAcknowledged = false
+        }
     }
 
     /**
@@ -651,7 +1106,79 @@ private fun enterCall(
             updateRecordButtonLabel()
         }
     }
+
+    /**
+     * Wave 3 -- the [pollInFlightRecordingStatus] pattern, applied to streaming's OWN, different
+     * need: unlike recording's `getActiveRecording` (which stops returning a row once it advances
+     * past `RECORDING`/`STOPPING`), [IConferenceStreamingService.getActiveStream] keeps returning
+     * the row through the ENTIRE non-terminal lifecycle (`STARTING`/`LIVE`/`PAUSED`/`STOPPING`), so
+     * a plain re-fetch of it is enough while polling is needed -- no `listStreams` fallback lookup
+     * required for that half. [conferenceStreamNeedsPoll] decides "needed" from the WHOLE DTO, not
+     * just the top-level status: per-target `PENDING` rows (D7's honest "Verbindung wird
+     * hergestellt…" state, live-verified ~12s async LiveKit-connect window, see
+     * [IConferenceStreamingService.startStream] KDoc) must keep polling even while the top-level
+     * status is already steady-state `LIVE`.
+     *
+     * The ONE case [getActiveStream] cannot answer is "the stream just went ENDED/FAILED" -- once
+     * terminal, [ACTIVE_STREAM_STATUSES][network.lapis.cloud.server.rpc.ConferenceStreamingService]
+     * excludes the row entirely, so `getActiveStream` correctly starts returning EMPTY. That empty
+     * result IS the terminal signal this loop needs -- but to also surface a sanitized
+     * `failureReason` (rather than the stream simply vanishing with no explanation), this loop then
+     * falls back to `listStreams(room.id)` ONE time, exactly mirroring
+     * [conferenceFindRecordingById]'s own precedent via [conferenceFindStreamById].
+     *
+     * Runs for EVERY participant, not only the moderator (D7's honesty requirement is a
+     * transparency guarantee for whoever is watching, not a moderator-only convenience) --
+     * unconditionally launched below, same as [pollInFlightRecordingStatus]. Deliberately NOT run
+     * through `guarded {}` for the same reason that function documents (a transient network hiccup
+     * must not re-toast on every tick); self-terminates on `leftCall`, same lifecycle.
+     */
+    suspend fun pollInFlightStreamStatus() {
+        while (!leftCall) {
+            delay(CONFERENCE_STREAM_POLL_INTERVAL_MS)
+            if (leftCall) break
+            val current = activeStreamDto?.takeIf { conferenceStreamNeedsPoll(it) } ?: continue
+            val refreshed =
+                try {
+                    rpcService<IConferenceStreamingService>().getActiveStream(room.id).singleOrNull()
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (e: Throwable) {
+                    null
+                }
+            if (refreshed != null) {
+                if (refreshed != current) {
+                    activeStreamDto = refreshed
+                    updateStreamDetailLine()
+                    updateStreamButtonsVisibility()
+                }
+                continue
+            }
+            // getActiveStream returned empty -- the stream reached ENDED/FAILED. One fallback
+            // lookup to learn WHICH, and (if FAILED) the sanitized failureReason.
+            val resolved =
+                try {
+                    conferenceFindStreamById(rpcService<IConferenceStreamingService>().listStreams(room.id), current.id)
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (e: Throwable) {
+                    null
+                }
+            activeStreamDto = null
+            streamBanner.hide()
+            streamBannerAcknowledged = false
+            updateStreamDetailLine()
+            updateStreamButtonsVisibility()
+            if (resolved?.status == ConferenceStreamStatus.FAILED) {
+                notifyError(resolved.failureReason ?: "Live-Stream fehlgeschlagen.")
+            } else {
+                notifyInfo("Live-Stream beendet.")
+            }
+        }
+    }
+
     AppScope.launch { pollInFlightRecordingStatus() }
+    AppScope.launch { pollInFlightStreamStatus() }
 
     // --- Screen-share stage (hidden until a "screen_share"-sourced track subscribes) --------------
     val stageDiv =
@@ -910,25 +1437,14 @@ private fun enterCall(
                 val entry = ensureTile(joinToken.identity, joinToken.displayName, isLocal = true)
                 setTileVideo(entry, track?.attach())
             },
-            // Wave 2 "Aufzeichnung" -- see file KDoc "D1/D2" / "D3/D4" and
-            // LiveKitRoomSession.connect's own "late-joiner seed" comment for why this fires both on
-            // every live transition AND once, synchronously, right after connect.
-            onRecordingStatusChanged = { isRecording ->
-                if (isRecording) {
-                    recordingBadge.show()
-                    document.title = conferenceRecordingDocumentTitle(baseDocumentTitle, isRecording = true)
-                    if (!recordingBannerAcknowledged) recordingBanner.show()
-                } else {
-                    recordingBadge.hide()
-                    document.title = baseDocumentTitle
-                    recordingBanner.hide()
-                    recordingBannerAcknowledged = false
-                }
-                // A single reactive RPC read triggered by a LiveKit PUSH event, not polling (see
-                // file KDoc "D1/D2") -- keeps the detail line/moderator button label in sync for
-                // every participant, not only whoever clicked start/stop.
-                AppScope.launch { refreshRecordingState() }
-            },
+            // Wave 3, D8: the raw pushed boolean is used PURELY as an instant "something changed, go
+            // check" trigger -- see [onMediaStatusPush] KDoc for the full rationale (finding 7:
+            // LiveKit's `active_recording` flag is true for a STREAMING-only egress too, so the
+            // pre-Wave-3 version of this callback, which trusted the boolean directly, would show a
+            // false "Aufzeichnung läuft" the moment a stream-only egress started). Fires both on
+            // every live transition AND once, synchronously, right after connect
+            // (`LiveKitRoomSession.connect`'s own "late-joiner seed", D4).
+            onRecordingStatusChanged = { _ -> AppScope.launch { onMediaStatusPush() } },
             onChat = { message -> appendChatLine(message.senderDisplayName, message.text, isOwn = false) },
             onDisconnected = {
                 if (!leftCall) {
@@ -1237,6 +1753,175 @@ private fun stopRecordingConfirmDialog(onConfirm: () -> Unit) {
 }
 
 // ================================================================================================
+// Wave 3 "Externes Streaming" -- confirm dialogs. D5: every one of these restates the NOUN it acts
+// on ("Stream **beenden**?"), never a bare "Wirklich beenden?" -- so a moderator tabbing through
+// them (sighted or via screen reader) can never confuse which of "Stream"/"Aufzeichnung"/
+// "Besprechung" a given dialog is about to act on.
+// ================================================================================================
+
+/**
+ * D2 (Norman/Tesler/Forstall) -- NO re-typing. The destination checklist IS the confirm surface:
+ * [summaryBox] names the SELECTED destinations by [ConferenceStreamTargetDto.label] (never url/key
+ * -- this DTO carries neither) and restates irrevocability in plain German as the selection changes
+ * ([conferenceStreamStartSummary]); the primary button reads "Jetzt live gehen", never "OK"/
+ * "Bestätigen" -- the label itself is the last line of defense against a misclick. The secret-ballot
+ * Hinweis ([CONFERENCE_STREAM_SECRET_BALLOT_HINWEIS]) is static and unconditional, never implying a
+ * protection that does not exist this wave (see [IConferenceStreamingService] KDoc "Out of scope").
+ */
+private fun startStreamDialog(
+    targets: List<ConferenceStreamTargetDto>,
+    maxDestinations: Int,
+    participantOptions: List<Pair<String, String>>,
+    onConfirm: (
+        destinationIds: List<String>,
+        layout: ConferenceStreamLayout,
+        latencyMode: ConferenceStreamLatencyMode,
+        participantIdentity: String?,
+    ) -> Unit,
+) {
+    val modal = Modal(caption = "Live-Stream starten")
+    val summaryBox = modal.div(conferenceStreamStartSummary(emptyList())) { addCssClasses("fw-bold text-danger") }
+
+    modal.div("Ziele auswählen (max. $maxDestinations):") { addCssClasses("fw-bold mt-2") }
+    val targetsPanel = modal.vPanel(spacing = 2)
+    val checkboxesByTarget =
+        targets.associateWith { target ->
+            targetsPanel.checkBox(label = "${target.label} (${conferenceStreamPlatformLabel(target.platform)})")
+        }
+    val selectionErrorBox =
+        modal.div().apply {
+            addCssClasses("text-danger small")
+            hide()
+        }
+
+    fun selectedTargets(): List<ConferenceStreamTargetDto> = checkboxesByTarget.filterValues { it.value }.keys.toList()
+
+    fun updateSummary() {
+        summaryBox.content = conferenceStreamStartSummary(selectedTargets().map { it.label })
+    }
+    checkboxesByTarget.values.forEach { checkbox -> checkbox.onClick { updateSummary() } }
+
+    val layoutOptions = ConferenceStreamLayout.entries.map { it.name to conferenceStreamLayoutLabel(it) }
+    val layoutSelect = modal.select(options = layoutOptions, value = ConferenceStreamLayout.GRID.name, label = "Layout")
+    val participantSelect =
+        modal.select(
+            options = participantOptions,
+            value = participantOptions.firstOrNull()?.first,
+            label = "Person (nur bei \"Einzelne Person\")",
+        )
+    participantSelect.hide()
+    layoutSelect.subscribe {
+        if (layoutSelect.value == ConferenceStreamLayout.SINGLE_PARTICIPANT.name) participantSelect.show() else participantSelect.hide()
+    }
+
+    val latencyOptions = ConferenceStreamLatencyMode.entries.map { it.name to conferenceStreamLatencyModeLabel(it) }
+    val latencySelect =
+        modal.select(options = latencyOptions, value = ConferenceStreamLatencyMode.STANDARD.name, label = "Latenz")
+
+    modal.div(CONFERENCE_STREAM_SECRET_BALLOT_HINWEIS) { addCssClasses("text-muted small mt-2") }
+
+    modal.addButton(Button("Abbrechen", style = ButtonStyle.SECONDARY).apply { onClick { modal.hide() } })
+    modal.addButton(
+        Button("Jetzt live gehen", style = ButtonStyle.DANGER).apply {
+            onClick {
+                selectionErrorBox.hide()
+                val selected = selectedTargets()
+                if (!conferenceStreamSelectionValid(selected.size, maxDestinations)) {
+                    selectionErrorBox.content = "Bitte 1 bis $maxDestinations Ziele auswählen."
+                    selectionErrorBox.show()
+                    return@onClick
+                }
+                val layout = ConferenceStreamLayout.valueOf(layoutSelect.value ?: ConferenceStreamLayout.GRID.name)
+                val participantIdentity = if (layout == ConferenceStreamLayout.SINGLE_PARTICIPANT) participantSelect.value else null
+                if (layout == ConferenceStreamLayout.SINGLE_PARTICIPANT && participantIdentity.isNullOrBlank()) {
+                    selectionErrorBox.content = "Bitte eine Person für \"Einzelne Person\" auswählen."
+                    selectionErrorBox.show()
+                    return@onClick
+                }
+                val latencyMode = ConferenceStreamLatencyMode.valueOf(latencySelect.value ?: ConferenceStreamLatencyMode.STANDARD.name)
+                modal.hide()
+                onConfirm(selected.map { it.id }, layout, latencyMode, participantIdentity)
+            }
+        },
+    )
+    modal.show()
+}
+
+/**
+ * D6 (Norman/Raskin) -- blunt, not falsely reassuring: LiveKit has NO pause primitive (verified
+ * live, see [IConferenceStreamingService] KDoc "pauseStream/resumeStream"), so this copy says
+ * plainly that the platform sees an interruption and MAY end the broadcast entirely. No "Pause"
+ * wording anywhere that implies a seamless resume.
+ */
+private fun pauseStreamConfirmDialog(
+    destinationLabels: String,
+    onConfirm: () -> Unit,
+) {
+    val modal = Modal(caption = "Stream unterbrechen")
+    modal.div(
+        "Die Besprechung läuft weiter. Die Zielplattform sieht eine Unterbrechung -- YouTube kann die " +
+            "Übertragung dabei beenden, sodass ein neuer Link nötig wird.",
+    ) { addCssClass("fw-bold") }
+    modal.div("Betroffene Ziele: $destinationLabels") { addCssClasses("text-muted small") }
+    modal.addButton(Button("Abbrechen", style = ButtonStyle.SECONDARY).apply { onClick { modal.hide() } })
+    modal.addButton(
+        Button("Stream unterbrechen", style = ButtonStyle.WARNING).apply {
+            onClick {
+                modal.hide()
+                onConfirm()
+            }
+        },
+    )
+    modal.show()
+}
+
+/** D6 -- resume is a FRESH egress to the same destinations (a new `livekit_egress_id` on the same
+ * row), never a seamless continuation -- this copy says so plainly, matching [pauseStreamConfirmDialog]'s
+ * honesty. Lighter tier than [pauseStreamConfirmDialog]/[stopStreamConfirmDialog] (resuming is not
+ * itself destructive or disclosive beyond what starting already disclosed) but still a genuine
+ * confirm step, per rule 3. */
+private fun resumeStreamConfirmDialog(onConfirm: () -> Unit) {
+    val modal = Modal(caption = "Stream fortsetzen")
+    modal.div(
+        "Der Stream wird neu verbunden -- die Zielplattform sieht dies unter Umständen erneut als " +
+            "neue Übertragung.",
+    ) { addCssClass("fw-bold") }
+    modal.addButton(Button("Abbrechen", style = ButtonStyle.SECONDARY).apply { onClick { modal.hide() } })
+    modal.addButton(
+        Button("Stream fortsetzen", style = ButtonStyle.WARNING).apply {
+            onClick {
+                modal.hide()
+                onConfirm()
+            }
+        },
+    )
+    modal.show()
+}
+
+/** D5 -- restates the noun ("Stream **beenden**?"), names the affected platforms by label, states
+ * the meeting itself is unaffected -- matches [endRoomConfirmDialog]'s weight (danger-red body
+ * text), since ending a public broadcast to external viewers is a genuinely irreversible,
+ * high-stakes act, distinct from [stopRecordingConfirmDialog]'s lighter tier. */
+private fun stopStreamConfirmDialog(
+    destinationLabels: String,
+    onConfirm: () -> Unit,
+) {
+    val modal = Modal(caption = "Live-Stream beenden")
+    modal.div("Stream beenden? Die Übertragung zu $destinationLabels endet sofort.") { addCssClasses("fw-bold text-danger") }
+    modal.div("Die Besprechung selbst läuft für alle Teilnehmenden unverändert weiter.") { addCssClasses("text-muted small") }
+    modal.addButton(Button("Abbrechen", style = ButtonStyle.SECONDARY).apply { onClick { modal.hide() } })
+    modal.addButton(
+        Button("Live-Stream beenden", style = ButtonStyle.DANGER).apply {
+            onClick {
+                modal.hide()
+                onConfirm()
+            }
+        },
+    )
+    modal.show()
+}
+
+// ================================================================================================
 // Pure, DOM-independent logic -- see [ConferenceScreenTest] for coverage (no rendering harness
 // exists in this module, same posture every other screen's `*ScreenTest.kt` documents).
 // ================================================================================================
@@ -1424,4 +2109,236 @@ internal fun conferenceRecordingListSorted(recordings: List<ConferenceRecordingD
 internal fun conferenceRecordingFileSizeLabel(bytes: Long): String {
     val megabytes = (bytes / 1_000_000L).coerceAtLeast(if (bytes > 0) 1L else 0L)
     return "≈ $megabytes MB"
+}
+
+// ------------------------------------------------------------------------------------------------
+// Wave 3 "Externes Streaming" -- pure streaming helpers. `internal`, not `private`, so
+// [ConferenceStreamingUiTest] (this package) covers them directly without a rendering harness, same
+// posture Wave 2's own pure helpers above already establish.
+// ------------------------------------------------------------------------------------------------
+
+/** Design review D3 -- one row per active subsystem, never merged. See [conferenceStatusBadgeRows]. */
+internal data class ConferenceStatusBadgeRow(
+    val text: String,
+    val color: String,
+)
+
+/**
+ * Live-verification fix (2026-08-09, Wave 3 verification step) -- the verb phrase [conferenceStatusBadgeRows]
+ * uses for its streaming row, branched on [ConferenceStreamStatus] instead of the single hardcoded
+ * "läuft" the badge originally always rendered. Found live: pausing a stream correctly flips
+ * `activeStreamDto.status` to `PAUSED` (the moderator control row and [updateStreamTargetsPanel]
+ * both react to that correctly), but the top badge kept reading "◆ Live-Stream läuft → ..." the
+ * entire time the stream was paused -- a real, reproducible false statement in exactly the
+ * transparency surface D8/finding-7 exists to keep honest, discovered by actually pausing a real
+ * stream against the live Colima stack, not merely by reading the code. [conferenceStreamStatusLabel]
+ * (D7/D10's own German status-copy table) already had the right words for every non-LIVE status but
+ * was, until this fix, dead code from the badge's own perspective -- only ever exercised by its own
+ * unit test, never wired into [conferenceStatusBadgeRows]. This function is the wiring fix, kept
+ * separate from [conferenceStreamStatusLabel] (rather than reusing its bare "Live"/"Unterbrochen"
+ * nouns directly) because the badge needs a full verb phrase ("läuft"/"ist unterbrochen") to read as
+ * a sentence together with the "→ labels" suffix, not a status noun.
+ */
+internal fun conferenceStreamBadgeVerbPhrase(status: ConferenceStreamStatus): String =
+    when (status) {
+        ConferenceStreamStatus.STARTING -> "wird gestartet"
+        ConferenceStreamStatus.LIVE -> "läuft"
+        ConferenceStreamStatus.PAUSED -> "ist unterbrochen"
+        ConferenceStreamStatus.STOPPING -> "wird beendet"
+        ConferenceStreamStatus.ENDED, ConferenceStreamStatus.FAILED -> "ist beendet"
+    }
+
+/**
+ * The Wave 2 badge fix (finding 7, design review D8, launch-blocking) -- renders from SERVER state
+ * ([activeRecording]/[activeStream]), never from the raw LiveKit `Room.isRecording` push boolean,
+ * which LiveKit sets `true` for ANY active egress including a streaming-only one. Recording and
+ * streaming get DISTINCT rows with distinct leading glyphs ("●" vs "◆", not relying on red-vs-red
+ * alone, Kare's colorblind-legibility note) -- both render simultaneously, stacked, never merged
+ * into one aggregate line, so "which platforms are live" stays legible even with both active.
+ * [activeStream]'s destination LABELS only, never url/key (matches [ConferenceStreamTargetStatusDto]'s
+ * own narrower shape).
+ *
+ * **The streaming row's verb phrase and color both track [ConferenceStreamDto.status]** (see
+ * [conferenceStreamBadgeVerbPhrase] KDoc for the live-discovered bug this closes) -- `PAUSED` reads
+ * "ist unterbrochen" in `secondary` (calm, not alarm-red), matching [conferenceStreamStatusColor]'s
+ * own PAUSED color exactly, rather than the alarm-red "läuft" a paused stream is NOT currently doing.
+ */
+internal fun conferenceStatusBadgeRows(
+    activeRecording: ConferenceRecordingDto?,
+    activeStream: ConferenceStreamDto?,
+): List<ConferenceStatusBadgeRow> {
+    val rows = mutableListOf<ConferenceStatusBadgeRow>()
+    if (activeRecording != null) {
+        rows += ConferenceStatusBadgeRow("● Aufzeichnung läuft", "danger")
+    }
+    if (activeStream != null) {
+        val labels = activeStream.targets.joinToString(", ") { it.label }.ifBlank { "unbekanntes Ziel" }
+        val verbPhrase = conferenceStreamBadgeVerbPhrase(activeStream.status)
+        rows += ConferenceStatusBadgeRow("◆ Live-Stream $verbPhrase → $labels", conferenceStreamStatusColor(activeStream.status))
+    }
+    return rows
+}
+
+/** `document.title` prefix while EITHER subsystem is active -- extends [conferenceRecordingDocumentTitle]'s
+ * own "● " marker (not an emoji, same cross-platform-tab-rendering reasoning) to cover streaming too,
+ * per the Wave 3 badge fix. [conferenceRecordingDocumentTitle] itself is left untouched (still used
+ * by its own pre-existing unit test) -- this is the function [enterCall] actually calls now. */
+internal fun conferenceMediaDocumentTitle(
+    baseTitle: String,
+    isRecording: Boolean,
+    isStreaming: Boolean,
+): String = if (isRecording || isStreaming) "● $baseTitle" else baseTitle
+
+/** Design review D10's status-copy table, streaming's own version -- the ONE place this mapping
+ * exists. `STARTING` reads "Verbindung wird hergestellt…", matching [conferenceStreamTargetStatusLabel]'s
+ * `PENDING` copy, since both describe the same live-verified ~12s async LiveKit-connect window. */
+internal fun conferenceStreamStatusLabel(status: ConferenceStreamStatus): String =
+    when (status) {
+        ConferenceStreamStatus.STARTING -> "Verbindung wird hergestellt …"
+        ConferenceStreamStatus.LIVE -> "Live"
+        ConferenceStreamStatus.PAUSED -> "Unterbrochen"
+        ConferenceStreamStatus.STOPPING -> "Wird beendet …"
+        ConferenceStreamStatus.ENDED -> "Beendet"
+        ConferenceStreamStatus.FAILED -> "Fehlgeschlagen"
+    }
+
+internal fun conferenceStreamStatusColor(status: ConferenceStreamStatus): String =
+    when (status) {
+        ConferenceStreamStatus.STARTING -> "warning"
+        ConferenceStreamStatus.LIVE -> "danger"
+        ConferenceStreamStatus.PAUSED -> "secondary"
+        ConferenceStreamStatus.STOPPING -> "warning"
+        ConferenceStreamStatus.ENDED -> "secondary"
+        ConferenceStreamStatus.FAILED -> "danger"
+    }
+
+/**
+ * Design review D7 -- three DISTINCT states, never collapsed into a binary "streaming: yes/no":
+ * `PENDING` ("Verbindung wird hergestellt…", the honest interim state Atkinson/Kay insisted on --
+ * see [updateStreamTargetsPanel]), `ACTIVE` ("Live"), `FINISHED`/`FAILED` (ended/failed, with the
+ * sanitized [ConferenceStreamTargetStatusDto.failureReason] shown alongside when present).
+ */
+internal fun conferenceStreamTargetStatusLabel(status: ConferenceStreamTargetStatus): String =
+    when (status) {
+        ConferenceStreamTargetStatus.PENDING -> "Verbindung wird hergestellt …"
+        ConferenceStreamTargetStatus.ACTIVE -> "Live"
+        ConferenceStreamTargetStatus.FINISHED -> "Beendet"
+        ConferenceStreamTargetStatus.FAILED -> "Fehlgeschlagen"
+    }
+
+internal fun conferenceStreamTargetStatusColor(status: ConferenceStreamTargetStatus): String =
+    when (status) {
+        ConferenceStreamTargetStatus.PENDING -> "warning"
+        ConferenceStreamTargetStatus.ACTIVE -> "success"
+        ConferenceStreamTargetStatus.FINISHED -> "secondary"
+        ConferenceStreamTargetStatus.FAILED -> "danger"
+    }
+
+/** [startStreamDialog]'s Layout-Auswahl -- German labels, terminology matching
+ * [network.lapis.cloud.shared.domain.ConferenceStreamLayout]'s own KDoc ("Galerie"/"Sprecher" render
+ * through LiveKit's Room-Composite web template; "Einzelne Person" is the Chrome-free, template-free
+ * `StartParticipantEgress` path). */
+internal fun conferenceStreamLayoutLabel(layout: ConferenceStreamLayout): String =
+    when (layout) {
+        ConferenceStreamLayout.GRID -> "Galerie"
+        ConferenceStreamLayout.SPEAKER -> "Sprecher"
+        ConferenceStreamLayout.SINGLE_PARTICIPANT -> "Einzelne Person"
+    }
+
+/** [startStreamDialog]'s Latenz-Auswahl -- BOTH branches verified live against the real container
+ * (see [network.lapis.cloud.shared.domain.ConferenceStreamLatencyMode] KDoc "GO decision"), so
+ * unlike a not-yet-verified control this one ships without a go/no-go caveat (design review D10). */
+internal fun conferenceStreamLatencyModeLabel(mode: ConferenceStreamLatencyMode): String =
+    when (mode) {
+        ConferenceStreamLatencyMode.STANDARD -> "Standard"
+        ConferenceStreamLatencyMode.LOW_LATENCY -> "Niedrige Latenz"
+    }
+
+/**
+ * Gates the moderator's "Live-Stream starten …" control -- mirrors the server's OWN gate
+ * (`ConferenceStreamingService.startStream`: creator-or-BOARD/ADMIN, streaming configured, no
+ * already-active stream for this room) as a UX nicety, exactly like [recordingCanStart] already
+ * does for Wave 2's own moderator action -- the server re-checks independently regardless.
+ */
+internal fun conferenceStreamCanStart(
+    canModerate: Boolean,
+    streamingAvailable: Boolean,
+    activeStream: ConferenceStreamDto?,
+): Boolean = canModerate && streamingAvailable && activeStream == null
+
+/** [startStreamDialog]'s destination-checklist bound -- `IConferenceStreamingService.startStream`
+ * throws `ConflictException` on an empty or over-cap `destinationIds`; this is the client-side UX
+ * pre-check mirroring that bound, never the security boundary itself. */
+internal fun conferenceStreamSelectionValid(
+    selectedCount: Int,
+    maxDestinations: Int,
+): Boolean = selectedCount in 1..maxDestinations
+
+/**
+ * Design review D2 -- the destination checklist's OWN live summary line, updated on every checkbox
+ * toggle: names the SELECTED destinations by LABEL and restates irrevocability in plain German, so
+ * the confirm surface stays legible (Norman: "the friction that matters is making sure you know
+ * exactly who's about to see this", not proving intent via a retype step, see [startStreamDialog]).
+ */
+internal fun conferenceStreamStartSummary(selectedLabels: List<String>): String =
+    if (selectedLabels.isEmpty()) {
+        "Bitte wählen Sie mindestens ein Ziel aus."
+    } else {
+        "Sie starten jetzt einen Live-Stream zu: ${selectedLabels.joinToString(", ")}. Diese Ziele sind " +
+            "sofort öffentlich sichtbar -- die Übertragung kann NICHT zurückgeholt werden, sobald " +
+            "Teilnehmende gesprochen haben."
+    }
+
+/** [startStreamDialog]'s mandatory, static Hinweis (design review D12/Jobs' verdict item 2 --
+ * [IConferenceStreamingService] KDoc "No automatic stream pause during secret ballots"): no UI copy
+ * anywhere in this screen claims automatic protection exists. */
+internal const val CONFERENCE_STREAM_SECRET_BALLOT_HINWEIS =
+    "Bei geheimen Abstimmungen muss der Stream manuell unterbrochen werden. Eine automatische " +
+        "Unterbrechung gibt es in dieser Version noch nicht."
+
+/** [streamBanner]'s exact, terminology-locked copy -- mirrors [CONFERENCE_RECORDING_BANNER_TEXT]'s
+ * own precedent (a top-level constant so [ConferenceStreamingUiTest] can assert against the SAME
+ * literal the UI actually renders). */
+internal const val CONFERENCE_STREAM_BANNER_TEXT = "Diese Besprechung wird ab jetzt live gestreamt."
+
+/** [pollInFlightStreamStatus]'s poll interval -- same reasoning as [CONFERENCE_RECORDING_POLL_INTERVAL_MS]
+ * (the README's own suggested 15-30s cadence, close to but not faster than `StreamPoller`'s own
+ * server-side 10s default tick, `ConferenceStreamingConfig.DEFAULT_POLL_INTERVAL_SECONDS`). */
+internal const val CONFERENCE_STREAM_POLL_INTERVAL_MS = 15_000L
+
+/**
+ * [pollInFlightStreamStatus]'s "still needs polling?" predicate -- takes the WHOLE DTO, not just
+ * [ConferenceStreamDto.status], because the honest interim signal design review D7 requires
+ * (per-target `PENDING`, the live-verified ~12s async LiveKit-connect window) can still be true
+ * while the top-level status has ALREADY settled to steady-state `LIVE` -- see
+ * [network.lapis.cloud.shared.rpc.IConferenceStreamingService.startStream] KDoc for why the
+ * top-level `STARTING` state itself is usually too brief to observe (this codebase's `startStream`/
+ * `resumeStream` call LiveKit synchronously and return the settled `LIVE`/`FAILED` result in one
+ * round trip; `STARTING`/`STOPPING` mainly matter for crash-recovery reconciliation).
+ */
+internal fun conferenceStreamNeedsPoll(stream: ConferenceStreamDto?): Boolean {
+    if (stream == null) return false
+    if (stream.status == ConferenceStreamStatus.STARTING || stream.status == ConferenceStreamStatus.STOPPING) return true
+    return stream.targets.any { it.status == ConferenceStreamTargetStatus.PENDING }
+}
+
+/** [pollInFlightStreamStatus]'s terminal-state fallback lookup -- mirrors [conferenceFindRecordingById]'s
+ * own precedent exactly, applied to `listStreams` instead of `listRecordings`. */
+internal fun conferenceFindStreamById(
+    streams: List<ConferenceStreamDto>,
+    streamId: String,
+): ConferenceStreamDto? = streams.firstOrNull { it.id == streamId }
+
+/** The in-call detail line's "Live-Stream gestartet von X um HH:MM · Layout" copy -- mirrors
+ * [conferenceRecordingStartedLabel]'s own zero-padded 24h time format, with the chosen
+ * [ConferenceStreamLayout] appended since (unlike recording) it is a moderator-chosen setting worth
+ * surfacing to every participant reading this line. */
+internal fun conferenceStreamStartedLabel(
+    startedByDisplayName: String,
+    startedAt: LocalDateTime,
+    layout: ConferenceStreamLayout,
+): String {
+    val hour = startedAt.hour.toString().padStart(2, '0')
+    val minute = startedAt.minute.toString().padStart(2, '0')
+    return "Live-Stream gestartet von $startedByDisplayName um $hour:$minute · ${conferenceStreamLayoutLabel(layout)}"
 }

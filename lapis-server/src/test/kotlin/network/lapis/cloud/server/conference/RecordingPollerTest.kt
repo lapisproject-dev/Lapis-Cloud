@@ -24,6 +24,8 @@ import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.ConferenceRecordingStatus
 import network.lapis.cloud.shared.domain.ConferenceRecordingTrackSource
 import network.lapis.cloud.shared.domain.ConferenceRecordingTrackStatus
+import network.lapis.cloud.shared.domain.ConferenceStreamLatencyMode
+import network.lapis.cloud.shared.domain.ConferenceStreamLayout
 import network.lapis.cloud.shared.domain.DocumentAccessLevel
 import network.lapis.cloud.shared.domain.MemberStatus
 import org.jetbrains.exposed.v1.core.eq
@@ -107,6 +109,33 @@ private class FakeLiveKitEgressClient(
         } else {
             egressInfoByEgressId.values.toList()
         }
+
+    // V1.0 Wave 3 "Externes Streaming" -- not used by RecordingPoller (Wave 2), which never
+    // touches composited/streaming egress at all -- see LiveKitEgressClient KDoc "V1.0 Wave 3"
+    // section. A future StreamPollerTest (a later wave step) will want its OWN fake with real
+    // in-memory behaviour for exactly these three; stubbing them as `error(...)` here matches the
+    // SAME "unused by this poller" convention FakeLiveKitAdminClient's own methods above already
+    // establish.
+    override suspend fun startRoomCompositeEgress(
+        roomName: String,
+        layout: ConferenceStreamLayout,
+        latencyMode: ConferenceStreamLatencyMode,
+        rtmpUrls: List<String>,
+    ): LiveKitEgressInfo = error("not used by RecordingPoller (Wave 2) -- see FakeLiveKitEgressClient KDoc")
+
+    override suspend fun startParticipantEgress(
+        roomName: String,
+        identity: String,
+        latencyMode: ConferenceStreamLatencyMode,
+        rtmpUrls: List<String>,
+    ): LiveKitEgressInfo = error("not used by RecordingPoller (Wave 2) -- see FakeLiveKitEgressClient KDoc")
+
+    override suspend fun updateStream(
+        roomName: String,
+        egressId: String,
+        addUrls: List<String>,
+        removeUrls: List<String>,
+    ): LiveKitEgressInfo = error("not used by RecordingPoller (Wave 2) -- see FakeLiveKitEgressClient KDoc")
 }
 
 /** [behavior] defaults to writing a few bytes to [outputFile] -- override to simulate a failure via [RecordingComposeException]. */

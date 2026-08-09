@@ -631,7 +631,7 @@ CREATE TABLE audit_log_entry (
     occurred_at TIMESTAMP NOT NULL,
     actor_member_id UUID NULL,
     actor_role VARCHAR(9) NULL,
-    entity_type VARCHAR(22) NOT NULL,
+    entity_type VARCHAR(29) NOT NULL,
     entity_id UUID NOT NULL,
     action VARCHAR(6) NOT NULL,
     before_snapshot TEXT NULL,
@@ -639,7 +639,7 @@ CREATE TABLE audit_log_entry (
     entry_hash VARCHAR(64) NOT NULL,
     previous_entry_hash VARCHAR(64) NULL,
     CHECK (actor_role IN ('MEMBER', 'BOARD', 'TREASURER', 'ADMIN')),
-    CHECK (entity_type IN ('JOURNAL_ENTRY', 'PARTY_DONATION_VERDICT', 'RESOLUTION', 'BOARD_MEMBERSHIP', 'CONFERENCE_RECORDING')),
+    CHECK (entity_type IN ('JOURNAL_ENTRY', 'PARTY_DONATION_VERDICT', 'RESOLUTION', 'BOARD_MEMBERSHIP', 'CONFERENCE_RECORDING', 'CONFERENCE_STREAM', 'CONFERENCE_STREAM_DESTINATION')),
     CHECK (action IN ('CREATE', 'UPDATE', 'POST'))
 );
 
@@ -1604,4 +1604,77 @@ ALTER TABLE conference_recording ADD CONSTRAINT fk_conference_recording_room_id 
 ALTER TABLE conference_recording ADD CONSTRAINT fk_conference_recording_started_by_member_id FOREIGN KEY (started_by_member_id) REFERENCES member(id);
 ALTER TABLE conference_recording ADD CONSTRAINT fk_conference_recording_document_id FOREIGN KEY (document_id) REFERENCES document(id);
 ALTER TABLE conference_recording_track ADD CONSTRAINT fk_conference_recording_track_recording_id FOREIGN KEY (recording_id) REFERENCES conference_recording(id);
+
+-- V1.0 Videokonferenzen (Kleinsitzung), Wave 3 "Externes Streaming" -- see
+-- 29-conference-streaming.kuml.kts file header for the full fachlich model. Track Egress (Wave 2,
+-- above) cannot do RTMP -- streaming needs a *composited* StartRoomCompositeEgress/
+-- StartParticipantEgress request, hence a NEW table trio rather than a widening of
+-- conference_recording/conference_recording_track. conference_stream_destination is this
+-- codebase's first table with an at-rest-encrypted column (stream_key_ciphertext, AES-256-GCM via
+-- network.lapis.cloud.server.crypto.SecretBox) -- the plaintext key is never stored, never
+-- returned to any RPC caller. conference_stream.status is a real, authoritative six-state machine
+-- (STARTING/LIVE/PAUSED/STOPPING/ENDED/FAILED); pause is StopEgress + PAUSED (LiveKit has no pause
+-- primitive, verified live), resume is a fresh Start...Egress writing a NEW livekit_egress_id onto
+-- the SAME row. conference_stream_target.url_fingerprint exists because LiveKit both redacts the
+-- stream key in every URL it echoes back AND reorders stream_results relative to the request --
+-- neither exact-URL nor array-index matching can associate a StreamInfo entry back to the target
+-- row that started it, so this column is computed server-side at start time (LiveKit's own
+-- redaction rule applied to the plaintext URL) and matched against on every StreamPoller tick.
+
+CREATE TABLE conference_stream_destination (
+    id UUID NOT NULL PRIMARY KEY,
+    label VARCHAR(120) NOT NULL,
+    platform VARCHAR(12) NOT NULL,
+    rtmp_url VARCHAR(500) NOT NULL,
+    stream_key_ciphertext VARCHAR(1024) NOT NULL,
+    stream_key_set_at TIMESTAMP NOT NULL,
+    created_by_member_id UUID NOT NULL,
+    created_at TIMESTAMP NOT NULL,
+    enabled BOOLEAN NOT NULL DEFAULT TRUE,
+    CHECK (platform IN ('YOUTUBE', 'TWITCH', 'PEERTUBE', 'OWNCAST', 'GENERIC_RTMP'))
+);
+CREATE UNIQUE INDEX uq_conference_stream_destination_label ON conference_stream_destination (label);
+
+CREATE TABLE conference_stream (
+    id UUID NOT NULL PRIMARY KEY,
+    room_id UUID NOT NULL,
+    started_by_member_id UUID NOT NULL,
+    status VARCHAR(8) NOT NULL,
+    layout VARCHAR(19) NOT NULL,
+    latency_mode VARCHAR(11) NOT NULL,
+    participant_identity VARCHAR(64) NULL,
+    livekit_egress_id VARCHAR(64) NULL,
+    started_at TIMESTAMP NOT NULL,
+    paused_at TIMESTAMP NULL,
+    ended_at TIMESTAMP NULL,
+    restart_count INT NOT NULL DEFAULT 0,
+    failure_reason VARCHAR(500) NULL,
+    CHECK (status IN ('STARTING', 'LIVE', 'PAUSED', 'STOPPING', 'ENDED', 'FAILED')),
+    CHECK (layout IN ('GRID', 'SPEAKER', 'SINGLE_PARTICIPANT')),
+    CHECK (latency_mode IN ('LOW_LATENCY', 'STANDARD'))
+);
+CREATE INDEX idx_conference_stream_room ON conference_stream (room_id);
+CREATE INDEX idx_conference_stream_status ON conference_stream (status);
+
+CREATE TABLE conference_stream_target (
+    id UUID NOT NULL PRIMARY KEY,
+    stream_id UUID NOT NULL,
+    destination_id UUID NOT NULL,
+    status VARCHAR(8) NOT NULL,
+    url_fingerprint VARCHAR(255) NOT NULL,
+    started_at_epoch_nanos BIGINT NULL,
+    ended_at_epoch_nanos BIGINT NULL,
+    retries INT NOT NULL DEFAULT 0,
+    failure_reason VARCHAR(500) NULL,
+    CHECK (status IN ('PENDING', 'ACTIVE', 'FINISHED', 'FAILED'))
+);
+CREATE INDEX idx_conference_stream_target_stream ON conference_stream_target (stream_id);
+
+-- Foreign Keys
+
+ALTER TABLE conference_stream_destination ADD CONSTRAINT fk_conference_stream_destination_created_by_member_id FOREIGN KEY (created_by_member_id) REFERENCES member(id);
+ALTER TABLE conference_stream ADD CONSTRAINT fk_conference_stream_room_id FOREIGN KEY (room_id) REFERENCES conference_room(id);
+ALTER TABLE conference_stream ADD CONSTRAINT fk_conference_stream_started_by_member_id FOREIGN KEY (started_by_member_id) REFERENCES member(id);
+ALTER TABLE conference_stream_target ADD CONSTRAINT fk_conference_stream_target_stream_id FOREIGN KEY (stream_id) REFERENCES conference_stream(id);
+ALTER TABLE conference_stream_target ADD CONSTRAINT fk_conference_stream_target_destination_id FOREIGN KEY (destination_id) REFERENCES conference_stream_destination(id);
 

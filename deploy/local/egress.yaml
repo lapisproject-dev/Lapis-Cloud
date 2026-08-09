@@ -1,4 +1,5 @@
-# Lapis Cloud -- V1.0 Videokonferenzen, Wave 2 "Aufzeichnung", LOCAL DEVELOPMENT ONLY.
+# Lapis Cloud -- V1.0 Videokonferenzen, Wave 2 "Aufzeichnung" + Wave 3 "Externes Streaming",
+# LOCAL DEVELOPMENT ONLY.
 #
 # Config for the sibling `egress` service in docker-compose.yml -- see this repository's kUML
 # Track-Egress decision (concept note "03 Bereiche/Lapis Cloud/Videokonferenzen.md", 2026-08-01):
@@ -20,3 +21,25 @@ ws_url: ws://livekit:7880 # compose service name, NOT localhost -- resolved insi
 insecure: true # plain ws://, dev only -- same posture livekit.yaml's own header documents
 redis:
   address: redis:6379
+
+# V1.0 Videokonferenzen, Wave 3 "Externes Streaming" -- documented, commented-out `template_base`
+# knob. Room-Composite egress (ConferenceStreamLayout.GRID/SPEAKER) renders through a web page
+# loaded by CHROME INSIDE THIS CONTAINER, by default fetched from `https://template.livekit.io` --
+# `livekit/egress:v1.13.0` ships NO local templates (`find / -name '*.html' -path '*templ*'` is
+# empty in the image). In a network-restricted environment (that host unreachable), the egress
+# aborts with the exact signature:
+#   "status":"EGRESS_ABORTED","error":"Start signal not received","error_code":412,
+#   "details":"End reason: Source closed"
+# -- with a perfectly healthy room and an actively publishing participant. Recognize THIS signature
+# as "environment-blocked, re-verify template reachability", not a bug to debug from scratch (see
+# README.adoc "Wave 3 'Externes Streaming'" for the same disclosure and the Chrome-free
+# `ConferenceStreamLayout.SINGLE_PARTICIPANT` (`StartParticipantEgress`) path that needs neither
+# Chrome nor this template at all, and is therefore the offline-verifiable one).
+#
+# `template_base` is a real, present config key in the egress binary. Uncomment and point it at a
+# self-hosted mirror of https://github.com/livekit/egress/tree/main/template-default if/when this
+# deployment needs Room-Composite egress to work without reaching template.livekit.io. Self-hosting
+# a Lapis-owned template is explicitly a LATER wave's job (see the Wave 3 plan's own "Explicitly out
+# of scope" list, "No self-hosted Room-Composite template") -- flagged there as a genuine tension
+# with the "Datenverarbeitung ist server-lokal" doctrine, not fixed in this wave.
+# template_base: http://your-self-hosted-template-mirror:PORT

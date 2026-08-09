@@ -142,14 +142,22 @@ classDiagram(name = "AuditLog") {
     // Videokonferenzen Wave 2 "Aufzeichnung") was appended LAST, after the original four -- see
     // that domain's own ConferenceRecordingService KDoc for why start/stop are audited (this
     // wave's own §32 BGB/GoBD framing: "who started recording this meeting, when" is precisely the
-    // fact that must be provable). Additive append only -- never reorder existing literals, see
-    // this enum's own "cheap to extend, expensive to reorder" note class-wide.
+    // fact that must be provable). CONFERENCE_STREAM/CONFERENCE_STREAM_DESTINATION (V1.0
+    // Videokonferenzen Wave 3 "Externes Streaming") were appended LAST after that, in this order --
+    // see 29-conference-streaming.kuml.kts file header for the same audit rationale applied to
+    // destination-credential CRUD and stream start/pause/resume/stop. entity_type's column width
+    // (see this file's audit_log_entry.entity_type below) was widened from VARCHAR(22) to
+    // VARCHAR(29) to fit CONFERENCE_STREAM_DESTINATION, the new longest literal. Additive append
+    // only -- never reorder existing literals, see this enum's own "cheap to extend, expensive to
+    // reorder" note class-wide.
     val auditEntityType = enumOf(name = "AuditEntityType") {
         literal(name = "JOURNAL_ENTRY")
         literal(name = "PARTY_DONATION_VERDICT")
         literal(name = "RESOLUTION")
         literal(name = "BOARD_MEMBERSHIP")
         literal(name = "CONFERENCE_RECORDING")
+        literal(name = "CONFERENCE_STREAM")
+        literal(name = "CONFERENCE_STREAM_DESTINATION")
     }
 
     // Genesis-singleton row (see file header) -- gapless sequence_number + hash-chain

@@ -329,6 +329,11 @@ fun decodeAuditSnapshot(
             // here -- falls through to the same raw-text fallback a future/unknown entityType
             // already gets, see this function's own KDoc.
             AuditEntityType.CONFERENCE_RECORDING -> null
+            // V1.0 Videokonferenzen, Wave 3 "Externes Streaming" -- same "no dedicated snapshot
+            // type yet" reasoning as CONFERENCE_RECORDING above; the streaming RPC/audit-write
+            // step (a later wave step) may introduce one.
+            AuditEntityType.CONFERENCE_STREAM -> null
+            AuditEntityType.CONFERENCE_STREAM_DESTINATION -> null
         }
     }.getOrNull()
 

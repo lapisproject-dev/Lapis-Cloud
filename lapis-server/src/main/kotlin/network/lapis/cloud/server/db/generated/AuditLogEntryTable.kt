@@ -17,7 +17,9 @@ public object AuditLogEntryTable : Table("audit_log_entry") {
     public val occurredAt: Column<LocalDateTime> = datetime("occurred_at")
     public val actorMemberId: Column<Uuid?> = optReference("actor_member_id", MemberTable.id)
     public val actorRole: Column<AccountRole?> = enumerationByName<AccountRole>("actor_role", 9).nullable()
-    public val entityType: Column<AuditEntityType> = enumerationByName<AuditEntityType>("entity_type", 22)
+    // Width 29 = len("CONFERENCE_STREAM_DESTINATION"), widened from 22 in V1.0 Videokonferenzen
+    // Wave 3 "Externes Streaming" (see 14-audit-log.kuml.kts's auditEntityType comment).
+    public val entityType: Column<AuditEntityType> = enumerationByName<AuditEntityType>("entity_type", 29)
     public val entityId: Column<Uuid> = uuid("entity_id")
     public val action: Column<AuditAction> = enumerationByName<AuditAction>("action", 6)
     public val beforeSnapshot: Column<String?> = text("before_snapshot").nullable()

@@ -151,6 +151,13 @@ private fun refreshNavbar(navbar: Navbar) {
     // both raw HTTP routes require ADMIN, uniformly, narrower than every other group above).
     if (AppState.hasRole(AccountRole.ADMIN)) {
         leftNav.navLink("Backup & Wiederherstellung", url = "#${Routes.BACKUP}")
+        // V1.0 Videokonferenzen, Wave 3 "Externes Streaming": same ADMIN-only tier as "Backup &
+        // Wiederherstellung" -- see `Routes.CONFERENCE_STREAM_DESTINATIONS` KDoc for the
+        // `requireRole(ADMIN)` verification (uniform across all five `IConferenceStreamingService`
+        // destination-CRUD methods). Deliberately NOT alongside "Videokonferenz" above -- that link
+        // stays in the unconditional `requireAuth`-tier group since every member can reach the
+        // conference lobby, but only an ADMIN may configure external streaming credentials.
+        leftNav.navLink("Stream-Ziele", url = "#${Routes.CONFERENCE_STREAM_DESTINATIONS}")
     }
 
     val rightNav: Nav = navbar.nav(rightAlign = true)

@@ -13,6 +13,9 @@ import network.lapis.cloud.server.db.generated.ConferenceParticipationTable
 import network.lapis.cloud.server.db.generated.ConferenceRecordingTable
 import network.lapis.cloud.server.db.generated.ConferenceRecordingTrackTable
 import network.lapis.cloud.server.db.generated.ConferenceRoomTable
+import network.lapis.cloud.server.db.generated.ConferenceStreamDestinationTable
+import network.lapis.cloud.server.db.generated.ConferenceStreamTable
+import network.lapis.cloud.server.db.generated.ConferenceStreamTargetTable
 import network.lapis.cloud.server.db.generated.MemberTable
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.ConferenceRecordingStatus
@@ -143,9 +146,17 @@ class ConferenceRecordingPersonalDataTest :
             return recordingId
         }
 
-        test("coveredTables includes exactly the two Wave 2 tables (plus Wave 1's own)") {
+        test("coveredTables includes exactly the two Wave 2 tables (plus Wave 1's own, plus Wave 3's three streaming tables)") {
             ConferencePersonalData.coveredTables shouldBe
-                setOf(ConferenceRoomTable, ConferenceParticipationTable, ConferenceRecordingTable, ConferenceRecordingTrackTable)
+                setOf(
+                    ConferenceRoomTable,
+                    ConferenceParticipationTable,
+                    ConferenceRecordingTable,
+                    ConferenceRecordingTrackTable,
+                    ConferenceStreamDestinationTable,
+                    ConferenceStreamTable,
+                    ConferenceStreamTargetTable,
+                )
         }
 
         test("export includes a recordingsStarted entry for every recording this member started, with id/roomId/status/startedAt") {

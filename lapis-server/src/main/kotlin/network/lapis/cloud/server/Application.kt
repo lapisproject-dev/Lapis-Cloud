@@ -20,6 +20,7 @@ import io.ktor.server.routing.get
 import io.ktor.server.routing.routing
 import network.lapis.cloud.server.conference.ConferenceConfig
 import network.lapis.cloud.server.conference.ConferenceRecordingConfig
+import network.lapis.cloud.server.conference.ConferenceStreamingConfig
 import network.lapis.cloud.server.conference.FfmpegGalleryComposer
 import network.lapis.cloud.server.conference.HttpLiveKitAdminClient
 import network.lapis.cloud.server.conference.HttpLiveKitEgressClient
@@ -27,6 +28,7 @@ import network.lapis.cloud.server.conference.LiveKitAdminClient
 import network.lapis.cloud.server.conference.LiveKitEgressClient
 import network.lapis.cloud.server.conference.RecordingComposer
 import network.lapis.cloud.server.conference.RecordingPoller
+import network.lapis.cloud.server.conference.StreamPoller
 import network.lapis.cloud.server.db.DatabaseConfig
 import network.lapis.cloud.server.db.DevSeedData
 import network.lapis.cloud.server.economy.oracle.PriceOracleOrchestrator
@@ -56,6 +58,7 @@ import network.lapis.cloud.server.rpc.BackupService
 import network.lapis.cloud.server.rpc.BoardMembershipService
 import network.lapis.cloud.server.rpc.ConferenceRecordingService
 import network.lapis.cloud.server.rpc.ConferenceService
+import network.lapis.cloud.server.rpc.ConferenceStreamingService
 import network.lapis.cloud.server.rpc.ContributionService
 import network.lapis.cloud.server.rpc.CrowdfundingService
 import network.lapis.cloud.server.rpc.DirectMessageService
@@ -88,6 +91,7 @@ import network.lapis.cloud.shared.rpc.IBackupService
 import network.lapis.cloud.shared.rpc.IBoardMembershipService
 import network.lapis.cloud.shared.rpc.IConferenceRecordingService
 import network.lapis.cloud.shared.rpc.IConferenceService
+import network.lapis.cloud.shared.rpc.IConferenceStreamingService
 import network.lapis.cloud.shared.rpc.IContributionService
 import network.lapis.cloud.shared.rpc.ICrowdfundingService
 import network.lapis.cloud.shared.rpc.IDirectMessageService
@@ -259,6 +263,34 @@ fun Application.module() {
         recordingPoller.start()
     }
 
+    // V1.0 Videokonferenzen (Kleinsitzung), Wave 3 "Externes Streaming" -- ConferenceStreamingConfig
+    // .load() is pure string parsing (same "safe to call unconditionally" posture
+    // conferenceConfig/conferenceRecordingConfig above already establish) EXCEPT it fail-fasts
+    // (IllegalStateException) if LAPIS_STREAMING_ENABLED=true but LAPIS_SECRET_ENCRYPTION_KEY is
+    // missing/invalid -- see that class's own KDoc "Fail-fast on the encryption key". StreamPoller
+    // is the ONLY thing that ever calls a LiveKitEgressClient Twirp method for STREAMING (mirrors
+    // RecordingPoller's own "sole caller" posture for recording) -- constructed unconditionally,
+    // `.start()` gated on conferenceStreamingConfig.enabled, same reasoning as recordingPoller above.
+    val conferenceStreamingConfig = ConferenceStreamingConfig.load()
+    val streamPoller = StreamPoller(liveKitEgressClient = liveKitEgressClient, streamingConfig = conferenceStreamingConfig)
+    if (conferenceStreamingConfig.enabled) {
+        streamPoller.start()
+    }
+
+    // Audit-round-2 fix (Wave 3): ConferenceStreamingService's constructor rate-limiter parameters
+    // have default values ONLY so ConferenceStreamingServiceTest's test-route helper can omit them
+    // (see that class's own KDoc "Constructor defaults exist for tests only"). Because Kilua RPC's
+    // registerService factory lambda below constructs a brand-new ConferenceStreamingService on
+    // EVERY RPC call, relying on those defaults here would silently give every request a fresh,
+    // empty-state limiter -- rate limiting would never trigger. These four must be built once, as
+    // module-scoped singletons, and threaded through explicitly, exactly like
+    // conferenceRoomRateLimiter/conferenceJoinRateLimiter/conferenceLeaveRateLimiter/
+    // conferenceListRateLimiter above already are for IConferenceService.
+    val streamingDestinationRateLimiter = LoginRateLimiter()
+    val streamingStartStreamRateLimiter = LoginRateLimiter()
+    val streamingMutateRateLimiter = FederationInboxRateLimiter(maxRequests = 30, window = 1.minutes)
+    val streamingReadRateLimiter = FederationInboxRateLimiter(maxRequests = 60, window = 1.minutes)
+
     install(CallLogging)
     install(Compression)
     // V0.7.3 Basis-Mehrseiten-UI: PartialContent (HTTP Range, for large JS/asset bundles) and
@@ -318,6 +350,18 @@ fun Application.module() {
         }
         registerService(IConferenceRecordingService::class) { call ->
             ConferenceRecordingService(call, ffmpegAvailable, config = conferenceConfig, recordingConfig = conferenceRecordingConfig)
+        }
+        registerService(IConferenceStreamingService::class) { call ->
+            ConferenceStreamingService(
+                call,
+                liveKitEgressClient,
+                config = conferenceConfig,
+                streamingConfig = conferenceStreamingConfig,
+                destinationRateLimiter = streamingDestinationRateLimiter,
+                startStreamRateLimiter = streamingStartStreamRateLimiter,
+                mutateRateLimiter = streamingMutateRateLimiter,
+                readRateLimiter = streamingReadRateLimiter,
+            )
         }
     }
 

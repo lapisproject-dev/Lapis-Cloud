@@ -200,6 +200,20 @@ object Routes {
     // `AppState.hasRole(BOARD, ADMIN)` -- see `ConferenceScreen.kt`'s `conferenceIsModerator`),
     // exactly like those routes' own in-screen `canTreasury`/`canBoard`/`canAdmin` splits.
     const val CONFERENCE = "/conference"
+
+    // V1.0 Videokonferenzen (Kleinsitzung), Wave 3 "Externes Streaming" -- `IConferenceStreamingService`
+    // destination (Stream-Ziele) credential CRUD. Role gate verified against
+    // `ConferenceStreamingService.kt`: `listDestinations`/`createDestination`/`updateDestination`/
+    // `setDestinationEnabled`/`deleteDestination` all call `current.requireRole(AccountRole.ADMIN)` --
+    // uniformly ADMIN-only, no narrower/broader tier on any of them (see
+    // `IConferenceStreamingService` KDoc "Why ADMIN-only for destination CRUD but moderator-or-BOARD
+    // for start/stop"). This route therefore uses the Compliance UI wave's route-level `requireRole`
+    // posture ([BACKUP]'s own precedent, the first ADMIN-only route in this client), NOT [CONFERENCE]'s
+    // own `requireAuth` -- deliberately a DIFFERENT, narrower gate than the moderator-facing
+    // `startStream`/`pauseStream`/`resumeStream`/`stopStream`/`listStreams` tier, which stays gated
+    // INSIDE `ConferenceScreen.kt` itself as `canModerate`, exactly like that screen's own
+    // `endRoom`/`removeParticipant` split.
+    const val CONFERENCE_STREAM_DESTINATIONS = "/conference-stream-destinations"
 }
 
 private var appRouting: Routing? = null
@@ -340,6 +354,9 @@ fun initRouting(pageContainer: SimplePanel) {
     }
     routing.kvOn(Routes.CONFERENCE) {
         requireAuth(routing) { show(::renderConferenceScreen) }
+    }
+    routing.kvOn(Routes.CONFERENCE_STREAM_DESTINATIONS) {
+        requireRole(routing, AccountRole.ADMIN) { show(::renderConferenceStreamDestinationsScreen) }
     }
     routing.kvOn("/") {
         routing.navigate(if (AppState.isAuthenticated) Routes.DASHBOARD else Routes.LOGIN)

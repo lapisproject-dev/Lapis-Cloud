@@ -4,6 +4,7 @@ import com.nimbusds.jwt.SignedJWT
 import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldBeEmpty
+import io.kotest.matchers.collections.shouldContain
 import io.kotest.matchers.collections.shouldHaveSize
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldContain
@@ -19,6 +20,8 @@ import io.ktor.content.TextContent
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.headersOf
+import network.lapis.cloud.shared.domain.ConferenceStreamLatencyMode
+import network.lapis.cloud.shared.domain.ConferenceStreamLayout
 import java.io.IOException
 
 private const val API_KEY = "devkey"
@@ -238,5 +241,184 @@ class LiveKitEgressClientTest :
             val firstJti = SignedJWT.parse(tokens[0]).jwtClaimsSet.jwtid
             val secondJti = SignedJWT.parse(tokens[1]).jwtClaimsSet.jwtid
             (firstJti == secondJti) shouldBe false
+        }
+
+        // ── V1.0 Wave 3 "Externes Streaming" -- startRoomCompositeEgress/startParticipantEgress/
+        // updateStream, and LiveKitEgressInfo.streamResults. Every JSON body below is either a REAL
+        // captured request (echoed back by the live container's response) or a REAL captured
+        // response, both from the SAME 2026-08-09 live-verification session against
+        // deploy/local/docker-compose.yml -- see LiveKitEgressClient KDoc "V1.0 Wave 3" section. ──
+
+        test("startRoomCompositeEgress(STANDARD) POSTs layout+preset (NOT advanced) and rejects SINGLE_PARTICIPANT") {
+            var capturedBody = ""
+            val client =
+                mockClient { request ->
+                    capturedBody = bodyText(request)
+                    jsonResponse("""{"egress_id":"$EGRESS_ID","room_name":"$ROOM_NAME","status":"EGRESS_STARTING"}""")
+                }
+            val egress = HttpLiveKitEgressClient(apiUrl = API_URL, apiKey = API_KEY, apiSecret = API_SECRET, httpClient = client)
+
+            val info =
+                egress.startRoomCompositeEgress(
+                    roomName = ROOM_NAME,
+                    layout = ConferenceStreamLayout.GRID,
+                    latencyMode = ConferenceStreamLatencyMode.STANDARD,
+                    rtmpUrls = listOf("rtmp://rtmp-sink:1935/live/probekey1"),
+                )
+
+            capturedBody shouldContain "\"room_name\":\"$ROOM_NAME\""
+            capturedBody shouldContain "\"layout\":\"grid\""
+            capturedBody shouldContain "\"preset\":\"H264_720P_30\""
+            capturedBody shouldContain "\"protocol\":\"RTMP\""
+            capturedBody shouldContain "\"urls\":[\"rtmp://rtmp-sink:1935/live/probekey1\"]"
+            capturedBody shouldNotContain "advanced"
+            info.status shouldBe "EGRESS_STARTING"
+
+            shouldThrow<IllegalArgumentException> {
+                egress.startRoomCompositeEgress(
+                    roomName = ROOM_NAME,
+                    layout = ConferenceStreamLayout.SINGLE_PARTICIPANT,
+                    latencyMode = ConferenceStreamLatencyMode.STANDARD,
+                    rtmpUrls = listOf("rtmp://rtmp-sink:1935/live/probekey1"),
+                )
+            }
+        }
+
+        test("startRoomCompositeEgress(LOW_LATENCY) POSTs the verified advanced EncodingOptions block (NOT preset)") {
+            var capturedBody = ""
+            val client =
+                mockClient { request ->
+                    capturedBody = bodyText(request)
+                    jsonResponse("""{"egress_id":"$EGRESS_ID","room_name":"$ROOM_NAME","status":"EGRESS_STARTING"}""")
+                }
+            val egress = HttpLiveKitEgressClient(apiUrl = API_URL, apiKey = API_KEY, apiSecret = API_SECRET, httpClient = client)
+
+            egress.startRoomCompositeEgress(
+                roomName = ROOM_NAME,
+                layout = ConferenceStreamLayout.SPEAKER,
+                latencyMode = ConferenceStreamLatencyMode.LOW_LATENCY,
+                rtmpUrls = listOf("rtmp://rtmp-sink:1935/live/probekey1"),
+            )
+
+            capturedBody shouldContain "\"layout\":\"speaker\""
+            capturedBody shouldContain "\"width\":1280"
+            capturedBody shouldContain "\"height\":720"
+            capturedBody shouldContain "\"video_codec\":\"H264_MAIN\""
+            capturedBody shouldContain "\"audio_codec\":\"AAC\""
+            capturedBody shouldContain "\"key_frame_interval\":1"
+            capturedBody shouldNotContain "preset"
+        }
+
+        test(
+            "startParticipantEgress POSTs identity+preset (NO layout field) and parses the REAL multi-destination partial-failure sample",
+        ) {
+            // REAL captured response, 2026-08-09: one reachable destination, one unresolvable host,
+            // in a SINGLE StartParticipantEgress call -- see LiveKitEgressClient KDoc "Multi-
+            // destination partial failure". Trimmed to the fields this codebase reads.
+            val partialFailureJson =
+                """
+                {"egress_id":"EG_XHVh5YAr8fxw","room_id":"RM_UrWVpRZ5sjn8","room_name":"$ROOM_NAME",
+                 "status":"EGRESS_ACTIVE","started_at":"1786277864869422136","ended_at":"0",
+                 "error":"",
+                 "stream_results":[
+                   {"url":"rtmp://nonexistent-bad-host-xyz:1935/live/{bad...HIJ}",
+                    "started_at":"1786277867171965027","ended_at":"1786277867171965027","duration":"0",
+                    "status":"FAILED",
+                    "error":"Failed to connect: Error resolving “nonexistent-bad-host-xyz”: Name or service not known",
+                    "last_retry_at":"0","retries":0},
+                   {"url":"rtmp://lapis-rtmp-probe:1935/live/{goo...789}",
+                    "started_at":"1786277867143144585","ended_at":"0","duration":"0",
+                    "status":"ACTIVE","error":"","last_retry_at":"0","retries":0}
+                 ]}
+                """.trimIndent()
+            var capturedBody = ""
+            val client =
+                mockClient { request ->
+                    capturedBody = bodyText(request)
+                    jsonResponse(partialFailureJson)
+                }
+            val egress = HttpLiveKitEgressClient(apiUrl = API_URL, apiKey = API_KEY, apiSecret = API_SECRET, httpClient = client)
+
+            val info =
+                egress.startParticipantEgress(
+                    roomName = ROOM_NAME,
+                    identity = "wave3-publisher",
+                    latencyMode = ConferenceStreamLatencyMode.STANDARD,
+                    rtmpUrls =
+                        listOf(
+                            "rtmp://nonexistent-bad-host-xyz:1935/live/badkeyABCDEFGHIJ",
+                            "rtmp://lapis-rtmp-probe:1935/live/goodkey123456789",
+                        ),
+                )
+
+            capturedBody shouldContain "\"identity\":\"wave3-publisher\""
+            capturedBody shouldContain "\"preset\":\"H264_720P_30\""
+            capturedBody shouldNotContain "\"layout\""
+
+            // The overall egress is ACTIVE despite one bad destination -- partial failure, not a
+            // whole-egress abort.
+            info.status shouldBe "EGRESS_ACTIVE"
+            info.streamResults shouldHaveSize 2
+            val bad = info.streamResults.single { it.status == "FAILED" }
+            bad.url shouldContain "{bad...HIJ}"
+            bad.error shouldContain "nonexistent-bad-host-xyz"
+            val good = info.streamResults.single { it.status == "ACTIVE" }
+            good.url shouldContain "{goo...789}"
+            good.error shouldBe ""
+
+            // stream_results order does NOT match request order (verified live: request sent
+            // (bad, good), response came back (bad, good) here too by coincidence of THIS fixture,
+            // but the codebase never relies on index -- matching is by StreamUrlFingerprint only,
+            // see that class's own tests).
+            info.streamResults.map { it.status } shouldContain "FAILED"
+            info.streamResults.map { it.status } shouldContain "ACTIVE"
+        }
+
+        test("updateStream POSTs egress_id + add_output_urls / remove_output_urls, scoped to the given room") {
+            var capturedUrl = ""
+            var capturedBody = ""
+            val client =
+                mockClient { request ->
+                    capturedUrl = request.url.toString()
+                    capturedBody = bodyText(request)
+                    jsonResponse("""{"egress_id":"$EGRESS_ID","room_name":"$ROOM_NAME","status":"EGRESS_ACTIVE"}""")
+                }
+            val egress = HttpLiveKitEgressClient(apiUrl = API_URL, apiKey = API_KEY, apiSecret = API_SECRET, httpClient = client)
+
+            egress.updateStream(
+                roomName = ROOM_NAME,
+                egressId = EGRESS_ID,
+                addUrls = listOf("rtmp://rtmp-sink:1935/live/probekey1"),
+                removeUrls = emptyList(),
+            )
+
+            capturedUrl shouldBe "$API_URL/twirp/livekit.Egress/UpdateStream"
+            capturedBody shouldContain "\"egress_id\":\"$EGRESS_ID\""
+            capturedBody shouldContain "\"add_output_urls\":[\"rtmp://rtmp-sink:1935/live/probekey1\"]"
+        }
+
+        test("updateStream removing every URL is the verified 'pause' mechanism -- reflects EGRESS_ENDING") {
+            val client =
+                mockClient { _ ->
+                    // REAL captured response, 2026-08-09: removing every output URL from a live
+                    // egress drives it to EGRESS_ENDING, "End reason: All streams stopped" -- see
+                    // LiveKitEgressClient KDoc "pauseStream/resumeStream".
+                    jsonResponse(
+                        """
+                        {"egress_id":"$EGRESS_ID","room_name":"$ROOM_NAME","status":"EGRESS_ENDING",
+                        "error":"","details":"End reason: All streams stopped"}
+                        """.trimIndent(),
+                    )
+                }
+            val egress = HttpLiveKitEgressClient(apiUrl = API_URL, apiKey = API_KEY, apiSecret = API_SECRET, httpClient = client)
+
+            val info =
+                egress.updateStream(
+                    roomName = ROOM_NAME,
+                    egressId = EGRESS_ID,
+                    removeUrls = listOf("rtmp://rtmp-sink:1935/live/probekey1"),
+                )
+
+            info.status shouldBe "EGRESS_ENDING"
         }
     })

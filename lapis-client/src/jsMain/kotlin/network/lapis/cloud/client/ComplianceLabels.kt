@@ -64,6 +64,11 @@ fun auditEntityTypeLabel(entityType: AuditEntityType): String =
         // across badge/banner/dialog/Lobby for this concept, see the Wave 2 design review's D15
         // "Terminology lock".
         AuditEntityType.CONFERENCE_RECORDING -> "Aufzeichnung"
+        // V1.0 Videokonferenzen, Wave 3 "Externes Streaming" -- "Live-Stream"/"Streaming-Ziel" are
+        // the SAME terms the Wave 3 design review's D3/D9 use throughout the badge/dialog/Lobby
+        // surfaces, same "one term, everywhere" discipline as Wave 2's D15.
+        AuditEntityType.CONFERENCE_STREAM -> "Live-Stream"
+        AuditEntityType.CONFERENCE_STREAM_DESTINATION -> "Streaming-Ziel"
     }
 
 fun auditEntityTypeColor(entityType: AuditEntityType): String =
@@ -73,6 +78,11 @@ fun auditEntityTypeColor(entityType: AuditEntityType): String =
         AuditEntityType.RESOLUTION -> "dark"
         AuditEntityType.BOARD_MEMBERSHIP -> "secondary"
         AuditEntityType.CONFERENCE_RECORDING -> "info"
+        // "warning" -- distinct from CONFERENCE_RECORDING's "info", matching the Wave 3 design
+        // review's D3 "streaming and recording must never be visually confusable" verdict, carried
+        // into this audit-log badge too, not just the in-meeting indicator.
+        AuditEntityType.CONFERENCE_STREAM -> "warning"
+        AuditEntityType.CONFERENCE_STREAM_DESTINATION -> "light"
     }
 
 // ------------------------------------------------------------------------------------------------

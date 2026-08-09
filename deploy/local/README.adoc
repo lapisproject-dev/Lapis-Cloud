@@ -1,4 +1,4 @@
-= Local LiveKit/coturn/Egress/Redis Stack (Videokonferenzen, Wave 1 + Wave 2 "Aufzeichnung")
+= Local LiveKit/coturn/Egress/Redis Stack (Videokonferenzen, Wave 1 + Wave 2 "Aufzeichnung" + Wave 3 "Externes Streaming")
 :toc:
 :toc-placement: preamble
 :icons: font
@@ -646,6 +646,309 @@ self-corrected under what appeared to be the same repro steps); the Lobby's inde
 `pollInFlightRecordingStatus` reconciliation loop -- see "Troubleshooting" above for the full fix
 detail.
 
+== Wave 3 "Externes Streaming" -- RTMP egress + the `rtmp-sink` test destination
+
+No new production infrastructure -- Wave 2 already deployed `livekit/egress:v1.13.0` +
+`redis:7.4-alpine`, and that SAME egress worker serves RTMP output (composited-egress requests,
+`StartRoomCompositeEgress`/`StartParticipantEgress`, not Track Egress's `file`/`websocket`-only
+output, see `IConferenceStreamingService` KDoc "Egress request shape"). Wave 3 adds only (a) one
+dev-only test destination service (`rtmp-sink`, below), (b) the documented `template_base` knob in
+`egress.yaml`, (c) new `LAPIS_STREAM_*`/`LAPIS_STREAMING_ENABLED`/`LAPIS_SECRET_ENCRYPTION_KEY` env
+vars (`ConferenceStreamingConfig`).
+
+=== Bring-up: `rtmp-sink`, a real RTMP destination without a YouTube/Twitch account
+
+`rtmp-sink` (`bluenviron/mediamtx`, digest-pinned in `docker-compose.yml`) joins the stack as a
+stand-in RTMP ingest server, so a real end-to-end stream can be verified today with zero external
+accounts. Already included in the same `docker compose -f deploy/local/docker-compose.yml up -d`
+this file's own "Quick start" documents -- no separate step needed. Its RTMP ingest port (1935) is
+reachable ONLY on the compose-internal network (egress talks to it by service name,
+`rtmp://rtmp-sink:1935/live/<key>`) -- ONLY the HLS playback port is published, loopback-only
+(`127.0.0.1:8888`, same audit-round-1 bind posture every other port in this file uses), so a human
+can watch the stream back without opening RTMP itself to the host.
+
+Configure a `ConferenceStreamDestination` (via the "Stream-Ziele" ADMIN screen, or directly through
+`IConferenceStreamingService.createDestination`) pointing at:
+
+[source]
+----
+Bezeichnung:      rtmp-sink (lokal)
+Plattform:        Generisches RTMP
+RTMP-Basis-URL:   rtmp://rtmp-sink:1935/live
+Stream-Schlüssel: lapis-e2e          # or any key -- rtmp-sink accepts any path under /live
+----
+
+Then watch the result at `\http://127.0.0.1:8888/live/lapis-e2e/index.m3u8` in any HLS-capable
+player (Safari plays this natively; `ffplay`/VLC elsewhere) once a moderator starts a stream to that
+destination.
+
+=== The Room-Composite template trap (`error_code 412`) -- the SAME LiveKit-container limitation
+Wave 2's `ffmpeg`/Chrome distinction does NOT paper over
+
+`ConferenceStreamLayout.GRID`/`.SPEAKER` use `StartRoomCompositeEgress`, which renders through a web
+page loaded by **Chrome running inside the `egress` container**, fetched by default from
+`\https://template.livekit.io`. The `livekit/egress:v1.13.0` image ships **no local templates**
+(`find / -name '*.html' -path '*templ*'` is empty in the image). If that host is unreachable (a
+network-restricted sandbox, an air-gapped deployment, a restrictive corporate proxy), the egress
+aborts with this EXACT signature -- recognize it as "environment-blocked, check template
+reachability", not a bug to debug from scratch:
+
+[source]
+----
+"status":"EGRESS_ABORTED","error":"Start signal not received","error_code":412,
+"details":"End reason: Source closed"
+----
+
+...with a perfectly healthy room and an actively publishing participant. `egress.yaml` documents a
+commented-out `template_base` knob for pointing at a self-hosted template mirror -- see that file's
+own Wave 3 comment block. Self-hosting a Lapis-owned template is explicitly a LATER wave's job (see
+`IConferenceStreamingService` KDoc "Out of scope this wave", "No self-hosted Room-Composite
+template") -- flagged there as a genuine tension with the "Datenverarbeitung ist server-lokal"
+doctrine, not fixed in this wave.
+
+=== The Chrome-free path: `ConferenceStreamLayout.SINGLE_PARTICIPANT`
+
+`ConferenceStreamLayout.SINGLE_PARTICIPANT` uses `StartParticipantEgress` instead -- an
+SDK-composited egress with NO Chrome, NO template fetch, and therefore NONE of the `error_code 412`
+trap above. This is the ONLY streaming layout verifiable in a network-restricted environment (no
+`template.livekit.io` reachability needed), and is exactly how this wave's own live verification
+(the scope-decisions doc's "Multi-destination" / "Egress source & layout" sections) was performed --
+a real `StartParticipantEgress` reached `EGRESS_ACTIVE` and a real RTMP sink logged
+`stream is available and online, 2 tracks (H264, MPEG-4 Audio)`.
+
+=== Env surface (`ConferenceStreamingConfig`)
+
+`LAPIS_STREAMING_ENABLED` (master opt-in, default `false`, independent of `LAPIS_RECORDING_ENABLED`
+-- a deployment can legitimately stream without being able to record, and vice versa), plus
+`LAPIS_SECRET_ENCRYPTION_KEY` (**required** once streaming is enabled -- base64 of exactly 32 raw
+bytes, AES-256-GCM key for `network.lapis.cloud.server.crypto.SecretBox`, generate with
+`openssl rand -base64 32`; fail-fast `IllegalStateException` at startup if streaming is enabled and
+this is missing/undecodable/wrong-length, never a silent downgrade to plaintext credential storage --
+see `ConferenceStreamingConfig.load` KDoc), `LAPIS_STREAM_MAX_DESTINATIONS` (default `3`),
+`LAPIS_STREAM_POLL_INTERVAL_SECONDS` (default `10`, `StreamPoller` tick),
+`LAPIS_STREAM_MAX_DURATION_MINUTES` (default `480`, hard auto-stop ceiling),
+`LAPIS_STREAM_STARTUP_TIMEOUT_SECONDS` (default `60`, orphan-`STARTING`-row reconciliation).
+`ConferenceStreamingConfig.load()` remains string-parsing only (no I/O), same "`./gradlew clean
+check` never needs a running LiveKit/Egress/rtmp-sink container" posture `ConferenceRecordingConfig`
+KDoc already establishes.
+
+=== Live verification results (2026-08-09, client-UI + infra step)
+
+Performed against the real running stack above (`redis`/`livekit`/`coturn`/`egress`/`rtmp-sink`,
+Colima):
+
+* `rtmp-sink` starts cleanly (`MediaMTX v1.20.0`, `[RTMP] started with listener on :1935`, `[HLS]
+  started with listener on :8888`).
+* A real `ffmpeg` H.264/AAC test-pattern push from a throwaway container on the SAME compose network
+  (`rtmp://rtmp-sink:1935/live/lapis-e2e`) produced the exact expected log line: `[path
+  live/lapis-e2e] stream is available and online, 2 tracks (H264, MPEG-4 Audio)`.
+* `\http://127.0.0.1:8888/live/lapis-e2e/index.m3u8` (loopback-only, per the bind posture above)
+  resolved through a real `302` HLS-session redirect to a genuine `#EXTM3U` playlist naming both the
+  video (`avc1.f4001e`) and audio (`mp4a.40.2`) renditions -- real media reachable from the host, not
+  merely "the container is running".
+* `egress.yaml`'s new `template_base` comment block was verified to be a comment-only change (no
+  functional YAML keys touched) by restarting the `egress` container and confirming it still reaches
+  `service ready` against Redis, unaffected.
+* `docker compose -f deploy/local/docker-compose.yml config` validates cleanly with `rtmp-sink`
+  added -- confirmed the digest-pinned image resolves and the loopback-only port binding renders
+  correctly (`host_ip: 127.0.0.1`, `target: 8888`).
+
+**Not verified this step** (out of this step's own scope, carried forward honestly rather than
+silently assumed): the full moderator-facing client flow (starting/pausing/resuming/stopping a
+stream through the real `ConferenceScreen.kt` UI against a real browser session) and the
+Room-Composite `error_code 412` signature itself (this sandbox's own network restrictions were not
+re-probed against `template.livekit.io` in this step) -- this step's own verification is scoped to
+the NEW infra it adds (`rtmp-sink`) and the client code compiling/testing green. **Both gaps are
+closed in the dedicated end-to-end verification step below.**
+
+=== Live verification results (2026-08-09, dedicated end-to-end verification step)
+
+Full moderator-flow + plain-member verification, performed against a real running `lapis-server`
+(`LAPIS_STREAMING_ENABLED=true`, `LAPIS_SECRET_ENCRYPTION_KEY` freshly generated via `openssl rand
+-base64 32`, `LAPIS_STREAM_POLL_INTERVAL_SECONDS=5` for faster iteration, otherwise the documented
+recipe above with `LAPIS_RECORDING_ENABLED=true` also on) and a real browser session -- first as
+ADMIN (`amara.admin@example.org`), then as a SEPARATE, genuinely different MEMBER login
+(`max.mitglied@example.org` -- unlike Wave 2's own disclosed "same-identity reconnect" caveat, this
+was a real second account, closing that caveat's "different human" framing gap for this wave's own
+D4 late-joiner check). A real published participant was provided by
+`docker run --rm -d --network lapis-conference-dev_default livekit/livekit-cli:latest room join
+--publish-demo ...` (the same technique Wave 2's own "full pipeline" verification used manually),
+joined under the identity later passed as `SINGLE_PARTICIPANT` layout's `participantIdentity` --
+this is the ONLY streaming layout verifiable in this sandbox (see "The Chrome-free path" above);
+`GRID`/`SPEAKER` (`StartRoomCompositeEgress`) were not re-probed against `template.livekit.io` in
+this step either, same disclosed gap as the client-UI step above.
+
+**D1 -- credential handling, admin screen:**
+
+* The Stream-Schlüssel field renders with a lock glyph (🔒) next to the label, `type="password"`,
+  exactly as specified.
+* `createDestination`'s raw RPC response, captured via the browser's own network log, was: {
+  `"streamKeyMask":"********"`, real `rtmpUrl`, real `label`/`createdByDisplayName`/`streamKeySetAt`
+  } -- the plaintext key typed into the form (`lapis-e2e-key-one`) is ABSENT from the response body,
+  confirmed by direct string search over the raw JSON.
+* The destination list view (D9) shows `label`, `platform`, `enabled`, and "Schlüssel gesetzt am
+  ..." -- never any key material, not even the mask, in the list rows themselves (mask only appears
+  implicitly via the edit form's empty password field).
+
+**D2 -- start-stream confirm dialog, real German copy captured verbatim:**
+
+[source]
+----
+Sie starten jetzt einen Live-Stream zu: rtmp-sink (lokal) #1, rtmp-sink (lokal) #2. Diese Ziele
+sind sofort öffentlich sichtbar -- die Übertragung kann NICHT zurückgeholt werden, sobald
+Teilnehmende gesprochen haben.
+----
+
+Primary button reads exactly "Jetzt live gehen" (never "OK"/"Bestätigen"); the mandatory secret-vote
+Hinweis is present verbatim: "Bei geheimen Abstimmungen muss der Stream manuell unterbrochen werden.
+Eine automatische Unterbrechung gibt es in dieser Version noch nicht." D10's latency-mode dropdown
+IS present in the shipped dialog (`Niedrige Latenz`/`Standard`) -- confirming the go/no-go gate from
+the design review resolved "go" before this step, not left half-wired.
+
+**D5 -- moderator control separation, confirmed as built, not just as designed:** "Aufzeichnung:"
+and "Live-Stream:" render as two visually separate labeled rows, each with its own button(s); "Für
+alle beenden" (end meeting) sits in an entirely different row above both. Every confirm dialog
+restates its own noun in the primary button: "Live-Stream beenden" (never a bare "Bestätigen"),
+"Stream unterbrechen", "Stream fortsetzen" -- distinct from "Aufzeichnung beenden" and "Für alle
+beenden" elsewhere on the same screen.
+
+**Real multi-destination RTMP delivery, both destinations simultaneously, via `StartParticipantEgress`
+(SINGLE_PARTICIPANT/"Einzelne Person" layout):** `rtmp-sink`'s own log showed both connections
+publishing within the same second:
+
+[source]
+----
+[RTMP] [conn ...] is publishing to path 'live/lapis-e2e-key-one'
+[RTMP] [conn ...] is publishing to path 'live/lapis-e2e-key-two'
+----
+
+`\http://127.0.0.1:8888/live/lapis-e2e-key-one/index.m3u8` resolved to a real `#EXTM3U` playlist with
+both a video (`avc1.4d401f`) and audio (`mp4a.40.2`) rendition -- real media, not merely "the egress
+started". The `getActiveStream` RPC response showed both targets `"status":"ACTIVE"` within one poll
+tick, matched back from LiveKit's own redacted/reordered `stream_results` via `url_fingerprint`
+exactly as `StreamUrlFingerprint`'s KDoc predicts.
+
+**D7 -- honest interim state, confirmed with real timing, not simulated:** immediately after
+"Jetzt live gehen", both destination chips read "Verbindung wird hergestellt ..." (not a green
+checkmark); within one 5s poll tick both flipped to "Live" once the real egress reached
+`EGRESS_ACTIVE`.
+
+**D3/D8 badge, streaming-only, no recording running:** `◆ Live-Stream läuft → rtmp-sink (lokal) #1,
+rtmp-sink (lokal) #2` -- and, critically, **no** "● Aufzeichnung läuft" row anywhere on the page,
+confirming the Wave 2 badge fix holds against a real streaming-only egress, not just the hermetic
+unit test.
+
+**Partial-failure isolation -- closes the plan's own explicitly "unverified" open question:** a
+second stream was started to TWO destinations simultaneously -- one pointing at a fully unresolvable
+host (`rtmp://nonexistent-host-xyz:1935/live`), one at the real `rtmp-sink`. Result, captured from
+the real `getActiveStream` response ~20s later:
+
+[source,json]
+----
+{"destinationId":"...","label":"Kaputtes Ziel (unreachable host)","status":"FAILED",
+ "failureReason":"Die Verbindung zum Streaming-Ziel konnte nicht hergestellt werden."},
+{"destinationId":"...","label":"rtmp-sink (lokal) #1","status":"ACTIVE","failureReason":null}
+----
+
+**One bad URL among several fails ONLY its own target -- it does NOT abort the whole egress.** The
+overall `ConferenceStreamDto.status` stayed `LIVE` throughout (the egress as a whole kept running and
+kept delivering to the one good destination); `rtmp-sink`'s own log confirmed a real, uninterrupted
+publish to the good destination's key the entire time. The sanitized failure text is the FIXED
+German constant, never LiveKit's own raw error text -- confirmed absent from the response: LiveKit's
+real Twirp error for this exact failure mode (`"Failed to connect: Error resolving “...”:
+Name or service not known"`, per the wave's own scope-decisions doc) never appears anywhere in the
+captured JSON.
+
+**D6 -- pause/resume, both halves confirmed with real evidence, not just DB state:**
+
+* Pause dialog copy, captured verbatim: "Der Stream wird unterbrochen. Die Besprechung läuft weiter.
+  Die Zielplattform sieht eine Unterbrechung -- YouTube kann die Übertragung dabei beenden, sodass
+  ein neuer Link nötig wird." Confirming "Stream unterbrechen" produced a REAL RTMP teardown, not
+  just a DB flag: `rtmp-sink`'s log showed `[RTMP] [conn ...] closed: EOF` for BOTH connections at
+  the moment of pause, while the meeting's own participant roster and LiveKit room stayed connected
+  throughout (the synthetic publisher was never disconnected).
+* Resume dialog copy, captured verbatim: "Der Stream wird neu verbunden -- die Zielplattform sieht
+  dies unter Umständen erneut als neue Übertragung." Confirming "Stream fortsetzen" produced a REAL
+  new publish: `rtmp-sink`'s log showed fresh `[RTMP] [conn ...] opened` / `is publishing to path
+  ...` lines for both keys, roughly 5 minutes after the original stream started, and the
+  `getActiveStream` response showed `"restartCount":1`.
+
+**Two real client bugs found live during this step, both FIXED in place (see `CHANGELOG.md`'s Wave 3
+entry "Two real client bugs found live" for the full detail, and `ConferenceScreen.kt`'s own file
+KDoc for the fix's code-level rationale) -- neither was caught by the wave's own extensive hermetic
+`ConferenceStreamingUiTest.kt` suite, because both only manifest once a stream actually transitions
+through a REAL pause, which no hermetic test drives**:
+
+1. The top badge kept reading "◆ Live-Stream läuft → ..." for the entire duration the stream was
+   `PAUSED` -- confirmed reproducible: pausing a genuinely live two-destination stream left the badge
+   claiming "läuft" while `rtmp-sink`'s own log had already shown both RTMP connections closed with
+   `EOF`. Fixed by wiring the (previously dead-code) `conferenceStreamStatusLabel` mapping's
+   underlying status distinction into the badge itself via a new `conferenceStreamBadgeVerbPhrase`
+   function -- `PAUSED` now reads "◆ Live-Stream ist unterbrochen → ..." in a calm `secondary` color
+   rather than alarm-red "läuft". Re-verified live after the fix + a fresh
+   `jsBrowserDistribution` rebuild: badge correctly flipped to "ist unterbrochen" immediately on a
+   fresh page load while paused, and back to "läuft" immediately after resume.
+2. The per-destination "Live" chips stayed frozen at their pre-pause value indefinitely (never
+   updated to reflect the real RTMP teardown), because `StreamPoller.handlePaused` deliberately does
+   not touch `conference_stream_target` rows once there is no live egress left to poll (see that
+   method's own KDoc) -- so the chips kept showing stale "Live"/"Live" underneath the (now-honest)
+   "ist unterbrochen" badge, a direct visual contradiction. Fixed by hiding the per-target chip panel
+   entirely while `PAUSED` (there is genuinely no live per-target signal to show, matching D7's own
+   "we don't know right now" honesty discipline) rather than rendering a stale, contradicting value.
+   Re-verified live: the chip panel disappeared correctly on pause and reappeared with fresh "Live"
+   statuses on resume.
+
+**Plain MEMBER, real late-joiner, DOM/network verified:** logged in as `max.mitglied@example.org`
+(a genuinely different account, not the moderator's own reconnect) and joined the ALREADY-LIVE
+stream. The D3 banner ("Diese Besprechung wird ab jetzt live gestreamt.", "Verstanden"/"Besprechung
+verlassen") appeared immediately on join, before any user action. The member's own `getActiveStream`
+network response was inspected directly and contained ONLY `id`/`roomId`/`roomTitle`/`status`/
+`layout`/`latencyMode`/`startedBy...`/`targets[{destinationId,label,platform,status,retries,
+failureReason}]` -- byte-for-byte the same narrow shape ADMIN received, no url, no key, anywhere.
+No moderator controls ("Live-Stream starten"/"unterbrechen"/"beenden") rendered for this account.
+The "Stream-Ziele" nav entry itself was absent from this MEMBER's navigation bar entirely (D11
+invisible-not-disabled, confirmed for the ADMIN-only destination-management screen too, not just the
+per-room moderator controls).
+
+**Ciphertext-at-rest, verified against the ACTUAL `conference_stream_destination` row this session's
+own `createDestination` calls wrote** (via the new opt-in `LiveKitStreamEgressLiveIntegrationTest.kt`,
+run separately against the same live stack -- see that file's own KDoc): `stream_key_ciphertext`
+starts with the `v1:` prefix, the plaintext key is absent from the stored value under direct string
+search, and the SAME `SecretBox`/key this service uses round-trips the ciphertext back to the exact
+original plaintext -- not merely "looks encrypted".
+
+**Automated, repeatable coverage added this step:** `LiveKitStreamEgressLiveIntegrationTest.kt`
+(`lapis-server/src/test/kotlin/network/lapis/cloud/server/conference/`), same opt-in
+`LAPIS_LIVEKIT_IT=true` gate as its sibling `LiveKitEgressLiveIntegrationTest.kt`:
+
+[source,bash]
+----
+docker compose -f deploy/local/docker-compose.yml up -d
+LAPIS_LIVEKIT_IT=true ./gradlew :lapis-server:test --tests "*.LiveKitStreamEgressLiveIntegrationTest"
+----
+
+Two tests, both passing against the real stack (re-run twice to rule out flakiness): the full
+multi-destination happy path (encrypt-at-rest -> real `StartParticipantEgress` -> both targets
+`ACTIVE` -> real `pauseStream`/`StopEgress` -> confirmed via `ListEgress` that the SAME egress id
+left `EGRESS_ACTIVE` -> real `resumeStream` -> a genuinely NEW `livekit_egress_id`,
+`restartCount=1`), and the wrong-host sanitized-failure path (real async ~12-20s LiveKit connect
+failure -> `StreamPoller.tick()` -> the FIXED sanitized German string, with the raw LiveKit error
+text -- which echoes the hostname -- confirmed absent). Confirmed hermetically SKIPPED (not failed)
+when `LAPIS_LIVEKIT_IT` is unset, via `./gradlew :lapis-server:test --tests
+"*.LiveKitStreamEgressLiveIntegrationTest" --rerun` (`skipped="2"`) -- `./gradlew clean check` needs
+no Docker.
+
+**Not verified this step, disclosed honestly:** `GRID`/`SPEAKER` (Room-Composite/Chrome-template)
+layouts were not exercised -- this sandbox's network restrictions toward `template.livekit.io` were
+not re-probed, same gap the client-UI step above already disclosed; `LOW_LATENCY` latency mode's
+`advanced` encoding block was not re-verified THIS step specifically (it was verified in an earlier
+implementation step per the wave's own scope-decisions doc, and the dropdown's mere presence was
+confirmed here, not a full encoding-parameter audit); and, as with Wave 2's own disclosure, this
+automated browser session cannot inspect `chrome://webrtc-internals` or exercise real
+camera/microphone `getUserMedia` -- the synthetic `livekit-cli` participant substitutes for real
+human-published media exactly as Wave 2's own "full pipeline" verification already established as
+an accepted substitute for this sandbox.
+
 == Not covered here
 
 * No TLS/`wss://` termination -- everything is plain `ws://`/`http://` on loopback.
@@ -653,9 +956,8 @@ detail.
   Egress can talk to `livekit-server`, not for multi-node LiveKit clustering), no autoscaling, no
   certificate setup, no embedded-TURN-vs-standalone-coturn comparison (all remain open questions
   for the production deployment wave).
-* No RTMP live-streaming egress -- Wave 3's job, see the Videokonferenzen concept note. Track Egress
-  (recording) itself IS covered as of Wave 2, see below. The Redis + Egress infrastructure this wave
-  adds is exactly the prerequisite Wave 3 needs, so that later wave becomes substantially cheaper.
+* No S3-compatible (or any other) object storage for RTMP-egress-related state -- destinations and
+  streams live in the ordinary Postgres/H2 schema, no separate storage backend.
 * No S3-compatible (or any other) object storage for recordings -- the Dokumentenablage/local-disk
   default (`documentStorageRoot`) is the only backend this wave implements, per the concept note's
   own 2026-08-01 decision. LiveKit Egress supports S3/GCP/Azure sinks natively; a later wave would

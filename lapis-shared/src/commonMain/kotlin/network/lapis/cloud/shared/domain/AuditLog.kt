@@ -25,10 +25,23 @@ enum class AuditAction { CREATE, UPDATE, POST }
  * here is load-bearing (`AuditLogSchemaDriftTest` pins it against `14-audit-log.kuml.kts`'s
  * `auditEntityType` enum). `CONFERENCE_RECORDING` (V1.0 Videokonferenzen, Wave 2 "Aufzeichnung")
  * was appended LAST -- see `network.lapis.cloud.server.rpc.ConferenceRecordingService` KDoc for
- * why start/stop are audited.
+ * why start/stop are audited. `CONFERENCE_STREAM`/`CONFERENCE_STREAM_DESTINATION` (V1.0
+ * Videokonferenzen, Wave 3 "Externes Streaming") were appended LAST after that, in this order --
+ * every destination credential CREATE/UPDATE/DELETE and every stream start/pause/resume/stop is
+ * audited, same GoBD/§32 BGB framing Wave 2 already established for recording start/stop. Additive
+ * append only -- never reorder existing literals, see this enum's own "cheap to extend, expensive
+ * to reorder" note class-wide.
  */
 @Serializable
-enum class AuditEntityType { JOURNAL_ENTRY, PARTY_DONATION_VERDICT, RESOLUTION, BOARD_MEMBERSHIP, CONFERENCE_RECORDING }
+enum class AuditEntityType {
+    JOURNAL_ENTRY,
+    PARTY_DONATION_VERDICT,
+    RESOLUTION,
+    BOARD_MEMBERSHIP,
+    CONFERENCE_RECORDING,
+    CONFERENCE_STREAM,
+    CONFERENCE_STREAM_DESTINATION,
+}
 
 /**
  * One immutable, hash-chained audit-log row -- see `AuditLogRecorder`/`AuditLogService` KDoc.
