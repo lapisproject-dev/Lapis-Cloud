@@ -35,14 +35,14 @@ class DomainModelMergerTest :
         // ── Test 1: merging the real 22 domain scripts ───────────────────────────────────
 
         test(
-            "merging the real 27 domain scripts succeeds and the uml-to-erm -> erm-to-exposed chain " +
+            "merging the real 28 domain scripts succeeds and the uml-to-erm -> erm-to-exposed chain " +
                 "produces exactly one Table file per distinct table name",
         ) {
             val scriptFiles =
                 requireNotNull(KumlModelLoader.kumlSourceDir.listFiles { f -> f.name.endsWith(".kuml.kts") }) {
                     "kUML source dir not found or not a directory: ${KumlModelLoader.kumlSourceDir.absolutePath}"
                 }.sortedBy { it.name }
-            scriptFiles shouldHaveSize 27
+            scriptFiles shouldHaveSize 28
 
             val diagrams = scriptFiles.map { KumlModelLoader.loadUmlDiagram(it) }
 
@@ -171,7 +171,13 @@ class DomainModelMergerTest :
             // organization-level, same reasoning 24-federation.kuml.kts's own four tables already
             // established) -- so it contributes +4 «Entity» declarations and +0 drops versus the
             // V0.8.2 baseline above (85 -> 89).
-            val distinctTableNames = 89
+            // 27-conference.kuml.kts (V1.0 Videokonferenzen, Wave 1) adds exactly two more real
+            // tables (conference_room, conference_participation), WITH its own cross-domain Member
+            // stub (conference_room.created_by_member_id/conference_participation.member_id both
+            // resolve through it) -- so it contributes +3 «Entity» declarations (the stub + 2 real
+            // tables) and +1 drop (the stub merges into the already-existing member entity) versus
+            // the V0.8.3 baseline above (89 -> 91).
+            val distinctTableNames = 91
 
             val result =
                 UmlToExposedViaErmScriptTransformer().transform(
@@ -283,6 +289,8 @@ class DomainModelMergerTest :
                     "TrustAnchorPoolMemberTable.kt",
                     "TrustedExternalAnchorTable.kt",
                     "TrustAnchorEventTable.kt",
+                    "ConferenceRoomTable.kt",
+                    "ConferenceParticipationTable.kt",
                 )
         }
 

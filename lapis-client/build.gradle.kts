@@ -36,6 +36,18 @@ kotlin {
                 // dashboard/members/contributions/documents/communication) -- see
                 // io.kvision.routing.Routing KDoc.
                 implementation(libs.kvision.routing.navigo.ng)
+                // V1.0 Videokonferenzen (Kleinsitzung), Wave 1: the FIRST hand-declared `npm()`
+                // dependency in this codebase -- every other npm package this module's webpack
+                // bundle pulls in (bootstrap, navigo, snabbdom, split.js, fecha, @popperjs/core,
+                // @js-joda/core) arrives transitively through KVision's own `npm()` declarations.
+                // Pinned to an exact version (no `^`), matching how the version catalog pins every
+                // JVM dependency -- see `network.lapis.cloud.client.livekit.LiveKitJs` KDoc for the
+                // `@JsModule`/`@JsNonModule` externals this compiles against. Adding/upgrading this
+                // dependency requires re-running `./gradlew kotlinUpgradeYarnLock` and committing the
+                // regenerated `lapis-client/.kotlin-js-store/yarn.lock` -- skipping that makes
+                // `./gradlew clean check` fail with an opaque `YarnLockMismatch`, not an obviously
+                // related error.
+                implementation(npm("livekit-client", "2.21.0"))
             }
         }
         // V0.7.3 Basis-Mehrseiten-UI: this module had no jsTest source set at all before this wave

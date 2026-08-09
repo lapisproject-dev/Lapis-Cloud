@@ -1,0 +1,328 @@
+= Local LiveKit/coturn Stack (Videokonferenzen, Wave 1)
+:toc:
+:toc-placement: preamble
+:icons: font
+
+WARNING: **DEV-ONLY.** Every credential in this directory (`livekit.yaml`'s `keys.devkey` secret,
+`turnserver.conf`'s `static-auth-secret`) is committed in plaintext and is meant to be. This mirrors
+the project's already-established `DevSeedData.DEMO_PASSWORD` posture: a published-in-source dev
+credential, opt-in only, never used against a real deployment. There is no TLS/`wss://` termination
+and no production hardening here at all -- see "Not covered here" below. **Audit-round-1 fix**: every
+`docker-compose.yml` port now binds `127.0.0.1:` only (was `0.0.0.0`), and `turnserver.conf` uses
+coturn's short-lived `use-auth-secret` REST-credential scheme instead of a forever-valid static
+username/password -- see both files' own headers and `TurnCredentialMinter.kt` KDoc.
+
+This directory holds the first infrastructure (Docker) setup in this repository: a local LiveKit SFU
+plus a coturn TURN server, backing the `IConferenceService`/`ConferenceScreen` Videokonferenzen
+feature (V1.0 Wave 1) end to end -- server-side LiveKit admin/token minting, the RPC layer, and the
+browser-side `livekit-client` integration have all been live-verified against exactly this stack (see
+"Live verification results" below).
+
+== Prerequisites
+
+* Docker with `docker compose` v2 (this stack was built and verified against Docker 29.x/Compose
+  5.x on Colima -- see "The Colima `node_ip` trap" below if you are also on Colima on macOS; a
+  Docker Desktop or native Linux Docker install needs none of that workaround).
+* JDK 21+ and the repository's own `./gradlew` wrapper (no separate Node/Yarn install needed --
+  Gradle's Kotlin/JS plugin bootstraps its own).
+* A Chromium- or Firefox-based browser with a webcam/microphone for the two-profile manual
+  recipe below (or two separate machines/devices).
+
+== Quick start
+
+[source,bash]
+----
+docker compose -f deploy/local/docker-compose.yml up -d
+docker compose -f deploy/local/docker-compose.yml logs -f      # tail both services
+docker compose -f deploy/local/docker-compose.yml down         # tear down
+----
+
+Once up, LiveKit's signaling/Twirp API is reachable at `\http://localhost:7880`, matching this
+wave's default `LAPIS_LIVEKIT_URL=ws://localhost:7880` / `LAPIS_LIVEKIT_API_URL=http://localhost:7880`
+(see `ConferenceConfig` in `lapis-server`).
+
+== Running the app against this stack
+
+The stack alone is just LiveKit + coturn -- to actually use Videokonferenzen end to end you also need
+the Lapis Cloud server (and, for the full UI, a built client bundle) pointed at it:
+
+[source,bash]
+----
+# 1. Client bundle (same-origin static serving, see Application.kt "clientDistRoot"):
+./gradlew :lapis-client:jsBrowserDistribution
+
+# 2. Server, with LiveKit env vars matching livekit.yaml's dev keys.node_ip below, plus demo-data
+#    seeding so you have real member logins to test with (see DevSeedData -- opt-in, H2-only, never
+#    a real deployment, same posture this whole file documents for the LiveKit credentials):
+cd lapis-server
+LAPIS_SEED_DEMO_DATA=true \
+LAPIS_COOKIE_SECURE=false \
+LAPIS_LIVEKIT_URL=ws://localhost:7880 \
+LAPIS_LIVEKIT_API_URL=http://localhost:7880 \
+LAPIS_LIVEKIT_API_KEY=devkey \
+LAPIS_LIVEKIT_API_SECRET='lapis-dev-livekit-secret-32bytes-min!!' \
+LAPIS_TURN_URLS='turn:127.0.0.1:3478?transport=udp,turn:127.0.0.1:3478?transport=tcp' \
+LAPIS_TURN_SHARED_SECRET='lapis-dev-turn-shared-secret-32bytes-min!!' \
+../gradlew run
+----
+
+`LAPIS_TURN_URLS`/`LAPIS_TURN_SHARED_SECRET` must match `turnserver.conf`'s own `static-auth-secret`
+-- see `TurnCredentialMinter.kt` KDoc for how the server turns this shared secret into a fresh,
+short-lived TURN credential on every `joinRoom` call instead of handing the shared secret itself to a
+browser. Both are optional and independent of the `LAPIS_LIVEKIT_*` trio above (see
+`ConferenceConfig.load` KDoc "TURN is independently optional") -- omitting them just means no TURN
+relay fallback (direct/host ICE candidates only), same as running without coturn at all.
+
+`LAPIS_COOKIE_SECURE=false` is only needed because this recipe serves plain `\http://localhost:8080`
+(no TLS) -- see `registerAuthRoutes` KDoc "Cookie transport". Never set it against a real deployment.
+
+Then open `\http://localhost:8080`, log in as one of `DevSeedData.demoMembers` (e.g.
+`max.mitglied@example.org` / `boris.board@example.org`, password `correct-horse-battery-staple` --
+same published-in-source dev credential this file already flags above), and go to "Videokonferenz"
+in the nav.
+
+=== The `\http://localhost:8080` secure-context requirement
+
+Browsers only grant `getUserMedia`/`getDisplayMedia` (camera/microphone/screen-share) on a
+https://developer.mozilla.org/en-US/docs/Web/Security/Secure_Contexts[secure context] --
+`https://` or, as a browser-vendor carve-out, `\http://localhost`/`\http://127.0.0.1` specifically.
+This recipe's `\http://localhost:8080` qualifies for that carve-out and needs no TLS setup for local
+manual testing. It does **not** extend to a LAN IP (`\http://192.168.x.x:8080`) -- testing from a
+second physical device on the same network needs either a `https://` reverse proxy in front of the
+server or that device's browser flags relaxed for the specific origin, neither of which this wave
+sets up (see "Not covered here").
+
+== Two-profile browser recipe (manual two-participant verification)
+
+LiveKit sessions are per-participant-token, not per-browser-tab -- the practical way to run two
+independent participants locally is two independent cookie jars against the SAME server, so each
+gets its own login session and its own LiveKit join token:
+
+. Open the app in **two separate browser profiles** (e.g. Chrome's own multi-profile switcher, or
+  one normal window + one Incognito/private window -- anything with an independent cookie jar).
+  Logging in as a second member in a second *tab* of the same profile works for driving the UI, but
+  overwrites the first tab's session cookie (Lapis Cloud sessions are cookie-based, one active
+  session per cookie jar) -- fine for exercising RPC calls sequentially, not for two people typing
+  in the same browser window at once.
+. Profile A: log in as `max.mitglied@example.org`, go to "Videokonferenz", click "Besprechung
+  erstellen" (with a title), then "Beitreten". You are now the room's MODERATOR.
+. Profile B: log in as `boris.board@example.org` (or any other seeded member), go to
+  "Videokonferenz" -- the room Profile A created appears under "Aktive Besprechungen" with a live
+  participant count. Click "Beitreten".
+. Both profiles now show a live, two-tile video grid, updating in real time as the other side
+  joins/leaves (`RoomEvent.ParticipantConnected`/`Disconnected`) -- no manual refresh needed.
+. Grant camera/microphone permission when your browser prompts (see "Secure-context requirement"
+  above) to test real audio/video; click "Bildschirm teilen" on either side to test screen share;
+  open "Chat" on either side and send a message -- it should appear on the other side within a
+  second or two, prefixed with the sender's real display name.
+. As the moderator (Profile A), "Für alle beenden" ends the room for everyone (two-step confirm
+  dialog first); "Entfernen" next to a participant in "Teilnehmende" kicks just that one (also
+  confirm-gated). A BOARD/ADMIN account can do both even without being the room creator -- see
+  `IConferenceService` KDoc's role table.
+
+== The Colima `node_ip` trap (read this before debugging a black call)
+
+`livekit.yaml` sets `rtc.node_ip: 127.0.0.1`. **This is the single most load-bearing line in that
+file.** Without it, LiveKit advertises the *container's* VM-internal address as its own ICE
+candidate. The browser runs on the macOS host, outside the Colima VM, and can only reach LiveKit
+through Docker's *published* ports -- so ICE negotiation silently never completes, and the symptom is
+a black video tile with no error message anywhere. Setting `node_ip: 127.0.0.1` makes LiveKit
+advertise the loopback address, which resolves correctly through the published `7882/udp` (and
+`7881/tcp` as a TCP fallback if UDP forwarding misbehaves).
+
+If you ever see a connection that never progresses past "Connecting..." against this stack, check
+this setting first before anything else. **This fix is live-verified, not theoretical**: the
+2026-08-09 two-browser session below observed real signaling connects
+(`connected to Livekit Server ... version: 1.13.5`), real SDP offer/ICE-credential/DTLS-fingerprint
+exchanges in the LiveKit container logs for both participants, and -- the strongest possible proof,
+stronger than a static `chrome://webrtc-internals` candidate-pair screenshot -- real bidirectional
+chat delivered over LiveKit's SCTP data channel between two independent browser sessions, which is
+only possible once a genuine DTLS/ICE-secured `PeerConnection` is fully established end to end
+through Colima's port forwarding.
+
+== Troubleshooting
+
+[cols="1,2"]
+|===
+|Symptom |Likely cause / fix
+
+|Black video tile, connection stuck on "Connecting..."
+|The Colima `node_ip` trap above -- verify `docker compose -f deploy/local/docker-compose.yml logs
+livekit \| grep nodeIP` shows `"nodeIP": "127.0.0.1"`.
+
+|Loud screech / feedback loop when two participants are in the same room
+|**The audio-feedback trap**: this is not a bug, it is two microphones picking up two speakers in
+the same physical room. If you are testing the two-profile recipe above on **one machine** (two
+browser windows side by side), mute one side's speakers/output device, or -- better -- use
+headphones on at least one side. This is standard WebRTC/video-call behavior, not specific to this
+stack; it is called out here only because it is the first thing a first-time tester of this stack
+usually assumes is broken.
+
+|`KeyLengthException` at server startup or on first LiveKit call
+|You are pointing at a `livekit-server --dev` instance instead of this `docker-compose.yml` --
+see "Why not `livekit-server --dev`" below.
+
+|Camera/microphone permission silently denied, no visible error, control button still flips to
+"an" ("on")
+|**Fixed (2026-08-09, same-day as the gap was found)**: independently reproduced during this wave's
+own live-browser verification pass -- clicking the camera toggle while `getUserMedia` was blocked
+flipped the button straight to "Kamera an" with no error. Root cause matched the implementation's
+own diagnosis exactly: `ConferenceScreen.kt`'s mic/camera/screen-share toggle handlers flipped their
+local `micEnabled`/`cameraEnabled`/`screenShareEnabled` flag and the button label *before* awaiting
+`guarded { session.setXxx(...) }`'s result, never checking whether it actually succeeded. Fixed by
+only applying the optimistic flag/label flip when `guarded {}` returns non-null (i.e. the call truly
+succeeded); a failed toggle now reverts to the truthful prior label instead of lying about state.
+The initial post-connect auto-publish (`setMicrophone(true)`/`setCamera(true)`) had the same class of
+gap -- both default to `micEnabled = true`/`cameraEnabled = true` at declaration, so a failed initial
+publish never corrected them -- fixed the same way. This closes the concrete UI-truthfulness bug; the
+broader D2 finding (a first-class, non-technical permission-preflight *interstitial*, asked before
+LiveKit's own device prompt fires) remains legitimately open for a later polish step, see
+`ConferenceScreen.kt` file KDoc "Still open from the Wave 1 design review".
+
+|`docker compose up` fails to bind `3478/udp` or `7882/udp`
+|Another process (often a VPN client or another LiveKit/coturn instance) is already using that port
+-- `lsof -i :3478` / `lsof -i :7882` to find it.
+|===
+
+== What's running
+
+[cols="1,3"]
+|===
+|Service |Purpose
+
+|`livekit` (`livekit/livekit-server:v1.13.5`)
+|The SFU. Handles both the browser-facing signaling WebSocket / media (ports `7880`/`7881`/`7882`)
+and the server-facing Twirp Room-Service admin API (`7880`, same port as signaling -- LiveKit
+multiplexes both over one HTTP port).
+
+|`coturn` (`coturn/coturn:4.17.0-alpine`)
+|TURN relay for NAT traversal (port `3478` + relay range `51000-51019/udp`). See "coturn's role is
+mostly symbolic here" below for why this matters less than it sounds on a single dev machine.
+|===
+
+No Redis -- single-node LiveKit doesn't need it (only a multi-node LiveKit deployment would).
+
+== Why not `livekit-server --dev`
+
+`--dev` hardcodes the API key/secret pair `devkey`/`secret`. `secret` is 6 bytes = 48 bits. This
+project's JWT library, `nimbus-jose-jwt` (already a dependency, see `OidcJwt.kt`), refuses to
+construct an HS256 `MACSigner` for a key shorter than 256 bits and throws `KeyLengthException` --
+so `--dev` cannot be used here at all. `livekit.yaml` instead pins an explicit `keys:` block with a
+38-byte dev secret (`lapis-dev-livekit-secret-32bytes-min!!`), and the server-side `ConferenceConfig`
+fails fast with an explanatory message (not a raw `KeyLengthException`) if a configured
+`LAPIS_LIVEKIT_API_SECRET` is ever shorter than 32 bytes -- see that class's KDoc.
+
+== coturn's role is mostly symbolic here
+
+On a single developer machine, the host/`127.0.0.1` ICE candidate almost always wins -- the TURN
+relay path is only exercised when the direct path fails (e.g. a peer genuinely behind a restrictive
+NAT, which a local Docker setup can't easily simulate). `livekit-client` does not expose an
+`iceTransportPolicy: 'relay'` option, so the relay path cannot be forced from the app side either.
+
+coturn is included anyway because it's the component the production/multi-network deployment will
+need (per the Videokonferenzen concept note's NAT-traversal requirement) -- wiring the config surface
+now means it already exists, reviewed, before it becomes load-bearing. Verification of the relay path
+in this wave is therefore **observational only**:
+
+[source,bash]
+----
+docker compose -f deploy/local/docker-compose.yml logs -f coturn
+# watch for allocation requests while a call is active
+----
+
+== Verifying the stack without a browser
+
+A hand-minted admin JWT (HS256, signed with the `devkey` secret above) can exercise the Twirp
+Room-Service API directly:
+
+[source,bash]
+----
+curl -sS -X POST http://localhost:7880/twirp/livekit.RoomService/ListRooms \
+  -H "Authorization: Bearer <admin-jwt>" \
+  -H "Content-Type: application/json" \
+  -d '{}'
+# {"rooms":[]}
+----
+
+See `LiveKitAdminClientTest.kt` in `lapis-server` for the real, verified request/response wire shapes
+(snake_case JSON -- e.g. `empty_timeout`, `max_participants` -- not the camelCase the LiveKit docs'
+*general* protobuf-JSON convention would suggest; confirmed empirically against this exact stack).
+
+For a real, automated round trip against a running container (rather than a hand-typed `curl`), see
+`LiveKitLiveIntegrationTest.kt` (`lapis-server/src/test/kotlin/network/lapis/cloud/server/conference/`)
+-- an opt-in, env-gated Kotest spec (deliberately **not** part of `./gradlew clean check`, see that
+file's own KDoc for why Testcontainers was not introduced for this):
+
+[source,bash]
+----
+docker compose -f deploy/local/docker-compose.yml up -d
+LAPIS_LIVEKIT_IT=true ./gradlew :lapis-server:test --tests "*.LiveKitLiveIntegrationTest"
+----
+
+Unset (or anything other than `true`), every test in that spec is a no-op (reported skipped, never
+failed) -- safe to leave committed and safe on machines/CI without Docker.
+
+== Live verification results (2026-08-09)
+
+The full Wave 1 stack -- this compose file, the server-side LiveKit admin client/token minting, the
+`IConferenceService` RPC layer, and the `ConferenceScreen` client UI -- was verified end to end
+against a real, running instance of this exact stack, using two independent browser sessions logged
+in as two different seeded `DevSeedData` members. Summary (both the JVM-level and the two-browser
+manual pass described in "Two-profile browser recipe" above):
+
+* `LiveKitLiveIntegrationTest`'s `CreateRoom -> ListRooms -> DeleteRoom -> ListRooms` round trip
+  passed against the real container -- confirmed in both the JUnit XML result (not merely "did not
+  throw") and the LiveKit container's own Twirp access log for the exact room name.
+* Real signaling connects for two independent participants (`connected to Livekit Server ...
+  version: 1.13.5`), with real SDP offer/ICE-credential/DTLS-fingerprint exchanges logged
+  server-side for both -- see "The Colima `node_ip` trap" above for why this specifically proves the
+  `node_ip` fix, not just that an HTTP request succeeded.
+* The live roster updated in both directions in real time (`ParticipantConnected`/`Disconnected`),
+  including the documented "already-present participants" roster-seeding gotcha working correctly on
+  first render.
+* Chat: a normal message and an XSS-attempt payload (`<script>...</script><img
+  src=x onerror=...>`) were both delivered over the real LiveKit data channel and rendered
+  HTML-escaped as plain text on the receiving side -- no script execution, confirmed via
+  `window.__xss` staying `false` on the receiving page. Sender-identity spoofing is closed at the
+  code level (`LiveKitRoomSession`'s `DataReceived` handler unconditionally overwrites the payload's
+  own `senderMemberId`/`senderDisplayName` with the SDK-verified `RemoteParticipant.identity`/`.name`
+  before the message ever reaches `ConferenceScreen.kt` -- verified by reading that call site, not
+  just by testing the happy path, since a malicious participant could otherwise publish an arbitrary
+  data-channel payload directly, bypassing this app's own chat-send UI entirely).
+* Moderator "Entfernen" (kick) against a real connected participant produced a genuine server-side
+  `RoomService.RemoveParticipant` Twirp call (HTTP 200, logged) and a real signaling-level disconnect
+  on the kicked side (`client leave request received ... reason: 4`), auto-returning that participant
+  to the lobby.
+* **Server, not client UI, is the authority boundary**: calling `endRoom` directly via `fetch()`
+  from a browser console/devtools, bypassing the UI entirely, as a seeded TREASURER account that is
+  neither the room's creator nor BOARD/ADMIN, returned a real `ForbiddenException` from the server
+  ("Not authorized for this operation") -- the UI never even renders the button for such an account,
+  but the server independently rejects the call anyway, exactly as the plan's authorization matrix
+  specifies.
+* Moderator "Für alle beenden" (end room) showed the exact confirm-dialog copy the Wave 1 design
+  review's D6 specifies, and produced a real `RoomService.DeleteRoom` Twirp call plus the room
+  correctly disappearing from "Aktive Besprechungen".
+* **One real, confirmed gap found and documented, not fixed in this step** (out of this step's own
+  scope -- see the wave's own "still open from the design review" note in `ConferenceScreen.kt`'s
+  file KDoc): the mic/camera toggle buttons optimistically flip their label before the underlying
+  `getUserMedia`-backed publish call resolves, so a permission-denied user sees a false "on" state
+  with no error surfaced. See the Troubleshooting table above for the concrete symptom and the
+  precise code location.
+* Not verifiable in this particular verification pass, disclosed honestly rather than assumed: real
+  two-way audio/video rendering and `chrome://webrtc-internals` candidate-pair inspection both
+  require an automation environment with real (or fake, browser-flag-enabled) camera/microphone
+  devices and access to Chrome-internal pages, neither of which this pass's browser automation tool
+  provided (camera/microphone access was genuinely denied by the browser, not merely unattempted;
+  `chrome://` URLs are blocked by that tool's navigation guard). A human running the two-profile
+  recipe above with real hardware should still perform that check once before treating audio/video
+  rendering itself as proven, even though the underlying WebRTC transport is now proven solid by the
+  chat-over-data-channel result above.
+
+== Not covered here
+
+* No TLS/`wss://` termination -- everything is plain `ws://`/`http://` on loopback.
+* No production deployment story: no Redis/multi-node LiveKit, no autoscaling, no certificate setup,
+  no embedded-TURN-vs-standalone-coturn comparison (both remain open questions for the production
+  deployment wave).
+* No `livekit-egress` container -- recording/streaming is out of scope for Wave 1 entirely, see the
+  Videokonferenzen concept note.

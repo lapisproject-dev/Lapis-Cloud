@@ -18,6 +18,9 @@ import io.ktor.server.plugins.statuspages.StatusPages
 import io.ktor.server.response.respondText
 import io.ktor.server.routing.get
 import io.ktor.server.routing.routing
+import network.lapis.cloud.server.conference.ConferenceConfig
+import network.lapis.cloud.server.conference.HttpLiveKitAdminClient
+import network.lapis.cloud.server.conference.LiveKitAdminClient
 import network.lapis.cloud.server.db.DatabaseConfig
 import network.lapis.cloud.server.db.DevSeedData
 import network.lapis.cloud.server.economy.oracle.PriceOracleOrchestrator
@@ -44,6 +47,7 @@ import network.lapis.cloud.server.rpc.AuditLogService
 import network.lapis.cloud.server.rpc.AuthService
 import network.lapis.cloud.server.rpc.BackupService
 import network.lapis.cloud.server.rpc.BoardMembershipService
+import network.lapis.cloud.server.rpc.ConferenceService
 import network.lapis.cloud.server.rpc.ContributionService
 import network.lapis.cloud.server.rpc.CrowdfundingService
 import network.lapis.cloud.server.rpc.DirectMessageService
@@ -74,6 +78,7 @@ import network.lapis.cloud.shared.rpc.IAuditLogService
 import network.lapis.cloud.shared.rpc.IAuthService
 import network.lapis.cloud.shared.rpc.IBackupService
 import network.lapis.cloud.shared.rpc.IBoardMembershipService
+import network.lapis.cloud.shared.rpc.IConferenceService
 import network.lapis.cloud.shared.rpc.IContributionService
 import network.lapis.cloud.shared.rpc.ICrowdfundingService
 import network.lapis.cloud.shared.rpc.IDirectMessageService
@@ -97,6 +102,7 @@ import network.lapis.cloud.shared.rpc.ISystemicConsensusService
 import network.lapis.cloud.shared.rpc.ITrustAnchorService
 import network.lapis.cloud.shared.rpc.UnauthenticatedException
 import java.io.File
+import kotlin.time.Duration.Companion.minutes
 
 fun main() {
     DatabaseConfig.connect()
@@ -185,6 +191,30 @@ fun Application.module() {
     // -- see registerTrustAnchorRoutes KDoc "opt-in via non-empty pool".
     TrustAnchorSigningKeyProvisioner.ensureProvisioned()
 
+    // V1.0 Videokonferenzen (Kleinsitzung), Wave 1 -- constructed once here (owns the pooled HTTP
+    // client, same singleton lifecycle as postalMailProvider/priceOracleOrchestrator above).
+    // Constructed unconditionally, even when ConferenceConfig.enabled is false (blank
+    // livekitApiUrl/apiKey/apiSecret) -- it is simply never invoked in that case, because
+    // ConferenceService's own requireConferenceEnabled gate short-circuits every LiveKit-touching
+    // RPC method first (see that class's own KDoc). This keeps registerService wiring unconditional,
+    // no null-checks scattered through initRpc, matching how every other optional-integration
+    // provider in this block (postalMailProvider) is also always constructed regardless of whether
+    // its own credentials are configured.
+    val conferenceConfig = ConferenceConfig.load()
+    val liveKitAdminClient: LiveKitAdminClient =
+        HttpLiveKitAdminClient(conferenceConfig.livekitApiUrl, conferenceConfig.apiKey, conferenceConfig.apiSecret)
+    val conferenceRoomRateLimiter = LoginRateLimiter()
+
+    // Audit-round-1 fix (Wave 1): createRoom's own throttle above does NOT cover
+    // joinRoom/leaveRoom/listActiveRooms/getRoom/listParticipants -- each of those funnels into a
+    // per-member REQUEST-rate limiter instead (never a failure-counting one, see ConferenceService
+    // KDoc "Request-rate throttling beyond createRoom"), reusing FederationInboxRateLimiter's own
+    // generic checkAndRecord(key) sliding window, same singleton lifecycle as conferenceRoomRateLimiter
+    // above.
+    val conferenceJoinRateLimiter = FederationInboxRateLimiter(maxRequests = 30, window = 1.minutes)
+    val conferenceLeaveRateLimiter = FederationInboxRateLimiter(maxRequests = 30, window = 1.minutes)
+    val conferenceListRateLimiter = FederationInboxRateLimiter(maxRequests = 60, window = 1.minutes)
+
     install(CallLogging)
     install(Compression)
     // V0.7.3 Basis-Mehrseiten-UI: PartialContent (HTTP Range, for large JS/asset bundles) and
@@ -232,6 +262,16 @@ fun Application.module() {
         registerService(IRegistrationService::class) { call -> RegistrationService(call, registrationRateLimiter) }
         registerService(IFederationService::class) { call -> FederationService(call) }
         registerService(ITrustAnchorService::class) { call -> TrustAnchorService(call) }
+        registerService(IConferenceService::class) { call ->
+            ConferenceService(
+                call,
+                liveKitAdminClient,
+                conferenceRoomRateLimiter,
+                joinRoomRateLimiter = conferenceJoinRateLimiter,
+                leaveRoomRateLimiter = conferenceLeaveRateLimiter,
+                listRateLimiter = conferenceListRateLimiter,
+            )
+        }
     }
 
     routing {

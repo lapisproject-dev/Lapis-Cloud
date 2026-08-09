@@ -1511,3 +1511,40 @@ CREATE TABLE trust_anchor_event (
 );
 CREATE INDEX idx_trust_anchor_event_occurred_at ON trust_anchor_event (occurred_at);
 
+-- V1.0 Videokonferenzen (Kleinsitzung), Wave 1 -- see 27-conference.kuml.kts file header for the
+-- full fachlich model. livekit_room_name is the ONLY join key to LiveKit's own in-memory room
+-- registry (server-generated `lc-<uuid4>`, never derived from title). conference_participation is
+-- append-only per join (like `session`), not one row per (room, member) -- see file header.
+
+CREATE TABLE conference_room (
+    id UUID NOT NULL PRIMARY KEY,
+    title VARCHAR(200) NOT NULL,
+    description VARCHAR(1000) NOT NULL,
+    livekit_room_name VARCHAR(64) NOT NULL,
+    created_by_member_id UUID NOT NULL,
+    created_at TIMESTAMP NOT NULL,
+    ended_at TIMESTAMP NULL,
+    max_participants INT NOT NULL
+);
+CREATE UNIQUE INDEX uq_conference_room_livekit_room_name ON conference_room (livekit_room_name);
+CREATE INDEX idx_conference_room_created_by ON conference_room (created_by_member_id);
+CREATE INDEX idx_conference_room_ended_at ON conference_room (ended_at);
+
+CREATE TABLE conference_participation (
+    id UUID NOT NULL PRIMARY KEY,
+    room_id UUID NOT NULL,
+    member_id UUID NOT NULL,
+    role VARCHAR(11) NOT NULL,
+    joined_at TIMESTAMP NOT NULL,
+    left_at TIMESTAMP NULL,
+    CHECK (role IN ('MODERATOR', 'PARTICIPANT'))
+);
+CREATE INDEX idx_conference_participation_room ON conference_participation (room_id);
+CREATE INDEX idx_conference_participation_member ON conference_participation (member_id);
+
+-- Foreign Keys
+
+ALTER TABLE conference_room ADD CONSTRAINT fk_conference_room_created_by_member_id FOREIGN KEY (created_by_member_id) REFERENCES member(id);
+ALTER TABLE conference_participation ADD CONSTRAINT fk_conference_participation_room_id FOREIGN KEY (room_id) REFERENCES conference_room(id);
+ALTER TABLE conference_participation ADD CONSTRAINT fk_conference_participation_member_id FOREIGN KEY (member_id) REFERENCES member(id);
+

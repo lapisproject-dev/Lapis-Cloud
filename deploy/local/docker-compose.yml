@@ -1,0 +1,67 @@
+# Lapis Cloud -- Wave 1 Videokonferenzen (Kleinsitzung), LOCAL DEVELOPMENT ONLY.
+#
+# First infrastructure directory in this repository -- see README.adoc in this directory for the
+# full local-development setup, the Colima `node_ip` trap, and why `--dev` is not used.
+#
+# Audit-round-1 fix: every published port below is bound to `127.0.0.1:` explicitly, not the Docker
+# default of `0.0.0.0:` (every interface). `livekit.yaml` commits a real, working LiveKit API
+# key/secret pair in plaintext (`devkey`/`lapis-dev-livekit-secret-32bytes-min!!`, see that file's
+# own header for why this is an accepted DEV-ONLY posture) -- with an unrestricted `0.0.0.0` bind,
+# anyone who can reach this machine's LAN address on port 7880 could mint their own LiveKit admin
+# token client-side with that committed secret and call CreateRoom/DeleteRoom/ListRooms/
+# ListParticipants/RemoveParticipant directly against LiveKit, bypassing every authorization check
+# ConferenceService enforces. Loopback-only binding closes that off entirely for local development,
+# where nothing outside this machine ever needs to reach LiveKit/coturn directly.
+#
+# **If this file is ever copied toward a real (non-loopback) deployment**: change BOTH the bind
+# (these ports need to be reachable from wherever the Lapis Cloud server itself runs, which is NOT
+# necessarily `127.0.0.1` anymore) AND the committed `livekit.yaml`/`turnserver.conf` secrets to
+# freshly generated, deployment-specific values -- doing only one of the two still leaves the admin
+# API exposed with a publicly-known secret, or a private secret nobody outside this machine can
+# reach anyway. Do not carry this exact combination (loopback bind + committed secret) forward
+# unexamined.
+#
+# Usage:
+#   docker compose -f deploy/local/docker-compose.yml up -d
+#   docker compose -f deploy/local/docker-compose.yml logs -f
+#   docker compose -f deploy/local/docker-compose.yml down
+name: lapis-conference-dev
+
+services:
+  livekit:
+    # Pinned to the current stable line (verified on Docker Hub, 2026-07-31) -- deliberately not
+    # `:latest`, matching this repository's general pin-exact-versions posture (see
+    # gradle/libs.versions.toml).
+    image: livekit/livekit-server:v1.13.5
+    container_name: lapis-conference-dev-livekit
+    command: ["--config", "/etc/livekit.yaml"]
+    volumes:
+      - ./livekit.yaml:/etc/livekit.yaml:ro
+    ports:
+      # Signaling WebSocket (browser) + Twirp HTTP API (Ktor server's LiveKitAdminClient). Loopback-
+      # only bind -- see file header "Audit-round-1 fix".
+      - "127.0.0.1:7880:7880/tcp"
+      # ICE/TCP fallback.
+      - "127.0.0.1:7881:7881/tcp"
+      # UDP mux (single-port media) -- see livekit.yaml comment for why a range is avoided.
+      - "127.0.0.1:7882:7882/udp"
+    restart: unless-stopped
+
+  coturn:
+    # Verified on Docker Hub, 2026-08-05.
+    image: coturn/coturn:4.17.0-alpine
+    container_name: lapis-conference-dev-coturn
+    command: ["-c", "/etc/coturn/turnserver.conf"]
+    volumes:
+      - ./turnserver.conf:/etc/coturn/turnserver.conf:ro
+    ports:
+      # Loopback-only bind -- see file header "Audit-round-1 fix". TURN credentials are short-lived
+      # (see turnserver.conf's own header) but the relay port itself still only needs to be reachable
+      # from this machine in local development.
+      - "127.0.0.1:3478:3478/udp"
+      - "127.0.0.1:3478:3478/tcp"
+      - "127.0.0.1:51000-51019:51000-51019/udp"
+    restart: unless-stopped
+
+# No Redis -- single-node LiveKit does not need it (only a multi-node LiveKit deployment, out of
+# scope for local development and for Wave 1 in general, needs a shared Redis for room-state sync).

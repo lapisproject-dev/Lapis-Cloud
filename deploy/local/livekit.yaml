@@ -1,0 +1,53 @@
+# Lapis Cloud -- Wave 1 Videokonferenzen (Kleinsitzung), LOCAL DEVELOPMENT ONLY.
+#
+# Deliberately NOT started via `livekit-server --dev`: that flag hardcodes the API key/secret pair
+# `devkey`/`secret`, and `secret` is 6 bytes = 48 bits. This project's already-present JWT library,
+# nimbus-jose-jwt, refuses to construct an HMAC signer (`MACSigner`) for a key shorter than 256 bits
+# and throws `KeyLengthException` -- so `--dev` is unusable here. The `keys:` block below pins an
+# explicit 38-byte dev secret instead (see ConferenceConfig.kt KDoc for the matching server-side
+# fail-fast check). This secret is committed in plaintext -- the same, already-established posture
+# this repository uses for `DevSeedData.DEMO_PASSWORD` (published-in-source, H2/opt-in-only dev
+# credential). See README.adoc in this directory for the full DEV-ONLY disclosure.
+port: 7880
+
+rtc:
+  tcp_port: 7881
+  # Single-port UDP mux (not a port *range*) -- deliberately chosen over `port_range_start`/
+  # `port_range_end` because publishing a 20-port UDP range through Colima's port forwarder is slow
+  # and flaky; one published UDP port is fast and reliable in local development.
+  udp_port: 7882
+  use_external_ip: false
+  # CRITICAL on Colima. Without this, LiveKit advertises the container's VM-internal address as its
+  # ICE candidate -- the browser runs on the macOS host and can only reach LiveKit through Docker's
+  # published ports, so ICE never completes and the call goes black with no error. With
+  # `node_ip: 127.0.0.1`, the host candidate resolves through the published 7882/udp (and 7881/tcp
+  # as a fallback). This is the single most load-bearing line in this file.
+  node_ip: 127.0.0.1
+  # Audit-round-1 fix: NO static `turn_servers` block here anymore. The OLD block pinned a single,
+  # indefinitely-valid TURN username/credential pair (`lapis`/`lapis-dev-turn-secret`) into every
+  # client's ICE server list on every connect, independent of room membership or session length --
+  # unlike the participant JWT above (deliberately TTL-bounded, see LiveKitAccessToken KDoc). TURN
+  # credentials are now minted fresh, per `joinRoom` call, with the same TTL as that JWT (see
+  # `TurnCredentialMinter.kt`) and handed to the browser as `ConferenceJoinTokenDto.turnServers`,
+  # which `LiveKitRoomSession.connect` passes through as `RoomOptions.rtcConfig.iceServers` --
+  # entirely client-supplied, never baked into this static config. See `turnserver.conf`'s own
+  # header for the matching coturn-side `use-auth-secret` change.
+
+turn:
+  # Embedded TURN stays off -- coturn (the sibling service in docker-compose.yml) is the external
+  # TURN server this dev stack uses. See turn_servers above and turnserver.conf.
+  enabled: false
+
+room:
+  empty_timeout: 300
+  # Wave 1 "Kleinsitzung" ceiling (see the concept note's scaling-class table), enforced at the SFU
+  # too -- not just in the RPC-layer ConferenceConfig.maxParticipants check.
+  max_participants: 25
+
+keys:
+  # 38-byte dev secret -- see the file header for why this is required (not `--dev`'s 6-byte
+  # `secret`) and why it is safe to commit for local development.
+  devkey: lapis-dev-livekit-secret-32bytes-min!!
+
+logging:
+  level: info

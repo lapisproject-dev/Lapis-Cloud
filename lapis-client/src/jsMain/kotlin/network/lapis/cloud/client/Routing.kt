@@ -187,6 +187,19 @@ object Routes {
     // inside the screen itself as `canManage`, exactly like [LEDGER]/[COST_CENTERS]/[DONORS]'s
     // in-screen ADMIN-only write split.
     const val PRICE_ORACLE = "/price-oracle"
+
+    // V1.0 Videokonferenzen (Kleinsitzung), Wave 1 -- `IConferenceService` (LiveKit-backed video
+    // conferencing). Role gate verified against `ConferenceService.kt`: every method a plain member
+    // needs to *reach* this screen at all (`getAvailability`/`listActiveRooms`/`getRoom`/
+    // `createRoom`/`joinRoom`/`leaveRoom`/`listParticipants`) only calls `resolveCurrentMember(call)`
+    // + `requireActiveMembership` -- no `requireRole` call guards any of them. This route therefore
+    // uses `requireAuth`, same posture as [LTR_LEDGER]/[CROWDFUNDING]/[AUCTION]/[POLITICIANS] above,
+    // NOT the Accounting UI wave's route-level `requireRole`. The narrower moderator-or-BOARD/ADMIN
+    // tier (`endRoom`/`removeParticipant`) is gated inside the screen itself as `canModerate`
+    // (compares `AppState.session?.memberId` to `ConferenceRoomDto.createdByMemberId` OR
+    // `AppState.hasRole(BOARD, ADMIN)` -- see `ConferenceScreen.kt`'s `conferenceIsModerator`),
+    // exactly like those routes' own in-screen `canTreasury`/`canBoard`/`canAdmin` splits.
+    const val CONFERENCE = "/conference"
 }
 
 private var appRouting: Routing? = null
@@ -324,6 +337,9 @@ fun initRouting(pageContainer: SimplePanel) {
     }
     routing.kvOn(Routes.PRICE_ORACLE) {
         requireRole(routing, AccountRole.TREASURER, AccountRole.BOARD, AccountRole.ADMIN) { show(::renderPriceOracleScreen) }
+    }
+    routing.kvOn(Routes.CONFERENCE) {
+        requireAuth(routing) { show(::renderConferenceScreen) }
     }
     routing.kvOn("/") {
         routing.navigate(if (AppState.isAuthenticated) Routes.DASHBOARD else Routes.LOGIN)

@@ -8,6 +8,147 @@ All notable changes to this project are documented here. Format follows
 
 ### Added
 
+**Videokonferenzen (Kleinsitzung), V1.0 Wave 1 — self-hosted LiveKit-based video conferencing for
+small meetings, on `feature/video-konferenz-wave1`.** First application (per the concept note):
+Vorstandssitzungen. Own infrastructure on LiveKit rather than an embedded third-party widget or a
+BigBlueButton integration — consistent with this project's "own stack, own data" posture. Backend,
+RPC, persistence, and a functional client UI are complete and live-verified end to end (see
+"Live verification" below); four UI-polish items the wave's own design review flagged as
+non-blocking for a functional first pass remain explicitly open for a follow-up step (see "Still
+open" below) — this wave is deliberately **not** presented as a fully polished screen the way the
+Governance/Accounting UI waves were.
+
+- **Infrastructure** (`deploy/local/` — the first Docker setup in this repository):
+  `livekit/livekit-server:v1.13.5` + `coturn/coturn:4.17.0-alpine` via `docker compose`, with
+  `rtc.node_ip: 127.0.0.1` set explicitly (the load-bearing fix for ICE completing at all from a
+  macOS-host browser through Colima's port forwarding — silently missing this produces a black call
+  with no error) and an explicit 38-byte `keys:` secret instead of `livekit-server --dev` (whose
+  hardcoded 48-bit secret makes this project's already-present `nimbus-jose-jwt` throw
+  `KeyLengthException`). Full recipe, troubleshooting, and a two-profile manual-verification
+  walkthrough: `deploy/local/README.adoc`.
+- **Server-side LiveKit integration, no SDK** — `LiveKitAccessToken` (participant tokens pinned to
+  one room with `roomJoin`/`canPublish`/`canSubscribe`/`canPublishData` only; 60-second
+  server-internal admin tokens with `roomCreate`/`roomAdmin`/`roomList`, minted fresh per Twirp
+  call, never serialized to a DTO) and `LiveKitAdminClient` (a thin Twirp-over-JSON client for the
+  five `RoomService` methods this wave needs, over the already-present `ktor-client-cio` — net new
+  third-party dependency for the entire server side of this wave: **zero**, a deliberate decision
+  against `io.livekit:livekit-server` given this project's own established "only take a JWT
+  dependency you can justify" bar). Wire shapes (snake_case, not the camelCase LiveKit's own docs
+  would suggest) verified against a real running container, not just documentation.
+- **Persistence** — two new tables (`conference_room`, `conference_participation`), modelled in
+  `lapis-server/src/main/kuml/27-conference.kuml.kts` following the established `«Column»`/
+  `fkEntity` idiom. **Operator note, not a silent decision**: both `CREATE TABLE`s were appended to
+  the existing `V1__baseline.sql` in place, per this repository's established convention for every
+  prior schema wave (only one Flyway migration file exists). Editing a baseline changes its Flyway
+  checksum — an already-migrated live instance (`cloud.lapisproject.dev`) needs either
+  `flyway repair` or a genuine `V2__conference.sql` before this wave can be deployed there. That is
+  an operator decision for whoever deploys this wave and is deliberately not made silently by this
+  changelog entry or any implementation step.
+- **RPC** — `IConferenceService` (`getAvailability`/`listActiveRooms`/`getRoom`/`createRoom`/
+  `joinRoom`/`leaveRoom`/`endRoom`/`listParticipants`/`removeParticipant`), two-tier authorization
+  (MODERATOR = room creator, PARTICIPANT = everyone else, with a global BOARD/ADMIN escalation on
+  `endRoom`/`removeParticipant`), room names server-generated as `lc-<uuid4>` (never derived from
+  user text), `createRoom` throttled via the existing `LoginRateLimiter` reused as a generic
+  per-caller throttle (same reuse pattern `Application.kt` already established for OIDC Dynamic
+  Client Registration). **No LiveKit webhook consumer** — deliberate: every client-visible need is
+  already covered by the LiveKit SDK's own `RoomEvent` stream and `endRoom` is synchronous; the one
+  resulting gap (a room whose participants all merely left) is closed by lazy reconciliation inside
+  `listActiveRooms`. Chat is ephemeral by design — it rides the LiveKit data channel only, is never
+  persisted, and carries no GoBD/DSGVO retention obligation as a result.
+- **Client UI** (`ConferenceScreen.kt`) — room list/creation, a responsive video-tile grid (avatar-
+  initials placeholder instead of a black rectangle for camera-off, a dedicated full-width stage for
+  screen-share), a persistent control bar (Mikrofon/Kamera/Bildschirm teilen/Chat/Verlassen) with
+  "Für alle beenden" spatially separated into its own moderator-only row, a live participant roster
+  with a moderator-only "Entfernen" action, and a collapsible ephemeral chat panel — all gated
+  through bespoke confirm modals for the two irreversible moderator actions, matching this project's
+  `BackupScreen.kt`-restore-grade confirm-dialog rigor. `livekit-client` 2.21.0 is the first
+  hand-declared `npm()` dependency in this codebase (`lapis-client/build.gradle.kts`), resolved
+  through the same Kotlin/JS → Yarn → webpack chain KVision's own transitive npm dependencies
+  already exercise.
+- **Chat trust boundary, verified by code, not just by testing the happy path**: a `DataReceived`
+  payload's own `senderMemberId`/`senderDisplayName` fields are attacker-controllable by any room
+  participant (anyone holding a valid join token can publish an arbitrary data-channel payload
+  directly, bypassing this app's own chat-send UI entirely) — `LiveKitRoomSession`'s `DataReceived`
+  handler unconditionally overwrites both fields with the SDK-verified
+  `RemoteParticipant.identity`/`.name` before the message ever reaches `ConferenceScreen.kt`.
+  Rendered via KVision's default escaped `content`, never `rich = true`.
+- **Testing** — hermetic unit/integration coverage for token shape, Twirp wire shape
+  (`ktor-client-mock`, using the real verified fixtures above, not guessed ones), and the full
+  authorization matrix; a new opt-in, env-gated `LiveKitLiveIntegrationTest`
+  (`LAPIS_LIVEKIT_IT=true`, a no-op/skipped everywhere else) that runs a real
+  `CreateRoom -> ListRooms -> DeleteRoom -> ListRooms` round trip against a running container —
+  Testcontainers was deliberately **not** introduced (this repository's ~1300-test suite is
+  hermetic by design; CI runs a bare `./gradlew clean check` with no services). `DomainModelMergerTest`
+  and `PersonalDataCoverageTest` (a `ConferencePersonalData` contributor for the two new
+  `member`-referencing FKs) updated accordingly.
+- **Live verification (2026-08-09)**, against a real running `deploy/local/` stack, two independent
+  browser sessions logged in as two different seeded members: real signaling connects and a real
+  SDP/ICE/DTLS handshake for both participants (proving the Colima `node_ip` fix, not merely that an
+  HTTP call succeeded); a live, real-time roster in both directions; a normal chat message and an
+  XSS-attempt payload (`<script>...</script><img src=x onerror=...>`) both delivered over the real
+  LiveKit data channel and rendered HTML-escaped, never executed; a real moderator kick
+  (`RemoveParticipant`, HTTP 200, real signaling-level disconnect on the kicked side); a direct
+  `endRoom` call fired from the browser console/devtools by a seeded TREASURER account (neither the
+  room's creator nor BOARD/ADMIN) rejected with a real server-side `ForbiddenException` — proving the
+  server, not the client UI, is the authority boundary; and a real moderator "Für alle beenden" with
+  the exact confirm-dialog copy the design review specified. Full detail and the exact
+  reproduction steps: `deploy/local/README.adoc` "Live verification results".
+- **One real bug found during the implementation's own live verification, found again independently
+  and fixed during merge verification**: `ConferenceScreen.kt`'s mic/camera/screen-share toggle
+  buttons used to flip their `micEnabled`/`cameraEnabled`/`screenShareEnabled` flag and button label
+  *before* awaiting the underlying `getUserMedia`-backed `LiveKitRoomSession.setCamera`/
+  `setMicrophone`/`setScreenShare` call's result, without checking whether it actually succeeded — so
+  a user whose browser denied camera/microphone permission saw a false "an" ("on") state with no
+  error surfaced anywhere. Independently reproduced (clicking the camera toggle with `getUserMedia`
+  blocked really did flip the label to "Kamera an") and fixed: all three toggle handlers, plus the
+  initial post-connect auto-publish, now only apply the optimistic state change when the underlying
+  call actually succeeded, reverting to the truthful prior label on failure. See
+  `deploy/local/README.adoc`'s Troubleshooting table for the fix detail. The broader D2 design-review
+  item (a first-class, non-technical permission-preflight interstitial, asked before LiveKit's own
+  device prompt) remains legitimately open for a later polish step.
+- **Still open from the Wave 1 design review, deliberately deferred, not silently dropped**: D1
+  (single-button "Besprechung jetzt starten" instead of today's title-entry form), D2 (the
+  permission-preflight interstitial above), D3 (a speaking-priority reflow above roughly 12
+  participants), and D10 (a fully named, testable client-side connection state machine — today's
+  `ConferenceScreen.kt` only distinguishes "not yet connected" and "ended"). None of these are
+  regressions; all four are named, tracked open items in `ConferenceScreen.kt`'s own file KDoc.
+- **Explicitly out of scope for this wave** (see the concept note and design review for the full
+  list): recording/streaming (LiveKit Egress, RTMP), whiteboard/document sharing, breakout rooms,
+  live subtitles/translation, hand-raise/reactions, a lobby/Warteraum, the full four-tier
+  Moderator/Präsentator/Teilnehmer/Zuhörer role model, E2EE, "Termin → Konferenzraum" integration
+  with the Sitzungen/Gremien module, voting-module integration, and federated guest join
+  (`joinRoom` requires an AKTIV local member; `MemberStatus.GAST` is excluded, same posture as the
+  existing LTR/Crowdfunding/Auktion gates).
+- **Audit-round-1 security fixes (2026-08-09)** — three findings from the wave's first review/
+  security-loop pass, all closed before the wave's own commit step:
+  - **Request-rate throttling beyond `createRoom`** — `joinRoom`/`leaveRoom`/`listActiveRooms`/
+    `getRoom`/`listParticipants` had zero rate limiting (only `createRoom` was throttled), letting a
+    scripted join/leave loop grow `conference_participation` unbounded and hammer the self-hosted
+    LiveKit SFU/coturn relay and the LiveKit Twirp admin API indirectly. Fixed with three new
+    per-member request-rate limiters (`joinRoomRateLimiter`/`leaveRoomRateLimiter`/`listRateLimiter`,
+    reusing `FederationInboxRateLimiter`'s generic sliding-window `checkAndRecord`, deliberately NOT
+    `LoginRateLimiter`'s failure-counting model, which would wrongly penalize legitimate repeated
+    joins/list-refreshes) — see `ConferenceService` KDoc "Request-rate throttling beyond createRoom".
+  - **Short-lived, scoped TURN credentials replacing a static, indefinitely-valid shared secret** —
+    `deploy/local/livekit.yaml`'s `rtc.turn_servers` block used to hand every client the same
+    forever-valid TURN username/password on every connect, independent of room membership or session
+    length (unlike the deliberately TTL-bounded LiveKit participant JWT). Replaced with coturn's
+    `use-auth-secret`/`static-auth-secret` "REST API for Access to TURN Services" scheme:
+    `TurnCredentialMinter.kt` mints a fresh HMAC-SHA1 credential per `joinRoom` call (same TTL as the
+    JWT), returned as `ConferenceJoinTokenDto.turnServers` and passed through to `livekit-client` as
+    `RoomOptions.rtcConfig.iceServers` (`LiveKitRoomSession.connect`) — never baked into static
+    server config again. Live-verified against a real running `deploy/local/` coturn container
+    (`turnutils_uclient`): a minted credential authenticates and allocates a relay address
+    immediately; a tampered or expired one never completes.
+  - **`deploy/local/docker-compose.yml` published ports now bind `127.0.0.1:` explicitly** (was the
+    Docker default `0.0.0.0`, every interface) — combined with `livekit.yaml`'s committed, real
+    LiveKit admin API key/secret, an unrestricted bind would have let anyone reachable on the LAN
+    mint their own LiveKit admin token client-side and call `CreateRoom`/`DeleteRoom`/`ListRooms`/
+    `ListParticipants`/`RemoveParticipant` directly, bypassing every `ConferenceService` authorization
+    check. Loopback-only binding closes this off for local development; the compose file now carries
+    an explicit warning against copying the loopback-bind-plus-committed-secret combination toward a
+    real deployment without changing both.
+
 **Mail-merge/Postal-Dispatch UI wave — admin mailing-list authoring, invoice/receipt/Einladung PDF
 documents, and real Letterxpress postal dispatch, on `feature/mailmerge-ui`. Wave complete — the
 fourth and final wave of the pilots' (PdV, ELB) UI-gap-closure plan, after Governance, Accounting, and

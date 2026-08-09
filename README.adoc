@@ -195,6 +195,104 @@ legal counsel — not something this project can decide once for everyone. See `
 None of this is a secret gap. See the project vault's Lapis Cloud roadmap for the up-to-date wave
 plan.
 
+== Videokonferenzen (V1.0 Wave 1)
+
+A self-hosted video-conferencing module for small meetings (the concept note's "Kleinsitzung" use
+case, first application: Vorstandssitzungen) — own infrastructure on
+https://livekit.io[LiveKit] rather than an embedded third-party widget or a BigBlueButton
+integration, matching this project's "own stack, own data" posture everywhere else. `IConferenceService`
+covers room creation/join/leave/end, a live participant roster, and moderator actions
+(remove a participant, end the room for everyone); the KVision client (`ConferenceScreen.kt`) adds a
+responsive video-tile grid, a persistent control bar (microphone/camera/screen-share/chat/leave), and
+a collapsible ephemeral chat panel riding LiveKit's own data channel. Two-tier roles only in this
+wave: MODERATOR (the room's creator) and PARTICIPANT (everyone else), with a global BOARD/ADMIN
+escalation on the two moderator-only actions — see `IConferenceService` KDoc for the full
+per-method authorization table.
+
+Local development/testing infrastructure (`deploy/local/` — this repository's first Docker setup) and
+a full local-run recipe, including a two-browser manual verification walkthrough and an opt-in live
+integration test, are documented in link:deploy/local/README.adoc[deploy/local/README.adoc].
+
+[kuml, conference-room-lifecycle, svg]
+----
+import dev.kuml.sysml2.dsl.sysml2Model
+
+sysml2Model(name = "ConferenceRoomLifecycle") {
+
+    val initial = stateDef(name = "Initial", isInitial = true)
+    val created = stateDef(
+        name = "Created",
+        entryAction = "LiveKit CreateRoom via server-internal admin token",
+    )
+    val active = stateDef(
+        name = "Active",
+        entryAction = "liveParticipantCount > 0",
+    )
+    val empty = stateDef(
+        name = "Empty",
+        entryAction = "liveParticipantCount == 0, endedAt still NULL",
+        doAction = "waiting out room.empty_timeout grace period",
+    )
+    val ended = stateDef(name = "Ended", isFinal = true, entryAction = "endedAt stamped")
+
+    transition(name = "init", source = initial, target = created)
+    transition(name = "firstJoin", source = created, target = active, trigger = "joinRoom")
+    transition(
+        name = "moderatorEndsCreated", source = created, target = ended,
+        trigger = "endRoom", guard = "moderator or global BOARD/ADMIN",
+    )
+    transition(
+        name = "moderatorEndsActive", source = active, target = ended,
+        trigger = "endRoom", guard = "moderator or global BOARD/ADMIN",
+    )
+    transition(
+        name = "lastLeaves", source = active, target = empty,
+        trigger = "leaveRoom", guard = "no live participants remain",
+    )
+    transition(name = "rejoin", source = empty, target = active, trigger = "joinRoom")
+    transition(
+        name = "moderatorEndsEmpty", source = empty, target = ended,
+        trigger = "endRoom", guard = "moderator or global BOARD/ADMIN",
+    )
+    transition(
+        name = "lazyReconcile", source = empty, target = ended,
+        trigger = "listActiveRooms (any authenticated caller)",
+        guard = "elapsed since empty > empty_timeout AND LiveKit ListRooms no longer knows the room",
+        effect = "stamp endedAt server-side -- no webhook needed for this wave",
+    )
+
+    stmDiagram(name = "Conference Room Lifecycle (Wave 1)") {
+        include(state = initial)
+        include(state = created)
+        include(state = active)
+        include(state = empty)
+        include(state = ended)
+    }
+}
+----
+
+The `Empty -> Ended` "lazy reconcile" transition is deliberate: this wave has no LiveKit webhook
+consumer (every client-visible need is already covered by the LiveKit SDK's own `RoomEvent` stream,
+and `endRoom` is a synchronous call), so a room whose participants all simply left — rather than
+having the moderator explicitly end it — only gets `endedAt` stamped the next time *any* authenticated
+member calls `listActiveRooms` and that reconciliation notices LiveKit no longer lists the room past
+its empty-timeout grace. Exact, event-accurate presence timestamps (and, downstream of that, a
+"Teilnehmerliste = Anwesenheitsliste" attendance integration) are deliberately deferred to a future
+wave that does add webhooks.
+
+**Explicitly out of scope for Wave 1** (see the wave's own KDoc/design-review notes for the full
+list): recording/streaming (LiveKit Egress, RTMP), whiteboard/document sharing, breakout rooms,
+live subtitles/translation, hand-raise/reactions, a lobby/Warteraum, the full four-tier
+Moderator/Präsentator/Teilnehmer/Zuhörer role model, E2EE, "Termin → Konferenzraum" integration with
+the Sitzungen/Gremien module, voting-module integration, federated guest join, and chat persistence
+(chat is intentionally ephemeral — it travels only over the LiveKit data channel and is never
+written to the database, so it carries no GoBD/DSGVO retention obligation). The Wave 1 design
+review additionally flagged D1 (single-button room creation instead of today's title-entry form),
+D2 (a first-class, non-technical camera/microphone permission preflight screen), D3 (a
+speaking-priority reflow above ~12 participants) and D10 (a fully named client-side connection
+state machine) as still-open polish items for the next Videokonferenzen step — not yet built, see
+`ConferenceScreen.kt`'s own file KDoc.
+
 == Documentation Convention
 
 Consistent across all Lapis and kUML projects (see `CLAUDE.md`):

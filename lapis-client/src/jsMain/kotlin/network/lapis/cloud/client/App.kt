@@ -109,6 +109,12 @@ private fun refreshNavbar(navbar: Navbar) {
     // gated INSIDE the screen itself, not via separate nav entries -- see `Routes.POLITICIANS` KDoc
     // for the role-gating verification.
     leftNav.navLink("Politiker", url = "#${Routes.POLITICIANS}")
+    // V1.0 Videokonferenzen (Kleinsitzung), Wave 1: same unconditional `requireAuth`-tier placement
+    // as the rest of this group -- every authenticated AKTIV member can start/join/browse rooms; the
+    // narrower moderator-or-BOARD/ADMIN-only "Für alle beenden" action is gated INSIDE the screen
+    // itself, not via a separate nav entry -- see `Routes.CONFERENCE` KDoc for the role-gating
+    // verification.
+    leftNav.navLink("Videokonferenz", url = "#${Routes.CONFERENCE}")
     // Accounting UI wave, design decision D15: inserted immediately after "Anträge" and before
     // "Mitgliederverwaltung" -- gated on TREASURER/BOARD/ADMIN (the same three roles the LEDGER
     // route itself requires), so a plain MEMBER never even sees this link render.
