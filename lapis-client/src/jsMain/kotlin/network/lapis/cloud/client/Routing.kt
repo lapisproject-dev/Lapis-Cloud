@@ -106,6 +106,87 @@ object Routes {
     // narrower BOARD/ADMIN-only Einladung dispatch (`GOVERNANCE_DISPATCH_ROLES`) is gated inside
     // `MeetingsScreen.kt`'s Einladung section, not at route level.
     const val POSTAL_MAIL = "/postal-mail"
+
+    // LTR-Wirtschaft UI wave, screen 1 of 5 -- "LTR-Konto" (own balance + ledger entries via
+    // `ILtrLedgerService`; both peer-transfer forms via `IPeerTransferService`, folded onto this
+    // screen because that service has no read RPC of its own -- see `LtrLedgerScreen.kt` file
+    // KDoc). Role gate verified against `LtrLedgerService.kt`/`PeerTransferService.kt`: every
+    // method a plain member needs to *reach* this screen at all (`getMyBalance`/`listMyEntries`/
+    // `transferLtr`) only calls `resolveCurrentMember(call)`, no `requireRole` -- this route
+    // therefore uses `requireAuth`, mirroring the Governance UI wave's posture (COMMITTEES/
+    // MEETINGS/MOTIONS above), NOT the Accounting UI wave's route-level `requireRole`. The
+    // narrower TREASURER/BOARD/ADMIN tier (`getMemberBalance`/`listMemberEntries` for a DIFFERENT
+    // member, `mintLtr`, `executeArbitrationTransfer`) is gated inside the screen itself as
+    // `canTreasury`, exactly like [LEDGER]/[COST_CENTERS]/[DONORS]'s in-screen `canManage` split.
+    const val LTR_LEDGER = "/ltr-ledger"
+
+    // LTR-Wirtschaft UI wave, screen 2 of 5 -- "Crowdfunding" (`ICrowdfundingService`, self-contained
+    // domain: project submission, board approve/reject, member Like/Dislike, treasury monthly
+    // distribution). Role gate verified against `CrowdfundingService.kt`: every method a plain
+    // member needs to *reach* this screen at all (`submitProject`/`listProjects`/`getProject`/
+    // `getMyReaction`/`castReaction`/`retractReaction`/`listDistributions`) only calls
+    // `resolveCurrentMember(call)` (`submitProject`/`castReaction`/`retractReaction` additionally
+    // gate on AKTIV membership INSIDE the transaction, not reachable as an `AccountRole` predicate)
+    // -- no `requireRole` call guards any of them. This route therefore uses `requireAuth`, same
+    // posture as [LTR_LEDGER]/the Governance UI wave routes above, NOT the Accounting UI wave's
+    // route-level `requireRole`. The narrower BOARD/ADMIN tier (`approveProject`/`rejectProject`)
+    // and TREASURER/BOARD/ADMIN tier (`computeMonthlyDistribution`) are gated inside the screen
+    // itself as `canBoard`/`canTreasury`, exactly like [LTR_LEDGER]'s in-screen `canTreasury` split.
+    const val CROWDFUNDING = "/crowdfunding"
+
+    // LTR-Wirtschaft UI wave, screen 3 of 5 -- "Auktion" (`IAuctionService`, self-contained domain:
+    // englische Proxy-Bid-Auktion, Sofortkauf, plus its own ADMIN Verwaltung sub-section --
+    // `auctionEnabled`/`auctionMaxValueLtr` live on `IAuctionService` itself, not
+    // `IOrganizationSettingsService`, so they belong here, not on a generic settings screen). Role
+    // gate verified against `AuctionService.kt`: every method a plain member needs to *reach* this
+    // screen at all (`createListing`/`placeBid`/`buyNow`/`getAuction`/`listAuctions`/`listMyBids`/
+    // `listMyAuctions`/`settleAuction`) only calls `resolveCurrentMember(call)`
+    // (`createListing`/`placeBid`/`buyNow`/`settleAuction` additionally gate on AKTIV membership
+    // INSIDE the transaction, not reachable as an `AccountRole` predicate, same reasoning
+    // [LTR_LEDGER]/[CROWDFUNDING] already document) -- no `requireRole` call guards any of them.
+    // This route therefore uses `requireAuth`, same posture as [LTR_LEDGER]/[CROWDFUNDING], NOT the
+    // Accounting UI wave's route-level `requireRole`. The narrower ADMIN-only tier
+    // (`getAuctionComplianceDisclaimer`/`enableAuction`/`disableAuction`/`setAuctionMaxValueLtr`/
+    // `getAuctionSettings`, uniformly `current.requireRole(AccountRole.ADMIN)`) is gated inside the
+    // screen itself as `canAdmin`, exactly like [LTR_LEDGER]'s in-screen `canTreasury` split --
+    // deliberately NOT gated by `auctionEnabled` server-side either (see `IAuctionService` KDoc "The
+    // `auctionEnabled` gate"), since it is the only path an ADMIN has to switch the feature back on.
+    const val AUCTION = "/auction"
+
+    // LTR-Wirtschaft UI wave, screen 4 of 5 -- "Politiker" (`IPoliticianService`, self-contained
+    // domain: politician profiles, member+guest Like/Dislike ranking, BOARD/ADMIN grant/revoke/
+    // mandate-text administration, weight snapshots) plus a small ADMIN-only inline toggle for
+    // `OrganizationSettingsDto.politicianRankingEnabled` (`IOrganizationSettingsService`). Role gate
+    // verified against `PoliticianService.kt`: every method a plain member needs to *reach* this
+    // screen at all (`listPoliticians`/`getPoliticianProfile`/`getTopPoliticians`/`getMyRating`/
+    // `getWeightHistory`/`castRating`/`retractRating`) only calls `resolveCurrentMember(call)`
+    // (`castRating`/`retractRating` additionally gate on AKTIV-OR-GAST membership INSIDE the
+    // transaction, not reachable as an `AccountRole` predicate, same reasoning [LTR_LEDGER]/
+    // [CROWDFUNDING]/[AUCTION] already document) -- no `requireRole` call guards any of them. This
+    // route therefore uses `requireAuth`, same posture as [LTR_LEDGER]/[CROWDFUNDING]/[AUCTION], NOT
+    // the Accounting UI wave's route-level `requireRole`. The narrower BOARD/ADMIN tier
+    // (`grantPoliticianStatus`/`revokePoliticianStatus`/`updateMandateText`/`snapshotWeights`,
+    // uniformly `current.requireRole(BOARD, ADMIN)`) is gated inside the screen itself as
+    // `canBoard`, exactly like [LTR_LEDGER]'s in-screen `canTreasury` split. The inline
+    // `politicianRankingEnabled` toggle uses a THIRD, independent RPC (`IOrganizationSettingsService`)
+    // whose own role gate (TREASURER/BOARD/ADMIN read, ADMIN write) is verified separately -- see
+    // `PoliticianScreen.kt`'s file KDoc "Inline ADMIN-only feature toggle".
+    const val POLITICIANS = "/politicians"
+
+    // LTR-Wirtschaft UI wave, screen 5 of 5 -- "Price-Oracle" (`IPriceOracleService`, kept as its
+    // OWN screen rather than folded into [LTR_LEDGER] -- every method on this interface is
+    // TREASURER/BOARD/ADMIN+, an admin/treasury operational tool, not a member-facing economy
+    // screen; see `PriceOracleScreen.kt` file KDoc). Role gate verified against
+    // `PriceOracleService.kt`: `getOracleConfig`/`previewCurrentPrice`/`convertDonationToLtr` all
+    // call `current.requireRole(*PRICE_ORACLE_TREASURY_ROLES)` (TREASURER, BOARD, ADMIN) --
+    // unlike [LTR_LEDGER]/[CROWDFUNDING]/[AUCTION]/[POLITICIANS] above, this is the Accounting UI
+    // wave's route-level `requireRole` posture, NOT `requireAuth`, because there is no
+    // plain-MEMBER-readable method on this interface at all -- same reasoning as [LEDGER]/
+    // [FINANCIAL_REPORTS]/[COMPLIANCE_REPORTS]/[COST_CENTERS]/[DONORS]/[AUDIT_LOG]/[POSTAL_MAIL].
+    // The narrower `updateOracleConfig` tier (`current.requireRole(AccountRole.ADMIN)`) is gated
+    // inside the screen itself as `canManage`, exactly like [LEDGER]/[COST_CENTERS]/[DONORS]'s
+    // in-screen ADMIN-only write split.
+    const val PRICE_ORACLE = "/price-oracle"
 }
 
 private var appRouting: Routing? = null
@@ -228,6 +309,21 @@ fun initRouting(pageContainer: SimplePanel) {
     }
     routing.kvOn(Routes.POSTAL_MAIL) {
         requireRole(routing, AccountRole.TREASURER, AccountRole.BOARD, AccountRole.ADMIN) { show(::renderPostalMailScreen) }
+    }
+    routing.kvOn(Routes.LTR_LEDGER) {
+        requireAuth(routing) { show(::renderLtrLedgerScreen) }
+    }
+    routing.kvOn(Routes.CROWDFUNDING) {
+        requireAuth(routing) { show(::renderCrowdfundingScreen) }
+    }
+    routing.kvOn(Routes.AUCTION) {
+        requireAuth(routing) { show(::renderAuctionScreen) }
+    }
+    routing.kvOn(Routes.POLITICIANS) {
+        requireAuth(routing) { show(::renderPoliticianScreen) }
+    }
+    routing.kvOn(Routes.PRICE_ORACLE) {
+        requireRole(routing, AccountRole.TREASURER, AccountRole.BOARD, AccountRole.ADMIN) { show(::renderPriceOracleScreen) }
     }
     routing.kvOn("/") {
         routing.navigate(if (AppState.isAuthenticated) Routes.DASHBOARD else Routes.LOGIN)

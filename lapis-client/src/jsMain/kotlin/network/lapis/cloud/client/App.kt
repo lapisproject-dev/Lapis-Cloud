@@ -88,6 +88,27 @@ private fun refreshNavbar(navbar: Navbar) {
     leftNav.navLink("Gremien", url = "#${Routes.COMMITTEES}")
     leftNav.navLink("Sitzungen", url = "#${Routes.MEETINGS}")
     leftNav.navLink("Anträge", url = "#${Routes.MOTIONS}")
+    // LTR-Wirtschaft UI wave: unconditional, alongside the other `requireAuth`-tier links above --
+    // every authenticated member has their own LTR balance/ledger and can send a peer transfer,
+    // see `Routes.LTR_LEDGER` KDoc for the `requireAuth`-at-route verification.
+    leftNav.navLink("LTR-Konto", url = "#${Routes.LTR_LEDGER}")
+    // LTR-Wirtschaft UI wave, screen 2 of 5: same unconditional `requireAuth`-tier placement as
+    // "LTR-Konto" above -- every authenticated member can submit a project, react, and read the
+    // distribution history; see `Routes.CROWDFUNDING` KDoc for the role-gating verification.
+    leftNav.navLink("Crowdfunding", url = "#${Routes.CROWDFUNDING}")
+    // LTR-Wirtschaft UI wave, screen 3 of 5: same unconditional `requireAuth`-tier placement as
+    // "LTR-Konto"/"Crowdfunding" above -- every authenticated member can browse auctions, bid, and
+    // list their own items; the narrower ADMIN-only Verwaltung sub-section (enable/disable, value
+    // cap) is gated INSIDE the screen itself, not via a separate nav entry -- see `Routes.AUCTION`
+    // KDoc for the role-gating verification.
+    leftNav.navLink("Auktion", url = "#${Routes.AUCTION}")
+    // LTR-Wirtschaft UI wave, screen 4 of 5: same unconditional `requireAuth`-tier placement as
+    // "LTR-Konto"/"Crowdfunding"/"Auktion" above -- every authenticated member (and GAST) can browse
+    // politician profiles and rate them; the narrower BOARD/ADMIN-only Verwaltung sub-section
+    // (grant/revoke/mandate text/snapshot) and the ADMIN-only `politicianRankingEnabled` toggle are
+    // gated INSIDE the screen itself, not via separate nav entries -- see `Routes.POLITICIANS` KDoc
+    // for the role-gating verification.
+    leftNav.navLink("Politiker", url = "#${Routes.POLITICIANS}")
     // Accounting UI wave, design decision D15: inserted immediately after "Anträge" and before
     // "Mitgliederverwaltung" -- gated on TREASURER/BOARD/ADMIN (the same three roles the LEDGER
     // route itself requires), so a plain MEMBER never even sees this link render.
@@ -103,6 +124,12 @@ private fun refreshNavbar(navbar: Navbar) {
         // Mail-merge/Postal-Dispatch UI wave: same TREASURER/BOARD/ADMIN tier -- see
         // `Routes.POSTAL_MAIL` KDoc for the `FINANCIAL_DISPATCH_ROLES` verification.
         leftNav.navLink("Postversand", url = "#${Routes.POSTAL_MAIL}")
+        // LTR-Wirtschaft UI wave, screen 5 of 5: same TREASURER/BOARD/ADMIN tier as the rest of
+        // this group -- every `IPriceOracleService` method requires at least this tier, see
+        // `Routes.PRICE_ORACLE` KDoc for the `PRICE_ORACLE_TREASURY_ROLES` verification. The
+        // narrower ADMIN-only config-edit tier is gated INSIDE the screen itself as `canManage`,
+        // not via a separate nav entry.
+        leftNav.navLink("Price-Oracle", url = "#${Routes.PRICE_ORACLE}")
     }
     if (AppState.hasRole(AccountRole.BOARD, AccountRole.ADMIN)) {
         leftNav.navLink("Mitgliederverwaltung", url = "#${Routes.MEMBERS}")

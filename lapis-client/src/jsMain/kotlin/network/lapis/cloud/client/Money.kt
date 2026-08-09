@@ -43,3 +43,36 @@ fun Container.moneySpan(
     span(formatMoney(amount)) {
         if (warnIfNegative && amount.toDouble() < 0.0) addCssClass("text-danger")
     }
+
+/**
+ * LTR-Wirtschaft UI wave -- the LTR-denominated sibling of [formatMoney], design decision D2 (UI/UX
+ * design review: "give LTR its own unmistakable visual identity ... too easy to misread as a
+ * currency amount if someone's skimming" on a screen that also shows EUR, e.g. the Price-Oracle
+ * donation-conversion result or Accounting cross-links). Same "never re-round/re-derive
+ * `Decimal.toString()`" rule as [formatMoney] -- the transform is purely the trailing `" LTR"`
+ * suffix, nothing else.
+ */
+fun formatLtr(amount: Decimal): String = "$amount LTR"
+
+/**
+ * D2: unlike [moneySpan] (plain text), [ltrSpan] renders as a bordered pill with a leading glyph --
+ * reusing `StatusBadge.kt`'s existing `typeBadge` outline-pill grammar (LTR amounts don't
+ * "progress" like a lifecycle status, so the outline-not-filled convention applies) rather than
+ * inventing a new visual component, but adding the `◆` glyph so an LTR figure is never mistakable
+ * for an adjacent [moneySpan] EUR figure at a glance, even with color perception impaired (the
+ * glyph is a second, non-color channel, same WCAG 1.4.1 reasoning `StatusBadge.kt`'s own KDoc
+ * documents for badge color). [warnIfNegative] mirrors [moneySpan]'s: a typed numeric comparison
+ * against `0.0`, never string-inspecting the rendered text, and must only be passed `true` for a
+ * field the underlying DTO documents as "may legitimately be negative" (e.g. a signed
+ * [network.lapis.cloud.shared.domain.LtrLedgerEntryDto.amountLtr] row, never a pure-magnitude
+ * balance).
+ */
+fun Container.ltrSpan(
+    amount: Decimal,
+    warnIfNegative: Boolean = false,
+): Span {
+    val color = if (warnIfNegative && amount.toDouble() < 0.0) "danger" else "primary"
+    return span("◆ ${formatLtr(amount)}") {
+        addCssClasses("badge rounded-pill border border-$color text-$color fw-bold")
+    }
+}

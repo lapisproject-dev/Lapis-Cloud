@@ -50,6 +50,9 @@ fun renderDashboardScreen(container: SimplePanel) {
     navTile(nav, "Gremien", Routes.COMMITTEES)
     navTile(nav, "Sitzungen", Routes.MEETINGS)
     navTile(nav, "Anträge", Routes.MOTIONS)
+    // LTR-Wirtschaft UI wave: same placement/role-gating as the navbar link -- see `App.kt`
+    // `refreshNavbar` / `Routes.LTR_LEDGER` KDoc.
+    navTile(nav, "LTR-Konto", Routes.LTR_LEDGER)
     // Accounting UI wave, design decision D15: same placement/role-gating as the navbar link --
     // see `App.kt` `refreshNavbar`.
     if (AppState.hasRole(AccountRole.TREASURER, AccountRole.BOARD, AccountRole.ADMIN)) {
