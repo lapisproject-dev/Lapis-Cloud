@@ -698,6 +698,133 @@ class ConferenceServiceTest :
             }
         }
 
+        // ── renameRoom (V1.0 Videokonferenzen Wave 4 "Politur", D1) ──────────
+
+        test("renameRoom: the creator can rename an active room") {
+            testApplication {
+                application {
+                    install(StatusPages) { installConferenceExceptionHandlers() }
+                    routing { registerConferenceTestRoutes(FakeLiveKitAdminClient(), LoginRateLimiter(), ENABLED_CONFIG, DISABLED_CONFIG) }
+                }
+                val creator = createTestMember("conf-rename-creator@example.org")
+                val roomId = createRoom(client, creator, "Alter-Titel")
+
+                val response =
+                    client.post("/test/rename-room?roomId=$roomId&title=Neuer-Titel") {
+                        header("X-Member-Id", creator.toString())
+                    }
+                response.status shouldBe HttpStatusCode.OK
+                response.bodyAsText().split("|")[1] shouldBe "Neuer-Titel"
+
+                val persisted =
+                    transaction { ConferenceRoomTable.selectAll().where { ConferenceRoomTable.id eq Uuid.parse(roomId) }.single() }
+                persisted[ConferenceRoomTable.title] shouldBe "Neuer-Titel"
+            }
+        }
+
+        test("renameRoom: a non-creator BOARD/ADMIN member can also rename (privileged escalation)") {
+            testApplication {
+                application {
+                    install(StatusPages) { installConferenceExceptionHandlers() }
+                    routing { registerConferenceTestRoutes(FakeLiveKitAdminClient(), LoginRateLimiter(), ENABLED_CONFIG, DISABLED_CONFIG) }
+                }
+                val creator = createTestMember("conf-rename-privileged-creator@example.org")
+                val roomId = createRoom(client, creator, "Vorstandssitzung")
+
+                client
+                    .post("/test/rename-room?roomId=$roomId&title=Umbenannt-Von-Board") {
+                        header("X-Member-Id", BOARD_ID)
+                    }.status shouldBe HttpStatusCode.OK
+            }
+        }
+
+        test("renameRoom: a plain, non-privileged participant is forbidden") {
+            testApplication {
+                application {
+                    install(StatusPages) { installConferenceExceptionHandlers() }
+                    routing { registerConferenceTestRoutes(FakeLiveKitAdminClient(), LoginRateLimiter(), ENABLED_CONFIG, DISABLED_CONFIG) }
+                }
+                val creator = createTestMember("conf-rename-forbidden-creator@example.org")
+                val other = createTestMember("conf-rename-forbidden-other@example.org")
+                val roomId = createRoom(client, creator, "Fremde-Besprechung")
+                client.post("/test/join-room?roomId=$roomId") { header("X-Member-Id", other.toString()) }
+
+                client
+                    .post("/test/rename-room?roomId=$roomId&title=Uebernommen") {
+                        header("X-Member-Id", other.toString())
+                    }.status shouldBe HttpStatusCode.Forbidden
+            }
+        }
+
+        test("renameRoom: blank or over-length titles are rejected as BadRequest") {
+            testApplication {
+                application {
+                    install(StatusPages) { installConferenceExceptionHandlers() }
+                    routing { registerConferenceTestRoutes(FakeLiveKitAdminClient(), LoginRateLimiter(), ENABLED_CONFIG, DISABLED_CONFIG) }
+                }
+                val creator = createTestMember("conf-rename-invalid@example.org")
+                val roomId = createRoom(client, creator, "Gueltiger-Titel")
+
+                client
+                    .post("/test/rename-room?roomId=$roomId&title=%20%20") {
+                        header("X-Member-Id", creator.toString())
+                    }.status shouldBe HttpStatusCode.BadRequest
+
+                val tooLong = "x".repeat(201)
+                client
+                    .post("/test/rename-room?roomId=$roomId&title=$tooLong") {
+                        header("X-Member-Id", creator.toString())
+                    }.status shouldBe HttpStatusCode.BadRequest
+            }
+        }
+
+        test("renameRoom: an already-ended room is rejected as Conflict") {
+            testApplication {
+                application {
+                    install(StatusPages) { installConferenceExceptionHandlers() }
+                    routing { registerConferenceTestRoutes(FakeLiveKitAdminClient(), LoginRateLimiter(), ENABLED_CONFIG, DISABLED_CONFIG) }
+                }
+                val creator = createTestMember("conf-rename-ended@example.org")
+                val roomId = createRoom(client, creator, "Wird-Beendet")
+                client.post("/test/end-room?roomId=$roomId") { header("X-Member-Id", creator.toString()) }
+
+                client
+                    .post("/test/rename-room?roomId=$roomId&title=Zu-Spaet") {
+                        header("X-Member-Id", creator.toString())
+                    }.status shouldBe HttpStatusCode.Conflict
+            }
+        }
+
+        test("renameRoom: a nonexistent room is rejected as NotFound") {
+            testApplication {
+                application {
+                    install(StatusPages) { installConferenceExceptionHandlers() }
+                    routing { registerConferenceTestRoutes(FakeLiveKitAdminClient(), LoginRateLimiter(), ENABLED_CONFIG, DISABLED_CONFIG) }
+                }
+                val creator = createTestMember("conf-rename-missing@example.org")
+
+                client
+                    .post("/test/rename-room?roomId=${Uuid.random()}&title=Egal") {
+                        header("X-Member-Id", creator.toString())
+                    }.status shouldBe HttpStatusCode.NotFound
+            }
+        }
+
+        test("renameRoom: rejected with Conflict once the (disabled) feature gate is unconfigured") {
+            testApplication {
+                application {
+                    install(StatusPages) { installConferenceExceptionHandlers() }
+                    routing { registerConferenceTestRoutes(FakeLiveKitAdminClient(), LoginRateLimiter(), DISABLED_CONFIG, DISABLED_CONFIG) }
+                }
+                val creator = createTestMember("conf-rename-unconfigured@example.org")
+
+                client
+                    .post("/test/rename-room?roomId=${Uuid.random()}&title=Egal") {
+                        header("X-Member-Id", creator.toString())
+                    }.status shouldBe HttpStatusCode.Conflict
+            }
+        }
+
         // ── listActiveRooms / getRoom reconciliation ─────────────────────────
 
         test(
@@ -991,6 +1118,12 @@ private fun Route.registerConferenceTestRoutes(
         val q = call.request.queryParameters
         service.removeParticipant(q["roomId"]!!, q["memberId"]!!)
         call.respondText("ok")
+    }
+    post("/test/rename-room") {
+        val service = service(call, enabledConfig)
+        val q = call.request.queryParameters
+        val dto = service.renameRoom(q["roomId"]!!, q["title"]!!)
+        call.respondText(dto.toPipeString())
     }
 }
 

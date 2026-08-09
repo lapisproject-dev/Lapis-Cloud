@@ -383,4 +383,25 @@ class ConferenceScreenTest {
     fun conferenceFindRecordingById_emptyList_returnsNull() {
         assertEquals(null, conferenceFindRecordingById(emptyList(), "rec-1"))
     }
+
+    // ---------------------------------------------------------------------------------------
+    // Wave 4 "Politur", D1 -- conferenceDefaultRoomTitle, the single-button flow's auto-generated
+    // default title (German date order, zero-padded).
+    // ---------------------------------------------------------------------------------------
+
+    @Test
+    fun conferenceDefaultRoomTitle_formatsGermanDateAndZeroPaddedTime() {
+        assertEquals(
+            "Besprechung vom 09.08.2026, 14:05",
+            conferenceDefaultRoomTitle(LocalDateTime(2026, 8, 9, 14, 5)),
+        )
+    }
+
+    @Test
+    fun conferenceDefaultRoomTitle_zeroPadsSingleDigitDayMonthHourMinute() {
+        assertEquals(
+            "Besprechung vom 01.01.2026, 09:03",
+            conferenceDefaultRoomTitle(LocalDateTime(2026, 1, 1, 9, 3)),
+        )
+    }
 }

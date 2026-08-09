@@ -20,8 +20,10 @@ import kotlin.js.Promise
  * this codebase (see `build.gradle.kts` KDoc on the `npm("livekit-client", "2.21.0")` line).
  *
  * **Deliberately minimal.** No `Track.Source` enum, no `ConnectionState`, no `RoomConnectOptions`,
- * no `VideoPresets`, no `ActiveSpeakersChanged` (that belongs to the design review's D3
- * speaking-priority reflow for 13-25 participants -- a later, polish-pass step, not this one).
+ * no `VideoPresets`. [RoomEvent.ActiveSpeakersChanged]/[ActiveSpeaker] (V1.0 Videokonferenzen Wave 4
+ * "Politur", D3 speaking-priority reflow for 13-25 participants) is the ONE addition since Wave 1 --
+ * [ActiveSpeaker] deliberately exposes ONLY `identity`, no `audioLevel` or other telemetry, since
+ * `ConferenceScreen.kt`'s grid-reflow partition needs nothing else (see that file's own KDoc "D3").
  * `"screen_share"` is discriminated by string-comparing [TrackPublication.source] to that literal
  * client-side (see `ConferenceScreen.kt`), never a dedicated enum type here. [Room.isRecording]/
  * [RoomEvent.RecordingStatusChanged] (Wave 2 "Aufzeichnung") are the ONE exception to "no
@@ -135,6 +137,12 @@ external interface TrackPublication {
     val source: String // "camera" | "microphone" | "screen_share" | ...
 }
 
+/** V1.0 Videokonferenzen Wave 4 "Politur", D3 -- see [Room] class KDoc "Deliberately minimal" for why
+ * this carries ONLY [identity]. */
+external interface ActiveSpeaker {
+    val identity: String
+}
+
 external object RoomEvent {
     val Connected: String
     val Disconnected: String
@@ -154,4 +162,9 @@ external object RoomEvent {
      * listener's first parameter and ignores the other three, same "extra Kotlin lambda parameters
      * simply bind to `undefined`" pattern already used there for zero/one-argument JS events. */
     val RecordingStatusChanged: String
+
+    /** V1.0 Videokonferenzen Wave 4 "Politur", D3 -- fires with a single JS array argument
+     * (`(speakers: Array<Participant>) => void`), each element carrying at least `.identity`. See
+     * `ConferenceScreen.kt`'s own KDoc "D3" for the speaking-priority reflow this feeds. */
+    val ActiveSpeakersChanged: String
 }

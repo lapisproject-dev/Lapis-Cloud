@@ -21,6 +21,9 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.datetime.LocalDateTime
+import kotlinx.datetime.TimeZone
+import kotlinx.datetime.number
+import kotlinx.datetime.toLocalDateTime
 import network.lapis.cloud.client.livekit.LiveKitRoomSession
 import network.lapis.cloud.client.livekit.Track
 import network.lapis.cloud.shared.domain.AccountRole
@@ -57,16 +60,9 @@ import kotlin.time.Clock
  * `network.lapis.cloud.client.livekit.LiveKitRoomSession` for the LiveKit interop this screen drives.
  *
  * **Still open from the Wave 1 design review** (root `CLAUDE.md` "UI/UX-Design-Team", decisions
- * D1-D11) -- this step builds out the IN-CALL view, not the lobby/pre-flight: D1's single-button
- * no-form creation flow ([renderLobby] below still asks for a title), D2's first-class camera/
- * microphone permission interstitial (device errors currently surface as a plain `guarded {}` toast,
- * see [enterCall]), D3's speaking-priority reflow for 13-25 participants (needs
- * `RoomEvent.ActiveSpeakersChanged`, not present in `LiveKitJs.kt`'s deliberately minimal external
- * surface), and D10's fully named `Idle -> RequestingMedia -> Connecting -> Connected -> Reconnecting
- * -> Disconnected/Ended` state machine (this step only distinguishes "not yet connected" and "ended",
- * see [enterCall]'s `guarded { session.connect(...) }` call -- `Reconnecting` has no event source yet,
- * since `RoomEvent.Reconnecting`/`.Reconnected` are not wired into `LiveKitRoomSession`'s callback
- * constructor). Each remains open work for a later step of this wave.
+ * D1-D11) -- D1/D3/D10 are CLOSED as of Wave 4 "Politur" below; the ONE item still open is D2's
+ * first-class camera/microphone permission interstitial (device errors still surface as a plain
+ * `guarded {}` toast, see [enterCall]) -- deferred again, not in this wave's scope.
  *
  * **Per-tile mic/camera state is an honest approximation, not an exact LiveKit mute signal**: this
  * step infers "muted"/"camera off" purely from whether a subscribed audio/video track currently
@@ -241,6 +237,49 @@ import kotlin.time.Clock
  * [IConferenceStreamingService.listStreamTargets]) carries no such fields at all; see
  * `ConferenceStreamDestinationsScreen.kt` for the ADMIN-only credential CRUD surface, which is a
  * completely separate screen/route.
+ *
+ * ## V1.0 Videokonferenzen (Kleinsitzung), Wave 4 "Politur" -- closes D1/D3/D10 from the Wave 1
+ * design review
+ *
+ * Closes three items deliberately deferred during Wave 1's mandatory UI/UX-Design-Team review (root
+ * `CLAUDE.md`), per that wave's own review document conditional-go verdict:
+ *
+ * - **D1 -- single-button "Besprechung jetzt starten".** [renderLobby] no longer asks for a title
+ *   up front -- [conferenceDefaultRoomTitle] generates a sensible German date/time default
+ *   (`"Besprechung vom DD.MM.YYYY, HH:MM"`), the single button chains `createRoom` -> `joinRoom` ->
+ *   [enterCall] in one click, and a moderator-only inline "Bearbeiten" affordance in the in-call
+ *   header (not a modal -- renaming is trivially reversible, unlike every OTHER `Modal(...)` in this
+ *   file) lets the title be fixed up afterward via the new
+ *   [network.lapis.cloud.shared.rpc.IConferenceService.renameRoom] RPC. `baseDocumentTitle` (captured
+ *   once at the top of [enterCall]) had to become a `var` so a mid-call rename immediately propagates
+ *   into the "● "-prefixed backgrounded-tab title [updateStatusBadgesAndTitle] renders.
+ * - **D3 -- speaking-priority grid reflow above [CONFERENCE_GRID_REFLOW_THRESHOLD] (12) participants.**
+ *   [conferenceGridLayout] is the pure partition (join-order priority zone, capped at
+ *   [CONFERENCE_PRIORITY_ZONE_MAX], overflow + everyone else in a compact filmstrip). The DOM side
+ *   (`applyConferenceGridReflow` inside [enterCall]) re-parents existing tile elements between two
+ *   zone containers built ONCE (same "grab once, mutate forever" raw-DOM discipline this file already
+ *   documents for `gridElement`/`stageElement`) -- never recreated. **Reflow cadence is deliberately
+ *   decoupled from raw `RoomEvent.ActiveSpeakersChanged` pushes**: those pushes only update a
+ *   `lastSpokeAtMs` timestamp map; a periodic ~2s sweep (mirroring `pollInFlightRecordingStatus`'s own
+ *   shape) is the SOLE trigger that actually calls the reflow -- LiveKit's speaker-change events fire
+ *   on sub-second speaking-level transitions, and reflowing the grid on every one of them would
+ *   produce a strobing, unusable layout at 25-person scale, exactly the failure mode D3 exists to
+ *   prevent. Below the threshold, the layout is byte-for-byte Wave 1's original single flat grid --
+ *   the priority zone's CSS is reset to the original `minmax(200px, 1fr)` rule, never left at the
+ *   larger priority-tile size.
+ * - **D10 -- named connection-state machine.** [ConferenceConnectionState] (`Disconnected`/
+ *   `Connecting`/`Connected`/`Reconnecting`/`Failed`/`Ended`) replaces the Wave 1-3 ad-hoc `leftCall`
+ *   boolean entirely (zero remaining references) -- [conferenceConnectionReduce] is the ONE place a
+ *   transition happens, unlisted (state, event) pairs are ignored (return the same state) rather than
+ *   throwing, and `Ended` is terminal. `renderConnectionState` (inside [enterCall]) is what makes this
+ *   an ACTUALLY UI-driving state machine, not just an internal label: it disables
+ *   `micButton`/`cameraButton`/`screenShareButton`/`chatSendButton` while not `Connected`, and shows a
+ *   calm, non-alarming "Verbindung unterbrochen -- wird automatisch neu verbunden …" status line while
+ *   `Reconnecting` (LiveKit's own `RoomEvent.Reconnecting`/`.Reconnected`, now wired into
+ *   `LiveKitRoomSession`). **Security-relevant**: a forcibly-terminated/kicked session (server-side
+ *   `endRoom`/`removeParticipant`) reaches `Ended` from BOTH `Connected` and `Reconnecting` via the
+ *   same `onDisconnected -> DisconnectedSignal` path Wave 1-3 already had -- there is no reachable
+ *   state where the UI still shows "connected" after the server has actually closed the room.
  */
 fun renderConferenceScreen(container: SimplePanel) {
     val root =
@@ -310,10 +349,10 @@ private fun renderLobby(
     lobbyPanel.removeAll()
     lobbyPanel.show()
 
-    lobbyPanel.h2("Neue Besprechung starten")
-    val createPanel = lobbyPanel.vPanel(spacing = 6)
-    val titleInput = createPanel.text(label = "Titel (optional)")
-    val createButton = createPanel.button("Besprechung erstellen", style = ButtonStyle.PRIMARY)
+    // Wave 4 "Politur", D1: single-button "start now" flow -- no title-entry form for the common,
+    // spontaneous case. See file KDoc "Wave 4 -- D1".
+    lobbyPanel.h2("Neue Besprechung")
+    val startButton = lobbyPanel.button("Besprechung jetzt starten", style = ButtonStyle.PRIMARY)
 
     lobbyPanel.h2("Aktive Besprechungen")
     val refreshRow = lobbyPanel.hPanel(spacing = 8) { addCssClasses("align-items-center") }
@@ -343,27 +382,45 @@ private fun renderLobby(
         }
     }
 
-    refreshButton.onClick {
+    // Reused by BOTH the room-card join flow (unchanged behaviour) and the new single button below
+    // -- one place, not duplicated at each call site.
+    val refreshLobby: () -> Unit = {
         loadRooms()
         renderConferenceRecordingsPanel(recordingsSection)
     }
+
+    refreshButton.onClick { refreshLobby() }
     renderConferenceRecordingsPanel(recordingsSection)
 
-    createButton.onClick {
-        val title =
-            titleInput.value
-                .orEmpty()
-                .trim()
-                .ifBlank { "Besprechung" }
-        createButton.disabled = true
+    // D1: create -> join -> enterCall in one click. Uses the exact SAME two, already-authorization-
+    // gated RPC calls the old form-based flow used (createRoom/joinRoom, both server-side
+    // requireActiveMembership-gated, see IConferenceService KDoc) -- no new, weaker RPC surface.
+    startButton.onClick {
+        startButton.disabled = true
+        startButton.text = "Wird gestartet …"
         AppScope.launch {
-            val result = guarded { rpcService<IConferenceService>().createRoom(ConferenceRoomInput(title = title)) }
-            createButton.disabled = false
-            if (result != null) {
-                notifySuccess("Besprechung \"${result.title}\" erstellt.")
-                titleInput.value = null
-                loadRooms()
+            val now = Clock.System.now().toLocalDateTime(TimeZone.currentSystemDefault())
+            val room =
+                guarded {
+                    rpcService<IConferenceService>().createRoom(ConferenceRoomInput(title = conferenceDefaultRoomTitle(now)))
+                }
+            if (room == null) {
+                startButton.disabled = false
+                startButton.text = "Besprechung jetzt starten"
+                return@launch
             }
+            // The room now exists and is visible in "Aktive Besprechungen" regardless of what
+            // joinRoom does next -- Norman: visible system status, recoverable if the next step
+            // fails (see file KDoc "Wave 4 -- D1").
+            refreshLobby()
+            val token = guarded { rpcService<IConferenceService>().joinRoom(room.id) }
+            startButton.disabled = false
+            startButton.text = "Besprechung jetzt starten"
+            if (token != null) {
+                enterCall(room, token, lobbyPanel, callPanel, setActiveSession, refreshLobby)
+            }
+            // else: guarded {} already toasted the error; the room stays in the already-refreshed
+            // list for a manual "Beitreten" retry -- never silently lost.
         }
     }
 
@@ -418,6 +475,20 @@ private class ConferenceTileEntry(
     var hasMic: Boolean = false,
 )
 
+/** Wave 4, D3 -- which zone a tile's DOM styling currently reflects. [FLAT] is the <= threshold,
+ * unreflowed case (byte-for-byte Wave 1-3 sizing); [PRIORITY_REFLOWED]/[COMPACT] are the two zones
+ * once reflowed. See [enterCall]'s `setTileZoneStyle`. */
+private enum class ConferenceTileZone { FLAT, PRIORITY_REFLOWED, COMPACT }
+
+/** Wave 4, D3 -- the concrete pixel/padding values [enterCall]'s `setTileZoneStyle` applies per
+ * [ConferenceTileZone], per the design review's own "Decided" sizing table. */
+private data class ConferenceTileZoneStyle(
+    val minHeightPx: Int,
+    val initialsFontPx: Int,
+    val badgeFontPx: Int,
+    val badgePadding: String,
+)
+
 private fun enterCall(
     room: ConferenceRoomDto,
     joinToken: ConferenceJoinTokenDto,
@@ -431,8 +502,9 @@ private fun enterCall(
     callPanel.show()
 
     // Wave 2 "Aufzeichnung": captured BEFORE anything can prefix it, restored on every path back to
-    // the Lobby -- see file KDoc "`document.title` prefix".
-    val baseDocumentTitle = document.title
+    // the Lobby -- see file KDoc "`document.title` prefix". Wave 4, D1: now a `var` -- a mid-call
+    // rename ([titleEditButton] below) must update the base the "● " prefix builds on top of.
+    var baseDocumentTitle = document.title
 
     val localMemberId = AppState.session?.memberId
     // D-item "moderator-only actions": a UX nicety over the server's own re-checked authority (see
@@ -455,18 +527,41 @@ private fun enterCall(
     val tiles = LinkedHashMap<String, ConferenceTileEntry>()
     var gridElement: HTMLElement? = null
     var stageElement: HTMLElement? = null
+    // Wave 4, D3: the two grid sub-containers -- created ONCE inside `gridDiv`'s own
+    // `addAfterInsertHook` (see below), never recreated by `applyConferenceGridReflow`, same
+    // "grab once, mutate forever" discipline as `gridElement`/`stageElement` themselves.
+    var priorityZoneElement: HTMLElement? = null
+    var compactZoneElement: HTMLElement? = null
+    // Wave 4, D3: last time (epoch ms) each identity was reported as an active speaker -- updated on
+    // EVERY `onActiveSpeakersChanged` push, but deliberately never itself triggers a reflow (see file
+    // KDoc "D3" for why the periodic sweep, not this map's mutation, is the sole trigger).
+    val lastSpokeAtMs = mutableMapOf<String, Long>()
     var activeScreenShare: Pair<String, Track>? = null
-    var leftCall = false
+    // Wave 4, D10: replaces the Wave 1-3 ad-hoc `leftCall` boolean entirely -- see file KDoc "D10"
+    // and [ConferenceConnectionState]/[conferenceConnectionReduce].
+    var connectionState: ConferenceConnectionState = ConferenceConnectionState.Disconnected
     var micEnabled = true
     var cameraEnabled = true
     var screenShareEnabled = false
     var chatOpen = false
     var unreadChatCount = 0
 
-    callPanel.h2(room.title)
+    // --- Title row + Wave 4 D1 inline rename (moderator-only) -------------------------------------
+    // Container created HERE for correct DOM position (must render above the control bar); its
+    // actual content is filled in further below by [renderTitleViewMode], once
+    // [updateStatusBadgesAndTitle] exists for the rename's own document.title refresh -- see that
+    // call site's own comment for why this two-step split is deliberate, not an oversight.
+    var roomTitle = room.title
+    val titleRow = callPanel.hPanel(spacing = 8) { addCssClasses("align-items-center flex-wrap") }
     callPanel.div(
         if (canModerate) "Sie sind Moderator dieser Besprechung." else "Sie nehmen als Teilnehmer teil.",
     ) { addCssClasses("text-muted small") }
+
+    // Wave 4, D10: a calm, non-alarming status line for Connecting/Reconnecting -- see
+    // [renderConnectionState] (declared further below, once every button it disables/enables
+    // exists) and file KDoc "D10".
+    val connectionStatusLine = callPanel.div { addCssClasses("text-muted small") }
+    connectionStatusLine.hide()
 
     // --- Control bar (persistent, D5: never hover-only) -----------------------------------------
     val controlsRow = callPanel.hPanel(spacing = 8) { addCssClasses("align-items-center flex-wrap") }
@@ -593,6 +688,74 @@ private fun enterCall(
         }
         document.title = conferenceMediaDocumentTitle(baseDocumentTitle, activeRecordingDto != null, activeStreamDto != null)
     }
+
+    // Wave 4, D1 -- inline rename in the in-call header, moderator-only. Placed HERE (not right next
+    // to [titleRow]'s own creation above) because [submitRename] needs [updateStatusBadgesAndTitle]
+    // already declared, so a successful rename can refresh the "● "-prefixed background-tab title
+    // immediately -- see file KDoc "D1" and [baseDocumentTitle]'s own `var` comment. No modal:
+    // renaming is trivially reversible, unlike every other `Modal(...)` in this file.
+    //
+    // `renderTitleViewMode`/`renderTitleEditMode` call each other (mutual recursion), which plain
+    // sequential local `fun` declarations cannot express in either order -- one direction always
+    // forward-references the other. `showTitleEditMode` is the indirection that breaks the cycle:
+    // assigned once, right after `renderTitleEditMode` is declared, below.
+    lateinit var showTitleEditMode: () -> Unit
+
+    fun renderTitleViewMode() {
+        titleRow.removeAll()
+        titleRow.h2(roomTitle)
+        if (canModerate) {
+            val editButton = titleRow.button("Bearbeiten", style = ButtonStyle.OUTLINESECONDARY)
+            editButton.addCssClass("btn-sm")
+            editButton.onClick { showTitleEditMode() }
+        }
+    }
+
+    fun renderTitleEditMode() {
+        titleRow.removeAll()
+        val editInput = titleRow.text(value = roomTitle) { addCssClasses("flex-grow-1") }
+        val saveButton = titleRow.button("Speichern", style = ButtonStyle.PRIMARY)
+        val cancelButton = titleRow.button("Abbrechen", style = ButtonStyle.SECONDARY)
+        cancelButton.onClick { renderTitleViewMode() }
+
+        fun submitRename() {
+            val newTitle = editInput.value.orEmpty().trim()
+            if (newTitle.isBlank() || newTitle.length > MAX_ROOM_TITLE_LENGTH_CLIENT) {
+                notifyError("Titel darf nicht leer sein und höchstens $MAX_ROOM_TITLE_LENGTH_CLIENT Zeichen haben.")
+                return
+            }
+            saveButton.disabled = true
+            AppScope.launch {
+                val result = guarded { rpcService<IConferenceService>().renameRoom(room.id, newTitle) }
+                saveButton.disabled = false
+                // Rule: only update UI state once the guarded {} call's result confirms success --
+                // never optimistically before the RPC resolves.
+                if (result != null) {
+                    roomTitle = result.title
+                    baseDocumentTitle = roomTitle
+                    updateStatusBadgesAndTitle()
+                    renderTitleViewMode()
+                }
+            }
+        }
+        saveButton.onClick { submitRename() }
+        // Should-fix, non-blocking per the design review: Enter-key submit + autofocus -- same raw-DOM
+        // discipline `chatRow`'s own Enter-to-send hook already uses further below in this function.
+        editInput.addAfterInsertHook { vnode ->
+            val root = vnode.elm as? HTMLElement
+            val inputElement = (root as? HTMLInputElement) ?: root?.querySelector("input") as? HTMLInputElement
+            inputElement?.focus()
+            inputElement?.addEventListener("keydown", { event ->
+                val keyEvent = event as? KeyboardEvent
+                if (keyEvent?.key == "Enter") {
+                    keyEvent.preventDefault()
+                    submitRename()
+                }
+            })
+        }
+    }
+    showTitleEditMode = ::renderTitleEditMode
+    renderTitleViewMode()
 
     fun updateRecordingDetailLine() {
         val active = activeRecordingDto
@@ -1062,8 +1225,9 @@ private fun enterCall(
      * server-side poller's own default tick is 10s, see `ConferenceRecordingConfig
      * .DEFAULT_POLL_INTERVAL_SECONDS`, so polling much slower than that would just add needless
      * extra latency on top of it). Runs for the coroutine's own un-cancelled lifetime (same posture
-     * as every other `AppScope.launch` in this function) but self-terminates the moment `leftCall`
-     * flips, on any exit path (Verlassen, Für alle beenden, `onDisconnected`).
+     * as every other `AppScope.launch` in this function) but self-terminates the moment
+     * `connectionState` reaches [ConferenceConnectionState.Ended] (Wave 4, D10 -- replaces the Wave
+     * 1-3 `leftCall` boolean), on any exit path (Verlassen, Für alle beenden, `onDisconnected`).
      *
      * Known residual gap, not closed by this fix: `listRecordings`' access-level filter
      * (`ConferenceRecordingAccess.mayAccess`) can hide a recording from a moderator who is neither
@@ -1074,9 +1238,9 @@ private fun enterCall(
      * posture the rest of this wave's disclosed gaps already follow.
      */
     suspend fun pollInFlightRecordingStatus() {
-        while (!leftCall) {
+        while (connectionState !is ConferenceConnectionState.Ended) {
             delay(CONFERENCE_RECORDING_POLL_INTERVAL_MS)
-            if (leftCall) break
+            if (connectionState is ConferenceConnectionState.Ended) break
             val stalled = activeRecordingDto?.takeIf { conferenceRecordingNeedsPoll(it.status) } ?: continue
             val resolved =
                 try {
@@ -1131,12 +1295,13 @@ private fun enterCall(
      * transparency guarantee for whoever is watching, not a moderator-only convenience) --
      * unconditionally launched below, same as [pollInFlightRecordingStatus]. Deliberately NOT run
      * through `guarded {}` for the same reason that function documents (a transient network hiccup
-     * must not re-toast on every tick); self-terminates on `leftCall`, same lifecycle.
+     * must not re-toast on every tick); self-terminates once `connectionState` reaches
+     * [ConferenceConnectionState.Ended] (Wave 4, D10), same lifecycle.
      */
     suspend fun pollInFlightStreamStatus() {
-        while (!leftCall) {
+        while (connectionState !is ConferenceConnectionState.Ended) {
             delay(CONFERENCE_STREAM_POLL_INTERVAL_MS)
-            if (leftCall) break
+            if (connectionState is ConferenceConnectionState.Ended) break
             val current = activeStreamDto?.takeIf { conferenceStreamNeedsPoll(it) } ?: continue
             val refreshed =
                 try {
@@ -1196,13 +1361,109 @@ private fun enterCall(
             maxHeight = 480.px
             overflow = Overflow.AUTO
         }
+    // Wave 4, D3: `gridElement` now holds TWO sub-containers, built ONCE here (never recreated by
+    // `applyConferenceGridReflow` below -- same "grab once, mutate forever" discipline this file
+    // already documents for `gridElement`/`stageElement` themselves, see [enterCall] KDoc). Below the
+    // reflow threshold, `priorityZoneElement` alone renders every tile in the ORIGINAL
+    // `minmax(200px, 1fr)` flat grid -- byte-for-byte Wave 1-3 behaviour -- and `compactZoneElement`
+    // stays empty/hidden.
+    var compactLabelElement: HTMLElement? = null
     gridDiv.addAfterInsertHook { vnode ->
-        gridElement =
-            (vnode.elm as? HTMLElement)?.also {
-                it.style.cssText +=
-                    "display:grid;grid-template-columns:repeat(auto-fit, minmax(200px, 1fr));gap:8px;"
-            }
+        val root = (vnode.elm as? HTMLElement) ?: return@addAfterInsertHook
+        gridElement = root
+        val priority = document.createElement("div") as HTMLElement
+        priority.style.cssText = "display:grid;grid-template-columns:repeat(auto-fit, minmax(200px, 1fr));gap:8px;"
+        root.appendChild(priority)
+        priorityZoneElement = priority
+
+        val compactLabel = document.createElement("div") as HTMLElement
+        compactLabel.style.cssText = "font-size:12px;color:#666;margin-top:8px;display:none;"
+        root.appendChild(compactLabel)
+        compactLabelElement = compactLabel
+
+        val compact = document.createElement("div") as HTMLElement
+        compact.style.cssText = "display:flex;overflow-x:auto;overflow-y:hidden;gap:8px;margin-top:4px;display:none;"
+        root.appendChild(compact)
+        compactZoneElement = compact
     }
+
+    // Wave 4, D3 -- speaking-priority zone/local identity, union computed here so the pure
+    // [conferenceGridLayout] partition itself stays a plain set-membership function, no
+    // time/local-participant special-casing inside it (see that function's own KDoc).
+    fun currentPriorityIdentities(): Set<String> {
+        val now = Clock.System.now().toEpochMilliseconds()
+        return lastSpokeAtMs.filterValues { now - it <= CONFERENCE_SPEAKING_PRIORITY_WINDOW_MS }.keys + joinToken.identity
+    }
+
+    fun setTileZoneStyle(
+        entry: ConferenceTileEntry,
+        zone: ConferenceTileZone,
+    ) {
+        val (minHeightPx, initialsFontPx, badgeFontPx, badgePadding) =
+            when (zone) {
+                ConferenceTileZone.COMPACT -> ConferenceTileZoneStyle(82, 16, 10, "1px 4px")
+                ConferenceTileZone.PRIORITY_REFLOWED -> ConferenceTileZoneStyle(195, 28, 12, "2px 6px")
+                ConferenceTileZone.FLAT -> ConferenceTileZoneStyle(150, 28, 12, "2px 6px")
+            }
+        entry.element.style.setProperty("min-height", "${minHeightPx}px")
+        entry.mediaSlot.style.setProperty("font-size", "${initialsFontPx}px")
+        entry.nameBadge.style.setProperty("font-size", "${badgeFontPx}px")
+        entry.nameBadge.style.setProperty("padding", badgePadding)
+        // micBadge (D3 decided scope): no compact-specific treatment -- its existing 11px/2px-5px
+        // sizing is already small enough at the 110px compact tile width, see file KDoc "D3".
+    }
+
+    /**
+     * Wave 4, D3 -- the ONE place tiles are actually re-parented/restyled. Re-parenting an EXISTING
+     * node moves it (no clone/recreate, no video/audio interruption) -- guarded by a `parentNode`
+     * check so a tile already in its correct zone is left untouched on every sweep tick (repeated
+     * `appendChild` on an already-correctly-placed `<video>`/`<audio>` element risks a real playback
+     * hiccup in some browsers, not just wasted work). Called from [ensureTile]/[removeTile] (so a
+     * join/leave immediately reflows) and from the periodic sweep below -- NEVER directly from the
+     * raw `onActiveSpeakersChanged` push (see file KDoc "D3" for why that would strobe the grid).
+     */
+    fun applyConferenceGridReflow() {
+        val priority = priorityZoneElement ?: return
+        val compact = compactZoneElement ?: return
+        val label = compactLabelElement ?: return
+        val layout = conferenceGridLayout(tiles.keys.toList(), currentPriorityIdentities())
+        if (layout.reflowed) {
+            priority.style.setProperty("grid-template-columns", "repeat(auto-fit, minmax(260px, 1fr))")
+            compact.style.setProperty("display", "flex")
+            label.style.setProperty("display", "block")
+            label.textContent = "Weitere Teilnehmende (${layout.compactIdentities.size})"
+        } else {
+            // Required change 2 (design review): the <= threshold case stays BYTE-FOR-BYTE Wave 1-3's
+            // original single flat grid -- reset to the ORIGINAL minmax(200px, 1fr) rule, never left
+            // at the larger reflowed-priority size.
+            priority.style.setProperty("grid-template-columns", "repeat(auto-fit, minmax(200px, 1fr))")
+            compact.style.setProperty("display", "none")
+            label.style.setProperty("display", "none")
+        }
+        layout.priorityIdentities.forEach { identity ->
+            val entry = tiles[identity] ?: return@forEach
+            if (entry.element.parentNode !== priority) priority.appendChild(entry.element)
+            setTileZoneStyle(entry, if (layout.reflowed) ConferenceTileZone.PRIORITY_REFLOWED else ConferenceTileZone.FLAT)
+        }
+        layout.compactIdentities.forEach { identity ->
+            val entry = tiles[identity] ?: return@forEach
+            if (entry.element.parentNode !== compact) compact.appendChild(entry.element)
+            setTileZoneStyle(entry, ConferenceTileZone.COMPACT)
+        }
+    }
+
+    // Required change 1 (design review): the SOLE trigger for `applyConferenceGridReflow` on a
+    // steady cadence -- decoupled from raw `RoomEvent.ActiveSpeakersChanged` pushes, which fire on
+    // sub-second speaking-level transitions and would otherwise strobe the grid at 25-person scale
+    // (see file KDoc "D3"). Mirrors [pollInFlightRecordingStatus]'s own shape/lifecycle exactly.
+    suspend fun sweepGridReflow() {
+        while (connectionState !is ConferenceConnectionState.Ended) {
+            delay(CONFERENCE_GRID_REFLOW_SWEEP_INTERVAL_MS)
+            if (connectionState is ConferenceConnectionState.Ended) break
+            applyConferenceGridReflow()
+        }
+    }
+    AppScope.launch { sweepGridReflow() }
 
     // --- Participant roster (live, driven by the same RoomEvent stream as the tiles) --------------
     callPanel.h2("Teilnehmende") { addCssClasses("h6 mt-2") }
@@ -1311,7 +1572,9 @@ private fun enterCall(
         micBadge.textContent = "Stumm"
         tile.appendChild(micBadge)
 
-        gridElement?.appendChild(tile)
+        // Wave 4, D3: NO LONGER appends to `gridElement` here -- placement into the priority/compact
+        // zone is [applyConferenceGridReflow]'s job now, called by [ensureTile] right after this
+        // returns (see file KDoc "D3").
         return ConferenceTileEntry(identity, displayName, isLocal, tile, mediaSlot, nameBadge, micBadge)
     }
 
@@ -1340,6 +1603,7 @@ private fun enterCall(
         entry.nameBadge.textContent = tileLabel(entry)
         tiles[identity] = entry
         refreshRoster()
+        applyConferenceGridReflow()
         return entry
     }
 
@@ -1347,6 +1611,7 @@ private fun enterCall(
         val entry = tiles.remove(identity) ?: return
         entry.element.parentNode?.removeChild(entry.element)
         refreshRoster()
+        applyConferenceGridReflow()
     }
 
     fun showScreenShareStage(
@@ -1399,6 +1664,41 @@ private fun enterCall(
         }
     }
 
+    // Wave 4, D10 -- the ONE place `connectionState` is ever mutated, and the function that makes it
+    // an ACTUALLY UI-driving state machine, not just an internal label: disables the local
+    // media/chat controls while not `Connected`, and shows a calm, non-alarming status line while
+    // `Connecting`/`Reconnecting` (never danger-red -- LiveKit is actively retrying, matching this
+    // file's own established "don't falsely alarm" tone, see `pauseStreamConfirmDialog`'s copy).
+    fun renderConnectionState() {
+        when (connectionState) {
+            is ConferenceConnectionState.Connecting -> {
+                connectionStatusLine.content = "Verbindung wird hergestellt …"
+                connectionStatusLine.show()
+            }
+            is ConferenceConnectionState.Reconnecting -> {
+                connectionStatusLine.content = "Verbindung unterbrochen -- wird automatisch neu verbunden …"
+                connectionStatusLine.show()
+            }
+            is ConferenceConnectionState.Connected,
+            is ConferenceConnectionState.Failed,
+            is ConferenceConnectionState.Ended,
+            is ConferenceConnectionState.Disconnected,
+            -> connectionStatusLine.hide()
+        }
+        val interactive = connectionState is ConferenceConnectionState.Connected
+        micButton.disabled = !interactive
+        cameraButton.disabled = !interactive
+        screenShareButton.disabled = !interactive
+        chatSendButton.disabled = !interactive
+    }
+
+    /** See [conferenceConnectionReduce] KDoc -- unlisted (state, event) pairs are ignored, never
+     * thrown, so a duplicate/out-of-order LiveKit push can never crash this screen. */
+    fun transition(event: ConferenceConnectionEvent) {
+        connectionState = conferenceConnectionReduce(connectionState, event)
+        renderConnectionState()
+    }
+
     lateinit var session: LiveKitRoomSession
     session =
         LiveKitRoomSession(
@@ -1445,10 +1745,27 @@ private fun enterCall(
             // every live transition AND once, synchronously, right after connect
             // (`LiveKitRoomSession.connect`'s own "late-joiner seed", D4).
             onRecordingStatusChanged = { _ -> AppScope.launch { onMediaStatusPush() } },
+            // Wave 4, D3 -- ONLY updates the timestamp map, never calls `applyConferenceGridReflow`
+            // directly: see file KDoc "D3" for why the periodic sweep (not this raw, sub-second-firing
+            // push) is the sole reflow trigger.
+            onActiveSpeakersChanged = { identities ->
+                val now = Clock.System.now().toEpochMilliseconds()
+                identities.forEach { identity -> lastSpokeAtMs[identity] = now }
+            },
             onChat = { message -> appendChatLine(message.senderDisplayName, message.text, isOwn = false) },
+            // Wave 4, D10 -- LiveKit's own reconnect signal, relayed verbatim by LiveKitRoomSession
+            // (see that class's own KDoc "Reconnect signal").
+            onReconnecting = { transition(ConferenceConnectionEvent.ReconnectingSignal) },
+            onReconnected = { transition(ConferenceConnectionEvent.ReconnectedSignal) },
             onDisconnected = {
-                if (!leftCall) {
-                    leftCall = true
+                // Security-relevant (D10): reachable from BOTH `Connected` and `Reconnecting` (see
+                // [conferenceConnectionReduce]) -- a forcibly-terminated/kicked session (server-side
+                // `endRoom`/`removeParticipant`) always reaches `Ended` here, regardless of whether it
+                // was mid-reconnect at the moment the server closed the room. The idempotency guard
+                // below is unchanged from Wave 1-3's own `!leftCall` check, just re-expressed against
+                // the state machine.
+                if (connectionState !is ConferenceConnectionState.Ended) {
+                    transition(ConferenceConnectionEvent.DisconnectedSignal)
                     notifyInfo("Die Besprechung wurde beendet oder die Verbindung getrennt.")
                     returnToLobby(callPanel, lobbyPanel, setActiveSession, onReturnedToLobby, baseDocumentTitle)
                 }
@@ -1463,12 +1780,15 @@ private fun enterCall(
     setTileMic(tiles.getValue(joinToken.identity), micEnabled)
 
     AppScope.launch {
+        transition(ConferenceConnectionEvent.ConnectRequested)
         val connected = guarded { session.connect(joinToken.serverUrl, joinToken.token, joinToken.turnServers) }
         if (connected == null) {
+            transition(ConferenceConnectionEvent.ConnectFailed("connect failed"))
             setActiveSession(null)
             returnToLobby(callPanel, lobbyPanel, setActiveSession, onReturnedToLobby, baseDocumentTitle)
             return@launch
         }
+        transition(ConferenceConnectionEvent.ConnectSucceeded)
         // Each device independently, each wrapped in its own `guarded {}` -- a missing/denied camera
         // or microphone must not abort the whole call (a member with no working device can still
         // join and watch/listen). The full non-technical D2 permission-preflight UI is explicitly
@@ -1588,7 +1908,7 @@ private fun enterCall(
 
     leaveButton.onClick {
         leaveButton.disabled = true
-        leftCall = true
+        transition(ConferenceConnectionEvent.UserLeft)
         AppScope.launch {
             guarded { session.disconnect() }
             guarded { rpcService<IConferenceService>().leaveRoom(room.id) }
@@ -1598,9 +1918,9 @@ private fun enterCall(
     }
 
     endButton?.onClick {
-        endRoomConfirmDialog(room.title) {
+        endRoomConfirmDialog(roomTitle) {
             endButton.disabled = true
-            leftCall = true
+            transition(ConferenceConnectionEvent.UserLeft)
             AppScope.launch {
                 guarded { session.disconnect() }
                 val result = guarded { rpcService<IConferenceService>().endRoom(room.id) }
@@ -1925,6 +2245,22 @@ private fun stopStreamConfirmDialog(
 // Pure, DOM-independent logic -- see [ConferenceScreenTest] for coverage (no rendering harness
 // exists in this module, same posture every other screen's `*ScreenTest.kt` documents).
 // ================================================================================================
+
+/** Wave 4 "Politur", D1 -- the single-button flow's auto-generated default title. German date order,
+ * zero-padded, mirrors `PdfMailmergeSupport.formatGermanDate`'s non-deprecated `.day`/`.month.number`/
+ * `.year` API (NOT `.dayOfMonth`/`.monthNumber`, deprecated in kotlinx-datetime 0.8.0) -- via
+ * `.padStart`, not `String.format` (JVM-only, unavailable in this jsMain target), matching this
+ * file's own established `padStart` idiom for [conferenceRecordingStartedLabel]/
+ * [conferenceStreamStartedLabel]. Deliberately includes the date, not just the time, since a room in
+ * "Aktive Besprechungen" can persist across days. */
+internal fun conferenceDefaultRoomTitle(now: LocalDateTime): String {
+    val day = now.day.toString().padStart(2, '0')
+    val monthNumber = now.month.number
+    val month = monthNumber.toString().padStart(2, '0')
+    val hour = now.hour.toString().padStart(2, '0')
+    val minute = now.minute.toString().padStart(2, '0')
+    return "Besprechung vom $day.$month.${now.year}, $hour:$minute"
+}
 
 /** Mirrors `LiveKitJs.kt`'s file KDoc: `"screen_share"` is discriminated by string comparison,
  * deliberately no dedicated enum type on the JS-interop side -- this enum exists purely on the
@@ -2342,3 +2678,170 @@ internal fun conferenceStreamStartedLabel(
     val minute = startedAt.minute.toString().padStart(2, '0')
     return "Live-Stream gestartet von $startedByDisplayName um $hour:$minute · ${conferenceStreamLayoutLabel(layout)}"
 }
+
+// ================================================================================================
+// Wave 4 "Politur" -- D1/D3/D10 pure helpers. Same DOM-free unit-test posture as the rest of this
+// file's pure-logic sections -- [enterCall]'s own raw-DOM wiring (`applyConferenceGridReflow`,
+// `renderConnectionState`, the inline rename row) is out of scope here, covered only structurally by
+// this wave's live-browser verification, not a unit test.
+// ================================================================================================
+
+/** D1 -- client-side mirror of `ConferenceService.renameRoom`'s own `MAX_TITLE_LENGTH` (200) --
+ * duplicated here only as a client-side UX pre-check (same "not the real boundary" posture
+ * [conferenceStreamSelectionValid] already documents for its own server-side mirror), the server
+ * re-validates independently regardless. */
+internal const val MAX_ROOM_TITLE_LENGTH_CLIENT = 200
+
+/** D3 -- above this many participants, the flat single grid stops reflowing sensibly and the
+ * speaking-priority reflow kicks in. Approved as specified in the design review. */
+internal const val CONFERENCE_GRID_REFLOW_THRESHOLD = 12
+
+/** D3 -- the priority zone's own capacity once reflowed. Bounded by design: if MORE identities are
+ * simultaneously prioritized than this, the overflow is pushed to the compact strip too -- a
+ * genuinely-speaking 7th person can be momentarily compact, a deliberate trade-off (design review
+ * "Decided" list), not a bug. */
+internal const val CONFERENCE_PRIORITY_ZONE_MAX = 6
+
+/** D3 -- how long (ms) an identity stays in [enterCall]'s `lastSpokeAtMs`-derived priority set after
+ * its last `ActiveSpeakersChanged` mention. Approved as specified. */
+internal const val CONFERENCE_SPEAKING_PRIORITY_WINDOW_MS = 8_000L
+
+/** D3 -- [enterCall]'s periodic `sweepGridReflow` cadence; the SOLE trigger for
+ * `applyConferenceGridReflow` (see that function's own KDoc "Required change 1"). Approved as
+ * specified -- matches the debounce cadence real conferencing UIs (Zoom/Meet) use for speaker-view
+ * switching. */
+internal const val CONFERENCE_GRID_REFLOW_SWEEP_INTERVAL_MS = 2_000L
+
+/** D3 -- the pure partition [enterCall]'s `applyConferenceGridReflow` renders from. */
+internal data class ConferenceGridLayout(
+    val reflowed: Boolean,
+    val priorityIdentities: List<String>,
+    val compactIdentities: List<String>,
+)
+
+/**
+ * D3 -- pure partition, no DOM/time/local-participant special-casing inside it (the caller composes
+ * [priorityIdentities] from currently-speaking + "recently active within the window" + the local
+ * participant's own identity, see [enterCall]'s `currentPriorityIdentities`). [orderedIdentities] is
+ * JOIN order (`tiles.keys`, insertion-ordered `LinkedHashMap`) -- deliberately NEVER the
+ * alphabetically-sorted roster order [refreshRoster] uses, so tile POSITIONS don't jump every time
+ * the roster re-sorts.
+ *
+ * `<= threshold`: unreflowed, everyone in [priorityIdentities] in join order, [compactIdentities]
+ * empty -- today's Wave 1-3 behaviour, byte-for-byte (see [enterCall]'s own "Required change 2").
+ * `> threshold`: up to [maxPriorityTiles] slots, filled FIRST from [priorityIdentities] (in join
+ * order), then padded with the next join-order identities if fewer than [maxPriorityTiles] are
+ * actually prioritized -- so the priority zone is never oddly empty when nobody is currently
+ * speaking. Overflow beyond [maxPriorityTiles] (more people prioritized than fit) is pushed to the
+ * compact strip too -- a bounded priority zone by design (design review "Decided" list), even if
+ * that momentarily compacts a genuinely-speaking participant.
+ */
+internal fun conferenceGridLayout(
+    orderedIdentities: List<String>,
+    priorityIdentities: Set<String>,
+    threshold: Int = CONFERENCE_GRID_REFLOW_THRESHOLD,
+    maxPriorityTiles: Int = CONFERENCE_PRIORITY_ZONE_MAX,
+): ConferenceGridLayout {
+    if (orderedIdentities.size <= threshold) {
+        return ConferenceGridLayout(reflowed = false, priorityIdentities = orderedIdentities, compactIdentities = emptyList())
+    }
+    val prioritizedInOrder = orderedIdentities.filter { it in priorityIdentities }
+    val fallbackFill = orderedIdentities.filterNot { it in priorityIdentities }
+    val priority = (prioritizedInOrder + fallbackFill).take(maxPriorityTiles.coerceAtLeast(1))
+    val prioritySet = priority.toSet()
+    val compact = orderedIdentities.filterNot { it in prioritySet }
+    return ConferenceGridLayout(reflowed = true, priorityIdentities = priority, compactIdentities = compact)
+}
+
+/**
+ * D10 -- the client-side connection-state machine [enterCall] renders from. [Ended] is terminal: no
+ * event moves out of it (a fresh `enterCall` constructs a brand-new instance for the next call). A
+ * forcibly-terminated/kicked session (server-side `endRoom`/`removeParticipant`) reaches [Ended] via
+ * [ConferenceConnectionEvent.DisconnectedSignal] from BOTH [Connected] and [Reconnecting] -- see
+ * [conferenceConnectionReduce] and file KDoc "D10" for the security-relevant framing.
+ */
+internal sealed class ConferenceConnectionState {
+    internal data object Disconnected : ConferenceConnectionState()
+
+    internal data object Connecting : ConferenceConnectionState()
+
+    internal data object Connected : ConferenceConnectionState()
+
+    internal data object Reconnecting : ConferenceConnectionState()
+
+    internal data class Failed(
+        val reason: String,
+    ) : ConferenceConnectionState()
+
+    internal data object Ended : ConferenceConnectionState()
+}
+
+/** D10 -- events [enterCall] feeds into [conferenceConnectionReduce]. */
+internal sealed class ConferenceConnectionEvent {
+    internal data object ConnectRequested : ConferenceConnectionEvent()
+
+    internal data object ConnectSucceeded : ConferenceConnectionEvent()
+
+    internal data class ConnectFailed(
+        val reason: String,
+    ) : ConferenceConnectionEvent()
+
+    /** `RoomEvent.Reconnecting`. */
+    internal data object ReconnectingSignal : ConferenceConnectionEvent()
+
+    /** `RoomEvent.Reconnected`. */
+    internal data object ReconnectedSignal : ConferenceConnectionEvent()
+
+    /** `RoomEvent.Disconnected` -- kick, room-end, or genuine network death; this is the ONE event
+     * that must be able to reach [ConferenceConnectionState.Ended] from every non-terminal state. */
+    internal data object DisconnectedSignal : ConferenceConnectionEvent()
+
+    /** Local "Verlassen"/"Für alle beenden" click. */
+    internal data object UserLeft : ConferenceConnectionEvent()
+}
+
+/**
+ * D10 -- the ONE place a transition happens. Unlisted (state, event) pairs are ignored (return the
+ * SAME state) rather than throwing -- a duplicate/out-of-order LiveKit push (e.g. a late
+ * `DisconnectedSignal` arriving after the user already clicked "Verlassen") must never crash this
+ * screen. [ConferenceConnectionState.Ended] is terminal: every branch of its own `when` returns
+ * `current` unconditionally.
+ */
+internal fun conferenceConnectionReduce(
+    current: ConferenceConnectionState,
+    event: ConferenceConnectionEvent,
+): ConferenceConnectionState =
+    when (current) {
+        is ConferenceConnectionState.Disconnected ->
+            when (event) {
+                is ConferenceConnectionEvent.ConnectRequested -> ConferenceConnectionState.Connecting
+                else -> current
+            }
+        is ConferenceConnectionState.Connecting ->
+            when (event) {
+                is ConferenceConnectionEvent.ConnectSucceeded -> ConferenceConnectionState.Connected
+                is ConferenceConnectionEvent.ConnectFailed -> ConferenceConnectionState.Failed(event.reason)
+                is ConferenceConnectionEvent.UserLeft -> ConferenceConnectionState.Ended
+                else -> current
+            }
+        is ConferenceConnectionState.Connected ->
+            when (event) {
+                is ConferenceConnectionEvent.ReconnectingSignal -> ConferenceConnectionState.Reconnecting
+                is ConferenceConnectionEvent.DisconnectedSignal -> ConferenceConnectionState.Ended
+                is ConferenceConnectionEvent.UserLeft -> ConferenceConnectionState.Ended
+                else -> current
+            }
+        is ConferenceConnectionState.Reconnecting ->
+            when (event) {
+                is ConferenceConnectionEvent.ReconnectedSignal -> ConferenceConnectionState.Connected
+                is ConferenceConnectionEvent.DisconnectedSignal -> ConferenceConnectionState.Ended
+                is ConferenceConnectionEvent.UserLeft -> ConferenceConnectionState.Ended
+                else -> current
+            }
+        is ConferenceConnectionState.Failed ->
+            when (event) {
+                is ConferenceConnectionEvent.UserLeft -> ConferenceConnectionState.Ended
+                else -> current
+            }
+        is ConferenceConnectionState.Ended -> current
+    }

@@ -142,6 +142,53 @@ chips while `PAUSED` rather than rendering a contradicting "Live" status underne
 "ist unterbrochen" badge. Four new `ConferenceStreamingUiTest.kt` unit tests pin both the fix and the
 underlying `conferenceStreamBadgeVerbPhrase` mapping.
 
+**Videokonferenzen (Kleinsitzung), V1.0 Wave 4 „Politur" — closes the three items deliberately
+deferred from Wave 1's mandatory UI/UX design review (D1, D3, D10), on
+`feature/video-konferenz-wave4-politur`.** No server-security-critical surface beyond one new
+moderator-gated RPC method; the review and security audit each approved on the first pass.
+
+- **D1 — single-button room creation.** The Lobby's title-entry form is gone. "Besprechung jetzt
+  starten" creates a room immediately with an auto-generated German-dated default title
+  (`"Besprechung vom TT.MM.JJJJ, HH:MM"`, non-deprecated kotlinx-datetime 0.8.0 `.day`/`.month.number`/
+  `.year` API) and joins it in one step. The title stays editable afterwards via a new inline
+  "Bearbeiten" affordance in the in-call header, backed by a new `IConferenceService.renameRoom`
+  RPC — same `requireModeratorOrPrivileged` gate as `endRoom`/`removeParticipant`, blocks renaming an
+  already-ended room, reuses `createRoom`'s own title validation (non-blank, ≤`MAX_TITLE_LENGTH`).
+- **D3 — participant-grid reflow above ~12 attendees.** `LiveKitJs.kt` now wires the previously-
+  unused `RoomEvent.ActiveSpeakersChanged`. A new pure function, `conferenceGridLayout`, partitions
+  participants into a speaking-priority zone (capped at `CONFERENCE_PRIORITY_ZONE_MAX`, always
+  non-empty via a join-order fallback when nobody is currently speaking, the local participant never
+  demoted out of view) and a compact strip for the rest, active once attendance exceeds
+  `CONFERENCE_GRID_REFLOW_THRESHOLD`. At or below threshold, layout is byte-for-byte unchanged from
+  Wave 1-3. Ten new `ConferenceGridLayoutTest.kt` unit tests cover the threshold boundary, the
+  priority-zone cap and fallback, and the exhaustive-partition invariant (every identity in exactly
+  one zone).
+- **D10 — named, testable connection-state machine.** The ad-hoc `leftCall` boolean (read/written
+  from five separate call sites) is gone, replaced by a sealed `ConferenceConnectionState`
+  (`Disconnected`/`Connecting`/`Connected`/`Reconnecting`/`Failed`/`Ended`, `Ended` terminal) driven
+  by a pure `conferenceConnectionReduce(state, event)` reducer. `Ended` is reachable via
+  `DisconnectedSignal` from BOTH `Connected` and `Reconnecting` — a forcibly-terminated/kicked session
+  cannot get stuck showing "connected" after the server has actually closed the room. 19 new
+  `ConferenceConnectionStateTest.kt` unit tests pin every modeled transition, including that
+  unlisted (state, event) pairs are ignored rather than throwing.
+- **Review and security audit both approved on the first round** — no fix cycles needed. Non-blocking
+  findings only: a pre-existing (not introduced by this wave) coroutine-leak on repeated failed
+  connect attempts, a low-impact double-submit race on the inline rename's Enter-key handler, and a
+  narrow state-machine label edge case (`Connecting` + a mid-handshake `Disconnected` signal has no
+  explicit reducer arm) that has no user-visible effect because `enterCall`'s `onDisconnected`
+  callback tears the call panel down unconditionally regardless of the reducer's return value.
+- **Live verification (2026-08-09)**: driven against a real running server and a real browser session
+  (`boris.board@example.org`, BOARD). One click on "Besprechung jetzt starten" created and joined a
+  room with the correctly-formatted default title (server round-trip confirmed via
+  `POST /rpc/routeConferenceServiceManager9` returning 200 OK); the inline "Bearbeiten" flow renamed
+  the room via a real `renameRoom` RPC call, reflected immediately in both the in-call header and the
+  browser tab title; "Für alle beenden" produced a clean LiveKit disconnect
+  (`connection state changed: connected -> disconnected` in the console log) and returned the UI to a
+  fresh, empty Lobby with no stale "connected" indicator anywhere — confirming D10's `Ended`-state
+  teardown. D3's 12+-participant reflow was verified via its dedicated unit test suite rather than a
+  live many-participant session (impractical to stand up in this verification pass); the partition
+  logic's threshold/cap/fallback/exhaustiveness properties are all directly tested.
+
 **Videokonferenzen (Kleinsitzung), V1.0 Wave 2 „Aufzeichnung" — server-side meeting recording via
 LiveKit Track Egress plus an own asynchronous ffmpeg composition, on
 `feature/video-konferenz-wave2-aufzeichnung`.** Implements exactly the concept note's 2026-08-01

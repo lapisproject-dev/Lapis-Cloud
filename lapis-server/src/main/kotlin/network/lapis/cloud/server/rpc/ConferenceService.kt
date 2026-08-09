@@ -413,6 +413,44 @@ class ConferenceService(
         }
     }
 
+    /**
+     * V1.0 Videokonferenzen Wave 4 "Politur", D1 -- same shape as [endRoom]/[removeParticipant]
+     * (fetch-authorize-mutate inside one `transaction {}`, no LiveKit call involved since only the
+     * `conference_room.title` column changes). Reuses [MAX_TITLE_LENGTH] rather than a duplicate
+     * literal, same validation [createRoom] already applies.
+     */
+    override suspend fun renameRoom(
+        roomId: String,
+        title: String,
+    ): ConferenceRoomDto {
+        val current = resolveCurrentMember(call)
+        requireConferenceEnabled()
+        val normalizedTitle = title.trim()
+        if (normalizedTitle.isBlank()) throw BadRequestException("title must not be blank")
+        if (normalizedTitle.length > MAX_TITLE_LENGTH) {
+            throw BadRequestException("title must be at most $MAX_TITLE_LENGTH characters")
+        }
+        val id = roomId.toConferenceUuid()
+        transaction {
+            val existing =
+                ConferenceRoomTable.selectAll().where { ConferenceRoomTable.id eq id }.singleOrNull()
+                    ?: throw NotFoundException("Conference room $id not found")
+            requireModeratorOrPrivileged(existing, current)
+            if (existing[ConferenceRoomTable.endedAt] != null) {
+                throw ConflictException("Cannot rename an ended room")
+            }
+            // Explicitly qualified -- the enclosing `renameRoom(title: String)` PARAMETER shadows
+            // `ConferenceRoomTable.title`'s own column property for a bare `it[title]` subscript key
+            // here (unlike `createRoom`, which has no same-named parameter), same class of footgun
+            // the `roomUuid`/`newRoomName` renames elsewhere in this file avoid.
+            ConferenceRoomTable.update({ ConferenceRoomTable.id eq id }) { it[ConferenceRoomTable.title] = normalizedTitle }
+        }
+        return transaction {
+            val fresh = ConferenceRoomTable.selectAll().where { ConferenceRoomTable.id eq id }.single()
+            rowToDto(fresh, current.memberId, emptyMap())
+        }
+    }
+
     // ── Internal helpers ──────────────────────────────────────────────────
 
     /** See [IConferenceService] KDoc "The conference enabled gate". */

@@ -53,6 +53,18 @@ private external interface PublishDataOptions {
  * locally-sent messages are never delivered back to the sender by LiveKit's data channel, so
  * `ConferenceScreen.kt` renders its own outgoing chat messages itself, immediately on [sendChat]
  * returning, rather than waiting for an echo through [onChat].
+ *
+ * **Speaking-priority signal** (V1.0 Videokonferenzen Wave 4 "Politur", D3): [onActiveSpeakersChanged]
+ * relays [RoomEvent.ActiveSpeakersChanged] verbatim as a list of identities -- this class does not
+ * debounce or cache it. `ConferenceScreen.kt`'s own periodic sweep (not this class) is what turns raw,
+ * sub-second speaking-level transitions into a calm, non-strobing grid reflow -- see that file's own
+ * KDoc "D3" for why the debounce lives there, not here.
+ *
+ * **Reconnect signal** (V1.0 Videokonferenzen Wave 4 "Politur", D10): [onReconnecting]/[onReconnected]
+ * relay [RoomEvent.Reconnecting]/[RoomEvent.Reconnected] verbatim -- both fire with zero JS arguments,
+ * same "extra Kotlin lambda parameters bind to `undefined`" pattern already used for
+ * [RoomEvent.Disconnected] below. `ConferenceScreen.kt`'s own named connection-state machine (not this
+ * class) owns what a transition means for the UI -- this class only relays the raw LiveKit signal.
  */
 class LiveKitRoomSession(
     private val onRemoteTrack: (identity: String, displayName: String, track: Track, publication: TrackPublication) -> Unit,
@@ -61,7 +73,10 @@ class LiveKitRoomSession(
     private val onParticipantLeft: (identity: String) -> Unit,
     private val onLocalVideoTrack: (Track?) -> Unit,
     private val onRecordingStatusChanged: (isRecording: Boolean) -> Unit,
+    private val onActiveSpeakersChanged: (identities: List<String>) -> Unit,
     private val onChat: (ConferenceChatMessage) -> Unit,
+    private val onReconnecting: () -> Unit,
+    private val onReconnected: () -> Unit,
     private val onDisconnected: () -> Unit,
 ) {
     private var room: Room? = null
@@ -131,12 +146,23 @@ class LiveKitRoomSession(
             onRemoteTrackGone(participant.identity, track, publication)
         }
         room.on(RoomEvent.Disconnected) { _, _, _, _ -> onDisconnected() }
+        room.on(RoomEvent.Reconnecting) { _, _, _, _ -> onReconnecting() }
+        room.on(RoomEvent.Reconnected) { _, _, _, _ -> onReconnected() }
         room.on(RoomEvent.RecordingStatusChanged) { p0, _, _, _ ->
             // p0 is a raw JS boolean primitive here (LiveKit calls the listener with exactly one
             // argument), not one of this file's own `external interface` types -- see
             // `LiveKitJs.kt` file KDoc "Values returned from a Promise<dynamic>..." for why
             // `unsafeCast` (not `as`/`as?`) is this codebase's uniform cast discipline regardless.
             onRecordingStatusChanged(p0.unsafeCast<Boolean>())
+        }
+        room.on(RoomEvent.ActiveSpeakersChanged) { p0, _, _, _ ->
+            // p0 is a raw JS array here (LiveKit calls the listener with exactly one argument, an
+            // Array<Participant>) -- unsafeCast to Array<dynamic> first (no RTTI for the element
+            // type either), then unsafeCast each element to this file's own ActiveSpeaker shape,
+            // same two-step discipline `LiveKitJs.kt`'s file KDoc documents for every other
+            // `external interface` value pulled out of a `dynamic` here.
+            val speakers = p0.unsafeCast<Array<dynamic>>()
+            onActiveSpeakersChanged(speakers.map { it.unsafeCast<ActiveSpeaker>().identity })
         }
         room.on(RoomEvent.DataReceived) { p0, p1, _, p3 ->
             val payload = p0.unsafeCast<org.khronos.webgl.Uint8Array?>() ?: return@on

@@ -189,4 +189,17 @@ interface IConferenceService {
         roomId: String,
         memberId: String,
     )
+
+    /**
+     * Role: the room's creator, OR global BOARD/ADMIN (same gate as [endRoom]/[removeParticipant]).
+     * The room must still be active (`endedAt == null`), else [ConflictException]. Same title
+     * validation as [createRoom] (non-blank after trim, at most 200 characters). V1.0
+     * Videokonferenzen Wave 4 "Politur", D1: supports the in-call header's inline rename affordance
+     * for the single-button flow's auto-generated default title -- see
+     * [network.lapis.cloud.server.rpc.ConferenceService] KDoc for the wave's own context.
+     */
+    suspend fun renameRoom(
+        roomId: String,
+        title: String,
+    ): ConferenceRoomDto
 }
