@@ -149,6 +149,68 @@ Governance/Accounting UI waves were.
     an explicit warning against copying the loopback-bind-plus-committed-secret combination toward a
     real deployment without changing both.
 
+**LTR-Wirtschaft UI wave — LTR-Konto, Crowdfunding, Auktion, Politiker, Price-Oracle, on
+`feature/ltr-economy-ui`. Wave complete — the fifth and final wave of the pilots' (PdV, ELB)
+UI-gap-closure plan, after Governance, Accounting, Compliance, and Mail-merge/Postal-Dispatch
+UI.** Surfaces the alternative/libertarian LTR internal-currency economy layer end to end for the
+first time: five self-contained screens over six already-implemented, already-tested backends
+(`ILtrLedgerService`, `ICrowdfundingService`, `IAuctionService`, `IPeerTransferService`,
+`IPoliticianService`, `IPriceOracleService`). **No backend/RPC changes were needed anywhere in
+this wave** — every method's role-gating matched the plan's verified role table exactly.
+
+- **`LtrLedgerScreen.kt`** (`#/ltr-ledger`, "LTR-Konto") — the LTR-economy home: own balance +
+  transaction ledger (always self-service), TREASURER/BOARD/ADMIN lookup of another member's
+  balance/entries, self-service peer transfer, LTR minting, and a privileged
+  arbitration-correction transfer. Peer-transfer history is shown via a client-side
+  `referenceType` filter over the same ledger-entries list rather than a new RPC, matching
+  `IPeerTransferService`'s own documented design (no dedicated history method). New
+  `formatLtr()`/`ltrSpan()` in `Money.kt` as the LTR-denominated sibling of
+  `formatMoney()`/`moneySpan()`.
+- **`CrowdfundingScreen.kt`** (`#/crowdfunding`) — project submission with a non-refundable LTR
+  stake, BOARD/ADMIN approve/reject, member Like/Dislike reactions (approved projects only), and
+  TREASURER/BOARD/ADMIN monthly distribution calculation. Surfaces both `status` vs.
+  `effectiveStatus` (14-day silence-is-approval) and `initialWeightLtr` vs. `currentWeightLtr`
+  (10%/day decay) explicitly rather than collapsing either pair into one figure.
+- **`AuctionScreen.kt`** (`#/auction`) — English proxy-bid auction with second-price settlement,
+  optional Sofortkauf, listing creation, bidding, an ADMIN-only enable/disable flow gated behind a
+  legal-disclaimer acknowledgment (the disclaimer text is held read-only and resent verbatim, never
+  editable), and value-cap configuration. `maxBidLtr` is never shown for other bidders, only in the
+  caller's own "Meine Gebote".
+- **`PoliticianScreen.kt`** (`#/politicians`) — profile browsing/rating open to members and guests,
+  BOARD/ADMIN grant/revoke of politician status and weight-snapshot triggers, and an inline
+  ADMIN-only toggle for the `politicianRankingEnabled` feature flag. Shows
+  `memberTrustWeight`/`guestTrustWeight`/`combinedTrustWeight` as three explicitly separate,
+  non-summable figures, matching the DTO's own documentation rather than collapsing them into one
+  score.
+- **`PriceOracleScreen.kt`** (`#/price-oracle`) — kept as its own screen rather than folded into
+  `LtrLedgerScreen.kt` since every one of its four methods is TREASURER/BOARD/ADMIN-gated: ADMIN-only
+  oracle configuration (peg, quorum, outlier/spread thresholds), a diagnostic live-price fetch, and
+  donation-to-LTR conversion booking. Makes real outbound HTTP calls to Coinbase/Kraken/Bitstamp —
+  live-verified against the real internet during this wave, not mocked.
+- **Two real bugs found during this wave's own independent live-browser verification (role ADMIN
+  and MEMBER, real dev server, real DOM) — not caught by the automated review/security loops, since
+  neither mounts real DOM**, both in `AuctionScreen.kt`:
+  1. `listMyBids()`/`listMyAuctions()` sit behind the same `requireAuctionEnabled` gate as
+     `listAuctions()`, but only `listAuctions()` got the "friendly banner instead of a toast"
+     treatment — the other two left their "Wird geladen …" placeholder stuck forever while firing
+     duplicate "im Konflikt" error toasts, hit on every ADMIN's very first visit since
+     `auctionEnabled` defaults `false`. Fixed with a shared `loadOrShowDisabledNotice()` helper.
+  2. Enabling/disabling the auction didn't refresh those same two panels, so an ADMIN who just
+     enabled it kept seeing "deaktiviert" until a manual reload. Fixed by refreshing all three
+     panels on enable/disable.
+- **Live verification** as ADMIN: minted and transferred LTR, watched the peer-transfer
+  double-entry booking on the ledger, submitted and approved a crowdfunding project and liked it,
+  created an auction listing, completed the auction enable-disclaimer flow, granted politician
+  status and rated it (weight computed correctly from real LTR balance), fetched a real live BTC
+  price from all three configured sources and converted a real donation to LTR at the live rate. As
+  MEMBER: confirmed role-appropriate disabled-feature banners (no admin controls, no raw error
+  toasts), placed a real competing bid on the ADMIN's auction listing, and confirmed max-bid
+  privacy (other bidders never see it) and correct confirm-dialog framing throughout.
+- New `jsTest` coverage per screen (`AuctionScreenTest.kt`, `CrowdfundingScreenTest.kt`,
+  `LtrLedgerScreenTest.kt`, `PoliticianScreenTest.kt`, `PriceOracleScreenTest.kt`) plus
+  `MoneyTest.kt` additions for `formatLtr()`/`ltrSpan()`. `./gradlew clean check` green throughout,
+  1300+ tests, 0 failures.
+
 **Mail-merge/Postal-Dispatch UI wave — admin mailing-list authoring, invoice/receipt/Einladung PDF
 documents, and real Letterxpress postal dispatch, on `feature/mailmerge-ui`. Wave complete — the
 fourth and final wave of the pilots' (PdV, ELB) UI-gap-closure plan, after Governance, Accounting, and
