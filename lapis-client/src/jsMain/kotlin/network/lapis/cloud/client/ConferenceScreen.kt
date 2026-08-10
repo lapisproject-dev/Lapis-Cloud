@@ -4,6 +4,7 @@ import io.kvision.core.Overflow
 import io.kvision.form.check.checkBox
 import io.kvision.form.select.select
 import io.kvision.form.text.text
+import io.kvision.form.text.textArea
 import io.kvision.html.Button
 import io.kvision.html.ButtonStyle
 import io.kvision.html.button
@@ -18,6 +19,7 @@ import io.kvision.utils.px
 import kotlinx.browser.document
 import kotlinx.browser.window
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.datetime.LocalDateTime
@@ -28,6 +30,9 @@ import network.lapis.cloud.client.livekit.LiveKitRoomSession
 import network.lapis.cloud.client.livekit.Track
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.ConferenceChatMessage
+import network.lapis.cloud.shared.domain.ConferenceGuestConsentAcknowledgmentInput
+import network.lapis.cloud.shared.domain.ConferenceGuestConsentDisclaimerDto
+import network.lapis.cloud.shared.domain.ConferenceGuestJoinInfoDto
 import network.lapis.cloud.shared.domain.ConferenceJoinTokenDto
 import network.lapis.cloud.shared.domain.ConferenceRecordingDto
 import network.lapis.cloud.shared.domain.ConferenceRecordingStatus
@@ -280,6 +285,48 @@ import kotlin.time.Clock
  *   `endRoom`/`removeParticipant`) reaches `Ended` from BOTH `Connected` and `Reconnecting` via the
  *   same `onDisconnected -> DisconnectedSignal` path Wave 1-3 already had -- there is no reachable
  *   state where the UI still shows "connected" after the server has actually closed the room.
+ *
+ * ## V1.0 Videokonferenzen (Kleinsitzung), Wave 5 "Föderations-Gastbeitritt" -- federated guest join
+ *
+ * Load-bearing decisions (D-numbers match the Wave 5 design review):
+ *
+ * - **D1/D2/D3 -- moderator "Gastzugang:" row, its own spatially separate control group** (never a
+ *   checkbox -- no precedent in this client for a checkbox that fires a server mutation, and it
+ *   would force an optimistic-UI violation this file's own rule forbids). Built UNCONDITIONALLY in
+ *   [enterCall] (not `if (canModerate)`, unlike the recording/streaming rows) -- the status badge
+ *   ("Gäste zugelassen"/"Nur Mitglieder") is visible to EVERY participant, only the toggle/invite
+ *   buttons are moderator-gated.
+ * - **D4 -- no creation-time toggle.** [network.lapis.cloud.shared.domain.ConferenceRoomInput
+ *   .allowFederationGuests] stays in the DTO for API completeness/tests; the client never sets it
+ *   at [renderLobby]'s single-button creation flow (Wave 4 D1 deliberately deleted the lobby
+ *   creation form). Guest access is always enabled from INSIDE a running room.
+ * - **D5 -- lobby room cards show `"Gastzugang offen"`** ([renderRoomCard]) so an AKTIV member can
+ *   see outsiders may be present before joining, same vocabulary as the in-call D3 badge.
+ * - **D6 -- guest entry via a plain room-id field** ([renderGuestLobby]), client-side UUID-shape
+ *   validated ([Validation.looksLikeRoomId]) before any RPC fires. The moderator's own "Einladung
+ *   kopieren" affordance ([conferenceInviteText]) is the out-of-band invite path -- no
+ *   `#/conference/:roomId` deep link, see [Routes.CONFERENCE] KDoc.
+ * - **D7-D10/D17 -- the two-layer consent modal** ([conferenceGuestConsentModal]): layer 1
+ *   (org line + [network.lapis.cloud.shared.domain.ConferenceGuestConsentDisclaimerDto.headline]/
+ *   `.keyPoints`, `role="note"`) above the fold, layer 2 (`.text`) in an always-visible,
+ *   `tabindex="0"` scroll box beneath it. `version`/`sha256` are read from the JUST-fetched DTO,
+ *   never hardcoded, resent verbatim via [conferenceGuestConsentInputOf].
+ * - **D11 -- roster guest badge BEFORE the name**, matching the navbar's own `GuestBadge.kt` call
+ *   site (`App.kt`) -- the name div carries `flex-grow-1`, so a badge appended after it would be
+ *   flung to the right edge, detached from the name it qualifies. See [refreshRoster].
+ * - **D12 -- tile guest marker is a DEDICATED top-left pill** (`ConferenceTileEntry.guestBadgeEl`),
+ *   never a text suffix on [conferenceTileLabel] -- the tile's own ellipsis-truncated name badge
+ *   would eat a `" · Gast"` suffix first for exactly the federated guests whose display name comes
+ *   from a foreign server's unclamped claim.
+ * - **D14 -- a guest can see WHO the moderator is.** [renderGuestLobby] synthesizes a local
+ *   [ConferenceRoomDto] from [network.lapis.cloud.shared.domain.ConferenceGuestJoinInfoDto]'s real
+ *   `createdByMemberId`/`createdByDisplayName` (never a blanked-out placeholder) -- `canModerate`
+ *   still structurally evaluates `false` for the guest ([conferenceIsModerator] compares the
+ *   CALLER's own id, which a GAST can never equal since `createRoom` is AKTIV-only), so no
+ *   moderator affordance leaks.
+ * - **D16 -- revoking guest access asks first.** [confirmDialog] warns that already-connected
+ *   guests will be disconnected immediately before the moderator confirms (Norman: visible system
+ *   status) -- see the "Gastzugang beenden" click handler in [enterCall].
  */
 fun renderConferenceScreen(container: SimplePanel) {
     val root =
@@ -318,7 +365,16 @@ fun renderConferenceScreen(container: SimplePanel) {
             renderDisabledPanel(lobbyPanel)
             return@launch
         }
-        renderLobby(lobbyPanel, callPanel, setActiveSession)
+        // V1.0 Videokonferenzen, Wave 5 "Föderations-Gastbeitritt" -- a federated guest gets an
+        // entirely different lobby: no "Besprechung jetzt starten" (createRoom is AKTIV-only) and
+        // no "Aktive Besprechungen" list (listActiveRooms is AKTIV-only and would 403 on every
+        // load, exactly the confusing generic toast this wave exists to avoid -- see design review
+        // "Accepted as planned"). See [renderGuestLobby].
+        if (AppState.session?.isGuest == true) {
+            renderGuestLobby(lobbyPanel, callPanel, setActiveSession)
+        } else {
+            renderLobby(lobbyPanel, callPanel, setActiveSession)
+        }
     }
 }
 
@@ -444,6 +500,12 @@ private fun renderRoomCard(
     if (room.myRole == ConferenceRole.MODERATOR) {
         infoCell.statusBadge("Sie sind Moderator", "primary")
     }
+    // V1.0 Videokonferenzen, Wave 5 "Föderations-Gastbeitritt", design review D5 -- an AKTIV member
+    // deciding whether to join deserves to know outsiders may be present BEFORE joining, not only
+    // after. Same "Gastzugang"/"info" vocabulary the in-call status badge (D3) uses.
+    if (room.allowFederationGuests) {
+        infoCell.statusBadge("Gastzugang offen", "info")
+    }
     val joinButton = card.button("Beitreten", style = ButtonStyle.PRIMARY)
     joinButton.onClick {
         joinButton.disabled = true
@@ -455,6 +517,232 @@ private fun renderRoomCard(
             }
         }
     }
+}
+
+// ================================================================================================
+// Guest lobby: V1.0 Videokonferenzen, Wave 5 "Föderations-Gastbeitritt"
+// ================================================================================================
+
+/**
+ * A federated guest's own lobby -- deliberately NOT [renderLobby] with a few items hidden: no
+ * "Besprechung jetzt starten" button ([IConferenceService.createRoom] is AKTIV-only) and no
+ * "Aktive Besprechungen" list ([IConferenceService.listActiveRooms] is AKTIV-only and would 403
+ * on every load, producing exactly the confusing generic "Keine Berechtigung" toast this whole
+ * wave exists to avoid -- see [AppState.guarded] KDoc). A guest instead pastes a room id from an
+ * out-of-band invitation (see [conferenceInviteText]) into a plain text field.
+ *
+ * No `#/conference/:roomId` deep link -- deliberately deferred, see [IConferenceService] KDoc
+ * "Federated guest join": this codebase has zero parameterized Navigo routes today, and
+ * introducing one was judged the wrong risk to add inside a trust-boundary wave.
+ */
+private fun renderGuestLobby(
+    lobbyPanel: SimplePanel,
+    callPanel: SimplePanel,
+    setActiveSession: (LiveKitRoomSession?) -> Unit,
+) {
+    lobbyPanel.removeAll()
+    lobbyPanel.show()
+
+    lobbyPanel.h2("Als Gast beitreten")
+    lobbyPanel.div(
+        "Sie sind über Ihren eigenen Heimserver angemeldet. Geben Sie die Raum-Kennung aus Ihrer " +
+            "Einladung ein, um einer Besprechung auf diesem Server beizutreten.",
+    ) { addCssClasses("text-muted small") }
+
+    val roomIdInput = lobbyPanel.text(label = "Raum-Kennung aus Ihrer Einladung")
+    val errorBox =
+        lobbyPanel.div().apply {
+            addCssClass("text-danger")
+            hide()
+        }
+    val blockedBox =
+        lobbyPanel.div {
+            addCssClasses("alert alert-warning")
+            hide()
+        }
+    val continueButton = lobbyPanel.button("Weiter", style = ButtonStyle.PRIMARY)
+
+    continueButton.onClick {
+        errorBox.hide()
+        blockedBox.hide()
+        val raw = roomIdInput.value.orEmpty().trim()
+        if (!Validation.looksLikeRoomId(raw)) {
+            errorBox.content = "Diese Raum-Kennung ist ungültig. Bitte kopieren Sie sie vollständig aus Ihrer Einladung."
+            errorBox.show()
+            return@onClick
+        }
+        continueButton.disabled = true
+        AppScope.launch {
+            val info = guarded { rpcService<IConferenceService>().getGuestJoinInfo(raw) }
+            continueButton.disabled = false
+            if (info == null) return@launch // guarded {} already toasted (unknown id, rate limit, ...)
+
+            val reason = conferenceGuestJoinBlockedReason(info)
+            if (reason != null) {
+                blockedBox.content = reason
+                blockedBox.show()
+                // The entered id stays in the field, button stays live -- a retry (e.g. after the
+                // moderator flips the toggle) is one click, not a re-paste.
+                return@launch
+            }
+
+            conferenceGuestConsentModal(info) { consent ->
+                AppScope.launch {
+                    val token = guarded { rpcService<IConferenceService>().joinRoom(info.roomId, consent) }
+                    if (token != null) {
+                        // Design review D14: a guest cannot call getRoom (AKTIV-only), so a minimal
+                        // local ConferenceRoomDto is synthesized from the two calls just made. It
+                        // carries the REAL createdByMemberId/createdByDisplayName from
+                        // getGuestJoinInfo -- the guest can see WHO the moderator is (D14), even
+                        // though `canModerate` still structurally evaluates false for them
+                        // (conferenceIsModerator compares the caller's OWN id, which a GAST can
+                        // never equal, since createRoom is AKTIV-only -- see that function's KDoc).
+                        val syntheticRoom =
+                            ConferenceRoomDto(
+                                id = info.roomId,
+                                title = info.title,
+                                description = "",
+                                livekitRoomName = token.livekitRoomName,
+                                createdByMemberId = info.createdByMemberId,
+                                createdByDisplayName = info.createdByDisplayName,
+                                createdAt = token.expiresAt,
+                                endedAt = null,
+                                active = true,
+                                maxParticipants = 0,
+                                liveParticipantCount = 0,
+                                myRole = token.role,
+                                allowFederationGuests = info.allowsFederationGuests,
+                            )
+                        enterCall(syntheticRoom, token, lobbyPanel, callPanel, setActiveSession) {
+                            renderGuestLobby(lobbyPanel, callPanel, setActiveSession)
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+/**
+ * Pure, jsTest-covered: the honest, specific German reason a guest cannot join, or `null` if they
+ * can. The reason comes from DTO DATA ([info]'s own fields), never from a server exception message
+ * -- kilua-rpc never transmits those, see [AppState.guarded] KDoc. See
+ * [ConferenceGuestJoinInfoDto] KDoc for the full rationale.
+ */
+internal fun conferenceGuestJoinBlockedReason(info: ConferenceGuestJoinInfoDto): String? =
+    when {
+        !info.roomActive -> "Die Besprechung „${info.title}\" ist bereits beendet."
+        !info.allowsFederationGuests ->
+            "Die Besprechung „${info.title}\" lässt derzeit keine Gäste anderer Server zu. " +
+                "Bitten Sie die Moderation, den Gastzugang für diesen Raum freizuschalten."
+        else -> null
+    }
+
+/**
+ * Wave 5's most security-sensitive new interaction. [ConferenceGuestJoinInfoDto.disclaimer]'s
+ * version/sha256 are held as read-only local values captured from the JUST-fetched DTO -- never
+ * hardcoded, never rendered as editable fields, never re-derived client-side -- and resent
+ * verbatim to `joinRoom` (via [conferenceGuestConsentInputOf]) so the server can constant-time-
+ * verify the guest saw the CURRENT text. A stale client that displays an old text therefore cannot
+ * silently bypass a text update: it resends the OLD version/hash it actually displayed, and the
+ * server rejects it.
+ *
+ * Design review D7/D9: two layers -- layer 1 ([ConferenceGuestConsentDisclaimerDto.headline]/
+ * `.keyPoints`, exactly two entries) rendered above the fold, unscrollable-past; layer 2 (the full
+ * `.text`) in a scroll box beneath it, always present, never hidden behind a "Details anzeigen"
+ * link. The org line ("Gastgeberin dieser Besprechung: {organizationName}") sits directly above
+ * layer 1 -- self-evidently in view, no sentence needed explaining where to look for it (D8).
+ * `role="note"` on the layer-1 block, `tabindex="0"` on the scroll box -- design review D17.
+ */
+private fun conferenceGuestConsentModal(
+    info: ConferenceGuestJoinInfoDto,
+    onConfirm: (ConferenceGuestConsentAcknowledgmentInput) -> Unit,
+) {
+    val d = info.disclaimer
+    val modal = Modal(caption = "Als Gast beitreten")
+    modal.div("Besprechung: ${info.title}") { addCssClasses("fw-bold") }
+    modal.div("Gastgeberin dieser Besprechung: ${info.organizationName}") { addCssClasses("fw-bold mb-1") }
+    modal.div(
+        "Diese Organisation ist für die Verarbeitung Ihrer Audio-, Video- und Chatdaten in dieser " +
+            "Besprechung verantwortlich -- nicht Ihr eigener Heimserver.",
+    ) { addCssClasses("text-muted small mb-2") }
+
+    val layerOne = modal.div { setAttribute("role", "note") }
+    layerOne.div(d.headline) { addCssClasses("fw-bold mb-2") }
+    d.keyPoints.forEach { point -> layerOne.div(point) { addCssClasses("mb-2") } }
+
+    val scrollBox =
+        modal.div {
+            addCssClasses("border rounded p-2 mb-2")
+            maxHeight = 320.px
+            overflow = Overflow.AUTO
+            setAttribute("tabindex", "0")
+        }
+    scrollBox.content = d.text
+
+    modal.div("Hinweistext-Version ${d.version}") { addCssClasses("text-muted small mb-2") }
+
+    modal.addButton(Button("Abbrechen", style = ButtonStyle.SECONDARY).apply { onClick { modal.hide() } })
+    modal.addButton(
+        Button("Hinweis gelesen -- als Gast beitreten", style = ButtonStyle.PRIMARY).apply {
+            onClick {
+                modal.hide()
+                onConfirm(conferenceGuestConsentInputOf(d))
+            }
+        },
+    )
+    modal.show()
+}
+
+/**
+ * Extracted so a jsTest can PROVE the input sent to `joinRoom` is derived from the fetched DTO and
+ * never hardcoded -- see [conferenceGuestConsentModal] KDoc.
+ */
+internal fun conferenceGuestConsentInputOf(d: ConferenceGuestConsentDisclaimerDto): ConferenceGuestConsentAcknowledgmentInput =
+    ConferenceGuestConsentAcknowledgmentInput(consentVersion = d.version, consentSha256 = d.sha256)
+
+/**
+ * D6 fallback: clipboard `writeText` rejected, was blocked, or the API is absent entirely -- never
+ * a silent no-op. A small modal with a read-only, pre-selected text area the moderator can still
+ * copy by hand (Ctrl/Cmd+C).
+ */
+private fun showInviteTextFallback(
+    parent: SimplePanel,
+    inviteText: String,
+) {
+    val modal = Modal(caption = "Einladung kopieren")
+    modal.div("Automatisches Kopieren war nicht möglich. Markieren Sie den Text unten und kopieren Sie ihn manuell.") {
+        addCssClasses("text-muted small mb-2")
+    }
+    val field = modal.textArea(value = inviteText, rows = 5) { addCssClasses("font-monospace") }
+    field.getElement()?.setAttribute("readonly", "readonly")
+    modal.addButton(Button("Schließen", style = ButtonStyle.SECONDARY).apply { onClick { modal.hide() } })
+    modal.show()
+    field.getElement()?.let { el -> (el.asDynamic()).select() }
+}
+
+/**
+ * Design review D6, decided copy. `origin` is `window.location.origin`, never hardcoded -- see the
+ * moderator "Einladung kopieren" call site.
+ *
+ * Security-audit fix: [organizationName] is nullable -- the caller has no organization name in
+ * scope at the moderator "Einladung kopieren" call site by default (unlike the guest pre-join
+ * lobby, which already has it from [network.lapis.cloud.shared.domain.ConferenceGuestJoinInfoDto]).
+ * Substituting [roomTitle] for a missing organization name (the original bug: "Sie sind zur
+ * Besprechung „X" bei X eingeladen.") is worse than omitting the clause entirely, so a `null`/blank
+ * [organizationName] simply drops "bei {org}" rather than fabricating a wrong one.
+ */
+internal fun conferenceInviteText(
+    origin: String,
+    roomId: String,
+    roomTitle: String,
+    organizationName: String?,
+): String {
+    val hostedByClause = if (organizationName.isNullOrBlank()) "" else " bei $organizationName"
+    return "Sie sind zur Besprechung „$roomTitle\"$hostedByClause eingeladen.\n" +
+        "1. Melden Sie sich über Ihren eigenen Heimserver an.\n" +
+        "2. Öffnen Sie $origin/#/conference\n" +
+        "3. Geben Sie dort diese Raum-Kennung ein: $roomId"
 }
 
 // ================================================================================================
@@ -471,6 +759,15 @@ private class ConferenceTileEntry(
     val mediaSlot: HTMLElement,
     val nameBadge: HTMLElement,
     val micBadge: HTMLElement,
+    /**
+     * V1.0 Videokonferenzen, Wave 5 "Föderations-Gastbeitritt", design review D12 -- a DEDICATED,
+     * separately-positioned marker (top-left corner, `micBadge` owns top-right, `nameBadge` owns
+     * bottom-left), never a suffix appended to `nameBadge`'s own text. `nameBadge` truncates with
+     * ellipsis at 85% tile width, so a `" · Gast"` suffix would be the FIRST thing eaten for any
+     * long display name -- exactly the federated guests whose `display_name` comes from a foreign
+     * server's unclamped `name` claim. Hidden by default, shown/populated by `setTileGuest`.
+     */
+    val guestBadgeEl: HTMLElement,
     var hasCamera: Boolean = false,
     var hasMic: Boolean = false,
 )
@@ -525,6 +822,17 @@ private fun enterCall(
     // with plain `document.createElement`/`appendChild`/`removeChild` -- never call `removeAll()` or
     // re-render on `gridElement`/`stageElement` themselves.
     val tiles = LinkedHashMap<String, ConferenceTileEntry>()
+    // V1.0 Videokonferenzen, Wave 5 "Föderations-Gastbeitritt" -- identity -> homeserverUrl for
+    // every CURRENTLY KNOWN guest participant, populated by `refreshGuestHomeservers` (a deliberate
+    // new fetch: `listParticipants` is otherwise called nowhere in this client, the in-call roster
+    // is built from `tiles`/LiveKit events, not from it). Drives both the roster badge (D11) and
+    // the tile pill (D12).
+    val guestHomeserverByIdentity = mutableMapOf<String, String>()
+    // Security-audit fix -- see `scheduleGuestHomeserverRefresh` KDoc: coalesces a burst of
+    // `onParticipantJoined` events (e.g. filling a room to the participant cap) into a single
+    // trailing `refreshGuestHomeservers` call instead of one `listParticipants` RPC (itself fanning
+    // out into an outbound LiveKit admin call) PER joining participant.
+    var guestHomeserverRefreshJob: Job? = null
     var gridElement: HTMLElement? = null
     var stageElement: HTMLElement? = null
     // Wave 4, D3: the two grid sub-containers -- created ONCE inside `gridDiv`'s own
@@ -626,6 +934,104 @@ private fun enterCall(
         val streamingRow = callPanel.hPanel(spacing = 8) { addCssClasses("align-items-center flex-wrap") }
         streamingRow.div("Live-Stream:") { addCssClasses("text-muted small") }
         streamingControlsRowRef = streamingRow
+    }
+
+    // V1.0 Videokonferenzen, Wave 5 "Föderations-Gastbeitritt" -- design review D1/D3: its OWN,
+    // third spatially separate control row (never a checkbox -- D1 rejects the plan's checkbox
+    // proposal: no precedent in this client for a checkbox that fires a server mutation on change,
+    // and it would force an optimistic-UI violation this file's own "only update UI state once the
+    // guarded {} call's result confirms success" rule forbids). Built UNCONDITIONALLY -- the status
+    // badge is visible to every participant (D3: an ordinary AKTIV member deserves to know the room
+    // is open to another organization's members too); only the buttons are moderator-gated.
+    val guestAccessRow = callPanel.hPanel(spacing = 8) { addCssClasses("align-items-center flex-wrap") }
+    guestAccessRow.div("Gastzugang:") { addCssClasses("text-muted small") }
+    var guestAccessOpen = room.allowFederationGuests
+    val guestAccessBadge = guestAccessRow.statusBadge("", "secondary")
+    var guestAccessToggleButton: Button? = null
+    var guestAccessInviteButton: Button? = null
+
+    fun updateGuestAccessUi() {
+        guestAccessBadge.content = if (guestAccessOpen) "Gäste zugelassen" else "Nur Mitglieder"
+        guestAccessBadge.removeCssClass("text-bg-secondary")
+        guestAccessBadge.removeCssClass("text-bg-info")
+        guestAccessBadge.addCssClass(if (guestAccessOpen) "text-bg-info" else "text-bg-secondary")
+        guestAccessToggleButton?.text = if (guestAccessOpen) "Gastzugang beenden" else "Gäste anderer Server zulassen"
+        guestAccessToggleButton?.removeCssClass("btn-warning")
+        guestAccessToggleButton?.removeCssClass("btn-outline-danger")
+        guestAccessToggleButton?.addCssClass(if (guestAccessOpen) "btn-outline-danger" else "btn-warning")
+        if (guestAccessOpen) guestAccessInviteButton?.show() else guestAccessInviteButton?.hide()
+    }
+    updateGuestAccessUi()
+
+    if (canModerate) {
+        val toggleButton = guestAccessRow.button("", style = ButtonStyle.WARNING)
+        guestAccessToggleButton = toggleButton
+        val inviteButton = guestAccessRow.button("Einladung kopieren", style = ButtonStyle.OUTLINESECONDARY)
+        inviteButton.addCssClass("btn-sm")
+        guestAccessInviteButton = inviteButton
+        updateGuestAccessUi()
+
+        fun applyGuestAccess(newValue: Boolean) {
+            toggleButton.disabled = true
+            AppScope.launch {
+                val result = guarded { rpcService<IConferenceService>().setRoomGuestAccess(room.id, newValue) }
+                toggleButton.disabled = false
+                // Rule: only update UI state once the guarded {} call's result confirms success --
+                // never optimistically before the RPC resolves (same discipline the recording/
+                // streaming buttons already follow, see file KDoc).
+                if (result != null) {
+                    guestAccessOpen = result.allowFederationGuests
+                    updateGuestAccessUi()
+                    notifySuccess(if (guestAccessOpen) "Gastzugang aktiviert." else "Gastzugang beendet.")
+                }
+            }
+        }
+
+        toggleButton.onClick {
+            if (guestAccessOpen) {
+                // Design review D16: revoking must not silently leave already-connected guests
+                // inside the room -- the server disconnects them, but the moderator must be told
+                // that BEFORE confirming, not be surprised by it afterwards (Norman: visible
+                // system status).
+                confirmDialog(
+                    title = "Gastzugang beenden",
+                    message =
+                        "Bereits verbundene Gäste anderer Server werden sofort aus der Besprechung entfernt. " +
+                            "Neue Gäste können nicht mehr beitreten. Mitglieder Ihrer eigenen Organisation sind " +
+                            "nicht betroffen.",
+                    confirmLabel = "Gastzugang beenden",
+                ) { applyGuestAccess(false) }
+            } else {
+                applyGuestAccess(true)
+            }
+        }
+
+        inviteButton.onClick {
+            // Security-audit fix: the organization name is not in scope at this call site by
+            // default (unlike the guest pre-join lobby) -- fetch it via getGuestJoinInfo, the same
+            // RPC that already exposes it to any AKTIV member on this room (never the
+            // BOARD/ADMIN/TREASURER-only OrganizationSettingsService), rather than substituting the
+            // room's own title. On failure (or if the org name comes back blank), conferenceInviteText
+            // simply drops the "bei {org}" clause -- never fabricates a wrong one.
+            AppScope.launch {
+                val info = guarded { rpcService<IConferenceService>().getGuestJoinInfo(room.id) }
+                val inviteText = conferenceInviteText(window.location.origin, room.id, roomTitle, info?.organizationName)
+                // D6: no precedent for `navigator.clipboard` anywhere in this client -- `writeText`
+                // rejects in non-secure contexts and can be permission-blocked, so this is never a
+                // silent no-op: on success a toast, on failure/absence a read-only, pre-selected text
+                // field the moderator can still copy by hand.
+                val clipboard: dynamic = window.navigator.asDynamic().clipboard
+                if (clipboard == null || clipboard == undefined) {
+                    showInviteTextFallback(callPanel, inviteText)
+                } else {
+                    val promise: dynamic = clipboard.writeText(inviteText)
+                    promise.then(
+                        { notifySuccess("Einladung in die Zwischenablage kopiert.") },
+                        { showInviteTextFallback(callPanel, inviteText) },
+                    )
+                }
+            }
+        }
     }
 
     // D8/D3: a combined container for 0-2 badge rows (recording/streaming render as DISTINCT rows,
@@ -1495,6 +1901,14 @@ private fun enterCall(
         }
         tiles.values.sortedWith(compareBy({ !it.isLocal }, { it.displayName })).forEach { entry ->
             val row = rosterList.hPanel(spacing = 6) { addCssClasses("align-items-center flex-wrap") }
+            // V1.0 Videokonferenzen, Wave 5, design review D11 -- badge BEFORE the name, matching
+            // the one shipped call site (`App.kt`'s navbar: `guestBadge(...)` then the name). The
+            // name div carries `flex-grow-1`, so a badge appended AFTER it would be flung to the
+            // right edge next to "Moderator"/"Mikro an"/"Entfernen" -- visually detached from the
+            // name it qualifies. No "(Gast)" text suffix here either -- the badge alone is the
+            // marker in the roster (the navbar only adds text because its badge sits inside a
+            // `.disabled` wrapper where the badge alone would read as decoration).
+            guestHomeserverByIdentity[entry.identity]?.let { homeserverUrl -> row.guestBadge(homeserverUrl) }
             row.div(entry.displayName + if (entry.isLocal) " (Sie)" else "") { addCssClasses("flex-grow-1 small") }
             if (entry.identity == room.createdByMemberId) {
                 row.statusBadge("Moderator", "primary")
@@ -1572,22 +1986,65 @@ private fun enterCall(
         micBadge.textContent = "Stumm"
         tile.appendChild(micBadge)
 
+        // V1.0 Videokonferenzen, Wave 5 "Föderations-Gastbeitritt", design review D12 -- top-left
+        // pill: white text on rgba(0,0,0,0.55) (proven AA-4.5:1 combination the "Stumm" badge above
+        // already ships, needed because the pill carries 11px TEXT) plus an 8px round dot filled
+        // with GuestBadgeColors.FILL (3:1-class non-text signal, ~4.7:1 on this #111 tile). Colour
+        // is never the sole signal -- the word "Gast" is always present (WCAG 1.4.1), same rule
+        // StatusBadge.kt states app-wide. Hidden by default -- see `setTileGuest`.
+        val guestBadgeEl = document.createElement("div") as HTMLElement
+        guestBadgeEl.style.cssText =
+            "position:absolute;left:6px;top:6px;background:rgba(0,0,0,0.55);color:#fff;" +
+            "font-size:11px;padding:2px 5px;border-radius:3px;display:none;" +
+            "align-items:center;gap:4px;"
+        val dot = document.createElement("span") as HTMLElement
+        dot.style.cssText =
+            "display:inline-block;width:8px;height:8px;border-radius:50%;background:${GuestBadgeColors.FILL};"
+        guestBadgeEl.appendChild(dot)
+        val guestLabel = document.createElement("span") as HTMLElement
+        guestLabel.textContent = "Gast"
+        guestBadgeEl.appendChild(guestLabel)
+        tile.appendChild(guestBadgeEl)
+
         // Wave 4, D3: NO LONGER appends to `gridElement` here -- placement into the priority/compact
         // zone is [applyConferenceGridReflow]'s job now, called by [ensureTile] right after this
         // returns (see file KDoc "D3").
-        return ConferenceTileEntry(identity, displayName, isLocal, tile, mediaSlot, nameBadge, micBadge)
+        return ConferenceTileEntry(identity, displayName, isLocal, tile, mediaSlot, nameBadge, micBadge, guestBadgeEl)
+    }
+
+    /**
+     * V1.0 Videokonferenzen, Wave 5, design review D12: set/updated from
+     * `guestHomeserverByIdentity`, itself populated by `refreshGuestHomeservers` -- see that
+     * function's own KDoc. `homeserverUrl == null` hides the pill (an ordinary member, or a guest
+     * row not yet resolved).
+     */
+    fun setTileGuest(
+        entry: ConferenceTileEntry,
+        homeserverUrl: String?,
+    ) {
+        if (homeserverUrl != null) {
+            entry.guestBadgeEl.style.display = "flex"
+            entry.guestBadgeEl.title = guestBadgeAriaLabel(homeserverUrl)
+            entry.guestBadgeEl.setAttribute("aria-label", guestBadgeAriaLabel(homeserverUrl))
+        } else {
+            entry.guestBadgeEl.style.display = "none"
+        }
     }
 
     // Tile/roster label composition lives HERE, not baked into `displayName` at call sites -- every
     // caller passes the RAW `joinToken.displayName`/`RemoteParticipant.name`, never a pre-suffixed
     // string, so [ConferenceTileEntry.displayName] stays the single source of truth for
     // [conferenceInitials] and never accumulates a repeated "(Sie)" suffix (a real bug an earlier
-    // version of this function had -- see the wave's own testing routine).
-    fun tileLabel(entry: ConferenceTileEntry): String {
-        val suffix = if (entry.isLocal) " (Sie)" else ""
-        val moderatorSuffix = if (entry.identity == room.createdByMemberId) " · Moderator" else ""
-        return entry.displayName + suffix + moderatorSuffix
-    }
+    // version of this function had -- see the wave's own testing routine). Design review D12:
+    // extracted into the pure, jsTest-covered `conferenceTileLabel` -- deliberately WITHOUT an
+    // `isGuest` parameter, since guest status is now the dedicated `guestBadgeEl` pill above, never
+    // a text suffix (see that field's own KDoc).
+    fun tileLabel(entry: ConferenceTileEntry): String =
+        conferenceTileLabel(
+            displayName = entry.displayName,
+            isLocal = entry.isLocal,
+            isModerator = entry.identity == room.createdByMemberId,
+        )
 
     fun ensureTile(
         identity: String,
@@ -1597,10 +2054,12 @@ private fun enterCall(
         tiles[identity]?.let { existing ->
             existing.displayName = displayName
             existing.nameBadge.textContent = tileLabel(existing)
+            setTileGuest(existing, guestHomeserverByIdentity[identity])
             return existing
         }
         val entry = buildTile(identity, displayName, isLocal)
         entry.nameBadge.textContent = tileLabel(entry)
+        setTileGuest(entry, guestHomeserverByIdentity[identity])
         tiles[identity] = entry
         refreshRoster()
         applyConferenceGridReflow()
@@ -1612,6 +2071,49 @@ private fun enterCall(
         entry.element.parentNode?.removeChild(entry.element)
         refreshRoster()
         applyConferenceGridReflow()
+    }
+
+    /**
+     * V1.0 Videokonferenzen, Wave 5 "Föderations-Gastbeitritt" -- deliberate new fetch (see
+     * `guestHomeserverByIdentity`'s own KDoc). Called once right after LiveKit connect succeeds
+     * (so an already-guest-populated roster is correct immediately, D4-style "the initial roster
+     * must render instantaneously and completely") and again on `onParticipantJoined`, via
+     * [scheduleGuestHomeserverRefresh]'s debounce -- a fresh joiner already triggers
+     * `ensureTile`/`refreshRoster`, this just adds the roundtrip needed to learn whether they are a
+     * guest. Deliberately NOT run on a timer -- unlike the recording/streaming polls, there is no
+     * server-push signal for "a new guest's `oidc_guest_profile` became known", but each call does
+     * fan out into an outbound LiveKit `ListParticipants` admin call (see
+     * `ConferenceService.listParticipants`'s own body -- this KDoc previously, incorrectly, claimed
+     * otherwise), which is exactly why [scheduleGuestHomeserverRefresh] exists: security-audit fix,
+     * see that function's own KDoc "DoS amplification".
+     */
+    suspend fun refreshGuestHomeservers() {
+        val participants = guarded { rpcService<IConferenceService>().listParticipants(room.id) } ?: return
+        guestHomeserverByIdentity.clear()
+        participants.forEach { p -> p.homeserverUrl?.let { url -> guestHomeserverByIdentity[p.memberId] = url } }
+        tiles.values.forEach { entry -> setTileGuest(entry, guestHomeserverByIdentity[entry.identity]) }
+        refreshRoster()
+    }
+
+    /**
+     * Security-audit fix (DoS amplification): calling [refreshGuestHomeservers] directly from every
+     * `onParticipantJoined` event meant filling a room to the participant cap cost on the order of
+     * N² LiveKit admin round-trips concentrated in a short window (each connected client issuing its
+     * own `listParticipants` RPC per join event), which could also exhaust the shared
+     * `listRateLimiter` budget `getRoom`/`listActiveRooms` draw on too, making those fail with
+     * `ConflictException` for a participant who did nothing wrong. This coalesces any burst of join
+     * events within [GUEST_HOMESERVER_REFRESH_DEBOUNCE_MS] into a SINGLE trailing
+     * [refreshGuestHomeservers] call: each new call cancels the still-pending previous one (if the
+     * debounce window has not yet elapsed) before scheduling its own, so N joins in quick succession
+     * still only ever produce ONE actual RPC once the roster settles down.
+     */
+    fun scheduleGuestHomeserverRefresh() {
+        guestHomeserverRefreshJob?.cancel()
+        guestHomeserverRefreshJob =
+            AppScope.launch {
+                delay(GUEST_HOMESERVER_REFRESH_DEBOUNCE_MS)
+                refreshGuestHomeservers()
+            }
     }
 
     fun showScreenShareStage(
@@ -1731,7 +2233,12 @@ private fun enterCall(
                     }
                 }
             },
-            onParticipantJoined = { identity, displayName -> ensureTile(identity, displayName) },
+            onParticipantJoined = { identity, displayName ->
+                ensureTile(identity, displayName)
+                // Wave 5, security-audit fix -- see scheduleGuestHomeserverRefresh KDoc "DoS
+                // amplification": debounced/coalesced, NOT one direct RPC per join event.
+                scheduleGuestHomeserverRefresh()
+            },
             onParticipantLeft = { identity -> removeTile(identity) },
             onLocalVideoTrack = { track ->
                 val entry = ensureTile(joinToken.identity, joinToken.displayName, isLocal = true)
@@ -1789,6 +2296,8 @@ private fun enterCall(
             return@launch
         }
         transition(ConferenceConnectionEvent.ConnectSucceeded)
+        // Wave 5 -- see refreshGuestHomeservers KDoc "called once right after connect succeeds".
+        refreshGuestHomeservers()
         // Each device independently, each wrapped in its own `guarded {}` -- a missing/denied camera
         // or microphone must not abort the whole call (a member with no working device can still
         // join and watch/listen). The full non-technical D2 permission-preflight UI is explicitly
@@ -2297,6 +2806,23 @@ internal fun conferenceCanRemove(
         targetMemberId != creatorMemberId &&
         targetMemberId != localMemberId
 
+/**
+ * V1.0 Videokonferenzen, Wave 5, design review D12 -- pure, jsTest-covered tile-label composer.
+ * Deliberately NO `isGuest` parameter: guest status is a dedicated pill (`ConferenceTileEntry
+ * .guestBadgeEl`), never a text suffix here -- a suffix would be the first thing the tile's own
+ * ellipsis-truncated name badge eats for a long display name, exactly the federated guests whose
+ * name comes from a foreign server's unclamped claim.
+ */
+internal fun conferenceTileLabel(
+    displayName: String,
+    isLocal: Boolean,
+    isModerator: Boolean,
+): String {
+    val suffix = if (isLocal) " (Sie)" else ""
+    val moderatorSuffix = if (isModerator) " · Moderator" else ""
+    return displayName + suffix + moderatorSuffix
+}
+
 /** Two-letter initials for the D4 camera-off avatar placeholder -- "Anna Muster" -> "AM", a single
  * name "Anna" -> "AN", blank/whitespace-only -> "?". */
 internal fun conferenceInitials(displayName: String): String {
@@ -2711,6 +3237,14 @@ internal const val CONFERENCE_SPEAKING_PRIORITY_WINDOW_MS = 8_000L
  * specified -- matches the debounce cadence real conferencing UIs (Zoom/Meet) use for speaker-view
  * switching. */
 internal const val CONFERENCE_GRID_REFLOW_SWEEP_INTERVAL_MS = 2_000L
+
+/**
+ * Security-audit fix -- debounce window [enterCall]'s `scheduleGuestHomeserverRefresh` waits after
+ * the LAST `onParticipantJoined` event before actually calling `refreshGuestHomeservers`, coalescing
+ * a burst of joins (e.g. a room filling to its participant cap) into one trailing RPC instead of one
+ * per join -- see that function's own KDoc "DoS amplification".
+ */
+internal const val GUEST_HOMESERVER_REFRESH_DEBOUNCE_MS = 1_500L
 
 /** D3 -- the pure partition [enterCall]'s `applyConferenceGridReflow` renders from. */
 internal data class ConferenceGridLayout(

@@ -69,6 +69,10 @@ fun auditEntityTypeLabel(entityType: AuditEntityType): String =
         // surfaces, same "one term, everywhere" discipline as Wave 2's D15.
         AuditEntityType.CONFERENCE_STREAM -> "Live-Stream"
         AuditEntityType.CONFERENCE_STREAM_DESTINATION -> "Streaming-Ziel"
+        // V1.0 Videokonferenzen, Wave 5 "Föderations-Gastbeitritt" -- "Gastzugang" is the ONLY term
+        // used for the per-room federation-guest-access capability across badge/button/dialog/
+        // invite, see the Wave 5 design review's D2 "Terminology lock".
+        AuditEntityType.CONFERENCE_ROOM -> "Gastzugang"
     }
 
 fun auditEntityTypeColor(entityType: AuditEntityType): String =
@@ -83,6 +87,9 @@ fun auditEntityTypeColor(entityType: AuditEntityType): String =
         // into this audit-log badge too, not just the in-meeting indicator.
         AuditEntityType.CONFERENCE_STREAM -> "warning"
         AuditEntityType.CONFERENCE_STREAM_DESTINATION -> "light"
+        // "info" -- matches the Wave 5 design review's D3 in-call "Gastzugang" status badge color
+        // ("open guest access is a state of affairs, not an achievement").
+        AuditEntityType.CONFERENCE_ROOM -> "info"
     }
 
 // ------------------------------------------------------------------------------------------------

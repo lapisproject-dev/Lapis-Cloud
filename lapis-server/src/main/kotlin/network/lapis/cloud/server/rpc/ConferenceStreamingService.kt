@@ -927,10 +927,16 @@ class ConferenceStreamingService(
         requireWithinRate(readRateLimiter, current.memberId)
         val roomUuid = roomId.toStreamUuid()
         return transaction {
-            requireActiveMembership(current.memberId)
             val room =
                 ConferenceRoomTable.selectAll().where { ConferenceRoomTable.id eq roomUuid }.singleOrNull()
                     ?: throw NotFoundException("Conference room $roomUuid not found")
+            // Wave 5 "Föderations-Gastbeitritt", design review D13 -- widened from
+            // requireActiveMembership to the shared conference-domain gate so a federated GUEST
+            // who is actually in the room (allowFederationGuests + has joined) can see the stream
+            // badge too -- "everyone in the room has a legal right to know" applies to a guest
+            // exactly as much as to an AKTIV member. See requireRoomEntryAuthorization KDoc.
+            val status = requireRoomEntryAuthorization(room, current)
+            requireGuestHasJoinedRoom(roomUuid, current, status)
             val row =
                 ConferenceStreamTable
                     .selectAll()

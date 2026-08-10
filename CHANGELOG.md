@@ -142,6 +142,90 @@ chips while `PAUSED` rather than rendering a contradicting "Live" status underne
 "ist unterbrochen" badge. Four new `ConferenceStreamingUiTest.kt` unit tests pin both the fix and the
 underlying `conferenceStreamBadgeVerbPhrase` mapping.
 
+**Videokonferenzen (Kleinsitzung), V1.0 Wave 5 „Föderations-Gastbeitritt" — a member of a DIFFERENT
+organization's Lapis Cloud server, authenticated via OIDC federation, can now join a video meeting
+on THIS server, on `feature/video-konferenz-wave5-foederation`.** A genuine trust boundary with a
+real DSGVO consent obligation, routed through the same "Plan → Sonnet implementation → Review-Loop
+→ Security-Loop" pipeline as every other wave, with Plan/Design/Security phases run through a
+stronger model given the trust-boundary/consent stakes.
+
+- **Per-room opt-in, never a blanket widening** — `conference_room.allow_federation_guests`
+  (`BOOLEAN NOT NULL DEFAULT FALSE`, new column, edited into `V1__baseline.sql` in place per this
+  repo's pre-1.0 convention). Every room created before this wave, and every room the D1 one-click
+  flow creates, stays guest-CLOSED unless its creator/moderator explicitly opts in via the new
+  `IConferenceService.setRoomGuestAccess` — same `requireModeratorOrPrivileged` gate `endRoom`/
+  `removeParticipant`/`renameRoom` already use, writes an `AuditEntityType.CONFERENCE_ROOM` audit
+  row, and — revoking access DISCONNECTS every currently-joined guest and closes their open
+  `conference_participation` rows (a room that "no longer admits guests" must not silently keep
+  guests inside it).
+- **`joinRoom` widened to AKTIV-or-(GAST + room opt-in + consent)** — a single shared gate,
+  `requireRoomEntryAuthorization` (new, in `MembershipGuards.kt`, reused by `joinRoom`/
+  `listParticipants`/`ConferenceRecordingService.getActiveRecording`/
+  `ConferenceStreamingService.getActiveStream` so none of the four can drift apart), always runs the
+  pre-existing `requireActiveOrGuestMembership` status check FIRST — the room toggle can only
+  NARROW the ANTRAG/AUSGETRETEN/ABGELEHNT rejection, never widen it. An AKTIV caller is
+  **completely unaffected**: the new `guestConsent` parameter defaults to `null` and is silently
+  ignored for a non-GAST caller, zero behavior change, zero new acknowledgment rows.
+- **`ConferenceGuestConsentDisclaimer`** — the versioned, hashed DSGVO consent text a guest must
+  echo back (version + SHA-256, same `AuctionComplianceDisclaimer`/`MembershipAgreementDisclaimer`
+  shape) before `joinRoom` admits them, discloses that this room is hosted by a specific
+  organization, that a moderator-started recording/livestream will capture the guest's audio/video,
+  and that the HOST server's Datenschutzerklärung applies, not the guest's home server's.
+  Two-layer, structurally drift-proof: `TEXT` is COMPOSED from `HEADLINE` + exactly two `KEY_POINTS`
+  + a `DETAIL` remainder, so the short client-rendered summary can never diverge from what the hash
+  actually covers. A tampered/stale/missing consent is rejected with zero side effects — no LiveKit
+  token, no `conference_participation` row, no acknowledgment row.
+- **`conference_guest_consent_acknowledgment`** — new, append-only table (one row PER JOIN, a
+  re-join writes a second row), FK to both `member` and `conference_room`, snapshotting
+  `homeserver_url`/`organization_name` at consent time (both are otherwise-mutable fields —
+  `oidc_guest_profile.homeserver_url` is overwritten on every re-login, `organization_settings.name`
+  is ADMIN-editable — so a DSGVO Rechenschaftsnachweis must name what the guest was actually shown,
+  not what those fields read today). Never erased on a DSGVO deletion request — it is the
+  organization's own proof of lawful processing under Art. 5(2)/7(1) DSGVO.
+- **`getGuestJoinInfo`** — a new, unauthenticated-safe (any AKTIV-or-GAST caller) pre-join read that
+  NEVER throws merely because a room does not admit guests; it returns `allowsFederationGuests =
+  false` as DATA instead. Load-bearing: kilua-rpc 0.0.45 transmits only the exception discriminator,
+  never the message, so an honest "this room does not admit guests" explanation is structurally
+  impossible to deliver via a thrown exception — this method is why the client can render one
+  anyway. Also carries the room's real `createdByMemberId`/`createdByDisplayName`, so a guest can
+  see WHO the moderator is before joining, and the disclaimer's version/headline/key points/text/hash.
+- **`listParticipants`/recording/streaming widened for an IN-ROOM guest** — a `MemberStatus.GAST`
+  caller is admitted to `listParticipants` (with a per-guest `homeserverUrl` in the roster) and to
+  `ConferenceRecordingService.getActiveRecording`/`ConferenceStreamingService.getActiveStream` iff
+  the room has opted in AND the caller has actually joined it at some point (`requireGuestHasJoinedRoom`,
+  new shared helper) — a guest merely handed a bare room id can never enumerate a roster or probe
+  recording/streaming state without ever entering the room. The recording/streaming widening closes
+  a launch-blocking design-review finding (D13): "everyone in the room has a legal right to know"
+  applies to a federated guest exactly as much as to an AKTIV member, and the consent text the guest
+  just agreed to explicitly promises this.
+- **Client — guest lobby, two-layer consent modal, moderator "Gastzugang" row, badges.** A federated
+  guest gets an entirely different Lobby (`renderGuestLobby`): no "Besprechung jetzt starten"
+  (`createRoom` is AKTIV-only), no "Aktive Besprechungen" list (would 403 on every load) — instead a
+  client-side-validated room-id field. The consent modal renders layer 1 (org line + headline + the
+  two key points, `role="note"`) above the fold and layer 2 (the full text) in an always-visible,
+  `tabindex="0"` scroll box beneath it — version/hash read from the just-fetched DTO, never
+  hardcoded, resent verbatim. The moderator's own new, spatially separate "Gastzugang:" row (never a
+  checkbox — no precedent in this client for a checkbox that fires a server mutation, and it would
+  force an optimistic-UI violation) is built unconditionally so every participant sees the status
+  badge, only the toggle/"Einladung kopieren" buttons are moderator-gated; turning access off asks
+  for confirmation first (already-connected guests will be disconnected). The pre-existing
+  `GuestBadge.kt` component is reused as-is in the roster (badge BEFORE the name, matching the
+  navbar's own layout); the in-call video tile gets its own dedicated top-left "Gast" pill (never a
+  text suffix on the name badge, which would be the first thing eaten by that badge's own ellipsis
+  truncation for a long federated display name). Lobby room cards show "Gastzugang offen" so an
+  AKTIV member can see outsiders may be present before joining.
+- **Testing** — the full mandated tamper/negative matrix (GAST joining a non-opted-in room rejected;
+  stale/flipped/malformed consent hash rejected without a 500; ANTRAG/AUSGETRETEN/ABGELEHNT rejected
+  identically regardless of the room's opt-in state; AKTIV `joinRoom` byte-for-byte unaffected —
+  null consent, non-opted-in room, and even a bogus consent payload for an AKTIV caller all still
+  succeed with zero acknowledgment rows), plus the D13 recording/streaming guest-visibility cases,
+  schema-drift/DSGVO-coverage/audit-log tests for the new column and table, 14 new client-side pure-
+  function unit tests, and a `FederationGuestJourneyTest` conference leg (create → opt-in →
+  `getGuestJoinInfo` before/after → `joinRoom` with the echoed consent → `listParticipants` shows the
+  correct `homeserverUrl` → revoke disconnects the guest → the acknowledgment row survives revocation)
+  extending the same real, continuous, unbroken guest session the rest of that scenario already
+  drives through federation, Politiker-Rating, LTR-economy refusal, and document-access exclusion.
+
 **Videokonferenzen (Kleinsitzung), V1.0 Wave 4 „Politur" — closes the three items deliberately
 deferred from Wave 1's mandatory UI/UX design review (D1, D3, D10), on
 `feature/video-konferenz-wave4-politur`.** No server-security-critical surface beyond one new

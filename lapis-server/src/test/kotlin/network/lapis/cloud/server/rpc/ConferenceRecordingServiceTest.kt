@@ -29,6 +29,7 @@ import network.lapis.cloud.server.db.DbClock
 import network.lapis.cloud.server.db.DevSeedData
 import network.lapis.cloud.server.db.generated.AccountTable
 import network.lapis.cloud.server.db.generated.AuditLogEntryTable
+import network.lapis.cloud.server.db.generated.ConferenceParticipationTable
 import network.lapis.cloud.server.db.generated.ConferenceRecordingTable
 import network.lapis.cloud.server.db.generated.ConferenceRecordingTrackTable
 import network.lapis.cloud.server.db.generated.ConferenceRoomTable
@@ -39,6 +40,7 @@ import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.ConferenceRecordingAvailabilityDto
 import network.lapis.cloud.shared.domain.ConferenceRecordingDto
 import network.lapis.cloud.shared.domain.ConferenceRecordingStatus
+import network.lapis.cloud.shared.domain.ConferenceRole
 import network.lapis.cloud.shared.domain.DocumentAccessLevel
 import network.lapis.cloud.shared.domain.MemberStatus
 import network.lapis.cloud.shared.rpc.BadRequestException
@@ -49,6 +51,7 @@ import network.lapis.cloud.shared.rpc.UnauthenticatedException
 import org.jetbrains.exposed.v1.core.and
 import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.core.inList
+import org.jetbrains.exposed.v1.core.or
 import org.jetbrains.exposed.v1.jdbc.deleteWhere
 import org.jetbrains.exposed.v1.jdbc.insert
 import org.jetbrains.exposed.v1.jdbc.selectAll
@@ -590,6 +593,88 @@ class ConferenceRecordingServiceTest :
             }
         }
 
+        // ── getActiveRecording -- Wave 5 "Föderations-Gastbeitritt", design review D13 ────────
+
+        test(
+            "D13: a GAST who has joined an opted-in room sees the active recording -- 'everyone in the room has a legal right to know' applies to a guest too",
+        ) {
+            testApplication {
+                application {
+                    install(StatusPages) { installConferenceRecordingExceptionHandlers() }
+                    routing { registerConferenceRecordingTestRoutes() }
+                }
+                val creator = createTestMember("rec-d13-happy@example.org")
+                val roomId = createTestRoom(creator, "D13-Sitzung")
+                transaction { ConferenceRoomTable.update({ ConferenceRoomTable.id eq roomId }) { it[allowFederationGuests] = true } }
+                val guest = createTestMember("rec-d13-guest@example.org", status = MemberStatus.GAST)
+                transaction {
+                    ConferenceParticipationTable.insert {
+                        it[id] = Uuid.random()
+                        it[ConferenceParticipationTable.roomId] = roomId
+                        it[memberId] = guest
+                        it[role] = ConferenceRole.PARTICIPANT
+                        it[joinedAt] = DbClock.nowLocalDateTime()
+                        it[leftAt] = null
+                    }
+                }
+
+                client
+                    .post("/test/start-recording?roomId=$roomId&accessLevel=ADMIN_ONLY") { header("X-Member-Id", creator.toString()) }
+                    .bodyAsText()
+
+                val response = client.get("/test/active-recording?roomId=$roomId") { header("X-Member-Id", guest.toString()) }
+                response.status shouldBe HttpStatusCode.OK
+                response.bodyAsText().toDto().status shouldBe ConferenceRecordingStatus.RECORDING
+            }
+        }
+
+        test(
+            "D13: a GAST who never joined the room is rejected; a GAST in a non-opted-in room is rejected; ANTRAG/AUSGETRETEN/ABGELEHNT unchanged",
+        ) {
+            testApplication {
+                application {
+                    install(StatusPages) { installConferenceRecordingExceptionHandlers() }
+                    routing { registerConferenceRecordingTestRoutes() }
+                }
+                val creator = createTestMember("rec-d13-neg@example.org")
+                val openRoomId = createTestRoom(creator, "D13-Offen")
+                transaction { ConferenceRoomTable.update({ ConferenceRoomTable.id eq openRoomId }) { it[allowFederationGuests] = true } }
+                val closedRoomId = createTestRoom(creator, "D13-Geschlossen")
+
+                val neverJoinedGuest = createTestMember("rec-d13-never@example.org", status = MemberStatus.GAST)
+                client
+                    .get(
+                        "/test/active-recording?roomId=$openRoomId",
+                    ) { header("X-Member-Id", neverJoinedGuest.toString()) }
+                    .status shouldBe
+                    HttpStatusCode.Forbidden
+
+                val closedRoomGuest = createTestMember("rec-d13-closed@example.org", status = MemberStatus.GAST)
+                transaction {
+                    ConferenceParticipationTable.insert {
+                        it[id] = Uuid.random()
+                        it[ConferenceParticipationTable.roomId] = closedRoomId
+                        it[memberId] = closedRoomGuest
+                        it[role] = ConferenceRole.PARTICIPANT
+                        it[joinedAt] = DbClock.nowLocalDateTime()
+                        it[leftAt] = null
+                    }
+                }
+                client
+                    .get(
+                        "/test/active-recording?roomId=$closedRoomId",
+                    ) { header("X-Member-Id", closedRoomGuest.toString()) }
+                    .status shouldBe
+                    HttpStatusCode.Forbidden
+
+                listOf(MemberStatus.ANTRAG, MemberStatus.AUSGETRETEN, MemberStatus.ABGELEHNT).forEach { status ->
+                    val member = createTestMember("rec-d13-${status.name.lowercase()}@example.org", status = status)
+                    client.get("/test/active-recording?roomId=$openRoomId") { header("X-Member-Id", member.toString()) }.status shouldBe
+                        HttpStatusCode.Forbidden
+                }
+            }
+        }
+
         // ── listRecordings ───────────────────────────────────────────────────
 
         test("listRecordings: filtered to canAccessDocumentAtLevel OR startedByMemberId == caller") {
@@ -729,6 +814,14 @@ private fun cleanUpConferenceRecordingTestData(
         }
         recordingIds.forEach { recordingId ->
             ConferenceRecordingTable.deleteWhere { ConferenceRecordingTable.id eq recordingId }
+        }
+        // Wave 5 "Föderations-Gastbeitritt" D13 tests insert conference_participation rows
+        // directly (a GAST "joining" a room, no LiveKit involved) -- delete before the room/member
+        // rows they FK-reference.
+        if (roomIds.isNotEmpty() || memberIds.isNotEmpty()) {
+            ConferenceParticipationTable.deleteWhere {
+                (ConferenceParticipationTable.roomId inList roomIds) or (ConferenceParticipationTable.memberId inList memberIds)
+            }
         }
         roomIds.forEach { roomId -> ConferenceRoomTable.deleteWhere { ConferenceRoomTable.id eq roomId } }
         memberIds.forEach { memberId -> AccountTable.deleteWhere { AccountTable.memberId eq memberId } }

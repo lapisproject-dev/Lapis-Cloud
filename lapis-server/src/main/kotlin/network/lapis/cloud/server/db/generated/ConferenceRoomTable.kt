@@ -19,6 +19,19 @@ public object ConferenceRoomTable : Table("conference_room") {
     public val endedAt: Column<LocalDateTime?> = datetime("ended_at").nullable()
     public val maxParticipants: Column<Int> = integer("max_participants")
 
+    /**
+     * V1.0 Wave 5 "Föderations-Gastbeitritt" -- per-room opt-in, default FALSE. See
+     * 27-conference.kuml.kts. `.default(false)` matches the SQL-level `DEFAULT FALSE`
+     * (V1__baseline.sql) -- deliberate deviation from this codebase's usual "no Exposed-level
+     * default, caller always writes explicitly" convention (e.g. OrganizationSettingsTable's own
+     * booleans): unlike organization_settings (a seeded singleton, never freshly inserted by test
+     * code), conference_room is inserted directly by numerous pre-existing test fixtures across
+     * this codebase that have no reason to know about this new column -- an Exposed-level default
+     * keeps them green without a mass edit, while ConferenceService.createRoom still writes the
+     * value explicitly either way (input.allowFederationGuests, defaulting to false itself).
+     */
+    public val allowFederationGuests: Column<Boolean> = bool("allow_federation_guests").default(false)
+
     override val primaryKey: PrimaryKey = PrimaryKey(id)
 
     // Note: 2 index(es) declared on this entity are not emitted --

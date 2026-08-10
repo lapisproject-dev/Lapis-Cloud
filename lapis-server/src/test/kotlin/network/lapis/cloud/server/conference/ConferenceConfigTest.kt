@@ -31,6 +31,7 @@ class ConferenceConfigTest :
             config.apiKey shouldBe ""
             config.apiSecret shouldBe ""
             config.tokenTtlMinutes shouldBe 240L
+            config.guestTokenTtlMinutes shouldBe 15L
             config.maxParticipants shouldBe 25
         }
 
@@ -105,6 +106,52 @@ class ConferenceConfigTest :
 
             config.tokenTtlMinutes shouldBe 240L
             config.maxParticipants shouldBe 25
+        }
+
+        // ── Guest token TTL (Wave 5 security-audit fix) ─────────────────────
+
+        test("guestTokenTtlMinutes defaults to 15, independently of a custom LAPIS_LIVEKIT_TOKEN_TTL_MINUTES") {
+            val config =
+                ConferenceConfig.load(
+                    envOf(
+                        "LAPIS_LIVEKIT_URL" to VALID_URL,
+                        "LAPIS_LIVEKIT_API_KEY" to VALID_KEY,
+                        "LAPIS_LIVEKIT_API_SECRET" to VALID_SECRET,
+                        "LAPIS_LIVEKIT_TOKEN_TTL_MINUTES" to "480",
+                    ),
+                )
+
+            config.tokenTtlMinutes shouldBe 480L
+            config.guestTokenTtlMinutes shouldBe 15L
+        }
+
+        test("custom LAPIS_LIVEKIT_GUEST_TOKEN_TTL_MINUTES is parsed and left independent of tokenTtlMinutes") {
+            val config =
+                ConferenceConfig.load(
+                    envOf(
+                        "LAPIS_LIVEKIT_URL" to VALID_URL,
+                        "LAPIS_LIVEKIT_API_KEY" to VALID_KEY,
+                        "LAPIS_LIVEKIT_API_SECRET" to VALID_SECRET,
+                        "LAPIS_LIVEKIT_GUEST_TOKEN_TTL_MINUTES" to "5",
+                    ),
+                )
+
+            config.guestTokenTtlMinutes shouldBe 5L
+            config.tokenTtlMinutes shouldBe 240L
+        }
+
+        test("unparseable LAPIS_LIVEKIT_GUEST_TOKEN_TTL_MINUTES falls back to the default rather than crashing") {
+            val config =
+                ConferenceConfig.load(
+                    envOf(
+                        "LAPIS_LIVEKIT_URL" to VALID_URL,
+                        "LAPIS_LIVEKIT_API_KEY" to VALID_KEY,
+                        "LAPIS_LIVEKIT_API_SECRET" to VALID_SECRET,
+                        "LAPIS_LIVEKIT_GUEST_TOKEN_TTL_MINUTES" to "not-a-number",
+                    ),
+                )
+
+            config.guestTokenTtlMinutes shouldBe 15L
         }
 
         listOf(

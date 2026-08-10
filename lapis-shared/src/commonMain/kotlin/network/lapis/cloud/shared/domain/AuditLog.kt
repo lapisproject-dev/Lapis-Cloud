@@ -28,9 +28,13 @@ enum class AuditAction { CREATE, UPDATE, POST }
  * why start/stop are audited. `CONFERENCE_STREAM`/`CONFERENCE_STREAM_DESTINATION` (V1.0
  * Videokonferenzen, Wave 3 "Externes Streaming") were appended LAST after that, in this order --
  * every destination credential CREATE/UPDATE/DELETE and every stream start/pause/resume/stop is
- * audited, same GoBD/§32 BGB framing Wave 2 already established for recording start/stop. Additive
- * append only -- never reorder existing literals, see this enum's own "cheap to extend, expensive
- * to reorder" note class-wide.
+ * audited, same GoBD/§32 BGB framing Wave 2 already established for recording start/stop.
+ * `CONFERENCE_ROOM` (V1.0 Videokonferenzen, Wave 5 "Föderations-Gastbeitritt") was appended LAST
+ * after that -- see `network.lapis.cloud.server.rpc.ConferenceService.setRoomGuestAccess` KDoc for
+ * why the room-level federation-guest-access toggle is audited (a moderator granting/revoking
+ * another organization's members access to this room's audio/video is a governance-relevant fact).
+ * Additive append only -- never reorder existing literals, see this enum's own "cheap to extend,
+ * expensive to reorder" note class-wide.
  */
 @Serializable
 enum class AuditEntityType {
@@ -41,6 +45,7 @@ enum class AuditEntityType {
     CONFERENCE_RECORDING,
     CONFERENCE_STREAM,
     CONFERENCE_STREAM_DESTINATION,
+    CONFERENCE_ROOM,
 }
 
 /**

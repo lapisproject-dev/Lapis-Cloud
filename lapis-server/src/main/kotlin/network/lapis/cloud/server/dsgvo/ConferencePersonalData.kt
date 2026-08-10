@@ -3,6 +3,7 @@ package network.lapis.cloud.server.dsgvo
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 import kotlinx.serialization.json.putJsonArray
+import network.lapis.cloud.server.db.generated.ConferenceGuestConsentAcknowledgmentTable
 import network.lapis.cloud.server.db.generated.ConferenceParticipationTable
 import network.lapis.cloud.server.db.generated.ConferenceRecordingTable
 import network.lapis.cloud.server.db.generated.ConferenceRecordingTrackTable
@@ -18,13 +19,15 @@ import kotlin.uuid.Uuid
 
 /**
  * Owns [ConferenceRoomTable]/[ConferenceParticipationTable] (V1.0 Videokonferenzen, Wave 1),
- * [ConferenceRecordingTable]/[ConferenceRecordingTrackTable] (V1.0 Wave 2 "Aufzeichnung"), and
+ * [ConferenceRecordingTable]/[ConferenceRecordingTrackTable] (V1.0 Wave 2 "Aufzeichnung"),
  * [ConferenceStreamDestinationTable]/[ConferenceStreamTable]/[ConferenceStreamTargetTable] (V1.0
- * Wave 3 "Externes Streaming"). Five member-FK-bearing columns across the seven tables
+ * Wave 3 "Externes Streaming"), and [ConferenceGuestConsentAcknowledgmentTable] (V1.0 Wave 5
+ * "Föderations-Gastbeitritt"). Six member-FK-bearing columns across the eight tables
  * (`conference_room.created_by_member_id`, `conference_participation.member_id`,
  * `conference_recording.started_by_member_id`, `conference_stream_destination
- * .created_by_member_id`, `conference_stream.started_by_member_id`) -- same "actor plus
- * subject(s)" shape [PeerTransferPersonalData]/[AuctionPersonalData] already establish.
+ * .created_by_member_id`, `conference_stream.started_by_member_id`,
+ * `conference_guest_consent_acknowledgment.member_id`) -- same "actor plus subject(s)" shape
+ * [PeerTransferPersonalData]/[AuctionPersonalData] already establish.
  * [ConferenceRecordingTrackTable]/[ConferenceStreamTargetTable] carry NO member FK of their own
  * (the former's `participant_identity` is a plain string echo of a LiveKit identity, the latter
  * only resolves to `conference_stream`/`conference_stream_destination`, never to `member`
@@ -59,6 +62,16 @@ import kotlin.uuid.Uuid
  * `DocumentPersonalData`, not here. Streaming never produces such a file (the RTMP output lives
  * entirely on the external platform), so there is no equivalent hand-off for Wave 3.
  *
+ * **`conference_guest_consent_acknowledgment` (Wave 5) is retained, never erased -- a deliberate
+ * departure from the "shared record" reasoning above.** The proof that a federated guest was shown
+ * and acknowledged this room's DSGVO consent text before joining is the organization's OWN
+ * Rechenschaftsnachweis under Art. 5(2)/7(1) DSGVO -- erasing it would destroy the very record that
+ * documents the lawfulness of processing that data subject's audio/video in that meeting.
+ * `homeserver_url`/`organization_name` are exported/retained exactly as snapshotted at consent time
+ * (see `30-conference-guest-access.kuml.kts` file header) -- never re-resolved live, so a
+ * subsequent home-server change or organization rename does not retroactively alter what this
+ * record proves the guest was shown.
+ *
  * **The stream key is never part of any export or erasure output here** --
  * `conference_stream_destination.stream_key_ciphertext` is never read by this object; export
  * surfaces only the same non-secret fields `ConferenceStreamDestinationDto` itself would (label/
@@ -77,6 +90,7 @@ object ConferencePersonalData : PersonalDataContributor {
             ConferenceStreamDestinationTable,
             ConferenceStreamTable,
             ConferenceStreamTargetTable,
+            ConferenceGuestConsentAcknowledgmentTable,
         )
 
     override fun export(memberId: Uuid) =
@@ -160,6 +174,28 @@ object ConferencePersonalData : PersonalDataContributor {
                         )
                     }
             }
+            // V1.0 Videokonferenzen, Wave 5 "Föderations-Gastbeitritt" -- never streamKeyCiphertext-
+            // style secrets here either; consentSha256 is a hash of a PUBLIC disclaimer text, not a
+            // secret, so exporting it is harmless and lets the subject verify which exact wording
+            // they acknowledged.
+            putJsonArray("guestConsentAcknowledgments") {
+                ConferenceGuestConsentAcknowledgmentTable
+                    .selectAll()
+                    .where { ConferenceGuestConsentAcknowledgmentTable.memberId eq memberId }
+                    .forEach { row ->
+                        add(
+                            buildJsonObject {
+                                put("id", row[ConferenceGuestConsentAcknowledgmentTable.id].toString())
+                                put("roomId", row[ConferenceGuestConsentAcknowledgmentTable.roomId].toString())
+                                put("acknowledgedAt", row[ConferenceGuestConsentAcknowledgmentTable.acknowledgedAt].toString())
+                                put("consentVersion", row[ConferenceGuestConsentAcknowledgmentTable.consentVersion])
+                                put("consentSha256", row[ConferenceGuestConsentAcknowledgmentTable.consentSha256])
+                                put("homeserverUrl", row[ConferenceGuestConsentAcknowledgmentTable.homeserverUrl])
+                                put("organizationName", row[ConferenceGuestConsentAcknowledgmentTable.organizationName])
+                            },
+                        )
+                    }
+            }
         }
 
     override fun erase(
@@ -205,6 +241,11 @@ object ConferencePersonalData : PersonalDataContributor {
                     .where { ConferenceStreamTargetTable.streamId inList streamIds }
                     .count()
             }
+        val guestConsentAcknowledgmentCount =
+            ConferenceGuestConsentAcknowledgmentTable
+                .selectAll()
+                .where { ConferenceGuestConsentAcknowledgmentTable.memberId eq memberId }
+                .count()
 
         return listOf(
             TableErasureOutcome(
@@ -257,6 +298,16 @@ object ConferencePersonalData : PersonalDataContributor {
                 rowsRetained = streamTargetCount.toInt(),
                 retentionReason =
                     "Part of the retained stream's own shared technical record, same treatment as conference_recording_track.",
+            ),
+            TableErasureOutcome(
+                table = "conference_guest_consent_acknowledgment",
+                rowsRetained = guestConsentAcknowledgmentCount.toInt(),
+                retentionReason =
+                    "The proof that a federated guest was shown and acknowledged this room's DSGVO " +
+                        "consent text before joining is the organization's own Rechenschaftsnachweis " +
+                        "under Art. 5(2)/7(1) DSGVO -- erasing it would destroy the very record that " +
+                        "documents the lawfulness of processing this data subject's audio/video in " +
+                        "that meeting.",
             ),
         )
     }

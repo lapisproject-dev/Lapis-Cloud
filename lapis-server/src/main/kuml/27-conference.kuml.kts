@@ -70,6 +70,17 @@
 //    own, separate table(s), not a widening of this one (same "business table carries fachlich
 //    detail, a later wave's own table carries its own concern" split 21-auction.kuml.kts's header
 //    documents for `ltr_ledger_entry`).
+//
+// **Wave 5 "Föderations-Gastbeitritt" addition**: `conference_room.allowFederationGuests`
+// (default `false`) -- the per-room opt-in that gates `MemberStatus.GAST` out of `joinRoom` unless
+// its creator/moderator explicitly enables it. Every room created before this wave (and every room
+// created by the D1 one-click flow, which never sets it) is guest-CLOSED by default -- loosening
+// `joinRoom` without this column would have made every existing and future room guest-joinable
+// with zero creator consent. Set at creation time via `ConferenceRoomInput.allowFederationGuests`
+// (client never sets it -- see IConferenceService KDoc) and toggled while the room is active via
+// `IConferenceService.setRoomGuestAccess` (same `requireModeratorOrPrivileged` gate `endRoom`/
+// `removeParticipant`/`renameRoom` already use). See `30-conference-guest-access.kuml.kts` for the
+// companion per-join DSGVO consent-acknowledgment table this wave also adds.
 import dev.kuml.profile.erm.ermMappingProfile
 import dev.kuml.uml.Multiplicity
 import dev.kuml.uml.dsl.applyProfile
@@ -148,6 +159,19 @@ classDiagram(name = "Conference") {
         // created" reasoning `auction.listing_fee_ltr` already establishes for its own flat fee.
         attribute(name = "maxParticipants", type = "Int") {
             stereotype("Column") { "columnName" to "max_participants" }
+        }
+        // V1.0 Videokonferenzen, Wave 5 "Föderations-Gastbeitritt" -- the per-room opt-in that
+        // gates MemberStatus.GAST out of joinRoom. Defaults to FALSE so every room created before
+        // this wave (and every room created by the D1 one-click flow) is guest-CLOSED unless its
+        // creator/moderator explicitly opts in -- loosening joinRoom without this column would
+        // have made every existing and future room guest-joinable with zero creator consent. Set
+        // at creation time via ConferenceRoomInput.allowFederationGuests and toggled while the
+        // room is active via IConferenceService.setRoomGuestAccess (same
+        // requireModeratorOrPrivileged gate endRoom/removeParticipant/renameRoom already use). See
+        // file header "Wave 5 addition".
+        attribute(name = "allowFederationGuests", type = "Boolean") {
+            defaultValue = "FALSE"
+            stereotype("Column") { "columnName" to "allow_federation_guests" }
         }
     }
 

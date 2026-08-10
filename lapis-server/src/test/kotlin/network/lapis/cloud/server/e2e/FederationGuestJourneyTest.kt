@@ -2,6 +2,7 @@ package network.lapis.cloud.server.e2e
 
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
+import io.kotest.matchers.shouldNotBe
 import io.ktor.client.request.get
 import io.ktor.client.request.header
 import io.ktor.client.request.post
@@ -13,8 +14,16 @@ import io.ktor.server.routing.get
 import io.ktor.server.routing.post
 import io.ktor.server.routing.routing
 import io.ktor.server.testing.testApplication
+import network.lapis.cloud.server.conference.ConferenceConfig
+import network.lapis.cloud.server.conference.LiveKitAdminClient
+import network.lapis.cloud.server.conference.LiveKitParticipantInfo
+import network.lapis.cloud.server.conference.LiveKitRoomInfo
 import network.lapis.cloud.server.db.DatabaseConfig
 import network.lapis.cloud.server.db.DevSeedData
+import network.lapis.cloud.server.db.generated.AuditLogEntryTable
+import network.lapis.cloud.server.db.generated.ConferenceGuestConsentAcknowledgmentTable
+import network.lapis.cloud.server.db.generated.ConferenceParticipationTable
+import network.lapis.cloud.server.db.generated.ConferenceRoomTable
 import network.lapis.cloud.server.db.generated.CrowdfundingProjectTable
 import network.lapis.cloud.server.db.generated.DocumentFolderTable
 import network.lapis.cloud.server.db.generated.DocumentTable
@@ -26,25 +35,85 @@ import network.lapis.cloud.server.db.generated.PoliticianWeightSnapshotTable
 import network.lapis.cloud.server.federation.OidcGuestClaims
 import network.lapis.cloud.server.federation.OidcGuestMemberStore
 import network.lapis.cloud.server.module
+import network.lapis.cloud.server.rpc.ConferenceGuestConsentDisclaimer
+import network.lapis.cloud.server.rpc.ConferenceService
 import network.lapis.cloud.server.rpc.CrowdfundingService
 import network.lapis.cloud.server.rpc.DocumentService
 import network.lapis.cloud.server.rpc.LtrLedgerService
 import network.lapis.cloud.server.rpc.ORGANIZATION_SETTINGS_ID
 import network.lapis.cloud.server.rpc.PoliticianService
+import network.lapis.cloud.server.security.LoginRateLimiter
 import network.lapis.cloud.server.security.SessionStore
+import network.lapis.cloud.shared.domain.ConferenceGuestConsentAcknowledgmentInput
+import network.lapis.cloud.shared.domain.ConferenceRoomInput
 import network.lapis.cloud.shared.domain.CrowdfundingProjectInput
 import network.lapis.cloud.shared.domain.DocumentAccessLevel
 import network.lapis.cloud.shared.domain.MintLtrInput
 import network.lapis.cloud.shared.domain.PoliticianRaterType
 import network.lapis.cloud.shared.domain.PoliticianReactionValue
+import org.jetbrains.exposed.v1.core.and
 import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.core.inList
+import org.jetbrains.exposed.v1.core.or
 import org.jetbrains.exposed.v1.jdbc.deleteWhere
 import org.jetbrains.exposed.v1.jdbc.selectAll
 import org.jetbrains.exposed.v1.jdbc.transactions.transaction
 import org.jetbrains.exposed.v1.jdbc.update
 import java.math.BigDecimal
 import kotlin.uuid.Uuid
+
+/**
+ * Hermetic, in-memory stand-in for [LiveKitAdminClient] -- same posture
+ * [network.lapis.cloud.server.rpc.ConferenceServiceTest]'s own private `FakeLiveKitAdminClient`
+ * establishes (no real LiveKit container in this sandbox, see this file's own class KDoc "No
+ * outbound internet egress"), duplicated here (rather than reused) because that one is `private`
+ * to the `rpc` package's test file.
+ */
+private class E2eFakeLiveKitAdminClient : LiveKitAdminClient {
+    private val rooms = mutableMapOf<String, LiveKitRoomInfo>()
+    private val participantsByRoom = mutableMapOf<String, MutableList<LiveKitParticipantInfo>>()
+    var removeParticipantCallCount = 0
+        private set
+
+    override suspend fun createRoom(
+        name: String,
+        maxParticipants: Int,
+        emptyTimeoutSeconds: Int,
+    ): LiveKitRoomInfo {
+        val info = LiveKitRoomInfo(sid = "RM_$name", name = name, maxParticipants = maxParticipants, numParticipants = 0)
+        rooms[name] = info
+        participantsByRoom.getOrPut(name) { mutableListOf() }
+        return info
+    }
+
+    override suspend fun deleteRoom(name: String) {
+        rooms.remove(name)
+        participantsByRoom.remove(name)
+    }
+
+    override suspend fun listRooms(): List<LiveKitRoomInfo> = rooms.values.toList()
+
+    override suspend fun listParticipants(room: String): List<LiveKitParticipantInfo> = participantsByRoom[room].orEmpty()
+
+    override suspend fun removeParticipant(
+        room: String,
+        identity: String,
+    ) {
+        removeParticipantCallCount++
+        participantsByRoom[room]?.removeIf { it.identity == identity }
+    }
+}
+
+/** [ConferenceConfig] with `enabled=true` -- built via the injectable `env` seam, no real env vars touched, same as [network.lapis.cloud.server.rpc.ConferenceServiceTest]'s own. */
+private val E2E_ENABLED_CONFERENCE_CONFIG =
+    ConferenceConfig.load { key ->
+        when (key) {
+            "LAPIS_LIVEKIT_URL" -> "ws://localhost:7880"
+            "LAPIS_LIVEKIT_API_KEY" -> "test-livekit-key"
+            "LAPIS_LIVEKIT_API_SECRET" -> "test-livekit-secret-at-least-32-bytes-long!!"
+            else -> null
+        }
+    }
 
 /**
  * Scenario 3 of the V1.0 end-to-end integration test wave -- see [E2eSupport] KDoc for the shared
@@ -117,6 +186,7 @@ class FederationGuestJourneyTest :
         val createdPoliticianProfileIds = mutableListOf<Uuid>()
         val createdFolderIds = mutableListOf<Uuid>()
         val createdDocumentIds = mutableListOf<Uuid>()
+        val createdConferenceRoomIds = mutableListOf<Uuid>()
 
         beforeSpec {
             DatabaseConfig.connect()
@@ -148,6 +218,28 @@ class FederationGuestJourneyTest :
                 }
                 if (createdMemberIds.isNotEmpty()) {
                     OidcGuestProfileTable.deleteWhere { OidcGuestProfileTable.memberId inList createdMemberIds }
+                    // V1.0 Videokonferenzen, Wave 5 -- setRoomGuestAccess writes an AuditLogEntryTable
+                    // row referencing the acting member via a real FK; null it out first (rows
+                    // themselves are never deleted, see AuditLogRecorder KDoc), same pattern
+                    // ConferenceServiceTest's own cleanup establishes.
+                    AuditLogEntryTable.update({ AuditLogEntryTable.actorMemberId inList createdMemberIds }) {
+                        it[actorMemberId] = null
+                    }
+                }
+                if (createdConferenceRoomIds.isNotEmpty() || createdMemberIds.isNotEmpty()) {
+                    // V1.0 Videokonferenzen, Wave 5 -- consent-acknowledgment/participation rows
+                    // FK-reference both member and conference_room, delete before either.
+                    ConferenceGuestConsentAcknowledgmentTable.deleteWhere {
+                        (ConferenceGuestConsentAcknowledgmentTable.roomId inList createdConferenceRoomIds) or
+                            (ConferenceGuestConsentAcknowledgmentTable.memberId inList createdMemberIds)
+                    }
+                    ConferenceParticipationTable.deleteWhere {
+                        (ConferenceParticipationTable.roomId inList createdConferenceRoomIds) or
+                            (ConferenceParticipationTable.memberId inList createdMemberIds)
+                    }
+                }
+                if (createdConferenceRoomIds.isNotEmpty()) {
+                    ConferenceRoomTable.deleteWhere { ConferenceRoomTable.id inList createdConferenceRoomIds }
                 }
                 hardDeleteGovernanceAndMembershipFixtures(emptyList(), createdMemberIds)
                 OrganizationSettingsTable.update({ OrganizationSettingsTable.id eq ORGANIZATION_SETTINGS_ID }) {
@@ -163,6 +255,10 @@ class FederationGuestJourneyTest :
                 "is the literal member+guest sum",
         ) {
             testApplication {
+                // V1.0 Videokonferenzen, Wave 5 -- declared here so both the routing block below
+                // AND Step 7's own assertions afterwards can reach it (see E2eFakeLiveKitAdminClient
+                // KDoc).
+                val fakeLiveKit = E2eFakeLiveKitAdminClient()
                 application {
                     module()
                     routing {
@@ -231,6 +327,50 @@ class FederationGuestJourneyTest :
                         get("/e2e3/list-documents") {
                             val list = DocumentService(call).listDocuments(null)
                             call.respondText(list.joinToString(",") { it.id })
+                        }
+
+                        // V1.0 Videokonferenzen, Wave 5 "Föderations-Gastbeitritt" -- Step 7 below.
+                        // ConferenceService constructed directly per call, mirroring
+                        // ConferenceServiceTest's own `service(call, config)` throwaway-route
+                        // pattern (this codebase constructs one service instance per RPC call, see
+                        // ConferenceService's own class KDoc).
+                        fun conferenceService(call: io.ktor.server.application.ApplicationCall) =
+                            ConferenceService(call, fakeLiveKit, LoginRateLimiter(), E2E_ENABLED_CONFERENCE_CONFIG)
+                        post("/e2e3-conf/create-room") {
+                            val room = conferenceService(call).createRoom(ConferenceRoomInput(title = "E2E Scenario 3 Konferenzraum"))
+                            call.respondText(room.id)
+                        }
+                        post("/e2e3-conf/set-guest-access/{roomId}/{allow}") {
+                            val room =
+                                conferenceService(call).setRoomGuestAccess(
+                                    call.parameters["roomId"]!!,
+                                    call.parameters["allow"]!!.toBoolean(),
+                                )
+                            call.respondText(room.allowFederationGuests.toString())
+                        }
+                        get("/e2e3-conf/guest-join-info/{roomId}") {
+                            val info = conferenceService(call).getGuestJoinInfo(call.parameters["roomId"]!!)
+                            call.respondText(
+                                "${info.allowsFederationGuests}|${info.callerIsGuest}|${info.disclaimer.version}|${info.disclaimer.sha256}",
+                            )
+                        }
+                        post("/e2e3-conf/join-room/{roomId}") {
+                            val useConsent = call.request.queryParameters["consent"] == "true"
+                            val consent =
+                                if (useConsent) {
+                                    ConferenceGuestConsentAcknowledgmentInput(
+                                        consentVersion = ConferenceGuestConsentDisclaimer.VERSION,
+                                        consentSha256 = ConferenceGuestConsentDisclaimer.SHA256,
+                                    )
+                                } else {
+                                    null
+                                }
+                            val token = conferenceService(call).joinRoom(call.parameters["roomId"]!!, consent)
+                            call.respondText(token.identity)
+                        }
+                        get("/e2e3-conf/list-participants/{roomId}") {
+                            val list = conferenceService(call).listParticipants(call.parameters["roomId"]!!)
+                            call.respondText(list.joinToString(";") { "${it.memberId}|${it.homeserverUrl ?: "-"}" })
                         }
                     }
                 }
@@ -360,6 +500,80 @@ class FederationGuestJourneyTest :
                 val combinedTrustWeight = BigDecimal(profileAfterBoth[6])
                 combinedTrustWeight.compareTo(memberTrustWeight + guestTrustWeight) shouldBe 0
                 combinedTrustWeight.compareTo(BigDecimal("31.00")) shouldBe 0
+
+                // ── Step 7: V1.0 Videokonferenzen, Wave 5 "Föderations-Gastbeitritt" -- cross-domain ─
+                // ── seam #4, the SAME unbroken guest session joins a video conference. AKTIV creates ──
+                // ── a room -> guest's getGuestJoinInfo reports allowsFederationGuests=false -> ─────────
+                // ── moderator setRoomGuestAccess(true) -> guest's getGuestJoinInfo now true -> guest ───
+                // ── joinRoom with the echoed version/hash -> listParticipants shows the guest with the ─
+                // ── correct homeserverUrl -> moderator setRoomGuestAccess(false) -> guest disconnected, ─
+                // ── participation closed, ack row still present (append-only, survives revocation). ───
+                val roomCreatorEmail = "e2e3-conf-creator-${Uuid.random()}@example.org"
+                val roomCreatorId = createRealMember("E2E Scenario 3 Konferenzraum-Ersteller", roomCreatorEmail)
+                createdMemberIds += roomCreatorId
+                val roomId = client.post("/e2e3-conf/create-room") { header("X-Member-Id", roomCreatorId.toString()) }.bodyAsText()
+                createdConferenceRoomIds += Uuid.parse(roomId)
+
+                val infoBeforeOptIn =
+                    client.get("/e2e3-conf/guest-join-info/$roomId") { withSession(guestToken) }.bodyAsText().split("|")
+                infoBeforeOptIn[0] shouldBe "false" // allowsFederationGuests
+                infoBeforeOptIn[1] shouldBe "true" // callerIsGuest
+
+                client
+                    .post("/e2e3-conf/set-guest-access/$roomId/true") { header("X-Member-Id", roomCreatorId.toString()) }
+                    .bodyAsText() shouldBe "true"
+
+                val infoAfterOptIn =
+                    client.get("/e2e3-conf/guest-join-info/$roomId") { withSession(guestToken) }.bodyAsText().split("|")
+                infoAfterOptIn[0] shouldBe "true"
+                val disclaimerVersion = infoAfterOptIn[2]
+                val disclaimerSha256 = infoAfterOptIn[3]
+                disclaimerVersion shouldBe ConferenceGuestConsentDisclaimer.VERSION
+                disclaimerSha256 shouldBe ConferenceGuestConsentDisclaimer.SHA256
+
+                val guestJoinResponse =
+                    client.post("/e2e3-conf/join-room/$roomId?consent=true") { withSession(guestToken) }
+                guestJoinResponse.status shouldBe HttpStatusCode.OK
+                guestJoinResponse.bodyAsText() shouldBe guestId.toString()
+
+                val participants =
+                    client
+                        .get("/e2e3-conf/list-participants/$roomId") { header("X-Member-Id", roomCreatorId.toString()) }
+                        .bodyAsText()
+                        .split(";")
+                        .map { it.split("|") }
+                val guestParticipantRow = participants.single { it[0] == guestId.toString() }
+                guestParticipantRow[1] shouldBe issuer // the guest's own homeserverUrl, from Step 1
+
+                client
+                    .post("/e2e3-conf/set-guest-access/$roomId/false") { header("X-Member-Id", roomCreatorId.toString()) }
+                    .bodyAsText() shouldBe "false"
+
+                fakeLiveKit.removeParticipantCallCount shouldBe 1
+                val guestParticipationLeftAt =
+                    transaction {
+                        ConferenceParticipationTable
+                            .selectAll()
+                            .where {
+                                (ConferenceParticipationTable.roomId eq Uuid.parse(roomId)) and
+                                    (ConferenceParticipationTable.memberId eq guestId)
+                            }.single()[ConferenceParticipationTable.leftAt]
+                    }
+                guestParticipationLeftAt shouldNotBe null
+
+                // Append-only: the consent acknowledgment row from the guest's earlier joinRoom call
+                // survives the revocation -- it is never deleted, only the LiveKit connection/
+                // participation is closed.
+                val ackCount =
+                    transaction {
+                        ConferenceGuestConsentAcknowledgmentTable
+                            .selectAll()
+                            .where {
+                                (ConferenceGuestConsentAcknowledgmentTable.memberId eq guestId) and
+                                    (ConferenceGuestConsentAcknowledgmentTable.roomId eq Uuid.parse(roomId))
+                            }.count()
+                    }
+                ackCount shouldBe 1L
             }
         }
     })

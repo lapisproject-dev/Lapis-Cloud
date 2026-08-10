@@ -28,6 +28,23 @@ class ConferenceConfig private constructor(
     val apiSecret: String,
     /** Participant join-token TTL -- see [LiveKitAccessToken] KDoc "why configurable, not LiveKit's own 6h SDK default". */
     val tokenTtlMinutes: Long,
+    /**
+     * V1.0 Videokonferenzen Wave 5 "Föderations-Gastbeitritt" security-audit fix -- a SEPARATE,
+     * much shorter TTL used ONLY for a [MemberStatus.GAST] caller's minted participant token (and,
+     * for consistency, their TURN credential), never for [tokenTtlMinutes]'s AKTIV-member default.
+     * Rationale: [network.lapis.cloud.server.rpc.ConferenceService.setRoomGuestAccess]`(false)`
+     * disconnects a guest's LiveKit session via `RemoveParticipant`, but that call does NOT
+     * invalidate the already-issued JWT itself -- LiveKit has no token-revocation list, so the same
+     * token can be re-presented to rejoin the room directly, bypassing this server's
+     * `allowFederationGuests` gate entirely, for as long as the token remains unexpired. A 4-hour
+     * default (`DEFAULT_TOKEN_TTL_MINUTES`) would leave a 4-hour reconnect capability after
+     * revocation; bounding GUEST tokens to a short TTL bounds that residual replay window instead
+     * of promising a guarantee (`IConferenceService.setRoomGuestAccess` design review D16, "a room
+     * that no longer admits guests must not silently keep guests inside it") the token layer alone
+     * cannot fully deliver. AKTIV members are unaffected -- [tokenTtlMinutes] keeps its historical
+     * 4-hour default. See [load] KDoc for the `LAPIS_LIVEKIT_GUEST_TOKEN_TTL_MINUTES` env var.
+     */
+    val guestTokenTtlMinutes: Long,
     /** Wave-1 "Kleinsitzung" ceiling -- mirrors `deploy/local/livekit.yaml`'s own `room.max_participants: 25`, enforced a second time at the RPC layer (a future wave's `ConferenceService`). */
     val maxParticipants: Int,
     /**
@@ -61,7 +78,7 @@ class ConferenceConfig private constructor(
         val turnSecretState = if (turnSharedSecret.isBlank()) "<blank>" else "<redacted>"
         return "ConferenceConfig(enabled=$enabled, livekitUrl='$livekitUrl', livekitApiUrl='$livekitApiUrl', " +
             "apiKey=$keyState, apiSecret=$secretState, " +
-            "tokenTtlMinutes=$tokenTtlMinutes, maxParticipants=$maxParticipants, " +
+            "tokenTtlMinutes=$tokenTtlMinutes, guestTokenTtlMinutes=$guestTokenTtlMinutes, maxParticipants=$maxParticipants, " +
             "turnEnabled=$turnEnabled, turnUrls=$turnUrls, turnSharedSecret=$turnSecretState)"
     }
 
@@ -76,12 +93,18 @@ class ConferenceConfig private constructor(
         const val MIN_API_SECRET_BYTES = 32
 
         private const val DEFAULT_TOKEN_TTL_MINUTES = 240L
+
+        /** See [guestTokenTtlMinutes] KDoc -- deliberately short, bounding the post-revocation JWT-replay window to minutes, not hours. */
+        private const val DEFAULT_GUEST_TOKEN_TTL_MINUTES = 15L
         private const val DEFAULT_MAX_PARTICIPANTS = 25
 
         /**
          * Reads `LAPIS_LIVEKIT_URL`/`LAPIS_LIVEKIT_API_URL`/`LAPIS_LIVEKIT_API_KEY`/
-         * `LAPIS_LIVEKIT_API_SECRET`/`LAPIS_LIVEKIT_TOKEN_TTL_MINUTES`/`LAPIS_CONFERENCE_MAX_PARTICIPANTS`
-         * via [env] (defaults to [System.getenv]).
+         * `LAPIS_LIVEKIT_API_SECRET`/`LAPIS_LIVEKIT_TOKEN_TTL_MINUTES`/
+         * `LAPIS_LIVEKIT_GUEST_TOKEN_TTL_MINUTES`/`LAPIS_CONFERENCE_MAX_PARTICIPANTS` via [env]
+         * (defaults to [System.getenv]). `LAPIS_LIVEKIT_GUEST_TOKEN_TTL_MINUTES` defaults to
+         * [DEFAULT_GUEST_TOKEN_TTL_MINUTES] (15) independently of `LAPIS_LIVEKIT_TOKEN_TTL_MINUTES`
+         * -- see [guestTokenTtlMinutes] KDoc.
          *
          * **Startup behaviour** (three-way, deliberately NOT a plain "enabled/disabled" boolean
          * gate):
@@ -126,6 +149,8 @@ class ConferenceConfig private constructor(
             val key = env("LAPIS_LIVEKIT_API_KEY")?.trim().orEmpty()
             val secret = env("LAPIS_LIVEKIT_API_SECRET")?.trim().orEmpty()
             val ttlMinutes = env("LAPIS_LIVEKIT_TOKEN_TTL_MINUTES")?.trim()?.toLongOrNull() ?: DEFAULT_TOKEN_TTL_MINUTES
+            val guestTtlMinutes =
+                env("LAPIS_LIVEKIT_GUEST_TOKEN_TTL_MINUTES")?.trim()?.toLongOrNull() ?: DEFAULT_GUEST_TOKEN_TTL_MINUTES
             val maxParticipants = env("LAPIS_CONFERENCE_MAX_PARTICIPANTS")?.trim()?.toIntOrNull() ?: DEFAULT_MAX_PARTICIPANTS
             val turnUrls =
                 env("LAPIS_TURN_URLS")
@@ -164,6 +189,7 @@ class ConferenceConfig private constructor(
                 apiKey = key,
                 apiSecret = secret,
                 tokenTtlMinutes = ttlMinutes,
+                guestTokenTtlMinutes = guestTtlMinutes,
                 maxParticipants = maxParticipants,
                 turnUrls = turnUrls,
                 turnSharedSecret = turnSharedSecret,

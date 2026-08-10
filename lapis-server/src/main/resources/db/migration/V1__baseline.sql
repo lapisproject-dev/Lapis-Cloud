@@ -639,7 +639,7 @@ CREATE TABLE audit_log_entry (
     entry_hash VARCHAR(64) NOT NULL,
     previous_entry_hash VARCHAR(64) NULL,
     CHECK (actor_role IN ('MEMBER', 'BOARD', 'TREASURER', 'ADMIN')),
-    CHECK (entity_type IN ('JOURNAL_ENTRY', 'PARTY_DONATION_VERDICT', 'RESOLUTION', 'BOARD_MEMBERSHIP', 'CONFERENCE_RECORDING', 'CONFERENCE_STREAM', 'CONFERENCE_STREAM_DESTINATION')),
+    CHECK (entity_type IN ('JOURNAL_ENTRY', 'PARTY_DONATION_VERDICT', 'RESOLUTION', 'BOARD_MEMBERSHIP', 'CONFERENCE_RECORDING', 'CONFERENCE_STREAM', 'CONFERENCE_STREAM_DESTINATION', 'CONFERENCE_ROOM')),
     CHECK (action IN ('CREATE', 'UPDATE', 'POST'))
 );
 
@@ -1515,6 +1515,8 @@ CREATE INDEX idx_trust_anchor_event_occurred_at ON trust_anchor_event (occurred_
 -- full fachlich model. livekit_room_name is the ONLY join key to LiveKit's own in-memory room
 -- registry (server-generated `lc-<uuid4>`, never derived from title). conference_participation is
 -- append-only per join (like `session`), not one row per (room, member) -- see file header.
+-- allow_federation_guests (Wave 5 "Föderations-Gastbeitritt") is the per-room opt-in that gates
+-- MemberStatus.GAST out of joinRoom, default FALSE -- see file header "Wave 5 addition".
 
 CREATE TABLE conference_room (
     id UUID NOT NULL PRIMARY KEY,
@@ -1524,7 +1526,8 @@ CREATE TABLE conference_room (
     created_by_member_id UUID NOT NULL,
     created_at TIMESTAMP NOT NULL,
     ended_at TIMESTAMP NULL,
-    max_participants INT NOT NULL
+    max_participants INT NOT NULL,
+    allow_federation_guests BOOLEAN NOT NULL DEFAULT FALSE
 );
 CREATE UNIQUE INDEX uq_conference_room_livekit_room_name ON conference_room (livekit_room_name);
 CREATE INDEX idx_conference_room_created_by ON conference_room (created_by_member_id);
@@ -1677,4 +1680,33 @@ ALTER TABLE conference_stream ADD CONSTRAINT fk_conference_stream_room_id FOREIG
 ALTER TABLE conference_stream ADD CONSTRAINT fk_conference_stream_started_by_member_id FOREIGN KEY (started_by_member_id) REFERENCES member(id);
 ALTER TABLE conference_stream_target ADD CONSTRAINT fk_conference_stream_target_stream_id FOREIGN KEY (stream_id) REFERENCES conference_stream(id);
 ALTER TABLE conference_stream_target ADD CONSTRAINT fk_conference_stream_target_destination_id FOREIGN KEY (destination_id) REFERENCES conference_stream_destination(id);
+
+-- V1.0 Videokonferenzen (Kleinsitzung), Wave 5 "Föderations-Gastbeitritt" -- see
+-- 30-conference-guest-access.kuml.kts file header. Append-only, one row per GUEST join: the proof
+-- that a federated OIDC guest was shown the current, versioned+hashed DSGVO consent text
+-- (ConferenceGuestConsentDisclaimer) before joinRoom minted them a LiveKit token. Same
+-- version/sha256 shape as auction_compliance_acknowledgment and
+-- membership_agreement_acknowledgment, plus room_id (consent is per-room, per-join),
+-- homeserver_url (snapshotted, because oidc_guest_profile.homeserver_url is overwritten on every
+-- re-login), and organization_name (snapshotted for the identical reason -- organization_settings
+-- .name is mutable, and a DSGVO Rechenschaftsnachweis must name the controller as it was presented
+-- at consent time, not as it reads today -- design review D15).
+
+CREATE TABLE conference_guest_consent_acknowledgment (
+    id UUID NOT NULL PRIMARY KEY,
+    member_id UUID NOT NULL,
+    room_id UUID NOT NULL,
+    acknowledged_at TIMESTAMP NOT NULL,
+    consent_version VARCHAR(50) NOT NULL,
+    consent_sha256 VARCHAR(64) NOT NULL,
+    homeserver_url VARCHAR(2048) NOT NULL,
+    organization_name VARCHAR(300) NOT NULL
+);
+CREATE INDEX idx_conference_guest_consent_ack_member ON conference_guest_consent_acknowledgment (member_id);
+CREATE INDEX idx_conference_guest_consent_ack_room ON conference_guest_consent_acknowledgment (room_id);
+
+-- Foreign Keys
+
+ALTER TABLE conference_guest_consent_acknowledgment ADD CONSTRAINT fk_conference_guest_consent_ack_member_id FOREIGN KEY (member_id) REFERENCES member(id);
+ALTER TABLE conference_guest_consent_acknowledgment ADD CONSTRAINT fk_conference_guest_consent_ack_room_id FOREIGN KEY (room_id) REFERENCES conference_room(id);
 

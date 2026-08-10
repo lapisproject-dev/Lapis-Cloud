@@ -199,6 +199,13 @@ object Routes {
     // (compares `AppState.session?.memberId` to `ConferenceRoomDto.createdByMemberId` OR
     // `AppState.hasRole(BOARD, ADMIN)` -- see `ConferenceScreen.kt`'s `conferenceIsModerator`),
     // exactly like those routes' own in-screen `canTreasury`/`canBoard`/`canAdmin` splits.
+    //
+    // V1.0 Videokonferenzen, Wave 5 "Föderations-Gastbeitritt" -- `requireAuth` alone already
+    // admits a GAST session (`AppState.session?.isGuest`, never separately checked by this route),
+    // so `joinRoom` is now AKTIV-unconditional-or-(GAST + the target room's own
+    // `allowFederationGuests` opt-in + a current consent acknowledgment) -- see
+    // `IConferenceService` KDoc "Federated guest join". `ConferenceScreen.kt` branches this route's
+    // OWN rendering on `isGuest` (`renderGuestLobby` vs. `renderLobby`), never a second route.
     const val CONFERENCE = "/conference"
 
     // V1.0 Videokonferenzen (Kleinsitzung), Wave 3 "Externes Streaming" -- `IConferenceStreamingService`

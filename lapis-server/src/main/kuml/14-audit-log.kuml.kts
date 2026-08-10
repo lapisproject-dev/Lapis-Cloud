@@ -147,9 +147,11 @@ classDiagram(name = "AuditLog") {
     // see 29-conference-streaming.kuml.kts file header for the same audit rationale applied to
     // destination-credential CRUD and stream start/pause/resume/stop. entity_type's column width
     // (see this file's audit_log_entry.entity_type below) was widened from VARCHAR(22) to
-    // VARCHAR(29) to fit CONFERENCE_STREAM_DESTINATION, the new longest literal. Additive append
-    // only -- never reorder existing literals, see this enum's own "cheap to extend, expensive to
-    // reorder" note class-wide.
+    // VARCHAR(29) to fit CONFERENCE_STREAM_DESTINATION, the new longest literal -- CONFERENCE_ROOM
+    // (V1.0 Videokonferenzen Wave 5 "Föderations-Gastbeitritt", appended LAST after that) fits
+    // within the existing VARCHAR(29) width, no further widening needed. Additive append only --
+    // never reorder existing literals, see this enum's own "cheap to extend, expensive to reorder"
+    // note class-wide.
     val auditEntityType = enumOf(name = "AuditEntityType") {
         literal(name = "JOURNAL_ENTRY")
         literal(name = "PARTY_DONATION_VERDICT")
@@ -158,6 +160,7 @@ classDiagram(name = "AuditLog") {
         literal(name = "CONFERENCE_RECORDING")
         literal(name = "CONFERENCE_STREAM")
         literal(name = "CONFERENCE_STREAM_DESTINATION")
+        literal(name = "CONFERENCE_ROOM")
     }
 
     // Genesis-singleton row (see file header) -- gapless sequence_number + hash-chain

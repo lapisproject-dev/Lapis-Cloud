@@ -275,10 +275,15 @@ interface IConferenceStreamingService {
     // ── Transparency read -- every participant has a legal right to this ──────────────────────
 
     /**
-     * Role: MEMBER+, AKTIV. NEVER gated on any privilege -- DSGVO/Persoenlichkeitsrecht means
-     * EVERYONE in the room must be able to see THAT and WHERE it is being streamed, same "everyone
-     * in the room has a legal right to know" rule [IConferenceRecordingService.getActiveRecording]
-     * KDoc establishes for recording. Returns destination LABELS + platform only via
+     * Role: MEMBER+, AKTIV **or** [network.lapis.cloud.shared.domain.MemberStatus.GAST] (Wave 5
+     * "Föderations-Gastbeitritt", design review D13 -- same widening as
+     * [IConferenceRecordingService.getActiveRecording], same reasoning: a federated guest inside
+     * the room has the same legal right to know as an AKTIV member, and the same
+     * `allowFederationGuests` + "has joined" narrowing applies). NEVER gated on any privilege --
+     * DSGVO/Persoenlichkeitsrecht means EVERYONE in the room must be able to see THAT and WHERE it
+     * is being streamed, same "everyone in the room has a legal right to know" rule
+     * [IConferenceRecordingService.getActiveRecording] KDoc establishes for recording. Returns
+     * destination LABELS + platform only via
      * [network.lapis.cloud.shared.domain.ConferenceStreamTargetStatusDto] -- NEVER url, NEVER key.
      * Returns EMPTY (not an error) when no stream is active for [roomId] -- the normal case, not
      * exceptional. `List`, at most one element, for the SAME Kilua `: Any` return-bound reason

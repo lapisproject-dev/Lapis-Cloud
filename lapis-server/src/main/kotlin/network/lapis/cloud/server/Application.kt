@@ -228,6 +228,20 @@ fun Application.module() {
     val conferenceLeaveRateLimiter = FederationInboxRateLimiter(maxRequests = 30, window = 1.minutes)
     val conferenceListRateLimiter = FederationInboxRateLimiter(maxRequests = 60, window = 1.minutes)
 
+    // V1.0 Videokonferenzen, Wave 5 "Föderations-Gastbeitritt" -- getGuestJoinInfo's own budget,
+    // NOT shared with conferenceListRateLimiter (it makes no outbound LiveKit call, see
+    // ConferenceService KDoc "Request-rate throttling beyond createRoom").
+    val conferenceGuestInfoRateLimiter = FederationInboxRateLimiter(maxRequests = 30, window = 1.minutes)
+
+    // V1.0 Videokonferenzen, Wave 5 security-audit fix -- setRoomGuestAccess's own, much STRICTER
+    // budget (fans out to up to conferenceConfig.maxParticipants outbound LiveKit calls plus an
+    // audit write per invocation, see ConferenceService's own DEFAULT_GUEST_ACCESS_RATE_MAX KDoc).
+    // Constructed here, NOT left to ConferenceService's own constructor default -- a default-argument
+    // instance is minted fresh on EVERY ConferenceService(...) call (one per RPC request, see this
+    // block's own file header), which would silently defeat throttling exactly like the other four
+    // limiters above already document.
+    val conferenceGuestAccessRateLimiter = FederationInboxRateLimiter(maxRequests = 10, window = 1.minutes)
+
     // V1.0 Videokonferenzen (Kleinsitzung), Wave 2 "Aufzeichnung" -- ConferenceRecordingConfig.load()
     // is pure string parsing (no I/O, see that class's own KDoc), so it is safe to call
     // unconditionally here regardless of whether LAPIS_RECORDING_ENABLED is set, same posture
@@ -346,6 +360,8 @@ fun Application.module() {
                 joinRoomRateLimiter = conferenceJoinRateLimiter,
                 leaveRoomRateLimiter = conferenceLeaveRateLimiter,
                 listRateLimiter = conferenceListRateLimiter,
+                guestInfoRateLimiter = conferenceGuestInfoRateLimiter,
+                guestAccessRateLimiter = conferenceGuestAccessRateLimiter,
             )
         }
         registerService(IConferenceRecordingService::class) { call ->

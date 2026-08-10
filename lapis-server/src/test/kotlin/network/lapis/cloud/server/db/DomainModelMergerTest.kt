@@ -35,14 +35,14 @@ class DomainModelMergerTest :
         // ── Test 1: merging the real 22 domain scripts ───────────────────────────────────
 
         test(
-            "merging the real 30 domain scripts succeeds and the uml-to-erm -> erm-to-exposed chain " +
+            "merging the real 31 domain scripts succeeds and the uml-to-erm -> erm-to-exposed chain " +
                 "produces exactly one Table file per distinct table name",
         ) {
             val scriptFiles =
                 requireNotNull(KumlModelLoader.kumlSourceDir.listFiles { f -> f.name.endsWith(".kuml.kts") }) {
                     "kUML source dir not found or not a directory: ${KumlModelLoader.kumlSourceDir.absolutePath}"
                 }.sortedBy { it.name }
-            scriptFiles shouldHaveSize 30
+            scriptFiles shouldHaveSize 31
 
             val diagrams = scriptFiles.map { KumlModelLoader.loadUmlDiagram(it) }
 
@@ -193,7 +193,14 @@ class DomainModelMergerTest :
             // row, so there is no Document stub here) -- so it contributes +5 «Entity» declarations
             // (2 stubs + 3 real tables) and +2 drops (both stubs merge into the already-existing
             // member/conference_room entities) versus the V1.0-Wave-2 baseline above (93 -> 96).
-            val distinctTableNames = 96
+            // 30-conference-guest-access.kuml.kts (V1.0 Videokonferenzen, Wave 5 "Föderations-
+            // Gastbeitritt") adds exactly one more real table
+            // (conference_guest_consent_acknowledgment), WITH TWO cross-domain stubs (Member,
+            // ConferenceRoom -- conference_guest_consent_acknowledgment.member_id/room_id resolve
+            // through them) -- so it contributes +3 «Entity» declarations (2 stubs + 1 real table)
+            // and +2 drops (both stubs merge into the already-existing member/conference_room
+            // entities) versus the V1.0-Wave-3 baseline above (96 -> 97).
+            val distinctTableNames = 97
 
             val result =
                 UmlToExposedViaErmScriptTransformer().transform(
@@ -312,6 +319,7 @@ class DomainModelMergerTest :
                     "ConferenceStreamDestinationTable.kt",
                     "ConferenceStreamTable.kt",
                     "ConferenceStreamTargetTable.kt",
+                    "ConferenceGuestConsentAcknowledgmentTable.kt",
                 )
         }
 

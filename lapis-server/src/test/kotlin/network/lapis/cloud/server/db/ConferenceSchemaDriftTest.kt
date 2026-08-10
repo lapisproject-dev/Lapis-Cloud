@@ -59,6 +59,9 @@ class ConferenceSchemaDriftTest :
             entity.attributeByName("ended_at")?.nullable shouldBe true
 
             real.uniqueConstraints shouldContainExactlyInAnyOrder listOf(setOf("livekit_room_name"))
+
+            // V1.0 Wave 5 "Föderations-Gastbeitritt" -- per-room opt-in, default FALSE.
+            entity.attributeByName("allow_federation_guests")?.nullable shouldBe false
         }
 
         // ── conference_participation ──────────────────────────────────────

@@ -5,27 +5,37 @@ import kotlinx.datetime.LocalDateTime
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toInstant
 import kotlinx.datetime.toLocalDateTime
+import network.lapis.cloud.server.audit.AuditLogRecorder
 import network.lapis.cloud.server.conference.ConferenceConfig
 import network.lapis.cloud.server.conference.LiveKitAccessToken
 import network.lapis.cloud.server.conference.LiveKitAdminClient
 import network.lapis.cloud.server.conference.LiveKitAdminException
 import network.lapis.cloud.server.conference.TurnCredentialMinter
 import network.lapis.cloud.server.db.DbClock
+import network.lapis.cloud.server.db.generated.ConferenceGuestConsentAcknowledgmentTable
 import network.lapis.cloud.server.db.generated.ConferenceParticipationTable
 import network.lapis.cloud.server.db.generated.ConferenceRoomTable
 import network.lapis.cloud.server.db.generated.MemberTable
+import network.lapis.cloud.server.db.generated.OidcGuestProfileTable
+import network.lapis.cloud.server.db.generated.OrganizationSettingsTable
 import network.lapis.cloud.server.federation.FederationInboxRateLimiter
 import network.lapis.cloud.server.security.CurrentMember
 import network.lapis.cloud.server.security.LoginRateLimiter
 import network.lapis.cloud.server.security.isPrivileged
 import network.lapis.cloud.server.security.resolveCurrentMember
+import network.lapis.cloud.shared.domain.AuditAction
+import network.lapis.cloud.shared.domain.AuditEntityType
 import network.lapis.cloud.shared.domain.ConferenceAvailabilityDto
+import network.lapis.cloud.shared.domain.ConferenceGuestConsentAcknowledgmentInput
+import network.lapis.cloud.shared.domain.ConferenceGuestConsentDisclaimerDto
+import network.lapis.cloud.shared.domain.ConferenceGuestJoinInfoDto
 import network.lapis.cloud.shared.domain.ConferenceJoinTokenDto
 import network.lapis.cloud.shared.domain.ConferenceParticipantDto
 import network.lapis.cloud.shared.domain.ConferenceRole
 import network.lapis.cloud.shared.domain.ConferenceRoomDto
 import network.lapis.cloud.shared.domain.ConferenceRoomInput
 import network.lapis.cloud.shared.domain.ConferenceTurnServer
+import network.lapis.cloud.shared.domain.MemberStatus
 import network.lapis.cloud.shared.rpc.BadRequestException
 import network.lapis.cloud.shared.rpc.ConflictException
 import network.lapis.cloud.shared.rpc.ForbiddenException
@@ -35,6 +45,7 @@ import org.jetbrains.exposed.v1.core.ResultRow
 import org.jetbrains.exposed.v1.core.SortOrder
 import org.jetbrains.exposed.v1.core.and
 import org.jetbrains.exposed.v1.core.eq
+import org.jetbrains.exposed.v1.core.inList
 import org.jetbrains.exposed.v1.core.isNull
 import org.jetbrains.exposed.v1.jdbc.insert
 import org.jetbrains.exposed.v1.jdbc.selectAll
@@ -50,6 +61,19 @@ private const val DEFAULT_JOIN_RATE_MAX = 30
 private const val DEFAULT_LEAVE_RATE_MAX = 30
 private const val DEFAULT_LIST_RATE_MAX = 60
 
+/** Wave 5 "Föderations-Gastbeitritt" -- see class KDoc "Request-rate throttling beyond createRoom". */
+private const val DEFAULT_GUEST_INFO_RATE_MAX = 30
+
+/**
+ * Wave 5 security-audit fix -- [ConferenceService.setRoomGuestAccess] had NO rate limiter at all
+ * despite fanning out to up to [network.lapis.cloud.server.conference.ConferenceConfig.maxParticipants]
+ * outbound LiveKit `RemoveParticipant` admin calls plus a hash-chained [AuditLogRecorder] write on
+ * every single invocation -- a much smaller budget than the plain-request limiters above, matching
+ * this call's real per-invocation cost (it is a moderator-only room-level toggle, never called at the
+ * per-participant frequency [joinRoomRateLimiter]/[leaveRoomRateLimiter] are sized for).
+ */
+private const val DEFAULT_GUEST_ACCESS_RATE_MAX = 10
+
 /** Wave-1 "Kleinsitzung" default, mirrors `deploy/local/livekit.yaml`'s own `room.empty_timeout: 300`. Also the grace window [reconcileRoomIfDue] waits before closing a room LiveKit no longer knows about -- see [IConferenceService.listActiveRooms] KDoc "Lazy reconciliation". */
 private const val ROOM_EMPTY_TIMEOUT_SECONDS = 300
 
@@ -64,6 +88,25 @@ private data class JoinPrep(
     val livekitRoomName: String,
     val role: ConferenceRole,
     val displayName: String,
+    /**
+     * Wave 5 "Föderations-Gastbeitritt" -- non-null iff the caller is [MemberStatus.GAST] (read
+     * from [OidcGuestProfileTable] inside the same authorization transaction that verified the
+     * consent). `null` for every AKTIV caller -- drives whether [ConferenceService.joinRoom]'s
+     * second `transaction {}` writes a [ConferenceGuestConsentAcknowledgmentTable] row at all.
+     */
+    val guestHomeserverUrl: String? = null,
+    /** Wave 5 -- snapshotted alongside [guestHomeserverUrl], see [ConferenceGuestConsentAcknowledgmentTable] KDoc. */
+    val guestOrganizationName: String? = null,
+)
+
+/**
+ * Result of [ConferenceService.setRoomGuestAccess]'s Phase-1 `transaction {}`, consumed by its
+ * Phase-2 (outside any transaction) LiveKit disconnect loop -- same "collect inside the
+ * transaction, act on the network outside it" shape [JoinPrep] establishes.
+ */
+private data class RevokePlan(
+    val livekitRoomName: String,
+    val guestMemberIds: List<Uuid>,
 )
 
 /**
@@ -112,7 +155,24 @@ private data class JoinPrep(
  * failure" shape). [joinRoom] and [leaveRoom] get independent budgets so a scripted join/leave loop
  * cannot escape either one; [listActiveRooms]/[getRoom]/[listParticipants] share [listRateLimiter]
  * because all three fan out into an outbound LiveKit Twirp admin call on every invocation (see each
- * method's own body) and are the DoS vector this throttling closes.
+ * method's own body) and are the DoS vector this throttling closes. [getGuestJoinInfo] (Wave 5) gets
+ * its OWN budget ([guestInfoRateLimiter]) rather than joining [listRateLimiter] because -- unlike
+ * listActiveRooms/getRoom/listParticipants -- it performs no outbound LiveKit call at all; it is
+ * throttled purely as a cheap pre-join probe surface reachable by a federated guest.
+ * [setRoomGuestAccess] (Wave 5) gets its own, much STRICTER budget ([guestAccessRateLimiter],
+ * security-audit fix) rather than joining any of the above -- unlike a single LiveKit admin call,
+ * one invocation can fan out to up to [ConferenceConfig.maxParticipants] outbound `RemoveParticipant`
+ * calls plus a hash-chained [AuditLogRecorder] write, so its per-call cost is far higher than the
+ * request-rate limiters above are sized for; see [DEFAULT_GUEST_ACCESS_RATE_MAX] KDoc.
+ *
+ * ## Federated guest entry (Wave 5 "Föderations-Gastbeitritt")
+ *
+ * [requireRoomEntryAuthorization] is the SINGLE place "may this caller enter/inspect this room at
+ * all" is decided -- both [joinRoom] and [listParticipants] funnel through it so the two can never
+ * drift apart. It always runs [requireActiveOrGuestMembership] FIRST, so an ANTRAG/AUSGETRETEN/
+ * ABGELEHNT caller is rejected identically whether or not the room happens to be guest-opted-in --
+ * the per-room `allowFederationGuests` toggle can only NARROW the pre-existing status gate, never
+ * widen it.
  */
 class ConferenceService(
     private val call: ApplicationCall,
@@ -125,6 +185,11 @@ class ConferenceService(
         FederationInboxRateLimiter(maxRequests = DEFAULT_LEAVE_RATE_MAX, window = DEFAULT_ACTION_RATE_WINDOW),
     private val listRateLimiter: FederationInboxRateLimiter =
         FederationInboxRateLimiter(maxRequests = DEFAULT_LIST_RATE_MAX, window = DEFAULT_ACTION_RATE_WINDOW),
+    private val guestInfoRateLimiter: FederationInboxRateLimiter =
+        FederationInboxRateLimiter(maxRequests = DEFAULT_GUEST_INFO_RATE_MAX, window = DEFAULT_ACTION_RATE_WINDOW),
+    /** Security-audit fix -- see [DEFAULT_GUEST_ACCESS_RATE_MAX] KDoc. */
+    private val guestAccessRateLimiter: FederationInboxRateLimiter =
+        FederationInboxRateLimiter(maxRequests = DEFAULT_GUEST_ACCESS_RATE_MAX, window = DEFAULT_ACTION_RATE_WINDOW),
 ) : IConferenceService {
     override suspend fun getAvailability(): ConferenceAvailabilityDto {
         resolveCurrentMember(call)
@@ -216,13 +281,17 @@ class ConferenceService(
                 it[createdAt] = now
                 it[endedAt] = null
                 it[maxParticipants] = config.maxParticipants
+                it[ConferenceRoomTable.allowFederationGuests] = input.allowFederationGuests
             }
             val row = ConferenceRoomTable.selectAll().where { ConferenceRoomTable.id eq roomId }.single()
             rowToDto(row, current.memberId, mapOf(newRoomName to liveKitRoom.numParticipants))
         }
     }
 
-    override suspend fun joinRoom(roomId: String): ConferenceJoinTokenDto {
+    override suspend fun joinRoom(
+        roomId: String,
+        guestConsent: ConferenceGuestConsentAcknowledgmentInput?,
+    ): ConferenceJoinTokenDto {
         val current = resolveCurrentMember(call)
         requireConferenceEnabled()
         requireWithinRate(joinRoomRateLimiter, current.memberId)
@@ -236,13 +305,46 @@ class ConferenceService(
         val roomUuid = roomId.toConferenceUuid()
         val prep =
             transaction {
-                requireActiveMembership(current.memberId)
                 val row =
                     ConferenceRoomTable.selectAll().where { ConferenceRoomTable.id eq roomUuid }.singleOrNull()
                         ?: throw NotFoundException("Conference room $roomUuid not found")
                 if (row[ConferenceRoomTable.endedAt] != null) {
                     throw ConflictException("Conference room $roomUuid has already ended")
                 }
+                val status = requireRoomEntryAuthorization(row, current)
+
+                // Wave 5: consent is verified for a GAST caller ONLY. For an AKTIV caller
+                // `guestConsent` is ignored entirely -- passing a bogus value is a no-op, and no
+                // acknowledgment row is ever written for them. This is what keeps AKTIV callers
+                // byte-for-byte unaffected by this wave.
+                var guestHomeserver: String? = null
+                var guestOrganizationName: String? = null
+                if (status == MemberStatus.GAST) {
+                    val consent =
+                        guestConsent
+                            ?: throw ConflictException(
+                                "A federated guest must acknowledge the current ConferenceGuestConsentDisclaimer " +
+                                    "before joining -- call getGuestJoinInfo and submit its version/sha256 unmodified",
+                            )
+                    if (!ConferenceGuestConsentDisclaimer.matches(consent.consentVersion, consent.consentSha256)) {
+                        throw ConflictException(
+                            "consentVersion/consentSha256 do not match the current ConferenceGuestConsentDisclaimer " +
+                                "-- call getGuestJoinInfo again and submit its CURRENT version/sha256 unmodified",
+                        )
+                    }
+                    // 1:1 with a GAST member (OidcGuestMemberStore), but read defensively.
+                    guestHomeserver =
+                        OidcGuestProfileTable
+                            .selectAll()
+                            .where { OidcGuestProfileTable.memberId eq current.memberId }
+                            .singleOrNull()
+                            ?.get(OidcGuestProfileTable.homeserverUrl)
+                            ?: throw ConflictException(
+                                "Guest profile missing for this federated identity -- please sign in again",
+                            )
+                    guestOrganizationName = organizationDisplayName()
+                }
+
                 val role =
                     if (row[ConferenceRoomTable.createdByMemberId] == current.memberId) {
                         ConferenceRole.MODERATOR
@@ -253,9 +355,17 @@ class ConferenceService(
                     livekitRoomName = row[ConferenceRoomTable.livekitRoomName],
                     role = role,
                     displayName = memberDisplayName(current.memberId),
+                    guestHomeserverUrl = guestHomeserver,
+                    guestOrganizationName = guestOrganizationName,
                 )
             }
         val now = nowLocalDateTime()
+        // Security-audit fix: a GAST-issued token gets ConferenceConfig.guestTokenTtlMinutes (short,
+        // default 15min) rather than the AKTIV-member config.tokenTtlMinutes (4h default) -- see that
+        // property's KDoc "why a separate, shorter TTL". prep.guestHomeserverUrl is non-null iff the
+        // caller was verified GAST in the first transaction above (class KDoc "Federated guest
+        // entry"); AKTIV callers are entirely unaffected.
+        val effectiveTtl = if (prep.guestHomeserverUrl != null) config.guestTokenTtlMinutes else config.tokenTtlMinutes
         val minted =
             LiveKitAccessToken.mintParticipantToken(
                 apiKey = config.apiKey,
@@ -263,7 +373,7 @@ class ConferenceService(
                 roomName = prep.livekitRoomName,
                 identity = current.memberId.toString(),
                 displayName = prep.displayName,
-                ttl = config.tokenTtlMinutes.minutes,
+                ttl = effectiveTtl.minutes,
             )
         // Audit-round-1 fix: mint a fresh, short-lived TURN credential alongside the JWT, same TTL
         // -- see TurnCredentialMinter KDoc. Empty iff TURN is unconfigured (config.turnEnabled ==
@@ -275,7 +385,7 @@ class ConferenceService(
                         sharedSecret = config.turnSharedSecret,
                         urls = config.turnUrls,
                         label = current.memberId.toString(),
-                        ttl = config.tokenTtlMinutes.minutes,
+                        ttl = effectiveTtl.minutes,
                     )
                 listOf(
                     ConferenceTurnServer(
@@ -288,6 +398,35 @@ class ConferenceService(
                 emptyList()
             }
         transaction {
+            // Security-audit fix (TOCTOU): the FIRST transaction above authorized this join, but
+            // LiveKitAccessToken.mintParticipantToken/TurnCredentialMinter.mint just happened OUTSIDE
+            // any transaction (class KDoc "Transaction boundaries around the LiveKit network call"),
+            // a real network-latency gap in which a concurrent setRoomGuestAccess(false) or a
+            // member-status change (e.g. leaveMembership -> AUSGETRETEN) could have committed. Re-read
+            // the room row with a FOR-UPDATE lock and re-run the exact same
+            // requireRoomEntryAuthorization gate the first transaction used, so a room/room-access
+            // state that changed in that gap is honored, not the stale snapshot in [prep]. The FOR
+            // UPDATE lock additionally makes this re-check and the participation insert below atomic
+            // against a *concurrently racing* setRoomGuestAccess(false): that call's own
+            // `ConferenceRoomTable.update` blocks on this row lock until this transaction commits or
+            // rolls back, so the two can never interleave -- either this join is rejected because the
+            // revoke already landed, or the revoke's own guest-sweep (which reads
+            // conference_participation AFTER its update) runs after this insert commits and will see
+            // (and disconnect) the newly-joined guest. Thrown BEFORE the insert below, so the token
+            // already minted above is simply discarded -- never returned to the caller, see class KDoc
+            // "Federated guest entry" and IConferenceService.setRoomGuestAccess KDoc design review D16.
+            val freshRoomRow =
+                ConferenceRoomTable
+                    .selectAll()
+                    .where { ConferenceRoomTable.id eq roomUuid }
+                    .forUpdate()
+                    .singleOrNull()
+                    ?: throw NotFoundException("Conference room $roomUuid not found")
+            if (freshRoomRow[ConferenceRoomTable.endedAt] != null) {
+                throw ConflictException("Conference room $roomUuid has already ended")
+            }
+            requireRoomEntryAuthorization(freshRoomRow, current)
+
             ConferenceParticipationTable.insert {
                 it[id] = Uuid.random()
                 // Explicitly qualified -- the enclosing joinRoom(roomId: String) PARAMETER would
@@ -298,6 +437,22 @@ class ConferenceService(
                 it[role] = prep.role
                 it[joinedAt] = now
                 it[leftAt] = null
+            }
+            // Wave 5: append-only, one row PER JOIN (a re-join writes a SECOND row) -- consent is
+            // per-join, not a one-time acceptance. Written in the SAME transaction as the
+            // participation row above so a guest can never appear in the roster without a matching
+            // proof.
+            if (prep.guestHomeserverUrl != null) {
+                ConferenceGuestConsentAcknowledgmentTable.insert {
+                    it[id] = Uuid.random()
+                    it[ConferenceGuestConsentAcknowledgmentTable.memberId] = current.memberId
+                    it[ConferenceGuestConsentAcknowledgmentTable.roomId] = roomUuid
+                    it[acknowledgedAt] = now
+                    it[consentVersion] = guestConsent!!.consentVersion
+                    it[consentSha256] = guestConsent.consentSha256
+                    it[ConferenceGuestConsentAcknowledgmentTable.homeserverUrl] = prep.guestHomeserverUrl
+                    it[organizationName] = prep.guestOrganizationName!!
+                }
             }
         }
         return ConferenceJoinTokenDto(
@@ -359,31 +514,67 @@ class ConferenceService(
         requireConferenceEnabled()
         requireWithinRate(listRateLimiter, current.memberId)
         val id = roomId.toConferenceUuid()
-        transaction { requireActiveMembership(current.memberId) }
         val room =
             transaction {
-                ConferenceRoomTable.selectAll().where { ConferenceRoomTable.id eq id }.singleOrNull()
-            } ?: throw NotFoundException("Conference room $id not found")
+                val row =
+                    ConferenceRoomTable.selectAll().where { ConferenceRoomTable.id eq id }.singleOrNull()
+                        ?: throw NotFoundException("Conference room $id not found")
+                val status = requireRoomEntryAuthorization(row, current)
+                // Wave 5: extra narrowing for a guest beyond the shared gate above -- see
+                // requireGuestHasJoinedRoom KDoc.
+                requireGuestHasJoinedRoom(id, current, status)
+                row
+            }
         val liveIdentities =
             liveKitCall { liveKitAdminClient.listParticipants(room[ConferenceRoomTable.livekitRoomName]) }
                 .map { it.identity }
                 .toSet()
         return transaction {
-            ConferenceParticipationTable
-                .selectAll()
-                .where { ConferenceParticipationTable.roomId eq id }
-                .orderBy(ConferenceParticipationTable.joinedAt, SortOrder.ASC)
-                .map { row ->
-                    val memberIdValue = row[ConferenceParticipationTable.memberId]
-                    ConferenceParticipantDto(
-                        memberId = memberIdValue.toString(),
-                        displayName = memberDisplayName(memberIdValue),
-                        role = row[ConferenceParticipationTable.role],
-                        joinedAt = row[ConferenceParticipationTable.joinedAt],
-                        leftAt = row[ConferenceParticipationTable.leftAt],
-                        live = memberIdValue.toString() in liveIdentities,
-                    )
+            val rows =
+                ConferenceParticipationTable
+                    .selectAll()
+                    .where { ConferenceParticipationTable.roomId eq id }
+                    .orderBy(ConferenceParticipationTable.joinedAt, SortOrder.ASC)
+                    .toList()
+            val participantIds = rows.map { it[ConferenceParticipationTable.memberId] }.distinct()
+            // Security-audit fix (privacy/consent mismatch): ConferenceGuestConsentDisclaimer's own
+            // DETAIL text promises "Ihr Gaststatus und Ihr Heimserver sind fuer alle uebrigen
+            // Teilnehmenden dieser Besprechung sichtbar" -- i.e. visible to FELLOW PARTICIPANTS of
+            // THIS meeting, not org-wide. Without this check, any AKTIV member could call
+            // listParticipants on any room id (discoverable via listActiveRooms) and see every
+            // guest's homeserverUrl regardless of whether they ever joined that room, which is a
+            // broader disclosure than the disclaimer describes. A caller who is either the room's
+            // creator/moderator or has ANY conference_participation row here (open or closed -- they
+            // WERE a participant, matching the disclaimer's own scope) counts; everyone else gets an
+            // empty homeserverUrl map, same as if no room had any guests at all.
+            val callerIsParticipant =
+                room[ConferenceRoomTable.createdByMemberId] == current.memberId ||
+                    current.memberId in participantIds
+            // ONE query, no N+1. The `status eq GAST` predicate is load-bearing, not decorative: a
+            // stale oidc_guest_profile row left behind on a member who was later promoted to AKTIV
+            // must NOT surface a guest badge for them (see ConferenceParticipantDto.homeserverUrl
+            // KDoc).
+            val guestHomeservers: Map<Uuid, String> =
+                if (!callerIsParticipant || participantIds.isEmpty()) {
+                    emptyMap()
+                } else {
+                    (MemberTable innerJoin OidcGuestProfileTable)
+                        .selectAll()
+                        .where { (MemberTable.id inList participantIds) and (MemberTable.status eq MemberStatus.GAST) }
+                        .associate { it[MemberTable.id] to it[OidcGuestProfileTable.homeserverUrl] }
                 }
+            rows.map { row ->
+                val memberIdValue = row[ConferenceParticipationTable.memberId]
+                ConferenceParticipantDto(
+                    memberId = memberIdValue.toString(),
+                    displayName = memberDisplayName(memberIdValue),
+                    role = row[ConferenceParticipationTable.role],
+                    joinedAt = row[ConferenceParticipationTable.joinedAt],
+                    leftAt = row[ConferenceParticipationTable.leftAt],
+                    live = memberIdValue.toString() in liveIdentities,
+                    homeserverUrl = guestHomeservers[memberIdValue],
+                )
+            }
         }
     }
 
@@ -448,6 +639,123 @@ class ConferenceService(
         return transaction {
             val fresh = ConferenceRoomTable.selectAll().where { ConferenceRoomTable.id eq id }.single()
             rowToDto(fresh, current.memberId, emptyMap())
+        }
+    }
+
+    /**
+     * V1.0 Videokonferenzen Wave 5 "Föderations-Gastbeitritt" -- see [IConferenceService
+     * .getGuestJoinInfo] KDoc. Deliberately returns the room's title/creator even for a
+     * non-opted-in room -- room ids are unguessable UUIDv4 (`Uuid.random()` in [createRoom]), so
+     * this is not an enumeration surface, and returning them is what makes the client's rejection
+     * copy honest ("Die Besprechung „X" lässt derzeit keine Gäste zu.") and what lets a guest see
+     * WHO the moderator is even before joining (design review D14).
+     */
+    override suspend fun getGuestJoinInfo(roomId: String): ConferenceGuestJoinInfoDto {
+        val current = resolveCurrentMember(call)
+        requireConferenceEnabled()
+        requireWithinRate(guestInfoRateLimiter, current.memberId)
+        val id = roomId.toConferenceUuid()
+        return transaction {
+            // ANTRAG/AUSGETRETEN/ABGELEHNT -> ForbiddenException, same as every other entry point.
+            val status = requireActiveOrGuestMembership(current.memberId)
+            val row =
+                ConferenceRoomTable.selectAll().where { ConferenceRoomTable.id eq id }.singleOrNull()
+                    ?: throw NotFoundException("Conference room $id not found")
+            val creatorId = row[ConferenceRoomTable.createdByMemberId]
+            ConferenceGuestJoinInfoDto(
+                roomId = id.toString(),
+                title = row[ConferenceRoomTable.title],
+                allowsFederationGuests = row[ConferenceRoomTable.allowFederationGuests],
+                roomActive = row[ConferenceRoomTable.endedAt] == null,
+                organizationName = organizationDisplayName(),
+                createdByMemberId = creatorId.toString(),
+                createdByDisplayName = memberDisplayName(creatorId),
+                callerIsGuest = status == MemberStatus.GAST,
+                disclaimer =
+                    ConferenceGuestConsentDisclaimerDto(
+                        version = ConferenceGuestConsentDisclaimer.VERSION,
+                        headline = ConferenceGuestConsentDisclaimer.HEADLINE,
+                        keyPoints = ConferenceGuestConsentDisclaimer.KEY_POINTS,
+                        text = ConferenceGuestConsentDisclaimer.TEXT,
+                        sha256 = ConferenceGuestConsentDisclaimer.SHA256,
+                    ),
+            )
+        }
+    }
+
+    /**
+     * V1.0 Videokonferenzen Wave 5 "Föderations-Gastbeitritt" -- see [IConferenceService
+     * .setRoomGuestAccess] KDoc. Shape modelled on [renameRoom] (fetch-authorize-mutate) for the
+     * flag flip, plus [removeParticipant]'s transaction/LiveKit/transaction shape for the
+     * revoke-disconnect leg (design review D16: revoking access must not silently leave already-
+     * connected guests inside the room).
+     */
+    override suspend fun setRoomGuestAccess(
+        roomId: String,
+        allowFederationGuests: Boolean,
+    ): ConferenceRoomDto {
+        val current = resolveCurrentMember(call)
+        requireConferenceEnabled()
+        // Security-audit fix -- see DEFAULT_GUEST_ACCESS_RATE_MAX KDoc.
+        requireWithinRate(guestAccessRateLimiter, current.memberId)
+        val id = roomId.toConferenceUuid()
+
+        // Phase 1 (transaction): authorize, flip the column, collect the guests to disconnect (if
+        // revoking), write the audit-log row.
+        val plan =
+            transaction {
+                val existing =
+                    ConferenceRoomTable.selectAll().where { ConferenceRoomTable.id eq id }.singleOrNull()
+                        ?: throw NotFoundException("Conference room $id not found")
+                requireModeratorOrPrivileged(existing, current)
+                if (existing[ConferenceRoomTable.endedAt] != null) {
+                    throw ConflictException("Cannot change guest access on an ended room")
+                }
+                // Explicitly qualified -- the enclosing setRoomGuestAccess(allowFederationGuests:
+                // Boolean) PARAMETER shadows ConferenceRoomTable.allowFederationGuests' own column
+                // property for a bare `it[allowFederationGuests]` subscript key here, same class of
+                // footgun the `renameRoom`/`title` qualification above avoids.
+                ConferenceRoomTable.update({ ConferenceRoomTable.id eq id }) {
+                    it[ConferenceRoomTable.allowFederationGuests] = allowFederationGuests
+                }
+                val guestsToDrop =
+                    if (allowFederationGuests) {
+                        emptyList()
+                    } else {
+                        (ConferenceParticipationTable innerJoin MemberTable)
+                            .selectAll()
+                            .where {
+                                (ConferenceParticipationTable.roomId eq id) and
+                                    ConferenceParticipationTable.leftAt.isNull() and
+                                    (MemberTable.status eq MemberStatus.GAST)
+                            }.map { it[ConferenceParticipationTable.memberId] }
+                            .distinct()
+                    }
+                // AuditLogRecorder.record must be the LAST lock-taking operation in this
+                // transaction -- see that object's KDoc "deadlock-avoidance contract".
+                AuditLogRecorder.record(
+                    actorMemberId = current.memberId,
+                    actorRole = current.role,
+                    entityType = AuditEntityType.CONFERENCE_ROOM,
+                    entityId = id,
+                    action = AuditAction.UPDATE,
+                    after = """{"allowFederationGuests":$allowFederationGuests}""",
+                )
+                RevokePlan(existing[ConferenceRoomTable.livekitRoomName], guestsToDrop)
+            }
+
+        // Phase 2 (OUTSIDE any transaction -- class KDoc "Transaction boundaries around the
+        // LiveKit network call"): disconnect each currently-joined guest. Bounded by
+        // max_participants (25 by default), so no unbounded fan-out.
+        plan.guestMemberIds.forEach { guestId ->
+            liveKitCall { liveKitAdminClient.removeParticipant(plan.livekitRoomName, guestId.toString()) }
+        }
+
+        // Phase 3: close their participation rows.
+        val now = nowLocalDateTime()
+        return transaction {
+            plan.guestMemberIds.forEach { guestId -> closeOpenParticipationsFor(id, guestId, now) }
+            rowToDto(ConferenceRoomTable.selectAll().where { ConferenceRoomTable.id eq id }.single(), current.memberId, emptyMap())
         }
     }
 
@@ -559,6 +867,13 @@ class ConferenceService(
         if (!isCreator && !current.isPrivileged) throw ForbiddenException()
     }
 
+    /** `organization_settings.name` -- the DSGVO-verantwortliche Organisation the disclaimer names. Single-row lookup. */
+    private fun organizationDisplayName(): String =
+        OrganizationSettingsTable
+            .selectAll()
+            .where { OrganizationSettingsTable.id eq ORGANIZATION_SETTINGS_ID }
+            .single()[OrganizationSettingsTable.name]
+
     private fun rowToDto(
         row: ResultRow,
         callerId: Uuid,
@@ -578,6 +893,7 @@ class ConferenceService(
             maxParticipants = row[ConferenceRoomTable.maxParticipants],
             liveParticipantCount = liveRooms[row[ConferenceRoomTable.livekitRoomName]] ?: 0,
             myRole = if (creatorId == callerId) ConferenceRole.MODERATOR else ConferenceRole.PARTICIPANT,
+            allowFederationGuests = row[ConferenceRoomTable.allowFederationGuests],
         )
     }
 

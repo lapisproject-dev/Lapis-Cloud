@@ -28,6 +28,18 @@ enum class ConferenceRole { MODERATOR, PARTICIPANT }
 data class ConferenceRoomInput(
     val title: String,
     val description: String = "",
+    /**
+     * Wave 5 "Föderations-Gastbeitritt": per-room federation-guest opt-in. Defaults to `false` --
+     * a room is guest-CLOSED unless its creator says otherwise. See
+     * [network.lapis.cloud.shared.rpc.IConferenceService] KDoc "Federated guest join". **The
+     * client never sets this at creation time** -- design review D4: Wave 4's D1 deliberately
+     * deleted the lobby creation form ("one button, no form"), and guest access is always enabled
+     * from INSIDE a running room (via [network.lapis.cloud.shared.rpc.IConferenceService
+     * .setRoomGuestAccess]), by someone who is already there, never at creation. This field exists
+     * on the input purely for API completeness/tests -- do not "helpfully" re-add a creation-time
+     * toggle in the client.
+     */
+    val allowFederationGuests: Boolean = false,
 )
 
 /**
@@ -53,6 +65,8 @@ data class ConferenceRoomDto(
     val maxParticipants: Int,
     val liveParticipantCount: Int,
     val myRole: ConferenceRole,
+    /** Wave 5 "Föderations-Gastbeitritt" -- see [ConferenceRoomInput.allowFederationGuests] KDoc. */
+    val allowFederationGuests: Boolean = false,
 )
 
 /**
@@ -119,6 +133,17 @@ data class ConferenceParticipantDto(
     val joinedAt: LocalDateTime,
     val leftAt: LocalDateTime?,
     val live: Boolean,
+    /**
+     * Wave 5 "Föderations-Gastbeitritt": non-null ONLY for a participant whose member row is
+     * [MemberStatus.GAST] AND who has an `oidc_guest_profile` row -- `null` for every ordinary
+     * member. Drives `GuestBadge.kt`'s `guestBadge(homeserverUrl)` in the in-call roster, exactly
+     * like `SessionInfoDto.homeserverUrl` already drives it in the navbar. Never derived
+     * client-side -- a stale `oidc_guest_profile` row left behind on a member later promoted to
+     * AKTIV must NOT surface a guest badge for them, which is why the server-side query behind
+     * this field re-checks `member.status == GAST` on every read, not just presence of a profile
+     * row (see `ConferenceService.listParticipants` KDoc).
+     */
+    val homeserverUrl: String? = null,
 )
 
 /**
@@ -154,4 +179,70 @@ data class ConferenceChatMessage(
     val senderDisplayName: String,
     val text: String,
     val sentAtEpochMs: Long,
+)
+
+// ── Wave 5 "Föderations-Gastbeitritt" ──────────────────────────────────────────────────────────
+
+/**
+ * Wave 5 -- the current [network.lapis.cloud.server.rpc.ConferenceGuestConsentDisclaimer]'s
+ * version/text/hash, same shape [AuctionComplianceDisclaimerDto] already establishes.
+ * [headline]/[keyPoints] are the design review's D7 "layer 1" (rendered above the fold,
+ * unscrollable-past); [text] is the full "layer 2" disclosure (rendered in a scroll box beneath
+ * layer 1, always present, never hidden). [text] is structurally guaranteed to be composed from
+ * [headline]/[keyPoints] server-side -- see that object's own KDoc "Two-layer disclosure" -- so a
+ * client rendering only layer 1 can never show wording the hash does not also cover.
+ */
+@Serializable
+data class ConferenceGuestConsentDisclaimerDto(
+    val version: String,
+    val headline: String,
+    val keyPoints: List<String>,
+    val text: String,
+    val sha256: String,
+)
+
+/**
+ * Wave 5 -- everything a caller needs BEFORE attempting a federated guest join, delivered as DATA
+ * rather than as an exception message. This is deliberate and load-bearing: kilua-rpc transmits
+ * only the exception discriminator, never its message (see `AppState.guarded` KDoc in the client
+ * module), so an honest "this room does not admit guests" explanation is IMPOSSIBLE to deliver via
+ * a thrown `ForbiddenException`. [allowsFederationGuests]/[roomActive] are the two fields the
+ * client renders a precise German reason from (see
+ * `network.lapis.cloud.client.conferenceGuestJoinBlockedReason`).
+ *
+ * [createdByMemberId]/[createdByDisplayName] (design review D14) let a GUEST see WHO the room's
+ * moderator is -- the client's synthesized [ConferenceRoomDto] for an unjoined guest carries these
+ * through unchanged; this does NOT grant the guest any moderator affordance (`canModerate` still
+ * compares the CALLER's own id against `createdByMemberId`, which a GAST caller can never equal,
+ * since [ConferenceRoomInput] is only ever submitted by an AKTIV caller via `createRoom`).
+ * [organizationName] (`organization_settings.name`) is the DSGVO-verantwortliche Organisation
+ * named by the disclaimer's layer-1 org line -- deliberately NOT part of the hashed
+ * [ConferenceGuestConsentDisclaimerDto.text], see that class's own KDoc "The organization name is
+ * NOT part of the hashed text".
+ */
+@Serializable
+data class ConferenceGuestJoinInfoDto(
+    val roomId: String,
+    val title: String,
+    val allowsFederationGuests: Boolean,
+    val roomActive: Boolean,
+    val organizationName: String,
+    val createdByMemberId: String,
+    val createdByDisplayName: String,
+    /** `true` iff the CALLER is [MemberStatus.GAST] -- lets the client pick the guest vs. moderator-preview rendering. */
+    val callerIsGuest: Boolean,
+    val disclaimer: ConferenceGuestConsentDisclaimerDto,
+)
+
+/**
+ * Wave 5 -- proof the guest was shown the CURRENT disclaimer text. Same shape
+ * [AuctionComplianceAcknowledgmentInput] already establishes. Read by
+ * [network.lapis.cloud.shared.rpc.IConferenceService.joinRoom] ONLY for a
+ * [MemberStatus.GAST] caller -- ignored (no side effect, no acknowledgment row written) for every
+ * other caller, see that method's own KDoc.
+ */
+@Serializable
+data class ConferenceGuestConsentAcknowledgmentInput(
+    val consentVersion: String,
+    val consentSha256: String,
 )

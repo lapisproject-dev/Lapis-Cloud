@@ -33,6 +33,7 @@ import network.lapis.cloud.server.db.DbClock
 import network.lapis.cloud.server.db.DevSeedData
 import network.lapis.cloud.server.db.generated.AccountTable
 import network.lapis.cloud.server.db.generated.AuditLogEntryTable
+import network.lapis.cloud.server.db.generated.ConferenceParticipationTable
 import network.lapis.cloud.server.db.generated.ConferenceRoomTable
 import network.lapis.cloud.server.db.generated.ConferenceStreamDestinationTable
 import network.lapis.cloud.server.db.generated.ConferenceStreamTable
@@ -41,6 +42,7 @@ import network.lapis.cloud.server.db.generated.MemberTable
 import network.lapis.cloud.server.federation.FederationInboxRateLimiter
 import network.lapis.cloud.server.security.LoginRateLimiter
 import network.lapis.cloud.shared.domain.AccountRole
+import network.lapis.cloud.shared.domain.ConferenceRole
 import network.lapis.cloud.shared.domain.ConferenceStreamDestinationDto
 import network.lapis.cloud.shared.domain.ConferenceStreamDto
 import network.lapis.cloud.shared.domain.ConferenceStreamLatencyMode
@@ -56,6 +58,7 @@ import network.lapis.cloud.shared.rpc.UnauthenticatedException
 import org.jetbrains.exposed.v1.core.and
 import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.core.inList
+import org.jetbrains.exposed.v1.core.or
 import org.jetbrains.exposed.v1.jdbc.deleteWhere
 import org.jetbrains.exposed.v1.jdbc.insert
 import org.jetbrains.exposed.v1.jdbc.selectAll
@@ -932,6 +935,72 @@ class ConferenceStreamingServiceTest :
             }
         }
 
+        // ── getActiveStream -- Wave 5 "Föderations-Gastbeitritt", design review D13 ──────────
+
+        test(
+            "D13: a GAST who has joined an opted-in room sees the active stream -- 'everyone in the room has a legal right to know' applies to a guest too",
+        ) {
+            testApplication {
+                application {
+                    install(StatusPages) { installConferenceStreamingExceptionHandlers() }
+                    routing { registerConferenceStreamingTestRoutes() }
+                }
+                val creator = createTestMember("stream-d13-happy@example.org")
+                val roomId = createTestRoom(creator, "D13-Sitzung")
+                transaction { ConferenceRoomTable.update({ ConferenceRoomTable.id eq roomId }) { it[allowFederationGuests] = true } }
+                val guest = createTestMember("stream-d13-guest@example.org", status = MemberStatus.GAST)
+                transaction {
+                    ConferenceParticipationTable.insert {
+                        it[id] = Uuid.random()
+                        it[ConferenceParticipationTable.roomId] = roomId
+                        it[memberId] = guest
+                        it[role] = ConferenceRole.PARTICIPANT
+                        it[joinedAt] = DbClock.nowLocalDateTime()
+                        it[leftAt] = null
+                    }
+                }
+                val destId = createTestDestination("D13-Ziel", creator)
+                client.post("/test/start-stream?roomId=$roomId&destinationIds=$destId&layout=GRID&latencyMode=STANDARD") {
+                    header("X-Member-Id", creator.toString())
+                }
+
+                val response = client.get("/test/active-stream?roomId=$roomId") { header("X-Member-Id", guest.toString()) }
+                response.status shouldBe HttpStatusCode.OK
+                response.bodyAsText().isNotBlank() shouldBe true
+            }
+        }
+
+        test("D13: a GAST who never joined the room is rejected; a GAST in a non-opted-in room is rejected") {
+            testApplication {
+                application {
+                    install(StatusPages) { installConferenceStreamingExceptionHandlers() }
+                    routing { registerConferenceStreamingTestRoutes() }
+                }
+                val creator = createTestMember("stream-d13-neg@example.org")
+                val openRoomId = createTestRoom(creator, "D13-Offen")
+                transaction { ConferenceRoomTable.update({ ConferenceRoomTable.id eq openRoomId }) { it[allowFederationGuests] = true } }
+                val closedRoomId = createTestRoom(creator, "D13-Geschlossen")
+
+                val neverJoinedGuest = createTestMember("stream-d13-never@example.org", status = MemberStatus.GAST)
+                client.get("/test/active-stream?roomId=$openRoomId") { header("X-Member-Id", neverJoinedGuest.toString()) }.status shouldBe
+                    HttpStatusCode.Forbidden
+
+                val closedRoomGuest = createTestMember("stream-d13-closed@example.org", status = MemberStatus.GAST)
+                transaction {
+                    ConferenceParticipationTable.insert {
+                        it[id] = Uuid.random()
+                        it[ConferenceParticipationTable.roomId] = closedRoomId
+                        it[memberId] = closedRoomGuest
+                        it[role] = ConferenceRole.PARTICIPANT
+                        it[joinedAt] = DbClock.nowLocalDateTime()
+                        it[leftAt] = null
+                    }
+                }
+                client.get("/test/active-stream?roomId=$closedRoomId") { header("X-Member-Id", closedRoomGuest.toString()) }.status shouldBe
+                    HttpStatusCode.Forbidden
+            }
+        }
+
         // ── No RPC response ever carries the plaintext key (reflective-ish assertion) ────────
 
         test("no RPC response body anywhere in this file ever contains a plaintext stream key") {
@@ -1152,6 +1221,14 @@ private fun cleanUpConferenceStreamingTestData(
         if (destinationIds.isNotEmpty()) {
             ConferenceStreamTargetTable.deleteWhere { ConferenceStreamTargetTable.destinationId inList destinationIds }
             ConferenceStreamDestinationTable.deleteWhere { ConferenceStreamDestinationTable.id inList destinationIds }
+        }
+        // Wave 5 "Föderations-Gastbeitritt" D13 tests insert conference_participation rows
+        // directly (a GAST "joining" a room, no LiveKit involved) -- delete before the room/member
+        // rows they FK-reference.
+        if (roomIds.isNotEmpty() || memberIds.isNotEmpty()) {
+            ConferenceParticipationTable.deleteWhere {
+                (ConferenceParticipationTable.roomId inList roomIds) or (ConferenceParticipationTable.memberId inList memberIds)
+            }
         }
         roomIds.forEach { roomId -> ConferenceRoomTable.deleteWhere { ConferenceRoomTable.id eq roomId } }
         memberIds.forEach { memberId -> AccountTable.deleteWhere { AccountTable.memberId eq memberId } }

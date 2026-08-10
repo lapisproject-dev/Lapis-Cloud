@@ -56,6 +56,19 @@ object Validation {
      * misses the server's exact floor still gets a clear `guarded()` conflict toast.
      */
     fun isPositiveDecimal(value: String): Boolean = value.trim().toDoubleOrNull()?.let { it > 0.0 } ?: false
+
+    /**
+     * V1.0 Videokonferenzen, Wave 5 "Föderations-Gastbeitritt" -- design review D6: a malformed
+     * room-id entered in the guest lobby's own field currently produces only the generic
+     * "Ungültige Anfrage."/"Nicht gefunden." toast (the exact N1 confusion this whole wave exists
+     * to avoid). Loose UUIDv4-shape check (`kotlin.uuid.Uuid.parse`'s own accepted grammar is wider
+     * than this, but a plain 8-4-4-4-12 hex-with-dashes shape is what every room id this codebase
+     * mints actually looks like -- see `ConferenceService.createRoom`'s `Uuid.random()`) -- same
+     * "loose mirror, not the security boundary" posture every other function in this object
+     * documents. The server is still the real validator.
+     */
+    fun looksLikeRoomId(value: String): Boolean =
+        Regex("^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$").matches(value.trim())
 }
 
 /**

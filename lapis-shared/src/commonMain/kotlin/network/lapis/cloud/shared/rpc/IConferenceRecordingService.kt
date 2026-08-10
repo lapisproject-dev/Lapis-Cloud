@@ -99,8 +99,15 @@ interface IConferenceRecordingService {
     suspend fun stopRecording(recordingId: String): ConferenceRecordingDto
 
     /**
-     * Role: MEMBER+, AKTIV. The in-call view's authoritative detail source for the recording
-     * banner/badge ("Aufzeichnung gestartet von X um HH:MM"). Returns EMPTY (not an error) if no
+     * Role: MEMBER+, AKTIV **or** [network.lapis.cloud.shared.domain.MemberStatus.GAST] (Wave 5
+     * "Föderations-Gastbeitritt", design review D13 -- widened from AKTIV-only: a federated guest
+     * actually inside the room has the SAME legal right to know it is being recorded as an AKTIV
+     * member; the disclaimer they consented to before joining explicitly promises this). A GAST
+     * caller is admitted iff the room has `allowFederationGuests = true` AND the caller has joined
+     * it at some point (same narrowing `listParticipants` applies, see
+     * `network.lapis.cloud.server.rpc.requireGuestHasJoinedRoom`). The in-call view's authoritative
+     * detail source for the recording banner/badge ("Aufzeichnung gestartet von X um HH:MM").
+     * Returns EMPTY (not an error) if no
      * [network.lapis.cloud.shared.domain.ConferenceRecordingStatus.RECORDING]/[network.lapis.cloud.shared.domain.ConferenceRecordingStatus.STOPPING]
      * recording exists for [roomId] -- a room without an active recording is the normal case, not
      * exceptional. **`List`, not a nullable [ConferenceRecordingDto]**, purely because Kilua RPC's

@@ -334,6 +334,11 @@ fun decodeAuditSnapshot(
             // step (a later wave step) may introduce one.
             AuditEntityType.CONFERENCE_STREAM -> null
             AuditEntityType.CONFERENCE_STREAM_DESTINATION -> null
+            // V1.0 Videokonferenzen, Wave 5 "Föderations-Gastbeitritt" -- same "no dedicated
+            // snapshot type yet" reasoning; ConferenceService.setRoomGuestAccess writes a raw
+            // `{"allowFederationGuests":...}` JSON string as `after`, falls through to the raw-text
+            // fallback.
+            AuditEntityType.CONFERENCE_ROOM -> null
         }
     }.getOrNull()
 
