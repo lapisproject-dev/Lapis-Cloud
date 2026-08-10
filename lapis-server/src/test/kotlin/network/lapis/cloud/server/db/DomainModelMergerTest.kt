@@ -35,14 +35,16 @@ class DomainModelMergerTest :
         // ── Test 1: merging the real 22 domain scripts ───────────────────────────────────
 
         test(
-            "merging the real 31 domain scripts succeeds and the uml-to-erm -> erm-to-exposed chain " +
+            "merging the real 32 domain scripts succeeds and the uml-to-erm -> erm-to-exposed chain " +
                 "produces exactly one Table file per distinct table name",
         ) {
             val scriptFiles =
                 requireNotNull(KumlModelLoader.kumlSourceDir.listFiles { f -> f.name.endsWith(".kuml.kts") }) {
                     "kUML source dir not found or not a directory: ${KumlModelLoader.kumlSourceDir.absolutePath}"
                 }.sortedBy { it.name }
-            scriptFiles shouldHaveSize 31
+            // V1.0 Videokonferenzen, Wave 6 "Breakout-Räume" -- was 31, now 32 with the addition of
+            // 31-conference-breakout.kuml.kts.
+            scriptFiles shouldHaveSize 32
 
             val diagrams = scriptFiles.map { KumlModelLoader.loadUmlDiagram(it) }
 
@@ -200,7 +202,15 @@ class DomainModelMergerTest :
             // through them) -- so it contributes +3 «Entity» declarations (2 stubs + 1 real table)
             // and +2 drops (both stubs merge into the already-existing member/conference_room
             // entities) versus the V1.0-Wave-3 baseline above (96 -> 97).
-            val distinctTableNames = 97
+            // 31-conference-breakout.kuml.kts (V1.0 Videokonferenzen, Wave 6 "Breakout-Räume") adds
+            // exactly two more real tables (conference_breakout_room, conference_breakout_assignment),
+            // WITH TWO cross-domain stubs (Member, ConferenceRoom --
+            // conference_breakout_room.parent_room_id/created_by_member_id and
+            // conference_breakout_assignment.breakout_room_id/member_id resolve through them) -- so
+            // it contributes +4 «Entity» declarations (2 stubs + 2 real tables) and +2 drops (both
+            // stubs merge into the already-existing member/conference_room entities) versus the
+            // V1.0-Wave-5 baseline above (97 -> 99).
+            val distinctTableNames = 99
 
             val result =
                 UmlToExposedViaErmScriptTransformer().transform(
@@ -320,6 +330,9 @@ class DomainModelMergerTest :
                     "ConferenceStreamTable.kt",
                     "ConferenceStreamTargetTable.kt",
                     "ConferenceGuestConsentAcknowledgmentTable.kt",
+                    // V1.0 Videokonferenzen, Wave 6 "Breakout-Räume".
+                    "ConferenceBreakoutRoomTable.kt",
+                    "ConferenceBreakoutAssignmentTable.kt",
                 )
         }
 

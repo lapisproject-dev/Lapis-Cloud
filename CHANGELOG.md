@@ -142,6 +142,113 @@ chips while `PAUSED` rather than rendering a contradicting "Live" status underne
 "ist unterbrochen" badge. Four new `ConferenceStreamingUiTest.kt` unit tests pin both the fix and the
 underlying `conferenceStreamBadgeVerbPhrase` mapping.
 
+**Videokonferenzen (Kleinsitzung), V1.0 Wave 6 „Breakout-Räume" — a moderator can split an active
+meeting's participants into N temporary sub-sessions for small-group work and bring everyone back
+with one click, on `feature/video-konferenz-wave6-breakout`.** Breakout-Räume reuse the most
+existing infrastructure of any remaining domain (real LiveKit room creation, token minting, and the
+client's own connect/disconnect machinery, all already proven by Waves 1–5) and needed no LiveKit
+"move participant" primitive — LiveKit exposes none, so this wave is a pure application-level
+orchestration problem: create N additional real LiveKit rooms, mint per-room tokens, force-disconnect
+the client's current session, and let it reconnect against the new room.
+
+- **Two new, deliberately small tables** — `conference_breakout_room`/`conference_breakout_assignment`
+  (new `31-conference-breakout.kuml.kts`, edited into `V1__baseline.sql` in place). A breakout room
+  is NOT a clone of `conference_room` — no `description`, no `allow_federation_guests`, no embedded
+  moderator concept; every one of those stays anchored to the parent meeting, which keeps "a breakout
+  room is not a first-class meeting" a schema fact rather than a convention to remember. At most ONE
+  open batch (`closed_at IS NULL`) per parent room at a time, enforced in the service layer; the
+  assignment table is APPEND-ONLY per assignment (a reassignment closes the old row, opens a new one),
+  same "liveness via nullable timestamps" idiom `conference_participation`/`session` already
+  establish. No new `AuditEntityType` — matches the existing precedent that `endRoom`/
+  `removeParticipant`/`renameRoom` are also unaudited.
+- **`IConferenceBreakoutService`** — a FOURTH, separate conference RPC service
+  (`createBreakoutRooms`/`assignParticipants`/`recallAll`/`getMyBreakoutAssignment`/
+  `requestBreakoutJoinToken`/`returnToMainRoom`/`rejoinMainRoomToken`), reusing the exact same
+  `ConferenceConfig.enabled` gate `IConferenceService` uses rather than adding a second, always-
+  identical availability toggle (a deliberate deviation from the `IConferenceRecordingService`/
+  `IConferenceStreamingService` precedent of each owning an independent gate — breakout rooms need
+  nothing beyond what the parent conference already requires). `createBreakoutRooms` auto-distributes
+  every currently-LIVE participant (per a real `LiveKitAdminClient.listParticipants` call against the
+  parent room, never the potentially-stale `conference_participation` log) round-robin, sorted by
+  DISPLAY NAME for a moderator-legible result, excluding the room's own moderator by default (still
+  manually assignable). `requestBreakoutJoinToken`'s authorization is a single, load-bearing query —
+  an OPEN `conference_breakout_assignment` row for THIS caller and THIS breakout room — the entire
+  enforcement that a participant can only obtain a token for the room they were actually assigned to,
+  not any other by guessing/enumerating an id. No breakout-room-scoped moderator concept anywhere:
+  every mutating call token-mints `ConferenceRole.PARTICIPANT`, even for the parent room's own
+  moderator if ever manually assigned to a breakout room. `conference_participation` stays OPEN the
+  entire time a member is inside a breakout excursion — moving into/between/back from breakout rooms
+  never touches it, which is also why `rejoinMainRoomToken` mints a fresh token without inserting a
+  second participation row.
+- **No LiveKit data-channel push for the assignment signal — the disconnect IS the signal.**
+  `createBreakoutRooms`/`assignParticipants`, after committing their DB rows, force-disconnect each
+  newly-/re-assigned member from the room they were previously in via
+  `LiveKitAdminClient.removeParticipant` (never `ConferenceService.removeParticipant`, which would
+  also wrongly close their `conference_participation` row) — this delivers near-real-time relocation
+  with zero polling latency and zero new wire format, reusing 100% pre-existing infrastructure.
+- **`endRoom` gains a Wave 6 cascade** — ending the parent meeting now also deletes every still-open
+  breakout LiveKit room (best-effort, log-and-continue — a stuck breakout room must never block
+  ending the whole meeting; an orphan self-heals via LiveKit's own `empty_timeout`) and stamps their
+  DB rows closed via a new `ConferenceBreakoutCoordinator` bridge object, mirroring the
+  `ConferenceRecordingCoordinator` shape Wave 2 already established. `recallAll` itself tolerates a
+  LiveKit `deleteRoom` failure as "already gone" rather than failing the whole moderator action — a
+  breakout room whose occupants already all voluntarily returned routinely self-empties before the
+  moderator gets around to clicking "Alle zurückholen".
+- **Guests allowed into breakout rooms on identical terms** — a `MemberStatus.GAST` participant of a
+  room with `allowFederationGuests = true` can be assigned to and rejoin breakout rooms exactly like
+  an AKTIV member; a breakout room's participant set is always a SUBSET of the parent meeting's
+  already-consented audience, so it only narrows who can see the guest, never widens it. No new
+  consent flow, no new disclaimer text.
+- **Client — new `Resolving` connection state, honest room-switch UX.** `RoomEvent.Disconnected` is
+  ambiguous at the LiveKit transport layer (kick, meeting-end, breakout assignment, and recall all
+  look identical) — the pre-Wave-6 state machine resolved every one of them straight to `Ended`. Now
+  a genuine disconnect first enters the new `ConferenceConnectionState.Resolving` ("Verbindung wird
+  geprüft …", deliberately noncommittal), while the client asks the server (`getRoom` +
+  `getMyBreakoutAssignment`, two cheap calls) what actually happened; only THEN does it either
+  transition to `Ended` (meeting really over) or hand off — via a brand-new `enterCall` invocation
+  carrying a fresh `ConferenceCallTarget` (`MainRoom`/`BreakoutRoom`) — to the resolved destination,
+  never showing "connected" for a session that has actually moved. A deliberate side effect: a caller
+  merely reconnecting after a transient network drop LiveKit gave up retrying on now also gets
+  silently rejoined instead of being dropped back to the Lobby. Three pre-existing background-poll
+  loops (recording/streaming status, grid reflow) read the OLD `!is Ended` guard, which would have
+  kept spinning through `Resolving` for an already-relocating call; fixed via a new shared
+  `isLive()` helper (`Connected`/`Reconnecting` only).
+- **Client — moderator UI.** A new, spatially separate "Breakout-Räume:" row (never sharing the
+  "Für alle beenden" row, nor the recording/streaming rows) with a one-dialog "Räume erstellen und
+  verteilen" flow (room count, default 2, capped at 20; a conditional disclosure line if a recording/
+  stream is active on the main room at that moment), a live per-room overview of who is assigned
+  where, and an "Alle zurückholen" button (`ButtonStyle.WARNING` — disruptive but fully reversible,
+  one tier below "Für alle beenden"'s danger framing). The roster gains a per-participant breakout-
+  reassignment `<select>` once a batch is open (lists only the open breakout rooms, no "Hauptraum"
+  entry — no RPC exists for moving one specific person back to Main outside of "Alle zurückholen",
+  a stated V1 scope cut). Inside a breakout call: `canModerate` is unconditionally `false` (no
+  breakout-room-scoped moderator concept — every moderator affordance from Waves 1–5 naturally
+  disappears for free), recording/streaming badges/controls stay entirely hidden (never merely
+  showing "not recording", which would misleadingly imply that could change), replaced by a
+  persistent, UNCONDITIONAL, never-dismissible disclosure line ("Eine im Hauptraum laufende
+  Aufzeichnung oder ein Live-Stream erfasst dieses Gespräch nicht.") — deliberately NOT a dismissible
+  banner, since a moderator could start recording the main room minutes after a participant already
+  clicked past it. "Verlassen" is replaced by two buttons: "Zurück zum Hauptraum" (`ButtonStyle
+  .PRIMARY`, the everyday low-stakes action inside a breakout room) and "Besprechung ganz verlassen"
+  (`ButtonStyle.SECONDARY`) — a deliberate INVERSION of the main room's own button-weight convention.
+- **Testing** — 18 `ConferenceBreakoutServiceTest` cases (happy paths plus the mandated tamper matrix:
+  a non-moderator triggers zero DB writes and zero LiveKit calls; a participant assigned to breakout
+  room A cannot obtain a token for room B of the same batch; a recalled assignment cannot be replayed
+  for a fresh token; a partial `createRoom` failure mid-batch cleans up every already-created LiveKit
+  room and writes zero DB rows), two new `ConferenceServiceTest` cases proving `endRoom`'s cascade
+  leaves no orphaned breakout LiveKit room even when one of its own `deleteRoom` calls fails, client-
+  side pure-function coverage for the retargeted `Resolving`/`ResolvedAsEnded` transitions and the new
+  `isLive()`/`resolvePostDisconnectDestinationOf` helpers, and a new `ConferenceBreakoutJourneyTest`
+  E2E scenario (create → join moderator + 2 participants → create 2 breakout rooms → each participant
+  tokens their own room but not the other's → recall invalidates both; plus a second scenario proving
+  an abandoned, never-recalled batch is still fully cleaned up when its parent room ends). Two real
+  bugs found and fixed while writing these tests: a display-name lookup called outside its own
+  `transaction {}` from inside a `sortedBy` comparator (would have thrown "No transaction in context"
+  on the very first `createBreakoutRooms` call with more than one auto-distributed participant), and
+  every room in one batch sharing the identical `created_at` timestamp, which made the
+  `(created_at, id)` ordering `assignParticipants`/`recallAll`/`getMyBreakoutAssignment` all rely on
+  for a stable `breakoutIndex` fall back to a meaningless random UUID tiebreak on ties.
+
 **Videokonferenzen (Kleinsitzung), V1.0 Wave 5 „Föderations-Gastbeitritt" — a member of a DIFFERENT
 organization's Lapis Cloud server, authenticated via OIDC federation, can now join a video meeting
 on THIS server, on `feature/video-konferenz-wave5-foederation`.** A genuine trust boundary with a

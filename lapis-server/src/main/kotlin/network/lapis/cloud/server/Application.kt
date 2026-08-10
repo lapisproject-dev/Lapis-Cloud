@@ -56,6 +56,7 @@ import network.lapis.cloud.server.rpc.AuditLogService
 import network.lapis.cloud.server.rpc.AuthService
 import network.lapis.cloud.server.rpc.BackupService
 import network.lapis.cloud.server.rpc.BoardMembershipService
+import network.lapis.cloud.server.rpc.ConferenceBreakoutService
 import network.lapis.cloud.server.rpc.ConferenceRecordingService
 import network.lapis.cloud.server.rpc.ConferenceService
 import network.lapis.cloud.server.rpc.ConferenceStreamingService
@@ -89,6 +90,7 @@ import network.lapis.cloud.shared.rpc.IAuditLogService
 import network.lapis.cloud.shared.rpc.IAuthService
 import network.lapis.cloud.shared.rpc.IBackupService
 import network.lapis.cloud.shared.rpc.IBoardMembershipService
+import network.lapis.cloud.shared.rpc.IConferenceBreakoutService
 import network.lapis.cloud.shared.rpc.IConferenceRecordingService
 import network.lapis.cloud.shared.rpc.IConferenceService
 import network.lapis.cloud.shared.rpc.IConferenceStreamingService
@@ -242,6 +244,17 @@ fun Application.module() {
     // limiters above already document.
     val conferenceGuestAccessRateLimiter = FederationInboxRateLimiter(maxRequests = 10, window = 1.minutes)
 
+    // V1.0 Videokonferenzen, Wave 6 "Breakout-Räume" -- same "constructed here, NOT left to the
+    // service's own constructor default" reasoning as conferenceGuestAccessRateLimiter above (the
+    // registerService factory lambda below constructs a brand-new ConferenceBreakoutService on
+    // EVERY RPC call, so relying on constructor defaults would silently give every request a fresh,
+    // empty-state limiter). Budgets/window values match ConferenceBreakoutService's own
+    // DEFAULT_CREATE_RATE_MAX/DEFAULT_ASSIGN_RATE_MAX/DEFAULT_RECALL_RATE_MAX/DEFAULT_TOKEN_RATE_MAX.
+    val conferenceBreakoutCreateRateLimiter = FederationInboxRateLimiter(maxRequests = 10, window = 1.minutes)
+    val conferenceBreakoutAssignRateLimiter = FederationInboxRateLimiter(maxRequests = 20, window = 1.minutes)
+    val conferenceBreakoutRecallRateLimiter = FederationInboxRateLimiter(maxRequests = 10, window = 1.minutes)
+    val conferenceBreakoutTokenRateLimiter = FederationInboxRateLimiter(maxRequests = 30, window = 1.minutes)
+
     // V1.0 Videokonferenzen (Kleinsitzung), Wave 2 "Aufzeichnung" -- ConferenceRecordingConfig.load()
     // is pure string parsing (no I/O, see that class's own KDoc), so it is safe to call
     // unconditionally here regardless of whether LAPIS_RECORDING_ENABLED is set, same posture
@@ -362,6 +375,17 @@ fun Application.module() {
                 listRateLimiter = conferenceListRateLimiter,
                 guestInfoRateLimiter = conferenceGuestInfoRateLimiter,
                 guestAccessRateLimiter = conferenceGuestAccessRateLimiter,
+            )
+        }
+        registerService(IConferenceBreakoutService::class) { call ->
+            ConferenceBreakoutService(
+                call,
+                liveKitAdminClient,
+                config = conferenceConfig,
+                createRateLimiter = conferenceBreakoutCreateRateLimiter,
+                assignRateLimiter = conferenceBreakoutAssignRateLimiter,
+                recallRateLimiter = conferenceBreakoutRecallRateLimiter,
+                tokenRateLimiter = conferenceBreakoutTokenRateLimiter,
             )
         }
         registerService(IConferenceRecordingService::class) { call ->

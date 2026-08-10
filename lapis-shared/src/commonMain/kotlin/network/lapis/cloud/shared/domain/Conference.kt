@@ -246,3 +246,68 @@ data class ConferenceGuestConsentAcknowledgmentInput(
     val consentVersion: String,
     val consentSha256: String,
 )
+
+// ── Wave 6 "Breakout-Räume" ─────────────────────────────────────────────────────────────────────
+
+/**
+ * Wave 6 -- one explicit pin of a specific, currently-live member to a specific breakout room slot
+ * within a [ConferenceBreakoutPlanInput]/`assignParticipants` call. [breakoutIndex] is 0-based and
+ * meaningful only relative to the OTHER indices in the same call -- see
+ * [network.lapis.cloud.shared.rpc.IConferenceBreakoutService.createBreakoutRooms]/
+ * [network.lapis.cloud.shared.rpc.IConferenceBreakoutService.assignParticipants] KDoc for how it
+ * maps onto the batch's actual rooms (ordered by `createdAt`).
+ */
+@Serializable
+data class ConferenceBreakoutAssignmentInput(
+    val memberId: String,
+    val breakoutIndex: Int,
+)
+
+/**
+ * Wave 6 -- the moderator's breakout-room creation plan. [roomLabels], if non-empty, MUST have
+ * exactly [roomCount] entries (validated server-side) -- otherwise every room gets an
+ * auto-generated German default label "Breakout-Raum N" (1-based). [manualAssignments] lists
+ * members explicitly pinned to a specific room by index; every OTHER currently-live participant of
+ * the parent room (excluding its moderator -- see
+ * [network.lapis.cloud.shared.rpc.IConferenceBreakoutService] KDoc "The moderator is never
+ * auto-assigned") is distributed evenly (round-robin, sorted by display name for a moderator-legible
+ * result) across the remaining slots.
+ */
+@Serializable
+data class ConferenceBreakoutPlanInput(
+    val roomCount: Int,
+    val roomLabels: List<String> = emptyList(),
+    val manualAssignments: List<ConferenceBreakoutAssignmentInput> = emptyList(),
+)
+
+/**
+ * Wave 6 -- one breakout room of the parent room's currently open (or just-closed, for a final
+ * status read) batch. [assignedMemberIds]/[assignedDisplayNames] are parallel lists (index `i` of
+ * one corresponds to index `i` of the other) of every member currently holding an OPEN
+ * `conference_breakout_assignment` row for this breakout room -- read-only status display for the
+ * moderator's own overview, see [network.lapis.cloud.shared.rpc.IConferenceBreakoutService] KDoc.
+ */
+@Serializable
+data class ConferenceBreakoutRoomDto(
+    val id: String,
+    val parentRoomId: String,
+    val label: String,
+    val createdAt: LocalDateTime,
+    val closedAt: LocalDateTime?,
+    val assignedMemberIds: List<String>,
+    val assignedDisplayNames: List<String>,
+)
+
+/**
+ * Wave 6 -- the CALLER's own currently open breakout assignment (see
+ * [network.lapis.cloud.shared.rpc.IConferenceBreakoutService.getMyBreakoutAssignment]). This is the
+ * SOLE mechanism the client uses to learn "was I just assigned somewhere" / "was I just recalled" --
+ * see `network.lapis.cloud.client.ConferenceScreen`'s `resolvePostDisconnectDestination` KDoc for
+ * why this is called from an `onDisconnected` handler rather than pushed or polled.
+ */
+@Serializable
+data class ConferenceBreakoutAssignmentDto(
+    val breakoutRoomId: String,
+    val breakoutRoomLabel: String,
+    val assignedAt: LocalDateTime,
+)

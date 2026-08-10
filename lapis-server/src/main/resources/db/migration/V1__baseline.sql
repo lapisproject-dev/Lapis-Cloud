@@ -1710,3 +1710,59 @@ CREATE INDEX idx_conference_guest_consent_ack_room ON conference_guest_consent_a
 ALTER TABLE conference_guest_consent_acknowledgment ADD CONSTRAINT fk_conference_guest_consent_ack_member_id FOREIGN KEY (member_id) REFERENCES member(id);
 ALTER TABLE conference_guest_consent_acknowledgment ADD CONSTRAINT fk_conference_guest_consent_ack_room_id FOREIGN KEY (room_id) REFERENCES conference_room(id);
 
+-- V1.0 Videokonferenzen (Kleinsitzung), Wave 6 "Breakout-Räume" -- see 31-conference-breakout.kuml.kts
+-- file header for the full fachlich model. A breakout room is a REAL, separate LiveKit room (own
+-- livekit_room_name, same lc-<uuid4>-shaped generation as conference_room, own prefix "lc-bo-" for
+-- log/debug legibility) that exists only for the lifetime of one "batch" -- at most ONE open batch
+-- (closed_at IS NULL) per parent_room_id at a time, enforced in
+-- ConferenceBreakoutService.createBreakoutRooms, never at the DB level (same "authorization/
+-- invariant enforcement lives in the service layer, not a DB constraint" posture every other
+-- Conference table already takes). No independent moderator, no independent recording/streaming, no
+-- independent guest-access toggle -- all of those stay anchored to conference_room; see
+-- IConferenceBreakoutService KDoc.
+
+CREATE TABLE conference_breakout_room (
+    id UUID NOT NULL PRIMARY KEY,
+    parent_room_id UUID NOT NULL,
+    label VARCHAR(120) NOT NULL,
+    livekit_room_name VARCHAR(64) NOT NULL,
+    created_by_member_id UUID NOT NULL,
+    created_at TIMESTAMP NOT NULL,
+    closed_at TIMESTAMP NULL
+);
+CREATE UNIQUE INDEX uq_conference_breakout_room_livekit_room_name ON conference_breakout_room (livekit_room_name);
+CREATE INDEX idx_conference_breakout_room_parent ON conference_breakout_room (parent_room_id);
+CREATE INDEX idx_conference_breakout_room_closed_at ON conference_breakout_room (closed_at);
+
+-- conference_breakout_assignment is APPEND-ONLY per assignment, exactly like conference_participation
+-- (joined_at/left_at) and session (revoked_at) -- see 27-conference.kuml.kts file header "Liveness
+-- via nullable timestamps". A member reassigned from breakout room A to B gets assigned_at=... on a
+-- NEW row for B, recalled_at stamped on the OLD row for A (never upserted in place) -- this keeps a
+-- legible per-member breakout history for the lifetime of one meeting. recalled_at is stamped by
+-- THREE distinct paths: (a) ConferenceBreakoutService.recallAll (moderator-initiated, all rows of
+-- the batch), (b) ConferenceBreakoutService.returnToMainRoom (self-service, the caller's own row
+-- only -- mirrors leaveRoom's "closes only the caller's own" no-IDOR pattern), (c)
+-- ConferenceBreakoutCoordinator.closeAllBreakoutRoomsForRoom (parent conference_room ended without
+-- an explicit recall first -- see IConferenceService.endRoom's Wave 6 addition).
+
+CREATE TABLE conference_breakout_assignment (
+    id UUID NOT NULL PRIMARY KEY,
+    breakout_room_id UUID NOT NULL,
+    member_id UUID NOT NULL,
+    assigned_at TIMESTAMP NOT NULL,
+    recalled_at TIMESTAMP NULL
+);
+CREATE INDEX idx_conference_breakout_assignment_room ON conference_breakout_assignment (breakout_room_id);
+CREATE INDEX idx_conference_breakout_assignment_member ON conference_breakout_assignment (member_id);
+-- The authorization-critical query ("does member X hold an OPEN assignment to breakout room Y") is
+-- covered by idx_conference_breakout_assignment_room combined with the recalled_at IS NULL
+-- predicate -- no separate composite index needed at Kleinsitzung scale (<=25 participants per
+-- room, <=20 breakout rooms per batch, see MAX_BREAKOUT_ROOMS).
+
+-- Foreign Keys
+
+ALTER TABLE conference_breakout_room ADD CONSTRAINT fk_conference_breakout_room_parent_room_id FOREIGN KEY (parent_room_id) REFERENCES conference_room(id);
+ALTER TABLE conference_breakout_room ADD CONSTRAINT fk_conference_breakout_room_created_by_member_id FOREIGN KEY (created_by_member_id) REFERENCES member(id);
+ALTER TABLE conference_breakout_assignment ADD CONSTRAINT fk_conference_breakout_assignment_room_id FOREIGN KEY (breakout_room_id) REFERENCES conference_breakout_room(id);
+ALTER TABLE conference_breakout_assignment ADD CONSTRAINT fk_conference_breakout_assignment_member_id FOREIGN KEY (member_id) REFERENCES member(id);
+

@@ -36,6 +36,8 @@ import network.lapis.cloud.server.db.DbClock
 import network.lapis.cloud.server.db.DevSeedData
 import network.lapis.cloud.server.db.generated.AccountTable
 import network.lapis.cloud.server.db.generated.AuditLogEntryTable
+import network.lapis.cloud.server.db.generated.ConferenceBreakoutAssignmentTable
+import network.lapis.cloud.server.db.generated.ConferenceBreakoutRoomTable
 import network.lapis.cloud.server.db.generated.ConferenceGuestConsentAcknowledgmentTable
 import network.lapis.cloud.server.db.generated.ConferenceParticipationTable
 import network.lapis.cloud.server.db.generated.ConferenceRoomTable
@@ -760,6 +762,125 @@ class ConferenceServiceTest :
                     }.status shouldBe HttpStatusCode.Forbidden
 
                 client.post("/test/end-room?roomId=$roomId") { header("X-Member-Id", BOARD_ID) }.status shouldBe HttpStatusCode.OK
+            }
+        }
+
+        // ── endRoom Wave 6 "Breakout-Räume" cascade ─────────────────────────
+
+        test(
+            "endRoom: cascades to delete every still-open breakout LiveKit room and stamps closed_at/recalled_at on their DB rows -- no orphaned LiveKit room left behind",
+        ) {
+            testApplication {
+                val fakeClient = FakeLiveKitAdminClient()
+                application {
+                    install(StatusPages) { installConferenceExceptionHandlers() }
+                    routing { registerConferenceTestRoutes(fakeClient, LoginRateLimiter(), ENABLED_CONFIG, DISABLED_CONFIG) }
+                }
+                val creator = createTestMember("conf-end-cascade-creator@example.org")
+                val roomId = createRoom(client, creator, "Cascade-Test")
+                val roomUuid = Uuid.parse(roomId)
+
+                // Seed two open breakout rooms directly (DB + fake LiveKit) -- this test exercises
+                // ConferenceService.endRoom's own Wave 6 cascade, not ConferenceBreakoutService
+                // itself (see ConferenceBreakoutServiceTest for that).
+                val breakoutRoomIds = mutableListOf<Uuid>()
+                val now = DbClock.nowLocalDateTime()
+                transaction {
+                    repeat(2) { index ->
+                        val breakoutRoomId = Uuid.random()
+                        breakoutRoomIds += breakoutRoomId
+                        val livekitRoomName = "lc-bo-cascade-test-$index-$breakoutRoomId"
+                        ConferenceBreakoutRoomTable.insert {
+                            it[id] = breakoutRoomId
+                            it[parentRoomId] = roomUuid
+                            it[label] = "Breakout-Raum ${index + 1}"
+                            it[ConferenceBreakoutRoomTable.livekitRoomName] = livekitRoomName
+                            it[createdByMemberId] = creator
+                            it[createdAt] = now
+                            it[closedAt] = null
+                        }
+                        ConferenceBreakoutAssignmentTable.insert {
+                            it[id] = Uuid.random()
+                            it[ConferenceBreakoutAssignmentTable.breakoutRoomId] = breakoutRoomId
+                            it[memberId] = creator
+                            it[assignedAt] = now
+                            it[recalledAt] = null
+                        }
+                    }
+                }
+                breakoutRoomIds.forEach { fakeClient.createRoom("lc-bo-cascade-$it", 25, 300) }
+
+                client.post("/test/end-room?roomId=$roomId") { header("X-Member-Id", creator.toString()) }.status shouldBe
+                    HttpStatusCode.OK
+
+                // deleteRoom called for the main room AND both breakout rooms -- no leak.
+                fakeClient.deleteRoomCallCount shouldBe 3
+
+                transaction {
+                    breakoutRoomIds.forEach { breakoutRoomId ->
+                        val row =
+                            ConferenceBreakoutRoomTable.selectAll().where { ConferenceBreakoutRoomTable.id eq breakoutRoomId }.single()
+                        row[ConferenceBreakoutRoomTable.closedAt].shouldNotBeNull()
+                        val assignment =
+                            ConferenceBreakoutAssignmentTable
+                                .selectAll()
+                                .where { ConferenceBreakoutAssignmentTable.breakoutRoomId eq breakoutRoomId }
+                                .single()
+                        assignment[ConferenceBreakoutAssignmentTable.recalledAt].shouldNotBeNull()
+                    }
+                }
+            }
+        }
+
+        test(
+            "endRoom: still succeeds and still closes breakout DB rows even if a breakout room's own LiveKit deleteRoom call fails",
+        ) {
+            val fakeClient = FakeLiveKitAdminClient()
+            // The breakout room's own deleteRoom call fails (simulated LiveKit hiccup) -- endRoom
+            // must still succeed for the main room (its own deleteRoom call, first, succeeds) and
+            // still mark the breakout row closed (best-effort, log-and-continue cascade).
+            var mainRoomDeleteSeen = false
+            val flakyClient =
+                object : LiveKitAdminClient by fakeClient {
+                    override suspend fun deleteRoom(name: String) {
+                        if (!mainRoomDeleteSeen) {
+                            mainRoomDeleteSeen = true
+                            fakeClient.deleteRoom(name)
+                        } else {
+                            throw LiveKitAdminException("simulated breakout deleteRoom failure")
+                        }
+                    }
+                }
+            testApplication {
+                application {
+                    install(StatusPages) { installConferenceExceptionHandlers() }
+                    routing { registerConferenceTestRoutes(flakyClient, LoginRateLimiter(), ENABLED_CONFIG, DISABLED_CONFIG) }
+                }
+                val creator = createTestMember("conf-end-cascade-fail-creator@example.org")
+                val roomId = createRoom(client, creator, "Cascade-Fail-Test")
+                val roomUuid = Uuid.parse(roomId)
+
+                val breakoutRoomId = Uuid.random()
+                val now = DbClock.nowLocalDateTime()
+                transaction {
+                    ConferenceBreakoutRoomTable.insert {
+                        it[id] = breakoutRoomId
+                        it[parentRoomId] = roomUuid
+                        it[label] = "Breakout-Raum 1"
+                        it[livekitRoomName] = "lc-bo-cascade-fail-$breakoutRoomId"
+                        it[createdByMemberId] = creator
+                        it[createdAt] = now
+                        it[closedAt] = null
+                    }
+                }
+
+                client.post("/test/end-room?roomId=$roomId") { header("X-Member-Id", creator.toString()) }.status shouldBe
+                    HttpStatusCode.OK
+
+                transaction {
+                    val row = ConferenceBreakoutRoomTable.selectAll().where { ConferenceBreakoutRoomTable.id eq breakoutRoomId }.single()
+                    row[ConferenceBreakoutRoomTable.closedAt].shouldNotBeNull()
+                }
             }
         }
 
@@ -2008,6 +2129,18 @@ private fun cleanUpConferenceTestData(memberIds: List<Uuid>) {
             (ConferenceGuestConsentAcknowledgmentTable.memberId inList memberIds) or
                 (ConferenceGuestConsentAcknowledgmentTable.roomId inList roomIds)
         }
+        // Wave 6: breakout rooms/assignments FK-reference conference_room and member -- delete
+        // before either (mirrors ConferenceBreakoutServiceTest's own cleanUpConferenceBreakoutTestData).
+        val breakoutRoomIds =
+            ConferenceBreakoutRoomTable
+                .selectAll()
+                .where { ConferenceBreakoutRoomTable.parentRoomId inList roomIds }
+                .map { it[ConferenceBreakoutRoomTable.id] }
+        ConferenceBreakoutAssignmentTable.deleteWhere {
+            (ConferenceBreakoutAssignmentTable.memberId inList memberIds) or
+                (ConferenceBreakoutAssignmentTable.breakoutRoomId inList breakoutRoomIds)
+        }
+        ConferenceBreakoutRoomTable.deleteWhere { ConferenceBreakoutRoomTable.parentRoomId inList roomIds }
         ConferenceParticipationTable.deleteWhere {
             (ConferenceParticipationTable.memberId inList memberIds) or (ConferenceParticipationTable.roomId inList roomIds)
         }

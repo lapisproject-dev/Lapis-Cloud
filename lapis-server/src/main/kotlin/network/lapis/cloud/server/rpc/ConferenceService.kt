@@ -1,5 +1,6 @@
 package network.lapis.cloud.server.rpc
 
+import io.github.oshai.kotlinlogging.KotlinLogging
 import io.ktor.server.application.ApplicationCall
 import kotlinx.datetime.LocalDateTime
 import kotlinx.datetime.TimeZone
@@ -54,6 +55,9 @@ import org.jetbrains.exposed.v1.jdbc.update
 import kotlin.time.Duration.Companion.minutes
 import kotlin.time.Duration.Companion.seconds
 import kotlin.uuid.Uuid
+
+/** V1.0 Wave 6 "Breakout-Räume" -- WARN-logged, best-effort breakout-LiveKit-room cleanup in [ConferenceService.endRoom], see that method's own Wave 6 addition. Did not exist before Wave 6 -- see [network.lapis.cloud.server.rpc.ConferenceBreakoutCoordinator] KDoc. */
+private val logger = KotlinLogging.logger {}
 
 /** Default per-member window for [ConferenceService.joinRoomRateLimiter]/[ConferenceService.leaveRoomRateLimiter]/[ConferenceService.listRateLimiter] -- see class KDoc "Request-rate throttling beyond createRoom". */
 private val DEFAULT_ACTION_RATE_WINDOW = 1.minutes
@@ -494,9 +498,33 @@ class ConferenceService(
         val now = nowLocalDateTime()
         if (row[ConferenceRoomTable.endedAt] == null) {
             liveKitCall { liveKitAdminClient.deleteRoom(row[ConferenceRoomTable.livekitRoomName]) }
+            // V1.0 Wave 6 "Breakout-Räume" -- best-effort, OUTSIDE any transaction (class KDoc
+            // "Transaction boundaries around the LiveKit network call"), delete every still-open
+            // breakout LiveKit room of this parent BEFORE the closing transaction below stamps
+            // their DB rows closed. Log-and-continue on failure (unlike ConferenceBreakoutService
+            // .recallAll's own fail-loud posture on a genuine error) -- ending the whole meeting
+            // must never be blocked by one stuck breakout LiveKit room; an orphaned breakout
+            // LiveKit room self-heals via LiveKit's own empty_timeout, see
+            // ConferenceBreakoutCoordinator KDoc "Belt-and-braces, not the only safety net".
+            val openBreakoutLiveKitNames = transaction { ConferenceBreakoutCoordinator.openLiveKitRoomNames(id) }
+            openBreakoutLiveKitNames.forEach { name ->
+                runCatching { liveKitCall { liveKitAdminClient.deleteRoom(name) } }
+                    .onFailure {
+                        logger.warn {
+                            "endRoom: failed to delete breakout LiveKit room $name for parent $id -- " +
+                                "will self-clean via LiveKit's own empty_timeout"
+                        }
+                    }
+            }
             transaction {
                 ConferenceRoomTable.update({ ConferenceRoomTable.id eq id }) { it[endedAt] = now }
                 closeAllOpenParticipations(id, now)
+                // V1.0 Wave 6 "Breakout-Räume" -- server-internal bridge, NOT a new
+                // IConferenceBreakoutService method. Pure DB bookkeeping (the LiveKit deleteRoom
+                // calls already happened, best-effort, above) -- see ConferenceBreakoutCoordinator
+                // KDoc. Must run before ConferenceRecordingCoordinator's own call below, which must
+                // stay LAST per its own contract.
+                ConferenceBreakoutCoordinator.closeAllBreakoutRoomsForRoom(id, now)
                 // V1.0 Wave 2 "Aufzeichnung" -- server-internal bridge, NOT a new IConferenceService
                 // method. Must be the LAST statement in this transaction -- see
                 // ConferenceRecordingCoordinator KDoc "deadlock-avoidance contract".

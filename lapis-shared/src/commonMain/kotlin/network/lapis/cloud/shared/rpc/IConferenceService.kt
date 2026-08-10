@@ -105,8 +105,9 @@ import network.lapis.cloud.shared.domain.ConferenceRoomInput
  *   disconnected) is already covered by the client SDK's own `RoomEvent` stream; [endRoom] is
  *   synchronous; the one residual gap (a room everyone merely left) is closed by [listActiveRooms]'s
  *   lazy reconciliation above.
- * - **No whiteboard, breakout rooms, shared notes, live subtitles, hand-raise/reactions, or private
- *   1:1 chat.**
+ * - **No whiteboard, shared notes, live subtitles, hand-raise/reactions, or private 1:1 chat.**
+ *   (Breakout rooms, originally listed here as out of scope, are now implemented -- see
+ *   [network.lapis.cloud.shared.rpc.IConferenceBreakoutService], Wave 6 "Breakout-Räume".)
  * - **No lobby/Warteraum with moderator admission** for LOCAL members -- a federated guest's own
  *   "guest lobby" (Wave 5, client-only, no server-side waiting-room state) is an entry SCREEN, not
  *   an admission queue: [joinRoom] either admits immediately (opt-in + valid consent) or rejects

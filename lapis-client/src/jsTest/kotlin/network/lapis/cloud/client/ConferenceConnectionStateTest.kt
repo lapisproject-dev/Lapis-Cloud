@@ -14,8 +14,13 @@ import kotlin.test.assertSame
  *
  * Security-relevant scenarios called out explicitly by this wave's own task framing (kicked/forcibly-
  * terminated session must never leave the UI showing "connected"): see
- * [connected_disconnectedSignal_reachesEnded] and [reconnecting_disconnectedSignal_reachesEnded]
- * below -- both the clean case and the mid-reconnect case.
+ * [connected_disconnectedSignal_reachesResolving] and [reconnecting_disconnectedSignal_reachesResolving]
+ * below -- both the clean case and the mid-reconnect case. Wave 4's own two tests here were named
+ * `..._reachesEnded` and asserted `Ended` directly; Wave 6 "Breakout-Räume" retargets
+ * `DisconnectedSignal` from `Connected`/`Reconnecting` to the new [ConferenceConnectionState.Resolving]
+ * state instead (see that state's own KDoc) -- renamed and re-asserted below, this is an intentional
+ * behavior change, not a regression. [Ended] is still always eventually reachable, now via the new
+ * [ConferenceConnectionEvent.ResolvedAsEnded] event -- see the new "Resolving" section below.
  */
 class ConferenceConnectionStateTest {
     // ---------------------------------------------------------------------------------------
@@ -83,15 +88,22 @@ class ConferenceConnectionStateTest {
     }
 
     @Test
-    fun connected_disconnectedSignal_reachesEnded() {
-        // Security-relevant: the clean "server closed the room while I was fully connected" case --
-        // there must be no reachable state where the UI still shows "connected" afterward.
+    fun connected_disconnectedSignal_reachesResolving() {
+        // Security-relevant, Wave 6 "Breakout-Räume": the clean "something disconnected me while I
+        // was fully connected" case -- there must be no reachable state where the UI still shows
+        // "connected" afterward. CHANGED from Wave 4's own direct -> Ended assertion: the raw
+        // RoomEvent.Disconnected is ambiguous now (kick/room-end vs. a breakout assignment/recall),
+        // so it lands in Resolving first, never silently in "still connected".
         val result = conferenceConnectionReduce(ConferenceConnectionState.Connected, ConferenceConnectionEvent.DisconnectedSignal)
-        assertSame(ConferenceConnectionState.Ended, result)
+        assertSame(ConferenceConnectionState.Resolving, result)
     }
 
     @Test
-    fun connected_userLeft_movesToEnded() {
+    fun connected_userLeft_stillMovesToEnded_bypassesResolving() {
+        // Wave 6 regression guard: a LOCAL "Verlassen"/"Für alle beenden"/"Zurück zum Hauptraum"
+        // click is a deliberate, client-initiated transition -- it must keep going straight to Ended,
+        // never through the new Resolving state (that state exists only for the AMBIGUOUS raw
+        // RoomEvent.Disconnected signal, see that state's own KDoc).
         val result = conferenceConnectionReduce(ConferenceConnectionState.Connected, ConferenceConnectionEvent.UserLeft)
         assertSame(ConferenceConnectionState.Ended, result)
     }
@@ -113,12 +125,13 @@ class ConferenceConnectionStateTest {
     }
 
     @Test
-    fun reconnecting_disconnectedSignal_reachesEnded() {
-        // Security-relevant: the mid-reconnect case -- a kick/room-end that arrives WHILE the client
-        // was actively retrying its connection must still reach Ended, not silently get lost because
-        // the state machine was in a transitional state at the time.
+    fun reconnecting_disconnectedSignal_reachesResolving() {
+        // Security-relevant, Wave 6: the mid-reconnect case -- a disconnect that arrives WHILE the
+        // client was actively retrying its connection must still be resolved, not silently get lost
+        // because the state machine was in a transitional state at the time. CHANGED from Wave 4's
+        // own direct -> Ended assertion, same reasoning as connected_disconnectedSignal_reachesResolving.
         val result = conferenceConnectionReduce(ConferenceConnectionState.Reconnecting, ConferenceConnectionEvent.DisconnectedSignal)
-        assertSame(ConferenceConnectionState.Ended, result)
+        assertSame(ConferenceConnectionState.Resolving, result)
     }
 
     @Test
@@ -159,14 +172,26 @@ class ConferenceConnectionStateTest {
     }
 
     // ---------------------------------------------------------------------------------------
-    // Ended -- terminal, idempotent, never throws
+    // Resolving -- V1.0 Videokonferenzen, Wave 6 "Breakout-Räume"
     // ---------------------------------------------------------------------------------------
 
     @Test
-    fun ended_anyEvent_staysEnded_neverThrows() {
-        // Proves a duplicate LATE DisconnectedSignal (or any other event) arriving after the user
-        // already clicked "Verlassen" cannot do anything surprising -- terminal and idempotent.
-        val allEvents =
+    fun resolving_resolvedAsEnded_movesToEnded() {
+        // The ONE way out of Resolving that this reducer itself knows about -- see
+        // ConferenceConnectionState.Resolving KDoc. The OTHER way out ("hand off to a brand-new
+        // enterCall for the resolved breakout/main-room destination") happens entirely outside this
+        // pure reducer, in `onDisconnected`'s own async resolution -- not testable at this level.
+        val result = conferenceConnectionReduce(ConferenceConnectionState.Resolving, ConferenceConnectionEvent.ResolvedAsEnded)
+        assertSame(ConferenceConnectionState.Ended, result)
+    }
+
+    @Test
+    fun resolving_anyOtherEvent_isIgnored_stateUnchanged() {
+        // A stray/late signal (e.g. a delayed ReconnectingSignal from the OLD LiveKit Room object,
+        // arriving after this screen already asked the server what the disconnect meant) must not
+        // do anything surprising -- same "unlisted pairs are ignored" discipline every other state
+        // in this reducer already follows.
+        val otherEvents =
             listOf(
                 ConferenceConnectionEvent.ConnectRequested,
                 ConferenceConnectionEvent.ConnectSucceeded,
@@ -176,9 +201,59 @@ class ConferenceConnectionStateTest {
                 ConferenceConnectionEvent.DisconnectedSignal,
                 ConferenceConnectionEvent.UserLeft,
             )
+        otherEvents.forEach { event ->
+            val result = conferenceConnectionReduce(ConferenceConnectionState.Resolving, event)
+            assertSame(ConferenceConnectionState.Resolving, result)
+        }
+    }
+
+    // ---------------------------------------------------------------------------------------
+    // Ended -- terminal, idempotent, never throws
+    // ---------------------------------------------------------------------------------------
+
+    @Test
+    fun ended_anyEvent_staysEnded_neverThrows() {
+        // Proves a duplicate LATE DisconnectedSignal (or any other event, including the new Wave 6
+        // ResolvedAsEnded) arriving after the user already clicked "Verlassen" cannot do anything
+        // surprising -- terminal and idempotent.
+        val allEvents =
+            listOf(
+                ConferenceConnectionEvent.ConnectRequested,
+                ConferenceConnectionEvent.ConnectSucceeded,
+                ConferenceConnectionEvent.ConnectFailed("late failure"),
+                ConferenceConnectionEvent.ReconnectingSignal,
+                ConferenceConnectionEvent.ReconnectedSignal,
+                ConferenceConnectionEvent.DisconnectedSignal,
+                ConferenceConnectionEvent.UserLeft,
+                ConferenceConnectionEvent.ResolvedAsEnded,
+            )
         allEvents.forEach { event ->
             val result = conferenceConnectionReduce(ConferenceConnectionState.Ended, event)
             assertSame(ConferenceConnectionState.Ended, result)
+        }
+    }
+
+    // ---------------------------------------------------------------------------------------
+    // isLive() -- V1.0 Videokonferenzen, Wave 6 -- the required, minimal-diff fix for
+    // pollInFlightRecordingStatus/pollInFlightStreamStatus/sweepGridReflow's own loop guards, which
+    // pre-Wave-6 read `connectionState !is Ended` -- see that extension function's own KDoc.
+    // ---------------------------------------------------------------------------------------
+
+    @Test
+    fun isLive_trueOnlyForConnectedAndReconnecting() {
+        val liveStates = setOf(ConferenceConnectionState.Connected, ConferenceConnectionState.Reconnecting)
+        val allStates =
+            listOf(
+                ConferenceConnectionState.Disconnected,
+                ConferenceConnectionState.Connecting,
+                ConferenceConnectionState.Connected,
+                ConferenceConnectionState.Reconnecting,
+                ConferenceConnectionState.Failed("reason"),
+                ConferenceConnectionState.Resolving,
+                ConferenceConnectionState.Ended,
+            )
+        allStates.forEach { state ->
+            assertEquals(state in liveStates, state.isLive(), "isLive() mismatch for $state")
         }
     }
 }

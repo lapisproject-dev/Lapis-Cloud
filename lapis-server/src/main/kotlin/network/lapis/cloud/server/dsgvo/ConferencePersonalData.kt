@@ -3,6 +3,8 @@ package network.lapis.cloud.server.dsgvo
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 import kotlinx.serialization.json.putJsonArray
+import network.lapis.cloud.server.db.generated.ConferenceBreakoutAssignmentTable
+import network.lapis.cloud.server.db.generated.ConferenceBreakoutRoomTable
 import network.lapis.cloud.server.db.generated.ConferenceGuestConsentAcknowledgmentTable
 import network.lapis.cloud.server.db.generated.ConferenceParticipationTable
 import network.lapis.cloud.server.db.generated.ConferenceRecordingTable
@@ -72,6 +74,14 @@ import kotlin.uuid.Uuid
  * subsequent home-server change or organization rename does not retroactively alter what this
  * record proves the guest was shown.
  *
+ * **`conference_breakout_room`/`conference_breakout_assignment` (V1.0 Wave 6 "Breakout-Räume")** --
+ * retained for the SAME "shared record" reasoning as `conference_room`/`conference_participation`
+ * above: a breakout room's creator identity (always the parent room's own moderator) is part of the
+ * shared meeting record every assigned participant's own `conference_breakout_assignment` row
+ * depends on for context, and an assignment row is itself part of the room's shared breakout
+ * history, same treatment `conference_participation`/`auction_bid` already receive.
+ *
+
  * **The stream key is never part of any export or erasure output here** --
  * `conference_stream_destination.stream_key_ciphertext` is never read by this object; export
  * surfaces only the same non-secret fields `ConferenceStreamDestinationDto` itself would (label/
@@ -91,6 +101,8 @@ object ConferencePersonalData : PersonalDataContributor {
             ConferenceStreamTable,
             ConferenceStreamTargetTable,
             ConferenceGuestConsentAcknowledgmentTable,
+            ConferenceBreakoutRoomTable,
+            ConferenceBreakoutAssignmentTable,
         )
 
     override fun export(memberId: Uuid) =
@@ -196,6 +208,38 @@ object ConferencePersonalData : PersonalDataContributor {
                         )
                     }
             }
+            // V1.0 Videokonferenzen, Wave 6 "Breakout-Räume".
+            putJsonArray("breakoutRoomsCreated") {
+                ConferenceBreakoutRoomTable
+                    .selectAll()
+                    .where { ConferenceBreakoutRoomTable.createdByMemberId eq memberId }
+                    .forEach { row ->
+                        add(
+                            buildJsonObject {
+                                put("id", row[ConferenceBreakoutRoomTable.id].toString())
+                                put("parentRoomId", row[ConferenceBreakoutRoomTable.parentRoomId].toString())
+                                put("label", row[ConferenceBreakoutRoomTable.label])
+                                put("createdAt", row[ConferenceBreakoutRoomTable.createdAt].toString())
+                                put("closedAt", row[ConferenceBreakoutRoomTable.closedAt]?.toString())
+                            },
+                        )
+                    }
+            }
+            putJsonArray("breakoutAssignments") {
+                ConferenceBreakoutAssignmentTable
+                    .selectAll()
+                    .where { ConferenceBreakoutAssignmentTable.memberId eq memberId }
+                    .forEach { row ->
+                        add(
+                            buildJsonObject {
+                                put("id", row[ConferenceBreakoutAssignmentTable.id].toString())
+                                put("breakoutRoomId", row[ConferenceBreakoutAssignmentTable.breakoutRoomId].toString())
+                                put("assignedAt", row[ConferenceBreakoutAssignmentTable.assignedAt].toString())
+                                put("recalledAt", row[ConferenceBreakoutAssignmentTable.recalledAt]?.toString())
+                            },
+                        )
+                    }
+            }
         }
 
     override fun erase(
@@ -245,6 +289,17 @@ object ConferencePersonalData : PersonalDataContributor {
             ConferenceGuestConsentAcknowledgmentTable
                 .selectAll()
                 .where { ConferenceGuestConsentAcknowledgmentTable.memberId eq memberId }
+                .count()
+        // V1.0 Videokonferenzen, Wave 6 "Breakout-Räume".
+        val breakoutRoomsCreatedCount =
+            ConferenceBreakoutRoomTable
+                .selectAll()
+                .where { ConferenceBreakoutRoomTable.createdByMemberId eq memberId }
+                .count()
+        val breakoutAssignmentCount =
+            ConferenceBreakoutAssignmentTable
+                .selectAll()
+                .where { ConferenceBreakoutAssignmentTable.memberId eq memberId }
                 .count()
 
         return listOf(
@@ -308,6 +363,21 @@ object ConferencePersonalData : PersonalDataContributor {
                         "under Art. 5(2)/7(1) DSGVO -- erasing it would destroy the very record that " +
                         "documents the lawfulness of processing this data subject's audio/video in " +
                         "that meeting.",
+            ),
+            TableErasureOutcome(
+                table = "conference_breakout_room",
+                rowsRetained = breakoutRoomsCreatedCount.toInt(),
+                retentionReason =
+                    "A breakout room's creator identity is a shared meeting record every assigned " +
+                        "participant's own conference_breakout_assignment row depends on for context, " +
+                        "same treatment conference_room's own creator receives.",
+            ),
+            TableErasureOutcome(
+                table = "conference_breakout_assignment",
+                rowsRetained = breakoutAssignmentCount.toInt(),
+                retentionReason =
+                    "An assignment record is part of the breakout room's shared roster history, same " +
+                        "treatment conference_participation receives for its own shared join/leave record.",
             ),
         )
     }

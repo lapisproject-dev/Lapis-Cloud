@@ -9,6 +9,8 @@ import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import network.lapis.cloud.server.db.DatabaseConfig
 import network.lapis.cloud.server.db.generated.AccountTable
+import network.lapis.cloud.server.db.generated.ConferenceBreakoutAssignmentTable
+import network.lapis.cloud.server.db.generated.ConferenceBreakoutRoomTable
 import network.lapis.cloud.server.db.generated.ConferenceGuestConsentAcknowledgmentTable
 import network.lapis.cloud.server.db.generated.ConferenceParticipationTable
 import network.lapis.cloud.server.db.generated.ConferenceRecordingTable
@@ -149,7 +151,8 @@ class ConferenceRecordingPersonalDataTest :
 
         test(
             "coveredTables includes exactly the two Wave 2 tables (plus Wave 1's own, Wave 3's three " +
-                "streaming tables, and Wave 5's guest-consent-acknowledgment table)",
+                "streaming tables, Wave 5's guest-consent-acknowledgment table, and Wave 6's two " +
+                "breakout tables)",
         ) {
             ConferencePersonalData.coveredTables shouldBe
                 setOf(
@@ -161,6 +164,8 @@ class ConferenceRecordingPersonalDataTest :
                     ConferenceStreamTable,
                     ConferenceStreamTargetTable,
                     ConferenceGuestConsentAcknowledgmentTable,
+                    ConferenceBreakoutRoomTable,
+                    ConferenceBreakoutAssignmentTable,
                 )
         }
 

@@ -29,6 +29,10 @@ import kotlinx.datetime.toLocalDateTime
 import network.lapis.cloud.client.livekit.LiveKitRoomSession
 import network.lapis.cloud.client.livekit.Track
 import network.lapis.cloud.shared.domain.AccountRole
+import network.lapis.cloud.shared.domain.ConferenceBreakoutAssignmentDto
+import network.lapis.cloud.shared.domain.ConferenceBreakoutAssignmentInput
+import network.lapis.cloud.shared.domain.ConferenceBreakoutPlanInput
+import network.lapis.cloud.shared.domain.ConferenceBreakoutRoomDto
 import network.lapis.cloud.shared.domain.ConferenceChatMessage
 import network.lapis.cloud.shared.domain.ConferenceGuestConsentAcknowledgmentInput
 import network.lapis.cloud.shared.domain.ConferenceGuestConsentDisclaimerDto
@@ -46,6 +50,7 @@ import network.lapis.cloud.shared.domain.ConferenceStreamStatus
 import network.lapis.cloud.shared.domain.ConferenceStreamTargetDto
 import network.lapis.cloud.shared.domain.ConferenceStreamTargetStatus
 import network.lapis.cloud.shared.domain.DocumentAccessLevel
+import network.lapis.cloud.shared.rpc.IConferenceBreakoutService
 import network.lapis.cloud.shared.rpc.IConferenceRecordingService
 import network.lapis.cloud.shared.rpc.IConferenceService
 import network.lapis.cloud.shared.rpc.IConferenceStreamingService
@@ -473,7 +478,7 @@ private fun renderLobby(
             startButton.disabled = false
             startButton.text = "Besprechung jetzt starten"
             if (token != null) {
-                enterCall(room, token, lobbyPanel, callPanel, setActiveSession, refreshLobby)
+                enterCall(ConferenceCallTarget.MainRoom(room), token, lobbyPanel, callPanel, setActiveSession, refreshLobby)
             }
             // else: guarded {} already toasted the error; the room stays in the already-refreshed
             // list for a manual "Beitreten" retry -- never silently lost.
@@ -513,7 +518,7 @@ private fun renderRoomCard(
             val token = guarded { rpcService<IConferenceService>().joinRoom(room.id) }
             joinButton.disabled = false
             if (token != null) {
-                enterCall(room, token, lobbyPanel, callPanel, setActiveSession, onReturnedToLobby)
+                enterCall(ConferenceCallTarget.MainRoom(room), token, lobbyPanel, callPanel, setActiveSession, onReturnedToLobby)
             }
         }
     }
@@ -613,7 +618,7 @@ private fun renderGuestLobby(
                                 myRole = token.role,
                                 allowFederationGuests = info.allowsFederationGuests,
                             )
-                        enterCall(syntheticRoom, token, lobbyPanel, callPanel, setActiveSession) {
+                        enterCall(ConferenceCallTarget.MainRoom(syntheticRoom), token, lobbyPanel, callPanel, setActiveSession) {
                             renderGuestLobby(lobbyPanel, callPanel, setActiveSession)
                         }
                     }
@@ -787,7 +792,7 @@ private data class ConferenceTileZoneStyle(
 )
 
 private fun enterCall(
-    room: ConferenceRoomDto,
+    target: ConferenceCallTarget,
     joinToken: ConferenceJoinTokenDto,
     lobbyPanel: SimplePanel,
     callPanel: SimplePanel,
@@ -797,6 +802,20 @@ private fun enterCall(
     lobbyPanel.hide()
     callPanel.removeAll()
     callPanel.show()
+
+    // V1.0 Videokonferenzen, Wave 6 "Breakout-Räume" -- every IConferenceService/
+    // IConferenceRecordingService/IConferenceStreamingService call below targets the PARENT room's
+    // id either way (see [ConferenceCallTarget] KDoc); `room` keeps its pre-Wave-6 meaning
+    // throughout the rest of this function so the bulk of this function's body needs no further
+    // change. `isBreakout`/`breakoutRoomId` are the two places behavior actually diverges.
+    val room =
+        when (target) {
+            is ConferenceCallTarget.MainRoom -> target.room
+            is ConferenceCallTarget.BreakoutRoom -> target.parentRoom
+        }
+    val isBreakout = target is ConferenceCallTarget.BreakoutRoom
+    val breakoutRoomId = (target as? ConferenceCallTarget.BreakoutRoom)?.breakoutRoomId
+    val breakoutLabel = (target as? ConferenceCallTarget.BreakoutRoom)?.label
 
     // Wave 2 "Aufzeichnung": captured BEFORE anything can prefix it, restored on every path back to
     // the Lobby -- see file KDoc "`document.title` prefix". Wave 4, D1: now a `var` -- a mid-call
@@ -808,12 +827,20 @@ private fun enterCall(
     // file KDoc "Route/nav posture") -- compares the CALLER's own member id to the room's creator,
     // OR a global BOARD/ADMIN escalation, exactly matching `IConferenceService.endRoom`/
     // `.removeParticipant`'s server-side gate (see [IConferenceService] KDoc "Two-tier role model").
+    // Wave 6 -- unconditionally `false` inside a breakout call: there is no breakout-room-scoped
+    // moderator concept (see [network.lapis.cloud.shared.rpc.IConferenceBreakoutService] KDoc "No
+    // breakout-room moderator"). Every moderating action (create/assign/recall breakout rooms, "Für
+    // alle beenden", recording/streaming, guest access, rename) is only ever exercised from the MAIN
+    // room -- a moderator physically inside a breakout room has no way to end the meeting or recall
+    // without first clicking "Zurück zum Hauptraum". Deliberate V1 scope cut, stated here so a
+    // reviewer does not mistake it for an oversight.
     val canModerate =
-        conferenceIsModerator(
-            localMemberId = localMemberId,
-            creatorMemberId = room.createdByMemberId,
-            isBoardOrAdmin = AppState.hasRole(AccountRole.BOARD, AccountRole.ADMIN),
-        )
+        !isBreakout &&
+            conferenceIsModerator(
+                localMemberId = localMemberId,
+                creatorMemberId = room.createdByMemberId,
+                isBoardOrAdmin = AppState.hasRole(AccountRole.BOARD, AccountRole.ADMIN),
+            )
 
     // Raw DOM for the tile grid + screen-share stage: KVision renders through snabbdom, which
     // discards `<video>`/`<audio>` elements appended manually into a widget it later re-renders (see
@@ -854,15 +881,38 @@ private fun enterCall(
     var chatOpen = false
     var unreadChatCount = 0
 
+    // V1.0 Videokonferenzen, Wave 6 "Breakout-Räume" -- persistent, UNCONDITIONAL disclosure at the
+    // very top of the call panel whenever this IS a breakout call. Design review verdict (locked
+    // copy): built in the shape of `recordingDetailLine`/`streamDetailLine` (always-rendered
+    // `text-muted small`), NEVER in the shape of `recordingBanner` (bordered box + "Verstanden"
+    // button) -- an acked/dismissible banner would defeat the purpose the moment a participant
+    // clicks it away and a recording starts on the main room five minutes later. Rendered
+    // regardless of the main room's CURRENT recording/streaming state (a moderator could start
+    // recording in Main AFTER some participants are already in a breakout, and those participants
+    // have no other way to learn about it) -- see
+    // [network.lapis.cloud.shared.rpc.IConferenceBreakoutService] KDoc
+    // "DSGVO/transparency: breakout audio/video is NEVER captured by a main-room recording/stream".
+    if (isBreakout) {
+        callPanel.div(
+            "Hinweis: Eine im Hauptraum laufende Aufzeichnung oder ein Live-Stream erfasst dieses Gespräch nicht.",
+        ) { addCssClasses("text-muted small") }
+    }
+
     // --- Title row + Wave 4 D1 inline rename (moderator-only) -------------------------------------
     // Container created HERE for correct DOM position (must render above the control bar); its
     // actual content is filled in further below by [renderTitleViewMode], once
     // [updateStatusBadgesAndTitle] exists for the rename's own document.title refresh -- see that
     // call site's own comment for why this two-step split is deliberate, not an oversight.
-    var roomTitle = room.title
+    // Wave 6: a breakout call's title carries the breakout room's own label, so a participant
+    // switched between rooms always sees at a glance which one they are currently in.
+    var roomTitle = if (isBreakout) "${room.title} – $breakoutLabel" else room.title
     val titleRow = callPanel.hPanel(spacing = 8) { addCssClasses("align-items-center flex-wrap") }
     callPanel.div(
-        if (canModerate) "Sie sind Moderator dieser Besprechung." else "Sie nehmen als Teilnehmer teil.",
+        when {
+            isBreakout -> "Sie sind in einem Breakout-Raum."
+            canModerate -> "Sie sind Moderator dieser Besprechung."
+            else -> "Sie nehmen als Teilnehmer teil."
+        },
     ) { addCssClasses("text-muted small") }
 
     // Wave 4, D10: a calm, non-alarming status line for Connecting/Reconnecting -- see
@@ -877,7 +927,16 @@ private fun enterCall(
     val cameraButton = controlsRow.button("Kamera aus", style = ButtonStyle.OUTLINESECONDARY)
     val screenShareButton = controlsRow.button("Bildschirm teilen", style = ButtonStyle.OUTLINESECONDARY)
     val chatToggleButton = controlsRow.button("Chat", style = ButtonStyle.OUTLINESECONDARY)
-    val leaveButton = controlsRow.button("Verlassen", style = ButtonStyle.SECONDARY)
+    // Wave 6: inside a breakout room, "Zurück zum Hauptraum" is the everyday, low-stakes, FREQUENT
+    // action and reads as the confident default (PRIMARY); "Besprechung ganz verlassen" is the
+    // rarer, heavier one (SECONDARY) -- a deliberate INVERSION of the main room's own button-weight
+    // convention, where "Verlassen" alone is the everyday action. Flagged explicitly here so a
+    // future reviewer does not "fix" this back to match the main room by reflex (design review
+    // verdict).
+    val backToMainButton =
+        if (isBreakout) controlsRow.button("Zurück zum Hauptraum", style = ButtonStyle.PRIMARY).apply { addCssClass("ms-2") } else null
+    val leaveButton =
+        controlsRow.button(if (isBreakout) "Besprechung ganz verlassen" else "Verlassen", style = ButtonStyle.SECONDARY)
     leaveButton.addCssClass("ms-2")
 
     // D5/D6: "end for everyone" gets its own, spatially separate row -- never adjacent to "Verlassen"
@@ -886,7 +945,10 @@ private fun enterCall(
     // will reject" posture `AuctionScreen.kt`'s own ADMIN-only Verwaltung panel documents. Wave 3, D5:
     // this row stays reserved for "Für alle beenden" ONLY -- recording/streaming controls each get
     // their OWN, further spatially separate row below (see [recordingControlsRowRef]/
-    // [streamingControlsRowRef]), never sharing this one.
+    // [streamingControlsRowRef]), never sharing this one. Wave 6: breakout-room create/recall gets
+    // its OWN row too (see [breakoutControlsRowRef] below) -- never this one either. `canModerate` is
+    // always `false` inside a breakout call (see its own KDoc above), so this naturally never
+    // renders there.
     val endButton =
         if (canModerate) {
             val moderatorRow = callPanel.hPanel(spacing = 8) { addCssClasses("align-items-center") }
@@ -1029,6 +1091,108 @@ private fun enterCall(
                         { notifySuccess("Einladung in die Zwischenablage kopiert.") },
                         { showInviteTextFallback(callPanel, inviteText) },
                     )
+                }
+            }
+        }
+    }
+
+    // V1.0 Videokonferenzen, Wave 6 "Breakout-Räume" -- its OWN, further spatially separate control
+    // row, moderator-only. Design review verdict #1 (must-fix): this row must NOT share the
+    // "Moderator:"/endButton row -- placing "Alle zurückholen" next to "Für alle beenden" would
+    // violate this file's own repeated rule that near-identical destructive-looking actions must
+    // never sit adjacent (Tesler). `canModerate` is always `false` inside a breakout call, so this
+    // never renders there -- see that val's own KDoc "no breakout-room moderator".
+    // Forward reference -- `refreshRoster` (the roster's breakout-reassignment select column reads
+    // `currentBreakoutRooms`) is declared further below in this function, same "DOM position vs.
+    // declaration order" split `showTitleEditMode` already establishes for `renderTitleViewMode`/
+    // `renderTitleEditMode`. Assigned right after `refreshRoster` itself is declared; only ever
+    // CALLED from click handlers below, which fire long after that assignment has happened.
+    lateinit var refreshRosterRef: () -> Unit
+    var breakoutCreateButton: Button? = null
+    var breakoutRecallButton: Button? = null
+    val breakoutOverviewPanel = callPanel.vPanel(spacing = 2) { addCssClasses("ms-2") }
+    breakoutOverviewPanel.hide()
+    // The moderator's own local mirror of the currently open batch -- kept in sync purely from the
+    // RETURN VALUE of createBreakoutRooms/assignParticipants/recallAll (event-driven, no dedicated
+    // "list open breakout rooms" RPC exists -- see IConferenceBreakoutService KDoc). Always in the
+    // SAME order the server computes `breakoutIndex` against (createdAt ASC, id ASC -- see that
+    // service's own KDoc "stable meaning across the two RPCs"), so this list's own index can be
+    // reused verbatim as `breakoutIndex` when the roster's per-row reassignment select fires below.
+    var currentBreakoutRooms: List<ConferenceBreakoutRoomDto> = emptyList()
+
+    fun renderBreakoutOverview() {
+        breakoutOverviewPanel.removeAll()
+        if (currentBreakoutRooms.isEmpty()) {
+            breakoutOverviewPanel.hide()
+            return
+        }
+        breakoutOverviewPanel.show()
+        currentBreakoutRooms.forEach { breakoutRoomDto ->
+            val names = breakoutRoomDto.assignedDisplayNames.ifEmpty { listOf("niemand zugewiesen") }
+            breakoutOverviewPanel.div("${breakoutRoomDto.label}: ${names.joinToString(", ")}") {
+                addCssClasses("text-muted small")
+            }
+        }
+    }
+
+    fun updateBreakoutControlsVisibility() {
+        if (currentBreakoutRooms.isNotEmpty()) {
+            breakoutCreateButton?.hide()
+            breakoutRecallButton?.show()
+        } else {
+            breakoutCreateButton?.show()
+            breakoutRecallButton?.hide()
+        }
+        renderBreakoutOverview()
+    }
+
+    if (canModerate) {
+        val breakoutRow = callPanel.hPanel(spacing = 8) { addCssClasses("align-items-center flex-wrap") }
+        breakoutRow.div("Breakout-Räume:") { addCssClasses("text-muted small") }
+        val createBtn = breakoutRow.button("Räume erstellen und verteilen", style = ButtonStyle.OUTLINEPRIMARY)
+        breakoutCreateButton = createBtn
+        val recallBtn = breakoutRow.button("Alle zurückholen", style = ButtonStyle.WARNING)
+        recallBtn.hide()
+        breakoutRecallButton = recallBtn
+        updateBreakoutControlsVisibility()
+
+        createBtn.onClick {
+            // Design review, locked copy -- shown ONLY if a recording/stream is currently active on
+            // the main room at the moment the dialog opens; omitted otherwise (D11/D14 "invisible
+            // when not relevant" posture).
+            breakoutCreateDialog(mediaActive = activeRecordingDto != null || activeStreamDto != null) { roomCount ->
+                createBtn.disabled = true
+                AppScope.launch {
+                    val result =
+                        guarded {
+                            rpcService<IConferenceBreakoutService>().createBreakoutRooms(
+                                room.id,
+                                ConferenceBreakoutPlanInput(roomCount = roomCount),
+                            )
+                        }
+                    createBtn.disabled = false
+                    if (result != null) {
+                        currentBreakoutRooms = result
+                        updateBreakoutControlsVisibility()
+                        refreshRosterRef()
+                        notifySuccess("$roomCount Breakout-Räume erstellt und Teilnehmende verteilt.")
+                    }
+                }
+            }
+        }
+
+        recallBtn.onClick {
+            breakoutRecallConfirmDialog {
+                recallBtn.disabled = true
+                AppScope.launch {
+                    val count = guarded { rpcService<IConferenceBreakoutService>().recallAll(room.id) }
+                    recallBtn.disabled = false
+                    if (count != null) {
+                        currentBreakoutRooms = emptyList()
+                        updateBreakoutControlsVisibility()
+                        refreshRosterRef()
+                        notifySuccess("Alle Teilnehmenden wurden in den Hauptraum zurückgeholt.")
+                    }
                 }
             }
         }
@@ -1582,6 +1746,15 @@ private fun enterCall(
      * push can be caused by either subsystem (or, rarely, both) changing at once.
      */
     suspend fun onMediaStatusPush() {
+        // V1.0 Videokonferenzen, Wave 6 "Breakout-Räume" -- a breakout room is a physically SEPARATE
+        // LiveKit room from the one recording/streaming ever runs against (see
+        // network.lapis.cloud.shared.rpc.IConferenceBreakoutService KDoc "DSGVO/transparency"), so
+        // this callback firing at all inside a breakout call would only ever reflect the (empty)
+        // egress state of THAT breakout room -- refreshing recording/streaming state from it would
+        // be meaningless at best. Recording/streaming badges/controls stay hidden entirely inside a
+        // breakout call (the persistent disclosure line above is the honest substitute); the
+        // moderator returns to Main to see/act on the real state.
+        if (isBreakout) return
         val wasRecording = activeRecordingDto != null
         val wasStreaming = activeStreamDto != null
         refreshRecordingState()
@@ -1644,9 +1817,9 @@ private fun enterCall(
      * posture the rest of this wave's disclosed gaps already follow.
      */
     suspend fun pollInFlightRecordingStatus() {
-        while (connectionState !is ConferenceConnectionState.Ended) {
+        while (connectionState.isLive()) {
             delay(CONFERENCE_RECORDING_POLL_INTERVAL_MS)
-            if (connectionState is ConferenceConnectionState.Ended) break
+            if (!connectionState.isLive()) break
             val stalled = activeRecordingDto?.takeIf { conferenceRecordingNeedsPoll(it.status) } ?: continue
             val resolved =
                 try {
@@ -1705,9 +1878,9 @@ private fun enterCall(
      * [ConferenceConnectionState.Ended] (Wave 4, D10), same lifecycle.
      */
     suspend fun pollInFlightStreamStatus() {
-        while (connectionState !is ConferenceConnectionState.Ended) {
+        while (connectionState.isLive()) {
             delay(CONFERENCE_STREAM_POLL_INTERVAL_MS)
-            if (connectionState is ConferenceConnectionState.Ended) break
+            if (!connectionState.isLive()) break
             val current = activeStreamDto?.takeIf { conferenceStreamNeedsPoll(it) } ?: continue
             val refreshed =
                 try {
@@ -1748,8 +1921,13 @@ private fun enterCall(
         }
     }
 
-    AppScope.launch { pollInFlightRecordingStatus() }
-    AppScope.launch { pollInFlightStreamStatus() }
+    // Wave 6: pointless inside a breakout call -- see [onMediaStatusPush]'s own early-return comment.
+    // `activeRecordingDto`/`activeStreamDto` stay `null` there forever, so both loops would just spin
+    // doing nothing until `Ended`.
+    if (!isBreakout) {
+        AppScope.launch { pollInFlightRecordingStatus() }
+        AppScope.launch { pollInFlightStreamStatus() }
+    }
 
     // --- Screen-share stage (hidden until a "screen_share"-sourced track subscribes) --------------
     val stageDiv =
@@ -1863,9 +2041,9 @@ private fun enterCall(
     // sub-second speaking-level transitions and would otherwise strobe the grid at 25-person scale
     // (see file KDoc "D3"). Mirrors [pollInFlightRecordingStatus]'s own shape/lifecycle exactly.
     suspend fun sweepGridReflow() {
-        while (connectionState !is ConferenceConnectionState.Ended) {
+        while (connectionState.isLive()) {
             delay(CONFERENCE_GRID_REFLOW_SWEEP_INTERVAL_MS)
-            if (connectionState is ConferenceConnectionState.Ended) break
+            if (!connectionState.isLive()) break
             applyConferenceGridReflow()
         }
     }
@@ -1927,8 +2105,43 @@ private fun enterCall(
                     }
                 }
             }
+            // V1.0 Videokonferenzen, Wave 6 "Breakout-Räume" -- manual override / mid-session
+            // reassignment, moderator-only, only rendered while a batch is open. Design review
+            // verdict #2 (must-fix): the select lists ONLY currently-open breakout rooms -- no
+            // "Hauptraum" option, since IConferenceBreakoutService has no "move this one member back
+            // to Main" method (only `assignParticipants`, which assigns TO a breakout room, and
+            // `recallAll`, which recalls EVERYONE). Moving one specific person back to Main is
+            // therefore not supported except via "Alle zurückholen" -- a stated V1 scope cut.
+            if (canModerate && currentBreakoutRooms.isNotEmpty()) {
+                val currentAssignmentId = currentBreakoutRooms.firstOrNull { entry.identity in it.assignedMemberIds }?.id
+                val breakoutSelect =
+                    row.select(options = currentBreakoutRooms.map { it.id to it.label }, value = currentAssignmentId)
+                breakoutSelect.addCssClass("btn-sm")
+                breakoutSelect.subscribe { selectedId ->
+                    if (selectedId == null || selectedId == currentAssignmentId) return@subscribe
+                    // The list's OWN index is reused verbatim as `breakoutIndex` -- see
+                    // `currentBreakoutRooms`' own KDoc "stable meaning across the two RPCs".
+                    val targetIndex = currentBreakoutRooms.indexOfFirst { it.id == selectedId }
+                    if (targetIndex < 0) return@subscribe
+                    AppScope.launch {
+                        val result =
+                            guarded {
+                                rpcService<IConferenceBreakoutService>().assignParticipants(
+                                    room.id,
+                                    listOf(ConferenceBreakoutAssignmentInput(entry.identity, targetIndex)),
+                                )
+                            }
+                        if (result != null) {
+                            currentBreakoutRooms = result
+                            updateBreakoutControlsVisibility()
+                            refreshRosterRef()
+                        }
+                    }
+                }
+            }
         }
     }
+    refreshRosterRef = ::refreshRoster
 
     fun setTileVideo(
         entry: ConferenceTileEntry,
@@ -2181,6 +2394,18 @@ private fun enterCall(
                 connectionStatusLine.content = "Verbindung unterbrochen -- wird automatisch neu verbunden …"
                 connectionStatusLine.show()
             }
+            // V1.0 Videokonferenzen, Wave 6 -- design review, locked copy. Deliberately noncommittal
+            // (must not claim "Sie werden verschoben" before the resolution RPC confirms that -- it
+            // might just as easily resolve to Ended) and deliberately distinct from both the
+            // `Connecting`/`Reconnecting` copy above, so the sequence a participant actually sees
+            // ("Verbindung wird geprüft …" -> brief gap while this old invocation is abandoned ->
+            // "Verbindung wird hergestellt …" of the fresh session) reads as one continuous,
+            // intentional room change, not a crash. Same calm, non-alarming tone as the other two
+            // in-progress states -- never danger-red.
+            is ConferenceConnectionState.Resolving -> {
+                connectionStatusLine.content = "Verbindung wird geprüft …"
+                connectionStatusLine.show()
+            }
             is ConferenceConnectionState.Connected,
             is ConferenceConnectionState.Failed,
             is ConferenceConnectionState.Ended,
@@ -2264,17 +2489,81 @@ private fun enterCall(
             // (see that class's own KDoc "Reconnect signal").
             onReconnecting = { transition(ConferenceConnectionEvent.ReconnectingSignal) },
             onReconnected = { transition(ConferenceConnectionEvent.ReconnectedSignal) },
+            // V1.0 Videokonferenzen, Wave 6 "Breakout-Räume" -- the SOLE place a "why did I just
+            // disconnect" question is answered. `RoomEvent.Disconnected` fires identically whether
+            // the CAUSE was a kick, the meeting ending, a moderator assigning this caller to a
+            // breakout room, or a moderator recalling them from one -- all four are
+            // INDISTINGUISHABLE at this raw LiveKit transport layer, so this callback re-derives the
+            // truth from the server on every firing rather than trusting any local guess (the same
+            // "never trust a cached authorization/state flag" discipline this codebase applies
+            // everywhere else). See [resolvePostDisconnectDestination] KDoc for how the four causes
+            // are disambiguated with two cheap RPC calls.
             onDisconnected = {
-                // Security-relevant (D10): reachable from BOTH `Connected` and `Reconnecting` (see
-                // [conferenceConnectionReduce]) -- a forcibly-terminated/kicked session (server-side
-                // `endRoom`/`removeParticipant`) always reaches `Ended` here, regardless of whether it
-                // was mid-reconnect at the moment the server closed the room. The idempotency guard
-                // below is unchanged from Wave 1-3's own `!leftCall` check, just re-expressed against
-                // the state machine.
-                if (connectionState !is ConferenceConnectionState.Ended) {
+                // Security-relevant (D10, unchanged): reachable from BOTH `Connected` and
+                // `Reconnecting`. The idempotency guard below now also excludes `Resolving` (a second
+                // `RoomEvent.Disconnected` firing while the first one's resolution is still in
+                // flight must not launch a SECOND resolution race).
+                if (connectionState !is ConferenceConnectionState.Ended && connectionState !is ConferenceConnectionState.Resolving) {
                     transition(ConferenceConnectionEvent.DisconnectedSignal)
-                    notifyInfo("Die Besprechung wurde beendet oder die Verbindung getrennt.")
-                    returnToLobby(callPanel, lobbyPanel, setActiveSession, onReturnedToLobby, baseDocumentTitle)
+                    AppScope.launch {
+                        when (val destination = resolvePostDisconnectDestination(room.id)) {
+                            is PostDisconnectDestination.Ended -> {
+                                transition(ConferenceConnectionEvent.ResolvedAsEnded)
+                                notifyInfo("Die Besprechung wurde beendet oder die Verbindung getrennt.")
+                                returnToLobby(callPanel, lobbyPanel, setActiveSession, onReturnedToLobby, baseDocumentTitle)
+                            }
+                            is PostDisconnectDestination.Breakout -> {
+                                val breakoutToken =
+                                    guarded {
+                                        rpcService<IConferenceBreakoutService>()
+                                            .requestBreakoutJoinToken(destination.assignment.breakoutRoomId)
+                                    }
+                                if (breakoutToken == null) {
+                                    // Assignment already recalled again / no longer valid by the time
+                                    // this call landed -- same "server says no" -> Ended fallback
+                                    // every other guarded {} failure in this function already takes.
+                                    transition(ConferenceConnectionEvent.ResolvedAsEnded)
+                                    returnToLobby(callPanel, lobbyPanel, setActiveSession, onReturnedToLobby, baseDocumentTitle)
+                                } else {
+                                    notifyInfo("Sie wurden dem Breakout-Raum \"${destination.assignment.breakoutRoomLabel}\" zugewiesen.")
+                                    setActiveSession(null)
+                                    enterCall(
+                                        ConferenceCallTarget.BreakoutRoom(
+                                            breakoutRoomId = destination.assignment.breakoutRoomId,
+                                            label = destination.assignment.breakoutRoomLabel,
+                                            parentRoom = destination.parentRoom,
+                                        ),
+                                        breakoutToken,
+                                        lobbyPanel,
+                                        callPanel,
+                                        setActiveSession,
+                                        onReturnedToLobby,
+                                    )
+                                }
+                            }
+                            is PostDisconnectDestination.Main -> {
+                                val mainToken =
+                                    guarded { rpcService<IConferenceBreakoutService>().rejoinMainRoomToken(destination.parentRoom.id) }
+                                if (mainToken == null) {
+                                    // No longer holds an open participation (e.g. was actually
+                                    // kicked, not recalled) -- same fallback as above.
+                                    transition(ConferenceConnectionEvent.ResolvedAsEnded)
+                                    returnToLobby(callPanel, lobbyPanel, setActiveSession, onReturnedToLobby, baseDocumentTitle)
+                                } else {
+                                    notifyInfo("Sie wurden in den Hauptraum zurückgeholt.")
+                                    setActiveSession(null)
+                                    enterCall(
+                                        ConferenceCallTarget.MainRoom(destination.parentRoom),
+                                        mainToken,
+                                        lobbyPanel,
+                                        callPanel,
+                                        setActiveSession,
+                                        onReturnedToLobby,
+                                    )
+                                }
+                            }
+                        }
+                    }
                 }
             },
         )
@@ -2415,6 +2704,40 @@ private fun enterCall(
         })
     }
 
+    // V1.0 Videokonferenzen, Wave 6 -- "Zurück zum Hauptraum", only present inside a breakout call
+    // (see [backToMainButton]'s own declaration). Deliberately calls `returnToMainRoom` BEFORE
+    // `session.disconnect()`: closing the DB assignment row first means that even if
+    // `session.disconnect()`'s own `RoomEvent.Disconnected` still somehow fires and reaches the
+    // (already-`Ended`, so ignored per `onDisconnected`'s own guard) `transition(UserLeft)` state,
+    // there is no ambiguity window -- and a concurrent moderator `recallAll` racing this exact
+    // moment just finds nothing left to recall for this member (harmless either order). Bypasses
+    // `onDisconnected`'s resolution ambiguity entirely, same as `leaveButton`'s pre-existing flow
+    // always has -- a direct, deliberate client-initiated transition, not something this screen
+    // needs to ask the server "what does this mean" about.
+    backToMainButton?.onClick {
+        backToMainButton.disabled = true
+        transition(ConferenceConnectionEvent.UserLeft)
+        AppScope.launch {
+            // Non-null by construction -- backToMainButton only exists (see its own declaration)
+            // when `target is ConferenceCallTarget.BreakoutRoom`, which is exactly when
+            // `breakoutRoomId` was assigned non-null too.
+            guarded { rpcService<IConferenceBreakoutService>().returnToMainRoom(breakoutRoomId!!) }
+            guarded { session.disconnect() }
+            val mainToken = guarded { rpcService<IConferenceBreakoutService>().rejoinMainRoomToken(room.id) }
+            setActiveSession(null)
+            if (mainToken != null) {
+                enterCall(ConferenceCallTarget.MainRoom(room), mainToken, lobbyPanel, callPanel, setActiveSession, onReturnedToLobby)
+            } else {
+                returnToLobby(callPanel, lobbyPanel, setActiveSession, onReturnedToLobby, baseDocumentTitle)
+            }
+        }
+    }
+
+    // Wave 6: `room.id` here is ALWAYS the PARENT room's id (see `room`'s own alias declaration at
+    // the top of this function) -- inside a breakout call this button is relabeled "Besprechung ganz
+    // verlassen" (see its own declaration) but its RPC target is unchanged: leaving the breakout
+    // room's own LiveKit connection plus leaving the PARENT meeting's `conference_participation`
+    // record, exactly like leaving from Main always has.
     leaveButton.onClick {
         leaveButton.disabled = true
         transition(ConferenceConnectionEvent.UserLeft)
@@ -2471,6 +2794,71 @@ private fun returnToLobby(
     if (originalTitle != null) document.title = originalTitle
     onReturnedToLobby()
 }
+
+/** V1.0 Videokonferenzen, Wave 6 "Breakout-Räume" -- what [enterCall]'s `onDisconnected` callback
+ * should do next, resolved by [resolvePostDisconnectDestination]/[resolvePostDisconnectDestinationOf].
+ * `internal`, not `private` -- [resolvePostDisconnectDestinationOf]'s own pure-core unit tests live in
+ * a separate file (`ConferencePostDisconnectDestinationTest.kt`) and need to reference these cases. */
+internal sealed class PostDisconnectDestination {
+    data object Ended : PostDisconnectDestination()
+
+    data class Breakout(
+        val assignment: ConferenceBreakoutAssignmentDto,
+        val parentRoom: ConferenceRoomDto,
+    ) : PostDisconnectDestination()
+
+    data class Main(
+        val parentRoom: ConferenceRoomDto,
+    ) : PostDisconnectDestination()
+}
+
+/**
+ * V1.0 Videokonferenzen, Wave 6 "Breakout-Räume" -- the SOLE place a "why did I just disconnect"
+ * question is answered -- re-derives the truth from the server on every call rather than trusting
+ * any local guess, exactly the "never trust a cached authorization/state flag" discipline this
+ * codebase applies everywhere else (`requireModeratorOrPrivileged`, `listActiveRooms`' lazy
+ * reconciliation). Covers FOUR causes with ONE mechanism: kicked, meeting ended, assigned to a
+ * breakout room, recalled from one -- all indistinguishable at the raw LiveKit
+ * `RoomEvent.Disconnected` layer, disambiguated here via two cheap RPC calls.
+ *
+ * [ConferenceRoomDto.active] `== false` catches both "moderator ended the whole meeting" and Wave 1's
+ * own lazy-reconciliation timeout. A non-null [network.lapis.cloud.shared.domain.ConferenceBreakoutAssignmentDto]
+ * catches "you were (re)assigned to a breakout room" -- reached whether the disconnect fired from Main
+ * (first assignment) or from a DIFFERENT breakout room (re-assignment via `assignParticipants`). A
+ * `null` assignment while the parent is still active catches "you were recalled" -- reached whenever
+ * the *previous* target was a breakout room. This function does NOT itself distinguish "genuinely
+ * kicked while in Main" from "a plain network hiccup LiveKit gave up retrying" -- both resolve to
+ * [PostDisconnectDestination.Main] here; the CALLER's own `rejoinMainRoomToken` attempt is what tells
+ * them apart in practice (a truly kicked/removed caller no longer holds an open
+ * `conference_participation` row, so that call fails server-side and the caller's own `null`-result
+ * fallback reaches [PostDisconnectDestination.Ended] exactly as before this wave). A caller merely
+ * reconnecting after a transient drop gets a fresh token and rejoins automatically instead of being
+ * dropped back to the Lobby -- a deliberate, welcome side effect of this wave's own mechanism, not
+ * a scope creep bug.
+ */
+private suspend fun resolvePostDisconnectDestination(parentRoomId: String): PostDisconnectDestination {
+    val parentRoom = guarded { rpcService<IConferenceService>().getRoom(parentRoomId) }
+    val assignment = guarded { rpcService<IConferenceBreakoutService>().getMyBreakoutAssignment(parentRoomId) }?.singleOrNull()
+    return resolvePostDisconnectDestinationOf(parentRoom, assignment)
+}
+
+/**
+ * Pure branch logic behind [resolvePostDisconnectDestination], split out so it is unit-testable
+ * without mocking the RPC layer -- same "pure core, thin RPC-touching wrapper" split this file
+ * already establishes for [conferenceConnectionReduce]/[conferenceGridLayout]/
+ * [conferenceStreamNeedsPoll]. [parentRoom] is `null` iff the `getRoom` call itself failed (network
+ * error or the room no longer exists) -- treated the same as an inactive room. See
+ * [resolvePostDisconnectDestination] KDoc for the full four-cause disambiguation this implements.
+ */
+internal fun resolvePostDisconnectDestinationOf(
+    parentRoom: ConferenceRoomDto?,
+    assignment: ConferenceBreakoutAssignmentDto?,
+): PostDisconnectDestination =
+    when {
+        parentRoom == null || !parentRoom.active -> PostDisconnectDestination.Ended
+        assignment != null -> PostDisconnectDestination.Breakout(assignment, parentRoom)
+        else -> PostDisconnectDestination.Main(parentRoom)
+    }
 
 /** Rule 3 (irreversible action -> bespoke confirm modal): matches `AuctionScreen.kt`'s own
  * `auctionDisableConfirmDialog` tier -- danger-framed, states the concrete consequence in plain
@@ -2572,6 +2960,76 @@ private fun stopRecordingConfirmDialog(onConfirm: () -> Unit) {
     modal.addButton(Button("Abbrechen", style = ButtonStyle.SECONDARY).apply { onClick { modal.hide() } })
     modal.addButton(
         Button("Aufzeichnung beenden", style = ButtonStyle.DANGER).apply {
+            onClick {
+                modal.hide()
+                onConfirm()
+            }
+        },
+    )
+    modal.show()
+}
+
+// ================================================================================================
+// Wave 6 "Breakout-Räume" -- dialogs. Design review verdicts, locked copy.
+// ================================================================================================
+
+/**
+ * Design review verdict #1/#2 -- one number input (default 2, capped at [MAX_BREAKOUT_ROOMS_CLIENT]),
+ * primary button "Räume erstellen und verteilen" (never "OK"), auto-distribute-evenly as the only V1
+ * action inside the modal (manual override happens afterward via the roster, see
+ * `refreshRoster`'s own per-row select). [mediaActive] gates the disclosure line -- shown ONLY if a
+ * recording/stream is currently active on the main room at the moment the dialog opens, per the
+ * "invisible when not relevant" posture [refreshRecordingState]/[refreshStreamState] already apply
+ * elsewhere in this file.
+ */
+private fun breakoutCreateDialog(
+    mediaActive: Boolean,
+    onConfirm: (roomCount: Int) -> Unit,
+) {
+    val modal = Modal(caption = "Breakout-Räume erstellen")
+    if (mediaActive) {
+        modal.div(
+            "Die laufende Aufzeichnung/der Live-Stream im Hauptraum erfasst kein Audio/Video in Breakout-Räumen.",
+        ) { addCssClasses("text-muted small") }
+    }
+    val countInput = modal.text(value = "2", label = "Anzahl der Breakout-Räume")
+    modal.addButton(Button("Abbrechen", style = ButtonStyle.SECONDARY).apply { onClick { modal.hide() } })
+    modal.addButton(
+        Button("Räume erstellen und verteilen", style = ButtonStyle.PRIMARY).apply {
+            onClick {
+                val count =
+                    countInput.value
+                        .orEmpty()
+                        .trim()
+                        .toIntOrNull()
+                if (count == null || count !in 1..MAX_BREAKOUT_ROOMS_CLIENT) {
+                    notifyError("Bitte eine Zahl zwischen 1 und $MAX_BREAKOUT_ROOMS_CLIENT angeben.")
+                    return@onClick
+                }
+                modal.hide()
+                onConfirm(count)
+            }
+        },
+    )
+    modal.show()
+}
+
+/**
+ * Design review verdict #3 -- one tier below [endRoomConfirmDialog] (recall abruptly interrupts up
+ * to [MAX_BREAKOUT_ROOMS_CLIENT] concurrent conversations, so NOT zero-friction, but it is fully
+ * reversible and nobody leaves the meeting, so it does not deserve `endRoom`'s danger-red "cannot be
+ * undone" framing) -- no `text-danger` body text, primary button "Alle zurückholen" (never
+ * "Bestätigen"), [ButtonStyle.WARNING] (matches [stopStreamConfirmDialog]-tier "disruptive but
+ * expected", one step below [ButtonStyle.OUTLINEDANGER]/[ButtonStyle.DANGER]).
+ */
+private fun breakoutRecallConfirmDialog(onConfirm: () -> Unit) {
+    val modal = Modal(caption = "Alle zurückholen")
+    modal.div(
+        "Alle Teilnehmenden werden sofort aus ihren Breakout-Räumen in den Hauptraum zurückgeholt.",
+    ) { addCssClass("fw-bold") }
+    modal.addButton(Button("Abbrechen", style = ButtonStyle.SECONDARY).apply { onClick { modal.hide() } })
+    modal.addButton(
+        Button("Alle zurückholen", style = ButtonStyle.WARNING).apply {
             onClick {
                 modal.hide()
                 onConfirm()
@@ -3218,6 +3676,10 @@ internal fun conferenceStreamStartedLabel(
  * re-validates independently regardless. */
 internal const val MAX_ROOM_TITLE_LENGTH_CLIENT = 200
 
+/** V1.0 Videokonferenzen, Wave 6 -- client-side mirror of `ConferenceBreakoutService`'s own
+ * `MAX_BREAKOUT_ROOMS` (20) -- same "not the real boundary" posture as [MAX_ROOM_TITLE_LENGTH_CLIENT]. */
+internal const val MAX_BREAKOUT_ROOMS_CLIENT = 20
+
 /** D3 -- above this many participants, the flat single grid stops reflowing sensibly and the
  * speaking-priority reflow kicks in. Approved as specified in the design review. */
 internal const val CONFERENCE_GRID_REFLOW_THRESHOLD = 12
@@ -3288,11 +3750,38 @@ internal fun conferenceGridLayout(
 }
 
 /**
+ * V1.0 Videokonferenzen, Wave 6 "Breakout-Räume" -- what [enterCall] is CURRENTLY connected to: the
+ * meeting's main LiveKit room, or a specific breakout room of it. Every RPC call [enterCall] makes
+ * against [network.lapis.cloud.shared.rpc.IConferenceService]/
+ * [network.lapis.cloud.shared.rpc.IConferenceRecordingService]/
+ * [network.lapis.cloud.shared.rpc.IConferenceStreamingService] (roster, rename, recording, streaming,
+ * guest access, end-room, remove-participant, leave-room) targets [MainRoom.room]/
+ * [BreakoutRoom.parentRoom]'s id either way -- those RPC surfaces know nothing about breakout rooms
+ * at all (see [network.lapis.cloud.shared.rpc.IConferenceBreakoutService] KDoc
+ * "`conference_participation` stays open across a breakout excursion"). Only the ACTUAL LiveKit
+ * connection (via the already-server-resolved [network.lapis.cloud.shared.domain.ConferenceJoinTokenDto])
+ * differs between the two.
+ */
+internal sealed class ConferenceCallTarget {
+    internal data class MainRoom(
+        val room: ConferenceRoomDto,
+    ) : ConferenceCallTarget()
+
+    internal data class BreakoutRoom(
+        val breakoutRoomId: String,
+        val label: String,
+        val parentRoom: ConferenceRoomDto,
+    ) : ConferenceCallTarget()
+}
+
+/**
  * D10 -- the client-side connection-state machine [enterCall] renders from. [Ended] is terminal: no
  * event moves out of it (a fresh `enterCall` constructs a brand-new instance for the next call). A
  * forcibly-terminated/kicked session (server-side `endRoom`/`removeParticipant`) reaches [Ended] via
  * [ConferenceConnectionEvent.DisconnectedSignal] from BOTH [Connected] and [Reconnecting] -- see
- * [conferenceConnectionReduce] and file KDoc "D10" for the security-relevant framing.
+ * [conferenceConnectionReduce] and file KDoc "D10" for the security-relevant framing. Wave 6
+ * "Breakout-Räume" adds [Resolving] between those two states and [Ended] -- see that state's own
+ * KDoc.
  */
 internal sealed class ConferenceConnectionState {
     internal data object Disconnected : ConferenceConnectionState()
@@ -3306,6 +3795,24 @@ internal sealed class ConferenceConnectionState {
     internal data class Failed(
         val reason: String,
     ) : ConferenceConnectionState()
+
+    /**
+     * V1.0 Videokonferenzen, Wave 6 "Breakout-Räume" -- entered the instant a genuine
+     * `RoomEvent.Disconnected` fires (kick, meeting-end, breakout assignment, or recall -- all
+     * INDISTINGUISHABLE at the LiveKit transport layer) while this screen asks the server, via
+     * `resolvePostDisconnectDestination`, what this disconnect actually means. Non-terminal in the
+     * type system but effectively a dead end for THIS `enterCall` invocation: the only two things
+     * that ever happen next are (a) `transition(ResolvedAsEnded)` -> [Ended], the pre-Wave-6 kicked/
+     * ended path unchanged, or (b) this invocation is abandoned outright in favor of a BRAND NEW
+     * `enterCall(...)` call for the resolved destination (main room or a specific breakout room),
+     * which owns its OWN fresh state machine starting at [Disconnected]. Deliberately ONE new state
+     * rather than a second "SwitchingRoom" state -- once an invocation decides "this disconnect means
+     * relocate, not end", it hands off to a brand-new `enterCall` call; the OLD invocation's state
+     * machine has no further use for a "switching" state of its own (its polling loops already
+     * stopped, see the `isLive()` guard those loops share, and nothing reads its `connectionState`
+     * again once a new `enterCall` has taken over the panel).
+     */
+    internal data object Resolving : ConferenceConnectionState()
 
     internal data object Ended : ConferenceConnectionState()
 }
@@ -3332,7 +3839,31 @@ internal sealed class ConferenceConnectionEvent {
 
     /** Local "Verlassen"/"Für alle beenden" click. */
     internal data object UserLeft : ConferenceConnectionEvent()
+
+    /**
+     * V1.0 Videokonferenzen, Wave 6 -- fired once `resolvePostDisconnectDestination` has determined a
+     * [ConferenceConnectionState.Resolving] instance's disconnect really does mean "the meeting is
+     * over for this screen" (parent room inactive, or no live breakout/main-room re-entry possible)
+     * -- reaches the SAME [ConferenceConnectionState.Ended] state and the SAME `returnToLobby`/
+     * `notifyInfo` path [DisconnectedSignal] reached directly before this wave.
+     */
+    internal data object ResolvedAsEnded : ConferenceConnectionEvent()
 }
+
+/**
+ * V1.0 Videokonferenzen, Wave 6 -- `true` only for [ConferenceConnectionState.Connected]/
+ * [ConferenceConnectionState.Reconnecting], the two states in which a background poll against THIS
+ * `enterCall` invocation's own room is still meaningful. Required, minimal-diff fix for
+ * `pollInFlightRecordingStatus`/`pollInFlightStreamStatus`/`sweepGridReflow`'s own loop guards, which
+ * pre-Wave-6 read `connectionState !is Ended` -- with [ConferenceConnectionState.Resolving] now
+ * sitting between `Connected`/`Reconnecting` and `Ended`, that old guard would keep those loops
+ * spinning (wasted RPC calls, and semantically wrong for the recording/streaming pollers specifically
+ * -- a breakout room's target LiveKit room is never recorded/streamed at all, see
+ * [network.lapis.cloud.shared.rpc.IConferenceBreakoutService] KDoc "DSGVO/transparency") for a call
+ * that is already mid-relocation.
+ */
+internal fun ConferenceConnectionState.isLive(): Boolean =
+    this is ConferenceConnectionState.Connected || this is ConferenceConnectionState.Reconnecting
 
 /**
  * D10 -- the ONE place a transition happens. Unlisted (state, event) pairs are ignored (return the
@@ -3361,20 +3892,37 @@ internal fun conferenceConnectionReduce(
         is ConferenceConnectionState.Connected ->
             when (event) {
                 is ConferenceConnectionEvent.ReconnectingSignal -> ConferenceConnectionState.Reconnecting
-                is ConferenceConnectionEvent.DisconnectedSignal -> ConferenceConnectionState.Ended
+                // Wave 6: CHANGED from a direct -> Ended transition -- see
+                // [ConferenceConnectionState.Resolving] KDoc. `UserLeft` (a local "Verlassen"/"Für
+                // alle beenden"/"Zurück zum Hauptraum" click) is DELIBERATELY untouched: those
+                // handlers call `session.disconnect()` + the relevant RPC + `transition(UserLeft)`
+                // themselves, synchronously, bypassing `onDisconnected`'s ambiguity entirely by
+                // design -- a local leave is never something this screen needs to ask the server
+                // "what does this mean" about.
+                is ConferenceConnectionEvent.DisconnectedSignal -> ConferenceConnectionState.Resolving
                 is ConferenceConnectionEvent.UserLeft -> ConferenceConnectionState.Ended
                 else -> current
             }
         is ConferenceConnectionState.Reconnecting ->
             when (event) {
                 is ConferenceConnectionEvent.ReconnectedSignal -> ConferenceConnectionState.Connected
-                is ConferenceConnectionEvent.DisconnectedSignal -> ConferenceConnectionState.Ended
+                // Wave 6: CHANGED from a direct -> Ended transition -- see the identical comment on
+                // the `Connected` branch above.
+                is ConferenceConnectionEvent.DisconnectedSignal -> ConferenceConnectionState.Resolving
                 is ConferenceConnectionEvent.UserLeft -> ConferenceConnectionState.Ended
                 else -> current
             }
         is ConferenceConnectionState.Failed ->
             when (event) {
                 is ConferenceConnectionEvent.UserLeft -> ConferenceConnectionState.Ended
+                else -> current
+            }
+        // Wave 6: the ONLY way out of Resolving -- see [ConferenceConnectionState.Resolving] KDoc.
+        // Any other event (e.g. a stray ReconnectingSignal arriving late) is ignored, same "unlisted
+        // pairs are ignored" discipline every other branch here already follows.
+        is ConferenceConnectionState.Resolving ->
+            when (event) {
+                is ConferenceConnectionEvent.ResolvedAsEnded -> ConferenceConnectionState.Ended
                 else -> current
             }
         is ConferenceConnectionState.Ended -> current
