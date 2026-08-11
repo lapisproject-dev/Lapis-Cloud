@@ -213,6 +213,16 @@ Local development/testing infrastructure (`deploy/local/` — this repository's 
 a full local-run recipe, including a two-browser manual verification walkthrough and an opt-in live
 integration test, are documented in link:deploy/local/README.adoc[deploy/local/README.adoc].
 
+NOTE: GitHub's built-in `.adoc` viewer does not load the `kuml-asciidoc` extension, so it cannot
+execute the `[kuml]` macro below and shows its raw source instead. The image immediately below is a
+pre-rendered copy of that exact model, committed purely so GitHub's preview has something to show
+— the `[kuml]` block underneath stays the single source of truth (see "Documentation Convention"
+below) and is what actually renders in Antora/local Asciidoctor builds. **If you edit the model,
+re-render `docs/images/conference-room-lifecycle.svg` from it** (`kuml render <extracted-source>
+--format svg`) — nothing enforces that these two stay in sync automatically.
+
+image::docs/images/conference-room-lifecycle.svg[Conference Room Lifecycle state machine — Initial to Created to Active/Empty to Ended,align=center]
+
 [kuml, conference-room-lifecycle, svg]
 ----
 import dev.kuml.sysml2.dsl.sysml2Model
@@ -300,7 +310,14 @@ Consistent across all Lapis and kUML projects (see `CLAUDE.md`):
 * **All documentation in Asciidoctor** (`.adoc`) — no `README.md`
 * **All diagrams in kUML**, no PlantUML/Mermaid/draw.io/ASCII art
 * **Diagrams embedded via the `[kuml]` macro** of the https://github.com/kuml-dev/kuml-asciidoc[kuml-asciidoc]
-  extension (Maven Central) — source inline in the `.adoc` document, never a pre-rendered image
+  extension (Maven Central) — source inline in the `.adoc` document is the single source of truth,
+  never *replaced* by a pre-rendered image. **Exception**: GitHub's built-in `.adoc` viewer does not
+  load the extension, so it cannot execute `[kuml]` blocks — for diagrams meant to be visible there
+  (like this README's own), commit a companion `image::docs/images/<name>.svg[...]` reference
+  immediately above the `[kuml]` block, purely as a GitHub-preview fallback, and re-render it by
+  hand whenever the model changes (see the note above the first diagram below for the exact
+  command). Nothing enforces that the two stay in sync — this is a deliberate, manual trade-off, not
+  an automated build step.
 
 [source,asciidoc]
 ----
