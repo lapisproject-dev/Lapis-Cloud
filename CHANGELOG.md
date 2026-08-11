@@ -142,6 +142,82 @@ chips while `PAUSED` rather than rendering a contradicting "Live" status underne
 "ist unterbrochen" badge. Four new `ConferenceStreamingUiTest.kt` unit tests pin both the fix and the
 underlying `conferenceStreamBadgeVerbPhrase` mapping.
 
+**Videokonferenzen (Kleinsitzung), V1.0 Wave 7 „Whiteboard" — ein gemeinsames Zeichenbrett, auf dem
+Teilnehmende während einer Besprechung live zusammen zeichnen können, auf
+`feature/video-konferenz-wave7-whiteboard`.** Wiederverwendet den LiveKit-Data-Channel-Transport (bis
+dato nur von Wave 1's Chat genutzt) für die Echtzeit-Synchronisation, braucht aber eine völlig neue
+Zeichenfläche ohne lokalen Präzedenzfall — kein neues Schema, keine neue Datenbanktabelle diese Welle.
+
+- **`IConferenceWhiteboardService`** — eine FÜNFTE, separate Konferenz-RPC-Schnittstelle
+  (`getWhiteboardState`/`commitStroke`/`clearBoard`/`saveAsDocument`), ohne eigenes Verfügbarkeits-Gate
+  (nutzt `ConferenceConfig.enabled` wie `IConferenceBreakoutService`). Autorisierung folgt der
+  STRENGEREN „aktuell offene Teilnahme"-Prüfung (`leftAt IS NULL`) — bewusst NICHT die lockerere „hat
+  jemals teilgenommen"-Prüfung von `getMyBreakoutAssignment`, die für live-kollaborativen Zustand
+  falsch wäre. Zeichnen/Ansehen/Speichern stehen jedem aktuellen Teilnehmenden offen; nur `clearBoard`
+  ist moderator-gated (Raum-Ersteller oder globales BOARD/ADMIN) — additive Aktionen (Zeichnen,
+  Speichern) folgen demselben niedrigschwelligen Muster wie Chat, das EINE destruktive, unumkehrbare
+  Aktion (Board leeren) folgt dem etablierten „Moderator gated disruptive/irreversible actions"-Muster
+  (`endRoom`/`removeParticipant`/`recallAll`).
+- **Bounded In-Memory-Zustand** (`ConferenceWhiteboardState`) — dasselbe `ConcurrentHashMap` +
+  atomares-`compute()`-Idiom wie `FederationInboxRateLimiter`, derselbe dokumentierte
+  Single-Instance-Scope-Cut. Zwei UNABHÄNGIG durchgesetzte Kappungen pro Raum: max. 5.000 Striche UND
+  max. 50.000 Punkte insgesamt — welche zuerst erreicht wird, lehnt den Commit mit einer konkreten,
+  handlungsleitenden Fehlermeldung ab, statt bereits committete Arbeit still zu verwerfen.
+- **Live-Sync über den LiveKit-Data-Channel** — zwei neue Topics: `lapis-whiteboard-preview`
+  (UNRELIABLE/verlustbehaftet, für laufende Strich-Vorschau, Verlust ist unkritisch da immer der
+  komplette bisherige Punktverlauf gesendet wird) und `lapis-whiteboard-commit` (RELIABLE, für
+  fertige Striche). Erster echter Einsatz von `reliable = false` in diesem Codebase — die
+  `PublishDataOptions`-Schnittstelle unterstützte das bereits, ungenutzt seit Wave 1. Späte
+  Beitretende/ein wiedergeöffnetes Panel holen den aktuellen Stand über `getWhiteboardState` nach
+  (RPC-Query-on-Open, nicht Data-Channel-Push — dasselbe Muster wie Wave 6's
+  `getMyBreakoutAssignment`).
+- **„Als Dokument speichern"** — rendert die committeten Striche serverseitig zu einem flachen PNG
+  (`WhiteboardRasterizer`, reines `java.awt`/`Graphics2D`/`ImageIO`, erster Einsatz dieser APIs in
+  diesem Codebase, bewusst OHNE Textrendering um die Fontconfig-Falle auf headless Linux-Images zu
+  umgehen) und archiviert es in die BEREITS BESTEHENDE Document/DocumentVersion-Ablage (Ordner
+  „Whiteboards"), mit wählbarem `DocumentAccessLevel` — dieselbe Brücke, die Wave 2 für Aufzeichnungen
+  gebaut hat. `archiveGeneratedPdf` wurde dafür zu `archiveGeneratedBytes` verallgemeinert
+  (parametrisierter `mimeType`/`changeNote` statt hartcodiert `"application/pdf"`) statt eine
+  Whiteboard-eigene Archivierungsfunktion zu duplizieren — reiner Refactor, keine
+  Verhaltensänderung für die bestehenden PDF-Aufrufer.
+- **Teardown bei Raumende — auf BEIDEN Pfaden, nicht nur `endRoom`.** Anders als Breakout/Recording
+  (deren Cleanup DB-Schreibzugriffe + ausgehende LiveKit-Aufrufe umfasst und deshalb bewusst nur an
+  `endRoom` hängt) räumt Whiteboard-Zustand auch am LAZY `reconcileRoomIfDue`-Pfad auf (der Pfad, den
+  `listActiveRooms`/`getRoom` nutzen, wenn ein Raum LiveKit-seitig still verschwunden ist) — ein reines,
+  nebenwirkungsfreies `ConcurrentHashMap.remove()`, günstig genug um an beiden Stellen zu laufen und
+  damit exakt die im Auftrag genannte Sorge „keine unbegrenzte Ansammlung über die Lebenszeit des
+  Servers hinweg" zu schließen.
+- **Client — `ConferenceWhiteboardController`** (eigene Datei, mirror `ConferenceRecordingsPanel`s
+  „eigenständiges Feature, eigene Datei"-Präzedenzfall): ein einklappbares Panel unterhalb des
+  Video-Grids (dasselbe `vPanel`/`hide()`/Toggle-Button-Muster wie der Chat, niemals ein Modal/eine
+  Grid-Ersetzung), fünf feste Farb-Swatches + Radierer + zwei Strichstärken-Presets (dünn/dick, bewusst
+  kein Slider), jedes Toolbar-Element mit sichtbarem Auswahl-Zustand. Koordinaten werden IMMER in einen
+  festen logischen Canvas-Raum (1600×1200) normalisiert, bevor sie versendet oder gerendert werden —
+  hält die Striche aller Teilnehmenden unabhängig von der jeweiligen Fenstergröße deckungsgleich.
+  `touch-action: none` + `setPointerCapture` für Touch-/Stift-Geräte. „Board leeren" (Tier 3, wie
+  `breakoutRecallConfirmDialog` — `ButtonStyle.WARNING`, kein Danger-Rot, da die Speichern-Aktion
+  genau deshalb existiert, damit nichts wirklich verloren geht) ist client-seitig nur für Moderierende
+  sichtbar; die RPC-Gate ist die alleinige Autorität. Client-seitiger Soft-Cap-Schutz verhindert das
+  Starten eines neuen Strichs kurz vor dem Server-Limit statt nur nachträglich einen Fehler-Toast zu
+  zeigen, nachdem ein fertiger Strich verworfen wurde.
+- **Bewusster V1-Scope-Cut**: Live-Propagierung von „Board leeren" an bereits verbundene Peer-Panels
+  läuft NICHT über einen Data-Channel-Push diese Welle — jedes andere offene Panel holt den geleerten
+  Stand beim nächsten `getWhiteboardState`-Refetch (Panel-Neuöffnung oder Reconnect) nach.
+- **Design-Review** (root `CLAUDE.md` „UI/UX-Design-Team", Jobs' Abschluss-Review): GO-Verdikt.
+  Bestätigt die Platzierung als einklappbares Panel (nie modal), verlangt zwei feste
+  Strichstärken-Presets statt Slider, sichtbaren Auswahlzustand für jedes Toolbar-Element,
+  `touch-action`/`setPointerCapture` für Touch-Geräte und einen client-seitigen Soft-Cap-Schutz gegen
+  das „fertigen Strich zeichnen, dann erst am Server abgelehnt werden"-Szenario — alle vier Punkte in
+  diese Welle eingearbeitet.
+- **Testing** — 28 neue Testfälle über drei Dateien: `ConferenceWhiteboardServiceTest` (19, u. a. der
+  komplette Happy-Path plus die verpflichtete Tamper-Matrix: ein Mitglied, das dem Raum nie beigetreten
+  ist, sowie eines, das bereits gegangen ist, können weder zeichnen noch ansehen noch speichern; ein
+  gewöhnlicher Teilnehmender kann das Board nicht leeren, Server-Zustand bleibt dabei unverändert),
+  `ConferenceWhiteboardStateTest` (7, beweist die Kappung TATSÄCHLICH funktioniert, nicht nur
+  dokumentiert ist — Strich-Kappung und Punkt-Kappung unabhängig voneinander ausgelöst), und
+  `ConferenceWhiteboardTeardownTest` (2, beweist Whiteboard-Zustand wird auf BEIDEN Teardown-Pfaden
+  tatsächlich entfernt — `endRoom` UND der lazy `reconcileRoomIfDue`-Pfad).
+
 **Videokonferenzen (Kleinsitzung), V1.0 Wave 6 „Breakout-Räume" — a moderator can split an active
 meeting's participants into N temporary sub-sessions for small-group work and bring everyone back
 with one click, on `feature/video-konferenz-wave6-breakout`.** Breakout-Räume reuse the most

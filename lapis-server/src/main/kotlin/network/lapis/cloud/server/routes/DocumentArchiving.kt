@@ -16,28 +16,31 @@ import java.security.MessageDigest
 import kotlin.uuid.Uuid
 
 /**
- * Archives a generated PDF ([bytes]) into the existing Document/DocumentVersion store, mirroring
+ * Archives generated [bytes] into the existing Document/DocumentVersion store, mirroring
  * [registerDocumentRoutes]'s own insert pattern (`{documentId}/{versionId}.bin` storage key,
- * SHA-256 checksum, `currentVersionId` update). Used by [registerMailmergeRoutes] for
- * Beitragsrechnung/Spendenbescheinigung (retention/audit argument: an issued financial/tax
- * document must remain reproducible byte-for-byte even if the underlying Contribution/Member/
- * JournalEntry rows change later) -- NOT for Einladung (ephemeral governance correspondence, no
- * retention argument, avoids inflating the Document store with routine invitations).
+ * SHA-256 checksum, `currentVersionId` update). Generalized (V1.0 Wave 7 "Whiteboard") from what
+ * used to be [archiveGeneratedPdf]'s own hardcoded body -- [mimeType]/[changeNote] are now caller-
+ * supplied instead of hardcoded to `"application/pdf"`, since a whiteboard PNG (Wave 7,
+ * `network.lapis.cloud.server.rpc.ConferenceWhiteboardService.saveAsDocument`) needs the identical
+ * in-memory-`ByteArray` shape but a different MIME type. [archiveGeneratedPdf] below is now a thin,
+ * behavior-preserving wrapper around this function.
  *
  * Finds-or-creates a top-level [DocumentFolderTable] row named [folderName] (e.g.
- * "Beitragsrechnungen"/"Spendenbescheinigungen") so repeated archiving calls land in the same
- * folder instead of creating a fresh one every time.
+ * "Beitragsrechnungen"/"Spendenbescheinigungen"/"Whiteboards") so repeated archiving calls land in
+ * the same folder instead of creating a fresh one every time.
  *
  * Returns the new [DocumentTable] row's id.
  */
-fun archiveGeneratedPdf(
+fun archiveGeneratedBytes(
     storageRoot: File,
     folderName: String,
     fileName: String,
     title: String,
     bytes: ByteArray,
+    mimeType: String,
     uploadedBy: Uuid,
     accessLevel: DocumentAccessLevel,
+    changeNote: String,
 ): Uuid {
     val now = DbClock.nowLocalDateTime()
     val checksum = MessageDigest.getInstance("SHA-256").digest(bytes).joinToString("") { "%02x".format(it.toInt() and 0xFF) }
@@ -81,13 +84,13 @@ fun archiveGeneratedPdf(
             it[DocumentVersionTable.documentId] = documentId
             it[versionNumber] = 1
             it[DocumentVersionTable.fileName] = fileName
-            it[mimeType] = "application/pdf"
+            it[DocumentVersionTable.mimeType] = mimeType
             it[fileSizeBytes] = bytes.size.toLong()
             it[DocumentVersionTable.storageKey] = storageKey
             it[checksumSha256] = checksum
             it[DocumentVersionTable.uploadedBy] = uploadedBy
             it[uploadedAt] = now
-            it[changeNote] = "Automatisch generiert (V0.4.1 Serienbrief/PDF-Engine)"
+            it[DocumentVersionTable.changeNote] = changeNote
         }
         DocumentTable.update({ DocumentTable.id eq documentId }) {
             it[currentVersionId] = versionId
@@ -96,6 +99,35 @@ fun archiveGeneratedPdf(
         documentId
     }
 }
+
+/**
+ * PDF-specific convenience wrapper around [archiveGeneratedBytes], preserved for
+ * [registerMailmergeRoutes]'s Beitragsrechnung/Spendenbescheinigung call sites (retention/audit
+ * argument: an issued financial/tax document must remain reproducible byte-for-byte even if the
+ * underlying Contribution/Member/JournalEntry rows change later) -- NOT for Einladung (ephemeral
+ * governance correspondence, no retention argument, avoids inflating the Document store with
+ * routine invitations). Pure delegation, zero behavior change from before the Wave 7 generalization.
+ */
+fun archiveGeneratedPdf(
+    storageRoot: File,
+    folderName: String,
+    fileName: String,
+    title: String,
+    bytes: ByteArray,
+    uploadedBy: Uuid,
+    accessLevel: DocumentAccessLevel,
+): Uuid =
+    archiveGeneratedBytes(
+        storageRoot = storageRoot,
+        folderName = folderName,
+        fileName = fileName,
+        title = title,
+        bytes = bytes,
+        mimeType = "application/pdf",
+        uploadedBy = uploadedBy,
+        accessLevel = accessLevel,
+        changeNote = "Automatisch generiert (V0.4.1 Serienbrief/PDF-Engine)",
+    )
 
 /**
  * Streaming sibling of [archiveGeneratedPdf] -- identical Document/DocumentVersion insert pattern,

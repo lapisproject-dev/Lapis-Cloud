@@ -8,6 +8,7 @@ import kotlinx.datetime.toInstant
 import kotlinx.datetime.toLocalDateTime
 import network.lapis.cloud.server.audit.AuditLogRecorder
 import network.lapis.cloud.server.conference.ConferenceConfig
+import network.lapis.cloud.server.conference.ConferenceWhiteboardState
 import network.lapis.cloud.server.conference.LiveKitAccessToken
 import network.lapis.cloud.server.conference.LiveKitAdminClient
 import network.lapis.cloud.server.conference.LiveKitAdminException
@@ -194,6 +195,19 @@ class ConferenceService(
     /** Security-audit fix -- see [DEFAULT_GUEST_ACCESS_RATE_MAX] KDoc. */
     private val guestAccessRateLimiter: FederationInboxRateLimiter =
         FederationInboxRateLimiter(maxRequests = DEFAULT_GUEST_ACCESS_RATE_MAX, window = DEFAULT_ACTION_RATE_WINDOW),
+    /**
+     * V1.0 Wave 7 "Whiteboard" -- see that wave's own [ConferenceWhiteboardState] KDoc and this
+     * class's own `endRoom`/`reconcileRoomIfDue` KDoc additions for why BOTH teardown paths clear
+     * whiteboard state. Defaulted (unlike `Application.kt`'s own wiring, which threads a real
+     * shared singleton, same "constructed here, NOT left to the service's own constructor default"
+     * reasoning [guestAccessRateLimiter] KDoc already documents for rate limiters) purely so
+     * pre-existing `ConferenceService(...)` test call sites that have no reason to know about
+     * whiteboard state keep compiling unmodified -- a default-constructed, per-call, always-empty
+     * state is harmless here (unlike a rate limiter) because nothing in THIS class ever reads
+     * whiteboard state, it only ever calls [ConferenceWhiteboardState.clear], a no-op on an empty
+     * map.
+     */
+    private val whiteboardState: ConferenceWhiteboardState = ConferenceWhiteboardState(),
 ) : IConferenceService {
     override suspend fun getAvailability(): ConferenceAvailabilityDto {
         resolveCurrentMember(call)
@@ -530,6 +544,11 @@ class ConferenceService(
                 // ConferenceRecordingCoordinator KDoc "deadlock-avoidance contract".
                 ConferenceRecordingCoordinator.stopActiveRecordingsForRoom(id, current.memberId, current.role)
             }
+            // V1.0 Wave 7 "Whiteboard" -- plain, side-effect-free, thread-safe in-memory removal, no
+            // DB-transaction/deadlock-ordering discipline to respect (unlike the two coordinators
+            // above), so it deliberately runs OUTSIDE the transaction rather than squeezed into it --
+            // see ConferenceWhiteboardState KDoc "clear".
+            whiteboardState.clear(id)
         }
         return transaction {
             val fresh = ConferenceRoomTable.selectAll().where { ConferenceRoomTable.id eq id }.single()
@@ -850,6 +869,15 @@ class ConferenceService(
         val id = row[ConferenceRoomTable.id]
         ConferenceRoomTable.update({ ConferenceRoomTable.id eq id }) { it[endedAt] = now }
         closeAllOpenParticipations(id, now)
+        // V1.0 Wave 7 "Whiteboard" -- deliberate deviation from the breakout/recording precedent:
+        // this LAZY reconciliation path does NOT call ConferenceBreakoutCoordinator/
+        // ConferenceRecordingCoordinator (their cleanup involves DB writes + outbound LiveKit calls,
+        // arguably deserving an explicit, audited path via endRoom instead -- a pre-existing, accepted
+        // gap). Whiteboard's teardown is a single side-effect-free ConcurrentHashMap.remove(), cheap
+        // and safe to run from BOTH paths -- see ConferenceWhiteboardState KDoc "clear" -- which
+        // closes exactly the "no unbounded accumulation... as rooms come and go" risk a room that is
+        // only ever closed lazily (never via an explicit endRoom call) would otherwise leave open.
+        whiteboardState.clear(id)
         return ConferenceRoomTable.selectAll().where { ConferenceRoomTable.id eq id }.single()
     }
 

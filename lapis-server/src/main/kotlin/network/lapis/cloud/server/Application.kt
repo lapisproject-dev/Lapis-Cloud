@@ -21,6 +21,7 @@ import io.ktor.server.routing.routing
 import network.lapis.cloud.server.conference.ConferenceConfig
 import network.lapis.cloud.server.conference.ConferenceRecordingConfig
 import network.lapis.cloud.server.conference.ConferenceStreamingConfig
+import network.lapis.cloud.server.conference.ConferenceWhiteboardState
 import network.lapis.cloud.server.conference.FfmpegGalleryComposer
 import network.lapis.cloud.server.conference.HttpLiveKitAdminClient
 import network.lapis.cloud.server.conference.HttpLiveKitEgressClient
@@ -60,6 +61,7 @@ import network.lapis.cloud.server.rpc.ConferenceBreakoutService
 import network.lapis.cloud.server.rpc.ConferenceRecordingService
 import network.lapis.cloud.server.rpc.ConferenceService
 import network.lapis.cloud.server.rpc.ConferenceStreamingService
+import network.lapis.cloud.server.rpc.ConferenceWhiteboardService
 import network.lapis.cloud.server.rpc.ContributionService
 import network.lapis.cloud.server.rpc.CrowdfundingService
 import network.lapis.cloud.server.rpc.DirectMessageService
@@ -94,6 +96,7 @@ import network.lapis.cloud.shared.rpc.IConferenceBreakoutService
 import network.lapis.cloud.shared.rpc.IConferenceRecordingService
 import network.lapis.cloud.shared.rpc.IConferenceService
 import network.lapis.cloud.shared.rpc.IConferenceStreamingService
+import network.lapis.cloud.shared.rpc.IConferenceWhiteboardService
 import network.lapis.cloud.shared.rpc.IContributionService
 import network.lapis.cloud.shared.rpc.ICrowdfundingService
 import network.lapis.cloud.shared.rpc.IDirectMessageService
@@ -255,6 +258,19 @@ fun Application.module() {
     val conferenceBreakoutRecallRateLimiter = FederationInboxRateLimiter(maxRequests = 10, window = 1.minutes)
     val conferenceBreakoutTokenRateLimiter = FederationInboxRateLimiter(maxRequests = 30, window = 1.minutes)
 
+    // V1.0 Videokonferenzen, Wave 7 "Whiteboard" -- module-scoped singleton, NOT left to
+    // ConferenceWhiteboardService's/ConferenceService's own constructor defaults: registerService's
+    // factory lambda constructs a fresh service per RPC call, so a default-argument instance would
+    // silently mean every commitStroke lands in its own throwaway, empty map -- see
+    // ConferenceService's own `whiteboardState` KDoc and ConferenceWhiteboardService's constructor.
+    // Threaded into BOTH ConferenceService (endRoom/reconcileRoomIfDue teardown) and
+    // ConferenceWhiteboardService (the actual read/write surface) below -- same shared instance.
+    val conferenceWhiteboardState = ConferenceWhiteboardState()
+    val conferenceWhiteboardReadRateLimiter = FederationInboxRateLimiter(maxRequests = 30, window = 1.minutes)
+    val conferenceWhiteboardCommitRateLimiter = FederationInboxRateLimiter(maxRequests = 120, window = 1.minutes)
+    val conferenceWhiteboardClearRateLimiter = FederationInboxRateLimiter(maxRequests = 10, window = 1.minutes)
+    val conferenceWhiteboardSaveRateLimiter = FederationInboxRateLimiter(maxRequests = 10, window = 1.minutes)
+
     // V1.0 Videokonferenzen (Kleinsitzung), Wave 2 "Aufzeichnung" -- ConferenceRecordingConfig.load()
     // is pure string parsing (no I/O, see that class's own KDoc), so it is safe to call
     // unconditionally here regardless of whether LAPIS_RECORDING_ENABLED is set, same posture
@@ -375,6 +391,7 @@ fun Application.module() {
                 listRateLimiter = conferenceListRateLimiter,
                 guestInfoRateLimiter = conferenceGuestInfoRateLimiter,
                 guestAccessRateLimiter = conferenceGuestAccessRateLimiter,
+                whiteboardState = conferenceWhiteboardState,
             )
         }
         registerService(IConferenceBreakoutService::class) { call ->
@@ -390,6 +407,18 @@ fun Application.module() {
         }
         registerService(IConferenceRecordingService::class) { call ->
             ConferenceRecordingService(call, ffmpegAvailable, config = conferenceConfig, recordingConfig = conferenceRecordingConfig)
+        }
+        registerService(IConferenceWhiteboardService::class) { call ->
+            ConferenceWhiteboardService(
+                call,
+                documentStorageRoot,
+                conferenceWhiteboardState,
+                config = conferenceConfig,
+                readRateLimiter = conferenceWhiteboardReadRateLimiter,
+                commitRateLimiter = conferenceWhiteboardCommitRateLimiter,
+                clearRateLimiter = conferenceWhiteboardClearRateLimiter,
+                saveRateLimiter = conferenceWhiteboardSaveRateLimiter,
+            )
         }
         registerService(IConferenceStreamingService::class) { call ->
             ConferenceStreamingService(

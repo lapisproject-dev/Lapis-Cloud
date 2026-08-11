@@ -54,6 +54,7 @@ import network.lapis.cloud.shared.rpc.IConferenceBreakoutService
 import network.lapis.cloud.shared.rpc.IConferenceRecordingService
 import network.lapis.cloud.shared.rpc.IConferenceService
 import network.lapis.cloud.shared.rpc.IConferenceStreamingService
+import network.lapis.cloud.shared.rpc.IConferenceWhiteboardService
 import org.w3c.dom.HTMLElement
 import org.w3c.dom.HTMLInputElement
 import org.w3c.dom.events.Event
@@ -927,6 +928,19 @@ private fun enterCall(
     val cameraButton = controlsRow.button("Kamera aus", style = ButtonStyle.OUTLINESECONDARY)
     val screenShareButton = controlsRow.button("Bildschirm teilen", style = ButtonStyle.OUTLINESECONDARY)
     val chatToggleButton = controlsRow.button("Chat", style = ButtonStyle.OUTLINESECONDARY)
+    // V1.0 Videokonferenzen, Wave 7 "Whiteboard" -- same toggle-button-in-controlsRow shape as
+    // chatToggleButton, wired further below once whiteboardPanel/whiteboardController exist.
+    // Review fix: gated on `!isBreakout`, same as `canModerate`/`pollInFlightRecordingStatus` above.
+    // Every IConferenceWhiteboardService RPC below is keyed on `room.id` -- the PARENT room's id,
+    // never a breakout room's own id (see this function's own top-of-function comment on `room`) --
+    // and `requireOpenParticipation` on the server checks that id against ConferenceParticipationTable,
+    // which a breakout participant still satisfies for the MAIN room. Without this gate, participants
+    // physically inside DIFFERENT breakout rooms (or back in the main room) would silently share and
+    // mutate the exact same server-side whiteboard bucket despite only ever seeing each other's LIVE
+    // strokes if co-located in the same breakout room. No breakout-room-scoped whiteboard exists in V1
+    // (deliberate scope cut, mirrors Wave 6's "No breakout-room moderator").
+    val whiteboardToggleButton =
+        if (!isBreakout) controlsRow.button("Whiteboard", style = ButtonStyle.OUTLINESECONDARY) else null
     // Wave 6: inside a breakout room, "Zurück zum Hauptraum" is the everyday, low-stakes, FREQUENT
     // action and reads as the confident default (PRIMARY); "Besprechung ganz verlassen" is the
     // rarer, heavier one (SECONDARY) -- a deliberate INVERSION of the main room's own button-weight
@@ -2067,6 +2081,17 @@ private fun enterCall(
     val chatInput = chatRow.text(label = "Nachricht") { addCssClasses("flex-grow-1") }
     val chatSendButton = chatRow.button("Senden", style = ButtonStyle.OUTLINEPRIMARY)
 
+    // --- Collapsible whiteboard side panel (V1.0 Wave 7 "Whiteboard", off by default) --------------
+    // Same `vPanel`/`hide()`/toggle-button pattern as chatPanel above -- Kay/Tesler/Raskin: modeless,
+    // coexisting, never a modal/grid-replacement -- see ConferenceWhiteboardPanel.kt class KDoc.
+    val whiteboardPanel = callPanel.vPanel(spacing = 6) { addCssClasses("border rounded p-2") }
+    whiteboardPanel.hide()
+    var whiteboardOpen = false
+    // Constructed once per connect (see the connect-success block below), NOT lazily on first open --
+    // getWhiteboardState's own late-joiner seed is unconditional, see IConferenceWhiteboardService
+    // .getWhiteboardState KDoc.
+    var whiteboardController: ConferenceWhiteboardController? = null
+
     fun updateChatToggleLabel() {
         chatToggleButton.text = if (unreadChatCount > 0) "Chat ($unreadChatCount)" else "Chat"
     }
@@ -2485,6 +2510,12 @@ private fun enterCall(
                 identities.forEach { identity -> lastSpokeAtMs[identity] = now }
             },
             onChat = { message -> appendChatLine(message.senderDisplayName, message.text, isOwn = false) },
+            // V1.0 Wave 7 "Whiteboard" -- see LiveKitRoomSession KDoc "Whiteboard trust boundary".
+            // `whiteboardController` is `null` only in the brief window before the connect-success
+            // block below constructs it -- no preview/commit packet can arrive before then, since
+            // the data channel does not exist until `session.connect(...)` itself has resolved.
+            onWhiteboardPreview = { authorMemberId, _, stroke -> whiteboardController?.applyPreview(authorMemberId, stroke) },
+            onWhiteboardCommit = { authorMemberId, _, stroke -> whiteboardController?.applyCommit(authorMemberId, stroke) },
             // Wave 4, D10 -- LiveKit's own reconnect signal, relayed verbatim by LiveKitRoomSession
             // (see that class's own KDoc "Reconnect signal").
             onReconnecting = { transition(ConferenceConnectionEvent.ReconnectingSignal) },
@@ -2587,6 +2618,19 @@ private fun enterCall(
         transition(ConferenceConnectionEvent.ConnectSucceeded)
         // Wave 5 -- see refreshGuestHomeservers KDoc "called once right after connect succeeds".
         refreshGuestHomeservers()
+        // V1.0 Wave 7 "Whiteboard" -- constructed once per connect (mirrors the roster/recording-
+        // status "seed once per connect" pattern), NOT gated on the panel being open, so it is
+        // instantly ready the moment a participant opens it -- see
+        // IConferenceWhiteboardService.getWhiteboardState KDoc "late-joiner seed".
+        // Review fix: gated on `!isBreakout`, matching `whiteboardToggleButton`'s own gate above --
+        // `whiteboardController` simply stays `null` for the lifetime of a breakout call, which the
+        // `onWhiteboardPreview`/`onWhiteboardCommit` callbacks above already handle safely via `?.`.
+        if (!isBreakout) {
+            whiteboardController =
+                ConferenceWhiteboardController(whiteboardPanel, room.id, canModerate, joinToken.identity, session)
+            val whiteboardState = guarded { rpcService<IConferenceWhiteboardService>().getWhiteboardState(room.id) }
+            if (whiteboardState != null) whiteboardController.applyState(whiteboardState)
+        }
         // Each device independently, each wrapped in its own `guarded {}` -- a missing/denied camera
         // or microphone must not abort the whole call (a member with no working device can still
         // join and watch/listen). The full non-technical D2 permission-preflight UI is explicitly
@@ -2666,6 +2710,12 @@ private fun enterCall(
         } else {
             chatPanel.hide()
         }
+    }
+    // Review fix: `whiteboardToggleButton` is `null` inside a breakout call -- see its own
+    // construction comment above -- so this wiring is a no-op there and the panel stays hidden.
+    whiteboardToggleButton?.onClick {
+        whiteboardOpen = !whiteboardOpen
+        if (whiteboardOpen) whiteboardPanel.show() else whiteboardPanel.hide()
     }
 
     fun sendChatMessage() {

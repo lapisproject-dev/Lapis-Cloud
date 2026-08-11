@@ -5,6 +5,8 @@ import kotlinx.coroutines.await
 import kotlinx.serialization.json.Json
 import network.lapis.cloud.shared.domain.ConferenceChatMessage
 import network.lapis.cloud.shared.domain.ConferenceTurnServer
+import network.lapis.cloud.shared.domain.WhiteboardStrokeWireDto
+import network.lapis.cloud.shared.domain.isStructurallyValid
 import kotlin.js.unsafeCast
 
 private external interface PublishDataOptions {
@@ -65,6 +67,34 @@ private external interface PublishDataOptions {
  * same "extra Kotlin lambda parameters bind to `undefined`" pattern already used for
  * [RoomEvent.Disconnected] below. `ConferenceScreen.kt`'s own named connection-state machine (not this
  * class) owns what a transition means for the UI -- this class only relays the raw LiveKit signal.
+ *
+ * **Whiteboard trust boundary** (V1.0 Videokonferenzen Wave 7 "Whiteboard", see
+ * [network.lapis.cloud.shared.rpc.IConferenceWhiteboardService] KDoc): [onWhiteboardPreview]/
+ * [onWhiteboardCommit] mirror [onChat]'s own trust-boundary discipline -- the AUTHOR is always the
+ * SDK-verified [RemoteParticipant.identity]/`.name` of the event's own participant argument, never
+ * anything client-supplied. There is nothing to accidentally trust here anyway:
+ * [WhiteboardStrokeWireDto] carries no author field at all (unlike [ConferenceChatMessage], which
+ * has to overwrite self-reported fields), so this is a structural guarantee, not just a discipline.
+ * [sendWhiteboardPreview]/[sendWhiteboardCommit] mirror [sendChat]'s shape exactly, differing only in
+ * `reliable`/`topic` -- see [WHITEBOARD_PREVIEW_TOPIC]/[WHITEBOARD_COMMIT_TOPIC] KDoc for why the
+ * preview channel is deliberately UNRELIABLE (`reliable = false`) while commit is RELIABLE, same as
+ * chat.
+ *
+ * **Security-audit fix -- payload validation is NOT optional here, unlike chat.** Chat payloads are
+ * bounded by nothing more than "whatever a text message needs" and get rendered as inert text. A
+ * whiteboard stroke is different: `ConferenceWhiteboardController.drawStroke` replays `points` into
+ * Canvas2D calls on every animation frame and assigns `color`/`strokeWidth` straight into
+ * `ctx.strokeStyle`/`ctx.lineWidth`. Because this server never observes LiveKit data-channel traffic
+ * at all (see [network.lapis.cloud.shared.rpc.IConferenceWhiteboardService] KDoc "double-write"), the
+ * `commitStroke` RPC's own `validateStroke` (point-count cap, canvas-bounds check, width range, color
+ * allowlist) NEVER runs against anything published on [WHITEBOARD_PREVIEW_TOPIC]/
+ * [WHITEBOARD_COMMIT_TOPIC] -- any current room participant already holds a LiveKit token and can
+ * publish an arbitrary payload on either topic directly, bypassing the UI entirely. This handler is
+ * therefore the ONLY enforcement point for that path, and applies the SAME bounds via
+ * [WhiteboardStrokeWireDto.isStructurallyValid] (shared with the server's `validateStroke`
+ * specifically so the two can never drift apart) before ever calling [onWhiteboardPreview]/
+ * [onWhiteboardCommit] -- an oversized/out-of-bounds stroke is silently dropped, exactly like a
+ * malformed [ConferenceChatMessage] JSON payload already is via [runCatching] here.
  */
 class LiveKitRoomSession(
     private val onRemoteTrack: (identity: String, displayName: String, track: Track, publication: TrackPublication) -> Unit,
@@ -75,6 +105,8 @@ class LiveKitRoomSession(
     private val onRecordingStatusChanged: (isRecording: Boolean) -> Unit,
     private val onActiveSpeakersChanged: (identities: List<String>) -> Unit,
     private val onChat: (ConferenceChatMessage) -> Unit,
+    private val onWhiteboardPreview: (authorMemberId: String, authorDisplayName: String, stroke: WhiteboardStrokeWireDto) -> Unit,
+    private val onWhiteboardCommit: (authorMemberId: String, authorDisplayName: String, stroke: WhiteboardStrokeWireDto) -> Unit,
     private val onReconnecting: () -> Unit,
     private val onReconnected: () -> Unit,
     private val onDisconnected: () -> Unit,
@@ -168,18 +200,39 @@ class LiveKitRoomSession(
             val payload = p0.unsafeCast<org.khronos.webgl.Uint8Array?>() ?: return@on
             val participant = p1.unsafeCast<RemoteParticipant?>() ?: return@on
             val topic = p3
-            if (topic != CHAT_TOPIC) return@on
-            runCatching {
-                val json = TextDecoder().decode(payload)
-                val raw = Json.decodeFromString(ConferenceChatMessage.serializer(), json)
-                // Trust boundary, see class KDoc "Chat trust boundary" -- overwrite the
-                // self-reported sender fields with the SDK-verified participant identity/name.
-                onChat(
-                    raw.copy(
-                        senderMemberId = participant.identity,
-                        senderDisplayName = participant.name ?: participant.identity,
-                    ),
-                )
+            when (topic) {
+                CHAT_TOPIC ->
+                    runCatching {
+                        val json = TextDecoder().decode(payload)
+                        val raw = Json.decodeFromString(ConferenceChatMessage.serializer(), json)
+                        // Trust boundary, see class KDoc "Chat trust boundary" -- overwrite the
+                        // self-reported sender fields with the SDK-verified participant identity/name.
+                        onChat(
+                            raw.copy(
+                                senderMemberId = participant.identity,
+                                senderDisplayName = participant.name ?: participant.identity,
+                            ),
+                        )
+                    }
+                WHITEBOARD_PREVIEW_TOPIC ->
+                    runCatching {
+                        val json = TextDecoder().decode(payload)
+                        val stroke = Json.decodeFromString(WhiteboardStrokeWireDto.serializer(), json)
+                        // See class KDoc "Security-audit fix" -- the ONLY enforcement point for this
+                        // transport; a decoded-but-out-of-bounds stroke is silently dropped, never
+                        // forwarded.
+                        if (!stroke.isStructurallyValid()) return@on
+                        onWhiteboardPreview(participant.identity, participant.name ?: participant.identity, stroke)
+                    }
+                WHITEBOARD_COMMIT_TOPIC ->
+                    runCatching {
+                        val json = TextDecoder().decode(payload)
+                        val stroke = Json.decodeFromString(WhiteboardStrokeWireDto.serializer(), json)
+                        // See class KDoc "Security-audit fix".
+                        if (!stroke.isStructurallyValid()) return@on
+                        onWhiteboardCommit(participant.identity, participant.name ?: participant.identity, stroke)
+                    }
+                else -> return@on
             }
         }
     }
@@ -224,6 +277,48 @@ class LiveKitRoomSession(
         currentRoom.localParticipant.publishData(bytes, options).await()
     }
 
+    /**
+     * V1.0 Wave 7 "Whiteboard" -- UNRELIABLE/lossy/unordered publish (`reliable = false`), the
+     * real `livekit-client` SDK's own supported mode this codebase had simply never exercised
+     * before this wave (research finding: [PublishDataOptions] already supported it). Correct here
+     * because [stroke] is always the CUMULATIVE point list so far (see [WhiteboardStrokeWireDto]
+     * KDoc) -- a lost or reordered preview packet self-heals on the very next one, no gap-tracking
+     * needed. Fire-and-forget from the caller's perspective; a failure here only means one preview
+     * frame did not reach peers, never a durability loss (the RPC `commitStroke` call is what makes
+     * a stroke durable, see [network.lapis.cloud.shared.rpc.IConferenceWhiteboardService.commitStroke]
+     * KDoc "double-write").
+     */
+    suspend fun sendWhiteboardPreview(stroke: WhiteboardStrokeWireDto) {
+        val currentRoom = room ?: return
+        val json = Json.encodeToString(WhiteboardStrokeWireDto.serializer(), stroke)
+        val bytes = TextEncoder().encode(json)
+        val options =
+            obj<PublishDataOptions> {
+                reliable = false
+                topic = WHITEBOARD_PREVIEW_TOPIC
+            }
+        currentRoom.localParticipant.publishData(bytes, options).await()
+    }
+
+    /**
+     * V1.0 Wave 7 "Whiteboard" -- RELIABLE publish, same `reliable = true` posture as [sendChat]:
+     * a finished stroke must not silently vanish for other currently-connected participants. See
+     * [network.lapis.cloud.shared.rpc.IConferenceWhiteboardService.commitStroke] KDoc
+     * "double-write" for why the caller is expected to ALSO call the `commitStroke` RPC alongside
+     * this broadcast -- the two are independent and both required.
+     */
+    suspend fun sendWhiteboardCommit(stroke: WhiteboardStrokeWireDto) {
+        val currentRoom = room ?: return
+        val json = Json.encodeToString(WhiteboardStrokeWireDto.serializer(), stroke)
+        val bytes = TextEncoder().encode(json)
+        val options =
+            obj<PublishDataOptions> {
+                reliable = true
+                topic = WHITEBOARD_COMMIT_TOPIC
+            }
+        currentRoom.localParticipant.publishData(bytes, options).await()
+    }
+
     suspend fun disconnect() {
         room?.disconnect()?.await()
         room = null
@@ -232,5 +327,11 @@ class LiveKitRoomSession(
     companion object {
         /** Matches [ConferenceChatMessage] KDoc's "topic `lapis-chat`". */
         const val CHAT_TOPIC = "lapis-chat"
+
+        /** V1.0 Wave 7 "Whiteboard" -- in-progress stroke preview, UNRELIABLE (loss is fine, latest-wins), see [sendWhiteboardPreview] KDoc. */
+        const val WHITEBOARD_PREVIEW_TOPIC = "lapis-whiteboard-preview"
+
+        /** V1.0 Wave 7 "Whiteboard" -- finished-stroke broadcast, RELIABLE, see [sendWhiteboardCommit] KDoc. */
+        const val WHITEBOARD_COMMIT_TOPIC = "lapis-whiteboard-commit"
     }
 }
