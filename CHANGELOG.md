@@ -6,7 +6,24 @@ All notable changes to this project are documented here. Format follows
 
 ## [Unreleased]
 
+## [0.11.0] — 2026-08-11
+
 ### Added
+
+**Videokonferenzen (Kleinsitzung) — a complete self-hosted, LiveKit-based video conferencing module
+for small meetings (≤25 participants), built across eight sequential waves and released together in
+this version.** Wave 1 (basic meetings) through Wave 8 (shared collaborative notes) are documented
+individually below, in the order they were built. Together they cover: real-time audio/video/screen-
+share/chat, server-side recording, external RTMP live-streaming, federated OIDC guest join, breakout
+rooms, a shared whiteboard, and shared collaborative notes — plus a full round of UI/UX design review,
+independent code review, and independent security audit for every wave, and independent live-browser
+verification against a real running LiveKit stack for every wave in this session, which is how several
+real bugs (never caught by any review/security pass, since none of them mount real DOM) were found and
+fixed — see each wave's own entry below for specifics. The most notable recurring one: a KVision
+`addCssClass()`/`addCssClasses()` API confusion (a space-separated multi-class string passed to the
+single-class function, throwing `DOMTokenList`'s `InvalidCharacterError` and crashing the affected
+panel on first open) surfaced independently in Waves 7 and 8, despite being a previously-documented
+known footgun (`Routing.kt`, first seen 2026-07-23) — worth a lint rule if it recurs again.
 
 **Videokonferenzen (Kleinsitzung), V1.0 Wave 3 „Externes Streaming" — RTMP-composited-egress live
 streaming to external platforms (YouTube/Twitch/PeerTube/Owncast/generic RTMP), on
@@ -236,6 +253,17 @@ still überschrieben.
   (4 Tests) wurden entfernt — der Cap schützte gegen ein Wachstumsmuster, das es nach dem Fix gar
   nicht mehr geben kann, weil ausschließlich `getNotesState`-Antworten (die bereits serverseitig
   gekappt sind) je in den lokalen Zustand geschrieben werden.
+- **Nachträglich bei der unabhängigen Merge-Verifikation gefunden — die DRITTE Wiederholung
+  desselben Musters in dieser Videokonferenzen-Serie (nach Wave 7 Whiteboard, davor bereits
+  2026-07-23 als bekannte Falle in `Routing.kt` dokumentiert): `addCssClass()` (Ein-Klassen-API)
+  wurde in `renderAddBlockForm` mit einem Leerzeichen-getrennten Drei-Klassen-String aufgerufen
+  (`"fw-bold small mb-1"`)**, was beim ersten Öffnen des Notizen-Panels dieselbe uncaught
+  `DOMTokenList`-`InvalidCharacterError`-Exception auslöste wie bei Whiteboard. Korrigiert auf
+  `addCssClasses()`; ein vollständiger, präziserer Sweep über den gesamten `lapis-client`-Baum
+  (auch nach klammerlosen Aufrufen ohne führenden Punkt, die frühere Suchen in dieser Serie
+  übersehen hatten) fand keine weiteren Vorkommen. Nach dem Fix live erneut verifiziert: Panel
+  öffnet fehlerfrei, Notizblock erstellen + bearbeiten (versionsbasierter Commit sichtbar bestätigt)
+  + „Als Dokument speichern" funktionieren End-to-End gegen einen echten lokalen LiveKit-Stack.
 
 **Videokonferenzen (Kleinsitzung), V1.0 Wave 7 „Whiteboard" — ein gemeinsames Zeichenbrett, auf dem
 Teilnehmende während einer Besprechung live zusammen zeichnen können, auf
@@ -312,6 +340,29 @@ Zeichenfläche ohne lokalen Präzedenzfall — kein neues Schema, keine neue Dat
   dokumentiert ist — Strich-Kappung und Punkt-Kappung unabhängig voneinander ausgelöst), und
   `ConferenceWhiteboardTeardownTest` (2, beweist Whiteboard-Zustand wird auf BEIDEN Teardown-Pfaden
   tatsächlich entfernt — `endRoom` UND der lazy `reconcileRoomIfDue`-Pfad).
+- **Sicherheits-Audit-Fixes (2 Runden).** (1) Die serverseitige Stroke-Validierung
+  (Punktzahl-Kappung, Koordinatengrenzen, Farbpalette, Strichbreite) griff ursprünglich nur auf dem
+  `commitStroke`-RPC-Pfad — der LiveKit-Data-Channel selbst wird vom Server grundsätzlich nie
+  beobachtet, ein Teilnehmender konnte daher beliebig große/ungültige Strokes direkt auf den Kanal
+  publizieren (unter Umgehung der UI) und damit den Rendering-Loop jedes anderen Teilnehmenden
+  einfrieren lassen, ganz ohne Rechteausweitung. **Fix**: eine neue geteilte Validierungsfunktion
+  (`WhiteboardStrokeWireDto.isStructurallyValid`) läuft jetzt auch auf dem EMPFANGSPFAD jedes
+  Clients — der Empfänger ist der einzige Enforcement-Punkt auf diesem Transport. (2) `strokeId`s
+  trugen keine Autorenbindung — jeder aktuelle Teilnehmende konnte einen beobachteten `strokeId` mit
+  eigenen Punkten/Farbe/Tool erneut committen und damit gezielt den gerenderten Strich eines anderen
+  Teilnehmenden auf jedem anderen offenen Panel überschreiben (Defacement), ohne je die
+  moderator-gated `clearBoard`-RPC anzufassen. **Fix**: First-Writer-Wins-Bindung an die
+  SDK-verifizierte `RemoteParticipant.identity` (nie aus der Payload gelesen, exakt das
+  Wave-1-Chat-Präzedenzfall-Muster).
+- **Nachträglich bei der unabhängigen Merge-Verifikation gefunden (nicht vom Review-/Security-Loop
+  erkannt, da beide nie echtes DOM mounten): `addCssClass()` (Ein-Klassen-API) wurde für „Board
+  leeren"/„Als Dokument speichern" mit einem Leerzeichen-getrennten Zwei-Klassen-String aufgerufen
+  (`"btn-sm ms-2"`)** — `DOMTokenList.add()` wirft dabei einen `InvalidCharacterError`, was beim
+  ersten Öffnen des Whiteboard-Panels eine uncaught exception auslöste und dabei sogar die
+  LiveKit-Verbindung destabilisierte (Reconnect-Schleife bis zum Aufgeben, sichtbar als
+  „Permission denied"-Fehlertoasts). Korrigiert auf `addCssClasses()`. Nach dem Fix live erneut
+  verifiziert: Panel öffnet fehlerfrei, echter Strich gezeichnet (Server-Roundtrip bestätigt), „Als
+  Dokument speichern" erzeugte ein echtes Dokument im „Whiteboards"-Ordner der Dokumentenablage.
 
 **Videokonferenzen (Kleinsitzung), V1.0 Wave 6 „Breakout-Räume" — a moderator can split an active
 meeting's participants into N temporary sub-sessions for small-group work and bring everyone back
