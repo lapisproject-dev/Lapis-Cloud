@@ -139,15 +139,21 @@
     </text>
     <path d="M 910.33 263.67 L 910.33 451 L 365.76 451 L 365.76 501" class="kuml-edge"/>
     <polygon points="365.76,501 360.76,489 370.76,489" style="stroke:#1D2B4F;stroke-width:1;fill:#1D2B4F;stroke-linejoin:round;"/>
-    <rect x="507.95" y="437" width="260.20" height="12" fill="white" stroke="none"/>
+    <rect x="548.25" y="437" width="179.60" height="24" fill="white" stroke="none"/>
     <text class="kuml-body" x="638.05" y="447" text-anchor="middle">
-      endRoom [moderator or global BOARD/ADMIN]
+      endRoom [moderator or global
+    </text>
+    <text class="kuml-body" x="638.05" y="459" text-anchor="middle">
+      BOARD/ADMIN]
     </text>
     <line x1="356.16" y1="411" x2="356.16" y2="501" class="kuml-edge"/>
     <polygon points="356.16,501 351.16,489 361.16,489" style="stroke:#1D2B4F;stroke-width:1;fill:#1D2B4F;stroke-linejoin:round;"/>
-    <rect x="226.06" y="442" width="260.20" height="12" fill="white" stroke="none"/>
+    <rect x="266.36" y="442" width="179.60" height="24" fill="white" stroke="none"/>
     <text class="kuml-body" x="356.16" y="452" text-anchor="middle">
-      endRoom [moderator or global BOARD/ADMIN]
+      endRoom [moderator or global
+    </text>
+    <text class="kuml-body" x="356.16" y="464" text-anchor="middle">
+      BOARD/ADMIN]
     </text>
     <path d="M 356.16 358 L 356.16 298 L 350.68 298 L 350.68 268" class="kuml-edge"/>
     <polygon points="350.68,268 355.68,280 345.68,280" style="stroke:#1D2B4F;stroke-width:1;fill:#1D2B4F;stroke-linejoin:round;"/>
@@ -163,9 +169,24 @@
     </text>
     <path d="M 175.56 268 L 175.56 441 L 351.36 441 L 351.36 501" class="kuml-edge"/>
     <polygon points="351.36,501 346.36,489 356.36,489" style="stroke:#1D2B4F;stroke-width:1;fill:#1D2B4F;stroke-linejoin:round;"/>
-    <rect x="-328.54" y="449" width="1184" height="12" fill="white" stroke="none"/>
+    <rect x="142.66" y="449" width="241.60" height="72" fill="white" stroke="none"/>
     <text class="kuml-body" x="263.46" y="459" text-anchor="middle">
-      listActiveRooms (any authenticated caller) [elapsed since empty &gt; empty_timeout AND LiveKit ListRooms no longer knows the room] / stamp endedAt server-side -- no webhook needed for this wave
+      listActiveRooms (any authenticated
+    </text>
+    <text class="kuml-body" x="263.46" y="471" text-anchor="middle">
+      caller) [elapsed since empty &gt;
+    </text>
+    <text class="kuml-body" x="263.46" y="483" text-anchor="middle">
+      empty_timeout AND LiveKit ListRooms no
+    </text>
+    <text class="kuml-body" x="263.46" y="495" text-anchor="middle">
+      longer knows the room] / stamp endedAt
+    </text>
+    <text class="kuml-body" x="263.46" y="507" text-anchor="middle">
+      server-side -- no webhook needed for
+    </text>
+    <text class="kuml-body" x="263.46" y="519" text-anchor="middle">
+      this wave
     </text>
   </g>
 </svg>
