@@ -8,6 +8,7 @@ import kotlinx.datetime.toInstant
 import kotlinx.datetime.toLocalDateTime
 import network.lapis.cloud.server.audit.AuditLogRecorder
 import network.lapis.cloud.server.conference.ConferenceConfig
+import network.lapis.cloud.server.conference.ConferenceNotesState
 import network.lapis.cloud.server.conference.ConferenceWhiteboardState
 import network.lapis.cloud.server.conference.LiveKitAccessToken
 import network.lapis.cloud.server.conference.LiveKitAdminClient
@@ -208,6 +209,14 @@ class ConferenceService(
      * map.
      */
     private val whiteboardState: ConferenceWhiteboardState = ConferenceWhiteboardState(),
+    /**
+     * V1.0 Wave 8 "Geteilte Notizen" -- same "constructed here, NOT left to the service's own
+     * constructor default" reasoning as [whiteboardState]'s own KDoc, and same default-argument
+     * escape hatch purely so pre-existing `ConferenceService(...)` test call sites that have no
+     * reason to know about notes state keep compiling unmodified -- nothing in THIS class ever
+     * reads notes state, it only ever calls [ConferenceNotesState.clear], a no-op on an empty map.
+     */
+    private val notesState: ConferenceNotesState = ConferenceNotesState(),
 ) : IConferenceService {
     override suspend fun getAvailability(): ConferenceAvailabilityDto {
         resolveCurrentMember(call)
@@ -549,6 +558,9 @@ class ConferenceService(
             // above), so it deliberately runs OUTSIDE the transaction rather than squeezed into it --
             // see ConferenceWhiteboardState KDoc "clear".
             whiteboardState.clear(id)
+            // V1.0 Wave 8 "Geteilte Notizen" -- same reasoning as whiteboardState.clear immediately
+            // above, see ConferenceNotesState KDoc "clear".
+            notesState.clear(id)
         }
         return transaction {
             val fresh = ConferenceRoomTable.selectAll().where { ConferenceRoomTable.id eq id }.single()
@@ -878,6 +890,9 @@ class ConferenceService(
         // closes exactly the "no unbounded accumulation... as rooms come and go" risk a room that is
         // only ever closed lazily (never via an explicit endRoom call) would otherwise leave open.
         whiteboardState.clear(id)
+        // V1.0 Wave 8 "Geteilte Notizen" -- same reasoning as whiteboardState.clear immediately
+        // above, see ConferenceNotesState KDoc "clear".
+        notesState.clear(id)
         return ConferenceRoomTable.selectAll().where { ConferenceRoomTable.id eq id }.single()
     }
 

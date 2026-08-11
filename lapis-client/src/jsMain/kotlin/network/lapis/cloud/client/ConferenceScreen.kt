@@ -51,6 +51,7 @@ import network.lapis.cloud.shared.domain.ConferenceStreamTargetDto
 import network.lapis.cloud.shared.domain.ConferenceStreamTargetStatus
 import network.lapis.cloud.shared.domain.DocumentAccessLevel
 import network.lapis.cloud.shared.rpc.IConferenceBreakoutService
+import network.lapis.cloud.shared.rpc.IConferenceNotesService
 import network.lapis.cloud.shared.rpc.IConferenceRecordingService
 import network.lapis.cloud.shared.rpc.IConferenceService
 import network.lapis.cloud.shared.rpc.IConferenceStreamingService
@@ -941,6 +942,13 @@ private fun enterCall(
     // (deliberate scope cut, mirrors Wave 6's "No breakout-room moderator").
     val whiteboardToggleButton =
         if (!isBreakout) controlsRow.button("Whiteboard", style = ButtonStyle.OUTLINESECONDARY) else null
+    // V1.0 Videokonferenzen, Wave 8 "Geteilte Notizen" -- same `!isBreakout` gate as
+    // whiteboardToggleButton immediately above, and for the identical reason (Wave 7's own audited
+    // "breakout whiteboard bleeds into main room" fix, task-list item #42 -- see
+    // ConferenceNotesController KDoc / IConferenceNotesService KDoc for why this closes off, by
+    // construction, the same class of bug for notes). No breakout-room-scoped notes exist in V1.
+    val notesToggleButton =
+        if (!isBreakout) controlsRow.button("Notizen", style = ButtonStyle.OUTLINESECONDARY) else null
     // Wave 6: inside a breakout room, "Zurück zum Hauptraum" is the everyday, low-stakes, FREQUENT
     // action and reads as the confident default (PRIMARY); "Besprechung ganz verlassen" is the
     // rarer, heavier one (SECONDARY) -- a deliberate INVERSION of the main room's own button-weight
@@ -2092,6 +2100,16 @@ private fun enterCall(
     // .getWhiteboardState KDoc.
     var whiteboardController: ConferenceWhiteboardController? = null
 
+    // --- Collapsible shared-notes side panel (V1.0 Wave 8 "Geteilte Notizen", off by default) -----
+    // Same `vPanel`/`hide()`/toggle-button pattern as chatPanel/whiteboardPanel above -- see
+    // ConferenceNotesController KDoc "Placement".
+    val notesPanel = callPanel.vPanel(spacing = 6) { addCssClasses("border rounded p-2") }
+    notesPanel.hide()
+    var notesOpen = false
+    // Constructed once per connect (mirrors whiteboardController's own "seed once per connect"
+    // pattern) -- see IConferenceNotesService.getNotesState KDoc "late-joiner seed".
+    var notesController: ConferenceNotesController? = null
+
     fun updateChatToggleLabel() {
         chatToggleButton.text = if (unreadChatCount > 0) "Chat ($unreadChatCount)" else "Chat"
     }
@@ -2516,6 +2534,12 @@ private fun enterCall(
             // the data channel does not exist until `session.connect(...)` itself has resolved.
             onWhiteboardPreview = { authorMemberId, _, stroke -> whiteboardController?.applyPreview(authorMemberId, stroke) },
             onWhiteboardCommit = { authorMemberId, _, stroke -> whiteboardController?.applyCommit(authorMemberId, stroke) },
+            // V1.0 Wave 8 "Geteilte Notizen" -- see LiveKitRoomSession KDoc "Notes trust boundary".
+            // `notesController` is `null` only in the brief window before the connect-success block
+            // below constructs it -- same reasoning as whiteboardController above.
+            onNotesCommit = { authorMemberId, authorDisplayName, broadcast ->
+                notesController?.applyCommitBroadcast(authorMemberId, authorDisplayName, broadcast)
+            },
             // Wave 4, D10 -- LiveKit's own reconnect signal, relayed verbatim by LiveKitRoomSession
             // (see that class's own KDoc "Reconnect signal").
             onReconnecting = { transition(ConferenceConnectionEvent.ReconnectingSignal) },
@@ -2630,6 +2654,12 @@ private fun enterCall(
                 ConferenceWhiteboardController(whiteboardPanel, room.id, canModerate, joinToken.identity, session)
             val whiteboardState = guarded { rpcService<IConferenceWhiteboardService>().getWhiteboardState(room.id) }
             if (whiteboardState != null) whiteboardController.applyState(whiteboardState)
+            // V1.0 Wave 8 "Geteilte Notizen" -- same "seed once per connect" pattern as
+            // whiteboardController immediately above.
+            notesController =
+                ConferenceNotesController(notesPanel, room.id, canModerate, joinToken.identity, session)
+            val notesState = guarded { rpcService<IConferenceNotesService>().getNotesState(room.id) }
+            if (notesState != null) notesController.applyState(notesState)
         }
         // Each device independently, each wrapped in its own `guarded {}` -- a missing/denied camera
         // or microphone must not abort the whole call (a member with no working device can still
@@ -2716,6 +2746,12 @@ private fun enterCall(
     whiteboardToggleButton?.onClick {
         whiteboardOpen = !whiteboardOpen
         if (whiteboardOpen) whiteboardPanel.show() else whiteboardPanel.hide()
+    }
+    // Review fix: `notesToggleButton` is `null` inside a breakout call -- see its own construction
+    // comment above -- so this wiring is a no-op there and the panel stays hidden.
+    notesToggleButton?.onClick {
+        notesOpen = !notesOpen
+        if (notesOpen) notesPanel.show() else notesPanel.hide()
     }
 
     fun sendChatMessage() {

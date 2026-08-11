@@ -5,6 +5,7 @@ import kotlinx.coroutines.await
 import kotlinx.serialization.json.Json
 import network.lapis.cloud.shared.domain.ConferenceChatMessage
 import network.lapis.cloud.shared.domain.ConferenceTurnServer
+import network.lapis.cloud.shared.domain.NoteBlockBroadcastDto
 import network.lapis.cloud.shared.domain.WhiteboardStrokeWireDto
 import network.lapis.cloud.shared.domain.isStructurallyValid
 import kotlin.js.unsafeCast
@@ -95,6 +96,28 @@ private external interface PublishDataOptions {
  * specifically so the two can never drift apart) before ever calling [onWhiteboardPreview]/
  * [onWhiteboardCommit] -- an oversized/out-of-bounds stroke is silently dropped, exactly like a
  * malformed [ConferenceChatMessage] JSON payload already is via [runCatching] here.
+ *
+ * **Notes trust boundary** (V1.0 Videokonferenzen Wave 8 "Geteilte Notizen", see
+ * [network.lapis.cloud.shared.rpc.IConferenceNotesService] KDoc). [onNotesCommit]'s AUTHOR
+ * parameters are always the SDK-verified [RemoteParticipant.identity]/`.name`, never anything
+ * client-supplied ([NoteBlockBroadcastDto] structurally carries no author field at all, same
+ * guarantee as [WhiteboardStrokeWireDto]), and [NoteBlockBroadcastDto.isStructurallyValid] is still
+ * mandatory before this even decodes/forwards a payload -- this server never observes data-channel
+ * traffic, so an oversized/malformed packet must be dropped here, a decoding-safety concern.
+ *
+ * **Security-audit fix -- a forged packet is NOT harmless here, unlike the reasoning this KDoc
+ * previously stated.** An earlier version of this KDoc argued a forged `lapis-notes-commit` packet
+ * "grants an attacker nothing they could not already do for real via `commitBlockEdit`" -- that was
+ * wrong. Nothing binds a broadcast's `content`/`version` to an actual server-CAS-accepted commit;
+ * unlike a real `commitBlockEdit` call, a forged packet never touches `ConferenceNotesState` at all,
+ * so it can DEFACE a block or inject a fake one in every other open panel while the true server state
+ * (and `saveAsDocument`'s export of it) stays untouched, and it can POISON another participant's
+ * locally-tracked base version into rejecting their own genuinely non-stale next save. See
+ * `ConferenceNotesController`'s class KDoc "Required change #3" for the fix: this class still relays
+ * every structurally-valid packet verbatim (unchanged below) -- the correction lives entirely on the
+ * RECEIVING side, where `ConferenceNotesController.applyCommitBroadcast` now treats the packet purely
+ * as a resync trigger and never writes its payload into local state directly.
+ * [sendNotesCommit] mirrors [sendChat]/[sendWhiteboardCommit]'s shape.
  */
 class LiveKitRoomSession(
     private val onRemoteTrack: (identity: String, displayName: String, track: Track, publication: TrackPublication) -> Unit,
@@ -107,6 +130,7 @@ class LiveKitRoomSession(
     private val onChat: (ConferenceChatMessage) -> Unit,
     private val onWhiteboardPreview: (authorMemberId: String, authorDisplayName: String, stroke: WhiteboardStrokeWireDto) -> Unit,
     private val onWhiteboardCommit: (authorMemberId: String, authorDisplayName: String, stroke: WhiteboardStrokeWireDto) -> Unit,
+    private val onNotesCommit: (authorMemberId: String, authorDisplayName: String, broadcast: NoteBlockBroadcastDto) -> Unit,
     private val onReconnecting: () -> Unit,
     private val onReconnected: () -> Unit,
     private val onDisconnected: () -> Unit,
@@ -232,6 +256,15 @@ class LiveKitRoomSession(
                         if (!stroke.isStructurallyValid()) return@on
                         onWhiteboardCommit(participant.identity, participant.name ?: participant.identity, stroke)
                     }
+                NOTES_COMMIT_TOPIC ->
+                    runCatching {
+                        val json = TextDecoder().decode(payload)
+                        val broadcast = Json.decodeFromString(NoteBlockBroadcastDto.serializer(), json)
+                        // Same enforcement-point reasoning as the whiteboard topics above -- see class
+                        // KDoc "Notes trust boundary".
+                        if (!broadcast.isStructurallyValid()) return@on
+                        onNotesCommit(participant.identity, participant.name ?: participant.identity, broadcast)
+                    }
                 else -> return@on
             }
         }
@@ -319,6 +352,25 @@ class LiveKitRoomSession(
         currentRoom.localParticipant.publishData(bytes, options).await()
     }
 
+    /**
+     * V1.0 Wave 8 "Geteilte Notizen" -- RELIABLE publish, same posture as [sendWhiteboardCommit]: a
+     * successfully committed block edit must not silently vanish for other currently-connected
+     * participants. Unlike whiteboard there is no unreliable preview sibling -- see
+     * [network.lapis.cloud.shared.rpc.IConferenceNotesService] KDoc "Real-time propagation" for why
+     * a block commit is a low-frequency, explicit-action event that does not need one.
+     */
+    suspend fun sendNotesCommit(broadcast: NoteBlockBroadcastDto) {
+        val currentRoom = room ?: return
+        val json = Json.encodeToString(NoteBlockBroadcastDto.serializer(), broadcast)
+        val bytes = TextEncoder().encode(json)
+        val options =
+            obj<PublishDataOptions> {
+                reliable = true
+                topic = NOTES_COMMIT_TOPIC
+            }
+        currentRoom.localParticipant.publishData(bytes, options).await()
+    }
+
     suspend fun disconnect() {
         room?.disconnect()?.await()
         room = null
@@ -333,5 +385,8 @@ class LiveKitRoomSession(
 
         /** V1.0 Wave 7 "Whiteboard" -- finished-stroke broadcast, RELIABLE, see [sendWhiteboardCommit] KDoc. */
         const val WHITEBOARD_COMMIT_TOPIC = "lapis-whiteboard-commit"
+
+        /** V1.0 Wave 8 "Geteilte Notizen" -- committed block-edit broadcast, RELIABLE, see [sendNotesCommit] KDoc. */
+        const val NOTES_COMMIT_TOPIC = "lapis-notes-commit"
     }
 }

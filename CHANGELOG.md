@@ -142,6 +142,101 @@ chips while `PAUSED` rather than rendering a contradicting "Live" status underne
 "ist unterbrochen" badge. Four new `ConferenceStreamingUiTest.kt` unit tests pin both the fix and the
 underlying `conferenceStreamBadgeVerbPhrase` mapping.
 
+**Videokonferenzen (Kleinsitzung), V1.0 Wave 8 „Geteilte Notizen" — ein gemeinsames,
+block-strukturiertes Notizdokument, an dem Teilnehmende während einer Besprechung zusammen
+schreiben können, auf `feature/video-konferenz-wave8-notizen`. Damit ist „den Rest" abgeschlossen —
+alle drei zuvor zurückgestellten Videokonferenzen-Domänen (Breakout-Räume, Whiteboard, geteilte
+Notizen) sind jetzt vollständig.** Kein OT/CRDT — bei „Kleinsitzung"-Größe (≤25 Teilnehmende) wäre
+echte zeichengenaue Echtzeit-Kollaboration ein mehrwöchiges Forschungsprojekt, unverhältnismäßig zum
+Rest dieses Codebase. Stattdessen: das Dokument ist eine Menge unabhängiger BLÖCKE (Absätze/
+Tagesordnungspunkte), jeder mit eigenem Versionszähler — ein veralteter Commit wird ABGELEHNT, nie
+still überschrieben.
+
+- **`IConferenceNotesService`** — eine SECHSTE, separate Konferenz-RPC-Schnittstelle
+  (`getNotesState`/`createBlock`/`commitBlockEdit`/`deleteBlock`/`saveAsDocument`), ohne eigenes
+  Verfügbarkeits-Gate (nutzt `ConferenceConfig.enabled` wie Whiteboard/Breakout). Autorisierung folgt
+  derselben STRENGEREN „aktuell offene Teilnahme"-Prüfung wie Whiteboard. Block anlegen/bearbeiten
+  steht jedem aktuellen Teilnehmenden offen (der kollaborative Grundgedanke dieser Welle — geteilte
+  Notizen gehören der Besprechung, nicht einer Autorin); Block LÖSCHEN ist auf den zuletzt
+  bearbeitenden Teilnehmenden ODER Moderation (Raum-Ersteller/globales BOARD/ADMIN) begrenzt — eine
+  bewusste, im Design-Review begründete Kombination zweier bestehender Muster (`MemberService`s
+  Eigenressource-oder-privilegiert-Muster; Whiteboards Moderator-oder-privilegiert-Muster), weil ein
+  Notizblock bis zu 8.000 Zeichen komponierter Prosa tragen kann — deutlich schwerer aus dem
+  Gedächtnis zu rekonstruieren als ein Tagesordnungspunkt-Titel.
+- **Versionsbasierte Optimistic-Concurrency-Kontrolle** (`ConferenceNotesState.tryEdit`) — dieselbe
+  `ConcurrentHashMap` + atomares-`compute()`-Idiom wie `ConferenceWhiteboardState`, aber mit einem
+  NEUEN Mechanismus, den Whiteboard nie brauchte: ein per-Block-Versionszähler, weil Notizblöcke (im
+  Gegensatz zu append-only Strichen) an Ort und Stelle mutiert werden. `commitBlockEdit` wirft bei
+  einer veralteten `baseVersion` bewusst KEINE Exception (Abweichung von `commitStroke`s Protokoll) —
+  ein Versionskonflikt ist hier ein ROUTINEMÄSSIGES, erwartetes Ergebnis des Nebeneinander-Bearbeitens,
+  nicht ein seltener Terminalfehler, und der Client braucht den vollen aktuellen Blockinhalt zurück, um
+  eine Rekonziliation anzubieten — das kann eine reine Nachrichten-Exception nicht sicher tragen.
+  Kappung: max. 300 Blöcke pro Raum UND max. 8.000 Zeichen pro Block (statt Whiteboards drei
+  Dimensionen genügen hier zwei — Position ist ein rein kosmetischer Sortierschlüssel ohne
+  Sicherheitsrelevanz, siehe `NoteBlockBroadcastDto.isStructurallyValid` KDoc).
+- **Live-Sync über den LiveKit-Data-Channel** — EIN neues, RELIABLE Topic (`lapis-notes-commit`, kein
+  UNRELIABLE-Preview-Pendant wie bei Whiteboard: Blockbearbeitung ist ein niederfrequentes,
+  explizites Aktions-Ereignis — Speichern-Button, nicht Tastenanschlag-für-Tastenanschlag). Löschen
+  wird NICHT propagiert — mirrort `clearBoard`s TATSÄCHLICHES (nicht nur dokumentiertes) Verhalten:
+  jedes andere offene Panel holt den Stand beim nächsten `getNotesState`-Refetch nach.
+- **„Als Dokument speichern"** — rendert die committeten Blöcke (positionssortiert, mit
+  Autor-Attribution je Block) zu einem Markdown-Dokument und archiviert es in die bestehende
+  Document/DocumentVersion-Ablage (Ordner „Notizen"), mit wählbarem `DocumentAccessLevel` — dieselbe
+  Brücke wie Whiteboards eigener Save-Pfad.
+- **Teardown bei Raumende — auf BEIDEN Pfaden**, exakt dieselbe Begründung wie Whiteboard
+  (`ConferenceService.endRoom`/lazy `reconcileRoomIfDue`).
+- **Client — `ConferenceNotesController`** (eigene Datei): ein einklappbares Panel wie Chat/Whiteboard,
+  Textarea + explizitem „Speichern"-Button pro Block (kein Auto-Commit bei Blur — kein einziges Formular
+  in diesem Codebase committet bei Blur, und Blur-Commit wäre in genau diesem UI gefährlich gewesen:
+  zum Video-Grid klicken hätte einen halbfertigen Satz still gespeichert). Konflikt-Banner mit zwei
+  Aktionen bei veralteter `baseVersion` — „Verwerfen und aktuelle Version übernehmen" / „Weiter
+  bearbeiten" —, BEIDE aktualisieren die lokal gehaltene `baseVersion`, damit ein erneuter
+  Speichern-Versuch tatsächlich gelingen kann (Design-Review Required Fix #2). Löschen bekommt eine
+  leichtgewichtige INLINE-Zweischritt-Bestätigung („Entfernen" → „Wirklich entfernen? Ja/Nein" an Ort
+  und Stelle) — bewusst weder Whiteboards schweres Tier-3-Modal noch die Tagesordnungsliste eigene
+  völlig reibungslose „Entfernen"-Aktion, sondern dazwischen.
+- **Design-Review Required Fix #1 (blocking) — Fokus-Schutz.** Anders als Whiteboard/Chat bettet dieses
+  Panel ein LIVE-EDITIERBARES Formularfeld direkt in dieselbe Struktur ein, die eingehende Broadcasts/
+  `applyState` sonst neu aufbauen würden. Ohne Schutz hätte ein tippender Teilnehmender seine Textarea
+  jedes Mal verlieren können, wenn IRGENDJEMAND ANDERS IRGENDEINEN Block speichert. `focusedBlockId`
+  (native `focus`/`blur`-DOM-Listener, dasselbe Raw-DOM-Muster wie `ConferenceScreen.kt`s eigener
+  Inline-Umbenennungs-Hook) schützt sowohl den sichtbaren Textarea-Wert als auch die lokal gehaltene
+  `editingBaseVersion` der fokussierten Zeile — letzteres ist der subtilere Teil: würde die Basisversion
+  während des Tippens still nachgezogen, würde ein späterer Speichern-Klick gegen Inhalt committen, den
+  die Person nie gesehen hat — ein stilles Last-Writer-Wins getarnt als normaler Save.
+- **Testing** — `NoteBlockBroadcastDtoValidationTest` (9, gemeinsame Struktur-Bounds),
+  `ConferenceNotesStateTest` (13, inkl. der verpflichteten Tamper-Tests: veraltete `baseVersion` lässt
+  den Blockinhalt UNVERÄNDERT, nicht-autorisierte Löschung wird FORBIDDEN mit unverändertem Zustand),
+  `ConferenceNotesServiceTest` (24, kompletter Happy-Path plus TOCTOU-Test plus die Pflicht-Tamper-Matrix
+  — nie beigetreten/bereits gegangen/nicht-autorisierte Löschung, jeweils mit Zustands-Nachweis über
+  einen Folge-`getNotesState`-Aufruf), `ConferenceNotesTeardownTest` (2, wie Whiteboard: `endRoom` UND
+  der lazy `reconcileRoomIfDue`-Pfad räumen tatsächlich auf).
+- **Sicherheits-Audit-Fix (2026-08-11) — Broadcast ist ein Resync-HINWEIS, nie eine Wahrheitsquelle
+  (major).** Die ursprüngliche `ConferenceNotesController.applyCommitBroadcast`-Fassung schrieb ein
+  über den `lapis-notes-commit`-Data-Channel empfangenes `NoteBlockBroadcastDto` direkt (Inhalt UND
+  Versionsnummer) in den lokalen Zustand — auf der (falschen) Annahme, das „gewähre einem Angreifer
+  nichts, was er nicht auch über `commitBlockEdit` legitim tun könnte". Da dieser Server
+  Data-Channel-Traffic grundsätzlich nie beobachtet, bindet nichts das Tupel `(blockId, content,
+  version)` an einen tatsächlich server-akzeptierten Commit: jeder aktuelle Teilnehmende (mit
+  gültigem LiveKit-Publish-Token, aber ohne jede echte `commitBlockEdit`/`createBlock`-Berechtigung
+  über die eigentliche Aktion hinaus) konnte einen bestehenden Block mit frei erfundenem Inhalt UND
+  künstlich hochgezählter Version verunstalten (korrekt der eigenen SDK-Identität zugeschrieben, aber
+  nie serverseitig persistiert), oder einen nie über `createBlock` angelegten Fake-Block einschleusen
+  — dabei still die lokal gehaltene `editingBaseVersion` anderer Teilnehmender vergiftet (deren
+  nächster, tatsächlich NICHT veralteter „Speichern"-Klick fortan fälschlich als Konflikt abgelehnt
+  wird), sichtbar-aber-nie-archiviert divergent von `saveAsDocument`s Export der echten Server-Wahrheit.
+  **Fix**: `applyCommitBroadcast` liest `content`/`version`/Autor-Felder des Pakets jetzt überhaupt
+  nicht mehr — das Paket dient nur noch als kantengetriggertes „etwas hat sich geändert"-Signal, das
+  (entkoppelt/gebündelt über `scheduleNotesRefresh`, 400ms Debounce, dasselbe Coalescing-Idiom wie
+  `ConferenceScreen.kt`s eigenes `scheduleGuestHomeserverRefresh`) einen echten `getNotesState`-Refetch
+  auslöst; nur dessen serverautoritative Antwort landet — über denselben `applyState`-Pfad, den auch
+  Late-Joiner nutzen, inklusive dessen Fokus-Schutz (Required Fix #1) — je im lokalen Modell. Der damit
+  gegenstandslos gewordene client-seitige Admission-Cap gegen gefälschte Blöcke
+  (`canAdmitRemoteNoteBlock`/`CLIENT_MAX_BLOCKS_PER_ROOM`) sowie `ConferenceNotesRemoteAdmissionTest`
+  (4 Tests) wurden entfernt — der Cap schützte gegen ein Wachstumsmuster, das es nach dem Fix gar
+  nicht mehr geben kann, weil ausschließlich `getNotesState`-Antworten (die bereits serverseitig
+  gekappt sind) je in den lokalen Zustand geschrieben werden.
+
 **Videokonferenzen (Kleinsitzung), V1.0 Wave 7 „Whiteboard" — ein gemeinsames Zeichenbrett, auf dem
 Teilnehmende während einer Besprechung live zusammen zeichnen können, auf
 `feature/video-konferenz-wave7-whiteboard`.** Wiederverwendet den LiveKit-Data-Channel-Transport (bis
