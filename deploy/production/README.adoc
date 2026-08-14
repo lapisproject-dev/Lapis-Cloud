@@ -17,6 +17,42 @@ Apache on the host is unchanged by this move: it still terminates TLS and revers
 * Docker Engine + `docker compose` v2 on the host.
 * A `.env` file in this directory (copy `.env.example`, fill in real secrets -- see that file's own
   comments). Never committed; the repo's `.gitignore` already excludes `.env*`.
+* **If the host has a hand-written nftables ruleset with a restrictive `forward` chain policy**
+  (as pdv2/VPS 4000 does, for example), see "Firewall (nftables) on a hardened host" below --
+  Docker will not work correctly without it, and the failure mode is confusing (DNS resolution
+  inside containers times out with no obvious firewall-related error).
+
+== Firewall (nftables) on a hardened host
+
+Found live during the VPS 4000 cutover: a hand-written `/etc/nftables.conf` with
+`chain forward { type filter hook forward priority 0; policy drop; }` and no rules in it (a
+reasonable default-deny posture for a host that, until Docker, forwarded nothing) silently breaks
+all Docker container networking -- `docker build` fails with `UnknownHostException` resolving
+`services.gradle.org`, and a plain `docker run alpine ping 1.1.1.1` gets 100% packet loss with no
+error.
+
+**Root cause**: Docker's own `dockerd`-managed `ip filter FORWARD` chain (iptables-nft) and this
+host's own `inet filter forward` chain are BOTH base chains hooked at the same point (`hook
+forward`). nftables evaluates every base chain at a given hook; Docker's chain correctly accepts
+its own container traffic, but the host's own chain -- empty, `policy drop` -- still drops that
+same traffic afterward, since an ACCEPT verdict in one base chain does not skip evaluation of
+sibling chains at the same hook.
+
+**Fix**: add explicit accept rules for Docker's interfaces to the host's own `forward` chain --
+`ct state established,related accept` plus `iifname`/`oifname` accepts for `docker0` and any
+compose-created bridge (`br-*`). Docker's own per-container isolation rules remain the real
+security boundary for what that traffic is allowed to do; this only stops the outer chain from
+re-blocking what Docker already permitted.
+
+**A second, easy-to-miss trap**: if you reload the ruleset with `nft -f /etc/nftables.conf` and
+that file starts with `flush ruleset` (the standard idiom, present in this host's own config), it
+deletes Docker's own dynamically-created `ip nat`/`ip filter` tables along with everything else --
+`dockerd` does not recreate them automatically. Container traffic keeps failing (now silently
+un-NAT'd: outbound packets leave the host's public interface with the container's private source
+IP, which upstream networks drop as unroutable/spoofed) until `systemctl restart docker`, which
+makes `dockerd` re-establish its own tables. If a `docker build`/`docker run` still can't reach the
+internet immediately after an nftables reload, restart Docker before assuming the ruleset itself is
+still wrong.
 
 == Quick start
 

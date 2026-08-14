@@ -24,6 +24,25 @@ before stopping the old service, which would have silently dropped any write mad
 bring-up/restore window. Also fixed during review: production webpack build's source map and
 LICENSE.txt were being copied into (and served from) the runtime image -- excluded now.
 
+**VPS 4000 test instance migrated end to end: bare-JVM/systemd/native-PostgreSQL -> Docker, old PZB
+and native PostgreSQL fully uninstalled**
+
+Ran the migration runbook above for real. Row counts for all 100 tables verified identical between
+the native and containerized PostgreSQL before removing anything. Found and fixed a host-level
+blocker not specific to this app: the VPS's hand-written nftables `forward` chain (`policy drop`,
+no rules) silently dropped all Docker container networking, even though Docker's own iptables-nft
+rules already permitted it -- both chains hook at the same point, and nftables evaluates every base
+chain at a hook regardless of what a sibling chain already accepted. Fixed by adding explicit
+accept rules for Docker's interfaces to the host's own chain (documented in
+`deploy/production/README.adoc` "Firewall (nftables) on a hardened host", including a second trap:
+reloading the ruleset with `flush ruleset` deletes Docker's own dynamically-created NAT/filter
+tables, requiring a `dockerd` restart to regenerate them).
+
+Old `pzb-server` package purged (`dpkg -l` confirms clean); native `postgresql-17` and its data
+directory removed after the migration was verified. The Apache vhost and Let's Encrypt renewal
+config (both still named `pzb-*` from the domain's history) were deliberately left untouched -- they
+are the live reverse-proxy/TLS termination for Lapis Cloud, not PZB.
+
 ### Fixed
 
 **IP-keyed rate limiters saw the reverse proxy's own address, not the real client — and a naive fix would have made it worse**
