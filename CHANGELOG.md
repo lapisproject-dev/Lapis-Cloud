@@ -6,6 +6,22 @@ All notable changes to this project are documented here. Format follows
 
 ## [Unreleased]
 
+### Fixed
+
+**Production client bundle rendered as completely unstyled HTML — `startApplication()` registered no KVision CSS modules**
+
+Found live during the first real production deployment (2026-08-14): every Bootstrap CSS class name
+was correctly present in the DOM, but no CSS rules backed any of them — the whole app rendered as raw
+browser-default HTML (plain blue links, default buttons, no navbar chrome, no icons). Root cause:
+`startApplication(::App)` in `App.kt` never registered `CoreModule`/`BootstrapModule`/`BootstrapCssModule`
+— KVision only `require()`s Bootstrap's CSS when the corresponding module is passed explicitly, it is
+not pulled in automatically just because `kvision-bootstrap` is a Gradle dependency. Fixed by passing
+those three modules to `startApplication`, plus explicitly enabling `cssSupport` in the Kotlin/JS
+webpack config (load-bearing, not a no-op — without it there is no webpack loader for the `.css`
+`require()` calls the modules make). Verified: production bundle grew 3.5 MiB → 4.55 MiB (Bootstrap
+CSS + embedded assets now inlined), full Bootstrap styling confirmed via screenshot against the exact
+production bundle served standalone (no proxy/deployment involved).
+
 ## [0.11.0] — 2026-08-11
 
 ### Added

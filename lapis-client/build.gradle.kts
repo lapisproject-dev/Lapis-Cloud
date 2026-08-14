@@ -16,6 +16,9 @@ kotlin {
         browser {
             commonWebpackConfig {
                 outputFileName = "main.bundle.js"
+                cssSupport {
+                    enabled.set(true)
+                }
             }
             testTask {
                 useKarma {

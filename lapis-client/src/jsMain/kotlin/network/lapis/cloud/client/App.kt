@@ -1,6 +1,9 @@
 package network.lapis.cloud.client
 
 import io.kvision.Application
+import io.kvision.BootstrapCssModule
+import io.kvision.BootstrapModule
+import io.kvision.CoreModule
 import io.kvision.html.Link
 import io.kvision.html.span
 import io.kvision.navbar.Nav
@@ -205,5 +208,13 @@ fun main() {
     // site across every screen file.
     Link.useDataNavigoForLinks = true
     registerRemoteTypes()
-    startApplication(::App)
+    // Bug fix: startApplication() previously registered no CSS modules at all -- KVision only
+    // requires Bootstrap's CSS (and its own base styles) when the corresponding module is passed
+    // here explicitly; it is NOT pulled in automatically just because kvision-bootstrap is a
+    // Gradle dependency. Without this, the app rendered as completely unstyled HTML (raw browser
+    // default link/button styling, no navbar chrome, no icons) despite every Bootstrap CSS class
+    // name being present in the DOM -- found live on the first real deployment (2026-08-14), where
+    // it had gone unnoticed because prior verification only checked RPC/functional behavior, never
+    // a visual screenshot of the production bundle.
+    startApplication(::App, null, CoreModule, BootstrapModule, BootstrapCssModule)
 }
