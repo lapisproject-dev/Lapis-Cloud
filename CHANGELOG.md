@@ -6,6 +6,24 @@ All notable changes to this project are documented here. Format follows
 
 ## [Unreleased]
 
+### Added
+
+**Production Docker deployment, replacing the bare-JVM + systemd + native-PostgreSQL setup**
+
+New repo-root `Dockerfile` (two-stage: `eclipse-temurin:25-jdk` build stage running
+`:lapis-server:installDist` + `:lapis-client:jsBrowserProductionWebpack`, `eclipse-temurin:25-jre`
+runtime stage, non-root user, client bundle baked in) and `deploy/production/docker-compose.yml`
+(`lapis-server` + `postgres:17.10`, secrets via untracked `.env`, named volumes for DB data and
+document storage). Apache stays unchanged -- it still reverse-proxies to `127.0.0.1:8080`, which the
+new container publishes the same way the old systemd unit did.
+
+`deploy/production/README.adoc` documents the migration runbook (stop old service -> dump ->
+restore into the new container -> verify -> only then decommission the old install), reviewed and
+corrected before use against the real VPS 4000 deployment: an earlier draft dumped the live database
+before stopping the old service, which would have silently dropped any write made during the
+bring-up/restore window. Also fixed during review: production webpack build's source map and
+LICENSE.txt were being copied into (and served from) the runtime image -- excluded now.
+
 ### Fixed
 
 **IP-keyed rate limiters saw the reverse proxy's own address, not the real client — and a naive fix would have made it worse**

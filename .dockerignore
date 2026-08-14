@@ -1,0 +1,13 @@
+.git
+.idea
+.gradle
+.kotlin
+build
+*/build
+*/*/build
+node_modules
+*/node_modules
+.claude
+deploy/local/egress-out
+*.env
+.env*

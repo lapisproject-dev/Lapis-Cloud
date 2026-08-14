@@ -1,0 +1,121 @@
+= Production Deployment (Docker)
+:toc:
+:toc-placement: preamble
+:icons: font
+
+Containerized production deployment for Lapis Cloud: `lapis-server` (built from the repo-root
+`Dockerfile`, with the `lapis-client` production bundle baked in) plus PostgreSQL, both managed by
+`docker-compose.yml` in this directory. Replaces the earlier bare-JVM-under-systemd +
+native-PostgreSQL setup used for the first test deployment (VPS 4000, `pzb.parteidervernunft.de`) --
+see that server's own infrastructure notes for the prior state and the migration this superseded.
+
+Apache on the host is unchanged by this move: it still terminates TLS and reverse-proxies to
+`127.0.0.1:8080`, which this compose file publishes exactly the way the old systemd unit did.
+
+== Prerequisites
+
+* Docker Engine + `docker compose` v2 on the host.
+* A `.env` file in this directory (copy `.env.example`, fill in real secrets -- see that file's own
+  comments). Never committed; the repo's `.gitignore` already excludes `.env*`.
+
+== Quick start
+
+[source,bash]
+----
+cd deploy/production
+cp .env.example .env   # fill in LAPIS_DB_PASSWORD / LAPIS_PUBLIC_BASE_URL
+docker compose up -d --build
+docker compose logs -f lapis-server
+----
+
+== Migrating from a prior bare-JVM + native-PostgreSQL deployment
+
+This is the exact procedure used to cut the VPS 4000 test instance over from the systemd/native-
+PostgreSQL setup to this containerized one, kept here as the reproducible runbook for any future host
+doing the same migration (a new pilot's own VPS, for example).
+
+**Order matters: stop the old service BEFORE dumping, not after restoring.** An earlier draft of
+this runbook dumped the live database first and only stopped the old systemd service after the
+restore -- any write landing in the old database during that window (bring-up + restore both take
+real time) would silently never make it into the new deployment, and would be permanently lost once
+the old install is later removed. The correct order accepts a short downtime window instead of a
+silent-data-loss window:
+
+. **Stop (don't yet disable) the old systemd service**, so nothing writes to the native database or
+  the document-storage directory while the dump is taken:
++
+[source,bash]
+----
+sudo systemctl stop lapis-cloud.service
+----
+
+. **Dump the existing database** from the now-quiesced native PostgreSQL instance:
++
+[source,bash]
+----
+pg_dump -U lapiscloud -h 127.0.0.1 -d lapiscloud -F c -f /tmp/lapiscloud.dump
+----
+
+. **Copy the old document-storage directory** (if any documents were ever uploaded -- check first;
+  on a fresh pilot this may be empty) into a location the new named volume can be seeded from:
++
+[source,bash]
+----
+sudo tar -C /var/lib/lapis-cloud/document-storage -cf /tmp/lapis-document-storage.tar .
+----
+
+. **Bring up only the `postgres` service** from this compose file (not `lapis-server` yet):
++
+[source,bash]
+----
+docker compose up -d postgres
+----
+
+. **Restore the dump into the container.** `--single-transaction` makes the restore atomic -- any
+  error rolls back the whole restore loudly instead of leaving a silently-partial database, which
+  plain `pg_restore`'s default per-object-error-tolerant behavior would not catch:
++
+[source,bash]
+----
+docker cp /tmp/lapiscloud.dump lapis-cloud-postgres:/tmp/lapiscloud.dump
+docker compose exec postgres pg_restore -U lapiscloud -d lapiscloud --no-owner --role=lapiscloud \
+    --single-transaction /tmp/lapiscloud.dump
+echo "exit code: $?"   # must be 0 -- do not proceed past a non-zero exit
+----
++
+Spot-check row counts on a few key tables against the source before proceeding, e.g.
+`docker compose exec postgres psql -U lapiscloud -d lapiscloud -c "SELECT count(*) FROM member;"`
+compared against the same query run on the old native database before it was stopped.
+
+. **Seed the document-storage volume** from the tarball made above (skip if it was empty):
++
+[source,bash]
+----
+docker run --rm -v lapis-cloud_lapis-document-storage:/target -v /tmp:/backup \
+    alpine tar -C /target -xf /backup/lapis-document-storage.tar
+----
+
+. **Start the containerized server** and verify:
++
+[source,bash]
+----
+docker compose up -d --build lapis-server
+docker compose logs -f lapis-server   # Flyway should report "Successfully validated N migrations"
+                                       # against the RESTORED schema, not a fresh baseline
+----
++
+Then verify end to end in a browser against the real public URL (login with an existing account,
+confirm previously-created data -- and any documents -- are visible) before treating the native
+PostgreSQL instance as disposable.
+
+. Only once the above is confirmed working: disable the old systemd unit, and the native
+  PostgreSQL packages/data directory and any now-fully-replaced prior service installation can be
+  removed from the host. This is a separate, deliberately later step -- do not remove the source of
+  truth before the migration target has been verified against real traffic.
+
+== Secrets
+
+`.env` in this directory is the only place production secrets for this stack live (database
+password today; LiveKit/coturn keys once the video-conferencing services are added here -- see
+`deploy/local/docker-compose.yml` for the dev-only equivalents of those, which must NOT be reused
+here). Never committed, never logged, never baked into the image.

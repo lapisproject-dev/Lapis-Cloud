@@ -1,0 +1,69 @@
+# Lapis Cloud -- PRODUCTION deployment. Replaces the earlier bare-JVM + systemd + native-PostgreSQL
+# setup (see the pdv2 server's own infrastructure notes for that prior state) with a self-contained
+# containerized stack: lapis-server (built from the repo-root Dockerfile, client bundle baked in)
+# + PostgreSQL. Apache on the host stays exactly as it was -- it still reverse-proxies
+# `https://<domain>/` to `127.0.0.1:8080`, which this compose file publishes the same way the old
+# systemd unit did, so no Apache vhost change is needed for this cutover.
+#
+# Usage (from this directory):
+#   cp .env.example .env   # fill in real secrets, never commit .env
+#   docker compose up -d --build
+#   docker compose logs -f lapis-server
+#
+# All secrets (DB password, LiveKit/coturn keys once the video-conferencing stack is added) live
+# ONLY in the untracked `.env` file on the host -- never in this file, matching this repo's
+# `deploy/local/docker-compose.yml` posture (see that file's own header) and the general house rule
+# against committed secrets.
+name: lapis-cloud
+
+services:
+  postgres:
+    # Pinned to the exact version the prior native install ran (17.10) -- matches this repo's
+    # pin-exact-versions posture (see gradle/libs.versions.toml, deploy/local/docker-compose.yml).
+    image: postgres:17.10
+    container_name: lapis-cloud-postgres
+    environment:
+      POSTGRES_DB: ${LAPIS_DB_NAME:-lapiscloud}
+      POSTGRES_USER: ${LAPIS_DB_USER:?LAPIS_DB_USER must be set in .env}
+      POSTGRES_PASSWORD: ${LAPIS_DB_PASSWORD:?LAPIS_DB_PASSWORD must be set in .env}
+    volumes:
+      - lapis-postgres-data:/var/lib/postgresql/data
+    # Loopback-only, and only needed at all for manual operator access (pg_dump/psql from the host)
+    # -- lapis-server reaches this over the compose-internal network by service name, never through
+    # this published port.
+    ports:
+      - "127.0.0.1:5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+  lapis-server:
+    build:
+      context: ../..
+      dockerfile: Dockerfile
+    container_name: lapis-cloud-server
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      LAPIS_DB_URL: jdbc:postgresql://postgres:5432/${LAPIS_DB_NAME:-lapiscloud}
+      LAPIS_DB_USER: ${LAPIS_DB_USER:?LAPIS_DB_USER must be set in .env}
+      LAPIS_DB_PASSWORD: ${LAPIS_DB_PASSWORD:?LAPIS_DB_PASSWORD must be set in .env}
+      LAPIS_PUBLIC_BASE_URL: ${LAPIS_PUBLIC_BASE_URL:?LAPIS_PUBLIC_BASE_URL must be set in .env}
+    volumes:
+      # Named volume, not a bind mount -- survives `docker compose up -d --build` image rebuilds/
+      # recreations, which a container's own writable layer would not. Matches
+      # LAPIS_DOCUMENT_STORAGE_ROOT baked into the Dockerfile (/app/document-storage).
+      - lapis-document-storage:/app/document-storage
+    ports:
+      # Loopback-only, matching the prior systemd deployment's Apache-proxies-to-127.0.0.1:8080
+      # setup exactly -- Apache's vhost config needs no change for this cutover.
+      - "127.0.0.1:8080:8080"
+    restart: unless-stopped
+
+volumes:
+  lapis-postgres-data:
+  lapis-document-storage:
