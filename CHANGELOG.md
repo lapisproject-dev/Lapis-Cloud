@@ -8,6 +8,21 @@ All notable changes to this project are documented here. Format follows
 
 ### Added
 
+**Video conferencing (Videokonferenzen Wave 1) in the production Docker stack**
+
+Adds `livekit`/`coturn` services to `deploy/production/docker-compose.yml`, scoped to live
+audio/video/screen-share/chat (Wave 1) only -- no `redis`/`egress`, so recording/streaming (Wave
+2/3) stay unavailable on this deployment for now (`ConferenceRecordingConfig` degrades gracefully).
+Unlike every other service in this stack, LiveKit's ICE ports (7881/tcp, 7882/udp) and coturn
+(3478 + relay range 51000-51019) are published publicly (`0.0.0.0`, not `127.0.0.1`) -- WebRTC
+media doesn't go through Apache's reverse proxy. Signaling (LiveKit port 7880) stays loopback-only,
+proxied through Apache on its own subdomain instead.
+
+New `livekit.yaml.template`/`turnserver.conf.template` + `render-secrets.sh` (envsubst-based,
+requires `.env`'s `LAPIS_PUBLIC_IP`/`LAPIS_LIVEKIT_API_SECRET`/`LAPIS_TURN_SECRET`) -- the rendered
+config files are gitignored, same posture as `.env` itself. `README.adoc` "Video conferencing"
+documents the full setup including the public-firewall-exposure requirement.
+
 **Production Docker deployment, replacing the bare-JVM + systemd + native-PostgreSQL setup**
 
 New repo-root `Dockerfile` (two-stage: `eclipse-temurin:25-jdk` build stage running

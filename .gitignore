@@ -125,4 +125,9 @@ gradle-app.setting
 .env.local
 *.env
 
+# Rendered from *.template by deploy/production/render-secrets.sh -- contain real
+# LiveKit/coturn secrets, never commit (the .template versions ARE committed).
+deploy/production/livekit.yaml
+deploy/production/turnserver.conf
+
 .DS_Store

@@ -53,6 +53,17 @@ services:
       LAPIS_DB_USER: ${LAPIS_DB_USER:?LAPIS_DB_USER must be set in .env}
       LAPIS_DB_PASSWORD: ${LAPIS_DB_PASSWORD:?LAPIS_DB_PASSWORD must be set in .env}
       LAPIS_PUBLIC_BASE_URL: ${LAPIS_PUBLIC_BASE_URL:?LAPIS_PUBLIC_BASE_URL must be set in .env}
+      # Video conferencing (Videokonferenzen Wave 1) -- see README.adoc "Video conferencing".
+      # LAPIS_LIVEKIT_URL is the PUBLIC wss:// origin browsers connect to (Apache-proxied);
+      # LAPIS_LIVEKIT_API_URL deliberately does NOT derive from it (ConferenceConfig.load()'s
+      # default derivation would round-trip server-to-LiveKit admin calls back out through Apache)
+      # -- it points at the compose-internal service name instead, same network, no TLS needed.
+      LAPIS_LIVEKIT_URL: ${LAPIS_LIVEKIT_URL:?LAPIS_LIVEKIT_URL must be set in .env}
+      LAPIS_LIVEKIT_API_URL: http://livekit:7880
+      LAPIS_LIVEKIT_API_KEY: ${LAPIS_LIVEKIT_API_KEY:?LAPIS_LIVEKIT_API_KEY must be set in .env}
+      LAPIS_LIVEKIT_API_SECRET: ${LAPIS_LIVEKIT_API_SECRET:?LAPIS_LIVEKIT_API_SECRET must be set in .env}
+      LAPIS_TURN_URLS: turn:${LAPIS_PUBLIC_IP:?LAPIS_PUBLIC_IP must be set in .env}:3478?transport=udp,turn:${LAPIS_PUBLIC_IP}:3478?transport=tcp
+      LAPIS_TURN_SHARED_SECRET: ${LAPIS_TURN_SECRET:?LAPIS_TURN_SECRET must be set in .env}
     volumes:
       # Named volume, not a bind mount -- survives `docker compose up -d --build` image rebuilds/
       # recreations, which a container's own writable layer would not. Matches
@@ -62,6 +73,47 @@ services:
       # Loopback-only, matching the prior systemd deployment's Apache-proxies-to-127.0.0.1:8080
       # setup exactly -- Apache's vhost config needs no change for this cutover.
       - "127.0.0.1:8080:8080"
+    restart: unless-stopped
+
+  # Video conferencing (Videokonferenzen Wave 1: live audio/video/screen-share/chat). Scoped to
+  # this wave only -- no redis/egress services here, so Wave 2 "Aufzeichnung"/Wave 3 "Externes
+  # Streaming" are not available on this deployment yet (ConferenceRecordingConfig degrades
+  # gracefully: recording composition is simply unavailable, logged once as a WARN at startup, not
+  # a failure). See deploy/local/docker-compose.yml for what adding those back would look like.
+  livekit:
+    image: livekit/livekit-server:v1.13.5
+    container_name: lapis-cloud-livekit
+    command: ["--config", "/etc/livekit.yaml"]
+    volumes:
+      # Rendered by render-secrets.sh from livekit.yaml.template -- see README.adoc.
+      - ./livekit.yaml:/etc/livekit.yaml:ro
+    ports:
+      # Signaling/HTTP/Twirp admin API -- loopback only. Apache reverse-proxies this publicly as
+      # wss://video.pzb.parteidervernunft.de; lapis-server itself reaches this over the
+      # compose-internal network by service name (LAPIS_LIVEKIT_API_URL above), never through this
+      # published port.
+      - "127.0.0.1:7880:7880"
+      # ICE/TCP fallback -- PUBLIC, unlike every other port in this file. Real browsers connect
+      # here directly for WebRTC media; this cannot go through Apache's HTTP reverse proxy.
+      - "7881:7881/tcp"
+      # ICE/UDP mux -- PUBLIC, single port (not a range) -- simpler firewall surface, matches
+      # deploy/local/livekit.yaml's own choice and LiveKit's recommended production default.
+      - "7882:7882/udp"
+    restart: unless-stopped
+
+  coturn:
+    image: coturn/coturn:4.17.0-alpine
+    container_name: lapis-cloud-coturn
+    command: ["-c", "/etc/coturn/turnserver.conf"]
+    volumes:
+      # Rendered by render-secrets.sh from turnserver.conf.template -- see README.adoc.
+      - ./turnserver.conf:/etc/coturn/turnserver.conf:ro
+    ports:
+      # PUBLIC -- coturn is a TURN relay; real browsers connect here directly when a direct/host
+      # ICE candidate fails (restrictive NAT, symmetric firewall, etc.).
+      - "3478:3478/udp"
+      - "3478:3478/tcp"
+      - "51000-51019:51000-51019/udp"
     restart: unless-stopped
 
 volumes:

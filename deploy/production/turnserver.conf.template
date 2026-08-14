@@ -1,0 +1,23 @@
+# Lapis Cloud -- PRODUCTION coturn config. This is a TEMPLATE, not the real file: the placeholders
+# below are substituted from deploy/production/.env by render-secrets.sh (see README.adoc "Video
+# conferencing"). The rendered turnserver.conf is gitignored -- never commit it.
+#
+# Mirrors deploy/local/turnserver.conf (see that file's own header for why `use-auth-secret`/
+# `static-auth-secret` is used instead of a static long-term username/credential pair -- coturn's
+# REST-API shared-secret scheme, same as dev: this value is never itself sent to a client,
+# `TurnCredentialMinter.kt` derives a fresh short-lived credential per `joinRoom` call from it). The
+# load-bearing PRODUCTION difference is `external-ip` below.
+listening-port=3478
+min-port=51000
+max-port=51019
+realm=pzb.parteidervernunft.de
+use-auth-secret
+static-auth-secret=${LAPIS_TURN_SECRET}
+# PRODUCTION: the VPS's real public IP, not 127.0.0.1 -- same reasoning as livekit.yaml's
+# `rtc.node_ip`. Without this, coturn advertises an address real clients cannot relay through.
+external-ip=${LAPIS_PUBLIC_IP}
+no-tls
+no-dtls
+fingerprint
+log-file=stdout
+no-cli

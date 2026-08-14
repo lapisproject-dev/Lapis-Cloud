@@ -1,0 +1,42 @@
+# Lapis Cloud -- PRODUCTION LiveKit config (Videokonferenzen Wave 1: live audio/video/screen-share/
+# chat). This is a TEMPLATE, not the real file: the placeholders below are substituted from
+# deploy/production/.env by render-secrets.sh (see README.adoc "Video conferencing"). The rendered
+# livekit.yaml is gitignored -- never commit it.
+#
+# Mirrors deploy/local/livekit.yaml's structure (see that file's own extensive KDoc-style comments
+# for the rationale behind each setting that carries over unchanged: no `--dev` flag/6-byte secret,
+# no static `turn_servers` block, embedded TURN disabled in favor of the sibling coturn service,
+# Redis intentionally omitted -- this deployment scopes to Wave 1 live calls only, not Wave 2
+# recording/Wave 3 streaming, which need the egress+redis services this production stack does not
+# run yet). The load-bearing PRODUCTION difference is `rtc.node_ip` below.
+port: 7880
+
+rtc:
+  tcp_port: 7881
+  # Single-port UDP mux, same choice as local dev (see that file's header) -- simpler firewall
+  # surface than a port range, and this is the LiveKit-recommended production default too.
+  udp_port: 7882
+  use_external_ip: false
+  # PRODUCTION: the VPS's real public IP, not 127.0.0.1. Real browsers on the internet need this
+  # advertised as the ICE host candidate -- without it, LiveKit would advertise its Docker-internal
+  # bridge address, which is unreachable from outside the host, and every call would go black with
+  # no error (the exact failure mode deploy/local/livekit.yaml's own comment describes for the
+  # Colima case, same root cause, different specific address).
+  node_ip: ${LAPIS_PUBLIC_IP}
+
+turn:
+  # Embedded TURN stays off -- coturn (the sibling service) is the external TURN server, same as
+  # local dev.
+  enabled: false
+
+room:
+  empty_timeout: 300
+  # Wave 1 "Kleinsitzung" ceiling, enforced at the SFU too -- not just in the RPC-layer
+  # ConferenceConfig.maxParticipants check. Matches deploy/local/livekit.yaml.
+  max_participants: 25
+
+keys:
+  ${LAPIS_LIVEKIT_API_KEY}: ${LAPIS_LIVEKIT_API_SECRET}
+
+logging:
+  level: info

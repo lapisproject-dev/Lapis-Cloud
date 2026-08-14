@@ -149,9 +149,48 @@ PostgreSQL instance as disposable.
   removed from the host. This is a separate, deliberately later step -- do not remove the source of
   truth before the migration target has been verified against real traffic.
 
+== Video conferencing
+
+Scoped to Videokonferenzen Wave 1 (live audio/video/screen-share/chat) only -- no `redis`/`egress`
+services here, so Wave 2 "Aufzeichnung"/Wave 3 "Externes Streaming" are not available on this
+deployment (the app degrades gracefully: `ConferenceRecordingConfig` just logs once that recording
+composition is unavailable). See `deploy/local/docker-compose.yml` if a future wave needs those
+added here too.
+
+Unlike everything else in this stack, LiveKit and coturn need **real public exposure** -- WebRTC
+media does not go through Apache's reverse proxy, browsers connect to them directly:
+
+* **Signaling** (LiveKit's HTTP/Twirp/WebSocket port, 7880) stays loopback-only and goes through
+  Apache instead, TLS-terminated on its own subdomain (`video.<domain>` by convention -- needs its
+  own DNS record and Let's Encrypt cert, separate from the main app's vhost, because LiveKit's own
+  path conventions and the app's Ktor routes would collide if reverse-proxied off the same origin).
+* **Media** (LiveKit's ICE TCP/UDP ports 7881/7882, and coturn's TURN port 3478 + relay range
+  51000-51019) must be reachable directly from the public internet -- published `0.0.0.0`, not
+  `127.0.0.1`, and the host firewall must allow inbound traffic to them (this host's own nftables
+  ruleset defaults to `policy drop` on everything not explicitly listed -- see that host's
+  `/etc/nftables.conf` for the exact accept rules this required).
+
+Setup:
+
+. Get the host's real public IPv4 and put it in `.env` as `LAPIS_PUBLIC_IP`. Generate
+  `LAPIS_LIVEKIT_API_SECRET`/`LAPIS_TURN_SECRET` with `openssl rand -base64 32` each (never reuse
+  one secret for both, never reuse `deploy/local`'s dev secrets). Point `LAPIS_LIVEKIT_URL` at the
+  public `wss://` origin the signaling subdomain will be reachable at.
+. `./render-secrets.sh` -- renders `livekit.yaml`/`turnserver.conf` from their `.template` files
+  using `.env` (requires `envsubst`, package `gettext-base` on Debian). Re-run this any time `.env`
+  changes; the rendered files are gitignored.
+. Set up the signaling subdomain's DNS record (A/AAAA, same IP as the main app), then Apache vhost
+  + Let's Encrypt cert for it, proxying to `127.0.0.1:7880` with `Upgrade: websocket` support
+  (same `RewriteCond %{HTTP:Upgrade}` pattern the main app's own vhost already uses for
+  `ws://127.0.0.1:8080`).
+. Open the firewall for the public media ports listed above, then
+  `docker compose up -d livekit coturn`.
+. Verify with a real two-participant call in a browser (see `deploy/local/README.adoc` "Live
+  verification results" for the same manual recipe against the dev stack).
+
 == Secrets
 
 `.env` in this directory is the only place production secrets for this stack live (database
-password today; LiveKit/coturn keys once the video-conferencing services are added here -- see
-`deploy/local/docker-compose.yml` for the dev-only equivalents of those, which must NOT be reused
-here). Never committed, never logged, never baked into the image.
+password, LiveKit API key/secret, coturn shared secret -- see `deploy/local/docker-compose.yml` for
+the dev-only equivalents of those, which must NOT be reused here). Never committed, never logged,
+never baked into the image.
