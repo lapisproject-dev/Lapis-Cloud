@@ -33,9 +33,16 @@ body {
 }
 
 /* Navbar: lapis-lazuli ground, papyrus text, gold on hover/active -- mirrors the "deep blue with
-   gold flecks" reading of the gem mark itself rather than an arbitrary accent choice. */
+   gold flecks" reading of the gem mark itself rather than an arbitrary accent choice.
+   `!important` is load-bearing here, not decorative: KVision's `navbar()` factory defaults
+   `bgColor` to `BsBgColor.BODYTERTIARY`, which renders Bootstrap's own `.bg-body-tertiary`
+   utility class -- and Bootstrap ships EVERY `.bg-*`/`.text-*` utility with `!important`
+   (see bootstrap.css), so a plain-specificity override here loses regardless of selector
+   weight or stylesheet order. Verified live: without `!important` the navbar rendered pale
+   gray (`.bg-body-tertiary`'s value), not the intended blue, despite `.lapis-navbar` having
+   higher selector specificity than `.bg-body-tertiary` alone. */
 .navbar.lapis-navbar {
-  background-color: var(--lapis-accent);
+  background-color: var(--lapis-accent) !important;
   border-bottom: 1px solid var(--lapis-fleck);
 }
 
