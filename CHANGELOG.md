@@ -49,6 +49,31 @@ webpack config (load-bearing, not a no-op — without it there is no webpack loa
 CSS + embedded assets now inlined), full Bootstrap styling confirmed via screenshot against the exact
 production bundle served standalone (no proxy/deployment involved).
 
+### Changed
+
+**Admin navbar was a flat, unstyled 20-entry list overflowing the viewport — regrouped into themed dropdowns with icons and Lapis branding, per the vault's mandatory UI/UX-Design-Team review**
+
+Reported live against the first production deployment (2026-08-14): after the CSS-module fix above,
+the navbar rendered with correct Bootstrap chrome but was still a single flat row of ~20 `navLink`s
+(the CSS fix only made Bootstrap load at all — no design pass had ever run). On a normal viewport
+width several entries fell off the right edge with no indication anything was cut off.
+
+Regrouped by mental model (Dashboard/Videokonferenz stay top-level as the two highest-frequency
+destinations; the rest moves into five dropdowns — Mitgliedschaft, Selbstverwaltung, Wirtschaft, and
+the role-gated Finanzen/Verwaltung/System) using KVision's `Nav.dropDown`/`ddLink`. Role-gating is
+byte-for-byte unchanged from the prior flat list — every route/role pair maps 1:1 onto the same three
+`AppState.hasRole(...)` tiers, independently re-verified against `master` during review. Added a Font
+Awesome icon (new `kvision-fontawesome` dependency) to every top-level link, dropdown, and dropdown
+item, plus to the right-side session display and logout link. Replaced the plain "Lapis Cloud" text
+brand with an inline SVG "faceted gem" mark — the exact polygon geometry from
+`cloud.lapisproject.dev`'s `Logo.astro`, not a reinterpretation — so the app and the marketing site
+read as one product. Added `theme.css` (papyrus/lapis-lazuli-blue/gold-pyrite-fleck palette, ported
+verbatim from that same site's `tokens.css`) replacing Bootstrap's default blue-and-white chrome.
+
+`./gradlew clean check` green (including ktlint); independently reviewed with a focused pass on the
+role-gating regroup (the one change class that could have caused a real access-control regression) —
+confirmed exact preservation of all three role tiers and all route mappings.
+
 ## [0.11.0] — 2026-08-11
 
 ### Added

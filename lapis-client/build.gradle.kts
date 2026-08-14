@@ -35,6 +35,9 @@ kotlin {
                 implementation(project(":lapis-shared"))
                 implementation(libs.kvision.core)
                 implementation(libs.kvision.bootstrap)
+                // UI/UX-Design-Team-Review 2026-08-14: Font Awesome webfont+CSS for the regrouped
+                // navbar's icons -- see libs.versions.toml entry KDoc.
+                implementation(libs.kvision.fontawesome)
                 // V0.7.3 Basis-Mehrseiten-UI: hash-based multi-screen routing (login/register/
                 // dashboard/members/contributions/documents/communication) -- see
                 // io.kvision.routing.Routing KDoc.

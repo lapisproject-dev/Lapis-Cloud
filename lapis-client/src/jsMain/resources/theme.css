@@ -1,0 +1,96 @@
+/*
+ * UI/UX-Design-Team-Review 2026-08-14 (navbar-overflow/icon/branding wave).
+ *
+ * Ports the "sunlit-limestone / papyrus neutrals + lapis-lazuli blue + gold pyrite fleck" palette
+ * already established for the Lapis Cloud family on cloud.lapisproject.dev (see that repo's
+ * src/styles/tokens.css) into the KVision admin client, which until now rendered with unmodified
+ * Bootstrap defaults (blue-and-white, no brand identity at all). Values below are copied verbatim
+ * from tokens.css's light-mode :root block -- deliberately not reinvented, so the deployed app and
+ * the public website read as the same product. Dark-mode tokens exist on the website but are not
+ * ported here: this app has no theme toggle yet, so a half-wired dark palette would just be dead
+ * code (Rams: no ornament without function).
+ */
+
+:root {
+  --lapis-bg: #F3E7C9;
+  --lapis-surface: #FBF3E0;
+  --lapis-text: #241C10;
+  --lapis-muted: #6E5A38;
+  --lapis-border: #D9C39A;
+  --lapis-accent: #234B87;
+  --lapis-accent-soft: #E2E9F4;
+  --lapis-accent-contrast: #FBF3E0;
+  --lapis-fleck: #C9A227;
+  /* No "Cinzel" here: the website bundles that webfont, this app doesn't (no npm/CDN font
+     dependency added for one brand-text span) -- Georgia is the honest fallback, not a stand-in
+     for a font that silently never loads. */
+  --lapis-font-display: Georgia, serif;
+}
+
+body {
+  background-color: var(--lapis-bg);
+  color: var(--lapis-text);
+}
+
+/* Navbar: lapis-lazuli ground, papyrus text, gold on hover/active -- mirrors the "deep blue with
+   gold flecks" reading of the gem mark itself rather than an arbitrary accent choice. */
+.navbar.lapis-navbar {
+  background-color: var(--lapis-accent);
+  border-bottom: 1px solid var(--lapis-fleck);
+}
+
+.lapis-navbar .navbar-brand,
+.lapis-navbar .nav-link,
+.lapis-navbar .dropdown-toggle {
+  color: var(--lapis-accent-contrast) !important;
+}
+
+.lapis-navbar .nav-link:hover,
+.lapis-navbar .nav-link:focus,
+.lapis-navbar .dropdown-toggle:hover,
+.lapis-navbar .dropdown-item:hover,
+.lapis-navbar .dropdown-item:focus {
+  color: var(--lapis-fleck) !important;
+}
+
+.lapis-navbar .dropdown-menu {
+  background-color: var(--lapis-surface);
+  border-color: var(--lapis-border);
+}
+
+.lapis-navbar .dropdown-item {
+  color: var(--lapis-text);
+}
+
+.lapis-navbar .dropdown-item:hover,
+.lapis-navbar .dropdown-item:focus {
+  background-color: var(--lapis-accent-soft);
+}
+
+.lapis-brand-mark {
+  color: var(--lapis-fleck);
+}
+
+.lapis-brand-text {
+  font-family: var(--lapis-font-display);
+  letter-spacing: 0.01em;
+}
+
+/* Primary buttons/links reuse the same accent instead of Bootstrap's default blue, so the chrome
+   and the content area read as one palette, not two competing blues. */
+.btn-primary {
+  background-color: var(--lapis-accent);
+  border-color: var(--lapis-accent);
+}
+
+.btn-primary:hover,
+.btn-primary:focus {
+  background-color: var(--lapis-fleck);
+  border-color: var(--lapis-fleck);
+}
+
+.card,
+.lapis-surface {
+  background-color: var(--lapis-surface);
+  border-color: var(--lapis-border);
+}
