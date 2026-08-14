@@ -89,7 +89,7 @@ services:
       - ./livekit.yaml:/etc/livekit.yaml:ro
     ports:
       # Signaling/HTTP/Twirp admin API -- loopback only. Apache reverse-proxies this publicly as
-      # wss://video.pzb.parteidervernunft.de; lapis-server itself reaches this over the
+      # wss://video.parteidervernunft.de; lapis-server itself reaches this over the
       # compose-internal network by service name (LAPIS_LIVEKIT_API_URL above), never through this
       # published port.
       - "127.0.0.1:7880:7880"

@@ -8,6 +8,16 @@ All notable changes to this project are documented here. Format follows
 
 ### Added
 
+**Video conferencing live on the VPS 4000 test instance**
+
+Deployed and live-verified against `https://pzb.parteidervernunft.de`. Signaling subdomain is
+`video.parteidervernunft.de` (DNS + Apache vhost + Let's Encrypt cert, proxying `wss://` to
+LiveKit's loopback-bound port 7880 with the same WebSocket-upgrade `RewriteCond` pattern the main
+app's own vhost already used). LiveKit's ICE ports (7881/tcp, 7882/udp) and coturn (3478 +
+51000-51019/udp) verified reachable from a genuinely external network. Browser console confirmed a
+full successful connection through the whole chain: `wss://video.parteidervernunft.de` signaling
+connect, LiveKit server handshake (`edition: 0, version: 1.13.5`), room join as moderator.
+
 **Video conferencing (Videokonferenzen Wave 1) in the production Docker stack**
 
 Adds `livekit`/`coturn` services to `deploy/production/docker-compose.yml`, scoped to live
