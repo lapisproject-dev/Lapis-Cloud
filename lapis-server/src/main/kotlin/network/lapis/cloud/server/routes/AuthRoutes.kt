@@ -5,6 +5,7 @@ import io.ktor.http.Cookie
 import io.ktor.http.CookieEncoding
 import io.ktor.http.HttpStatusCode
 import io.ktor.server.application.call
+import io.ktor.server.plugins.origin
 import io.ktor.server.request.receiveText
 import io.ktor.server.response.respond
 import io.ktor.server.response.respondText
@@ -118,7 +119,7 @@ fun Route.registerAuthRoutes(
 
         val normalizedEmail = request.email.trim().lowercase()
         val emailKey = "email:$normalizedEmail"
-        val ipKey = "ip:${call.request.local.remoteHost}"
+        val ipKey = "ip:${call.request.origin.remoteHost}"
         if (!rateLimiter.checkAllowed(emailKey) || !rateLimiter.checkAllowed(ipKey)) {
             call.respondText("Too many failed login attempts -- try again later", status = HttpStatusCode.TooManyRequests)
             return@post
@@ -218,7 +219,7 @@ fun Route.registerAuthRoutes(
 
         val normalizedEmail = request.email.trim().lowercase()
         val emailKey = "email:$normalizedEmail"
-        val ipKey = "ip:${call.request.local.remoteHost}"
+        val ipKey = "ip:${call.request.origin.remoteHost}"
         if (!passwordResetRateLimiter.checkAllowed(emailKey) || !passwordResetRateLimiter.checkAllowed(ipKey)) {
             call.respondText("Too many requests -- try again later", status = HttpStatusCode.TooManyRequests)
             return@post

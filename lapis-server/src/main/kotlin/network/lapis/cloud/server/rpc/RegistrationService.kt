@@ -1,5 +1,6 @@
 package network.lapis.cloud.server.rpc
 import io.ktor.server.application.ApplicationCall
+import io.ktor.server.plugins.origin
 import kotlinx.datetime.LocalDateTime
 import network.lapis.cloud.server.db.DbClock
 import network.lapis.cloud.server.db.generated.AccountTable
@@ -80,7 +81,7 @@ class RegistrationService(
     override suspend fun registerApplication(input: RegistrationInput) {
         val normalizedEmail = input.email.trim().lowercase()
         val emailKey = "email:$normalizedEmail"
-        val ipKey = "ip:${call.request.local.remoteHost}"
+        val ipKey = "ip:${call.request.origin.remoteHost}"
         if (!registrationRateLimiter.checkAllowed(emailKey) || !registrationRateLimiter.checkAllowed(ipKey)) {
             throw ConflictException("Too many registration attempts -- try again later")
         }

@@ -13,6 +13,7 @@ import io.ktor.server.netty.Netty
 import io.ktor.server.plugins.autohead.AutoHeadResponse
 import io.ktor.server.plugins.calllogging.CallLogging
 import io.ktor.server.plugins.compression.Compression
+import io.ktor.server.plugins.forwardedheaders.XForwardedHeaders
 import io.ktor.server.plugins.partialcontent.PartialContent
 import io.ktor.server.plugins.statuspages.StatusPages
 import io.ktor.server.response.respondText
@@ -350,6 +351,33 @@ fun Application.module() {
     val streamingMutateRateLimiter = FederationInboxRateLimiter(maxRequests = 30, window = 1.minutes)
     val streamingReadRateLimiter = FederationInboxRateLimiter(maxRequests = 60, window = 1.minutes)
 
+    // Fix (2026-08-14): must be installed BEFORE anything that reads call.request.origin (every
+    // plugin/route below, plus every IP-keyed rate limiter in AuthRoutes/RegistrationService/
+    // FederationRoutes/OidcRoutes) -- XForwardedHeaders overrides ApplicationRequest.origin from
+    // the X-Forwarded-For/-Proto/-Host headers a reverse proxy sets (verified live via tcpdump
+    // against the actual VPS 4000 test deployment's Apache config: mod_proxy adds these
+    // automatically, no explicit RequestHeader directive needed). Deliberately harmless when there
+    // is no reverse proxy in front (local dev, `./gradlew run`): with no X-Forwarded-* headers
+    // present, origin falls back to the same raw connection info it always had.
+    //
+    // Does NOT affect call.request.local, which every caller below explicitly avoids for exactly
+    // this reason -- see e.g. AuthRoutes.kt's own ipKey computation.
+    //
+    // useLastProxy() is REQUIRED, not cosmetic -- the zero-config default (useFirstProxy(), see
+    // XForwardedHeadersConfig) takes the FIRST comma-separated X-Forwarded-For entry. Verified live
+    // (tcpdump again) that Apache's mod_proxy_http APPENDS to, rather than replaces, an
+    // attacker-supplied X-Forwarded-For header: curling the public HTTPS endpoint with a
+    // self-supplied "X-Forwarded-For: 6.6.6.6-SPOOFED" arrived at this process as
+    // "X-Forwarded-For: 6.6.6.6-SPOOFED, <real client IP>". With the default config that spoofed
+    // first value would have become origin.remoteHost -- letting any external client defeat every
+    // IP-keyed rate limiter above by sending a fresh fake value per request, the exact opposite of
+    // this fix's purpose. useLastProxy() takes the LAST entry instead -- the one Apache itself just
+    // appended -- which is correct for and relies on this deployment's topology having exactly ONE
+    // trusted hop (Apache, on the same machine) between the internet and this process; if a second
+    // reverse proxy is ever added in front of Apache, this needs skipLastProxies(N) instead.
+    install(XForwardedHeaders) {
+        useLastProxy()
+    }
     install(CallLogging)
     install(Compression)
     // V0.7.3 Basis-Mehrseiten-UI: PartialContent (HTTP Range, for large JS/asset bundles) and

@@ -11,6 +11,7 @@ import io.ktor.http.HttpStatusCode
 import io.ktor.http.Parameters
 import io.ktor.http.isSuccess
 import io.ktor.server.application.call
+import io.ktor.server.plugins.origin
 import io.ktor.server.request.receiveParameters
 import io.ktor.server.request.receiveText
 import io.ktor.server.request.uri
@@ -349,7 +350,7 @@ fun Route.registerOidcRoutes(
     }
 
     post("/federation/oidc/register") {
-        val ipKey = "ip:${call.request.local.remoteHost}"
+        val ipKey = "ip:${call.request.origin.remoteHost}"
         if (!registrationRateLimiter.checkAllowed(ipKey)) {
             call.respond(HttpStatusCode.TooManyRequests, "Too many registration attempts -- try again later")
             return@post

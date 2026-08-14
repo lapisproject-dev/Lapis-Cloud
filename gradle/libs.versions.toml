@@ -51,6 +51,14 @@ ktor-server-content-negotiation = { module = "io.ktor:ktor-server-content-negoti
 ktor-serialization-kotlinx-json = { module = "io.ktor:ktor-serialization-kotlinx-json", version.ref = "ktor" }
 ktor-server-compression         = { module = "io.ktor:ktor-server-compression", version.ref = "ktor" }
 ktor-server-partial-content     = { module = "io.ktor:ktor-server-partial-content", version.ref = "ktor" }
+# Fix (2026-08-14): behind a reverse proxy (Apache on the VPS 4000 test deployment), every request's
+# raw TCP peer is the proxy's own loopback address, not the real client -- IP-based rate limiters
+# (AuthRoutes/RegistrationService/FederationRoutes/OidcRoutes) all keyed on this were silently
+# collapsing into one shared bucket across every user. XForwardedHeaders reads X-Forwarded-For/
+# -Proto/-Host (which mod_proxy sets automatically, verified live via tcpdump against the actual
+# deployment) and overrides ApplicationRequest.origin accordingly -- NOT .local, which always stays
+# the raw socket peer regardless of this plugin, see Application.kt's install() call site KDoc.
+ktor-server-forwarded-header    = { module = "io.ktor:ktor-server-forwarded-header", version.ref = "ktor" }
 ktor-server-auto-head-response  = { module = "io.ktor:ktor-server-auto-head-response", version.ref = "ktor" }
 ktor-server-status-pages        = { module = "io.ktor:ktor-server-status-pages", version.ref = "ktor" }
 ktor-server-test-host           = { module = "io.ktor:ktor-server-test-host", version.ref = "ktor" }

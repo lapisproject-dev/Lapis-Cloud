@@ -30,6 +30,7 @@ dependencies {
     implementation(libs.ktor.server.partial.content)
     implementation(libs.ktor.server.auto.head.response)
     implementation(libs.ktor.server.status.pages)
+    implementation(libs.ktor.server.forwarded.header)
     implementation(libs.logback.classic)
     // V0.5.5 DSGVO-Vollausbau: first kotlin-logging use in this module -- house rule (CLAUDE.md
     // "Kotlin-Code-Konvention") is kotlin-logging exclusively, never java.util.logging/direct

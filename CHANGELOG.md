@@ -8,6 +8,33 @@ All notable changes to this project are documented here. Format follows
 
 ### Fixed
 
+**IP-keyed rate limiters saw the reverse proxy's own address, not the real client — and a naive fix would have made it worse**
+
+Behind the Apache reverse proxy on the VPS 4000 test deployment, every request's raw TCP peer is the
+proxy's own loopback address — the login/password-reset limiter (`AuthRoutes`), registration flood
+guard (`RegistrationService`), OIDC dynamic-client-registration throttle (`OidcRoutes`), and federation
+inbox flood guard (`FederationRoutes`), all keyed on `call.request.local.remoteHost`, effectively
+collapsed into one shared bucket across every real client. Fixed by installing Ktor's
+`XForwardedHeaders` plugin and switching all five call sites to `call.request.origin.remoteHost` (the
+property the plugin actually overrides — `.local` never changes regardless of this plugin, verified
+against Ktor 3.5.1 source).
+
+**A second, independently-found issue made the first fix dangerous on its own**: Ktor's zero-config
+default (`useFirstProxy()`) trusts the *first* comma-separated `X-Forwarded-For` entry. Verified live
+via `tcpdump` against the real deployment that Apache's `mod_proxy_http` *appends* to, rather than
+replaces, a client-supplied `X-Forwarded-For` header — so an external attacker sending their own
+`X-Forwarded-For: <fake>` would have had that fake value trusted, letting them spoof a fresh IP on
+every request and fully bypass every rate limiter above. Fixed with
+`install(XForwardedHeaders) { useLastProxy() }`, which takes the header's *last* entry — the one
+Apache itself just appended — correct for and dependent on this deployment's single-trusted-proxy-hop
+topology (documented as an explicit invariant in `Application.kt` to revisit if a second reverse proxy
+is ever added in front of Apache).
+
+New `XForwardedHeadersTest` covers both the base mechanism and a dedicated spoofing-attempt regression
+test. `./gradlew clean check` green; independently reviewed twice (the second round specifically
+re-verifying the security fix, including edge cases for absent/single-value/malformed
+`X-Forwarded-For` headers).
+
 **Production client bundle rendered as completely unstyled HTML — `startApplication()` registered no KVision CSS modules**
 
 Found live during the first real production deployment (2026-08-14): every Bootstrap CSS class name

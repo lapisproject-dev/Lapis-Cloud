@@ -4,6 +4,7 @@ import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
 import io.ktor.server.application.ApplicationCall
 import io.ktor.server.application.call
+import io.ktor.server.plugins.origin
 import io.ktor.server.request.host
 import io.ktor.server.request.path
 import io.ktor.server.request.receiveChannel
@@ -156,7 +157,7 @@ fun Route.registerFederationRoutes(
     }
 
     post("/federation/inbox") {
-        val remoteHost = call.request.local.remoteHost
+        val remoteHost = call.request.origin.remoteHost
 
         // 1. Pure flood guard -- BEFORE any body read.
         if (!inboxRateLimiter.checkAndRecord(remoteHost)) {
