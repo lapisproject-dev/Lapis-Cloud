@@ -22,24 +22,33 @@ insecure: true # plain ws://, dev only -- same posture livekit.yaml's own header
 redis:
   address: redis:6379
 
-# V1.0 Videokonferenzen, Wave 3 "Externes Streaming" -- documented, commented-out `template_base`
-# knob. Room-Composite egress (ConferenceStreamLayout.GRID/SPEAKER) renders through a web page
-# loaded by CHROME INSIDE THIS CONTAINER, by default fetched from `https://template.livekit.io` --
-# `livekit/egress:v1.13.0` ships NO local templates (`find / -name '*.html' -path '*templ*'` is
-# empty in the image). In a network-restricted environment (that host unreachable), the egress
-# aborts with the exact signature:
-#   "status":"EGRESS_ABORTED","error":"Start signal not received","error_code":412,
-#   "details":"End reason: Source closed"
-# -- with a perfectly healthy room and an actively publishing participant. Recognize THIS signature
-# as "environment-blocked, re-verify template reachability", not a bug to debug from scratch (see
-# README.adoc "Wave 3 'Externes Streaming'" for the same disclosure and the Chrome-free
-# `ConferenceStreamLayout.SINGLE_PARTICIPANT` (`StartParticipantEgress`) path that needs neither
-# Chrome nor this template at all, and is therefore the offline-verifiable one).
+# V1.0 Videokonferenzen, Wave 3 "Externes Streaming" -- `template_base` knob, commented out.
 #
-# `template_base` is a real, present config key in the egress binary. Uncomment and point it at a
-# self-hosted mirror of https://github.com/livekit/egress/tree/main/template-default if/when this
-# deployment needs Room-Composite egress to work without reaching template.livekit.io. Self-hosting
-# a Lapis-owned template is explicitly a LATER wave's job (see the Wave 3 plan's own "Explicitly out
-# of scope" list, "No self-hosted Room-Composite template") -- flagged there as a genuine tension
-# with the "Datenverarbeitung ist server-lokal" doctrine, not fixed in this wave.
-# template_base: http://your-self-hosted-template-mirror:PORT
+# CORRECTED 2026-08-15 (this comment previously claimed the opposite and was WRONG -- do not revert
+# to that version): Room-Composite egress (ConferenceStreamLayout.GRID/SPEAKER) renders through a web
+# page loaded by CHROME INSIDE THIS CONTAINER, but that page is served LOCALLY, not fetched from
+# `https://template.livekit.io`. The `livekit/egress:v1.13.0` binary embeds the `template-default`
+# React app directly into itself at build time (`cmd/server/main.go`: `//go:embed templates` +
+# `svc.StartTemplatesServer(rfs)`) and serves it on `:7980` inside the SAME container whenever
+# `template_base` is unset (`pkg/config`: `defaultTemplateBase = "http://localhost:%d/"`,
+# `defaultTemplatePort = 7980`) -- exactly the state below. The earlier "ships NO local templates"
+# claim came from `find / -name '*.html' -path '*templ*'` finding nothing on disk, which is
+# consistent with `go:embed` (the assets live inside the compiled binary, never written out as loose
+# files) and does NOT mean no template server runs. Verified live on the production deployment
+# 2026-08-15: `curl localhost:7980/` inside the egress container returns 200 with `template_base`
+# left unset, as here.
+#
+# The REAL cause of the "Start signal not received"/code 412 abort signature, found the same day on
+# production: this service's default 64MB `/dev/shm` is too small for Chrome's renderer/GPU buffers
+# in docker-compose.yml -- Chrome loads the (working, local) template page fine but the render
+# pipeline never reaches a ready state, so egress waits out its own startup timeout and aborts. Fixed
+# via `shm_size: 1gb` on this service in docker-compose.yml, not via anything in this file. If you
+# still see this exact signature after that fix, re-check `docker exec <egress-container> sh -c 'df -h
+# /dev/shm'` before assuming a template/network issue again -- `ConferenceStreamLayout.SINGLE_PARTICIPANT`
+# (`StartParticipantEgress`) never launches Chrome at all and is the fastest way to confirm the rest
+# of the pipeline (LiveKit, Redis, RTMP destination) is healthy while debugging this.
+#
+# `template_base` remains available for a genuinely CUSTOM template (different branding/layout, not
+# a reachability workaround) -- point it at a self-hosted mirror of
+# https://github.com/livekit/egress/tree/main/template-default if/when that need arises:
+# template_base: http://your-custom-template-server:PORT

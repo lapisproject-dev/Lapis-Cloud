@@ -8,6 +8,38 @@ All notable changes to this project are documented here. Format follows
 
 ### Fixed
 
+**Wave 3 GRID/SPEAKER egress ("Galerie"/"Sprecher" layouts) never actually worked in production**
+
+Every attempt at a `GRID`/`SPEAKER` external RTMP stream aborted with `"Start signal not received"`
+(code 412) -- confirmed live on pdv2, 2026-08-15. Root cause: the shared `egress` service's default
+64MB `/dev/shm` (Docker's own default, never overridden) is far too small for Chrome's
+renderer/GPU buffers; Chrome loads and runs but the render pipeline never reaches a ready state, so
+egress waits out its own startup timeout and aborts. Fixed by adding `shm_size: '1gb'` to the
+`egress` service in both `deploy/production/docker-compose.yml` and `deploy/local/docker-compose.yml`.
+
+This investigation also corrected a **wrong assumption already present in this repo's own docs**:
+`egress.yaml.template`/`deploy/local/egress.yaml`/`README.adoc` all claimed `GRID`/`SPEAKER` fetch
+their Chrome template page from a hosted `https://template.livekit.io` and would fail if that host
+were unreachable. In fact `livekit/egress:v1.13.0` bundles the template app directly into the
+binary via Go's `//go:embed` and serves it locally on `:7980` inside the same container whenever
+`template_base` is unset -- verified both by reading the upstream source
+(`cmd/server/main.go`/`pkg/config/service.go`) and live (`curl localhost:7980/` inside the egress
+container returns 200). The earlier "ships no local templates" claim came from a `find -name
+'*.html'` check that can never find `go:embed`-compiled assets, not from an actual absence of a
+template server. All three files' comments corrected to describe the real (shm-size) cause instead,
+so a future session doesn't chase DNS/network reachability again. `ConferenceStreamLayout.SINGLE_PARTICIPANT`
+(Chrome-free, SDK-based) was unaffected throughout and is now documented as the fastest way to
+isolate a Chrome-specific regression from the rest of the pipeline.
+
+Also fixed live on pdv2: the shared `lapis-egress-output` named volume was owned `lapiscloud:lapiscloud`
+(the `lapis-server` container's UID/GID) with `755` permissions -- the `egress` container's own
+non-root user (a different UID, GID 0) could create nothing inside it, so every recording attempt
+failed with `mkdir /out/<uuid>/: permission denied`. Fixed by `chgrp 0` + `chmod 2775` (setgid) on
+the volume's host-side directory, which both containers can now write/read correctly (`lapis-server`
+as owner, `egress` via the shared root group, both already-created content readable by "others").
+No compose/code change needed for this one -- purely a one-time permission fix on the existing volume;
+documented here so a future volume recreation on another host repeats it.
+
 **Wave 3 "Externes Streaming" was missing its two enabling env vars in production**
 
 `deploy/production/docker-compose.yml` set `LAPIS_RECORDING_ENABLED` (Wave 2) but never

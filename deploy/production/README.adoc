@@ -256,10 +256,15 @@ the main app's vhost.
   verification results" for the same manual recipe against the dev stack). Verify Wave 2 by
   starting a recording, ending the call, and confirming a composed recording lands in the org's
   document storage once `RecordingPoller` picks it up (poll interval `LAPIS_RECORDING_POLL_INTERVAL_SECONDS`,
-  default 10s). Verify Wave 3's Chrome-free path (`ConferenceStreamLayout.SINGLE_PARTICIPANT`) with
-  a real external RTMP target -- `GRID`/`SPEAKER` layouts additionally need this host to reach
-  `https://template.livekit.io` (see `egress.yaml.template`'s own comment for the exact failure
-  signature if it can't, and the `template_base` self-hosting escape hatch).
+  default 10s). Verify Wave 3 with a real external RTMP target, ideally in `GRID`/`SPEAKER` layout
+  (not just the Chrome-free `SINGLE_PARTICIPANT` path) -- `GRID`/`SPEAKER` render through Chrome
+  inside the `egress` container, which needs the `shm_size: 1gb` setting already on that service in
+  `docker-compose.yml` (Docker's 64MB default is not enough for Chrome's renderer; undersized, egress
+  aborts with "Start signal not received", found live on this exact deployment 2026-08-15 -- see
+  `egress.yaml.template`'s own comment for the full diagnosis, including why this is NOT a
+  `template.livekit.io`-reachability issue despite older assumptions in this repo's history). If
+  `GRID`/`SPEAKER` still fail after that, `docker exec <egress-container> sh -c 'df -h /dev/shm'`
+  first before assuming a template/network problem again.
 
 `ffmpeg` (needed to compose Wave 2's raw per-track recordings into one gallery video) is baked into
 the `lapis-server` image itself (see repo-root `Dockerfile`) -- nothing extra to install on the

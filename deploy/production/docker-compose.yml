@@ -187,6 +187,15 @@ services:
       - /tmp # egress scratch space, matches deploy/local/docker-compose.yml
     cap_add:
       - SYS_ADMIN # documented as required since egress v1.7.6 (Chrome sandbox, Room-Composite egress)
+    # Chrome (Room-Composite/GRID/SPEAKER egress -- the local template server on :7980 embedded in
+    # the egress binary itself works fine without this, this is purely a Chrome-in-Docker resource
+    # requirement) needs far more shared memory than Docker's 64MB default for its renderer/GPU
+    # process buffers. Undersized: Chrome's page never reaches a working render state, egress waits
+    # out its own startup timeout and aborts with "Start signal not received" (code 412) -- found
+    # 2026-08-15 live on pdv2 (SDK-based ConferenceStreamLayout.SINGLE_PARTICIPANT, which never
+    # launches Chrome, worked throughout; GRID never did). 1gb matches the widely-documented
+    # Chrome-in-Docker recommendation.
+    shm_size: '1gb'
     depends_on: [redis, livekit]
     networks: [internal]
     restart: unless-stopped

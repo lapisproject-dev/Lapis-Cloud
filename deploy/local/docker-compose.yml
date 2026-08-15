@@ -101,6 +101,13 @@ services:
     cap_add:
       - SYS_ADMIN # documented as required since egress v1.7.6 (Chrome sandbox); Track Egress itself
       # never launches Chrome, but the image expects the cap and it is cheap to grant in a dev stack.
+    # Chrome (Room-Composite/GRID/SPEAKER egress) needs far more shared memory than Docker's 64MB
+    # default for its renderer/GPU process buffers -- undersized, Chrome's page never reaches a
+    # working render state and egress aborts with "Start signal not received" (code 412) after its
+    # own startup timeout. Found 2026-08-15 live on the production deployment (see that
+    # docker-compose.yml's own comment on this same setting for the full diagnosis); mirrored here
+    # so local dev doesn't hit the identical failure the first time someone tests GRID/SPEAKER.
+    shm_size: '1gb'
     depends_on: [redis, livekit]
     restart: unless-stopped
     # No published ports -- egress is driven entirely through Redis; nothing outside the compose

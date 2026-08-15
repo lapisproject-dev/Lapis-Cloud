@@ -20,11 +20,30 @@ redis:
   address: redis:6379
 
 # Wave 3 "Externes Streaming" -- Room-Composite egress (ConferenceStreamLayout.GRID/SPEAKER) renders
-# through a web page loaded by Chrome INSIDE the egress container, by default fetched from
-# https://template.livekit.io. If this host cannot reach that origin, Room-Composite egress aborts
-# with "Start signal not received" (see deploy/local/egress.yaml's own header for the exact
-# signature) -- ConferenceStreamLayout.SINGLE_PARTICIPANT (StartParticipantEgress) needs neither
-# Chrome nor this template and works regardless. Self-hosting a Lapis-owned template mirror is
-# explicitly a LATER wave's job (see deploy/local/egress.yaml's own comment) -- uncomment and point
-# `template_base` at one if/when this deployment needs Room-Composite egress to work offline.
-# template_base: http://your-self-hosted-template-mirror:PORT
+# through a web page loaded by Chrome INSIDE the egress container.
+#
+# CORRECTED 2026-08-15 (was wrong before): despite older assumptions about a hosted
+# `https://template.livekit.io` default, the actual v1.13.0 binary bundles the templates INSIDE
+# itself (`cmd/server/main.go`: `//go:embed templates` + `svc.StartTemplatesServer(rfs)`) -- the
+# `template-default` React app is compiled and embedded into the Go binary at build time, never
+# written to disk as loose `.html` files (which is why an earlier `find -name '*.html'` check in this
+# repo's history found nothing and wrongly concluded there was no local template). `pkg/config`:
+# `defaultTemplateBase = "http://localhost:%d/"`, `defaultTemplatePort = 7980` -- this embedded
+# server runs on :7980 inside the SAME container whenever `template_base` is unset, exactly as below.
+# Verified live: `curl localhost:7980/` inside the egress container returns 200. No external
+# reachability, no self-hosted mirror, and no `template_base` override are needed for the built-in
+# templates to work -- do NOT uncomment the line below on the assumption that fixes anything; it did
+# not, in either direction.
+#
+# The REAL cause of "Start signal not received" (code 412) on GRID/SPEAKER, found the same day: this
+# service's default 64MB /dev/shm is too small for Chrome's renderer/GPU buffers -- Chrome loads the
+# (working, local) template page but the render pipeline never reaches a ready state, egress waits out
+# its own startup timeout and aborts. Fixed via this service's own `shm_size: 1gb` setting below, not
+# via anything in this file. ConferenceStreamLayout.SINGLE_PARTICIPANT (StartParticipantEgress) never
+# launches Chrome at all and was unaffected throughout -- useful as an immediate fallback if GRID/
+# SPEAKER ever regress again.
+#
+# `template_base` remains available for a genuinely CUSTOM template (different branding/layout, not a
+# reachability workaround) -- point it at a `livekit/egress-templates`-based mirror if/when that need
+# arises:
+# template_base: http://your-custom-template-server:PORT
