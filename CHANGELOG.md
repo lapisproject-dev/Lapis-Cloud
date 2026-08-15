@@ -6,6 +6,24 @@ All notable changes to this project are documented here. Format follows
 
 ## [Unreleased]
 
+### Fixed
+
+**Wave 3 "Externes Streaming" was missing its two enabling env vars in production**
+
+`deploy/production/docker-compose.yml` set `LAPIS_RECORDING_ENABLED` (Wave 2) but never
+`LAPIS_STREAMING_ENABLED`/`LAPIS_SECRET_ENCRYPTION_KEY` (Wave 3), even though the `redis`/`egress`
+containers and all streaming code were already in place. Every streaming RPC
+(list/create/start/pause/resume/stop destinations) failed `requireStreamingEnabled()` with a
+generic `ConflictException`, surfaced client-side as the same static "Konflikt"-toast the client
+shows for *any* conflict (`AppState.guarded {}` never forwards the server's actual exception
+message — see its own KDoc) — indistinguishable from an unrelated duplicate-label conflict on the
+same screen, which delayed diagnosis. Fixed: `docker-compose.yml` now hardcodes
+`LAPIS_STREAMING_ENABLED: "true"` and requires `LAPIS_SECRET_ENCRYPTION_KEY` from `.env`;
+`.env.example`/`README.adoc` document the new key (`openssl rand -base64 32`, a AES-256-GCM key
+distinct from the LiveKit/TURN secrets, used by `SecretBox` to encrypt RTMP stream keys at rest).
+Deployed live on pdv2 (2026-08-15): key generated, `.env` updated, `lapis-server` recreated,
+verified via container env + startup logs, both domains still 200.
+
 ### Changed
 
 **pdv2's reverse proxy migrated from Apache to Caddy**

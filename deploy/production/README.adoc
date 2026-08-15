@@ -222,6 +222,15 @@ Setup:
   public `wss://` origin the signaling subdomain will be reachable at. No SEPARATE secret is needed
   for `egress` -- it authenticates against LiveKit's own Twirp API using the SAME
   `LAPIS_LIVEKIT_API_KEY`/`LAPIS_LIVEKIT_API_SECRET` pair.
+. **Wave 3 "Externes Streaming" specifically** (Wave 1/2 work without this): generate a THIRD,
+  separate secret with `openssl rand -base64 32` and put it in `.env` as
+  `LAPIS_SECRET_ENCRYPTION_KEY` -- this is the AES-256-GCM key `SecretBox` uses to encrypt stream
+  destination RTMP keys at rest, unrelated to the LiveKit/TURN secrets above. `docker-compose.yml`
+  already hardcodes `LAPIS_STREAMING_ENABLED: "true"`, so this key is the only Wave-3-specific value
+  this step needs from `.env`. Missing/invalid, `ConferenceStreamingService` fails every streaming
+  RPC (list/create/start/pause/resume/stop) with a generic conflict error -- easy to miss because
+  Wave 1/2 (calls, recording) keep working fine and the failure only surfaces once someone actually
+  opens the Stream-Ziele admin screen.
 . `./render-secrets.sh` -- renders `livekit.yaml`/`turnserver.conf`/`egress.yaml` from their
   `.template` files using `.env` (requires `envsubst`, package `gettext-base` on Debian). Re-run
   this any time `.env` changes; the rendered files are gitignored.

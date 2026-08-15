@@ -88,6 +88,13 @@ services:
       LAPIS_RECORDING_ENABLED: "true"
       LAPIS_EGRESS_OUTPUT_CONTAINER_DIR: /out
       LAPIS_EGRESS_OUTPUT_HOST_DIR: /app/egress-out
+      # Wave 3 "Externes Streaming" specifically (recording above works without these two --
+      # ConferenceStreamingConfig gates external RTMP egress on its OWN enabled flag, see its
+      # KDoc). LAPIS_SECRET_ENCRYPTION_KEY is the AES-256-GCM key SecretBox uses to encrypt
+      # stream destination RTMP keys at rest (32 raw bytes, base64-encoded) -- generate with
+      # `openssl rand -base64 32`, never reuse across deployments.
+      LAPIS_STREAMING_ENABLED: "true"
+      LAPIS_SECRET_ENCRYPTION_KEY: ${LAPIS_SECRET_ENCRYPTION_KEY:?LAPIS_SECRET_ENCRYPTION_KEY must be set in .env}
     volumes:
       # Named volumes, not bind mounts -- survive `docker compose up -d --build` image rebuilds/
       # recreations, which a container's own writable layer would not. lapis-document-storage
