@@ -6,6 +6,20 @@ All notable changes to this project are documented here. Format follows
 
 ## [Unreleased]
 
+### Changed
+
+**pdv2's reverse proxy migrated from Apache to Caddy**
+
+`deploy/production/README.adoc` documents Caddy as the reference reverse proxy: automatic HTTPS
+(no more manual certbot/vhost bookkeeping) and `reverse_proxy` detects and proxies WebSocket
+upgrades on its own, replacing Apache's `mod_proxy_wstunnel` + `RewriteCond %{HTTP:Upgrade}` dance.
+Live-migrated on pdv2 with a ~90s downtime window during the actual cutover, fresh Let's Encrypt
+certificates obtained by Caddy's own ACME client for both `pzb.parteidervernunft.de` and
+`video.parteidervernunft.de`. `X-Forwarded-For` behavior confirmed unchanged (Caddy appends the
+real client IP rather than trusting/replacing it, same as `mod_proxy_http` before it) -- load-bearing
+for `Application.kt`'s `useLastProxy()` posture, verified live with a forged header. Apache itself
+left installed but disabled (not purged) as a rollback path.
+
 ### Added
 
 **Proper first-admin bootstrap, closing the manual-SQL-INSERT gap**

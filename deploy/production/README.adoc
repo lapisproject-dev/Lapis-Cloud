@@ -9,8 +9,52 @@ Containerized production deployment for Lapis Cloud: `lapis-server` (built from 
 native-PostgreSQL setup used for the first test deployment (VPS 4000, `pzb.parteidervernunft.de`) --
 see that server's own infrastructure notes for the prior state and the migration this superseded.
 
-Apache on the host is unchanged by this move: it still terminates TLS and reverse-proxies to
-`127.0.0.1:8080`, which this compose file publishes exactly the way the old systemd unit did.
+The host's reverse proxy (Caddy, or a compatible alternative) is unchanged by this move: it still
+terminates TLS and reverse-proxies to `127.0.0.1:8080`, which this compose file publishes exactly
+the way the old systemd unit did. **Caddy** is the reference/recommended choice (see "Reverse
+proxy" below) -- automatic HTTPS with zero manual certbot/vhost bookkeeping, and its
+`reverse_proxy` directive detects and proxies WebSocket upgrades on its own, unlike Apache's
+`mod_proxy_wstunnel` + `RewriteCond %{HTTP:Upgrade}` dance. Any other reverse proxy capable of
+WebSocket-aware HTTP proxying (Apache with `mod_proxy_wstunnel`, nginx) works too -- the app itself
+has no Caddy-specific dependency.
+
+== Reverse proxy (Caddy)
+
+The pzb.parteidervernunft.de production instance runs Caddy (migrated from Apache 2026-08-15,
+zero functional regression, ~90s of actual downtime during the cutover itself). Install from
+Caddy's own apt repository (see https://caddyserver.com/docs/install#debian-ubuntu-raspbian), then
+point `/etc/caddy/Caddyfile` at both this app and the video-conferencing signaling subdomain (see
+"Video conferencing" below for that second block):
+
+[source,caddyfile]
+----
+pzb.parteidervernunft.de {
+    reverse_proxy 127.0.0.1:8080
+    log {
+        output file /var/log/caddy/pzb-parteidervernunft-de-access.log
+    }
+}
+----
+
+That's the entire vhost -- no separate HTTP-vs-HTTPS block, no manual `RewriteCond` for the ACME
+challenge, no `SSLCertificateFile`/`SSLCertificateKeyFile` paths to track: `systemctl reload caddy`
+after any edit (graceful, zero-downtime) picks up new/changed site blocks, obtains and renews
+Let's Encrypt certificates for them automatically, and redirects plain HTTP to HTTPS on its own.
+
+**`X-Forwarded-For` still behaves correctly with `AuthTestMode`'s `useLastProxy()` posture** (see
+`Application.kt`'s `install(XForwardedHeaders) { useLastProxy() }` and its own KDoc for the
+spoofing-prevention reasoning this depends on): Caddy's `reverse_proxy` appends the real client IP
+to any existing `X-Forwarded-For` value rather than trusting/replacing it, the same append-only
+semantics `mod_proxy_http` already had -- live-verified post-migration by sending a request with a
+forged `X-Forwarded-For` header and confirming the app-visible client IP in Caddy's own access log
+was still the real one, not the forged one.
+
+**One easy-to-hit trap**: if you ever run `caddy validate`/`caddy adapt` manually as `root` (e.g.
+while debugging a Caddyfile edit) with a `log { output file ... }` block already present, it
+pre-creates that log file owned by `root` with restrictive `0600` permissions -- the `caddy.service`
+systemd unit then fails to start (`permission denied`) because it drops privileges to the `caddy`
+user before opening that file for real. Fix: `rm` the stale root-owned log file (under
+`/var/log/caddy/`) and let the service recreate it fresh on its next start/reload.
 
 == Prerequisites
 
@@ -156,14 +200,14 @@ Wave 3 "Externes Streaming" -- `redis`/`egress` join `livekit`/`coturn` in this 
 and external RTMP streaming (`ConferenceStreamDestinationsScreen`) both work, not just live calls.
 
 Unlike everything else in this stack, LiveKit and coturn need **real public exposure** -- WebRTC
-media does not go through Apache's reverse proxy, browsers connect to them directly. `redis` and
+media does not go through the reverse proxy, browsers connect to them directly. `redis` and
 `egress` stay compose-internal only (no published ports) -- nothing outside the stack ever talks to
 either directly, same posture `deploy/local/docker-compose.yml` already establishes:
 
 * **Signaling** (LiveKit's HTTP/Twirp/WebSocket port, 7880) stays loopback-only and goes through
-  Apache instead, TLS-terminated on its own subdomain (`video.<domain>` by convention -- needs its
-  own DNS record and Let's Encrypt cert, separate from the main app's vhost, because LiveKit's own
-  path conventions and the app's Ktor routes would collide if reverse-proxied off the same origin).
+  the reverse proxy instead, TLS-terminated on its own subdomain (`video.<domain>` by convention --
+  needs its own DNS record and cert, separate from the main app's vhost, because LiveKit's own path
+  conventions and the app's Ktor routes would collide if reverse-proxied off the same origin).
 * **Media** (LiveKit's ICE TCP/UDP ports 7881/7882, and coturn's TURN port 3478 + relay range
   51000-51019) must be reachable directly from the public internet -- published `0.0.0.0`, not
   `127.0.0.1`, and the host firewall must allow inbound traffic to them (this host's own nftables
@@ -181,10 +225,22 @@ Setup:
 . `./render-secrets.sh` -- renders `livekit.yaml`/`turnserver.conf`/`egress.yaml` from their
   `.template` files using `.env` (requires `envsubst`, package `gettext-base` on Debian). Re-run
   this any time `.env` changes; the rendered files are gitignored.
-. Set up the signaling subdomain's DNS record (A/AAAA, same IP as the main app), then Apache vhost
-  + Let's Encrypt cert for it, proxying to `127.0.0.1:7880` with `Upgrade: websocket` support
-  (same `RewriteCond %{HTTP:Upgrade}` pattern the main app's own vhost already uses for
-  `ws://127.0.0.1:8080`).
+. Set up the signaling subdomain's DNS record (A/AAAA, same IP as the main app), then add its own
+  block to the Caddyfile (see "Reverse proxy" above) -- no `Upgrade: websocket` handling to spell
+  out, `reverse_proxy` detects and proxies WebSocket upgrades on its own:
++
+[source,caddyfile]
+----
+video.parteidervernunft.de {
+    reverse_proxy 127.0.0.1:7880
+    log {
+        output file /var/log/caddy/video-parteidervernunft-de-access.log
+    }
+}
+----
++
+`systemctl reload caddy` picks it up and obtains its own Let's Encrypt certificate, independent of
+the main app's vhost.
 . Open the firewall for the public media ports listed above, then
   `docker compose up -d livekit coturn redis egress`.
 . Verify Wave 1 with a real two-participant call in a browser (see `deploy/local/README.adoc` "Live
