@@ -31,8 +31,12 @@ class ConferenceSchemaDriftTest :
 
         fun ErmModel.entityNameOf(entityId: String): String? = entities.firstOrNull { it.id == entityId }?.name
 
-        test("model declares exactly the two conference entities plus the Member stub") {
-            model.entities.map { it.name }.toSet() shouldBe setOf("member", "conference_room", "conference_participation")
+        test("model declares exactly the two conference entities plus the Member and Meeting stubs") {
+            // V1.0 Videokonferenzen, Wave 9 "Stream-Pause bei geheimen Abstimmungen" -- adds an
+            // id-only Meeting stub purely so conference_room.meeting_id's fkEntity override
+            // resolves, see 27-conference.kuml.kts file header "Wave 9 addition".
+            model.entities.map { it.name }.toSet() shouldBe
+                setOf("member", "meeting", "conference_room", "conference_participation")
         }
 
         // ── conference_room ───────────────────────────────────────────────
@@ -62,6 +66,12 @@ class ConferenceSchemaDriftTest :
 
             // V1.0 Wave 5 "Föderations-Gastbeitritt" -- per-room opt-in, default FALSE.
             entity.attributeByName("allow_federation_guests")?.nullable shouldBe false
+
+            // V1.0 Videokonferenzen, Wave 9 "Stream-Pause bei geheimen Abstimmungen" -- NULL means
+            // this room is not bound to any Sitzung (the default), see file header "Wave 9 addition".
+            real.foreignKeys["meeting_id"] shouldBe "meeting"
+            model.entityNameOf(entity.attributeByName("meeting_id")?.foreignKey?.targetEntityId ?: "") shouldBe "meeting"
+            entity.attributeByName("meeting_id")?.nullable shouldBe true
         }
 
         // ── conference_participation ──────────────────────────────────────

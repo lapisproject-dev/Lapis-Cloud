@@ -32,6 +32,7 @@ import network.lapis.cloud.server.db.generated.AccountTable
 import network.lapis.cloud.server.db.generated.ConferenceParticipationTable
 import network.lapis.cloud.server.db.generated.ConferenceRoomTable
 import network.lapis.cloud.server.db.generated.MemberTable
+import network.lapis.cloud.server.federation.FederationInboxRateLimiter
 import network.lapis.cloud.server.security.LoginRateLimiter
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.ConferenceRole
@@ -275,6 +276,7 @@ private fun Route.registerNotesTeardownTestRoutes(
             LoginRateLimiter(),
             NOTES_TEARDOWN_ENABLED_CONFIG,
             notesState = notesState,
+            conferenceMeetingBindRateLimiter = FederationInboxRateLimiter(),
         )
     post("/test/end-room") {
         val service = service(call)

@@ -6,6 +6,7 @@ import kotlinx.datetime.LocalDateTime
 import kotlinx.datetime.LocalTime
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
+import network.lapis.cloud.server.conference.SecretBallotStreamGuard
 import network.lapis.cloud.server.db.DbClock
 import network.lapis.cloud.server.db.generated.CommitteeMembershipTable
 import network.lapis.cloud.server.db.generated.CommitteeTable
@@ -93,6 +94,17 @@ private data class SeatedBoardMembership(
 )
 
 /**
+ * V1.0 Videokonferenzen, Wave 9 "Stream-Pause bei geheimen Abstimmungen" -- [ElectionService
+ * .openVoting]'s own transaction -> network-call split (D7): everything the OUTSIDE-transaction
+ * [network.lapis.cloud.server.conference.SecretBallotStreamGuard.quiesceStreamsForMeeting] call
+ * needs, carried out of the transaction.
+ */
+private data class OpenVotingPrep(
+    val meetingId: Uuid,
+    val secret: Boolean,
+)
+
+/**
  * Demokratische Electionen (V0.2.4): one-person-one-vote elections/ballots. Implements [IElectionService]
  * -- see that interface's KDoc for the full lifecycle
  * (`openElection` -> `appointElectionBoard`/`submitCandidacy` -> `releaseCandidateList` ->
@@ -107,6 +119,15 @@ private data class SeatedBoardMembership(
  */
 class ElectionService(
     private val call: ApplicationCall,
+    /**
+     * V1.0 Videokonferenzen, Wave 9 "Stream-Pause bei geheimen Abstimmungen" (D6) -- NO default
+     * value. A default would silently disable the whole stream-pause protection in production while
+     * every KDoc in this wave claims the opposite -- exactly the Wave-3-audit-round-2 rate-limiter
+     * lesson (see [network.lapis.cloud.server.rpc.ConferenceStreamingService] KDoc "Constructor
+     * defaults exist for tests only"). The compiler must force `Application.module` to thread a real
+     * instance through.
+     */
+    private val streamGuard: SecretBallotStreamGuard,
 ) : IElectionService {
     override suspend fun openElection(input: ElectionOpenInput): ElectionDto {
         val current = resolveCurrentMember(call)
@@ -398,38 +419,74 @@ class ElectionService(
     override suspend fun openVoting(electionId: String): ElectionDto {
         val current = resolveCurrentMember(call)
         val wId = electionId.toUuidOrNotFound("Election")
-        return transaction {
-            val electionRow = requireElectionRow(wId)
-            if (!current.isElectionBoard(wId)) throw ForbiddenException()
-            val expectedStatus =
-                if (electionRow[ElectionTable.electionType] ==
-                    ElectionType.YES_NO
-                ) {
-                    ElectionStatus.PREPARATION
-                } else {
-                    ElectionStatus.CANDIDATE_LIST_RELEASED
+        // V1.0 Videokonferenzen, Wave 9 "Stream-Pause bei geheimen Abstimmungen" -- restructured into
+        // transaction -> network call OUTSIDE it, mirroring ConferenceStreamingService.startStream's
+        // own "never a LiveKit call inside an open transaction" discipline (D7). The room lock
+        // (SecretBallotStreamLock.lockRooms) is acquired AFTER the eligible-voter snapshot insert
+        // below, not before -- Stolperfalle §9.7: at a large Mitgliederversammlung that insert can be
+        // thousands of rows, and holding the conference_room lock across it would block
+        // ConferenceStreamingService.startStream for the whole insert duration for no reason.
+        val prep =
+            transaction {
+                val electionRow = requireElectionRow(wId)
+                if (!current.isElectionBoard(wId)) throw ForbiddenException()
+                val expectedStatus =
+                    if (electionRow[ElectionTable.electionType] ==
+                        ElectionType.YES_NO
+                    ) {
+                        ElectionStatus.PREPARATION
+                    } else {
+                        ElectionStatus.CANDIDATE_LIST_RELEASED
+                    }
+                if (electionRow[ElectionTable.status] != expectedStatus) {
+                    throw ConflictException("Election $electionId is ${electionRow[ElectionTable.status]}, expected $expectedStatus")
                 }
-            if (electionRow[ElectionTable.status] != expectedStatus) {
-                throw ConflictException("Election $electionId is ${electionRow[ElectionTable.status]}, expected $expectedStatus")
-            }
-            val committeeId = requireMotionCommitteeId(electionRow[ElectionTable.motionId])
-            val meetingRow = MeetingTable.selectAll().where { MeetingTable.id eq electionRow[ElectionTable.meetingId] }.single()
-            val scheduledDate = meetingRow[MeetingTable.scheduledAt].date
-            val committeeRow = CommitteeTable.selectAll().where { CommitteeTable.id eq committeeId }.single()
-            val eligible = eligibleMemberIds(committeeRow, scheduledDate)
-            eligible.forEach { mId ->
-                ElectionEligibleVoterTable.insert {
-                    it[ElectionEligibleVoterTable.id] = Uuid.random()
-                    it[ElectionEligibleVoterTable.electionId] = wId
-                    it[ElectionEligibleVoterTable.memberId] = mId
+                val committeeId = requireMotionCommitteeId(electionRow[ElectionTable.motionId])
+                val meetingId = electionRow[ElectionTable.meetingId]
+                val secret = electionRow[ElectionTable.secret]
+                val meetingRow = MeetingTable.selectAll().where { MeetingTable.id eq meetingId }.single()
+                val scheduledDate = meetingRow[MeetingTable.scheduledAt].date
+                val committeeRow = CommitteeTable.selectAll().where { CommitteeTable.id eq committeeId }.single()
+                val eligible = eligibleMemberIds(committeeRow, scheduledDate)
+                eligible.forEach { mId ->
+                    ElectionEligibleVoterTable.insert {
+                        it[ElectionEligibleVoterTable.id] = Uuid.random()
+                        it[ElectionEligibleVoterTable.electionId] = wId
+                        it[ElectionEligibleVoterTable.memberId] = mId
+                    }
                 }
+                // Room lock happens HERE -- after the (potentially huge) snapshot insert above, and
+                // directly before the status flip below -- see this method's own KDoc addition above
+                // (Stolperfalle §9.7). Only acquired for a secret Election at all (D2/D5 -- the whole
+                // point of this wave is scoped to Election+SystemicConsensus's SECRET path).
+                val affectedRooms =
+                    if (!secret) {
+                        emptyList()
+                    } else {
+                        SecretBallotStreamLock.lockRooms(SecretBallotStreamLock.roomIdsForMeeting(meetingId))
+                    }
+                ElectionTable.update({ ElectionTable.id eq wId }) {
+                    it[status] = ElectionStatus.OPEN
+                    it[votingOpenedAt] = nowLocalDateTime()
+                }
+                // Flips every STARTING/LIVE stream of the affected rooms to PAUSING (DB-only, no
+                // network call here). openVoting itself writes no audit-log entry of its own, but
+                // markPausingForSecretBallot writes one AuditLogRecorder.record per affected stream
+                // internally -- called LAST in this transaction (nothing else takes a lock afterwards)
+                // to respect AuditLogRecorder's own deadlock-avoidance contract (Stolperfalle §9.8).
+                if (secret) {
+                    ConferenceStreamPauseCoordinator.markPausingForSecretBallot(
+                        roomIds = affectedRooms,
+                        actorMemberId = current.memberId,
+                        actorRole = current.role,
+                    )
+                }
+                OpenVotingPrep(meetingId, secret)
             }
-            ElectionTable.update({ ElectionTable.id eq wId }) {
-                it[status] = ElectionStatus.OPEN
-                it[votingOpenedAt] = nowLocalDateTime()
-            }
-            loadElection(wId)
-        }
+        // OUTSIDE the transaction -- StopEgress + confirmation, never a network call inside an open
+        // transaction (D7).
+        if (prep.secret) streamGuard.quiesceStreamsForMeeting(prep.meetingId)
+        return transaction { loadElection(wId) }
     }
 
     override suspend fun castElectionBallot(input: ElectionBallotInput): ElectionBallotCastResultDto {
@@ -451,6 +508,14 @@ class ElectionService(
             val electionRow = requireElectionRow(wId)
             if (electionRow[ElectionTable.status] != ElectionStatus.OPEN) {
                 throw ConflictException("Election ${input.electionId} is ${electionRow[ElectionTable.status]}, expected OPEN")
+            }
+            // V1.0 Videokonferenzen, Wave 9 "Stream-Pause bei geheimen Abstimmungen" -- fail-closed
+            // gate (D3), only for a secret Election. MUST be here, strictly BEFORE the `try` block
+            // below that catches ExposedSQLException and translates it into "already voted" -- a
+            // ConflictException thrown from inside that try/catch would be swallowed and re-thrown
+            // with a misleading message instead (Stolperfalle §9.6).
+            if (electionRow[ElectionTable.secret]) {
+                SecretBallotStreamLock.requireStreamQuiescedForBallot(electionRow[ElectionTable.meetingId])
             }
             val eligible =
                 ElectionEligibleVoterTable
@@ -572,17 +637,23 @@ class ElectionService(
     override suspend fun closeVoting(electionId: String): ElectionDto {
         val current = resolveCurrentMember(call)
         val wId = electionId.toUuidOrNotFound("Election")
-        return transaction {
-            requireElectionRow(wId)
-            if (!current.isElectionBoard(wId)) throw ForbiddenException()
-            val statusNow = ElectionTable.selectAll().where { ElectionTable.id eq wId }.single()[ElectionTable.status]
-            if (statusNow != ElectionStatus.OPEN) throw ConflictException("Election $electionId is $statusNow, expected OPEN")
-            ElectionTable.update({ ElectionTable.id eq wId }) {
-                it[status] = ElectionStatus.CLOSED
-                it[votingClosedAt] = nowLocalDateTime()
+        val closed =
+            transaction {
+                val electionRow = requireElectionRow(wId)
+                if (!current.isElectionBoard(wId)) throw ForbiddenException()
+                val statusNow = electionRow[ElectionTable.status]
+                if (statusNow != ElectionStatus.OPEN) throw ConflictException("Election $electionId is $statusNow, expected OPEN")
+                ElectionTable.update({ ElectionTable.id eq wId }) {
+                    it[status] = ElectionStatus.CLOSED
+                    it[votingClosedAt] = nowLocalDateTime()
+                }
+                electionRow[ElectionTable.secret] to electionRow[ElectionTable.meetingId]
             }
-            loadElection(wId)
-        }
+        // V1.0 Videokonferenzen, Wave 9 -- Auto-Resume happens AFTER the transaction above has
+        // committed (D7), for a secret Election only.
+        val (secret, meetingId) = closed
+        if (secret) streamGuard.resumeStreamsForMeeting(meetingId)
+        return transaction { loadElection(wId) }
     }
 
     override suspend fun approveTally(electionId: String): ElectionDto {
@@ -900,17 +971,27 @@ class ElectionService(
     override suspend fun abortElection(electionId: String): ElectionDto {
         val current = resolveCurrentMember(call)
         val wId = electionId.toUuidOrNotFound("Election")
-        return transaction {
-            val electionRow = requireElectionRow(wId)
-            if (!current.canManageElection(requireMotionCommitteeId(electionRow[ElectionTable.motionId]))) throw ForbiddenException()
-            if (electionRow[ElectionTable.status] == ElectionStatus.TALLIED ||
-                electionRow[ElectionTable.status] == ElectionStatus.ABORTED
-            ) {
-                throw ConflictException("Election $electionId is already ${electionRow[ElectionTable.status]}")
+        val aborted =
+            transaction {
+                val electionRow = requireElectionRow(wId)
+                if (!current.canManageElection(requireMotionCommitteeId(electionRow[ElectionTable.motionId]))) {
+                    throw ForbiddenException()
+                }
+                val statusNow = electionRow[ElectionTable.status]
+                if (statusNow == ElectionStatus.TALLIED || statusNow == ElectionStatus.ABORTED) {
+                    throw ConflictException("Election $electionId is already $statusNow")
+                }
+                ElectionTable.update({ ElectionTable.id eq wId }) { it[status] = ElectionStatus.ABORTED }
+                // V1.0 Videokonferenzen, Wave 9 -- Auto-Resume is only owed if THIS abort actually
+                // ended an open pause, i.e. the prior status was OPEN. PREPARATION/CANDIDATE_LIST_RELEASED
+                // /CLOSED never triggered a pause in the first place, so no resume attempt is made for
+                // those -- see plan §6.1.
+                val wasSecretAndWasOpen = electionRow[ElectionTable.secret] && statusNow == ElectionStatus.OPEN
+                wasSecretAndWasOpen to electionRow[ElectionTable.meetingId]
             }
-            ElectionTable.update({ ElectionTable.id eq wId }) { it[status] = ElectionStatus.ABORTED }
-            loadElection(wId)
-        }
+        val (wasSecretAndWasOpen, meetingId) = aborted
+        if (wasSecretAndWasOpen) streamGuard.resumeStreamsForMeeting(meetingId)
+        return transaction { loadElection(wId) }
     }
 
     override suspend fun getElection(electionId: String): ElectionDto {

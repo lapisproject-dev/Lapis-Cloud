@@ -24,6 +24,7 @@ import network.lapis.cloud.server.db.generated.ConferenceBreakoutAssignmentTable
 import network.lapis.cloud.server.db.generated.ConferenceBreakoutRoomTable
 import network.lapis.cloud.server.db.generated.ConferenceParticipationTable
 import network.lapis.cloud.server.db.generated.ConferenceRoomTable
+import network.lapis.cloud.server.federation.FederationInboxRateLimiter
 import network.lapis.cloud.server.module
 import network.lapis.cloud.server.rpc.ConferenceBreakoutService
 import network.lapis.cloud.server.rpc.ConferenceService
@@ -164,7 +165,13 @@ class ConferenceBreakoutJourneyTest :
                     module()
                     routing {
                         fun conferenceService(call: ApplicationCall) =
-                            ConferenceService(call, fakeLiveKit, LoginRateLimiter(), E2E6_ENABLED_CONFERENCE_CONFIG)
+                            ConferenceService(
+                                call,
+                                fakeLiveKit,
+                                LoginRateLimiter(),
+                                E2E6_ENABLED_CONFERENCE_CONFIG,
+                                conferenceMeetingBindRateLimiter = FederationInboxRateLimiter(),
+                            )
 
                         fun breakoutService(call: ApplicationCall) =
                             ConferenceBreakoutService(call, fakeLiveKit, config = E2E6_ENABLED_CONFERENCE_CONFIG)
@@ -287,7 +294,13 @@ class ConferenceBreakoutJourneyTest :
                     module()
                     routing {
                         fun conferenceService(call: ApplicationCall) =
-                            ConferenceService(call, fakeLiveKit, LoginRateLimiter(), E2E6_ENABLED_CONFERENCE_CONFIG)
+                            ConferenceService(
+                                call,
+                                fakeLiveKit,
+                                LoginRateLimiter(),
+                                E2E6_ENABLED_CONFERENCE_CONFIG,
+                                conferenceMeetingBindRateLimiter = FederationInboxRateLimiter(),
+                            )
 
                         fun breakoutService(call: ApplicationCall) =
                             ConferenceBreakoutService(call, fakeLiveKit, config = E2E6_ENABLED_CONFERENCE_CONFIG)

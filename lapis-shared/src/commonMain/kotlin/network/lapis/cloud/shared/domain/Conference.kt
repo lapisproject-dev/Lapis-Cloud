@@ -67,6 +67,18 @@ data class ConferenceRoomDto(
     val myRole: ConferenceRole,
     /** Wave 5 "Föderations-Gastbeitritt" -- see [ConferenceRoomInput.allowFederationGuests] KDoc. */
     val allowFederationGuests: Boolean = false,
+    /**
+     * V1.0 Wave 9 "Stream-Pause bei geheimen Abstimmungen" -- `null` unless this room is bound to a
+     * Sitzung via `IConferenceService.setRoomMeeting` (a later wave step). This is the field that
+     * makes the automatic secret-ballot stream pause possible at all -- see
+     * `network.lapis.cloud.server.rpc.SecretBallotStreamLock` KDoc.
+     */
+    val meetingId: String? = null,
+    /**
+     * V1.0 Wave 9 -- denormalized `meeting.title` for [meetingId], so the UI can show "Sitzung:
+     * <Titel>" without a second round-trip. `null` whenever [meetingId] is `null`.
+     */
+    val meetingTitle: String? = null,
 )
 
 /**

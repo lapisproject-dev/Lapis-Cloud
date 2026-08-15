@@ -32,6 +32,15 @@ public object ConferenceRoomTable : Table("conference_room") {
      */
     public val allowFederationGuests: Column<Boolean> = bool("allow_federation_guests").default(false)
 
+    /**
+     * V1.0 Videokonferenzen, Wave 9 "Stream-Pause bei geheimen Abstimmungen" -- see
+     * 27-conference.kuml.kts. `null` means this room is not bound to any Sitzung (the default for
+     * every existing and newly-created room). Set from INSIDE a running room via
+     * IConferenceService.setRoomMeeting -- never at createRoom time, see that column's own kUML
+     * comment.
+     */
+    public val meetingId: Column<Uuid?> = optReference("meeting_id", MeetingTable.id)
+
     override val primaryKey: PrimaryKey = PrimaryKey(id)
 
     // Note: 2 index(es) declared on this entity are not emitted --

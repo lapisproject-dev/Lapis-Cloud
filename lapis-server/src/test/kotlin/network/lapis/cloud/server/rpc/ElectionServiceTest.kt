@@ -23,6 +23,7 @@ import kotlinx.coroutines.coroutineScope
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.LocalDateTime
 import kotlinx.serialization.json.Json
+import network.lapis.cloud.server.conference.NoOpSecretBallotStreamGuard
 import network.lapis.cloud.server.db.DatabaseConfig
 import network.lapis.cloud.server.db.DevSeedData
 import network.lapis.cloud.server.db.generated.AccountTable
@@ -1252,7 +1253,7 @@ private fun StatusPagesConfig.installElectionExceptionHandlers() {
  */
 private fun Route.registerElectionTestRoutes() {
     post("/test/open-election/{motionId}/{electionType}") {
-        val service = ElectionService(call)
+        val service = ElectionService(call, NoOpSecretBallotStreamGuard)
         val q = call.request.queryParameters
         val w =
             service.openElection(
@@ -1270,33 +1271,33 @@ private fun Route.registerElectionTestRoutes() {
         call.respondText("${w.id}:${w.status}")
     }
     post("/test/appoint-election-board/{electionId}") {
-        val service = ElectionService(call)
+        val service = ElectionService(call, NoOpSecretBallotStreamGuard)
         val memberIds = call.request.queryParameters["memberIds"]!!.split(",")
         val list = service.appointElectionBoard(call.parameters["electionId"]!!, memberIds)
         call.respondText(list.size.toString())
     }
     post("/test/submit-candidacy/{electionId}") {
-        val service = ElectionService(call)
+        val service = ElectionService(call, NoOpSecretBallotStreamGuard)
         val k = service.submitCandidacy(call.parameters["electionId"]!!, CandidacyInput(motivationText = "Motivation"))
         call.respondText(k.id)
     }
     post("/test/withdraw-candidacy/{id}") {
-        val service = ElectionService(call)
+        val service = ElectionService(call, NoOpSecretBallotStreamGuard)
         val k = service.withdrawCandidacy(call.parameters["id"]!!)
         call.respondText((k.withdrawnAt != null).toString())
     }
     post("/test/release-kandidatenliste/{electionId}") {
-        val service = ElectionService(call)
+        val service = ElectionService(call, NoOpSecretBallotStreamGuard)
         val w = service.releaseCandidateList(call.parameters["electionId"]!!)
         call.respondText("${w.status}:${w.options.size}")
     }
     post("/test/open-voting/{electionId}") {
-        val service = ElectionService(call)
+        val service = ElectionService(call, NoOpSecretBallotStreamGuard)
         val w = service.openVoting(call.parameters["electionId"]!!)
         call.respondText(w.status.name)
     }
     post("/test/cast-election-ballot/{electionId}") {
-        val service = ElectionService(call)
+        val service = ElectionService(call, NoOpSecretBallotStreamGuard)
         val q = call.request.queryParameters
         val answer = q["answer"]?.let { ElectionAnswer.valueOf(it) }
         val selectedOptionIds = q["selectedOptionIds"]?.split(",")?.filter { it.isNotBlank() } ?: emptyList()
@@ -1311,38 +1312,38 @@ private fun Route.registerElectionTestRoutes() {
         call.respondText("${result.id}:${result.receiptCode ?: ""}")
     }
     post("/test/close-voting/{electionId}") {
-        val service = ElectionService(call)
+        val service = ElectionService(call, NoOpSecretBallotStreamGuard)
         val w = service.closeVoting(call.parameters["electionId"]!!)
         call.respondText(w.status.name)
     }
     post("/test/release-tally/{electionId}") {
-        val service = ElectionService(call)
+        val service = ElectionService(call, NoOpSecretBallotStreamGuard)
         service.approveTally(call.parameters["electionId"]!!)
         call.respondText("ok")
     }
     post("/test/tally/{electionId}") {
-        val service = ElectionService(call)
+        val service = ElectionService(call, NoOpSecretBallotStreamGuard)
         val e = service.tally(call.parameters["electionId"]!!)
         call.respondText("${e.winnerOptionIds.joinToString(",")}:${e.tie}:${e.majorityMet ?: ""}")
     }
     post("/test/abort-election/{electionId}") {
-        val service = ElectionService(call)
+        val service = ElectionService(call, NoOpSecretBallotStreamGuard)
         val w = service.abortElection(call.parameters["electionId"]!!)
         call.respondText(w.status.name)
     }
     get("/test/get-election/{electionId}") {
-        val service = ElectionService(call)
+        val service = ElectionService(call, NoOpSecretBallotStreamGuard)
         val w = service.getElection(call.parameters["electionId"]!!)
         call.respondText("${w.status}:${w.options.size}:${w.resolutionId ?: ""}")
     }
     get("/test/verify-receipt/{electionId}") {
-        val service = ElectionService(call)
+        val service = ElectionService(call, NoOpSecretBallotStreamGuard)
         val receiptCode = call.request.queryParameters["receiptCode"]!!
         val r = service.verifyReceipt(call.parameters["electionId"]!!, receiptCode)
         call.respondText("${r.found}:${r.optionLabel ?: ""}")
     }
     get("/test/list-ballots/{electionId}") {
-        val service = ElectionService(call)
+        val service = ElectionService(call, NoOpSecretBallotStreamGuard)
         val list = service.listElectionBallots(call.parameters["electionId"]!!)
         call.respondText(list.joinToString(";") { "${it.id}:${it.selectedOptionLabels.joinToString("|")}" })
     }

@@ -32,6 +32,7 @@ import network.lapis.cloud.server.db.generated.OrganizationSettingsTable
 import network.lapis.cloud.server.db.generated.PoliticianProfileTable
 import network.lapis.cloud.server.db.generated.PoliticianReactionTable
 import network.lapis.cloud.server.db.generated.PoliticianWeightSnapshotTable
+import network.lapis.cloud.server.federation.FederationInboxRateLimiter
 import network.lapis.cloud.server.federation.OidcGuestClaims
 import network.lapis.cloud.server.federation.OidcGuestMemberStore
 import network.lapis.cloud.server.module
@@ -335,7 +336,13 @@ class FederationGuestJourneyTest :
                         // pattern (this codebase constructs one service instance per RPC call, see
                         // ConferenceService's own class KDoc).
                         fun conferenceService(call: io.ktor.server.application.ApplicationCall) =
-                            ConferenceService(call, fakeLiveKit, LoginRateLimiter(), E2E_ENABLED_CONFERENCE_CONFIG)
+                            ConferenceService(
+                                call,
+                                fakeLiveKit,
+                                LoginRateLimiter(),
+                                E2E_ENABLED_CONFERENCE_CONFIG,
+                                conferenceMeetingBindRateLimiter = FederationInboxRateLimiter(),
+                            )
                         post("/e2e3-conf/create-room") {
                             val room = conferenceService(call).createRoom(ConferenceRoomInput(title = "E2E Scenario 3 Konferenzraum"))
                             call.respondText(room.id)

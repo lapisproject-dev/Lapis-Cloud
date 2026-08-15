@@ -41,6 +41,21 @@ fun CurrentMember.canRecordForMeeting(committeeId: Uuid): Boolean =
         hasCommitteeRole(committeeId, CommitteeRole.CHAIR, CommitteeRole.DEPUTY_CHAIR, CommitteeRole.SECRETARY)
 
 /**
+ * Security-audit-round-2 L1 fix -- "is this member currently seated on this Committee, in ANY role"
+ * (privileged callers excluded on purpose, unlike [canManageCommittee]/[canRecordForMeeting] -- see
+ * [ConferenceService.setRoomMeeting] KDoc, which already short-circuits on
+ * [CurrentMember.isPrivileged] itself before ever reaching this check). Thin public wrapper around
+ * the same [hasCommitteeRole] every other membership-role gate in this file already uses (`since <=
+ * today AND (until IS NULL OR until >= today)`, i.e. a genuinely ACTIVE-as-of-today row, not merely
+ * "was ever seated") -- exists so callers outside this file (`ConferenceService.setRoomMeeting`'s
+ * "hin-binden" gate) can reuse the exact same semantics [canSubmitMotion]'s own non-GENERAL_ASSEMBLY
+ * branch already establishes, instead of hand-rolling an incomplete `until IS NULL`-only copy that
+ * wrongly rejects a member with a time-limited (but still current) term -- the normal case for an
+ * elected Vorstand seat.
+ */
+fun CurrentMember.isActiveCommitteeMember(committeeId: Uuid): Boolean = hasCommitteeRole(committeeId, *CommitteeRole.entries.toTypedArray())
+
+/**
  * Motionsverwaltung (V0.2.2) submission rule. Asymmetric on purpose: submitting *to* the
  * General Assembly is a broad participation right (any [MemberStatus.AKTIV] member, mirroring
  * every member's stake in a general assembly), while submitting *to* a specific Committee requires

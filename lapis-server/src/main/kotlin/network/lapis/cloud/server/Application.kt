@@ -24,6 +24,7 @@ import network.lapis.cloud.server.conference.ConferenceNotesState
 import network.lapis.cloud.server.conference.ConferenceRecordingConfig
 import network.lapis.cloud.server.conference.ConferenceStreamingConfig
 import network.lapis.cloud.server.conference.ConferenceWhiteboardState
+import network.lapis.cloud.server.conference.DefaultSecretBallotStreamGuard
 import network.lapis.cloud.server.conference.FfmpegGalleryComposer
 import network.lapis.cloud.server.conference.HttpLiveKitAdminClient
 import network.lapis.cloud.server.conference.HttpLiveKitEgressClient
@@ -31,6 +32,7 @@ import network.lapis.cloud.server.conference.LiveKitAdminClient
 import network.lapis.cloud.server.conference.LiveKitEgressClient
 import network.lapis.cloud.server.conference.RecordingComposer
 import network.lapis.cloud.server.conference.RecordingPoller
+import network.lapis.cloud.server.conference.SecretBallotStreamGuard
 import network.lapis.cloud.server.conference.StreamPoller
 import network.lapis.cloud.server.db.DatabaseConfig
 import network.lapis.cloud.server.db.DevSeedData
@@ -337,6 +339,33 @@ fun Application.module() {
         streamPoller.start()
     }
 
+    // V1.0 Videokonferenzen, Wave 9 "Stream-Pause bei geheimen Abstimmungen" (D6) -- constructed here,
+    // NOT left to ElectionService's/SystemicConsensusService's own constructor defaults (there ARE
+    // none -- see those classes' own `streamGuard` KDoc): reuses the SAME liveKitEgressClient/
+    // conferenceStreamingConfig instances StreamPoller above already uses, no new LiveKit credentials
+    // or config surface. StreamPoller itself needs no separate wiring for its own
+    // reconcileOrphanedBallotPause path (folded into handlePaused, see that class's own KDoc) --
+    // SecretBallotStreamLock is a plain, stateless `object`, and restartEgressForStream already
+    // receives liveKitEgressClient as an explicit parameter at every call site, streamPoller's own
+    // constructor param above included.
+    // Security-audit MAJOR-4 -- resumeRateLimiter is safe as a constructor default here (see
+    // DefaultSecretBallotStreamGuard's own KDoc "Resume algorithm": this guard, unlike
+    // ConferenceStreamingService, is constructed exactly once) but threaded through explicitly
+    // anyway, same consistency/tunability reasoning conferenceMeetingBindRateLimiter below already
+    // follows. PAUSE (quiesceStreamsForMeeting) is deliberately never rate-limited.
+    val secretBallotResumeRateLimiter = FederationInboxRateLimiter(maxRequests = 5, window = 5.minutes)
+    val secretBallotStreamGuard: SecretBallotStreamGuard =
+        DefaultSecretBallotStreamGuard(
+            liveKitEgressClient = liveKitEgressClient,
+            streamingConfig = conferenceStreamingConfig,
+            resumeRateLimiter = secretBallotResumeRateLimiter,
+        )
+
+    // V1.0 Videokonferenzen, Wave 9 -- ConferenceService.setRoomMeeting's own budget, same
+    // "constructed here, NOT left to the service's own constructor default" reasoning as
+    // conferenceGuestAccessRateLimiter above.
+    val conferenceMeetingBindRateLimiter = FederationInboxRateLimiter(maxRequests = 10, window = 1.minutes)
+
     // Audit-round-2 fix (Wave 3): ConferenceStreamingService's constructor rate-limiter parameters
     // have default values ONLY so ConferenceStreamingServiceTest's test-route helper can omit them
     // (see that class's own KDoc "Constructor defaults exist for tests only"). Because Kilua RPC's
@@ -406,8 +435,8 @@ fun Application.module() {
         registerService(IDirectMessageService::class) { call -> DirectMessageService(call) }
         registerService(IDsgvoService::class) { call -> DsgvoService(call) }
         registerService(IGovernanceService::class) { call -> GovernanceService(call) }
-        registerService(IElectionService::class) { call -> ElectionService(call) }
-        registerService(ISystemicConsensusService::class) { call -> SystemicConsensusService(call) }
+        registerService(IElectionService::class) { call -> ElectionService(call, secretBallotStreamGuard) }
+        registerService(ISystemicConsensusService::class) { call -> SystemicConsensusService(call, secretBallotStreamGuard) }
         registerService(IAccountingService::class) { call -> AccountingService(call) }
         registerService(IOrganizationSettingsService::class) { call -> OrganizationSettingsService(call) }
         registerService(IPostalMailService::class) { call -> PostalMailService(call, documentStorageRoot, postalMailProvider) }
@@ -437,6 +466,7 @@ fun Application.module() {
                 guestAccessRateLimiter = conferenceGuestAccessRateLimiter,
                 whiteboardState = conferenceWhiteboardState,
                 notesState = conferenceNotesState,
+                conferenceMeetingBindRateLimiter = conferenceMeetingBindRateLimiter,
             )
         }
         registerService(IConferenceBreakoutService::class) { call ->

@@ -7,6 +7,7 @@ import kotlin.uuid.Uuid
 import kotlinx.datetime.LocalDateTime
 import network.lapis.cloud.shared.domain.ConferenceStreamLatencyMode
 import network.lapis.cloud.shared.domain.ConferenceStreamLayout
+import network.lapis.cloud.shared.domain.ConferenceStreamPauseReason
 import network.lapis.cloud.shared.domain.ConferenceStreamStatus
 import org.jetbrains.exposed.v1.core.Column
 import org.jetbrains.exposed.v1.core.Table
@@ -27,6 +28,15 @@ public object ConferenceStreamTable : Table("conference_stream") {
     public val endedAt: Column<LocalDateTime?> = datetime("ended_at").nullable()
     public val restartCount: Column<Int> = integer("restart_count").default(0)
     public val failureReason: Column<String?> = varchar("failure_reason", 500).nullable()
+
+    /**
+     * V1.0 Videokonferenzen, Wave 9 "Stream-Pause bei geheimen Abstimmungen" -- see
+     * 29-conference-streaming.kuml.kts. `null` unless [status] is
+     * [network.lapis.cloud.shared.domain.ConferenceStreamStatus.PAUSING]/
+     * [network.lapis.cloud.shared.domain.ConferenceStreamStatus.PAUSED].
+     */
+    public val pauseReason: Column<ConferenceStreamPauseReason?> =
+        enumerationByName<ConferenceStreamPauseReason>("pause_reason", 13).nullable()
 
     override val primaryKey: PrimaryKey = PrimaryKey(id)
 

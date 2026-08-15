@@ -69,9 +69,34 @@ enum class ConferenceStreamLatencyMode { LOW_LATENCY, STANDARD }
  * `resumeStream` = a fresh `Start...Egress`, `LIVE` again, on the SAME row.
  * `StreamPoller` (a later wave step) drives `LIVE -> FAILED` and any auto-stop transition.
  * Literal order is load-bearing (same mechanism as [ConferenceStreamPlatform]).
+ *
+ * [PAUSING] is a V1.0 Wave 9 "Stream-Pause bei geheimen Abstimmungen" addition, APPENDED at the end
+ * (not reordered next to [LIVE]/[PAUSED] where it would read more "naturally" -- literal order is
+ * load-bearing, see above). It is the fail-closed intermediate state between "DB says pausing" and
+ * "LiveKit has confirmed the egress actually stopped publishing": `StopEgress` is asynchronous at
+ * LiveKit (a "requested", not "stopped" acknowledgement, and the egress keeps publishing for 1-3s
+ * after the call returns), so a status flip straight to [PAUSED] would let a secret ballot's voting
+ * phase open while the egress is still emitting. See
+ * `network.lapis.cloud.server.rpc.SecretBallotStreamLock`/
+ * `network.lapis.cloud.server.conference.SecretBallotStreamGuard` for the writers of this state and
+ * [ConferenceStreamPauseReason] for why a stream is paused in the first place.
  */
 @Serializable
-enum class ConferenceStreamStatus { STARTING, LIVE, PAUSED, STOPPING, ENDED, FAILED }
+enum class ConferenceStreamStatus { STARTING, LIVE, PAUSED, STOPPING, ENDED, FAILED, PAUSING }
+
+/**
+ * V1.0 Wave 9 "Stream-Pause bei geheimen Abstimmungen" -- why a
+ * [network.lapis.cloud.server.db.generated.ConferenceStreamTable] row is currently
+ * [ConferenceStreamStatus.PAUSING]/[ConferenceStreamStatus.PAUSED]. [SECRET_BALLOT] is the ONLY
+ * value that auto-resumes (see `network.lapis.cloud.server.conference.SecretBallotStreamGuard
+ * .resumeStreamsForMeeting`) -- a manual `pauseStream` call while a stream is already
+ * `PAUSING`/`PAUSED` with [SECRET_BALLOT] ESCALATES this column to [MANUAL] (one-way, NEVER back to
+ * [SECRET_BALLOT]) -- once a moderator has manually intervened during a secret ballot's pause, they
+ * have taken control and the system must never auto-resume out from under them. Literal order is
+ * load-bearing (same mechanism as [ConferenceStreamPlatform]).
+ */
+@Serializable
+enum class ConferenceStreamPauseReason { MANUAL, SECRET_BALLOT }
 
 /**
  * Mirrors LiveKit's own `livekit.StreamInfo.Status` (`ACTIVE`/`FINISHED`/`FAILED`), plus a
@@ -192,6 +217,15 @@ data class ConferenceStreamDto(
     val restartCount: Int,
     val targets: List<ConferenceStreamTargetStatusDto>,
     val failureReason: String?,
+    /**
+     * V1.0 Wave 9 "Stream-Pause bei geheimen Abstimmungen" -- `null` unless [status] is
+     * [ConferenceStreamStatus.PAUSING]/[ConferenceStreamStatus.PAUSED]. See
+     * [ConferenceStreamPauseReason] KDoc for the [ConferenceStreamPauseReason.SECRET_BALLOT]-vs-
+     * [ConferenceStreamPauseReason.MANUAL] distinction and the one-way escalation rule that governs
+     * it -- this field is exactly the UI's signal for whether to show the "unterbrochen wegen
+     * geheimer Abstimmung, wird automatisch fortgesetzt" vs. plain "unterbrochen" badge.
+     */
+    val pauseReason: ConferenceStreamPauseReason?,
 )
 
 /**

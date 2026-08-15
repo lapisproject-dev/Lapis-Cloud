@@ -65,13 +65,27 @@ class ConferenceStreamingConfig private constructor(
     val maxDurationMinutes: Long,
     /** A `STARTING` row with no `livekit_egress_id` past this is reconciled (cross-checking `ListEgress` first so a genuinely-started egress is adopted, not leaked) by `StreamPoller` (a later wave step) rather than left stuck forever. */
     val startupTimeoutSeconds: Long,
+    /**
+     * V1.0 Videokonferenzen, Wave 9 "Stream-Pause bei geheimen Abstimmungen" -- the hard ceiling
+     * [network.lapis.cloud.server.conference.DefaultSecretBallotStreamGuard]'s own `StopEgress`-
+     * confirmation poll (`ListEgress` every 500ms) waits before giving up and leaving a row in
+     * [network.lapis.cloud.shared.domain.ConferenceStreamStatus.PAUSING] for
+     * `network.lapis.cloud.server.conference.StreamPoller`'s own `PAUSING` handling (a later wave
+     * step) to retry on its next tick. `LAPIS_STREAMING_PAUSE_VERIFY_TIMEOUT_SECONDS`, default 20s --
+     * generous enough for LiveKit's own `StopEgress` (asynchronous, "requested" not "stopped") to
+     * actually settle, short enough that a genuinely stuck ballot pause fails closed (see
+     * [network.lapis.cloud.server.rpc.SecretBallotStreamLock.requireStreamQuiescedForBallot]) within
+     * a caller-tolerable RPC round-trip rather than hanging indefinitely.
+     */
+    val pauseVerifyTimeoutSeconds: Long,
 ) {
     /** Deliberately omits [secretEncryptionKey] (see its own KDoc "Never logged") -- reports only whether a key is present, mirroring [ConferenceConfig.toString]'s own `<blank>`/`<redacted>` shape. */
     override fun toString(): String {
         val keyState = if (secretEncryptionKey == null) "<unset>" else "<redacted, ${secretEncryptionKey.size} bytes>"
         return "ConferenceStreamingConfig(enabled=$enabled, secretEncryptionKey=$keyState, " +
             "maxDestinations=$maxDestinations, pollIntervalSeconds=$pollIntervalSeconds, " +
-            "maxDurationMinutes=$maxDurationMinutes, startupTimeoutSeconds=$startupTimeoutSeconds)"
+            "maxDurationMinutes=$maxDurationMinutes, startupTimeoutSeconds=$startupTimeoutSeconds, " +
+            "pauseVerifyTimeoutSeconds=$pauseVerifyTimeoutSeconds)"
     }
 
     companion object {
@@ -79,19 +93,21 @@ class ConferenceStreamingConfig private constructor(
         private const val DEFAULT_POLL_INTERVAL_SECONDS = 10L
         private const val DEFAULT_MAX_DURATION_MINUTES = 480L
         private const val DEFAULT_STARTUP_TIMEOUT_SECONDS = 60L
+        private const val DEFAULT_PAUSE_VERIFY_TIMEOUT_SECONDS = 20L
 
         /**
          * Reads `LAPIS_STREAMING_ENABLED`/`LAPIS_SECRET_ENCRYPTION_KEY`/
          * `LAPIS_STREAM_MAX_DESTINATIONS`/`LAPIS_STREAM_POLL_INTERVAL_SECONDS`/
-         * `LAPIS_STREAM_MAX_DURATION_MINUTES`/`LAPIS_STREAM_STARTUP_TIMEOUT_SECONDS` via [env]
-         * (defaults to [System.getenv]). See class KDoc "Fail-fast on the encryption key" for the
-         * exact validation this method performs. Unparseable numeric values silently fall back to
-         * their default rather than throwing -- same "degrade to a sane default, never crash config
-         * load over a malformed number" posture [ConferenceRecordingConfig.load]'s own KDoc
-         * establishes (deliberately different from the encryption-key check above, which DOES
-         * throw -- a malformed poll interval degrades gracefully to a sane default, a malformed or
-         * missing encryption key while streaming is enabled would silently store credentials with
-         * no encryption at all, which this class treats as never acceptable).
+         * `LAPIS_STREAM_MAX_DURATION_MINUTES`/`LAPIS_STREAM_STARTUP_TIMEOUT_SECONDS`/
+         * `LAPIS_STREAMING_PAUSE_VERIFY_TIMEOUT_SECONDS` via [env] (defaults to [System.getenv]). See
+         * class KDoc "Fail-fast on the encryption key" for the exact validation this method
+         * performs. Unparseable numeric values silently fall back to their default rather than
+         * throwing -- same "degrade to a sane default, never crash config load over a malformed
+         * number" posture [ConferenceRecordingConfig.load]'s own KDoc establishes (deliberately
+         * different from the encryption-key check above, which DOES throw -- a malformed poll
+         * interval degrades gracefully to a sane default, a malformed or missing encryption key
+         * while streaming is enabled would silently store credentials with no encryption at all,
+         * which this class treats as never acceptable).
          */
         fun load(env: (String) -> String? = System::getenv): ConferenceStreamingConfig {
             val enabled = env("LAPIS_STREAMING_ENABLED")?.trim().equals("true", ignoreCase = true)
@@ -128,6 +144,8 @@ class ConferenceStreamingConfig private constructor(
                     env("LAPIS_STREAM_MAX_DURATION_MINUTES")?.trim()?.toLongOrNull() ?: DEFAULT_MAX_DURATION_MINUTES,
                 startupTimeoutSeconds =
                     env("LAPIS_STREAM_STARTUP_TIMEOUT_SECONDS")?.trim()?.toLongOrNull() ?: DEFAULT_STARTUP_TIMEOUT_SECONDS,
+                pauseVerifyTimeoutSeconds =
+                    env("LAPIS_STREAMING_PAUSE_VERIFY_TIMEOUT_SECONDS")?.trim()?.toLongOrNull() ?: DEFAULT_PAUSE_VERIFY_TIMEOUT_SECONDS,
             )
         }
 

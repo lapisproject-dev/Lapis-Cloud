@@ -2,6 +2,7 @@ package network.lapis.cloud.server.rpc
 import io.ktor.server.application.ApplicationCall
 import kotlinx.datetime.LocalDateTime
 import kotlinx.datetime.LocalTime
+import network.lapis.cloud.server.conference.SecretBallotStreamGuard
 import network.lapis.cloud.server.db.DbClock
 import network.lapis.cloud.server.db.generated.CommitteeTable
 import network.lapis.cloud.server.db.generated.MeetingTable
@@ -58,12 +59,28 @@ private const val MAX_OPTIONS_SOFT = 10
 /** Hard cap: `addOption` throws a [ConflictException] once this many options already exist. */
 private const val MAX_OPTIONS_HARD = 25
 
+/** Security-audit MAJOR-4 fix -- hard ceiling on [SystemicConsensusOpenInput.maxRounds]: each `reopenRating` round is a fresh secret-ballot pause/resume cycle (see [SecretBallotStreamGuard]), so an unbounded value would let a single SystemicConsensus drive an unbounded number of LiveKit StopEgress/restart cycles over the maximum allowed timeout window before `resumeStreamsForMeeting`'s own [DefaultSecretBallotStreamGuard.resumeRateLimiter] budget would even matter. */
+private const val MAX_ROUNDS_HARD_CAP = 10
+
 private const val STATUS_QUO_OPTION_LABEL = "Status quo (no change)"
 private const val RECEIPT_CODE_BYTES = 20 // 160 bits, comfortably above the >=128-bit KDoc floor -- same as ElectionService.
 private const val RECEIPT_CODE_MAX_ATTEMPTS = 5
 
 private val secureRandom = SecureRandom()
 private val GROUP_CONFLICT_THRESHOLD_RANGE = BigDecimal.ZERO..BigDecimal.ONE
+
+/**
+ * V1.0 Videokonferenzen, Wave 9 "Stream-Pause bei geheimen Abstimmungen" -- carries what
+ * [SystemicConsensusService.freezeOptions]/[SystemicConsensusService.reopenRating]'s own
+ * OUTSIDE-transaction [network.lapis.cloud.server.conference.SecretBallotStreamGuard
+ * .quiesceStreamsForMeeting] call needs, out of their transactions. Same shape as
+ * [ElectionService]'s own `OpenVotingPrep`, shared here between the two call sites since both mean
+ * exactly the same thing ("this SystemicConsensus just entered RATING").
+ */
+private data class OpenRatingPrep(
+    val meetingId: Uuid,
+    val secret: Boolean,
+)
 
 /**
  * Systemic Consensus (V0.2.5): lowest-cumulative-resistance consensus tool. Implements
@@ -90,6 +107,11 @@ private val GROUP_CONFLICT_THRESHOLD_RANGE = BigDecimal.ZERO..BigDecimal.ONE
  */
 class SystemicConsensusService(
     private val call: ApplicationCall,
+    /**
+     * V1.0 Videokonferenzen, Wave 9 "Stream-Pause bei geheimen Abstimmungen" (D6) -- NO default
+     * value, same reasoning as [ElectionService]'s own `streamGuard` KDoc.
+     */
+    private val streamGuard: SecretBallotStreamGuard,
 ) : ISystemicConsensusService {
     override suspend fun openSystemicConsensus(input: SystemicConsensusOpenInput): SystemicConsensusDto {
         val current = resolveCurrentMember(call)
@@ -117,7 +139,9 @@ class SystemicConsensusService(
             }
 
             if (input.scaleMax < 1) throw ConflictException("scaleMax must be at least 1, got ${input.scaleMax}")
-            if (input.maxRounds < 1) throw ConflictException("maxRounds must be at least 1, got ${input.maxRounds}")
+            if (input.maxRounds < 1 || input.maxRounds > MAX_ROUNDS_HARD_CAP) {
+                throw ConflictException("maxRounds must be between 1 and $MAX_ROUNDS_HARD_CAP, got ${input.maxRounds}")
+            }
             if (input.groupConflictViableThreshold !in GROUP_CONFLICT_THRESHOLD_RANGE) {
                 throw ConflictException("groupConflictViableThreshold must be in 0..1, got ${input.groupConflictViableThreshold}")
             }
@@ -252,29 +276,50 @@ class SystemicConsensusService(
     override suspend fun freezeOptions(systemicConsensusId: String): SystemicConsensusDto {
         val current = resolveCurrentMember(call)
         val kId = systemicConsensusId.toUuidOrNotFound("SystemicConsensus")
-        return transaction {
-            val row = requireSystemicConsensusRow(kId)
-            val committeeId = requireMotionCommitteeId(row[SystemicConsensusTable.motionId])
-            if (!current.canManageSystemicConsensus(committeeId)) throw ForbiddenException()
-            if (row[SystemicConsensusTable.status] != SystemicConsensusStatus.COLLECTION) {
-                throw ConflictException(
-                    "SystemicConsensus $systemicConsensusId is ${row[SystemicConsensusTable.status]}, expected COLLECTION",
-                )
-            }
-            val optionCount =
-                SystemicConsensusOptionTable
-                    .selectAll()
-                    .where { SystemicConsensusOptionTable.systemicConsensusId eq kId }
-                    .count()
-            if (optionCount == 0L) throw ConflictException("SystemicConsensus $systemicConsensusId has no options to freeze")
+        // V1.0 Videokonferenzen, Wave 9 -- same transaction -> network-call-outside-it restructure as
+        // ElectionService.openVoting (D7), same "lock rooms after the (potentially large) eligibility
+        // snapshot, not before" ordering (Stolperfalle §9.7).
+        val prep =
+            transaction {
+                val row = requireSystemicConsensusRow(kId)
+                val committeeId = requireMotionCommitteeId(row[SystemicConsensusTable.motionId])
+                if (!current.canManageSystemicConsensus(committeeId)) throw ForbiddenException()
+                if (row[SystemicConsensusTable.status] != SystemicConsensusStatus.COLLECTION) {
+                    throw ConflictException(
+                        "SystemicConsensus $systemicConsensusId is ${row[SystemicConsensusTable.status]}, expected COLLECTION",
+                    )
+                }
+                val optionCount =
+                    SystemicConsensusOptionTable
+                        .selectAll()
+                        .where { SystemicConsensusOptionTable.systemicConsensusId eq kId }
+                        .count()
+                if (optionCount == 0L) throw ConflictException("SystemicConsensus $systemicConsensusId has no options to freeze")
 
-            snapshotEligibility(kId, committeeId, row[SystemicConsensusTable.meetingId], row[SystemicConsensusTable.round])
-            SystemicConsensusTable.update({ SystemicConsensusTable.id eq kId }) {
-                it[status] = SystemicConsensusStatus.RATING
-                it[ratingOpenedAt] = nowLocalDateTime()
+                val meetingId = row[SystemicConsensusTable.meetingId]
+                val secret = row[SystemicConsensusTable.secret]
+                snapshotEligibility(kId, committeeId, meetingId, row[SystemicConsensusTable.round])
+                val affectedRooms =
+                    if (!secret) {
+                        emptyList()
+                    } else {
+                        SecretBallotStreamLock.lockRooms(SecretBallotStreamLock.roomIdsForMeeting(meetingId))
+                    }
+                SystemicConsensusTable.update({ SystemicConsensusTable.id eq kId }) {
+                    it[status] = SystemicConsensusStatus.RATING
+                    it[ratingOpenedAt] = nowLocalDateTime()
+                }
+                if (secret) {
+                    ConferenceStreamPauseCoordinator.markPausingForSecretBallot(
+                        roomIds = affectedRooms,
+                        actorMemberId = current.memberId,
+                        actorRole = current.role,
+                    )
+                }
+                OpenRatingPrep(meetingId, secret)
             }
-            loadSystemicConsensus(kId)
-        }
+        if (prep.secret) streamGuard.quiesceStreamsForMeeting(prep.meetingId)
+        return transaction { loadSystemicConsensus(kId) }
     }
 
     override suspend fun castResistanceBallot(input: SystemicConsensusBallotInput): SystemicConsensusBallotCastResultDto {
@@ -299,6 +344,12 @@ class SystemicConsensusService(
                 throw ConflictException(
                     "SystemicConsensus ${input.systemicConsensusId} is ${row[SystemicConsensusTable.status]}, expected RATING",
                 )
+            }
+            // V1.0 Videokonferenzen, Wave 9 -- fail-closed gate (D3), only for a secret
+            // SystemicConsensus, same "strictly BEFORE the ExposedSQLException-catching try block
+            // below" placement as ElectionService.castElectionBallot (Stolperfalle §9.6).
+            if (row[SystemicConsensusTable.secret]) {
+                SecretBallotStreamLock.requireStreamQuiescedForBallot(row[SystemicConsensusTable.meetingId])
             }
             val round = row[SystemicConsensusTable.round]
             val eligible =
@@ -413,19 +464,26 @@ class SystemicConsensusService(
     override suspend fun closeRating(systemicConsensusId: String): SystemicConsensusDto {
         val current = resolveCurrentMember(call)
         val kId = systemicConsensusId.toUuidOrNotFound("SystemicConsensus")
-        return transaction {
-            val row = requireSystemicConsensusRow(kId)
-            val committeeId = requireMotionCommitteeId(row[SystemicConsensusTable.motionId])
-            if (!current.canManageSystemicConsensus(committeeId)) throw ForbiddenException()
-            if (row[SystemicConsensusTable.status] != SystemicConsensusStatus.RATING) {
-                throw ConflictException("SystemicConsensus $systemicConsensusId is ${row[SystemicConsensusTable.status]}, expected RATING")
+        val closed =
+            transaction {
+                val row = requireSystemicConsensusRow(kId)
+                val committeeId = requireMotionCommitteeId(row[SystemicConsensusTable.motionId])
+                if (!current.canManageSystemicConsensus(committeeId)) throw ForbiddenException()
+                if (row[SystemicConsensusTable.status] != SystemicConsensusStatus.RATING) {
+                    throw ConflictException(
+                        "SystemicConsensus $systemicConsensusId is ${row[SystemicConsensusTable.status]}, expected RATING",
+                    )
+                }
+                SystemicConsensusTable.update({ SystemicConsensusTable.id eq kId }) {
+                    it[status] = SystemicConsensusStatus.CLOSED
+                    it[ratingClosedAt] = nowLocalDateTime()
+                }
+                row[SystemicConsensusTable.secret] to row[SystemicConsensusTable.meetingId]
             }
-            SystemicConsensusTable.update({ SystemicConsensusTable.id eq kId }) {
-                it[status] = SystemicConsensusStatus.CLOSED
-                it[ratingClosedAt] = nowLocalDateTime()
-            }
-            loadSystemicConsensus(kId)
-        }
+        // V1.0 Videokonferenzen, Wave 9 -- Auto-Resume AFTER the transaction above has committed (D7).
+        val (secret, meetingId) = closed
+        if (secret) streamGuard.resumeStreamsForMeeting(meetingId)
+        return transaction { loadSystemicConsensus(kId) }
     }
 
     override suspend fun evaluate(systemicConsensusId: String): SystemicConsensusResultDto {
@@ -566,56 +624,84 @@ class SystemicConsensusService(
     override suspend fun reopenRating(systemicConsensusId: String): SystemicConsensusDto {
         val current = resolveCurrentMember(call)
         val kId = systemicConsensusId.toUuidOrNotFound("SystemicConsensus")
-        return transaction {
-            val row = requireSystemicConsensusRow(kId)
-            val committeeId = requireMotionCommitteeId(row[SystemicConsensusTable.motionId])
-            if (!current.canManageSystemicConsensus(committeeId)) throw ForbiddenException()
-            val status = row[SystemicConsensusTable.status]
-            if (status != SystemicConsensusStatus.CLOSED && status != SystemicConsensusStatus.EVALUATED) {
-                throw ConflictException("SystemicConsensus $systemicConsensusId is $status, expected CLOSED or EVALUATED")
+        // V1.0 Videokonferenzen, Wave 9 -- same transaction -> network-call-outside-it restructure as
+        // freezeOptions/ElectionService.openVoting (D7).
+        val prep =
+            transaction {
+                val row = requireSystemicConsensusRow(kId)
+                val committeeId = requireMotionCommitteeId(row[SystemicConsensusTable.motionId])
+                if (!current.canManageSystemicConsensus(committeeId)) throw ForbiddenException()
+                val status = row[SystemicConsensusTable.status]
+                if (status != SystemicConsensusStatus.CLOSED && status != SystemicConsensusStatus.EVALUATED) {
+                    throw ConflictException("SystemicConsensus $systemicConsensusId is $status, expected CLOSED or EVALUATED")
+                }
+                if (row[SystemicConsensusTable.resolutionId] != null) {
+                    throw ConflictException(
+                        "SystemicConsensus $systemicConsensusId already has a binding Resolution " +
+                            "(${row[SystemicConsensusTable.resolutionId]}) recorded -- reopening would orphan it in the resolution book",
+                    )
+                }
+                val round = row[SystemicConsensusTable.round]
+                val maxRounds = row[SystemicConsensusTable.maxRounds]
+                if (round >= maxRounds) {
+                    throw ConflictException("SystemicConsensus $systemicConsensusId already reached maxRounds=$maxRounds")
+                }
+                val newRound = round + 1
+                val meetingId = row[SystemicConsensusTable.meetingId]
+                val secret = row[SystemicConsensusTable.secret]
+                snapshotEligibility(kId, committeeId, meetingId, newRound)
+                val affectedRooms =
+                    if (!secret) {
+                        emptyList()
+                    } else {
+                        SecretBallotStreamLock.lockRooms(SecretBallotStreamLock.roomIdsForMeeting(meetingId))
+                    }
+                SystemicConsensusTable.update({ SystemicConsensusTable.id eq kId }) {
+                    it[SystemicConsensusTable.status] = SystemicConsensusStatus.RATING
+                    it[SystemicConsensusTable.round] = newRound
+                    it[ratingOpenedAt] = nowLocalDateTime()
+                    it[ratingClosedAt] = null
+                    it[tallyRunAt] = null
+                    it[winnerOptionId] = null
+                }
+                if (secret) {
+                    ConferenceStreamPauseCoordinator.markPausingForSecretBallot(
+                        roomIds = affectedRooms,
+                        actorMemberId = current.memberId,
+                        actorRole = current.role,
+                    )
+                }
+                OpenRatingPrep(meetingId, secret)
             }
-            if (row[SystemicConsensusTable.resolutionId] != null) {
-                throw ConflictException(
-                    "SystemicConsensus $systemicConsensusId already has a binding Resolution " +
-                        "(${row[SystemicConsensusTable.resolutionId]}) recorded -- reopening would orphan it in the resolution book",
-                )
-            }
-            val round = row[SystemicConsensusTable.round]
-            val maxRounds = row[SystemicConsensusTable.maxRounds]
-            if (round >= maxRounds) {
-                throw ConflictException("SystemicConsensus $systemicConsensusId already reached maxRounds=$maxRounds")
-            }
-            val newRound = round + 1
-            snapshotEligibility(kId, committeeId, row[SystemicConsensusTable.meetingId], newRound)
-            SystemicConsensusTable.update({ SystemicConsensusTable.id eq kId }) {
-                it[SystemicConsensusTable.status] = SystemicConsensusStatus.RATING
-                it[SystemicConsensusTable.round] = newRound
-                it[ratingOpenedAt] = nowLocalDateTime()
-                it[ratingClosedAt] = null
-                it[tallyRunAt] = null
-                it[winnerOptionId] = null
-            }
-            loadSystemicConsensus(kId)
-        }
+        if (prep.secret) streamGuard.quiesceStreamsForMeeting(prep.meetingId)
+        return transaction { loadSystemicConsensus(kId) }
     }
 
     override suspend fun abortSystemicConsensus(systemicConsensusId: String): SystemicConsensusDto {
         val current = resolveCurrentMember(call)
         val kId = systemicConsensusId.toUuidOrNotFound("SystemicConsensus")
-        return transaction {
-            val row = requireSystemicConsensusRow(kId)
-            val committeeId = requireMotionCommitteeId(row[SystemicConsensusTable.motionId])
-            if (!current.canManageSystemicConsensus(committeeId)) throw ForbiddenException()
-            val status = row[SystemicConsensusTable.status]
-            if (status == SystemicConsensusStatus.EVALUATED || status == SystemicConsensusStatus.ABORTED) {
-                throw ConflictException("SystemicConsensus $systemicConsensusId is already $status")
+        val aborted =
+            transaction {
+                val row = requireSystemicConsensusRow(kId)
+                val committeeId = requireMotionCommitteeId(row[SystemicConsensusTable.motionId])
+                if (!current.canManageSystemicConsensus(committeeId)) throw ForbiddenException()
+                val status = row[SystemicConsensusTable.status]
+                if (status == SystemicConsensusStatus.EVALUATED || status == SystemicConsensusStatus.ABORTED) {
+                    throw ConflictException("SystemicConsensus $systemicConsensusId is already $status")
+                }
+                SystemicConsensusTable.update({ SystemicConsensusTable.id eq kId }) {
+                    it[SystemicConsensusTable.status] =
+                        SystemicConsensusStatus.ABORTED
+                }
+                // V1.0 Videokonferenzen, Wave 9 -- Auto-Resume only owed if the prior status was
+                // RATING (the only status this wave ever pauses for) -- COLLECTION never triggered a
+                // pause, so no resume attempt is made for it.
+                val wasSecretAndWasRating = row[SystemicConsensusTable.secret] && status == SystemicConsensusStatus.RATING
+                wasSecretAndWasRating to row[SystemicConsensusTable.meetingId]
             }
-            SystemicConsensusTable.update({ SystemicConsensusTable.id eq kId }) {
-                it[SystemicConsensusTable.status] =
-                    SystemicConsensusStatus.ABORTED
-            }
-            loadSystemicConsensus(kId)
-        }
+        val (wasSecretAndWasRating, meetingId) = aborted
+        if (wasSecretAndWasRating) streamGuard.resumeStreamsForMeeting(meetingId)
+        return transaction { loadSystemicConsensus(kId) }
     }
 
     override suspend fun getSystemicConsensus(systemicConsensusId: String): SystemicConsensusDto {

@@ -18,12 +18,14 @@ import network.lapis.cloud.server.db.DbClock
 import network.lapis.cloud.server.db.generated.ConferenceGuestConsentAcknowledgmentTable
 import network.lapis.cloud.server.db.generated.ConferenceParticipationTable
 import network.lapis.cloud.server.db.generated.ConferenceRoomTable
+import network.lapis.cloud.server.db.generated.MeetingTable
 import network.lapis.cloud.server.db.generated.MemberTable
 import network.lapis.cloud.server.db.generated.OidcGuestProfileTable
 import network.lapis.cloud.server.db.generated.OrganizationSettingsTable
 import network.lapis.cloud.server.federation.FederationInboxRateLimiter
 import network.lapis.cloud.server.security.CurrentMember
 import network.lapis.cloud.server.security.LoginRateLimiter
+import network.lapis.cloud.server.security.isActiveCommitteeMember
 import network.lapis.cloud.server.security.isPrivileged
 import network.lapis.cloud.server.security.resolveCurrentMember
 import network.lapis.cloud.shared.domain.AuditAction
@@ -50,6 +52,7 @@ import org.jetbrains.exposed.v1.core.and
 import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.core.inList
 import org.jetbrains.exposed.v1.core.isNull
+import org.jetbrains.exposed.v1.core.neq
 import org.jetbrains.exposed.v1.jdbc.insert
 import org.jetbrains.exposed.v1.jdbc.selectAll
 import org.jetbrains.exposed.v1.jdbc.transactions.transaction
@@ -88,6 +91,9 @@ private const val MAX_DESCRIPTION_LENGTH = 1000
 
 /** DoS guard for [ConferenceService.listActiveRooms] -- same class of cap `AuctionService.listAuctions`'s own limit enforces. */
 private const val MAX_LIST_RESULTS = 200
+
+/** Security-audit MINOR-10 fix -- [ConferenceService.setRoomMeeting]'s own cap on how many rooms may be bound to the SAME Sitzung at once. */
+private const val MAX_ROOMS_PER_MEETING = 10
 
 /** Result of the pre-mint DB read [ConferenceService.joinRoom] needs before it can call [LiveKitAccessToken.mintParticipantToken] outside any `transaction {}` -- see that method's own KDoc "Transaction boundaries" reasoning (shared with [network.lapis.cloud.server.rpc.PostalMailService]). */
 private data class JoinPrep(
@@ -217,6 +223,19 @@ class ConferenceService(
      * reads notes state, it only ever calls [ConferenceNotesState.clear], a no-op on an empty map.
      */
     private val notesState: ConferenceNotesState = ConferenceNotesState(),
+    /**
+     * V1.0 Videokonferenzen, Wave 9 "Stream-Pause bei geheimen Abstimmungen" -- [setRoomMeeting]'s own
+     * budget, same "constructed here, NOT left to the service's own constructor default" reasoning as
+     * [guestAccessRateLimiter] KDoc: `registerService`'s factory lambda constructs a brand-new
+     * `ConferenceService` on EVERY RPC call, so relying on a default here would silently give every
+     * request a fresh, empty-state limiter. Security-audit MINOR-11 fix -- NO default value, exactly
+     * like [ElectionService]/[SystemicConsensusService]'s own `streamGuard` constructor parameter (see
+     * those classes' own KDoc "(D6)"): a default would have let the SAME class of bug the Wave-3
+     * audit-round-2 rate-limiter finding already caught slip back in here. `Application.module` always
+     * threads a real, module-scoped singleton through explicitly; every pre-existing test call site
+     * that does not care about this limiter now passes its own throwaway instance explicitly too.
+     */
+    private val conferenceMeetingBindRateLimiter: FederationInboxRateLimiter,
 ) : IConferenceService {
     override suspend fun getAvailability(): ConferenceAvailabilityDto {
         resolveCurrentMember(call)
@@ -818,6 +837,134 @@ class ConferenceService(
         }
     }
 
+    /**
+     * V1.0 Videokonferenzen, Wave 9 "Stream-Pause bei geheimen Abstimmungen" -- see
+     * [IConferenceService.setRoomMeeting] KDoc for the full (security-audit MAJOR-2/MAJOR-3-widened)
+     * authorization matrix. Shape modelled on [renameRoom]/[setRoomGuestAccess] (fetch-authorize-
+     * mutate, single transaction, no LiveKit call) -- unlike [setRoomGuestAccess] there is no
+     * revoke-disconnect leg here, just the binding column itself.
+     */
+    override suspend fun setRoomMeeting(
+        roomId: String,
+        meetingId: String?,
+    ): ConferenceRoomDto {
+        val current = resolveCurrentMember(call)
+        requireConferenceEnabled()
+        requireWithinRate(conferenceMeetingBindRateLimiter, current.memberId)
+        val id = roomId.toConferenceUuid()
+        val newMeetingUuid = meetingId?.toConferenceUuid()
+        transaction {
+            // forUpdate() -- same locking-order discipline SecretBallotStreamLock's own KDoc
+            // "Locking order" prescribes for every caller that acts on hasOpenSecretBallot/
+            // hasOpenSecretBallotForMeeting: the affected conference_room row must be locked first,
+            // so this binding change serializes against a concurrent ElectionService.openVoting/
+            // SystemicConsensusService.freezeOptions targeting the SAME room.
+            val existing =
+                ConferenceRoomTable
+                    .selectAll()
+                    .where { ConferenceRoomTable.id eq id }
+                    .forUpdate()
+                    .singleOrNull()
+                    ?: throw NotFoundException("Conference room $id not found")
+            // Baseline gate, unchanged -- "is this caller the room's creator, or globally privileged"
+            // is still necessary (though, see below, no longer SUFFICIENT) for either direction.
+            requireModeratorOrPrivileged(existing, current)
+            if (existing[ConferenceRoomTable.endedAt] != null) {
+                throw ConflictException("Cannot change the Sitzung binding of an ended room")
+            }
+            val currentMeetingId = existing[ConferenceRoomTable.meetingId]
+            val newMeetingRow =
+                if (newMeetingUuid != null) {
+                    MeetingTable.selectAll().where { MeetingTable.id eq newMeetingUuid }.singleOrNull()
+                        ?: throw NotFoundException("Meeting $newMeetingUuid not found")
+                } else {
+                    null
+                }
+
+            // Security-audit MAJOR-3 fix -- "Lösen" (unbind entirely, OR rebind to a DIFFERENT
+            // meeting) requires BOARD/ADMIN -- the room creator alone is no longer sufficient here,
+            // asymmetric to "hin-binden" below (which the creator CAN do, together with committee
+            // membership). This ends the protection the currently-bound Sitzung had; only a global
+            // privileged role may make that call, not whoever happens to have created the room.
+            val isUnbindingOrRebinding = currentMeetingId != null && currentMeetingId != newMeetingUuid
+            if (isUnbindingOrRebinding && !current.isPrivileged) throw ForbiddenException()
+
+            // Security-audit MAJOR-2 fix -- "hin-binden" (binding to a NEW/different meeting)
+            // additionally requires the caller be either BOARD/ADMIN or an active member of the
+            // Gremium the target Sitzung belongs to. Security-audit-round-2 L1 fix: this used to be a
+            // hand-rolled `until IS NULL` check, which wrongly rejected a member with a time-limited
+            // (but still CURRENT) term -- the normal case for an elected Vorstand seat -- since a term
+            // end date almost always exists even while the seat is still active. Reuses
+            // [network.lapis.cloud.server.security.isActiveCommitteeMember] instead, the SAME
+            // `since <= today AND (until IS NULL OR until >= today)` active-membership semantics every
+            // other Committee-role gate in this codebase already establishes
+            // ([network.lapis.cloud.server.security.GovernanceAuthorization]'s own `hasCommitteeRole`,
+            // via `canSubmitMotion`'s non-GENERAL_ASSEMBLY branch) -- "any role", not just leadership,
+            // same as that check. Without this gate entirely, ANY active member creating a room could
+            // bind it to an arbitrary foreign Sitzung.
+            if (newMeetingRow != null && !current.isPrivileged) {
+                if (!current.isActiveCommitteeMember(newMeetingRow[MeetingTable.committeeId])) throw ForbiddenException()
+            }
+
+            // Wave 9 -- see IConferenceService.setRoomMeeting KDoc: neither the CURRENTLY-bound
+            // meeting (if any, "weg-binden") nor the NEWLY-to-be-bound meeting ("hin-binden") may have
+            // an open OR PENDING (Vorbereitungs-Zustand) secret ballot right now -- security-audit
+            // MAJOR-3 fix widens both checks from hasOpenSecretBallotForMeeting to
+            // hasPendingOrOpenSecretBallot (see that method's own KDoc for the exact pre-open states
+            // it additionally covers), closing the "unbind right before a secret ballot opens, so its
+            // protection never applies in the first place" gap. hasPendingOrOpenSecretBallot (not the
+            // roomId-based hasOpenSecretBallot) is used for the "hin-binden" half because the room is
+            // not yet bound to it at this point in the transaction -- there is no
+            // conference_room.meeting_id row to derive it from.
+            if (currentMeetingId != null && SecretBallotStreamLock.hasPendingOrOpenSecretBallot(currentMeetingId)) {
+                throw ConflictException(
+                    "Dieser Raum ist gerade an eine Sitzung mit laufender oder unmittelbar bevorstehender " +
+                        "geheimer Abstimmung gebunden -- die Zuordnung kann erst nach deren Ende geändert werden.",
+                )
+            }
+            if (newMeetingUuid != null && SecretBallotStreamLock.hasPendingOrOpenSecretBallot(newMeetingUuid)) {
+                throw ConflictException(
+                    "Die Ziel-Sitzung hat gerade eine laufende oder unmittelbar bevorstehende geheime " +
+                        "Abstimmung -- der Raum kann erst nach deren Ende an sie gebunden werden.",
+                )
+            }
+
+            // Security-audit MINOR-10 fix -- DoS/complexity cap: an unbounded number of rooms bound
+            // to the same Sitzung would make SecretBallotStreamGuard.quiesceStreamsForMeeting's own
+            // (now-concurrent, see that method's own MINOR-10 fix) fan-out unbounded too. Only
+            // checked when actually GROWING the bound set for the target meeting (hin-binden to a
+            // meeting this room is not already bound to) -- lösen only ever shrinks it.
+            if (newMeetingUuid != null && newMeetingUuid != currentMeetingId) {
+                val alreadyBoundCount =
+                    ConferenceRoomTable
+                        .selectAll()
+                        .where { (ConferenceRoomTable.meetingId eq newMeetingUuid) and (ConferenceRoomTable.id neq id) }
+                        .count()
+                if (alreadyBoundCount >= MAX_ROOMS_PER_MEETING) {
+                    throw ConflictException(
+                        "Sitzung $newMeetingUuid hat bereits $MAX_ROOMS_PER_MEETING gebundene Räume (Höchstgrenze)",
+                    )
+                }
+            }
+
+            ConferenceRoomTable.update({ ConferenceRoomTable.id eq id }) {
+                it[ConferenceRoomTable.meetingId] = newMeetingUuid
+            }
+            AuditLogRecorder.record(
+                actorMemberId = current.memberId,
+                actorRole = current.role,
+                entityType = AuditEntityType.CONFERENCE_ROOM,
+                entityId = id,
+                action = AuditAction.UPDATE,
+                after = """{"meetingId":${newMeetingUuid?.let { "\"$it\"" } ?: "null"}}""",
+            )
+        }
+        return transaction {
+            val fresh = ConferenceRoomTable.selectAll().where { ConferenceRoomTable.id eq id }.single()
+            rowToDto(fresh, current.memberId, emptyMap())
+        }
+    }
+
     // ── Internal helpers ──────────────────────────────────────────────────
 
     /** See [IConferenceService] KDoc "The conference enabled gate". */
@@ -965,11 +1112,21 @@ class ConferenceService(
             liveParticipantCount = liveRooms[row[ConferenceRoomTable.livekitRoomName]] ?: 0,
             myRole = if (creatorId == callerId) ConferenceRole.MODERATOR else ConferenceRole.PARTICIPANT,
             allowFederationGuests = row[ConferenceRoomTable.allowFederationGuests],
+            meetingId = row[ConferenceRoomTable.meetingId]?.toString(),
+            meetingTitle = row[ConferenceRoomTable.meetingId]?.let { meetingTitle(it) },
         )
     }
 
     private fun memberDisplayName(memberId: Uuid): String =
         MemberTable.selectAll().where { MemberTable.id eq memberId }.single()[MemberTable.displayName]
+
+    /** V1.0 Videokonferenzen, Wave 9 -- follow-up lookup for [rowToDto]'s `meetingTitle`, same idiom as [memberDisplayName] above. */
+    private fun meetingTitle(meetingId: Uuid): String? =
+        MeetingTable
+            .selectAll()
+            .where { MeetingTable.id eq meetingId }
+            .singleOrNull()
+            ?.get(MeetingTable.title)
 
     private fun nowLocalDateTime(): LocalDateTime = DbClock.nowLocalDateTime()
 

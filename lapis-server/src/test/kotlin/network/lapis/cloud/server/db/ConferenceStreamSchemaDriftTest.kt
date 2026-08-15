@@ -114,13 +114,26 @@ class ConferenceStreamSchemaDriftTest :
             entity.attributeByName("ended_at")?.nullable shouldBe true
             entity.attributeByName("restart_count")?.nullable shouldBe false
             entity.attributeByName("failure_reason")?.nullable shouldBe true
+            // V1.0 Videokonferenzen, Wave 9 "Stream-Pause bei geheimen Abstimmungen" -- null unless
+            // status is PAUSING/PAUSED, see ConferenceStreamTable.pauseReason KDoc.
+            entity.attributeByName("pause_reason")?.nullable shouldBe true
 
             // Literal order is load-bearing -- see 29-conference-streaming.kuml.kts file header.
+            // PAUSING (Wave 9) is APPENDED at the end, not reordered next to LIVE/PAUSED -- see
+            // ConferenceStreamStatus KDoc.
             entity.attributeByName("status")?.type shouldBe
                 ErmDataType.Enum(
                     name = "ConferenceStreamStatus",
-                    values = listOf("STARTING", "LIVE", "PAUSED", "STOPPING", "ENDED", "FAILED"),
+                    values = listOf("STARTING", "LIVE", "PAUSED", "STOPPING", "ENDED", "FAILED", "PAUSING"),
                     externalFqName = "network.lapis.cloud.shared.domain.ConferenceStreamStatus",
+                )
+            // V1.0 Videokonferenzen, Wave 9 addition -- MANUAL vs SECRET_BALLOT, see
+            // ConferenceStreamPauseReason KDoc.
+            entity.attributeByName("pause_reason")?.type shouldBe
+                ErmDataType.Enum(
+                    name = "ConferenceStreamPauseReason",
+                    values = listOf("MANUAL", "SECRET_BALLOT"),
+                    externalFqName = "network.lapis.cloud.shared.domain.ConferenceStreamPauseReason",
                 )
             entity.attributeByName("layout")?.type shouldBe
                 ErmDataType.Enum(

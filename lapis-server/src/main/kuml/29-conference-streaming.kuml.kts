@@ -71,6 +71,18 @@
 // destinations, a NEW `livekit_egress_id` written onto this SAME `conference_stream` row, and
 // `restart_count` incremented -- never a new `conference_stream` row for a resume, which is why
 // `livekit_egress_id` is nullable-then-overwritable rather than an immutable identity column.
+//
+// **Wave 9 "Stream-Pause bei geheimen Abstimmungen" addition**: a NEW `PAUSING` status literal
+// (APPENDED at the end of `conferenceStreamStatus`, never reordered -- see that enum's own "Literal
+// order is load-bearing" comment) and a NEW `pause_reason` column (`MANUAL` vs `SECRET_BALLOT`, see
+// `conferenceStreamPauseReason` below). `PAUSING` is the fail-closed intermediate state between
+// "DB says pausing" and "LiveKit has confirmed the egress actually stopped publishing" -- `StopEgress`
+// is asynchronous at LiveKit (a "requested", not "stopped" acknowledgement), so a status flip
+// straight to `PAUSED` would let a secret ballot open while the egress is still emitting for 1-3s.
+// `network.lapis.cloud.server.rpc.SecretBallotStreamLock`/`network.lapis.cloud.server.conference
+// .SecretBallotStreamGuard` (this same wave) are the only writers of this new vocabulary; this file
+// itself carries no Election/SystemicConsensus knowledge, only the enum/column shapes their callers
+// need.
 import dev.kuml.profile.erm.ermMappingProfile
 import dev.kuml.uml.Multiplicity
 import dev.kuml.uml.dsl.applyProfile
@@ -140,6 +152,22 @@ classDiagram(name = "ConferenceStreaming") {
         literal(name = "STOPPING")
         literal(name = "ENDED")
         literal(name = "FAILED")
+        // V1.0 Videokonferenzen, Wave 9 "Stream-Pause bei geheimen Abstimmungen" addition --
+        // APPENDED at the end, NOT reordered next to LIVE/PAUSED where it would read more
+        // "naturally" -- see file header "Wave 9 addition" and this enum's own "Literal order is
+        // load-bearing" comment above.
+        literal(name = "PAUSING")
+    }
+
+    // Wave 9 "Stream-Pause bei geheimen Abstimmungen" addition -- literal order is load-bearing
+    // (same mechanism as every other enum in this file), matching
+    // network.lapis.cloud.shared.domain.ConferenceStreamPauseReason. MANUAL (a moderator pressed
+    // pause) vs SECRET_BALLOT (the system quiesced the stream for the duration of a secret ballot's
+    // voting phase) -- only SECRET_BALLOT auto-resumes, see that Kotlin enum's own KDoc for the
+    // one-way SECRET_BALLOT -> MANUAL escalation rule.
+    val conferenceStreamPauseReason = enumOf(name = "ConferenceStreamPauseReason") {
+        literal(name = "MANUAL")
+        literal(name = "SECRET_BALLOT")
     }
 
     // Literal order is load-bearing (see above), matching
@@ -321,6 +349,16 @@ classDiagram(name = "ConferenceStreaming") {
         attribute(name = "failureReason", type = "String") {
             multiplicity = Multiplicity(0, 1)
             stereotype("Column") { "columnName" to "failure_reason"; "sqlType" to "VARCHAR(500)" }
+        }
+        // NULL unless status is PAUSING/PAUSED -- see file header "Wave 9 addition" and
+        // conferenceStreamPauseReason's own comment for the MANUAL-vs-SECRET_BALLOT distinction
+        // and the one-way escalation rule.
+        attribute(name = "pauseReason", type = conferenceStreamPauseReason) {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") {
+                "columnName" to "pause_reason"
+                "enumType" to "network.lapis.cloud.shared.domain.ConferenceStreamPauseReason"
+            }
         }
     }
 

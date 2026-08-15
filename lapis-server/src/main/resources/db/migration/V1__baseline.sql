@@ -1527,11 +1527,15 @@ CREATE TABLE conference_room (
     created_at TIMESTAMP NOT NULL,
     ended_at TIMESTAMP NULL,
     max_participants INT NOT NULL,
-    allow_federation_guests BOOLEAN NOT NULL DEFAULT FALSE
+    allow_federation_guests BOOLEAN NOT NULL DEFAULT FALSE,
+    -- V1.0 Videokonferenzen, Wave 9 "Stream-Pause bei geheimen Abstimmungen" -- see
+    -- 27-conference.kuml.kts file header "Wave 9 addition". NULL means not bound to any Sitzung.
+    meeting_id UUID NULL
 );
 CREATE UNIQUE INDEX uq_conference_room_livekit_room_name ON conference_room (livekit_room_name);
 CREATE INDEX idx_conference_room_created_by ON conference_room (created_by_member_id);
 CREATE INDEX idx_conference_room_ended_at ON conference_room (ended_at);
+CREATE INDEX idx_conference_room_meeting ON conference_room (meeting_id);
 
 CREATE TABLE conference_participation (
     id UUID NOT NULL PRIMARY KEY,
@@ -1548,6 +1552,7 @@ CREATE INDEX idx_conference_participation_member ON conference_participation (me
 -- Foreign Keys
 
 ALTER TABLE conference_room ADD CONSTRAINT fk_conference_room_created_by_member_id FOREIGN KEY (created_by_member_id) REFERENCES member(id);
+ALTER TABLE conference_room ADD CONSTRAINT fk_conference_room_meeting_id FOREIGN KEY (meeting_id) REFERENCES meeting(id);
 ALTER TABLE conference_participation ADD CONSTRAINT fk_conference_participation_room_id FOREIGN KEY (room_id) REFERENCES conference_room(id);
 ALTER TABLE conference_participation ADD CONSTRAINT fk_conference_participation_member_id FOREIGN KEY (member_id) REFERENCES member(id);
 
@@ -1652,9 +1657,18 @@ CREATE TABLE conference_stream (
     ended_at TIMESTAMP NULL,
     restart_count INT NOT NULL DEFAULT 0,
     failure_reason VARCHAR(500) NULL,
-    CHECK (status IN ('STARTING', 'LIVE', 'PAUSED', 'STOPPING', 'ENDED', 'FAILED')),
+    -- V1.0 Videokonferenzen, Wave 9 "Stream-Pause bei geheimen Abstimmungen" -- see
+    -- 29-conference-streaming.kuml.kts file header "Wave 9 addition".
+    pause_reason VARCHAR(13) NULL,
+    -- The status/pause_reason CHECKs are EXPLICITLY named (unlike layout/latency_mode below, left
+    -- unnamed/untouched) so V2__conference_secret_ballot_stream_pause.sql can DROP CONSTRAINT IF
+    -- EXISTS + re-ADD them idempotently on a fresh (test/dev) database that already has this widened
+    -- CHECK from THIS file -- see that migration's own header comment for why both this baseline
+    -- edit and a genuine V2 file exist side by side.
+    CONSTRAINT chk_conference_stream_status CHECK (status IN ('STARTING', 'LIVE', 'PAUSED', 'STOPPING', 'ENDED', 'FAILED', 'PAUSING')),
     CHECK (layout IN ('GRID', 'SPEAKER', 'SINGLE_PARTICIPANT')),
-    CHECK (latency_mode IN ('LOW_LATENCY', 'STANDARD'))
+    CHECK (latency_mode IN ('LOW_LATENCY', 'STANDARD')),
+    CONSTRAINT chk_conference_stream_pause_reason CHECK (pause_reason IS NULL OR pause_reason IN ('MANUAL', 'SECRET_BALLOT'))
 );
 CREATE INDEX idx_conference_stream_room ON conference_stream (room_id);
 CREATE INDEX idx_conference_stream_status ON conference_stream (status);

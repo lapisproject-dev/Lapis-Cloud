@@ -36,6 +36,8 @@ class ConferenceStreamingConfigTest :
             config.pollIntervalSeconds shouldBe 10L
             config.maxDurationMinutes shouldBe 480L
             config.startupTimeoutSeconds shouldBe 60L
+            // V1.0 Videokonferenzen, Wave 9 "Stream-Pause bei geheimen Abstimmungen".
+            config.pauseVerifyTimeoutSeconds shouldBe 20L
         }
 
         test("LAPIS_STREAMING_ENABLED=true with a valid key -> enabled, key decoded to KEY_SIZE_BYTES bytes") {
@@ -138,6 +140,7 @@ class ConferenceStreamingConfigTest :
                         "LAPIS_STREAM_POLL_INTERVAL_SECONDS" to "20",
                         "LAPIS_STREAM_MAX_DURATION_MINUTES" to "600",
                         "LAPIS_STREAM_STARTUP_TIMEOUT_SECONDS" to "90",
+                        "LAPIS_STREAMING_PAUSE_VERIFY_TIMEOUT_SECONDS" to "45",
                     ),
                 )
 
@@ -145,6 +148,7 @@ class ConferenceStreamingConfigTest :
             config.pollIntervalSeconds shouldBe 20L
             config.maxDurationMinutes shouldBe 600L
             config.startupTimeoutSeconds shouldBe 90L
+            config.pauseVerifyTimeoutSeconds shouldBe 45L
         }
 
         test("unparseable numeric fields fall back to defaults rather than crashing") {
@@ -153,11 +157,13 @@ class ConferenceStreamingConfigTest :
                     envOf(
                         "LAPIS_STREAM_MAX_DESTINATIONS" to "not-a-number",
                         "LAPIS_STREAM_POLL_INTERVAL_SECONDS" to "also-not-a-number",
+                        "LAPIS_STREAMING_PAUSE_VERIFY_TIMEOUT_SECONDS" to "not-a-number-either",
                     ),
                 )
 
             config.maxDestinations shouldBe 3
             config.pollIntervalSeconds shouldBe 10L
+            config.pauseVerifyTimeoutSeconds shouldBe 20L
         }
 
         // ── toString ──────────────────────────────────────────────────────────────────────────
@@ -175,5 +181,14 @@ class ConferenceStreamingConfigTest :
 
             config.toString() shouldContain "secretEncryptionKey=<redacted, ${SecretBox.KEY_SIZE_BYTES} bytes>"
             config.toString().shouldNotContain(key)
+        }
+
+        // V1.0 Videokonferenzen, Wave 9 "Stream-Pause bei geheimen Abstimmungen".
+        test("toString includes pauseVerifyTimeoutSeconds, default and custom value alike") {
+            ConferenceStreamingConfig.load(envOf()).toString() shouldContain "pauseVerifyTimeoutSeconds=20"
+
+            val custom =
+                ConferenceStreamingConfig.load(envOf("LAPIS_STREAMING_PAUSE_VERIFY_TIMEOUT_SECONDS" to "45"))
+            custom.toString() shouldContain "pauseVerifyTimeoutSeconds=45"
         }
     })

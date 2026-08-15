@@ -254,6 +254,16 @@ interface IConferenceStreamingService {
      * untouched. LiveKit has NO pause primitive (verified live) -- see class KDoc "pauseStream/
      * resumeStream". Idempotent -- calling on an already-[network.lapis.cloud.shared.domain.ConferenceStreamStatus.PAUSED]/
      * ended/failed stream is a no-op that returns the current row, never an error.
+     *
+     * Security-audit round-4 R4-3 fix -- internally a two-step transition, not a single write: the row
+     * passes through [network.lapis.cloud.shared.domain.ConferenceStreamStatus.PAUSING] while the
+     * `StopEgress` request is confirmed via `ListEgress` (same confirmation discipline `stopStream`
+     * already applies), and only becomes
+     * [network.lapis.cloud.shared.domain.ConferenceStreamStatus.PAUSED] once that confirmation lands --
+     * PAUSED is security-load-bearing this wave (the secret-ballot fail-closed gate trusts it blindly to
+     * mean "nothing is publishing"), so a merely-requested, unconfirmed stop is no longer sufficient. A
+     * confirmation timeout leaves the row `PAUSING`; `StreamPoller`'s own `PAUSING` handling retries on
+     * its next tick.
      */
     suspend fun pauseStream(streamId: String): ConferenceStreamDto
 

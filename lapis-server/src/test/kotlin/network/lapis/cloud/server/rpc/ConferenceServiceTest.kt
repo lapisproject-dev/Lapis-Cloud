@@ -1986,12 +1986,26 @@ class ConferenceServiceTest :
                     install(StatusPages) { installConferenceExceptionHandlers() }
                     routing {
                         get("/test2/guest-join-info-disabled") {
-                            val service = ConferenceService(call, FakeLiveKitAdminClient(), LoginRateLimiter(), DISABLED_CONFIG)
+                            val service =
+                                ConferenceService(
+                                    call,
+                                    FakeLiveKitAdminClient(),
+                                    LoginRateLimiter(),
+                                    DISABLED_CONFIG,
+                                    conferenceMeetingBindRateLimiter = FederationInboxRateLimiter(maxRequests = 10, window = 1.minutes),
+                                )
                             val q = call.request.queryParameters
                             call.respondText(service.getGuestJoinInfo(q["roomId"]!!).toPipeString())
                         }
                         post("/test2/set-room-guest-access-disabled") {
-                            val service = ConferenceService(call, FakeLiveKitAdminClient(), LoginRateLimiter(), DISABLED_CONFIG)
+                            val service =
+                                ConferenceService(
+                                    call,
+                                    FakeLiveKitAdminClient(),
+                                    LoginRateLimiter(),
+                                    DISABLED_CONFIG,
+                                    conferenceMeetingBindRateLimiter = FederationInboxRateLimiter(maxRequests = 10, window = 1.minutes),
+                                )
                             val q = call.request.queryParameters
                             call.respondText(service.setRoomGuestAccess(q["roomId"]!!, true).toPipeString())
                         }
@@ -2201,6 +2215,10 @@ private fun Route.registerConferenceTestRoutes(
     // (10/min) matches production; no existing test calls setRoomGuestAccess anywhere near that many
     // times, and the dedicated throttle test below overrides it with a tiny budget.
     guestAccessRateLimiter: FederationInboxRateLimiter = FederationInboxRateLimiter(maxRequests = 10, window = 1.minutes),
+    // Security-audit MINOR-11 fix -- ConferenceService.conferenceMeetingBindRateLimiter no longer has
+    // a constructor default (see that field's own KDoc), so every test call site now threads its own
+    // throwaway instance explicitly.
+    conferenceMeetingBindRateLimiter: FederationInboxRateLimiter = FederationInboxRateLimiter(maxRequests = 10, window = 1.minutes),
 ) {
     fun service(
         call: ApplicationCall,
@@ -2214,6 +2232,7 @@ private fun Route.registerConferenceTestRoutes(
         leaveRoomRateLimiter = leaveRateLimiter,
         listRateLimiter = listRateLimiter,
         guestAccessRateLimiter = guestAccessRateLimiter,
+        conferenceMeetingBindRateLimiter = conferenceMeetingBindRateLimiter,
     )
     get("/test/availability-enabled") {
         val service = service(call, enabledConfig)

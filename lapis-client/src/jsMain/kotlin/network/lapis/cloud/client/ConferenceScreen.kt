@@ -48,16 +48,20 @@ import network.lapis.cloud.shared.domain.ConferenceRoomInput
 import network.lapis.cloud.shared.domain.ConferenceStreamDto
 import network.lapis.cloud.shared.domain.ConferenceStreamLatencyMode
 import network.lapis.cloud.shared.domain.ConferenceStreamLayout
+import network.lapis.cloud.shared.domain.ConferenceStreamPauseReason
 import network.lapis.cloud.shared.domain.ConferenceStreamStatus
 import network.lapis.cloud.shared.domain.ConferenceStreamTargetDto
 import network.lapis.cloud.shared.domain.ConferenceStreamTargetStatus
 import network.lapis.cloud.shared.domain.DocumentAccessLevel
+import network.lapis.cloud.shared.domain.MeetingDto
+import network.lapis.cloud.shared.domain.MeetingStatus
 import network.lapis.cloud.shared.rpc.IConferenceBreakoutService
 import network.lapis.cloud.shared.rpc.IConferenceNotesService
 import network.lapis.cloud.shared.rpc.IConferenceRecordingService
 import network.lapis.cloud.shared.rpc.IConferenceService
 import network.lapis.cloud.shared.rpc.IConferenceStreamingService
 import network.lapis.cloud.shared.rpc.IConferenceWhiteboardService
+import network.lapis.cloud.shared.rpc.IGovernanceService
 import org.w3c.dom.HTMLElement
 import org.w3c.dom.HTMLInputElement
 import org.w3c.dom.events.Event
@@ -1139,6 +1143,75 @@ private fun enterCall(
         }
     }
 
+    // V1.0 Videokonferenzen, Wave 9 "Stream-Pause bei geheimen Abstimmungen" -- its OWN, further
+    // spatially separate control row, built UNCONDITIONALLY like [guestAccessRow] immediately above:
+    // badge for everyone, buttons moderator-only. Ohne diese Bindung ist der gesamte Wave-9-Schutz
+    // wirkungslos (`SecretBallotStreamLock`/`setRoomMeeting` KDoc) -- eine geheime Wahl kann den
+    // Stream nur pausieren, wenn IRGENDJEMAND diesen Raum vorher an eine Sitzung gebunden hat, also
+    // muss diese Zeile sichtbar bleiben, auch wenn (der Normalfall) nichts gebunden ist -- nie hinter
+    // einem "erweiterte Einstellungen"-Toggle versteckt.
+    val meetingBindingRow = callPanel.hPanel(spacing = 8) { addCssClasses("align-items-center flex-wrap") }
+    meetingBindingRow.div(tr("Sitzung:")) { addCssClasses("text-muted small") }
+    var boundMeetingId = room.meetingId
+    var boundMeetingTitle = room.meetingTitle
+    val meetingBindingBadge = meetingBindingRow.statusBadge("", "secondary")
+
+    fun updateMeetingBindingUi() {
+        meetingBindingBadge.content =
+            boundMeetingTitle?.let { gettext("Sitzung: %1", it) } ?: tr("Sitzung: nicht zugeordnet")
+        meetingBindingBadge.removeCssClass("text-bg-secondary")
+        meetingBindingBadge.removeCssClass("text-bg-info")
+        meetingBindingBadge.addCssClass(if (boundMeetingId != null) "text-bg-info" else "text-bg-secondary")
+    }
+    updateMeetingBindingUi()
+
+    if (canModerate) {
+        val assignMeetingButton = meetingBindingRow.button(tr("Sitzung zuordnen"), style = ButtonStyle.OUTLINEPRIMARY)
+        assignMeetingButton.addCssClass("btn-sm")
+        val unassignMeetingButton = meetingBindingRow.button(tr("Zuordnung aufheben"), style = ButtonStyle.OUTLINESECONDARY)
+        unassignMeetingButton.addCssClass("btn-sm")
+        if (boundMeetingId == null) unassignMeetingButton.hide()
+
+        fun applyMeetingBinding(meetingId: String?) {
+            assignMeetingButton.disabled = true
+            unassignMeetingButton.disabled = true
+            AppScope.launch {
+                // A ConflictException here (open secret ballot on either the currently bound or the
+                // newly requested Sitzung, see [IConferenceService.setRoomMeeting] KDoc) surfaces
+                // through guarded{}'s own generic toast -- no bespoke handling needed, same posture
+                // [applyGuestAccess] above already takes for its own ConflictException path.
+                val result = guarded { rpcService<IConferenceService>().setRoomMeeting(room.id, meetingId) }
+                assignMeetingButton.disabled = false
+                unassignMeetingButton.disabled = false
+                // Rule: only update UI state once the guarded {} call's result confirms success --
+                // never optimistically before the RPC resolves (same discipline [applyGuestAccess]
+                // already follows).
+                if (result != null) {
+                    boundMeetingId = result.meetingId
+                    boundMeetingTitle = result.meetingTitle
+                    updateMeetingBindingUi()
+                    if (boundMeetingId == null) unassignMeetingButton.hide() else unassignMeetingButton.show()
+                    notifySuccess(if (boundMeetingId != null) tr("Sitzung zugeordnet.") else tr("Zuordnung aufgehoben."))
+                }
+            }
+        }
+
+        assignMeetingButton.onClick {
+            assignMeetingButton.disabled = true
+            AppScope.launch {
+                val meetings = guarded { rpcService<IGovernanceService>().listMeetings(status = MeetingStatus.PLANNED) }
+                assignMeetingButton.disabled = false
+                if (meetings.isNullOrEmpty()) {
+                    notifyError(tr("Keine geplanten Sitzungen vorhanden."))
+                    return@launch
+                }
+                assignMeetingDialog(meetings) { meetingId -> applyMeetingBinding(meetingId) }
+            }
+        }
+
+        unassignMeetingButton.onClick { applyMeetingBinding(null) }
+    }
+
     // V1.0 Videokonferenzen, Wave 6 "Breakout-Räume" -- its OWN, further spatially separate control
     // row, moderator-only. Design review verdict #1 (must-fix): this row must NOT share the
     // "Moderator:"/endButton row -- placing "Alle zurückholen" next to "Für alle beenden" would
@@ -1287,6 +1360,18 @@ private fun enterCall(
         streamBanner.hide()
     }
     streamBannerLeaveButton.onClick { leaveButton.getElement()?.click() }
+
+    // V1.0 Videokonferenzen, Wave 9 "Stream-Pause bei geheimen Abstimmungen" -- a separate,
+    // undismissable banner, deliberately NOT built like [streamBanner] (no "Verstanden"/"Besprechung
+    // verlassen" buttons, no acknowledged-flag): this pause is temporary and server-driven, not a
+    // one-time notice a participant clicks away -- the banner must reappear on every future secret
+    // ballot without ever needing to be "re-armed", and there is nothing for a participant to
+    // meaningfully act on besides waiting. `warning` (not `danger`) matches
+    // [conferenceStreamStatusColor]'s own PAUSING/PAUSED-adjacent hue, not an alarm.
+    val secretBallotPauseBanner = callPanel.vPanel(spacing = 6) { addCssClasses("border border-warning rounded p-2") }
+    secretBallotPauseBanner.hide()
+    secretBallotPauseBanner.addAfterInsertHook { vnode -> (vnode.elm as? HTMLElement)?.setAttribute("role", "alert") }
+    secretBallotPauseBanner.div(CONFERENCE_SECRET_BALLOT_PAUSE_BANNER_TEXT) { addCssClass("fw-bold") }
 
     // D8: the ONE place either badge row or the document.title prefix is ever rendered -- always
     // from `activeRecordingDto`/`activeStreamDto` (server state), never from a raw LiveKit push
@@ -1461,7 +1546,25 @@ private fun enterCall(
     // steady-state "Live-Stream läuft" -- so this function only ever governs which of the four
     // buttons is VISIBLE per [ConferenceStreamStatus], never their disabled-while-in-flight state
     // (each click handler owns that directly around its own `guarded {}` call, rule 2).
+    //
+    // V1.0 Wave 9 "Stream-Pause bei geheimen Abstimmungen" -- this is also the ONE function that
+    // drives [secretBallotPauseBanner]'s visibility, folded in here (rather than duplicated at every
+    // `activeStreamDto = ...` call site the way [streamBanner]'s own show()/hide() calls are) because
+    // every one of those sites already calls this function right after mutating `activeStreamDto` --
+    // routing the banner through the SAME single choke point makes it structurally impossible to
+    // forget a transition, at the cost of the banner not being a one-time "just happened" notice like
+    // [streamBanner] (it is not one -- see [secretBallotPauseBanner]'s own declaration comment). This
+    // update happens BEFORE the buttons' own null-guard below so it still runs for a PLAIN
+    // PARTICIPANT, for whom `streamStartButton`/etc. are never created (`canModerate == false`) --
+    // the pause is everyone's business, not the moderator's alone (design review D7 "everyone in the
+    // room has a legal right to know", same posture [IConferenceStreamingService.getActiveStream]
+    // KDoc already establishes).
     fun updateStreamButtonsVisibility() {
+        val pausedForSecretBallot =
+            activeStreamDto?.status == ConferenceStreamStatus.PAUSED &&
+                activeStreamDto?.pauseReason == ConferenceStreamPauseReason.SECRET_BALLOT
+        if (pausedForSecretBallot) secretBallotPauseBanner.show() else secretBallotPauseBanner.hide()
+
         val startBtn = streamStartButton
         val pauseBtn = streamPauseButton
         val resumeBtn = streamResumeButton
@@ -1470,8 +1573,16 @@ private fun enterCall(
         stopBtn.text = tr("Stream beenden")
         when (activeStreamDto?.status) {
             null, ConferenceStreamStatus.ENDED, ConferenceStreamStatus.FAILED -> {
-                startBtn.show()
-                startBtn.disabled = !conferenceStreamCanStart(canModerate, streamingAvailable, activeStreamDto)
+                // Belt-and-suspenders (D8 point 3 of the Wave 9 plan): starting a NEW stream while a
+                // secret ballot is open on this room is already server-rejected
+                // (`ConferenceStreamingService.startStream`'s `hasOpenSecretBallot` guard) -- hidden
+                // here too so the button never invites a click the server will refuse.
+                if (activeStreamDto?.pauseReason == ConferenceStreamPauseReason.SECRET_BALLOT) {
+                    startBtn.hide()
+                } else {
+                    startBtn.show()
+                    startBtn.disabled = !conferenceStreamCanStart(canModerate, streamingAvailable, activeStreamDto)
+                }
                 pauseBtn.hide()
                 resumeBtn.hide()
                 stopBtn.hide()
@@ -1491,11 +1602,32 @@ private fun enterCall(
                 stopBtn.show()
                 stopBtn.disabled = false
             }
+            // V1.0 Wave 9 -- the fail-closed transitional state (StopEgress requested, not yet
+            // confirmed terminal, see `ConferenceStreamStatus.PAUSING` KDoc): every control except
+            // "Stream beenden" is hidden, same shape as `STARTING`/`STOPPING` -- there is nothing a
+            // moderator can meaningfully click while the server is still waiting for LiveKit to
+            // confirm the egress actually stopped.
+            ConferenceStreamStatus.PAUSING -> {
+                startBtn.hide()
+                pauseBtn.hide()
+                resumeBtn.hide()
+                stopBtn.show()
+                stopBtn.disabled = false
+            }
             ConferenceStreamStatus.PAUSED -> {
                 startBtn.hide()
                 pauseBtn.hide()
-                resumeBtn.show()
-                resumeBtn.disabled = false
+                // V1.0 Wave 9, D3 -- "hart verdrahtet, nicht über die UI deaktivierbar" (Konzeptnotiz):
+                // the resume control does not exist at all while the pause reason is SECRET_BALLOT,
+                // never merely disabled. `resumeStream` rejects this server-side too
+                // (`SecretBallotStreamLock.hasOpenSecretBallot`) -- this is the client-side mirror of
+                // that same fail-closed rule, exactly like the start-button hiding above.
+                if (pausedForSecretBallot) {
+                    resumeBtn.hide()
+                } else {
+                    resumeBtn.show()
+                    resumeBtn.disabled = false
+                }
                 stopBtn.show()
                 stopBtn.disabled = false
             }
@@ -1769,6 +1901,12 @@ private fun enterCall(
         if (!streamingAvailable) {
             activeStreamDto = null
             updateStreamDetailLine()
+            // Edge case (streaming got disabled server-side while this room's stream happened to be
+            // paused for a secret ballot): the banner is driven from `activeStreamDto`, which this
+            // branch nulls out WITHOUT going through `updateStreamButtonsVisibility()` below (the
+            // buttons are already individually hidden above) -- hide it explicitly so it cannot get
+            // stranded visible.
+            secretBallotPauseBanner.hide()
             return
         }
         // Role: MEMBER+, AKTIV -- NEVER privilege-gated, same "everyone in the room has a legal
@@ -3097,6 +3235,38 @@ private fun stopRecordingConfirmDialog(onConfirm: () -> Unit) {
 }
 
 // ================================================================================================
+// Wave 9 "Stream-Pause bei geheimen Abstimmungen" -- dialogs.
+// ================================================================================================
+
+/**
+ * [meetingBindingRow]'s "Sitzung zuordnen" dialog -- a plain single-select list, same shape as
+ * [breakoutCreateDialog]/[startStreamDialog]'s own "one control, one confirm button" modals. Options
+ * are pre-loaded by the caller (`listMeetings(status = MeetingStatus.PLANNED)`, empty already
+ * special-cased before this dialog is ever opened), so this function never itself hits the network.
+ * Label mirrors `MotionsScreen.kt`'s own `renderScheduleForm` meeting-select precedent
+ * (`"%1 (%2)"` title + `scheduledAt`) rather than inventing a new format.
+ */
+private fun assignMeetingDialog(
+    meetings: List<MeetingDto>,
+    onConfirm: (meetingId: String) -> Unit,
+) {
+    val modal = Modal(caption = tr("Sitzung zuordnen"))
+    val meetingOptions = meetings.map { it.id to gettext("%1 (%2)", it.title, it.scheduledAt) }
+    val meetingSelect = modal.select(options = meetingOptions, value = meetings.first().id, label = tr("Sitzung"))
+    modal.addButton(Button(tr("Abbrechen"), style = ButtonStyle.SECONDARY).apply { onClick { modal.hide() } })
+    modal.addButton(
+        Button(tr("Zuordnen"), style = ButtonStyle.PRIMARY).apply {
+            onClick {
+                val selected = meetingSelect.value ?: return@onClick
+                modal.hide()
+                onConfirm(selected)
+            }
+        },
+    )
+    modal.show()
+}
+
+// ================================================================================================
 // Wave 6 "Breakout-Räume" -- dialogs. Design review verdicts, locked copy.
 // ================================================================================================
 
@@ -3595,12 +3765,29 @@ internal data class ConferenceStatusBadgeRow(
  * separate from [conferenceStreamStatusLabel] (rather than reusing its bare "Live"/"Unterbrochen"
  * nouns directly) because the badge needs a full verb phrase ("läuft"/"ist unterbrochen") to read as
  * a sentence together with the "→ labels" suffix, not a status noun.
+ *
+ * **[pauseReason] -- V1.0 Wave 9 "Stream-Pause bei geheimen Abstimmungen":** `PAUSED` alone is no
+ * longer honest enough. `SECRET_BALLOT` gets its OWN phrase ("ist wegen geheimer Abstimmung
+ * unterbrochen") so a participant sees at a glance that this is the automatic, temporary,
+ * server-enforced protection -- not a moderator's manual click (which keeps the pre-Wave-9 plain
+ * "ist unterbrochen"). Every call site must now pass the DTO's own `pauseReason` alongside its
+ * `status`; there is no default, same "no silent fallback" posture the rest of this wave takes for
+ * `SecretBallotStreamGuard` server-side (D6 in the Wave 9 implementation plan).
  */
-internal fun conferenceStreamBadgeVerbPhrase(status: ConferenceStreamStatus): String =
+internal fun conferenceStreamBadgeVerbPhrase(
+    status: ConferenceStreamStatus,
+    pauseReason: ConferenceStreamPauseReason?,
+): String =
     when (status) {
         ConferenceStreamStatus.STARTING -> gettext("wird gestartet")
         ConferenceStreamStatus.LIVE -> gettext("läuft")
-        ConferenceStreamStatus.PAUSED -> gettext("ist unterbrochen")
+        ConferenceStreamStatus.PAUSED ->
+            if (pauseReason == ConferenceStreamPauseReason.SECRET_BALLOT) {
+                gettext("ist wegen geheimer Abstimmung unterbrochen")
+            } else {
+                gettext("ist unterbrochen")
+            }
+        ConferenceStreamStatus.PAUSING -> gettext("wird angehalten")
         ConferenceStreamStatus.STOPPING -> gettext("wird beendet")
         ConferenceStreamStatus.ENDED, ConferenceStreamStatus.FAILED -> gettext("ist beendet")
     }
@@ -3630,7 +3817,7 @@ internal fun conferenceStatusBadgeRows(
     }
     if (activeStream != null) {
         val labels = activeStream.targets.joinToString(", ") { it.label }.ifBlank { gettext("unbekanntes Ziel") }
-        val verbPhrase = conferenceStreamBadgeVerbPhrase(activeStream.status)
+        val verbPhrase = conferenceStreamBadgeVerbPhrase(activeStream.status, activeStream.pauseReason)
         rows +=
             ConferenceStatusBadgeRow(
                 gettext("◆ Live-Stream %1 → %2", verbPhrase, labels),
@@ -3657,6 +3844,7 @@ internal fun conferenceStreamStatusLabel(status: ConferenceStreamStatus): String
     when (status) {
         ConferenceStreamStatus.STARTING -> gettext("Verbindung wird hergestellt …")
         ConferenceStreamStatus.LIVE -> gettext("Live")
+        ConferenceStreamStatus.PAUSING -> gettext("Wird angehalten …")
         ConferenceStreamStatus.PAUSED -> gettext("Unterbrochen")
         ConferenceStreamStatus.STOPPING -> gettext("Wird beendet …")
         ConferenceStreamStatus.ENDED -> gettext("Beendet")
@@ -3667,6 +3855,7 @@ internal fun conferenceStreamStatusColor(status: ConferenceStreamStatus): String
     when (status) {
         ConferenceStreamStatus.STARTING -> "warning"
         ConferenceStreamStatus.LIVE -> "danger"
+        ConferenceStreamStatus.PAUSING -> "warning"
         ConferenceStreamStatus.PAUSED -> "secondary"
         ConferenceStreamStatus.STOPPING -> "warning"
         ConferenceStreamStatus.ENDED -> "secondary"
@@ -3752,16 +3941,34 @@ internal fun conferenceStreamStartSummary(selectedLabels: List<String>): String 
         )
     }
 
-/** [startStreamDialog]'s mandatory, static Hinweis (design review D12/Jobs' verdict item 2 --
- * [IConferenceStreamingService] KDoc "No automatic stream pause during secret ballots"): no UI copy
- * anywhere in this screen claims automatic protection exists.
+/** [startStreamDialog]'s mandatory, static Hinweis -- V1.0 Wave 9 "Stream-Pause bei geheimen
+ * Abstimmungen" REPLACES the pre-Wave-9 "no automatic protection exists" copy: the server now DOES
+ * pause and resume the stream automatically for a `secret`/geheim election or systemic-consensus
+ * rating bound to this room via [IConferenceService.setRoomMeeting] -- see
+ * `network.lapis.cloud.server.rpc.SecretBallotStreamLock`/`SecretBallotStreamGuard` KDoc. The last
+ * sentence (room must be bound to a Sitzung) is load-bearing, not decorative: without
+ * [meetingBindingRow]'s binding this protection is completely inert, and a moderator who has not read
+ * that far would otherwise wrongly assume every stream is automatically protected.
+ *
+ * **Security-audit MAJOR-3 wording fix**: the pre-fix copy claimed "Diese Sperre lässt sich nicht
+ * abschalten" (this lock cannot be turned off) -- overstated. `setRoomMeeting`'s Lösen-Pfad (see that
+ * method's own KDoc) DOES let a global BOARD/ADMIN change the room's Sitzung-Bindung outside a
+ * running or imminent secret ballot, which -- for a FUTURE ballot on that Sitzung -- removes the
+ * protection pre-emptively. What is actually true, and what this copy now says instead: for the
+ * DURATION of a running or imminent secret ballot the binding cannot be changed by anyone, so the
+ * protection cannot be switched off out from under an ballot that is already open or about to open.
  *
  * gettext() (not tr()), and evaluated once via `by lazy` rather than per-render -- both KDoc'd
  * on CONFERENCE_STREAM_BANNER_TEXT below apply here identically. */
 internal val CONFERENCE_STREAM_SECRET_BALLOT_HINWEIS: String by lazy {
     gettext(
-        "Bei geheimen Abstimmungen muss der Stream manuell unterbrochen werden. Eine automatische " +
-            "Unterbrechung gibt es in dieser Version noch nicht.",
+        "Sobald aus dieser Sitzung heraus eine geheime Abstimmung geöffnet wird, unterbricht der " +
+            "Server den Stream automatisch und setzt ihn nach dem Ende der Stimmabgabe von selbst " +
+            "fort. Während eine geheime Abstimmung läuft oder unmittelbar bevorsteht, kann niemand -- " +
+            "auch nicht der Raum-Ersteller -- diese Zuordnung ändern oder lösen; nur Vorstand/Admin " +
+            "können sie außerhalb dieser Zeitfenster überhaupt anpassen. Die Zielplattform sieht dabei " +
+            "eine echte Unterbrechung -- YouTube kann die Übertragung beenden, sodass ein neuer Link " +
+            "nötig wird. Voraussetzung: dieser Raum ist einer Sitzung zugeordnet.",
     )
 }
 
@@ -3779,6 +3986,13 @@ internal val CONFERENCE_STREAM_SECRET_BALLOT_HINWEIS: String by lazy {
  * the `by lazy` pattern itself, not something this i18n wave introduces new. */
 internal val CONFERENCE_STREAM_BANNER_TEXT: String by lazy { gettext("Diese Besprechung wird ab jetzt live gestreamt.") }
 
+/** [secretBallotPauseBanner]'s exact, terminology-locked copy -- same gettext()/`by lazy` reasoning
+ * as [CONFERENCE_STREAM_BANNER_TEXT] immediately above (top-level so a future test can assert
+ * against the SAME literal the UI renders, resolved once and immediately at first access). */
+internal val CONFERENCE_SECRET_BALLOT_PAUSE_BANNER_TEXT: String by lazy {
+    gettext("Der Live-Stream ist wegen einer geheimen Abstimmung unterbrochen.")
+}
+
 /** [pollInFlightStreamStatus]'s poll interval -- same reasoning as [CONFERENCE_RECORDING_POLL_INTERVAL_MS]
  * (the README's own suggested 15-30s cadence, close to but not faster than `StreamPoller`'s own
  * server-side 10s default tick, `ConferenceStreamingConfig.DEFAULT_POLL_INTERVAL_SECONDS`). */
@@ -3793,10 +4007,22 @@ internal const val CONFERENCE_STREAM_POLL_INTERVAL_MS = 15_000L
  * top-level `STARTING` state itself is usually too brief to observe (this codebase's `startStream`/
  * `resumeStream` call LiveKit synchronously and return the settled `LIVE`/`FAILED` result in one
  * round trip; `STARTING`/`STOPPING` mainly matter for crash-recovery reconciliation).
+ *
+ * **V1.0 Wave 9 "Stream-Pause bei geheimen Abstimmungen":** `PAUSING` (the fail-closed "StopEgress
+ * requested, not yet confirmed" transitional state, see `ConferenceStreamStatus.PAUSING` KDoc) needs
+ * polling for the same crash-recovery reason `STARTING`/`STOPPING` already do. `PAUSED` with
+ * [ConferenceStreamPauseReason.SECRET_BALLOT] ALSO needs polling -- critically, this is the ONE
+ * `PAUSED` case that does, since the server transitions it back to `LIVE` entirely on its own once
+ * the secret ballot closes (`SecretBallotStreamGuard.resumeStreamsForMeeting`), with no LiveKit push
+ * reaching this client. A manually paused stream (`MANUAL`/`null` reason) still correctly does NOT
+ * need polling -- only a moderator's own click can resume it, and that click already updates
+ * [activeStreamDto] directly (see [onStreamResumeClicked]).
  */
 internal fun conferenceStreamNeedsPoll(stream: ConferenceStreamDto?): Boolean {
     if (stream == null) return false
     if (stream.status == ConferenceStreamStatus.STARTING || stream.status == ConferenceStreamStatus.STOPPING) return true
+    if (stream.status == ConferenceStreamStatus.PAUSING) return true
+    if (stream.status == ConferenceStreamStatus.PAUSED && stream.pauseReason == ConferenceStreamPauseReason.SECRET_BALLOT) return true
     return stream.targets.any { it.status == ConferenceStreamTargetStatus.PENDING }
 }
 

@@ -125,9 +125,11 @@ import network.lapis.cloud.shared.domain.ConferenceRoomInput
  * - **No "Teilnehmerliste = Anwesenheitsliste" integration.** Nothing here writes to
  *   `AttendanceTable`; [ConferenceParticipantDto] is purely this feature's own record, not an
  *   attendance derivation (that requires webhook-accurate presence, a later wave's prerequisite).
- * - **No voting-module integration** (no in-conference launch of a Demokratische Wahl/meritokratische
- *   Abstimmung/Systemisches Konsensieren, no stream-pause-during-secret-ballot interlock -- moot
- *   anyway with no streaming in Wave 1).
+ * - **No in-conference launch of a Demokratische Wahl/meritokratische Abstimmung/Systemisches
+ *   Konsensieren** -- the room-to-Sitzung binding this interface's [setRoomMeeting] provides (Wave 9
+ *   "Stream-Pause bei geheimen Abstimmungen") only lets a moderator ASSOCIATE an existing Sitzung with
+ *   a room, so the server-side stream-pause interlock can find it; it does not add any voting-module
+ *   UI/RPC surface to this interface itself.
  * - **No audit-log (`AuditLogEntryTable`) entries** for `createRoom`/`endRoom`/`removeParticipant`
  *   (Wave 5's own [setRoomGuestAccess] IS audited -- see that method's own KDoc -- this bullet
  *   covers only the pre-Wave-5 methods it originally named).
@@ -295,5 +297,36 @@ interface IConferenceService {
     suspend fun setRoomGuestAccess(
         roomId: String,
         allowFederationGuests: Boolean,
+    ): ConferenceRoomDto
+
+    /**
+     * V1.0 Videokonferenzen, Wave 9 "Stream-Pause bei geheimen Abstimmungen". Bindet den Raum an eine
+     * Sitzung; [meetingId] == null löst die Bindung. Diese Bindung ist die EINZIGE Kopplung zwischen
+     * Conference- und Governance-Domäne (siehe
+     * `network.lapis.cloud.server.rpc.SecretBallotStreamLock` KDoc) und damit die Voraussetzung
+     * dafür, dass die automatische Stream-Pause bei geheimen Abstimmungen überhaupt greifen kann.
+     *
+     * **Role -- security-audit MAJOR-2/MAJOR-3 fix, asymmetrisch zwischen Binden und Lösen**:
+     * - **Hin-binden** (Zuordnung zu einer NEUEN Sitzung): Raum-Ersteller ODER globaler BOARD/ADMIN
+     *   (wie [setRoomGuestAccess]), UND zusätzlich Mitglied des Gremiums, dem die Ziel-Sitzung
+     *   zugeordnet ist (ODER wieder BOARD/ADMIN). Ohne diese zweite Bedingung könnte jedes aktive
+     *   Mitglied seinen eigenen Raum an eine beliebige fremde Sitzung binden.
+     * - **Lösen** (Bindung entfernen ODER auf eine ANDERE Sitzung ändern): NUR globaler BOARD/ADMIN --
+     *   der Raum-Ersteller allein genügt hier NICHT mehr, auch wenn er Gremiumsmitglied ist. Dieser
+     *   Pfad ist absichtlich enger als das Binden, weil er den Schutz für die AKTUELL gebundene
+     *   Sitzung beendet.
+     *
+     * Wirft [ConflictException], wenn für die AKTUELL gebundene ODER die neu zu bindende Sitzung
+     * gerade eine geheime Abstimmung offen ODER unmittelbar bevorstehend ist (Vorbereitungs-Zustand
+     * vor der eigentlichen Öffnung, siehe `SecretBallotStreamLock.hasPendingOrOpenSecretBallot`
+     * KDoc) -- eine Umbindung mitten in einer geheimen Wahl (oder unmittelbar davor) würde die Sperre
+     * entweder still aufheben (weg-binden) oder einen laufenden Stream überraschend anhalten
+     * (hin-binden). Beides ist eine Manipulationsfläche, keine legitime Bedienhandlung. Außerhalb
+     * dieser Zeitfenster bleibt die Bindung durch BOARD/ADMIN änderbar -- der Schutz gilt für die
+     * DAUER einer geheimen Abstimmung, nicht als generelle Unveränderlichkeit der Zuordnung.
+     */
+    suspend fun setRoomMeeting(
+        roomId: String,
+        meetingId: String?,
     ): ConferenceRoomDto
 }

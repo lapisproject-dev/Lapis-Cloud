@@ -58,9 +58,6 @@
 //
 // **Scope-cuts (deliberate, documented here so a reviewer does not mistake these for gaps -- see
 // IConferenceService KDoc "Out of scope" for the authoritative, exhaustive list)**:
-//  - No `meeting_id`/Sitzungs-Kopplung column anywhere in this file -- a Wave-1 room is a standalone
-//    object with just a title, never attached to a `05-governance.kuml.kts` Meeting. "Termin ->
-//    Konferenzraum" is a later wave.
 //  - No chat persistence table -- Wave-1 chat rides the LiveKit data channel only (ephemeral,
 //    unpersisted, dies with the room), never reaches this server's database at all. See
 //    IConferenceService KDoc.
@@ -81,6 +78,17 @@
 // `IConferenceService.setRoomGuestAccess` (same `requireModeratorOrPrivileged` gate `endRoom`/
 // `removeParticipant`/`renameRoom` already use). See `30-conference-guest-access.kuml.kts` for the
 // companion per-join DSGVO consent-acknowledgment table this wave also adds.
+//
+// **Wave 9 "Stream-Pause bei geheimen Abstimmungen" addition**: `conference_room.meeting_id`
+// (nullable, NOT unique -- a room's own lifetime is independent of the meeting it is bound to, and
+// several rooms MAY legitimately carry the same meeting, e.g. a fresh room created after a crash) --
+// the ONE FK linking this Wave-1-standalone domain to `05-governance.kuml.kts`'s Meeting (the
+// "Termin -> Konferenzraum" coupling the old Scope-cuts note above used to defer). Set from INSIDE a
+// running room by a moderator via `IConferenceService.setRoomMeeting`, exactly the `setRoomGuestAccess`
+// precedent this same header already documents -- never at `createRoom` time. See
+// `network.lapis.cloud.server.rpc.SecretBallotStreamLock` (server, this same wave) KDoc for the
+// derived query this FK makes possible; this file itself carries no Election/SystemicConsensus
+// knowledge beyond the bare `meeting` id stub below.
 import dev.kuml.profile.erm.ermMappingProfile
 import dev.kuml.uml.Multiplicity
 import dev.kuml.uml.dsl.applyProfile
@@ -100,6 +108,18 @@ classDiagram(name = "Conference") {
         }
     }
 
+    // Foundation-owned stub — id-only, added Wave 9 "Stream-Pause bei geheimen Abstimmungen" purely
+    // so UmlToErmTransformer can resolve conference_room.meeting_id's «Column».fkEntity override
+    // within this single-file evaluation -- same cross-domain-stub pattern the Member stub above
+    // already establishes. See file header "Wave 9 addition".
+    val meeting = classOf(name = "Meeting") {
+        stereotype("Entity") { "tableName" to "meeting"; "kotlinObjectName" to "MeetingTable" }
+        attribute(name = "id", type = "UUID") {
+            stereotype("Id")
+            stereotype("Column") { "columnName" to "id" }
+        }
+    }
+
     // Literal order is load-bearing: ConferenceSchemaDriftTest (a future step of this wave) asserts
     // ErmDataType.Enum.values in exactly this order, matching
     // network.lapis.cloud.shared.domain.ConferenceRole.
@@ -112,6 +132,9 @@ classDiagram(name = "Conference") {
         stereotype("Entity") { "tableName" to "conference_room"; "kotlinObjectName" to "ConferenceRoomTable" }
         stereotype("Index") { "columns" to listOf("created_by_member_id"); "name" to "idx_conference_room_created_by" }
         stereotype("Index") { "columns" to listOf("ended_at"); "name" to "idx_conference_room_ended_at" }
+        // Wave 9 "Stream-Pause bei geheimen Abstimmungen" addition -- see file header "Wave 9
+        // addition".
+        stereotype("Index") { "columns" to listOf("meeting_id"); "name" to "idx_conference_room_meeting" }
 
         attribute(name = "id", type = "UUID") {
             stereotype("Id")
@@ -172,6 +195,18 @@ classDiagram(name = "Conference") {
         attribute(name = "allowFederationGuests", type = "Boolean") {
             defaultValue = "FALSE"
             stereotype("Column") { "columnName" to "allow_federation_guests" }
+        }
+        // V1.0 Videokonferenzen, Wave 9 "Stream-Pause bei geheimen Abstimmungen" addition -- see
+        // file header "Wave 9 addition". NULL means this room is not bound to any Sitzung (the
+        // default for every existing and newly-created room). Deliberately NOT unique -- several
+        // rooms MAY carry the same meeting (e.g. a fresh room created after a crash), and all
+        // rooms bound to a meeting are treated identically by
+        // network.lapis.cloud.server.rpc.SecretBallotStreamLock. Set from INSIDE a running room by
+        // a moderator via IConferenceService.setRoomMeeting -- never at createRoom time, same "one
+        // button, no form" D1 posture allowFederationGuests's own comment documents.
+        attribute(name = "meetingId", type = "UUID") {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") { "columnName" to "meeting_id"; "fkEntity" to "Meeting" }
         }
     }
 

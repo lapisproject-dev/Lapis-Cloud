@@ -22,6 +22,195 @@ left installed but disabled (not purged) as a rollback path.
 
 ### Added
 
+**Video conferencing Wave 9 "Stream-Pause bei geheimen Abstimmungen"**
+
+A live-streamed conference room can now be bound to a Sitzung (`ConferenceService.setRoomMeeting`,
+moderator-only, both directions rejected with `ConflictException` while that Sitzung has an open
+secret ballot) — once bound, opening a **secret** election (`ElectionService.openVoting`) or a
+**secret** Systemisches Konsensieren rating round (`SystemicConsensusService.freezeOptions`/
+`reopenRating`) automatically pauses every LiveKit egress on every room bound to that Sitzung, and
+casting a secret ballot (`castElectionBallot`/`castResistanceBallot`) is rejected with
+`ConflictException` until the pause is confirmed — fail-closed by construction, not merely
+UI-hidden: `ConferenceStreamingService.startStream`/`resumeStream` hard-reject while any bound room
+has an open secret ballot, and a new `ConferenceStreamStatus.PAUSING` status (LiveKit `StopEgress`
+is asynchronous — "requested", not "stopped") keeps ballots blocked for the 1-3s an egress may keep
+publishing after the stop call returns, closed out either by the same RPC's own confirmation loop
+or, on timeout/crash, by `StreamPoller`'s next tick. The pause auto-resumes when the last open
+secret ballot on the Sitzung closes (`closeVoting`/`closeRating`/`abortElection`/
+`abortSystemicConsensus`) — a manual `pauseStream` during an auto-pause escalates
+`pause_reason` from `SECRET_BALLOT` to `MANUAL` (one-way) and permanently opts that stream out of
+auto-resume, matching "the moderator has taken over." No stand-in image is shown to external
+viewers — LiveKit has no pause primitive, so the RTMP connection is torn down and platforms like
+YouTube may end the broadcast outright; the stream-pause Hinweis in `ConferenceScreen.kt` says so
+plainly rather than implying a seamless pause. Scope is deliberately Election + Systemisches
+Konsensieren only, not the LTR-/Vickrey-gewichtete `IGovernanceService`-Pfad (`VoteTable` carries no
+`secret` field — that path is never anonymous by construction). No election-lifecycle UI is added by
+this wave (there still isn't one in the client at all, on any path) — the protection is enforced
+server-side regardless of which client calls `openVoting`.
+
+**Wave 9 security-audit fixes (round 1, 4 MAJOR + 8 MINOR)**: `SecretBallotStreamLock
+.requireStreamQuiescedForBallot`'s fail-closed ballot-casting gate now also blocks on
+`ConferenceStreamStatus.STOPPING` (was missing — `stopStream` commits `STOPPING` before its own
+`StopEgress` is confirmed), and `stopStream`/`StreamPoller`'s `STOPPING` handling now both confirm
+the egress actually stopped (`ListEgress`-until-gone-or-terminal) before writing `ENDED`, instead of
+trusting a bare `StopEgress` request. `ConferenceService.setRoomMeeting` now requires the caller be
+either BOARD/ADMIN or an active member of the target Sitzung's Gremium to bind a room to it (closing
+a "any member can bind their own room to an arbitrary foreign Sitzung" gap), requires BOARD/ADMIN
+specifically (not merely the room creator) to unbind or rebind an existing binding, additionally
+blocks unbinding while the currently-bound Sitzung has a secret ballot in a pre-open
+Vorbereitungs-Zustand (not just fully OPEN), and caps bound rooms at 10 per Sitzung. `maxRounds` on
+a Systemisches Konsensieren is now capped at 10, and `SecretBallotStreamGuard`'s auto-resume is now
+rate-limited per Sitzung (5 per 5 minutes) — PAUSE is never rate-limited, only RESUME, and an
+exceeded budget declines the auto-restart without ever blocking the underlying governance
+transition itself. `StreamPoller` gained a new per-tick reconciliation for a `LIVE` stream whose
+room got bound to a Sitzung with an already-open secret ballot AFTER `openVoting`'s own room-lock
+snapshot (a race neither side alone can close), a fix for a `PAUSED`-row fail-open race where a
+freshly-(re)started egress could get silently left untracked behind a trusted-but-wrong `PAUSED`
+status, and now respects a destination that was disabled mid-pause by declining auto-resume (manual
+resume is unaffected). `SecretBallotStreamGuard`'s exception logging no longer swallows
+`CancellationException` or logs a full exception/cause chain (only the exception class name — a
+`LiveKitAdminException` message can carry a destination hostname), and its quiesce fan-out is now
+concurrent rather than serial. Dead code removed (`SecretBallotStreamLock.hasOtherOpenSecretBallot`,
+`ConferenceSecretBallotSource`). The client's stream-pause Hinweis no longer overstates "this lock
+can never be turned off" — it now says the binding cannot be changed while a ballot is running or
+imminent, which is what is actually guaranteed.
+
+**Wave 9 security-audit fixes (round 2, 2 MAJOR-equivalent + 2 MINOR + 2 doc corrections)**: closes a
+gap the round-1 `STOPPING`-confirmation fix left open — a `stopStream` racing a still-in-flight
+`startStream`/`restartEgressForStream` LiveKit call (row `STARTING`/`PAUSED`, no egress id recorded
+yet) could finalize straight to `ENDED` while the racing call went on to actually start publishing,
+with no reconciliation loop ever revisiting a terminal row again. `startStream`'s and
+`restartEgressForStream`'s own "abandoned" Tx2 branches now recognize `STOPPING`/`ENDED` (not just
+`PAUSED`), record the freshly-started egress id, and resurrect the row to `STOPPING` (clearing
+`ended_at`) so `StreamPoller.handleStopping` picks it up and actually stops it on the very next tick.
+`StreamPoller.handleStopping` itself gained the same `maxDurationMinutes` ceiling `handlePausing`
+already had — previously unbounded, which combined with the fail-closed `STOPPING` ballot-casting
+block could have stalled a Sitzung's ballot casting forever if an egress never reported a terminal
+status. An auto-resume declined for a disabled destination or an exhausted per-Sitzung resume rate
+limit now escalates `pause_reason` from `SECRET_BALLOT` to `MANUAL` instead of leaving it unchanged
+— without this, `StreamPoller`'s crash-recovery reconciliation re-entered the auto-resume branch on
+every single tick, forever (an infinite retry loop that never reached the max-duration escalation).
+`ConferenceService.setRoomMeeting`'s Gremiumsmitgliedschaft check for "hin-binden" now reuses the
+same active-as-of-today membership semantics (`since`/`until`) every other Committee-role gate in
+this codebase already establishes, instead of a hand-rolled `until IS NULL`-only copy that wrongly
+rejected a member with a normal, time-limited (but still current) elected term. Two KDoc corrections
+with no code change: `StreamPoller`'s own comment on why the `STARTING` window needs no dedicated
+bind-race reconciliation was accurate in its conclusion but wrong about the mechanism (no shared lock
+between `handleStarting` and `setRoomMeeting` — the real reason is the fail-closed block during
+`STARTING` plus the existing `LIVE`-reconciliation catching a wrongly-adopted row on the next tick).
+
+**Wave 9 security-audit fixes (round 3, 2 MAJOR + 1 MINOR — a reproduced data-protection leak, not a
+theoretical one)**: three finalizing writes (`ConferenceStreamingService.stopStream`'s own `ENDED`
+write, and `StreamPoller`'s `handleStopping`/`handlePausing`) checked only the row's DB *status*
+before writing a terminal/`PAUSED` value, never the specific `livekit_egress_id` whose stop they had
+actually just confirmed. If a concurrent `startStream`/`restartEgressForStream` "abandoned" branch
+resurrected the same row onto a **fresh, still-publishing** egress in the narrow window between that
+confirmation and the finalizing write — reproduced live — the write fired anyway, silently
+overwriting the resurrection: the fresh egress was never asked to stop and became permanently
+unreachable, since `ENDED`/`PAUSED` are both terminal to `StreamPoller`'s reconciliation sweep. All
+three writes are now conditioned on the row's *current* `livekit_egress_id` still matching (or
+remaining unset, for the "nothing was ever running" case) the id actually confirmed; if a resurrection
+landed in between, the write is skipped outright and the row is left exactly as the resurrection
+wrote it, picked up normally on the very next tick. A related MINOR: `restartEgressForStream`'s
+`LAPIS_SECRET_ENCRYPTION_KEY`-unset/invalid fallback rolled a claimed row back to `PAUSED` without
+escalating `pause_reason` away from `SECRET_BALLOT` — the same infinite per-tick auto-resume-retry
+shape the round-2 disabled-destination fix (MINOR-9/F3) already closed at two other locations, now
+closed here too.
+
+**Wave 9 security-audit fixes (round 4, 3 MAJOR — the same egress-id-guard finding class from round 3,
+found at two more locations, one of them the wave's own PRIMARY quiescing routine)**: round 3 closed
+the "finalizing write checks status but not the specific `livekit_egress_id` it confirmed" gap at
+three locations; round 4 found — and closed, reproduced with a deterministic fake-client hook, no real
+thread race needed — two more instances of the exact same class. First,
+`DefaultSecretBallotStreamGuard.markPaused` (the production `quiesceStreamsForMeeting` path itself,
+not a belt-and-braces poller) performed a real `ListEgress` confirmation of a specific egress id but
+then wrote `PAUSED` gated only on `status == PAUSING`, with no id check at all — now guarded exactly
+like `StreamPoller.markPaused`/`ConferenceStreamingService.stopStream`'s own round-3 fixes, and
+`quiesceOne` passes through the same id it just confirmed. Second, `restartEgressForStream`'s own
+"abandoned" Tx2 branch recorded the freshly-started egress id for `PAUSED`/`STOPPING`/`ENDED`
+`statusAtAbandon` values but silently dropped it for `PAUSING` and `FAILED` — a real, running egress
+from that call became untraceable, invisible to the whole quiescing machinery for the `PAUSING` case.
+Both branches now record the id unconditionally on success; `PAUSING` additionally leaves the row
+findable by `SecretBallotStreamGuard`/`StreamPoller`'s existing `PAUSING` handling on the very next
+attempt. Third, `pauseStream` (a MANUAL moderator pause) wrote `PAUSED` unconditionally right after a
+best-effort `StopEgress` *request*, with no confirmation at all — the last of the four `pauseStream`/
+`resumeStream`/`stopStream`/`quiesceStreamsForMeeting` write paths to still trust an unconfirmed stop,
+now that `PAUSED` is security-load-bearing (the secret-ballot fail-closed gate trusts it blindly).
+`pauseStream` now routes through `PAUSING` (`pause_reason` set to `MANUAL` immediately, not after
+confirmation) and the same `ListEgress`-until-gone-or-terminal confirmation loop `stopStream` already
+uses, before ever writing `PAUSED` — a confirmation timeout leaves the row `PAUSING`, picked up
+normally by `StreamPoller.handlePausing` on its next tick.
+
+**Wave 9 security-audit fixes (round 5, the finding class finally closed for good —
+`restartEgressForStream`'s "abandoned" branch rebuilt on a structurally exhaustive `when`, not
+another entry in a growing `if` enumeration)**: rounds 2 through 4 each added exactly one more
+`statusAtAbandon` case to `restartEgressForStream`'s "abandoned" Tx2 branch (round 2/MINOR-7: `PAUSED`;
+round 2/F1: `STOPPING`/`ENDED`; round 4/R4-2: `PAUSING`/`FAILED`) — and round 5 found the enumeration
+was *still* incomplete: `LIVE` fell all the way through to a bare `return@transaction statusAtAbandon`
+with **no database write at all**, silently discarding the freshly-started egress id whenever a
+restart's own LiveKit call outlived a concurrent actor re-flipping the row to `LIVE`. Rather than add
+a sixth `if` branch and risk a sixth miss, the branch is rebuilt around a two-step structure mirroring
+`startStream`'s own abandoned branch: **step 1 (unconditional)** records the freshly-returned egress
+id on every LiveKit success, for every `statusAtAbandon` value, inside the very `update {}` block that
+decides the status — no branch can skip it; **step 2 (conditional)**, entirely separate from step 1,
+is a `when (statusAtAbandon)` exhaustive over the full `ConferenceStreamStatus` enum (no `else`
+catch-all, so a future status value cannot silently vanish behind a default case the way `LIVE` did
+here across four audit rounds) that decides *only* the target status. Behaviour for
+`PAUSED`/`PAUSING`/`STOPPING`/`ENDED` is unchanged. `FAILED` is upgraded from round 4's
+"id recorded, status left `FAILED`" to full resurrection to `STOPPING` (`endedAt` cleared) — a row
+proven by this call's own success to be genuinely publishing has no business sitting outside both
+`StreamPoller`'s `NON_TERMINAL_STREAM_STATUSES` sweep and the secret-ballot fail-closed blocklist, and
+routing it through `STOPPING` gets it the same confirm-and-finalize treatment as any other orphan.
+`LIVE` is the new case: status deliberately stays/becomes `LIVE` rather than being resurrected, since
+two egresses may now genuinely exist and there is no reliable way to tell which one is actually
+publishing — but `LIVE` is the safe choice regardless, because
+`SecretBallotStreamLock.requireStreamQuiescedForBallot` already treats `LIVE` as "publishing, block
+the ballot", so nothing is lost on the security side; the fresh id is still recorded per step 1, and a
+new WARN log carries both the old and the new egress id so an operator can investigate the
+double-egress situation by hand (deliberately no automatic stop of the old id — it is not known
+whether it still exists or was already stopped via another path, and an over-eager automatic stop in
+a genuinely exceptional situation is a bigger risk than a clear log line).
+
+**Wave 9 security-audit fixes (round 6, 1 MAJOR reproduced + 1 structural allowlist hardening)**:
+`StreamPoller.markFailed` was the one remaining unconditional sibling of the round-3/round-4
+finalizing-write guard — `finalizeEndedConfirmed`/`markPaused` already condition their write on the
+row's *current* `livekit_egress_id` still matching the id whose vanishing/stop the poller actually
+just confirmed, but `markFailed` still wrote `FAILED` off `streamId` alone. Reproduced live (fake
+`ListEgress` hook, no real thread race needed): a concurrent `startStream`/`restartEgressForStream`
+"abandoned" branch resurrecting the row onto a fresh, still-publishing egress in the window between
+`handleLive`'s `ListEgress` observation (the old egress vanished/went terminal) and `markFailed`'s
+write got silently overwritten with `FAILED` — a status outside *both* `NON_TERMINAL_STREAM_STATUSES`
+(the poller never revisits it) *and* `SecretBallotStreamLock`'s ballot-gate, so a secret ballot could
+be cast immediately while the fresh egress kept publishing unobserved. `markFailed` now takes the
+same `confirmedEgressId` parameter and guard `finalizeEndedConfirmed`/`markPaused` already use;
+`handleLive`'s two call sites pass the snapshotted `egressId` they actually observed, `handleStarting`'s
+two orphan-reconciliation call sites pass `null` (those rows never had an egress id to begin with).
+Separately, `SecretBallotStreamLock.requireStreamQuiescedForBallot`'s "which statuses block ballot
+casting" decision was an inline blocklist (`status inList listOf(STARTING, LIVE, PAUSING, STOPPING)`)
+— every value it does *not* name falls implicitly on the "quiesced, casting allowed" side, so a future
+new `ConferenceStreamStatus` value would silently become ballot-safe with no code change and no
+compiler warning. Replaced with an allowlist expressed as an exhaustive `when` over all seven
+`ConferenceStreamStatus` values, no `else` branch, mirroring `restartEgressForStream`'s own
+round-5 fix — a future new status value is now a compile error here until a human explicitly decides
+which side of the fence it belongs on. Also, cosmetic-only: `restartEgressForStream`'s "abandoned"
+branch return value (discarded by all three callers, which re-read the row fresh regardless) now
+reports the row's unchanged `statusAtAbandon` on a LiveKit failure instead of the post-write status
+its own `when` describes for a success it never actually persisted.
+
+**Operator note for `pdv2` — Flyway `V2` migration required before this wave can deploy there**:
+per this repository's now-established pattern for a live-migrated instance (see the Wave-7
+"Conference"-entry note below), `V1__baseline.sql` was edited in place (adds
+`conference_room.meeting_id` and `conference_stream.pause_reason` directly into their `CREATE
+TABLE` statements) **and** a genuine, idempotent `V2__conference_secret_ballot_stream_pause.sql`
+now ships alongside it, applying the identical diff via `ADD COLUMN IF NOT EXISTS`/`CREATE INDEX IF
+NOT EXISTS` against an already-`V1`-migrated database. `pdv2` (live since 2026-08-14, already
+migrated against the edited baseline) needs `V2` applied on its next deploy — a plain `flyway
+migrate` picks it up on its own; no `flyway repair` is needed, since `V2` is a genuinely new file,
+not a checksum change to an already-applied one. The one unverified detail: `V2`'s `DROP CONSTRAINT
+IF EXISTS conference_stream_status_check` targets PostgreSQL's documented auto-naming convention
+for an unnamed single-column `CHECK` — worth a `\d conference_stream` on `pdv2` before that deploy
+to confirm the constraint name actually matches.
+
 **Proper first-admin bootstrap, closing the manual-SQL-INSERT gap**
 
 `AdminBootstrap.bootstrapFirstAdmin()` (env var `LAPIS_BOOTSTRAP_ADMIN_DISPLAY_NAME`, CLI-only, same

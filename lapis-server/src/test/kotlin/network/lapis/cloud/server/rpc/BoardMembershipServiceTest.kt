@@ -20,6 +20,7 @@ import io.ktor.server.routing.routing
 import io.ktor.server.testing.testApplication
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.LocalDateTime
+import network.lapis.cloud.server.conference.NoOpSecretBallotStreamGuard
 import network.lapis.cloud.server.db.DatabaseConfig
 import network.lapis.cloud.server.db.DevSeedData
 import network.lapis.cloud.server.db.generated.AccountTable
@@ -560,7 +561,7 @@ private fun Route.registerBoardMembershipTestRoutes() {
 /** Minimal subset of [ElectionService]'s lifecycle needed to reach [ElectionService.tally] -- see [ElectionServiceTest]'s own (larger) route set for the full surface. */
 private fun Route.registerBoardMembershipElectionTestRoutes() {
     post("/test/open-election/{motionId}/{electionType}") {
-        val service = ElectionService(call)
+        val service = ElectionService(call, NoOpSecretBallotStreamGuard)
         val q = call.request.queryParameters
         val w =
             service.openElection(
@@ -578,38 +579,38 @@ private fun Route.registerBoardMembershipElectionTestRoutes() {
         call.respondText("${w.id}:${w.status}")
     }
     post("/test/appoint-election-board/{electionId}") {
-        val service = ElectionService(call)
+        val service = ElectionService(call, NoOpSecretBallotStreamGuard)
         val memberIds = call.request.queryParameters["memberIds"]!!.split(",")
         val list = service.appointElectionBoard(call.parameters["electionId"]!!, memberIds)
         call.respondText(list.size.toString())
     }
     post("/test/submit-candidacy/{electionId}") {
-        val service = ElectionService(call)
+        val service = ElectionService(call, NoOpSecretBallotStreamGuard)
         val k = service.submitCandidacy(call.parameters["electionId"]!!, CandidacyInput(motivationText = "Motivation"))
         call.respondText(k.id)
     }
     post("/test/release-kandidatenliste/{electionId}") {
-        val service = ElectionService(call)
+        val service = ElectionService(call, NoOpSecretBallotStreamGuard)
         val w = service.releaseCandidateList(call.parameters["electionId"]!!)
         call.respondText("${w.status}:${w.options.size}")
     }
     post("/test/open-voting/{electionId}") {
-        val service = ElectionService(call)
+        val service = ElectionService(call, NoOpSecretBallotStreamGuard)
         val w = service.openVoting(call.parameters["electionId"]!!)
         call.respondText(w.status.name)
     }
     post("/test/close-voting/{electionId}") {
-        val service = ElectionService(call)
+        val service = ElectionService(call, NoOpSecretBallotStreamGuard)
         val w = service.closeVoting(call.parameters["electionId"]!!)
         call.respondText(w.status.name)
     }
     post("/test/release-tally/{electionId}") {
-        val service = ElectionService(call)
+        val service = ElectionService(call, NoOpSecretBallotStreamGuard)
         service.approveTally(call.parameters["electionId"]!!)
         call.respondText("ok")
     }
     post("/test/tally/{electionId}") {
-        val service = ElectionService(call)
+        val service = ElectionService(call, NoOpSecretBallotStreamGuard)
         val e = service.tally(call.parameters["electionId"]!!)
         call.respondText("${e.winnerOptionIds.joinToString(",")}:${e.tie}:${e.majorityMet ?: ""}")
     }

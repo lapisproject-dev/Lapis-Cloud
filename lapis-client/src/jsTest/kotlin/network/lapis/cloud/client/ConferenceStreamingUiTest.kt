@@ -6,6 +6,7 @@ import network.lapis.cloud.shared.domain.ConferenceRecordingStatus
 import network.lapis.cloud.shared.domain.ConferenceStreamDto
 import network.lapis.cloud.shared.domain.ConferenceStreamLatencyMode
 import network.lapis.cloud.shared.domain.ConferenceStreamLayout
+import network.lapis.cloud.shared.domain.ConferenceStreamPauseReason
 import network.lapis.cloud.shared.domain.ConferenceStreamPlatform
 import network.lapis.cloud.shared.domain.ConferenceStreamStatus
 import network.lapis.cloud.shared.domain.ConferenceStreamTargetStatus
@@ -74,6 +75,7 @@ class ConferenceStreamingUiTest {
         status: ConferenceStreamStatus = ConferenceStreamStatus.LIVE,
         targets: List<ConferenceStreamTargetStatusDto> = listOf(sampleTarget()),
         failureReason: String? = null,
+        pauseReason: ConferenceStreamPauseReason? = null,
     ) = ConferenceStreamDto(
         id = id,
         roomId = "room-1",
@@ -89,6 +91,7 @@ class ConferenceStreamingUiTest {
         restartCount = 0,
         targets = targets,
         failureReason = failureReason,
+        pauseReason = pauseReason,
     )
 
     // ---------------------------------------------------------------------------------------
@@ -178,7 +181,9 @@ class ConferenceStreamingUiTest {
 
     @Test
     fun conferenceStreamBadgeVerbPhrase_everyStatus_hasADistinctNonEmptyPhrase() {
-        val phrases = ConferenceStreamStatus.entries.map { conferenceStreamBadgeVerbPhrase(it) }
+        // pauseReason = null throughout -- this test is about the per-status phrase table, the
+        // PAUSED-specific pauseReason branching gets its own dedicated tests below.
+        val phrases = ConferenceStreamStatus.entries.map { conferenceStreamBadgeVerbPhrase(it, null) }
         assertTrue(phrases.all { it.isNotBlank() })
         // ENDED and FAILED deliberately share "ist beendet" (both terminal, activeStream is null by
         // the time either is reachable from real server state) -- every other status is distinct.
@@ -187,7 +192,43 @@ class ConferenceStreamingUiTest {
                 it == ConferenceStreamStatus.ENDED ||
                     it == ConferenceStreamStatus.FAILED
             }
-        assertEquals(nonTerminal.size, nonTerminal.map { conferenceStreamBadgeVerbPhrase(it) }.distinct().size)
+        assertEquals(nonTerminal.size, nonTerminal.map { conferenceStreamBadgeVerbPhrase(it, null) }.distinct().size)
+    }
+
+    // V1.0 Wave 9 "Stream-Pause bei geheimen Abstimmungen" -- the two new phrases
+    // (conferenceStreamBadgeVerbPhrase KDoc) plus a regression check that MANUAL/null pauseReason
+    // still produce the pre-Wave-9 plain "ist unterbrochen" phrase.
+
+    @Test
+    fun conferenceStreamBadgeVerbPhrase_pausing_readsWirdAngehalten_regardlessOfPauseReason() {
+        assertEquals("wird angehalten", conferenceStreamBadgeVerbPhrase(ConferenceStreamStatus.PAUSING, null))
+        assertEquals(
+            "wird angehalten",
+            conferenceStreamBadgeVerbPhrase(ConferenceStreamStatus.PAUSING, ConferenceStreamPauseReason.MANUAL),
+        )
+        assertEquals(
+            "wird angehalten",
+            conferenceStreamBadgeVerbPhrase(ConferenceStreamStatus.PAUSING, ConferenceStreamPauseReason.SECRET_BALLOT),
+        )
+    }
+
+    @Test
+    fun conferenceStreamBadgeVerbPhrase_pausedWithSecretBallotReason_readsSecretBallotSpecificPhrase() {
+        assertEquals(
+            "ist wegen geheimer Abstimmung unterbrochen",
+            conferenceStreamBadgeVerbPhrase(ConferenceStreamStatus.PAUSED, ConferenceStreamPauseReason.SECRET_BALLOT),
+        )
+    }
+
+    @Test
+    fun conferenceStreamBadgeVerbPhrase_pausedWithManualOrNullReason_stillReadsPlainIstUnterbrochen() {
+        // Regression check -- the new pauseReason parameter must not change the pre-Wave-9 behaviour
+        // for a manually paused (or reason-less) stream.
+        assertEquals(
+            "ist unterbrochen",
+            conferenceStreamBadgeVerbPhrase(ConferenceStreamStatus.PAUSED, ConferenceStreamPauseReason.MANUAL),
+        )
+        assertEquals("ist unterbrochen", conferenceStreamBadgeVerbPhrase(ConferenceStreamStatus.PAUSED, null))
     }
 
     // ---------------------------------------------------------------------------------------
@@ -222,10 +263,26 @@ class ConferenceStreamingUiTest {
     fun conferenceStreamStatusLabel_mapsEveryStatusToPlainGermanCopy() {
         assertEquals("Verbindung wird hergestellt …", conferenceStreamStatusLabel(ConferenceStreamStatus.STARTING))
         assertEquals("Live", conferenceStreamStatusLabel(ConferenceStreamStatus.LIVE))
+        // V1.0 Wave 9 "Stream-Pause bei geheimen Abstimmungen" -- the fail-closed PAUSING interim
+        // state's own copy, distinct from both LIVE and PAUSED.
+        assertEquals("Wird angehalten …", conferenceStreamStatusLabel(ConferenceStreamStatus.PAUSING))
         assertEquals("Unterbrochen", conferenceStreamStatusLabel(ConferenceStreamStatus.PAUSED))
         assertEquals("Wird beendet …", conferenceStreamStatusLabel(ConferenceStreamStatus.STOPPING))
         assertEquals("Beendet", conferenceStreamStatusLabel(ConferenceStreamStatus.ENDED))
         assertEquals("Fehlgeschlagen", conferenceStreamStatusLabel(ConferenceStreamStatus.FAILED))
+    }
+
+    @Test
+    fun conferenceStreamStatusColor_mapsEveryStatusToItsDesignColor() {
+        // V1.0 Wave 9 addition: PAUSING reads "warning" (a fail-closed transitional state, not yet
+        // an alarm), same hue as STARTING/STOPPING -- see conferenceStreamStatusColor KDoc.
+        assertEquals("warning", conferenceStreamStatusColor(ConferenceStreamStatus.STARTING))
+        assertEquals("danger", conferenceStreamStatusColor(ConferenceStreamStatus.LIVE))
+        assertEquals("warning", conferenceStreamStatusColor(ConferenceStreamStatus.PAUSING))
+        assertEquals("secondary", conferenceStreamStatusColor(ConferenceStreamStatus.PAUSED))
+        assertEquals("warning", conferenceStreamStatusColor(ConferenceStreamStatus.STOPPING))
+        assertEquals("secondary", conferenceStreamStatusColor(ConferenceStreamStatus.ENDED))
+        assertEquals("danger", conferenceStreamStatusColor(ConferenceStreamStatus.FAILED))
     }
 
     @Test
@@ -350,6 +407,90 @@ class ConferenceStreamingUiTest {
         assertFalse(conferenceStreamNeedsPoll(stream))
     }
 
+    // V1.0 Wave 9 "Stream-Pause bei geheimen Abstimmungen" -- PAUSING always needs polling (same
+    // fail-closed crash-recovery reasoning as STARTING/STOPPING), and PAUSED needs polling ONLY when
+    // pauseReason == SECRET_BALLOT (the server auto-resumes that case with no push to this client).
+    // A manually paused stream (MANUAL/null) must NOT regress to needing polling.
+
+    @Test
+    fun conferenceStreamNeedsPoll_pausing_needsPolling_evenWithSettledTargets() {
+        val stream =
+            sampleStream(
+                status = ConferenceStreamStatus.PAUSING,
+                targets = listOf(sampleTarget(status = ConferenceStreamTargetStatus.FINISHED)),
+            )
+        assertTrue(conferenceStreamNeedsPoll(stream))
+    }
+
+    @Test
+    fun conferenceStreamNeedsPoll_pausedWithSecretBallotReason_needsPolling() {
+        // The critical Wave 9 case: the server transitions this back to LIVE entirely on its own
+        // once the secret ballot closes, with no LiveKit push reaching this client.
+        val stream =
+            sampleStream(
+                status = ConferenceStreamStatus.PAUSED,
+                pauseReason = ConferenceStreamPauseReason.SECRET_BALLOT,
+                targets = listOf(sampleTarget(status = ConferenceStreamTargetStatus.FINISHED)),
+            )
+        assertTrue(conferenceStreamNeedsPoll(stream))
+    }
+
+    @Test
+    fun conferenceStreamNeedsPoll_pausedWithManualOrNullReason_stillDoesNotNeedPolling() {
+        // Regression check -- only a moderator's own click can resume a manually paused stream, and
+        // that click already updates activeStreamDto directly, so this must stay false.
+        val manuallyPaused =
+            sampleStream(
+                status = ConferenceStreamStatus.PAUSED,
+                pauseReason = ConferenceStreamPauseReason.MANUAL,
+                targets = listOf(sampleTarget(status = ConferenceStreamTargetStatus.FINISHED)),
+            )
+        assertFalse(conferenceStreamNeedsPoll(manuallyPaused))
+        val reasonlessPaused =
+            sampleStream(
+                status = ConferenceStreamStatus.PAUSED,
+                pauseReason = null,
+                targets = listOf(sampleTarget(status = ConferenceStreamTargetStatus.FINISHED)),
+            )
+        assertFalse(conferenceStreamNeedsPoll(reasonlessPaused))
+    }
+
+    @Test
+    fun conferenceStreamNeedsPoll_fullTruthTable_acrossAllStatusesAndPauseReasons() {
+        // The whole truth table in one place, so a future regression anywhere in this predicate is
+        // caught -- not just the isolated Wave 9 cases above. All targets settled (ACTIVE) throughout,
+        // so only the status/pauseReason branching is under test here, not the per-target PENDING path
+        // (covered separately by conferenceStreamNeedsPoll_liveWithPendingTarget_stillNeedsPolling).
+        data class Case(
+            val status: ConferenceStreamStatus,
+            val pauseReason: ConferenceStreamPauseReason?,
+            val expectedNeedsPoll: Boolean,
+        )
+        val settledTargets = listOf(sampleTarget(status = ConferenceStreamTargetStatus.ACTIVE))
+        val cases =
+            listOf(
+                Case(ConferenceStreamStatus.STARTING, null, true),
+                Case(ConferenceStreamStatus.LIVE, null, false),
+                Case(ConferenceStreamStatus.PAUSING, null, true),
+                Case(ConferenceStreamStatus.PAUSING, ConferenceStreamPauseReason.MANUAL, true),
+                Case(ConferenceStreamStatus.PAUSING, ConferenceStreamPauseReason.SECRET_BALLOT, true),
+                Case(ConferenceStreamStatus.PAUSED, null, false),
+                Case(ConferenceStreamStatus.PAUSED, ConferenceStreamPauseReason.MANUAL, false),
+                Case(ConferenceStreamStatus.PAUSED, ConferenceStreamPauseReason.SECRET_BALLOT, true),
+                Case(ConferenceStreamStatus.STOPPING, null, true),
+                Case(ConferenceStreamStatus.ENDED, null, false),
+                Case(ConferenceStreamStatus.FAILED, null, false),
+            )
+        for (case in cases) {
+            val stream = sampleStream(status = case.status, pauseReason = case.pauseReason, targets = settledTargets)
+            assertEquals(
+                case.expectedNeedsPoll,
+                conferenceStreamNeedsPoll(stream),
+                "status=${case.status} pauseReason=${case.pauseReason} expected needsPoll=${case.expectedNeedsPoll}",
+            )
+        }
+    }
+
     // ---------------------------------------------------------------------------------------
     // conferenceFindStreamById
     // ---------------------------------------------------------------------------------------
@@ -435,10 +576,27 @@ class ConferenceStreamingUiTest {
     }
 
     @Test
-    fun conferenceStreamSecretBallotHinweis_neverClaimsAutomaticProtection() {
-        // Design review D12/Jobs' verdict item 2 -- no UI copy anywhere may imply automatic pause
-        // protection exists this wave.
-        assertTrue(CONFERENCE_STREAM_SECRET_BALLOT_HINWEIS.contains("manuell"))
-        assertFalse(CONFERENCE_STREAM_SECRET_BALLOT_HINWEIS.contains("automatisch unterbrochen"))
+    fun conferenceStreamSecretBallotHinweis_statesAutomaticProtectionExists() {
+        // V1.0 Wave 9 "Stream-Pause bei geheimen Abstimmungen" REPLACED the pre-Wave-9 "no automatic
+        // protection exists" copy (design review D12/Jobs' verdict item 2 applied to THAT wave) --
+        // the server now DOES pause/resume the stream automatically, see
+        // CONFERENCE_STREAM_SECRET_BALLOT_HINWEIS KDoc. Pin the new promise and its load-bearing
+        // precondition instead of the stale pre-Wave-9 assertions this test used to make.
+        assertTrue(CONFERENCE_STREAM_SECRET_BALLOT_HINWEIS.contains("unterbricht der Server den Stream automatisch"))
+        assertTrue(
+            CONFERENCE_STREAM_SECRET_BALLOT_HINWEIS.contains("setzt ihn nach dem Ende der Stimmabgabe von selbst fort"),
+        )
+        // Security-audit MAJOR-3 wording fix -- the pre-fix copy overstated "Diese Sperre lässt
+        // sich nicht abschalten" (setRoomMeeting's Lösen-Pfad DOES let BOARD/ADMIN change the
+        // binding outside a running/imminent secret ballot). Pin the corrected, honest claim
+        // instead: the binding cannot be changed WHILE a ballot is running or imminent.
+        assertTrue(
+            CONFERENCE_STREAM_SECRET_BALLOT_HINWEIS.contains(
+                "kann niemand -- auch nicht der Raum-Ersteller -- diese Zuordnung ändern oder lösen",
+            ),
+        )
+        // Load-bearing precondition (KDoc: "without meetingBindingRow's binding this protection is
+        // completely inert") -- must not be dropped from the copy.
+        assertTrue(CONFERENCE_STREAM_SECRET_BALLOT_HINWEIS.contains("Sitzung zugeordnet"))
     }
 }
