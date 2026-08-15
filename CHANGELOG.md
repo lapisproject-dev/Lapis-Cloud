@@ -8,6 +8,31 @@ All notable changes to this project are documented here. Format follows
 
 ### Fixed
 
+**GRID/SPEAKER egress still failed after the shm_size fix -- real cause was hairpin-NAT, not Chrome memory**
+
+The `shm_size: 1gb` fix below turned out to be necessary but not sufficient. `GRID`/`SPEAKER`
+streams kept aborting with `"Start signal not received"` even after it was applied. Root cause,
+found by testing raw TCP reachability from inside the `egress` container: `livekit.yaml`'s
+`rtc.node_ip` (this host's own public IP, required so real external browsers get a working ICE
+candidate) is advertised to every WebRTC participant unconditionally -- including the headless
+Chrome that Room-Composite egress runs *inside the same container* to join the room and render the
+composite. This host, like many VPS/cloud providers, does not support "hairpin NAT" -- a container
+cannot reach its own host's public IP from the inside. Verified live: `curl` to the public IP from
+a normally-networked container times out; from a `--network host` container it connects
+immediately. Chrome's own room connection therefore never received media, disconnected, and its
+`EgressHelper.endRecording()` fired without `startRecording()` ever running -- egress saw this as
+"never started" and aborted after its own timeout, even though Chrome itself loaded and ran the
+whole time. Fixed by moving `egress` to `network_mode: host` (dropping `networks: [internal]`,
+mutually exclusive with host networking), which puts it on the real host network namespace with no
+NAT hop to the public IP left to cross. This breaks compose-internal DNS resolution for `egress`,
+so `egress.yaml`'s `ws_url`/`redis.address` now point at `127.0.0.1` instead of the `livekit`/`redis`
+service names, and `redis` gained a `127.0.0.1:6379:6379` loopback-only port publish so the now
+host-networked `egress` can still reach it (verified externally unreachable, no new exposure).
+`ConferenceStreamLayout.SINGLE_PARTICIPANT` (SDK-based, never launches Chrome) was unaffected by any
+of this throughout -- confirmed as a genuinely fast way to isolate "is this a Chrome-specific
+problem" the next time a Room-Composite regression shows up. Verified live on pdv2: `egress` reaches
+`159.195.38.47:7881` directly now, and `127.0.0.1:6379`/`127.0.0.1:7880` for redis/livekit.
+
 **Wave 3 GRID/SPEAKER egress ("Galerie"/"Sprecher" layouts) never actually worked in production**
 
 Every attempt at a `GRID`/`SPEAKER` external RTMP stream aborted with `"Start signal not received"`

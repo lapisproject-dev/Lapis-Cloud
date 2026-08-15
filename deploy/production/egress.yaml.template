@@ -13,11 +13,19 @@
 log_level: info
 api_key: ${LAPIS_LIVEKIT_API_KEY}
 api_secret: ${LAPIS_LIVEKIT_API_SECRET}
-ws_url: ws://livekit:7880 # compose service name, NOT localhost -- resolved inside the container
-insecure: true # plain ws:// -- compose-internal traffic only, never reaches the public internet,
-# same trust boundary LAPIS_LIVEKIT_API_URL (http://livekit:7880) already uses for Wave 1.
+# 127.0.0.1, NOT the compose service name `livekit` -- this service runs with `network_mode: host`
+# (see docker-compose.yml's own `egress:` comment for why: Chrome-based Room-Composite/GRID/SPEAKER
+# egress needs to reach this host's OWN public IP, which only works without a Docker bridge/NAT hop in
+# between). Host networking means compose-internal DNS names no longer resolve here at all; loopback
+# is the only address that still reaches sibling containers, via their own `127.0.0.1:PORT` publishes.
+ws_url: ws://127.0.0.1:7880
+insecure: true # plain ws:// over loopback only, never reaches the public internet -- same trust
+# boundary LAPIS_LIVEKIT_API_URL (http://livekit:7880, from lapis-server's OWN compose-internal
+# network, unaffected by this service's host networking) already uses for Wave 1.
 redis:
-  address: redis:6379
+  # 127.0.0.1, same host-networking reason as ws_url above -- redis publishes 127.0.0.1:6379
+  # specifically to give this now-host-networked service a way to reach it (see redis's own comment).
+  address: 127.0.0.1:6379
 
 # Wave 3 "Externes Streaming" -- Room-Composite egress (ConferenceStreamLayout.GRID/SPEAKER) renders
 # through a web page loaded by Chrome INSIDE the egress container.

@@ -161,11 +161,16 @@ services:
     command: ["redis-server", "--save", "", "--appendonly", "no"]
     networks: [internal]
     restart: unless-stopped
-    # DELIBERATELY NO `ports:` -- Redis is reachable only on the compose-internal network (livekit +
-    # egress). Publishing it, even loopback-only, would expose an unauthenticated Redis to every
-    # process on the host for zero benefit. Also has zero auth of its own (no `requirepass`) --
-    # network isolation (see `internal`'s own comment: coturn deliberately excluded) IS the access
-    # control here, not a defense-in-depth extra.
+    # LOOPBACK-ONLY port publish, added 2026-08-15 alongside `egress`'s move to `network_mode: host`
+    # (see that service's own comment for why) -- a host-networked egress can no longer resolve the
+    # compose-internal `redis` DNS name or reach it over the `internal` bridge network at all, so it
+    # needs a host-loopback path instead. `127.0.0.1:` binding (not `0.0.0.0:`) keeps this at the same
+    # exposure level as every other loopback-bound admin surface on this host (livekit's own signaling
+    # port, lapis-server itself) -- still unreachable from outside the host, still has zero auth of
+    # its own (no `requirepass`), so still not a meaningful new attack surface despite no longer being
+    # "no ports: at all".
+    ports:
+      - "127.0.0.1:6379:6379"
 
   # V1.0 Videokonferenzen, Wave 2 "Aufzeichnung" + Wave 3 "Externes Streaming". Drives BOTH the raw
   # per-track recording pipeline (Track Egress, ConferenceRecordingConfig on the lapis-server side)
@@ -187,20 +192,39 @@ services:
       - /tmp # egress scratch space, matches deploy/local/docker-compose.yml
     cap_add:
       - SYS_ADMIN # documented as required since egress v1.7.6 (Chrome sandbox, Room-Composite egress)
-    # Chrome (Room-Composite/GRID/SPEAKER egress -- the local template server on :7980 embedded in
-    # the egress binary itself works fine without this, this is purely a Chrome-in-Docker resource
-    # requirement) needs far more shared memory than Docker's 64MB default for its renderer/GPU
-    # process buffers. Undersized: Chrome's page never reaches a working render state, egress waits
-    # out its own startup timeout and aborts with "Start signal not received" (code 412) -- found
-    # 2026-08-15 live on pdv2 (SDK-based ConferenceStreamLayout.SINGLE_PARTICIPANT, which never
-    # launches Chrome, worked throughout; GRID never did). 1gb matches the widely-documented
-    # Chrome-in-Docker recommendation.
+    # Chrome (Room-Composite/GRID/SPEAKER egress) needs far more shared memory than Docker's 64MB
+    # default for its renderer/GPU process buffers -- a real, legitimate fix on its own (found and
+    # applied 2026-08-15), but NOT sufficient by itself for "Start signal not received" (code 412) on
+    # THIS host -- see the network_mode comment below for the actual primary cause found the same day.
     shm_size: '1gb'
+    # PRIMARY FIX for "Start signal not received" (code 412), found 2026-08-15: `livekit.yaml`s
+    # `rtc.node_ip: 159.195.38.47` (this host's own public IP, required so REAL external browsers get
+    # a reachable ICE candidate) is advertised to EVERY WebRTC participant unconditionally -- including
+    # Chrome running INSIDE this container for Room-Composite (GRID/SPEAKER) egress, which joins the
+    # room as a real participant to render the composite. On this host (like many VPS/cloud providers),
+    # a container CANNOT reach the host's own public IP from the inside ("hairpin NAT" is not
+    # supported) -- verified live: `curl` to `159.195.38.47:7881` from a regular bridge-networked
+    # container times out; from a `--network host` container it connects immediately. Chrome's own
+    # WebRTC connection to the room therefore never gets media, the room disconnects, and the
+    # template's own `EgressHelper.endRecording()` fires (`chrome: END_RECORDING` in the logs) without
+    # `startRecording()` ever having run -- egress waits out ITS OWN startup timeout believing the
+    # recording never started ("Start signal not received"), even though Chrome's page loaded and ran
+    # fine the whole time. `network_mode: host` puts this container directly on the host's real network
+    # namespace, so `159.195.38.47` is no longer a NAT hop away -- confirmed fix, not a workaround.
+    # Requires `redis.address`/`ws_url` in `egress.yaml` to use `127.0.0.1` instead of the
+    # compose-internal DNS names below (those don't resolve without a `networks:` attachment), and
+    # `redis`'s own loopback-only port publish above. `ConferenceStreamLayout.SINGLE_PARTICIPANT`
+    # (SDK-based, never launches Chrome) was unaffected throughout, since the Go-native WebRTC client
+    # egress uses for that path evidently tolerates/routes around this differently than Chrome's own
+    # stack does -- not a coincidence worth re-investigating now that the actual cause is confirmed.
+    network_mode: host
     depends_on: [redis, livekit]
-    networks: [internal]
     restart: unless-stopped
-    # No published ports -- egress is driven entirely through Redis; nothing outside the compose
-    # network ever talks to it directly.
+    # No `ports:` mapping needed even under `network_mode: host` -- egress never listens for inbound
+    # connections at all, it's driven entirely through Redis and makes only outbound connections
+    # (LiveKit, the RTMP destination, its own embedded template server on loopback). `host` networking
+    # here is about EGRESS reaching OUT past the hairpin-NAT boundary (see above), not about anything
+    # reaching IN to egress -- its attack surface from the rest of the host's network is unchanged.
 
 volumes:
   lapis-postgres-data:
