@@ -23,22 +23,26 @@ class AuctionComplianceDisclaimerTest :
         }
 
         test("matches() is true only for the exact current version+hash pair") {
-            AuctionComplianceDisclaimer.matches(AuctionComplianceDisclaimer.VERSION, AuctionComplianceDisclaimer.SHA256) shouldBe true
+            AuctionComplianceDisclaimer.matches(
+                version = AuctionComplianceDisclaimer.VERSION,
+                sha256 = AuctionComplianceDisclaimer.SHA256,
+            ) shouldBe
+                true
         }
 
         test("matches() rejects a stale/wrong version even with the correct hash") {
-            AuctionComplianceDisclaimer.matches("2020-01-01.v0", AuctionComplianceDisclaimer.SHA256) shouldBe false
+            AuctionComplianceDisclaimer.matches(version = "2020-01-01.v0", sha256 = AuctionComplianceDisclaimer.SHA256) shouldBe false
         }
 
         test("matches() rejects a tampered hash even with the correct version") {
             val tampered = "0" + AuctionComplianceDisclaimer.SHA256.drop(1)
-            AuctionComplianceDisclaimer.matches(AuctionComplianceDisclaimer.VERSION, tampered) shouldBe false
+            AuctionComplianceDisclaimer.matches(version = AuctionComplianceDisclaimer.VERSION, sha256 = tampered) shouldBe false
         }
 
         test("matches() rejects a malformed (non-hex / wrong-length) hash without throwing") {
-            AuctionComplianceDisclaimer.matches(AuctionComplianceDisclaimer.VERSION, "not-a-hex-digest") shouldBe false
-            AuctionComplianceDisclaimer.matches(AuctionComplianceDisclaimer.VERSION, "") shouldBe false
-            AuctionComplianceDisclaimer.matches(AuctionComplianceDisclaimer.VERSION, "abc") shouldBe false
+            AuctionComplianceDisclaimer.matches(version = AuctionComplianceDisclaimer.VERSION, sha256 = "not-a-hex-digest") shouldBe false
+            AuctionComplianceDisclaimer.matches(version = AuctionComplianceDisclaimer.VERSION, sha256 = "") shouldBe false
+            AuctionComplianceDisclaimer.matches(version = AuctionComplianceDisclaimer.VERSION, sha256 = "abc") shouldBe false
         }
 
         test("TEXT names every risk area the disclaimer is required to cover") {

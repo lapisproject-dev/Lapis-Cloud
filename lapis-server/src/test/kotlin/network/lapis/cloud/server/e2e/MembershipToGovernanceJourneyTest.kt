@@ -144,7 +144,7 @@ class MembershipToGovernanceJourneyTest :
 
         afterSpec {
             transaction {
-                hardDeleteGovernanceAndMembershipFixtures(createdCommitteeIds, createdMemberIds)
+                hardDeleteGovernanceAndMembershipFixtures(committeeIds = createdCommitteeIds, memberIds = createdMemberIds)
                 // Safe unconditionally: contributions referencing these tiers are already gone
                 // (hardDeleteGovernanceAndMembershipFixtures deleted them), and no member outside
                 // this Spec was ever assigned to a scenario-private tier.
@@ -163,7 +163,7 @@ class MembershipToGovernanceJourneyTest :
                     module()
                     routing {
                         post("/e2e1/register") {
-                            RegistrationService(call, LoginRateLimiter()).registerApplication(
+                            RegistrationService(call = call, registrationRateLimiter = LoginRateLimiter()).registerApplication(
                                 RegistrationInput(
                                     displayName = APPLICANT_DISPLAY_NAME,
                                     email = call.request.queryParameters["email"]!!,
@@ -175,11 +175,15 @@ class MembershipToGovernanceJourneyTest :
                             call.respondText("OK")
                         }
                         post("/e2e1/approve/{id}") {
-                            val dto = RegistrationService(call, LoginRateLimiter()).approveApplication(call.parameters["id"]!!)
+                            val dto =
+                                RegistrationService(
+                                    call = call,
+                                    registrationRateLimiter = LoginRateLimiter(),
+                                ).approveApplication(call.parameters["id"]!!)
                             call.respondText(dto.status.name)
                         }
                         post("/e2e1/mint-ltr/{memberId}") {
-                            LtrLedgerService(call).mintLtr(
+                            LtrLedgerService(call = call).mintLtr(
                                 MintLtrInput(
                                     memberId = call.parameters["memberId"]!!,
                                     amountLtr = BigDecimal("25.00"),
@@ -190,7 +194,7 @@ class MembershipToGovernanceJourneyTest :
                         }
                         post("/e2e1/create-committee") {
                             val c =
-                                GovernanceService(call).createCommittee(
+                                GovernanceService(call = call).createCommittee(
                                     CommitteeInput(
                                         name = "Mitgliederversammlung (Journey 1)",
                                         type = CommitteeType.GENERAL_ASSEMBLY,
@@ -202,7 +206,7 @@ class MembershipToGovernanceJourneyTest :
                         }
                         post("/e2e1/create-meeting/{committeeId}") {
                             val m =
-                                GovernanceService(call).createMeeting(
+                                GovernanceService(call = call).createMeeting(
                                     MeetingInput(
                                         committeeId = call.parameters["committeeId"]!!,
                                         title = "Journey-1-Meeting",
@@ -215,7 +219,7 @@ class MembershipToGovernanceJourneyTest :
                         }
                         post("/e2e1/submit-motion/{committeeId}") {
                             val motion =
-                                GovernanceService(call).submitMotion(
+                                GovernanceService(call = call).submitMotion(
                                     MotionInput(
                                         targetCommitteeId = call.parameters["committeeId"]!!,
                                         title = "Journey-1-Antrag",
@@ -226,21 +230,27 @@ class MembershipToGovernanceJourneyTest :
                             call.respondText(motion.id)
                         }
                         post("/e2e1/review-motion/{id}") {
-                            val m = GovernanceService(call).reviewMotion(call.parameters["id"]!!, MotionReviewDecision.ACCEPT)
+                            val m =
+                                GovernanceService(
+                                    call = call,
+                                ).reviewMotion(id = call.parameters["id"]!!, decision = MotionReviewDecision.ACCEPT)
                             call.respondText(m.status.name)
                         }
                         post("/e2e1/schedule-motion/{id}/{meetingId}") {
-                            val m = GovernanceService(call).scheduleMotion(call.parameters["id"]!!, call.parameters["meetingId"]!!, 1)
+                            val m =
+                                GovernanceService(
+                                    call = call,
+                                ).scheduleMotion(id = call.parameters["id"]!!, meetingId = call.parameters["meetingId"]!!, position = 1)
                             call.respondText(m.status.name)
                         }
                         post("/e2e1/open-vote/{motionId}") {
-                            val v = GovernanceService(call).openVote(VoteOpenInput(motionId = call.parameters["motionId"]!!))
+                            val v = GovernanceService(call = call).openVote(VoteOpenInput(motionId = call.parameters["motionId"]!!))
                             val optionsStr = v.options.joinToString(";") { "${it.id}=${it.label}" }
                             call.respondText("${v.id}:$optionsStr")
                         }
                         post("/e2e1/cast-vote/{voteId}/{optionId}") {
                             val s =
-                                GovernanceService(call).castVoteBallot(
+                                GovernanceService(call = call).castVoteBallot(
                                     VoteBallotInput(
                                         voteId = call.parameters["voteId"]!!,
                                         optionId = call.parameters["optionId"]!!,
@@ -250,7 +260,7 @@ class MembershipToGovernanceJourneyTest :
                             call.respondText(s.id)
                         }
                         post("/e2e1/close-vote/{id}") {
-                            val v = GovernanceService(call).closeVote(call.parameters["id"]!!)
+                            val v = GovernanceService(call = call).closeVote(call.parameters["id"]!!)
                             // The whole Vickrey settlement outcome is carried out of the RPC layer,
                             // not just the resolutionId: `winnerOptionId`/`secondPriceLtr` are what
                             // computeVickreySettlement actually decided, and they are the only
@@ -277,9 +287,9 @@ class MembershipToGovernanceJourneyTest :
                         post("/e2e1/generate-contributions/{tierId}") {
                             val count =
                                 ContributionService(call).generateContributionsForPeriod(
-                                    call.parameters["tierId"]!!,
-                                    LocalDate(2026, 10, 1),
-                                    LocalDate(2026, 10, 31),
+                                    membershipTierId = call.parameters["tierId"]!!,
+                                    periodStart = LocalDate(2026, 10, 1),
+                                    periodEnd = LocalDate(2026, 10, 31),
                                 )
                             call.respondText(count.toString())
                         }
@@ -300,10 +310,10 @@ class MembershipToGovernanceJourneyTest :
                         post("/e2e1/mark-paid/{contributionId}") {
                             val dto =
                                 ContributionService(call).markContributionPaid(
-                                    call.parameters["contributionId"]!!,
-                                    LocalDateTime(2026, 10, 15, 12, 0),
-                                    BigDecimal(call.request.queryParameters["amount"]!!),
-                                    "E2E Scenario 1",
+                                    contributionId = call.parameters["contributionId"]!!,
+                                    paidAt = LocalDateTime(2026, 10, 15, 12, 0),
+                                    paidAmount = BigDecimal(call.request.queryParameters["amount"]!!),
+                                    note = "E2E Scenario 1",
                                 )
                             call.respondText("${dto.status.name}:${dto.paidAmount}")
                         }
@@ -364,7 +374,7 @@ class MembershipToGovernanceJourneyTest :
                         }
                         post("/e2e1/update-address/{memberId}") {
                             MemberService(call).updateMemberAddress(
-                                call.parameters["memberId"]!!,
+                                memberId = call.parameters["memberId"]!!,
                                 street = "Musterstrasse 1",
                                 postalCode = "38100",
                                 city = "Braunschweig",
@@ -380,8 +390,8 @@ class MembershipToGovernanceJourneyTest :
                             val q = call.request.queryParameters
                             val result =
                                 AuditLogService(call).verifyChainIntegrity(
-                                    q["from"]?.toLong(),
-                                    q["to"]?.toLong(),
+                                    fromSequenceNumber = q["from"]?.toLong(),
+                                    toSequenceNumber = q["to"]?.toLong(),
                                 )
                             call.respondText("${result.valid}:${result.brokenAtSequenceNumber ?: ""}:${result.checkedCount}")
                         }
@@ -415,7 +425,7 @@ class MembershipToGovernanceJourneyTest :
                 memberStatusOf(applicantId) shouldBe MemberStatus.ANTRAG
 
                 // ── Step 2: real login (real HTTP, real session cookie) -- ANTRAG can log in by design ──
-                val rawToken = client.realLogin(email, E2E_STRONG_PASSWORD)
+                val rawToken = client.realLogin(email = email, password = E2E_STRONG_PASSWORD)
 
                 // ── Step 3: BOARD sets up the General-Assembly vote this applicant will (eventually) cast ──
                 val committeeId = client.post("/e2e1/create-committee") { header("X-Member-Id", BOARD_ID) }.bodyAsText()
@@ -456,7 +466,7 @@ class MembershipToGovernanceJourneyTest :
                 val forbidden = client.post("/e2e1/cast-vote/$voteId/$yesOptionId") { withSession(rawToken) }
                 forbidden.status shouldBe HttpStatusCode.Forbidden
                 // The refusal must have been a refusal, not a silently-half-applied write.
-                ballotCountFor(voteId, applicantId) shouldBe 0
+                ballotCountFor(voteId = voteId, memberId = applicantId) shouldBe 0
                 ltrBalanceOf(applicantId) shouldBe BigDecimal("25.00")
 
                 // ── Step 5: BOARD approves (a DIFFERENT service, RegistrationService, in a ──
@@ -470,7 +480,7 @@ class MembershipToGovernanceJourneyTest :
                 // ── trusting a status captured at login time. ────────────────────────────────────
                 val castResponse = client.post("/e2e1/cast-vote/$voteId/$yesOptionId") { withSession(rawToken) }
                 castResponse.status shouldBe HttpStatusCode.OK
-                ballotCountFor(voteId, applicantId) shouldBe 1
+                ballotCountFor(voteId = voteId, memberId = applicantId) shouldBe 1
                 // Cross-domain seam #3 (V0.2 -> V0.6): casting a Meritokratische ballot must DEBIT
                 // the staked LTR through the ledger, not merely record a ballot row. 25.00 - 5.00.
                 ltrBalanceOf(applicantId) shouldBe BigDecimal("20.00")
@@ -609,7 +619,7 @@ class MembershipToGovernanceJourneyTest :
                 closeFields[2] shouldBe "0.00"
                 val resolutionId = closeFields[3]
                 resolutionId.isBlank() shouldBe false
-                ballotSettledLtrFor(voteId, applicantId) shouldBe BigDecimal("0.00")
+                ballotSettledLtrFor(voteId = voteId, memberId = applicantId) shouldBe BigDecimal("0.00")
                 resolutionFactsOf(resolutionId) shouldBe
                     ResolutionFacts(
                         status = ResolutionStatus.ADOPTED,

@@ -57,7 +57,7 @@ class SchemaDriftTest :
 
             entity.attributes.forEach { attr ->
                 val col = real.columns.getValue(attr.name!!)
-                withClue("column '${attr.name}'") {
+                withClue(clue = "column '${attr.name}'") {
                     col.nullable shouldBe attr.nullable
                 }
             }
@@ -69,7 +69,7 @@ class SchemaDriftTest :
             val real = transaction { introspectTable("member") }
 
             listOf("street", "postal_code", "city", "country").forEach { column ->
-                withClue("column '$column'") {
+                withClue(clue = "column '$column'") {
                     entity.attributeByName(column)?.nullable shouldBe true
                     real.columns.getValue(column).nullable shouldBe true
                 }
@@ -81,7 +81,7 @@ class SchemaDriftTest :
             val real = transaction { introspectTable("member") }
 
             listOf("date_of_birth", "nationality").forEach { column ->
-                withClue("column '$column'") {
+                withClue(clue = "column '$column'") {
                     entity.attributeByName(column)?.nullable shouldBe true
                     real.columns.getValue(column).nullable shouldBe true
                 }
@@ -93,7 +93,7 @@ class SchemaDriftTest :
             val real = transaction { introspectTable("member") }
 
             listOf("reviewed_by", "reviewed_at", "rejection_reason").forEach { column ->
-                withClue("column '$column'") {
+                withClue(clue = "column '$column'") {
                     entity.attributeByName(column)?.nullable shouldBe true
                     real.columns.getValue(column).nullable shouldBe true
                 }
@@ -117,7 +117,7 @@ class SchemaDriftTest :
 
             entity.attributes.forEach { attr ->
                 val col = real.columns.getValue(attr.name!!)
-                withClue("column '${attr.name}'") {
+                withClue(clue = "column '${attr.name}'") {
                     col.nullable shouldBe attr.nullable
                 }
             }

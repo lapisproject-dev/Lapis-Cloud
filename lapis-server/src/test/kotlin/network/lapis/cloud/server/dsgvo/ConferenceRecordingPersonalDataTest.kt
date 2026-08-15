@@ -199,7 +199,7 @@ class ConferenceRecordingPersonalDataTest :
             createRecordingWithTracks(roomId, member, trackCount = 3)
 
             listOf(ErasureMode.ANONYMIZE, ErasureMode.HARD_DELETE_WHERE_UNCONSTRAINED).forEach { mode ->
-                val outcomes = transaction { ConferencePersonalData.erase(member, mode) }
+                val outcomes = transaction { ConferencePersonalData.erase(memberId = member, mode = mode) }
                 val recordingOutcome = outcomes.single { it.table == "conference_recording" }
                 recordingOutcome.rowsRetained shouldBe 1
                 recordingOutcome.retentionReason?.isNotBlank() shouldBe true

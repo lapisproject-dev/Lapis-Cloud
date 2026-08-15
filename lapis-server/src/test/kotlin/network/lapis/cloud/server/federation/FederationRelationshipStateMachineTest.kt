@@ -52,17 +52,17 @@ class FederationRelationshipStateMachineTest :
             val id =
                 transaction {
                     FederationRelationshipStore.upsertByRemoteActorUri(
-                        FederationRelationshipDirection.OUTBOUND,
-                        remoteActorUri,
-                        "https://remote.example/inbox",
-                        "PEM",
-                        "activity-1",
-                        T0,
+                        direction = FederationRelationshipDirection.OUTBOUND,
+                        remoteActorUri = remoteActorUri,
+                        remoteInboxUri = "https://remote.example/inbox",
+                        remotePublicKeyPem = "PEM",
+                        initiatedActivityId = "activity-1",
+                        now = T0,
                     )
                 }
             (id != null) shouldBe true
             track(id!!)
-            val row = transaction { FederationRelationshipStore.findById(id)!! }
+            val row = transaction { FederationRelationshipStore.findById(id = id)!! }
             row[FederationRelationshipTable.status] shouldBe FederationRelationshipStatus.PENDING
             row[FederationRelationshipTable.direction] shouldBe FederationRelationshipDirection.OUTBOUND
         }
@@ -73,29 +73,29 @@ class FederationRelationshipStateMachineTest :
                 transaction {
                     track(
                         FederationRelationshipStore.upsertByRemoteActorUri(
-                            FederationRelationshipDirection.OUTBOUND,
-                            remoteActorUri,
-                            "https://remote.example/inbox",
-                            "PEM",
-                            "activity-1",
-                            T0,
+                            direction = FederationRelationshipDirection.OUTBOUND,
+                            remoteActorUri = remoteActorUri,
+                            remoteInboxUri = "https://remote.example/inbox",
+                            remotePublicKeyPem = "PEM",
+                            initiatedActivityId = "activity-1",
+                            now = T0,
                         )!!,
                     )
                 }
             val second =
                 transaction {
                     FederationRelationshipStore.upsertByRemoteActorUri(
-                        FederationRelationshipDirection.INBOUND,
-                        remoteActorUri,
-                        "https://remote.example/inbox",
-                        "PEM",
-                        "activity-2",
-                        T1,
+                        direction = FederationRelationshipDirection.INBOUND,
+                        remoteActorUri = remoteActorUri,
+                        remoteInboxUri = "https://remote.example/inbox",
+                        remotePublicKeyPem = "PEM",
+                        initiatedActivityId = "activity-2",
+                        now = T1,
                     )
                 }
             second shouldBe null
             // The original row is untouched.
-            val row = transaction { FederationRelationshipStore.findById(id)!! }
+            val row = transaction { FederationRelationshipStore.findById(id = id)!! }
             row[FederationRelationshipTable.direction] shouldBe FederationRelationshipDirection.OUTBOUND
             row[FederationRelationshipTable.initiatedActivityId] shouldBe "activity-1"
         }
@@ -106,29 +106,29 @@ class FederationRelationshipStateMachineTest :
                 transaction {
                     val inserted =
                         FederationRelationshipStore.upsertByRemoteActorUri(
-                            FederationRelationshipDirection.OUTBOUND,
-                            remoteActorUri,
-                            "https://remote.example/inbox",
-                            "PEM",
-                            "activity-1",
-                            T0,
+                            direction = FederationRelationshipDirection.OUTBOUND,
+                            remoteActorUri = remoteActorUri,
+                            remoteInboxUri = "https://remote.example/inbox",
+                            remotePublicKeyPem = "PEM",
+                            initiatedActivityId = "activity-1",
+                            now = T0,
                         )!!
-                    FederationRelationshipStore.updateStatus(inserted, FederationRelationshipStatus.ACTIVE, T0)
+                    FederationRelationshipStore.updateStatus(id = inserted, status = FederationRelationshipStatus.ACTIVE, now = T0)
                     track(inserted)
                 }
             val second =
                 transaction {
                     FederationRelationshipStore.upsertByRemoteActorUri(
-                        FederationRelationshipDirection.INBOUND,
-                        remoteActorUri,
-                        "https://remote.example/inbox",
-                        "PEM",
-                        "activity-2",
-                        T1,
+                        direction = FederationRelationshipDirection.INBOUND,
+                        remoteActorUri = remoteActorUri,
+                        remoteInboxUri = "https://remote.example/inbox",
+                        remotePublicKeyPem = "PEM",
+                        initiatedActivityId = "activity-2",
+                        now = T1,
                     )
                 }
             second shouldBe null
-            transaction { FederationRelationshipStore.findById(id)!![FederationRelationshipTable.status] } shouldBe
+            transaction { FederationRelationshipStore.findById(id = id)!![FederationRelationshipTable.status] } shouldBe
                 FederationRelationshipStatus.ACTIVE
         }
 
@@ -140,31 +140,31 @@ class FederationRelationshipStateMachineTest :
                 transaction {
                     val inserted =
                         FederationRelationshipStore.upsertByRemoteActorUri(
-                            FederationRelationshipDirection.OUTBOUND,
-                            remoteActorUri,
-                            "https://remote.example/inbox",
-                            "PEM",
-                            "activity-1",
-                            T0,
+                            direction = FederationRelationshipDirection.OUTBOUND,
+                            remoteActorUri = remoteActorUri,
+                            remoteInboxUri = "https://remote.example/inbox",
+                            remotePublicKeyPem = "PEM",
+                            initiatedActivityId = "activity-1",
+                            now = T0,
                         )!!
-                    FederationRelationshipStore.updateStatus(inserted, FederationRelationshipStatus.REJECTED, T0)
+                    FederationRelationshipStore.updateStatus(id = inserted, status = FederationRelationshipStatus.REJECTED, now = T0)
                     track(inserted)
                 }
 
             val reestablishedId =
                 transaction {
                     FederationRelationshipStore.upsertByRemoteActorUri(
-                        FederationRelationshipDirection.INBOUND,
-                        remoteActorUri,
-                        "https://remote.example/inbox-v2",
-                        "PEM2",
-                        "activity-2",
-                        T1,
+                        direction = FederationRelationshipDirection.INBOUND,
+                        remoteActorUri = remoteActorUri,
+                        remoteInboxUri = "https://remote.example/inbox-v2",
+                        remotePublicKeyPem = "PEM2",
+                        initiatedActivityId = "activity-2",
+                        now = T1,
                     )
                 }
 
             reestablishedId shouldBe originalId // same row, UPDATEd -- not a new id
-            val row = transaction { FederationRelationshipStore.findById(originalId)!! }
+            val row = transaction { FederationRelationshipStore.findById(id = originalId)!! }
             row[FederationRelationshipTable.status] shouldBe FederationRelationshipStatus.PENDING
             row[FederationRelationshipTable.direction] shouldBe FederationRelationshipDirection.INBOUND
             row[FederationRelationshipTable.initiatedActivityId] shouldBe "activity-2"
@@ -182,30 +182,30 @@ class FederationRelationshipStateMachineTest :
                 transaction {
                     val inserted =
                         FederationRelationshipStore.upsertByRemoteActorUri(
-                            FederationRelationshipDirection.OUTBOUND,
-                            remoteActorUri,
-                            "https://remote.example/inbox",
-                            "PEM",
-                            "activity-1",
-                            T0,
+                            direction = FederationRelationshipDirection.OUTBOUND,
+                            remoteActorUri = remoteActorUri,
+                            remoteInboxUri = "https://remote.example/inbox",
+                            remotePublicKeyPem = "PEM",
+                            initiatedActivityId = "activity-1",
+                            now = T0,
                         )!!
-                    FederationRelationshipStore.updateStatus(inserted, FederationRelationshipStatus.UNDONE, T0)
+                    FederationRelationshipStore.updateStatus(id = inserted, status = FederationRelationshipStatus.UNDONE, now = T0)
                     track(inserted)
                 }
 
             val reestablishedId =
                 transaction {
                     FederationRelationshipStore.upsertByRemoteActorUri(
-                        FederationRelationshipDirection.OUTBOUND,
-                        remoteActorUri,
-                        "https://remote.example/inbox",
-                        "PEM",
-                        "activity-3",
-                        T1,
+                        direction = FederationRelationshipDirection.OUTBOUND,
+                        remoteActorUri = remoteActorUri,
+                        remoteInboxUri = "https://remote.example/inbox",
+                        remotePublicKeyPem = "PEM",
+                        initiatedActivityId = "activity-3",
+                        now = T1,
                     )
                 }
             reestablishedId shouldBe originalId
-            transaction { FederationRelationshipStore.findById(originalId)!![FederationRelationshipTable.status] } shouldBe
+            transaction { FederationRelationshipStore.findById(id = originalId)!![FederationRelationshipTable.status] } shouldBe
                 FederationRelationshipStatus.PENDING
         }
 
@@ -215,19 +215,31 @@ class FederationRelationshipStateMachineTest :
                 transaction {
                     track(
                         FederationRelationshipStore.upsertByRemoteActorUri(
-                            FederationRelationshipDirection.OUTBOUND,
-                            remoteActorUri,
-                            "https://remote.example/inbox",
-                            "PEM",
-                            "activity-1",
-                            T0,
+                            direction = FederationRelationshipDirection.OUTBOUND,
+                            remoteActorUri = remoteActorUri,
+                            remoteInboxUri = "https://remote.example/inbox",
+                            remotePublicKeyPem = "PEM",
+                            initiatedActivityId = "activity-1",
+                            now = T0,
                         )!!,
                     )
                 }
             transaction {
-                FederationRelationshipStore.recordEvent(id, FederationEventType.FOLLOW_SENT, "activity-1", "{}", T0)
-                FederationRelationshipStore.updateStatus(id, FederationRelationshipStatus.ACTIVE, T1)
-                FederationRelationshipStore.recordEvent(id, FederationEventType.ACCEPT_RECEIVED, "activity-2", "{}", T1)
+                FederationRelationshipStore.recordEvent(
+                    relationshipId = id,
+                    eventType = FederationEventType.FOLLOW_SENT,
+                    activityId = "activity-1",
+                    activityJson = "{}",
+                    now = T0,
+                )
+                FederationRelationshipStore.updateStatus(id = id, status = FederationRelationshipStatus.ACTIVE, now = T1)
+                FederationRelationshipStore.recordEvent(
+                    relationshipId = id,
+                    eventType = FederationEventType.ACCEPT_RECEIVED,
+                    activityId = "activity-2",
+                    activityJson = "{}",
+                    now = T1,
+                )
             }
 
             val events = transaction { FederationRelationshipStore.listEvents(id) }
@@ -243,26 +255,26 @@ class FederationRelationshipStateMachineTest :
                 transaction {
                     track(
                         FederationRelationshipStore.upsertByRemoteActorUri(
-                            FederationRelationshipDirection.OUTBOUND,
-                            remoteActorUri,
-                            "https://remote.example/inbox",
-                            "PEM",
-                            "activity-1",
-                            T0,
+                            direction = FederationRelationshipDirection.OUTBOUND,
+                            remoteActorUri = remoteActorUri,
+                            remoteInboxUri = "https://remote.example/inbox",
+                            remotePublicKeyPem = "PEM",
+                            initiatedActivityId = "activity-1",
+                            now = T0,
                         )!!,
                     )
                 }
             val applied =
                 transaction {
                     FederationRelationshipStore.updateStatusIfCurrently(
-                        id,
-                        FederationRelationshipStatus.PENDING,
-                        FederationRelationshipStatus.ACTIVE,
-                        T1,
+                        id = id,
+                        expectedStatus = FederationRelationshipStatus.PENDING,
+                        newStatus = FederationRelationshipStatus.ACTIVE,
+                        now = T1,
                     )
                 }
             applied shouldBe true
-            transaction { FederationRelationshipStore.findById(id)!![FederationRelationshipTable.status] } shouldBe
+            transaction { FederationRelationshipStore.findById(id = id)!![FederationRelationshipTable.status] } shouldBe
                 FederationRelationshipStatus.ACTIVE
         }
 
@@ -275,31 +287,31 @@ class FederationRelationshipStateMachineTest :
                 transaction {
                     val inserted =
                         FederationRelationshipStore.upsertByRemoteActorUri(
-                            FederationRelationshipDirection.OUTBOUND,
-                            remoteActorUri,
-                            "https://remote.example/inbox",
-                            "PEM",
-                            "activity-1",
-                            T0,
+                            direction = FederationRelationshipDirection.OUTBOUND,
+                            remoteActorUri = remoteActorUri,
+                            remoteInboxUri = "https://remote.example/inbox",
+                            remotePublicKeyPem = "PEM",
+                            initiatedActivityId = "activity-1",
+                            now = T0,
                         )!!
                     // Already decided (REJECTED) by the time this CAS runs -- simulates a second,
                     // concurrent decision (or a duplicate/replayed delivery) landing after the first
                     // one already committed.
-                    FederationRelationshipStore.updateStatus(inserted, FederationRelationshipStatus.REJECTED, T0)
+                    FederationRelationshipStore.updateStatus(id = inserted, status = FederationRelationshipStatus.REJECTED, now = T0)
                     track(inserted)
                 }
             val applied =
                 transaction {
                     FederationRelationshipStore.updateStatusIfCurrently(
-                        id,
-                        FederationRelationshipStatus.PENDING,
-                        FederationRelationshipStatus.ACTIVE,
-                        T1,
+                        id = id,
+                        expectedStatus = FederationRelationshipStatus.PENDING,
+                        newStatus = FederationRelationshipStatus.ACTIVE,
+                        now = T1,
                     )
                 }
             applied shouldBe false
             // Status is untouched -- still REJECTED, never silently overwritten to ACTIVE.
-            transaction { FederationRelationshipStore.findById(id)!![FederationRelationshipTable.status] } shouldBe
+            transaction { FederationRelationshipStore.findById(id = id)!![FederationRelationshipTable.status] } shouldBe
                 FederationRelationshipStatus.REJECTED
         }
 
@@ -308,7 +320,7 @@ class FederationRelationshipStateMachineTest :
                 "remote actor never surface a raw ExposedSQLException/500 and converge to a single row",
         ) {
             val remoteActorUri = "https://remote-${Uuid.random()}.example/federation/actor"
-            val results = runConcurrentUpsert(remoteActorUri)
+            val results = runConcurrentUpsert(remoteActorUri = remoteActorUri)
 
             // Neither thread may propagate the raw unique-constraint violation the unguarded race
             // would have produced -- see FederationRelationshipStore KDoc "Concurrency" point 3.
@@ -334,17 +346,17 @@ class FederationRelationshipStateMachineTest :
                 transaction {
                     track(
                         FederationRelationshipStore.upsertByRemoteActorUri(
-                            FederationRelationshipDirection.INBOUND,
-                            remoteActorUri,
-                            "https://remote.example/inbox",
-                            "PEM",
-                            "activity-1",
-                            T0,
+                            direction = FederationRelationshipDirection.INBOUND,
+                            remoteActorUri = remoteActorUri,
+                            remoteInboxUri = "https://remote.example/inbox",
+                            remotePublicKeyPem = "PEM",
+                            initiatedActivityId = "activity-1",
+                            now = T0,
                         )!!,
                     )
                 }
 
-            val results = runConcurrentCas(id)
+            val results = runConcurrentCas(id = id)
 
             results.failures.isEmpty() shouldBe true
             // Exactly ONE of the two racing decisions may win the compare-and-swap -- the other must
@@ -352,7 +364,7 @@ class FederationRelationshipStateMachineTest :
             // a Reject silently landed on the same relationship).
             results.applied.count { it } shouldBe 1
 
-            val finalStatus = transaction { FederationRelationshipStore.findById(id)!![FederationRelationshipTable.status] }
+            val finalStatus = transaction { FederationRelationshipStore.findById(id = id)!![FederationRelationshipTable.status] }
             (finalStatus == FederationRelationshipStatus.ACTIVE || finalStatus == FederationRelationshipStatus.REJECTED) shouldBe true
         }
     })
@@ -388,12 +400,12 @@ private fun runConcurrentUpsert(
                 val id =
                     transaction {
                         FederationRelationshipStore.upsertByRemoteActorUri(
-                            FederationRelationshipDirection.OUTBOUND,
-                            remoteActorUri,
-                            "https://remote.example/inbox",
-                            "PEM",
-                            "activity-${Uuid.random()}",
-                            T0,
+                            direction = FederationRelationshipDirection.OUTBOUND,
+                            remoteActorUri = remoteActorUri,
+                            remoteInboxUri = "https://remote.example/inbox",
+                            remotePublicKeyPem = "PEM",
+                            initiatedActivityId = "activity-${Uuid.random()}",
+                            now = T0,
                         )
                     }
                 if (id != null) ids += id
@@ -410,7 +422,7 @@ private fun runConcurrentUpsert(
     threadB.start()
     val completed = doneLatch.await(timeoutSeconds, java.util.concurrent.TimeUnit.SECONDS)
     check(completed) { "Concurrent upsert did not complete within ${timeoutSeconds}s -- likely deadlock" }
-    return ConcurrentUpsertResult(ids.toList(), failures.toList())
+    return ConcurrentUpsertResult(ids = ids.toList(), failures = failures.toList())
 }
 
 /** Result of [runConcurrentCas]. */
@@ -442,7 +454,12 @@ private fun runConcurrentCas(
                 startLatch.await(timeoutSeconds, java.util.concurrent.TimeUnit.SECONDS)
                 val result =
                     transaction {
-                        FederationRelationshipStore.updateStatusIfCurrently(id, FederationRelationshipStatus.PENDING, newStatus, T1)
+                        FederationRelationshipStore.updateStatusIfCurrently(
+                            id = id,
+                            expectedStatus = FederationRelationshipStatus.PENDING,
+                            newStatus = newStatus,
+                            now = T1,
+                        )
                     }
                 applied += result
             } catch (t: Throwable) {
@@ -458,5 +475,5 @@ private fun runConcurrentCas(
     threadB.start()
     val completed = doneLatch.await(timeoutSeconds, java.util.concurrent.TimeUnit.SECONDS)
     check(completed) { "Concurrent CAS did not complete within ${timeoutSeconds}s -- likely deadlock" }
-    return ConcurrentCasResult(applied.toList(), failures.toList())
+    return ConcurrentCasResult(applied = applied.toList(), failures = failures.toList())
 }

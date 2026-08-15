@@ -132,7 +132,7 @@ class TrustAnchorServiceTest :
                 activeRows.size shouldBe 1
                 activeRows.single()[TrustAnchorSigningKeyTable.kid] shouldBe newKid
 
-                val oldRow = transaction { TrustAnchorSigningKeyStore.findByKid(before)!! }
+                val oldRow = transaction { TrustAnchorSigningKeyStore.findByKid(kid = before)!! }
                 oldRow[TrustAnchorSigningKeyTable.status] shouldBe TrustAnchorSigningKeyStatus.RETIRED
                 (oldRow[TrustAnchorSigningKeyTable.retiredAt] != null) shouldBe true
             }
@@ -159,7 +159,7 @@ class TrustAnchorServiceTest :
 
                 val activeAfter = transaction { TrustAnchorSigningKeyStore.findActive()!![TrustAnchorSigningKeyTable.kid] }
                 activeAfter shouldBe activeBefore
-                val revokedRow = transaction { TrustAnchorSigningKeyStore.findByKid(retiredKid)!! }
+                val revokedRow = transaction { TrustAnchorSigningKeyStore.findByKid(kid = retiredKid)!! }
                 revokedRow[TrustAnchorSigningKeyTable.status] shouldBe TrustAnchorSigningKeyStatus.REVOKED
             }
         }
@@ -175,7 +175,7 @@ class TrustAnchorServiceTest :
                 val response = client.post("/test/revoke-key?kid=$activeBefore") { header("X-Member-Id", ADMIN_ID) }
                 response.status shouldBe HttpStatusCode.OK
 
-                val revokedRow = transaction { TrustAnchorSigningKeyStore.findByKid(activeBefore)!! }
+                val revokedRow = transaction { TrustAnchorSigningKeyStore.findByKid(kid = activeBefore)!! }
                 revokedRow[TrustAnchorSigningKeyTable.status] shouldBe TrustAnchorSigningKeyStatus.REVOKED
 
                 val activeRows =
@@ -350,7 +350,7 @@ class TrustAnchorServiceTest :
                     routing { registerTrustAnchorTestRoutes() }
                 }
                 val unreachableAnchor = "https://this-anchor-does-not-exist-${Uuid.random()}.invalid"
-                transaction { TrustedAnchorStore.insert(unreachableAnchor, LocalDateTime(2026, 1, 1, 0, 0)) }
+                transaction { TrustedAnchorStore.insert(anchorEntityUri = unreachableAnchor, now = LocalDateTime(2026, 1, 1, 0, 0)) }
                 createdTrustedAnchors += unreachableAnchor
 
                 val response = client.get("/test/resolve-trust-chain?uri=https://example.com") { header("X-Member-Id", ADMIN_ID) }

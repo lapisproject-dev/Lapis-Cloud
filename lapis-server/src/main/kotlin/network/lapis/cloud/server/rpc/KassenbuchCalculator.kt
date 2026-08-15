@@ -54,7 +54,7 @@ internal object KassenbuchCalculator {
             }
         val runningBalances =
             GeneralLedgerCalculator.runningBalances(
-                ledgerLines,
+                lines = ledgerLines,
                 normalBalanceSide = PostingSide.DEBIT,
                 opening = opening,
             )

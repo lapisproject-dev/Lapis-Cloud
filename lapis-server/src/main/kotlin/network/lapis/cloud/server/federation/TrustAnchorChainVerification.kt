@@ -33,12 +33,12 @@ internal object TrustAnchorChainVerification {
     ): VerifiedEntityConfiguration? {
         val claims = parseUnverifiedClaims(compact) ?: return null
         if (claims.issuer != expectedAnchorEntityUri || claims.subject != expectedAnchorEntityUri) return null
-        if (!isTemporallyValid(claims, now)) return null
+        if (!isTemporallyValid(claims = claims, now = now)) return null
 
         val jwksJson = extractJwksJson(claims) ?: return null
         val kid = OidcJwt.extractUnverifiedKid(compact) ?: return null
-        val publicKeyPem = OidcJwks.findRsaPublicKeyPem(jwksJson, kid) ?: return null
-        val verification = OidcJwt.verifySignature(compact, publicKeyPem)
+        val publicKeyPem = OidcJwks.findRsaPublicKeyPem(jwksJson = jwksJson, kid = kid) ?: return null
+        val verification = OidcJwt.verifySignature(compact = compact, publicKeyPem = publicKeyPem)
         if (verification is OidcJwt.VerificationResult.Invalid) return null
 
         @Suppress("UNCHECKED_CAST")
@@ -71,11 +71,11 @@ internal object TrustAnchorChainVerification {
         val claims = parseUnverifiedClaims(compact) ?: return false
         if (claims.issuer != expectedAnchorEntityUri) return false
         if (claims.subject != expectedHomeServerUri) return false
-        if (!isTemporallyValid(claims, now)) return false
+        if (!isTemporallyValid(claims = claims, now = now)) return false
 
         val kid = OidcJwt.extractUnverifiedKid(compact) ?: return false
-        val publicKeyPem = OidcJwks.findRsaPublicKeyPem(jwksJson, kid) ?: return false
-        val verification = OidcJwt.verifySignature(compact, publicKeyPem)
+        val publicKeyPem = OidcJwks.findRsaPublicKeyPem(jwksJson = jwksJson, kid = kid) ?: return false
+        val verification = OidcJwt.verifySignature(compact = compact, publicKeyPem = publicKeyPem)
         return verification !is OidcJwt.VerificationResult.Invalid
     }
 

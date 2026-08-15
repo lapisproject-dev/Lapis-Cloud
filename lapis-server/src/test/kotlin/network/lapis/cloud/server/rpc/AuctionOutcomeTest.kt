@@ -47,15 +47,15 @@ private fun scenarioArb(): Arb<AuctionScenario> =
             (0 until bidderCount).map { idx ->
                 val extraCents = random.nextInt(0, 2_000_00)
                 val amount = startingBid + BigDecimal(extraCents).movePointLeft(2)
-                bid(Uuid.random(), amount.toPlainString(), minutesAfterBase = idx)
+                bid(bidderMemberId = Uuid.random(), maxBidLtr = amount.toPlainString(), minutesAfterBase = idx)
             }
-        AuctionScenario(startingBid, bids)
+        AuctionScenario(startingBidLtr = startingBid, bids = bids)
     }
 
 class AuctionOutcomeTest :
     FunSpec({
         test("no bids -> everything null/zero") {
-            val outcome = computeAuctionOutcome(BigDecimal("10.00"), MIN_INCREMENT, emptyList())
+            val outcome = computeAuctionOutcome(startingBidLtr = BigDecimal("10.00"), minIncrementLtr = MIN_INCREMENT, bids = emptyList())
             outcome.leaderMemberId shouldBe null
             outcome.leaderMaxBidLtr shouldBe null
             outcome.currentPriceLtr shouldBe null
@@ -64,7 +64,12 @@ class AuctionOutcomeTest :
 
         test("one bidder -> leader pays the starting bid") {
             val a = Uuid.random()
-            val outcome = computeAuctionOutcome(BigDecimal("10.00"), MIN_INCREMENT, listOf(bid(a, "50.00")))
+            val outcome =
+                computeAuctionOutcome(
+                    startingBidLtr = BigDecimal("10.00"),
+                    minIncrementLtr = MIN_INCREMENT,
+                    bids = listOf(bid(bidderMemberId = a, maxBidLtr = "50.00")),
+                )
             outcome.leaderMemberId shouldBe a
             outcome.leaderMaxBidLtr shouldBe BigDecimal("50.00")
             outcome.currentPriceLtr shouldBe BigDecimal("10.00")
@@ -76,9 +81,9 @@ class AuctionOutcomeTest :
             val b = Uuid.random()
             val outcome =
                 computeAuctionOutcome(
-                    BigDecimal("1.00"),
-                    MIN_INCREMENT,
-                    listOf(bid(a, "100.00"), bid(b, "50.00")),
+                    startingBidLtr = BigDecimal("1.00"),
+                    minIncrementLtr = MIN_INCREMENT,
+                    bids = listOf(bid(bidderMemberId = a, maxBidLtr = "100.00"), bid(bidderMemberId = b, maxBidLtr = "50.00")),
                 )
             outcome.leaderMemberId shouldBe a
             outcome.currentPriceLtr shouldBe BigDecimal("50.01")
@@ -89,9 +94,9 @@ class AuctionOutcomeTest :
             val b = Uuid.random()
             val outcome =
                 computeAuctionOutcome(
-                    BigDecimal("1.00"),
-                    MIN_INCREMENT,
-                    listOf(bid(a, "60.00"), bid(b, "100.00")),
+                    startingBidLtr = BigDecimal("1.00"),
+                    minIncrementLtr = MIN_INCREMENT,
+                    bids = listOf(bid(bidderMemberId = a, maxBidLtr = "60.00"), bid(bidderMemberId = b, maxBidLtr = "100.00")),
                 )
             outcome.leaderMemberId shouldBe b
             outcome.leaderMaxBidLtr shouldBe BigDecimal("100.00")
@@ -103,12 +108,13 @@ class AuctionOutcomeTest :
             val later = Uuid.random()
             val outcome =
                 computeAuctionOutcome(
-                    BigDecimal("1.00"),
-                    MIN_INCREMENT,
-                    listOf(
-                        bid(earlier, "50.00", minutesAfterBase = 0),
-                        bid(later, "50.00", minutesAfterBase = 5),
-                    ),
+                    startingBidLtr = BigDecimal("1.00"),
+                    minIncrementLtr = MIN_INCREMENT,
+                    bids =
+                        listOf(
+                            bid(bidderMemberId = earlier, maxBidLtr = "50.00", minutesAfterBase = 0),
+                            bid(bidderMemberId = later, maxBidLtr = "50.00", minutesAfterBase = 5),
+                        ),
                 )
             outcome.leaderMemberId shouldBe earlier
             outcome.currentPriceLtr shouldBe BigDecimal("50.00")
@@ -121,9 +127,14 @@ class AuctionOutcomeTest :
             // function must still behave sanely if ever handed such input -- see its own KDoc.
             val outcome =
                 computeAuctionOutcome(
-                    BigDecimal("1.00"),
-                    MIN_INCREMENT,
-                    listOf(bid(a, "100.00", bidId = Uuid.random()), bid(a, "30.00", bidId = Uuid.random()), bid(b, "40.00")),
+                    startingBidLtr = BigDecimal("1.00"),
+                    minIncrementLtr = MIN_INCREMENT,
+                    bids =
+                        listOf(
+                            bid(bidderMemberId = a, maxBidLtr = "100.00", bidId = Uuid.random()),
+                            bid(bidderMemberId = a, maxBidLtr = "30.00", bidId = Uuid.random()),
+                            bid(bidderMemberId = b, maxBidLtr = "40.00"),
+                        ),
                 )
             outcome.leaderMemberId shouldBe a
             outcome.currentPriceLtr shouldBe BigDecimal("40.01")
@@ -131,15 +142,18 @@ class AuctionOutcomeTest :
 
         test("deterministic: identical input always produces an identical outcome") {
             checkAll(200, scenarioArb()) { scenario ->
-                val first = computeAuctionOutcome(scenario.startingBidLtr, MIN_INCREMENT, scenario.bids)
-                val second = computeAuctionOutcome(scenario.startingBidLtr, MIN_INCREMENT, scenario.bids)
+                val first =
+                    computeAuctionOutcome(startingBidLtr = scenario.startingBidLtr, minIncrementLtr = MIN_INCREMENT, bids = scenario.bids)
+                val second =
+                    computeAuctionOutcome(startingBidLtr = scenario.startingBidLtr, minIncrementLtr = MIN_INCREMENT, bids = scenario.bids)
                 first shouldBe second
             }
         }
 
         test("currentPriceLtr is always >= startingBidLtr whenever there is a leader") {
             checkAll(300, scenarioArb()) { scenario ->
-                val outcome = computeAuctionOutcome(scenario.startingBidLtr, MIN_INCREMENT, scenario.bids)
+                val outcome =
+                    computeAuctionOutcome(startingBidLtr = scenario.startingBidLtr, minIncrementLtr = MIN_INCREMENT, bids = scenario.bids)
                 if (outcome.leaderMemberId != null) {
                     (outcome.currentPriceLtr!! >= scenario.startingBidLtr) shouldBe true
                 }
@@ -148,7 +162,8 @@ class AuctionOutcomeTest :
 
         test("currentPriceLtr never exceeds the leader's own maxBidLtr") {
             checkAll(300, scenarioArb()) { scenario ->
-                val outcome = computeAuctionOutcome(scenario.startingBidLtr, MIN_INCREMENT, scenario.bids)
+                val outcome =
+                    computeAuctionOutcome(startingBidLtr = scenario.startingBidLtr, minIncrementLtr = MIN_INCREMENT, bids = scenario.bids)
                 if (outcome.leaderMemberId != null) {
                     (outcome.currentPriceLtr!! <= outcome.leaderMaxBidLtr!!) shouldBe true
                 }
@@ -157,7 +172,8 @@ class AuctionOutcomeTest :
 
         test("the leader always holds the (a) highest maxBidLtr among all bids") {
             checkAll(300, scenarioArb()) { scenario ->
-                val outcome = computeAuctionOutcome(scenario.startingBidLtr, MIN_INCREMENT, scenario.bids)
+                val outcome =
+                    computeAuctionOutcome(startingBidLtr = scenario.startingBidLtr, minIncrementLtr = MIN_INCREMENT, bids = scenario.bids)
                 if (outcome.leaderMemberId != null) {
                     val maxAmongAll = scenario.bids.maxOf { it.maxBidLtr }
                     outcome.leaderMaxBidLtr shouldBe maxAmongAll
@@ -167,7 +183,8 @@ class AuctionOutcomeTest :
 
         test("bidCount always equals the number of bids passed in") {
             checkAll(300, scenarioArb()) { scenario ->
-                val outcome = computeAuctionOutcome(scenario.startingBidLtr, MIN_INCREMENT, scenario.bids)
+                val outcome =
+                    computeAuctionOutcome(startingBidLtr = scenario.startingBidLtr, minIncrementLtr = MIN_INCREMENT, bids = scenario.bids)
                 outcome.bidCount shouldBe scenario.bids.size
             }
         }

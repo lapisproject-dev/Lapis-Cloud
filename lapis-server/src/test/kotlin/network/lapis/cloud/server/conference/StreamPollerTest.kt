@@ -114,7 +114,7 @@ private class StreamPollerFakeEgressClient(
     override suspend fun listEgress(roomName: String): List<LiveKitEgressInfo> {
         listEgressCalls.incrementAndGet()
         if (roomName == throwUnexpectedForRoom) throw RuntimeException("simulated unexpected failure")
-        if (failListEgress) throw LiveKitAdminException("ListEgress failed (simulated outage)")
+        if (failListEgress) throw LiveKitAdminException(message = "ListEgress failed (simulated outage)")
         onListEgress?.invoke(roomName)
         return egressListByRoom[roomName] ?: emptyList()
     }
@@ -126,7 +126,8 @@ private class StreamPollerFakeEgressClient(
         rtmpUrls: List<String>,
     ): LiveKitEgressInfo {
         startRoomCompositeEgressCalls += Triple(roomName, layout, rtmpUrls)
-        return startRoomCompositeEgressResult?.invoke() ?: throw LiveKitAdminException("simulated StartRoomCompositeEgress failure")
+        return startRoomCompositeEgressResult?.invoke()
+            ?: throw LiveKitAdminException(message = "simulated StartRoomCompositeEgress failure")
     }
 
     override suspend fun startParticipantEgress(
@@ -283,7 +284,7 @@ class StreamPollerTest :
             val now = DbClock.nowLocalDateTime()
             val ciphertext =
                 if (streamKey != null) {
-                    SecretBox(POLLER_TEST_ENCRYPTION_KEY).seal(streamKey, aad = id.toString())
+                    SecretBox(POLLER_TEST_ENCRYPTION_KEY).seal(plaintext = streamKey, aad = id.toString())
                 } else {
                     "v1:unused:unused"
                 }
@@ -505,7 +506,7 @@ class StreamPollerTest :
                         else -> null
                     }
                 }
-            return StreamPoller(egressClient, config, clock)
+            return StreamPoller(liveKitEgressClient = egressClient, streamingConfig = config, clock = clock)
         }
 
         // ── LIVE ─────────────────────────────────────────────────────────
@@ -971,7 +972,7 @@ class StreamPollerTest :
                         else -> null
                     }
                 }
-            val poller = StreamPoller(egressClient, noKeyConfig)
+            val poller = StreamPoller(liveKitEgressClient = egressClient, streamingConfig = noKeyConfig)
 
             poller.tick()
 
@@ -1240,7 +1241,7 @@ class StreamPollerTest :
                     override suspend fun stopEgress(
                         roomName: String,
                         egressId: String,
-                    ): LiveKitEgressInfo = throw LiveKitAdminException("simulated StopEgress failure")
+                    ): LiveKitEgressInfo = throw LiveKitAdminException(message = "simulated StopEgress failure")
 
                     override suspend fun listEgress(roomName: String) = emptyList<LiveKitEgressInfo>()
 

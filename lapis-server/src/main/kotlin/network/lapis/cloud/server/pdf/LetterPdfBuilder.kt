@@ -82,14 +82,20 @@ internal class LetterPdfBuilder {
         orgName: String,
         orgAddressLines: List<String>,
     ) {
-        writeLine(sanitizeForFont(orgName, boldFont), boldFont, SMALL_FONT_SIZE)
-        orgAddressLines.forEach { writeLine(sanitizeForFont(it, regularFont), regularFont, SMALL_FONT_SIZE) }
+        writeLine(text = sanitizeForFont(text = orgName, font = boldFont), font = boldFont, size = SMALL_FONT_SIZE)
+        orgAddressLines.forEach {
+            writeLine(
+                text = sanitizeForFont(text = it, font = regularFont),
+                font = regularFont,
+                size = SMALL_FONT_SIZE,
+            )
+        }
         cursorY -= LINE_HEIGHT
     }
 
     /** Recipient block, body font, below the letterhead. */
     fun recipientAddress(lines: List<String>) {
-        lines.forEach { writeLine(sanitizeForFont(it, regularFont), regularFont, BODY_FONT_SIZE) }
+        lines.forEach { writeLine(text = sanitizeForFont(text = it, font = regularFont), font = regularFont, size = BODY_FONT_SIZE) }
         cursorY -= LINE_HEIGHT
     }
 
@@ -98,16 +104,16 @@ internal class LetterPdfBuilder {
         place: String,
         date: LocalDate,
     ) {
-        val text = sanitizeForFont("$place, ${formatGermanDate(date)}", regularFont)
-        val width = textWidth(text, regularFont, BODY_FONT_SIZE)
-        writeLineAt(text, regularFont, BODY_FONT_SIZE, PAGE_WIDTH - MARGIN_RIGHT - width)
+        val text = sanitizeForFont(text = "$place, ${formatGermanDate(date)}", font = regularFont)
+        val width = textWidth(text = text, font = regularFont, size = BODY_FONT_SIZE)
+        writeLineAt(text = text, font = regularFont, size = BODY_FONT_SIZE, x = PAGE_WIDTH - MARGIN_RIGHT - width)
         cursorY -= LINE_HEIGHT
     }
 
     /** Bold heading, e.g. the letter/document title. */
     fun heading(text: String) {
         ensureSpace(LINE_HEIGHT * 2)
-        writeLine(sanitizeForFont(text, boldFont), boldFont, HEADING_FONT_SIZE)
+        writeLine(text = sanitizeForFont(text = text, font = boldFont), font = boldFont, size = HEADING_FONT_SIZE)
         cursorY -= LINE_HEIGHT / 2
     }
 
@@ -127,9 +133,14 @@ internal class LetterPdfBuilder {
                 ensureSpace(LINE_HEIGHT)
                 cursorY -= LINE_HEIGHT
             } else {
-                wrapLines(sanitizeForFont(para, regularFont), regularFont, BODY_FONT_SIZE, CONTENT_WIDTH).forEach { line ->
+                wrapLines(
+                    text = sanitizeForFont(text = para, font = regularFont),
+                    font = regularFont,
+                    size = BODY_FONT_SIZE,
+                    maxWidth = CONTENT_WIDTH,
+                ).forEach { line ->
                     ensureSpace(LINE_HEIGHT)
-                    writeLine(line, regularFont, BODY_FONT_SIZE)
+                    writeLine(text = line, font = regularFont, size = BODY_FONT_SIZE)
                 }
             }
             if (index < paragraphs.lastIndex) {
@@ -147,7 +158,7 @@ internal class LetterPdfBuilder {
         contentStream.lineTo(MARGIN_LEFT + 200f, cursorY)
         contentStream.stroke()
         cursorY -= LINE_HEIGHT
-        writeLine(sanitizeForFont(label, regularFont), regularFont, SMALL_FONT_SIZE)
+        writeLine(text = sanitizeForFont(text = label, font = regularFont), font = regularFont, size = SMALL_FONT_SIZE)
     }
 
     /** Closes the current content stream and serializes the whole document. Terminal -- do not reuse the builder after this. */
@@ -170,7 +181,7 @@ internal class LetterPdfBuilder {
         text: String,
         font: PDFont,
         size: Float,
-    ) = writeLineAt(text, font, size, MARGIN_LEFT)
+    ) = writeLineAt(text = text, font = font, size = size, x = MARGIN_LEFT)
 
     private fun writeLineAt(
         text: String,
@@ -231,7 +242,7 @@ internal class LetterPdfBuilder {
         var current = StringBuilder()
         for (word in words) {
             val candidate = if (current.isEmpty()) word else "$current $word"
-            if (textWidth(candidate, font, size) > maxWidth && current.isNotEmpty()) {
+            if (textWidth(text = candidate, font = font, size = size) > maxWidth && current.isNotEmpty()) {
                 lines += current.toString()
                 current = StringBuilder(word)
             } else {

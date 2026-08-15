@@ -36,13 +36,16 @@ class FfmpegGalleryComposer(
         spec: RecordingComposeSpec,
         outputFile: File,
     ) {
-        val args = FfmpegArgumentBuilder.build(spec, outputFile.absolutePath)
+        val args = FfmpegArgumentBuilder.build(spec = spec, outputPath = outputFile.absolutePath)
         val command = listOf(ffmpegPath) + args
         val process =
             try {
                 withContext(Dispatchers.IO) { ProcessBuilder(command).redirectErrorStream(true).start() }
             } catch (e: IOException) {
-                throw RecordingComposeException("ffmpeg could not be started (${e::class.simpleName ?: "unknown error"})", e)
+                throw RecordingComposeException(
+                    message = "ffmpeg could not be started (${e::class.simpleName ?: "unknown error"})",
+                    cause = e,
+                )
             }
 
         val outputBuffer = StringBuilder()
@@ -66,13 +69,13 @@ class FfmpegGalleryComposer(
             process.destroyForcibly()
             drainThread.join(2_000)
             logger.warn { "ffmpeg composition exceeded ${timeoutMinutes}m and was killed -- last output: ${lastLines(outputBuffer)}" }
-            throw RecordingComposeException("ffmpeg composition exceeded $timeoutMinutes minute(s) and was forcibly terminated")
+            throw RecordingComposeException(message = "ffmpeg composition exceeded $timeoutMinutes minute(s) and was forcibly terminated")
         }
         drainThread.join(5_000)
         val exitCode = process.exitValue()
         if (exitCode != 0) {
             logger.warn { "ffmpeg exited with code $exitCode -- last output: ${lastLines(outputBuffer)}" }
-            throw RecordingComposeException("ffmpeg exited with code $exitCode")
+            throw RecordingComposeException(message = "ffmpeg exited with code $exitCode")
         }
     }
 

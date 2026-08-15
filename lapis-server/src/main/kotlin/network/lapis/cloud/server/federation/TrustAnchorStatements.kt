@@ -65,7 +65,11 @@ object TrustAnchorStatements {
                             ),
                     ),
                 ).build()
-        return OidcJwt.sign(claims, activeKey[TrustAnchorSigningKeyTable.kid], activeKey[TrustAnchorSigningKeyTable.privateKeyPem])
+        return OidcJwt.sign(
+            claimsSet = claims,
+            kid = activeKey[TrustAnchorSigningKeyTable.kid],
+            privateKeyPem = activeKey[TrustAnchorSigningKeyTable.privateKeyPem],
+        )
     }
 
     /**
@@ -86,6 +90,10 @@ object TrustAnchorStatements {
                 .issueTime(OidcJwt.toJavaDate(now))
                 .expirationTime(OidcJwt.toJavaDate(now + TRUST_ANCHOR_STATEMENT_TTL))
                 .build()
-        return OidcJwt.sign(claims, activeKey[TrustAnchorSigningKeyTable.kid], activeKey[TrustAnchorSigningKeyTable.privateKeyPem])
+        return OidcJwt.sign(
+            claimsSet = claims,
+            kid = activeKey[TrustAnchorSigningKeyTable.kid],
+            privateKeyPem = activeKey[TrustAnchorSigningKeyTable.privateKeyPem],
+        )
     }
 }

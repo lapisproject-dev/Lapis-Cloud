@@ -53,7 +53,15 @@ class LetterxpressPostalMailProviderTest :
             val missingBoth = LetterxpressPostalMailProvider(username = null, apiKey = null, httpClient = client)
 
             for (provider in listOf(blankUsername, blankApiKey, missingBoth)) {
-                val outcome = provider.dispatchLetter(byteArrayOf(1, 2, 3), "Recipient", "Street 1", "12345", "City", "Country")
+                val outcome =
+                    provider.dispatchLetter(
+                        pdfBytes = byteArrayOf(1, 2, 3),
+                        recipientName = "Recipient",
+                        recipientStreet = "Street 1",
+                        recipientPostalCode = "12345",
+                        recipientCity = "City",
+                        recipientCountry = "Country",
+                    )
                 (outcome is PostalDispatchOutcome.Failed) shouldBe true
             }
             callCount.get() shouldBe 0
@@ -73,7 +81,15 @@ class LetterxpressPostalMailProviderTest :
             val provider =
                 LetterxpressPostalMailProvider(username = TEST_USERNAME, apiKey = TEST_API_KEY, liveMode = false, httpClient = client)
 
-            val outcome = provider.dispatchLetter(byteArrayOf(1, 2, 3), "Recipient", "Street 1", "12345", "City", "Country")
+            val outcome =
+                provider.dispatchLetter(
+                    pdfBytes = byteArrayOf(1, 2, 3),
+                    recipientName = "Recipient",
+                    recipientStreet = "Street 1",
+                    recipientPostalCode = "12345",
+                    recipientCity = "City",
+                    recipientCountry = "Country",
+                )
 
             (outcome is PostalDispatchOutcome.Dispatched) shouldBe true
             (outcome as PostalDispatchOutcome.Dispatched).providerReference shouldBe "job-123"
@@ -94,7 +110,14 @@ class LetterxpressPostalMailProviderTest :
             val provider =
                 LetterxpressPostalMailProvider(username = TEST_USERNAME, apiKey = TEST_API_KEY, liveMode = true, httpClient = client)
 
-            provider.dispatchLetter(byteArrayOf(1, 2, 3), "Recipient", "Street 1", "12345", "City", "Country")
+            provider.dispatchLetter(
+                pdfBytes = byteArrayOf(1, 2, 3),
+                recipientName = "Recipient",
+                recipientStreet = "Street 1",
+                recipientPostalCode = "12345",
+                recipientCity = "City",
+                recipientCountry = "Country",
+            )
 
             capturedBody.contains("\"final\":true") shouldBe true
         }
@@ -110,7 +133,15 @@ class LetterxpressPostalMailProviderTest :
                 }
             val provider = LetterxpressPostalMailProvider(username = TEST_USERNAME, apiKey = TEST_API_KEY, httpClient = client)
 
-            val outcome = provider.dispatchLetter(byteArrayOf(1, 2, 3), "Recipient", "Street 1", "12345", "City", "Country")
+            val outcome =
+                provider.dispatchLetter(
+                    pdfBytes = byteArrayOf(1, 2, 3),
+                    recipientName = "Recipient",
+                    recipientStreet = "Street 1",
+                    recipientPostalCode = "12345",
+                    recipientCity = "City",
+                    recipientCountry = "Country",
+                )
 
             outcome shouldBe PostalDispatchOutcome.Dispatched("job-789")
         }
@@ -119,7 +150,15 @@ class LetterxpressPostalMailProviderTest :
             val client = mockClient { _ -> respondError(HttpStatusCode.Unauthorized, "invalid credentials") }
             val provider = LetterxpressPostalMailProvider(username = TEST_USERNAME, apiKey = TEST_API_KEY, httpClient = client)
 
-            val outcome = provider.dispatchLetter(byteArrayOf(1, 2, 3), "Recipient", "Street 1", "12345", "City", "Country")
+            val outcome =
+                provider.dispatchLetter(
+                    pdfBytes = byteArrayOf(1, 2, 3),
+                    recipientName = "Recipient",
+                    recipientStreet = "Street 1",
+                    recipientPostalCode = "12345",
+                    recipientCity = "City",
+                    recipientCountry = "Country",
+                )
 
             (outcome is PostalDispatchOutcome.Failed) shouldBe true
             val message = (outcome as PostalDispatchOutcome.Failed).sanitizedErrorMessage
@@ -134,7 +173,15 @@ class LetterxpressPostalMailProviderTest :
                 }
             val provider = LetterxpressPostalMailProvider(username = TEST_USERNAME, apiKey = TEST_API_KEY, httpClient = client)
 
-            val outcome = provider.dispatchLetter(byteArrayOf(1, 2, 3), "Recipient", "Street 1", "12345", "City", "Country")
+            val outcome =
+                provider.dispatchLetter(
+                    pdfBytes = byteArrayOf(1, 2, 3),
+                    recipientName = "Recipient",
+                    recipientStreet = "Street 1",
+                    recipientPostalCode = "12345",
+                    recipientCity = "City",
+                    recipientCountry = "Country",
+                )
 
             (outcome is PostalDispatchOutcome.Failed) shouldBe true
             (outcome as PostalDispatchOutcome.Failed).sanitizedErrorMessage.contains(TEST_API_KEY) shouldBe false
@@ -147,7 +194,15 @@ class LetterxpressPostalMailProviderTest :
                 }
             val provider = LetterxpressPostalMailProvider(username = TEST_USERNAME, apiKey = TEST_API_KEY, httpClient = client)
 
-            val outcome = provider.dispatchLetter(byteArrayOf(1, 2, 3), "Recipient", "Street 1", "12345", "City", "Country")
+            val outcome =
+                provider.dispatchLetter(
+                    pdfBytes = byteArrayOf(1, 2, 3),
+                    recipientName = "Recipient",
+                    recipientStreet = "Street 1",
+                    recipientPostalCode = "12345",
+                    recipientCity = "City",
+                    recipientCountry = "Country",
+                )
 
             (outcome is PostalDispatchOutcome.Failed) shouldBe true
             val message = (outcome as PostalDispatchOutcome.Failed).sanitizedErrorMessage

@@ -103,7 +103,12 @@ class AccountingServiceTest :
             // it, since it is shared, order-dependent global state (unlike every other fixture in
             // this file, which is this Spec's own freshly created rows).
             setIsPoliticalParty(false)
-            cleanUpAccountingTestData(createdMemberIds, createdLedgerAccountIds, createdCostCenterIds, createdExternalDonorIds)
+            cleanUpAccountingTestData(
+                memberIds = createdMemberIds,
+                ledgerAccountIds = createdLedgerAccountIds,
+                costCenterIds = createdCostCenterIds,
+                externalDonorIds = createdExternalDonorIds,
+            )
         }
 
         fun createTestMember(
@@ -287,15 +292,15 @@ class AccountingServiceTest :
                 val postings =
                     listOf(
                         PostingInput(
-                            kasse.toString(),
-                            PostingSide.DEBIT,
-                            BigDecimal("50.00"),
+                            ledgerAccountId = kasse.toString(),
+                            side = PostingSide.DEBIT,
+                            amount = BigDecimal("50.00"),
                             sphere = GemeinnuetzigkeitSphere.IDEELLER_BEREICH,
                         ),
                         PostingInput(
-                            beitraege.toString(),
-                            PostingSide.CREDIT,
-                            BigDecimal("50.00"),
+                            ledgerAccountId = beitraege.toString(),
+                            side = PostingSide.CREDIT,
+                            amount = BigDecimal("50.00"),
                             sphere = GemeinnuetzigkeitSphere.IDEELLER_BEREICH,
                         ),
                     )
@@ -340,9 +345,9 @@ class AccountingServiceTest :
                         val side = if (i % 2 == 1) PostingSide.DEBIT else PostingSide.CREDIT
                         val account = if (side == PostingSide.DEBIT) kasse else ertrag
                         PostingInput(
-                            account.toString(),
-                            side,
-                            BigDecimal("1.00"),
+                            ledgerAccountId = account.toString(),
+                            side = side,
+                            amount = BigDecimal("1.00"),
                             sphere = GemeinnuetzigkeitSphere.IDEELLER_BEREICH,
                         )
                     }
@@ -387,15 +392,15 @@ class AccountingServiceTest :
                 val postings =
                     listOf(
                         PostingInput(
-                            kasse.toString(),
-                            PostingSide.DEBIT,
-                            BigDecimal("100.00"),
+                            ledgerAccountId = kasse.toString(),
+                            side = PostingSide.DEBIT,
+                            amount = BigDecimal("100.00"),
                             sphere = GemeinnuetzigkeitSphere.IDEELLER_BEREICH,
                         ),
                         PostingInput(
-                            spenden.toString(),
-                            PostingSide.CREDIT,
-                            BigDecimal("100.00"),
+                            ledgerAccountId = spenden.toString(),
+                            side = PostingSide.CREDIT,
+                            amount = BigDecimal("100.00"),
                             sphere = GemeinnuetzigkeitSphere.IDEELLER_BEREICH,
                         ),
                     )
@@ -436,15 +441,15 @@ class AccountingServiceTest :
                 val postings =
                     listOf(
                         PostingInput(
-                            kasse.toString(),
-                            PostingSide.DEBIT,
-                            BigDecimal("10.00"),
+                            ledgerAccountId = kasse.toString(),
+                            side = PostingSide.DEBIT,
+                            amount = BigDecimal("10.00"),
                             sphere = GemeinnuetzigkeitSphere.IDEELLER_BEREICH,
                         ),
                         PostingInput(
-                            spenden.toString(),
-                            PostingSide.CREDIT,
-                            BigDecimal("10.00"),
+                            ledgerAccountId = spenden.toString(),
+                            side = PostingSide.CREDIT,
+                            amount = BigDecimal("10.00"),
                             sphere = GemeinnuetzigkeitSphere.IDEELLER_BEREICH,
                         ),
                     )
@@ -478,15 +483,15 @@ class AccountingServiceTest :
                 val postings =
                     listOf(
                         PostingInput(
-                            kasse.toString(),
-                            PostingSide.DEBIT,
-                            BigDecimal("10.00"),
+                            ledgerAccountId = kasse.toString(),
+                            side = PostingSide.DEBIT,
+                            amount = BigDecimal("10.00"),
                             sphere = GemeinnuetzigkeitSphere.IDEELLER_BEREICH,
                         ),
                         PostingInput(
-                            bank.toString(),
-                            PostingSide.CREDIT,
-                            BigDecimal("10.00"),
+                            ledgerAccountId = bank.toString(),
+                            side = PostingSide.CREDIT,
+                            amount = BigDecimal("10.00"),
                             sphere = GemeinnuetzigkeitSphere.IDEELLER_BEREICH,
                         ),
                     )
@@ -521,15 +526,15 @@ class AccountingServiceTest :
                     val postings =
                         listOf(
                             PostingInput(
-                                kasse.toString(),
-                                PostingSide.DEBIT,
-                                BigDecimal("5.00"),
+                                ledgerAccountId = kasse.toString(),
+                                side = PostingSide.DEBIT,
+                                amount = BigDecimal("5.00"),
                                 sphere = GemeinnuetzigkeitSphere.IDEELLER_BEREICH,
                             ),
                             PostingInput(
-                                spenden.toString(),
-                                PostingSide.CREDIT,
-                                BigDecimal("5.00"),
+                                ledgerAccountId = spenden.toString(),
+                                side = PostingSide.CREDIT,
+                                amount = BigDecimal("5.00"),
                                 sphere = GemeinnuetzigkeitSphere.IDEELLER_BEREICH,
                             ),
                         )
@@ -584,15 +589,15 @@ class AccountingServiceTest :
                 val postings =
                     listOf(
                         PostingInput(
-                            kasse.toString(),
-                            PostingSide.DEBIT,
-                            BigDecimal("100.00"),
+                            ledgerAccountId = kasse.toString(),
+                            side = PostingSide.DEBIT,
+                            amount = BigDecimal("100.00"),
                             sphere = GemeinnuetzigkeitSphere.IDEELLER_BEREICH,
                         ),
                         PostingInput(
-                            beitraege.toString(),
-                            PostingSide.CREDIT,
-                            BigDecimal("90.00"),
+                            ledgerAccountId = beitraege.toString(),
+                            side = PostingSide.CREDIT,
+                            amount = BigDecimal("90.00"),
                             sphere = GemeinnuetzigkeitSphere.IDEELLER_BEREICH,
                         ),
                     )
@@ -621,15 +626,15 @@ class AccountingServiceTest :
                 val postings =
                     listOf(
                         PostingInput(
-                            kasse.toString(),
-                            PostingSide.DEBIT,
-                            BigDecimal("10.00"),
+                            ledgerAccountId = kasse.toString(),
+                            side = PostingSide.DEBIT,
+                            amount = BigDecimal("10.00"),
                             sphere = GemeinnuetzigkeitSphere.IDEELLER_BEREICH,
                         ),
                         PostingInput(
-                            inactive.toString(),
-                            PostingSide.CREDIT,
-                            BigDecimal("10.00"),
+                            ledgerAccountId = inactive.toString(),
+                            side = PostingSide.CREDIT,
+                            amount = BigDecimal("10.00"),
                             sphere = GemeinnuetzigkeitSphere.IDEELLER_BEREICH,
                         ),
                     )
@@ -642,15 +647,15 @@ class AccountingServiceTest :
                 val nonexistentPostings =
                     listOf(
                         PostingInput(
-                            kasse.toString(),
-                            PostingSide.DEBIT,
-                            BigDecimal("10.00"),
+                            ledgerAccountId = kasse.toString(),
+                            side = PostingSide.DEBIT,
+                            amount = BigDecimal("10.00"),
                             sphere = GemeinnuetzigkeitSphere.IDEELLER_BEREICH,
                         ),
                         PostingInput(
-                            Uuid.random().toString(),
-                            PostingSide.CREDIT,
-                            BigDecimal("10.00"),
+                            ledgerAccountId = Uuid.random().toString(),
+                            side = PostingSide.CREDIT,
+                            amount = BigDecimal("10.00"),
                             sphere = GemeinnuetzigkeitSphere.IDEELLER_BEREICH,
                         ),
                     )
@@ -675,9 +680,9 @@ class AccountingServiceTest :
                 val unbalancedPostings =
                     listOf(
                         PostingInput(
-                            kasse.toString(),
-                            PostingSide.DEBIT,
-                            BigDecimal("75.00"),
+                            ledgerAccountId = kasse.toString(),
+                            side = PostingSide.DEBIT,
+                            amount = BigDecimal("75.00"),
                             sphere = GemeinnuetzigkeitSphere.IDEELLER_BEREICH,
                         ),
                     )
@@ -729,15 +734,15 @@ class AccountingServiceTest :
                     val postings =
                         listOf(
                             PostingInput(
-                                kasse.toString(),
-                                PostingSide.DEBIT,
-                                BigDecimal("10.00"),
+                                ledgerAccountId = kasse.toString(),
+                                side = PostingSide.DEBIT,
+                                amount = BigDecimal("10.00"),
                                 sphere = GemeinnuetzigkeitSphere.IDEELLER_BEREICH,
                             ),
                             PostingInput(
-                                beitraege.toString(),
-                                PostingSide.CREDIT,
-                                BigDecimal("10.00"),
+                                ledgerAccountId = beitraege.toString(),
+                                side = PostingSide.CREDIT,
+                                amount = BigDecimal("10.00"),
                                 sphere = GemeinnuetzigkeitSphere.IDEELLER_BEREICH,
                             ),
                         )
@@ -810,15 +815,15 @@ class AccountingServiceTest :
                     "Beitrag",
                     listOf(
                         PostingInput(
-                            kasse.toString(),
-                            PostingSide.DEBIT,
-                            BigDecimal("100.00"),
+                            ledgerAccountId = kasse.toString(),
+                            side = PostingSide.DEBIT,
+                            amount = BigDecimal("100.00"),
                             sphere = GemeinnuetzigkeitSphere.IDEELLER_BEREICH,
                         ),
                         PostingInput(
-                            beitraege.toString(),
-                            PostingSide.CREDIT,
-                            BigDecimal("100.00"),
+                            ledgerAccountId = beitraege.toString(),
+                            side = PostingSide.CREDIT,
+                            amount = BigDecimal("100.00"),
                             sphere = GemeinnuetzigkeitSphere.IDEELLER_BEREICH,
                         ),
                     ),
@@ -828,15 +833,15 @@ class AccountingServiceTest :
                     "Miete",
                     listOf(
                         PostingInput(
-                            miete.toString(),
-                            PostingSide.DEBIT,
-                            BigDecimal("40.00"),
+                            ledgerAccountId = miete.toString(),
+                            side = PostingSide.DEBIT,
+                            amount = BigDecimal("40.00"),
                             sphere = GemeinnuetzigkeitSphere.IDEELLER_BEREICH,
                         ),
                         PostingInput(
-                            kasse.toString(),
-                            PostingSide.CREDIT,
-                            BigDecimal("40.00"),
+                            ledgerAccountId = kasse.toString(),
+                            side = PostingSide.CREDIT,
+                            amount = BigDecimal("40.00"),
                             sphere = GemeinnuetzigkeitSphere.IDEELLER_BEREICH,
                         ),
                     ),
@@ -847,15 +852,15 @@ class AccountingServiceTest :
                     "Spaeter",
                     listOf(
                         PostingInput(
-                            kasse.toString(),
-                            PostingSide.DEBIT,
-                            BigDecimal("500.00"),
+                            ledgerAccountId = kasse.toString(),
+                            side = PostingSide.DEBIT,
+                            amount = BigDecimal("500.00"),
                             sphere = GemeinnuetzigkeitSphere.IDEELLER_BEREICH,
                         ),
                         PostingInput(
-                            beitraege.toString(),
-                            PostingSide.CREDIT,
-                            BigDecimal("500.00"),
+                            ledgerAccountId = beitraege.toString(),
+                            side = PostingSide.CREDIT,
+                            amount = BigDecimal("500.00"),
                             sphere = GemeinnuetzigkeitSphere.IDEELLER_BEREICH,
                         ),
                     ),
@@ -868,9 +873,9 @@ class AccountingServiceTest :
                             "Entwurf-GuV",
                             listOf(
                                 PostingInput(
-                                    beitraege.toString(),
-                                    PostingSide.CREDIT,
-                                    BigDecimal("999.00"),
+                                    ledgerAccountId = beitraege.toString(),
+                                    side = PostingSide.CREDIT,
+                                    amount = BigDecimal("999.00"),
                                     sphere = GemeinnuetzigkeitSphere.IDEELLER_BEREICH,
                                 ),
                             ),
@@ -941,15 +946,15 @@ class AccountingServiceTest :
                             "Beitrag",
                             listOf(
                                 PostingInput(
-                                    kasse.toString(),
-                                    PostingSide.DEBIT,
-                                    BigDecimal("300.00"),
+                                    ledgerAccountId = kasse.toString(),
+                                    side = PostingSide.DEBIT,
+                                    amount = BigDecimal("300.00"),
                                     sphere = GemeinnuetzigkeitSphere.IDEELLER_BEREICH,
                                 ),
                                 PostingInput(
-                                    beitraege.toString(),
-                                    PostingSide.CREDIT,
-                                    BigDecimal("300.00"),
+                                    ledgerAccountId = beitraege.toString(),
+                                    side = PostingSide.CREDIT,
+                                    amount = BigDecimal("300.00"),
                                     sphere = GemeinnuetzigkeitSphere.IDEELLER_BEREICH,
                                 ),
                             ),
@@ -963,15 +968,15 @@ class AccountingServiceTest :
                             "Miete",
                             listOf(
                                 PostingInput(
-                                    miete.toString(),
-                                    PostingSide.DEBIT,
-                                    BigDecimal("120.00"),
+                                    ledgerAccountId = miete.toString(),
+                                    side = PostingSide.DEBIT,
+                                    amount = BigDecimal("120.00"),
                                     sphere = GemeinnuetzigkeitSphere.IDEELLER_BEREICH,
                                 ),
                                 PostingInput(
-                                    kasse.toString(),
-                                    PostingSide.CREDIT,
-                                    BigDecimal("120.00"),
+                                    ledgerAccountId = kasse.toString(),
+                                    side = PostingSide.CREDIT,
+                                    amount = BigDecimal("120.00"),
                                     sphere = GemeinnuetzigkeitSphere.IDEELLER_BEREICH,
                                 ),
                             ),
@@ -986,9 +991,9 @@ class AccountingServiceTest :
                             "Entwurf-Bilanz",
                             listOf(
                                 PostingInput(
-                                    kasse.toString(),
-                                    PostingSide.DEBIT,
-                                    BigDecimal("999.00"),
+                                    ledgerAccountId = kasse.toString(),
+                                    side = PostingSide.DEBIT,
+                                    amount = BigDecimal("999.00"),
                                     sphere = GemeinnuetzigkeitSphere.IDEELLER_BEREICH,
                                 ),
                             ),
@@ -1043,15 +1048,15 @@ class AccountingServiceTest :
                             "Beitrag-2040",
                             listOf(
                                 PostingInput(
-                                    kasse.toString(),
-                                    PostingSide.DEBIT,
-                                    BigDecimal("200.00"),
+                                    ledgerAccountId = kasse.toString(),
+                                    side = PostingSide.DEBIT,
+                                    amount = BigDecimal("200.00"),
                                     sphere = GemeinnuetzigkeitSphere.IDEELLER_BEREICH,
                                 ),
                                 PostingInput(
-                                    beitraege.toString(),
-                                    PostingSide.CREDIT,
-                                    BigDecimal("200.00"),
+                                    ledgerAccountId = beitraege.toString(),
+                                    side = PostingSide.CREDIT,
+                                    amount = BigDecimal("200.00"),
                                     sphere = GemeinnuetzigkeitSphere.IDEELLER_BEREICH,
                                 ),
                             ),
@@ -1066,15 +1071,15 @@ class AccountingServiceTest :
                             "Beitrag-2041",
                             listOf(
                                 PostingInput(
-                                    kasse.toString(),
-                                    PostingSide.DEBIT,
-                                    BigDecimal("50.00"),
+                                    ledgerAccountId = kasse.toString(),
+                                    side = PostingSide.DEBIT,
+                                    amount = BigDecimal("50.00"),
                                     sphere = GemeinnuetzigkeitSphere.IDEELLER_BEREICH,
                                 ),
                                 PostingInput(
-                                    beitraege.toString(),
-                                    PostingSide.CREDIT,
-                                    BigDecimal("50.00"),
+                                    ledgerAccountId = beitraege.toString(),
+                                    side = PostingSide.CREDIT,
+                                    amount = BigDecimal("50.00"),
                                     sphere = GemeinnuetzigkeitSphere.IDEELLER_BEREICH,
                                 ),
                             ),
@@ -1138,15 +1143,15 @@ class AccountingServiceTest :
                     val postings =
                         listOf(
                             PostingInput(
-                                kasse.toString(),
-                                kasseSide,
-                                BigDecimal(amount),
+                                ledgerAccountId = kasse.toString(),
+                                side = kasseSide,
+                                amount = BigDecimal(amount),
                                 sphere = GemeinnuetzigkeitSphere.IDEELLER_BEREICH,
                             ),
                             PostingInput(
-                                beitraege.toString(),
-                                beitraegeSide,
-                                BigDecimal(amount),
+                                ledgerAccountId = beitraege.toString(),
+                                side = beitraegeSide,
+                                amount = BigDecimal(amount),
                                 sphere = GemeinnuetzigkeitSphere.IDEELLER_BEREICH,
                             ),
                         )
@@ -1182,15 +1187,15 @@ class AccountingServiceTest :
                 val postings =
                     listOf(
                         PostingInput(
-                            kasse.toString(),
-                            PostingSide.DEBIT,
-                            BigDecimal("30.00"),
+                            ledgerAccountId = kasse.toString(),
+                            side = PostingSide.DEBIT,
+                            amount = BigDecimal("30.00"),
                             sphere = GemeinnuetzigkeitSphere.ZWECKBETRIEB,
                         ),
                         PostingInput(
-                            beitraege.toString(),
-                            PostingSide.CREDIT,
-                            BigDecimal("30.00"),
+                            ledgerAccountId = beitraege.toString(),
+                            side = PostingSide.CREDIT,
+                            amount = BigDecimal("30.00"),
                             sphere = GemeinnuetzigkeitSphere.WIRTSCHAFTLICHER_GESCHAEFTSBETRIEB,
                         ),
                     )
@@ -1225,15 +1230,15 @@ class AccountingServiceTest :
                 val postings =
                     listOf(
                         PostingInput(
-                            bank.toString(),
-                            PostingSide.DEBIT,
-                            BigDecimal("25.00"),
+                            ledgerAccountId = bank.toString(),
+                            side = PostingSide.DEBIT,
+                            amount = BigDecimal("25.00"),
                             sphere = GemeinnuetzigkeitSphere.IDEELLER_BEREICH,
                         ),
                         PostingInput(
-                            kasse.toString(),
-                            PostingSide.CREDIT,
-                            BigDecimal("25.00"),
+                            ledgerAccountId = kasse.toString(),
+                            side = PostingSide.CREDIT,
+                            amount = BigDecimal("25.00"),
                             sphere = GemeinnuetzigkeitSphere.VERMOEGENSVERWALTUNG,
                         ),
                     )
@@ -1275,15 +1280,15 @@ class AccountingServiceTest :
                     "Spende",
                     listOf(
                         PostingInput(
-                            kasse.toString(),
-                            PostingSide.DEBIT,
-                            BigDecimal("200.00"),
+                            ledgerAccountId = kasse.toString(),
+                            side = PostingSide.DEBIT,
+                            amount = BigDecimal("200.00"),
                             sphere = GemeinnuetzigkeitSphere.IDEELLER_BEREICH,
                         ),
                         PostingInput(
-                            beitraege.toString(),
-                            PostingSide.CREDIT,
-                            BigDecimal("200.00"),
+                            ledgerAccountId = beitraege.toString(),
+                            side = PostingSide.CREDIT,
+                            amount = BigDecimal("200.00"),
                             sphere = GemeinnuetzigkeitSphere.IDEELLER_BEREICH,
                         ),
                     ),
@@ -1294,15 +1299,15 @@ class AccountingServiceTest :
                     "Zweckbetrieb-Erloes",
                     listOf(
                         PostingInput(
-                            kasse.toString(),
-                            PostingSide.DEBIT,
-                            BigDecimal("80.00"),
+                            ledgerAccountId = kasse.toString(),
+                            side = PostingSide.DEBIT,
+                            amount = BigDecimal("80.00"),
                             sphere = GemeinnuetzigkeitSphere.ZWECKBETRIEB,
                         ),
                         PostingInput(
-                            beitraege.toString(),
-                            PostingSide.CREDIT,
-                            BigDecimal("80.00"),
+                            ledgerAccountId = beitraege.toString(),
+                            side = PostingSide.CREDIT,
+                            amount = BigDecimal("80.00"),
                             sphere = GemeinnuetzigkeitSphere.ZWECKBETRIEB,
                         ),
                     ),
@@ -1312,15 +1317,15 @@ class AccountingServiceTest :
                     "Zweckbetrieb-Miete",
                     listOf(
                         PostingInput(
-                            miete.toString(),
-                            PostingSide.DEBIT,
-                            BigDecimal("30.00"),
+                            ledgerAccountId = miete.toString(),
+                            side = PostingSide.DEBIT,
+                            amount = BigDecimal("30.00"),
                             sphere = GemeinnuetzigkeitSphere.ZWECKBETRIEB,
                         ),
                         PostingInput(
-                            kasse.toString(),
-                            PostingSide.CREDIT,
-                            BigDecimal("30.00"),
+                            ledgerAccountId = kasse.toString(),
+                            side = PostingSide.CREDIT,
+                            amount = BigDecimal("30.00"),
                             sphere = GemeinnuetzigkeitSphere.ZWECKBETRIEB,
                         ),
                     ),
@@ -1331,15 +1336,15 @@ class AccountingServiceTest :
                     "Spaeter",
                     listOf(
                         PostingInput(
-                            kasse.toString(),
-                            PostingSide.DEBIT,
-                            BigDecimal("999.00"),
+                            ledgerAccountId = kasse.toString(),
+                            side = PostingSide.DEBIT,
+                            amount = BigDecimal("999.00"),
                             sphere = GemeinnuetzigkeitSphere.IDEELLER_BEREICH,
                         ),
                         PostingInput(
-                            beitraege.toString(),
-                            PostingSide.CREDIT,
-                            BigDecimal("999.00"),
+                            ledgerAccountId = beitraege.toString(),
+                            side = PostingSide.CREDIT,
+                            amount = BigDecimal("999.00"),
                             sphere = GemeinnuetzigkeitSphere.IDEELLER_BEREICH,
                         ),
                     ),
@@ -1352,9 +1357,9 @@ class AccountingServiceTest :
                             "Entwurf-VierSphaeren",
                             listOf(
                                 PostingInput(
-                                    beitraege.toString(),
-                                    PostingSide.CREDIT,
-                                    BigDecimal("777.00"),
+                                    ledgerAccountId = beitraege.toString(),
+                                    side = PostingSide.CREDIT,
+                                    amount = BigDecimal("777.00"),
                                     sphere = GemeinnuetzigkeitSphere.IDEELLER_BEREICH,
                                 ),
                             ),
@@ -1494,15 +1499,15 @@ class AccountingServiceTest :
                             "Spende-2050",
                             listOf(
                                 PostingInput(
-                                    kasse.toString(),
-                                    PostingSide.DEBIT,
-                                    BigDecimal("1000.00"),
+                                    ledgerAccountId = kasse.toString(),
+                                    side = PostingSide.DEBIT,
+                                    amount = BigDecimal("1000.00"),
                                     sphere = GemeinnuetzigkeitSphere.IDEELLER_BEREICH,
                                 ),
                                 PostingInput(
-                                    beitraege.toString(),
-                                    PostingSide.CREDIT,
-                                    BigDecimal("1000.00"),
+                                    ledgerAccountId = beitraege.toString(),
+                                    side = PostingSide.CREDIT,
+                                    amount = BigDecimal("1000.00"),
                                     sphere = GemeinnuetzigkeitSphere.IDEELLER_BEREICH,
                                 ),
                             ),
@@ -1516,15 +1521,15 @@ class AccountingServiceTest :
                             "Ruecklagenzufuehrung-2050",
                             listOf(
                                 PostingInput(
-                                    vereinsvermoegen.toString(),
-                                    PostingSide.DEBIT,
-                                    BigDecimal("300.00"),
+                                    ledgerAccountId = vereinsvermoegen.toString(),
+                                    side = PostingSide.DEBIT,
+                                    amount = BigDecimal("300.00"),
                                     sphere = GemeinnuetzigkeitSphere.IDEELLER_BEREICH,
                                 ),
                                 PostingInput(
-                                    projektruecklage.toString(),
-                                    PostingSide.CREDIT,
-                                    BigDecimal("300.00"),
+                                    ledgerAccountId = projektruecklage.toString(),
+                                    side = PostingSide.CREDIT,
+                                    amount = BigDecimal("300.00"),
                                     sphere = GemeinnuetzigkeitSphere.VERMOEGENSVERWALTUNG,
                                 ),
                             ),
@@ -1539,9 +1544,9 @@ class AccountingServiceTest :
                             "Entwurf-UseOfFunds",
                             listOf(
                                 PostingInput(
-                                    beitraege.toString(),
-                                    PostingSide.CREDIT,
-                                    BigDecimal("9999.00"),
+                                    ledgerAccountId = beitraege.toString(),
+                                    side = PostingSide.CREDIT,
+                                    amount = BigDecimal("9999.00"),
                                     sphere = GemeinnuetzigkeitSphere.IDEELLER_BEREICH,
                                 ),
                             ),
@@ -1557,15 +1562,15 @@ class AccountingServiceTest :
                             "Miete-2051",
                             listOf(
                                 PostingInput(
-                                    miete.toString(),
-                                    PostingSide.DEBIT,
-                                    BigDecimal("400.00"),
+                                    ledgerAccountId = miete.toString(),
+                                    side = PostingSide.DEBIT,
+                                    amount = BigDecimal("400.00"),
                                     sphere = GemeinnuetzigkeitSphere.IDEELLER_BEREICH,
                                 ),
                                 PostingInput(
-                                    kasse.toString(),
-                                    PostingSide.CREDIT,
-                                    BigDecimal("400.00"),
+                                    ledgerAccountId = kasse.toString(),
+                                    side = PostingSide.CREDIT,
+                                    amount = BigDecimal("400.00"),
                                     sphere = GemeinnuetzigkeitSphere.IDEELLER_BEREICH,
                                 ),
                             ),
@@ -1661,15 +1666,15 @@ class AccountingServiceTest :
                             "Spende-2060",
                             listOf(
                                 PostingInput(
-                                    kasse.toString(),
-                                    PostingSide.DEBIT,
-                                    BigDecimal("800.00"),
+                                    ledgerAccountId = kasse.toString(),
+                                    side = PostingSide.DEBIT,
+                                    amount = BigDecimal("800.00"),
                                     sphere = GemeinnuetzigkeitSphere.IDEELLER_BEREICH,
                                 ),
                                 PostingInput(
-                                    beitraege.toString(),
-                                    PostingSide.CREDIT,
-                                    BigDecimal("800.00"),
+                                    ledgerAccountId = beitraege.toString(),
+                                    side = PostingSide.CREDIT,
+                                    amount = BigDecimal("800.00"),
                                     sphere = GemeinnuetzigkeitSphere.IDEELLER_BEREICH,
                                 ),
                             ),
@@ -1683,15 +1688,15 @@ class AccountingServiceTest :
                             "Miete-2061",
                             listOf(
                                 PostingInput(
-                                    miete.toString(),
-                                    PostingSide.DEBIT,
-                                    BigDecimal("300.00"),
+                                    ledgerAccountId = miete.toString(),
+                                    side = PostingSide.DEBIT,
+                                    amount = BigDecimal("300.00"),
                                     sphere = GemeinnuetzigkeitSphere.IDEELLER_BEREICH,
                                 ),
                                 PostingInput(
-                                    kasse.toString(),
-                                    PostingSide.CREDIT,
-                                    BigDecimal("300.00"),
+                                    ledgerAccountId = kasse.toString(),
+                                    side = PostingSide.CREDIT,
+                                    amount = BigDecimal("300.00"),
                                     sphere = GemeinnuetzigkeitSphere.IDEELLER_BEREICH,
                                 ),
                             ),
@@ -1790,15 +1795,15 @@ class AccountingServiceTest :
                 val postings =
                     listOf(
                         PostingInput(
-                            kasse.toString(),
-                            PostingSide.DEBIT,
-                            BigDecimal("20.00"),
+                            ledgerAccountId = kasse.toString(),
+                            side = PostingSide.DEBIT,
+                            amount = BigDecimal("20.00"),
                             sphere = GemeinnuetzigkeitSphere.IDEELLER_BEREICH,
                         ),
                         PostingInput(
-                            beitraege.toString(),
-                            PostingSide.CREDIT,
-                            BigDecimal("20.00"),
+                            ledgerAccountId = beitraege.toString(),
+                            side = PostingSide.CREDIT,
+                            amount = BigDecimal("20.00"),
                             sphere = GemeinnuetzigkeitSphere.IDEELLER_BEREICH,
                         ),
                     )
@@ -1833,15 +1838,15 @@ class AccountingServiceTest :
                 val postings =
                     listOf(
                         PostingInput(
-                            bank.toString(),
-                            PostingSide.DEBIT,
-                            BigDecimal("15.00"),
+                            ledgerAccountId = bank.toString(),
+                            side = PostingSide.DEBIT,
+                            amount = BigDecimal("15.00"),
                             sphere = GemeinnuetzigkeitSphere.IDEELLER_BEREICH,
                         ),
                         PostingInput(
-                            beitraege.toString(),
-                            PostingSide.CREDIT,
-                            BigDecimal("15.00"),
+                            ledgerAccountId = beitraege.toString(),
+                            side = PostingSide.CREDIT,
+                            amount = BigDecimal("15.00"),
                             sphere = GemeinnuetzigkeitSphere.IDEELLER_BEREICH,
                         ),
                     )
@@ -1874,15 +1879,15 @@ class AccountingServiceTest :
                             "Einzahlung",
                             listOf(
                                 PostingInput(
-                                    kasse.toString(),
-                                    PostingSide.DEBIT,
-                                    BigDecimal("50.00"),
+                                    ledgerAccountId = kasse.toString(),
+                                    side = PostingSide.DEBIT,
+                                    amount = BigDecimal("50.00"),
                                     sphere = GemeinnuetzigkeitSphere.IDEELLER_BEREICH,
                                 ),
                                 PostingInput(
-                                    beitraege.toString(),
-                                    PostingSide.CREDIT,
-                                    BigDecimal("50.00"),
+                                    ledgerAccountId = beitraege.toString(),
+                                    side = PostingSide.CREDIT,
+                                    amount = BigDecimal("50.00"),
                                     sphere = GemeinnuetzigkeitSphere.IDEELLER_BEREICH,
                                 ),
                             ),
@@ -1903,15 +1908,15 @@ class AccountingServiceTest :
                                 "Ueberzug",
                                 listOf(
                                     PostingInput(
-                                        miete.toString(),
-                                        PostingSide.DEBIT,
-                                        BigDecimal("80.00"),
+                                        ledgerAccountId = miete.toString(),
+                                        side = PostingSide.DEBIT,
+                                        amount = BigDecimal("80.00"),
                                         sphere = GemeinnuetzigkeitSphere.IDEELLER_BEREICH,
                                     ),
                                     PostingInput(
-                                        kasse.toString(),
-                                        PostingSide.CREDIT,
-                                        BigDecimal("80.00"),
+                                        ledgerAccountId = kasse.toString(),
+                                        side = PostingSide.CREDIT,
+                                        amount = BigDecimal("80.00"),
                                         sphere = GemeinnuetzigkeitSphere.IDEELLER_BEREICH,
                                     ),
                                 ),
@@ -1945,15 +1950,15 @@ class AccountingServiceTest :
                             "Einzahlung",
                             listOf(
                                 PostingInput(
-                                    kasse.toString(),
-                                    PostingSide.DEBIT,
-                                    BigDecimal("40.00"),
+                                    ledgerAccountId = kasse.toString(),
+                                    side = PostingSide.DEBIT,
+                                    amount = BigDecimal("40.00"),
                                     sphere = GemeinnuetzigkeitSphere.IDEELLER_BEREICH,
                                 ),
                                 PostingInput(
-                                    beitraege.toString(),
-                                    PostingSide.CREDIT,
-                                    BigDecimal("40.00"),
+                                    ledgerAccountId = beitraege.toString(),
+                                    side = PostingSide.CREDIT,
+                                    amount = BigDecimal("40.00"),
                                     sphere = GemeinnuetzigkeitSphere.IDEELLER_BEREICH,
                                 ),
                             ),
@@ -1970,15 +1975,15 @@ class AccountingServiceTest :
                                 "Vollstaendige-Auszahlung",
                                 listOf(
                                     PostingInput(
-                                        miete.toString(),
-                                        PostingSide.DEBIT,
-                                        BigDecimal("40.00"),
+                                        ledgerAccountId = miete.toString(),
+                                        side = PostingSide.DEBIT,
+                                        amount = BigDecimal("40.00"),
                                         sphere = GemeinnuetzigkeitSphere.IDEELLER_BEREICH,
                                     ),
                                     PostingInput(
-                                        kasse.toString(),
-                                        PostingSide.CREDIT,
-                                        BigDecimal("40.00"),
+                                        ledgerAccountId = kasse.toString(),
+                                        side = PostingSide.CREDIT,
+                                        amount = BigDecimal("40.00"),
                                         sphere = GemeinnuetzigkeitSphere.IDEELLER_BEREICH,
                                     ),
                                 ),
@@ -2012,15 +2017,15 @@ class AccountingServiceTest :
                             "Einzahlung",
                             listOf(
                                 PostingInput(
-                                    kasse.toString(),
-                                    PostingSide.DEBIT,
-                                    BigDecimal("50.00"),
+                                    ledgerAccountId = kasse.toString(),
+                                    side = PostingSide.DEBIT,
+                                    amount = BigDecimal("50.00"),
                                     sphere = GemeinnuetzigkeitSphere.IDEELLER_BEREICH,
                                 ),
                                 PostingInput(
-                                    beitraege.toString(),
-                                    PostingSide.CREDIT,
-                                    BigDecimal("50.00"),
+                                    ledgerAccountId = beitraege.toString(),
+                                    side = PostingSide.CREDIT,
+                                    amount = BigDecimal("50.00"),
                                     sphere = GemeinnuetzigkeitSphere.IDEELLER_BEREICH,
                                 ),
                             ),
@@ -2048,15 +2053,15 @@ class AccountingServiceTest :
                                                     "Auszahlung-$i",
                                                     listOf(
                                                         PostingInput(
-                                                            miete.toString(),
-                                                            PostingSide.DEBIT,
-                                                            BigDecimal("30.00"),
+                                                            ledgerAccountId = miete.toString(),
+                                                            side = PostingSide.DEBIT,
+                                                            amount = BigDecimal("30.00"),
                                                             sphere = GemeinnuetzigkeitSphere.IDEELLER_BEREICH,
                                                         ),
                                                         PostingInput(
-                                                            kasse.toString(),
-                                                            PostingSide.CREDIT,
-                                                            BigDecimal("30.00"),
+                                                            ledgerAccountId = kasse.toString(),
+                                                            side = PostingSide.CREDIT,
+                                                            amount = BigDecimal("30.00"),
                                                             sphere = GemeinnuetzigkeitSphere.IDEELLER_BEREICH,
                                                         ),
                                                     ),
@@ -2098,9 +2103,9 @@ class AccountingServiceTest :
                 val draftPostings =
                     listOf(
                         PostingInput(
-                            kasse.toString(),
-                            PostingSide.DEBIT,
-                            BigDecimal("60.00"),
+                            ledgerAccountId = kasse.toString(),
+                            side = PostingSide.DEBIT,
+                            amount = BigDecimal("60.00"),
                             sphere = GemeinnuetzigkeitSphere.IDEELLER_BEREICH,
                         ),
                     )
@@ -2168,15 +2173,15 @@ class AccountingServiceTest :
                     "Spende",
                     listOf(
                         PostingInput(
-                            kasse.toString(),
-                            PostingSide.DEBIT,
-                            BigDecimal("100.00"),
+                            ledgerAccountId = kasse.toString(),
+                            side = PostingSide.DEBIT,
+                            amount = BigDecimal("100.00"),
                             sphere = GemeinnuetzigkeitSphere.IDEELLER_BEREICH,
                         ),
                         PostingInput(
-                            beitraege.toString(),
-                            PostingSide.CREDIT,
-                            BigDecimal("100.00"),
+                            ledgerAccountId = beitraege.toString(),
+                            side = PostingSide.CREDIT,
+                            amount = BigDecimal("100.00"),
                             sphere = GemeinnuetzigkeitSphere.IDEELLER_BEREICH,
                         ),
                     ),
@@ -2187,15 +2192,15 @@ class AccountingServiceTest :
                     "Miete",
                     listOf(
                         PostingInput(
-                            miete.toString(),
-                            PostingSide.DEBIT,
-                            BigDecimal("30.00"),
+                            ledgerAccountId = miete.toString(),
+                            side = PostingSide.DEBIT,
+                            amount = BigDecimal("30.00"),
                             sphere = GemeinnuetzigkeitSphere.IDEELLER_BEREICH,
                         ),
                         PostingInput(
-                            kasse.toString(),
-                            PostingSide.CREDIT,
-                            BigDecimal("30.00"),
+                            ledgerAccountId = kasse.toString(),
+                            side = PostingSide.CREDIT,
+                            amount = BigDecimal("30.00"),
                             sphere = GemeinnuetzigkeitSphere.IDEELLER_BEREICH,
                         ),
                     ),
@@ -2207,15 +2212,15 @@ class AccountingServiceTest :
                     "Spaeter",
                     listOf(
                         PostingInput(
-                            kasse.toString(),
-                            PostingSide.DEBIT,
-                            BigDecimal("999.00"),
+                            ledgerAccountId = kasse.toString(),
+                            side = PostingSide.DEBIT,
+                            amount = BigDecimal("999.00"),
                             sphere = GemeinnuetzigkeitSphere.IDEELLER_BEREICH,
                         ),
                         PostingInput(
-                            beitraege.toString(),
-                            PostingSide.CREDIT,
-                            BigDecimal("999.00"),
+                            ledgerAccountId = beitraege.toString(),
+                            side = PostingSide.CREDIT,
+                            amount = BigDecimal("999.00"),
                             sphere = GemeinnuetzigkeitSphere.IDEELLER_BEREICH,
                         ),
                     ),
@@ -2229,9 +2234,9 @@ class AccountingServiceTest :
                             "Entwurf-Kassenbuch",
                             listOf(
                                 PostingInput(
-                                    kasse.toString(),
-                                    PostingSide.DEBIT,
-                                    BigDecimal("777.00"),
+                                    ledgerAccountId = kasse.toString(),
+                                    side = PostingSide.DEBIT,
+                                    amount = BigDecimal("777.00"),
                                     sphere = GemeinnuetzigkeitSphere.IDEELLER_BEREICH,
                                 ),
                             ),
@@ -2288,15 +2293,15 @@ class AccountingServiceTest :
                                 description,
                                 listOf(
                                     PostingInput(
-                                        kasse.toString(),
-                                        PostingSide.DEBIT,
-                                        amount,
+                                        ledgerAccountId = kasse.toString(),
+                                        side = PostingSide.DEBIT,
+                                        amount = amount,
                                         sphere = GemeinnuetzigkeitSphere.IDEELLER_BEREICH,
                                     ),
                                     PostingInput(
-                                        beitraege.toString(),
-                                        PostingSide.CREDIT,
-                                        amount,
+                                        ledgerAccountId = beitraege.toString(),
+                                        side = PostingSide.CREDIT,
+                                        amount = amount,
                                         sphere = GemeinnuetzigkeitSphere.IDEELLER_BEREICH,
                                     ),
                                 ),
@@ -2498,16 +2503,16 @@ class AccountingServiceTest :
                 val postings =
                     listOf(
                         PostingInput(
-                            kasse.toString(),
-                            PostingSide.DEBIT,
-                            BigDecimal("45.00"),
+                            ledgerAccountId = kasse.toString(),
+                            side = PostingSide.DEBIT,
+                            amount = BigDecimal("45.00"),
                             sphere = GemeinnuetzigkeitSphere.IDEELLER_BEREICH,
                             costCenterId = costCenter.toString(),
                         ),
                         PostingInput(
-                            beitraege.toString(),
-                            PostingSide.CREDIT,
-                            BigDecimal("45.00"),
+                            ledgerAccountId = beitraege.toString(),
+                            side = PostingSide.CREDIT,
+                            amount = BigDecimal("45.00"),
                             sphere = GemeinnuetzigkeitSphere.IDEELLER_BEREICH,
                             // No cost center -- the common case.
                         ),
@@ -2548,16 +2553,16 @@ class AccountingServiceTest :
                 val postings =
                     listOf(
                         PostingInput(
-                            kasse.toString(),
-                            PostingSide.DEBIT,
-                            BigDecimal("10.00"),
+                            ledgerAccountId = kasse.toString(),
+                            side = PostingSide.DEBIT,
+                            amount = BigDecimal("10.00"),
                             sphere = GemeinnuetzigkeitSphere.IDEELLER_BEREICH,
                             costCenterId = Uuid.random().toString(),
                         ),
                         PostingInput(
-                            beitraege.toString(),
-                            PostingSide.CREDIT,
-                            BigDecimal("10.00"),
+                            ledgerAccountId = beitraege.toString(),
+                            side = PostingSide.CREDIT,
+                            amount = BigDecimal("10.00"),
                             sphere = GemeinnuetzigkeitSphere.IDEELLER_BEREICH,
                         ),
                     )
@@ -2586,16 +2591,16 @@ class AccountingServiceTest :
                 val postings =
                     listOf(
                         PostingInput(
-                            kasse.toString(),
-                            PostingSide.DEBIT,
-                            BigDecimal("10.00"),
+                            ledgerAccountId = kasse.toString(),
+                            side = PostingSide.DEBIT,
+                            amount = BigDecimal("10.00"),
                             sphere = GemeinnuetzigkeitSphere.IDEELLER_BEREICH,
                             costCenterId = inactiveCostCenter.toString(),
                         ),
                         PostingInput(
-                            beitraege.toString(),
-                            PostingSide.CREDIT,
-                            BigDecimal("10.00"),
+                            ledgerAccountId = beitraege.toString(),
+                            side = PostingSide.CREDIT,
+                            amount = BigDecimal("10.00"),
                             sphere = GemeinnuetzigkeitSphere.IDEELLER_BEREICH,
                         ),
                     )
@@ -2624,16 +2629,16 @@ class AccountingServiceTest :
                 val postings =
                     listOf(
                         PostingInput(
-                            kasse.toString(),
-                            PostingSide.DEBIT,
-                            BigDecimal("15.00"),
+                            ledgerAccountId = kasse.toString(),
+                            side = PostingSide.DEBIT,
+                            amount = BigDecimal("15.00"),
                             sphere = GemeinnuetzigkeitSphere.IDEELLER_BEREICH,
                             costCenterId = inactiveCostCenter.toString(),
                         ),
                         PostingInput(
-                            beitraege.toString(),
-                            PostingSide.CREDIT,
-                            BigDecimal("15.00"),
+                            ledgerAccountId = beitraege.toString(),
+                            side = PostingSide.CREDIT,
+                            amount = BigDecimal("15.00"),
                             sphere = GemeinnuetzigkeitSphere.IDEELLER_BEREICH,
                         ),
                     )
@@ -2685,16 +2690,16 @@ class AccountingServiceTest :
                     "Sommerfest-Einnahme",
                     listOf(
                         PostingInput(
-                            kasse.toString(),
-                            PostingSide.DEBIT,
-                            BigDecimal("100.00"),
+                            ledgerAccountId = kasse.toString(),
+                            side = PostingSide.DEBIT,
+                            amount = BigDecimal("100.00"),
                             sphere = GemeinnuetzigkeitSphere.IDEELLER_BEREICH,
                             costCenterId = sommerfest.toString(),
                         ),
                         PostingInput(
-                            beitraege.toString(),
-                            PostingSide.CREDIT,
-                            BigDecimal("100.00"),
+                            ledgerAccountId = beitraege.toString(),
+                            side = PostingSide.CREDIT,
+                            amount = BigDecimal("100.00"),
                             sphere = GemeinnuetzigkeitSphere.IDEELLER_BEREICH,
                             costCenterId = sommerfest.toString(),
                         ),
@@ -2706,16 +2711,16 @@ class AccountingServiceTest :
                     "Winterhilfe-Spende",
                     listOf(
                         PostingInput(
-                            kasse.toString(),
-                            PostingSide.DEBIT,
-                            BigDecimal("50.00"),
+                            ledgerAccountId = kasse.toString(),
+                            side = PostingSide.DEBIT,
+                            amount = BigDecimal("50.00"),
                             sphere = GemeinnuetzigkeitSphere.IDEELLER_BEREICH,
                             costCenterId = winterhilfe.toString(),
                         ),
                         PostingInput(
-                            beitraege.toString(),
-                            PostingSide.CREDIT,
-                            BigDecimal("50.00"),
+                            ledgerAccountId = beitraege.toString(),
+                            side = PostingSide.CREDIT,
+                            amount = BigDecimal("50.00"),
                             sphere = GemeinnuetzigkeitSphere.IDEELLER_BEREICH,
                             costCenterId = winterhilfe.toString(),
                         ),
@@ -2726,16 +2731,16 @@ class AccountingServiceTest :
                     "Winterhilfe-Material",
                     listOf(
                         PostingInput(
-                            miete.toString(),
-                            PostingSide.DEBIT,
-                            BigDecimal("20.00"),
+                            ledgerAccountId = miete.toString(),
+                            side = PostingSide.DEBIT,
+                            amount = BigDecimal("20.00"),
                             sphere = GemeinnuetzigkeitSphere.IDEELLER_BEREICH,
                             costCenterId = winterhilfe.toString(),
                         ),
                         PostingInput(
-                            kasse.toString(),
-                            PostingSide.CREDIT,
-                            BigDecimal("20.00"),
+                            ledgerAccountId = kasse.toString(),
+                            side = PostingSide.CREDIT,
+                            amount = BigDecimal("20.00"),
                             sphere = GemeinnuetzigkeitSphere.IDEELLER_BEREICH,
                             costCenterId = winterhilfe.toString(),
                         ),
@@ -2747,15 +2752,15 @@ class AccountingServiceTest :
                     "Mitgliedsbeitrag",
                     listOf(
                         PostingInput(
-                            kasse.toString(),
-                            PostingSide.DEBIT,
-                            BigDecimal("30.00"),
+                            ledgerAccountId = kasse.toString(),
+                            side = PostingSide.DEBIT,
+                            amount = BigDecimal("30.00"),
                             sphere = GemeinnuetzigkeitSphere.IDEELLER_BEREICH,
                         ),
                         PostingInput(
-                            beitraege.toString(),
-                            PostingSide.CREDIT,
-                            BigDecimal("30.00"),
+                            ledgerAccountId = beitraege.toString(),
+                            side = PostingSide.CREDIT,
+                            amount = BigDecimal("30.00"),
                             sphere = GemeinnuetzigkeitSphere.IDEELLER_BEREICH,
                         ),
                     ),
@@ -2768,9 +2773,9 @@ class AccountingServiceTest :
                             "Entwurf-Kostenstellenbericht",
                             listOf(
                                 PostingInput(
-                                    beitraege.toString(),
-                                    PostingSide.CREDIT,
-                                    BigDecimal("999.00"),
+                                    ledgerAccountId = beitraege.toString(),
+                                    side = PostingSide.CREDIT,
+                                    amount = BigDecimal("999.00"),
                                     sphere = GemeinnuetzigkeitSphere.IDEELLER_BEREICH,
                                     costCenterId = sommerfest.toString(),
                                 ),
@@ -2915,15 +2920,15 @@ class AccountingServiceTest :
                 fun donationPostings() =
                     listOf(
                         PostingInput(
-                            kasse.toString(),
-                            PostingSide.DEBIT,
-                            BigDecimal("10.00"),
+                            ledgerAccountId = kasse.toString(),
+                            side = PostingSide.DEBIT,
+                            amount = BigDecimal("10.00"),
                             sphere = GemeinnuetzigkeitSphere.IDEELLER_BEREICH,
                         ),
                         PostingInput(
-                            spenden.toString(),
-                            PostingSide.CREDIT,
-                            BigDecimal("10.00"),
+                            ledgerAccountId = spenden.toString(),
+                            side = PostingSide.CREDIT,
+                            amount = BigDecimal("10.00"),
                             sphere = GemeinnuetzigkeitSphere.IDEELLER_BEREICH,
                         ),
                     )
@@ -3033,15 +3038,15 @@ class AccountingServiceTest :
                 val postings =
                     listOf(
                         PostingInput(
-                            kasse.toString(),
-                            PostingSide.DEBIT,
-                            BigDecimal("25.00"),
+                            ledgerAccountId = kasse.toString(),
+                            side = PostingSide.DEBIT,
+                            amount = BigDecimal("25.00"),
                             sphere = GemeinnuetzigkeitSphere.IDEELLER_BEREICH,
                         ),
                         PostingInput(
-                            spenden.toString(),
-                            PostingSide.CREDIT,
-                            BigDecimal("25.00"),
+                            ledgerAccountId = spenden.toString(),
+                            side = PostingSide.CREDIT,
+                            amount = BigDecimal("25.00"),
                             sphere = GemeinnuetzigkeitSphere.IDEELLER_BEREICH,
                         ),
                     )
@@ -3077,15 +3082,15 @@ class AccountingServiceTest :
                 val postings =
                     listOf(
                         PostingInput(
-                            kasse.toString(),
-                            PostingSide.DEBIT,
-                            BigDecimal("100.00"),
+                            ledgerAccountId = kasse.toString(),
+                            side = PostingSide.DEBIT,
+                            amount = BigDecimal("100.00"),
                             sphere = GemeinnuetzigkeitSphere.IDEELLER_BEREICH,
                         ),
                         PostingInput(
-                            spenden.toString(),
-                            PostingSide.CREDIT,
-                            BigDecimal("100.00"),
+                            ledgerAccountId = spenden.toString(),
+                            side = PostingSide.CREDIT,
+                            amount = BigDecimal("100.00"),
                             sphere = GemeinnuetzigkeitSphere.IDEELLER_BEREICH,
                         ),
                     )
@@ -3120,15 +3125,15 @@ class AccountingServiceTest :
                 val postings =
                     listOf(
                         PostingInput(
-                            kasse.toString(),
-                            PostingSide.DEBIT,
-                            BigDecimal("100.00"),
+                            ledgerAccountId = kasse.toString(),
+                            side = PostingSide.DEBIT,
+                            amount = BigDecimal("100.00"),
                             sphere = GemeinnuetzigkeitSphere.IDEELLER_BEREICH,
                         ),
                         PostingInput(
-                            spenden.toString(),
-                            PostingSide.CREDIT,
-                            BigDecimal("100.00"),
+                            ledgerAccountId = spenden.toString(),
+                            side = PostingSide.CREDIT,
+                            amount = BigDecimal("100.00"),
                             sphere = GemeinnuetzigkeitSphere.IDEELLER_BEREICH,
                         ),
                     )
@@ -3170,15 +3175,15 @@ class AccountingServiceTest :
                             "Foreign-$date",
                             listOf(
                                 PostingInput(
-                                    kasse.toString(),
-                                    PostingSide.DEBIT,
-                                    amount,
+                                    ledgerAccountId = kasse.toString(),
+                                    side = PostingSide.DEBIT,
+                                    amount = amount,
                                     sphere = GemeinnuetzigkeitSphere.IDEELLER_BEREICH,
                                 ),
                                 PostingInput(
-                                    spenden.toString(),
-                                    PostingSide.CREDIT,
-                                    amount,
+                                    ledgerAccountId = spenden.toString(),
+                                    side = PostingSide.CREDIT,
+                                    amount = amount,
                                     sphere = GemeinnuetzigkeitSphere.IDEELLER_BEREICH,
                                 ),
                             ),
@@ -3220,15 +3225,15 @@ class AccountingServiceTest :
                                 "Grossspende",
                                 listOf(
                                     PostingInput(
-                                        kasse.toString(),
-                                        PostingSide.DEBIT,
-                                        BigDecimal("40000.00"),
+                                        ledgerAccountId = kasse.toString(),
+                                        side = PostingSide.DEBIT,
+                                        amount = BigDecimal("40000.00"),
                                         sphere = GemeinnuetzigkeitSphere.IDEELLER_BEREICH,
                                     ),
                                     PostingInput(
-                                        spenden.toString(),
-                                        PostingSide.CREDIT,
-                                        BigDecimal("40000.00"),
+                                        ledgerAccountId = spenden.toString(),
+                                        side = PostingSide.CREDIT,
+                                        amount = BigDecimal("40000.00"),
                                         sphere = GemeinnuetzigkeitSphere.IDEELLER_BEREICH,
                                     ),
                                 ),
@@ -3246,15 +3251,15 @@ class AccountingServiceTest :
                                 "Anonyme-Spende",
                                 listOf(
                                     PostingInput(
-                                        kasse.toString(),
-                                        PostingSide.DEBIT,
-                                        BigDecimal("800.00"),
+                                        ledgerAccountId = kasse.toString(),
+                                        side = PostingSide.DEBIT,
+                                        amount = BigDecimal("800.00"),
                                         sphere = GemeinnuetzigkeitSphere.IDEELLER_BEREICH,
                                     ),
                                     PostingInput(
-                                        spenden.toString(),
-                                        PostingSide.CREDIT,
-                                        BigDecimal("800.00"),
+                                        ledgerAccountId = spenden.toString(),
+                                        side = PostingSide.CREDIT,
+                                        amount = BigDecimal("800.00"),
                                         sphere = GemeinnuetzigkeitSphere.IDEELLER_BEREICH,
                                     ),
                                 ),
@@ -3309,15 +3314,15 @@ class AccountingServiceTest :
                 val postings =
                     listOf(
                         PostingInput(
-                            kasse.toString(),
-                            PostingSide.DEBIT,
-                            BigDecimal("50.00"),
+                            ledgerAccountId = kasse.toString(),
+                            side = PostingSide.DEBIT,
+                            amount = BigDecimal("50.00"),
                             sphere = GemeinnuetzigkeitSphere.IDEELLER_BEREICH,
                         ),
                         PostingInput(
-                            spenden.toString(),
-                            PostingSide.CREDIT,
-                            BigDecimal("50.00"),
+                            ledgerAccountId = spenden.toString(),
+                            side = PostingSide.CREDIT,
+                            amount = BigDecimal("50.00"),
                             sphere = GemeinnuetzigkeitSphere.IDEELLER_BEREICH,
                         ),
                     )
@@ -3360,15 +3365,15 @@ class AccountingServiceTest :
                                 "Jahresgrenze-$date",
                                 listOf(
                                     PostingInput(
-                                        kasse.toString(),
-                                        PostingSide.DEBIT,
-                                        promptThreshold + BigDecimal("1.00"),
+                                        ledgerAccountId = kasse.toString(),
+                                        side = PostingSide.DEBIT,
+                                        amount = promptThreshold + BigDecimal("1.00"),
                                         sphere = GemeinnuetzigkeitSphere.IDEELLER_BEREICH,
                                     ),
                                     PostingInput(
-                                        spenden.toString(),
-                                        PostingSide.CREDIT,
-                                        promptThreshold + BigDecimal("1.00"),
+                                        ledgerAccountId = spenden.toString(),
+                                        side = PostingSide.CREDIT,
+                                        amount = promptThreshold + BigDecimal("1.00"),
                                         sphere = GemeinnuetzigkeitSphere.IDEELLER_BEREICH,
                                     ),
                                 ),
@@ -3591,7 +3596,7 @@ private fun Route.registerAccountingTestRoutes() {
     }
     get("/test/general-ledger/{ledgerAccountId}") {
         val service = AccountingService(call)
-        val dto = service.getGeneralLedgerAccount(call.parameters["ledgerAccountId"]!!)
+        val dto = service.getGeneralLedgerAccount(ledgerAccountId = call.parameters["ledgerAccountId"]!!)
         call.respondText("${dto.ledgerAccountId}:${dto.openingBalance}:${dto.closingBalance}:${dto.lines.size}")
     }
     get("/test/kassenbuch/{ledgerAccountId}") {
@@ -3599,7 +3604,7 @@ private fun Route.registerAccountingTestRoutes() {
         val q = call.request.queryParameters
         val dto =
             service.getKassenbuch(
-                call.parameters["ledgerAccountId"]!!,
+                ledgerAccountId = call.parameters["ledgerAccountId"]!!,
                 from = q["from"]?.let { LocalDate.parse(it) },
                 to = q["to"]?.let { LocalDate.parse(it) },
             )
@@ -3643,7 +3648,7 @@ private fun Route.registerAccountingTestRoutes() {
     get("/test/use-of-funds") {
         val service = AccountingService(call)
         val q = call.request.queryParameters
-        val dto = service.getUseOfFundsStatement(q["from"]!!.toInt(), q["to"]!!.toInt())
+        val dto = service.getUseOfFundsStatement(fromFiscalYear = q["from"]!!.toInt(), toFiscalYear = q["to"]!!.toInt())
         // Per-year rows: fiscalYear:fundsReceived:fundsUsed:fundsAllocatedToReserves:obligation:overdue, semicolon-joined.
         val years =
             dto.years.joinToString(";") { year ->

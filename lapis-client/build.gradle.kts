@@ -1,3 +1,15 @@
+// ── Detekt gate: intentionally EXCLUDED ──────────────────────────────────────
+// lapis-client has no jvm() target (js-only KMP module below), so the detekt
+// Gradle plugin registers no type-resolution compilation task for it (verified
+// 2026-08-15: only jvm/androidJvm compilations get a detekt<Compilation>-with-
+// classpath task — same finding kuml-dev/kUML documented for its
+// kuml-wasm-playground module). The RequireNamedArguments rule is
+// `RequiresAnalysisApi` and is therefore SILENTLY SKIPPED here — it would
+// report zero findings and go green without inspecting a line. This module is
+// listed in `lapisDetektExemptModules` in the root build script so
+// `verifyDetektCoverage` fails if a NEW module ever ends up unanalysed by
+// accident. Its source files must be kept named-argument-clean by review; if
+// this module ever grows a jvm() target, remove this exemption.
 plugins {
     alias(libs.plugins.kotlin.multiplatform)
     alias(libs.plugins.kvision)

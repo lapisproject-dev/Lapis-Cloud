@@ -77,9 +77,9 @@ fun Route.registerConferenceRecordingRoutes(documentStorageRoot: File) {
         }
 
         if (!ConferenceRecordingAccess.mayAccess(
-                current,
-                recordingRow[ConferenceRecordingTable.accessLevel],
-                recordingRow[ConferenceRecordingTable.startedByMemberId],
+                current = current,
+                accessLevel = recordingRow[ConferenceRecordingTable.accessLevel],
+                startedByMemberId = recordingRow[ConferenceRecordingTable.startedByMemberId],
             )
         ) {
             throw ForbiddenException("Not authorized to access this recording")

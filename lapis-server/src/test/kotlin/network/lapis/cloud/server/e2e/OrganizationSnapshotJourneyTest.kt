@@ -199,7 +199,7 @@ class OrganizationSnapshotJourneyTest :
                         module()
                         routing {
                             registerScenario6TestRoutes()
-                            route("/e2e6") { registerBackupRoutes(sourceDb, sourceStorageRoot) }
+                            route("/e2e6") { registerBackupRoutes(database = sourceDb, documentStorageRoot = sourceStorageRoot) }
                         }
                     }
                     DevSeedData.seedIfEmpty(force = true)
@@ -226,7 +226,7 @@ class OrganizationSnapshotJourneyTest :
                         }
 
                     // ── Step 3: real login (real HTTP, real session cookie) ────────────────────────
-                    applicantRawToken = client.realLogin(email, E2E_STRONG_PASSWORD)
+                    applicantRawToken = client.realLogin(email = email, password = E2E_STRONG_PASSWORD)
 
                     // ── Step 4: BOARD approves (ANTRAG -> AKTIV) ───────────────────────────────────
                     client.post("/e2e6/approve/$applicantId") { header("X-Member-Id", BOARD_ID) }.status shouldBe HttpStatusCode.OK
@@ -350,7 +350,7 @@ class OrganizationSnapshotJourneyTest :
                         module()
                         routing {
                             registerScenario6TestRoutes()
-                            route("/e2e6") { registerBackupRoutes(targetDb, targetStorageRoot) }
+                            route("/e2e6") { registerBackupRoutes(database = targetDb, documentStorageRoot = targetStorageRoot) }
                         }
                     }
 
@@ -432,7 +432,7 @@ class OrganizationSnapshotJourneyTest :
                         transaction(
                             targetDb,
                         ) { MemberTable.selectAll().where { MemberTable.id eq applicantId }.single()[MemberTable.email] }
-                    val freshTargetToken = client.realLogin(applicantEmail, E2E_STRONG_PASSWORD)
+                    val freshTargetToken = client.realLogin(email = applicantEmail, password = E2E_STRONG_PASSWORD)
                     (freshTargetToken.isNotBlank()) shouldBe true
                     // A real login always mints a BRAND NEW token -- restore does not (cannot) make
                     // the target hand out the source's own raw token.
@@ -458,7 +458,7 @@ class OrganizationSnapshotJourneyTest :
 private fun Route.registerScenario6TestRoutes() {
     post("/e2e6/create-committee") {
         val c =
-            GovernanceService(call).createCommittee(
+            GovernanceService(call = call).createCommittee(
                 CommitteeInput(
                     name = "Mitgliederversammlung (Snapshot Journey)",
                     type = CommitteeType.GENERAL_ASSEMBLY,
@@ -469,7 +469,7 @@ private fun Route.registerScenario6TestRoutes() {
         call.respondText(c.id)
     }
     post("/e2e6/register") {
-        RegistrationService(call, LoginRateLimiter()).registerApplication(
+        RegistrationService(call = call, registrationRateLimiter = LoginRateLimiter()).registerApplication(
             RegistrationInput(
                 displayName = "Snapshot Journey Applicant",
                 email = call.request.queryParameters["email"]!!,
@@ -481,30 +481,31 @@ private fun Route.registerScenario6TestRoutes() {
         call.respondText("OK")
     }
     post("/e2e6/approve/{id}") {
-        RegistrationService(call, LoginRateLimiter()).approveApplication(call.parameters["id"]!!)
+        RegistrationService(call = call, registrationRateLimiter = LoginRateLimiter()).approveApplication(call.parameters["id"]!!)
         call.respondText("OK")
     }
     post("/e2e6/add-committee-member/{committeeId}/{memberId}") {
         val m =
-            GovernanceService(call).addCommitteeMember(
-                call.parameters["committeeId"]!!,
-                CommitteeMembershipInput(
-                    memberId = call.parameters["memberId"]!!,
-                    role = CommitteeRole.MEMBER,
-                    since = LocalDate(2026, 10, 1),
-                ),
+            GovernanceService(call = call).addCommitteeMember(
+                committeeId = call.parameters["committeeId"]!!,
+                input =
+                    CommitteeMembershipInput(
+                        memberId = call.parameters["memberId"]!!,
+                        role = CommitteeRole.MEMBER,
+                        since = LocalDate(2026, 10, 1),
+                    ),
             )
         call.respondText(m.id)
     }
     post("/e2e6/mint-ltr/{memberId}") {
-        LtrLedgerService(call).mintLtr(
+        LtrLedgerService(call = call).mintLtr(
             MintLtrInput(memberId = call.parameters["memberId"]!!, amountLtr = BigDecimal("25.00"), note = "E2E Scenario 6"),
         )
         call.respondText("OK")
     }
     post("/e2e6/create-meeting/{committeeId}") {
         val m =
-            GovernanceService(call).createMeeting(
+            GovernanceService(call = call).createMeeting(
                 MeetingInput(
                     committeeId = call.parameters["committeeId"]!!,
                     title = "Snapshot-Journey-Meeting",
@@ -517,7 +518,7 @@ private fun Route.registerScenario6TestRoutes() {
     }
     post("/e2e6/submit-motion/{committeeId}") {
         val motion =
-            GovernanceService(call).submitMotion(
+            GovernanceService(call = call).submitMotion(
                 MotionInput(
                     targetCommitteeId = call.parameters["committeeId"]!!,
                     title = "Snapshot-Journey-Antrag",
@@ -528,19 +529,21 @@ private fun Route.registerScenario6TestRoutes() {
         call.respondText(motion.id)
     }
     post("/e2e6/review-motion/{id}") {
-        GovernanceService(call).reviewMotion(call.parameters["id"]!!, MotionReviewDecision.ACCEPT)
+        GovernanceService(call = call).reviewMotion(id = call.parameters["id"]!!, decision = MotionReviewDecision.ACCEPT)
         call.respondText("OK")
     }
     post("/e2e6/schedule-motion/{id}/{meetingId}") {
-        GovernanceService(call).scheduleMotion(call.parameters["id"]!!, call.parameters["meetingId"]!!, 1)
+        GovernanceService(
+            call = call,
+        ).scheduleMotion(id = call.parameters["id"]!!, meetingId = call.parameters["meetingId"]!!, position = 1)
         call.respondText("OK")
     }
     post("/e2e6/open-vote/{motionId}") {
-        val v = GovernanceService(call).openVote(VoteOpenInput(motionId = call.parameters["motionId"]!!))
+        val v = GovernanceService(call = call).openVote(VoteOpenInput(motionId = call.parameters["motionId"]!!))
         call.respondText("${v.id}:${v.options.joinToString(";") { "${it.id}=${it.label}" }}")
     }
     post("/e2e6/cast-vote/{voteId}/{optionId}") {
-        GovernanceService(call).castVoteBallot(
+        GovernanceService(call = call).castVoteBallot(
             VoteBallotInput(
                 voteId = call.parameters["voteId"]!!,
                 optionId = call.parameters["optionId"]!!,
@@ -550,7 +553,7 @@ private fun Route.registerScenario6TestRoutes() {
         call.respondText("OK")
     }
     post("/e2e6/close-vote/{id}") {
-        val v = GovernanceService(call).closeVote(call.parameters["id"]!!)
+        val v = GovernanceService(call = call).closeVote(call.parameters["id"]!!)
         call.respondText("${v.status}|${v.resolutionId ?: ""}")
     }
     post("/e2e6/create-tier") {
@@ -568,9 +571,9 @@ private fun Route.registerScenario6TestRoutes() {
     post("/e2e6/generate-contributions/{tierId}") {
         val count =
             ContributionService(call).generateContributionsForPeriod(
-                call.parameters["tierId"]!!,
-                LocalDate(2026, 10, 1),
-                LocalDate(2026, 10, 31),
+                membershipTierId = call.parameters["tierId"]!!,
+                periodStart = LocalDate(2026, 10, 1),
+                periodEnd = LocalDate(2026, 10, 31),
             )
         call.respondText(count.toString())
     }
@@ -580,10 +583,10 @@ private fun Route.registerScenario6TestRoutes() {
     }
     post("/e2e6/mark-paid/{contributionId}") {
         ContributionService(call).markContributionPaid(
-            call.parameters["contributionId"]!!,
-            LocalDateTime(2026, 10, 15, 12, 0),
-            BigDecimal(call.request.queryParameters["amount"]!!),
-            "E2E Scenario 6",
+            contributionId = call.parameters["contributionId"]!!,
+            paidAt = LocalDateTime(2026, 10, 15, 12, 0),
+            paidAmount = BigDecimal(call.request.queryParameters["amount"]!!),
+            note = "E2E Scenario 6",
         )
         call.respondText("OK")
     }
@@ -635,16 +638,16 @@ private fun Route.registerScenario6TestRoutes() {
         )
     }
     get("/e2e6/ltr-balance/{memberId}") {
-        val balance = LtrLedgerService(call).getMemberBalance(call.parameters["memberId"]!!)
+        val balance = LtrLedgerService(call = call).getMemberBalance(call.parameters["memberId"]!!)
         call.respondText(balance.freeBalanceLtr.toString())
     }
     get("/e2e6/my-balance") {
-        val balance = LtrLedgerService(call).getMyBalance()
+        val balance = LtrLedgerService(call = call).getMyBalance()
         call.respondText(balance.freeBalanceLtr.toString())
     }
     get("/e2e6/resolution-facts/{committeeId}/{resolutionId}") {
         val resolution =
-            GovernanceService(call)
+            GovernanceService(call = call)
                 .listResolutions(committeeId = call.parameters["committeeId"]!!)
                 .single { it.id == call.parameters["resolutionId"]!! }
         call.respondText(
@@ -654,20 +657,20 @@ private fun Route.registerScenario6TestRoutes() {
     }
     get("/e2e6/committee-member-id-for/{committeeId}/{memberId}") {
         val membership =
-            GovernanceService(call)
+            GovernanceService(call = call)
                 .listCommitteeMembers(committeeId = call.parameters["committeeId"]!!)
                 .single { it.memberId == call.parameters["memberId"]!! }
         call.respondText(membership.id)
     }
     get("/e2e6/committee-member-facts/{committeeId}/{membershipId}") {
         val membership =
-            GovernanceService(call)
+            GovernanceService(call = call)
                 .listCommitteeMembers(committeeId = call.parameters["committeeId"]!!)
                 .single { it.id == call.parameters["membershipId"]!! }
         call.respondText("${membership.memberId}|${membership.memberDisplayName}|${membership.role}|${membership.since}")
     }
     get("/e2e6/verify-chain") {
-        val result = AuditLogService(call).verifyChainIntegrity(null, null)
+        val result = AuditLogService(call).verifyChainIntegrity(fromSequenceNumber = null, toSequenceNumber = null)
         call.respondText("${result.valid}:${result.brokenAtSequenceNumber ?: ""}:${result.checkedCount}")
     }
 }

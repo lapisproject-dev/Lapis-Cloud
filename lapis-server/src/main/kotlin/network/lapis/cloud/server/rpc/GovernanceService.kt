@@ -217,7 +217,7 @@ class GovernanceService(
             // the row lock, a concurrent leaveMembership() could commit between this read and that
             // INSERT, seating a member from a status read that was already stale. See
             // requireActiveMembership KDoc "forUpdate".
-            requireActiveMembership(memberId, forUpdate = true)
+            requireActiveMembership(memberId = memberId, forUpdate = true)
             val committeeRow =
                 CommitteeTable.selectAll().where { CommitteeTable.id eq gId }.singleOrNull()
                     ?: throw NotFoundException("Committee $committeeId not found")
@@ -249,12 +249,24 @@ class GovernanceService(
             // beneficial-owner roster/reminder mechanism in step, guarded on the Committee's
             // type (NOT isPoliticalParty, see BoardMembershipEvents KDoc).
             if (committeeRow[CommitteeTable.type] == CommitteeType.EXECUTIVE_BOARD) {
-                val boardMembershipId = BoardMembershipEvents.recordBoardJoin(memberId, input.role, input.since, nowLocalDateTime())
+                val boardMembershipId =
+                    BoardMembershipEvents.recordBoardJoin(
+                        memberId = memberId,
+                        role = input.role,
+                        startedAt = input.since,
+                        now = nowLocalDateTime(),
+                    )
                 // V0.5.3 GoBD audit log: called last, after recordBoardJoin's own writes and before
                 // the final read-only select below -- see auditBoardMembershipCreate KDoc for the
                 // full call-site rationale (this is one of the two non-BoardMembershipService paths
                 // that widened its scope).
-                auditBoardMembershipCreate(boardMembershipId, memberId, input.role, input.since, current)
+                auditBoardMembershipCreate(
+                    boardMembershipId = boardMembershipId,
+                    memberId = memberId,
+                    committeeRole = input.role,
+                    startedAt = input.since,
+                    current = current,
+                )
             }
             (CommitteeMembershipTable innerJoin MemberTable)
                 .selectAll()
@@ -301,17 +313,21 @@ class GovernanceService(
                         }.singleOrNull()
                 if (openBoardMembershipRow != null) {
                     val openBoardMembershipId = openBoardMembershipRow[BoardMembershipTable.id]
-                    BoardMembershipEvents.recordBoardLeave(openBoardMembershipId, until, nowLocalDateTime())
+                    BoardMembershipEvents.recordBoardLeave(
+                        boardMembershipId = openBoardMembershipId,
+                        endedAt = until,
+                        now = nowLocalDateTime(),
+                    )
                     // V0.5.3 GoBD audit log: called last, after recordBoardLeave's own writes and
                     // before the final read-only select below -- see auditBoardMembershipEnd KDoc
                     // for the full call-site rationale.
                     auditBoardMembershipEnd(
-                        openBoardMembershipId,
-                        openBoardMembershipRow[BoardMembershipTable.memberId],
-                        openBoardMembershipRow[BoardMembershipTable.committeeRole],
-                        openBoardMembershipRow[BoardMembershipTable.startedAt],
-                        until,
-                        current,
+                        boardMembershipId = openBoardMembershipId,
+                        memberId = openBoardMembershipRow[BoardMembershipTable.memberId],
+                        committeeRole = openBoardMembershipRow[BoardMembershipTable.committeeRole],
+                        startedAt = openBoardMembershipRow[BoardMembershipTable.startedAt],
+                        endedAt = until,
+                        current = current,
                     )
                 }
             }
@@ -348,7 +364,12 @@ class GovernanceService(
                 agenda = loadAgenda(sId),
                 attendance = loadAttendance(sId),
                 resolutions = loadResolutions(sId),
-                quorum = computeQuorum(sId, meeting.committeeId.toCommitteeUuid(), meeting.scheduledAt.date),
+                quorum =
+                    computeQuorum(
+                        meetingId = sId,
+                        committeeId = meeting.committeeId.toCommitteeUuid(),
+                        scheduledDate = meeting.scheduledAt.date,
+                    ),
             )
         }
     }
@@ -404,7 +425,7 @@ class GovernanceService(
         return transaction {
             val committeeId = requireMeetingCommitteeId(sId)
             if (!current.canRecordForMeeting(committeeId)) throw ForbiddenException()
-            insertAgendaItem(sId, input)
+            insertAgendaItem(sId = sId, input = input)
         }
     }
 
@@ -479,7 +500,7 @@ class GovernanceService(
         val sId = meetingId.toMeetingUuid()
         return transaction {
             val meeting = loadMeeting(sId)
-            computeQuorum(sId, meeting.committeeId.toCommitteeUuid(), meeting.scheduledAt.date)
+            computeQuorum(meetingId = sId, committeeId = meeting.committeeId.toCommitteeUuid(), scheduledDate = meeting.scheduledAt.date)
         }
     }
 
@@ -493,12 +514,19 @@ class GovernanceService(
             val committeeId = requireMeetingCommitteeId(sId)
             if (!current.canRecordForMeeting(committeeId)) throw ForbiddenException()
             val meeting = loadMeeting(sId)
-            val resolution = insertResolutionRow(sId, committeeId, meeting.scheduledAt.date, input, current)
+            val resolution =
+                insertResolutionRow(
+                    sId = sId,
+                    committeeId = committeeId,
+                    scheduledDate = meeting.scheduledAt.date,
+                    input = input,
+                    current = current,
+                )
             // V0.5.3 GoBD audit log: CREATE only -- a Resolution is never mutated after recording
             // (no update path exists in this codebase), see 14-audit-log.kuml.kts file header.
             // This is the last database write of this transaction, satisfying AuditLogRecorder's
             // deadlock-avoidance contract -- see auditResolutionCreate KDoc.
-            auditResolutionCreate(resolution, current)
+            auditResolutionCreate(resolution = resolution, current = current)
             resolution
         }
     }
@@ -536,7 +564,12 @@ class GovernanceService(
                 attendance = loadAttendance(sId),
                 agenda = loadAgenda(sId),
                 resolutions = loadResolutions(sId),
-                quorum = computeQuorum(sId, meeting.committeeId.toCommitteeUuid(), meeting.scheduledAt.date),
+                quorum =
+                    computeQuorum(
+                        meetingId = sId,
+                        committeeId = meeting.committeeId.toCommitteeUuid(),
+                        scheduledDate = meeting.scheduledAt.date,
+                    ),
                 generatedAt = nowLocalDateTime(),
             )
         }
@@ -660,7 +693,7 @@ class GovernanceService(
             // be amended -- auto-cascade WITHDRAWN onto every still-pending amendment rather than
             // leaving them orphaned. Only for a MAIN motion (amendsMotionId == null); withdrawing
             // an amendment itself has no cascade of its own.
-            if (row[MotionTable.amendsMotionId] == null) cascadeWithdrawPendingAmendments(aId, now)
+            if (row[MotionTable.amendsMotionId] == null) cascadeWithdrawPendingAmendments(motionId = aId, now = now)
             loadMotion(aId)
         }
     }
@@ -698,7 +731,7 @@ class GovernanceService(
             // same reasoning as withdrawMotion's cascade -- but NOT for ACCEPT (REVIEWED), which
             // keeps the main Motion alive, so its amendments correctly stay pending too.
             if (newStatus == MotionStatus.REJECTED_PRELIMINARY && row[MotionTable.amendsMotionId] == null) {
-                cascadeWithdrawPendingAmendments(aId, now)
+                cascadeWithdrawPendingAmendments(motionId = aId, now = now)
             }
             loadMotion(aId)
         }
@@ -758,13 +791,14 @@ class GovernanceService(
                 } else {
                     Uuid.parse(
                         insertAgendaItem(
-                            sId,
-                            AgendaItemInput(
-                                position = position,
-                                title = row[MotionTable.title],
-                                description = row[MotionTable.rationale],
-                                presenterMemberId = row[MotionTable.submitterMemberId].toString(),
-                            ),
+                            sId = sId,
+                            input =
+                                AgendaItemInput(
+                                    position = position,
+                                    title = row[MotionTable.title],
+                                    description = row[MotionTable.rationale],
+                                    presenterMemberId = row[MotionTable.submitterMemberId].toString(),
+                                ),
                         ).id,
                     )
                 }
@@ -820,7 +854,14 @@ class GovernanceService(
                     votesAbstain = input.votesAbstain,
                     status = input.status,
                 )
-            val resolution = insertResolutionRow(sId, committeeId, meeting.scheduledAt.date, resolutionInput, current)
+            val resolution =
+                insertResolutionRow(
+                    sId = sId,
+                    committeeId = committeeId,
+                    scheduledDate = meeting.scheduledAt.date,
+                    input = resolutionInput,
+                    current = current,
+                )
             val newMotionStatus =
                 when (input.status) {
                     ResolutionStatus.ADOPTED -> MotionStatus.RESOLVED
@@ -844,7 +885,7 @@ class GovernanceService(
             }
             // V0.5.3 GoBD audit log: called last, after MotionTable.update, so this satisfies
             // AuditLogRecorder's deadlock-avoidance contract -- see auditResolutionCreate KDoc.
-            auditResolutionCreate(resolution, current)
+            auditResolutionCreate(resolution = resolution, current = current)
             loadMotion(aId)
         }
     }
@@ -939,7 +980,7 @@ class GovernanceService(
             // predating that fix). Member-only (AKTIV), not requireActiveOrGuestMembership -- this
             // project's own concept states "Keine Stimmrechte für Gäste": guests never get vote
             // weight, full stop.
-            requireActiveMembership(current.memberId)
+            requireActiveMembership(memberId = current.memberId)
             val voteRow =
                 VoteTable.selectAll().where { VoteTable.id eq abId }.singleOrNull()
                     ?: throw NotFoundException("Vote ${input.voteId} not found")
@@ -957,7 +998,7 @@ class GovernanceService(
             val meeting = loadMeeting(voteRow[VoteTable.meetingId])
             val committeeRow =
                 CommitteeTable.selectAll().where { CommitteeTable.id eq meeting.committeeId.toCommitteeUuid() }.single()
-            val eligible = eligibleMemberIds(committeeRow, meeting.scheduledAt.date)
+            val eligible = eligibleMemberIds(committeeRow = committeeRow, scheduledDate = meeting.scheduledAt.date)
             if (current.memberId !in eligible) throw ForbiddenException()
 
             val stake = input.stakeLtr
@@ -1106,7 +1147,7 @@ class GovernanceService(
                         stake = it[VoteBallotTable.stakeLtr],
                     )
                 }
-            val settlement = computeVickreySettlement(ballots, optionIds)
+            val settlement = computeVickreySettlement(ballots = ballots, optionIds = optionIds)
             val now = nowLocalDateTime()
 
             ballotRows.forEach { row ->
@@ -1152,11 +1193,11 @@ class GovernanceService(
                 )
             val resolution =
                 insertResolutionRow(
-                    sId,
-                    committeeId,
-                    meeting.scheduledAt.date,
-                    resolutionInput,
-                    current,
+                    sId = sId,
+                    committeeId = committeeId,
+                    scheduledDate = meeting.scheduledAt.date,
+                    input = resolutionInput,
+                    current = current,
                     resolutionMode = ResolutionMode.MERITOCRATIC,
                     voteId = abId,
                 )
@@ -1190,7 +1231,7 @@ class GovernanceService(
             }
             // V0.5.3 GoBD audit log: called last, after VoteTable.update, so this satisfies
             // AuditLogRecorder's deadlock-avoidance contract -- see auditResolutionCreate KDoc.
-            auditResolutionCreate(resolution, current)
+            auditResolutionCreate(resolution = resolution, current = current)
             loadVote(abId)
         }
     }

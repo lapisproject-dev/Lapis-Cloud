@@ -62,7 +62,7 @@ class BeitragsrechnungPdfGeneratorTest :
                     createdAt = kotlinx.datetime.LocalDateTime(2026, 1, 1, 0, 0),
                 )
 
-            val bytes = BeitragsrechnungPdfGenerator.generate(contribution, MEMBER, ORGANIZATION)
+            val bytes = BeitragsrechnungPdfGenerator.generate(contribution = contribution, member = MEMBER, organization = ORGANIZATION)
             val document = Loader.loadPDF(bytes)
             val text =
                 try {

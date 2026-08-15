@@ -29,24 +29,29 @@ class ConferenceGuestConsentDisclaimerTest :
 
         test("matches() is true only for the exact current version+hash pair") {
             ConferenceGuestConsentDisclaimer.matches(
-                ConferenceGuestConsentDisclaimer.VERSION,
-                ConferenceGuestConsentDisclaimer.SHA256,
+                version = ConferenceGuestConsentDisclaimer.VERSION,
+                sha256 = ConferenceGuestConsentDisclaimer.SHA256,
             ) shouldBe true
         }
 
         test("matches() rejects a stale/wrong version even with the correct hash") {
-            ConferenceGuestConsentDisclaimer.matches("2020-01-01.v0", ConferenceGuestConsentDisclaimer.SHA256) shouldBe false
+            ConferenceGuestConsentDisclaimer.matches(version = "2020-01-01.v0", sha256 = ConferenceGuestConsentDisclaimer.SHA256) shouldBe
+                false
         }
 
         test("matches() rejects a tampered hash even with the correct version") {
             val tampered = "0" + ConferenceGuestConsentDisclaimer.SHA256.drop(1)
-            ConferenceGuestConsentDisclaimer.matches(ConferenceGuestConsentDisclaimer.VERSION, tampered) shouldBe false
+            ConferenceGuestConsentDisclaimer.matches(version = ConferenceGuestConsentDisclaimer.VERSION, sha256 = tampered) shouldBe false
         }
 
         test("matches() rejects a malformed (non-hex / wrong-length) hash without throwing") {
-            ConferenceGuestConsentDisclaimer.matches(ConferenceGuestConsentDisclaimer.VERSION, "not-a-hex-digest") shouldBe false
-            ConferenceGuestConsentDisclaimer.matches(ConferenceGuestConsentDisclaimer.VERSION, "") shouldBe false
-            ConferenceGuestConsentDisclaimer.matches(ConferenceGuestConsentDisclaimer.VERSION, "abc") shouldBe false
+            ConferenceGuestConsentDisclaimer.matches(
+                version = ConferenceGuestConsentDisclaimer.VERSION,
+                sha256 = "not-a-hex-digest",
+            ) shouldBe
+                false
+            ConferenceGuestConsentDisclaimer.matches(version = ConferenceGuestConsentDisclaimer.VERSION, sha256 = "") shouldBe false
+            ConferenceGuestConsentDisclaimer.matches(version = ConferenceGuestConsentDisclaimer.VERSION, sha256 = "abc") shouldBe false
         }
 
         test("TEXT names the load-bearing disclosure topics") {

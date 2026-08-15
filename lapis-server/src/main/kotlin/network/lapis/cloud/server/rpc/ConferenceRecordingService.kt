@@ -151,7 +151,7 @@ class ConferenceRecordingService(
             if (room[ConferenceRoomTable.endedAt] != null) {
                 throw ConflictException("Conference room $roomUuid has already ended -- cannot start a recording")
             }
-            requireModeratorOrPrivileged(room, current)
+            requireModeratorOrPrivileged(room = room, current = current)
 
             val alreadyActive =
                 ConferenceRecordingTable
@@ -194,14 +194,14 @@ class ConferenceRecordingService(
                 occurredAt = now,
             )
             val row = ConferenceRecordingTable.selectAll().where { ConferenceRecordingTable.id eq recordingId }.single()
-            rowToDto(row, room[ConferenceRoomTable.title], current)
+            rowToDto(row = row, roomTitle = room[ConferenceRoomTable.title], current = current)
         }
     }
 
     override suspend fun stopRecording(recordingId: String): ConferenceRecordingDto {
         val current = resolveCurrentMember(call)
         requireRecordingEnabled()
-        requireWithinRate(stopRecordingRateLimiter, current.memberId)
+        requireWithinRate(limiter = stopRecordingRateLimiter, memberId = current.memberId)
         // See startRecording's own "roomUuid, NOT id" comment -- same shadowing avoidance.
         val recordingUuid = recordingId.toRecordingUuid()
         return transaction {
@@ -211,7 +211,7 @@ class ConferenceRecordingService(
             val room =
                 ConferenceRoomTable.selectAll().where { ConferenceRoomTable.id eq row[ConferenceRecordingTable.roomId] }.singleOrNull()
                     ?: throw NotFoundException("Conference room for recording $recordingUuid not found")
-            requireModeratorOrPrivileged(room, current)
+            requireModeratorOrPrivileged(room = room, current = current)
 
             if (row[ConferenceRecordingTable.status] == ConferenceRecordingStatus.RECORDING) {
                 val now = nowLocalDateTime()
@@ -231,14 +231,14 @@ class ConferenceRecordingService(
             }
             // Idempotent once already stopped -- see IConferenceRecordingService.stopRecording KDoc.
             val fresh = ConferenceRecordingTable.selectAll().where { ConferenceRecordingTable.id eq recordingUuid }.single()
-            rowToDto(fresh, room[ConferenceRoomTable.title], current)
+            rowToDto(row = fresh, roomTitle = room[ConferenceRoomTable.title], current = current)
         }
     }
 
     override suspend fun getActiveRecording(roomId: String): List<ConferenceRecordingDto> {
         val current = resolveCurrentMember(call)
         requireRecordingEnabled()
-        requireWithinRate(readRateLimiter, current.memberId)
+        requireWithinRate(limiter = readRateLimiter, memberId = current.memberId)
         val roomUuid = roomId.toRecordingUuid()
         return transaction {
             val room =
@@ -249,8 +249,8 @@ class ConferenceRecordingService(
             // who is actually in the room (allowFederationGuests + has joined) can see the
             // recording badge too -- "everyone in the room has a legal right to know" applies to a
             // guest exactly as much as to an AKTIV member. See requireRoomEntryAuthorization KDoc.
-            val status = requireRoomEntryAuthorization(room, current)
-            requireGuestHasJoinedRoom(roomUuid, current, status)
+            val status = requireRoomEntryAuthorization(roomRow = room, current = current)
+            requireGuestHasJoinedRoom(roomId = roomUuid, current = current, status = status)
             val row =
                 ConferenceRecordingTable
                     .selectAll()
@@ -263,17 +263,17 @@ class ConferenceRecordingService(
                     ?: return@transaction emptyList()
             // Never gated on canAccessDocumentAtLevel -- see IConferenceRecordingService
             // .getActiveRecording KDoc "everyone in the room has a legal right to know".
-            listOf(rowToDto(row, room[ConferenceRoomTable.title], current))
+            listOf(rowToDto(row = row, roomTitle = room[ConferenceRoomTable.title], current = current))
         }
     }
 
     override suspend fun listRecordings(roomId: String?): List<ConferenceRecordingDto> {
         val current = resolveCurrentMember(call)
         requireRecordingEnabled()
-        requireWithinRate(readRateLimiter, current.memberId)
+        requireWithinRate(limiter = readRateLimiter, memberId = current.memberId)
         val parsedRoomId = roomId?.toRecordingUuid()
         return transaction {
-            requireActiveMembership(current.memberId)
+            requireActiveMembership(memberId = current.memberId)
             val query =
                 if (parsedRoomId != null) {
                     ConferenceRecordingTable.selectAll().where { ConferenceRecordingTable.roomId eq parsedRoomId }
@@ -286,9 +286,9 @@ class ConferenceRecordingService(
                 .limit(MAX_LIST_RESULTS)
                 .filter { row ->
                     ConferenceRecordingAccess.mayAccess(
-                        current,
-                        row[ConferenceRecordingTable.accessLevel],
-                        row[ConferenceRecordingTable.startedByMemberId],
+                        current = current,
+                        accessLevel = row[ConferenceRecordingTable.accessLevel],
+                        startedByMemberId = row[ConferenceRecordingTable.startedByMemberId],
                     )
                 }.map { row ->
                     val roomIdValue = row[ConferenceRecordingTable.roomId]
@@ -301,7 +301,7 @@ class ConferenceRecordingService(
                                 ?.get(ConferenceRoomTable.title)
                                 ?: ""
                         }
-                    rowToDto(row, title, current)
+                    rowToDto(row = row, roomTitle = title, current = current)
                 }
         }
     }
@@ -367,7 +367,11 @@ class ConferenceRecordingService(
         // client-visible URL alone).
         val mediaUrl: String? =
             if (status == ConferenceRecordingStatus.READY &&
-                ConferenceRecordingAccess.mayAccess(current, row[ConferenceRecordingTable.accessLevel], startedByMemberId)
+                ConferenceRecordingAccess.mayAccess(
+                    current = current,
+                    accessLevel = row[ConferenceRecordingTable.accessLevel],
+                    startedByMemberId = startedByMemberId,
+                )
             ) {
                 "/api/conference/recordings/$recordingId/media"
             } else {

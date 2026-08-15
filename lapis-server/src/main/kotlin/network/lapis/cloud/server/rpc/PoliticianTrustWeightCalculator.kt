@@ -121,7 +121,7 @@ internal object PoliticianTrustWeightCalculator {
         val pool: BigDecimal =
             distinctRaters.fold(ZERO_2DP) { acc, raterId -> acc + (raterBalances[raterId] ?: ZERO_2DP) }
 
-        val weightsByProfile = LargestRemainderApportionment.apportion(korbByProfile, pool)
+        val weightsByProfile = LargestRemainderApportionment.apportion(weights = korbByProfile, pool = pool)
 
         return reactionsByProfile.keys.associateWith { profileId ->
             val (likes, dislikes) = countsByProfile.getValue(profileId)

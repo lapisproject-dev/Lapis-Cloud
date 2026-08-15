@@ -99,7 +99,7 @@ class ConferenceRecordingServiceTest :
             DevSeedData.seedIfEmpty(force = true)
         }
 
-        afterSpec { cleanUpConferenceRecordingTestData(createdMemberIds, createdRoomIds) }
+        afterSpec { cleanUpConferenceRecordingTestData(memberIds = createdMemberIds, roomIds = createdRoomIds) }
 
         fun createTestMember(
             email: String,
@@ -159,40 +159,40 @@ class ConferenceRecordingServiceTest :
                         get("/test/availability-all-true") {
                             val dto =
                                 ConferenceRecordingService(
-                                    call,
-                                    true,
-                                    ENABLED_CONFERENCE_CONFIG,
-                                    ENABLED_RECORDING_CONFIG,
+                                    call = call,
+                                    ffmpegAvailable = true,
+                                    config = ENABLED_CONFERENCE_CONFIG,
+                                    recordingConfig = ENABLED_RECORDING_CONFIG,
                                 ).getRecordingAvailability()
                             call.respondText(dto.toPipeString())
                         }
                         get("/test/availability-no-ffmpeg") {
                             val dto =
                                 ConferenceRecordingService(
-                                    call,
-                                    false,
-                                    ENABLED_CONFERENCE_CONFIG,
-                                    ENABLED_RECORDING_CONFIG,
+                                    call = call,
+                                    ffmpegAvailable = false,
+                                    config = ENABLED_CONFERENCE_CONFIG,
+                                    recordingConfig = ENABLED_RECORDING_CONFIG,
                                 ).getRecordingAvailability()
                             call.respondText(dto.toPipeString())
                         }
                         get("/test/availability-recording-disabled") {
                             val dto =
                                 ConferenceRecordingService(
-                                    call,
-                                    true,
-                                    ENABLED_CONFERENCE_CONFIG,
-                                    DISABLED_RECORDING_CONFIG,
+                                    call = call,
+                                    ffmpegAvailable = true,
+                                    config = ENABLED_CONFERENCE_CONFIG,
+                                    recordingConfig = DISABLED_RECORDING_CONFIG,
                                 ).getRecordingAvailability()
                             call.respondText(dto.toPipeString())
                         }
                         get("/test/availability-conference-disabled") {
                             val dto =
                                 ConferenceRecordingService(
-                                    call,
-                                    true,
-                                    DISABLED_CONFERENCE_CONFIG,
-                                    ENABLED_RECORDING_CONFIG,
+                                    call = call,
+                                    ffmpegAvailable = true,
+                                    config = DISABLED_CONFERENCE_CONFIG,
+                                    recordingConfig = ENABLED_RECORDING_CONFIG,
                                 ).getRecordingAvailability()
                             call.respondText(dto.toPipeString())
                         }
@@ -219,10 +219,10 @@ class ConferenceRecordingServiceTest :
                         get("/test/availability") {
                             val dto =
                                 ConferenceRecordingService(
-                                    call,
-                                    true,
-                                    ENABLED_CONFERENCE_CONFIG,
-                                    ENABLED_RECORDING_CONFIG,
+                                    call = call,
+                                    ffmpegAvailable = true,
+                                    config = ENABLED_CONFERENCE_CONFIG,
+                                    recordingConfig = ENABLED_RECORDING_CONFIG,
                                 ).getRecordingAvailability()
                             call.respondText(dto.toPipeString())
                         }
@@ -383,8 +383,12 @@ class ConferenceRecordingServiceTest :
                         post("/test/start-recording") {
                             val q = call.request.queryParameters
                             val dto =
-                                ConferenceRecordingService(call, true, ENABLED_CONFERENCE_CONFIG, DISABLED_RECORDING_CONFIG)
-                                    .startRecording(q["roomId"]!!, DocumentAccessLevel.valueOf(q["accessLevel"]!!))
+                                ConferenceRecordingService(
+                                    call = call,
+                                    ffmpegAvailable = true,
+                                    config = ENABLED_CONFERENCE_CONFIG,
+                                    recordingConfig = DISABLED_RECORDING_CONFIG,
+                                ).startRecording(roomId = q["roomId"]!!, accessLevel = DocumentAccessLevel.valueOf(q["accessLevel"]!!))
                             call.respondText(dto.toPipeString())
                         }
                     }
@@ -407,8 +411,12 @@ class ConferenceRecordingServiceTest :
                         post("/test/start-recording") {
                             val q = call.request.queryParameters
                             val dto =
-                                ConferenceRecordingService(call, false, ENABLED_CONFERENCE_CONFIG, ENABLED_RECORDING_CONFIG)
-                                    .startRecording(q["roomId"]!!, DocumentAccessLevel.valueOf(q["accessLevel"]!!))
+                                ConferenceRecordingService(
+                                    call = call,
+                                    ffmpegAvailable = false,
+                                    config = ENABLED_CONFERENCE_CONFIG,
+                                    recordingConfig = ENABLED_RECORDING_CONFIG,
+                                ).startRecording(roomId = q["roomId"]!!, accessLevel = DocumentAccessLevel.valueOf(q["accessLevel"]!!))
                             call.respondText(dto.toPipeString())
                         }
                     }
@@ -438,7 +446,13 @@ class ConferenceRecordingServiceTest :
                 // "second start after the first has already committed" test above, this is the
                 // actual check-then-act race the `.forUpdate()` room-row lock in
                 // ConferenceRecordingService.startRecording closes.
-                val outcomes = runConcurrentStartRecording(client, roomId.toString(), creator, Uuid.parse(BOARD_ID))
+                val outcomes =
+                    runConcurrentStartRecording(
+                        client = client,
+                        roomId = roomId.toString(),
+                        callerA = creator,
+                        callerB = Uuid.parse(BOARD_ID),
+                    )
                 outcomes.count { it == HttpStatusCode.OK } shouldBe 1
                 outcomes.count { it == HttpStatusCode.Conflict } shouldBe 1
 
@@ -860,18 +874,18 @@ private fun Route.registerConferenceRecordingTestRoutes(
 ) {
     fun service(call: ApplicationCall) =
         ConferenceRecordingService(
-            call,
-            true,
-            ENABLED_CONFERENCE_CONFIG,
-            ENABLED_RECORDING_CONFIG,
-            startLimiter,
-            stopLimiter,
-            readLimiter,
+            call = call,
+            ffmpegAvailable = true,
+            config = ENABLED_CONFERENCE_CONFIG,
+            recordingConfig = ENABLED_RECORDING_CONFIG,
+            startRecordingRateLimiter = startLimiter,
+            stopRecordingRateLimiter = stopLimiter,
+            readRateLimiter = readLimiter,
         )
 
     post("/test/start-recording") {
         val q = call.request.queryParameters
-        val dto = service(call).startRecording(q["roomId"]!!, DocumentAccessLevel.valueOf(q["accessLevel"]!!))
+        val dto = service(call).startRecording(roomId = q["roomId"]!!, accessLevel = DocumentAccessLevel.valueOf(q["accessLevel"]!!))
         call.respondText(dto.toPipeString())
     }
     post("/test/stop-recording") {

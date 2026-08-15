@@ -15,13 +15,13 @@ import java.util.Locale
  */
 class FfmpegArgumentBuilderTest :
     FunSpec({
-        fun args(spec: RecordingComposeSpec) = FfmpegArgumentBuilder.build(spec, "/tmp/out.mp4").joinToString(" ")
+        fun args(spec: RecordingComposeSpec) = FfmpegArgumentBuilder.build(spec = spec, outputPath = "/tmp/out.mp4").joinToString(" ")
 
         test("throws for an empty videoInputs list -- composition needs at least one video") {
             shouldThrow<IllegalArgumentException> {
                 FfmpegArgumentBuilder.build(
-                    RecordingComposeSpec(videoInputs = emptyList(), audioInputs = emptyList(), outputDurationSeconds = 10.0),
-                    "/tmp/out.mp4",
+                    spec = RecordingComposeSpec(videoInputs = emptyList(), audioInputs = emptyList(), outputDurationSeconds = 10.0),
+                    outputPath = "/tmp/out.mp4",
                 )
             }
         }
@@ -33,8 +33,8 @@ class FfmpegArgumentBuilderTest :
                 RecordingComposeSpec(
                     videoInputs =
                         listOf(
-                            RecordingComposeVideoInput(File("cam1.mp4"), offsetSeconds = 0.0, isScreenShare = false),
-                            RecordingComposeVideoInput(File("cam2.mp4"), offsetSeconds = 5.0, isScreenShare = false),
+                            RecordingComposeVideoInput(file = File("cam1.mp4"), offsetSeconds = 0.0, isScreenShare = false),
+                            RecordingComposeVideoInput(file = File("cam2.mp4"), offsetSeconds = 5.0, isScreenShare = false),
                         ),
                     audioInputs = emptyList(),
                     outputDurationSeconds = 42.0,
@@ -61,7 +61,7 @@ class FfmpegArgumentBuilderTest :
         test("zero audio inputs -> silent anullsrc fallback, mapped directly to [aout] via anull, no amix") {
             val spec =
                 RecordingComposeSpec(
-                    videoInputs = listOf(RecordingComposeVideoInput(File("cam1.mp4"), offsetSeconds = 0.0, isScreenShare = false)),
+                    videoInputs = listOf(RecordingComposeVideoInput(file = File("cam1.mp4"), offsetSeconds = 0.0, isScreenShare = false)),
                     audioInputs = emptyList(),
                     outputDurationSeconds = 10.0,
                 )
@@ -75,11 +75,11 @@ class FfmpegArgumentBuilderTest :
         test("non-zero audio inputs -> adelay per input with correct millisecond offsets, then amix, no anullsrc") {
             val spec =
                 RecordingComposeSpec(
-                    videoInputs = listOf(RecordingComposeVideoInput(File("cam1.mp4"), offsetSeconds = 0.0, isScreenShare = false)),
+                    videoInputs = listOf(RecordingComposeVideoInput(file = File("cam1.mp4"), offsetSeconds = 0.0, isScreenShare = false)),
                     audioInputs =
                         listOf(
-                            RecordingComposeAudioInput(File("mic1.ogg"), offsetSeconds = 0.0),
-                            RecordingComposeAudioInput(File("mic2.ogg"), offsetSeconds = 2.5),
+                            RecordingComposeAudioInput(file = File("mic1.ogg"), offsetSeconds = 0.0),
+                            RecordingComposeAudioInput(file = File("mic2.ogg"), offsetSeconds = 2.5),
                         ),
                     outputDurationSeconds = 10.0,
                 )
@@ -98,8 +98,8 @@ class FfmpegArgumentBuilderTest :
                 RecordingComposeSpec(
                     videoInputs =
                         listOf(
-                            RecordingComposeVideoInput(File("cam1.mp4"), offsetSeconds = 0.0, isScreenShare = false),
-                            RecordingComposeVideoInput(File("share.mp4"), offsetSeconds = 0.0, isScreenShare = true),
+                            RecordingComposeVideoInput(file = File("cam1.mp4"), offsetSeconds = 0.0, isScreenShare = false),
+                            RecordingComposeVideoInput(file = File("share.mp4"), offsetSeconds = 0.0, isScreenShare = true),
                         ),
                     audioInputs = emptyList(),
                     outputDurationSeconds = 10.0,
@@ -119,15 +119,15 @@ class FfmpegArgumentBuilderTest :
                 RecordingComposeSpec(
                     videoInputs =
                         listOf(
-                            RecordingComposeVideoInput(File("cam1.mp4"), offsetSeconds = 0.0, isScreenShare = false),
-                            RecordingComposeVideoInput(File("cam2.mp4"), offsetSeconds = 0.0, isScreenShare = false),
+                            RecordingComposeVideoInput(file = File("cam1.mp4"), offsetSeconds = 0.0, isScreenShare = false),
+                            RecordingComposeVideoInput(file = File("cam2.mp4"), offsetSeconds = 0.0, isScreenShare = false),
                         ),
                     audioInputs = emptyList(),
                     outputDurationSeconds = 10.0,
                     outputWidth = 1280,
                     outputHeight = 720,
                 )
-            val builtArgs = FfmpegArgumentBuilder.build(spec, "/tmp/out.mp4")
+            val builtArgs = FfmpegArgumentBuilder.build(spec = spec, outputPath = "/tmp/out.mp4")
 
             // 2 inputs -> ceil(sqrt(2))=2 columns, 1 row -> cell width 640, both at y=0.
             builtArgs shouldContain "-filter_complex"
@@ -142,7 +142,10 @@ class FfmpegArgumentBuilderTest :
                 Locale.setDefault(Locale.GERMANY) // comma decimal separator by default
                 val spec =
                     RecordingComposeSpec(
-                        videoInputs = listOf(RecordingComposeVideoInput(File("cam1.mp4"), offsetSeconds = 1.5, isScreenShare = false)),
+                        videoInputs =
+                            listOf(
+                                RecordingComposeVideoInput(file = File("cam1.mp4"), offsetSeconds = 1.5, isScreenShare = false),
+                            ),
                         audioInputs = emptyList(),
                         outputDurationSeconds = 12.25,
                     )
@@ -160,7 +163,7 @@ class FfmpegArgumentBuilderTest :
         test("a negative offsetSeconds is clamped to zero, never emitted as a negative ffmpeg filter argument") {
             val spec =
                 RecordingComposeSpec(
-                    videoInputs = listOf(RecordingComposeVideoInput(File("cam1.mp4"), offsetSeconds = -3.0, isScreenShare = false)),
+                    videoInputs = listOf(RecordingComposeVideoInput(file = File("cam1.mp4"), offsetSeconds = -3.0, isScreenShare = false)),
                     audioInputs = emptyList(),
                     outputDurationSeconds = 10.0,
                 )

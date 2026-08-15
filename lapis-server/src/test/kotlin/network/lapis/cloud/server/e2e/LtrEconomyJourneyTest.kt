@@ -127,7 +127,7 @@ class LtrEconomyJourneyTest :
                 // Retires the fresh liker/payer members (never the seeded staker) and, as a side
                 // effect, deletes their Contribution/LtrLedgerEntry/Session rows -- see
                 // hardDeleteGovernanceAndMembershipFixtures KDoc.
-                hardDeleteGovernanceAndMembershipFixtures(emptyList(), createdMemberIds)
+                hardDeleteGovernanceAndMembershipFixtures(committeeIds = emptyList(), memberIds = createdMemberIds)
                 if (createdMembershipTierIds.isNotEmpty()) {
                     MembershipTierTable.deleteWhere { MembershipTierTable.id inList createdMembershipTierIds }
                 }
@@ -146,7 +146,7 @@ class LtrEconomyJourneyTest :
                     routing {
                         post("/e2e2/mint-ltr/{memberId}") {
                             val dto =
-                                LtrLedgerService(call).mintLtr(
+                                LtrLedgerService(call = call).mintLtr(
                                     MintLtrInput(
                                         memberId = call.parameters["memberId"]!!,
                                         amountLtr = BigDecimal(call.request.queryParameters["amount"]!!),
@@ -156,12 +156,12 @@ class LtrEconomyJourneyTest :
                             call.respondText(dto.id)
                         }
                         get("/e2e2/my-balance") {
-                            call.respondText(LtrLedgerService(call).getMyBalance().freeBalanceLtr.toString())
+                            call.respondText(LtrLedgerService(call = call).getMyBalance().freeBalanceLtr.toString())
                         }
                         post("/e2e2/submit-project") {
                             val q = call.request.queryParameters
                             val p =
-                                CrowdfundingService(call).submitProject(
+                                CrowdfundingService(call = call).submitProject(
                                     CrowdfundingProjectInput(
                                         title = q["title"]!!,
                                         description = "E2E Scenario 2",
@@ -171,14 +171,14 @@ class LtrEconomyJourneyTest :
                             call.respondText("${p.id}:${p.status}")
                         }
                         post("/e2e2/approve-project/{id}") {
-                            val p = CrowdfundingService(call).approveProject(call.parameters["id"]!!)
+                            val p = CrowdfundingService(call = call).approveProject(call.parameters["id"]!!)
                             call.respondText(p.status.name)
                         }
                         post("/e2e2/cast-reaction/{id}/{value}") {
                             val r =
-                                CrowdfundingService(call).castReaction(
-                                    call.parameters["id"]!!,
-                                    CrowdfundingReactionValue.valueOf(call.parameters["value"]!!),
+                                CrowdfundingService(call = call).castReaction(
+                                    projectId = call.parameters["id"]!!,
+                                    value = CrowdfundingReactionValue.valueOf(call.parameters["value"]!!),
                                 )
                             call.respondText(r.value.name)
                         }
@@ -197,9 +197,9 @@ class LtrEconomyJourneyTest :
                         post("/e2e2/generate-contributions/{tierId}") {
                             val count =
                                 ContributionService(call).generateContributionsForPeriod(
-                                    call.parameters["tierId"]!!,
-                                    LocalDate(2027, 2, 1),
-                                    LocalDate(2027, 2, 28),
+                                    membershipTierId = call.parameters["tierId"]!!,
+                                    periodStart = LocalDate(2027, 2, 1),
+                                    periodEnd = LocalDate(2027, 2, 28),
                                 )
                             call.respondText(count.toString())
                         }
@@ -212,18 +212,18 @@ class LtrEconomyJourneyTest :
                             val amount = BigDecimal(call.request.queryParameters["amount"]!!)
                             val dto =
                                 ContributionService(call).markContributionPaid(
-                                    call.parameters["contributionId"]!!,
-                                    LocalDateTime(2027, 2, day, 12, 0),
-                                    amount,
-                                    "E2E Scenario 2",
+                                    contributionId = call.parameters["contributionId"]!!,
+                                    paidAt = LocalDateTime(2027, 2, day, 12, 0),
+                                    paidAmount = amount,
+                                    note = "E2E Scenario 2",
                                 )
                             call.respondText("${dto.status.name}:${dto.paidAmount}")
                         }
                         post("/e2e2/compute-distribution/{start}/{end}") {
                             val results =
-                                CrowdfundingService(call).computeMonthlyDistribution(
-                                    LocalDate.parse(call.parameters["start"]!!),
-                                    LocalDate.parse(call.parameters["end"]!!),
+                                CrowdfundingService(call = call).computeMonthlyDistribution(
+                                    periodStart = LocalDate.parse(call.parameters["start"]!!),
+                                    periodEnd = LocalDate.parse(call.parameters["end"]!!),
                                 )
                             call.respondText(results.joinToString(";") { "${it.projectId}=${it.amountEur}" })
                         }
@@ -234,7 +234,7 @@ class LtrEconomyJourneyTest :
                 // ── style for the LTR-staking actor -- distinct from Scenario 1's fresh-registration ─
                 // ── story) ─────────────────────────────────────────────────────────────────────────
                 val staker = DevSeedData.demoMembers.single { it.role == AccountRole.MEMBER }
-                val stakerToken = client.realLogin(staker.email, DevSeedData.DEMO_PASSWORD)
+                val stakerToken = client.realLogin(email = staker.email, password = DevSeedData.DEMO_PASSWORD)
 
                 // ── Step 2: TREASURER mints LTR to the staker ────────────────────────────────────
                 val mintEntryId =
@@ -281,17 +281,17 @@ class LtrEconomyJourneyTest :
                 // ── real session -- a different member than the submitter, proving castReaction ──────
                 // ── is genuinely open to any AKTIV member, not just the project's own author. ───────
                 val likerEmail = "e2e2-liker-${Uuid.random()}@example.org"
-                val likerId = createRealMember("E2E Scenario 2 Liker", likerEmail, password = E2E_STRONG_PASSWORD)
+                val likerId = createRealMember(displayName = "E2E Scenario 2 Liker", email = likerEmail, password = E2E_STRONG_PASSWORD)
                 createdMemberIds += likerId
-                val likerToken = client.realLogin(likerEmail, E2E_STRONG_PASSWORD)
+                val likerToken = client.realLogin(email = likerEmail, password = E2E_STRONG_PASSWORD)
                 client.post("/e2e2/cast-reaction/$projectId/LIKE") { withSession(likerToken) }.bodyAsText() shouldBe "LIKE"
 
                 // ── Step 6: V0.1 seam -- two fresh, scenario-private members fund the EUR pool via ──
                 // ── real, TREASURER-generated-and-paid contributions on a scenario-private tier. ──────
                 // ── See class KDoc for why these are NOT the staker/liker, and why the tier is ────────
                 // ── scenario-private (same tier-isolation discipline Scenario 1's KDoc documents). ──
-                val payer1 = createRealMember("E2E Scenario 2 Payer One", "e2e2-payer1-${Uuid.random()}@example.org")
-                val payer2 = createRealMember("E2E Scenario 2 Payer Two", "e2e2-payer2-${Uuid.random()}@example.org")
+                val payer1 = createRealMember(displayName = "E2E Scenario 2 Payer One", email = "e2e2-payer1-${Uuid.random()}@example.org")
+                val payer2 = createRealMember(displayName = "E2E Scenario 2 Payer Two", email = "e2e2-payer2-${Uuid.random()}@example.org")
                 createdMemberIds += payer1
                 createdMemberIds += payer2
 

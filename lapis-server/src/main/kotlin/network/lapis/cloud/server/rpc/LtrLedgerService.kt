@@ -70,7 +70,7 @@ class LtrLedgerService(
     override suspend fun listMyEntries(limit: Int): List<LtrLedgerEntryDto> {
         val current = resolveCurrentMember(call)
         val boundedLimit = limit.coerceIn(1, MAX_ENTRY_LIST_LIMIT)
-        return transaction { loadEntries(LtrLedgerEntryTable.memberId eq current.memberId, boundedLimit) }
+        return transaction { loadEntries(condition = LtrLedgerEntryTable.memberId eq current.memberId, limit = boundedLimit) }
     }
 
     override suspend fun listMemberEntries(
@@ -81,7 +81,7 @@ class LtrLedgerService(
         val targetId = memberId.toMemberUuidOrThrow()
         if (targetId != current.memberId) current.requireRole(*LTR_TREASURY_ROLES)
         val boundedLimit = limit.coerceIn(1, MAX_ENTRY_LIST_LIMIT)
-        return transaction { loadEntries(LtrLedgerEntryTable.memberId eq targetId, boundedLimit) }
+        return transaction { loadEntries(condition = LtrLedgerEntryTable.memberId eq targetId, limit = boundedLimit) }
     }
 
     override suspend fun mintLtr(input: MintLtrInput): LtrLedgerEntryDto {

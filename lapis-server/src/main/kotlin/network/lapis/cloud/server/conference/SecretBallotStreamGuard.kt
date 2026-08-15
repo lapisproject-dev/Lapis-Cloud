@@ -247,17 +247,17 @@ class DefaultSecretBallotStreamGuard(
                 return
             }
             try {
-                liveKitEgressClient.stopEgress(pausing.roomName, egressId)
+                liveKitEgressClient.stopEgress(roomName = pausing.roomName, egressId = egressId)
             } catch (e: LiveKitAdminException) {
                 // Best-effort -- see class KDoc. LiveKitAdminException.message is already generic
                 // (network-error class name/HTTP status), safe to log verbatim, same precedent
                 // ConferenceStreamingService.pauseStream/stopStream already establish.
                 logger.warn { "quiesceStreamsForMeeting: StopEgress failed for stream ${pausing.streamId}: ${e.message}" }
             }
-            if (awaitEgressStopped(pausing.roomName, egressId)) {
+            if (awaitEgressStopped(roomName = pausing.roomName, egressId = egressId)) {
                 // Security-audit round-4 R4-1 fix -- pass the SAME id awaitEgressStopped just
                 // confirmed gone/terminal, so markPaused can guard its write against a resurrection.
-                markPaused(pausing.streamId, confirmedEgressId = egressId)
+                markPaused(streamId = pausing.streamId, confirmedEgressId = egressId)
             } else {
                 logger.warn {
                     "quiesceStreamsForMeeting: timed out confirming egress $egressId stopped for stream " +

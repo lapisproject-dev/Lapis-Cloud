@@ -43,7 +43,7 @@ object OidcJwks {
         val jwkSet = runCatching { JWKSet.parse(jwksJson) }.getOrNull() ?: return null
         val jwk = jwkSet.getKeyByKeyId(kid) as? RSAKey ?: return null
         val publicKey = runCatching { jwk.toRSAPublicKey() }.getOrNull() ?: return null
-        return pemEncode(publicKey.encoded, "PUBLIC KEY")
+        return pemEncode(derBytes = publicKey.encoded, label = "PUBLIC KEY")
     }
 
     private fun decodePublicKeyPem(pem: String): RSAPublicKey {

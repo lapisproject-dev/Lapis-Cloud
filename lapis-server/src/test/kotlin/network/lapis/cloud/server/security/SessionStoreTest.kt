@@ -82,7 +82,7 @@ class SessionStoreTest :
             val first = SessionStore.createSession(BOARD_ID)
             val second = SessionStore.createSession(BOARD_ID)
 
-            SessionStore.revokeAllForMember(BOARD_ID)
+            SessionStore.revokeAllForMember(memberId = BOARD_ID)
 
             SessionStore.resolve(first.rawToken).shouldBeNull()
             SessionStore.resolve(second.rawToken).shouldBeNull()
@@ -92,7 +92,7 @@ class SessionStoreTest :
             val kept = SessionStore.createSession(BOARD_ID)
             val revoked = SessionStore.createSession(BOARD_ID)
 
-            SessionStore.revokeAllForMember(BOARD_ID, exceptRawToken = kept.rawToken)
+            SessionStore.revokeAllForMember(memberId = BOARD_ID, exceptRawToken = kept.rawToken)
 
             SessionStore.resolve(kept.rawToken).shouldNotBeNull()
             SessionStore.resolve(revoked.rawToken).shouldBeNull()
@@ -102,7 +102,7 @@ class SessionStoreTest :
             val adminSession = SessionStore.createSession(ADMIN_ID)
             val boardSession = SessionStore.createSession(BOARD_ID)
 
-            SessionStore.revokeAllForMember(BOARD_ID)
+            SessionStore.revokeAllForMember(memberId = BOARD_ID)
 
             SessionStore.resolve(adminSession.rawToken).shouldNotBeNull()
             SessionStore.resolve(boardSession.rawToken).shouldBeNull()

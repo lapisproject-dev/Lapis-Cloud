@@ -88,7 +88,7 @@ class ConferenceNotesServiceTest :
         }
 
         afterSpec {
-            cleanUpNotesTestData(createdMemberIds, createdRoomIds)
+            cleanUpNotesTestData(memberIds = createdMemberIds, roomIds = createdRoomIds)
             documentStorageRoot.deleteRecursively()
         }
 
@@ -168,7 +168,7 @@ class ConferenceNotesServiceTest :
             testApplication {
                 application {
                     install(StatusPages) { installConferenceNotesExceptionHandlers() }
-                    routing { registerConferenceNotesTestRoutes(ConferenceNotesState()) }
+                    routing { registerConferenceNotesTestRoutes(notesState = ConferenceNotesState()) }
                 }
                 val response =
                     client.get("/test/notes-state?roomId=$roomId") { header("X-Member-Id", creator.toString()) }
@@ -183,7 +183,7 @@ class ConferenceNotesServiceTest :
             testApplication {
                 application {
                     install(StatusPages) { installConferenceNotesExceptionHandlers() }
-                    routing { registerConferenceNotesTestRoutes(ConferenceNotesState()) }
+                    routing { registerConferenceNotesTestRoutes(notesState = ConferenceNotesState()) }
                 }
                 val createResponse =
                     client.post("/test/create-block?roomId=$roomId&blockId=b1&content=hello&position=1") {
@@ -209,7 +209,7 @@ class ConferenceNotesServiceTest :
             testApplication {
                 application {
                     install(StatusPages) { installConferenceNotesExceptionHandlers() }
-                    routing { registerConferenceNotesTestRoutes(ConferenceNotesState()) }
+                    routing { registerConferenceNotesTestRoutes(notesState = ConferenceNotesState()) }
                 }
                 client.post("/test/create-block?roomId=$roomId&blockId=b2&content=second&position=2") {
                     header("X-Member-Id", creator.toString())
@@ -231,7 +231,7 @@ class ConferenceNotesServiceTest :
             testApplication {
                 application {
                     install(StatusPages) { installConferenceNotesExceptionHandlers() }
-                    routing { registerConferenceNotesTestRoutes(tinyState) }
+                    routing { registerConferenceNotesTestRoutes(notesState = tinyState) }
                 }
                 repeat(2) { i ->
                     client
@@ -252,7 +252,7 @@ class ConferenceNotesServiceTest :
             testApplication {
                 application {
                     install(StatusPages) { installConferenceNotesExceptionHandlers() }
-                    routing { registerConferenceNotesTestRoutes(ConferenceNotesState()) }
+                    routing { registerConferenceNotesTestRoutes(notesState = ConferenceNotesState()) }
                 }
                 client
                     .post("/test/create-block?roomId=$roomId&blockId=b1&content=&position=1") {
@@ -268,7 +268,7 @@ class ConferenceNotesServiceTest :
             testApplication {
                 application {
                     install(StatusPages) { installConferenceNotesExceptionHandlers() }
-                    routing { registerConferenceNotesTestRoutes(ConferenceNotesState()) }
+                    routing { registerConferenceNotesTestRoutes(notesState = ConferenceNotesState()) }
                 }
                 client
                     .post("/test/create-block?roomId=$roomId&blockId=b1&content=$tooLong&position=1") {
@@ -283,7 +283,7 @@ class ConferenceNotesServiceTest :
             testApplication {
                 application {
                     install(StatusPages) { installConferenceNotesExceptionHandlers() }
-                    routing { registerConferenceNotesTestRoutes(ConferenceNotesState()) }
+                    routing { registerConferenceNotesTestRoutes(notesState = ConferenceNotesState()) }
                 }
                 client
                     .post("/test/create-block?roomId=$roomId&blockId=&content=x&position=1") {
@@ -298,7 +298,7 @@ class ConferenceNotesServiceTest :
             testApplication {
                 application {
                     install(StatusPages) { installConferenceNotesExceptionHandlers() }
-                    routing { registerConferenceNotesTestRoutes(ConferenceNotesState()) }
+                    routing { registerConferenceNotesTestRoutes(notesState = ConferenceNotesState()) }
                 }
                 client.post("/test/create-block?roomId=$roomId&blockId=b1&content=v1&position=1") {
                     header("X-Member-Id", creator.toString())
@@ -331,7 +331,7 @@ class ConferenceNotesServiceTest :
             testApplication {
                 application {
                     install(StatusPages) { installConferenceNotesExceptionHandlers() }
-                    routing { registerConferenceNotesTestRoutes(ConferenceNotesState()) }
+                    routing { registerConferenceNotesTestRoutes(notesState = ConferenceNotesState()) }
                 }
                 client.post("/test/create-block?roomId=$roomId&blockId=b1&content=original&position=1") {
                     header("X-Member-Id", creator.toString())
@@ -362,7 +362,7 @@ class ConferenceNotesServiceTest :
             testApplication {
                 application {
                     install(StatusPages) { installConferenceNotesExceptionHandlers() }
-                    routing { registerConferenceNotesTestRoutes(ConferenceNotesState()) }
+                    routing { registerConferenceNotesTestRoutes(notesState = ConferenceNotesState()) }
                 }
                 val editResponse =
                     client.post("/test/commit-edit?roomId=$roomId&blockId=does-not-exist&content=x&baseVersion=1") {
@@ -380,7 +380,7 @@ class ConferenceNotesServiceTest :
             testApplication {
                 application {
                     install(StatusPages) { installConferenceNotesExceptionHandlers() }
-                    routing { registerConferenceNotesTestRoutes(ConferenceNotesState()) }
+                    routing { registerConferenceNotesTestRoutes(notesState = ConferenceNotesState()) }
                 }
                 client.post("/test/create-block?roomId=$roomId&blockId=b1&content=original&position=1") {
                     header("X-Member-Id", creator.toString())
@@ -406,7 +406,7 @@ class ConferenceNotesServiceTest :
             testApplication {
                 application {
                     install(StatusPages) { installConferenceNotesExceptionHandlers() }
-                    routing { registerConferenceNotesTestRoutes(ConferenceNotesState()) }
+                    routing { registerConferenceNotesTestRoutes(notesState = ConferenceNotesState()) }
                 }
                 client.post("/test/create-block?roomId=$roomId&blockId=b1&content=x&position=1") {
                     header("X-Member-Id", other.toString())
@@ -427,7 +427,7 @@ class ConferenceNotesServiceTest :
             testApplication {
                 application {
                     install(StatusPages) { installConferenceNotesExceptionHandlers() }
-                    routing { registerConferenceNotesTestRoutes(ConferenceNotesState()) }
+                    routing { registerConferenceNotesTestRoutes(notesState = ConferenceNotesState()) }
                 }
                 client.post("/test/create-block?roomId=$roomId&blockId=b1&content=x&position=1") {
                     header("X-Member-Id", other.toString())
@@ -449,7 +449,7 @@ class ConferenceNotesServiceTest :
             testApplication {
                 application {
                     install(StatusPages) { installConferenceNotesExceptionHandlers() }
-                    routing { registerConferenceNotesTestRoutes(ConferenceNotesState()) }
+                    routing { registerConferenceNotesTestRoutes(notesState = ConferenceNotesState()) }
                 }
                 client.post("/test/create-block?roomId=$roomId&blockId=b1&content=x&position=1") {
                     header("X-Member-Id", author.toString())
@@ -469,7 +469,7 @@ class ConferenceNotesServiceTest :
             testApplication {
                 application {
                     install(StatusPages) { installConferenceNotesExceptionHandlers() }
-                    routing { registerConferenceNotesTestRoutes(ConferenceNotesState()) }
+                    routing { registerConferenceNotesTestRoutes(notesState = ConferenceNotesState()) }
                 }
                 client
                     .post("/test/delete-block?roomId=$roomId&blockId=never-existed") { header("X-Member-Id", creator.toString()) }
@@ -485,7 +485,12 @@ class ConferenceNotesServiceTest :
             testApplication {
                 application {
                     install(StatusPages) { installConferenceNotesExceptionHandlers() }
-                    routing { registerConferenceNotesTestRoutes(ConferenceNotesState(), documentStorageRoot) }
+                    routing {
+                        registerConferenceNotesTestRoutes(
+                            notesState = ConferenceNotesState(),
+                            documentStorageRoot = documentStorageRoot,
+                        )
+                    }
                 }
                 client.post("/test/create-block?roomId=$roomId&blockId=b1&content=Wichtiger+Punkt&position=1") {
                     header("X-Member-Id", creator.toString())
@@ -535,7 +540,12 @@ class ConferenceNotesServiceTest :
             testApplication {
                 application {
                     install(StatusPages) { installConferenceNotesExceptionHandlers() }
-                    routing { registerConferenceNotesTestRoutes(ConferenceNotesState(), documentStorageRoot) }
+                    routing {
+                        registerConferenceNotesTestRoutes(
+                            notesState = ConferenceNotesState(),
+                            documentStorageRoot = documentStorageRoot,
+                        )
+                    }
                 }
                 client
                     .post("/test/save-as-document?roomId=$roomId&accessLevel=BOARD_ONLY") {
@@ -552,7 +562,12 @@ class ConferenceNotesServiceTest :
             testApplication {
                 application {
                     install(StatusPages) { installConferenceNotesExceptionHandlers() }
-                    routing { registerConferenceNotesTestRoutes(ConferenceNotesState(), documentStorageRoot) }
+                    routing {
+                        registerConferenceNotesTestRoutes(
+                            notesState = ConferenceNotesState(),
+                            documentStorageRoot = documentStorageRoot,
+                        )
+                    }
                 }
                 client
                     .get("/test/notes-state?roomId=$bogusRoomId") { header("X-Member-Id", creator.toString()) }
@@ -581,7 +596,7 @@ class ConferenceNotesServiceTest :
             testApplication {
                 application {
                     install(StatusPages) { installConferenceNotesExceptionHandlers() }
-                    routing { registerConferenceNotesTestRoutes(ConferenceNotesState(), config = NOTES_DISABLED_CONFIG) }
+                    routing { registerConferenceNotesTestRoutes(notesState = ConferenceNotesState(), config = NOTES_DISABLED_CONFIG) }
                 }
                 client
                     .get("/test/notes-state?roomId=$roomId") { header("X-Member-Id", creator.toString()) }
@@ -598,7 +613,12 @@ class ConferenceNotesServiceTest :
             testApplication {
                 application {
                     install(StatusPages) { installConferenceNotesExceptionHandlers() }
-                    routing { registerConferenceNotesTestRoutes(ConferenceNotesState(), documentStorageRoot) }
+                    routing {
+                        registerConferenceNotesTestRoutes(
+                            notesState = ConferenceNotesState(),
+                            documentStorageRoot = documentStorageRoot,
+                        )
+                    }
                 }
                 client
                     .get("/test/notes-state?roomId=$roomId") { header("X-Member-Id", outsider.toString()) }
@@ -631,7 +651,12 @@ class ConferenceNotesServiceTest :
             testApplication {
                 application {
                     install(StatusPages) { installConferenceNotesExceptionHandlers() }
-                    routing { registerConferenceNotesTestRoutes(ConferenceNotesState(), documentStorageRoot) }
+                    routing {
+                        registerConferenceNotesTestRoutes(
+                            notesState = ConferenceNotesState(),
+                            documentStorageRoot = documentStorageRoot,
+                        )
+                    }
                 }
                 client
                     .get("/test/notes-state?roomId=$roomId") { header("X-Member-Id", leftMember.toString()) }
@@ -658,7 +683,7 @@ class ConferenceNotesServiceTest :
             testApplication {
                 application {
                     install(StatusPages) { installConferenceNotesExceptionHandlers() }
-                    routing { registerConferenceNotesTestRoutes(ConferenceNotesState()) }
+                    routing { registerConferenceNotesTestRoutes(notesState = ConferenceNotesState()) }
                 }
                 client
                     .post("/test/create-block?roomId=$roomId&blockId=b1&content=x&position=1") {
@@ -679,7 +704,7 @@ class ConferenceNotesServiceTest :
                 application {
                     install(StatusPages) { installConferenceNotesExceptionHandlers() }
                     routing {
-                        registerConferenceNotesTestRoutes(ConferenceNotesState(), editRateLimiter = tinyEditLimiter)
+                        registerConferenceNotesTestRoutes(notesState = ConferenceNotesState(), editRateLimiter = tinyEditLimiter)
                     }
                 }
                 client.post("/test/create-block?roomId=$roomId&blockId=b1&content=x&position=1") {
@@ -704,7 +729,7 @@ class ConferenceNotesServiceTest :
             testApplication {
                 application {
                     install(StatusPages) { installConferenceNotesExceptionHandlers() }
-                    routing { registerConferenceNotesTestRoutes(ConferenceNotesState()) }
+                    routing { registerConferenceNotesTestRoutes(notesState = ConferenceNotesState()) }
                 }
                 client.get("/test/notes-state?roomId=$roomId").status shouldBe HttpStatusCode.Unauthorized
             }
@@ -760,9 +785,9 @@ private fun Route.registerConferenceNotesTestRoutes(
 ) {
     fun service(call: ApplicationCall) =
         ConferenceNotesService(
-            call,
-            documentStorageRoot,
-            notesState,
+            call = call,
+            documentStorageRoot = documentStorageRoot,
+            notesState = notesState,
             config = config,
             readRateLimiter = readRateLimiter,
             createRateLimiter = createRateLimiter,
@@ -785,7 +810,7 @@ private fun Route.registerConferenceNotesTestRoutes(
                 content = q["content"] ?: "",
                 position = q["position"]?.toIntOrNull() ?: 0,
             )
-        val dto = service.createBlock(q["roomId"]!!, block)
+        val dto = service.createBlock(roomId = q["roomId"]!!, block = block)
         call.respondText("${dto.id}|${dto.lastEditedByMemberId}|${dto.version}")
     }
     post("/test/commit-edit") {
@@ -797,20 +822,20 @@ private fun Route.registerConferenceNotesTestRoutes(
                 content = q["content"] ?: "",
                 baseVersion = q["baseVersion"]?.toIntOrNull() ?: 0,
             )
-        val dto = service.commitBlockEdit(q["roomId"]!!, edit)
+        val dto = service.commitBlockEdit(roomId = q["roomId"]!!, edit = edit)
         call.respondText("${dto.accepted}|${dto.block?.content.orEmpty()}|${dto.block?.version?.toString().orEmpty()}")
     }
     post("/test/delete-block") {
         val service = service(call)
         val q = call.request.queryParameters
-        service.deleteBlock(q["roomId"]!!, q["blockId"]!!)
+        service.deleteBlock(roomId = q["roomId"]!!, blockId = q["blockId"]!!)
         call.respondText("ok")
     }
     post("/test/save-as-document") {
         val service = service(call)
         val q = call.request.queryParameters
         val level = DocumentAccessLevel.valueOf(q["accessLevel"] ?: "BOARD_ONLY")
-        val dto = service.saveAsDocument(q["roomId"]!!, level)
+        val dto = service.saveAsDocument(roomId = q["roomId"]!!, accessLevel = level)
         call.respondText(dto.documentId)
     }
 }

@@ -102,8 +102,8 @@ class AccountingService(
     override suspend fun createLedgerAccount(input: LedgerAccountInput): LedgerAccountDto {
         val current = resolveCurrentMember(call)
         current.requireRole(*TREASURY_ROLES)
-        requireReserveTypeOnlyOnEquity(input.type, input.reserveType)
-        requireCashRegisterOnlyOnAsset(input.type, input.isCashRegister)
+        requireReserveTypeOnlyOnEquity(type = input.type, reserveType = input.reserveType)
+        requireCashRegisterOnlyOnAsset(type = input.type, isCashRegister = input.isCashRegister)
         return transaction {
             val duplicate =
                 LedgerAccountTable
@@ -276,12 +276,17 @@ class AccountingService(
             if (donorMemberId != null) requireExistingMember(donorMemberId)
             val externalDonorCategory = externalDonorId?.let { loadExternalDonorCategory(it) }
             val effectiveDonorCategory =
-                requireDonorMutualExclusionAndCategory(donorMemberId, externalDonorId, input.donorCategory, externalDonorCategory)
+                requireDonorMutualExclusionAndCategory(
+                    donorMemberId = donorMemberId,
+                    externalDonorId = externalDonorId,
+                    inputCategory = input.donorCategory,
+                    externalDonorCategory = externalDonorCategory,
+                )
             insertJournalEntry(
-                input,
-                current.memberId,
-                current.role,
-                JournalEntryStatus.DRAFT,
+                input = input,
+                createdBy = current.memberId,
+                actorRole = current.role,
+                status = JournalEntryStatus.DRAFT,
                 postedAt = null,
                 donorMemberId = donorMemberId,
                 externalDonorId = externalDonorId,
@@ -299,32 +304,47 @@ class AccountingService(
             requireActiveCostCenters(input.postings.mapNotNull { it.costCenterId?.toAccountingUuid("CostCenter") })
             val cashAccountIds =
                 loadCashRegisterAccountIds(input.postings.map { it.ledgerAccountId.toAccountingUuid("LedgerAccount") })
-            requireVoucherForCashPostings(input.voucherReference, cashAccountIds)
-            requireNonNegativeCashBalances(input.postings, cashAccountIds)
+            requireVoucherForCashPostings(voucherReference = input.voucherReference, cashAccountIds = cashAccountIds)
+            requireNonNegativeCashBalances(postings = input.postings, cashAccountIds = cashAccountIds)
             val donorMemberId = input.donorMemberId?.toAccountingUuid("Member")
             val externalDonorId = input.externalDonorId?.toAccountingUuid("ExternalDonor")
             if (donorMemberId != null) requireExistingMember(donorMemberId)
             val externalDonorCategory = externalDonorId?.let { loadExternalDonorCategory(it) }
             val effectiveDonorCategory =
-                requireDonorMutualExclusionAndCategory(donorMemberId, externalDonorId, input.donorCategory, externalDonorCategory)
-            requireDonationIncomePosting(input.postings, effectiveDonorCategory)
+                requireDonorMutualExclusionAndCategory(
+                    donorMemberId = donorMemberId,
+                    externalDonorId = externalDonorId,
+                    inputCategory = input.donorCategory,
+                    externalDonorCategory = externalDonorCategory,
+                )
+            requireDonationIncomePosting(postings = input.postings, donorCategory = effectiveDonorCategory)
             var partyDonationVerdict: DonationComplianceResult? = null
             var partyDonationAmount: BigDecimal? = null
             var partyDonationPriorTotal: BigDecimal? = null
             if (effectiveDonorCategory != null && isPoliticalParty()) {
                 val donationAmount = donationIncomeAmount(input.postings)
                 val priorTotal =
-                    priorPostedDonationTotalThisYear(donorMemberId, externalDonorId, input.entryDate.year, excludeEntryId = null)
-                partyDonationVerdict = requirePartyDonationAllowed(effectiveDonorCategory, donationAmount, priorTotal)
+                    priorPostedDonationTotalThisYear(
+                        donorMemberId = donorMemberId,
+                        externalDonorId = externalDonorId,
+                        year = input.entryDate.year,
+                        excludeEntryId = null,
+                    )
+                partyDonationVerdict =
+                    requirePartyDonationAllowed(
+                        donorCategory = effectiveDonorCategory,
+                        donationAmount = donationAmount,
+                        priorPostedTotalThisYear = priorTotal,
+                    )
                 partyDonationAmount = donationAmount
                 partyDonationPriorTotal = priorTotal
             }
             val dto =
                 insertJournalEntry(
-                    input,
-                    current.memberId,
-                    current.role,
-                    JournalEntryStatus.POSTED,
+                    input = input,
+                    createdBy = current.memberId,
+                    actorRole = current.role,
+                    status = JournalEntryStatus.POSTED,
                     postedAt = nowLocalDateTime(),
                     donorMemberId = donorMemberId,
                     externalDonorId = externalDonorId,
@@ -338,12 +358,12 @@ class AccountingService(
             // an oversight.
             if (effectiveDonorCategory != null && partyDonationVerdict != null) {
                 recordPartyDonationVerdictAudit(
-                    current,
-                    dto.id.toAccountingUuid("JournalEntry"),
-                    effectiveDonorCategory,
-                    partyDonationAmount!!,
-                    partyDonationPriorTotal!!,
-                    partyDonationVerdict.duties,
+                    current = current,
+                    journalEntryId = dto.id.toAccountingUuid("JournalEntry"),
+                    donorCategory = effectiveDonorCategory,
+                    donationAmount = partyDonationAmount!!,
+                    priorPostedTotalThisYear = partyDonationPriorTotal!!,
+                    duties = partyDonationVerdict.duties,
                 )
             }
             dto
@@ -378,10 +398,10 @@ class AccountingService(
             requireActiveLedgerAccounts(postings.map { it.ledgerAccountId.toAccountingUuid("LedgerAccount") })
             requireActiveCostCenters(postings.mapNotNull { it.costCenterId?.toAccountingUuid("CostCenter") })
             val cashAccountIds = loadCashRegisterAccountIds(postings.map { it.ledgerAccountId.toAccountingUuid("LedgerAccount") })
-            requireVoucherForCashPostings(entryRow[JournalEntryTable.voucherReference], cashAccountIds)
-            requireNonNegativeCashBalances(postings, cashAccountIds)
+            requireVoucherForCashPostings(voucherReference = entryRow[JournalEntryTable.voucherReference], cashAccountIds = cashAccountIds)
+            requireNonNegativeCashBalances(postings = postings, cashAccountIds = cashAccountIds)
             val donorCategory = entryRow[JournalEntryTable.donorCategory]
-            requireDonationIncomePosting(postings, donorCategory)
+            requireDonationIncomePosting(postings = postings, donorCategory = donorCategory)
             var partyDonationVerdict: DonationComplianceResult? = null
             var partyDonationAmount: BigDecimal? = null
             var partyDonationPriorTotal: BigDecimal? = null
@@ -389,12 +409,17 @@ class AccountingService(
                 val donationAmount = donationIncomeAmount(postings)
                 val priorTotal =
                     priorPostedDonationTotalThisYear(
-                        entryRow[JournalEntryTable.donorMemberId],
-                        entryRow[JournalEntryTable.externalDonorId],
-                        entryRow[JournalEntryTable.entryDate].year,
+                        donorMemberId = entryRow[JournalEntryTable.donorMemberId],
+                        externalDonorId = entryRow[JournalEntryTable.externalDonorId],
+                        year = entryRow[JournalEntryTable.entryDate].year,
                         excludeEntryId = entryId,
                     )
-                partyDonationVerdict = requirePartyDonationAllowed(donorCategory, donationAmount, priorTotal)
+                partyDonationVerdict =
+                    requirePartyDonationAllowed(
+                        donorCategory = donorCategory,
+                        donationAmount = donationAmount,
+                        priorPostedTotalThisYear = priorTotal,
+                    )
                 partyDonationAmount = donationAmount
                 partyDonationPriorTotal = priorTotal
             }
@@ -440,12 +465,12 @@ class AccountingService(
             // the same pattern for the full rationale.
             if (donorCategory != null && partyDonationVerdict != null) {
                 recordPartyDonationVerdictAudit(
-                    current,
-                    entryId,
-                    donorCategory,
-                    partyDonationAmount!!,
-                    partyDonationPriorTotal!!,
-                    partyDonationVerdict.duties,
+                    current = current,
+                    journalEntryId = entryId,
+                    donorCategory = donorCategory,
+                    donationAmount = partyDonationAmount!!,
+                    priorPostedTotalThisYear = partyDonationPriorTotal!!,
+                    duties = partyDonationVerdict.duties,
                     occurredAt = now,
                 )
             }
@@ -527,7 +552,7 @@ class AccountingService(
                 }
             val type = accountRow[LedgerAccountTable.type]
             val normalSide = GeneralLedgerCalculator.normalBalanceSideOf(type)
-            val ledgerLines = GeneralLedgerCalculator.runningBalances(lines, normalSide)
+            val ledgerLines = GeneralLedgerCalculator.runningBalances(lines = lines, normalBalanceSide = normalSide)
 
             GeneralLedgerDto(
                 ledgerAccountId = accountId.toString(),
@@ -548,7 +573,7 @@ class AccountingService(
         val current = resolveCurrentMember(call)
         current.requireRole(*ACCOUNTING_READ_ROLES)
         return transaction {
-            FinancialStatementCalculator.incomeStatement(loadAccountBalances(from, to), from, to)
+            FinancialStatementCalculator.incomeStatement(balances = loadAccountBalances(from = from, to = to), from = from, to = to)
         }
     }
 
@@ -558,7 +583,7 @@ class AccountingService(
         return transaction {
             // Cumulative from inception (from = null) -- see BalanceSheetDto KDoc for why the
             // Bilanz is never windowed to a fiscal-year `from`.
-            FinancialStatementCalculator.balanceSheet(loadAccountBalances(from = null, to = asOf), asOf)
+            FinancialStatementCalculator.balanceSheet(balances = loadAccountBalances(from = null, to = asOf), asOf = asOf)
         }
     }
 
@@ -569,7 +594,11 @@ class AccountingService(
         val current = resolveCurrentMember(call)
         current.requireRole(*ACCOUNTING_READ_ROLES)
         return transaction {
-            FinancialStatementCalculator.fourSphereIncomeStatement(loadSphereAccountBalances(from, to), from, to)
+            FinancialStatementCalculator.fourSphereIncomeStatement(
+                balances = loadSphereAccountBalances(from = from, to = to),
+                from = from,
+                to = to,
+            )
         }
     }
 
@@ -580,7 +609,11 @@ class AccountingService(
         val current = resolveCurrentMember(call)
         current.requireRole(*ACCOUNTING_READ_ROLES)
         return transaction {
-            FinancialStatementCalculator.costCenterReport(loadCostCenterAccountBalances(from, to), from, to)
+            FinancialStatementCalculator.costCenterReport(
+                balances = loadCostCenterAccountBalances(from = from, to = to),
+                from = from,
+                to = to,
+            )
         }
     }
 
@@ -613,7 +646,12 @@ class AccountingService(
                         val (donorMemberId, externalDonorId) = donorKey
                         val annualTotal = entries.fold(BigDecimal.ZERO) { acc, entry -> acc + entry.amount }
                         val category = entries.first().donorCategory
-                        val result = PartyDonationComplianceCalculator.check(annualTotal, category, BigDecimal.ZERO)
+                        val result =
+                            PartyDonationComplianceCalculator.check(
+                                amount = annualTotal,
+                                category = category,
+                                priorPostedTotalThisYear = BigDecimal.ZERO,
+                            )
                         val promptReportRequired = DonationDuty.PROMPT_BUNDESTAG_REPORT_REQUIRED in result.duties
                         val annualDisclosureRequired = DonationDuty.ANNUAL_DISCLOSURE_REQUIRED in result.duties
                         if (!promptReportRequired && !annualDisclosureRequired) return@mapNotNull null
@@ -657,7 +695,11 @@ class AccountingService(
             throw BadRequestException("fromFiscalYear ($fromFiscalYear) must not be after toFiscalYear ($toFiscalYear)")
         }
         return transaction {
-            UseOfFundsCalculator.statement(loadYearFacts(throughYear = toFiscalYear), fromFiscalYear, toFiscalYear)
+            UseOfFundsCalculator.statement(
+                facts = loadYearFacts(throughYear = toFiscalYear),
+                fromFiscalYear = fromFiscalYear,
+                toFiscalYear = toFiscalYear,
+            )
         }
     }
 
@@ -709,7 +751,7 @@ class AccountingService(
                         amount = row[PostingTable.amount],
                     )
                 }
-            val allLines = KassenbuchCalculator.kassenbuch(sourceLines)
+            val allLines = KassenbuchCalculator.kassenbuch(lines = sourceLines)
             val windowedLines =
                 allLines.filter { line ->
                     (from == null || line.entryDate >= from) && (to == null || line.entryDate <= to)
@@ -741,9 +783,13 @@ class AccountingService(
         val periodEnd = LocalDate(fiscalYear, 12, 31)
         return transaction {
             val incomeStatement =
-                FinancialStatementCalculator.incomeStatement(loadAccountBalances(periodStart, periodEnd), periodStart, periodEnd)
+                FinancialStatementCalculator.incomeStatement(
+                    balances = loadAccountBalances(from = periodStart, to = periodEnd),
+                    from = periodStart,
+                    to = periodEnd,
+                )
             val balanceSheet =
-                FinancialStatementCalculator.balanceSheet(loadAccountBalances(from = null, to = periodEnd), periodEnd)
+                FinancialStatementCalculator.balanceSheet(balances = loadAccountBalances(from = null, to = periodEnd), asOf = periodEnd)
             AnnualFinancialStatementDto(
                 fiscalYear = fiscalYear,
                 periodStart = periodStart,
@@ -1306,7 +1352,12 @@ class AccountingService(
         donationAmount: BigDecimal,
         priorPostedTotalThisYear: BigDecimal,
     ): DonationComplianceResult {
-        val result = PartyDonationComplianceCalculator.check(donationAmount, donorCategory, priorPostedTotalThisYear)
+        val result =
+            PartyDonationComplianceCalculator.check(
+                amount = donationAmount,
+                category = donorCategory,
+                priorPostedTotalThisYear = priorPostedTotalThisYear,
+            )
         if (result.verdict == DonationVerdict.PROHIBITED) {
             throw ConflictException(result.reason ?: "Donation prohibited under §25 PartG (donorCategory=$donorCategory)")
         }
@@ -1487,7 +1538,7 @@ class AccountingService(
                     val signed = if (posting.side == normalSide) posting.amount else posting.amount.negate()
                     acc + signed
                 }
-            val projectedBalance = currentPostedBalance(accountId, normalSide) + entryDelta
+            val projectedBalance = currentPostedBalance(accountId = accountId, normalSide = normalSide) + entryDelta
             if (projectedBalance.signum() < 0) {
                 throw ConflictException(
                     "Posting would drive cash-register LedgerAccount $accountId negative (projected balance $projectedBalance)",

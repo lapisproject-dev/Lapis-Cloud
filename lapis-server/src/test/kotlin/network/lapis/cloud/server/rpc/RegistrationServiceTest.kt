@@ -150,7 +150,7 @@ class RegistrationServiceTest :
                 val hasPasswordLogin =
                     transaction { AccountTable.selectAll().where { AccountTable.memberId eq memberId }.single()[AccountTable.passwordHash] }
                 (hasPasswordLogin != null) shouldBe true
-                PasswordHasher.verify(STRONG_PASSWORD, hasPasswordLogin) shouldBe true
+                PasswordHasher.verify(rawPassword = STRONG_PASSWORD, storedHash = hasPasswordLogin) shouldBe true
             }
         }
 
@@ -354,7 +354,7 @@ class RegistrationServiceTest :
                 }
                 val applicant = createTestMember("reg-race@example.org", MemberStatus.ANTRAG)
 
-                val outcomes = runConcurrentApproveAndReject(client, applicant)
+                val outcomes = runConcurrentApproveAndReject(client = client, applicantId = applicant)
 
                 outcomes.count { it == HttpStatusCode.OK } shouldBe 1
                 outcomes.count { it == HttpStatusCode.Conflict } shouldBe 1
@@ -392,7 +392,7 @@ class RegistrationServiceTest :
                 createdMemberIds += memberId
                 statusOf(memberId) shouldBe MemberStatus.AKTIV
 
-                val loginWorks = PasswordHasher.verify(STRONG_PASSWORD, storedPasswordHashDirect(memberId))
+                val loginWorks = PasswordHasher.verify(rawPassword = STRONG_PASSWORD, storedHash = storedPasswordHashDirect(memberId))
                 loginWorks shouldBe true
             }
         }
@@ -533,12 +533,12 @@ private fun StatusPagesConfig.installRegistrationExceptionHandlers() {
 /** Shared throwaway routes for [RegistrationService] -- mirrors [CrowdfundingServiceTest]'s `registerCrowdfundingTestRoutes` style. */
 private fun Route.registerRegistrationTestRoutes(rateLimiter: LoginRateLimiter) {
     get("/test/agreement") {
-        val dto = RegistrationService(call, rateLimiter).getMembershipAgreement()
+        val dto = RegistrationService(call = call, registrationRateLimiter = rateLimiter).getMembershipAgreement()
         call.respondText("${dto.version}:${dto.sha256}")
     }
     post("/test/register") {
         val q = call.request.queryParameters
-        RegistrationService(call, rateLimiter).registerApplication(
+        RegistrationService(call = call, registrationRateLimiter = rateLimiter).registerApplication(
             RegistrationInput(
                 displayName = q["displayName"] ?: "Testmitglied",
                 email = q["email"]!!,
@@ -550,22 +550,26 @@ private fun Route.registerRegistrationTestRoutes(rateLimiter: LoginRateLimiter) 
         call.respondText("OK")
     }
     get("/test/pending") {
-        val list = RegistrationService(call, rateLimiter).listPendingApplications()
+        val list = RegistrationService(call = call, registrationRateLimiter = rateLimiter).listPendingApplications()
         call.respondText(list.joinToString(",") { it.id })
     }
     post("/test/approve/{id}") {
-        val dto = RegistrationService(call, rateLimiter).approveApplication(call.parameters["id"]!!)
+        val dto = RegistrationService(call = call, registrationRateLimiter = rateLimiter).approveApplication(call.parameters["id"]!!)
         call.respondText(dto.status.name)
     }
     post("/test/reject/{id}") {
         val reason = call.request.queryParameters["reason"] ?: ""
-        val dto = RegistrationService(call, rateLimiter).rejectApplication(call.parameters["id"]!!, reason)
+        val dto =
+            RegistrationService(
+                call = call,
+                registrationRateLimiter = rateLimiter,
+            ).rejectApplication(memberId = call.parameters["id"]!!, reason = reason)
         call.respondText(dto.status.name)
     }
     post("/test/create-direct") {
         val q = call.request.queryParameters
         val dto =
-            RegistrationService(call, rateLimiter).createMemberDirect(
+            RegistrationService(call = call, registrationRateLimiter = rateLimiter).createMemberDirect(
                 AdminCreateMemberInput(
                     displayName = q["displayName"] ?: "Direktmitglied",
                     email = q["email"]!!,
@@ -576,7 +580,7 @@ private fun Route.registerRegistrationTestRoutes(rateLimiter: LoginRateLimiter) 
         call.respondText("${dto.id}:${dto.status}:${dto.role}")
     }
     post("/test/leave") {
-        val dto = RegistrationService(call, rateLimiter).leaveMembership()
+        val dto = RegistrationService(call = call, registrationRateLimiter = rateLimiter).leaveMembership()
         call.respondText(dto.status.name)
     }
 }

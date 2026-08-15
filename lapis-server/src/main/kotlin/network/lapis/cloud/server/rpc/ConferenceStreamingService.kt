@@ -266,7 +266,7 @@ class ConferenceStreamingService(
         val current = resolveCurrentMember(call)
         requireStreamingEnabled()
         current.requireRole(AccountRole.ADMIN)
-        requireWithinRate(readRateLimiter, current.memberId)
+        requireWithinRate(limiter = readRateLimiter, memberId = current.memberId)
         return transaction {
             ConferenceStreamDestinationTable
                 .selectAll()
@@ -284,7 +284,7 @@ class ConferenceStreamingService(
         val current = resolveCurrentMember(call)
         requireStreamingEnabled()
         current.requireRole(AccountRole.ADMIN)
-        requireWithinLoginRate(destinationRateLimiter, current.memberId)
+        requireWithinLoginRate(limiter = destinationRateLimiter, memberId = current.memberId)
 
         val trimmedLabel = label.trim()
         if (trimmedLabel.isBlank()) throw BadRequestException("label must not be blank")
@@ -305,7 +305,7 @@ class ConferenceStreamingService(
             val newId = Uuid.random()
             // AAD-bound to the destination's OWN id -- see SecretBox KDoc "AAD binding to the
             // owning row". secretBox is non-null here: requireStreamingEnabled() above guarantees it.
-            val ciphertext = secretBox!!.seal(streamKey, aad = newId.toString())
+            val ciphertext = secretBox!!.seal(plaintext = streamKey, aad = newId.toString())
             ConferenceStreamDestinationTable.insert {
                 it[id] = newId
                 it[ConferenceStreamDestinationTable.label] = trimmedLabel
@@ -341,7 +341,7 @@ class ConferenceStreamingService(
         val current = resolveCurrentMember(call)
         requireStreamingEnabled()
         current.requireRole(AccountRole.ADMIN)
-        requireWithinLoginRate(destinationRateLimiter, current.memberId)
+        requireWithinLoginRate(limiter = destinationRateLimiter, memberId = current.memberId)
 
         val trimmedLabel = label.trim()
         if (trimmedLabel.isBlank()) throw BadRequestException("label must not be blank")
@@ -370,7 +370,7 @@ class ConferenceStreamingService(
                 it[ConferenceStreamDestinationTable.label] = trimmedLabel
                 it[ConferenceStreamDestinationTable.rtmpUrl] = rtmpUrl.trim()
                 if (newStreamKey != null) {
-                    it[streamKeyCiphertext] = secretBox!!.seal(newStreamKey, aad = destUuid.toString())
+                    it[streamKeyCiphertext] = secretBox!!.seal(plaintext = newStreamKey, aad = destUuid.toString())
                     it[streamKeySetAt] = now
                 }
             }
@@ -394,7 +394,7 @@ class ConferenceStreamingService(
         val current = resolveCurrentMember(call)
         requireStreamingEnabled()
         current.requireRole(AccountRole.ADMIN)
-        requireWithinLoginRate(destinationRateLimiter, current.memberId)
+        requireWithinLoginRate(limiter = destinationRateLimiter, memberId = current.memberId)
         val destUuid = destinationId.toStreamUuid()
         return transaction {
             ConferenceStreamDestinationTable.selectAll().where { ConferenceStreamDestinationTable.id eq destUuid }.singleOrNull()
@@ -420,7 +420,7 @@ class ConferenceStreamingService(
         val current = resolveCurrentMember(call)
         requireStreamingEnabled()
         current.requireRole(AccountRole.ADMIN)
-        requireWithinLoginRate(destinationRateLimiter, current.memberId)
+        requireWithinLoginRate(limiter = destinationRateLimiter, memberId = current.memberId)
         val destUuid = destinationId.toStreamUuid()
         return transaction {
             val row =
@@ -475,9 +475,9 @@ class ConferenceStreamingService(
     override suspend fun listStreamTargets(): List<ConferenceStreamTargetDto> {
         val current = resolveCurrentMember(call)
         requireStreamingEnabled()
-        requireWithinRate(readRateLimiter, current.memberId)
+        requireWithinRate(limiter = readRateLimiter, memberId = current.memberId)
         return transaction {
-            requireActiveMembership(current.memberId)
+            requireActiveMembership(memberId = current.memberId)
             // See class KDoc "listStreamTargets has no roomId parameter".
             if (!current.isPrivileged) {
                 val ownsAnyRoom =
@@ -553,7 +553,7 @@ class ConferenceStreamingService(
                 if (room[ConferenceRoomTable.endedAt] != null) {
                     throw ConflictException("Conference room $roomUuid has already ended -- cannot start a stream")
                 }
-                requireModeratorOrPrivileged(room, current)
+                requireModeratorOrPrivileged(room = room, current = current)
 
                 // V1.0 Videokonferenzen, Wave 9 "Stream-Pause bei geheimen Abstimmungen" -- hard-wired,
                 // never disableable via the UI (Konzeptnotiz): a room bound to a Sitzung with a
@@ -624,7 +624,11 @@ class ConferenceStreamingService(
                             )
                         }
                         val plaintextUrl = buildRtmpUrl(destRow)
-                        PreparedTarget(destId, plaintextUrl, StreamUrlFingerprint.of(plaintextUrl))
+                        PreparedTarget(
+                            destinationId = destId,
+                            plaintextUrl = plaintextUrl,
+                            fingerprint = StreamUrlFingerprint.of(plaintextUrl),
+                        )
                     }
 
                 val now = nowLocalDateTime()
@@ -667,7 +671,12 @@ class ConferenceStreamingService(
                     action = AuditAction.CREATE,
                     occurredAt = now,
                 )
-                StartPreparation(newStreamId, room[ConferenceRoomTable.livekitRoomName], room[ConferenceRoomTable.title], preparedTargets)
+                StartPreparation(
+                    streamId = newStreamId,
+                    roomName = room[ConferenceRoomTable.livekitRoomName],
+                    roomTitle = room[ConferenceRoomTable.title],
+                    targets = preparedTargets,
+                )
             }
 
         // OUTSIDE the transaction -- never a network call inside an open one. See
@@ -676,9 +685,19 @@ class ConferenceStreamingService(
             runCatching {
                 val urls = prep.targets.map { it.plaintextUrl }
                 if (layout == ConferenceStreamLayout.SINGLE_PARTICIPANT) {
-                    liveKitEgressClient.startParticipantEgress(prep.roomName, participantIdentity!!, latencyMode, urls)
+                    liveKitEgressClient.startParticipantEgress(
+                        roomName = prep.roomName,
+                        identity = participantIdentity!!,
+                        latencyMode = latencyMode,
+                        rtmpUrls = urls,
+                    )
                 } else {
-                    liveKitEgressClient.startRoomCompositeEgress(prep.roomName, layout, latencyMode, urls)
+                    liveKitEgressClient.startRoomCompositeEgress(
+                        roomName = prep.roomName,
+                        layout = layout,
+                        latencyMode = latencyMode,
+                        rtmpUrls = urls,
+                    )
                 }
             }
 
@@ -755,7 +774,7 @@ class ConferenceStreamingService(
                     occurredAt = now,
                 )
                 val abandonedRow = ConferenceStreamTable.selectAll().where { ConferenceStreamTable.id eq prep.streamId }.single()
-                return@transaction streamRowToDto(abandonedRow, prep.roomTitle)
+                return@transaction streamRowToDto(row = abandonedRow, roomTitle = prep.roomTitle)
             }
             egressResult
                 .onSuccess { info ->
@@ -801,14 +820,14 @@ class ConferenceStreamingService(
                 occurredAt = now,
             )
             val row = ConferenceStreamTable.selectAll().where { ConferenceStreamTable.id eq prep.streamId }.single()
-            streamRowToDto(row, prep.roomTitle)
+            streamRowToDto(row = row, roomTitle = prep.roomTitle)
         }
     }
 
     override suspend fun pauseStream(streamId: String): ConferenceStreamDto {
         val current = resolveCurrentMember(call)
         requireStreamingEnabled()
-        requireWithinRate(mutateRateLimiter, current.memberId)
+        requireWithinRate(limiter = mutateRateLimiter, memberId = current.memberId)
         val streamUuid = streamId.toStreamUuid()
 
         val prep =
@@ -819,7 +838,7 @@ class ConferenceStreamingService(
                 val room =
                     ConferenceRoomTable.selectAll().where { ConferenceRoomTable.id eq row[ConferenceStreamTable.roomId] }.singleOrNull()
                         ?: throw NotFoundException("Conference room for stream $streamUuid not found")
-                requireModeratorOrPrivileged(room, current)
+                requireModeratorOrPrivileged(room = room, current = current)
 
                 // Idempotent -- see IConferenceStreamingService.pauseStream KDoc. Only a LIVE
                 // stream has an active egress worth stopping.
@@ -842,7 +861,12 @@ class ConferenceStreamingService(
                             it[pauseReason] = ConferenceStreamPauseReason.MANUAL
                         }
                     }
-                    return@transaction PausePrep(room[ConferenceRoomTable.title], null, null, alreadyHandled = true)
+                    return@transaction PausePrep(
+                        roomTitle = room[ConferenceRoomTable.title],
+                        roomName = null,
+                        egressId = null,
+                        alreadyHandled = true,
+                    )
                 }
 
                 // Security-audit round-4 R4-3 fix -- route through PAUSING with a REAL StopEgress
@@ -862,16 +886,16 @@ class ConferenceStreamingService(
                     it[pauseReason] = ConferenceStreamPauseReason.MANUAL
                 }
                 PausePrep(
-                    room[ConferenceRoomTable.title],
-                    room[ConferenceRoomTable.livekitRoomName],
-                    row[ConferenceStreamTable.livekitEgressId],
+                    roomTitle = room[ConferenceRoomTable.title],
+                    roomName = room[ConferenceRoomTable.livekitRoomName],
+                    egressId = row[ConferenceStreamTable.livekitEgressId],
                     alreadyHandled = false,
                 )
             }
         if (prep.alreadyHandled) {
             return transaction {
                 val row = ConferenceStreamTable.selectAll().where { ConferenceStreamTable.id eq streamUuid }.single()
-                streamRowToDto(row, prep.roomTitle)
+                streamRowToDto(row = row, roomTitle = prep.roomTitle)
             }
         }
 
@@ -885,11 +909,11 @@ class ConferenceStreamingService(
         var confirmedStopped = true
         if (prep.roomName != null && prep.egressId != null) {
             try {
-                liveKitEgressClient.stopEgress(prep.roomName, prep.egressId)
+                liveKitEgressClient.stopEgress(roomName = prep.roomName, egressId = prep.egressId)
             } catch (e: LiveKitAdminException) {
                 logger.warn { "pauseStream: StopEgress failed for stream $streamUuid: ${e.message}" }
             }
-            confirmedStopped = awaitEgressStopConfirmation(prep.roomName, prep.egressId)
+            confirmedStopped = awaitEgressStopConfirmation(roomName = prep.roomName, egressId = prep.egressId)
         }
 
         if (!confirmedStopped) {
@@ -903,7 +927,7 @@ class ConferenceStreamingService(
             }
             return transaction {
                 val row = ConferenceStreamTable.selectAll().where { ConferenceStreamTable.id eq streamUuid }.single()
-                streamRowToDto(row, prep.roomTitle)
+                streamRowToDto(row = row, roomTitle = prep.roomTitle)
             }
         }
 
@@ -942,7 +966,7 @@ class ConferenceStreamingService(
                         "own next tick"
                 }
                 val row = ConferenceStreamTable.selectAll().where { ConferenceStreamTable.id eq streamUuid }.single()
-                return@transaction streamRowToDto(row, prep.roomTitle)
+                return@transaction streamRowToDto(row = row, roomTitle = prep.roomTitle)
             }
             AuditLogRecorder.record(
                 actorMemberId = current.memberId,
@@ -953,14 +977,14 @@ class ConferenceStreamingService(
                 occurredAt = now,
             )
             val row = ConferenceStreamTable.selectAll().where { ConferenceStreamTable.id eq streamUuid }.single()
-            streamRowToDto(row, prep.roomTitle)
+            streamRowToDto(row = row, roomTitle = prep.roomTitle)
         }
     }
 
     override suspend fun resumeStream(streamId: String): ConferenceStreamDto {
         val current = resolveCurrentMember(call)
         requireStreamingEnabled()
-        requireWithinRate(mutateRateLimiter, current.memberId)
+        requireWithinRate(limiter = mutateRateLimiter, memberId = current.memberId)
         val streamUuid = streamId.toStreamUuid()
 
         // Authorization + the moderator-facing "not paused" rejection -- kept as an explicit,
@@ -978,7 +1002,7 @@ class ConferenceStreamingService(
                 val room =
                     ConferenceRoomTable.selectAll().where { ConferenceRoomTable.id eq row[ConferenceStreamTable.roomId] }.singleOrNull()
                         ?: throw NotFoundException("Conference room for stream $streamUuid not found")
-                requireModeratorOrPrivileged(room, current)
+                requireModeratorOrPrivileged(room = room, current = current)
                 // V1.0 Videokonferenzen, Wave 9 -- moderator-facing rejection for the common,
                 // non-racing case (restartEgressForStream's own transaction independently re-checks
                 // this again for the auto-resume caller's sake, see that function's KDoc "The D3/§6.3
@@ -1010,14 +1034,14 @@ class ConferenceStreamingService(
 
         return transaction {
             val row = ConferenceStreamTable.selectAll().where { ConferenceStreamTable.id eq streamUuid }.single()
-            streamRowToDto(row, roomTitle)
+            streamRowToDto(row = row, roomTitle = roomTitle)
         }
     }
 
     override suspend fun stopStream(streamId: String): ConferenceStreamDto {
         val current = resolveCurrentMember(call)
         requireStreamingEnabled()
-        requireWithinRate(mutateRateLimiter, current.memberId)
+        requireWithinRate(limiter = mutateRateLimiter, memberId = current.memberId)
         val streamUuid = streamId.toStreamUuid()
 
         val prep =
@@ -1028,21 +1052,26 @@ class ConferenceStreamingService(
                 val room =
                     ConferenceRoomTable.selectAll().where { ConferenceRoomTable.id eq row[ConferenceStreamTable.roomId] }.singleOrNull()
                         ?: throw NotFoundException("Conference room for stream $streamUuid not found")
-                requireModeratorOrPrivileged(room, current)
+                requireModeratorOrPrivileged(room = room, current = current)
 
                 val status = row[ConferenceStreamTable.status]
                 // Idempotent once already ENDED/FAILED -- see IConferenceStreamingService
                 // .stopStream KDoc.
                 if (status == ConferenceStreamStatus.ENDED || status == ConferenceStreamStatus.FAILED) {
-                    return@transaction StopPrep(room[ConferenceRoomTable.title], null, null, alreadyTerminal = true)
+                    return@transaction StopPrep(
+                        roomTitle = room[ConferenceRoomTable.title],
+                        roomName = null,
+                        egressId = null,
+                        alreadyTerminal = true,
+                    )
                 }
                 ConferenceStreamTable.update({ ConferenceStreamTable.id eq streamUuid }) {
                     it[ConferenceStreamTable.status] =
                         ConferenceStreamStatus.STOPPING
                 }
                 StopPrep(
-                    room[ConferenceRoomTable.title],
-                    room[ConferenceRoomTable.livekitRoomName],
+                    roomTitle = room[ConferenceRoomTable.title],
+                    roomName = room[ConferenceRoomTable.livekitRoomName],
                     // V1.0 Videokonferenzen, Wave 9, Stolperfalle §9.5 -- widened from LIVE-only:
                     // a PAUSING stream's egress may still be running (StopEgress requested but not yet
                     // confirmed, see D3) and would otherwise be orphaned at LiveKit if stopStream is
@@ -1058,19 +1087,20 @@ class ConferenceStreamingService(
                     // never clear `livekitEgressId` when moving into PAUSED, and restartEgressForStream's
                     // own atomic PAUSED->STARTING claim does not clear it either) -- worth a defensive
                     // re-confirm here regardless of whether it turns out to already be gone.
-                    row[ConferenceStreamTable.livekitEgressId].takeIf {
-                        status == ConferenceStreamStatus.LIVE ||
-                            status == ConferenceStreamStatus.PAUSING ||
-                            status == ConferenceStreamStatus.STARTING ||
-                            status == ConferenceStreamStatus.PAUSED
-                    },
+                    egressId =
+                        row[ConferenceStreamTable.livekitEgressId].takeIf {
+                            status == ConferenceStreamStatus.LIVE ||
+                                status == ConferenceStreamStatus.PAUSING ||
+                                status == ConferenceStreamStatus.STARTING ||
+                                status == ConferenceStreamStatus.PAUSED
+                        },
                     alreadyTerminal = false,
                 )
             }
         if (prep.alreadyTerminal) {
             return transaction {
                 val row = ConferenceStreamTable.selectAll().where { ConferenceStreamTable.id eq streamUuid }.single()
-                streamRowToDto(row, prep.roomTitle)
+                streamRowToDto(row = row, roomTitle = prep.roomTitle)
             }
         }
 
@@ -1085,11 +1115,11 @@ class ConferenceStreamingService(
         var confirmedStopped = true
         if (prep.roomName != null && prep.egressId != null) {
             try {
-                liveKitEgressClient.stopEgress(prep.roomName, prep.egressId)
+                liveKitEgressClient.stopEgress(roomName = prep.roomName, egressId = prep.egressId)
             } catch (e: LiveKitAdminException) {
                 logger.warn { "stopStream: StopEgress failed for stream $streamUuid: ${e.message}" }
             }
-            confirmedStopped = awaitEgressStopConfirmation(prep.roomName, prep.egressId)
+            confirmedStopped = awaitEgressStopConfirmation(roomName = prep.roomName, egressId = prep.egressId)
         }
 
         if (!confirmedStopped) {
@@ -1103,7 +1133,7 @@ class ConferenceStreamingService(
             }
             return transaction {
                 val row = ConferenceStreamTable.selectAll().where { ConferenceStreamTable.id eq streamUuid }.single()
-                streamRowToDto(row, prep.roomTitle)
+                streamRowToDto(row = row, roomTitle = prep.roomTitle)
             }
         }
 
@@ -1142,7 +1172,7 @@ class ConferenceStreamingService(
                         "own next tick"
                 }
                 val row = ConferenceStreamTable.selectAll().where { ConferenceStreamTable.id eq streamUuid }.single()
-                return@transaction streamRowToDto(row, prep.roomTitle)
+                return@transaction streamRowToDto(row = row, roomTitle = prep.roomTitle)
             }
             ConferenceStreamTargetTable.update({
                 (ConferenceStreamTargetTable.streamId eq streamUuid) and
@@ -1162,7 +1192,7 @@ class ConferenceStreamingService(
                 occurredAt = now,
             )
             val row = ConferenceStreamTable.selectAll().where { ConferenceStreamTable.id eq streamUuid }.single()
-            streamRowToDto(row, prep.roomTitle)
+            streamRowToDto(row = row, roomTitle = prep.roomTitle)
         }
     }
 
@@ -1201,7 +1231,7 @@ class ConferenceStreamingService(
     override suspend fun getActiveStream(roomId: String): List<ConferenceStreamDto> {
         val current = resolveCurrentMember(call)
         requireStreamingEnabled()
-        requireWithinRate(readRateLimiter, current.memberId)
+        requireWithinRate(limiter = readRateLimiter, memberId = current.memberId)
         val roomUuid = roomId.toStreamUuid()
         return transaction {
             val room =
@@ -1212,8 +1242,8 @@ class ConferenceStreamingService(
             // who is actually in the room (allowFederationGuests + has joined) can see the stream
             // badge too -- "everyone in the room has a legal right to know" applies to a guest
             // exactly as much as to an AKTIV member. See requireRoomEntryAuthorization KDoc.
-            val status = requireRoomEntryAuthorization(room, current)
-            requireGuestHasJoinedRoom(roomUuid, current, status)
+            val status = requireRoomEntryAuthorization(roomRow = room, current = current)
+            requireGuestHasJoinedRoom(roomId = roomUuid, current = current, status = status)
             val row =
                 ConferenceStreamTable
                     .selectAll()
@@ -1224,21 +1254,21 @@ class ConferenceStreamingService(
                     ?: return@transaction emptyList()
             // Never gated on isPrivileged -- see IConferenceStreamingService.getActiveStream KDoc
             // "everyone in the room has a legal right to know".
-            listOf(streamRowToDto(row, room[ConferenceRoomTable.title]))
+            listOf(streamRowToDto(row = row, roomTitle = room[ConferenceRoomTable.title]))
         }
     }
 
     override suspend fun listStreams(roomId: String?): List<ConferenceStreamDto> {
         val current = resolveCurrentMember(call)
         requireStreamingEnabled()
-        requireWithinRate(readRateLimiter, current.memberId)
+        requireWithinRate(limiter = readRateLimiter, memberId = current.memberId)
         val parsedRoomId = roomId?.toStreamUuid()
         return transaction {
             if (parsedRoomId != null) {
                 val room =
                     ConferenceRoomTable.selectAll().where { ConferenceRoomTable.id eq parsedRoomId }.singleOrNull()
                         ?: throw NotFoundException("Conference room $parsedRoomId not found")
-                requireModeratorOrPrivileged(room, current)
+                requireModeratorOrPrivileged(room = room, current = current)
             } else {
                 // No single room to check "creator" against when listing across ALL rooms -- only a
                 // global BOARD/ADMIN may do that, see IConferenceStreamingService.listStreams KDoc.
@@ -1265,7 +1295,7 @@ class ConferenceStreamingService(
                                 ?.get(ConferenceRoomTable.title)
                                 ?: ""
                         }
-                    streamRowToDto(row, title)
+                    streamRowToDto(row = row, roomTitle = title)
                 }
         }
     }
@@ -1412,7 +1442,7 @@ class ConferenceStreamingService(
     private fun buildRtmpUrl(row: ResultRow): String {
         val base = row[ConferenceStreamDestinationTable.rtmpUrl].trimEnd('/')
         val destinationId = row[ConferenceStreamDestinationTable.id]
-        val key = secretBox!!.open(row[ConferenceStreamDestinationTable.streamKeyCiphertext], aad = destinationId.toString())
+        val key = secretBox!!.open(sealed = row[ConferenceStreamDestinationTable.streamKeyCiphertext], aad = destinationId.toString())
         return "$base/$key"
     }
 
@@ -1705,7 +1735,7 @@ internal suspend fun restartEgressForStream(
 
             val urls =
                 targetRows.map { tr ->
-                    val plaintextUrl = restartRtmpUrl(tr, secretBox)
+                    val plaintextUrl = restartRtmpUrl(row = tr, secretBox = secretBox)
                     val fingerprint = StreamUrlFingerprint.of(plaintextUrl)
                     ConferenceStreamTargetTable.update({ ConferenceStreamTargetTable.id eq tr[ConferenceStreamTargetTable.id] }) {
                         it[urlFingerprint] = fingerprint
@@ -1722,13 +1752,13 @@ internal suspend fun restartEgressForStream(
             RestartEgressPrep(
                 preparation =
                     ResumePreparation(
-                        room[ConferenceRoomTable.livekitRoomName],
-                        room[ConferenceRoomTable.title],
-                        row[ConferenceStreamTable.layout],
-                        row[ConferenceStreamTable.latencyMode],
-                        row[ConferenceStreamTable.participantIdentity],
-                        row[ConferenceStreamTable.restartCount],
-                        urls,
+                        roomName = room[ConferenceRoomTable.livekitRoomName],
+                        roomTitle = room[ConferenceRoomTable.title],
+                        layout = row[ConferenceStreamTable.layout],
+                        latencyMode = row[ConferenceStreamTable.latencyMode],
+                        participantIdentity = row[ConferenceStreamTable.participantIdentity],
+                        previousRestartCount = row[ConferenceStreamTable.restartCount],
+                        urls = urls,
                     ),
                 currentStatus = ConferenceStreamStatus.STARTING,
             )
@@ -1742,13 +1772,18 @@ internal suspend fun restartEgressForStream(
         runCatching {
             if (toRestart.layout == ConferenceStreamLayout.SINGLE_PARTICIPANT) {
                 liveKitEgressClient.startParticipantEgress(
-                    toRestart.roomName,
-                    toRestart.participantIdentity!!,
-                    toRestart.latencyMode,
-                    toRestart.urls,
+                    roomName = toRestart.roomName,
+                    identity = toRestart.participantIdentity!!,
+                    latencyMode = toRestart.latencyMode,
+                    rtmpUrls = toRestart.urls,
                 )
             } else {
-                liveKitEgressClient.startRoomCompositeEgress(toRestart.roomName, toRestart.layout, toRestart.latencyMode, toRestart.urls)
+                liveKitEgressClient.startRoomCompositeEgress(
+                    roomName = toRestart.roomName,
+                    layout = toRestart.layout,
+                    latencyMode = toRestart.latencyMode,
+                    rtmpUrls = toRestart.urls,
+                )
             }
         }
 
@@ -1941,7 +1976,7 @@ private fun restartRtmpUrl(
 ): String {
     val base = row[ConferenceStreamDestinationTable.rtmpUrl].trimEnd('/')
     val destinationId = row[ConferenceStreamDestinationTable.id]
-    val key = secretBox.open(row[ConferenceStreamDestinationTable.streamKeyCiphertext], aad = destinationId.toString())
+    val key = secretBox.open(sealed = row[ConferenceStreamDestinationTable.streamKeyCiphertext], aad = destinationId.toString())
     return "$base/$key"
 }
 

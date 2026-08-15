@@ -111,9 +111,15 @@ class OrganizationExportService(
                 val blobStorageKeys = mutableListOf<String>()
 
                 for (table in tables) {
-                    val (rowCount, contentSha256) = streamTable(zip, table, blobStorageKeys)
+                    val (rowCount, contentSha256) = streamTable(zip = zip, table = table, blobStorageKeys = blobStorageKeys)
                     totalRowCount += rowCount
-                    tableEntries += TableManifestEntry(table.tableName, table.columns.map { it.name }, rowCount, contentSha256)
+                    tableEntries +=
+                        TableManifestEntry(
+                            tableName = table.tableName,
+                            columns = table.columns.map { it.name },
+                            rowCount = rowCount,
+                            contentSha256 = contentSha256,
+                        )
                 }
 
                 blobStorageKeys.forEach { storageKey ->
@@ -190,7 +196,7 @@ class OrganizationExportService(
                 statement.fetchSize = JDBC_FETCH_SIZE
                 statement.executeQuery().use { rs ->
                     while (rs.next()) {
-                        val row = JdbcRowCodec.rowToJson(rs, table.columns)
+                        val row = JdbcRowCodec.rowToJson(rs = rs, columns = table.columns)
                         if (table.tableName == DOCUMENT_VERSION_TABLE) {
                             (row[STORAGE_KEY_COLUMN] as? JsonPrimitive)?.contentOrNull?.let { blobStorageKeys += it }
                         }

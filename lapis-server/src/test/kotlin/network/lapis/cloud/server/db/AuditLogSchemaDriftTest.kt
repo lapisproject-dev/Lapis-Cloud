@@ -42,7 +42,7 @@ class AuditLogSchemaDriftTest :
             entity.attributes.map { it.name }.toSet() shouldBe real.columns.keys
             entity.attributes.forEach { attr ->
                 val col = real.columns.getValue(attr.name!!)
-                withClue("column '${attr.name}'") {
+                withClue(clue = "column '${attr.name}'") {
                     col.nullable shouldBe attr.nullable
                 }
             }
@@ -55,7 +55,7 @@ class AuditLogSchemaDriftTest :
             entity.attributes.map { it.name }.toSet() shouldBe real.columns.keys
             entity.attributes.forEach { attr ->
                 val col = real.columns.getValue(attr.name!!)
-                withClue("column '${attr.name}'") {
+                withClue(clue = "column '${attr.name}'") {
                     col.nullable shouldBe attr.nullable
                 }
             }
@@ -91,7 +91,7 @@ class AuditLogSchemaDriftTest :
         test("audit_log_entry.entry_hash/sequence_number/entity_type/entity_id/action are NOT NULL") {
             val entity = model.entities.single { it.name == "audit_log_entry" }
             listOf("entry_hash", "sequence_number", "entity_type", "entity_id", "action").forEach { name ->
-                withClue("attribute '$name'") {
+                withClue(clue = "attribute '$name'") {
                     entity.attributeByName(name)?.nullable shouldBe false
                 }
             }

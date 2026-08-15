@@ -136,7 +136,8 @@ class PriceOracleService(
                 is QuoteOutcome.Ok -> outcome.quote
             }
 
-        val ltrMinted = computeLtrMinted(donationAmount, config.anchorUnitsPerLtr, quote.medianPrice)
+        val ltrMinted =
+            computeLtrMinted(donationAmount = donationAmount, anchorUnitsPerLtr = config.anchorUnitsPerLtr, anchorPrice = quote.medianPrice)
         val now = nowLocalDateTime()
         val priceTimestampLocal = quote.priceTimestamp.toLocalDateTime(TimeZone.currentSystemDefault()).truncatedToDbPrecision()
         val sourcesUsed = quote.contributingSourceIds.joinToString(",")

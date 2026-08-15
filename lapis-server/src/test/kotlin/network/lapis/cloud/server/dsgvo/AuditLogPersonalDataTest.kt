@@ -129,7 +129,7 @@ class AuditLogPersonalDataTest :
             }
 
             listOf(ErasureMode.ANONYMIZE, ErasureMode.HARD_DELETE_WHERE_UNCONSTRAINED).forEach { mode ->
-                val outcomes = transaction { AuditLogPersonalData.erase(member, mode) }
+                val outcomes = transaction { AuditLogPersonalData.erase(memberId = member, mode = mode) }
                 outcomes.size shouldBe 1
                 val outcome = outcomes.single()
                 outcome.table shouldBe "audit_log_entry"

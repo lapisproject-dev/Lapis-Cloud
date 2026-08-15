@@ -90,7 +90,7 @@ fun computeVickreySettlement(
             ?: ZERO_2DP
 
     val winningBallots = ballots.filter { it.optionId == winnerOptionId }
-    val charges = allocateProportional(winningBallots, secondPrice)
+    val charges = allocateProportional(winningBallots = winningBallots, secondPrice = secondPrice)
     return Settlement(winnerOptionId = winnerOptionId, secondPrice = secondPrice.setScale(2, RoundingMode.UNNECESSARY), charges = charges)
 }
 
@@ -104,4 +104,11 @@ fun computeVickreySettlement(
 private fun allocateProportional(
     winningBallots: List<Ballot>,
     secondPrice: BigDecimal,
-): Map<Uuid, BigDecimal> = LargestRemainderApportionment.apportion(winningBallots.associate { it.memberId to it.stake }, secondPrice)
+): Map<Uuid, BigDecimal> =
+    LargestRemainderApportionment.apportion(
+        weights =
+            winningBallots.associate {
+                it.memberId to it.stake
+            },
+        pool = secondPrice,
+    )

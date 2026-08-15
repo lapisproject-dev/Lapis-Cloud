@@ -27,7 +27,12 @@ class PartyDonationComplianceCalculatorTest :
         structuralCategories.forEach { category ->
             test("$category is PROHIBITED regardless of amount (tiny, zero, huge) with no duties and a non-blank reason") {
                 listOf(BigDecimal("0.01"), zero, BigDecimal("1000000.00")).forEach { amount ->
-                    val result = PartyDonationComplianceCalculator.check(amount, category, zero)
+                    val result =
+                        PartyDonationComplianceCalculator.check(
+                            amount = amount,
+                            category = category,
+                            priorPostedTotalThisYear = zero,
+                        )
                     result.verdict shouldBe DonationVerdict.PROHIBITED
                     result.reason?.isNotBlank() shouldBe true
                     result.duties.shouldBeEmpty()
@@ -35,7 +40,12 @@ class PartyDonationComplianceCalculatorTest :
             }
 
             test("$category is PROHIBITED even with a large prior-year total (still amount-independent)") {
-                val result = PartyDonationComplianceCalculator.check(BigDecimal("10.00"), category, BigDecimal("999999.00"))
+                val result =
+                    PartyDonationComplianceCalculator.check(
+                        amount = BigDecimal("10.00"),
+                        category = category,
+                        priorPostedTotalThisYear = BigDecimal("999999.00"),
+                    )
                 result.verdict shouldBe DonationVerdict.PROHIBITED
                 result.duties.shouldBeEmpty()
             }
@@ -43,7 +53,12 @@ class PartyDonationComplianceCalculatorTest :
 
         test("NON_EU_FOREIGN_NATURAL_PERSON exactly at the foreign cap is ALLOWED") {
             val cap = PartyDonationComplianceCalculator.FOREIGN_DONOR_ANNUAL_CAP_EUR
-            val result = PartyDonationComplianceCalculator.check(cap, DonorCategory.NON_EU_FOREIGN_NATURAL_PERSON, zero)
+            val result =
+                PartyDonationComplianceCalculator.check(
+                    amount = cap,
+                    category = DonorCategory.NON_EU_FOREIGN_NATURAL_PERSON,
+                    priorPostedTotalThisYear = zero,
+                )
             result.verdict shouldBe DonationVerdict.ALLOWED
         }
 
@@ -51,9 +66,9 @@ class PartyDonationComplianceCalculatorTest :
             val cap = PartyDonationComplianceCalculator.FOREIGN_DONOR_ANNUAL_CAP_EUR
             val result =
                 PartyDonationComplianceCalculator.check(
-                    cap + BigDecimal("0.01"),
-                    DonorCategory.NON_EU_FOREIGN_NATURAL_PERSON,
-                    zero,
+                    amount = cap + BigDecimal("0.01"),
+                    category = DonorCategory.NON_EU_FOREIGN_NATURAL_PERSON,
+                    priorPostedTotalThisYear = zero,
                 )
             result.verdict shouldBe DonationVerdict.PROHIBITED
             result.reason?.isNotBlank() shouldBe true
@@ -64,9 +79,9 @@ class PartyDonationComplianceCalculatorTest :
             val cap = PartyDonationComplianceCalculator.FOREIGN_DONOR_ANNUAL_CAP_EUR
             val result =
                 PartyDonationComplianceCalculator.check(
-                    cap - BigDecimal("0.01"),
-                    DonorCategory.NON_EU_FOREIGN_NATURAL_PERSON,
-                    zero,
+                    amount = cap - BigDecimal("0.01"),
+                    category = DonorCategory.NON_EU_FOREIGN_NATURAL_PERSON,
+                    priorPostedTotalThisYear = zero,
                 )
             result.verdict shouldBe DonationVerdict.ALLOWED
         }
@@ -75,8 +90,8 @@ class PartyDonationComplianceCalculatorTest :
             val cap = PartyDonationComplianceCalculator.FOREIGN_DONOR_ANNUAL_CAP_EUR
             val result =
                 PartyDonationComplianceCalculator.check(
-                    BigDecimal("10.00"),
-                    DonorCategory.NON_EU_FOREIGN_NATURAL_PERSON,
+                    amount = BigDecimal("10.00"),
+                    category = DonorCategory.NON_EU_FOREIGN_NATURAL_PERSON,
                     priorPostedTotalThisYear = cap,
                 )
             result.verdict shouldBe DonationVerdict.PROHIBITED
@@ -87,7 +102,12 @@ class PartyDonationComplianceCalculatorTest :
             // constants, so this specific scenario cannot happen with the current figures -- this
             // test instead pins that ALLOWED-within-cap still runs the same additive-duty logic as
             // every other allowed category (no special-cased short-circuit for this category).
-            val result = PartyDonationComplianceCalculator.check(BigDecimal("1.00"), DonorCategory.NON_EU_FOREIGN_NATURAL_PERSON, zero)
+            val result =
+                PartyDonationComplianceCalculator.check(
+                    amount = BigDecimal("1.00"),
+                    category = DonorCategory.NON_EU_FOREIGN_NATURAL_PERSON,
+                    priorPostedTotalThisYear = zero,
+                )
             result.verdict shouldBe DonationVerdict.ALLOWED
             result.duties.shouldBeEmpty()
         }
@@ -97,17 +117,32 @@ class PartyDonationComplianceCalculatorTest :
         ) {
             val threshold = PartyDonationComplianceCalculator.ANONYMOUS_FORWARDING_THRESHOLD_EUR
 
-            val atThreshold = PartyDonationComplianceCalculator.check(threshold, DonorCategory.ANONYMOUS, zero)
+            val atThreshold =
+                PartyDonationComplianceCalculator.check(
+                    amount = threshold,
+                    category = DonorCategory.ANONYMOUS,
+                    priorPostedTotalThisYear = zero,
+                )
             atThreshold.verdict shouldBe DonationVerdict.ALLOWED
             atThreshold.duties.shouldBeEmpty()
 
-            val aboveThreshold = PartyDonationComplianceCalculator.check(threshold + BigDecimal("0.01"), DonorCategory.ANONYMOUS, zero)
+            val aboveThreshold =
+                PartyDonationComplianceCalculator.check(
+                    amount = threshold + BigDecimal("0.01"),
+                    category = DonorCategory.ANONYMOUS,
+                    priorPostedTotalThisYear = zero,
+                )
             aboveThreshold.verdict shouldBe DonationVerdict.ALLOWED
             aboveThreshold.duties shouldBe setOf(DonationDuty.ANONYMOUS_FORWARDING_REQUIRED)
         }
 
         test("ANONYMOUS is never PROHIBITED, even for a huge amount") {
-            val result = PartyDonationComplianceCalculator.check(BigDecimal("1000000.00"), DonorCategory.ANONYMOUS, zero)
+            val result =
+                PartyDonationComplianceCalculator.check(
+                    amount = BigDecimal("1000000.00"),
+                    category = DonorCategory.ANONYMOUS,
+                    priorPostedTotalThisYear = zero,
+                )
             result.verdict shouldBe DonationVerdict.ALLOWED
         }
 
@@ -117,8 +152,8 @@ class PartyDonationComplianceCalculatorTest :
             // stays duty-free.
             val result =
                 PartyDonationComplianceCalculator.check(
-                    BigDecimal("10.00"),
-                    DonorCategory.ANONYMOUS,
+                    amount = BigDecimal("10.00"),
+                    category = DonorCategory.ANONYMOUS,
                     priorPostedTotalThisYear = BigDecimal("999999.00"),
                 )
             result.duties.shouldBeEmpty()
@@ -130,21 +165,36 @@ class PartyDonationComplianceCalculatorTest :
             DonorCategory.GERMAN_COMPANY_OR_ORGANIZATION,
         ).forEach { category ->
             test("$category below both thresholds is ALLOWED with no duties") {
-                val result = PartyDonationComplianceCalculator.check(BigDecimal("50.00"), category, zero)
+                val result =
+                    PartyDonationComplianceCalculator.check(
+                        amount = BigDecimal("50.00"),
+                        category = category,
+                        priorPostedTotalThisYear = zero,
+                    )
                 result.verdict shouldBe DonationVerdict.ALLOWED
                 result.duties.shouldBeEmpty()
             }
 
             test("$category above the disclosure threshold only accrues ANNUAL_DISCLOSURE_REQUIRED") {
                 val disclosureThreshold = PartyDonationComplianceCalculator.ANNUAL_DISCLOSURE_THRESHOLD_EUR
-                val result = PartyDonationComplianceCalculator.check(disclosureThreshold + BigDecimal("0.01"), category, zero)
+                val result =
+                    PartyDonationComplianceCalculator.check(
+                        amount = disclosureThreshold + BigDecimal("0.01"),
+                        category = category,
+                        priorPostedTotalThisYear = zero,
+                    )
                 result.verdict shouldBe DonationVerdict.ALLOWED
                 result.duties shouldBe setOf(DonationDuty.ANNUAL_DISCLOSURE_REQUIRED)
             }
 
             test("$category above the prompt-report threshold accrues BOTH duties simultaneously") {
                 val promptThreshold = PartyDonationComplianceCalculator.PROMPT_REPORT_THRESHOLD_EUR
-                val result = PartyDonationComplianceCalculator.check(promptThreshold + BigDecimal("0.01"), category, zero)
+                val result =
+                    PartyDonationComplianceCalculator.check(
+                        amount = promptThreshold + BigDecimal("0.01"),
+                        category = category,
+                        priorPostedTotalThisYear = zero,
+                    )
                 result.verdict shouldBe DonationVerdict.ALLOWED
                 result.duties shouldBe setOf(DonationDuty.PROMPT_BUNDESTAG_REPORT_REQUIRED, DonationDuty.ANNUAL_DISCLOSURE_REQUIRED)
             }
@@ -153,8 +203,8 @@ class PartyDonationComplianceCalculatorTest :
                 val disclosureThreshold = PartyDonationComplianceCalculator.ANNUAL_DISCLOSURE_THRESHOLD_EUR
                 val result =
                     PartyDonationComplianceCalculator.check(
-                        BigDecimal("1.00"),
-                        category,
+                        amount = BigDecimal("1.00"),
+                        category = category,
                         priorPostedTotalThisYear = disclosureThreshold,
                     )
                 result.duties shouldBe setOf(DonationDuty.ANNUAL_DISCLOSURE_REQUIRED)
@@ -162,7 +212,12 @@ class PartyDonationComplianceCalculatorTest :
 
             test("$category exactly at the disclosure threshold has no duty yet (strictly-greater-than semantics)") {
                 val disclosureThreshold = PartyDonationComplianceCalculator.ANNUAL_DISCLOSURE_THRESHOLD_EUR
-                val result = PartyDonationComplianceCalculator.check(disclosureThreshold, category, zero)
+                val result =
+                    PartyDonationComplianceCalculator.check(
+                        amount = disclosureThreshold,
+                        category = category,
+                        priorPostedTotalThisYear = zero,
+                    )
                 result.duties.shouldBeEmpty()
             }
         }
@@ -170,7 +225,12 @@ class PartyDonationComplianceCalculatorTest :
         test("BigDecimal scale sanity: 100.00 and 100.0 compare equal at the cap boundary (compareTo, not equals)") {
             val cap = PartyDonationComplianceCalculator.FOREIGN_DONOR_ANNUAL_CAP_EUR
             val scaledCap = BigDecimal(cap.toPlainString()).setScale(cap.scale() + 3)
-            val result = PartyDonationComplianceCalculator.check(scaledCap, DonorCategory.NON_EU_FOREIGN_NATURAL_PERSON, zero)
+            val result =
+                PartyDonationComplianceCalculator.check(
+                    amount = scaledCap,
+                    category = DonorCategory.NON_EU_FOREIGN_NATURAL_PERSON,
+                    priorPostedTotalThisYear = zero,
+                )
             result.verdict shouldBe DonationVerdict.ALLOWED
         }
     })

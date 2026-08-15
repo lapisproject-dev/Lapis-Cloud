@@ -68,13 +68,13 @@ class PeerTransferService(
             // AuctionService.createListing: first statement inside the transaction, before any
             // state-changing read/write. Member-only (AKTIV), not requireActiveOrGuestMembership --
             // GAST cannot hold/spend LTR at all yet, see V0.8.2's own disclosed limitation.
-            requireActiveMembership(current.memberId)
+            requireActiveMembership(memberId = current.memberId)
             // current.memberId is already authenticated via resolveCurrentMember and therefore
             // always exists -- checked anyway as defense in depth, symmetric with the recipient
             // check right below, so lockBothAccounts never receives an unverified id.
             requireMemberExists(current.memberId)
             requireMemberExists(recipientId)
-            lockBothAccounts(current.memberId, recipientId)
+            lockBothAccounts(a = current.memberId, b = recipientId)
             val freeBalance = ltrBalanceProvider.freeBalance(current.memberId)
             if (normalizedAmount > freeBalance) {
                 throw ConflictException("amountLtr $normalizedAmount exceeds free LTR balance $freeBalance")
@@ -105,7 +105,7 @@ class PeerTransferService(
         return transaction {
             requireMemberExists(senderId)
             requireMemberExists(recipientId)
-            lockBothAccounts(senderId, recipientId)
+            lockBothAccounts(a = senderId, b = recipientId)
             val freeBalance = ltrBalanceProvider.freeBalance(senderId)
             if (normalizedAmount > freeBalance) {
                 throw ConflictException("amountLtr $normalizedAmount exceeds free LTR balance $freeBalance for sender $senderId")

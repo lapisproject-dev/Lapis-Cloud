@@ -207,7 +207,7 @@ class StreamPoller(
             transaction { ConferenceRoomTable.selectAll().where { ConferenceRoomTable.id eq row.roomId }.singleOrNull() }
         if (roomRow == null) {
             logger.warn { "StreamPoller: room ${row.roomId} for stream ${row.id} no longer exists -- finalizing" }
-            finalizeEnded(row.id, now)
+            finalizeEnded(streamId = row.id, now = now)
             return
         }
         val roomName = roomRow[ConferenceRoomTable.livekitRoomName]
@@ -217,9 +217,9 @@ class StreamPoller(
         // completes that row regardless of room state.
         if (roomRow[ConferenceRoomTable.endedAt] != null && row.status != ConferenceStreamStatus.STOPPING) {
             if (row.status == ConferenceStreamStatus.LIVE) {
-                autoStop(row, roomName, now)
+                autoStop(row = row, roomName = roomName, now = now)
             } else {
-                finalizeEnded(row.id, now)
+                finalizeEnded(streamId = row.id, now = now)
             }
             return
         }
@@ -230,13 +230,13 @@ class StreamPoller(
             // the SAME forUpdate()-locked transaction that adopts (or fails to adopt) an orphaned
             // egress, so a blind early PAUSING claim here would only throw away the egress-id
             // discovery handleStarting's own adoption logic performs -- see that method's own KDoc.
-            ConferenceStreamStatus.STARTING -> handleStarting(row, roomName, now)
+            ConferenceStreamStatus.STARTING -> handleStarting(row = row, roomName = roomName, now = now)
             ConferenceStreamStatus.LIVE -> {
-                if (!reconcileMissedSecretBallotPause(row)) handleLive(row, roomName, now)
+                if (!reconcileMissedSecretBallotPause(row)) handleLive(row = row, roomName = roomName, now = now)
             }
-            ConferenceStreamStatus.PAUSING -> handlePausing(row, roomName, now)
-            ConferenceStreamStatus.PAUSED -> handlePaused(row, now)
-            ConferenceStreamStatus.STOPPING -> handleStopping(row, roomName, now)
+            ConferenceStreamStatus.PAUSING -> handlePausing(row = row, roomName = roomName, now = now)
+            ConferenceStreamStatus.PAUSED -> handlePaused(row = row, now = now)
+            ConferenceStreamStatus.STOPPING -> handleStopping(row = row, roomName = roomName, now = now)
             else -> Unit
         }
     }
@@ -311,7 +311,7 @@ class StreamPoller(
         now: LocalDateTime,
     ) {
         if (row.livekitEgressId != null) return
-        if (elapsed(row.startedAt, now) < streamingConfig.startupTimeoutSeconds.seconds) return
+        if (elapsed(from = row.startedAt, to = now) < streamingConfig.startupTimeoutSeconds.seconds) return
 
         val fingerprints =
             transaction {
@@ -326,7 +326,7 @@ class StreamPoller(
             // the rest of a hypothetical grace period would just be an unexplained hang.
             // confirmedEgressId = null -- this row never had an egress id to begin with (the guard at
             // this method's very top already returned early if it did), see markFailed KDoc.
-            markFailed(row.id, FAILURE_TIMEOUT, confirmedEgressId = null)
+            markFailed(streamId = row.id, reason = FAILURE_TIMEOUT, confirmedEgressId = null)
             return
         }
 
@@ -375,7 +375,7 @@ class StreamPoller(
         } else {
             // confirmedEgressId = null -- same reasoning as the fingerprints.isEmpty() branch above:
             // this row never had an egress id recorded, see markFailed KDoc.
-            markFailed(row.id, FAILURE_TIMEOUT, confirmedEgressId = null)
+            markFailed(streamId = row.id, reason = FAILURE_TIMEOUT, confirmedEgressId = null)
         }
     }
 
@@ -390,10 +390,10 @@ class StreamPoller(
         roomName: String,
         now: LocalDateTime,
     ) {
-        if (elapsed(row.startedAt, now) >= streamingConfig.maxDurationMinutes.minutes) {
+        if (elapsed(from = row.startedAt, to = now) >= streamingConfig.maxDurationMinutes.minutes) {
             // Same ceiling handlePaused enforces for an already-PAUSED row -- a PAUSING row must not
             // be able to hold the room's one-active-stream-per-room slot open indefinitely either.
-            finalizeEnded(row.id, now)
+            finalizeEnded(streamId = row.id, now = now)
             logger.info { "StreamPoller: auto-stopped PAUSING stream ${row.id} (max duration elapsed)" }
             return
         }
@@ -405,7 +405,7 @@ class StreamPoller(
             // either adopt a matching egress (and immediately try to stop it, since the entire point
             // of PAUSING is "no longer publish") or, if none is found, the room genuinely never
             // started publishing -- go straight to PAUSED, nothing left to stop.
-            if (elapsed(row.startedAt, now) < streamingConfig.startupTimeoutSeconds.seconds) return
+            if (elapsed(from = row.startedAt, to = now) < streamingConfig.startupTimeoutSeconds.seconds) return
             val fingerprints =
                 transaction {
                     ConferenceStreamTargetTable
@@ -417,7 +417,7 @@ class StreamPoller(
             if (fingerprints.isEmpty()) {
                 // Confirmed: no target rows to ever match against, i.e. this row's own egress id is
                 // (still) null -- see markPaused KDoc "confirmedEgressId".
-                markPaused(row.id, now, confirmedEgressId = null)
+                markPaused(streamId = row.id, now = now, confirmedEgressId = null)
                 return
             }
             val egresses =
@@ -431,11 +431,11 @@ class StreamPoller(
             if (adopted == null) {
                 // Confirmed via ListEgress: nothing matching this row's fingerprints is running --
                 // this row's own egress id is (still) null, see markPaused KDoc "confirmedEgressId".
-                markPaused(row.id, now, confirmedEgressId = null)
+                markPaused(streamId = row.id, now = now, confirmedEgressId = null)
                 return
             }
             try {
-                liveKitEgressClient.stopEgress(roomName, adopted.egressId)
+                liveKitEgressClient.stopEgress(roomName = roomName, egressId = adopted.egressId)
             } catch (e: LiveKitAdminException) {
                 logger.warn {
                     "StreamPoller: StopEgress failed for adopted orphan PAUSING egress ${adopted.egressId}, stream ${row.id}: " +
@@ -449,7 +449,7 @@ class StreamPoller(
         }
 
         try {
-            liveKitEgressClient.stopEgress(roomName, egressId)
+            liveKitEgressClient.stopEgress(roomName = roomName, egressId = egressId)
         } catch (e: LiveKitAdminException) {
             logger.warn { "StreamPoller: StopEgress failed while confirming PAUSING stream ${row.id}: ${e.message}" }
         }
@@ -463,7 +463,7 @@ class StreamPoller(
         val info = egresses.firstOrNull { it.egressId == egressId }
         if (info == null || info.status in TERMINAL_EGRESS_STATUSES) {
             // Confirmed via ListEgress: THIS specific egressId is gone/terminal.
-            markPaused(row.id, now, confirmedEgressId = egressId)
+            markPaused(streamId = row.id, now = now, confirmedEgressId = egressId)
         }
         // else still (possibly) publishing -- stay PAUSING, the next tick retries.
     }
@@ -533,8 +533,8 @@ class StreamPoller(
         roomName: String,
         now: LocalDateTime,
     ) {
-        if (elapsed(row.startedAt, now) >= streamingConfig.maxDurationMinutes.minutes) {
-            autoStop(row, roomName, now)
+        if (elapsed(from = row.startedAt, to = now) >= streamingConfig.maxDurationMinutes.minutes) {
+            autoStop(row = row, roomName = roomName, now = now)
             return
         }
         val egressId = row.livekitEgressId ?: return
@@ -551,7 +551,7 @@ class StreamPoller(
             logger.warn { "StreamPoller: egress $egressId for stream ${row.id} no longer reported by ListEgress -- FAILED" }
             // confirmedEgressId = egressId -- this IS the specific id whose vanishing this ListEgress
             // call just observed, see markFailed KDoc.
-            markFailed(row.id, FAILURE_GENERIC, confirmedEgressId = egressId)
+            markFailed(streamId = row.id, reason = FAILURE_GENERIC, confirmedEgressId = egressId)
             return
         }
 
@@ -588,7 +588,7 @@ class StreamPoller(
             // row away from LIVE before it could ever reach here (see ConferenceStreamStatus KDoc
             // "StreamPoller drives LIVE -> FAILED"). confirmedEgressId = egressId -- this IS the
             // specific id whose terminal status this ListEgress call just observed, see markFailed KDoc.
-            markFailed(row.id, sanitizeLiveKitError(info.error), confirmedEgressId = egressId)
+            markFailed(streamId = row.id, reason = sanitizeLiveKitError(info.error), confirmedEgressId = egressId)
         }
     }
 
@@ -618,7 +618,13 @@ class StreamPoller(
             val hasOpenSecretBallot = transaction { SecretBallotStreamLock.hasOpenSecretBallot(row.roomId) }
             if (!hasOpenSecretBallot) {
                 logger.info { "StreamPoller: reconciling orphaned SECRET_BALLOT pause for stream ${row.id} -- auto-resuming" }
-                restartEgressForStream(row.id, liveKitEgressClient, streamingConfig, actorMemberId = null, actorRole = null)
+                restartEgressForStream(
+                    streamId = row.id,
+                    liveKitEgressClient = liveKitEgressClient,
+                    streamingConfig = streamingConfig,
+                    actorMemberId = null,
+                    actorRole = null,
+                )
                 return
             }
             // Stolperfalle §9.2, real pre-existing bug fixed in this wave: without this early return,
@@ -632,10 +638,10 @@ class StreamPoller(
             // collects the stream regardless of this suspension.
             return
         }
-        if (elapsed(row.startedAt, now) >= streamingConfig.maxDurationMinutes.minutes) {
+        if (elapsed(from = row.startedAt, to = now) >= streamingConfig.maxDurationMinutes.minutes) {
             // No active egress while PAUSED (LiveKit has no pause primitive -- StopEgress already
             // ran when this stream was paused) -- nothing to stop, finalize directly.
-            finalizeEnded(row.id, now)
+            finalizeEnded(streamId = row.id, now = now)
             logger.info { "StreamPoller: auto-stopped PAUSED stream ${row.id} (max duration elapsed)" }
         }
     }
@@ -658,12 +664,12 @@ class StreamPoller(
         // escalation -- ERROR- not WARN-logged, since this IS the fail-closed state finally giving up
         // rather than a routine auto-stop, and an operator must be able to spot it at a glance in the
         // logs.
-        if (elapsed(row.startedAt, now) >= streamingConfig.maxDurationMinutes.minutes) {
+        if (elapsed(from = row.startedAt, to = now) >= streamingConfig.maxDurationMinutes.minutes) {
             logger.error {
                 "StreamPoller: force-finalizing STOPPING stream ${row.id} to ENDED after exceeding max duration -- " +
                     "StopEgress confirmation never landed (egress id: ${row.livekitEgressId ?: "never recorded"})"
             }
-            finalizeEnded(row.id, now)
+            finalizeEnded(streamId = row.id, now = now)
             return
         }
 
@@ -672,7 +678,7 @@ class StreamPoller(
             // Nothing was ever recorded as running for this row -- see class KDoc "STOPPING". No
             // egress to confirm, finalize directly -- but still guarded (confirmedEgressId = null): see
             // finalizeEndedConfirmed KDoc.
-            finalizeEndedConfirmed(row.id, now, confirmedEgressId = null)
+            finalizeEndedConfirmed(streamId = row.id, now = now, confirmedEgressId = null)
             return
         }
         // Security-audit MAJOR-1/MINOR-6 fix -- StopEgress alone is a REQUEST, not a confirmation
@@ -683,7 +689,7 @@ class StreamPoller(
         // that guarantee true -- mirrors handlePausing's own StopEgress-then-ListEgress-confirm shape
         // one-for-one, just for the STOPPING state instead of PAUSING.
         try {
-            liveKitEgressClient.stopEgress(roomName, egressId)
+            liveKitEgressClient.stopEgress(roomName = roomName, egressId = egressId)
         } catch (e: LiveKitAdminException) {
             logger.warn { "StreamPoller: StopEgress failed while completing STOPPING stream ${row.id}: ${e.message}" }
         }
@@ -697,7 +703,7 @@ class StreamPoller(
         val info = egresses.firstOrNull { it.egressId == egressId }
         if (info == null || info.status in TERMINAL_EGRESS_STATUSES) {
             // Confirmed via ListEgress: THIS specific egressId is gone/terminal.
-            finalizeEndedConfirmed(row.id, now, confirmedEgressId = egressId)
+            finalizeEndedConfirmed(streamId = row.id, now = now, confirmedEgressId = egressId)
         }
         // else still (possibly) publishing -- stay STOPPING, the next tick retries.
     }
@@ -712,12 +718,12 @@ class StreamPoller(
         val egressId = row.livekitEgressId
         if (egressId != null) {
             try {
-                liveKitEgressClient.stopEgress(roomName, egressId)
+                liveKitEgressClient.stopEgress(roomName = roomName, egressId = egressId)
             } catch (e: LiveKitAdminException) {
                 logger.warn { "StreamPoller: StopEgress failed while auto-stopping stream ${row.id}: ${e.message}" }
             }
         }
-        finalizeEnded(row.id, now)
+        finalizeEnded(streamId = row.id, now = now)
         logger.info { "StreamPoller: auto-stopped stream ${row.id}" }
     }
 

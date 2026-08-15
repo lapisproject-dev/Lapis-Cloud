@@ -50,7 +50,7 @@ object TrustAnchorSigningKeyProvisioner {
                     id = TRUST_ANCHOR_SIGNING_KEY_ID,
                     status = TrustAnchorSigningKeyStatus.ACTIVE,
                 )
-            TrustAnchorEventStore.record(TrustAnchorEventType.KEY_PROVISIONED, subject = kid)
+            TrustAnchorEventStore.record(eventType = TrustAnchorEventType.KEY_PROVISIONED, subject = kid)
         }
     }
 }

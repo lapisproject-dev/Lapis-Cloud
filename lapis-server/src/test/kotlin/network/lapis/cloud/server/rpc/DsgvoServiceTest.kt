@@ -101,7 +101,7 @@ class DsgvoServiceTest :
             }
         }
 
-        afterSpec { cleanUpDsgvoTestData(dsgvoTestTierId, createdMemberIds) }
+        afterSpec { cleanUpDsgvoTestData(dsgvoTestTierId = dsgvoTestTierId, memberIds = createdMemberIds) }
 
         fun createDsgvoTestMember(
             email: String,
@@ -142,16 +142,21 @@ class DsgvoServiceTest :
                         registerDsgvoRoutes()
                         post("/test/generate-contributions") {
                             val service = ContributionService(call)
-                            val count = service.generateContributionsForPeriod(dsgvoTestTierId.toString(), PERIOD_START, PERIOD_END)
+                            val count =
+                                service.generateContributionsForPeriod(
+                                    membershipTierId = dsgvoTestTierId.toString(),
+                                    periodStart = PERIOD_START,
+                                    periodEnd = PERIOD_END,
+                                )
                             call.respondText(count.toString())
                         }
                         post("/test/mark-paid/{contributionId}") {
                             val service = ContributionService(call)
                             service.markContributionPaid(
-                                call.parameters["contributionId"]!!,
-                                LocalDateTime(2027, 3, 15, 12, 0),
-                                BigDecimal("10.00"),
-                                "Vertrauliche Buchhalter-Notiz",
+                                contributionId = call.parameters["contributionId"]!!,
+                                paidAt = LocalDateTime(2027, 3, 15, 12, 0),
+                                paidAmount = BigDecimal("10.00"),
+                                note = "Vertrauliche Buchhalter-Notiz",
                             )
                             call.respondText("ok")
                         }
@@ -162,22 +167,22 @@ class DsgvoServiceTest :
                         }
                         post("/test/create-folder") {
                             val service = DocumentService(call)
-                            val folder = service.createFolder("DSGVO-Test-Ordner")
+                            val folder = service.createFolder(name = "DSGVO-Test-Ordner")
                             call.respondText(folder.id)
                         }
                         post("/test/create-document/{folderId}") {
                             val service = DocumentService(call)
                             val doc =
                                 service.createDocument(
-                                    call.parameters["folderId"]!!,
-                                    "DSGVO-Testdokument",
-                                    DocumentAccessLevel.PUBLIC_MEMBERS,
+                                    folderId = call.parameters["folderId"]!!,
+                                    title = "DSGVO-Testdokument",
+                                    accessLevel = DocumentAccessLevel.PUBLIC_MEMBERS,
                                 )
                             call.respondText(doc.id)
                         }
                         post("/test/create-list") {
                             val service = MailingService(call)
-                            val list = service.createMailingList("DSGVO-Testliste", null)
+                            val list = service.createMailingList(name = "DSGVO-Testliste", description = null)
                             call.respondText(list.id)
                         }
                         post("/test/subscribe/{listId}") {
@@ -187,7 +192,12 @@ class DsgvoServiceTest :
                         }
                         post("/test/draft/{listId}") {
                             val service = MailingService(call)
-                            val message = service.createDraftMessage(call.parameters["listId"]!!, "DSGVO-Betreff", "DSGVO-Nachrichtentext")
+                            val message =
+                                service.createDraftMessage(
+                                    mailingListId = call.parameters["listId"]!!,
+                                    subject = "DSGVO-Betreff",
+                                    bodyText = "DSGVO-Nachrichtentext",
+                                )
                             call.respondText(message.id)
                         }
                         post("/test/send-mail/{messageId}") {
@@ -197,7 +207,7 @@ class DsgvoServiceTest :
                         }
                         post("/test/send-dm/{recipientId}") {
                             val service = DirectMessageService(call)
-                            service.sendDirectMessage(call.parameters["recipientId"]!!, "Von Testmitglied gesendet")
+                            service.sendDirectMessage(recipientId = call.parameters["recipientId"]!!, body = "Von Testmitglied gesendet")
                             call.respondText("ok")
                         }
                         get("/test/export-manifest/{memberId}") {
@@ -212,11 +222,11 @@ class DsgvoServiceTest :
                             val query = call.request.queryParameters
                             val dto =
                                 service.updateMemberAddress(
-                                    call.parameters["memberId"]!!,
-                                    query["street"],
-                                    query["postalCode"],
-                                    query["city"],
-                                    query["country"],
+                                    memberId = call.parameters["memberId"]!!,
+                                    street = query["street"],
+                                    postalCode = query["postalCode"],
+                                    city = query["city"],
+                                    country = query["country"],
                                 )
                             call.respondText(dto.id)
                         }
@@ -239,7 +249,7 @@ class DsgvoServiceTest :
                 // walk expects.
                 val folderId = client.post("/test/create-folder") { header("X-Member-Id", subjectHeader) }.bodyAsText()
                 val documentId = client.post("/test/create-document/$folderId") { header("X-Member-Id", subjectHeader) }.bodyAsText()
-                insertDocumentVersion(documentId, subject)
+                insertDocumentVersion(documentId = documentId, uploadedBy = subject)
 
                 // Communication: mailing list authored + subscribed + sent by the subject, plus a
                 // direct message sent by the subject to TREASURER.
@@ -263,7 +273,7 @@ class DsgvoServiceTest :
                 // alongside createdBy (see that object's KDoc). Inserted directly, like
                 // insertDocumentVersion below, since exercising the full postJournalEntry
                 // double-entry/ledger-account machinery is out of scope for this DSGVO-focused test.
-                insertDonationJournalEntry(subject, createdBy = Uuid.parse(TREASURER_ID))
+                insertDonationJournalEntry(donorMemberId = subject, createdBy = Uuid.parse(TREASURER_ID))
 
                 // Manifest (RPC surface): every registered contributor participates, and the
                 // contributions count reflects the actual row Exposed query pulled (a JsonArray),
@@ -354,12 +364,17 @@ class DsgvoServiceTest :
                     routing {
                         post("/test/generate-contributions") {
                             val service = ContributionService(call)
-                            val count = service.generateContributionsForPeriod(dsgvoTestTierId.toString(), PERIOD_START, PERIOD_END)
+                            val count =
+                                service.generateContributionsForPeriod(
+                                    membershipTierId = dsgvoTestTierId.toString(),
+                                    periodStart = PERIOD_START,
+                                    periodEnd = PERIOD_END,
+                                )
                             call.respondText(count.toString())
                         }
                         post("/test/create-list") {
                             val service = MailingService(call)
-                            val list = service.createMailingList("DSGVO-Loesch-Testliste", null)
+                            val list = service.createMailingList(name = "DSGVO-Loesch-Testliste", description = null)
                             call.respondText(list.id)
                         }
                         post("/test/subscribe/{listId}") {
@@ -369,17 +384,28 @@ class DsgvoServiceTest :
                         }
                         post("/test/send-dm/{recipientId}") {
                             val service = DirectMessageService(call)
-                            service.sendDirectMessage(call.parameters["recipientId"]!!, "Nachrichtentext, der erhalten bleiben muss")
+                            service.sendDirectMessage(
+                                recipientId = call.parameters["recipientId"]!!,
+                                body = "Nachrichtentext, der erhalten bleiben muss",
+                            )
                             call.respondText("ok")
                         }
                         post("/test/request-erasure/{subjectId}") {
                             val service = DsgvoService(call)
-                            val request = service.requestErasure(call.parameters["subjectId"]!!, "Testmotion Art. 17 DSGVO")
+                            val request =
+                                service.requestErasure(
+                                    subjectMemberId = call.parameters["subjectId"]!!,
+                                    reason = "Testmotion Art. 17 DSGVO",
+                                )
                             call.respondText(request.id)
                         }
                         post("/test/decide/{requestId}/{approve}") {
                             val service = DsgvoService(call)
-                            val request = service.decideErasure(call.parameters["requestId"]!!, call.parameters["approve"]!!.toBoolean())
+                            val request =
+                                service.decideErasure(
+                                    requestId = call.parameters["requestId"]!!,
+                                    approve = call.parameters["approve"]!!.toBoolean(),
+                                )
                             call.respondText(request.status.name)
                         }
                         post("/test/execute/{requestId}") {
@@ -400,11 +426,11 @@ class DsgvoServiceTest :
                             val query = call.request.queryParameters
                             val dto =
                                 service.updateMemberAddress(
-                                    call.parameters["memberId"]!!,
-                                    query["street"],
-                                    query["postalCode"],
-                                    query["city"],
-                                    query["country"],
+                                    memberId = call.parameters["memberId"]!!,
+                                    street = query["street"],
+                                    postalCode = query["postalCode"],
+                                    city = query["city"],
+                                    country = query["country"],
                                 )
                             call.respondText(dto.id)
                         }
@@ -430,7 +456,7 @@ class DsgvoServiceTest :
                 // V0.4.1 donor attribution: a JournalEntry attributed to the subject as donor must
                 // be reported as retained (never anonymized/deleted) by erasure -- GoBD/§257 HGB/
                 // §147 AO, see AccountingPersonalData.erase KDoc.
-                insertDonationJournalEntry(subject, createdBy = Uuid.parse(TREASURER_ID))
+                insertDonationJournalEntry(donorMemberId = subject, createdBy = Uuid.parse(TREASURER_ID))
 
                 // Non-ADMIN cannot list/decide/execute -- ADMIN-only, unlike export/request which
                 // are self-or-ADMIN.
@@ -537,22 +563,22 @@ class DsgvoServiceTest :
                     routing {
                         post("/test/send-dm/{recipientId}") {
                             val service = DirectMessageService(call)
-                            service.sendDirectMessage(call.parameters["recipientId"]!!, "Selbst gesendeter Text")
+                            service.sendDirectMessage(recipientId = call.parameters["recipientId"]!!, body = "Selbst gesendeter Text")
                             call.respondText("ok")
                         }
                         post("/test/request-erasure/{subjectId}") {
                             val service = DsgvoService(call)
                             val request =
                                 service.requestErasure(
-                                    call.parameters["subjectId"]!!,
-                                    "Testmotion hart",
-                                    ErasureMode.HARD_DELETE_WHERE_UNCONSTRAINED,
+                                    subjectMemberId = call.parameters["subjectId"]!!,
+                                    reason = "Testmotion hart",
+                                    mode = ErasureMode.HARD_DELETE_WHERE_UNCONSTRAINED,
                                 )
                             call.respondText(request.id)
                         }
                         post("/test/decide/{requestId}") {
                             val service = DsgvoService(call)
-                            service.decideErasure(call.parameters["requestId"]!!, approve = true)
+                            service.decideErasure(requestId = call.parameters["requestId"]!!, approve = true)
                             call.respondText("ok")
                         }
                         post("/test/execute/{requestId}") {

@@ -34,11 +34,11 @@ import kotlin.uuid.Uuid
  * inside an already-open `transaction {}` (as `GovernanceService` typically does) is safe.
  */
 fun CurrentMember.canManageCommittee(committeeId: Uuid): Boolean =
-    isPrivileged || hasCommitteeRole(committeeId, CommitteeRole.CHAIR, CommitteeRole.DEPUTY_CHAIR)
+    isPrivileged || hasCommitteeRole(committeeId = committeeId, CommitteeRole.CHAIR, CommitteeRole.DEPUTY_CHAIR)
 
 fun CurrentMember.canRecordForMeeting(committeeId: Uuid): Boolean =
     isPrivileged ||
-        hasCommitteeRole(committeeId, CommitteeRole.CHAIR, CommitteeRole.DEPUTY_CHAIR, CommitteeRole.SECRETARY)
+        hasCommitteeRole(committeeId = committeeId, CommitteeRole.CHAIR, CommitteeRole.DEPUTY_CHAIR, CommitteeRole.SECRETARY)
 
 /**
  * Security-audit-round-2 L1 fix -- "is this member currently seated on this Committee, in ANY role"
@@ -53,7 +53,8 @@ fun CurrentMember.canRecordForMeeting(committeeId: Uuid): Boolean =
  * wrongly rejects a member with a time-limited (but still current) term -- the normal case for an
  * elected Vorstand seat.
  */
-fun CurrentMember.isActiveCommitteeMember(committeeId: Uuid): Boolean = hasCommitteeRole(committeeId, *CommitteeRole.entries.toTypedArray())
+fun CurrentMember.isActiveCommitteeMember(committeeId: Uuid): Boolean =
+    hasCommitteeRole(committeeId = committeeId, *CommitteeRole.entries.toTypedArray())
 
 /**
  * Motionsverwaltung (V0.2.2) submission rule. Asymmetric on purpose: submitting *to* the
@@ -81,7 +82,7 @@ fun CurrentMember.canSubmitMotion(targetCommitteeId: Uuid): Boolean {
                 .count() > 0
         }
     } else {
-        hasCommitteeRole(targetCommitteeId, *CommitteeRole.entries.toTypedArray())
+        hasCommitteeRole(committeeId = targetCommitteeId, *CommitteeRole.entries.toTypedArray())
     }
 }
 

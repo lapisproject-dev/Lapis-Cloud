@@ -72,7 +72,7 @@ object FfmpegArgumentBuilder {
         }
 
         val cells = layoutCells(spec)
-        args += listOf("-filter_complex", buildFilterGraph(spec, cells))
+        args += listOf("-filter_complex", buildFilterGraph(spec = spec, cells = cells))
         args += listOf("-map", "[vout]", "-map", "[aout]")
         args +=
             listOf(
@@ -108,7 +108,7 @@ object FfmpegArgumentBuilder {
 
     private fun layoutCells(spec: RecordingComposeSpec): List<Cell> {
         val screenShareIndex = spec.videoInputs.indexOfFirst { it.isScreenShare }
-        return if (screenShareIndex >= 0) presentationCells(spec, screenShareIndex) else galleryCells(spec)
+        return if (screenShareIndex >= 0) presentationCells(spec = spec, screenShareIndex = screenShareIndex) else galleryCells(spec)
     }
 
     /** Roughly-square grid -- see class KDoc "Gallery grid vs. presentation layout". */
@@ -131,7 +131,7 @@ object FfmpegArgumentBuilder {
         val cameraIndices = spec.videoInputs.indices.filter { it != screenShareIndex }
         val stripHeight = (spec.outputHeight * CAMERA_STRIP_HEIGHT_FRACTION).toInt()
         val shareHeight = if (cameraIndices.isEmpty()) spec.outputHeight else spec.outputHeight - stripHeight
-        val cells = MutableList(spec.videoInputs.size) { Cell(0, 0, spec.outputWidth, spec.outputHeight) }
+        val cells = MutableList(spec.videoInputs.size) { Cell(x = 0, y = 0, width = spec.outputWidth, height = spec.outputHeight) }
         cells[screenShareIndex] = Cell(x = 0, y = 0, width = spec.outputWidth, height = shareHeight)
         if (cameraIndices.isNotEmpty()) {
             val cellWidth = spec.outputWidth / cameraIndices.size

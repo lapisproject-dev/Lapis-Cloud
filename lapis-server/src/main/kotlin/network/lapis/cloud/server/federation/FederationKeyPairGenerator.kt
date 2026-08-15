@@ -32,8 +32,8 @@ object FederationKeyPairGenerator {
         generator.initialize(RSA_KEY_SIZE_BITS, SecureRandom())
         val keyPair = generator.generateKeyPair()
         return FederationKeyPair(
-            publicKeyPem = pemEncode(keyPair.public.encoded, "PUBLIC KEY"),
-            privateKeyPem = pemEncode(keyPair.private.encoded, "PRIVATE KEY"),
+            publicKeyPem = pemEncode(derBytes = keyPair.public.encoded, label = "PUBLIC KEY"),
+            privateKeyPem = pemEncode(derBytes = keyPair.private.encoded, label = "PRIVATE KEY"),
         )
     }
 

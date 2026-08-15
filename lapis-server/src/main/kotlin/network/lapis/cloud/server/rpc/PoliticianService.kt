@@ -43,8 +43,18 @@ private val POLITICIAN_BOARD_ROLES = arrayOf(AccountRole.BOARD, AccountRole.ADMI
 
 private val ZERO_2DP: BigDecimal = BigDecimal.ZERO.setScale(2)
 
-private val ZERO_MEMBER_RESULT = PoliticianTrustWeightCalculator.MemberTrustWeightResult(0, 0, ZERO_2DP)
-private val ZERO_GUEST_RESULT = PoliticianTrustWeightCalculator.GuestTrustWeightResult(0, 0, ZERO_2DP)
+private val ZERO_MEMBER_RESULT =
+    PoliticianTrustWeightCalculator.MemberTrustWeightResult(
+        memberLikeCount = 0,
+        memberDislikeCount = 0,
+        memberTrustWeight = ZERO_2DP,
+    )
+private val ZERO_GUEST_RESULT =
+    PoliticianTrustWeightCalculator.GuestTrustWeightResult(
+        guestLikeCount = 0,
+        guestDislikeCount = 0,
+        guestTrustWeight = ZERO_2DP,
+    )
 
 private val ZERO_WEIGHT_RESULT =
     PoliticianTrustWeightCalculator.TrustWeightResult(
@@ -125,13 +135,13 @@ class PoliticianService(
         val targetMemberId = memberId.toMemberUuidOrThrow()
         val now = nowLocalDateTime()
         return try {
-            grantPoliticianStatusTx(targetMemberId, mandateText, now, current.memberId)
+            grantPoliticianStatusTx(targetMemberId = targetMemberId, mandateText = mandateText, now = now, grantedBy = current.memberId)
         } catch (e: ExposedSQLException) {
             // See class KDoc "First-grant race" -- the loser of a concurrent first-grant retries
             // in a brand-new transaction (the failed one is unusable/aborted on Postgres past this
             // point) and now takes the existing-row/update branch, converging on the same ACTIVE
             // profile the winner just committed instead of surfacing a raw 500.
-            grantPoliticianStatusTx(targetMemberId, mandateText, now, current.memberId)
+            grantPoliticianStatusTx(targetMemberId = targetMemberId, mandateText = mandateText, now = now, grantedBy = current.memberId)
         }
     }
 
@@ -188,7 +198,7 @@ class PoliticianService(
         val targetMemberId = memberId.toMemberUuidOrThrow()
         val now = nowLocalDateTime()
         return transaction {
-            val row = requireProfileRowByMember(targetMemberId, forUpdate = true)
+            val row = requireProfileRowByMember(memberId = targetMemberId, forUpdate = true)
             if (row[PoliticianProfileTable.status] != PoliticianProfileStatus.ACTIVE) {
                 throw ConflictException("PoliticianProfile for member $targetMemberId is already FORMER")
             }
@@ -221,7 +231,7 @@ class PoliticianService(
         requirePoliticianRankingEnabled()
         val targetMemberId = memberId.toMemberUuidOrThrow()
         return transaction {
-            val row = requireProfileRowByMember(targetMemberId, forUpdate = false)
+            val row = requireProfileRowByMember(memberId = targetMemberId, forUpdate = false)
             val profileId = row[PoliticianProfileTable.id]
             PoliticianProfileTable.update({ PoliticianProfileTable.id eq profileId }) {
                 it[PoliticianProfileTable.mandateText] = mandateText
@@ -248,7 +258,7 @@ class PoliticianService(
         return transaction {
             val raterStatus = requireActiveOrGuestMembership(current.memberId)
             val raterType = if (raterStatus == MemberStatus.GAST) PoliticianRaterType.GAST else PoliticianRaterType.MEMBER
-            val profileRow = requireProfileRowByMember(targetMemberId, forUpdate = true)
+            val profileRow = requireProfileRowByMember(memberId = targetMemberId, forUpdate = true)
             if (profileRow[PoliticianProfileTable.status] != PoliticianProfileStatus.ACTIVE) {
                 throw ConflictException("PoliticianProfile for member $targetMemberId is not ACTIVE -- ratings are not open")
             }
@@ -299,7 +309,7 @@ class PoliticianService(
         val targetMemberId = politicianMemberId.toMemberUuidOrThrow()
         transaction {
             requireActiveOrGuestMembership(current.memberId)
-            val profileRow = requireProfileRowByMember(targetMemberId, forUpdate = true)
+            val profileRow = requireProfileRowByMember(memberId = targetMemberId, forUpdate = true)
             val profileId = profileRow[PoliticianProfileTable.id]
             PoliticianReactionTable.deleteWhere {
                 (PoliticianReactionTable.politicianProfileId eq profileId) and (PoliticianReactionTable.raterMemberId eq current.memberId)
@@ -319,7 +329,7 @@ class PoliticianService(
         requirePoliticianRankingEnabled()
         val targetMemberId = politicianMemberId.toMemberUuidOrThrow()
         return transaction {
-            val profileRow = requireProfileRowByMember(targetMemberId, forUpdate = false)
+            val profileRow = requireProfileRowByMember(memberId = targetMemberId, forUpdate = false)
             val profileId = profileRow[PoliticianProfileTable.id]
             PoliticianReactionTable
                 .selectAll()
@@ -424,7 +434,7 @@ class PoliticianService(
                     it[computedByMemberId] = current.memberId
                 }
             }
-            loadWeightHistory(activeProfileIds.toSet(), periodFilter = normalizedMonth)
+            loadWeightHistory(profileIds = activeProfileIds.toSet(), periodFilter = normalizedMonth)
         }
     }
 
@@ -440,7 +450,7 @@ class PoliticianService(
                     .singleOrNull()
                     ?.get(PoliticianProfileTable.id)
                     ?: throw NotFoundException("PoliticianProfile for member $targetMemberId not found")
-            loadWeightHistory(setOf(profileId), periodFilter = null)
+            loadWeightHistory(profileIds = setOf(profileId), periodFilter = null)
         }
     }
 
@@ -548,7 +558,11 @@ class PoliticianService(
                 .toSet()
         val raterBalances = ltrBalanceProvider.freeBalances(distinctMemberRaters)
 
-        val memberResults = PoliticianTrustWeightCalculator.computeMemberTrustWeights(memberReactionsByProfile, raterBalances)
+        val memberResults =
+            PoliticianTrustWeightCalculator.computeMemberTrustWeights(
+                reactionsByProfile = memberReactionsByProfile,
+                raterBalances = raterBalances,
+            )
         val guestResults = PoliticianTrustWeightCalculator.computeGuestTrustWeights(guestReactionsByProfile)
 
         return activeProfileIds.associateWith { profileId ->

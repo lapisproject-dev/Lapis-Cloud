@@ -444,7 +444,7 @@ class DsgvoComplianceService(
             necessityProportionality = this[DataProtectionImpactAssessmentTable.necessityProportionality],
             riskLikelihood = likelihood,
             riskSeverity = severity,
-            riskBand = DpiaRiskMatrix.band(likelihood, severity),
+            riskBand = DpiaRiskMatrix.band(likelihood = likelihood, severity = severity),
             riskAssessment = this[DataProtectionImpactAssessmentTable.riskAssessment],
             mitigationMeasures = this[DataProtectionImpactAssessmentTable.mitigationMeasures],
             dpiaRequired = this[DataProtectionImpactAssessmentTable.dpiaRequired],
@@ -482,7 +482,12 @@ class DsgvoComplianceService(
             updatedAt = this[DataBreachIncidentTable.updatedAt],
             updatedBy = updatedBy?.toString(),
             authorityNotificationDeadline = BreachDeadlineCalculator.deadline(discoveredAt),
-            deadlineStatus = BreachDeadlineCalculator.status(discoveredAt, authorityNotifiedAt, now),
+            deadlineStatus =
+                BreachDeadlineCalculator.status(
+                    discoveredAt = discoveredAt,
+                    authorityNotifiedAt = authorityNotifiedAt,
+                    now = now,
+                ),
         )
     }
 

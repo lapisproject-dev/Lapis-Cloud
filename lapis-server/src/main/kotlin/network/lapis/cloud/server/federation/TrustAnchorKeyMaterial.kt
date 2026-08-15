@@ -36,8 +36,8 @@ internal object TrustAnchorKeyMaterial {
         TrustAnchorSigningKeyTable.insert {
             it[TrustAnchorSigningKeyTable.id] = id
             it[TrustAnchorSigningKeyTable.kid] = kid
-            it[publicKeyPem] = pemEncode(keyPair.public.encoded, "PUBLIC KEY")
-            it[privateKeyPem] = pemEncode(keyPair.private.encoded, "PRIVATE KEY")
+            it[publicKeyPem] = pemEncode(derBytes = keyPair.public.encoded, label = "PUBLIC KEY")
+            it[privateKeyPem] = pemEncode(derBytes = keyPair.private.encoded, label = "PRIVATE KEY")
             it[TrustAnchorSigningKeyTable.status] = status
             it[createdAt] = now
             it[retiredAt] = null

@@ -264,7 +264,7 @@ class OidcRoutesTest :
                 var lastStatus: HttpStatusCode = HttpStatusCode.OK
                 // LoginRateLimiter's default maxFailures is 5 -- 8 attempts guarantees the limiter trips.
                 repeat(8) {
-                    val response = registerDcrClientRaw(client, "Rate Limit RP $it ${Uuid.random()}")
+                    val response = registerDcrClientRaw(client = client, clientName = "Rate Limit RP $it ${Uuid.random()}")
                     lastStatus = response.status
                     if (response.status == HttpStatusCode.Created) {
                         val dto = TEST_JSON.decodeFromString(OidcDynamicClientRegistrationResponse.serializer(), response.bodyAsText())
@@ -374,12 +374,19 @@ class OidcRoutesTest :
                 // Verify the ID token against this server's OWN published JWKS (real signature path).
                 val jwksBody = client.get("/federation/oidc/jwks").bodyAsText()
                 val kid = requireNotNull(OidcJwt.extractUnverifiedKid(tokenDto.id_token))
-                val publicKeyPem = requireNotNull(OidcJwks.findRsaPublicKeyPem(jwksBody, kid))
+                val publicKeyPem = requireNotNull(OidcJwks.findRsaPublicKeyPem(jwksJson = jwksBody, kid = kid))
                 val issuer =
                     TEST_JSON
                         .decodeFromString(OidcDiscoveryDto.serializer(), client.get("/.well-known/openid-configuration").bodyAsText())
                         .issuer
-                val verification = OidcJwt.verifyIdToken(tokenDto.id_token, publicKeyPem, issuer, dcrDto.client_id, nonce)
+                val verification =
+                    OidcJwt.verifyIdToken(
+                        compact = tokenDto.id_token,
+                        publicKeyPem = publicKeyPem,
+                        expectedIssuer = issuer,
+                        expectedAudience = dcrDto.client_id,
+                        expectedNonce = nonce,
+                    )
                 verification.shouldBeInstanceOf<OidcJwt.VerificationResult.Valid>()
 
                 // Refresh-token rotation: the OLD refresh token must no longer work after a refresh.

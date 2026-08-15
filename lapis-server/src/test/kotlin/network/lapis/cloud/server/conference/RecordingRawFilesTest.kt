@@ -20,7 +20,12 @@ class RecordingRawFilesTest :
                 val recordingDir = hostRawRoot.resolve(recordingId).apply { mkdirs() }
                 val target = recordingDir.resolve("alice__CAMERA__TR_abc.mp4").apply { writeBytes(byteArrayOf(1, 2, 3)) }
 
-                val resolved = RecordingRawFiles.resolveWithin(hostRawRoot, recordingId, "alice__CAMERA__TR_abc.mp4")
+                val resolved =
+                    RecordingRawFiles.resolveWithin(
+                        hostRawRoot = hostRawRoot,
+                        recordingId = recordingId,
+                        reportedFilename = "alice__CAMERA__TR_abc.mp4",
+                    )
 
                 resolved shouldBe target.canonicalFile
             } finally {
@@ -35,7 +40,12 @@ class RecordingRawFilesTest :
                 val recordingDir = hostRawRoot.resolve(recordingId).apply { mkdirs() }
                 val target = recordingDir.resolve("bob__MICROPHONE__TR_def.ogg").apply { writeBytes(byteArrayOf(4, 5)) }
 
-                val resolved = RecordingRawFiles.resolveWithin(hostRawRoot, recordingId, "/out/$recordingId/bob__MICROPHONE__TR_def.ogg")
+                val resolved =
+                    RecordingRawFiles.resolveWithin(
+                        hostRawRoot = hostRawRoot,
+                        recordingId = recordingId,
+                        reportedFilename = "/out/$recordingId/bob__MICROPHONE__TR_def.ogg",
+                    )
 
                 resolved shouldBe target.canonicalFile
             } finally {
@@ -49,7 +59,8 @@ class RecordingRawFilesTest :
                 val recordingId = "33333333-3333-3333-3333-333333333333"
                 hostRawRoot.resolve(recordingId).mkdirs()
 
-                RecordingRawFiles.resolveWithin(hostRawRoot, recordingId, "a/..") shouldBe null
+                RecordingRawFiles.resolveWithin(hostRawRoot = hostRawRoot, recordingId = recordingId, reportedFilename = "a/..") shouldBe
+                    null
             } finally {
                 hostRawRoot.deleteRecursively()
             }
@@ -61,7 +72,12 @@ class RecordingRawFilesTest :
                 val recordingId = "44444444-4444-4444-4444-444444444444"
                 hostRawRoot.resolve(recordingId).mkdirs()
 
-                RecordingRawFiles.resolveWithin(hostRawRoot, recordingId, "never-written.mp4") shouldBe null
+                RecordingRawFiles.resolveWithin(
+                    hostRawRoot = hostRawRoot,
+                    recordingId = recordingId,
+                    reportedFilename = "never-written.mp4",
+                ) shouldBe
+                    null
             } finally {
                 hostRawRoot.deleteRecursively()
             }
@@ -77,7 +93,12 @@ class RecordingRawFilesTest :
                 Files.createSymbolicLink(evilLink.toPath(), outsideSecret.toPath())
 
                 try {
-                    RecordingRawFiles.resolveWithin(hostRawRoot, recordingId, "evil.mp4") shouldBe null
+                    RecordingRawFiles.resolveWithin(
+                        hostRawRoot = hostRawRoot,
+                        recordingId = recordingId,
+                        reportedFilename = "evil.mp4",
+                    ) shouldBe
+                        null
                 } finally {
                     outsideSecret.delete()
                 }
@@ -92,7 +113,7 @@ class RecordingRawFilesTest :
                 val recordingId = "66666666-6666-6666-6666-666666666666"
                 hostRawRoot.resolve(recordingId).mkdirs()
 
-                RecordingRawFiles.resolveWithin(hostRawRoot, recordingId, "") shouldBe null
+                RecordingRawFiles.resolveWithin(hostRawRoot = hostRawRoot, recordingId = recordingId, reportedFilename = "") shouldBe null
             } finally {
                 hostRawRoot.deleteRecursively()
             }
@@ -112,7 +133,12 @@ class RecordingRawFilesTest :
 
                 // Asking for recordingIdA's raw dir must never resolve a file that only exists
                 // under recordingIdB's own raw dir.
-                RecordingRawFiles.resolveWithin(hostRawRoot, recordingIdA, "track.mp4") shouldBe null
+                RecordingRawFiles.resolveWithin(
+                    hostRawRoot = hostRawRoot,
+                    recordingId = recordingIdA,
+                    reportedFilename = "track.mp4",
+                ) shouldBe
+                    null
             } finally {
                 hostRawRoot.deleteRecursively()
             }

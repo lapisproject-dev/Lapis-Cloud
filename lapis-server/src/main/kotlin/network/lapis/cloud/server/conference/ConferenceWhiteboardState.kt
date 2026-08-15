@@ -59,7 +59,7 @@ class ConferenceWhiteboardState(
     ): Boolean {
         var accepted = true
         stateByRoom.compute(roomId) { _, existing ->
-            val current = existing ?: RoomState(emptyList(), 0)
+            val current = existing ?: RoomState(strokes = emptyList(), totalPoints = 0)
             val newTotalPoints = current.totalPoints + stroke.points.size
             when {
                 current.strokes.any { it.strokeId == stroke.strokeId } -> current
@@ -67,7 +67,7 @@ class ConferenceWhiteboardState(
                     accepted = false
                     current
                 }
-                else -> RoomState(current.strokes + stroke, newTotalPoints)
+                else -> RoomState(strokes = current.strokes + stroke, totalPoints = newTotalPoints)
             }
         }
         return accepted

@@ -152,7 +152,7 @@ fun Route.registerOidcRoutes(
             return@get
         }
         call.respondText(
-            OidcJwks.buildJwksJson(signingKey.publicKeyPem, signingKey.kid),
+            OidcJwks.buildJwksJson(publicKeyPem = signingKey.publicKeyPem, kid = signingKey.kid),
             contentType = io.ktor.http.ContentType.Application.Json,
         )
     }
@@ -277,7 +277,7 @@ fun Route.registerOidcRoutes(
         }
 
         if (decision != "allow") {
-            call.respondRedirect(buildRedirectUrl(redirectUri, mapOf("error" to "access_denied", "state" to state)))
+            call.respondRedirect(buildRedirectUrl(redirectUri = redirectUri, params = mapOf("error" to "access_denied", "state" to state)))
             return@post
         }
 
@@ -294,11 +294,11 @@ fun Route.registerOidcRoutes(
                 it[OidcAuthorizationCodeTable.codeChallenge] = codeChallenge
                 it[OidcAuthorizationCodeTable.nonce] = nonce
                 it[createdAt] = now
-                it[expiresAt] = plus(now, AUTHORIZATION_CODE_TTL)
+                it[expiresAt] = plus(start = now, duration = AUTHORIZATION_CODE_TTL)
                 it[consumedAt] = null
             }
         }
-        call.respondRedirect(buildRedirectUrl(redirectUri, mapOf("code" to rawCode, "state" to state)))
+        call.respondRedirect(buildRedirectUrl(redirectUri = redirectUri, params = mapOf("code" to rawCode, "state" to state)))
     }
 
     post("/federation/oidc/token") {
@@ -309,7 +309,7 @@ fun Route.registerOidcRoutes(
 
         if (clientId.isNullOrBlank() || clientSecret.isNullOrBlank()) {
             call.respondText(
-                OIDC_JSON.encodeToString(OidcTokenErrorDto.serializer(), OidcTokenErrorDto("invalid_client")),
+                OIDC_JSON.encodeToString(OidcTokenErrorDto.serializer(), OidcTokenErrorDto(error = "invalid_client")),
                 contentType = io.ktor.http.ContentType.Application.Json,
                 status = HttpStatusCode.BadRequest,
             )
@@ -326,9 +326,13 @@ fun Route.registerOidcRoutes(
                     clientRow[OidcClientRegistrationTable.clientSecretHash].toByteArray(Charsets.UTF_8),
                 )
         if (clientRow == null || !clientSecretValid) {
-            OidcLoginAuditRecorder.record(OidcLoginEventType.ISSUER_TOKEN_ISSUE_FAILED, remoteParty = clientId, reason = "INVALID_CLIENT")
+            OidcLoginAuditRecorder.record(
+                eventType = OidcLoginEventType.ISSUER_TOKEN_ISSUE_FAILED,
+                remoteParty = clientId,
+                reason = "INVALID_CLIENT",
+            )
             call.respondText(
-                OIDC_JSON.encodeToString(OidcTokenErrorDto.serializer(), OidcTokenErrorDto("invalid_client")),
+                OIDC_JSON.encodeToString(OidcTokenErrorDto.serializer(), OidcTokenErrorDto(error = "invalid_client")),
                 contentType = io.ktor.http.ContentType.Application.Json,
                 status = HttpStatusCode.Unauthorized,
             )
@@ -337,11 +341,23 @@ fun Route.registerOidcRoutes(
         val clientRegistrationId = clientRow[OidcClientRegistrationTable.id]
 
         when (grantType) {
-            "authorization_code" -> handleAuthorizationCodeGrant(call, form, clientRegistrationId, clientId)
-            "refresh_token" -> handleRefreshTokenGrant(call, form, clientRegistrationId, clientId)
+            "authorization_code" ->
+                handleAuthorizationCodeGrant(
+                    call = call,
+                    form = form,
+                    clientRegistrationId = clientRegistrationId,
+                    clientId = clientId,
+                )
+            "refresh_token" ->
+                handleRefreshTokenGrant(
+                    call = call,
+                    form = form,
+                    clientRegistrationId = clientRegistrationId,
+                    clientId = clientId,
+                )
             else -> {
                 call.respondText(
-                    OIDC_JSON.encodeToString(OidcTokenErrorDto.serializer(), OidcTokenErrorDto("unsupported_grant_type")),
+                    OIDC_JSON.encodeToString(OidcTokenErrorDto.serializer(), OidcTokenErrorDto(error = "unsupported_grant_type")),
                     contentType = io.ktor.http.ContentType.Application.Json,
                     status = HttpStatusCode.BadRequest,
                 )
@@ -429,7 +445,7 @@ fun Route.registerOidcRoutes(
         val homeServer = normalizeHomeServerOrigin(rawInput)
         if (homeServer == null) {
             OidcLoginAuditRecorder.record(
-                OidcLoginEventType.RP_LOGIN_FAILED,
+                eventType = OidcLoginEventType.RP_LOGIN_FAILED,
                 remoteParty = rawInput.take(2048),
                 reason = "INVALID_HOME_SERVER_URL",
             )
@@ -443,7 +459,11 @@ fun Route.registerOidcRoutes(
 
         val discovery = fetchDiscoveryDocument(homeServer)
         if (discovery == null) {
-            OidcLoginAuditRecorder.record(OidcLoginEventType.RP_LOGIN_FAILED, remoteParty = homeServer, reason = "DISCOVERY_FAILED")
+            OidcLoginAuditRecorder.record(
+                eventType = OidcLoginEventType.RP_LOGIN_FAILED,
+                remoteParty = homeServer,
+                reason = "DISCOVERY_FAILED",
+            )
             call.respondText(
                 errorPageHtml("Could not reach the OIDC configuration of $homeServer."),
                 contentType = io.ktor.http.ContentType.Text.Html,
@@ -452,7 +472,11 @@ fun Route.registerOidcRoutes(
             return@post
         }
         if (discovery.issuer != homeServer) {
-            OidcLoginAuditRecorder.record(OidcLoginEventType.RP_LOGIN_FAILED, remoteParty = homeServer, reason = "ISSUER_MISMATCH")
+            OidcLoginAuditRecorder.record(
+                eventType = OidcLoginEventType.RP_LOGIN_FAILED,
+                remoteParty = homeServer,
+                reason = "ISSUER_MISMATCH",
+            )
             call.respondText(
                 errorPageHtml("The home server's own discovery document disagrees about its issuer identity."),
                 contentType = io.ktor.http.ContentType.Text.Html,
@@ -474,7 +498,7 @@ fun Route.registerOidcRoutes(
             registrationRow ?: run {
                 if (!discovery.registration_endpoint.startsWith("https://")) {
                     OidcLoginAuditRecorder.record(
-                        OidcLoginEventType.RP_LOGIN_FAILED,
+                        eventType = OidcLoginEventType.RP_LOGIN_FAILED,
                         remoteParty = homeServer,
                         reason = "REGISTRATION_ENDPOINT_NOT_HTTPS",
                     )
@@ -492,7 +516,7 @@ fun Route.registerOidcRoutes(
                 when (outcome) {
                     is OidcClientRegistrationOutcome.Failure -> {
                         OidcLoginAuditRecorder.record(
-                            OidcLoginEventType.RP_LOGIN_FAILED,
+                            eventType = OidcLoginEventType.RP_LOGIN_FAILED,
                             remoteParty = homeServer,
                             reason = "DCR_FAILED:${outcome.reason}".take(255),
                         )
@@ -547,7 +571,7 @@ fun Route.registerOidcRoutes(
                 it[OidcRpLoginAttemptTable.nonce] = nonce
                 it[OidcRpLoginAttemptTable.redirectUri] = redirectUri
                 it[createdAt] = now
-                it[expiresAt] = plus(now, RP_LOGIN_ATTEMPT_TTL)
+                it[expiresAt] = plus(start = now, duration = RP_LOGIN_ATTEMPT_TTL)
                 it[consumedAt] = null
             }
         }
@@ -602,7 +626,7 @@ fun Route.registerOidcRoutes(
             // CSRF/replay defense: an attacker cannot forge this callback without knowing a
             // `state` value this server itself generated and never disclosed except via the 302
             // Location header to the legitimate browser.
-            OidcLoginAuditRecorder.record(OidcLoginEventType.RP_LOGIN_FAILED, reason = "UNKNOWN_OR_EXPIRED_STATE")
+            OidcLoginAuditRecorder.record(eventType = OidcLoginEventType.RP_LOGIN_FAILED, reason = "UNKNOWN_OR_EXPIRED_STATE")
             call.respondText(
                 errorPageHtml("Invalid or expired login attempt."),
                 contentType = io.ktor.http.ContentType.Text.Html,
@@ -624,7 +648,7 @@ fun Route.registerOidcRoutes(
 
         if (error != null || code.isNullOrBlank()) {
             OidcLoginAuditRecorder.record(
-                OidcLoginEventType.RP_LOGIN_FAILED,
+                eventType = OidcLoginEventType.RP_LOGIN_FAILED,
                 remoteParty = homeServerIssuer,
                 reason =
                     (
@@ -672,7 +696,7 @@ fun Route.registerOidcRoutes(
             }.getOrNull()
         if (tokenResponse == null) {
             OidcLoginAuditRecorder.record(
-                OidcLoginEventType.RP_LOGIN_FAILED,
+                eventType = OidcLoginEventType.RP_LOGIN_FAILED,
                 remoteParty = homeServerIssuer,
                 reason = "TOKEN_EXCHANGE_FAILED",
             )
@@ -695,7 +719,11 @@ fun Route.registerOidcRoutes(
                 }
             }.getOrNull()
         if (jwksJson == null) {
-            OidcLoginAuditRecorder.record(OidcLoginEventType.RP_LOGIN_FAILED, remoteParty = homeServerIssuer, reason = "JWKS_FETCH_FAILED")
+            OidcLoginAuditRecorder.record(
+                eventType = OidcLoginEventType.RP_LOGIN_FAILED,
+                remoteParty = homeServerIssuer,
+                reason = "JWKS_FETCH_FAILED",
+            )
             call.respondText(
                 errorPageHtml("Could not fetch the home server's signing keys."),
                 contentType = io.ktor.http.ContentType.Text.Html,
@@ -705,9 +733,13 @@ fun Route.registerOidcRoutes(
         }
 
         val kid = OidcJwt.extractUnverifiedKid(tokenResponse.id_token)
-        val publicKeyPem = kid?.let { OidcJwks.findRsaPublicKeyPem(jwksJson, it) }
+        val publicKeyPem = kid?.let { OidcJwks.findRsaPublicKeyPem(jwksJson = jwksJson, kid = it) }
         if (publicKeyPem == null) {
-            OidcLoginAuditRecorder.record(OidcLoginEventType.RP_LOGIN_FAILED, remoteParty = homeServerIssuer, reason = "UNKNOWN_KID")
+            OidcLoginAuditRecorder.record(
+                eventType = OidcLoginEventType.RP_LOGIN_FAILED,
+                remoteParty = homeServerIssuer,
+                reason = "UNKNOWN_KID",
+            )
             call.respondText(
                 errorPageHtml("Unknown signing key."),
                 contentType = io.ktor.http.ContentType.Text.Html,
@@ -725,7 +757,11 @@ fun Route.registerOidcRoutes(
                 expectedNonce = attempt[OidcRpLoginAttemptTable.nonce],
             )
         if (verification is OidcJwt.VerificationResult.Invalid) {
-            OidcLoginAuditRecorder.record(OidcLoginEventType.RP_LOGIN_FAILED, remoteParty = homeServerIssuer, reason = verification.reason)
+            OidcLoginAuditRecorder.record(
+                eventType = OidcLoginEventType.RP_LOGIN_FAILED,
+                remoteParty = homeServerIssuer,
+                reason = verification.reason,
+            )
             call.respondText(
                 errorPageHtml("ID token verification failed."),
                 contentType = io.ktor.http.ContentType.Text.Html,
@@ -736,7 +772,11 @@ fun Route.registerOidcRoutes(
         val claims = (verification as OidcJwt.VerificationResult.Valid).claims
         val subject = claims.subject
         if (subject.isNullOrBlank()) {
-            OidcLoginAuditRecorder.record(OidcLoginEventType.RP_LOGIN_FAILED, remoteParty = homeServerIssuer, reason = "MISSING_SUB")
+            OidcLoginAuditRecorder.record(
+                eventType = OidcLoginEventType.RP_LOGIN_FAILED,
+                remoteParty = homeServerIssuer,
+                reason = "MISSING_SUB",
+            )
             call.respondText(
                 errorPageHtml("ID token is missing a subject."),
                 contentType = io.ktor.http.ContentType.Text.Html,
@@ -770,7 +810,7 @@ fun Route.registerOidcRoutes(
                 }.joinToString(" ")
                 .ifBlank { OidcScopes.ALWAYS_GRANTED.joinToString(" ") }
 
-        val memberId = OidcGuestMemberStore.resolveOrCreateGuestMember(guestClaims, grantedScope)
+        val memberId = OidcGuestMemberStore.resolveOrCreateGuestMember(claims = guestClaims, grantedScope = grantedScope)
         val issuedSession = SessionStore.createSession(memberId)
         call.response.cookies.append(
             Cookie(
@@ -784,7 +824,7 @@ fun Route.registerOidcRoutes(
                 extensions = mapOf("SameSite" to "Strict"),
             ),
         )
-        OidcLoginAuditRecorder.record(OidcLoginEventType.RP_LOGIN_SUCCESS, memberId = memberId, remoteParty = homeServerIssuer)
+        OidcLoginAuditRecorder.record(eventType = OidcLoginEventType.RP_LOGIN_SUCCESS, memberId = memberId, remoteParty = homeServerIssuer)
         call.respondRedirect("/")
     }
 
@@ -813,7 +853,7 @@ fun Route.registerOidcRoutes(
             }
         if (registration == null) {
             OidcLoginAuditRecorder.record(
-                OidcLoginEventType.BACKCHANNEL_LOGOUT_RECEIVED,
+                eventType = OidcLoginEventType.BACKCHANNEL_LOGOUT_RECEIVED,
                 remoteParty = claimedIssuer,
                 reason = "UNKNOWN_ISSUER",
             )
@@ -833,7 +873,7 @@ fun Route.registerOidcRoutes(
             }.getOrNull()
         if (jwksJson == null) {
             OidcLoginAuditRecorder.record(
-                OidcLoginEventType.BACKCHANNEL_LOGOUT_RECEIVED,
+                eventType = OidcLoginEventType.BACKCHANNEL_LOGOUT_RECEIVED,
                 remoteParty = claimedIssuer,
                 reason = "JWKS_FETCH_FAILED",
             )
@@ -841,10 +881,10 @@ fun Route.registerOidcRoutes(
             return@post
         }
         val kid = OidcJwt.extractUnverifiedKid(logoutToken)
-        val publicKeyPem = kid?.let { OidcJwks.findRsaPublicKeyPem(jwksJson, it) }
+        val publicKeyPem = kid?.let { OidcJwks.findRsaPublicKeyPem(jwksJson = jwksJson, kid = it) }
         if (publicKeyPem == null) {
             OidcLoginAuditRecorder.record(
-                OidcLoginEventType.BACKCHANNEL_LOGOUT_RECEIVED,
+                eventType = OidcLoginEventType.BACKCHANNEL_LOGOUT_RECEIVED,
                 remoteParty = claimedIssuer,
                 reason = "UNKNOWN_KID",
             )
@@ -861,7 +901,7 @@ fun Route.registerOidcRoutes(
             )
         if (verification is OidcJwt.VerificationResult.Invalid) {
             OidcLoginAuditRecorder.record(
-                OidcLoginEventType.BACKCHANNEL_LOGOUT_RECEIVED,
+                eventType = OidcLoginEventType.BACKCHANNEL_LOGOUT_RECEIVED,
                 remoteParty = claimedIssuer,
                 reason = verification.reason,
             )
@@ -882,9 +922,13 @@ fun Route.registerOidcRoutes(
             }
         // Idempotent, no information leak: 200 whether or not the subject is currently known here.
         if (guestMemberId != null) {
-            SessionStore.revokeAllForMember(guestMemberId)
+            SessionStore.revokeAllForMember(memberId = guestMemberId)
         }
-        OidcLoginAuditRecorder.record(OidcLoginEventType.BACKCHANNEL_LOGOUT_RECEIVED, memberId = guestMemberId, remoteParty = claimedIssuer)
+        OidcLoginAuditRecorder.record(
+            eventType = OidcLoginEventType.BACKCHANNEL_LOGOUT_RECEIVED,
+            memberId = guestMemberId,
+            remoteParty = claimedIssuer,
+        )
         call.respond(HttpStatusCode.OK)
     }
 }
@@ -900,7 +944,13 @@ private fun loadSigningKeyRow(): SigningKeyRow? =
         .selectAll()
         .where { OidcSigningKeyTable.id eq OIDC_SIGNING_KEY_ID }
         .singleOrNull()
-        ?.let { SigningKeyRow(it[OidcSigningKeyTable.kid], it[OidcSigningKeyTable.publicKeyPem], it[OidcSigningKeyTable.privateKeyPem]) }
+        ?.let {
+            SigningKeyRow(
+                kid = it[OidcSigningKeyTable.kid],
+                publicKeyPem = it[OidcSigningKeyTable.publicKeyPem],
+                privateKeyPem = it[OidcSigningKeyTable.privateKeyPem],
+            )
+        }
 
 private suspend fun handleAuthorizationCodeGrant(
     call: io.ktor.server.application.ApplicationCall,
@@ -913,7 +963,7 @@ private suspend fun handleAuthorizationCodeGrant(
     val codeVerifier = form["code_verifier"]
     if (code.isNullOrBlank() || redirectUri.isNullOrBlank() || codeVerifier.isNullOrBlank()) {
         call.respondText(
-            OIDC_JSON.encodeToString(OidcTokenErrorDto.serializer(), OidcTokenErrorDto("invalid_request")),
+            OIDC_JSON.encodeToString(OidcTokenErrorDto.serializer(), OidcTokenErrorDto(error = "invalid_request")),
             contentType = io.ktor.http.ContentType.Application.Json,
             status = HttpStatusCode.BadRequest,
         )
@@ -942,12 +992,12 @@ private suspend fun handleAuthorizationCodeGrant(
         }
     if (consumedRow == null) {
         OidcLoginAuditRecorder.record(
-            OidcLoginEventType.ISSUER_TOKEN_ISSUE_FAILED,
+            eventType = OidcLoginEventType.ISSUER_TOKEN_ISSUE_FAILED,
             remoteParty = clientId,
             reason = "INVALID_OR_EXPIRED_CODE",
         )
         call.respondText(
-            OIDC_JSON.encodeToString(OidcTokenErrorDto.serializer(), OidcTokenErrorDto("invalid_grant")),
+            OIDC_JSON.encodeToString(OidcTokenErrorDto.serializer(), OidcTokenErrorDto(error = "invalid_grant")),
             contentType = io.ktor.http.ContentType.Application.Json,
             status = HttpStatusCode.BadRequest,
         )
@@ -955,13 +1005,13 @@ private suspend fun handleAuthorizationCodeGrant(
     }
     if (consumedRow[OidcAuthorizationCodeTable.clientRegistrationId] != clientRegistrationId) {
         OidcLoginAuditRecorder.record(
-            OidcLoginEventType.ISSUER_TOKEN_ISSUE_FAILED,
+            eventType = OidcLoginEventType.ISSUER_TOKEN_ISSUE_FAILED,
             memberId = consumedRow[OidcAuthorizationCodeTable.memberId],
             remoteParty = clientId,
             reason = "CLIENT_MISMATCH",
         )
         call.respondText(
-            OIDC_JSON.encodeToString(OidcTokenErrorDto.serializer(), OidcTokenErrorDto("invalid_grant")),
+            OIDC_JSON.encodeToString(OidcTokenErrorDto.serializer(), OidcTokenErrorDto(error = "invalid_grant")),
             contentType = io.ktor.http.ContentType.Application.Json,
             status = HttpStatusCode.BadRequest,
         )
@@ -969,13 +1019,13 @@ private suspend fun handleAuthorizationCodeGrant(
     }
     if (consumedRow[OidcAuthorizationCodeTable.redirectUri] != redirectUri) {
         OidcLoginAuditRecorder.record(
-            OidcLoginEventType.ISSUER_TOKEN_ISSUE_FAILED,
+            eventType = OidcLoginEventType.ISSUER_TOKEN_ISSUE_FAILED,
             memberId = consumedRow[OidcAuthorizationCodeTable.memberId],
             remoteParty = clientId,
             reason = "REDIRECT_URI_MISMATCH",
         )
         call.respondText(
-            OIDC_JSON.encodeToString(OidcTokenErrorDto.serializer(), OidcTokenErrorDto("invalid_grant")),
+            OIDC_JSON.encodeToString(OidcTokenErrorDto.serializer(), OidcTokenErrorDto(error = "invalid_grant")),
             contentType = io.ktor.http.ContentType.Application.Json,
             status = HttpStatusCode.BadRequest,
         )
@@ -984,13 +1034,13 @@ private suspend fun handleAuthorizationCodeGrant(
     val expectedChallenge = OidcPkce.codeChallengeS256(codeVerifier)
     if (expectedChallenge != consumedRow[OidcAuthorizationCodeTable.codeChallenge]) {
         OidcLoginAuditRecorder.record(
-            OidcLoginEventType.ISSUER_TOKEN_ISSUE_FAILED,
+            eventType = OidcLoginEventType.ISSUER_TOKEN_ISSUE_FAILED,
             memberId = consumedRow[OidcAuthorizationCodeTable.memberId],
             remoteParty = clientId,
             reason = "PKCE_VERIFIER_MISMATCH",
         )
         call.respondText(
-            OIDC_JSON.encodeToString(OidcTokenErrorDto.serializer(), OidcTokenErrorDto("invalid_grant")),
+            OIDC_JSON.encodeToString(OidcTokenErrorDto.serializer(), OidcTokenErrorDto(error = "invalid_grant")),
             contentType = io.ktor.http.ContentType.Application.Json,
             status = HttpStatusCode.BadRequest,
         )
@@ -1000,7 +1050,14 @@ private suspend fun handleAuthorizationCodeGrant(
     val memberId = consumedRow[OidcAuthorizationCodeTable.memberId]
     val scope = consumedRow[OidcAuthorizationCodeTable.scope]
     val nonce = consumedRow[OidcAuthorizationCodeTable.nonce]
-    issueTokens(call, clientRegistrationId, clientId, memberId, scope, nonce)
+    issueTokens(
+        call = call,
+        clientRegistrationId = clientRegistrationId,
+        clientId = clientId,
+        memberId = memberId,
+        scope = scope,
+        nonce = nonce,
+    )
 }
 
 private suspend fun handleRefreshTokenGrant(
@@ -1012,7 +1069,7 @@ private suspend fun handleRefreshTokenGrant(
     val refreshToken = form["refresh_token"]
     if (refreshToken.isNullOrBlank()) {
         call.respondText(
-            OIDC_JSON.encodeToString(OidcTokenErrorDto.serializer(), OidcTokenErrorDto("invalid_request")),
+            OIDC_JSON.encodeToString(OidcTokenErrorDto.serializer(), OidcTokenErrorDto(error = "invalid_request")),
             contentType = io.ktor.http.ContentType.Application.Json,
             status = HttpStatusCode.BadRequest,
         )
@@ -1058,20 +1115,20 @@ private suspend fun handleRefreshTokenGrant(
                 }) { it[revokedAt] = now }
             }
             OidcLoginAuditRecorder.record(
-                OidcLoginEventType.ISSUER_TOKEN_ISSUE_FAILED,
+                eventType = OidcLoginEventType.ISSUER_TOKEN_ISSUE_FAILED,
                 memberId = victimMemberId,
                 remoteParty = clientId,
                 reason = "REFRESH_TOKEN_REUSE_DETECTED",
             )
         } else {
             OidcLoginAuditRecorder.record(
-                OidcLoginEventType.ISSUER_TOKEN_ISSUE_FAILED,
+                eventType = OidcLoginEventType.ISSUER_TOKEN_ISSUE_FAILED,
                 remoteParty = clientId,
                 reason = "INVALID_OR_EXPIRED_REFRESH_TOKEN",
             )
         }
         call.respondText(
-            OIDC_JSON.encodeToString(OidcTokenErrorDto.serializer(), OidcTokenErrorDto("invalid_grant")),
+            OIDC_JSON.encodeToString(OidcTokenErrorDto.serializer(), OidcTokenErrorDto(error = "invalid_grant")),
             contentType = io.ktor.http.ContentType.Application.Json,
             status = HttpStatusCode.BadRequest,
         )
@@ -1080,13 +1137,13 @@ private suspend fun handleRefreshTokenGrant(
     // A refresh token minted for client A must never be redeemable by client B.
     if (existing[OidcIssuedTokenTable.clientRegistrationId] != clientRegistrationId) {
         OidcLoginAuditRecorder.record(
-            OidcLoginEventType.ISSUER_TOKEN_ISSUE_FAILED,
+            eventType = OidcLoginEventType.ISSUER_TOKEN_ISSUE_FAILED,
             memberId = existing[OidcIssuedTokenTable.memberId],
             remoteParty = clientId,
             reason = "CLIENT_MISMATCH",
         )
         call.respondText(
-            OIDC_JSON.encodeToString(OidcTokenErrorDto.serializer(), OidcTokenErrorDto("invalid_grant")),
+            OIDC_JSON.encodeToString(OidcTokenErrorDto.serializer(), OidcTokenErrorDto(error = "invalid_grant")),
             contentType = io.ktor.http.ContentType.Application.Json,
             status = HttpStatusCode.BadRequest,
         )
@@ -1099,11 +1156,11 @@ private suspend fun handleRefreshTokenGrant(
         OidcIssuedTokenTable.update({ OidcIssuedTokenTable.id eq existing[OidcIssuedTokenTable.id] }) { it[revokedAt] = now }
     }
     issueTokens(
-        call,
-        clientRegistrationId,
-        clientId,
-        existing[OidcIssuedTokenTable.memberId],
-        existing[OidcIssuedTokenTable.scope],
+        call = call,
+        clientRegistrationId = clientRegistrationId,
+        clientId = clientId,
+        memberId = existing[OidcIssuedTokenTable.memberId],
+        scope = existing[OidcIssuedTokenTable.scope],
         nonce = null,
     )
 }
@@ -1120,13 +1177,13 @@ private suspend fun issueTokens(
     val signingKey = transaction { loadSigningKeyRow() }
     if (memberRow == null || signingKey == null) {
         OidcLoginAuditRecorder.record(
-            OidcLoginEventType.ISSUER_TOKEN_ISSUE_FAILED,
+            eventType = OidcLoginEventType.ISSUER_TOKEN_ISSUE_FAILED,
             memberId = memberId,
             remoteParty = clientId,
             reason = "MEMBER_OR_SIGNING_KEY_MISSING",
         )
         call.respondText(
-            OIDC_JSON.encodeToString(OidcTokenErrorDto.serializer(), OidcTokenErrorDto("server_error")),
+            OIDC_JSON.encodeToString(OidcTokenErrorDto.serializer(), OidcTokenErrorDto(error = "server_error")),
             contentType = io.ktor.http.ContentType.Application.Json,
             status = HttpStatusCode.InternalServerError,
         )
@@ -1147,7 +1204,7 @@ private suspend fun issueTokens(
             .issueTime(OidcJwt.toJavaDate(now))
             .expirationTime(OidcJwt.toJavaDate(now + ACCESS_TOKEN_TTL))
     if (nonce != null) claimsBuilder.claim("nonce", nonce)
-    val idToken = OidcJwt.sign(claimsBuilder.build(), signingKey.kid, signingKey.privateKeyPem)
+    val idToken = OidcJwt.sign(claimsSet = claimsBuilder.build(), kid = signingKey.kid, privateKeyPem = signingKey.privateKeyPem)
 
     val rawAccessToken = SessionTokens.newRawToken()
     val rawRefreshToken = SessionTokens.newRawToken()
@@ -1161,12 +1218,12 @@ private suspend fun issueTokens(
             it[refreshTokenHash] = SessionTokens.hash(rawRefreshToken)
             it[OidcIssuedTokenTable.scope] = scope
             it[issuedAt] = nowLocal
-            it[accessExpiresAt] = plus(nowLocal, ACCESS_TOKEN_TTL)
-            it[refreshExpiresAt] = plus(nowLocal, REFRESH_TOKEN_TTL)
+            it[accessExpiresAt] = plus(start = nowLocal, duration = ACCESS_TOKEN_TTL)
+            it[refreshExpiresAt] = plus(start = nowLocal, duration = REFRESH_TOKEN_TTL)
             it[revokedAt] = null
         }
     }
-    OidcLoginAuditRecorder.record(OidcLoginEventType.ISSUER_TOKEN_ISSUED, memberId = memberId, remoteParty = clientId)
+    OidcLoginAuditRecorder.record(eventType = OidcLoginEventType.ISSUER_TOKEN_ISSUED, memberId = memberId, remoteParty = clientId)
     call.respond(
         OidcTokenResponseDto(
             access_token = rawAccessToken,

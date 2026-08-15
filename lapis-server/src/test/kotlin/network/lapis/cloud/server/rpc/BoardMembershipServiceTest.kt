@@ -91,7 +91,7 @@ class BoardMembershipServiceTest :
             DevSeedData.seedIfEmpty(force = true)
         }
 
-        afterSpec { cleanUpBoardMembershipTestData(createdCommitteeIds, createdMemberIds) }
+        afterSpec { cleanUpBoardMembershipTestData(committeeIds = createdCommitteeIds, memberIds = createdMemberIds) }
 
         fun createTestMember(
             email: String,
@@ -535,7 +535,7 @@ private fun Route.registerBoardMembershipTestRoutes() {
     post("/test/end-board-membership/{id}") {
         val service = BoardMembershipService(call)
         val endedAt = LocalDate.parse(call.request.queryParameters["endedAt"]!!)
-        val dto = service.endBoardMembership(call.parameters["id"]!!, endedAt)
+        val dto = service.endBoardMembership(boardMembershipId = call.parameters["id"]!!, endedAt = endedAt)
         call.respondText("${dto.id}:${dto.endedAt}")
     }
     get("/test/list-current-board") {
@@ -561,7 +561,7 @@ private fun Route.registerBoardMembershipTestRoutes() {
 /** Minimal subset of [ElectionService]'s lifecycle needed to reach [ElectionService.tally] -- see [ElectionServiceTest]'s own (larger) route set for the full surface. */
 private fun Route.registerBoardMembershipElectionTestRoutes() {
     post("/test/open-election/{motionId}/{electionType}") {
-        val service = ElectionService(call, NoOpSecretBallotStreamGuard)
+        val service = ElectionService(call = call, streamGuard = NoOpSecretBallotStreamGuard)
         val q = call.request.queryParameters
         val w =
             service.openElection(
@@ -579,38 +579,38 @@ private fun Route.registerBoardMembershipElectionTestRoutes() {
         call.respondText("${w.id}:${w.status}")
     }
     post("/test/appoint-election-board/{electionId}") {
-        val service = ElectionService(call, NoOpSecretBallotStreamGuard)
+        val service = ElectionService(call = call, streamGuard = NoOpSecretBallotStreamGuard)
         val memberIds = call.request.queryParameters["memberIds"]!!.split(",")
-        val list = service.appointElectionBoard(call.parameters["electionId"]!!, memberIds)
+        val list = service.appointElectionBoard(electionId = call.parameters["electionId"]!!, memberIds = memberIds)
         call.respondText(list.size.toString())
     }
     post("/test/submit-candidacy/{electionId}") {
-        val service = ElectionService(call, NoOpSecretBallotStreamGuard)
-        val k = service.submitCandidacy(call.parameters["electionId"]!!, CandidacyInput(motivationText = "Motivation"))
+        val service = ElectionService(call = call, streamGuard = NoOpSecretBallotStreamGuard)
+        val k = service.submitCandidacy(electionId = call.parameters["electionId"]!!, input = CandidacyInput(motivationText = "Motivation"))
         call.respondText(k.id)
     }
     post("/test/release-kandidatenliste/{electionId}") {
-        val service = ElectionService(call, NoOpSecretBallotStreamGuard)
+        val service = ElectionService(call = call, streamGuard = NoOpSecretBallotStreamGuard)
         val w = service.releaseCandidateList(call.parameters["electionId"]!!)
         call.respondText("${w.status}:${w.options.size}")
     }
     post("/test/open-voting/{electionId}") {
-        val service = ElectionService(call, NoOpSecretBallotStreamGuard)
+        val service = ElectionService(call = call, streamGuard = NoOpSecretBallotStreamGuard)
         val w = service.openVoting(call.parameters["electionId"]!!)
         call.respondText(w.status.name)
     }
     post("/test/close-voting/{electionId}") {
-        val service = ElectionService(call, NoOpSecretBallotStreamGuard)
+        val service = ElectionService(call = call, streamGuard = NoOpSecretBallotStreamGuard)
         val w = service.closeVoting(call.parameters["electionId"]!!)
         call.respondText(w.status.name)
     }
     post("/test/release-tally/{electionId}") {
-        val service = ElectionService(call, NoOpSecretBallotStreamGuard)
+        val service = ElectionService(call = call, streamGuard = NoOpSecretBallotStreamGuard)
         service.approveTally(call.parameters["electionId"]!!)
         call.respondText("ok")
     }
     post("/test/tally/{electionId}") {
-        val service = ElectionService(call, NoOpSecretBallotStreamGuard)
+        val service = ElectionService(call = call, streamGuard = NoOpSecretBallotStreamGuard)
         val e = service.tally(call.parameters["electionId"]!!)
         call.respondText("${e.winnerOptionIds.joinToString(",")}:${e.tie}:${e.majorityMet ?: ""}")
     }

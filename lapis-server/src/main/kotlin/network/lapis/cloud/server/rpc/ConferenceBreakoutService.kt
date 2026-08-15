@@ -169,7 +169,7 @@ class ConferenceBreakoutService(
     ): List<ConferenceBreakoutRoomDto> {
         val current = resolveCurrentMember(call)
         requireConferenceEnabled()
-        requireWithinRate(createRateLimiter, current.memberId)
+        requireWithinRate(limiter = createRateLimiter, memberId = current.memberId)
 
         if (plan.roomCount !in 1..MAX_BREAKOUT_ROOMS) {
             throw BadRequestException("roomCount must be between 1 and $MAX_BREAKOUT_ROOMS")
@@ -207,7 +207,7 @@ class ConferenceBreakoutService(
                 val row =
                     ConferenceRoomTable.selectAll().where { ConferenceRoomTable.id eq roomUuid }.singleOrNull()
                         ?: throw NotFoundException("Conference room $roomUuid not found")
-                requireModeratorOrPrivileged(row, current)
+                requireModeratorOrPrivileged(row = row, current = current)
                 if (row[ConferenceRoomTable.endedAt] != null) {
                     throw ConflictException("Conference room $roomUuid has already ended")
                 }
@@ -333,10 +333,16 @@ class ConferenceBreakoutService(
 
         // See class KDoc "Consequence this creates, that this class implements".
         finalAssignments.keys.forEach { memberId ->
-            runCatching { liveKitCall { liveKitAdminClient.removeParticipant(parentRoom.livekitRoomName, memberId.toString()) } }
-                .onFailure {
-                    logger.warn { "createBreakoutRooms: failed to disconnect member $memberId from parent room $roomUuid" }
+            runCatching {
+                liveKitCall {
+                    liveKitAdminClient.removeParticipant(
+                        room = parentRoom.livekitRoomName,
+                        identity = memberId.toString(),
+                    )
                 }
+            }.onFailure {
+                logger.warn { "createBreakoutRooms: failed to disconnect member $memberId from parent room $roomUuid" }
+            }
         }
 
         return dtos
@@ -348,7 +354,7 @@ class ConferenceBreakoutService(
     ): List<ConferenceBreakoutRoomDto> {
         val current = resolveCurrentMember(call)
         requireConferenceEnabled()
-        requireWithinRate(assignRateLimiter, current.memberId)
+        requireWithinRate(limiter = assignRateLimiter, memberId = current.memberId)
         val roomUuid = roomId.toBreakoutUuid()
 
         if (assignments.size > MAX_ASSIGNMENTS_PER_CALL) {
@@ -370,7 +376,7 @@ class ConferenceBreakoutService(
                 val parentRow =
                     ConferenceRoomTable.selectAll().where { ConferenceRoomTable.id eq roomUuid }.singleOrNull()
                         ?: throw NotFoundException("Conference room $roomUuid not found")
-                requireModeratorOrPrivileged(parentRow, current)
+                requireModeratorOrPrivileged(row = parentRow, current = current)
 
                 val openRooms =
                     ConferenceBreakoutRoomTable
@@ -440,7 +446,12 @@ class ConferenceBreakoutService(
                         it[assignedAt] = now
                         it[recalledAt] = null
                     }
-                    result += Relocation(memberId, fromLivekitRoomName, targetRoomRow[ConferenceBreakoutRoomTable.livekitRoomName])
+                    result +=
+                        Relocation(
+                            memberId = memberId,
+                            fromLivekitRoomName = fromLivekitRoomName,
+                            toLivekitRoomName = targetRoomRow[ConferenceBreakoutRoomTable.livekitRoomName],
+                        )
                 }
                 result
             }
@@ -449,7 +460,12 @@ class ConferenceBreakoutService(
         // no-op (member reassigned to the SAME room they were already in).
         relocations.filter { it.fromLivekitRoomName != it.toLivekitRoomName }.forEach { relocation ->
             runCatching {
-                liveKitCall { liveKitAdminClient.removeParticipant(relocation.fromLivekitRoomName, relocation.memberId.toString()) }
+                liveKitCall {
+                    liveKitAdminClient.removeParticipant(
+                        room = relocation.fromLivekitRoomName,
+                        identity = relocation.memberId.toString(),
+                    )
+                }
             }.onFailure {
                 logger.warn {
                     "assignParticipants: failed to disconnect member ${relocation.memberId} from ${relocation.fromLivekitRoomName}"
@@ -469,7 +485,7 @@ class ConferenceBreakoutService(
     override suspend fun recallAll(roomId: String): Int {
         val current = resolveCurrentMember(call)
         requireConferenceEnabled()
-        requireWithinRate(recallRateLimiter, current.memberId)
+        requireWithinRate(limiter = recallRateLimiter, memberId = current.memberId)
         val roomUuid = roomId.toBreakoutUuid()
 
         val openRooms =
@@ -477,7 +493,7 @@ class ConferenceBreakoutService(
                 val parentRow =
                     ConferenceRoomTable.selectAll().where { ConferenceRoomTable.id eq roomUuid }.singleOrNull()
                         ?: throw NotFoundException("Conference room $roomUuid not found")
-                requireModeratorOrPrivileged(parentRow, current)
+                requireModeratorOrPrivileged(row = parentRow, current = current)
                 ConferenceBreakoutRoomTable
                     .selectAll()
                     .where { (ConferenceBreakoutRoomTable.parentRoomId eq roomUuid) and ConferenceBreakoutRoomTable.closedAt.isNull() }
@@ -517,7 +533,7 @@ class ConferenceBreakoutService(
     override suspend fun getMyBreakoutAssignment(roomId: String): List<ConferenceBreakoutAssignmentDto> {
         val current = resolveCurrentMember(call)
         requireConferenceEnabled()
-        requireWithinRate(tokenRateLimiter, current.memberId)
+        requireWithinRate(limiter = tokenRateLimiter, memberId = current.memberId)
         val roomUuid = roomId.toBreakoutUuid()
         return transaction {
             ConferenceRoomTable.selectAll().where { ConferenceRoomTable.id eq roomUuid }.singleOrNull()
@@ -554,7 +570,7 @@ class ConferenceBreakoutService(
     override suspend fun requestBreakoutJoinToken(breakoutRoomId: String): ConferenceJoinTokenDto {
         val current = resolveCurrentMember(call)
         requireConferenceEnabled()
-        requireWithinRate(tokenRateLimiter, current.memberId)
+        requireWithinRate(limiter = tokenRateLimiter, memberId = current.memberId)
         val breakoutUuid = breakoutRoomId.toBreakoutUuid()
 
         // The ONE query that must never be short-circuited or weakened -- see
@@ -594,7 +610,7 @@ class ConferenceBreakoutService(
     override suspend fun returnToMainRoom(breakoutRoomId: String) {
         val current = resolveCurrentMember(call)
         requireConferenceEnabled()
-        requireWithinRate(tokenRateLimiter, current.memberId)
+        requireWithinRate(limiter = tokenRateLimiter, memberId = current.memberId)
         val breakoutUuid = breakoutRoomId.toBreakoutUuid()
         val now = nowLocalDateTime()
         transaction {
@@ -611,7 +627,7 @@ class ConferenceBreakoutService(
     override suspend fun rejoinMainRoomToken(roomId: String): ConferenceJoinTokenDto {
         val current = resolveCurrentMember(call)
         requireConferenceEnabled()
-        requireWithinRate(tokenRateLimiter, current.memberId)
+        requireWithinRate(limiter = tokenRateLimiter, memberId = current.memberId)
         val roomUuid = roomId.toBreakoutUuid()
 
         val prep =

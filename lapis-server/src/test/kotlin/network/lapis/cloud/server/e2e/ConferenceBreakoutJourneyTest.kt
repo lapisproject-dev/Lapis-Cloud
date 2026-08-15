@@ -151,7 +151,7 @@ class ConferenceBreakoutJourneyTest :
                         (ConferenceParticipationTable.roomId inList createdConferenceRoomIds)
                 }
                 ConferenceRoomTable.deleteWhere { ConferenceRoomTable.id inList createdConferenceRoomIds }
-                hardDeleteGovernanceAndMembershipFixtures(emptyList(), createdMemberIds)
+                hardDeleteGovernanceAndMembershipFixtures(committeeIds = emptyList(), memberIds = createdMemberIds)
             }
         }
 
@@ -166,30 +166,34 @@ class ConferenceBreakoutJourneyTest :
                     routing {
                         fun conferenceService(call: ApplicationCall) =
                             ConferenceService(
-                                call,
-                                fakeLiveKit,
-                                LoginRateLimiter(),
-                                E2E6_ENABLED_CONFERENCE_CONFIG,
+                                call = call,
+                                liveKitAdminClient = fakeLiveKit,
+                                createRoomRateLimiter = LoginRateLimiter(),
+                                config = E2E6_ENABLED_CONFERENCE_CONFIG,
                                 conferenceMeetingBindRateLimiter = FederationInboxRateLimiter(),
                             )
 
                         fun breakoutService(call: ApplicationCall) =
-                            ConferenceBreakoutService(call, fakeLiveKit, config = E2E6_ENABLED_CONFERENCE_CONFIG)
+                            ConferenceBreakoutService(
+                                call = call,
+                                liveKitAdminClient = fakeLiveKit,
+                                config = E2E6_ENABLED_CONFERENCE_CONFIG,
+                            )
 
                         post("/e2e6-conf/create-room") {
                             val room = conferenceService(call).createRoom(ConferenceRoomInput(title = "E2E Scenario 6 Konferenzraum"))
                             call.respondText("${room.id}|${room.livekitRoomName}")
                         }
                         post("/e2e6-conf/join-room/{roomId}") {
-                            val token = conferenceService(call).joinRoom(call.parameters["roomId"]!!)
+                            val token = conferenceService(call).joinRoom(roomId = call.parameters["roomId"]!!)
                             call.respondText(token.identity)
                         }
                         post("/e2e6-conf/create-breakout-rooms/{roomId}") {
                             val roomCount = call.request.queryParameters["roomCount"]!!.toInt()
                             val dtos =
                                 breakoutService(call).createBreakoutRooms(
-                                    call.parameters["roomId"]!!,
-                                    ConferenceBreakoutPlanInput(roomCount = roomCount),
+                                    roomId = call.parameters["roomId"]!!,
+                                    plan = ConferenceBreakoutPlanInput(roomCount = roomCount),
                                 )
                             call.respondText(
                                 dtos.joinToString(";") { "${it.id}|${it.assignedMemberIds.joinToString(",")}" },
@@ -208,7 +212,7 @@ class ConferenceBreakoutJourneyTest :
 
                 // ── Step 1: an AKTIV moderator creates the room and joins it. ────────────────────────
                 val moderatorEmail = "e2e6-conf-moderator-${Uuid.random()}@example.org"
-                val moderatorId = createRealMember("E2E Scenario 6 Moderator", moderatorEmail)
+                val moderatorId = createRealMember(displayName = "E2E Scenario 6 Moderator", email = moderatorEmail)
                 createdMemberIds += moderatorId
                 val createResponse =
                     client.post("/e2e6-conf/create-room") { header("X-Member-Id", moderatorId.toString()) }.bodyAsText().split("|")
@@ -216,20 +220,20 @@ class ConferenceBreakoutJourneyTest :
                 val livekitRoomName = createResponse[1]
                 createdConferenceRoomIds += Uuid.parse(roomId)
                 client.post("/e2e6-conf/join-room/$roomId") { header("X-Member-Id", moderatorId.toString()) }
-                fakeLiveKit.seedLiveParticipant(livekitRoomName, moderatorId.toString())
+                fakeLiveKit.seedLiveParticipant(room = livekitRoomName, identity = moderatorId.toString())
 
                 // ── Step 2: two AKTIV participants join the same room. ───────────────────────────────
                 val participantAEmail = "e2e6-conf-participant-a-${Uuid.random()}@example.org"
-                val participantAId = createRealMember("E2E Scenario 6 Teilnehmer A", participantAEmail)
+                val participantAId = createRealMember(displayName = "E2E Scenario 6 Teilnehmer A", email = participantAEmail)
                 createdMemberIds += participantAId
                 client.post("/e2e6-conf/join-room/$roomId") { header("X-Member-Id", participantAId.toString()) }
-                fakeLiveKit.seedLiveParticipant(livekitRoomName, participantAId.toString())
+                fakeLiveKit.seedLiveParticipant(room = livekitRoomName, identity = participantAId.toString())
 
                 val participantBEmail = "e2e6-conf-participant-b-${Uuid.random()}@example.org"
-                val participantBId = createRealMember("E2E Scenario 6 Teilnehmer B", participantBEmail)
+                val participantBId = createRealMember(displayName = "E2E Scenario 6 Teilnehmer B", email = participantBEmail)
                 createdMemberIds += participantBId
                 client.post("/e2e6-conf/join-room/$roomId") { header("X-Member-Id", participantBId.toString()) }
-                fakeLiveKit.seedLiveParticipant(livekitRoomName, participantBId.toString())
+                fakeLiveKit.seedLiveParticipant(room = livekitRoomName, identity = participantBId.toString())
 
                 // ── Step 3: the moderator creates 2 breakout rooms, auto-distributed. ────────────────
                 val createBreakoutResponse =
@@ -295,30 +299,34 @@ class ConferenceBreakoutJourneyTest :
                     routing {
                         fun conferenceService(call: ApplicationCall) =
                             ConferenceService(
-                                call,
-                                fakeLiveKit,
-                                LoginRateLimiter(),
-                                E2E6_ENABLED_CONFERENCE_CONFIG,
+                                call = call,
+                                liveKitAdminClient = fakeLiveKit,
+                                createRoomRateLimiter = LoginRateLimiter(),
+                                config = E2E6_ENABLED_CONFERENCE_CONFIG,
                                 conferenceMeetingBindRateLimiter = FederationInboxRateLimiter(),
                             )
 
                         fun breakoutService(call: ApplicationCall) =
-                            ConferenceBreakoutService(call, fakeLiveKit, config = E2E6_ENABLED_CONFERENCE_CONFIG)
+                            ConferenceBreakoutService(
+                                call = call,
+                                liveKitAdminClient = fakeLiveKit,
+                                config = E2E6_ENABLED_CONFERENCE_CONFIG,
+                            )
 
                         post("/e2e6b-conf/create-room") {
                             val room = conferenceService(call).createRoom(ConferenceRoomInput(title = "E2E Scenario 6b Konferenzraum"))
                             call.respondText("${room.id}|${room.livekitRoomName}")
                         }
                         post("/e2e6b-conf/join-room/{roomId}") {
-                            val token = conferenceService(call).joinRoom(call.parameters["roomId"]!!)
+                            val token = conferenceService(call).joinRoom(roomId = call.parameters["roomId"]!!)
                             call.respondText(token.identity)
                         }
                         post("/e2e6b-conf/create-breakout-rooms/{roomId}") {
                             val roomCount = call.request.queryParameters["roomCount"]!!.toInt()
                             val dtos =
                                 breakoutService(call).createBreakoutRooms(
-                                    call.parameters["roomId"]!!,
-                                    ConferenceBreakoutPlanInput(roomCount = roomCount),
+                                    roomId = call.parameters["roomId"]!!,
+                                    plan = ConferenceBreakoutPlanInput(roomCount = roomCount),
                                 )
                             call.respondText(dtos.size.toString())
                         }
@@ -330,7 +338,7 @@ class ConferenceBreakoutJourneyTest :
                 }
 
                 val moderatorEmail = "e2e6b-conf-moderator-${Uuid.random()}@example.org"
-                val moderatorId = createRealMember("E2E Scenario 6b Moderator", moderatorEmail)
+                val moderatorId = createRealMember(displayName = "E2E Scenario 6b Moderator", email = moderatorEmail)
                 createdMemberIds += moderatorId
                 val createResponse =
                     client.post("/e2e6b-conf/create-room") { header("X-Member-Id", moderatorId.toString()) }.bodyAsText().split("|")
@@ -338,7 +346,7 @@ class ConferenceBreakoutJourneyTest :
                 val livekitRoomName = createResponse[1]
                 createdConferenceRoomIds += Uuid.parse(roomId)
                 client.post("/e2e6b-conf/join-room/$roomId") { header("X-Member-Id", moderatorId.toString()) }
-                fakeLiveKit.seedLiveParticipant(livekitRoomName, moderatorId.toString())
+                fakeLiveKit.seedLiveParticipant(room = livekitRoomName, identity = moderatorId.toString())
 
                 client
                     .post("/e2e6b-conf/create-breakout-rooms/$roomId?roomCount=3") {

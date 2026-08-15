@@ -36,8 +36,8 @@ class TrustAnchorChainVerificationTest :
         val publishedJwksJson =
             TrustAnchorJwks.buildJwksJson(
                 listOf(
-                    TrustAnchorPublishableKey(activeKid, activeKeyPair.publicKeyPem),
-                    TrustAnchorPublishableKey(retiredKid, retiredKeyPair.publicKeyPem),
+                    TrustAnchorPublishableKey(kid = activeKid, publicKeyPem = activeKeyPair.publicKeyPem),
+                    TrustAnchorPublishableKey(kid = retiredKid, publicKeyPem = retiredKeyPair.publicKeyPem),
                 ),
             )
 
@@ -67,12 +67,16 @@ class TrustAnchorChainVerificationTest :
                     .subject(anchorUri)
                     .issueTime(OidcJwt.toJavaDate(Clock.System.now()))
                     .expirationTime(OidcJwt.toJavaDate(Clock.System.now() + 24.hours))
-                    .claim("jwks", TrustAnchorJwks.buildJwksClaim(listOf(TrustAnchorPublishableKey(activeKid, activeKeyPair.publicKeyPem))))
-                    .claim("metadata", mapOf("federation_entity" to mapOf("federation_fetch_endpoint" to fetchEndpoint)))
+                    .claim(
+                        "jwks",
+                        TrustAnchorJwks.buildJwksClaim(
+                            listOf(TrustAnchorPublishableKey(kid = activeKid, publicKeyPem = activeKeyPair.publicKeyPem)),
+                        ),
+                    ).claim("metadata", mapOf("federation_entity" to mapOf("federation_fetch_endpoint" to fetchEndpoint)))
                     .build()
-            val compact = OidcJwt.sign(ecClaims, activeKid, activeKeyPair.privateKeyPem)
+            val compact = OidcJwt.sign(claimsSet = ecClaims, kid = activeKid, privateKeyPem = activeKeyPair.privateKeyPem)
 
-            val result = TrustAnchorChainVerification.verifyEntityConfiguration(compact, anchorUri)
+            val result = TrustAnchorChainVerification.verifyEntityConfiguration(compact = compact, expectedAnchorEntityUri = anchorUri)
 
             requireNotNull(result)
             result.fetchEndpoint shouldBe fetchEndpoint
@@ -89,12 +93,16 @@ class TrustAnchorChainVerificationTest :
                     .subject("https://attacker.example")
                     .issueTime(OidcJwt.toJavaDate(Clock.System.now()))
                     .expirationTime(OidcJwt.toJavaDate(Clock.System.now() + 24.hours))
-                    .claim("jwks", TrustAnchorJwks.buildJwksClaim(listOf(TrustAnchorPublishableKey(activeKid, activeKeyPair.publicKeyPem))))
-                    .claim("metadata", mapOf("federation_entity" to mapOf("federation_fetch_endpoint" to fetchEndpoint)))
+                    .claim(
+                        "jwks",
+                        TrustAnchorJwks.buildJwksClaim(
+                            listOf(TrustAnchorPublishableKey(kid = activeKid, publicKeyPem = activeKeyPair.publicKeyPem)),
+                        ),
+                    ).claim("metadata", mapOf("federation_entity" to mapOf("federation_fetch_endpoint" to fetchEndpoint)))
                     .build()
-            val compact = OidcJwt.sign(claims, activeKid, activeKeyPair.privateKeyPem)
+            val compact = OidcJwt.sign(claimsSet = claims, kid = activeKid, privateKeyPem = activeKeyPair.privateKeyPem)
 
-            TrustAnchorChainVerification.verifyEntityConfiguration(compact, anchorUri) shouldBe null
+            TrustAnchorChainVerification.verifyEntityConfiguration(compact = compact, expectedAnchorEntityUri = anchorUri) shouldBe null
         }
 
         test("an expired Entity Configuration is rejected") {
@@ -105,12 +113,16 @@ class TrustAnchorChainVerificationTest :
                     .subject(anchorUri)
                     .issueTime(OidcJwt.toJavaDate(Clock.System.now() - 2.hours))
                     .expirationTime(OidcJwt.toJavaDate(Clock.System.now() - 1.hours))
-                    .claim("jwks", TrustAnchorJwks.buildJwksClaim(listOf(TrustAnchorPublishableKey(activeKid, activeKeyPair.publicKeyPem))))
-                    .claim("metadata", mapOf("federation_entity" to mapOf("federation_fetch_endpoint" to fetchEndpoint)))
+                    .claim(
+                        "jwks",
+                        TrustAnchorJwks.buildJwksClaim(
+                            listOf(TrustAnchorPublishableKey(kid = activeKid, publicKeyPem = activeKeyPair.publicKeyPem)),
+                        ),
+                    ).claim("metadata", mapOf("federation_entity" to mapOf("federation_fetch_endpoint" to fetchEndpoint)))
                     .build()
-            val compact = OidcJwt.sign(claims, activeKid, activeKeyPair.privateKeyPem)
+            val compact = OidcJwt.sign(claimsSet = claims, kid = activeKid, privateKeyPem = activeKeyPair.privateKeyPem)
 
-            TrustAnchorChainVerification.verifyEntityConfiguration(compact, anchorUri) shouldBe null
+            TrustAnchorChainVerification.verifyEntityConfiguration(compact = compact, expectedAnchorEntityUri = anchorUri) shouldBe null
         }
 
         test("an Entity Configuration signed by a key NOT present in its own jwks claim is rejected") {
@@ -122,12 +134,16 @@ class TrustAnchorChainVerificationTest :
                     .issueTime(OidcJwt.toJavaDate(Clock.System.now()))
                     .expirationTime(OidcJwt.toJavaDate(Clock.System.now() + 24.hours))
                     // jwks claims a key under activeKid, but the JWT is signed with strangerKeyPair.
-                    .claim("jwks", TrustAnchorJwks.buildJwksClaim(listOf(TrustAnchorPublishableKey(activeKid, activeKeyPair.publicKeyPem))))
-                    .claim("metadata", mapOf("federation_entity" to mapOf("federation_fetch_endpoint" to fetchEndpoint)))
+                    .claim(
+                        "jwks",
+                        TrustAnchorJwks.buildJwksClaim(
+                            listOf(TrustAnchorPublishableKey(kid = activeKid, publicKeyPem = activeKeyPair.publicKeyPem)),
+                        ),
+                    ).claim("metadata", mapOf("federation_entity" to mapOf("federation_fetch_endpoint" to fetchEndpoint)))
                     .build()
-            val compact = OidcJwt.sign(claims, activeKid, strangerKeyPair.privateKeyPem)
+            val compact = OidcJwt.sign(claimsSet = claims, kid = activeKid, privateKeyPem = strangerKeyPair.privateKeyPem)
 
-            TrustAnchorChainVerification.verifyEntityConfiguration(compact, anchorUri) shouldBe null
+            TrustAnchorChainVerification.verifyEntityConfiguration(compact = compact, expectedAnchorEntityUri = anchorUri) shouldBe null
         }
 
         test("a tampered Entity Configuration (single byte flip in the signature) is rejected") {
@@ -138,93 +154,192 @@ class TrustAnchorChainVerificationTest :
                     .subject(anchorUri)
                     .issueTime(OidcJwt.toJavaDate(Clock.System.now()))
                     .expirationTime(OidcJwt.toJavaDate(Clock.System.now() + 24.hours))
-                    .claim("jwks", TrustAnchorJwks.buildJwksClaim(listOf(TrustAnchorPublishableKey(activeKid, activeKeyPair.publicKeyPem))))
-                    .claim("metadata", mapOf("federation_entity" to mapOf("federation_fetch_endpoint" to fetchEndpoint)))
+                    .claim(
+                        "jwks",
+                        TrustAnchorJwks.buildJwksClaim(
+                            listOf(TrustAnchorPublishableKey(kid = activeKid, publicKeyPem = activeKeyPair.publicKeyPem)),
+                        ),
+                    ).claim("metadata", mapOf("federation_entity" to mapOf("federation_fetch_endpoint" to fetchEndpoint)))
                     .build()
-            val compact = OidcJwt.sign(claims, activeKid, activeKeyPair.privateKeyPem)
+            val compact = OidcJwt.sign(claimsSet = claims, kid = activeKid, privateKeyPem = activeKeyPair.privateKeyPem)
             val tampered = tamperSignature(compact)
 
-            TrustAnchorChainVerification.verifyEntityConfiguration(tampered, anchorUri) shouldBe null
+            TrustAnchorChainVerification.verifyEntityConfiguration(compact = tampered, expectedAnchorEntityUri = anchorUri) shouldBe null
         }
 
         // ── verifySubordinateStatement: happy path + key rollover ──────────
 
         test("a validly-signed Subordinate Statement, signed by the current ACTIVE key, verifies") {
-            val compact = OidcJwt.sign(statementClaims(), activeKid, activeKeyPair.privateKeyPem)
-            TrustAnchorChainVerification.verifySubordinateStatement(compact, anchorUri, homeServerUri, publishedJwksJson) shouldBe true
+            val compact = OidcJwt.sign(claimsSet = statementClaims(), kid = activeKid, privateKeyPem = activeKeyPair.privateKeyPem)
+            TrustAnchorChainVerification.verifySubordinateStatement(
+                compact = compact,
+                expectedAnchorEntityUri = anchorUri,
+                expectedHomeServerUri = homeServerUri,
+                jwksJson = publishedJwksJson,
+            ) shouldBe
+                true
         }
 
         test("key rollover: a Subordinate Statement signed by the RETIRED (rotated-out) key still verifies -- grace period") {
-            val compact = OidcJwt.sign(statementClaims(), retiredKid, retiredKeyPair.privateKeyPem)
-            TrustAnchorChainVerification.verifySubordinateStatement(compact, anchorUri, homeServerUri, publishedJwksJson) shouldBe true
+            val compact = OidcJwt.sign(claimsSet = statementClaims(), kid = retiredKid, privateKeyPem = retiredKeyPair.privateKeyPem)
+            TrustAnchorChainVerification.verifySubordinateStatement(
+                compact = compact,
+                expectedAnchorEntityUri = anchorUri,
+                expectedHomeServerUri = homeServerUri,
+                jwksJson = publishedJwksJson,
+            ) shouldBe
+                true
         }
 
         test("compromise response: a Subordinate Statement signed by a REVOKED key (excluded from the published jwks) never verifies") {
             // revokedKid/revokedKeyPair is deliberately absent from publishedJwksJson -- models
             // TrustAnchorSigningKeyStore.listPublishable()'s exclusion of REVOKED keys, see
             // 26-trust-anchor.kuml.kts file header "Why revocation needs more than expiry alone".
-            val compact = OidcJwt.sign(statementClaims(), revokedKid, revokedKeyPair.privateKeyPem)
-            TrustAnchorChainVerification.verifySubordinateStatement(compact, anchorUri, homeServerUri, publishedJwksJson) shouldBe false
+            val compact = OidcJwt.sign(claimsSet = statementClaims(), kid = revokedKid, privateKeyPem = revokedKeyPair.privateKeyPem)
+            TrustAnchorChainVerification.verifySubordinateStatement(
+                compact = compact,
+                expectedAnchorEntityUri = anchorUri,
+                expectedHomeServerUri = homeServerUri,
+                jwksJson = publishedJwksJson,
+            ) shouldBe
+                false
         }
 
         // ── verifySubordinateStatement: negative ───────────────────────────
 
         test("a tampered Subordinate Statement (single byte flip in the signature) is rejected") {
-            val compact = OidcJwt.sign(statementClaims(), activeKid, activeKeyPair.privateKeyPem)
+            val compact = OidcJwt.sign(claimsSet = statementClaims(), kid = activeKid, privateKeyPem = activeKeyPair.privateKeyPem)
             val tampered = tamperSignature(compact)
-            TrustAnchorChainVerification.verifySubordinateStatement(tampered, anchorUri, homeServerUri, publishedJwksJson) shouldBe false
+            TrustAnchorChainVerification.verifySubordinateStatement(
+                compact = tampered,
+                expectedAnchorEntityUri = anchorUri,
+                expectedHomeServerUri = homeServerUri,
+                jwksJson = publishedJwksJson,
+            ) shouldBe
+                false
         }
 
         test("a Subordinate Statement whose payload was tampered after signing (sub substituted) is rejected") {
-            val compact = OidcJwt.sign(statementClaims(), activeKid, activeKeyPair.privateKeyPem)
+            val compact = OidcJwt.sign(claimsSet = statementClaims(), kid = activeKid, privateKeyPem = activeKeyPair.privateKeyPem)
             val parts = compact.split(".")
             val tamperedPayloadClaims = statementClaims(sub = "https://attacker-controlled.example")
-            val tamperedCompactForPayload = OidcJwt.sign(tamperedPayloadClaims, activeKid, activeKeyPair.privateKeyPem)
+            val tamperedCompactForPayload =
+                OidcJwt.sign(
+                    claimsSet = tamperedPayloadClaims,
+                    kid = activeKid,
+                    privateKeyPem = activeKeyPair.privateKeyPem,
+                )
             val tamperedParts = tamperedCompactForPayload.split(".")
             // Recombine: original header+signature (as issued for the real sub) with a payload that
             // claims a different sub -- this must fail because the signature no longer matches.
             val tampered = "${parts[0]}.${tamperedParts[1]}.${parts[2]}"
-            TrustAnchorChainVerification.verifySubordinateStatement(tampered, anchorUri, homeServerUri, publishedJwksJson) shouldBe false
+            TrustAnchorChainVerification.verifySubordinateStatement(
+                compact = tampered,
+                expectedAnchorEntityUri = anchorUri,
+                expectedHomeServerUri = homeServerUri,
+                jwksJson = publishedJwksJson,
+            ) shouldBe
+                false
         }
 
         test("a Subordinate Statement signed with a key material that does NOT match the claimed anchor's kid entry is rejected") {
             // Header names activeKid (a real, published kid) but the signature was actually
             // produced with an entirely different private key -- the classic "kid says one key,
             // signature says another" substitution the task explicitly names.
-            val compact = OidcJwt.sign(statementClaims(), activeKid, strangerKeyPair.privateKeyPem)
-            TrustAnchorChainVerification.verifySubordinateStatement(compact, anchorUri, homeServerUri, publishedJwksJson) shouldBe false
+            val compact = OidcJwt.sign(claimsSet = statementClaims(), kid = activeKid, privateKeyPem = strangerKeyPair.privateKeyPem)
+            TrustAnchorChainVerification.verifySubordinateStatement(
+                compact = compact,
+                expectedAnchorEntityUri = anchorUri,
+                expectedHomeServerUri = homeServerUri,
+                jwksJson = publishedJwksJson,
+            ) shouldBe
+                false
         }
 
         test("an expired Subordinate Statement is rejected") {
-            val compact = OidcJwt.sign(statementClaims(issuedAgo = 2.hours, expiresIn = -1.hours), activeKid, activeKeyPair.privateKeyPem)
-            TrustAnchorChainVerification.verifySubordinateStatement(compact, anchorUri, homeServerUri, publishedJwksJson) shouldBe false
+            val compact =
+                OidcJwt.sign(
+                    claimsSet = statementClaims(issuedAgo = 2.hours, expiresIn = -1.hours),
+                    kid = activeKid,
+                    privateKeyPem = activeKeyPair.privateKeyPem,
+                )
+            TrustAnchorChainVerification.verifySubordinateStatement(
+                compact = compact,
+                expectedAnchorEntityUri = anchorUri,
+                expectedHomeServerUri = homeServerUri,
+                jwksJson = publishedJwksJson,
+            ) shouldBe
+                false
         }
 
         test("a not-yet-valid Subordinate Statement (iat far in the future) is rejected") {
             val compact =
-                OidcJwt.sign(statementClaims(issuedAgo = (-1).hours, expiresIn = 2.hours), activeKid, activeKeyPair.privateKeyPem)
-            TrustAnchorChainVerification.verifySubordinateStatement(compact, anchorUri, homeServerUri, publishedJwksJson) shouldBe false
+                OidcJwt.sign(
+                    claimsSet = statementClaims(issuedAgo = (-1).hours, expiresIn = 2.hours),
+                    kid = activeKid,
+                    privateKeyPem = activeKeyPair.privateKeyPem,
+                )
+            TrustAnchorChainVerification.verifySubordinateStatement(
+                compact = compact,
+                expectedAnchorEntityUri = anchorUri,
+                expectedHomeServerUri = homeServerUri,
+                jwksJson = publishedJwksJson,
+            ) shouldBe
+                false
         }
 
         test("a Subordinate Statement issued by a DIFFERENT party (iss mismatch) is rejected") {
-            val compact = OidcJwt.sign(statementClaims(iss = "https://a-different-anchor.example"), activeKid, activeKeyPair.privateKeyPem)
-            TrustAnchorChainVerification.verifySubordinateStatement(compact, anchorUri, homeServerUri, publishedJwksJson) shouldBe false
+            val compact =
+                OidcJwt.sign(
+                    claimsSet = statementClaims(iss = "https://a-different-anchor.example"),
+                    kid = activeKid,
+                    privateKeyPem = activeKeyPair.privateKeyPem,
+                )
+            TrustAnchorChainVerification.verifySubordinateStatement(
+                compact = compact,
+                expectedAnchorEntityUri = anchorUri,
+                expectedHomeServerUri = homeServerUri,
+                jwksJson = publishedJwksJson,
+            ) shouldBe
+                false
         }
 
         test("a Subordinate Statement about a DIFFERENT home server (sub mismatch) is rejected") {
             val compact =
-                OidcJwt.sign(statementClaims(sub = "https://a-different-home-server.example"), activeKid, activeKeyPair.privateKeyPem)
-            TrustAnchorChainVerification.verifySubordinateStatement(compact, anchorUri, homeServerUri, publishedJwksJson) shouldBe false
+                OidcJwt.sign(
+                    claimsSet = statementClaims(sub = "https://a-different-home-server.example"),
+                    kid = activeKid,
+                    privateKeyPem = activeKeyPair.privateKeyPem,
+                )
+            TrustAnchorChainVerification.verifySubordinateStatement(
+                compact = compact,
+                expectedAnchorEntityUri = anchorUri,
+                expectedHomeServerUri = homeServerUri,
+                jwksJson = publishedJwksJson,
+            ) shouldBe
+                false
         }
 
         test("a Subordinate Statement whose kid is entirely unknown to the anchor's jwks is rejected") {
-            val compact = OidcJwt.sign(statementClaims(), "unknown-kid", activeKeyPair.privateKeyPem)
-            TrustAnchorChainVerification.verifySubordinateStatement(compact, anchorUri, homeServerUri, publishedJwksJson) shouldBe false
+            val compact = OidcJwt.sign(claimsSet = statementClaims(), kid = "unknown-kid", privateKeyPem = activeKeyPair.privateKeyPem)
+            TrustAnchorChainVerification.verifySubordinateStatement(
+                compact = compact,
+                expectedAnchorEntityUri = anchorUri,
+                expectedHomeServerUri = homeServerUri,
+                jwksJson = publishedJwksJson,
+            ) shouldBe
+                false
         }
 
         test("a not-well-formed compact string is rejected, never throws") {
-            TrustAnchorChainVerification.verifySubordinateStatement("not-a-jwt", anchorUri, homeServerUri, publishedJwksJson) shouldBe false
-            TrustAnchorChainVerification.verifyEntityConfiguration("not-a-jwt", anchorUri) shouldBe null
+            TrustAnchorChainVerification.verifySubordinateStatement(
+                compact = "not-a-jwt",
+                expectedAnchorEntityUri = anchorUri,
+                expectedHomeServerUri = homeServerUri,
+                jwksJson = publishedJwksJson,
+            ) shouldBe
+                false
+            TrustAnchorChainVerification.verifyEntityConfiguration(compact = "not-a-jwt", expectedAnchorEntityUri = anchorUri) shouldBe null
         }
     })
 
@@ -235,7 +350,7 @@ private data class TrustAnchorTestRsaKeyPair(
 
 private fun generateTrustAnchorTestRsaKeyPair(): TrustAnchorTestRsaKeyPair {
     val generated = FederationKeyPairGenerator.generate()
-    return TrustAnchorTestRsaKeyPair(generated.publicKeyPem, generated.privateKeyPem)
+    return TrustAnchorTestRsaKeyPair(publicKeyPem = generated.publicKeyPem, privateKeyPem = generated.privateKeyPem)
 }
 
 /** Flips one byte in the signature segment (last, base64url) of a compact JWT -- same tamper shape [OidcJwtTest] uses for its own single-byte-flip tests. */

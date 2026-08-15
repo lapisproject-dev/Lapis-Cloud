@@ -127,8 +127,8 @@ class PostalMailService(
         current.requireRole(*FINANCIAL_DISPATCH_ROLES)
         requirePostalMailEnabled()
         val id = contributionId.toPostalUuid("Contribution")
-        val doc = generateBeitragsrechnung(id, storageRoot, current.memberId)
-        return dispatchAndLog(doc, doc.fileName)
+        val doc = generateBeitragsrechnung(contributionId = id, storageRoot = storageRoot, uploadedBy = current.memberId)
+        return dispatchAndLog(doc = doc, documentReference = doc.fileName)
     }
 
     override suspend fun dispatchSpendenbescheinigungByPost(journalEntryId: String): PostalDeliveryLogDto {
@@ -136,8 +136,8 @@ class PostalMailService(
         current.requireRole(*FINANCIAL_DISPATCH_ROLES)
         requirePostalMailEnabled()
         val id = journalEntryId.toPostalUuid("JournalEntry")
-        val doc = generateSpendenbescheinigung(id, storageRoot, current.memberId)
-        return dispatchAndLog(doc, doc.fileName)
+        val doc = generateSpendenbescheinigung(journalEntryId = id, storageRoot = storageRoot, uploadedBy = current.memberId)
+        return dispatchAndLog(doc = doc, documentReference = doc.fileName)
     }
 
     override suspend fun dispatchEinladungByPost(input: PostalInvitationDispatchInput): List<PostalDeliveryLogDto> {
@@ -179,7 +179,7 @@ class PostalMailService(
                     recipients = listOf(recipient),
                     organization = organization,
                 )
-            dispatchAndLog(pdfBytes, recipient, documentReference = "Einladung: ${input.title}")
+            dispatchAndLog(pdfBytes = pdfBytes, recipient = recipient, documentReference = "Einladung: ${input.title}")
         }
     }
 
@@ -236,7 +236,7 @@ class PostalMailService(
     private suspend fun dispatchAndLog(
         doc: GeneratedMailmergeDocument,
         documentReference: String,
-    ): PostalDeliveryLogDto = dispatchAndLog(doc.bytes, doc.recipient, documentReference)
+    ): PostalDeliveryLogDto = dispatchAndLog(pdfBytes = doc.bytes, recipient = doc.recipient, documentReference = documentReference)
 
     /** See class KDoc "Transaction boundaries around the network call". */
     private suspend fun dispatchAndLog(

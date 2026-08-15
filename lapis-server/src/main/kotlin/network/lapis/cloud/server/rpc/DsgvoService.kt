@@ -51,16 +51,16 @@ class DsgvoService(
     override suspend fun exportManifest(memberId: String): ExportManifestDto {
         val current = resolveCurrentMember(call)
         val subjectId = memberId.toDsgvoUuid()
-        requireSelfOrAdmin(current, subjectId)
+        requireSelfOrAdmin(current = current, subjectId = subjectId)
         return transaction {
             val sectionCounts =
                 PersonalDataRegistry.contributors.associate { contributor ->
                     contributor.sectionKey to contributor.export(subjectId).elementCount()
                 }
             writeAuditLog(
-                current,
-                DsgvoAuditAction.EXPORT,
-                subjectId,
+                actor = current,
+                action = DsgvoAuditAction.EXPORT,
+                subjectMemberId = subjectId,
                 requestId = null,
                 outcome = emptyList(),
                 legalBasis = "Art. 15/20 DSGVO",
@@ -80,7 +80,7 @@ class DsgvoService(
     ): ErasureRequestDto {
         val current = resolveCurrentMember(call)
         val subjectId = subjectMemberId.toDsgvoUuid()
-        requireSelfOrAdmin(current, subjectId)
+        requireSelfOrAdmin(current = current, subjectId = subjectId)
         return transaction {
             val id = Uuid.random()
             ErasureRequestTable.insert {
@@ -93,7 +93,14 @@ class DsgvoService(
                 it[status] = ErasureStatus.REQUESTED
                 it[legalHold] = false
             }
-            writeAuditLog(current, DsgvoAuditAction.ERASURE_REQUESTED, subjectId, id, emptyList(), "Art. 17 DSGVO")
+            writeAuditLog(
+                actor = current,
+                action = DsgvoAuditAction.ERASURE_REQUESTED,
+                subjectMemberId = subjectId,
+                requestId = id,
+                outcome = emptyList(),
+                legalBasis = "Art. 17 DSGVO",
+            )
             loadErasureRequest(id)
         }
     }
@@ -131,7 +138,14 @@ class DsgvoService(
                 it[decisionNote] = note
             }
             val action = if (approve) DsgvoAuditAction.ERASURE_APPROVED else DsgvoAuditAction.ERASURE_REJECTED
-            writeAuditLog(current, action, row[ErasureRequestTable.subjectMemberId], id, emptyList(), "Art. 17 DSGVO")
+            writeAuditLog(
+                actor = current,
+                action = action,
+                subjectMemberId = row[ErasureRequestTable.subjectMemberId],
+                requestId = id,
+                outcome = emptyList(),
+                legalBasis = "Art. 17 DSGVO",
+            )
             loadErasureRequest(id)
         }
     }
@@ -149,13 +163,20 @@ class DsgvoService(
             }
             val subjectId = row[ErasureRequestTable.subjectMemberId]
             val mode = row[ErasureRequestTable.mode]
-            val outcomeDtos = PersonalDataRegistry.contributors.flatMap { it.erase(subjectId, mode) }.map { it.toDto() }
+            val outcomeDtos = PersonalDataRegistry.contributors.flatMap { it.erase(memberId = subjectId, mode = mode) }.map { it.toDto() }
             ErasureRequestTable.update({ ErasureRequestTable.id eq id }) {
                 it[status] = ErasureStatus.COMPLETED
                 it[executedAt] = nowUtc()
                 it[outcomeSummary] = Json.encodeToString(outcomeListSerializer, outcomeDtos)
             }
-            writeAuditLog(current, DsgvoAuditAction.ERASURE_EXECUTED, subjectId, id, outcomeDtos, "Art. 17 DSGVO")
+            writeAuditLog(
+                actor = current,
+                action = DsgvoAuditAction.ERASURE_EXECUTED,
+                subjectMemberId = subjectId,
+                requestId = id,
+                outcome = outcomeDtos,
+                legalBasis = "Art. 17 DSGVO",
+            )
             loadErasureRequest(id)
         }
     }

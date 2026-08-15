@@ -88,14 +88,14 @@ class RegistrationService(
         registrationRateLimiter.recordFailure(emailKey)
         registrationRateLimiter.recordFailure(ipKey)
 
-        if (!MembershipAgreementDisclaimer.matches(input.agreementVersion, input.agreementSha256)) {
+        if (!MembershipAgreementDisclaimer.matches(version = input.agreementVersion, sha256 = input.agreementSha256)) {
             throw ConflictException(
                 "agreementVersion/agreementSha256 do not match the current MembershipAgreementDisclaimer -- " +
                     "call getMembershipAgreement again and submit its CURRENT version/sha256 unmodified",
             )
         }
         if (input.displayName.isBlank()) throw ConflictException("displayName must not be blank")
-        PasswordPolicy.validate(input.password, normalizedEmail)
+        PasswordPolicy.validate(newPassword = input.password, email = normalizedEmail)
 
         val now = nowLocalDateTime()
         transaction {
@@ -147,7 +147,7 @@ class RegistrationService(
         val targetId = memberId.toMemberUuidOrThrow()
         val now = nowLocalDateTime()
         return transaction {
-            requireApplicationRow(targetId, forUpdate = true)
+            requireApplicationRow(id = targetId, forUpdate = true)
             val updated =
                 MemberTable.update({
                     (MemberTable.id eq targetId) and (MemberTable.status eq MemberStatus.ANTRAG)
@@ -185,7 +185,7 @@ class RegistrationService(
         val now = nowLocalDateTime()
         val result =
             transaction {
-                requireApplicationRow(targetId, forUpdate = true)
+                requireApplicationRow(id = targetId, forUpdate = true)
                 val updated =
                     MemberTable.update({
                         (MemberTable.id eq targetId) and (MemberTable.status eq MemberStatus.ANTRAG)
@@ -200,7 +200,7 @@ class RegistrationService(
                 }
                 loadMember(targetId)
             }
-        SessionStore.revokeAllForMember(targetId)
+        SessionStore.revokeAllForMember(memberId = targetId)
         return result
     }
 
@@ -214,7 +214,7 @@ class RegistrationService(
         if (input.role in ESCALATED_ROLES) current.requireRole(AccountRole.ADMIN)
         if (input.displayName.isBlank()) throw ConflictException("displayName must not be blank")
         val normalizedEmail = input.email.trim().lowercase()
-        PasswordPolicy.validate(input.temporaryPassword, normalizedEmail)
+        PasswordPolicy.validate(newPassword = input.temporaryPassword, email = normalizedEmail)
 
         val now = nowLocalDateTime()
         return transaction {
@@ -261,7 +261,7 @@ class RegistrationService(
                 }
                 loadMember(current.memberId)
             }
-        SessionStore.revokeAllForMember(current.memberId)
+        SessionStore.revokeAllForMember(memberId = current.memberId)
         return result
     }
 

@@ -39,7 +39,7 @@ object JdbcRowCodec {
         columns: List<ColumnMetadata>,
     ): JsonObject =
         buildJsonObject {
-            columns.forEach { column -> put(column.name, encodeValue(rs, column)) }
+            columns.forEach { column -> put(column.name, encodeValue(rs = rs, column = column)) }
         }
 
     private fun encodeValue(
@@ -76,7 +76,7 @@ object JdbcRowCodec {
         startIndex: Int = 1,
     ) {
         columns.forEachIndexed { offset, column ->
-            bindValue(statement, startIndex + offset, column, row[column.name] ?: JsonNull)
+            bindValue(statement = statement, index = startIndex + offset, column = column, element = row[column.name] ?: JsonNull)
         }
     }
 

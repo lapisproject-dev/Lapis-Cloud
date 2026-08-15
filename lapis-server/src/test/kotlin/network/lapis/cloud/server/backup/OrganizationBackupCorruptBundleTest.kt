@@ -62,7 +62,10 @@ class OrganizationBackupCorruptBundleTest :
             val logRowsBefore = backupOperationLogRows(targetDb).size
 
             try {
-                OrganizationRestoreService(targetDb, storageRoot).restore(actor, bogus)
+                OrganizationRestoreService(
+                    database = targetDb,
+                    documentStorageRoot = storageRoot,
+                ).restore(actor = actor, bundleFile = bogus)
                 throw AssertionError("Expected an exception for a non-ZIP bundle")
             } catch (e: Exception) {
                 (e is IncompatibleBundleException || e is RestoreIncompleteException) shouldBe true
@@ -85,7 +88,10 @@ class OrganizationBackupCorruptBundleTest :
             }
 
             try {
-                OrganizationRestoreService(targetDb, storageRoot).restore(adminOf(targetDb), zipFile)
+                OrganizationRestoreService(
+                    database = targetDb,
+                    documentStorageRoot = storageRoot,
+                ).restore(actor = adminOf(targetDb), bundleFile = zipFile)
                 throw AssertionError("Expected IncompatibleBundleException")
             } catch (e: IncompatibleBundleException) {
                 (e.message?.contains("manifest.json") == true) shouldBe true
@@ -115,7 +121,10 @@ class OrganizationBackupCorruptBundleTest :
             }
 
             try {
-                OrganizationRestoreService(targetDb, storageRoot).restore(adminOf(targetDb), zipFile)
+                OrganizationRestoreService(
+                    database = targetDb,
+                    documentStorageRoot = storageRoot,
+                ).restore(actor = adminOf(targetDb), bundleFile = zipFile)
                 throw AssertionError("Expected IncompatibleBundleException")
             } catch (e: IncompatibleBundleException) {
                 (e.message?.contains("999") == true) shouldBe true
@@ -148,7 +157,10 @@ class OrganizationBackupCorruptBundleTest :
             val before = rowCountsOf(targetDb)
 
             try {
-                OrganizationRestoreService(targetDb, storageRoot).restore(actor, zipFile)
+                OrganizationRestoreService(
+                    database = targetDb,
+                    documentStorageRoot = storageRoot,
+                ).restore(actor = actor, bundleFile = zipFile)
                 throw AssertionError("Expected IncompatibleBundleException")
             } catch (e: IncompatibleBundleException) {
                 (e.message?.contains("schemaChecksum") == true) shouldBe true
@@ -165,11 +177,14 @@ class OrganizationBackupCorruptBundleTest :
             val targetDb = freshDb("trunctarget")
             val sourceStorageRoot = Files.createTempDirectory("corrupt-trunc-source-storage").toFile()
             val targetStorageRoot = Files.createTempDirectory("corrupt-trunc-target-storage").toFile()
-            val adminId = seedAdmin(sourceDb, displayName = "Truncation-Test Admin")
+            val adminId = seedAdmin(database = sourceDb, displayName = "Truncation-Test Admin")
 
             val originalBundle = File.createTempFile("trunc-original-", ".zip")
             originalBundle.outputStream().use { out ->
-                OrganizationExportService(sourceDb, sourceStorageRoot).streamExport(CurrentMember(adminId, AccountRole.ADMIN), out)
+                OrganizationExportService(
+                    database = sourceDb,
+                    documentStorageRoot = sourceStorageRoot,
+                ).streamExport(actor = CurrentMember(memberId = adminId, role = AccountRole.ADMIN), sink = out)
             }
 
             // Rewrite the bundle with the "member" table's data/<table>.jsonl entry's content
@@ -198,7 +213,10 @@ class OrganizationBackupCorruptBundleTest :
             }
 
             try {
-                OrganizationRestoreService(targetDb, targetStorageRoot).restore(CurrentMember(adminId, AccountRole.ADMIN), tamperedBundle)
+                OrganizationRestoreService(
+                    database = targetDb,
+                    documentStorageRoot = targetStorageRoot,
+                ).restore(actor = CurrentMember(memberId = adminId, role = AccountRole.ADMIN), bundleFile = tamperedBundle)
                 throw AssertionError("Expected RestoreIncompleteException")
             } catch (e: RestoreIncompleteException) {
                 (e.message?.contains("checksum") == true) shouldBe true
@@ -217,11 +235,14 @@ class OrganizationBackupCorruptBundleTest :
             val targetDb = freshDb("zipsliptarget")
             val sourceStorageRoot = Files.createTempDirectory("corrupt-zipslip-source-storage").toFile()
             val targetStorageRoot = Files.createTempDirectory("corrupt-zipslip-target-storage").toFile()
-            val adminId = seedAdmin(sourceDb)
+            val adminId = seedAdmin(database = sourceDb)
 
             val validBundle = File.createTempFile("zipslip-valid-", ".zip")
             validBundle.outputStream().use { out ->
-                OrganizationExportService(sourceDb, sourceStorageRoot).streamExport(CurrentMember(adminId, AccountRole.ADMIN), out)
+                OrganizationExportService(
+                    database = sourceDb,
+                    documentStorageRoot = sourceStorageRoot,
+                ).streamExport(actor = CurrentMember(memberId = adminId, role = AccountRole.ADMIN), sink = out)
             }
 
             val outsideCanary = File(targetStorageRoot.parentFile, "zipslip-canary-${Uuid.random()}.txt")
@@ -244,9 +265,9 @@ class OrganizationBackupCorruptBundleTest :
             try {
                 val result =
                     OrganizationRestoreService(
-                        targetDb,
-                        targetStorageRoot,
-                    ).restore(CurrentMember(adminId, AccountRole.ADMIN), tamperedBundle)
+                        database = targetDb,
+                        documentStorageRoot = targetStorageRoot,
+                    ).restore(actor = CurrentMember(memberId = adminId, role = AccountRole.ADMIN), bundleFile = tamperedBundle)
                 (result.warnings.any { it.contains("unsafe path") }) shouldBe true
             } finally {
                 validBundle.delete()
@@ -289,6 +310,6 @@ private fun adminOf(database: org.jetbrains.exposed.v1.jdbc.Database): CurrentMe
                 .map { it[MemberTable.id] }
                 .singleOrNull()
         }
-    val memberId = existing ?: seedAdmin(database)
-    return CurrentMember(memberId, AccountRole.ADMIN)
+    val memberId = existing ?: seedAdmin(database = database)
+    return CurrentMember(memberId = memberId, role = AccountRole.ADMIN)
 }

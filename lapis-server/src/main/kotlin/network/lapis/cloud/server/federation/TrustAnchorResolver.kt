@@ -56,7 +56,7 @@ internal object TrustAnchorResolver {
             fetchCompactJwt(entityConfigUrl)
                 ?: return OneHopResolution.NotTrusted("Could not fetch the anchor's Entity Configuration")
         val verifiedEntityConfig =
-            TrustAnchorChainVerification.verifyEntityConfiguration(entityConfigCompact, anchorEntityUri)
+            TrustAnchorChainVerification.verifyEntityConfiguration(compact = entityConfigCompact, expectedAnchorEntityUri = anchorEntityUri)
                 ?: return OneHopResolution.NotTrusted("Anchor's Entity Configuration failed verification")
 
         val fetchUrl = "${verifiedEntityConfig.fetchEndpoint}?sub=${URLEncoder.encode(homeServerUri, "UTF-8")}"

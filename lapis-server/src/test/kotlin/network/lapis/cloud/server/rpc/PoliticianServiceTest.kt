@@ -1066,7 +1066,7 @@ class PoliticianServiceTest :
                 client.post("/test/grant?memberId=$politician") { header("X-Member-Id", BOARD_ID) }
                 val guest = createTestMember("pol-race-guest-rater@example.org", status = MemberStatus.GAST)
 
-                runConcurrentRevokeAndRate(client, politician, guest)
+                runConcurrentRevokeAndRate(client = client, politicianMemberId = politician, raterMemberId = guest)
 
                 val profileRow =
                     transaction { PoliticianProfileTable.selectAll().where { PoliticianProfileTable.memberId eq politician }.single() }
@@ -1256,7 +1256,7 @@ class PoliticianServiceTest :
                 val rater = createTestMember("pol-race-rater@example.org")
                 mintLtr(rater, BigDecimal("10.00"))
 
-                runConcurrentRevokeAndRate(client, politician, rater)
+                runConcurrentRevokeAndRate(client = client, politicianMemberId = politician, raterMemberId = rater)
 
                 val profileRow =
                     transaction { PoliticianProfileTable.selectAll().where { PoliticianProfileTable.memberId eq politician }.single() }
@@ -1292,7 +1292,7 @@ class PoliticianServiceTest :
                 // PoliticianService class KDoc "First-grant race".
                 val politician = createTestMember("pol-concurrent-first-grant@example.org")
 
-                val statuses = runConcurrentFirstGrant(client, politician)
+                val statuses = runConcurrentFirstGrant(client = client, politicianMemberId = politician)
 
                 // Neither call may surface the raw ExposedSQLException/500 the unguarded race would
                 // have produced -- both must observe the idempotent-upsert contract.
@@ -1430,42 +1430,42 @@ private fun StatusPagesConfig.installPoliticianExceptionHandlers() {
 /** Shared throwaway routes for [PoliticianService] -- mirrors [CrowdfundingServiceTest]'s `registerCrowdfundingTestRoutes` style. */
 private fun Route.registerPoliticianTestRoutes() {
     post("/test/grant") {
-        val service = PoliticianService(call)
+        val service = PoliticianService(call = call)
         val q = call.request.queryParameters
-        val p = service.grantPoliticianStatus(q["memberId"]!!, q["mandateText"])
+        val p = service.grantPoliticianStatus(memberId = q["memberId"]!!, mandateText = q["mandateText"])
         call.respondText("${p.status}:${p.mandateText ?: ""}:${p.displayName}")
     }
     post("/test/revoke") {
-        val service = PoliticianService(call)
+        val service = PoliticianService(call = call)
         val q = call.request.queryParameters
         val p = service.revokePoliticianStatus(q["memberId"]!!)
         call.respondText("${p.status}")
     }
     post("/test/update-mandate") {
-        val service = PoliticianService(call)
+        val service = PoliticianService(call = call)
         val q = call.request.queryParameters
-        val p = service.updateMandateText(q["memberId"]!!, q["mandateText"])
+        val p = service.updateMandateText(memberId = q["memberId"]!!, mandateText = q["mandateText"])
         call.respondText(p.mandateText ?: "")
     }
     post("/test/rate") {
-        val service = PoliticianService(call)
+        val service = PoliticianService(call = call)
         val q = call.request.queryParameters
-        val r = service.castRating(q["politicianId"]!!, PoliticianReactionValue.valueOf(q["value"]!!))
+        val r = service.castRating(politicianMemberId = q["politicianId"]!!, value = PoliticianReactionValue.valueOf(q["value"]!!))
         call.respondText(r.value.name)
     }
     post("/test/retract") {
-        val service = PoliticianService(call)
+        val service = PoliticianService(call = call)
         val q = call.request.queryParameters
         service.retractRating(q["politicianId"]!!)
         call.respondText("ok")
     }
     get("/test/my-rating/{politicianId}") {
-        val service = PoliticianService(call)
+        val service = PoliticianService(call = call)
         val r = service.getMyRating(call.parameters["politicianId"]!!)
         call.respondText(r.singleOrNull()?.value?.name ?: "none")
     }
     get("/test/profile/{memberId}") {
-        val service = PoliticianService(call)
+        val service = PoliticianService(call = call)
         val p = service.getPoliticianProfile(call.parameters["memberId"]!!)
         // Appended AFTER the original four fields (index-stable for existing tests):
         // guestLikeCount:guestDislikeCount:guestTrustWeight:combinedTrustWeight.
@@ -1475,23 +1475,23 @@ private fun Route.registerPoliticianTestRoutes() {
         )
     }
     get("/test/list") {
-        val service = PoliticianService(call)
+        val service = PoliticianService(call = call)
         val includeFormer = call.request.queryParameters["includeFormer"]?.toBoolean() ?: false
         call.respondText(service.listPoliticians(includeFormer).joinToString(",") { it.memberId })
     }
     get("/test/top") {
-        val service = PoliticianService(call)
+        val service = PoliticianService(call = call)
         val limit = call.request.queryParameters["limit"]?.toInt() ?: 6
         call.respondText(service.getTopPoliticians(limit).joinToString(",") { it.memberId })
     }
     post("/test/snapshot") {
-        val service = PoliticianService(call)
+        val service = PoliticianService(call = call)
         val periodMonth = LocalDate.parse(call.request.queryParameters["periodMonth"]!!)
         val results = service.snapshotWeights(periodMonth)
         call.respondText(results.joinToString(";") { "${it.periodMonth}=${it.memberTrustWeight}" })
     }
     get("/test/history/{memberId}") {
-        val service = PoliticianService(call)
+        val service = PoliticianService(call = call)
         val results = service.getWeightHistory(call.parameters["memberId"]!!)
         call.respondText(results.joinToString(";") { "${it.periodMonth}=${it.memberTrustWeight}" })
     }

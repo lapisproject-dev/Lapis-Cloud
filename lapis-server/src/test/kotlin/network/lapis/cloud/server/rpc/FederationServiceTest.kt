@@ -123,7 +123,7 @@ class FederationServiceTest :
                 val response = client.post("/test/accept?id=$id") { header("X-Member-Id", ADMIN_ID) }
                 response.status shouldBe HttpStatusCode.OK
 
-                val row = transaction { FederationRelationshipStore.findById(id)!! }
+                val row = transaction { FederationRelationshipStore.findById(id = id)!! }
                 row[FederationRelationshipTable.status] shouldBe FederationRelationshipStatus.ACTIVE
                 val events = transaction { FederationRelationshipStore.listEvents(id) }
                 events.map { it[FederationRelationshipEventTable.eventType] } shouldBe listOf(FederationEventType.ACCEPT_SENT)
@@ -141,7 +141,7 @@ class FederationServiceTest :
                 val response = client.post("/test/reject?id=$id") { header("X-Member-Id", ADMIN_ID) }
                 response.status shouldBe HttpStatusCode.OK
 
-                val row = transaction { FederationRelationshipStore.findById(id)!! }
+                val row = transaction { FederationRelationshipStore.findById(id = id)!! }
                 row[FederationRelationshipTable.status] shouldBe FederationRelationshipStatus.REJECTED
                 val events = transaction { FederationRelationshipStore.listEvents(id) }
                 events.map { it[FederationRelationshipEventTable.eventType] } shouldBe listOf(FederationEventType.REJECT_SENT)
@@ -160,9 +160,9 @@ class FederationServiceTest :
                 client.post("/test/undo?id=$outboundId") { header("X-Member-Id", ADMIN_ID) }.status shouldBe HttpStatusCode.OK
                 client.post("/test/undo?id=$inboundId") { header("X-Member-Id", ADMIN_ID) }.status shouldBe HttpStatusCode.OK
 
-                transaction { FederationRelationshipStore.findById(outboundId)!![FederationRelationshipTable.status] } shouldBe
+                transaction { FederationRelationshipStore.findById(id = outboundId)!![FederationRelationshipTable.status] } shouldBe
                     FederationRelationshipStatus.UNDONE
-                transaction { FederationRelationshipStore.findById(inboundId)!![FederationRelationshipTable.status] } shouldBe
+                transaction { FederationRelationshipStore.findById(id = inboundId)!![FederationRelationshipTable.status] } shouldBe
                     FederationRelationshipStatus.UNDONE
             }
         }

@@ -195,19 +195,19 @@ private fun StatusPagesConfig.installLtrLedgerExceptionHandlers() {
 /** Shared throwaway routes for [LtrLedgerService] -- mirrors [CrowdfundingServiceTest]'s `registerCrowdfundingTestRoutes` style. */
 private fun Route.registerLtrLedgerTestRoutes() {
     get("/test/my-balance") {
-        val service = LtrLedgerService(call)
+        val service = LtrLedgerService(call = call)
         call.respondText(service.getMyBalance().freeBalanceLtr.toString())
     }
     get("/test/balance/{memberId}") {
-        val service = LtrLedgerService(call)
+        val service = LtrLedgerService(call = call)
         call.respondText(service.getMemberBalance(call.parameters["memberId"]!!).freeBalanceLtr.toString())
     }
     get("/test/entries/{memberId}") {
-        val service = LtrLedgerService(call)
-        call.respondText(service.listMemberEntries(call.parameters["memberId"]!!).joinToString(",") { it.id })
+        val service = LtrLedgerService(call = call)
+        call.respondText(service.listMemberEntries(memberId = call.parameters["memberId"]!!).joinToString(",") { it.id })
     }
     post("/test/mint/{memberId}/{amount}") {
-        val service = LtrLedgerService(call)
+        val service = LtrLedgerService(call = call)
         val e = service.mintLtr(MintLtrInput(memberId = call.parameters["memberId"]!!, amountLtr = BigDecimal(call.parameters["amount"]!!)))
         call.respondText(e.id)
     }

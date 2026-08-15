@@ -104,7 +104,14 @@ class FederationRoutesTest :
             "a valid signed Follow is accepted (202), the relationship is persisted PENDING/INBOUND, delivery log has signatureVerified=true",
         ) {
             testApplication {
-                application { routing { registerFederationRoutes(FederationInboxRateLimiter(), FederationReplayGuard()) } }
+                application {
+                    routing {
+                        registerFederationRoutes(
+                            inboxRateLimiter = FederationInboxRateLimiter(),
+                            replayGuard = FederationReplayGuard(),
+                        )
+                    }
+                }
 
                 val keyPair = FederationKeyPairGenerator.generate()
                 val remoteActorUri = "https://remote-${Uuid.random()}.example/federation/actor"
@@ -116,12 +123,12 @@ class FederationRoutesTest :
                 val bodyBytes = bodyText.toByteArray(Charsets.UTF_8)
                 val signed =
                     HttpSignatures.sign(
-                        "POST",
-                        "/federation/inbox",
-                        testHost,
-                        bodyBytes,
-                        "$remoteActorUri#main-key",
-                        keyPair.privateKeyPem,
+                        method = "POST",
+                        path = "/federation/inbox",
+                        host = testHost,
+                        body = bodyBytes,
+                        keyId = "$remoteActorUri#main-key",
+                        privateKeyPem = keyPair.privateKeyPem,
                     )
 
                 val response =
@@ -161,7 +168,14 @@ class FederationRoutesTest :
             "an invalid (tampered) signature is rejected (401), delivery log has signatureVerified=false/rejectReason=SIGNATURE_MISMATCH, no relationship row created",
         ) {
             testApplication {
-                application { routing { registerFederationRoutes(FederationInboxRateLimiter(), FederationReplayGuard()) } }
+                application {
+                    routing {
+                        registerFederationRoutes(
+                            inboxRateLimiter = FederationInboxRateLimiter(),
+                            replayGuard = FederationReplayGuard(),
+                        )
+                    }
+                }
 
                 val keyPair = FederationKeyPairGenerator.generate()
                 val remoteActorUri = "https://remote-${Uuid.random()}.example/federation/actor"
@@ -171,12 +185,12 @@ class FederationRoutesTest :
                 val bodyBytes = bodyText.toByteArray(Charsets.UTF_8)
                 val signed =
                     HttpSignatures.sign(
-                        "POST",
-                        "/federation/inbox",
-                        testHost,
-                        bodyBytes,
-                        "$remoteActorUri#main-key",
-                        keyPair.privateKeyPem,
+                        method = "POST",
+                        path = "/federation/inbox",
+                        host = testHost,
+                        body = bodyBytes,
+                        keyId = "$remoteActorUri#main-key",
+                        privateKeyPem = keyPair.privateKeyPem,
                     )
                 // Flips one base64 character in place (keeps the signature value's length --
                 // hence still valid base64 -- so verification legitimately reaches the RSA check
@@ -215,7 +229,14 @@ class FederationRoutesTest :
                 "ACTOR_KEY_MISMATCH) and no relationship row is created for the impersonated actor -- round-1 review fix",
         ) {
             testApplication {
-                application { routing { registerFederationRoutes(FederationInboxRateLimiter(), FederationReplayGuard()) } }
+                application {
+                    routing {
+                        registerFederationRoutes(
+                            inboxRateLimiter = FederationInboxRateLimiter(),
+                            replayGuard = FederationReplayGuard(),
+                        )
+                    }
+                }
 
                 // The SIGNER is a real, resolvable actor -- the signature itself verifies cleanly.
                 val keyPair = FederationKeyPairGenerator.generate()
@@ -233,12 +254,12 @@ class FederationRoutesTest :
                 val bodyBytes = bodyText.toByteArray(Charsets.UTF_8)
                 val signed =
                     HttpSignatures.sign(
-                        "POST",
-                        "/federation/inbox",
-                        testHost,
-                        bodyBytes,
-                        "$signerActorUri#main-key",
-                        keyPair.privateKeyPem,
+                        method = "POST",
+                        path = "/federation/inbox",
+                        host = testHost,
+                        body = bodyBytes,
+                        keyId = "$signerActorUri#main-key",
+                        privateKeyPem = keyPair.privateKeyPem,
                     )
 
                 val response =
@@ -271,7 +292,14 @@ class FederationRoutesTest :
 
         test("a replayed valid request (same signature twice within the window) is accepted once, rejected the second time") {
             testApplication {
-                application { routing { registerFederationRoutes(FederationInboxRateLimiter(), FederationReplayGuard()) } }
+                application {
+                    routing {
+                        registerFederationRoutes(
+                            inboxRateLimiter = FederationInboxRateLimiter(),
+                            replayGuard = FederationReplayGuard(),
+                        )
+                    }
+                }
 
                 val keyPair = FederationKeyPairGenerator.generate()
                 val remoteActorUri = "https://remote-${Uuid.random()}.example/federation/actor"
@@ -281,12 +309,12 @@ class FederationRoutesTest :
                 val bodyBytes = bodyText.toByteArray(Charsets.UTF_8)
                 val signed =
                     HttpSignatures.sign(
-                        "POST",
-                        "/federation/inbox",
-                        testHost,
-                        bodyBytes,
-                        "$remoteActorUri#main-key",
-                        keyPair.privateKeyPem,
+                        method = "POST",
+                        path = "/federation/inbox",
+                        host = testHost,
+                        body = bodyBytes,
+                        keyId = "$remoteActorUri#main-key",
+                        privateKeyPem = keyPair.privateKeyPem,
                     )
 
                 suspend fun send() =
@@ -305,7 +333,14 @@ class FederationRoutesTest :
 
         test("an oversized body is rejected (413) before any JSON parsing") {
             testApplication {
-                application { routing { registerFederationRoutes(FederationInboxRateLimiter(), FederationReplayGuard()) } }
+                application {
+                    routing {
+                        registerFederationRoutes(
+                            inboxRateLimiter = FederationInboxRateLimiter(),
+                            replayGuard = FederationReplayGuard(),
+                        )
+                    }
+                }
 
                 val oversized = "x".repeat(70 * 1024).toByteArray(Charsets.UTF_8)
 
@@ -328,7 +363,14 @@ class FederationRoutesTest :
 
         test("a deeply nested (small byte size) JSON body with a VALID signature is rejected as a bad request, not a StackOverflowError") {
             testApplication {
-                application { routing { registerFederationRoutes(FederationInboxRateLimiter(), FederationReplayGuard()) } }
+                application {
+                    routing {
+                        registerFederationRoutes(
+                            inboxRateLimiter = FederationInboxRateLimiter(),
+                            replayGuard = FederationReplayGuard(),
+                        )
+                    }
+                }
 
                 val keyPair = FederationKeyPairGenerator.generate()
                 val remoteActorUri = "https://remote-${Uuid.random()}.example/federation/actor"
@@ -338,12 +380,12 @@ class FederationRoutesTest :
                 val bodyBytes = nestedBody.toByteArray(Charsets.UTF_8)
                 val signed =
                     HttpSignatures.sign(
-                        "POST",
-                        "/federation/inbox",
-                        testHost,
-                        bodyBytes,
-                        "$remoteActorUri#main-key",
-                        keyPair.privateKeyPem,
+                        method = "POST",
+                        path = "/federation/inbox",
+                        host = testHost,
+                        body = bodyBytes,
+                        keyId = "$remoteActorUri#main-key",
+                        privateKeyPem = keyPair.privateKeyPem,
                     )
 
                 val response =
@@ -361,7 +403,14 @@ class FederationRoutesTest :
 
         test("rate limiting kicks in (429) once the per-IP request budget is exhausted") {
             testApplication {
-                application { routing { registerFederationRoutes(FederationInboxRateLimiter(maxRequests = 1), FederationReplayGuard()) } }
+                application {
+                    routing {
+                        registerFederationRoutes(
+                            inboxRateLimiter = FederationInboxRateLimiter(maxRequests = 1),
+                            replayGuard = FederationReplayGuard(),
+                        )
+                    }
+                }
 
                 suspend fun send() =
                     client.post("/federation/inbox") {
@@ -379,7 +428,14 @@ class FederationRoutesTest :
 
         test("an unsupported activity type with a valid signature is accepted (202) and logged, with no relationship mutation") {
             testApplication {
-                application { routing { registerFederationRoutes(FederationInboxRateLimiter(), FederationReplayGuard()) } }
+                application {
+                    routing {
+                        registerFederationRoutes(
+                            inboxRateLimiter = FederationInboxRateLimiter(),
+                            replayGuard = FederationReplayGuard(),
+                        )
+                    }
+                }
 
                 val keyPair = FederationKeyPairGenerator.generate()
                 val remoteActorUri = "https://remote-${Uuid.random()}.example/federation/actor"
@@ -389,12 +445,12 @@ class FederationRoutesTest :
                 val bodyBytes = bodyText.toByteArray(Charsets.UTF_8)
                 val signed =
                     HttpSignatures.sign(
-                        "POST",
-                        "/federation/inbox",
-                        testHost,
-                        bodyBytes,
-                        "$remoteActorUri#main-key",
-                        keyPair.privateKeyPem,
+                        method = "POST",
+                        path = "/federation/inbox",
+                        host = testHost,
+                        body = bodyBytes,
+                        keyId = "$remoteActorUri#main-key",
+                        privateKeyPem = keyPair.privateKeyPem,
                     )
 
                 val response =
@@ -433,7 +489,14 @@ class FederationRoutesTest :
 
         test("GET /federation/actor returns an ActorDocument with the provisioned actor URI and no private key") {
             testApplication {
-                application { routing { registerFederationRoutes(FederationInboxRateLimiter(), FederationReplayGuard()) } }
+                application {
+                    routing {
+                        registerFederationRoutes(
+                            inboxRateLimiter = FederationInboxRateLimiter(),
+                            replayGuard = FederationReplayGuard(),
+                        )
+                    }
+                }
                 val response = client.get("/federation/actor")
                 response.status shouldBe HttpStatusCode.OK
                 val text = response.bodyAsText()
@@ -446,7 +509,14 @@ class FederationRoutesTest :
 
         test("GET /federation/outbox returns a well-formed OrderedCollection") {
             testApplication {
-                application { routing { registerFederationRoutes(FederationInboxRateLimiter(), FederationReplayGuard()) } }
+                application {
+                    routing {
+                        registerFederationRoutes(
+                            inboxRateLimiter = FederationInboxRateLimiter(),
+                            replayGuard = FederationReplayGuard(),
+                        )
+                    }
+                }
                 val response = client.get("/federation/outbox")
                 response.status shouldBe HttpStatusCode.OK
                 val parsed = FEDERATION_JSON.parseToJsonElement(response.bodyAsText())

@@ -44,7 +44,7 @@ class ConferenceRecordingSchemaDriftTest :
 
             entity.attributes.map { it.name }.toSet() shouldBe real.columns.keys
             entity.attributes.forEach { attr ->
-                withClue("column '${attr.name}'") {
+                withClue(clue = "column '${attr.name}'") {
                     real.columns.getValue(attr.name!!).nullable shouldBe attr.nullable
                 }
             }
@@ -98,7 +98,7 @@ class ConferenceRecordingSchemaDriftTest :
 
             entity.attributes.map { it.name }.toSet() shouldBe real.columns.keys
             entity.attributes.forEach { attr ->
-                withClue("column '${attr.name}'") {
+                withClue(clue = "column '${attr.name}'") {
                     real.columns.getValue(attr.name!!).nullable shouldBe attr.nullable
                 }
             }

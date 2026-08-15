@@ -350,18 +350,21 @@ class HttpLiveKitEgressClient(
                 }
             } catch (e: Exception) {
                 logger.warn { "LiveKit Egress $method request failed (${e::class.simpleName ?: "unknown error"})" }
-                throw LiveKitAdminException("LiveKit Egress $method request failed (${e::class.simpleName ?: "unknown error"})", e)
+                throw LiveKitAdminException(
+                    message = "LiveKit Egress $method request failed (${e::class.simpleName ?: "unknown error"})",
+                    cause = e,
+                )
             }
         if (!response.status.isSuccess()) {
-            throw LiveKitAdminException("LiveKit Egress $method returned HTTP ${response.status.value}")
+            throw LiveKitAdminException(message = "LiveKit Egress $method returned HTTP ${response.status.value}")
         }
         val bytes =
             response.readCappedLiveKitBodyOrNull()
-                ?: throw LiveKitAdminException("LiveKit Egress $method response exceeded $MAX_LIVEKIT_RESPONSE_BYTES bytes")
+                ?: throw LiveKitAdminException(message = "LiveKit Egress $method response exceeded $MAX_LIVEKIT_RESPONSE_BYTES bytes")
         return try {
             LIVEKIT_JSON.decodeFromString(bytes.decodeToString())
         } catch (e: Exception) {
-            throw LiveKitAdminException("LiveKit Egress $method returned an unparseable response body")
+            throw LiveKitAdminException(message = "LiveKit Egress $method returned an unparseable response body")
         }
     }
 }

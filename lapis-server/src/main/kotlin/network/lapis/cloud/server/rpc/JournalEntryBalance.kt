@@ -66,7 +66,7 @@ internal object JournalEntryBalance {
         }
 
         return if (debitTotal.compareTo(creditTotal) == 0) {
-            BalanceResult.balanced(debitTotal, creditTotal)
+            BalanceResult.balanced(debitTotal = debitTotal, creditTotal = creditTotal)
         } else {
             BalanceResult.invalid("Journal entry not balanced: debits $debitTotal != credits $creditTotal")
         }

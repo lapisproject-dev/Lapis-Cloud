@@ -103,7 +103,7 @@ object OidcBackChannelLogoutNotifier {
                     .claim("jti", Uuid.random().toString())
                     .claim("events", OidcJwt.logoutEventsClaim())
                     .build()
-            val logoutToken = OidcJwt.sign(claims, kid, privateKeyPem)
+            val logoutToken = OidcJwt.sign(claimsSet = claims, kid = kid, privateKeyPem = privateKeyPem)
 
             val delivered =
                 runCatching {

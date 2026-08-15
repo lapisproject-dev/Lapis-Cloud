@@ -259,7 +259,7 @@ fun Route.registerFederationRoutes(
         // 7. ONLY NOW: a linear, non-recursive nesting-depth scan on the raw text, before any
         // (recursive) JSON parser ever touches attacker-supplied bytes.
         val bodyText = bodyBytes.toString(Charsets.UTF_8)
-        if (exceedsMaxJsonNestingDepth(bodyText, MAX_JSON_NESTING_DEPTH)) {
+        if (exceedsMaxJsonNestingDepth(text = bodyText, maxDepth = MAX_JSON_NESTING_DEPTH)) {
             logDelivery(true, "JSON_TOO_DEEP", null, null)
             call.respond(HttpStatusCode.BadRequest, "JSON nesting too deep")
             return@post
@@ -316,7 +316,7 @@ private data class SenderKeyInfo(
  */
 private suspend fun resolveSenderKeyInfo(keyId: String): SenderKeyInfo? {
     val actorUri = keyId.substringBefore("#")
-    val cachedRow = transaction { FederationRelationshipStore.findByRemoteActorUri(actorUri) }
+    val cachedRow = transaction { FederationRelationshipStore.findByRemoteActorUri(remoteActorUri = actorUri) }
     val cachedKey = cachedRow?.get(FederationRelationshipTable.remotePublicKeyPem)
     if (cachedRow != null && cachedKey != null) {
         return SenderKeyInfo(publicKeyPem = cachedKey, inboxUri = cachedRow[FederationRelationshipTable.remoteInboxUri])
@@ -356,24 +356,30 @@ private fun dispatchInboundActivity(
                         now = now,
                     )
                 if (id != null) {
-                    FederationRelationshipStore.recordEvent(id, FederationEventType.FOLLOW_RECEIVED, activity.id, activityJson, now)
+                    FederationRelationshipStore.recordEvent(
+                        relationshipId = id,
+                        eventType = FederationEventType.FOLLOW_RECEIVED,
+                        activityId = activity.id,
+                        activityJson = activityJson,
+                        now = now,
+                    )
                 }
             }
         "Accept" ->
             transitionOnMatchingOutboundFollow(
-                activity,
-                activityJson,
-                now,
-                FederationRelationshipStatus.ACTIVE,
-                FederationEventType.ACCEPT_RECEIVED,
+                activity = activity,
+                activityJson = activityJson,
+                now = now,
+                newStatus = FederationRelationshipStatus.ACTIVE,
+                eventType = FederationEventType.ACCEPT_RECEIVED,
             )
         "Reject" ->
             transitionOnMatchingOutboundFollow(
-                activity,
-                activityJson,
-                now,
-                FederationRelationshipStatus.REJECTED,
-                FederationEventType.REJECT_RECEIVED,
+                activity = activity,
+                activityJson = activityJson,
+                now = now,
+                newStatus = FederationRelationshipStatus.REJECTED,
+                eventType = FederationEventType.REJECT_RECEIVED,
             )
         "Undo" ->
             transaction {
@@ -381,18 +387,24 @@ private fun dispatchInboundActivity(
                 // KDoc "Concurrency": serializes against a concurrent Accept/Reject/Undo racing on
                 // the SAME relationship (e.g. an ADMIN's acceptInboundFollow committing between this
                 // read and this write).
-                val existing = FederationRelationshipStore.findByRemoteActorUri(activity.actor, forUpdate = true)
+                val existing = FederationRelationshipStore.findByRemoteActorUri(remoteActorUri = activity.actor, forUpdate = true)
                 if (existing != null && existing[FederationRelationshipTable.status] == FederationRelationshipStatus.ACTIVE) {
                     val id = existing[FederationRelationshipTable.id]
                     val applied =
                         FederationRelationshipStore.updateStatusIfCurrently(
-                            id,
-                            FederationRelationshipStatus.ACTIVE,
-                            FederationRelationshipStatus.UNDONE,
-                            now,
+                            id = id,
+                            expectedStatus = FederationRelationshipStatus.ACTIVE,
+                            newStatus = FederationRelationshipStatus.UNDONE,
+                            now = now,
                         )
                     if (applied) {
-                        FederationRelationshipStore.recordEvent(id, FederationEventType.UNDO_RECEIVED, activity.id, activityJson, now)
+                        FederationRelationshipStore.recordEvent(
+                            relationshipId = id,
+                            eventType = FederationEventType.UNDO_RECEIVED,
+                            activityId = activity.id,
+                            activityJson = activityJson,
+                            now = now,
+                        )
                     }
                 }
             }
@@ -411,7 +423,8 @@ private fun transitionOnMatchingOutboundFollow(
         // forUpdate=true + updateStatusIfCurrently CAS -- see FederationRelationshipStore KDoc
         // "Concurrency": a duplicate/replayed Accept-or-Reject delivery for the same relationship
         // (real Fediverse redelivery behavior) must never double-transition or double-log.
-        val existing = FederationRelationshipStore.findByRemoteActorUri(activity.actor, forUpdate = true) ?: return@transaction
+        val existing =
+            FederationRelationshipStore.findByRemoteActorUri(remoteActorUri = activity.actor, forUpdate = true) ?: return@transaction
         val objectId = activity.activityObject.asObjectIdOrNull()
         val matches =
             existing[FederationRelationshipTable.direction] == FederationRelationshipDirection.OUTBOUND &&
@@ -420,9 +433,20 @@ private fun transitionOnMatchingOutboundFollow(
         if (matches) {
             val id = existing[FederationRelationshipTable.id]
             val applied =
-                FederationRelationshipStore.updateStatusIfCurrently(id, FederationRelationshipStatus.PENDING, newStatus, now)
+                FederationRelationshipStore.updateStatusIfCurrently(
+                    id = id,
+                    expectedStatus = FederationRelationshipStatus.PENDING,
+                    newStatus = newStatus,
+                    now = now,
+                )
             if (applied) {
-                FederationRelationshipStore.recordEvent(id, eventType, activity.id, activityJson, now)
+                FederationRelationshipStore.recordEvent(
+                    relationshipId = id,
+                    eventType = eventType,
+                    activityId = activity.id,
+                    activityJson = activityJson,
+                    now = now,
+                )
             }
         }
     }

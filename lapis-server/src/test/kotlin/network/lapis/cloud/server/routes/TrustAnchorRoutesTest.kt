@@ -76,7 +76,7 @@ class TrustAnchorRoutesTest :
                 "and independently verify via TrustAnchorChainVerification (the same code a real verifier runs)",
         ) {
             val homeServerUri = "https://home-${Uuid.random()}.example"
-            transaction { TrustAnchorPoolStore.insert(homeServerUri, LocalDateTime(2026, 1, 1, 0, 0)) }
+            transaction { TrustAnchorPoolStore.insert(homeServerUri = homeServerUri, now = LocalDateTime(2026, 1, 1, 0, 0)) }
 
             testApplication {
                 routing { registerTrustAnchorRoutes() }
@@ -84,7 +84,11 @@ class TrustAnchorRoutesTest :
                 val ecResponse = client.get("/.well-known/openid-federation")
                 ecResponse.status shouldBe HttpStatusCode.OK
                 val ecCompact = ecResponse.bodyAsText()
-                val verifiedEc = TrustAnchorChainVerification.verifyEntityConfiguration(ecCompact, TrustAnchorConfig.entityUri)
+                val verifiedEc =
+                    TrustAnchorChainVerification.verifyEntityConfiguration(
+                        compact = ecCompact,
+                        expectedAnchorEntityUri = TrustAnchorConfig.entityUri,
+                    )
                 requireNotNull(verifiedEc)
                 verifiedEc.fetchEndpoint shouldBe TrustAnchorConfig.fetchEndpointUri
 
@@ -95,10 +99,10 @@ class TrustAnchorRoutesTest :
 
                 val valid =
                     TrustAnchorChainVerification.verifySubordinateStatement(
-                        stCompact,
-                        TrustAnchorConfig.entityUri,
-                        homeServerUri,
-                        verifiedEc.jwksJson,
+                        compact = stCompact,
+                        expectedAnchorEntityUri = TrustAnchorConfig.entityUri,
+                        expectedHomeServerUri = homeServerUri,
+                        jwksJson = verifiedEc.jwksJson,
                     )
                 valid shouldBe true
             }
@@ -108,7 +112,7 @@ class TrustAnchorRoutesTest :
 
         test("a home server NOT in the pool gets 404 from the fetch endpoint") {
             val poolMemberUri = "https://home-${Uuid.random()}.example"
-            transaction { TrustAnchorPoolStore.insert(poolMemberUri, LocalDateTime(2026, 1, 1, 0, 0)) }
+            transaction { TrustAnchorPoolStore.insert(homeServerUri = poolMemberUri, now = LocalDateTime(2026, 1, 1, 0, 0)) }
 
             testApplication {
                 routing { registerTrustAnchorRoutes() }
@@ -122,7 +126,7 @@ class TrustAnchorRoutesTest :
 
         test("removing a pool member makes the next fetch 404 (the actual 'remove from pool' mechanism)") {
             val homeServerUri = "https://home-${Uuid.random()}.example"
-            transaction { TrustAnchorPoolStore.insert(homeServerUri, LocalDateTime(2026, 1, 1, 0, 0)) }
+            transaction { TrustAnchorPoolStore.insert(homeServerUri = homeServerUri, now = LocalDateTime(2026, 1, 1, 0, 0)) }
 
             testApplication {
                 routing { registerTrustAnchorRoutes() }
@@ -137,7 +141,7 @@ class TrustAnchorRoutesTest :
 
         test("missing 'sub' query parameter is 400") {
             val homeServerUri = "https://home-${Uuid.random()}.example"
-            transaction { TrustAnchorPoolStore.insert(homeServerUri, LocalDateTime(2026, 1, 1, 0, 0)) }
+            transaction { TrustAnchorPoolStore.insert(homeServerUri = homeServerUri, now = LocalDateTime(2026, 1, 1, 0, 0)) }
 
             testApplication {
                 routing { registerTrustAnchorRoutes() }
@@ -152,7 +156,7 @@ class TrustAnchorRoutesTest :
                 "old RETIRED key stays published) -- and after revoking the old key, its jwks entry disappears",
         ) {
             val homeServerUri = "https://home-${Uuid.random()}.example"
-            transaction { TrustAnchorPoolStore.insert(homeServerUri, LocalDateTime(2026, 1, 1, 0, 0)) }
+            transaction { TrustAnchorPoolStore.insert(homeServerUri = homeServerUri, now = LocalDateTime(2026, 1, 1, 0, 0)) }
             val originalActiveKid = transaction { TrustAnchorSigningKeyStore.findActive()!![TrustAnchorSigningKeyTable.kid] }
 
             testApplication {
@@ -167,53 +171,57 @@ class TrustAnchorRoutesTest :
                 val now = LocalDateTime(2026, 1, 2, 0, 0)
                 transaction {
                     val active = TrustAnchorSigningKeyStore.findActive(forUpdate = true)!!
-                    TrustAnchorSigningKeyStore.retire(active[TrustAnchorSigningKeyTable.id], now)
+                    TrustAnchorSigningKeyStore.retire(id = active[TrustAnchorSigningKeyTable.id], now = now)
                     TrustAnchorKeyMaterial.insertNewKey(status = TrustAnchorSigningKeyStatus.ACTIVE, now = now)
                 }
 
                 val ecCompact = client.get("/.well-known/openid-federation").bodyAsText()
-                val verifiedEc = TrustAnchorChainVerification.verifyEntityConfiguration(ecCompact, TrustAnchorConfig.entityUri)
+                val verifiedEc =
+                    TrustAnchorChainVerification.verifyEntityConfiguration(
+                        compact = ecCompact,
+                        expectedAnchorEntityUri = TrustAnchorConfig.entityUri,
+                    )
                 requireNotNull(verifiedEc)
 
                 // Grace period: the statement signed BEFORE rotation (by the now-RETIRED key) still verifies.
                 TrustAnchorChainVerification.verifySubordinateStatement(
-                    preRotationStatement,
-                    TrustAnchorConfig.entityUri,
-                    homeServerUri,
-                    verifiedEc.jwksJson,
+                    compact = preRotationStatement,
+                    expectedAnchorEntityUri = TrustAnchorConfig.entityUri,
+                    expectedHomeServerUri = homeServerUri,
+                    jwksJson = verifiedEc.jwksJson,
                 ) shouldBe true
 
                 // A freshly-fetched statement is signed by the NEW active key and also verifies.
                 val postRotationStatement = client.get("/federation/trust-anchor/fetch?sub=$subEncoded").bodyAsText()
                 TrustAnchorChainVerification.verifySubordinateStatement(
-                    postRotationStatement,
-                    TrustAnchorConfig.entityUri,
-                    homeServerUri,
-                    verifiedEc.jwksJson,
+                    compact = postRotationStatement,
+                    expectedAnchorEntityUri = TrustAnchorConfig.entityUri,
+                    expectedHomeServerUri = homeServerUri,
+                    jwksJson = verifiedEc.jwksJson,
                 ) shouldBe true
 
                 // Compromise response: revoke the original (now RETIRED) key.
                 transaction {
                     TrustAnchorSigningKeyStore.revokeRow(
-                        TrustAnchorSigningKeyStore.findByKid(originalActiveKid)!![TrustAnchorSigningKeyTable.id],
-                        now,
+                        id = TrustAnchorSigningKeyStore.findByKid(kid = originalActiveKid)!![TrustAnchorSigningKeyTable.id],
+                        now = now,
                     )
                 }
 
                 val ecAfterRevokeCompact = client.get("/.well-known/openid-federation").bodyAsText()
                 val verifiedEcAfterRevoke =
                     TrustAnchorChainVerification.verifyEntityConfiguration(
-                        ecAfterRevokeCompact,
-                        TrustAnchorConfig.entityUri,
+                        compact = ecAfterRevokeCompact,
+                        expectedAnchorEntityUri = TrustAnchorConfig.entityUri,
                     )
                 requireNotNull(verifiedEcAfterRevoke)
 
                 // The statement signed by the now-REVOKED key no longer verifies against the freshly-fetched jwks.
                 TrustAnchorChainVerification.verifySubordinateStatement(
-                    preRotationStatement,
-                    TrustAnchorConfig.entityUri,
-                    homeServerUri,
-                    verifiedEcAfterRevoke.jwksJson,
+                    compact = preRotationStatement,
+                    expectedAnchorEntityUri = TrustAnchorConfig.entityUri,
+                    expectedHomeServerUri = homeServerUri,
+                    jwksJson = verifiedEcAfterRevoke.jwksJson,
                 ) shouldBe false
             }
 

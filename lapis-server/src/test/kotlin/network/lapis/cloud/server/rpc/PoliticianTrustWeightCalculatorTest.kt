@@ -40,7 +40,11 @@ class PoliticianTrustWeightCalculatorTest :
                     rater3 to BigDecimal("30.00"),
                 )
             // pool = 90.00, korb ratio 2:1 -> A gets 60.00, B gets 30.00
-            val result = PoliticianTrustWeightCalculator.computeMemberTrustWeights(reactionsByProfile, raterBalances)
+            val result =
+                PoliticianTrustWeightCalculator.computeMemberTrustWeights(
+                    reactionsByProfile = reactionsByProfile,
+                    raterBalances = raterBalances,
+                )
 
             result.getValue(politicianA).memberTrustWeight.compareTo(BigDecimal("60.00")) shouldBe 0
             result.getValue(politicianB).memberTrustWeight.compareTo(BigDecimal("30.00")) shouldBe 0
@@ -60,7 +64,11 @@ class PoliticianTrustWeightCalculatorTest :
                 )
             val raterBalances = mapOf(sharedRater to BigDecimal("50.00"))
 
-            val result = PoliticianTrustWeightCalculator.computeMemberTrustWeights(reactionsByProfile, raterBalances)
+            val result =
+                PoliticianTrustWeightCalculator.computeMemberTrustWeights(
+                    reactionsByProfile = reactionsByProfile,
+                    raterBalances = raterBalances,
+                )
 
             // pool == 50.00 (counted once, not 100.00), split evenly 25.00/25.00 across equal korb 1/1.
             val sum = result.values.fold(ZERO_2DP) { acc, r -> acc + r.memberTrustWeight }
@@ -89,7 +97,11 @@ class PoliticianTrustWeightCalculatorTest :
                     rater3 to BigDecimal("10.00"),
                 )
 
-            val result = PoliticianTrustWeightCalculator.computeMemberTrustWeights(reactionsByProfile, raterBalances)
+            val result =
+                PoliticianTrustWeightCalculator.computeMemberTrustWeights(
+                    reactionsByProfile = reactionsByProfile,
+                    raterBalances = raterBalances,
+                )
 
             result.getValue(politician).memberLikeCount shouldBe 1
             result.getValue(politician).memberDislikeCount shouldBe 2
@@ -108,7 +120,11 @@ class PoliticianTrustWeightCalculatorTest :
                 )
             val raterBalances = mapOf(rater to BigDecimal("100.00"))
 
-            val result = PoliticianTrustWeightCalculator.computeMemberTrustWeights(reactionsByProfile, raterBalances)
+            val result =
+                PoliticianTrustWeightCalculator.computeMemberTrustWeights(
+                    reactionsByProfile = reactionsByProfile,
+                    raterBalances = raterBalances,
+                )
 
             result.keys shouldBe setOf(politicianWithVotes, politicianWithNone)
             result.getValue(politicianWithNone).memberTrustWeight.compareTo(ZERO_2DP) shouldBe 0
@@ -116,7 +132,8 @@ class PoliticianTrustWeightCalculatorTest :
         }
 
         test("empty input map returns an empty result") {
-            PoliticianTrustWeightCalculator.computeMemberTrustWeights(emptyMap(), emptyMap()) shouldBe emptyMap()
+            PoliticianTrustWeightCalculator.computeMemberTrustWeights(reactionsByProfile = emptyMap(), raterBalances = emptyMap()) shouldBe
+                emptyMap()
         }
 
         test("a rater missing from raterBalances is treated as zero balance, defensively") {
@@ -124,7 +141,11 @@ class PoliticianTrustWeightCalculatorTest :
             val rater = Uuid.random()
             val reactionsByProfile = mapOf(politician to listOf(rater to PoliticianReactionValue.LIKE))
 
-            val result = PoliticianTrustWeightCalculator.computeMemberTrustWeights(reactionsByProfile, emptyMap())
+            val result =
+                PoliticianTrustWeightCalculator.computeMemberTrustWeights(
+                    reactionsByProfile = reactionsByProfile,
+                    raterBalances = emptyMap(),
+                )
 
             result.getValue(politician).memberTrustWeight.compareTo(ZERO_2DP) shouldBe 0
         }
@@ -229,7 +250,11 @@ class PoliticianTrustWeightCalculatorTest :
             val reactionsByProfile = mapOf(politician to listOf(rater to PoliticianReactionValue.LIKE))
             val raterBalances = mapOf(rater to BigDecimal("5.00"))
 
-            val result = PoliticianTrustWeightCalculator.computeMemberTrustWeights(reactionsByProfile, raterBalances)
+            val result =
+                PoliticianTrustWeightCalculator.computeMemberTrustWeights(
+                    reactionsByProfile = reactionsByProfile,
+                    raterBalances = raterBalances,
+                )
 
             result.getValue(politician).memberTrustWeight.compareTo(BigDecimal("5.00")) shouldBe 0
         }

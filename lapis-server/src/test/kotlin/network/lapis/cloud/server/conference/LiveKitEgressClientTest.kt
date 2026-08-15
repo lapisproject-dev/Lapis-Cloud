@@ -134,7 +134,7 @@ class LiveKitEgressClientTest :
             val client = mockClient { _ -> jsonResponse(startingJson) }
             val egress = HttpLiveKitEgressClient(apiUrl = API_URL, apiKey = API_KEY, apiSecret = API_SECRET, httpClient = client)
 
-            val info = egress.startTrackEgress(ROOM_NAME, TRACK_ID, "/out/x/y")
+            val info = egress.startTrackEgress(roomName = ROOM_NAME, trackId = TRACK_ID, outputFilepathWithoutExtension = "/out/x/y")
 
             info.status shouldBe "EGRESS_STARTING"
             info.firstFileResult shouldBe null

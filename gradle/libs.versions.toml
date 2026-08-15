@@ -26,6 +26,18 @@ bcrypt                  = "0.10.2"
 # posture (same tier as pdfbox/bcrypt).
 nimbus-jose-jwt         = "10.2"
 
+# ── Detekt (custom ruleset :lapis-detekt-rules — RequireNamedArguments gate) ──
+# Ported from kuml-dev/kUML's gradle/libs.versions.toml (same rule, same reasoning).
+# Pinned to the 2.0.0-alpha.5 K2/Analysis-API line, NOT the stable 1.23.8 line —
+# 1.23.8 pins kotlin-compiler-embeddable:2.0.21, whose shaded IntelliJ JavaVersion
+# cannot parse JDK 26's version string ("26.0.2") and crashes in the Gradle daemon
+# JVM (jvmToolchain does not help, it runs in-process). 2.0.0-alpha.5 pins a Kotlin
+# compiler matching this repo's kotlin.version line closely enough to be usable.
+# A newer 2.0.0-alpha.6 exists on Maven Central (checked 2026-08-15) but is not a
+# stable release — kept in lockstep with kUML's pinned alpha.5 for cross-repo
+# consistency rather than chasing an equally-alpha newer build.
+detekt                  = "2.0.0-alpha.5"
+
 [plugins]
 kotlin-multiplatform    = { id = "org.jetbrains.kotlin.multiplatform", version.ref = "kotlin" }
 kotlin-jvm              = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }
@@ -34,6 +46,7 @@ kvision                 = { id = "io.kvision", version.ref = "kvision" }
 ktlint                  = { id = "org.jlleitschuh.gradle.ktlint", version.ref = "ktlint-plugin" }
 ksp                     = { id = "com.google.devtools.ksp", version.ref = "ksp" }
 kilua-rpc               = { id = "dev.kilua.rpc", version.ref = "kilua-rpc" }
+detekt                  = { id = "dev.detekt", version.ref = "detekt" }
 
 [libraries]
 kvision-core                    = { module = "io.kvision:kvision", version.ref = "kvision" }
@@ -148,3 +161,11 @@ kuml-gen-sql                    = { module = "dev.kuml:kuml-gen-sql", version.re
 kotlin-scripting-jvm-host        = { module = "org.jetbrains.kotlin:kotlin-scripting-jvm-host", version.ref = "kotlin" }
 kotlin-scripting-common          = { module = "org.jetbrains.kotlin:kotlin-scripting-common", version.ref = "kotlin" }
 kotlin-scripting-jvm             = { module = "org.jetbrains.kotlin:kotlin-scripting-jvm", version.ref = "kotlin" }
+
+# ── Detekt (custom ruleset :lapis-detekt-rules — RequireNamedArguments gate) ──
+# NOTE: dev.detekt:detekt-test is deliberately NOT declared here — its published
+# module metadata cannot be resolved outside the detekt monorepo (see the
+# comment in lapis-detekt-rules/build.gradle.kts). detekt-test-utils resolves
+# fine and is all RequireNamedArgumentsSpec needs.
+detekt-api                       = { module = "dev.detekt:detekt-api",         version.ref = "detekt" }
+detekt-test-utils                = { module = "dev.detekt:detekt-test-utils",  version.ref = "detekt" }

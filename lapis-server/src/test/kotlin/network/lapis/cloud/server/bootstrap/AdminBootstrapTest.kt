@@ -66,24 +66,28 @@ class AdminBootstrapTest :
             val email = "bootstrap-happy@example.org"
             val memberId = createTestMember(email)
 
-            val result = AdminBootstrap.setInitialAdminPassword(email, STRONG_PASSWORD)
+            val result = AdminBootstrap.setInitialAdminPassword(email = email, rawPassword = STRONG_PASSWORD)
 
             result shouldBe AdminBootstrap.BootstrapResult.Success(email = email, displayName = "Bootstrap Testmitglied")
-            PasswordHasher.verify(STRONG_PASSWORD, storedPasswordHashOf(memberId)) shouldBe true
+            PasswordHasher.verify(rawPassword = STRONG_PASSWORD, storedHash = storedPasswordHashOf(memberId)) shouldBe true
         }
 
         test("setInitialAdminPassword: email lookup is case-insensitive, mirroring the login endpoint") {
             val email = "bootstrap-case@example.org"
             val memberId = createTestMember(email)
 
-            val result = AdminBootstrap.setInitialAdminPassword("Bootstrap-Case@Example.ORG", STRONG_PASSWORD)
+            val result = AdminBootstrap.setInitialAdminPassword(email = "Bootstrap-Case@Example.ORG", rawPassword = STRONG_PASSWORD)
 
             result shouldBe AdminBootstrap.BootstrapResult.Success(email = email, displayName = "Bootstrap Testmitglied")
-            PasswordHasher.verify(STRONG_PASSWORD, storedPasswordHashOf(memberId)) shouldBe true
+            PasswordHasher.verify(rawPassword = STRONG_PASSWORD, storedHash = storedPasswordHashOf(memberId)) shouldBe true
         }
 
         test("setInitialAdminPassword: unknown email is reported, never throws / never touches the DB") {
-            val result = AdminBootstrap.setInitialAdminPassword("no-such-bootstrap-account@example.org", STRONG_PASSWORD)
+            val result =
+                AdminBootstrap.setInitialAdminPassword(
+                    email = "no-such-bootstrap-account@example.org",
+                    rawPassword = STRONG_PASSWORD,
+                )
             result shouldBe AdminBootstrap.BootstrapResult.AccountNotFound("no-such-bootstrap-account@example.org")
         }
 
@@ -91,28 +95,28 @@ class AdminBootstrapTest :
             val email = "bootstrap-already-set@example.org"
             val memberId = createTestMember(email, passwordHash = PasswordHasher.hash("pre-existing-password"))
 
-            val result = AdminBootstrap.setInitialAdminPassword(email, STRONG_PASSWORD)
+            val result = AdminBootstrap.setInitialAdminPassword(email = email, rawPassword = STRONG_PASSWORD)
 
             result shouldBe AdminBootstrap.BootstrapResult.AlreadyHasPassword(email)
-            PasswordHasher.verify("pre-existing-password", storedPasswordHashOf(memberId)) shouldBe true
-            PasswordHasher.verify(STRONG_PASSWORD, storedPasswordHashOf(memberId)) shouldBe false
+            PasswordHasher.verify(rawPassword = "pre-existing-password", storedHash = storedPasswordHashOf(memberId)) shouldBe true
+            PasswordHasher.verify(rawPassword = STRONG_PASSWORD, storedHash = storedPasswordHashOf(memberId)) shouldBe false
         }
 
         test("setInitialAdminPassword: force=true deliberately overwrites an already-set password") {
             val email = "bootstrap-force@example.org"
             val memberId = createTestMember(email, passwordHash = PasswordHasher.hash("pre-existing-password"))
 
-            val result = AdminBootstrap.setInitialAdminPassword(email, STRONG_PASSWORD, force = true)
+            val result = AdminBootstrap.setInitialAdminPassword(email = email, rawPassword = STRONG_PASSWORD, force = true)
 
             result shouldBe AdminBootstrap.BootstrapResult.Success(email = email, displayName = "Bootstrap Testmitglied")
-            PasswordHasher.verify(STRONG_PASSWORD, storedPasswordHashOf(memberId)) shouldBe true
+            PasswordHasher.verify(rawPassword = STRONG_PASSWORD, storedHash = storedPasswordHashOf(memberId)) shouldBe true
         }
 
         test("setInitialAdminPassword: a weak password is rejected, account left untouched") {
             val email = "bootstrap-weak@example.org"
             val memberId = createTestMember(email)
 
-            val result = AdminBootstrap.setInitialAdminPassword(email, "short")
+            val result = AdminBootstrap.setInitialAdminPassword(email = email, rawPassword = "short")
 
             (result is AdminBootstrap.BootstrapResult.WeakPassword) shouldBe true
             storedPasswordHashOf(memberId) shouldBe null
@@ -131,7 +135,13 @@ class AdminBootstrapTest :
         test("bootstrapFirstAdmin: happy path creates the first member+account row and grants ADMIN on a genuinely empty database") {
             val db = TestDatabaseFactory.freshMigratedH2Database("bootstrap-first-admin-happy-${Uuid.random()}")
 
-            val result = AdminBootstrap.bootstrapFirstAdmin("Erika Musterfrau", "first-admin@example.org", STRONG_PASSWORD, db)
+            val result =
+                AdminBootstrap.bootstrapFirstAdmin(
+                    displayName = "Erika Musterfrau",
+                    email = "first-admin@example.org",
+                    rawPassword = STRONG_PASSWORD,
+                    database = db,
+                )
 
             result shouldBe
                 AdminBootstrap.BootstrapFirstAdminResult.Success(email = "first-admin@example.org", displayName = "Erika Musterfrau")
@@ -140,14 +150,20 @@ class AdminBootstrapTest :
                 row[MemberTable.email] shouldBe "first-admin@example.org"
                 row[MemberTable.status] shouldBe MemberStatus.AKTIV
                 row[AccountTable.role] shouldBe AccountRole.ADMIN
-                PasswordHasher.verify(STRONG_PASSWORD, row[AccountTable.passwordHash]) shouldBe true
+                PasswordHasher.verify(rawPassword = STRONG_PASSWORD, storedHash = row[AccountTable.passwordHash]) shouldBe true
             }
         }
 
         test("bootstrapFirstAdmin: email is normalized to lowercase, display name is trimmed") {
             val db = TestDatabaseFactory.freshMigratedH2Database("bootstrap-first-admin-normalize-${Uuid.random()}")
 
-            val result = AdminBootstrap.bootstrapFirstAdmin("  Erika Musterfrau  ", "First-Admin@Example.ORG", STRONG_PASSWORD, db)
+            val result =
+                AdminBootstrap.bootstrapFirstAdmin(
+                    displayName = "  Erika Musterfrau  ",
+                    email = "First-Admin@Example.ORG",
+                    rawPassword = STRONG_PASSWORD,
+                    database = db,
+                )
 
             result shouldBe
                 AdminBootstrap.BootstrapFirstAdminResult.Success(email = "first-admin@example.org", displayName = "Erika Musterfrau")
@@ -166,7 +182,13 @@ class AdminBootstrapTest :
                 }
             }
 
-            val result = AdminBootstrap.bootstrapFirstAdmin("Erika Musterfrau", "first-admin@example.org", STRONG_PASSWORD, db)
+            val result =
+                AdminBootstrap.bootstrapFirstAdmin(
+                    displayName = "Erika Musterfrau",
+                    email = "first-admin@example.org",
+                    rawPassword = STRONG_PASSWORD,
+                    database = db,
+                )
 
             result shouldBe AdminBootstrap.BootstrapFirstAdminResult.NotEmpty
             memberCount(db) shouldBe 1L
@@ -175,7 +197,13 @@ class AdminBootstrapTest :
         test("bootstrapFirstAdmin: a weak password is rejected before touching the database") {
             val db = TestDatabaseFactory.freshMigratedH2Database("bootstrap-first-admin-weak-${Uuid.random()}")
 
-            val result = AdminBootstrap.bootstrapFirstAdmin("Erika Musterfrau", "first-admin@example.org", "short", db)
+            val result =
+                AdminBootstrap.bootstrapFirstAdmin(
+                    displayName = "Erika Musterfrau",
+                    email = "first-admin@example.org",
+                    rawPassword = "short",
+                    database = db,
+                )
 
             (result is AdminBootstrap.BootstrapFirstAdminResult.WeakPassword) shouldBe true
             memberCount(db) shouldBe 0L
@@ -184,7 +212,13 @@ class AdminBootstrapTest :
         test("bootstrapFirstAdmin: a blank display name is rejected before touching the database") {
             val db = TestDatabaseFactory.freshMigratedH2Database("bootstrap-first-admin-blank-name-${Uuid.random()}")
 
-            val result = AdminBootstrap.bootstrapFirstAdmin("   ", "first-admin@example.org", STRONG_PASSWORD, db)
+            val result =
+                AdminBootstrap.bootstrapFirstAdmin(
+                    displayName = "   ",
+                    email = "first-admin@example.org",
+                    rawPassword = STRONG_PASSWORD,
+                    database = db,
+                )
 
             result shouldBe AdminBootstrap.BootstrapFirstAdminResult.InvalidInput("displayName must not be blank")
             memberCount(db) shouldBe 0L
@@ -193,7 +227,7 @@ class AdminBootstrapTest :
         test("bootstrapFirstAdmin: two concurrent invocations against the same empty database -- exactly one wins, never two ADMIN rows") {
             val db = TestDatabaseFactory.freshMigratedH2Database("bootstrap-first-admin-race-${Uuid.random()}")
 
-            val results = runConcurrentBootstrapAttempts(db)
+            val results = runConcurrentBootstrapAttempts(db = db)
 
             results.count { it is AdminBootstrap.BootstrapFirstAdminResult.Success } shouldBe 1
             results.count { it is AdminBootstrap.BootstrapFirstAdminResult.NotEmpty } shouldBe 1
@@ -223,7 +257,13 @@ private fun runConcurrentBootstrapAttempts(
             try {
                 startLatch.countDown()
                 startLatch.await(timeoutSeconds, TimeUnit.SECONDS)
-                val result = AdminBootstrap.bootstrapFirstAdmin("Erika Musterfrau", email, STRONG_PASSWORD, db)
+                val result =
+                    AdminBootstrap.bootstrapFirstAdmin(
+                        displayName = "Erika Musterfrau",
+                        email = email,
+                        rawPassword = STRONG_PASSWORD,
+                        database = db,
+                    )
                 synchronized(results) { results += result }
             } catch (t: Throwable) {
                 synchronized(failures) { failures += t }

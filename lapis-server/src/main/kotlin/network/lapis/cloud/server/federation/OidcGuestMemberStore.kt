@@ -75,7 +75,7 @@ object OidcGuestMemberStore {
                         it[displayName] = claims.name?.takeIf { name -> name.isNotBlank() }
                             ?: claims.preferredUsername?.takeIf { name -> name.isNotBlank() }
                             ?: "Gast"
-                        it[email] = syntheticEmail(claims.issuer, claims.subject)
+                        it[email] = syntheticEmail(issuer = claims.issuer, subject = claims.subject)
                         it[status] = MemberStatus.GAST
                         it[joinedAt] = now.date
                         it[membershipTierId] = null

@@ -224,7 +224,7 @@ class ConferenceStreamPersonalDataTest :
             createStreamWithTargets(roomId, member, listOf(destinationOne, destinationTwo))
 
             listOf(ErasureMode.ANONYMIZE, ErasureMode.HARD_DELETE_WHERE_UNCONSTRAINED).forEach { mode ->
-                val outcomes = transaction { ConferencePersonalData.erase(member, mode) }
+                val outcomes = transaction { ConferencePersonalData.erase(memberId = member, mode = mode) }
 
                 val destinationOutcome = outcomes.single { it.table == "conference_stream_destination" }
                 destinationOutcome.rowsRetained shouldBe 2

@@ -24,8 +24,8 @@ class WhiteboardStrokeWireDtoValidationTest {
         tool: WhiteboardTool = WhiteboardTool.PEN,
         color: String = WHITEBOARD_COLORS.first(),
         strokeWidth: Double = 4.0,
-        points: List<WhiteboardPointDto> = listOf(WhiteboardPointDto(10.0, 10.0), WhiteboardPointDto(20.0, 20.0)),
-    ) = WhiteboardStrokeWireDto(strokeId, tool, color, strokeWidth, points)
+        points: List<WhiteboardPointDto> = listOf(WhiteboardPointDto(x = 10.0, y = 10.0), WhiteboardPointDto(x = 20.0, y = 20.0)),
+    ) = WhiteboardStrokeWireDto(strokeId = strokeId, tool = tool, color = color, strokeWidth = strokeWidth, points = points)
 
     // ── happy path ──────────────────────────────────────────────────────────
 
@@ -41,15 +41,15 @@ class WhiteboardStrokeWireDtoValidationTest {
 
     @Test
     fun singlePointStroke_isValid() {
-        assertTrue(validStroke(points = listOf(WhiteboardPointDto(0.0, 0.0))).isStructurallyValid())
+        assertTrue(validStroke(points = listOf(WhiteboardPointDto(x = 0.0, y = 0.0))).isStructurallyValid())
     }
 
     @Test
     fun boundaryCoordinatesAtCanvasEdges_areValid() {
         val corners =
             listOf(
-                WhiteboardPointDto(0.0, 0.0),
-                WhiteboardPointDto(WHITEBOARD_CANVAS_WIDTH.toDouble(), WHITEBOARD_CANVAS_HEIGHT.toDouble()),
+                WhiteboardPointDto(x = 0.0, y = 0.0),
+                WhiteboardPointDto(x = WHITEBOARD_CANVAS_WIDTH.toDouble(), y = WHITEBOARD_CANVAS_HEIGHT.toDouble()),
             )
         assertTrue(validStroke(points = corners).isStructurallyValid())
     }
@@ -62,7 +62,7 @@ class WhiteboardStrokeWireDtoValidationTest {
 
     @Test
     fun pointCountAtCap_isValid() {
-        val points = (1..WHITEBOARD_MAX_POINTS_PER_STROKE).map { WhiteboardPointDto(1.0, 1.0) }
+        val points = (1..WHITEBOARD_MAX_POINTS_PER_STROKE).map { WhiteboardPointDto(x = 1.0, y = 1.0) }
         assertTrue(validStroke(points = points).isStructurallyValid())
     }
 
@@ -70,7 +70,7 @@ class WhiteboardStrokeWireDtoValidationTest {
 
     @Test
     fun pointCountAboveCap_isRejected_theCoreAuditFindingsPayloadShape() {
-        val tooMany = (1..(WHITEBOARD_MAX_POINTS_PER_STROKE + 1)).map { WhiteboardPointDto(1.0, 1.0) }
+        val tooMany = (1..(WHITEBOARD_MAX_POINTS_PER_STROKE + 1)).map { WhiteboardPointDto(x = 1.0, y = 1.0) }
         assertFalse(validStroke(points = tooMany).isStructurallyValid())
     }
 
@@ -81,15 +81,15 @@ class WhiteboardStrokeWireDtoValidationTest {
 
     @Test
     fun outOfBoundsCoordinate_isRejected() {
-        assertFalse(validStroke(points = listOf(WhiteboardPointDto(99_999.0, 1.0))).isStructurallyValid())
-        assertFalse(validStroke(points = listOf(WhiteboardPointDto(1.0, 99_999.0))).isStructurallyValid())
-        assertFalse(validStroke(points = listOf(WhiteboardPointDto(-1.0, 1.0))).isStructurallyValid())
+        assertFalse(validStroke(points = listOf(WhiteboardPointDto(x = 99_999.0, y = 1.0))).isStructurallyValid())
+        assertFalse(validStroke(points = listOf(WhiteboardPointDto(x = 1.0, y = 99_999.0))).isStructurallyValid())
+        assertFalse(validStroke(points = listOf(WhiteboardPointDto(x = -1.0, y = 1.0))).isStructurallyValid())
     }
 
     @Test
     fun nonFiniteCoordinate_isRejected() {
-        assertFalse(validStroke(points = listOf(WhiteboardPointDto(Double.NaN, 1.0))).isStructurallyValid())
-        assertFalse(validStroke(points = listOf(WhiteboardPointDto(Double.POSITIVE_INFINITY, 1.0))).isStructurallyValid())
+        assertFalse(validStroke(points = listOf(WhiteboardPointDto(x = Double.NaN, y = 1.0))).isStructurallyValid())
+        assertFalse(validStroke(points = listOf(WhiteboardPointDto(x = Double.POSITIVE_INFINITY, y = 1.0))).isStructurallyValid())
     }
 
     @Test

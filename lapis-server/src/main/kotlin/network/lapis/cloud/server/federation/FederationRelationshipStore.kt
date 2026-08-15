@@ -123,7 +123,7 @@ object FederationRelationshipStore {
         // forUpdate=true: an EXISTING row is locked before its status is inspected, so a second,
         // concurrent upsert/transition on the SAME remote actor blocks until the first commits --
         // see class KDoc "Concurrency" point 1.
-        val existing = findByRemoteActorUri(remoteActorUri, forUpdate = true)
+        val existing = findByRemoteActorUri(remoteActorUri = remoteActorUri, forUpdate = true)
         if (existing == null) {
             return try {
                 insert(
@@ -139,12 +139,26 @@ object FederationRelationshipStore {
                 // See class KDoc "Concurrency" point 3 -- the loser of a concurrent first-Follow
                 // race retries the read (this time WITH a row to lock) and defers to the winner.
                 val winner =
-                    findByRemoteActorUri(remoteActorUri, forUpdate = true)
+                    findByRemoteActorUri(remoteActorUri = remoteActorUri, forUpdate = true)
                         ?: throw e
-                resolveAgainstExisting(winner, direction, remoteInboxUri, remotePublicKeyPem, initiatedActivityId, now)
+                resolveAgainstExisting(
+                    existing = winner,
+                    direction = direction,
+                    remoteInboxUri = remoteInboxUri,
+                    remotePublicKeyPem = remotePublicKeyPem,
+                    initiatedActivityId = initiatedActivityId,
+                    now = now,
+                )
             }
         }
-        return resolveAgainstExisting(existing, direction, remoteInboxUri, remotePublicKeyPem, initiatedActivityId, now)
+        return resolveAgainstExisting(
+            existing = existing,
+            direction = direction,
+            remoteInboxUri = remoteInboxUri,
+            remotePublicKeyPem = remotePublicKeyPem,
+            initiatedActivityId = initiatedActivityId,
+            now = now,
+        )
     }
 
     private fun resolveAgainstExisting(

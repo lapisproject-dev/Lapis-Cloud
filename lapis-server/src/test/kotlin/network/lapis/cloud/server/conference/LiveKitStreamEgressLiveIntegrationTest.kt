@@ -257,13 +257,17 @@ class LiveKitStreamEgressLiveIntegrationTest :
                         post("/test/create-destination") {
                             val q = call.request.queryParameters
                             val dto =
-                                ConferenceStreamingService(call, egressClient, enabledConferenceConfig, enabledStreamingConfig)
-                                    .createDestination(
-                                        q["label"]!!,
-                                        ConferenceStreamPlatform.valueOf(q["platform"]!!),
-                                        q["rtmpUrl"]!!,
-                                        q["streamKey"]!!,
-                                    )
+                                ConferenceStreamingService(
+                                    call = call,
+                                    liveKitEgressClient = egressClient,
+                                    config = enabledConferenceConfig,
+                                    streamingConfig = enabledStreamingConfig,
+                                ).createDestination(
+                                    label = q["label"]!!,
+                                    platform = ConferenceStreamPlatform.valueOf(q["platform"]!!),
+                                    rtmpUrl = q["rtmpUrl"]!!,
+                                    streamKey = q["streamKey"]!!,
+                                )
                             call.respondText("${dto.id}|${dto.streamKeyMask}")
                         }
                     }
@@ -314,7 +318,7 @@ class LiveKitStreamEgressLiveIntegrationTest :
                         // Round-trip proof: the SAME SecretBox this service uses can decrypt it back
                         // to the exact original plaintext -- not merely "looks encrypted".
                         val secretBox = SecretBox(Base64.getDecoder().decode(TEST_ENCRYPTION_KEY_B64))
-                        secretBox.open(ciphertext, aad = id) shouldBe plaintext
+                        secretBox.open(sealed = ciphertext, aad = id) shouldBe plaintext
                     }
                 }
 
@@ -325,14 +329,18 @@ class LiveKitStreamEgressLiveIntegrationTest :
                         routing {
                             post("/test/start-stream") {
                                 val dto =
-                                    ConferenceStreamingService(call, egressClient, enabledConferenceConfig, enabledStreamingConfig)
-                                        .startStream(
-                                            roomId.toString(),
-                                            listOf(destOneId, destTwoId),
-                                            ConferenceStreamLayout.SINGLE_PARTICIPANT,
-                                            ConferenceStreamLatencyMode.STANDARD,
-                                            identity,
-                                        )
+                                    ConferenceStreamingService(
+                                        call = call,
+                                        liveKitEgressClient = egressClient,
+                                        config = enabledConferenceConfig,
+                                        streamingConfig = enabledStreamingConfig,
+                                    ).startStream(
+                                        roomId = roomId.toString(),
+                                        destinationIds = listOf(destOneId, destTwoId),
+                                        layout = ConferenceStreamLayout.SINGLE_PARTICIPANT,
+                                        latencyMode = ConferenceStreamLatencyMode.STANDARD,
+                                        participantIdentity = identity,
+                                    )
                                 call.respondText("${dto.id}|${dto.status}")
                             }
                         }
@@ -350,7 +358,7 @@ class LiveKitStreamEgressLiveIntegrationTest :
                 }
 
                 // ── Poller reconciliation -- real ListEgress -> stream_results, matched via fingerprint ──
-                val poller = StreamPoller(egressClient, enabledStreamingConfig)
+                val poller = StreamPoller(liveKitEgressClient = egressClient, streamingConfig = enabledStreamingConfig)
                 var bothActive = false
                 repeat(10) {
                     poller.tick()
@@ -384,8 +392,12 @@ class LiveKitStreamEgressLiveIntegrationTest :
                         routing {
                             post("/test/pause-stream") {
                                 val dto =
-                                    ConferenceStreamingService(call, egressClient, enabledConferenceConfig, enabledStreamingConfig)
-                                        .pauseStream(call.request.queryParameters["streamId"]!!)
+                                    ConferenceStreamingService(
+                                        call = call,
+                                        liveKitEgressClient = egressClient,
+                                        config = enabledConferenceConfig,
+                                        streamingConfig = enabledStreamingConfig,
+                                    ).pauseStream(call.request.queryParameters["streamId"]!!)
                                 call.respondText(dto.status.toString())
                             }
                         }
@@ -417,8 +429,12 @@ class LiveKitStreamEgressLiveIntegrationTest :
                         routing {
                             post("/test/resume-stream") {
                                 val dto =
-                                    ConferenceStreamingService(call, egressClient, enabledConferenceConfig, enabledStreamingConfig)
-                                        .resumeStream(call.request.queryParameters["streamId"]!!)
+                                    ConferenceStreamingService(
+                                        call = call,
+                                        liveKitEgressClient = egressClient,
+                                        config = enabledConferenceConfig,
+                                        streamingConfig = enabledStreamingConfig,
+                                    ).resumeStream(call.request.queryParameters["streamId"]!!)
                                 call.respondText("${dto.status}|${dto.restartCount}")
                             }
                         }
@@ -466,14 +482,18 @@ class LiveKitStreamEgressLiveIntegrationTest :
                         routing {
                             post("/test/start-stream") {
                                 val dto =
-                                    ConferenceStreamingService(call, egressClient, enabledConferenceConfig, enabledStreamingConfig)
-                                        .startStream(
-                                            roomId.toString(),
-                                            listOf(destId),
-                                            ConferenceStreamLayout.SINGLE_PARTICIPANT,
-                                            ConferenceStreamLatencyMode.STANDARD,
-                                            identity,
-                                        )
+                                    ConferenceStreamingService(
+                                        call = call,
+                                        liveKitEgressClient = egressClient,
+                                        config = enabledConferenceConfig,
+                                        streamingConfig = enabledStreamingConfig,
+                                    ).startStream(
+                                        roomId = roomId.toString(),
+                                        destinationIds = listOf(destId),
+                                        layout = ConferenceStreamLayout.SINGLE_PARTICIPANT,
+                                        latencyMode = ConferenceStreamLatencyMode.STANDARD,
+                                        participantIdentity = identity,
+                                    )
                                 call.respondText(dto.id)
                             }
                         }
@@ -483,7 +503,7 @@ class LiveKitStreamEgressLiveIntegrationTest :
                     streamId = response.bodyAsText()
                 }
 
-                val poller = StreamPoller(egressClient, enabledStreamingConfig)
+                val poller = StreamPoller(liveKitEgressClient = egressClient, streamingConfig = enabledStreamingConfig)
                 var sanitizedReason: String? = null
                 // LiveKit's own async connect-failure surfaces ~12s after the call (live-verified,
                 // see IConferenceStreamingService KDoc "the async gap") -- bounded at 10 x 2s polls.

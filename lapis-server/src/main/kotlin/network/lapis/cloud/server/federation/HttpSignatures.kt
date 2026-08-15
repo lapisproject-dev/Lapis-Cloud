@@ -87,7 +87,15 @@ object HttpSignatures {
     ): SignedRequest {
         val dateHeader = formatHttpDate(now)
         val digestHeader = digestOf(body)
-        val signingString = buildSigningString(SIGNED_HEADERS, method, path, host, dateHeader, digestHeader)
+        val signingString =
+            buildSigningString(
+                headersList = SIGNED_HEADERS,
+                method = method,
+                path = path,
+                host = host,
+                date = dateHeader,
+                digest = digestHeader,
+            )
         val privateKey = decodePrivateKeyPem(privateKeyPem)
         val signature = Signature.getInstance(JCA_SIGNATURE_ALGORITHM)
         signature.initSign(privateKey)
@@ -166,7 +174,16 @@ object HttpSignatures {
             runCatching { decodePublicKeyPem(publicKeyPem) }.getOrNull()
                 ?: return VerificationResult.Invalid(REASON_MALFORMED)
         val signingString =
-            runCatching { buildSigningString(headersList, method, path, host, dateHeader, digestHeader) }.getOrNull()
+            runCatching {
+                buildSigningString(
+                    headersList = headersList,
+                    method = method,
+                    path = path,
+                    host = host,
+                    date = dateHeader,
+                    digest = digestHeader,
+                )
+            }.getOrNull()
                 ?: return VerificationResult.Invalid(REASON_MALFORMED)
 
         val signature = Signature.getInstance(JCA_SIGNATURE_ALGORITHM)

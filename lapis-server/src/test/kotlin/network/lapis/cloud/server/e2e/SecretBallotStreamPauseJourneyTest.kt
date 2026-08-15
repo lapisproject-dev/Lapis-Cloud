@@ -191,7 +191,7 @@ class SecretBallotStreamPauseJourneyTest :
                 }
 
                 // Committee/Meeting/Motion/Resolution + member retirement -- shared E2E helper.
-                hardDeleteGovernanceAndMembershipFixtures(createdCommitteeIds, createdMemberIds)
+                hardDeleteGovernanceAndMembershipFixtures(committeeIds = createdCommitteeIds, memberIds = createdMemberIds)
             }
         }
 
@@ -204,60 +204,63 @@ class SecretBallotStreamPauseJourneyTest :
             testApplication {
                 val fakeEgressClient = E2e9FakeLiveKitEgressClient()
                 val fakeAdminClient = E2e9FakeLiveKitAdminClient()
-                val streamGuard = DefaultSecretBallotStreamGuard(fakeEgressClient, E2E9_ENABLED_STREAMING_CONFIG)
+                val streamGuard =
+                    DefaultSecretBallotStreamGuard(liveKitEgressClient = fakeEgressClient, streamingConfig = E2E9_ENABLED_STREAMING_CONFIG)
 
                 application {
                     module()
                     routing {
                         fun conferenceService(call: ApplicationCall) =
                             ConferenceService(
-                                call,
-                                fakeAdminClient,
-                                LoginRateLimiter(),
-                                E2E9_ENABLED_CONFERENCE_CONFIG,
+                                call = call,
+                                liveKitAdminClient = fakeAdminClient,
+                                createRoomRateLimiter = LoginRateLimiter(),
+                                config = E2E9_ENABLED_CONFERENCE_CONFIG,
                                 conferenceMeetingBindRateLimiter = FederationInboxRateLimiter(),
                             )
 
                         fun streamingService(call: ApplicationCall) =
                             ConferenceStreamingService(
-                                call,
-                                fakeEgressClient,
-                                E2E9_ENABLED_CONFERENCE_CONFIG,
-                                E2E9_ENABLED_STREAMING_CONFIG,
-                                LoginRateLimiter(),
-                                LoginRateLimiter(),
-                                FederationInboxRateLimiter(maxRequests = 30, window = 1.minutes),
-                                FederationInboxRateLimiter(maxRequests = 60, window = 1.minutes),
+                                call = call,
+                                liveKitEgressClient = fakeEgressClient,
+                                config = E2E9_ENABLED_CONFERENCE_CONFIG,
+                                streamingConfig = E2E9_ENABLED_STREAMING_CONFIG,
+                                destinationRateLimiter = LoginRateLimiter(),
+                                startStreamRateLimiter = LoginRateLimiter(),
+                                mutateRateLimiter = FederationInboxRateLimiter(maxRequests = 30, window = 1.minutes),
+                                readRateLimiter = FederationInboxRateLimiter(maxRequests = 60, window = 1.minutes),
                             )
 
-                        fun electionService(call: ApplicationCall) = ElectionService(call, streamGuard)
+                        fun electionService(call: ApplicationCall) = ElectionService(call = call, streamGuard = streamGuard)
 
                         post("/e2e9/create-room") {
                             val room = conferenceService(call).createRoom(ConferenceRoomInput(title = "E2E Scenario 9 Sitzungsraum"))
                             call.respondText("${room.id}|${room.livekitRoomName}")
                         }
                         post("/e2e9/set-room-meeting/{roomId}/{meetingId}") {
-                            conferenceService(call).setRoomMeeting(call.parameters["roomId"]!!, call.parameters["meetingId"]!!)
+                            conferenceService(
+                                call,
+                            ).setRoomMeeting(roomId = call.parameters["roomId"]!!, meetingId = call.parameters["meetingId"]!!)
                             call.respondText("OK")
                         }
                         post("/e2e9/create-destination") {
                             val dto =
                                 streamingService(call).createDestination(
-                                    "E2E9-Streaming-Ziel-${Uuid.random()}",
-                                    ConferenceStreamPlatform.GENERIC_RTMP,
-                                    "rtmp://e2e9.example.org/live",
-                                    "e2e9-stream-key-totally-fake",
+                                    label = "E2E9-Streaming-Ziel-${Uuid.random()}",
+                                    platform = ConferenceStreamPlatform.GENERIC_RTMP,
+                                    rtmpUrl = "rtmp://e2e9.example.org/live",
+                                    streamKey = "e2e9-stream-key-totally-fake",
                                 )
                             call.respondText(dto.id)
                         }
                         post("/e2e9/start-stream/{roomId}/{destinationId}") {
                             val dto =
                                 streamingService(call).startStream(
-                                    call.parameters["roomId"]!!,
-                                    listOf(call.parameters["destinationId"]!!),
-                                    ConferenceStreamLayout.GRID,
-                                    ConferenceStreamLatencyMode.STANDARD,
-                                    null,
+                                    roomId = call.parameters["roomId"]!!,
+                                    destinationIds = listOf(call.parameters["destinationId"]!!),
+                                    layout = ConferenceStreamLayout.GRID,
+                                    latencyMode = ConferenceStreamLatencyMode.STANDARD,
+                                    participantIdentity = null,
                                 )
                             call.respondText("${dto.id}|${dto.status}")
                         }
@@ -275,7 +278,10 @@ class SecretBallotStreamPauseJourneyTest :
                         }
                         post("/e2e9/appoint-election-board/{electionId}") {
                             val memberIds = call.request.queryParameters["memberIds"]!!.split(",")
-                            val list = electionService(call).appointElectionBoard(call.parameters["electionId"]!!, memberIds)
+                            val list =
+                                electionService(
+                                    call,
+                                ).appointElectionBoard(electionId = call.parameters["electionId"]!!, memberIds = memberIds)
                             call.respondText(list.size.toString())
                         }
                         post("/e2e9/open-voting/{electionId}") {
@@ -313,8 +319,8 @@ class SecretBallotStreamPauseJourneyTest :
                 // ── eligibility is exactly this Committee's own membership, deliberately excluding ──
                 // ── every AKTIV member elsewhere in the shared test DB, same reasoning ────────────
                 // ── ElectionServiceTest's own class KDoc gives). ──────────────────────────────────
-                val voter1 = createRealMember("E2E Scenario 9 Wähler A", "e2e9-voter-a-${Uuid.random()}@example.org")
-                val voter2 = createRealMember("E2E Scenario 9 Wähler B", "e2e9-voter-b-${Uuid.random()}@example.org")
+                val voter1 = createRealMember(displayName = "E2E Scenario 9 Wähler A", email = "e2e9-voter-a-${Uuid.random()}@example.org")
+                val voter2 = createRealMember(displayName = "E2E Scenario 9 Wähler B", email = "e2e9-voter-b-${Uuid.random()}@example.org")
                 createdMemberIds += listOf(voter1, voter2)
 
                 val committeeId = Uuid.random()

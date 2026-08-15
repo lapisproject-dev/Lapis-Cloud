@@ -38,8 +38,8 @@ class AuthService(
                     .single()
                     .let { it[AccountTable.passwordHash] to it[MemberTable.email] }
             }
-        if (!PasswordHasher.verify(currentPassword, storedHash)) throw InvalidPasswordException()
-        PasswordPolicy.validate(newPassword, email)
+        if (!PasswordHasher.verify(rawPassword = currentPassword, storedHash = storedHash)) throw InvalidPasswordException()
+        PasswordPolicy.validate(newPassword = newPassword, email = email)
         val newHash = PasswordHasher.hash(newPassword)
         transaction {
             AccountTable.update({ AccountTable.memberId eq current.memberId }) {
@@ -49,7 +49,7 @@ class AuthService(
         // Every OTHER session is invalidated; the caller's own current session (which just proved
         // knowledge of currentPassword) stays valid -- see IAuthService.changePassword KDoc.
         val ownRawToken = extractSessionToken(call)
-        SessionStore.revokeAllForMember(current.memberId, exceptRawToken = ownRawToken)
+        SessionStore.revokeAllForMember(memberId = current.memberId, exceptRawToken = ownRawToken)
         // V0.8.2 OIDC-Gastzugang-Federation: best-effort courtesy notification to every RP holding
         // a live grant for this member -- see OidcBackChannelLogoutNotifier KDoc "Deliberately
         // awaited inline". Never throws -- but IS awaited inline (not backgrounded), so this call

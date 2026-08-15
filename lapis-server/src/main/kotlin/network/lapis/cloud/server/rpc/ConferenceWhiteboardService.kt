@@ -98,11 +98,11 @@ class ConferenceWhiteboardService(
     override suspend fun getWhiteboardState(roomId: String): ConferenceWhiteboardStateDto {
         val current = resolveCurrentMember(call)
         requireConferenceEnabled()
-        requireWithinRate(readRateLimiter, current.memberId)
+        requireWithinRate(limiter = readRateLimiter, memberId = current.memberId)
         val roomUuid = roomId.toWhiteboardUuid()
         transaction {
             requireRoomExists(roomUuid)
-            requireOpenParticipation(roomUuid, current.memberId)
+            requireOpenParticipation(roomId = roomUuid, memberId = current.memberId)
         }
         return ConferenceWhiteboardStateDto(strokes = whiteboardState.snapshot(roomUuid))
     }
@@ -113,14 +113,14 @@ class ConferenceWhiteboardService(
     ): WhiteboardStrokeDto {
         val current = resolveCurrentMember(call)
         requireConferenceEnabled()
-        requireWithinRate(commitRateLimiter, current.memberId)
+        requireWithinRate(limiter = commitRateLimiter, memberId = current.memberId)
         val roomUuid = roomId.toWhiteboardUuid()
         validateStroke(stroke)
 
         val displayName =
             transaction {
                 requireRoomExists(roomUuid)
-                requireOpenParticipation(roomUuid, current.memberId)
+                requireOpenParticipation(roomId = roomUuid, memberId = current.memberId)
                 MemberTable.selectAll().where { MemberTable.id eq current.memberId }.single()[MemberTable.displayName]
             }
 
@@ -150,7 +150,7 @@ class ConferenceWhiteboardService(
         // worth the added complexity for a plain, side-effect-free in-memory structure at
         // "Kleinsitzung" scale (see `ConferenceWhiteboardState` class KDoc).
         transaction { requireRoomStillOpen(roomUuid) }
-        if (!whiteboardState.tryCommit(roomUuid, dto)) {
+        if (!whiteboardState.tryCommit(roomId = roomUuid, stroke = dto)) {
             throw ConflictException("Whiteboard für diesen Raum ist voll -- Board leeren oder als Dokument speichern.")
         }
         return dto
@@ -159,11 +159,11 @@ class ConferenceWhiteboardService(
     override suspend fun clearBoard(roomId: String) {
         val current = resolveCurrentMember(call)
         requireConferenceEnabled()
-        requireWithinRate(clearRateLimiter, current.memberId)
+        requireWithinRate(limiter = clearRateLimiter, memberId = current.memberId)
         val roomUuid = roomId.toWhiteboardUuid()
         transaction {
             val row = requireRoomExists(roomUuid)
-            requireModeratorOrPrivileged(row, current)
+            requireModeratorOrPrivileged(row = row, current = current)
         }
         whiteboardState.clear(roomUuid)
     }
@@ -174,11 +174,11 @@ class ConferenceWhiteboardService(
     ): ConferenceWhiteboardSaveResultDto {
         val current = resolveCurrentMember(call)
         requireConferenceEnabled()
-        requireWithinRate(saveRateLimiter, current.memberId)
+        requireWithinRate(limiter = saveRateLimiter, memberId = current.memberId)
         val roomUuid = roomId.toWhiteboardUuid()
         transaction {
             requireRoomExists(roomUuid)
-            requireOpenParticipation(roomUuid, current.memberId)
+            requireOpenParticipation(roomId = roomUuid, memberId = current.memberId)
         }
         val strokes = whiteboardState.snapshot(roomUuid)
         if (strokes.isEmpty()) throw ConflictException("Whiteboard ist leer -- nichts zu speichern.")

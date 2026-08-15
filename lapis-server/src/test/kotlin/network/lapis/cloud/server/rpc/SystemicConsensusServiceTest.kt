@@ -86,7 +86,7 @@ class SystemicConsensusServiceTest :
             DevSeedData.seedIfEmpty(force = true)
         }
 
-        afterSpec { cleanUpSystemicConsensusTestData(createdCommitteeIds, createdMemberIds) }
+        afterSpec { cleanUpSystemicConsensusTestData(committeeIds = createdCommitteeIds, memberIds = createdMemberIds) }
 
         fun createTestMember(
             email: String,
@@ -922,7 +922,7 @@ private fun StatusPagesConfig.installSystemicConsensusExceptionHandlers() {
  */
 private fun Route.registerSystemicConsensusTestRoutes() {
     post("/test/open-systemic_consensus/{motionId}") {
-        val service = SystemicConsensusService(call, NoOpSecretBallotStreamGuard)
+        val service = SystemicConsensusService(call = call, streamGuard = NoOpSecretBallotStreamGuard)
         val q = call.request.queryParameters
         val k =
             service.openSystemicConsensus(
@@ -939,28 +939,32 @@ private fun Route.registerSystemicConsensusTestRoutes() {
         call.respondText("${k.id}:${k.status}:${k.options.size}")
     }
     post("/test/add-option/{systemicConsensusId}") {
-        val service = SystemicConsensusService(call, NoOpSecretBallotStreamGuard)
+        val service = SystemicConsensusService(call = call, streamGuard = NoOpSecretBallotStreamGuard)
         val label = call.request.queryParameters["label"]!!
-        val o = service.addOption(call.parameters["systemicConsensusId"]!!, SystemicConsensusOptionInput(label = label))
+        val o =
+            service.addOption(
+                systemicConsensusId = call.parameters["systemicConsensusId"]!!,
+                input = SystemicConsensusOptionInput(label = label),
+            )
         call.respondText(o.id)
     }
     post("/test/remove-option/{optionId}") {
-        val service = SystemicConsensusService(call, NoOpSecretBallotStreamGuard)
+        val service = SystemicConsensusService(call = call, streamGuard = NoOpSecretBallotStreamGuard)
         val k = service.removeOption(call.parameters["optionId"]!!)
         call.respondText("${k.status}:${k.options.size}")
     }
     get("/test/list-options/{systemicConsensusId}") {
-        val service = SystemicConsensusService(call, NoOpSecretBallotStreamGuard)
+        val service = SystemicConsensusService(call = call, streamGuard = NoOpSecretBallotStreamGuard)
         val list = service.listOptions(call.parameters["systemicConsensusId"]!!)
         call.respondText(list.joinToString(";") { "${it.id}:${it.label}:${it.isStatusQuoOption}" })
     }
     post("/test/freeze-optionen/{systemicConsensusId}") {
-        val service = SystemicConsensusService(call, NoOpSecretBallotStreamGuard)
+        val service = SystemicConsensusService(call = call, streamGuard = NoOpSecretBallotStreamGuard)
         val k = service.freezeOptions(call.parameters["systemicConsensusId"]!!)
         call.respondText("${k.status}:${k.options.size}")
     }
     post("/test/cast-resistance/{systemicConsensusId}") {
-        val service = SystemicConsensusService(call, NoOpSecretBallotStreamGuard)
+        val service = SystemicConsensusService(call = call, streamGuard = NoOpSecretBallotStreamGuard)
         val param = call.request.queryParameters["resistances"] ?: ""
         val resistances =
             param
@@ -977,32 +981,32 @@ private fun Route.registerSystemicConsensusTestRoutes() {
         call.respondText("${result.id}:${result.receiptCode ?: ""}")
     }
     post("/test/close-rating/{systemicConsensusId}") {
-        val service = SystemicConsensusService(call, NoOpSecretBallotStreamGuard)
+        val service = SystemicConsensusService(call = call, streamGuard = NoOpSecretBallotStreamGuard)
         val k = service.closeRating(call.parameters["systemicConsensusId"]!!)
         call.respondText(k.status.name)
     }
     post("/test/evaluate/{systemicConsensusId}") {
-        val service = SystemicConsensusService(call, NoOpSecretBallotStreamGuard)
+        val service = SystemicConsensusService(call = call, streamGuard = NoOpSecretBallotStreamGuard)
         val e = service.evaluate(call.parameters["systemicConsensusId"]!!)
         call.respondText("${e.winnerOptionId ?: ""}:${e.tie}:${e.noRatings}")
     }
     post("/test/reopen-rating/{systemicConsensusId}") {
-        val service = SystemicConsensusService(call, NoOpSecretBallotStreamGuard)
+        val service = SystemicConsensusService(call = call, streamGuard = NoOpSecretBallotStreamGuard)
         val k = service.reopenRating(call.parameters["systemicConsensusId"]!!)
         call.respondText("${k.status}:${k.round}")
     }
     post("/test/abort-systemic_consensus/{systemicConsensusId}") {
-        val service = SystemicConsensusService(call, NoOpSecretBallotStreamGuard)
+        val service = SystemicConsensusService(call = call, streamGuard = NoOpSecretBallotStreamGuard)
         val k = service.abortSystemicConsensus(call.parameters["systemicConsensusId"]!!)
         call.respondText(k.status.name)
     }
     get("/test/get-systemic_consensus/{systemicConsensusId}") {
-        val service = SystemicConsensusService(call, NoOpSecretBallotStreamGuard)
+        val service = SystemicConsensusService(call = call, streamGuard = NoOpSecretBallotStreamGuard)
         val k = service.getSystemicConsensus(call.parameters["systemicConsensusId"]!!)
         call.respondText("${k.status}:${k.options.size}:${k.resolutionId ?: ""}:${k.round}")
     }
     get("/test/list-resistances/{systemicConsensusId}") {
-        val service = SystemicConsensusService(call, NoOpSecretBallotStreamGuard)
+        val service = SystemicConsensusService(call = call, streamGuard = NoOpSecretBallotStreamGuard)
         val list = service.listResistanceBallots(call.parameters["systemicConsensusId"]!!)
         call.respondText(list.joinToString(";") { "${it.id}:${it.resistances.size}" })
     }

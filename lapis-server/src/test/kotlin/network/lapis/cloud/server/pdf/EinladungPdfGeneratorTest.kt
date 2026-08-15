@@ -48,9 +48,9 @@ class EinladungPdfGeneratorTest :
         test("one page per recipient, in order") {
             val recipients =
                 listOf(
-                    member("00000000-0000-0000-0000-000000000010", "Anna Erste", withAddress = true),
-                    member("00000000-0000-0000-0000-000000000011", "Bruno Zweiter", withAddress = true),
-                    member("00000000-0000-0000-0000-000000000012", "Clara Dritte", withAddress = true),
+                    member(id = "00000000-0000-0000-0000-000000000010", displayName = "Anna Erste", withAddress = true),
+                    member(id = "00000000-0000-0000-0000-000000000011", displayName = "Bruno Zweiter", withAddress = true),
+                    member(id = "00000000-0000-0000-0000-000000000012", displayName = "Clara Dritte", withAddress = true),
                 )
             val eventDateTime = LocalDateTime(2026, 9, 12, 18, 30)
 
@@ -82,7 +82,8 @@ class EinladungPdfGeneratorTest :
         }
 
         test("a recipient with no address gets a placeholder line instead of being hard-failed") {
-            val recipients = listOf(member("00000000-0000-0000-0000-000000000013", "Doris Ohneadresse", withAddress = false))
+            val recipients =
+                listOf(member(id = "00000000-0000-0000-0000-000000000013", displayName = "Doris Ohneadresse", withAddress = false))
             val bytes =
                 EinladungPdfGenerator.generate(
                     title = "Einladung",
@@ -105,7 +106,7 @@ class EinladungPdfGeneratorTest :
         }
 
         test("a long bodyText paginates to more than one page for a single recipient") {
-            val recipients = listOf(member("00000000-0000-0000-0000-000000000014", "Erik Langtext", withAddress = true))
+            val recipients = listOf(member(id = "00000000-0000-0000-0000-000000000014", displayName = "Erik Langtext", withAddress = true))
             val longBody = (1..400).joinToString(" ") { "Wortnummer$it" }
             val bytes =
                 EinladungPdfGenerator.generate(

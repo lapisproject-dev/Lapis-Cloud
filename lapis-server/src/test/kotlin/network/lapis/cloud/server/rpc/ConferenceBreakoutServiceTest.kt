@@ -146,7 +146,7 @@ private class FakeBreakoutLiveKitAdminClient : LiveKitAdminClient {
     private fun maybeFail() {
         if (failNextCall) {
             failNextCall = false
-            throw LiveKitAdminException("simulated LiveKit failure")
+            throw LiveKitAdminException(message = "simulated LiveKit failure")
         }
     }
 }
@@ -206,7 +206,7 @@ class ConferenceBreakoutServiceTest :
                     homeserverUrl = issuer,
                     membershipStatus = "AKTIV",
                 )
-            val id = OidcGuestMemberStore.resolveOrCreateGuestMember(claims, "openid profile_basic")
+            val id = OidcGuestMemberStore.resolveOrCreateGuestMember(claims = claims, grantedScope = "openid profile_basic")
             createdMemberIds += id
             return id
         }
@@ -257,8 +257,8 @@ class ConferenceBreakoutServiceTest :
                     }
                 }
             }
-            liveKit.createRoom(livekitRoomName, 25, 300)
-            allMembers.forEach { liveKit.seedLiveParticipant(livekitRoomName, it.toString()) }
+            liveKit.createRoom(name = livekitRoomName, maxParticipants = 25, emptyTimeoutSeconds = 300)
+            allMembers.forEach { liveKit.seedLiveParticipant(room = livekitRoomName, identity = it.toString()) }
             return roomId to livekitRoomName
         }
 
@@ -275,7 +275,7 @@ class ConferenceBreakoutServiceTest :
             testApplication {
                 application {
                     install(StatusPages) { installConferenceBreakoutExceptionHandlers() }
-                    routing { registerConferenceBreakoutTestRoutes(fake) }
+                    routing { registerConferenceBreakoutTestRoutes(liveKitAdminClient = fake) }
                 }
                 val response =
                     client.post("/test/create-breakout-rooms?roomId=$roomId&roomCount=3") {
@@ -303,7 +303,7 @@ class ConferenceBreakoutServiceTest :
             testApplication {
                 application {
                     install(StatusPages) { installConferenceBreakoutExceptionHandlers() }
-                    routing { registerConferenceBreakoutTestRoutes(fake) }
+                    routing { registerConferenceBreakoutTestRoutes(liveKitAdminClient = fake) }
                 }
                 val response =
                     client.post("/test/create-breakout-rooms?roomId=$roomId&roomCount=2&manualMemberId=$pinned&manualIndex=1") {
@@ -323,7 +323,7 @@ class ConferenceBreakoutServiceTest :
             testApplication {
                 application {
                     install(StatusPages) { installConferenceBreakoutExceptionHandlers() }
-                    routing { registerConferenceBreakoutTestRoutes(fake) }
+                    routing { registerConferenceBreakoutTestRoutes(liveKitAdminClient = fake) }
                 }
                 client.post("/test/create-breakout-rooms?roomId=$roomId&roomCount=2") { header("X-Member-Id", moderator.toString()) }
                 // +1 for the parent room's own createRoom call inside createTestParentRoom.
@@ -369,13 +369,13 @@ class ConferenceBreakoutServiceTest :
                     }
                 }
             }
-            fake.createRoom(livekitRoomName, 25, 300)
-            fake.seedLiveParticipant(livekitRoomName, moderator.toString()) // notLive deliberately NOT seeded as live
+            fake.createRoom(name = livekitRoomName, maxParticipants = 25, emptyTimeoutSeconds = 300)
+            fake.seedLiveParticipant(room = livekitRoomName, identity = moderator.toString()) // notLive deliberately NOT seeded as live
 
             testApplication {
                 application {
                     install(StatusPages) { installConferenceBreakoutExceptionHandlers() }
-                    routing { registerConferenceBreakoutTestRoutes(fake) }
+                    routing { registerConferenceBreakoutTestRoutes(liveKitAdminClient = fake) }
                 }
                 client
                     .post("/test/create-breakout-rooms?roomId=$roomId&roomCount=1&manualMemberId=$notLive&manualIndex=0") {
@@ -400,15 +400,15 @@ class ConferenceBreakoutServiceTest :
                         emptyTimeoutSeconds: Int,
                     ): LiveKitRoomInfo {
                         breakoutCreateCalls++
-                        if (breakoutCreateCalls == 2) throw LiveKitAdminException("simulated failure on room 2 of 3")
-                        return fake.createRoom(name, maxParticipants, emptyTimeoutSeconds)
+                        if (breakoutCreateCalls == 2) throw LiveKitAdminException(message = "simulated failure on room 2 of 3")
+                        return fake.createRoom(name = name, maxParticipants = maxParticipants, emptyTimeoutSeconds = emptyTimeoutSeconds)
                     }
                 }
 
             testApplication {
                 application {
                     install(StatusPages) { installConferenceBreakoutExceptionHandlers() }
-                    routing { registerConferenceBreakoutTestRoutes(flakyClient) }
+                    routing { registerConferenceBreakoutTestRoutes(liveKitAdminClient = flakyClient) }
                 }
                 client
                     .post("/test/create-breakout-rooms?roomId=$roomId&roomCount=3") {
@@ -433,7 +433,7 @@ class ConferenceBreakoutServiceTest :
             testApplication {
                 application {
                     install(StatusPages) { installConferenceBreakoutExceptionHandlers() }
-                    routing { registerConferenceBreakoutTestRoutes(fake) }
+                    routing { registerConferenceBreakoutTestRoutes(liveKitAdminClient = fake) }
                 }
                 client
                     .post(
@@ -459,7 +459,7 @@ class ConferenceBreakoutServiceTest :
             testApplication {
                 application {
                     install(StatusPages) { installConferenceBreakoutExceptionHandlers() }
-                    routing { registerConferenceBreakoutTestRoutes(fake) }
+                    routing { registerConferenceBreakoutTestRoutes(liveKitAdminClient = fake) }
                 }
                 val created =
                     client.post("/test/create-breakout-rooms?roomId=$roomId&roomCount=2&manualMemberId=$member&manualIndex=0") {
@@ -491,7 +491,7 @@ class ConferenceBreakoutServiceTest :
             testApplication {
                 application {
                     install(StatusPages) { installConferenceBreakoutExceptionHandlers() }
-                    routing { registerConferenceBreakoutTestRoutes(fake) }
+                    routing { registerConferenceBreakoutTestRoutes(liveKitAdminClient = fake) }
                 }
                 client.post("/test/create-breakout-rooms?roomId=$roomId&roomCount=1") { header("X-Member-Id", moderator.toString()) }
 
@@ -514,7 +514,7 @@ class ConferenceBreakoutServiceTest :
             testApplication {
                 application {
                     install(StatusPages) { installConferenceBreakoutExceptionHandlers() }
-                    routing { registerConferenceBreakoutTestRoutes(fake) }
+                    routing { registerConferenceBreakoutTestRoutes(liveKitAdminClient = fake) }
                 }
                 client.post("/test/create-breakout-rooms?roomId=$roomId&roomCount=2&manualMemberId=$member&manualIndex=0") {
                     header("X-Member-Id", moderator.toString())
@@ -543,7 +543,7 @@ class ConferenceBreakoutServiceTest :
             testApplication {
                 application {
                     install(StatusPages) { installConferenceBreakoutExceptionHandlers() }
-                    routing { registerConferenceBreakoutTestRoutes(fake) }
+                    routing { registerConferenceBreakoutTestRoutes(liveKitAdminClient = fake) }
                 }
                 val created =
                     client.post("/test/create-breakout-rooms?roomId=$roomId&roomCount=2&manualMemberId=$member&manualIndex=0") {
@@ -580,7 +580,7 @@ class ConferenceBreakoutServiceTest :
             testApplication {
                 application {
                     install(StatusPages) { installConferenceBreakoutExceptionHandlers() }
-                    routing { registerConferenceBreakoutTestRoutes(fake) }
+                    routing { registerConferenceBreakoutTestRoutes(liveKitAdminClient = fake) }
                 }
                 client.post("/test/create-breakout-rooms?roomId=$roomId&roomCount=2") { header("X-Member-Id", moderator.toString()) }
 
@@ -611,7 +611,7 @@ class ConferenceBreakoutServiceTest :
             testApplication {
                 application {
                     install(StatusPages) { installConferenceBreakoutExceptionHandlers() }
-                    routing { registerConferenceBreakoutTestRoutes(fake) }
+                    routing { registerConferenceBreakoutTestRoutes(liveKitAdminClient = fake) }
                 }
                 client.post("/test/create-breakout-rooms?roomId=$roomId&roomCount=1") { header("X-Member-Id", moderator.toString()) }
 
@@ -641,7 +641,7 @@ class ConferenceBreakoutServiceTest :
             testApplication {
                 application {
                     install(StatusPages) { installConferenceBreakoutExceptionHandlers() }
-                    routing { registerConferenceBreakoutTestRoutes(fake) }
+                    routing { registerConferenceBreakoutTestRoutes(liveKitAdminClient = fake) }
                 }
                 client.post("/test/create-breakout-rooms?roomId=$roomId&roomCount=1&manualMemberId=$member&manualIndex=0") {
                     header("X-Member-Id", moderator.toString())
@@ -667,7 +667,7 @@ class ConferenceBreakoutServiceTest :
             testApplication {
                 application {
                     install(StatusPages) { installConferenceBreakoutExceptionHandlers() }
-                    routing { registerConferenceBreakoutTestRoutes(fake) }
+                    routing { registerConferenceBreakoutTestRoutes(liveKitAdminClient = fake) }
                 }
                 val created =
                     client.post("/test/create-breakout-rooms?roomId=$roomId&roomCount=1&manualMemberId=$guest&manualIndex=0") {
@@ -700,7 +700,7 @@ class ConferenceBreakoutServiceTest :
             testApplication {
                 application {
                     install(StatusPages) { installConferenceBreakoutExceptionHandlers() }
-                    routing { registerConferenceBreakoutTestRoutes(fake) }
+                    routing { registerConferenceBreakoutTestRoutes(liveKitAdminClient = fake) }
                 }
                 val created =
                     client.post("/test/create-breakout-rooms?roomId=$roomId&roomCount=1") { header("X-Member-Id", moderator.toString()) }
@@ -729,7 +729,7 @@ class ConferenceBreakoutServiceTest :
             testApplication {
                 application {
                     install(StatusPages) { installConferenceBreakoutExceptionHandlers() }
-                    routing { registerConferenceBreakoutTestRoutes(fake) }
+                    routing { registerConferenceBreakoutTestRoutes(liveKitAdminClient = fake) }
                 }
                 val created =
                     client.post("/test/create-breakout-rooms?roomId=$roomId&roomCount=2&manualMemberId=$member&manualIndex=0") {
@@ -760,7 +760,7 @@ class ConferenceBreakoutServiceTest :
             testApplication {
                 application {
                     install(StatusPages) { installConferenceBreakoutExceptionHandlers() }
-                    routing { registerConferenceBreakoutTestRoutes(fake) }
+                    routing { registerConferenceBreakoutTestRoutes(liveKitAdminClient = fake) }
                 }
                 val created =
                     client.post("/test/create-breakout-rooms?roomId=$roomId&roomCount=1&manualMemberId=$member&manualIndex=0") {
@@ -798,7 +798,7 @@ class ConferenceBreakoutServiceTest :
             testApplication {
                 application {
                     install(StatusPages) { installConferenceBreakoutExceptionHandlers() }
-                    routing { registerConferenceBreakoutTestRoutes(fake) }
+                    routing { registerConferenceBreakoutTestRoutes(liveKitAdminClient = fake) }
                 }
                 val created =
                     client.post("/test/create-breakout-rooms?roomId=$roomId&roomCount=1") { header("X-Member-Id", moderator.toString()) }
@@ -839,7 +839,7 @@ class ConferenceBreakoutServiceTest :
             testApplication {
                 application {
                     install(StatusPages) { installConferenceBreakoutExceptionHandlers() }
-                    routing { registerConferenceBreakoutTestRoutes(fake) }
+                    routing { registerConferenceBreakoutTestRoutes(liveKitAdminClient = fake) }
                 }
                 val response = client.post("/test/rejoin-main-room-token?roomId=$roomId") { header("X-Member-Id", moderator.toString()) }
                 response.status shouldBe HttpStatusCode.OK
@@ -860,7 +860,7 @@ class ConferenceBreakoutServiceTest :
             testApplication {
                 application {
                     install(StatusPages) { installConferenceBreakoutExceptionHandlers() }
-                    routing { registerConferenceBreakoutTestRoutes(fake) }
+                    routing { registerConferenceBreakoutTestRoutes(liveKitAdminClient = fake) }
                 }
                 client
                     .post("/test/rejoin-main-room-token?roomId=$roomId") {
@@ -882,7 +882,7 @@ class ConferenceBreakoutServiceTest :
             testApplication {
                 application {
                     install(StatusPages) { installConferenceBreakoutExceptionHandlers() }
-                    routing { registerConferenceBreakoutTestRoutes(fake) }
+                    routing { registerConferenceBreakoutTestRoutes(liveKitAdminClient = fake) }
                 }
                 client
                     .post("/test/create-breakout-rooms?roomId=$roomId&roomCount=2") {
@@ -968,8 +968,8 @@ private fun Route.registerConferenceBreakoutTestRoutes(
 ) {
     fun service(call: ApplicationCall) =
         ConferenceBreakoutService(
-            call,
-            liveKitAdminClient,
+            call = call,
+            liveKitAdminClient = liveKitAdminClient,
             config = BREAKOUT_ENABLED_CONFIG,
             createRateLimiter = createRateLimiter,
             assignRateLimiter = assignRateLimiter,
@@ -988,12 +988,12 @@ private fun Route.registerConferenceBreakoutTestRoutes(
         val manualRepeatCount = q["manualRepeatCount"]?.toIntOrNull() ?: 1
         val manualAssignments =
             if (manualMemberId != null && manualIndex != null) {
-                List(manualRepeatCount) { ConferenceBreakoutAssignmentInput(manualMemberId, manualIndex) }
+                List(manualRepeatCount) { ConferenceBreakoutAssignmentInput(memberId = manualMemberId, breakoutIndex = manualIndex) }
             } else {
                 emptyList()
             }
         val plan = ConferenceBreakoutPlanInput(roomCount = roomCount, manualAssignments = manualAssignments)
-        val dtos = service.createBreakoutRooms(q["roomId"]!!, plan)
+        val dtos = service.createBreakoutRooms(roomId = q["roomId"]!!, plan = plan)
         call.respondText(dtos.joinToString(";") { it.toPipeString() })
     }
     post("/test/assign-participants") {
@@ -1003,8 +1003,8 @@ private fun Route.registerConferenceBreakoutTestRoutes(
         // times -- lets tests exercise the security-audit MAX_ASSIGNMENTS_PER_CALL cap and the
         // dedup-by-memberId fix without needing to seed dozens of distinct live participants.
         val repeatCount = q["repeatCount"]?.toIntOrNull() ?: 1
-        val single = ConferenceBreakoutAssignmentInput(q["memberId"]!!, q["breakoutIndex"]!!.toInt())
-        val dtos = service.assignParticipants(q["roomId"]!!, List(repeatCount) { single })
+        val single = ConferenceBreakoutAssignmentInput(memberId = q["memberId"]!!, breakoutIndex = q["breakoutIndex"]!!.toInt())
+        val dtos = service.assignParticipants(roomId = q["roomId"]!!, assignments = List(repeatCount) { single })
         call.respondText(dtos.joinToString(";") { it.toPipeString() })
     }
     post("/test/recall-all") {

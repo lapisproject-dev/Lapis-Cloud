@@ -39,14 +39,14 @@ class TurnCredentialMinterTest :
         test("credential matches an independently-computed HMAC-SHA1(sharedSecret, username), base64-encoded") {
             val minted = TurnCredentialMinter.mint(sharedSecret = SHARED_SECRET, urls = URLS, label = LABEL, ttl = 240.minutes)
 
-            minted.credential shouldBe expectedCredential(minted.username, SHARED_SECRET)
+            minted.credential shouldBe expectedCredential(username = minted.username, secret = SHARED_SECRET)
         }
 
         test("a verifier keyed with the WRONG shared secret computes a different credential") {
             val minted = TurnCredentialMinter.mint(sharedSecret = SHARED_SECRET, urls = URLS, label = LABEL, ttl = 240.minutes)
 
             val wrongSecret = "wrong-turn-secret-but-still-at-least-32-bytes!!"
-            expectedCredential(minted.username, wrongSecret) shouldNotBe minted.credential
+            expectedCredential(username = minted.username, secret = wrongSecret) shouldNotBe minted.credential
         }
 
         test("two mints for the same label at the same instant produce byte-identical credentials -- deterministic, not randomized") {

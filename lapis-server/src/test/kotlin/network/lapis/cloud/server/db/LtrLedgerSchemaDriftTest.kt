@@ -47,7 +47,7 @@ class LtrLedgerSchemaDriftTest :
             entity.attributes.map { it.name }.toSet() shouldBe real.columns.keys
             entity.attributes.forEach { attr ->
                 val col = real.columns.getValue(attr.name!!)
-                withClue("column '${attr.name}'") {
+                withClue(clue = "column '${attr.name}'") {
                     col.nullable shouldBe attr.nullable
                 }
             }
@@ -77,12 +77,12 @@ class LtrLedgerSchemaDriftTest :
         test("ltr_ledger_entry.reference_type/reference_id/note/created_by are nullable, every other column is NOT NULL") {
             val entity = model.entities.single { it.name == "ltr_ledger_entry" }
             listOf("reference_type", "reference_id", "note", "created_by").forEach { name ->
-                withClue("attribute '$name'") {
+                withClue(clue = "attribute '$name'") {
                     entity.attributeByName(name)?.nullable shouldBe true
                 }
             }
             listOf("id", "entry_type", "amount_ltr", "created_at", "member_id").forEach { name ->
-                withClue("attribute '$name'") {
+                withClue(clue = "attribute '$name'") {
                     entity.attributeByName(name)?.nullable shouldBe false
                 }
             }

@@ -242,7 +242,7 @@ class FederationGuestJourneyTest :
                 if (createdConferenceRoomIds.isNotEmpty()) {
                     ConferenceRoomTable.deleteWhere { ConferenceRoomTable.id inList createdConferenceRoomIds }
                 }
-                hardDeleteGovernanceAndMembershipFixtures(emptyList(), createdMemberIds)
+                hardDeleteGovernanceAndMembershipFixtures(committeeIds = emptyList(), memberIds = createdMemberIds)
                 OrganizationSettingsTable.update({ OrganizationSettingsTable.id eq ORGANIZATION_SETTINGS_ID }) {
                     it[politicianRankingEnabled] = false
                 }
@@ -265,15 +265,15 @@ class FederationGuestJourneyTest :
                     routing {
                         post("/e2e3/grant-politician/{memberId}") {
                             val p =
-                                PoliticianService(call).grantPoliticianStatus(
-                                    call.parameters["memberId"]!!,
-                                    "E2E Scenario 3 Mandat",
+                                PoliticianService(call = call).grantPoliticianStatus(
+                                    memberId = call.parameters["memberId"]!!,
+                                    mandateText = "E2E Scenario 3 Mandat",
                                 )
                             call.respondText("${p.id}:${p.status}")
                         }
                         post("/e2e3/mint-ltr/{memberId}") {
                             val dto =
-                                LtrLedgerService(call).mintLtr(
+                                LtrLedgerService(call = call).mintLtr(
                                     MintLtrInput(
                                         memberId = call.parameters["memberId"]!!,
                                         amountLtr = BigDecimal(call.request.queryParameters["amount"]!!),
@@ -284,18 +284,18 @@ class FederationGuestJourneyTest :
                         }
                         post("/e2e3/rate/{politicianMemberId}/{value}") {
                             val r =
-                                PoliticianService(call).castRating(
-                                    call.parameters["politicianMemberId"]!!,
-                                    PoliticianReactionValue.valueOf(call.parameters["value"]!!),
+                                PoliticianService(call = call).castRating(
+                                    politicianMemberId = call.parameters["politicianMemberId"]!!,
+                                    value = PoliticianReactionValue.valueOf(call.parameters["value"]!!),
                                 )
                             call.respondText("${r.id}:${r.raterType}")
                         }
                         get("/e2e3/my-rating/{politicianMemberId}") {
-                            val list = PoliticianService(call).getMyRating(call.parameters["politicianMemberId"]!!)
+                            val list = PoliticianService(call = call).getMyRating(call.parameters["politicianMemberId"]!!)
                             call.respondText(list.joinToString(",") { "${it.value}:${it.raterType}" })
                         }
                         get("/e2e3/politician-profile/{memberId}") {
-                            val p = PoliticianService(call).getPoliticianProfile(call.parameters["memberId"]!!)
+                            val p = PoliticianService(call = call).getPoliticianProfile(call.parameters["memberId"]!!)
                             call.respondText(
                                 "${p.memberLikeCount}:${p.memberDislikeCount}:${p.memberTrustWeight}:" +
                                     "${p.guestLikeCount}:${p.guestDislikeCount}:${p.guestTrustWeight}:${p.combinedTrustWeight}",
@@ -303,7 +303,7 @@ class FederationGuestJourneyTest :
                         }
                         post("/e2e3/submit-project") {
                             val p =
-                                CrowdfundingService(call).submitProject(
+                                CrowdfundingService(call = call).submitProject(
                                     CrowdfundingProjectInput(
                                         title = GUEST_SUBMIT_PROJECT_TITLE,
                                         description = "Must never be reachable by a GAST-status caller",
@@ -313,15 +313,15 @@ class FederationGuestJourneyTest :
                             call.respondText("${p.id}:${p.status}")
                         }
                         post("/e2e3/create-folder") {
-                            val f = DocumentService(call).createFolder("E2E Scenario 3 Ordner", null)
+                            val f = DocumentService(call).createFolder(name = "E2E Scenario 3 Ordner", parentFolderId = null)
                             call.respondText(f.id)
                         }
                         post("/e2e3/create-document/{folderId}") {
                             val d =
                                 DocumentService(call).createDocument(
-                                    call.parameters["folderId"]!!,
-                                    "E2E Scenario 3 Vorstandsprotokoll (PUBLIC_MEMBERS)",
-                                    DocumentAccessLevel.PUBLIC_MEMBERS,
+                                    folderId = call.parameters["folderId"]!!,
+                                    title = "E2E Scenario 3 Vorstandsprotokoll (PUBLIC_MEMBERS)",
+                                    accessLevel = DocumentAccessLevel.PUBLIC_MEMBERS,
                                 )
                             call.respondText(d.id)
                         }
@@ -337,10 +337,10 @@ class FederationGuestJourneyTest :
                         // ConferenceService's own class KDoc).
                         fun conferenceService(call: io.ktor.server.application.ApplicationCall) =
                             ConferenceService(
-                                call,
-                                fakeLiveKit,
-                                LoginRateLimiter(),
-                                E2E_ENABLED_CONFERENCE_CONFIG,
+                                call = call,
+                                liveKitAdminClient = fakeLiveKit,
+                                createRoomRateLimiter = LoginRateLimiter(),
+                                config = E2E_ENABLED_CONFERENCE_CONFIG,
                                 conferenceMeetingBindRateLimiter = FederationInboxRateLimiter(),
                             )
                         post("/e2e3-conf/create-room") {
@@ -350,8 +350,8 @@ class FederationGuestJourneyTest :
                         post("/e2e3-conf/set-guest-access/{roomId}/{allow}") {
                             val room =
                                 conferenceService(call).setRoomGuestAccess(
-                                    call.parameters["roomId"]!!,
-                                    call.parameters["allow"]!!.toBoolean(),
+                                    roomId = call.parameters["roomId"]!!,
+                                    allowFederationGuests = call.parameters["allow"]!!.toBoolean(),
                                 )
                             call.respondText(room.allowFederationGuests.toString())
                         }
@@ -372,7 +372,7 @@ class FederationGuestJourneyTest :
                                 } else {
                                     null
                                 }
-                            val token = conferenceService(call).joinRoom(call.parameters["roomId"]!!, consent)
+                            val token = conferenceService(call).joinRoom(roomId = call.parameters["roomId"]!!, guestConsent = consent)
                             call.respondText(token.identity)
                         }
                         get("/e2e3-conf/list-participants/{roomId}") {
@@ -397,7 +397,11 @@ class FederationGuestJourneyTest :
                         homeserverUrl = issuer,
                         membershipStatus = "AKTIV",
                     )
-                val guestId = OidcGuestMemberStore.resolveOrCreateGuestMember(claims, "openid profile_basic politician_rating")
+                val guestId =
+                    OidcGuestMemberStore.resolveOrCreateGuestMember(
+                        claims = claims,
+                        grantedScope = "openid profile_basic politician_rating",
+                    )
                 createdMemberIds += guestId
                 val guestToken = SessionStore.createSession(guestId).rawToken
                 // Confirms the session this test drives every subsequent call through really does
@@ -411,7 +415,7 @@ class FederationGuestJourneyTest :
                 // ── enabled as fixture setup (see class KDoc "politicianRankingEnabled is ──────────────
                 // ── flipped ..."). ──────────────────────────────────────────────────────────────────
                 val politicianEmail = "e2e3-politician-${Uuid.random()}@example.org"
-                val politicianMemberId = createRealMember("E2E Scenario 3 Politician", politicianEmail)
+                val politicianMemberId = createRealMember(displayName = "E2E Scenario 3 Politician", email = politicianEmail)
                 createdMemberIds += politicianMemberId
                 val grantResponse =
                     client.post("/e2e3/grant-politician/$politicianMemberId") { header("X-Member-Id", BOARD_ID) }.bodyAsText()
@@ -479,9 +483,10 @@ class FederationGuestJourneyTest :
                 // ── memberTrustWeight and the UNCHANGED guestTrustWeight from step 3 -- proving the ──
                 // ── two pools are computed independently and only ever combined by addition. ─────────
                 val memberRaterEmail = "e2e3-member-rater-${Uuid.random()}@example.org"
-                val memberRaterId = createRealMember("E2E Scenario 3 Member Rater", memberRaterEmail, password = E2E_STRONG_PASSWORD)
+                val memberRaterId =
+                    createRealMember(displayName = "E2E Scenario 3 Member Rater", email = memberRaterEmail, password = E2E_STRONG_PASSWORD)
                 createdMemberIds += memberRaterId
-                val memberRaterToken = client.realLogin(memberRaterEmail, E2E_STRONG_PASSWORD)
+                val memberRaterToken = client.realLogin(email = memberRaterEmail, password = E2E_STRONG_PASSWORD)
                 client
                     .post("/e2e3/mint-ltr/$memberRaterId?amount=30.00") { header("X-Member-Id", TREASURER_ID) }
                     .status shouldBe HttpStatusCode.OK
@@ -516,7 +521,7 @@ class FederationGuestJourneyTest :
                 // ── correct homeserverUrl -> moderator setRoomGuestAccess(false) -> guest disconnected, ─
                 // ── participation closed, ack row still present (append-only, survives revocation). ───
                 val roomCreatorEmail = "e2e3-conf-creator-${Uuid.random()}@example.org"
-                val roomCreatorId = createRealMember("E2E Scenario 3 Konferenzraum-Ersteller", roomCreatorEmail)
+                val roomCreatorId = createRealMember(displayName = "E2E Scenario 3 Konferenzraum-Ersteller", email = roomCreatorEmail)
                 createdMemberIds += roomCreatorId
                 val roomId = client.post("/e2e3-conf/create-room") { header("X-Member-Id", roomCreatorId.toString()) }.bodyAsText()
                 createdConferenceRoomIds += Uuid.parse(roomId)

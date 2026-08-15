@@ -66,7 +66,13 @@ class SpendenbescheinigungPdfGeneratorTest :
                 )
             val donationAmount = BigDecimal("250.00")
 
-            val bytes = SpendenbescheinigungPdfGenerator.generate(journalEntry, donationAmount, DONOR, ORGANIZATION)
+            val bytes =
+                SpendenbescheinigungPdfGenerator.generate(
+                    journalEntry = journalEntry,
+                    donationAmount = donationAmount,
+                    donor = DONOR,
+                    organization = ORGANIZATION,
+                )
             val document = Loader.loadPDF(bytes)
             val text =
                 try {
@@ -113,7 +119,13 @@ class SpendenbescheinigungPdfGeneratorTest :
                     donorMemberId = DONOR.id,
                     donorMemberDisplayName = DONOR.displayName,
                 )
-            val bytes = SpendenbescheinigungPdfGenerator.generate(journalEntry, BigDecimal("1.00"), DONOR, ORGANIZATION)
+            val bytes =
+                SpendenbescheinigungPdfGenerator.generate(
+                    journalEntry = journalEntry,
+                    donationAmount = BigDecimal("1.00"),
+                    donor = DONOR,
+                    organization = ORGANIZATION,
+                )
             val document = Loader.loadPDF(bytes)
             try {
                 document.numberOfPages shouldBe 1
@@ -143,7 +155,13 @@ class SpendenbescheinigungPdfGeneratorTest :
                 )
             val partyOrganization = ORGANIZATION.copy(isPoliticalParty = true)
 
-            val partyBytes = SpendenbescheinigungPdfGenerator.generate(journalEntry, BigDecimal("50.00"), DONOR, partyOrganization)
+            val partyBytes =
+                SpendenbescheinigungPdfGenerator.generate(
+                    journalEntry = journalEntry,
+                    donationAmount = BigDecimal("50.00"),
+                    donor = DONOR,
+                    organization = partyOrganization,
+                )
             val partyDocument = Loader.loadPDF(partyBytes)
             val partyText =
                 try {
@@ -156,7 +174,13 @@ class SpendenbescheinigungPdfGeneratorTest :
 
             // Regression guard: the default (isPoliticalParty=false, i.e. ORGANIZATION as-is)
             // still cites § 10b, never § 34g.
-            val associationBytes = SpendenbescheinigungPdfGenerator.generate(journalEntry, BigDecimal("50.00"), DONOR, ORGANIZATION)
+            val associationBytes =
+                SpendenbescheinigungPdfGenerator.generate(
+                    journalEntry = journalEntry,
+                    donationAmount = BigDecimal("50.00"),
+                    donor = DONOR,
+                    organization = ORGANIZATION,
+                )
             val associationDocument = Loader.loadPDF(associationBytes)
             val associationText =
                 try {

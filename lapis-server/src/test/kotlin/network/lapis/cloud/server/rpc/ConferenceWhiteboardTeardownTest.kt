@@ -108,7 +108,7 @@ private fun testStroke(strokeId: String) =
         tool = WhiteboardTool.PEN,
         color = "#1a1a1a",
         strokeWidth = 4.0,
-        points = listOf(WhiteboardPointDto(1.0, 1.0), WhiteboardPointDto(2.0, 2.0)),
+        points = listOf(WhiteboardPointDto(x = 1.0, y = 1.0), WhiteboardPointDto(x = 2.0, y = 2.0)),
         committedAtEpochMs = 0L,
     )
 
@@ -130,7 +130,7 @@ class ConferenceWhiteboardTeardownTest :
             DevSeedData.seedIfEmpty(force = true)
         }
 
-        afterSpec { cleanUpTeardownTestData(createdMemberIds, createdRoomIds) }
+        afterSpec { cleanUpTeardownTestData(memberIds = createdMemberIds, roomIds = createdRoomIds) }
 
         fun createTestMember(email: String): Uuid {
             val id = Uuid.random()
@@ -190,14 +190,14 @@ class ConferenceWhiteboardTeardownTest :
             val sharedWhiteboardState = ConferenceWhiteboardState()
             val creator = createTestMember("wb-teardown-endroom@example.org")
             val (roomId, livekitRoomName) = createTestRoom(liveKit, creator)
-            liveKit.createRoom(livekitRoomName, 25, 300)
-            sharedWhiteboardState.tryCommit(roomId, testStroke("s1"))
+            liveKit.createRoom(name = livekitRoomName, maxParticipants = 25, emptyTimeoutSeconds = 300)
+            sharedWhiteboardState.tryCommit(roomId = roomId, stroke = testStroke("s1"))
             sharedWhiteboardState.snapshot(roomId).size shouldBe 1
 
             testApplication {
                 application {
                     install(StatusPages) { installTeardownExceptionHandlers() }
-                    routing { registerTeardownTestRoutes(liveKit, sharedWhiteboardState) }
+                    routing { registerTeardownTestRoutes(liveKitAdminClient = liveKit, whiteboardState = sharedWhiteboardState) }
                 }
                 client
                     .post("/test/end-room?roomId=$roomId") { header("X-Member-Id", creator.toString()) }
@@ -215,8 +215,8 @@ class ConferenceWhiteboardTeardownTest :
             val sharedWhiteboardState = ConferenceWhiteboardState()
             val creator = createTestMember("wb-teardown-lazy@example.org")
             val (roomId, livekitRoomName) = createTestRoom(liveKit, creator)
-            liveKit.createRoom(livekitRoomName, 25, 300)
-            sharedWhiteboardState.tryCommit(roomId, testStroke("s1"))
+            liveKit.createRoom(name = livekitRoomName, maxParticipants = 25, emptyTimeoutSeconds = 300)
+            sharedWhiteboardState.tryCommit(roomId = roomId, stroke = testStroke("s1"))
             sharedWhiteboardState.snapshot(roomId).size shouldBe 1
 
             // Backdate createdAt well past ROOM_EMPTY_TIMEOUT_SECONDS (300s) and remove the room from
@@ -237,7 +237,7 @@ class ConferenceWhiteboardTeardownTest :
             testApplication {
                 application {
                     install(StatusPages) { installTeardownExceptionHandlers() }
-                    routing { registerTeardownTestRoutes(liveKit, sharedWhiteboardState) }
+                    routing { registerTeardownTestRoutes(liveKitAdminClient = liveKit, whiteboardState = sharedWhiteboardState) }
                 }
                 // getRoom (NOT endRoom) drives the LAZY reconcileRoomIfDue path -- see class KDoc.
                 client
@@ -283,10 +283,10 @@ private fun Route.registerTeardownTestRoutes(
 ) {
     fun service(call: ApplicationCall) =
         ConferenceService(
-            call,
-            liveKitAdminClient,
-            LoginRateLimiter(),
-            TEARDOWN_ENABLED_CONFIG,
+            call = call,
+            liveKitAdminClient = liveKitAdminClient,
+            createRoomRateLimiter = LoginRateLimiter(),
+            config = TEARDOWN_ENABLED_CONFIG,
             whiteboardState = whiteboardState,
             conferenceMeetingBindRateLimiter = FederationInboxRateLimiter(),
         )

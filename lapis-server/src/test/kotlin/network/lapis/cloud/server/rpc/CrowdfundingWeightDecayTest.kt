@@ -15,55 +15,80 @@ class CrowdfundingWeightDecayTest :
         val initial = BigDecimal("100.00")
 
         test("currentWeight at exactly submittedAt (0 days elapsed) equals the initial weight exactly") {
-            CrowdfundingWeightDecay.currentWeight(initial, submittedAt, submittedAt).compareTo(initial) shouldBe 0
+            CrowdfundingWeightDecay
+                .currentWeight(
+                    initialWeightLtr = initial,
+                    submittedAt = submittedAt,
+                    now = submittedAt,
+                ).compareTo(initial) shouldBe
+                0
         }
 
         test("currentWeight after exactly 1 day equals initial * 0.9") {
             val oneDayLater = LocalDateTime(2026, 1, 2, 12, 0, 0)
             val expected = BigDecimal("90.00")
-            CrowdfundingWeightDecay.currentWeight(initial, submittedAt, oneDayLater).compareTo(expected) shouldBe 0
+            CrowdfundingWeightDecay
+                .currentWeight(
+                    initialWeightLtr = initial,
+                    submittedAt = submittedAt,
+                    now = oneDayLater,
+                ).compareTo(expected) shouldBe
+                0
         }
 
         test("currentWeight after exactly 2 days equals initial * 0.9^2") {
             val twoDaysLater = LocalDateTime(2026, 1, 3, 12, 0, 0)
             val expected = BigDecimal("81.00")
-            CrowdfundingWeightDecay.currentWeight(initial, submittedAt, twoDaysLater).compareTo(expected) shouldBe 0
+            CrowdfundingWeightDecay
+                .currentWeight(
+                    initialWeightLtr = initial,
+                    submittedAt = submittedAt,
+                    now = twoDaysLater,
+                ).compareTo(expected) shouldBe
+                0
         }
 
         test("currentWeight is strictly monotonically decreasing as elapsed days grow") {
             val samples = (0..30).map { days -> LocalDateTime(2026, 1, 1 + days, 12, 0, 0) }
-            val weights = samples.map { CrowdfundingWeightDecay.currentWeight(initial, submittedAt, it) }
+            val weights =
+                samples.map {
+                    CrowdfundingWeightDecay.currentWeight(
+                        initialWeightLtr = initial,
+                        submittedAt = submittedAt,
+                        now = it,
+                    )
+                }
             weights.zipWithNext().all { (a, b) -> a > b } shouldBe true
         }
 
         test("currentWeight for a very old project (1000 days) is a tiny but valid, non-throwing, non-negative value") {
             val farFuture = LocalDateTime(2028, 9, 27, 12, 0, 0) // ~1000 days after submittedAt
-            val weight = CrowdfundingWeightDecay.currentWeight(initial, submittedAt, farFuture)
+            val weight = CrowdfundingWeightDecay.currentWeight(initialWeightLtr = initial, submittedAt = submittedAt, now = farFuture)
             (weight.signum() >= 0) shouldBe true
             (weight < BigDecimal("0.01")) shouldBe true
         }
 
         test("daysElapsed is a whole, 24h-rolling count, never negative even if now is before submittedAt") {
-            CrowdfundingWeightDecay.daysElapsed(submittedAt, submittedAt) shouldBe 0L
-            CrowdfundingWeightDecay.daysElapsed(submittedAt, LocalDateTime(2026, 1, 1, 11, 59, 59)) shouldBe 0L
-            CrowdfundingWeightDecay.daysElapsed(submittedAt, LocalDateTime(2026, 1, 2, 12, 0, 0)) shouldBe 1L
-            CrowdfundingWeightDecay.daysElapsed(submittedAt, LocalDateTime(2025, 12, 31, 0, 0, 0)) shouldBe 0L
+            CrowdfundingWeightDecay.daysElapsed(from = submittedAt, now = submittedAt) shouldBe 0L
+            CrowdfundingWeightDecay.daysElapsed(from = submittedAt, now = LocalDateTime(2026, 1, 1, 11, 59, 59)) shouldBe 0L
+            CrowdfundingWeightDecay.daysElapsed(from = submittedAt, now = LocalDateTime(2026, 1, 2, 12, 0, 0)) shouldBe 1L
+            CrowdfundingWeightDecay.daysElapsed(from = submittedAt, now = LocalDateTime(2025, 12, 31, 0, 0, 0)) shouldBe 0L
         }
 
         test("isAutoApproved boundary: 13 days 23:59:59 elapsed is false, exactly 14 days 00:00:00 elapsed is true") {
             val justBefore = LocalDateTime(2026, 1, 15, 11, 59, 59)
             val exactlyAtBoundary = LocalDateTime(2026, 1, 15, 12, 0, 0)
-            CrowdfundingWeightDecay.isAutoApproved(submittedAt, justBefore) shouldBe false
-            CrowdfundingWeightDecay.isAutoApproved(submittedAt, exactlyAtBoundary) shouldBe true
+            CrowdfundingWeightDecay.isAutoApproved(submittedAt = submittedAt, now = justBefore) shouldBe false
+            CrowdfundingWeightDecay.isAutoApproved(submittedAt = submittedAt, now = exactlyAtBoundary) shouldBe true
         }
 
         test("isAutoApproved stays true well past the boundary") {
             val wayLater = LocalDateTime(2026, 6, 1, 0, 0, 0)
-            CrowdfundingWeightDecay.isAutoApproved(submittedAt, wayLater) shouldBe true
+            CrowdfundingWeightDecay.isAutoApproved(submittedAt = submittedAt, now = wayLater) shouldBe true
         }
 
         test("isAutoApproved is false immediately at submission") {
-            CrowdfundingWeightDecay.isAutoApproved(submittedAt, submittedAt) shouldBe false
+            CrowdfundingWeightDecay.isAutoApproved(submittedAt = submittedAt, now = submittedAt) shouldBe false
         }
 
         test("DECAY_KEEP_RATE_PER_DAY is the current-understanding 10%/day decay (0.9 kept)") {

@@ -121,8 +121,8 @@ fun Route.registerMailmergeRoutes(storageRoot: File) {
         val current = resolveCurrentMember(call)
         current.requireRole(*FINANCIAL_DOC_ROLES)
         try {
-            val doc = generateBeitragsrechnung(contributionId, storageRoot, current.memberId)
-            call.respondPdf(doc.bytes, doc.fileName)
+            val doc = generateBeitragsrechnung(contributionId = contributionId, storageRoot = storageRoot, uploadedBy = current.memberId)
+            call.respondPdf(bytes = doc.bytes, fileName = doc.fileName)
         } catch (e: NotFoundException) {
             call.respond(HttpStatusCode.NotFound, e.message)
         } catch (e: ConflictException) {
@@ -139,8 +139,9 @@ fun Route.registerMailmergeRoutes(storageRoot: File) {
         val current = resolveCurrentMember(call)
         current.requireRole(*FINANCIAL_DOC_ROLES)
         try {
-            val doc = generateSpendenbescheinigung(journalEntryId, storageRoot, current.memberId)
-            call.respondPdf(doc.bytes, doc.fileName)
+            val doc =
+                generateSpendenbescheinigung(journalEntryId = journalEntryId, storageRoot = storageRoot, uploadedBy = current.memberId)
+            call.respondPdf(bytes = doc.bytes, fileName = doc.fileName)
         } catch (e: NotFoundException) {
             call.respond(HttpStatusCode.NotFound, e.message)
         } catch (e: ConflictException) {
@@ -215,8 +216,15 @@ fun Route.registerMailmergeRoutes(storageRoot: File) {
             }
 
         try {
-            val bytes = generateEinladung(title!!, eventDateTime, location!!, bodyText!!, recipientMemberIdRaw)
-            call.respondPdf(bytes, "Einladung.pdf")
+            val bytes =
+                generateEinladung(
+                    title = title!!,
+                    eventDateTime = eventDateTime,
+                    location = location!!,
+                    bodyText = bodyText!!,
+                    recipientMemberIdRaw = recipientMemberIdRaw,
+                )
+            call.respondPdf(bytes = bytes, fileName = "Einladung.pdf")
         } catch (e: NotFoundException) {
             call.respond(HttpStatusCode.NotFound, e.message)
         }
@@ -271,7 +279,7 @@ internal fun generateBeitragsrechnung(
         requireCompleteAddress(member)
         val organization = loadOrganizationSettingsDto()
 
-        val bytes = BeitragsrechnungPdfGenerator.generate(contribution, member, organization)
+        val bytes = BeitragsrechnungPdfGenerator.generate(contribution = contribution, member = member, organization = organization)
         val fileName = "Beitragsrechnung-${contribution.periodStart}-${contribution.periodEnd}.pdf"
         archiveGeneratedPdf(
             storageRoot = storageRoot,
@@ -282,7 +290,7 @@ internal fun generateBeitragsrechnung(
             uploadedBy = uploadedBy,
             accessLevel = DocumentAccessLevel.ADMIN_ONLY,
         )
-        GeneratedMailmergeDocument(bytes, fileName, member)
+        GeneratedMailmergeDocument(bytes = bytes, fileName = fileName, recipient = member)
     }
 
 internal fun generateSpendenbescheinigung(
@@ -345,7 +353,13 @@ internal fun generateSpendenbescheinigung(
                 donorMemberDisplayName = donor.displayName,
             )
 
-        val bytes = SpendenbescheinigungPdfGenerator.generate(journalEntry, donationAmount, donor, organization)
+        val bytes =
+            SpendenbescheinigungPdfGenerator.generate(
+                journalEntry = journalEntry,
+                donationAmount = donationAmount,
+                donor = donor,
+                organization = organization,
+            )
         val fileName = "Spendenbescheinigung-${sanitizeForFileName(donor.displayName)}-${entryRow[JournalEntryTable.entryDate]}.pdf"
         archiveGeneratedPdf(
             storageRoot = storageRoot,
@@ -356,7 +370,7 @@ internal fun generateSpendenbescheinigung(
             uploadedBy = uploadedBy,
             accessLevel = DocumentAccessLevel.ADMIN_ONLY,
         )
-        GeneratedMailmergeDocument(bytes, fileName, donor)
+        GeneratedMailmergeDocument(bytes = bytes, fileName = fileName, recipient = donor)
     }
 
 private fun generateEinladung(
@@ -373,7 +387,14 @@ private fun generateEinladung(
                 loadMailmergeMember(id) ?: throw NotFoundException("Member $id not found")
             }
         val organization = loadOrganizationSettingsDto()
-        EinladungPdfGenerator.generate(title, eventDateTime, location, bodyText, recipients, organization)
+        EinladungPdfGenerator.generate(
+            title = title,
+            eventDateTime = eventDateTime,
+            location = location,
+            bodyText = bodyText,
+            recipients = recipients,
+            organization = organization,
+        )
     }
 
 /** Left-joins [AccountTable] (a member may have no account row at all) -- `role` defaults to `MEMBER` when absent; irrelevant to PDF content either way. */

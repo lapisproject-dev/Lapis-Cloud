@@ -64,7 +64,7 @@ class BackupRoutesAuthorizationTest :
                         }
                         exception<ForbiddenException> { call, cause -> call.respondText(cause.message, status = HttpStatusCode.Forbidden) }
                     }
-                    routing { registerBackupRoutes(DatabaseConfig.connect(), storageRoot) }
+                    routing { registerBackupRoutes(database = DatabaseConfig.connect(), documentStorageRoot = storageRoot) }
                 }
 
                 client.get("/api/backup/export").status shouldBe HttpStatusCode.Unauthorized
@@ -105,7 +105,7 @@ class BackupRoutesAuthorizationTest :
                         }
                         exception<ForbiddenException> { call, cause -> call.respondText(cause.message, status = HttpStatusCode.Forbidden) }
                     }
-                    routing { registerBackupRoutes(DatabaseConfig.connect(), storageRoot) }
+                    routing { registerBackupRoutes(database = DatabaseConfig.connect(), documentStorageRoot = storageRoot) }
                 }
 
                 client.post("/api/backup/restore") { setBody("irrelevant body") }.status shouldBe HttpStatusCode.Unauthorized

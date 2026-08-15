@@ -104,8 +104,8 @@ class AuctionService(
         if (input.durationHours < MIN_DURATION_HOURS || input.durationHours > MAX_DURATION_HOURS) {
             throw ConflictException("durationHours must be between $MIN_DURATION_HOURS and $MAX_DURATION_HOURS, got ${input.durationHours}")
         }
-        val startingBid = validateAndNormalizeAmount(input.startingBidLtr, "startingBidLtr")
-        val buyNowPrice = input.buyNowPriceLtr?.let { validateAndNormalizeAmount(it, "buyNowPriceLtr") }
+        val startingBid = validateAndNormalizeAmount(amount = input.startingBidLtr, fieldName = "startingBidLtr")
+        val buyNowPrice = input.buyNowPriceLtr?.let { validateAndNormalizeAmount(amount = it, fieldName = "buyNowPriceLtr") }
         if (buyNowPrice != null && buyNowPrice <= startingBid) {
             throw ConflictException("buyNowPriceLtr $buyNowPrice must be strictly greater than startingBidLtr $startingBid")
         }
@@ -118,7 +118,7 @@ class AuctionService(
         val computedEndsAt =
             now.toInstant(TimeZone.currentSystemDefault()).plus(input.durationHours.hours).toLocalDateTime(TimeZone.currentSystemDefault())
         return transaction {
-            requireActiveMembership(current.memberId)
+            requireActiveMembership(memberId = current.memberId)
             val maxValue = currentAuctionMaxValueLtr()
             if (maxValue != null) {
                 if (startingBid > maxValue) {
@@ -149,9 +149,15 @@ class AuctionService(
                 it[AuctionTable.endsAt] = computedEndsAt
                 it[settledAt] = null
             }
-            writeLedger(current.memberId, LtrLedgerEntryType.AUCTION_LISTING_FEE, LISTING_FEE_LTR.negate(), auctionId, now)
+            writeLedger(
+                beneficiaryMemberId = current.memberId,
+                type = LtrLedgerEntryType.AUCTION_LISTING_FEE,
+                signedAmountLtr = LISTING_FEE_LTR.negate(),
+                auctionId = auctionId,
+                now = now,
+            )
             val row = AuctionTable.selectAll().where { AuctionTable.id eq auctionId }.single()
-            rowToDto(row, now, current.memberId)
+            rowToDto(row = row, now = now, callerId = current.memberId)
         }
     }
 
@@ -173,11 +179,11 @@ class AuctionService(
         val current = resolveCurrentMember(call)
         requireAuctionEnabled()
         val id = auctionId.toAuctionUuid()
-        val bidAmount = validateAndNormalizeAmount(maxBidLtr, "maxBidLtr")
+        val bidAmount = validateAndNormalizeAmount(amount = maxBidLtr, fieldName = "maxBidLtr")
         val now = nowLocalDateTime()
         return transaction {
-            requireActiveMembership(current.memberId)
-            val row = lockAndCloseIfDue(id, now)
+            requireActiveMembership(memberId = current.memberId)
+            val row = lockAndCloseIfDue(auctionId = id, now = now)
             if (row[AuctionTable.status] != AuctionStatus.OPEN) {
                 throw ConflictException("Auction $id is not open for bidding (status=${row[AuctionTable.status]})")
             }
@@ -195,7 +201,8 @@ class AuctionService(
                     "maxBidLtr $bidAmount must exceed your current maxBidLtr ${myExisting.maxBidLtr} -- you may only raise, never lower",
                 )
             }
-            val outcomeBefore = computeAuctionOutcome(startingBid, MIN_INCREMENT_LTR, existingBids)
+            val outcomeBefore =
+                computeAuctionOutcome(startingBidLtr = startingBid, minIncrementLtr = MIN_INCREMENT_LTR, bids = existingBids)
             val wasLeader = outcomeBefore.leaderMemberId == current.memberId
 
             // Coverage check applies to EVERY bid, whether or not it will take the lead -- see
@@ -208,19 +215,44 @@ class AuctionService(
                 throw ConflictException("maxBidLtr $bidAmount exceeds your available LTR balance $available")
             }
 
-            upsertBid(id, current.memberId, bidAmount, now)
-            val outcomeAfter = computeAuctionOutcome(startingBid, MIN_INCREMENT_LTR, currentBidViews(id))
+            upsertBid(targetAuctionId = id, callerMemberId = current.memberId, newMaxBidLtr = bidAmount, now = now)
+            val outcomeAfter =
+                computeAuctionOutcome(startingBidLtr = startingBid, minIncrementLtr = MIN_INCREMENT_LTR, bids = currentBidViews(id))
             val isNowLeader = outcomeAfter.leaderMemberId == current.memberId
 
             if (wasLeader) {
-                writeLedger(current.memberId, LtrLedgerEntryType.AUCTION_HOLD_RELEASE, outcomeBefore.leaderMaxBidLtr!!, id, now)
-                writeLedger(current.memberId, LtrLedgerEntryType.AUCTION_HOLD, bidAmount.negate(), id, now)
+                writeLedger(
+                    beneficiaryMemberId = current.memberId,
+                    type = LtrLedgerEntryType.AUCTION_HOLD_RELEASE,
+                    signedAmountLtr = outcomeBefore.leaderMaxBidLtr!!,
+                    auctionId = id,
+                    now = now,
+                )
+                writeLedger(
+                    beneficiaryMemberId = current.memberId,
+                    type = LtrLedgerEntryType.AUCTION_HOLD,
+                    signedAmountLtr = bidAmount.negate(),
+                    auctionId = id,
+                    now = now,
+                )
             } else if (isNowLeader) {
                 val formerLeader = outcomeBefore.leaderMemberId
                 if (formerLeader != null) {
-                    writeLedger(formerLeader, LtrLedgerEntryType.AUCTION_HOLD_RELEASE, outcomeBefore.leaderMaxBidLtr!!, id, now)
+                    writeLedger(
+                        beneficiaryMemberId = formerLeader,
+                        type = LtrLedgerEntryType.AUCTION_HOLD_RELEASE,
+                        signedAmountLtr = outcomeBefore.leaderMaxBidLtr!!,
+                        auctionId = id,
+                        now = now,
+                    )
                 }
-                writeLedger(current.memberId, LtrLedgerEntryType.AUCTION_HOLD, bidAmount.negate(), id, now)
+                writeLedger(
+                    beneficiaryMemberId = current.memberId,
+                    type = LtrLedgerEntryType.AUCTION_HOLD,
+                    signedAmountLtr = bidAmount.negate(),
+                    auctionId = id,
+                    now = now,
+                )
             }
 
             AuctionBidResultDto(
@@ -245,8 +277,8 @@ class AuctionService(
             // as their first transaction statement, but buyNow itself did not, despite spending LTR
             // (AUCTION_SALE_OUT below) and settling ownership transfer. Same idiom as the sibling
             // methods in this file.
-            requireActiveMembership(current.memberId)
-            val row = lockAndCloseIfDue(id, now)
+            requireActiveMembership(memberId = current.memberId)
+            val row = lockAndCloseIfDue(auctionId = id, now = now)
             if (row[AuctionTable.status] != AuctionStatus.OPEN) {
                 throw ConflictException("Auction $id is not open (status=${row[AuctionTable.status]})")
             }
@@ -254,7 +286,12 @@ class AuctionService(
             if (seller == current.memberId) throw ConflictException("Seller cannot buy their own auction")
             val buyNowPrice = row[AuctionTable.buyNowPriceLtr] ?: throw ConflictException("Auction $id has no Sofortkauf price")
 
-            val outcome = computeAuctionOutcome(row[AuctionTable.startingBidLtr], MIN_INCREMENT_LTR, currentBidViews(id))
+            val outcome =
+                computeAuctionOutcome(
+                    startingBidLtr = row[AuctionTable.startingBidLtr],
+                    minIncrementLtr = MIN_INCREMENT_LTR,
+                    bids = currentBidViews(id),
+                )
             if (outcome.currentPriceLtr != null && outcome.currentPriceLtr >= buyNowPrice) {
                 throw ConflictException(
                     "Sofortkauf for auction $id is no longer available -- the current price already reached buyNowPriceLtr",
@@ -262,7 +299,7 @@ class AuctionService(
             }
 
             val wasLeader = outcome.leaderMemberId == current.memberId
-            lockBothAccounts(current.memberId, seller)
+            lockBothAccounts(a = current.memberId, b = seller)
             val freeBalance = ltrBalanceProvider.freeBalance(current.memberId)
             val releasedIfLeader = if (wasLeader) outcome.leaderMaxBidLtr!! else ZERO_2DP
             val available = freeBalance + releasedIfLeader
@@ -271,12 +308,36 @@ class AuctionService(
             }
 
             if (wasLeader) {
-                writeLedger(current.memberId, LtrLedgerEntryType.AUCTION_HOLD_RELEASE, outcome.leaderMaxBidLtr!!, id, now)
+                writeLedger(
+                    beneficiaryMemberId = current.memberId,
+                    type = LtrLedgerEntryType.AUCTION_HOLD_RELEASE,
+                    signedAmountLtr = outcome.leaderMaxBidLtr!!,
+                    auctionId = id,
+                    now = now,
+                )
             } else if (outcome.leaderMemberId != null) {
-                writeLedger(outcome.leaderMemberId, LtrLedgerEntryType.AUCTION_HOLD_RELEASE, outcome.leaderMaxBidLtr!!, id, now)
+                writeLedger(
+                    beneficiaryMemberId = outcome.leaderMemberId,
+                    type = LtrLedgerEntryType.AUCTION_HOLD_RELEASE,
+                    signedAmountLtr = outcome.leaderMaxBidLtr!!,
+                    auctionId = id,
+                    now = now,
+                )
             }
-            writeLedger(current.memberId, LtrLedgerEntryType.AUCTION_SALE_OUT, buyNowPrice.negate(), id, now)
-            writeLedger(seller, LtrLedgerEntryType.AUCTION_SALE_IN, buyNowPrice, id, now)
+            writeLedger(
+                beneficiaryMemberId = current.memberId,
+                type = LtrLedgerEntryType.AUCTION_SALE_OUT,
+                signedAmountLtr = buyNowPrice.negate(),
+                auctionId = id,
+                now = now,
+            )
+            writeLedger(
+                beneficiaryMemberId = seller,
+                type = LtrLedgerEntryType.AUCTION_SALE_IN,
+                signedAmountLtr = buyNowPrice,
+                auctionId = id,
+                now = now,
+            )
             AuctionTable.update({ AuctionTable.id eq id }) {
                 it[status] = AuctionStatus.SETTLED
                 it[winnerMemberId] = current.memberId
@@ -284,7 +345,7 @@ class AuctionService(
                 it[settledAt] = now
             }
             val fresh = AuctionTable.selectAll().where { AuctionTable.id eq id }.single()
-            rowToDto(fresh, now, current.memberId)
+            rowToDto(row = fresh, now = now, callerId = current.memberId)
         }
     }
 
@@ -294,8 +355,8 @@ class AuctionService(
         val auctionId = id.toAuctionUuid()
         val now = nowLocalDateTime()
         return transaction {
-            val row = lockAndCloseIfDue(auctionId, now)
-            rowToDto(row, now, current.memberId)
+            val row = lockAndCloseIfDue(auctionId = auctionId, now = now)
+            rowToDto(row = row, now = now, callerId = current.memberId)
         }
     }
 
@@ -314,7 +375,7 @@ class AuctionService(
             val condition: Op<Boolean>? = statusFilter?.let { AuctionTable.status eq it }
             val query = if (condition != null) AuctionTable.selectAll().where { condition } else AuctionTable.selectAll()
             val rows = query.orderBy(AuctionTable.createdAt, SortOrder.DESC).limit(MAX_LIST_RESULTS).toList()
-            rows.map { row -> rowToDto(row, now, current.memberId) }
+            rows.map { row -> rowToDto(row = row, now = now, callerId = current.memberId) }
         }
     }
 
@@ -333,7 +394,11 @@ class AuctionService(
                 val theAuctionId = bidRow[AuctionBidTable.auctionId]
                 val auctionRow = AuctionTable.selectAll().where { AuctionTable.id eq theAuctionId }.single()
                 val outcome =
-                    computeAuctionOutcome(auctionRow[AuctionTable.startingBidLtr], MIN_INCREMENT_LTR, currentBidViews(theAuctionId))
+                    computeAuctionOutcome(
+                        startingBidLtr = auctionRow[AuctionTable.startingBidLtr],
+                        minIncrementLtr = MIN_INCREMENT_LTR,
+                        bids = currentBidViews(theAuctionId),
+                    )
                 AuctionBidDto(
                     id = bidRow[AuctionBidTable.id].toString(),
                     auctionId = theAuctionId.toString(),
@@ -357,7 +422,7 @@ class AuctionService(
                 .where { AuctionTable.sellerMemberId eq current.memberId }
                 .orderBy(AuctionTable.createdAt, SortOrder.DESC)
                 .limit(MAX_LIST_RESULTS)
-                .map { row -> rowToDto(row, now, current.memberId) }
+                .map { row -> rowToDto(row = row, now = now, callerId = current.memberId) }
         }
     }
 
@@ -367,7 +432,7 @@ class AuctionService(
         val auctionId = id.toAuctionUuid()
         val now = nowLocalDateTime()
         return transaction {
-            requireActiveMembership(current.memberId)
+            requireActiveMembership(memberId = current.memberId)
             val row =
                 AuctionTable
                     .selectAll()
@@ -379,10 +444,10 @@ class AuctionService(
                 if (now < row[AuctionTable.endsAt]) {
                     throw ConflictException("Auction $auctionId has not ended yet -- cannot be settled early")
                 }
-                settleAuctionLocked(row, now)
+                settleAuctionLocked(row = row, now = now)
             }
             val fresh = AuctionTable.selectAll().where { AuctionTable.id eq auctionId }.single()
-            rowToDto(fresh, now, current.memberId)
+            rowToDto(row = fresh, now = now, callerId = current.memberId)
         }
     }
 
@@ -399,7 +464,7 @@ class AuctionService(
     override suspend fun enableAuction(input: AuctionComplianceAcknowledgmentInput): AuctionSettingsDto {
         val current = resolveCurrentMember(call)
         current.requireRole(AccountRole.ADMIN)
-        if (!AuctionComplianceDisclaimer.matches(input.disclaimerVersion, input.disclaimerSha256)) {
+        if (!AuctionComplianceDisclaimer.matches(version = input.disclaimerVersion, sha256 = input.disclaimerSha256)) {
             throw ConflictException(
                 "disclaimerVersion/disclaimerSha256 do not match the current AuctionComplianceDisclaimer -- " +
                     "call getAuctionComplianceDisclaimer again and submit its CURRENT version/sha256 unmodified",
@@ -435,7 +500,7 @@ class AuctionService(
     override suspend fun setAuctionMaxValueLtr(maxValueLtr: BigDecimal?): AuctionSettingsDto {
         val current = resolveCurrentMember(call)
         current.requireRole(AccountRole.ADMIN)
-        val normalized = maxValueLtr?.let { validateAndNormalizeAmount(it, "auctionMaxValueLtr") }
+        val normalized = maxValueLtr?.let { validateAndNormalizeAmount(amount = it, fieldName = "auctionMaxValueLtr") }
         return transaction {
             OrganizationSettingsTable.update({ OrganizationSettingsTable.id eq ORGANIZATION_SETTINGS_ID }) {
                 it[auctionMaxValueLtr] = normalized
@@ -517,7 +582,7 @@ class AuctionService(
                 .singleOrNull()
                 ?: throw NotFoundException("Auction $auctionId not found")
         if (row[AuctionTable.status] != AuctionStatus.OPEN || now < row[AuctionTable.endsAt]) return row
-        settleAuctionLocked(row, now)
+        settleAuctionLocked(row = row, now = now)
         return AuctionTable.selectAll().where { AuctionTable.id eq auctionId }.single()
     }
 
@@ -535,7 +600,12 @@ class AuctionService(
     ) {
         val auctionId = row[AuctionTable.id]
         val seller = row[AuctionTable.sellerMemberId]
-        val outcome = computeAuctionOutcome(row[AuctionTable.startingBidLtr], MIN_INCREMENT_LTR, currentBidViews(auctionId))
+        val outcome =
+            computeAuctionOutcome(
+                startingBidLtr = row[AuctionTable.startingBidLtr],
+                minIncrementLtr = MIN_INCREMENT_LTR,
+                bids = currentBidViews(auctionId),
+            )
         if (outcome.leaderMemberId == null) {
             AuctionTable.update({ AuctionTable.id eq auctionId }) {
                 it[status] = AuctionStatus.CLOSED_NO_SALE
@@ -545,10 +615,28 @@ class AuctionService(
         }
         val winner = outcome.leaderMemberId
         val finalPrice = outcome.currentPriceLtr!!
-        lockBothAccounts(winner, seller)
-        writeLedger(winner, LtrLedgerEntryType.AUCTION_HOLD_RELEASE, outcome.leaderMaxBidLtr!!, auctionId, now)
-        writeLedger(winner, LtrLedgerEntryType.AUCTION_SALE_OUT, finalPrice.negate(), auctionId, now)
-        writeLedger(seller, LtrLedgerEntryType.AUCTION_SALE_IN, finalPrice, auctionId, now)
+        lockBothAccounts(a = winner, b = seller)
+        writeLedger(
+            beneficiaryMemberId = winner,
+            type = LtrLedgerEntryType.AUCTION_HOLD_RELEASE,
+            signedAmountLtr = outcome.leaderMaxBidLtr!!,
+            auctionId = auctionId,
+            now = now,
+        )
+        writeLedger(
+            beneficiaryMemberId = winner,
+            type = LtrLedgerEntryType.AUCTION_SALE_OUT,
+            signedAmountLtr = finalPrice.negate(),
+            auctionId = auctionId,
+            now = now,
+        )
+        writeLedger(
+            beneficiaryMemberId = seller,
+            type = LtrLedgerEntryType.AUCTION_SALE_IN,
+            signedAmountLtr = finalPrice,
+            auctionId = auctionId,
+            now = now,
+        )
         AuctionTable.update({ AuctionTable.id eq auctionId }) {
             it[status] = AuctionStatus.SETTLED
             it[winnerMemberId] = winner
@@ -673,7 +761,12 @@ class AuctionService(
     ): AuctionDto {
         val theAuctionId = row[AuctionTable.id]
         val status = row[AuctionTable.status]
-        val outcome = computeAuctionOutcome(row[AuctionTable.startingBidLtr], MIN_INCREMENT_LTR, currentBidViews(theAuctionId))
+        val outcome =
+            computeAuctionOutcome(
+                startingBidLtr = row[AuctionTable.startingBidLtr],
+                minIncrementLtr = MIN_INCREMENT_LTR,
+                bids = currentBidViews(theAuctionId),
+            )
         val effectiveStatus =
             if (status == AuctionStatus.OPEN && now >= row[AuctionTable.endsAt]) {
                 if (outcome.leaderMemberId != null) AuctionStatus.SETTLED else AuctionStatus.CLOSED_NO_SALE

@@ -39,7 +39,7 @@ class FinancialStatementCalculatorTest :
                     balance("4000", LedgerAccountType.INCOME, "500.00", accountClass = 4),
                     balance("6000", LedgerAccountType.EXPENSE, "300.00", accountClass = 6),
                 )
-            val result = FinancialStatementCalculator.incomeStatement(balances, from, to)
+            val result = FinancialStatementCalculator.incomeStatement(balances = balances, from = from, to = to)
             result.totalIncome.compareTo(BigDecimal("500.00")) shouldBe 0
             result.totalExpense.compareTo(BigDecimal("300.00")) shouldBe 0
             result.result.compareTo(BigDecimal("200.00")) shouldBe 0
@@ -49,20 +49,20 @@ class FinancialStatementCalculatorTest :
 
         test("GuV: only income, no expense") {
             val balances = listOf(balance("4000", LedgerAccountType.INCOME, "150.00"))
-            val result = FinancialStatementCalculator.incomeStatement(balances, from, to)
+            val result = FinancialStatementCalculator.incomeStatement(balances = balances, from = from, to = to)
             result.totalExpense.compareTo(BigDecimal.ZERO) shouldBe 0
             result.result.compareTo(BigDecimal("150.00")) shouldBe 0
         }
 
         test("GuV: only expense, no income -- negative result (Jahresfehlbetrag)") {
             val balances = listOf(balance("6000", LedgerAccountType.EXPENSE, "80.00"))
-            val result = FinancialStatementCalculator.incomeStatement(balances, from, to)
+            val result = FinancialStatementCalculator.incomeStatement(balances = balances, from = from, to = to)
             result.totalIncome.compareTo(BigDecimal.ZERO) shouldBe 0
             result.result.compareTo(BigDecimal("-80.00")) shouldBe 0
         }
 
         test("GuV: empty balances yield all-zero result") {
-            val result = FinancialStatementCalculator.incomeStatement(emptyList(), from, to)
+            val result = FinancialStatementCalculator.incomeStatement(balances = emptyList(), from = from, to = to)
             result.totalIncome.compareTo(BigDecimal.ZERO) shouldBe 0
             result.totalExpense.compareTo(BigDecimal.ZERO) shouldBe 0
             result.result.compareTo(BigDecimal.ZERO) shouldBe 0
@@ -78,7 +78,7 @@ class FinancialStatementCalculatorTest :
                     balance("6310", LedgerAccountType.EXPENSE, "5.00"),
                     balance("6000", LedgerAccountType.EXPENSE, "7.00"),
                 )
-            val result = FinancialStatementCalculator.incomeStatement(balances, from, to)
+            val result = FinancialStatementCalculator.incomeStatement(balances = balances, from = from, to = to)
             result.incomeLines.map { it.accountNumber } shouldBe listOf("4000", "4200")
             result.expenseLines.map { it.accountNumber } shouldBe listOf("6000", "6310")
         }
@@ -89,7 +89,7 @@ class FinancialStatementCalculatorTest :
                     balance("4000", LedgerAccountType.INCOME, "100.00"),
                     balance("4001", LedgerAccountType.INCOME, "100.0"),
                 )
-            val result = FinancialStatementCalculator.incomeStatement(balances, from, to)
+            val result = FinancialStatementCalculator.incomeStatement(balances = balances, from = from, to = to)
             result.totalIncome.compareTo(BigDecimal("200.00")) shouldBe 0
         }
 
@@ -99,7 +99,7 @@ class FinancialStatementCalculatorTest :
                     balance("4000", LedgerAccountType.INCOME, "0.00"),
                     balance("4001", LedgerAccountType.INCOME, "10.00"),
                 )
-            val result = FinancialStatementCalculator.incomeStatement(balances, from, to)
+            val result = FinancialStatementCalculator.incomeStatement(balances = balances, from = from, to = to)
             result.incomeLines.map { it.accountNumber } shouldBe listOf("4001")
         }
 
@@ -115,7 +115,7 @@ class FinancialStatementCalculatorTest :
                     balance("6000", LedgerAccountType.EXPENSE, "300.00"),
                 )
             val asOf = LocalDate(2026, 12, 31)
-            val sheet = FinancialStatementCalculator.balanceSheet(balances, asOf)
+            val sheet = FinancialStatementCalculator.balanceSheet(balances = balances, asOf = asOf)
 
             sheet.asOf shouldBe asOf
             sheet.totalAssets.compareTo(BigDecimal("1000.00")) shouldBe 0
@@ -137,7 +137,7 @@ class FinancialStatementCalculatorTest :
                     balance("4000", LedgerAccountType.INCOME, "100.00"),
                     balance("6000", LedgerAccountType.EXPENSE, "400.00"),
                 )
-            val sheet = FinancialStatementCalculator.balanceSheet(balances, LocalDate(2026, 12, 31))
+            val sheet = FinancialStatementCalculator.balanceSheet(balances = balances, asOf = LocalDate(2026, 12, 31))
             // accumulatedResult = 100 - 400 = -300
             sheet.accumulatedResult.compareTo(BigDecimal("-300.00")) shouldBe 0
             // totalEquityAndLiabilities = 0 + 1000 + (-300) = 700 == totalAssets
@@ -146,7 +146,7 @@ class FinancialStatementCalculatorTest :
         }
 
         test("Bilanz: empty balances -- all zero, still balanced") {
-            val sheet = FinancialStatementCalculator.balanceSheet(emptyList(), LocalDate(2026, 12, 31))
+            val sheet = FinancialStatementCalculator.balanceSheet(balances = emptyList(), asOf = LocalDate(2026, 12, 31))
             sheet.totalAssets.compareTo(BigDecimal.ZERO) shouldBe 0
             sheet.totalLiabilities.compareTo(BigDecimal.ZERO) shouldBe 0
             sheet.bookedEquity.compareTo(BigDecimal.ZERO) shouldBe 0
@@ -185,7 +185,7 @@ class FinancialStatementCalculatorTest :
                     sphereBalance(GemeinnuetzigkeitSphere.ZWECKBETRIEB, "4200", LedgerAccountType.INCOME, "300.00"),
                     sphereBalance(GemeinnuetzigkeitSphere.ZWECKBETRIEB, "6310", LedgerAccountType.EXPENSE, "50.00"),
                 )
-            val result = FinancialStatementCalculator.fourSphereIncomeStatement(balances, from, to)
+            val result = FinancialStatementCalculator.fourSphereIncomeStatement(balances = balances, from = from, to = to)
 
             val ideeller = result.spheres.single { it.sphere == GemeinnuetzigkeitSphere.IDEELLER_BEREICH }
             ideeller.totalIncome.compareTo(BigDecimal("500.00")) shouldBe 0
@@ -203,7 +203,12 @@ class FinancialStatementCalculatorTest :
             result.totalExpense.compareTo(BigDecimal("150.00")) shouldBe 0
             result.result.compareTo(BigDecimal("650.00")) shouldBe 0
 
-            val plainIncomeStatement = FinancialStatementCalculator.incomeStatement(balances.map { it.account }, from, to)
+            val plainIncomeStatement =
+                FinancialStatementCalculator.incomeStatement(
+                    balances = balances.map { it.account },
+                    from = from,
+                    to = to,
+                )
             result.result.compareTo(plainIncomeStatement.result) shouldBe 0
         }
 
@@ -212,7 +217,7 @@ class FinancialStatementCalculatorTest :
                 listOf(
                     sphereBalance(GemeinnuetzigkeitSphere.ZWECKBETRIEB, "4200", LedgerAccountType.INCOME, "10.00"),
                 )
-            val result = FinancialStatementCalculator.fourSphereIncomeStatement(balances, from, to)
+            val result = FinancialStatementCalculator.fourSphereIncomeStatement(balances = balances, from = from, to = to)
 
             result.spheres.map { it.sphere } shouldBe
                 listOf(
@@ -237,7 +242,7 @@ class FinancialStatementCalculatorTest :
                     sphereBalance(GemeinnuetzigkeitSphere.VERMOEGENSVERWALTUNG, "4001", LedgerAccountType.INCOME, "100.00"),
                     sphereBalance(GemeinnuetzigkeitSphere.VERMOEGENSVERWALTUNG, "4002", LedgerAccountType.INCOME, "100.0"),
                 )
-            val result = FinancialStatementCalculator.fourSphereIncomeStatement(balances, from, to)
+            val result = FinancialStatementCalculator.fourSphereIncomeStatement(balances = balances, from = from, to = to)
             val vermoegensverwaltung = result.spheres.single { it.sphere == GemeinnuetzigkeitSphere.VERMOEGENSVERWALTUNG }
             vermoegensverwaltung.incomeLines.map { it.accountNumber } shouldBe listOf("4001", "4002")
             // 100.00 + 100.0 must sum via compareTo-safe BigDecimal arithmetic, not equals-sensitive.
@@ -256,7 +261,7 @@ class FinancialStatementCalculatorTest :
                         id = "same-account",
                     ),
                 )
-            val result = FinancialStatementCalculator.fourSphereIncomeStatement(balances, from, to)
+            val result = FinancialStatementCalculator.fourSphereIncomeStatement(balances = balances, from = from, to = to)
             result.spheres
                 .single { it.sphere == GemeinnuetzigkeitSphere.IDEELLER_BEREICH }
                 .totalIncome

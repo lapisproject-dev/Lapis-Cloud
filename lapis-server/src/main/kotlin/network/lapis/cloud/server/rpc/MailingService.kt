@@ -53,7 +53,7 @@ class MailingService(
                                 (MailingListSubscriptionTable.memberId eq current.memberId) and
                                 (MailingListSubscriptionTable.unsubscribedAt.isNull())
                         }.count() > 0
-                row.toMailingListDto(subscriberCount.toInt(), isSubscribed)
+                row.toMailingListDto(subscriberCount = subscriberCount.toInt(), isSubscribed = isSubscribed)
             }
         }
     }
@@ -76,7 +76,7 @@ class MailingService(
                 .selectAll()
                 .where { MailingListTable.id eq id }
                 .single()
-                .toMailingListDto(0, false)
+                .toMailingListDto(subscriberCount = 0, isSubscribed = false)
         }
     }
 

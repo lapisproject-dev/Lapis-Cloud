@@ -21,3 +21,6 @@ include("lapis-server") // Ktor application
 
 // ── Client (KVision, Kotlin/JS) ────────────────────────────────────
 include("lapis-client") // KVision UI, Kotlin/JS
+
+// ── Detekt (custom ruleset) ─────────────────────────────────────────
+include("lapis-detekt-rules") // custom Detekt ruleset (RequireNamedArguments gate)

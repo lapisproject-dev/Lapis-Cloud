@@ -126,8 +126,8 @@ internal object UseOfFundsCalculator {
             val outflow = expense + allocationOutflow
 
             val potWithInflow =
-                if (inflow.compareTo(ZERO) > 0) pot + Vintage(year, inflow) else pot
-            pot = consumeFifo(potWithInflow, outflow)
+                if (inflow.compareTo(ZERO) > 0) pot + Vintage(vintageYear = year, amount = inflow) else pot
+            pot = consumeFifo(pot = potWithInflow, amount = outflow)
 
             if (year in fromFiscalYear..toFiscalYear) {
                 val obligationRemaining = pot.fold(ZERO) { acc, v -> acc + v.amount }
@@ -152,11 +152,11 @@ internal object UseOfFundsCalculator {
                             },
                         receivedBySphere =
                             GemeinnuetzigkeitSphere.entries.map { sphere ->
-                                SphereAmountDto(sphere, incomeBySphere[sphere] ?: ZERO)
+                                SphereAmountDto(sphere = sphere, amount = incomeBySphere[sphere] ?: ZERO)
                             },
                         usedBySphere =
                             GemeinnuetzigkeitSphere.entries.map { sphere ->
-                                SphereAmountDto(sphere, expenseBySphere[sphere] ?: ZERO)
+                                SphereAmountDto(sphere = sphere, amount = expenseBySphere[sphere] ?: ZERO)
                             },
                         timelyUseObligationRemaining = obligationRemaining,
                         overdueAmount = overdue,
@@ -200,7 +200,7 @@ internal object UseOfFundsCalculator {
             if (vintage.amount.compareTo(remaining) <= 0) {
                 remaining -= vintage.amount
             } else {
-                result += Vintage(vintage.vintageYear, vintage.amount - remaining)
+                result += Vintage(vintageYear = vintage.vintageYear, amount = vintage.amount - remaining)
                 remaining = ZERO
             }
         }

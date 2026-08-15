@@ -132,7 +132,7 @@ class ExitCascadeJourneyTest :
                 // Retires A and B (never deletes -- see hardDeleteGovernanceAndMembershipFixtures
                 // KDoc) and, as a side effect, deletes A's Contribution/LtrLedgerEntry/Session rows
                 // and the JournalEntry/Posting rows this scenario posted with donorMemberId = A.
-                hardDeleteGovernanceAndMembershipFixtures(emptyList(), createdMemberIds)
+                hardDeleteGovernanceAndMembershipFixtures(committeeIds = emptyList(), memberIds = createdMemberIds)
                 if (createdMembershipTierIds.isNotEmpty()) {
                     MembershipTierTable.deleteWhere { MembershipTierTable.id inList createdMembershipTierIds }
                 }
@@ -150,7 +150,7 @@ class ExitCascadeJourneyTest :
                     module()
                     routing {
                         post("/e2e5/register") {
-                            RegistrationService(call, LoginRateLimiter()).registerApplication(
+                            RegistrationService(call = call, registrationRateLimiter = LoginRateLimiter()).registerApplication(
                                 RegistrationInput(
                                     displayName = call.request.queryParameters["name"]!!,
                                     email = call.request.queryParameters["email"]!!,
@@ -163,34 +163,38 @@ class ExitCascadeJourneyTest :
                         }
                         post("/e2e5/reject/{id}") {
                             val dto =
-                                RegistrationService(call, LoginRateLimiter()).rejectApplication(
-                                    call.parameters["id"]!!,
-                                    "E2E Scenario 5 -- deliberate rejection",
+                                RegistrationService(call = call, registrationRateLimiter = LoginRateLimiter()).rejectApplication(
+                                    memberId = call.parameters["id"]!!,
+                                    reason = "E2E Scenario 5 -- deliberate rejection",
                                 )
                             call.respondText(dto.status.name)
                         }
                         post("/e2e5/approve/{id}") {
-                            val dto = RegistrationService(call, LoginRateLimiter()).approveApplication(call.parameters["id"]!!)
+                            val dto =
+                                RegistrationService(
+                                    call = call,
+                                    registrationRateLimiter = LoginRateLimiter(),
+                                ).approveApplication(call.parameters["id"]!!)
                             call.respondText(dto.status.name)
                         }
                         post("/e2e5/leave-membership") {
-                            val dto = RegistrationService(call, LoginRateLimiter()).leaveMembership()
+                            val dto = RegistrationService(call = call, registrationRateLimiter = LoginRateLimiter()).leaveMembership()
                             call.respondText(dto.status.name)
                         }
                         // Session-only-gated (resolveCurrentMember, no requireActiveMembership, no
                         // requireRole) -- the "LTR: Unauthenticated" probe against a dead session.
                         get("/e2e5/my-balance") {
-                            call.respondText(LtrLedgerService(call).getMyBalance().freeBalanceLtr.toString())
+                            call.respondText(LtrLedgerService(call = call).getMyBalance().freeBalanceLtr.toString())
                         }
                         // Session-only-gated (resolveCurrentMember, no requireActiveMembership, no
                         // requireRole) -- the "Governance: can't authenticate" probe against the SAME
                         // dead session, proving the lockout is not LTR-specific.
                         get("/e2e5/list-committees") {
-                            GovernanceService(call).listCommittees(activeOnly = true)
+                            GovernanceService(call = call).listCommittees(activeOnly = true)
                             call.respondText("OK")
                         }
                         post("/e2e5/mint-ltr/{memberId}") {
-                            LtrLedgerService(call).mintLtr(
+                            LtrLedgerService(call = call).mintLtr(
                                 MintLtrInput(
                                     memberId = call.parameters["memberId"]!!,
                                     // Comfortably covers the 60.00 stake below (mirrors Scenario 2's
@@ -203,7 +207,7 @@ class ExitCascadeJourneyTest :
                             call.respondText("OK")
                         }
                         get("/e2e5/member-balance/{memberId}") {
-                            val dto = LtrLedgerService(call).getMemberBalance(call.parameters["memberId"]!!)
+                            val dto = LtrLedgerService(call = call).getMemberBalance(call.parameters["memberId"]!!)
                             call.respondText(dto.freeBalanceLtr.toString())
                         }
                         // requireActiveMembership-gated (CrowdfundingService.submitProject), no
@@ -214,7 +218,7 @@ class ExitCascadeJourneyTest :
                         // ever reached -- the weight value below is irrelevant to that outcome.
                         post("/e2e5/submit-project") {
                             val p =
-                                CrowdfundingService(call).submitProject(
+                                CrowdfundingService(call = call).submitProject(
                                     CrowdfundingProjectInput(
                                         title = "E2E-Scenario-5-Projekt",
                                         description = "E2E Scenario 5",
@@ -238,9 +242,9 @@ class ExitCascadeJourneyTest :
                         post("/e2e5/generate-contributions/{tierId}") {
                             val count =
                                 ContributionService(call).generateContributionsForPeriod(
-                                    call.parameters["tierId"]!!,
-                                    LocalDate(2027, 3, 1),
-                                    LocalDate(2027, 3, 31),
+                                    membershipTierId = call.parameters["tierId"]!!,
+                                    periodStart = LocalDate(2027, 3, 1),
+                                    periodEnd = LocalDate(2027, 3, 31),
                                 )
                             call.respondText(count.toString())
                         }
@@ -251,10 +255,10 @@ class ExitCascadeJourneyTest :
                         post("/e2e5/mark-paid/{contributionId}") {
                             val dto =
                                 ContributionService(call).markContributionPaid(
-                                    call.parameters["contributionId"]!!,
-                                    LocalDateTime(2027, 3, 15, 12, 0),
-                                    BigDecimal(call.request.queryParameters["amount"]!!),
-                                    "E2E Scenario 5",
+                                    contributionId = call.parameters["contributionId"]!!,
+                                    paidAt = LocalDateTime(2027, 3, 15, 12, 0),
+                                    paidAmount = BigDecimal(call.request.queryParameters["amount"]!!),
+                                    note = "E2E Scenario 5",
                                 )
                             call.respondText("${dto.status.name}:${dto.paidAmount}")
                         }
@@ -309,8 +313,8 @@ class ExitCascadeJourneyTest :
                             val q = call.request.queryParameters
                             val result =
                                 AuditLogService(call).verifyChainIntegrity(
-                                    q["from"]?.toLong(),
-                                    q["to"]?.toLong(),
+                                    fromSequenceNumber = q["from"]?.toLong(),
+                                    toSequenceNumber = q["to"]?.toLong(),
                                 )
                             call.respondText("${result.valid}:${result.brokenAtSequenceNumber ?: ""}:${result.checkedCount}")
                         }
@@ -336,8 +340,8 @@ class ExitCascadeJourneyTest :
                 memberStatusOf(applicantBId) shouldBe MemberStatus.ANTRAG
 
                 // ── Step 2: both real logins (real HTTP, real session cookies) -- ANTRAG can log in ──
-                val rawTokenA = client.realLogin(emailA, E2E_STRONG_PASSWORD)
-                val rawTokenB = client.realLogin(emailB, E2E_STRONG_PASSWORD)
+                val rawTokenA = client.realLogin(email = emailA, password = E2E_STRONG_PASSWORD)
+                val rawTokenB = client.realLogin(email = emailB, password = E2E_STRONG_PASSWORD)
 
                 // ── Step 3: BOARD rejects B -- a session that really was live at rejection time ────
                 val rejected = client.post("/e2e5/reject/$applicantBId") { header("X-Member-Id", BOARD_ID) }

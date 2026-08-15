@@ -197,13 +197,13 @@ class RecordingPoller(
         val roomRow = transaction { ConferenceRoomTable.selectAll().where { ConferenceRoomTable.id eq row.roomId }.singleOrNull() }
         if (roomRow == null) {
             logger.warn { "RecordingPoller: room ${row.roomId} for recording ${row.id} no longer exists -- auto-stopping" }
-            transitionToStopping(row.id, now)
+            transitionToStopping(recordingId = row.id, now = now)
             return
         }
         val roomEnded = roomRow[ConferenceRoomTable.endedAt] != null
-        val maxDurationElapsed = elapsed(row.startedAt, now) >= recordingConfig.maxDurationMinutes.minutes
+        val maxDurationElapsed = elapsed(from = row.startedAt, to = now) >= recordingConfig.maxDurationMinutes.minutes
         if (roomEnded || maxDurationElapsed) {
-            transitionToStopping(row.id, now)
+            transitionToStopping(recordingId = row.id, now = now)
             return
         }
 
@@ -235,7 +235,11 @@ class RecordingPoller(
                     "${recordingConfig.outputContainerDir}/${row.rawDir}/${participant.identity}__${track.source}__${track.sid}"
                 val egressInfo =
                     try {
-                        liveKitEgressClient.startTrackEgress(livekitRoomName, track.sid, outputPath)
+                        liveKitEgressClient.startTrackEgress(
+                            roomName = livekitRoomName,
+                            trackId = track.sid,
+                            outputFilepathWithoutExtension = outputPath,
+                        )
                     } catch (e: LiveKitAdminException) {
                         logger.warn {
                             "RecordingPoller: StartTrackEgress failed for track ${track.sid} (recording ${row.id}): ${e.message}"
@@ -270,7 +274,7 @@ class RecordingPoller(
         val roomRow = transaction { ConferenceRoomTable.selectAll().where { ConferenceRoomTable.id eq row.roomId }.singleOrNull() }
         if (roomRow == null) {
             logger.warn { "RecordingPoller: room ${row.roomId} for recording ${row.id} no longer exists while STOPPING -- marking FAILED" }
-            markFailed(row.id, FAILURE_COMPOSE_FAILED)
+            markFailed(recordingId = row.id, reason = FAILURE_COMPOSE_FAILED)
             return
         }
         val livekitRoomName = roomRow[ConferenceRoomTable.livekitRoomName]
@@ -295,14 +299,14 @@ class RecordingPoller(
         // round trips too, since there is nothing to stop or list.
         if (trackRows.isEmpty()) {
             logger.warn { "RecordingPoller: recording ${row.id} stopped with zero published tracks -- FAILED immediately" }
-            markFailed(row.id, FAILURE_NO_TRACKS)
+            markFailed(recordingId = row.id, reason = FAILURE_NO_TRACKS)
             return
         }
 
         for (t in trackRows) {
             if (t.status == ConferenceRecordingTrackStatus.STARTING || t.status == ConferenceRecordingTrackStatus.ACTIVE) {
                 try {
-                    liveKitEgressClient.stopEgress(livekitRoomName, t.egressId)
+                    liveKitEgressClient.stopEgress(roomName = livekitRoomName, egressId = t.egressId)
                 } catch (e: LiveKitAdminException) {
                     logger.warn { "RecordingPoller: StopEgress failed for ${t.egressId} (recording ${row.id}): ${e.message}" }
                 }
@@ -319,7 +323,7 @@ class RecordingPoller(
                 // prevents an indefinite STOPPING hang. `trackRows` (the DB-known statuses from
                 // before this failed call) is the best information available since the fresh
                 // `EgressInfo` refresh never happened this tick.
-                applyEgressTimeout(row, now, trackRows)
+                applyEgressTimeout(row = row, now = now, tracks = trackRows)
                 return
             }
         val byEgressId = egressInfos.associateBy { it.egressId }
@@ -360,7 +364,7 @@ class RecordingPoller(
             return
         }
 
-        applyEgressTimeout(row, now, refreshedTracks)
+        applyEgressTimeout(row = row, now = now, tracks = refreshedTracks)
     }
 
     /**
@@ -377,13 +381,13 @@ class RecordingPoller(
         tracks: List<TrackRow>,
     ) {
         val stoppedAt = row.stoppedAt ?: return
-        if (elapsed(stoppedAt, now) < recordingConfig.egressTimeoutMinutes.minutes) return
+        if (elapsed(from = stoppedAt, to = now) < recordingConfig.egressTimeoutMinutes.minutes) return
         val completedVideoCount =
             tracks.count { it.status == ConferenceRecordingTrackStatus.COMPLETE && it.trackSource in VIDEO_TRACK_SOURCES }
         if (completedVideoCount >= 1) {
             transitionToProcessing(row.id)
         } else {
-            markFailed(row.id, FAILURE_COMPOSE_TIMEOUT)
+            markFailed(recordingId = row.id, reason = FAILURE_COMPOSE_TIMEOUT)
         }
     }
 
@@ -393,7 +397,7 @@ class RecordingPoller(
         if (row.composeAttempts >= MAX_COMPOSE_ATTEMPTS) {
             // Restart reconciliation: composition crashed mid-attempt after the counter was
             // already incremented -- never attempt a third time, see class KDoc.
-            markFailed(row.id, FAILURE_COMPOSE_FAILED)
+            markFailed(recordingId = row.id, reason = FAILURE_COMPOSE_FAILED)
             return
         }
         if (!composeSemaphore.tryAcquire()) return
@@ -432,7 +436,7 @@ class RecordingPoller(
                     logger.warn { "RecordingPoller: COMPLETE track ${t.id} (recording ${row.id}) has no file_name -- skipping" }
                     return@mapNotNull null
                 }
-                val file = RecordingRawFiles.resolveWithin(hostRawRoot, row.rawDir, fn)
+                val file = RecordingRawFiles.resolveWithin(hostRawRoot = hostRawRoot, recordingId = row.rawDir, reportedFilename = fn)
                 if (file == null) {
                     logger.warn { "RecordingPoller: could not resolve raw file '$fn' for recording ${row.id} -- skipping this track" }
                     return@mapNotNull null
@@ -444,15 +448,17 @@ class RecordingPoller(
         val videoResolved = resolved.filter { it.track.trackSource in VIDEO_TRACK_SOURCES }
         if (videoResolved.isEmpty()) {
             logger.warn { "RecordingPoller: no resolvable video track for recording ${row.id} -- FAILED" }
-            markFailed(row.id, FAILURE_COMPOSE_FAILED)
+            markFailed(recordingId = row.id, reason = FAILURE_COMPOSE_FAILED)
             return
         }
         val audioResolved = resolved.filter { it.track.trackSource in AUDIO_TRACK_SOURCES }
 
         val outputDurationSeconds =
             resolved
-                .maxOf { r -> offsetSeconds(r.track.startedAtEpochNanos, t0) + (r.track.durationMs?.let { it / 1000.0 } ?: 0.0) }
-                .coerceAtLeast(1.0)
+                .maxOf { r ->
+                    offsetSeconds(startedAtEpochNanos = r.track.startedAtEpochNanos, t0 = t0) +
+                        (r.track.durationMs?.let { it / 1000.0 } ?: 0.0)
+                }.coerceAtLeast(1.0)
 
         val spec =
             RecordingComposeSpec(
@@ -460,13 +466,16 @@ class RecordingPoller(
                     videoResolved.map { r ->
                         RecordingComposeVideoInput(
                             file = r.file,
-                            offsetSeconds = offsetSeconds(r.track.startedAtEpochNanos, t0),
+                            offsetSeconds = offsetSeconds(startedAtEpochNanos = r.track.startedAtEpochNanos, t0 = t0),
                             isScreenShare = r.track.trackSource == ConferenceRecordingTrackSource.SCREEN_SHARE,
                         )
                     },
                 audioInputs =
                     audioResolved.map { r ->
-                        RecordingComposeAudioInput(file = r.file, offsetSeconds = offsetSeconds(r.track.startedAtEpochNanos, t0))
+                        RecordingComposeAudioInput(
+                            file = r.file,
+                            offsetSeconds = offsetSeconds(startedAtEpochNanos = r.track.startedAtEpochNanos, t0 = t0),
+                        )
                     },
                 outputDurationSeconds = outputDurationSeconds,
             )
@@ -474,7 +483,7 @@ class RecordingPoller(
         val outputFile = File(hostRawRoot, "${row.rawDir}/composed-$attemptNumber.mp4")
         outputFile.parentFile.mkdirs()
         try {
-            composer.compose(spec, outputFile)
+            composer.compose(spec = spec, outputFile = outputFile)
 
             val documentId =
                 archiveGeneratedFile(
@@ -518,7 +527,7 @@ class RecordingPoller(
         } catch (e: Exception) {
             logger.warn(e) { "RecordingPoller: composition/archiving failed for recording ${row.id} (attempt $attemptNumber)" }
             if (attemptNumber >= MAX_COMPOSE_ATTEMPTS) {
-                markFailed(row.id, FAILURE_COMPOSE_FAILED)
+                markFailed(recordingId = row.id, reason = FAILURE_COMPOSE_FAILED)
             }
             // else: stays PROCESSING, retried on a later tick.
         } finally {

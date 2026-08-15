@@ -102,9 +102,9 @@ class ServiceIntegrationTest :
                             val service = ContributionService(call)
                             val count =
                                 service.generateContributionsForPeriod(
-                                    DevSeedData.standardTierId.toString(),
-                                    LocalDate(2026, 9, 1),
-                                    LocalDate(2026, 9, 30),
+                                    membershipTierId = DevSeedData.standardTierId.toString(),
+                                    periodStart = LocalDate(2026, 9, 1),
+                                    periodEnd = LocalDate(2026, 9, 30),
                                 )
                             call.respondText(count.toString())
                         }
@@ -117,10 +117,10 @@ class ServiceIntegrationTest :
                             val service = ContributionService(call)
                             val dto =
                                 service.markContributionPaid(
-                                    call.parameters["contributionId"]!!,
-                                    LocalDateTime(2026, 9, 15, 12, 0),
-                                    java.math.BigDecimal("10.00"),
-                                    "Integrationstest",
+                                    contributionId = call.parameters["contributionId"]!!,
+                                    paidAt = LocalDateTime(2026, 9, 15, 12, 0),
+                                    paidAmount = java.math.BigDecimal("10.00"),
+                                    note = "Integrationstest",
                                 )
                             call.respondText(dto.status.name)
                         }
@@ -164,7 +164,7 @@ class ServiceIntegrationTest :
                     routing {
                         post("/test/create-list") {
                             val service = MailingService(call)
-                            val list = service.createMailingList("Newsletter", "Test-Liste")
+                            val list = service.createMailingList(name = "Newsletter", description = "Test-Liste")
                             call.respondText(list.id)
                         }
                         post("/test/subscribe/{listId}") {
@@ -194,7 +194,7 @@ class ServiceIntegrationTest :
                     routing {
                         post("/test/send") {
                             val service = DirectMessageService(call)
-                            service.sendDirectMessage(BOARD_ID, "Hallo vom Integrationstest")
+                            service.sendDirectMessage(recipientId = BOARD_ID, body = "Hallo vom Integrationstest")
                             call.respondText("ok")
                         }
                         get("/test/unread") {
@@ -238,16 +238,16 @@ class ServiceIntegrationTest :
                     routing {
                         post("/test/create-folder") {
                             val service = DocumentService(call)
-                            val folder = service.createFolder("Satzungen")
+                            val folder = service.createFolder(name = "Satzungen")
                             call.respondText(folder.id)
                         }
                         post("/test/create-document/{folderId}") {
                             val service = DocumentService(call)
                             val doc =
                                 service.createDocument(
-                                    call.parameters["folderId"]!!,
-                                    "Vereinssatzung 2026",
-                                    DocumentAccessLevel.PUBLIC_MEMBERS,
+                                    folderId = call.parameters["folderId"]!!,
+                                    title = "Vereinssatzung 2026",
+                                    accessLevel = DocumentAccessLevel.PUBLIC_MEMBERS,
                                 )
                             call.respondText(doc.id)
                         }
@@ -280,16 +280,16 @@ class ServiceIntegrationTest :
                     routing {
                         post("/test/create-folder") {
                             val service = DocumentService(call)
-                            val folder = service.createFolder("Executive Board Documents")
+                            val folder = service.createFolder(name = "Executive Board Documents")
                             call.respondText(folder.id)
                         }
                         post("/test/create-document/{folderId}/{level}") {
                             val service = DocumentService(call)
                             val doc =
                                 service.createDocument(
-                                    call.parameters["folderId"]!!,
-                                    "Secretdokument",
-                                    DocumentAccessLevel.valueOf(call.parameters["level"]!!),
+                                    folderId = call.parameters["folderId"]!!,
+                                    title = "Secretdokument",
+                                    accessLevel = DocumentAccessLevel.valueOf(call.parameters["level"]!!),
                                 )
                             call.respondText(doc.id)
                         }
@@ -352,16 +352,16 @@ class ServiceIntegrationTest :
                     routing {
                         post("/test/create-folder") {
                             val service = DocumentService(call)
-                            val folder = service.createFolder("Satzungen (Guest-Scope-Test)")
+                            val folder = service.createFolder(name = "Satzungen (Guest-Scope-Test)")
                             call.respondText(folder.id)
                         }
                         post("/test/create-document/{folderId}") {
                             val service = DocumentService(call)
                             val doc =
                                 service.createDocument(
-                                    call.parameters["folderId"]!!,
-                                    "Vereinssatzung (Guest-Scope-Test)",
-                                    DocumentAccessLevel.PUBLIC_MEMBERS,
+                                    folderId = call.parameters["folderId"]!!,
+                                    title = "Vereinssatzung (Guest-Scope-Test)",
+                                    accessLevel = DocumentAccessLevel.PUBLIC_MEMBERS,
                                 )
                             call.respondText(doc.id)
                         }
@@ -420,12 +420,17 @@ class ServiceIntegrationTest :
                     routing {
                         post("/test/create-list2") {
                             val service = MailingService(call)
-                            val list = service.createMailingList("Rundschreiben", null)
+                            val list = service.createMailingList(name = "Rundschreiben", description = null)
                             call.respondText(list.id)
                         }
                         post("/test/draft/{listId}") {
                             val service = MailingService(call)
-                            val message = service.createDraftMessage(call.parameters["listId"]!!, "Betreff", "Text")
+                            val message =
+                                service.createDraftMessage(
+                                    mailingListId = call.parameters["listId"]!!,
+                                    subject = "Betreff",
+                                    bodyText = "Text",
+                                )
                             call.respondText(message.id)
                         }
                         post("/test/send/{messageId}") {

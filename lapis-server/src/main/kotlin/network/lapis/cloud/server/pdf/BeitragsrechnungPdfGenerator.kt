@@ -21,14 +21,14 @@ object BeitragsrechnungPdfGenerator {
         organization: OrganizationSettingsDto,
     ): ByteArray {
         val builder = LetterPdfBuilder()
-        builder.letterhead(organization.name, organization.addressLines())
+        builder.letterhead(orgName = organization.name, orgAddressLines = organization.addressLines())
         builder.recipientAddress(member.addressLines())
         val today =
             Clock.System
                 .now()
                 .toLocalDateTime(TimeZone.currentSystemDefault())
                 .date
-        builder.dateLine(organization.city ?: organization.name, today)
+        builder.dateLine(place = organization.city ?: organization.name, date = today)
         builder.heading("Beitragsrechnung")
         builder.paragraph(
             "Liebe(r) ${member.displayName},\n\n" +

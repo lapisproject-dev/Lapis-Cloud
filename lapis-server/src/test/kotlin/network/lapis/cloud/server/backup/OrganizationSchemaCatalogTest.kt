@@ -65,14 +65,32 @@ class OrganizationSchemaCatalogTest :
             val a =
                 OrganizationSchemaCatalog.TableMetadata(
                     tableName = "cycle_a",
-                    columns = listOf(OrganizationSchemaCatalog.ColumnMetadata("id", 0, "INTEGER", false, 1)),
+                    columns =
+                        listOf(
+                            OrganizationSchemaCatalog.ColumnMetadata(
+                                name = "id",
+                                jdbcType = 0,
+                                typeName = "INTEGER",
+                                nullable = false,
+                                ordinal = 1,
+                            ),
+                        ),
                     primaryKeyColumns = listOf("id"),
                     dependsOnTables = setOf("cycle_b"),
                 )
             val b =
                 OrganizationSchemaCatalog.TableMetadata(
                     tableName = "cycle_b",
-                    columns = listOf(OrganizationSchemaCatalog.ColumnMetadata("id", 0, "INTEGER", false, 1)),
+                    columns =
+                        listOf(
+                            OrganizationSchemaCatalog.ColumnMetadata(
+                                name = "id",
+                                jdbcType = 0,
+                                typeName = "INTEGER",
+                                nullable = false,
+                                ordinal = 1,
+                            ),
+                        ),
                     primaryKeyColumns = listOf("id"),
                     dependsOnTables = setOf("cycle_a"),
                 )
@@ -96,11 +114,11 @@ class OrganizationSchemaCatalogTest :
                         columns =
                             table.columns +
                                 OrganizationSchemaCatalog.ColumnMetadata(
-                                    "synthetic_extra_column",
-                                    0,
-                                    "INTEGER",
-                                    true,
-                                    table.columns.size + 1,
+                                    name = "synthetic_extra_column",
+                                    jdbcType = 0,
+                                    typeName = "INTEGER",
+                                    nullable = true,
+                                    ordinal = table.columns.size + 1,
                                 ),
                     )
                 }

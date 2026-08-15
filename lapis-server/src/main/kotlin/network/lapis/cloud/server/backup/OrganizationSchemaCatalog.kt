@@ -58,7 +58,9 @@ object OrganizationSchemaCatalog {
     fun exportableTables(tx: JdbcTransaction): List<TableMetadata> {
         val connection = tx.rawConnection()
         val tableNames = allBaseTableNames(connection).filterNot { it in EXCLUDED_TABLES }.toSet()
-        return tableNames.sorted().map { tableName -> tableMetadataOf(connection, tableName, tableNames) }
+        return tableNames.sorted().map { tableName ->
+            tableMetadataOf(connection = connection, tableName = tableName, exportableTableNames = tableNames)
+        }
     }
 
     private fun allBaseTableNames(connection: Connection): List<String> {

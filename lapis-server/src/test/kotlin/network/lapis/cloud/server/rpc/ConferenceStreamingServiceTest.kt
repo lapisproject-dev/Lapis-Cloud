@@ -123,7 +123,13 @@ class ConferenceStreamingServiceTest :
             DevSeedData.seedIfEmpty(force = true)
         }
 
-        afterSpec { cleanUpConferenceStreamingTestData(createdMemberIds, createdRoomIds, createdDestinationIds) }
+        afterSpec {
+            cleanUpConferenceStreamingTestData(
+                memberIds = createdMemberIds,
+                roomIds = createdRoomIds,
+                destinationIds = createdDestinationIds,
+            )
+        }
 
         fun createTestMember(
             email: String,
@@ -189,7 +195,7 @@ class ConferenceStreamingServiceTest :
                     it[ConferenceStreamDestinationTable.label] = label
                     it[platform] = ConferenceStreamPlatform.GENERIC_RTMP
                     it[rtmpUrl] = "rtmp://sink.example.org:1935/live"
-                    it[streamKeyCiphertext] = secretBox.seal(streamKey, aad = id.toString())
+                    it[streamKeyCiphertext] = secretBox.seal(plaintext = streamKey, aad = id.toString())
                     it[streamKeySetAt] = now
                     it[createdByMemberId] = creatorId
                     it[createdAt] = now
@@ -210,30 +216,30 @@ class ConferenceStreamingServiceTest :
                         get("/test/availability-all-true") {
                             val dto =
                                 ConferenceStreamingService(
-                                    call,
-                                    FakeLiveKitEgressClient(),
-                                    ENABLED_CONFERENCE_CONFIG,
-                                    ENABLED_STREAMING_CONFIG,
+                                    call = call,
+                                    liveKitEgressClient = FakeLiveKitEgressClient(),
+                                    config = ENABLED_CONFERENCE_CONFIG,
+                                    streamingConfig = ENABLED_STREAMING_CONFIG,
                                 ).getStreamingAvailability()
                             call.respondText(dto.toPipeString())
                         }
                         get("/test/availability-streaming-disabled") {
                             val dto =
                                 ConferenceStreamingService(
-                                    call,
-                                    FakeLiveKitEgressClient(),
-                                    ENABLED_CONFERENCE_CONFIG,
-                                    DISABLED_STREAMING_CONFIG,
+                                    call = call,
+                                    liveKitEgressClient = FakeLiveKitEgressClient(),
+                                    config = ENABLED_CONFERENCE_CONFIG,
+                                    streamingConfig = DISABLED_STREAMING_CONFIG,
                                 ).getStreamingAvailability()
                             call.respondText(dto.toPipeString())
                         }
                         get("/test/availability-conference-disabled") {
                             val dto =
                                 ConferenceStreamingService(
-                                    call,
-                                    FakeLiveKitEgressClient(),
-                                    DISABLED_CONFERENCE_CONFIG,
-                                    ENABLED_STREAMING_CONFIG,
+                                    call = call,
+                                    liveKitEgressClient = FakeLiveKitEgressClient(),
+                                    config = DISABLED_CONFERENCE_CONFIG,
+                                    streamingConfig = ENABLED_STREAMING_CONFIG,
                                 ).getStreamingAvailability()
                             call.respondText(dto.toPipeString())
                         }
@@ -284,10 +290,10 @@ class ConferenceStreamingServiceTest :
                         get("/test/availability") {
                             val dto =
                                 ConferenceStreamingService(
-                                    call,
-                                    FakeLiveKitEgressClient(),
-                                    ENABLED_CONFERENCE_CONFIG,
-                                    ENABLED_STREAMING_CONFIG,
+                                    call = call,
+                                    liveKitEgressClient = FakeLiveKitEgressClient(),
+                                    config = ENABLED_CONFERENCE_CONFIG,
+                                    streamingConfig = ENABLED_STREAMING_CONFIG,
                                 ).getStreamingAvailability()
                             call.respondText(dto.toPipeString())
                         }
@@ -661,7 +667,14 @@ class ConferenceStreamingServiceTest :
                 val roomId = createTestRoom(creator, "Sitzung")
                 val destId = createTestDestination("Race-Ziel", creator)
 
-                val outcomes = runConcurrentStartStream(client, roomId.toString(), destId.toString(), creator, Uuid.parse(BOARD_ID))
+                val outcomes =
+                    runConcurrentStartStream(
+                        client = client,
+                        roomId = roomId.toString(),
+                        destinationId = destId.toString(),
+                        callerA = creator,
+                        callerB = Uuid.parse(BOARD_ID),
+                    )
                 outcomes.count { it == HttpStatusCode.OK } shouldBe 1
                 outcomes.count { it == HttpStatusCode.Conflict } shouldBe 1
 
@@ -742,12 +755,12 @@ class ConferenceStreamingServiceTest :
 
                 val outcomes =
                     runConcurrentStartStreamAcrossRooms(
-                        client,
-                        roomA.toString(),
-                        roomB.toString(),
-                        sharedDest.toString(),
-                        creatorA,
-                        creatorB,
+                        client = client,
+                        roomIdA = roomA.toString(),
+                        roomIdB = roomB.toString(),
+                        destinationId = sharedDest.toString(),
+                        callerA = creatorA,
+                        callerB = creatorB,
                     )
                 outcomes.count { it == HttpStatusCode.OK } shouldBe 1
                 outcomes.count { it == HttpStatusCode.Conflict } shouldBe 1
@@ -1015,7 +1028,7 @@ class ConferenceStreamingServiceTest :
                 // StreamPoller.handleStopping picks the resurrected row up on its very next tick, calls
                 // StopEgress for the FRESH id, and only THEN finalizes to ENDED for real -- proving the
                 // egress is never left publishing behind a terminal row.
-                StreamPoller(fakeClient, ENABLED_STREAMING_CONFIG).tick()
+                StreamPoller(liveKitEgressClient = fakeClient, streamingConfig = ENABLED_STREAMING_CONFIG).tick()
                 (fakeClient.stopCalls.any { it.second == freshEgressId }) shouldBe true
                 val finalRow = transaction { ConferenceStreamTable.selectAll().where { ConferenceStreamTable.id eq streamId }.single() }
                 finalRow[ConferenceStreamTable.status] shouldBe ConferenceStreamStatus.ENDED
@@ -1145,7 +1158,7 @@ class ConferenceStreamingServiceTest :
                 // StreamPoller.handleStopping picks the row up on its very next tick, calls StopEgress
                 // for the FRESH id, and only THEN finalizes to ENDED for real -- proving the fresh
                 // egress resumeStream started is never left running behind a terminal row.
-                StreamPoller(fakeClient, ENABLED_STREAMING_CONFIG).tick()
+                StreamPoller(liveKitEgressClient = fakeClient, streamingConfig = ENABLED_STREAMING_CONFIG).tick()
                 (fakeClient.stopCalls.any { it.second == freshEgressId }) shouldBe true
                 val finalRow =
                     transaction { ConferenceStreamTable.selectAll().where { ConferenceStreamTable.id eq Uuid.parse(streamId) }.single() }
@@ -1241,7 +1254,7 @@ class ConferenceStreamingServiceTest :
 
                 // StreamPoller's own PAUSING handling picks the fresh id up on its very next tick and
                 // stops it for real -- proving it was never actually leaked.
-                StreamPoller(fakeClient, ENABLED_STREAMING_CONFIG).tick()
+                StreamPoller(liveKitEgressClient = fakeClient, streamingConfig = ENABLED_STREAMING_CONFIG).tick()
                 (fakeClient.stopCalls.any { it.second == freshEgressId }) shouldBe true
             }
         }
@@ -1318,7 +1331,7 @@ class ConferenceStreamingServiceTest :
                 // StreamPoller.handleStopping picks the row up on its very next tick, calls StopEgress
                 // for the FRESH id, and finalizes ENDED for real -- proving the fresh egress
                 // restartEgressForStream started is never left running behind an un-revisited FAILED row.
-                StreamPoller(fakeClient, ENABLED_STREAMING_CONFIG).tick()
+                StreamPoller(liveKitEgressClient = fakeClient, streamingConfig = ENABLED_STREAMING_CONFIG).tick()
                 (fakeClient.stopCalls.any { it.second == freshEgressId }) shouldBe true
                 val finalRow =
                     transaction { ConferenceStreamTable.selectAll().where { ConferenceStreamTable.id eq streamUuid }.single() }
@@ -1602,7 +1615,7 @@ private class FakeLiveKitEgressClient(
     ): LiveKitEgressInfo {
         onStartRoomCompositeEgress?.invoke()
         startCalls += Triple(roomName, layout, rtmpUrls)
-        if (failStart) throw LiveKitAdminException("simulated egress start failure")
+        if (failStart) throw LiveKitAdminException(message = "simulated egress start failure")
         return LiveKitEgressInfo(egressId = "EG_fake_${counter.incrementAndGet()}", status = "EGRESS_STARTING")
     }
 
@@ -1613,7 +1626,7 @@ private class FakeLiveKitEgressClient(
         rtmpUrls: List<String>,
     ): LiveKitEgressInfo {
         startCalls += Triple(roomName, ConferenceStreamLayout.SINGLE_PARTICIPANT, rtmpUrls)
-        if (failStart) throw LiveKitAdminException("simulated egress start failure")
+        if (failStart) throw LiveKitAdminException(message = "simulated egress start failure")
         return LiveKitEgressInfo(egressId = "EG_fake_${counter.incrementAndGet()}", status = "EGRESS_STARTING")
     }
 
@@ -1799,35 +1812,43 @@ private fun Route.registerConferenceStreamingTestRoutes(
 ) {
     fun service(call: ApplicationCall) =
         ConferenceStreamingService(
-            call,
-            egressClient,
-            ENABLED_CONFERENCE_CONFIG,
-            ENABLED_STREAMING_CONFIG,
-            destinationLimiter,
-            startLimiter,
-            mutateLimiter,
-            readLimiter,
+            call = call,
+            liveKitEgressClient = egressClient,
+            config = ENABLED_CONFERENCE_CONFIG,
+            streamingConfig = ENABLED_STREAMING_CONFIG,
+            destinationRateLimiter = destinationLimiter,
+            startStreamRateLimiter = startLimiter,
+            mutateRateLimiter = mutateLimiter,
+            readRateLimiter = readLimiter,
         )
 
     post("/test/create-destination") {
         val q = call.request.queryParameters
         val dto =
             service(call).createDestination(
-                q["label"]!!,
-                ConferenceStreamPlatform.valueOf(q["platform"]!!),
-                q["rtmpUrl"]!!,
-                q["streamKey"]!!,
+                label = q["label"]!!,
+                platform = ConferenceStreamPlatform.valueOf(q["platform"]!!),
+                rtmpUrl = q["rtmpUrl"]!!,
+                streamKey = q["streamKey"]!!,
             )
         call.respondText(dto.toPipeString())
     }
     post("/test/update-destination") {
         val q = call.request.queryParameters
-        val dto = service(call).updateDestination(q["destinationId"]!!, q["label"]!!, q["rtmpUrl"]!!, q["newStreamKey"])
+        val dto =
+            service(
+                call,
+            ).updateDestination(
+                destinationId = q["destinationId"]!!,
+                label = q["label"]!!,
+                rtmpUrl = q["rtmpUrl"]!!,
+                newStreamKey = q["newStreamKey"],
+            )
         call.respondText(dto.toPipeString())
     }
     post("/test/set-destination-enabled") {
         val q = call.request.queryParameters
-        val dto = service(call).setDestinationEnabled(q["destinationId"]!!, q["enabled"]!!.toBoolean())
+        val dto = service(call).setDestinationEnabled(destinationId = q["destinationId"]!!, enabled = q["enabled"]!!.toBoolean())
         call.respondText(dto.toPipeString())
     }
     post("/test/delete-destination") {
@@ -1847,11 +1868,11 @@ private fun Route.registerConferenceStreamingTestRoutes(
         val q = call.request.queryParameters
         val dto =
             service(call).startStream(
-                q["roomId"]!!,
-                q["destinationIds"]!!.split(","),
-                ConferenceStreamLayout.valueOf(q["layout"]!!),
-                ConferenceStreamLatencyMode.valueOf(q["latencyMode"]!!),
-                q["participantIdentity"],
+                roomId = q["roomId"]!!,
+                destinationIds = q["destinationIds"]!!.split(","),
+                layout = ConferenceStreamLayout.valueOf(q["layout"]!!),
+                latencyMode = ConferenceStreamLatencyMode.valueOf(q["latencyMode"]!!),
+                participantIdentity = q["participantIdentity"],
             )
         call.respondText(dto.toPipeString())
     }

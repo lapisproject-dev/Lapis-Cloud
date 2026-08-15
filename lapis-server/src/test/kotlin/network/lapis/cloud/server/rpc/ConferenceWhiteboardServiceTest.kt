@@ -92,7 +92,7 @@ class ConferenceWhiteboardServiceTest :
         }
 
         afterSpec {
-            cleanUpWhiteboardTestData(createdMemberIds, createdRoomIds)
+            cleanUpWhiteboardTestData(memberIds = createdMemberIds, roomIds = createdRoomIds)
             documentStorageRoot.deleteRecursively()
         }
 
@@ -178,7 +178,7 @@ class ConferenceWhiteboardServiceTest :
             testApplication {
                 application {
                     install(StatusPages) { installConferenceWhiteboardExceptionHandlers() }
-                    routing { registerConferenceWhiteboardTestRoutes(ConferenceWhiteboardState()) }
+                    routing { registerConferenceWhiteboardTestRoutes(whiteboardState = ConferenceWhiteboardState()) }
                 }
                 val response =
                     client.get("/test/whiteboard-state?roomId=$roomId") { header("X-Member-Id", creator.toString()) }
@@ -193,7 +193,7 @@ class ConferenceWhiteboardServiceTest :
             testApplication {
                 application {
                     install(StatusPages) { installConferenceWhiteboardExceptionHandlers() }
-                    routing { registerConferenceWhiteboardTestRoutes(ConferenceWhiteboardState()) }
+                    routing { registerConferenceWhiteboardTestRoutes(whiteboardState = ConferenceWhiteboardState()) }
                 }
                 val commitResponse =
                     client.post(
@@ -218,7 +218,7 @@ class ConferenceWhiteboardServiceTest :
             testApplication {
                 application {
                     install(StatusPages) { installConferenceWhiteboardExceptionHandlers() }
-                    routing { registerConferenceWhiteboardTestRoutes(ConferenceWhiteboardState()) }
+                    routing { registerConferenceWhiteboardTestRoutes(whiteboardState = ConferenceWhiteboardState()) }
                 }
                 listOf("s1", "s2", "s3").forEach { id ->
                     client.post(
@@ -238,7 +238,7 @@ class ConferenceWhiteboardServiceTest :
             testApplication {
                 application {
                     install(StatusPages) { installConferenceWhiteboardExceptionHandlers() }
-                    routing { registerConferenceWhiteboardTestRoutes(ConferenceWhiteboardState()) }
+                    routing { registerConferenceWhiteboardTestRoutes(whiteboardState = ConferenceWhiteboardState()) }
                 }
                 client.post(
                     "/test/commit-stroke?roomId=$roomId&strokeId=s1&tool=PEN&color=%23e03131&strokeWidth=4&points=1,1;2,2",
@@ -258,7 +258,7 @@ class ConferenceWhiteboardServiceTest :
             testApplication {
                 application {
                     install(StatusPages) { installConferenceWhiteboardExceptionHandlers() }
-                    routing { registerConferenceWhiteboardTestRoutes(ConferenceWhiteboardState()) }
+                    routing { registerConferenceWhiteboardTestRoutes(whiteboardState = ConferenceWhiteboardState()) }
                 }
                 client.post(
                     "/test/commit-stroke?roomId=$roomId&strokeId=s1&tool=PEN&color=%23e03131&strokeWidth=4&points=1,1;2,2",
@@ -275,7 +275,12 @@ class ConferenceWhiteboardServiceTest :
             testApplication {
                 application {
                     install(StatusPages) { installConferenceWhiteboardExceptionHandlers() }
-                    routing { registerConferenceWhiteboardTestRoutes(ConferenceWhiteboardState(), documentStorageRoot) }
+                    routing {
+                        registerConferenceWhiteboardTestRoutes(
+                            whiteboardState = ConferenceWhiteboardState(),
+                            documentStorageRoot = documentStorageRoot,
+                        )
+                    }
                 }
                 client.post(
                     "/test/commit-stroke?roomId=$roomId&strokeId=s1&tool=PEN&color=%23e03131&strokeWidth=4&points=1,1;20,20;40,5",
@@ -327,7 +332,12 @@ class ConferenceWhiteboardServiceTest :
             testApplication {
                 application {
                     install(StatusPages) { installConferenceWhiteboardExceptionHandlers() }
-                    routing { registerConferenceWhiteboardTestRoutes(ConferenceWhiteboardState(), documentStorageRoot) }
+                    routing {
+                        registerConferenceWhiteboardTestRoutes(
+                            whiteboardState = ConferenceWhiteboardState(),
+                            documentStorageRoot = documentStorageRoot,
+                        )
+                    }
                 }
                 client
                     .post("/test/save-as-document?roomId=$roomId&accessLevel=BOARD_ONLY") {
@@ -344,7 +354,7 @@ class ConferenceWhiteboardServiceTest :
             testApplication {
                 application {
                     install(StatusPages) { installConferenceWhiteboardExceptionHandlers() }
-                    routing { registerConferenceWhiteboardTestRoutes(ConferenceWhiteboardState()) }
+                    routing { registerConferenceWhiteboardTestRoutes(whiteboardState = ConferenceWhiteboardState()) }
                 }
                 client
                     .post("/test/commit-stroke?roomId=$roomId&strokeId=s1&tool=PEN&color=%23e03131&strokeWidth=4&points=") {
@@ -360,7 +370,7 @@ class ConferenceWhiteboardServiceTest :
             testApplication {
                 application {
                     install(StatusPages) { installConferenceWhiteboardExceptionHandlers() }
-                    routing { registerConferenceWhiteboardTestRoutes(ConferenceWhiteboardState()) }
+                    routing { registerConferenceWhiteboardTestRoutes(whiteboardState = ConferenceWhiteboardState()) }
                 }
                 client
                     .post(
@@ -376,7 +386,7 @@ class ConferenceWhiteboardServiceTest :
             testApplication {
                 application {
                     install(StatusPages) { installConferenceWhiteboardExceptionHandlers() }
-                    routing { registerConferenceWhiteboardTestRoutes(ConferenceWhiteboardState()) }
+                    routing { registerConferenceWhiteboardTestRoutes(whiteboardState = ConferenceWhiteboardState()) }
                 }
                 client
                     .post(
@@ -397,7 +407,7 @@ class ConferenceWhiteboardServiceTest :
             testApplication {
                 application {
                     install(StatusPages) { installConferenceWhiteboardExceptionHandlers() }
-                    routing { registerConferenceWhiteboardTestRoutes(ConferenceWhiteboardState()) }
+                    routing { registerConferenceWhiteboardTestRoutes(whiteboardState = ConferenceWhiteboardState()) }
                 }
                 client
                     .post(
@@ -418,7 +428,7 @@ class ConferenceWhiteboardServiceTest :
             testApplication {
                 application {
                     install(StatusPages) { installConferenceWhiteboardExceptionHandlers() }
-                    routing { registerConferenceWhiteboardTestRoutes(ConferenceWhiteboardState()) }
+                    routing { registerConferenceWhiteboardTestRoutes(whiteboardState = ConferenceWhiteboardState()) }
                 }
                 client
                     .post(
@@ -434,7 +444,12 @@ class ConferenceWhiteboardServiceTest :
             testApplication {
                 application {
                     install(StatusPages) { installConferenceWhiteboardExceptionHandlers() }
-                    routing { registerConferenceWhiteboardTestRoutes(ConferenceWhiteboardState(), documentStorageRoot) }
+                    routing {
+                        registerConferenceWhiteboardTestRoutes(
+                            whiteboardState = ConferenceWhiteboardState(),
+                            documentStorageRoot = documentStorageRoot,
+                        )
+                    }
                 }
                 client
                     .get("/test/whiteboard-state?roomId=$bogusRoomId") { header("X-Member-Id", creator.toString()) }
@@ -460,7 +475,12 @@ class ConferenceWhiteboardServiceTest :
             testApplication {
                 application {
                     install(StatusPages) { installConferenceWhiteboardExceptionHandlers() }
-                    routing { registerConferenceWhiteboardTestRoutes(ConferenceWhiteboardState(), config = WHITEBOARD_DISABLED_CONFIG) }
+                    routing {
+                        registerConferenceWhiteboardTestRoutes(
+                            whiteboardState = ConferenceWhiteboardState(),
+                            config = WHITEBOARD_DISABLED_CONFIG,
+                        )
+                    }
                 }
                 client
                     .get("/test/whiteboard-state?roomId=$roomId") { header("X-Member-Id", creator.toString()) }
@@ -479,7 +499,12 @@ class ConferenceWhiteboardServiceTest :
             testApplication {
                 application {
                     install(StatusPages) { installConferenceWhiteboardExceptionHandlers() }
-                    routing { registerConferenceWhiteboardTestRoutes(ConferenceWhiteboardState(), documentStorageRoot) }
+                    routing {
+                        registerConferenceWhiteboardTestRoutes(
+                            whiteboardState = ConferenceWhiteboardState(),
+                            documentStorageRoot = documentStorageRoot,
+                        )
+                    }
                 }
                 client
                     .get("/test/whiteboard-state?roomId=$roomId") { header("X-Member-Id", outsider.toString()) }
@@ -506,7 +531,12 @@ class ConferenceWhiteboardServiceTest :
             testApplication {
                 application {
                     install(StatusPages) { installConferenceWhiteboardExceptionHandlers() }
-                    routing { registerConferenceWhiteboardTestRoutes(ConferenceWhiteboardState(), documentStorageRoot) }
+                    routing {
+                        registerConferenceWhiteboardTestRoutes(
+                            whiteboardState = ConferenceWhiteboardState(),
+                            documentStorageRoot = documentStorageRoot,
+                        )
+                    }
                 }
                 client
                     .get("/test/whiteboard-state?roomId=$roomId") { header("X-Member-Id", leftMember.toString()) }
@@ -532,7 +562,7 @@ class ConferenceWhiteboardServiceTest :
             testApplication {
                 application {
                     install(StatusPages) { installConferenceWhiteboardExceptionHandlers() }
-                    routing { registerConferenceWhiteboardTestRoutes(ConferenceWhiteboardState()) }
+                    routing { registerConferenceWhiteboardTestRoutes(whiteboardState = ConferenceWhiteboardState()) }
                 }
                 client.post(
                     "/test/commit-stroke?roomId=$roomId&strokeId=s1&tool=PEN&color=%23e03131&strokeWidth=4&points=1,1;2,2",
@@ -570,7 +600,7 @@ class ConferenceWhiteboardServiceTest :
             testApplication {
                 application {
                     install(StatusPages) { installConferenceWhiteboardExceptionHandlers() }
-                    routing { registerConferenceWhiteboardTestRoutes(ConferenceWhiteboardState()) }
+                    routing { registerConferenceWhiteboardTestRoutes(whiteboardState = ConferenceWhiteboardState()) }
                 }
                 client
                     .post(
@@ -588,7 +618,10 @@ class ConferenceWhiteboardServiceTest :
                 application {
                     install(StatusPages) { installConferenceWhiteboardExceptionHandlers() }
                     routing {
-                        registerConferenceWhiteboardTestRoutes(ConferenceWhiteboardState(), commitRateLimiter = tinyCommitLimiter)
+                        registerConferenceWhiteboardTestRoutes(
+                            whiteboardState = ConferenceWhiteboardState(),
+                            commitRateLimiter = tinyCommitLimiter,
+                        )
                     }
                 }
                 repeat(2) { i ->
@@ -612,7 +645,7 @@ class ConferenceWhiteboardServiceTest :
             testApplication {
                 application {
                     install(StatusPages) { installConferenceWhiteboardExceptionHandlers() }
-                    routing { registerConferenceWhiteboardTestRoutes(ConferenceWhiteboardState()) }
+                    routing { registerConferenceWhiteboardTestRoutes(whiteboardState = ConferenceWhiteboardState()) }
                 }
                 client.get("/test/whiteboard-state?roomId=$roomId").status shouldBe HttpStatusCode.Unauthorized
             }
@@ -663,7 +696,7 @@ private fun String?.toTestPoints(): List<WhiteboardPointDto> =
         ?.filter { it.isNotBlank() }
         ?.map { pair ->
             val (x, y) = pair.split(",")
-            WhiteboardPointDto(x.toDouble(), y.toDouble())
+            WhiteboardPointDto(x = x.toDouble(), y = y.toDouble())
         }.orEmpty()
 
 private fun Route.registerConferenceWhiteboardTestRoutes(
@@ -677,9 +710,9 @@ private fun Route.registerConferenceWhiteboardTestRoutes(
 ) {
     fun service(call: ApplicationCall) =
         ConferenceWhiteboardService(
-            call,
-            documentStorageRoot,
-            whiteboardState,
+            call = call,
+            documentStorageRoot = documentStorageRoot,
+            whiteboardState = whiteboardState,
             config = config,
             readRateLimiter = readRateLimiter,
             commitRateLimiter = commitRateLimiter,
@@ -703,7 +736,7 @@ private fun Route.registerConferenceWhiteboardTestRoutes(
                 strokeWidth = q["strokeWidth"]?.toDoubleOrNull() ?: 4.0,
                 points = q["points"].toTestPoints(),
             )
-        val dto = service.commitStroke(q["roomId"]!!, stroke)
+        val dto = service.commitStroke(roomId = q["roomId"]!!, stroke = stroke)
         call.respondText("${dto.strokeId}|${dto.authorMemberId}")
     }
     post("/test/clear-board") {
@@ -716,7 +749,7 @@ private fun Route.registerConferenceWhiteboardTestRoutes(
         val service = service(call)
         val q = call.request.queryParameters
         val level = DocumentAccessLevel.valueOf(q["accessLevel"] ?: "BOARD_ONLY")
-        val dto = service.saveAsDocument(q["roomId"]!!, level)
+        val dto = service.saveAsDocument(roomId = q["roomId"]!!, accessLevel = level)
         call.respondText(dto.documentId)
     }
 }

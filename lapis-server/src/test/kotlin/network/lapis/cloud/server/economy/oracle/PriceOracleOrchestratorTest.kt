@@ -81,9 +81,9 @@ class PriceOracleOrchestratorTest :
                 PriceOracleOrchestrator(
                     sources =
                         listOf(
-                            FakeSource("a", BigDecimal("100")),
-                            FakeSource("b", BigDecimal("101")),
-                            FakeSource("c", BigDecimal("102")),
+                            FakeSource(id = "a", price = BigDecimal("100")),
+                            FakeSource(id = "b", price = BigDecimal("101")),
+                            FakeSource(id = "c", price = BigDecimal("102")),
                         ),
                 )
             val outcome = orchestrator.currentQuote(testConfig()) as QuoteOutcome.Ok
@@ -95,7 +95,7 @@ class PriceOracleOrchestratorTest :
         test("even-count median is the true midpoint average of the two middle survivors") {
             val orchestrator =
                 PriceOracleOrchestrator(
-                    sources = listOf(FakeSource("a", BigDecimal("100")), FakeSource("b", BigDecimal("102"))),
+                    sources = listOf(FakeSource(id = "a", price = BigDecimal("100")), FakeSource(id = "b", price = BigDecimal("102"))),
                 )
             val outcome = orchestrator.currentQuote(testConfig(minQuorum = 2)) as QuoteOutcome.Ok
             outcome.quote.medianPrice.compareTo(BigDecimal("101")) shouldBe 0
@@ -107,9 +107,9 @@ class PriceOracleOrchestratorTest :
                 PriceOracleOrchestrator(
                     sources =
                         listOf(
-                            FakeSource("a", BigDecimal("100")),
-                            FakeSource("b", BigDecimal("101")),
-                            FakeSource("c", BigDecimal("150")),
+                            FakeSource(id = "a", price = BigDecimal("100")),
+                            FakeSource(id = "b", price = BigDecimal("101")),
+                            FakeSource(id = "c", price = BigDecimal("150")),
                         ),
                 )
             val outcome = orchestrator.currentQuote(testConfig(minQuorum = 2, outlierThresholdBps = 300)) as QuoteOutcome.Ok
@@ -121,7 +121,12 @@ class PriceOracleOrchestratorTest :
         test("quorum-halt: too few sources responded, no cache available -> Halt") {
             val orchestrator =
                 PriceOracleOrchestrator(
-                    sources = listOf(FakeSource("a", BigDecimal("100")), FakeSource("b", null), FakeSource("c", null)),
+                    sources =
+                        listOf(
+                            FakeSource(id = "a", price = BigDecimal("100")),
+                            FakeSource(id = "b", price = null),
+                            FakeSource(id = "c", price = null),
+                        ),
                 )
             val outcome = orchestrator.currentQuote(testConfig(minQuorum = 2))
             (outcome is QuoteOutcome.Halt) shouldBe true
@@ -132,9 +137,9 @@ class PriceOracleOrchestratorTest :
                 PriceOracleOrchestrator(
                     sources =
                         listOf(
-                            FakeSource("a", BigDecimal("100")),
-                            FakeSource("b", BigDecimal("200")),
-                            FakeSource("c", BigDecimal("300")),
+                            FakeSource(id = "a", price = BigDecimal("100")),
+                            FakeSource(id = "b", price = BigDecimal("200")),
+                            FakeSource(id = "c", price = BigDecimal("300")),
                         ),
                 )
             // provisional median 200; deviations of 100 and 300 from 200 are both 50% >> 1% threshold -> both dropped, 1 survivor < minQuorum 2.
@@ -147,9 +152,9 @@ class PriceOracleOrchestratorTest :
                 PriceOracleOrchestrator(
                     sources =
                         listOf(
-                            FakeSource("a", BigDecimal("100")),
-                            FakeSource("b", BigDecimal("120")),
-                            FakeSource("c", BigDecimal("140")),
+                            FakeSource(id = "a", price = BigDecimal("100")),
+                            FakeSource(id = "b", price = BigDecimal("120")),
+                            FakeSource(id = "c", price = BigDecimal("140")),
                         ),
                 )
             // Generous outlier threshold (50%) so all three survive outlier rejection, but the
@@ -163,9 +168,9 @@ class PriceOracleOrchestratorTest :
         ) {
             val clock = FakeClock()
             val livePrice = BigDecimal("101")
-            val a = MutablePriceSource("a", livePrice)
-            val b = MutablePriceSource("b", livePrice)
-            val c = MutablePriceSource("c", livePrice)
+            val a = MutablePriceSource(id = "a", price = livePrice)
+            val b = MutablePriceSource(id = "b", price = livePrice)
+            val c = MutablePriceSource(id = "c", price = livePrice)
             val orchestrator = PriceOracleOrchestrator(sources = listOf(a, b, c), clock = clock)
 
             val primed = orchestrator.currentQuote(testConfig()) as QuoteOutcome.Ok
@@ -183,9 +188,9 @@ class PriceOracleOrchestratorTest :
         test("cache expiry: cached price older than cacheTtlSeconds, no live quorum -> Halt") {
             val clock = FakeClock()
             val livePrice = BigDecimal("101")
-            val a = MutablePriceSource("a", livePrice)
-            val b = MutablePriceSource("b", livePrice)
-            val c = MutablePriceSource("c", livePrice)
+            val a = MutablePriceSource(id = "a", price = livePrice)
+            val b = MutablePriceSource(id = "b", price = livePrice)
+            val c = MutablePriceSource(id = "c", price = livePrice)
             val orchestrator = PriceOracleOrchestrator(sources = listOf(a, b, c), clock = clock)
 
             (orchestrator.currentQuote(testConfig(cacheTtlSeconds = 60)) as QuoteOutcome.Ok).quote.status shouldBe PriceStatus.LIVE
@@ -204,16 +209,21 @@ class PriceOracleOrchestratorTest :
                 PriceOracleOrchestrator(
                     sources =
                         listOf(
-                            FakeSource("a", BigDecimal("100")),
-                            FakeSource("b", BigDecimal("100")),
-                            FakeSource("c", BigDecimal("100")),
+                            FakeSource(id = "a", price = BigDecimal("100")),
+                            FakeSource(id = "b", price = BigDecimal("100")),
+                            FakeSource(id = "c", price = BigDecimal("100")),
                         ),
                 )
             (orchestratorFull.currentQuote(testConfig(minQuorum = 2)) as QuoteOutcome.Ok).quote.status shouldBe PriceStatus.LIVE
 
             val orchestratorReduced =
                 PriceOracleOrchestrator(
-                    sources = listOf(FakeSource("a", BigDecimal("100")), FakeSource("b", BigDecimal("100")), FakeSource("c", null)),
+                    sources =
+                        listOf(
+                            FakeSource(id = "a", price = BigDecimal("100")),
+                            FakeSource(id = "b", price = BigDecimal("100")),
+                            FakeSource(id = "c", price = null),
+                        ),
                 )
             (orchestratorReduced.currentQuote(testConfig(minQuorum = 2)) as QuoteOutcome.Ok).quote.status shouldBe PriceStatus.DEGRADED
         }
@@ -223,8 +233,8 @@ class PriceOracleOrchestratorTest :
                 PriceOracleOrchestrator(
                     sources =
                         listOf(
-                            FakeSource("a", BigDecimal("100.123456789012345678")),
-                            FakeSource("b", BigDecimal("100.123456789012345679")),
+                            FakeSource(id = "a", price = BigDecimal("100.123456789012345678")),
+                            FakeSource(id = "b", price = BigDecimal("100.123456789012345679")),
                         ),
                 )
             val outcome = orchestrator.currentQuote(testConfig(minQuorum = 2)) as QuoteOutcome.Ok

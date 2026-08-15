@@ -777,7 +777,14 @@ class AuctionServiceTest :
                         }.bodyAsText()
                         .split("|")[0]
 
-                runConcurrentBids(client, auctionId, bidderA, "200.00", bidderB, "300.00")
+                runConcurrentBids(
+                    client = client,
+                    auctionId = auctionId,
+                    bidderA = bidderA,
+                    amountA = "200.00",
+                    bidderB = bidderB,
+                    amountB = "300.00",
+                )
 
                 val finalDto = client.get("/test/get-auction?id=$auctionId") { header("X-Member-Id", MEMBER_ID) }.bodyAsText().split("|")
                 finalDto[8] shouldBe "2" // bidCount
@@ -813,7 +820,7 @@ class AuctionServiceTest :
                         .bodyAsText()
                         .split("|")[0]
 
-                val outcomes = runConcurrentBuyNow(client, auctionId, buyerA, buyerB)
+                val outcomes = runConcurrentBuyNow(client = client, auctionId = auctionId, buyerA = buyerA, buyerB = buyerB)
                 val successCount = outcomes.count { it == HttpStatusCode.OK }
                 successCount shouldBe 1
                 val conflictCount = outcomes.count { it == HttpStatusCode.Conflict }
@@ -923,7 +930,7 @@ private fun StatusPagesConfig.installAuctionExceptionHandlers() {
 /** Minimal throwaway probe route for [PeerTransferService.transferLtr] -- used only by the cross-path reservation-safety test. */
 private fun Route.registerPeerTransferProbeRoute() {
     post("/test/peer-transfer-probe") {
-        val service = PeerTransferService(call)
+        val service = PeerTransferService(call = call)
         val q = call.request.queryParameters
         service.transferLtr(
             PeerTransferInput(
@@ -940,7 +947,7 @@ private fun Route.registerPeerTransferProbeRoute() {
 /** Shared throwaway routes for [AuctionService] -- mirrors [PeerTransferServiceTest]'s `registerPeerTransferTestRoutes` style. Fields are pipe-separated (`|`), never colon (auction ids/amounts never contain a pipe). */
 private fun Route.registerAuctionTestRoutes() {
     post("/test/create-listing") {
-        val service = AuctionService(call)
+        val service = AuctionService(call = call)
         val q = call.request.queryParameters
         val dto =
             service.createListing(
@@ -955,53 +962,56 @@ private fun Route.registerAuctionTestRoutes() {
         call.respondText(dto.toPipeString())
     }
     post("/test/place-bid") {
-        val service = AuctionService(call)
+        val service = AuctionService(call = call)
         val q = call.request.queryParameters
-        val result = service.placeBid(q["auctionId"]!!, BigDecimal(q["maxBid"]!!))
+        val result = service.placeBid(auctionId = q["auctionId"]!!, maxBidLtr = BigDecimal(q["maxBid"]!!))
         call.respondText("${result.auctionId}|${result.youAreLeader}|${result.currentPriceLtr}|${result.yourMaxBidLtr}")
     }
     post("/test/buy-now") {
-        val service = AuctionService(call)
+        val service = AuctionService(call = call)
         val q = call.request.queryParameters
         val dto = service.buyNow(q["auctionId"]!!)
         call.respondText(dto.toPipeString())
     }
     get("/test/get-auction") {
-        val service = AuctionService(call)
+        val service = AuctionService(call = call)
         val q = call.request.queryParameters
         val dto = service.getAuction(q["id"]!!)
         call.respondText(dto.toPipeString())
     }
     post("/test/settle-auction") {
-        val service = AuctionService(call)
+        val service = AuctionService(call = call)
         val q = call.request.queryParameters
         val dto = service.settleAuction(q["id"]!!)
         call.respondText(dto.toPipeString())
     }
     get("/test/get-disclaimer") {
-        val service = AuctionService(call)
+        val service = AuctionService(call = call)
         val dto = service.getAuctionComplianceDisclaimer()
         call.respondText("${dto.version}|${dto.sha256}")
     }
     post("/test/enable-auction") {
-        val service = AuctionService(call)
+        val service = AuctionService(call = call)
         val q = call.request.queryParameters
-        val dto = service.enableAuction(AuctionComplianceAcknowledgmentInput(q["version"]!!, q["sha256"]!!))
+        val dto =
+            service.enableAuction(
+                AuctionComplianceAcknowledgmentInput(disclaimerVersion = q["version"]!!, disclaimerSha256 = q["sha256"]!!),
+            )
         call.respondText("${dto.auctionEnabled}")
     }
     post("/test/disable-auction") {
-        val service = AuctionService(call)
+        val service = AuctionService(call = call)
         val dto = service.disableAuction()
         call.respondText("${dto.auctionEnabled}")
     }
     post("/test/set-max") {
-        val service = AuctionService(call)
+        val service = AuctionService(call = call)
         val q = call.request.queryParameters
         val dto = service.setAuctionMaxValueLtr(q["value"]?.let { BigDecimal(it) })
         call.respondText("${dto.auctionMaxValueLtr}")
     }
     get("/test/get-settings") {
-        val service = AuctionService(call)
+        val service = AuctionService(call = call)
         val dto = service.getAuctionSettings()
         call.respondText("${dto.auctionEnabled}|${dto.auctionMaxValueLtr}")
     }

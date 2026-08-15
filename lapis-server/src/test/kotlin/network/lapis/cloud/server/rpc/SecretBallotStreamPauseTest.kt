@@ -160,7 +160,12 @@ class SecretBallotStreamPauseTest :
         }
 
         afterSpec {
-            cleanUpSecretBallotPauseTestData(createdMemberIds, createdCommitteeIds, createdRoomIds, createdDestinationIds)
+            cleanUpSecretBallotPauseTestData(
+                memberIds = createdMemberIds,
+                committeeIds = createdCommitteeIds,
+                roomIds = createdRoomIds,
+                destinationIds = createdDestinationIds,
+            )
         }
 
         // ── Fixture helpers -- same shape as ElectionServiceTest/SystemicConsensusServiceTest/ConferenceStreamingServiceTest ──
@@ -311,7 +316,7 @@ class SecretBallotStreamPauseTest :
                     it[ConferenceStreamDestinationTable.label] = label
                     it[platform] = ConferenceStreamPlatform.GENERIC_RTMP
                     it[rtmpUrl] = "rtmp://sink.example.org:1935/live"
-                    it[streamKeyCiphertext] = secretBox.seal("test-stream-key-123456", aad = id.toString())
+                    it[streamKeyCiphertext] = secretBox.seal(plaintext = "test-stream-key-123456", aad = id.toString())
                     it[streamKeySetAt] = now
                     it[createdByMemberId] = creatorId
                     it[createdAt] = now
@@ -446,10 +451,10 @@ class SecretBallotStreamPauseTest :
         test("1: openVoting(secret) with no conference_stream row for the bound room -- true no-op, quiesce never mutates anything") {
             testApplication {
                 val fakeClient = ControllableFakeLiveKitEgressClient()
-                val guard = DefaultSecretBallotStreamGuard(fakeClient, ENABLED_STREAMING_CONFIG)
+                val guard = DefaultSecretBallotStreamGuard(liveKitEgressClient = fakeClient, streamingConfig = ENABLED_STREAMING_CONFIG)
                 application {
                     install(StatusPages) { installSecretBallotPauseExceptionHandlers() }
-                    routing { registerSecretBallotPauseTestRoutes(fakeClient, guard) }
+                    routing { registerSecretBallotPauseTestRoutes(egressClient = fakeClient, streamGuard = guard) }
                 }
                 val committeeId = createTestCommittee("Pause-1")
                 val chair = createTestMember("pause1-chair@example.org")
@@ -472,10 +477,10 @@ class SecretBallotStreamPauseTest :
         test("2: room NOT bound to the meeting -- a secret election opening leaves its unrelated LIVE stream untouched") {
             testApplication {
                 val fakeClient = ControllableFakeLiveKitEgressClient()
-                val guard = DefaultSecretBallotStreamGuard(fakeClient, ENABLED_STREAMING_CONFIG)
+                val guard = DefaultSecretBallotStreamGuard(liveKitEgressClient = fakeClient, streamingConfig = ENABLED_STREAMING_CONFIG)
                 application {
                     install(StatusPages) { installSecretBallotPauseExceptionHandlers() }
-                    routing { registerSecretBallotPauseTestRoutes(fakeClient, guard) }
+                    routing { registerSecretBallotPauseTestRoutes(egressClient = fakeClient, streamGuard = guard) }
                 }
                 val committeeId = createTestCommittee("Pause-2")
                 val chair = createTestMember("pause2-chair@example.org")
@@ -509,10 +514,10 @@ class SecretBallotStreamPauseTest :
         test("3: bound room, LIVE stream, secret openVoting -- ends up PAUSED/SECRET_BALLOT, stopEgress called once") {
             testApplication {
                 val fakeClient = ControllableFakeLiveKitEgressClient()
-                val guard = DefaultSecretBallotStreamGuard(fakeClient, ENABLED_STREAMING_CONFIG)
+                val guard = DefaultSecretBallotStreamGuard(liveKitEgressClient = fakeClient, streamingConfig = ENABLED_STREAMING_CONFIG)
                 application {
                     install(StatusPages) { installSecretBallotPauseExceptionHandlers() }
-                    routing { registerSecretBallotPauseTestRoutes(fakeClient, guard) }
+                    routing { registerSecretBallotPauseTestRoutes(egressClient = fakeClient, streamGuard = guard) }
                 }
                 val committeeId = createTestCommittee("Pause-3")
                 val chair = createTestMember("pause3-chair@example.org")
@@ -548,10 +553,10 @@ class SecretBallotStreamPauseTest :
         test("4: a non-secret election opening leaves a bound room's LIVE stream untouched") {
             testApplication {
                 val fakeClient = ControllableFakeLiveKitEgressClient()
-                val guard = DefaultSecretBallotStreamGuard(fakeClient, ENABLED_STREAMING_CONFIG)
+                val guard = DefaultSecretBallotStreamGuard(liveKitEgressClient = fakeClient, streamingConfig = ENABLED_STREAMING_CONFIG)
                 application {
                     install(StatusPages) { installSecretBallotPauseExceptionHandlers() }
-                    routing { registerSecretBallotPauseTestRoutes(fakeClient, guard) }
+                    routing { registerSecretBallotPauseTestRoutes(egressClient = fakeClient, streamGuard = guard) }
                 }
                 val committeeId = createTestCommittee("Pause-4")
                 val chair = createTestMember("pause4-chair@example.org")
@@ -586,10 +591,10 @@ class SecretBallotStreamPauseTest :
                 // Never confirms -- the guard's own StopEgress "succeeds" but ListEgress never reports
                 // termination, so the row stays PAUSING for the whole (short) verify-timeout window.
                 val fakeClient = ControllableFakeLiveKitEgressClient(autoConfirmOnStop = false)
-                val guard = DefaultSecretBallotStreamGuard(fakeClient, ENABLED_STREAMING_CONFIG)
+                val guard = DefaultSecretBallotStreamGuard(liveKitEgressClient = fakeClient, streamingConfig = ENABLED_STREAMING_CONFIG)
                 application {
                     install(StatusPages) { installSecretBallotPauseExceptionHandlers() }
-                    routing { registerSecretBallotPauseTestRoutes(fakeClient, guard) }
+                    routing { registerSecretBallotPauseTestRoutes(egressClient = fakeClient, streamGuard = guard) }
                 }
                 val committeeId = createTestCommittee("Pause-5")
                 val chair = createTestMember("pause5-chair@example.org")
@@ -632,10 +637,10 @@ class SecretBallotStreamPauseTest :
         test("6: castElectionBallot succeeds once the stream is confirmed PAUSED") {
             testApplication {
                 val fakeClient = ControllableFakeLiveKitEgressClient()
-                val guard = DefaultSecretBallotStreamGuard(fakeClient, ENABLED_STREAMING_CONFIG)
+                val guard = DefaultSecretBallotStreamGuard(liveKitEgressClient = fakeClient, streamingConfig = ENABLED_STREAMING_CONFIG)
                 application {
                     install(StatusPages) { installSecretBallotPauseExceptionHandlers() }
-                    routing { registerSecretBallotPauseTestRoutes(fakeClient, guard) }
+                    routing { registerSecretBallotPauseTestRoutes(egressClient = fakeClient, streamGuard = guard) }
                 }
                 val committeeId = createTestCommittee("Pause-6")
                 val chair = createTestMember("pause6-chair@example.org")
@@ -661,10 +666,10 @@ class SecretBallotStreamPauseTest :
         test("7: startStream is rejected with Conflict while a secret ballot is open -- no stream row, no LiveKit call") {
             testApplication {
                 val fakeClient = ControllableFakeLiveKitEgressClient()
-                val guard = DefaultSecretBallotStreamGuard(fakeClient, ENABLED_STREAMING_CONFIG)
+                val guard = DefaultSecretBallotStreamGuard(liveKitEgressClient = fakeClient, streamingConfig = ENABLED_STREAMING_CONFIG)
                 application {
                     install(StatusPages) { installSecretBallotPauseExceptionHandlers() }
-                    routing { registerSecretBallotPauseTestRoutes(fakeClient, guard) }
+                    routing { registerSecretBallotPauseTestRoutes(egressClient = fakeClient, streamGuard = guard) }
                 }
                 val committeeId = createTestCommittee("Pause-7")
                 val chair = createTestMember("pause7-chair@example.org")
@@ -688,10 +693,10 @@ class SecretBallotStreamPauseTest :
         test("8: resumeStream (manual) is rejected with Conflict while a secret ballot is open -- stays PAUSED/SECRET_BALLOT") {
             testApplication {
                 val fakeClient = ControllableFakeLiveKitEgressClient()
-                val guard = DefaultSecretBallotStreamGuard(fakeClient, ENABLED_STREAMING_CONFIG)
+                val guard = DefaultSecretBallotStreamGuard(liveKitEgressClient = fakeClient, streamingConfig = ENABLED_STREAMING_CONFIG)
                 application {
                     install(StatusPages) { installSecretBallotPauseExceptionHandlers() }
-                    routing { registerSecretBallotPauseTestRoutes(fakeClient, guard) }
+                    routing { registerSecretBallotPauseTestRoutes(egressClient = fakeClient, streamGuard = guard) }
                 }
                 val committeeId = createTestCommittee("Pause-8")
                 val chair = createTestMember("pause8-chair@example.org")
@@ -730,10 +735,10 @@ class SecretBallotStreamPauseTest :
         ) {
             testApplication {
                 val fakeClient = ControllableFakeLiveKitEgressClient()
-                val guard = DefaultSecretBallotStreamGuard(fakeClient, ENABLED_STREAMING_CONFIG)
+                val guard = DefaultSecretBallotStreamGuard(liveKitEgressClient = fakeClient, streamingConfig = ENABLED_STREAMING_CONFIG)
                 application {
                     install(StatusPages) { installSecretBallotPauseExceptionHandlers() }
-                    routing { registerSecretBallotPauseTestRoutes(fakeClient, guard) }
+                    routing { registerSecretBallotPauseTestRoutes(egressClient = fakeClient, streamGuard = guard) }
                 }
                 val committeeId = createTestCommittee("Pause-9")
                 val chair = createTestMember("pause9-chair@example.org")
@@ -788,10 +793,10 @@ class SecretBallotStreamPauseTest :
                 // though this guard's own confirm loop had already timed out and left the row
                 // PAUSING". See scenario 10b for the genuine timeout/never-confirmed case.
                 val fakeClient = ControllableFakeLiveKitEgressClient(autoConfirmOnStop = false)
-                val guard = DefaultSecretBallotStreamGuard(fakeClient, ENABLED_STREAMING_CONFIG)
+                val guard = DefaultSecretBallotStreamGuard(liveKitEgressClient = fakeClient, streamingConfig = ENABLED_STREAMING_CONFIG)
                 application {
                     install(StatusPages) { installSecretBallotPauseExceptionHandlers() }
-                    routing { registerSecretBallotPauseTestRoutes(fakeClient, guard) }
+                    routing { registerSecretBallotPauseTestRoutes(egressClient = fakeClient, streamGuard = guard) }
                 }
                 val committeeId = createTestCommittee("Pause-10")
                 val chair = createTestMember("pause10-chair@example.org")
@@ -835,10 +840,10 @@ class SecretBallotStreamPauseTest :
                 // accepted but has not yet actually settled by the time
                 // ENABLED_STREAMING_CONFIG.pauseVerifyTimeoutSeconds (2s in this test config) elapses.
                 val fakeClient = ControllableFakeLiveKitEgressClient(autoConfirmOnStop = false)
-                val guard = DefaultSecretBallotStreamGuard(fakeClient, ENABLED_STREAMING_CONFIG)
+                val guard = DefaultSecretBallotStreamGuard(liveKitEgressClient = fakeClient, streamingConfig = ENABLED_STREAMING_CONFIG)
                 application {
                     install(StatusPages) { installSecretBallotPauseExceptionHandlers() }
-                    routing { registerSecretBallotPauseTestRoutes(fakeClient, guard) }
+                    routing { registerSecretBallotPauseTestRoutes(egressClient = fakeClient, streamGuard = guard) }
                 }
                 val committeeId = createTestCommittee("Pause-10b")
                 val chair = createTestMember("pause10b-chair@example.org")
@@ -870,7 +875,7 @@ class SecretBallotStreamPauseTest :
                 // picks it up on a later tick and confirms it once the egress is actually reported
                 // gone.
                 fakeClient.forceGone(liveEgressId)
-                val poller = StreamPoller(fakeClient, ENABLED_STREAMING_CONFIG)
+                val poller = StreamPoller(liveKitEgressClient = fakeClient, streamingConfig = ENABLED_STREAMING_CONFIG)
                 poller.tick()
                 streamRow(streamId)[ConferenceStreamTable.status] shouldBe ConferenceStreamStatus.ENDED
             }
@@ -881,10 +886,10 @@ class SecretBallotStreamPauseTest :
         test("11: closeVoting auto-resumes -- new egress id, restartCount=1, pause_reason/paused_at cleared, back to LIVE") {
             testApplication {
                 val fakeClient = ControllableFakeLiveKitEgressClient()
-                val guard = DefaultSecretBallotStreamGuard(fakeClient, ENABLED_STREAMING_CONFIG)
+                val guard = DefaultSecretBallotStreamGuard(liveKitEgressClient = fakeClient, streamingConfig = ENABLED_STREAMING_CONFIG)
                 application {
                     install(StatusPages) { installSecretBallotPauseExceptionHandlers() }
-                    routing { registerSecretBallotPauseTestRoutes(fakeClient, guard) }
+                    routing { registerSecretBallotPauseTestRoutes(egressClient = fakeClient, streamGuard = guard) }
                 }
                 val committeeId = createTestCommittee("Pause-11")
                 val chair = createTestMember("pause11-chair@example.org")
@@ -923,10 +928,10 @@ class SecretBallotStreamPauseTest :
         test("12: two simultaneous secret elections on the same meeting -- stream stays paused until BOTH close") {
             testApplication {
                 val fakeClient = ControllableFakeLiveKitEgressClient()
-                val guard = DefaultSecretBallotStreamGuard(fakeClient, ENABLED_STREAMING_CONFIG)
+                val guard = DefaultSecretBallotStreamGuard(liveKitEgressClient = fakeClient, streamingConfig = ENABLED_STREAMING_CONFIG)
                 application {
                     install(StatusPages) { installSecretBallotPauseExceptionHandlers() }
-                    routing { registerSecretBallotPauseTestRoutes(fakeClient, guard) }
+                    routing { registerSecretBallotPauseTestRoutes(egressClient = fakeClient, streamGuard = guard) }
                 }
                 val committeeId = createTestCommittee("Pause-12")
                 val chair = createTestMember("pause12-chair@example.org")
@@ -967,10 +972,10 @@ class SecretBallotStreamPauseTest :
         test("13: a secret and a non-secret election open together -- closing the non-secret one leaves the stream paused") {
             testApplication {
                 val fakeClient = ControllableFakeLiveKitEgressClient()
-                val guard = DefaultSecretBallotStreamGuard(fakeClient, ENABLED_STREAMING_CONFIG)
+                val guard = DefaultSecretBallotStreamGuard(liveKitEgressClient = fakeClient, streamingConfig = ENABLED_STREAMING_CONFIG)
                 application {
                     install(StatusPages) { installSecretBallotPauseExceptionHandlers() }
-                    routing { registerSecretBallotPauseTestRoutes(fakeClient, guard) }
+                    routing { registerSecretBallotPauseTestRoutes(egressClient = fakeClient, streamGuard = guard) }
                 }
                 val committeeId = createTestCommittee("Pause-13")
                 val chair = createTestMember("pause13-chair@example.org")
@@ -1023,10 +1028,10 @@ class SecretBallotStreamPauseTest :
         test("14: abortElection from OPEN auto-resumes; abortElection from PREPARATION attempts no resume") {
             testApplication {
                 val fakeClient = ControllableFakeLiveKitEgressClient()
-                val guard = DefaultSecretBallotStreamGuard(fakeClient, ENABLED_STREAMING_CONFIG)
+                val guard = DefaultSecretBallotStreamGuard(liveKitEgressClient = fakeClient, streamingConfig = ENABLED_STREAMING_CONFIG)
                 application {
                     install(StatusPages) { installSecretBallotPauseExceptionHandlers() }
-                    routing { registerSecretBallotPauseTestRoutes(fakeClient, guard) }
+                    routing { registerSecretBallotPauseTestRoutes(egressClient = fakeClient, streamGuard = guard) }
                 }
                 val committeeId = createTestCommittee("Pause-14")
                 val chair = createTestMember("pause14-chair@example.org")
@@ -1067,10 +1072,10 @@ class SecretBallotStreamPauseTest :
         test("15a: SystemicConsensus mirror of #3 -- freezeOptions pauses a bound room's LIVE stream") {
             testApplication {
                 val fakeClient = ControllableFakeLiveKitEgressClient()
-                val guard = DefaultSecretBallotStreamGuard(fakeClient, ENABLED_STREAMING_CONFIG)
+                val guard = DefaultSecretBallotStreamGuard(liveKitEgressClient = fakeClient, streamingConfig = ENABLED_STREAMING_CONFIG)
                 application {
                     install(StatusPages) { installSecretBallotPauseExceptionHandlers() }
-                    routing { registerSecretBallotPauseTestRoutes(fakeClient, guard) }
+                    routing { registerSecretBallotPauseTestRoutes(egressClient = fakeClient, streamGuard = guard) }
                 }
                 val committeeId = createTestCommittee("Pause-15a")
                 val chair = createTestMember("pause15a-chair@example.org")
@@ -1101,10 +1106,10 @@ class SecretBallotStreamPauseTest :
         test("15b: SystemicConsensus mirror of #5 -- castResistanceBallot during PAUSING is rejected, writes nothing") {
             testApplication {
                 val fakeClient = ControllableFakeLiveKitEgressClient(autoConfirmOnStop = false)
-                val guard = DefaultSecretBallotStreamGuard(fakeClient, ENABLED_STREAMING_CONFIG)
+                val guard = DefaultSecretBallotStreamGuard(liveKitEgressClient = fakeClient, streamingConfig = ENABLED_STREAMING_CONFIG)
                 application {
                     install(StatusPages) { installSecretBallotPauseExceptionHandlers() }
-                    routing { registerSecretBallotPauseTestRoutes(fakeClient, guard) }
+                    routing { registerSecretBallotPauseTestRoutes(egressClient = fakeClient, streamGuard = guard) }
                 }
                 val committeeId = createTestCommittee("Pause-15b")
                 val chair = createTestMember("pause15b-chair@example.org")
@@ -1135,10 +1140,10 @@ class SecretBallotStreamPauseTest :
         test("15c: SystemicConsensus mirror of #11 -- closeRating auto-resumes with restartCount=1") {
             testApplication {
                 val fakeClient = ControllableFakeLiveKitEgressClient()
-                val guard = DefaultSecretBallotStreamGuard(fakeClient, ENABLED_STREAMING_CONFIG)
+                val guard = DefaultSecretBallotStreamGuard(liveKitEgressClient = fakeClient, streamingConfig = ENABLED_STREAMING_CONFIG)
                 application {
                     install(StatusPages) { installSecretBallotPauseExceptionHandlers() }
-                    routing { registerSecretBallotPauseTestRoutes(fakeClient, guard) }
+                    routing { registerSecretBallotPauseTestRoutes(egressClient = fakeClient, streamGuard = guard) }
                 }
                 val committeeId = createTestCommittee("Pause-15c")
                 val chair = createTestMember("pause15c-chair@example.org")
@@ -1172,10 +1177,10 @@ class SecretBallotStreamPauseTest :
         test("15d: SystemicConsensus mirror of #14 -- abortSystemicConsensus resumes only when the prior status was RATING") {
             testApplication {
                 val fakeClient = ControllableFakeLiveKitEgressClient()
-                val guard = DefaultSecretBallotStreamGuard(fakeClient, ENABLED_STREAMING_CONFIG)
+                val guard = DefaultSecretBallotStreamGuard(liveKitEgressClient = fakeClient, streamingConfig = ENABLED_STREAMING_CONFIG)
                 application {
                     install(StatusPages) { installSecretBallotPauseExceptionHandlers() }
-                    routing { registerSecretBallotPauseTestRoutes(fakeClient, guard) }
+                    routing { registerSecretBallotPauseTestRoutes(egressClient = fakeClient, streamGuard = guard) }
                 }
                 val committeeId = createTestCommittee("Pause-15d")
                 val chair = createTestMember("pause15d-chair@example.org")
@@ -1221,10 +1226,10 @@ class SecretBallotStreamPauseTest :
                         stopErrorMessage = "Failed to connect to $hostnameLike: connection refused",
                         autoConfirmOnStop = false,
                     )
-                val guard = DefaultSecretBallotStreamGuard(fakeClient, ENABLED_STREAMING_CONFIG)
+                val guard = DefaultSecretBallotStreamGuard(liveKitEgressClient = fakeClient, streamingConfig = ENABLED_STREAMING_CONFIG)
                 application {
                     install(StatusPages) { installSecretBallotPauseExceptionHandlers() }
-                    routing { registerSecretBallotPauseTestRoutes(fakeClient, guard) }
+                    routing { registerSecretBallotPauseTestRoutes(egressClient = fakeClient, streamGuard = guard) }
                 }
                 val committeeId = createTestCommittee("Pause-16")
                 val chair = createTestMember("pause16-chair@example.org")
@@ -1261,10 +1266,10 @@ class SecretBallotStreamPauseTest :
         test("17: confirmation timeout leaves PAUSING; the next StreamPoller.tick() confirms PAUSED") {
             testApplication {
                 val fakeClient = ControllableFakeLiveKitEgressClient(autoConfirmOnStop = false)
-                val guard = DefaultSecretBallotStreamGuard(fakeClient, ENABLED_STREAMING_CONFIG)
+                val guard = DefaultSecretBallotStreamGuard(liveKitEgressClient = fakeClient, streamingConfig = ENABLED_STREAMING_CONFIG)
                 application {
                     install(StatusPages) { installSecretBallotPauseExceptionHandlers() }
-                    routing { registerSecretBallotPauseTestRoutes(fakeClient, guard) }
+                    routing { registerSecretBallotPauseTestRoutes(egressClient = fakeClient, streamGuard = guard) }
                 }
                 val committeeId = createTestCommittee("Pause-17")
                 val chair = createTestMember("pause17-chair@example.org")
@@ -1293,7 +1298,7 @@ class SecretBallotStreamPauseTest :
                 // own handlePausing retry (belt-and-braces on top of the guard's own, already-timed-out
                 // confirmation loop) finishes the job.
                 fakeClient.forceGone(egressId)
-                StreamPoller(fakeClient, ENABLED_STREAMING_CONFIG).tick()
+                StreamPoller(liveKitEgressClient = fakeClient, streamingConfig = ENABLED_STREAMING_CONFIG).tick()
 
                 val row = streamRow(streamId)
                 row[ConferenceStreamTable.status] shouldBe ConferenceStreamStatus.PAUSED
@@ -1306,10 +1311,10 @@ class SecretBallotStreamPauseTest :
         test("18: setRoomMeeting is rejected both un-binding from and binding into a meeting with an open secret ballot") {
             testApplication {
                 val fakeClient = ControllableFakeLiveKitEgressClient()
-                val guard = DefaultSecretBallotStreamGuard(fakeClient, ENABLED_STREAMING_CONFIG)
+                val guard = DefaultSecretBallotStreamGuard(liveKitEgressClient = fakeClient, streamingConfig = ENABLED_STREAMING_CONFIG)
                 application {
                     install(StatusPages) { installSecretBallotPauseExceptionHandlers() }
-                    routing { registerSecretBallotPauseTestRoutes(fakeClient, guard) }
+                    routing { registerSecretBallotPauseTestRoutes(egressClient = fakeClient, streamGuard = guard) }
                 }
                 val committeeId = createTestCommittee("Pause-18")
                 val chair = createTestMember("pause18-chair@example.org")
@@ -1350,10 +1355,10 @@ class SecretBallotStreamPauseTest :
         test("24: setRoomMeeting hin-binden is rejected for a room creator who is NOT a member of the target Sitzung's Gremium") {
             testApplication {
                 val fakeClient = ControllableFakeLiveKitEgressClient()
-                val guard = DefaultSecretBallotStreamGuard(fakeClient, ENABLED_STREAMING_CONFIG)
+                val guard = DefaultSecretBallotStreamGuard(liveKitEgressClient = fakeClient, streamingConfig = ENABLED_STREAMING_CONFIG)
                 application {
                     install(StatusPages) { installSecretBallotPauseExceptionHandlers() }
-                    routing { registerSecretBallotPauseTestRoutes(fakeClient, guard) }
+                    routing { registerSecretBallotPauseTestRoutes(egressClient = fakeClient, streamGuard = guard) }
                 }
                 val committeeId = createTestCommittee("Pause-24")
                 val chair = createTestMember("pause24-chair@example.org")
@@ -1376,10 +1381,10 @@ class SecretBallotStreamPauseTest :
         test("24b: setRoomMeeting hin-binden succeeds for a room creator who IS an active member of the target Sitzung's Gremium") {
             testApplication {
                 val fakeClient = ControllableFakeLiveKitEgressClient()
-                val guard = DefaultSecretBallotStreamGuard(fakeClient, ENABLED_STREAMING_CONFIG)
+                val guard = DefaultSecretBallotStreamGuard(liveKitEgressClient = fakeClient, streamingConfig = ENABLED_STREAMING_CONFIG)
                 application {
                     install(StatusPages) { installSecretBallotPauseExceptionHandlers() }
-                    routing { registerSecretBallotPauseTestRoutes(fakeClient, guard) }
+                    routing { registerSecretBallotPauseTestRoutes(egressClient = fakeClient, streamGuard = guard) }
                 }
                 val committeeId = createTestCommittee("Pause-24b")
                 val member = createTestMember("pause24b-member@example.org")
@@ -1402,10 +1407,10 @@ class SecretBallotStreamPauseTest :
         test("25: setRoomMeeting lösen (unbind) is rejected for the room creator even though they ARE a Gremiumsmitglied") {
             testApplication {
                 val fakeClient = ControllableFakeLiveKitEgressClient()
-                val guard = DefaultSecretBallotStreamGuard(fakeClient, ENABLED_STREAMING_CONFIG)
+                val guard = DefaultSecretBallotStreamGuard(liveKitEgressClient = fakeClient, streamingConfig = ENABLED_STREAMING_CONFIG)
                 application {
                     install(StatusPages) { installSecretBallotPauseExceptionHandlers() }
-                    routing { registerSecretBallotPauseTestRoutes(fakeClient, guard) }
+                    routing { registerSecretBallotPauseTestRoutes(egressClient = fakeClient, streamGuard = guard) }
                 }
                 val committeeId = createTestCommittee("Pause-25")
                 val chair = createTestMember("pause25-chair@example.org")
@@ -1426,10 +1431,10 @@ class SecretBallotStreamPauseTest :
         test("25b: setRoomMeeting lösen (unbind) succeeds for BOARD/ADMIN even though they are not the room creator") {
             testApplication {
                 val fakeClient = ControllableFakeLiveKitEgressClient()
-                val guard = DefaultSecretBallotStreamGuard(fakeClient, ENABLED_STREAMING_CONFIG)
+                val guard = DefaultSecretBallotStreamGuard(liveKitEgressClient = fakeClient, streamingConfig = ENABLED_STREAMING_CONFIG)
                 application {
                     install(StatusPages) { installSecretBallotPauseExceptionHandlers() }
-                    routing { registerSecretBallotPauseTestRoutes(fakeClient, guard) }
+                    routing { registerSecretBallotPauseTestRoutes(egressClient = fakeClient, streamGuard = guard) }
                 }
                 val committeeId = createTestCommittee("Pause-25b")
                 val chair = createTestMember("pause25b-chair@example.org")
@@ -1452,10 +1457,10 @@ class SecretBallotStreamPauseTest :
         test("26: setRoomMeeting lösen is rejected while the currently-bound Sitzung has a secret Election in PREPARATION (not yet OPEN)") {
             testApplication {
                 val fakeClient = ControllableFakeLiveKitEgressClient()
-                val guard = DefaultSecretBallotStreamGuard(fakeClient, ENABLED_STREAMING_CONFIG)
+                val guard = DefaultSecretBallotStreamGuard(liveKitEgressClient = fakeClient, streamingConfig = ENABLED_STREAMING_CONFIG)
                 application {
                     install(StatusPages) { installSecretBallotPauseExceptionHandlers() }
-                    routing { registerSecretBallotPauseTestRoutes(fakeClient, guard) }
+                    routing { registerSecretBallotPauseTestRoutes(egressClient = fakeClient, streamGuard = guard) }
                 }
                 val committeeId = createTestCommittee("Pause-26")
                 val chair = createTestMember("pause26-chair@example.org")
@@ -1484,10 +1489,10 @@ class SecretBallotStreamPauseTest :
         test("27: setRoomMeeting hin-binden is rejected once a Sitzung already has MAX_ROOMS_PER_MEETING (10) bound rooms") {
             testApplication {
                 val fakeClient = ControllableFakeLiveKitEgressClient()
-                val guard = DefaultSecretBallotStreamGuard(fakeClient, ENABLED_STREAMING_CONFIG)
+                val guard = DefaultSecretBallotStreamGuard(liveKitEgressClient = fakeClient, streamingConfig = ENABLED_STREAMING_CONFIG)
                 application {
                     install(StatusPages) { installSecretBallotPauseExceptionHandlers() }
-                    routing { registerSecretBallotPauseTestRoutes(fakeClient, guard) }
+                    routing { registerSecretBallotPauseTestRoutes(egressClient = fakeClient, streamGuard = guard) }
                 }
                 val committeeId = createTestCommittee("Pause-27")
                 val chair = createTestMember("pause27-chair@example.org")
@@ -1511,10 +1516,10 @@ class SecretBallotStreamPauseTest :
         test("28: openSystemicConsensus rejects maxRounds above the MAX_ROUNDS_HARD_CAP (10)") {
             testApplication {
                 val fakeClient = ControllableFakeLiveKitEgressClient()
-                val guard = DefaultSecretBallotStreamGuard(fakeClient, ENABLED_STREAMING_CONFIG)
+                val guard = DefaultSecretBallotStreamGuard(liveKitEgressClient = fakeClient, streamingConfig = ENABLED_STREAMING_CONFIG)
                 application {
                     install(StatusPages) { installSecretBallotPauseExceptionHandlers() }
-                    routing { registerSecretBallotPauseTestRoutes(fakeClient, guard) }
+                    routing { registerSecretBallotPauseTestRoutes(egressClient = fakeClient, streamGuard = guard) }
                 }
                 val committeeId = createTestCommittee("Pause-28")
                 val chair = createTestMember("pause28-chair@example.org")
@@ -1547,13 +1552,13 @@ class SecretBallotStreamPauseTest :
                 // the entire budget; the SECOND round's closeRating must decline to auto-resume.
                 val guard =
                     DefaultSecretBallotStreamGuard(
-                        fakeClient,
-                        ENABLED_STREAMING_CONFIG,
+                        liveKitEgressClient = fakeClient,
+                        streamingConfig = ENABLED_STREAMING_CONFIG,
                         resumeRateLimiter = FederationInboxRateLimiter(maxRequests = 1, window = 5.minutes),
                     )
                 application {
                     install(StatusPages) { installSecretBallotPauseExceptionHandlers() }
-                    routing { registerSecretBallotPauseTestRoutes(fakeClient, guard) }
+                    routing { registerSecretBallotPauseTestRoutes(egressClient = fakeClient, streamGuard = guard) }
                 }
                 val committeeId = createTestCommittee("Pause-29")
                 val chair = createTestMember("pause29-chair@example.org")
@@ -1602,7 +1607,7 @@ class SecretBallotStreamPauseTest :
 
                 // A StreamPoller tick occurring right now must NOT auto-resume it either -- proves the
                 // escalation, not just the rate-limiter's own one-time decline, is what stops the retry.
-                StreamPoller(fakeClient, ENABLED_STREAMING_CONFIG).tick()
+                StreamPoller(liveKitEgressClient = fakeClient, streamingConfig = ENABLED_STREAMING_CONFIG).tick()
                 val afterTick = streamRow(streamId)
                 afterTick[ConferenceStreamTable.status] shouldBe ConferenceStreamStatus.PAUSED
                 afterTick[ConferenceStreamTable.pauseReason] shouldBe ConferenceStreamPauseReason.MANUAL
@@ -1618,10 +1623,10 @@ class SecretBallotStreamPauseTest :
         test("30: auto-resume (resumeStreamsForMeeting) declines to restart a stream whose destination was disabled while paused") {
             testApplication {
                 val fakeClient = ControllableFakeLiveKitEgressClient()
-                val guard = DefaultSecretBallotStreamGuard(fakeClient, ENABLED_STREAMING_CONFIG)
+                val guard = DefaultSecretBallotStreamGuard(liveKitEgressClient = fakeClient, streamingConfig = ENABLED_STREAMING_CONFIG)
                 application {
                     install(StatusPages) { installSecretBallotPauseExceptionHandlers() }
-                    routing { registerSecretBallotPauseTestRoutes(fakeClient, guard) }
+                    routing { registerSecretBallotPauseTestRoutes(egressClient = fakeClient, streamGuard = guard) }
                 }
                 val committeeId = createTestCommittee("Pause-30")
                 val chair = createTestMember("pause30-chair@example.org")
@@ -1696,10 +1701,10 @@ class SecretBallotStreamPauseTest :
                             }
                         },
                     )
-                val guard = DefaultSecretBallotStreamGuard(fakeClient, ENABLED_STREAMING_CONFIG)
+                val guard = DefaultSecretBallotStreamGuard(liveKitEgressClient = fakeClient, streamingConfig = ENABLED_STREAMING_CONFIG)
                 application {
                     install(StatusPages) { installSecretBallotPauseExceptionHandlers() }
-                    routing { registerSecretBallotPauseTestRoutes(fakeClient, guard) }
+                    routing { registerSecretBallotPauseTestRoutes(egressClient = fakeClient, streamGuard = guard) }
                 }
                 val chair = createTestMember("pause31-chair@example.org")
                 val roomId = createTestRoom(chair, "Pause-31 Raum", meetingId = null)
@@ -1730,10 +1735,10 @@ class SecretBallotStreamPauseTest :
         test("32: castElectionBallot is rejected while the bound room's stream is STOPPING (StopEgress requested, not yet confirmed)") {
             testApplication {
                 val fakeClient = ControllableFakeLiveKitEgressClient()
-                val guard = DefaultSecretBallotStreamGuard(fakeClient, ENABLED_STREAMING_CONFIG)
+                val guard = DefaultSecretBallotStreamGuard(liveKitEgressClient = fakeClient, streamingConfig = ENABLED_STREAMING_CONFIG)
                 application {
                     install(StatusPages) { installSecretBallotPauseExceptionHandlers() }
-                    routing { registerSecretBallotPauseTestRoutes(fakeClient, guard) }
+                    routing { registerSecretBallotPauseTestRoutes(egressClient = fakeClient, streamGuard = guard) }
                 }
                 val committeeId = createTestCommittee("Pause-32")
                 val chair = createTestMember("pause32-chair@example.org")
@@ -1789,10 +1794,10 @@ class SecretBallotStreamPauseTest :
                         stopErrorMessage = "Failed to connect to $hostnameLike: connection refused",
                         autoConfirmOnStop = false,
                     )
-                val guard = DefaultSecretBallotStreamGuard(fakeClient, ENABLED_STREAMING_CONFIG)
+                val guard = DefaultSecretBallotStreamGuard(liveKitEgressClient = fakeClient, streamingConfig = ENABLED_STREAMING_CONFIG)
                 application {
                     install(StatusPages) { installSecretBallotPauseExceptionHandlers() }
-                    routing { registerSecretBallotPauseTestRoutes(fakeClient, guard) }
+                    routing { registerSecretBallotPauseTestRoutes(egressClient = fakeClient, streamGuard = guard) }
                 }
                 val committeeId = createTestCommittee("Pause-19")
                 val chair = createTestMember("pause19-chair@example.org")
@@ -1825,10 +1830,10 @@ class SecretBallotStreamPauseTest :
         test("R1: startStream and openVoting(secret) racing on the same room -- never LIVE while a secret ballot is open") {
             testApplication {
                 val fakeClient = ControllableFakeLiveKitEgressClient()
-                val guard = DefaultSecretBallotStreamGuard(fakeClient, ENABLED_STREAMING_CONFIG)
+                val guard = DefaultSecretBallotStreamGuard(liveKitEgressClient = fakeClient, streamingConfig = ENABLED_STREAMING_CONFIG)
                 application {
                     install(StatusPages) { installSecretBallotPauseExceptionHandlers() }
-                    routing { registerSecretBallotPauseTestRoutes(fakeClient, guard) }
+                    routing { registerSecretBallotPauseTestRoutes(egressClient = fakeClient, streamGuard = guard) }
                 }
                 val committeeId = createTestCommittee("Pause-R1")
                 val chair = createTestMember("pauser1-chair@example.org")
@@ -1908,10 +1913,10 @@ class SecretBallotStreamPauseTest :
                             releaseLatch.await(20, TimeUnit.SECONDS)
                         },
                     )
-                val guard = DefaultSecretBallotStreamGuard(fakeClient, ENABLED_STREAMING_CONFIG)
+                val guard = DefaultSecretBallotStreamGuard(liveKitEgressClient = fakeClient, streamingConfig = ENABLED_STREAMING_CONFIG)
                 application {
                     install(StatusPages) { installSecretBallotPauseExceptionHandlers() }
-                    routing { registerSecretBallotPauseTestRoutes(fakeClient, guard) }
+                    routing { registerSecretBallotPauseTestRoutes(egressClient = fakeClient, streamGuard = guard) }
                 }
                 val committeeId = createTestCommittee("Pause-R2")
                 val chair = createTestMember("pauser2-chair@example.org")
@@ -1983,10 +1988,10 @@ class SecretBallotStreamPauseTest :
                             }
                         },
                     )
-                val guard = DefaultSecretBallotStreamGuard(fakeClient, ENABLED_STREAMING_CONFIG)
+                val guard = DefaultSecretBallotStreamGuard(liveKitEgressClient = fakeClient, streamingConfig = ENABLED_STREAMING_CONFIG)
                 application {
                     install(StatusPages) { installSecretBallotPauseExceptionHandlers() }
-                    routing { registerSecretBallotPauseTestRoutes(fakeClient, guard) }
+                    routing { registerSecretBallotPauseTestRoutes(egressClient = fakeClient, streamGuard = guard) }
                 }
                 val committeeId = createTestCommittee("Pause-R3")
                 val chair = createTestMember("pauser3-chair@example.org")
@@ -2049,7 +2054,7 @@ class SecretBallotStreamPauseTest :
                 // StreamPoller.handleStopping picks the resurrected row up on its very next tick, calls
                 // StopEgress for the FRESH id, and only THEN finalizes to ENDED for real -- proving the
                 // egress the auto-resume just started is never left publishing behind a terminal row.
-                StreamPoller(fakeClient, ENABLED_STREAMING_CONFIG).tick()
+                StreamPoller(liveKitEgressClient = fakeClient, streamingConfig = ENABLED_STREAMING_CONFIG).tick()
                 (fakeClient.stopCalls.any { it.second == freshEgressId }) shouldBe true
                 streamRow(streamId)[ConferenceStreamTable.status] shouldBe ConferenceStreamStatus.ENDED
             }
@@ -2060,10 +2065,10 @@ class SecretBallotStreamPauseTest :
         test("R4: two closeVoting calls (different elections, same meeting) racing -- at most one actual egress-start, restartCount=1") {
             testApplication {
                 val fakeClient = ControllableFakeLiveKitEgressClient()
-                val guard = DefaultSecretBallotStreamGuard(fakeClient, ENABLED_STREAMING_CONFIG)
+                val guard = DefaultSecretBallotStreamGuard(liveKitEgressClient = fakeClient, streamingConfig = ENABLED_STREAMING_CONFIG)
                 application {
                     install(StatusPages) { installSecretBallotPauseExceptionHandlers() }
-                    routing { registerSecretBallotPauseTestRoutes(fakeClient, guard) }
+                    routing { registerSecretBallotPauseTestRoutes(egressClient = fakeClient, streamGuard = guard) }
                 }
                 val committeeId = createTestCommittee("Pause-R4")
                 val chair = createTestMember("pauser4-chair@example.org")
@@ -2132,10 +2137,10 @@ class SecretBallotStreamPauseTest :
         ) {
             testApplication {
                 val fakeClient = ControllableFakeLiveKitEgressClient()
-                val guard = DefaultSecretBallotStreamGuard(fakeClient, ENABLED_STREAMING_CONFIG)
+                val guard = DefaultSecretBallotStreamGuard(liveKitEgressClient = fakeClient, streamingConfig = ENABLED_STREAMING_CONFIG)
                 application {
                     install(StatusPages) { installSecretBallotPauseExceptionHandlers() }
-                    routing { registerSecretBallotPauseTestRoutes(fakeClient, guard) }
+                    routing { registerSecretBallotPauseTestRoutes(egressClient = fakeClient, streamGuard = guard) }
                 }
                 val committeeId = createTestCommittee("Pause-R5")
                 val chair = createTestMember("pauser5-chair@example.org")
@@ -2211,10 +2216,10 @@ class SecretBallotStreamPauseTest :
         ) {
             testApplication {
                 val fakeClient = ControllableFakeLiveKitEgressClient()
-                val guard = DefaultSecretBallotStreamGuard(fakeClient, ENABLED_STREAMING_CONFIG)
+                val guard = DefaultSecretBallotStreamGuard(liveKitEgressClient = fakeClient, streamingConfig = ENABLED_STREAMING_CONFIG)
                 application {
                     install(StatusPages) { installSecretBallotPauseExceptionHandlers() }
-                    routing { registerSecretBallotPauseTestRoutes(fakeClient, guard) }
+                    routing { registerSecretBallotPauseTestRoutes(egressClient = fakeClient, streamGuard = guard) }
                 }
                 val committeeId = createTestCommittee("Pause-R6")
                 val chair = createTestMember("pauser6-chair@example.org")
@@ -2324,10 +2329,10 @@ class SecretBallotStreamPauseTest :
                             }
                         },
                     )
-                val guard = DefaultSecretBallotStreamGuard(fakeClient, ENABLED_STREAMING_CONFIG)
+                val guard = DefaultSecretBallotStreamGuard(liveKitEgressClient = fakeClient, streamingConfig = ENABLED_STREAMING_CONFIG)
                 application {
                     install(StatusPages) { installSecretBallotPauseExceptionHandlers() }
-                    routing { registerSecretBallotPauseTestRoutes(fakeClient, guard) }
+                    routing { registerSecretBallotPauseTestRoutes(egressClient = fakeClient, streamGuard = guard) }
                 }
                 val committeeId = createTestCommittee("Pause-R4-1")
                 val chair = createTestMember("pauser4-1-chair@example.org")
@@ -2367,7 +2372,7 @@ class SecretBallotStreamPauseTest :
                 // handlePausing KDoc) picks the fresh id up, confirms it for real, and only THEN
                 // reaches PAUSED -- proving the fresh egress is never abandoned.
                 fakeClient.forceGone(freshEgressId)
-                StreamPoller(fakeClient, ENABLED_STREAMING_CONFIG).tick()
+                StreamPoller(liveKitEgressClient = fakeClient, streamingConfig = ENABLED_STREAMING_CONFIG).tick()
                 val afterTick = streamRow(sid)
                 afterTick[ConferenceStreamTable.status] shouldBe ConferenceStreamStatus.PAUSED
                 afterTick[ConferenceStreamTable.pauseReason] shouldBe ConferenceStreamPauseReason.SECRET_BALLOT
@@ -2390,10 +2395,10 @@ class SecretBallotStreamPauseTest :
                 // through instead of writing PAUSED unconditionally right after the best-effort
                 // StopEgress request (the pre-fix behaviour).
                 val fakeClient = ControllableFakeLiveKitEgressClient(autoConfirmOnStop = false)
-                val guard = DefaultSecretBallotStreamGuard(fakeClient, ENABLED_STREAMING_CONFIG)
+                val guard = DefaultSecretBallotStreamGuard(liveKitEgressClient = fakeClient, streamingConfig = ENABLED_STREAMING_CONFIG)
                 application {
                     install(StatusPages) { installSecretBallotPauseExceptionHandlers() }
-                    routing { registerSecretBallotPauseTestRoutes(fakeClient, guard) }
+                    routing { registerSecretBallotPauseTestRoutes(egressClient = fakeClient, streamGuard = guard) }
                 }
                 val chair = createTestMember("pauser4-3-chair@example.org")
                 val roomId = createTestRoom(chair, "Pause-R4-3 Raum", meetingId = null)
@@ -2429,7 +2434,7 @@ class SecretBallotStreamPauseTest :
                 // stopStream/DefaultSecretBallotStreamGuard already establish) finishes the job once the
                 // egress is actually confirmed gone.
                 fakeClient.forceGone(egressId)
-                StreamPoller(fakeClient, ENABLED_STREAMING_CONFIG).tick()
+                StreamPoller(liveKitEgressClient = fakeClient, streamingConfig = ENABLED_STREAMING_CONFIG).tick()
                 val afterTick = streamRow(streamId)
                 afterTick[ConferenceStreamTable.status] shouldBe ConferenceStreamStatus.PAUSED
                 afterTick[ConferenceStreamTable.pauseReason] shouldBe ConferenceStreamPauseReason.MANUAL
@@ -2493,7 +2498,7 @@ private class ControllableFakeLiveKitEgressClient(
     ): LiveKitEgressInfo {
         stopCalls += roomName to egressId
         onStopEgress?.invoke(egressId)
-        if (failStop) throw LiveKitAdminException(stopErrorMessage)
+        if (failStop) throw LiveKitAdminException(message = stopErrorMessage)
         if (autoConfirmOnStop) stillActive[egressId] = false
         return LiveKitEgressInfo(egressId = egressId, status = "EGRESS_ENDING")
     }
@@ -2511,7 +2516,7 @@ private class ControllableFakeLiveKitEgressClient(
     ): LiveKitEgressInfo {
         startCalls += Triple(roomName, layout, rtmpUrls)
         onStartRoomCompositeEgress?.invoke()
-        if (failStart) throw LiveKitAdminException("simulated egress start failure")
+        if (failStart) throw LiveKitAdminException(message = "simulated egress start failure")
         val id = "EG_fake_${counter.incrementAndGet()}"
         stillActive[id] = true
         return LiveKitEgressInfo(egressId = id, status = "EGRESS_STARTING")
@@ -2582,7 +2587,7 @@ private fun Route.registerSecretBallotPauseTestRoutes(
 ) {
     // ── Election ──────────────────────────────────────────────────────
     post("/test/open-election/{motionId}") {
-        val service = ElectionService(call, streamGuard)
+        val service = ElectionService(call = call, streamGuard = streamGuard)
         val q = call.request.queryParameters
         val w =
             service.openElection(
@@ -2600,18 +2605,18 @@ private fun Route.registerSecretBallotPauseTestRoutes(
         call.respondText("${w.id}:${w.status}")
     }
     post("/test/appoint-election-board/{electionId}") {
-        val service = ElectionService(call, streamGuard)
+        val service = ElectionService(call = call, streamGuard = streamGuard)
         val memberIds = call.request.queryParameters["memberIds"]!!.split(",")
-        val list = service.appointElectionBoard(call.parameters["electionId"]!!, memberIds)
+        val list = service.appointElectionBoard(electionId = call.parameters["electionId"]!!, memberIds = memberIds)
         call.respondText(list.size.toString())
     }
     post("/test/open-voting/{electionId}") {
-        val service = ElectionService(call, streamGuard)
+        val service = ElectionService(call = call, streamGuard = streamGuard)
         val w = service.openVoting(call.parameters["electionId"]!!)
         call.respondText(w.status.name)
     }
     post("/test/cast-election-ballot/{electionId}") {
-        val service = ElectionService(call, streamGuard)
+        val service = ElectionService(call = call, streamGuard = streamGuard)
         val q = call.request.queryParameters
         val answer = q["answer"]?.let { ElectionAnswer.valueOf(it) } ?: ElectionAnswer.YES
         val result =
@@ -2621,24 +2626,24 @@ private fun Route.registerSecretBallotPauseTestRoutes(
         call.respondText("${result.id}:${result.receiptCode ?: ""}")
     }
     post("/test/close-voting/{electionId}") {
-        val service = ElectionService(call, streamGuard)
+        val service = ElectionService(call = call, streamGuard = streamGuard)
         val w = service.closeVoting(call.parameters["electionId"]!!)
         call.respondText(w.status.name)
     }
     post("/test/abort-election/{electionId}") {
-        val service = ElectionService(call, streamGuard)
+        val service = ElectionService(call = call, streamGuard = streamGuard)
         val w = service.abortElection(call.parameters["electionId"]!!)
         call.respondText(w.status.name)
     }
     get("/test/get-election/{electionId}") {
-        val service = ElectionService(call, streamGuard)
+        val service = ElectionService(call = call, streamGuard = streamGuard)
         val w = service.getElection(call.parameters["electionId"]!!)
         call.respondText(w.status.name)
     }
 
     // ── SystemicConsensus ─────────────────────────────────────────────
     post("/test/open-systemic_consensus/{motionId}") {
-        val service = SystemicConsensusService(call, streamGuard)
+        val service = SystemicConsensusService(call = call, streamGuard = streamGuard)
         val q = call.request.queryParameters
         val k =
             service.openSystemicConsensus(
@@ -2656,12 +2661,12 @@ private fun Route.registerSecretBallotPauseTestRoutes(
         call.respondText("${k.id}:${k.status}")
     }
     post("/test/freeze-optionen/{id}") {
-        val service = SystemicConsensusService(call, streamGuard)
+        val service = SystemicConsensusService(call = call, streamGuard = streamGuard)
         val k = service.freezeOptions(call.parameters["id"]!!)
         call.respondText(k.status.name)
     }
     post("/test/cast-resistance/{id}") {
-        val service = SystemicConsensusService(call, streamGuard)
+        val service = SystemicConsensusService(call = call, streamGuard = streamGuard)
         val param = call.request.queryParameters["resistances"] ?: ""
         val resistances =
             param
@@ -2678,38 +2683,43 @@ private fun Route.registerSecretBallotPauseTestRoutes(
         call.respondText("${result.id}:${result.receiptCode ?: ""}")
     }
     post("/test/close-rating/{id}") {
-        val service = SystemicConsensusService(call, streamGuard)
+        val service = SystemicConsensusService(call = call, streamGuard = streamGuard)
         val k = service.closeRating(call.parameters["id"]!!)
         call.respondText(k.status.name)
     }
     post("/test/reopen-rating/{id}") {
-        val service = SystemicConsensusService(call, streamGuard)
+        val service = SystemicConsensusService(call = call, streamGuard = streamGuard)
         val k = service.reopenRating(call.parameters["id"]!!)
         call.respondText("${k.status}:${k.round}")
     }
     post("/test/abort-systemic_consensus/{id}") {
-        val service = SystemicConsensusService(call, streamGuard)
+        val service = SystemicConsensusService(call = call, streamGuard = streamGuard)
         val k = service.abortSystemicConsensus(call.parameters["id"]!!)
         call.respondText(k.status.name)
     }
     get("/test/get-systemic_consensus/{id}") {
-        val service = SystemicConsensusService(call, streamGuard)
+        val service = SystemicConsensusService(call = call, streamGuard = streamGuard)
         val k = service.getSystemicConsensus(call.parameters["id"]!!)
         call.respondText(k.status.name)
     }
 
     // ── ConferenceStreaming ───────────────────────────────────────────
     fun streamingService(call: ApplicationCall) =
-        ConferenceStreamingService(call, egressClient, ENABLED_CONFERENCE_CONFIG, ENABLED_STREAMING_CONFIG)
+        ConferenceStreamingService(
+            call = call,
+            liveKitEgressClient = egressClient,
+            config = ENABLED_CONFERENCE_CONFIG,
+            streamingConfig = ENABLED_STREAMING_CONFIG,
+        )
     post("/test/start-stream") {
         val q = call.request.queryParameters
         val dto =
             streamingService(call).startStream(
-                q["roomId"]!!,
-                q["destinationIds"]!!.split(","),
-                ConferenceStreamLayout.GRID,
-                ConferenceStreamLatencyMode.STANDARD,
-                null,
+                roomId = q["roomId"]!!,
+                destinationIds = q["destinationIds"]!!.split(","),
+                layout = ConferenceStreamLayout.GRID,
+                latencyMode = ConferenceStreamLatencyMode.STANDARD,
+                participantIdentity = null,
             )
         call.respondText(dto.id)
     }
@@ -2735,13 +2745,13 @@ private fun Route.registerSecretBallotPauseTestRoutes(
         val q = call.request.queryParameters
         val service =
             ConferenceService(
-                call,
-                StubLiveKitAdminClient,
-                LoginRateLimiter(),
-                ENABLED_CONFERENCE_CONFIG,
+                call = call,
+                liveKitAdminClient = StubLiveKitAdminClient,
+                createRoomRateLimiter = LoginRateLimiter(),
+                config = ENABLED_CONFERENCE_CONFIG,
                 conferenceMeetingBindRateLimiter = FederationInboxRateLimiter(maxRequests = 100, window = 1.minutes),
             )
-        val dto = service.setRoomMeeting(q["roomId"]!!, q["meetingId"]?.takeIf { it.isNotBlank() })
+        val dto = service.setRoomMeeting(roomId = q["roomId"]!!, meetingId = q["meetingId"]?.takeIf { it.isNotBlank() })
         call.respondText(dto.meetingId ?: "")
     }
 }

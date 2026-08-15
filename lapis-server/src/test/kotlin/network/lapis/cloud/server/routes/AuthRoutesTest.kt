@@ -347,7 +347,16 @@ class AuthRoutesTest :
         test("password-reset/request: an existing and a non-existent email get the IDENTICAL response (account-enumeration hardening)") {
             testApplication {
                 val mailer = CapturingPasswordResetMailer()
-                application { routing { registerAuthRoutes(LoginRateLimiter(), true, LoginRateLimiter(), mailer) } }
+                application {
+                    routing {
+                        registerAuthRoutes(
+                            rateLimiter = LoginRateLimiter(),
+                            cookieSecure = true,
+                            passwordResetRateLimiter = LoginRateLimiter(),
+                            passwordResetMailer = mailer,
+                        )
+                    }
+                }
 
                 val email = "auth-routes-reset-existing@example.org"
                 createTestMemberWithPassword(email, "a-genuinely-strong-password-1")
@@ -367,7 +376,16 @@ class AuthRoutesTest :
         test("password-reset/request: repeated requests eventually trip the rate limiter") {
             testApplication {
                 val mailer = CapturingPasswordResetMailer()
-                application { routing { registerAuthRoutes(LoginRateLimiter(), true, LoginRateLimiter(), mailer) } }
+                application {
+                    routing {
+                        registerAuthRoutes(
+                            rateLimiter = LoginRateLimiter(),
+                            cookieSecure = true,
+                            passwordResetRateLimiter = LoginRateLimiter(),
+                            passwordResetMailer = mailer,
+                        )
+                    }
+                }
 
                 val statuses =
                     (1..10).map {
@@ -392,7 +410,14 @@ class AuthRoutesTest :
                     // this test mounts registerAuthRoutes directly (to inject a capturing mailer),
                     // so it must install the same JSON converter itself.
                     install(ContentNegotiation) { json() }
-                    routing { registerAuthRoutes(LoginRateLimiter(), true, LoginRateLimiter(), mailer) }
+                    routing {
+                        registerAuthRoutes(
+                            rateLimiter = LoginRateLimiter(),
+                            cookieSecure = true,
+                            passwordResetRateLimiter = LoginRateLimiter(),
+                            passwordResetMailer = mailer,
+                        )
+                    }
                 }
 
                 val email = "auth-routes-reset-confirm@example.org"
@@ -422,7 +447,16 @@ class AuthRoutesTest :
         test("password-reset/confirm: an already-consumed token is rejected (single-use, tamper/replay test)") {
             testApplication {
                 val mailer = CapturingPasswordResetMailer()
-                application { routing { registerAuthRoutes(LoginRateLimiter(), true, LoginRateLimiter(), mailer) } }
+                application {
+                    routing {
+                        registerAuthRoutes(
+                            rateLimiter = LoginRateLimiter(),
+                            cookieSecure = true,
+                            passwordResetRateLimiter = LoginRateLimiter(),
+                            passwordResetMailer = mailer,
+                        )
+                    }
+                }
 
                 val email = "auth-routes-reset-replay@example.org"
                 createTestMemberWithPassword(email, "the-original-strong-password-1")
@@ -446,7 +480,16 @@ class AuthRoutesTest :
         test("password-reset/confirm: an expired token is rejected") {
             testApplication {
                 val mailer = CapturingPasswordResetMailer()
-                application { routing { registerAuthRoutes(LoginRateLimiter(), true, LoginRateLimiter(), mailer) } }
+                application {
+                    routing {
+                        registerAuthRoutes(
+                            rateLimiter = LoginRateLimiter(),
+                            cookieSecure = true,
+                            passwordResetRateLimiter = LoginRateLimiter(),
+                            passwordResetMailer = mailer,
+                        )
+                    }
+                }
 
                 val email = "auth-routes-reset-expired@example.org"
                 createTestMemberWithPassword(email, "the-original-strong-password-1")
@@ -475,7 +518,16 @@ class AuthRoutesTest :
         test("password-reset/confirm: an unknown token is rejected, never a 500") {
             testApplication {
                 val mailer = CapturingPasswordResetMailer()
-                application { routing { registerAuthRoutes(LoginRateLimiter(), true, LoginRateLimiter(), mailer) } }
+                application {
+                    routing {
+                        registerAuthRoutes(
+                            rateLimiter = LoginRateLimiter(),
+                            cookieSecure = true,
+                            passwordResetRateLimiter = LoginRateLimiter(),
+                            passwordResetMailer = mailer,
+                        )
+                    }
+                }
 
                 val response =
                     client.post("/api/auth/password-reset/confirm") {
@@ -491,7 +543,16 @@ class AuthRoutesTest :
         ) {
             testApplication {
                 val mailer = CapturingPasswordResetMailer()
-                application { routing { registerAuthRoutes(LoginRateLimiter(), true, LoginRateLimiter(), mailer) } }
+                application {
+                    routing {
+                        registerAuthRoutes(
+                            rateLimiter = LoginRateLimiter(),
+                            cookieSecure = true,
+                            passwordResetRateLimiter = LoginRateLimiter(),
+                            passwordResetMailer = mailer,
+                        )
+                    }
+                }
 
                 val email = "auth-routes-reset-weak@example.org"
                 createTestMemberWithPassword(email, "the-original-strong-password-1")

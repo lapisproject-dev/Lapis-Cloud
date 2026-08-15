@@ -51,11 +51,11 @@ class OidcJwtTest :
         // ── Happy path ──────────────────────────────────────────────────────
 
         test("a validly-signed RS256 ID token round-trips: sign -> verifyIdToken succeeds") {
-            val token = OidcJwt.sign(validClaims(), kid, keyPair.privateKeyPem)
+            val token = OidcJwt.sign(claimsSet = validClaims(), kid = kid, privateKeyPem = keyPair.privateKeyPem)
             val result =
                 OidcJwt.verifyIdToken(
-                    token,
-                    keyPair.publicKeyPem,
+                    compact = token,
+                    publicKeyPem = keyPair.publicKeyPem,
                     expectedIssuer = "https://home.example",
                     expectedAudience = "rp-client-id",
                     expectedNonce = "test-nonce-123",
@@ -70,7 +70,7 @@ class OidcJwtTest :
             val payload = base64Url(claimsJson())
             val forged = "$header.$payload." // unsecured JWT shape: empty third segment
 
-            val result = OidcJwt.verifySignature(forged, keyPair.publicKeyPem)
+            val result = OidcJwt.verifySignature(compact = forged, publicKeyPem = keyPair.publicKeyPem)
             result.shouldBeInstanceOf<OidcJwt.VerificationResult.Invalid>()
         }
 
@@ -79,7 +79,7 @@ class OidcJwtTest :
             val payload = base64Url(claimsJson())
             val forged = "$header.$payload.anything"
 
-            val result = OidcJwt.verifySignature(forged, keyPair.publicKeyPem)
+            val result = OidcJwt.verifySignature(compact = forged, publicKeyPem = keyPair.publicKeyPem)
             result.shouldBeInstanceOf<OidcJwt.VerificationResult.Invalid>()
         }
 
@@ -100,25 +100,25 @@ class OidcJwtTest :
             // (which this server publishes at /federation/oidc/jwks by design) crafts a token that
             // would validate if a naive implementation dynamically selected an HMAC verifier upon
             // seeing alg=HS256 and fed it the public key bytes as the HMAC secret.
-            val result = OidcJwt.verifySignature(forged, keyPair.publicKeyPem)
+            val result = OidcJwt.verifySignature(compact = forged, publicKeyPem = keyPair.publicKeyPem)
             result.shouldBeInstanceOf<OidcJwt.VerificationResult.Invalid>()
         }
 
         // ── Tamper ──────────────────────────────────────────────────────────
 
         test("a tampered payload (single byte flip after signing) is rejected") {
-            val token = OidcJwt.sign(validClaims(), kid, keyPair.privateKeyPem)
+            val token = OidcJwt.sign(claimsSet = validClaims(), kid = kid, privateKeyPem = keyPair.privateKeyPem)
             val parts = token.split(".")
             val tamperedPayload = base64Url(claimsJson(subject = "attacker-controlled-subject"))
             val tampered = "${parts[0]}.$tamperedPayload.${parts[2]}"
 
-            val result = OidcJwt.verifySignature(tampered, keyPair.publicKeyPem)
+            val result = OidcJwt.verifySignature(compact = tampered, publicKeyPem = keyPair.publicKeyPem)
             result.shouldBeInstanceOf<OidcJwt.VerificationResult.Invalid>()
         }
 
         test("a token signed by a DIFFERENT keypair is rejected when verified against the expected public key") {
-            val token = OidcJwt.sign(validClaims(), kid, otherKeyPair.privateKeyPem)
-            val result = OidcJwt.verifySignature(token, keyPair.publicKeyPem)
+            val token = OidcJwt.sign(claimsSet = validClaims(), kid = kid, privateKeyPem = otherKeyPair.privateKeyPem)
+            val result = OidcJwt.verifySignature(compact = token, publicKeyPem = keyPair.publicKeyPem)
             result.shouldBeInstanceOf<OidcJwt.VerificationResult.Invalid>()
         }
 
@@ -136,10 +136,16 @@ class OidcJwtTest :
                     .issueTime(OidcJwt.toJavaDate(now.minus(2.hours)))
                     .expirationTime(OidcJwt.toJavaDate(now.minus(1.hours)))
                     .build()
-            val token = OidcJwt.sign(claims, kid, keyPair.privateKeyPem)
+            val token = OidcJwt.sign(claimsSet = claims, kid = kid, privateKeyPem = keyPair.privateKeyPem)
 
             val result =
-                OidcJwt.verifyIdToken(token, keyPair.publicKeyPem, "https://home.example", "rp-client-id", "test-nonce-123")
+                OidcJwt.verifyIdToken(
+                    compact = token,
+                    publicKeyPem = keyPair.publicKeyPem,
+                    expectedIssuer = "https://home.example",
+                    expectedAudience = "rp-client-id",
+                    expectedNonce = "test-nonce-123",
+                )
             result.shouldBeInstanceOf<OidcJwt.VerificationResult.Invalid>()
         }
 
@@ -155,40 +161,85 @@ class OidcJwtTest :
                     .issueTime(OidcJwt.toJavaDate(now.plus(1.hours)))
                     .expirationTime(OidcJwt.toJavaDate(now.plus(2.hours)))
                     .build()
-            val token = OidcJwt.sign(claims, kid, keyPair.privateKeyPem)
+            val token = OidcJwt.sign(claimsSet = claims, kid = kid, privateKeyPem = keyPair.privateKeyPem)
 
             val result =
-                OidcJwt.verifyIdToken(token, keyPair.publicKeyPem, "https://home.example", "rp-client-id", "test-nonce-123")
+                OidcJwt.verifyIdToken(
+                    compact = token,
+                    publicKeyPem = keyPair.publicKeyPem,
+                    expectedIssuer = "https://home.example",
+                    expectedAudience = "rp-client-id",
+                    expectedNonce = "test-nonce-123",
+                )
             result.shouldBeInstanceOf<OidcJwt.VerificationResult.Invalid>()
         }
 
         // ── iss / aud / nonce ───────────────────────────────────────────────
 
         test("an ID token whose iss does not match the discovery-fetched origin is rejected") {
-            val token = OidcJwt.sign(validClaims(issuer = "https://attacker.example"), kid, keyPair.privateKeyPem)
+            val token =
+                OidcJwt.sign(
+                    claimsSet = validClaims(issuer = "https://attacker.example"),
+                    kid = kid,
+                    privateKeyPem = keyPair.privateKeyPem,
+                )
             val result =
-                OidcJwt.verifyIdToken(token, keyPair.publicKeyPem, "https://home.example", "rp-client-id", "test-nonce-123")
+                OidcJwt.verifyIdToken(
+                    compact = token,
+                    publicKeyPem = keyPair.publicKeyPem,
+                    expectedIssuer = "https://home.example",
+                    expectedAudience = "rp-client-id",
+                    expectedNonce = "test-nonce-123",
+                )
             result.shouldBeInstanceOf<OidcJwt.VerificationResult.Invalid>()
         }
 
         test("an ID token issued for a DIFFERENT relying party (aud mismatch) is rejected") {
-            val token = OidcJwt.sign(validClaims(audience = "some-other-rp-client-id"), kid, keyPair.privateKeyPem)
+            val token =
+                OidcJwt.sign(
+                    claimsSet = validClaims(audience = "some-other-rp-client-id"),
+                    kid = kid,
+                    privateKeyPem = keyPair.privateKeyPem,
+                )
             val result =
-                OidcJwt.verifyIdToken(token, keyPair.publicKeyPem, "https://home.example", "rp-client-id", "test-nonce-123")
+                OidcJwt.verifyIdToken(
+                    compact = token,
+                    publicKeyPem = keyPair.publicKeyPem,
+                    expectedIssuer = "https://home.example",
+                    expectedAudience = "rp-client-id",
+                    expectedNonce = "test-nonce-123",
+                )
             result.shouldBeInstanceOf<OidcJwt.VerificationResult.Invalid>()
         }
 
         test("an ID token whose nonce does not match the nonce generated for THIS login attempt is rejected (replay defense)") {
-            val token = OidcJwt.sign(validClaims(nonce = "a-different-earlier-nonce"), kid, keyPair.privateKeyPem)
+            val token =
+                OidcJwt.sign(
+                    claimsSet = validClaims(nonce = "a-different-earlier-nonce"),
+                    kid = kid,
+                    privateKeyPem = keyPair.privateKeyPem,
+                )
             val result =
-                OidcJwt.verifyIdToken(token, keyPair.publicKeyPem, "https://home.example", "rp-client-id", "test-nonce-123")
+                OidcJwt.verifyIdToken(
+                    compact = token,
+                    publicKeyPem = keyPair.publicKeyPem,
+                    expectedIssuer = "https://home.example",
+                    expectedAudience = "rp-client-id",
+                    expectedNonce = "test-nonce-123",
+                )
             result.shouldBeInstanceOf<OidcJwt.VerificationResult.Invalid>()
         }
 
         test("an ID token missing the nonce claim entirely is rejected") {
-            val token = OidcJwt.sign(validClaims(nonce = null), kid, keyPair.privateKeyPem)
+            val token = OidcJwt.sign(claimsSet = validClaims(nonce = null), kid = kid, privateKeyPem = keyPair.privateKeyPem)
             val result =
-                OidcJwt.verifyIdToken(token, keyPair.publicKeyPem, "https://home.example", "rp-client-id", "test-nonce-123")
+                OidcJwt.verifyIdToken(
+                    compact = token,
+                    publicKeyPem = keyPair.publicKeyPem,
+                    expectedIssuer = "https://home.example",
+                    expectedAudience = "rp-client-id",
+                    expectedNonce = "test-nonce-123",
+                )
             result.shouldBeInstanceOf<OidcJwt.VerificationResult.Invalid>()
         }
 
@@ -207,8 +258,14 @@ class OidcJwtTest :
                     .claim("jti", "logout-jti-1")
                     .claim("events", OidcJwt.logoutEventsClaim())
                     .build()
-            val token = OidcJwt.sign(claims, kid, keyPair.privateKeyPem)
-            val result = OidcJwt.verifyLogoutToken(token, keyPair.publicKeyPem, "https://home.example", "rp-client-id")
+            val token = OidcJwt.sign(claimsSet = claims, kid = kid, privateKeyPem = keyPair.privateKeyPem)
+            val result =
+                OidcJwt.verifyLogoutToken(
+                    compact = token,
+                    publicKeyPem = keyPair.publicKeyPem,
+                    expectedIssuer = "https://home.example",
+                    expectedAudience = "rp-client-id",
+                )
             result.shouldBeInstanceOf<OidcJwt.VerificationResult.Valid>()
         }
 
@@ -225,8 +282,14 @@ class OidcJwtTest :
                     .claim("nonce", "should-not-be-here")
                     .claim("events", OidcJwt.logoutEventsClaim())
                     .build()
-            val token = OidcJwt.sign(claims, kid, keyPair.privateKeyPem)
-            val result = OidcJwt.verifyLogoutToken(token, keyPair.publicKeyPem, "https://home.example", "rp-client-id")
+            val token = OidcJwt.sign(claimsSet = claims, kid = kid, privateKeyPem = keyPair.privateKeyPem)
+            val result =
+                OidcJwt.verifyLogoutToken(
+                    compact = token,
+                    publicKeyPem = keyPair.publicKeyPem,
+                    expectedIssuer = "https://home.example",
+                    expectedAudience = "rp-client-id",
+                )
             result.shouldBeInstanceOf<OidcJwt.VerificationResult.Invalid>()
         }
 
@@ -236,15 +299,21 @@ class OidcJwtTest :
             // Structurally a perfectly valid, freshly-signed ID token (no events claim) -- must
             // NEVER be accepted where a Logout Token is expected, or a captured/leaked ID token
             // could be replayed to silently revoke a session it was never meant to end.
-            val token = OidcJwt.sign(validClaims(), kid, keyPair.privateKeyPem)
-            val result = OidcJwt.verifyLogoutToken(token, keyPair.publicKeyPem, "https://home.example", "rp-client-id")
+            val token = OidcJwt.sign(claimsSet = validClaims(), kid = kid, privateKeyPem = keyPair.privateKeyPem)
+            val result =
+                OidcJwt.verifyLogoutToken(
+                    compact = token,
+                    publicKeyPem = keyPair.publicKeyPem,
+                    expectedIssuer = "https://home.example",
+                    expectedAudience = "rp-client-id",
+                )
             result.shouldBeInstanceOf<OidcJwt.VerificationResult.Invalid>()
         }
 
         // ── extractUnverified* (pre-verification lookups) ────────────────────
 
         test("extractUnverifiedKid/extractUnverifiedIssuer read the header/payload without verifying anything") {
-            val token = OidcJwt.sign(validClaims(), kid, keyPair.privateKeyPem)
+            val token = OidcJwt.sign(claimsSet = validClaims(), kid = kid, privateKeyPem = keyPair.privateKeyPem)
             OidcJwt.extractUnverifiedKid(token) shouldBe kid
             OidcJwt.extractUnverifiedIssuer(token) shouldBe "https://home.example"
         }
@@ -262,7 +331,7 @@ private data class TestRsaKeyPair(
 
 private fun generateTestRsaKeyPair(): TestRsaKeyPair {
     val generated = FederationKeyPairGenerator.generate()
-    return TestRsaKeyPair(generated.publicKeyPem, generated.privateKeyPem)
+    return TestRsaKeyPair(publicKeyPem = generated.publicKeyPem, privateKeyPem = generated.privateKeyPem)
 }
 
 private fun decodeRsaPublicKey(pem: String): RSAPublicKey {

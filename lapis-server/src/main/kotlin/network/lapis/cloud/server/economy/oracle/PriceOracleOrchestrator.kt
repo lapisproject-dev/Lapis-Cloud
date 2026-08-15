@@ -97,28 +97,34 @@ class PriceOracleOrchestrator(
 
         if (responded.size < config.minQuorum) {
             return cacheFallbackOrHalt(
-                config,
-                "Only ${responded.size}/${sources.size} configured sources responded, below minQuorum ${config.minQuorum}",
+                config = config,
+                reason = "Only ${responded.size}/${sources.size} configured sources responded, below minQuorum ${config.minQuorum}",
             )
         }
 
         val provisionalMedian = median(responded.map { it.price })
-        val survivors = responded.filter { deviationBps(it.price, provisionalMedian) <= config.outlierThresholdBps.toBigDecimal() }
+        val survivors =
+            responded.filter {
+                deviationBps(price = it.price, median = provisionalMedian) <=
+                    config.outlierThresholdBps.toBigDecimal()
+            }
 
         if (survivors.size < config.minQuorum) {
             return cacheFallbackOrHalt(
-                config,
-                "Only ${survivors.size}/${sources.size} sources survived outlier rejection (threshold ${config.outlierThresholdBps}bps), below minQuorum ${config.minQuorum}",
+                config = config,
+                reason =
+                    "Only ${survivors.size}/${sources.size} sources survived outlier rejection " +
+                        "(threshold ${config.outlierThresholdBps}bps), below minQuorum ${config.minQuorum}",
             )
         }
 
         val survivorPrices = survivors.map { it.price }
         val finalMedian = median(survivorPrices)
-        val spreadBps = spreadBps(survivorPrices, finalMedian)
+        val spreadBps = spreadBps(prices = survivorPrices, median = finalMedian)
         if (spreadBps > config.maxSpreadBps.toBigDecimal()) {
             return cacheFallbackOrHalt(
-                config,
-                "Survivor price spread ${spreadBps}bps exceeds maxSpreadBps ${config.maxSpreadBps}",
+                config = config,
+                reason = "Survivor price spread ${spreadBps}bps exceeds maxSpreadBps ${config.maxSpreadBps}",
             )
         }
 

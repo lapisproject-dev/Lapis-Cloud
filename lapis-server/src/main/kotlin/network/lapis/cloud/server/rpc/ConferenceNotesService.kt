@@ -92,11 +92,11 @@ class ConferenceNotesService(
     override suspend fun getNotesState(roomId: String): ConferenceNotesStateDto {
         val current = resolveCurrentMember(call)
         requireConferenceEnabled()
-        requireWithinRate(readRateLimiter, current.memberId)
+        requireWithinRate(limiter = readRateLimiter, memberId = current.memberId)
         val roomUuid = roomId.toNotesUuid()
         transaction {
             requireRoomExists(roomUuid)
-            requireOpenParticipation(roomUuid, current.memberId)
+            requireOpenParticipation(roomId = roomUuid, memberId = current.memberId)
         }
         return ConferenceNotesStateDto(blocks = notesState.snapshot(roomUuid))
     }
@@ -107,7 +107,7 @@ class ConferenceNotesService(
     ): NoteBlockDto {
         val current = resolveCurrentMember(call)
         requireConferenceEnabled()
-        requireWithinRate(createRateLimiter, current.memberId)
+        requireWithinRate(limiter = createRateLimiter, memberId = current.memberId)
         val roomUuid = roomId.toNotesUuid()
         validateBlockId(block.blockId)
         validateContent(block.content)
@@ -115,7 +115,7 @@ class ConferenceNotesService(
         val displayName =
             transaction {
                 requireRoomExists(roomUuid)
-                requireOpenParticipation(roomUuid, current.memberId)
+                requireOpenParticipation(roomId = roomUuid, memberId = current.memberId)
                 MemberTable.selectAll().where { MemberTable.id eq current.memberId }.single()[MemberTable.displayName]
             }
 
@@ -134,7 +134,7 @@ class ConferenceNotesService(
         // but before this re-check would resurrect content into an already-ended room's bucket
         // FOREVER, until process restart.
         transaction { requireRoomStillOpen(roomUuid) }
-        return when (val r = notesState.tryCreate(roomUuid, dto)) {
+        return when (val r = notesState.tryCreate(roomId = roomUuid, block = dto)) {
             is ConferenceNotesState.CreateResult.Ok -> r.block
             ConferenceNotesState.CreateResult.RoomFull ->
                 throw ConflictException(
@@ -149,7 +149,7 @@ class ConferenceNotesService(
     ): NoteBlockCommitResultDto {
         val current = resolveCurrentMember(call)
         requireConferenceEnabled()
-        requireWithinRate(editRateLimiter, current.memberId)
+        requireWithinRate(limiter = editRateLimiter, memberId = current.memberId)
         val roomUuid = roomId.toNotesUuid()
         validateBlockId(edit.blockId)
         validateContent(edit.content)
@@ -157,7 +157,7 @@ class ConferenceNotesService(
         val displayName =
             transaction {
                 requireRoomExists(roomUuid)
-                requireOpenParticipation(roomUuid, current.memberId)
+                requireOpenParticipation(roomId = roomUuid, memberId = current.memberId)
                 MemberTable.selectAll().where { MemberTable.id eq current.memberId }.single()[MemberTable.displayName]
             }
         // Same TOCTOU reasoning as createBlock.
@@ -165,13 +165,13 @@ class ConferenceNotesService(
         return when (
             val r =
                 notesState.tryEdit(
-                    roomUuid,
-                    edit.blockId,
-                    edit.baseVersion,
-                    edit.content,
-                    current.memberId.toString(),
-                    displayName,
-                    Clock.System.now().toEpochMilliseconds(),
+                    roomId = roomUuid,
+                    blockId = edit.blockId,
+                    baseVersion = edit.baseVersion,
+                    newContent = edit.content,
+                    editorMemberId = current.memberId.toString(),
+                    editorDisplayName = displayName,
+                    nowEpochMs = Clock.System.now().toEpochMilliseconds(),
                 )
         ) {
             is ConferenceNotesState.EditResult.Accepted -> NoteBlockCommitResultDto(accepted = true, block = r.block)
@@ -186,19 +186,26 @@ class ConferenceNotesService(
     ) {
         val current = resolveCurrentMember(call)
         requireConferenceEnabled()
-        requireWithinRate(deleteRateLimiter, current.memberId)
+        requireWithinRate(limiter = deleteRateLimiter, memberId = current.memberId)
         val roomUuid = roomId.toNotesUuid()
         val row =
             transaction {
                 val r = requireRoomExists(roomUuid)
-                requireOpenParticipation(roomUuid, current.memberId)
+                requireOpenParticipation(roomId = roomUuid, memberId = current.memberId)
                 r
             }
         val canModerate = row[ConferenceRoomTable.createdByMemberId] == current.memberId || current.isPrivileged
         // Not leak-critical (removing from an already-cleared map is inherently safe) but included
         // for consistent, explicit "room already ended" UX rather than a silent no-op.
         transaction { requireRoomStillOpen(roomUuid) }
-        when (notesState.tryDelete(roomUuid, blockId, current.memberId.toString(), canModerate)) {
+        when (
+            notesState.tryDelete(
+                roomId = roomUuid,
+                blockId = blockId,
+                callerMemberId = current.memberId.toString(),
+                callerCanModerate = canModerate,
+            )
+        ) {
             ConferenceNotesState.DeleteResult.REMOVED, ConferenceNotesState.DeleteResult.NOT_FOUND -> Unit
             ConferenceNotesState.DeleteResult.FORBIDDEN ->
                 throw ForbiddenException("Nur der zuletzt bearbeitende Teilnehmer oder ein Moderator kann diesen Block entfernen")
@@ -211,17 +218,17 @@ class ConferenceNotesService(
     ): ConferenceNotesSaveResultDto {
         val current = resolveCurrentMember(call)
         requireConferenceEnabled()
-        requireWithinRate(saveRateLimiter, current.memberId)
+        requireWithinRate(limiter = saveRateLimiter, memberId = current.memberId)
         val roomUuid = roomId.toNotesUuid()
         transaction {
             requireRoomExists(roomUuid)
-            requireOpenParticipation(roomUuid, current.memberId)
+            requireOpenParticipation(roomId = roomUuid, memberId = current.memberId)
         }
         // Already position-sorted, see ConferenceNotesState.snapshot.
         val blocks = notesState.snapshot(roomUuid)
         if (blocks.isEmpty()) throw ConflictException("Notizen sind leer -- nichts zu speichern.")
 
-        val bytes = renderNotesAsMarkdown(roomUuid, blocks).toByteArray(Charsets.UTF_8)
+        val bytes = renderNotesAsMarkdown(roomId = roomUuid, blocks = blocks).toByteArray(Charsets.UTF_8)
         val documentId =
             archiveGeneratedBytes(
                 storageRoot = documentStorageRoot,

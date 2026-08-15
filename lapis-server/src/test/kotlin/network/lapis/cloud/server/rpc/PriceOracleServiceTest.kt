@@ -78,7 +78,7 @@ private class NeverRespondingSource(
 
 /** Two agreeing sources at a fixed BTC/EUR price -- combined with the seeded default `anchorUnitsPerLtr` (0.000001), yields a clean `1 LTR = 0.05 EUR` conversion rate. */
 private fun liveOrchestrator(price: BigDecimal = BigDecimal("50000")): PriceOracleOrchestrator =
-    PriceOracleOrchestrator(sources = listOf(FixedPriceSource("a", price), FixedPriceSource("b", price)))
+    PriceOracleOrchestrator(sources = listOf(FixedPriceSource(id = "a", price = price), FixedPriceSource(id = "b", price = price)))
 
 /** A fresh orchestrator whose every source fails and which was never primed -- always HALTs. */
 private fun haltingOrchestrator(): PriceOracleOrchestrator =
@@ -381,7 +381,7 @@ private fun StatusPagesConfig.installPriceOracleExceptionHandlers() {
 /** Shared throwaway routes for [PriceOracleService] -- mirrors [PeerTransferServiceTest]'s `registerPeerTransferTestRoutes` style. */
 private fun Route.registerPriceOracleTestRoutes(orchestrator: PriceOracleOrchestrator) {
     post("/test/convert") {
-        val service = PriceOracleService(call, orchestrator)
+        val service = PriceOracleService(call = call, orchestrator = orchestrator)
         val q = call.request.queryParameters
         val r =
             service.convertDonationToLtr(
@@ -393,7 +393,7 @@ private fun Route.registerPriceOracleTestRoutes(orchestrator: PriceOracleOrchest
         call.respondText("${r.id}:${r.memberId}:${r.ltrMinted}:${r.priceStatus}:${r.ltrLedgerEntryId}")
     }
     post("/test/update-config") {
-        val service = PriceOracleService(call, orchestrator)
+        val service = PriceOracleService(call = call, orchestrator = orchestrator)
         val q = call.request.queryParameters
         val r =
             service.updateOracleConfig(
@@ -410,7 +410,7 @@ private fun Route.registerPriceOracleTestRoutes(orchestrator: PriceOracleOrchest
         call.respondText("${r.donationCurrency}:${r.cacheTtlSeconds}:${r.minQuorum}")
     }
     get("/test/get-config") {
-        val service = PriceOracleService(call, orchestrator)
+        val service = PriceOracleService(call = call, orchestrator = orchestrator)
         val r = service.getOracleConfig()
         call.respondText("${r.anchorAsset}:${r.donationCurrency}")
     }

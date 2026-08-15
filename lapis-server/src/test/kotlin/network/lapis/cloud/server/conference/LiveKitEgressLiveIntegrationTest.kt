@@ -94,7 +94,12 @@ class LiveKitEgressLiveIntegrationTest :
                 // EgressInfo, even for a track that will never exist, IS the proof this test needs.
                 lateinit var started: LiveKitEgressInfo
                 shouldNotThrowAny {
-                    started = egressClient.startTrackEgress(roomName, bogusTrackId, "/out/live-it-probe/bogus")
+                    started =
+                        egressClient.startTrackEgress(
+                            roomName = roomName,
+                            trackId = bogusTrackId,
+                            outputFilepathWithoutExtension = "/out/live-it-probe/bogus",
+                        )
                 }
                 started.egressId shouldStartWith "EG_"
                 started.status shouldBe "EGRESS_STARTING"
@@ -124,7 +129,7 @@ class LiveKitEgressLiveIntegrationTest :
                 // egress is documented as idempotent (see LiveKitEgressClient.stopEgress KDoc), so a
                 // plain try/catch swallow here is enough; the room delete below is the real cleanup.
                 try {
-                    startedEgressId?.let { egressClient.stopEgress(roomName, it) }
+                    startedEgressId?.let { egressClient.stopEgress(roomName = roomName, egressId = it) }
                 } catch (_: Exception) {
                     // Ignored -- best-effort only, see comment above.
                 }

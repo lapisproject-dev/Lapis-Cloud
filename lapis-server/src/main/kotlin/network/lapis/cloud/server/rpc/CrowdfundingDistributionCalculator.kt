@@ -33,6 +33,6 @@ internal object CrowdfundingDistributionCalculator {
         val positiveBaskets = projectBaskets.filterValues { it > 0 }
         if (positiveBaskets.isEmpty()) return emptyMap()
         val weights = positiveBaskets.mapValues { (_, basket) -> BigDecimal(basket).setScale(2) }
-        return LargestRemainderApportionment.apportion(weights, poolEur)
+        return LargestRemainderApportionment.apportion(weights = weights, pool = poolEur)
     }
 }

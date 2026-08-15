@@ -104,8 +104,9 @@ class AuthServiceTest :
                     }
                 response.status shouldBe HttpStatusCode.OK
 
-                PasswordHasher.verify("a-brand-new-strong-password-2", storedPasswordHashOf(member)) shouldBe true
-                PasswordHasher.verify(INITIAL_PASSWORD, storedPasswordHashOf(member)) shouldBe false
+                PasswordHasher.verify(rawPassword = "a-brand-new-strong-password-2", storedHash = storedPasswordHashOf(member)) shouldBe
+                    true
+                PasswordHasher.verify(rawPassword = INITIAL_PASSWORD, storedHash = storedPasswordHashOf(member)) shouldBe false
 
                 SessionStore.resolve(ownSession.rawToken).shouldNotBeNull()
                 SessionStore.resolve(otherDeviceSession.rawToken).shouldBeNull()
@@ -156,7 +157,7 @@ class AuthServiceTest :
                     }
                 response.status shouldBe HttpStatusCode.BadRequest
 
-                PasswordHasher.verify(INITIAL_PASSWORD, storedPasswordHashOf(member)) shouldBe true
+                PasswordHasher.verify(rawPassword = INITIAL_PASSWORD, storedHash = storedPasswordHashOf(member)) shouldBe true
             }
         }
 
@@ -232,7 +233,7 @@ class AuthServiceTest :
                         homeserverUrl = issuer,
                         membershipStatus = "AKTIV",
                     )
-                val member = OidcGuestMemberStore.resolveOrCreateGuestMember(claims, "openid profile_basic")
+                val member = OidcGuestMemberStore.resolveOrCreateGuestMember(claims = claims, grantedScope = "openid profile_basic")
                 createdMemberIds += member
                 val issued = SessionStore.createSession(member)
 
@@ -269,7 +270,7 @@ private fun Route.registerAuthServiceTestRoutes() {
     post("/test/change-password") {
         val currentPassword = call.request.headers["X-Current-Password"] ?: ""
         val newPassword = call.request.headers["X-New-Password"] ?: ""
-        AuthService(call).changePassword(currentPassword, newPassword)
+        AuthService(call).changePassword(currentPassword = currentPassword, newPassword = newPassword)
         call.respondText("OK")
     }
     get("/test/session-info") {

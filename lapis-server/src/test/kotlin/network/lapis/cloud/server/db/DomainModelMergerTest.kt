@@ -48,7 +48,7 @@ class DomainModelMergerTest :
 
             val diagrams = scriptFiles.map { KumlModelLoader.loadUmlDiagram(it) }
 
-            val merged = DomainModelMerger.merge(diagrams)
+            val merged = DomainModelMerger.merge(diagrams = diagrams)
 
             // 47 distinct `"tableName" to "..."` values across the 13 .kuml.kts files (verified by
             // grepping `grep -oh '"tableName" to "[a-z_]*"' lapis-server/src/main/kuml/*.kuml.kts |
@@ -361,7 +361,7 @@ class DomainModelMergerTest :
                 )
             val diagramB = KumlDiagram(name = "B", type = DiagramType.CLASS, elements = listOf(fooStub, bar, assoc))
 
-            val merged = DomainModelMerger.merge(listOf(diagramA, diagramB))
+            val merged = DomainModelMerger.merge(diagrams = listOf(diagramA, diagramB))
 
             val fooClasses = merged.elements.filterIsInstance<UmlClass>().filter { it.name == "Foo" }
             fooClasses shouldHaveSize 1
@@ -382,7 +382,7 @@ class DomainModelMergerTest :
             val diagramA = KumlDiagram(name = "A", type = DiagramType.CLASS, elements = listOf(fooA))
             val diagramB = KumlDiagram(name = "B", type = DiagramType.CLASS, elements = listOf(fooB))
 
-            val exception = shouldThrow<IllegalStateException> { DomainModelMerger.merge(listOf(diagramA, diagramB)) }
+            val exception = shouldThrow<IllegalStateException> { DomainModelMerger.merge(diagrams = listOf(diagramA, diagramB)) }
             exception.message shouldContain "Foo"
             exception.message shouldContain "differentAttribute"
         }
@@ -396,7 +396,7 @@ class DomainModelMergerTest :
             val diagramA = KumlDiagram(name = "A", type = DiagramType.CLASS, elements = listOf(foo))
             val diagramB = KumlDiagram(name = "B", type = DiagramType.CLASS, elements = listOf(baz))
 
-            val merged = DomainModelMerger.merge(listOf(diagramA, diagramB))
+            val merged = DomainModelMerger.merge(diagrams = listOf(diagramA, diagramB))
 
             merged.elements.filterIsInstance<UmlClass>().map { it.id } shouldContainExactlyInAnyOrder listOf("a1", "b1")
         }
@@ -456,7 +456,7 @@ class DomainModelMergerTest :
                         ),
                 )
 
-            val merged = DomainModelMerger.merge(listOf(diagramA, diagramB))
+            val merged = DomainModelMerger.merge(diagrams = listOf(diagramA, diagramB))
             val associations = merged.elements.filterIsInstance<UmlAssociation>()
 
             associations shouldHaveSize 2

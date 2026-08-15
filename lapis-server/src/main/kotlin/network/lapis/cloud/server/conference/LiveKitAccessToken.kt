@@ -106,7 +106,7 @@ object LiveKitAccessToken {
                 .claim("name", displayName)
                 .claim("video", videoGrant)
                 .build()
-        return ParticipantToken(jwt = sign(claims, apiSecret), expiresAt = expiresAt)
+        return ParticipantToken(jwt = sign(claims = claims, apiSecret = apiSecret), expiresAt = expiresAt)
     }
 
     /**
@@ -144,7 +144,7 @@ object LiveKitAccessToken {
                 .jwtID(Uuid.random().toString())
                 .claim("video", videoGrant)
                 .build()
-        return sign(claims, apiSecret)
+        return sign(claims = claims, apiSecret = apiSecret)
     }
 
     /**
@@ -178,7 +178,7 @@ object LiveKitAccessToken {
                 .jwtID(Uuid.random().toString())
                 .claim("video", videoGrant)
                 .build()
-        return sign(claims, apiSecret)
+        return sign(claims = claims, apiSecret = apiSecret)
     }
 
     /**

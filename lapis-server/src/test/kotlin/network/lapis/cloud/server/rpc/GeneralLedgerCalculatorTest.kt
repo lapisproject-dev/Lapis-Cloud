@@ -35,7 +35,7 @@ class GeneralLedgerCalculatorTest :
             val normalSide = GeneralLedgerCalculator.normalBalanceSideOf(LedgerAccountType.ASSET)
             normalSide shouldBe PostingSide.DEBIT
 
-            val result = GeneralLedgerCalculator.runningBalances(lines, normalSide)
+            val result = GeneralLedgerCalculator.runningBalances(lines = lines, normalBalanceSide = normalSide)
             result.map { it.runningBalance.toPlainString() } shouldBe listOf("100.00", "70.00", "80.00")
         }
 
@@ -49,7 +49,7 @@ class GeneralLedgerCalculatorTest :
             val normalSide = GeneralLedgerCalculator.normalBalanceSideOf(LedgerAccountType.INCOME)
             normalSide shouldBe PostingSide.CREDIT
 
-            val result = GeneralLedgerCalculator.runningBalances(lines, normalSide)
+            val result = GeneralLedgerCalculator.runningBalances(lines = lines, normalBalanceSide = normalSide)
             result.map { it.runningBalance.toPlainString() } shouldBe listOf("50.00", "30.00", "35.00")
         }
 
@@ -57,7 +57,7 @@ class GeneralLedgerCalculatorTest :
             val lines = listOf(line(PostingSide.DEBIT, "25.00"))
             val result =
                 GeneralLedgerCalculator.runningBalances(
-                    lines,
+                    lines = lines,
                     normalBalanceSide = PostingSide.DEBIT,
                     opening = BigDecimal("100.00"),
                 )
@@ -71,6 +71,6 @@ class GeneralLedgerCalculatorTest :
         }
 
         test("empty line list returns an empty result") {
-            GeneralLedgerCalculator.runningBalances(emptyList(), PostingSide.DEBIT) shouldBe emptyList()
+            GeneralLedgerCalculator.runningBalances(lines = emptyList(), normalBalanceSide = PostingSide.DEBIT) shouldBe emptyList()
         }
     })

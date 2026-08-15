@@ -113,7 +113,7 @@ class GovernanceStatusMachineJourneyTest :
 
         afterSpec {
             transaction {
-                hardDeleteGovernanceAndMembershipFixtures(createdCommitteeIds, createdMemberIds)
+                hardDeleteGovernanceAndMembershipFixtures(committeeIds = createdCommitteeIds, memberIds = createdMemberIds)
             }
         }
 
@@ -128,7 +128,7 @@ class GovernanceStatusMachineJourneyTest :
                     module()
                     routing {
                         post("/e2e4/register") {
-                            RegistrationService(call, LoginRateLimiter()).registerApplication(
+                            RegistrationService(call = call, registrationRateLimiter = LoginRateLimiter()).registerApplication(
                                 RegistrationInput(
                                     displayName = APPLICANT_DISPLAY_NAME,
                                     email = call.request.queryParameters["email"]!!,
@@ -140,15 +140,19 @@ class GovernanceStatusMachineJourneyTest :
                             call.respondText("OK")
                         }
                         post("/e2e4/approve/{id}") {
-                            val dto = RegistrationService(call, LoginRateLimiter()).approveApplication(call.parameters["id"]!!)
+                            val dto =
+                                RegistrationService(
+                                    call = call,
+                                    registrationRateLimiter = LoginRateLimiter(),
+                                ).approveApplication(call.parameters["id"]!!)
                             call.respondText(dto.status.name)
                         }
                         post("/e2e4/leave-membership") {
-                            val dto = RegistrationService(call, LoginRateLimiter()).leaveMembership()
+                            val dto = RegistrationService(call = call, registrationRateLimiter = LoginRateLimiter()).leaveMembership()
                             call.respondText(dto.status.name)
                         }
                         post("/e2e4/mint-ltr/{memberId}") {
-                            LtrLedgerService(call).mintLtr(
+                            LtrLedgerService(call = call).mintLtr(
                                 MintLtrInput(
                                     memberId = call.parameters["memberId"]!!,
                                     amountLtr = BigDecimal("10.00"),
@@ -159,7 +163,7 @@ class GovernanceStatusMachineJourneyTest :
                         }
                         post("/e2e4/create-committee") {
                             val c =
-                                GovernanceService(call).createCommittee(
+                                GovernanceService(call = call).createCommittee(
                                     CommitteeInput(
                                         name = "Arbeitsgruppe Journey 4",
                                         type = CommitteeType.WORKING_GROUP,
@@ -173,24 +177,28 @@ class GovernanceStatusMachineJourneyTest :
                         }
                         post("/e2e4/add-committee-member/{committeeId}/{memberId}") {
                             val dto =
-                                GovernanceService(call).addCommitteeMember(
-                                    call.parameters["committeeId"]!!,
-                                    CommitteeMembershipInput(
-                                        memberId = call.parameters["memberId"]!!,
-                                        role = CommitteeRole.MEMBER,
-                                        since = LocalDate(2026, 1, 1),
-                                    ),
+                                GovernanceService(call = call).addCommitteeMember(
+                                    committeeId = call.parameters["committeeId"]!!,
+                                    input =
+                                        CommitteeMembershipInput(
+                                            memberId = call.parameters["memberId"]!!,
+                                            role = CommitteeRole.MEMBER,
+                                            since = LocalDate(2026, 1, 1),
+                                        ),
                                 )
                             call.respondText(dto.id)
                         }
                         get("/e2e4/committee-members/{committeeId}") {
                             val activeOnly = call.request.queryParameters["activeOnly"]?.toBoolean() ?: true
-                            val list = GovernanceService(call).listCommitteeMembers(call.parameters["committeeId"]!!, activeOnly)
+                            val list =
+                                GovernanceService(
+                                    call = call,
+                                ).listCommitteeMembers(committeeId = call.parameters["committeeId"]!!, activeOnly = activeOnly)
                             call.respondText(list.joinToString(",") { "${it.memberId}=${it.until ?: "null"}" })
                         }
                         post("/e2e4/create-meeting/{committeeId}") {
                             val m =
-                                GovernanceService(call).createMeeting(
+                                GovernanceService(call = call).createMeeting(
                                     MeetingInput(
                                         committeeId = call.parameters["committeeId"]!!,
                                         title = "Journey-4-Meeting",
@@ -203,7 +211,7 @@ class GovernanceStatusMachineJourneyTest :
                         }
                         post("/e2e4/submit-motion/{committeeId}") {
                             val motion =
-                                GovernanceService(call).submitMotion(
+                                GovernanceService(call = call).submitMotion(
                                     MotionInput(
                                         targetCommitteeId = call.parameters["committeeId"]!!,
                                         title = "Journey-4-Antrag-${call.request.queryParameters["n"]}",
@@ -214,26 +222,29 @@ class GovernanceStatusMachineJourneyTest :
                             call.respondText(motion.id)
                         }
                         post("/e2e4/review-motion/{id}") {
-                            val m = GovernanceService(call).reviewMotion(call.parameters["id"]!!, MotionReviewDecision.ACCEPT)
+                            val m =
+                                GovernanceService(
+                                    call = call,
+                                ).reviewMotion(id = call.parameters["id"]!!, decision = MotionReviewDecision.ACCEPT)
                             call.respondText(m.status.name)
                         }
                         post("/e2e4/schedule-motion/{id}/{meetingId}/{position}") {
                             val m =
-                                GovernanceService(call).scheduleMotion(
-                                    call.parameters["id"]!!,
-                                    call.parameters["meetingId"]!!,
-                                    call.parameters["position"]!!.toInt(),
+                                GovernanceService(call = call).scheduleMotion(
+                                    id = call.parameters["id"]!!,
+                                    meetingId = call.parameters["meetingId"]!!,
+                                    position = call.parameters["position"]!!.toInt(),
                                 )
                             call.respondText(m.status.name)
                         }
                         post("/e2e4/open-vote/{motionId}") {
-                            val v = GovernanceService(call).openVote(VoteOpenInput(motionId = call.parameters["motionId"]!!))
+                            val v = GovernanceService(call = call).openVote(VoteOpenInput(motionId = call.parameters["motionId"]!!))
                             val optionsStr = v.options.joinToString(";") { "${it.id}=${it.label}" }
                             call.respondText("${v.id}:$optionsStr")
                         }
                         post("/e2e4/cast-vote/{voteId}/{optionId}") {
                             val s =
-                                GovernanceService(call).castVoteBallot(
+                                GovernanceService(call = call).castVoteBallot(
                                     VoteBallotInput(
                                         voteId = call.parameters["voteId"]!!,
                                         optionId = call.parameters["optionId"]!!,
@@ -243,7 +254,7 @@ class GovernanceStatusMachineJourneyTest :
                             call.respondText(s.id)
                         }
                         post("/e2e4/close-vote/{id}") {
-                            val v = GovernanceService(call).closeVote(call.parameters["id"]!!)
+                            val v = GovernanceService(call = call).closeVote(call.parameters["id"]!!)
                             call.respondText("${v.status}|${v.winnerOptionId ?: ""}|${v.resolutionId ?: ""}")
                         }
                     }
@@ -260,7 +271,7 @@ class GovernanceStatusMachineJourneyTest :
                 memberStatusOf(applicantId) shouldBe MemberStatus.ANTRAG
 
                 // ── Step 2: real login (real HTTP, real session cookie) -- ANTRAG can log in ────
-                val rawToken = client.realLogin(email, E2E_STRONG_PASSWORD)
+                val rawToken = client.realLogin(email = email, password = E2E_STRONG_PASSWORD)
 
                 // ── Step 3: BOARD stands up a non-GENERAL_ASSEMBLY Committee (deliberately, see ──
                 // ── class KDoc) whose eligibility is Committee-membership alone, not org-wide ────
@@ -277,7 +288,7 @@ class GovernanceStatusMachineJourneyTest :
                     client.post("/e2e4/add-committee-member/$committeeId/$applicantId") { header("X-Member-Id", BOARD_ID) }
                 refusedSeat.status shouldBe HttpStatusCode.Forbidden
                 // The refusal must have been a refusal, not a silently-half-applied seat.
-                committeeMembersOf(committeeId) shouldBe emptyMap()
+                committeeMembersOf(committeeId = committeeId) shouldBe emptyMap()
 
                 // ── Step 5: BOARD approves (RegistrationService, a completely separate ───────────
                 // ── transaction) -- ANTRAG -> AKTIV ───────────────────────────────────────────
@@ -291,7 +302,7 @@ class GovernanceStatusMachineJourneyTest :
                 val seated =
                     client.post("/e2e4/add-committee-member/$committeeId/$applicantId") { header("X-Member-Id", BOARD_ID) }
                 seated.status shouldBe HttpStatusCode.OK
-                committeeMembersOf(committeeId) shouldBe mapOf(applicantId to null)
+                committeeMembersOf(committeeId = committeeId) shouldBe mapOf(applicantId to null)
 
                 // ── Step 7: BOARD sets up a Motion + Vote on the SAME Committee ─────────────────
                 val meetingId = client.post("/e2e4/create-meeting/$committeeId") { header("X-Member-Id", BOARD_ID) }.bodyAsText()
@@ -324,7 +335,7 @@ class GovernanceStatusMachineJourneyTest :
                 // ── up LIVE by the eligibility check, not merely that AKTIV status sufficed. ─────
                 val castResponse = client.post("/e2e4/cast-vote/$voteId/$yesOptionId") { withSession(rawToken) }
                 castResponse.status shouldBe HttpStatusCode.OK
-                ballotCountFor(voteId, applicantId) shouldBe 1
+                ballotCountFor(voteId = voteId, memberId = applicantId) shouldBe 1
 
                 val closeFields =
                     client.post("/e2e4/close-vote/$voteId") { header("X-Member-Id", BOARD_ID) }.bodyAsText().split("|")
@@ -359,7 +370,7 @@ class GovernanceStatusMachineJourneyTest :
                     .bodyAsText() shouldBe "$applicantId=null"
                 // The underlying row itself, unfiltered and unjoined -- proves the stale seat is a
                 // genuine persisted `until IS NULL` row, not an artifact of the read path's join.
-                committeeMembersOf(committeeId, activeOnly = true) shouldBe mapOf(applicantId to null)
+                committeeMembersOf(committeeId = committeeId, activeOnly = true) shouldBe mapOf(applicantId to null)
 
                 // ── Step 11: a FRESH vote on the same Committee, so the stale seat from step 10 ──
                 // ── has something new to (fail to) be leveraged against. ─────────────────────────
@@ -389,7 +400,7 @@ class GovernanceStatusMachineJourneyTest :
                 // ── block a vote here, not just one. ──────────────────────────────────────────
                 val staleSessionAttempt = client.post("/e2e4/cast-vote/$vote2Id/$yesOptionId2") { withSession(rawToken) }
                 staleSessionAttempt.status shouldBe HttpStatusCode.Unauthorized
-                ballotCountFor(vote2Id, applicantId) shouldBe 0
+                ballotCountFor(voteId = vote2Id, memberId = applicantId) shouldBe 0
             }
         }
     })

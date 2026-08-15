@@ -108,7 +108,7 @@ class DsgvoCompliancePersonalDataTest :
             listOf(ErasureMode.ANONYMIZE, ErasureMode.HARD_DELETE_WHERE_UNCONSTRAINED).forEach { mode ->
                 val outcomes =
                     transaction {
-                        DsgvoCompliancePersonalData.erase(BOARD_ID, mode)
+                        DsgvoCompliancePersonalData.erase(memberId = BOARD_ID, mode = mode)
                     }
                 outcomes.size shouldBe 4
                 outcomes.forEach { outcome ->

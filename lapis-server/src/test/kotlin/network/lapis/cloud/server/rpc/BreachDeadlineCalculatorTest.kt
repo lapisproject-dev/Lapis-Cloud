@@ -20,36 +20,40 @@ class BreachDeadlineCalculatorTest :
 
         test("status() is SATISFIED whenever authorityNotifiedAt is non-null, even if it is past the deadline") {
             val wayPastDeadline = LocalDateTime(2026, 2, 1, 0, 0, 0)
-            BreachDeadlineCalculator.status(discoveredAt, authorityNotifiedAt = wayPastDeadline, now = wayPastDeadline) shouldBe
+            BreachDeadlineCalculator.status(
+                discoveredAt = discoveredAt,
+                authorityNotifiedAt = wayPastDeadline,
+                now = wayPastDeadline,
+            ) shouldBe
                 BreachDeadlineStatus.SATISFIED
-            BreachDeadlineCalculator.status(discoveredAt, authorityNotifiedAt = discoveredAt, now = discoveredAt) shouldBe
+            BreachDeadlineCalculator.status(discoveredAt = discoveredAt, authorityNotifiedAt = discoveredAt, now = discoveredAt) shouldBe
                 BreachDeadlineStatus.SATISFIED
         }
 
         test("status() is WITHIN_WINDOW well before the deadline (more than DUE_SOON_THRESHOLD_HOURS remaining)") {
             val now = LocalDateTime(2026, 1, 2, 0, 0, 0) // ~60.5h remaining
-            BreachDeadlineCalculator.status(discoveredAt, authorityNotifiedAt = null, now = now) shouldBe
+            BreachDeadlineCalculator.status(discoveredAt = discoveredAt, authorityNotifiedAt = null, now = now) shouldBe
                 BreachDeadlineStatus.WITHIN_WINDOW
         }
 
         test("status() is DUE_SOON within DUE_SOON_THRESHOLD_HOURS of the deadline") {
             // Exactly at the DUE_SOON boundary (deadline - threshold): boundary itself counts as DUE_SOON (<=).
             val atThreshold = LocalDateTime(2026, 1, 4, 0, 0, 0) // exactDeadline - 12h
-            BreachDeadlineCalculator.status(discoveredAt, authorityNotifiedAt = null, now = atThreshold) shouldBe
+            BreachDeadlineCalculator.status(discoveredAt = discoveredAt, authorityNotifiedAt = null, now = atThreshold) shouldBe
                 BreachDeadlineStatus.DUE_SOON
             val justInsideWindow = LocalDateTime(2026, 1, 3, 23, 59, 59)
-            BreachDeadlineCalculator.status(discoveredAt, authorityNotifiedAt = null, now = justInsideWindow) shouldBe
+            BreachDeadlineCalculator.status(discoveredAt = discoveredAt, authorityNotifiedAt = null, now = justInsideWindow) shouldBe
                 BreachDeadlineStatus.WITHIN_WINDOW
         }
 
         test("status() is OVERDUE once now is past the deadline and no notification was recorded") {
             val now = LocalDateTime(2026, 1, 5, 0, 0, 0)
-            BreachDeadlineCalculator.status(discoveredAt, authorityNotifiedAt = null, now = now) shouldBe
+            BreachDeadlineCalculator.status(discoveredAt = discoveredAt, authorityNotifiedAt = null, now = now) shouldBe
                 BreachDeadlineStatus.OVERDUE
         }
 
         test("status() at the exact deadline instant is still WITHIN_WINDOW's DUE_SOON band, not yet OVERDUE") {
-            BreachDeadlineCalculator.status(discoveredAt, authorityNotifiedAt = null, now = exactDeadline) shouldBe
+            BreachDeadlineCalculator.status(discoveredAt = discoveredAt, authorityNotifiedAt = null, now = exactDeadline) shouldBe
                 BreachDeadlineStatus.DUE_SOON
         }
 

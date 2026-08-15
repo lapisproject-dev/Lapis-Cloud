@@ -39,7 +39,7 @@ class FederationInboxRateLimiter(
         var allowed = true
         requestsByKey.compute(remoteHost) { _, existing ->
             val current =
-                if (existing == null || isExpired(existing, now)) {
+                if (existing == null || isExpired(entry = existing, now = now)) {
                     RequestWindow(count = 0, windowStart = now)
                 } else {
                     existing
@@ -58,6 +58,6 @@ class FederationInboxRateLimiter(
 
     private fun evictExpiredIfOverCapacity(now: Instant) {
         if (requestsByKey.size <= maxTrackedKeys) return
-        requestsByKey.entries.removeIf { (_, entry) -> isExpired(entry, now) }
+        requestsByKey.entries.removeIf { (_, entry) -> isExpired(entry = entry, now = now) }
     }
 }

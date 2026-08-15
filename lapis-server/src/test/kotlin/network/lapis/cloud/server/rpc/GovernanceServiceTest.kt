@@ -114,7 +114,7 @@ class GovernanceServiceTest :
             DevSeedData.seedIfEmpty(force = true)
         }
 
-        afterSpec { cleanUpGovernanceTestData(createdCommitteeIds, createdMemberIds) }
+        afterSpec { cleanUpGovernanceTestData(committeeIds = createdCommitteeIds, memberIds = createdMemberIds) }
 
         fun createTestMember(
             email: String,
@@ -181,7 +181,7 @@ class GovernanceServiceTest :
                     }
                     routing {
                         post("/test/create-committee/{name}/{type}/{quorumPercent}") {
-                            val service = GovernanceService(call)
+                            val service = GovernanceService(call = call)
                             val p = call.parameters
                             val g =
                                 service.createCommittee(
@@ -195,7 +195,7 @@ class GovernanceServiceTest :
                             call.respondText(g.id)
                         }
                         get("/test/list-gremien") {
-                            val service = GovernanceService(call)
+                            val service = GovernanceService(call = call)
                             call.respondText(service.listCommittees().joinToString(",") { it.id })
                         }
                     }
@@ -236,7 +236,7 @@ class GovernanceServiceTest :
                     }
                     routing {
                         post("/test/create-committee2/{quorumPercent}") {
-                            val service = GovernanceService(call)
+                            val service = GovernanceService(call = call)
                             val g =
                                 service.createCommittee(
                                     CommitteeInput(
@@ -249,7 +249,7 @@ class GovernanceServiceTest :
                             call.respondText(g.id)
                         }
                         post("/test/add-member/{committeeId}/{memberId}/{role}") {
-                            val service = GovernanceService(call)
+                            val service = GovernanceService(call = call)
                             val q = call.request.queryParameters
                             val since =
                                 LocalDate(
@@ -259,17 +259,18 @@ class GovernanceServiceTest :
                                 )
                             val m =
                                 service.addCommitteeMember(
-                                    call.parameters["committeeId"]!!,
-                                    CommitteeMembershipInput(
-                                        memberId = call.parameters["memberId"]!!,
-                                        role = CommitteeRole.valueOf(call.parameters["role"]!!),
-                                        since = since,
-                                    ),
+                                    committeeId = call.parameters["committeeId"]!!,
+                                    input =
+                                        CommitteeMembershipInput(
+                                            memberId = call.parameters["memberId"]!!,
+                                            role = CommitteeRole.valueOf(call.parameters["role"]!!),
+                                            since = since,
+                                        ),
                                 )
                             call.respondText(m.id)
                         }
                         post("/test/create-meeting/{committeeId}/{year}/{month}/{day}/{hour}") {
-                            val service = GovernanceService(call)
+                            val service = GovernanceService(call = call)
                             val p = call.parameters
                             val scheduledAt =
                                 LocalDateTime(p["year"]!!.toInt(), p["month"]!!.toInt(), p["day"]!!.toInt(), p["hour"]!!.toInt(), 0)
@@ -738,7 +739,15 @@ class GovernanceServiceTest :
                 client.post("/test/add-member/$committeeId/$voter/MEMBER") { header("X-Member-Id", BOARD_ID) }
                 seedLtrBalance(voter, BigDecimal("50.00"))
 
-                val (motionId, _) = client.createTerminierterMotion(committeeId, chair, voter, 2026, 11, 20)
+                val (motionId, _) =
+                    client.createTerminierterMotion(
+                        committeeId = committeeId,
+                        chairId = chair,
+                        submitterId = voter,
+                        year = 2026,
+                        month = 11,
+                        day = 20,
+                    )
                 val opened =
                     client.post("/test/open-vote/$motionId") { header("X-Member-Id", chair.toString()) }.bodyAsText()
                 val voteId = opened.substringBefore(":")
@@ -1088,7 +1097,7 @@ class GovernanceServiceTest :
             val exportReviewer = transaction { GovernancePersonalData.export(reviewer) }.toString()
             exportReviewer shouldContain "DSGVO-Testmotion"
 
-            val outcomes = transaction { GovernancePersonalData.erase(submitter, ErasureMode.ANONYMIZE) }
+            val outcomes = transaction { GovernancePersonalData.erase(memberId = submitter, mode = ErasureMode.ANONYMIZE) }
             val motionOutcome = outcomes.single { it.table == "motion" }
             motionOutcome.rowsRetained shouldBe 1
 
@@ -1132,7 +1141,15 @@ class GovernanceServiceTest :
                 seedLtrBalance(m3, BigDecimal("100.00"))
                 seedLtrBalance(m4, BigDecimal("100.00"))
 
-                val (motionId, meetingId) = client.createTerminierterMotion(committeeId, chair, m2, 2026, 11, 1)
+                val (motionId, meetingId) =
+                    client.createTerminierterMotion(
+                        committeeId = committeeId,
+                        chairId = chair,
+                        submitterId = m2,
+                        year = 2026,
+                        month = 11,
+                        day = 1,
+                    )
 
                 val opened =
                     client.post("/test/open-vote/$motionId") { header("X-Member-Id", chair.toString()) }.bodyAsText()
@@ -1224,7 +1241,15 @@ class GovernanceServiceTest :
                 seedLtrBalance(member, BigDecimal("50.00"))
                 seedLtrBalance(outsider, BigDecimal("50.00"))
 
-                val (motionId, _) = client.createTerminierterMotion(committeeId, chair, member, 2026, 11, 2)
+                val (motionId, _) =
+                    client.createTerminierterMotion(
+                        committeeId = committeeId,
+                        chairId = chair,
+                        submitterId = member,
+                        year = 2026,
+                        month = 11,
+                        day = 2,
+                    )
 
                 val nonLeadershipOpen =
                     client.post("/test/open-vote/$motionId") { header("X-Member-Id", member.toString()) }
@@ -1304,7 +1329,15 @@ class GovernanceServiceTest :
                 }
                 seedLtrBalance(applicant, BigDecimal("50.00"))
 
-                val (motionId, _) = client.createTerminierterMotion(committeeId, chair, chair, 2026, 11, 4)
+                val (motionId, _) =
+                    client.createTerminierterMotion(
+                        committeeId = committeeId,
+                        chairId = chair,
+                        submitterId = chair,
+                        year = 2026,
+                        month = 11,
+                        day = 4,
+                    )
                 val opened =
                     client.post("/test/open-vote/$motionId") { header("X-Member-Id", chair.toString()) }.bodyAsText()
                 val voteId = opened.substringBefore(":")
@@ -1358,7 +1391,15 @@ class GovernanceServiceTest :
                 }
                 seedLtrBalance(departed, BigDecimal("50.00"))
 
-                val (motionId, _) = client.createTerminierterMotion(committeeId, chair, chair, 2026, 11, 5)
+                val (motionId, _) =
+                    client.createTerminierterMotion(
+                        committeeId = committeeId,
+                        chairId = chair,
+                        submitterId = chair,
+                        year = 2026,
+                        month = 11,
+                        day = 5,
+                    )
                 val opened =
                     client.post("/test/open-vote/$motionId") { header("X-Member-Id", chair.toString()) }.bodyAsText()
                 val voteId = opened.substringBefore(":")
@@ -1400,7 +1441,15 @@ class GovernanceServiceTest :
                 client.post("/test/add-member/$committeeId/$member/MEMBER") { header("X-Member-Id", BOARD_ID) }
                 seedLtrBalance(member, BigDecimal("50.00"))
 
-                val (motionId, _) = client.createTerminierterMotion(committeeId, chair, chair, 2026, 11, 6)
+                val (motionId, _) =
+                    client.createTerminierterMotion(
+                        committeeId = committeeId,
+                        chairId = chair,
+                        submitterId = chair,
+                        year = 2026,
+                        month = 11,
+                        day = 6,
+                    )
                 val opened =
                     client.post("/test/open-vote/$motionId") { header("X-Member-Id", chair.toString()) }.bodyAsText()
                 val voteId = opened.substringBefore(":")
@@ -1619,7 +1668,15 @@ class GovernanceServiceTest :
                 client.post("/test/add-member/$committeeId/$member/MEMBER") { header("X-Member-Id", BOARD_ID) }
                 seedLtrBalance(member, BigDecimal("50.00"))
 
-                val (motionId, _) = client.createTerminierterMotion(committeeId, chair, member, 2026, 11, 4)
+                val (motionId, _) =
+                    client.createTerminierterMotion(
+                        committeeId = committeeId,
+                        chairId = chair,
+                        submitterId = member,
+                        year = 2026,
+                        month = 11,
+                        day = 4,
+                    )
 
                 // No Vote opened yet: a fresh client session (no in-memory VoteDto from openVote)
                 // must see an empty list, not an error. `member` (not `chair`, who will be the one
@@ -1688,7 +1745,15 @@ class GovernanceServiceTest :
                 client.post("/test/add-member/$committeeId/$member/MEMBER") { header("X-Member-Id", BOARD_ID) }
                 seedLtrBalance(member, BigDecimal("10.00"))
 
-                val (motionId, _) = client.createTerminierterMotion(committeeId, chair, member, 2026, 11, 4)
+                val (motionId, _) =
+                    client.createTerminierterMotion(
+                        committeeId = committeeId,
+                        chairId = chair,
+                        submitterId = member,
+                        year = 2026,
+                        month = 11,
+                        day = 4,
+                    )
                 val opened =
                     client.post("/test/open-vote/$motionId") { header("X-Member-Id", chair.toString()) }.bodyAsText()
                 val voteId = opened.substringBefore(":")
@@ -1742,7 +1807,15 @@ class GovernanceServiceTest :
                 seedLtrBalance(m2, BigDecimal("50.00"))
                 seedLtrBalance(m3, BigDecimal("50.00"))
 
-                val (motionId, meetingId) = client.createTerminierterMotion(committeeId, chair, m2, 2026, 11, 5)
+                val (motionId, meetingId) =
+                    client.createTerminierterMotion(
+                        committeeId = committeeId,
+                        chairId = chair,
+                        submitterId = m2,
+                        year = 2026,
+                        month = 11,
+                        day = 5,
+                    )
                 val opened =
                     client.post("/test/open-vote/$motionId") { header("X-Member-Id", chair.toString()) }.bodyAsText()
                 val voteId = opened.substringBefore(":")
@@ -1874,7 +1947,7 @@ class GovernanceServiceTest :
             val exportVoter = transaction { GovernancePersonalData.export(voter) }.toString()
             exportVoter shouldContain "12.34"
 
-            val outcomes = transaction { GovernancePersonalData.erase(voter, ErasureMode.ANONYMIZE) }
+            val outcomes = transaction { GovernancePersonalData.erase(memberId = voter, mode = ErasureMode.ANONYMIZE) }
             val ballotOutcome = outcomes.single { it.table == "vote_ballot" }
             ballotOutcome.rowsRetained shouldBe 1
 
@@ -2404,7 +2477,15 @@ class GovernanceServiceTest :
                 client.post("/test/add-member/$committeeId/$voter/MEMBER") { header("X-Member-Id", BOARD_ID) }
                 seedLtrBalance(voter, BigDecimal("50.00"))
 
-                val (mainMotionId, meetingId) = client.createTerminierterMotion(committeeId, chair, voter, 2026, 11, 25)
+                val (mainMotionId, meetingId) =
+                    client.createTerminierterMotion(
+                        committeeId = committeeId,
+                        chairId = chair,
+                        submitterId = voter,
+                        year = 2026,
+                        month = 11,
+                        day = 25,
+                    )
 
                 val amendmentId =
                     client
@@ -2466,7 +2547,7 @@ class GovernanceServiceTest :
  */
 private fun Route.registerGovernanceTestRoutes() {
     post("/test/create-committee/{name}/{type}/{quorumPercent}") {
-        val service = GovernanceService(call)
+        val service = GovernanceService(call = call)
         val p = call.parameters
         val g =
             service.createCommittee(
@@ -2480,7 +2561,7 @@ private fun Route.registerGovernanceTestRoutes() {
         call.respondText(g.id)
     }
     post("/test/add-member/{committeeId}/{memberId}/{role}") {
-        val service = GovernanceService(call)
+        val service = GovernanceService(call = call)
         val q = call.request.queryParameters
         val since =
             LocalDate(
@@ -2490,22 +2571,27 @@ private fun Route.registerGovernanceTestRoutes() {
             )
         val m =
             service.addCommitteeMember(
-                call.parameters["committeeId"]!!,
-                CommitteeMembershipInput(
-                    memberId = call.parameters["memberId"]!!,
-                    role = CommitteeRole.valueOf(call.parameters["role"]!!),
-                    since = since,
-                ),
+                committeeId = call.parameters["committeeId"]!!,
+                input =
+                    CommitteeMembershipInput(
+                        memberId = call.parameters["memberId"]!!,
+                        role = CommitteeRole.valueOf(call.parameters["role"]!!),
+                        since = since,
+                    ),
             )
         call.respondText(m.id)
     }
     post("/test/end-membership/{membershipId}/{until}") {
-        val service = GovernanceService(call)
-        val m = service.endCommitteeMembership(call.parameters["membershipId"]!!, LocalDate.parse(call.parameters["until"]!!))
+        val service = GovernanceService(call = call)
+        val m =
+            service.endCommitteeMembership(
+                membershipId = call.parameters["membershipId"]!!,
+                until = LocalDate.parse(call.parameters["until"]!!),
+            )
         call.respondText("${m.id}:${m.until}")
     }
     post("/test/create-meeting/{committeeId}/{year}/{month}/{day}/{hour}") {
-        val service = GovernanceService(call)
+        val service = GovernanceService(call = call)
         val p = call.parameters
         val scheduledAt = LocalDateTime(p["year"]!!.toInt(), p["month"]!!.toInt(), p["day"]!!.toInt(), p["hour"]!!.toInt(), 0)
         val s =
@@ -2521,59 +2607,66 @@ private fun Route.registerGovernanceTestRoutes() {
         call.respondText("${s.id}:${s.status}")
     }
     post("/test/add-top/{meetingId}/{position}") {
-        val service = GovernanceService(call)
+        val service = GovernanceService(call = call)
         val top =
             service.addAgendaItem(
-                call.parameters["meetingId"]!!,
-                AgendaItemInput(
-                    position = call.parameters["position"]!!.toInt(),
-                    title = "TOP ${call.parameters["position"]}",
-                ),
+                meetingId = call.parameters["meetingId"]!!,
+                input =
+                    AgendaItemInput(
+                        position = call.parameters["position"]!!.toInt(),
+                        title = "TOP ${call.parameters["position"]}",
+                    ),
             )
         call.respondText(top.id)
     }
     post("/test/record-attendance/{meetingId}/{memberId}/{status}") {
-        val service = GovernanceService(call)
+        val service = GovernanceService(call = call)
         val representedBy = call.request.queryParameters["representedBy"]
         val a =
             service.recordAttendance(
-                call.parameters["meetingId"]!!,
-                AttendanceInput(
-                    memberId = call.parameters["memberId"]!!,
-                    status = AttendanceStatus.valueOf(call.parameters["status"]!!),
-                    representedByMemberId = representedBy,
-                ),
+                meetingId = call.parameters["meetingId"]!!,
+                input =
+                    AttendanceInput(
+                        memberId = call.parameters["memberId"]!!,
+                        status = AttendanceStatus.valueOf(call.parameters["status"]!!),
+                        representedByMemberId = representedBy,
+                    ),
             )
         call.respondText(a.id)
     }
     get("/test/check-quorum/{meetingId}") {
-        val service = GovernanceService(call)
+        val service = GovernanceService(call = call)
         val q = service.checkQuorum(call.parameters["meetingId"]!!)
         call.respondText("${q.eligibleMemberCount}:${q.presentCount}:${q.requiredCount}:${q.met}")
     }
     post("/test/record-resolution/{meetingId}") {
-        val service = GovernanceService(call)
+        val service = GovernanceService(call = call)
         val b =
             service.recordResolution(
-                call.parameters["meetingId"]!!,
-                ResolutionInput(
-                    title = "Testresolution",
-                    text = "Resolutiontext",
-                    votesYes = 3,
-                    votesNo = 1,
-                    votesAbstain = 0,
-                    status = ResolutionStatus.ADOPTED,
-                ),
+                meetingId = call.parameters["meetingId"]!!,
+                input =
+                    ResolutionInput(
+                        title = "Testresolution",
+                        text = "Resolutiontext",
+                        votesYes = 3,
+                        votesNo = 1,
+                        votesAbstain = 0,
+                        status = ResolutionStatus.ADOPTED,
+                    ),
             )
         call.respondText("${b.number}:${b.quorumMet}:${b.status}")
     }
     post("/test/update-status/{meetingId}/{status}") {
-        val service = GovernanceService(call)
-        val s = service.updateMeetingStatus(call.parameters["meetingId"]!!, MeetingStatus.valueOf(call.parameters["status"]!!))
+        val service = GovernanceService(call = call)
+        val s =
+            service.updateMeetingStatus(
+                meetingId = call.parameters["meetingId"]!!,
+                status = MeetingStatus.valueOf(call.parameters["status"]!!),
+            )
         call.respondText(s.status.name)
     }
     get("/test/protocol-draft/{meetingId}") {
-        val service = GovernanceService(call)
+        val service = GovernanceService(call = call)
         val draft = service.generateProtocolDraft(call.parameters["meetingId"]!!)
         call.respondText("${draft.agenda.size}:${draft.attendance.size}:${draft.resolutions.size}")
     }
@@ -2603,7 +2696,7 @@ private fun StatusPagesConfig.installGovernanceExceptionHandlers() {
 /** Shared throwaway routes for the Motion (V0.2.2) lifecycle tests -- mirrors [registerGovernanceTestRoutes]'s style. */
 private fun Route.registerMotionTestRoutes() {
     post("/test/submit-motion/{targetCommitteeId}") {
-        val service = GovernanceService(call)
+        val service = GovernanceService(call = call)
         val q = call.request.queryParameters
         val rationale = q["rationaleLen"]?.toInt()?.let { "A".repeat(it) } ?: (q["rationale"] ?: "Testrationale")
         val a =
@@ -2619,7 +2712,7 @@ private fun Route.registerMotionTestRoutes() {
         call.respondText("${a.id}:${a.status}")
     }
     get("/test/get-motion/{id}") {
-        val service = GovernanceService(call)
+        val service = GovernanceService(call = call)
         val a = service.getMotion(call.parameters["id"]!!)
         call.respondText("${a.status}:${a.resolutionId ?: ""}")
     }
@@ -2627,57 +2720,58 @@ private fun Route.registerMotionTestRoutes() {
     // effectiveText -- a separate route from get-motion above so that route's pre-existing
     // exact-equality assertions ("$status:$resolutionId") stay unaffected by this wave.
     get("/test/get-motion-full/{id}") {
-        val service = GovernanceService(call)
+        val service = GovernanceService(call = call)
         val a = service.getMotion(call.parameters["id"]!!)
         call.respondText("${a.status}:${a.resolutionId ?: ""}:${a.amendsMotionId ?: ""}:${a.currentText ?: ""}:${a.effectiveText}")
     }
     // Änderungsantrag (V0.2.6): listMotions(amendsMotionId = ...), ids joined for assertion.
     get("/test/list-amendments/{motionId}") {
-        val service = GovernanceService(call)
+        val service = GovernanceService(call = call)
         val amendments = service.listMotions(amendsMotionId = call.parameters["motionId"]!!)
         call.respondText(amendments.joinToString(";") { "${it.id}:${it.status}" })
     }
     post("/test/review-motion/{id}/{decision}") {
-        val service = GovernanceService(call)
+        val service = GovernanceService(call = call)
         val a =
             service.reviewMotion(
-                call.parameters["id"]!!,
-                MotionReviewDecision.valueOf(call.parameters["decision"]!!),
-                call.request.queryParameters["note"],
+                id = call.parameters["id"]!!,
+                decision = MotionReviewDecision.valueOf(call.parameters["decision"]!!),
+                note = call.request.queryParameters["note"],
             )
         call.respondText(a.status.name)
     }
     post("/test/schedule-motion/{id}/{meetingId}/{position}") {
-        val service = GovernanceService(call)
+        val service = GovernanceService(call = call)
         val a =
             service.scheduleMotion(
-                call.parameters["id"]!!,
-                call.parameters["meetingId"]!!,
-                call.parameters["position"]!!.toInt(),
+                id = call.parameters["id"]!!,
+                meetingId = call.parameters["meetingId"]!!,
+                position = call.parameters["position"]!!.toInt(),
             )
         call.respondText("${a.status}:${a.agendaItemId}")
     }
     post("/test/resolve-motion/{id}/{status}") {
-        val service = GovernanceService(call)
+        val service = GovernanceService(call = call)
         val a =
             service.resolveMotion(
-                call.parameters["id"]!!,
-                MotionResolutionInput(
-                    votesYes = 3,
-                    votesNo = 1,
-                    votesAbstain = 0,
-                    status = ResolutionStatus.valueOf(call.parameters["status"]!!),
-                ),
+                id = call.parameters["id"]!!,
+                input =
+                    MotionResolutionInput(
+                        votesYes = 3,
+                        votesNo = 1,
+                        votesAbstain = 0,
+                        status = ResolutionStatus.valueOf(call.parameters["status"]!!),
+                    ),
             )
         call.respondText("${a.status}:${a.resolutionId}")
     }
     post("/test/withdraw-motion/{id}") {
-        val service = GovernanceService(call)
+        val service = GovernanceService(call = call)
         val a = service.withdrawMotion(call.parameters["id"]!!)
         call.respondText(a.status.name)
     }
     get("/test/top-description-length/{meetingId}/{position}") {
-        val service = GovernanceService(call)
+        val service = GovernanceService(call = call)
         val detail = service.getMeetingDetail(call.parameters["meetingId"]!!)
         val top = detail.agenda.first { it.position == call.parameters["position"]!!.toInt() }
         call.respondText((top.description?.length ?: 0).toString())
@@ -2722,7 +2816,7 @@ private suspend fun HttpClient.createTerminierterMotion(
  */
 private fun Route.registerVoteTestRoutes() {
     post("/test/open-vote/{motionId}") {
-        val service = GovernanceService(call)
+        val service = GovernanceService(call = call)
         val labels = call.request.queryParameters["labels"]?.split(",") ?: listOf("YES", "NO")
         val a =
             service.openVote(
@@ -2732,13 +2826,13 @@ private fun Route.registerVoteTestRoutes() {
         call.respondText("${a.id}:${a.status}:$optionsStr")
     }
     get("/test/get-vote/{id}") {
-        val service = GovernanceService(call)
+        val service = GovernanceService(call = call)
         val a = service.getVote(call.parameters["id"]!!)
         val optionsStr = a.options.joinToString(";") { "${it.id}=${it.label}:${it.basketTotalLtr}" }
         call.respondText("${a.status}:${a.winnerOptionId ?: ""}:${a.secondPriceLtr ?: ""}:${a.resolutionId ?: ""}:$optionsStr")
     }
     post("/test/cast-vote-ballot/{voteId}/{optionId}/{stake}") {
-        val service = GovernanceService(call)
+        val service = GovernanceService(call = call)
         val s =
             service.castVoteBallot(
                 VoteBallotInput(
@@ -2750,28 +2844,28 @@ private fun Route.registerVoteTestRoutes() {
         call.respondText("${s.id}:${s.stakeLtr}")
     }
     post("/test/close-vote/{id}") {
-        val service = GovernanceService(call)
+        val service = GovernanceService(call = call)
         val a = service.closeVote(call.parameters["id"]!!)
         call.respondText("${a.status}:${a.winnerOptionId ?: ""}:${a.secondPriceLtr ?: ""}:${a.resolutionId ?: ""}")
     }
     post("/test/abort-vote/{id}") {
-        val service = GovernanceService(call)
+        val service = GovernanceService(call = call)
         val a = service.abortVote(call.parameters["id"]!!)
         call.respondText(a.status.name)
     }
     get("/test/list-ballots/{voteId}") {
-        val service = GovernanceService(call)
+        val service = GovernanceService(call = call)
         val ballots = service.listVoteBallots(call.parameters["voteId"]!!)
         call.respondText(ballots.joinToString(";") { "${it.memberId}:${it.stakeLtr}:${it.settledLtr ?: ""}" })
     }
     get("/test/list-votes/{motionId}") {
-        val service = GovernanceService(call)
+        val service = GovernanceService(call = call)
         val statusParam = call.request.queryParameters["status"]?.let { VoteStatus.valueOf(it) }
         val votes = service.listVotes(motionId = call.parameters["motionId"], status = statusParam)
         call.respondText(votes.joinToString(";") { "${it.id}:${it.status}" })
     }
     get("/test/resolution-for-meeting/{meetingId}") {
-        val service = GovernanceService(call)
+        val service = GovernanceService(call = call)
         val b = service.listResolutions(meetingId = call.parameters["meetingId"]!!).single()
         call.respondText("${b.resolutionMode}:${b.voteId ?: ""}:${b.status}")
     }

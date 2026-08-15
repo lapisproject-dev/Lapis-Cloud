@@ -80,7 +80,7 @@ class CoinbaseBitcoinPriceSource(
             if (price.signum() <= 0) return null
             SourcePriceResult(sourceId = id, price = price, observedAt = Clock.System.now())
         } catch (e: Exception) {
-            logSourceFailure(id, e)
+            logSourceFailure(sourceId = id, cause = e)
             null
         }
     }
@@ -118,7 +118,7 @@ class KrakenBitcoinPriceSource(
             if (price.signum() <= 0) return null
             SourcePriceResult(sourceId = id, price = price, observedAt = Clock.System.now())
         } catch (e: Exception) {
-            logSourceFailure(id, e)
+            logSourceFailure(sourceId = id, cause = e)
             null
         }
     }
@@ -149,7 +149,7 @@ class BitstampBitcoinPriceSource(
             if (price.signum() <= 0) return null
             SourcePriceResult(sourceId = id, price = price, observedAt = Clock.System.now())
         } catch (e: Exception) {
-            logSourceFailure(id, e)
+            logSourceFailure(sourceId = id, cause = e)
             null
         }
     }
@@ -158,9 +158,9 @@ class BitstampBitcoinPriceSource(
 /** The three real, independent BTC sources sharing one [oracleHttpClient] -- constructed once by `Application.module`, never per-request. */
 fun defaultBitcoinOracleSources(httpClient: HttpClient = oracleHttpClient()): List<PriceOracleSource> =
     listOf(
-        CoinbaseBitcoinPriceSource(httpClient),
-        KrakenBitcoinPriceSource(httpClient),
-        BitstampBitcoinPriceSource(httpClient),
+        CoinbaseBitcoinPriceSource(httpClient = httpClient),
+        KrakenBitcoinPriceSource(httpClient = httpClient),
+        BitstampBitcoinPriceSource(httpClient = httpClient),
     )
 
 // ── Wire shapes -- see CoinbaseBitcoinPriceSource class KDoc, NOT verified against live Coinbase/Kraken/Bitstamp docs ──

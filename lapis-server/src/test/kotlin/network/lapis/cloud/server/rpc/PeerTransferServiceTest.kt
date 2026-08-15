@@ -447,7 +447,13 @@ class PeerTransferServiceTest :
                 mintLtr(a, BigDecimal("100.00"))
                 mintLtr(b, BigDecimal("100.00"))
 
-                runConcurrentOppositeTransfers(client, a, b, aToB = BigDecimal("10.00"), bToA = BigDecimal("7.00"))
+                runConcurrentOppositeTransfers(
+                    client = client,
+                    memberA = a,
+                    memberB = b,
+                    aToB = BigDecimal("10.00"),
+                    bToA = BigDecimal("7.00"),
+                )
 
                 freeBalanceOf(a).compareTo(BigDecimal("97.00")) shouldBe 0
                 freeBalanceOf(b).compareTo(BigDecimal("103.00")) shouldBe 0
@@ -550,7 +556,7 @@ private fun StatusPagesConfig.installPeerTransferExceptionHandlers() {
 /** Shared throwaway routes for [PeerTransferService] -- mirrors [CrowdfundingServiceTest]'s `registerCrowdfundingTestRoutes` style. */
 private fun Route.registerPeerTransferTestRoutes() {
     post("/test/transfer") {
-        val service = PeerTransferService(call)
+        val service = PeerTransferService(call = call)
         val q = call.request.queryParameters
         val r =
             service.transferLtr(
@@ -564,7 +570,7 @@ private fun Route.registerPeerTransferTestRoutes() {
         call.respondText("${r.transferId}:${r.senderMemberId}:${r.recipientMemberId}:${r.amountLtr}:${r.initiatedById ?: "null"}")
     }
     post("/test/arbitration-transfer") {
-        val service = PeerTransferService(call)
+        val service = PeerTransferService(call = call)
         val q = call.request.queryParameters
         val r =
             service.executeArbitrationTransfer(
@@ -579,7 +585,7 @@ private fun Route.registerPeerTransferTestRoutes() {
         call.respondText("${r.transferId}:${r.senderMemberId}:${r.recipientMemberId}:${r.amountLtr}:${r.initiatedById ?: "null"}")
     }
     get("/test/my-entries") {
-        val service = LtrLedgerService(call)
+        val service = LtrLedgerService(call = call)
         call.respondText(service.listMyEntries().joinToString(",") { it.entryType.name })
     }
 }

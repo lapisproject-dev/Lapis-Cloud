@@ -62,7 +62,7 @@ class OidcGuestSessionTest :
                     homeserverUrl = issuer,
                     membershipStatus = "AKTIV",
                 )
-            val memberId = OidcGuestMemberStore.resolveOrCreateGuestMember(claims, "openid profile_basic")
+            val memberId = OidcGuestMemberStore.resolveOrCreateGuestMember(claims = claims, grantedScope = "openid profile_basic")
             createdMemberIds += memberId
 
             transaction {
@@ -84,12 +84,30 @@ class OidcGuestSessionTest :
         test("resolveOrCreateGuestMember reuses the SAME Member row on a second visit from the same (iss, sub)") {
             val issuer = "https://home-${Uuid.random()}.example"
             val subject = "guest-subject-${Uuid.random()}"
-            val claims1 = OidcGuestClaims(issuer, subject, "Guest Name 1", null, "guest2", issuer, null)
-            val claims2 = OidcGuestClaims(issuer, subject, "Guest Name 2 (updated profile)", null, "guest2", issuer, "GAST")
+            val claims1 =
+                OidcGuestClaims(
+                    issuer = issuer,
+                    subject = subject,
+                    name = "Guest Name 1",
+                    picture = null,
+                    preferredUsername = "guest2",
+                    homeserverUrl = issuer,
+                    membershipStatus = null,
+                )
+            val claims2 =
+                OidcGuestClaims(
+                    issuer = issuer,
+                    subject = subject,
+                    name = "Guest Name 2 (updated profile)",
+                    picture = null,
+                    preferredUsername = "guest2",
+                    homeserverUrl = issuer,
+                    membershipStatus = "GAST",
+                )
 
-            val memberId1 = OidcGuestMemberStore.resolveOrCreateGuestMember(claims1, "openid")
+            val memberId1 = OidcGuestMemberStore.resolveOrCreateGuestMember(claims = claims1, grantedScope = "openid")
             createdMemberIds += memberId1
-            val memberId2 = OidcGuestMemberStore.resolveOrCreateGuestMember(claims2, "openid profile_basic")
+            val memberId2 = OidcGuestMemberStore.resolveOrCreateGuestMember(claims = claims2, grantedScope = "openid profile_basic")
 
             memberId2 shouldBe memberId1
 
@@ -115,9 +133,9 @@ class OidcGuestSessionTest :
             val subjectA = "subject-a-${Uuid.random()}"
             val subjectB = "subject-b-${Uuid.random()}"
 
-            val emailA1 = OidcGuestMemberStore.syntheticEmail(issuer, subjectA)
-            val emailA2 = OidcGuestMemberStore.syntheticEmail(issuer, subjectA)
-            val emailB = OidcGuestMemberStore.syntheticEmail(issuer, subjectB)
+            val emailA1 = OidcGuestMemberStore.syntheticEmail(issuer = issuer, subject = subjectA)
+            val emailA2 = OidcGuestMemberStore.syntheticEmail(issuer = issuer, subject = subjectA)
+            val emailB = OidcGuestMemberStore.syntheticEmail(issuer = issuer, subject = subjectB)
 
             emailA1 shouldBe emailA2
             emailA1 shouldNotBe emailB
@@ -129,8 +147,17 @@ class OidcGuestSessionTest :
         ) {
             val issuer = "https://home-${Uuid.random()}.example"
             val subject = "guest-subject-${Uuid.random()}"
-            val claims = OidcGuestClaims(issuer, subject, "Voting Test Guest", null, null, issuer, null)
-            val memberId = OidcGuestMemberStore.resolveOrCreateGuestMember(claims, "openid")
+            val claims =
+                OidcGuestClaims(
+                    issuer = issuer,
+                    subject = subject,
+                    name = "Voting Test Guest",
+                    picture = null,
+                    preferredUsername = null,
+                    homeserverUrl = issuer,
+                    membershipStatus = null,
+                )
+            val memberId = OidcGuestMemberStore.resolveOrCreateGuestMember(claims = claims, grantedScope = "openid")
             createdMemberIds += memberId
 
             val session = SessionStore.createSession(memberId)
@@ -141,7 +168,7 @@ class OidcGuestSessionTest :
             shouldThrow<ForbiddenException> {
                 transaction {
                     network.lapis.cloud.server.rpc
-                        .requireActiveMembership(memberId)
+                        .requireActiveMembership(memberId = memberId)
                 }
             }
         }

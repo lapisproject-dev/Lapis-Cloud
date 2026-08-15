@@ -257,7 +257,7 @@ class ElectionService(
                 // the row lock, a concurrent leaveMembership() could commit in between, appointing
                 // a board member from an already-stale status read. See requireActiveMembership
                 // KDoc "forUpdate".
-                requireActiveMembership(mId, forUpdate = true)
+                requireActiveMembership(memberId = mId, forUpdate = true)
             }
             val targetCommitteeId = electionRow[ElectionTable.targetCommitteeId]
             if (targetCommitteeId != null) {
@@ -447,7 +447,7 @@ class ElectionService(
                 val meetingRow = MeetingTable.selectAll().where { MeetingTable.id eq meetingId }.single()
                 val scheduledDate = meetingRow[MeetingTable.scheduledAt].date
                 val committeeRow = CommitteeTable.selectAll().where { CommitteeTable.id eq committeeId }.single()
-                val eligible = eligibleMemberIds(committeeRow, scheduledDate)
+                val eligible = eligibleMemberIds(committeeRow = committeeRow, scheduledDate = scheduledDate)
                 eligible.forEach { mId ->
                     ElectionEligibleVoterTable.insert {
                         it[ElectionEligibleVoterTable.id] = Uuid.random()
@@ -481,7 +481,7 @@ class ElectionService(
                         actorRole = current.role,
                     )
                 }
-                OpenVotingPrep(meetingId, secret)
+                OpenVotingPrep(meetingId = meetingId, secret = secret)
             }
         // OUTSIDE the transaction -- StopEgress + confirmation, never a network call inside an open
         // transaction (D7).
@@ -504,7 +504,7 @@ class ElectionService(
             // against any future seating path that bypasses addCommitteeMember, or a legacy row
             // predating that fix). Member-only (AKTIV), not requireActiveOrGuestMembership --
             // guests never get vote weight in this project's concept.
-            requireActiveMembership(current.memberId)
+            requireActiveMembership(memberId = current.memberId)
             val electionRow = requireElectionRow(wId)
             if (electionRow[ElectionTable.status] != ElectionStatus.OPEN) {
                 throw ConflictException("Election ${input.electionId} is ${electionRow[ElectionTable.status]}, expected OPEN")
@@ -746,7 +746,8 @@ class ElectionService(
                     selectionsByBallot.values.map { selectedIds ->
                         ElectionAnswer.valueOf(labelByOptionId.getValue(selectedIds.single()))
                     }
-                val jaNein = computeJaNeinErgebnis(ballots, electionRow[ElectionTable.requiredMajorityPercent])
+                val jaNein =
+                    computeJaNeinErgebnis(ballots = ballots, requiredMajorityPercent = electionRow[ElectionTable.requiredMajorityPercent])
                 val jaOptionId = optionRows.single { it[ElectionOptionTable.label] == ElectionAnswer.YES.name }[ElectionOptionTable.id]
                 val neinOptionId = optionRows.single { it[ElectionOptionTable.label] == ElectionAnswer.NO.name }[ElectionOptionTable.id]
                 val enthaltungOptionId =
@@ -787,7 +788,12 @@ class ElectionService(
                 votesAbstain = jaNein.enthaltung
             } else {
                 val ballots = selectionsByBallot.values.map { ElectionBallotData(optionIds = it) }
-                val personenelection = computePersonnelElectionErgebnis(ballots, optionIds, electionRow[ElectionTable.seatCount])
+                val personenelection =
+                    computePersonnelElectionErgebnis(
+                        ballots = ballots,
+                        optionIds = optionIds,
+                        seatCount = electionRow[ElectionTable.seatCount],
+                    )
                 // SINGLE_CHOICE requires an absolute majority of the votes cast, not merely a
                 // plurality -- see `03 Bereiche/Lapis Cloud/Demokratische Electionen.md` Electiontypen
                 // table ("Absolute Mehrheit, ggf. Stichelection"). computePersonnelElectionErgebnis alone
@@ -876,7 +882,7 @@ class ElectionService(
                         // SAME transaction -- without the row lock, a concurrent leaveMembership()
                         // could commit in between, seating the winner from an already-stale status
                         // read. See requireActiveMembership KDoc "forUpdate".
-                        requireActiveMembership(winnerMemberId, forUpdate = true)
+                        requireActiveMembership(memberId = winnerMemberId, forUpdate = true)
                         // Guarded seat, mirroring the single-active-membership invariant
                         // GovernanceService.addCommitteeMember enforces (GovernanceService.kt
                         // ~200-212): an incumbent who wins re-election (or is elected into a new
@@ -905,8 +911,19 @@ class ElectionService(
                         }
                         if (targetCommitteeType == CommitteeType.EXECUTIVE_BOARD) {
                             val boardMembershipId =
-                                BoardMembershipEvents.recordBoardJoin(winnerMemberId, targetRole, today, nowLocalDateTime())
-                            seatedBoardMemberships += SeatedBoardMembership(boardMembershipId, winnerMemberId, targetRole, today)
+                                BoardMembershipEvents.recordBoardJoin(
+                                    memberId = winnerMemberId,
+                                    role = targetRole,
+                                    startedAt = today,
+                                    now = nowLocalDateTime(),
+                                )
+                            seatedBoardMemberships +=
+                                SeatedBoardMembership(
+                                    id = boardMembershipId,
+                                    memberId = winnerMemberId,
+                                    role = targetRole,
+                                    startedAt = today,
+                                )
                         }
                     }
                 }
@@ -930,11 +947,11 @@ class ElectionService(
                 )
             val resolution =
                 insertResolutionRow(
-                    electionRow[ElectionTable.meetingId],
-                    committeeId,
-                    meeting[MeetingTable.scheduledAt].date,
-                    resolutionInput,
-                    current,
+                    sId = electionRow[ElectionTable.meetingId],
+                    committeeId = committeeId,
+                    scheduledDate = meeting[MeetingTable.scheduledAt].date,
+                    input = resolutionInput,
+                    current = current,
                     resolutionMode = ResolutionMode.DEMOCRATIC,
                     electionId = wId,
                 )
@@ -961,9 +978,15 @@ class ElectionService(
             // auditResolutionCreate KDoc for why these calls cannot happen earlier (inside the
             // seating loop / inside insertResolutionRow).
             seatedBoardMemberships.forEach {
-                auditBoardMembershipCreate(it.id, it.memberId, it.role, it.startedAt, current)
+                auditBoardMembershipCreate(
+                    boardMembershipId = it.id,
+                    memberId = it.memberId,
+                    committeeRole = it.role,
+                    startedAt = it.startedAt,
+                    current = current,
+                )
             }
-            auditResolutionCreate(resolution, current)
+            auditResolutionCreate(resolution = resolution, current = current)
             ergebnis
         }
     }

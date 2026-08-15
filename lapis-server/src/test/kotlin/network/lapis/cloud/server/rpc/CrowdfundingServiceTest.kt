@@ -92,7 +92,13 @@ class CrowdfundingServiceTest :
             }
         }
 
-        afterSpec { cleanUpCrowdfundingTestData(createdMemberIds, createdProjectIds, createdContributionIds) }
+        afterSpec {
+            cleanUpCrowdfundingTestData(
+                memberIds = createdMemberIds,
+                projectIds = createdProjectIds,
+                contributionIds = createdContributionIds,
+            )
+        }
 
         fun createTestMember(
             email: String,
@@ -623,7 +629,7 @@ private fun StatusPagesConfig.installCrowdfundingExceptionHandlers() {
 /** Shared throwaway routes for [CrowdfundingService] -- mirrors [GovernanceServiceTest]'s `registerGovernanceTestRoutes` style. */
 private fun Route.registerCrowdfundingTestRoutes() {
     post("/test/submit-project") {
-        val service = CrowdfundingService(call)
+        val service = CrowdfundingService(call = call)
         val q = call.request.queryParameters
         val p =
             service.submitProject(
@@ -636,60 +642,60 @@ private fun Route.registerCrowdfundingTestRoutes() {
         call.respondText("${p.id}:${p.status}")
     }
     get("/test/get-project/{id}") {
-        val service = CrowdfundingService(call)
+        val service = CrowdfundingService(call = call)
         val p = service.getProject(call.parameters["id"]!!)
         call.respondText("${p.status}:${p.effectiveStatus}:${p.isAutoApproved}:${p.likeCount}:${p.dislikeCount}:${p.basketTotal}")
     }
     get("/test/list-projects") {
-        val service = CrowdfundingService(call)
+        val service = CrowdfundingService(call = call)
         call.respondText(service.listProjects().joinToString(",") { it.id })
     }
     post("/test/approve-project/{id}") {
-        val service = CrowdfundingService(call)
+        val service = CrowdfundingService(call = call)
         val p = service.approveProject(call.parameters["id"]!!)
         call.respondText(p.status.name)
     }
     post("/test/reject-project/{id}") {
-        val service = CrowdfundingService(call)
+        val service = CrowdfundingService(call = call)
         val reason = call.request.queryParameters["reason"] ?: ""
-        val p = service.rejectProject(call.parameters["id"]!!, reason)
+        val p = service.rejectProject(id = call.parameters["id"]!!, reason = reason)
         call.respondText(p.status.name)
     }
     post("/test/cast-reaction/{id}/{value}") {
-        val service = CrowdfundingService(call)
+        val service = CrowdfundingService(call = call)
         val r =
             service.castReaction(
-                call.parameters["id"]!!,
-                CrowdfundingReactionValue.valueOf(call.parameters["value"]!!),
+                projectId = call.parameters["id"]!!,
+                value = CrowdfundingReactionValue.valueOf(call.parameters["value"]!!),
             )
         call.respondText(r.value.name)
     }
     post("/test/retract-reaction/{id}") {
-        val service = CrowdfundingService(call)
+        val service = CrowdfundingService(call = call)
         service.retractReaction(call.parameters["id"]!!)
         call.respondText("ok")
     }
     get("/test/my-reaction/{id}") {
-        val service = CrowdfundingService(call)
+        val service = CrowdfundingService(call = call)
         val r = service.getMyReaction(call.parameters["id"]!!)
         call.respondText(r.singleOrNull()?.value?.name ?: "none")
     }
     post("/test/compute-distribution/{start}/{end}") {
-        val service = CrowdfundingService(call)
+        val service = CrowdfundingService(call = call)
         val results =
             service.computeMonthlyDistribution(
-                LocalDate.parse(call.parameters["start"]!!),
-                LocalDate.parse(call.parameters["end"]!!),
+                periodStart = LocalDate.parse(call.parameters["start"]!!),
+                periodEnd = LocalDate.parse(call.parameters["end"]!!),
             )
         call.respondText(results.joinToString(";") { "${it.projectId}=${it.amountEur}" })
     }
     get("/test/list-distributions/{projectId}") {
-        val service = CrowdfundingService(call)
+        val service = CrowdfundingService(call = call)
         val results = service.listDistributions(call.parameters["projectId"])
         call.respondText(results.joinToString(",") { it.projectId })
     }
     get("/test/my-balance") {
-        val service = LtrLedgerService(call)
+        val service = LtrLedgerService(call = call)
         call.respondText(service.getMyBalance().freeBalanceLtr.toString())
     }
 }

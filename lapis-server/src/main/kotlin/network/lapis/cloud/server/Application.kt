@@ -226,7 +226,11 @@ fun Application.module() {
     // its own credentials are configured.
     val conferenceConfig = ConferenceConfig.load()
     val liveKitAdminClient: LiveKitAdminClient =
-        HttpLiveKitAdminClient(conferenceConfig.livekitApiUrl, conferenceConfig.apiKey, conferenceConfig.apiSecret)
+        HttpLiveKitAdminClient(
+            apiUrl = conferenceConfig.livekitApiUrl,
+            apiKey = conferenceConfig.apiKey,
+            apiSecret = conferenceConfig.apiSecret,
+        )
     val conferenceRoomRateLimiter = LoginRateLimiter()
 
     // Audit-round-1 fix (Wave 1): createRoom's own throttle above does NOT cover
@@ -310,9 +314,16 @@ fun Application.module() {
     // conferenceRecordingConfig.enabled holds -- a deployment with recording disabled must never
     // spawn the poll loop at all, not even one that immediately no-ops every tick.
     val liveKitEgressClient: LiveKitEgressClient =
-        HttpLiveKitEgressClient(conferenceConfig.livekitApiUrl, conferenceConfig.apiKey, conferenceConfig.apiSecret)
+        HttpLiveKitEgressClient(
+            apiUrl = conferenceConfig.livekitApiUrl,
+            apiKey = conferenceConfig.apiKey,
+            apiSecret = conferenceConfig.apiSecret,
+        )
     val recordingComposer: RecordingComposer =
-        FfmpegGalleryComposer(conferenceRecordingConfig.ffmpegPath, conferenceRecordingConfig.composeTimeoutMinutes)
+        FfmpegGalleryComposer(
+            ffmpegPath = conferenceRecordingConfig.ffmpegPath,
+            timeoutMinutes = conferenceRecordingConfig.composeTimeoutMinutes,
+        )
     val recordingPoller =
         RecordingPoller(
             liveKitAdminClient = liveKitAdminClient,
@@ -434,31 +445,37 @@ fun Application.module() {
         registerService(IMailingService::class) { call -> MailingService(call) }
         registerService(IDirectMessageService::class) { call -> DirectMessageService(call) }
         registerService(IDsgvoService::class) { call -> DsgvoService(call) }
-        registerService(IGovernanceService::class) { call -> GovernanceService(call) }
-        registerService(IElectionService::class) { call -> ElectionService(call, secretBallotStreamGuard) }
-        registerService(ISystemicConsensusService::class) { call -> SystemicConsensusService(call, secretBallotStreamGuard) }
+        registerService(IGovernanceService::class) { call -> GovernanceService(call = call) }
+        registerService(IElectionService::class) { call -> ElectionService(call = call, streamGuard = secretBallotStreamGuard) }
+        registerService(
+            ISystemicConsensusService::class,
+        ) { call -> SystemicConsensusService(call = call, streamGuard = secretBallotStreamGuard) }
         registerService(IAccountingService::class) { call -> AccountingService(call) }
         registerService(IOrganizationSettingsService::class) { call -> OrganizationSettingsService(call) }
-        registerService(IPostalMailService::class) { call -> PostalMailService(call, documentStorageRoot, postalMailProvider) }
+        registerService(
+            IPostalMailService::class,
+        ) { call -> PostalMailService(call = call, storageRoot = documentStorageRoot, postalMailProvider = postalMailProvider) }
         registerService(IBoardMembershipService::class) { call -> BoardMembershipService(call) }
         registerService(IAuditLogService::class) { call -> AuditLogService(call) }
         registerService(IBackupService::class) { call -> BackupService(call) }
         registerService(IDsgvoComplianceService::class) { call -> DsgvoComplianceService(call) }
-        registerService(ILtrLedgerService::class) { call -> LtrLedgerService(call) }
-        registerService(ICrowdfundingService::class) { call -> CrowdfundingService(call) }
-        registerService(IPeerTransferService::class) { call -> PeerTransferService(call) }
-        registerService(IPriceOracleService::class) { call -> PriceOracleService(call, priceOracleOrchestrator) }
-        registerService(IPoliticianService::class) { call -> PoliticianService(call) }
-        registerService(IAuctionService::class) { call -> AuctionService(call) }
+        registerService(ILtrLedgerService::class) { call -> LtrLedgerService(call = call) }
+        registerService(ICrowdfundingService::class) { call -> CrowdfundingService(call = call) }
+        registerService(IPeerTransferService::class) { call -> PeerTransferService(call = call) }
+        registerService(IPriceOracleService::class) { call -> PriceOracleService(call = call, orchestrator = priceOracleOrchestrator) }
+        registerService(IPoliticianService::class) { call -> PoliticianService(call = call) }
+        registerService(IAuctionService::class) { call -> AuctionService(call = call) }
         registerService(IAuthService::class) { call -> AuthService(call) }
-        registerService(IRegistrationService::class) { call -> RegistrationService(call, registrationRateLimiter) }
+        registerService(
+            IRegistrationService::class,
+        ) { call -> RegistrationService(call = call, registrationRateLimiter = registrationRateLimiter) }
         registerService(IFederationService::class) { call -> FederationService(call) }
         registerService(ITrustAnchorService::class) { call -> TrustAnchorService(call) }
         registerService(IConferenceService::class) { call ->
             ConferenceService(
-                call,
-                liveKitAdminClient,
-                conferenceRoomRateLimiter,
+                call = call,
+                liveKitAdminClient = liveKitAdminClient,
+                createRoomRateLimiter = conferenceRoomRateLimiter,
                 joinRoomRateLimiter = conferenceJoinRateLimiter,
                 leaveRoomRateLimiter = conferenceLeaveRateLimiter,
                 listRateLimiter = conferenceListRateLimiter,
@@ -471,8 +488,8 @@ fun Application.module() {
         }
         registerService(IConferenceBreakoutService::class) { call ->
             ConferenceBreakoutService(
-                call,
-                liveKitAdminClient,
+                call = call,
+                liveKitAdminClient = liveKitAdminClient,
                 config = conferenceConfig,
                 createRateLimiter = conferenceBreakoutCreateRateLimiter,
                 assignRateLimiter = conferenceBreakoutAssignRateLimiter,
@@ -481,13 +498,18 @@ fun Application.module() {
             )
         }
         registerService(IConferenceRecordingService::class) { call ->
-            ConferenceRecordingService(call, ffmpegAvailable, config = conferenceConfig, recordingConfig = conferenceRecordingConfig)
+            ConferenceRecordingService(
+                call = call,
+                ffmpegAvailable = ffmpegAvailable,
+                config = conferenceConfig,
+                recordingConfig = conferenceRecordingConfig,
+            )
         }
         registerService(IConferenceWhiteboardService::class) { call ->
             ConferenceWhiteboardService(
-                call,
-                documentStorageRoot,
-                conferenceWhiteboardState,
+                call = call,
+                documentStorageRoot = documentStorageRoot,
+                whiteboardState = conferenceWhiteboardState,
                 config = conferenceConfig,
                 readRateLimiter = conferenceWhiteboardReadRateLimiter,
                 commitRateLimiter = conferenceWhiteboardCommitRateLimiter,
@@ -497,9 +519,9 @@ fun Application.module() {
         }
         registerService(IConferenceNotesService::class) { call ->
             ConferenceNotesService(
-                call,
-                documentStorageRoot,
-                conferenceNotesState,
+                call = call,
+                documentStorageRoot = documentStorageRoot,
+                notesState = conferenceNotesState,
                 config = conferenceConfig,
                 readRateLimiter = conferenceNotesReadRateLimiter,
                 createRateLimiter = conferenceNotesCreateRateLimiter,
@@ -510,8 +532,8 @@ fun Application.module() {
         }
         registerService(IConferenceStreamingService::class) { call ->
             ConferenceStreamingService(
-                call,
-                liveKitEgressClient,
+                call = call,
+                liveKitEgressClient = liveKitEgressClient,
                 config = conferenceConfig,
                 streamingConfig = conferenceStreamingConfig,
                 destinationRateLimiter = streamingDestinationRateLimiter,
@@ -533,10 +555,15 @@ fun Application.module() {
         registerConferenceRecordingRoutes(documentStorageRoot)
         registerDsgvoRoutes()
         registerMailmergeRoutes(documentStorageRoot)
-        registerBackupRoutes(DatabaseConfig.connect(), documentStorageRoot)
-        registerAuthRoutes(loginRateLimiter, cookieSecure, passwordResetRateLimiter, passwordResetMailer)
-        registerFederationRoutes(federationInboxRateLimiter, federationReplayGuard)
-        registerOidcRoutes(cookieSecure, oidcRegistrationRateLimiter)
+        registerBackupRoutes(database = DatabaseConfig.connect(), documentStorageRoot = documentStorageRoot)
+        registerAuthRoutes(
+            rateLimiter = loginRateLimiter,
+            cookieSecure = cookieSecure,
+            passwordResetRateLimiter = passwordResetRateLimiter,
+            passwordResetMailer = passwordResetMailer,
+        )
+        registerFederationRoutes(inboxRateLimiter = federationInboxRateLimiter, replayGuard = federationReplayGuard)
+        registerOidcRoutes(cookieSecure = cookieSecure, registrationRateLimiter = oidcRegistrationRateLimiter)
         registerTrustAnchorRoutes()
         getAllServiceManagers().forEach { applyRoutes(it) }
         // Registered last: literal routes above (/api/..., RPC service paths) always win over this

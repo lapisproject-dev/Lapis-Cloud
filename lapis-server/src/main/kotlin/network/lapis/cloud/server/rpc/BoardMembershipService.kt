@@ -69,11 +69,23 @@ class BoardMembershipService(
         return transaction {
             MemberTable.selectAll().where { MemberTable.id eq memberId }.singleOrNull()
                 ?: throw NotFoundException("Member ${input.memberId} not found")
-            val id = BoardMembershipEvents.recordBoardJoin(memberId, input.committeeRole, input.startedAt, nowLocalDateTime())
+            val id =
+                BoardMembershipEvents.recordBoardJoin(
+                    memberId = memberId,
+                    role = input.committeeRole,
+                    startedAt = input.startedAt,
+                    now = nowLocalDateTime(),
+                )
             // V0.5.3 GoBD audit log: called last, after recordBoardJoin's own writes and before the
             // final read-only select below, so this satisfies AuditLogRecorder's deadlock-avoidance
             // contract -- see auditBoardMembershipCreate KDoc for the full call-site rationale.
-            auditBoardMembershipCreate(id, memberId, input.committeeRole, input.startedAt, current)
+            auditBoardMembershipCreate(
+                boardMembershipId = id,
+                memberId = memberId,
+                committeeRole = input.committeeRole,
+                startedAt = input.startedAt,
+                current = current,
+            )
             loadBoardMembership(id)
         }
     }
@@ -89,17 +101,17 @@ class BoardMembershipService(
             val beforeRow =
                 BoardMembershipTable.selectAll().where { BoardMembershipTable.id eq id }.singleOrNull()
                     ?: throw NotFoundException("BoardMembership $boardMembershipId not found")
-            BoardMembershipEvents.recordBoardLeave(id, endedAt, nowLocalDateTime())
+            BoardMembershipEvents.recordBoardLeave(boardMembershipId = id, endedAt = endedAt, now = nowLocalDateTime())
             // V0.5.3 GoBD audit log: called last, after recordBoardLeave's own writes and before the
             // final read-only select below -- see auditBoardMembershipEnd KDoc for the full
             // call-site rationale.
             auditBoardMembershipEnd(
-                id,
-                beforeRow[BoardMembershipTable.memberId],
-                beforeRow[BoardMembershipTable.committeeRole],
-                beforeRow[BoardMembershipTable.startedAt],
-                endedAt,
-                current,
+                boardMembershipId = id,
+                memberId = beforeRow[BoardMembershipTable.memberId],
+                committeeRole = beforeRow[BoardMembershipTable.committeeRole],
+                startedAt = beforeRow[BoardMembershipTable.startedAt],
+                endedAt = endedAt,
+                current = current,
             )
             loadBoardMembership(id)
         }

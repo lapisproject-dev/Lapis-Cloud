@@ -389,14 +389,15 @@ private fun Route.registerDsgvoComplianceTestRoutes() {
         val q = call.request.queryParameters
         val dto =
             service.updateProcessingAgreement(
-                call.parameters["id"]!!,
-                ProcessingAgreementInput(
-                    processorName = q["processor"]!!,
-                    processingPurpose = "Testzweck",
-                    dataCategories = "Name, Adresse",
-                    avvStatus = AvvStatus.valueOf(q["status"]!!),
-                    reviewDueDate = q["reviewDue"]?.let { LocalDate.parse(it) },
-                ),
+                id = call.parameters["id"]!!,
+                input =
+                    ProcessingAgreementInput(
+                        processorName = q["processor"]!!,
+                        processingPurpose = "Testzweck",
+                        dataCategories = "Name, Adresse",
+                        avvStatus = AvvStatus.valueOf(q["status"]!!),
+                        reviewDueDate = q["reviewDue"]?.let { LocalDate.parse(it) },
+                    ),
             )
         call.respondText("${dto.id}:${dto.active}")
     }
@@ -430,12 +431,13 @@ private fun Route.registerDsgvoComplianceTestRoutes() {
         val q = call.request.queryParameters
         val dto =
             service.updateTechnicalOrganizationalMeasure(
-                call.parameters["id"]!!,
-                TechnicalOrganizationalMeasureInput(
-                    category = TomCategory.valueOf(q["category"]!!),
-                    title = q["title"]!!,
-                    description = "Testbeschreibung-v2",
-                ),
+                id = call.parameters["id"]!!,
+                input =
+                    TechnicalOrganizationalMeasureInput(
+                        category = TomCategory.valueOf(q["category"]!!),
+                        title = q["title"]!!,
+                        description = "Testbeschreibung-v2",
+                    ),
             )
         call.respondText("${dto.id}:${dto.version}")
     }
@@ -464,15 +466,16 @@ private fun Route.registerDsgvoComplianceTestRoutes() {
         val q = call.request.queryParameters
         val dto =
             service.updateDpiaAssessment(
-                call.parameters["id"]!!,
-                DpiaAssessmentInput(
-                    title = q["title"]!!,
-                    processingDescription = "Testverarbeitung-v2",
-                    dpiaRequired = q["dpiaRequired"]?.toBoolean(),
-                    riskLikelihood = q["likelihood"]?.let { RiskLevel.valueOf(it) },
-                    riskSeverity = q["severity"]?.let { RiskLevel.valueOf(it) },
-                    status = q["status"]?.let { DsfaStatus.valueOf(it) } ?: DsfaStatus.DRAFT,
-                ),
+                id = call.parameters["id"]!!,
+                input =
+                    DpiaAssessmentInput(
+                        title = q["title"]!!,
+                        processingDescription = "Testverarbeitung-v2",
+                        dpiaRequired = q["dpiaRequired"]?.toBoolean(),
+                        riskLikelihood = q["likelihood"]?.let { RiskLevel.valueOf(it) },
+                        riskSeverity = q["severity"]?.let { RiskLevel.valueOf(it) },
+                        status = q["status"]?.let { DsfaStatus.valueOf(it) } ?: DsfaStatus.DRAFT,
+                    ),
             )
         call.respondText("${dto.id}:${dto.version}:${dto.dpiaRequired}:${dto.riskBand}")
     }
@@ -504,15 +507,16 @@ private fun Route.registerDsgvoComplianceTestRoutes() {
         val q = call.request.queryParameters
         val dto =
             service.updateDataBreachIncident(
-                call.parameters["id"]!!,
-                DataBreachIncidentInput(
-                    discoveredAt = LocalDateTime.parse(q["discoveredAt"]!!),
-                    description = "Testvorfall-v2",
-                    affectedDataCategories = "E-Mail-Adressen",
-                    authorityNotifiedAt = q["authorityNotifiedAt"]?.let { LocalDateTime.parse(it) },
-                    authorityNotificationRequired = q["authorityRequired"]?.toBoolean(),
-                    status = q["status"]?.let { BreachStatus.valueOf(it) } ?: BreachStatus.REPORTED,
-                ),
+                id = call.parameters["id"]!!,
+                input =
+                    DataBreachIncidentInput(
+                        discoveredAt = LocalDateTime.parse(q["discoveredAt"]!!),
+                        description = "Testvorfall-v2",
+                        affectedDataCategories = "E-Mail-Adressen",
+                        authorityNotifiedAt = q["authorityNotifiedAt"]?.let { LocalDateTime.parse(it) },
+                        authorityNotificationRequired = q["authorityRequired"]?.toBoolean(),
+                        status = q["status"]?.let { BreachStatus.valueOf(it) } ?: BreachStatus.REPORTED,
+                    ),
             )
         call.respondText(
             "${dto.id}|${dto.authorityNotificationDeadline}|${dto.deadlineStatus}|${dto.authorityNotificationRequired}",

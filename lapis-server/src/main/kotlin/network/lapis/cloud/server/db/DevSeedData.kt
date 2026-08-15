@@ -53,28 +53,28 @@ object DevSeedData {
     val demoMembers =
         listOf(
             SeedMember(
-                Uuid.parse("00000000-0000-0000-0000-000000000001"),
-                "Amara Admin",
-                "amara.admin@example.org",
-                AccountRole.ADMIN,
+                id = Uuid.parse("00000000-0000-0000-0000-000000000001"),
+                displayName = "Amara Admin",
+                email = "amara.admin@example.org",
+                role = AccountRole.ADMIN,
             ),
             SeedMember(
-                Uuid.parse("00000000-0000-0000-0000-000000000002"),
-                "Boris Board",
-                "boris.board@example.org",
-                AccountRole.BOARD,
+                id = Uuid.parse("00000000-0000-0000-0000-000000000002"),
+                displayName = "Boris Board",
+                email = "boris.board@example.org",
+                role = AccountRole.BOARD,
             ),
             SeedMember(
-                Uuid.parse("00000000-0000-0000-0000-000000000003"),
-                "Theresa Treasurer",
-                "theresa.treasurer@example.org",
-                AccountRole.TREASURER,
+                id = Uuid.parse("00000000-0000-0000-0000-000000000003"),
+                displayName = "Theresa Treasurer",
+                email = "theresa.treasurer@example.org",
+                role = AccountRole.TREASURER,
             ),
             SeedMember(
-                Uuid.parse("00000000-0000-0000-0000-000000000004"),
-                "Max Mitglied",
-                "max.mitglied@example.org",
-                AccountRole.MEMBER,
+                id = Uuid.parse("00000000-0000-0000-0000-000000000004"),
+                displayName = "Max Mitglied",
+                email = "max.mitglied@example.org",
+                role = AccountRole.MEMBER,
             ),
         )
 
@@ -110,44 +110,127 @@ object DevSeedData {
     val demoLedgerAccounts =
         listOf(
             // Klasse 0 -- Anlagevermögen. (LOW confidence -- SKR04-consistent candidate.)
-            SeedLedgerAccount("06500", "Betriebs- und Geschäftsausstattung", 0, LedgerAccountType.ASSET),
+            SeedLedgerAccount(
+                accountNumber = "06500",
+                name = "Betriebs- und Geschäftsausstattung",
+                accountClass = 0,
+                type = LedgerAccountType.ASSET,
+            ),
             // Klasse 1 -- liquide Mittel. (HIGH confidence.) "16000 Kasse" is the physical cash
             // register (V0.3.5 Kassenbuch) -- accountClass alone can't distinguish it from
             // "18000 Bank"/"12000 Forderungen" below, all class 1, see 10-accounting.kuml.kts
             // file header.
-            SeedLedgerAccount("16000", "Kasse", 1, LedgerAccountType.ASSET, isCashRegister = true),
-            SeedLedgerAccount("18000", "Bank (Girokonto)", 1, LedgerAccountType.ASSET),
+            SeedLedgerAccount(
+                accountNumber = "16000",
+                name = "Kasse",
+                accountClass = 1,
+                type = LedgerAccountType.ASSET,
+                isCashRegister = true,
+            ),
+            SeedLedgerAccount(accountNumber = "18000", name = "Bank (Girokonto)", accountClass = 1, type = LedgerAccountType.ASSET),
             // Klasse 1 -- Forderungen. (MED confidence.)
-            SeedLedgerAccount("12000", "Forderungen aus Lieferungen und Leistungen", 1, LedgerAccountType.ASSET),
+            SeedLedgerAccount(
+                accountNumber = "12000",
+                name = "Forderungen aus Lieferungen und Leistungen",
+                accountClass = 1,
+                type = LedgerAccountType.ASSET,
+            ),
             // Klasse 3 -- Verbindlichkeiten/USt. (LOW/MED confidence.)
-            SeedLedgerAccount("34000", "Verbindlichkeiten aus Lieferungen und Leistungen", 3, LedgerAccountType.LIABILITY),
-            SeedLedgerAccount("37500", "Umsatzsteuer", 3, LedgerAccountType.LIABILITY),
+            SeedLedgerAccount(
+                accountNumber = "34000",
+                name = "Verbindlichkeiten aus Lieferungen und Leistungen",
+                accountClass = 3,
+                type = LedgerAccountType.LIABILITY,
+            ),
+            SeedLedgerAccount(accountNumber = "37500", name = "Umsatzsteuer", accountClass = 3, type = LedgerAccountType.LIABILITY),
             // Klasse 4 -- Erträge/Umsatzerlöse. Covers all four Gemeinnützigkeit spheres' income
             // (ideeller Bereich, Vermögensverwaltung, Zweckbetrieb, wirtschaftlicher
             // Geschäftsbetrieb) -- SKR42 does not partition income by account-number range; sphere
             // is assigned per posting via cost center (KOST1). (HIGH confidence.)
-            SeedLedgerAccount("40000", "Echte Mitgliedsbeiträge", 4, LedgerAccountType.INCOME),
-            SeedLedgerAccount("40450", "Geldzuwendungen (Spenden) gegen Zuwendungsbestätigung", 4, LedgerAccountType.INCOME),
-            SeedLedgerAccount("42010", "Erlöse aus Eintrittsgeldern (Zweckbetrieb)", 4, LedgerAccountType.INCOME),
-            SeedLedgerAccount("44000", "Erlöse wirtschaftlicher Geschäftsbetrieb", 4, LedgerAccountType.INCOME),
+            SeedLedgerAccount(accountNumber = "40000", name = "Echte Mitgliedsbeiträge", accountClass = 4, type = LedgerAccountType.INCOME),
+            SeedLedgerAccount(
+                accountNumber = "40450",
+                name = "Geldzuwendungen (Spenden) gegen Zuwendungsbestätigung",
+                accountClass = 4,
+                type = LedgerAccountType.INCOME,
+            ),
+            SeedLedgerAccount(
+                accountNumber = "42010",
+                name = "Erlöse aus Eintrittsgeldern (Zweckbetrieb)",
+                accountClass = 4,
+                type = LedgerAccountType.INCOME,
+            ),
+            SeedLedgerAccount(
+                accountNumber = "44000",
+                name = "Erlöse wirtschaftlicher Geschäftsbetrieb",
+                accountClass = 4,
+                type = LedgerAccountType.INCOME,
+            ),
             // Klasse 5 -- Wareneingang / Aufwendungen für Roh-, Hilfs- und Betriebsstoffe. This is
             // itself an EXPENSE class under SKR42, not an income class. (MED confidence.)
-            SeedLedgerAccount("50000", "Wareneinsatz / Materialaufwand", 5, LedgerAccountType.EXPENSE),
+            SeedLedgerAccount(
+                accountNumber = "50000",
+                name = "Wareneinsatz / Materialaufwand",
+                accountClass = 5,
+                type = LedgerAccountType.EXPENSE,
+            ),
             // Klasse 6 -- sonstige betriebliche Aufwendungen. Sphere-neutral by design under SKR42
             // -- which sphere a booking to one of these belongs to is assigned per posting via cost
             // center (KOST1), not derivable from the account itself. (MED/LOW confidence.)
-            SeedLedgerAccount("63000", "Aufwand (z.B. Miete) -- Sphäre via KOST1", 6, LedgerAccountType.EXPENSE),
-            SeedLedgerAccount("64000", "Bürobedarf / Verwaltungsaufwand", 6, LedgerAccountType.EXPENSE),
-            SeedLedgerAccount("64200", "Sonstiger Aufwand -- Sphäre via KOST1", 6, LedgerAccountType.EXPENSE),
+            SeedLedgerAccount(
+                accountNumber = "63000",
+                name = "Aufwand (z.B. Miete) -- Sphäre via KOST1",
+                accountClass = 6,
+                type = LedgerAccountType.EXPENSE,
+            ),
+            SeedLedgerAccount(
+                accountNumber = "64000",
+                name = "Bürobedarf / Verwaltungsaufwand",
+                accountClass = 6,
+                type = LedgerAccountType.EXPENSE,
+            ),
+            SeedLedgerAccount(
+                accountNumber = "64200",
+                name = "Sonstiger Aufwand -- Sphäre via KOST1",
+                accountClass = 6,
+                type = LedgerAccountType.EXPENSE,
+            ),
             // Klasse 7 -- Finanzergebnis. (MED confidence.)
-            SeedLedgerAccount("71100", "Zinserträge Bankguthaben (Vermögensverwaltung)", 7, LedgerAccountType.INCOME),
+            SeedLedgerAccount(
+                accountNumber = "71100",
+                name = "Zinserträge Bankguthaben (Vermögensverwaltung)",
+                accountClass = 7,
+                type = LedgerAccountType.INCOME,
+            ),
             // Klasse 2/9 -- Eigenkapital/Vortrags-/statistische Konten. (LOW/MED confidence.)
-            SeedLedgerAccount("20000", "Vereinsvermögen / Ergebnisvortrag", 2, LedgerAccountType.EQUITY),
-            SeedLedgerAccount("90000", "Saldenvorträge Sachkonten / Eröffnungsbilanz", 9, LedgerAccountType.EQUITY),
+            SeedLedgerAccount(
+                accountNumber = "20000",
+                name = "Vereinsvermögen / Ergebnisvortrag",
+                accountClass = 2,
+                type = LedgerAccountType.EQUITY,
+            ),
+            SeedLedgerAccount(
+                accountNumber = "90000",
+                name = "Saldenvorträge Sachkonten / Eröffnungsbilanz",
+                accountClass = 9,
+                type = LedgerAccountType.EQUITY,
+            ),
             // §62 AO Rücklagen (V0.3.4) -- ordinary EQUITY accounts, machine-classified via
             // reserveType. See ReserveType KDoc / 10-accounting.kuml.kts file header.
-            SeedLedgerAccount("21000", "Projektrücklage (§62 Abs.1 Nr.1 AO)", 2, LedgerAccountType.EQUITY, ReserveType.PROJEKTRUECKLAGE),
-            SeedLedgerAccount("21500", "Freie Rücklage (§62 Abs.1 Nr.3 AO)", 2, LedgerAccountType.EQUITY, ReserveType.FREIE_RUECKLAGE),
+            SeedLedgerAccount(
+                accountNumber = "21000",
+                name = "Projektrücklage (§62 Abs.1 Nr.1 AO)",
+                accountClass = 2,
+                type = LedgerAccountType.EQUITY,
+                reserveType = ReserveType.PROJEKTRUECKLAGE,
+            ),
+            SeedLedgerAccount(
+                accountNumber = "21500",
+                name = "Freie Rücklage (§62 Abs.1 Nr.3 AO)",
+                accountClass = 2,
+                type = LedgerAccountType.EQUITY,
+                reserveType = ReserveType.FREIE_RUECKLAGE,
+            ),
         )
 
     /**

@@ -186,7 +186,7 @@ private class FakeLiveKitAdminClient : LiveKitAdminClient {
     private fun maybeFail() {
         if (failNextCall) {
             failNextCall = false
-            throw LiveKitAdminException("simulated LiveKit failure")
+            throw LiveKitAdminException(message = "simulated LiveKit failure")
         }
     }
 }
@@ -254,7 +254,7 @@ class ConferenceServiceTest :
                     homeserverUrl = issuer,
                     membershipStatus = "AKTIV",
                 )
-            val id = OidcGuestMemberStore.resolveOrCreateGuestMember(claims, "openid profile_basic")
+            val id = OidcGuestMemberStore.resolveOrCreateGuestMember(claims = claims, grantedScope = "openid profile_basic")
             createdMemberIds += id
             return id to issuer
         }
@@ -267,7 +267,14 @@ class ConferenceServiceTest :
             testApplication {
                 application {
                     install(StatusPages) { installConferenceExceptionHandlers() }
-                    routing { registerConferenceTestRoutes(FakeLiveKitAdminClient(), LoginRateLimiter(), ENABLED_CONFIG, DISABLED_CONFIG) }
+                    routing {
+                        registerConferenceTestRoutes(
+                            liveKitAdminClient = FakeLiveKitAdminClient(),
+                            rateLimiter = LoginRateLimiter(),
+                            enabledConfig = ENABLED_CONFIG,
+                            disabledConfig = DISABLED_CONFIG,
+                        )
+                    }
                 }
                 val member = createTestMember("conf-availability@example.org")
 
@@ -285,7 +292,14 @@ class ConferenceServiceTest :
             testApplication {
                 application {
                     install(StatusPages) { installConferenceExceptionHandlers() }
-                    routing { registerConferenceTestRoutes(FakeLiveKitAdminClient(), LoginRateLimiter(), ENABLED_CONFIG, DISABLED_CONFIG) }
+                    routing {
+                        registerConferenceTestRoutes(
+                            liveKitAdminClient = FakeLiveKitAdminClient(),
+                            rateLimiter = LoginRateLimiter(),
+                            enabledConfig = ENABLED_CONFIG,
+                            disabledConfig = DISABLED_CONFIG,
+                        )
+                    }
                 }
                 client.get("/test/availability-enabled").status shouldBe HttpStatusCode.Unauthorized
             }
@@ -297,7 +311,14 @@ class ConferenceServiceTest :
             testApplication {
                 application {
                     install(StatusPages) { installConferenceExceptionHandlers() }
-                    routing { registerConferenceTestRoutes(FakeLiveKitAdminClient(), LoginRateLimiter(), ENABLED_CONFIG, DISABLED_CONFIG) }
+                    routing {
+                        registerConferenceTestRoutes(
+                            liveKitAdminClient = FakeLiveKitAdminClient(),
+                            rateLimiter = LoginRateLimiter(),
+                            enabledConfig = ENABLED_CONFIG,
+                            disabledConfig = DISABLED_CONFIG,
+                        )
+                    }
                 }
                 val creator = createTestMember("conf-create-happy@example.org")
 
@@ -325,7 +346,14 @@ class ConferenceServiceTest :
             testApplication {
                 application {
                     install(StatusPages) { installConferenceExceptionHandlers() }
-                    routing { registerConferenceTestRoutes(FakeLiveKitAdminClient(), LoginRateLimiter(), ENABLED_CONFIG, DISABLED_CONFIG) }
+                    routing {
+                        registerConferenceTestRoutes(
+                            liveKitAdminClient = FakeLiveKitAdminClient(),
+                            rateLimiter = LoginRateLimiter(),
+                            enabledConfig = ENABLED_CONFIG,
+                            disabledConfig = DISABLED_CONFIG,
+                        )
+                    }
                 }
                 val creator = createTestMember("conf-create-validation@example.org")
 
@@ -349,7 +377,14 @@ class ConferenceServiceTest :
             testApplication {
                 application {
                     install(StatusPages) { installConferenceExceptionHandlers() }
-                    routing { registerConferenceTestRoutes(FakeLiveKitAdminClient(), LoginRateLimiter(), ENABLED_CONFIG, DISABLED_CONFIG) }
+                    routing {
+                        registerConferenceTestRoutes(
+                            liveKitAdminClient = FakeLiveKitAdminClient(),
+                            rateLimiter = LoginRateLimiter(),
+                            enabledConfig = ENABLED_CONFIG,
+                            disabledConfig = DISABLED_CONFIG,
+                        )
+                    }
                 }
                 val applicant = createTestMember("conf-create-antrag@example.org", status = MemberStatus.ANTRAG)
 
@@ -362,7 +397,14 @@ class ConferenceServiceTest :
             testApplication {
                 application {
                     install(StatusPages) { installConferenceExceptionHandlers() }
-                    routing { registerConferenceTestRoutes(FakeLiveKitAdminClient(), LoginRateLimiter(), DISABLED_CONFIG, DISABLED_CONFIG) }
+                    routing {
+                        registerConferenceTestRoutes(
+                            liveKitAdminClient = FakeLiveKitAdminClient(),
+                            rateLimiter = LoginRateLimiter(),
+                            enabledConfig = DISABLED_CONFIG,
+                            disabledConfig = DISABLED_CONFIG,
+                        )
+                    }
                 }
                 val creator = createTestMember("conf-create-disabled@example.org")
 
@@ -377,10 +419,10 @@ class ConferenceServiceTest :
                     install(StatusPages) { installConferenceExceptionHandlers() }
                     routing {
                         registerConferenceTestRoutes(
-                            FakeLiveKitAdminClient(),
-                            LoginRateLimiter(maxFailures = 2),
-                            ENABLED_CONFIG,
-                            DISABLED_CONFIG,
+                            liveKitAdminClient = FakeLiveKitAdminClient(),
+                            rateLimiter = LoginRateLimiter(maxFailures = 2),
+                            enabledConfig = ENABLED_CONFIG,
+                            disabledConfig = DISABLED_CONFIG,
                         )
                     }
                 }
@@ -401,11 +443,18 @@ class ConferenceServiceTest :
             testApplication {
                 application {
                     install(StatusPages) { installConferenceExceptionHandlers() }
-                    routing { registerConferenceTestRoutes(FakeLiveKitAdminClient(), LoginRateLimiter(), ENABLED_CONFIG, DISABLED_CONFIG) }
+                    routing {
+                        registerConferenceTestRoutes(
+                            liveKitAdminClient = FakeLiveKitAdminClient(),
+                            rateLimiter = LoginRateLimiter(),
+                            enabledConfig = ENABLED_CONFIG,
+                            disabledConfig = DISABLED_CONFIG,
+                        )
+                    }
                 }
                 val creator = createTestMember("conf-join-creator@example.org")
                 val other = createTestMember("conf-join-other@example.org")
-                val roomId = createRoom(client, creator, "Kleinsitzung")
+                val roomId = createRoom(client = client, creatorId = creator, title = "Kleinsitzung")
 
                 val creatorJoin = client.post("/test/join-room?roomId=$roomId") { header("X-Member-Id", creator.toString()) }
                 creatorJoin.status shouldBe HttpStatusCode.OK
@@ -435,10 +484,17 @@ class ConferenceServiceTest :
             testApplication {
                 application {
                     install(StatusPages) { installConferenceExceptionHandlers() }
-                    routing { registerConferenceTestRoutes(FakeLiveKitAdminClient(), LoginRateLimiter(), ENABLED_CONFIG, DISABLED_CONFIG) }
+                    routing {
+                        registerConferenceTestRoutes(
+                            liveKitAdminClient = FakeLiveKitAdminClient(),
+                            rateLimiter = LoginRateLimiter(),
+                            enabledConfig = ENABLED_CONFIG,
+                            disabledConfig = DISABLED_CONFIG,
+                        )
+                    }
                 }
                 val creator = createTestMember("conf-join-missing@example.org")
-                val roomId = createRoom(client, creator, "Wird beendet")
+                val roomId = createRoom(client = client, creatorId = creator, title = "Wird beendet")
 
                 client
                     .post("/test/join-room?roomId=${Uuid.random()}") {
@@ -459,10 +515,17 @@ class ConferenceServiceTest :
             testApplication {
                 application {
                     install(StatusPages) { installConferenceExceptionHandlers() }
-                    routing { registerConferenceTestRoutes(FakeLiveKitAdminClient(), LoginRateLimiter(), ENABLED_CONFIG, DISABLED_CONFIG) }
+                    routing {
+                        registerConferenceTestRoutes(
+                            liveKitAdminClient = FakeLiveKitAdminClient(),
+                            rateLimiter = LoginRateLimiter(),
+                            enabledConfig = ENABLED_CONFIG,
+                            disabledConfig = DISABLED_CONFIG,
+                        )
+                    }
                 }
                 val creator = createTestMember("conf-join-no-turn@example.org")
-                val roomId = createRoom(client, creator, "No-Turn")
+                val roomId = createRoom(client = client, creatorId = creator, title = "No-Turn")
 
                 val join = client.post("/test/join-room?roomId=$roomId") { header("X-Member-Id", creator.toString()) }
                 join.bodyAsText().split("|")[6] shouldBe "false"
@@ -475,15 +538,15 @@ class ConferenceServiceTest :
                     install(StatusPages) { installConferenceExceptionHandlers() }
                     routing {
                         registerConferenceTestRoutes(
-                            FakeLiveKitAdminClient(),
-                            LoginRateLimiter(),
-                            ENABLED_CONFIG_WITH_TURN,
-                            DISABLED_CONFIG,
+                            liveKitAdminClient = FakeLiveKitAdminClient(),
+                            rateLimiter = LoginRateLimiter(),
+                            enabledConfig = ENABLED_CONFIG_WITH_TURN,
+                            disabledConfig = DISABLED_CONFIG,
                         )
                     }
                 }
                 val creator = createTestMember("conf-join-turn@example.org")
-                val roomId = createRoom(client, creator, "With-Turn")
+                val roomId = createRoom(client = client, creatorId = creator, title = "With-Turn")
 
                 val join = client.post("/test/join-room?roomId=$roomId") { header("X-Member-Id", creator.toString()) }
                 join.bodyAsText().split("|")[6] shouldBe "true"
@@ -500,15 +563,15 @@ class ConferenceServiceTest :
                     install(StatusPages) { installConferenceExceptionHandlers() }
                     routing {
                         registerConferenceTestRoutes(
-                            FakeLiveKitAdminClient(),
-                            LoginRateLimiter(),
-                            ENABLED_CONFIG_WITH_TURN,
-                            DISABLED_CONFIG,
+                            liveKitAdminClient = FakeLiveKitAdminClient(),
+                            rateLimiter = LoginRateLimiter(),
+                            enabledConfig = ENABLED_CONFIG_WITH_TURN,
+                            disabledConfig = DISABLED_CONFIG,
                         )
                     }
                 }
                 val creator = createTestMember("conf-w5-guestttl@example.org")
-                val roomId = createRoom(client, creator, "Guest-TTL-Raum")
+                val roomId = createRoom(client = client, creatorId = creator, title = "Guest-TTL-Raum")
                 client.post(
                     "/test/set-room-guest-access?roomId=$roomId&allowFederationGuests=true",
                 ) { header("X-Member-Id", creator.toString()) }
@@ -550,16 +613,16 @@ class ConferenceServiceTest :
                     install(StatusPages) { installConferenceExceptionHandlers() }
                     routing {
                         registerConferenceTestRoutes(
-                            FakeLiveKitAdminClient(),
-                            LoginRateLimiter(),
-                            ENABLED_CONFIG,
-                            DISABLED_CONFIG,
+                            liveKitAdminClient = FakeLiveKitAdminClient(),
+                            rateLimiter = LoginRateLimiter(),
+                            enabledConfig = ENABLED_CONFIG,
+                            disabledConfig = DISABLED_CONFIG,
                             joinRateLimiter = FederationInboxRateLimiter(maxRequests = 2, window = 1.minutes),
                         )
                     }
                 }
                 val creator = createTestMember("conf-join-throttle@example.org")
-                val roomId = createRoom(client, creator, "Join-Throttle")
+                val roomId = createRoom(client = client, creatorId = creator, title = "Join-Throttle")
 
                 client.post("/test/join-room?roomId=$roomId") { header("X-Member-Id", creator.toString()) }.status shouldBe
                     HttpStatusCode.OK
@@ -579,16 +642,16 @@ class ConferenceServiceTest :
                     install(StatusPages) { installConferenceExceptionHandlers() }
                     routing {
                         registerConferenceTestRoutes(
-                            FakeLiveKitAdminClient(),
-                            LoginRateLimiter(),
-                            ENABLED_CONFIG,
-                            DISABLED_CONFIG,
+                            liveKitAdminClient = FakeLiveKitAdminClient(),
+                            rateLimiter = LoginRateLimiter(),
+                            enabledConfig = ENABLED_CONFIG,
+                            disabledConfig = DISABLED_CONFIG,
                             leaveRateLimiter = FederationInboxRateLimiter(maxRequests = 2, window = 1.minutes),
                         )
                     }
                 }
                 val creator = createTestMember("conf-leave-throttle@example.org")
-                val roomId = createRoom(client, creator, "Leave-Throttle")
+                val roomId = createRoom(client = client, creatorId = creator, title = "Leave-Throttle")
 
                 client.post("/test/leave-room?roomId=$roomId") { header("X-Member-Id", creator.toString()) }.status shouldBe
                     HttpStatusCode.OK
@@ -607,16 +670,16 @@ class ConferenceServiceTest :
                     install(StatusPages) { installConferenceExceptionHandlers() }
                     routing {
                         registerConferenceTestRoutes(
-                            FakeLiveKitAdminClient(),
-                            LoginRateLimiter(),
-                            ENABLED_CONFIG,
-                            DISABLED_CONFIG,
+                            liveKitAdminClient = FakeLiveKitAdminClient(),
+                            rateLimiter = LoginRateLimiter(),
+                            enabledConfig = ENABLED_CONFIG,
+                            disabledConfig = DISABLED_CONFIG,
                             listRateLimiter = FederationInboxRateLimiter(maxRequests = 3, window = 1.minutes),
                         )
                     }
                 }
                 val creator = createTestMember("conf-list-throttle@example.org")
-                val roomId = createRoom(client, creator, "List-Throttle")
+                val roomId = createRoom(client = client, creatorId = creator, title = "List-Throttle")
 
                 // Three calls SPREAD ACROSS all three list-shaped methods, not three calls to the
                 // same one -- proves the budget is genuinely shared, not per-method.
@@ -637,16 +700,16 @@ class ConferenceServiceTest :
                     install(StatusPages) { installConferenceExceptionHandlers() }
                     routing {
                         registerConferenceTestRoutes(
-                            FakeLiveKitAdminClient(),
-                            LoginRateLimiter(),
-                            ENABLED_CONFIG,
-                            DISABLED_CONFIG,
+                            liveKitAdminClient = FakeLiveKitAdminClient(),
+                            rateLimiter = LoginRateLimiter(),
+                            enabledConfig = ENABLED_CONFIG,
+                            disabledConfig = DISABLED_CONFIG,
                             guestAccessRateLimiter = FederationInboxRateLimiter(maxRequests = 2, window = 1.minutes),
                         )
                     }
                 }
                 val creator = createTestMember("conf-w5-guestaccess-throttle@example.org")
-                val roomId = createRoom(client, creator, "GuestAccess-Throttle")
+                val roomId = createRoom(client = client, creatorId = creator, title = "GuestAccess-Throttle")
 
                 client
                     .post("/test/set-room-guest-access?roomId=$roomId&allowFederationGuests=true") {
@@ -669,12 +732,19 @@ class ConferenceServiceTest :
             testApplication {
                 application {
                     install(StatusPages) { installConferenceExceptionHandlers() }
-                    routing { registerConferenceTestRoutes(FakeLiveKitAdminClient(), LoginRateLimiter(), ENABLED_CONFIG, DISABLED_CONFIG) }
+                    routing {
+                        registerConferenceTestRoutes(
+                            liveKitAdminClient = FakeLiveKitAdminClient(),
+                            rateLimiter = LoginRateLimiter(),
+                            enabledConfig = ENABLED_CONFIG,
+                            disabledConfig = DISABLED_CONFIG,
+                        )
+                    }
                 }
                 val creator = createTestMember("conf-leave-creator@example.org")
                 val other = createTestMember("conf-leave-other@example.org")
                 val bystander = createTestMember("conf-leave-bystander@example.org")
-                val roomId = createRoom(client, creator, "Leave-Test")
+                val roomId = createRoom(client = client, creatorId = creator, title = "Leave-Test")
                 client.post("/test/join-room?roomId=$roomId") { header("X-Member-Id", creator.toString()) }
                 client.post("/test/join-room?roomId=$roomId") { header("X-Member-Id", other.toString()) }
 
@@ -717,11 +787,18 @@ class ConferenceServiceTest :
                 val fakeClient = FakeLiveKitAdminClient()
                 application {
                     install(StatusPages) { installConferenceExceptionHandlers() }
-                    routing { registerConferenceTestRoutes(fakeClient, LoginRateLimiter(), ENABLED_CONFIG, DISABLED_CONFIG) }
+                    routing {
+                        registerConferenceTestRoutes(
+                            liveKitAdminClient = fakeClient,
+                            rateLimiter = LoginRateLimiter(),
+                            enabledConfig = ENABLED_CONFIG,
+                            disabledConfig = DISABLED_CONFIG,
+                        )
+                    }
                 }
                 val creator = createTestMember("conf-end-creator@example.org")
                 val other = createTestMember("conf-end-other@example.org")
-                val roomId = createRoom(client, creator, "End-Test")
+                val roomId = createRoom(client = client, creatorId = creator, title = "End-Test")
                 client.post("/test/join-room?roomId=$roomId") { header("X-Member-Id", creator.toString()) }
                 client.post("/test/join-room?roomId=$roomId") { header("X-Member-Id", other.toString()) }
 
@@ -750,11 +827,18 @@ class ConferenceServiceTest :
             testApplication {
                 application {
                     install(StatusPages) { installConferenceExceptionHandlers() }
-                    routing { registerConferenceTestRoutes(FakeLiveKitAdminClient(), LoginRateLimiter(), ENABLED_CONFIG, DISABLED_CONFIG) }
+                    routing {
+                        registerConferenceTestRoutes(
+                            liveKitAdminClient = FakeLiveKitAdminClient(),
+                            rateLimiter = LoginRateLimiter(),
+                            enabledConfig = ENABLED_CONFIG,
+                            disabledConfig = DISABLED_CONFIG,
+                        )
+                    }
                 }
                 val creator = createTestMember("conf-end-forbidden-creator@example.org")
                 val bystander = createTestMember("conf-end-forbidden-bystander@example.org")
-                val roomId = createRoom(client, creator, "Forbidden-Test")
+                val roomId = createRoom(client = client, creatorId = creator, title = "Forbidden-Test")
 
                 client
                     .post("/test/end-room?roomId=$roomId") {
@@ -774,10 +858,17 @@ class ConferenceServiceTest :
                 val fakeClient = FakeLiveKitAdminClient()
                 application {
                     install(StatusPages) { installConferenceExceptionHandlers() }
-                    routing { registerConferenceTestRoutes(fakeClient, LoginRateLimiter(), ENABLED_CONFIG, DISABLED_CONFIG) }
+                    routing {
+                        registerConferenceTestRoutes(
+                            liveKitAdminClient = fakeClient,
+                            rateLimiter = LoginRateLimiter(),
+                            enabledConfig = ENABLED_CONFIG,
+                            disabledConfig = DISABLED_CONFIG,
+                        )
+                    }
                 }
                 val creator = createTestMember("conf-end-cascade-creator@example.org")
-                val roomId = createRoom(client, creator, "Cascade-Test")
+                val roomId = createRoom(client = client, creatorId = creator, title = "Cascade-Test")
                 val roomUuid = Uuid.parse(roomId)
 
                 // Seed two open breakout rooms directly (DB + fake LiveKit) -- this test exercises
@@ -808,7 +899,13 @@ class ConferenceServiceTest :
                         }
                     }
                 }
-                breakoutRoomIds.forEach { fakeClient.createRoom("lc-bo-cascade-$it", 25, 300) }
+                breakoutRoomIds.forEach {
+                    fakeClient.createRoom(
+                        name = "lc-bo-cascade-$it",
+                        maxParticipants = 25,
+                        emptyTimeoutSeconds = 300,
+                    )
+                }
 
                 client.post("/test/end-room?roomId=$roomId") { header("X-Member-Id", creator.toString()) }.status shouldBe
                     HttpStatusCode.OK
@@ -847,17 +944,24 @@ class ConferenceServiceTest :
                             mainRoomDeleteSeen = true
                             fakeClient.deleteRoom(name)
                         } else {
-                            throw LiveKitAdminException("simulated breakout deleteRoom failure")
+                            throw LiveKitAdminException(message = "simulated breakout deleteRoom failure")
                         }
                     }
                 }
             testApplication {
                 application {
                     install(StatusPages) { installConferenceExceptionHandlers() }
-                    routing { registerConferenceTestRoutes(flakyClient, LoginRateLimiter(), ENABLED_CONFIG, DISABLED_CONFIG) }
+                    routing {
+                        registerConferenceTestRoutes(
+                            liveKitAdminClient = flakyClient,
+                            rateLimiter = LoginRateLimiter(),
+                            enabledConfig = ENABLED_CONFIG,
+                            disabledConfig = DISABLED_CONFIG,
+                        )
+                    }
                 }
                 val creator = createTestMember("conf-end-cascade-fail-creator@example.org")
-                val roomId = createRoom(client, creator, "Cascade-Fail-Test")
+                val roomId = createRoom(client = client, creatorId = creator, title = "Cascade-Fail-Test")
                 val roomUuid = Uuid.parse(roomId)
 
                 val breakoutRoomId = Uuid.random()
@@ -893,11 +997,18 @@ class ConferenceServiceTest :
                 val fakeClient = FakeLiveKitAdminClient()
                 application {
                     install(StatusPages) { installConferenceExceptionHandlers() }
-                    routing { registerConferenceTestRoutes(fakeClient, LoginRateLimiter(), ENABLED_CONFIG, DISABLED_CONFIG) }
+                    routing {
+                        registerConferenceTestRoutes(
+                            liveKitAdminClient = fakeClient,
+                            rateLimiter = LoginRateLimiter(),
+                            enabledConfig = ENABLED_CONFIG,
+                            disabledConfig = DISABLED_CONFIG,
+                        )
+                    }
                 }
                 val creator = createTestMember("conf-remove-creator@example.org")
                 val other = createTestMember("conf-remove-other@example.org")
-                val roomId = createRoom(client, creator, "Remove-Test")
+                val roomId = createRoom(client = client, creatorId = creator, title = "Remove-Test")
                 client.post("/test/join-room?roomId=$roomId") { header("X-Member-Id", creator.toString()) }
                 client.post("/test/join-room?roomId=$roomId") { header("X-Member-Id", other.toString()) }
 
@@ -928,12 +1039,19 @@ class ConferenceServiceTest :
             testApplication {
                 application {
                     install(StatusPages) { installConferenceExceptionHandlers() }
-                    routing { registerConferenceTestRoutes(FakeLiveKitAdminClient(), LoginRateLimiter(), ENABLED_CONFIG, DISABLED_CONFIG) }
+                    routing {
+                        registerConferenceTestRoutes(
+                            liveKitAdminClient = FakeLiveKitAdminClient(),
+                            rateLimiter = LoginRateLimiter(),
+                            enabledConfig = ENABLED_CONFIG,
+                            disabledConfig = DISABLED_CONFIG,
+                        )
+                    }
                 }
                 val creator = createTestMember("conf-remove-forbidden-creator@example.org")
                 val other = createTestMember("conf-remove-forbidden-other@example.org")
                 val bystander = createTestMember("conf-remove-forbidden-bystander@example.org")
-                val roomId = createRoom(client, creator, "Forbidden-Remove")
+                val roomId = createRoom(client = client, creatorId = creator, title = "Forbidden-Remove")
                 client.post("/test/join-room?roomId=$roomId") { header("X-Member-Id", other.toString()) }
 
                 client
@@ -949,10 +1067,17 @@ class ConferenceServiceTest :
             testApplication {
                 application {
                     install(StatusPages) { installConferenceExceptionHandlers() }
-                    routing { registerConferenceTestRoutes(FakeLiveKitAdminClient(), LoginRateLimiter(), ENABLED_CONFIG, DISABLED_CONFIG) }
+                    routing {
+                        registerConferenceTestRoutes(
+                            liveKitAdminClient = FakeLiveKitAdminClient(),
+                            rateLimiter = LoginRateLimiter(),
+                            enabledConfig = ENABLED_CONFIG,
+                            disabledConfig = DISABLED_CONFIG,
+                        )
+                    }
                 }
                 val creator = createTestMember("conf-rename-creator@example.org")
-                val roomId = createRoom(client, creator, "Alter-Titel")
+                val roomId = createRoom(client = client, creatorId = creator, title = "Alter-Titel")
 
                 val response =
                     client.post("/test/rename-room?roomId=$roomId&title=Neuer-Titel") {
@@ -971,10 +1096,17 @@ class ConferenceServiceTest :
             testApplication {
                 application {
                     install(StatusPages) { installConferenceExceptionHandlers() }
-                    routing { registerConferenceTestRoutes(FakeLiveKitAdminClient(), LoginRateLimiter(), ENABLED_CONFIG, DISABLED_CONFIG) }
+                    routing {
+                        registerConferenceTestRoutes(
+                            liveKitAdminClient = FakeLiveKitAdminClient(),
+                            rateLimiter = LoginRateLimiter(),
+                            enabledConfig = ENABLED_CONFIG,
+                            disabledConfig = DISABLED_CONFIG,
+                        )
+                    }
                 }
                 val creator = createTestMember("conf-rename-privileged-creator@example.org")
-                val roomId = createRoom(client, creator, "Vorstandssitzung")
+                val roomId = createRoom(client = client, creatorId = creator, title = "Vorstandssitzung")
 
                 client
                     .post("/test/rename-room?roomId=$roomId&title=Umbenannt-Von-Board") {
@@ -987,11 +1119,18 @@ class ConferenceServiceTest :
             testApplication {
                 application {
                     install(StatusPages) { installConferenceExceptionHandlers() }
-                    routing { registerConferenceTestRoutes(FakeLiveKitAdminClient(), LoginRateLimiter(), ENABLED_CONFIG, DISABLED_CONFIG) }
+                    routing {
+                        registerConferenceTestRoutes(
+                            liveKitAdminClient = FakeLiveKitAdminClient(),
+                            rateLimiter = LoginRateLimiter(),
+                            enabledConfig = ENABLED_CONFIG,
+                            disabledConfig = DISABLED_CONFIG,
+                        )
+                    }
                 }
                 val creator = createTestMember("conf-rename-forbidden-creator@example.org")
                 val other = createTestMember("conf-rename-forbidden-other@example.org")
-                val roomId = createRoom(client, creator, "Fremde-Besprechung")
+                val roomId = createRoom(client = client, creatorId = creator, title = "Fremde-Besprechung")
                 client.post("/test/join-room?roomId=$roomId") { header("X-Member-Id", other.toString()) }
 
                 client
@@ -1005,10 +1144,17 @@ class ConferenceServiceTest :
             testApplication {
                 application {
                     install(StatusPages) { installConferenceExceptionHandlers() }
-                    routing { registerConferenceTestRoutes(FakeLiveKitAdminClient(), LoginRateLimiter(), ENABLED_CONFIG, DISABLED_CONFIG) }
+                    routing {
+                        registerConferenceTestRoutes(
+                            liveKitAdminClient = FakeLiveKitAdminClient(),
+                            rateLimiter = LoginRateLimiter(),
+                            enabledConfig = ENABLED_CONFIG,
+                            disabledConfig = DISABLED_CONFIG,
+                        )
+                    }
                 }
                 val creator = createTestMember("conf-rename-invalid@example.org")
-                val roomId = createRoom(client, creator, "Gueltiger-Titel")
+                val roomId = createRoom(client = client, creatorId = creator, title = "Gueltiger-Titel")
 
                 client
                     .post("/test/rename-room?roomId=$roomId&title=%20%20") {
@@ -1027,10 +1173,17 @@ class ConferenceServiceTest :
             testApplication {
                 application {
                     install(StatusPages) { installConferenceExceptionHandlers() }
-                    routing { registerConferenceTestRoutes(FakeLiveKitAdminClient(), LoginRateLimiter(), ENABLED_CONFIG, DISABLED_CONFIG) }
+                    routing {
+                        registerConferenceTestRoutes(
+                            liveKitAdminClient = FakeLiveKitAdminClient(),
+                            rateLimiter = LoginRateLimiter(),
+                            enabledConfig = ENABLED_CONFIG,
+                            disabledConfig = DISABLED_CONFIG,
+                        )
+                    }
                 }
                 val creator = createTestMember("conf-rename-ended@example.org")
-                val roomId = createRoom(client, creator, "Wird-Beendet")
+                val roomId = createRoom(client = client, creatorId = creator, title = "Wird-Beendet")
                 client.post("/test/end-room?roomId=$roomId") { header("X-Member-Id", creator.toString()) }
 
                 client
@@ -1044,7 +1197,14 @@ class ConferenceServiceTest :
             testApplication {
                 application {
                     install(StatusPages) { installConferenceExceptionHandlers() }
-                    routing { registerConferenceTestRoutes(FakeLiveKitAdminClient(), LoginRateLimiter(), ENABLED_CONFIG, DISABLED_CONFIG) }
+                    routing {
+                        registerConferenceTestRoutes(
+                            liveKitAdminClient = FakeLiveKitAdminClient(),
+                            rateLimiter = LoginRateLimiter(),
+                            enabledConfig = ENABLED_CONFIG,
+                            disabledConfig = DISABLED_CONFIG,
+                        )
+                    }
                 }
                 val creator = createTestMember("conf-rename-missing@example.org")
 
@@ -1059,7 +1219,14 @@ class ConferenceServiceTest :
             testApplication {
                 application {
                     install(StatusPages) { installConferenceExceptionHandlers() }
-                    routing { registerConferenceTestRoutes(FakeLiveKitAdminClient(), LoginRateLimiter(), DISABLED_CONFIG, DISABLED_CONFIG) }
+                    routing {
+                        registerConferenceTestRoutes(
+                            liveKitAdminClient = FakeLiveKitAdminClient(),
+                            rateLimiter = LoginRateLimiter(),
+                            enabledConfig = DISABLED_CONFIG,
+                            disabledConfig = DISABLED_CONFIG,
+                        )
+                    }
                 }
                 val creator = createTestMember("conf-rename-unconfigured@example.org")
 
@@ -1079,11 +1246,18 @@ class ConferenceServiceTest :
                 val fakeClient = FakeLiveKitAdminClient()
                 application {
                     install(StatusPages) { installConferenceExceptionHandlers() }
-                    routing { registerConferenceTestRoutes(fakeClient, LoginRateLimiter(), ENABLED_CONFIG, DISABLED_CONFIG) }
+                    routing {
+                        registerConferenceTestRoutes(
+                            liveKitAdminClient = fakeClient,
+                            rateLimiter = LoginRateLimiter(),
+                            enabledConfig = ENABLED_CONFIG,
+                            disabledConfig = DISABLED_CONFIG,
+                        )
+                    }
                 }
                 val creator = createTestMember("conf-list-reconcile@example.org")
-                val staleRoomId = createRoom(client, creator, "Stale-Room")
-                val freshRoomId = createRoom(client, creator, "Fresh-Room")
+                val staleRoomId = createRoom(client = client, creatorId = creator, title = "Stale-Room")
+                val freshRoomId = createRoom(client = client, creatorId = creator, title = "Fresh-Room")
                 client.post("/test/join-room?roomId=$staleRoomId") { header("X-Member-Id", creator.toString()) }
 
                 // Backdate the stale room's createdAt well past the empty-timeout grace, and remove
@@ -1131,7 +1305,14 @@ class ConferenceServiceTest :
                 val fakeClient = FakeLiveKitAdminClient()
                 application {
                     install(StatusPages) { installConferenceExceptionHandlers() }
-                    routing { registerConferenceTestRoutes(fakeClient, LoginRateLimiter(), ENABLED_CONFIG, DISABLED_CONFIG) }
+                    routing {
+                        registerConferenceTestRoutes(
+                            liveKitAdminClient = fakeClient,
+                            rateLimiter = LoginRateLimiter(),
+                            enabledConfig = ENABLED_CONFIG,
+                            disabledConfig = DISABLED_CONFIG,
+                        )
+                    }
                 }
                 val creator = createTestMember("conf-getroom-reconcile@example.org")
 
@@ -1140,7 +1321,7 @@ class ConferenceServiceTest :
                         header("X-Member-Id", creator.toString())
                     }.status shouldBe HttpStatusCode.NotFound
 
-                val roomId = createRoom(client, creator, "Getroom-Stale")
+                val roomId = createRoom(client = client, creatorId = creator, title = "Getroom-Stale")
                 val livekitName =
                     transaction {
                         val row = ConferenceRoomTable.selectAll().where { ConferenceRoomTable.id eq Uuid.parse(roomId) }.single()
@@ -1163,11 +1344,18 @@ class ConferenceServiceTest :
                 val fakeClient = FakeLiveKitAdminClient()
                 application {
                     install(StatusPages) { installConferenceExceptionHandlers() }
-                    routing { registerConferenceTestRoutes(fakeClient, LoginRateLimiter(), ENABLED_CONFIG, DISABLED_CONFIG) }
+                    routing {
+                        registerConferenceTestRoutes(
+                            liveKitAdminClient = fakeClient,
+                            rateLimiter = LoginRateLimiter(),
+                            enabledConfig = ENABLED_CONFIG,
+                            disabledConfig = DISABLED_CONFIG,
+                        )
+                    }
                 }
                 val creator = createTestMember("conf-listp-creator@example.org")
                 val other = createTestMember("conf-listp-other@example.org")
-                val roomId = createRoom(client, creator, "Listp-Test")
+                val roomId = createRoom(client = client, creatorId = creator, title = "Listp-Test")
                 client.post("/test/join-room?roomId=$roomId") { header("X-Member-Id", creator.toString()) }
                 client.post("/test/join-room?roomId=$roomId") { header("X-Member-Id", other.toString()) }
 
@@ -1182,7 +1370,7 @@ class ConferenceServiceTest :
                                     )
                             }.single()[ConferenceRoomTable.livekitRoomName]
                     }
-                fakeClient.seedLiveParticipant(livekitName, creator.toString())
+                fakeClient.seedLiveParticipant(room = livekitName, identity = creator.toString())
                 // `other` joined via this server (a conference_participation row exists) but is NOT
                 // seeded as live in LiveKit's own roster -- simulates a hard browser-tab crash that
                 // never called leaveRoom, see ConferenceParticipantDto KDoc.
@@ -1212,7 +1400,14 @@ class ConferenceServiceTest :
                 val fakeClient = FakeLiveKitAdminClient()
                 application {
                     install(StatusPages) { installConferenceExceptionHandlers() }
-                    routing { registerConferenceTestRoutes(fakeClient, LoginRateLimiter(), ENABLED_CONFIG, DISABLED_CONFIG) }
+                    routing {
+                        registerConferenceTestRoutes(
+                            liveKitAdminClient = fakeClient,
+                            rateLimiter = LoginRateLimiter(),
+                            enabledConfig = ENABLED_CONFIG,
+                            disabledConfig = DISABLED_CONFIG,
+                        )
+                    }
                 }
                 val creator = createTestMember("conf-livekit-failure@example.org")
                 fakeClient.failNextCall = true
@@ -1230,7 +1425,14 @@ class ConferenceServiceTest :
             testApplication {
                 application {
                     install(StatusPages) { installConferenceExceptionHandlers() }
-                    routing { registerConferenceTestRoutes(FakeLiveKitAdminClient(), LoginRateLimiter(), ENABLED_CONFIG, DISABLED_CONFIG) }
+                    routing {
+                        registerConferenceTestRoutes(
+                            liveKitAdminClient = FakeLiveKitAdminClient(),
+                            rateLimiter = LoginRateLimiter(),
+                            enabledConfig = ENABLED_CONFIG,
+                            disabledConfig = DISABLED_CONFIG,
+                        )
+                    }
                 }
                 val creator = createTestMember("conf-w5-h1@example.org")
 
@@ -1253,10 +1455,17 @@ class ConferenceServiceTest :
             testApplication {
                 application {
                     install(StatusPages) { installConferenceExceptionHandlers() }
-                    routing { registerConferenceTestRoutes(FakeLiveKitAdminClient(), LoginRateLimiter(), ENABLED_CONFIG, DISABLED_CONFIG) }
+                    routing {
+                        registerConferenceTestRoutes(
+                            liveKitAdminClient = FakeLiveKitAdminClient(),
+                            rateLimiter = LoginRateLimiter(),
+                            enabledConfig = ENABLED_CONFIG,
+                            disabledConfig = DISABLED_CONFIG,
+                        )
+                    }
                 }
                 val creator = createTestMember("conf-w5-h3@example.org")
-                val roomId = createRoom(client, creator, "H3-Raum")
+                val roomId = createRoom(client = client, creatorId = creator, title = "H3-Raum")
                 val beforeCount =
                     transaction { AuditLogEntryTable.selectAll().where { AuditLogEntryTable.entityId eq Uuid.parse(roomId) }.count() }
 
@@ -1285,10 +1494,17 @@ class ConferenceServiceTest :
             testApplication {
                 application {
                     install(StatusPages) { installConferenceExceptionHandlers() }
-                    routing { registerConferenceTestRoutes(FakeLiveKitAdminClient(), LoginRateLimiter(), ENABLED_CONFIG, DISABLED_CONFIG) }
+                    routing {
+                        registerConferenceTestRoutes(
+                            liveKitAdminClient = FakeLiveKitAdminClient(),
+                            rateLimiter = LoginRateLimiter(),
+                            enabledConfig = ENABLED_CONFIG,
+                            disabledConfig = DISABLED_CONFIG,
+                        )
+                    }
                 }
                 val creator = createTestMember("conf-w5-h4@example.org")
-                val roomId = createRoom(client, creator, "H4-Raum")
+                val roomId = createRoom(client = client, creatorId = creator, title = "H4-Raum")
 
                 client
                     .post("/test/set-room-guest-access?roomId=$roomId&allowFederationGuests=true") {
@@ -1304,10 +1520,17 @@ class ConferenceServiceTest :
                 val fakeClient = FakeLiveKitAdminClient()
                 application {
                     install(StatusPages) { installConferenceExceptionHandlers() }
-                    routing { registerConferenceTestRoutes(fakeClient, LoginRateLimiter(), ENABLED_CONFIG, DISABLED_CONFIG) }
+                    routing {
+                        registerConferenceTestRoutes(
+                            liveKitAdminClient = fakeClient,
+                            rateLimiter = LoginRateLimiter(),
+                            enabledConfig = ENABLED_CONFIG,
+                            disabledConfig = DISABLED_CONFIG,
+                        )
+                    }
                 }
                 val creator = createTestMember("conf-w5-h5@example.org")
-                val roomId = createRoom(client, creator, "H5-Raum")
+                val roomId = createRoom(client = client, creatorId = creator, title = "H5-Raum")
                 client.post("/test/set-room-guest-access?roomId=$roomId&allowFederationGuests=true") {
                     header("X-Member-Id", creator.toString())
                 }
@@ -1365,10 +1588,17 @@ class ConferenceServiceTest :
             testApplication {
                 application {
                     install(StatusPages) { installConferenceExceptionHandlers() }
-                    routing { registerConferenceTestRoutes(FakeLiveKitAdminClient(), LoginRateLimiter(), ENABLED_CONFIG, DISABLED_CONFIG) }
+                    routing {
+                        registerConferenceTestRoutes(
+                            liveKitAdminClient = FakeLiveKitAdminClient(),
+                            rateLimiter = LoginRateLimiter(),
+                            enabledConfig = ENABLED_CONFIG,
+                            disabledConfig = DISABLED_CONFIG,
+                        )
+                    }
                 }
                 val creator = createTestMember("conf-w5-h7@example.org")
-                val roomId = createRoom(client, creator, "H7-Raum")
+                val roomId = createRoom(client = client, creatorId = creator, title = "H7-Raum")
                 client.post("/test/set-room-guest-access?roomId=$roomId&allowFederationGuests=true") {
                     header("X-Member-Id", creator.toString())
                 }
@@ -1396,10 +1626,17 @@ class ConferenceServiceTest :
                 val fakeClient = FakeLiveKitAdminClient()
                 application {
                     install(StatusPages) { installConferenceExceptionHandlers() }
-                    routing { registerConferenceTestRoutes(fakeClient, LoginRateLimiter(), ENABLED_CONFIG, DISABLED_CONFIG) }
+                    routing {
+                        registerConferenceTestRoutes(
+                            liveKitAdminClient = fakeClient,
+                            rateLimiter = LoginRateLimiter(),
+                            enabledConfig = ENABLED_CONFIG,
+                            disabledConfig = DISABLED_CONFIG,
+                        )
+                    }
                 }
                 val creator = createTestMember("conf-w5-h9@example.org")
-                val roomId = createRoom(client, creator, "H9-Raum")
+                val roomId = createRoom(client = client, creatorId = creator, title = "H9-Raum")
                 client.post("/test/set-room-guest-access?roomId=$roomId&allowFederationGuests=true") {
                     header("X-Member-Id", creator.toString())
                 }
@@ -1433,10 +1670,17 @@ class ConferenceServiceTest :
                 val fakeClient = FakeLiveKitAdminClient()
                 application {
                     install(StatusPages) { installConferenceExceptionHandlers() }
-                    routing { registerConferenceTestRoutes(fakeClient, LoginRateLimiter(), ENABLED_CONFIG, DISABLED_CONFIG) }
+                    routing {
+                        registerConferenceTestRoutes(
+                            liveKitAdminClient = fakeClient,
+                            rateLimiter = LoginRateLimiter(),
+                            enabledConfig = ENABLED_CONFIG,
+                            disabledConfig = DISABLED_CONFIG,
+                        )
+                    }
                 }
                 val creator = createTestMember("conf-w5-bystander@example.org")
-                val roomId = createRoom(client, creator, "Bystander-Raum")
+                val roomId = createRoom(client = client, creatorId = creator, title = "Bystander-Raum")
                 client.post("/test/set-room-guest-access?roomId=$roomId&allowFederationGuests=true") {
                     header("X-Member-Id", creator.toString())
                 }
@@ -1484,10 +1728,17 @@ class ConferenceServiceTest :
                 val fakeClient = FakeLiveKitAdminClient()
                 application {
                     install(StatusPages) { installConferenceExceptionHandlers() }
-                    routing { registerConferenceTestRoutes(fakeClient, LoginRateLimiter(), ENABLED_CONFIG, DISABLED_CONFIG) }
+                    routing {
+                        registerConferenceTestRoutes(
+                            liveKitAdminClient = fakeClient,
+                            rateLimiter = LoginRateLimiter(),
+                            enabledConfig = ENABLED_CONFIG,
+                            disabledConfig = DISABLED_CONFIG,
+                        )
+                    }
                 }
                 val creator = createTestMember("conf-w5-t1@example.org")
-                val roomId = createRoom(client, creator, "T1-Raum") // default allowFederationGuests=false
+                val roomId = createRoom(client = client, creatorId = creator, title = "T1-Raum") // default allowFederationGuests=false
                 val (guestId, _) = createTestGuestMember("t1")
                 val guestToken = SessionStore.createSession(guestId).rawToken
 
@@ -1518,10 +1769,17 @@ class ConferenceServiceTest :
             testApplication {
                 application {
                     install(StatusPages) { installConferenceExceptionHandlers() }
-                    routing { registerConferenceTestRoutes(FakeLiveKitAdminClient(), LoginRateLimiter(), ENABLED_CONFIG, DISABLED_CONFIG) }
+                    routing {
+                        registerConferenceTestRoutes(
+                            liveKitAdminClient = FakeLiveKitAdminClient(),
+                            rateLimiter = LoginRateLimiter(),
+                            enabledConfig = ENABLED_CONFIG,
+                            disabledConfig = DISABLED_CONFIG,
+                        )
+                    }
                 }
                 val creator = createTestMember("conf-w5-t2@example.org")
-                val roomId = createRoom(client, creator, "T2-Raum")
+                val roomId = createRoom(client = client, creatorId = creator, title = "T2-Raum")
                 client.post(
                     "/test/set-room-guest-access?roomId=$roomId&allowFederationGuests=true",
                 ) { header("X-Member-Id", creator.toString()) }
@@ -1541,10 +1799,17 @@ class ConferenceServiceTest :
             testApplication {
                 application {
                     install(StatusPages) { installConferenceExceptionHandlers() }
-                    routing { registerConferenceTestRoutes(FakeLiveKitAdminClient(), LoginRateLimiter(), ENABLED_CONFIG, DISABLED_CONFIG) }
+                    routing {
+                        registerConferenceTestRoutes(
+                            liveKitAdminClient = FakeLiveKitAdminClient(),
+                            rateLimiter = LoginRateLimiter(),
+                            enabledConfig = ENABLED_CONFIG,
+                            disabledConfig = DISABLED_CONFIG,
+                        )
+                    }
                 }
                 val creator = createTestMember("conf-w5-t345@example.org")
-                val roomId = createRoom(client, creator, "T345-Raum")
+                val roomId = createRoom(client = client, creatorId = creator, title = "T345-Raum")
                 client.post(
                     "/test/set-room-guest-access?roomId=$roomId&allowFederationGuests=true",
                 ) { header("X-Member-Id", creator.toString()) }
@@ -1591,14 +1856,21 @@ class ConferenceServiceTest :
             testApplication {
                 application {
                     install(StatusPages) { installConferenceExceptionHandlers() }
-                    routing { registerConferenceTestRoutes(FakeLiveKitAdminClient(), LoginRateLimiter(), ENABLED_CONFIG, DISABLED_CONFIG) }
+                    routing {
+                        registerConferenceTestRoutes(
+                            liveKitAdminClient = FakeLiveKitAdminClient(),
+                            rateLimiter = LoginRateLimiter(),
+                            enabledConfig = ENABLED_CONFIG,
+                            disabledConfig = DISABLED_CONFIG,
+                        )
+                    }
                 }
                 val creator = createTestMember("conf-w5-t6@example.org")
-                val openRoomId = createRoom(client, creator, "T6-Offen")
+                val openRoomId = createRoom(client = client, creatorId = creator, title = "T6-Offen")
                 client.post(
                     "/test/set-room-guest-access?roomId=$openRoomId&allowFederationGuests=true",
                 ) { header("X-Member-Id", creator.toString()) }
-                val closedRoomId = createRoom(client, creator, "T6-Geschlossen")
+                val closedRoomId = createRoom(client = client, creatorId = creator, title = "T6-Geschlossen")
 
                 listOf(MemberStatus.ANTRAG, MemberStatus.AUSGETRETEN, MemberStatus.ABGELEHNT).forEach { status ->
                     val member = createTestMember("conf-w5-t6-${status.name.lowercase()}@example.org", status = status)
@@ -1620,14 +1892,21 @@ class ConferenceServiceTest :
             testApplication {
                 application {
                     install(StatusPages) { installConferenceExceptionHandlers() }
-                    routing { registerConferenceTestRoutes(FakeLiveKitAdminClient(), LoginRateLimiter(), ENABLED_CONFIG, DISABLED_CONFIG) }
+                    routing {
+                        registerConferenceTestRoutes(
+                            liveKitAdminClient = FakeLiveKitAdminClient(),
+                            rateLimiter = LoginRateLimiter(),
+                            enabledConfig = ENABLED_CONFIG,
+                            disabledConfig = DISABLED_CONFIG,
+                        )
+                    }
                 }
                 val creator = createTestMember("conf-w5-t10@example.org")
-                val openRoomId = createRoom(client, creator, "T10-Offen")
+                val openRoomId = createRoom(client = client, creatorId = creator, title = "T10-Offen")
                 client.post(
                     "/test/set-room-guest-access?roomId=$openRoomId&allowFederationGuests=true",
                 ) { header("X-Member-Id", creator.toString()) }
-                val closedRoomId = createRoom(client, creator, "T10-Geschlossen")
+                val closedRoomId = createRoom(client = client, creatorId = creator, title = "T10-Geschlossen")
 
                 val aktiv1 = createTestMember("conf-w5-t10-a@example.org")
                 client.post("/test/join-room?roomId=$openRoomId") { header("X-Member-Id", aktiv1.toString()) }.status shouldBe
@@ -1658,14 +1937,21 @@ class ConferenceServiceTest :
                 val fakeClient = FakeLiveKitAdminClient()
                 application {
                     install(StatusPages) { installConferenceExceptionHandlers() }
-                    routing { registerConferenceTestRoutes(fakeClient, LoginRateLimiter(), ENABLED_CONFIG, DISABLED_CONFIG) }
+                    routing {
+                        registerConferenceTestRoutes(
+                            liveKitAdminClient = fakeClient,
+                            rateLimiter = LoginRateLimiter(),
+                            enabledConfig = ENABLED_CONFIG,
+                            disabledConfig = DISABLED_CONFIG,
+                        )
+                    }
                 }
                 val creator = createTestMember("conf-w5-t13@example.org")
-                val openRoomId = createRoom(client, creator, "T13-Offen")
+                val openRoomId = createRoom(client = client, creatorId = creator, title = "T13-Offen")
                 client.post(
                     "/test/set-room-guest-access?roomId=$openRoomId&allowFederationGuests=true",
                 ) { header("X-Member-Id", creator.toString()) }
-                val closedRoomId = createRoom(client, creator, "T13-Geschlossen")
+                val closedRoomId = createRoom(client = client, creatorId = creator, title = "T13-Geschlossen")
 
                 val (neverJoinedGuestId, _) = createTestGuestMember("t13-never")
                 val neverJoinedToken = SessionStore.createSession(neverJoinedGuestId).rawToken
@@ -1702,10 +1988,17 @@ class ConferenceServiceTest :
                 val fakeClient = FakeLiveKitAdminClient()
                 application {
                     install(StatusPages) { installConferenceExceptionHandlers() }
-                    routing { registerConferenceTestRoutes(fakeClient, LoginRateLimiter(), ENABLED_CONFIG, DISABLED_CONFIG) }
+                    routing {
+                        registerConferenceTestRoutes(
+                            liveKitAdminClient = fakeClient,
+                            rateLimiter = LoginRateLimiter(),
+                            enabledConfig = ENABLED_CONFIG,
+                            disabledConfig = DISABLED_CONFIG,
+                        )
+                    }
                 }
                 val creator = createTestMember("conf-w5-leftat-creator@example.org")
-                val roomId = createRoom(client, creator, "LeftAt-Raum")
+                val roomId = createRoom(client = client, creatorId = creator, title = "LeftAt-Raum")
                 client.post(
                     "/test/set-room-guest-access?roomId=$roomId&allowFederationGuests=true",
                 ) { header("X-Member-Id", creator.toString()) }
@@ -1753,10 +2046,17 @@ class ConferenceServiceTest :
                 val fakeClient = FakeLiveKitAdminClient()
                 application {
                     install(StatusPages) { installConferenceExceptionHandlers() }
-                    routing { registerConferenceTestRoutes(fakeClient, LoginRateLimiter(), ENABLED_CONFIG, DISABLED_CONFIG) }
+                    routing {
+                        registerConferenceTestRoutes(
+                            liveKitAdminClient = fakeClient,
+                            rateLimiter = LoginRateLimiter(),
+                            enabledConfig = ENABLED_CONFIG,
+                            disabledConfig = DISABLED_CONFIG,
+                        )
+                    }
                 }
                 val creator = createTestMember("conf-w5-t16@example.org")
-                val roomId = createRoom(client, creator, "T16-Raum")
+                val roomId = createRoom(client = client, creatorId = creator, title = "T16-Raum")
                 client.post(
                     "/test/set-room-guest-access?roomId=$roomId&allowFederationGuests=true",
                 ) { header("X-Member-Id", creator.toString()) }
@@ -1782,10 +2082,17 @@ class ConferenceServiceTest :
                 val fakeClient = FakeLiveKitAdminClient()
                 application {
                     install(StatusPages) { installConferenceExceptionHandlers() }
-                    routing { registerConferenceTestRoutes(fakeClient, LoginRateLimiter(), ENABLED_CONFIG, DISABLED_CONFIG) }
+                    routing {
+                        registerConferenceTestRoutes(
+                            liveKitAdminClient = fakeClient,
+                            rateLimiter = LoginRateLimiter(),
+                            enabledConfig = ENABLED_CONFIG,
+                            disabledConfig = DISABLED_CONFIG,
+                        )
+                    }
                 }
                 val creator = createTestMember("conf-w5-t17@example.org")
-                val roomId = createRoom(client, creator, "T17-Raum")
+                val roomId = createRoom(client = client, creatorId = creator, title = "T17-Raum")
                 client.post(
                     "/test/set-room-guest-access?roomId=$roomId&allowFederationGuests=true",
                 ) { header("X-Member-Id", creator.toString()) }
@@ -1835,17 +2142,24 @@ class ConferenceServiceTest :
                 val fakeClient = FakeLiveKitAdminClient()
                 application {
                     install(StatusPages) { installConferenceExceptionHandlers() }
-                    routing { registerConferenceTestRoutes(fakeClient, LoginRateLimiter(), ENABLED_CONFIG, DISABLED_CONFIG) }
+                    routing {
+                        registerConferenceTestRoutes(
+                            liveKitAdminClient = fakeClient,
+                            rateLimiter = LoginRateLimiter(),
+                            enabledConfig = ENABLED_CONFIG,
+                            disabledConfig = DISABLED_CONFIG,
+                        )
+                    }
                 }
                 val creator = createTestMember("conf-w5-toctou-creator@example.org")
-                val roomId = createRoom(client, creator, "TOCTOU-Raum")
+                val roomId = createRoom(client = client, creatorId = creator, title = "TOCTOU-Raum")
                 client.post(
                     "/test/set-room-guest-access?roomId=$roomId&allowFederationGuests=true",
                 ) { header("X-Member-Id", creator.toString()) }
                 val (guestId, _) = createTestGuestMember("toctou")
                 val guestToken = SessionStore.createSession(guestId).rawToken
 
-                runConcurrentJoinAndRevoke(client, roomId, guestToken, creator)
+                runConcurrentJoinAndRevoke(client = client, roomId = roomId, guestToken = guestToken, creatorId = creator)
 
                 // Invariant the FOR-UPDATE re-check in joinRoom's final transaction establishes,
                 // regardless of which of the two racing requests actually "won": the room ends up
@@ -1877,10 +2191,17 @@ class ConferenceServiceTest :
             testApplication {
                 application {
                     install(StatusPages) { installConferenceExceptionHandlers() }
-                    routing { registerConferenceTestRoutes(FakeLiveKitAdminClient(), LoginRateLimiter(), ENABLED_CONFIG, DISABLED_CONFIG) }
+                    routing {
+                        registerConferenceTestRoutes(
+                            liveKitAdminClient = FakeLiveKitAdminClient(),
+                            rateLimiter = LoginRateLimiter(),
+                            enabledConfig = ENABLED_CONFIG,
+                            disabledConfig = DISABLED_CONFIG,
+                        )
+                    }
                 }
                 val creator = createTestMember("conf-w5-t18@example.org")
-                val roomId = createRoom(client, creator, "T18-Raum")
+                val roomId = createRoom(client = client, creatorId = creator, title = "T18-Raum")
                 val bystander = createTestMember("conf-w5-t18-bystander@example.org")
 
                 client
@@ -1920,7 +2241,14 @@ class ConferenceServiceTest :
             testApplication {
                 application {
                     install(StatusPages) { installConferenceExceptionHandlers() }
-                    routing { registerConferenceTestRoutes(FakeLiveKitAdminClient(), LoginRateLimiter(), ENABLED_CONFIG, DISABLED_CONFIG) }
+                    routing {
+                        registerConferenceTestRoutes(
+                            liveKitAdminClient = FakeLiveKitAdminClient(),
+                            rateLimiter = LoginRateLimiter(),
+                            enabledConfig = ENABLED_CONFIG,
+                            disabledConfig = DISABLED_CONFIG,
+                        )
+                    }
                 }
                 val member = createTestMember("conf-w5-t20@example.org")
                 val unknownId = Uuid.random().toString()
@@ -1940,10 +2268,17 @@ class ConferenceServiceTest :
             testApplication {
                 application {
                     install(StatusPages) { installConferenceExceptionHandlers() }
-                    routing { registerConferenceTestRoutes(FakeLiveKitAdminClient(), LoginRateLimiter(), ENABLED_CONFIG, DISABLED_CONFIG) }
+                    routing {
+                        registerConferenceTestRoutes(
+                            liveKitAdminClient = FakeLiveKitAdminClient(),
+                            rateLimiter = LoginRateLimiter(),
+                            enabledConfig = ENABLED_CONFIG,
+                            disabledConfig = DISABLED_CONFIG,
+                        )
+                    }
                 }
                 val creator = createTestMember("conf-w5-t21@example.org")
-                val roomId = createRoom(client, creator, "T21-Raum")
+                val roomId = createRoom(client = client, creatorId = creator, title = "T21-Raum")
                 val applicant = createTestMember("conf-w5-t21-antrag@example.org", status = MemberStatus.ANTRAG)
 
                 client.get("/test/guest-join-info?roomId=$roomId") { header("X-Member-Id", applicant.toString()) }.status shouldBe
@@ -1957,10 +2292,17 @@ class ConferenceServiceTest :
             testApplication {
                 application {
                     install(StatusPages) { installConferenceExceptionHandlers() }
-                    routing { registerConferenceTestRoutes(FakeLiveKitAdminClient(), LoginRateLimiter(), ENABLED_CONFIG, DISABLED_CONFIG) }
+                    routing {
+                        registerConferenceTestRoutes(
+                            liveKitAdminClient = FakeLiveKitAdminClient(),
+                            rateLimiter = LoginRateLimiter(),
+                            enabledConfig = ENABLED_CONFIG,
+                            disabledConfig = DISABLED_CONFIG,
+                        )
+                    }
                 }
                 val creator = createTestMember("conf-w5-t22@example.org")
-                val roomId = createRoom(client, creator, "T22-Raum")
+                val roomId = createRoom(client = client, creatorId = creator, title = "T22-Raum")
                 val (guestId, _) = createTestGuestMember("t22")
                 val guestToken = SessionStore.createSession(guestId).rawToken
 
@@ -1974,10 +2316,17 @@ class ConferenceServiceTest :
             testApplication {
                 application {
                     install(StatusPages) { installConferenceExceptionHandlers() }
-                    routing { registerConferenceTestRoutes(FakeLiveKitAdminClient(), LoginRateLimiter(), ENABLED_CONFIG, DISABLED_CONFIG) }
+                    routing {
+                        registerConferenceTestRoutes(
+                            liveKitAdminClient = FakeLiveKitAdminClient(),
+                            rateLimiter = LoginRateLimiter(),
+                            enabledConfig = ENABLED_CONFIG,
+                            disabledConfig = DISABLED_CONFIG,
+                        )
+                    }
                 }
                 val creator = createTestMember("conf-w5-t23@example.org")
-                val roomId = createRoom(client, creator, "T23-Raum")
+                val roomId = createRoom(client = client, creatorId = creator, title = "T23-Raum")
 
                 // Toggle the disabled config in a second app instance to hit both new methods.
             }
@@ -1988,10 +2337,10 @@ class ConferenceServiceTest :
                         get("/test2/guest-join-info-disabled") {
                             val service =
                                 ConferenceService(
-                                    call,
-                                    FakeLiveKitAdminClient(),
-                                    LoginRateLimiter(),
-                                    DISABLED_CONFIG,
+                                    call = call,
+                                    liveKitAdminClient = FakeLiveKitAdminClient(),
+                                    createRoomRateLimiter = LoginRateLimiter(),
+                                    config = DISABLED_CONFIG,
                                     conferenceMeetingBindRateLimiter = FederationInboxRateLimiter(maxRequests = 10, window = 1.minutes),
                                 )
                             val q = call.request.queryParameters
@@ -2000,14 +2349,16 @@ class ConferenceServiceTest :
                         post("/test2/set-room-guest-access-disabled") {
                             val service =
                                 ConferenceService(
-                                    call,
-                                    FakeLiveKitAdminClient(),
-                                    LoginRateLimiter(),
-                                    DISABLED_CONFIG,
+                                    call = call,
+                                    liveKitAdminClient = FakeLiveKitAdminClient(),
+                                    createRoomRateLimiter = LoginRateLimiter(),
+                                    config = DISABLED_CONFIG,
                                     conferenceMeetingBindRateLimiter = FederationInboxRateLimiter(maxRequests = 10, window = 1.minutes),
                                 )
                             val q = call.request.queryParameters
-                            call.respondText(service.setRoomGuestAccess(q["roomId"]!!, true).toPipeString())
+                            call.respondText(
+                                service.setRoomGuestAccess(roomId = q["roomId"]!!, allowFederationGuests = true).toPipeString(),
+                            )
                         }
                     }
                 }
@@ -2032,7 +2383,14 @@ class ConferenceServiceTest :
             testApplication {
                 application {
                     install(StatusPages) { installConferenceExceptionHandlers() }
-                    routing { registerConferenceTestRoutes(FakeLiveKitAdminClient(), LoginRateLimiter(), ENABLED_CONFIG, DISABLED_CONFIG) }
+                    routing {
+                        registerConferenceTestRoutes(
+                            liveKitAdminClient = FakeLiveKitAdminClient(),
+                            rateLimiter = LoginRateLimiter(),
+                            enabledConfig = ENABLED_CONFIG,
+                            disabledConfig = DISABLED_CONFIG,
+                        )
+                    }
                 }
                 val roomId = Uuid.random().toString()
                 client.get("/test/guest-join-info?roomId=$roomId").status shouldBe HttpStatusCode.Unauthorized
@@ -2224,10 +2582,10 @@ private fun Route.registerConferenceTestRoutes(
         call: ApplicationCall,
         config: ConferenceConfig,
     ) = ConferenceService(
-        call,
-        liveKitAdminClient,
-        rateLimiter,
-        config,
+        call = call,
+        liveKitAdminClient = liveKitAdminClient,
+        createRoomRateLimiter = rateLimiter,
+        config = config,
         joinRoomRateLimiter = joinRateLimiter,
         leaveRoomRateLimiter = leaveRateLimiter,
         listRateLimiter = listRateLimiter,
@@ -2271,7 +2629,7 @@ private fun Route.registerConferenceTestRoutes(
             } else {
                 null
             }
-        val dto = service.joinRoom(q["roomId"]!!, consent)
+        val dto = service.joinRoom(roomId = q["roomId"]!!, guestConsent = consent)
         call.respondText(dto.toPipeString())
     }
     get("/test/guest-join-info") {
@@ -2283,7 +2641,7 @@ private fun Route.registerConferenceTestRoutes(
     post("/test/set-room-guest-access") {
         val service = service(call, enabledConfig)
         val q = call.request.queryParameters
-        val dto = service.setRoomGuestAccess(q["roomId"]!!, q["allowFederationGuests"]!!.toBoolean())
+        val dto = service.setRoomGuestAccess(roomId = q["roomId"]!!, allowFederationGuests = q["allowFederationGuests"]!!.toBoolean())
         call.respondText(dto.toPipeString())
     }
     post("/test/leave-room") {
@@ -2318,13 +2676,13 @@ private fun Route.registerConferenceTestRoutes(
     post("/test/remove-participant") {
         val service = service(call, enabledConfig)
         val q = call.request.queryParameters
-        service.removeParticipant(q["roomId"]!!, q["memberId"]!!)
+        service.removeParticipant(roomId = q["roomId"]!!, memberId = q["memberId"]!!)
         call.respondText("ok")
     }
     post("/test/rename-room") {
         val service = service(call, enabledConfig)
         val q = call.request.queryParameters
-        val dto = service.renameRoom(q["roomId"]!!, q["title"]!!)
+        val dto = service.renameRoom(roomId = q["roomId"]!!, title = q["title"]!!)
         call.respondText(dto.toPipeString())
     }
 }

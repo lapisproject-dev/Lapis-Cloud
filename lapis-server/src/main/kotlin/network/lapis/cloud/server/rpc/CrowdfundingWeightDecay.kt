@@ -60,7 +60,7 @@ object CrowdfundingWeightDecay {
         submittedAt: LocalDateTime,
         now: LocalDateTime,
     ): BigDecimal {
-        val days = daysElapsed(submittedAt, now)
+        val days = daysElapsed(from = submittedAt, now = now)
         val decayFactor = DECAY_KEEP_RATE_PER_DAY.pow(days.toInt(), DECAY_MATH_CONTEXT)
         return (initialWeightLtr * decayFactor).setScale(2, RoundingMode.HALF_UP)
     }
@@ -75,7 +75,7 @@ object CrowdfundingWeightDecay {
     fun isAutoApproved(
         submittedAt: LocalDateTime,
         now: LocalDateTime,
-    ): Boolean = elapsedDuration(submittedAt, now) >= BOARD_REVIEW_WINDOW_DAYS.days
+    ): Boolean = elapsedDuration(from = submittedAt, now = now) >= BOARD_REVIEW_WINDOW_DAYS.days
 
     /**
      * Whole number of complete 24h periods between [from] and [now], via [kotlin.time.Duration]
@@ -89,7 +89,7 @@ object CrowdfundingWeightDecay {
     internal fun daysElapsed(
         from: LocalDateTime,
         now: LocalDateTime,
-    ): Long = elapsedDuration(from, now).inWholeDays.coerceAtLeast(0)
+    ): Long = elapsedDuration(from = from, now = now).inWholeDays.coerceAtLeast(0)
 
     private fun elapsedDuration(
         from: LocalDateTime,

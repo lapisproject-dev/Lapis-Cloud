@@ -92,14 +92,14 @@ fun Route.registerBackupRoutes(
         val current = resolveCurrentMember(call)
         current.requireRole(AccountRole.ADMIN)
 
-        val exportService = OrganizationExportService(database, documentStorageRoot)
+        val exportService = OrganizationExportService(database = database, documentStorageRoot = documentStorageRoot)
         val fileName = "lapis-cloud-backup-${Clock.System.now().toEpochMilliseconds()}.zip"
         call.response.header(
             HttpHeaders.ContentDisposition,
             ContentDisposition.Attachment.withParameter(ContentDisposition.Parameters.FileName, fileName).toString(),
         )
         call.respondBytesWriter(contentType = ContentType.Application.Zip) {
-            exportService.streamExport(current, toOutputStream())
+            exportService.streamExport(actor = current, sink = toOutputStream())
         }
     }
 
@@ -131,9 +131,9 @@ fun Route.registerBackupRoutes(
                 return@post
             }
 
-            val restoreService = OrganizationRestoreService(database, documentStorageRoot)
+            val restoreService = OrganizationRestoreService(database = database, documentStorageRoot = documentStorageRoot)
             try {
-                val result = restoreService.restore(current, tempFile, allowNonEmptyTarget)
+                val result = restoreService.restore(actor = current, bundleFile = tempFile, allowNonEmptyTarget = allowNonEmptyTarget)
                 call.respond(
                     HttpStatusCode.OK,
                     RestoreResultResponse(

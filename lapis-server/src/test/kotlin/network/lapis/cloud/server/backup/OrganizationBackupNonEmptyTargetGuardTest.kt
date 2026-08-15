@@ -66,13 +66,17 @@ class OrganizationBackupNonEmptyTargetGuardTest :
             val bundleFile = File.createTempFile("guard-bundle-", ".zip")
             try {
                 bundleFile.outputStream().use { out ->
-                    OrganizationExportService(sourceDb, sourceStorageRoot)
-                        .streamExport(CurrentMember(sourceAdminId, AccountRole.ADMIN), out)
+                    OrganizationExportService(database = sourceDb, documentStorageRoot = sourceStorageRoot)
+                        .streamExport(actor = CurrentMember(memberId = sourceAdminId, role = AccountRole.ADMIN), sink = out)
                 }
 
                 try {
-                    OrganizationRestoreService(targetDb, targetStorageRoot)
-                        .restore(CurrentMember(sourceAdminId, AccountRole.ADMIN), bundleFile, allowNonEmptyTarget = false)
+                    OrganizationRestoreService(database = targetDb, documentStorageRoot = targetStorageRoot)
+                        .restore(
+                            actor = CurrentMember(memberId = sourceAdminId, role = AccountRole.ADMIN),
+                            bundleFile = bundleFile,
+                            allowNonEmptyTarget = false,
+                        )
                     throw AssertionError("Expected NonEmptyTargetException")
                 } catch (e: NonEmptyTargetException) {
                     (e.message?.contains("member") == true) shouldBe true
@@ -86,8 +90,12 @@ class OrganizationBackupNonEmptyTargetGuardTest :
                 // The explicit escape hatch: allowNonEmptyTarget=true proceeds (accepting the
                 // consequences -- this is a deliberate operator decision, not a default).
                 val result =
-                    OrganizationRestoreService(targetDb, targetStorageRoot)
-                        .restore(CurrentMember(sourceAdminId, AccountRole.ADMIN), bundleFile, allowNonEmptyTarget = true)
+                    OrganizationRestoreService(database = targetDb, documentStorageRoot = targetStorageRoot)
+                        .restore(
+                            actor = CurrentMember(memberId = sourceAdminId, role = AccountRole.ADMIN),
+                            bundleFile = bundleFile,
+                            allowNonEmptyTarget = true,
+                        )
                 (result.tablesRestored.isNotEmpty()) shouldBe true
 
                 val targetMemberIdsAfter = transaction(targetDb) { MemberTable.selectAll().map { it[MemberTable.id] }.toSet() }
@@ -124,13 +132,20 @@ class OrganizationBackupNonEmptyTargetGuardTest :
             val bundleFile = File.createTempFile("guard-emptyok-bundle-", ".zip")
             try {
                 bundleFile.outputStream().use { out ->
-                    OrganizationExportService(sourceDb, sourceStorageRoot).streamExport(CurrentMember(adminId, AccountRole.ADMIN), out)
+                    OrganizationExportService(
+                        database = sourceDb,
+                        documentStorageRoot = sourceStorageRoot,
+                    ).streamExport(actor = CurrentMember(memberId = adminId, role = AccountRole.ADMIN), sink = out)
                 }
                 // targetDb is freshly migrated -- only the two Flyway-seeded singleton rows exist,
                 // no explicit allowNonEmptyTarget needed.
                 val result =
-                    OrganizationRestoreService(targetDb, targetStorageRoot)
-                        .restore(CurrentMember(adminId, AccountRole.ADMIN), bundleFile, allowNonEmptyTarget = false)
+                    OrganizationRestoreService(database = targetDb, documentStorageRoot = targetStorageRoot)
+                        .restore(
+                            actor = CurrentMember(memberId = adminId, role = AccountRole.ADMIN),
+                            bundleFile = bundleFile,
+                            allowNonEmptyTarget = false,
+                        )
                 (result.tablesRestored.isNotEmpty()) shouldBe true
             } finally {
                 bundleFile.delete()

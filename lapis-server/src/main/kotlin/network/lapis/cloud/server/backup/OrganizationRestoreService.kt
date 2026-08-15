@@ -188,7 +188,7 @@ class OrganizationRestoreService(
                 }
 
                 if (!allowNonEmptyTarget) {
-                    val nonSeedRows = transaction(database) { findNonSeedRows(this, liveTables) }
+                    val nonSeedRows = transaction(database) { findNonSeedRows(tx = this, tables = liveTables) }
                     if (nonSeedRows.isNotEmpty()) {
                         throw NonEmptyTargetException(
                             "Target database already holds data beyond the Flyway-seeded singleton rows " +
@@ -219,7 +219,7 @@ class OrganizationRestoreService(
                     val zipEntry =
                         zip.getEntry(DATA_ENTRY_PREFIX + tableMeta.tableName + ".jsonl")
                             ?: throw IncompatibleBundleException("Bundle is missing data file for table '${tableMeta.tableName}'")
-                    val rowCount = restoreTable(zip, zipEntry, tableMeta, manifestEntry)
+                    val rowCount = restoreTable(zip = zip, entry = zipEntry, table = tableMeta, manifestEntry = manifestEntry)
                     totalRowCount += rowCount
                     restored += manifestEntry.copy(rowCount = rowCount)
                 }
@@ -289,7 +289,7 @@ class OrganizationRestoreService(
                 if (errorMessage == null) throw bookkeepingFailure
             }
         }
-        return OrganizationRestoreResult(tablesRestored, blobsRestored, warnings)
+        return OrganizationRestoreResult(tablesRestored = tablesRestored, blobsRestored = blobsRestored, warnings = warnings)
     }
 
     private fun readManifest(zip: ZipFile): BackupManifest {
@@ -326,7 +326,7 @@ class OrganizationRestoreService(
                         digest.update(line.toByteArray(Charsets.UTF_8))
                         digest.update(NEWLINE_BYTE)
                         val row = Json.parseToJsonElement(line).jsonObject
-                        upsertRow(connection, table, row)
+                        upsertRow(connection = connection, table = table, row = row)
                         rowCount++
                     }
                 }
@@ -359,8 +359,8 @@ class OrganizationRestoreService(
             val whereClause = table.primaryKeyColumns.joinToString(" AND ") { "\"$it\" = ?" }
             val updated =
                 connection.prepareStatement("UPDATE \"${table.tableName}\" SET $setClause WHERE $whereClause").use { ps ->
-                    JdbcRowCodec.bindRow(ps, row, nonPkColumns, startIndex = 1)
-                    JdbcRowCodec.bindRow(ps, row, pkColumns, startIndex = nonPkColumns.size + 1)
+                    JdbcRowCodec.bindRow(statement = ps, row = row, columns = nonPkColumns, startIndex = 1)
+                    JdbcRowCodec.bindRow(statement = ps, row = row, columns = pkColumns, startIndex = nonPkColumns.size + 1)
                     ps.executeUpdate()
                 }
             if (updated > 0) return
@@ -369,7 +369,7 @@ class OrganizationRestoreService(
         val columnList = table.columns.joinToString(", ") { "\"${it.name}\"" }
         val placeholders = table.columns.joinToString(", ") { "?" }
         connection.prepareStatement("INSERT INTO \"${table.tableName}\" ($columnList) VALUES ($placeholders)").use { ps ->
-            JdbcRowCodec.bindRow(ps, row, table.columns, startIndex = 1)
+            JdbcRowCodec.bindRow(statement = ps, row = row, columns = table.columns, startIndex = 1)
             try {
                 ps.executeUpdate()
             } catch (e: java.sql.SQLException) {

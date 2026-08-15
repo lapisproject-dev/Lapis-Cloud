@@ -41,7 +41,10 @@ class OrganizationBackupCoverageTest :
             val bytes =
                 ByteArrayOutputStream()
                     .also { out ->
-                        OrganizationExportService(database, storageRoot).streamExport(CurrentMember(ADMIN_ID, AccountRole.ADMIN), out)
+                        OrganizationExportService(
+                            database = database,
+                            documentStorageRoot = storageRoot,
+                        ).streamExport(actor = CurrentMember(memberId = ADMIN_ID, role = AccountRole.ADMIN), sink = out)
                     }.toByteArray()
 
             val dataEntryTables = mutableSetOf<String>()

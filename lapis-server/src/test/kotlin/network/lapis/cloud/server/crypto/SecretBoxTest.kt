@@ -19,14 +19,14 @@ class SecretBoxTest :
 
         test("seal then open with the same key and AAD recovers the exact plaintext") {
             val box = SecretBox(randomKey())
-            val sealed = box.seal("rtmp-super-secret-key-value", aad = "destination-1")
+            val sealed = box.seal(plaintext = "rtmp-super-secret-key-value", aad = "destination-1")
 
-            box.open(sealed, aad = "destination-1") shouldBe "rtmp-super-secret-key-value"
+            box.open(sealed = sealed, aad = "destination-1") shouldBe "rtmp-super-secret-key-value"
         }
 
         test("seal output is versioned 'v1:<iv>:<ciphertext>' with exactly two ':' separators") {
             val box = SecretBox(randomKey())
-            val sealed = box.seal("some-stream-key", aad = "destination-1")
+            val sealed = box.seal(plaintext = "some-stream-key", aad = "destination-1")
 
             sealed shouldStartWith "v1:"
             sealed.split(":").size shouldBe 3
@@ -34,9 +34,9 @@ class SecretBoxTest :
 
         test("empty plaintext round-trips too") {
             val box = SecretBox(randomKey())
-            val sealed = box.seal("", aad = "destination-1")
+            val sealed = box.seal(plaintext = "", aad = "destination-1")
 
-            box.open(sealed, aad = "destination-1") shouldBe ""
+            box.open(sealed = sealed, aad = "destination-1") shouldBe ""
         }
 
         test("constructor rejects a key that is not exactly KEY_SIZE_BYTES") {
@@ -46,78 +46,78 @@ class SecretBoxTest :
         }
 
         test("opening with a DIFFERENT key fails, never leaking anything about the original plaintext") {
-            val sealed = SecretBox(randomKey()).seal("rtmp-super-secret-key-value", aad = "destination-1")
+            val sealed = SecretBox(randomKey()).seal(plaintext = "rtmp-super-secret-key-value", aad = "destination-1")
             val wrongBox = SecretBox(randomKey())
 
-            val exception = shouldThrow<SecretBoxException> { wrongBox.open(sealed, aad = "destination-1") }
+            val exception = shouldThrow<SecretBoxException> { wrongBox.open(sealed = sealed, aad = "destination-1") }
             exception.message shouldBe "Stream-Zugangsdaten konnten nicht entschluesselt werden"
         }
 
         test("opening with a DIFFERENT AAD (e.g. a different destination id) fails") {
             val box = SecretBox(randomKey())
-            val sealed = box.seal("rtmp-super-secret-key-value", aad = "destination-1")
+            val sealed = box.seal(plaintext = "rtmp-super-secret-key-value", aad = "destination-1")
 
-            shouldThrow<SecretBoxException> { box.open(sealed, aad = "destination-2") }
+            shouldThrow<SecretBoxException> { box.open(sealed = sealed, aad = "destination-2") }
         }
 
         test("a single flipped char in the ciphertext segment fails GCM tag verification") {
             val box = SecretBox(randomKey())
-            val sealed = box.seal("rtmp-super-secret-key-value", aad = "destination-1")
+            val sealed = box.seal(plaintext = "rtmp-super-secret-key-value", aad = "destination-1")
             val parts = sealed.split(":")
             val tamperedCiphertext = flipFirstBase64Char(parts[2])
             val tampered = "${parts[0]}:${parts[1]}:$tamperedCiphertext"
 
-            shouldThrow<SecretBoxException> { box.open(tampered, aad = "destination-1") }
+            shouldThrow<SecretBoxException> { box.open(sealed = tampered, aad = "destination-1") }
         }
 
         test("a single flipped char in the IV segment also fails (GCM authenticates the IV implicitly via the tag context)") {
             val box = SecretBox(randomKey())
-            val sealed = box.seal("rtmp-super-secret-key-value", aad = "destination-1")
+            val sealed = box.seal(plaintext = "rtmp-super-secret-key-value", aad = "destination-1")
             val parts = sealed.split(":")
             val tamperedIv = flipFirstBase64Char(parts[1])
             val tampered = "${parts[0]}:$tamperedIv:${parts[2]}"
 
-            shouldThrow<SecretBoxException> { box.open(tampered, aad = "destination-1") }
+            shouldThrow<SecretBoxException> { box.open(sealed = tampered, aad = "destination-1") }
         }
 
         test("two seals of the same plaintext/AAD produce different ciphertexts -- fresh IV every call") {
             val box = SecretBox(randomKey())
-            val first = box.seal("rtmp-super-secret-key-value", aad = "destination-1")
-            val second = box.seal("rtmp-super-secret-key-value", aad = "destination-1")
+            val first = box.seal(plaintext = "rtmp-super-secret-key-value", aad = "destination-1")
+            val second = box.seal(plaintext = "rtmp-super-secret-key-value", aad = "destination-1")
 
             first shouldNotBe second
             // ... yet both still decrypt back to the identical plaintext.
-            box.open(first, aad = "destination-1") shouldBe "rtmp-super-secret-key-value"
-            box.open(second, aad = "destination-1") shouldBe "rtmp-super-secret-key-value"
+            box.open(sealed = first, aad = "destination-1") shouldBe "rtmp-super-secret-key-value"
+            box.open(sealed = second, aad = "destination-1") shouldBe "rtmp-super-secret-key-value"
         }
 
         test("a v2:-prefixed (or otherwise unversioned) value is rejected outright") {
             val box = SecretBox(randomKey())
-            val sealed = box.seal("rtmp-super-secret-key-value", aad = "destination-1")
+            val sealed = box.seal(plaintext = "rtmp-super-secret-key-value", aad = "destination-1")
             val parts = sealed.split(":")
             val v2Prefixed = "v2:${parts[1]}:${parts[2]}"
 
-            val exception = shouldThrow<SecretBoxException> { box.open(v2Prefixed, aad = "destination-1") }
+            val exception = shouldThrow<SecretBoxException> { box.open(sealed = v2Prefixed, aad = "destination-1") }
             exception.message shouldBe "Stream-Zugangsdaten konnten nicht entschluesselt werden"
         }
 
         test("a malformed value (wrong part count) is rejected outright") {
             val box = SecretBox(randomKey())
 
-            shouldThrow<SecretBoxException> { box.open("not-even-close-to-the-format", aad = "destination-1") }
-            shouldThrow<SecretBoxException> { box.open("v1:onlyOnePart", aad = "destination-1") }
-            shouldThrow<SecretBoxException> { box.open("v1:a:b:c", aad = "destination-1") }
+            shouldThrow<SecretBoxException> { box.open(sealed = "not-even-close-to-the-format", aad = "destination-1") }
+            shouldThrow<SecretBoxException> { box.open(sealed = "v1:onlyOnePart", aad = "destination-1") }
+            shouldThrow<SecretBoxException> { box.open(sealed = "v1:a:b:c", aad = "destination-1") }
         }
 
         test("non-base64url segments are rejected outright, never a raw IllegalArgumentException") {
             val box = SecretBox(randomKey())
 
-            shouldThrow<SecretBoxException> { box.open("v1:not base64!:also not base64!", aad = "destination-1") }
+            shouldThrow<SecretBoxException> { box.open(sealed = "v1:not base64!:also not base64!", aad = "destination-1") }
         }
 
         test("SecretBoxException never carries a cause -- see class KDoc") {
             val box = SecretBox(randomKey())
-            val exception = shouldThrow<SecretBoxException> { box.open("garbage", aad = "destination-1") }
+            val exception = shouldThrow<SecretBoxException> { box.open(sealed = "garbage", aad = "destination-1") }
 
             exception.cause shouldBe null
         }

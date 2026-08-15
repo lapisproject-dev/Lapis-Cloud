@@ -1,0 +1,65 @@
+# Lapis-Cloud Detekt configuration.
+#
+# SCOPE: this repo uses Detekt for EXACTLY ONE custom rule (lapis/RequireNamedArguments).
+# Style/formatting stays with ktlint. Do NOT set buildUponDefaultConfig = true and do NOT
+# enable any built-in ruleset here — adopting Detekt's 100+ default rules is explicitly
+# out of scope and would bury the one rule that matters in noise.
+#
+# Ported from kuml-dev/kUML's config/detekt/detekt.yml (same rule, same reasoning) — see
+# Lapis-Cloud CLAUDE.md "kUML-Repo-Konventionen" for the reference pattern this mirrors.
+
+config:
+  validation: true
+  warningsAsErrors: true
+
+processors:
+  active: true
+
+console-reports:
+  active: true
+
+# ── Built-in rulesets: ALL OFF ───────────────────────────────────────────────
+# With buildUponDefaultConfig = false these are inactive anyway. They are listed
+# explicitly so that a future `detektGenerateConfig` or a Detekt upgrade that
+# flips a default cannot silently switch a ruleset on.
+#
+# NOTE: only the ruleset ids below are recognised by this project's classpath
+# (dev.detekt:2.0.0-alpha.5 core + the default rule modules it pulls in).
+# "errorprone", "formatting", "libraries" and "ruleauthors" are NOT valid keys
+# here — with config.validation: true, listing them fails the build with
+# "Property '<x>' is misspelled or does not exist". Those rulesets require
+# additional detekt-rules-* modules on the plugin classpath that this repo
+# does not add, since buildUponDefaultConfig = false means none of them run
+# anyway. Do not re-add them without also adding the dependency.
+comments:       { active: false }
+complexity:     { active: false }
+coroutines:     { active: false }
+empty-blocks:   { active: false }
+exceptions:     { active: false }
+naming:         { active: false }
+performance:    { active: false }
+potential-bugs: { active: false }
+style:          { active: false }
+
+# ── The one rule we actually run ─────────────────────────────────────────────
+lapis:
+  active: true
+  RequireNamedArguments:
+    active: true
+    # This explicit rule-level key controls whether Rule.autoCorrect (detekt-api)
+    # evaluates true for THIS rule — it is read before any parent/root config
+    # default. BUT it is not sufficient on its own to get files actually written
+    # back to disk: verified empirically 2026-08-15 that the Detekt Gradle task
+    # ALSO needs its own `autoCorrect` input (wired below from the
+    # `-Plapis.detekt.autoCorrect` Gradle property) set to true — without it, the
+    # rule still computes and reports the correction (file.modifiedText gets
+    # set) but the detekt-core engine never persists modifiedText to disk. Both
+    # flags are required together. To run a one-off mass autocorrect pass: flip
+    # this line to `true`, run
+    # `./gradlew detektMain detektTest detektMainJvm detektTestJvm -Plapis.detekt.autoCorrect=true`,
+    # run `ktlintFormat`, verify with a clean `./gradlew clean check`, then flip
+    # this line back to `false` before committing (the -P flag is not persisted
+    # anywhere, so nothing else needs reverting). Never commit this key as `true`.
+    autoCorrect: false
+    ownedPackagePrefixes:
+      - 'network.lapis.cloud.'

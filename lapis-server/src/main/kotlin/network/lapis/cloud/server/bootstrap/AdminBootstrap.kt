@@ -106,7 +106,7 @@ object AdminBootstrap {
     ): BootstrapResult {
         val normalizedEmail = email.trim().lowercase()
         try {
-            PasswordPolicy.validate(rawPassword, normalizedEmail)
+            PasswordPolicy.validate(newPassword = rawPassword, email = normalizedEmail)
         } catch (e: WeakPasswordException) {
             return BootstrapResult.WeakPassword(e.message)
         }
@@ -205,7 +205,7 @@ object AdminBootstrap {
         }
         val normalizedEmail = email.trim().lowercase()
         try {
-            PasswordPolicy.validate(rawPassword, normalizedEmail)
+            PasswordPolicy.validate(newPassword = rawPassword, email = normalizedEmail)
         } catch (e: WeakPasswordException) {
             return BootstrapFirstAdminResult.WeakPassword(e.message)
         }
@@ -254,7 +254,7 @@ fun main() {
 
     // LAPIS_BOOTSTRAP_ADMIN_DISPLAY_NAME is the mode selector -- see class KDoc "Two modes".
     if (displayName != null) {
-        when (val result = AdminBootstrap.bootstrapFirstAdmin(displayName, email, password)) {
+        when (val result = AdminBootstrap.bootstrapFirstAdmin(displayName = displayName, email = email, rawPassword = password)) {
             is AdminBootstrap.BootstrapFirstAdminResult.Success -> {
                 logger.info { "First ADMIN created: '${result.email}' (${result.displayName})." }
             }
@@ -278,7 +278,7 @@ fun main() {
         return
     }
 
-    when (val result = AdminBootstrap.setInitialAdminPassword(email, password, force)) {
+    when (val result = AdminBootstrap.setInitialAdminPassword(email = email, rawPassword = password, force = force)) {
         is AdminBootstrap.BootstrapResult.Success -> {
             logger.info { "Password set for '${result.email}' (${result.displayName})." }
         }

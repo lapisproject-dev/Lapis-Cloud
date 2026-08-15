@@ -28,7 +28,7 @@ class KassenbuchCalculatorTest :
         )
 
         test("empty input returns an empty list") {
-            KassenbuchCalculator.kassenbuch(emptyList()) shouldBe emptyList()
+            KassenbuchCalculator.kassenbuch(lines = emptyList()) shouldBe emptyList()
         }
 
         test("DEBIT lines become amountIn (Einnahme), CREDIT lines become amountOut (Ausgabe); the other side is always zero") {
@@ -37,7 +37,7 @@ class KassenbuchCalculatorTest :
                     line(PostingSide.DEBIT, "100.00"),
                     line(PostingSide.CREDIT, "30.00"),
                 )
-            val result = KassenbuchCalculator.kassenbuch(lines)
+            val result = KassenbuchCalculator.kassenbuch(lines = lines)
 
             result[0].amountIn.compareTo(BigDecimal("100.00")) shouldBe 0
             result[0].amountOut.compareTo(BigDecimal.ZERO) shouldBe 0
@@ -52,14 +52,14 @@ class KassenbuchCalculatorTest :
                     line(PostingSide.CREDIT, "30.00"),
                     line(PostingSide.DEBIT, "10.00"),
                 )
-            val result = KassenbuchCalculator.kassenbuch(lines)
+            val result = KassenbuchCalculator.kassenbuch(lines = lines)
             result.map { it.runningBalance.toPlainString() } shouldBe listOf("100.00", "70.00", "80.00")
         }
 
         test("opening balance is carried into the first running balance") {
             val result =
                 KassenbuchCalculator.kassenbuch(
-                    listOf(line(PostingSide.DEBIT, "25.00")),
+                    lines = listOf(line(PostingSide.DEBIT, "25.00")),
                     opening = BigDecimal("100.00"),
                 )
             result.single().runningBalance.compareTo(BigDecimal("125.00")) shouldBe 0
@@ -67,7 +67,7 @@ class KassenbuchCalculatorTest :
 
         test("kassenbuchNumber is 1-based and gapless, assigned strictly in input order") {
             val lines = (1..5).map { line(PostingSide.DEBIT, "1.00") }
-            val result = KassenbuchCalculator.kassenbuch(lines)
+            val result = KassenbuchCalculator.kassenbuch(lines = lines)
             result.map { it.kassenbuchNumber } shouldBe listOf(1, 2, 3, 4, 5)
         }
 
@@ -77,7 +77,7 @@ class KassenbuchCalculatorTest :
                     line(PostingSide.DEBIT, "5.00", voucherReference = "BELEG-42"),
                     line(PostingSide.CREDIT, "5.00", voucherReference = null),
                 )
-            val result = KassenbuchCalculator.kassenbuch(lines)
+            val result = KassenbuchCalculator.kassenbuch(lines = lines)
             result[0].voucherReference shouldBe "BELEG-42"
             result[1].voucherReference shouldBe null
         }

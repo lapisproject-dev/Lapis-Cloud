@@ -207,13 +207,17 @@ class OrganizationBackupRoundTripTest :
             val bundleFile = File.createTempFile("roundtrip-bundle-", ".zip")
             try {
                 bundleFile.outputStream().use { out ->
-                    OrganizationExportService(sourceDb, sourceStorageRoot)
-                        .streamExport(CurrentMember(adminId, AccountRole.ADMIN), out)
+                    OrganizationExportService(database = sourceDb, documentStorageRoot = sourceStorageRoot)
+                        .streamExport(actor = CurrentMember(memberId = adminId, role = AccountRole.ADMIN), sink = out)
                 }
 
                 val restoreResult =
-                    OrganizationRestoreService(targetDb, targetStorageRoot)
-                        .restore(CurrentMember(adminId, AccountRole.ADMIN), bundleFile, allowNonEmptyTarget = false)
+                    OrganizationRestoreService(database = targetDb, documentStorageRoot = targetStorageRoot)
+                        .restore(
+                            actor = CurrentMember(memberId = adminId, role = AccountRole.ADMIN),
+                            bundleFile = bundleFile,
+                            allowNonEmptyTarget = false,
+                        )
 
                 val liveTables = transaction(sourceDb) { OrganizationSchemaCatalog.exportableTables(this) }
                 restoreResult.tablesRestored.map { it.tableName }.toSet() shouldBe liveTables.map { it.tableName }.toSet()
@@ -226,9 +230,9 @@ class OrganizationBackupRoundTripTest :
                 // target additionally holds a fresh RESTORE row this very operation just wrote) --
                 // checked with its own precise assertions below instead.
                 liveTables.filter { it.tableName != "backup_operation_log" }.forEach { table ->
-                    val sourceRows = dumpTableAsJsonLines(sourceDb, table)
-                    val targetRows = dumpTableAsJsonLines(targetDb, table)
-                    withClueLocal(table.tableName) {
+                    val sourceRows = dumpTableAsJsonLines(database = sourceDb, table = table)
+                    val targetRows = dumpTableAsJsonLines(database = targetDb, table = table)
+                    withClueLocal(clue = table.tableName) {
                         targetRows shouldBe sourceRows
                     }
                 }
@@ -260,15 +264,19 @@ class OrganizationBackupRoundTripTest :
                 // Idempotency: re-running the identical restore against the now-populated target
                 // requires allowNonEmptyTarget=true, succeeds, and does not duplicate rows.
                 val secondRestore =
-                    OrganizationRestoreService(targetDb, targetStorageRoot)
-                        .restore(CurrentMember(adminId, AccountRole.ADMIN), bundleFile, allowNonEmptyTarget = true)
+                    OrganizationRestoreService(database = targetDb, documentStorageRoot = targetStorageRoot)
+                        .restore(
+                            actor = CurrentMember(memberId = adminId, role = AccountRole.ADMIN),
+                            bundleFile = bundleFile,
+                            allowNonEmptyTarget = true,
+                        )
                 secondRestore.tablesRestored.map { it.tableName }.toSet() shouldBe liveTables.map { it.tableName }.toSet()
 
                 liveTables.forEach { table ->
                     if (table.tableName != "backup_operation_log") {
-                        val sourceRows = dumpTableAsJsonLines(sourceDb, table)
-                        val targetRows = dumpTableAsJsonLines(targetDb, table)
-                        withClueLocal("second restore, ${table.tableName}") {
+                        val sourceRows = dumpTableAsJsonLines(database = sourceDb, table = table)
+                        val targetRows = dumpTableAsJsonLines(database = targetDb, table = table)
+                        withClueLocal(clue = "second restore, ${table.tableName}") {
                             targetRows shouldBe sourceRows
                         }
                     }
@@ -311,12 +319,18 @@ class OrganizationBackupRoundTripTest :
             val bundleFile = File.createTempFile("roundtrip-guard-bundle-", ".zip")
             try {
                 bundleFile.outputStream().use { out ->
-                    OrganizationExportService(sourceDb, storageRoot).streamExport(CurrentMember(adminId, AccountRole.ADMIN), out)
+                    OrganizationExportService(
+                        database = sourceDb,
+                        documentStorageRoot = storageRoot,
+                    ).streamExport(actor = CurrentMember(memberId = adminId, role = AccountRole.ADMIN), sink = out)
                 }
                 // Restoring the bundle into the SAME source database it came from is, by definition,
                 // a non-empty target -- must be rejected without allowNonEmptyTarget=true.
                 try {
-                    OrganizationRestoreService(sourceDb, storageRoot).restore(CurrentMember(adminId, AccountRole.ADMIN), bundleFile)
+                    OrganizationRestoreService(
+                        database = sourceDb,
+                        documentStorageRoot = storageRoot,
+                    ).restore(actor = CurrentMember(memberId = adminId, role = AccountRole.ADMIN), bundleFile = bundleFile)
                     throw AssertionError("Expected NonEmptyTargetException")
                 } catch (e: NonEmptyTargetException) {
                     (e.message?.contains("member") == true) shouldBe true
@@ -340,7 +354,7 @@ private fun dumpTableAsJsonLines(
         connection.prepareStatement("SELECT $columns FROM \"${table.tableName}\" ORDER BY $orderBy").use { ps ->
             ps.executeQuery().use { rs ->
                 while (rs.next()) {
-                    val json = JdbcRowCodec.rowToJson(rs, table.columns)
+                    val json = JdbcRowCodec.rowToJson(rs = rs, columns = table.columns)
                     rows += Json.encodeToString(JsonObject.serializer(), json)
                 }
             }

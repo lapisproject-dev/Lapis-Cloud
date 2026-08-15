@@ -53,7 +53,7 @@ class DsgvoComplianceSchemaDriftTest :
             entity.attributes.map { it.name }.toSet() shouldBe real.columns.keys
             entity.attributes.forEach { attr ->
                 val col = real.columns.getValue(attr.name!!)
-                withClue("column '${attr.name}'") { col.nullable shouldBe attr.nullable }
+                withClue(clue = "column '${attr.name}'") { col.nullable shouldBe attr.nullable }
             }
             real.foreignKeys["document_id"] shouldBe "document"
             real.foreignKeys["created_by"] shouldBe "member"
@@ -70,7 +70,7 @@ class DsgvoComplianceSchemaDriftTest :
             entity.attributes.map { it.name }.toSet() shouldBe real.columns.keys
             entity.attributes.forEach { attr ->
                 val col = real.columns.getValue(attr.name!!)
-                withClue("column '${attr.name}'") { col.nullable shouldBe attr.nullable }
+                withClue(clue = "column '${attr.name}'") { col.nullable shouldBe attr.nullable }
             }
             real.foreignKeys["created_by"] shouldBe "member"
             real.foreignKeys["updated_by"] shouldBe "member"
@@ -83,7 +83,7 @@ class DsgvoComplianceSchemaDriftTest :
             entity.attributes.map { it.name }.toSet() shouldBe real.columns.keys
             entity.attributes.forEach { attr ->
                 val col = real.columns.getValue(attr.name!!)
-                withClue("column '${attr.name}'") { col.nullable shouldBe attr.nullable }
+                withClue(clue = "column '${attr.name}'") { col.nullable shouldBe attr.nullable }
             }
             real.foreignKeys["created_by"] shouldBe "member"
             real.foreignKeys["updated_by"] shouldBe "member"
@@ -96,7 +96,7 @@ class DsgvoComplianceSchemaDriftTest :
             entity.attributes.map { it.name }.toSet() shouldBe real.columns.keys
             entity.attributes.forEach { attr ->
                 val col = real.columns.getValue(attr.name!!)
-                withClue("column '${attr.name}'") { col.nullable shouldBe attr.nullable }
+                withClue(clue = "column '${attr.name}'") { col.nullable shouldBe attr.nullable }
             }
             real.foreignKeys["reported_by"] shouldBe "member"
             real.foreignKeys["updated_by"] shouldBe "member"

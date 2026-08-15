@@ -165,11 +165,11 @@ object OidcJwt {
         expectedNonce: String,
         now: Instant = Clock.System.now(),
     ): VerificationResult {
-        val signatureResult = verifySignature(compact, publicKeyPem)
+        val signatureResult = verifySignature(compact = compact, publicKeyPem = publicKeyPem)
         if (signatureResult is VerificationResult.Invalid) return signatureResult
         val claims = (signatureResult as VerificationResult.Valid).claims
 
-        val temporalFailure = checkTemporalClaims(claims, now)
+        val temporalFailure = checkTemporalClaims(claims = claims, now = now)
         if (temporalFailure != null) return VerificationResult.Invalid(temporalFailure)
 
         if (claims.issuer != expectedIssuer) return VerificationResult.Invalid(JWT_REASON_ISS_MISMATCH)
@@ -199,11 +199,11 @@ object OidcJwt {
         expectedAudience: String,
         now: Instant = Clock.System.now(),
     ): VerificationResult {
-        val signatureResult = verifySignature(compact, publicKeyPem)
+        val signatureResult = verifySignature(compact = compact, publicKeyPem = publicKeyPem)
         if (signatureResult is VerificationResult.Invalid) return signatureResult
         val claims = (signatureResult as VerificationResult.Valid).claims
 
-        val temporalFailure = checkTemporalClaims(claims, now)
+        val temporalFailure = checkTemporalClaims(claims = claims, now = now)
         if (temporalFailure != null) return VerificationResult.Invalid(temporalFailure)
 
         if (claims.issuer != expectedIssuer) return VerificationResult.Invalid(JWT_REASON_ISS_MISMATCH)

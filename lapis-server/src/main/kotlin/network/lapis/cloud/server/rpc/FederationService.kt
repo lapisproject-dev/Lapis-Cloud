@@ -92,7 +92,7 @@ class FederationService(
         current.requireRole(AccountRole.ADMIN)
         val uuid = id.toRelationshipUuidOrThrow()
         return transaction {
-            val row = FederationRelationshipStore.findById(uuid) ?: throw NotFoundException("Federation relationship $id not found")
+            val row = FederationRelationshipStore.findById(id = uuid) ?: throw NotFoundException("Federation relationship $id not found")
             with(FederationRelationshipStore) { row.toRelationshipDto() }
         }
     }
@@ -102,7 +102,7 @@ class FederationService(
         current.requireRole(AccountRole.ADMIN)
         val uuid = relationshipId.toRelationshipUuidOrThrow()
         return transaction {
-            FederationRelationshipStore.findById(uuid) ?: throw NotFoundException("Federation relationship $relationshipId not found")
+            FederationRelationshipStore.findById(id = uuid) ?: throw NotFoundException("Federation relationship $relationshipId not found")
             with(FederationRelationshipStore) { FederationRelationshipStore.listEvents(uuid).map { it.toEventDto() } }
         }
     }
@@ -114,7 +114,7 @@ class FederationService(
         runCatching { requireSafeFederationUrl(remoteActorUri) }
             .onFailure { throw BadRequestException(it.message ?: "Invalid remoteActorUri: $remoteActorUri") }
 
-        val existing = transaction { FederationRelationshipStore.findByRemoteActorUri(remoteActorUri) }
+        val existing = transaction { FederationRelationshipStore.findByRemoteActorUri(remoteActorUri = remoteActorUri) }
         if (existing != null) {
             val existingStatus = existing[FederationRelationshipTable.status]
             if (existingStatus == FederationRelationshipStatus.PENDING || existingStatus == FederationRelationshipStatus.ACTIVE) {
@@ -137,7 +137,7 @@ class FederationService(
             )
         val activityJson = FEDERATION_JSON.encodeToString(Activity.serializer(), activity)
 
-        deliverActivity(remoteActor.inbox, activityJson, actorKeyRow)
+        deliverActivity(inboxUri = remoteActor.inbox, activityJson = activityJson, actorKeyRow = actorKeyRow)
 
         val now = nowLocalDateTime()
         return transaction {
@@ -153,8 +153,14 @@ class FederationService(
                     initiatedActivityId = activityId,
                     now = now,
                 ) ?: throw ConflictException("A non-terminal relationship to $remoteActorUri already exists")
-            FederationRelationshipStore.recordEvent(id, FederationEventType.FOLLOW_SENT, activityId, activityJson, now)
-            with(FederationRelationshipStore) { FederationRelationshipStore.findById(id)!!.toRelationshipDto() }
+            FederationRelationshipStore.recordEvent(
+                relationshipId = id,
+                eventType = FederationEventType.FOLLOW_SENT,
+                activityId = activityId,
+                activityJson = activityJson,
+                now = now,
+            )
+            with(FederationRelationshipStore) { FederationRelationshipStore.findById(id = id)!!.toRelationshipDto() }
         }
     }
 
@@ -183,7 +189,7 @@ class FederationService(
             transaction {
                 // forUpdate=true -- see FederationRelationshipStore KDoc "Concurrency" point 1.
                 val r =
-                    FederationRelationshipStore.findById(uuid, forUpdate = true)
+                    FederationRelationshipStore.findById(id = uuid, forUpdate = true)
                         ?: throw NotFoundException("Federation relationship $relationshipId not found")
                 if (r[FederationRelationshipTable.status] != FederationRelationshipStatus.ACTIVE) {
                     throw ConflictException(
@@ -210,22 +216,28 @@ class FederationService(
         // forUpdate lock taken above is already released by the time this runs, so a concurrent
         // decision on the SAME relationship can land during this network round-trip. The
         // updateStatusIfCurrently CAS below is what actually catches that.
-        deliverActivity(row[FederationRelationshipTable.remoteInboxUri], activityJson, actorKeyRow)
+        deliverActivity(inboxUri = row[FederationRelationshipTable.remoteInboxUri], activityJson = activityJson, actorKeyRow = actorKeyRow)
 
         val now = nowLocalDateTime()
         return transaction {
             val applied =
                 FederationRelationshipStore.updateStatusIfCurrently(
-                    uuid,
-                    FederationRelationshipStatus.ACTIVE,
-                    FederationRelationshipStatus.UNDONE,
-                    now,
+                    id = uuid,
+                    expectedStatus = FederationRelationshipStatus.ACTIVE,
+                    newStatus = FederationRelationshipStatus.UNDONE,
+                    now = now,
                 )
             if (!applied) {
                 throw ConflictException("Relationship $relationshipId was concurrently decided while delivering -- retry")
             }
-            FederationRelationshipStore.recordEvent(uuid, FederationEventType.UNDO_SENT, activityId, activityJson, now)
-            with(FederationRelationshipStore) { FederationRelationshipStore.findById(uuid)!!.toRelationshipDto() }
+            FederationRelationshipStore.recordEvent(
+                relationshipId = uuid,
+                eventType = FederationEventType.UNDO_SENT,
+                activityId = activityId,
+                activityJson = activityJson,
+                now = now,
+            )
+            with(FederationRelationshipStore) { FederationRelationshipStore.findById(id = uuid)!!.toRelationshipDto() }
         }
     }
 
@@ -243,7 +255,7 @@ class FederationService(
             transaction {
                 // forUpdate=true -- see FederationRelationshipStore KDoc "Concurrency" point 1.
                 val r =
-                    FederationRelationshipStore.findById(uuid, forUpdate = true)
+                    FederationRelationshipStore.findById(id = uuid, forUpdate = true)
                         ?: throw NotFoundException("Federation relationship $relationshipId not found")
                 if (r[FederationRelationshipTable.direction] != FederationRelationshipDirection.INBOUND ||
                     r[FederationRelationshipTable.status] != FederationRelationshipStatus.PENDING
@@ -272,17 +284,28 @@ class FederationService(
         // updateStatusIfCurrently CAS below is what actually catches a concurrent decision landing
         // during this network round-trip (e.g. an inbound Undo, or the SAME relationship being
         // accepted/rejected twice concurrently).
-        deliverActivity(row[FederationRelationshipTable.remoteInboxUri], activityJson, actorKeyRow)
+        deliverActivity(inboxUri = row[FederationRelationshipTable.remoteInboxUri], activityJson = activityJson, actorKeyRow = actorKeyRow)
 
         val now = nowLocalDateTime()
         return transaction {
             val applied =
-                FederationRelationshipStore.updateStatusIfCurrently(uuid, FederationRelationshipStatus.PENDING, newStatus, now)
+                FederationRelationshipStore.updateStatusIfCurrently(
+                    id = uuid,
+                    expectedStatus = FederationRelationshipStatus.PENDING,
+                    newStatus = newStatus,
+                    now = now,
+                )
             if (!applied) {
                 throw ConflictException("Relationship $relationshipId was concurrently decided while delivering -- retry")
             }
-            FederationRelationshipStore.recordEvent(uuid, eventType, activityId, activityJson, now)
-            with(FederationRelationshipStore) { FederationRelationshipStore.findById(uuid)!!.toRelationshipDto() }
+            FederationRelationshipStore.recordEvent(
+                relationshipId = uuid,
+                eventType = eventType,
+                activityId = activityId,
+                activityJson = activityJson,
+                now = now,
+            )
+            with(FederationRelationshipStore) { FederationRelationshipStore.findById(id = uuid)!!.toRelationshipDto() }
         }
     }
 

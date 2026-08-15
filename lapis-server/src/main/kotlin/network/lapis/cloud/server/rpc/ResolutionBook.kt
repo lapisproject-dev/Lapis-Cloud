@@ -91,7 +91,7 @@ internal fun computeQuorum(
 ): QuorumResultDto {
     val committeeRow = CommitteeTable.selectAll().where { CommitteeTable.id eq committeeId }.single()
     val quorumPercent = committeeRow[CommitteeTable.quorumPercent]
-    val eligible = eligibleMemberIds(committeeRow, scheduledDate)
+    val eligible = eligibleMemberIds(committeeRow = committeeRow, scheduledDate = scheduledDate)
     val presentCount =
         AttendanceTable
             .selectAll()
@@ -160,10 +160,11 @@ internal fun insertResolutionRow(
     electionId: Uuid? = null,
     systemicConsensusId: Uuid? = null,
 ): ResolutionDto {
-    val quorum = computeQuorum(sId, committeeId, scheduledDate)
+    val quorum = computeQuorum(meetingId = sId, committeeId = committeeId, scheduledDate = scheduledDate)
     val committeeRow = CommitteeTable.selectAll().where { CommitteeTable.id eq committeeId }.single()
     val now = DbClock.nowLocalDateTime()
-    val number = nextResolutionNumber(committeeId, committeeRow[CommitteeTable.type].name, now.year)
+    val number =
+        nextResolutionNumber(committeeId = committeeId, committeeTypeName = committeeRow[CommitteeTable.type].name, year = now.year)
     val id = Uuid.random()
     ResolutionTable.insert {
         it[ResolutionTable.id] = id

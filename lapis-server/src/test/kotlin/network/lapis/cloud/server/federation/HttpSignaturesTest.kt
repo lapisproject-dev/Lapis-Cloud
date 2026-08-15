@@ -26,18 +26,26 @@ class HttpSignaturesTest :
         val keyId = "https://example.org/federation/actor#main-key"
 
         test("a valid signature over a realistic request verifies as Valid") {
-            val signed = HttpSignatures.sign("POST", "/federation/inbox", "remote.example", body, keyId, keyPair.privateKeyPem)
+            val signed =
+                HttpSignatures.sign(
+                    method = "POST",
+                    path = "/federation/inbox",
+                    host = "remote.example",
+                    body = body,
+                    keyId = keyId,
+                    privateKeyPem = keyPair.privateKeyPem,
+                )
 
             val result =
                 HttpSignatures.verify(
-                    "POST",
-                    "/federation/inbox",
-                    "remote.example",
-                    body,
-                    signed.signatureHeader,
-                    signed.dateHeader,
-                    signed.digestHeader,
-                    keyPair.publicKeyPem,
+                    method = "POST",
+                    path = "/federation/inbox",
+                    host = "remote.example",
+                    body = body,
+                    signatureHeader = signed.signatureHeader,
+                    dateHeader = signed.dateHeader,
+                    digestHeader = signed.digestHeader,
+                    publicKeyPem = keyPair.publicKeyPem,
                 )
 
             result shouldBe HttpSignatures.VerificationResult.Valid
@@ -74,123 +82,163 @@ class HttpSignaturesTest :
 
             val result =
                 HttpSignatures.verify(
-                    "POST",
-                    "/federation/inbox",
-                    "remote.example",
-                    body,
-                    signatureHeader,
-                    dateHeader,
-                    digestHeader,
-                    keyPair.publicKeyPem,
+                    method = "POST",
+                    path = "/federation/inbox",
+                    host = "remote.example",
+                    body = body,
+                    signatureHeader = signatureHeader,
+                    dateHeader = dateHeader,
+                    digestHeader = digestHeader,
+                    publicKeyPem = keyPair.publicKeyPem,
                 )
 
             result shouldBe HttpSignatures.VerificationResult.Invalid(REASON_MALFORMED)
         }
 
         test("sign() then verify() round-trips for the exact same request") {
-            val signed = HttpSignatures.sign("POST", "/federation/inbox", "remote.example", body, keyId, keyPair.privateKeyPem)
+            val signed =
+                HttpSignatures.sign(
+                    method = "POST",
+                    path = "/federation/inbox",
+                    host = "remote.example",
+                    body = body,
+                    keyId = keyId,
+                    privateKeyPem = keyPair.privateKeyPem,
+                )
             HttpSignatures.verify(
-                "POST",
-                "/federation/inbox",
-                "remote.example",
-                body,
-                signed.signatureHeader,
-                signed.dateHeader,
-                signed.digestHeader,
-                keyPair.publicKeyPem,
+                method = "POST",
+                path = "/federation/inbox",
+                host = "remote.example",
+                body = body,
+                signatureHeader = signed.signatureHeader,
+                dateHeader = signed.dateHeader,
+                digestHeader = signed.digestHeader,
+                publicKeyPem = keyPair.publicKeyPem,
             ) shouldBe HttpSignatures.VerificationResult.Valid
         }
 
         test("a tampered body (digest header no longer matches the actual body) is rejected as DIGEST_MISMATCH") {
-            val signed = HttpSignatures.sign("POST", "/federation/inbox", "remote.example", body, keyId, keyPair.privateKeyPem)
+            val signed =
+                HttpSignatures.sign(
+                    method = "POST",
+                    path = "/federation/inbox",
+                    host = "remote.example",
+                    body = body,
+                    keyId = keyId,
+                    privateKeyPem = keyPair.privateKeyPem,
+                )
             val tamperedBody = """{"type":"Follow","actor":"https://evil.example/federation/actor"}""".toByteArray(Charsets.UTF_8)
 
             val result =
                 HttpSignatures.verify(
-                    "POST",
-                    "/federation/inbox",
-                    "remote.example",
-                    tamperedBody,
-                    signed.signatureHeader,
-                    signed.dateHeader,
-                    signed.digestHeader,
-                    keyPair.publicKeyPem,
+                    method = "POST",
+                    path = "/federation/inbox",
+                    host = "remote.example",
+                    body = tamperedBody,
+                    signatureHeader = signed.signatureHeader,
+                    dateHeader = signed.dateHeader,
+                    digestHeader = signed.digestHeader,
+                    publicKeyPem = keyPair.publicKeyPem,
                 )
 
             result shouldBe HttpSignatures.VerificationResult.Invalid(REASON_DIGEST_MISMATCH)
         }
 
         test("a tampered Signature header (one flipped base64 character) is rejected as SIGNATURE_MISMATCH") {
-            val signed = HttpSignatures.sign("POST", "/federation/inbox", "remote.example", body, keyId, keyPair.privateKeyPem)
+            val signed =
+                HttpSignatures.sign(
+                    method = "POST",
+                    path = "/federation/inbox",
+                    host = "remote.example",
+                    body = body,
+                    keyId = keyId,
+                    privateKeyPem = keyPair.privateKeyPem,
+                )
             val tamperedSignatureHeader = flipOneSignatureChar(signed.signatureHeader)
 
             val result =
                 HttpSignatures.verify(
-                    "POST",
-                    "/federation/inbox",
-                    "remote.example",
-                    body,
-                    tamperedSignatureHeader,
-                    signed.dateHeader,
-                    signed.digestHeader,
-                    keyPair.publicKeyPem,
+                    method = "POST",
+                    path = "/federation/inbox",
+                    host = "remote.example",
+                    body = body,
+                    signatureHeader = tamperedSignatureHeader,
+                    dateHeader = signed.dateHeader,
+                    digestHeader = signed.digestHeader,
+                    publicKeyPem = keyPair.publicKeyPem,
                 )
 
             result shouldBe HttpSignatures.VerificationResult.Invalid(REASON_SIGNATURE_MISMATCH)
         }
 
         test("a signature computed with the WRONG private key, verified against the real public key, is rejected as SIGNATURE_MISMATCH") {
-            val signed = HttpSignatures.sign("POST", "/federation/inbox", "remote.example", body, keyId, otherKeyPair.privateKeyPem)
+            val signed =
+                HttpSignatures.sign(
+                    method = "POST",
+                    path = "/federation/inbox",
+                    host = "remote.example",
+                    body = body,
+                    keyId = keyId,
+                    privateKeyPem = otherKeyPair.privateKeyPem,
+                )
 
             val result =
                 HttpSignatures.verify(
-                    "POST",
-                    "/federation/inbox",
-                    "remote.example",
-                    body,
-                    signed.signatureHeader,
-                    signed.dateHeader,
-                    signed.digestHeader,
-                    keyPair.publicKeyPem,
+                    method = "POST",
+                    path = "/federation/inbox",
+                    host = "remote.example",
+                    body = body,
+                    signatureHeader = signed.signatureHeader,
+                    dateHeader = signed.dateHeader,
+                    digestHeader = signed.digestHeader,
+                    publicKeyPem = keyPair.publicKeyPem,
                 )
 
             result shouldBe HttpSignatures.VerificationResult.Invalid(REASON_SIGNATURE_MISMATCH)
         }
 
         test("each of Signature/Date/Digest missing individually is rejected as MISSING_HEADER") {
-            val signed = HttpSignatures.sign("POST", "/federation/inbox", "remote.example", body, keyId, keyPair.privateKeyPem)
+            val signed =
+                HttpSignatures.sign(
+                    method = "POST",
+                    path = "/federation/inbox",
+                    host = "remote.example",
+                    body = body,
+                    keyId = keyId,
+                    privateKeyPem = keyPair.privateKeyPem,
+                )
 
             HttpSignatures.verify(
-                "POST",
-                "/federation/inbox",
-                "remote.example",
-                body,
-                null,
-                signed.dateHeader,
-                signed.digestHeader,
-                keyPair.publicKeyPem,
+                method = "POST",
+                path = "/federation/inbox",
+                host = "remote.example",
+                body = body,
+                signatureHeader = null,
+                dateHeader = signed.dateHeader,
+                digestHeader = signed.digestHeader,
+                publicKeyPem = keyPair.publicKeyPem,
             ) shouldBe HttpSignatures.VerificationResult.Invalid(REASON_MISSING_HEADER)
 
             HttpSignatures.verify(
-                "POST",
-                "/federation/inbox",
-                "remote.example",
-                body,
-                signed.signatureHeader,
-                null,
-                signed.digestHeader,
-                keyPair.publicKeyPem,
+                method = "POST",
+                path = "/federation/inbox",
+                host = "remote.example",
+                body = body,
+                signatureHeader = signed.signatureHeader,
+                dateHeader = null,
+                digestHeader = signed.digestHeader,
+                publicKeyPem = keyPair.publicKeyPem,
             ) shouldBe HttpSignatures.VerificationResult.Invalid(REASON_MISSING_HEADER)
 
             HttpSignatures.verify(
-                "POST",
-                "/federation/inbox",
-                "remote.example",
-                body,
-                signed.signatureHeader,
-                signed.dateHeader,
-                null,
-                keyPair.publicKeyPem,
+                method = "POST",
+                path = "/federation/inbox",
+                host = "remote.example",
+                body = body,
+                signatureHeader = signed.signatureHeader,
+                dateHeader = signed.dateHeader,
+                digestHeader = null,
+                publicKeyPem = keyPair.publicKeyPem,
             ) shouldBe HttpSignatures.VerificationResult.Invalid(REASON_MISSING_HEADER)
         }
 
@@ -198,47 +246,47 @@ class HttpSignaturesTest :
             val now = Clock.System.now()
             val past =
                 HttpSignatures.sign(
-                    "POST",
-                    "/federation/inbox",
-                    "remote.example",
-                    body,
-                    keyId,
-                    keyPair.privateKeyPem,
-                    now - 10.minutes,
+                    method = "POST",
+                    path = "/federation/inbox",
+                    host = "remote.example",
+                    body = body,
+                    keyId = keyId,
+                    privateKeyPem = keyPair.privateKeyPem,
+                    now = now - 10.minutes,
                 )
             val future =
                 HttpSignatures.sign(
-                    "POST",
-                    "/federation/inbox",
-                    "remote.example",
-                    body,
-                    keyId,
-                    keyPair.privateKeyPem,
-                    now + 10.minutes,
+                    method = "POST",
+                    path = "/federation/inbox",
+                    host = "remote.example",
+                    body = body,
+                    keyId = keyId,
+                    privateKeyPem = keyPair.privateKeyPem,
+                    now = now + 10.minutes,
                 )
 
             HttpSignatures.verify(
-                "POST",
-                "/federation/inbox",
-                "remote.example",
-                body,
-                past.signatureHeader,
-                past.dateHeader,
-                past.digestHeader,
-                keyPair.publicKeyPem,
-                now,
+                method = "POST",
+                path = "/federation/inbox",
+                host = "remote.example",
+                body = body,
+                signatureHeader = past.signatureHeader,
+                dateHeader = past.dateHeader,
+                digestHeader = past.digestHeader,
+                publicKeyPem = keyPair.publicKeyPem,
+                now = now,
             ) shouldBe HttpSignatures.VerificationResult.Invalid(REASON_STALE)
 
             HttpSignatures.verify(
-                "POST",
-                "/federation/inbox",
-                "remote.example",
-                body,
-                future.signatureHeader,
-                future.dateHeader,
-                future.digestHeader,
-                keyPair.publicKeyPem,
-                now,
+                method = "POST",
+                path = "/federation/inbox",
+                host = "remote.example",
+                body = body,
+                signatureHeader = future.signatureHeader,
+                dateHeader = future.dateHeader,
+                digestHeader = future.digestHeader,
+                publicKeyPem = keyPair.publicKeyPem,
+                now = now,
             ) shouldBe HttpSignatures.VerificationResult.Invalid(REASON_STALE)
         }
 
@@ -246,100 +294,124 @@ class HttpSignaturesTest :
             val now = Clock.System.now()
             val past =
                 HttpSignatures.sign(
-                    "POST",
-                    "/federation/inbox",
-                    "remote.example",
-                    body,
-                    keyId,
-                    keyPair.privateKeyPem,
-                    now - 1.minutes,
+                    method = "POST",
+                    path = "/federation/inbox",
+                    host = "remote.example",
+                    body = body,
+                    keyId = keyId,
+                    privateKeyPem = keyPair.privateKeyPem,
+                    now = now - 1.minutes,
                 )
             val future =
                 HttpSignatures.sign(
-                    "POST",
-                    "/federation/inbox",
-                    "remote.example",
-                    body,
-                    keyId,
-                    keyPair.privateKeyPem,
-                    now + 1.minutes,
+                    method = "POST",
+                    path = "/federation/inbox",
+                    host = "remote.example",
+                    body = body,
+                    keyId = keyId,
+                    privateKeyPem = keyPair.privateKeyPem,
+                    now = now + 1.minutes,
                 )
 
             HttpSignatures.verify(
-                "POST",
-                "/federation/inbox",
-                "remote.example",
-                body,
-                past.signatureHeader,
-                past.dateHeader,
-                past.digestHeader,
-                keyPair.publicKeyPem,
-                now,
+                method = "POST",
+                path = "/federation/inbox",
+                host = "remote.example",
+                body = body,
+                signatureHeader = past.signatureHeader,
+                dateHeader = past.dateHeader,
+                digestHeader = past.digestHeader,
+                publicKeyPem = keyPair.publicKeyPem,
+                now = now,
             ) shouldBe HttpSignatures.VerificationResult.Valid
 
             HttpSignatures.verify(
-                "POST",
-                "/federation/inbox",
-                "remote.example",
-                body,
-                future.signatureHeader,
-                future.dateHeader,
-                future.digestHeader,
-                keyPair.publicKeyPem,
-                now,
+                method = "POST",
+                path = "/federation/inbox",
+                host = "remote.example",
+                body = body,
+                signatureHeader = future.signatureHeader,
+                dateHeader = future.dateHeader,
+                digestHeader = future.digestHeader,
+                publicKeyPem = keyPair.publicKeyPem,
+                now = now,
             ) shouldBe HttpSignatures.VerificationResult.Valid
         }
 
         test("a malformed Signature header (missing the headers= param) is rejected as MALFORMED, never throws") {
             val result =
                 HttpSignatures.verify(
-                    "POST",
-                    "/federation/inbox",
-                    "remote.example",
-                    body,
-                    "keyId=\"$keyId\",algorithm=\"rsa-sha256\",signature=\"garbage\"",
-                    "Tue, 07 Jun 2016 20:51:35 GMT",
-                    "SHA-256=garbage",
-                    keyPair.publicKeyPem,
+                    method = "POST",
+                    path = "/federation/inbox",
+                    host = "remote.example",
+                    body = body,
+                    signatureHeader = "keyId=\"$keyId\",algorithm=\"rsa-sha256\",signature=\"garbage\"",
+                    dateHeader = "Tue, 07 Jun 2016 20:51:35 GMT",
+                    digestHeader = "SHA-256=garbage",
+                    publicKeyPem = keyPair.publicKeyPem,
                 )
             result shouldBe HttpSignatures.VerificationResult.Invalid(REASON_MALFORMED)
         }
 
         test("a Signature header with garbage (non-base64) signature value is rejected as MALFORMED, never throws") {
-            val signed = HttpSignatures.sign("POST", "/federation/inbox", "remote.example", body, keyId, keyPair.privateKeyPem)
+            val signed =
+                HttpSignatures.sign(
+                    method = "POST",
+                    path = "/federation/inbox",
+                    host = "remote.example",
+                    body = body,
+                    keyId = keyId,
+                    privateKeyPem = keyPair.privateKeyPem,
+                )
             val garbageHeader =
                 "keyId=\"$keyId\",algorithm=\"rsa-sha256\",headers=\"(request-target) host date digest\",signature=\"not-base64!!!\""
 
             val result =
                 HttpSignatures.verify(
-                    "POST",
-                    "/federation/inbox",
-                    "remote.example",
-                    body,
-                    garbageHeader,
-                    signed.dateHeader,
-                    signed.digestHeader,
-                    keyPair.publicKeyPem,
+                    method = "POST",
+                    path = "/federation/inbox",
+                    host = "remote.example",
+                    body = body,
+                    signatureHeader = garbageHeader,
+                    dateHeader = signed.dateHeader,
+                    digestHeader = signed.digestHeader,
+                    publicKeyPem = keyPair.publicKeyPem,
                 )
             result shouldBe HttpSignatures.VerificationResult.Invalid(REASON_MALFORMED)
         }
 
         test("an empty/blank Signature header is rejected as MISSING_HEADER, never throws") {
-            val signed = HttpSignatures.sign("POST", "/federation/inbox", "remote.example", body, keyId, keyPair.privateKeyPem)
+            val signed =
+                HttpSignatures.sign(
+                    method = "POST",
+                    path = "/federation/inbox",
+                    host = "remote.example",
+                    body = body,
+                    keyId = keyId,
+                    privateKeyPem = keyPair.privateKeyPem,
+                )
             HttpSignatures.verify(
-                "POST",
-                "/federation/inbox",
-                "remote.example",
-                body,
-                "",
-                signed.dateHeader,
-                signed.digestHeader,
-                keyPair.publicKeyPem,
+                method = "POST",
+                path = "/federation/inbox",
+                host = "remote.example",
+                body = body,
+                signatureHeader = "",
+                dateHeader = signed.dateHeader,
+                digestHeader = signed.digestHeader,
+                publicKeyPem = keyPair.publicKeyPem,
             ) shouldBe HttpSignatures.VerificationResult.Invalid(REASON_MISSING_HEADER)
         }
 
         test("extractKeyId returns the bare keyId from a well-formed header, null from a malformed/absent one") {
-            val signed = HttpSignatures.sign("POST", "/federation/inbox", "remote.example", body, keyId, keyPair.privateKeyPem)
+            val signed =
+                HttpSignatures.sign(
+                    method = "POST",
+                    path = "/federation/inbox",
+                    host = "remote.example",
+                    body = body,
+                    keyId = keyId,
+                    privateKeyPem = keyPair.privateKeyPem,
+                )
             HttpSignatures.extractKeyId(signed.signatureHeader) shouldBe keyId
             HttpSignatures.extractKeyId(null) shouldBe null
             HttpSignatures.extractKeyId("garbage, no key=value pairs at all") shouldBe null

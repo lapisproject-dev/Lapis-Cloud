@@ -12,16 +12,16 @@ class PasswordHasherTest :
     FunSpec({
         test("hash() then verify() round-trips for the same password") {
             val hash = PasswordHasher.hash("a-perfectly-fine-password")
-            PasswordHasher.verify("a-perfectly-fine-password", hash) shouldBe true
+            PasswordHasher.verify(rawPassword = "a-perfectly-fine-password", storedHash = hash) shouldBe true
         }
 
         test("verify() rejects a wrong password against a real hash") {
             val hash = PasswordHasher.hash("correct-password-123")
-            PasswordHasher.verify("wrong-password-123", hash) shouldBe false
+            PasswordHasher.verify(rawPassword = "wrong-password-123", storedHash = hash) shouldBe false
         }
 
         test("verify() rejects any password when storedHash is null (no such account / never set)") {
-            PasswordHasher.verify("anything-at-all", null) shouldBe false
+            PasswordHasher.verify(rawPassword = "anything-at-all", storedHash = null) shouldBe false
         }
 
         test("hash() is randomized -- two hashes of the same password never collide (fresh salt every call)") {
@@ -29,8 +29,8 @@ class PasswordHasherTest :
             val second = PasswordHasher.hash("same-password-both-times")
             first shouldNotBe second
             // Both must still independently verify against the original password.
-            PasswordHasher.verify("same-password-both-times", first) shouldBe true
-            PasswordHasher.verify("same-password-both-times", second) shouldBe true
+            PasswordHasher.verify(rawPassword = "same-password-both-times", storedHash = first) shouldBe true
+            PasswordHasher.verify(rawPassword = "same-password-both-times", storedHash = second) shouldBe true
         }
 
         test("a password well beyond bcrypt's raw 72-byte limit is fully honored via SHA-256 pre-hashing") {
@@ -41,8 +41,8 @@ class PasswordHasherTest :
             val passwordA = base + "A".repeat(100)
             val passwordB = base + "B".repeat(100)
             val hashA = PasswordHasher.hash(passwordA)
-            PasswordHasher.verify(passwordA, hashA) shouldBe true
-            PasswordHasher.verify(passwordB, hashA) shouldBe false
+            PasswordHasher.verify(rawPassword = passwordA, storedHash = hashA) shouldBe true
+            PasswordHasher.verify(rawPassword = passwordB, storedHash = hashA) shouldBe false
         }
 
         test("a password containing an embedded NUL codepoint is fully honored, not silently truncated at it") {
@@ -54,7 +54,7 @@ class PasswordHasherTest :
             val passwordA = "prefix" + nulChar + "suffix-A"
             val passwordB = "prefix" + nulChar + "suffix-B"
             val hash = PasswordHasher.hash(passwordA)
-            PasswordHasher.verify(passwordA, hash) shouldBe true
-            PasswordHasher.verify(passwordB, hash) shouldBe false
+            PasswordHasher.verify(rawPassword = passwordA, storedHash = hash) shouldBe true
+            PasswordHasher.verify(rawPassword = passwordB, storedHash = hash) shouldBe false
         }
     })

@@ -40,14 +40,14 @@ private fun scenarioArb(): Arb<Scenario> =
                 val cents = random.nextInt(1, 1_000_000)
                 Ballot(memberId = Uuid.random(), optionId = optionId, stake = BigDecimal(cents).movePointLeft(2).setScale(2))
             }
-        Scenario(optionIds, ballots)
+        Scenario(optionIds = optionIds, ballots = ballots)
     }
 
 class VoteVickreyTest :
     FunSpec({
         test("winner charges sum exactly to secondPrice, to the cent, over random scenarios") {
             checkAll(300, scenarioArb()) { scenario ->
-                val settlement = computeVickreySettlement(scenario.ballots, scenario.optionIds)
+                val settlement = computeVickreySettlement(ballots = scenario.ballots, optionIds = scenario.optionIds)
                 val sum = settlement.charges.values.fold(BigDecimal.ZERO) { acc, v -> acc + v }
                 sum.setScale(2) shouldBe settlement.secondPrice.setScale(2)
             }
@@ -55,14 +55,14 @@ class VoteVickreyTest :
 
         test("no charge is ever negative") {
             checkAll(300, scenarioArb()) { scenario ->
-                val settlement = computeVickreySettlement(scenario.ballots, scenario.optionIds)
+                val settlement = computeVickreySettlement(ballots = scenario.ballots, optionIds = scenario.optionIds)
                 settlement.charges.values.all { it.signum() >= 0 } shouldBe true
             }
         }
 
         test("every losing ballot's implied charge is 0 (absent from the charges map)") {
             checkAll(300, scenarioArb()) { scenario ->
-                val settlement = computeVickreySettlement(scenario.ballots, scenario.optionIds)
+                val settlement = computeVickreySettlement(ballots = scenario.ballots, optionIds = scenario.optionIds)
                 val losingMemberIds =
                     scenario.ballots
                         .filter { it.optionId != settlement.winnerOptionId }
@@ -73,7 +73,7 @@ class VoteVickreyTest :
 
         test("no winning ballot is ever charged more than its own stake") {
             checkAll(300, scenarioArb()) { scenario ->
-                val settlement = computeVickreySettlement(scenario.ballots, scenario.optionIds)
+                val settlement = computeVickreySettlement(ballots = scenario.ballots, optionIds = scenario.optionIds)
                 scenario.ballots
                     .filter { it.optionId == settlement.winnerOptionId }
                     .all { ballot -> (settlement.charges[ballot.memberId] ?: ZERO_2DP) <= ballot.stake } shouldBe true
@@ -86,9 +86,9 @@ class VoteVickreyTest :
                 val onlyOption = optionIds.first()
                 val ballots =
                     (0 until ballotCount).map {
-                        Ballot(Uuid.random(), onlyOption, BigDecimal(100 + it).movePointLeft(2).setScale(2))
+                        Ballot(memberId = Uuid.random(), optionId = onlyOption, stake = BigDecimal(100 + it).movePointLeft(2).setScale(2))
                     }
-                val settlement = computeVickreySettlement(ballots, optionIds)
+                val settlement = computeVickreySettlement(ballots = ballots, optionIds = optionIds)
                 settlement.winnerOptionId shouldBe onlyOption
                 settlement.secondPrice shouldBe ZERO_2DP
                 settlement.charges.values.all { it.signum() == 0 } shouldBe true
@@ -101,11 +101,11 @@ class VoteVickreyTest :
             val optionC = Uuid.random()
             val ballots =
                 listOf(
-                    Ballot(Uuid.random(), optionA, BigDecimal("50.00")),
-                    Ballot(Uuid.random(), optionB, BigDecimal("50.00")),
-                    Ballot(Uuid.random(), optionC, BigDecimal("10.00")),
+                    Ballot(memberId = Uuid.random(), optionId = optionA, stake = BigDecimal("50.00")),
+                    Ballot(memberId = Uuid.random(), optionId = optionB, stake = BigDecimal("50.00")),
+                    Ballot(memberId = Uuid.random(), optionId = optionC, stake = BigDecimal("10.00")),
                 )
-            val settlement = computeVickreySettlement(ballots, listOf(optionA, optionB, optionC))
+            val settlement = computeVickreySettlement(ballots = ballots, optionIds = listOf(optionA, optionB, optionC))
             settlement.winnerOptionId shouldBe null
             settlement.secondPrice shouldBe ZERO_2DP
             settlement.charges shouldBe emptyMap()
@@ -114,7 +114,7 @@ class VoteVickreyTest :
         test("all-abstain (zero ballots cast anywhere) -> no winner, no charges") {
             val optionA = Uuid.random()
             val optionB = Uuid.random()
-            val settlement = computeVickreySettlement(emptyList(), listOf(optionA, optionB))
+            val settlement = computeVickreySettlement(ballots = emptyList(), optionIds = listOf(optionA, optionB))
             settlement.winnerOptionId shouldBe null
             settlement.secondPrice shouldBe ZERO_2DP
             settlement.charges shouldBe emptyMap()
@@ -124,8 +124,8 @@ class VoteVickreyTest :
             val optionA = Uuid.random()
             val optionB = Uuid.random()
             val voter = Uuid.random()
-            val ballots = listOf(Ballot(voter, optionA, BigDecimal("42.00")))
-            val settlement = computeVickreySettlement(ballots, listOf(optionA, optionB))
+            val ballots = listOf(Ballot(memberId = voter, optionId = optionA, stake = BigDecimal("42.00")))
+            val settlement = computeVickreySettlement(ballots = ballots, optionIds = listOf(optionA, optionB))
             settlement.winnerOptionId shouldBe optionA
             settlement.secondPrice shouldBe ZERO_2DP
             settlement.charges[voter] shouldBe ZERO_2DP
@@ -141,11 +141,19 @@ class VoteVickreyTest :
             val optionA = Uuid.random()
             val optionB = Uuid.random()
             val member = Uuid.random()
-            val single = computeVickreySettlement(listOf(Ballot(member, optionA, BigDecimal("30.00"))), listOf(optionA, optionB))
+            val single =
+                computeVickreySettlement(
+                    ballots = listOf(Ballot(memberId = member, optionId = optionA, stake = BigDecimal("30.00"))),
+                    optionIds = listOf(optionA, optionB),
+                )
             val doubled =
                 computeVickreySettlement(
-                    listOf(Ballot(member, optionA, BigDecimal("15.00")), Ballot(member, optionA, BigDecimal("15.00"))),
-                    listOf(optionA, optionB),
+                    ballots =
+                        listOf(
+                            Ballot(memberId = member, optionId = optionA, stake = BigDecimal("15.00")),
+                            Ballot(memberId = member, optionId = optionA, stake = BigDecimal("15.00")),
+                        ),
+                    optionIds = listOf(optionA, optionB),
                 )
             // Same total stake on optionA either way -> same winner/secondPrice; the settlement
             // has no notion of "member identity multiplies weight", only summed stake.
@@ -158,15 +166,18 @@ class VoteVickreyTest :
             val optionB = Uuid.random()
             val thrown =
                 runCatching {
-                    computeVickreySettlement(listOf(Ballot(Uuid.random(), optionA, BigDecimal.ZERO)), listOf(optionA, optionB))
+                    computeVickreySettlement(
+                        ballots = listOf(Ballot(memberId = Uuid.random(), optionId = optionA, stake = BigDecimal.ZERO)),
+                        optionIds = listOf(optionA, optionB),
+                    )
                 }.exceptionOrNull()
             (thrown is IllegalArgumentException) shouldBe true
         }
 
         test("determinism: identical input produces identical output") {
             checkAll(200, scenarioArb()) { scenario ->
-                val first = computeVickreySettlement(scenario.ballots, scenario.optionIds)
-                val second = computeVickreySettlement(scenario.ballots, scenario.optionIds)
+                val first = computeVickreySettlement(ballots = scenario.ballots, optionIds = scenario.optionIds)
+                val second = computeVickreySettlement(ballots = scenario.ballots, optionIds = scenario.optionIds)
                 first shouldBe second
             }
         }

@@ -52,10 +52,10 @@ class TrustAnchorService(
             val activeRow =
                 TrustAnchorSigningKeyStore.findActive(forUpdate = true)
                     ?: throw ConflictException("No ACTIVE Trust-Anchor signing key found -- provisioning missing?")
-            TrustAnchorSigningKeyStore.retire(activeRow[TrustAnchorSigningKeyTable.id], now)
+            TrustAnchorSigningKeyStore.retire(id = activeRow[TrustAnchorSigningKeyTable.id], now = now)
             val newKid = TrustAnchorKeyMaterial.insertNewKey(status = TrustAnchorSigningKeyStatus.ACTIVE, now = now)
-            TrustAnchorEventStore.record(TrustAnchorEventType.KEY_ROTATED, subject = newKid, now = now)
-            with(TrustAnchorSigningKeyStore) { TrustAnchorSigningKeyStore.findByKid(newKid)!!.toDto() }
+            TrustAnchorEventStore.record(eventType = TrustAnchorEventType.KEY_ROTATED, subject = newKid, now = now)
+            with(TrustAnchorSigningKeyStore) { TrustAnchorSigningKeyStore.findByKid(kid = newKid)!!.toDto() }
         }
     }
 
@@ -65,21 +65,21 @@ class TrustAnchorService(
         return transaction {
             // forUpdate=true -- see TrustAnchorSigningKeyStore KDoc "Concurrency".
             val target =
-                TrustAnchorSigningKeyStore.findByKid(kid, forUpdate = true)
+                TrustAnchorSigningKeyStore.findByKid(kid = kid, forUpdate = true)
                     ?: throw NotFoundException("Trust-Anchor signing key '$kid' not found")
             if (target[TrustAnchorSigningKeyTable.status] == TrustAnchorSigningKeyStatus.REVOKED) {
                 throw ConflictException("Trust-Anchor signing key '$kid' is already revoked")
             }
             val wasActive = target[TrustAnchorSigningKeyTable.status] == TrustAnchorSigningKeyStatus.ACTIVE
-            TrustAnchorSigningKeyStore.revokeRow(target[TrustAnchorSigningKeyTable.id], now)
-            TrustAnchorEventStore.record(TrustAnchorEventType.KEY_REVOKED, subject = kid, now = now)
+            TrustAnchorSigningKeyStore.revokeRow(id = target[TrustAnchorSigningKeyTable.id], now = now)
+            TrustAnchorEventStore.record(eventType = TrustAnchorEventType.KEY_REVOKED, subject = kid, now = now)
             // This server must always have exactly one ACTIVE signing key to keep functioning as a
             // Trust Anchor -- see ITrustAnchorService.revokeSigningKey KDoc.
             if (wasActive) {
                 val newKid = TrustAnchorKeyMaterial.insertNewKey(status = TrustAnchorSigningKeyStatus.ACTIVE, now = now)
-                TrustAnchorEventStore.record(TrustAnchorEventType.KEY_ROTATED, subject = newKid, now = now)
+                TrustAnchorEventStore.record(eventType = TrustAnchorEventType.KEY_ROTATED, subject = newKid, now = now)
             }
-            with(TrustAnchorSigningKeyStore) { TrustAnchorSigningKeyStore.findByKid(kid)!!.toDto() }
+            with(TrustAnchorSigningKeyStore) { TrustAnchorSigningKeyStore.findByKid(kid = kid)!!.toDto() }
         }
     }
 
@@ -100,12 +100,12 @@ class TrustAnchorService(
                 throw ConflictException("Home server '$homeServerUri' is already in the Trust-Anchor pool")
             }
             try {
-                TrustAnchorPoolStore.insert(homeServerUri, now)
+                TrustAnchorPoolStore.insert(homeServerUri = homeServerUri, now = now)
             } catch (e: ExposedSQLException) {
                 // Concurrent double-add race -- see TrustAnchorPoolStore KDoc "Concurrency".
                 throw ConflictException("Home server '$homeServerUri' is already in the Trust-Anchor pool")
             }
-            TrustAnchorEventStore.record(TrustAnchorEventType.POOL_MEMBER_ADDED, subject = homeServerUri, now = now)
+            TrustAnchorEventStore.record(eventType = TrustAnchorEventType.POOL_MEMBER_ADDED, subject = homeServerUri, now = now)
             with(TrustAnchorPoolStore) { TrustAnchorPoolStore.findByUri(homeServerUri)!!.toDto() }
         }
     }
@@ -116,7 +116,7 @@ class TrustAnchorService(
         transaction {
             val removed = TrustAnchorPoolStore.remove(homeServerUri)
             if (!removed) throw NotFoundException("Home server '$homeServerUri' is not in the Trust-Anchor pool")
-            TrustAnchorEventStore.record(TrustAnchorEventType.POOL_MEMBER_REMOVED, subject = homeServerUri, now = now)
+            TrustAnchorEventStore.record(eventType = TrustAnchorEventType.POOL_MEMBER_REMOVED, subject = homeServerUri, now = now)
         }
     }
 
@@ -137,12 +137,12 @@ class TrustAnchorService(
                 throw ConflictException("Anchor '$anchorEntityUri' is already trusted")
             }
             try {
-                TrustedAnchorStore.insert(anchorEntityUri, now)
+                TrustedAnchorStore.insert(anchorEntityUri = anchorEntityUri, now = now)
             } catch (e: ExposedSQLException) {
                 // Concurrent double-add race -- see TrustedAnchorStore KDoc "Concurrency".
                 throw ConflictException("Anchor '$anchorEntityUri' is already trusted")
             }
-            TrustAnchorEventStore.record(TrustAnchorEventType.TRUSTED_ANCHOR_ADDED, subject = anchorEntityUri, now = now)
+            TrustAnchorEventStore.record(eventType = TrustAnchorEventType.TRUSTED_ANCHOR_ADDED, subject = anchorEntityUri, now = now)
             with(TrustedAnchorStore) { TrustedAnchorStore.findByUri(anchorEntityUri)!!.toDto() }
         }
     }
@@ -153,7 +153,7 @@ class TrustAnchorService(
         transaction {
             val removed = TrustedAnchorStore.remove(anchorEntityUri)
             if (!removed) throw NotFoundException("Anchor '$anchorEntityUri' is not trusted")
-            TrustAnchorEventStore.record(TrustAnchorEventType.TRUSTED_ANCHOR_REMOVED, subject = anchorEntityUri, now = now)
+            TrustAnchorEventStore.record(eventType = TrustAnchorEventType.TRUSTED_ANCHOR_REMOVED, subject = anchorEntityUri, now = now)
         }
     }
 
@@ -174,18 +174,18 @@ class TrustAnchorService(
                 TrustedAnchorStore.listAll().map { it[TrustedExternalAnchorTable.anchorEntityUri] }
             }
         if (trustedAnchorUris.isEmpty()) {
-            return TrustChainResolutionDto(homeServerUri, trusted = false, reason = "No trusted anchors configured")
+            return TrustChainResolutionDto(homeServerUri = homeServerUri, trusted = false, reason = "No trusted anchors configured")
         }
 
         var lastReason = "No trusted anchors configured"
         for (anchorUri in trustedAnchorUris) {
-            when (val outcome = TrustAnchorResolver.resolveOneHop(homeServerUri, anchorUri)) {
+            when (val outcome = TrustAnchorResolver.resolveOneHop(homeServerUri = homeServerUri, anchorEntityUri = anchorUri)) {
                 is OneHopResolution.Trusted ->
-                    return TrustChainResolutionDto(homeServerUri, trusted = true, anchorEntityUri = outcome.anchorEntityUri)
+                    return TrustChainResolutionDto(homeServerUri = homeServerUri, trusted = true, anchorEntityUri = outcome.anchorEntityUri)
                 is OneHopResolution.NotTrusted -> lastReason = "$anchorUri: ${outcome.reason}"
             }
         }
-        return TrustChainResolutionDto(homeServerUri, trusted = false, reason = lastReason)
+        return TrustChainResolutionDto(homeServerUri = homeServerUri, trusted = false, reason = lastReason)
     }
 
     private suspend fun requireAdmin() {

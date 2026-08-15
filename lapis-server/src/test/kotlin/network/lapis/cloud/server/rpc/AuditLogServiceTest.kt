@@ -107,7 +107,11 @@ class AuditLogServiceTest :
         }
 
         afterSpec {
-            cleanUpAuditLogTestData(createdMemberIds, createdLedgerAccountIds, createdCommitteeIds)
+            cleanUpAuditLogTestData(
+                memberIds = createdMemberIds,
+                ledgerAccountIds = createdLedgerAccountIds,
+                committeeIds = createdCommitteeIds,
+            )
         }
 
         fun createTestMember(
@@ -855,7 +859,7 @@ private fun Route.registerAuditLogTestRoutes() {
     get("/test/verify") {
         val service = AuditLogService(call)
         val q = call.request.queryParameters
-        val result = service.verifyChainIntegrity(q["from"]?.toLong(), q["to"]?.toLong())
+        val result = service.verifyChainIntegrity(fromSequenceNumber = q["from"]?.toLong(), toSequenceNumber = q["to"]?.toLong())
         call.respondText("${result.valid}:${result.checkedCount}:${result.brokenAtSequenceNumber}")
     }
 }
@@ -873,15 +877,15 @@ private fun Route.registerAuditLogAccountingTestRoutes() {
                     postings =
                         listOf(
                             PostingInput(
-                                q["kasse"]!!,
-                                PostingSide.DEBIT,
-                                BigDecimal("10.00"),
+                                ledgerAccountId = q["kasse"]!!,
+                                side = PostingSide.DEBIT,
+                                amount = BigDecimal("10.00"),
                                 sphere = GemeinnuetzigkeitSphere.IDEELLER_BEREICH,
                             ),
                             PostingInput(
-                                q["ertrag"]!!,
-                                PostingSide.CREDIT,
-                                BigDecimal("10.00"),
+                                ledgerAccountId = q["ertrag"]!!,
+                                side = PostingSide.CREDIT,
+                                amount = BigDecimal("10.00"),
                                 sphere = GemeinnuetzigkeitSphere.IDEELLER_BEREICH,
                             ),
                         ),
@@ -901,15 +905,15 @@ private fun Route.registerAuditLogAccountingTestRoutes() {
                     postings =
                         listOf(
                             PostingInput(
-                                q["kasse"]!!,
-                                PostingSide.DEBIT,
-                                BigDecimal("10.00"),
+                                ledgerAccountId = q["kasse"]!!,
+                                side = PostingSide.DEBIT,
+                                amount = BigDecimal("10.00"),
                                 sphere = GemeinnuetzigkeitSphere.IDEELLER_BEREICH,
                             ),
                             PostingInput(
-                                q["ertrag"]!!,
-                                PostingSide.CREDIT,
-                                BigDecimal("10.00"),
+                                ledgerAccountId = q["ertrag"]!!,
+                                side = PostingSide.CREDIT,
+                                amount = BigDecimal("10.00"),
                                 sphere = GemeinnuetzigkeitSphere.IDEELLER_BEREICH,
                             ),
                         ),
@@ -936,15 +940,15 @@ private fun Route.registerAuditLogAccountingTestRoutes() {
                     postings =
                         listOf(
                             PostingInput(
-                                q["kasse"]!!,
-                                PostingSide.DEBIT,
-                                BigDecimal(q["amount"]!!),
+                                ledgerAccountId = q["kasse"]!!,
+                                side = PostingSide.DEBIT,
+                                amount = BigDecimal(q["amount"]!!),
                                 sphere = GemeinnuetzigkeitSphere.IDEELLER_BEREICH,
                             ),
                             PostingInput(
-                                q["ertrag"]!!,
-                                PostingSide.CREDIT,
-                                BigDecimal(q["amount"]!!),
+                                ledgerAccountId = q["ertrag"]!!,
+                                side = PostingSide.CREDIT,
+                                amount = BigDecimal(q["amount"]!!),
                                 sphere = GemeinnuetzigkeitSphere.IDEELLER_BEREICH,
                             ),
                         ),
@@ -956,19 +960,20 @@ private fun Route.registerAuditLogAccountingTestRoutes() {
 
 private fun Route.registerAuditLogGovernanceTestRoutes() {
     post("/test/record-resolution/{meetingId}") {
-        val service = GovernanceService(call)
+        val service = GovernanceService(call = call)
         val q = call.request.queryParameters
         val dto =
             service.recordResolution(
-                call.parameters["meetingId"]!!,
-                ResolutionInput(
-                    title = q["title"]!!,
-                    text = q["text"]!!,
-                    votesYes = 1,
-                    votesNo = 0,
-                    votesAbstain = 0,
-                    status = ResolutionStatus.ADOPTED,
-                ),
+                meetingId = call.parameters["meetingId"]!!,
+                input =
+                    ResolutionInput(
+                        title = q["title"]!!,
+                        text = q["text"]!!,
+                        votesYes = 1,
+                        votesNo = 0,
+                        votesAbstain = 0,
+                        status = ResolutionStatus.ADOPTED,
+                    ),
             )
         call.respondText("${dto.id}:${dto.title}")
     }
@@ -991,7 +996,7 @@ private fun Route.registerAuditLogBoardMembershipTestRoutes() {
     post("/test/end/{id}") {
         val service = BoardMembershipService(call)
         val endedAt = LocalDate.parse(call.request.queryParameters["endedAt"]!!)
-        val dto = service.endBoardMembership(call.parameters["id"]!!, endedAt)
+        val dto = service.endBoardMembership(boardMembershipId = call.parameters["id"]!!, endedAt = endedAt)
         call.respondText("${dto.id}:${dto.endedAt}")
     }
 }

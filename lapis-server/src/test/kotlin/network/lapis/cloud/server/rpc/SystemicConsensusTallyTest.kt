@@ -34,28 +34,31 @@ private fun systemicConsensusScenarioArb(): Arb<SystemicConsensusScenario> =
             (0 until ballotCount).map {
                 SystemicConsensusBallotData(optionIds.associateWith { random.nextInt(0, scaleMax + 1) })
             }
-        SystemicConsensusScenario(optionIds, ballots, scaleMax)
+        SystemicConsensusScenario(optionIds = optionIds, ballots = ballots, scaleMax = scaleMax)
     }
 
 class SystemicConsensusTallyTest :
     FunSpec({
         test("consensusIndex is always in [0,1]") {
             checkAll(300, systemicConsensusScenarioArb()) { scenario ->
-                val ergebnis = computeSystemicConsensusResult(scenario.ballots, scenario.optionIds, scenario.scaleMax)
+                val ergebnis =
+                    computeSystemicConsensusResult(ballots = scenario.ballots, optionIds = scenario.optionIds, scaleMax = scenario.scaleMax)
                 ergebnis.optionResults.forEach { (it.consensusIndex in 0.0..1.0) shouldBe true }
             }
         }
 
         test("distribution counts always sum to the ballot count") {
             checkAll(300, systemicConsensusScenarioArb()) { scenario ->
-                val ergebnis = computeSystemicConsensusResult(scenario.ballots, scenario.optionIds, scenario.scaleMax)
+                val ergebnis =
+                    computeSystemicConsensusResult(ballots = scenario.ballots, optionIds = scenario.optionIds, scaleMax = scenario.scaleMax)
                 ergebnis.optionResults.forEach { it.distribution.values.sum() shouldBe scenario.ballots.size }
             }
         }
 
         test("cumulativeResistance == n * meanResistance (integer/double consistency)") {
             checkAll(300, systemicConsensusScenarioArb()) { scenario ->
-                val ergebnis = computeSystemicConsensusResult(scenario.ballots, scenario.optionIds, scenario.scaleMax)
+                val ergebnis =
+                    computeSystemicConsensusResult(ballots = scenario.ballots, optionIds = scenario.optionIds, scaleMax = scenario.scaleMax)
                 val n = scenario.ballots.size
                 ergebnis.optionResults.forEach {
                     if (n == 0) {
@@ -72,7 +75,8 @@ class SystemicConsensusTallyTest :
             val optionB = Uuid.random()
             val optionC = Uuid.random()
             val ballot = SystemicConsensusBallotData(mapOf(optionA to 2, optionB to 7, optionC to 9))
-            val ergebnis = computeSystemicConsensusResult(listOf(ballot), listOf(optionA, optionB, optionC), scaleMax = 10)
+            val ergebnis =
+                computeSystemicConsensusResult(ballots = listOf(ballot), optionIds = listOf(optionA, optionB, optionC), scaleMax = 10)
             ergebnis.winnerOptionId shouldBe optionA
             ergebnis.tie shouldBe false
             val optionAErgebnis = ergebnis.optionResults.single { it.optionId == optionA }
@@ -87,8 +91,8 @@ class SystemicConsensusTallyTest :
 
             val niedrigsterMax =
                 computeSystemicConsensusResult(
-                    ballots,
-                    optionIds,
+                    ballots = ballots,
+                    optionIds = optionIds,
                     scaleMax = 10,
                     tiebreak = SystemicConsensusTiebreakRule.LOWEST_MAX_RESISTANCE,
                 )
@@ -101,7 +105,12 @@ class SystemicConsensusTallyTest :
             niedrigsterMax.consensusViable shouldBe true
 
             val wiederholung =
-                computeSystemicConsensusResult(ballots, optionIds, scaleMax = 10, tiebreak = SystemicConsensusTiebreakRule.REPEAT)
+                computeSystemicConsensusResult(
+                    ballots = ballots,
+                    optionIds = optionIds,
+                    scaleMax = 10,
+                    tiebreak = SystemicConsensusTiebreakRule.REPEAT,
+                )
             wiederholung.tie shouldBe true
             wiederholung.winnerOptionId shouldBe null
         }
@@ -109,7 +118,7 @@ class SystemicConsensusTallyTest :
         test("unanimous max resistance on all options: G-K=1.0 and groupConflictWarning=true for the winner") {
             val optionIds = (0 until 3).map { Uuid.random() }
             val ballots = List(4) { SystemicConsensusBallotData(optionIds.associateWith { 10 }) }
-            val ergebnis = computeSystemicConsensusResult(ballots, optionIds, scaleMax = 10)
+            val ergebnis = computeSystemicConsensusResult(ballots = ballots, optionIds = optionIds, scaleMax = 10)
             ergebnis.optionResults.forEach { it.consensusIndex shouldBe 1.0 }
             ergebnis.groupConflictWarning shouldBe true
             ergebnis.consensusViable shouldBe false
@@ -126,8 +135,8 @@ class SystemicConsensusTallyTest :
                 )
             val ergebnis =
                 computeSystemicConsensusResult(
-                    ballots,
-                    listOf(optionA, optionB),
+                    ballots = ballots,
+                    optionIds = listOf(optionA, optionB),
                     scaleMax = 10,
                     tiebreak = SystemicConsensusTiebreakRule.LOWEST_MAX_RESISTANCE,
                 )
@@ -156,8 +165,8 @@ class SystemicConsensusTallyTest :
                 )
             val ergebnis =
                 computeSystemicConsensusResult(
-                    ballots,
-                    listOf(optionA, optionB),
+                    ballots = ballots,
+                    optionIds = listOf(optionA, optionB),
                     scaleMax = 10,
                     tiebreak = SystemicConsensusTiebreakRule.LOWEST_STD_DEV,
                 )
@@ -177,8 +186,8 @@ class SystemicConsensusTallyTest :
             val ballots = listOf(SystemicConsensusBallotData(mapOf(optionA to 5, optionB to 5)))
             val ergebnis =
                 computeSystemicConsensusResult(
-                    ballots,
-                    listOf(optionA, optionB),
+                    ballots = ballots,
+                    optionIds = listOf(optionA, optionB),
                     scaleMax = 10,
                     tiebreak = SystemicConsensusTiebreakRule.REPEAT,
                 )
@@ -191,16 +200,16 @@ class SystemicConsensusTallyTest :
             checkAll(300, systemicConsensusScenarioArb()) { scenario ->
                 val summe =
                     computeSystemicConsensusResult(
-                        scenario.ballots,
-                        scenario.optionIds,
-                        scenario.scaleMax,
+                        ballots = scenario.ballots,
+                        optionIds = scenario.optionIds,
+                        scaleMax = scenario.scaleMax,
                         aggregation = SystemicConsensusAggregation.SUM,
                     )
                 val mittelvalue =
                     computeSystemicConsensusResult(
-                        scenario.ballots,
-                        scenario.optionIds,
-                        scenario.scaleMax,
+                        ballots = scenario.ballots,
+                        optionIds = scenario.optionIds,
+                        scaleMax = scenario.scaleMax,
                         aggregation = SystemicConsensusAggregation.MEAN,
                     )
                 summe.winnerOptionId shouldBe mittelvalue.winnerOptionId
@@ -210,7 +219,7 @@ class SystemicConsensusTallyTest :
 
         test("zero ballots: noRatings=true, tie=true, winnerOptionId=null, no divide-by-zero") {
             val optionIds = (0 until 3).map { Uuid.random() }
-            val ergebnis = computeSystemicConsensusResult(emptyList(), optionIds, scaleMax = 10)
+            val ergebnis = computeSystemicConsensusResult(ballots = emptyList(), optionIds = optionIds, scaleMax = 10)
             ergebnis.noRatings shouldBe true
             ergebnis.tie shouldBe true
             ergebnis.winnerOptionId shouldBe null
@@ -228,31 +237,41 @@ class SystemicConsensusTallyTest :
             (
                 runCatching {
                     computeSystemicConsensusResult(
-                        emptyList(),
-                        emptyList(),
-                        10,
+                        ballots = emptyList(),
+                        optionIds = emptyList(),
+                        scaleMax = 10,
                     )
                 }.exceptionOrNull() is IllegalArgumentException
             ) shouldBe
                 true
             (
                 runCatching {
-                    computeSystemicConsensusResult(emptyList(), listOf(optionA, optionA), 10)
+                    computeSystemicConsensusResult(ballots = emptyList(), optionIds = listOf(optionA, optionA), scaleMax = 10)
                 }.exceptionOrNull() is IllegalArgumentException
             ) shouldBe true
             (
                 runCatching {
-                    computeSystemicConsensusResult(emptyList(), listOf(optionA), 0)
+                    computeSystemicConsensusResult(ballots = emptyList(), optionIds = listOf(optionA), scaleMax = 0)
                 }.exceptionOrNull() is IllegalArgumentException
             ) shouldBe true
             (
                 runCatching {
-                    computeSystemicConsensusResult(emptyList(), listOf(optionA), 10, groupConflictViableThreshold = 1.5)
+                    computeSystemicConsensusResult(
+                        ballots = emptyList(),
+                        optionIds = listOf(optionA),
+                        scaleMax = 10,
+                        groupConflictViableThreshold = 1.5,
+                    )
                 }.exceptionOrNull() is IllegalArgumentException
             ) shouldBe true
             (
                 runCatching {
-                    computeSystemicConsensusResult(emptyList(), listOf(optionA), 10, groupConflictWarnThreshold = -0.1)
+                    computeSystemicConsensusResult(
+                        ballots = emptyList(),
+                        optionIds = listOf(optionA),
+                        scaleMax = 10,
+                        groupConflictWarnThreshold = -0.1,
+                    )
                 }.exceptionOrNull() is IllegalArgumentException
             ) shouldBe true
         }
@@ -263,14 +282,14 @@ class SystemicConsensusTallyTest :
             val missingOption = SystemicConsensusBallotData(mapOf(optionA to 3))
             (
                 runCatching {
-                    computeSystemicConsensusResult(listOf(missingOption), listOf(optionA, optionB), 10)
+                    computeSystemicConsensusResult(ballots = listOf(missingOption), optionIds = listOf(optionA, optionB), scaleMax = 10)
                 }.exceptionOrNull() is IllegalArgumentException
             ) shouldBe true
 
             val extraOption = SystemicConsensusBallotData(mapOf(optionA to 3, optionB to 2, Uuid.random() to 1))
             (
                 runCatching {
-                    computeSystemicConsensusResult(listOf(extraOption), listOf(optionA, optionB), 10)
+                    computeSystemicConsensusResult(ballots = listOf(extraOption), optionIds = listOf(optionA, optionB), scaleMax = 10)
                 }.exceptionOrNull() is IllegalArgumentException
             ) shouldBe true
         }
@@ -280,22 +299,24 @@ class SystemicConsensusTallyTest :
             val tooHigh = SystemicConsensusBallotData(mapOf(optionA to 11))
             (
                 runCatching {
-                    computeSystemicConsensusResult(listOf(tooHigh), listOf(optionA), scaleMax = 10)
+                    computeSystemicConsensusResult(ballots = listOf(tooHigh), optionIds = listOf(optionA), scaleMax = 10)
                 }.exceptionOrNull() is IllegalArgumentException
             ) shouldBe true
 
             val negative = SystemicConsensusBallotData(mapOf(optionA to -1))
             (
                 runCatching {
-                    computeSystemicConsensusResult(listOf(negative), listOf(optionA), scaleMax = 10)
+                    computeSystemicConsensusResult(ballots = listOf(negative), optionIds = listOf(optionA), scaleMax = 10)
                 }.exceptionOrNull() is IllegalArgumentException
             ) shouldBe true
         }
 
         test("determinism: identical input produces identical output") {
             checkAll(200, systemicConsensusScenarioArb()) { scenario ->
-                val first = computeSystemicConsensusResult(scenario.ballots, scenario.optionIds, scenario.scaleMax)
-                val second = computeSystemicConsensusResult(scenario.ballots, scenario.optionIds, scenario.scaleMax)
+                val first =
+                    computeSystemicConsensusResult(ballots = scenario.ballots, optionIds = scenario.optionIds, scaleMax = scenario.scaleMax)
+                val second =
+                    computeSystemicConsensusResult(ballots = scenario.ballots, optionIds = scenario.optionIds, scaleMax = scenario.scaleMax)
                 first shouldBe second
             }
         }

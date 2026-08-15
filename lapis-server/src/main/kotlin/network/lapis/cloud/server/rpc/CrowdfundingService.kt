@@ -91,7 +91,7 @@ class CrowdfundingService(
         val normalizedWeight = weight.setScale(2, RoundingMode.UNNECESSARY)
         val now = nowLocalDateTime()
         return transaction {
-            requireActiveMembership(current.memberId)
+            requireActiveMembership(memberId = current.memberId)
             CrowdfundingSubmissionGateTable
                 .selectAll()
                 .where { CrowdfundingSubmissionGateTable.id eq CROWDFUNDING_SUBMISSION_GATE_ID }
@@ -105,9 +105,9 @@ class CrowdfundingService(
                     .where { CrowdfundingProjectTable.status neq CrowdfundingProjectStatus.REJECTED }
                     .maxOfOrNull { row ->
                         CrowdfundingWeightDecay.currentWeight(
-                            row[CrowdfundingProjectTable.initialWeightLtr],
-                            row[CrowdfundingProjectTable.submittedAt],
-                            now,
+                            initialWeightLtr = row[CrowdfundingProjectTable.initialWeightLtr],
+                            submittedAt = row[CrowdfundingProjectTable.submittedAt],
+                            now = now,
                         )
                     } ?: BigDecimal.ZERO.setScale(2)
             val hurdle = maxOf(MIN_INITIAL_WEIGHT_LTR, topWeight)
@@ -151,7 +151,7 @@ class CrowdfundingService(
                 it[createdBy] = null
                 it[createdAt] = now
             }
-            loadProject(newProjectId, now)
+            loadProject(id = newProjectId, now = now)
         }
     }
 
@@ -163,7 +163,7 @@ class CrowdfundingService(
             val query = if (condition != null) projectJoin().selectAll().where { condition } else projectJoin().selectAll()
             val rows = query.toList()
             val counts = reactionCountsByProject(rows.map { it[CrowdfundingProjectTable.id] })
-            rows.map { it.toProjectDto(now, counts) }
+            rows.map { it.toProjectDto(now = now, counts = counts) }
         }
     }
 
@@ -171,7 +171,7 @@ class CrowdfundingService(
         resolveCurrentMember(call)
         val projectId = id.toProjectUuid()
         val now = nowLocalDateTime()
-        return transaction { loadProject(projectId, now) }
+        return transaction { loadProject(id = projectId, now = now) }
     }
 
     /**
@@ -190,8 +190,8 @@ class CrowdfundingService(
         val projectId = id.toProjectUuid()
         val now = nowLocalDateTime()
         return transaction {
-            val row = requireProjectRow(projectId, forUpdate = true)
-            requireDecidable(row, now)
+            val row = requireProjectRow(id = projectId, forUpdate = true)
+            requireDecidable(row = row, now = now)
             val updated =
                 CrowdfundingProjectTable.update({
                     (CrowdfundingProjectTable.id eq projectId) and (CrowdfundingProjectTable.status eq CrowdfundingProjectStatus.PENDING)
@@ -203,7 +203,7 @@ class CrowdfundingService(
             if (updated == 0) {
                 throw ConflictException("CrowdfundingProject $projectId was concurrently decided -- retry")
             }
-            loadProject(projectId, now)
+            loadProject(id = projectId, now = now)
         }
     }
 
@@ -218,8 +218,8 @@ class CrowdfundingService(
         val projectId = id.toProjectUuid()
         val now = nowLocalDateTime()
         return transaction {
-            val row = requireProjectRow(projectId, forUpdate = true)
-            requireDecidable(row, now)
+            val row = requireProjectRow(id = projectId, forUpdate = true)
+            requireDecidable(row = row, now = now)
             val updated =
                 CrowdfundingProjectTable.update({
                     (CrowdfundingProjectTable.id eq projectId) and (CrowdfundingProjectTable.status eq CrowdfundingProjectStatus.PENDING)
@@ -232,7 +232,7 @@ class CrowdfundingService(
             if (updated == 0) {
                 throw ConflictException("CrowdfundingProject $projectId was concurrently decided -- retry")
             }
-            loadProject(projectId, now)
+            loadProject(id = projectId, now = now)
         }
     }
 
@@ -255,9 +255,9 @@ class CrowdfundingService(
             // split before board approval. Same idiom as submitProject in this file: AKTIV-only,
             // not requireActiveOrGuestMembership -- Crowdfunding is explicitly still GAST-excluded
             // per this project's own "Known limitations".
-            requireActiveMembership(current.memberId)
-            val projectRow = requireProjectRow(pId)
-            if (effectiveStatusOf(projectRow, now) != CrowdfundingProjectStatus.APPROVED) {
+            requireActiveMembership(memberId = current.memberId)
+            val projectRow = requireProjectRow(id = pId)
+            if (effectiveStatusOf(row = projectRow, now = now) != CrowdfundingProjectStatus.APPROVED) {
                 throw ConflictException("Project $projectId is not yet approved -- reactions/donations are not open")
             }
             val existing =
@@ -300,7 +300,7 @@ class CrowdfundingService(
             // this codebase (e.g. PoliticianService.castRating/retractRating) -- not a privilege
             // concern on its own (retracting only removes influence), but keeping both sides of the
             // pair under the identical gate avoids a second, potentially-drifting rule.
-            requireActiveMembership(current.memberId)
+            requireActiveMembership(memberId = current.memberId)
             CrowdfundingReactionTable.deleteWhere {
                 (CrowdfundingReactionTable.projectId eq pId) and (CrowdfundingReactionTable.memberId eq current.memberId)
             }
@@ -349,7 +349,7 @@ class CrowdfundingService(
                 CrowdfundingProjectTable
                     .selectAll()
                     .toList()
-                    .filter { effectiveStatusOf(it, now) == CrowdfundingProjectStatus.APPROVED }
+                    .filter { effectiveStatusOf(row = it, now = now) == CrowdfundingProjectStatus.APPROVED }
                     .map { it[CrowdfundingProjectTable.id] }
             val counts = reactionCountsByProject(approvedProjectIds)
             val baskets =
@@ -358,7 +358,7 @@ class CrowdfundingService(
                         ?: 0
                 }
 
-            val allocation = CrowdfundingDistributionCalculator.allocate(baskets, pool)
+            val allocation = CrowdfundingDistributionCalculator.allocate(projectBaskets = baskets, poolEur = pool)
             allocation.forEach { (projectId, amount) ->
                 CrowdfundingDistributionTable.insertIgnore {
                     it[id] = Uuid.random()
@@ -412,7 +412,7 @@ class CrowdfundingService(
         if (status != CrowdfundingProjectStatus.PENDING) {
             throw ConflictException("CrowdfundingProject ${row[CrowdfundingProjectTable.id]} already decided ($status)")
         }
-        if (CrowdfundingWeightDecay.isAutoApproved(row[CrowdfundingProjectTable.submittedAt], now)) {
+        if (CrowdfundingWeightDecay.isAutoApproved(submittedAt = row[CrowdfundingProjectTable.submittedAt], now = now)) {
             throw ConflictException(
                 "CrowdfundingProject ${row[CrowdfundingProjectTable.id]} was already auto-approved by silence -- a board decision is no longer possible",
             )
@@ -425,7 +425,7 @@ class CrowdfundingService(
     ): CrowdfundingProjectStatus {
         val status = row[CrowdfundingProjectTable.status]
         if (status != CrowdfundingProjectStatus.PENDING) return status
-        return if (CrowdfundingWeightDecay.isAutoApproved(row[CrowdfundingProjectTable.submittedAt], now)) {
+        return if (CrowdfundingWeightDecay.isAutoApproved(submittedAt = row[CrowdfundingProjectTable.submittedAt], now = now)) {
             CrowdfundingProjectStatus.APPROVED
         } else {
             CrowdfundingProjectStatus.PENDING
@@ -440,7 +440,7 @@ class CrowdfundingService(
             projectJoin().selectAll().where { CrowdfundingProjectTable.id eq id }.singleOrNull()
                 ?: throw NotFoundException("CrowdfundingProject $id not found")
         val counts = reactionCountsByProject(listOf(id))
-        return row.toProjectDto(now, counts)
+        return row.toProjectDto(now = now, counts = counts)
     }
 
     private fun loadDistributions(condition: Op<Boolean>?): List<CrowdfundingDistributionDto> {
@@ -509,7 +509,7 @@ class CrowdfundingService(
         val effectiveStatus =
             if (status != CrowdfundingProjectStatus.PENDING) {
                 status
-            } else if (CrowdfundingWeightDecay.isAutoApproved(submittedAt, now)) {
+            } else if (CrowdfundingWeightDecay.isAutoApproved(submittedAt = submittedAt, now = now)) {
                 CrowdfundingProjectStatus.APPROVED
             } else {
                 CrowdfundingProjectStatus.PENDING
@@ -521,10 +521,15 @@ class CrowdfundingService(
             submitterMemberId = this[CrowdfundingProjectTable.submitterMemberId].toString(),
             submitterDisplayName = this[MemberTable.displayName],
             initialWeightLtr = initialWeight,
-            currentWeightLtr = CrowdfundingWeightDecay.currentWeight(initialWeight, submittedAt, now),
+            currentWeightLtr =
+                CrowdfundingWeightDecay.currentWeight(
+                    initialWeightLtr = initialWeight,
+                    submittedAt = submittedAt,
+                    now = now,
+                ),
             status = status,
             effectiveStatus = effectiveStatus,
-            isAutoApproved = CrowdfundingWeightDecay.isAutoApproved(submittedAt, now),
+            isAutoApproved = CrowdfundingWeightDecay.isAutoApproved(submittedAt = submittedAt, now = now),
             rejectionReason = this[CrowdfundingProjectTable.rejectionReason],
             reviewedById = this[CrowdfundingProjectTable.reviewedBy]?.toString(),
             reviewedByDisplayName = memberDisplayName(this[CrowdfundingProjectTable.reviewedBy]),

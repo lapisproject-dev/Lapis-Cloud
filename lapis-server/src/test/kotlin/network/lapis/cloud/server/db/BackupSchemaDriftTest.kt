@@ -41,7 +41,7 @@ class BackupSchemaDriftTest :
 
             entity.attributes.forEach { attr ->
                 val col = real.columns.getValue(attr.name!!)
-                withClue("column '${attr.name}'") {
+                withClue(clue = "column '${attr.name}'") {
                     col.nullable shouldBe attr.nullable
                 }
             }

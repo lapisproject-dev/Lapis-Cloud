@@ -43,7 +43,7 @@ class PeerTransferSchemaDriftTest :
             entity.attributes.map { it.name }.toSet() shouldBe real.columns.keys
             entity.attributes.forEach { attr ->
                 val col = real.columns.getValue(attr.name!!)
-                withClue("column '${attr.name}'") {
+                withClue(clue = "column '${attr.name}'") {
                     col.nullable shouldBe attr.nullable
                 }
             }

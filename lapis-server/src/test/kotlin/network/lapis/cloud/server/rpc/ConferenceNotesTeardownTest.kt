@@ -126,7 +126,7 @@ class ConferenceNotesTeardownTest :
             DevSeedData.seedIfEmpty(force = true)
         }
 
-        afterSpec { cleanUpNotesTeardownTestData(createdMemberIds, createdRoomIds) }
+        afterSpec { cleanUpNotesTeardownTestData(memberIds = createdMemberIds, roomIds = createdRoomIds) }
 
         fun createTestMember(email: String): Uuid {
             val id = Uuid.random()
@@ -183,14 +183,14 @@ class ConferenceNotesTeardownTest :
             val sharedNotesState = ConferenceNotesState()
             val creator = createTestMember("notes-teardown-endroom@example.org")
             val (roomId, livekitRoomName) = createTestRoom(creator)
-            liveKit.createRoom(livekitRoomName, 25, 300)
-            sharedNotesState.tryCreate(roomId, testBlock("b1"))
+            liveKit.createRoom(name = livekitRoomName, maxParticipants = 25, emptyTimeoutSeconds = 300)
+            sharedNotesState.tryCreate(roomId = roomId, block = testBlock("b1"))
             sharedNotesState.snapshot(roomId).size shouldBe 1
 
             testApplication {
                 application {
                     install(StatusPages) { installNotesTeardownExceptionHandlers() }
-                    routing { registerNotesTeardownTestRoutes(liveKit, sharedNotesState) }
+                    routing { registerNotesTeardownTestRoutes(liveKitAdminClient = liveKit, notesState = sharedNotesState) }
                 }
                 client
                     .post("/test/end-room?roomId=$roomId") { header("X-Member-Id", creator.toString()) }
@@ -208,8 +208,8 @@ class ConferenceNotesTeardownTest :
             val sharedNotesState = ConferenceNotesState()
             val creator = createTestMember("notes-teardown-lazy@example.org")
             val (roomId, livekitRoomName) = createTestRoom(creator)
-            liveKit.createRoom(livekitRoomName, 25, 300)
-            sharedNotesState.tryCreate(roomId, testBlock("b1"))
+            liveKit.createRoom(name = livekitRoomName, maxParticipants = 25, emptyTimeoutSeconds = 300)
+            sharedNotesState.tryCreate(roomId = roomId, block = testBlock("b1"))
             sharedNotesState.snapshot(roomId).size shouldBe 1
 
             transaction {
@@ -226,7 +226,7 @@ class ConferenceNotesTeardownTest :
             testApplication {
                 application {
                     install(StatusPages) { installNotesTeardownExceptionHandlers() }
-                    routing { registerNotesTeardownTestRoutes(liveKit, sharedNotesState) }
+                    routing { registerNotesTeardownTestRoutes(liveKitAdminClient = liveKit, notesState = sharedNotesState) }
                 }
                 client
                     .get("/test/get-room?roomId=$roomId") { header("X-Member-Id", creator.toString()) }
@@ -271,10 +271,10 @@ private fun Route.registerNotesTeardownTestRoutes(
 ) {
     fun service(call: ApplicationCall) =
         ConferenceService(
-            call,
-            liveKitAdminClient,
-            LoginRateLimiter(),
-            NOTES_TEARDOWN_ENABLED_CONFIG,
+            call = call,
+            liveKitAdminClient = liveKitAdminClient,
+            createRoomRateLimiter = LoginRateLimiter(),
+            config = NOTES_TEARDOWN_ENABLED_CONFIG,
             notesState = notesState,
             conferenceMeetingBindRateLimiter = FederationInboxRateLimiter(),
         )

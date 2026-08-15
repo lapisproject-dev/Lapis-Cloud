@@ -33,7 +33,12 @@ class UseOfFundsCalculatorTest :
         val zero = BigDecimal.ZERO
 
         test("income-only year: fundsReceived and obligation grow, nothing overdue, no expense/reserves") {
-            val statement = UseOfFundsCalculator.statement(listOf(facts(2026, income = "500.00")), 2026, 2026)
+            val statement =
+                UseOfFundsCalculator.statement(
+                    facts = listOf(facts(2026, income = "500.00")),
+                    fromFiscalYear = 2026,
+                    toFiscalYear = 2026,
+                )
 
             val year = statement.years.single()
             year.fiscalYear shouldBe 2026
@@ -57,7 +62,7 @@ class UseOfFundsCalculatorTest :
                     facts(2026, income = "500.00"),
                     facts(2027, expense = "200.00"),
                 )
-            val statement = UseOfFundsCalculator.statement(allFacts, 2026, 2027)
+            val statement = UseOfFundsCalculator.statement(facts = allFacts, fromFiscalYear = 2026, toFiscalYear = 2027)
 
             val year2026 = statement.years.single { it.fiscalYear == 2026 }
             val year2027 = statement.years.single { it.fiscalYear == 2027 }
@@ -78,7 +83,7 @@ class UseOfFundsCalculatorTest :
                         reserveClosingByType = mapOf(ReserveType.PROJEKTRUECKLAGE to "400.00"),
                     ),
                 )
-            val statement = UseOfFundsCalculator.statement(allFacts, 2026, 2027)
+            val statement = UseOfFundsCalculator.statement(facts = allFacts, fromFiscalYear = 2026, toFiscalYear = 2027)
 
             val year2027 = statement.years.single { it.fiscalYear == 2027 }
             year2027.fundsAllocatedToReserves.compareTo(BigDecimal("400.00")) shouldBe 0
@@ -112,7 +117,7 @@ class UseOfFundsCalculatorTest :
                         reserveClosingByType = mapOf(ReserveType.FREIE_RUECKLAGE to "0"),
                     ),
                 )
-            val statement = UseOfFundsCalculator.statement(allFacts, 2020, 2030)
+            val statement = UseOfFundsCalculator.statement(facts = allFacts, fromFiscalYear = 2020, toFiscalYear = 2030)
 
             val year2030 = statement.years.single { it.fiscalYear == 2030 }
             year2030.fundsAllocatedToReserves.compareTo(BigDecimal("-300.00")) shouldBe 0
@@ -124,8 +129,8 @@ class UseOfFundsCalculatorTest :
 
         test("overdue boundary: a vintage is not yet overdue at Y0+2, but is overdue at Y0+3") {
             val allFacts = listOf(facts(2020, income = "100.00"))
-            val throughY0Plus2 = UseOfFundsCalculator.statement(allFacts, 2020, 2022)
-            val throughY0Plus3 = UseOfFundsCalculator.statement(allFacts, 2020, 2023)
+            val throughY0Plus2 = UseOfFundsCalculator.statement(facts = allFacts, fromFiscalYear = 2020, toFiscalYear = 2022)
+            val throughY0Plus3 = UseOfFundsCalculator.statement(facts = allFacts, fromFiscalYear = 2020, toFiscalYear = 2023)
 
             throughY0Plus2.years
                 .last()
@@ -143,8 +148,8 @@ class UseOfFundsCalculatorTest :
                     facts(2020, income = "1000.00"),
                     facts(2021, expense = "400.00"),
                 )
-            val fullStatement = UseOfFundsCalculator.statement(allFacts, 2020, 2021)
-            val windowedStatement = UseOfFundsCalculator.statement(allFacts, 2021, 2021)
+            val fullStatement = UseOfFundsCalculator.statement(facts = allFacts, fromFiscalYear = 2020, toFiscalYear = 2021)
+            val windowedStatement = UseOfFundsCalculator.statement(facts = allFacts, fromFiscalYear = 2021, toFiscalYear = 2021)
 
             windowedStatement.years.size shouldBe 1
             windowedStatement.years.single().timelyUseObligationRemaining.compareTo(
@@ -159,21 +164,22 @@ class UseOfFundsCalculatorTest :
         test("per-sphere received/used sum to the aggregate; all four spheres present, zero-filled") {
             val statement =
                 UseOfFundsCalculator.statement(
-                    listOf(
-                        facts(
-                            2026,
-                            income = "300.00",
-                            expense = "120.00",
-                            incomeBySphere =
-                                mapOf(
-                                    GemeinnuetzigkeitSphere.IDEELLER_BEREICH to "200.00",
-                                    GemeinnuetzigkeitSphere.ZWECKBETRIEB to "100.00",
-                                ),
-                            expenseBySphere = mapOf(GemeinnuetzigkeitSphere.IDEELLER_BEREICH to "120.00"),
+                    facts =
+                        listOf(
+                            facts(
+                                2026,
+                                income = "300.00",
+                                expense = "120.00",
+                                incomeBySphere =
+                                    mapOf(
+                                        GemeinnuetzigkeitSphere.IDEELLER_BEREICH to "200.00",
+                                        GemeinnuetzigkeitSphere.ZWECKBETRIEB to "100.00",
+                                    ),
+                                expenseBySphere = mapOf(GemeinnuetzigkeitSphere.IDEELLER_BEREICH to "120.00"),
+                            ),
                         ),
-                    ),
-                    2026,
-                    2026,
+                    fromFiscalYear = 2026,
+                    toFiscalYear = 2026,
                 )
             val year = statement.years.single()
             year.receivedBySphere.size shouldBe 4
@@ -203,7 +209,7 @@ class UseOfFundsCalculatorTest :
                             mapOf(ReserveType.PROJEKTRUECKLAGE to "300.00", ReserveType.FREIE_RUECKLAGE to "150.00"),
                     ),
                 )
-            val statement = UseOfFundsCalculator.statement(allFacts, 2026, 2027)
+            val statement = UseOfFundsCalculator.statement(facts = allFacts, fromFiscalYear = 2026, toFiscalYear = 2027)
 
             val totalIncome = allFacts.fold(zero) { acc, f -> acc + f.income }
             val totalExpense = allFacts.fold(zero) { acc, f -> acc + f.expense }
@@ -223,7 +229,7 @@ class UseOfFundsCalculatorTest :
                     facts(2026, income = "100.00"),
                     facts(2027, expense = "900.00"),
                 )
-            val statement = UseOfFundsCalculator.statement(allFacts, 2026, 2027)
+            val statement = UseOfFundsCalculator.statement(facts = allFacts, fromFiscalYear = 2026, toFiscalYear = 2027)
 
             statement.years
                 .last()
@@ -233,7 +239,7 @@ class UseOfFundsCalculatorTest :
         }
 
         test("empty facts / zero year: all-zero DTO, four zero-filled reserveMovements and sphere lists") {
-            val statement = UseOfFundsCalculator.statement(emptyList(), 2026, 2026)
+            val statement = UseOfFundsCalculator.statement(facts = emptyList(), fromFiscalYear = 2026, toFiscalYear = 2026)
 
             statement.years.size shouldBe 1
             val year = statement.years.single()
@@ -255,7 +261,7 @@ class UseOfFundsCalculatorTest :
 
         test("BigDecimal scale discipline: differently-scaled but mathematically equal amounts compare equal") {
             val allFacts = listOf(facts(2026, income = "100.0"), facts(2027, expense = "100.00"))
-            val statement = UseOfFundsCalculator.statement(allFacts, 2026, 2027)
+            val statement = UseOfFundsCalculator.statement(facts = allFacts, fromFiscalYear = 2026, toFiscalYear = 2027)
 
             statement.years
                 .last()

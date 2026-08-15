@@ -119,7 +119,8 @@ fun WhiteboardStrokeWireDto.isStructurallyValid(): Boolean {
     if (points.isEmpty() || points.size > WHITEBOARD_MAX_POINTS_PER_STROKE) return false
     val hasInvalidPoint =
         points.any { p ->
-            !isValidCoordinate(p.x, WHITEBOARD_CANVAS_WIDTH) || !isValidCoordinate(p.y, WHITEBOARD_CANVAS_HEIGHT)
+            !isValidCoordinate(value = p.x, max = WHITEBOARD_CANVAS_WIDTH) ||
+                !isValidCoordinate(value = p.y, max = WHITEBOARD_CANVAS_HEIGHT)
         }
     if (hasInvalidPoint) return false
     if (strokeWidth.isNaN() || strokeWidth !in WHITEBOARD_MIN_STROKE_WIDTH..WHITEBOARD_MAX_STROKE_WIDTH) return false

@@ -18,7 +18,7 @@ class NoteBlockBroadcastDtoValidationTest {
         content: String = "Ein Notizblock mit etwas Inhalt.",
         position: Int = 1,
         version: Int = 1,
-    ) = NoteBlockBroadcastDto(blockId, content, position, version)
+    ) = NoteBlockBroadcastDto(blockId = blockId, content = content, position = position, version = version)
 
     // ── happy path ──────────────────────────────────────────────────────────
 

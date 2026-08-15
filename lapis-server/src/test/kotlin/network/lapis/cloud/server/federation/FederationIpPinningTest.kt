@@ -170,7 +170,7 @@ class FederationIpPinningTest :
         test(
             "T3: a self-signed cert covering the SNI'd hostname is accepted even though FederationIpPinningPlugin rewrites the socket target to a loopback IP",
         ) {
-            withSelfSignedHttpsServer(TLS_TEST_HOSTNAME) { port, trustManager ->
+            withSelfSignedHttpsServer(hostname = TLS_TEST_HOSTNAME) { port, trustManager ->
                 val target = SafeFederationTarget(originalHost = TLS_TEST_HOSTNAME, pinnedAddress = InetAddress.getByName("127.0.0.1"))
                 val client = federationLikeTestClient(target = target, trustManager = trustManager)
                 try {
@@ -188,7 +188,7 @@ class FederationIpPinningTest :
         }
 
         test("T3b: a hostname NOT covered by the certificate is still rejected -- IP-pinning does not weaken TLS verification") {
-            withSelfSignedHttpsServer(TLS_TEST_HOSTNAME) { port, trustManager ->
+            withSelfSignedHttpsServer(hostname = TLS_TEST_HOSTNAME) { port, trustManager ->
                 val target =
                     SafeFederationTarget(originalHost = TLS_TEST_WRONG_HOSTNAME, pinnedAddress = InetAddress.getByName("127.0.0.1"))
                 val client = federationLikeTestClient(target = target, trustManager = trustManager)

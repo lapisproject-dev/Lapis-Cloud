@@ -136,7 +136,7 @@ fun Route.registerAuthRoutes(
         // See class KDoc "Account-enumeration hardening" -- PasswordHasher.verify always runs a
         // real bcrypt comparison (against a fixed dummy hash if accountRow/passwordHash is null),
         // never short-circuits, so every rejection reason below takes the same code path.
-        val passwordOk = PasswordHasher.verify(request.password, accountRow?.get(AccountTable.passwordHash))
+        val passwordOk = PasswordHasher.verify(rawPassword = request.password, storedHash = accountRow?.get(AccountTable.passwordHash))
         // V0.7.2 login gate -- see class KDoc "V0.7.2 login gate". Checked only AFTER a correct
         // password, so a wrong-password attempt against a departed/rejected account still takes
         // the exact same passwordOk==false path as any other wrong password (no extra branch that
@@ -238,7 +238,7 @@ fun Route.registerAuthRoutes(
         // is registered. A token is only actually created/sent when accountRow != null.
         if (accountRow != null) {
             val rawToken = PasswordResetTokenStore.createToken(accountRow[MemberTable.id])
-            passwordResetMailer.send(normalizedEmail, rawToken)
+            passwordResetMailer.send(email = normalizedEmail, rawToken = rawToken)
         }
         call.respond(HttpStatusCode.OK, "If this email is registered, a password-reset link has been sent.")
     }
@@ -261,7 +261,7 @@ fun Route.registerAuthRoutes(
             return@post
         }
         val email = transaction { MemberTable.selectAll().where { MemberTable.id eq peekedMemberId }.single()[MemberTable.email] }
-        val validation = runCatching { PasswordPolicy.validate(request.newPassword, email) }
+        val validation = runCatching { PasswordPolicy.validate(newPassword = request.newPassword, email = email) }
         if (validation.isFailure) {
             val message = (validation.exceptionOrNull() as? WeakPasswordException)?.message ?: "Weak password"
             call.respondText(message, status = HttpStatusCode.BadRequest)
@@ -287,7 +287,7 @@ fun Route.registerAuthRoutes(
         // established under it) is no longer trusted, same reasoning IAuthService.changePassword
         // KDoc gives for its own OTHER-session revocation, except here there is no "caller's own
         // current session" to preserve: the caller of THIS endpoint is unauthenticated by design.
-        SessionStore.revokeAllForMember(memberId)
+        SessionStore.revokeAllForMember(memberId = memberId)
         call.respond(HttpStatusCode.NoContent)
     }
 }

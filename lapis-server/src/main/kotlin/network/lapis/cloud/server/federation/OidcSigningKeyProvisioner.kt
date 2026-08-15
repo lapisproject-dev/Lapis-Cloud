@@ -59,8 +59,8 @@ object OidcSigningKeyProvisioner {
             OidcSigningKeyTable.insert {
                 it[id] = OIDC_SIGNING_KEY_ID
                 it[kid] = Uuid.random().toString()
-                it[publicKeyPem] = pemEncode(keyPair.public.encoded, "PUBLIC KEY")
-                it[privateKeyPem] = pemEncode(keyPair.private.encoded, "PRIVATE KEY")
+                it[publicKeyPem] = pemEncode(derBytes = keyPair.public.encoded, label = "PUBLIC KEY")
+                it[privateKeyPem] = pemEncode(derBytes = keyPair.private.encoded, label = "PRIVATE KEY")
                 it[createdAt] = now
             }
         }

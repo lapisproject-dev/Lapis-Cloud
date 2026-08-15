@@ -105,7 +105,7 @@ private class FakeLiveKitEgressClient(
 
     override suspend fun listEgress(roomName: String): List<LiveKitEgressInfo> =
         if (failListEgress) {
-            throw LiveKitAdminException("ListEgress failed (simulated outage)")
+            throw LiveKitAdminException(message = "ListEgress failed (simulated outage)")
         } else {
             egressInfoByEgressId.values.toList()
         }
@@ -332,7 +332,14 @@ class RecordingPollerTest :
                         else -> null
                     }
                 }
-            return RecordingPoller(adminClient, egressClient, config, documentStorageRoot, composer, clock)
+            return RecordingPoller(
+                liveKitAdminClient = adminClient,
+                liveKitEgressClient = egressClient,
+                recordingConfig = config,
+                documentStorageRoot = documentStorageRoot,
+                composer = composer,
+                clock = clock,
+            )
         }
 
         // ── RECORDING ────────────────────────────────────────────────────
@@ -929,7 +936,8 @@ class RecordingPollerTest :
                     durationMs = 5_000L,
                 )
 
-                val composer = FakeRecordingComposer(behavior = { _, _ -> throw RecordingComposeException("simulated ffmpeg failure") })
+                val composer =
+                    FakeRecordingComposer(behavior = { _, _ -> throw RecordingComposeException(message = "simulated ffmpeg failure") })
                 val poller = buildPoller(FakeLiveKitAdminClient(), FakeLiveKitEgressClient(), composer, hostRawRoot, documentStorageRoot)
 
                 poller.tick()
@@ -966,7 +974,8 @@ class RecordingPollerTest :
                     durationMs = 5_000L,
                 )
 
-                val composer = FakeRecordingComposer(behavior = { _, _ -> throw RecordingComposeException("simulated ffmpeg failure") })
+                val composer =
+                    FakeRecordingComposer(behavior = { _, _ -> throw RecordingComposeException(message = "simulated ffmpeg failure") })
                 val poller =
                     buildPoller(
                         FakeLiveKitAdminClient(),

@@ -12,33 +12,33 @@ import network.lapis.cloud.shared.domain.RiskLevel
 class DpiaRiskMatrixTest :
     FunSpec({
         test("band() is null whenever either input is null") {
-            DpiaRiskMatrix.band(null, RiskLevel.HIGH) shouldBe null
-            DpiaRiskMatrix.band(RiskLevel.HIGH, null) shouldBe null
-            DpiaRiskMatrix.band(null, null) shouldBe null
+            DpiaRiskMatrix.band(likelihood = null, severity = RiskLevel.HIGH) shouldBe null
+            DpiaRiskMatrix.band(likelihood = RiskLevel.HIGH, severity = null) shouldBe null
+            DpiaRiskMatrix.band(likelihood = null, severity = null) shouldBe null
         }
 
         test("band() covers all nine likelihood x severity combinations with the expected band") {
-            DpiaRiskMatrix.band(RiskLevel.LOW, RiskLevel.LOW) shouldBe DpiaRiskBand.LOW
-            DpiaRiskMatrix.band(RiskLevel.LOW, RiskLevel.MEDIUM) shouldBe DpiaRiskBand.LOW
-            DpiaRiskMatrix.band(RiskLevel.MEDIUM, RiskLevel.LOW) shouldBe DpiaRiskBand.LOW
-            DpiaRiskMatrix.band(RiskLevel.LOW, RiskLevel.HIGH) shouldBe DpiaRiskBand.MEDIUM
-            DpiaRiskMatrix.band(RiskLevel.MEDIUM, RiskLevel.MEDIUM) shouldBe DpiaRiskBand.MEDIUM
-            DpiaRiskMatrix.band(RiskLevel.HIGH, RiskLevel.LOW) shouldBe DpiaRiskBand.MEDIUM
-            DpiaRiskMatrix.band(RiskLevel.MEDIUM, RiskLevel.HIGH) shouldBe DpiaRiskBand.HIGH
-            DpiaRiskMatrix.band(RiskLevel.HIGH, RiskLevel.MEDIUM) shouldBe DpiaRiskBand.HIGH
-            DpiaRiskMatrix.band(RiskLevel.HIGH, RiskLevel.HIGH) shouldBe DpiaRiskBand.CRITICAL
+            DpiaRiskMatrix.band(likelihood = RiskLevel.LOW, severity = RiskLevel.LOW) shouldBe DpiaRiskBand.LOW
+            DpiaRiskMatrix.band(likelihood = RiskLevel.LOW, severity = RiskLevel.MEDIUM) shouldBe DpiaRiskBand.LOW
+            DpiaRiskMatrix.band(likelihood = RiskLevel.MEDIUM, severity = RiskLevel.LOW) shouldBe DpiaRiskBand.LOW
+            DpiaRiskMatrix.band(likelihood = RiskLevel.LOW, severity = RiskLevel.HIGH) shouldBe DpiaRiskBand.MEDIUM
+            DpiaRiskMatrix.band(likelihood = RiskLevel.MEDIUM, severity = RiskLevel.MEDIUM) shouldBe DpiaRiskBand.MEDIUM
+            DpiaRiskMatrix.band(likelihood = RiskLevel.HIGH, severity = RiskLevel.LOW) shouldBe DpiaRiskBand.MEDIUM
+            DpiaRiskMatrix.band(likelihood = RiskLevel.MEDIUM, severity = RiskLevel.HIGH) shouldBe DpiaRiskBand.HIGH
+            DpiaRiskMatrix.band(likelihood = RiskLevel.HIGH, severity = RiskLevel.MEDIUM) shouldBe DpiaRiskBand.HIGH
+            DpiaRiskMatrix.band(likelihood = RiskLevel.HIGH, severity = RiskLevel.HIGH) shouldBe DpiaRiskBand.CRITICAL
         }
 
         test("band() is monotonic -- increasing either input never decreases the resulting band") {
             val order = listOf(DpiaRiskBand.LOW, DpiaRiskBand.MEDIUM, DpiaRiskBand.HIGH, DpiaRiskBand.CRITICAL)
             val levels = listOf(RiskLevel.LOW, RiskLevel.MEDIUM, RiskLevel.HIGH)
             for (severity in levels) {
-                val bands = levels.map { likelihood -> DpiaRiskMatrix.band(likelihood, severity)!! }
+                val bands = levels.map { likelihood -> DpiaRiskMatrix.band(likelihood = likelihood, severity = severity)!! }
                 val ranks = bands.map { order.indexOf(it) }
                 (ranks == ranks.sorted()) shouldBe true
             }
             for (likelihood in levels) {
-                val bands = levels.map { severity -> DpiaRiskMatrix.band(likelihood, severity)!! }
+                val bands = levels.map { severity -> DpiaRiskMatrix.band(likelihood = likelihood, severity = severity)!! }
                 val ranks = bands.map { order.indexOf(it) }
                 (ranks == ranks.sorted()) shouldBe true
             }
@@ -48,7 +48,7 @@ class DpiaRiskMatrixTest :
             val levels = listOf(RiskLevel.LOW, RiskLevel.MEDIUM, RiskLevel.HIGH)
             for (a in levels) {
                 for (b in levels) {
-                    DpiaRiskMatrix.band(a, b) shouldBe DpiaRiskMatrix.band(b, a)
+                    DpiaRiskMatrix.band(likelihood = a, severity = b) shouldBe DpiaRiskMatrix.band(likelihood = b, severity = a)
                 }
             }
         }

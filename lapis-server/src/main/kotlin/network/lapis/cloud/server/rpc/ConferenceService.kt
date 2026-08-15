@@ -249,35 +249,35 @@ class ConferenceService(
     override suspend fun listActiveRooms(): List<ConferenceRoomDto> {
         val current = resolveCurrentMember(call)
         requireConferenceEnabled()
-        requireWithinRate(listRateLimiter, current.memberId)
-        transaction { requireActiveMembership(current.memberId) }
+        requireWithinRate(limiter = listRateLimiter, memberId = current.memberId)
+        transaction { requireActiveMembership(memberId = current.memberId) }
         val liveRooms = fetchLiveRooms()
         val now = nowLocalDateTime()
         return transaction {
-            reconcileActiveRooms(liveRooms, now)
+            reconcileActiveRooms(liveRooms = liveRooms, now = now)
             ConferenceRoomTable
                 .selectAll()
                 .where { ConferenceRoomTable.endedAt.isNull() }
                 .orderBy(ConferenceRoomTable.createdAt, SortOrder.DESC)
                 .limit(MAX_LIST_RESULTS)
-                .map { row -> rowToDto(row, current.memberId, liveRooms) }
+                .map { row -> rowToDto(row = row, callerId = current.memberId, liveRooms = liveRooms) }
         }
     }
 
     override suspend fun getRoom(roomId: String): ConferenceRoomDto {
         val current = resolveCurrentMember(call)
         requireConferenceEnabled()
-        requireWithinRate(listRateLimiter, current.memberId)
+        requireWithinRate(limiter = listRateLimiter, memberId = current.memberId)
         val id = roomId.toConferenceUuid()
-        transaction { requireActiveMembership(current.memberId) }
+        transaction { requireActiveMembership(memberId = current.memberId) }
         val liveRooms = fetchLiveRooms()
         val now = nowLocalDateTime()
         return transaction {
             val row =
                 ConferenceRoomTable.selectAll().where { ConferenceRoomTable.id eq id }.singleOrNull()
                     ?: throw NotFoundException("Conference room $id not found")
-            val fresh = reconcileRoomIfDue(row, liveRooms, now)
-            rowToDto(fresh, current.memberId, liveRooms)
+            val fresh = reconcileRoomIfDue(row = row, liveRooms = liveRooms, now = now)
+            rowToDto(row = fresh, callerId = current.memberId, liveRooms = liveRooms)
         }
     }
 
@@ -300,7 +300,7 @@ class ConferenceService(
         // not a login-failure guard" reuse registerOidcRoutes' own "/register" handler establishes.
         createRoomRateLimiter.recordFailure(throttleKey)
 
-        transaction { requireActiveMembership(current.memberId) }
+        transaction { requireActiveMembership(memberId = current.memberId) }
         // Named "newRoomName", NOT "livekitRoomName" -- deliberately avoids colliding with
         // ConferenceRoomTable.livekitRoomName's own column property name; see
         // PeerTransferService.executeTransfer KDoc for the shadowing footgun this sidesteps (a
@@ -330,7 +330,7 @@ class ConferenceService(
                 it[ConferenceRoomTable.allowFederationGuests] = input.allowFederationGuests
             }
             val row = ConferenceRoomTable.selectAll().where { ConferenceRoomTable.id eq roomId }.single()
-            rowToDto(row, current.memberId, mapOf(newRoomName to liveKitRoom.numParticipants))
+            rowToDto(row = row, callerId = current.memberId, liveRooms = mapOf(newRoomName to liveKitRoom.numParticipants))
         }
     }
 
@@ -340,7 +340,7 @@ class ConferenceService(
     ): ConferenceJoinTokenDto {
         val current = resolveCurrentMember(call)
         requireConferenceEnabled()
-        requireWithinRate(joinRoomRateLimiter, current.memberId)
+        requireWithinRate(limiter = joinRoomRateLimiter, memberId = current.memberId)
         // Named "roomUuid", NOT "id" -- deliberately avoids colliding with
         // ConferenceParticipationTable.id's own column property name below (verified empirically:
         // a same-named outer local, even a `val` and not just a function parameter, is what
@@ -357,7 +357,7 @@ class ConferenceService(
                 if (row[ConferenceRoomTable.endedAt] != null) {
                     throw ConflictException("Conference room $roomUuid has already ended")
                 }
-                val status = requireRoomEntryAuthorization(row, current)
+                val status = requireRoomEntryAuthorization(roomRow = row, current = current)
 
                 // Wave 5: consent is verified for a GAST caller ONLY. For an AKTIV caller
                 // `guestConsent` is ignored entirely -- passing a bogus value is a no-op, and no
@@ -372,7 +372,7 @@ class ConferenceService(
                                 "A federated guest must acknowledge the current ConferenceGuestConsentDisclaimer " +
                                     "before joining -- call getGuestJoinInfo and submit its version/sha256 unmodified",
                             )
-                    if (!ConferenceGuestConsentDisclaimer.matches(consent.consentVersion, consent.consentSha256)) {
+                    if (!ConferenceGuestConsentDisclaimer.matches(version = consent.consentVersion, sha256 = consent.consentSha256)) {
                         throw ConflictException(
                             "consentVersion/consentSha256 do not match the current ConferenceGuestConsentDisclaimer " +
                                 "-- call getGuestJoinInfo again and submit its CURRENT version/sha256 unmodified",
@@ -471,7 +471,7 @@ class ConferenceService(
             if (freshRoomRow[ConferenceRoomTable.endedAt] != null) {
                 throw ConflictException("Conference room $roomUuid has already ended")
             }
-            requireRoomEntryAuthorization(freshRoomRow, current)
+            requireRoomEntryAuthorization(roomRow = freshRoomRow, current = current)
 
             ConferenceParticipationTable.insert {
                 it[id] = Uuid.random()
@@ -517,11 +517,11 @@ class ConferenceService(
     override suspend fun leaveRoom(roomId: String) {
         val current = resolveCurrentMember(call)
         requireConferenceEnabled()
-        requireWithinRate(leaveRoomRateLimiter, current.memberId)
+        requireWithinRate(limiter = leaveRoomRateLimiter, memberId = current.memberId)
         val id = roomId.toConferenceUuid()
         val now = nowLocalDateTime()
         transaction {
-            closeOpenParticipationsFor(id, current.memberId, now)
+            closeOpenParticipationsFor(roomId = id, memberId = current.memberId, now = now)
         }
     }
 
@@ -534,7 +534,7 @@ class ConferenceService(
                 val existing =
                     ConferenceRoomTable.selectAll().where { ConferenceRoomTable.id eq id }.singleOrNull()
                         ?: throw NotFoundException("Conference room $id not found")
-                requireModeratorOrPrivileged(existing, current)
+                requireModeratorOrPrivileged(row = existing, current = current)
                 existing
             }
         val now = nowLocalDateTime()
@@ -560,17 +560,21 @@ class ConferenceService(
             }
             transaction {
                 ConferenceRoomTable.update({ ConferenceRoomTable.id eq id }) { it[endedAt] = now }
-                closeAllOpenParticipations(id, now)
+                closeAllOpenParticipations(roomId = id, now = now)
                 // V1.0 Wave 6 "Breakout-Räume" -- server-internal bridge, NOT a new
                 // IConferenceBreakoutService method. Pure DB bookkeeping (the LiveKit deleteRoom
                 // calls already happened, best-effort, above) -- see ConferenceBreakoutCoordinator
                 // KDoc. Must run before ConferenceRecordingCoordinator's own call below, which must
                 // stay LAST per its own contract.
-                ConferenceBreakoutCoordinator.closeAllBreakoutRoomsForRoom(id, now)
+                ConferenceBreakoutCoordinator.closeAllBreakoutRoomsForRoom(roomId = id, now = now)
                 // V1.0 Wave 2 "Aufzeichnung" -- server-internal bridge, NOT a new IConferenceService
                 // method. Must be the LAST statement in this transaction -- see
                 // ConferenceRecordingCoordinator KDoc "deadlock-avoidance contract".
-                ConferenceRecordingCoordinator.stopActiveRecordingsForRoom(id, current.memberId, current.role)
+                ConferenceRecordingCoordinator.stopActiveRecordingsForRoom(
+                    roomId = id,
+                    actorMemberId = current.memberId,
+                    actorRole = current.role,
+                )
             }
             // V1.0 Wave 7 "Whiteboard" -- plain, side-effect-free, thread-safe in-memory removal, no
             // DB-transaction/deadlock-ordering discipline to respect (unlike the two coordinators
@@ -583,24 +587,24 @@ class ConferenceService(
         }
         return transaction {
             val fresh = ConferenceRoomTable.selectAll().where { ConferenceRoomTable.id eq id }.single()
-            rowToDto(fresh, current.memberId, emptyMap())
+            rowToDto(row = fresh, callerId = current.memberId, liveRooms = emptyMap())
         }
     }
 
     override suspend fun listParticipants(roomId: String): List<ConferenceParticipantDto> {
         val current = resolveCurrentMember(call)
         requireConferenceEnabled()
-        requireWithinRate(listRateLimiter, current.memberId)
+        requireWithinRate(limiter = listRateLimiter, memberId = current.memberId)
         val id = roomId.toConferenceUuid()
         val room =
             transaction {
                 val row =
                     ConferenceRoomTable.selectAll().where { ConferenceRoomTable.id eq id }.singleOrNull()
                         ?: throw NotFoundException("Conference room $id not found")
-                val status = requireRoomEntryAuthorization(row, current)
+                val status = requireRoomEntryAuthorization(roomRow = row, current = current)
                 // Wave 5: extra narrowing for a guest beyond the shared gate above -- see
                 // requireGuestHasJoinedRoom KDoc.
-                requireGuestHasJoinedRoom(id, current, status)
+                requireGuestHasJoinedRoom(roomId = id, current = current, status = status)
                 row
             }
         val liveIdentities =
@@ -669,16 +673,21 @@ class ConferenceService(
                 val existing =
                     ConferenceRoomTable.selectAll().where { ConferenceRoomTable.id eq id }.singleOrNull()
                         ?: throw NotFoundException("Conference room $id not found")
-                requireModeratorOrPrivileged(existing, current)
+                requireModeratorOrPrivileged(row = existing, current = current)
                 if (existing[ConferenceRoomTable.createdByMemberId] == targetId) {
                     throw ConflictException("Cannot remove the room's own moderator")
                 }
                 existing
             }
-        liveKitCall { liveKitAdminClient.removeParticipant(room[ConferenceRoomTable.livekitRoomName], targetId.toString()) }
+        liveKitCall {
+            liveKitAdminClient.removeParticipant(
+                room = room[ConferenceRoomTable.livekitRoomName],
+                identity = targetId.toString(),
+            )
+        }
         val now = nowLocalDateTime()
         transaction {
-            closeOpenParticipationsFor(id, targetId, now)
+            closeOpenParticipationsFor(roomId = id, memberId = targetId, now = now)
         }
     }
 
@@ -704,7 +713,7 @@ class ConferenceService(
             val existing =
                 ConferenceRoomTable.selectAll().where { ConferenceRoomTable.id eq id }.singleOrNull()
                     ?: throw NotFoundException("Conference room $id not found")
-            requireModeratorOrPrivileged(existing, current)
+            requireModeratorOrPrivileged(row = existing, current = current)
             if (existing[ConferenceRoomTable.endedAt] != null) {
                 throw ConflictException("Cannot rename an ended room")
             }
@@ -716,7 +725,7 @@ class ConferenceService(
         }
         return transaction {
             val fresh = ConferenceRoomTable.selectAll().where { ConferenceRoomTable.id eq id }.single()
-            rowToDto(fresh, current.memberId, emptyMap())
+            rowToDto(row = fresh, callerId = current.memberId, liveRooms = emptyMap())
         }
     }
 
@@ -731,7 +740,7 @@ class ConferenceService(
     override suspend fun getGuestJoinInfo(roomId: String): ConferenceGuestJoinInfoDto {
         val current = resolveCurrentMember(call)
         requireConferenceEnabled()
-        requireWithinRate(guestInfoRateLimiter, current.memberId)
+        requireWithinRate(limiter = guestInfoRateLimiter, memberId = current.memberId)
         val id = roomId.toConferenceUuid()
         return transaction {
             // ANTRAG/AUSGETRETEN/ABGELEHNT -> ForbiddenException, same as every other entry point.
@@ -775,7 +784,7 @@ class ConferenceService(
         val current = resolveCurrentMember(call)
         requireConferenceEnabled()
         // Security-audit fix -- see DEFAULT_GUEST_ACCESS_RATE_MAX KDoc.
-        requireWithinRate(guestAccessRateLimiter, current.memberId)
+        requireWithinRate(limiter = guestAccessRateLimiter, memberId = current.memberId)
         val id = roomId.toConferenceUuid()
 
         // Phase 1 (transaction): authorize, flip the column, collect the guests to disconnect (if
@@ -785,7 +794,7 @@ class ConferenceService(
                 val existing =
                     ConferenceRoomTable.selectAll().where { ConferenceRoomTable.id eq id }.singleOrNull()
                         ?: throw NotFoundException("Conference room $id not found")
-                requireModeratorOrPrivileged(existing, current)
+                requireModeratorOrPrivileged(row = existing, current = current)
                 if (existing[ConferenceRoomTable.endedAt] != null) {
                     throw ConflictException("Cannot change guest access on an ended room")
                 }
@@ -819,21 +828,30 @@ class ConferenceService(
                     action = AuditAction.UPDATE,
                     after = """{"allowFederationGuests":$allowFederationGuests}""",
                 )
-                RevokePlan(existing[ConferenceRoomTable.livekitRoomName], guestsToDrop)
+                RevokePlan(livekitRoomName = existing[ConferenceRoomTable.livekitRoomName], guestMemberIds = guestsToDrop)
             }
 
         // Phase 2 (OUTSIDE any transaction -- class KDoc "Transaction boundaries around the
         // LiveKit network call"): disconnect each currently-joined guest. Bounded by
         // max_participants (25 by default), so no unbounded fan-out.
         plan.guestMemberIds.forEach { guestId ->
-            liveKitCall { liveKitAdminClient.removeParticipant(plan.livekitRoomName, guestId.toString()) }
+            liveKitCall { liveKitAdminClient.removeParticipant(room = plan.livekitRoomName, identity = guestId.toString()) }
         }
 
         // Phase 3: close their participation rows.
         val now = nowLocalDateTime()
         return transaction {
-            plan.guestMemberIds.forEach { guestId -> closeOpenParticipationsFor(id, guestId, now) }
-            rowToDto(ConferenceRoomTable.selectAll().where { ConferenceRoomTable.id eq id }.single(), current.memberId, emptyMap())
+            plan.guestMemberIds.forEach { guestId -> closeOpenParticipationsFor(roomId = id, memberId = guestId, now = now) }
+            rowToDto(
+                row =
+                    ConferenceRoomTable
+                        .selectAll()
+                        .where {
+                            ConferenceRoomTable.id eq id
+                        }.single(),
+                callerId = current.memberId,
+                liveRooms = emptyMap(),
+            )
         }
     }
 
@@ -850,7 +868,7 @@ class ConferenceService(
     ): ConferenceRoomDto {
         val current = resolveCurrentMember(call)
         requireConferenceEnabled()
-        requireWithinRate(conferenceMeetingBindRateLimiter, current.memberId)
+        requireWithinRate(limiter = conferenceMeetingBindRateLimiter, memberId = current.memberId)
         val id = roomId.toConferenceUuid()
         val newMeetingUuid = meetingId?.toConferenceUuid()
         transaction {
@@ -868,7 +886,7 @@ class ConferenceService(
                     ?: throw NotFoundException("Conference room $id not found")
             // Baseline gate, unchanged -- "is this caller the room's creator, or globally privileged"
             // is still necessary (though, see below, no longer SUFFICIENT) for either direction.
-            requireModeratorOrPrivileged(existing, current)
+            requireModeratorOrPrivileged(row = existing, current = current)
             if (existing[ConferenceRoomTable.endedAt] != null) {
                 throw ConflictException("Cannot change the Sitzung binding of an ended room")
             }
@@ -961,7 +979,7 @@ class ConferenceService(
         }
         return transaction {
             val fresh = ConferenceRoomTable.selectAll().where { ConferenceRoomTable.id eq id }.single()
-            rowToDto(fresh, current.memberId, emptyMap())
+            rowToDto(row = fresh, callerId = current.memberId, liveRooms = emptyMap())
         }
     }
 
@@ -1007,7 +1025,7 @@ class ConferenceService(
             .selectAll()
             .where { ConferenceRoomTable.endedAt.isNull() }
             .toList()
-            .forEach { row -> reconcileRoomIfDue(row, liveRooms, now) }
+            .forEach { row -> reconcileRoomIfDue(row = row, liveRooms = liveRooms, now = now) }
     }
 
     /**
@@ -1024,10 +1042,10 @@ class ConferenceService(
     ): ResultRow {
         if (row[ConferenceRoomTable.endedAt] != null) return row
         if (row[ConferenceRoomTable.livekitRoomName] in liveRooms) return row
-        if (!graceElapsed(row[ConferenceRoomTable.createdAt], now)) return row
+        if (!graceElapsed(createdAt = row[ConferenceRoomTable.createdAt], now = now)) return row
         val id = row[ConferenceRoomTable.id]
         ConferenceRoomTable.update({ ConferenceRoomTable.id eq id }) { it[endedAt] = now }
-        closeAllOpenParticipations(id, now)
+        closeAllOpenParticipations(roomId = id, now = now)
         // V1.0 Wave 7 "Whiteboard" -- deliberate deviation from the breakout/recording precedent:
         // this LAZY reconciliation path does NOT call ConferenceBreakoutCoordinator/
         // ConferenceRecordingCoordinator (their cleanup involves DB writes + outbound LiveKit calls,

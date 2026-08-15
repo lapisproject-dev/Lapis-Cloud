@@ -52,8 +52,8 @@ internal object FinancialStatementCalculator {
         from: LocalDate?,
         to: LocalDate,
     ): IncomeStatementDto {
-        val incomeLines = linesOf(balances, LedgerAccountType.INCOME)
-        val expenseLines = linesOf(balances, LedgerAccountType.EXPENSE)
+        val incomeLines = linesOf(balances = balances, type = LedgerAccountType.INCOME)
+        val expenseLines = linesOf(balances = balances, type = LedgerAccountType.EXPENSE)
         val totalIncome = incomeLines.sumBalances()
         val totalExpense = expenseLines.sumBalances()
         return IncomeStatementDto(
@@ -78,9 +78,9 @@ internal object FinancialStatementCalculator {
         balances: List<AccountBalance>,
         asOf: LocalDate,
     ): BalanceSheetDto {
-        val assetLines = linesOf(balances, LedgerAccountType.ASSET)
-        val liabilityLines = linesOf(balances, LedgerAccountType.LIABILITY)
-        val equityLines = linesOf(balances, LedgerAccountType.EQUITY)
+        val assetLines = linesOf(balances = balances, type = LedgerAccountType.ASSET)
+        val liabilityLines = linesOf(balances = balances, type = LedgerAccountType.LIABILITY)
+        val equityLines = linesOf(balances = balances, type = LedgerAccountType.EQUITY)
 
         val totalAssets = assetLines.sumBalances()
         val totalLiabilities = liabilityLines.sumBalances()
@@ -134,8 +134,8 @@ internal object FinancialStatementCalculator {
         val spheres =
             GemeinnuetzigkeitSphere.entries.map { sphere ->
                 val sphereBalances = balances.filter { it.sphere == sphere }.map { it.account }
-                val incomeLines = linesOf(sphereBalances, LedgerAccountType.INCOME)
-                val expenseLines = linesOf(sphereBalances, LedgerAccountType.EXPENSE)
+                val incomeLines = linesOf(balances = sphereBalances, type = LedgerAccountType.INCOME)
+                val expenseLines = linesOf(balances = sphereBalances, type = LedgerAccountType.EXPENSE)
                 val totalIncome = incomeLines.sumBalances()
                 val totalExpense = expenseLines.sumBalances()
                 SphereResultDto(
@@ -199,8 +199,8 @@ internal object FinancialStatementCalculator {
                 .map { (key, group) ->
                     val (costCenterId, code, name) = key
                     val accountBalances = group.map { it.account }
-                    val incomeLines = linesOf(accountBalances, LedgerAccountType.INCOME)
-                    val expenseLines = linesOf(accountBalances, LedgerAccountType.EXPENSE)
+                    val incomeLines = linesOf(balances = accountBalances, type = LedgerAccountType.INCOME)
+                    val expenseLines = linesOf(balances = accountBalances, type = LedgerAccountType.EXPENSE)
                     val totalIncome = incomeLines.sumBalances()
                     val totalExpense = expenseLines.sumBalances()
                     CostCenterResultDto(
@@ -216,8 +216,8 @@ internal object FinancialStatementCalculator {
                 }.sortedBy { it.code }
 
         val unassignedAccountBalances = unassigned.map { it.account }
-        val unassignedIncome = linesOf(unassignedAccountBalances, LedgerAccountType.INCOME).sumBalances()
-        val unassignedExpense = linesOf(unassignedAccountBalances, LedgerAccountType.EXPENSE).sumBalances()
+        val unassignedIncome = linesOf(balances = unassignedAccountBalances, type = LedgerAccountType.INCOME).sumBalances()
+        val unassignedExpense = linesOf(balances = unassignedAccountBalances, type = LedgerAccountType.EXPENSE).sumBalances()
 
         val totalIncome = costCenters.fold(unassignedIncome) { acc, result -> acc + result.totalIncome }
         val totalExpense = costCenters.fold(unassignedExpense) { acc, result -> acc + result.totalExpense }

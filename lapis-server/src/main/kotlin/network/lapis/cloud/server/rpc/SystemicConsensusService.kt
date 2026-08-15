@@ -204,7 +204,7 @@ class SystemicConsensusService(
             }
             val committeeId = requireMotionCommitteeId(row[SystemicConsensusTable.motionId])
             if (!current.isPrivileged) {
-                val eligible = eligibleMembersOf(committeeId, row[SystemicConsensusTable.meetingId])
+                val eligible = eligibleMembersOf(committeeId = committeeId, meetingId = row[SystemicConsensusTable.meetingId])
                 if (current.memberId !in eligible) throw ForbiddenException()
             }
             val optionCount =
@@ -298,7 +298,12 @@ class SystemicConsensusService(
 
                 val meetingId = row[SystemicConsensusTable.meetingId]
                 val secret = row[SystemicConsensusTable.secret]
-                snapshotEligibility(kId, committeeId, meetingId, row[SystemicConsensusTable.round])
+                snapshotEligibility(
+                    systemicConsensusId = kId,
+                    committeeId = committeeId,
+                    meetingId = meetingId,
+                    round = row[SystemicConsensusTable.round],
+                )
                 val affectedRooms =
                     if (!secret) {
                         emptyList()
@@ -316,7 +321,7 @@ class SystemicConsensusService(
                         actorRole = current.role,
                     )
                 }
-                OpenRatingPrep(meetingId, secret)
+                OpenRatingPrep(meetingId = meetingId, secret = secret)
             }
         if (prep.secret) streamGuard.quiesceStreamsForMeeting(prep.meetingId)
         return transaction { loadSystemicConsensus(kId) }
@@ -338,7 +343,7 @@ class SystemicConsensusService(
             // bypasses addCommitteeMember, or a legacy row predating that fix). Member-only
             // (AKTIV), not requireActiveOrGuestMembership -- guests never get vote weight in this
             // project's concept.
-            requireActiveMembership(current.memberId)
+            requireActiveMembership(memberId = current.memberId)
             val row = requireSystemicConsensusRow(kId)
             if (row[SystemicConsensusTable.status] != SystemicConsensusStatus.RATING) {
                 throw ConflictException(
@@ -590,11 +595,11 @@ class SystemicConsensusService(
                     )
                 val resolution =
                     insertResolutionRow(
-                        row[SystemicConsensusTable.meetingId],
-                        committeeId,
-                        meeting[MeetingTable.scheduledAt].date,
-                        resolutionInput,
-                        current,
+                        sId = row[SystemicConsensusTable.meetingId],
+                        committeeId = committeeId,
+                        scheduledDate = meeting[MeetingTable.scheduledAt].date,
+                        input = resolutionInput,
+                        current = current,
                         resolutionMode = ResolutionMode.SYSTEMIC_CONSENSUS,
                         systemicConsensusId = kId,
                     )
@@ -614,10 +619,10 @@ class SystemicConsensusService(
                 // V0.5.3 GoBD audit log: called last, after MotionTable.update/SystemicConsensusTable
                 // .update, so this satisfies AuditLogRecorder's deadlock-avoidance contract -- see
                 // auditResolutionCreate KDoc.
-                auditResolutionCreate(resolution, current)
+                auditResolutionCreate(resolution = resolution, current = current)
             }
 
-            toSystemicConsensusResultDto(kId, ergebnis)
+            toSystemicConsensusResultDto(systemicConsensusId = kId, ergebnis = ergebnis)
         }
     }
 
@@ -649,7 +654,7 @@ class SystemicConsensusService(
                 val newRound = round + 1
                 val meetingId = row[SystemicConsensusTable.meetingId]
                 val secret = row[SystemicConsensusTable.secret]
-                snapshotEligibility(kId, committeeId, meetingId, newRound)
+                snapshotEligibility(systemicConsensusId = kId, committeeId = committeeId, meetingId = meetingId, round = newRound)
                 val affectedRooms =
                     if (!secret) {
                         emptyList()
@@ -671,7 +676,7 @@ class SystemicConsensusService(
                         actorRole = current.role,
                     )
                 }
-                OpenRatingPrep(meetingId, secret)
+                OpenRatingPrep(meetingId = meetingId, secret = secret)
             }
         if (prep.secret) streamGuard.quiesceStreamsForMeeting(prep.meetingId)
         return transaction { loadSystemicConsensus(kId) }
@@ -757,7 +762,7 @@ class SystemicConsensusService(
     ): Set<Uuid> {
         val meetingRow = MeetingTable.selectAll().where { MeetingTable.id eq meetingId }.single()
         val committeeRow = CommitteeTable.selectAll().where { CommitteeTable.id eq committeeId }.single()
-        return eligibleMemberIds(committeeRow, meetingRow[MeetingTable.scheduledAt].date)
+        return eligibleMemberIds(committeeRow = committeeRow, scheduledDate = meetingRow[MeetingTable.scheduledAt].date)
     }
 
     /** Snapshots current eligibility into `systemic_consensus_eligible_voter` for [round] -- shared by [freezeOptions] and [reopenRating]. */
@@ -767,7 +772,7 @@ class SystemicConsensusService(
         meetingId: Uuid,
         round: Int,
     ) {
-        val eligible = eligibleMembersOf(committeeId, meetingId)
+        val eligible = eligibleMembersOf(committeeId = committeeId, meetingId = meetingId)
         eligible.forEach { mId ->
             SystemicConsensusEligibleVoterTable.insert {
                 it[id] = Uuid.random()

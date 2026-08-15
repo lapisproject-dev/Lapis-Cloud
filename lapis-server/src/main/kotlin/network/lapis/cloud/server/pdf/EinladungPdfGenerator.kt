@@ -36,9 +36,9 @@ object EinladungPdfGenerator {
                 .date
         recipients.forEachIndexed { index, recipient ->
             if (index > 0) builder.newPage()
-            builder.letterhead(organization.name, organization.addressLines())
+            builder.letterhead(orgName = organization.name, orgAddressLines = organization.addressLines())
             builder.recipientAddress(recipientAddressLines(recipient))
-            builder.dateLine(organization.city ?: organization.name, today)
+            builder.dateLine(place = organization.city ?: organization.name, date = today)
             builder.heading(title)
             builder.paragraph(
                 "Termin: ${formatGermanDate(eventDateTime.date)} um " +

@@ -640,19 +640,19 @@ private fun Route.registerPostalMailTestRoutes(provider: PostalMailProvider) {
     val storageRoot = File("build/test-document-storage-postal-mail")
 
     post("/test/dispatch-beitragsrechnung") {
-        val service = PostalMailService(call, storageRoot, provider)
+        val service = PostalMailService(call = call, storageRoot = storageRoot, postalMailProvider = provider)
         val contributionId = call.request.queryParameters["contributionId"]!!
         val dto = service.dispatchBeitragsrechnungByPost(contributionId)
         call.respondText("${dto.status}:${dto.recipientMemberId}:${dto.documentReference}:${dto.errorMessage}")
     }
     post("/test/dispatch-spendenbescheinigung") {
-        val service = PostalMailService(call, storageRoot, provider)
+        val service = PostalMailService(call = call, storageRoot = storageRoot, postalMailProvider = provider)
         val journalEntryId = call.request.queryParameters["journalEntryId"]!!
         val dto = service.dispatchSpendenbescheinigungByPost(journalEntryId)
         call.respondText("${dto.status}:${dto.recipientMemberId}:${dto.documentReference}:${dto.errorMessage}")
     }
     post("/test/dispatch-einladung") {
-        val service = PostalMailService(call, storageRoot, provider)
+        val service = PostalMailService(call = call, storageRoot = storageRoot, postalMailProvider = provider)
         val q = call.request.queryParameters
         val input =
             PostalInvitationDispatchInput(
@@ -666,7 +666,7 @@ private fun Route.registerPostalMailTestRoutes(provider: PostalMailProvider) {
         call.respondText(dtos.joinToString(";") { "${it.status}:${it.recipientMemberId}" })
     }
     get("/test/list-delivery-log") {
-        val service = PostalMailService(call, storageRoot, provider)
+        val service = PostalMailService(call = call, storageRoot = storageRoot, postalMailProvider = provider)
         val dtos = service.listPostalDeliveryLog()
         call.respondText(dtos.joinToString(";") { it.dispatchedAt.toString() })
     }
