@@ -5,10 +5,8 @@
 #
 # Mirrors deploy/local/livekit.yaml's structure (see that file's own extensive KDoc-style comments
 # for the rationale behind each setting that carries over unchanged: no `--dev` flag/6-byte secret,
-# no static `turn_servers` block, embedded TURN disabled in favor of the sibling coturn service,
-# Redis intentionally omitted -- this deployment scopes to Wave 1 live calls only, not Wave 2
-# recording/Wave 3 streaming, which need the egress+redis services this production stack does not
-# run yet). The load-bearing PRODUCTION difference is `rtc.node_ip` below.
+# no static `turn_servers` block, embedded TURN disabled in favor of the sibling coturn service).
+# The load-bearing PRODUCTION difference is `rtc.node_ip` below.
 port: 7880
 
 rtc:
@@ -40,3 +38,12 @@ keys:
 
 logging:
   level: info
+
+# V1.0 Videokonferenzen, Wave 2 "Aufzeichnung" + Wave 3 "Externes Streaming": LiveKit's own
+# self-hosting docs state the Egress service uses Redis message queues to load-balance and
+# communicate with the LiveKit server -- BOTH processes must point at the SAME Redis instance (see
+# egress.yaml.template's own `redis:` block, address must match byte-for-byte, and
+# docker-compose.yml's `redis` service). Matches deploy/local/livekit.yaml's own Wave 2 addition;
+# does NOT disturb `rtc.node_ip` above.
+redis:
+  address: redis:6379

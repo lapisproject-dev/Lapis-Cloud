@@ -6,6 +6,59 @@ All notable changes to this project are documented here. Format follows
 
 ## [Unreleased]
 
+### Added
+
+**Proper first-admin bootstrap, closing the manual-SQL-INSERT gap**
+
+`AdminBootstrap.bootstrapFirstAdmin()` (env var `LAPIS_BOOTSTRAP_ADMIN_DISPLAY_NAME`, CLI-only, same
+`bootstrapAdmin` Gradle task as before) creates the very first Member+Account row and grants ADMIN
+on a genuinely fresh deployment, closing the chicken-and-egg gap this project's own pdv2 test
+instance hit at first boot (no board yet able to approve a registration, no existing account to set
+a password on) -- previously worked around with a one-time manual SQL `UPDATE`. Refuses unless
+`member` is completely empty (never usable to inject a new ADMIN into a deployment that already has
+real member data), and serializes concurrent invocation via a `FOR UPDATE` lock on the Flyway-seeded
+`organization_settings` singleton row -- found and fixed during review: an earlier version's plain,
+unlocked empty-check would have let two concurrent invocations (e.g. a retried deploy script) both
+observe an empty table and both succeed, creating two ADMIN rows. Live-verified against the real
+pdv2 production Postgres database (correctly refuses, since that deployment already has data).
+
+**Video conferencing Wave 2 "Aufzeichnung" + Wave 3 "Externes Streaming" now live in production**
+
+Adds `redis`/`egress` services to `deploy/production/docker-compose.yml`, alongside a new
+`egress.yaml.template` (rendered by the existing `render-secrets.sh`, reusing the same LiveKit API
+key/secret already required for Wave 1 -- no new secret needed) and a `redis:` block added to
+`livekit.yaml.template`. `ffmpeg` (needed to compose Wave 2's raw per-track recordings into one
+gallery video) is now baked into the `lapis-server` production image itself. A new
+`lapis-egress-output` named volume is shared between the `egress` container (mounted at `/out`) and
+`lapis-server` (mounted at `/app/egress-out`) -- both point at the same underlying raw-recording
+bytes, matching `ConferenceRecordingConfig`'s documented "two deliberately separate output-directory
+env vars" contract. `redis`/`egress` publish no ports -- compose-internal only, same posture
+`deploy/local/docker-compose.yml` already established for local development.
+
+New `internal` Docker network, found and added during review: `postgres`/`lapis-server`/`livekit`/
+`redis`/`egress` join it, but `coturn` deliberately does not -- a TURN relay has no internal-service
+dependencies of its own, so keeping it off `internal` means a future coturn compromise (the largest
+raw public attack surface in this stack, an unauthenticated-by-protocol-design STUN/TURN listener)
+cannot pivot onto `redis` (itself unauthenticated by design -- network isolation IS its access
+control) or `egress` (holds `SYS_ADMIN`). Also found during review: `RecordingPoller`'s raw-file
+cleanup after a successful compose (`deleteRecursively()`) silently ignored its own return value --
+a UID mismatch between the `lapis-server` and `egress` containers on the shared volume could leave
+every raw per-track recording permanently un-deleted with no symptom before the disk fills up; now
+checked and logged as a WARN.
+
+### Fixed
+
+**Obsolete PZB firewall rule and unused OpenJDK 21 removed from the pdv2 host**
+
+The `ip saddr 159.195.38.21 tcp dport 8080 accept` nftables rule (a leftover from the pre-Docker PZB
+reverse-proxy setup, dead since that migration but left in place as harmless) is removed --
+verified externally that port 8080 is unreachable both before and after, and that the Lapis Cloud
+Docker stack survived the required `nft -f`-triggered Docker NAT-table regeneration (`systemctl
+restart docker`) cleanly. `openjdk-21` (superseded by the `lapis-server` Docker image's own bundled
+JRE once the bare-JVM/systemd deployment was fully replaced) uninstalled from the host, freeing
+~300 MB; the host's `java` alternative now resolves to the pre-existing `openjdk-25` install
+instead, unused by anything on the host either way.
+
 ## [0.12.0] — 2026-08-15
 
 ### Added

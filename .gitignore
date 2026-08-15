@@ -129,5 +129,6 @@ gradle-app.setting
 # LiveKit/coturn secrets, never commit (the .template versions ARE committed).
 deploy/production/livekit.yaml
 deploy/production/turnserver.conf
+deploy/production/egress.yaml
 
 .DS_Store

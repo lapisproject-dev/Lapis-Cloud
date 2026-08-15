@@ -151,14 +151,14 @@ PostgreSQL instance as disposable.
 
 == Video conferencing
 
-Scoped to Videokonferenzen Wave 1 (live audio/video/screen-share/chat) only -- no `redis`/`egress`
-services here, so Wave 2 "Aufzeichnung"/Wave 3 "Externes Streaming" are not available on this
-deployment (the app degrades gracefully: `ConferenceRecordingConfig` just logs once that recording
-composition is unavailable). See `deploy/local/docker-compose.yml` if a future wave needs those
-added here too.
+Covers Videokonferenzen Wave 1 (live audio/video/screen-share/chat), Wave 2 "Aufzeichnung", and
+Wave 3 "Externes Streaming" -- `redis`/`egress` join `livekit`/`coturn` in this stack so recording
+and external RTMP streaming (`ConferenceStreamDestinationsScreen`) both work, not just live calls.
 
 Unlike everything else in this stack, LiveKit and coturn need **real public exposure** -- WebRTC
-media does not go through Apache's reverse proxy, browsers connect to them directly:
+media does not go through Apache's reverse proxy, browsers connect to them directly. `redis` and
+`egress` stay compose-internal only (no published ports) -- nothing outside the stack ever talks to
+either directly, same posture `deploy/local/docker-compose.yml` already establishes:
 
 * **Signaling** (LiveKit's HTTP/Twirp/WebSocket port, 7880) stays loopback-only and goes through
   Apache instead, TLS-terminated on its own subdomain (`video.<domain>` by convention -- needs its
@@ -175,18 +175,32 @@ Setup:
 . Get the host's real public IPv4 and put it in `.env` as `LAPIS_PUBLIC_IP`. Generate
   `LAPIS_LIVEKIT_API_SECRET`/`LAPIS_TURN_SECRET` with `openssl rand -base64 32` each (never reuse
   one secret for both, never reuse `deploy/local`'s dev secrets). Point `LAPIS_LIVEKIT_URL` at the
-  public `wss://` origin the signaling subdomain will be reachable at.
-. `./render-secrets.sh` -- renders `livekit.yaml`/`turnserver.conf` from their `.template` files
-  using `.env` (requires `envsubst`, package `gettext-base` on Debian). Re-run this any time `.env`
-  changes; the rendered files are gitignored.
+  public `wss://` origin the signaling subdomain will be reachable at. No SEPARATE secret is needed
+  for `egress` -- it authenticates against LiveKit's own Twirp API using the SAME
+  `LAPIS_LIVEKIT_API_KEY`/`LAPIS_LIVEKIT_API_SECRET` pair.
+. `./render-secrets.sh` -- renders `livekit.yaml`/`turnserver.conf`/`egress.yaml` from their
+  `.template` files using `.env` (requires `envsubst`, package `gettext-base` on Debian). Re-run
+  this any time `.env` changes; the rendered files are gitignored.
 . Set up the signaling subdomain's DNS record (A/AAAA, same IP as the main app), then Apache vhost
   + Let's Encrypt cert for it, proxying to `127.0.0.1:7880` with `Upgrade: websocket` support
   (same `RewriteCond %{HTTP:Upgrade}` pattern the main app's own vhost already uses for
   `ws://127.0.0.1:8080`).
 . Open the firewall for the public media ports listed above, then
-  `docker compose up -d livekit coturn`.
-. Verify with a real two-participant call in a browser (see `deploy/local/README.adoc` "Live
-  verification results" for the same manual recipe against the dev stack).
+  `docker compose up -d livekit coturn redis egress`.
+. Verify Wave 1 with a real two-participant call in a browser (see `deploy/local/README.adoc` "Live
+  verification results" for the same manual recipe against the dev stack). Verify Wave 2 by
+  starting a recording, ending the call, and confirming a composed recording lands in the org's
+  document storage once `RecordingPoller` picks it up (poll interval `LAPIS_RECORDING_POLL_INTERVAL_SECONDS`,
+  default 10s). Verify Wave 3's Chrome-free path (`ConferenceStreamLayout.SINGLE_PARTICIPANT`) with
+  a real external RTMP target -- `GRID`/`SPEAKER` layouts additionally need this host to reach
+  `https://template.livekit.io` (see `egress.yaml.template`'s own comment for the exact failure
+  signature if it can't, and the `template_base` self-hosting escape hatch).
+
+`ffmpeg` (needed to compose Wave 2's raw per-track recordings into one gallery video) is baked into
+the `lapis-server` image itself (see repo-root `Dockerfile`) -- nothing extra to install on the
+host. A startup WARN from `ConferenceRecordingConfig` ("ffmpeg probe failed") after a rebuild means
+the image wasn't actually rebuilt (stale container still running the pre-Wave-2 image) -- re-run
+`docker compose up -d --build lapis-server`.
 
 == Secrets
 

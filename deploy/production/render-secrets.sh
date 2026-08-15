@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
-# Renders livekit.yaml.template / turnserver.conf.template into the real, gitignored
-# livekit.yaml / turnserver.conf using the secrets in this directory's .env file.
+# Renders livekit.yaml.template / turnserver.conf.template / egress.yaml.template into the real,
+# gitignored livekit.yaml / turnserver.conf / egress.yaml using the secrets in this directory's
+# .env file.
 # Run from deploy/production/ (or pass no args, it cd's to its own location).
 #
 # Requires `envsubst` (gettext-base package on Debian: apt-get install gettext-base).
@@ -28,5 +29,7 @@ envsubst '${LAPIS_PUBLIC_IP} ${LAPIS_LIVEKIT_API_KEY} ${LAPIS_LIVEKIT_API_SECRET
   < livekit.yaml.template > livekit.yaml
 envsubst '${LAPIS_PUBLIC_IP} ${LAPIS_TURN_SECRET}' \
   < turnserver.conf.template > turnserver.conf
+envsubst '${LAPIS_LIVEKIT_API_KEY} ${LAPIS_LIVEKIT_API_SECRET}' \
+  < egress.yaml.template > egress.yaml
 
-echo "Rendered livekit.yaml and turnserver.conf."
+echo "Rendered livekit.yaml, turnserver.conf, and egress.yaml."

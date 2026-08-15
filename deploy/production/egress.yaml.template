@@ -1,0 +1,30 @@
+# Lapis Cloud -- PRODUCTION Egress config (Videokonferenzen Wave 2 "Aufzeichnung" + Wave 3
+# "Externes Streaming"). This is a TEMPLATE, not the real file: the placeholders below are
+# substituted from deploy/production/.env by render-secrets.sh (see README.adoc "Video
+# conferencing"). The rendered egress.yaml is gitignored -- never commit it.
+#
+# Mirrors deploy/local/egress.yaml's structure (see that file's own extensive comments for the full
+# rationale) -- the server records raw per-participant tracks in real time via LiveKit Track Egress
+# (Wave 2), and the same egress service also drives Room/Participant Composite Egress for external
+# RTMP streaming (Wave 3, ConferenceStreamDestinationsScreen). `api_key`/`api_secret` below MUST
+# equal livekit.yaml's own rendered `keys:` entry byte-for-byte -- egress authenticates against the
+# LiveKit server's Twirp API using the SAME admin credential LiveKitEgressClient/LiveKitAdminClient
+# mint tokens against -- and `redis.address` MUST equal livekit.yaml's own `redis:` block.
+log_level: info
+api_key: ${LAPIS_LIVEKIT_API_KEY}
+api_secret: ${LAPIS_LIVEKIT_API_SECRET}
+ws_url: ws://livekit:7880 # compose service name, NOT localhost -- resolved inside the container
+insecure: true # plain ws:// -- compose-internal traffic only, never reaches the public internet,
+# same trust boundary LAPIS_LIVEKIT_API_URL (http://livekit:7880) already uses for Wave 1.
+redis:
+  address: redis:6379
+
+# Wave 3 "Externes Streaming" -- Room-Composite egress (ConferenceStreamLayout.GRID/SPEAKER) renders
+# through a web page loaded by Chrome INSIDE the egress container, by default fetched from
+# https://template.livekit.io. If this host cannot reach that origin, Room-Composite egress aborts
+# with "Start signal not received" (see deploy/local/egress.yaml's own header for the exact
+# signature) -- ConferenceStreamLayout.SINGLE_PARTICIPANT (StartParticipantEgress) needs neither
+# Chrome nor this template and works regardless. Self-hosting a Lapis-owned template mirror is
+# explicitly a LATER wave's job (see deploy/local/egress.yaml's own comment) -- uncomment and point
+# `template_base` at one if/when this deployment needs Room-Composite egress to work offline.
+# template_base: http://your-self-hosted-template-mirror:PORT

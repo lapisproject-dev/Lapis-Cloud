@@ -502,8 +502,18 @@ class RecordingPoller(
 
             // Raw deletion is ONLY ever reached from this success branch -- see class KDoc
             // "PROCESSING" for why a FAILED recording's raw files must never be touched here.
+            // Result checked and logged (not silently swallowed): in a Docker deployment where the
+            // `egress` container writes the raw files as a different UID than this process runs as,
+            // deleteRecursively() can legitimately fail with no exception -- it just returns false --
+            // and a silent failure here would leave every raw per-track recording accumulating
+            // forever with no visible symptom until the disk fills up.
             if (!recordingConfig.keepRaw) {
-                File(hostRawRoot, row.rawDir).deleteRecursively()
+                val rawDir = File(hostRawRoot, row.rawDir)
+                if (!rawDir.deleteRecursively()) {
+                    logger.warn {
+                        "RecordingPoller: failed to delete raw files for recording ${row.id} at $rawDir -- check container UID/permissions"
+                    }
+                }
             }
         } catch (e: Exception) {
             logger.warn(e) { "RecordingPoller: composition/archiving failed for recording ${row.id} (attempt $attemptNumber)" }

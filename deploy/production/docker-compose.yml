@@ -16,6 +16,17 @@
 # against committed secrets.
 name: lapis-cloud
 
+# `internal`: postgres/lapis-server/livekit/redis/egress -- every service that has a genuine
+# internal-communication need with another service in this stack. `coturn` deliberately does NOT
+# join it (see that service's own comment) -- a TURN relay has zero internal-service dependencies
+# of its own, so keeping it off this network means a future coturn CVE/compromise (it has the
+# largest raw public attack surface here -- a STUN/TURN protocol parser reachable from the entire
+# internet) cannot pivot onto redis (unauthenticated by design, see that service's comment) or
+# egress (holds SYS_ADMIN). `network_mode` is left at Compose's implicit default for coturn instead
+# -- simpler than inventing a second named network for a service with nothing to talk to.
+networks:
+  internal:
+
 services:
   postgres:
     # Pinned to the exact version the prior native install ran (17.10) -- matches this repo's
@@ -38,6 +49,7 @@ services:
       interval: 5s
       timeout: 5s
       retries: 10
+    networks: [internal]
     restart: unless-stopped
 
   lapis-server:
@@ -64,22 +76,34 @@ services:
       LAPIS_LIVEKIT_API_SECRET: ${LAPIS_LIVEKIT_API_SECRET:?LAPIS_LIVEKIT_API_SECRET must be set in .env}
       LAPIS_TURN_URLS: turn:${LAPIS_PUBLIC_IP:?LAPIS_PUBLIC_IP must be set in .env}:3478?transport=udp,turn:${LAPIS_PUBLIC_IP}:3478?transport=tcp
       LAPIS_TURN_SHARED_SECRET: ${LAPIS_TURN_SECRET:?LAPIS_TURN_SECRET must be set in .env}
+      # Video conferencing (Videokonferenzen Wave 2 "Aufzeichnung" + Wave 3 "Externes Streaming")
+      # -- see README.adoc "Video conferencing". LAPIS_EGRESS_OUTPUT_CONTAINER_DIR/
+      # LAPIS_EGRESS_OUTPUT_HOST_DIR both point at the SAME lapis-egress-output named volume below
+      # (mounted at /out in the sibling `egress` container, /app/egress-out here) -- see
+      # ConferenceRecordingConfig KDoc "Two deliberately separate output-directory env vars" for why
+      # they are never collapsed into one, even though this deployment (unlike local dev) runs both
+      # sides in Docker. LAPIS_EGRESS_OUTPUT_HOST_DIR itself is already baked into the Dockerfile as
+      # an ENV default matching this mount point -- repeated here only for discoverability alongside
+      # every other Wave 2/3 setting.
+      LAPIS_RECORDING_ENABLED: "true"
+      LAPIS_EGRESS_OUTPUT_CONTAINER_DIR: /out
+      LAPIS_EGRESS_OUTPUT_HOST_DIR: /app/egress-out
     volumes:
-      # Named volume, not a bind mount -- survives `docker compose up -d --build` image rebuilds/
-      # recreations, which a container's own writable layer would not. Matches
-      # LAPIS_DOCUMENT_STORAGE_ROOT baked into the Dockerfile (/app/document-storage).
+      # Named volumes, not bind mounts -- survive `docker compose up -d --build` image rebuilds/
+      # recreations, which a container's own writable layer would not. lapis-document-storage
+      # matches LAPIS_DOCUMENT_STORAGE_ROOT baked into the Dockerfile (/app/document-storage);
+      # lapis-egress-output is the shared raw-recording volume (see environment: above).
       - lapis-document-storage:/app/document-storage
+      - lapis-egress-output:/app/egress-out
     ports:
       # Loopback-only, matching the prior systemd deployment's Apache-proxies-to-127.0.0.1:8080
       # setup exactly -- Apache's vhost config needs no change for this cutover.
       - "127.0.0.1:8080:8080"
+    networks: [internal]
     restart: unless-stopped
 
-  # Video conferencing (Videokonferenzen Wave 1: live audio/video/screen-share/chat). Scoped to
-  # this wave only -- no redis/egress services here, so Wave 2 "Aufzeichnung"/Wave 3 "Externes
-  # Streaming" are not available on this deployment yet (ConferenceRecordingConfig degrades
-  # gracefully: recording composition is simply unavailable, logged once as a WARN at startup, not
-  # a failure). See deploy/local/docker-compose.yml for what adding those back would look like.
+  # Video conferencing (Videokonferenzen Wave 1: live audio/video/screen-share/chat + Wave 2
+  # "Aufzeichnung" + Wave 3 "Externes Streaming" via the redis/egress services below).
   livekit:
     image: livekit/livekit-server:v1.13.5
     container_name: lapis-cloud-livekit
@@ -99,8 +123,13 @@ services:
       # ICE/UDP mux -- PUBLIC, single port (not a range) -- simpler firewall surface, matches
       # deploy/local/livekit.yaml's own choice and LiveKit's recommended production default.
       - "7882:7882/udp"
+    networks: [internal]
     restart: unless-stopped
 
+  # Deliberately NOT on the `internal` network -- see that network's own top-of-file comment. A TURN
+  # relay has no internal-service dependencies of its own; keeping it off `internal` means it cannot
+  # reach redis/egress even if compromised via its own (large, unauthenticated-by-protocol-design)
+  # public STUN/TURN attack surface.
   coturn:
     image: coturn/coturn:4.17.0-alpine
     container_name: lapis-cloud-coturn
@@ -116,6 +145,48 @@ services:
       - "51000-51019:51000-51019/udp"
     restart: unless-stopped
 
+  # V1.0 Videokonferenzen, Wave 2 "Aufzeichnung" -- LiveKit's own self-hosting docs state the Egress
+  # service uses Redis message queues to load-balance and communicate with the LiveKit server; both
+  # `livekit` and `egress` below point at this SAME instance. Mirrors deploy/local/docker-compose.yml.
+  redis:
+    image: redis:7.4-alpine
+    container_name: lapis-cloud-redis
+    command: ["redis-server", "--save", "", "--appendonly", "no"]
+    networks: [internal]
+    restart: unless-stopped
+    # DELIBERATELY NO `ports:` -- Redis is reachable only on the compose-internal network (livekit +
+    # egress). Publishing it, even loopback-only, would expose an unauthenticated Redis to every
+    # process on the host for zero benefit. Also has zero auth of its own (no `requirepass`) --
+    # network isolation (see `internal`'s own comment: coturn deliberately excluded) IS the access
+    # control here, not a defense-in-depth extra.
+
+  # V1.0 Videokonferenzen, Wave 2 "Aufzeichnung" + Wave 3 "Externes Streaming". Drives BOTH the raw
+  # per-track recording pipeline (Track Egress, ConferenceRecordingConfig on the lapis-server side)
+  # and external RTMP streaming (Room/Participant Composite Egress, ConferenceStreamDestinationsScreen)
+  # -- one egress service handles both, matching deploy/local/docker-compose.yml.
+  egress:
+    image: livekit/egress:v1.13.0
+    container_name: lapis-cloud-egress
+    environment:
+      EGRESS_CONFIG_FILE: /etc/egress.yaml
+    volumes:
+      # Rendered by render-secrets.sh from egress.yaml.template -- see README.adoc.
+      - ./egress.yaml:/etc/egress.yaml:ro
+      # The raw per-track sink -- CONTAINER path (/out), matching ConferenceRecordingConfig's
+      # outputContainerDir default. lapis-server reads the SAME bytes back from ITS OWN mount of
+      # this same named volume (LAPIS_EGRESS_OUTPUT_HOST_DIR=/app/egress-out on that service) --
+      # see that service's own environment: comment.
+      - lapis-egress-output:/out
+      - /tmp # egress scratch space, matches deploy/local/docker-compose.yml
+    cap_add:
+      - SYS_ADMIN # documented as required since egress v1.7.6 (Chrome sandbox, Room-Composite egress)
+    depends_on: [redis, livekit]
+    networks: [internal]
+    restart: unless-stopped
+    # No published ports -- egress is driven entirely through Redis; nothing outside the compose
+    # network ever talks to it directly.
+
 volumes:
   lapis-postgres-data:
   lapis-document-storage:
+  lapis-egress-output:
