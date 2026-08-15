@@ -9,6 +9,8 @@ import io.kvision.html.h1
 import io.kvision.html.h2
 import io.kvision.html.link
 import io.kvision.html.p
+import io.kvision.i18n.gettext
+import io.kvision.i18n.tr
 import io.kvision.panel.SimplePanel
 import io.kvision.panel.hPanel
 import io.kvision.panel.vPanel
@@ -61,7 +63,7 @@ fun renderContributionsScreen(container: SimplePanel) {
             width = 760.px
             marginTop = 24.px
         }
-    root.h1("Beitragsübersicht")
+    root.h1(tr("Beitragsübersicht"))
 
     renderOwnSummary(root, session.memberId)
 
@@ -77,16 +79,24 @@ private fun renderOwnSummary(
     root: SimplePanel,
     memberId: String,
 ) {
-    root.h2("Meine Beiträge")
+    root.h2(tr("Meine Beiträge"))
     val panel = root.vPanel(spacing = 4)
     AppScope.launch {
         val summary = guarded { rpcService<IContributionService>().getMemberContributionSummary(memberId) } ?: return@launch
-        panel.div("Offen: ${summary.totalOpen} | Bezahlt: ${summary.totalPaid} | Gesamt: ${summary.totalDue}")
+        panel.div(gettext("Offen: %1 | Bezahlt: %2 | Gesamt: %3", summary.totalOpen, summary.totalPaid, summary.totalDue))
         if (summary.contributions.isEmpty()) {
-            panel.p("Keine Beiträge vorhanden.")
+            panel.p(tr("Keine Beiträge vorhanden."))
         } else {
             summary.contributions.forEach { contribution ->
-                panel.div("${contribution.periodStart} bis ${contribution.periodEnd}: ${contribution.amountDue} (${contribution.status})") {
+                panel.div(
+                    gettext(
+                        "%1 bis %2: %3 (%4)",
+                        contribution.periodStart,
+                        contribution.periodEnd,
+                        contribution.amountDue,
+                        contribution.status,
+                    ),
+                ) {
                     addCssClasses("border-bottom py-1")
                 }
             }
@@ -95,39 +105,39 @@ private fun renderOwnSummary(
 }
 
 private fun renderTierAdministration(root: SimplePanel) {
-    root.h2("Beitragssätze und Beitragsgenerierung")
+    root.h2(tr("Beitragssätze und Beitragsgenerierung"))
     val tiersPanel = root.vPanel(spacing = 4)
     val formPanel = root.vPanel(spacing = 6)
 
     AppScope.launch {
         val tiers = guarded { rpcService<IContributionService>().listMembershipTiers() } ?: return@launch
         if (tiers.isEmpty()) {
-            tiersPanel.p("Keine Beitragssätze vorhanden.")
+            tiersPanel.p(tr("Keine Beitragssätze vorhanden."))
             return@launch
         }
         tiers.forEach { tier ->
-            val activeLabel = if (tier.active) "aktiv" else "inaktiv"
-            tiersPanel.div("${tier.name}: ${tier.contributionAmount} (${tier.billingInterval}, $activeLabel)")
+            val activeLabel = if (tier.active) gettext("aktiv") else gettext("inaktiv")
+            tiersPanel.div(gettext("%1: %2 (%3, %4)", tier.name, tier.contributionAmount, tier.billingInterval, activeLabel))
         }
 
         val tierOptions = tiers.map { it.id to it.name }
-        val tierSelect = formPanel.select(options = tierOptions, value = tierOptions.firstOrNull()?.first, label = "Beitragssatz")
-        val periodStartInput = formPanel.text(label = "Periodenbeginn (JJJJ-MM-TT)")
-        val periodEndInput = formPanel.text(label = "Periodenende (JJJJ-MM-TT)")
+        val tierSelect = formPanel.select(options = tierOptions, value = tierOptions.firstOrNull()?.first, label = tr("Beitragssatz"))
+        val periodStartInput = formPanel.text(label = tr("Periodenbeginn (JJJJ-MM-TT)"))
+        val periodEndInput = formPanel.text(label = tr("Periodenende (JJJJ-MM-TT)"))
         val errorBox =
             formPanel.div().apply {
                 addCssClass("text-danger")
                 hide()
             }
 
-        val generateButton = formPanel.button("Beiträge generieren", style = ButtonStyle.PRIMARY)
+        val generateButton = formPanel.button(tr("Beiträge generieren"), style = ButtonStyle.PRIMARY)
         generateButton.onClick {
             errorBox.hide()
             val tierId = tierSelect.value
             val periodStart = runCatching { LocalDate.parse(periodStartInput.value.orEmpty().trim()) }.getOrNull()
             val periodEnd = runCatching { LocalDate.parse(periodEndInput.value.orEmpty().trim()) }.getOrNull()
             if (tierId == null || periodStart == null || periodEnd == null) {
-                errorBox.content = "Bitte Beitragssatz sowie gültiges Beginn-/Enddatum (JJJJ-MM-TT) angeben."
+                errorBox.content = tr("Bitte Beitragssatz sowie gültiges Beginn-/Enddatum (JJJJ-MM-TT) angeben.")
                 errorBox.show()
                 return@onClick
             }
@@ -135,14 +145,14 @@ private fun renderTierAdministration(root: SimplePanel) {
             AppScope.launch {
                 val created = guarded { rpcService<IContributionService>().generateContributionsForPeriod(tierId, periodStart, periodEnd) }
                 generateButton.disabled = false
-                if (created != null) notifySuccess("$created neue Beiträge erzeugt (bereits vorhandene wurden übersprungen).")
+                if (created != null) notifySuccess(gettext("%1 neue Beiträge erzeugt (bereits vorhandene wurden übersprungen).", created))
             }
         }
     }
 }
 
 private fun renderOrgWideContributions(root: SimplePanel) {
-    root.h2("Alle Beiträge")
+    root.h2(tr("Alle Beiträge"))
     val canMarkPaid = AppState.hasRole(AccountRole.TREASURER, AccountRole.ADMIN)
     val canWaive = AppState.hasRole(AccountRole.BOARD, AccountRole.ADMIN)
     val listPanel = root.vPanel(spacing = 4)
@@ -154,7 +164,7 @@ private fun renderOrgWideContributions(root: SimplePanel) {
             val contributions =
                 guarded { rpcService<IContributionService>().listContributions(status = ContributionStatus.OPEN) } ?: return@launch
             if (contributions.isEmpty()) {
-                listPanel.p("Keine offenen Beiträge.")
+                listPanel.p(tr("Keine offenen Beiträge."))
                 return@launch
             }
             contributions.forEach { contribution ->
@@ -176,22 +186,28 @@ private fun renderContributionRow(
     val container = parent.vPanel(spacing = 2)
     val row = container.hPanel(spacing = 8) { addCssClasses("border rounded p-2 align-items-center") }
     row.div(
-        "${contribution.memberDisplayName}: ${contribution.periodStart}–${contribution.periodEnd}: " +
-            "${contribution.amountDue} (${contribution.status})",
+        gettext(
+            "%1: %2–%3: %4 (%5)",
+            contribution.memberDisplayName,
+            contribution.periodStart,
+            contribution.periodEnd,
+            contribution.amountDue,
+            contribution.status,
+        ),
     ) { addCssClass("flex-grow-1") }
 
     // D3: only rendered here (renderOrgWideContributions, TREASURER/BOARD/ADMIN-gated by the
     // caller) -- never on renderOwnSummary. See MailmergeHttp KDoc for why.
-    row.link("Rechnung (PDF)", url = MailmergeHttp.invoiceUrl(contribution.id), target = "_blank")
+    row.link(tr("Rechnung (PDF)"), url = MailmergeHttp.invoiceUrl(contribution.id), target = "_blank")
 
     val outcomePanel = container.vPanel(spacing = 2)
     if (postalMailEnabled) {
-        val postalButton = row.button("Per Post versenden", style = ButtonStyle.OUTLINEDANGER)
+        val postalButton = row.button(tr("Per Post versenden"), style = ButtonStyle.OUTLINEDANGER)
         postalButton.onClick {
             postalDispatchConfirmDialog(
-                caption = "Beitragsrechnung per Post versenden",
+                caption = tr("Beitragsrechnung per Post versenden"),
                 recipientDisplayName = contribution.memberDisplayName,
-                documentLabel = "Beitragsrechnung ${contribution.periodStart}–${contribution.periodEnd}",
+                documentLabel = gettext("Beitragsrechnung %1–%2", contribution.periodStart, contribution.periodEnd),
             ) {
                 postalButton.disabled = true
                 outcomePanel.removeAll()
@@ -200,9 +216,9 @@ private fun renderContributionRow(
                     postalButton.disabled = false
                     if (result != null) {
                         if (result.status == PostalDeliveryStatus.SENT) {
-                            notifySuccess("Brief an ${result.recipientDisplayName} wurde an Letterxpress übergeben.")
+                            notifySuccess(gettext("Brief an %1 wurde an Letterxpress übergeben.", result.recipientDisplayName))
                         } else {
-                            notifyError("Postversand fehlgeschlagen.")
+                            notifyError(tr("Postversand fehlgeschlagen."))
                         }
                         outcomePanel.renderPostalDispatchOutcome(result)
                     }
@@ -214,7 +230,7 @@ private fun renderContributionRow(
     }
 
     if (canMarkPaid) {
-        val payButton = row.button("Als bezahlt markieren", style = ButtonStyle.SUCCESS)
+        val payButton = row.button(tr("Als bezahlt markieren"), style = ButtonStyle.SUCCESS)
         payButton.onClick {
             AppScope.launch {
                 val now = Clock.System.now().toLocalDateTime(TimeZone.currentSystemDefault())
@@ -223,24 +239,24 @@ private fun renderContributionRow(
                         rpcService<IContributionService>().markContributionPaid(contribution.id, now, contribution.amountDue, null)
                     }
                 if (result != null) {
-                    notifySuccess("Als bezahlt markiert.")
+                    notifySuccess(tr("Als bezahlt markiert."))
                     onChanged()
                 }
             }
         }
     }
     if (canWaive) {
-        val waiveButton = row.button("Erlassen", style = ButtonStyle.OUTLINEWARNING)
+        val waiveButton = row.button(tr("Erlassen"), style = ButtonStyle.OUTLINEWARNING)
         waiveButton.onClick {
             confirmDialog(
-                title = "Beitrag erlassen",
-                message = "Beitrag von ${contribution.memberDisplayName} über ${contribution.amountDue} wirklich erlassen?",
-                confirmLabel = "Erlassen",
+                title = tr("Beitrag erlassen"),
+                message = gettext("Beitrag von %1 über %2 wirklich erlassen?", contribution.memberDisplayName, contribution.amountDue),
+                confirmLabel = tr("Erlassen"),
             ) {
                 AppScope.launch {
                     val result = guarded { rpcService<IContributionService>().markContributionWaived(contribution.id, null) }
                     if (result != null) {
-                        notifySuccess("Beitrag erlassen.")
+                        notifySuccess(tr("Beitrag erlassen."))
                         onChanged()
                     }
                 }

@@ -6,6 +6,7 @@ import io.kvision.html.ButtonStyle
 import io.kvision.html.button
 import io.kvision.html.div
 import io.kvision.html.h2
+import io.kvision.i18n.tr
 import io.kvision.modal.Modal
 import io.kvision.panel.SimplePanel
 import io.kvision.panel.hPanel
@@ -173,14 +174,14 @@ class ConferenceWhiteboardController(
 
     init {
         panel.removeAll()
-        panel.h2("Whiteboard") { addCssClass("h6") }
+        panel.h2(tr("Whiteboard")) { addCssClass("h6") }
 
         val toolbar = panel.hPanel(spacing = 6) { addCssClasses("align-items-center flex-wrap mb-2") }
 
         WHITEBOARD_COLORS.forEach { hex ->
             val swatch = toolbar.button("", style = ButtonStyle.OUTLINESECONDARY)
             swatch.addCssClass("btn-sm")
-            swatch.title = "Farbe wählen"
+            swatch.title = tr("Farbe wählen")
             swatch.addAfterInsertHook { vnode ->
                 val el = vnode.elm as? HTMLElement ?: return@addAfterInsertHook
                 el.style.cssText = "width:28px;height:28px;border-radius:50%;padding:0;background-color:$hex;"
@@ -194,7 +195,7 @@ class ConferenceWhiteboardController(
             }
         }
 
-        val eraser = toolbar.button("Radierer", style = ButtonStyle.OUTLINESECONDARY)
+        val eraser = toolbar.button(tr("Radierer"), style = ButtonStyle.OUTLINESECONDARY)
         eraser.addCssClass("btn-sm")
         eraser.addAfterInsertHook { vnode ->
             eraserButtonElement = vnode.elm as? HTMLElement
@@ -205,7 +206,7 @@ class ConferenceWhiteboardController(
             updateToolbarSelection()
         }
 
-        val thin = toolbar.button("Dünn", style = ButtonStyle.OUTLINESECONDARY)
+        val thin = toolbar.button(tr("Dünn"), style = ButtonStyle.OUTLINESECONDARY)
         thin.addCssClass("btn-sm")
         thin.addAfterInsertHook { vnode ->
             thinButtonElement = vnode.elm as? HTMLElement
@@ -216,7 +217,7 @@ class ConferenceWhiteboardController(
             updateToolbarSelection()
         }
 
-        val thick = toolbar.button("Dick", style = ButtonStyle.OUTLINESECONDARY)
+        val thick = toolbar.button(tr("Dick"), style = ButtonStyle.OUTLINESECONDARY)
         thick.addCssClass("btn-sm")
         thick.addAfterInsertHook { vnode ->
             thickButtonElement = vnode.elm as? HTMLElement
@@ -231,13 +232,13 @@ class ConferenceWhiteboardController(
         // hidden for non-moderators; clearBoard's own requireModeratorOrPrivileged gate is the sole
         // authority regardless.
         if (canModerate) {
-            val clear = toolbar.button("Board leeren", style = ButtonStyle.OUTLINEWARNING)
+            val clear = toolbar.button(tr("Board leeren"), style = ButtonStyle.OUTLINEWARNING)
             clear.addCssClasses("btn-sm ms-2")
             clear.onClick { whiteboardClearConfirmDialog { doClearBoard() } }
             clearButton = clear
         }
 
-        val save = toolbar.button("Als Dokument speichern", style = ButtonStyle.OUTLINEPRIMARY)
+        val save = toolbar.button(tr("Als Dokument speichern"), style = ButtonStyle.OUTLINEPRIMARY)
         save.addCssClasses("btn-sm ms-2")
         save.onClick { whiteboardSaveAsDocumentDialog { level -> doSaveAsDocument(level) } }
         saveButton = save
@@ -420,7 +421,7 @@ class ConferenceWhiteboardController(
         val nearStrokeCap = strokeCount >= (CLIENT_MAX_STROKES_PER_ROOM * CLIENT_SOFT_CAP_FRACTION).toInt()
         val nearPointCap = pointCount >= (CLIENT_MAX_TOTAL_POINTS_PER_ROOM * CLIENT_SOFT_CAP_FRACTION).toInt()
         if (nearStrokeCap || nearPointCap) {
-            notifyError("Board ist fast voll -- bitte speichern und leeren.")
+            notifyError(tr("Board ist fast voll -- bitte speichern und leeren."))
             return false
         }
         return true
@@ -518,7 +519,7 @@ class ConferenceWhiteboardController(
                 preview.clear()
                 strokeAuthors.clear()
                 scheduleRedraw()
-                notifySuccess("Whiteboard geleert.")
+                notifySuccess(tr("Whiteboard geleert."))
             }
         }
     }
@@ -530,7 +531,7 @@ class ConferenceWhiteboardController(
             val result = guarded { rpcService<IConferenceWhiteboardService>().saveAsDocument(roomId, accessLevel) }
             button.disabled = false
             if (result != null) {
-                notifySuccess("Whiteboard als Dokument gespeichert.")
+                notifySuccess(tr("Whiteboard als Dokument gespeichert."))
             }
         }
     }
@@ -601,16 +602,16 @@ internal fun canAcceptWhiteboardStrokeAuthor(
  * leeren", never "OK"/"Bestätigen"), states both the immediacy and the escape hatch.
  */
 private fun whiteboardClearConfirmDialog(onConfirm: () -> Unit) {
-    val modal = Modal(caption = "Whiteboard leeren")
+    val modal = Modal(caption = tr("Whiteboard leeren"))
     modal.div(
-        "Alle Zeichnungen auf dem Whiteboard werden sofort für alle Teilnehmenden entfernt.",
+        tr("Alle Zeichnungen auf dem Whiteboard werden sofort für alle Teilnehmenden entfernt."),
     ) { addCssClass("fw-bold") }
     modal.div(
-        "Falls die Zeichnung noch gebraucht wird: vorher als Dokument speichern.",
+        tr("Falls die Zeichnung noch gebraucht wird: vorher als Dokument speichern."),
     ) { addCssClasses("text-muted small") }
-    modal.addButton(Button("Abbrechen", style = ButtonStyle.SECONDARY).apply { onClick { modal.hide() } })
+    modal.addButton(Button(tr("Abbrechen"), style = ButtonStyle.SECONDARY).apply { onClick { modal.hide() } })
     modal.addButton(
-        Button("Board leeren", style = ButtonStyle.WARNING).apply {
+        Button(tr("Board leeren"), style = ButtonStyle.WARNING).apply {
             onClick {
                 modal.hide()
                 onConfirm()
@@ -626,21 +627,23 @@ private fun whiteboardClearConfirmDialog(onConfirm: () -> Unit) {
  * framing -- saving is additive and repeatable, unlike starting a recording that exposes live speech.
  */
 private fun whiteboardSaveAsDocumentDialog(onConfirm: (DocumentAccessLevel) -> Unit) {
-    val modal = Modal(caption = "Whiteboard als Dokument speichern")
+    val modal = Modal(caption = tr("Whiteboard als Dokument speichern"))
     modal.div(
-        "Der aktuelle Stand des Whiteboards wird als Bild in der Dokumentenablage gespeichert.",
+        tr("Der aktuelle Stand des Whiteboards wird als Bild in der Dokumentenablage gespeichert."),
     ) { addCssClasses("small mb-2") }
     val accessOptions = DocumentAccessLevel.entries.map { it.name to conferenceRecordingAccessLevelLabel(it) }
     val accessSelect =
-        modal.select(options = accessOptions, value = DocumentAccessLevel.BOARD_ONLY.name, label = "Zugriffsebene")
+        modal.select(options = accessOptions, value = DocumentAccessLevel.BOARD_ONLY.name, label = tr("Zugriffsebene"))
     modal.div(
-        "Bei \"Vorstand\" können anwesende Mitglieder, die nicht dem Vorstand angehören, das " +
-            "gespeicherte Whiteboard später NICHT ansehen -- wählen Sie \"Mitglieder\", wenn es allen " +
-            "Teilnehmenden zugänglich sein soll.",
+        tr(
+            "Bei \"Vorstand\" können anwesende Mitglieder, die nicht dem Vorstand angehören, das " +
+                "gespeicherte Whiteboard später NICHT ansehen -- wählen Sie \"Mitglieder\", wenn es allen " +
+                "Teilnehmenden zugänglich sein soll.",
+        ),
     ) { addCssClasses("text-muted small mb-2") }
-    modal.addButton(Button("Abbrechen", style = ButtonStyle.SECONDARY).apply { onClick { modal.hide() } })
+    modal.addButton(Button(tr("Abbrechen"), style = ButtonStyle.SECONDARY).apply { onClick { modal.hide() } })
     modal.addButton(
-        Button("Speichern", style = ButtonStyle.PRIMARY).apply {
+        Button(tr("Speichern"), style = ButtonStyle.PRIMARY).apply {
             onClick {
                 val level = accessSelect.value?.let { DocumentAccessLevel.valueOf(it) } ?: DocumentAccessLevel.BOARD_ONLY
                 modal.hide()

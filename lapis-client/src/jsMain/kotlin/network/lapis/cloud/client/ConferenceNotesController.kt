@@ -10,6 +10,8 @@ import io.kvision.html.button
 import io.kvision.html.div
 import io.kvision.html.h2
 import io.kvision.html.p
+import io.kvision.i18n.gettext
+import io.kvision.i18n.tr
 import io.kvision.modal.Modal
 import io.kvision.panel.SimplePanel
 import io.kvision.panel.hPanel
@@ -153,12 +155,12 @@ class ConferenceNotesController(
 
     init {
         panel.removeAll()
-        panel.h2("Notizen") { addCssClass("h6") }
+        panel.h2(tr("Notizen")) { addCssClass("h6") }
         listPanel = panel.vPanel(spacing = 2)
-        emptyStateDiv = panel.div("Noch keine Notizen.") { addCssClasses("text-muted small") }
+        emptyStateDiv = panel.div(tr("Noch keine Notizen.")) { addCssClasses("text-muted small") }
         renderAddBlockForm(panel)
         val saveRow = panel.hPanel(spacing = 6) { addCssClasses("mt-2") }
-        val save = saveRow.button("Als Dokument speichern", style = ButtonStyle.OUTLINEPRIMARY)
+        val save = saveRow.button(tr("Als Dokument speichern"), style = ButtonStyle.OUTLINEPRIMARY)
         save.addCssClass("btn-sm")
         save.onClick { notesSaveAsDocumentDialog { level -> doSaveAsDocument(level) } }
         saveDocButton = save
@@ -246,7 +248,7 @@ class ConferenceNotesController(
         if (focusedBlockId == blockId) focusedBlockId = null
     }
 
-    private fun captionText(block: NoteBlockDto): String = "Zuletzt bearbeitet von ${block.lastEditedByDisplayName}"
+    private fun captionText(block: NoteBlockDto): String = gettext("Zuletzt bearbeitet von %1", block.lastEditedByDisplayName)
 
     private fun canDeleteBlock(block: NoteBlockDto): Boolean = canModerate || block.lastEditedByMemberId == localMemberId
 
@@ -270,17 +272,17 @@ class ConferenceNotesController(
         val conflictBox = container.vPanel(spacing = 2) { addCssClasses("border rounded p-2 mt-1") }
         conflictBox.hide()
         val actionRow = container.hPanel(spacing = 6) { addCssClasses("mt-1") }
-        val saveButton = actionRow.button("Speichern", style = ButtonStyle.OUTLINEPRIMARY)
+        val saveButton = actionRow.button(tr("Speichern"), style = ButtonStyle.OUTLINEPRIMARY)
         saveButton.addCssClass("btn-sm")
 
-        val deleteButton = actionRow.button("Entfernen", style = ButtonStyle.OUTLINEDANGER)
+        val deleteButton = actionRow.button(tr("Entfernen"), style = ButtonStyle.OUTLINEDANGER)
         deleteButton.addCssClass("btn-sm")
         val deleteConfirmRow = actionRow.hPanel(spacing = 6)
         deleteConfirmRow.hide()
-        deleteConfirmRow.div("Wirklich entfernen?") { addCssClasses("text-muted small") }
-        val confirmYes = deleteConfirmRow.button("Ja", style = ButtonStyle.DANGER)
+        deleteConfirmRow.div(tr("Wirklich entfernen?")) { addCssClasses("text-muted small") }
+        val confirmYes = deleteConfirmRow.button(tr("Ja"), style = ButtonStyle.DANGER)
         confirmYes.addCssClass("btn-sm")
-        val confirmNo = deleteConfirmRow.button("Nein", style = ButtonStyle.OUTLINESECONDARY)
+        val confirmNo = deleteConfirmRow.button(tr("Nein"), style = ButtonStyle.OUTLINESECONDARY)
         confirmNo.addCssClass("btn-sm")
 
         val rowUi =
@@ -331,11 +333,11 @@ class ConferenceNotesController(
     private fun doSaveBlockEdit(row: RowUi) {
         val content = row.textAreaWidget.value.orEmpty()
         if (content.isBlank()) {
-            notifyError("Notizblock darf nicht leer sein.")
+            notifyError(tr("Notizblock darf nicht leer sein."))
             return
         }
         if (content.length > NOTES_MAX_CONTENT_LENGTH) {
-            notifyError("Notizblock ist zu lang (max. $NOTES_MAX_CONTENT_LENGTH Zeichen).")
+            notifyError(gettext("Notizblock ist zu lang (max. %1 Zeichen).", NOTES_MAX_CONTENT_LENGTH))
             return
         }
         val baseVersion = row.editingBaseVersion
@@ -369,7 +371,7 @@ class ConferenceNotesController(
                     blocks.remove(row.blockId)
                     removeRow(row.blockId)
                     updateEmptyState()
-                    notifyError("Dieser Block wurde von jemandem entfernt.")
+                    notifyError(tr("Dieser Block wurde von jemandem entfernt."))
                 }
             }
         }
@@ -386,18 +388,18 @@ class ConferenceNotesController(
         blocks[row.blockId] = current
         row.conflictBox.removeAll()
         row.conflictBox.div(
-            "Jemand hat diesen Block bereits aktualisiert (zuletzt von ${current.lastEditedByDisplayName}).",
+            gettext("Jemand hat diesen Block bereits aktualisiert (zuletzt von %1).", current.lastEditedByDisplayName),
         ) { addCssClasses("small fw-bold") }
         row.conflictBox.div(current.content) { addCssClasses("small text-muted") }
         val actions = row.conflictBox.hPanel(spacing = 6) { addCssClasses("mt-1") }
-        val discard = actions.button("Verwerfen und aktuelle Version übernehmen", style = ButtonStyle.OUTLINEWARNING)
+        val discard = actions.button(tr("Verwerfen und aktuelle Version übernehmen"), style = ButtonStyle.OUTLINEWARNING)
         discard.addCssClass("btn-sm")
         discard.onClick {
             row.textAreaWidget.value = current.content
             row.editingBaseVersion = current.version
             hideConflict(row)
         }
-        val keepEditing = actions.button("Weiter bearbeiten", style = ButtonStyle.OUTLINESECONDARY)
+        val keepEditing = actions.button(tr("Weiter bearbeiten"), style = ButtonStyle.OUTLINESECONDARY)
         keepEditing.addCssClass("btn-sm")
         keepEditing.onClick {
             row.editingBaseVersion = current.version
@@ -418,7 +420,7 @@ class ConferenceNotesController(
                 blocks.remove(blockId)
                 removeRow(blockId)
                 updateEmptyState()
-                notifySuccess("Notizblock entfernt.")
+                notifySuccess(tr("Notizblock entfernt."))
             }
         }
     }
@@ -427,9 +429,9 @@ class ConferenceNotesController(
 
     private fun renderAddBlockForm(panel: SimplePanel) {
         val formPanel = panel.vPanel(spacing = 4) { addCssClasses("border-top pt-2 mt-2") }
-        formPanel.p("Notizblock hinzufügen") { addCssClasses("fw-bold small mb-1") }
-        val contentInput = formPanel.textArea(rows = 2, label = "Inhalt")
-        val add = formPanel.button("Hinzufügen", style = ButtonStyle.OUTLINEPRIMARY)
+        formPanel.p(tr("Notizblock hinzufügen")) { addCssClasses("fw-bold small mb-1") }
+        val contentInput = formPanel.textArea(rows = 2, label = tr("Inhalt"))
+        val add = formPanel.button(tr("Hinzufügen"), style = ButtonStyle.OUTLINEPRIMARY)
         add.addCssClass("btn-sm")
         add.onClick { doAddBlock(contentInput) }
         addButton = add
@@ -438,11 +440,11 @@ class ConferenceNotesController(
     private fun doAddBlock(input: TextArea) {
         val content = input.value.orEmpty().trim()
         if (content.isBlank()) {
-            notifyError("Bitte einen Inhalt eingeben.")
+            notifyError(tr("Bitte einen Inhalt eingeben."))
             return
         }
         if (content.length > NOTES_MAX_CONTENT_LENGTH) {
-            notifyError("Notizblock ist zu lang (max. $NOTES_MAX_CONTENT_LENGTH Zeichen).")
+            notifyError(gettext("Notizblock ist zu lang (max. %1 Zeichen).", NOTES_MAX_CONTENT_LENGTH))
             return
         }
         // Client-computed nextPosition can collide under concurrent adds by two participants at the
@@ -479,7 +481,7 @@ class ConferenceNotesController(
             val result = guarded { rpcService<IConferenceNotesService>().saveAsDocument(roomId, accessLevel) }
             button.disabled = false
             if (result != null) {
-                notifySuccess("Notizen als Dokument gespeichert.")
+                notifySuccess(tr("Notizen als Dokument gespeichert."))
             }
         }
     }
@@ -490,21 +492,23 @@ class ConferenceNotesController(
  * saving is additive and repeatable, unlike starting a recording that exposes live speech.
  */
 private fun notesSaveAsDocumentDialog(onConfirm: (DocumentAccessLevel) -> Unit) {
-    val modal = Modal(caption = "Notizen als Dokument speichern")
+    val modal = Modal(caption = tr("Notizen als Dokument speichern"))
     modal.div(
-        "Der aktuelle Stand der geteilten Notizen wird als Markdown-Dokument in der Dokumentenablage gespeichert.",
+        tr("Der aktuelle Stand der geteilten Notizen wird als Markdown-Dokument in der Dokumentenablage gespeichert."),
     ) { addCssClasses("small mb-2") }
     val accessOptions = DocumentAccessLevel.entries.map { it.name to conferenceRecordingAccessLevelLabel(it) }
     val accessSelect =
-        modal.select(options = accessOptions, value = DocumentAccessLevel.BOARD_ONLY.name, label = "Zugriffsebene")
+        modal.select(options = accessOptions, value = DocumentAccessLevel.BOARD_ONLY.name, label = tr("Zugriffsebene"))
     modal.div(
-        "Bei \"Vorstand\" können anwesende Mitglieder, die nicht dem Vorstand angehören, das " +
-            "gespeicherte Dokument später NICHT ansehen -- wählen Sie \"Mitglieder\", wenn es allen " +
-            "Teilnehmenden zugänglich sein soll.",
+        tr(
+            "Bei \"Vorstand\" können anwesende Mitglieder, die nicht dem Vorstand angehören, das " +
+                "gespeicherte Dokument später NICHT ansehen -- wählen Sie \"Mitglieder\", wenn es allen " +
+                "Teilnehmenden zugänglich sein soll.",
+        ),
     ) { addCssClasses("text-muted small mb-2") }
-    modal.addButton(Button("Abbrechen", style = ButtonStyle.SECONDARY).apply { onClick { modal.hide() } })
+    modal.addButton(Button(tr("Abbrechen"), style = ButtonStyle.SECONDARY).apply { onClick { modal.hide() } })
     modal.addButton(
-        Button("Speichern", style = ButtonStyle.PRIMARY).apply {
+        Button(tr("Speichern"), style = ButtonStyle.PRIMARY).apply {
             onClick {
                 val level = accessSelect.value?.let { DocumentAccessLevel.valueOf(it) } ?: DocumentAccessLevel.BOARD_ONLY
                 modal.hide()

@@ -1,5 +1,6 @@
 package network.lapis.cloud.client
 
+import io.kvision.i18n.tr
 import kotlinx.browser.window
 import kotlinx.coroutines.await
 import org.w3c.fetch.INCLUDE
@@ -41,6 +42,6 @@ object DocumentHttp {
                     "/api/documents/$documentId/versions",
                     RequestInit(method = "POST", body = formData, credentials = RequestCredentials.INCLUDE),
                 ).await()
-        return if (response.ok) null else response.text().await().ifBlank { "Upload fehlgeschlagen." }
+        return if (response.ok) null else response.text().await().ifBlank { tr("Upload fehlgeschlagen.") }
     }
 }

@@ -9,6 +9,8 @@ import io.kvision.html.div
 import io.kvision.html.h1
 import io.kvision.html.h2
 import io.kvision.html.p
+import io.kvision.i18n.gettext
+import io.kvision.i18n.tr
 import io.kvision.panel.SimplePanel
 import io.kvision.panel.hPanel
 import io.kvision.panel.vPanel
@@ -74,18 +76,20 @@ fun renderDonorsScreen(container: SimplePanel) {
             width = 900.px
             marginTop = 24.px
         }
-    root.h1("Spender")
+    root.h1(tr("Spender"))
     root.div(
-        "Externe Spender sind keine Mitglieder -- eine eigenständige Adressverwaltung für " +
-            "Spendenbescheinigungen und die §25-PartG-Pflichtenprüfung, getrennt von der " +
-            "Mitgliederverwaltung.",
+        tr(
+            "Externe Spender sind keine Mitglieder -- eine eigenständige Adressverwaltung für " +
+                "Spendenbescheinigungen und die §25-PartG-Pflichtenprüfung, getrennt von der " +
+                "Mitgliederverwaltung.",
+        ),
     ) { addCssClasses("text-muted small") }
 
     // ---- External donor list (Spenderstamm) -------------------------------------------------
-    root.h2("Externe Spender")
+    root.h2(tr("Externe Spender"))
     val filterRow = root.hPanel(spacing = 8) { addCssClasses("align-items-center") }
-    val includeInactiveCheck = filterRow.checkBox(label = "Inaktive Spender anzeigen")
-    val refreshButton = filterRow.button("Aktualisieren", style = ButtonStyle.OUTLINESECONDARY)
+    val includeInactiveCheck = filterRow.checkBox(label = tr("Inaktive Spender anzeigen"))
+    val refreshButton = filterRow.button(tr("Aktualisieren"), style = ButtonStyle.OUTLINESECONDARY)
     val listPanel = root.vPanel(spacing = 6)
 
     fun refreshList() {
@@ -96,7 +100,7 @@ fun renderDonorsScreen(container: SimplePanel) {
                     rpcService<IAccountingService>().listExternalDonors(activeOnly = !includeInactiveCheck.value)
                 } ?: return@launch
             if (donors.isEmpty()) {
-                listPanel.p("Noch keine externen Spender angelegt.")
+                listPanel.p(tr("Noch keine externen Spender angelegt."))
                 return@launch
             }
             donors.forEach { donor -> renderDonorRow(listPanel, donor, canManage, ::refreshList) }
@@ -106,12 +110,12 @@ fun renderDonorsScreen(container: SimplePanel) {
     refreshList()
 
     if (canManage) {
-        root.h2("Neuen Spender anlegen")
+        root.h2(tr("Neuen Spender anlegen"))
         renderDonorCreationForm(root, ::refreshList)
     }
 
     // ---- Spendenrecht-Pflichten-Report (§25 PartG) -------------------------------------------
-    root.h2("Spendenrecht-Pflichten-Report (§25 PartG)")
+    root.h2(tr("Spendenrecht-Pflichten-Report (§25 PartG)"))
     renderDonationDutyReportView(root)
 }
 
@@ -137,7 +141,7 @@ private fun renderDonorRow(
     headerRow.div(donor.displayName) { addCssClasses("flex-grow-1 fw-bold") }
     headerRow.typeBadge(donorCategoryLabel(donor.donorCategory), donorCategoryColor(donor.donorCategory))
     headerRow.activeStatusBadge(donor.active)
-    val detailButton = headerRow.button("Details anzeigen", style = ButtonStyle.OUTLINESECONDARY)
+    val detailButton = headerRow.button(tr("Details anzeigen"), style = ButtonStyle.OUTLINESECONDARY)
 
     val detailPanel = row.vPanel(spacing = 2) { hide() }
     var expanded = false
@@ -148,7 +152,7 @@ private fun renderDonorRow(
             return@onClick
         }
         detailPanel.removeAll()
-        detailPanel.p("Wird geladen …") { addCssClasses("text-muted small") }
+        detailPanel.p(tr("Wird geladen …")) { addCssClasses("text-muted small") }
         detailPanel.show()
         AppScope.launch {
             val fresh = guarded { rpcService<IAccountingService>().getExternalDonor(donor.id) }
@@ -163,20 +167,22 @@ private fun renderDonorRow(
 
     if (canManage && donor.active) {
         val actionRow = row.hPanel(spacing = 8)
-        val deactivateButton = actionRow.button("Deaktivieren", style = ButtonStyle.OUTLINEDANGER)
+        val deactivateButton = actionRow.button(tr("Deaktivieren"), style = ButtonStyle.OUTLINEDANGER)
         deactivateButton.onClick {
             confirmDialog(
-                title = "Spender deaktivieren",
+                title = tr("Spender deaktivieren"),
                 message =
-                    "\"${donor.displayName}\" wirklich deaktivieren? Bestehende Buchungen mit diesem " +
-                        "Spender bleiben erhalten, er steht aber für neue Buchungen nicht mehr zur " +
-                        "Verfügung.",
-                confirmLabel = "Deaktivieren",
+                    gettext(
+                        "\"%1\" wirklich deaktivieren? Bestehende Buchungen mit diesem Spender bleiben " +
+                            "erhalten, er steht aber für neue Buchungen nicht mehr zur Verfügung.",
+                        donor.displayName,
+                    ),
+                confirmLabel = tr("Deaktivieren"),
             ) {
                 AppScope.launch {
                     val result = guarded { rpcService<IAccountingService>().deactivateExternalDonor(donor.id) }
                     if (result != null) {
-                        notifyInfo("Spender wurde deaktiviert.")
+                        notifyInfo(tr("Spender wurde deaktiviert."))
                         onChanged()
                     }
                 }
@@ -199,21 +205,21 @@ private fun renderDonorCreationForm(
     onCreated: () -> Unit,
 ) {
     val panel = root.vPanel(spacing = 6)
-    val displayNameInput = panel.text(label = "Name")
+    val displayNameInput = panel.text(label = tr("Name"))
     val categoryOptions =
-        listOf("" to "-- Spenderkategorie wählen --") + donorCategoryCreationOrder.map { it.name to donorCategoryLabel(it) }
-    val categorySelect = panel.select(options = categoryOptions, value = "", label = "Spenderkategorie")
-    val streetInput = panel.text(label = "Straße (optional)")
-    val postalCodeInput = panel.text(label = "PLZ (optional)")
-    val cityInput = panel.text(label = "Ort (optional)")
-    val countryInput = panel.text(label = "Land (optional)")
+        listOf("" to tr("-- Spenderkategorie wählen --")) + donorCategoryCreationOrder.map { it.name to donorCategoryLabel(it) }
+    val categorySelect = panel.select(options = categoryOptions, value = "", label = tr("Spenderkategorie"))
+    val streetInput = panel.text(label = tr("Straße (optional)"))
+    val postalCodeInput = panel.text(label = tr("PLZ (optional)"))
+    val cityInput = panel.text(label = tr("Ort (optional)"))
+    val countryInput = panel.text(label = tr("Land (optional)"))
     val errorBox =
         panel.div().apply {
             addCssClass("text-danger")
             hide()
         }
 
-    val createButton = panel.button("Spender anlegen", style = ButtonStyle.PRIMARY)
+    val createButton = panel.button(tr("Spender anlegen"), style = ButtonStyle.PRIMARY)
     createButton.onClick {
         errorBox.hide()
         val displayName = displayNameInput.value.orEmpty().trim()
@@ -221,7 +227,7 @@ private fun renderDonorCreationForm(
         val category = runCatching { DonorCategory.valueOf(categoryValue) }.getOrNull()
 
         if (!Validation.isNonBlank(displayName) || category == null) {
-            errorBox.content = "Bitte Name und Spenderkategorie angeben."
+            errorBox.content = tr("Bitte Name und Spenderkategorie angeben.")
             errorBox.show()
             return@onClick
         }
@@ -244,7 +250,7 @@ private fun renderDonorCreationForm(
                 }
             createButton.disabled = false
             if (result != null) {
-                notifySuccess("Spender \"$displayName\" wurde angelegt.")
+                notifySuccess(gettext("Spender \"%1\" wurde angelegt.", displayName))
                 displayNameInput.value = null
                 categorySelect.value = ""
                 streetInput.value = null
@@ -268,15 +274,17 @@ private fun renderDonorCreationForm(
  */
 private fun renderDonationDutyReportView(panel: SimplePanel) {
     panel.div(
-        "Zeigt offene Melde-/Offenlegungs-/Weiterleitungspflichten nach §25 PartG für ein " +
-            "Kalenderjahr, damit der Vorstand sie manuell abarbeiten kann. Berechnet keine " +
-            "unzulässigen Spenden -- solche werden beim Buchen serverseitig blockiert und können " +
-            "hier nie erscheinen.",
+        tr(
+            "Zeigt offene Melde-/Offenlegungs-/Weiterleitungspflichten nach §25 PartG für ein " +
+                "Kalenderjahr, damit der Vorstand sie manuell abarbeiten kann. Berechnet keine " +
+                "unzulässigen Spenden -- solche werden beim Buchen serverseitig blockiert und können " +
+                "hier nie erscheinen.",
+        ),
     ) { addCssClasses("text-muted small") }
 
     val filterRow = panel.hPanel(spacing = 8) { addCssClasses("align-items-center") }
-    val yearControls = filterRow.fiscalYearFilter(currentYear = currentYear(), label = "Kalenderjahr (JJJJ)")
-    val loadButton = filterRow.button("Laden", style = ButtonStyle.OUTLINESECONDARY)
+    val yearControls = filterRow.fiscalYearFilter(currentYear = currentYear(), label = tr("Kalenderjahr (JJJJ)"))
+    val loadButton = filterRow.button(tr("Laden"), style = ButtonStyle.OUTLINESECONDARY)
     val errorBox =
         panel.div().apply {
             addCssClass("text-danger")
@@ -288,12 +296,12 @@ private fun renderDonationDutyReportView(panel: SimplePanel) {
         errorBox.hide()
         val calendarYear = yearControls.parseYear()
         if (calendarYear == null) {
-            errorBox.content = "Bitte ein gültiges Kalenderjahr angeben (JJJJ)."
+            errorBox.content = tr("Bitte ein gültiges Kalenderjahr angeben (JJJJ).")
             errorBox.show()
             return
         }
         resultPanel.removeAll()
-        resultPanel.p("Wird geladen …") { addCssClasses("text-muted small") }
+        resultPanel.p(tr("Wird geladen …")) { addCssClasses("text-muted small") }
         AppScope.launch {
             val report =
                 guarded { rpcService<IAccountingService>().getDonationDutyReport(calendarYear) } ?: return@launch
@@ -314,13 +322,15 @@ private fun renderDonationDutyReportBody(
     panel: SimplePanel,
     report: DonationDutyReportDto,
 ) {
-    panel.div("Kalenderjahr ${report.calendarYear}") { addCssClasses("text-muted small") }
+    panel.div(gettext("Kalenderjahr %1", report.calendarYear)) { addCssClasses("text-muted small") }
 
     if (!report.partyRulesApply) {
         panel.div(
-            "Diese Organisation ist nicht als politische Partei markiert (Organisationseinstellungen) " +
-                "-- §25 PartG gilt nur für politische Parteien. Für diese Organisation ist dieser " +
-                "Bericht daher bewusst ein No-Op, keine Fehlermeldung.",
+            tr(
+                "Diese Organisation ist nicht als politische Partei markiert (Organisationseinstellungen) " +
+                    "-- §25 PartG gilt nur für politische Parteien. Für diese Organisation ist dieser " +
+                    "Bericht daher bewusst ein No-Op, keine Fehlermeldung.",
+            ),
         ) { addCssClasses("alert alert-light border") }
         return
     }
@@ -333,20 +343,20 @@ private fun renderDonorDutiesTable(
     panel: SimplePanel,
     duties: List<DonorDutyDto>,
 ) {
-    panel.p("Melde-/Offenlegungspflichten pro Spender") { addCssClasses("fw-bold small") }
+    panel.p(tr("Melde-/Offenlegungspflichten pro Spender")) { addCssClasses("fw-bold small") }
     if (duties.isEmpty()) {
-        panel.p("Keine offenen Melde-/Offenlegungspflichten im gewählten Kalenderjahr.") {
+        panel.p(tr("Keine offenen Melde-/Offenlegungspflichten im gewählten Kalenderjahr.")) {
             addCssClasses("text-muted small")
         }
         return
     }
 
     val headerRow = panel.hPanel(spacing = 8) { addCssClasses("fw-bold border-bottom pb-1 small") }
-    headerRow.div("Spender") { addCssClasses("flex-grow-1") }
-    headerRow.div("Typ") { width = 100.px }
-    headerRow.div("Kategorie") { width = 220.px }
-    headerRow.div("Jahressumme") { width = 120.px }
-    headerRow.div("Pflichten") { width = 260.px }
+    headerRow.div(tr("Spender")) { addCssClasses("flex-grow-1") }
+    headerRow.div(tr("Typ")) { width = 100.px }
+    headerRow.div(tr("Kategorie")) { width = 220.px }
+    headerRow.div(tr("Jahressumme")) { width = 120.px }
+    headerRow.div(tr("Pflichten")) { width = 260.px }
 
     duties.forEach { duty ->
         val row = panel.hPanel(spacing = 8) { addCssClasses("border-bottom py-1 align-items-center") }
@@ -381,18 +391,18 @@ private fun renderAnonymousForwardingTable(
     panel: SimplePanel,
     forwarding: List<AnonymousDonationDutyDto>,
 ) {
-    panel.p("Weiterleitungspflichtige anonyme Spenden") { addCssClasses("fw-bold small") }
+    panel.p(tr("Weiterleitungspflichtige anonyme Spenden")) { addCssClasses("fw-bold small") }
     if (forwarding.isEmpty()) {
-        panel.p("Keine anonymen Spenden über dem Schwellenwert im gewählten Kalenderjahr.") {
+        panel.p(tr("Keine anonymen Spenden über dem Schwellenwert im gewählten Kalenderjahr.")) {
             addCssClasses("text-muted small")
         }
         return
     }
 
     val headerRow = panel.hPanel(spacing = 8) { addCssClasses("fw-bold border-bottom pb-1 small") }
-    headerRow.div("Datum") { width = 110.px }
-    headerRow.div("Betrag") { width = 120.px }
-    headerRow.div("Pflicht") { addCssClasses("flex-grow-1") }
+    headerRow.div(tr("Datum")) { width = 110.px }
+    headerRow.div(tr("Betrag")) { width = 120.px }
+    headerRow.div(tr("Pflicht")) { addCssClasses("flex-grow-1") }
 
     forwarding.forEach { entry ->
         val row = panel.hPanel(spacing = 8) { addCssClasses("border-bottom py-1 align-items-center") }
@@ -420,11 +430,17 @@ private val donorCategoryCreationOrder: List<DonorCategory> =
         .let { naturalPersonFirst -> naturalPersonFirst + (DonorCategory.entries - naturalPersonFirst.toSet()) }
 
 /** `DonorType` is single-screen (only this file's report table uses it), so per `AccountingLabels
- * .kt`'s own scoping rule its label/color table lives here rather than in that shared file. */
+ * .kt`'s own scoping rule its label/color table lives here rather than in that shared file.
+ *
+ * gettext() here (not tr()), not decorative -- these functions return a plain String consumed
+ * directly by callers/tests, not passed straight into a widget constructor. tr() defers
+ * resolution to widget-render time via a marker prefix; a bare returned String never gets that
+ * resolution pass, so gettext()'s immediate resolution is required. See I18nCatalogManager's KDoc
+ * and TestI18nSetup.kt's KDoc for the concrete regression this fixes. */
 fun donorTypeLabel(type: DonorType): String =
     when (type) {
-        DonorType.MEMBER -> "Mitglied"
-        DonorType.EXTERNAL -> "Extern"
+        DonorType.MEMBER -> gettext("Mitglied")
+        DonorType.EXTERNAL -> gettext("Extern")
     }
 
 fun donorTypeColor(type: DonorType): String =
@@ -440,9 +456,9 @@ fun donorTypeColor(type: DonorType): String =
  */
 fun donationDutyLabel(duty: DonationDuty): String =
     when (duty) {
-        DonationDuty.ANONYMOUS_FORWARDING_REQUIRED -> "Weiterleitungspflicht"
-        DonationDuty.PROMPT_BUNDESTAG_REPORT_REQUIRED -> "Unverzügliche Meldepflicht"
-        DonationDuty.ANNUAL_DISCLOSURE_REQUIRED -> "Offenlegungspflicht (Rechenschaftsbericht)"
+        DonationDuty.ANONYMOUS_FORWARDING_REQUIRED -> gettext("Weiterleitungspflicht")
+        DonationDuty.PROMPT_BUNDESTAG_REPORT_REQUIRED -> gettext("Unverzügliche Meldepflicht")
+        DonationDuty.ANNUAL_DISCLOSURE_REQUIRED -> gettext("Offenlegungspflicht (Rechenschaftsbericht)")
     }
 
 fun donationDutyColor(duty: DonationDuty): String {
@@ -461,7 +477,7 @@ fun donorAddressLine(donor: ExternalDonorDto): String {
     val streetLine = donor.street
     val cityLine = listOfNotNull(donor.postalCode, donor.city).joinToString(" ").takeIf { it.isNotBlank() }
     val parts = listOfNotNull(streetLine, cityLine, donor.country).filter { it.isNotBlank() }
-    return if (parts.isEmpty()) "Keine Adresse hinterlegt" else parts.joinToString(", ")
+    return if (parts.isEmpty()) gettext("Keine Adresse hinterlegt") else parts.joinToString(", ")
 }
 
 private fun currentYear(): Int =

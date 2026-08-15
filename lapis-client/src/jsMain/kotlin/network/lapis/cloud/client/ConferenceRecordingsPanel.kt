@@ -3,6 +3,7 @@ package network.lapis.cloud.client
 import io.kvision.html.div
 import io.kvision.html.h2
 import io.kvision.html.link
+import io.kvision.i18n.tr
 import io.kvision.panel.SimplePanel
 import io.kvision.panel.hPanel
 import io.kvision.panel.vPanel
@@ -57,7 +58,7 @@ fun renderConferenceRecordingsPanel(panel: SimplePanel) {
     panel.removeAll()
     // Stays hidden until availability is confirmed `enabled` below -- D14, see file KDoc.
     panel.hide()
-    panel.h2("Aufzeichnungen")
+    panel.h2(tr("Aufzeichnungen"))
     val listPanel = panel.vPanel(spacing = 8)
 
     AppScope.launch {
@@ -68,11 +69,11 @@ fun renderConferenceRecordingsPanel(panel: SimplePanel) {
         }
         panel.show()
         listPanel.removeAll()
-        listPanel.div("Wird geladen …") { addCssClasses("text-muted small") }
+        listPanel.div(tr("Wird geladen …")) { addCssClasses("text-muted small") }
         val recordings = guarded { rpcService<IConferenceRecordingService>().listRecordings() }
         listPanel.removeAll()
         if (recordings.isNullOrEmpty()) {
-            listPanel.div("Noch keine Aufzeichnungen.") { addCssClasses("text-muted small") }
+            listPanel.div(tr("Noch keine Aufzeichnungen.")) { addCssClasses("text-muted small") }
             return@launch
         }
         conferenceRecordingListSorted(recordings).forEach { recording ->
@@ -105,10 +106,12 @@ private fun renderConferenceRecordingRow(
         // text, per ConferenceRecordingDto.failureReason's own KDoc "a security boundary") plus a
         // concrete next step. D13: raw footage is retained server-side on failure, so this copy can
         // honestly point at recovery rather than implying total loss.
-        card.div(recording.failureReason ?: "Die Aufzeichnung ist fehlgeschlagen.") { addCssClasses("text-danger small fw-bold") }
+        card.div(recording.failureReason ?: tr("Die Aufzeichnung ist fehlgeschlagen.")) { addCssClasses("text-danger small fw-bold") }
         card.div(
-            "Die Rohaufnahmen bleiben erhalten -- wenden Sie sich an eine Administratorin oder einen " +
-                "Administrator, falls die Aufzeichnung wiederhergestellt werden soll.",
+            tr(
+                "Die Rohaufnahmen bleiben erhalten -- wenden Sie sich an eine Administratorin oder einen " +
+                    "Administrator, falls die Aufzeichnung wiederhergestellt werden soll.",
+            ),
         ) { addCssClasses("text-muted small") }
     }
 
@@ -129,7 +132,7 @@ private fun renderConferenceRecordingRow(
 
         // D9: a SEPARATE click target from inline playback -- never the same element.
         val downloadRow = card.hPanel(spacing = 8) { addCssClasses("align-items-center") }
-        downloadRow.link("Herunterladen", url = mediaUrl, target = "_blank")
+        downloadRow.link(tr("Herunterladen"), url = mediaUrl, target = "_blank")
         recording.fileSizeBytes?.let { size ->
             downloadRow.div(conferenceRecordingFileSizeLabel(size)) { addCssClasses("text-muted small") }
         }

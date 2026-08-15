@@ -9,6 +9,9 @@ import io.kvision.dropdown.ddLink
 import io.kvision.dropdown.dropDown
 import io.kvision.html.Link
 import io.kvision.html.span
+import io.kvision.i18n.I18n
+import io.kvision.i18n.gettext
+import io.kvision.i18n.tr
 import io.kvision.navbar.Nav
 import io.kvision.navbar.Navbar
 import io.kvision.navbar.nav
@@ -19,6 +22,7 @@ import io.kvision.panel.root
 import io.kvision.panel.vPanel
 import io.kvision.remote.registerRemoteTypes
 import io.kvision.startApplication
+import kotlinx.browser.localStorage
 import kotlinx.browser.window
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
@@ -26,6 +30,36 @@ import kotlinx.coroutines.asCoroutineDispatcher
 import kotlinx.coroutines.launch
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.rpc.IAuthService
+import org.w3c.dom.get
+import org.w3c.dom.set
+
+@JsModule("./modules/i18n/messages-en.json")
+@JsNonModule
+external val messagesEn: dynamic
+
+@JsModule("./modules/i18n/messages-fr.json")
+@JsNonModule
+external val messagesFr: dynamic
+
+@JsModule("./modules/i18n/messages-es.json")
+@JsNonModule
+external val messagesEs: dynamic
+
+@JsModule("./modules/i18n/messages-it.json")
+@JsNonModule
+external val messagesIt: dynamic
+
+@JsModule("./modules/i18n/messages-nl.json")
+@JsNonModule
+external val messagesNl: dynamic
+
+@JsModule("./modules/i18n/messages-pl.json")
+@JsNonModule
+external val messagesPl: dynamic
+
+@JsModule("./modules/i18n/messages-ru.json")
+@JsNonModule
+external val messagesRu: dynamic
 
 /** Application-wide coroutine scope tied to the browser's event loop. */
 val AppScope: CoroutineScope = CoroutineScope(window.asCoroutineDispatcher())
@@ -44,6 +78,43 @@ private const val LAPIS_GEM_MARK_SVG = """<svg width="22" height="22" viewBox="0
     <polyline points="3,8 21,8" stroke="currentColor" stroke-width="1" opacity="0.55" />
     <polyline points="7,23 12,8 17,23" stroke="currentColor" stroke-width="1" opacity="0.55" />
 </svg>"""
+
+/**
+ * Sprachumschalter-Feature 2026-08-14: supported UI languages, in the order shown in the
+ * dropdown. Each language's own name is shown in ITS OWN language (standard language-picker
+ * convention -- a German speaker looking for "Polski" doesn't know to look under "Polnisch"),
+ * never translated via [tr]. German has no translation catalog (see [initI18n]) -- its entry
+ * here exists only so it appears as a selectable item in the switcher.
+ */
+private val SUPPORTED_LANGUAGES =
+    listOf(
+        "de" to "Deutsch",
+        "en" to "English",
+        "fr" to "Français",
+        "es" to "Español",
+        "it" to "Italiano",
+        "nl" to "Nederlands",
+        "pl" to "Polski",
+        "ru" to "Русский",
+    )
+
+private const val LANGUAGE_STORAGE_KEY = "lapis-cloud-language"
+
+/**
+ * Reads a previously saved language choice from `localStorage`, falling back to German -- NOT
+ * [io.kvision.i18n.I18n]'s own default of the browser's OS/UI locale ([window.navigator.language]),
+ * which would silently show e.g. English to a German-OS-locale visitor whose organization's
+ * default working language is German (see CLAUDE.md "Sprache: überwiegend Deutsch"). Falling back
+ * to a fixed default here, rather than autodetecting, keeps the vault's own written-language
+ * convention as the app's actual default too.
+ */
+private fun initialLanguage(): String = localStorage[LANGUAGE_STORAGE_KEY] ?: "de"
+
+/** Persists the choice and triggers [io.kvision.i18n.I18n]'s own live-retranslate-in-place. */
+private fun setLanguage(code: String) {
+    localStorage[LANGUAGE_STORAGE_KEY] = code
+    I18n.language = code
+}
 
 /**
  * V0.7.3 Basis-Mehrseiten-UI: replaces the V0.1.5 single-dashboard "acting as" member-switcher
@@ -99,12 +170,21 @@ class App : Application() {
 
 private fun refreshNavbar(navbar: Navbar) {
     navbar.removeAll()
+    // Sprachumschalter-Feature 2026-08-14: the navbar is no longer hidden for anonymous sessions
+    // (previously `navbar.hide(); return` here) -- a first-time visitor on the login/registration
+    // screens needs the language switcher just as much as an authenticated member does, arguably
+    // more (they haven't yet reached anything else translatable). It now always shows brand +
+    // language switcher; the rest (left-side app nav, session display, Abmelden) stays
+    // session-gated exactly as before.
+    navbar.show()
     val session = AppState.session
+
+    val rightNav: Nav = navbar.nav(rightAlign = true)
+    addLanguageSwitcher(rightNav, navbar)
+
     if (session == null) {
-        navbar.hide()
         return
     }
-    navbar.show()
 
     // UI/UX-Design-Team-Review 2026-08-14 (Norman/Raskin): the previous 20-entry flat `navLink`
     // list overflowed the viewport width and hid entries with no visual indication anything was
@@ -117,62 +197,62 @@ private fun refreshNavbar(navbar: Navbar) {
     // grouped its role-gated entries contiguously by tier, see each dropdown's own comment for
     // the KDoc cross-references the flat-list version carried per link.
     val leftNav: Nav = navbar.nav()
-    leftNav.navLink("Dashboard", url = "#${Routes.DASHBOARD}", icon = "fas fa-house")
-    leftNav.navLink("Videokonferenz", url = "#${Routes.CONFERENCE}", icon = "fas fa-video")
+    leftNav.navLink(tr("Dashboard"), url = "#${Routes.DASHBOARD}", icon = "fas fa-house")
+    leftNav.navLink(tr("Videokonferenz"), url = "#${Routes.CONFERENCE}", icon = "fas fa-video")
 
     // requireAuth-tier, unconditional for every authenticated member -- see `Routes.CONTRIBUTIONS`/
     // `DOCUMENTS`/`COMMUNICATION`/`DSGVO_RIGHTS` KDoc for the per-route verification. "Meine Daten"
     // self-adapts its content per role (ADMIN-only "Anträge verwalten" queue lives inside the
     // screen) rather than forking the nav label, unchanged from the prior flat-list comment.
-    leftNav.dropDown("Mitgliedschaft", icon = "fas fa-id-card", forNavbar = true) {
-        ddLink("Beiträge", url = "#${Routes.CONTRIBUTIONS}", icon = "fas fa-coins")
-        ddLink("Dokumente", url = "#${Routes.DOCUMENTS}", icon = "fas fa-file-lines")
-        ddLink("Kommunikation", url = "#${Routes.COMMUNICATION}", icon = "fas fa-envelope")
-        ddLink("Meine Daten", url = "#${Routes.DSGVO_RIGHTS}", icon = "fas fa-shield-halved")
+    leftNav.dropDown(tr("Mitgliedschaft"), icon = "fas fa-id-card", forNavbar = true) {
+        ddLink(tr("Beiträge"), url = "#${Routes.CONTRIBUTIONS}", icon = "fas fa-coins")
+        ddLink(tr("Dokumente"), url = "#${Routes.DOCUMENTS}", icon = "fas fa-file-lines")
+        ddLink(tr("Kommunikation"), url = "#${Routes.COMMUNICATION}", icon = "fas fa-envelope")
+        ddLink(tr("Meine Daten"), url = "#${Routes.DSGVO_RIGHTS}", icon = "fas fa-shield-halved")
     }
     // requireAuth-tier -- see `Routes.COMMITTEES`/`MEETINGS`/`MOTIONS` KDoc.
-    leftNav.dropDown("Selbstverwaltung", icon = "fas fa-people-group", forNavbar = true) {
-        ddLink("Gremien", url = "#${Routes.COMMITTEES}", icon = "fas fa-people-group")
-        ddLink("Sitzungen", url = "#${Routes.MEETINGS}", icon = "fas fa-calendar-days")
-        ddLink("Anträge", url = "#${Routes.MOTIONS}", icon = "fas fa-file-signature")
+    leftNav.dropDown(tr("Selbstverwaltung"), icon = "fas fa-people-group", forNavbar = true) {
+        ddLink(tr("Gremien"), url = "#${Routes.COMMITTEES}", icon = "fas fa-people-group")
+        ddLink(tr("Sitzungen"), url = "#${Routes.MEETINGS}", icon = "fas fa-calendar-days")
+        ddLink(tr("Anträge"), url = "#${Routes.MOTIONS}", icon = "fas fa-file-signature")
     }
     // requireAuth-tier -- see `Routes.LTR_LEDGER`/`CROWDFUNDING`/`AUCTION`/`POLITICIANS` KDoc for
     // the per-route verification; narrower role-gated sub-sections inside these screens (e.g.
     // Auktion's ADMIN-only Verwaltung, Politiker's BOARD/ADMIN Verwaltung) are unchanged, still
     // gated INSIDE the screen, not via separate nav entries.
-    leftNav.dropDown("Wirtschaft", icon = "fas fa-coins", forNavbar = true) {
-        ddLink("LTR-Konto", url = "#${Routes.LTR_LEDGER}", icon = "fas fa-wallet")
-        ddLink("Crowdfunding", url = "#${Routes.CROWDFUNDING}", icon = "fas fa-hand-holding-heart")
-        ddLink("Auktion", url = "#${Routes.AUCTION}", icon = "fas fa-gavel")
-        ddLink("Politiker", url = "#${Routes.POLITICIANS}", icon = "fas fa-landmark")
+    leftNav.dropDown(tr("Wirtschaft"), icon = "fas fa-coins", forNavbar = true) {
+        ddLink(tr("LTR-Konto"), url = "#${Routes.LTR_LEDGER}", icon = "fas fa-wallet")
+        ddLink(tr("Crowdfunding"), url = "#${Routes.CROWDFUNDING}", icon = "fas fa-hand-holding-heart")
+        ddLink(tr("Auktion"), url = "#${Routes.AUCTION}", icon = "fas fa-gavel")
+        ddLink(tr("Politiker"), url = "#${Routes.POLITICIANS}", icon = "fas fa-landmark")
     }
     // Accounting UI wave, design decision D15 -- gated on TREASURER/BOARD/ADMIN (the same three
     // roles the LEDGER route itself requires), so a plain MEMBER never even sees this dropdown
     // render. See `Routes.LEDGER`/`FINANCIAL_REPORTS`/`COMPLIANCE_REPORTS`/`COST_CENTERS`/
     // `DONORS`/`AUDIT_LOG`/`POSTAL_MAIL`/`PRICE_ORACLE` KDoc for the per-route verification.
     if (AppState.hasRole(AccountRole.TREASURER, AccountRole.BOARD, AccountRole.ADMIN)) {
-        leftNav.dropDown("Finanzen", icon = "fas fa-chart-line", forNavbar = true) {
-            ddLink("Kontenplan & Journal", url = "#${Routes.LEDGER}", icon = "fas fa-book")
-            ddLink("Finanzberichte", url = "#${Routes.FINANCIAL_REPORTS}", icon = "fas fa-chart-pie")
+        leftNav.dropDown(tr("Finanzen"), icon = "fas fa-chart-line", forNavbar = true) {
+            ddLink(tr("Kontenplan & Journal"), url = "#${Routes.LEDGER}", icon = "fas fa-book")
+            ddLink(tr("Finanzberichte"), url = "#${Routes.FINANCIAL_REPORTS}", icon = "fas fa-chart-pie")
             ddLink(
-                "Gemeinnützigkeits-Berichte",
+                tr("Gemeinnützigkeits-Berichte"),
                 url = "#${Routes.COMPLIANCE_REPORTS}",
                 icon = "fas fa-scale-balanced",
             )
-            ddLink("Kostenstellen", url = "#${Routes.COST_CENTERS}", icon = "fas fa-tags")
-            ddLink("Spender", url = "#${Routes.DONORS}", icon = "fas fa-heart")
-            ddLink("Prüfprotokoll", url = "#${Routes.AUDIT_LOG}", icon = "fas fa-magnifying-glass")
-            ddLink("Postversand", url = "#${Routes.POSTAL_MAIL}", icon = "fas fa-envelope-open-text")
-            ddLink("Price-Oracle", url = "#${Routes.PRICE_ORACLE}", icon = "fas fa-chart-simple")
+            ddLink(tr("Kostenstellen"), url = "#${Routes.COST_CENTERS}", icon = "fas fa-tags")
+            ddLink(tr("Spender"), url = "#${Routes.DONORS}", icon = "fas fa-heart")
+            ddLink(tr("Prüfprotokoll"), url = "#${Routes.AUDIT_LOG}", icon = "fas fa-magnifying-glass")
+            ddLink(tr("Postversand"), url = "#${Routes.POSTAL_MAIL}", icon = "fas fa-envelope-open-text")
+            ddLink(tr("Price-Oracle"), url = "#${Routes.PRICE_ORACLE}", icon = "fas fa-chart-simple")
         }
     }
     // BOARD/ADMIN-tier -- see `Routes.MEMBERS`/`DSGVO_COMPLIANCE`/`BOARD_MEMBERSHIP` KDoc.
     if (AppState.hasRole(AccountRole.BOARD, AccountRole.ADMIN)) {
-        leftNav.dropDown("Verwaltung", icon = "fas fa-user-gear", forNavbar = true) {
-            ddLink("Mitgliederverwaltung", url = "#${Routes.MEMBERS}", icon = "fas fa-users-gear")
-            ddLink("DSGVO-Compliance", url = "#${Routes.DSGVO_COMPLIANCE}", icon = "fas fa-shield-halved")
+        leftNav.dropDown(tr("Verwaltung"), icon = "fas fa-user-gear", forNavbar = true) {
+            ddLink(tr("Mitgliederverwaltung"), url = "#${Routes.MEMBERS}", icon = "fas fa-users-gear")
+            ddLink(tr("DSGVO-Compliance"), url = "#${Routes.DSGVO_COMPLIANCE}", icon = "fas fa-shield-halved")
             ddLink(
-                "Vorstand & Transparenzregister",
+                tr("Vorstand & Transparenzregister"),
                 url = "#${Routes.BOARD_MEMBERSHIP}",
                 icon = "fas fa-landmark-flag",
             )
@@ -180,17 +260,16 @@ private fun refreshNavbar(navbar: Navbar) {
     }
     // ADMIN-only-tier -- see `Routes.BACKUP`/`CONFERENCE_STREAM_DESTINATIONS` KDoc.
     if (AppState.hasRole(AccountRole.ADMIN)) {
-        leftNav.dropDown("System", icon = "fas fa-server", forNavbar = true) {
-            ddLink("Backup & Wiederherstellung", url = "#${Routes.BACKUP}", icon = "fas fa-database")
+        leftNav.dropDown(tr("System"), icon = "fas fa-server", forNavbar = true) {
+            ddLink(tr("Backup & Wiederherstellung"), url = "#${Routes.BACKUP}", icon = "fas fa-database")
             ddLink(
-                "Stream-Ziele",
+                tr("Stream-Ziele"),
                 url = "#${Routes.CONFERENCE_STREAM_DESTINATIONS}",
                 icon = "fas fa-satellite-dish",
             )
         }
     }
 
-    val rightNav: Nav = navbar.nav(rightAlign = true)
     // V0.8.4 Guest Badge: a federated OIDC guest session gets a visual indicator in place of the
     // ordinary "(role)" display -- a non-guest session's display below is completely unchanged.
     // homeserverUrl != null is a defensive guard (see GuestBadge.kt guestBadge KDoc): it should
@@ -200,17 +279,47 @@ private fun refreshNavbar(navbar: Navbar) {
     if (session.isGuest && session.homeserverUrl != null) {
         rightNav.span(className = "nav-item nav-link disabled d-flex align-items-center gap-2") {
             guestBadge(session.homeserverUrl!!)
-            span("${session.displayName} (Gast)")
+            span(gettext("%1 (Gast)", session.displayName))
         }
     } else {
-        rightNav.navLinkDisabled("${session.displayName} (${session.role})", icon = "fas fa-user")
+        rightNav.navLinkDisabled(gettext("%1 (%2)", session.displayName, session.role), icon = "fas fa-user")
     }
-    val logoutLink = rightNav.navLink("Abmelden", url = "javascript:void(0)", icon = "fas fa-right-from-bracket")
+    val logoutLink =
+        rightNav.navLink(tr("Abmelden"), url = "javascript:void(0)", icon = "fas fa-right-from-bracket")
     logoutLink.onClick {
         AppScope.launch {
             AuthHttp.logout()
             AppState.setSession(null)
             navigateTo(Routes.LOGIN)
+        }
+    }
+}
+
+/**
+ * Sprachumschalter-Feature 2026-08-14: a compact `fas fa-globe` dropdown showing every supported
+ * language by its own native name ([SUPPORTED_LANGUAGES]), button label = the active language's
+ * two-letter code. Placed first in [rightNav] so it survives the anonymous-session early return
+ * in [refreshNavbar] above (everything after it in that function is session-gated). Selecting an
+ * entry calls [setLanguage], which sets [io.kvision.i18n.I18n.language] -- KVision's own
+ * mechanism for this re-resolves every `tr()`/`gettext()`-marked label across the WHOLE app on its
+ * own (see `Root.restart()` in `I18n.language`'s setter), so this function only needs to rebuild
+ * the switcher's own button text afterward, not the rest of the navbar.
+ */
+private fun addLanguageSwitcher(
+    rightNav: Nav,
+    navbar: Navbar,
+) {
+    val current = SUPPORTED_LANGUAGES.firstOrNull { it.first == I18n.language } ?: SUPPORTED_LANGUAGES.first()
+    rightNav.dropDown(current.first.uppercase(), icon = "fas fa-globe", forNavbar = true) {
+        SUPPORTED_LANGUAGES.forEach { (code, nativeName) ->
+            val link = ddLink(nativeName, url = "javascript:void(0)")
+            if (code == current.first) {
+                link.addCssClass("active")
+            }
+            link.onClick {
+                setLanguage(code)
+                refreshNavbar(navbar)
+            }
         }
     }
 }
@@ -234,6 +343,28 @@ fun main() {
     // than threading `dataNavigo = true` through every individual `navLink`/`link`/`navTile` call
     // site across every screen file.
     Link.useDataNavigoForLinks = true
+    // Sprachumschalter-Feature 2026-08-14: sets the active language BEFORE the first render (a
+    // post-render set would flash German content, then immediately re-render in the saved
+    // language). `I18n.manager` uses `I18nCatalogManager` -- see that class's own KDoc for why
+    // it exists instead of KVision's own `kvision-i18n` module (`DefaultI18nManager` crashes the
+    // app on load, an upstream `gettext.js` interop bug, not something to route around here).
+    // The catalogs below are AI-translated (2026-08-15, all 1491 extracted strings) from the
+    // compiled `messages-<lang>.json` resources (`generatePotFile` -> translated `.po` ->
+    // `convertPoToJson`); German itself needs no catalog since it's the source language baked
+    // directly into every `tr()`/`gettext()` call's own argument.
+    I18n.language = initialLanguage()
+    I18n.manager =
+        I18nCatalogManager(
+            mapOf(
+                "en" to messagesEn,
+                "fr" to messagesFr,
+                "es" to messagesEs,
+                "it" to messagesIt,
+                "nl" to messagesNl,
+                "pl" to messagesPl,
+                "ru" to messagesRu,
+            ),
+        )
     // UI/UX-Design-Team-Review 2026-08-14: loads theme.css (papyrus/lapis-lazuli/gold palette,
     // ported from cloud.lapisproject.dev's tokens.css) into the webpack bundle. `js("require(...)")`
     // is the standard Kotlin/JS idiom for a raw stylesheet import under `cssSupport { enabled.set(true) }`

@@ -9,6 +9,8 @@ import io.kvision.html.div
 import io.kvision.html.h1
 import io.kvision.html.link
 import io.kvision.html.p
+import io.kvision.i18n.gettext
+import io.kvision.i18n.tr
 import io.kvision.panel.SimplePanel
 import io.kvision.panel.vPanel
 import io.kvision.utils.px
@@ -33,7 +35,7 @@ fun renderLoginScreen(container: SimplePanel) {
         marginTop = 64.px
 
         h1("Lapis Cloud")
-        p("Bitte melden Sie sich mit Ihrer E-Mail-Adresse an.")
+        p(tr("Bitte melden Sie sich mit Ihrer E-Mail-Adresse an."))
 
         val errorBox =
             div().apply {
@@ -41,18 +43,18 @@ fun renderLoginScreen(container: SimplePanel) {
                 hide()
             }
 
-        val emailInput = text(type = InputType.EMAIL, label = "E-Mail")
-        val passwordInput = password(label = "Passwort")
+        val emailInput = text(type = InputType.EMAIL, label = tr("E-Mail"))
+        val passwordInput = password(label = tr("Passwort"))
 
         lateinit var loginButton: io.kvision.html.Button
         loginButton =
-            button("Anmelden", style = ButtonStyle.PRIMARY) {
+            button(tr("Anmelden"), style = ButtonStyle.PRIMARY) {
                 onClick {
                     val email = emailInput.value.orEmpty().trim()
                     val pw = passwordInput.value.orEmpty()
                     errorBox.hide()
                     if (!Validation.isNonBlank(email) || !Validation.isNonBlank(pw)) {
-                        errorBox.content = "Bitte E-Mail und Passwort eingeben."
+                        errorBox.content = tr("Bitte E-Mail und Passwort eingeben.")
                         errorBox.show()
                         return@onClick
                     }
@@ -69,10 +71,11 @@ fun renderLoginScreen(container: SimplePanel) {
                         loginButton.disabled = false
                         if (session != null) {
                             AppState.setSession(session)
-                            notifySuccess("Willkommen, ${session.displayName}.")
+                            notifySuccess(gettext("Willkommen, %1.", session.displayName))
                             navigateTo(Routes.DASHBOARD)
                         } else {
-                            errorBox.content = "Anmeldung erfolgreich, aber Sitzungsdaten konnten nicht geladen werden."
+                            errorBox.content =
+                                tr("Anmeldung erfolgreich, aber Sitzungsdaten konnten nicht geladen werden.")
                             errorBox.show()
                         }
                     }
@@ -81,7 +84,7 @@ fun renderLoginScreen(container: SimplePanel) {
 
         div {
             marginTop = 8.px
-            link("Noch kein Konto? Jetzt Mitglied werden.", url = "#${Routes.REGISTER}")
+            link(tr("Noch kein Konto? Jetzt Mitglied werden."), url = "#${Routes.REGISTER}")
         }
 
         // V0.8.2 OIDC-Gastzugang-Federation: a plain, full-page-navigation link (NOT an SPA hash
@@ -90,7 +93,10 @@ fun renderLoginScreen(container: SimplePanel) {
         // wave makes; the guest timeline badge is a separate wave (V0.8.4).
         div {
             marginTop = 8.px
-            link("Gast eines anderen Lapis-Cloud-Servers? Mit Heimatserver anmelden.", url = "/federation/oidc/rp/login")
+            link(
+                tr("Gast eines anderen Lapis-Cloud-Servers? Mit Heimatserver anmelden."),
+                url = "/federation/oidc/rp/login",
+            )
         }
 
         renderForgotPasswordToggle(this)
@@ -100,29 +106,35 @@ fun renderLoginScreen(container: SimplePanel) {
 /** Minimal request+confirm "forgot password" flow -- see V0.7.3 plan Open Question 3. Collapsed
  * behind a toggle link so it doesn't crowd the primary login form. */
 private fun renderForgotPasswordToggle(parent: SimplePanel) {
-    val toggleLink = parent.link("Passwort vergessen?", url = "javascript:void(0)")
+    val toggleLink = parent.link(tr("Passwort vergessen?"), url = "javascript:void(0)")
     val panel = parent.vPanel(spacing = 6) { hide() }
     toggleLink.onClick { if (panel.visible) panel.hide() else panel.show() }
 
     panel.p(
-        "Geben Sie Ihre E-Mail-Adresse ein, um einen Link zum Zurücksetzen anzufordern. " +
-            "Erhalten Sie eine Bestätigung, tragen Sie anschließend den Token und Ihr neues Passwort ein.",
+        tr(
+            "Geben Sie Ihre E-Mail-Adresse ein, um einen Link zum Zurücksetzen anzufordern. " +
+                "Erhalten Sie eine Bestätigung, tragen Sie anschließend den Token und Ihr neues Passwort ein.",
+        ),
     )
-    val resetEmail = panel.text(type = InputType.EMAIL, label = "E-Mail")
-    val requestButton = panel.button("Zurücksetzen anfordern", style = ButtonStyle.OUTLINEPRIMARY)
+    val resetEmail = panel.text(type = InputType.EMAIL, label = tr("E-Mail"))
+    val requestButton = panel.button(tr("Zurücksetzen anfordern"), style = ButtonStyle.OUTLINEPRIMARY)
     requestButton.onClick {
         val email = resetEmail.value.orEmpty().trim()
         if (!Validation.isNonBlank(email)) return@onClick
         AppScope.launch {
             val error = AuthHttp.requestPasswordReset(email)
-            if (error != null) notifyError(error) else notifyInfo("Falls diese E-Mail registriert ist, wurde ein Link versendet.")
+            if (error != null) {
+                notifyError(error)
+            } else {
+                notifyInfo(tr("Falls diese E-Mail registriert ist, wurde ein Link versendet."))
+            }
         }
     }
 
     panel.div { marginTop = 8.px }
-    val resetToken = panel.text(label = "Token (aus der E-Mail bzw. vom Betreiber)")
-    val newPassword = panel.password(label = "Neues Passwort")
-    val confirmButton = panel.button("Neues Passwort setzen", style = ButtonStyle.OUTLINEPRIMARY)
+    val resetToken = panel.text(label = tr("Token (aus der E-Mail bzw. vom Betreiber)"))
+    val newPassword = panel.password(label = tr("Neues Passwort"))
+    val confirmButton = panel.button(tr("Neues Passwort setzen"), style = ButtonStyle.OUTLINEPRIMARY)
     confirmButton.onClick {
         val token = resetToken.value.orEmpty().trim()
         val pw = newPassword.value.orEmpty()
@@ -132,7 +144,7 @@ private fun renderForgotPasswordToggle(parent: SimplePanel) {
             if (error != null) {
                 notifyError(error)
             } else {
-                notifySuccess("Passwort wurde geändert -- bitte melden Sie sich neu an.")
+                notifySuccess(tr("Passwort wurde geändert -- bitte melden Sie sich neu an."))
                 panel.hide()
             }
         }

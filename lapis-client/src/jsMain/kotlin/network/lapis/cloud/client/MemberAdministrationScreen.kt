@@ -12,6 +12,8 @@ import io.kvision.html.div
 import io.kvision.html.h1
 import io.kvision.html.h2
 import io.kvision.html.p
+import io.kvision.i18n.gettext
+import io.kvision.i18n.tr
 import io.kvision.modal.Modal
 import io.kvision.panel.SimplePanel
 import io.kvision.panel.hPanel
@@ -38,7 +40,7 @@ fun renderMemberAdministrationScreen(container: SimplePanel) {
             width = 720.px
             marginTop = 24.px
         }
-    root.h1("Mitgliederverwaltung")
+    root.h1(tr("Mitgliederverwaltung"))
 
     renderPendingApplications(root)
     renderMemberDirectory(root)
@@ -46,7 +48,7 @@ fun renderMemberAdministrationScreen(container: SimplePanel) {
 }
 
 private fun renderPendingApplications(root: SimplePanel) {
-    root.h2("Offene Anträge")
+    root.h2(tr("Offene Anträge"))
     val pendingPanel = root.vPanel(spacing = 6)
 
     fun refresh() {
@@ -54,31 +56,38 @@ private fun renderPendingApplications(root: SimplePanel) {
         AppScope.launch {
             val applications = guarded { rpcService<IRegistrationService>().listPendingApplications() } ?: return@launch
             if (applications.isEmpty()) {
-                pendingPanel.p("Keine offenen Anträge.")
+                pendingPanel.p(tr("Keine offenen Anträge."))
                 return@launch
             }
             applications.forEach { application ->
                 val row = pendingPanel.hPanel(spacing = 8) { addCssClasses("border rounded p-2 align-items-center") }
-                row.div("${application.displayName} (${application.email}) -- eingereicht am ${application.joinedAt}") {
+                row.div(
+                    gettext(
+                        "%1 (%2) -- eingereicht am %3",
+                        application.displayName,
+                        application.email,
+                        application.joinedAt,
+                    ),
+                ) {
                     addCssClass("flex-grow-1")
                 }
-                val approveButton = row.button("Annehmen", style = ButtonStyle.SUCCESS)
+                val approveButton = row.button(tr("Annehmen"), style = ButtonStyle.SUCCESS)
                 approveButton.onClick {
                     AppScope.launch {
                         val result = guarded { rpcService<IRegistrationService>().approveApplication(application.id) }
                         if (result != null) {
-                            notifySuccess("${application.displayName} wurde aufgenommen.")
+                            notifySuccess(gettext("%1 wurde aufgenommen.", application.displayName))
                             refresh()
                         }
                     }
                 }
-                val rejectButton = row.button("Ablehnen", style = ButtonStyle.OUTLINEDANGER)
+                val rejectButton = row.button(tr("Ablehnen"), style = ButtonStyle.OUTLINEDANGER)
                 rejectButton.onClick {
                     rejectApplicationDialog(application.displayName) { reason ->
                         AppScope.launch {
                             val result = guarded { rpcService<IRegistrationService>().rejectApplication(application.id, reason) }
                             if (result != null) {
-                                notifyInfo("${application.displayName} wurde abgelehnt.")
+                                notifyInfo(gettext("%1 wurde abgelehnt.", application.displayName))
                                 refresh()
                             }
                         }
@@ -96,21 +105,21 @@ private fun rejectApplicationDialog(
     applicantName: String,
     onConfirm: (String) -> Unit,
 ) {
-    val modal = Modal(caption = "Antrag von $applicantName ablehnen")
-    modal.p("Bitte geben Sie einen Ablehnungsgrund an (wird beim Mitglied gespeichert).")
+    val modal = Modal(caption = gettext("Antrag von %1 ablehnen", applicantName))
+    modal.p(tr("Bitte geben Sie einen Ablehnungsgrund an (wird beim Mitglied gespeichert)."))
     val reasonInput = modal.textArea(rows = 3)
     val errorBox =
         modal.div().apply {
             addCssClass("text-danger")
             hide()
         }
-    modal.addButton(Button("Abbrechen", style = ButtonStyle.SECONDARY).apply { onClick { modal.hide() } })
+    modal.addButton(Button(tr("Abbrechen"), style = ButtonStyle.SECONDARY).apply { onClick { modal.hide() } })
     modal.addButton(
-        Button("Ablehnen", style = ButtonStyle.DANGER).apply {
+        Button(tr("Ablehnen"), style = ButtonStyle.DANGER).apply {
             onClick {
                 val reason = reasonInput.value.orEmpty().trim()
                 if (reason.isBlank()) {
-                    errorBox.content = "Bitte einen Grund angeben."
+                    errorBox.content = tr("Bitte einen Grund angeben.")
                     errorBox.show()
                     return@onClick
                 }
@@ -131,13 +140,15 @@ private fun rejectApplicationDialog(
  * without being asked for, to avoid adding new backend surface as a side effect of a UI wave.
  */
 private fun renderMemberDirectory(root: SimplePanel) {
-    root.h2("Mitgliederverzeichnis")
+    root.h2(tr("Mitgliederverzeichnis"))
     root.p(
-        "Aktive Mitglieder nach Name. E-Mail/Rolle/Adresse sind hier aus Datenschutzgründen nicht " +
-            "einsehbar -- dafür existiert aktuell keine privilegierte Leseschnittstelle.",
+        tr(
+            "Aktive Mitglieder nach Name. E-Mail/Rolle/Adresse sind hier aus Datenschutzgründen nicht " +
+                "einsehbar -- dafür existiert aktuell keine privilegierte Leseschnittstelle.",
+        ),
     )
     val searchRow = root.hPanel(spacing = 8)
-    val searchInput = searchRow.text(label = "Suche nach Name")
+    val searchInput = searchRow.text(label = tr("Suche nach Name"))
     val directoryPanel = root.vPanel(spacing = 2)
 
     var allMembers: List<MemberSummaryDto> = emptyList()
@@ -151,13 +162,13 @@ private fun renderMemberDirectory(root: SimplePanel) {
                 allMembers.filter { it.displayName.contains(filter, ignoreCase = true) }
             }
         if (filtered.isEmpty()) {
-            directoryPanel.p("Keine Treffer.")
+            directoryPanel.p(tr("Keine Treffer."))
         } else {
             filtered.forEach { directoryPanel.div(it.displayName) { addCssClasses("border-bottom py-1") } }
         }
     }
 
-    val searchButton = searchRow.button("Suchen", style = ButtonStyle.OUTLINESECONDARY)
+    val searchButton = searchRow.button(tr("Suchen"), style = ButtonStyle.OUTLINESECONDARY)
     searchButton.onClick { renderDirectory(searchInput.value.orEmpty()) }
 
     AppScope.launch {
@@ -167,21 +178,23 @@ private fun renderMemberDirectory(root: SimplePanel) {
 }
 
 private fun renderDirectMemberCreation(root: SimplePanel) {
-    root.h2("Mitglied direkt anlegen")
+    root.h2(tr("Mitglied direkt anlegen"))
     root.p(
-        "Legt ein Mitglied ohne Antrags-/Freigabeschritt an (z. B. für Beitritte auf Papier oder " +
-            "Datenmigration) -- Status sofort AKTIV.",
+        tr(
+            "Legt ein Mitglied ohne Antrags-/Freigabeschritt an (z. B. für Beitritte auf Papier oder " +
+                "Datenmigration) -- Status sofort AKTIV.",
+        ),
     )
 
     val callerRole = AppState.session?.role ?: AccountRole.MEMBER
     val roleOptions = selectableRolesFor(callerRole).map { it.name to it.name }
 
-    val nameInput = root.text(label = "Name")
-    val emailInput = root.text(type = InputType.EMAIL, label = "E-Mail")
-    val passwordInput = root.password(label = "Vorläufiges Passwort (mind. ${Validation.PASSWORD_MIN_LENGTH} Zeichen)")
-    val roleSelect = root.select(options = roleOptions, value = roleOptions.firstOrNull()?.first, label = "Rolle")
+    val nameInput = root.text(label = tr("Name"))
+    val emailInput = root.text(type = InputType.EMAIL, label = tr("E-Mail"))
+    val passwordInput = root.password(label = gettext("Vorläufiges Passwort (mind. %1 Zeichen)", Validation.PASSWORD_MIN_LENGTH))
+    val roleSelect = root.select(options = roleOptions, value = roleOptions.firstOrNull()?.first, label = tr("Rolle"))
     if (roleOptions.size == 1) {
-        root.p("Als Vorstand können Sie hier nur reguläre Mitglieder anlegen -- Vorstand/Schatzmeister/Admin ist Admin vorbehalten.")
+        root.p(tr("Als Vorstand können Sie hier nur reguläre Mitglieder anlegen -- Vorstand/Schatzmeister/Admin ist Admin vorbehalten."))
     }
     val errorBox =
         root.div().apply {
@@ -189,7 +202,7 @@ private fun renderDirectMemberCreation(root: SimplePanel) {
             hide()
         }
 
-    val createButton = root.button("Mitglied anlegen", style = ButtonStyle.PRIMARY)
+    val createButton = root.button(tr("Mitglied anlegen"), style = ButtonStyle.PRIMARY)
     createButton.onClick {
         errorBox.hide()
         val name = nameInput.value.orEmpty().trim()
@@ -198,7 +211,7 @@ private fun renderDirectMemberCreation(root: SimplePanel) {
         val roleValue = roleSelect.value
 
         if (!Validation.isNonBlank(name) || !Validation.looksLikeEmail(email) || roleValue == null) {
-            errorBox.content = "Bitte Name, eine gültige E-Mail-Adresse und eine Rolle angeben."
+            errorBox.content = tr("Bitte Name, eine gültige E-Mail-Adresse und eine Rolle angeben.")
             errorBox.show()
             return@onClick
         }
@@ -224,7 +237,7 @@ private fun renderDirectMemberCreation(root: SimplePanel) {
                 }
             createButton.disabled = false
             if (result != null) {
-                notifySuccess("$name wurde angelegt.")
+                notifySuccess(gettext("%1 wurde angelegt.", name))
                 nameInput.value = null
                 emailInput.value = null
                 passwordInput.value = null

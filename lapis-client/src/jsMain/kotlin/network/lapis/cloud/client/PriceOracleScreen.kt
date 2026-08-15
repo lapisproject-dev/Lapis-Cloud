@@ -12,6 +12,8 @@ import io.kvision.html.div
 import io.kvision.html.h1
 import io.kvision.html.h2
 import io.kvision.html.p
+import io.kvision.i18n.gettext
+import io.kvision.i18n.tr
 import io.kvision.modal.Modal
 import io.kvision.panel.SimplePanel
 import io.kvision.panel.hPanel
@@ -124,20 +126,22 @@ fun renderPriceOracleScreen(container: SimplePanel) {
             width = 900.px
             marginTop = 24.px
         }
-    root.h1("Price-Oracle")
+    root.h1(tr("Price-Oracle"))
     root.div(
-        "Verwaltet die Anker-Bindung des Libertaler (LTR) an ein reales Asset (aktuell: Bitcoin) und bucht " +
-            "eingegangene Spenden als LTR-Mint. Sichtbar für TREASURER/BOARD/ADMIN, Konfigurationsänderungen nur für ADMIN.",
+        tr(
+            "Verwaltet die Anker-Bindung des Libertaler (LTR) an ein reales Asset (aktuell: Bitcoin) und bucht " +
+                "eingegangene Spenden als LTR-Mint. Sichtbar für TREASURER/BOARD/ADMIN, Konfigurationsänderungen nur für ADMIN.",
+        ),
     ) { addCssClasses("text-muted small") }
 
     // ---- Konfiguration ------------------------------------------------------------------------
-    root.h2("Konfiguration")
+    root.h2(tr("Konfiguration"))
     val configPanel = root.vPanel(spacing = 6)
-    configPanel.p("Wird geladen …") { addCssClasses("text-muted small") }
+    configPanel.p(tr("Wird geladen …")) { addCssClasses("text-muted small") }
 
     fun loadConfig() {
         configPanel.removeAll()
-        configPanel.p("Wird geladen …") { addCssClasses("text-muted small") }
+        configPanel.p(tr("Wird geladen …")) { addCssClasses("text-muted small") }
         AppScope.launch {
             val config = guarded { rpcService<IPriceOracleService>().getOracleConfig() } ?: return@launch
             configPanel.removeAll()
@@ -150,11 +154,11 @@ fun renderPriceOracleScreen(container: SimplePanel) {
     loadConfig()
 
     // ---- Diagnose: aktueller Kurs (D10 empty-state N/A -- always renders halted OR live shape) --
-    root.h2("Diagnose: aktueller Kurs")
-    root.div("Rein diagnostisch -- prüft die Orakel-Gesundheit, ohne LTR zu minten.") { addCssClasses("text-muted small") }
+    root.h2(tr("Diagnose: aktueller Kurs"))
+    root.div(tr("Rein diagnostisch -- prüft die Orakel-Gesundheit, ohne LTR zu minten.")) { addCssClasses("text-muted small") }
     val previewRow = root.hPanel(spacing = 8) { addCssClasses("align-items-center") }
-    val previewButton = previewRow.button("Kurs abrufen", style = ButtonStyle.OUTLINESECONDARY)
-    val previewBusyLabel = previewRow.div("Wird ausgeführt …") { addCssClasses("text-muted small") }
+    val previewButton = previewRow.button(tr("Kurs abrufen"), style = ButtonStyle.OUTLINESECONDARY)
+    val previewBusyLabel = previewRow.div(tr("Wird ausgeführt …")) { addCssClasses("text-muted small") }
     previewBusyLabel.hide()
     val previewResultPanel = root.vPanel(spacing = 4)
 
@@ -173,9 +177,9 @@ fun renderPriceOracleScreen(container: SimplePanel) {
     }
 
     // ---- Spende zu LTR konvertieren ------------------------------------------------------------
-    root.h2("Spende zu LTR konvertieren")
+    root.h2(tr("Spende zu LTR konvertieren"))
     val convertPanel = root.vPanel(spacing = 6)
-    convertPanel.p("Wird geladen …") { addCssClasses("text-muted small") }
+    convertPanel.p(tr("Wird geladen …")) { addCssClasses("text-muted small") }
     AppScope.launch {
         val members = guarded { rpcService<IMemberService>().listMembers() } ?: emptyList()
         convertPanel.removeAll()
@@ -193,17 +197,17 @@ private fun renderConfigSummary(
 ) {
     val box = panel.vPanel(spacing = 4) { addCssClasses("border rounded p-3") }
     val row1 = box.hPanel(spacing = 16) { addCssClasses("flex-wrap") }
-    row1.labeledValue("Anker-Asset") { it.typeBadge(anchorAssetLabel(config.anchorAsset), "primary") }
-    row1.labeledValue("Spendenwährung") { it.div(config.donationCurrency) }
-    row1.labeledValue("Peg (Einheiten je LTR)") { it.div(formatDonationAmount(config.anchorUnitsPerLtr, "")) }
+    row1.labeledValue(tr("Anker-Asset")) { it.typeBadge(anchorAssetLabel(config.anchorAsset), "primary") }
+    row1.labeledValue(tr("Spendenwährung")) { it.div(config.donationCurrency) }
+    row1.labeledValue(tr("Peg (Einheiten je LTR)")) { it.div(formatDonationAmount(config.anchorUnitsPerLtr, "")) }
 
     val row2 = box.hPanel(spacing = 16) { addCssClasses("flex-wrap") }
-    row2.labeledValue("Cache-TTL") { it.div("${config.cacheTtlSeconds} s") }
-    row2.labeledValue("Mindest-Quorum") { it.div("${config.minQuorum} Quellen") }
-    row2.labeledValue("Ausreißer-Schwelle") { it.div("${config.outlierThresholdBps} bps") }
-    row2.labeledValue("Max. Spread") { it.div("${config.maxSpreadBps} bps") }
+    row2.labeledValue(tr("Cache-TTL")) { it.div(gettext("%1 s", config.cacheTtlSeconds)) }
+    row2.labeledValue(tr("Mindest-Quorum")) { it.div(gettext("%1 Quellen", config.minQuorum)) }
+    row2.labeledValue(tr("Ausreißer-Schwelle")) { it.div(gettext("%1 bps", config.outlierThresholdBps)) }
+    row2.labeledValue(tr("Max. Spread")) { it.div(gettext("%1 bps", config.maxSpreadBps)) }
 
-    box.div("Zuletzt aktualisiert: ${config.updatedAt}") { addCssClasses("text-muted small") }
+    box.div(gettext("Zuletzt aktualisiert: %1", config.updatedAt)) { addCssClasses("text-muted small") }
 }
 
 private fun SimplePanel.labeledValue(
@@ -229,29 +233,31 @@ private fun renderConfigForm(
     onUpdated: () -> Unit,
 ) {
     val panel = root.vPanel(spacing = 6) { addCssClasses("border rounded p-3 mt-2") }
-    panel.div("Konfiguration bearbeiten (ADMIN)") { addCssClass("fw-bold") }
+    panel.div(tr("Konfiguration bearbeiten (ADMIN)")) { addCssClass("fw-bold") }
 
     val anchorAssetOptions = listOf(AnchorAsset.BITCOIN_BTC.name to anchorAssetLabel(AnchorAsset.BITCOIN_BTC))
     val anchorAssetSelect =
-        panel.select(options = anchorAssetOptions, value = AnchorAsset.BITCOIN_BTC.name, label = "Anker-Asset")
+        panel.select(options = anchorAssetOptions, value = AnchorAsset.BITCOIN_BTC.name, label = tr("Anker-Asset"))
     panel.div(
-        "Gold (XAU) und Fiat-Kurse sind fachlich vorgesehen, aber serverseitig noch nicht implementiert (kein " +
-            "robuster kostenloser Mehrquellen-Feed verfügbar) -- daher hier nicht auswählbar.",
+        tr(
+            "Gold (XAU) und Fiat-Kurse sind fachlich vorgesehen, aber serverseitig noch nicht implementiert (kein " +
+                "robuster kostenloser Mehrquellen-Feed verfügbar) -- daher hier nicht auswählbar.",
+        ),
     ) { addCssClasses("text-muted small") }
 
     val donationCurrencyOptions = listOf("EUR" to "EUR", "USD" to "USD")
     val donationCurrencySelect =
-        panel.select(options = donationCurrencyOptions, value = config.donationCurrency, label = "Spendenwährung")
+        panel.select(options = donationCurrencyOptions, value = config.donationCurrency, label = tr("Spendenwährung"))
 
-    val anchorUnitsInput = panel.text(label = "Peg: Einheiten des Anker-Assets je LTR")
+    val anchorUnitsInput = panel.text(label = tr("Peg: Einheiten des Anker-Assets je LTR"))
     anchorUnitsInput.value = config.anchorUnitsPerLtr.toString()
-    val cacheTtlInput = panel.text(label = "Cache-TTL (Sekunden)")
+    val cacheTtlInput = panel.text(label = tr("Cache-TTL (Sekunden)"))
     cacheTtlInput.value = config.cacheTtlSeconds.toString()
-    val minQuorumInput = panel.text(label = "Mindest-Quorum (Quellen, mind. 2)")
+    val minQuorumInput = panel.text(label = tr("Mindest-Quorum (Quellen, mind. 2)"))
     minQuorumInput.value = config.minQuorum.toString()
-    val outlierThresholdInput = panel.text(label = "Ausreißer-Schwelle (Basispunkte, 1-10000)")
+    val outlierThresholdInput = panel.text(label = tr("Ausreißer-Schwelle (Basispunkte, 1-10000)"))
     outlierThresholdInput.value = config.outlierThresholdBps.toString()
-    val maxSpreadInput = panel.text(label = "Max. Spread (Basispunkte, >= Ausreißer-Schwelle)")
+    val maxSpreadInput = panel.text(label = tr("Max. Spread (Basispunkte, >= Ausreißer-Schwelle)"))
     maxSpreadInput.value = config.maxSpreadBps.toString()
 
     val errorBox =
@@ -259,7 +265,7 @@ private fun renderConfigForm(
             addCssClass("text-danger")
             hide()
         }
-    val saveButton = panel.button("Konfiguration speichern", style = ButtonStyle.PRIMARY)
+    val saveButton = panel.button(tr("Konfiguration speichern"), style = ButtonStyle.PRIMARY)
 
     saveButton.onClick {
         errorBox.hide()
@@ -297,8 +303,10 @@ private fun renderConfigForm(
             maxSpread < outlierThreshold
         ) {
             errorBox.content =
-                "Bitte alle Felder gültig ausfüllen: Peg positiv, Cache-TTL positiv, Mindest-Quorum mind. 2, " +
-                "Ausreißer-Schwelle 1-10000 bps, Max. Spread >= Ausreißer-Schwelle."
+                tr(
+                    "Bitte alle Felder gültig ausfüllen: Peg positiv, Cache-TTL positiv, Mindest-Quorum mind. 2, " +
+                        "Ausreißer-Schwelle 1-10000 bps, Max. Spread >= Ausreißer-Schwelle.",
+                )
             errorBox.show()
             return@onClick
         }
@@ -307,12 +315,21 @@ private fun renderConfigForm(
         // Tier 1 "Kostenpflichtig" (D4): plain, neutral-framed confirmDialog -- a policy change,
         // not itself a money movement.
         confirmDialog(
-            title = "Konfiguration speichern",
+            title = tr("Konfiguration speichern"),
             message =
-                "Die Orakel-Konfiguration wird vollständig ersetzt: Anker-Asset ${anchorAssetLabel(AnchorAsset.BITCOIN_BTC)}, " +
-                    "Spendenwährung $donationCurrency, Peg $anchorUnitsPerLtr, Cache-TTL ${cacheTtl}s, Quorum " +
-                    "$minQuorum, Ausreißer-Schwelle ${outlierThreshold}bps, Max. Spread ${maxSpread}bps.",
-            confirmLabel = "Speichern",
+                gettext(
+                    "Die Orakel-Konfiguration wird vollständig ersetzt: Anker-Asset %1, " +
+                        "Spendenwährung %2, Peg %3, Cache-TTL %4s, Quorum " +
+                        "%5, Ausreißer-Schwelle %6bps, Max. Spread %7bps.",
+                    anchorAssetLabel(AnchorAsset.BITCOIN_BTC),
+                    donationCurrency,
+                    anchorUnitsPerLtr,
+                    cacheTtl,
+                    minQuorum,
+                    outlierThreshold,
+                    maxSpread,
+                ),
+            confirmLabel = tr("Speichern"),
         ) {
             saveButton.disabled = true
             AppScope.launch {
@@ -332,7 +349,7 @@ private fun renderConfigForm(
                     }
                 saveButton.disabled = false
                 if (result != null) {
-                    notifySuccess("Orakel-Konfiguration aktualisiert.")
+                    notifySuccess(tr("Orakel-Konfiguration aktualisiert."))
                     onUpdated()
                 }
             }
@@ -351,20 +368,20 @@ private fun renderPriceStatus(
     panel.removeAll()
     if (status.halted) {
         val box = panel.vPanel(spacing = 4) { addCssClasses("border rounded p-3 border-danger") }
-        box.div("Orakel angehalten (HALT) -- kein aktueller Kurs verfügbar.") { addCssClasses("fw-bold text-danger") }
-        box.div(status.haltReason ?: "Kein Grund angegeben.") { addCssClasses("small") }
+        box.div(tr("Orakel angehalten (HALT) -- kein aktueller Kurs verfügbar.")) { addCssClasses("fw-bold text-danger") }
+        box.div(status.haltReason ?: tr("Kein Grund angegeben.")) { addCssClasses("small") }
         return
     }
     val box = panel.vPanel(spacing = 4) { addCssClasses("border rounded p-3") }
     val headerRow = box.hPanel(spacing = 8) { addCssClasses("align-items-center") }
-    headerRow.div("Kurs-Status:") { addCssClasses("text-muted small") }
+    headerRow.div(tr("Kurs-Status:")) { addCssClasses("text-muted small") }
     val priceStatus = status.status
     if (priceStatus != null) {
         headerRow.typeBadge(priceStatusLabel(priceStatus), priceStatusColor(priceStatus))
     }
-    box.div("Median-Kurs: ${status.medianPrice?.let { formatDonationAmount(it, "") } ?: "--"}") { addCssClasses("small") }
-    box.div("Quellen: ${status.sourceIds.joinToString(", ").ifBlank { "--" }}") { addCssClasses("text-muted small") }
-    box.div("Zeitstempel: ${status.priceTimestamp?.toString() ?: "--"}") { addCssClasses("text-muted small") }
+    box.div(gettext("Median-Kurs: %1", status.medianPrice?.let { formatDonationAmount(it, "") } ?: "--")) { addCssClasses("small") }
+    box.div(gettext("Quellen: %1", status.sourceIds.joinToString(", ").ifBlank { "--" })) { addCssClasses("text-muted small") }
+    box.div(gettext("Zeitstempel: %1", status.priceTimestamp?.toString() ?: "--")) { addCssClasses("text-muted small") }
 }
 
 // ================================================================================================
@@ -376,23 +393,28 @@ private fun renderConvertForm(
     members: List<MemberSummaryDto>,
 ) {
     if (members.isEmpty()) {
-        root.p("Keine Mitglieder vorhanden, denen eine Spende gutgeschrieben werden könnte.") { addCssClasses("text-muted small") }
+        root.p(tr("Keine Mitglieder vorhanden, denen eine Spende gutgeschrieben werden könnte.")) { addCssClasses("text-muted small") }
         return
     }
     val panel = root.vPanel(spacing = 6)
     panel.div(
-        "Bucht eine bereits eingegangene Spende als LTR-Mint auf das gewählte Mitglied. Der aktuelle Kurs wird " +
-            "beim Bestätigen live abgefragt -- der genaue LTR-Betrag steht erst nach Bestätigung fest.",
+        tr(
+            "Bucht eine bereits eingegangene Spende als LTR-Mint auf das gewählte Mitglied. Der aktuelle Kurs wird " +
+                "beim Bestätigen live abgefragt -- der genaue LTR-Betrag steht erst nach Bestätigung fest.",
+        ),
     ) { addCssClasses("text-muted small") }
 
-    val memberSelect = panel.select(options = members.map { it.id to it.displayName }, label = "Mitglied")
-    val amountInput = panel.text(label = "Spendenbetrag")
-    val currencySelect = panel.select(options = listOf("EUR" to "EUR", "USD" to "USD"), value = "EUR", label = "Anzeige-Info: Währung")
+    val memberSelect = panel.select(options = members.map { it.id to it.displayName }, label = tr("Mitglied"))
+    val amountInput = panel.text(label = tr("Spendenbetrag"))
+    val currencySelect =
+        panel.select(options = listOf("EUR" to "EUR", "USD" to "USD"), value = "EUR", label = tr("Anzeige-Info: Währung"))
     panel.div(
-        "Hinweis: Die tatsächlich gebuchte Währung ist die in der Konfiguration hinterlegte Spendenwährung -- " +
-            "diese Auswahl dient nur der Anzeige im Bestätigungsdialog.",
+        tr(
+            "Hinweis: Die tatsächlich gebuchte Währung ist die in der Konfiguration hinterlegte Spendenwährung -- " +
+                "diese Auswahl dient nur der Anzeige im Bestätigungsdialog.",
+        ),
     ) { addCssClasses("text-muted small") }
-    val noteInput = panel.text(label = "Notiz (optional)")
+    val noteInput = panel.text(label = tr("Notiz (optional)"))
     val errorBox =
         panel.div().apply {
             addCssClass("text-danger")
@@ -401,8 +423,8 @@ private fun renderConvertForm(
     val outcomePanel = panel.vPanel(spacing = 4)
 
     val convertRow = panel.hPanel(spacing = 8) { addCssClasses("align-items-center") }
-    val convertButton = convertRow.button("Zu LTR konvertieren", style = ButtonStyle.OUTLINEDANGER)
-    val convertBusyLabel = convertRow.div("Wird ausgeführt …") { addCssClasses("text-muted small") }
+    val convertButton = convertRow.button(tr("Zu LTR konvertieren"), style = ButtonStyle.OUTLINEDANGER)
+    val convertBusyLabel = convertRow.div(tr("Wird ausgeführt …")) { addCssClasses("text-muted small") }
     convertBusyLabel.hide()
 
     convertButton.onClick {
@@ -415,7 +437,7 @@ private fun renderConvertForm(
         val note = noteInput.value?.trim()?.takeIf { it.isNotBlank() }
 
         if (member == null || !Validation.isPositiveDecimal(amountText)) {
-            errorBox.content = "Bitte ein Mitglied und einen positiven Spendenbetrag angeben."
+            errorBox.content = tr("Bitte ein Mitglied und einen positiven Spendenbetrag angeben.")
             errorBox.show()
             return@onClick
         }
@@ -438,7 +460,7 @@ private fun renderConvertForm(
                 convertButton.disabled = false
                 convertBusyLabel.hide()
                 if (result != null) {
-                    notifySuccess("${formatLtr(result.ltrMinted)} für ${member.displayName} gemintet.")
+                    notifySuccess(gettext("%1 für %2 gemintet.", formatLtr(result.ltrMinted), member.displayName))
                     renderConversionResult(outcomePanel, result)
                     amountInput.value = null
                     noteInput.value = null
@@ -460,15 +482,19 @@ private fun convertDonationConfirmDialog(
     displayCurrency: String,
     onConfirm: () -> Unit,
 ) {
-    val modal = Modal(caption = "Spenden-Konvertierung bestätigen")
-    modal.div("Diese Aktion mintet echtes LTR und kann nicht rückgängig gemacht werden.") { addCssClasses("fw-bold text-danger") }
+    val modal = Modal(caption = tr("Spenden-Konvertierung bestätigen"))
+    modal.div(tr("Diese Aktion mintet echtes LTR und kann nicht rückgängig gemacht werden.")) { addCssClasses("fw-bold text-danger") }
     modal.div(
-        "Sie buchen eine Spende von ${formatDonationAmount(amount, displayCurrency)} für $memberDisplayName. Der " +
-            "aktuelle Kurs wird beim Bestätigen live abgefragt; der genaue LTR-Betrag steht erst nach Bestätigung fest.",
+        gettext(
+            "Sie buchen eine Spende von %1 für %2. Der " +
+                "aktuelle Kurs wird beim Bestätigen live abgefragt; der genaue LTR-Betrag steht erst nach Bestätigung fest.",
+            formatDonationAmount(amount, displayCurrency),
+            memberDisplayName,
+        ),
     )
-    modal.addButton(Button("Abbrechen", style = ButtonStyle.SECONDARY).apply { onClick { modal.hide() } })
+    modal.addButton(Button(tr("Abbrechen"), style = ButtonStyle.SECONDARY).apply { onClick { modal.hide() } })
     modal.addButton(
-        Button("Konvertieren", style = ButtonStyle.DANGER).apply {
+        Button(tr("Konvertieren"), style = ButtonStyle.DANGER).apply {
             onClick {
                 modal.hide()
                 onConfirm()
@@ -488,17 +514,23 @@ private fun renderConversionResult(
     result: PriceOracleConversionDto,
 ) {
     val box = panel.vPanel(spacing = 2) { addCssClasses("border rounded p-2 bg-body-tertiary small") }
-    box.div("Konvertierung ausgeführt.") { addCssClass("fw-bold") }
-    box.div("Spende: ${formatDonationAmount(result.donationAmount, result.donationCurrency)}") { addCssClass("text-muted") }
+    box.div(tr("Konvertierung ausgeführt.")) { addCssClass("fw-bold") }
+    box.div(gettext("Spende: %1", formatDonationAmount(result.donationAmount, result.donationCurrency))) { addCssClass("text-muted") }
     box.div(
-        "Kurs: ${formatDonationAmount(result.anchorPrice, result.donationCurrency)} je ${anchorAssetLabel(result.anchorAsset)} " +
-            "(Status: ${priceStatusLabel(result.priceStatus)}, ${result.sourceCount} Quelle(n): ${result.sourcesUsed})",
+        gettext(
+            "Kurs: %1 je %2 (Status: %3, %4 Quelle(n): %5)",
+            formatDonationAmount(result.anchorPrice, result.donationCurrency),
+            anchorAssetLabel(result.anchorAsset),
+            priceStatusLabel(result.priceStatus),
+            result.sourceCount,
+            result.sourcesUsed,
+        ),
     ) { addCssClass("text-muted") }
     val mintedRow = box.hPanel(spacing = 8) { addCssClasses("align-items-center") }
-    mintedRow.div("Gemintet:") { addCssClass("text-muted") }
+    mintedRow.div(tr("Gemintet:")) { addCssClass("text-muted") }
     mintedRow.ltrSpan(result.ltrMinted)
-    box.div("Buchung: ${result.ltrLedgerEntryId}") { addCssClass("text-muted") }
-    box.div("Zeitstempel: ${result.priceTimestamp}") { addCssClass("text-muted") }
+    box.div(gettext("Buchung: %1", result.ltrLedgerEntryId)) { addCssClass("text-muted") }
+    box.div(gettext("Zeitstempel: %1", result.priceTimestamp)) { addCssClass("text-muted") }
 }
 
 // ================================================================================================
@@ -522,18 +554,18 @@ internal fun formatDonationAmount(
 /** [typeBadge] grammar (`StatusBadge.kt`): a fixed classification, does not progress -- covers every [AnchorAsset] literal. */
 fun anchorAssetLabel(asset: AnchorAsset): String =
     when (asset) {
-        AnchorAsset.BITCOIN_BTC -> "Bitcoin (BTC)"
-        AnchorAsset.GOLD_XAU -> "Gold (XAU)"
-        AnchorAsset.FIAT -> "Fiat"
+        AnchorAsset.BITCOIN_BTC -> gettext("Bitcoin (BTC)")
+        AnchorAsset.GOLD_XAU -> gettext("Gold (XAU)")
+        AnchorAsset.FIAT -> gettext("Fiat")
     }
 
 /** [typeBadge] grammar: [PriceStatus] is a quote-trust classification, not a lifecycle status -- covers every literal. */
 fun priceStatusLabel(status: PriceStatus): String =
     when (status) {
-        PriceStatus.LIVE -> "Live"
-        PriceStatus.DEGRADED -> "Eingeschränkt (Degraded)"
-        PriceStatus.CACHED -> "Zwischengespeichert (Cached)"
-        PriceStatus.DEFERRED -> "Zurückgestellt (reserviert, ungenutzt)"
+        PriceStatus.LIVE -> gettext("Live")
+        PriceStatus.DEGRADED -> gettext("Eingeschränkt (Degraded)")
+        PriceStatus.CACHED -> gettext("Zwischengespeichert (Cached)")
+        PriceStatus.DEFERRED -> gettext("Zurückgestellt (reserviert, ungenutzt)")
     }
 
 fun priceStatusColor(status: PriceStatus): String =

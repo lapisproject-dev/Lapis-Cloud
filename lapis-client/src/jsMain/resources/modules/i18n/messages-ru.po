@@ -1,0 +1,4501 @@
+msgid ""
+msgstr ""
+"Content-Type: text/plain; charset=UTF-8\n"
+"Language: ru\n"
+
+msgid " -- %1"
+msgstr " — %1"
+
+msgid " · gemeldet am %1"
+msgstr " · сообщено %1"
+
+msgid " · Moderator"
+msgstr " · модератор"
+
+msgid " (%1)"
+msgstr " (%1)"
+
+msgid " (Sie)"
+msgstr " (Вы)"
+
+msgid " bei %1"
+msgstr " у %1"
+
+msgid "-- kein --"
+msgstr "— нет —"
+
+msgid "-- kein (neuer Hauptantrag) --"
+msgstr "— нет (новое основное предложение) —"
+
+msgid "-- kein Spender --"
+msgstr "— нет донора —"
+
+msgid "-- kein Tagesordnungspunkt --"
+msgstr "— нет пункта повестки дня —"
+
+msgid "-- keine --"
+msgstr "— нет —"
+
+msgid "-- keine Rücklage --"
+msgstr "— нет резерва —"
+
+msgid "-- Konto wählen --"
+msgstr "— выбрать счёт —"
+
+msgid "-- Spenderkategorie wählen --"
+msgstr "— выбрать категорию донора —"
+
+msgid "-- Sphäre wählen --"
+msgstr "— выбрать сферу —"
+
+msgid "— Nicht zugeordnet —"
+msgstr "— Не назначено —"
+
+msgid ", Sofortkaufpreis %1"
+msgstr ", цена мгновенной покупки %1"
+
+msgid "\"%1 · %2\" wirklich deaktivieren? Bestehende Buchungen bleiben erhalten, das Konto steht aber für neue Buchungen nicht mehr zur Verfügung."
+msgstr "Действительно деактивировать «%1 · %2»? Существующие проводки сохранятся, но счёт станет недоступен для новых проводок."
+
+msgid "\"%1 · %2\" wirklich deaktivieren? Bestehende Buchungen bleiben erhalten, die Kostenstelle steht aber für neue Buchungen nicht mehr zur Verfügung."
+msgstr "Действительно деактивировать «%1 · %2»? Существующие проводки сохранятся, но центр затрат станет недоступен для новых проводок."
+
+msgid "\"%1\" aus der Besprechung entfernen?"
+msgstr "Удалить «%1» из встречи?"
+
+msgid "\"%1\" wird sofort geschlossen -- alle Verbindungen werden getrennt."
+msgstr "«%1» будет немедленно закрыт(а) — все соединения будут разорваны."
+
+msgid "\"%1\" wirklich abbrechen? Es wird keine Abrechnung durchgeführt."
+msgstr "Действительно отменить «%1»? Расчёт производиться не будет."
+
+msgid "\"%1\" wirklich absagen?"
+msgstr "Действительно отменить «%1»?"
+
+msgid "\"%1\" wirklich deaktivieren? Bestehende Buchungen mit diesem Spender bleiben erhalten, er steht aber für neue Buchungen nicht mehr zur Verfügung."
+msgstr "Действительно деактивировать «%1»? Существующие проводки с этим донором сохранятся, но он станет недоступен для новых проводок."
+
+msgid "\"%1\" wirklich löschen? (Soft-Delete -- bisherige Versionen bleiben zu Prüfzwecken erhalten, das Dokument verschwindet aus der Ansicht.)"
+msgstr "Действительно удалить «%1»? (Мягкое удаление — предыдущие версии сохраняются в целях проверки, документ исчезает из представления.)"
+
+msgid "\"%1\" wirklich löschen? Dies ist nur möglich, solange kein aktiver oder unterbrochener Live-Stream dieses Ziel verwendet."
+msgstr "Действительно удалить «%1»? Это возможно только пока ни одна активная или прерванная прямая трансляция не использует эту цель."
+
+msgid "\"%1\" wirklich zurückziehen?"
+msgstr "Действительно отозвать «%1»?"
+
+msgid "\"%1\" wurde aktualisiert."
+msgstr "«%1» обновлено."
+
+msgid "\"%1\" wurde angelegt."
+msgstr "«%1» создано."
+
+msgid "„Mittelvortrag\" ist der am Ende von %1 verbleibende §55-AO-Zeitwert-Topf (die Fristablauf-Uhr läuft seit dem frühesten Geschäftsjahr mit Aktivität, nicht erst ab %2) -- „davon überfällig\" ist der Anteil, dessen gesetzliche Frist bereits abgelaufen ist."
+msgstr "«Перенос средств» — это остаток временного фонда согласно §55 AO на конец %1 (отсчёт срока идёт с самого раннего финансового года с активностью, а не только с %2) — «из них просрочено» — это доля, законный срок которой уже истёк."
+
+msgid "„Ziel überschreiben\" ist aktiviert: diese Organisation hat bereits Daten. Sie werden mit den Daten aus der Datei zusammengeführt/überschrieben."
+msgstr "«Перезаписать цель» активировано: у этой организации уже есть данные. Они будут объединены/перезаписаны данными из файла."
+
+msgid "(gesetzliche Obergrenze hier nicht geprüft)"
+msgstr "(законный верхний предел здесь не проверяется)"
+
+msgid "(Jahresfehlbetrag)"
+msgstr "(годовой дефицит)"
+
+msgid "(optional -- bei Zuordnung greifen die §25-PartG-Spendenannahme-Prüfungen dieser Partei)"
+msgstr "(необязательно — при назначении применяются проверки приёма пожертвований по §25 PartG этой партии)"
+
+msgid "(optional, für Spendenbescheinigungen)"
+msgstr "(необязательно, для справок о пожертвованиях)"
+
+msgid "(Sie)"
+msgstr "(Вы)"
+
+msgid "%1"
+msgstr "%1"
+
+msgid "%1 -- %2"
+msgstr "%1 — %2"
+
+msgid "%1 -- %2 (Beleg: %3)"
+msgstr "%1 — %2 (документ: %3)"
+
+msgid "%1 – %2"
+msgstr "%1 – %2"
+
+msgid "%1 · %2"
+msgstr "%1 · %2"
+
+msgid "%1 · %2 · %3"
+msgstr "%1 · %2 · %3"
+
+msgid "%1 · %2 · Entität %3"
+msgstr "%1 · %2 · сущность %3"
+
+msgid "%1 · %2 · erfasst von %3"
+msgstr "%1 · %2 · зафиксировано %3"
+
+msgid "%1 · eingereicht von %2 am %3"
+msgstr "%1 · подано %2, %3"
+
+msgid "%1 (%2 Abonnenten)"
+msgstr "%1 (%2 подписчиков)"
+
+msgid "%1 (%2 Bytes)"
+msgstr "%1 (%2 байт)"
+
+msgid "%1 (%2)"
+msgstr "%1 (%2)"
+
+msgid "%1 (%2) -- eingereicht am %3"
+msgstr "%1 (%2) — подано %3"
+
+msgid "%1 (%2): fehlt %3"
+msgstr "%1 (%2): отсутствует %3"
+
+msgid "%1 (Gast)"
+msgstr "%1 (гость)"
+
+msgid "%1 (Sie)"
+msgstr "%1 (Вы)"
+
+msgid "%1 an %2 gutgeschrieben."
+msgstr "%1 зачислено %2."
+
+msgid "%1 an %2 übertragen."
+msgstr "%1 переведено %2."
+
+msgid "%1 bis %2: %3 (%4)"
+msgstr "%1 – %2: %3 (%4)"
+
+msgid "%1 bps"
+msgstr "%1 б.п."
+
+msgid "%1 Breakout-Räume erstellt und Teilnehmende verteilt."
+msgstr "Создано %1 сессионных залов, участники распределены."
+
+msgid "%1 Buchungszeilen"
+msgstr "%1 строк проводки"
+
+msgid "%1 Einträge geprüft (Sequenznummer %2–%3)."
+msgstr "Проверено %1 записей (порядковый номер %2–%3)."
+
+msgid "%1 erhält (oder behält) den Politiker-Status. Ein bereits aktives Profil wird aktualisiert, ein ehemaliges (widerrufenes) Profil reaktiviert -- niemals wird ein zweites Profil für dasselbe Mitglied angelegt."
+msgstr "%1 получает (или сохраняет) статус политика. Уже активный профиль будет обновлён, бывший (отозванный) профиль — реактивирован; второй профиль для того же участника никогда не создаётся."
+
+msgid "%1 für %2 gemintet."
+msgstr "%1 выпущено для %2."
+
+msgid "%1 LTR"
+msgstr "%1 LTR"
+
+msgid "%1 neue Beiträge erzeugt (bereits vorhandene wurden übersprungen)."
+msgstr "Создано %1 новых взносов (уже существующие были пропущены)."
+
+msgid "%1 offene Erinnerung(en) -- siehe Abschnitt \"Erinnerungen\" unten."
+msgstr "%1 незавершённое(ых) напоминание(й) — см. раздел «Напоминания» ниже."
+
+msgid "%1 physische Briefe werden über Letterxpress an die im System hinterlegten Anschriften der ausgewählten Mitglieder verschickt. Fehlt bei auch nur einer Person die vollständige Anschrift, wird der gesamte Versand abgelehnt -- kein Teilversand."
+msgstr "%1 бумажных писем будет отправлено через Letterxpress по адресам выбранных участников, сохранённым в системе. Если хотя бы у одного человека отсутствует полный адрес, вся рассылка будет отклонена — частичная отправка не производится."
+
+msgid "%1 Quellen"
+msgstr "%1 источников"
+
+msgid "%1 s"
+msgstr "%1 с"
+
+msgid "%1 Stimmen abgegeben."
+msgstr "Отдано %1 голосов."
+
+msgid "%1 Tabelle(n) · %2 Zeile(n) · %3 Datei(en) (%4 Bytes) · Bundle-Größe: %5 Bytes · Format-Version %6"
+msgstr "%1 таблица(ы) · %2 строка(и) · %3 файл(ы) (%4 байт) · размер пакета: %5 байт · версия формата %6"
+
+msgid "%1 Tabelle(n), %2 Zeile(n), %3 Datei(en) wiederhergestellt."
+msgstr "Восстановлено: %1 таблица(ы), %2 строка(и), %3 файл(ы)."
+
+msgid "%1 teilt den Bildschirm"
+msgstr "%1 демонстрирует экран"
+
+msgid "%1 von %2"
+msgstr "%1 из %2"
+
+msgid "%1 von %2 anwesend (erforderlich: %3, %4%)."
+msgstr "%1 из %2 присутствуют (требуется: %3, %4%)."
+
+msgid "%1 von %2 Briefen erfolgreich übergeben."
+msgstr "%1 из %2 писем успешно переданы."
+
+msgid "%1 von %2 Briefen fehlgeschlagen -- Details unten."
+msgstr "%1 из %2 писем не удалось отправить — подробности ниже."
+
+msgid "%1 wurde abgelehnt."
+msgstr "%1 отклонено."
+
+msgid "%1 wurde als %2 ernannt."
+msgstr "%1 назначен(а) на должность %2."
+
+msgid "%1 wurde angelegt."
+msgstr "%1 создано."
+
+msgid "%1 wurde aufgenommen."
+msgstr "%1 принят(а)."
+
+msgid "%1: %2"
+msgstr "%1: %2"
+
+msgid "%1: %2 (%3, %4)"
+msgstr "%1: %2 (%3, %4)"
+
+msgid "%1: %2 anonymisiert, %3 gelöscht, %4 beibehalten"
+msgstr "%1: %2 анонимизировано, %3 удалено, %4 сохранено"
+
+msgid "%1: %2–%3: %4 (%5)"
+msgstr "%1: %2–%3: %4 (%5)"
+
+msgid "%1: %2, %3 LTR%4"
+msgstr "%1: %2, %3 LTR%4"
+
+msgid "%1: %2%3%4"
+msgstr "%1: %2%3%4"
+
+msgid "%1. %2"
+msgstr "%1. %2"
+
+msgid "%1. %2%3"
+msgstr "%1. %2%3"
+
+msgid "%1. %2%3%4"
+msgstr "%1. %2%3%4"
+
+msgid "↳ Änderungsantrag: %1"
+msgstr "↳ Поправка: %1"
+
+msgid "◆ Live-Stream %1 → %2"
+msgstr "◆ Прямая трансляция %1 → %2"
+
+msgid "● Aufzeichnung läuft"
+msgstr "● Идёт запись"
+
+msgid "✓ Kette intakt"
+msgstr "✓ Цепочка не нарушена"
+
+msgid "✗ Kette gebrochen bei Sequenznummer %1"
+msgstr "✗ Цепочка нарушена на порядковом номере %1"
+
+msgid "1 Buchungszeile"
+msgstr "1 строка проводки"
+
+msgid "Abbestellen"
+msgstr "Отменить подписку"
+
+msgid "Abbestellt am %1"
+msgstr "Подписка отменена %1"
+
+msgid "Abbrechen"
+msgstr "Отмена"
+
+msgid "Abgegeben"
+msgstr "Отдано"
+
+msgid "Abgelehnt"
+msgstr "Отклонено"
+
+msgid "Abgeschlossen"
+msgstr "Завершено"
+
+msgid "Abgeschlossen (kein Verkauf)"
+msgstr "Завершено (без продажи)"
+
+msgid "Abgeschlossen (verkauft)"
+msgstr "Завершено (продано)"
+
+msgid "Abhilfemaßnahmen (optional)"
+msgstr "Меры по устранению (необязательно)"
+
+msgid "Ablehnen"
+msgstr "Отклонить"
+
+msgid "Ablehnungsgrund (nur für \"Ablehnen\" erforderlich, öffentlich sichtbar)"
+msgstr "Причина отклонения (обязательна только для «Отклонить», отображается публично)"
+
+msgid "Ablehnungsgrund: %1"
+msgstr "Причина отклонения: %1"
+
+msgid "Abmelden"
+msgstr "Выйти"
+
+msgid "Abonnenten"
+msgstr "Подписчики"
+
+msgid "Abonnieren"
+msgstr "Подписаться"
+
+msgid "Abonniert seit %1"
+msgstr "Подписка оформлена %1"
+
+msgid "Absagen"
+msgstr "Отменить"
+
+msgid "Absender"
+msgstr "Отправитель"
+
+msgid "Abstimmung"
+msgstr "Голосование"
+
+msgid "Abstimmungseinsatz"
+msgstr "Ставка при голосовании"
+
+msgid "Abwickeln"
+msgstr "Провести расчёт"
+
+msgid "Administration"
+msgstr "Администрация"
+
+msgid "Akteur-Mitglieds-ID (optional)"
+msgstr "ID участника-инициатора (необязательно)"
+
+msgid "Akteur: %1"
+msgstr "Инициатор: %1"
+
+msgid "Akteur: %1 · Betroffenes Mitglied: %2"
+msgstr "Инициатор: %1 · Затронутый участник: %2"
+
+msgid "aktiv"
+msgstr "активно"
+
+msgid "Aktiv"
+msgstr "Активно"
+
+msgid "Aktiva"
+msgstr "Активы"
+
+msgid "Aktive Besprechungen"
+msgstr "Активные встречи"
+
+msgid "Aktive Mitglieder nach Name. E-Mail/Rolle/Adresse sind hier aus Datenschutzgründen nicht einsehbar -- dafür existiert aktuell keine privilegierte Leseschnittstelle."
+msgstr "Активные участники по имени. E-mail/роль/адрес здесь не отображаются по соображениям защиты данных — для этого в настоящее время нет привилегированного интерфейса чтения."
+
+msgid "Aktivieren"
+msgstr "Активировать"
+
+msgid "Aktiviert"
+msgstr "Активировано"
+
+msgid "Aktivkonto"
+msgstr "Активный счёт"
+
+msgid "Aktualisieren"
+msgstr "Обновить"
+
+msgid "aktualisiert"
+msgstr "обновлено"
+
+msgid "Aktuell keine Vorstandsmitglieder erfasst."
+msgstr "На данный момент члены правления не зафиксированы."
+
+msgid "Aktueller Preis"
+msgstr "Текущая цена"
+
+msgid "Aktueller Preis (Sie führen)"
+msgstr "Текущая цена (Вы лидируете)"
+
+msgid "Aktueller Schlüssel: %1 -- wird hier nie im Klartext angezeigt."
+msgstr "Текущий ключ: %1 — здесь никогда не отображается в открытом виде."
+
+msgid "Aktueller Vorstand"
+msgstr "Действующее правление"
+
+msgid "Aktuelles Gewicht (10 %/Tag Zerfall)"
+msgstr "Текущий вес (распад 10 %/день)"
+
+msgid "Aktuelles Passwort"
+msgstr "Текущий пароль"
+
+msgid "Aktuelles Passwort ist falsch."
+msgstr "Текущий пароль неверен."
+
+msgid "Alle"
+msgstr "Все"
+
+msgid "Alle (persistierter Status)"
+msgstr "Все (сохранённый статус)"
+
+msgid "Alle abwählen"
+msgstr "Снять выделение со всех"
+
+msgid "Alle aktuell anwesenden Teilnehmenden sehen sofort, dass aufgezeichnet wird -- unabhängig davon, wer die Aufzeichnung startet."
+msgstr "Все присутствующие сейчас участники сразу видят, что идёт запись — независимо от того, кто её запустил."
+
+msgid "Alle auswählen"
+msgstr "Выбрать все"
+
+msgid "Alle Beiträge"
+msgstr "Все взносы"
+
+msgid "Alle Entitätstypen"
+msgstr "Все типы сущностей"
+
+msgid "Alle Gebote"
+msgstr "Все ставки"
+
+msgid "Alle Gremien"
+msgstr "Все органы"
+
+msgid "Alle Kategorien"
+msgstr "Все категории"
+
+msgid "Alle Löschanträge -- genehmigen/ablehnen, und einen genehmigten Antrag endgültig ausführen."
+msgstr "Все заявки на удаление — одобрять/отклонять, а также окончательно исполнять одобренную заявку."
+
+msgid "Alle Status"
+msgstr "Все статусы"
+
+msgid "Alle Teilnehmenden werden sofort aus ihren Breakout-Räumen in den Hauptraum zurückgeholt."
+msgstr "Все участники будут немедленно возвращены из своих сессионных залов в основной зал."
+
+msgid "Alle Teilnehmenden wurden in den Hauptraum zurückgeholt."
+msgstr "Все участники были возвращены в основной зал."
+
+msgid "Alle Zeichnungen auf dem Whiteboard werden sofort für alle Teilnehmenden entfernt."
+msgstr "Все рисунки на доске будут немедленно удалены у всех участников."
+
+msgid "Alle zurückholen"
+msgstr "Вернуть всех"
+
+msgid "Als bezahlt markieren"
+msgstr "Отметить как оплаченное"
+
+msgid "Als bezahlt markiert."
+msgstr "Отмечено как оплаченное."
+
+msgid "Als Dokument speichern"
+msgstr "Сохранить как документ"
+
+msgid "Als durchgeführt markieren"
+msgstr "Отметить как выполненное"
+
+msgid "Als Entwurf speichern"
+msgstr "Сохранить как черновик"
+
+msgid "Als Gast beitreten"
+msgstr "Войти как гость"
+
+msgid "Als neuen Entwurf duplizieren"
+msgstr "Дублировать как новый черновик"
+
+msgid "Als PDF herunterladen"
+msgstr "Скачать как PDF"
+
+msgid "Als Vorstand können Sie hier nur reguläre Mitglieder anlegen -- Vorstand/Schatzmeister/Admin ist Admin vorbehalten."
+msgstr "Как правление, вы можете здесь создавать только обычных участников — правление/казначей/администратор доступны только администратору."
+
+msgid "Andere Partei/Fraktion"
+msgstr "Другая партия/фракция"
+
+msgid "Ändert bestehenden Antrag (optional)"
+msgstr "Изменяет существующую заявку (необязательно)"
+
+msgid "Änderungsantrag"
+msgstr "Поправка"
+
+msgid "Änderungsantrag terminiert."
+msgstr "Поправка назначена на голосование."
+
+msgid "Änderungsantrag zu: %1"
+msgstr "Поправка к: %1"
+
+msgid "Änderungsantrag: %1"
+msgstr "Поправка: %1"
+
+msgid "Änderungsanträge zu diesem Antrag"
+msgstr "Поправки к этой заявке"
+
+msgid "Änderungshinweis (optional)"
+msgstr "Примечание к изменению (необязательно)"
+
+msgid "Anfrage fehlgeschlagen."
+msgstr "Запрос не удался."
+
+msgid "Angebot \"%1\" erstellt."
+msgstr "Лот «%1» создан."
+
+msgid "Angebot erstellen"
+msgstr "Создать лот"
+
+msgid "angelegt"
+msgstr "создано"
+
+msgid "Angemeldet über den OIDC-Heimserver %1."
+msgstr "Вход выполнен через домашний сервер OIDC %1."
+
+msgid "Anker-Asset"
+msgstr "Якорный актив"
+
+msgid "Anlegen"
+msgstr "Создать"
+
+msgid "Anmelden"
+msgstr "Войти"
+
+msgid "Anmeldung erfolgreich, aber Sitzungsdaten konnten nicht geladen werden."
+msgstr "Вход выполнен успешно, но данные сеанса загрузить не удалось."
+
+msgid "Anmeldung fehlgeschlagen."
+msgstr "Не удалось войти."
+
+msgid "Annehmen"
+msgstr "Принять"
+
+msgid "Anonym"
+msgstr "Анонимно"
+
+msgid "Anonymisierung"
+msgstr "Анонимизация"
+
+msgid "Anonymisierung + Hartlöschung eigener Nachrichten"
+msgstr "Анонимизация + необратимое удаление собственных сообщений"
+
+msgid "Antrag \"%1\" terminiert."
+msgstr "Заявка «%1» назначена на голосование."
+
+msgid "Antrag \"%1\" wurde eingereicht."
+msgstr "Заявка «%1» подана."
+
+msgid "Antrag angenommen zur Terminierung."
+msgstr "Заявка принята к назначению на голосование."
+
+msgid "Antrag eingereicht"
+msgstr "Заявка подана"
+
+msgid "Antrag einreichen"
+msgstr "Подать заявку"
+
+msgid "Antrag oben auswählen, um Details zu sehen."
+msgstr "Выберите заявку выше, чтобы увидеть подробности."
+
+msgid "Antrag von %1 ablehnen"
+msgstr "Отклонить заявку от %1"
+
+msgid "Antrag vorläufig abgelehnt."
+msgstr "Заявка предварительно отклонена."
+
+msgid "Antrag wurde abgelehnt."
+msgstr "Заявка отклонена."
+
+msgid "Antrag wurde genehmigt."
+msgstr "Заявка одобрена."
+
+msgid "Antrag wurde zurückgezogen."
+msgstr "Заявка отозвана."
+
+msgid "Antrag zurückziehen"
+msgstr "Отозвать заявку"
+
+msgid "Anträge"
+msgstr "Заявки"
+
+msgid "Anträge verwalten"
+msgstr "Управление заявками"
+
+msgid "Antragstext"
+msgstr "Текст заявки"
+
+msgid "Antwort des Servers konnte nicht gelesen werden: %1"
+msgstr "Не удалось прочитать ответ сервера: %1"
+
+msgid "Anwesenheit"
+msgstr "Присутствие"
+
+msgid "Anwesenheit erfassen"
+msgstr "Отметить присутствие"
+
+msgid "Anwesenheit von %1 gespeichert."
+msgstr "Присутствие %1 сохранено."
+
+msgid "Anzahl der Breakout-Räume"
+msgstr "Количество сессионных залов"
+
+msgid "Anzeige"
+msgstr "Отображение"
+
+msgid "Anzeige-Info: Währung"
+msgstr "Информация об отображении: валюта"
+
+msgid "Anzeigen"
+msgstr "Показать"
+
+msgid "Art der Löschung"
+msgstr "Тип удаления"
+
+msgid "Aufsichtsbehörde benachrichtigt"
+msgstr "Надзорный орган уведомлён"
+
+msgid "Aufsichtsbehörde benachrichtigt am (JJJJ-MM-TTTHH:MM:SS, optional)"
+msgstr "Надзорный орган уведомлён (ГГГГ-ММ-ДДTЧЧ:ММ:СС, необязательно)"
+
+msgid "Auftragskontrolle"
+msgstr "Контроль поручений"
+
+msgid "Aufwandskonto"
+msgstr "Счёт расходов"
+
+msgid "Aufzeichnung"
+msgstr "Запись"
+
+msgid "Aufzeichnung beenden"
+msgstr "Завершить запись"
+
+msgid "Aufzeichnung gestartet von %1 um %2:%3"
+msgstr "Запись начата %1 в %2:%3"
+
+msgid "Aufzeichnung gestartet."
+msgstr "Запись начата."
+
+msgid "Aufzeichnung jetzt starten"
+msgstr "Начать запись сейчас"
+
+msgid "Aufzeichnung starten"
+msgstr "Начать запись"
+
+msgid "Aufzeichnung wird beendet …"
+msgstr "Запись завершается …"
+
+msgid "Aufzeichnung wird beendet."
+msgstr "Запись завершается."
+
+msgid "Aufzeichnung wird zusammengeführt …"
+msgstr "Запись объединяется …"
+
+msgid "Aufzeichnung:"
+msgstr "Запись:"
+
+msgid "Aufzeichnungen"
+msgstr "Записи"
+
+msgid "Auktion"
+msgstr "Аукцион"
+
+msgid "Auktion \"%1\" abgewickelt."
+msgstr "Аукцион «%1» проведён."
+
+msgid "Auktion aktivieren -- rechtlicher Hinweis (Version %1)"
+msgstr "Активировать аукцион — правовое уведомление (версия %1)"
+
+msgid "Auktion aktivieren …"
+msgstr "Активация аукциона …"
+
+msgid "Auktion aktiviert."
+msgstr "Аукцион активирован."
+
+msgid "Auktion deaktivieren"
+msgstr "Деактивировать аукцион"
+
+msgid "Auktion deaktivieren bestätigen"
+msgstr "Подтвердить деактивацию аукциона"
+
+msgid "Auktion deaktiviert."
+msgstr "Аукцион деактивирован."
+
+msgid "Auktionen"
+msgstr "Аукционы"
+
+msgid "Auktionen konnten nicht geladen werden."
+msgstr "Не удалось загрузить аукционы."
+
+msgid "Auktions-Einstellgebühr"
+msgstr "Комиссия за выставление на аукцион"
+
+msgid "Auktions-Reservierung"
+msgstr "Резервирование по аукциону"
+
+msgid "Auktions-Reservierung freigegeben"
+msgstr "Резервирование по аукциону снято"
+
+msgid "Auktionskauf"
+msgstr "Покупка на аукционе"
+
+msgid "Auktionsverkauf"
+msgstr "Продажа на аукционе"
+
+msgid "Ausdrücklich anonym"
+msgstr "Явно анонимно"
+
+msgid "Ausgabe"
+msgstr "Расход"
+
+msgid "Ausgaben"
+msgstr "Расходы"
+
+msgid "Ausgeführt"
+msgstr "Исполнено"
+
+msgid "Ausgeführt am %1"
+msgstr "Исполнено %1"
+
+msgid "Ausgelöst am: %1"
+msgstr "Инициировано: %1"
+
+msgid "Ausgeschieden"
+msgstr "Выбыл(а)"
+
+msgid "Ausgeschiedene anzeigen"
+msgstr "Показать выбывших"
+
+msgid "Auskunft"
+msgstr "Справка"
+
+msgid "Auskunft exportiert"
+msgstr "Справка экспортирована"
+
+msgid "Auskunftsübersicht anzeigen"
+msgstr "Показать обзор справок"
+
+msgid "Ausreißer-Schwelle"
+msgstr "Порог выброса"
+
+msgid "Ausreißer-Schwelle (Basispunkte, 1-10000)"
+msgstr "Порог выброса (базисные пункты, 1–10000)"
+
+msgid "Ausstehend"
+msgstr "Ожидает"
+
+msgid "Austritt (Mitgliedschaft beenden)"
+msgstr "Выход (прекращение членства)"
+
+msgid "Austritt bestätigen"
+msgstr "Подтвердить выход"
+
+msgid "Automatisch genehmigt durch die 14-Tage-Schweigefrist -- der Vorstand hat keinen expliziten Beschluss gefasst (Status bleibt dauerhaft \"Ausstehend\", effektiver Status zeigt \"Genehmigt\"). Das ist der normale, erwartete Zustand."
+msgstr "Автоматически одобрено по истечении 14-дневного срока молчания — правление не приняло явного решения (статус остаётся постоянно «Ожидает», фактический статус отображается как «Одобрено»). Это нормальное, ожидаемое состояние."
+
+msgid "Automatisches Kopieren war nicht möglich. Markieren Sie den Text unten und kopieren Sie ihn manuell."
+msgstr "Автоматическое копирование не удалось. Выделите текст ниже и скопируйте его вручную."
+
+msgid "AVV-Eintrag \"%1\" wurde %2."
+msgstr "Запись АВВ «%1» была %2."
+
+msgid "AVV-Eintrag anlegen"
+msgstr "Создать запись АВВ"
+
+msgid "AVV-Status"
+msgstr "Статус АВВ"
+
+msgid "Backup & Wiederherstellung"
+msgstr "Резервное копирование и восстановление"
+
+msgid "Backup exportieren (.zip)"
+msgstr "Экспортировать резервную копию (.zip)"
+
+msgid "Backup-Datei (.zip)"
+msgstr "Файл резервной копии (.zip)"
+
+msgid "Beantragt"
+msgstr "Запрошено"
+
+msgid "Beantragt von %1 am %2"
+msgstr "Запрошено %1, %2"
+
+msgid "Bearbeiten"
+msgstr "Редактировать"
+
+msgid "Beendet"
+msgstr "Завершено"
+
+msgid "Beginn"
+msgstr "Начало"
+
+msgid "Begründung"
+msgstr "Обоснование"
+
+msgid "Begründung (optional)"
+msgstr "Обоснование (необязательно)"
+
+msgid "Begründung: %1"
+msgstr "Обоснование: %1"
+
+msgid "Bei \"Vorstand\" können anwesende Mitglieder, die nicht dem Vorstand angehören, das gespeicherte Dokument später NICHT ansehen -- wählen Sie \"Mitglieder\", wenn es allen Teilnehmenden zugänglich sein soll."
+msgstr "При выборе «Правление» присутствующие участники, не входящие в правление, НЕ смогут впоследствии просмотреть сохранённый документ — выберите «Участники», если он должен быть доступен всем присутствующим."
+
+msgid "Bei \"Vorstand\" können anwesende Mitglieder, die nicht dem Vorstand angehören, das gespeicherte Whiteboard später NICHT ansehen -- wählen Sie \"Mitglieder\", wenn es allen Teilnehmenden zugänglich sein soll."
+msgstr "При выборе «Правление» присутствующие участники, не входящие в правление, НЕ смогут впоследствии просмотреть сохранённую доску — выберите «Участники», если она должна быть доступна всем присутствующим."
+
+msgid "Bei \"Vorstand\" können anwesende Mitglieder, die nicht dem Vorstand angehören, die Aufzeichnung später NICHT ansehen -- wählen Sie \"Mitglieder\", wenn die Aufnahme allen Teilnehmenden zugänglich sein soll."
+msgstr "При выборе «Правление» присутствующие участники, не входящие в правление, НЕ смогут впоследствии просмотреть запись — выберите «Участники», если запись должна быть доступна всем присутствующим."
+
+msgid "Bei geheimen Abstimmungen muss der Stream manuell unterbrochen werden. Eine automatische Unterbrechung gibt es in dieser Version noch nicht."
+msgstr "При тайном голосовании трансляцию необходимо прерывать вручную. Автоматического прерывания в этой версии пока нет."
+
+msgid "Beim Einstellen wird eine feste Gebühr von %1 fällig."
+msgstr "При выставлении на аукцион взимается фиксированная комиссия в размере %1."
+
+msgid "Beisitz"
+msgstr "Заседатель"
+
+msgid "Beitrag erlassen"
+msgstr "Списать взнос"
+
+msgid "Beitrag erlassen."
+msgstr "Взнос списан."
+
+msgid "Beitrag von %1 über %2 wirklich erlassen?"
+msgstr "Действительно списать взнос %1 на сумму %2?"
+
+msgid "Beiträge"
+msgstr "Взносы"
+
+msgid "Beiträge generieren"
+msgstr "Сформировать взносы"
+
+msgid "Beitragsrechnung %1–%2"
+msgstr "Счёт на взнос %1–%2"
+
+msgid "Beitragsrechnung per Post versenden"
+msgstr "Отправить счёт на взнос по почте"
+
+msgid "Beitragssatz"
+msgstr "Ставка взноса"
+
+msgid "Beitragssätze und Beitragsgenerierung"
+msgstr "Ставки взносов и формирование взносов"
+
+msgid "Beitragsübersicht"
+msgstr "Обзор взносов"
+
+msgid "Beitreten"
+msgstr "Присоединиться"
+
+msgid "Beitrittsvertrag (Version %1)"
+msgstr "Договор о вступлении (версия %1)"
+
+msgid "Beitrittsvertrag wird geladen ..."
+msgstr "Загрузка договора о вступлении …"
+
+msgid "Beleg"
+msgstr "Документ"
+
+msgid "Beleg: %1"
+msgstr "Документ: %1"
+
+msgid "Belegnummer (optional)"
+msgstr "Номер документа (необязательно)"
+
+msgid "Berechnet"
+msgstr "Рассчитано"
+
+msgid "Berechnet den EUR-Spendenpool für den gewählten Zeitraum (bezahlte Beiträge abzüglich einer festen Mindestbeteiligung je Zahler) und verteilt ihn proportional nach Verteilungs-Korb auf alle genehmigten Projekte. Erzeugt nur einen Prüf-/Entscheidungsdatensatz, keine Journalbuchung/Überweisung -- erneutes Ausführen für denselben Zeitraum erzeugt keine Duplikate."
+msgstr "Рассчитывает пул пожертвований в евро за выбранный период (оплаченные взносы за вычетом фиксированного минимального участия на плательщика) и распределяет его пропорционально по корзине распределения между всеми одобренными проектами. Создаёт только запись для проверки/принятия решения, а не бухгалтерскую проводку/перевод — повторный запуск за тот же период не создаёт дублей."
+
+msgid "Berechnet und speichert für JEDES aktive Politiker-Profil einen Gewichts-Schnappschuss für den gewählten Monat (Tag wird ignoriert, auf den Monatsersten normalisiert). Erneutes Ausführen für denselben Monat erzeugt keine Duplikate."
+msgstr "Рассчитывает и сохраняет для КАЖДОГО активного профиля политика снимок веса за выбранный месяц (день игнорируется, приводится к первому числу месяца). Повторный запуск за тот же месяц не создаёт дублей."
+
+msgid "Bereiche"
+msgstr "Разделы"
+
+msgid "Bereit"
+msgstr "Готово"
+
+msgid "Bereits laufende (OPEN) Auktionen können bis zur erneuten Aktivierung nicht mehr abgewickelt werden (kein Gebot, kein Sofortkauf, kein Abwickeln) -- sie bleiben eingefroren."
+msgstr "Уже запущенные (OPEN) аукционы нельзя провести до повторной активации (ни ставка, ни мгновенная покупка, ни расчёт) — они остаются замороженными."
+
+msgid "Bereits Mitglied? Zur Anmeldung."
+msgstr "Уже участник? Войти."
+
+msgid "Bereits verbundene Gäste anderer Server werden sofort aus der Besprechung entfernt. Neue Gäste können nicht mehr beitreten. Mitglieder Ihrer eigenen Organisation sind nicht betroffen."
+msgstr "Уже подключённые гости с других серверов будут немедленно удалены из встречи. Новые гости больше не смогут присоединиться. Участников вашей собственной организации это не затрагивает."
+
+msgid "Berufs- oder Wirtschaftsverband"
+msgstr "Профессиональное или хозяйственное объединение"
+
+msgid "Beschluss"
+msgstr "Решение"
+
+msgid "Beschluss \"%1\" wurde erfasst."
+msgstr "Решение «%1» зафиксировано."
+
+msgid "Beschluss erfassen (Gremienbeschluss)"
+msgstr "Зафиксировать решение (решение органа)"
+
+msgid "Beschluss konnte nicht geladen werden."
+msgstr "Не удалось загрузить решение."
+
+msgid "Beschluss speichern"
+msgstr "Сохранить решение"
+
+msgid "Beschlüsse"
+msgstr "Решения"
+
+msgid "Beschlusstext"
+msgstr "Текст решения"
+
+msgid "Beschreibung"
+msgstr "Описание"
+
+msgid "Beschreibung (optional)"
+msgstr "Описание (необязательно)"
+
+msgid "Besetzung: %1"
+msgstr "Состав: %1"
+
+msgid "Besprechung \"%1\" wurde für alle beendet."
+msgstr "Встреча «%1» завершена для всех."
+
+msgid "Besprechung für alle beenden"
+msgstr "Завершить встречу для всех"
+
+msgid "Besprechung ganz verlassen"
+msgstr "Полностью покинуть встречу"
+
+msgid "Besprechung jetzt starten"
+msgstr "Начать встречу сейчас"
+
+msgid "Besprechung verlassen"
+msgstr "Покинуть встречу"
+
+msgid "Besprechung vom %1.%2.%3, %4:%5"
+msgstr "Встреча от %1.%2.%3, %4:%5"
+
+msgid "Besprechung: %1"
+msgstr "Встреча: %1"
+
+msgid "Bestätigen"
+msgstr "Подтвердить"
+
+msgid "Betrag"
+msgstr "Сумма"
+
+msgid "Betrag (LTR)"
+msgstr "Сумма (LTR)"
+
+msgid "Betreff"
+msgstr "Тема"
+
+msgid "Betriebsmittelrücklage (%1)"
+msgstr "Резерв оборотных средств (%1)"
+
+msgid "Betroffene Datenkategorien"
+msgstr "Затронутые категории данных"
+
+msgid "Betroffene Personen benachrichtigt am (JJJJ-MM-TTTHH:MM:SS, optional)"
+msgstr "Затронутые лица уведомлены (ГГГГ-ММ-ДДTЧЧ:ММ:СС, необязательно)"
+
+msgid "Betroffene Ziele: %1"
+msgstr "Затронутые цели: %1"
+
+msgid "Betroffenes Mitglied (ID, optional)"
+msgstr "Затронутый участник (ID, необязательно)"
+
+msgid "Betroffenes Mitglied: %1"
+msgstr "Затронутый участник: %1"
+
+msgid "Bewertung gespeichert."
+msgstr "Оценка сохранена."
+
+msgid "Bewertung zurückgezogen."
+msgstr "Оценка отозвана."
+
+msgid "Bezeichnung"
+msgstr "Наименование"
+
+msgid "Bezeichnung (z. B. \"PdV YouTube-Kanal\")"
+msgstr "Наименование (например, «Канал PdV на YouTube»)"
+
+msgid "Bieten"
+msgstr "Сделать ставку"
+
+msgid "Bilanz"
+msgstr "Баланс"
+
+msgid "Bilanz ausgeglichen"
+msgstr "Баланс сходится"
+
+msgid "Bilanz NICHT ausgeglichen"
+msgstr "Баланс НЕ сходится"
+
+msgid "Bildschirm teilen"
+msgstr "Демонстрация экрана"
+
+msgid "Bildschirm-Teilen beenden"
+msgstr "Завершить демонстрацию экрана"
+
+msgid "Bis (Geschäftsjahr)"
+msgstr "По (финансовый год)"
+
+msgid "Bis (JJJJ-MM-TT, optional)"
+msgstr "По (ГГГГ-ММ-ДД, необязательно)"
+
+msgid "Bis (JJJJ-MM-TT, Pflichtfeld)"
+msgstr "По (ГГГГ-ММ-ДД, обязательное поле)"
+
+msgid "Bis (JJJJ-MM-TT)"
+msgstr "По (ГГГГ-ММ-ДД)"
+
+msgid "Bis (JJJJ-MM-TTTHH:MM:SS, optional)"
+msgstr "По (ГГГГ-ММ-ДДTЧЧ:ММ:СС, необязательно)"
+
+msgid "Bis Sequenznummer (optional)"
+msgstr "До порядкового номера (необязательно)"
+
+msgid "Bisherige Jahressumme (vor dieser Spende)"
+msgstr "Сумма за предыдущий год (до этого пожертвования)"
+
+msgid "Bitcoin (BTC)"
+msgstr "Биткойн (BTC)"
+
+msgid "Bitte 1 bis %1 Ziele auswählen."
+msgstr "Выберите от 1 до %1 целей."
+
+msgid "Bitte alle Felder ausfüllen."
+msgstr "Заполните все поля."
+
+msgid "Bitte alle Felder gültig ausfüllen: Peg positiv, Cache-TTL positiv, Mindest-Quorum mind. 2, Ausreißer-Schwelle 1-10000 bps, Max. Spread >= Ausreißer-Schwelle."
+msgstr "Заполните все поля корректно: привязка положительна, TTL кэша положителен, минимальный кворум не менее 2, порог выброса 1–10000 б.п., макс. спред >= порога выброса."
+
+msgid "Bitte bei \"Vertreten\" angeben, durch wen."
+msgstr "При выборе «Представлен(а)» укажите, кем именно."
+
+msgid "Bitte Beitragssatz sowie gültiges Beginn-/Enddatum (JJJJ-MM-TT) angeben."
+msgstr "Укажите ставку взноса, а также корректные даты начала/окончания (ГГГГ-ММ-ДД)."
+
+msgid "Bitte bestätigen Sie, dass Sie den Beitrittsvertrag gelesen haben."
+msgstr "Подтвердите, что вы прочитали договор о вступлении."
+
+msgid "Bitte Betreff und Text angeben."
+msgstr "Укажите тему и текст."
+
+msgid "Bitte Bezeichnung und eine gültige RTMP-URL (rtmp:// oder rtmps://) angeben."
+msgstr "Укажите наименование и корректный RTMP-URL (rtmp:// или rtmps://)."
+
+msgid "Bitte Bezeichnung, eine gültige RTMP-URL (rtmp:// oder rtmps://) und einen Stream-Schlüssel angeben."
+msgstr "Укажите наименование, корректный RTMP-URL (rtmp:// или rtmps://) и ключ трансляции."
+
+msgid "Bitte Code und Name angeben."
+msgstr "Укажите код и название."
+
+msgid "Bitte Datum, Beschreibung und für jede Buchungszeile Konto, Betrag und Sphäre angeben -- und, falls ein Spendertyp gewählt ist, dessen Felder vollständig ausfüllen."
+msgstr "Укажите дату, описание и для каждой строки проводки — счёт, сумму и сферу, а если выбран тип донора — полностью заполните его поля."
+
+msgid "Bitte E-Mail und Passwort eingeben."
+msgstr "Введите e-mail и пароль."
+
+msgid "Bitte ein gültiges \"Bis\"-Datum angeben (JJJJ-MM-TT)."
+msgstr "Укажите корректную дату «До» (ГГГГ-ММ-ДД)."
+
+msgid "Bitte ein gültiges \"Von\"- und \"Bis\"-Geschäftsjahr angeben (Von ≤ Bis)."
+msgstr "Укажите корректные финансовые годы «От» и «До» (От ≤ До)."
+
+msgid "Bitte ein gültiges Datum (JJJJ-MM-TT) angeben."
+msgstr "Укажите корректную дату (ГГГГ-ММ-ДД)."
+
+msgid "Bitte ein gültiges Geschäftsjahr angeben (z. B. 2026)."
+msgstr "Укажите корректный финансовый год (например, 2026)."
+
+msgid "Bitte ein gültiges Kalenderjahr angeben (JJJJ)."
+msgstr "Укажите корректный календарный год (ГГГГ)."
+
+msgid "Bitte ein Mitglied auswählen."
+msgstr "Выберите участника."
+
+msgid "Bitte ein Mitglied und einen positiven Spendenbetrag angeben."
+msgstr "Укажите участника и положительную сумму пожертвования."
+
+msgid "Bitte ein positives Höchstgebot (LTR) angeben."
+msgstr "Укажите положительное максимальное предложение (LTR)."
+
+msgid "Bitte eine Begründung angeben."
+msgstr "Укажите обоснование."
+
+msgid "Bitte eine Datei auswählen."
+msgstr "Выберите файл."
+
+msgid "Bitte eine gültige Position und einen Titel angeben."
+msgstr "Укажите корректную позицию и название."
+
+msgid "Bitte eine Laufzeit in ganzen Stunden (größer als 0) angeben."
+msgstr "Укажите срок действия в целых часах (больше 0)."
+
+msgid "Bitte eine Option und einen positiven LTR-Einsatz angeben."
+msgstr "Укажите вариант и положительную ставку в LTR."
+
+msgid "Bitte eine Person für \"Einzelne Person\" auswählen."
+msgstr "Выберите человека для «Отдельного лица»."
+
+msgid "Bitte eine Sitzung und eine gültige Position angeben."
+msgstr "Укажите заседание и корректную позицию."
+
+msgid "Bitte eine Zahl zwischen 1 und %1 angeben."
+msgstr "Укажите число от 1 до %1."
+
+msgid "Bitte einen Ablehnungsgrund angeben -- dieser wird öffentlich auf dem Projekt angezeigt."
+msgstr "Укажите причину отклонения — она будет отображаться публично на странице проекта."
+
+msgid "Bitte einen Grund angeben."
+msgstr "Укажите причину."
+
+msgid "Bitte einen gültigen Entdeckungszeitpunkt (JJJJ-MM-TTTHH:MM:SS), Beschreibung, betroffene Datenkategorien und Status angeben."
+msgstr "Укажите корректное время обнаружения (ГГГГ-ММ-ДДTЧЧ:ММ:СС), описание, затронутые категории данных и статус."
+
+msgid "Bitte einen gültigen Stichtag angeben (JJJJ-MM-TT)."
+msgstr "Укажите корректную контрольную дату (ГГГГ-ММ-ДД)."
+
+msgid "Bitte einen Inhalt eingeben."
+msgstr "Введите содержимое."
+
+msgid "Bitte einen Monat im Format JJJJ-MM-TT angeben."
+msgstr "Укажите месяц в формате ГГГГ-ММ-ДД."
+
+msgid "Bitte einen Namen angeben."
+msgstr "Укажите имя."
+
+msgid "Bitte Empfänger, einen positiven LTR-Betrag und eine Charakterisierung angeben."
+msgstr "Укажите получателя, положительную сумму в LTR и характеристику."
+
+msgid "Bitte geben Sie einen Ablehnungsgrund an (wird beim Mitglied gespeichert)."
+msgstr "Укажите причину отклонения (будет сохранена у участника)."
+
+msgid "Bitte Gremium, Titel, einen gültigen Termin (JJJJ-MM-TTTHH:MM) und ein Format angeben."
+msgstr "Укажите орган, название, корректную дату (ГГГГ-ММ-ДДTЧЧ:ММ) и формат."
+
+msgid "Bitte gültige Datumsangaben (JJJJ-MM-TT) verwenden, oder das Feld leer lassen."
+msgstr "Используйте корректные даты (ГГГГ-ММ-ДД) или оставьте поле пустым."
+
+msgid "Bitte gültige Werte für die optionalen Felder verwenden, oder leer lassen."
+msgstr "Используйте корректные значения для необязательных полей или оставьте их пустыми."
+
+msgid "Bitte Kategorie, Titel und Beschreibung angeben."
+msgstr "Укажите категорию, название и описание."
+
+msgid "Bitte Kontonummer, Name, Kontenklasse (0-9) und Kontotyp angeben."
+msgstr "Укажите номер счёта, название, класс счёта (0–9) и тип счёта."
+
+msgid "Bitte lesen Sie den folgenden rechtlichen Hinweistext vollständig, bevor Sie die Auktion aktivieren. Diese Plattform führt keine automatisierte Rechtsberatung durch -- die rechtliche Einordnung liegt bei Ihrer Organisation."
+msgstr "Полностью прочитайте следующий правовой текст, прежде чем активировать аукцион. Эта платформа не оказывает автоматизированную юридическую консультацию — правовая квалификация остаётся на усмотрение вашей организации."
+
+msgid "Bitte melden Sie sich mit Ihrer E-Mail-Adresse an."
+msgstr "Войдите с помощью своего адреса электронной почты."
+
+msgid "Bitte mindestens 2 unterschiedliche Optionen angeben."
+msgstr "Укажите не менее 2 различных вариантов."
+
+msgid "Bitte mindestens eine Empfängerin/einen Empfänger sowie Titel, einen gültigen Termin (JJJJ-MM-TTTHH:MM), Ort und Einladungstext angeben."
+msgstr "Укажите как минимум одного получателя, а также название, корректную дату (ГГГГ-ММ-ДДTЧЧ:ММ), место и текст приглашения."
+
+msgid "Bitte Mitglied und einen positiven LTR-Betrag angeben."
+msgstr "Укажите участника и положительную сумму в LTR."
+
+msgid "Bitte Mitglied, Rolle und ein gültiges Datum (JJJJ-MM-TT) angeben."
+msgstr "Укажите участника, роль и корректную дату (ГГГГ-ММ-ДД)."
+
+msgid "Bitte Name und eine gültige E-Mail-Adresse angeben."
+msgstr "Укажите имя и корректный адрес электронной почты."
+
+msgid "Bitte Name und Spenderkategorie angeben."
+msgstr "Укажите имя и категорию донора."
+
+msgid "Bitte Name, eine gültige E-Mail-Adresse und eine Rolle angeben."
+msgstr "Укажите имя, корректный адрес электронной почты и роль."
+
+msgid "Bitte Name, Typ und ein gültiges Quorum (0-100) angeben."
+msgstr "Укажите название, тип и корректный кворум (0–100)."
+
+msgid "Bitte nicht-negative Stimmzahlen und einen Status angeben."
+msgstr "Укажите неотрицательное число голосов и статус."
+
+msgid "Bitte Start- und Enddatum im Format JJJJ-MM-TT angeben -- beide Felder sind hier Pflicht."
+msgstr "Укажите дату начала и окончания в формате ГГГГ-ММ-ДД — оба поля здесь обязательны."
+
+msgid "Bitte Titel, Beschlusstext, Status und nicht-negative Stimmzahlen angeben."
+msgstr "Укажите название, текст решения, статус и неотрицательное число голосов."
+
+msgid "Bitte Titel, Beschreibung und ein positives Sichtbarkeits-Gewicht (LTR) angeben."
+msgstr "Укажите название, описание и положительный вес видимости (LTR)."
+
+msgid "Bitte Titel, Beschreibung und einen positiven Startpreis (LTR) angeben."
+msgstr "Укажите название, описание и положительную стартовую цену (LTR)."
+
+msgid "Bitte Titel, Verarbeitungsbeschreibung und Status angeben."
+msgstr "Укажите название, описание обработки и статус."
+
+msgid "Bitte unterschiedliche Absender/Empfänger, einen positiven LTR-Betrag, eine Charakterisierung und eine Schiedsanordnungs-Referenz angeben."
+msgstr "Укажите разных отправителя/получателя, положительную сумму в LTR, характеристику и ссылку на арбитражное распоряжение."
+
+msgid "Bitte Verarbeiter, Verarbeitungszweck, Datenkategorien und AVV-Status angeben."
+msgstr "Укажите обработчика, цель обработки, категории данных и статус АВВ."
+
+msgid "Bitte wählen Sie mindestens ein Ziel aus."
+msgstr "Выберите хотя бы одну цель."
+
+msgid "Bitte wenden Sie sich an ein ADMIN-Mitglied, falls Sie hierauf Zugriff benötigen."
+msgstr "Обратитесь к участнику с ролью ADMIN, если вам нужен доступ к этому."
+
+msgid "Bitte wenden Sie sich an Ihre Administration, falls Sie diese Funktion benötigen."
+msgstr "Обратитесь к вашей администрации, если вам нужна эта функция."
+
+msgid "Bitte Zielgremium (oder einen zu ändernden Antrag), Titel und Antragstext angeben."
+msgstr "Укажите целевой орган (или изменяемую заявку), название и текст заявки."
+
+msgid "Board ist fast voll -- bitte speichern und leeren."
+msgstr "Доска почти заполнена — сохраните и очистите её."
+
+msgid "Board leeren"
+msgstr "Очистить доску"
+
+msgid "Breakout-Räume erstellen"
+msgstr "Создать сессионные залы"
+
+msgid "Breakout-Räume:"
+msgstr "Сессионные залы:"
+
+msgid "Brief an %1 wird verarbeitet."
+msgstr "Письмо для %1 обрабатывается."
+
+msgid "Brief an %1 wurde an Letterxpress übergeben."
+msgstr "Письмо для %1 передано в Letterxpress."
+
+msgid "Buchen"
+msgstr "Провести проводку"
+
+msgid "Bucht eine bereits eingegangene Spende als LTR-Mint auf das gewählte Mitglied. Der aktuelle Kurs wird beim Bestätigen live abgefragt -- der genaue LTR-Betrag steht erst nach Bestätigung fest."
+msgstr "Проводит уже поступившее пожертвование как эмиссию LTR на выбранного участника. Актуальный курс запрашивается в реальном времени при подтверждении — точная сумма LTR станет известна только после подтверждения."
+
+msgid "Buchung"
+msgstr "Проводка"
+
+msgid "Buchung (Haben): %1"
+msgstr "Проводка (кредит): %1"
+
+msgid "Buchung (Soll): %1"
+msgstr "Проводка (дебет): %1"
+
+msgid "Buchung buchen -- unveränderlich"
+msgstr "Провести проводку — необратимо"
+
+msgid "Buchung oben auswählen, um Details zu sehen."
+msgstr "Выберите проводку выше, чтобы увидеть подробности."
+
+msgid "Buchung wurde gebucht."
+msgstr "Проводка проведена."
+
+msgid "Buchung: %1"
+msgstr "Проводка: %1"
+
+msgid "Buchungszeile hinzufügen"
+msgstr "Добавить строку проводки"
+
+msgid "Buchungszeilen"
+msgstr "Строки проводки"
+
+msgid "Buchungszeilen:"
+msgstr "Строки проводки:"
+
+msgid "Cache-TTL"
+msgstr "TTL кэша"
+
+msgid "Cache-TTL (Sekunden)"
+msgstr "TTL кэша (секунды)"
+
+msgid "Charakterisierung"
+msgstr "Характеристика"
+
+msgid "Charakterisierung: %1"
+msgstr "Характеристика: %1"
+
+msgid "Chat"
+msgstr "Чат"
+
+msgid "Chat (%1)"
+msgstr "Чат (%1)"
+
+msgid "Code (eindeutig, z. B. SOMMERFEST-2027)"
+msgstr "Код (уникальный, например, SOMMERFEST-2027)"
+
+msgid "Committee-Quorum entscheiden"
+msgstr "Определить кворум комитета"
+
+msgid "Crowdfunding"
+msgstr "Краудфандинг"
+
+msgid "Crowdfunding-Projekt"
+msgstr "Краудфандинговый проект"
+
+msgid "Darf nicht die E-Mail-Adresse sein."
+msgstr "Не должен совпадать с адресом электронной почты."
+
+msgid "Das Politiker-Ranking ist derzeit deaktiviert."
+msgstr "Рейтинг политиков в настоящее время отключён."
+
+msgid "Das Projekt \"%1\" wird abgelehnt (Grund: \"%2\"). Der bereits gebuchte Einsatz von %3 wird NICHT zurückerstattet -- es gibt keinen Rückerstattungspfad, unabhängig von dieser Entscheidung."
+msgstr "Проект «%1» будет отклонён (причина: «%2»). Уже внесённая ставка в размере %3 НЕ будет возвращена — пути возврата не существует независимо от этого решения."
+
+msgid "Das Projekt \"%1\" wird genehmigt und für Like/Dislike-Reaktionen (Spenden) geöffnet."
+msgstr "Проект «%1» будет одобрен и открыт для реакций лайк/дизлайк (пожертвований)."
+
+msgid "Dashboard"
+msgstr "Панель управления"
+
+msgid "Datei:"
+msgstr "Файл:"
+
+msgid "Datenkategorien"
+msgstr "Категории данных"
+
+msgid "Datenkategorien: %1"
+msgstr "Категории данных: %1"
+
+msgid "Datenpanne melden"
+msgstr "Сообщить об утечке данных"
+
+msgid "Datenpanne wurde %1."
+msgstr "Утечка данных была %1."
+
+msgid "Datenpannen"
+msgstr "Утечки данных"
+
+msgid "Datenschutz-Folgenabschätzung (DSFA)"
+msgstr "Оценка воздействия на защиту данных (DSFA)"
+
+msgid "Datenstand"
+msgstr "Состояние данных"
+
+msgid "Datum"
+msgstr "Дата"
+
+msgid "Datum (JJJJ-MM-TT)"
+msgstr "Дата (ГГГГ-ММ-ДД)"
+
+msgid "Datum: %1"
+msgstr "Дата: %1"
+
+msgid "davon überfällig"
+msgstr "из них просрочено"
+
+msgid "Deaktivieren"
+msgstr "Деактивировать"
+
+msgid "Deaktiviert"
+msgstr "Деактивировано"
+
+msgid "Der aktuelle Stand der geteilten Notizen wird als Markdown-Dokument in der Dokumentenablage gespeichert."
+msgstr "Текущее состояние общих заметок будет сохранено как документ Markdown в хранилище документов."
+
+msgid "Der aktuelle Stand des Whiteboards wird als Bild in der Dokumentenablage gespeichert."
+msgstr "Текущее состояние доски будет сохранено как изображение в хранилище документов."
+
+msgid "Der Hauptantrag muss zuerst selbst terminiert werden."
+msgstr "Сначала на голосование должно быть назначено само основное предложение."
+
+msgid "Der Politiker-Status von %1 wird widerrufen. Eine spätere erneute Erteilung reaktiviert das Profil, aber beide Bewertungs-Körbe (Mitglieder und Gäste) beginnen dann wieder bei null -- die gelöschte Historie ist nicht wiederherstellbar."
+msgstr "Статус политика для %1 будет отозван. Повторное предоставление статуса в будущем реактивирует профиль, но обе корзины оценок (участников и гостей) начнутся заново с нуля — удалённую историю восстановить нельзя."
+
+msgid "Der Sofortkaufpreis muss über dem Startpreis liegen."
+msgstr "Цена мгновенной покупки должна быть выше стартовой цены."
+
+msgid "Der Sofortkaufpreis muss, falls angegeben, ein positiver LTR-Betrag sein."
+msgstr "Цена мгновенной покупки, если указана, должна быть положительной суммой в LTR."
+
+msgid "Der Stream wird neu verbunden -- die Zielplattform sieht dies unter Umständen erneut als neue Übertragung."
+msgstr "Трансляция подключается заново — целевая платформа может воспринять это как новую трансляцию."
+
+msgid "Der Versand von Einladungen ist Vorstand und Administration vorbehalten -- als Sitzungsleitung/Protokollführung dieses Gremiums können Sie die Sitzung verwalten, aber keine Einladungen verschicken."
+msgstr "Рассылка приглашений закреплена за правлением и администрацией — как председательствующий/секретарь этого органа вы можете управлять заседанием, но не можете рассылать приглашения."
+
+msgid "Derzeit keine aktive Besprechung."
+msgstr "В настоящее время активных встреч нет."
+
+msgid "Details"
+msgstr "Подробности"
+
+msgid "Details anzeigen"
+msgstr "Показать подробности"
+
+msgid "Details ein-/ausblenden"
+msgstr "Показать/скрыть подробности"
+
+msgid "Deutsche natürliche Person"
+msgstr "Физическое лицо (гражданин Германии)"
+
+msgid "Deutsches Unternehmen/Organisation"
+msgstr "Немецкая компания/организация"
+
+msgid "Diagnose: aktueller Kurs"
+msgstr "Диагностика: текущий курс"
+
+msgid "Dick"
+msgstr "Жирный"
+
+msgid "Die Aktion steht im Konflikt mit dem aktuellen Zustand -- bitte Ansicht aktualisieren."
+msgstr "Действие конфликтует с текущим состоянием — обновите представление."
+
+msgid "Die angezeigte Frist ist die gesetzliche 72-Stunden-Uhr nach Art. 33 Abs. 1 DSGVO ab Kenntnisnahme -- sie entscheidet nicht, ob überhaupt eine Meldepflicht besteht (das legen ausschließlich Sie im Feld \"Meldung an Aufsichtsbehörde erforderlich\" fest) und ersetzt keine rechtliche Prüfung des Meldezeitpunkts. Bei einem echten Vorfall: Datenschutzbeauftragte/n oder Anwalt/Anwältin hinzuziehen."
+msgstr "Отображаемый срок — это установленный законом 72-часовой отсчёт согласно ст. 33 абз. 1 GDPR с момента получения сведений — он не определяет, существует ли вообще обязанность уведомления (это устанавливаете исключительно вы в поле «Требуется уведомление надзорного органа») и не заменяет правовую проверку срока уведомления. При реальном инциденте: привлеките ответственного за защиту данных или юриста."
+
+msgid "Die Aufzeichnung ist fehlgeschlagen."
+msgstr "Запись не удалась."
+
+msgid "Die Aufzeichnung wird beendet und danach automatisch zu einer Videodatei zusammengeführt."
+msgstr "Запись будет завершена и затем автоматически объединена в видеофайл."
+
+msgid "Die Auktion ist derzeit deaktiviert."
+msgstr "Аукцион в настоящее время деактивирован."
+
+msgid "Die Besprechung „%1\" ist bereits beendet."
+msgstr "Встреча «%1» уже завершена."
+
+msgid "Die Besprechung „%1\" lässt derzeit keine Gäste anderer Server zu. Bitten Sie die Moderation, den Gastzugang für diesen Raum freizuschalten."
+msgstr "Встреча «%1» в настоящее время не допускает гостей с других серверов. Попросите модератора открыть гостевой доступ для этой комнаты."
+
+msgid "Die Besprechung läuft weiter. Die Zielplattform sieht eine Unterbrechung -- YouTube kann die Übertragung dabei beenden, sodass ein neuer Link nötig wird."
+msgstr "Встреча продолжается. Целевая платформа увидит прерывание — YouTube может при этом завершить трансляцию, из-за чего потребуется новая ссылка."
+
+msgid "Die Besprechung selbst läuft für alle Teilnehmenden unverändert weiter."
+msgstr "Сама встреча продолжается без изменений для всех участников."
+
+msgid "Die laufende Aufzeichnung/der Live-Stream im Hauptraum erfasst kein Audio/Video in Breakout-Räumen."
+msgstr "Текущая запись/прямая трансляция в основном зале не фиксирует аудио/видео в сессионных залах."
+
+msgid "Die Nachricht \"%1\" wird an alle aktiven Abonnentinnen und Abonnenten der Mailingliste \"%2\" verschickt. Dieser Schritt kann nicht rückgängig gemacht werden."
+msgstr "Сообщение «%1» будет отправлено всем активным подписчикам рассылки «%2». Этот шаг нельзя отменить."
+
+msgid "Die neuen Passwörter stimmen nicht überein."
+msgstr "Новые пароли не совпадают."
+
+msgid "Die Orakel-Konfiguration wird vollständig ersetzt: Anker-Asset %1, Spendenwährung %2, Peg %3, Cache-TTL %4s, Quorum %5, Ausreißer-Schwelle %6bps, Max. Spread %7bps."
+msgstr "Конфигурация оракула будет полностью заменена: якорный актив %1, валюта пожертвований %2, привязка %3, TTL кэша %4 с, кворум %5, порог выброса %6 б.п., макс. спред %7 б.п."
+
+msgid "Die Passwörter stimmen nicht überein."
+msgstr "Пароли не совпадают."
+
+msgid "Die Risikoeinstufung (LOW/MEDIUM/HIGH/CRITICAL) hier ist eine Visualisierungshilfe aus Eintrittswahrscheinlichkeit × Schadenshöhe -- keine Art. 35 DSGVO Erforderlichkeits-Feststellung. Ob eine Datenschutz-Folgenabschätzung tatsächlich erforderlich ist, legen ausschließlich Sie im Feld \"DSFA erforderlich\" fest; dieses System berechnet das nicht."
+msgstr "Классификация риска (LOW/MEDIUM/HIGH/CRITICAL) здесь — вспомогательная визуализация на основе вероятности наступления × тяжести ущерба, а не заключение о необходимости по ст. 35 GDPR. Действительно ли требуется оценка воздействия на защиту данных, определяете исключительно вы в поле «Требуется DSFA»; система этого не рассчитывает."
+
+msgid "Die Rohaufnahmen bleiben erhalten -- wenden Sie sich an eine Administratorin oder einen Administrator, falls die Aufzeichnung wiederhergestellt werden soll."
+msgstr "Исходные записи сохраняются — обратитесь к администратору, если запись потребуется восстановить."
+
+msgid "Die Wertobergrenze muss, falls angegeben, ein positiver LTR-Betrag sein."
+msgstr "Верхний предел стоимости, если указан, должен быть положительной суммой в LTR."
+
+msgid "Die Wertobergrenze wird entfernt (kein Limit mehr)."
+msgstr "Верхний предел стоимости будет снят (лимит больше не действует)."
+
+msgid "Die Wiederherstellung wurde nur teilweise durchgeführt -- einzelne Zeilen wurden möglicherweise bereits geschrieben, bevor der Fehler auftrat: %1. Prüfen Sie den Datenbestand und ziehen Sie bei Unsicherheit Ihre Entwicklerin oder Ihren Entwickler hinzu, bevor Sie es erneut versuchen."
+msgstr "Восстановление выполнено только частично — отдельные строки могли быть уже записаны до возникновения ошибки: %1. Проверьте состояние данных и при сомнениях привлеките вашего разработчика, прежде чем повторить попытку."
+
+msgid "Die Zielorganisation enthält bereits Daten. Aktivieren Sie „Ziel überschreiben\", falls das beabsichtigt ist: %1"
+msgstr "Целевая организация уже содержит данные. Включите «Перезаписать цель», если это намеренно: %1"
+
+msgid "Diese Aktion LÖSCHT UNWIDERRUFLICH sämtliche Bewertungen (Mitglieder UND Gäste) sowie den gesamten Gewichtsverlauf für dieses Profil -- nicht nur den Status."
+msgstr "Это действие НЕОБРАТИМО УДАЛЯЕТ все оценки (участников И гостей), а также всю историю веса для этого профиля — не только статус."
+
+msgid "Diese Aktion mintet echtes LTR und kann nicht rückgängig gemacht werden."
+msgstr "Это действие выпускает реальный LTR и не может быть отменено."
+
+msgid "Diese Aufzeichnung kann NICHT rückgängig gemacht werden, sobald Teilnehmende gesprochen haben."
+msgstr "Эту запись НЕЛЬЗЯ отменить, как только участники начнут говорить."
+
+msgid "Diese Auktion ist beendet, aber noch nicht abgewickelt."
+msgstr "Этот аукцион завершён, но ещё не рассчитан."
+
+msgid "Diese Auswertung ist eine Nachweis-Hilfe für den Vorstand nach §§ 55/62 AO -- keine automatisierte Compliance-Entscheidung. Sie prüft nicht die Freie-Rücklage-Obergrenze, wendet nicht automatisch die Kleinorganisationen-Ausnahme (≤ 45.000 € gemäß § 55 Abs. 1 Nr. 5 Satz 4 AO) an und bestätigt nicht den Fortbestand der Gemeinnützigkeit. Die verwendete Frist von %1 Jahren ist gegen die aktuelle AO-Auslegung zu prüfen."
+msgstr "Этот отчёт — вспомогательное средство для правления по §§ 55/62 AO, а не автоматизированное решение о соответствии требованиям. Он не проверяет верхний предел свободного резерва, не применяет автоматически исключение для малых организаций (≤ 45 000 € согласно § 55 абз. 1 № 5 предл. 4 AO) и не подтверждает сохранение статуса общественной пользы. Использованный срок в %1 лет следует сверить с актуальным толкованием AO."
+
+msgid "Diese beiden Werte sind im ersten Geschäftsjahr identisch und weichen ab dem zweiten Jahr bewusst voneinander ab -- siehe Erläuterung im Datenmodell."
+msgstr "Эти два значения совпадают в первом финансовом году и намеренно расходятся начиная со второго года — см. пояснение в модели данных."
+
+msgid "Diese Besprechung wird ab jetzt aufgezeichnet."
+msgstr "Эта встреча с этого момента записывается."
+
+msgid "Diese Besprechung wird ab jetzt live gestreamt."
+msgstr "Эта встреча с этого момента транслируется в прямом эфире."
+
+msgid "Diese Besprechung wird für alle Teilnehmenden beendet. Fortfahren?"
+msgstr "Эта встреча будет завершена для всех участников. Продолжить?"
+
+msgid "Diese Buchung wird nach dem Bestätigen unveränderlich und Teil der offiziellen Bücher. Es gibt keine Funktion zum nachträglichen Ändern oder Stornieren."
+msgstr "После подтверждения эта проводка становится неизменной и частью официальных бухгалтерских книг. Функции последующего изменения или сторнирования не существует."
+
+msgid "Diese Datei passt nicht zum erwarteten Sicherungsformat: %1"
+msgstr "Этот файл не соответствует ожидаемому формату резервной копии: %1"
+
+msgid "Diese Korrekturübertragung ist ENDGÜLTIG und kann nicht widerrufen werden."
+msgstr "Этот корректирующий перевод ОКОНЧАТЕЛЕН и не может быть отозван."
+
+msgid "Diese Löschung ist ENDGÜLTIG und kann nicht rückgängig gemacht werden."
+msgstr "Это удаление ОКОНЧАТЕЛЬНО и не может быть отменено."
+
+msgid "Diese Organisation ist für die Verarbeitung Ihrer Audio-, Video- und Chatdaten in dieser Besprechung verantwortlich -- nicht Ihr eigener Heimserver."
+msgstr "За обработку ваших аудио-, видео- и чат-данных в этой встрече отвечает эта организация, а не ваш собственный домашний сервер."
+
+msgid "Diese Organisation ist nicht als politische Partei markiert (Organisationseinstellungen) -- §25 PartG gilt nur für politische Parteien. Für diese Organisation ist dieser Bericht daher bewusst ein No-Op, keine Fehlermeldung."
+msgstr "Эта организация не отмечена как политическая партия (настройки организации) — §25 PartG применяется только к политическим партиям. Поэтому для этой организации данный отчёт намеренно является операцией без действия, а не сообщением об ошибке."
+
+msgid "Diese Raum-Kennung ist ungültig. Bitte kopieren Sie sie vollständig aus Ihrer Einladung."
+msgstr "Этот идентификатор комнаты недействителен. Скопируйте его полностью из вашего приглашения."
+
+msgid "Diese Seite konnte nicht geladen werden -- bitte laden Sie die Seite neu."
+msgstr "Не удалось загрузить эту страницу — перезагрузите её."
+
+msgid "Diese Übertragung ist ENDGÜLTIG und kann nicht widerrufen werden."
+msgstr "Этот перевод ОКОНЧАТЕЛЕН и не может быть отозван."
+
+msgid "Diese Wiederherstellung ist NICHT rückgängig zu machen."
+msgstr "Это восстановление НЕЛЬЗЯ отменить."
+
+msgid "Dieser Antrag hat %1, der/die zuerst entschieden werden muss/müssen:"
+msgstr "У этой заявки есть %1, который(ые) сначала должен(ы) быть рассмотрен(ы):"
+
+msgid "Dieser Versand ist ENDGÜLTIG und verursacht reale Kosten pro Brief."
+msgstr "Эта рассылка ОКОНЧАТЕЛЬНА и влечёт реальные расходы за каждое письмо."
+
+msgid "Dieser Versand ist ENDGÜLTIG und verursacht reale Kosten."
+msgstr "Эта рассылка ОКОНЧАТЕЛЬНА и влечёт реальные расходы."
+
+msgid "Dieser Vorgang lässt sich nicht wiederholen -- schlägt er fehl, bleiben die Rohaufnahmen erhalten und ein Administrator kann helfen."
+msgstr "Эту операцию нельзя повторить — если она завершится ошибкой, исходные записи сохранятся, и администратор сможет помочь."
+
+msgid "Dieses Profil ist ehemalig -- über das Formular \"Politiker-Status erteilen\" oben kann es erneut aktiviert werden."
+msgstr "Этот профиль является бывшим — его можно снова активировать через форму «Предоставить статус политика» выше."
+
+msgid "Dieses Projekt wurde bereits durch die 14-Tage-Schweigefrist automatisch genehmigt -- eine Vorstandsentscheidung ist serverseitig nicht mehr möglich."
+msgstr "Этот проект уже был автоматически одобрен по истечении 14-дневного срока молчания — решение правления на стороне сервера больше невозможно."
+
+msgid "Direkt buchen"
+msgstr "Провести напрямую"
+
+msgid "Dislike"
+msgstr "Дизлайк"
+
+msgid "Dokument \"%1\" angelegt -- jetzt eine Datei hochladen."
+msgstr "Документ «%1» создан — теперь загрузите файл."
+
+msgid "Dokument anlegen (danach Datei hochladen)"
+msgstr "Создать документ (затем загрузить файл)"
+
+msgid "Dokument löschen"
+msgstr "Удалить документ"
+
+msgid "Dokument-ID (optional)"
+msgstr "ID документа (необязательно)"
+
+msgid "Dokument:"
+msgstr "Документ:"
+
+msgid "Dokumentation der acht Standard-TOM-Kategorien. \"Version\" ist ein einfacher Zähler, der bei jeder Aktualisierung um eins steigt -- keine eigene Versionshistorie mit Diff-Ansicht in dieser Welle."
+msgstr "Документация восьми стандартных категорий ТОМ. «Версия» — это простой счётчик, увеличивающийся на единицу при каждом обновлении — отдельной истории версий с сравнением изменений в этой волне нет."
+
+msgid "Dokumente"
+msgstr "Документы"
+
+msgid "Dokumentenablage"
+msgstr "Хранилище документов"
+
+msgid "Drittdienst-Verarbeiter (z. B. Letterxpress) und der Stand des jeweiligen Auftragsverarbeitungsvertrags. \"Aktiv\" wird bei jedem Laden neu berechnet -- ein abgelaufener Prüftermin fällt sofort auf, ohne dass jemand daran denken muss, den Status manuell umzustellen."
+msgstr "Сторонний обработчик (например, Letterxpress) и статус соответствующего договора о поручении на обработку данных. «Активен» пересчитывается при каждой загрузке — истёкший срок проверки сразу заметен, и никому не нужно вручную переключать статус."
+
+msgid "Drucken"
+msgstr "Печать"
+
+msgid "DSFA"
+msgstr "DSFA"
+
+msgid "DSFA \"%1\" wurde %2."
+msgstr "DSFA «%1» была %2."
+
+msgid "DSFA anlegen"
+msgstr "Создать DSFA"
+
+msgid "DSFA erforderlich (Ihre Entscheidung)"
+msgstr "Требуется DSFA (ваше решение)"
+
+msgid "DSFA erforderlich: %1"
+msgstr "Требуется DSFA: %1"
+
+msgid "DSGVO-Compliance"
+msgstr "Соответствие требованиям GDPR"
+
+msgid "DSGVO-Prüfprotokoll"
+msgstr "Журнал проверок GDPR"
+
+msgid "Dünn"
+msgstr "Тонкий"
+
+msgid "E-Mail"
+msgstr "E-mail"
+
+msgid "Effektiv: %1"
+msgstr "Действует: %1"
+
+msgid "Ehemalig"
+msgstr "Бывший"
+
+msgid "Eigenkapital (gebucht)"
+msgstr "Собственный капитал (проведено)"
+
+msgid "Eigenkapitalkonto"
+msgstr "Счёт собственного капитала"
+
+msgid "Ein ADMIN kann das Politiker-Ranking im Abschnitt \"Einstellungen\" unten aktivieren."
+msgstr "Администратор может активировать рейтинг политиков в разделе «Настройки» ниже."
+
+msgid "Ein ADMIN kann die Auktion im Abschnitt \"Verwaltung\" unten aktivieren -- dafür muss zunächst der aktuelle rechtliche Hinweistext gelesen und bestätigt werden."
+msgstr "Администратор может активировать аукцион в разделе «Управление» ниже — для этого сначала необходимо прочитать и подтвердить действующий правовой текст-уведомление."
+
+msgid "Ein anderes Gebot führt weiterhin."
+msgstr "Другая ставка по-прежнему лидирует."
+
+msgid "Ein physischer Brief wird über den Postdienstleister Letterxpress an die im System hinterlegte Anschrift von %1 verschickt. Der Versand kann nicht zurückgerufen werden."
+msgstr "Физическое письмо будет отправлено через почтового оператора Letterxpress по адресу %1, сохранённому в системе. Отправку нельзя отозвать."
+
+msgid "Eingabekontrolle"
+msgstr "Контроль ввода"
+
+msgid "Eingereicht von %1 am %2"
+msgstr "Подано %1, %2"
+
+msgid "Eingeschränkt (Degraded)"
+msgstr "Ограничено (Degraded)"
+
+msgid "Eingetreten"
+msgstr "Вступил(а)"
+
+msgid "Einladung"
+msgstr "Приглашение"
+
+msgid "Einladung kopieren"
+msgstr "Скопировать приглашение"
+
+msgid "Einladung per Post versenden"
+msgstr "Отправить приглашение по почте"
+
+msgid "Einladungstext"
+msgstr "Текст приглашения"
+
+msgid "Einnahme"
+msgstr "Поступление"
+
+msgid "Einnahmen"
+msgstr "Поступления"
+
+msgid "Einreichen"
+msgstr "Подать"
+
+msgid "Einsatz (LTR)"
+msgstr "Ставка (LTR)"
+
+msgid "Einstellungen"
+msgstr "Настройки"
+
+msgid "Eintrag oben auswählen, um Details zu sehen."
+msgstr "Выберите запись выше, чтобы увидеть подробности."
+
+msgid "Einträge"
+msgstr "Записи"
+
+msgid "Eintrittswahrscheinlichkeit"
+msgstr "Вероятность наступления"
+
+msgid "Einzelne Person"
+msgstr "Отдельное лицо"
+
+msgid "Empfänger"
+msgstr "Получатель"
+
+msgid "Empfänger:"
+msgstr "Получатель:"
+
+msgid "Enddatum (JJJJ-MM-TT)"
+msgstr "Дата окончания (ГГГГ-ММ-ДД)"
+
+msgid "Ende"
+msgstr "Окончание"
+
+msgid "Endgültig ausführen"
+msgstr "Исполнить окончательно"
+
+msgid "Endgültig buchen"
+msgstr "Провести окончательно"
+
+msgid "Endgültig löschen"
+msgstr "Удалить окончательно"
+
+msgid "Endgültig übertragen"
+msgstr "Перевести окончательно"
+
+msgid "Endgültig wiederherstellen"
+msgstr "Восстановить окончательно"
+
+msgid "Entdeckt am (JJJJ-MM-TTTHH:MM:SS) -- startet die 72h-Frist"
+msgstr "Обнаружено (ГГГГ-ММ-ДДTЧЧ:ММ:СС) — запускает 72-часовой срок"
+
+msgid "Entdeckt am: %1 · Betroffene Datenkategorien: %2"
+msgstr "Обнаружено: %1 · Затронутые категории данных: %2"
+
+msgid "Entfernen"
+msgstr "Удалить"
+
+msgid "Enthaltungen"
+msgstr "Воздержавшиеся"
+
+msgid "Entität: %1"
+msgstr "Сущность: %1"
+
+msgid "Entitäts-ID (optional)"
+msgstr "ID сущности (необязательно)"
+
+msgid "Entitätstyp"
+msgstr "Тип сущности"
+
+msgid "Entscheidung"
+msgstr "Решение"
+
+msgid "Entscheidung für \"%1\" gespeichert."
+msgstr "Решение для «%1» сохранено."
+
+msgid "Entscheidung speichern"
+msgstr "Сохранить решение"
+
+msgid "Entscheidungsnotiz (optional)"
+msgstr "Примечание к решению (необязательно)"
+
+msgid "Entscheidungsnotiz: %1"
+msgstr "Примечание к решению: %1"
+
+msgid "Entschieden"
+msgstr "Решено"
+
+msgid "Entschieden am"
+msgstr "Дата решения"
+
+msgid "Entschieden von %1 am %2"
+msgstr "Решено %1, %2"
+
+msgid "Entwurf"
+msgstr "Черновик"
+
+msgid "Entwurf \"%1\" als neuer Entwurf übernommen -- bitte prüfen und speichern."
+msgstr "Черновик «%1» принят как новый черновик — проверьте и сохраните."
+
+msgid "Entwurf \"%1\" wurde gespeichert."
+msgstr "Черновик «%1» сохранён."
+
+msgid "Entwurf erstellt am %1"
+msgstr "Черновик создан %1"
+
+msgid "Entwurf gespeichert."
+msgstr "Черновик сохранён."
+
+msgid "Entwurf von %1 am %2 -- noch nicht Teil offizieller Berichte."
+msgstr "Черновик от %1, %2 — ещё не является частью официальных отчётов."
+
+msgid "Entwürfe können nicht nachträglich geändert oder gelöscht werden. Ist dieser Entwurf fehlerhaft, nutzen Sie „Als neuen Entwurf duplizieren\" unten, um eine korrigierte Kopie zu erstellen, und lassen Sie diesen Entwurf ungebucht liegen."
+msgstr "Черновики нельзя впоследствии изменить или удалить. Если этот черновик содержит ошибку, используйте «Дублировать как новый черновик» ниже, чтобы создать исправленную копию, а этот черновик оставьте непроведённым."
+
+msgid "Erfasst von (Mitglieds-ID)"
+msgstr "Зафиксировано (ID участника)"
+
+msgid "Erfolgreich"
+msgstr "Успешно"
+
+msgid "Erforderlichkeit/Verhältnismäßigkeit (optional)"
+msgstr "Необходимость/соразмерность (необязательно)"
+
+msgid "Ergebnis"
+msgstr "Результат"
+
+msgid "Ergebnis:"
+msgstr "Результат:"
+
+msgid "Erinnerung wurde bestätigt."
+msgstr "Напоминание подтверждено."
+
+msgid "Erinnerungen"
+msgstr "Напоминания"
+
+msgid "Erlassen"
+msgstr "Списать"
+
+msgid "Erledigte anzeigen"
+msgstr "Показать выполненные"
+
+msgid "Ernennen"
+msgstr "Назначить"
+
+msgid "Eröffnungssaldo"
+msgstr "Начальное сальдо"
+
+msgid "Erstellen"
+msgstr "Создать"
+
+msgid "Erstellt"
+msgstr "Создано"
+
+msgid "Erstellt von %1 · %2 Teilnehmende"
+msgstr "Создано %1 · участников: %2"
+
+msgid "Erteilen"
+msgstr "Предоставить"
+
+msgid "Erteilen / Aktualisieren"
+msgstr "Предоставить / обновить"
+
+msgid "Ertragskonto"
+msgstr "Счёт доходов"
+
+msgid "Es läuft bereits eine meritokratische Vote für diesen Antrag -- siehe Abschnitt \"Vote\" unten."
+msgstr "Для этой заявки уже идёт меритократическое голосование — см. раздел «Голосование» ниже."
+
+msgid "Es werden %1 als Sichtbarkeits-Gewicht aus Ihrem freien LTR-Guthaben gebunden. Dieser Einsatz wird NICHT zurückerstattet, unabhängig von der späteren Vorstandsentscheidung."
+msgstr "%1 будет зарезервировано как вес видимости из вашего свободного баланса LTR. Эта ставка НЕ будет возвращена независимо от последующего решения правления."
+
+msgid "Es werden %1 an %2 gutgeschrieben. Diese Gutschrift lässt sich nur durch eine gegenläufige Buchung (z. B. eine Schiedsverfahren-Korrekturübertragung) rückgängig machen."
+msgstr "%1 будет зачислено %2. Отменить это зачисление можно только встречной проводкой (например, корректирующим переводом по арбитражному разбирательству)."
+
+msgid "Es wird ein Angebot \"%1\" mit Startpreis %2%3 und %4 Stunden Laufzeit erstellt. Dabei wird eine feste Gebühr von %5 aus Ihrem freien LTR-Guthaben gebucht."
+msgstr "Будет создан лот «%1» со стартовой ценой %2%3 и сроком действия %4 ч. При этом из вашего свободного баланса LTR будет списана фиксированная комиссия в размере %5."
+
+msgid "EU-Bürger:in / EU-Rechtsperson"
+msgstr "Гражданин(ка) ЕС / юридическое лицо ЕС"
+
+msgid "Export"
+msgstr "Экспорт"
+
+msgid "Extern"
+msgstr "Внешний"
+
+msgid "Externe Spender"
+msgstr "Внешние доноры"
+
+msgid "Externe Spender sind keine Mitglieder -- eine eigenständige Adressverwaltung für Spendenbescheinigungen und die §25-PartG-Pflichtenprüfung, getrennt von der Mitgliederverwaltung."
+msgstr "Внешние доноры не являются участниками — это самостоятельное управление адресами для справок о пожертвованиях и проверки обязанностей по §25 PartG, отдельно от управления участниками."
+
+msgid "Externer Spender"
+msgstr "Внешний донор"
+
+msgid "Externer Spender (ID)"
+msgstr "Внешний донор (ID)"
+
+msgid "Falls die Zeichnung noch gebraucht wird: vorher als Dokument speichern."
+msgstr "Если рисунок ещё нужен: сначала сохраните его как документ."
+
+msgid "Falls diese E-Mail registriert ist, wurde ein Link versendet."
+msgstr "Если этот e-mail зарегистрирован, ссылка была отправлена."
+
+msgid "Farbe wählen"
+msgstr "Выбрать цвет"
+
+msgid "Fehlende Angaben für das Transparenzregister: %1 Vorstandsmitglied(er) ohne Geburtsdatum und/oder Staatsangehörigkeit."
+msgstr "Отсутствуют данные для реестра прозрачности: %1 член(-ов) правления без даты рождения и/или гражданства."
+
+msgid "Fehler"
+msgstr "Ошибка"
+
+msgid "Fehler: %1"
+msgstr "Ошибка: %1"
+
+msgid "Fehlgeschlagen"
+msgstr "Не удалось"
+
+msgid "Fertig"
+msgstr "Готово"
+
+msgid "Fiat"
+msgstr "Фиат"
+
+msgid "Filter: Referenztyp"
+msgstr "Фильтр: тип ссылки"
+
+msgid "Filter: Status (persistiert)"
+msgstr "Фильтр: статус (сохранённый)"
+
+msgid "Filter: Status (Vorstandsbeschluss)"
+msgstr "Фильтр: статус (решение правления)"
+
+msgid "Filtern"
+msgstr "Фильтровать"
+
+msgid "Finanzberichte"
+msgstr "Финансовые отчёты"
+
+msgid "Finanzen"
+msgstr "Финансы"
+
+msgid "Format"
+msgstr "Формат"
+
+msgid "Freie Rücklage (%1)"
+msgstr "Свободный резерв (%1)"
+
+msgid "Frist bald fällig"
+msgstr "Срок скоро истекает"
+
+msgid "Frist läuft"
+msgstr "Срок идёт"
+
+msgid "Frist überschritten"
+msgstr "Срок просрочен"
+
+msgid "Frist: %1"
+msgstr "Срок: %1"
+
+msgid "Führend"
+msgstr "Лидирует"
+
+msgid "Führend: %1"
+msgstr "Лидирует: %1"
+
+msgid "Führend: Sie"
+msgstr "Лидируете: Вы"
+
+msgid "Für alle beenden"
+msgstr "Завершить для всех"
+
+msgid "Galerie"
+msgstr "Галерея"
+
+msgid "Gast"
+msgstr "Гость"
+
+msgid "Gast eines anderen Lapis-Cloud-Servers? Mit Heimatserver anmelden."
+msgstr "Гость с другого сервера Lapis Cloud? Войти через домашний сервер."
+
+msgid "Gast von %1"
+msgstr "Гость от %1"
+
+msgid "Gast-Gewicht"
+msgstr "Вес гостя"
+
+msgid "Gast-Gewicht (reine Stimmenzahl, ungewichtet)"
+msgstr "Вес гостя (простое количество голосов, без взвешивания)"
+
+msgid "Gäste"
+msgstr "Гости"
+
+msgid "Gäste anderer Server zulassen"
+msgstr "Разрешить гостей с других серверов"
+
+msgid "Gäste zugelassen"
+msgstr "Гости допущены"
+
+msgid "Gastgeberin dieser Besprechung: %1"
+msgstr "Организатор(ша) этой встречи: %1"
+
+msgid "Gastzugang"
+msgstr "Гостевой доступ"
+
+msgid "Gastzugang aktiviert."
+msgstr "Гостевой доступ активирован."
+
+msgid "Gastzugang beenden"
+msgstr "Завершить гостевой доступ"
+
+msgid "Gastzugang beendet."
+msgstr "Гостевой доступ завершён."
+
+msgid "Gastzugang offen"
+msgstr "Гостевой доступ открыт"
+
+msgid "Gastzugang:"
+msgstr "Гостевой доступ:"
+
+msgid "Geändert"
+msgstr "Изменено"
+
+msgid "Geben Sie Ihre E-Mail-Adresse ein, um einen Link zum Zurücksetzen anzufordern. Erhalten Sie eine Bestätigung, tragen Sie anschließend den Token und Ihr neues Passwort ein."
+msgstr "Введите свой адрес электронной почты, чтобы запросить ссылку для сброса. После получения подтверждения введите токен и новый пароль."
+
+msgid "Gebot abgeben"
+msgstr "Сделать ставку"
+
+msgid "Gebot angenommen. Aktueller Preis: %1. %2"
+msgstr "Ставка принята. Текущая цена: %1. %2"
+
+msgid "Gebot bestätigen"
+msgstr "Подтвердить ставку"
+
+msgid "Gebot gespeichert."
+msgstr "Ставка сохранена."
+
+msgid "Gebucht"
+msgstr "Проведено"
+
+msgid "Gebucht am"
+msgstr "Дата проводки"
+
+msgid "Gebucht am %1 von %2 -- unveränderlich."
+msgstr "Проведено %1, %2 — неизменно."
+
+msgid "Geburtsdatum"
+msgstr "Дата рождения"
+
+msgid "Gelöscht."
+msgstr "Удалено."
+
+msgid "Gemeinnützigkeits-Berichte"
+msgstr "Отчёты об общественной пользе"
+
+msgid "gemeldet"
+msgstr "сообщено"
+
+msgid "Gemeldet"
+msgstr "Сообщено"
+
+msgid "Gemintet:"
+msgstr "Выпущено:"
+
+msgid "Genehmigen"
+msgstr "Одобрить"
+
+msgid "Genehmigt"
+msgstr "Одобрено"
+
+msgid "Generisches RTMP"
+msgstr "Общий RTMP"
+
+msgid "Geprüft von %1 am %2%3"
+msgstr "Проверено %1, %2%3"
+
+msgid "Gesamt"
+msgstr "Итого"
+
+msgid "Gesamt (Summe, keine vergleichbare Einheit)"
+msgstr "Итого (сумма, несопоставимая единица)"
+
+msgid "Geschäftsjahr"
+msgstr "Финансовый год"
+
+msgid "Geschäftsjahr (JJJJ)"
+msgstr "Финансовый год (ГГГГ)"
+
+msgid "Geschäftsjahr %1 · %2 bis %3"
+msgstr "Финансовый год %1 · %2 – %3"
+
+msgid "Geschätzte Anzahl betroffener Personen (optional)"
+msgstr "Оценочное число затронутых лиц (необязательно)"
+
+msgid "Gesendet"
+msgstr "Отправлено"
+
+msgid "Gesendet am %1"
+msgstr "Отправлено %1"
+
+msgid "Gespeichert -- Schlüssel wird nicht erneut angezeigt."
+msgstr "Сохранено — ключ больше не будет отображаться."
+
+msgid "Gewählter Modus: %1"
+msgstr "Выбранный режим: %1"
+
+msgid "Gewichts-Snapshot auslösen"
+msgstr "Запустить снимок веса"
+
+msgid "Gewichtsverlauf anzeigen/ausblenden"
+msgstr "Показать/скрыть историю веса"
+
+msgid "Gewinn- und Verlustrechnung"
+msgstr "Отчёт о прибылях и убытках"
+
+msgid "Gewinn- und Verlustrechnung (GuV)"
+msgstr "Отчёт о прибылях и убытках (ОПиУ)"
+
+msgid "Gewinner"
+msgstr "Победитель"
+
+msgid "GoBD-revisionssicheres Protokoll aller Buchungen, Beschlüsse, Vorstandsmitgliedschaften und Spendenprüfungen -- unveränderlich und ausschließlich lesbar. Es gibt auf dieser Seite keine Funktion zum Bearbeiten oder Löschen von Einträgen."
+msgstr "Неизменяемый, доступный только для чтения журнал GoBD всех проводок, решений, членств в правлении и проверок пожертвований — соответствующий требованиям к ревизионной защите. На этой странице нет функции редактирования или удаления записей."
+
+msgid "Gold (XAU)"
+msgstr "Золото (XAU)"
+
+msgid "Gold (XAU) und Fiat-Kurse sind fachlich vorgesehen, aber serverseitig noch nicht implementiert (kein robuster kostenloser Mehrquellen-Feed verfügbar) -- daher hier nicht auswählbar."
+msgstr "Курсы золота (XAU) и фиата предусмотрены содержательно, но на стороне сервера пока не реализованы (нет надёжного бесплатного многоисточникового фида) — поэтому здесь недоступны для выбора."
+
+msgid "Gremien"
+msgstr "Органы"
+
+msgid "Gremium"
+msgstr "Орган"
+
+msgid "Gremium anlegen"
+msgstr "Создать орган"
+
+msgid "Gremium oben auswählen, um die Besetzung zu sehen."
+msgstr "Выберите орган выше, чтобы увидеть состав."
+
+msgid "Gremium: %1 · %2 · Termin: %3"
+msgstr "Орган: %1 · %2 · Дата: %3"
+
+msgid "Gremium: %1 · %2 · Termin: %3%4"
+msgstr "Орган: %1 · %2 · Дата: %3%4"
+
+msgid "Gremium: %1 · eingereicht von %2 am %3"
+msgstr "Орган: %1 · подано %2, %3"
+
+msgid "Guthaben & Buchungen eines Mitglieds"
+msgstr "Баланс и проводки участника"
+
+msgid "Guthaben von %1"
+msgstr "Баланс %1"
+
+msgid "Gutschreiben"
+msgstr "Зачислить"
+
+msgid "Gutschrift (Mint)"
+msgstr "Зачисление (эмиссия)"
+
+msgid "GuV"
+msgstr "ОПиУ"
+
+msgid "Haben"
+msgstr "Кредит"
+
+msgid "Hauptbuch"
+msgstr "Главная книга"
+
+msgid "Herunterladen"
+msgstr "Скачать"
+
+msgid "Hinweis gelesen -- als Gast beitreten"
+msgstr "Уведомление прочитано — присоединиться как гость"
+
+msgid "Hinweis: %1"
+msgstr "Примечание: %1"
+
+msgid "Hinweis: Die tatsächlich gebuchte Währung ist die in der Konfiguration hinterlegte Spendenwährung -- diese Auswahl dient nur der Anzeige im Bestätigungsdialog."
+msgstr "Примечание: фактически проводимая валюта — это валюта пожертвований, заданная в конфигурации — этот выбор служит только для отображения в диалоге подтверждения."
+
+msgid "Hinweis: Eine im Hauptraum laufende Aufzeichnung oder ein Live-Stream erfasst dieses Gespräch nicht."
+msgstr "Примечание: идущая в основном зале запись или прямая трансляция не фиксирует этот разговор."
+
+msgid "Hinweistext-Version %1"
+msgstr "Версия текста-уведомления %1"
+
+msgid "Hinzufügen"
+msgstr "Добавить"
+
+msgid "Hoch"
+msgstr "Высокий"
+
+msgid "Hochladen"
+msgstr "Загрузить"
+
+msgid "Höchstens %1 Zeichen."
+msgstr "Не более %1 символов."
+
+msgid "Honorar"
+msgstr "Гонорар"
+
+msgid "Ich bestätige, den aktuellen Text gelesen zu haben"
+msgstr "Подтверждаю, что прочитал(а) действующий текст"
+
+msgid "Ich habe den Beitrittsvertrag gelesen und akzeptiere ihn."
+msgstr "Я прочитал(а) договор о вступлении и принимаю его."
+
+msgid "Ideeller Bereich"
+msgstr "Некоммерческая сфера"
+
+msgid "Ihr Einsatz wird NICHT zurückerstattet -- unabhängig davon, ob der Vorstand das Projekt später genehmigt oder ablehnt. Es gibt in diesem System keinen Rückerstattungspfad für diesen Einsatz."
+msgstr "Ваша ставка НЕ будет возвращена — независимо от того, одобрит ли правление проект впоследствии или отклонит его. В этой системе пути возврата этой ставки не существует."
+
+msgid "Ihr Gebot: %1, %2 LTR"
+msgstr "Ваша ставка: %1, %2 LTR"
+
+msgid "Ihr Höchstgebot"
+msgstr "Ваше максимальное предложение"
+
+msgid "Ihr Höchstgebot (LTR)"
+msgstr "Ваше максимальное предложение (LTR)"
+
+msgid "Ihr Höchstgebot ist verbindlich und reserviert LTR aus Ihrem freien Guthaben."
+msgstr "Ваше максимальное предложение обязательно к исполнению и резервирует LTR из вашего свободного баланса."
+
+msgid "Ihr Höchstgebot muss mindestens dem Startpreis (%1) entsprechen."
+msgstr "Ваше максимальное предложение должно быть не ниже стартовой цены (%1)."
+
+msgid "Ihr Löschantrag"
+msgstr "Ваша заявка на удаление"
+
+msgid "Ihr LTR-Guthaben"
+msgstr "Ваш баланс LTR"
+
+msgid "Ihr LTR-Guthaben:"
+msgstr "Ваш баланс LTR:"
+
+msgid "Ihr Mitgliedschaftsantrag wurde eingereicht und wird vom Vorstand geprüft. Sie sind noch nicht angemeldet -- nach der Freigabe können Sie sich mit Ihrem gewählten Passwort anmelden."
+msgstr "Ваша заявка на членство подана и рассматривается правлением. Вы ещё не вошли в систему — после одобрения вы сможете войти с выбранным вами паролем."
+
+msgid "Ihr Mitgliedsdatensatz bleibt als anonymer Platzhalter bestehen (z. B. damit Beitragshistorie und Buchungen konsistent bleiben). Persönliche Felder werden geleert oder anonymisiert."
+msgstr "Ваша запись участника сохраняется как анонимный заполнитель (например, чтобы история взносов и проводки оставались непротиворечивыми). Личные поля будут очищены или анонимизированы."
+
+msgid "Ihr Recht auf Auskunft (Art. 15/20 DSGVO) und auf Löschung (\"Recht auf Vergessenwerden\", Art. 17 DSGVO) -- eine Löschung wird hier nur BEANTRAGT, nie sofort ausgeführt. Über den Antrag entscheidet danach eine Administratorin oder ein Administrator gesondert."
+msgstr "Ваше право на получение сведений (ст. 15/20 GDPR) и на удаление («право на забвение», ст. 17 GDPR) — удаление здесь только ЗАПРАШИВАЕТСЯ, но никогда не выполняется немедленно. Решение по заявке принимает затем отдельно администратор."
+
+msgid "Ihre Bewertung:"
+msgstr "Ваша оценка:"
+
+msgid "Ihre Reaktion:"
+msgstr "Ваша реакция:"
+
+msgid "In Bearbeitung"
+msgstr "В обработке"
+
+msgid "In Prüfung"
+msgstr "На проверке"
+
+msgid "In Warteschlange"
+msgstr "В очереди"
+
+msgid "inaktiv"
+msgstr "неактивно"
+
+msgid "Inaktiv"
+msgstr "Неактивно"
+
+msgid "Inaktive Gremien anzeigen"
+msgstr "Показать неактивные органы"
+
+msgid "Inaktive Konten anzeigen"
+msgstr "Показать неактивные счета"
+
+msgid "Inaktive Kostenstellen anzeigen"
+msgstr "Показать неактивные центры затрат"
+
+msgid "Inaktive Spender anzeigen"
+msgstr "Показать неактивных жертвователей"
+
+msgid "Inhalt"
+msgstr "Содержание"
+
+msgid "Inklusive ehemaliger Profile"
+msgstr "Включая бывшие профили"
+
+msgid "ist beendet"
+msgstr "завершено"
+
+msgid "ist unterbrochen"
+msgstr "приостановлено"
+
+msgid "Ja"
+msgstr "Да"
+
+msgid "Ja-Stimmen"
+msgstr "Голоса «за»"
+
+msgid "Ja: %1 · Nein: %2 · Enthaltung: %3"
+msgstr "За: %1 · Против: %2 · Воздержались: %3"
+
+msgid "Ja: %1 · Nein: %2 · Enthaltung: %3 · Quorum %4 · entschieden am %5 von %6"
+msgstr "За: %1 · Против: %2 · Воздержались: %3 · Кворум %4 · решение принято %5 (%6)"
+
+msgid "Jahresabschluss"
+msgstr "Годовой отчёт"
+
+msgid "Jahresergebnis (dieses Geschäftsjahr)"
+msgstr "Финансовый результат года (текущий финансовый год)"
+
+msgid "Jahressumme"
+msgstr "Годовая сумма"
+
+msgid "Jemand hat diesen Block bereits aktualisiert (zuletzt von %1)."
+msgstr "Кто-то уже обновил этот блок (последний раз — %1)."
+
+msgid "Jetzt live gehen"
+msgstr "Начать прямую трансляцию"
+
+msgid "Jetzt per Post versenden"
+msgstr "Отправить по почте сейчас"
+
+msgid "Jetzt terminieren"
+msgstr "Назначить сейчас"
+
+msgid "Journal (Grundbuch)"
+msgstr "Журнал (книга учёта)"
+
+msgid "Journaldetails"
+msgstr "Детали журнала"
+
+msgid "Kalenderjahr (JJJJ)"
+msgstr "Календарный год (ГГГГ)"
+
+msgid "Kalenderjahr %1"
+msgstr "Календарный год %1"
+
+msgid "Kamera an"
+msgstr "Камера включена"
+
+msgid "Kamera aus"
+msgstr "Камера выключена"
+
+msgid "Kasse"
+msgstr "Касса"
+
+msgid "Kasse (Kassenbuch-fähig)"
+msgstr "Касса (с поддержкой кассовой книги)"
+
+msgid "Kassenbuch"
+msgstr "Кассовая книга"
+
+msgid "Kategorie"
+msgstr "Категория"
+
+msgid "Kein AVV"
+msgstr "AVV отсутствует"
+
+msgid "Kein Beschluss verknüpft."
+msgstr "Решение не привязано."
+
+msgid "Kein Grund angegeben."
+msgstr "Причина не указана."
+
+msgid "Kein Legal Hold"
+msgstr "Без Legal Hold"
+
+msgid "Kein Limit"
+msgstr "Без ограничения"
+
+msgid "Kein Zugriff -- für diesen Bereich fehlt Ihnen die Berechtigung."
+msgstr "Нет доступа -- у вас недостаточно прав для этого раздела."
+
+msgid "Keine Adresse hinterlegt"
+msgstr "Адрес не указан"
+
+msgid "Keine anderen Mitglieder vorhanden, an die übertragen werden könnte."
+msgstr "Нет других участников, которым можно было бы передать."
+
+msgid "Keine Änderungsanträge."
+msgstr "Заявок на изменение нет."
+
+msgid "Keine anonymen Spenden über dem Schwellenwert im gewählten Kalenderjahr."
+msgstr "Нет анонимных пожертвований выше порогового значения за выбранный календарный год."
+
+msgid "Keine Anträge für diese Filter gefunden."
+msgstr "По заданным фильтрам заявки не найдены."
+
+msgid "Keine Anwesenheit erfasst."
+msgstr "Присутствие не зафиксировано."
+
+msgid "Keine Beiträge vorhanden."
+msgstr "Взносы отсутствуют."
+
+msgid "Keine Beitragssätze vorhanden."
+msgstr "Ставки взносов отсутствуют."
+
+msgid "Keine berechtigten Mitglieder gefunden."
+msgstr "Правомочные участники не найдены."
+
+msgid "Keine Berechtigung für diese Aktion."
+msgstr "Недостаточно прав для этого действия."
+
+msgid "Keine Berechtigung, Anträge einzureichen."
+msgstr "Недостаточно прав для подачи заявок."
+
+msgid "Keine Berechtigung, neue Sitzungen anzulegen."
+msgstr "Недостаточно прав для создания новых заседаний."
+
+msgid "Keine Beschlüsse."
+msgstr "Решения отсутствуют."
+
+msgid "Keine Buchungen für diesen Filter."
+msgstr "По заданному фильтру проводки отсутствуют."
+
+msgid "Keine Buchungen im gewählten Zeitraum."
+msgstr "За выбранный период проводки отсутствуют."
+
+msgid "Keine Buchungen in diesem Abschnitt."
+msgstr "В этом разделе проводки отсутствуют."
+
+msgid "Keine Buchungszeilen."
+msgstr "Строки проводки отсутствуют."
+
+msgid "Keine Daten in den registrierten Bereichen gefunden."
+msgstr "В зарегистрированных разделах данные не найдены."
+
+msgid "Keine Detaildaten für diesen Eintrag hinterlegt."
+msgstr "Для этой записи подробные данные не указаны."
+
+msgid "Keine Dokumente in diesem Ordner."
+msgstr "В этой папке нет документов."
+
+msgid "Keine Einträge für diese Filter gefunden."
+msgstr "По заданным фильтрам записи не найдены."
+
+msgid "Keine Einträge gefunden."
+msgstr "Записи не найдены."
+
+msgid "Keine Einträge im geprüften Bereich."
+msgstr "В проверяемом разделе записи отсутствуют."
+
+msgid "Keine Erinnerungen vorhanden."
+msgstr "Напоминания отсутствуют."
+
+msgid "Keine fehlenden Angaben für das Transparenzregister."
+msgstr "Недостающих сведений для реестра прозрачности нет."
+
+msgid "Keine freigegebenen Stream-Ziele vorhanden -- bitte eine Administratorin oder einen Administrator kontaktieren."
+msgstr "Разрешённые цели трансляции отсутствуют -- обратитесь к администратору."
+
+msgid "Keine Gebote abgegeben."
+msgstr "Ставки не сделаны."
+
+msgid "Keine geplante Sitzung für dieses Gremium verfügbar -- zuerst auf \"Sitzungen\" eine anlegen."
+msgstr "Для этого органа не запланировано ни одного заседания -- сначала создайте его в разделе «Заседания»."
+
+msgid "Keine Kostenstelle mit Buchungen im gewählten Zeitraum."
+msgstr "Нет центров затрат с проводками за выбранный период."
+
+msgid "Keine Meldung erforderlich"
+msgstr "Уведомление не требуется"
+
+msgid "Keine Mitglieder vorhanden, denen eine Spende gutgeschrieben werden könnte."
+msgstr "Нет участников, которым можно было бы зачислить пожертвование."
+
+msgid "Keine Mitglieder vorhanden."
+msgstr "Участники отсутствуют."
+
+msgid "Keine offenen Anträge."
+msgstr "Открытых заявок нет."
+
+msgid "Keine offenen Beiträge."
+msgstr "Открытых взносов нет."
+
+msgid "Keine offenen Melde-/Offenlegungspflichten im gewählten Kalenderjahr."
+msgstr "За выбранный календарный год нет открытых обязанностей по уведомлению/раскрытию информации."
+
+msgid "Keine Tagesordnungspunkte."
+msgstr "Пункты повестки дня отсутствуют."
+
+msgid "Keine Treffer."
+msgstr "Совпадений нет."
+
+msgid "Kennzahlen"
+msgstr "Показатели"
+
+msgid "Kette prüfen"
+msgstr "Проверить цепочку"
+
+msgid "Ketten-Integrität prüfen"
+msgstr "Проверить целостность цепочки"
+
+msgid "Kommunikation"
+msgstr "Коммуникация"
+
+msgid "Konfiguration"
+msgstr "Конфигурация"
+
+msgid "Konfiguration bearbeiten (ADMIN)"
+msgstr "Изменить конфигурацию (ADMIN)"
+
+msgid "Konfiguration speichern"
+msgstr "Сохранить конфигурацию"
+
+msgid "Konten (SKR42 Kontenplan)"
+msgstr "Счета (план счетов SKR42)"
+
+msgid "Kontenklasse"
+msgstr "Класс счетов"
+
+msgid "Kontenklasse (erste Ziffer der Kontonummer, 0-9)"
+msgstr "Класс счёта (первая цифра номера счёта, 0-9)"
+
+msgid "Kontenklasse %1"
+msgstr "Класс счёта %1"
+
+msgid "Kontenplan & Journal"
+msgstr "План счетов и журнал"
+
+msgid "Konto"
+msgstr "Счёт"
+
+msgid "Konto \"%1 · %2\" wurde angelegt."
+msgstr "Счёт «%1 · %2» создан."
+
+msgid "Konto (ID)"
+msgstr "Счёт (ID)"
+
+msgid "Konto anlegen"
+msgstr "Создать счёт"
+
+msgid "Konto deaktivieren"
+msgstr "Деактивировать счёт"
+
+msgid "Konto oben auswählen, um Hauptbuch/Kassenbuch zu sehen."
+msgstr "Выберите счёт выше, чтобы увидеть главную книгу/кассовую книгу."
+
+msgid "Konto wurde deaktiviert."
+msgstr "Счёт деактивирован."
+
+msgid "Kontodetails"
+msgstr "Детали счёта"
+
+msgid "Kontonummer (SKR42)"
+msgstr "Номер счёта (SKR42)"
+
+msgid "Kontotyp"
+msgstr "Тип счёта"
+
+msgid "Konvertieren"
+msgstr "Конвертировать"
+
+msgid "Konvertierung ausgeführt."
+msgstr "Конвертация выполнена."
+
+msgid "Korb"
+msgstr "Корзина"
+
+msgid "Körperschaft des öffentlichen Rechts"
+msgstr "Юридическое лицо публичного права"
+
+msgid "Korrekturübertragung ausführen"
+msgstr "Выполнить корректировочный перевод"
+
+msgid "Korrekturübertragung ausgeführt: %1."
+msgstr "Корректировочный перевод выполнен: %1."
+
+msgid "Kostenstelle"
+msgstr "Центр затрат"
+
+msgid "Kostenstelle \"%1 · %2\" wurde angelegt."
+msgstr "Центр затрат «%1 · %2» создан."
+
+msgid "Kostenstelle anlegen"
+msgstr "Создать центр затрат"
+
+msgid "Kostenstelle deaktivieren"
+msgstr "Деактивировать центр затрат"
+
+msgid "Kostenstelle wurde deaktiviert."
+msgstr "Центр затрат деактивирован."
+
+msgid "Kostenstellen"
+msgstr "Центры затрат"
+
+msgid "Kostenstellenbericht"
+msgstr "Отчёт по центрам затрат"
+
+msgid "Kritisch"
+msgstr "Критично"
+
+msgid "Kumuliertes Ergebnis (seit Gründung)"
+msgstr "Накопленный результат (с момента основания)"
+
+msgid "Kumuliertes Ergebnis (Σ Einnahmen − Ausgaben seit Gründung)"
+msgstr "Накопленный результат (Σ доходы − расходы с момента основания)"
+
+msgid "Kurs abrufen"
+msgstr "Запросить курс"
+
+msgid "Kurs-Status:"
+msgstr "Статус курса:"
+
+msgid "Kurs: %1 je %2 (Status: %3, %4 Quelle(n): %5)"
+msgstr "Курс: %1 за %2 (статус: %3, %4 источник(и): %5)"
+
+msgid "Laden"
+msgstr "Загрузка"
+
+msgid "Lädt ein vollständiges ZIP-Backup aller Organisationsdaten herunter. Rein lesend und nicht destruktiv -- daher ohne Bestätigungsdialog."
+msgstr "Загружает полную ZIP-резервную копию всех данных организации. Операция только для чтения и не является деструктивной -- поэтому без диалога подтверждения."
+
+msgid "Land (optional)"
+msgstr "Страна (необязательно)"
+
+msgid "Latenz"
+msgstr "Задержка"
+
+msgid "laufend"
+msgstr "текущий"
+
+msgid "läuft"
+msgstr "выполняется"
+
+msgid "Laufzeit in Stunden (z. B. 24)"
+msgstr "Продолжительность в часах (например, 24)"
+
+msgid "Layout"
+msgstr "Раскладка"
+
+msgid "Legal Hold aktiv -- Löschung darf nicht ausgeführt werden."
+msgstr "Активна юридическая блокировка (Legal Hold) -- удаление выполнить нельзя."
+
+msgid "Legt ein Mitglied ohne Antrags-/Freigabeschritt an (z. B. für Beitritte auf Papier oder Datenmigration) -- Status sofort AKTIV."
+msgstr "Создаёт участника без этапа заявки/утверждения (например, для бумажных заявлений о вступлении или миграции данных) -- статус сразу AKTIV."
+
+msgid "Like"
+msgstr "Нравится"
+
+msgid "Like: %1 · Dislike: %2 · Verteilungs-Korb: %3"
+msgstr "Нравится: %1 · Не нравится: %2 · Корзина распределения: %3"
+
+msgid "Liste verwalten"
+msgstr "Управление списком"
+
+msgid "Live"
+msgstr "В эфире"
+
+msgid "Live-Stream"
+msgstr "Прямая трансляция"
+
+msgid "Live-Stream beenden"
+msgstr "Завершить прямую трансляцию"
+
+msgid "Live-Stream beendet."
+msgstr "Прямая трансляция завершена."
+
+msgid "Live-Stream fehlgeschlagen."
+msgstr "Сбой прямой трансляции."
+
+msgid "Live-Stream gestartet von %1 um %2:%3 · %4"
+msgstr "Прямая трансляция начата пользователем %1 в %2:%3 · %4"
+
+msgid "Live-Stream starten"
+msgstr "Начать прямую трансляцию"
+
+msgid "Live-Stream starten …"
+msgstr "Запуск прямой трансляции…"
+
+msgid "Live-Stream wird beendet."
+msgstr "Прямая трансляция завершается."
+
+msgid "Live-Stream wird gestartet."
+msgstr "Прямая трансляция запускается."
+
+msgid "Live-Stream:"
+msgstr "Прямая трансляция:"
+
+msgid "Löschen"
+msgstr "Удалить"
+
+msgid "Löschung abgelehnt"
+msgstr "Удаление отклонено"
+
+msgid "Löschung ausgeführt"
+msgstr "Удаление выполнено"
+
+msgid "Löschung beantragen"
+msgstr "Запросить удаление"
+
+msgid "Löschung beantragt"
+msgstr "Удаление запрошено"
+
+msgid "Löschung endgültig ausführen"
+msgstr "Окончательно выполнить удаление"
+
+msgid "Löschung genehmigt"
+msgstr "Удаление одобрено"
+
+msgid "Löschung wurde ausgeführt."
+msgstr "Удаление выполнено."
+
+msgid "Löschung wurde beantragt."
+msgstr "Удаление запрошено."
+
+msgid "LTR gutschreiben"
+msgstr "Зачислить LTR"
+
+msgid "LTR gutschreiben (Mint)"
+msgstr "Зачислить LTR (эмиссия)"
+
+msgid "LTR senden"
+msgstr "Отправить LTR"
+
+msgid "LTR übertragen"
+msgstr "Перевести LTR"
+
+msgid "LTR-Konto"
+msgstr "Счёт LTR"
+
+msgid "LTR-Übertragung bestätigen"
+msgstr "Подтвердите перевод LTR"
+
+msgid "Mailingliste"
+msgstr "Список рассылки"
+
+msgid "Mailingliste \"%1\" wurde angelegt."
+msgstr "Список рассылки «%1» создан."
+
+msgid "Mailinglisten"
+msgstr "Списки рассылки"
+
+msgid "Mailinglisten anlegen, Mitglieder gezielt eintragen und Nachrichten an eine Liste verschicken."
+msgstr "Создавайте списки рассылки, добавляйте в них нужных участников и отправляйте сообщения списку."
+
+msgid "Mailinglisten verwalten"
+msgstr "Управление списками рассылки"
+
+msgid "Mandatstext"
+msgstr "Текст мандата"
+
+msgid "Mandatstext (optional)"
+msgstr "Текст мандата (необязательно)"
+
+msgid "Mandatstext aktualisiert."
+msgstr "Текст мандата обновлён."
+
+msgid "Mandatstext speichern"
+msgstr "Сохранить текст мандата"
+
+msgid "Manuelle Eintragung"
+msgstr "Ручной ввод"
+
+msgid "Max. Spread"
+msgstr "Макс. спред"
+
+msgid "Max. Spread (Basispunkte, >= Ausreißer-Schwelle)"
+msgstr "Макс. спред (базисные пункты, >= порог выбросов)"
+
+msgid "Maximal 50 Empfänger pro Versand."
+msgstr "Максимум 50 получателей на одну рассылку."
+
+msgid "Median-Kurs: %1"
+msgstr "Медианный курс: %1"
+
+msgid "Mehr laden"
+msgstr "Загрузить ещё"
+
+msgid "Meine Auktionen (als Verkäufer)"
+msgstr "Мои аукционы (как продавца)"
+
+msgid "Meine Beiträge"
+msgstr "Мои взносы"
+
+msgid "Meine Buchungen"
+msgstr "Мои проводки"
+
+msgid "Meine Daten"
+msgstr "Мои данные"
+
+msgid "Meine Gebote"
+msgstr "Мои ставки"
+
+msgid "Melde-/Offenlegungspflichten pro Spender"
+msgstr "Обязанности по уведомлению/раскрытию информации по каждому жертвователю"
+
+msgid "Meldung an Aufsichtsbehörde erforderlich (Ihre Entscheidung)"
+msgstr "Требуется уведомление надзорного органа (решение за вами)"
+
+msgid "Meldung an Aufsichtsbehörde erforderlich: %1"
+msgstr "Требуется уведомление надзорного органа: %1"
+
+msgid "Meldung erfolgt"
+msgstr "Уведомление отправлено"
+
+msgid "Meritokratische Vote eröffnen"
+msgstr "Открыть меритократическое голосование"
+
+msgid "Metadaten aller Auskunfts-/Löschvorgänge -- rein informativ, keine Aktionen auf dieser Liste."
+msgstr "Метаданные всех запросов на предоставление сведений/удаление -- только для информации, действий в этом списке нет."
+
+msgid "Mikro an"
+msgstr "Микрофон включён"
+
+msgid "Mikrofon an"
+msgstr "Микрофон включён"
+
+msgid "Mikrofon aus"
+msgstr "Микрофон выключен"
+
+msgid "Mindest-Quorum"
+msgstr "Минимальный кворум"
+
+msgid "Mindest-Quorum (Quellen, mind. 2)"
+msgstr "Минимальный кворум (источники, не менее 2)"
+
+msgid "Mindestens %1 Zeichen."
+msgstr "Не менее %1 символов."
+
+msgid "Mindestens zwei Mitglieder erforderlich."
+msgstr "Требуется не менее двух участников."
+
+msgid "Mitglied"
+msgstr "Участник"
+
+msgid "Mitglied (ID)"
+msgstr "Участник (ID)"
+
+msgid "Mitglied %1"
+msgstr "Участник %1"
+
+msgid "Mitglied anlegen"
+msgstr "Создать участника"
+
+msgid "Mitglied direkt anlegen"
+msgstr "Создать участника напрямую"
+
+msgid "Mitglied hinzufügen"
+msgstr "Добавить участника"
+
+msgid "Mitglied selbst"
+msgstr "Сам участник"
+
+msgid "Mitglied werden"
+msgstr "Стать участником"
+
+msgid "Mitglied wurde eingetragen."
+msgstr "Участник добавлен."
+
+msgid "Mitglied wurde hinzugefügt."
+msgstr "Участник добавлен."
+
+msgid "Mitglieder"
+msgstr "Участники"
+
+msgid "Mitglieder anzeigen"
+msgstr "Показать участников"
+
+msgid "Mitglieder und Gäste können ab sofort Politiker-Profile einsehen und bewerten; BOARD/ADMIN können Politiker-Status erteilen/widerrufen."
+msgstr "Теперь участники и гости могут просматривать и оценивать профили политиков; BOARD/ADMIN могут присваивать/отзывать статус политика."
+
+msgid "Mitglieder-Gewicht"
+msgstr "Вес участника"
+
+msgid "Mitglieder-Gewicht (LTR-gewichtet)"
+msgstr "Вес участника (взвешено по LTR)"
+
+msgid "Mitglieder: Like %1 / Dislike %2 · Gäste: Like %3 / Dislike %4"
+msgstr "Участники: нравится %1 / не нравится %2 · Гости: нравится %3 / не нравится %4"
+
+msgid "Mitgliederverwaltung"
+msgstr "Управление участниками"
+
+msgid "Mitgliederverzeichnis"
+msgstr "Реестр участников"
+
+msgid "Mitgliedschaft"
+msgstr "Членство"
+
+msgid "Mitgliedschaft beenden"
+msgstr "Прекратить членство"
+
+msgid "Mitgliedschaft von \"%1\" (%2) wirklich beenden?"
+msgstr "Действительно прекратить членство «%1» (%2)?"
+
+msgid "Mitgliedschaft von \"%1\" wirklich beenden?"
+msgstr "Действительно прекратить членство «%1»?"
+
+msgid "Mitgliedschaft von %1 wurde beendet."
+msgstr "Членство %1 прекращено."
+
+msgid "Mittel"
+msgstr "Средства"
+
+msgid "Mittelverwendung"
+msgstr "Использование средств"
+
+msgid "Mittelverwendung nach Sphäre (informativ)"
+msgstr "Использование средств по сферам (справочно)"
+
+msgid "Mittelverwendungsrechnung"
+msgstr "Отчёт об использовании средств"
+
+msgid "Mittelverwendungsrechnung (§55/§62 AO)"
+msgstr "Отчёт об использовании средств (§55/§62 AO)"
+
+msgid "Mittelvortrag"
+msgstr "Переходящий остаток средств"
+
+msgid "Mittelzufluss"
+msgstr "Поступление средств"
+
+msgid "Mittelzufluss nach Sphäre (informativ)"
+msgstr "Поступление средств по сферам (справочно)"
+
+msgid "Möchten Sie Ihre Mitgliedschaft wirklich beenden? Dies ist nicht rückgängig zu machen -- Sie werden abgemeldet und können sich nicht erneut mit diesem Konto anmelden."
+msgstr "Действительно хотите прекратить своё членство? Это действие необратимо -- вы будете выведены из системы и не сможете снова войти под этой учётной записью."
+
+msgid "Moderator"
+msgstr "Модератор"
+
+msgid "Moderator:"
+msgstr "Модератор:"
+
+msgid "Monat"
+msgstr "Месяц"
+
+msgid "Monat (JJJJ-MM-TT, Tag wird ignoriert)"
+msgstr "Месяц (ГГГГ-ММ-ДД, день не учитывается)"
+
+msgid "Monatliche Verteilung berechnen"
+msgstr "Рассчитать ежемесячное распределение"
+
+msgid "Nachher"
+msgstr "После"
+
+msgid "Nachricht"
+msgstr "Сообщение"
+
+msgid "Nachricht \"%1\" wurde gesendet."
+msgstr "Сообщение «%1» отправлено."
+
+msgid "Nachricht senden"
+msgstr "Отправить сообщение"
+
+msgid "Nachrichten"
+msgstr "Сообщения"
+
+msgid "Name"
+msgstr "Имя"
+
+msgid "Natürliche Person außerhalb der EU"
+msgstr "Физическое лицо за пределами ЕС"
+
+msgid "Nein"
+msgstr "Нет"
+
+msgid "Nein-Stimmen"
+msgstr "Голоса «против»"
+
+msgid "Neue Angebote können ebenfalls nicht erstellt werden, bis ein ADMIN die Auktion erneut aktiviert."
+msgstr "Новые предложения также нельзя создать, пока ADMIN снова не активирует аукцион."
+
+msgid "Neue Besprechung"
+msgstr "Новая встреча"
+
+msgid "Neue Buchung"
+msgstr "Новая проводка"
+
+msgid "Neue Datenpanne melden"
+msgstr "Сообщить о новом инциденте с данными"
+
+msgid "Neue DSFA anlegen"
+msgstr "Создать новую DSFA"
+
+msgid "Neue Kostenstelle anlegen"
+msgstr "Создать новый центр затрат"
+
+msgid "Neue Mailingliste anlegen"
+msgstr "Создать новый список рассылки"
+
+msgid "Neue Sitzung anlegen"
+msgstr "Создать новое заседание"
+
+msgid "Neue TOM anlegen"
+msgstr "Создать новую запись TOM"
+
+msgid "Neue Version hochladen"
+msgstr "Загрузить новую версию"
+
+msgid "Neuen Antrag einreichen"
+msgstr "Подать новую заявку"
+
+msgid "Neuen AVV-Eintrag anlegen"
+msgstr "Создать новую запись AVV"
+
+msgid "Neuen Spender anlegen"
+msgstr "Создать нового жертвователя"
+
+msgid "Neuer Dokumenttitel"
+msgstr "Новое название документа"
+
+msgid "Neuer Ordnername"
+msgstr "Новое имя папки"
+
+msgid "Neuer Stream-Schlüssel (leer lassen = unverändert lassen)"
+msgstr "Новый ключ трансляции (оставьте пустым, чтобы не изменять)"
+
+msgid "Neues Angebot erstellen"
+msgstr "Создать новое предложение"
+
+msgid "Neues Gremium anlegen"
+msgstr "Создать новый орган"
+
+msgid "Neues Konto anlegen"
+msgstr "Создать новый счёт"
+
+msgid "Neues Passwort"
+msgstr "Новый пароль"
+
+msgid "Neues Passwort (mind. %1 Zeichen)"
+msgstr "Новый пароль (не менее %1 символов)"
+
+msgid "Neues Passwort bestätigen"
+msgstr "Подтвердите новый пароль"
+
+msgid "Neues Passwort erfüllt nicht die Anforderungen (mind. 12, max. 128 Zeichen, nicht die E-Mail-Adresse)."
+msgstr "Новый пароль не соответствует требованиям (не менее 12, не более 128 символов, не должен совпадать с адресом электронной почты)."
+
+msgid "Neues Passwort setzen"
+msgstr "Установить новый пароль"
+
+msgid "Neues Projekt einreichen"
+msgstr "Подать новый проект"
+
+msgid "Neues Stream-Ziel anlegen"
+msgstr "Создать новую цель трансляции"
+
+msgid "Nicht festgelegt"
+msgstr "Не задано"
+
+msgid "Nicht gefunden."
+msgstr "Не найдено."
+
+msgid "Niedrig"
+msgstr "Низкий"
+
+msgid "Niedrige Latenz"
+msgstr "Низкая задержка"
+
+msgid "niemand zugewiesen"
+msgstr "никто не назначен"
+
+msgid "Noch kein Gewichtsverlauf vorhanden."
+msgstr "История веса пока отсутствует."
+
+msgid "Noch kein Konto? Jetzt Mitglied werden."
+msgstr "Ещё нет учётной записи? Станьте участником прямо сейчас."
+
+msgid "Noch keine Abonnentinnen und Abonnenten."
+msgstr "Пока нет подписчиков."
+
+msgid "Noch keine aktiven Konten -- zuerst oben mindestens zwei Konten anlegen."
+msgstr "Пока нет активных счетов -- сначала создайте выше как минимум два счёта."
+
+msgid "Noch keine Anträge vorhanden."
+msgstr "Пока нет заявок."
+
+msgid "Noch keine Anwesenheit erfasst."
+msgstr "Присутствие пока не зафиксировано."
+
+msgid "Noch keine Aufzeichnungen."
+msgstr "Записей пока нет."
+
+msgid "Noch keine Auktionen vorhanden."
+msgstr "Пока нет аукционов."
+
+msgid "Noch keine AVV-Einträge angelegt."
+msgstr "Пока не создано ни одной записи AVV."
+
+msgid "Noch keine Beschlüsse erfasst."
+msgstr "Пока не зафиксировано ни одного решения."
+
+msgid "Noch keine Bestätigung des rechtlichen Hinweistexts erfolgt."
+msgstr "Подтверждение юридического уведомления пока не получено."
+
+msgid "Noch keine Buchungen."
+msgstr "Пока нет проводок."
+
+msgid "Noch keine Datenpannen erfasst."
+msgstr "Пока не зафиксировано ни одного инцидента с данными."
+
+msgid "Noch keine DSFA-Einträge angelegt."
+msgstr "Пока не создано ни одной записи DSFA."
+
+msgid "Noch keine Export-/Wiederherstellungsversuche protokolliert."
+msgstr "Пока не зафиксировано ни одной попытки экспорта/восстановления."
+
+msgid "Noch keine externen Spender angelegt."
+msgstr "Пока не создано ни одного внешнего жертвователя."
+
+msgid "noch keine Gebote, Startpreis: %1"
+msgstr "ставок пока нет, стартовая цена: %1"
+
+msgid "Noch keine Gremien vorhanden."
+msgstr "Пока нет органов."
+
+msgid "Noch keine Konten angelegt."
+msgstr "Пока не создано ни одного счёта."
+
+msgid "Noch keine Kostenstellen angelegt."
+msgstr "Пока не создано ни одного центра затрат."
+
+msgid "Noch keine Mailinglisten."
+msgstr "Пока нет списков рассылки."
+
+msgid "Noch keine Mitglieder in diesem Gremium."
+msgstr "В этом органе пока нет участников."
+
+msgid "Noch keine Nachrichten."
+msgstr "Пока нет сообщений."
+
+msgid "Noch keine Notizen."
+msgstr "Пока нет заметок."
+
+msgid "Noch keine Ordner vorhanden."
+msgstr "Пока нет папок."
+
+msgid "Noch keine Politiker-Profile vorhanden."
+msgstr "Пока нет профилей политиков."
+
+msgid "Noch keine postalischen Versandvorgänge protokolliert."
+msgstr "Пока не зафиксировано ни одной почтовой рассылки."
+
+msgid "Noch keine Projekte eingereicht."
+msgstr "Пока не подано ни одного проекта."
+
+msgid "Noch keine Sitzungen vorhanden."
+msgstr "Пока нет заседаний."
+
+msgid "Noch keine Stream-Ziele angelegt."
+msgstr "Пока не создано ни одной цели трансляции."
+
+msgid "Noch keine Tagesordnungspunkte."
+msgstr "Пока нет пунктов повестки дня."
+
+msgid "Noch keine TOM-Einträge angelegt."
+msgstr "Пока не создано ни одной записи TOM."
+
+msgid "Noch keine Version hochgeladen."
+msgstr "Пока не загружено ни одной версии."
+
+msgid "Noch keine Verteilung berechnet."
+msgstr "Распределение пока не рассчитано."
+
+msgid "Noch nicht festgelegt"
+msgstr "Пока не задано"
+
+msgid "Noch niemand verbunden."
+msgstr "Пока никто не подключился."
+
+msgid "Notiz (optional)"
+msgstr "Заметка (необязательно)"
+
+msgid "Notiz / erstellt von"
+msgstr "Заметка / создано"
+
+msgid "Notizblock darf nicht leer sein."
+msgstr "Блокнот не может быть пустым."
+
+msgid "Notizblock entfernt."
+msgstr "Блокнот удалён."
+
+msgid "Notizblock hinzufügen"
+msgstr "Добавить блокнот"
+
+msgid "Notizblock ist zu lang (max. %1 Zeichen)."
+msgstr "Блокнот слишком длинный (макс. %1 символов)."
+
+msgid "Notizen"
+msgstr "Заметки"
+
+msgid "Notizen (optional)"
+msgstr "Заметки (необязательно)"
+
+msgid "Notizen als Dokument gespeichert."
+msgstr "Заметки сохранены как документ."
+
+msgid "Notizen als Dokument speichern"
+msgstr "Сохранить заметки как документ"
+
+msgid "Nr."
+msgstr "№"
+
+msgid "Nummer"
+msgstr "Номер"
+
+msgid "Nur aktive Profile"
+msgstr "Только активные профили"
+
+msgid "Nur bei Kontotyp „Aktivkonto\" wählbar."
+msgstr "Доступно для выбора только при типе счёта «Активный счёт»."
+
+msgid "Nur bei Kontotyp „Eigenkapitalkonto\" wählbar."
+msgstr "Доступно для выбора только при типе счёта «Счёт собственного капитала»."
+
+msgid "Nur Mitglieder"
+msgstr "Только участники"
+
+msgid "Obergrenze speichern"
+msgstr "Сохранить верхний предел"
+
+msgid "Offen"
+msgstr "Открыто"
+
+msgid "Offen: %1 | Bezahlt: %2 | Gesamt: %3"
+msgstr "Открыто: %1 | Оплачено: %2 | Всего: %3"
+
+msgid "Offene Anträge"
+msgstr "Открытые заявки"
+
+msgid "Offenlegungspflicht (Rechenschaftsbericht)"
+msgstr "Обязанность раскрытия информации (отчёт о деятельности)"
+
+msgid "Ohne diese Option lehnt der Server die Wiederherstellung ab, sobald die Zielorganisation nicht leer ist -- das ist der sichere Standardpfad. Aktivieren Sie diese Option nur, wenn Sie absichtlich in eine bereits befüllte Organisation wiederherstellen wollen."
+msgstr "Без этой опции сервер отклонит восстановление, если целевая организация не пуста -- это безопасный путь по умолчанию. Включайте эту опцию только в том случае, если вы намеренно хотите восстановить данные в уже заполненную организацию."
+
+msgid "Ohne Referenz (z. B. Gutschrift)"
+msgstr "Без ссылки (например, для зачисления)"
+
+msgid "Option"
+msgstr "Вариант"
+
+msgid "Optionen (kommagetrennt, mind. 2)"
+msgstr "Варианты (через запятую, не менее 2)"
+
+msgid "Orakel angehalten (HALT) -- kein aktueller Kurs verfügbar."
+msgstr "Оракул остановлен (HALT) -- актуальный курс недоступен."
+
+msgid "Orakel-Konfiguration aktualisiert."
+msgstr "Конфигурация оракула обновлена."
+
+msgid "Ordner"
+msgstr "Папка"
+
+msgid "Ordner \"%1\" angelegt."
+msgstr "Папка «%1» создана."
+
+msgid "Ordner anlegen"
+msgstr "Создать папку"
+
+msgid "Ort"
+msgstr "Место"
+
+msgid "Ort (optional)"
+msgstr "Место (необязательно)"
+
+msgid "Ort: %1"
+msgstr "Место: %1"
+
+msgid "Owncast"
+msgstr "Owncast"
+
+msgid "Passiva"
+msgstr "Пассивы"
+
+msgid "Passivkonto"
+msgstr "Пассивный счёт"
+
+msgid "Passwort"
+msgstr "Пароль"
+
+msgid "Passwort (mind. %1 Zeichen)"
+msgstr "Пароль (не менее %1 символов)"
+
+msgid "Passwort ändern"
+msgstr "Изменить пароль"
+
+msgid "Passwort bestätigen"
+msgstr "Подтвердите пароль"
+
+msgid "Passwort geändert."
+msgstr "Пароль изменён."
+
+msgid "Passwort vergessen?"
+msgstr "Забыли пароль?"
+
+msgid "Passwort wurde geändert -- bitte melden Sie sich neu an."
+msgstr "Пароль изменён -- пожалуйста, войдите в систему заново."
+
+msgid "Peer-Transfer"
+msgstr "Одноранговый перевод"
+
+msgid "PeerTube"
+msgstr "PeerTube"
+
+msgid "Peg (Einheiten je LTR)"
+msgstr "Привязка (единиц на LTR)"
+
+msgid "Peg: Einheiten des Anker-Assets je LTR"
+msgstr "Привязка: количество единиц базового актива на 1 LTR"
+
+msgid "Per Post versenden"
+msgstr "Отправить по почте"
+
+msgid "Periodenbeginn (JJJJ-MM-TT)"
+msgstr "Начало периода (ГГГГ-ММ-ДД)"
+
+msgid "Periodenende (JJJJ-MM-TT)"
+msgstr "Конец периода (ГГГГ-ММ-ДД)"
+
+msgid "Person (nur bei \"Einzelne Person\")"
+msgstr "Лицо (только при варианте «Отдельное лицо»)"
+
+msgid "Pflicht"
+msgstr "Обязанность"
+
+msgid "Pflichten"
+msgstr "Обязанности"
+
+msgid "Pflichten:"
+msgstr "Обязанности:"
+
+msgid "Plattform"
+msgstr "Платформа"
+
+msgid "PLZ (optional)"
+msgstr "Почтовый индекс (необязательно)"
+
+msgid "Politiker"
+msgstr "Политик"
+
+msgid "Politiker-Profile"
+msgstr "Профили политиков"
+
+msgid "Politiker-Profile konnten nicht geladen werden."
+msgstr "Не удалось загрузить профили политиков."
+
+msgid "Politiker-Ranking aktivieren"
+msgstr "Включить рейтинг политиков"
+
+msgid "Politiker-Ranking aktiviert."
+msgstr "Рейтинг политиков включён."
+
+msgid "Politiker-Ranking deaktivieren"
+msgstr "Отключить рейтинг политиков"
+
+msgid "Politiker-Ranking deaktiviert."
+msgstr "Рейтинг политиков отключён."
+
+msgid "Politiker-Ranking:"
+msgstr "Рейтинг политиков:"
+
+msgid "Politiker-Status erteilen"
+msgstr "Присвоить статус политика"
+
+msgid "Politiker-Status für %1 erteilt."
+msgstr "Статус политика присвоен %1."
+
+msgid "Politiker-Status seit %1 (erteilt von %2)"
+msgstr "Статус политика с %1 (присвоен %2)"
+
+msgid "Politiker-Status von %1 widerrufen."
+msgstr "Статус политика отозван у %1."
+
+msgid "Politiker-Status widerrufen"
+msgstr "Отозвать статус политика"
+
+msgid "Politiker-Status widerrufen bestätigen"
+msgstr "Подтвердите отзыв статуса политика"
+
+msgid "Position"
+msgstr "Позиция"
+
+msgid "Position auf der Tagesordnung"
+msgstr "Позиция в повестке дня"
+
+msgid "Postfach"
+msgstr "Почтовый ящик"
+
+msgid "Postversand"
+msgstr "Почтовая рассылка"
+
+msgid "Postversand an %1 ist fehlgeschlagen: %2"
+msgstr "Почтовая отправка %1 не удалась: %2"
+
+msgid "Postversand fehlgeschlagen."
+msgstr "Почтовая отправка не удалась."
+
+msgid "Postversand ist auf %1 Empfänger begrenzt (aktuell ausgewählt: %2) -- für mehr Empfänger bitte das PDF herunterladen und selbst verteilen."
+msgstr "Почтовая рассылка ограничена %1 получателями (сейчас выбрано: %2) -- для большего числа получателей скачайте PDF и разошлите самостоятельно."
+
+msgid "Postversand ist derzeit deaktiviert --"
+msgstr "Почтовая рассылка в настоящее время отключена --"
+
+msgid "Postversand ist derzeit deaktiviert (`OrganizationSettings.postalMailEnabled = false`) -- alle Versandaktionen (Beitragsrechnung, Spendenbescheinigung, Einladung) schlagen fehl, bis eine Administratorin oder ein Administrator dies aktiviert. Diese Einstellung hat in dieser Version noch keine eigene Oberfläche."
+msgstr "Почтовая рассылка в настоящее время отключена (`OrganizationSettings.postalMailEnabled = false`) -- все действия по отправке (счёт на взнос, справка о пожертвовании, приглашение) будут завершаться ошибкой, пока администратор не включит эту функцию. В этой версии для данной настройки ещё нет отдельного интерфейса."
+
+msgid "Postversand-Übersicht"
+msgstr "Обзор почтовых рассылок"
+
+msgid "Preis: %1 LTR (Vickrey-Zweitpreis)"
+msgstr "Цена: %1 LTR (аукцион Викри, цена второй по величине ставки)"
+
+msgid "Preisstand: %1:%2:%3 Uhr"
+msgstr "Курс на: %1:%2:%3"
+
+msgid "Price-Oracle"
+msgstr "Ценовой оракул"
+
+msgid "Privatverkauf"
+msgstr "Частная продажа"
+
+msgid "Projekt"
+msgstr "Проект"
+
+msgid "Projekt \"%1\" abgelehnt."
+msgstr "Проект «%1» отклонён."
+
+msgid "Projekt \"%1\" eingereicht."
+msgstr "Проект «%1» подан."
+
+msgid "Projekt \"%1\" genehmigt."
+msgstr "Проект «%1» одобрен."
+
+msgid "Projekt ablehnen"
+msgstr "Отклонить проект"
+
+msgid "Projekt einreichen"
+msgstr "Подать проект"
+
+msgid "Projekt genehmigen"
+msgstr "Одобрить проект"
+
+msgid "Projekte"
+msgstr "Проекты"
+
+msgid "Projekteinsatz"
+msgstr "Использование средств на проект"
+
+msgid "Projekteinsatz freigegeben"
+msgstr "Использование средств на проект утверждено"
+
+msgid "Projektrücklage (%1)"
+msgstr "Резерв на проекты (%1)"
+
+msgid "Protokoll"
+msgstr "Протокол"
+
+msgid "Protokoll aller bisherigen Export-/Wiederherstellungsversuche -- rein informativ, keine Aktionen auf dieser Liste."
+msgstr "Протокол всех предыдущих попыток экспорта/восстановления -- только для информации, действий в этом списке нет."
+
+msgid "Protokoll aller bisherigen postalischen Versandvorgänge -- rein informativ, keine Aktionen auf dieser Liste. Neue Versandvorgänge werden direkt bei der jeweiligen Beitragsrechnung, Spendenbescheinigung oder Sitzungseinladung ausgelöst."
+msgstr "Протокол всех предыдущих почтовых рассылок -- только для информации, действий в этом списке нет. Новые рассылки запускаются непосредственно из соответствующего счёта на взнос, справки о пожертвовании или приглашения на заседание."
+
+msgid "Protokoll: %1"
+msgstr "Протокол: %1"
+
+msgid "Protokollentwurf erzeugen"
+msgstr "Сформировать черновик протокола"
+
+msgid "Protokollführung (optional)"
+msgstr "Ведение протокола (необязательно)"
+
+msgid "Protokollführung: %1"
+msgstr "Ведение протокола: %1"
+
+msgid "Protokolliert von (ID)"
+msgstr "Запротоколировано (ID)"
+
+msgid "Prüfergebnis"
+msgstr "Результат проверки"
+
+msgid "Prüfprotokoll"
+msgstr "Журнал проверки"
+
+msgid "Prüftermin (JJJJ-MM-TT, optional)"
+msgstr "Срок проверки (ГГГГ-ММ-ДД, необязательно)"
+
+msgid "Prüftermin überschritten -- als inaktiv markiert, bis neu geprüft."
+msgstr "Срок проверки истёк -- отмечено как неактивное до повторной проверки."
+
+msgid "Prüftermin: %1"
+msgstr "Срок проверки: %1"
+
+msgid "Prüfung"
+msgstr "Проверка"
+
+msgid "Quellen: %1"
+msgstr "Источники: %1"
+
+msgid "Quorum erreicht"
+msgstr "Кворум достигнут"
+
+msgid "Quorum in % (0-100)"
+msgstr "Кворум в % (0-100)"
+
+msgid "Quorum nicht erreicht"
+msgstr "Кворум не достигнут"
+
+msgid "Quorum: %1%"
+msgstr "Кворум: %1%"
+
+msgid "Radierer"
+msgstr "Ластик"
+
+msgid "Raum-Kennung aus Ihrer Einladung"
+msgstr "Идентификатор комнаты из вашего приглашения"
+
+msgid "Räume erstellen und verteilen"
+msgstr "Создать комнаты и распределить участников"
+
+msgid "Re-Aggregation derselben Einnahmen/Ausgaben-Buchungen wie die GuV nach den vier §§ 51-68 AO Gemeinnützigkeitssphären -- kein eigener Berichtszeitraum, die Summen stimmen für denselben Zeitraum exakt mit der GuV überein."
+msgstr "Повторная агрегация тех же проводок доходов/расходов, что и в отчёте о прибылях и убытках, по четырём сферам общественной пользы согласно §§ 51-68 AO -- отдельного отчётного периода нет, суммы за один и тот же период точно совпадают с отчётом о прибылях и убытках."
+
+msgid "Reaktion gespeichert."
+msgstr "Реакция сохранена."
+
+msgid "Reaktion zurückgezogen."
+msgstr "Реакция отозвана."
+
+msgid "Rechnung (PDF)"
+msgstr "Счёт (PDF)"
+
+msgid "Rechtsgrundlage: %1"
+msgstr "Правовое основание: %1"
+
+msgid "Referenz"
+msgstr "Ссылка"
+
+msgid "Rein diagnostisch -- prüft die Orakel-Gesundheit, ohne LTR zu minten."
+msgstr "Только диагностика -- проверяет работоспособность оракула без эмиссии LTR."
+
+msgid "Risikobewertung (optional)"
+msgstr "Оценка риска (необязательно)"
+
+msgid "Risikostufe"
+msgstr "Уровень риска"
+
+msgid "Rohdaten ein-/ausblenden"
+msgstr "Показать/скрыть исходные данные"
+
+msgid "Rolle"
+msgstr "Роль"
+
+msgid "Rolle: %1 · Sitzung gültig bis %2"
+msgstr "Роль: %1 · Сессия действительна до %2"
+
+msgid "RTMP-Basis-URL"
+msgstr "Базовый URL RTMP"
+
+msgid "RTMP-URL Ihrer Owncast-Instanz, z. B. rtmp://owncast.example.org:1935/live"
+msgstr "RTMP-адрес вашего экземпляра Owncast, например rtmp://owncast.example.org:1935/live"
+
+msgid "RTMP-URL Ihrer PeerTube-Instanz, z. B. rtmp://peertube.example.org:1935/live"
+msgstr "RTMP-адрес вашего экземпляра PeerTube, например rtmp://peertube.example.org:1935/live"
+
+msgid "RTMP-Ziel-URL, z. B. für Facebook Live, LinkedIn Live oder Vimeo"
+msgstr "Целевой RTMP-адрес, например для Facebook Live, LinkedIn Live или Vimeo"
+
+msgid "Rücklagenart"
+msgstr "Вид резерва"
+
+msgid "Rücklagenbewegungen (§62 AO)"
+msgstr "Движение резервов (§62 AO)"
+
+msgid "Rücklagenzuführung"
+msgstr "Отчисление в резерв"
+
+msgid "Saldo"
+msgstr "Сальдо"
+
+msgid "Sämtliche Politiker-Funktionen (Profile, Bewertungen, Vergabe/Widerruf, Snapshot) sind bis zur erneuten Aktivierung nicht mehr erreichbar -- bestehende Profile/Bewertungen bleiben dabei erhalten, sie werden nur unerreichbar, nicht gelöscht."
+msgstr "Все функции, связанные с политиками (профили, оценки, присвоение/отзыв статуса, снимок состояния), будут недоступны до повторной активации -- существующие профили и оценки при этом сохраняются, они лишь становятся недоступными, но не удаляются."
+
+msgid "Schadenshöhe"
+msgstr "Размер ущерба"
+
+msgid "Schenkung"
+msgstr "Дарение"
+
+msgid "Schiedsanordnungs-Referenz (Pflichtfeld)"
+msgstr "Ссылка на арбитражное распоряжение (обязательное поле)"
+
+msgid "Schiedsverfahren-Korrekturübertragung"
+msgstr "Корректировочный перевод по арбитражному решению"
+
+msgid "Schiedsverfahren-Korrekturübertragung bestätigen"
+msgstr "Подтвердите корректировочный перевод по арбитражному решению"
+
+msgid "Schließen"
+msgstr "Закрыть"
+
+msgid "Schlüssel gesetzt am %1 von %2"
+msgstr "Ключ установлен %1 пользователем %2"
+
+msgid "Schlusssaldo"
+msgstr "Конечное сальдо"
+
+msgid "Schlussstand"
+msgstr "Итоговое состояние"
+
+msgid "Schriftführung"
+msgstr "Секретариат"
+
+msgid "Seit (JJJJ-MM-TT)"
+msgstr "С (ГГГГ-ММ-ДД)"
+
+msgid "seit %1"
+msgstr "с %1"
+
+msgid "seit Gründung"
+msgstr "с момента основания"
+
+msgid "Selbstverwaltung"
+msgstr "Самоуправление"
+
+msgid "Senden"
+msgstr "Отправить"
+
+msgid "Sendungsreferenz: %1"
+msgstr "Номер отправления: %1"
+
+msgid "Seq. %1"
+msgstr "Посл. %1"
+
+msgid "Sequenznummer %1"
+msgstr "Порядковый номер %1"
+
+msgid "Sichtbar für ADMIN."
+msgstr "Видно только ADMIN."
+
+msgid "Sichtbar für alle Mitglieder."
+msgstr "Видно всем участникам."
+
+msgid "Sichtbar für BOARD/ADMIN."
+msgstr "Видно BOARD/ADMIN."
+
+msgid "Sichtbar für TREASURER/BOARD/ADMIN."
+msgstr "Видно TREASURER/BOARD/ADMIN."
+
+msgid "Sichtbarkeit"
+msgstr "Видимость"
+
+msgid "Sichtbarkeits-Gewicht (LTR)"
+msgstr "Вес видимости (LTR)"
+
+msgid "Sie"
+msgstr "Вы"
+
+msgid "Sie bieten %1 auf \"%2\" (%3). Ihr Gebot wird gegen den aktuellen Preis zum Zeitpunkt der Bestätigung ausgewertet, nicht den hier angezeigten -- der Preis kann sich seit dem letzten Abruf geändert haben."
+msgstr "Вы делаете ставку %1 на «%2» (%3). Ваша ставка будет оценена по текущей цене на момент подтверждения, а не по цене, показанной здесь, -- цена могла измениться с момента последнего обновления."
+
+msgid "Sie buchen eine Spende von %1 für %2. Der aktuelle Kurs wird beim Bestätigen live abgefragt; der genaue LTR-Betrag steht erst nach Bestätigung fest."
+msgstr "Вы регистрируете пожертвование в размере %1 для %2. Актуальный курс будет запрошен в реальном времени при подтверждении; точная сумма в LTR станет известна только после подтверждения."
+
+msgid "Sie führen jetzt."
+msgstr "Теперь вы ведёте встречу."
+
+msgid "Sie haben noch keine Auktionen eingestellt."
+msgstr "Вы ещё не выставили ни одного аукциона."
+
+msgid "Sie haben noch keine Gebote abgegeben."
+msgstr "Вы ещё не сделали ни одной ставки."
+
+msgid "Sie haben noch nicht bewertet."
+msgstr "Вы ещё не оценивали."
+
+msgid "Sie haben noch nicht reagiert."
+msgstr "Вы ещё не отреагировали."
+
+msgid "Sie kaufen \"%1\" sofort für %2."
+msgstr "Вы покупаете «%1» немедленно за %2."
+
+msgid "Sie können das Politiker-Ranking im Abschnitt \"Einstellungen\" unten aktivieren."
+msgstr "Вы можете включить рейтинг политиков в разделе «Настройки» ниже."
+
+msgid "Sie nehmen als Teilnehmer teil."
+msgstr "Вы участвуете как участник."
+
+msgid "Sie sind ausgetreten."
+msgstr "Вы вышли."
+
+msgid "Sie sind in einem Breakout-Raum."
+msgstr "Вы находитесь в сессионном зале."
+
+msgid "Sie sind Moderator"
+msgstr "Вы модератор"
+
+msgid "Sie sind Moderator dieser Besprechung."
+msgstr "Вы модератор этой встречи."
+
+msgid "Sie sind über Ihren eigenen Heimserver angemeldet. Geben Sie die Raum-Kennung aus Ihrer Einladung ein, um einer Besprechung auf diesem Server beizutreten."
+msgstr "Вы вошли через собственный домашний сервер. Введите идентификатор комнаты из вашего приглашения, чтобы присоединиться к встрече на этом сервере."
+
+msgid "Sie sind zur Besprechung „%1\"%2 eingeladen.\n1. Melden Sie sich über Ihren eigenen Heimserver an.\n2. Öffnen Sie %3/#/conference\n3. Geben Sie dort diese Raum-Kennung ein: %4"
+msgstr "Вы приглашены на встречу «%1»%2.\n1. Войдите через собственный домашний сервер.\n2. Откройте %3/#/conference\n3. Введите там этот идентификатор комнаты: %4"
+
+msgid "Sie starten jetzt einen Live-Stream zu: %1. Diese Ziele sind sofort öffentlich sichtbar -- die Übertragung kann NICHT zurückgeholt werden, sobald Teilnehmende gesprochen haben."
+msgstr "Вы сейчас начинаете прямую трансляцию на: %1. Эти цели сразу становятся общедоступными -- трансляцию НЕЛЬЗЯ отозвать, как только участники начали говорить."
+
+msgid "Sie überschreibt Daten mit dem Stand aus der hochgeladenen Datei. Bereits vorhandene Daten in der Zielorganisation können dabei verloren gehen."
+msgstr "Это действие перезаписывает данные состоянием из загруженного файла. Уже существующие данные в целевой организации при этом могут быть утеряны."
+
+msgid "Sie übertragen %1 an %2 (%3). Es gibt keine Storno-/Widerruffunktion -- die einzige Korrekturmöglichkeit ist eine Schiedsverfahren-Korrekturübertragung durch TREASURER/BOARD/ADMIN."
+msgstr "Вы переводите %1 пользователю %2 (%3). Функция отмены/сторно отсутствует -- единственная возможность исправления -- корректировочный перевод по арбитражному решению со стороны TREASURER/BOARD/ADMIN."
+
+msgid "Sie übertragen %1 von %2 an %3 (%4). Schiedsanordnungs-Referenz: „%5\"."
+msgstr "Вы переводите %1 от %2 к %3 (%4). Ссылка на арбитражное распоряжение: «%5»."
+
+msgid "Sie wurden dem Breakout-Raum \"%1\" zugewiesen."
+msgstr "Вы были назначены в сессионный зал «%1»."
+
+msgid "Sie wurden in den Hauptraum zurückgeholt."
+msgstr "Вы были возвращены в основной зал."
+
+msgid "Sitzung"
+msgstr "Заседание"
+
+msgid "Sitzung \"%1\" wurde angelegt."
+msgstr "Заседание «%1» создано."
+
+msgid "Sitzung (ID)"
+msgstr "Заседание (ID)"
+
+msgid "Sitzung abgelaufen -- bitte erneut anmelden."
+msgstr "Сессия истекла -- пожалуйста, войдите снова."
+
+msgid "Sitzung abgesagt."
+msgstr "Заседание отменено."
+
+msgid "Sitzung absagen"
+msgstr "Отменить заседание"
+
+msgid "Sitzung als durchgeführt markiert."
+msgstr "Заседание отмечено как проведённое."
+
+msgid "Sitzung anlegen"
+msgstr "Создать заседание"
+
+msgid "Sitzung oben auswählen, um Details zu sehen."
+msgstr "Выберите заседание выше, чтобы увидеть подробности."
+
+msgid "Sitzungen"
+msgstr "Заседания"
+
+msgid "Sitzungsleitung (optional)"
+msgstr "Председательствующий (необязательно)"
+
+msgid "Sitzungsleitung: %1"
+msgstr "Председательствующий: %1"
+
+msgid "Snapshot auslösen"
+msgstr "Создать снимок"
+
+msgid "Snapshot für %1 Profil(e) berechnet."
+msgstr "Снимок рассчитан для %1 профиля(ей)."
+
+msgid "Sofort kaufen"
+msgstr "Купить сейчас"
+
+msgid "Sofort kaufen für %1"
+msgstr "Купить сейчас за %1"
+
+msgid "Sofortkauf abgeschlossen: \"%1\" für %2."
+msgstr "Немедленная покупка завершена: «%1» за %2."
+
+msgid "Sofortkauf bestätigen"
+msgstr "Подтвердите немедленную покупку"
+
+msgid "Sofortkauf ist verbindlich -- kann nicht rückgängig gemacht werden."
+msgstr "Немедленная покупка является обязывающей -- отменить её нельзя."
+
+msgid "Sofortkaufpreis"
+msgstr "Цена немедленной покупки"
+
+msgid "Sofortkaufpreis (LTR, optional -- muss über dem Startpreis liegen)"
+msgstr "Цена немедленной покупки (LTR, необязательно -- должна быть выше стартовой цены)"
+
+msgid "Soll"
+msgstr "Дебет"
+
+msgid "Soll/Haben"
+msgstr "Дебет/Кредит"
+
+msgid "Sonstiges"
+msgstr "Прочее"
+
+msgid "Speichern"
+msgstr "Сохранить"
+
+msgid "Spende zu LTR konvertieren"
+msgstr "Конвертировать пожертвование в LTR"
+
+msgid "Spende: %1"
+msgstr "Пожертвование: %1"
+
+msgid "Spenden-Konvertierung bestätigen"
+msgstr "Подтвердите конвертацию пожертвования"
+
+msgid "Spendenbescheinigung (PDF)"
+msgstr "Справка о пожертвовании (PDF)"
+
+msgid "Spendenbescheinigung %1"
+msgstr "Справка о пожертвовании %1"
+
+msgid "Spendenbescheinigung per Post versenden"
+msgstr "Отправить справку о пожертвовании по почте"
+
+msgid "Spendenbetrag"
+msgstr "Сумма пожертвования"
+
+msgid "Spendendes Mitglied (ID)"
+msgstr "Участник-жертвователь (ID)"
+
+msgid "Spendenprüfung"
+msgstr "Проверка пожертвования"
+
+msgid "Spendenrecht-Pflichten-Report (§25 PartG)"
+msgstr "Отчёт об обязанностях по праву пожертвований (§25 PartG)"
+
+msgid "Spendenwährung"
+msgstr "Валюта пожертвования"
+
+msgid "Spender"
+msgstr "Жертвователь"
+
+msgid "Spender \"%1\" wurde angelegt."
+msgstr "Жертвователь «%1» создан."
+
+msgid "Spender anlegen"
+msgstr "Создать жертвователя"
+
+msgid "Spender deaktivieren"
+msgstr "Деактивировать жертвователя"
+
+msgid "Spender wurde deaktiviert."
+msgstr "Жертвователь деактивирован."
+
+msgid "Spender-Zuordnung (optional)"
+msgstr "Привязка жертвователя (необязательно)"
+
+msgid "Spender: %1 (extern)"
+msgstr "Жертвователь: %1 (внешний)"
+
+msgid "Spender: ausdrücklich anonym"
+msgstr "Жертвователь: явно анонимный"
+
+msgid "Spender: Mitglied %1"
+msgstr "Жертвователь: участник %1"
+
+msgid "Spenderkategorie"
+msgstr "Категория жертвователя"
+
+msgid "Spendertyp"
+msgstr "Тип жертвователя"
+
+msgid "Sphäre"
+msgstr "Сфера"
+
+msgid "Sprecher"
+msgstr "Докладчик"
+
+msgid "Staatsangehörigkeit"
+msgstr "Гражданство"
+
+msgid "Stand: %1"
+msgstr "Состояние на: %1"
+
+msgid "Standard"
+msgstr "По умолчанию"
+
+msgid "Startpreis"
+msgstr "Стартовая цена"
+
+msgid "Startpreis (LTR)"
+msgstr "Стартовая цена (LTR)"
+
+msgid "Status"
+msgstr "Статус"
+
+msgid "Status:"
+msgstr "Статус:"
+
+msgid "Status: %1"
+msgstr "Статус: %1"
+
+msgid "Stellv. Vorsitz"
+msgstr "Заместитель председателя"
+
+msgid "Stichtag (JJJJ-MM-TT)"
+msgstr "Отчётная дата (ГГГГ-ММ-ДД)"
+
+msgid "Stichtag: %1"
+msgstr "Отчётная дата: %1"
+
+msgid "Straße (optional)"
+msgstr "Улица (необязательно)"
+
+msgid "Stream beenden"
+msgstr "Завершить трансляцию"
+
+msgid "Stream beenden? Die Übertragung zu %1 endet sofort."
+msgstr "Завершить трансляцию? Передача на %1 закончится немедленно."
+
+msgid "Stream fortsetzen"
+msgstr "Возобновить трансляцию"
+
+msgid "Stream unterbrechen"
+msgstr "Приостановить трансляцию"
+
+msgid "Stream unterbrochen."
+msgstr "Трансляция приостановлена."
+
+msgid "Stream wird beendet …"
+msgstr "Трансляция завершается…"
+
+msgid "Stream wird fortgesetzt …"
+msgstr "Трансляция возобновляется…"
+
+msgid "Stream-Schlüssel"
+msgstr "Ключ трансляции"
+
+msgid "Stream-Ziel \"%1\" wurde angelegt."
+msgstr "Цель трансляции «%1» создана."
+
+msgid "Stream-Ziel \"%1\" wurde gelöscht."
+msgstr "Цель трансляции «%1» удалена."
+
+msgid "Stream-Ziel aktiviert."
+msgstr "Цель трансляции активирована."
+
+msgid "Stream-Ziel anlegen"
+msgstr "Создать цель трансляции"
+
+msgid "Stream-Ziel bearbeiten"
+msgstr "Изменить цель трансляции"
+
+msgid "Stream-Ziel deaktiviert."
+msgstr "Цель трансляции деактивирована."
+
+msgid "Stream-Ziel löschen"
+msgstr "Удалить цель трансляции"
+
+msgid "Stream-Ziele"
+msgstr "Цели трансляции"
+
+msgid "Streaming-Ziel"
+msgstr "Цель трансляции"
+
+msgid "Stumm"
+msgstr "Без звука"
+
+msgid "Suche nach Name"
+msgstr "Поиск по имени"
+
+msgid "Suchen"
+msgstr "Поиск"
+
+msgid "Summe %1"
+msgstr "Сумма %1"
+
+msgid "Summe Aktiva = Summe Passiva + Eigenkapital?"
+msgstr "Сумма активов = Сумма пассивов + собственный капитал?"
+
+msgid "Summe Passiva + Eigenkapital"
+msgstr "Сумма пассивов + собственный капитал"
+
+msgid "System"
+msgstr "Система"
+
+msgid "Systemvorgang (kein Akteur hinterlegt)"
+msgstr "Системная операция (исполнитель не указан)"
+
+msgid "Tagesordnung"
+msgstr "Повестка дня"
+
+msgid "Tagesordnungspunkt \"%1\" hinzugefügt."
+msgstr "Пункт повестки дня «%1» добавлен."
+
+msgid "Tagesordnungspunkt (optional)"
+msgstr "Пункт повестки дня (необязательно)"
+
+msgid "Tagesordnungspunkt entfernt."
+msgstr "Пункт повестки дня удалён."
+
+msgid "Tagesordnungspunkt hinzufügen"
+msgstr "Добавить пункт повестки дня"
+
+msgid "Technisch-organisatorische Maßnahmen (TOM)"
+msgstr "Технические и организационные меры (TOM)"
+
+msgid "Teilnehmende"
+msgstr "Участники"
+
+msgid "Teilnehmende: %1"
+msgstr "Участники: %1"
+
+msgid "Teilnehmer entfernen"
+msgstr "Удалить участника"
+
+msgid "Termin (JJJJ-MM-TTTHH:MM, z. B. 2026-08-15T18:00)"
+msgstr "Дата и время (ГГГГ-ММ-ДДTЧЧ:MM, например 2026-08-15T18:00)"
+
+msgid "Termin (JJJJ-MM-TTTHH:MM)"
+msgstr "Дата и время (ГГГГ-ММ-ДДTЧЧ:MM)"
+
+msgid "Terminieren"
+msgstr "Назначить"
+
+msgid "Terminierung"
+msgstr "Назначение"
+
+msgid "Text"
+msgstr "Текст"
+
+msgid "Titel"
+msgstr "Название"
+
+msgid "Titel darf nicht leer sein und höchstens %1 Zeichen haben."
+msgstr "Название не может быть пустым и должно содержать не более %1 символов."
+
+msgid "Token (aus der E-Mail bzw. vom Betreiber)"
+msgstr "Токен (из письма или от оператора)"
+
+msgid "TOM"
+msgstr "TOM"
+
+msgid "TOM \"%1\" wurde %2."
+msgstr "Запись TOM «%1» %2."
+
+msgid "TOM anlegen"
+msgstr "Создать запись TOM"
+
+msgid "Top-Politiker"
+msgstr "Топ-политики"
+
+msgid "Transparenzregister-Bericht"
+msgstr "Отчёт для реестра прозрачности"
+
+msgid "Trennungsgebot"
+msgstr "Принцип раздельного учёта"
+
+msgid "Treuhänder-Werkzeuge"
+msgstr "Инструменты доверительного управляющего"
+
+msgid "Twitch"
+msgstr "Twitch"
+
+msgid "Typ"
+msgstr "Тип"
+
+msgid "Überholt -- Überprüfung fällig"
+msgstr "Устарело -- требуется проверка"
+
+msgid "Übersicht"
+msgstr "Обзор"
+
+msgid "Übersicht, wie viele Datensätze in welchem Bereich zu Ihrer Person gespeichert sind, sowie ein vollständiger, maschinenlesbarer Export Ihrer Daten."
+msgstr "Обзор того, сколько записей и в каком разделе хранится о вас, а также полный, машиночитаемый экспорт ваших данных."
+
+msgid "Übertragung ausgeführt: %1 von %2 an %3"
+msgstr "Перевод выполнен: %1 от %2 к %3"
+
+msgid "Übertragung empfangen"
+msgstr "Перевод получен"
+
+msgid "Übertragung gesendet"
+msgstr "Перевод отправлен"
+
+msgid "Unbekannter Fehler"
+msgstr "Неизвестная ошибка"
+
+msgid "unbekanntes Ziel"
+msgstr "неизвестная цель"
+
+msgid "Unentschieden -- die höchsten beiden Gebotskörbe waren gleich hoch. Kein Gewinner, keine Belastung; der Antrag wird zurückgestellt (POSTPONED)."
+msgstr "Ничья -- две наивысшие корзины ставок оказались равны. Победитель не определён, списание не производится; заявка откладывается (POSTPONED)."
+
+msgid "Unerwarteter Fehler (HTTP %1): %2"
+msgstr "Непредвиденная ошибка (HTTP %1): %2"
+
+msgid "Ungelesene Nachrichten: %1"
+msgstr "Непрочитанные сообщения: %1"
+
+msgid "Ungültige Anfrage."
+msgstr "Недопустимый запрос."
+
+msgid "Unterbrochen"
+msgstr "Приостановлено"
+
+msgid "Unternehmen mit über 25 % staatlicher Beteiligung"
+msgstr "Организация с государственным участием более 25 %"
+
+msgid "Unterzeichnet"
+msgstr "Подписано"
+
+msgid "Unterzeichnet am (JJJJ-MM-TT, optional)"
+msgstr "Подписано (ГГГГ-ММ-ДД, необязательно)"
+
+msgid "Unverzügliche Meldepflicht"
+msgstr "Обязанность немедленного уведомления"
+
+msgid "Unwiderruflich widerrufen"
+msgstr "Безвозвратно отозвано"
+
+msgid "Upload fehlgeschlagen."
+msgstr "Загрузка не удалась."
+
+msgid "Ursprüngliches Gewicht"
+msgstr "Исходный вес"
+
+msgid "v%1: %2 (%3 Bytes, hochgeladen von %4 am %5)"
+msgstr "v%1: %2 (%3 байт, загружено %4, %5)"
+
+msgid "Verarbeiter"
+msgstr "Обработчик"
+
+msgid "Verarbeitungsbeschreibung"
+msgstr "Описание обработки"
+
+msgid "Verarbeitungsverzeichnis (AVV)"
+msgstr "Реестр обработки данных (AVV)"
+
+msgid "Verarbeitungsverzeichnis (AVV), technisch-organisatorische Maßnahmen (TOM), Datenschutz-Folgenabschätzungen (DSFA) und Datenpannenmeldungen -- Dokumentations- und Arbeitswerkzeug für eine vom Vorstand getroffene Entscheidung, nie automatisierte Rechtsberatung."
+msgstr "Реестр обработки данных (AVV), технические и организационные меры (TOM), оценки воздействия на защиту данных (DSFA) и сообщения об инцидентах с данными -- инструмент документирования и работы для решения, принимаемого правлением, но никогда не автоматизированная юридическая консультация."
+
+msgid "Verarbeitungszweck"
+msgstr "Цель обработки"
+
+msgid "Verbindlichkeiten"
+msgstr "Обязательства"
+
+msgid "Verbindung unterbrochen -- wird automatisch neu verbunden …"
+msgstr "Соединение потеряно -- выполняется автоматическое переподключение…"
+
+msgid "Verbindung wird geprüft …"
+msgstr "Проверка соединения…"
+
+msgid "Verbindung wird hergestellt …"
+msgstr "Установка соединения…"
+
+msgid "Verfahren"
+msgstr "Процедура"
+
+msgid "Verfügbarkeitskontrolle"
+msgstr "Контроль доступности"
+
+msgid "Verkäufer: %1 · Endet: %2 · Gebote: %3"
+msgstr "Продавец: %1 · Завершение: %2 · Ставок: %3"
+
+msgid "Verkauft an %1 für %2."
+msgstr "Продано %1 за %2."
+
+msgid "Verlassen"
+msgstr "Покинуть"
+
+msgid "Verlauf"
+msgstr "История"
+
+msgid "Vermögensverwaltung"
+msgstr "Управление имуществом"
+
+msgid "Versand einer Einladung an ausgewählte Mitglieder -- als PDF zum Herunterladen (kostenlos, bis zu 1.000 Empfänger) oder per Post (kostenpflichtig über Letterxpress, bis zu 50 Empfänger, erfordert eine vollständige Anschrift jedes Empfängers)."
+msgstr "Отправка приглашения выбранным участникам -- в виде PDF для скачивания (бесплатно, до 1000 получателей) или по почте (платно, через Letterxpress, до 50 получателей, требует полного адреса каждого получателя)."
+
+msgid "Versendet"
+msgstr "Отправлено"
+
+msgid "Version %1"
+msgstr "Версия %1"
+
+msgid "Version hochgeladen."
+msgstr "Версия загружена."
+
+msgid "Versionen"
+msgstr "Версии"
+
+msgid "Versionen von \"%1\":"
+msgstr "Версии «%1»:"
+
+msgid "Verstanden"
+msgstr "Понятно"
+
+msgid "Verteilung berechnen"
+msgstr "Рассчитать распределение"
+
+msgid "Verteilung für %1 bis %2 berechnet (%3 Projekt(e))."
+msgstr "Распределение за период с %1 по %2 рассчитано (%3 проект(ов))."
+
+msgid "Verteilungshistorie"
+msgstr "История распределений"
+
+msgid "Vertreten durch (nur bei \"Vertreten\")"
+msgstr "Представлен(а) (только при варианте «Представительство»)"
+
+msgid "vertreten durch %1"
+msgstr "представлен(а) %1"
+
+msgid "Verwalten"
+msgstr "Управление"
+
+msgid "Verwalten Sie die externen RTMP-Ziele (YouTube, Twitch, PeerTube, Owncast, generisches RTMP), zu denen Moderatorinnen und Moderatoren eine Besprechung live übertragen können. Der Stream-Schlüssel wird verschlüsselt gespeichert und nach dem Speichern nie wieder angezeigt."
+msgstr "Управляйте внешними целями RTMP (YouTube, Twitch, PeerTube, Owncast, произвольный RTMP), на которые модераторы могут вести прямую трансляцию встречи. Ключ трансляции хранится в зашифрованном виде и после сохранения больше никогда не отображается."
+
+msgid "Verwaltet die Anker-Bindung des Libertaler (LTR) an ein reales Asset (aktuell: Bitcoin) und bucht eingegangene Spenden als LTR-Mint. Sichtbar für TREASURER/BOARD/ADMIN, Konfigurationsänderungen nur für ADMIN."
+msgstr "Управляет привязкой Libertaler (LTR) к реальному активу (в настоящее время: биткойн) и регистрирует поступившие пожертвования как эмиссию LTR. Видно TREASURER/BOARD/ADMIN, изменения конфигурации доступны только ADMIN."
+
+msgid "Verwaltung"
+msgstr "Управление"
+
+msgid "Verwaltung (BOARD/ADMIN)"
+msgstr "Управление (BOARD/ADMIN)"
+
+msgid "Verwerfen und aktuelle Version übernehmen"
+msgstr "Отклонить и принять текущую версию"
+
+msgid "Videokonferenz"
+msgstr "Видеоконференция"
+
+msgid "Videokonferenz ist auf diesem Server nicht konfiguriert."
+msgstr "Видеоконференция не настроена на этом сервере."
+
+msgid "Videokonferenzen konnten nicht geladen werden."
+msgstr "Не удалось загрузить видеоконференции."
+
+msgid "Vier-Sphären-Ergebnisrechnung"
+msgstr "Отчёт о результатах по четырём сферам"
+
+msgid "Vollständigen Datenexport herunterladen (JSON)"
+msgstr "Скачать полный экспорт данных (JSON)"
+
+msgid "Vollständiger Export und Wiederherstellung aller Organisationsdaten (Datenbank + Dokumente) -- nur für Administratorinnen und Administratoren."
+msgstr "Полный экспорт и восстановление всех данных организации (база данных + документы) -- только для администраторов."
+
+msgid "Von (Geschäftsjahr)"
+msgstr "С (финансового года)"
+
+msgid "Von (JJJJ-MM-TT, optional)"
+msgstr "С (ГГГГ-ММ-ДД, необязательно)"
+
+msgid "Von (JJJJ-MM-TT, Pflichtfeld)"
+msgstr "С (ГГГГ-ММ-ДД, обязательное поле)"
+
+msgid "Von (JJJJ-MM-TTTHH:MM:SS, optional)"
+msgstr "С (ГГГГ-ММ-ДДTЧЧ:MM:SS, необязательно)"
+
+msgid "Von Sequenznummer (optional)"
+msgstr "С порядкового номера (необязательно)"
+
+msgid "Vorher"
+msgstr "До"
+
+msgid "Vorläufig ablehnen"
+msgstr "Предварительно отклонить"
+
+msgid "Vorläufiges Passwort (mind. %1 Zeichen)"
+msgstr "Временный пароль (не менее %1 символов)"
+
+msgid "Vorsitz"
+msgstr "Председательство"
+
+msgid "Vorstand"
+msgstr "Правление"
+
+msgid "Vorstand & Transparenzregister"
+msgstr "Правление и реестр прозрачности"
+
+msgid "Vorstandsentscheidung"
+msgstr "Решение правления"
+
+msgid "Vorstandsmitglied ernennen"
+msgstr "Назначить члена правления"
+
+msgid "Vorstandsmitgliedschaft"
+msgstr "Членство в правлении"
+
+msgid "Vorstandsmitgliedschaft beenden"
+msgstr "Прекратить членство в правлении"
+
+msgid "Vortragend (optional)"
+msgstr "Докладчик (необязательно)"
+
+msgid "Vortragend: %1"
+msgstr "Докладчик: %1"
+
+msgid "Vote"
+msgstr "Голосование"
+
+msgid "Vote abbrechen"
+msgstr "Отменить голосование"
+
+msgid "Vote abgebrochen."
+msgstr "Голосование отменено."
+
+msgid "Vote eröffnen"
+msgstr "Открыть голосование"
+
+msgid "Vote eröffnet."
+msgstr "Голосование открыто."
+
+msgid "Vote geschlossen."
+msgstr "Голосование закрыто."
+
+msgid "Vote schließen"
+msgstr "Закрыть голосование"
+
+msgid "Weiter"
+msgstr "Далее"
+
+msgid "Weiter bearbeiten"
+msgstr "Продолжить редактирование"
+
+msgid "Weitere Teilnehmende (%1)"
+msgstr "Другие участники (%1)"
+
+msgid "Weitergabekontrolle"
+msgstr "Контроль передачи данных"
+
+msgid "Weiterleitungspflicht"
+msgstr "Обязанность передачи"
+
+msgid "Weiterleitungspflichtige anonyme Spenden"
+msgstr "Анонимные пожертвования, подлежащие передаче"
+
+msgid "Wertobergrenze (LTR, leer = kein Limit)"
+msgstr "Верхний предел стоимости (LTR, пусто = без ограничения)"
+
+msgid "Wertobergrenze (LTR)"
+msgstr "Верхний предел стоимости (LTR)"
+
+msgid "Wertobergrenze aktualisiert."
+msgstr "Верхний предел стоимости обновлён."
+
+msgid "Wertobergrenze setzen"
+msgstr "Установить верхний предел стоимости"
+
+msgid "Wertobergrenze:"
+msgstr "Верхний предел стоимости:"
+
+msgid "Whiteboard"
+msgstr "Доска"
+
+msgid "Whiteboard als Dokument gespeichert."
+msgstr "Доска сохранена как документ."
+
+msgid "Whiteboard als Dokument speichern"
+msgstr "Сохранить доску как документ"
+
+msgid "Whiteboard geleert."
+msgstr "Доска очищена."
+
+msgid "Whiteboard leeren"
+msgstr "Очистить доску"
+
+msgid "Widerrufen am %1 von %2"
+msgstr "Отозвано %1 пользователем %2"
+
+msgid "Wiederbeschaffungsrücklage (%1)"
+msgstr "Резерв на восстановление (%1)"
+
+msgid "Wiederherstellen"
+msgstr "Восстановить"
+
+msgid "Wiederherstellung"
+msgstr "Восстановление"
+
+msgid "Wiederherstellung bestätigen"
+msgstr "Подтвердите восстановление"
+
+msgid "Wiederherstellung erfolgreich abgeschlossen."
+msgstr "Восстановление успешно завершено."
+
+msgid "Willkommen, %1"
+msgstr "Добро пожаловать, %1"
+
+msgid "Willkommen, %1."
+msgstr "Добро пожаловать, %1."
+
+msgid "Wird aufgezeichnet"
+msgstr "Идёт запись"
+
+msgid "Wird ausgeführt …"
+msgstr "Выполняется…"
+
+msgid "Wird automatisch auf dieselbe Sitzung terminiert wie \"%1\"."
+msgstr "Автоматически назначается на то же заседание, что и «%1»."
+
+msgid "wird beendet"
+msgstr "завершается"
+
+msgid "Wird beendet …"
+msgstr "Завершается…"
+
+msgid "Wird ein bestehender Antrag zum Ändern ausgewählt, wird dessen Gremium automatisch verwendet -- das Zielgremium oben wird dann ignoriert."
+msgstr "Если выбрана существующая заявка для изменения, автоматически используется её орган -- целевой орган, указанный выше, в этом случае игнорируется."
+
+msgid "Wird geladen …"
+msgstr "Загрузка…"
+
+msgid "wird gestartet"
+msgstr "запускается"
+
+msgid "Wird gestartet …"
+msgstr "Запускается…"
+
+msgid "Wird zusammengeführt …"
+msgstr "Объединение…"
+
+msgid "Wirklich entfernen?"
+msgstr "Действительно удалить?"
+
+msgid "Wirtschaft"
+msgstr "Экономика"
+
+msgid "Wirtschaftlicher Geschäftsbetrieb"
+msgstr "Предпринимательская деятельность"
+
+msgid "YouTube Live"
+msgstr "YouTube Live"
+
+msgid "Zeigt offene Melde-/Offenlegungs-/Weiterleitungspflichten nach §25 PartG für ein Kalenderjahr, damit der Vorstand sie manuell abarbeiten kann. Berechnet keine unzulässigen Spenden -- solche werden beim Buchen serverseitig blockiert und können hier nie erscheinen."
+msgstr "Показывает открытые обязанности по уведомлению/раскрытию/передаче согласно §25 PartG за календарный год, чтобы правление могло обработать их вручную. Недопустимые пожертвования не рассчитываются -- они блокируются на стороне сервера при проводке и никогда не могут появиться здесь."
+
+msgid "Zeitpunkt: %1"
+msgstr "Момент времени: %1"
+
+msgid "Zeitraum"
+msgstr "Период"
+
+msgid "Zeitraum: %1 bis %2"
+msgstr "Период: с %1 по %2"
+
+msgid "Zeitraum: Geschäftsjahr %1 bis %2"
+msgstr "Период: финансовый год с %1 по %2"
+
+msgid "Zeitstempel: %1"
+msgstr "Временная метка: %1"
+
+msgid "Ziel überschreiben (Zielorganisation enthält bereits Daten)"
+msgstr "Перезаписать цель (в целевой организации уже есть данные)"
+
+msgid "Ziele auswählen (max. %1):"
+msgstr "Выберите цели (макс. %1):"
+
+msgid "Zielgremium"
+msgstr "Целевой орган"
+
+msgid "Zu LTR konvertieren"
+msgstr "Конвертировать в LTR"
+
+msgid "Zuerst alle Änderungsanträge entscheiden"
+msgstr "Сначала примите решение по всем заявкам на изменение"
+
+msgid "Zuführung/Auflösung"
+msgstr "Отчисление/расформирование"
+
+msgid "Zugangskontrolle"
+msgstr "Контроль доступа к системе"
+
+msgid "Zugriffsebene"
+msgstr "Уровень доступа"
+
+msgid "Zugriffskontrolle"
+msgstr "Контроль доступа к данным"
+
+msgid "zuletzt abgerufener Preis: %1"
+msgstr "последняя полученная цена: %1"
+
+msgid "Zuletzt aktualisiert: %1"
+msgstr "Последнее обновление: %1"
+
+msgid "Zuletzt bearbeitet von %1"
+msgstr "Последний раз изменено %1"
+
+msgid "Zuletzt bestätigt von %1 am %2 (Hinweistext-Version %3)."
+msgstr "Последний раз подтверждено %1, %2 (версия текста уведомления %3)."
+
+msgid "Zum Hauptantrag"
+msgstr "К основной заявке"
+
+msgid "Zum LTR-Konto ->"
+msgstr "К счёту LTR ->"
+
+msgid "Zur Anmeldung"
+msgstr "К входу в систему"
+
+msgid "Zurück zum Hauptraum"
+msgstr "Вернуться в основной зал"
+
+msgid "Zurückgestellt (reserviert, ungenutzt)"
+msgstr "Отложено (зарезервировано, не используется)"
+
+msgid "Zurücksetzen anfordern"
+msgstr "Запросить сброс"
+
+msgid "Zurücksetzen fehlgeschlagen."
+msgstr "Сброс не удался."
+
+msgid "Zurückziehen"
+msgstr "Отозвать"
+
+msgid "Zusätzlich zur Anonymisierung werden von Ihnen selbst versendete Nachrichten hart gelöscht, soweit dem keine gesetzliche Aufbewahrungspflicht entgegensteht. Von Ihnen empfangene Nachrichten anderer Mitglieder bleiben unberührt."
+msgstr "Помимо анонимизации, отправленные вами сообщения будут безвозвратно удалены, если этому не препятствует установленная законом обязанность хранения. Полученные вами сообщения от других участников останутся без изменений."
+
+msgid "Zutrittskontrolle"
+msgstr "Контроль физического доступа"
+
+msgid "Zweck (optional)"
+msgstr "Цель (необязательно)"
+
+msgid "Zweck: %1"
+msgstr "Цель: %1"
+
+msgid "Zweckbetrieb"
+msgstr "Целевая деятельность"
+
+msgid "Zwischengespeichert (Cached)"
+msgstr "Кэшировано"

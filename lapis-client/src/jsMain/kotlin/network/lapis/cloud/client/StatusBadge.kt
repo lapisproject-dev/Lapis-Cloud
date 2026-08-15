@@ -3,6 +3,7 @@ package network.lapis.cloud.client
 import io.kvision.core.Container
 import io.kvision.html.Span
 import io.kvision.html.span
+import io.kvision.i18n.tr
 
 /**
  * Governance UI wave -- shared badge-rendering grammar, per this project's mandatory UI/UX-Design-
@@ -46,4 +47,4 @@ fun Container.typeBadge(
  * untouched this wave -- retrofitting it is out of scope, avoid unrelated diff noise.
  */
 fun Container.activeStatusBadge(active: Boolean): Span =
-    statusBadge(if (active) "Aktiv" else "Inaktiv", if (active) "success" else "secondary")
+    statusBadge(if (active) tr("Aktiv") else tr("Inaktiv"), if (active) "success" else "secondary")

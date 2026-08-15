@@ -11,6 +11,8 @@ import io.kvision.html.div
 import io.kvision.html.h1
 import io.kvision.html.h2
 import io.kvision.html.p
+import io.kvision.i18n.gettext
+import io.kvision.i18n.tr
 import io.kvision.panel.SimplePanel
 import io.kvision.panel.hPanel
 import io.kvision.panel.vPanel
@@ -105,42 +107,42 @@ fun renderCrowdfundingScreen(container: SimplePanel) {
             width = 900.px
             marginTop = 24.px
         }
-    root.h1("Crowdfunding")
+    root.h1(tr("Crowdfunding"))
 
     // ---- Submit new project (D3: renderMyLtrBalanceInline directly above the form, before any
     // input field -- identical position to AuctionScreen.kt's own createListing form) -----------
-    root.h2("Neues Projekt einreichen")
+    root.h2(tr("Neues Projekt einreichen"))
     val submitPanel = root.vPanel(spacing = 6)
     submitPanel.renderMyLtrBalanceInline()
 
     // ---- Project list + status filter (containers created now, populated by loadProjects()) ---
-    root.h2("Projekte")
+    root.h2(tr("Projekte"))
     val statusFilterRow = root.hPanel(spacing = 8) { addCssClasses("align-items-center") }
     val statusFilterOptions =
-        listOf("" to "Alle (persistierter Status)") +
+        listOf("" to tr("Alle (persistierter Status)")) +
             CrowdfundingProjectStatus.entries.map { it.name to crowdfundingProjectStatusLabel(it) }
     val statusFilterSelect =
-        statusFilterRow.select(options = statusFilterOptions, value = "", label = "Filter: Status (Vorstandsbeschluss)")
-    val projectsRefreshButton = statusFilterRow.button("Aktualisieren", style = ButtonStyle.OUTLINESECONDARY)
+        statusFilterRow.select(options = statusFilterOptions, value = "", label = tr("Filter: Status (Vorstandsbeschluss)"))
+    val projectsRefreshButton = statusFilterRow.button(tr("Aktualisieren"), style = ButtonStyle.OUTLINESECONDARY)
     val projectsPanel = root.vPanel(spacing = 10)
 
     // ---- Treuhänder-Werkzeuge container (canTreasury only, D3 staged disclosure) --------------
     val treasuryPanel = if (canTreasury) root.vPanel(spacing = 10) { addCssClasses("border rounded p-3 mt-2") } else null
 
     // ---- Verteilungshistorie container (any authenticated member, read-only) -------------------
-    root.h2("Verteilungshistorie")
+    root.h2(tr("Verteilungshistorie"))
     val distributionsPanel = root.vPanel(spacing = 8)
 
     // ---- Loaders (declared after every panel they populate exists, before they're wired up) ---
     fun loadProjects() {
         projectsPanel.removeAll()
-        projectsPanel.p("Wird geladen …") { addCssClasses("text-muted small") }
+        projectsPanel.p(tr("Wird geladen …")) { addCssClasses("text-muted small") }
         val statusFilter = parseOptionalEnum<CrowdfundingProjectStatus>(statusFilterSelect.value)
         AppScope.launch {
             val projects = guarded { rpcService<ICrowdfundingService>().listProjects(statusFilter) } ?: return@launch
             projectsPanel.removeAll()
             if (projects.isEmpty()) {
-                projectsPanel.p("Noch keine Projekte eingereicht.") { addCssClasses("text-muted small") }
+                projectsPanel.p(tr("Noch keine Projekte eingereicht.")) { addCssClasses("text-muted small") }
                 return@launch
             }
             projects.forEach { project -> renderProjectCard(projectsPanel, project, canBoard) { loadProjects() } }
@@ -149,12 +151,12 @@ fun renderCrowdfundingScreen(container: SimplePanel) {
 
     fun loadDistributions() {
         distributionsPanel.removeAll()
-        distributionsPanel.p("Wird geladen …") { addCssClasses("text-muted small") }
+        distributionsPanel.p(tr("Wird geladen …")) { addCssClasses("text-muted small") }
         AppScope.launch {
             val distributions = guarded { rpcService<ICrowdfundingService>().listDistributions() } ?: return@launch
             distributionsPanel.removeAll()
             if (distributions.isEmpty()) {
-                distributionsPanel.p("Noch keine Verteilung berechnet.") { addCssClasses("text-muted small") }
+                distributionsPanel.p(tr("Noch keine Verteilung berechnet.")) { addCssClasses("text-muted small") }
             } else {
                 renderDistributionsTable(distributionsPanel, distributions)
             }
@@ -167,8 +169,8 @@ fun renderCrowdfundingScreen(container: SimplePanel) {
     renderSubmitProjectForm(submitPanel) { loadProjects() }
 
     if (treasuryPanel != null) {
-        treasuryPanel.h2("Treuhänder-Werkzeuge") { addCssClass("h5") }
-        treasuryPanel.div("Sichtbar für TREASURER/BOARD/ADMIN.") { addCssClasses("text-muted small mb-2") }
+        treasuryPanel.h2(tr("Treuhänder-Werkzeuge")) { addCssClass("h5") }
+        treasuryPanel.div(tr("Sichtbar für TREASURER/BOARD/ADMIN.")) { addCssClasses("text-muted small mb-2") }
         renderDistributionComputeForm(treasuryPanel) { loadDistributions() }
     }
 
@@ -185,23 +187,25 @@ private fun renderSubmitProjectForm(
     onCompleted: () -> Unit,
 ) {
     val panel = root.vPanel(spacing = 6)
-    val titleInput = panel.text(label = "Titel")
-    val descriptionInput = panel.textArea(label = "Beschreibung", rows = 3)
-    val weightInput = panel.text(label = "Sichtbarkeits-Gewicht (LTR)")
+    val titleInput = panel.text(label = tr("Titel"))
+    val descriptionInput = panel.textArea(label = tr("Beschreibung"), rows = 3)
+    val weightInput = panel.text(label = tr("Sichtbarkeits-Gewicht (LTR)"))
     // D7 (must-fix, resolved by reading CrowdfundingService.kt in full): the stake is NEVER
     // refunded -- not on rejection, not on approval, there is no release path in this codebase at
     // all (LtrLedgerEntryType.PROJECT_STAKE_RELEASE is reserved-and-unused). Stated plainly, not
     // left to member inference.
     panel.div(
-        "Ihr Einsatz wird NICHT zurückerstattet -- unabhängig davon, ob der Vorstand das Projekt später " +
-            "genehmigt oder ablehnt. Es gibt in diesem System keinen Rückerstattungspfad für diesen Einsatz.",
+        tr(
+            "Ihr Einsatz wird NICHT zurückerstattet -- unabhängig davon, ob der Vorstand das Projekt später " +
+                "genehmigt oder ablehnt. Es gibt in diesem System keinen Rückerstattungspfad für diesen Einsatz.",
+        ),
     ) { addCssClasses("text-muted small") }
     val errorBox =
         panel.div().apply {
             addCssClass("text-danger")
             hide()
         }
-    val submitButton = panel.button("Projekt einreichen", style = ButtonStyle.PRIMARY)
+    val submitButton = panel.button(tr("Projekt einreichen"), style = ButtonStyle.PRIMARY)
 
     submitButton.onClick {
         errorBox.hide()
@@ -210,7 +214,7 @@ private fun renderSubmitProjectForm(
         val weightText = weightInput.value.orEmpty().trim()
 
         if (!Validation.isNonBlank(title) || !Validation.isNonBlank(description) || !Validation.isPositiveDecimal(weightText)) {
-            errorBox.content = "Bitte Titel, Beschreibung und ein positives Sichtbarkeits-Gewicht (LTR) angeben."
+            errorBox.content = tr("Bitte Titel, Beschreibung und ein positives Sichtbarkeits-Gewicht (LTR) angeben.")
             errorBox.show()
             return@onClick
         }
@@ -219,11 +223,14 @@ private fun renderSubmitProjectForm(
         // Tier 1 "Kostenpflichtig" (D4): the plain, neutral-framed confirmDialog -- material to the
         // submitter's own free balance, not a treasury cost.
         confirmDialog(
-            title = "Projekt einreichen",
+            title = tr("Projekt einreichen"),
             message =
-                "Es werden ${formatLtr(weight)} als Sichtbarkeits-Gewicht aus Ihrem freien LTR-Guthaben gebunden. " +
-                    "Dieser Einsatz wird NICHT zurückerstattet, unabhängig von der späteren Vorstandsentscheidung.",
-            confirmLabel = "Einreichen",
+                gettext(
+                    "Es werden %1 als Sichtbarkeits-Gewicht aus Ihrem freien LTR-Guthaben gebunden. " +
+                        "Dieser Einsatz wird NICHT zurückerstattet, unabhängig von der späteren Vorstandsentscheidung.",
+                    formatLtr(weight),
+                ),
+            confirmLabel = tr("Einreichen"),
         ) {
             submitButton.disabled = true
             AppScope.launch {
@@ -235,7 +242,7 @@ private fun renderSubmitProjectForm(
                     }
                 submitButton.disabled = false
                 if (result != null) {
-                    notifySuccess("Projekt \"${result.title}\" eingereicht.")
+                    notifySuccess(gettext("Projekt \"%1\" eingereicht.", result.title))
                     titleInput.value = null
                     descriptionInput.value = null
                     weightInput.value = null
@@ -260,18 +267,18 @@ private fun renderProjectCard(
     val headerRow = card.hPanel(spacing = 8) { addCssClasses("align-items-center flex-wrap") }
     headerRow.div(project.title) { addCssClasses("flex-grow-1 fw-bold") }
     headerRow.statusBadge(
-        "Status: ${crowdfundingProjectStatusLabel(project.status)}",
+        gettext("Status: %1", crowdfundingProjectStatusLabel(project.status)),
         crowdfundingProjectStatusColor(project.status),
     )
     if (project.status != project.effectiveStatus) {
         headerRow.statusBadge(
-            "Effektiv: ${crowdfundingProjectStatusLabel(project.effectiveStatus)}",
+            gettext("Effektiv: %1", crowdfundingProjectStatusLabel(project.effectiveStatus)),
             crowdfundingProjectStatusColor(project.effectiveStatus),
         )
     }
 
     card.div(project.description) { addCssClasses("small") }
-    card.div("Eingereicht von ${project.submitterDisplayName} am ${project.submittedAt}") { addCssClasses("text-muted small") }
+    card.div(gettext("Eingereicht von %1 am %2", project.submitterDisplayName, project.submittedAt)) { addCssClasses("text-muted small") }
 
     // status (persisted board decision) vs. effectiveStatus/isAutoApproved (14-day
     // silence-is-approval) are two DISTINCT signals -- a project can permanently show
@@ -279,9 +286,11 @@ private fun renderProjectCard(
     // expected shape, not a bug to hide.
     if (project.isAutoApproved) {
         card.div(
-            "Automatisch genehmigt durch die 14-Tage-Schweigefrist -- der Vorstand hat keinen expliziten " +
-                "Beschluss gefasst (Status bleibt dauerhaft \"Ausstehend\", effektiver Status zeigt \"Genehmigt\"). " +
-                "Das ist der normale, erwartete Zustand.",
+            tr(
+                "Automatisch genehmigt durch die 14-Tage-Schweigefrist -- der Vorstand hat keinen expliziten " +
+                    "Beschluss gefasst (Status bleibt dauerhaft \"Ausstehend\", effektiver Status zeigt \"Genehmigt\"). " +
+                    "Das ist der normale, erwartete Zustand.",
+            ),
         ) { addCssClasses("text-muted small fst-italic") }
     }
 
@@ -289,24 +298,24 @@ private fun renderProjectCard(
     // 10%/day, computed fresh on every read) -- side by side, never conflated into one figure.
     val weightRow = card.hPanel(spacing = 16) { addCssClasses("align-items-center flex-wrap") }
     val initialCell = weightRow.vPanel(spacing = 2)
-    initialCell.div("Ursprüngliches Gewicht") { addCssClasses("text-muted small") }
+    initialCell.div(tr("Ursprüngliches Gewicht")) { addCssClasses("text-muted small") }
     initialCell.ltrSpan(project.initialWeightLtr)
     val currentCell = weightRow.vPanel(spacing = 2)
-    currentCell.div("Aktuelles Gewicht (10 %/Tag Zerfall)") { addCssClasses("text-muted small") }
+    currentCell.div(tr("Aktuelles Gewicht (10 %/Tag Zerfall)")) { addCssClasses("text-muted small") }
     currentCell.ltrSpan(project.currentWeightLtr)
 
     // basketTotal = max(0, likeCount - dislikeCount) is what computeMonthlyDistribution actually
     // splits by -- shown next to the raw Like/Dislike counts so the connection to the
     // monthly-distribution section is legible.
-    card.div("Like: ${project.likeCount} · Dislike: ${project.dislikeCount} · Verteilungs-Korb: ${project.basketTotal}") {
+    card.div(gettext("Like: %1 · Dislike: %2 · Verteilungs-Korb: %3", project.likeCount, project.dislikeCount, project.basketTotal)) {
         addCssClasses("small")
     }
 
     if (project.status == CrowdfundingProjectStatus.REJECTED) {
-        card.div("Ablehnungsgrund: ${project.rejectionReason.orEmpty()}") { addCssClasses("text-danger small") }
+        card.div(gettext("Ablehnungsgrund: %1", project.rejectionReason.orEmpty())) { addCssClasses("text-danger small") }
     }
     project.reviewedByDisplayName?.let { reviewer ->
-        card.div("Entschieden von $reviewer am ${project.reviewedAt}") { addCssClasses("text-muted small") }
+        card.div(gettext("Entschieden von %1 am %2", reviewer, project.reviewedAt)) { addCssClasses("text-muted small") }
     }
 
     // castReaction/retractReaction require effectiveStatus == APPROVED server-side -- only
@@ -327,10 +336,10 @@ private fun renderReactionControls(
 ) {
     val reactionRow = card.hPanel(spacing = 8) { addCssClasses("align-items-center flex-wrap border-top pt-2 mt-1") }
     val myReactionPanel = reactionRow.vPanel(spacing = 0) { addCssClasses("flex-grow-1") }
-    myReactionPanel.div("Wird geladen …") { addCssClasses("text-muted small") }
-    val likeButton = reactionRow.button("Like", style = ButtonStyle.OUTLINESUCCESS)
-    val dislikeButton = reactionRow.button("Dislike", style = ButtonStyle.OUTLINEDANGER)
-    val retractButton = reactionRow.button("Zurückziehen", style = ButtonStyle.OUTLINESECONDARY)
+    myReactionPanel.div(tr("Wird geladen …")) { addCssClasses("text-muted small") }
+    val likeButton = reactionRow.button(tr("Like"), style = ButtonStyle.OUTLINESUCCESS)
+    val dislikeButton = reactionRow.button(tr("Dislike"), style = ButtonStyle.OUTLINEDANGER)
+    val retractButton = reactionRow.button(tr("Zurückziehen"), style = ButtonStyle.OUTLINESECONDARY)
 
     fun setButtonsDisabled(disabled: Boolean) {
         likeButton.disabled = disabled
@@ -340,17 +349,17 @@ private fun renderReactionControls(
 
     fun refreshMyReaction() {
         myReactionPanel.removeAll()
-        myReactionPanel.div("Wird geladen …") { addCssClasses("text-muted small") }
+        myReactionPanel.div(tr("Wird geladen …")) { addCssClasses("text-muted small") }
         AppScope.launch {
             val reactions = guarded { rpcService<ICrowdfundingService>().getMyReaction(project.id) } ?: emptyList()
             val mine = reactions.firstOrNull()
             myReactionPanel.removeAll()
             if (mine == null) {
-                myReactionPanel.div("Sie haben noch nicht reagiert.") { addCssClasses("text-muted small") }
+                myReactionPanel.div(tr("Sie haben noch nicht reagiert.")) { addCssClasses("text-muted small") }
                 retractButton.hide()
             } else {
                 val row = myReactionPanel.hPanel(spacing = 6) { addCssClasses("align-items-center") }
-                row.div("Ihre Reaktion:") { addCssClasses("text-muted small") }
+                row.div(tr("Ihre Reaktion:")) { addCssClasses("text-muted small") }
                 row.typeBadge(crowdfundingReactionValueLabel(mine.value), crowdfundingReactionValueColor(mine.value))
                 retractButton.show()
             }
@@ -363,7 +372,7 @@ private fun renderReactionControls(
             val result = guarded { rpcService<ICrowdfundingService>().castReaction(project.id, value) }
             setButtonsDisabled(false)
             if (result != null) {
-                notifySuccess("Reaktion gespeichert.")
+                notifySuccess(tr("Reaktion gespeichert."))
                 refreshMyReaction()
                 onChanged()
             }
@@ -378,7 +387,7 @@ private fun renderReactionControls(
             val result = guarded { rpcService<ICrowdfundingService>().retractReaction(project.id) }
             setButtonsDisabled(false)
             if (result != null) {
-                notifySuccess("Reaktion zurückgezogen.")
+                notifySuccess(tr("Reaktion zurückgezogen."))
                 refreshMyReaction()
                 onChanged()
             }
@@ -401,32 +410,38 @@ private fun renderBoardDecidePanel(
     onChanged: () -> Unit,
 ) {
     val decidePanel = card.vPanel(spacing = 6) { addCssClasses("border-top pt-2 mt-2") }
-    decidePanel.div("Vorstandsentscheidung") { addCssClass("fw-bold") }
+    decidePanel.div(tr("Vorstandsentscheidung")) { addCssClass("fw-bold") }
 
     if (project.isAutoApproved) {
         decidePanel.div(
-            "Dieses Projekt wurde bereits durch die 14-Tage-Schweigefrist automatisch genehmigt -- eine " +
-                "Vorstandsentscheidung ist serverseitig nicht mehr möglich.",
+            tr(
+                "Dieses Projekt wurde bereits durch die 14-Tage-Schweigefrist automatisch genehmigt -- eine " +
+                    "Vorstandsentscheidung ist serverseitig nicht mehr möglich.",
+            ),
         ) { addCssClasses("text-muted small") }
         return
     }
 
-    val reasonInput = decidePanel.textArea(label = "Ablehnungsgrund (nur für \"Ablehnen\" erforderlich, öffentlich sichtbar)", rows = 2)
+    val reasonInput =
+        decidePanel.textArea(
+            label = tr("Ablehnungsgrund (nur für \"Ablehnen\" erforderlich, öffentlich sichtbar)"),
+            rows = 2,
+        )
     val errorBox =
         decidePanel.div().apply {
             addCssClass("text-danger")
             hide()
         }
     val buttonsRow = decidePanel.hPanel(spacing = 8)
-    val approveButton = buttonsRow.button("Genehmigen", style = ButtonStyle.SUCCESS)
-    val rejectButton = buttonsRow.button("Ablehnen", style = ButtonStyle.OUTLINEDANGER)
+    val approveButton = buttonsRow.button(tr("Genehmigen"), style = ButtonStyle.SUCCESS)
+    val rejectButton = buttonsRow.button(tr("Ablehnen"), style = ButtonStyle.OUTLINEDANGER)
 
     approveButton.onClick {
         errorBox.hide()
         confirmDialog(
-            title = "Projekt genehmigen",
-            message = "Das Projekt \"${project.title}\" wird genehmigt und für Like/Dislike-Reaktionen (Spenden) geöffnet.",
-            confirmLabel = "Genehmigen",
+            title = tr("Projekt genehmigen"),
+            message = gettext("Das Projekt \"%1\" wird genehmigt und für Like/Dislike-Reaktionen (Spenden) geöffnet.", project.title),
+            confirmLabel = tr("Genehmigen"),
         ) {
             approveButton.disabled = true
             rejectButton.disabled = true
@@ -435,7 +450,7 @@ private fun renderBoardDecidePanel(
                 approveButton.disabled = false
                 rejectButton.disabled = false
                 if (result != null) {
-                    notifySuccess("Projekt \"${result.title}\" genehmigt.")
+                    notifySuccess(gettext("Projekt \"%1\" genehmigt.", result.title))
                     onChanged()
                 }
             }
@@ -446,17 +461,22 @@ private fun renderBoardDecidePanel(
         errorBox.hide()
         val reason = reasonInput.value.orEmpty().trim()
         if (!Validation.isNonBlank(reason)) {
-            errorBox.content = "Bitte einen Ablehnungsgrund angeben -- dieser wird öffentlich auf dem Projekt angezeigt."
+            errorBox.content = tr("Bitte einen Ablehnungsgrund angeben -- dieser wird öffentlich auf dem Projekt angezeigt.")
             errorBox.show()
             return@onClick
         }
         confirmDialog(
-            title = "Projekt ablehnen",
+            title = tr("Projekt ablehnen"),
             message =
-                "Das Projekt \"${project.title}\" wird abgelehnt (Grund: \"$reason\"). Der bereits gebuchte Einsatz von " +
-                    "${formatLtr(project.initialWeightLtr)} wird NICHT zurückerstattet -- es gibt keinen Rückerstattungspfad, " +
-                    "unabhängig von dieser Entscheidung.",
-            confirmLabel = "Ablehnen",
+                gettext(
+                    "Das Projekt \"%1\" wird abgelehnt (Grund: \"%2\"). Der bereits gebuchte Einsatz von " +
+                        "%3 wird NICHT zurückerstattet -- es gibt keinen Rückerstattungspfad, " +
+                        "unabhängig von dieser Entscheidung.",
+                    project.title,
+                    reason,
+                    formatLtr(project.initialWeightLtr),
+                ),
+            confirmLabel = tr("Ablehnen"),
         ) {
             approveButton.disabled = true
             rejectButton.disabled = true
@@ -465,7 +485,7 @@ private fun renderBoardDecidePanel(
                 approveButton.disabled = false
                 rejectButton.disabled = false
                 if (result != null) {
-                    notifySuccess("Projekt \"${result.title}\" abgelehnt.")
+                    notifySuccess(gettext("Projekt \"%1\" abgelehnt.", result.title))
                     onChanged()
                 }
             }
@@ -488,27 +508,30 @@ private fun renderDistributionComputeForm(
     root: SimplePanel,
     onCompleted: () -> Unit,
 ) {
-    root.h2("Monatliche Verteilung berechnen") { addCssClass("h6") }
+    root.h2(tr("Monatliche Verteilung berechnen")) { addCssClass("h6") }
     root.div(
-        "Berechnet den EUR-Spendenpool für den gewählten Zeitraum (bezahlte Beiträge abzüglich einer festen " +
-            "Mindestbeteiligung je Zahler) und verteilt ihn proportional nach Verteilungs-Korb auf alle genehmigten " +
-            "Projekte. Erzeugt nur einen Prüf-/Entscheidungsdatensatz, keine Journalbuchung/Überweisung -- erneutes " +
-            "Ausführen für denselben Zeitraum erzeugt keine Duplikate.",
+        tr(
+            "Berechnet den EUR-Spendenpool für den gewählten Zeitraum (bezahlte Beiträge abzüglich einer festen " +
+                "Mindestbeteiligung je Zahler) und verteilt ihn proportional nach Verteilungs-Korb auf alle genehmigten " +
+                "Projekte. Erzeugt nur einen Prüf-/Entscheidungsdatensatz, keine Journalbuchung/Überweisung -- erneutes " +
+                "Ausführen für denselben Zeitraum erzeugt keine Duplikate.",
+        ),
     ) { addCssClasses("text-muted small mb-2") }
-    val range = root.dateRangeFilter(fromLabel = "Von (JJJJ-MM-TT, Pflichtfeld)", toLabel = "Bis (JJJJ-MM-TT, Pflichtfeld)")
+    val range =
+        root.dateRangeFilter(fromLabel = tr("Von (JJJJ-MM-TT, Pflichtfeld)"), toLabel = tr("Bis (JJJJ-MM-TT, Pflichtfeld)"))
     val errorBox =
         root.div().apply {
             addCssClass("text-danger")
             hide()
         }
-    val computeButton = root.button("Verteilung berechnen", style = ButtonStyle.PRIMARY)
+    val computeButton = root.button(tr("Verteilung berechnen"), style = ButtonStyle.PRIMARY)
 
     computeButton.onClick {
         errorBox.hide()
         val periodStart = range.parseFrom()
         val periodEnd = range.parseTo()
         if (periodStart == null || periodEnd == null) {
-            errorBox.content = "Bitte Start- und Enddatum im Format JJJJ-MM-TT angeben -- beide Felder sind hier Pflicht."
+            errorBox.content = tr("Bitte Start- und Enddatum im Format JJJJ-MM-TT angeben -- beide Felder sind hier Pflicht.")
             errorBox.show()
             return@onClick
         }
@@ -517,7 +540,7 @@ private fun renderDistributionComputeForm(
             val distributions = guarded { rpcService<ICrowdfundingService>().computeMonthlyDistribution(periodStart, periodEnd) }
             computeButton.disabled = false
             if (distributions != null) {
-                notifySuccess("Verteilung für $periodStart bis $periodEnd berechnet (${distributions.size} Projekt(e)).")
+                notifySuccess(gettext("Verteilung für %1 bis %2 berechnet (%3 Projekt(e)).", periodStart, periodEnd, distributions.size))
                 onCompleted()
             }
         }
@@ -529,23 +552,23 @@ private fun renderDistributionsTable(
     distributions: List<CrowdfundingDistributionDto>,
 ) {
     val headerRow = panel.hPanel(spacing = 8) { addCssClasses("fw-bold border-bottom pb-1") }
-    headerRow.div("Projekt") { addCssClasses("flex-grow-1") }
-    headerRow.div("Zeitraum") { width = 200.px }
-    headerRow.div("Korb") { width = 70.px }
-    headerRow.div("Betrag") { width = 120.px }
-    headerRow.div("Berechnet") { width = 220.px }
+    headerRow.div(tr("Projekt")) { addCssClasses("flex-grow-1") }
+    headerRow.div(tr("Zeitraum")) { width = 200.px }
+    headerRow.div(tr("Korb")) { width = 70.px }
+    headerRow.div(tr("Betrag")) { width = 120.px }
+    headerRow.div(tr("Berechnet")) { width = 220.px }
 
     distributions.forEach { d ->
         val row = panel.hPanel(spacing = 8) { addCssClasses("border-bottom py-1 align-items-center") }
         row.div(d.projectTitle) { addCssClasses("flex-grow-1") }
-        row.div("${d.periodStart} – ${d.periodEnd}") {
+        row.div(gettext("%1 – %2", d.periodStart, d.periodEnd)) {
             width = 200.px
             addCssClasses("small")
         }
         row.div(d.basketTotalAtDistribution.toString()) { width = 70.px }
         val amountCell = row.div { width = 120.px }
         amountCell.moneySpan(d.amountEur)
-        row.div("${d.computedAt} von ${d.triggeredByDisplayName}") {
+        row.div(gettext("%1 von %2", d.computedAt, d.triggeredByDisplayName)) {
             width = 220.px
             addCssClasses("text-muted small")
         }
@@ -561,9 +584,9 @@ private fun renderDistributionsTable(
  * [typeBadge]. Covers every [CrowdfundingProjectStatus] literal. */
 fun crowdfundingProjectStatusLabel(status: CrowdfundingProjectStatus): String =
     when (status) {
-        CrowdfundingProjectStatus.PENDING -> "Ausstehend"
-        CrowdfundingProjectStatus.APPROVED -> "Genehmigt"
-        CrowdfundingProjectStatus.REJECTED -> "Abgelehnt"
+        CrowdfundingProjectStatus.PENDING -> gettext("Ausstehend")
+        CrowdfundingProjectStatus.APPROVED -> gettext("Genehmigt")
+        CrowdfundingProjectStatus.REJECTED -> gettext("Abgelehnt")
     }
 
 fun crowdfundingProjectStatusColor(status: CrowdfundingProjectStatus): String =
@@ -577,8 +600,8 @@ fun crowdfundingProjectStatusColor(status: CrowdfundingProjectStatus): String =
  * status -- outline variant, per the plan's own convention table. */
 fun crowdfundingReactionValueLabel(value: CrowdfundingReactionValue): String =
     when (value) {
-        CrowdfundingReactionValue.LIKE -> "Like"
-        CrowdfundingReactionValue.DISLIKE -> "Dislike"
+        CrowdfundingReactionValue.LIKE -> gettext("Like")
+        CrowdfundingReactionValue.DISLIKE -> gettext("Dislike")
     }
 
 fun crowdfundingReactionValueColor(value: CrowdfundingReactionValue): String =

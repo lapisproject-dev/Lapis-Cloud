@@ -10,6 +10,8 @@ import io.kvision.html.h1
 import io.kvision.html.h2
 import io.kvision.html.link
 import io.kvision.html.p
+import io.kvision.i18n.gettext
+import io.kvision.i18n.tr
 import io.kvision.panel.SimplePanel
 import io.kvision.panel.hPanel
 import io.kvision.panel.vPanel
@@ -36,35 +38,41 @@ fun renderDocumentsScreen(container: SimplePanel) {
             width = 800.px
             marginTop = 24.px
         }
-    root.h1("Dokumentenablage")
+    root.h1(tr("Dokumentenablage"))
     val canManage = AppState.hasRole(AccountRole.BOARD, AccountRole.ADMIN)
 
-    root.h2("Ordner")
+    root.h2(tr("Ordner"))
     val folderPanel = root.vPanel(spacing = 4)
     val folderCreationPanel = if (canManage) root.vPanel(spacing = 6) else null
 
-    root.h2("Dokumente")
+    root.h2(tr("Dokumente"))
     val documentPanel = root.vPanel(spacing = 6)
 
-    root.h2("Versionen")
+    root.h2(tr("Versionen"))
     val versionPanel = root.vPanel(spacing = 6)
 
     fun loadVersions(document: DocumentDto) {
         versionPanel.removeAll()
         AppScope.launch {
             val versions = guarded { rpcService<IDocumentService>().listVersions(document.id) } ?: return@launch
-            versionPanel.p("Versionen von \"${document.title}\":")
+            versionPanel.p(gettext("Versionen von \"%1\":", document.title))
             if (versions.isEmpty()) {
-                versionPanel.p("Noch keine Version hochgeladen.")
+                versionPanel.p(tr("Noch keine Version hochgeladen."))
             } else {
                 versions.forEach { version ->
                     val row = versionPanel.hPanel(spacing = 8) { addCssClasses("border-bottom py-1 align-items-center") }
+                    val changeNoteSuffix = version.changeNote?.let { gettext(" -- %1", it) } ?: ""
                     row.div(
-                        "v${version.versionNumber}: ${version.fileName} (${version.fileSizeBytes} Bytes, " +
-                            "hochgeladen von ${version.uploadedByDisplayName} am ${version.uploadedAt})" +
-                            (version.changeNote?.let { " -- $it" } ?: ""),
+                        gettext(
+                            "v%1: %2 (%3 Bytes, hochgeladen von %4 am %5)",
+                            version.versionNumber,
+                            version.fileName,
+                            version.fileSizeBytes,
+                            version.uploadedByDisplayName,
+                            version.uploadedAt,
+                        ) + changeNoteSuffix,
                     ) { addCssClass("flex-grow-1") }
-                    row.link("Herunterladen", url = DocumentHttp.downloadUrl(document.id, version.id), target = "_blank")
+                    row.link(tr("Herunterladen"), url = DocumentHttp.downloadUrl(document.id, version.id), target = "_blank")
                 }
             }
             if (canManage) renderVersionUpload(versionPanel, document.id) { loadVersions(document) }
@@ -77,26 +85,29 @@ fun renderDocumentsScreen(container: SimplePanel) {
         AppScope.launch {
             val documents = guarded { rpcService<IDocumentService>().listDocuments(folderId) } ?: return@launch
             if (documents.isEmpty()) {
-                documentPanel.p("Keine Dokumente in diesem Ordner.")
+                documentPanel.p(tr("Keine Dokumente in diesem Ordner."))
             } else {
                 documents.forEach { document ->
                     val row = documentPanel.hPanel(spacing = 8) { addCssClasses("border rounded p-2 align-items-center") }
                     val titleLink = row.link(document.title, url = "javascript:void(0)") { addCssClass("flex-grow-1") }
                     titleLink.onClick { loadVersions(document) }
                     if (canManage) {
-                        val deleteButton = row.button("Löschen", style = ButtonStyle.OUTLINEDANGER)
+                        val deleteButton = row.button(tr("Löschen"), style = ButtonStyle.OUTLINEDANGER)
                         deleteButton.onClick {
                             confirmDialog(
-                                title = "Dokument löschen",
+                                title = tr("Dokument löschen"),
                                 message =
-                                    "\"${document.title}\" wirklich löschen? (Soft-Delete -- bisherige Versionen " +
-                                        "bleiben zu Prüfzwecken erhalten, das Dokument verschwindet aus der Ansicht.)",
-                                confirmLabel = "Löschen",
+                                    gettext(
+                                        "\"%1\" wirklich löschen? (Soft-Delete -- bisherige Versionen " +
+                                            "bleiben zu Prüfzwecken erhalten, das Dokument verschwindet aus der Ansicht.)",
+                                        document.title,
+                                    ),
+                                confirmLabel = tr("Löschen"),
                             ) {
                                 AppScope.launch {
                                     val result = guarded { rpcService<IDocumentService>().deleteDocument(document.id) }
                                     if (result != null) {
-                                        notifySuccess("Gelöscht.")
+                                        notifySuccess(tr("Gelöscht."))
                                         loadDocuments(folderId)
                                     }
                                 }
@@ -114,7 +125,7 @@ fun renderDocumentsScreen(container: SimplePanel) {
         AppScope.launch {
             val folders = guarded { rpcService<IDocumentService>().listFolders() } ?: emptyList()
             if (folders.isEmpty()) {
-                folderPanel.p("Noch keine Ordner vorhanden.")
+                folderPanel.p(tr("Noch keine Ordner vorhanden."))
             } else {
                 folders.forEach { folder ->
                     val folderButton = folderPanel.button(folder.name, style = ButtonStyle.OUTLINESECONDARY)
@@ -134,8 +145,8 @@ private fun renderFolderCreation(
     panel: SimplePanel,
     onCreated: () -> Unit,
 ) {
-    val nameInput = panel.text(label = "Neuer Ordnername")
-    val createButton = panel.button("Ordner anlegen", style = ButtonStyle.OUTLINEPRIMARY)
+    val nameInput = panel.text(label = tr("Neuer Ordnername"))
+    val createButton = panel.button(tr("Ordner anlegen"), style = ButtonStyle.OUTLINEPRIMARY)
     createButton.onClick {
         val name = nameInput.value.orEmpty().trim()
         if (!Validation.isNonBlank(name)) return@onClick
@@ -144,7 +155,7 @@ private fun renderFolderCreation(
             val result = guarded { rpcService<IDocumentService>().createFolder(name, null) }
             createButton.disabled = false
             if (result != null) {
-                notifySuccess("Ordner \"$name\" angelegt.")
+                notifySuccess(gettext("Ordner \"%1\" angelegt.", name))
                 nameInput.value = null
                 onCreated()
             }
@@ -158,9 +169,10 @@ private fun renderDocumentCreation(
     onCreated: () -> Unit,
 ) {
     val accessLevelOptions = DocumentAccessLevel.entries.map { it.name to it.name }
-    val titleInput = panel.text(label = "Neuer Dokumenttitel")
-    val accessSelect = panel.select(options = accessLevelOptions, value = DocumentAccessLevel.PUBLIC_MEMBERS.name, label = "Sichtbarkeit")
-    val createButton = panel.button("Dokument anlegen (danach Datei hochladen)", style = ButtonStyle.OUTLINEPRIMARY)
+    val titleInput = panel.text(label = tr("Neuer Dokumenttitel"))
+    val accessSelect =
+        panel.select(options = accessLevelOptions, value = DocumentAccessLevel.PUBLIC_MEMBERS.name, label = tr("Sichtbarkeit"))
+    val createButton = panel.button(tr("Dokument anlegen (danach Datei hochladen)"), style = ButtonStyle.OUTLINEPRIMARY)
     createButton.onClick {
         val title = titleInput.value.orEmpty().trim()
         val accessLevelValue = accessSelect.value
@@ -173,7 +185,7 @@ private fun renderDocumentCreation(
                 }
             createButton.disabled = false
             if (result != null) {
-                notifySuccess("Dokument \"$title\" angelegt -- jetzt eine Datei hochladen.")
+                notifySuccess(gettext("Dokument \"%1\" angelegt -- jetzt eine Datei hochladen.", title))
                 onCreated()
             }
         }
@@ -186,21 +198,21 @@ private fun renderVersionUpload(
     onUploaded: () -> Unit,
 ) {
     val uploadRow = panel.vPanel(spacing = 4) { addCssClasses("border-top pt-2 mt-2") }
-    val fileUpload = uploadRow.upload(label = "Neue Version hochladen")
-    val changeNoteInput = uploadRow.text(label = "Änderungshinweis (optional)")
+    val fileUpload = uploadRow.upload(label = tr("Neue Version hochladen"))
+    val changeNoteInput = uploadRow.text(label = tr("Änderungshinweis (optional)"))
     val errorBox =
         uploadRow.div().apply {
             addCssClass("text-danger")
             hide()
         }
 
-    val uploadButton = uploadRow.button("Hochladen", style = ButtonStyle.PRIMARY)
+    val uploadButton = uploadRow.button(tr("Hochladen"), style = ButtonStyle.PRIMARY)
     uploadButton.onClick {
         errorBox.hide()
         val selected = fileUpload.value?.firstOrNull()
         val nativeFile = selected?.let { fileUpload.getNativeFile(it) }
         if (nativeFile == null) {
-            errorBox.content = "Bitte eine Datei auswählen."
+            errorBox.content = tr("Bitte eine Datei auswählen.")
             errorBox.show()
             return@onClick
         }
@@ -212,7 +224,7 @@ private fun renderVersionUpload(
                 errorBox.content = error
                 errorBox.show()
             } else {
-                notifySuccess("Version hochgeladen.")
+                notifySuccess(tr("Version hochgeladen."))
                 fileUpload.clearInput()
                 changeNoteInput.value = null
                 onUploaded()

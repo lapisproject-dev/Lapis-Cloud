@@ -9,6 +9,8 @@ import io.kvision.html.div
 import io.kvision.html.h1
 import io.kvision.html.h2
 import io.kvision.html.p
+import io.kvision.i18n.gettext
+import io.kvision.i18n.tr
 import io.kvision.panel.SimplePanel
 import io.kvision.panel.hPanel
 import io.kvision.panel.vPanel
@@ -65,20 +67,22 @@ fun renderDsgvoComplianceScreen(container: SimplePanel) {
             width = 900.px
             marginTop = 24.px
         }
-    root.h1("DSGVO-Compliance")
+    root.h1(tr("DSGVO-Compliance"))
     root.div(
-        "Verarbeitungsverzeichnis (AVV), technisch-organisatorische Maßnahmen (TOM), " +
-            "Datenschutz-Folgenabschätzungen (DSFA) und Datenpannenmeldungen -- Dokumentations- und " +
-            "Arbeitswerkzeug für eine vom Vorstand getroffene Entscheidung, nie automatisierte " +
-            "Rechtsberatung.",
+        tr(
+            "Verarbeitungsverzeichnis (AVV), technisch-organisatorische Maßnahmen (TOM), " +
+                "Datenschutz-Folgenabschätzungen (DSFA) und Datenpannenmeldungen -- Dokumentations- und " +
+                "Arbeitswerkzeug für eine vom Vorstand getroffene Entscheidung, nie automatisierte " +
+                "Rechtsberatung.",
+        ),
     ) { addCssClasses("text-muted small") }
 
     // ---- X1: tab toggle row ---------------------------------------------------------------
     val toggleRow = root.hPanel(spacing = 8) { addCssClasses("flex-wrap") }
-    val avvButton = toggleRow.button("Verarbeitungsverzeichnis (AVV)", style = ButtonStyle.OUTLINEPRIMARY)
-    val tomButton = toggleRow.button("TOM", style = ButtonStyle.OUTLINEPRIMARY)
-    val dsfaButton = toggleRow.button("DSFA", style = ButtonStyle.OUTLINEPRIMARY)
-    val breachButton = toggleRow.button("Datenpannen", style = ButtonStyle.OUTLINEPRIMARY)
+    val avvButton = toggleRow.button(tr("Verarbeitungsverzeichnis (AVV)"), style = ButtonStyle.OUTLINEPRIMARY)
+    val tomButton = toggleRow.button(tr("TOM"), style = ButtonStyle.OUTLINEPRIMARY)
+    val dsfaButton = toggleRow.button(tr("DSFA"), style = ButtonStyle.OUTLINEPRIMARY)
+    val breachButton = toggleRow.button(tr("Datenpannen"), style = ButtonStyle.OUTLINEPRIMARY)
     val contentPanel = root.vPanel(spacing = 10)
 
     avvButton.onClick {
@@ -107,12 +111,14 @@ fun renderDsgvoComplianceScreen(container: SimplePanel) {
 
 private fun renderAvvTab(panel: SimplePanel) {
     val canManage = AppState.hasRole(AccountRole.ADMIN)
-    panel.h2("Verarbeitungsverzeichnis (AVV)")
+    panel.h2(tr("Verarbeitungsverzeichnis (AVV)"))
     panel.div(
-        "Drittdienst-Verarbeiter (z. B. Letterxpress) und der Stand des jeweiligen " +
-            "Auftragsverarbeitungsvertrags. \"Aktiv\" wird bei jedem Laden neu berechnet -- ein " +
-            "abgelaufener Prüftermin fällt sofort auf, ohne dass jemand daran denken muss, den " +
-            "Status manuell umzustellen.",
+        tr(
+            "Drittdienst-Verarbeiter (z. B. Letterxpress) und der Stand des jeweiligen " +
+                "Auftragsverarbeitungsvertrags. \"Aktiv\" wird bei jedem Laden neu berechnet -- ein " +
+                "abgelaufener Prüftermin fällt sofort auf, ohne dass jemand daran denken muss, den " +
+                "Status manuell umzustellen.",
+        ),
     ) { addCssClasses("text-muted small") }
 
     val listPanel = panel.vPanel(spacing = 6)
@@ -122,7 +128,7 @@ private fun renderAvvTab(panel: SimplePanel) {
         AppScope.launch {
             val agreements = guarded { rpcService<IDsgvoComplianceService>().listProcessingAgreements() } ?: return@launch
             if (agreements.isEmpty()) {
-                listPanel.p("Noch keine AVV-Einträge angelegt.")
+                listPanel.p(tr("Noch keine AVV-Einträge angelegt."))
                 return@launch
             }
             agreements.forEach { agreement -> renderAgreementRow(listPanel, agreement, canManage, ::refreshList) }
@@ -131,7 +137,7 @@ private fun renderAvvTab(panel: SimplePanel) {
     refreshList()
 
     if (canManage) {
-        panel.h2("Neuen AVV-Eintrag anlegen") { addCssClass("h5") }
+        panel.h2(tr("Neuen AVV-Eintrag anlegen")) { addCssClass("h5") }
         renderAgreementCreationForm(panel, ::refreshList)
     }
 }
@@ -154,11 +160,11 @@ private fun renderAgreementRow(
     }
 
     row.div(agreement.processingPurpose) { addCssClasses("small") }
-    row.div("Datenkategorien: ${agreement.dataCategories}") { addCssClasses("text-muted small") }
-    agreement.reviewDueDate?.let { row.div("Prüftermin: $it") { addCssClasses("text-muted small") } }
+    row.div(gettext("Datenkategorien: %1", agreement.dataCategories)) { addCssClasses("text-muted small") }
+    agreement.reviewDueDate?.let { row.div(gettext("Prüftermin: %1", it)) { addCssClasses("text-muted small") } }
 
     if (canManage) {
-        val editButton = row.button("Bearbeiten", style = ButtonStyle.OUTLINEPRIMARY)
+        val editButton = row.button(tr("Bearbeiten"), style = ButtonStyle.OUTLINEPRIMARY)
         val editPanel = row.vPanel(spacing = 6) { addCssClasses("border-top pt-2 mt-2") }
         editPanel.hide()
         var editOpen = false
@@ -194,22 +200,22 @@ private fun renderAgreementForm(
     onSaved: () -> Unit,
 ) {
     val statusOptions = AvvStatus.entries.map { it.name to avvStatusLabel(it) }
-    val processorNameInput = panel.text(value = existing?.processorName, label = "Verarbeiter")
-    val processingPurposeInput = panel.text(value = existing?.processingPurpose, label = "Verarbeitungszweck")
-    val dataCategoriesInput = panel.text(value = existing?.dataCategories, label = "Datenkategorien")
+    val processorNameInput = panel.text(value = existing?.processorName, label = tr("Verarbeiter"))
+    val processingPurposeInput = panel.text(value = existing?.processingPurpose, label = tr("Verarbeitungszweck"))
+    val dataCategoriesInput = panel.text(value = existing?.dataCategories, label = tr("Datenkategorien"))
     val statusSelect =
-        panel.select(options = statusOptions, value = (existing?.avvStatus ?: AvvStatus.NONE).name, label = "AVV-Status")
-    val signedDateInput = panel.text(value = existing?.signedDate?.toString(), label = "Unterzeichnet am (JJJJ-MM-TT, optional)")
-    val reviewDueDateInput = panel.text(value = existing?.reviewDueDate?.toString(), label = "Prüftermin (JJJJ-MM-TT, optional)")
-    val documentIdInput = panel.text(value = existing?.documentId, label = "Dokument-ID (optional)")
-    val notesInput = panel.textArea(value = existing?.notes, label = "Notizen (optional)", rows = 2)
+        panel.select(options = statusOptions, value = (existing?.avvStatus ?: AvvStatus.NONE).name, label = tr("AVV-Status"))
+    val signedDateInput = panel.text(value = existing?.signedDate?.toString(), label = tr("Unterzeichnet am (JJJJ-MM-TT, optional)"))
+    val reviewDueDateInput = panel.text(value = existing?.reviewDueDate?.toString(), label = tr("Prüftermin (JJJJ-MM-TT, optional)"))
+    val documentIdInput = panel.text(value = existing?.documentId, label = tr("Dokument-ID (optional)"))
+    val notesInput = panel.textArea(value = existing?.notes, label = tr("Notizen (optional)"), rows = 2)
     val errorBox =
         panel.div().apply {
             addCssClass("text-danger")
             hide()
         }
 
-    val saveButton = panel.button(if (existing == null) "AVV-Eintrag anlegen" else "Speichern", style = ButtonStyle.PRIMARY)
+    val saveButton = panel.button(if (existing == null) tr("AVV-Eintrag anlegen") else tr("Speichern"), style = ButtonStyle.PRIMARY)
     saveButton.onClick {
         errorBox.hide()
         val processorName = processorNameInput.value.orEmpty().trim()
@@ -227,12 +233,12 @@ private fun renderAgreementForm(
             !Validation.isNonBlank(dataCategories) ||
             statusValue == null
         ) {
-            errorBox.content = "Bitte Verarbeiter, Verarbeitungszweck, Datenkategorien und AVV-Status angeben."
+            errorBox.content = tr("Bitte Verarbeiter, Verarbeitungszweck, Datenkategorien und AVV-Status angeben.")
             errorBox.show()
             return@onClick
         }
         if (hasInvalidDate) {
-            errorBox.content = "Bitte gültige Datumsangaben (JJJJ-MM-TT) verwenden, oder das Feld leer lassen."
+            errorBox.content = tr("Bitte gültige Datumsangaben (JJJJ-MM-TT) verwenden, oder das Feld leer lassen.")
             errorBox.show()
             return@onClick
         }
@@ -264,7 +270,8 @@ private fun renderAgreementForm(
                 }
             saveButton.disabled = false
             if (result != null) {
-                notifySuccess("AVV-Eintrag \"$processorName\" wurde ${if (existing == null) "angelegt" else "aktualisiert"}.")
+                val actionWord = if (existing == null) gettext("angelegt") else gettext("aktualisiert")
+                notifySuccess(gettext("AVV-Eintrag \"%1\" wurde %2.", processorName, actionWord))
                 if (existing == null) {
                     processorNameInput.value = null
                     processingPurposeInput.value = null
@@ -286,17 +293,19 @@ private fun renderAgreementForm(
 
 private fun renderTomTab(panel: SimplePanel) {
     val canManage = AppState.hasRole(AccountRole.ADMIN)
-    panel.h2("Technisch-organisatorische Maßnahmen (TOM)")
+    panel.h2(tr("Technisch-organisatorische Maßnahmen (TOM)"))
     panel.div(
-        "Dokumentation der acht Standard-TOM-Kategorien. \"Version\" ist ein einfacher Zähler, der " +
-            "bei jeder Aktualisierung um eins steigt -- keine eigene Versionshistorie mit Diff-Ansicht " +
-            "in dieser Welle.",
+        tr(
+            "Dokumentation der acht Standard-TOM-Kategorien. \"Version\" ist ein einfacher Zähler, der " +
+                "bei jeder Aktualisierung um eins steigt -- keine eigene Versionshistorie mit Diff-Ansicht " +
+                "in dieser Welle.",
+        ),
     ) { addCssClasses("text-muted small") }
 
     val filterRow = panel.hPanel(spacing = 8) { addCssClasses("align-items-center") }
-    val categoryOptions = listOf("" to "Alle Kategorien") + TomCategory.entries.map { it.name to tomCategoryLabel(it) }
-    val categorySelect = filterRow.select(options = categoryOptions, value = "", label = "Kategorie")
-    val filterButton = filterRow.button("Filtern", style = ButtonStyle.OUTLINESECONDARY)
+    val categoryOptions = listOf("" to tr("Alle Kategorien")) + TomCategory.entries.map { it.name to tomCategoryLabel(it) }
+    val categorySelect = filterRow.select(options = categoryOptions, value = "", label = tr("Kategorie"))
+    val filterButton = filterRow.button(tr("Filtern"), style = ButtonStyle.OUTLINESECONDARY)
 
     val listPanel = panel.vPanel(spacing = 6)
 
@@ -306,7 +315,7 @@ private fun renderTomTab(panel: SimplePanel) {
         AppScope.launch {
             val toms = guarded { rpcService<IDsgvoComplianceService>().listTechnicalOrganizationalMeasures(category) } ?: return@launch
             if (toms.isEmpty()) {
-                listPanel.p("Noch keine TOM-Einträge angelegt.")
+                listPanel.p(tr("Noch keine TOM-Einträge angelegt."))
                 return@launch
             }
             toms.forEach { tom -> renderTomRow(listPanel, tom, canManage, ::refreshList) }
@@ -316,7 +325,7 @@ private fun renderTomTab(panel: SimplePanel) {
     refreshList()
 
     if (canManage) {
-        panel.h2("Neue TOM anlegen") { addCssClass("h5") }
+        panel.h2(tr("Neue TOM anlegen")) { addCssClass("h5") }
         renderTomCreationForm(panel, ::refreshList)
     }
 }
@@ -331,12 +340,12 @@ private fun renderTomRow(
     val headerRow = row.hPanel(spacing = 8) { addCssClasses("align-items-center") }
     headerRow.typeBadge(tomCategoryLabel(tom.category), tomCategoryColor(tom.category))
     headerRow.div(tom.title) { addCssClasses("flex-grow-1 fw-bold") }
-    headerRow.div("Version ${tom.version}") { addCssClasses("text-muted small") }
+    headerRow.div(gettext("Version %1", tom.version)) { addCssClasses("text-muted small") }
 
     row.div(tom.description) { addCssClasses("small") }
 
     if (canManage) {
-        val editButton = row.button("Bearbeiten", style = ButtonStyle.OUTLINEPRIMARY)
+        val editButton = row.button(tr("Bearbeiten"), style = ButtonStyle.OUTLINEPRIMARY)
         val editPanel = row.vPanel(spacing = 6) { addCssClasses("border-top pt-2 mt-2") }
         editPanel.hide()
         var editOpen = false
@@ -374,17 +383,17 @@ private fun renderTomForm(
         panel.select(
             options = categoryOptions,
             value = (existing?.category ?: TomCategory.SYSTEM_ACCESS_CONTROL).name,
-            label = "Kategorie",
+            label = tr("Kategorie"),
         )
-    val titleInput = panel.text(value = existing?.title, label = "Titel")
-    val descriptionInput = panel.textArea(value = existing?.description, label = "Beschreibung", rows = 3)
+    val titleInput = panel.text(value = existing?.title, label = tr("Titel"))
+    val descriptionInput = panel.textArea(value = existing?.description, label = tr("Beschreibung"), rows = 3)
     val errorBox =
         panel.div().apply {
             addCssClass("text-danger")
             hide()
         }
 
-    val saveButton = panel.button(if (existing == null) "TOM anlegen" else "Speichern", style = ButtonStyle.PRIMARY)
+    val saveButton = panel.button(if (existing == null) tr("TOM anlegen") else tr("Speichern"), style = ButtonStyle.PRIMARY)
     saveButton.onClick {
         errorBox.hide()
         val categoryValue = categorySelect.value
@@ -392,7 +401,7 @@ private fun renderTomForm(
         val description = descriptionInput.value.orEmpty().trim()
 
         if (categoryValue == null || !Validation.isNonBlank(title) || !Validation.isNonBlank(description)) {
-            errorBox.content = "Bitte Kategorie, Titel und Beschreibung angeben."
+            errorBox.content = tr("Bitte Kategorie, Titel und Beschreibung angeben.")
             errorBox.show()
             return@onClick
         }
@@ -415,7 +424,8 @@ private fun renderTomForm(
                 }
             saveButton.disabled = false
             if (result != null) {
-                notifySuccess("TOM \"$title\" wurde ${if (existing == null) "angelegt" else "aktualisiert"}.")
+                val actionWord = if (existing == null) gettext("angelegt") else gettext("aktualisiert")
+                notifySuccess(gettext("TOM \"%1\" wurde %2.", title, actionWord))
                 if (existing == null) {
                     titleInput.value = null
                     descriptionInput.value = null
@@ -432,15 +442,15 @@ private fun renderTomForm(
 
 private fun renderDsfaTab(panel: SimplePanel) {
     val canManage = AppState.hasRole(AccountRole.BOARD, AccountRole.ADMIN)
-    panel.h2("Datenschutz-Folgenabschätzung (DSFA)")
+    panel.h2(tr("Datenschutz-Folgenabschätzung (DSFA)"))
 
     // D8(a): unconditional, non-dismissible, above everything else on this tab (X2).
     panel.div(dsfaBannerText()) { addCssClasses("alert alert-warning") }
 
     val filterRow = panel.hPanel(spacing = 8) { addCssClasses("align-items-center") }
-    val statusOptions = listOf("" to "Alle Status") + DsfaStatus.entries.map { it.name to dsfaStatusLabel(it) }
-    val statusSelect = filterRow.select(options = statusOptions, value = "", label = "Status")
-    val filterButton = filterRow.button("Filtern", style = ButtonStyle.OUTLINESECONDARY)
+    val statusOptions = listOf("" to tr("Alle Status")) + DsfaStatus.entries.map { it.name to dsfaStatusLabel(it) }
+    val statusSelect = filterRow.select(options = statusOptions, value = "", label = tr("Status"))
+    val filterButton = filterRow.button(tr("Filtern"), style = ButtonStyle.OUTLINESECONDARY)
 
     val listPanel = panel.vPanel(spacing = 6)
 
@@ -450,7 +460,7 @@ private fun renderDsfaTab(panel: SimplePanel) {
         AppScope.launch {
             val assessments = guarded { rpcService<IDsgvoComplianceService>().listDpiaAssessments(status) } ?: return@launch
             if (assessments.isEmpty()) {
-                listPanel.p("Noch keine DSFA-Einträge angelegt.")
+                listPanel.p(tr("Noch keine DSFA-Einträge angelegt."))
                 return@launch
             }
             assessments.forEach { assessment -> renderDpiaRow(listPanel, assessment, canManage, ::refreshList) }
@@ -460,7 +470,7 @@ private fun renderDsfaTab(panel: SimplePanel) {
     refreshList()
 
     if (canManage) {
-        panel.h2("Neue DSFA anlegen") { addCssClass("h5") }
+        panel.h2(tr("Neue DSFA anlegen")) { addCssClass("h5") }
         renderDpiaCreationForm(panel, ::refreshList)
     }
 }
@@ -476,13 +486,13 @@ private fun renderDpiaRow(
     headerRow.div(assessment.title) { addCssClasses("flex-grow-1 fw-bold") }
     headerRow.statusBadge(dsfaStatusLabel(assessment.status), dsfaStatusColor(assessment.status))
     assessment.riskBand?.let { headerRow.statusBadge(dpiaRiskBandLabel(it), dpiaRiskBandColor(it)) }
-    headerRow.div("Version ${assessment.version}") { addCssClasses("text-muted small") }
+    headerRow.div(gettext("Version %1", assessment.version)) { addCssClasses("text-muted small") }
 
     row.div(assessment.processingDescription) { addCssClasses("small") }
-    row.div("DSFA erforderlich: ${triStateBooleanLabel(assessment.dpiaRequired)}") { addCssClasses("text-muted small") }
+    row.div(gettext("DSFA erforderlich: %1", triStateBooleanLabel(assessment.dpiaRequired))) { addCssClasses("text-muted small") }
 
     if (canManage) {
-        val editButton = row.button("Bearbeiten", style = ButtonStyle.OUTLINEPRIMARY)
+        val editButton = row.button(tr("Bearbeiten"), style = ButtonStyle.OUTLINEPRIMARY)
         val editPanel = row.vPanel(spacing = 6) { addCssClasses("border-top pt-2 mt-2") }
         editPanel.hide()
         var editOpen = false
@@ -515,34 +525,39 @@ private fun renderDpiaForm(
     existing: DpiaAssessmentDto?,
     onSaved: () -> Unit,
 ) {
-    val riskOptions = listOf("" to "Nicht festgelegt") + RiskLevel.entries.map { it.name to riskLevelLabel(it) }
+    val riskOptions = listOf("" to tr("Nicht festgelegt")) + RiskLevel.entries.map { it.name to riskLevelLabel(it) }
     val statusOptions = DsfaStatus.entries.map { it.name to dsfaStatusLabel(it) }
-    val requiredOptions = listOf("" to "Noch nicht festgelegt", "true" to "Ja", "false" to "Nein")
+    val requiredOptions = listOf("" to tr("Noch nicht festgelegt"), "true" to tr("Ja"), "false" to tr("Nein"))
 
-    val titleInput = panel.text(value = existing?.title, label = "Titel")
-    val processingDescriptionInput = panel.textArea(value = existing?.processingDescription, label = "Verarbeitungsbeschreibung", rows = 3)
+    val titleInput = panel.text(value = existing?.title, label = tr("Titel"))
+    val processingDescriptionInput =
+        panel.textArea(value = existing?.processingDescription, label = tr("Verarbeitungsbeschreibung"), rows = 3)
     val necessityInput =
-        panel.textArea(value = existing?.necessityProportionality, label = "Erforderlichkeit/Verhältnismäßigkeit (optional)", rows = 2)
+        panel.textArea(
+            value = existing?.necessityProportionality,
+            label = tr("Erforderlichkeit/Verhältnismäßigkeit (optional)"),
+            rows = 2,
+        )
     val likelihoodSelect =
-        panel.select(options = riskOptions, value = existing?.riskLikelihood?.name ?: "", label = "Eintrittswahrscheinlichkeit")
-    val severitySelect = panel.select(options = riskOptions, value = existing?.riskSeverity?.name ?: "", label = "Schadenshöhe")
-    val riskAssessmentInput = panel.textArea(value = existing?.riskAssessment, label = "Risikobewertung (optional)", rows = 2)
-    val mitigationInput = panel.textArea(value = existing?.mitigationMeasures, label = "Abhilfemaßnahmen (optional)", rows = 2)
+        panel.select(options = riskOptions, value = existing?.riskLikelihood?.name ?: "", label = tr("Eintrittswahrscheinlichkeit"))
+    val severitySelect = panel.select(options = riskOptions, value = existing?.riskSeverity?.name ?: "", label = tr("Schadenshöhe"))
+    val riskAssessmentInput = panel.textArea(value = existing?.riskAssessment, label = tr("Risikobewertung (optional)"), rows = 2)
+    val mitigationInput = panel.textArea(value = existing?.mitigationMeasures, label = tr("Abhilfemaßnahmen (optional)"), rows = 2)
     val dpiaRequiredSelect =
         panel.select(
             options = requiredOptions,
             value = existing?.dpiaRequired?.toString() ?: "",
-            label = "DSFA erforderlich (Ihre Entscheidung)",
+            label = tr("DSFA erforderlich (Ihre Entscheidung)"),
         )
-    val outcomeRationaleInput = panel.textArea(value = existing?.outcomeRationale, label = "Begründung (optional)", rows = 2)
-    val statusSelect = panel.select(options = statusOptions, value = (existing?.status ?: DsfaStatus.DRAFT).name, label = "Status")
+    val outcomeRationaleInput = panel.textArea(value = existing?.outcomeRationale, label = tr("Begründung (optional)"), rows = 2)
+    val statusSelect = panel.select(options = statusOptions, value = (existing?.status ?: DsfaStatus.DRAFT).name, label = tr("Status"))
     val errorBox =
         panel.div().apply {
             addCssClass("text-danger")
             hide()
         }
 
-    val saveButton = panel.button(if (existing == null) "DSFA anlegen" else "Speichern", style = ButtonStyle.PRIMARY)
+    val saveButton = panel.button(if (existing == null) tr("DSFA anlegen") else tr("Speichern"), style = ButtonStyle.PRIMARY)
     saveButton.onClick {
         errorBox.hide()
         val title = titleInput.value.orEmpty().trim()
@@ -550,7 +565,7 @@ private fun renderDpiaForm(
         val statusValue = statusSelect.value
 
         if (!Validation.isNonBlank(title) || !Validation.isNonBlank(processingDescription) || statusValue == null) {
-            errorBox.content = "Bitte Titel, Verarbeitungsbeschreibung und Status angeben."
+            errorBox.content = tr("Bitte Titel, Verarbeitungsbeschreibung und Status angeben.")
             errorBox.show()
             return@onClick
         }
@@ -578,7 +593,8 @@ private fun renderDpiaForm(
                 }
             saveButton.disabled = false
             if (result != null) {
-                notifySuccess("DSFA \"$title\" wurde ${if (existing == null) "angelegt" else "aktualisiert"}.")
+                val actionWord = if (existing == null) gettext("angelegt") else gettext("aktualisiert")
+                notifySuccess(gettext("DSFA \"%1\" wurde %2.", title, actionWord))
                 if (existing == null) {
                     titleInput.value = null
                     processingDescriptionInput.value = null
@@ -599,15 +615,15 @@ private fun renderDpiaForm(
 
 private fun renderBreachTab(panel: SimplePanel) {
     val canManage = AppState.hasRole(AccountRole.BOARD, AccountRole.ADMIN)
-    panel.h2("Datenpannen")
+    panel.h2(tr("Datenpannen"))
 
     // D8(a): unconditional, non-dismissible, above everything else on this tab (X2).
     panel.div(breachBannerText()) { addCssClasses("alert alert-warning") }
 
     val filterRow = panel.hPanel(spacing = 8) { addCssClasses("align-items-center") }
-    val statusOptions = listOf("" to "Alle Status") + BreachStatus.entries.map { it.name to breachStatusLabel(it) }
-    val statusSelect = filterRow.select(options = statusOptions, value = "", label = "Status")
-    val filterButton = filterRow.button("Filtern", style = ButtonStyle.OUTLINESECONDARY)
+    val statusOptions = listOf("" to tr("Alle Status")) + BreachStatus.entries.map { it.name to breachStatusLabel(it) }
+    val statusSelect = filterRow.select(options = statusOptions, value = "", label = tr("Status"))
+    val filterButton = filterRow.button(tr("Filtern"), style = ButtonStyle.OUTLINESECONDARY)
 
     val listPanel = panel.vPanel(spacing = 6)
 
@@ -617,7 +633,7 @@ private fun renderBreachTab(panel: SimplePanel) {
         AppScope.launch {
             val incidents = guarded { rpcService<IDsgvoComplianceService>().listDataBreachIncidents(status) } ?: return@launch
             if (incidents.isEmpty()) {
-                listPanel.p("Noch keine Datenpannen erfasst.")
+                listPanel.p(tr("Noch keine Datenpannen erfasst."))
                 return@launch
             }
             // D7: OVERDUE first, then DUE_SOON, WITHIN_WINDOW, SATISFIED, each group by deadline
@@ -630,7 +646,7 @@ private fun renderBreachTab(panel: SimplePanel) {
     refreshList()
 
     if (canManage) {
-        panel.h2("Neue Datenpanne melden") { addCssClass("h5") }
+        panel.h2(tr("Neue Datenpanne melden")) { addCssClass("h5") }
         renderBreachCreationForm(panel, ::refreshList)
     }
 }
@@ -647,19 +663,28 @@ private fun renderBreachRow(
     headerRow.statusBadge(breachStatusLabel(incident.status), breachStatusColor(incident.status))
     // D7: deadline badge directly in the row header, next to the status badge -- never only in detail.
     headerRow.statusBadge(breachDeadlineStatusLabel(incident.deadlineStatus), breachDeadlineStatusColor(incident.deadlineStatus))
-    headerRow.div("Frist: ${incident.authorityNotificationDeadline}") { addCssClasses("flex-grow-1 text-muted small") }
+    headerRow.div(gettext("Frist: %1", incident.authorityNotificationDeadline)) { addCssClasses("flex-grow-1 text-muted small") }
 
     row.div(incident.description) { addCssClasses("small") }
-    row.div("Entdeckt am: ${incident.discoveredAt} · Betroffene Datenkategorien: ${incident.affectedDataCategories}") {
+    row.div(
+        gettext(
+            "Entdeckt am: %1 · Betroffene Datenkategorien: %2",
+            incident.discoveredAt,
+            incident.affectedDataCategories,
+        ),
+    ) {
         addCssClasses("text-muted small")
     }
+    val notifiedSuffix = incident.authorityNotifiedAt?.let { gettext(" · gemeldet am %1", it) } ?: ""
     row.div(
-        "Meldung an Aufsichtsbehörde erforderlich: ${triStateBooleanLabel(incident.authorityNotificationRequired)}" +
-            (incident.authorityNotifiedAt?.let { " · gemeldet am $it" } ?: ""),
+        gettext(
+            "Meldung an Aufsichtsbehörde erforderlich: %1",
+            triStateBooleanLabel(incident.authorityNotificationRequired),
+        ) + notifiedSuffix,
     ) { addCssClasses("text-muted small") }
 
     if (canManage) {
-        val editButton = row.button("Bearbeiten", style = ButtonStyle.OUTLINEPRIMARY)
+        val editButton = row.button(tr("Bearbeiten"), style = ButtonStyle.OUTLINEPRIMARY)
         val editPanel = row.vPanel(spacing = 6) { addCssClasses("border-top pt-2 mt-2") }
         editPanel.hide()
         var editOpen = false
@@ -692,42 +717,49 @@ private fun renderBreachForm(
     existing: DataBreachIncidentDto?,
     onSaved: () -> Unit,
 ) {
-    val riskOptions = listOf("" to "Nicht festgelegt") + RiskLevel.entries.map { it.name to riskLevelLabel(it) }
+    val riskOptions = listOf("" to tr("Nicht festgelegt")) + RiskLevel.entries.map { it.name to riskLevelLabel(it) }
     val statusOptions = BreachStatus.entries.map { it.name to breachStatusLabel(it) }
-    val requiredOptions = listOf("" to "Noch nicht festgelegt", "true" to "Ja", "false" to "Nein")
+    val requiredOptions = listOf("" to tr("Noch nicht festgelegt"), "true" to tr("Ja"), "false" to tr("Nein"))
 
     val discoveredAtInput =
-        panel.text(value = existing?.discoveredAt?.toString(), label = "Entdeckt am (JJJJ-MM-TTTHH:MM:SS) -- startet die 72h-Frist")
-    val descriptionInput = panel.textArea(value = existing?.description, label = "Beschreibung", rows = 3)
-    val affectedDataCategoriesInput = panel.text(value = existing?.affectedDataCategories, label = "Betroffene Datenkategorien")
+        panel.text(
+            value = existing?.discoveredAt?.toString(),
+            label = tr("Entdeckt am (JJJJ-MM-TTTHH:MM:SS) -- startet die 72h-Frist"),
+        )
+    val descriptionInput = panel.textArea(value = existing?.description, label = tr("Beschreibung"), rows = 3)
+    val affectedDataCategoriesInput = panel.text(value = existing?.affectedDataCategories, label = tr("Betroffene Datenkategorien"))
     val estimatedAffectedPersonsInput =
-        panel.text(value = existing?.estimatedAffectedPersons?.toString(), label = "Geschätzte Anzahl betroffener Personen (optional)")
-    val riskAssessmentInput = panel.textArea(value = existing?.riskAssessment, label = "Risikobewertung (optional)", rows = 2)
-    val riskLevelSelect = panel.select(options = riskOptions, value = existing?.riskLevel?.name ?: "", label = "Risikostufe")
+        panel.text(
+            value = existing?.estimatedAffectedPersons?.toString(),
+            label = tr("Geschätzte Anzahl betroffener Personen (optional)"),
+        )
+    val riskAssessmentInput = panel.textArea(value = existing?.riskAssessment, label = tr("Risikobewertung (optional)"), rows = 2)
+    val riskLevelSelect = panel.select(options = riskOptions, value = existing?.riskLevel?.name ?: "", label = tr("Risikostufe"))
     val authorityRequiredSelect =
         panel.select(
             options = requiredOptions,
             value = existing?.authorityNotificationRequired?.toString() ?: "",
-            label = "Meldung an Aufsichtsbehörde erforderlich (Ihre Entscheidung)",
+            label = tr("Meldung an Aufsichtsbehörde erforderlich (Ihre Entscheidung)"),
         )
     val authorityNotifiedAtInput =
         panel.text(
             value = existing?.authorityNotifiedAt?.toString(),
-            label = "Aufsichtsbehörde benachrichtigt am (JJJJ-MM-TTTHH:MM:SS, optional)",
+            label = tr("Aufsichtsbehörde benachrichtigt am (JJJJ-MM-TTTHH:MM:SS, optional)"),
         )
     val dataSubjectsNotifiedAtInput =
         panel.text(
             value = existing?.dataSubjectsNotifiedAt?.toString(),
-            label = "Betroffene Personen benachrichtigt am (JJJJ-MM-TTTHH:MM:SS, optional)",
+            label = tr("Betroffene Personen benachrichtigt am (JJJJ-MM-TTTHH:MM:SS, optional)"),
         )
-    val statusSelect = panel.select(options = statusOptions, value = (existing?.status ?: BreachStatus.REPORTED).name, label = "Status")
+    val statusSelect =
+        panel.select(options = statusOptions, value = (existing?.status ?: BreachStatus.REPORTED).name, label = tr("Status"))
     val errorBox =
         panel.div().apply {
             addCssClass("text-danger")
             hide()
         }
 
-    val saveButton = panel.button(if (existing == null) "Datenpanne melden" else "Speichern", style = ButtonStyle.PRIMARY)
+    val saveButton = panel.button(if (existing == null) tr("Datenpanne melden") else tr("Speichern"), style = ButtonStyle.PRIMARY)
     saveButton.onClick {
         errorBox.hide()
         val discoveredAt = parseRequiredDateTime(discoveredAtInput.value)
@@ -750,13 +782,15 @@ private fun renderBreachForm(
             statusValue == null
         ) {
             errorBox.content =
-                "Bitte einen gültigen Entdeckungszeitpunkt (JJJJ-MM-TTTHH:MM:SS), Beschreibung, betroffene " +
-                "Datenkategorien und Status angeben."
+                tr(
+                    "Bitte einen gültigen Entdeckungszeitpunkt (JJJJ-MM-TTTHH:MM:SS), Beschreibung, betroffene " +
+                        "Datenkategorien und Status angeben.",
+                )
             errorBox.show()
             return@onClick
         }
         if (hasInvalidEstimate || hasInvalidAuthorityNotifiedAt || hasInvalidDataSubjectsNotifiedAt) {
-            errorBox.content = "Bitte gültige Werte für die optionalen Felder verwenden, oder leer lassen."
+            errorBox.content = tr("Bitte gültige Werte für die optionalen Felder verwenden, oder leer lassen.")
             errorBox.show()
             return@onClick
         }
@@ -784,7 +818,8 @@ private fun renderBreachForm(
                 }
             saveButton.disabled = false
             if (result != null) {
-                notifySuccess("Datenpanne wurde ${if (existing == null) "gemeldet" else "aktualisiert"}.")
+                val actionWord = if (existing == null) gettext("gemeldet") else gettext("aktualisiert")
+                notifySuccess(gettext("Datenpanne wurde %1.", actionWord))
                 if (existing == null) {
                     discoveredAtInput.value = null
                     descriptionInput.value = null
@@ -805,22 +840,26 @@ private fun renderBreachForm(
 // ================================================================================================
 
 /** D11's exact inline caption for a `SIGNED`-but-now-inactive AVV row. */
-fun avvReviewOverdueCaption(): String = "Prüftermin überschritten -- als inaktiv markiert, bis neu geprüft."
+fun avvReviewOverdueCaption(): String = tr("Prüftermin überschritten -- als inaktiv markiert, bis neu geprüft.")
 
 /** D8(a)'s exact DSFA-tab banner copy. */
 fun dsfaBannerText(): String =
-    "Die Risikoeinstufung (LOW/MEDIUM/HIGH/CRITICAL) hier ist eine Visualisierungshilfe aus " +
-        "Eintrittswahrscheinlichkeit × Schadenshöhe -- keine Art. 35 DSGVO Erforderlichkeits-" +
-        "Feststellung. Ob eine Datenschutz-Folgenabschätzung tatsächlich erforderlich ist, legen " +
-        "ausschließlich Sie im Feld \"DSFA erforderlich\" fest; dieses System berechnet das nicht."
+    tr(
+        "Die Risikoeinstufung (LOW/MEDIUM/HIGH/CRITICAL) hier ist eine Visualisierungshilfe aus " +
+            "Eintrittswahrscheinlichkeit × Schadenshöhe -- keine Art. 35 DSGVO Erforderlichkeits-" +
+            "Feststellung. Ob eine Datenschutz-Folgenabschätzung tatsächlich erforderlich ist, legen " +
+            "ausschließlich Sie im Feld \"DSFA erforderlich\" fest; dieses System berechnet das nicht.",
+    )
 
 /** D8(a)'s exact Breach-tab banner copy. */
 fun breachBannerText(): String =
-    "Die angezeigte Frist ist die gesetzliche 72-Stunden-Uhr nach Art. 33 Abs. 1 DSGVO ab " +
-        "Kenntnisnahme -- sie entscheidet nicht, ob überhaupt eine Meldepflicht besteht (das legen " +
-        "ausschließlich Sie im Feld \"Meldung an Aufsichtsbehörde erforderlich\" fest) und ersetzt " +
-        "keine rechtliche Prüfung des Meldezeitpunkts. Bei einem echten Vorfall: " +
-        "Datenschutzbeauftragte/n oder Anwalt/Anwältin hinzuziehen."
+    tr(
+        "Die angezeigte Frist ist die gesetzliche 72-Stunden-Uhr nach Art. 33 Abs. 1 DSGVO ab " +
+            "Kenntnisnahme -- sie entscheidet nicht, ob überhaupt eine Meldepflicht besteht (das legen " +
+            "ausschließlich Sie im Feld \"Meldung an Aufsichtsbehörde erforderlich\" fest) und ersetzt " +
+            "keine rechtliche Prüfung des Meldezeitpunkts. Bei einem echten Vorfall: " +
+            "Datenschutzbeauftragte/n oder Anwalt/Anwältin hinzuziehen.",
+    )
 
 /** D7's exact display group order: `OVERDUE` first, then `DUE_SOON`, `WITHIN_WINDOW`, `SATISFIED`. */
 fun breachDeadlineDisplayRank(status: BreachDeadlineStatus): Int =
@@ -845,12 +884,15 @@ fun sortBreachIncidentsForDisplay(incidents: List<DataBreachIncidentDto>): List<
 /** Renders a `Boolean?` human-input field's three real states as plain text -- deliberately NOT a
  * colored badge, since this is always a human-entered legal call (`dpiaRequired`/
  * `authorityNotificationRequired`), not a lifecycle status or fixed classification this client
- * itself derives. */
+ * itself derives.
+ *
+ * gettext() (not tr()) -- this returns a plain String, not passed directly to a widget
+ * constructor, so tr()'s deferred marker never resolves. See I18nCatalogManager KDoc. */
 fun triStateBooleanLabel(value: Boolean?): String =
     when (value) {
-        true -> "Ja"
-        false -> "Nein"
-        null -> "Noch nicht festgelegt"
+        true -> gettext("Ja")
+        false -> gettext("Nein")
+        null -> gettext("Noch nicht festgelegt")
     }
 
 /** Inverse of [triStateBooleanLabel]'s underlying select value -- `""`/`null` means "not set". */

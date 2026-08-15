@@ -16,6 +16,8 @@ import io.kvision.html.h1
 import io.kvision.html.h2
 import io.kvision.html.link
 import io.kvision.html.p
+import io.kvision.i18n.gettext
+import io.kvision.i18n.tr
 import io.kvision.modal.Modal
 import io.kvision.panel.SimplePanel
 import io.kvision.panel.hPanel
@@ -106,18 +108,18 @@ fun renderLedgerScreen(container: SimplePanel) {
             width = 900.px
             marginTop = 24.px
         }
-    root.h1("Kontenplan & Journal")
+    root.h1(tr("Kontenplan & Journal"))
 
     // ---- Accounts (Kontenplan) -------------------------------------------------------------
-    root.h2("Konten (SKR42 Kontenplan)")
+    root.h2(tr("Konten (SKR42 Kontenplan)"))
     val accountsFilterRow = root.hPanel(spacing = 8) { addCssClasses("align-items-center") }
-    val includeInactiveAccountsCheck = accountsFilterRow.checkBox(label = "Inaktive Konten anzeigen")
-    val accountsRefreshButton = accountsFilterRow.button("Aktualisieren", style = ButtonStyle.OUTLINESECONDARY)
+    val includeInactiveAccountsCheck = accountsFilterRow.checkBox(label = tr("Inaktive Konten anzeigen"))
+    val accountsRefreshButton = accountsFilterRow.button(tr("Aktualisieren"), style = ButtonStyle.OUTLINESECONDARY)
     val accountListPanel = root.vPanel(spacing = 6)
 
-    root.h2("Kontodetails")
+    root.h2(tr("Kontodetails"))
     val accountDetailPanel = root.vPanel(spacing = 10)
-    accountDetailPanel.p("Konto oben auswählen, um Hauptbuch/Kassenbuch zu sehen.")
+    accountDetailPanel.p(tr("Konto oben auswählen, um Hauptbuch/Kassenbuch zu sehen."))
 
     fun selectAccount(account: LedgerAccountDto) {
         renderAccountDrillDown(accountDetailPanel, account)
@@ -131,7 +133,7 @@ fun renderLedgerScreen(container: SimplePanel) {
                     rpcService<IAccountingService>().listLedgerAccounts(activeOnly = !includeInactiveAccountsCheck.value)
                 } ?: return@launch
             if (accounts.isEmpty()) {
-                accountListPanel.p("Noch keine Konten angelegt.")
+                accountListPanel.p(tr("Noch keine Konten angelegt."))
                 return@launch
             }
             accounts.sortedBy { it.accountNumber }.forEach { account ->
@@ -143,22 +145,22 @@ fun renderLedgerScreen(container: SimplePanel) {
     refreshAccounts()
 
     if (canManage) {
-        root.h2("Neues Konto anlegen")
+        root.h2(tr("Neues Konto anlegen"))
         renderAccountCreationForm(root, ::refreshAccounts)
     }
 
     // ---- Journal (Grundbuch) --------------------------------------------------------------
-    root.h2("Journal (Grundbuch)")
+    root.h2(tr("Journal (Grundbuch)"))
     val journalFilterRow = root.hPanel(spacing = 8) { addCssClasses("align-items-center") }
-    val journalDateFilter = journalFilterRow.dateRangeFilter(toLabel = "Bis (JJJJ-MM-TT, optional)")
-    val journalStatusOptions = listOf("" to "Alle Status") + JournalEntryStatus.entries.map { it.name to journalEntryStatusLabel(it) }
-    val journalStatusSelect = journalFilterRow.select(options = journalStatusOptions, value = "", label = "Status")
-    val journalRefreshButton = journalFilterRow.button("Aktualisieren", style = ButtonStyle.OUTLINESECONDARY)
+    val journalDateFilter = journalFilterRow.dateRangeFilter(toLabel = tr("Bis (JJJJ-MM-TT, optional)"))
+    val journalStatusOptions = listOf("" to tr("Alle Status")) + JournalEntryStatus.entries.map { it.name to journalEntryStatusLabel(it) }
+    val journalStatusSelect = journalFilterRow.select(options = journalStatusOptions, value = "", label = tr("Status"))
+    val journalRefreshButton = journalFilterRow.button(tr("Aktualisieren"), style = ButtonStyle.OUTLINESECONDARY)
     val journalListPanel = root.vPanel(spacing = 6)
 
-    root.h2("Journaldetails")
+    root.h2(tr("Journaldetails"))
     val journalDetailPanel = root.vPanel(spacing = 10)
-    journalDetailPanel.p("Buchung oben auswählen, um Details zu sehen.")
+    journalDetailPanel.p(tr("Buchung oben auswählen, um Details zu sehen."))
 
     var newEntryPrefill: ((JournalEntryDto) -> Unit)? = null
     var currentJournalEntryId: String? = null
@@ -197,7 +199,7 @@ fun renderLedgerScreen(container: SimplePanel) {
                     rpcService<IAccountingService>().listJournal(journalDateFilter.parseFrom(), journalDateFilter.parseTo(), status)
                 } ?: return@launch
             if (entries.isEmpty()) {
-                journalListPanel.p("Keine Buchungen im gewählten Zeitraum.")
+                journalListPanel.p(tr("Keine Buchungen im gewählten Zeitraum."))
                 return@launch
             }
             entries.forEach { entry ->
@@ -214,9 +216,9 @@ fun renderLedgerScreen(container: SimplePanel) {
     refreshJournal()
 
     if (canManage) {
-        root.h2("Neue Buchung")
+        root.h2(tr("Neue Buchung"))
         val newEntryPanel = root.vPanel(spacing = 6)
-        newEntryPanel.p("Wird geladen …") { addCssClasses("text-muted small") }
+        newEntryPanel.p(tr("Wird geladen …")) { addCssClasses("text-muted small") }
         AppScope.launch {
             val accounts = guarded { rpcService<IAccountingService>().listLedgerAccounts(activeOnly = true) } ?: emptyList()
             val costCenters = guarded { rpcService<IAccountingService>().listCostCenters(activeOnly = true) } ?: emptyList()
@@ -226,7 +228,7 @@ fun renderLedgerScreen(container: SimplePanel) {
 
             newEntryPanel.removeAll()
             if (accounts.isEmpty()) {
-                newEntryPanel.p("Noch keine aktiven Konten -- zuerst oben mindestens zwei Konten anlegen.")
+                newEntryPanel.p(tr("Noch keine aktiven Konten -- zuerst oben mindestens zwei Konten anlegen."))
                 return@launch
             }
             newEntryPrefill =
@@ -256,33 +258,37 @@ private fun renderAccountRow(
 ) {
     val row = panel.vPanel(spacing = 4) { addCssClasses("border rounded p-2") }
     val headerRow = row.hPanel(spacing = 8) { addCssClasses("align-items-center") }
-    headerRow.div("${account.accountNumber} · ${account.name}") { addCssClasses("flex-grow-1 fw-bold") }
+    headerRow.div(gettext("%1 · %2", account.accountNumber, account.name)) { addCssClasses("flex-grow-1 fw-bold") }
     headerRow.typeBadge(ledgerAccountTypeLabel(account.type), ledgerAccountTypeColor(account.type))
     headerRow.activeStatusBadge(account.active)
 
-    val metaParts = mutableListOf("Kontenklasse ${account.accountClass}")
+    val metaParts = mutableListOf(gettext("Kontenklasse %1", account.accountClass))
     account.reserveType?.let { metaParts.add(reserveTypeLabel(it)) }
-    if (account.isCashRegister) metaParts.add("Kasse")
+    if (account.isCashRegister) metaParts.add(tr("Kasse"))
     row.div(metaParts.joinToString(" · ")) { addCssClasses("text-muted small") }
 
     val actionRow = row.hPanel(spacing = 8)
-    val showButton = actionRow.button("Details anzeigen", style = ButtonStyle.OUTLINESECONDARY)
+    val showButton = actionRow.button(tr("Details anzeigen"), style = ButtonStyle.OUTLINESECONDARY)
     showButton.onClick { onSelect(account) }
 
     if (canManage && account.active) {
-        val deactivateButton = actionRow.button("Deaktivieren", style = ButtonStyle.OUTLINEDANGER)
+        val deactivateButton = actionRow.button(tr("Deaktivieren"), style = ButtonStyle.OUTLINEDANGER)
         deactivateButton.onClick {
             confirmDialog(
-                title = "Konto deaktivieren",
+                title = tr("Konto deaktivieren"),
                 message =
-                    "\"${account.accountNumber} · ${account.name}\" wirklich deaktivieren? Bestehende Buchungen " +
-                        "bleiben erhalten, das Konto steht aber für neue Buchungen nicht mehr zur Verfügung.",
-                confirmLabel = "Deaktivieren",
+                    gettext(
+                        "\"%1 · %2\" wirklich deaktivieren? Bestehende Buchungen bleiben erhalten, das Konto steht " +
+                            "aber für neue Buchungen nicht mehr zur Verfügung.",
+                        account.accountNumber,
+                        account.name,
+                    ),
+                confirmLabel = tr("Deaktivieren"),
             ) {
                 AppScope.launch {
                     val result = guarded { rpcService<IAccountingService>().deactivateLedgerAccount(account.id) }
                     if (result != null) {
-                        notifyInfo("Konto wurde deaktiviert.")
+                        notifyInfo(tr("Konto wurde deaktiviert."))
                         onChanged()
                     }
                 }
@@ -303,15 +309,15 @@ private fun renderAccountCreationForm(
 ) {
     val typeOptions = LedgerAccountType.entries.map { it.name to ledgerAccountTypeLabel(it) }
     val panel = root.vPanel(spacing = 6)
-    val numberInput = panel.text(label = "Kontonummer (SKR42)")
-    val nameInput = panel.text(label = "Name")
-    val classInput = panel.text(label = "Kontenklasse (erste Ziffer der Kontonummer, 0-9)")
-    val typeSelect = panel.select(options = typeOptions, value = LedgerAccountType.ASSET.name, label = "Kontotyp")
-    val reserveOptions = listOf("" to "-- keine Rücklage --") + ReserveType.entries.map { it.name to reserveTypeLabel(it) }
-    val reserveSelect = panel.select(options = reserveOptions, value = "", label = "Rücklagenart")
-    panel.div("Nur bei Kontotyp „Eigenkapitalkonto\" wählbar.") { addCssClasses("text-muted small") }
-    val cashRegisterCheck = panel.checkBox(label = "Kasse (Kassenbuch-fähig)")
-    panel.div("Nur bei Kontotyp „Aktivkonto\" wählbar.") { addCssClasses("text-muted small") }
+    val numberInput = panel.text(label = tr("Kontonummer (SKR42)"))
+    val nameInput = panel.text(label = tr("Name"))
+    val classInput = panel.text(label = tr("Kontenklasse (erste Ziffer der Kontonummer, 0-9)"))
+    val typeSelect = panel.select(options = typeOptions, value = LedgerAccountType.ASSET.name, label = tr("Kontotyp"))
+    val reserveOptions = listOf("" to tr("-- keine Rücklage --")) + ReserveType.entries.map { it.name to reserveTypeLabel(it) }
+    val reserveSelect = panel.select(options = reserveOptions, value = "", label = tr("Rücklagenart"))
+    panel.div(tr("Nur bei Kontotyp „Eigenkapitalkonto\" wählbar.")) { addCssClasses("text-muted small") }
+    val cashRegisterCheck = panel.checkBox(label = tr("Kasse (Kassenbuch-fähig)"))
+    panel.div(tr("Nur bei Kontotyp „Aktivkonto\" wählbar.")) { addCssClasses("text-muted small") }
     val errorBox =
         panel.div().apply {
             addCssClass("text-danger")
@@ -329,7 +335,7 @@ private fun renderAccountCreationForm(
     applyTypeGating(typeSelect.value)
     typeSelect.subscribe { applyTypeGating(it) }
 
-    val createButton = panel.button("Konto anlegen", style = ButtonStyle.PRIMARY)
+    val createButton = panel.button(tr("Konto anlegen"), style = ButtonStyle.PRIMARY)
     createButton.onClick {
         errorBox.hide()
         val accountNumber = numberInput.value.orEmpty().trim()
@@ -347,7 +353,7 @@ private fun renderAccountCreationForm(
             accountClass !in 0..9 ||
             typeValue == null
         ) {
-            errorBox.content = "Bitte Kontonummer, Name, Kontenklasse (0-9) und Kontotyp angeben."
+            errorBox.content = tr("Bitte Kontonummer, Name, Kontenklasse (0-9) und Kontotyp angeben.")
             errorBox.show()
             return@onClick
         }
@@ -379,7 +385,7 @@ private fun renderAccountCreationForm(
                 }
             createButton.disabled = false
             if (result != null) {
-                notifySuccess("Konto \"$accountNumber · $name\" wurde angelegt.")
+                notifySuccess(gettext("Konto \"%1 · %2\" wurde angelegt.", accountNumber, name))
                 numberInput.value = null
                 nameInput.value = null
                 classInput.value = null
@@ -404,14 +410,14 @@ private fun renderAccountDrillDown(
 ) {
     panel.removeAll()
     val headerRow = panel.hPanel(spacing = 8) { addCssClasses("align-items-center") }
-    headerRow.div("${account.accountNumber} · ${account.name}") { addCssClasses("flex-grow-1 fw-bold") }
+    headerRow.div(gettext("%1 · %2", account.accountNumber, account.name)) { addCssClasses("flex-grow-1 fw-bold") }
     headerRow.typeBadge(ledgerAccountTypeLabel(account.type), ledgerAccountTypeColor(account.type))
     account.reserveType?.let { headerRow.typeBadge(reserveTypeLabel(it), reserveTypeColor(it)) }
     headerRow.activeStatusBadge(account.active)
 
     val toggleRow = panel.hPanel(spacing = 8)
-    val hauptbuchButton = toggleRow.button("Hauptbuch", style = ButtonStyle.OUTLINEPRIMARY)
-    val kassenbuchButton = if (account.isCashRegister) toggleRow.button("Kassenbuch", style = ButtonStyle.OUTLINEPRIMARY) else null
+    val hauptbuchButton = toggleRow.button(tr("Hauptbuch"), style = ButtonStyle.OUTLINEPRIMARY)
+    val kassenbuchButton = if (account.isCashRegister) toggleRow.button(tr("Kassenbuch"), style = ButtonStyle.OUTLINEPRIMARY) else null
     val contentPanel = panel.vPanel(spacing = 8)
 
     hauptbuchButton.onClick {
@@ -429,13 +435,13 @@ private fun renderHauptbuchView(
     panel: SimplePanel,
     account: LedgerAccountDto,
 ) {
-    val filterControls = panel.dateRangeFilter(toLabel = "Bis (JJJJ-MM-TT, optional)")
-    val loadButton = panel.button("Laden", style = ButtonStyle.OUTLINESECONDARY)
+    val filterControls = panel.dateRangeFilter(toLabel = tr("Bis (JJJJ-MM-TT, optional)"))
+    val loadButton = panel.button(tr("Laden"), style = ButtonStyle.OUTLINESECONDARY)
     val linesPanel = panel.vPanel(spacing = 2)
 
     fun load() {
         linesPanel.removeAll()
-        linesPanel.p("Wird geladen …") { addCssClasses("text-muted small") }
+        linesPanel.p(tr("Wird geladen …")) { addCssClasses("text-muted small") }
         AppScope.launch {
             val ledger =
                 guarded {
@@ -448,21 +454,21 @@ private fun renderHauptbuchView(
             linesPanel.removeAll()
 
             val headerRow = linesPanel.hPanel(spacing = 8) { addCssClasses("fw-bold border-bottom pb-1") }
-            headerRow.div("Datum") { width = 100.px }
-            headerRow.div("Beschreibung") { addCssClasses("flex-grow-1") }
-            headerRow.div("Soll") { width = 110.px }
-            headerRow.div("Haben") { width = 110.px }
-            headerRow.div("Saldo") { width = 110.px }
+            headerRow.div(tr("Datum")) { width = 100.px }
+            headerRow.div(tr("Beschreibung")) { addCssClasses("flex-grow-1") }
+            headerRow.div(tr("Soll")) { width = 110.px }
+            headerRow.div(tr("Haben")) { width = 110.px }
+            headerRow.div(tr("Saldo")) { width = 110.px }
 
             val openingRow = linesPanel.hPanel(spacing = 8) { addCssClasses("border-bottom py-1") }
             openingRow.div("") { width = 100.px }
-            openingRow.div("Eröffnungssaldo") { addCssClasses("flex-grow-1 fst-italic text-muted") }
+            openingRow.div(tr("Eröffnungssaldo")) { addCssClasses("flex-grow-1 fst-italic text-muted") }
             openingRow.div("") { width = 110.px }
             openingRow.div("") { width = 110.px }
             openingRow.div(formatMoney(ledger.openingBalance)) { width = 110.px }
 
             if (ledger.lines.isEmpty()) {
-                linesPanel.p("Keine Buchungen im gewählten Zeitraum.")
+                linesPanel.p(tr("Keine Buchungen im gewählten Zeitraum."))
             }
             ledger.lines.forEach { line ->
                 val row = linesPanel.hPanel(spacing = 8) { addCssClasses("border-bottom py-1") }
@@ -475,7 +481,7 @@ private fun renderHauptbuchView(
 
             val closingRow = linesPanel.hPanel(spacing = 8) { addCssClasses("fw-bold border-top pt-1") }
             closingRow.div("") { width = 100.px }
-            closingRow.div("Schlusssaldo") { addCssClasses("flex-grow-1") }
+            closingRow.div(tr("Schlusssaldo")) { addCssClasses("flex-grow-1") }
             closingRow.div("") { width = 110.px }
             closingRow.div("") { width = 110.px }
             closingRow.div(formatMoney(ledger.closingBalance)) { width = 110.px }
@@ -489,13 +495,13 @@ private fun renderKassenbuchView(
     panel: SimplePanel,
     account: LedgerAccountDto,
 ) {
-    val filterControls = panel.dateRangeFilter(toLabel = "Bis (JJJJ-MM-TT, optional)")
-    val loadButton = panel.button("Laden", style = ButtonStyle.OUTLINESECONDARY)
+    val filterControls = panel.dateRangeFilter(toLabel = tr("Bis (JJJJ-MM-TT, optional)"))
+    val loadButton = panel.button(tr("Laden"), style = ButtonStyle.OUTLINESECONDARY)
     val linesPanel = panel.vPanel(spacing = 2)
 
     fun load() {
         linesPanel.removeAll()
-        linesPanel.p("Wird geladen …") { addCssClasses("text-muted small") }
+        linesPanel.p(tr("Wird geladen …")) { addCssClasses("text-muted small") }
         AppScope.launch {
             val kassenbuch =
                 guarded {
@@ -504,25 +510,25 @@ private fun renderKassenbuchView(
             linesPanel.removeAll()
 
             val headerRow = linesPanel.hPanel(spacing = 8) { addCssClasses("fw-bold border-bottom pb-1") }
-            headerRow.div("Nr.") { width = 50.px }
-            headerRow.div("Datum") { width = 100.px }
-            headerRow.div("Beschreibung") { addCssClasses("flex-grow-1") }
-            headerRow.div("Beleg") { width = 110.px }
-            headerRow.div("Einnahme") { width = 110.px }
-            headerRow.div("Ausgabe") { width = 110.px }
-            headerRow.div("Saldo") { width = 110.px }
+            headerRow.div(tr("Nr.")) { width = 50.px }
+            headerRow.div(tr("Datum")) { width = 100.px }
+            headerRow.div(tr("Beschreibung")) { addCssClasses("flex-grow-1") }
+            headerRow.div(tr("Beleg")) { width = 110.px }
+            headerRow.div(tr("Einnahme")) { width = 110.px }
+            headerRow.div(tr("Ausgabe")) { width = 110.px }
+            headerRow.div(tr("Saldo")) { width = 110.px }
 
             val openingRow = linesPanel.hPanel(spacing = 8) { addCssClasses("border-bottom py-1") }
             openingRow.div("") { width = 50.px }
             openingRow.div("") { width = 100.px }
-            openingRow.div("Eröffnungssaldo") { addCssClasses("flex-grow-1 fst-italic text-muted") }
+            openingRow.div(tr("Eröffnungssaldo")) { addCssClasses("flex-grow-1 fst-italic text-muted") }
             openingRow.div("") { width = 110.px }
             openingRow.div("") { width = 110.px }
             openingRow.div("") { width = 110.px }
             openingRow.div(formatMoney(kassenbuch.openingBalance)) { width = 110.px }
 
             if (kassenbuch.lines.isEmpty()) {
-                linesPanel.p("Keine Buchungen im gewählten Zeitraum.")
+                linesPanel.p(tr("Keine Buchungen im gewählten Zeitraum."))
             }
             kassenbuch.lines.forEach { line ->
                 val row = linesPanel.hPanel(spacing = 8) { addCssClasses("border-bottom py-1") }
@@ -538,7 +544,7 @@ private fun renderKassenbuchView(
             val closingRow = linesPanel.hPanel(spacing = 8) { addCssClasses("fw-bold border-top pt-1") }
             closingRow.div("") { width = 50.px }
             closingRow.div("") { width = 100.px }
-            closingRow.div("Schlusssaldo") { addCssClasses("flex-grow-1") }
+            closingRow.div(tr("Schlusssaldo")) { addCssClasses("flex-grow-1") }
             closingRow.div("") { width = 110.px }
             closingRow.div("") { width = 110.px }
             closingRow.div("") { width = 110.px }
@@ -572,10 +578,12 @@ private fun renderJournalRow(
     headerRow.statusBadge(journalEntryStatusLabel(entry.status), journalEntryStatusColor(entry.status))
 
     val postingsCount = entry.postings.size
-    val postingsNoun = if (postingsCount == 1) "1 Buchungszeile" else "$postingsCount Buchungszeilen"
-    row.div("${entry.entryDate} · $postingsNoun · erfasst von ${entry.createdByDisplayName}") { addCssClasses("text-muted small") }
+    val postingsNoun = if (postingsCount == 1) gettext("1 Buchungszeile") else gettext("%1 Buchungszeilen", postingsCount)
+    row.div(gettext("%1 · %2 · erfasst von %3", entry.entryDate, postingsNoun, entry.createdByDisplayName)) {
+        addCssClasses("text-muted small")
+    }
 
-    val showButton = row.button("Details anzeigen", style = ButtonStyle.OUTLINESECONDARY)
+    val showButton = row.button(tr("Details anzeigen"), style = ButtonStyle.OUTLINESECONDARY)
     showButton.onClick { onSelect(entry.id) }
 }
 
@@ -591,7 +599,7 @@ private fun renderJournalEntryDetail(
     onDuplicate: (JournalEntryDto) -> Unit,
 ) {
     panel.removeAll()
-    panel.p("Wird geladen …")
+    panel.p(tr("Wird geladen …"))
     AppScope.launch {
         val entry = guarded { rpcService<IAccountingService>().getJournalEntry(entryId) } ?: return@launch
         panel.removeAll()
@@ -602,17 +610,21 @@ private fun renderJournalEntryDetail(
 
         val caption =
             if (entry.status == JournalEntryStatus.DRAFT) {
-                "Entwurf von ${entry.createdByDisplayName} am ${entry.createdAt} -- noch nicht Teil offizieller Berichte."
+                gettext(
+                    "Entwurf von %1 am %2 -- noch nicht Teil offizieller Berichte.",
+                    entry.createdByDisplayName,
+                    entry.createdAt,
+                )
             } else {
-                "Gebucht am ${entry.postedAt} von ${entry.createdByDisplayName} -- unveränderlich."
+                gettext("Gebucht am %1 von %2 -- unveränderlich.", entry.postedAt, entry.createdByDisplayName)
             }
         panel.div(caption) { addCssClasses("text-muted small") }
-        panel.div("Datum: ${entry.entryDate}") { addCssClasses("text-muted small") }
-        entry.voucherReference?.let { panel.div("Beleg: $it") { addCssClasses("text-muted small") } }
+        panel.div(gettext("Datum: %1", entry.entryDate)) { addCssClasses("text-muted small") }
+        entry.voucherReference?.let { panel.div(gettext("Beleg: %1", it)) { addCssClasses("text-muted small") } }
 
         renderDonorInfo(panel, entry)
 
-        panel.h2("Buchungszeilen") { addCssClass("h6") }
+        panel.h2(tr("Buchungszeilen")) { addCssClass("h6") }
         renderPostingsTable(panel, entry.postings)
 
         if (entry.status == JournalEntryStatus.DRAFT && canManage) {
@@ -620,13 +632,15 @@ private fun renderJournalEntryDetail(
             // path, so a wrong draft can only be superseded, never corrected in place.
             val callout = panel.vPanel(spacing = 4) { addCssClasses("alert alert-light border") }
             callout.div(
-                "Entwürfe können nicht nachträglich geändert oder gelöscht werden. Ist dieser Entwurf " +
-                    "fehlerhaft, nutzen Sie „Als neuen Entwurf duplizieren\" unten, um eine korrigierte Kopie zu " +
-                    "erstellen, und lassen Sie diesen Entwurf ungebucht liegen.",
+                tr(
+                    "Entwürfe können nicht nachträglich geändert oder gelöscht werden. Ist dieser Entwurf " +
+                        "fehlerhaft, nutzen Sie „Als neuen Entwurf duplizieren\" unten, um eine korrigierte Kopie zu " +
+                        "erstellen, und lassen Sie diesen Entwurf ungebucht liegen.",
+                ),
             )
 
             val actionRow = panel.hPanel(spacing = 8)
-            val postButton = actionRow.button("Buchen", style = ButtonStyle.PRIMARY)
+            val postButton = actionRow.button(tr("Buchen"), style = ButtonStyle.PRIMARY)
             postButton.onClick {
                 postingConfirmDialog(entry.entryDate, entry.description, entry.voucherReference, postingDtosToDisplay(entry.postings)) {
                     // The confirm modal itself hides on the first click of "Endgültig buchen", which
@@ -643,13 +657,13 @@ private fun renderJournalEntryDetail(
                         val result = guarded { rpcService<IAccountingService>().postDraftEntry(entry.id) }
                         postButton.disabled = false
                         if (result != null) {
-                            notifySuccess("Buchung wurde gebucht.")
+                            notifySuccess(tr("Buchung wurde gebucht."))
                             onChanged()
                         }
                     }
                 }
             }
-            val duplicateButton = actionRow.button("Als neuen Entwurf duplizieren", style = ButtonStyle.OUTLINESECONDARY)
+            val duplicateButton = actionRow.button(tr("Als neuen Entwurf duplizieren"), style = ButtonStyle.OUTLINESECONDARY)
             duplicateButton.onClick { onDuplicate(entry) }
         }
     }
@@ -661,9 +675,9 @@ private fun renderDonorInfo(
 ) {
     val label =
         when {
-            entry.donorMemberId != null -> "Spender: Mitglied ${entry.donorMemberDisplayName}"
-            entry.externalDonorId != null -> "Spender: ${entry.externalDonorDisplayName} (extern)"
-            entry.donorCategory == DonorCategory.ANONYMOUS -> "Spender: ausdrücklich anonym"
+            entry.donorMemberId != null -> gettext("Spender: Mitglied %1", entry.donorMemberDisplayName)
+            entry.externalDonorId != null -> gettext("Spender: %1 (extern)", entry.externalDonorDisplayName)
+            entry.donorCategory == DonorCategory.ANONYMOUS -> tr("Spender: ausdrücklich anonym")
             else -> null
         }
     if (label != null) {
@@ -676,7 +690,7 @@ private fun renderDonorInfo(
     // or anonymous entries have no `/api/mailmerge/donations/{id}/receipt.pdf` route to link to).
     if (entry.status == JournalEntryStatus.POSTED && entry.donorMemberId != null) {
         val actionRow = panel.hPanel(spacing = 8) { addCssClasses("align-items-center") }
-        actionRow.link("Spendenbescheinigung (PDF)", url = MailmergeHttp.receiptUrl(entry.id), target = "_blank")
+        actionRow.link(tr("Spendenbescheinigung (PDF)"), url = MailmergeHttp.receiptUrl(entry.id), target = "_blank")
         val outcomePanel = panel.vPanel(spacing = 2)
 
         // D5/D7: postal dispatch trigger next to the PDF link, same TREASURER/BOARD/ADMIN tier as
@@ -684,12 +698,12 @@ private fun renderDonorInfo(
         // this block only exists for a POSTED entry with a donor attribution in the first place.
         AppScope.launch {
             if (isPostalMailEnabled()) {
-                val postalButton = actionRow.button("Per Post versenden", style = ButtonStyle.OUTLINEDANGER)
+                val postalButton = actionRow.button(tr("Per Post versenden"), style = ButtonStyle.OUTLINEDANGER)
                 postalButton.onClick {
                     postalDispatchConfirmDialog(
-                        caption = "Spendenbescheinigung per Post versenden",
+                        caption = tr("Spendenbescheinigung per Post versenden"),
                         recipientDisplayName = entry.donorMemberDisplayName ?: entry.donorMemberId.orEmpty(),
-                        documentLabel = "Spendenbescheinigung ${entry.entryDate}",
+                        documentLabel = gettext("Spendenbescheinigung %1", entry.entryDate),
                     ) {
                         postalButton.disabled = true
                         outcomePanel.removeAll()
@@ -698,9 +712,9 @@ private fun renderDonorInfo(
                             postalButton.disabled = false
                             if (result != null) {
                                 if (result.status == PostalDeliveryStatus.SENT) {
-                                    notifySuccess("Brief an ${result.recipientDisplayName} wurde an Letterxpress übergeben.")
+                                    notifySuccess(gettext("Brief an %1 wurde an Letterxpress übergeben.", result.recipientDisplayName))
                                 } else {
-                                    notifyError("Postversand fehlgeschlagen.")
+                                    notifyError(tr("Postversand fehlgeschlagen."))
                                 }
                                 outcomePanel.renderPostalDispatchOutcome(result)
                             }
@@ -721,19 +735,19 @@ private fun renderPostingsTable(
     postings: List<PostingDto>,
 ) {
     if (postings.isEmpty()) {
-        panel.p("Keine Buchungszeilen.")
+        panel.p(tr("Keine Buchungszeilen."))
         return
     }
     val headerRow = panel.hPanel(spacing = 8) { addCssClasses("fw-bold border-bottom pb-1") }
-    headerRow.div("Konto") { addCssClasses("flex-grow-1") }
-    headerRow.div("Soll") { width = 110.px }
-    headerRow.div("Haben") { width = 110.px }
-    headerRow.div("Sphäre") { width = 200.px }
-    headerRow.div("Kostenstelle") { width = 150.px }
+    headerRow.div(tr("Konto")) { addCssClasses("flex-grow-1") }
+    headerRow.div(tr("Soll")) { width = 110.px }
+    headerRow.div(tr("Haben")) { width = 110.px }
+    headerRow.div(tr("Sphäre")) { width = 200.px }
+    headerRow.div(tr("Kostenstelle")) { width = 150.px }
 
     postings.forEach { posting ->
         val row = panel.hPanel(spacing = 8) { addCssClasses("border-bottom py-1 align-items-center") }
-        row.div("${posting.ledgerAccountNumber} · ${posting.ledgerAccountName}") { addCssClasses("flex-grow-1") }
+        row.div(gettext("%1 · %2", posting.ledgerAccountNumber, posting.ledgerAccountName)) { addCssClasses("flex-grow-1") }
         row.div(if (posting.side == PostingSide.DEBIT) formatMoney(posting.amount) else "") { width = 110.px }
         row.div(if (posting.side == PostingSide.CREDIT) formatMoney(posting.amount) else "") { width = 110.px }
         val sphereCell = row.div { width = 200.px }
@@ -743,7 +757,7 @@ private fun renderPostingsTable(
                 width = 150.px
                 addCssClasses("text-muted small")
             }
-        costCenterCell.content = posting.costCenterCode?.let { "$it · ${posting.costCenterName}" } ?: "--"
+        costCenterCell.content = posting.costCenterCode?.let { gettext("%1 · %2", it, posting.costCenterName) } ?: "--"
     }
 }
 
@@ -775,20 +789,21 @@ private fun renderNewEntryForm(
     onSaved: () -> Unit,
 ): (JournalEntryDto) -> Unit {
     val panel = root.vPanel(spacing = 8)
-    val dateInput = panel.text(value = todayIso(), label = "Datum (JJJJ-MM-TT)")
-    val descriptionInput = panel.text(label = "Beschreibung")
-    val voucherInput = panel.text(label = "Belegnummer (optional)")
+    val dateInput = panel.text(value = todayIso(), label = tr("Datum (JJJJ-MM-TT)"))
+    val descriptionInput = panel.text(label = tr("Beschreibung"))
+    val voucherInput = panel.text(label = tr("Belegnummer (optional)"))
 
-    panel.p("Buchungszeilen") { addCssClass("fw-bold") }
+    panel.p(tr("Buchungszeilen")) { addCssClass("fw-bold") }
     val rowsPanel = panel.vPanel(spacing = 4)
     val rows = mutableListOf<PostingLineRow>()
 
-    val accountOptions = listOf("" to "-- Konto wählen --") + accounts.map { it.id to "${it.accountNumber} · ${it.name}" }
+    val accountOptions =
+        listOf("" to tr("-- Konto wählen --")) + accounts.map { it.id to gettext("%1 · %2", it.accountNumber, it.name) }
     val sideOptions = PostingSide.entries.map { it.name to postingSideLabel(it) }
     // GemeinnuetzigkeitSphere KDoc: no escape-hatch literal, no default -- the blank placeholder
     // option makes "not yet chosen" visible in the actual rendered <select>, not just internally.
-    val sphereOptions = listOf("" to "-- Sphäre wählen --") + GemeinnuetzigkeitSphere.entries.map { it.name to sphereLabel(it) }
-    val costCenterOptions = listOf("" to "-- keine --") + costCenters.map { it.id to "${it.code} · ${it.name}" }
+    val sphereOptions = listOf("" to tr("-- Sphäre wählen --")) + GemeinnuetzigkeitSphere.entries.map { it.name to sphereLabel(it) }
+    val costCenterOptions = listOf("" to tr("-- keine --")) + costCenters.map { it.id to gettext("%1 · %2", it.code, it.name) }
 
     fun addRow(
         accountId: String = "",
@@ -813,38 +828,39 @@ private fun renderNewEntryForm(
     }
     addRow()
     addRow()
-    val addRowButton = panel.button("Buchungszeile hinzufügen", style = ButtonStyle.OUTLINESECONDARY)
+    val addRowButton = panel.button(tr("Buchungszeile hinzufügen"), style = ButtonStyle.OUTLINESECONDARY)
     addRowButton.onClick { addRow() }
 
     // D13 donor block
-    panel.p("Spender-Zuordnung (optional)") { addCssClass("fw-bold") }
+    panel.p(tr("Spender-Zuordnung (optional)")) { addCssClass("fw-bold") }
     panel.div(
         if (isPoliticalParty) {
-            "(optional -- bei Zuordnung greifen die §25-PartG-Spendenannahme-Prüfungen dieser Partei)"
+            tr("(optional -- bei Zuordnung greifen die §25-PartG-Spendenannahme-Prüfungen dieser Partei)")
         } else {
-            "(optional, für Spendenbescheinigungen)"
+            tr("(optional, für Spendenbescheinigungen)")
         },
     ) { addCssClasses("text-muted small") }
     val donorChoiceOptions =
         listOf(
-            "" to "-- kein Spender --",
-            "MEMBER" to "Mitglied",
-            "EXTERNAL" to "Externer Spender",
-            "ANONYMOUS" to "Ausdrücklich anonym",
+            "" to tr("-- kein Spender --"),
+            "MEMBER" to tr("Mitglied"),
+            "EXTERNAL" to tr("Externer Spender"),
+            "ANONYMOUS" to tr("Ausdrücklich anonym"),
         )
-    val donorChoiceSelect = panel.select(options = donorChoiceOptions, value = "", label = "Spendertyp")
+    val donorChoiceSelect = panel.select(options = donorChoiceOptions, value = "", label = tr("Spendertyp"))
 
     val memberPanel = panel.vPanel(spacing = 4)
-    val memberSelect = memberPanel.select(options = members.map { it.id to it.displayName }, label = "Mitglied")
+    val memberSelect = memberPanel.select(options = members.map { it.id to it.displayName }, label = tr("Mitglied"))
     val naturalPersonFirst =
         listOf(DonorCategory.GERMAN_NATURAL_PERSON, DonorCategory.EU_NATURAL_PERSON, DonorCategory.NON_EU_FOREIGN_NATURAL_PERSON)
     val donorCategoryOrder = naturalPersonFirst + (DonorCategory.entries - naturalPersonFirst.toSet())
     val memberCategoryOptions =
-        listOf("" to "-- Spenderkategorie wählen --") + donorCategoryOrder.map { it.name to donorCategoryLabel(it) }
-    val memberCategorySelect = memberPanel.select(options = memberCategoryOptions, value = "", label = "Spenderkategorie")
+        listOf("" to tr("-- Spenderkategorie wählen --")) + donorCategoryOrder.map { it.name to donorCategoryLabel(it) }
+    val memberCategorySelect = memberPanel.select(options = memberCategoryOptions, value = "", label = tr("Spenderkategorie"))
 
     val externalPanel = panel.vPanel(spacing = 4)
-    val externalSelect = externalPanel.select(options = externalDonors.map { it.id to it.displayName }, label = "Externer Spender")
+    val externalSelect =
+        externalPanel.select(options = externalDonors.map { it.id to it.displayName }, label = tr("Externer Spender"))
 
     fun applyDonorGating(choice: String?) {
         if (choice == "MEMBER") memberPanel.show() else memberPanel.hide()
@@ -921,8 +937,10 @@ private fun renderNewEntryForm(
 
     fun showValidationError() {
         errorBox.content =
-            "Bitte Datum, Beschreibung und für jede Buchungszeile Konto, Betrag und Sphäre angeben -- und, " +
-            "falls ein Spendertyp gewählt ist, dessen Felder vollständig ausfüllen."
+            tr(
+                "Bitte Datum, Beschreibung und für jede Buchungszeile Konto, Betrag und Sphäre angeben -- und, " +
+                    "falls ein Spendertyp gewählt ist, dessen Felder vollständig ausfüllen.",
+            )
         errorBox.show()
     }
 
@@ -939,8 +957,8 @@ private fun renderNewEntryForm(
     }
 
     val actionRow = panel.hPanel(spacing = 8)
-    val saveDraftButton = actionRow.button("Als Entwurf speichern", style = ButtonStyle.PRIMARY)
-    val postDirectButton = actionRow.button("Direkt buchen", style = ButtonStyle.OUTLINEDANGER)
+    val saveDraftButton = actionRow.button(tr("Als Entwurf speichern"), style = ButtonStyle.PRIMARY)
+    val postDirectButton = actionRow.button(tr("Direkt buchen"), style = ButtonStyle.OUTLINEDANGER)
 
     saveDraftButton.onClick {
         errorBox.hide()
@@ -954,7 +972,7 @@ private fun renderNewEntryForm(
             val result = guarded { rpcService<IAccountingService>().saveDraftEntry(input) }
             saveDraftButton.disabled = false
             if (result != null) {
-                notifySuccess("Entwurf gespeichert.")
+                notifySuccess(tr("Entwurf gespeichert."))
                 resetForm()
                 onSaved()
             }
@@ -984,7 +1002,7 @@ private fun renderNewEntryForm(
                 val result = guarded { rpcService<IAccountingService>().postJournalEntry(input) }
                 postDirectButton.disabled = false
                 if (result != null) {
-                    notifySuccess("Buchung wurde gebucht.")
+                    notifySuccess(tr("Buchung wurde gebucht."))
                     resetForm()
                     onSaved()
                 }
@@ -1026,7 +1044,7 @@ private fun renderNewEntryForm(
             else -> donorChoiceSelect.value = ""
         }
         applyDonorGating(donorChoiceSelect.value)
-        notifyInfo("Entwurf \"${entry.description}\" als neuer Entwurf übernommen -- bitte prüfen und speichern.")
+        notifyInfo(gettext("Entwurf \"%1\" als neuer Entwurf übernommen -- bitte prüfen und speichern.", entry.description))
     }
 
     return ::prefill
@@ -1049,12 +1067,12 @@ private fun renderPostingLinesRow(
     rows: MutableList<PostingLineRow>,
 ) {
     val rowPanel = rowsPanel.hPanel(spacing = 8) { addCssClasses("align-items-end border-bottom pb-2") }
-    val accountSelect = rowPanel.select(options = accountOptions, value = accountId, label = "Konto")
-    val sideSelect = rowPanel.select(options = sideOptions, value = side.name, label = "Soll/Haben")
-    val amountInput = rowPanel.text(value = amount.ifBlank { null }, label = "Betrag")
-    val sphereSelect = rowPanel.select(options = sphereOptions, value = sphere?.name ?: "", label = "Sphäre")
-    val costCenterSelect = rowPanel.select(options = costCenterOptions, value = costCenterId, label = "Kostenstelle")
-    val removeButton = rowPanel.button("Entfernen", style = ButtonStyle.OUTLINEDANGER)
+    val accountSelect = rowPanel.select(options = accountOptions, value = accountId, label = tr("Konto"))
+    val sideSelect = rowPanel.select(options = sideOptions, value = side.name, label = tr("Soll/Haben"))
+    val amountInput = rowPanel.text(value = amount.ifBlank { null }, label = tr("Betrag"))
+    val sphereSelect = rowPanel.select(options = sphereOptions, value = sphere?.name ?: "", label = tr("Sphäre"))
+    val costCenterSelect = rowPanel.select(options = costCenterOptions, value = costCenterId, label = tr("Kostenstelle"))
+    val removeButton = rowPanel.button(tr("Entfernen"), style = ButtonStyle.OUTLINEDANGER)
 
     val row = PostingLineRow(rowPanel, accountSelect, sideSelect, amountInput, sphereSelect, costCenterSelect)
     rows.add(row)
@@ -1079,11 +1097,11 @@ private data class PostingLineDisplay(
 private fun postingDtosToDisplay(postings: List<PostingDto>): List<PostingLineDisplay> =
     postings.map { posting ->
         PostingLineDisplay(
-            accountLabel = "${posting.ledgerAccountNumber} · ${posting.ledgerAccountName}",
+            accountLabel = gettext("%1 · %2", posting.ledgerAccountNumber, posting.ledgerAccountName),
             side = posting.side,
             amount = posting.amount,
             sphereLabel = sphereLabel(posting.sphere),
-            costCenterLabel = posting.costCenterCode?.let { "$it · ${posting.costCenterName}" },
+            costCenterLabel = posting.costCenterCode?.let { gettext("%1 · %2", it, posting.costCenterName) },
         )
     }
 
@@ -1096,11 +1114,11 @@ private fun postingInputsToDisplay(
         val account = accounts.find { it.id == posting.ledgerAccountId }
         val costCenter = posting.costCenterId?.let { id -> costCenters.find { it.id == id } }
         PostingLineDisplay(
-            accountLabel = account?.let { "${it.accountNumber} · ${it.name}" } ?: posting.ledgerAccountId,
+            accountLabel = account?.let { gettext("%1 · %2", it.accountNumber, it.name) } ?: posting.ledgerAccountId,
             side = posting.side,
             amount = posting.amount,
             sphereLabel = sphereLabel(posting.sphere),
-            costCenterLabel = costCenter?.let { "${it.code} · ${it.name}" },
+            costCenterLabel = costCenter?.let { gettext("%1 · %2", it.code, it.name) },
         )
     }
 
@@ -1129,21 +1147,29 @@ private fun postingConfirmDialog(
     lines: List<PostingLineDisplay>,
     onConfirm: () -> Unit,
 ) {
-    val modal = Modal(caption = "Buchung buchen -- unveränderlich")
+    val modal = Modal(caption = tr("Buchung buchen -- unveränderlich"))
     modal.div(
-        "Diese Buchung wird nach dem Bestätigen unveränderlich und Teil der offiziellen Bücher. Es gibt keine " +
-            "Funktion zum nachträglichen Ändern oder Stornieren.",
+        tr(
+            "Diese Buchung wird nach dem Bestätigen unveränderlich und Teil der offiziellen Bücher. Es gibt keine " +
+                "Funktion zum nachträglichen Ändern oder Stornieren.",
+        ),
     ) { addCssClass("fw-bold") }
-    modal.div("$entryDate -- $description${voucherReference?.let { " (Beleg: $it)" } ?: ""}") {
+    val entrySummary =
+        if (voucherReference != null) {
+            gettext("%1 -- %2 (Beleg: %3)", entryDate, description, voucherReference)
+        } else {
+            gettext("%1 -- %2", entryDate, description)
+        }
+    modal.div(entrySummary) {
         addCssClasses("text-muted small mb-2")
     }
 
     val headerRow = modal.hPanel(spacing = 8) { addCssClasses("fw-bold border-bottom pb-1") }
-    headerRow.div("Konto") { addCssClasses("flex-grow-1") }
-    headerRow.div("Soll") { width = 100.px }
-    headerRow.div("Haben") { width = 100.px }
-    headerRow.div("Sphäre") { width = 170.px }
-    headerRow.div("Kostenstelle") { width = 130.px }
+    headerRow.div(tr("Konto")) { addCssClasses("flex-grow-1") }
+    headerRow.div(tr("Soll")) { width = 100.px }
+    headerRow.div(tr("Haben")) { width = 100.px }
+    headerRow.div(tr("Sphäre")) { width = 170.px }
+    headerRow.div(tr("Kostenstelle")) { width = 130.px }
 
     lines.forEach { line ->
         val row = modal.hPanel(spacing = 8) { addCssClasses("border-bottom py-1") }
@@ -1167,9 +1193,9 @@ private fun postingConfirmDialog(
     footerRow.div("") { width = 170.px }
     footerRow.div("") { width = 130.px }
 
-    modal.addButton(Button("Abbrechen", style = ButtonStyle.SECONDARY).apply { onClick { modal.hide() } })
+    modal.addButton(Button(tr("Abbrechen"), style = ButtonStyle.SECONDARY).apply { onClick { modal.hide() } })
     modal.addButton(
-        Button("Endgültig buchen", style = ButtonStyle.DANGER).apply {
+        Button(tr("Endgültig buchen"), style = ButtonStyle.DANGER).apply {
             onClick {
                 modal.hide()
                 onConfirm()
@@ -1196,11 +1222,11 @@ private fun todayIso(): String =
 
 fun ledgerAccountTypeLabel(type: LedgerAccountType): String =
     when (type) {
-        LedgerAccountType.ASSET -> "Aktivkonto"
-        LedgerAccountType.LIABILITY -> "Passivkonto"
-        LedgerAccountType.EQUITY -> "Eigenkapitalkonto"
-        LedgerAccountType.INCOME -> "Ertragskonto"
-        LedgerAccountType.EXPENSE -> "Aufwandskonto"
+        LedgerAccountType.ASSET -> gettext("Aktivkonto")
+        LedgerAccountType.LIABILITY -> gettext("Passivkonto")
+        LedgerAccountType.EQUITY -> gettext("Eigenkapitalkonto")
+        LedgerAccountType.INCOME -> gettext("Ertragskonto")
+        LedgerAccountType.EXPENSE -> gettext("Aufwandskonto")
     }
 
 fun ledgerAccountTypeColor(type: LedgerAccountType): String =
@@ -1215,8 +1241,8 @@ fun ledgerAccountTypeColor(type: LedgerAccountType): String =
 /** D8: literal "Soll"/"Haben" everywhere, never "Debit"/"Credit" or the raw enum names. */
 fun postingSideLabel(side: PostingSide): String =
     when (side) {
-        PostingSide.DEBIT -> "Soll"
-        PostingSide.CREDIT -> "Haben"
+        PostingSide.DEBIT -> gettext("Soll")
+        PostingSide.CREDIT -> gettext("Haben")
     }
 
 fun postingSideColor(side: PostingSide): String =
@@ -1228,8 +1254,8 @@ fun postingSideColor(side: PostingSide): String =
 /** D1: `statusBadge` grammar -- a lifecycle status, not a fixed classification. */
 fun journalEntryStatusLabel(status: JournalEntryStatus): String =
     when (status) {
-        JournalEntryStatus.DRAFT -> "Entwurf"
-        JournalEntryStatus.POSTED -> "Gebucht"
+        JournalEntryStatus.DRAFT -> gettext("Entwurf")
+        JournalEntryStatus.POSTED -> gettext("Gebucht")
     }
 
 fun journalEntryStatusColor(status: JournalEntryStatus): String =

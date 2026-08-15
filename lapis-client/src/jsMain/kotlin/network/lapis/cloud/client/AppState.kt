@@ -1,6 +1,7 @@
 package network.lapis.cloud.client
 
 import dev.kilua.rpc.getService
+import io.kvision.i18n.tr
 import kotlinx.coroutines.CancellationException
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.SessionInfoDto
@@ -79,25 +80,25 @@ suspend fun <T> guarded(block: suspend () -> T): T? =
         sessionExpired()
         null
     } catch (e: ForbiddenException) {
-        notifyError("Keine Berechtigung für diese Aktion.")
+        notifyError(tr("Keine Berechtigung für diese Aktion."))
         null
     } catch (e: NotFoundException) {
-        notifyError("Nicht gefunden.")
+        notifyError(tr("Nicht gefunden."))
         null
     } catch (e: ConflictException) {
-        notifyError("Die Aktion steht im Konflikt mit dem aktuellen Zustand -- bitte Ansicht aktualisieren.")
+        notifyError(tr("Die Aktion steht im Konflikt mit dem aktuellen Zustand -- bitte Ansicht aktualisieren."))
         null
     } catch (e: BadRequestException) {
-        notifyError("Ungültige Anfrage.")
+        notifyError(tr("Ungültige Anfrage."))
         null
     } catch (e: InvalidPasswordException) {
-        notifyError("Aktuelles Passwort ist falsch.")
+        notifyError(tr("Aktuelles Passwort ist falsch."))
         null
     } catch (e: WeakPasswordException) {
-        notifyError("Neues Passwort erfüllt nicht die Anforderungen (mind. 12, max. 128 Zeichen, nicht die E-Mail-Adresse).")
+        notifyError(tr("Neues Passwort erfüllt nicht die Anforderungen (mind. 12, max. 128 Zeichen, nicht die E-Mail-Adresse)."))
         null
     } catch (e: Throwable) {
-        val message = e.message?.takeIf { it.isNotBlank() } ?: "Unbekannter Fehler"
+        val message = e.message?.takeIf { it.isNotBlank() } ?: tr("Unbekannter Fehler")
         if (message.contains("Unauthorized")) {
             sessionExpired()
         } else {
@@ -108,6 +109,6 @@ suspend fun <T> guarded(block: suspend () -> T): T? =
 
 private fun sessionExpired() {
     AppState.setSession(null)
-    notifyError("Sitzung abgelaufen -- bitte erneut anmelden.")
+    notifyError(tr("Sitzung abgelaufen -- bitte erneut anmelden."))
     navigateTo(Routes.LOGIN)
 }

@@ -11,6 +11,8 @@ import io.kvision.html.button
 import io.kvision.html.div
 import io.kvision.html.h1
 import io.kvision.html.h2
+import io.kvision.i18n.gettext
+import io.kvision.i18n.tr
 import io.kvision.modal.Modal
 import io.kvision.panel.SimplePanel
 import io.kvision.panel.hPanel
@@ -342,8 +344,8 @@ fun renderConferenceScreen(container: SimplePanel) {
             width = 960.px
             marginTop = 24.px
         }
-    root.h1("Videokonferenz")
-    val statusLine = root.div("Wird geladen …") { addCssClasses("text-muted small") }
+    root.h1(tr("Videokonferenz"))
+    val statusLine = root.div(tr("Wird geladen …")) { addCssClasses("text-muted small") }
     val lobbyPanel = root.vPanel(spacing = 10)
     val callPanel = root.vPanel(spacing = 10)
     callPanel.hide()
@@ -364,7 +366,7 @@ fun renderConferenceScreen(container: SimplePanel) {
         val availability =
             guarded { rpcService<IConferenceService>().getAvailability() }
                 ?: run {
-                    statusLine.content = "Videokonferenzen konnten nicht geladen werden."
+                    statusLine.content = tr("Videokonferenzen konnten nicht geladen werden.")
                     return@launch
                 }
         statusLine.hide()
@@ -394,8 +396,8 @@ private fun renderDisabledPanel(panel: SimplePanel) {
     panel.removeAll()
     panel.show()
     val alert = panel.div { addCssClasses("alert alert-secondary") }
-    alert.div("Videokonferenz ist auf diesem Server nicht konfiguriert.") { addCssClass("fw-bold") }
-    alert.div("Bitte wenden Sie sich an Ihre Administration, falls Sie diese Funktion benötigen.") {
+    alert.div(tr("Videokonferenz ist auf diesem Server nicht konfiguriert.")) { addCssClass("fw-bold") }
+    alert.div(tr("Bitte wenden Sie sich an Ihre Administration, falls Sie diese Funktion benötigen.")) {
         addCssClasses("small text-muted mb-0")
     }
 }
@@ -414,12 +416,12 @@ private fun renderLobby(
 
     // Wave 4 "Politur", D1: single-button "start now" flow -- no title-entry form for the common,
     // spontaneous case. See file KDoc "Wave 4 -- D1".
-    lobbyPanel.h2("Neue Besprechung")
-    val startButton = lobbyPanel.button("Besprechung jetzt starten", style = ButtonStyle.PRIMARY)
+    lobbyPanel.h2(tr("Neue Besprechung"))
+    val startButton = lobbyPanel.button(tr("Besprechung jetzt starten"), style = ButtonStyle.PRIMARY)
 
-    lobbyPanel.h2("Aktive Besprechungen")
+    lobbyPanel.h2(tr("Aktive Besprechungen"))
     val refreshRow = lobbyPanel.hPanel(spacing = 8) { addCssClasses("align-items-center") }
-    val refreshButton = refreshRow.button("Aktualisieren", style = ButtonStyle.OUTLINESECONDARY)
+    val refreshButton = refreshRow.button(tr("Aktualisieren"), style = ButtonStyle.OUTLINESECONDARY)
     val roomsPanel = lobbyPanel.vPanel(spacing = 8)
 
     // Wave 2 "Aufzeichnung", D9: recordings OUTLIVE their room, so this section belongs in the
@@ -428,12 +430,12 @@ private fun renderLobby(
 
     fun loadRooms() {
         roomsPanel.removeAll()
-        roomsPanel.div("Wird geladen …") { addCssClasses("text-muted small") }
+        roomsPanel.div(tr("Wird geladen …")) { addCssClasses("text-muted small") }
         AppScope.launch {
             val rooms = guarded { rpcService<IConferenceService>().listActiveRooms() } ?: return@launch
             roomsPanel.removeAll()
             if (rooms.isEmpty()) {
-                roomsPanel.div("Derzeit keine aktive Besprechung.") { addCssClasses("text-muted small") }
+                roomsPanel.div(tr("Derzeit keine aktive Besprechung.")) { addCssClasses("text-muted small") }
             } else {
                 rooms.forEach { room ->
                     renderRoomCard(roomsPanel, room, lobbyPanel, callPanel, setActiveSession) {
@@ -460,7 +462,7 @@ private fun renderLobby(
     // requireActiveMembership-gated, see IConferenceService KDoc) -- no new, weaker RPC surface.
     startButton.onClick {
         startButton.disabled = true
-        startButton.text = "Wird gestartet …"
+        startButton.text = tr("Wird gestartet …")
         AppScope.launch {
             val now = Clock.System.now().toLocalDateTime(TimeZone.currentSystemDefault())
             val room =
@@ -469,7 +471,7 @@ private fun renderLobby(
                 }
             if (room == null) {
                 startButton.disabled = false
-                startButton.text = "Besprechung jetzt starten"
+                startButton.text = tr("Besprechung jetzt starten")
                 return@launch
             }
             // The room now exists and is visible in "Aktive Besprechungen" regardless of what
@@ -478,7 +480,7 @@ private fun renderLobby(
             refreshLobby()
             val token = guarded { rpcService<IConferenceService>().joinRoom(room.id) }
             startButton.disabled = false
-            startButton.text = "Besprechung jetzt starten"
+            startButton.text = tr("Besprechung jetzt starten")
             if (token != null) {
                 enterCall(ConferenceCallTarget.MainRoom(room), token, lobbyPanel, callPanel, setActiveSession, refreshLobby)
             }
@@ -501,19 +503,19 @@ private fun renderRoomCard(
     val card = panel.hPanel(spacing = 8) { addCssClasses("border rounded p-2 align-items-center flex-wrap") }
     val infoCell = card.vPanel(spacing = 2) { addCssClasses("flex-grow-1") }
     infoCell.div(room.title) { addCssClasses("fw-bold") }
-    infoCell.div("Erstellt von ${room.createdByDisplayName} · ${room.liveParticipantCount} Teilnehmende") {
+    infoCell.div(gettext("Erstellt von %1 · %2 Teilnehmende", room.createdByDisplayName, room.liveParticipantCount)) {
         addCssClasses("text-muted small")
     }
     if (room.myRole == ConferenceRole.MODERATOR) {
-        infoCell.statusBadge("Sie sind Moderator", "primary")
+        infoCell.statusBadge(tr("Sie sind Moderator"), "primary")
     }
     // V1.0 Videokonferenzen, Wave 5 "Föderations-Gastbeitritt", design review D5 -- an AKTIV member
     // deciding whether to join deserves to know outsiders may be present BEFORE joining, not only
     // after. Same "Gastzugang"/"info" vocabulary the in-call status badge (D3) uses.
     if (room.allowFederationGuests) {
-        infoCell.statusBadge("Gastzugang offen", "info")
+        infoCell.statusBadge(tr("Gastzugang offen"), "info")
     }
-    val joinButton = card.button("Beitreten", style = ButtonStyle.PRIMARY)
+    val joinButton = card.button(tr("Beitreten"), style = ButtonStyle.PRIMARY)
     joinButton.onClick {
         joinButton.disabled = true
         AppScope.launch {
@@ -550,13 +552,15 @@ private fun renderGuestLobby(
     lobbyPanel.removeAll()
     lobbyPanel.show()
 
-    lobbyPanel.h2("Als Gast beitreten")
+    lobbyPanel.h2(tr("Als Gast beitreten"))
     lobbyPanel.div(
-        "Sie sind über Ihren eigenen Heimserver angemeldet. Geben Sie die Raum-Kennung aus Ihrer " +
-            "Einladung ein, um einer Besprechung auf diesem Server beizutreten.",
+        tr(
+            "Sie sind über Ihren eigenen Heimserver angemeldet. Geben Sie die Raum-Kennung aus Ihrer " +
+                "Einladung ein, um einer Besprechung auf diesem Server beizutreten.",
+        ),
     ) { addCssClasses("text-muted small") }
 
-    val roomIdInput = lobbyPanel.text(label = "Raum-Kennung aus Ihrer Einladung")
+    val roomIdInput = lobbyPanel.text(label = tr("Raum-Kennung aus Ihrer Einladung"))
     val errorBox =
         lobbyPanel.div().apply {
             addCssClass("text-danger")
@@ -567,14 +571,14 @@ private fun renderGuestLobby(
             addCssClasses("alert alert-warning")
             hide()
         }
-    val continueButton = lobbyPanel.button("Weiter", style = ButtonStyle.PRIMARY)
+    val continueButton = lobbyPanel.button(tr("Weiter"), style = ButtonStyle.PRIMARY)
 
     continueButton.onClick {
         errorBox.hide()
         blockedBox.hide()
         val raw = roomIdInput.value.orEmpty().trim()
         if (!Validation.looksLikeRoomId(raw)) {
-            errorBox.content = "Diese Raum-Kennung ist ungültig. Bitte kopieren Sie sie vollständig aus Ihrer Einladung."
+            errorBox.content = tr("Diese Raum-Kennung ist ungültig. Bitte kopieren Sie sie vollständig aus Ihrer Einladung.")
             errorBox.show()
             return@onClick
         }
@@ -638,10 +642,13 @@ private fun renderGuestLobby(
  */
 internal fun conferenceGuestJoinBlockedReason(info: ConferenceGuestJoinInfoDto): String? =
     when {
-        !info.roomActive -> "Die Besprechung „${info.title}\" ist bereits beendet."
+        !info.roomActive -> gettext("Die Besprechung „%1\" ist bereits beendet.", info.title)
         !info.allowsFederationGuests ->
-            "Die Besprechung „${info.title}\" lässt derzeit keine Gäste anderer Server zu. " +
-                "Bitten Sie die Moderation, den Gastzugang für diesen Raum freizuschalten."
+            gettext(
+                "Die Besprechung „%1\" lässt derzeit keine Gäste anderer Server zu. " +
+                    "Bitten Sie die Moderation, den Gastzugang für diesen Raum freizuschalten.",
+                info.title,
+            )
         else -> null
     }
 
@@ -666,12 +673,14 @@ private fun conferenceGuestConsentModal(
     onConfirm: (ConferenceGuestConsentAcknowledgmentInput) -> Unit,
 ) {
     val d = info.disclaimer
-    val modal = Modal(caption = "Als Gast beitreten")
-    modal.div("Besprechung: ${info.title}") { addCssClasses("fw-bold") }
-    modal.div("Gastgeberin dieser Besprechung: ${info.organizationName}") { addCssClasses("fw-bold mb-1") }
+    val modal = Modal(caption = tr("Als Gast beitreten"))
+    modal.div(gettext("Besprechung: %1", info.title)) { addCssClasses("fw-bold") }
+    modal.div(gettext("Gastgeberin dieser Besprechung: %1", info.organizationName)) { addCssClasses("fw-bold mb-1") }
     modal.div(
-        "Diese Organisation ist für die Verarbeitung Ihrer Audio-, Video- und Chatdaten in dieser " +
-            "Besprechung verantwortlich -- nicht Ihr eigener Heimserver.",
+        tr(
+            "Diese Organisation ist für die Verarbeitung Ihrer Audio-, Video- und Chatdaten in dieser " +
+                "Besprechung verantwortlich -- nicht Ihr eigener Heimserver.",
+        ),
     ) { addCssClasses("text-muted small mb-2") }
 
     val layerOne = modal.div { setAttribute("role", "note") }
@@ -687,11 +696,11 @@ private fun conferenceGuestConsentModal(
         }
     scrollBox.content = d.text
 
-    modal.div("Hinweistext-Version ${d.version}") { addCssClasses("text-muted small mb-2") }
+    modal.div(gettext("Hinweistext-Version %1", d.version)) { addCssClasses("text-muted small mb-2") }
 
-    modal.addButton(Button("Abbrechen", style = ButtonStyle.SECONDARY).apply { onClick { modal.hide() } })
+    modal.addButton(Button(tr("Abbrechen"), style = ButtonStyle.SECONDARY).apply { onClick { modal.hide() } })
     modal.addButton(
-        Button("Hinweis gelesen -- als Gast beitreten", style = ButtonStyle.PRIMARY).apply {
+        Button(tr("Hinweis gelesen -- als Gast beitreten"), style = ButtonStyle.PRIMARY).apply {
             onClick {
                 modal.hide()
                 onConfirm(conferenceGuestConsentInputOf(d))
@@ -717,13 +726,13 @@ private fun showInviteTextFallback(
     parent: SimplePanel,
     inviteText: String,
 ) {
-    val modal = Modal(caption = "Einladung kopieren")
-    modal.div("Automatisches Kopieren war nicht möglich. Markieren Sie den Text unten und kopieren Sie ihn manuell.") {
+    val modal = Modal(caption = tr("Einladung kopieren"))
+    modal.div(tr("Automatisches Kopieren war nicht möglich. Markieren Sie den Text unten und kopieren Sie ihn manuell.")) {
         addCssClasses("text-muted small mb-2")
     }
     val field = modal.textArea(value = inviteText, rows = 5) { addCssClasses("font-monospace") }
     field.getElement()?.setAttribute("readonly", "readonly")
-    modal.addButton(Button("Schließen", style = ButtonStyle.SECONDARY).apply { onClick { modal.hide() } })
+    modal.addButton(Button(tr("Schließen"), style = ButtonStyle.SECONDARY).apply { onClick { modal.hide() } })
     modal.show()
     field.getElement()?.let { el -> (el.asDynamic()).select() }
 }
@@ -745,11 +754,17 @@ internal fun conferenceInviteText(
     roomTitle: String,
     organizationName: String?,
 ): String {
-    val hostedByClause = if (organizationName.isNullOrBlank()) "" else " bei $organizationName"
-    return "Sie sind zur Besprechung „$roomTitle\"$hostedByClause eingeladen.\n" +
-        "1. Melden Sie sich über Ihren eigenen Heimserver an.\n" +
-        "2. Öffnen Sie $origin/#/conference\n" +
-        "3. Geben Sie dort diese Raum-Kennung ein: $roomId"
+    val hostedByClause = if (organizationName.isNullOrBlank()) "" else gettext(" bei %1", organizationName)
+    return gettext(
+        "Sie sind zur Besprechung „%1\"%2 eingeladen.\n" +
+            "1. Melden Sie sich über Ihren eigenen Heimserver an.\n" +
+            "2. Öffnen Sie %3/#/conference\n" +
+            "3. Geben Sie dort diese Raum-Kennung ein: %4",
+        roomTitle,
+        hostedByClause,
+        origin,
+        roomId,
+    )
 }
 
 // ================================================================================================
@@ -896,7 +911,7 @@ private fun enterCall(
     // "DSGVO/transparency: breakout audio/video is NEVER captured by a main-room recording/stream".
     if (isBreakout) {
         callPanel.div(
-            "Hinweis: Eine im Hauptraum laufende Aufzeichnung oder ein Live-Stream erfasst dieses Gespräch nicht.",
+            tr("Hinweis: Eine im Hauptraum laufende Aufzeichnung oder ein Live-Stream erfasst dieses Gespräch nicht."),
         ) { addCssClasses("text-muted small") }
     }
 
@@ -907,13 +922,13 @@ private fun enterCall(
     // call site's own comment for why this two-step split is deliberate, not an oversight.
     // Wave 6: a breakout call's title carries the breakout room's own label, so a participant
     // switched between rooms always sees at a glance which one they are currently in.
-    var roomTitle = if (isBreakout) "${room.title} – $breakoutLabel" else room.title
+    var roomTitle = if (isBreakout) gettext("%1 – %2", room.title, breakoutLabel.orEmpty()) else room.title
     val titleRow = callPanel.hPanel(spacing = 8) { addCssClasses("align-items-center flex-wrap") }
     callPanel.div(
         when {
-            isBreakout -> "Sie sind in einem Breakout-Raum."
-            canModerate -> "Sie sind Moderator dieser Besprechung."
-            else -> "Sie nehmen als Teilnehmer teil."
+            isBreakout -> tr("Sie sind in einem Breakout-Raum.")
+            canModerate -> tr("Sie sind Moderator dieser Besprechung.")
+            else -> tr("Sie nehmen als Teilnehmer teil.")
         },
     ) { addCssClasses("text-muted small") }
 
@@ -925,10 +940,10 @@ private fun enterCall(
 
     // --- Control bar (persistent, D5: never hover-only) -----------------------------------------
     val controlsRow = callPanel.hPanel(spacing = 8) { addCssClasses("align-items-center flex-wrap") }
-    val micButton = controlsRow.button("Mikrofon aus", style = ButtonStyle.OUTLINESECONDARY)
-    val cameraButton = controlsRow.button("Kamera aus", style = ButtonStyle.OUTLINESECONDARY)
-    val screenShareButton = controlsRow.button("Bildschirm teilen", style = ButtonStyle.OUTLINESECONDARY)
-    val chatToggleButton = controlsRow.button("Chat", style = ButtonStyle.OUTLINESECONDARY)
+    val micButton = controlsRow.button(tr("Mikrofon aus"), style = ButtonStyle.OUTLINESECONDARY)
+    val cameraButton = controlsRow.button(tr("Kamera aus"), style = ButtonStyle.OUTLINESECONDARY)
+    val screenShareButton = controlsRow.button(tr("Bildschirm teilen"), style = ButtonStyle.OUTLINESECONDARY)
+    val chatToggleButton = controlsRow.button(tr("Chat"), style = ButtonStyle.OUTLINESECONDARY)
     // V1.0 Videokonferenzen, Wave 7 "Whiteboard" -- same toggle-button-in-controlsRow shape as
     // chatToggleButton, wired further below once whiteboardPanel/whiteboardController exist.
     // Review fix: gated on `!isBreakout`, same as `canModerate`/`pollInFlightRecordingStatus` above.
@@ -941,14 +956,14 @@ private fun enterCall(
     // strokes if co-located in the same breakout room. No breakout-room-scoped whiteboard exists in V1
     // (deliberate scope cut, mirrors Wave 6's "No breakout-room moderator").
     val whiteboardToggleButton =
-        if (!isBreakout) controlsRow.button("Whiteboard", style = ButtonStyle.OUTLINESECONDARY) else null
+        if (!isBreakout) controlsRow.button(tr("Whiteboard"), style = ButtonStyle.OUTLINESECONDARY) else null
     // V1.0 Videokonferenzen, Wave 8 "Geteilte Notizen" -- same `!isBreakout` gate as
     // whiteboardToggleButton immediately above, and for the identical reason (Wave 7's own audited
     // "breakout whiteboard bleeds into main room" fix, task-list item #42 -- see
     // ConferenceNotesController KDoc / IConferenceNotesService KDoc for why this closes off, by
     // construction, the same class of bug for notes). No breakout-room-scoped notes exist in V1.
     val notesToggleButton =
-        if (!isBreakout) controlsRow.button("Notizen", style = ButtonStyle.OUTLINESECONDARY) else null
+        if (!isBreakout) controlsRow.button(tr("Notizen"), style = ButtonStyle.OUTLINESECONDARY) else null
     // Wave 6: inside a breakout room, "Zurück zum Hauptraum" is the everyday, low-stakes, FREQUENT
     // action and reads as the confident default (PRIMARY); "Besprechung ganz verlassen" is the
     // rarer, heavier one (SECONDARY) -- a deliberate INVERSION of the main room's own button-weight
@@ -956,9 +971,13 @@ private fun enterCall(
     // future reviewer does not "fix" this back to match the main room by reflex (design review
     // verdict).
     val backToMainButton =
-        if (isBreakout) controlsRow.button("Zurück zum Hauptraum", style = ButtonStyle.PRIMARY).apply { addCssClass("ms-2") } else null
+        if (isBreakout) {
+            controlsRow.button(tr("Zurück zum Hauptraum"), style = ButtonStyle.PRIMARY).apply { addCssClass("ms-2") }
+        } else {
+            null
+        }
     val leaveButton =
-        controlsRow.button(if (isBreakout) "Besprechung ganz verlassen" else "Verlassen", style = ButtonStyle.SECONDARY)
+        controlsRow.button(if (isBreakout) tr("Besprechung ganz verlassen") else tr("Verlassen"), style = ButtonStyle.SECONDARY)
     leaveButton.addCssClass("ms-2")
 
     // D5/D6: "end for everyone" gets its own, spatially separate row -- never adjacent to "Verlassen"
@@ -974,8 +993,8 @@ private fun enterCall(
     val endButton =
         if (canModerate) {
             val moderatorRow = callPanel.hPanel(spacing = 8) { addCssClasses("align-items-center") }
-            moderatorRow.div("Moderator:") { addCssClasses("text-muted small") }
-            moderatorRow.button("Für alle beenden", style = ButtonStyle.OUTLINEDANGER)
+            moderatorRow.div(tr("Moderator:")) { addCssClasses("text-muted small") }
+            moderatorRow.button(tr("Für alle beenden"), style = ButtonStyle.OUTLINEDANGER)
         } else {
             null
         }
@@ -1012,11 +1031,11 @@ private fun enterCall(
     var streamingControlsRowRef: SimplePanel? = null
     if (canModerate) {
         val recordingRow = callPanel.hPanel(spacing = 8) { addCssClasses("align-items-center flex-wrap") }
-        recordingRow.div("Aufzeichnung:") { addCssClasses("text-muted small") }
+        recordingRow.div(tr("Aufzeichnung:")) { addCssClasses("text-muted small") }
         recordingControlsRowRef = recordingRow
 
         val streamingRow = callPanel.hPanel(spacing = 8) { addCssClasses("align-items-center flex-wrap") }
-        streamingRow.div("Live-Stream:") { addCssClasses("text-muted small") }
+        streamingRow.div(tr("Live-Stream:")) { addCssClasses("text-muted small") }
         streamingControlsRowRef = streamingRow
     }
 
@@ -1028,18 +1047,18 @@ private fun enterCall(
     // badge is visible to every participant (D3: an ordinary AKTIV member deserves to know the room
     // is open to another organization's members too); only the buttons are moderator-gated.
     val guestAccessRow = callPanel.hPanel(spacing = 8) { addCssClasses("align-items-center flex-wrap") }
-    guestAccessRow.div("Gastzugang:") { addCssClasses("text-muted small") }
+    guestAccessRow.div(tr("Gastzugang:")) { addCssClasses("text-muted small") }
     var guestAccessOpen = room.allowFederationGuests
     val guestAccessBadge = guestAccessRow.statusBadge("", "secondary")
     var guestAccessToggleButton: Button? = null
     var guestAccessInviteButton: Button? = null
 
     fun updateGuestAccessUi() {
-        guestAccessBadge.content = if (guestAccessOpen) "Gäste zugelassen" else "Nur Mitglieder"
+        guestAccessBadge.content = if (guestAccessOpen) tr("Gäste zugelassen") else tr("Nur Mitglieder")
         guestAccessBadge.removeCssClass("text-bg-secondary")
         guestAccessBadge.removeCssClass("text-bg-info")
         guestAccessBadge.addCssClass(if (guestAccessOpen) "text-bg-info" else "text-bg-secondary")
-        guestAccessToggleButton?.text = if (guestAccessOpen) "Gastzugang beenden" else "Gäste anderer Server zulassen"
+        guestAccessToggleButton?.text = if (guestAccessOpen) tr("Gastzugang beenden") else tr("Gäste anderer Server zulassen")
         guestAccessToggleButton?.removeCssClass("btn-warning")
         guestAccessToggleButton?.removeCssClass("btn-outline-danger")
         guestAccessToggleButton?.addCssClass(if (guestAccessOpen) "btn-outline-danger" else "btn-warning")
@@ -1050,7 +1069,7 @@ private fun enterCall(
     if (canModerate) {
         val toggleButton = guestAccessRow.button("", style = ButtonStyle.WARNING)
         guestAccessToggleButton = toggleButton
-        val inviteButton = guestAccessRow.button("Einladung kopieren", style = ButtonStyle.OUTLINESECONDARY)
+        val inviteButton = guestAccessRow.button(tr("Einladung kopieren"), style = ButtonStyle.OUTLINESECONDARY)
         inviteButton.addCssClass("btn-sm")
         guestAccessInviteButton = inviteButton
         updateGuestAccessUi()
@@ -1066,7 +1085,7 @@ private fun enterCall(
                 if (result != null) {
                     guestAccessOpen = result.allowFederationGuests
                     updateGuestAccessUi()
-                    notifySuccess(if (guestAccessOpen) "Gastzugang aktiviert." else "Gastzugang beendet.")
+                    notifySuccess(if (guestAccessOpen) tr("Gastzugang aktiviert.") else tr("Gastzugang beendet."))
                 }
             }
         }
@@ -1078,12 +1097,14 @@ private fun enterCall(
                 // that BEFORE confirming, not be surprised by it afterwards (Norman: visible
                 // system status).
                 confirmDialog(
-                    title = "Gastzugang beenden",
+                    title = tr("Gastzugang beenden"),
                     message =
-                        "Bereits verbundene Gäste anderer Server werden sofort aus der Besprechung entfernt. " +
-                            "Neue Gäste können nicht mehr beitreten. Mitglieder Ihrer eigenen Organisation sind " +
-                            "nicht betroffen.",
-                    confirmLabel = "Gastzugang beenden",
+                        tr(
+                            "Bereits verbundene Gäste anderer Server werden sofort aus der Besprechung entfernt. " +
+                                "Neue Gäste können nicht mehr beitreten. Mitglieder Ihrer eigenen Organisation sind " +
+                                "nicht betroffen.",
+                        ),
+                    confirmLabel = tr("Gastzugang beenden"),
                 ) { applyGuestAccess(false) }
             } else {
                 applyGuestAccess(true)
@@ -1110,7 +1131,7 @@ private fun enterCall(
                 } else {
                     val promise: dynamic = clipboard.writeText(inviteText)
                     promise.then(
-                        { notifySuccess("Einladung in die Zwischenablage kopiert.") },
+                        { notifySuccess(tr("Einladung in die Zwischenablage kopiert.")) },
                         { showInviteTextFallback(callPanel, inviteText) },
                     )
                 }
@@ -1150,8 +1171,8 @@ private fun enterCall(
         }
         breakoutOverviewPanel.show()
         currentBreakoutRooms.forEach { breakoutRoomDto ->
-            val names = breakoutRoomDto.assignedDisplayNames.ifEmpty { listOf("niemand zugewiesen") }
-            breakoutOverviewPanel.div("${breakoutRoomDto.label}: ${names.joinToString(", ")}") {
+            val names = breakoutRoomDto.assignedDisplayNames.ifEmpty { listOf(gettext("niemand zugewiesen")) }
+            breakoutOverviewPanel.div(gettext("%1: %2", breakoutRoomDto.label, names.joinToString(", "))) {
                 addCssClasses("text-muted small")
             }
         }
@@ -1170,10 +1191,10 @@ private fun enterCall(
 
     if (canModerate) {
         val breakoutRow = callPanel.hPanel(spacing = 8) { addCssClasses("align-items-center flex-wrap") }
-        breakoutRow.div("Breakout-Räume:") { addCssClasses("text-muted small") }
-        val createBtn = breakoutRow.button("Räume erstellen und verteilen", style = ButtonStyle.OUTLINEPRIMARY)
+        breakoutRow.div(tr("Breakout-Räume:")) { addCssClasses("text-muted small") }
+        val createBtn = breakoutRow.button(tr("Räume erstellen und verteilen"), style = ButtonStyle.OUTLINEPRIMARY)
         breakoutCreateButton = createBtn
-        val recallBtn = breakoutRow.button("Alle zurückholen", style = ButtonStyle.WARNING)
+        val recallBtn = breakoutRow.button(tr("Alle zurückholen"), style = ButtonStyle.WARNING)
         recallBtn.hide()
         breakoutRecallButton = recallBtn
         updateBreakoutControlsVisibility()
@@ -1197,7 +1218,7 @@ private fun enterCall(
                         currentBreakoutRooms = result
                         updateBreakoutControlsVisibility()
                         refreshRosterRef()
-                        notifySuccess("$roomCount Breakout-Räume erstellt und Teilnehmende verteilt.")
+                        notifySuccess(gettext("%1 Breakout-Räume erstellt und Teilnehmende verteilt.", roomCount))
                     }
                 }
             }
@@ -1213,7 +1234,7 @@ private fun enterCall(
                         currentBreakoutRooms = emptyList()
                         updateBreakoutControlsVisibility()
                         refreshRosterRef()
-                        notifySuccess("Alle Teilnehmenden wurden in den Hauptraum zurückgeholt.")
+                        notifySuccess(tr("Alle Teilnehmenden wurden in den Hauptraum zurückgeholt."))
                     }
                 }
             }
@@ -1240,8 +1261,9 @@ private fun enterCall(
     recordingBanner.addAfterInsertHook { vnode -> (vnode.elm as? HTMLElement)?.setAttribute("role", "alert") }
     recordingBanner.div(CONFERENCE_RECORDING_BANNER_TEXT) { addCssClass("fw-bold") }
     val recordingBannerButtons = recordingBanner.hPanel(spacing = 8) { addCssClasses("flex-wrap") }
-    val recordingBannerAckButton = recordingBannerButtons.button("Verstanden", style = ButtonStyle.PRIMARY)
-    val recordingBannerLeaveButton = recordingBannerButtons.button("Besprechung verlassen", style = ButtonStyle.OUTLINESECONDARY)
+    val recordingBannerAckButton = recordingBannerButtons.button(tr("Verstanden"), style = ButtonStyle.PRIMARY)
+    val recordingBannerLeaveButton =
+        recordingBannerButtons.button(tr("Besprechung verlassen"), style = ButtonStyle.OUTLINESECONDARY)
     recordingBannerAckButton.onClick {
         recordingBannerAcknowledged = true
         recordingBanner.hide()
@@ -1258,8 +1280,8 @@ private fun enterCall(
     streamBanner.addAfterInsertHook { vnode -> (vnode.elm as? HTMLElement)?.setAttribute("role", "alert") }
     streamBanner.div(CONFERENCE_STREAM_BANNER_TEXT) { addCssClass("fw-bold") }
     val streamBannerButtons = streamBanner.hPanel(spacing = 8) { addCssClasses("flex-wrap") }
-    val streamBannerAckButton = streamBannerButtons.button("Verstanden", style = ButtonStyle.PRIMARY)
-    val streamBannerLeaveButton = streamBannerButtons.button("Besprechung verlassen", style = ButtonStyle.OUTLINESECONDARY)
+    val streamBannerAckButton = streamBannerButtons.button(tr("Verstanden"), style = ButtonStyle.PRIMARY)
+    val streamBannerLeaveButton = streamBannerButtons.button(tr("Besprechung verlassen"), style = ButtonStyle.OUTLINESECONDARY)
     streamBannerAckButton.onClick {
         streamBannerAcknowledged = true
         streamBanner.hide()
@@ -1297,7 +1319,7 @@ private fun enterCall(
         titleRow.removeAll()
         titleRow.h2(roomTitle)
         if (canModerate) {
-            val editButton = titleRow.button("Bearbeiten", style = ButtonStyle.OUTLINESECONDARY)
+            val editButton = titleRow.button(tr("Bearbeiten"), style = ButtonStyle.OUTLINESECONDARY)
             editButton.addCssClass("btn-sm")
             editButton.onClick { showTitleEditMode() }
         }
@@ -1306,14 +1328,14 @@ private fun enterCall(
     fun renderTitleEditMode() {
         titleRow.removeAll()
         val editInput = titleRow.text(value = roomTitle) { addCssClasses("flex-grow-1") }
-        val saveButton = titleRow.button("Speichern", style = ButtonStyle.PRIMARY)
-        val cancelButton = titleRow.button("Abbrechen", style = ButtonStyle.SECONDARY)
+        val saveButton = titleRow.button(tr("Speichern"), style = ButtonStyle.PRIMARY)
+        val cancelButton = titleRow.button(tr("Abbrechen"), style = ButtonStyle.SECONDARY)
         cancelButton.onClick { renderTitleViewMode() }
 
         fun submitRename() {
             val newTitle = editInput.value.orEmpty().trim()
             if (newTitle.isBlank() || newTitle.length > MAX_ROOM_TITLE_LENGTH_CLIENT) {
-                notifyError("Titel darf nicht leer sein und höchstens $MAX_ROOM_TITLE_LENGTH_CLIENT Zeichen haben.")
+                notifyError(gettext("Titel darf nicht leer sein und höchstens %1 Zeichen haben.", MAX_ROOM_TITLE_LENGTH_CLIENT))
                 return
             }
             saveButton.disabled = true
@@ -1410,11 +1432,11 @@ private fun enterCall(
         val btn = recordButton ?: return
         when (activeRecordingDto?.status) {
             ConferenceRecordingStatus.RECORDING -> {
-                btn.text = "Aufzeichnung beenden"
+                btn.text = tr("Aufzeichnung beenden")
                 btn.disabled = false
             }
             ConferenceRecordingStatus.STOPPING -> {
-                btn.text = "Aufzeichnung wird beendet …"
+                btn.text = tr("Aufzeichnung wird beendet …")
                 btn.disabled = true
             }
             ConferenceRecordingStatus.PROCESSING -> {
@@ -1424,11 +1446,11 @@ private fun enterCall(
                 // then silently did nothing ([onRecordButtonClicked] only ever handles a `null` or
                 // `RECORDING` active recording), a live-looking but dead button. Same disabled tier
                 // as STOPPING.
-                btn.text = "Aufzeichnung wird zusammengeführt …"
+                btn.text = tr("Aufzeichnung wird zusammengeführt …")
                 btn.disabled = true
             }
             else -> {
-                btn.text = "Aufzeichnung starten"
+                btn.text = tr("Aufzeichnung starten")
                 btn.disabled = false
             }
         }
@@ -1445,7 +1467,7 @@ private fun enterCall(
         val resumeBtn = streamResumeButton
         val stopBtn = streamStopButton
         if (startBtn == null || pauseBtn == null || resumeBtn == null || stopBtn == null) return
-        stopBtn.text = "Stream beenden"
+        stopBtn.text = tr("Stream beenden")
         when (activeStreamDto?.status) {
             null, ConferenceStreamStatus.ENDED, ConferenceStreamStatus.FAILED -> {
                 startBtn.show()
@@ -1483,7 +1505,7 @@ private fun enterCall(
                 resumeBtn.hide()
                 stopBtn.show()
                 stopBtn.disabled = true
-                stopBtn.text = "Stream wird beendet …"
+                stopBtn.text = tr("Stream wird beendet …")
             }
         }
     }
@@ -1502,7 +1524,7 @@ private fun enterCall(
                     // never optimistically before the RPC resolves.
                     if (result != null) {
                         activeRecordingDto = result
-                        notifySuccess("Aufzeichnung gestartet.")
+                        notifySuccess(tr("Aufzeichnung gestartet."))
                         updateRecordingDetailLine()
                         updateRecordButtonLabel()
                     }
@@ -1516,7 +1538,7 @@ private fun enterCall(
                     btn.disabled = false
                     if (result != null) {
                         activeRecordingDto = result
-                        notifySuccess("Aufzeichnung wird beendet.")
+                        notifySuccess(tr("Aufzeichnung wird beendet."))
                         updateRecordingDetailLine()
                         updateRecordButtonLabel()
                     }
@@ -1538,13 +1560,17 @@ private fun enterCall(
             startBtn.disabled = false
             if (targets.isNullOrEmpty()) {
                 notifyError(
-                    "Keine freigegebenen Stream-Ziele vorhanden -- bitte eine Administratorin oder " +
-                        "einen Administrator kontaktieren.",
+                    tr(
+                        "Keine freigegebenen Stream-Ziele vorhanden -- bitte eine Administratorin oder " +
+                            "einen Administrator kontaktieren.",
+                    ),
                 )
                 return@launch
             }
             val participantOptions =
-                tiles.values.map { entry -> entry.identity to (entry.displayName + if (entry.isLocal) " (Sie)" else "") }
+                tiles.values.map { entry ->
+                    entry.identity to (if (entry.isLocal) gettext("%1 (Sie)", entry.displayName) else entry.displayName)
+                }
             startStreamDialog(
                 targets,
                 streamMaxDestinations,
@@ -1574,7 +1600,7 @@ private fun enterCall(
                         // shown immediately rather than waiting for the LiveKit push (which, per finding
                         // 7, WILL also arrive, but timing is not guaranteed, see file KDoc "D8").
                         if (!wasStreaming && !streamBannerAcknowledged) streamBanner.show()
-                        notifySuccess("Live-Stream wird gestartet.")
+                        notifySuccess(tr("Live-Stream wird gestartet."))
                     }
                 }
             }
@@ -1594,7 +1620,7 @@ private fun enterCall(
                     activeStreamDto = result
                     updateStreamDetailLine()
                     updateStreamButtonsVisibility()
-                    notifyInfo("Stream unterbrochen.")
+                    notifyInfo(tr("Stream unterbrochen."))
                 }
             }
         }
@@ -1607,16 +1633,16 @@ private fun enterCall(
             // D6: a real, visible "in flight" state while the NEW egress connects -- never an
             // instant, silently-optimistic jump back to "Live-Stream läuft".
             btn.disabled = true
-            btn.text = "Stream wird fortgesetzt …"
+            btn.text = tr("Stream wird fortgesetzt …")
             AppScope.launch {
                 val result = guarded { rpcService<IConferenceStreamingService>().resumeStream(stream.id) }
                 btn.disabled = false
-                btn.text = "Stream fortsetzen"
+                btn.text = tr("Stream fortsetzen")
                 if (result != null) {
                     activeStreamDto = result
                     updateStreamDetailLine()
                     updateStreamButtonsVisibility()
-                    notifySuccess("Stream wird fortgesetzt …")
+                    notifySuccess(tr("Stream wird fortgesetzt …"))
                 }
             }
         }
@@ -1644,7 +1670,7 @@ private fun enterCall(
                         streamBanner.hide()
                         streamBannerAcknowledged = false
                     }
-                    notifySuccess("Live-Stream wird beendet.")
+                    notifySuccess(tr("Live-Stream wird beendet."))
                 }
             }
         }
@@ -1660,7 +1686,7 @@ private fun enterCall(
             return
         }
         val row = recordingControlsRowRef ?: return
-        val btn = row.button("Aufzeichnung starten", style = ButtonStyle.WARNING)
+        val btn = row.button(tr("Aufzeichnung starten"), style = ButtonStyle.WARNING)
         btn.onClick { onRecordButtonClicked() }
         recordButton = btn
     }
@@ -1674,19 +1700,19 @@ private fun enterCall(
             return
         }
         val row = streamingControlsRowRef ?: return
-        val startBtn = row.button("Live-Stream starten …", style = ButtonStyle.WARNING)
+        val startBtn = row.button(tr("Live-Stream starten …"), style = ButtonStyle.WARNING)
         startBtn.onClick { onStreamStartClicked() }
         streamStartButton = startBtn
 
-        val pauseBtn = row.button("Stream unterbrechen", style = ButtonStyle.OUTLINEWARNING)
+        val pauseBtn = row.button(tr("Stream unterbrechen"), style = ButtonStyle.OUTLINEWARNING)
         pauseBtn.onClick { onStreamPauseClicked() }
         streamPauseButton = pauseBtn
 
-        val resumeBtn = row.button("Stream fortsetzen", style = ButtonStyle.WARNING)
+        val resumeBtn = row.button(tr("Stream fortsetzen"), style = ButtonStyle.WARNING)
         resumeBtn.onClick { onStreamResumeClicked() }
         streamResumeButton = resumeBtn
 
-        val stopBtn = row.button("Stream beenden", style = ButtonStyle.OUTLINEDANGER)
+        val stopBtn = row.button(tr("Stream beenden"), style = ButtonStyle.OUTLINEDANGER)
         stopBtn.onClick { onStreamStopClicked() }
         streamStopButton = stopBtn
 
@@ -1858,11 +1884,11 @@ private fun enterCall(
             activeRecordingDto =
                 when (resolved.status) {
                     ConferenceRecordingStatus.READY -> {
-                        notifySuccess("Aufzeichnung ist bereit.")
+                        notifySuccess(tr("Aufzeichnung ist bereit."))
                         null
                     }
                     ConferenceRecordingStatus.FAILED -> {
-                        notifyError("Aufzeichnung fehlgeschlagen.")
+                        notifyError(tr("Aufzeichnung fehlgeschlagen."))
                         null
                     }
                     else -> resolved
@@ -1936,9 +1962,9 @@ private fun enterCall(
             updateStreamDetailLine()
             updateStreamButtonsVisibility()
             if (resolved?.status == ConferenceStreamStatus.FAILED) {
-                notifyError(resolved.failureReason ?: "Live-Stream fehlgeschlagen.")
+                notifyError(resolved.failureReason ?: tr("Live-Stream fehlgeschlagen."))
             } else {
-                notifyInfo("Live-Stream beendet.")
+                notifyInfo(tr("Live-Stream beendet."))
             }
         }
     }
@@ -2037,7 +2063,7 @@ private fun enterCall(
             priority.style.setProperty("grid-template-columns", "repeat(auto-fit, minmax(260px, 1fr))")
             compact.style.setProperty("display", "flex")
             label.style.setProperty("display", "block")
-            label.textContent = "Weitere Teilnehmende (${layout.compactIdentities.size})"
+            label.textContent = gettext("Weitere Teilnehmende (%1)", layout.compactIdentities.size)
         } else {
             // Required change 2 (design review): the <= threshold case stays BYTE-FOR-BYTE Wave 1-3's
             // original single flat grid -- reset to the ORIGINAL minmax(200px, 1fr) rule, never left
@@ -2072,13 +2098,13 @@ private fun enterCall(
     AppScope.launch { sweepGridReflow() }
 
     // --- Participant roster (live, driven by the same RoomEvent stream as the tiles) --------------
-    callPanel.h2("Teilnehmende") { addCssClasses("h6 mt-2") }
+    callPanel.h2(tr("Teilnehmende")) { addCssClasses("h6 mt-2") }
     val rosterList = callPanel.vPanel(spacing = 4) { addCssClasses("border rounded p-2") }
 
     // --- Collapsible chat side panel (D7: off by default) ------------------------------------------
     val chatPanel = callPanel.vPanel(spacing = 6) { addCssClasses("border rounded p-2") }
     chatPanel.hide()
-    chatPanel.h2("Chat") { addCssClass("h6") }
+    chatPanel.h2(tr("Chat")) { addCssClass("h6") }
     val chatLog =
         chatPanel.div {
             addCssClasses("small")
@@ -2086,8 +2112,8 @@ private fun enterCall(
             overflow = Overflow.AUTO
         }
     val chatRow = chatPanel.hPanel(spacing = 6)
-    val chatInput = chatRow.text(label = "Nachricht") { addCssClasses("flex-grow-1") }
-    val chatSendButton = chatRow.button("Senden", style = ButtonStyle.OUTLINEPRIMARY)
+    val chatInput = chatRow.text(label = tr("Nachricht")) { addCssClasses("flex-grow-1") }
+    val chatSendButton = chatRow.button(tr("Senden"), style = ButtonStyle.OUTLINEPRIMARY)
 
     // --- Collapsible whiteboard side panel (V1.0 Wave 7 "Whiteboard", off by default) --------------
     // Same `vPanel`/`hide()`/toggle-button pattern as chatPanel above -- Kay/Tesler/Raskin: modeless,
@@ -2111,13 +2137,13 @@ private fun enterCall(
     var notesController: ConferenceNotesController? = null
 
     fun updateChatToggleLabel() {
-        chatToggleButton.text = if (unreadChatCount > 0) "Chat ($unreadChatCount)" else "Chat"
+        chatToggleButton.text = if (unreadChatCount > 0) gettext("Chat (%1)", unreadChatCount) else tr("Chat")
     }
 
     fun refreshRoster() {
         rosterList.removeAll()
         if (tiles.isEmpty()) {
-            rosterList.div("Noch niemand verbunden.") { addCssClasses("text-muted small") }
+            rosterList.div(tr("Noch niemand verbunden.")) { addCssClasses("text-muted small") }
             return
         }
         tiles.values.sortedWith(compareBy({ !it.isLocal }, { it.displayName })).forEach { entry ->
@@ -2130,13 +2156,15 @@ private fun enterCall(
             // marker in the roster (the navbar only adds text because its badge sits inside a
             // `.disabled` wrapper where the badge alone would read as decoration).
             guestHomeserverByIdentity[entry.identity]?.let { homeserverUrl -> row.guestBadge(homeserverUrl) }
-            row.div(entry.displayName + if (entry.isLocal) " (Sie)" else "") { addCssClasses("flex-grow-1 small") }
+            row.div(
+                if (entry.isLocal) gettext("%1 (Sie)", entry.displayName) else entry.displayName,
+            ) { addCssClasses("flex-grow-1 small") }
             if (entry.identity == room.createdByMemberId) {
-                row.statusBadge("Moderator", "primary")
+                row.statusBadge(tr("Moderator"), "primary")
             }
-            row.div(if (entry.hasMic) "Mikro an" else "Stumm") { addCssClasses("text-muted small") }
+            row.div(if (entry.hasMic) tr("Mikro an") else tr("Stumm")) { addCssClasses("text-muted small") }
             if (conferenceCanRemove(entry.identity, localMemberId, room.createdByMemberId, canModerate)) {
-                val removeButton = row.button("Entfernen", style = ButtonStyle.OUTLINEDANGER)
+                val removeButton = row.button(tr("Entfernen"), style = ButtonStyle.OUTLINEDANGER)
                 removeButton.addCssClass("btn-sm")
                 removeButton.onClick {
                     removeParticipantConfirmDialog(entry.displayName) {
@@ -2239,7 +2267,7 @@ private fun enterCall(
         micBadge.style.cssText =
             "position:absolute;right:6px;top:6px;background:rgba(0,0,0,0.55);color:#fff;" +
             "font-size:11px;padding:2px 5px;border-radius:3px;display:none;"
-        micBadge.textContent = "Stumm"
+        micBadge.textContent = tr("Stumm")
         tile.appendChild(micBadge)
 
         // V1.0 Videokonferenzen, Wave 5 "Föderations-Gastbeitritt", design review D12 -- top-left
@@ -2258,7 +2286,7 @@ private fun enterCall(
             "display:inline-block;width:8px;height:8px;border-radius:50%;background:${GuestBadgeColors.FILL};"
         guestBadgeEl.appendChild(dot)
         val guestLabel = document.createElement("span") as HTMLElement
-        guestLabel.textContent = "Gast"
+        guestLabel.textContent = tr("Gast")
         guestBadgeEl.appendChild(guestLabel)
         tile.appendChild(guestBadgeEl)
 
@@ -2387,7 +2415,7 @@ private fun enterCall(
         stage.appendChild(mediaElement)
         val label = document.createElement("div") as HTMLElement
         label.style.cssText = "font-size:12px;color:#666;margin-top:4px;"
-        label.textContent = "$displayName teilt den Bildschirm"
+        label.textContent = gettext("%1 teilt den Bildschirm", displayName)
         stage.appendChild(label)
         stage.style.display = "block"
         activeScreenShare = identity to track
@@ -2412,7 +2440,7 @@ private fun enterCall(
         text: String,
         isOwn: Boolean,
     ) {
-        chatLog.div("$sender: $text") {
+        chatLog.div(gettext("%1: %2", sender, text)) {
             if (isOwn) addCssClasses("fw-bold text-end")
         }
         chatLog.getElement()?.let { el -> el.scrollTop = el.scrollHeight.toDouble() }
@@ -2430,11 +2458,11 @@ private fun enterCall(
     fun renderConnectionState() {
         when (connectionState) {
             is ConferenceConnectionState.Connecting -> {
-                connectionStatusLine.content = "Verbindung wird hergestellt …"
+                connectionStatusLine.content = tr("Verbindung wird hergestellt …")
                 connectionStatusLine.show()
             }
             is ConferenceConnectionState.Reconnecting -> {
-                connectionStatusLine.content = "Verbindung unterbrochen -- wird automatisch neu verbunden …"
+                connectionStatusLine.content = tr("Verbindung unterbrochen -- wird automatisch neu verbunden …")
                 connectionStatusLine.show()
             }
             // V1.0 Videokonferenzen, Wave 6 -- design review, locked copy. Deliberately noncommittal
@@ -2446,7 +2474,7 @@ private fun enterCall(
             // intentional room change, not a crash. Same calm, non-alarming tone as the other two
             // in-progress states -- never danger-red.
             is ConferenceConnectionState.Resolving -> {
-                connectionStatusLine.content = "Verbindung wird geprüft …"
+                connectionStatusLine.content = tr("Verbindung wird geprüft …")
                 connectionStatusLine.show()
             }
             is ConferenceConnectionState.Connected,
@@ -2564,7 +2592,7 @@ private fun enterCall(
                         when (val destination = resolvePostDisconnectDestination(room.id)) {
                             is PostDisconnectDestination.Ended -> {
                                 transition(ConferenceConnectionEvent.ResolvedAsEnded)
-                                notifyInfo("Die Besprechung wurde beendet oder die Verbindung getrennt.")
+                                notifyInfo(tr("Die Besprechung wurde beendet oder die Verbindung getrennt."))
                                 returnToLobby(callPanel, lobbyPanel, setActiveSession, onReturnedToLobby, baseDocumentTitle)
                             }
                             is PostDisconnectDestination.Breakout -> {
@@ -2580,7 +2608,12 @@ private fun enterCall(
                                     transition(ConferenceConnectionEvent.ResolvedAsEnded)
                                     returnToLobby(callPanel, lobbyPanel, setActiveSession, onReturnedToLobby, baseDocumentTitle)
                                 } else {
-                                    notifyInfo("Sie wurden dem Breakout-Raum \"${destination.assignment.breakoutRoomLabel}\" zugewiesen.")
+                                    notifyInfo(
+                                        gettext(
+                                            "Sie wurden dem Breakout-Raum \"%1\" zugewiesen.",
+                                            destination.assignment.breakoutRoomLabel,
+                                        ),
+                                    )
                                     setActiveSession(null)
                                     enterCall(
                                         ConferenceCallTarget.BreakoutRoom(
@@ -2605,7 +2638,7 @@ private fun enterCall(
                                     transition(ConferenceConnectionEvent.ResolvedAsEnded)
                                     returnToLobby(callPanel, lobbyPanel, setActiveSession, onReturnedToLobby, baseDocumentTitle)
                                 } else {
-                                    notifyInfo("Sie wurden in den Hauptraum zurückgeholt.")
+                                    notifyInfo(tr("Sie wurden in den Hauptraum zurückgeholt."))
                                     setActiveSession(null)
                                     enterCall(
                                         ConferenceCallTarget.MainRoom(destination.parentRoom),
@@ -2678,11 +2711,11 @@ private fun enterCall(
         if (!micOk) {
             micEnabled = false
             setTileMic(tiles.getValue(joinToken.identity), micEnabled)
-            micButton.text = "Mikrofon an"
+            micButton.text = tr("Mikrofon an")
         }
         if (!cameraOk) {
             cameraEnabled = false
-            cameraButton.text = "Kamera an"
+            cameraButton.text = tr("Kamera an")
         }
     }
 
@@ -2701,7 +2734,7 @@ private fun enterCall(
             if (result != null) {
                 micEnabled = desired
                 setTileMic(tiles.getValue(joinToken.identity), micEnabled)
-                micButton.text = if (micEnabled) "Mikrofon aus" else "Mikrofon an"
+                micButton.text = if (micEnabled) tr("Mikrofon aus") else tr("Mikrofon an")
             }
         }
     }
@@ -2714,7 +2747,7 @@ private fun enterCall(
             cameraButton.disabled = false
             if (result != null) {
                 cameraEnabled = desired
-                cameraButton.text = if (cameraEnabled) "Kamera aus" else "Kamera an"
+                cameraButton.text = if (cameraEnabled) tr("Kamera aus") else tr("Kamera an")
             }
         }
     }
@@ -2727,7 +2760,7 @@ private fun enterCall(
             screenShareButton.disabled = false
             if (result != null) {
                 screenShareEnabled = desired
-                screenShareButton.text = if (screenShareEnabled) "Bildschirm-Teilen beenden" else "Bildschirm teilen"
+                screenShareButton.text = if (screenShareEnabled) tr("Bildschirm-Teilen beenden") else tr("Bildschirm teilen")
             }
         }
     }
@@ -2770,7 +2803,7 @@ private fun enterCall(
             // LiveKitRoomSession KDoc "Chat trust boundary") -- this screen renders its own outgoing
             // line immediately, rather than waiting for onChat.
             guarded { session.sendChat(ownMessage) }
-            appendChatLine("Sie", text, isOwn = true)
+            appendChatLine(gettext("Sie"), text, isOwn = true)
         }
     }
     chatSendButton.onClick { sendChatMessage() }
@@ -2843,7 +2876,7 @@ private fun enterCall(
                 guarded { session.disconnect() }
                 val result = guarded { rpcService<IConferenceService>().endRoom(room.id) }
                 if (result != null) {
-                    notifySuccess("Besprechung \"${result.title}\" wurde für alle beendet.")
+                    notifySuccess(gettext("Besprechung \"%1\" wurde für alle beendet.", result.title))
                 }
                 setActiveSession(null)
                 returnToLobby(callPanel, lobbyPanel, setActiveSession, onReturnedToLobby, baseDocumentTitle)
@@ -2954,12 +2987,14 @@ private fun endRoomConfirmDialog(
     roomTitle: String,
     onConfirm: () -> Unit,
 ) {
-    val modal = Modal(caption = "Besprechung für alle beenden")
-    modal.div("Diese Besprechung wird für alle Teilnehmenden beendet. Fortfahren?") { addCssClasses("fw-bold text-danger") }
-    modal.div("\"$roomTitle\" wird sofort geschlossen -- alle Verbindungen werden getrennt.") { addCssClasses("text-muted small") }
-    modal.addButton(Button("Abbrechen", style = ButtonStyle.SECONDARY).apply { onClick { modal.hide() } })
+    val modal = Modal(caption = tr("Besprechung für alle beenden"))
+    modal.div(tr("Diese Besprechung wird für alle Teilnehmenden beendet. Fortfahren?")) { addCssClasses("fw-bold text-danger") }
+    modal.div(gettext("\"%1\" wird sofort geschlossen -- alle Verbindungen werden getrennt.", roomTitle)) {
+        addCssClasses("text-muted small")
+    }
+    modal.addButton(Button(tr("Abbrechen"), style = ButtonStyle.SECONDARY).apply { onClick { modal.hide() } })
     modal.addButton(
-        Button("Für alle beenden", style = ButtonStyle.DANGER).apply {
+        Button(tr("Für alle beenden"), style = ButtonStyle.DANGER).apply {
             onClick {
                 modal.hide()
                 onConfirm()
@@ -2976,11 +3011,11 @@ private fun removeParticipantConfirmDialog(
     displayName: String,
     onConfirm: () -> Unit,
 ) {
-    val modal = Modal(caption = "Teilnehmer entfernen")
-    modal.div("\"$displayName\" aus der Besprechung entfernen?") { addCssClass("fw-bold") }
-    modal.addButton(Button("Abbrechen", style = ButtonStyle.SECONDARY).apply { onClick { modal.hide() } })
+    val modal = Modal(caption = tr("Teilnehmer entfernen"))
+    modal.div(gettext("\"%1\" aus der Besprechung entfernen?", displayName)) { addCssClass("fw-bold") }
+    modal.addButton(Button(tr("Abbrechen"), style = ButtonStyle.SECONDARY).apply { onClick { modal.hide() } })
     modal.addButton(
-        Button("Entfernen", style = ButtonStyle.DANGER).apply {
+        Button(tr("Entfernen"), style = ButtonStyle.DANGER).apply {
             onClick {
                 modal.hide()
                 onConfirm()
@@ -2999,25 +3034,29 @@ private fun removeParticipantConfirmDialog(
  * receives the chosen access level; cancelling calls nothing.
  */
 private fun startRecordingConfirmDialog(onConfirm: (DocumentAccessLevel) -> Unit) {
-    val modal = Modal(caption = "Aufzeichnung starten")
+    val modal = Modal(caption = tr("Aufzeichnung starten"))
     modal.div(
-        "Diese Aufzeichnung kann NICHT rückgängig gemacht werden, sobald Teilnehmende gesprochen haben.",
+        tr("Diese Aufzeichnung kann NICHT rückgängig gemacht werden, sobald Teilnehmende gesprochen haben."),
     ) { addCssClasses("fw-bold text-danger") }
     modal.div(
-        "Alle aktuell anwesenden Teilnehmenden sehen sofort, dass aufgezeichnet wird -- unabhängig " +
-            "davon, wer die Aufzeichnung startet.",
+        tr(
+            "Alle aktuell anwesenden Teilnehmenden sehen sofort, dass aufgezeichnet wird -- unabhängig " +
+                "davon, wer die Aufzeichnung startet.",
+        ),
     ) { addCssClasses("small mb-2") }
     val accessOptions = DocumentAccessLevel.entries.map { it.name to conferenceRecordingAccessLevelLabel(it) }
     val accessSelect =
-        modal.select(options = accessOptions, value = DocumentAccessLevel.BOARD_ONLY.name, label = "Zugriffsebene")
+        modal.select(options = accessOptions, value = DocumentAccessLevel.BOARD_ONLY.name, label = tr("Zugriffsebene"))
     modal.div(
-        "Bei \"Vorstand\" können anwesende Mitglieder, die nicht dem Vorstand angehören, die " +
-            "Aufzeichnung später NICHT ansehen -- wählen Sie \"Mitglieder\", wenn die Aufnahme allen " +
-            "Teilnehmenden zugänglich sein soll.",
+        tr(
+            "Bei \"Vorstand\" können anwesende Mitglieder, die nicht dem Vorstand angehören, die " +
+                "Aufzeichnung später NICHT ansehen -- wählen Sie \"Mitglieder\", wenn die Aufnahme allen " +
+                "Teilnehmenden zugänglich sein soll.",
+        ),
     ) { addCssClasses("text-muted small mb-2") }
-    modal.addButton(Button("Abbrechen", style = ButtonStyle.SECONDARY).apply { onClick { modal.hide() } })
+    modal.addButton(Button(tr("Abbrechen"), style = ButtonStyle.SECONDARY).apply { onClick { modal.hide() } })
     modal.addButton(
-        Button("Aufzeichnung jetzt starten", style = ButtonStyle.WARNING).apply {
+        Button(tr("Aufzeichnung jetzt starten"), style = ButtonStyle.WARNING).apply {
             onClick {
                 val level = accessSelect.value?.let { DocumentAccessLevel.valueOf(it) } ?: DocumentAccessLevel.BOARD_ONLY
                 modal.hide()
@@ -3035,17 +3074,19 @@ private fun startRecordingConfirmDialog(onConfirm: (DocumentAccessLevel) -> Unit
  * [endRoomConfirmDialog]'s full weight -- still a genuine confirm step, never a bare single click.
  */
 private fun stopRecordingConfirmDialog(onConfirm: () -> Unit) {
-    val modal = Modal(caption = "Aufzeichnung beenden")
+    val modal = Modal(caption = tr("Aufzeichnung beenden"))
     modal.div(
-        "Die Aufzeichnung wird beendet und danach automatisch zu einer Videodatei zusammengeführt.",
+        tr("Die Aufzeichnung wird beendet und danach automatisch zu einer Videodatei zusammengeführt."),
     ) { addCssClass("fw-bold") }
     modal.div(
-        "Dieser Vorgang lässt sich nicht wiederholen -- schlägt er fehl, bleiben die Rohaufnahmen " +
-            "erhalten und ein Administrator kann helfen.",
+        tr(
+            "Dieser Vorgang lässt sich nicht wiederholen -- schlägt er fehl, bleiben die Rohaufnahmen " +
+                "erhalten und ein Administrator kann helfen.",
+        ),
     ) { addCssClasses("text-muted small") }
-    modal.addButton(Button("Abbrechen", style = ButtonStyle.SECONDARY).apply { onClick { modal.hide() } })
+    modal.addButton(Button(tr("Abbrechen"), style = ButtonStyle.SECONDARY).apply { onClick { modal.hide() } })
     modal.addButton(
-        Button("Aufzeichnung beenden", style = ButtonStyle.DANGER).apply {
+        Button(tr("Aufzeichnung beenden"), style = ButtonStyle.DANGER).apply {
             onClick {
                 modal.hide()
                 onConfirm()
@@ -3072,16 +3113,16 @@ private fun breakoutCreateDialog(
     mediaActive: Boolean,
     onConfirm: (roomCount: Int) -> Unit,
 ) {
-    val modal = Modal(caption = "Breakout-Räume erstellen")
+    val modal = Modal(caption = tr("Breakout-Räume erstellen"))
     if (mediaActive) {
         modal.div(
-            "Die laufende Aufzeichnung/der Live-Stream im Hauptraum erfasst kein Audio/Video in Breakout-Räumen.",
+            tr("Die laufende Aufzeichnung/der Live-Stream im Hauptraum erfasst kein Audio/Video in Breakout-Räumen."),
         ) { addCssClasses("text-muted small") }
     }
-    val countInput = modal.text(value = "2", label = "Anzahl der Breakout-Räume")
-    modal.addButton(Button("Abbrechen", style = ButtonStyle.SECONDARY).apply { onClick { modal.hide() } })
+    val countInput = modal.text(value = "2", label = tr("Anzahl der Breakout-Räume"))
+    modal.addButton(Button(tr("Abbrechen"), style = ButtonStyle.SECONDARY).apply { onClick { modal.hide() } })
     modal.addButton(
-        Button("Räume erstellen und verteilen", style = ButtonStyle.PRIMARY).apply {
+        Button(tr("Räume erstellen und verteilen"), style = ButtonStyle.PRIMARY).apply {
             onClick {
                 val count =
                     countInput.value
@@ -3089,7 +3130,7 @@ private fun breakoutCreateDialog(
                         .trim()
                         .toIntOrNull()
                 if (count == null || count !in 1..MAX_BREAKOUT_ROOMS_CLIENT) {
-                    notifyError("Bitte eine Zahl zwischen 1 und $MAX_BREAKOUT_ROOMS_CLIENT angeben.")
+                    notifyError(gettext("Bitte eine Zahl zwischen 1 und %1 angeben.", MAX_BREAKOUT_ROOMS_CLIENT))
                     return@onClick
                 }
                 modal.hide()
@@ -3109,13 +3150,13 @@ private fun breakoutCreateDialog(
  * expected", one step below [ButtonStyle.OUTLINEDANGER]/[ButtonStyle.DANGER]).
  */
 private fun breakoutRecallConfirmDialog(onConfirm: () -> Unit) {
-    val modal = Modal(caption = "Alle zurückholen")
+    val modal = Modal(caption = tr("Alle zurückholen"))
     modal.div(
-        "Alle Teilnehmenden werden sofort aus ihren Breakout-Räumen in den Hauptraum zurückgeholt.",
+        tr("Alle Teilnehmenden werden sofort aus ihren Breakout-Räumen in den Hauptraum zurückgeholt."),
     ) { addCssClass("fw-bold") }
-    modal.addButton(Button("Abbrechen", style = ButtonStyle.SECONDARY).apply { onClick { modal.hide() } })
+    modal.addButton(Button(tr("Abbrechen"), style = ButtonStyle.SECONDARY).apply { onClick { modal.hide() } })
     modal.addButton(
-        Button("Alle zurückholen", style = ButtonStyle.WARNING).apply {
+        Button(tr("Alle zurückholen"), style = ButtonStyle.WARNING).apply {
             onClick {
                 modal.hide()
                 onConfirm()
@@ -3152,14 +3193,14 @@ private fun startStreamDialog(
         participantIdentity: String?,
     ) -> Unit,
 ) {
-    val modal = Modal(caption = "Live-Stream starten")
+    val modal = Modal(caption = tr("Live-Stream starten"))
     val summaryBox = modal.div(conferenceStreamStartSummary(emptyList())) { addCssClasses("fw-bold text-danger") }
 
-    modal.div("Ziele auswählen (max. $maxDestinations):") { addCssClasses("fw-bold mt-2") }
+    modal.div(gettext("Ziele auswählen (max. %1):", maxDestinations)) { addCssClasses("fw-bold mt-2") }
     val targetsPanel = modal.vPanel(spacing = 2)
     val checkboxesByTarget =
         targets.associateWith { target ->
-            targetsPanel.checkBox(label = "${target.label} (${conferenceStreamPlatformLabel(target.platform)})")
+            targetsPanel.checkBox(label = gettext("%1 (%2)", target.label, conferenceStreamPlatformLabel(target.platform)))
         }
     val selectionErrorBox =
         modal.div().apply {
@@ -3175,12 +3216,12 @@ private fun startStreamDialog(
     checkboxesByTarget.values.forEach { checkbox -> checkbox.onClick { updateSummary() } }
 
     val layoutOptions = ConferenceStreamLayout.entries.map { it.name to conferenceStreamLayoutLabel(it) }
-    val layoutSelect = modal.select(options = layoutOptions, value = ConferenceStreamLayout.GRID.name, label = "Layout")
+    val layoutSelect = modal.select(options = layoutOptions, value = ConferenceStreamLayout.GRID.name, label = tr("Layout"))
     val participantSelect =
         modal.select(
             options = participantOptions,
             value = participantOptions.firstOrNull()?.first,
-            label = "Person (nur bei \"Einzelne Person\")",
+            label = tr("Person (nur bei \"Einzelne Person\")"),
         )
     participantSelect.hide()
     layoutSelect.subscribe {
@@ -3189,25 +3230,25 @@ private fun startStreamDialog(
 
     val latencyOptions = ConferenceStreamLatencyMode.entries.map { it.name to conferenceStreamLatencyModeLabel(it) }
     val latencySelect =
-        modal.select(options = latencyOptions, value = ConferenceStreamLatencyMode.STANDARD.name, label = "Latenz")
+        modal.select(options = latencyOptions, value = ConferenceStreamLatencyMode.STANDARD.name, label = tr("Latenz"))
 
     modal.div(CONFERENCE_STREAM_SECRET_BALLOT_HINWEIS) { addCssClasses("text-muted small mt-2") }
 
-    modal.addButton(Button("Abbrechen", style = ButtonStyle.SECONDARY).apply { onClick { modal.hide() } })
+    modal.addButton(Button(tr("Abbrechen"), style = ButtonStyle.SECONDARY).apply { onClick { modal.hide() } })
     modal.addButton(
-        Button("Jetzt live gehen", style = ButtonStyle.DANGER).apply {
+        Button(tr("Jetzt live gehen"), style = ButtonStyle.DANGER).apply {
             onClick {
                 selectionErrorBox.hide()
                 val selected = selectedTargets()
                 if (!conferenceStreamSelectionValid(selected.size, maxDestinations)) {
-                    selectionErrorBox.content = "Bitte 1 bis $maxDestinations Ziele auswählen."
+                    selectionErrorBox.content = gettext("Bitte 1 bis %1 Ziele auswählen.", maxDestinations)
                     selectionErrorBox.show()
                     return@onClick
                 }
                 val layout = ConferenceStreamLayout.valueOf(layoutSelect.value ?: ConferenceStreamLayout.GRID.name)
                 val participantIdentity = if (layout == ConferenceStreamLayout.SINGLE_PARTICIPANT) participantSelect.value else null
                 if (layout == ConferenceStreamLayout.SINGLE_PARTICIPANT && participantIdentity.isNullOrBlank()) {
-                    selectionErrorBox.content = "Bitte eine Person für \"Einzelne Person\" auswählen."
+                    selectionErrorBox.content = tr("Bitte eine Person für \"Einzelne Person\" auswählen.")
                     selectionErrorBox.show()
                     return@onClick
                 }
@@ -3230,15 +3271,17 @@ private fun pauseStreamConfirmDialog(
     destinationLabels: String,
     onConfirm: () -> Unit,
 ) {
-    val modal = Modal(caption = "Stream unterbrechen")
+    val modal = Modal(caption = tr("Stream unterbrechen"))
     modal.div(
-        "Die Besprechung läuft weiter. Die Zielplattform sieht eine Unterbrechung -- YouTube kann die " +
-            "Übertragung dabei beenden, sodass ein neuer Link nötig wird.",
+        tr(
+            "Die Besprechung läuft weiter. Die Zielplattform sieht eine Unterbrechung -- YouTube kann die " +
+                "Übertragung dabei beenden, sodass ein neuer Link nötig wird.",
+        ),
     ) { addCssClass("fw-bold") }
-    modal.div("Betroffene Ziele: $destinationLabels") { addCssClasses("text-muted small") }
-    modal.addButton(Button("Abbrechen", style = ButtonStyle.SECONDARY).apply { onClick { modal.hide() } })
+    modal.div(gettext("Betroffene Ziele: %1", destinationLabels)) { addCssClasses("text-muted small") }
+    modal.addButton(Button(tr("Abbrechen"), style = ButtonStyle.SECONDARY).apply { onClick { modal.hide() } })
     modal.addButton(
-        Button("Stream unterbrechen", style = ButtonStyle.WARNING).apply {
+        Button(tr("Stream unterbrechen"), style = ButtonStyle.WARNING).apply {
             onClick {
                 modal.hide()
                 onConfirm()
@@ -3254,14 +3297,16 @@ private fun pauseStreamConfirmDialog(
  * itself destructive or disclosive beyond what starting already disclosed) but still a genuine
  * confirm step, per rule 3. */
 private fun resumeStreamConfirmDialog(onConfirm: () -> Unit) {
-    val modal = Modal(caption = "Stream fortsetzen")
+    val modal = Modal(caption = tr("Stream fortsetzen"))
     modal.div(
-        "Der Stream wird neu verbunden -- die Zielplattform sieht dies unter Umständen erneut als " +
-            "neue Übertragung.",
+        tr(
+            "Der Stream wird neu verbunden -- die Zielplattform sieht dies unter Umständen erneut als " +
+                "neue Übertragung.",
+        ),
     ) { addCssClass("fw-bold") }
-    modal.addButton(Button("Abbrechen", style = ButtonStyle.SECONDARY).apply { onClick { modal.hide() } })
+    modal.addButton(Button(tr("Abbrechen"), style = ButtonStyle.SECONDARY).apply { onClick { modal.hide() } })
     modal.addButton(
-        Button("Stream fortsetzen", style = ButtonStyle.WARNING).apply {
+        Button(tr("Stream fortsetzen"), style = ButtonStyle.WARNING).apply {
             onClick {
                 modal.hide()
                 onConfirm()
@@ -3279,12 +3324,14 @@ private fun stopStreamConfirmDialog(
     destinationLabels: String,
     onConfirm: () -> Unit,
 ) {
-    val modal = Modal(caption = "Live-Stream beenden")
-    modal.div("Stream beenden? Die Übertragung zu $destinationLabels endet sofort.") { addCssClasses("fw-bold text-danger") }
-    modal.div("Die Besprechung selbst läuft für alle Teilnehmenden unverändert weiter.") { addCssClasses("text-muted small") }
-    modal.addButton(Button("Abbrechen", style = ButtonStyle.SECONDARY).apply { onClick { modal.hide() } })
+    val modal = Modal(caption = tr("Live-Stream beenden"))
+    modal.div(gettext("Stream beenden? Die Übertragung zu %1 endet sofort.", destinationLabels)) {
+        addCssClasses("fw-bold text-danger")
+    }
+    modal.div(tr("Die Besprechung selbst läuft für alle Teilnehmenden unverändert weiter.")) { addCssClasses("text-muted small") }
+    modal.addButton(Button(tr("Abbrechen"), style = ButtonStyle.SECONDARY).apply { onClick { modal.hide() } })
     modal.addButton(
-        Button("Live-Stream beenden", style = ButtonStyle.DANGER).apply {
+        Button(tr("Live-Stream beenden"), style = ButtonStyle.DANGER).apply {
             onClick {
                 modal.hide()
                 onConfirm()
@@ -3312,7 +3359,7 @@ internal fun conferenceDefaultRoomTitle(now: LocalDateTime): String {
     val month = monthNumber.toString().padStart(2, '0')
     val hour = now.hour.toString().padStart(2, '0')
     val minute = now.minute.toString().padStart(2, '0')
-    return "Besprechung vom $day.$month.${now.year}, $hour:$minute"
+    return gettext("Besprechung vom %1.%2.%3, %4:%5", day, month, now.year, hour, minute)
 }
 
 /** Mirrors `LiveKitJs.kt`'s file KDoc: `"screen_share"` is discriminated by string comparison,
@@ -3362,8 +3409,8 @@ internal fun conferenceTileLabel(
     isLocal: Boolean,
     isModerator: Boolean,
 ): String {
-    val suffix = if (isLocal) " (Sie)" else ""
-    val moderatorSuffix = if (isModerator) " · Moderator" else ""
+    val suffix = if (isLocal) gettext(" (Sie)") else ""
+    val moderatorSuffix = if (isModerator) gettext(" · Moderator") else ""
     return displayName + suffix + moderatorSuffix
 }
 
@@ -3386,8 +3433,12 @@ internal fun conferenceInitials(displayName: String): String {
 
 /** Design review D3 -- the one-time notice banner's exact, terminology-locked (D15) copy. A
  * top-level constant, not inlined at the one call site, so [ConferenceScreenTest] can assert
- * against the SAME literal the UI actually renders. */
-internal const val CONFERENCE_RECORDING_BANNER_TEXT = "Diese Besprechung wird ab jetzt aufgezeichnet."
+ * against the SAME literal the UI actually renders.
+ *
+ * gettext() (not tr()) -- read directly by ConferenceScreenTest and by recordingBanner.div(...)
+ * below, not re-resolved on every widget render; see CONFERENCE_STREAM_BANNER_TEXT's own KDoc for
+ * the full reasoning (same pattern, same narrow language-switch-after-first-access limitation). */
+internal val CONFERENCE_RECORDING_BANNER_TEXT: String by lazy { gettext("Diese Besprechung wird ab jetzt aufgezeichnet.") }
 
 /** Review-round-1 fix (2026-08-09) -- poll interval for `enterCall`'s local
  * `pollInFlightRecordingStatus` loop. See that function's own KDoc for why this exists and why 15s
@@ -3420,11 +3471,11 @@ internal fun conferenceFindRecordingById(
  * other technical jargon (D10's own explicit example). */
 internal fun conferenceRecordingStatusLabel(status: ConferenceRecordingStatus): String =
     when (status) {
-        ConferenceRecordingStatus.RECORDING -> "Wird aufgezeichnet"
-        ConferenceRecordingStatus.STOPPING -> "Wird beendet …"
-        ConferenceRecordingStatus.PROCESSING -> "Wird zusammengeführt …"
-        ConferenceRecordingStatus.READY -> "Bereit"
-        ConferenceRecordingStatus.FAILED -> "Fehlgeschlagen"
+        ConferenceRecordingStatus.RECORDING -> gettext("Wird aufgezeichnet")
+        ConferenceRecordingStatus.STOPPING -> gettext("Wird beendet …")
+        ConferenceRecordingStatus.PROCESSING -> gettext("Wird zusammengeführt …")
+        ConferenceRecordingStatus.READY -> gettext("Bereit")
+        ConferenceRecordingStatus.FAILED -> gettext("Fehlgeschlagen")
     }
 
 /** Bootstrap hue per [ConferenceRecordingStatus], for [statusBadge] in `ConferenceRecordingsPanel.kt`
@@ -3444,9 +3495,9 @@ internal fun conferenceRecordingStatusColor(status: ConferenceRecordingStatus): 
  * enum literal `BOARD_ONLY`) since D7 requires the choice to be legible at the moment it is made. */
 internal fun conferenceRecordingAccessLevelLabel(level: DocumentAccessLevel): String =
     when (level) {
-        DocumentAccessLevel.PUBLIC_MEMBERS -> "Mitglieder"
-        DocumentAccessLevel.BOARD_ONLY -> "Vorstand"
-        DocumentAccessLevel.ADMIN_ONLY -> "Administration"
+        DocumentAccessLevel.PUBLIC_MEMBERS -> gettext("Mitglieder")
+        DocumentAccessLevel.BOARD_ONLY -> gettext("Vorstand")
+        DocumentAccessLevel.ADMIN_ONLY -> gettext("Administration")
     }
 
 /**
@@ -3472,7 +3523,7 @@ internal fun conferenceRecordingStartedLabel(
 ): String {
     val hour = startedAt.hour.toString().padStart(2, '0')
     val minute = startedAt.minute.toString().padStart(2, '0')
-    return "Aufzeichnung gestartet von $startedByDisplayName um $hour:$minute"
+    return gettext("Aufzeichnung gestartet von %1 um %2:%3", startedByDisplayName, hour, minute)
 }
 
 /** `mm:ss` under an hour, `h:mm:ss` at/above -- `null` (composition not finished yet, or the value
@@ -3547,11 +3598,11 @@ internal data class ConferenceStatusBadgeRow(
  */
 internal fun conferenceStreamBadgeVerbPhrase(status: ConferenceStreamStatus): String =
     when (status) {
-        ConferenceStreamStatus.STARTING -> "wird gestartet"
-        ConferenceStreamStatus.LIVE -> "läuft"
-        ConferenceStreamStatus.PAUSED -> "ist unterbrochen"
-        ConferenceStreamStatus.STOPPING -> "wird beendet"
-        ConferenceStreamStatus.ENDED, ConferenceStreamStatus.FAILED -> "ist beendet"
+        ConferenceStreamStatus.STARTING -> gettext("wird gestartet")
+        ConferenceStreamStatus.LIVE -> gettext("läuft")
+        ConferenceStreamStatus.PAUSED -> gettext("ist unterbrochen")
+        ConferenceStreamStatus.STOPPING -> gettext("wird beendet")
+        ConferenceStreamStatus.ENDED, ConferenceStreamStatus.FAILED -> gettext("ist beendet")
     }
 
 /**
@@ -3575,12 +3626,16 @@ internal fun conferenceStatusBadgeRows(
 ): List<ConferenceStatusBadgeRow> {
     val rows = mutableListOf<ConferenceStatusBadgeRow>()
     if (activeRecording != null) {
-        rows += ConferenceStatusBadgeRow("● Aufzeichnung läuft", "danger")
+        rows += ConferenceStatusBadgeRow(gettext("● Aufzeichnung läuft"), "danger")
     }
     if (activeStream != null) {
-        val labels = activeStream.targets.joinToString(", ") { it.label }.ifBlank { "unbekanntes Ziel" }
+        val labels = activeStream.targets.joinToString(", ") { it.label }.ifBlank { gettext("unbekanntes Ziel") }
         val verbPhrase = conferenceStreamBadgeVerbPhrase(activeStream.status)
-        rows += ConferenceStatusBadgeRow("◆ Live-Stream $verbPhrase → $labels", conferenceStreamStatusColor(activeStream.status))
+        rows +=
+            ConferenceStatusBadgeRow(
+                gettext("◆ Live-Stream %1 → %2", verbPhrase, labels),
+                conferenceStreamStatusColor(activeStream.status),
+            )
     }
     return rows
 }
@@ -3600,12 +3655,12 @@ internal fun conferenceMediaDocumentTitle(
  * `PENDING` copy, since both describe the same live-verified ~12s async LiveKit-connect window. */
 internal fun conferenceStreamStatusLabel(status: ConferenceStreamStatus): String =
     when (status) {
-        ConferenceStreamStatus.STARTING -> "Verbindung wird hergestellt …"
-        ConferenceStreamStatus.LIVE -> "Live"
-        ConferenceStreamStatus.PAUSED -> "Unterbrochen"
-        ConferenceStreamStatus.STOPPING -> "Wird beendet …"
-        ConferenceStreamStatus.ENDED -> "Beendet"
-        ConferenceStreamStatus.FAILED -> "Fehlgeschlagen"
+        ConferenceStreamStatus.STARTING -> gettext("Verbindung wird hergestellt …")
+        ConferenceStreamStatus.LIVE -> gettext("Live")
+        ConferenceStreamStatus.PAUSED -> gettext("Unterbrochen")
+        ConferenceStreamStatus.STOPPING -> gettext("Wird beendet …")
+        ConferenceStreamStatus.ENDED -> gettext("Beendet")
+        ConferenceStreamStatus.FAILED -> gettext("Fehlgeschlagen")
     }
 
 internal fun conferenceStreamStatusColor(status: ConferenceStreamStatus): String =
@@ -3626,10 +3681,10 @@ internal fun conferenceStreamStatusColor(status: ConferenceStreamStatus): String
  */
 internal fun conferenceStreamTargetStatusLabel(status: ConferenceStreamTargetStatus): String =
     when (status) {
-        ConferenceStreamTargetStatus.PENDING -> "Verbindung wird hergestellt …"
-        ConferenceStreamTargetStatus.ACTIVE -> "Live"
-        ConferenceStreamTargetStatus.FINISHED -> "Beendet"
-        ConferenceStreamTargetStatus.FAILED -> "Fehlgeschlagen"
+        ConferenceStreamTargetStatus.PENDING -> gettext("Verbindung wird hergestellt …")
+        ConferenceStreamTargetStatus.ACTIVE -> gettext("Live")
+        ConferenceStreamTargetStatus.FINISHED -> gettext("Beendet")
+        ConferenceStreamTargetStatus.FAILED -> gettext("Fehlgeschlagen")
     }
 
 internal fun conferenceStreamTargetStatusColor(status: ConferenceStreamTargetStatus): String =
@@ -3646,9 +3701,9 @@ internal fun conferenceStreamTargetStatusColor(status: ConferenceStreamTargetSta
  * `StartParticipantEgress` path). */
 internal fun conferenceStreamLayoutLabel(layout: ConferenceStreamLayout): String =
     when (layout) {
-        ConferenceStreamLayout.GRID -> "Galerie"
-        ConferenceStreamLayout.SPEAKER -> "Sprecher"
-        ConferenceStreamLayout.SINGLE_PARTICIPANT -> "Einzelne Person"
+        ConferenceStreamLayout.GRID -> gettext("Galerie")
+        ConferenceStreamLayout.SPEAKER -> gettext("Sprecher")
+        ConferenceStreamLayout.SINGLE_PARTICIPANT -> gettext("Einzelne Person")
     }
 
 /** [startStreamDialog]'s Latenz-Auswahl -- BOTH branches verified live against the real container
@@ -3656,8 +3711,8 @@ internal fun conferenceStreamLayoutLabel(layout: ConferenceStreamLayout): String
  * unlike a not-yet-verified control this one ships without a go/no-go caveat (design review D10). */
 internal fun conferenceStreamLatencyModeLabel(mode: ConferenceStreamLatencyMode): String =
     when (mode) {
-        ConferenceStreamLatencyMode.STANDARD -> "Standard"
-        ConferenceStreamLatencyMode.LOW_LATENCY -> "Niedrige Latenz"
+        ConferenceStreamLatencyMode.STANDARD -> gettext("Standard")
+        ConferenceStreamLatencyMode.LOW_LATENCY -> gettext("Niedrige Latenz")
     }
 
 /**
@@ -3688,24 +3743,41 @@ internal fun conferenceStreamSelectionValid(
  */
 internal fun conferenceStreamStartSummary(selectedLabels: List<String>): String =
     if (selectedLabels.isEmpty()) {
-        "Bitte wählen Sie mindestens ein Ziel aus."
+        gettext("Bitte wählen Sie mindestens ein Ziel aus.")
     } else {
-        "Sie starten jetzt einen Live-Stream zu: ${selectedLabels.joinToString(", ")}. Diese Ziele sind " +
-            "sofort öffentlich sichtbar -- die Übertragung kann NICHT zurückgeholt werden, sobald " +
-            "Teilnehmende gesprochen haben."
+        gettext(
+            "Sie starten jetzt einen Live-Stream zu: %1. Diese Ziele sind sofort öffentlich sichtbar -- die " +
+                "Übertragung kann NICHT zurückgeholt werden, sobald Teilnehmende gesprochen haben.",
+            selectedLabels.joinToString(", "),
+        )
     }
 
 /** [startStreamDialog]'s mandatory, static Hinweis (design review D12/Jobs' verdict item 2 --
  * [IConferenceStreamingService] KDoc "No automatic stream pause during secret ballots"): no UI copy
- * anywhere in this screen claims automatic protection exists. */
-internal const val CONFERENCE_STREAM_SECRET_BALLOT_HINWEIS =
-    "Bei geheimen Abstimmungen muss der Stream manuell unterbrochen werden. Eine automatische " +
-        "Unterbrechung gibt es in dieser Version noch nicht."
+ * anywhere in this screen claims automatic protection exists.
+ *
+ * gettext() (not tr()), and evaluated once via `by lazy` rather than per-render -- both KDoc'd
+ * on CONFERENCE_STREAM_BANNER_TEXT below apply here identically. */
+internal val CONFERENCE_STREAM_SECRET_BALLOT_HINWEIS: String by lazy {
+    gettext(
+        "Bei geheimen Abstimmungen muss der Stream manuell unterbrochen werden. Eine automatische " +
+            "Unterbrechung gibt es in dieser Version noch nicht.",
+    )
+}
 
 /** [streamBanner]'s exact, terminology-locked copy -- mirrors [CONFERENCE_RECORDING_BANNER_TEXT]'s
  * own precedent (a top-level constant so [ConferenceStreamingUiTest] can assert against the SAME
- * literal the UI actually renders). */
-internal const val CONFERENCE_STREAM_BANNER_TEXT = "Diese Besprechung wird ab jetzt live gestreamt."
+ * literal the UI actually renders).
+ *
+ * gettext() (not tr()) -- this `val` is read directly (e.g. by ConferenceStreamingUiTest and by
+ * streamBanner.div(...) below), not passed live through a widget's render pass every time, so
+ * tr()'s deferred-marker resolution never fires; gettext() resolves once, immediately, at the
+ * `by lazy` block's first access (deferred past module-load specifically so I18n.manager is
+ * already initialized by then -- see this property's own site history/KDoc precedent on
+ * CONFERENCE_RECORDING_BANNER_TEXT). Note this means a language switch AFTER first access won't
+ * retranslate this one specific banner without a page reload -- an accepted, narrow limitation of
+ * the `by lazy` pattern itself, not something this i18n wave introduces new. */
+internal val CONFERENCE_STREAM_BANNER_TEXT: String by lazy { gettext("Diese Besprechung wird ab jetzt live gestreamt.") }
 
 /** [pollInFlightStreamStatus]'s poll interval -- same reasoning as [CONFERENCE_RECORDING_POLL_INTERVAL_MS]
  * (the README's own suggested 15-30s cadence, close to but not faster than `StreamPoller`'s own
@@ -3746,7 +3818,13 @@ internal fun conferenceStreamStartedLabel(
 ): String {
     val hour = startedAt.hour.toString().padStart(2, '0')
     val minute = startedAt.minute.toString().padStart(2, '0')
-    return "Live-Stream gestartet von $startedByDisplayName um $hour:$minute · ${conferenceStreamLayoutLabel(layout)}"
+    return gettext(
+        "Live-Stream gestartet von %1 um %2:%3 · %4",
+        startedByDisplayName,
+        hour,
+        minute,
+        conferenceStreamLayoutLabel(layout),
+    )
 }
 
 // ================================================================================================

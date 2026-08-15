@@ -8,6 +8,8 @@ import io.kvision.html.div
 import io.kvision.html.h1
 import io.kvision.html.h2
 import io.kvision.html.p
+import io.kvision.i18n.gettext
+import io.kvision.i18n.tr
 import io.kvision.panel.SimplePanel
 import io.kvision.panel.hPanel
 import io.kvision.panel.vPanel
@@ -66,36 +68,38 @@ fun renderAuditLogScreen(container: SimplePanel) {
             width = 900.px
             marginTop = 24.px
         }
-    root.h1("Prüfprotokoll")
+    root.h1(tr("Prüfprotokoll"))
     root.div(
-        "GoBD-revisionssicheres Protokoll aller Buchungen, Beschlüsse, Vorstandsmitgliedschaften und " +
-            "Spendenprüfungen -- unveränderlich und ausschließlich lesbar. Es gibt auf dieser Seite keine " +
-            "Funktion zum Bearbeiten oder Löschen von Einträgen.",
+        tr(
+            "GoBD-revisionssicheres Protokoll aller Buchungen, Beschlüsse, Vorstandsmitgliedschaften und " +
+                "Spendenprüfungen -- unveränderlich und ausschließlich lesbar. Es gibt auf dieser Seite keine " +
+                "Funktion zum Bearbeiten oder Löschen von Einträgen.",
+        ),
     ) { addCssClasses("text-muted small") }
 
     // ---- D1: chain-integrity verification ---------------------------------------------------
-    root.h2("Ketten-Integrität prüfen")
+    root.h2(tr("Ketten-Integrität prüfen"))
     renderChainVerificationPanel(root)
 
     // ---- List: filters + keyset-paginated entries --------------------------------------------
-    root.h2("Einträge")
+    root.h2(tr("Einträge"))
     val filterRow1 = root.hPanel(spacing = 8) { addCssClasses("align-items-center flex-wrap") }
-    val entityTypeOptions = listOf("" to "Alle Entitätstypen") + AuditEntityType.entries.map { it.name to auditEntityTypeLabel(it) }
-    val entityTypeSelect = filterRow1.select(options = entityTypeOptions, value = "", label = "Entitätstyp")
-    val entityIdInput = filterRow1.text(label = "Entitäts-ID (optional)")
-    val actorMemberIdInput = filterRow1.text(label = "Akteur-Mitglieds-ID (optional)")
+    val entityTypeOptions = listOf("" to tr("Alle Entitätstypen")) + AuditEntityType.entries.map { it.name to auditEntityTypeLabel(it) }
+    val entityTypeSelect = filterRow1.select(options = entityTypeOptions, value = "", label = tr("Entitätstyp"))
+    val entityIdInput = filterRow1.text(label = tr("Entitäts-ID (optional)"))
+    val actorMemberIdInput = filterRow1.text(label = tr("Akteur-Mitglieds-ID (optional)"))
 
     val filterRow2 = root.hPanel(spacing = 8) { addCssClasses("align-items-center flex-wrap") }
-    val fromInput = filterRow2.text(label = "Von (JJJJ-MM-TTTHH:MM:SS, optional)")
-    val toInput = filterRow2.text(label = "Bis (JJJJ-MM-TTTHH:MM:SS, optional)")
-    val filterButton = filterRow2.button("Filtern", style = ButtonStyle.OUTLINESECONDARY)
+    val fromInput = filterRow2.text(label = tr("Von (JJJJ-MM-TTTHH:MM:SS, optional)"))
+    val toInput = filterRow2.text(label = tr("Bis (JJJJ-MM-TTTHH:MM:SS, optional)"))
+    val filterButton = filterRow2.button(tr("Filtern"), style = ButtonStyle.OUTLINESECONDARY)
 
     val listPanel = root.vPanel(spacing = 6)
-    val loadMoreButton = root.button("Mehr laden", style = ButtonStyle.OUTLINESECONDARY) { hide() }
+    val loadMoreButton = root.button(tr("Mehr laden"), style = ButtonStyle.OUTLINESECONDARY) { hide() }
 
-    root.h2("Details")
+    root.h2(tr("Details"))
     val detailPanel = root.vPanel(spacing = 10)
-    detailPanel.p("Eintrag oben auswählen, um Details zu sehen.")
+    detailPanel.p(tr("Eintrag oben auswählen, um Details zu sehen."))
 
     var lastLoadedSequenceNumber: Long? = null
 
@@ -125,7 +129,7 @@ fun renderAuditLogScreen(container: SimplePanel) {
                     rpcService<IAuditLogService>().listAuditLog(buildQuery(if (reset) null else lastLoadedSequenceNumber))
                 } ?: return@launch
             if (entries.isEmpty()) {
-                if (reset) listPanel.p("Keine Einträge für diese Filter gefunden.")
+                if (reset) listPanel.p(tr("Keine Einträge für diese Filter gefunden."))
                 loadMoreButton.hide()
                 return@launch
             }
@@ -159,9 +163,9 @@ private const val AUDIT_LOG_PAGE_SIZE = 50
  */
 private fun renderChainVerificationPanel(root: SimplePanel) {
     val row = root.hPanel(spacing = 8) { addCssClasses("align-items-center") }
-    val fromSeqInput = row.text(label = "Von Sequenznummer (optional)")
-    val toSeqInput = row.text(label = "Bis Sequenznummer (optional)")
-    val verifyButton = row.button("Kette prüfen", style = ButtonStyle.PRIMARY)
+    val fromSeqInput = row.text(label = tr("Von Sequenznummer (optional)"))
+    val toSeqInput = row.text(label = tr("Bis Sequenznummer (optional)"))
+    val verifyButton = row.button(tr("Kette prüfen"), style = ButtonStyle.PRIMARY)
     val resultPanel = root.vPanel(spacing = 2)
 
     verifyButton.onClick {
@@ -194,13 +198,13 @@ private fun renderChainVerificationResult(
     panel.removeAll()
     if (result.valid) {
         val box = panel.vPanel(spacing = 2) { addCssClasses("alert alert-success") }
-        box.div("✓ Kette intakt") { addCssClass("fw-bold") }
+        box.div(tr("✓ Kette intakt")) { addCssClass("fw-bold") }
         box.div(chainVerificationPassDetailText(result))
     } else {
         val box = panel.vPanel(spacing = 2) { addCssClasses("alert alert-danger") }
         box.div(chainVerificationFailHeadline(result)) { addCssClass("fw-bold") }
         box.div(result.reason.orEmpty())
-        box.div(CHAIN_VERIFICATION_BROKEN_GUIDANCE)
+        box.div(tr(CHAIN_VERIFICATION_BROKEN_GUIDANCE))
     }
 }
 
@@ -208,14 +212,19 @@ private fun renderChainVerificationResult(
  * the no-entries copy rather than ever fabricating a range from `null` values. */
 fun chainVerificationPassDetailText(result: AuditChainVerificationResultDto): String =
     if (result.firstSequenceNumber != null && result.lastSequenceNumber != null) {
-        "${result.checkedCount} Einträge geprüft (Sequenznummer ${result.firstSequenceNumber}–${result.lastSequenceNumber})."
+        gettext(
+            "%1 Einträge geprüft (Sequenznummer %2–%3).",
+            result.checkedCount,
+            result.firstSequenceNumber,
+            result.lastSequenceNumber,
+        )
     } else {
-        "Keine Einträge im geprüften Bereich."
+        gettext("Keine Einträge im geprüften Bereich.")
     }
 
 /** D1's exact fail-state headline. */
 fun chainVerificationFailHeadline(result: AuditChainVerificationResultDto): String =
-    "✗ Kette gebrochen bei Sequenznummer ${result.brokenAtSequenceNumber}"
+    gettext("✗ Kette gebrochen bei Sequenznummer %1", result.brokenAtSequenceNumber)
 
 /** D1's exact fixed third line for the fail state. */
 const val CHAIN_VERIFICATION_BROKEN_GUIDANCE =
@@ -235,13 +244,13 @@ private fun renderAuditLogRow(
     val headerRow = row.hPanel(spacing = 8) { addCssClasses("align-items-center") }
     headerRow.typeBadge(auditEntityTypeLabel(entry.entityType), auditEntityTypeColor(entry.entityType))
     headerRow.statusBadge(auditActionLabel(entry.action), auditActionColor(entry.action))
-    headerRow.div("Seq. ${entry.sequenceNumber}") { addCssClasses("flex-grow-1 text-muted small") }
+    headerRow.div(gettext("Seq. %1", entry.sequenceNumber)) { addCssClasses("flex-grow-1 text-muted small") }
 
-    row.div("${entry.occurredAt} · ${actorDisplayText(entry)} · Entität ${entry.entityId}") {
+    row.div(gettext("%1 · %2 · Entität %3", entry.occurredAt, actorDisplayText(entry), entry.entityId)) {
         addCssClasses("text-muted small")
     }
 
-    val showButton = row.button("Details anzeigen", style = ButtonStyle.OUTLINESECONDARY)
+    val showButton = row.button(tr("Details anzeigen"), style = ButtonStyle.OUTLINESECONDARY)
     showButton.onClick { onSelect(entry.id) }
 }
 
@@ -250,7 +259,7 @@ private fun renderAuditLogRow(
  * actor today, so this branch is defensive, not dead-in-practice-only. */
 private fun actorDisplayText(entry: AuditLogEntryDto): String {
     val name = entry.actorMemberDisplayName
-    return if (name != null) "$name (${entry.actorRole})" else "Systemvorgang (kein Akteur hinterlegt)"
+    return if (name != null) gettext("%1 (%2)", name, entry.actorRole) else gettext("Systemvorgang (kein Akteur hinterlegt)")
 }
 
 // ================================================================================================
@@ -262,7 +271,7 @@ private fun renderAuditLogDetail(
     id: String,
 ) {
     panel.removeAll()
-    panel.p("Wird geladen …") { addCssClasses("text-muted small") }
+    panel.p(tr("Wird geladen …")) { addCssClasses("text-muted small") }
     AppScope.launch {
         val entry = guarded { rpcService<IAuditLogService>().getAuditLogEntry(id) } ?: return@launch
         panel.removeAll()
@@ -270,11 +279,11 @@ private fun renderAuditLogDetail(
         val headerRow = panel.hPanel(spacing = 8) { addCssClasses("align-items-center") }
         headerRow.typeBadge(auditEntityTypeLabel(entry.entityType), auditEntityTypeColor(entry.entityType))
         headerRow.statusBadge(auditActionLabel(entry.action), auditActionColor(entry.action))
-        headerRow.div("Sequenznummer ${entry.sequenceNumber}") { addCssClasses("flex-grow-1 fw-bold") }
+        headerRow.div(gettext("Sequenznummer %1", entry.sequenceNumber)) { addCssClasses("flex-grow-1 fw-bold") }
 
-        panel.div("Zeitpunkt: ${entry.occurredAt}") { addCssClasses("text-muted small") }
-        panel.div("Akteur: ${actorDisplayText(entry)}") { addCssClasses("text-muted small") }
-        panel.div("Entität: ${entry.entityId}") { addCssClasses("text-muted small") }
+        panel.div(gettext("Zeitpunkt: %1", entry.occurredAt)) { addCssClasses("text-muted small") }
+        panel.div(gettext("Akteur: %1", actorDisplayText(entry))) { addCssClasses("text-muted small") }
+        panel.div(gettext("Entität: %1", entry.entityId)) { addCssClasses("text-muted small") }
 
         renderSnapshotSection(panel, entry)
     }
@@ -288,19 +297,19 @@ private fun renderSnapshotSection(
     entry: AuditLogEntryDto,
 ) {
     if (entry.beforeSnapshot == null && entry.afterSnapshot == null) {
-        panel.p("Keine Detaildaten für diesen Eintrag hinterlegt.") { addCssClasses("text-muted small") }
+        panel.p(tr("Keine Detaildaten für diesen Eintrag hinterlegt.")) { addCssClasses("text-muted small") }
         return
     }
-    panel.h2("Datenstand") { addCssClass("h6") }
+    panel.h2(tr("Datenstand")) { addCssClass("h6") }
     val columns = panel.hPanel(spacing = 16) { addCssClasses("align-items-start flex-wrap") }
     entry.beforeSnapshot?.let { raw ->
         val column = columns.vPanel(spacing = 4) { addCssClasses("flex-grow-1") }
-        column.div("Vorher") { addCssClass("fw-bold") }
+        column.div(tr("Vorher")) { addCssClass("fw-bold") }
         renderSnapshotBody(column, entry.entityType, raw)
     }
     entry.afterSnapshot?.let { raw ->
         val column = columns.vPanel(spacing = 4) { addCssClasses("flex-grow-1") }
-        column.div("Nachher") { addCssClass("fw-bold") }
+        column.div(tr("Nachher")) { addCssClass("fw-bold") }
         renderSnapshotBody(column, entry.entityType, raw)
     }
 }
@@ -400,23 +409,23 @@ private fun renderJournalEntrySnapshotBody(
     panel: SimplePanel,
     snapshot: JournalEntrySnapshot,
 ) {
-    panel.labelValueRow("Datum", snapshot.entryDate.toString())
-    panel.labelValueRow("Beschreibung", snapshot.description)
-    snapshot.voucherReference?.let { panel.labelValueRow("Beleg", it) }
-    panel.labelStatusBadgeRow("Status", journalEntryStatusLabel(snapshot.status), journalEntryStatusColor(snapshot.status))
-    snapshot.postedAt?.let { panel.labelValueRow("Gebucht am", it.toString()) }
-    panel.labelValueRow("Erfasst von (Mitglieds-ID)", snapshot.createdBy)
-    snapshot.donorMemberId?.let { panel.labelValueRow("Spendendes Mitglied (ID)", it) }
-    snapshot.externalDonorId?.let { panel.labelValueRow("Externer Spender (ID)", it) }
-    snapshot.donorCategory?.let { panel.labelTypeBadgeRow("Spenderkategorie", donorCategoryLabel(it), donorCategoryColor(it)) }
+    panel.labelValueRow(gettext("Datum"), snapshot.entryDate.toString())
+    panel.labelValueRow(gettext("Beschreibung"), snapshot.description)
+    snapshot.voucherReference?.let { panel.labelValueRow(gettext("Beleg"), it) }
+    panel.labelStatusBadgeRow(gettext("Status"), journalEntryStatusLabel(snapshot.status), journalEntryStatusColor(snapshot.status))
+    snapshot.postedAt?.let { panel.labelValueRow(gettext("Gebucht am"), it.toString()) }
+    panel.labelValueRow(gettext("Erfasst von (Mitglieds-ID)"), snapshot.createdBy)
+    snapshot.donorMemberId?.let { panel.labelValueRow(gettext("Spendendes Mitglied (ID)"), it) }
+    snapshot.externalDonorId?.let { panel.labelValueRow(gettext("Externer Spender (ID)"), it) }
+    snapshot.donorCategory?.let { panel.labelTypeBadgeRow(gettext("Spenderkategorie"), donorCategoryLabel(it), donorCategoryColor(it)) }
 
     if (snapshot.postings.isNotEmpty()) {
-        panel.div("Buchungszeilen:") { addCssClasses("text-muted small mt-1") }
+        panel.div(tr("Buchungszeilen:")) { addCssClasses("text-muted small mt-1") }
         val headerRow = panel.hPanel(spacing = 8) { addCssClasses("fw-bold border-bottom pb-1 small") }
-        headerRow.div("Konto (ID)") { addCssClasses("flex-grow-1") }
-        headerRow.div("Soll/Haben") { width = 90.px }
-        headerRow.div("Betrag") { width = 100.px }
-        headerRow.div("Sphäre") { width = 190.px }
+        headerRow.div(tr("Konto (ID)")) { addCssClasses("flex-grow-1") }
+        headerRow.div(tr("Soll/Haben")) { width = 90.px }
+        headerRow.div(tr("Betrag")) { width = 100.px }
+        headerRow.div(tr("Sphäre")) { width = 190.px }
         snapshot.postings.forEach { posting ->
             val row = panel.hPanel(spacing = 8) { addCssClasses("border-bottom py-1 small align-items-center") }
             row.div(posting.ledgerAccountId) {
@@ -435,41 +444,49 @@ private fun renderResolutionSnapshotBody(
     panel: SimplePanel,
     snapshot: ResolutionSnapshot,
 ) {
-    panel.labelValueRow("Sitzung (ID)", snapshot.meetingId)
-    panel.labelValueRow("Nummer", snapshot.number)
-    panel.labelValueRow("Titel", snapshot.title)
-    panel.labelValueRow("Text", snapshot.text)
+    panel.labelValueRow(gettext("Sitzung (ID)"), snapshot.meetingId)
+    panel.labelValueRow(gettext("Nummer"), snapshot.number)
+    panel.labelValueRow(gettext("Titel"), snapshot.title)
+    panel.labelValueRow(gettext("Text"), snapshot.text)
     panel.labelValueRow(
-        "Abstimmung",
-        "Ja: ${snapshot.votesYes} · Nein: ${snapshot.votesNo} · Enthaltung: ${snapshot.votesAbstain}",
+        gettext("Abstimmung"),
+        gettext("Ja: %1 · Nein: %2 · Enthaltung: %3", snapshot.votesYes, snapshot.votesNo, snapshot.votesAbstain),
     )
-    panel.labelValueRow("Quorum erreicht", if (snapshot.quorumMet) "Ja" else "Nein")
-    panel.labelStatusBadgeRow("Status", resolutionStatusLabel(snapshot.status), resolutionStatusColor(snapshot.status))
-    panel.labelTypeBadgeRow("Verfahren", resolutionModeLabel(snapshot.resolutionMode), resolutionModeColor(snapshot.resolutionMode))
-    panel.labelValueRow("Entschieden am", snapshot.decidedAt.toString())
-    panel.labelValueRow("Protokolliert von (ID)", snapshot.recordedBy)
+    panel.labelValueRow(gettext("Quorum erreicht"), if (snapshot.quorumMet) tr("Ja") else tr("Nein"))
+    panel.labelStatusBadgeRow(gettext("Status"), resolutionStatusLabel(snapshot.status), resolutionStatusColor(snapshot.status))
+    panel.labelTypeBadgeRow(
+        gettext("Verfahren"),
+        resolutionModeLabel(snapshot.resolutionMode),
+        resolutionModeColor(snapshot.resolutionMode),
+    )
+    panel.labelValueRow(gettext("Entschieden am"), snapshot.decidedAt.toString())
+    panel.labelValueRow(gettext("Protokolliert von (ID)"), snapshot.recordedBy)
 }
 
 private fun renderBoardMembershipSnapshotBody(
     panel: SimplePanel,
     snapshot: BoardMembershipSnapshot,
 ) {
-    panel.labelValueRow("Mitglied (ID)", snapshot.memberId)
-    panel.labelTypeBadgeRow("Rolle", committeeRoleLabel(snapshot.committeeRole), committeeRoleColor(snapshot.committeeRole))
-    panel.labelValueRow("Beginn", snapshot.startedAt.toString())
-    panel.labelValueRow("Ende", snapshot.endedAt?.toString() ?: "laufend")
+    panel.labelValueRow(gettext("Mitglied (ID)"), snapshot.memberId)
+    panel.labelTypeBadgeRow(gettext("Rolle"), committeeRoleLabel(snapshot.committeeRole), committeeRoleColor(snapshot.committeeRole))
+    panel.labelValueRow(gettext("Beginn"), snapshot.startedAt.toString())
+    panel.labelValueRow(gettext("Ende"), snapshot.endedAt?.toString() ?: tr("laufend"))
 }
 
 private fun renderPartyDonationVerdictSnapshotBody(
     panel: SimplePanel,
     snapshot: PartyDonationVerdictSnapshot,
 ) {
-    panel.labelTypeBadgeRow("Spenderkategorie", donorCategoryLabel(snapshot.donorCategory), donorCategoryColor(snapshot.donorCategory))
-    panel.labelValueRow("Spendenbetrag", formatMoney(snapshot.donationAmount))
-    panel.labelValueRow("Bisherige Jahressumme (vor dieser Spende)", formatMoney(snapshot.priorPostedTotalThisYear))
-    panel.labelValueRow("Prüfergebnis", snapshot.verdict)
+    panel.labelTypeBadgeRow(
+        gettext("Spenderkategorie"),
+        donorCategoryLabel(snapshot.donorCategory),
+        donorCategoryColor(snapshot.donorCategory),
+    )
+    panel.labelValueRow(gettext("Spendenbetrag"), formatMoney(snapshot.donationAmount))
+    panel.labelValueRow(gettext("Bisherige Jahressumme (vor dieser Spende)"), formatMoney(snapshot.priorPostedTotalThisYear))
+    panel.labelValueRow(gettext("Prüfergebnis"), snapshot.verdict)
     if (snapshot.duties.isNotEmpty()) {
-        panel.div("Pflichten:") { addCssClasses("text-muted small mt-1") }
+        panel.div(tr("Pflichten:")) { addCssClasses("text-muted small mt-1") }
         val row = panel.hPanel(spacing = 4) { addCssClasses("flex-wrap") }
         snapshot.duties.forEach { duty -> row.typeBadge(donationDutyLabel(duty), donationDutyColor(duty)) }
     }
@@ -487,7 +504,7 @@ private fun renderRawSnapshotFallback(
             setStyle("white-space", "pre-wrap")
             hide()
         }
-    val toggleButton = panel.button("Rohdaten ein-/ausblenden", style = ButtonStyle.OUTLINESECONDARY)
+    val toggleButton = panel.button(tr("Rohdaten ein-/ausblenden"), style = ButtonStyle.OUTLINESECONDARY)
     var expanded = false
     toggleButton.onClick {
         expanded = !expanded

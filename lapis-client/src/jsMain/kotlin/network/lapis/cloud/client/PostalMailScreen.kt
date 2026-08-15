@@ -7,6 +7,8 @@ import io.kvision.html.h1
 import io.kvision.html.h2
 import io.kvision.html.link
 import io.kvision.html.p
+import io.kvision.i18n.gettext
+import io.kvision.i18n.tr
 import io.kvision.modal.Modal
 import io.kvision.panel.SimplePanel
 import io.kvision.panel.hPanel
@@ -52,31 +54,35 @@ fun renderPostalMailScreen(container: SimplePanel) {
             width = 900.px
             marginTop = 24.px
         }
-    root.h1("Postversand")
+    root.h1(tr("Postversand"))
     root.div(
-        "Protokoll aller bisherigen postalischen Versandvorgänge -- rein informativ, keine Aktionen auf " +
-            "dieser Liste. Neue Versandvorgänge werden direkt bei der jeweiligen Beitragsrechnung, " +
-            "Spendenbescheinigung oder Sitzungseinladung ausgelöst.",
+        tr(
+            "Protokoll aller bisherigen postalischen Versandvorgänge -- rein informativ, keine Aktionen auf " +
+                "dieser Liste. Neue Versandvorgänge werden direkt bei der jeweiligen Beitragsrechnung, " +
+                "Spendenbescheinigung oder Sitzungseinladung ausgelöst.",
+        ),
     ) { addCssClasses("text-muted small") }
 
     val bannerPanel = root.vPanel(spacing = 4)
     AppScope.launch {
         if (!isPostalMailEnabled()) {
             bannerPanel.div(
-                "Postversand ist derzeit deaktiviert (`OrganizationSettings.postalMailEnabled = false`) -- " +
-                    "alle Versandaktionen (Beitragsrechnung, Spendenbescheinigung, Einladung) schlagen fehl, " +
-                    "bis eine Administratorin oder ein Administrator dies aktiviert. Diese Einstellung hat in " +
-                    "dieser Version noch keine eigene Oberfläche.",
+                tr(
+                    "Postversand ist derzeit deaktiviert (`OrganizationSettings.postalMailEnabled = false`) -- " +
+                        "alle Versandaktionen (Beitragsrechnung, Spendenbescheinigung, Einladung) schlagen fehl, " +
+                        "bis eine Administratorin oder ein Administrator dies aktiviert. Diese Einstellung hat in " +
+                        "dieser Version noch keine eigene Oberfläche.",
+                ),
             ) { addCssClasses("alert alert-warning") }
         }
     }
 
-    root.h2("Verlauf")
+    root.h2(tr("Verlauf"))
     val logPanel = root.vPanel(spacing = 6)
     AppScope.launch {
         val log = guarded { rpcService<IPostalMailService>().listPostalDeliveryLog() } ?: return@launch
         if (log.isEmpty()) {
-            logPanel.p("Noch keine postalischen Versandvorgänge protokolliert.")
+            logPanel.p(tr("Noch keine postalischen Versandvorgänge protokolliert."))
         } else {
             log.forEach { entry -> renderPostalDeliveryLogRow(logPanel, entry) }
         }
@@ -98,16 +104,16 @@ private fun renderPostalDeliveryLogRow(
     val headerRow = row.hPanel(spacing = 8) { addCssClasses("align-items-center") }
     headerRow.statusBadge(postalDeliveryStatusLabel(entry.status), postalDeliveryStatusColor(entry.status))
     headerRow.div(entry.recipientDisplayName) { addCssClasses("flex-grow-1") }
-    headerRow.div("${entry.dispatchedAt}") { addCssClasses("text-muted small") }
+    headerRow.div(gettext("%1", entry.dispatchedAt)) { addCssClasses("text-muted small") }
     row.div(entry.documentReference) { addCssClasses("small") }
 
     // Never both -- SENT carries a providerReference, FAILED carries an errorMessage, QUEUED (dead
     // today) carries neither.
     entry.providerReference?.takeIf { entry.status == PostalDeliveryStatus.SENT }?.let { reference ->
-        row.div("Sendungsreferenz: $reference") { addCssClasses("text-muted small") }
+        row.div(gettext("Sendungsreferenz: %1", reference)) { addCssClasses("text-muted small") }
     }
     entry.errorMessage?.takeIf { entry.status == PostalDeliveryStatus.FAILED }?.let { message ->
-        row.div("Fehler: $message") { addCssClasses("text-danger small") }
+        row.div(gettext("Fehler: %1", message)) { addCssClasses("text-danger small") }
     }
 }
 
@@ -120,9 +126,9 @@ private fun renderPostalDeliveryLogRow(
  */
 fun postalDeliveryStatusLabel(status: PostalDeliveryStatus): String =
     when (status) {
-        PostalDeliveryStatus.SENT -> "Versendet"
-        PostalDeliveryStatus.FAILED -> "Fehlgeschlagen"
-        PostalDeliveryStatus.QUEUED -> "In Bearbeitung"
+        PostalDeliveryStatus.SENT -> gettext("Versendet")
+        PostalDeliveryStatus.FAILED -> gettext("Fehlgeschlagen")
+        PostalDeliveryStatus.QUEUED -> gettext("In Bearbeitung")
     }
 
 fun postalDeliveryStatusColor(status: PostalDeliveryStatus): String =
@@ -146,8 +152,8 @@ suspend fun isPostalMailEnabled(): Boolean =
 /** D7: replaces a dispatch trigger button at every call site when [isPostalMailEnabled] is false. */
 fun SimplePanel.postalMailDisabledNotice() {
     val row = hPanel(spacing = 4) { addCssClasses("align-items-center") }
-    row.div("Postversand ist derzeit deaktiviert --") { addCssClasses("text-muted small") }
-    row.link("Postversand-Übersicht", url = "#${Routes.POSTAL_MAIL}") { addCssClasses("small") }
+    row.div(tr("Postversand ist derzeit deaktiviert --")) { addCssClasses("text-muted small") }
+    row.link(tr("Postversand-Übersicht"), url = "#${Routes.POSTAL_MAIL}") { addCssClasses("small") }
 }
 
 /**
@@ -163,21 +169,21 @@ fun SimplePanel.renderPostalDispatchOutcome(log: PostalDeliveryLogDto) {
     when (log.status) {
         PostalDeliveryStatus.SENT -> {
             val box = vPanel(spacing = 2) { addCssClasses("alert alert-success mt-2") }
-            box.div("Brief an ${log.recipientDisplayName} wurde an Letterxpress übergeben.") { addCssClass("fw-bold") }
+            box.div(gettext("Brief an %1 wurde an Letterxpress übergeben.", log.recipientDisplayName)) { addCssClass("fw-bold") }
             log.providerReference?.let { reference ->
-                box.div("Sendungsreferenz: $reference") { addCssClasses("text-muted small") }
+                box.div(gettext("Sendungsreferenz: %1", reference)) { addCssClasses("text-muted small") }
             }
         }
         PostalDeliveryStatus.FAILED -> {
             val box = vPanel(spacing = 2) { addCssClasses("alert alert-danger mt-2") }
             box.div(
-                "Postversand an ${log.recipientDisplayName} ist fehlgeschlagen: ${log.errorMessage.orEmpty()}",
+                gettext("Postversand an %1 ist fehlgeschlagen: %2", log.recipientDisplayName, log.errorMessage.orEmpty()),
             ) { addCssClass("fw-bold") }
         }
         PostalDeliveryStatus.QUEUED -> {
             // Dead today, see postalDeliveryStatusLabel KDoc -- kept and documented, not deleted.
             val box = vPanel(spacing = 2) { addCssClasses("alert alert-light border mt-2") }
-            box.div("Brief an ${log.recipientDisplayName} wird verarbeitet.")
+            box.div(gettext("Brief an %1 wird verarbeitet.", log.recipientDisplayName))
         }
     }
 }
@@ -196,22 +202,25 @@ fun postalDispatchConfirmDialog(
     onConfirm: () -> Unit,
 ) {
     val modal = Modal(caption = caption)
-    modal.div("Dieser Versand ist ENDGÜLTIG und verursacht reale Kosten.") { addCssClasses("fw-bold text-danger") }
+    modal.div(tr("Dieser Versand ist ENDGÜLTIG und verursacht reale Kosten.")) { addCssClasses("fw-bold text-danger") }
     modal.div(
-        "Ein physischer Brief wird über den Postdienstleister Letterxpress an die im System hinterlegte " +
-            "Anschrift von $recipientDisplayName verschickt. Der Versand kann nicht zurückgerufen werden.",
+        gettext(
+            "Ein physischer Brief wird über den Postdienstleister Letterxpress an die im System hinterlegte " +
+                "Anschrift von %1 verschickt. Der Versand kann nicht zurückgerufen werden.",
+            recipientDisplayName,
+        ),
     )
 
     val recipientRow = modal.hPanel(spacing = 8) { addCssClasses("border rounded p-2 mt-2 small") }
-    recipientRow.div("Empfänger:") { addCssClasses("text-muted") }
+    recipientRow.div(tr("Empfänger:")) { addCssClasses("text-muted") }
     recipientRow.div(recipientDisplayName) { addCssClass("flex-grow-1") }
     val documentRow = modal.hPanel(spacing = 8) { addCssClasses("border rounded p-2 mb-2 small") }
-    documentRow.div("Dokument:") { addCssClasses("text-muted") }
+    documentRow.div(tr("Dokument:")) { addCssClasses("text-muted") }
     documentRow.div(documentLabel) { addCssClass("flex-grow-1") }
 
-    modal.addButton(Button("Abbrechen", style = ButtonStyle.SECONDARY).apply { onClick { modal.hide() } })
+    modal.addButton(Button(tr("Abbrechen"), style = ButtonStyle.SECONDARY).apply { onClick { modal.hide() } })
     modal.addButton(
-        Button("Jetzt per Post versenden", style = ButtonStyle.DANGER).apply {
+        Button(tr("Jetzt per Post versenden"), style = ButtonStyle.DANGER).apply {
             onClick {
                 modal.hide()
                 onConfirm()
@@ -229,20 +238,23 @@ fun postalEinladungDispatchConfirmDialog(
     recipientDisplayNames: List<String>,
     onConfirm: () -> Unit,
 ) {
-    val modal = Modal(caption = "Einladung per Post versenden")
-    modal.div("Dieser Versand ist ENDGÜLTIG und verursacht reale Kosten pro Brief.") { addCssClasses("fw-bold text-danger") }
+    val modal = Modal(caption = tr("Einladung per Post versenden"))
+    modal.div(tr("Dieser Versand ist ENDGÜLTIG und verursacht reale Kosten pro Brief.")) { addCssClasses("fw-bold text-danger") }
     modal.div(
-        "${recipientDisplayNames.size} physische Briefe werden über Letterxpress an die im System hinterlegten " +
-            "Anschriften der ausgewählten Mitglieder verschickt. Fehlt bei auch nur einer Person die " +
-            "vollständige Anschrift, wird der gesamte Versand abgelehnt -- kein Teilversand.",
+        gettext(
+            "%1 physische Briefe werden über Letterxpress an die im System hinterlegten " +
+                "Anschriften der ausgewählten Mitglieder verschickt. Fehlt bei auch nur einer Person die " +
+                "vollständige Anschrift, wird der gesamte Versand abgelehnt -- kein Teilversand.",
+            recipientDisplayNames.size,
+        ),
     )
     val listPanel = modal.vPanel(spacing = 2) { addCssClasses("border rounded p-2 mt-2 mb-2 small text-muted") }
     recipientDisplayNames.forEach { name -> listPanel.div(name) }
-    modal.div("Maximal 50 Empfänger pro Versand.") { addCssClasses("text-muted small") }
+    modal.div(tr("Maximal 50 Empfänger pro Versand.")) { addCssClasses("text-muted small") }
 
-    modal.addButton(Button("Abbrechen", style = ButtonStyle.SECONDARY).apply { onClick { modal.hide() } })
+    modal.addButton(Button(tr("Abbrechen"), style = ButtonStyle.SECONDARY).apply { onClick { modal.hide() } })
     modal.addButton(
-        Button("Jetzt per Post versenden", style = ButtonStyle.DANGER).apply {
+        Button(tr("Jetzt per Post versenden"), style = ButtonStyle.DANGER).apply {
             onClick {
                 modal.hide()
                 onConfirm()

@@ -13,6 +13,8 @@ import io.kvision.html.h1
 import io.kvision.html.h2
 import io.kvision.html.link
 import io.kvision.html.p
+import io.kvision.i18n.gettext
+import io.kvision.i18n.tr
 import io.kvision.panel.SimplePanel
 import io.kvision.panel.vPanel
 import io.kvision.utils.px
@@ -39,8 +41,8 @@ fun renderRegistrationScreen(container: SimplePanel) {
             width = 480.px
             marginTop = 32.px
         }
-    root.h1("Mitglied werden")
-    val loadingNotice = root.p("Beitrittsvertrag wird geladen ...")
+    root.h1(tr("Mitglied werden"))
+    val loadingNotice = root.p(tr("Beitrittsvertrag wird geladen ..."))
 
     AppScope.launch {
         val agreement = guarded { rpcService<IRegistrationService>().getMembershipAgreement() }
@@ -53,7 +55,7 @@ private fun renderRegistrationForm(
     root: SimplePanel,
     agreement: MembershipAgreementDto,
 ) {
-    root.h2("Beitrittsvertrag (Version ${agreement.version})")
+    root.h2(gettext("Beitrittsvertrag (Version %1)", agreement.version))
     root.div {
         addCssClasses("border rounded p-2 mb-2")
         maxHeight = 240.px
@@ -61,11 +63,12 @@ private fun renderRegistrationForm(
         content = agreement.text
     }
 
-    val displayNameInput = root.text(label = "Name")
-    val emailInput = root.text(type = InputType.EMAIL, label = "E-Mail")
-    val passwordInput = root.password(label = "Passwort (mind. ${Validation.PASSWORD_MIN_LENGTH} Zeichen)")
-    val confirmPasswordInput = root.password(label = "Passwort bestätigen")
-    val agreeCheck = root.checkBox(label = "Ich habe den Beitrittsvertrag gelesen und akzeptiere ihn.")
+    val displayNameInput = root.text(label = tr("Name"))
+    val emailInput = root.text(type = InputType.EMAIL, label = tr("E-Mail"))
+    val passwordInput =
+        root.password(label = gettext("Passwort (mind. %1 Zeichen)", Validation.PASSWORD_MIN_LENGTH))
+    val confirmPasswordInput = root.password(label = tr("Passwort bestätigen"))
+    val agreeCheck = root.checkBox(label = tr("Ich habe den Beitrittsvertrag gelesen und akzeptiere ihn."))
 
     val errorBox =
         root.div().apply {
@@ -75,7 +78,7 @@ private fun renderRegistrationForm(
 
     lateinit var submitButton: Button
     submitButton =
-        root.button("Antrag einreichen", style = ButtonStyle.PRIMARY) {
+        root.button(tr("Antrag einreichen"), style = ButtonStyle.PRIMARY) {
             onClick {
                 errorBox.hide()
                 val displayName = displayNameInput.value.orEmpty().trim()
@@ -84,7 +87,7 @@ private fun renderRegistrationForm(
                 val confirmPassword = confirmPasswordInput.value.orEmpty()
 
                 if (!Validation.isNonBlank(displayName) || !Validation.looksLikeEmail(email)) {
-                    errorBox.content = "Bitte Name und eine gültige E-Mail-Adresse angeben."
+                    errorBox.content = tr("Bitte Name und eine gültige E-Mail-Adresse angeben.")
                     errorBox.show()
                     return@onClick
                 }
@@ -95,12 +98,12 @@ private fun renderRegistrationForm(
                     return@onClick
                 }
                 if (!Validation.passwordsMatch(password, confirmPassword)) {
-                    errorBox.content = "Die Passwörter stimmen nicht überein."
+                    errorBox.content = tr("Die Passwörter stimmen nicht überein.")
                     errorBox.show()
                     return@onClick
                 }
                 if (!agreeCheck.value) {
-                    errorBox.content = "Bitte bestätigen Sie, dass Sie den Beitrittsvertrag gelesen haben."
+                    errorBox.content = tr("Bitte bestätigen Sie, dass Sie den Beitrittsvertrag gelesen haben.")
                     errorBox.show()
                     return@onClick
                 }
@@ -130,16 +133,18 @@ private fun renderRegistrationForm(
 
     root.div {
         marginTop = 8.px
-        link("Bereits Mitglied? Zur Anmeldung.", url = "#${Routes.LOGIN}")
+        link(tr("Bereits Mitglied? Zur Anmeldung."), url = "#${Routes.LOGIN}")
     }
 }
 
 private fun renderRegistrationPending(root: SimplePanel) {
-    root.h1("Antrag eingereicht")
+    root.h1(tr("Antrag eingereicht"))
     root.p(
-        "Ihr Mitgliedschaftsantrag wurde eingereicht und wird vom Vorstand geprüft. " +
-            "Sie sind noch nicht angemeldet -- nach der Freigabe können Sie sich mit Ihrem gewählten " +
-            "Passwort anmelden.",
+        tr(
+            "Ihr Mitgliedschaftsantrag wurde eingereicht und wird vom Vorstand geprüft. " +
+                "Sie sind noch nicht angemeldet -- nach der Freigabe können Sie sich mit Ihrem gewählten " +
+                "Passwort anmelden.",
+        ),
     )
-    root.link("Zur Anmeldung", url = "#${Routes.LOGIN}")
+    root.link(tr("Zur Anmeldung"), url = "#${Routes.LOGIN}")
 }

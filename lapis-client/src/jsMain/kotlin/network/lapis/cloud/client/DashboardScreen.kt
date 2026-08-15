@@ -9,6 +9,8 @@ import io.kvision.html.h1
 import io.kvision.html.h2
 import io.kvision.html.link
 import io.kvision.html.p
+import io.kvision.i18n.gettext
+import io.kvision.i18n.tr
 import io.kvision.panel.SimplePanel
 import io.kvision.panel.hPanel
 import io.kvision.panel.vPanel
@@ -39,37 +41,37 @@ fun renderDashboardScreen(container: SimplePanel) {
             width = 640.px
             marginTop = 24.px
         }
-    root.h1("Willkommen, ${session.displayName}")
-    root.p("Rolle: ${session.role} · Sitzung gültig bis ${session.expiresAt}")
+    root.h1(gettext("Willkommen, %1", session.displayName))
+    root.p(gettext("Rolle: %1 · Sitzung gültig bis %2", session.role, session.expiresAt))
 
-    root.h2("Bereiche")
+    root.h2(tr("Bereiche"))
     val nav = root.vPanel(spacing = 6)
-    navTile(nav, "Beitragsübersicht", Routes.CONTRIBUTIONS)
-    navTile(nav, "Dokumentenablage", Routes.DOCUMENTS)
-    navTile(nav, "Kommunikation", Routes.COMMUNICATION)
-    navTile(nav, "Gremien", Routes.COMMITTEES)
-    navTile(nav, "Sitzungen", Routes.MEETINGS)
-    navTile(nav, "Anträge", Routes.MOTIONS)
+    navTile(nav, tr("Beitragsübersicht"), Routes.CONTRIBUTIONS)
+    navTile(nav, tr("Dokumentenablage"), Routes.DOCUMENTS)
+    navTile(nav, tr("Kommunikation"), Routes.COMMUNICATION)
+    navTile(nav, tr("Gremien"), Routes.COMMITTEES)
+    navTile(nav, tr("Sitzungen"), Routes.MEETINGS)
+    navTile(nav, tr("Anträge"), Routes.MOTIONS)
     // LTR-Wirtschaft UI wave: same placement/role-gating as the navbar link -- see `App.kt`
     // `refreshNavbar` / `Routes.LTR_LEDGER` KDoc.
-    navTile(nav, "LTR-Konto", Routes.LTR_LEDGER)
+    navTile(nav, tr("LTR-Konto"), Routes.LTR_LEDGER)
     // Accounting UI wave, design decision D15: same placement/role-gating as the navbar link --
     // see `App.kt` `refreshNavbar`.
     if (AppState.hasRole(AccountRole.TREASURER, AccountRole.BOARD, AccountRole.ADMIN)) {
-        navTile(nav, "Kontenplan & Journal", Routes.LEDGER)
-        navTile(nav, "Finanzberichte", Routes.FINANCIAL_REPORTS)
-        navTile(nav, "Gemeinnützigkeits-Berichte", Routes.COMPLIANCE_REPORTS)
-        navTile(nav, "Kostenstellen", Routes.COST_CENTERS)
-        navTile(nav, "Spender", Routes.DONORS)
+        navTile(nav, tr("Kontenplan & Journal"), Routes.LEDGER)
+        navTile(nav, tr("Finanzberichte"), Routes.FINANCIAL_REPORTS)
+        navTile(nav, tr("Gemeinnützigkeits-Berichte"), Routes.COMPLIANCE_REPORTS)
+        navTile(nav, tr("Kostenstellen"), Routes.COST_CENTERS)
+        navTile(nav, tr("Spender"), Routes.DONORS)
         // Mail-merge/Postal-Dispatch UI wave: same TREASURER/BOARD/ADMIN tier/placement as the
         // navbar link -- see `Routes.POSTAL_MAIL` KDoc.
-        navTile(nav, "Postversand", Routes.POSTAL_MAIL)
+        navTile(nav, tr("Postversand"), Routes.POSTAL_MAIL)
     }
     if (AppState.hasRole(AccountRole.BOARD, AccountRole.ADMIN)) {
-        navTile(nav, "Mitgliederverwaltung", Routes.MEMBERS)
+        navTile(nav, tr("Mitgliederverwaltung"), Routes.MEMBERS)
     }
 
-    root.h2("Konto")
+    root.h2(tr("Konto"))
     renderChangePassword(root)
     renderAccountActions(root)
 }
@@ -86,17 +88,18 @@ private fun navTile(
 
 private fun renderChangePassword(root: SimplePanel) {
     val panel = root.vPanel(spacing = 6)
-    panel.p("Passwort ändern")
-    val currentPasswordInput = panel.password(label = "Aktuelles Passwort")
-    val newPasswordInput = panel.password(label = "Neues Passwort (mind. ${Validation.PASSWORD_MIN_LENGTH} Zeichen)")
-    val confirmPasswordInput = panel.password(label = "Neues Passwort bestätigen")
+    panel.p(tr("Passwort ändern"))
+    val currentPasswordInput = panel.password(label = tr("Aktuelles Passwort"))
+    val newPasswordInput =
+        panel.password(label = gettext("Neues Passwort (mind. %1 Zeichen)", Validation.PASSWORD_MIN_LENGTH))
+    val confirmPasswordInput = panel.password(label = tr("Neues Passwort bestätigen"))
     val errorBox =
         panel.div().apply {
             addCssClass("text-danger")
             hide()
         }
 
-    val changeButton: Button = panel.button("Passwort ändern", style = ButtonStyle.OUTLINESECONDARY)
+    val changeButton: Button = panel.button(tr("Passwort ändern"), style = ButtonStyle.OUTLINESECONDARY)
     changeButton.onClick {
         errorBox.hide()
         val currentPassword = currentPasswordInput.value.orEmpty()
@@ -104,12 +107,12 @@ private fun renderChangePassword(root: SimplePanel) {
         val confirmPassword = confirmPasswordInput.value.orEmpty()
 
         if (!Validation.isNonBlank(currentPassword) || !Validation.isNonBlank(newPassword)) {
-            errorBox.content = "Bitte alle Felder ausfüllen."
+            errorBox.content = tr("Bitte alle Felder ausfüllen.")
             errorBox.show()
             return@onClick
         }
         if (!Validation.passwordsMatch(newPassword, confirmPassword)) {
-            errorBox.content = "Die neuen Passwörter stimmen nicht überein."
+            errorBox.content = tr("Die neuen Passwörter stimmen nicht überein.")
             errorBox.show()
             return@onClick
         }
@@ -119,7 +122,7 @@ private fun renderChangePassword(root: SimplePanel) {
             val result = guarded { rpcService<IAuthService>().changePassword(currentPassword, newPassword) }
             changeButton.disabled = false
             if (result != null) {
-                notifySuccess("Passwort geändert.")
+                notifySuccess(tr("Passwort geändert."))
                 currentPasswordInput.value = null
                 newPasswordInput.value = null
                 confirmPasswordInput.value = null
@@ -131,7 +134,7 @@ private fun renderChangePassword(root: SimplePanel) {
 private fun renderAccountActions(root: SimplePanel) {
     val actionRow = root.hPanel(spacing = 8)
 
-    val logoutButton = actionRow.button("Abmelden", style = ButtonStyle.SECONDARY)
+    val logoutButton = actionRow.button(tr("Abmelden"), style = ButtonStyle.SECONDARY)
     logoutButton.onClick {
         AppScope.launch {
             AuthHttp.logout()
@@ -140,20 +143,22 @@ private fun renderAccountActions(root: SimplePanel) {
         }
     }
 
-    val exitButton = actionRow.button("Austritt (Mitgliedschaft beenden)", style = ButtonStyle.OUTLINEDANGER)
+    val exitButton = actionRow.button(tr("Austritt (Mitgliedschaft beenden)"), style = ButtonStyle.OUTLINEDANGER)
     exitButton.onClick {
         confirmDialog(
-            title = "Austritt bestätigen",
+            title = tr("Austritt bestätigen"),
             message =
-                "Möchten Sie Ihre Mitgliedschaft wirklich beenden? Dies ist nicht rückgängig zu machen -- " +
-                    "Sie werden abgemeldet und können sich nicht erneut mit diesem Konto anmelden.",
-            confirmLabel = "Austritt bestätigen",
+                tr(
+                    "Möchten Sie Ihre Mitgliedschaft wirklich beenden? Dies ist nicht rückgängig zu machen -- " +
+                        "Sie werden abgemeldet und können sich nicht erneut mit diesem Konto anmelden.",
+                ),
+            confirmLabel = tr("Austritt bestätigen"),
         ) {
             AppScope.launch {
                 val result = guarded { rpcService<IRegistrationService>().leaveMembership() }
                 if (result != null) {
                     AppState.setSession(null)
-                    notifyInfo("Sie sind ausgetreten.")
+                    notifyInfo(tr("Sie sind ausgetreten."))
                     navigateTo(Routes.LOGIN)
                 }
             }

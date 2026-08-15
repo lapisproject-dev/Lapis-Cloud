@@ -1,0 +1,4501 @@
+msgid ""
+msgstr ""
+"Content-Type: text/plain; charset=UTF-8\n"
+"Language: en\n"
+
+msgid " -- %1"
+msgstr " -- %1"
+
+msgid " · gemeldet am %1"
+msgstr " · reported on %1"
+
+msgid " · Moderator"
+msgstr " · Moderator"
+
+msgid " (%1)"
+msgstr " (%1)"
+
+msgid " (Sie)"
+msgstr " (You)"
+
+msgid " bei %1"
+msgstr " at %1"
+
+msgid "-- kein --"
+msgstr "-- none --"
+
+msgid "-- kein (neuer Hauptantrag) --"
+msgstr "-- none (new main motion) --"
+
+msgid "-- kein Spender --"
+msgstr "-- no donor --"
+
+msgid "-- kein Tagesordnungspunkt --"
+msgstr "-- no agenda item --"
+
+msgid "-- keine --"
+msgstr "-- none --"
+
+msgid "-- keine Rücklage --"
+msgstr "-- no reserve --"
+
+msgid "-- Konto wählen --"
+msgstr "-- select account --"
+
+msgid "-- Spenderkategorie wählen --"
+msgstr "-- select donor category --"
+
+msgid "-- Sphäre wählen --"
+msgstr "-- select sphere --"
+
+msgid "— Nicht zugeordnet —"
+msgstr "— Not assigned —"
+
+msgid ", Sofortkaufpreis %1"
+msgstr ", buy-it-now price %1"
+
+msgid "\"%1 · %2\" wirklich deaktivieren? Bestehende Buchungen bleiben erhalten, das Konto steht aber für neue Buchungen nicht mehr zur Verfügung."
+msgstr "Do you really want to deactivate \"%1 · %2\"? Existing entries will be retained, but the account will no longer be available for new entries."
+
+msgid "\"%1 · %2\" wirklich deaktivieren? Bestehende Buchungen bleiben erhalten, die Kostenstelle steht aber für neue Buchungen nicht mehr zur Verfügung."
+msgstr "Do you really want to deactivate \"%1 · %2\"? Existing entries will be retained, but the cost center will no longer be available for new entries."
+
+msgid "\"%1\" aus der Besprechung entfernen?"
+msgstr "Remove \"%1\" from the meeting?"
+
+msgid "\"%1\" wird sofort geschlossen -- alle Verbindungen werden getrennt."
+msgstr "\"%1\" will be closed immediately -- all connections will be disconnected."
+
+msgid "\"%1\" wirklich abbrechen? Es wird keine Abrechnung durchgeführt."
+msgstr "Do you really want to cancel \"%1\"? No settlement will be carried out."
+
+msgid "\"%1\" wirklich absagen?"
+msgstr "Do you really want to cancel \"%1\"?"
+
+msgid "\"%1\" wirklich deaktivieren? Bestehende Buchungen mit diesem Spender bleiben erhalten, er steht aber für neue Buchungen nicht mehr zur Verfügung."
+msgstr "Do you really want to deactivate \"%1\"? Existing entries with this donor will be retained, but they will no longer be available for new entries."
+
+msgid "\"%1\" wirklich löschen? (Soft-Delete -- bisherige Versionen bleiben zu Prüfzwecken erhalten, das Dokument verschwindet aus der Ansicht.)"
+msgstr "Do you really want to delete \"%1\"? (Soft delete -- previous versions are retained for audit purposes; the document disappears from view.)"
+
+msgid "\"%1\" wirklich löschen? Dies ist nur möglich, solange kein aktiver oder unterbrochener Live-Stream dieses Ziel verwendet."
+msgstr "Do you really want to delete \"%1\"? This is only possible as long as no active or interrupted live stream is using this target."
+
+msgid "\"%1\" wirklich zurückziehen?"
+msgstr "Do you really want to withdraw \"%1\"?"
+
+msgid "\"%1\" wurde aktualisiert."
+msgstr "\"%1\" has been updated."
+
+msgid "\"%1\" wurde angelegt."
+msgstr "\"%1\" has been created."
+
+msgid "„Mittelvortrag\" ist der am Ende von %1 verbleibende §55-AO-Zeitwert-Topf (die Fristablauf-Uhr läuft seit dem frühesten Geschäftsjahr mit Aktivität, nicht erst ab %2) -- „davon überfällig\" ist der Anteil, dessen gesetzliche Frist bereits abgelaufen ist."
+msgstr "\"Carryforward\" is the §55 AO time-value pool remaining at the end of %1 (the deadline clock has been running since the earliest fiscal year with activity, not only from %2) -- \"of which overdue\" is the portion whose statutory deadline has already expired."
+
+msgid "„Ziel überschreiben\" ist aktiviert: diese Organisation hat bereits Daten. Sie werden mit den Daten aus der Datei zusammengeführt/überschrieben."
+msgstr "\"Overwrite target\" is enabled: this organization already has data. It will be merged with/overwritten by the data from the file."
+
+msgid "(gesetzliche Obergrenze hier nicht geprüft)"
+msgstr "(statutory ceiling not checked here)"
+
+msgid "(Jahresfehlbetrag)"
+msgstr "(annual deficit)"
+
+msgid "(optional -- bei Zuordnung greifen die §25-PartG-Spendenannahme-Prüfungen dieser Partei)"
+msgstr "(optional -- if assigned, this party's §25 PartG donation-acceptance checks apply)"
+
+msgid "(optional, für Spendenbescheinigungen)"
+msgstr "(optional, for donation receipts)"
+
+msgid "(Sie)"
+msgstr "(You)"
+
+msgid "%1"
+msgstr "%1"
+
+msgid "%1 -- %2"
+msgstr "%1 -- %2"
+
+msgid "%1 -- %2 (Beleg: %3)"
+msgstr "%1 -- %2 (Receipt: %3)"
+
+msgid "%1 – %2"
+msgstr "%1 – %2"
+
+msgid "%1 · %2"
+msgstr "%1 · %2"
+
+msgid "%1 · %2 · %3"
+msgstr "%1 · %2 · %3"
+
+msgid "%1 · %2 · Entität %3"
+msgstr "%1 · %2 · Entity %3"
+
+msgid "%1 · %2 · erfasst von %3"
+msgstr "%1 · %2 · recorded by %3"
+
+msgid "%1 · eingereicht von %2 am %3"
+msgstr "%1 · submitted by %2 on %3"
+
+msgid "%1 (%2 Abonnenten)"
+msgstr "%1 (%2 subscribers)"
+
+msgid "%1 (%2 Bytes)"
+msgstr "%1 (%2 bytes)"
+
+msgid "%1 (%2)"
+msgstr "%1 (%2)"
+
+msgid "%1 (%2) -- eingereicht am %3"
+msgstr "%1 (%2) -- submitted on %3"
+
+msgid "%1 (%2): fehlt %3"
+msgstr "%1 (%2): missing %3"
+
+msgid "%1 (Gast)"
+msgstr "%1 (Guest)"
+
+msgid "%1 (Sie)"
+msgstr "%1 (You)"
+
+msgid "%1 an %2 gutgeschrieben."
+msgstr "%1 credited to %2."
+
+msgid "%1 an %2 übertragen."
+msgstr "%1 transferred to %2."
+
+msgid "%1 bis %2: %3 (%4)"
+msgstr "%1 to %2: %3 (%4)"
+
+msgid "%1 bps"
+msgstr "%1 bps"
+
+msgid "%1 Breakout-Räume erstellt und Teilnehmende verteilt."
+msgstr "%1 breakout rooms created and participants distributed."
+
+msgid "%1 Buchungszeilen"
+msgstr "%1 posting lines"
+
+msgid "%1 Einträge geprüft (Sequenznummer %2–%3)."
+msgstr "%1 entries checked (sequence number %2–%3)."
+
+msgid "%1 erhält (oder behält) den Politiker-Status. Ein bereits aktives Profil wird aktualisiert, ein ehemaliges (widerrufenes) Profil reaktiviert -- niemals wird ein zweites Profil für dasselbe Mitglied angelegt."
+msgstr "%1 receives (or retains) politician status. An already active profile is updated, a former (revoked) profile is reactivated -- a second profile is never created for the same member."
+
+msgid "%1 für %2 gemintet."
+msgstr "%1 minted for %2."
+
+msgid "%1 LTR"
+msgstr "%1 LTR"
+
+msgid "%1 neue Beiträge erzeugt (bereits vorhandene wurden übersprungen)."
+msgstr "%1 new contributions generated (existing ones were skipped)."
+
+msgid "%1 offene Erinnerung(en) -- siehe Abschnitt \"Erinnerungen\" unten."
+msgstr "%1 open reminder(s) -- see the \"Reminders\" section below."
+
+msgid "%1 physische Briefe werden über Letterxpress an die im System hinterlegten Anschriften der ausgewählten Mitglieder verschickt. Fehlt bei auch nur einer Person die vollständige Anschrift, wird der gesamte Versand abgelehnt -- kein Teilversand."
+msgstr "%1 physical letters will be sent via Letterxpress to the addresses on file for the selected members. If even a single person is missing a complete address, the entire mailing will be rejected -- no partial mailing."
+
+msgid "%1 Quellen"
+msgstr "%1 sources"
+
+msgid "%1 s"
+msgstr "%1 s"
+
+msgid "%1 Stimmen abgegeben."
+msgstr "%1 votes cast."
+
+msgid "%1 Tabelle(n) · %2 Zeile(n) · %3 Datei(en) (%4 Bytes) · Bundle-Größe: %5 Bytes · Format-Version %6"
+msgstr "%1 table(s) · %2 row(s) · %3 file(s) (%4 bytes) · bundle size: %5 bytes · format version %6"
+
+msgid "%1 Tabelle(n), %2 Zeile(n), %3 Datei(en) wiederhergestellt."
+msgstr "%1 table(s), %2 row(s), %3 file(s) restored."
+
+msgid "%1 teilt den Bildschirm"
+msgstr "%1 is sharing their screen"
+
+msgid "%1 von %2"
+msgstr "%1 of %2"
+
+msgid "%1 von %2 anwesend (erforderlich: %3, %4%)."
+msgstr "%1 of %2 present (required: %3, %4%)."
+
+msgid "%1 von %2 Briefen erfolgreich übergeben."
+msgstr "%1 of %2 letters successfully submitted."
+
+msgid "%1 von %2 Briefen fehlgeschlagen -- Details unten."
+msgstr "%1 of %2 letters failed -- details below."
+
+msgid "%1 wurde abgelehnt."
+msgstr "%1 was rejected."
+
+msgid "%1 wurde als %2 ernannt."
+msgstr "%1 was appointed as %2."
+
+msgid "%1 wurde angelegt."
+msgstr "%1 was created."
+
+msgid "%1 wurde aufgenommen."
+msgstr "%1 was admitted."
+
+msgid "%1: %2"
+msgstr "%1: %2"
+
+msgid "%1: %2 (%3, %4)"
+msgstr "%1: %2 (%3, %4)"
+
+msgid "%1: %2 anonymisiert, %3 gelöscht, %4 beibehalten"
+msgstr "%1: %2 anonymized, %3 deleted, %4 retained"
+
+msgid "%1: %2–%3: %4 (%5)"
+msgstr "%1: %2–%3: %4 (%5)"
+
+msgid "%1: %2, %3 LTR%4"
+msgstr "%1: %2, %3 LTR%4"
+
+msgid "%1: %2%3%4"
+msgstr "%1: %2%3%4"
+
+msgid "%1. %2"
+msgstr "%1. %2"
+
+msgid "%1. %2%3"
+msgstr "%1. %2%3"
+
+msgid "%1. %2%3%4"
+msgstr "%1. %2%3%4"
+
+msgid "↳ Änderungsantrag: %1"
+msgstr "↳ Amendment: %1"
+
+msgid "◆ Live-Stream %1 → %2"
+msgstr "◆ Live stream %1 → %2"
+
+msgid "● Aufzeichnung läuft"
+msgstr "● Recording in progress"
+
+msgid "✓ Kette intakt"
+msgstr "✓ Chain intact"
+
+msgid "✗ Kette gebrochen bei Sequenznummer %1"
+msgstr "✗ Chain broken at sequence number %1"
+
+msgid "1 Buchungszeile"
+msgstr "1 posting line"
+
+msgid "Abbestellen"
+msgstr "Unsubscribe"
+
+msgid "Abbestellt am %1"
+msgstr "Unsubscribed on %1"
+
+msgid "Abbrechen"
+msgstr "Cancel"
+
+msgid "Abgegeben"
+msgstr "Cast"
+
+msgid "Abgelehnt"
+msgstr "Rejected"
+
+msgid "Abgeschlossen"
+msgstr "Completed"
+
+msgid "Abgeschlossen (kein Verkauf)"
+msgstr "Completed (no sale)"
+
+msgid "Abgeschlossen (verkauft)"
+msgstr "Completed (sold)"
+
+msgid "Abhilfemaßnahmen (optional)"
+msgstr "Remedial measures (optional)"
+
+msgid "Ablehnen"
+msgstr "Reject"
+
+msgid "Ablehnungsgrund (nur für \"Ablehnen\" erforderlich, öffentlich sichtbar)"
+msgstr "Reason for rejection (required only for \"Reject\", publicly visible)"
+
+msgid "Ablehnungsgrund: %1"
+msgstr "Reason for rejection: %1"
+
+msgid "Abmelden"
+msgstr "Log out"
+
+msgid "Abonnenten"
+msgstr "Subscribers"
+
+msgid "Abonnieren"
+msgstr "Subscribe"
+
+msgid "Abonniert seit %1"
+msgstr "Subscribed since %1"
+
+msgid "Absagen"
+msgstr "Cancel"
+
+msgid "Absender"
+msgstr "Sender"
+
+msgid "Abstimmung"
+msgstr "Vote"
+
+msgid "Abstimmungseinsatz"
+msgstr "Voting stake"
+
+msgid "Abwickeln"
+msgstr "Settle"
+
+msgid "Administration"
+msgstr "Administration"
+
+msgid "Akteur-Mitglieds-ID (optional)"
+msgstr "Actor member ID (optional)"
+
+msgid "Akteur: %1"
+msgstr "Actor: %1"
+
+msgid "Akteur: %1 · Betroffenes Mitglied: %2"
+msgstr "Actor: %1 · Affected member: %2"
+
+msgid "aktiv"
+msgstr "active"
+
+msgid "Aktiv"
+msgstr "Active"
+
+msgid "Aktiva"
+msgstr "Assets"
+
+msgid "Aktive Besprechungen"
+msgstr "Active meetings"
+
+msgid "Aktive Mitglieder nach Name. E-Mail/Rolle/Adresse sind hier aus Datenschutzgründen nicht einsehbar -- dafür existiert aktuell keine privilegierte Leseschnittstelle."
+msgstr "Active members by name. Email/role/address are not visible here for data protection reasons -- no privileged read interface currently exists for this."
+
+msgid "Aktivieren"
+msgstr "Activate"
+
+msgid "Aktiviert"
+msgstr "Activated"
+
+msgid "Aktivkonto"
+msgstr "Asset account"
+
+msgid "Aktualisieren"
+msgstr "Update"
+
+msgid "aktualisiert"
+msgstr "updated"
+
+msgid "Aktuell keine Vorstandsmitglieder erfasst."
+msgstr "No board members currently recorded."
+
+msgid "Aktueller Preis"
+msgstr "Current price"
+
+msgid "Aktueller Preis (Sie führen)"
+msgstr "Current price (you are leading)"
+
+msgid "Aktueller Schlüssel: %1 -- wird hier nie im Klartext angezeigt."
+msgstr "Current key: %1 -- never displayed here in plain text."
+
+msgid "Aktueller Vorstand"
+msgstr "Current board"
+
+msgid "Aktuelles Gewicht (10 %/Tag Zerfall)"
+msgstr "Current weight (10%/day decay)"
+
+msgid "Aktuelles Passwort"
+msgstr "Current password"
+
+msgid "Aktuelles Passwort ist falsch."
+msgstr "Current password is incorrect."
+
+msgid "Alle"
+msgstr "All"
+
+msgid "Alle (persistierter Status)"
+msgstr "All (persisted status)"
+
+msgid "Alle abwählen"
+msgstr "Deselect all"
+
+msgid "Alle aktuell anwesenden Teilnehmenden sehen sofort, dass aufgezeichnet wird -- unabhängig davon, wer die Aufzeichnung startet."
+msgstr "All participants currently present immediately see that recording is in progress -- regardless of who starts the recording."
+
+msgid "Alle auswählen"
+msgstr "Select all"
+
+msgid "Alle Beiträge"
+msgstr "All contributions"
+
+msgid "Alle Entitätstypen"
+msgstr "All entity types"
+
+msgid "Alle Gebote"
+msgstr "All bids"
+
+msgid "Alle Gremien"
+msgstr "All committees"
+
+msgid "Alle Kategorien"
+msgstr "All categories"
+
+msgid "Alle Löschanträge -- genehmigen/ablehnen, und einen genehmigten Antrag endgültig ausführen."
+msgstr "All deletion requests -- approve/reject, and permanently execute an approved request."
+
+msgid "Alle Status"
+msgstr "All statuses"
+
+msgid "Alle Teilnehmenden werden sofort aus ihren Breakout-Räumen in den Hauptraum zurückgeholt."
+msgstr "All participants are immediately brought back from their breakout rooms to the main room."
+
+msgid "Alle Teilnehmenden wurden in den Hauptraum zurückgeholt."
+msgstr "All participants have been brought back to the main room."
+
+msgid "Alle Zeichnungen auf dem Whiteboard werden sofort für alle Teilnehmenden entfernt."
+msgstr "All drawings on the whiteboard will be removed immediately for all participants."
+
+msgid "Alle zurückholen"
+msgstr "Bring back all"
+
+msgid "Als bezahlt markieren"
+msgstr "Mark as paid"
+
+msgid "Als bezahlt markiert."
+msgstr "Marked as paid."
+
+msgid "Als Dokument speichern"
+msgstr "Save as document"
+
+msgid "Als durchgeführt markieren"
+msgstr "Mark as completed"
+
+msgid "Als Entwurf speichern"
+msgstr "Save as draft"
+
+msgid "Als Gast beitreten"
+msgstr "Join as guest"
+
+msgid "Als neuen Entwurf duplizieren"
+msgstr "Duplicate as new draft"
+
+msgid "Als PDF herunterladen"
+msgstr "Download as PDF"
+
+msgid "Als Vorstand können Sie hier nur reguläre Mitglieder anlegen -- Vorstand/Schatzmeister/Admin ist Admin vorbehalten."
+msgstr "As a board member, you can only create regular members here -- board/treasurer/admin is reserved for administrators."
+
+msgid "Andere Partei/Fraktion"
+msgstr "Other party/faction"
+
+msgid "Ändert bestehenden Antrag (optional)"
+msgstr "Amends existing motion (optional)"
+
+msgid "Änderungsantrag"
+msgstr "Amendment"
+
+msgid "Änderungsantrag terminiert."
+msgstr "Amendment scheduled."
+
+msgid "Änderungsantrag zu: %1"
+msgstr "Amendment to: %1"
+
+msgid "Änderungsantrag: %1"
+msgstr "Amendment: %1"
+
+msgid "Änderungsanträge zu diesem Antrag"
+msgstr "Amendments to this motion"
+
+msgid "Änderungshinweis (optional)"
+msgstr "Change note (optional)"
+
+msgid "Anfrage fehlgeschlagen."
+msgstr "Request failed."
+
+msgid "Angebot \"%1\" erstellt."
+msgstr "Offer \"%1\" created."
+
+msgid "Angebot erstellen"
+msgstr "Create offer"
+
+msgid "angelegt"
+msgstr "created"
+
+msgid "Angemeldet über den OIDC-Heimserver %1."
+msgstr "Signed in via the OIDC home server %1."
+
+msgid "Anker-Asset"
+msgstr "Anchor asset"
+
+msgid "Anlegen"
+msgstr "Create"
+
+msgid "Anmelden"
+msgstr "Log in"
+
+msgid "Anmeldung erfolgreich, aber Sitzungsdaten konnten nicht geladen werden."
+msgstr "Login successful, but session data could not be loaded."
+
+msgid "Anmeldung fehlgeschlagen."
+msgstr "Login failed."
+
+msgid "Annehmen"
+msgstr "Accept"
+
+msgid "Anonym"
+msgstr "Anonymous"
+
+msgid "Anonymisierung"
+msgstr "Anonymization"
+
+msgid "Anonymisierung + Hartlöschung eigener Nachrichten"
+msgstr "Anonymization + hard deletion of own messages"
+
+msgid "Antrag \"%1\" terminiert."
+msgstr "Motion \"%1\" scheduled."
+
+msgid "Antrag \"%1\" wurde eingereicht."
+msgstr "Motion \"%1\" was submitted."
+
+msgid "Antrag angenommen zur Terminierung."
+msgstr "Motion accepted for scheduling."
+
+msgid "Antrag eingereicht"
+msgstr "Motion submitted"
+
+msgid "Antrag einreichen"
+msgstr "Submit motion"
+
+msgid "Antrag oben auswählen, um Details zu sehen."
+msgstr "Select a motion above to see details."
+
+msgid "Antrag von %1 ablehnen"
+msgstr "Reject motion from %1"
+
+msgid "Antrag vorläufig abgelehnt."
+msgstr "Motion provisionally rejected."
+
+msgid "Antrag wurde abgelehnt."
+msgstr "Motion was rejected."
+
+msgid "Antrag wurde genehmigt."
+msgstr "Motion was approved."
+
+msgid "Antrag wurde zurückgezogen."
+msgstr "Motion was withdrawn."
+
+msgid "Antrag zurückziehen"
+msgstr "Withdraw motion"
+
+msgid "Anträge"
+msgstr "Motions"
+
+msgid "Anträge verwalten"
+msgstr "Manage motions"
+
+msgid "Antragstext"
+msgstr "Motion text"
+
+msgid "Antwort des Servers konnte nicht gelesen werden: %1"
+msgstr "Server response could not be read: %1"
+
+msgid "Anwesenheit"
+msgstr "Attendance"
+
+msgid "Anwesenheit erfassen"
+msgstr "Record attendance"
+
+msgid "Anwesenheit von %1 gespeichert."
+msgstr "Attendance of %1 saved."
+
+msgid "Anzahl der Breakout-Räume"
+msgstr "Number of breakout rooms"
+
+msgid "Anzeige"
+msgstr "Display"
+
+msgid "Anzeige-Info: Währung"
+msgstr "Display info: currency"
+
+msgid "Anzeigen"
+msgstr "Show"
+
+msgid "Art der Löschung"
+msgstr "Type of deletion"
+
+msgid "Aufsichtsbehörde benachrichtigt"
+msgstr "Supervisory authority notified"
+
+msgid "Aufsichtsbehörde benachrichtigt am (JJJJ-MM-TTTHH:MM:SS, optional)"
+msgstr "Supervisory authority notified on (YYYY-MM-DDTHH:MM:SS, optional)"
+
+msgid "Auftragskontrolle"
+msgstr "Processor control"
+
+msgid "Aufwandskonto"
+msgstr "Expense account"
+
+msgid "Aufzeichnung"
+msgstr "Recording"
+
+msgid "Aufzeichnung beenden"
+msgstr "Stop recording"
+
+msgid "Aufzeichnung gestartet von %1 um %2:%3"
+msgstr "Recording started by %1 at %2:%3"
+
+msgid "Aufzeichnung gestartet."
+msgstr "Recording started."
+
+msgid "Aufzeichnung jetzt starten"
+msgstr "Start recording now"
+
+msgid "Aufzeichnung starten"
+msgstr "Start recording"
+
+msgid "Aufzeichnung wird beendet …"
+msgstr "Recording is being stopped …"
+
+msgid "Aufzeichnung wird beendet."
+msgstr "Recording is being stopped."
+
+msgid "Aufzeichnung wird zusammengeführt …"
+msgstr "Recording is being merged …"
+
+msgid "Aufzeichnung:"
+msgstr "Recording:"
+
+msgid "Aufzeichnungen"
+msgstr "Recordings"
+
+msgid "Auktion"
+msgstr "Auction"
+
+msgid "Auktion \"%1\" abgewickelt."
+msgstr "Auction \"%1\" settled."
+
+msgid "Auktion aktivieren -- rechtlicher Hinweis (Version %1)"
+msgstr "Activate auction -- legal notice (version %1)"
+
+msgid "Auktion aktivieren …"
+msgstr "Activate auction …"
+
+msgid "Auktion aktiviert."
+msgstr "Auction activated."
+
+msgid "Auktion deaktivieren"
+msgstr "Deactivate auction"
+
+msgid "Auktion deaktivieren bestätigen"
+msgstr "Confirm deactivating auction"
+
+msgid "Auktion deaktiviert."
+msgstr "Auction deactivated."
+
+msgid "Auktionen"
+msgstr "Auctions"
+
+msgid "Auktionen konnten nicht geladen werden."
+msgstr "Auctions could not be loaded."
+
+msgid "Auktions-Einstellgebühr"
+msgstr "Auction listing fee"
+
+msgid "Auktions-Reservierung"
+msgstr "Auction reservation"
+
+msgid "Auktions-Reservierung freigegeben"
+msgstr "Auction reservation released"
+
+msgid "Auktionskauf"
+msgstr "Auction purchase"
+
+msgid "Auktionsverkauf"
+msgstr "Auction sale"
+
+msgid "Ausdrücklich anonym"
+msgstr "Explicitly anonymous"
+
+msgid "Ausgabe"
+msgstr "Expense"
+
+msgid "Ausgaben"
+msgstr "Expenses"
+
+msgid "Ausgeführt"
+msgstr "Executed"
+
+msgid "Ausgeführt am %1"
+msgstr "Executed on %1"
+
+msgid "Ausgelöst am: %1"
+msgstr "Triggered on: %1"
+
+msgid "Ausgeschieden"
+msgstr "Departed"
+
+msgid "Ausgeschiedene anzeigen"
+msgstr "Show departed"
+
+msgid "Auskunft"
+msgstr "Disclosure"
+
+msgid "Auskunft exportiert"
+msgstr "Disclosure exported"
+
+msgid "Auskunftsübersicht anzeigen"
+msgstr "Show disclosure overview"
+
+msgid "Ausreißer-Schwelle"
+msgstr "Outlier threshold"
+
+msgid "Ausreißer-Schwelle (Basispunkte, 1-10000)"
+msgstr "Outlier threshold (basis points, 1-10000)"
+
+msgid "Ausstehend"
+msgstr "Pending"
+
+msgid "Austritt (Mitgliedschaft beenden)"
+msgstr "Resignation (end membership)"
+
+msgid "Austritt bestätigen"
+msgstr "Confirm resignation"
+
+msgid "Automatisch genehmigt durch die 14-Tage-Schweigefrist -- der Vorstand hat keinen expliziten Beschluss gefasst (Status bleibt dauerhaft \"Ausstehend\", effektiver Status zeigt \"Genehmigt\"). Das ist der normale, erwartete Zustand."
+msgstr "Automatically approved through the 14-day silence period -- the board did not pass an explicit resolution (status remains permanently \"Pending\", effective status shows \"Approved\"). This is the normal, expected state."
+
+msgid "Automatisches Kopieren war nicht möglich. Markieren Sie den Text unten und kopieren Sie ihn manuell."
+msgstr "Automatic copying was not possible. Select the text below and copy it manually."
+
+msgid "AVV-Eintrag \"%1\" wurde %2."
+msgstr "DPA entry \"%1\" was %2."
+
+msgid "AVV-Eintrag anlegen"
+msgstr "Create DPA entry"
+
+msgid "AVV-Status"
+msgstr "DPA status"
+
+msgid "Backup & Wiederherstellung"
+msgstr "Backup & restore"
+
+msgid "Backup exportieren (.zip)"
+msgstr "Export backup (.zip)"
+
+msgid "Backup-Datei (.zip)"
+msgstr "Backup file (.zip)"
+
+msgid "Beantragt"
+msgstr "Requested"
+
+msgid "Beantragt von %1 am %2"
+msgstr "Requested by %1 on %2"
+
+msgid "Bearbeiten"
+msgstr "Edit"
+
+msgid "Beendet"
+msgstr "Ended"
+
+msgid "Beginn"
+msgstr "Start"
+
+msgid "Begründung"
+msgstr "Justification"
+
+msgid "Begründung (optional)"
+msgstr "Justification (optional)"
+
+msgid "Begründung: %1"
+msgstr "Justification: %1"
+
+msgid "Bei \"Vorstand\" können anwesende Mitglieder, die nicht dem Vorstand angehören, das gespeicherte Dokument später NICHT ansehen -- wählen Sie \"Mitglieder\", wenn es allen Teilnehmenden zugänglich sein soll."
+msgstr "With \"Board\", members present who are not on the board will NOT be able to view the saved document later -- select \"Members\" if it should be accessible to all participants."
+
+msgid "Bei \"Vorstand\" können anwesende Mitglieder, die nicht dem Vorstand angehören, das gespeicherte Whiteboard später NICHT ansehen -- wählen Sie \"Mitglieder\", wenn es allen Teilnehmenden zugänglich sein soll."
+msgstr "With \"Board\", members present who are not on the board will NOT be able to view the saved whiteboard later -- select \"Members\" if it should be accessible to all participants."
+
+msgid "Bei \"Vorstand\" können anwesende Mitglieder, die nicht dem Vorstand angehören, die Aufzeichnung später NICHT ansehen -- wählen Sie \"Mitglieder\", wenn die Aufnahme allen Teilnehmenden zugänglich sein soll."
+msgstr "With \"Board\", members present who are not on the board will NOT be able to view the recording later -- select \"Members\" if the recording should be accessible to all participants."
+
+msgid "Bei geheimen Abstimmungen muss der Stream manuell unterbrochen werden. Eine automatische Unterbrechung gibt es in dieser Version noch nicht."
+msgstr "For secret ballots, the stream must be interrupted manually. Automatic interruption does not yet exist in this version."
+
+msgid "Beim Einstellen wird eine feste Gebühr von %1 fällig."
+msgstr "A fixed fee of %1 is due when listing."
+
+msgid "Beisitz"
+msgstr "Assessor"
+
+msgid "Beitrag erlassen"
+msgstr "Waive contribution"
+
+msgid "Beitrag erlassen."
+msgstr "Contribution waived."
+
+msgid "Beitrag von %1 über %2 wirklich erlassen?"
+msgstr "Do you really want to waive the contribution from %1 in the amount of %2?"
+
+msgid "Beiträge"
+msgstr "Contributions"
+
+msgid "Beiträge generieren"
+msgstr "Generate contributions"
+
+msgid "Beitragsrechnung %1–%2"
+msgstr "Contribution invoice %1–%2"
+
+msgid "Beitragsrechnung per Post versenden"
+msgstr "Send contribution invoice by post"
+
+msgid "Beitragssatz"
+msgstr "Contribution rate"
+
+msgid "Beitragssätze und Beitragsgenerierung"
+msgstr "Contribution rates and contribution generation"
+
+msgid "Beitragsübersicht"
+msgstr "Contribution overview"
+
+msgid "Beitreten"
+msgstr "Join"
+
+msgid "Beitrittsvertrag (Version %1)"
+msgstr "Membership agreement (version %1)"
+
+msgid "Beitrittsvertrag wird geladen ..."
+msgstr "Membership agreement is loading ..."
+
+msgid "Beleg"
+msgstr "Receipt"
+
+msgid "Beleg: %1"
+msgstr "Receipt: %1"
+
+msgid "Belegnummer (optional)"
+msgstr "Receipt number (optional)"
+
+msgid "Berechnet"
+msgstr "Calculated"
+
+msgid "Berechnet den EUR-Spendenpool für den gewählten Zeitraum (bezahlte Beiträge abzüglich einer festen Mindestbeteiligung je Zahler) und verteilt ihn proportional nach Verteilungs-Korb auf alle genehmigten Projekte. Erzeugt nur einen Prüf-/Entscheidungsdatensatz, keine Journalbuchung/Überweisung -- erneutes Ausführen für denselben Zeitraum erzeugt keine Duplikate."
+msgstr "Calculates the EUR donation pool for the selected period (paid contributions minus a fixed minimum share per payer) and distributes it proportionally by distribution basket across all approved projects. Only generates an audit/decision record, not a journal entry/transfer -- running this again for the same period does not create duplicates."
+
+msgid "Berechnet und speichert für JEDES aktive Politiker-Profil einen Gewichts-Schnappschuss für den gewählten Monat (Tag wird ignoriert, auf den Monatsersten normalisiert). Erneutes Ausführen für denselben Monat erzeugt keine Duplikate."
+msgstr "Calculates and saves a weight snapshot for EVERY active politician profile for the selected month (day is ignored, normalized to the first of the month). Running this again for the same month does not create duplicates."
+
+msgid "Bereiche"
+msgstr "Areas"
+
+msgid "Bereit"
+msgstr "Ready"
+
+msgid "Bereits laufende (OPEN) Auktionen können bis zur erneuten Aktivierung nicht mehr abgewickelt werden (kein Gebot, kein Sofortkauf, kein Abwickeln) -- sie bleiben eingefroren."
+msgstr "Auctions already in progress (OPEN) can no longer be settled until reactivated (no bidding, no buy-it-now, no settling) -- they remain frozen."
+
+msgid "Bereits Mitglied? Zur Anmeldung."
+msgstr "Already a member? Go to login."
+
+msgid "Bereits verbundene Gäste anderer Server werden sofort aus der Besprechung entfernt. Neue Gäste können nicht mehr beitreten. Mitglieder Ihrer eigenen Organisation sind nicht betroffen."
+msgstr "Guests from other servers who are already connected will be removed from the meeting immediately. New guests can no longer join. Members of your own organization are not affected."
+
+msgid "Berufs- oder Wirtschaftsverband"
+msgstr "Professional or trade association"
+
+msgid "Beschluss"
+msgstr "Resolution"
+
+msgid "Beschluss \"%1\" wurde erfasst."
+msgstr "Resolution \"%1\" was recorded."
+
+msgid "Beschluss erfassen (Gremienbeschluss)"
+msgstr "Record resolution (committee resolution)"
+
+msgid "Beschluss konnte nicht geladen werden."
+msgstr "Resolution could not be loaded."
+
+msgid "Beschluss speichern"
+msgstr "Save resolution"
+
+msgid "Beschlüsse"
+msgstr "Resolutions"
+
+msgid "Beschlusstext"
+msgstr "Resolution text"
+
+msgid "Beschreibung"
+msgstr "Description"
+
+msgid "Beschreibung (optional)"
+msgstr "Description (optional)"
+
+msgid "Besetzung: %1"
+msgstr "Composition: %1"
+
+msgid "Besprechung \"%1\" wurde für alle beendet."
+msgstr "Meeting \"%1\" was ended for everyone."
+
+msgid "Besprechung für alle beenden"
+msgstr "End meeting for everyone"
+
+msgid "Besprechung ganz verlassen"
+msgstr "Leave meeting entirely"
+
+msgid "Besprechung jetzt starten"
+msgstr "Start meeting now"
+
+msgid "Besprechung verlassen"
+msgstr "Leave meeting"
+
+msgid "Besprechung vom %1.%2.%3, %4:%5"
+msgstr "Meeting of %1.%2.%3, %4:%5"
+
+msgid "Besprechung: %1"
+msgstr "Meeting: %1"
+
+msgid "Bestätigen"
+msgstr "Confirm"
+
+msgid "Betrag"
+msgstr "Amount"
+
+msgid "Betrag (LTR)"
+msgstr "Amount (LTR)"
+
+msgid "Betreff"
+msgstr "Subject"
+
+msgid "Betriebsmittelrücklage (%1)"
+msgstr "Operating reserve (%1)"
+
+msgid "Betroffene Datenkategorien"
+msgstr "Affected data categories"
+
+msgid "Betroffene Personen benachrichtigt am (JJJJ-MM-TTTHH:MM:SS, optional)"
+msgstr "Data subjects notified on (YYYY-MM-DDTHH:MM:SS, optional)"
+
+msgid "Betroffene Ziele: %1"
+msgstr "Affected targets: %1"
+
+msgid "Betroffenes Mitglied (ID, optional)"
+msgstr "Affected member (ID, optional)"
+
+msgid "Betroffenes Mitglied: %1"
+msgstr "Affected member: %1"
+
+msgid "Bewertung gespeichert."
+msgstr "Rating saved."
+
+msgid "Bewertung zurückgezogen."
+msgstr "Rating withdrawn."
+
+msgid "Bezeichnung"
+msgstr "Label"
+
+msgid "Bezeichnung (z. B. \"PdV YouTube-Kanal\")"
+msgstr "Label (e.g. \"PdV YouTube channel\")"
+
+msgid "Bieten"
+msgstr "Bid"
+
+msgid "Bilanz"
+msgstr "Balance sheet"
+
+msgid "Bilanz ausgeglichen"
+msgstr "Balance sheet balanced"
+
+msgid "Bilanz NICHT ausgeglichen"
+msgstr "Balance sheet NOT balanced"
+
+msgid "Bildschirm teilen"
+msgstr "Share screen"
+
+msgid "Bildschirm-Teilen beenden"
+msgstr "Stop screen sharing"
+
+msgid "Bis (Geschäftsjahr)"
+msgstr "To (fiscal year)"
+
+msgid "Bis (JJJJ-MM-TT, optional)"
+msgstr "To (YYYY-MM-DD, optional)"
+
+msgid "Bis (JJJJ-MM-TT, Pflichtfeld)"
+msgstr "To (YYYY-MM-DD, required field)"
+
+msgid "Bis (JJJJ-MM-TT)"
+msgstr "To (YYYY-MM-DD)"
+
+msgid "Bis (JJJJ-MM-TTTHH:MM:SS, optional)"
+msgstr "To (YYYY-MM-DDTHH:MM:SS, optional)"
+
+msgid "Bis Sequenznummer (optional)"
+msgstr "To sequence number (optional)"
+
+msgid "Bisherige Jahressumme (vor dieser Spende)"
+msgstr "Cumulative annual total (before this donation)"
+
+msgid "Bitcoin (BTC)"
+msgstr "Bitcoin (BTC)"
+
+msgid "Bitte 1 bis %1 Ziele auswählen."
+msgstr "Please select 1 to %1 targets."
+
+msgid "Bitte alle Felder ausfüllen."
+msgstr "Please fill in all fields."
+
+msgid "Bitte alle Felder gültig ausfüllen: Peg positiv, Cache-TTL positiv, Mindest-Quorum mind. 2, Ausreißer-Schwelle 1-10000 bps, Max. Spread >= Ausreißer-Schwelle."
+msgstr "Please fill in all fields with valid values: peg positive, cache TTL positive, minimum quorum at least 2, outlier threshold 1-10000 bps, max spread >= outlier threshold."
+
+msgid "Bitte bei \"Vertreten\" angeben, durch wen."
+msgstr "For \"Represented\", please specify by whom."
+
+msgid "Bitte Beitragssatz sowie gültiges Beginn-/Enddatum (JJJJ-MM-TT) angeben."
+msgstr "Please provide a contribution rate as well as a valid start/end date (YYYY-MM-DD)."
+
+msgid "Bitte bestätigen Sie, dass Sie den Beitrittsvertrag gelesen haben."
+msgstr "Please confirm that you have read the membership agreement."
+
+msgid "Bitte Betreff und Text angeben."
+msgstr "Please provide a subject and text."
+
+msgid "Bitte Bezeichnung und eine gültige RTMP-URL (rtmp:// oder rtmps://) angeben."
+msgstr "Please provide a label and a valid RTMP URL (rtmp:// or rtmps://)."
+
+msgid "Bitte Bezeichnung, eine gültige RTMP-URL (rtmp:// oder rtmps://) und einen Stream-Schlüssel angeben."
+msgstr "Please provide a label, a valid RTMP URL (rtmp:// or rtmps://), and a stream key."
+
+msgid "Bitte Code und Name angeben."
+msgstr "Please provide a code and a name."
+
+msgid "Bitte Datum, Beschreibung und für jede Buchungszeile Konto, Betrag und Sphäre angeben -- und, falls ein Spendertyp gewählt ist, dessen Felder vollständig ausfüllen."
+msgstr "Please provide a date, description, and for each posting line an account, amount, and sphere -- and, if a donor type is selected, fill in its fields completely."
+
+msgid "Bitte E-Mail und Passwort eingeben."
+msgstr "Please enter email and password."
+
+msgid "Bitte ein gültiges \"Bis\"-Datum angeben (JJJJ-MM-TT)."
+msgstr "Please provide a valid \"to\" date (YYYY-MM-DD)."
+
+msgid "Bitte ein gültiges \"Von\"- und \"Bis\"-Geschäftsjahr angeben (Von ≤ Bis)."
+msgstr "Please provide a valid \"from\" and \"to\" fiscal year (from ≤ to)."
+
+msgid "Bitte ein gültiges Datum (JJJJ-MM-TT) angeben."
+msgstr "Please provide a valid date (YYYY-MM-DD)."
+
+msgid "Bitte ein gültiges Geschäftsjahr angeben (z. B. 2026)."
+msgstr "Please provide a valid fiscal year (e.g. 2026)."
+
+msgid "Bitte ein gültiges Kalenderjahr angeben (JJJJ)."
+msgstr "Please provide a valid calendar year (YYYY)."
+
+msgid "Bitte ein Mitglied auswählen."
+msgstr "Please select a member."
+
+msgid "Bitte ein Mitglied und einen positiven Spendenbetrag angeben."
+msgstr "Please provide a member and a positive donation amount."
+
+msgid "Bitte ein positives Höchstgebot (LTR) angeben."
+msgstr "Please provide a positive maximum bid (LTR)."
+
+msgid "Bitte eine Begründung angeben."
+msgstr "Please provide a justification."
+
+msgid "Bitte eine Datei auswählen."
+msgstr "Please select a file."
+
+msgid "Bitte eine gültige Position und einen Titel angeben."
+msgstr "Please provide a valid position and a title."
+
+msgid "Bitte eine Laufzeit in ganzen Stunden (größer als 0) angeben."
+msgstr "Please provide a duration in whole hours (greater than 0)."
+
+msgid "Bitte eine Option und einen positiven LTR-Einsatz angeben."
+msgstr "Please provide an option and a positive LTR stake."
+
+msgid "Bitte eine Person für \"Einzelne Person\" auswählen."
+msgstr "Please select a person for \"Single person\"."
+
+msgid "Bitte eine Sitzung und eine gültige Position angeben."
+msgstr "Please provide a session and a valid position."
+
+msgid "Bitte eine Zahl zwischen 1 und %1 angeben."
+msgstr "Please provide a number between 1 and %1."
+
+msgid "Bitte einen Ablehnungsgrund angeben -- dieser wird öffentlich auf dem Projekt angezeigt."
+msgstr "Please provide a reason for rejection -- this will be displayed publicly on the project."
+
+msgid "Bitte einen Grund angeben."
+msgstr "Please provide a reason."
+
+msgid "Bitte einen gültigen Entdeckungszeitpunkt (JJJJ-MM-TTTHH:MM:SS), Beschreibung, betroffene Datenkategorien und Status angeben."
+msgstr "Please provide a valid discovery time (YYYY-MM-DDTHH:MM:SS), description, affected data categories, and status."
+
+msgid "Bitte einen gültigen Stichtag angeben (JJJJ-MM-TT)."
+msgstr "Please provide a valid reference date (YYYY-MM-DD)."
+
+msgid "Bitte einen Inhalt eingeben."
+msgstr "Please enter content."
+
+msgid "Bitte einen Monat im Format JJJJ-MM-TT angeben."
+msgstr "Please provide a month in the format YYYY-MM-DD."
+
+msgid "Bitte einen Namen angeben."
+msgstr "Please provide a name."
+
+msgid "Bitte Empfänger, einen positiven LTR-Betrag und eine Charakterisierung angeben."
+msgstr "Please provide a recipient, a positive LTR amount, and a characterization."
+
+msgid "Bitte geben Sie einen Ablehnungsgrund an (wird beim Mitglied gespeichert)."
+msgstr "Please provide a reason for rejection (will be saved with the member)."
+
+msgid "Bitte Gremium, Titel, einen gültigen Termin (JJJJ-MM-TTTHH:MM) und ein Format angeben."
+msgstr "Please provide a committee, title, a valid date/time (YYYY-MM-DDTHH:MM), and a format."
+
+msgid "Bitte gültige Datumsangaben (JJJJ-MM-TT) verwenden, oder das Feld leer lassen."
+msgstr "Please use valid dates (YYYY-MM-DD), or leave the field empty."
+
+msgid "Bitte gültige Werte für die optionalen Felder verwenden, oder leer lassen."
+msgstr "Please use valid values for the optional fields, or leave them empty."
+
+msgid "Bitte Kategorie, Titel und Beschreibung angeben."
+msgstr "Please provide a category, title, and description."
+
+msgid "Bitte Kontonummer, Name, Kontenklasse (0-9) und Kontotyp angeben."
+msgstr "Please provide an account number, name, account class (0-9), and account type."
+
+msgid "Bitte lesen Sie den folgenden rechtlichen Hinweistext vollständig, bevor Sie die Auktion aktivieren. Diese Plattform führt keine automatisierte Rechtsberatung durch -- die rechtliche Einordnung liegt bei Ihrer Organisation."
+msgstr "Please read the following legal notice in full before activating the auction. This platform does not provide automated legal advice -- the legal assessment is your organization's responsibility."
+
+msgid "Bitte melden Sie sich mit Ihrer E-Mail-Adresse an."
+msgstr "Please sign in with your email address."
+
+msgid "Bitte mindestens 2 unterschiedliche Optionen angeben."
+msgstr "Please provide at least 2 different options."
+
+msgid "Bitte mindestens eine Empfängerin/einen Empfänger sowie Titel, einen gültigen Termin (JJJJ-MM-TTTHH:MM), Ort und Einladungstext angeben."
+msgstr "Please provide at least one recipient as well as a title, a valid date/time (YYYY-MM-DDTHH:MM), location, and invitation text."
+
+msgid "Bitte Mitglied und einen positiven LTR-Betrag angeben."
+msgstr "Please provide a member and a positive LTR amount."
+
+msgid "Bitte Mitglied, Rolle und ein gültiges Datum (JJJJ-MM-TT) angeben."
+msgstr "Please provide a member, role, and a valid date (YYYY-MM-DD)."
+
+msgid "Bitte Name und eine gültige E-Mail-Adresse angeben."
+msgstr "Please provide a name and a valid email address."
+
+msgid "Bitte Name und Spenderkategorie angeben."
+msgstr "Please provide a name and a donor category."
+
+msgid "Bitte Name, eine gültige E-Mail-Adresse und eine Rolle angeben."
+msgstr "Please provide a name, a valid email address, and a role."
+
+msgid "Bitte Name, Typ und ein gültiges Quorum (0-100) angeben."
+msgstr "Please provide a name, type, and a valid quorum (0-100)."
+
+msgid "Bitte nicht-negative Stimmzahlen und einen Status angeben."
+msgstr "Please provide non-negative vote counts and a status."
+
+msgid "Bitte Start- und Enddatum im Format JJJJ-MM-TT angeben -- beide Felder sind hier Pflicht."
+msgstr "Please provide start and end dates in the format YYYY-MM-DD -- both fields are required here."
+
+msgid "Bitte Titel, Beschlusstext, Status und nicht-negative Stimmzahlen angeben."
+msgstr "Please provide a title, resolution text, status, and non-negative vote counts."
+
+msgid "Bitte Titel, Beschreibung und ein positives Sichtbarkeits-Gewicht (LTR) angeben."
+msgstr "Please provide a title, description, and a positive visibility weight (LTR)."
+
+msgid "Bitte Titel, Beschreibung und einen positiven Startpreis (LTR) angeben."
+msgstr "Please provide a title, description, and a positive starting price (LTR)."
+
+msgid "Bitte Titel, Verarbeitungsbeschreibung und Status angeben."
+msgstr "Please provide a title, processing description, and status."
+
+msgid "Bitte unterschiedliche Absender/Empfänger, einen positiven LTR-Betrag, eine Charakterisierung und eine Schiedsanordnungs-Referenz angeben."
+msgstr "Please provide different sender/recipient, a positive LTR amount, a characterization, and an arbitration order reference."
+
+msgid "Bitte Verarbeiter, Verarbeitungszweck, Datenkategorien und AVV-Status angeben."
+msgstr "Please provide processor, processing purpose, data categories, and DPA status."
+
+msgid "Bitte wählen Sie mindestens ein Ziel aus."
+msgstr "Please select at least one target."
+
+msgid "Bitte wenden Sie sich an ein ADMIN-Mitglied, falls Sie hierauf Zugriff benötigen."
+msgstr "Please contact an ADMIN member if you need access to this."
+
+msgid "Bitte wenden Sie sich an Ihre Administration, falls Sie diese Funktion benötigen."
+msgstr "Please contact your administration if you need this feature."
+
+msgid "Bitte Zielgremium (oder einen zu ändernden Antrag), Titel und Antragstext angeben."
+msgstr "Please provide a target committee (or a motion to amend), a title, and motion text."
+
+msgid "Board ist fast voll -- bitte speichern und leeren."
+msgstr "Board is almost full -- please save and clear."
+
+msgid "Board leeren"
+msgstr "Clear board"
+
+msgid "Breakout-Räume erstellen"
+msgstr "Create breakout rooms"
+
+msgid "Breakout-Räume:"
+msgstr "Breakout rooms:"
+
+msgid "Brief an %1 wird verarbeitet."
+msgstr "Letter to %1 is being processed."
+
+msgid "Brief an %1 wurde an Letterxpress übergeben."
+msgstr "Letter to %1 was submitted to Letterxpress."
+
+msgid "Buchen"
+msgstr "Post"
+
+msgid "Bucht eine bereits eingegangene Spende als LTR-Mint auf das gewählte Mitglied. Der aktuelle Kurs wird beim Bestätigen live abgefragt -- der genaue LTR-Betrag steht erst nach Bestätigung fest."
+msgstr "Posts a donation already received as an LTR mint to the selected member. The current exchange rate is queried live upon confirmation -- the exact LTR amount is only determined after confirmation."
+
+msgid "Buchung"
+msgstr "Entry"
+
+msgid "Buchung (Haben): %1"
+msgstr "Entry (credit): %1"
+
+msgid "Buchung (Soll): %1"
+msgstr "Entry (debit): %1"
+
+msgid "Buchung buchen -- unveränderlich"
+msgstr "Post entry -- immutable"
+
+msgid "Buchung oben auswählen, um Details zu sehen."
+msgstr "Select an entry above to see details."
+
+msgid "Buchung wurde gebucht."
+msgstr "Entry was posted."
+
+msgid "Buchung: %1"
+msgstr "Entry: %1"
+
+msgid "Buchungszeile hinzufügen"
+msgstr "Add posting line"
+
+msgid "Buchungszeilen"
+msgstr "Posting lines"
+
+msgid "Buchungszeilen:"
+msgstr "Posting lines:"
+
+msgid "Cache-TTL"
+msgstr "Cache TTL"
+
+msgid "Cache-TTL (Sekunden)"
+msgstr "Cache TTL (seconds)"
+
+msgid "Charakterisierung"
+msgstr "Characterization"
+
+msgid "Charakterisierung: %1"
+msgstr "Characterization: %1"
+
+msgid "Chat"
+msgstr "Chat"
+
+msgid "Chat (%1)"
+msgstr "Chat (%1)"
+
+msgid "Code (eindeutig, z. B. SOMMERFEST-2027)"
+msgstr "Code (unique, e.g. SOMMERFEST-2027)"
+
+msgid "Committee-Quorum entscheiden"
+msgstr "Decide committee quorum"
+
+msgid "Crowdfunding"
+msgstr "Crowdfunding"
+
+msgid "Crowdfunding-Projekt"
+msgstr "Crowdfunding project"
+
+msgid "Darf nicht die E-Mail-Adresse sein."
+msgstr "Must not be the email address."
+
+msgid "Das Politiker-Ranking ist derzeit deaktiviert."
+msgstr "The politician ranking is currently deactivated."
+
+msgid "Das Projekt \"%1\" wird abgelehnt (Grund: \"%2\"). Der bereits gebuchte Einsatz von %3 wird NICHT zurückerstattet -- es gibt keinen Rückerstattungspfad, unabhängig von dieser Entscheidung."
+msgstr "The project \"%1\" will be rejected (reason: \"%2\"). The stake of %3 already posted will NOT be refunded -- there is no refund path, regardless of this decision."
+
+msgid "Das Projekt \"%1\" wird genehmigt und für Like/Dislike-Reaktionen (Spenden) geöffnet."
+msgstr "The project \"%1\" will be approved and opened for like/dislike reactions (donations)."
+
+msgid "Dashboard"
+msgstr "Dashboard"
+
+msgid "Datei:"
+msgstr "File:"
+
+msgid "Datenkategorien"
+msgstr "Data categories"
+
+msgid "Datenkategorien: %1"
+msgstr "Data categories: %1"
+
+msgid "Datenpanne melden"
+msgstr "Report data breach"
+
+msgid "Datenpanne wurde %1."
+msgstr "Data breach was %1."
+
+msgid "Datenpannen"
+msgstr "Data breaches"
+
+msgid "Datenschutz-Folgenabschätzung (DSFA)"
+msgstr "Data protection impact assessment (DPIA)"
+
+msgid "Datenstand"
+msgstr "Data as of"
+
+msgid "Datum"
+msgstr "Date"
+
+msgid "Datum (JJJJ-MM-TT)"
+msgstr "Date (YYYY-MM-DD)"
+
+msgid "Datum: %1"
+msgstr "Date: %1"
+
+msgid "davon überfällig"
+msgstr "of which overdue"
+
+msgid "Deaktivieren"
+msgstr "Deactivate"
+
+msgid "Deaktiviert"
+msgstr "Deactivated"
+
+msgid "Der aktuelle Stand der geteilten Notizen wird als Markdown-Dokument in der Dokumentenablage gespeichert."
+msgstr "The current state of the shared notes will be saved as a Markdown document in the document repository."
+
+msgid "Der aktuelle Stand des Whiteboards wird als Bild in der Dokumentenablage gespeichert."
+msgstr "The current state of the whiteboard will be saved as an image in the document repository."
+
+msgid "Der Hauptantrag muss zuerst selbst terminiert werden."
+msgstr "The main motion must itself be scheduled first."
+
+msgid "Der Politiker-Status von %1 wird widerrufen. Eine spätere erneute Erteilung reaktiviert das Profil, aber beide Bewertungs-Körbe (Mitglieder und Gäste) beginnen dann wieder bei null -- die gelöschte Historie ist nicht wiederherstellbar."
+msgstr "The politician status of %1 will be revoked. Granting it again later reactivates the profile, but both rating baskets (members and guests) then start again at zero -- the deleted history cannot be restored."
+
+msgid "Der Sofortkaufpreis muss über dem Startpreis liegen."
+msgstr "The buy-it-now price must be above the starting price."
+
+msgid "Der Sofortkaufpreis muss, falls angegeben, ein positiver LTR-Betrag sein."
+msgstr "The buy-it-now price, if specified, must be a positive LTR amount."
+
+msgid "Der Stream wird neu verbunden -- die Zielplattform sieht dies unter Umständen erneut als neue Übertragung."
+msgstr "The stream will be reconnected -- the target platform may see this as a new broadcast again."
+
+msgid "Der Versand von Einladungen ist Vorstand und Administration vorbehalten -- als Sitzungsleitung/Protokollführung dieses Gremiums können Sie die Sitzung verwalten, aber keine Einladungen verschicken."
+msgstr "Sending invitations is reserved for the board and administration -- as chair/minute-taker of this committee, you can manage the session but cannot send invitations."
+
+msgid "Derzeit keine aktive Besprechung."
+msgstr "No active meeting at present."
+
+msgid "Details"
+msgstr "Details"
+
+msgid "Details anzeigen"
+msgstr "Show details"
+
+msgid "Details ein-/ausblenden"
+msgstr "Show/hide details"
+
+msgid "Deutsche natürliche Person"
+msgstr "German natural person"
+
+msgid "Deutsches Unternehmen/Organisation"
+msgstr "German company/organization"
+
+msgid "Diagnose: aktueller Kurs"
+msgstr "Diagnostics: current rate"
+
+msgid "Dick"
+msgstr "Bold"
+
+msgid "Die Aktion steht im Konflikt mit dem aktuellen Zustand -- bitte Ansicht aktualisieren."
+msgstr "The action conflicts with the current state -- please refresh the view."
+
+msgid "Die angezeigte Frist ist die gesetzliche 72-Stunden-Uhr nach Art. 33 Abs. 1 DSGVO ab Kenntnisnahme -- sie entscheidet nicht, ob überhaupt eine Meldepflicht besteht (das legen ausschließlich Sie im Feld \"Meldung an Aufsichtsbehörde erforderlich\" fest) und ersetzt keine rechtliche Prüfung des Meldezeitpunkts. Bei einem echten Vorfall: Datenschutzbeauftragte/n oder Anwalt/Anwältin hinzuziehen."
+msgstr "The deadline shown is the statutory 72-hour clock under Art. 33(1) GDPR from the point of becoming aware -- it does not determine whether a reporting obligation exists at all (that is decided exclusively by you in the \"Notification to supervisory authority required\" field) and does not replace a legal review of the notification timing. In the event of an actual incident, consult a data protection officer or legal counsel."
+
+msgid "Die Aufzeichnung ist fehlgeschlagen."
+msgstr "The recording failed."
+
+msgid "Die Aufzeichnung wird beendet und danach automatisch zu einer Videodatei zusammengeführt."
+msgstr "The recording will be stopped and then automatically merged into a video file."
+
+msgid "Die Auktion ist derzeit deaktiviert."
+msgstr "The auction is currently deactivated."
+
+msgid "Die Besprechung „%1\" ist bereits beendet."
+msgstr "The meeting \"%1\" has already ended."
+
+msgid "Die Besprechung „%1\" lässt derzeit keine Gäste anderer Server zu. Bitten Sie die Moderation, den Gastzugang für diesen Raum freizuschalten."
+msgstr "The meeting \"%1\" currently does not allow guests from other servers. Please ask the moderators to enable guest access for this room."
+
+msgid "Die Besprechung läuft weiter. Die Zielplattform sieht eine Unterbrechung -- YouTube kann die Übertragung dabei beenden, sodass ein neuer Link nötig wird."
+msgstr "The meeting continues. The target platform sees an interruption -- YouTube may end the broadcast in the process, making a new link necessary."
+
+msgid "Die Besprechung selbst läuft für alle Teilnehmenden unverändert weiter."
+msgstr "The meeting itself continues unchanged for all participants."
+
+msgid "Die laufende Aufzeichnung/der Live-Stream im Hauptraum erfasst kein Audio/Video in Breakout-Räumen."
+msgstr "The ongoing recording/live stream in the main room does not capture audio/video in breakout rooms."
+
+msgid "Die Nachricht \"%1\" wird an alle aktiven Abonnentinnen und Abonnenten der Mailingliste \"%2\" verschickt. Dieser Schritt kann nicht rückgängig gemacht werden."
+msgstr "The message \"%1\" will be sent to all active subscribers of the mailing list \"%2\". This step cannot be undone."
+
+msgid "Die neuen Passwörter stimmen nicht überein."
+msgstr "The new passwords do not match."
+
+msgid "Die Orakel-Konfiguration wird vollständig ersetzt: Anker-Asset %1, Spendenwährung %2, Peg %3, Cache-TTL %4s, Quorum %5, Ausreißer-Schwelle %6bps, Max. Spread %7bps."
+msgstr "The oracle configuration will be fully replaced: anchor asset %1, donation currency %2, peg %3, cache TTL %4s, quorum %5, outlier threshold %6bps, max spread %7bps."
+
+msgid "Die Passwörter stimmen nicht überein."
+msgstr "The passwords do not match."
+
+msgid "Die Risikoeinstufung (LOW/MEDIUM/HIGH/CRITICAL) hier ist eine Visualisierungshilfe aus Eintrittswahrscheinlichkeit × Schadenshöhe -- keine Art. 35 DSGVO Erforderlichkeits-Feststellung. Ob eine Datenschutz-Folgenabschätzung tatsächlich erforderlich ist, legen ausschließlich Sie im Feld \"DSFA erforderlich\" fest; dieses System berechnet das nicht."
+msgstr "The risk classification (LOW/MEDIUM/HIGH/CRITICAL) here is a visualization aid derived from likelihood × severity -- not an Art. 35 GDPR necessity determination. Whether a data protection impact assessment is actually required is decided exclusively by you in the \"DPIA required\" field; this system does not calculate that."
+
+msgid "Die Rohaufnahmen bleiben erhalten -- wenden Sie sich an eine Administratorin oder einen Administrator, falls die Aufzeichnung wiederhergestellt werden soll."
+msgstr "The raw recordings are retained -- please contact an administrator if the recording needs to be restored."
+
+msgid "Die Wertobergrenze muss, falls angegeben, ein positiver LTR-Betrag sein."
+msgstr "The value ceiling, if specified, must be a positive LTR amount."
+
+msgid "Die Wertobergrenze wird entfernt (kein Limit mehr)."
+msgstr "The value ceiling will be removed (no more limit)."
+
+msgid "Die Wiederherstellung wurde nur teilweise durchgeführt -- einzelne Zeilen wurden möglicherweise bereits geschrieben, bevor der Fehler auftrat: %1. Prüfen Sie den Datenbestand und ziehen Sie bei Unsicherheit Ihre Entwicklerin oder Ihren Entwickler hinzu, bevor Sie es erneut versuchen."
+msgstr "The restore was only partially completed -- individual rows may have already been written before the error occurred: %1. Check the data and consult your developer if in doubt before trying again."
+
+msgid "Die Zielorganisation enthält bereits Daten. Aktivieren Sie „Ziel überschreiben\", falls das beabsichtigt ist: %1"
+msgstr "The target organization already contains data. Enable \"Overwrite target\" if this is intended: %1"
+
+msgid "Diese Aktion LÖSCHT UNWIDERRUFLICH sämtliche Bewertungen (Mitglieder UND Gäste) sowie den gesamten Gewichtsverlauf für dieses Profil -- nicht nur den Status."
+msgstr "This action IRREVOCABLY DELETES all ratings (members AND guests) as well as the entire weight history for this profile -- not just the status."
+
+msgid "Diese Aktion mintet echtes LTR und kann nicht rückgängig gemacht werden."
+msgstr "This action mints real LTR and cannot be undone."
+
+msgid "Diese Aufzeichnung kann NICHT rückgängig gemacht werden, sobald Teilnehmende gesprochen haben."
+msgstr "This recording can NOT be undone once participants have spoken."
+
+msgid "Diese Auktion ist beendet, aber noch nicht abgewickelt."
+msgstr "This auction has ended but has not yet been settled."
+
+msgid "Diese Auswertung ist eine Nachweis-Hilfe für den Vorstand nach §§ 55/62 AO -- keine automatisierte Compliance-Entscheidung. Sie prüft nicht die Freie-Rücklage-Obergrenze, wendet nicht automatisch die Kleinorganisationen-Ausnahme (≤ 45.000 € gemäß § 55 Abs. 1 Nr. 5 Satz 4 AO) an und bestätigt nicht den Fortbestand der Gemeinnützigkeit. Die verwendete Frist von %1 Jahren ist gegen die aktuelle AO-Auslegung zu prüfen."
+msgstr "This report is a documentation aid for the board under §§ 55/62 AO -- not an automated compliance decision. It does not check the free reserve ceiling, does not automatically apply the small-organization exemption (≤ €45,000 under § 55(1) no. 5 sentence 4 AO), and does not confirm the continuation of tax-exempt status. The %1-year deadline used should be checked against the current interpretation of the AO."
+
+msgid "Diese beiden Werte sind im ersten Geschäftsjahr identisch und weichen ab dem zweiten Jahr bewusst voneinander ab -- siehe Erläuterung im Datenmodell."
+msgstr "These two values are identical in the first fiscal year and deliberately diverge from the second year onward -- see the explanation in the data model."
+
+msgid "Diese Besprechung wird ab jetzt aufgezeichnet."
+msgstr "This meeting is being recorded from now on."
+
+msgid "Diese Besprechung wird ab jetzt live gestreamt."
+msgstr "This meeting is being live-streamed from now on."
+
+msgid "Diese Besprechung wird für alle Teilnehmenden beendet. Fortfahren?"
+msgstr "This meeting will be ended for all participants. Continue?"
+
+msgid "Diese Buchung wird nach dem Bestätigen unveränderlich und Teil der offiziellen Bücher. Es gibt keine Funktion zum nachträglichen Ändern oder Stornieren."
+msgstr "Once confirmed, this entry becomes immutable and part of the official books. There is no function to change or cancel it afterward."
+
+msgid "Diese Datei passt nicht zum erwarteten Sicherungsformat: %1"
+msgstr "This file does not match the expected backup format: %1"
+
+msgid "Diese Korrekturübertragung ist ENDGÜLTIG und kann nicht widerrufen werden."
+msgstr "This correction transfer is FINAL and cannot be reversed."
+
+msgid "Diese Löschung ist ENDGÜLTIG und kann nicht rückgängig gemacht werden."
+msgstr "This deletion is FINAL and cannot be undone."
+
+msgid "Diese Organisation ist für die Verarbeitung Ihrer Audio-, Video- und Chatdaten in dieser Besprechung verantwortlich -- nicht Ihr eigener Heimserver."
+msgstr "This organization is responsible for processing your audio, video, and chat data in this meeting -- not your own home server."
+
+msgid "Diese Organisation ist nicht als politische Partei markiert (Organisationseinstellungen) -- §25 PartG gilt nur für politische Parteien. Für diese Organisation ist dieser Bericht daher bewusst ein No-Op, keine Fehlermeldung."
+msgstr "This organization is not marked as a political party (organization settings) -- §25 PartG applies only to political parties. For this organization, this report is therefore deliberately a no-op, not an error message."
+
+msgid "Diese Raum-Kennung ist ungültig. Bitte kopieren Sie sie vollständig aus Ihrer Einladung."
+msgstr "This room identifier is invalid. Please copy it in full from your invitation."
+
+msgid "Diese Seite konnte nicht geladen werden -- bitte laden Sie die Seite neu."
+msgstr "This page could not be loaded -- please reload the page."
+
+msgid "Diese Übertragung ist ENDGÜLTIG und kann nicht widerrufen werden."
+msgstr "This transfer is FINAL and cannot be reversed."
+
+msgid "Diese Wiederherstellung ist NICHT rückgängig zu machen."
+msgstr "This restore can NOT be undone."
+
+msgid "Dieser Antrag hat %1, der/die zuerst entschieden werden muss/müssen:"
+msgstr "This motion has %1 that must be decided first:"
+
+msgid "Dieser Versand ist ENDGÜLTIG und verursacht reale Kosten pro Brief."
+msgstr "This mailing is FINAL and incurs real costs per letter."
+
+msgid "Dieser Versand ist ENDGÜLTIG und verursacht reale Kosten."
+msgstr "This mailing is FINAL and incurs real costs."
+
+msgid "Dieser Vorgang lässt sich nicht wiederholen -- schlägt er fehl, bleiben die Rohaufnahmen erhalten und ein Administrator kann helfen."
+msgstr "This process cannot be repeated -- if it fails, the raw recordings are retained and an administrator can help."
+
+msgid "Dieses Profil ist ehemalig -- über das Formular \"Politiker-Status erteilen\" oben kann es erneut aktiviert werden."
+msgstr "This profile is former -- it can be reactivated using the \"Grant politician status\" form above."
+
+msgid "Dieses Projekt wurde bereits durch die 14-Tage-Schweigefrist automatisch genehmigt -- eine Vorstandsentscheidung ist serverseitig nicht mehr möglich."
+msgstr "This project has already been automatically approved through the 14-day silence period -- a board decision is no longer possible on the server side."
+
+msgid "Direkt buchen"
+msgstr "Post directly"
+
+msgid "Dislike"
+msgstr "Dislike"
+
+msgid "Dokument \"%1\" angelegt -- jetzt eine Datei hochladen."
+msgstr "Document \"%1\" created -- now upload a file."
+
+msgid "Dokument anlegen (danach Datei hochladen)"
+msgstr "Create document (then upload file)"
+
+msgid "Dokument löschen"
+msgstr "Delete document"
+
+msgid "Dokument-ID (optional)"
+msgstr "Document ID (optional)"
+
+msgid "Dokument:"
+msgstr "Document:"
+
+msgid "Dokumentation der acht Standard-TOM-Kategorien. \"Version\" ist ein einfacher Zähler, der bei jeder Aktualisierung um eins steigt -- keine eigene Versionshistorie mit Diff-Ansicht in dieser Welle."
+msgstr "Documentation of the eight standard TOM categories. \"Version\" is a simple counter that increases by one with each update -- no dedicated version history with diff view in this wave."
+
+msgid "Dokumente"
+msgstr "Documents"
+
+msgid "Dokumentenablage"
+msgstr "Document repository"
+
+msgid "Drittdienst-Verarbeiter (z. B. Letterxpress) und der Stand des jeweiligen Auftragsverarbeitungsvertrags. \"Aktiv\" wird bei jedem Laden neu berechnet -- ein abgelaufener Prüftermin fällt sofort auf, ohne dass jemand daran denken muss, den Status manuell umzustellen."
+msgstr "Third-party processors (e.g. Letterxpress) and the status of the respective data processing agreement. \"Active\" is recalculated on every load -- an expired review date is flagged immediately without anyone needing to remember to change the status manually."
+
+msgid "Drucken"
+msgstr "Print"
+
+msgid "DSFA"
+msgstr "DPIA"
+
+msgid "DSFA \"%1\" wurde %2."
+msgstr "DPIA \"%1\" was %2."
+
+msgid "DSFA anlegen"
+msgstr "Create DPIA"
+
+msgid "DSFA erforderlich (Ihre Entscheidung)"
+msgstr "DPIA required (your decision)"
+
+msgid "DSFA erforderlich: %1"
+msgstr "DPIA required: %1"
+
+msgid "DSGVO-Compliance"
+msgstr "GDPR compliance"
+
+msgid "DSGVO-Prüfprotokoll"
+msgstr "GDPR audit log"
+
+msgid "Dünn"
+msgstr "Thin"
+
+msgid "E-Mail"
+msgstr "Email"
+
+msgid "Effektiv: %1"
+msgstr "Effective: %1"
+
+msgid "Ehemalig"
+msgstr "Former"
+
+msgid "Eigenkapital (gebucht)"
+msgstr "Equity (posted)"
+
+msgid "Eigenkapitalkonto"
+msgstr "Equity account"
+
+msgid "Ein ADMIN kann das Politiker-Ranking im Abschnitt \"Einstellungen\" unten aktivieren."
+msgstr "An ADMIN can activate the politician ranking in the \"Settings\" section below."
+
+msgid "Ein ADMIN kann die Auktion im Abschnitt \"Verwaltung\" unten aktivieren -- dafür muss zunächst der aktuelle rechtliche Hinweistext gelesen und bestätigt werden."
+msgstr "An ADMIN can activate the auction in the \"Administration\" section below -- to do so, the current legal notice text must first be read and confirmed."
+
+msgid "Ein anderes Gebot führt weiterhin."
+msgstr "Another bid is still leading."
+
+msgid "Ein physischer Brief wird über den Postdienstleister Letterxpress an die im System hinterlegte Anschrift von %1 verschickt. Der Versand kann nicht zurückgerufen werden."
+msgstr "A physical letter will be sent via the postal service provider Letterxpress to the address on file for %1. The mailing cannot be recalled."
+
+msgid "Eingabekontrolle"
+msgstr "Input control"
+
+msgid "Eingereicht von %1 am %2"
+msgstr "Submitted by %1 on %2"
+
+msgid "Eingeschränkt (Degraded)"
+msgstr "Restricted (Degraded)"
+
+msgid "Eingetreten"
+msgstr "Joined"
+
+msgid "Einladung"
+msgstr "Invitation"
+
+msgid "Einladung kopieren"
+msgstr "Copy invitation"
+
+msgid "Einladung per Post versenden"
+msgstr "Send invitation by post"
+
+msgid "Einladungstext"
+msgstr "Invitation text"
+
+msgid "Einnahme"
+msgstr "Income"
+
+msgid "Einnahmen"
+msgstr "Income"
+
+msgid "Einreichen"
+msgstr "Submit"
+
+msgid "Einsatz (LTR)"
+msgstr "Stake (LTR)"
+
+msgid "Einstellungen"
+msgstr "Settings"
+
+msgid "Eintrag oben auswählen, um Details zu sehen."
+msgstr "Select an entry above to see details."
+
+msgid "Einträge"
+msgstr "Entries"
+
+msgid "Eintrittswahrscheinlichkeit"
+msgstr "Likelihood"
+
+msgid "Einzelne Person"
+msgstr "Single person"
+
+msgid "Empfänger"
+msgstr "Recipient"
+
+msgid "Empfänger:"
+msgstr "Recipient:"
+
+msgid "Enddatum (JJJJ-MM-TT)"
+msgstr "End date (YYYY-MM-DD)"
+
+msgid "Ende"
+msgstr "End"
+
+msgid "Endgültig ausführen"
+msgstr "Execute permanently"
+
+msgid "Endgültig buchen"
+msgstr "Post permanently"
+
+msgid "Endgültig löschen"
+msgstr "Delete permanently"
+
+msgid "Endgültig übertragen"
+msgstr "Transfer permanently"
+
+msgid "Endgültig wiederherstellen"
+msgstr "Restore permanently"
+
+msgid "Entdeckt am (JJJJ-MM-TTTHH:MM:SS) -- startet die 72h-Frist"
+msgstr "Discovered on (YYYY-MM-DDTHH:MM:SS) -- starts the 72-hour deadline"
+
+msgid "Entdeckt am: %1 · Betroffene Datenkategorien: %2"
+msgstr "Discovered on: %1 · Affected data categories: %2"
+
+msgid "Entfernen"
+msgstr "Remove"
+
+msgid "Enthaltungen"
+msgstr "Abstentions"
+
+msgid "Entität: %1"
+msgstr "Entity: %1"
+
+msgid "Entitäts-ID (optional)"
+msgstr "Entity ID (optional)"
+
+msgid "Entitätstyp"
+msgstr "Entity type"
+
+msgid "Entscheidung"
+msgstr "Decision"
+
+msgid "Entscheidung für \"%1\" gespeichert."
+msgstr "Decision for \"%1\" saved."
+
+msgid "Entscheidung speichern"
+msgstr "Save decision"
+
+msgid "Entscheidungsnotiz (optional)"
+msgstr "Decision note (optional)"
+
+msgid "Entscheidungsnotiz: %1"
+msgstr "Decision note: %1"
+
+msgid "Entschieden"
+msgstr "Decided"
+
+msgid "Entschieden am"
+msgstr "Decided on"
+
+msgid "Entschieden von %1 am %2"
+msgstr "Decided by %1 on %2"
+
+msgid "Entwurf"
+msgstr "Draft"
+
+msgid "Entwurf \"%1\" als neuer Entwurf übernommen -- bitte prüfen und speichern."
+msgstr "Draft \"%1\" adopted as a new draft -- please review and save."
+
+msgid "Entwurf \"%1\" wurde gespeichert."
+msgstr "Draft \"%1\" was saved."
+
+msgid "Entwurf erstellt am %1"
+msgstr "Draft created on %1"
+
+msgid "Entwurf gespeichert."
+msgstr "Draft saved."
+
+msgid "Entwurf von %1 am %2 -- noch nicht Teil offizieller Berichte."
+msgstr "Draft by %1 on %2 -- not yet part of official reports."
+
+msgid "Entwürfe können nicht nachträglich geändert oder gelöscht werden. Ist dieser Entwurf fehlerhaft, nutzen Sie „Als neuen Entwurf duplizieren\" unten, um eine korrigierte Kopie zu erstellen, und lassen Sie diesen Entwurf ungebucht liegen."
+msgstr "Drafts cannot be changed or deleted afterward. If this draft is incorrect, use \"Duplicate as new draft\" below to create a corrected copy, and leave this draft unposted."
+
+msgid "Erfasst von (Mitglieds-ID)"
+msgstr "Recorded by (member ID)"
+
+msgid "Erfolgreich"
+msgstr "Successful"
+
+msgid "Erforderlichkeit/Verhältnismäßigkeit (optional)"
+msgstr "Necessity/proportionality (optional)"
+
+msgid "Ergebnis"
+msgstr "Result"
+
+msgid "Ergebnis:"
+msgstr "Result:"
+
+msgid "Erinnerung wurde bestätigt."
+msgstr "Reminder was confirmed."
+
+msgid "Erinnerungen"
+msgstr "Reminders"
+
+msgid "Erlassen"
+msgstr "Waive"
+
+msgid "Erledigte anzeigen"
+msgstr "Show completed"
+
+msgid "Ernennen"
+msgstr "Appoint"
+
+msgid "Eröffnungssaldo"
+msgstr "Opening balance"
+
+msgid "Erstellen"
+msgstr "Create"
+
+msgid "Erstellt"
+msgstr "Created"
+
+msgid "Erstellt von %1 · %2 Teilnehmende"
+msgstr "Created by %1 · %2 participants"
+
+msgid "Erteilen"
+msgstr "Grant"
+
+msgid "Erteilen / Aktualisieren"
+msgstr "Grant / update"
+
+msgid "Ertragskonto"
+msgstr "Revenue account"
+
+msgid "Es läuft bereits eine meritokratische Vote für diesen Antrag -- siehe Abschnitt \"Vote\" unten."
+msgstr "A meritocratic vote is already in progress for this motion -- see the \"Vote\" section below."
+
+msgid "Es werden %1 als Sichtbarkeits-Gewicht aus Ihrem freien LTR-Guthaben gebunden. Dieser Einsatz wird NICHT zurückerstattet, unabhängig von der späteren Vorstandsentscheidung."
+msgstr "%1 will be locked from your free LTR balance as visibility weight. This stake will NOT be refunded, regardless of the board's later decision."
+
+msgid "Es werden %1 an %2 gutgeschrieben. Diese Gutschrift lässt sich nur durch eine gegenläufige Buchung (z. B. eine Schiedsverfahren-Korrekturübertragung) rückgängig machen."
+msgstr "%1 will be credited to %2. This credit can only be reversed by an offsetting entry (e.g. an arbitration correction transfer)."
+
+msgid "Es wird ein Angebot \"%1\" mit Startpreis %2%3 und %4 Stunden Laufzeit erstellt. Dabei wird eine feste Gebühr von %5 aus Ihrem freien LTR-Guthaben gebucht."
+msgstr "An offer \"%1\" will be created with a starting price of %2%3 and a duration of %4 hours. A fixed fee of %5 will be posted from your free LTR balance."
+
+msgid "EU-Bürger:in / EU-Rechtsperson"
+msgstr "EU citizen / EU legal entity"
+
+msgid "Export"
+msgstr "Export"
+
+msgid "Extern"
+msgstr "External"
+
+msgid "Externe Spender"
+msgstr "External donors"
+
+msgid "Externe Spender sind keine Mitglieder -- eine eigenständige Adressverwaltung für Spendenbescheinigungen und die §25-PartG-Pflichtenprüfung, getrennt von der Mitgliederverwaltung."
+msgstr "External donors are not members -- a standalone address management system for donation receipts and the §25 PartG compliance check, separate from membership management."
+
+msgid "Externer Spender"
+msgstr "External donor"
+
+msgid "Externer Spender (ID)"
+msgstr "External donor (ID)"
+
+msgid "Falls die Zeichnung noch gebraucht wird: vorher als Dokument speichern."
+msgstr "If the drawing is still needed, save it as a document first."
+
+msgid "Falls diese E-Mail registriert ist, wurde ein Link versendet."
+msgstr "If this email is registered, a link has been sent."
+
+msgid "Farbe wählen"
+msgstr "Choose color"
+
+msgid "Fehlende Angaben für das Transparenzregister: %1 Vorstandsmitglied(er) ohne Geburtsdatum und/oder Staatsangehörigkeit."
+msgstr "Missing information for the Transparency Register: %1 board member(s) without date of birth and/or nationality."
+
+msgid "Fehler"
+msgstr "Error"
+
+msgid "Fehler: %1"
+msgstr "Error: %1"
+
+msgid "Fehlgeschlagen"
+msgstr "Failed"
+
+msgid "Fertig"
+msgstr "Done"
+
+msgid "Fiat"
+msgstr "Fiat"
+
+msgid "Filter: Referenztyp"
+msgstr "Filter: reference type"
+
+msgid "Filter: Status (persistiert)"
+msgstr "Filter: status (persisted)"
+
+msgid "Filter: Status (Vorstandsbeschluss)"
+msgstr "Filter: status (board resolution)"
+
+msgid "Filtern"
+msgstr "Filter"
+
+msgid "Finanzberichte"
+msgstr "Financial reports"
+
+msgid "Finanzen"
+msgstr "Finances"
+
+msgid "Format"
+msgstr "Format"
+
+msgid "Freie Rücklage (%1)"
+msgstr "Free reserve (%1)"
+
+msgid "Frist bald fällig"
+msgstr "Deadline due soon"
+
+msgid "Frist läuft"
+msgstr "Deadline running"
+
+msgid "Frist überschritten"
+msgstr "Deadline exceeded"
+
+msgid "Frist: %1"
+msgstr "Deadline: %1"
+
+msgid "Führend"
+msgstr "Leading"
+
+msgid "Führend: %1"
+msgstr "Leading: %1"
+
+msgid "Führend: Sie"
+msgstr "Leading: You"
+
+msgid "Für alle beenden"
+msgstr "End for everyone"
+
+msgid "Galerie"
+msgstr "Gallery"
+
+msgid "Gast"
+msgstr "Guest"
+
+msgid "Gast eines anderen Lapis-Cloud-Servers? Mit Heimatserver anmelden."
+msgstr "Guest of another Lapis Cloud server? Sign in with home server."
+
+msgid "Gast von %1"
+msgstr "Guest of %1"
+
+msgid "Gast-Gewicht"
+msgstr "Guest weight"
+
+msgid "Gast-Gewicht (reine Stimmenzahl, ungewichtet)"
+msgstr "Guest weight (pure vote count, unweighted)"
+
+msgid "Gäste"
+msgstr "Guests"
+
+msgid "Gäste anderer Server zulassen"
+msgstr "Allow guests from other servers"
+
+msgid "Gäste zugelassen"
+msgstr "Guests allowed"
+
+msgid "Gastgeberin dieser Besprechung: %1"
+msgstr "Host of this meeting: %1"
+
+msgid "Gastzugang"
+msgstr "Guest access"
+
+msgid "Gastzugang aktiviert."
+msgstr "Guest access activated."
+
+msgid "Gastzugang beenden"
+msgstr "End guest access"
+
+msgid "Gastzugang beendet."
+msgstr "Guest access ended."
+
+msgid "Gastzugang offen"
+msgstr "Guest access open"
+
+msgid "Gastzugang:"
+msgstr "Guest access:"
+
+msgid "Geändert"
+msgstr "Changed"
+
+msgid "Geben Sie Ihre E-Mail-Adresse ein, um einen Link zum Zurücksetzen anzufordern. Erhalten Sie eine Bestätigung, tragen Sie anschließend den Token und Ihr neues Passwort ein."
+msgstr "Enter your email address to request a reset link. Once you receive a confirmation, enter the token and your new password."
+
+msgid "Gebot abgeben"
+msgstr "Place bid"
+
+msgid "Gebot angenommen. Aktueller Preis: %1. %2"
+msgstr "Bid accepted. Current price: %1. %2"
+
+msgid "Gebot bestätigen"
+msgstr "Confirm bid"
+
+msgid "Gebot gespeichert."
+msgstr "Bid saved."
+
+msgid "Gebucht"
+msgstr "Posted"
+
+msgid "Gebucht am"
+msgstr "Posted on"
+
+msgid "Gebucht am %1 von %2 -- unveränderlich."
+msgstr "Posted on %1 by %2 -- immutable."
+
+msgid "Geburtsdatum"
+msgstr "Date of birth"
+
+msgid "Gelöscht."
+msgstr "Deleted."
+
+msgid "Gemeinnützigkeits-Berichte"
+msgstr "Tax-exempt status reports"
+
+msgid "gemeldet"
+msgstr "reported"
+
+msgid "Gemeldet"
+msgstr "Reported"
+
+msgid "Gemintet:"
+msgstr "Minted:"
+
+msgid "Genehmigen"
+msgstr "Approve"
+
+msgid "Genehmigt"
+msgstr "Approved"
+
+msgid "Generisches RTMP"
+msgstr "Generic RTMP"
+
+msgid "Geprüft von %1 am %2%3"
+msgstr "Reviewed by %1 on %2%3"
+
+msgid "Gesamt"
+msgstr "Total"
+
+msgid "Gesamt (Summe, keine vergleichbare Einheit)"
+msgstr "Total (sum, not a comparable unit)"
+
+msgid "Geschäftsjahr"
+msgstr "Fiscal year"
+
+msgid "Geschäftsjahr (JJJJ)"
+msgstr "Fiscal year (YYYY)"
+
+msgid "Geschäftsjahr %1 · %2 bis %3"
+msgstr "Fiscal year %1 · %2 to %3"
+
+msgid "Geschätzte Anzahl betroffener Personen (optional)"
+msgstr "Estimated number of affected persons (optional)"
+
+msgid "Gesendet"
+msgstr "Sent"
+
+msgid "Gesendet am %1"
+msgstr "Sent on %1"
+
+msgid "Gespeichert -- Schlüssel wird nicht erneut angezeigt."
+msgstr "Saved -- the key will not be shown again."
+
+msgid "Gewählter Modus: %1"
+msgstr "Selected mode: %1"
+
+msgid "Gewichts-Snapshot auslösen"
+msgstr "Trigger weight snapshot"
+
+msgid "Gewichtsverlauf anzeigen/ausblenden"
+msgstr "Show/hide weight history"
+
+msgid "Gewinn- und Verlustrechnung"
+msgstr "Profit and loss statement"
+
+msgid "Gewinn- und Verlustrechnung (GuV)"
+msgstr "Profit and loss statement (P&L)"
+
+msgid "Gewinner"
+msgstr "Winner"
+
+msgid "GoBD-revisionssicheres Protokoll aller Buchungen, Beschlüsse, Vorstandsmitgliedschaften und Spendenprüfungen -- unveränderlich und ausschließlich lesbar. Es gibt auf dieser Seite keine Funktion zum Bearbeiten oder Löschen von Einträgen."
+msgstr "GoBD-compliant audit trail of all entries, resolutions, board memberships, and donation checks -- immutable and read-only. There is no function on this page for editing or deleting entries."
+
+msgid "Gold (XAU)"
+msgstr "Gold (XAU)"
+
+msgid "Gold (XAU) und Fiat-Kurse sind fachlich vorgesehen, aber serverseitig noch nicht implementiert (kein robuster kostenloser Mehrquellen-Feed verfügbar) -- daher hier nicht auswählbar."
+msgstr "Gold (XAU) and fiat rates are planned functionally but not yet implemented server-side (no robust free multi-source feed available) -- therefore not selectable here."
+
+msgid "Gremien"
+msgstr "Committees"
+
+msgid "Gremium"
+msgstr "Committee"
+
+msgid "Gremium anlegen"
+msgstr "Create committee"
+
+msgid "Gremium oben auswählen, um die Besetzung zu sehen."
+msgstr "Select a committee above to see its composition."
+
+msgid "Gremium: %1 · %2 · Termin: %3"
+msgstr "Committee: %1 · %2 · Date: %3"
+
+msgid "Gremium: %1 · %2 · Termin: %3%4"
+msgstr "Committee: %1 · %2 · Date: %3%4"
+
+msgid "Gremium: %1 · eingereicht von %2 am %3"
+msgstr "Committee: %1 · submitted by %2 on %3"
+
+msgid "Guthaben & Buchungen eines Mitglieds"
+msgstr "Balance & entries of a member"
+
+msgid "Guthaben von %1"
+msgstr "Balance of %1"
+
+msgid "Gutschreiben"
+msgstr "Credit"
+
+msgid "Gutschrift (Mint)"
+msgstr "Credit (mint)"
+
+msgid "GuV"
+msgstr "P&L"
+
+msgid "Haben"
+msgstr "Credit"
+
+msgid "Hauptbuch"
+msgstr "General ledger"
+
+msgid "Herunterladen"
+msgstr "Download"
+
+msgid "Hinweis gelesen -- als Gast beitreten"
+msgstr "Notice read -- join as guest"
+
+msgid "Hinweis: %1"
+msgstr "Note: %1"
+
+msgid "Hinweis: Die tatsächlich gebuchte Währung ist die in der Konfiguration hinterlegte Spendenwährung -- diese Auswahl dient nur der Anzeige im Bestätigungsdialog."
+msgstr "Note: The currency actually posted is the donation currency stored in the configuration -- this selection is for display purposes only in the confirmation dialog."
+
+msgid "Hinweis: Eine im Hauptraum laufende Aufzeichnung oder ein Live-Stream erfasst dieses Gespräch nicht."
+msgstr "Note: A recording or live stream running in the main room does not capture this conversation."
+
+msgid "Hinweistext-Version %1"
+msgstr "Notice text version %1"
+
+msgid "Hinzufügen"
+msgstr "Add"
+
+msgid "Hoch"
+msgstr "High"
+
+msgid "Hochladen"
+msgstr "Upload"
+
+msgid "Höchstens %1 Zeichen."
+msgstr "Maximum %1 characters."
+
+msgid "Honorar"
+msgstr "Fee"
+
+msgid "Ich bestätige, den aktuellen Text gelesen zu haben"
+msgstr "I confirm that I have read the current text"
+
+msgid "Ich habe den Beitrittsvertrag gelesen und akzeptiere ihn."
+msgstr "I have read the membership agreement and accept it."
+
+msgid "Ideeller Bereich"
+msgstr "Non-profit sphere"
+
+msgid "Ihr Einsatz wird NICHT zurückerstattet -- unabhängig davon, ob der Vorstand das Projekt später genehmigt oder ablehnt. Es gibt in diesem System keinen Rückerstattungspfad für diesen Einsatz."
+msgstr "Your stake will NOT be refunded -- regardless of whether the board later approves or rejects the project. This system has no refund path for this stake."
+
+msgid "Ihr Gebot: %1, %2 LTR"
+msgstr "Your bid: %1, %2 LTR"
+
+msgid "Ihr Höchstgebot"
+msgstr "Your maximum bid"
+
+msgid "Ihr Höchstgebot (LTR)"
+msgstr "Your maximum bid (LTR)"
+
+msgid "Ihr Höchstgebot ist verbindlich und reserviert LTR aus Ihrem freien Guthaben."
+msgstr "Your maximum bid is binding and reserves LTR from your free balance."
+
+msgid "Ihr Höchstgebot muss mindestens dem Startpreis (%1) entsprechen."
+msgstr "Your maximum bid must be at least equal to the starting price (%1)."
+
+msgid "Ihr Löschantrag"
+msgstr "Your deletion request"
+
+msgid "Ihr LTR-Guthaben"
+msgstr "Your LTR balance"
+
+msgid "Ihr LTR-Guthaben:"
+msgstr "Your LTR balance:"
+
+msgid "Ihr Mitgliedschaftsantrag wurde eingereicht und wird vom Vorstand geprüft. Sie sind noch nicht angemeldet -- nach der Freigabe können Sie sich mit Ihrem gewählten Passwort anmelden."
+msgstr "Your membership application has been submitted and will be reviewed by the board. You are not yet signed in -- once approved, you can log in with your chosen password."
+
+msgid "Ihr Mitgliedsdatensatz bleibt als anonymer Platzhalter bestehen (z. B. damit Beitragshistorie und Buchungen konsistent bleiben). Persönliche Felder werden geleert oder anonymisiert."
+msgstr "Your member record remains as an anonymous placeholder (e.g. so that contribution history and entries remain consistent). Personal fields will be cleared or anonymized."
+
+msgid "Ihr Recht auf Auskunft (Art. 15/20 DSGVO) und auf Löschung (\"Recht auf Vergessenwerden\", Art. 17 DSGVO) -- eine Löschung wird hier nur BEANTRAGT, nie sofort ausgeführt. Über den Antrag entscheidet danach eine Administratorin oder ein Administrator gesondert."
+msgstr "Your right to access (Art. 15/20 GDPR) and to erasure (\"right to be forgotten\", Art. 17 GDPR) -- a deletion is only REQUESTED here, never executed immediately. An administrator subsequently decides on the request separately."
+
+msgid "Ihre Bewertung:"
+msgstr "Your rating:"
+
+msgid "Ihre Reaktion:"
+msgstr "Your reaction:"
+
+msgid "In Bearbeitung"
+msgstr "In progress"
+
+msgid "In Prüfung"
+msgstr "Under review"
+
+msgid "In Warteschlange"
+msgstr "Queued"
+
+msgid "inaktiv"
+msgstr "inactive"
+
+msgid "Inaktiv"
+msgstr "Inactive"
+
+msgid "Inaktive Gremien anzeigen"
+msgstr "Show inactive committees"
+
+msgid "Inaktive Konten anzeigen"
+msgstr "Show inactive accounts"
+
+msgid "Inaktive Kostenstellen anzeigen"
+msgstr "Show inactive cost centers"
+
+msgid "Inaktive Spender anzeigen"
+msgstr "Show inactive donors"
+
+msgid "Inhalt"
+msgstr "Content"
+
+msgid "Inklusive ehemaliger Profile"
+msgstr "Including former profiles"
+
+msgid "ist beendet"
+msgstr "has ended"
+
+msgid "ist unterbrochen"
+msgstr "is paused"
+
+msgid "Ja"
+msgstr "Yes"
+
+msgid "Ja-Stimmen"
+msgstr "Yes votes"
+
+msgid "Ja: %1 · Nein: %2 · Enthaltung: %3"
+msgstr "Yes: %1 · No: %2 · Abstain: %3"
+
+msgid "Ja: %1 · Nein: %2 · Enthaltung: %3 · Quorum %4 · entschieden am %5 von %6"
+msgstr "Yes: %1 · No: %2 · Abstain: %3 · Quorum %4 · decided on %5 by %6"
+
+msgid "Jahresabschluss"
+msgstr "Annual financial statement"
+
+msgid "Jahresergebnis (dieses Geschäftsjahr)"
+msgstr "Annual result (this fiscal year)"
+
+msgid "Jahressumme"
+msgstr "Annual total"
+
+msgid "Jemand hat diesen Block bereits aktualisiert (zuletzt von %1)."
+msgstr "Someone has already updated this block (most recently by %1)."
+
+msgid "Jetzt live gehen"
+msgstr "Go live now"
+
+msgid "Jetzt per Post versenden"
+msgstr "Send by mail now"
+
+msgid "Jetzt terminieren"
+msgstr "Schedule now"
+
+msgid "Journal (Grundbuch)"
+msgstr "Journal (book of original entry)"
+
+msgid "Journaldetails"
+msgstr "Journal details"
+
+msgid "Kalenderjahr (JJJJ)"
+msgstr "Calendar year (YYYY)"
+
+msgid "Kalenderjahr %1"
+msgstr "Calendar year %1"
+
+msgid "Kamera an"
+msgstr "Camera on"
+
+msgid "Kamera aus"
+msgstr "Camera off"
+
+msgid "Kasse"
+msgstr "Cash"
+
+msgid "Kasse (Kassenbuch-fähig)"
+msgstr "Cash account (cash book-capable)"
+
+msgid "Kassenbuch"
+msgstr "Cash book"
+
+msgid "Kategorie"
+msgstr "Category"
+
+msgid "Kein AVV"
+msgstr "No DPA"
+
+msgid "Kein Beschluss verknüpft."
+msgstr "No resolution linked."
+
+msgid "Kein Grund angegeben."
+msgstr "No reason given."
+
+msgid "Kein Legal Hold"
+msgstr "No legal hold"
+
+msgid "Kein Limit"
+msgstr "No limit"
+
+msgid "Kein Zugriff -- für diesen Bereich fehlt Ihnen die Berechtigung."
+msgstr "No access -- you do not have permission for this area."
+
+msgid "Keine Adresse hinterlegt"
+msgstr "No address on file"
+
+msgid "Keine anderen Mitglieder vorhanden, an die übertragen werden könnte."
+msgstr "There are no other members available to transfer to."
+
+msgid "Keine Änderungsanträge."
+msgstr "No amendment motions."
+
+msgid "Keine anonymen Spenden über dem Schwellenwert im gewählten Kalenderjahr."
+msgstr "No anonymous donations above the threshold in the selected calendar year."
+
+msgid "Keine Anträge für diese Filter gefunden."
+msgstr "No motions found for this filter."
+
+msgid "Keine Anwesenheit erfasst."
+msgstr "No attendance recorded."
+
+msgid "Keine Beiträge vorhanden."
+msgstr "No contributions available."
+
+msgid "Keine Beitragssätze vorhanden."
+msgstr "No contribution rates available."
+
+msgid "Keine berechtigten Mitglieder gefunden."
+msgstr "No eligible members found."
+
+msgid "Keine Berechtigung für diese Aktion."
+msgstr "No permission for this action."
+
+msgid "Keine Berechtigung, Anträge einzureichen."
+msgstr "No permission to submit motions."
+
+msgid "Keine Berechtigung, neue Sitzungen anzulegen."
+msgstr "No permission to create new meetings."
+
+msgid "Keine Beschlüsse."
+msgstr "No resolutions."
+
+msgid "Keine Buchungen für diesen Filter."
+msgstr "No entries for this filter."
+
+msgid "Keine Buchungen im gewählten Zeitraum."
+msgstr "No entries in the selected period."
+
+msgid "Keine Buchungen in diesem Abschnitt."
+msgstr "No entries in this section."
+
+msgid "Keine Buchungszeilen."
+msgstr "No entry lines."
+
+msgid "Keine Daten in den registrierten Bereichen gefunden."
+msgstr "No data found in the registered areas."
+
+msgid "Keine Detaildaten für diesen Eintrag hinterlegt."
+msgstr "No detailed data on file for this entry."
+
+msgid "Keine Dokumente in diesem Ordner."
+msgstr "No documents in this folder."
+
+msgid "Keine Einträge für diese Filter gefunden."
+msgstr "No entries found for this filter."
+
+msgid "Keine Einträge gefunden."
+msgstr "No entries found."
+
+msgid "Keine Einträge im geprüften Bereich."
+msgstr "No entries in the reviewed area."
+
+msgid "Keine Erinnerungen vorhanden."
+msgstr "No reminders available."
+
+msgid "Keine fehlenden Angaben für das Transparenzregister."
+msgstr "No missing information for the transparency register."
+
+msgid "Keine freigegebenen Stream-Ziele vorhanden -- bitte eine Administratorin oder einen Administrator kontaktieren."
+msgstr "No approved stream destinations available -- please contact an administrator."
+
+msgid "Keine Gebote abgegeben."
+msgstr "No bids placed."
+
+msgid "Keine geplante Sitzung für dieses Gremium verfügbar -- zuerst auf \"Sitzungen\" eine anlegen."
+msgstr "No scheduled meeting available for this committee -- first create one under \"Meetings\"."
+
+msgid "Keine Kostenstelle mit Buchungen im gewählten Zeitraum."
+msgstr "No cost center with entries in the selected period."
+
+msgid "Keine Meldung erforderlich"
+msgstr "No report required"
+
+msgid "Keine Mitglieder vorhanden, denen eine Spende gutgeschrieben werden könnte."
+msgstr "There are no members available to credit a donation to."
+
+msgid "Keine Mitglieder vorhanden."
+msgstr "No members available."
+
+msgid "Keine offenen Anträge."
+msgstr "No open motions."
+
+msgid "Keine offenen Beiträge."
+msgstr "No open contributions."
+
+msgid "Keine offenen Melde-/Offenlegungspflichten im gewählten Kalenderjahr."
+msgstr "No open reporting/disclosure obligations in the selected calendar year."
+
+msgid "Keine Tagesordnungspunkte."
+msgstr "No agenda items."
+
+msgid "Keine Treffer."
+msgstr "No matches."
+
+msgid "Kennzahlen"
+msgstr "Key figures"
+
+msgid "Kette prüfen"
+msgstr "Verify chain"
+
+msgid "Ketten-Integrität prüfen"
+msgstr "Verify chain integrity"
+
+msgid "Kommunikation"
+msgstr "Communication"
+
+msgid "Konfiguration"
+msgstr "Configuration"
+
+msgid "Konfiguration bearbeiten (ADMIN)"
+msgstr "Edit configuration (ADMIN)"
+
+msgid "Konfiguration speichern"
+msgstr "Save configuration"
+
+msgid "Konten (SKR42 Kontenplan)"
+msgstr "Accounts (SKR42 chart of accounts)"
+
+msgid "Kontenklasse"
+msgstr "Account class"
+
+msgid "Kontenklasse (erste Ziffer der Kontonummer, 0-9)"
+msgstr "Account class (first digit of the account number, 0-9)"
+
+msgid "Kontenklasse %1"
+msgstr "Account class %1"
+
+msgid "Kontenplan & Journal"
+msgstr "Chart of accounts & journal"
+
+msgid "Konto"
+msgstr "Account"
+
+msgid "Konto \"%1 · %2\" wurde angelegt."
+msgstr "Account \"%1 · %2\" has been created."
+
+msgid "Konto (ID)"
+msgstr "Account (ID)"
+
+msgid "Konto anlegen"
+msgstr "Create account"
+
+msgid "Konto deaktivieren"
+msgstr "Deactivate account"
+
+msgid "Konto oben auswählen, um Hauptbuch/Kassenbuch zu sehen."
+msgstr "Select an account above to view the general ledger/cash book."
+
+msgid "Konto wurde deaktiviert."
+msgstr "Account has been deactivated."
+
+msgid "Kontodetails"
+msgstr "Account details"
+
+msgid "Kontonummer (SKR42)"
+msgstr "Account number (SKR42)"
+
+msgid "Kontotyp"
+msgstr "Account type"
+
+msgid "Konvertieren"
+msgstr "Convert"
+
+msgid "Konvertierung ausgeführt."
+msgstr "Conversion executed."
+
+msgid "Korb"
+msgstr "Basket"
+
+msgid "Körperschaft des öffentlichen Rechts"
+msgstr "Public-law corporation"
+
+msgid "Korrekturübertragung ausführen"
+msgstr "Execute correcting transfer"
+
+msgid "Korrekturübertragung ausgeführt: %1."
+msgstr "Correcting transfer executed: %1."
+
+msgid "Kostenstelle"
+msgstr "Cost center"
+
+msgid "Kostenstelle \"%1 · %2\" wurde angelegt."
+msgstr "Cost center \"%1 · %2\" has been created."
+
+msgid "Kostenstelle anlegen"
+msgstr "Create cost center"
+
+msgid "Kostenstelle deaktivieren"
+msgstr "Deactivate cost center"
+
+msgid "Kostenstelle wurde deaktiviert."
+msgstr "Cost center has been deactivated."
+
+msgid "Kostenstellen"
+msgstr "Cost centers"
+
+msgid "Kostenstellenbericht"
+msgstr "Cost center report"
+
+msgid "Kritisch"
+msgstr "Critical"
+
+msgid "Kumuliertes Ergebnis (seit Gründung)"
+msgstr "Cumulative result (since founding)"
+
+msgid "Kumuliertes Ergebnis (Σ Einnahmen − Ausgaben seit Gründung)"
+msgstr "Cumulative result (Σ income − expenses since founding)"
+
+msgid "Kurs abrufen"
+msgstr "Retrieve rate"
+
+msgid "Kurs-Status:"
+msgstr "Rate status:"
+
+msgid "Kurs: %1 je %2 (Status: %3, %4 Quelle(n): %5)"
+msgstr "Rate: %1 per %2 (status: %3, %4 source(s): %5)"
+
+msgid "Laden"
+msgstr "Load"
+
+msgid "Lädt ein vollständiges ZIP-Backup aller Organisationsdaten herunter. Rein lesend und nicht destruktiv -- daher ohne Bestätigungsdialog."
+msgstr "Downloads a complete ZIP backup of all organization data. Read-only and non-destructive -- therefore no confirmation dialog."
+
+msgid "Land (optional)"
+msgstr "Country (optional)"
+
+msgid "Latenz"
+msgstr "Latency"
+
+msgid "laufend"
+msgstr "ongoing"
+
+msgid "läuft"
+msgstr "in progress"
+
+msgid "Laufzeit in Stunden (z. B. 24)"
+msgstr "Duration in hours (e.g. 24)"
+
+msgid "Layout"
+msgstr "Layout"
+
+msgid "Legal Hold aktiv -- Löschung darf nicht ausgeführt werden."
+msgstr "Legal hold active -- deletion may not be executed."
+
+msgid "Legt ein Mitglied ohne Antrags-/Freigabeschritt an (z. B. für Beitritte auf Papier oder Datenmigration) -- Status sofort AKTIV."
+msgstr "Creates a member without an application/approval step (e.g. for paper-based sign-ups or data migration) -- status is immediately ACTIVE."
+
+msgid "Like"
+msgstr "Like"
+
+msgid "Like: %1 · Dislike: %2 · Verteilungs-Korb: %3"
+msgstr "Like: %1 · Dislike: %2 · Distribution basket: %3"
+
+msgid "Liste verwalten"
+msgstr "Manage list"
+
+msgid "Live"
+msgstr "Live"
+
+msgid "Live-Stream"
+msgstr "Live stream"
+
+msgid "Live-Stream beenden"
+msgstr "End live stream"
+
+msgid "Live-Stream beendet."
+msgstr "Live stream ended."
+
+msgid "Live-Stream fehlgeschlagen."
+msgstr "Live stream failed."
+
+msgid "Live-Stream gestartet von %1 um %2:%3 · %4"
+msgstr "Live stream started by %1 at %2:%3 · %4"
+
+msgid "Live-Stream starten"
+msgstr "Start live stream"
+
+msgid "Live-Stream starten …"
+msgstr "Starting live stream …"
+
+msgid "Live-Stream wird beendet."
+msgstr "Live stream is ending."
+
+msgid "Live-Stream wird gestartet."
+msgstr "Live stream is starting."
+
+msgid "Live-Stream:"
+msgstr "Live stream:"
+
+msgid "Löschen"
+msgstr "Delete"
+
+msgid "Löschung abgelehnt"
+msgstr "Deletion rejected"
+
+msgid "Löschung ausgeführt"
+msgstr "Deletion executed"
+
+msgid "Löschung beantragen"
+msgstr "Request deletion"
+
+msgid "Löschung beantragt"
+msgstr "Deletion requested"
+
+msgid "Löschung endgültig ausführen"
+msgstr "Execute deletion permanently"
+
+msgid "Löschung genehmigt"
+msgstr "Deletion approved"
+
+msgid "Löschung wurde ausgeführt."
+msgstr "Deletion has been executed."
+
+msgid "Löschung wurde beantragt."
+msgstr "Deletion has been requested."
+
+msgid "LTR gutschreiben"
+msgstr "Credit LTR"
+
+msgid "LTR gutschreiben (Mint)"
+msgstr "Credit LTR (mint)"
+
+msgid "LTR senden"
+msgstr "Send LTR"
+
+msgid "LTR übertragen"
+msgstr "Transfer LTR"
+
+msgid "LTR-Konto"
+msgstr "LTR account"
+
+msgid "LTR-Übertragung bestätigen"
+msgstr "Confirm LTR transfer"
+
+msgid "Mailingliste"
+msgstr "Mailing list"
+
+msgid "Mailingliste \"%1\" wurde angelegt."
+msgstr "Mailing list \"%1\" has been created."
+
+msgid "Mailinglisten"
+msgstr "Mailing lists"
+
+msgid "Mailinglisten anlegen, Mitglieder gezielt eintragen und Nachrichten an eine Liste verschicken."
+msgstr "Create mailing lists, add members selectively, and send messages to a list."
+
+msgid "Mailinglisten verwalten"
+msgstr "Manage mailing lists"
+
+msgid "Mandatstext"
+msgstr "Mandate text"
+
+msgid "Mandatstext (optional)"
+msgstr "Mandate text (optional)"
+
+msgid "Mandatstext aktualisiert."
+msgstr "Mandate text updated."
+
+msgid "Mandatstext speichern"
+msgstr "Save mandate text"
+
+msgid "Manuelle Eintragung"
+msgstr "Manual entry"
+
+msgid "Max. Spread"
+msgstr "Max. spread"
+
+msgid "Max. Spread (Basispunkte, >= Ausreißer-Schwelle)"
+msgstr "Max. spread (basis points, >= outlier threshold)"
+
+msgid "Maximal 50 Empfänger pro Versand."
+msgstr "Maximum of 50 recipients per mailing."
+
+msgid "Median-Kurs: %1"
+msgstr "Median rate: %1"
+
+msgid "Mehr laden"
+msgstr "Load more"
+
+msgid "Meine Auktionen (als Verkäufer)"
+msgstr "My auctions (as seller)"
+
+msgid "Meine Beiträge"
+msgstr "My contributions"
+
+msgid "Meine Buchungen"
+msgstr "My entries"
+
+msgid "Meine Daten"
+msgstr "My data"
+
+msgid "Meine Gebote"
+msgstr "My bids"
+
+msgid "Melde-/Offenlegungspflichten pro Spender"
+msgstr "Reporting/disclosure obligations per donor"
+
+msgid "Meldung an Aufsichtsbehörde erforderlich (Ihre Entscheidung)"
+msgstr "Report to supervisory authority required (your decision)"
+
+msgid "Meldung an Aufsichtsbehörde erforderlich: %1"
+msgstr "Report to supervisory authority required: %1"
+
+msgid "Meldung erfolgt"
+msgstr "Report submitted"
+
+msgid "Meritokratische Vote eröffnen"
+msgstr "Open meritocratic vote"
+
+msgid "Metadaten aller Auskunfts-/Löschvorgänge -- rein informativ, keine Aktionen auf dieser Liste."
+msgstr "Metadata for all access/deletion requests -- purely informational, no actions on this list."
+
+msgid "Mikro an"
+msgstr "Mic on"
+
+msgid "Mikrofon an"
+msgstr "Microphone on"
+
+msgid "Mikrofon aus"
+msgstr "Microphone off"
+
+msgid "Mindest-Quorum"
+msgstr "Minimum quorum"
+
+msgid "Mindest-Quorum (Quellen, mind. 2)"
+msgstr "Minimum quorum (sources, at least 2)"
+
+msgid "Mindestens %1 Zeichen."
+msgstr "At least %1 characters."
+
+msgid "Mindestens zwei Mitglieder erforderlich."
+msgstr "At least two members required."
+
+msgid "Mitglied"
+msgstr "Member"
+
+msgid "Mitglied (ID)"
+msgstr "Member (ID)"
+
+msgid "Mitglied %1"
+msgstr "Member %1"
+
+msgid "Mitglied anlegen"
+msgstr "Create member"
+
+msgid "Mitglied direkt anlegen"
+msgstr "Create member directly"
+
+msgid "Mitglied hinzufügen"
+msgstr "Add member"
+
+msgid "Mitglied selbst"
+msgstr "Member themself"
+
+msgid "Mitglied werden"
+msgstr "Become a member"
+
+msgid "Mitglied wurde eingetragen."
+msgstr "Member has been registered."
+
+msgid "Mitglied wurde hinzugefügt."
+msgstr "Member has been added."
+
+msgid "Mitglieder"
+msgstr "Members"
+
+msgid "Mitglieder anzeigen"
+msgstr "Show members"
+
+msgid "Mitglieder und Gäste können ab sofort Politiker-Profile einsehen und bewerten; BOARD/ADMIN können Politiker-Status erteilen/widerrufen."
+msgstr "Members and guests can now view and rate politician profiles; BOARD/ADMIN can grant/revoke politician status."
+
+msgid "Mitglieder-Gewicht"
+msgstr "Member weight"
+
+msgid "Mitglieder-Gewicht (LTR-gewichtet)"
+msgstr "Member weight (LTR-weighted)"
+
+msgid "Mitglieder: Like %1 / Dislike %2 · Gäste: Like %3 / Dislike %4"
+msgstr "Members: Like %1 / Dislike %2 · Guests: Like %3 / Dislike %4"
+
+msgid "Mitgliederverwaltung"
+msgstr "Member management"
+
+msgid "Mitgliederverzeichnis"
+msgstr "Member directory"
+
+msgid "Mitgliedschaft"
+msgstr "Membership"
+
+msgid "Mitgliedschaft beenden"
+msgstr "End membership"
+
+msgid "Mitgliedschaft von \"%1\" (%2) wirklich beenden?"
+msgstr "Really end the membership of \"%1\" (%2)?"
+
+msgid "Mitgliedschaft von \"%1\" wirklich beenden?"
+msgstr "Really end the membership of \"%1\"?"
+
+msgid "Mitgliedschaft von %1 wurde beendet."
+msgstr "Membership of %1 has been ended."
+
+msgid "Mittel"
+msgstr "Funds"
+
+msgid "Mittelverwendung"
+msgstr "Use of funds"
+
+msgid "Mittelverwendung nach Sphäre (informativ)"
+msgstr "Use of funds by sphere (informational)"
+
+msgid "Mittelverwendungsrechnung"
+msgstr "Statement of application of funds"
+
+msgid "Mittelverwendungsrechnung (§55/§62 AO)"
+msgstr "Statement of application of funds (§55/§62 AO)"
+
+msgid "Mittelvortrag"
+msgstr "Carryforward of funds"
+
+msgid "Mittelzufluss"
+msgstr "Inflow of funds"
+
+msgid "Mittelzufluss nach Sphäre (informativ)"
+msgstr "Inflow of funds by sphere (informational)"
+
+msgid "Möchten Sie Ihre Mitgliedschaft wirklich beenden? Dies ist nicht rückgängig zu machen -- Sie werden abgemeldet und können sich nicht erneut mit diesem Konto anmelden."
+msgstr "Do you really want to end your membership? This cannot be undone -- you will be logged out and will not be able to sign in again with this account."
+
+msgid "Moderator"
+msgstr "Moderator"
+
+msgid "Moderator:"
+msgstr "Moderator:"
+
+msgid "Monat"
+msgstr "Month"
+
+msgid "Monat (JJJJ-MM-TT, Tag wird ignoriert)"
+msgstr "Month (YYYY-MM-DD, day is ignored)"
+
+msgid "Monatliche Verteilung berechnen"
+msgstr "Calculate monthly distribution"
+
+msgid "Nachher"
+msgstr "After"
+
+msgid "Nachricht"
+msgstr "Message"
+
+msgid "Nachricht \"%1\" wurde gesendet."
+msgstr "Message \"%1\" has been sent."
+
+msgid "Nachricht senden"
+msgstr "Send message"
+
+msgid "Nachrichten"
+msgstr "Messages"
+
+msgid "Name"
+msgstr "Name"
+
+msgid "Natürliche Person außerhalb der EU"
+msgstr "Natural person outside the EU"
+
+msgid "Nein"
+msgstr "No"
+
+msgid "Nein-Stimmen"
+msgstr "No votes"
+
+msgid "Neue Angebote können ebenfalls nicht erstellt werden, bis ein ADMIN die Auktion erneut aktiviert."
+msgstr "New offers likewise cannot be created until an ADMIN reactivates the auction."
+
+msgid "Neue Besprechung"
+msgstr "New meeting"
+
+msgid "Neue Buchung"
+msgstr "New entry"
+
+msgid "Neue Datenpanne melden"
+msgstr "Report new data breach"
+
+msgid "Neue DSFA anlegen"
+msgstr "Create new DPIA"
+
+msgid "Neue Kostenstelle anlegen"
+msgstr "Create new cost center"
+
+msgid "Neue Mailingliste anlegen"
+msgstr "Create new mailing list"
+
+msgid "Neue Sitzung anlegen"
+msgstr "Create new meeting"
+
+msgid "Neue TOM anlegen"
+msgstr "Create new TOM"
+
+msgid "Neue Version hochladen"
+msgstr "Upload new version"
+
+msgid "Neuen Antrag einreichen"
+msgstr "Submit new motion"
+
+msgid "Neuen AVV-Eintrag anlegen"
+msgstr "Create new DPA entry"
+
+msgid "Neuen Spender anlegen"
+msgstr "Create new donor"
+
+msgid "Neuer Dokumenttitel"
+msgstr "New document title"
+
+msgid "Neuer Ordnername"
+msgstr "New folder name"
+
+msgid "Neuer Stream-Schlüssel (leer lassen = unverändert lassen)"
+msgstr "New stream key (leave empty = keep unchanged)"
+
+msgid "Neues Angebot erstellen"
+msgstr "Create new offer"
+
+msgid "Neues Gremium anlegen"
+msgstr "Create new committee"
+
+msgid "Neues Konto anlegen"
+msgstr "Create new account"
+
+msgid "Neues Passwort"
+msgstr "New password"
+
+msgid "Neues Passwort (mind. %1 Zeichen)"
+msgstr "New password (at least %1 characters)"
+
+msgid "Neues Passwort bestätigen"
+msgstr "Confirm new password"
+
+msgid "Neues Passwort erfüllt nicht die Anforderungen (mind. 12, max. 128 Zeichen, nicht die E-Mail-Adresse)."
+msgstr "New password does not meet the requirements (at least 12, at most 128 characters, must not be the email address)."
+
+msgid "Neues Passwort setzen"
+msgstr "Set new password"
+
+msgid "Neues Projekt einreichen"
+msgstr "Submit new project"
+
+msgid "Neues Stream-Ziel anlegen"
+msgstr "Create new stream destination"
+
+msgid "Nicht festgelegt"
+msgstr "Not set"
+
+msgid "Nicht gefunden."
+msgstr "Not found."
+
+msgid "Niedrig"
+msgstr "Low"
+
+msgid "Niedrige Latenz"
+msgstr "Low latency"
+
+msgid "niemand zugewiesen"
+msgstr "no one assigned"
+
+msgid "Noch kein Gewichtsverlauf vorhanden."
+msgstr "No weight history available yet."
+
+msgid "Noch kein Konto? Jetzt Mitglied werden."
+msgstr "No account yet? Become a member now."
+
+msgid "Noch keine Abonnentinnen und Abonnenten."
+msgstr "No subscribers yet."
+
+msgid "Noch keine aktiven Konten -- zuerst oben mindestens zwei Konten anlegen."
+msgstr "No active accounts yet -- first create at least two accounts above."
+
+msgid "Noch keine Anträge vorhanden."
+msgstr "No motions available yet."
+
+msgid "Noch keine Anwesenheit erfasst."
+msgstr "No attendance recorded yet."
+
+msgid "Noch keine Aufzeichnungen."
+msgstr "No recordings yet."
+
+msgid "Noch keine Auktionen vorhanden."
+msgstr "No auctions available yet."
+
+msgid "Noch keine AVV-Einträge angelegt."
+msgstr "No DPA entries created yet."
+
+msgid "Noch keine Beschlüsse erfasst."
+msgstr "No resolutions recorded yet."
+
+msgid "Noch keine Bestätigung des rechtlichen Hinweistexts erfolgt."
+msgstr "The legal notice has not yet been confirmed."
+
+msgid "Noch keine Buchungen."
+msgstr "No entries yet."
+
+msgid "Noch keine Datenpannen erfasst."
+msgstr "No data breaches recorded yet."
+
+msgid "Noch keine DSFA-Einträge angelegt."
+msgstr "No DPIA entries created yet."
+
+msgid "Noch keine Export-/Wiederherstellungsversuche protokolliert."
+msgstr "No export/restore attempts logged yet."
+
+msgid "Noch keine externen Spender angelegt."
+msgstr "No external donors created yet."
+
+msgid "noch keine Gebote, Startpreis: %1"
+msgstr "no bids yet, starting price: %1"
+
+msgid "Noch keine Gremien vorhanden."
+msgstr "No committees available yet."
+
+msgid "Noch keine Konten angelegt."
+msgstr "No accounts created yet."
+
+msgid "Noch keine Kostenstellen angelegt."
+msgstr "No cost centers created yet."
+
+msgid "Noch keine Mailinglisten."
+msgstr "No mailing lists yet."
+
+msgid "Noch keine Mitglieder in diesem Gremium."
+msgstr "No members in this committee yet."
+
+msgid "Noch keine Nachrichten."
+msgstr "No messages yet."
+
+msgid "Noch keine Notizen."
+msgstr "No notes yet."
+
+msgid "Noch keine Ordner vorhanden."
+msgstr "No folders available yet."
+
+msgid "Noch keine Politiker-Profile vorhanden."
+msgstr "No politician profiles available yet."
+
+msgid "Noch keine postalischen Versandvorgänge protokolliert."
+msgstr "No postal mailings logged yet."
+
+msgid "Noch keine Projekte eingereicht."
+msgstr "No projects submitted yet."
+
+msgid "Noch keine Sitzungen vorhanden."
+msgstr "No meetings available yet."
+
+msgid "Noch keine Stream-Ziele angelegt."
+msgstr "No stream destinations created yet."
+
+msgid "Noch keine Tagesordnungspunkte."
+msgstr "No agenda items yet."
+
+msgid "Noch keine TOM-Einträge angelegt."
+msgstr "No TOM entries created yet."
+
+msgid "Noch keine Version hochgeladen."
+msgstr "No version uploaded yet."
+
+msgid "Noch keine Verteilung berechnet."
+msgstr "No distribution calculated yet."
+
+msgid "Noch nicht festgelegt"
+msgstr "Not yet set"
+
+msgid "Noch niemand verbunden."
+msgstr "No one connected yet."
+
+msgid "Notiz (optional)"
+msgstr "Note (optional)"
+
+msgid "Notiz / erstellt von"
+msgstr "Note / created by"
+
+msgid "Notizblock darf nicht leer sein."
+msgstr "Notepad must not be empty."
+
+msgid "Notizblock entfernt."
+msgstr "Notepad removed."
+
+msgid "Notizblock hinzufügen"
+msgstr "Add notepad"
+
+msgid "Notizblock ist zu lang (max. %1 Zeichen)."
+msgstr "Notepad is too long (max. %1 characters)."
+
+msgid "Notizen"
+msgstr "Notes"
+
+msgid "Notizen (optional)"
+msgstr "Notes (optional)"
+
+msgid "Notizen als Dokument gespeichert."
+msgstr "Notes saved as document."
+
+msgid "Notizen als Dokument speichern"
+msgstr "Save notes as document"
+
+msgid "Nr."
+msgstr "No."
+
+msgid "Nummer"
+msgstr "Number"
+
+msgid "Nur aktive Profile"
+msgstr "Active profiles only"
+
+msgid "Nur bei Kontotyp „Aktivkonto\" wählbar."
+msgstr "Only selectable for account type \"Asset account\"."
+
+msgid "Nur bei Kontotyp „Eigenkapitalkonto\" wählbar."
+msgstr "Only selectable for account type \"Equity account\"."
+
+msgid "Nur Mitglieder"
+msgstr "Members only"
+
+msgid "Obergrenze speichern"
+msgstr "Save upper limit"
+
+msgid "Offen"
+msgstr "Open"
+
+msgid "Offen: %1 | Bezahlt: %2 | Gesamt: %3"
+msgstr "Open: %1 | Paid: %2 | Total: %3"
+
+msgid "Offene Anträge"
+msgstr "Open motions"
+
+msgid "Offenlegungspflicht (Rechenschaftsbericht)"
+msgstr "Disclosure obligation (accountability report)"
+
+msgid "Ohne diese Option lehnt der Server die Wiederherstellung ab, sobald die Zielorganisation nicht leer ist -- das ist der sichere Standardpfad. Aktivieren Sie diese Option nur, wenn Sie absichtlich in eine bereits befüllte Organisation wiederherstellen wollen."
+msgstr "Without this option, the server rejects the restore as soon as the target organization is not empty -- this is the safe default path. Only enable this option if you intentionally want to restore into an already-populated organization."
+
+msgid "Ohne Referenz (z. B. Gutschrift)"
+msgstr "Without reference (e.g. credit note)"
+
+msgid "Option"
+msgstr "Option"
+
+msgid "Optionen (kommagetrennt, mind. 2)"
+msgstr "Options (comma-separated, at least 2)"
+
+msgid "Orakel angehalten (HALT) -- kein aktueller Kurs verfügbar."
+msgstr "Oracle halted (HALT) -- no current rate available."
+
+msgid "Orakel-Konfiguration aktualisiert."
+msgstr "Oracle configuration updated."
+
+msgid "Ordner"
+msgstr "Folder"
+
+msgid "Ordner \"%1\" angelegt."
+msgstr "Folder \"%1\" created."
+
+msgid "Ordner anlegen"
+msgstr "Create folder"
+
+msgid "Ort"
+msgstr "Location"
+
+msgid "Ort (optional)"
+msgstr "Location (optional)"
+
+msgid "Ort: %1"
+msgstr "Location: %1"
+
+msgid "Owncast"
+msgstr "Owncast"
+
+msgid "Passiva"
+msgstr "Liabilities"
+
+msgid "Passivkonto"
+msgstr "Liability account"
+
+msgid "Passwort"
+msgstr "Password"
+
+msgid "Passwort (mind. %1 Zeichen)"
+msgstr "Password (at least %1 characters)"
+
+msgid "Passwort ändern"
+msgstr "Change password"
+
+msgid "Passwort bestätigen"
+msgstr "Confirm password"
+
+msgid "Passwort geändert."
+msgstr "Password changed."
+
+msgid "Passwort vergessen?"
+msgstr "Forgot password?"
+
+msgid "Passwort wurde geändert -- bitte melden Sie sich neu an."
+msgstr "Password has been changed -- please sign in again."
+
+msgid "Peer-Transfer"
+msgstr "Peer transfer"
+
+msgid "PeerTube"
+msgstr "PeerTube"
+
+msgid "Peg (Einheiten je LTR)"
+msgstr "Peg (units per LTR)"
+
+msgid "Peg: Einheiten des Anker-Assets je LTR"
+msgstr "Peg: units of the anchor asset per LTR"
+
+msgid "Per Post versenden"
+msgstr "Send by mail"
+
+msgid "Periodenbeginn (JJJJ-MM-TT)"
+msgstr "Period start (YYYY-MM-DD)"
+
+msgid "Periodenende (JJJJ-MM-TT)"
+msgstr "Period end (YYYY-MM-DD)"
+
+msgid "Person (nur bei \"Einzelne Person\")"
+msgstr "Person (only for \"Individual person\")"
+
+msgid "Pflicht"
+msgstr "Obligation"
+
+msgid "Pflichten"
+msgstr "Obligations"
+
+msgid "Pflichten:"
+msgstr "Obligations:"
+
+msgid "Plattform"
+msgstr "Platform"
+
+msgid "PLZ (optional)"
+msgstr "Postal code (optional)"
+
+msgid "Politiker"
+msgstr "Politician"
+
+msgid "Politiker-Profile"
+msgstr "Politician profiles"
+
+msgid "Politiker-Profile konnten nicht geladen werden."
+msgstr "Politician profiles could not be loaded."
+
+msgid "Politiker-Ranking aktivieren"
+msgstr "Enable politician ranking"
+
+msgid "Politiker-Ranking aktiviert."
+msgstr "Politician ranking enabled."
+
+msgid "Politiker-Ranking deaktivieren"
+msgstr "Disable politician ranking"
+
+msgid "Politiker-Ranking deaktiviert."
+msgstr "Politician ranking disabled."
+
+msgid "Politiker-Ranking:"
+msgstr "Politician ranking:"
+
+msgid "Politiker-Status erteilen"
+msgstr "Grant politician status"
+
+msgid "Politiker-Status für %1 erteilt."
+msgstr "Politician status granted for %1."
+
+msgid "Politiker-Status seit %1 (erteilt von %2)"
+msgstr "Politician status since %1 (granted by %2)"
+
+msgid "Politiker-Status von %1 widerrufen."
+msgstr "Politician status revoked for %1."
+
+msgid "Politiker-Status widerrufen"
+msgstr "Revoke politician status"
+
+msgid "Politiker-Status widerrufen bestätigen"
+msgstr "Confirm revocation of politician status"
+
+msgid "Position"
+msgstr "Position"
+
+msgid "Position auf der Tagesordnung"
+msgstr "Position on the agenda"
+
+msgid "Postfach"
+msgstr "Mailbox"
+
+msgid "Postversand"
+msgstr "Postal mailing"
+
+msgid "Postversand an %1 ist fehlgeschlagen: %2"
+msgstr "Postal mailing to %1 failed: %2"
+
+msgid "Postversand fehlgeschlagen."
+msgstr "Postal mailing failed."
+
+msgid "Postversand ist auf %1 Empfänger begrenzt (aktuell ausgewählt: %2) -- für mehr Empfänger bitte das PDF herunterladen und selbst verteilen."
+msgstr "Postal mailing is limited to %1 recipients (currently selected: %2) -- for more recipients, please download the PDF and distribute it yourself."
+
+msgid "Postversand ist derzeit deaktiviert --"
+msgstr "Postal mailing is currently disabled --"
+
+msgid "Postversand ist derzeit deaktiviert (`OrganizationSettings.postalMailEnabled = false`) -- alle Versandaktionen (Beitragsrechnung, Spendenbescheinigung, Einladung) schlagen fehl, bis eine Administratorin oder ein Administrator dies aktiviert. Diese Einstellung hat in dieser Version noch keine eigene Oberfläche."
+msgstr "Postal mailing is currently disabled (`OrganizationSettings.postalMailEnabled = false`) -- all mailing actions (membership fee invoice, donation receipt, invitation) fail until an administrator enables this. This setting does not yet have its own interface in this version."
+
+msgid "Postversand-Übersicht"
+msgstr "Postal mailing overview"
+
+msgid "Preis: %1 LTR (Vickrey-Zweitpreis)"
+msgstr "Price: %1 LTR (Vickrey second-price)"
+
+msgid "Preisstand: %1:%2:%3 Uhr"
+msgstr "Price as of: %1:%2:%3"
+
+msgid "Price-Oracle"
+msgstr "Price oracle"
+
+msgid "Privatverkauf"
+msgstr "Private sale"
+
+msgid "Projekt"
+msgstr "Project"
+
+msgid "Projekt \"%1\" abgelehnt."
+msgstr "Project \"%1\" rejected."
+
+msgid "Projekt \"%1\" eingereicht."
+msgstr "Project \"%1\" submitted."
+
+msgid "Projekt \"%1\" genehmigt."
+msgstr "Project \"%1\" approved."
+
+msgid "Projekt ablehnen"
+msgstr "Reject project"
+
+msgid "Projekt einreichen"
+msgstr "Submit project"
+
+msgid "Projekt genehmigen"
+msgstr "Approve project"
+
+msgid "Projekte"
+msgstr "Projects"
+
+msgid "Projekteinsatz"
+msgstr "Project deployment"
+
+msgid "Projekteinsatz freigegeben"
+msgstr "Project deployment released"
+
+msgid "Projektrücklage (%1)"
+msgstr "Project reserve (%1)"
+
+msgid "Protokoll"
+msgstr "Minutes"
+
+msgid "Protokoll aller bisherigen Export-/Wiederherstellungsversuche -- rein informativ, keine Aktionen auf dieser Liste."
+msgstr "Log of all previous export/restore attempts -- purely informational, no actions on this list."
+
+msgid "Protokoll aller bisherigen postalischen Versandvorgänge -- rein informativ, keine Aktionen auf dieser Liste. Neue Versandvorgänge werden direkt bei der jeweiligen Beitragsrechnung, Spendenbescheinigung oder Sitzungseinladung ausgelöst."
+msgstr "Log of all previous postal mailings -- purely informational, no actions on this list. New mailings are triggered directly from the respective membership fee invoice, donation receipt, or meeting invitation."
+
+msgid "Protokoll: %1"
+msgstr "Minutes: %1"
+
+msgid "Protokollentwurf erzeugen"
+msgstr "Generate draft minutes"
+
+msgid "Protokollführung (optional)"
+msgstr "Minute-taker (optional)"
+
+msgid "Protokollführung: %1"
+msgstr "Minute-taker: %1"
+
+msgid "Protokolliert von (ID)"
+msgstr "Logged by (ID)"
+
+msgid "Prüfergebnis"
+msgstr "Review result"
+
+msgid "Prüfprotokoll"
+msgstr "Audit log"
+
+msgid "Prüftermin (JJJJ-MM-TT, optional)"
+msgstr "Review date (YYYY-MM-DD, optional)"
+
+msgid "Prüftermin überschritten -- als inaktiv markiert, bis neu geprüft."
+msgstr "Review date exceeded -- marked as inactive until reviewed again."
+
+msgid "Prüftermin: %1"
+msgstr "Review date: %1"
+
+msgid "Prüfung"
+msgstr "Review"
+
+msgid "Quellen: %1"
+msgstr "Sources: %1"
+
+msgid "Quorum erreicht"
+msgstr "Quorum reached"
+
+msgid "Quorum in % (0-100)"
+msgstr "Quorum in % (0-100)"
+
+msgid "Quorum nicht erreicht"
+msgstr "Quorum not reached"
+
+msgid "Quorum: %1%"
+msgstr "Quorum: %1%"
+
+msgid "Radierer"
+msgstr "Eraser"
+
+msgid "Raum-Kennung aus Ihrer Einladung"
+msgstr "Room identifier from your invitation"
+
+msgid "Räume erstellen und verteilen"
+msgstr "Create and distribute rooms"
+
+msgid "Re-Aggregation derselben Einnahmen/Ausgaben-Buchungen wie die GuV nach den vier §§ 51-68 AO Gemeinnützigkeitssphären -- kein eigener Berichtszeitraum, die Summen stimmen für denselben Zeitraum exakt mit der GuV überein."
+msgstr "Re-aggregation of the same income/expense entries as the P&L, by the four §§ 51-68 AO nonprofit spheres -- no separate reporting period; the totals for the same period match the P&L exactly."
+
+msgid "Reaktion gespeichert."
+msgstr "Reaction saved."
+
+msgid "Reaktion zurückgezogen."
+msgstr "Reaction withdrawn."
+
+msgid "Rechnung (PDF)"
+msgstr "Invoice (PDF)"
+
+msgid "Rechtsgrundlage: %1"
+msgstr "Legal basis: %1"
+
+msgid "Referenz"
+msgstr "Reference"
+
+msgid "Rein diagnostisch -- prüft die Orakel-Gesundheit, ohne LTR zu minten."
+msgstr "Purely diagnostic -- checks oracle health without minting LTR."
+
+msgid "Risikobewertung (optional)"
+msgstr "Risk assessment (optional)"
+
+msgid "Risikostufe"
+msgstr "Risk level"
+
+msgid "Rohdaten ein-/ausblenden"
+msgstr "Show/hide raw data"
+
+msgid "Rolle"
+msgstr "Role"
+
+msgid "Rolle: %1 · Sitzung gültig bis %2"
+msgstr "Role: %1 · Session valid until %2"
+
+msgid "RTMP-Basis-URL"
+msgstr "RTMP base URL"
+
+msgid "RTMP-URL Ihrer Owncast-Instanz, z. B. rtmp://owncast.example.org:1935/live"
+msgstr "RTMP URL of your Owncast instance, e.g. rtmp://owncast.example.org:1935/live"
+
+msgid "RTMP-URL Ihrer PeerTube-Instanz, z. B. rtmp://peertube.example.org:1935/live"
+msgstr "RTMP URL of your PeerTube instance, e.g. rtmp://peertube.example.org:1935/live"
+
+msgid "RTMP-Ziel-URL, z. B. für Facebook Live, LinkedIn Live oder Vimeo"
+msgstr "RTMP destination URL, e.g. for Facebook Live, LinkedIn Live, or Vimeo"
+
+msgid "Rücklagenart"
+msgstr "Reserve type"
+
+msgid "Rücklagenbewegungen (§62 AO)"
+msgstr "Reserve movements (§62 AO)"
+
+msgid "Rücklagenzuführung"
+msgstr "Reserve allocation"
+
+msgid "Saldo"
+msgstr "Balance"
+
+msgid "Sämtliche Politiker-Funktionen (Profile, Bewertungen, Vergabe/Widerruf, Snapshot) sind bis zur erneuten Aktivierung nicht mehr erreichbar -- bestehende Profile/Bewertungen bleiben dabei erhalten, sie werden nur unerreichbar, nicht gelöscht."
+msgstr "All politician features (profiles, ratings, granting/revoking, snapshot) will no longer be accessible until reactivated -- existing profiles/ratings are retained; they only become inaccessible, not deleted."
+
+msgid "Schadenshöhe"
+msgstr "Amount of damage"
+
+msgid "Schenkung"
+msgstr "Gift"
+
+msgid "Schiedsanordnungs-Referenz (Pflichtfeld)"
+msgstr "Arbitration order reference (required field)"
+
+msgid "Schiedsverfahren-Korrekturübertragung"
+msgstr "Arbitration correcting transfer"
+
+msgid "Schiedsverfahren-Korrekturübertragung bestätigen"
+msgstr "Confirm arbitration correcting transfer"
+
+msgid "Schließen"
+msgstr "Close"
+
+msgid "Schlüssel gesetzt am %1 von %2"
+msgstr "Key set on %1 by %2"
+
+msgid "Schlusssaldo"
+msgstr "Closing balance"
+
+msgid "Schlussstand"
+msgstr "Closing status"
+
+msgid "Schriftführung"
+msgstr "Secretary"
+
+msgid "Seit (JJJJ-MM-TT)"
+msgstr "Since (YYYY-MM-DD)"
+
+msgid "seit %1"
+msgstr "since %1"
+
+msgid "seit Gründung"
+msgstr "since founding"
+
+msgid "Selbstverwaltung"
+msgstr "Self-administration"
+
+msgid "Senden"
+msgstr "Send"
+
+msgid "Sendungsreferenz: %1"
+msgstr "Shipment reference: %1"
+
+msgid "Seq. %1"
+msgstr "Seq. %1"
+
+msgid "Sequenznummer %1"
+msgstr "Sequence number %1"
+
+msgid "Sichtbar für ADMIN."
+msgstr "Visible to ADMIN."
+
+msgid "Sichtbar für alle Mitglieder."
+msgstr "Visible to all members."
+
+msgid "Sichtbar für BOARD/ADMIN."
+msgstr "Visible to BOARD/ADMIN."
+
+msgid "Sichtbar für TREASURER/BOARD/ADMIN."
+msgstr "Visible to TREASURER/BOARD/ADMIN."
+
+msgid "Sichtbarkeit"
+msgstr "Visibility"
+
+msgid "Sichtbarkeits-Gewicht (LTR)"
+msgstr "Visibility weight (LTR)"
+
+msgid "Sie"
+msgstr "You"
+
+msgid "Sie bieten %1 auf \"%2\" (%3). Ihr Gebot wird gegen den aktuellen Preis zum Zeitpunkt der Bestätigung ausgewertet, nicht den hier angezeigten -- der Preis kann sich seit dem letzten Abruf geändert haben."
+msgstr "You are bidding %1 on \"%2\" (%3). Your bid will be evaluated against the current price at the time of confirmation, not the one shown here -- the price may have changed since it was last retrieved."
+
+msgid "Sie buchen eine Spende von %1 für %2. Der aktuelle Kurs wird beim Bestätigen live abgefragt; der genaue LTR-Betrag steht erst nach Bestätigung fest."
+msgstr "You are recording a donation of %1 for %2. The current rate will be retrieved live upon confirmation; the exact LTR amount will only be known after confirmation."
+
+msgid "Sie führen jetzt."
+msgstr "You are now presenting."
+
+msgid "Sie haben noch keine Auktionen eingestellt."
+msgstr "You have not listed any auctions yet."
+
+msgid "Sie haben noch keine Gebote abgegeben."
+msgstr "You have not placed any bids yet."
+
+msgid "Sie haben noch nicht bewertet."
+msgstr "You have not rated yet."
+
+msgid "Sie haben noch nicht reagiert."
+msgstr "You have not reacted yet."
+
+msgid "Sie kaufen \"%1\" sofort für %2."
+msgstr "You are buying \"%1\" immediately for %2."
+
+msgid "Sie können das Politiker-Ranking im Abschnitt \"Einstellungen\" unten aktivieren."
+msgstr "You can enable the politician ranking in the \"Settings\" section below."
+
+msgid "Sie nehmen als Teilnehmer teil."
+msgstr "You are participating as an attendee."
+
+msgid "Sie sind ausgetreten."
+msgstr "You have withdrawn."
+
+msgid "Sie sind in einem Breakout-Raum."
+msgstr "You are in a breakout room."
+
+msgid "Sie sind Moderator"
+msgstr "You are the moderator"
+
+msgid "Sie sind Moderator dieser Besprechung."
+msgstr "You are the moderator of this meeting."
+
+msgid "Sie sind über Ihren eigenen Heimserver angemeldet. Geben Sie die Raum-Kennung aus Ihrer Einladung ein, um einer Besprechung auf diesem Server beizutreten."
+msgstr "You are signed in via your own home server. Enter the room identifier from your invitation to join a meeting on this server."
+
+msgid "Sie sind zur Besprechung „%1\"%2 eingeladen.\n1. Melden Sie sich über Ihren eigenen Heimserver an.\n2. Öffnen Sie %3/#/conference\n3. Geben Sie dort diese Raum-Kennung ein: %4"
+msgstr "You are invited to the meeting \"%1\"%2.\n1. Sign in via your own home server.\n2. Open %3/#/conference\n3. Enter this room identifier there: %4"
+
+msgid "Sie starten jetzt einen Live-Stream zu: %1. Diese Ziele sind sofort öffentlich sichtbar -- die Übertragung kann NICHT zurückgeholt werden, sobald Teilnehmende gesprochen haben."
+msgstr "You are now starting a live stream to: %1. These destinations are immediately publicly visible -- the broadcast CANNOT be recalled once participants have spoken."
+
+msgid "Sie überschreibt Daten mit dem Stand aus der hochgeladenen Datei. Bereits vorhandene Daten in der Zielorganisation können dabei verloren gehen."
+msgstr "It overwrites data with the state from the uploaded file. Existing data in the target organization may be lost in the process."
+
+msgid "Sie übertragen %1 an %2 (%3). Es gibt keine Storno-/Widerruffunktion -- die einzige Korrekturmöglichkeit ist eine Schiedsverfahren-Korrekturübertragung durch TREASURER/BOARD/ADMIN."
+msgstr "You are transferring %1 to %2 (%3). There is no cancellation/reversal function -- the only way to correct this is an arbitration correcting transfer by TREASURER/BOARD/ADMIN."
+
+msgid "Sie übertragen %1 von %2 an %3 (%4). Schiedsanordnungs-Referenz: „%5\"."
+msgstr "You are transferring %1 from %2 to %3 (%4). Arbitration order reference: \"%5\"."
+
+msgid "Sie wurden dem Breakout-Raum \"%1\" zugewiesen."
+msgstr "You have been assigned to breakout room \"%1\"."
+
+msgid "Sie wurden in den Hauptraum zurückgeholt."
+msgstr "You have been brought back to the main room."
+
+msgid "Sitzung"
+msgstr "Meeting"
+
+msgid "Sitzung \"%1\" wurde angelegt."
+msgstr "Meeting \"%1\" has been created."
+
+msgid "Sitzung (ID)"
+msgstr "Meeting (ID)"
+
+msgid "Sitzung abgelaufen -- bitte erneut anmelden."
+msgstr "Session expired -- please sign in again."
+
+msgid "Sitzung abgesagt."
+msgstr "Meeting cancelled."
+
+msgid "Sitzung absagen"
+msgstr "Cancel meeting"
+
+msgid "Sitzung als durchgeführt markiert."
+msgstr "Meeting marked as held."
+
+msgid "Sitzung anlegen"
+msgstr "Create meeting"
+
+msgid "Sitzung oben auswählen, um Details zu sehen."
+msgstr "Select a meeting above to view details."
+
+msgid "Sitzungen"
+msgstr "Meetings"
+
+msgid "Sitzungsleitung (optional)"
+msgstr "Chair (optional)"
+
+msgid "Sitzungsleitung: %1"
+msgstr "Chair: %1"
+
+msgid "Snapshot auslösen"
+msgstr "Trigger snapshot"
+
+msgid "Snapshot für %1 Profil(e) berechnet."
+msgstr "Snapshot calculated for %1 profile(s)."
+
+msgid "Sofort kaufen"
+msgstr "Buy now"
+
+msgid "Sofort kaufen für %1"
+msgstr "Buy now for %1"
+
+msgid "Sofortkauf abgeschlossen: \"%1\" für %2."
+msgstr "Instant purchase completed: \"%1\" for %2."
+
+msgid "Sofortkauf bestätigen"
+msgstr "Confirm instant purchase"
+
+msgid "Sofortkauf ist verbindlich -- kann nicht rückgängig gemacht werden."
+msgstr "Instant purchase is binding -- it cannot be undone."
+
+msgid "Sofortkaufpreis"
+msgstr "Instant purchase price"
+
+msgid "Sofortkaufpreis (LTR, optional -- muss über dem Startpreis liegen)"
+msgstr "Instant purchase price (LTR, optional -- must be above the starting price)"
+
+msgid "Soll"
+msgstr "Debit"
+
+msgid "Soll/Haben"
+msgstr "Debit/Credit"
+
+msgid "Sonstiges"
+msgstr "Other"
+
+msgid "Speichern"
+msgstr "Save"
+
+msgid "Spende zu LTR konvertieren"
+msgstr "Convert donation to LTR"
+
+msgid "Spende: %1"
+msgstr "Donation: %1"
+
+msgid "Spenden-Konvertierung bestätigen"
+msgstr "Confirm donation conversion"
+
+msgid "Spendenbescheinigung (PDF)"
+msgstr "Donation receipt (PDF)"
+
+msgid "Spendenbescheinigung %1"
+msgstr "Donation receipt %1"
+
+msgid "Spendenbescheinigung per Post versenden"
+msgstr "Send donation receipt by mail"
+
+msgid "Spendenbetrag"
+msgstr "Donation amount"
+
+msgid "Spendendes Mitglied (ID)"
+msgstr "Donating member (ID)"
+
+msgid "Spendenprüfung"
+msgstr "Donation review"
+
+msgid "Spendenrecht-Pflichten-Report (§25 PartG)"
+msgstr "Donation law obligations report (§25 PartG)"
+
+msgid "Spendenwährung"
+msgstr "Donation currency"
+
+msgid "Spender"
+msgstr "Donor"
+
+msgid "Spender \"%1\" wurde angelegt."
+msgstr "Donor \"%1\" has been created."
+
+msgid "Spender anlegen"
+msgstr "Create donor"
+
+msgid "Spender deaktivieren"
+msgstr "Deactivate donor"
+
+msgid "Spender wurde deaktiviert."
+msgstr "Donor has been deactivated."
+
+msgid "Spender-Zuordnung (optional)"
+msgstr "Donor assignment (optional)"
+
+msgid "Spender: %1 (extern)"
+msgstr "Donor: %1 (external)"
+
+msgid "Spender: ausdrücklich anonym"
+msgstr "Donor: explicitly anonymous"
+
+msgid "Spender: Mitglied %1"
+msgstr "Donor: member %1"
+
+msgid "Spenderkategorie"
+msgstr "Donor category"
+
+msgid "Spendertyp"
+msgstr "Donor type"
+
+msgid "Sphäre"
+msgstr "Sphere"
+
+msgid "Sprecher"
+msgstr "Speaker"
+
+msgid "Staatsangehörigkeit"
+msgstr "Nationality"
+
+msgid "Stand: %1"
+msgstr "As of: %1"
+
+msgid "Standard"
+msgstr "Default"
+
+msgid "Startpreis"
+msgstr "Starting price"
+
+msgid "Startpreis (LTR)"
+msgstr "Starting price (LTR)"
+
+msgid "Status"
+msgstr "Status"
+
+msgid "Status:"
+msgstr "Status:"
+
+msgid "Status: %1"
+msgstr "Status: %1"
+
+msgid "Stellv. Vorsitz"
+msgstr "Deputy Chair"
+
+msgid "Stichtag (JJJJ-MM-TT)"
+msgstr "Reference date (YYYY-MM-DD)"
+
+msgid "Stichtag: %1"
+msgstr "Reference date: %1"
+
+msgid "Straße (optional)"
+msgstr "Street (optional)"
+
+msgid "Stream beenden"
+msgstr "End stream"
+
+msgid "Stream beenden? Die Übertragung zu %1 endet sofort."
+msgstr "End stream? The broadcast to %1 ends immediately."
+
+msgid "Stream fortsetzen"
+msgstr "Resume stream"
+
+msgid "Stream unterbrechen"
+msgstr "Pause stream"
+
+msgid "Stream unterbrochen."
+msgstr "Stream paused."
+
+msgid "Stream wird beendet …"
+msgstr "Stream is ending …"
+
+msgid "Stream wird fortgesetzt …"
+msgstr "Stream is resuming …"
+
+msgid "Stream-Schlüssel"
+msgstr "Stream key"
+
+msgid "Stream-Ziel \"%1\" wurde angelegt."
+msgstr "Stream destination \"%1\" has been created."
+
+msgid "Stream-Ziel \"%1\" wurde gelöscht."
+msgstr "Stream destination \"%1\" has been deleted."
+
+msgid "Stream-Ziel aktiviert."
+msgstr "Stream destination enabled."
+
+msgid "Stream-Ziel anlegen"
+msgstr "Create stream destination"
+
+msgid "Stream-Ziel bearbeiten"
+msgstr "Edit stream destination"
+
+msgid "Stream-Ziel deaktiviert."
+msgstr "Stream destination disabled."
+
+msgid "Stream-Ziel löschen"
+msgstr "Delete stream destination"
+
+msgid "Stream-Ziele"
+msgstr "Stream destinations"
+
+msgid "Streaming-Ziel"
+msgstr "Streaming destination"
+
+msgid "Stumm"
+msgstr "Mute"
+
+msgid "Suche nach Name"
+msgstr "Search by name"
+
+msgid "Suchen"
+msgstr "Search"
+
+msgid "Summe %1"
+msgstr "Total %1"
+
+msgid "Summe Aktiva = Summe Passiva + Eigenkapital?"
+msgstr "Total assets = total liabilities + equity?"
+
+msgid "Summe Passiva + Eigenkapital"
+msgstr "Total liabilities + equity"
+
+msgid "System"
+msgstr "System"
+
+msgid "Systemvorgang (kein Akteur hinterlegt)"
+msgstr "System operation (no actor recorded)"
+
+msgid "Tagesordnung"
+msgstr "Agenda"
+
+msgid "Tagesordnungspunkt \"%1\" hinzugefügt."
+msgstr "Agenda item \"%1\" added."
+
+msgid "Tagesordnungspunkt (optional)"
+msgstr "Agenda item (optional)"
+
+msgid "Tagesordnungspunkt entfernt."
+msgstr "Agenda item removed."
+
+msgid "Tagesordnungspunkt hinzufügen"
+msgstr "Add agenda item"
+
+msgid "Technisch-organisatorische Maßnahmen (TOM)"
+msgstr "Technical and organizational measures (TOM)"
+
+msgid "Teilnehmende"
+msgstr "Attendees"
+
+msgid "Teilnehmende: %1"
+msgstr "Attendees: %1"
+
+msgid "Teilnehmer entfernen"
+msgstr "Remove participant"
+
+msgid "Termin (JJJJ-MM-TTTHH:MM, z. B. 2026-08-15T18:00)"
+msgstr "Date/time (YYYY-MM-DDTHH:MM, e.g. 2026-08-15T18:00)"
+
+msgid "Termin (JJJJ-MM-TTTHH:MM)"
+msgstr "Date/time (YYYY-MM-DDTHH:MM)"
+
+msgid "Terminieren"
+msgstr "Schedule"
+
+msgid "Terminierung"
+msgstr "Scheduling"
+
+msgid "Text"
+msgstr "Text"
+
+msgid "Titel"
+msgstr "Title"
+
+msgid "Titel darf nicht leer sein und höchstens %1 Zeichen haben."
+msgstr "Title must not be empty and must not exceed %1 characters."
+
+msgid "Token (aus der E-Mail bzw. vom Betreiber)"
+msgstr "Token (from the email or from the operator)"
+
+msgid "TOM"
+msgstr "TOM"
+
+msgid "TOM \"%1\" wurde %2."
+msgstr "TOM \"%1\" was %2."
+
+msgid "TOM anlegen"
+msgstr "Create TOM"
+
+msgid "Top-Politiker"
+msgstr "Top politicians"
+
+msgid "Transparenzregister-Bericht"
+msgstr "Transparency register report"
+
+msgid "Trennungsgebot"
+msgstr "Segregation requirement"
+
+msgid "Treuhänder-Werkzeuge"
+msgstr "Trustee tools"
+
+msgid "Twitch"
+msgstr "Twitch"
+
+msgid "Typ"
+msgstr "Type"
+
+msgid "Überholt -- Überprüfung fällig"
+msgstr "Outdated -- review due"
+
+msgid "Übersicht"
+msgstr "Overview"
+
+msgid "Übersicht, wie viele Datensätze in welchem Bereich zu Ihrer Person gespeichert sind, sowie ein vollständiger, maschinenlesbarer Export Ihrer Daten."
+msgstr "Overview of how many records about you are stored in which area, plus a complete, machine-readable export of your data."
+
+msgid "Übertragung ausgeführt: %1 von %2 an %3"
+msgstr "Transfer executed: %1 from %2 to %3"
+
+msgid "Übertragung empfangen"
+msgstr "Transfer received"
+
+msgid "Übertragung gesendet"
+msgstr "Transfer sent"
+
+msgid "Unbekannter Fehler"
+msgstr "Unknown error"
+
+msgid "unbekanntes Ziel"
+msgstr "unknown destination"
+
+msgid "Unentschieden -- die höchsten beiden Gebotskörbe waren gleich hoch. Kein Gewinner, keine Belastung; der Antrag wird zurückgestellt (POSTPONED)."
+msgstr "Tie -- the two highest bid baskets were equal. No winner, no charge; the motion is postponed (POSTPONED)."
+
+msgid "Unerwarteter Fehler (HTTP %1): %2"
+msgstr "Unexpected error (HTTP %1): %2"
+
+msgid "Ungelesene Nachrichten: %1"
+msgstr "Unread messages: %1"
+
+msgid "Ungültige Anfrage."
+msgstr "Invalid request."
+
+msgid "Unterbrochen"
+msgstr "Paused"
+
+msgid "Unternehmen mit über 25 % staatlicher Beteiligung"
+msgstr "Company with more than 25% state ownership"
+
+msgid "Unterzeichnet"
+msgstr "Signed"
+
+msgid "Unterzeichnet am (JJJJ-MM-TT, optional)"
+msgstr "Signed on (YYYY-MM-DD, optional)"
+
+msgid "Unverzügliche Meldepflicht"
+msgstr "Immediate reporting obligation"
+
+msgid "Unwiderruflich widerrufen"
+msgstr "Irrevocably revoked"
+
+msgid "Upload fehlgeschlagen."
+msgstr "Upload failed."
+
+msgid "Ursprüngliches Gewicht"
+msgstr "Original weight"
+
+msgid "v%1: %2 (%3 Bytes, hochgeladen von %4 am %5)"
+msgstr "v%1: %2 (%3 bytes, uploaded by %4 on %5)"
+
+msgid "Verarbeiter"
+msgstr "Processor"
+
+msgid "Verarbeitungsbeschreibung"
+msgstr "Processing description"
+
+msgid "Verarbeitungsverzeichnis (AVV)"
+msgstr "Register of processing agreements (DPA)"
+
+msgid "Verarbeitungsverzeichnis (AVV), technisch-organisatorische Maßnahmen (TOM), Datenschutz-Folgenabschätzungen (DSFA) und Datenpannenmeldungen -- Dokumentations- und Arbeitswerkzeug für eine vom Vorstand getroffene Entscheidung, nie automatisierte Rechtsberatung."
+msgstr "Register of processing agreements (DPA), technical and organizational measures (TOM), data protection impact assessments (DPIA), and data breach notifications -- a documentation and working tool for a decision made by the board, never automated legal advice."
+
+msgid "Verarbeitungszweck"
+msgstr "Processing purpose"
+
+msgid "Verbindlichkeiten"
+msgstr "Liabilities"
+
+msgid "Verbindung unterbrochen -- wird automatisch neu verbunden …"
+msgstr "Connection lost -- reconnecting automatically …"
+
+msgid "Verbindung wird geprüft …"
+msgstr "Checking connection …"
+
+msgid "Verbindung wird hergestellt …"
+msgstr "Establishing connection …"
+
+msgid "Verfahren"
+msgstr "Procedure"
+
+msgid "Verfügbarkeitskontrolle"
+msgstr "Availability control"
+
+msgid "Verkäufer: %1 · Endet: %2 · Gebote: %3"
+msgstr "Seller: %1 · Ends: %2 · Bids: %3"
+
+msgid "Verkauft an %1 für %2."
+msgstr "Sold to %1 for %2."
+
+msgid "Verlassen"
+msgstr "Leave"
+
+msgid "Verlauf"
+msgstr "History"
+
+msgid "Vermögensverwaltung"
+msgstr "Asset administration"
+
+msgid "Versand einer Einladung an ausgewählte Mitglieder -- als PDF zum Herunterladen (kostenlos, bis zu 1.000 Empfänger) oder per Post (kostenpflichtig über Letterxpress, bis zu 50 Empfänger, erfordert eine vollständige Anschrift jedes Empfängers)."
+msgstr "Send an invitation to selected members -- as a downloadable PDF (free, up to 1,000 recipients) or by mail (chargeable via Letterxpress, up to 50 recipients, requires a complete address for each recipient)."
+
+msgid "Versendet"
+msgstr "Sent"
+
+msgid "Version %1"
+msgstr "Version %1"
+
+msgid "Version hochgeladen."
+msgstr "Version uploaded."
+
+msgid "Versionen"
+msgstr "Versions"
+
+msgid "Versionen von \"%1\":"
+msgstr "Versions of \"%1\":"
+
+msgid "Verstanden"
+msgstr "Understood"
+
+msgid "Verteilung berechnen"
+msgstr "Calculate distribution"
+
+msgid "Verteilung für %1 bis %2 berechnet (%3 Projekt(e))."
+msgstr "Distribution for %1 to %2 calculated (%3 project(s))."
+
+msgid "Verteilungshistorie"
+msgstr "Distribution history"
+
+msgid "Vertreten durch (nur bei \"Vertreten\")"
+msgstr "Represented by (only for \"Represented\")"
+
+msgid "vertreten durch %1"
+msgstr "represented by %1"
+
+msgid "Verwalten"
+msgstr "Manage"
+
+msgid "Verwalten Sie die externen RTMP-Ziele (YouTube, Twitch, PeerTube, Owncast, generisches RTMP), zu denen Moderatorinnen und Moderatoren eine Besprechung live übertragen können. Der Stream-Schlüssel wird verschlüsselt gespeichert und nach dem Speichern nie wieder angezeigt."
+msgstr "Manage the external RTMP destinations (YouTube, Twitch, PeerTube, Owncast, generic RTMP) to which moderators can broadcast a meeting live. The stream key is stored encrypted and is never shown again after saving."
+
+msgid "Verwaltet die Anker-Bindung des Libertaler (LTR) an ein reales Asset (aktuell: Bitcoin) und bucht eingegangene Spenden als LTR-Mint. Sichtbar für TREASURER/BOARD/ADMIN, Konfigurationsänderungen nur für ADMIN."
+msgstr "Manages the anchor peg of the Libertaler (LTR) to a real asset (currently: Bitcoin) and records incoming donations as an LTR mint. Visible to TREASURER/BOARD/ADMIN; configuration changes only for ADMIN."
+
+msgid "Verwaltung"
+msgstr "Administration"
+
+msgid "Verwaltung (BOARD/ADMIN)"
+msgstr "Administration (BOARD/ADMIN)"
+
+msgid "Verwerfen und aktuelle Version übernehmen"
+msgstr "Discard and adopt current version"
+
+msgid "Videokonferenz"
+msgstr "Video conference"
+
+msgid "Videokonferenz ist auf diesem Server nicht konfiguriert."
+msgstr "Video conferencing is not configured on this server."
+
+msgid "Videokonferenzen konnten nicht geladen werden."
+msgstr "Video conferences could not be loaded."
+
+msgid "Vier-Sphären-Ergebnisrechnung"
+msgstr "Four-sphere income statement"
+
+msgid "Vollständigen Datenexport herunterladen (JSON)"
+msgstr "Download complete data export (JSON)"
+
+msgid "Vollständiger Export und Wiederherstellung aller Organisationsdaten (Datenbank + Dokumente) -- nur für Administratorinnen und Administratoren."
+msgstr "Complete export and restore of all organization data (database + documents) -- for administrators only."
+
+msgid "Von (Geschäftsjahr)"
+msgstr "From (fiscal year)"
+
+msgid "Von (JJJJ-MM-TT, optional)"
+msgstr "From (YYYY-MM-DD, optional)"
+
+msgid "Von (JJJJ-MM-TT, Pflichtfeld)"
+msgstr "From (YYYY-MM-DD, required field)"
+
+msgid "Von (JJJJ-MM-TTTHH:MM:SS, optional)"
+msgstr "From (YYYY-MM-DDTHH:MM:SS, optional)"
+
+msgid "Von Sequenznummer (optional)"
+msgstr "From sequence number (optional)"
+
+msgid "Vorher"
+msgstr "Before"
+
+msgid "Vorläufig ablehnen"
+msgstr "Provisionally reject"
+
+msgid "Vorläufiges Passwort (mind. %1 Zeichen)"
+msgstr "Temporary password (at least %1 characters)"
+
+msgid "Vorsitz"
+msgstr "Chair"
+
+msgid "Vorstand"
+msgstr "Board"
+
+msgid "Vorstand & Transparenzregister"
+msgstr "Board & transparency register"
+
+msgid "Vorstandsentscheidung"
+msgstr "Board decision"
+
+msgid "Vorstandsmitglied ernennen"
+msgstr "Appoint board member"
+
+msgid "Vorstandsmitgliedschaft"
+msgstr "Board membership"
+
+msgid "Vorstandsmitgliedschaft beenden"
+msgstr "End board membership"
+
+msgid "Vortragend (optional)"
+msgstr "Presenter (optional)"
+
+msgid "Vortragend: %1"
+msgstr "Presenter: %1"
+
+msgid "Vote"
+msgstr "Vote"
+
+msgid "Vote abbrechen"
+msgstr "Cancel vote"
+
+msgid "Vote abgebrochen."
+msgstr "Vote cancelled."
+
+msgid "Vote eröffnen"
+msgstr "Open vote"
+
+msgid "Vote eröffnet."
+msgstr "Vote opened."
+
+msgid "Vote geschlossen."
+msgstr "Vote closed."
+
+msgid "Vote schließen"
+msgstr "Close vote"
+
+msgid "Weiter"
+msgstr "Continue"
+
+msgid "Weiter bearbeiten"
+msgstr "Continue editing"
+
+msgid "Weitere Teilnehmende (%1)"
+msgstr "Additional attendees (%1)"
+
+msgid "Weitergabekontrolle"
+msgstr "Transmission control"
+
+msgid "Weiterleitungspflicht"
+msgstr "Forwarding obligation"
+
+msgid "Weiterleitungspflichtige anonyme Spenden"
+msgstr "Anonymous donations subject to forwarding obligation"
+
+msgid "Wertobergrenze (LTR, leer = kein Limit)"
+msgstr "Value cap (LTR, empty = no limit)"
+
+msgid "Wertobergrenze (LTR)"
+msgstr "Value cap (LTR)"
+
+msgid "Wertobergrenze aktualisiert."
+msgstr "Value cap updated."
+
+msgid "Wertobergrenze setzen"
+msgstr "Set value cap"
+
+msgid "Wertobergrenze:"
+msgstr "Value cap:"
+
+msgid "Whiteboard"
+msgstr "Whiteboard"
+
+msgid "Whiteboard als Dokument gespeichert."
+msgstr "Whiteboard saved as document."
+
+msgid "Whiteboard als Dokument speichern"
+msgstr "Save whiteboard as document"
+
+msgid "Whiteboard geleert."
+msgstr "Whiteboard cleared."
+
+msgid "Whiteboard leeren"
+msgstr "Clear whiteboard"
+
+msgid "Widerrufen am %1 von %2"
+msgstr "Revoked on %1 by %2"
+
+msgid "Wiederbeschaffungsrücklage (%1)"
+msgstr "Replacement reserve (%1)"
+
+msgid "Wiederherstellen"
+msgstr "Restore"
+
+msgid "Wiederherstellung"
+msgstr "Restore"
+
+msgid "Wiederherstellung bestätigen"
+msgstr "Confirm restore"
+
+msgid "Wiederherstellung erfolgreich abgeschlossen."
+msgstr "Restore completed successfully."
+
+msgid "Willkommen, %1"
+msgstr "Welcome, %1"
+
+msgid "Willkommen, %1."
+msgstr "Welcome, %1."
+
+msgid "Wird aufgezeichnet"
+msgstr "Recording"
+
+msgid "Wird ausgeführt …"
+msgstr "Executing …"
+
+msgid "Wird automatisch auf dieselbe Sitzung terminiert wie \"%1\"."
+msgstr "Is automatically scheduled to the same meeting as \"%1\"."
+
+msgid "wird beendet"
+msgstr "is ending"
+
+msgid "Wird beendet …"
+msgstr "Ending …"
+
+msgid "Wird ein bestehender Antrag zum Ändern ausgewählt, wird dessen Gremium automatisch verwendet -- das Zielgremium oben wird dann ignoriert."
+msgstr "If an existing motion is selected to be amended, its committee is used automatically -- the target committee above is then ignored."
+
+msgid "Wird geladen …"
+msgstr "Loading …"
+
+msgid "wird gestartet"
+msgstr "is starting"
+
+msgid "Wird gestartet …"
+msgstr "Starting …"
+
+msgid "Wird zusammengeführt …"
+msgstr "Merging …"
+
+msgid "Wirklich entfernen?"
+msgstr "Really remove?"
+
+msgid "Wirtschaft"
+msgstr "Economy"
+
+msgid "Wirtschaftlicher Geschäftsbetrieb"
+msgstr "Commercial business operation"
+
+msgid "YouTube Live"
+msgstr "YouTube Live"
+
+msgid "Zeigt offene Melde-/Offenlegungs-/Weiterleitungspflichten nach §25 PartG für ein Kalenderjahr, damit der Vorstand sie manuell abarbeiten kann. Berechnet keine unzulässigen Spenden -- solche werden beim Buchen serverseitig blockiert und können hier nie erscheinen."
+msgstr "Shows open reporting/disclosure/forwarding obligations under §25 PartG for a calendar year so the board can process them manually. Does not calculate impermissible donations -- these are blocked server-side when recorded and can never appear here."
+
+msgid "Zeitpunkt: %1"
+msgstr "Time: %1"
+
+msgid "Zeitraum"
+msgstr "Period"
+
+msgid "Zeitraum: %1 bis %2"
+msgstr "Period: %1 to %2"
+
+msgid "Zeitraum: Geschäftsjahr %1 bis %2"
+msgstr "Period: fiscal year %1 to %2"
+
+msgid "Zeitstempel: %1"
+msgstr "Timestamp: %1"
+
+msgid "Ziel überschreiben (Zielorganisation enthält bereits Daten)"
+msgstr "Overwrite target (target organization already contains data)"
+
+msgid "Ziele auswählen (max. %1):"
+msgstr "Select destinations (max. %1):"
+
+msgid "Zielgremium"
+msgstr "Target committee"
+
+msgid "Zu LTR konvertieren"
+msgstr "Convert to LTR"
+
+msgid "Zuerst alle Änderungsanträge entscheiden"
+msgstr "First decide all amendment motions"
+
+msgid "Zuführung/Auflösung"
+msgstr "Allocation/release"
+
+msgid "Zugangskontrolle"
+msgstr "System access control"
+
+msgid "Zugriffsebene"
+msgstr "Access level"
+
+msgid "Zugriffskontrolle"
+msgstr "Data access control"
+
+msgid "zuletzt abgerufener Preis: %1"
+msgstr "last retrieved price: %1"
+
+msgid "Zuletzt aktualisiert: %1"
+msgstr "Last updated: %1"
+
+msgid "Zuletzt bearbeitet von %1"
+msgstr "Last edited by %1"
+
+msgid "Zuletzt bestätigt von %1 am %2 (Hinweistext-Version %3)."
+msgstr "Last confirmed by %1 on %2 (notice text version %3)."
+
+msgid "Zum Hauptantrag"
+msgstr "To main motion"
+
+msgid "Zum LTR-Konto ->"
+msgstr "To LTR account ->"
+
+msgid "Zur Anmeldung"
+msgstr "To sign-in"
+
+msgid "Zurück zum Hauptraum"
+msgstr "Back to main room"
+
+msgid "Zurückgestellt (reserviert, ungenutzt)"
+msgstr "Postponed (reserved, unused)"
+
+msgid "Zurücksetzen anfordern"
+msgstr "Request reset"
+
+msgid "Zurücksetzen fehlgeschlagen."
+msgstr "Reset failed."
+
+msgid "Zurückziehen"
+msgstr "Withdraw"
+
+msgid "Zusätzlich zur Anonymisierung werden von Ihnen selbst versendete Nachrichten hart gelöscht, soweit dem keine gesetzliche Aufbewahrungspflicht entgegensteht. Von Ihnen empfangene Nachrichten anderer Mitglieder bleiben unberührt."
+msgstr "In addition to anonymization, messages you sent yourself are permanently deleted, provided no statutory retention obligation prevents this. Messages from other members that you received remain unaffected."
+
+msgid "Zutrittskontrolle"
+msgstr "Physical access control"
+
+msgid "Zweck (optional)"
+msgstr "Purpose (optional)"
+
+msgid "Zweck: %1"
+msgstr "Purpose: %1"
+
+msgid "Zweckbetrieb"
+msgstr "Purpose-related operation"
+
+msgid "Zwischengespeichert (Cached)"
+msgstr "Cached"

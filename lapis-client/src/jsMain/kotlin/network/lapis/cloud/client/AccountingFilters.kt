@@ -3,6 +3,7 @@ package network.lapis.cloud.client
 import io.kvision.core.Container
 import io.kvision.form.text.Text
 import io.kvision.form.text.text
+import io.kvision.i18n.tr
 import io.kvision.panel.hPanel
 import kotlinx.datetime.LocalDate
 
@@ -41,8 +42,8 @@ class DateRangeFilterControls(
 }
 
 fun Container.dateRangeFilter(
-    fromLabel: String = "Von (JJJJ-MM-TT, optional)",
-    toLabel: String = "Bis (JJJJ-MM-TT)",
+    fromLabel: String = tr("Von (JJJJ-MM-TT, optional)"),
+    toLabel: String = tr("Bis (JJJJ-MM-TT)"),
 ): DateRangeFilterControls {
     val row = hPanel(spacing = 8) { addCssClasses("align-items-center") }
     val fromInput = row.text(label = fromLabel)
@@ -63,7 +64,7 @@ class FiscalYearFilterControls(
 
 fun Container.fiscalYearFilter(
     currentYear: Int,
-    label: String = "Geschäftsjahr (JJJJ)",
+    label: String = tr("Geschäftsjahr (JJJJ)"),
 ): FiscalYearFilterControls {
     val yearInput = text(value = currentYear.toString(), label = label)
     return FiscalYearFilterControls(yearInput)

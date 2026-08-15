@@ -1,0 +1,4501 @@
+msgid ""
+msgstr ""
+"Content-Type: text/plain; charset=UTF-8\n"
+"Language: fr\n"
+
+msgid " -- %1"
+msgstr " -- %1"
+
+msgid " · gemeldet am %1"
+msgstr " · signalé le %1"
+
+msgid " · Moderator"
+msgstr " · Modérateur"
+
+msgid " (%1)"
+msgstr " (%1)"
+
+msgid " (Sie)"
+msgstr " (vous)"
+
+msgid " bei %1"
+msgstr " chez %1"
+
+msgid "-- kein --"
+msgstr "-- aucun --"
+
+msgid "-- kein (neuer Hauptantrag) --"
+msgstr "-- aucun (nouvelle motion principale) --"
+
+msgid "-- kein Spender --"
+msgstr "-- aucun donateur --"
+
+msgid "-- kein Tagesordnungspunkt --"
+msgstr "-- aucun point à l'ordre du jour --"
+
+msgid "-- keine --"
+msgstr "-- aucune --"
+
+msgid "-- keine Rücklage --"
+msgstr "-- aucune réserve --"
+
+msgid "-- Konto wählen --"
+msgstr "-- Choisir un compte --"
+
+msgid "-- Spenderkategorie wählen --"
+msgstr "-- Choisir une catégorie de donateur --"
+
+msgid "-- Sphäre wählen --"
+msgstr "-- Choisir une sphère --"
+
+msgid "— Nicht zugeordnet —"
+msgstr "— Non attribué —"
+
+msgid ", Sofortkaufpreis %1"
+msgstr ", prix d'achat immédiat %1"
+
+msgid "\"%1 · %2\" wirklich deaktivieren? Bestehende Buchungen bleiben erhalten, das Konto steht aber für neue Buchungen nicht mehr zur Verfügung."
+msgstr "Voulez-vous vraiment désactiver « %1 · %2 » ? Les écritures existantes sont conservées, mais le compte ne sera plus disponible pour de nouvelles écritures."
+
+msgid "\"%1 · %2\" wirklich deaktivieren? Bestehende Buchungen bleiben erhalten, die Kostenstelle steht aber für neue Buchungen nicht mehr zur Verfügung."
+msgstr "Voulez-vous vraiment désactiver « %1 · %2 » ? Les écritures existantes sont conservées, mais le centre de coûts ne sera plus disponible pour de nouvelles écritures."
+
+msgid "\"%1\" aus der Besprechung entfernen?"
+msgstr "Retirer « %1 » de la réunion ?"
+
+msgid "\"%1\" wird sofort geschlossen -- alle Verbindungen werden getrennt."
+msgstr "« %1 » sera fermé immédiatement -- toutes les connexions seront coupées."
+
+msgid "\"%1\" wirklich abbrechen? Es wird keine Abrechnung durchgeführt."
+msgstr "Voulez-vous vraiment annuler « %1 » ? Aucun décompte ne sera effectué."
+
+msgid "\"%1\" wirklich absagen?"
+msgstr "Voulez-vous vraiment annuler « %1 » ?"
+
+msgid "\"%1\" wirklich deaktivieren? Bestehende Buchungen mit diesem Spender bleiben erhalten, er steht aber für neue Buchungen nicht mehr zur Verfügung."
+msgstr "Voulez-vous vraiment désactiver « %1 » ? Les écritures existantes avec ce donateur sont conservées, mais il ne sera plus disponible pour de nouvelles écritures."
+
+msgid "\"%1\" wirklich löschen? (Soft-Delete -- bisherige Versionen bleiben zu Prüfzwecken erhalten, das Dokument verschwindet aus der Ansicht.)"
+msgstr "Voulez-vous vraiment supprimer « %1 » ? (Suppression douce -- les versions précédentes sont conservées à des fins de contrôle, le document disparaît simplement de la vue.)"
+
+msgid "\"%1\" wirklich löschen? Dies ist nur möglich, solange kein aktiver oder unterbrochener Live-Stream dieses Ziel verwendet."
+msgstr "Voulez-vous vraiment supprimer « %1 » ? Cela n'est possible que si aucune diffusion en direct active ou interrompue n'utilise cette destination."
+
+msgid "\"%1\" wirklich zurückziehen?"
+msgstr "Voulez-vous vraiment retirer « %1 » ?"
+
+msgid "\"%1\" wurde aktualisiert."
+msgstr "« %1 » a été mis à jour."
+
+msgid "\"%1\" wurde angelegt."
+msgstr "« %1 » a été créé."
+
+msgid "„Mittelvortrag\" ist der am Ende von %1 verbleibende §55-AO-Zeitwert-Topf (die Fristablauf-Uhr läuft seit dem frühesten Geschäftsjahr mit Aktivität, nicht erst ab %2) -- „davon überfällig\" ist der Anteil, dessen gesetzliche Frist bereits abgelaufen ist."
+msgstr "« Report de fonds » désigne la réserve temporaire au sens de l'art. 55 AO subsistant à la fin de %1 (le délai légal court depuis le premier exercice comportant une activité, et non depuis %2 seulement) -- « dont en retard » désigne la part dont le délai légal est déjà expiré."
+
+msgid "„Ziel überschreiben\" ist aktiviert: diese Organisation hat bereits Daten. Sie werden mit den Daten aus der Datei zusammengeführt/überschrieben."
+msgstr "« Écraser la cible » est activé : cette organisation contient déjà des données. Elles seront fusionnées/écrasées avec les données du fichier."
+
+msgid "(gesetzliche Obergrenze hier nicht geprüft)"
+msgstr "(plafond légal non vérifié ici)"
+
+msgid "(Jahresfehlbetrag)"
+msgstr "(déficit annuel)"
+
+msgid "(optional -- bei Zuordnung greifen die §25-PartG-Spendenannahme-Prüfungen dieser Partei)"
+msgstr "(facultatif -- en cas d'attribution, les contrôles de recevabilité des dons au titre de l'art. 25 PartG de ce parti s'appliquent)"
+
+msgid "(optional, für Spendenbescheinigungen)"
+msgstr "(facultatif, pour les reçus de dons)"
+
+msgid "(Sie)"
+msgstr "(vous)"
+
+msgid "%1"
+msgstr "%1"
+
+msgid "%1 -- %2"
+msgstr "%1 -- %2"
+
+msgid "%1 -- %2 (Beleg: %3)"
+msgstr "%1 -- %2 (pièce justificative : %3)"
+
+msgid "%1 – %2"
+msgstr "%1 – %2"
+
+msgid "%1 · %2"
+msgstr "%1 · %2"
+
+msgid "%1 · %2 · %3"
+msgstr "%1 · %2 · %3"
+
+msgid "%1 · %2 · Entität %3"
+msgstr "%1 · %2 · entité %3"
+
+msgid "%1 · %2 · erfasst von %3"
+msgstr "%1 · %2 · saisi par %3"
+
+msgid "%1 · eingereicht von %2 am %3"
+msgstr "%1 · déposé par %2 le %3"
+
+msgid "%1 (%2 Abonnenten)"
+msgstr "%1 (%2 abonnés)"
+
+msgid "%1 (%2 Bytes)"
+msgstr "%1 (%2 octets)"
+
+msgid "%1 (%2)"
+msgstr "%1 (%2)"
+
+msgid "%1 (%2) -- eingereicht am %3"
+msgstr "%1 (%2) -- déposé le %3"
+
+msgid "%1 (%2): fehlt %3"
+msgstr "%1 (%2) : manque %3"
+
+msgid "%1 (Gast)"
+msgstr "%1 (invité)"
+
+msgid "%1 (Sie)"
+msgstr "%1 (vous)"
+
+msgid "%1 an %2 gutgeschrieben."
+msgstr "%1 crédité(s) à %2."
+
+msgid "%1 an %2 übertragen."
+msgstr "%1 transféré(s) à %2."
+
+msgid "%1 bis %2: %3 (%4)"
+msgstr "%1 à %2 : %3 (%4)"
+
+msgid "%1 bps"
+msgstr "%1 pb"
+
+msgid "%1 Breakout-Räume erstellt und Teilnehmende verteilt."
+msgstr "%1 salles de sous-groupes créées et participants répartis."
+
+msgid "%1 Buchungszeilen"
+msgstr "%1 lignes d'écriture"
+
+msgid "%1 Einträge geprüft (Sequenznummer %2–%3)."
+msgstr "%1 entrées vérifiées (numéro de séquence %2–%3)."
+
+msgid "%1 erhält (oder behält) den Politiker-Status. Ein bereits aktives Profil wird aktualisiert, ein ehemaliges (widerrufenes) Profil reaktiviert -- niemals wird ein zweites Profil für dasselbe Mitglied angelegt."
+msgstr "%1 obtient (ou conserve) le statut de responsable politique. Un profil déjà actif est mis à jour, un profil ancien (révoqué) est réactivé -- un second profil n'est jamais créé pour le même membre."
+
+msgid "%1 für %2 gemintet."
+msgstr "%1 frappé(s) pour %2."
+
+msgid "%1 LTR"
+msgstr "%1 LTR"
+
+msgid "%1 neue Beiträge erzeugt (bereits vorhandene wurden übersprungen)."
+msgstr "%1 nouvelles cotisations générées (celles déjà existantes ont été ignorées)."
+
+msgid "%1 offene Erinnerung(en) -- siehe Abschnitt \"Erinnerungen\" unten."
+msgstr "%1 rappel(s) en attente -- voir la section « Rappels » ci-dessous."
+
+msgid "%1 physische Briefe werden über Letterxpress an die im System hinterlegten Anschriften der ausgewählten Mitglieder verschickt. Fehlt bei auch nur einer Person die vollständige Anschrift, wird der gesamte Versand abgelehnt -- kein Teilversand."
+msgstr "%1 lettres physiques seront envoyées via Letterxpress aux adresses enregistrées dans le système pour les membres sélectionnés. Si l'adresse complète manque ne serait-ce que pour une seule personne, l'ensemble de l'envoi est refusé -- aucun envoi partiel."
+
+msgid "%1 Quellen"
+msgstr "%1 sources"
+
+msgid "%1 s"
+msgstr "%1 s"
+
+msgid "%1 Stimmen abgegeben."
+msgstr "%1 votes exprimés."
+
+msgid "%1 Tabelle(n) · %2 Zeile(n) · %3 Datei(en) (%4 Bytes) · Bundle-Größe: %5 Bytes · Format-Version %6"
+msgstr "%1 table(s) · %2 ligne(s) · %3 fichier(s) (%4 octets) · taille du bundle : %5 octets · version du format %6"
+
+msgid "%1 Tabelle(n), %2 Zeile(n), %3 Datei(en) wiederhergestellt."
+msgstr "%1 table(s), %2 ligne(s), %3 fichier(s) restauré(s)."
+
+msgid "%1 teilt den Bildschirm"
+msgstr "%1 partage son écran"
+
+msgid "%1 von %2"
+msgstr "%1 sur %2"
+
+msgid "%1 von %2 anwesend (erforderlich: %3, %4%)."
+msgstr "%1 sur %2 présent(s) (requis : %3, %4 %)."
+
+msgid "%1 von %2 Briefen erfolgreich übergeben."
+msgstr "%1 lettre(s) sur %2 transmise(s) avec succès."
+
+msgid "%1 von %2 Briefen fehlgeschlagen -- Details unten."
+msgstr "%1 lettre(s) sur %2 en échec -- détails ci-dessous."
+
+msgid "%1 wurde abgelehnt."
+msgstr "%1 a été rejeté(e)."
+
+msgid "%1 wurde als %2 ernannt."
+msgstr "%1 a été nommé(e) %2."
+
+msgid "%1 wurde angelegt."
+msgstr "%1 a été créé(e)."
+
+msgid "%1 wurde aufgenommen."
+msgstr "%1 a été admis(e)."
+
+msgid "%1: %2"
+msgstr "%1 : %2"
+
+msgid "%1: %2 (%3, %4)"
+msgstr "%1 : %2 (%3, %4)"
+
+msgid "%1: %2 anonymisiert, %3 gelöscht, %4 beibehalten"
+msgstr "%1 : %2 anonymisé(s), %3 supprimé(s), %4 conservé(s)"
+
+msgid "%1: %2–%3: %4 (%5)"
+msgstr "%1 : %2–%3 : %4 (%5)"
+
+msgid "%1: %2, %3 LTR%4"
+msgstr "%1 : %2, %3 LTR%4"
+
+msgid "%1: %2%3%4"
+msgstr "%1 : %2%3%4"
+
+msgid "%1. %2"
+msgstr "%1. %2"
+
+msgid "%1. %2%3"
+msgstr "%1. %2%3"
+
+msgid "%1. %2%3%4"
+msgstr "%1. %2%3%4"
+
+msgid "↳ Änderungsantrag: %1"
+msgstr "↳ Motion d'amendement : %1"
+
+msgid "◆ Live-Stream %1 → %2"
+msgstr "◆ Diffusion en direct %1 → %2"
+
+msgid "● Aufzeichnung läuft"
+msgstr "● Enregistrement en cours"
+
+msgid "✓ Kette intakt"
+msgstr "✓ Chaîne intacte"
+
+msgid "✗ Kette gebrochen bei Sequenznummer %1"
+msgstr "✗ Chaîne rompue au numéro de séquence %1"
+
+msgid "1 Buchungszeile"
+msgstr "1 ligne d'écriture"
+
+msgid "Abbestellen"
+msgstr "Se désabonner"
+
+msgid "Abbestellt am %1"
+msgstr "Désabonné le %1"
+
+msgid "Abbrechen"
+msgstr "Annuler"
+
+msgid "Abgegeben"
+msgstr "Déposé"
+
+msgid "Abgelehnt"
+msgstr "Rejeté"
+
+msgid "Abgeschlossen"
+msgstr "Terminé"
+
+msgid "Abgeschlossen (kein Verkauf)"
+msgstr "Terminé (sans vente)"
+
+msgid "Abgeschlossen (verkauft)"
+msgstr "Terminé (vendu)"
+
+msgid "Abhilfemaßnahmen (optional)"
+msgstr "Mesures correctives (facultatif)"
+
+msgid "Ablehnen"
+msgstr "Rejeter"
+
+msgid "Ablehnungsgrund (nur für \"Ablehnen\" erforderlich, öffentlich sichtbar)"
+msgstr "Motif de rejet (requis uniquement pour « Rejeter », visible publiquement)"
+
+msgid "Ablehnungsgrund: %1"
+msgstr "Motif de rejet : %1"
+
+msgid "Abmelden"
+msgstr "Se déconnecter"
+
+msgid "Abonnenten"
+msgstr "Abonnés"
+
+msgid "Abonnieren"
+msgstr "S'abonner"
+
+msgid "Abonniert seit %1"
+msgstr "Abonné depuis %1"
+
+msgid "Absagen"
+msgstr "Annuler"
+
+msgid "Absender"
+msgstr "Expéditeur"
+
+msgid "Abstimmung"
+msgstr "Vote"
+
+msgid "Abstimmungseinsatz"
+msgstr "Mise de vote"
+
+msgid "Abwickeln"
+msgstr "Finaliser"
+
+msgid "Administration"
+msgstr "Administration"
+
+msgid "Akteur-Mitglieds-ID (optional)"
+msgstr "ID membre de l'acteur (facultatif)"
+
+msgid "Akteur: %1"
+msgstr "Acteur : %1"
+
+msgid "Akteur: %1 · Betroffenes Mitglied: %2"
+msgstr "Acteur : %1 · Membre concerné : %2"
+
+msgid "aktiv"
+msgstr "actif"
+
+msgid "Aktiv"
+msgstr "Actif"
+
+msgid "Aktiva"
+msgstr "Actif"
+
+msgid "Aktive Besprechungen"
+msgstr "Réunions actives"
+
+msgid "Aktive Mitglieder nach Name. E-Mail/Rolle/Adresse sind hier aus Datenschutzgründen nicht einsehbar -- dafür existiert aktuell keine privilegierte Leseschnittstelle."
+msgstr "Membres actifs par nom. L'e-mail, le rôle et l'adresse ne sont pas consultables ici pour des raisons de protection des données -- il n'existe actuellement aucune interface de lecture privilégiée à cet effet."
+
+msgid "Aktivieren"
+msgstr "Activer"
+
+msgid "Aktiviert"
+msgstr "Activé"
+
+msgid "Aktivkonto"
+msgstr "Compte d'actif"
+
+msgid "Aktualisieren"
+msgstr "Actualiser"
+
+msgid "aktualisiert"
+msgstr "actualisé"
+
+msgid "Aktuell keine Vorstandsmitglieder erfasst."
+msgstr "Aucun membre du conseil d'administration enregistré actuellement."
+
+msgid "Aktueller Preis"
+msgstr "Prix actuel"
+
+msgid "Aktueller Preis (Sie führen)"
+msgstr "Prix actuel (vous êtes en tête)"
+
+msgid "Aktueller Schlüssel: %1 -- wird hier nie im Klartext angezeigt."
+msgstr "Clé actuelle : %1 -- jamais affichée ici en clair."
+
+msgid "Aktueller Vorstand"
+msgstr "Conseil d'administration actuel"
+
+msgid "Aktuelles Gewicht (10 %/Tag Zerfall)"
+msgstr "Poids actuel (décroissance de 10 %/jour)"
+
+msgid "Aktuelles Passwort"
+msgstr "Mot de passe actuel"
+
+msgid "Aktuelles Passwort ist falsch."
+msgstr "Le mot de passe actuel est incorrect."
+
+msgid "Alle"
+msgstr "Tous"
+
+msgid "Alle (persistierter Status)"
+msgstr "Tous (statut persisté)"
+
+msgid "Alle abwählen"
+msgstr "Tout désélectionner"
+
+msgid "Alle aktuell anwesenden Teilnehmenden sehen sofort, dass aufgezeichnet wird -- unabhängig davon, wer die Aufzeichnung startet."
+msgstr "Tous les participants actuellement présents voient immédiatement qu'un enregistrement est en cours -- quelle que soit la personne qui l'a démarré."
+
+msgid "Alle auswählen"
+msgstr "Tout sélectionner"
+
+msgid "Alle Beiträge"
+msgstr "Toutes les cotisations"
+
+msgid "Alle Entitätstypen"
+msgstr "Tous les types d'entité"
+
+msgid "Alle Gebote"
+msgstr "Toutes les offres"
+
+msgid "Alle Gremien"
+msgstr "Tous les organes"
+
+msgid "Alle Kategorien"
+msgstr "Toutes les catégories"
+
+msgid "Alle Löschanträge -- genehmigen/ablehnen, und einen genehmigten Antrag endgültig ausführen."
+msgstr "Toutes les demandes de suppression -- approuver/rejeter, et exécuter définitivement une demande approuvée."
+
+msgid "Alle Status"
+msgstr "Tous les statuts"
+
+msgid "Alle Teilnehmenden werden sofort aus ihren Breakout-Räumen in den Hauptraum zurückgeholt."
+msgstr "Tous les participants sont immédiatement ramenés de leurs salles de sous-groupes vers la salle principale."
+
+msgid "Alle Teilnehmenden wurden in den Hauptraum zurückgeholt."
+msgstr "Tous les participants ont été ramenés dans la salle principale."
+
+msgid "Alle Zeichnungen auf dem Whiteboard werden sofort für alle Teilnehmenden entfernt."
+msgstr "Tous les dessins sur le tableau blanc sont immédiatement supprimés pour tous les participants."
+
+msgid "Alle zurückholen"
+msgstr "Tout ramener"
+
+msgid "Als bezahlt markieren"
+msgstr "Marquer comme payé"
+
+msgid "Als bezahlt markiert."
+msgstr "Marqué comme payé."
+
+msgid "Als Dokument speichern"
+msgstr "Enregistrer comme document"
+
+msgid "Als durchgeführt markieren"
+msgstr "Marquer comme réalisé"
+
+msgid "Als Entwurf speichern"
+msgstr "Enregistrer comme brouillon"
+
+msgid "Als Gast beitreten"
+msgstr "Rejoindre en tant qu'invité"
+
+msgid "Als neuen Entwurf duplizieren"
+msgstr "Dupliquer comme nouveau brouillon"
+
+msgid "Als PDF herunterladen"
+msgstr "Télécharger en PDF"
+
+msgid "Als Vorstand können Sie hier nur reguläre Mitglieder anlegen -- Vorstand/Schatzmeister/Admin ist Admin vorbehalten."
+msgstr "En tant que membre du conseil d'administration, vous ne pouvez créer ici que des membres réguliers -- les rôles Conseil/Trésorier/Admin sont réservés à l'administrateur."
+
+msgid "Andere Partei/Fraktion"
+msgstr "Autre parti/groupe parlementaire"
+
+msgid "Ändert bestehenden Antrag (optional)"
+msgstr "Modifie une motion existante (facultatif)"
+
+msgid "Änderungsantrag"
+msgstr "Motion d'amendement"
+
+msgid "Änderungsantrag terminiert."
+msgstr "Motion d'amendement programmée."
+
+msgid "Änderungsantrag zu: %1"
+msgstr "Motion d'amendement à : %1"
+
+msgid "Änderungsantrag: %1"
+msgstr "Motion d'amendement : %1"
+
+msgid "Änderungsanträge zu diesem Antrag"
+msgstr "Motions d'amendement à cette motion"
+
+msgid "Änderungshinweis (optional)"
+msgstr "Note de modification (facultatif)"
+
+msgid "Anfrage fehlgeschlagen."
+msgstr "La demande a échoué."
+
+msgid "Angebot \"%1\" erstellt."
+msgstr "Offre « %1 » créée."
+
+msgid "Angebot erstellen"
+msgstr "Créer une offre"
+
+msgid "angelegt"
+msgstr "créé"
+
+msgid "Angemeldet über den OIDC-Heimserver %1."
+msgstr "Connecté via le serveur d'origine OIDC %1."
+
+msgid "Anker-Asset"
+msgstr "Actif d'ancrage"
+
+msgid "Anlegen"
+msgstr "Créer"
+
+msgid "Anmelden"
+msgstr "Se connecter"
+
+msgid "Anmeldung erfolgreich, aber Sitzungsdaten konnten nicht geladen werden."
+msgstr "Connexion réussie, mais les données de session n'ont pas pu être chargées."
+
+msgid "Anmeldung fehlgeschlagen."
+msgstr "Échec de la connexion."
+
+msgid "Annehmen"
+msgstr "Accepter"
+
+msgid "Anonym"
+msgstr "Anonyme"
+
+msgid "Anonymisierung"
+msgstr "Anonymisation"
+
+msgid "Anonymisierung + Hartlöschung eigener Nachrichten"
+msgstr "Anonymisation + suppression définitive des messages propres"
+
+msgid "Antrag \"%1\" terminiert."
+msgstr "Motion « %1 » programmée."
+
+msgid "Antrag \"%1\" wurde eingereicht."
+msgstr "La motion « %1 » a été déposée."
+
+msgid "Antrag angenommen zur Terminierung."
+msgstr "Motion acceptée pour programmation."
+
+msgid "Antrag eingereicht"
+msgstr "Motion déposée"
+
+msgid "Antrag einreichen"
+msgstr "Déposer une motion"
+
+msgid "Antrag oben auswählen, um Details zu sehen."
+msgstr "Sélectionnez une motion ci-dessus pour afficher les détails."
+
+msgid "Antrag von %1 ablehnen"
+msgstr "Rejeter la motion de %1"
+
+msgid "Antrag vorläufig abgelehnt."
+msgstr "Motion provisoirement rejetée."
+
+msgid "Antrag wurde abgelehnt."
+msgstr "La motion a été rejetée."
+
+msgid "Antrag wurde genehmigt."
+msgstr "La motion a été approuvée."
+
+msgid "Antrag wurde zurückgezogen."
+msgstr "La motion a été retirée."
+
+msgid "Antrag zurückziehen"
+msgstr "Retirer la motion"
+
+msgid "Anträge"
+msgstr "Motions"
+
+msgid "Anträge verwalten"
+msgstr "Gérer les motions"
+
+msgid "Antragstext"
+msgstr "Texte de la motion"
+
+msgid "Antwort des Servers konnte nicht gelesen werden: %1"
+msgstr "La réponse du serveur n'a pas pu être lue : %1"
+
+msgid "Anwesenheit"
+msgstr "Présence"
+
+msgid "Anwesenheit erfassen"
+msgstr "Enregistrer la présence"
+
+msgid "Anwesenheit von %1 gespeichert."
+msgstr "Présence de %1 enregistrée."
+
+msgid "Anzahl der Breakout-Räume"
+msgstr "Nombre de salles de sous-groupes"
+
+msgid "Anzeige"
+msgstr "Affichage"
+
+msgid "Anzeige-Info: Währung"
+msgstr "Info d'affichage : devise"
+
+msgid "Anzeigen"
+msgstr "Afficher"
+
+msgid "Art der Löschung"
+msgstr "Type de suppression"
+
+msgid "Aufsichtsbehörde benachrichtigt"
+msgstr "Autorité de contrôle notifiée"
+
+msgid "Aufsichtsbehörde benachrichtigt am (JJJJ-MM-TTTHH:MM:SS, optional)"
+msgstr "Autorité de contrôle notifiée le (AAAA-MM-JJTHH:MM:SS, facultatif)"
+
+msgid "Auftragskontrolle"
+msgstr "Contrôle de la sous-traitance"
+
+msgid "Aufwandskonto"
+msgstr "Compte de charges"
+
+msgid "Aufzeichnung"
+msgstr "Enregistrement"
+
+msgid "Aufzeichnung beenden"
+msgstr "Arrêter l'enregistrement"
+
+msgid "Aufzeichnung gestartet von %1 um %2:%3"
+msgstr "Enregistrement démarré par %1 à %2:%3"
+
+msgid "Aufzeichnung gestartet."
+msgstr "Enregistrement démarré."
+
+msgid "Aufzeichnung jetzt starten"
+msgstr "Démarrer l'enregistrement maintenant"
+
+msgid "Aufzeichnung starten"
+msgstr "Démarrer l'enregistrement"
+
+msgid "Aufzeichnung wird beendet …"
+msgstr "Arrêt de l'enregistrement en cours…"
+
+msgid "Aufzeichnung wird beendet."
+msgstr "L'enregistrement est en cours d'arrêt."
+
+msgid "Aufzeichnung wird zusammengeführt …"
+msgstr "Fusion de l'enregistrement en cours…"
+
+msgid "Aufzeichnung:"
+msgstr "Enregistrement :"
+
+msgid "Aufzeichnungen"
+msgstr "Enregistrements"
+
+msgid "Auktion"
+msgstr "Enchère"
+
+msgid "Auktion \"%1\" abgewickelt."
+msgstr "Enchère « %1 » finalisée."
+
+msgid "Auktion aktivieren -- rechtlicher Hinweis (Version %1)"
+msgstr "Activer l'enchère -- avertissement juridique (version %1)"
+
+msgid "Auktion aktivieren …"
+msgstr "Activation de l'enchère…"
+
+msgid "Auktion aktiviert."
+msgstr "Enchère activée."
+
+msgid "Auktion deaktivieren"
+msgstr "Désactiver l'enchère"
+
+msgid "Auktion deaktivieren bestätigen"
+msgstr "Confirmer la désactivation de l'enchère"
+
+msgid "Auktion deaktiviert."
+msgstr "Enchère désactivée."
+
+msgid "Auktionen"
+msgstr "Enchères"
+
+msgid "Auktionen konnten nicht geladen werden."
+msgstr "Les enchères n'ont pas pu être chargées."
+
+msgid "Auktions-Einstellgebühr"
+msgstr "Frais de mise en vente"
+
+msgid "Auktions-Reservierung"
+msgstr "Réservation d'enchère"
+
+msgid "Auktions-Reservierung freigegeben"
+msgstr "Réservation d'enchère libérée"
+
+msgid "Auktionskauf"
+msgstr "Achat aux enchères"
+
+msgid "Auktionsverkauf"
+msgstr "Vente aux enchères"
+
+msgid "Ausdrücklich anonym"
+msgstr "Explicitement anonyme"
+
+msgid "Ausgabe"
+msgstr "Dépense"
+
+msgid "Ausgaben"
+msgstr "Dépenses"
+
+msgid "Ausgeführt"
+msgstr "Exécuté"
+
+msgid "Ausgeführt am %1"
+msgstr "Exécuté le %1"
+
+msgid "Ausgelöst am: %1"
+msgstr "Déclenché le : %1"
+
+msgid "Ausgeschieden"
+msgstr "Sortant"
+
+msgid "Ausgeschiedene anzeigen"
+msgstr "Afficher les sortants"
+
+msgid "Auskunft"
+msgstr "Demande d'accès"
+
+msgid "Auskunft exportiert"
+msgstr "Demande d'accès exportée"
+
+msgid "Auskunftsübersicht anzeigen"
+msgstr "Afficher l'aperçu des demandes d'accès"
+
+msgid "Ausreißer-Schwelle"
+msgstr "Seuil de valeur aberrante"
+
+msgid "Ausreißer-Schwelle (Basispunkte, 1-10000)"
+msgstr "Seuil de valeur aberrante (points de base, 1-10000)"
+
+msgid "Ausstehend"
+msgstr "En attente"
+
+msgid "Austritt (Mitgliedschaft beenden)"
+msgstr "Départ (mettre fin à l'adhésion)"
+
+msgid "Austritt bestätigen"
+msgstr "Confirmer le départ"
+
+msgid "Automatisch genehmigt durch die 14-Tage-Schweigefrist -- der Vorstand hat keinen expliziten Beschluss gefasst (Status bleibt dauerhaft \"Ausstehend\", effektiver Status zeigt \"Genehmigt\"). Das ist der normale, erwartete Zustand."
+msgstr "Approuvé automatiquement par le délai de silence de 14 jours -- le conseil d'administration n'a pris aucune décision explicite (le statut reste durablement « En attente », le statut effectif affiche « Approuvé »). Il s'agit de l'état normal et attendu."
+
+msgid "Automatisches Kopieren war nicht möglich. Markieren Sie den Text unten und kopieren Sie ihn manuell."
+msgstr "La copie automatique n'a pas été possible. Sélectionnez le texte ci-dessous et copiez-le manuellement."
+
+msgid "AVV-Eintrag \"%1\" wurde %2."
+msgstr "L'entrée de contrat de sous-traitance « %1 » a été %2."
+
+msgid "AVV-Eintrag anlegen"
+msgstr "Créer une entrée de contrat de sous-traitance"
+
+msgid "AVV-Status"
+msgstr "Statut du contrat de sous-traitance"
+
+msgid "Backup & Wiederherstellung"
+msgstr "Sauvegarde et restauration"
+
+msgid "Backup exportieren (.zip)"
+msgstr "Exporter la sauvegarde (.zip)"
+
+msgid "Backup-Datei (.zip)"
+msgstr "Fichier de sauvegarde (.zip)"
+
+msgid "Beantragt"
+msgstr "Demandé"
+
+msgid "Beantragt von %1 am %2"
+msgstr "Demandé par %1 le %2"
+
+msgid "Bearbeiten"
+msgstr "Modifier"
+
+msgid "Beendet"
+msgstr "Terminé"
+
+msgid "Beginn"
+msgstr "Début"
+
+msgid "Begründung"
+msgstr "Justification"
+
+msgid "Begründung (optional)"
+msgstr "Justification (facultatif)"
+
+msgid "Begründung: %1"
+msgstr "Justification : %1"
+
+msgid "Bei \"Vorstand\" können anwesende Mitglieder, die nicht dem Vorstand angehören, das gespeicherte Dokument später NICHT ansehen -- wählen Sie \"Mitglieder\", wenn es allen Teilnehmenden zugänglich sein soll."
+msgstr "Avec « Conseil d'administration », les membres présents qui n'appartiennent pas au conseil ne pourront PAS consulter ultérieurement le document enregistré -- choisissez « Membres » si celui-ci doit être accessible à tous les participants."
+
+msgid "Bei \"Vorstand\" können anwesende Mitglieder, die nicht dem Vorstand angehören, das gespeicherte Whiteboard später NICHT ansehen -- wählen Sie \"Mitglieder\", wenn es allen Teilnehmenden zugänglich sein soll."
+msgstr "Avec « Conseil d'administration », les membres présents qui n'appartiennent pas au conseil ne pourront PAS consulter ultérieurement le tableau blanc enregistré -- choisissez « Membres » si celui-ci doit être accessible à tous les participants."
+
+msgid "Bei \"Vorstand\" können anwesende Mitglieder, die nicht dem Vorstand angehören, die Aufzeichnung später NICHT ansehen -- wählen Sie \"Mitglieder\", wenn die Aufnahme allen Teilnehmenden zugänglich sein soll."
+msgstr "Avec « Conseil d'administration », les membres présents qui n'appartiennent pas au conseil ne pourront PAS consulter ultérieurement l'enregistrement -- choisissez « Membres » si l'enregistrement doit être accessible à tous les participants."
+
+msgid "Bei geheimen Abstimmungen muss der Stream manuell unterbrochen werden. Eine automatische Unterbrechung gibt es in dieser Version noch nicht."
+msgstr "Lors de votes secrets, la diffusion doit être interrompue manuellement. Une interruption automatique n'existe pas encore dans cette version."
+
+msgid "Beim Einstellen wird eine feste Gebühr von %1 fällig."
+msgstr "Des frais fixes de %1 sont dus lors de la mise en vente."
+
+msgid "Beisitz"
+msgstr "Assesseur"
+
+msgid "Beitrag erlassen"
+msgstr "Remettre la cotisation"
+
+msgid "Beitrag erlassen."
+msgstr "Cotisation remise."
+
+msgid "Beitrag von %1 über %2 wirklich erlassen?"
+msgstr "Voulez-vous vraiment remettre la cotisation de %1 d'un montant de %2 ?"
+
+msgid "Beiträge"
+msgstr "Cotisations"
+
+msgid "Beiträge generieren"
+msgstr "Générer les cotisations"
+
+msgid "Beitragsrechnung %1–%2"
+msgstr "Facture de cotisation %1–%2"
+
+msgid "Beitragsrechnung per Post versenden"
+msgstr "Envoyer la facture de cotisation par courrier"
+
+msgid "Beitragssatz"
+msgstr "Taux de cotisation"
+
+msgid "Beitragssätze und Beitragsgenerierung"
+msgstr "Taux de cotisation et génération des cotisations"
+
+msgid "Beitragsübersicht"
+msgstr "Aperçu des cotisations"
+
+msgid "Beitreten"
+msgstr "Rejoindre"
+
+msgid "Beitrittsvertrag (Version %1)"
+msgstr "Contrat d'adhésion (version %1)"
+
+msgid "Beitrittsvertrag wird geladen ..."
+msgstr "Chargement du contrat d'adhésion..."
+
+msgid "Beleg"
+msgstr "Pièce justificative"
+
+msgid "Beleg: %1"
+msgstr "Pièce justificative : %1"
+
+msgid "Belegnummer (optional)"
+msgstr "Numéro de pièce justificative (facultatif)"
+
+msgid "Berechnet"
+msgstr "Calculé"
+
+msgid "Berechnet den EUR-Spendenpool für den gewählten Zeitraum (bezahlte Beiträge abzüglich einer festen Mindestbeteiligung je Zahler) und verteilt ihn proportional nach Verteilungs-Korb auf alle genehmigten Projekte. Erzeugt nur einen Prüf-/Entscheidungsdatensatz, keine Journalbuchung/Überweisung -- erneutes Ausführen für denselben Zeitraum erzeugt keine Duplikate."
+msgstr "Calcule le pool de dons en EUR pour la période sélectionnée (cotisations payées moins une participation minimale fixe par payeur) et le répartit proportionnellement selon le panier de répartition sur tous les projets approuvés. Ne génère qu'un enregistrement de contrôle/décision, aucune écriture au journal ni virement -- une nouvelle exécution pour la même période ne crée pas de doublons."
+
+msgid "Berechnet und speichert für JEDES aktive Politiker-Profil einen Gewichts-Schnappschuss für den gewählten Monat (Tag wird ignoriert, auf den Monatsersten normalisiert). Erneutes Ausführen für denselben Monat erzeugt keine Duplikate."
+msgstr "Calcule et enregistre, pour CHAQUE profil de responsable politique actif, un instantané de poids pour le mois sélectionné (le jour est ignoré, normalisé au premier du mois). Une nouvelle exécution pour le même mois ne crée pas de doublons."
+
+msgid "Bereiche"
+msgstr "Domaines"
+
+msgid "Bereit"
+msgstr "Prêt"
+
+msgid "Bereits laufende (OPEN) Auktionen können bis zur erneuten Aktivierung nicht mehr abgewickelt werden (kein Gebot, kein Sofortkauf, kein Abwickeln) -- sie bleiben eingefroren."
+msgstr "Les enchères déjà en cours (OUVERTES) ne peuvent plus être finalisées jusqu'à la réactivation (aucune offre, aucun achat immédiat, aucune finalisation) -- elles restent gelées."
+
+msgid "Bereits Mitglied? Zur Anmeldung."
+msgstr "Déjà membre ? Se connecter."
+
+msgid "Bereits verbundene Gäste anderer Server werden sofort aus der Besprechung entfernt. Neue Gäste können nicht mehr beitreten. Mitglieder Ihrer eigenen Organisation sind nicht betroffen."
+msgstr "Les invités déjà connectés depuis d'autres serveurs sont immédiatement retirés de la réunion. Aucun nouvel invité ne peut plus la rejoindre. Les membres de votre propre organisation ne sont pas concernés."
+
+msgid "Berufs- oder Wirtschaftsverband"
+msgstr "Association professionnelle ou économique"
+
+msgid "Beschluss"
+msgstr "Décision"
+
+msgid "Beschluss \"%1\" wurde erfasst."
+msgstr "La décision « %1 » a été enregistrée."
+
+msgid "Beschluss erfassen (Gremienbeschluss)"
+msgstr "Enregistrer une décision (décision d'organe)"
+
+msgid "Beschluss konnte nicht geladen werden."
+msgstr "La décision n'a pas pu être chargée."
+
+msgid "Beschluss speichern"
+msgstr "Enregistrer la décision"
+
+msgid "Beschlüsse"
+msgstr "Décisions"
+
+msgid "Beschlusstext"
+msgstr "Texte de la décision"
+
+msgid "Beschreibung"
+msgstr "Description"
+
+msgid "Beschreibung (optional)"
+msgstr "Description (facultatif)"
+
+msgid "Besetzung: %1"
+msgstr "Composition : %1"
+
+msgid "Besprechung \"%1\" wurde für alle beendet."
+msgstr "La réunion « %1 » a été terminée pour tous."
+
+msgid "Besprechung für alle beenden"
+msgstr "Terminer la réunion pour tous"
+
+msgid "Besprechung ganz verlassen"
+msgstr "Quitter complètement la réunion"
+
+msgid "Besprechung jetzt starten"
+msgstr "Démarrer la réunion maintenant"
+
+msgid "Besprechung verlassen"
+msgstr "Quitter la réunion"
+
+msgid "Besprechung vom %1.%2.%3, %4:%5"
+msgstr "Réunion du %1.%2.%3, %4:%5"
+
+msgid "Besprechung: %1"
+msgstr "Réunion : %1"
+
+msgid "Bestätigen"
+msgstr "Confirmer"
+
+msgid "Betrag"
+msgstr "Montant"
+
+msgid "Betrag (LTR)"
+msgstr "Montant (LTR)"
+
+msgid "Betreff"
+msgstr "Objet"
+
+msgid "Betriebsmittelrücklage (%1)"
+msgstr "Réserve de fonctionnement (%1)"
+
+msgid "Betroffene Datenkategorien"
+msgstr "Catégories de données concernées"
+
+msgid "Betroffene Personen benachrichtigt am (JJJJ-MM-TTTHH:MM:SS, optional)"
+msgstr "Personnes concernées notifiées le (AAAA-MM-JJTHH:MM:SS, facultatif)"
+
+msgid "Betroffene Ziele: %1"
+msgstr "Destinations concernées : %1"
+
+msgid "Betroffenes Mitglied (ID, optional)"
+msgstr "Membre concerné (ID, facultatif)"
+
+msgid "Betroffenes Mitglied: %1"
+msgstr "Membre concerné : %1"
+
+msgid "Bewertung gespeichert."
+msgstr "Évaluation enregistrée."
+
+msgid "Bewertung zurückgezogen."
+msgstr "Évaluation retirée."
+
+msgid "Bezeichnung"
+msgstr "Désignation"
+
+msgid "Bezeichnung (z. B. \"PdV YouTube-Kanal\")"
+msgstr "Désignation (p. ex. « Chaîne YouTube PdV »)"
+
+msgid "Bieten"
+msgstr "Enchérir"
+
+msgid "Bilanz"
+msgstr "Bilan"
+
+msgid "Bilanz ausgeglichen"
+msgstr "Bilan équilibré"
+
+msgid "Bilanz NICHT ausgeglichen"
+msgstr "Bilan NON équilibré"
+
+msgid "Bildschirm teilen"
+msgstr "Partager l'écran"
+
+msgid "Bildschirm-Teilen beenden"
+msgstr "Arrêter le partage d'écran"
+
+msgid "Bis (Geschäftsjahr)"
+msgstr "Jusqu'à (exercice)"
+
+msgid "Bis (JJJJ-MM-TT, optional)"
+msgstr "Jusqu'à (AAAA-MM-JJ, facultatif)"
+
+msgid "Bis (JJJJ-MM-TT, Pflichtfeld)"
+msgstr "Jusqu'à (AAAA-MM-JJ, champ obligatoire)"
+
+msgid "Bis (JJJJ-MM-TT)"
+msgstr "Jusqu'à (AAAA-MM-JJ)"
+
+msgid "Bis (JJJJ-MM-TTTHH:MM:SS, optional)"
+msgstr "Jusqu'à (AAAA-MM-JJTHH:MM:SS, facultatif)"
+
+msgid "Bis Sequenznummer (optional)"
+msgstr "Jusqu'au numéro de séquence (facultatif)"
+
+msgid "Bisherige Jahressumme (vor dieser Spende)"
+msgstr "Total annuel antérieur (avant ce don)"
+
+msgid "Bitcoin (BTC)"
+msgstr "Bitcoin (BTC)"
+
+msgid "Bitte 1 bis %1 Ziele auswählen."
+msgstr "Veuillez sélectionner entre 1 et %1 destinations."
+
+msgid "Bitte alle Felder ausfüllen."
+msgstr "Veuillez remplir tous les champs."
+
+msgid "Bitte alle Felder gültig ausfüllen: Peg positiv, Cache-TTL positiv, Mindest-Quorum mind. 2, Ausreißer-Schwelle 1-10000 bps, Max. Spread >= Ausreißer-Schwelle."
+msgstr "Veuillez remplir tous les champs correctement : ancrage positif, TTL de cache positif, quorum minimal d'au moins 2, seuil de valeur aberrante entre 1 et 10000 pb, écart maximal >= seuil de valeur aberrante."
+
+msgid "Bitte bei \"Vertreten\" angeben, durch wen."
+msgstr "Veuillez indiquer par qui, en cas de « Représenté »."
+
+msgid "Bitte Beitragssatz sowie gültiges Beginn-/Enddatum (JJJJ-MM-TT) angeben."
+msgstr "Veuillez indiquer le taux de cotisation ainsi qu'une date de début/fin valide (AAAA-MM-JJ)."
+
+msgid "Bitte bestätigen Sie, dass Sie den Beitrittsvertrag gelesen haben."
+msgstr "Veuillez confirmer que vous avez lu le contrat d'adhésion."
+
+msgid "Bitte Betreff und Text angeben."
+msgstr "Veuillez indiquer un objet et un texte."
+
+msgid "Bitte Bezeichnung und eine gültige RTMP-URL (rtmp:// oder rtmps://) angeben."
+msgstr "Veuillez indiquer une désignation et une URL RTMP valide (rtmp:// ou rtmps://)."
+
+msgid "Bitte Bezeichnung, eine gültige RTMP-URL (rtmp:// oder rtmps://) und einen Stream-Schlüssel angeben."
+msgstr "Veuillez indiquer une désignation, une URL RTMP valide (rtmp:// ou rtmps://) et une clé de diffusion."
+
+msgid "Bitte Code und Name angeben."
+msgstr "Veuillez indiquer un code et un nom."
+
+msgid "Bitte Datum, Beschreibung und für jede Buchungszeile Konto, Betrag und Sphäre angeben -- und, falls ein Spendertyp gewählt ist, dessen Felder vollständig ausfüllen."
+msgstr "Veuillez indiquer la date, la description ainsi que, pour chaque ligne d'écriture, le compte, le montant et la sphère -- et, si un type de donateur est sélectionné, remplir intégralement ses champs."
+
+msgid "Bitte E-Mail und Passwort eingeben."
+msgstr "Veuillez saisir l'e-mail et le mot de passe."
+
+msgid "Bitte ein gültiges \"Bis\"-Datum angeben (JJJJ-MM-TT)."
+msgstr "Veuillez indiquer une date « Jusqu'à » valide (AAAA-MM-JJ)."
+
+msgid "Bitte ein gültiges \"Von\"- und \"Bis\"-Geschäftsjahr angeben (Von ≤ Bis)."
+msgstr "Veuillez indiquer un exercice « De » et « Jusqu'à » valide (De ≤ Jusqu'à)."
+
+msgid "Bitte ein gültiges Datum (JJJJ-MM-TT) angeben."
+msgstr "Veuillez indiquer une date valide (AAAA-MM-JJ)."
+
+msgid "Bitte ein gültiges Geschäftsjahr angeben (z. B. 2026)."
+msgstr "Veuillez indiquer un exercice valide (p. ex. 2026)."
+
+msgid "Bitte ein gültiges Kalenderjahr angeben (JJJJ)."
+msgstr "Veuillez indiquer une année civile valide (AAAA)."
+
+msgid "Bitte ein Mitglied auswählen."
+msgstr "Veuillez sélectionner un membre."
+
+msgid "Bitte ein Mitglied und einen positiven Spendenbetrag angeben."
+msgstr "Veuillez indiquer un membre et un montant de don positif."
+
+msgid "Bitte ein positives Höchstgebot (LTR) angeben."
+msgstr "Veuillez indiquer une offre maximale positive (LTR)."
+
+msgid "Bitte eine Begründung angeben."
+msgstr "Veuillez indiquer une justification."
+
+msgid "Bitte eine Datei auswählen."
+msgstr "Veuillez sélectionner un fichier."
+
+msgid "Bitte eine gültige Position und einen Titel angeben."
+msgstr "Veuillez indiquer une position valide et un titre."
+
+msgid "Bitte eine Laufzeit in ganzen Stunden (größer als 0) angeben."
+msgstr "Veuillez indiquer une durée en heures entières (supérieure à 0)."
+
+msgid "Bitte eine Option und einen positiven LTR-Einsatz angeben."
+msgstr "Veuillez indiquer une option et une mise LTR positive."
+
+msgid "Bitte eine Person für \"Einzelne Person\" auswählen."
+msgstr "Veuillez sélectionner une personne pour « Personne unique »."
+
+msgid "Bitte eine Sitzung und eine gültige Position angeben."
+msgstr "Veuillez indiquer une séance et une position valide."
+
+msgid "Bitte eine Zahl zwischen 1 und %1 angeben."
+msgstr "Veuillez indiquer un nombre compris entre 1 et %1."
+
+msgid "Bitte einen Ablehnungsgrund angeben -- dieser wird öffentlich auf dem Projekt angezeigt."
+msgstr "Veuillez indiquer un motif de rejet -- celui-ci sera affiché publiquement sur le projet."
+
+msgid "Bitte einen Grund angeben."
+msgstr "Veuillez indiquer un motif."
+
+msgid "Bitte einen gültigen Entdeckungszeitpunkt (JJJJ-MM-TTTHH:MM:SS), Beschreibung, betroffene Datenkategorien und Status angeben."
+msgstr "Veuillez indiquer un moment de découverte valide (AAAA-MM-JJTHH:MM:SS), une description, les catégories de données concernées et un statut."
+
+msgid "Bitte einen gültigen Stichtag angeben (JJJJ-MM-TT)."
+msgstr "Veuillez indiquer une date de référence valide (AAAA-MM-JJ)."
+
+msgid "Bitte einen Inhalt eingeben."
+msgstr "Veuillez saisir un contenu."
+
+msgid "Bitte einen Monat im Format JJJJ-MM-TT angeben."
+msgstr "Veuillez indiquer un mois au format AAAA-MM-JJ."
+
+msgid "Bitte einen Namen angeben."
+msgstr "Veuillez indiquer un nom."
+
+msgid "Bitte Empfänger, einen positiven LTR-Betrag und eine Charakterisierung angeben."
+msgstr "Veuillez indiquer un destinataire, un montant LTR positif et une caractérisation."
+
+msgid "Bitte geben Sie einen Ablehnungsgrund an (wird beim Mitglied gespeichert)."
+msgstr "Veuillez indiquer un motif de rejet (sera enregistré auprès du membre)."
+
+msgid "Bitte Gremium, Titel, einen gültigen Termin (JJJJ-MM-TTTHH:MM) und ein Format angeben."
+msgstr "Veuillez indiquer un organe, un titre, une date valide (AAAA-MM-JJTHH:MM) et un format."
+
+msgid "Bitte gültige Datumsangaben (JJJJ-MM-TT) verwenden, oder das Feld leer lassen."
+msgstr "Veuillez utiliser des dates valides (AAAA-MM-JJ) ou laisser le champ vide."
+
+msgid "Bitte gültige Werte für die optionalen Felder verwenden, oder leer lassen."
+msgstr "Veuillez utiliser des valeurs valides pour les champs facultatifs, ou les laisser vides."
+
+msgid "Bitte Kategorie, Titel und Beschreibung angeben."
+msgstr "Veuillez indiquer une catégorie, un titre et une description."
+
+msgid "Bitte Kontonummer, Name, Kontenklasse (0-9) und Kontotyp angeben."
+msgstr "Veuillez indiquer le numéro de compte, le nom, la classe de compte (0-9) et le type de compte."
+
+msgid "Bitte lesen Sie den folgenden rechtlichen Hinweistext vollständig, bevor Sie die Auktion aktivieren. Diese Plattform führt keine automatisierte Rechtsberatung durch -- die rechtliche Einordnung liegt bei Ihrer Organisation."
+msgstr "Veuillez lire intégralement l'avertissement juridique suivant avant d'activer l'enchère. Cette plateforme ne fournit aucun conseil juridique automatisé -- la qualification juridique relève de votre organisation."
+
+msgid "Bitte melden Sie sich mit Ihrer E-Mail-Adresse an."
+msgstr "Veuillez vous connecter avec votre adresse e-mail."
+
+msgid "Bitte mindestens 2 unterschiedliche Optionen angeben."
+msgstr "Veuillez indiquer au moins 2 options différentes."
+
+msgid "Bitte mindestens eine Empfängerin/einen Empfänger sowie Titel, einen gültigen Termin (JJJJ-MM-TTTHH:MM), Ort und Einladungstext angeben."
+msgstr "Veuillez indiquer au moins un(e) destinataire ainsi qu'un titre, une date valide (AAAA-MM-JJTHH:MM), un lieu et un texte d'invitation."
+
+msgid "Bitte Mitglied und einen positiven LTR-Betrag angeben."
+msgstr "Veuillez indiquer un membre et un montant LTR positif."
+
+msgid "Bitte Mitglied, Rolle und ein gültiges Datum (JJJJ-MM-TT) angeben."
+msgstr "Veuillez indiquer un membre, un rôle et une date valide (AAAA-MM-JJ)."
+
+msgid "Bitte Name und eine gültige E-Mail-Adresse angeben."
+msgstr "Veuillez indiquer un nom et une adresse e-mail valide."
+
+msgid "Bitte Name und Spenderkategorie angeben."
+msgstr "Veuillez indiquer un nom et une catégorie de donateur."
+
+msgid "Bitte Name, eine gültige E-Mail-Adresse und eine Rolle angeben."
+msgstr "Veuillez indiquer un nom, une adresse e-mail valide et un rôle."
+
+msgid "Bitte Name, Typ und ein gültiges Quorum (0-100) angeben."
+msgstr "Veuillez indiquer un nom, un type et un quorum valide (0-100)."
+
+msgid "Bitte nicht-negative Stimmzahlen und einen Status angeben."
+msgstr "Veuillez indiquer des nombres de voix non négatifs et un statut."
+
+msgid "Bitte Start- und Enddatum im Format JJJJ-MM-TT angeben -- beide Felder sind hier Pflicht."
+msgstr "Veuillez indiquer une date de début et de fin au format AAAA-MM-JJ -- les deux champs sont obligatoires ici."
+
+msgid "Bitte Titel, Beschlusstext, Status und nicht-negative Stimmzahlen angeben."
+msgstr "Veuillez indiquer un titre, le texte de la décision, un statut et des nombres de voix non négatifs."
+
+msgid "Bitte Titel, Beschreibung und ein positives Sichtbarkeits-Gewicht (LTR) angeben."
+msgstr "Veuillez indiquer un titre, une description et un poids de visibilité positif (LTR)."
+
+msgid "Bitte Titel, Beschreibung und einen positiven Startpreis (LTR) angeben."
+msgstr "Veuillez indiquer un titre, une description et un prix de départ positif (LTR)."
+
+msgid "Bitte Titel, Verarbeitungsbeschreibung und Status angeben."
+msgstr "Veuillez indiquer un titre, une description du traitement et un statut."
+
+msgid "Bitte unterschiedliche Absender/Empfänger, einen positiven LTR-Betrag, eine Charakterisierung und eine Schiedsanordnungs-Referenz angeben."
+msgstr "Veuillez indiquer un expéditeur et un destinataire différents, un montant LTR positif, une caractérisation et une référence de décision arbitrale."
+
+msgid "Bitte Verarbeiter, Verarbeitungszweck, Datenkategorien und AVV-Status angeben."
+msgstr "Veuillez indiquer le sous-traitant, la finalité du traitement, les catégories de données et le statut du contrat de sous-traitance."
+
+msgid "Bitte wählen Sie mindestens ein Ziel aus."
+msgstr "Veuillez sélectionner au moins une destination."
+
+msgid "Bitte wenden Sie sich an ein ADMIN-Mitglied, falls Sie hierauf Zugriff benötigen."
+msgstr "Veuillez contacter un membre ADMIN si vous avez besoin d'y accéder."
+
+msgid "Bitte wenden Sie sich an Ihre Administration, falls Sie diese Funktion benötigen."
+msgstr "Veuillez contacter votre administration si vous avez besoin de cette fonction."
+
+msgid "Bitte Zielgremium (oder einen zu ändernden Antrag), Titel und Antragstext angeben."
+msgstr "Veuillez indiquer l'organe cible (ou une motion à modifier), un titre et le texte de la motion."
+
+msgid "Board ist fast voll -- bitte speichern und leeren."
+msgstr "Le tableau est presque plein -- veuillez l'enregistrer et le vider."
+
+msgid "Board leeren"
+msgstr "Vider le tableau"
+
+msgid "Breakout-Räume erstellen"
+msgstr "Créer des salles de sous-groupes"
+
+msgid "Breakout-Räume:"
+msgstr "Salles de sous-groupes :"
+
+msgid "Brief an %1 wird verarbeitet."
+msgstr "La lettre destinée à %1 est en cours de traitement."
+
+msgid "Brief an %1 wurde an Letterxpress übergeben."
+msgstr "La lettre destinée à %1 a été transmise à Letterxpress."
+
+msgid "Buchen"
+msgstr "Comptabiliser"
+
+msgid "Bucht eine bereits eingegangene Spende als LTR-Mint auf das gewählte Mitglied. Der aktuelle Kurs wird beim Bestätigen live abgefragt -- der genaue LTR-Betrag steht erst nach Bestätigung fest."
+msgstr "Comptabilise un don déjà reçu comme frappe de LTR au profit du membre sélectionné. Le taux actuel est interrogé en direct lors de la confirmation -- le montant exact en LTR n'est connu qu'après confirmation."
+
+msgid "Buchung"
+msgstr "Écriture"
+
+msgid "Buchung (Haben): %1"
+msgstr "Écriture (Crédit) : %1"
+
+msgid "Buchung (Soll): %1"
+msgstr "Écriture (Débit) : %1"
+
+msgid "Buchung buchen -- unveränderlich"
+msgstr "Valider l'écriture -- définitif"
+
+msgid "Buchung oben auswählen, um Details zu sehen."
+msgstr "Sélectionnez une écriture ci-dessus pour afficher les détails."
+
+msgid "Buchung wurde gebucht."
+msgstr "L'écriture a été validée."
+
+msgid "Buchung: %1"
+msgstr "Écriture : %1"
+
+msgid "Buchungszeile hinzufügen"
+msgstr "Ajouter une ligne d'écriture"
+
+msgid "Buchungszeilen"
+msgstr "Lignes d'écriture"
+
+msgid "Buchungszeilen:"
+msgstr "Lignes d'écriture :"
+
+msgid "Cache-TTL"
+msgstr "TTL du cache"
+
+msgid "Cache-TTL (Sekunden)"
+msgstr "TTL du cache (secondes)"
+
+msgid "Charakterisierung"
+msgstr "Caractérisation"
+
+msgid "Charakterisierung: %1"
+msgstr "Caractérisation : %1"
+
+msgid "Chat"
+msgstr "Chat"
+
+msgid "Chat (%1)"
+msgstr "Chat (%1)"
+
+msgid "Code (eindeutig, z. B. SOMMERFEST-2027)"
+msgstr "Code (unique, p. ex. SOMMERFEST-2027)"
+
+msgid "Committee-Quorum entscheiden"
+msgstr "Décider du quorum du comité"
+
+msgid "Crowdfunding"
+msgstr "Financement participatif"
+
+msgid "Crowdfunding-Projekt"
+msgstr "Projet de financement participatif"
+
+msgid "Darf nicht die E-Mail-Adresse sein."
+msgstr "Ne doit pas être l'adresse e-mail."
+
+msgid "Das Politiker-Ranking ist derzeit deaktiviert."
+msgstr "Le classement des responsables politiques est actuellement désactivé."
+
+msgid "Das Projekt \"%1\" wird abgelehnt (Grund: \"%2\"). Der bereits gebuchte Einsatz von %3 wird NICHT zurückerstattet -- es gibt keinen Rückerstattungspfad, unabhängig von dieser Entscheidung."
+msgstr "Le projet « %1 » sera rejeté (motif : « %2 »). La mise déjà comptabilisée de %3 ne sera PAS remboursée -- il n'existe aucun mécanisme de remboursement, quelle que soit cette décision."
+
+msgid "Das Projekt \"%1\" wird genehmigt und für Like/Dislike-Reaktionen (Spenden) geöffnet."
+msgstr "Le projet « %1 » sera approuvé et ouvert aux réactions J'aime/Je n'aime pas (dons)."
+
+msgid "Dashboard"
+msgstr "Tableau de bord"
+
+msgid "Datei:"
+msgstr "Fichier :"
+
+msgid "Datenkategorien"
+msgstr "Catégories de données"
+
+msgid "Datenkategorien: %1"
+msgstr "Catégories de données : %1"
+
+msgid "Datenpanne melden"
+msgstr "Signaler une violation de données"
+
+msgid "Datenpanne wurde %1."
+msgstr "La violation de données a été %1."
+
+msgid "Datenpannen"
+msgstr "Violations de données"
+
+msgid "Datenschutz-Folgenabschätzung (DSFA)"
+msgstr "Analyse d'impact relative à la protection des données (AIPD)"
+
+msgid "Datenstand"
+msgstr "État des données"
+
+msgid "Datum"
+msgstr "Date"
+
+msgid "Datum (JJJJ-MM-TT)"
+msgstr "Date (AAAA-MM-JJ)"
+
+msgid "Datum: %1"
+msgstr "Date : %1"
+
+msgid "davon überfällig"
+msgstr "dont en retard"
+
+msgid "Deaktivieren"
+msgstr "Désactiver"
+
+msgid "Deaktiviert"
+msgstr "Désactivé"
+
+msgid "Der aktuelle Stand der geteilten Notizen wird als Markdown-Dokument in der Dokumentenablage gespeichert."
+msgstr "L'état actuel des notes partagées est enregistré comme document Markdown dans la gestion documentaire."
+
+msgid "Der aktuelle Stand des Whiteboards wird als Bild in der Dokumentenablage gespeichert."
+msgstr "L'état actuel du tableau blanc est enregistré comme image dans la gestion documentaire."
+
+msgid "Der Hauptantrag muss zuerst selbst terminiert werden."
+msgstr "La motion principale doit d'abord être elle-même programmée."
+
+msgid "Der Politiker-Status von %1 wird widerrufen. Eine spätere erneute Erteilung reaktiviert das Profil, aber beide Bewertungs-Körbe (Mitglieder und Gäste) beginnen dann wieder bei null -- die gelöschte Historie ist nicht wiederherstellbar."
+msgstr "Le statut de responsable politique de %1 sera révoqué. Une nouvelle attribution ultérieure réactivera le profil, mais les deux ensembles d'évaluations (membres et invités) repartiront alors de zéro -- l'historique supprimé n'est pas récupérable."
+
+msgid "Der Sofortkaufpreis muss über dem Startpreis liegen."
+msgstr "Le prix d'achat immédiat doit être supérieur au prix de départ."
+
+msgid "Der Sofortkaufpreis muss, falls angegeben, ein positiver LTR-Betrag sein."
+msgstr "Le prix d'achat immédiat, s'il est indiqué, doit être un montant LTR positif."
+
+msgid "Der Stream wird neu verbunden -- die Zielplattform sieht dies unter Umständen erneut als neue Übertragung."
+msgstr "La diffusion sera reconnectée -- la plateforme cible peut, le cas échéant, la considérer à nouveau comme une nouvelle diffusion."
+
+msgid "Der Versand von Einladungen ist Vorstand und Administration vorbehalten -- als Sitzungsleitung/Protokollführung dieses Gremiums können Sie die Sitzung verwalten, aber keine Einladungen verschicken."
+msgstr "L'envoi d'invitations est réservé au conseil d'administration et à l'administration -- en tant que président(e) de séance/secrétaire de cet organe, vous pouvez gérer la séance, mais pas envoyer d'invitations."
+
+msgid "Derzeit keine aktive Besprechung."
+msgstr "Aucune réunion active pour le moment."
+
+msgid "Details"
+msgstr "Détails"
+
+msgid "Details anzeigen"
+msgstr "Afficher les détails"
+
+msgid "Details ein-/ausblenden"
+msgstr "Afficher/masquer les détails"
+
+msgid "Deutsche natürliche Person"
+msgstr "Personne physique allemande"
+
+msgid "Deutsches Unternehmen/Organisation"
+msgstr "Entreprise/organisation allemande"
+
+msgid "Diagnose: aktueller Kurs"
+msgstr "Diagnostic : taux actuel"
+
+msgid "Dick"
+msgstr "Gras"
+
+msgid "Die Aktion steht im Konflikt mit dem aktuellen Zustand -- bitte Ansicht aktualisieren."
+msgstr "L'action est en conflit avec l'état actuel -- veuillez actualiser la vue."
+
+msgid "Die angezeigte Frist ist die gesetzliche 72-Stunden-Uhr nach Art. 33 Abs. 1 DSGVO ab Kenntnisnahme -- sie entscheidet nicht, ob überhaupt eine Meldepflicht besteht (das legen ausschließlich Sie im Feld \"Meldung an Aufsichtsbehörde erforderlich\" fest) und ersetzt keine rechtliche Prüfung des Meldezeitpunkts. Bei einem echten Vorfall: Datenschutzbeauftragte/n oder Anwalt/Anwältin hinzuziehen."
+msgstr "Le délai affiché correspond au délai légal de 72 heures prévu à l'art. 33 § 1 RGPD à compter de la prise de connaissance -- il ne détermine pas si une obligation de notification existe (ceci relève exclusivement de votre décision dans le champ « Notification à l'autorité de contrôle requise ») et ne remplace pas un examen juridique du moment de la notification. En cas d'incident réel : consultez votre délégué(e) à la protection des données ou un avocat/une avocate."
+
+msgid "Die Aufzeichnung ist fehlgeschlagen."
+msgstr "L'enregistrement a échoué."
+
+msgid "Die Aufzeichnung wird beendet und danach automatisch zu einer Videodatei zusammengeführt."
+msgstr "L'enregistrement sera arrêté puis automatiquement fusionné en un fichier vidéo."
+
+msgid "Die Auktion ist derzeit deaktiviert."
+msgstr "L'enchère est actuellement désactivée."
+
+msgid "Die Besprechung „%1\" ist bereits beendet."
+msgstr "La réunion « %1 » est déjà terminée."
+
+msgid "Die Besprechung „%1\" lässt derzeit keine Gäste anderer Server zu. Bitten Sie die Moderation, den Gastzugang für diesen Raum freizuschalten."
+msgstr "La réunion « %1 » n'autorise actuellement pas les invités d'autres serveurs. Demandez à la modération d'activer l'accès invité pour cette salle."
+
+msgid "Die Besprechung läuft weiter. Die Zielplattform sieht eine Unterbrechung -- YouTube kann die Übertragung dabei beenden, sodass ein neuer Link nötig wird."
+msgstr "La réunion se poursuit. La plateforme cible détecte une interruption -- YouTube peut alors mettre fin à la diffusion, ce qui nécessitera un nouveau lien."
+
+msgid "Die Besprechung selbst läuft für alle Teilnehmenden unverändert weiter."
+msgstr "La réunion elle-même continue sans changement pour tous les participants."
+
+msgid "Die laufende Aufzeichnung/der Live-Stream im Hauptraum erfasst kein Audio/Video in Breakout-Räumen."
+msgstr "L'enregistrement ou la diffusion en direct en cours dans la salle principale ne capture ni l'audio ni la vidéo des salles de sous-groupes."
+
+msgid "Die Nachricht \"%1\" wird an alle aktiven Abonnentinnen und Abonnenten der Mailingliste \"%2\" verschickt. Dieser Schritt kann nicht rückgängig gemacht werden."
+msgstr "Le message « %1 » sera envoyé à tous les abonnés actifs de la liste de diffusion « %2 ». Cette étape ne peut pas être annulée."
+
+msgid "Die neuen Passwörter stimmen nicht überein."
+msgstr "Les nouveaux mots de passe ne correspondent pas."
+
+msgid "Die Orakel-Konfiguration wird vollständig ersetzt: Anker-Asset %1, Spendenwährung %2, Peg %3, Cache-TTL %4s, Quorum %5, Ausreißer-Schwelle %6bps, Max. Spread %7bps."
+msgstr "La configuration de l'oracle sera entièrement remplacée : actif d'ancrage %1, devise de don %2, ancrage %3, TTL du cache %4s, quorum %5, seuil de valeur aberrante %6bps, écart maximal %7bps."
+
+msgid "Die Passwörter stimmen nicht überein."
+msgstr "Les mots de passe ne correspondent pas."
+
+msgid "Die Risikoeinstufung (LOW/MEDIUM/HIGH/CRITICAL) hier ist eine Visualisierungshilfe aus Eintrittswahrscheinlichkeit × Schadenshöhe -- keine Art. 35 DSGVO Erforderlichkeits-Feststellung. Ob eine Datenschutz-Folgenabschätzung tatsächlich erforderlich ist, legen ausschließlich Sie im Feld \"DSFA erforderlich\" fest; dieses System berechnet das nicht."
+msgstr "Le classement du risque (FAIBLE/MOYEN/ÉLEVÉ/CRITIQUE) proposé ici est une aide à la visualisation calculée à partir de la probabilité d'occurrence × la gravité du dommage -- il ne constitue pas une constatation de nécessité au sens de l'art. 35 RGPD. Le fait qu'une analyse d'impact relative à la protection des données soit réellement requise relève exclusivement de votre décision dans le champ « AIPD requise » ; ce système ne le calcule pas."
+
+msgid "Die Rohaufnahmen bleiben erhalten -- wenden Sie sich an eine Administratorin oder einen Administrator, falls die Aufzeichnung wiederhergestellt werden soll."
+msgstr "Les enregistrements bruts sont conservés -- adressez-vous à un administrateur ou une administratrice si l'enregistrement doit être restauré."
+
+msgid "Die Wertobergrenze muss, falls angegeben, ein positiver LTR-Betrag sein."
+msgstr "Le plafond de valeur, s'il est indiqué, doit être un montant LTR positif."
+
+msgid "Die Wertobergrenze wird entfernt (kein Limit mehr)."
+msgstr "Le plafond de valeur sera supprimé (plus aucune limite)."
+
+msgid "Die Wiederherstellung wurde nur teilweise durchgeführt -- einzelne Zeilen wurden möglicherweise bereits geschrieben, bevor der Fehler auftrat: %1. Prüfen Sie den Datenbestand und ziehen Sie bei Unsicherheit Ihre Entwicklerin oder Ihren Entwickler hinzu, bevor Sie es erneut versuchen."
+msgstr "La restauration n'a été effectuée que partiellement -- certaines lignes ont peut-être déjà été écrites avant que l'erreur ne survienne : %1. Vérifiez l'état des données et, en cas de doute, consultez votre développeur ou développeuse avant de réessayer."
+
+msgid "Die Zielorganisation enthält bereits Daten. Aktivieren Sie „Ziel überschreiben\", falls das beabsichtigt ist: %1"
+msgstr "L'organisation cible contient déjà des données. Activez « Écraser la cible » si cela est intentionnel : %1"
+
+msgid "Diese Aktion LÖSCHT UNWIDERRUFLICH sämtliche Bewertungen (Mitglieder UND Gäste) sowie den gesamten Gewichtsverlauf für dieses Profil -- nicht nur den Status."
+msgstr "Cette action SUPPRIME DÉFINITIVEMENT toutes les évaluations (membres ET invités) ainsi que l'historique complet des poids pour ce profil -- pas seulement le statut."
+
+msgid "Diese Aktion mintet echtes LTR und kann nicht rückgängig gemacht werden."
+msgstr "Cette action frappe du LTR réel et ne peut pas être annulée."
+
+msgid "Diese Aufzeichnung kann NICHT rückgängig gemacht werden, sobald Teilnehmende gesprochen haben."
+msgstr "Cet enregistrement ne peut PAS être annulé dès lors que des participants ont pris la parole."
+
+msgid "Diese Auktion ist beendet, aber noch nicht abgewickelt."
+msgstr "Cette enchère est terminée, mais pas encore finalisée."
+
+msgid "Diese Auswertung ist eine Nachweis-Hilfe für den Vorstand nach §§ 55/62 AO -- keine automatisierte Compliance-Entscheidung. Sie prüft nicht die Freie-Rücklage-Obergrenze, wendet nicht automatisch die Kleinorganisationen-Ausnahme (≤ 45.000 € gemäß § 55 Abs. 1 Nr. 5 Satz 4 AO) an und bestätigt nicht den Fortbestand der Gemeinnützigkeit. Die verwendete Frist von %1 Jahren ist gegen die aktuelle AO-Auslegung zu prüfen."
+msgstr "Cette analyse est une aide à la justification pour le conseil d'administration au titre des §§ 55/62 AO -- il ne s'agit pas d'une décision de conformité automatisée. Elle ne vérifie pas le plafond de la réserve libre, n'applique pas automatiquement l'exception pour petites organisations (≤ 45.000 € conformément au § 55 al. 1 n° 5 phrase 4 AO) et ne confirme pas le maintien du statut d'utilité publique. Le délai de %1 ans utilisé doit être vérifié au regard de l'interprétation actuelle de l'AO."
+
+msgid "Diese beiden Werte sind im ersten Geschäftsjahr identisch und weichen ab dem zweiten Jahr bewusst voneinander ab -- siehe Erläuterung im Datenmodell."
+msgstr "Ces deux valeurs sont identiques lors du premier exercice et divergent volontairement à partir du deuxième -- voir l'explication dans le modèle de données."
+
+msgid "Diese Besprechung wird ab jetzt aufgezeichnet."
+msgstr "Cette réunion est enregistrée à partir de maintenant."
+
+msgid "Diese Besprechung wird ab jetzt live gestreamt."
+msgstr "Cette réunion est diffusée en direct à partir de maintenant."
+
+msgid "Diese Besprechung wird für alle Teilnehmenden beendet. Fortfahren?"
+msgstr "Cette réunion sera terminée pour tous les participants. Continuer ?"
+
+msgid "Diese Buchung wird nach dem Bestätigen unveränderlich und Teil der offiziellen Bücher. Es gibt keine Funktion zum nachträglichen Ändern oder Stornieren."
+msgstr "Après confirmation, cette écriture devient définitive et fait partie des livres officiels. Aucune fonction ne permet de la modifier ou de l'annuler ultérieurement."
+
+msgid "Diese Datei passt nicht zum erwarteten Sicherungsformat: %1"
+msgstr "Ce fichier ne correspond pas au format de sauvegarde attendu : %1"
+
+msgid "Diese Korrekturübertragung ist ENDGÜLTIG und kann nicht widerrufen werden."
+msgstr "Ce transfert correctif est DÉFINITIF et ne peut pas être annulé."
+
+msgid "Diese Löschung ist ENDGÜLTIG und kann nicht rückgängig gemacht werden."
+msgstr "Cette suppression est DÉFINITIVE et ne peut pas être annulée."
+
+msgid "Diese Organisation ist für die Verarbeitung Ihrer Audio-, Video- und Chatdaten in dieser Besprechung verantwortlich -- nicht Ihr eigener Heimserver."
+msgstr "Cette organisation est responsable du traitement de vos données audio, vidéo et de discussion dans cette réunion -- et non votre propre serveur d'origine."
+
+msgid "Diese Organisation ist nicht als politische Partei markiert (Organisationseinstellungen) -- §25 PartG gilt nur für politische Parteien. Für diese Organisation ist dieser Bericht daher bewusst ein No-Op, keine Fehlermeldung."
+msgstr "Cette organisation n'est pas identifiée comme un parti politique (paramètres de l'organisation) -- l'art. 25 PartG ne s'applique qu'aux partis politiques. Pour cette organisation, ce rapport est donc volontairement sans effet, et non une erreur."
+
+msgid "Diese Raum-Kennung ist ungültig. Bitte kopieren Sie sie vollständig aus Ihrer Einladung."
+msgstr "Cet identifiant de salle n'est pas valide. Veuillez le copier intégralement depuis votre invitation."
+
+msgid "Diese Seite konnte nicht geladen werden -- bitte laden Sie die Seite neu."
+msgstr "Cette page n'a pas pu être chargée -- veuillez recharger la page."
+
+msgid "Diese Übertragung ist ENDGÜLTIG und kann nicht widerrufen werden."
+msgstr "Ce transfert est DÉFINITIF et ne peut pas être annulé."
+
+msgid "Diese Wiederherstellung ist NICHT rückgängig zu machen."
+msgstr "Cette restauration ne peut PAS être annulée."
+
+msgid "Dieser Antrag hat %1, der/die zuerst entschieden werden muss/müssen:"
+msgstr "Cette motion comporte %1 devant être tranchée(s) en premier :"
+
+msgid "Dieser Versand ist ENDGÜLTIG und verursacht reale Kosten pro Brief."
+msgstr "Cet envoi est DÉFINITIF et entraîne des coûts réels par lettre."
+
+msgid "Dieser Versand ist ENDGÜLTIG und verursacht reale Kosten."
+msgstr "Cet envoi est DÉFINITIF et entraîne des coûts réels."
+
+msgid "Dieser Vorgang lässt sich nicht wiederholen -- schlägt er fehl, bleiben die Rohaufnahmen erhalten und ein Administrator kann helfen."
+msgstr "Cette opération ne peut pas être répétée -- en cas d'échec, les enregistrements bruts sont conservés et un administrateur peut vous aider."
+
+msgid "Dieses Profil ist ehemalig -- über das Formular \"Politiker-Status erteilen\" oben kann es erneut aktiviert werden."
+msgstr "Ce profil est ancien -- il peut être réactivé via le formulaire « Attribuer le statut de responsable politique » ci-dessus."
+
+msgid "Dieses Projekt wurde bereits durch die 14-Tage-Schweigefrist automatisch genehmigt -- eine Vorstandsentscheidung ist serverseitig nicht mehr möglich."
+msgstr "Ce projet a déjà été approuvé automatiquement par le délai de silence de 14 jours -- une décision du conseil d'administration n'est plus possible côté serveur."
+
+msgid "Direkt buchen"
+msgstr "Comptabiliser directement"
+
+msgid "Dislike"
+msgstr "Je n'aime pas"
+
+msgid "Dokument \"%1\" angelegt -- jetzt eine Datei hochladen."
+msgstr "Document « %1 » créé -- veuillez maintenant téléverser un fichier."
+
+msgid "Dokument anlegen (danach Datei hochladen)"
+msgstr "Créer un document (puis téléverser un fichier)"
+
+msgid "Dokument löschen"
+msgstr "Supprimer le document"
+
+msgid "Dokument-ID (optional)"
+msgstr "ID du document (facultatif)"
+
+msgid "Dokument:"
+msgstr "Document :"
+
+msgid "Dokumentation der acht Standard-TOM-Kategorien. \"Version\" ist ein einfacher Zähler, der bei jeder Aktualisierung um eins steigt -- keine eigene Versionshistorie mit Diff-Ansicht in dieser Welle."
+msgstr "Documentation des huit catégories standard de mesures techniques et organisationnelles (MTO). « Version » est un simple compteur qui augmente d'une unité à chaque mise à jour -- pas d'historique de versions distinct avec vue comparative dans cette version."
+
+msgid "Dokumente"
+msgstr "Documents"
+
+msgid "Dokumentenablage"
+msgstr "Gestion documentaire"
+
+msgid "Drittdienst-Verarbeiter (z. B. Letterxpress) und der Stand des jeweiligen Auftragsverarbeitungsvertrags. \"Aktiv\" wird bei jedem Laden neu berechnet -- ein abgelaufener Prüftermin fällt sofort auf, ohne dass jemand daran denken muss, den Status manuell umzustellen."
+msgstr "Sous-traitants tiers (p. ex. Letterxpress) et état du contrat de sous-traitance correspondant. « Actif » est recalculé à chaque chargement -- une échéance de contrôle expirée est immédiatement signalée, sans que personne n'ait à modifier le statut manuellement."
+
+msgid "Drucken"
+msgstr "Imprimer"
+
+msgid "DSFA"
+msgstr "AIPD"
+
+msgid "DSFA \"%1\" wurde %2."
+msgstr "L'AIPD « %1 » a été %2."
+
+msgid "DSFA anlegen"
+msgstr "Créer une AIPD"
+
+msgid "DSFA erforderlich (Ihre Entscheidung)"
+msgstr "AIPD requise (votre décision)"
+
+msgid "DSFA erforderlich: %1"
+msgstr "AIPD requise : %1"
+
+msgid "DSGVO-Compliance"
+msgstr "Conformité RGPD"
+
+msgid "DSGVO-Prüfprotokoll"
+msgstr "Journal de contrôle RGPD"
+
+msgid "Dünn"
+msgstr "Fin"
+
+msgid "E-Mail"
+msgstr "E-mail"
+
+msgid "Effektiv: %1"
+msgstr "Effectif : %1"
+
+msgid "Ehemalig"
+msgstr "Ancien"
+
+msgid "Eigenkapital (gebucht)"
+msgstr "Capitaux propres (comptabilisés)"
+
+msgid "Eigenkapitalkonto"
+msgstr "Compte de capitaux propres"
+
+msgid "Ein ADMIN kann das Politiker-Ranking im Abschnitt \"Einstellungen\" unten aktivieren."
+msgstr "Un ADMIN peut activer le classement des responsables politiques dans la section « Paramètres » ci-dessous."
+
+msgid "Ein ADMIN kann die Auktion im Abschnitt \"Verwaltung\" unten aktivieren -- dafür muss zunächst der aktuelle rechtliche Hinweistext gelesen und bestätigt werden."
+msgstr "Un ADMIN peut activer l'enchère dans la section « Administration » ci-dessous -- l'avertissement juridique actuel doit d'abord être lu et confirmé."
+
+msgid "Ein anderes Gebot führt weiterhin."
+msgstr "Une autre offre reste en tête."
+
+msgid "Ein physischer Brief wird über den Postdienstleister Letterxpress an die im System hinterlegte Anschrift von %1 verschickt. Der Versand kann nicht zurückgerufen werden."
+msgstr "Une lettre physique sera envoyée via le prestataire postal Letterxpress à l'adresse de %1 enregistrée dans le système. L'envoi ne peut pas être rappelé."
+
+msgid "Eingabekontrolle"
+msgstr "Contrôle des saisies"
+
+msgid "Eingereicht von %1 am %2"
+msgstr "Déposé par %1 le %2"
+
+msgid "Eingeschränkt (Degraded)"
+msgstr "Restreint (dégradé)"
+
+msgid "Eingetreten"
+msgstr "Admis"
+
+msgid "Einladung"
+msgstr "Invitation"
+
+msgid "Einladung kopieren"
+msgstr "Copier l'invitation"
+
+msgid "Einladung per Post versenden"
+msgstr "Envoyer l'invitation par courrier"
+
+msgid "Einladungstext"
+msgstr "Texte d'invitation"
+
+msgid "Einnahme"
+msgstr "Recette"
+
+msgid "Einnahmen"
+msgstr "Recettes"
+
+msgid "Einreichen"
+msgstr "Déposer"
+
+msgid "Einsatz (LTR)"
+msgstr "Mise (LTR)"
+
+msgid "Einstellungen"
+msgstr "Paramètres"
+
+msgid "Eintrag oben auswählen, um Details zu sehen."
+msgstr "Sélectionnez une entrée ci-dessus pour afficher les détails."
+
+msgid "Einträge"
+msgstr "Entrées"
+
+msgid "Eintrittswahrscheinlichkeit"
+msgstr "Probabilité d'occurrence"
+
+msgid "Einzelne Person"
+msgstr "Personne unique"
+
+msgid "Empfänger"
+msgstr "Destinataire"
+
+msgid "Empfänger:"
+msgstr "Destinataire :"
+
+msgid "Enddatum (JJJJ-MM-TT)"
+msgstr "Date de fin (AAAA-MM-JJ)"
+
+msgid "Ende"
+msgstr "Fin"
+
+msgid "Endgültig ausführen"
+msgstr "Exécuter définitivement"
+
+msgid "Endgültig buchen"
+msgstr "Comptabiliser définitivement"
+
+msgid "Endgültig löschen"
+msgstr "Supprimer définitivement"
+
+msgid "Endgültig übertragen"
+msgstr "Transférer définitivement"
+
+msgid "Endgültig wiederherstellen"
+msgstr "Restaurer définitivement"
+
+msgid "Entdeckt am (JJJJ-MM-TTTHH:MM:SS) -- startet die 72h-Frist"
+msgstr "Découverte le (AAAA-MM-JJTHH:MM:SS) -- déclenche le délai de 72 h"
+
+msgid "Entdeckt am: %1 · Betroffene Datenkategorien: %2"
+msgstr "Découverte le : %1 · Catégories de données concernées : %2"
+
+msgid "Entfernen"
+msgstr "Retirer"
+
+msgid "Enthaltungen"
+msgstr "Abstentions"
+
+msgid "Entität: %1"
+msgstr "Entité : %1"
+
+msgid "Entitäts-ID (optional)"
+msgstr "ID de l'entité (facultatif)"
+
+msgid "Entitätstyp"
+msgstr "Type d'entité"
+
+msgid "Entscheidung"
+msgstr "Décision"
+
+msgid "Entscheidung für \"%1\" gespeichert."
+msgstr "Décision pour « %1 » enregistrée."
+
+msgid "Entscheidung speichern"
+msgstr "Enregistrer la décision"
+
+msgid "Entscheidungsnotiz (optional)"
+msgstr "Note de décision (facultatif)"
+
+msgid "Entscheidungsnotiz: %1"
+msgstr "Note de décision : %1"
+
+msgid "Entschieden"
+msgstr "Décidé"
+
+msgid "Entschieden am"
+msgstr "Décidé le"
+
+msgid "Entschieden von %1 am %2"
+msgstr "Décidé par %1 le %2"
+
+msgid "Entwurf"
+msgstr "Brouillon"
+
+msgid "Entwurf \"%1\" als neuer Entwurf übernommen -- bitte prüfen und speichern."
+msgstr "Brouillon « %1 » repris comme nouveau brouillon -- veuillez vérifier et enregistrer."
+
+msgid "Entwurf \"%1\" wurde gespeichert."
+msgstr "Le brouillon « %1 » a été enregistré."
+
+msgid "Entwurf erstellt am %1"
+msgstr "Brouillon créé le %1"
+
+msgid "Entwurf gespeichert."
+msgstr "Brouillon enregistré."
+
+msgid "Entwurf von %1 am %2 -- noch nicht Teil offizieller Berichte."
+msgstr "Brouillon de %1 du %2 -- ne fait pas encore partie des rapports officiels."
+
+msgid "Entwürfe können nicht nachträglich geändert oder gelöscht werden. Ist dieser Entwurf fehlerhaft, nutzen Sie „Als neuen Entwurf duplizieren\" unten, um eine korrigierte Kopie zu erstellen, und lassen Sie diesen Entwurf ungebucht liegen."
+msgstr "Les brouillons ne peuvent pas être modifiés ou supprimés ultérieurement. Si ce brouillon est erroné, utilisez « Dupliquer comme nouveau brouillon » ci-dessous pour créer une copie corrigée, et laissez ce brouillon non comptabilisé."
+
+msgid "Erfasst von (Mitglieds-ID)"
+msgstr "Saisi par (ID membre)"
+
+msgid "Erfolgreich"
+msgstr "Réussi"
+
+msgid "Erforderlichkeit/Verhältnismäßigkeit (optional)"
+msgstr "Nécessité/proportionnalité (facultatif)"
+
+msgid "Ergebnis"
+msgstr "Résultat"
+
+msgid "Ergebnis:"
+msgstr "Résultat :"
+
+msgid "Erinnerung wurde bestätigt."
+msgstr "Le rappel a été confirmé."
+
+msgid "Erinnerungen"
+msgstr "Rappels"
+
+msgid "Erlassen"
+msgstr "Remis"
+
+msgid "Erledigte anzeigen"
+msgstr "Afficher les traités"
+
+msgid "Ernennen"
+msgstr "Nommer"
+
+msgid "Eröffnungssaldo"
+msgstr "Solde d'ouverture"
+
+msgid "Erstellen"
+msgstr "Créer"
+
+msgid "Erstellt"
+msgstr "Créé"
+
+msgid "Erstellt von %1 · %2 Teilnehmende"
+msgstr "Créé par %1 · %2 participants"
+
+msgid "Erteilen"
+msgstr "Attribuer"
+
+msgid "Erteilen / Aktualisieren"
+msgstr "Attribuer / Actualiser"
+
+msgid "Ertragskonto"
+msgstr "Compte de produits"
+
+msgid "Es läuft bereits eine meritokratische Vote für diesen Antrag -- siehe Abschnitt \"Vote\" unten."
+msgstr "Un vote méritocratique est déjà en cours pour cette motion -- voir la section « Vote » ci-dessous."
+
+msgid "Es werden %1 als Sichtbarkeits-Gewicht aus Ihrem freien LTR-Guthaben gebunden. Dieser Einsatz wird NICHT zurückerstattet, unabhängig von der späteren Vorstandsentscheidung."
+msgstr "%1 seront bloqués comme poids de visibilité sur votre solde LTR disponible. Cette mise ne sera PAS remboursée, quelle que soit la décision ultérieure du conseil d'administration."
+
+msgid "Es werden %1 an %2 gutgeschrieben. Diese Gutschrift lässt sich nur durch eine gegenläufige Buchung (z. B. eine Schiedsverfahren-Korrekturübertragung) rückgängig machen."
+msgstr "%1 seront crédités à %2. Ce crédit ne peut être annulé que par une écriture inverse (p. ex. un transfert correctif issu d'une procédure d'arbitrage)."
+
+msgid "Es wird ein Angebot \"%1\" mit Startpreis %2%3 und %4 Stunden Laufzeit erstellt. Dabei wird eine feste Gebühr von %5 aus Ihrem freien LTR-Guthaben gebucht."
+msgstr "Une offre « %1 » sera créée avec un prix de départ de %2%3 et une durée de %4 heures. Des frais fixes de %5 seront prélevés sur votre solde LTR disponible."
+
+msgid "EU-Bürger:in / EU-Rechtsperson"
+msgstr "Citoyen(ne) de l'UE / personne morale de l'UE"
+
+msgid "Export"
+msgstr "Exporter"
+
+msgid "Extern"
+msgstr "Externe"
+
+msgid "Externe Spender"
+msgstr "Donateurs externes"
+
+msgid "Externe Spender sind keine Mitglieder -- eine eigenständige Adressverwaltung für Spendenbescheinigungen und die §25-PartG-Pflichtenprüfung, getrennt von der Mitgliederverwaltung."
+msgstr "Les donateurs externes ne sont pas des membres -- il s'agit d'une gestion d'adresses autonome pour les reçus de dons et le contrôle des obligations au titre de l'art. 25 PartG, distincte de la gestion des membres."
+
+msgid "Externer Spender"
+msgstr "Donateur externe"
+
+msgid "Externer Spender (ID)"
+msgstr "Donateur externe (ID)"
+
+msgid "Falls die Zeichnung noch gebraucht wird: vorher als Dokument speichern."
+msgstr "Si le dessin est encore nécessaire : enregistrez-le au préalable comme document."
+
+msgid "Falls diese E-Mail registriert ist, wurde ein Link versendet."
+msgstr "Si cette adresse e-mail est enregistrée, un lien a été envoyé."
+
+msgid "Farbe wählen"
+msgstr "Choisir une couleur"
+
+msgid "Fehlende Angaben für das Transparenzregister: %1 Vorstandsmitglied(er) ohne Geburtsdatum und/oder Staatsangehörigkeit."
+msgstr "Informations manquantes pour le registre de transparence : %1 membre(s) du conseil sans date de naissance et/ou nationalité."
+
+msgid "Fehler"
+msgstr "Erreur"
+
+msgid "Fehler: %1"
+msgstr "Erreur : %1"
+
+msgid "Fehlgeschlagen"
+msgstr "Échoué"
+
+msgid "Fertig"
+msgstr "Terminé"
+
+msgid "Fiat"
+msgstr "Fiat"
+
+msgid "Filter: Referenztyp"
+msgstr "Filtre : type de référence"
+
+msgid "Filter: Status (persistiert)"
+msgstr "Filtre : statut (persisté)"
+
+msgid "Filter: Status (Vorstandsbeschluss)"
+msgstr "Filtre : statut (décision du conseil d'administration)"
+
+msgid "Filtern"
+msgstr "Filtrer"
+
+msgid "Finanzberichte"
+msgstr "Rapports financiers"
+
+msgid "Finanzen"
+msgstr "Finances"
+
+msgid "Format"
+msgstr "Format"
+
+msgid "Freie Rücklage (%1)"
+msgstr "Réserve libre (%1)"
+
+msgid "Frist bald fällig"
+msgstr "Délai bientôt échu"
+
+msgid "Frist läuft"
+msgstr "Délai en cours"
+
+msgid "Frist überschritten"
+msgstr "Délai dépassé"
+
+msgid "Frist: %1"
+msgstr "Délai : %1"
+
+msgid "Führend"
+msgstr "En tête"
+
+msgid "Führend: %1"
+msgstr "En tête : %1"
+
+msgid "Führend: Sie"
+msgstr "En tête : vous"
+
+msgid "Für alle beenden"
+msgstr "Terminer pour tous"
+
+msgid "Galerie"
+msgstr "Galerie"
+
+msgid "Gast"
+msgstr "Invité"
+
+msgid "Gast eines anderen Lapis-Cloud-Servers? Mit Heimatserver anmelden."
+msgstr "Invité d'un autre serveur Lapis Cloud ? Se connecter avec le serveur d'origine."
+
+msgid "Gast von %1"
+msgstr "Invité de %1"
+
+msgid "Gast-Gewicht"
+msgstr "Poids invité"
+
+msgid "Gast-Gewicht (reine Stimmenzahl, ungewichtet)"
+msgstr "Poids invité (nombre de voix brut, non pondéré)"
+
+msgid "Gäste"
+msgstr "Invités"
+
+msgid "Gäste anderer Server zulassen"
+msgstr "Autoriser les invités d'autres serveurs"
+
+msgid "Gäste zugelassen"
+msgstr "Invités autorisés"
+
+msgid "Gastgeberin dieser Besprechung: %1"
+msgstr "Hôte de cette réunion : %1"
+
+msgid "Gastzugang"
+msgstr "Accès invité"
+
+msgid "Gastzugang aktiviert."
+msgstr "Accès invité activé."
+
+msgid "Gastzugang beenden"
+msgstr "Mettre fin à l'accès invité"
+
+msgid "Gastzugang beendet."
+msgstr "Accès invité terminé."
+
+msgid "Gastzugang offen"
+msgstr "Accès invité ouvert"
+
+msgid "Gastzugang:"
+msgstr "Accès invité :"
+
+msgid "Geändert"
+msgstr "Modifié"
+
+msgid "Geben Sie Ihre E-Mail-Adresse ein, um einen Link zum Zurücksetzen anzufordern. Erhalten Sie eine Bestätigung, tragen Sie anschließend den Token und Ihr neues Passwort ein."
+msgstr "Saisissez votre adresse e-mail pour demander un lien de réinitialisation. Après confirmation, saisissez ensuite le jeton et votre nouveau mot de passe."
+
+msgid "Gebot abgeben"
+msgstr "Faire une offre"
+
+msgid "Gebot angenommen. Aktueller Preis: %1. %2"
+msgstr "Offre acceptée. Prix actuel : %1. %2"
+
+msgid "Gebot bestätigen"
+msgstr "Confirmer l'offre"
+
+msgid "Gebot gespeichert."
+msgstr "Offre enregistrée."
+
+msgid "Gebucht"
+msgstr "Comptabilisé"
+
+msgid "Gebucht am"
+msgstr "Comptabilisé le"
+
+msgid "Gebucht am %1 von %2 -- unveränderlich."
+msgstr "Comptabilisé le %1 par %2 -- définitif."
+
+msgid "Geburtsdatum"
+msgstr "Date de naissance"
+
+msgid "Gelöscht."
+msgstr "Supprimé."
+
+msgid "Gemeinnützigkeits-Berichte"
+msgstr "Rapports d'utilité publique"
+
+msgid "gemeldet"
+msgstr "signalé"
+
+msgid "Gemeldet"
+msgstr "Signalé"
+
+msgid "Gemintet:"
+msgstr "Frappé :"
+
+msgid "Genehmigen"
+msgstr "Approuver"
+
+msgid "Genehmigt"
+msgstr "Approuvé"
+
+msgid "Generisches RTMP"
+msgstr "RTMP générique"
+
+msgid "Geprüft von %1 am %2%3"
+msgstr "Vérifié par %1 le %2%3"
+
+msgid "Gesamt"
+msgstr "Total"
+
+msgid "Gesamt (Summe, keine vergleichbare Einheit)"
+msgstr "Total (somme, unité non comparable)"
+
+msgid "Geschäftsjahr"
+msgstr "Exercice"
+
+msgid "Geschäftsjahr (JJJJ)"
+msgstr "Exercice (AAAA)"
+
+msgid "Geschäftsjahr %1 · %2 bis %3"
+msgstr "Exercice %1 · %2 à %3"
+
+msgid "Geschätzte Anzahl betroffener Personen (optional)"
+msgstr "Nombre estimé de personnes concernées (facultatif)"
+
+msgid "Gesendet"
+msgstr "Envoyé"
+
+msgid "Gesendet am %1"
+msgstr "Envoyé le %1"
+
+msgid "Gespeichert -- Schlüssel wird nicht erneut angezeigt."
+msgstr "Enregistré -- la clé ne sera plus réaffichée."
+
+msgid "Gewählter Modus: %1"
+msgstr "Mode sélectionné : %1"
+
+msgid "Gewichts-Snapshot auslösen"
+msgstr "Déclencher un instantané de poids"
+
+msgid "Gewichtsverlauf anzeigen/ausblenden"
+msgstr "Afficher/masquer l'historique des poids"
+
+msgid "Gewinn- und Verlustrechnung"
+msgstr "Compte de résultat"
+
+msgid "Gewinn- und Verlustrechnung (GuV)"
+msgstr "Compte de résultat (CR)"
+
+msgid "Gewinner"
+msgstr "Gagnant"
+
+msgid "GoBD-revisionssicheres Protokoll aller Buchungen, Beschlüsse, Vorstandsmitgliedschaften und Spendenprüfungen -- unveränderlich und ausschließlich lesbar. Es gibt auf dieser Seite keine Funktion zum Bearbeiten oder Löschen von Einträgen."
+msgstr "Journal conforme aux exigences de contrôle GoBD de toutes les écritures, décisions, mandats au conseil d'administration et contrôles de dons -- immuable et en lecture seule. Cette page ne propose aucune fonction de modification ou de suppression des entrées."
+
+msgid "Gold (XAU)"
+msgstr "Or (XAU)"
+
+msgid "Gold (XAU) und Fiat-Kurse sind fachlich vorgesehen, aber serverseitig noch nicht implementiert (kein robuster kostenloser Mehrquellen-Feed verfügbar) -- daher hier nicht auswählbar."
+msgstr "Les taux de l'or (XAU) et des monnaies fiduciaires sont prévus fonctionnellement, mais pas encore implémentés côté serveur (aucun flux multi-sources gratuit et fiable disponible) -- ils ne sont donc pas sélectionnables ici."
+
+msgid "Gremien"
+msgstr "Organes"
+
+msgid "Gremium"
+msgstr "Organe"
+
+msgid "Gremium anlegen"
+msgstr "Créer un organe"
+
+msgid "Gremium oben auswählen, um die Besetzung zu sehen."
+msgstr "Sélectionnez un organe ci-dessus pour afficher sa composition."
+
+msgid "Gremium: %1 · %2 · Termin: %3"
+msgstr "Organe : %1 · %2 · Date : %3"
+
+msgid "Gremium: %1 · %2 · Termin: %3%4"
+msgstr "Organe : %1 · %2 · Date : %3%4"
+
+msgid "Gremium: %1 · eingereicht von %2 am %3"
+msgstr "Organe : %1 · déposé par %2 le %3"
+
+msgid "Guthaben & Buchungen eines Mitglieds"
+msgstr "Solde et écritures d'un membre"
+
+msgid "Guthaben von %1"
+msgstr "Solde de %1"
+
+msgid "Gutschreiben"
+msgstr "Créditer"
+
+msgid "Gutschrift (Mint)"
+msgstr "Crédit (frappe)"
+
+msgid "GuV"
+msgstr "CR"
+
+msgid "Haben"
+msgstr "Crédit"
+
+msgid "Hauptbuch"
+msgstr "Grand livre"
+
+msgid "Herunterladen"
+msgstr "Télécharger"
+
+msgid "Hinweis gelesen -- als Gast beitreten"
+msgstr "Avertissement lu -- rejoindre en tant qu'invité"
+
+msgid "Hinweis: %1"
+msgstr "Remarque : %1"
+
+msgid "Hinweis: Die tatsächlich gebuchte Währung ist die in der Konfiguration hinterlegte Spendenwährung -- diese Auswahl dient nur der Anzeige im Bestätigungsdialog."
+msgstr "Remarque : la devise effectivement comptabilisée est la devise de don définie dans la configuration -- cette sélection ne sert qu'à l'affichage dans la boîte de dialogue de confirmation."
+
+msgid "Hinweis: Eine im Hauptraum laufende Aufzeichnung oder ein Live-Stream erfasst dieses Gespräch nicht."
+msgstr "Remarque : un enregistrement ou une diffusion en direct en cours dans la salle principale ne capture pas cette conversation."
+
+msgid "Hinweistext-Version %1"
+msgstr "Version de l'avertissement %1"
+
+msgid "Hinzufügen"
+msgstr "Ajouter"
+
+msgid "Hoch"
+msgstr "Élevé"
+
+msgid "Hochladen"
+msgstr "Téléverser"
+
+msgid "Höchstens %1 Zeichen."
+msgstr "%1 caractères maximum."
+
+msgid "Honorar"
+msgstr "Honoraires"
+
+msgid "Ich bestätige, den aktuellen Text gelesen zu haben"
+msgstr "Je confirme avoir lu le texte actuel"
+
+msgid "Ich habe den Beitrittsvertrag gelesen und akzeptiere ihn."
+msgstr "J'ai lu le contrat d'adhésion et je l'accepte."
+
+msgid "Ideeller Bereich"
+msgstr "Secteur désintéressé"
+
+msgid "Ihr Einsatz wird NICHT zurückerstattet -- unabhängig davon, ob der Vorstand das Projekt später genehmigt oder ablehnt. Es gibt in diesem System keinen Rückerstattungspfad für diesen Einsatz."
+msgstr "Votre mise ne sera PAS remboursée -- que le conseil d'administration approuve ou rejette le projet par la suite. Ce système ne prévoit aucun mécanisme de remboursement pour cette mise."
+
+msgid "Ihr Gebot: %1, %2 LTR"
+msgstr "Votre offre : %1, %2 LTR"
+
+msgid "Ihr Höchstgebot"
+msgstr "Votre offre maximale"
+
+msgid "Ihr Höchstgebot (LTR)"
+msgstr "Votre offre maximale (LTR)"
+
+msgid "Ihr Höchstgebot ist verbindlich und reserviert LTR aus Ihrem freien Guthaben."
+msgstr "Votre offre maximale est contraignante et réserve des LTR sur votre solde disponible."
+
+msgid "Ihr Höchstgebot muss mindestens dem Startpreis (%1) entsprechen."
+msgstr "Votre offre maximale doit être au moins égale au prix de départ (%1)."
+
+msgid "Ihr Löschantrag"
+msgstr "Votre demande de suppression"
+
+msgid "Ihr LTR-Guthaben"
+msgstr "Votre solde LTR"
+
+msgid "Ihr LTR-Guthaben:"
+msgstr "Votre solde LTR :"
+
+msgid "Ihr Mitgliedschaftsantrag wurde eingereicht und wird vom Vorstand geprüft. Sie sind noch nicht angemeldet -- nach der Freigabe können Sie sich mit Ihrem gewählten Passwort anmelden."
+msgstr "Votre demande d'adhésion a été déposée et sera examinée par le conseil d'administration. Vous n'êtes pas encore connecté(e) -- après validation, vous pourrez vous connecter avec le mot de passe choisi."
+
+msgid "Ihr Mitgliedsdatensatz bleibt als anonymer Platzhalter bestehen (z. B. damit Beitragshistorie und Buchungen konsistent bleiben). Persönliche Felder werden geleert oder anonymisiert."
+msgstr "Votre fiche de membre subsiste comme espace réservé anonyme (afin, par exemple, que l'historique des cotisations et les écritures restent cohérents). Les champs personnels sont vidés ou anonymisés."
+
+msgid "Ihr Recht auf Auskunft (Art. 15/20 DSGVO) und auf Löschung (\"Recht auf Vergessenwerden\", Art. 17 DSGVO) -- eine Löschung wird hier nur BEANTRAGT, nie sofort ausgeführt. Über den Antrag entscheidet danach eine Administratorin oder ein Administrator gesondert."
+msgstr "Votre droit d'accès (art. 15/20 RGPD) et de suppression (« droit à l'oubli », art. 17 RGPD) -- une suppression n'est ici que DEMANDÉE, jamais exécutée immédiatement. La demande est ensuite examinée séparément par un administrateur ou une administratrice."
+
+msgid "Ihre Bewertung:"
+msgstr "Votre évaluation :"
+
+msgid "Ihre Reaktion:"
+msgstr "Votre réaction :"
+
+msgid "In Bearbeitung"
+msgstr "En cours de traitement"
+
+msgid "In Prüfung"
+msgstr "En cours d'examen"
+
+msgid "In Warteschlange"
+msgstr "En file d'attente"
+
+msgid "inaktiv"
+msgstr "inactif"
+
+msgid "Inaktiv"
+msgstr "Inactif"
+
+msgid "Inaktive Gremien anzeigen"
+msgstr "Afficher les organes inactifs"
+
+msgid "Inaktive Konten anzeigen"
+msgstr "Afficher les comptes inactifs"
+
+msgid "Inaktive Kostenstellen anzeigen"
+msgstr "Afficher les centres de coûts inactifs"
+
+msgid "Inaktive Spender anzeigen"
+msgstr "Afficher les donateurs inactifs"
+
+msgid "Inhalt"
+msgstr "Contenu"
+
+msgid "Inklusive ehemaliger Profile"
+msgstr "Y compris les anciens profils"
+
+msgid "ist beendet"
+msgstr "est terminé"
+
+msgid "ist unterbrochen"
+msgstr "est interrompu"
+
+msgid "Ja"
+msgstr "Oui"
+
+msgid "Ja-Stimmen"
+msgstr "Voix pour"
+
+msgid "Ja: %1 · Nein: %2 · Enthaltung: %3"
+msgstr "Pour : %1 · Contre : %2 · Abstention : %3"
+
+msgid "Ja: %1 · Nein: %2 · Enthaltung: %3 · Quorum %4 · entschieden am %5 von %6"
+msgstr "Pour : %1 · Contre : %2 · Abstention : %3 · Quorum %4 · décidé le %5 par %6"
+
+msgid "Jahresabschluss"
+msgstr "Clôture de l'exercice"
+
+msgid "Jahresergebnis (dieses Geschäftsjahr)"
+msgstr "Résultat de l'exercice (exercice en cours)"
+
+msgid "Jahressumme"
+msgstr "Total annuel"
+
+msgid "Jemand hat diesen Block bereits aktualisiert (zuletzt von %1)."
+msgstr "Quelqu'un a déjà mis à jour ce bloc (dernière modification par %1)."
+
+msgid "Jetzt live gehen"
+msgstr "Démarrer la diffusion en direct"
+
+msgid "Jetzt per Post versenden"
+msgstr "Envoyer par courrier maintenant"
+
+msgid "Jetzt terminieren"
+msgstr "Planifier maintenant"
+
+msgid "Journal (Grundbuch)"
+msgstr "Journal (livre-journal)"
+
+msgid "Journaldetails"
+msgstr "Détails du journal"
+
+msgid "Kalenderjahr (JJJJ)"
+msgstr "Année civile (AAAA)"
+
+msgid "Kalenderjahr %1"
+msgstr "Année civile %1"
+
+msgid "Kamera an"
+msgstr "Caméra activée"
+
+msgid "Kamera aus"
+msgstr "Caméra désactivée"
+
+msgid "Kasse"
+msgstr "Caisse"
+
+msgid "Kasse (Kassenbuch-fähig)"
+msgstr "Caisse (compatible livre de caisse)"
+
+msgid "Kassenbuch"
+msgstr "Livre de caisse"
+
+msgid "Kategorie"
+msgstr "Catégorie"
+
+msgid "Kein AVV"
+msgstr "Aucun contrat de sous-traitance"
+
+msgid "Kein Beschluss verknüpft."
+msgstr "Aucune décision associée."
+
+msgid "Kein Grund angegeben."
+msgstr "Aucun motif indiqué."
+
+msgid "Kein Legal Hold"
+msgstr "Aucune conservation légale"
+
+msgid "Kein Limit"
+msgstr "Aucune limite"
+
+msgid "Kein Zugriff -- für diesen Bereich fehlt Ihnen die Berechtigung."
+msgstr "Accès refusé -- vous ne disposez pas des droits nécessaires pour cette section."
+
+msgid "Keine Adresse hinterlegt"
+msgstr "Aucune adresse enregistrée"
+
+msgid "Keine anderen Mitglieder vorhanden, an die übertragen werden könnte."
+msgstr "Aucun autre membre disponible pour le transfert."
+
+msgid "Keine Änderungsanträge."
+msgstr "Aucune motion d'amendement."
+
+msgid "Keine anonymen Spenden über dem Schwellenwert im gewählten Kalenderjahr."
+msgstr "Aucun don anonyme au-dessus du seuil pour l'année civile sélectionnée."
+
+msgid "Keine Anträge für diese Filter gefunden."
+msgstr "Aucune motion trouvée pour ces filtres."
+
+msgid "Keine Anwesenheit erfasst."
+msgstr "Aucune présence enregistrée."
+
+msgid "Keine Beiträge vorhanden."
+msgstr "Aucune cotisation disponible."
+
+msgid "Keine Beitragssätze vorhanden."
+msgstr "Aucun barème de cotisation disponible."
+
+msgid "Keine berechtigten Mitglieder gefunden."
+msgstr "Aucun membre éligible trouvé."
+
+msgid "Keine Berechtigung für diese Aktion."
+msgstr "Vous n'êtes pas autorisé(e) à effectuer cette action."
+
+msgid "Keine Berechtigung, Anträge einzureichen."
+msgstr "Vous n'êtes pas autorisé(e) à soumettre des motions."
+
+msgid "Keine Berechtigung, neue Sitzungen anzulegen."
+msgstr "Vous n'êtes pas autorisé(e) à créer de nouvelles séances."
+
+msgid "Keine Beschlüsse."
+msgstr "Aucune décision."
+
+msgid "Keine Buchungen für diesen Filter."
+msgstr "Aucune écriture pour ce filtre."
+
+msgid "Keine Buchungen im gewählten Zeitraum."
+msgstr "Aucune écriture sur la période sélectionnée."
+
+msgid "Keine Buchungen in diesem Abschnitt."
+msgstr "Aucune écriture dans cette section."
+
+msgid "Keine Buchungszeilen."
+msgstr "Aucune ligne d'écriture."
+
+msgid "Keine Daten in den registrierten Bereichen gefunden."
+msgstr "Aucune donnée trouvée dans les zones enregistrées."
+
+msgid "Keine Detaildaten für diesen Eintrag hinterlegt."
+msgstr "Aucune donnée détaillée enregistrée pour cette entrée."
+
+msgid "Keine Dokumente in diesem Ordner."
+msgstr "Aucun document dans ce dossier."
+
+msgid "Keine Einträge für diese Filter gefunden."
+msgstr "Aucune entrée trouvée pour ces filtres."
+
+msgid "Keine Einträge gefunden."
+msgstr "Aucune entrée trouvée."
+
+msgid "Keine Einträge im geprüften Bereich."
+msgstr "Aucune entrée dans la zone contrôlée."
+
+msgid "Keine Erinnerungen vorhanden."
+msgstr "Aucun rappel disponible."
+
+msgid "Keine fehlenden Angaben für das Transparenzregister."
+msgstr "Aucune information manquante pour le registre de transparence."
+
+msgid "Keine freigegebenen Stream-Ziele vorhanden -- bitte eine Administratorin oder einen Administrator kontaktieren."
+msgstr "Aucune destination de diffusion validée -- veuillez contacter une administratrice ou un administrateur."
+
+msgid "Keine Gebote abgegeben."
+msgstr "Aucune offre déposée."
+
+msgid "Keine geplante Sitzung für dieses Gremium verfügbar -- zuerst auf \"Sitzungen\" eine anlegen."
+msgstr "Aucune séance planifiée pour cet organe -- créez-en d'abord une via « Séances »."
+
+msgid "Keine Kostenstelle mit Buchungen im gewählten Zeitraum."
+msgstr "Aucun centre de coûts avec des écritures sur la période sélectionnée."
+
+msgid "Keine Meldung erforderlich"
+msgstr "Aucune déclaration requise"
+
+msgid "Keine Mitglieder vorhanden, denen eine Spende gutgeschrieben werden könnte."
+msgstr "Aucun membre disponible auquel créditer un don."
+
+msgid "Keine Mitglieder vorhanden."
+msgstr "Aucun membre disponible."
+
+msgid "Keine offenen Anträge."
+msgstr "Aucune motion en attente."
+
+msgid "Keine offenen Beiträge."
+msgstr "Aucune cotisation en attente."
+
+msgid "Keine offenen Melde-/Offenlegungspflichten im gewählten Kalenderjahr."
+msgstr "Aucune obligation de déclaration ou de publication en attente pour l'année civile sélectionnée."
+
+msgid "Keine Tagesordnungspunkte."
+msgstr "Aucun point à l'ordre du jour."
+
+msgid "Keine Treffer."
+msgstr "Aucun résultat."
+
+msgid "Kennzahlen"
+msgstr "Indicateurs"
+
+msgid "Kette prüfen"
+msgstr "Vérifier la chaîne"
+
+msgid "Ketten-Integrität prüfen"
+msgstr "Vérifier l'intégrité de la chaîne"
+
+msgid "Kommunikation"
+msgstr "Communication"
+
+msgid "Konfiguration"
+msgstr "Configuration"
+
+msgid "Konfiguration bearbeiten (ADMIN)"
+msgstr "Modifier la configuration (ADMIN)"
+
+msgid "Konfiguration speichern"
+msgstr "Enregistrer la configuration"
+
+msgid "Konten (SKR42 Kontenplan)"
+msgstr "Comptes (plan comptable SKR42)"
+
+msgid "Kontenklasse"
+msgstr "Classe de compte"
+
+msgid "Kontenklasse (erste Ziffer der Kontonummer, 0-9)"
+msgstr "Classe de compte (premier chiffre du numéro de compte, 0-9)"
+
+msgid "Kontenklasse %1"
+msgstr "Classe de compte %1"
+
+msgid "Kontenplan & Journal"
+msgstr "Plan comptable et journal"
+
+msgid "Konto"
+msgstr "Compte"
+
+msgid "Konto \"%1 · %2\" wurde angelegt."
+msgstr "Le compte « %1 · %2 » a été créé."
+
+msgid "Konto (ID)"
+msgstr "Compte (ID)"
+
+msgid "Konto anlegen"
+msgstr "Créer un compte"
+
+msgid "Konto deaktivieren"
+msgstr "Désactiver le compte"
+
+msgid "Konto oben auswählen, um Hauptbuch/Kassenbuch zu sehen."
+msgstr "Sélectionnez un compte ci-dessus pour afficher le grand livre / livre de caisse."
+
+msgid "Konto wurde deaktiviert."
+msgstr "Le compte a été désactivé."
+
+msgid "Kontodetails"
+msgstr "Détails du compte"
+
+msgid "Kontonummer (SKR42)"
+msgstr "Numéro de compte (SKR42)"
+
+msgid "Kontotyp"
+msgstr "Type de compte"
+
+msgid "Konvertieren"
+msgstr "Convertir"
+
+msgid "Konvertierung ausgeführt."
+msgstr "Conversion effectuée."
+
+msgid "Korb"
+msgstr "Panier"
+
+msgid "Körperschaft des öffentlichen Rechts"
+msgstr "Personne morale de droit public"
+
+msgid "Korrekturübertragung ausführen"
+msgstr "Effectuer un transfert de correction"
+
+msgid "Korrekturübertragung ausgeführt: %1."
+msgstr "Transfert de correction effectué : %1."
+
+msgid "Kostenstelle"
+msgstr "Centre de coûts"
+
+msgid "Kostenstelle \"%1 · %2\" wurde angelegt."
+msgstr "Le centre de coûts « %1 · %2 » a été créé."
+
+msgid "Kostenstelle anlegen"
+msgstr "Créer un centre de coûts"
+
+msgid "Kostenstelle deaktivieren"
+msgstr "Désactiver le centre de coûts"
+
+msgid "Kostenstelle wurde deaktiviert."
+msgstr "Le centre de coûts a été désactivé."
+
+msgid "Kostenstellen"
+msgstr "Centres de coûts"
+
+msgid "Kostenstellenbericht"
+msgstr "Rapport par centre de coûts"
+
+msgid "Kritisch"
+msgstr "Critique"
+
+msgid "Kumuliertes Ergebnis (seit Gründung)"
+msgstr "Résultat cumulé (depuis la fondation)"
+
+msgid "Kumuliertes Ergebnis (Σ Einnahmen − Ausgaben seit Gründung)"
+msgstr "Résultat cumulé (Σ recettes − dépenses depuis la fondation)"
+
+msgid "Kurs abrufen"
+msgstr "Récupérer le cours"
+
+msgid "Kurs-Status:"
+msgstr "Statut du cours :"
+
+msgid "Kurs: %1 je %2 (Status: %3, %4 Quelle(n): %5)"
+msgstr "Cours : %1 par %2 (statut : %3, %4 source(s) : %5)"
+
+msgid "Laden"
+msgstr "Charger"
+
+msgid "Lädt ein vollständiges ZIP-Backup aller Organisationsdaten herunter. Rein lesend und nicht destruktiv -- daher ohne Bestätigungsdialog."
+msgstr "Télécharge une sauvegarde ZIP complète de toutes les données de l'organisation. Opération purement en lecture et non destructive -- sans boîte de dialogue de confirmation."
+
+msgid "Land (optional)"
+msgstr "Pays (facultatif)"
+
+msgid "Latenz"
+msgstr "Latence"
+
+msgid "laufend"
+msgstr "en cours"
+
+msgid "läuft"
+msgstr "en cours"
+
+msgid "Laufzeit in Stunden (z. B. 24)"
+msgstr "Durée en heures (p. ex. 24)"
+
+msgid "Layout"
+msgstr "Disposition"
+
+msgid "Legal Hold aktiv -- Löschung darf nicht ausgeführt werden."
+msgstr "Conservation légale active -- la suppression ne peut pas être exécutée."
+
+msgid "Legt ein Mitglied ohne Antrags-/Freigabeschritt an (z. B. für Beitritte auf Papier oder Datenmigration) -- Status sofort AKTIV."
+msgstr "Crée un membre sans étape de demande/validation (p. ex. pour les adhésions papier ou une migration de données) -- statut immédiatement ACTIF."
+
+msgid "Like"
+msgstr "J'aime"
+
+msgid "Like: %1 · Dislike: %2 · Verteilungs-Korb: %3"
+msgstr "J'aime : %1 · Je n'aime pas : %2 · Panier de répartition : %3"
+
+msgid "Liste verwalten"
+msgstr "Gérer la liste"
+
+msgid "Live"
+msgstr "En direct"
+
+msgid "Live-Stream"
+msgstr "Diffusion en direct"
+
+msgid "Live-Stream beenden"
+msgstr "Arrêter la diffusion en direct"
+
+msgid "Live-Stream beendet."
+msgstr "Diffusion en direct arrêtée."
+
+msgid "Live-Stream fehlgeschlagen."
+msgstr "Échec de la diffusion en direct."
+
+msgid "Live-Stream gestartet von %1 um %2:%3 · %4"
+msgstr "Diffusion en direct démarrée par %1 à %2:%3 · %4"
+
+msgid "Live-Stream starten"
+msgstr "Démarrer la diffusion en direct"
+
+msgid "Live-Stream starten …"
+msgstr "Démarrage de la diffusion en direct…"
+
+msgid "Live-Stream wird beendet."
+msgstr "Arrêt de la diffusion en direct en cours."
+
+msgid "Live-Stream wird gestartet."
+msgstr "Démarrage de la diffusion en direct en cours."
+
+msgid "Live-Stream:"
+msgstr "Diffusion en direct :"
+
+msgid "Löschen"
+msgstr "Supprimer"
+
+msgid "Löschung abgelehnt"
+msgstr "Suppression refusée"
+
+msgid "Löschung ausgeführt"
+msgstr "Suppression effectuée"
+
+msgid "Löschung beantragen"
+msgstr "Demander la suppression"
+
+msgid "Löschung beantragt"
+msgstr "Suppression demandée"
+
+msgid "Löschung endgültig ausführen"
+msgstr "Exécuter définitivement la suppression"
+
+msgid "Löschung genehmigt"
+msgstr "Suppression approuvée"
+
+msgid "Löschung wurde ausgeführt."
+msgstr "La suppression a été effectuée."
+
+msgid "Löschung wurde beantragt."
+msgstr "La suppression a été demandée."
+
+msgid "LTR gutschreiben"
+msgstr "Créditer des LTR"
+
+msgid "LTR gutschreiben (Mint)"
+msgstr "Créditer des LTR (émission)"
+
+msgid "LTR senden"
+msgstr "Envoyer des LTR"
+
+msgid "LTR übertragen"
+msgstr "Transférer des LTR"
+
+msgid "LTR-Konto"
+msgstr "Compte LTR"
+
+msgid "LTR-Übertragung bestätigen"
+msgstr "Confirmer le transfert de LTR"
+
+msgid "Mailingliste"
+msgstr "Liste de diffusion"
+
+msgid "Mailingliste \"%1\" wurde angelegt."
+msgstr "La liste de diffusion « %1 » a été créée."
+
+msgid "Mailinglisten"
+msgstr "Listes de diffusion"
+
+msgid "Mailinglisten anlegen, Mitglieder gezielt eintragen und Nachrichten an eine Liste verschicken."
+msgstr "Créer des listes de diffusion, y inscrire des membres de façon ciblée et envoyer des messages à une liste."
+
+msgid "Mailinglisten verwalten"
+msgstr "Gérer les listes de diffusion"
+
+msgid "Mandatstext"
+msgstr "Texte du mandat"
+
+msgid "Mandatstext (optional)"
+msgstr "Texte du mandat (facultatif)"
+
+msgid "Mandatstext aktualisiert."
+msgstr "Texte du mandat mis à jour."
+
+msgid "Mandatstext speichern"
+msgstr "Enregistrer le texte du mandat"
+
+msgid "Manuelle Eintragung"
+msgstr "Saisie manuelle"
+
+msgid "Max. Spread"
+msgstr "Spread max."
+
+msgid "Max. Spread (Basispunkte, >= Ausreißer-Schwelle)"
+msgstr "Spread max. (points de base, >= seuil des valeurs aberrantes)"
+
+msgid "Maximal 50 Empfänger pro Versand."
+msgstr "Maximum 50 destinataires par envoi."
+
+msgid "Median-Kurs: %1"
+msgstr "Cours médian : %1"
+
+msgid "Mehr laden"
+msgstr "Charger plus"
+
+msgid "Meine Auktionen (als Verkäufer)"
+msgstr "Mes enchères (en tant que vendeur)"
+
+msgid "Meine Beiträge"
+msgstr "Mes cotisations"
+
+msgid "Meine Buchungen"
+msgstr "Mes écritures"
+
+msgid "Meine Daten"
+msgstr "Mes données"
+
+msgid "Meine Gebote"
+msgstr "Mes offres"
+
+msgid "Melde-/Offenlegungspflichten pro Spender"
+msgstr "Obligations de déclaration/publication par donateur"
+
+msgid "Meldung an Aufsichtsbehörde erforderlich (Ihre Entscheidung)"
+msgstr "Déclaration à l'autorité de contrôle requise (à votre appréciation)"
+
+msgid "Meldung an Aufsichtsbehörde erforderlich: %1"
+msgstr "Déclaration à l'autorité de contrôle requise : %1"
+
+msgid "Meldung erfolgt"
+msgstr "Déclaration effectuée"
+
+msgid "Meritokratische Vote eröffnen"
+msgstr "Ouvrir le vote méritocratique"
+
+msgid "Metadaten aller Auskunfts-/Löschvorgänge -- rein informativ, keine Aktionen auf dieser Liste."
+msgstr "Métadonnées de toutes les demandes d'accès et de suppression -- à titre purement informatif, aucune action possible sur cette liste."
+
+msgid "Mikro an"
+msgstr "Micro activé"
+
+msgid "Mikrofon an"
+msgstr "Microphone activé"
+
+msgid "Mikrofon aus"
+msgstr "Microphone désactivé"
+
+msgid "Mindest-Quorum"
+msgstr "Quorum minimal"
+
+msgid "Mindest-Quorum (Quellen, mind. 2)"
+msgstr "Quorum minimal (sources, min. 2)"
+
+msgid "Mindestens %1 Zeichen."
+msgstr "Au moins %1 caractères."
+
+msgid "Mindestens zwei Mitglieder erforderlich."
+msgstr "Au moins deux membres requis."
+
+msgid "Mitglied"
+msgstr "Membre"
+
+msgid "Mitglied (ID)"
+msgstr "Membre (ID)"
+
+msgid "Mitglied %1"
+msgstr "Membre %1"
+
+msgid "Mitglied anlegen"
+msgstr "Créer un membre"
+
+msgid "Mitglied direkt anlegen"
+msgstr "Créer un membre directement"
+
+msgid "Mitglied hinzufügen"
+msgstr "Ajouter un membre"
+
+msgid "Mitglied selbst"
+msgstr "Le membre lui-même"
+
+msgid "Mitglied werden"
+msgstr "Devenir membre"
+
+msgid "Mitglied wurde eingetragen."
+msgstr "Le membre a été inscrit."
+
+msgid "Mitglied wurde hinzugefügt."
+msgstr "Le membre a été ajouté."
+
+msgid "Mitglieder"
+msgstr "Membres"
+
+msgid "Mitglieder anzeigen"
+msgstr "Afficher les membres"
+
+msgid "Mitglieder und Gäste können ab sofort Politiker-Profile einsehen und bewerten; BOARD/ADMIN können Politiker-Status erteilen/widerrufen."
+msgstr "Les membres et les invités peuvent désormais consulter et évaluer les profils de personnalités politiques ; BOARD/ADMIN peuvent accorder ou révoquer le statut de personnalité politique."
+
+msgid "Mitglieder-Gewicht"
+msgstr "Poids des membres"
+
+msgid "Mitglieder-Gewicht (LTR-gewichtet)"
+msgstr "Poids des membres (pondéré en LTR)"
+
+msgid "Mitglieder: Like %1 / Dislike %2 · Gäste: Like %3 / Dislike %4"
+msgstr "Membres : J'aime %1 / Je n'aime pas %2 · Invités : J'aime %3 / Je n'aime pas %4"
+
+msgid "Mitgliederverwaltung"
+msgstr "Gestion des membres"
+
+msgid "Mitgliederverzeichnis"
+msgstr "Annuaire des membres"
+
+msgid "Mitgliedschaft"
+msgstr "Adhésion"
+
+msgid "Mitgliedschaft beenden"
+msgstr "Mettre fin à l'adhésion"
+
+msgid "Mitgliedschaft von \"%1\" (%2) wirklich beenden?"
+msgstr "Voulez-vous vraiment mettre fin à l'adhésion de « %1 » (%2) ?"
+
+msgid "Mitgliedschaft von \"%1\" wirklich beenden?"
+msgstr "Voulez-vous vraiment mettre fin à l'adhésion de « %1 » ?"
+
+msgid "Mitgliedschaft von %1 wurde beendet."
+msgstr "L'adhésion de %1 a été résiliée."
+
+msgid "Mittel"
+msgstr "Fonds"
+
+msgid "Mittelverwendung"
+msgstr "Emploi des fonds"
+
+msgid "Mittelverwendung nach Sphäre (informativ)"
+msgstr "Emploi des fonds par sphère (informatif)"
+
+msgid "Mittelverwendungsrechnung"
+msgstr "Compte d'emploi des fonds"
+
+msgid "Mittelverwendungsrechnung (§55/§62 AO)"
+msgstr "Compte d'emploi des fonds (§55/§62 AO)"
+
+msgid "Mittelvortrag"
+msgstr "Report des fonds"
+
+msgid "Mittelzufluss"
+msgstr "Entrée de fonds"
+
+msgid "Mittelzufluss nach Sphäre (informativ)"
+msgstr "Entrée de fonds par sphère (informatif)"
+
+msgid "Möchten Sie Ihre Mitgliedschaft wirklich beenden? Dies ist nicht rückgängig zu machen -- Sie werden abgemeldet und können sich nicht erneut mit diesem Konto anmelden."
+msgstr "Voulez-vous vraiment mettre fin à votre adhésion ? Cette action est irréversible -- vous serez déconnecté(e) et ne pourrez plus vous reconnecter avec ce compte."
+
+msgid "Moderator"
+msgstr "Modérateur"
+
+msgid "Moderator:"
+msgstr "Modérateur :"
+
+msgid "Monat"
+msgstr "Mois"
+
+msgid "Monat (JJJJ-MM-TT, Tag wird ignoriert)"
+msgstr "Mois (AAAA-MM-JJ, le jour est ignoré)"
+
+msgid "Monatliche Verteilung berechnen"
+msgstr "Calculer la répartition mensuelle"
+
+msgid "Nachher"
+msgstr "Après"
+
+msgid "Nachricht"
+msgstr "Message"
+
+msgid "Nachricht \"%1\" wurde gesendet."
+msgstr "Le message « %1 » a été envoyé."
+
+msgid "Nachricht senden"
+msgstr "Envoyer le message"
+
+msgid "Nachrichten"
+msgstr "Messages"
+
+msgid "Name"
+msgstr "Nom"
+
+msgid "Natürliche Person außerhalb der EU"
+msgstr "Personne physique hors UE"
+
+msgid "Nein"
+msgstr "Non"
+
+msgid "Nein-Stimmen"
+msgstr "Voix contre"
+
+msgid "Neue Angebote können ebenfalls nicht erstellt werden, bis ein ADMIN die Auktion erneut aktiviert."
+msgstr "Aucune nouvelle offre ne peut non plus être créée tant qu'un ADMIN n'a pas réactivé l'enchère."
+
+msgid "Neue Besprechung"
+msgstr "Nouvelle réunion"
+
+msgid "Neue Buchung"
+msgstr "Nouvelle écriture"
+
+msgid "Neue Datenpanne melden"
+msgstr "Signaler une nouvelle violation de données"
+
+msgid "Neue DSFA anlegen"
+msgstr "Créer une nouvelle AIPD"
+
+msgid "Neue Kostenstelle anlegen"
+msgstr "Créer un nouveau centre de coûts"
+
+msgid "Neue Mailingliste anlegen"
+msgstr "Créer une nouvelle liste de diffusion"
+
+msgid "Neue Sitzung anlegen"
+msgstr "Créer une nouvelle séance"
+
+msgid "Neue TOM anlegen"
+msgstr "Créer une nouvelle MTO"
+
+msgid "Neue Version hochladen"
+msgstr "Téléverser une nouvelle version"
+
+msgid "Neuen Antrag einreichen"
+msgstr "Soumettre une nouvelle motion"
+
+msgid "Neuen AVV-Eintrag anlegen"
+msgstr "Créer un nouveau contrat de sous-traitance"
+
+msgid "Neuen Spender anlegen"
+msgstr "Créer un nouveau donateur"
+
+msgid "Neuer Dokumenttitel"
+msgstr "Nouveau titre de document"
+
+msgid "Neuer Ordnername"
+msgstr "Nouveau nom de dossier"
+
+msgid "Neuer Stream-Schlüssel (leer lassen = unverändert lassen)"
+msgstr "Nouvelle clé de diffusion (laisser vide = ne pas modifier)"
+
+msgid "Neues Angebot erstellen"
+msgstr "Créer une nouvelle offre"
+
+msgid "Neues Gremium anlegen"
+msgstr "Créer un nouvel organe"
+
+msgid "Neues Konto anlegen"
+msgstr "Créer un nouveau compte"
+
+msgid "Neues Passwort"
+msgstr "Nouveau mot de passe"
+
+msgid "Neues Passwort (mind. %1 Zeichen)"
+msgstr "Nouveau mot de passe (min. %1 caractères)"
+
+msgid "Neues Passwort bestätigen"
+msgstr "Confirmer le nouveau mot de passe"
+
+msgid "Neues Passwort erfüllt nicht die Anforderungen (mind. 12, max. 128 Zeichen, nicht die E-Mail-Adresse)."
+msgstr "Le nouveau mot de passe ne respecte pas les exigences (min. 12, max. 128 caractères, différent de l'adresse e-mail)."
+
+msgid "Neues Passwort setzen"
+msgstr "Définir un nouveau mot de passe"
+
+msgid "Neues Projekt einreichen"
+msgstr "Soumettre un nouveau projet"
+
+msgid "Neues Stream-Ziel anlegen"
+msgstr "Créer une nouvelle destination de diffusion"
+
+msgid "Nicht festgelegt"
+msgstr "Non défini"
+
+msgid "Nicht gefunden."
+msgstr "Introuvable."
+
+msgid "Niedrig"
+msgstr "Faible"
+
+msgid "Niedrige Latenz"
+msgstr "Faible latence"
+
+msgid "niemand zugewiesen"
+msgstr "personne assigné"
+
+msgid "Noch kein Gewichtsverlauf vorhanden."
+msgstr "Aucun historique de poids disponible pour le moment."
+
+msgid "Noch kein Konto? Jetzt Mitglied werden."
+msgstr "Pas encore de compte ? Devenez membre dès maintenant."
+
+msgid "Noch keine Abonnentinnen und Abonnenten."
+msgstr "Aucun abonné pour le moment."
+
+msgid "Noch keine aktiven Konten -- zuerst oben mindestens zwei Konten anlegen."
+msgstr "Aucun compte actif pour le moment -- créez d'abord au moins deux comptes ci-dessus."
+
+msgid "Noch keine Anträge vorhanden."
+msgstr "Aucune motion pour le moment."
+
+msgid "Noch keine Anwesenheit erfasst."
+msgstr "Aucune présence enregistrée pour le moment."
+
+msgid "Noch keine Aufzeichnungen."
+msgstr "Aucun enregistrement pour le moment."
+
+msgid "Noch keine Auktionen vorhanden."
+msgstr "Aucune enchère pour le moment."
+
+msgid "Noch keine AVV-Einträge angelegt."
+msgstr "Aucun contrat de sous-traitance créé pour le moment."
+
+msgid "Noch keine Beschlüsse erfasst."
+msgstr "Aucune décision enregistrée pour le moment."
+
+msgid "Noch keine Bestätigung des rechtlichen Hinweistexts erfolgt."
+msgstr "Aucune confirmation de la mention légale pour le moment."
+
+msgid "Noch keine Buchungen."
+msgstr "Aucune écriture pour le moment."
+
+msgid "Noch keine Datenpannen erfasst."
+msgstr "Aucune violation de données enregistrée pour le moment."
+
+msgid "Noch keine DSFA-Einträge angelegt."
+msgstr "Aucune entrée d'AIPD créée pour le moment."
+
+msgid "Noch keine Export-/Wiederherstellungsversuche protokolliert."
+msgstr "Aucune tentative d'exportation ou de restauration consignée pour le moment."
+
+msgid "Noch keine externen Spender angelegt."
+msgstr "Aucun donateur externe créé pour le moment."
+
+msgid "noch keine Gebote, Startpreis: %1"
+msgstr "aucune offre pour le moment, prix de départ : %1"
+
+msgid "Noch keine Gremien vorhanden."
+msgstr "Aucun organe pour le moment."
+
+msgid "Noch keine Konten angelegt."
+msgstr "Aucun compte créé pour le moment."
+
+msgid "Noch keine Kostenstellen angelegt."
+msgstr "Aucun centre de coûts créé pour le moment."
+
+msgid "Noch keine Mailinglisten."
+msgstr "Aucune liste de diffusion pour le moment."
+
+msgid "Noch keine Mitglieder in diesem Gremium."
+msgstr "Aucun membre dans cet organe pour le moment."
+
+msgid "Noch keine Nachrichten."
+msgstr "Aucun message pour le moment."
+
+msgid "Noch keine Notizen."
+msgstr "Aucune note pour le moment."
+
+msgid "Noch keine Ordner vorhanden."
+msgstr "Aucun dossier pour le moment."
+
+msgid "Noch keine Politiker-Profile vorhanden."
+msgstr "Aucun profil de personnalité politique pour le moment."
+
+msgid "Noch keine postalischen Versandvorgänge protokolliert."
+msgstr "Aucun envoi postal consigné pour le moment."
+
+msgid "Noch keine Projekte eingereicht."
+msgstr "Aucun projet soumis pour le moment."
+
+msgid "Noch keine Sitzungen vorhanden."
+msgstr "Aucune séance pour le moment."
+
+msgid "Noch keine Stream-Ziele angelegt."
+msgstr "Aucune destination de diffusion créée pour le moment."
+
+msgid "Noch keine Tagesordnungspunkte."
+msgstr "Aucun point à l'ordre du jour pour le moment."
+
+msgid "Noch keine TOM-Einträge angelegt."
+msgstr "Aucune entrée de MTO créée pour le moment."
+
+msgid "Noch keine Version hochgeladen."
+msgstr "Aucune version téléversée pour le moment."
+
+msgid "Noch keine Verteilung berechnet."
+msgstr "Aucune répartition calculée pour le moment."
+
+msgid "Noch nicht festgelegt"
+msgstr "Pas encore défini"
+
+msgid "Noch niemand verbunden."
+msgstr "Personne n'est encore connecté."
+
+msgid "Notiz (optional)"
+msgstr "Note (facultatif)"
+
+msgid "Notiz / erstellt von"
+msgstr "Note / créée par"
+
+msgid "Notizblock darf nicht leer sein."
+msgstr "Le bloc-notes ne doit pas être vide."
+
+msgid "Notizblock entfernt."
+msgstr "Bloc-notes supprimé."
+
+msgid "Notizblock hinzufügen"
+msgstr "Ajouter un bloc-notes"
+
+msgid "Notizblock ist zu lang (max. %1 Zeichen)."
+msgstr "Le bloc-notes est trop long (max. %1 caractères)."
+
+msgid "Notizen"
+msgstr "Notes"
+
+msgid "Notizen (optional)"
+msgstr "Notes (facultatif)"
+
+msgid "Notizen als Dokument gespeichert."
+msgstr "Notes enregistrées en tant que document."
+
+msgid "Notizen als Dokument speichern"
+msgstr "Enregistrer les notes en tant que document"
+
+msgid "Nr."
+msgstr "N°"
+
+msgid "Nummer"
+msgstr "Numéro"
+
+msgid "Nur aktive Profile"
+msgstr "Uniquement les profils actifs"
+
+msgid "Nur bei Kontotyp „Aktivkonto\" wählbar."
+msgstr "Sélectionnable uniquement pour le type de compte « Compte d'actif »."
+
+msgid "Nur bei Kontotyp „Eigenkapitalkonto\" wählbar."
+msgstr "Sélectionnable uniquement pour le type de compte « Compte de capitaux propres »."
+
+msgid "Nur Mitglieder"
+msgstr "Membres uniquement"
+
+msgid "Obergrenze speichern"
+msgstr "Enregistrer le plafond"
+
+msgid "Offen"
+msgstr "Ouvert"
+
+msgid "Offen: %1 | Bezahlt: %2 | Gesamt: %3"
+msgstr "Ouvert : %1 | Payé : %2 | Total : %3"
+
+msgid "Offene Anträge"
+msgstr "Motions en attente"
+
+msgid "Offenlegungspflicht (Rechenschaftsbericht)"
+msgstr "Obligation de publication (rapport de gestion)"
+
+msgid "Ohne diese Option lehnt der Server die Wiederherstellung ab, sobald die Zielorganisation nicht leer ist -- das ist der sichere Standardpfad. Aktivieren Sie diese Option nur, wenn Sie absichtlich in eine bereits befüllte Organisation wiederherstellen wollen."
+msgstr "Sans cette option, le serveur refuse la restauration dès que l'organisation cible n'est pas vide -- il s'agit du comportement sûr par défaut. N'activez cette option que si vous souhaitez délibérément restaurer dans une organisation déjà remplie."
+
+msgid "Ohne Referenz (z. B. Gutschrift)"
+msgstr "Sans référence (p. ex. avoir)"
+
+msgid "Option"
+msgstr "Option"
+
+msgid "Optionen (kommagetrennt, mind. 2)"
+msgstr "Options (séparées par des virgules, min. 2)"
+
+msgid "Orakel angehalten (HALT) -- kein aktueller Kurs verfügbar."
+msgstr "Oracle à l'arrêt (HALT) -- aucun cours actuel disponible."
+
+msgid "Orakel-Konfiguration aktualisiert."
+msgstr "Configuration de l'oracle mise à jour."
+
+msgid "Ordner"
+msgstr "Dossier"
+
+msgid "Ordner \"%1\" angelegt."
+msgstr "Dossier « %1 » créé."
+
+msgid "Ordner anlegen"
+msgstr "Créer un dossier"
+
+msgid "Ort"
+msgstr "Lieu"
+
+msgid "Ort (optional)"
+msgstr "Lieu (facultatif)"
+
+msgid "Ort: %1"
+msgstr "Lieu : %1"
+
+msgid "Owncast"
+msgstr "Owncast"
+
+msgid "Passiva"
+msgstr "Passif"
+
+msgid "Passivkonto"
+msgstr "Compte de passif"
+
+msgid "Passwort"
+msgstr "Mot de passe"
+
+msgid "Passwort (mind. %1 Zeichen)"
+msgstr "Mot de passe (min. %1 caractères)"
+
+msgid "Passwort ändern"
+msgstr "Modifier le mot de passe"
+
+msgid "Passwort bestätigen"
+msgstr "Confirmer le mot de passe"
+
+msgid "Passwort geändert."
+msgstr "Mot de passe modifié."
+
+msgid "Passwort vergessen?"
+msgstr "Mot de passe oublié ?"
+
+msgid "Passwort wurde geändert -- bitte melden Sie sich neu an."
+msgstr "Le mot de passe a été modifié -- veuillez vous reconnecter."
+
+msgid "Peer-Transfer"
+msgstr "Transfert entre pairs"
+
+msgid "PeerTube"
+msgstr "PeerTube"
+
+msgid "Peg (Einheiten je LTR)"
+msgstr "Ancrage (unités par LTR)"
+
+msgid "Peg: Einheiten des Anker-Assets je LTR"
+msgstr "Ancrage : unités de l'actif de référence par LTR"
+
+msgid "Per Post versenden"
+msgstr "Envoyer par courrier"
+
+msgid "Periodenbeginn (JJJJ-MM-TT)"
+msgstr "Début de période (AAAA-MM-JJ)"
+
+msgid "Periodenende (JJJJ-MM-TT)"
+msgstr "Fin de période (AAAA-MM-JJ)"
+
+msgid "Person (nur bei \"Einzelne Person\")"
+msgstr "Personne (uniquement pour « Personne physique »)"
+
+msgid "Pflicht"
+msgstr "Obligatoire"
+
+msgid "Pflichten"
+msgstr "Obligations"
+
+msgid "Pflichten:"
+msgstr "Obligations :"
+
+msgid "Plattform"
+msgstr "Plateforme"
+
+msgid "PLZ (optional)"
+msgstr "Code postal (facultatif)"
+
+msgid "Politiker"
+msgstr "Personnalité politique"
+
+msgid "Politiker-Profile"
+msgstr "Profils de personnalités politiques"
+
+msgid "Politiker-Profile konnten nicht geladen werden."
+msgstr "Impossible de charger les profils de personnalités politiques."
+
+msgid "Politiker-Ranking aktivieren"
+msgstr "Activer le classement des personnalités politiques"
+
+msgid "Politiker-Ranking aktiviert."
+msgstr "Classement des personnalités politiques activé."
+
+msgid "Politiker-Ranking deaktivieren"
+msgstr "Désactiver le classement des personnalités politiques"
+
+msgid "Politiker-Ranking deaktiviert."
+msgstr "Classement des personnalités politiques désactivé."
+
+msgid "Politiker-Ranking:"
+msgstr "Classement des personnalités politiques :"
+
+msgid "Politiker-Status erteilen"
+msgstr "Accorder le statut de personnalité politique"
+
+msgid "Politiker-Status für %1 erteilt."
+msgstr "Statut de personnalité politique accordé à %1."
+
+msgid "Politiker-Status seit %1 (erteilt von %2)"
+msgstr "Statut de personnalité politique depuis %1 (accordé par %2)"
+
+msgid "Politiker-Status von %1 widerrufen."
+msgstr "Statut de personnalité politique de %1 révoqué."
+
+msgid "Politiker-Status widerrufen"
+msgstr "Révoquer le statut de personnalité politique"
+
+msgid "Politiker-Status widerrufen bestätigen"
+msgstr "Confirmer la révocation du statut de personnalité politique"
+
+msgid "Position"
+msgstr "Position"
+
+msgid "Position auf der Tagesordnung"
+msgstr "Position à l'ordre du jour"
+
+msgid "Postfach"
+msgstr "Boîte aux lettres"
+
+msgid "Postversand"
+msgstr "Envoi postal"
+
+msgid "Postversand an %1 ist fehlgeschlagen: %2"
+msgstr "L'envoi postal à %1 a échoué : %2"
+
+msgid "Postversand fehlgeschlagen."
+msgstr "Échec de l'envoi postal."
+
+msgid "Postversand ist auf %1 Empfänger begrenzt (aktuell ausgewählt: %2) -- für mehr Empfänger bitte das PDF herunterladen und selbst verteilen."
+msgstr "L'envoi postal est limité à %1 destinataires (actuellement sélectionnés : %2) -- pour davantage de destinataires, veuillez télécharger le PDF et le distribuer vous-même."
+
+msgid "Postversand ist derzeit deaktiviert --"
+msgstr "L'envoi postal est actuellement désactivé --"
+
+msgid "Postversand ist derzeit deaktiviert (`OrganizationSettings.postalMailEnabled = false`) -- alle Versandaktionen (Beitragsrechnung, Spendenbescheinigung, Einladung) schlagen fehl, bis eine Administratorin oder ein Administrator dies aktiviert. Diese Einstellung hat in dieser Version noch keine eigene Oberfläche."
+msgstr "L'envoi postal est actuellement désactivé (`OrganizationSettings.postalMailEnabled = false`) -- toutes les actions d'envoi (facture de cotisation, attestation de don, invitation) échouent tant qu'une administratrice ou un administrateur ne l'a pas activé. Ce paramètre ne dispose pas encore d'une interface dédiée dans cette version."
+
+msgid "Postversand-Übersicht"
+msgstr "Aperçu des envois postaux"
+
+msgid "Preis: %1 LTR (Vickrey-Zweitpreis)"
+msgstr "Prix : %1 LTR (enchère de Vickrey au second prix)"
+
+msgid "Preisstand: %1:%2:%3 Uhr"
+msgstr "Cours à : %1:%2:%3"
+
+msgid "Price-Oracle"
+msgstr "Oracle de prix"
+
+msgid "Privatverkauf"
+msgstr "Vente privée"
+
+msgid "Projekt"
+msgstr "Projet"
+
+msgid "Projekt \"%1\" abgelehnt."
+msgstr "Projet « %1 » rejeté."
+
+msgid "Projekt \"%1\" eingereicht."
+msgstr "Projet « %1 » soumis."
+
+msgid "Projekt \"%1\" genehmigt."
+msgstr "Projet « %1 » approuvé."
+
+msgid "Projekt ablehnen"
+msgstr "Rejeter le projet"
+
+msgid "Projekt einreichen"
+msgstr "Soumettre le projet"
+
+msgid "Projekt genehmigen"
+msgstr "Approuver le projet"
+
+msgid "Projekte"
+msgstr "Projets"
+
+msgid "Projekteinsatz"
+msgstr "Financement du projet"
+
+msgid "Projekteinsatz freigegeben"
+msgstr "Financement du projet libéré"
+
+msgid "Projektrücklage (%1)"
+msgstr "Réserve de projet (%1)"
+
+msgid "Protokoll"
+msgstr "Procès-verbal"
+
+msgid "Protokoll aller bisherigen Export-/Wiederherstellungsversuche -- rein informativ, keine Aktionen auf dieser Liste."
+msgstr "Journal de toutes les tentatives d'exportation et de restauration effectuées -- à titre purement informatif, aucune action possible sur cette liste."
+
+msgid "Protokoll aller bisherigen postalischen Versandvorgänge -- rein informativ, keine Aktionen auf dieser Liste. Neue Versandvorgänge werden direkt bei der jeweiligen Beitragsrechnung, Spendenbescheinigung oder Sitzungseinladung ausgelöst."
+msgstr "Journal de tous les envois postaux effectués -- à titre purement informatif, aucune action possible sur cette liste. De nouveaux envois sont déclenchés directement depuis la facture de cotisation, l'attestation de don ou l'invitation à la séance concernée."
+
+msgid "Protokoll: %1"
+msgstr "Procès-verbal : %1"
+
+msgid "Protokollentwurf erzeugen"
+msgstr "Générer un projet de procès-verbal"
+
+msgid "Protokollführung (optional)"
+msgstr "Rédaction du procès-verbal (facultatif)"
+
+msgid "Protokollführung: %1"
+msgstr "Rédaction du procès-verbal : %1"
+
+msgid "Protokolliert von (ID)"
+msgstr "Consigné par (ID)"
+
+msgid "Prüfergebnis"
+msgstr "Résultat du contrôle"
+
+msgid "Prüfprotokoll"
+msgstr "Journal de contrôle"
+
+msgid "Prüftermin (JJJJ-MM-TT, optional)"
+msgstr "Date de contrôle (AAAA-MM-JJ, facultatif)"
+
+msgid "Prüftermin überschritten -- als inaktiv markiert, bis neu geprüft."
+msgstr "Date de contrôle dépassée -- marqué comme inactif jusqu'à un nouveau contrôle."
+
+msgid "Prüftermin: %1"
+msgstr "Date de contrôle : %1"
+
+msgid "Prüfung"
+msgstr "Contrôle"
+
+msgid "Quellen: %1"
+msgstr "Sources : %1"
+
+msgid "Quorum erreicht"
+msgstr "Quorum atteint"
+
+msgid "Quorum in % (0-100)"
+msgstr "Quorum en % (0-100)"
+
+msgid "Quorum nicht erreicht"
+msgstr "Quorum non atteint"
+
+msgid "Quorum: %1%"
+msgstr "Quorum : %1%"
+
+msgid "Radierer"
+msgstr "Gomme"
+
+msgid "Raum-Kennung aus Ihrer Einladung"
+msgstr "Identifiant de salle indiqué dans votre invitation"
+
+msgid "Räume erstellen und verteilen"
+msgstr "Créer et répartir des salles"
+
+msgid "Re-Aggregation derselben Einnahmen/Ausgaben-Buchungen wie die GuV nach den vier §§ 51-68 AO Gemeinnützigkeitssphären -- kein eigener Berichtszeitraum, die Summen stimmen für denselben Zeitraum exakt mit der GuV überein."
+msgstr "Réagrégation des mêmes écritures de recettes/dépenses que le compte de résultat, selon les quatre sphères d'intérêt général des §§ 51-68 AO -- pas de période de reporting propre, les totaux correspondent exactement à ceux du compte de résultat pour la même période."
+
+msgid "Reaktion gespeichert."
+msgstr "Réaction enregistrée."
+
+msgid "Reaktion zurückgezogen."
+msgstr "Réaction retirée."
+
+msgid "Rechnung (PDF)"
+msgstr "Facture (PDF)"
+
+msgid "Rechtsgrundlage: %1"
+msgstr "Base juridique : %1"
+
+msgid "Referenz"
+msgstr "Référence"
+
+msgid "Rein diagnostisch -- prüft die Orakel-Gesundheit, ohne LTR zu minten."
+msgstr "Purement diagnostique -- vérifie l'état de l'oracle sans émettre de LTR."
+
+msgid "Risikobewertung (optional)"
+msgstr "Évaluation des risques (facultatif)"
+
+msgid "Risikostufe"
+msgstr "Niveau de risque"
+
+msgid "Rohdaten ein-/ausblenden"
+msgstr "Afficher/masquer les données brutes"
+
+msgid "Rolle"
+msgstr "Rôle"
+
+msgid "Rolle: %1 · Sitzung gültig bis %2"
+msgstr "Rôle : %1 · Session valable jusqu'au %2"
+
+msgid "RTMP-Basis-URL"
+msgstr "URL RTMP de base"
+
+msgid "RTMP-URL Ihrer Owncast-Instanz, z. B. rtmp://owncast.example.org:1935/live"
+msgstr "URL RTMP de votre instance Owncast, p. ex. rtmp://owncast.example.org:1935/live"
+
+msgid "RTMP-URL Ihrer PeerTube-Instanz, z. B. rtmp://peertube.example.org:1935/live"
+msgstr "URL RTMP de votre instance PeerTube, p. ex. rtmp://peertube.example.org:1935/live"
+
+msgid "RTMP-Ziel-URL, z. B. für Facebook Live, LinkedIn Live oder Vimeo"
+msgstr "URL RTMP de destination, p. ex. pour Facebook Live, LinkedIn Live ou Vimeo"
+
+msgid "Rücklagenart"
+msgstr "Type de réserve"
+
+msgid "Rücklagenbewegungen (§62 AO)"
+msgstr "Mouvements de réserves (§62 AO)"
+
+msgid "Rücklagenzuführung"
+msgstr "Dotation aux réserves"
+
+msgid "Saldo"
+msgstr "Solde"
+
+msgid "Sämtliche Politiker-Funktionen (Profile, Bewertungen, Vergabe/Widerruf, Snapshot) sind bis zur erneuten Aktivierung nicht mehr erreichbar -- bestehende Profile/Bewertungen bleiben dabei erhalten, sie werden nur unerreichbar, nicht gelöscht."
+msgstr "Toutes les fonctions liées aux personnalités politiques (profils, évaluations, attribution/révocation, instantané) deviennent inaccessibles jusqu'à leur réactivation -- les profils et évaluations existants sont conservés, ils deviennent simplement inaccessibles et ne sont pas supprimés."
+
+msgid "Schadenshöhe"
+msgstr "Montant du préjudice"
+
+msgid "Schenkung"
+msgstr "Donation"
+
+msgid "Schiedsanordnungs-Referenz (Pflichtfeld)"
+msgstr "Référence de la décision d'arbitrage (champ obligatoire)"
+
+msgid "Schiedsverfahren-Korrekturübertragung"
+msgstr "Transfert de correction par arbitrage"
+
+msgid "Schiedsverfahren-Korrekturübertragung bestätigen"
+msgstr "Confirmer le transfert de correction par arbitrage"
+
+msgid "Schließen"
+msgstr "Fermer"
+
+msgid "Schlüssel gesetzt am %1 von %2"
+msgstr "Clé définie le %1 par %2"
+
+msgid "Schlusssaldo"
+msgstr "Solde final"
+
+msgid "Schlussstand"
+msgstr "État final"
+
+msgid "Schriftführung"
+msgstr "Secrétariat"
+
+msgid "Seit (JJJJ-MM-TT)"
+msgstr "Depuis (AAAA-MM-JJ)"
+
+msgid "seit %1"
+msgstr "depuis %1"
+
+msgid "seit Gründung"
+msgstr "depuis la fondation"
+
+msgid "Selbstverwaltung"
+msgstr "Autogestion"
+
+msgid "Senden"
+msgstr "Envoyer"
+
+msgid "Sendungsreferenz: %1"
+msgstr "Référence d'envoi : %1"
+
+msgid "Seq. %1"
+msgstr "Séq. %1"
+
+msgid "Sequenznummer %1"
+msgstr "Numéro de séquence %1"
+
+msgid "Sichtbar für ADMIN."
+msgstr "Visible pour ADMIN."
+
+msgid "Sichtbar für alle Mitglieder."
+msgstr "Visible pour tous les membres."
+
+msgid "Sichtbar für BOARD/ADMIN."
+msgstr "Visible pour BOARD/ADMIN."
+
+msgid "Sichtbar für TREASURER/BOARD/ADMIN."
+msgstr "Visible pour TREASURER/BOARD/ADMIN."
+
+msgid "Sichtbarkeit"
+msgstr "Visibilité"
+
+msgid "Sichtbarkeits-Gewicht (LTR)"
+msgstr "Poids de visibilité (LTR)"
+
+msgid "Sie"
+msgstr "Vous"
+
+msgid "Sie bieten %1 auf \"%2\" (%3). Ihr Gebot wird gegen den aktuellen Preis zum Zeitpunkt der Bestätigung ausgewertet, nicht den hier angezeigten -- der Preis kann sich seit dem letzten Abruf geändert haben."
+msgstr "Vous enchérissez %1 sur « %2 » (%3). Votre offre sera évaluée par rapport au prix actuel au moment de la confirmation, et non à celui affiché ici -- le prix peut avoir changé depuis la dernière actualisation."
+
+msgid "Sie buchen eine Spende von %1 für %2. Der aktuelle Kurs wird beim Bestätigen live abgefragt; der genaue LTR-Betrag steht erst nach Bestätigung fest."
+msgstr "Vous enregistrez un don de %1 pour %2. Le cours actuel sera récupéré en temps réel lors de la confirmation ; le montant exact en LTR ne sera connu qu'après confirmation."
+
+msgid "Sie führen jetzt."
+msgstr "Vous dirigez maintenant."
+
+msgid "Sie haben noch keine Auktionen eingestellt."
+msgstr "Vous n'avez pas encore mis d'enchère en ligne."
+
+msgid "Sie haben noch keine Gebote abgegeben."
+msgstr "Vous n'avez pas encore déposé d'offre."
+
+msgid "Sie haben noch nicht bewertet."
+msgstr "Vous n'avez pas encore évalué."
+
+msgid "Sie haben noch nicht reagiert."
+msgstr "Vous n'avez pas encore réagi."
+
+msgid "Sie kaufen \"%1\" sofort für %2."
+msgstr "Vous achetez « %1 » immédiatement pour %2."
+
+msgid "Sie können das Politiker-Ranking im Abschnitt \"Einstellungen\" unten aktivieren."
+msgstr "Vous pouvez activer le classement des personnalités politiques dans la section « Paramètres » ci-dessous."
+
+msgid "Sie nehmen als Teilnehmer teil."
+msgstr "Vous participez en tant que participant(e)."
+
+msgid "Sie sind ausgetreten."
+msgstr "Vous avez démissionné."
+
+msgid "Sie sind in einem Breakout-Raum."
+msgstr "Vous êtes dans une salle de sous-groupe."
+
+msgid "Sie sind Moderator"
+msgstr "Vous êtes modérateur/modératrice"
+
+msgid "Sie sind Moderator dieser Besprechung."
+msgstr "Vous êtes le/la modérateur/modératrice de cette réunion."
+
+msgid "Sie sind über Ihren eigenen Heimserver angemeldet. Geben Sie die Raum-Kennung aus Ihrer Einladung ein, um einer Besprechung auf diesem Server beizutreten."
+msgstr "Vous êtes connecté(e) via votre propre serveur d'origine. Saisissez l'identifiant de salle indiqué dans votre invitation pour rejoindre une réunion sur ce serveur."
+
+msgid "Sie sind zur Besprechung „%1\"%2 eingeladen.\n1. Melden Sie sich über Ihren eigenen Heimserver an.\n2. Öffnen Sie %3/#/conference\n3. Geben Sie dort diese Raum-Kennung ein: %4"
+msgstr "Vous êtes invité(e) à la réunion « %1 »%2.\n1. Connectez-vous via votre propre serveur d'origine.\n2. Ouvrez %3/#/conference\n3. Saisissez-y cet identifiant de salle : %4"
+
+msgid "Sie starten jetzt einen Live-Stream zu: %1. Diese Ziele sind sofort öffentlich sichtbar -- die Übertragung kann NICHT zurückgeholt werden, sobald Teilnehmende gesprochen haben."
+msgstr "Vous démarrez maintenant une diffusion en direct vers : %1. Ces destinations sont immédiatement visibles publiquement -- la retransmission ne peut PAS être annulée dès lors que des participants ont pris la parole."
+
+msgid "Sie überschreibt Daten mit dem Stand aus der hochgeladenen Datei. Bereits vorhandene Daten in der Zielorganisation können dabei verloren gehen."
+msgstr "Elle écrase les données avec l'état du fichier téléversé. Les données déjà présentes dans l'organisation cible peuvent alors être perdues."
+
+msgid "Sie übertragen %1 an %2 (%3). Es gibt keine Storno-/Widerruffunktion -- die einzige Korrekturmöglichkeit ist eine Schiedsverfahren-Korrekturübertragung durch TREASURER/BOARD/ADMIN."
+msgstr "Vous transférez %1 à %2 (%3). Il n'existe aucune fonction d'annulation/de révocation -- la seule possibilité de correction est un transfert de correction par arbitrage effectué par TREASURER/BOARD/ADMIN."
+
+msgid "Sie übertragen %1 von %2 an %3 (%4). Schiedsanordnungs-Referenz: „%5\"."
+msgstr "Vous transférez %1 de %2 à %3 (%4). Référence de la décision d'arbitrage : « %5 »."
+
+msgid "Sie wurden dem Breakout-Raum \"%1\" zugewiesen."
+msgstr "Vous avez été affecté(e) à la salle de sous-groupe « %1 »."
+
+msgid "Sie wurden in den Hauptraum zurückgeholt."
+msgstr "Vous avez été ramené(e) dans la salle principale."
+
+msgid "Sitzung"
+msgstr "Séance"
+
+msgid "Sitzung \"%1\" wurde angelegt."
+msgstr "La séance « %1 » a été créée."
+
+msgid "Sitzung (ID)"
+msgstr "Séance (ID)"
+
+msgid "Sitzung abgelaufen -- bitte erneut anmelden."
+msgstr "Session expirée -- veuillez vous reconnecter."
+
+msgid "Sitzung abgesagt."
+msgstr "Séance annulée."
+
+msgid "Sitzung absagen"
+msgstr "Annuler la séance"
+
+msgid "Sitzung als durchgeführt markiert."
+msgstr "Séance marquée comme tenue."
+
+msgid "Sitzung anlegen"
+msgstr "Créer une séance"
+
+msgid "Sitzung oben auswählen, um Details zu sehen."
+msgstr "Sélectionnez une séance ci-dessus pour afficher les détails."
+
+msgid "Sitzungen"
+msgstr "Séances"
+
+msgid "Sitzungsleitung (optional)"
+msgstr "Présidence de séance (facultatif)"
+
+msgid "Sitzungsleitung: %1"
+msgstr "Présidence de séance : %1"
+
+msgid "Snapshot auslösen"
+msgstr "Déclencher un instantané"
+
+msgid "Snapshot für %1 Profil(e) berechnet."
+msgstr "Instantané calculé pour %1 profil(s)."
+
+msgid "Sofort kaufen"
+msgstr "Acheter immédiatement"
+
+msgid "Sofort kaufen für %1"
+msgstr "Acheter immédiatement pour %1"
+
+msgid "Sofortkauf abgeschlossen: \"%1\" für %2."
+msgstr "Achat immédiat conclu : « %1 » pour %2."
+
+msgid "Sofortkauf bestätigen"
+msgstr "Confirmer l'achat immédiat"
+
+msgid "Sofortkauf ist verbindlich -- kann nicht rückgängig gemacht werden."
+msgstr "L'achat immédiat est engageant -- il ne peut pas être annulé."
+
+msgid "Sofortkaufpreis"
+msgstr "Prix d'achat immédiat"
+
+msgid "Sofortkaufpreis (LTR, optional -- muss über dem Startpreis liegen)"
+msgstr "Prix d'achat immédiat (LTR, facultatif -- doit être supérieur au prix de départ)"
+
+msgid "Soll"
+msgstr "Débit"
+
+msgid "Soll/Haben"
+msgstr "Débit/Crédit"
+
+msgid "Sonstiges"
+msgstr "Divers"
+
+msgid "Speichern"
+msgstr "Enregistrer"
+
+msgid "Spende zu LTR konvertieren"
+msgstr "Convertir le don en LTR"
+
+msgid "Spende: %1"
+msgstr "Don : %1"
+
+msgid "Spenden-Konvertierung bestätigen"
+msgstr "Confirmer la conversion du don"
+
+msgid "Spendenbescheinigung (PDF)"
+msgstr "Attestation de don (PDF)"
+
+msgid "Spendenbescheinigung %1"
+msgstr "Attestation de don %1"
+
+msgid "Spendenbescheinigung per Post versenden"
+msgstr "Envoyer l'attestation de don par courrier"
+
+msgid "Spendenbetrag"
+msgstr "Montant du don"
+
+msgid "Spendendes Mitglied (ID)"
+msgstr "Membre donateur (ID)"
+
+msgid "Spendenprüfung"
+msgstr "Contrôle des dons"
+
+msgid "Spendenrecht-Pflichten-Report (§25 PartG)"
+msgstr "Rapport des obligations en matière de droit des dons (§25 PartG)"
+
+msgid "Spendenwährung"
+msgstr "Devise du don"
+
+msgid "Spender"
+msgstr "Donateur"
+
+msgid "Spender \"%1\" wurde angelegt."
+msgstr "Le donateur « %1 » a été créé."
+
+msgid "Spender anlegen"
+msgstr "Créer un donateur"
+
+msgid "Spender deaktivieren"
+msgstr "Désactiver le donateur"
+
+msgid "Spender wurde deaktiviert."
+msgstr "Le donateur a été désactivé."
+
+msgid "Spender-Zuordnung (optional)"
+msgstr "Association au donateur (facultatif)"
+
+msgid "Spender: %1 (extern)"
+msgstr "Donateur : %1 (externe)"
+
+msgid "Spender: ausdrücklich anonym"
+msgstr "Donateur : expressément anonyme"
+
+msgid "Spender: Mitglied %1"
+msgstr "Donateur : membre %1"
+
+msgid "Spenderkategorie"
+msgstr "Catégorie de donateur"
+
+msgid "Spendertyp"
+msgstr "Type de donateur"
+
+msgid "Sphäre"
+msgstr "Sphère"
+
+msgid "Sprecher"
+msgstr "Intervenant"
+
+msgid "Staatsangehörigkeit"
+msgstr "Nationalité"
+
+msgid "Stand: %1"
+msgstr "État au : %1"
+
+msgid "Standard"
+msgstr "Standard"
+
+msgid "Startpreis"
+msgstr "Prix de départ"
+
+msgid "Startpreis (LTR)"
+msgstr "Prix de départ (LTR)"
+
+msgid "Status"
+msgstr "Statut"
+
+msgid "Status:"
+msgstr "Statut :"
+
+msgid "Status: %1"
+msgstr "Statut : %1"
+
+msgid "Stellv. Vorsitz"
+msgstr "Présidence adjointe"
+
+msgid "Stichtag (JJJJ-MM-TT)"
+msgstr "Date de référence (AAAA-MM-JJ)"
+
+msgid "Stichtag: %1"
+msgstr "Date de référence : %1"
+
+msgid "Straße (optional)"
+msgstr "Rue (facultatif)"
+
+msgid "Stream beenden"
+msgstr "Arrêter la diffusion"
+
+msgid "Stream beenden? Die Übertragung zu %1 endet sofort."
+msgstr "Arrêter la diffusion ? La retransmission vers %1 se termine immédiatement."
+
+msgid "Stream fortsetzen"
+msgstr "Reprendre la diffusion"
+
+msgid "Stream unterbrechen"
+msgstr "Interrompre la diffusion"
+
+msgid "Stream unterbrochen."
+msgstr "Diffusion interrompue."
+
+msgid "Stream wird beendet …"
+msgstr "Arrêt de la diffusion en cours…"
+
+msgid "Stream wird fortgesetzt …"
+msgstr "Reprise de la diffusion en cours…"
+
+msgid "Stream-Schlüssel"
+msgstr "Clé de diffusion"
+
+msgid "Stream-Ziel \"%1\" wurde angelegt."
+msgstr "La destination de diffusion « %1 » a été créée."
+
+msgid "Stream-Ziel \"%1\" wurde gelöscht."
+msgstr "La destination de diffusion « %1 » a été supprimée."
+
+msgid "Stream-Ziel aktiviert."
+msgstr "Destination de diffusion activée."
+
+msgid "Stream-Ziel anlegen"
+msgstr "Créer une destination de diffusion"
+
+msgid "Stream-Ziel bearbeiten"
+msgstr "Modifier la destination de diffusion"
+
+msgid "Stream-Ziel deaktiviert."
+msgstr "Destination de diffusion désactivée."
+
+msgid "Stream-Ziel löschen"
+msgstr "Supprimer la destination de diffusion"
+
+msgid "Stream-Ziele"
+msgstr "Destinations de diffusion"
+
+msgid "Streaming-Ziel"
+msgstr "Destination de diffusion"
+
+msgid "Stumm"
+msgstr "Muet"
+
+msgid "Suche nach Name"
+msgstr "Recherche par nom"
+
+msgid "Suchen"
+msgstr "Rechercher"
+
+msgid "Summe %1"
+msgstr "Total %1"
+
+msgid "Summe Aktiva = Summe Passiva + Eigenkapital?"
+msgstr "Total actif = total passif + capitaux propres ?"
+
+msgid "Summe Passiva + Eigenkapital"
+msgstr "Total passif + capitaux propres"
+
+msgid "System"
+msgstr "Système"
+
+msgid "Systemvorgang (kein Akteur hinterlegt)"
+msgstr "Opération système (aucun acteur enregistré)"
+
+msgid "Tagesordnung"
+msgstr "Ordre du jour"
+
+msgid "Tagesordnungspunkt \"%1\" hinzugefügt."
+msgstr "Point à l'ordre du jour « %1 » ajouté."
+
+msgid "Tagesordnungspunkt (optional)"
+msgstr "Point à l'ordre du jour (facultatif)"
+
+msgid "Tagesordnungspunkt entfernt."
+msgstr "Point à l'ordre du jour supprimé."
+
+msgid "Tagesordnungspunkt hinzufügen"
+msgstr "Ajouter un point à l'ordre du jour"
+
+msgid "Technisch-organisatorische Maßnahmen (TOM)"
+msgstr "Mesures techniques et organisationnelles (MTO)"
+
+msgid "Teilnehmende"
+msgstr "Participants"
+
+msgid "Teilnehmende: %1"
+msgstr "Participants : %1"
+
+msgid "Teilnehmer entfernen"
+msgstr "Retirer le participant"
+
+msgid "Termin (JJJJ-MM-TTTHH:MM, z. B. 2026-08-15T18:00)"
+msgstr "Date (AAAA-MM-JJTHH:MM, p. ex. 2026-08-15T18:00)"
+
+msgid "Termin (JJJJ-MM-TTTHH:MM)"
+msgstr "Date (AAAA-MM-JJTHH:MM)"
+
+msgid "Terminieren"
+msgstr "Planifier"
+
+msgid "Terminierung"
+msgstr "Planification"
+
+msgid "Text"
+msgstr "Texte"
+
+msgid "Titel"
+msgstr "Titre"
+
+msgid "Titel darf nicht leer sein und höchstens %1 Zeichen haben."
+msgstr "Le titre ne doit pas être vide et ne doit pas dépasser %1 caractères."
+
+msgid "Token (aus der E-Mail bzw. vom Betreiber)"
+msgstr "Jeton (reçu par e-mail ou fourni par l'exploitant)"
+
+msgid "TOM"
+msgstr "MTO"
+
+msgid "TOM \"%1\" wurde %2."
+msgstr "La MTO « %1 » a été %2."
+
+msgid "TOM anlegen"
+msgstr "Créer une MTO"
+
+msgid "Top-Politiker"
+msgstr "Personnalités politiques les mieux classées"
+
+msgid "Transparenzregister-Bericht"
+msgstr "Rapport du registre de transparence"
+
+msgid "Trennungsgebot"
+msgstr "Obligation de séparation"
+
+msgid "Treuhänder-Werkzeuge"
+msgstr "Outils du fiduciaire"
+
+msgid "Twitch"
+msgstr "Twitch"
+
+msgid "Typ"
+msgstr "Type"
+
+msgid "Überholt -- Überprüfung fällig"
+msgstr "Obsolète -- vérification requise"
+
+msgid "Übersicht"
+msgstr "Aperçu"
+
+msgid "Übersicht, wie viele Datensätze in welchem Bereich zu Ihrer Person gespeichert sind, sowie ein vollständiger, maschinenlesbarer Export Ihrer Daten."
+msgstr "Aperçu du nombre d'enregistrements vous concernant conservés dans chaque domaine, ainsi qu'un export complet et exploitable par machine de vos données."
+
+msgid "Übertragung ausgeführt: %1 von %2 an %3"
+msgstr "Transfert effectué : %1 de %2 à %3"
+
+msgid "Übertragung empfangen"
+msgstr "Transfert reçu"
+
+msgid "Übertragung gesendet"
+msgstr "Transfert envoyé"
+
+msgid "Unbekannter Fehler"
+msgstr "Erreur inconnue"
+
+msgid "unbekanntes Ziel"
+msgstr "destination inconnue"
+
+msgid "Unentschieden -- die höchsten beiden Gebotskörbe waren gleich hoch. Kein Gewinner, keine Belastung; der Antrag wird zurückgestellt (POSTPONED)."
+msgstr "Égalité -- les deux paniers d'offres les plus élevés étaient identiques. Aucun gagnant, aucun débit ; la motion est reportée (POSTPONED)."
+
+msgid "Unerwarteter Fehler (HTTP %1): %2"
+msgstr "Erreur inattendue (HTTP %1) : %2"
+
+msgid "Ungelesene Nachrichten: %1"
+msgstr "Messages non lus : %1"
+
+msgid "Ungültige Anfrage."
+msgstr "Requête invalide."
+
+msgid "Unterbrochen"
+msgstr "Interrompu"
+
+msgid "Unternehmen mit über 25 % staatlicher Beteiligung"
+msgstr "Entreprise avec une participation publique supérieure à 25 %"
+
+msgid "Unterzeichnet"
+msgstr "Signé"
+
+msgid "Unterzeichnet am (JJJJ-MM-TT, optional)"
+msgstr "Signé le (AAAA-MM-JJ, facultatif)"
+
+msgid "Unverzügliche Meldepflicht"
+msgstr "Obligation de déclaration immédiate"
+
+msgid "Unwiderruflich widerrufen"
+msgstr "Révoqué de manière irrévocable"
+
+msgid "Upload fehlgeschlagen."
+msgstr "Échec du téléversement."
+
+msgid "Ursprüngliches Gewicht"
+msgstr "Poids initial"
+
+msgid "v%1: %2 (%3 Bytes, hochgeladen von %4 am %5)"
+msgstr "v%1 : %2 (%3 octets, téléversé par %4 le %5)"
+
+msgid "Verarbeiter"
+msgstr "Sous-traitant"
+
+msgid "Verarbeitungsbeschreibung"
+msgstr "Description du traitement"
+
+msgid "Verarbeitungsverzeichnis (AVV)"
+msgstr "Registre des traitements (contrats de sous-traitance)"
+
+msgid "Verarbeitungsverzeichnis (AVV), technisch-organisatorische Maßnahmen (TOM), Datenschutz-Folgenabschätzungen (DSFA) und Datenpannenmeldungen -- Dokumentations- und Arbeitswerkzeug für eine vom Vorstand getroffene Entscheidung, nie automatisierte Rechtsberatung."
+msgstr "Registre des traitements (contrats de sous-traitance), mesures techniques et organisationnelles (MTO), analyses d'impact relatives à la protection des données (AIPD) et notifications de violation de données -- outil de documentation et de travail pour une décision prise par le conseil d'administration, jamais un conseil juridique automatisé."
+
+msgid "Verarbeitungszweck"
+msgstr "Finalité du traitement"
+
+msgid "Verbindlichkeiten"
+msgstr "Dettes"
+
+msgid "Verbindung unterbrochen -- wird automatisch neu verbunden …"
+msgstr "Connexion interrompue -- reconnexion automatique en cours…"
+
+msgid "Verbindung wird geprüft …"
+msgstr "Vérification de la connexion en cours…"
+
+msgid "Verbindung wird hergestellt …"
+msgstr "Établissement de la connexion en cours…"
+
+msgid "Verfahren"
+msgstr "Procédure"
+
+msgid "Verfügbarkeitskontrolle"
+msgstr "Contrôle de disponibilité"
+
+msgid "Verkäufer: %1 · Endet: %2 · Gebote: %3"
+msgstr "Vendeur : %1 · Fin : %2 · Offres : %3"
+
+msgid "Verkauft an %1 für %2."
+msgstr "Vendu à %1 pour %2."
+
+msgid "Verlassen"
+msgstr "Quitter"
+
+msgid "Verlauf"
+msgstr "Historique"
+
+msgid "Vermögensverwaltung"
+msgstr "Gestion du patrimoine"
+
+msgid "Versand einer Einladung an ausgewählte Mitglieder -- als PDF zum Herunterladen (kostenlos, bis zu 1.000 Empfänger) oder per Post (kostenpflichtig über Letterxpress, bis zu 50 Empfänger, erfordert eine vollständige Anschrift jedes Empfängers)."
+msgstr "Envoi d'une invitation aux membres sélectionnés -- sous forme de PDF à télécharger (gratuit, jusqu'à 1 000 destinataires) ou par courrier (payant via Letterxpress, jusqu'à 50 destinataires, nécessite l'adresse complète de chaque destinataire)."
+
+msgid "Versendet"
+msgstr "Envoyé"
+
+msgid "Version %1"
+msgstr "Version %1"
+
+msgid "Version hochgeladen."
+msgstr "Version téléversée."
+
+msgid "Versionen"
+msgstr "Versions"
+
+msgid "Versionen von \"%1\":"
+msgstr "Versions de « %1 » :"
+
+msgid "Verstanden"
+msgstr "Compris"
+
+msgid "Verteilung berechnen"
+msgstr "Calculer la répartition"
+
+msgid "Verteilung für %1 bis %2 berechnet (%3 Projekt(e))."
+msgstr "Répartition calculée pour %1 à %2 (%3 projet(s))."
+
+msgid "Verteilungshistorie"
+msgstr "Historique de répartition"
+
+msgid "Vertreten durch (nur bei \"Vertreten\")"
+msgstr "Représenté par (uniquement pour « Représenté »)"
+
+msgid "vertreten durch %1"
+msgstr "représenté par %1"
+
+msgid "Verwalten"
+msgstr "Gérer"
+
+msgid "Verwalten Sie die externen RTMP-Ziele (YouTube, Twitch, PeerTube, Owncast, generisches RTMP), zu denen Moderatorinnen und Moderatoren eine Besprechung live übertragen können. Der Stream-Schlüssel wird verschlüsselt gespeichert und nach dem Speichern nie wieder angezeigt."
+msgstr "Gérez les destinations RTMP externes (YouTube, Twitch, PeerTube, Owncast, RTMP générique) vers lesquelles les modérateurs et modératrices peuvent retransmettre une réunion en direct. La clé de diffusion est enregistrée de manière chiffrée et n'est plus jamais affichée après son enregistrement."
+
+msgid "Verwaltet die Anker-Bindung des Libertaler (LTR) an ein reales Asset (aktuell: Bitcoin) und bucht eingegangene Spenden als LTR-Mint. Sichtbar für TREASURER/BOARD/ADMIN, Konfigurationsänderungen nur für ADMIN."
+msgstr "Gère l'ancrage du Libertaler (LTR) à un actif réel (actuellement : Bitcoin) et enregistre les dons reçus sous forme d'émission de LTR. Visible pour TREASURER/BOARD/ADMIN, les modifications de configuration sont réservées à ADMIN."
+
+msgid "Verwaltung"
+msgstr "Administration"
+
+msgid "Verwaltung (BOARD/ADMIN)"
+msgstr "Administration (BOARD/ADMIN)"
+
+msgid "Verwerfen und aktuelle Version übernehmen"
+msgstr "Annuler et conserver la version actuelle"
+
+msgid "Videokonferenz"
+msgstr "Visioconférence"
+
+msgid "Videokonferenz ist auf diesem Server nicht konfiguriert."
+msgstr "La visioconférence n'est pas configurée sur ce serveur."
+
+msgid "Videokonferenzen konnten nicht geladen werden."
+msgstr "Impossible de charger les visioconférences."
+
+msgid "Vier-Sphären-Ergebnisrechnung"
+msgstr "Compte de résultat à quatre sphères"
+
+msgid "Vollständigen Datenexport herunterladen (JSON)"
+msgstr "Télécharger l'export complet des données (JSON)"
+
+msgid "Vollständiger Export und Wiederherstellung aller Organisationsdaten (Datenbank + Dokumente) -- nur für Administratorinnen und Administratoren."
+msgstr "Export et restauration complets de toutes les données de l'organisation (base de données + documents) -- réservé aux administratrices et administrateurs."
+
+msgid "Von (Geschäftsjahr)"
+msgstr "De (exercice)"
+
+msgid "Von (JJJJ-MM-TT, optional)"
+msgstr "De (AAAA-MM-JJ, facultatif)"
+
+msgid "Von (JJJJ-MM-TT, Pflichtfeld)"
+msgstr "De (AAAA-MM-JJ, champ obligatoire)"
+
+msgid "Von (JJJJ-MM-TTTHH:MM:SS, optional)"
+msgstr "De (AAAA-MM-JJTHH:MM:SS, facultatif)"
+
+msgid "Von Sequenznummer (optional)"
+msgstr "À partir du numéro de séquence (facultatif)"
+
+msgid "Vorher"
+msgstr "Avant"
+
+msgid "Vorläufig ablehnen"
+msgstr "Rejeter provisoirement"
+
+msgid "Vorläufiges Passwort (mind. %1 Zeichen)"
+msgstr "Mot de passe provisoire (min. %1 caractères)"
+
+msgid "Vorsitz"
+msgstr "Présidence"
+
+msgid "Vorstand"
+msgstr "Conseil d'administration"
+
+msgid "Vorstand & Transparenzregister"
+msgstr "Conseil d'administration et registre de transparence"
+
+msgid "Vorstandsentscheidung"
+msgstr "Décision du conseil d'administration"
+
+msgid "Vorstandsmitglied ernennen"
+msgstr "Nommer un membre du conseil d'administration"
+
+msgid "Vorstandsmitgliedschaft"
+msgstr "Mandat au conseil d'administration"
+
+msgid "Vorstandsmitgliedschaft beenden"
+msgstr "Mettre fin au mandat au conseil d'administration"
+
+msgid "Vortragend (optional)"
+msgstr "Intervenant (facultatif)"
+
+msgid "Vortragend: %1"
+msgstr "Intervenant : %1"
+
+msgid "Vote"
+msgstr "Vote"
+
+msgid "Vote abbrechen"
+msgstr "Annuler le vote"
+
+msgid "Vote abgebrochen."
+msgstr "Vote annulé."
+
+msgid "Vote eröffnen"
+msgstr "Ouvrir le vote"
+
+msgid "Vote eröffnet."
+msgstr "Vote ouvert."
+
+msgid "Vote geschlossen."
+msgstr "Vote clos."
+
+msgid "Vote schließen"
+msgstr "Clore le vote"
+
+msgid "Weiter"
+msgstr "Suivant"
+
+msgid "Weiter bearbeiten"
+msgstr "Continuer l'édition"
+
+msgid "Weitere Teilnehmende (%1)"
+msgstr "Autres participants (%1)"
+
+msgid "Weitergabekontrolle"
+msgstr "Contrôle de la transmission"
+
+msgid "Weiterleitungspflicht"
+msgstr "Obligation de transmission"
+
+msgid "Weiterleitungspflichtige anonyme Spenden"
+msgstr "Dons anonymes soumis à obligation de transmission"
+
+msgid "Wertobergrenze (LTR, leer = kein Limit)"
+msgstr "Plafond de valeur (LTR, vide = aucune limite)"
+
+msgid "Wertobergrenze (LTR)"
+msgstr "Plafond de valeur (LTR)"
+
+msgid "Wertobergrenze aktualisiert."
+msgstr "Plafond de valeur mis à jour."
+
+msgid "Wertobergrenze setzen"
+msgstr "Définir le plafond de valeur"
+
+msgid "Wertobergrenze:"
+msgstr "Plafond de valeur :"
+
+msgid "Whiteboard"
+msgstr "Tableau blanc"
+
+msgid "Whiteboard als Dokument gespeichert."
+msgstr "Tableau blanc enregistré en tant que document."
+
+msgid "Whiteboard als Dokument speichern"
+msgstr "Enregistrer le tableau blanc en tant que document"
+
+msgid "Whiteboard geleert."
+msgstr "Tableau blanc effacé."
+
+msgid "Whiteboard leeren"
+msgstr "Effacer le tableau blanc"
+
+msgid "Widerrufen am %1 von %2"
+msgstr "Révoqué le %1 par %2"
+
+msgid "Wiederbeschaffungsrücklage (%1)"
+msgstr "Réserve de remplacement (%1)"
+
+msgid "Wiederherstellen"
+msgstr "Restaurer"
+
+msgid "Wiederherstellung"
+msgstr "Restauration"
+
+msgid "Wiederherstellung bestätigen"
+msgstr "Confirmer la restauration"
+
+msgid "Wiederherstellung erfolgreich abgeschlossen."
+msgstr "Restauration terminée avec succès."
+
+msgid "Willkommen, %1"
+msgstr "Bienvenue, %1"
+
+msgid "Willkommen, %1."
+msgstr "Bienvenue, %1."
+
+msgid "Wird aufgezeichnet"
+msgstr "Enregistrement en cours"
+
+msgid "Wird ausgeführt …"
+msgstr "Exécution en cours…"
+
+msgid "Wird automatisch auf dieselbe Sitzung terminiert wie \"%1\"."
+msgstr "Sera automatiquement planifié sur la même séance que « %1 »."
+
+msgid "wird beendet"
+msgstr "est en cours d'arrêt"
+
+msgid "Wird beendet …"
+msgstr "Arrêt en cours…"
+
+msgid "Wird ein bestehender Antrag zum Ändern ausgewählt, wird dessen Gremium automatisch verwendet -- das Zielgremium oben wird dann ignoriert."
+msgstr "Si une motion existante est sélectionnée pour modification, son organe est utilisé automatiquement -- l'organe cible ci-dessus est alors ignoré."
+
+msgid "Wird geladen …"
+msgstr "Chargement en cours…"
+
+msgid "wird gestartet"
+msgstr "est en cours de démarrage"
+
+msgid "Wird gestartet …"
+msgstr "Démarrage en cours…"
+
+msgid "Wird zusammengeführt …"
+msgstr "Fusion en cours…"
+
+msgid "Wirklich entfernen?"
+msgstr "Voulez-vous vraiment supprimer ?"
+
+msgid "Wirtschaft"
+msgstr "Économie"
+
+msgid "Wirtschaftlicher Geschäftsbetrieb"
+msgstr "Activité économique commerciale"
+
+msgid "YouTube Live"
+msgstr "YouTube Live"
+
+msgid "Zeigt offene Melde-/Offenlegungs-/Weiterleitungspflichten nach §25 PartG für ein Kalenderjahr, damit der Vorstand sie manuell abarbeiten kann. Berechnet keine unzulässigen Spenden -- solche werden beim Buchen serverseitig blockiert und können hier nie erscheinen."
+msgstr "Affiche les obligations de déclaration, de publication et de transmission en attente au titre du §25 PartG pour une année civile, afin que le conseil d'administration puisse les traiter manuellement. Ne calcule aucun don irrégulier -- de tels dons sont bloqués côté serveur lors de l'enregistrement et ne peuvent jamais apparaître ici."
+
+msgid "Zeitpunkt: %1"
+msgstr "Horodatage : %1"
+
+msgid "Zeitraum"
+msgstr "Période"
+
+msgid "Zeitraum: %1 bis %2"
+msgstr "Période : %1 à %2"
+
+msgid "Zeitraum: Geschäftsjahr %1 bis %2"
+msgstr "Période : exercice %1 à %2"
+
+msgid "Zeitstempel: %1"
+msgstr "Horodatage : %1"
+
+msgid "Ziel überschreiben (Zielorganisation enthält bereits Daten)"
+msgstr "Écraser la cible (l'organisation cible contient déjà des données)"
+
+msgid "Ziele auswählen (max. %1):"
+msgstr "Sélectionner les destinations (max. %1) :"
+
+msgid "Zielgremium"
+msgstr "Organe cible"
+
+msgid "Zu LTR konvertieren"
+msgstr "Convertir en LTR"
+
+msgid "Zuerst alle Änderungsanträge entscheiden"
+msgstr "Statuer d'abord sur toutes les motions d'amendement"
+
+msgid "Zuführung/Auflösung"
+msgstr "Dotation/reprise"
+
+msgid "Zugangskontrolle"
+msgstr "Contrôle d'accès"
+
+msgid "Zugriffsebene"
+msgstr "Niveau d'accès"
+
+msgid "Zugriffskontrolle"
+msgstr "Contrôle d'accès"
+
+msgid "zuletzt abgerufener Preis: %1"
+msgstr "dernier prix récupéré : %1"
+
+msgid "Zuletzt aktualisiert: %1"
+msgstr "Dernière mise à jour : %1"
+
+msgid "Zuletzt bearbeitet von %1"
+msgstr "Dernière modification par %1"
+
+msgid "Zuletzt bestätigt von %1 am %2 (Hinweistext-Version %3)."
+msgstr "Dernière confirmation par %1 le %2 (version de la mention légale %3)."
+
+msgid "Zum Hauptantrag"
+msgstr "Vers la motion principale"
+
+msgid "Zum LTR-Konto ->"
+msgstr "Vers le compte LTR ->"
+
+msgid "Zur Anmeldung"
+msgstr "Vers la connexion"
+
+msgid "Zurück zum Hauptraum"
+msgstr "Retour à la salle principale"
+
+msgid "Zurückgestellt (reserviert, ungenutzt)"
+msgstr "Reporté (réservé, inutilisé)"
+
+msgid "Zurücksetzen anfordern"
+msgstr "Demander la réinitialisation"
+
+msgid "Zurücksetzen fehlgeschlagen."
+msgstr "Échec de la réinitialisation."
+
+msgid "Zurückziehen"
+msgstr "Retirer"
+
+msgid "Zusätzlich zur Anonymisierung werden von Ihnen selbst versendete Nachrichten hart gelöscht, soweit dem keine gesetzliche Aufbewahrungspflicht entgegensteht. Von Ihnen empfangene Nachrichten anderer Mitglieder bleiben unberührt."
+msgstr "Outre l'anonymisation, les messages que vous avez vous-même envoyés sont définitivement supprimés, sauf obligation légale de conservation contraire. Les messages d'autres membres que vous avez reçus restent inchangés."
+
+msgid "Zutrittskontrolle"
+msgstr "Contrôle d'accès physique"
+
+msgid "Zweck (optional)"
+msgstr "Objet (facultatif)"
+
+msgid "Zweck: %1"
+msgstr "Objet : %1"
+
+msgid "Zweckbetrieb"
+msgstr "Activité liée à l'objet social"
+
+msgid "Zwischengespeichert (Cached)"
+msgstr "Mis en cache (Cached)"

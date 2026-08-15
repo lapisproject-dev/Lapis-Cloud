@@ -1,0 +1,4501 @@
+msgid ""
+msgstr ""
+"Content-Type: text/plain; charset=UTF-8\n"
+"Language: nl\n"
+
+msgid " -- %1"
+msgstr " -- %1"
+
+msgid " · gemeldet am %1"
+msgstr " · gemeld op %1"
+
+msgid " · Moderator"
+msgstr " · Moderator"
+
+msgid " (%1)"
+msgstr " (%1)"
+
+msgid " (Sie)"
+msgstr " (U)"
+
+msgid " bei %1"
+msgstr " bij %1"
+
+msgid "-- kein --"
+msgstr "-- geen --"
+
+msgid "-- kein (neuer Hauptantrag) --"
+msgstr "-- geen (nieuw hoofdvoorstel) --"
+
+msgid "-- kein Spender --"
+msgstr "-- geen donateur --"
+
+msgid "-- kein Tagesordnungspunkt --"
+msgstr "-- geen agendapunt --"
+
+msgid "-- keine --"
+msgstr "-- geen --"
+
+msgid "-- keine Rücklage --"
+msgstr "-- geen reserve --"
+
+msgid "-- Konto wählen --"
+msgstr "-- rekening selecteren --"
+
+msgid "-- Spenderkategorie wählen --"
+msgstr "-- donateurcategorie selecteren --"
+
+msgid "-- Sphäre wählen --"
+msgstr "-- sfeer selecteren --"
+
+msgid "— Nicht zugeordnet —"
+msgstr "— Niet toegewezen —"
+
+msgid ", Sofortkaufpreis %1"
+msgstr ", directe-koopprijs %1"
+
+msgid "\"%1 · %2\" wirklich deaktivieren? Bestehende Buchungen bleiben erhalten, das Konto steht aber für neue Buchungen nicht mehr zur Verfügung."
+msgstr "\"%1 · %2\" echt deactiveren? Bestaande boekingen blijven bewaard, maar de rekening is niet meer beschikbaar voor nieuwe boekingen."
+
+msgid "\"%1 · %2\" wirklich deaktivieren? Bestehende Buchungen bleiben erhalten, die Kostenstelle steht aber für neue Buchungen nicht mehr zur Verfügung."
+msgstr "\"%1 · %2\" echt deactiveren? Bestaande boekingen blijven bewaard, maar de kostenplaats is niet meer beschikbaar voor nieuwe boekingen."
+
+msgid "\"%1\" aus der Besprechung entfernen?"
+msgstr "\"%1\" uit de vergadering verwijderen?"
+
+msgid "\"%1\" wird sofort geschlossen -- alle Verbindungen werden getrennt."
+msgstr "\"%1\" wordt onmiddellijk gesloten -- alle verbindingen worden verbroken."
+
+msgid "\"%1\" wirklich abbrechen? Es wird keine Abrechnung durchgeführt."
+msgstr "\"%1\" echt annuleren? Er wordt geen afrekening uitgevoerd."
+
+msgid "\"%1\" wirklich absagen?"
+msgstr "\"%1\" echt afzeggen?"
+
+msgid "\"%1\" wirklich deaktivieren? Bestehende Buchungen mit diesem Spender bleiben erhalten, er steht aber für neue Buchungen nicht mehr zur Verfügung."
+msgstr "\"%1\" echt deactiveren? Bestaande boekingen met deze donateur blijven bewaard, maar deze is niet meer beschikbaar voor nieuwe boekingen."
+
+msgid "\"%1\" wirklich löschen? (Soft-Delete -- bisherige Versionen bleiben zu Prüfzwecken erhalten, das Dokument verschwindet aus der Ansicht.)"
+msgstr "\"%1\" echt verwijderen? (Soft delete -- eerdere versies blijven bewaard voor controledoeleinden, het document verdwijnt uit de weergave.)"
+
+msgid "\"%1\" wirklich löschen? Dies ist nur möglich, solange kein aktiver oder unterbrochener Live-Stream dieses Ziel verwendet."
+msgstr "\"%1\" echt verwijderen? Dit is alleen mogelijk zolang geen actieve of onderbroken livestream dit doel gebruikt."
+
+msgid "\"%1\" wirklich zurückziehen?"
+msgstr "\"%1\" echt intrekken?"
+
+msgid "\"%1\" wurde aktualisiert."
+msgstr "\"%1\" is bijgewerkt."
+
+msgid "\"%1\" wurde angelegt."
+msgstr "\"%1\" is aangemaakt."
+
+msgid "„Mittelvortrag\" ist der am Ende von %1 verbleibende §55-AO-Zeitwert-Topf (die Fristablauf-Uhr läuft seit dem frühesten Geschäftsjahr mit Aktivität, nicht erst ab %2) -- „davon überfällig\" ist der Anteil, dessen gesetzliche Frist bereits abgelaufen ist."
+msgstr "„Middelenoverdracht\" is de aan het einde van %1 resterende §55-AO-tijdswaardepot (de vervaltermijnklok loopt sinds het vroegste boekjaar met activiteit, niet pas vanaf %2) -- „waarvan achterstallig\" is het deel waarvan de wettelijke termijn al is verstreken."
+
+msgid "„Ziel überschreiben\" ist aktiviert: diese Organisation hat bereits Daten. Sie werden mit den Daten aus der Datei zusammengeführt/überschrieben."
+msgstr "„Doel overschrijven\" is ingeschakeld: deze organisatie heeft al gegevens. Deze worden samengevoegd met/overschreven door de gegevens uit het bestand."
+
+msgid "(gesetzliche Obergrenze hier nicht geprüft)"
+msgstr "(wettelijke bovengrens hier niet gecontroleerd)"
+
+msgid "(Jahresfehlbetrag)"
+msgstr "(jaarlijks tekort)"
+
+msgid "(optional -- bei Zuordnung greifen die §25-PartG-Spendenannahme-Prüfungen dieser Partei)"
+msgstr "(optioneel -- bij toewijzing gelden de §25-PartG-donatieacceptatiecontroles van deze partij)"
+
+msgid "(optional, für Spendenbescheinigungen)"
+msgstr "(optioneel, voor donatiebevestigingen)"
+
+msgid "(Sie)"
+msgstr "(U)"
+
+msgid "%1"
+msgstr "%1"
+
+msgid "%1 -- %2"
+msgstr "%1 -- %2"
+
+msgid "%1 -- %2 (Beleg: %3)"
+msgstr "%1 -- %2 (Bewijsstuk: %3)"
+
+msgid "%1 – %2"
+msgstr "%1 – %2"
+
+msgid "%1 · %2"
+msgstr "%1 · %2"
+
+msgid "%1 · %2 · %3"
+msgstr "%1 · %2 · %3"
+
+msgid "%1 · %2 · Entität %3"
+msgstr "%1 · %2 · Entiteit %3"
+
+msgid "%1 · %2 · erfasst von %3"
+msgstr "%1 · %2 · vastgelegd door %3"
+
+msgid "%1 · eingereicht von %2 am %3"
+msgstr "%1 · ingediend door %2 op %3"
+
+msgid "%1 (%2 Abonnenten)"
+msgstr "%1 (%2 abonnees)"
+
+msgid "%1 (%2 Bytes)"
+msgstr "%1 (%2 bytes)"
+
+msgid "%1 (%2)"
+msgstr "%1 (%2)"
+
+msgid "%1 (%2) -- eingereicht am %3"
+msgstr "%1 (%2) -- ingediend op %3"
+
+msgid "%1 (%2): fehlt %3"
+msgstr "%1 (%2): ontbreekt %3"
+
+msgid "%1 (Gast)"
+msgstr "%1 (gast)"
+
+msgid "%1 (Sie)"
+msgstr "%1 (U)"
+
+msgid "%1 an %2 gutgeschrieben."
+msgstr "%1 gecrediteerd aan %2."
+
+msgid "%1 an %2 übertragen."
+msgstr "%1 overgedragen aan %2."
+
+msgid "%1 bis %2: %3 (%4)"
+msgstr "%1 tot %2: %3 (%4)"
+
+msgid "%1 bps"
+msgstr "%1 bps"
+
+msgid "%1 Breakout-Räume erstellt und Teilnehmende verteilt."
+msgstr "%1 breakoutruimtes aangemaakt en deelnemers verdeeld."
+
+msgid "%1 Buchungszeilen"
+msgstr "%1 boekingsregels"
+
+msgid "%1 Einträge geprüft (Sequenznummer %2–%3)."
+msgstr "%1 vermeldingen gecontroleerd (volgnummer %2–%3)."
+
+msgid "%1 erhält (oder behält) den Politiker-Status. Ein bereits aktives Profil wird aktualisiert, ein ehemaliges (widerrufenes) Profil reaktiviert -- niemals wird ein zweites Profil für dasselbe Mitglied angelegt."
+msgstr "%1 krijgt (of behoudt) de politicusstatus. Een reeds actief profiel wordt bijgewerkt, een voormalig (ingetrokken) profiel wordt gereactiveerd -- er wordt nooit een tweede profiel voor hetzelfde lid aangemaakt."
+
+msgid "%1 für %2 gemintet."
+msgstr "%1 gemint voor %2."
+
+msgid "%1 LTR"
+msgstr "%1 LTR"
+
+msgid "%1 neue Beiträge erzeugt (bereits vorhandene wurden übersprungen)."
+msgstr "%1 nieuwe bijdragen aangemaakt (reeds bestaande zijn overgeslagen)."
+
+msgid "%1 offene Erinnerung(en) -- siehe Abschnitt \"Erinnerungen\" unten."
+msgstr "%1 openstaande herinnering(en) -- zie de sectie \"Herinneringen\" hieronder."
+
+msgid "%1 physische Briefe werden über Letterxpress an die im System hinterlegten Anschriften der ausgewählten Mitglieder verschickt. Fehlt bei auch nur einer Person die vollständige Anschrift, wird der gesamte Versand abgelehnt -- kein Teilversand."
+msgstr "%1 fysieke brieven worden via Letterxpress verzonden naar de in het systeem opgeslagen adressen van de geselecteerde leden. Ontbreekt bij ook maar één persoon het volledige adres, wordt de gehele verzending geweigerd -- geen gedeeltelijke verzending."
+
+msgid "%1 Quellen"
+msgstr "%1 bronnen"
+
+msgid "%1 s"
+msgstr "%1 s"
+
+msgid "%1 Stimmen abgegeben."
+msgstr "%1 stemmen uitgebracht."
+
+msgid "%1 Tabelle(n) · %2 Zeile(n) · %3 Datei(en) (%4 Bytes) · Bundle-Größe: %5 Bytes · Format-Version %6"
+msgstr "%1 tabel(len) · %2 rij(en) · %3 bestand(en) (%4 bytes) · bundelgrootte: %5 bytes · formaatversie %6"
+
+msgid "%1 Tabelle(n), %2 Zeile(n), %3 Datei(en) wiederhergestellt."
+msgstr "%1 tabel(len), %2 rij(en), %3 bestand(en) hersteld."
+
+msgid "%1 teilt den Bildschirm"
+msgstr "%1 deelt het scherm"
+
+msgid "%1 von %2"
+msgstr "%1 van %2"
+
+msgid "%1 von %2 anwesend (erforderlich: %3, %4%)."
+msgstr "%1 van %2 aanwezig (vereist: %3, %4%)."
+
+msgid "%1 von %2 Briefen erfolgreich übergeben."
+msgstr "%1 van %2 brieven succesvol overgedragen."
+
+msgid "%1 von %2 Briefen fehlgeschlagen -- Details unten."
+msgstr "%1 van %2 brieven mislukt -- details hieronder."
+
+msgid "%1 wurde abgelehnt."
+msgstr "%1 is afgewezen."
+
+msgid "%1 wurde als %2 ernannt."
+msgstr "%1 is benoemd tot %2."
+
+msgid "%1 wurde angelegt."
+msgstr "%1 is aangemaakt."
+
+msgid "%1 wurde aufgenommen."
+msgstr "%1 is opgenomen."
+
+msgid "%1: %2"
+msgstr "%1: %2"
+
+msgid "%1: %2 (%3, %4)"
+msgstr "%1: %2 (%3, %4)"
+
+msgid "%1: %2 anonymisiert, %3 gelöscht, %4 beibehalten"
+msgstr "%1: %2 geanonimiseerd, %3 verwijderd, %4 behouden"
+
+msgid "%1: %2–%3: %4 (%5)"
+msgstr "%1: %2–%3: %4 (%5)"
+
+msgid "%1: %2, %3 LTR%4"
+msgstr "%1: %2, %3 LTR%4"
+
+msgid "%1: %2%3%4"
+msgstr "%1: %2%3%4"
+
+msgid "%1. %2"
+msgstr "%1. %2"
+
+msgid "%1. %2%3"
+msgstr "%1. %2%3"
+
+msgid "%1. %2%3%4"
+msgstr "%1. %2%3%4"
+
+msgid "↳ Änderungsantrag: %1"
+msgstr "↳ Amendement: %1"
+
+msgid "◆ Live-Stream %1 → %2"
+msgstr "◆ Livestream %1 → %2"
+
+msgid "● Aufzeichnung läuft"
+msgstr "● Opname loopt"
+
+msgid "✓ Kette intakt"
+msgstr "✓ Keten intact"
+
+msgid "✗ Kette gebrochen bei Sequenznummer %1"
+msgstr "✗ Keten gebroken bij volgnummer %1"
+
+msgid "1 Buchungszeile"
+msgstr "1 boekingsregel"
+
+msgid "Abbestellen"
+msgstr "Uitschrijven"
+
+msgid "Abbestellt am %1"
+msgstr "Uitgeschreven op %1"
+
+msgid "Abbrechen"
+msgstr "Annuleren"
+
+msgid "Abgegeben"
+msgstr "Uitgebracht"
+
+msgid "Abgelehnt"
+msgstr "Afgewezen"
+
+msgid "Abgeschlossen"
+msgstr "Afgerond"
+
+msgid "Abgeschlossen (kein Verkauf)"
+msgstr "Afgerond (geen verkoop)"
+
+msgid "Abgeschlossen (verkauft)"
+msgstr "Afgerond (verkocht)"
+
+msgid "Abhilfemaßnahmen (optional)"
+msgstr "Corrigerende maatregelen (optioneel)"
+
+msgid "Ablehnen"
+msgstr "Afwijzen"
+
+msgid "Ablehnungsgrund (nur für \"Ablehnen\" erforderlich, öffentlich sichtbar)"
+msgstr "Reden van afwijzing (alleen vereist bij \"Afwijzen\", openbaar zichtbaar)"
+
+msgid "Ablehnungsgrund: %1"
+msgstr "Reden van afwijzing: %1"
+
+msgid "Abmelden"
+msgstr "Afmelden"
+
+msgid "Abonnenten"
+msgstr "Abonnees"
+
+msgid "Abonnieren"
+msgstr "Abonneren"
+
+msgid "Abonniert seit %1"
+msgstr "Geabonneerd sinds %1"
+
+msgid "Absagen"
+msgstr "Afzeggen"
+
+msgid "Absender"
+msgstr "Afzender"
+
+msgid "Abstimmung"
+msgstr "Stemming"
+
+msgid "Abstimmungseinsatz"
+msgstr "Stemminginzet"
+
+msgid "Abwickeln"
+msgstr "Afwikkelen"
+
+msgid "Administration"
+msgstr "Administratie"
+
+msgid "Akteur-Mitglieds-ID (optional)"
+msgstr "Actor-lid-ID (optioneel)"
+
+msgid "Akteur: %1"
+msgstr "Actor: %1"
+
+msgid "Akteur: %1 · Betroffenes Mitglied: %2"
+msgstr "Actor: %1 · Betrokken lid: %2"
+
+msgid "aktiv"
+msgstr "actief"
+
+msgid "Aktiv"
+msgstr "Actief"
+
+msgid "Aktiva"
+msgstr "Activa"
+
+msgid "Aktive Besprechungen"
+msgstr "Actieve vergaderingen"
+
+msgid "Aktive Mitglieder nach Name. E-Mail/Rolle/Adresse sind hier aus Datenschutzgründen nicht einsehbar -- dafür existiert aktuell keine privilegierte Leseschnittstelle."
+msgstr "Actieve leden op naam. E-mail/rol/adres zijn hier om privacyredenen niet zichtbaar -- hiervoor bestaat momenteel geen bevoegde leesinterface."
+
+msgid "Aktivieren"
+msgstr "Activeren"
+
+msgid "Aktiviert"
+msgstr "Geactiveerd"
+
+msgid "Aktivkonto"
+msgstr "Actiefrekening"
+
+msgid "Aktualisieren"
+msgstr "Bijwerken"
+
+msgid "aktualisiert"
+msgstr "bijgewerkt"
+
+msgid "Aktuell keine Vorstandsmitglieder erfasst."
+msgstr "Momenteel geen bestuursleden geregistreerd."
+
+msgid "Aktueller Preis"
+msgstr "Huidige prijs"
+
+msgid "Aktueller Preis (Sie führen)"
+msgstr "Huidige prijs (u leidt)"
+
+msgid "Aktueller Schlüssel: %1 -- wird hier nie im Klartext angezeigt."
+msgstr "Huidige sleutel: %1 -- wordt hier nooit in platte tekst weergegeven."
+
+msgid "Aktueller Vorstand"
+msgstr "Huidig bestuur"
+
+msgid "Aktuelles Gewicht (10 %/Tag Zerfall)"
+msgstr "Huidig gewicht (10 %/dag verval)"
+
+msgid "Aktuelles Passwort"
+msgstr "Huidig wachtwoord"
+
+msgid "Aktuelles Passwort ist falsch."
+msgstr "Huidig wachtwoord is onjuist."
+
+msgid "Alle"
+msgstr "Alle"
+
+msgid "Alle (persistierter Status)"
+msgstr "Alle (opgeslagen status)"
+
+msgid "Alle abwählen"
+msgstr "Alles deselecteren"
+
+msgid "Alle aktuell anwesenden Teilnehmenden sehen sofort, dass aufgezeichnet wird -- unabhängig davon, wer die Aufzeichnung startet."
+msgstr "Alle momenteel aanwezige deelnemers zien onmiddellijk dat er wordt opgenomen -- ongeacht wie de opname start."
+
+msgid "Alle auswählen"
+msgstr "Alles selecteren"
+
+msgid "Alle Beiträge"
+msgstr "Alle bijdragen"
+
+msgid "Alle Entitätstypen"
+msgstr "Alle entiteitstypen"
+
+msgid "Alle Gebote"
+msgstr "Alle biedingen"
+
+msgid "Alle Gremien"
+msgstr "Alle organen"
+
+msgid "Alle Kategorien"
+msgstr "Alle categorieën"
+
+msgid "Alle Löschanträge -- genehmigen/ablehnen, und einen genehmigten Antrag endgültig ausführen."
+msgstr "Alle verwijderingsverzoeken -- goedkeuren/afwijzen, en een goedgekeurd verzoek definitief uitvoeren."
+
+msgid "Alle Status"
+msgstr "Alle statussen"
+
+msgid "Alle Teilnehmenden werden sofort aus ihren Breakout-Räumen in den Hauptraum zurückgeholt."
+msgstr "Alle deelnemers worden onmiddellijk uit hun breakoutruimtes teruggehaald naar de hoofdruimte."
+
+msgid "Alle Teilnehmenden wurden in den Hauptraum zurückgeholt."
+msgstr "Alle deelnemers zijn teruggehaald naar de hoofdruimte."
+
+msgid "Alle Zeichnungen auf dem Whiteboard werden sofort für alle Teilnehmenden entfernt."
+msgstr "Alle tekeningen op het whiteboard worden onmiddellijk voor alle deelnemers verwijderd."
+
+msgid "Alle zurückholen"
+msgstr "Allen terughalen"
+
+msgid "Als bezahlt markieren"
+msgstr "Als betaald markeren"
+
+msgid "Als bezahlt markiert."
+msgstr "Als betaald gemarkeerd."
+
+msgid "Als Dokument speichern"
+msgstr "Als document opslaan"
+
+msgid "Als durchgeführt markieren"
+msgstr "Als uitgevoerd markeren"
+
+msgid "Als Entwurf speichern"
+msgstr "Als concept opslaan"
+
+msgid "Als Gast beitreten"
+msgstr "Als gast deelnemen"
+
+msgid "Als neuen Entwurf duplizieren"
+msgstr "Als nieuw concept dupliceren"
+
+msgid "Als PDF herunterladen"
+msgstr "Als PDF downloaden"
+
+msgid "Als Vorstand können Sie hier nur reguläre Mitglieder anlegen -- Vorstand/Schatzmeister/Admin ist Admin vorbehalten."
+msgstr "Als bestuur kunt u hier alleen reguliere leden aanmaken -- bestuur/penningmeester/admin is voorbehouden aan admin."
+
+msgid "Andere Partei/Fraktion"
+msgstr "Andere partij/fractie"
+
+msgid "Ändert bestehenden Antrag (optional)"
+msgstr "Wijzigt bestaand voorstel (optioneel)"
+
+msgid "Änderungsantrag"
+msgstr "Amendement"
+
+msgid "Änderungsantrag terminiert."
+msgstr "Amendement geagendeerd."
+
+msgid "Änderungsantrag zu: %1"
+msgstr "Amendement op: %1"
+
+msgid "Änderungsantrag: %1"
+msgstr "Amendement: %1"
+
+msgid "Änderungsanträge zu diesem Antrag"
+msgstr "Amendementen op dit voorstel"
+
+msgid "Änderungshinweis (optional)"
+msgstr "Wijzigingsopmerking (optioneel)"
+
+msgid "Anfrage fehlgeschlagen."
+msgstr "Aanvraag mislukt."
+
+msgid "Angebot \"%1\" erstellt."
+msgstr "Aanbieding \"%1\" aangemaakt."
+
+msgid "Angebot erstellen"
+msgstr "Aanbieding aanmaken"
+
+msgid "angelegt"
+msgstr "aangemaakt"
+
+msgid "Angemeldet über den OIDC-Heimserver %1."
+msgstr "Aangemeld via de OIDC-thuisserver %1."
+
+msgid "Anker-Asset"
+msgstr "Ankerasset"
+
+msgid "Anlegen"
+msgstr "Aanmaken"
+
+msgid "Anmelden"
+msgstr "Aanmelden"
+
+msgid "Anmeldung erfolgreich, aber Sitzungsdaten konnten nicht geladen werden."
+msgstr "Aanmelding geslaagd, maar sessiegegevens konden niet worden geladen."
+
+msgid "Anmeldung fehlgeschlagen."
+msgstr "Aanmelding mislukt."
+
+msgid "Annehmen"
+msgstr "Accepteren"
+
+msgid "Anonym"
+msgstr "Anoniem"
+
+msgid "Anonymisierung"
+msgstr "Anonimisering"
+
+msgid "Anonymisierung + Hartlöschung eigener Nachrichten"
+msgstr "Anonimisering + harde verwijdering van eigen berichten"
+
+msgid "Antrag \"%1\" terminiert."
+msgstr "Voorstel \"%1\" geagendeerd."
+
+msgid "Antrag \"%1\" wurde eingereicht."
+msgstr "Voorstel \"%1\" is ingediend."
+
+msgid "Antrag angenommen zur Terminierung."
+msgstr "Voorstel aangenomen voor agendering."
+
+msgid "Antrag eingereicht"
+msgstr "Voorstel ingediend"
+
+msgid "Antrag einreichen"
+msgstr "Voorstel indienen"
+
+msgid "Antrag oben auswählen, um Details zu sehen."
+msgstr "Selecteer bovenaan een voorstel om details te zien."
+
+msgid "Antrag von %1 ablehnen"
+msgstr "Voorstel van %1 afwijzen"
+
+msgid "Antrag vorläufig abgelehnt."
+msgstr "Voorstel voorlopig afgewezen."
+
+msgid "Antrag wurde abgelehnt."
+msgstr "Voorstel is afgewezen."
+
+msgid "Antrag wurde genehmigt."
+msgstr "Voorstel is goedgekeurd."
+
+msgid "Antrag wurde zurückgezogen."
+msgstr "Voorstel is ingetrokken."
+
+msgid "Antrag zurückziehen"
+msgstr "Voorstel intrekken"
+
+msgid "Anträge"
+msgstr "Voorstellen"
+
+msgid "Anträge verwalten"
+msgstr "Voorstellen beheren"
+
+msgid "Antragstext"
+msgstr "Voorsteltekst"
+
+msgid "Antwort des Servers konnte nicht gelesen werden: %1"
+msgstr "Antwoord van de server kon niet worden gelezen: %1"
+
+msgid "Anwesenheit"
+msgstr "Aanwezigheid"
+
+msgid "Anwesenheit erfassen"
+msgstr "Aanwezigheid registreren"
+
+msgid "Anwesenheit von %1 gespeichert."
+msgstr "Aanwezigheid van %1 opgeslagen."
+
+msgid "Anzahl der Breakout-Räume"
+msgstr "Aantal breakoutruimtes"
+
+msgid "Anzeige"
+msgstr "Weergave"
+
+msgid "Anzeige-Info: Währung"
+msgstr "Weergave-info: valuta"
+
+msgid "Anzeigen"
+msgstr "Weergeven"
+
+msgid "Art der Löschung"
+msgstr "Type verwijdering"
+
+msgid "Aufsichtsbehörde benachrichtigt"
+msgstr "Toezichthouder geïnformeerd"
+
+msgid "Aufsichtsbehörde benachrichtigt am (JJJJ-MM-TTTHH:MM:SS, optional)"
+msgstr "Toezichthouder geïnformeerd op (JJJJ-MM-DDTHH:MM:SS, optioneel)"
+
+msgid "Auftragskontrolle"
+msgstr "Verwerkerscontrole"
+
+msgid "Aufwandskonto"
+msgstr "Kostenrekening"
+
+msgid "Aufzeichnung"
+msgstr "Opname"
+
+msgid "Aufzeichnung beenden"
+msgstr "Opname beëindigen"
+
+msgid "Aufzeichnung gestartet von %1 um %2:%3"
+msgstr "Opname gestart door %1 om %2:%3"
+
+msgid "Aufzeichnung gestartet."
+msgstr "Opname gestart."
+
+msgid "Aufzeichnung jetzt starten"
+msgstr "Opname nu starten"
+
+msgid "Aufzeichnung starten"
+msgstr "Opname starten"
+
+msgid "Aufzeichnung wird beendet …"
+msgstr "Opname wordt beëindigd …"
+
+msgid "Aufzeichnung wird beendet."
+msgstr "Opname wordt beëindigd."
+
+msgid "Aufzeichnung wird zusammengeführt …"
+msgstr "Opname wordt samengevoegd …"
+
+msgid "Aufzeichnung:"
+msgstr "Opname:"
+
+msgid "Aufzeichnungen"
+msgstr "Opnamen"
+
+msgid "Auktion"
+msgstr "Veiling"
+
+msgid "Auktion \"%1\" abgewickelt."
+msgstr "Veiling \"%1\" afgewikkeld."
+
+msgid "Auktion aktivieren -- rechtlicher Hinweis (Version %1)"
+msgstr "Veiling activeren -- juridische kennisgeving (versie %1)"
+
+msgid "Auktion aktivieren …"
+msgstr "Veiling activeren …"
+
+msgid "Auktion aktiviert."
+msgstr "Veiling geactiveerd."
+
+msgid "Auktion deaktivieren"
+msgstr "Veiling deactiveren"
+
+msgid "Auktion deaktivieren bestätigen"
+msgstr "Deactivering van veiling bevestigen"
+
+msgid "Auktion deaktiviert."
+msgstr "Veiling gedeactiveerd."
+
+msgid "Auktionen"
+msgstr "Veilingen"
+
+msgid "Auktionen konnten nicht geladen werden."
+msgstr "Veilingen konden niet worden geladen."
+
+msgid "Auktions-Einstellgebühr"
+msgstr "Veiling-plaatsingsvergoeding"
+
+msgid "Auktions-Reservierung"
+msgstr "Veilingreservering"
+
+msgid "Auktions-Reservierung freigegeben"
+msgstr "Veilingreservering vrijgegeven"
+
+msgid "Auktionskauf"
+msgstr "Veilingaankoop"
+
+msgid "Auktionsverkauf"
+msgstr "Veilingverkoop"
+
+msgid "Ausdrücklich anonym"
+msgstr "Uitdrukkelijk anoniem"
+
+msgid "Ausgabe"
+msgstr "Uitgave"
+
+msgid "Ausgaben"
+msgstr "Uitgaven"
+
+msgid "Ausgeführt"
+msgstr "Uitgevoerd"
+
+msgid "Ausgeführt am %1"
+msgstr "Uitgevoerd op %1"
+
+msgid "Ausgelöst am: %1"
+msgstr "Geactiveerd op: %1"
+
+msgid "Ausgeschieden"
+msgstr "Uitgetreden"
+
+msgid "Ausgeschiedene anzeigen"
+msgstr "Uitgetredenen weergeven"
+
+msgid "Auskunft"
+msgstr "Inzage"
+
+msgid "Auskunft exportiert"
+msgstr "Inzage geëxporteerd"
+
+msgid "Auskunftsübersicht anzeigen"
+msgstr "Inzageoverzicht weergeven"
+
+msgid "Ausreißer-Schwelle"
+msgstr "Uitschieterdrempel"
+
+msgid "Ausreißer-Schwelle (Basispunkte, 1-10000)"
+msgstr "Uitschieterdrempel (basispunten, 1-10000)"
+
+msgid "Ausstehend"
+msgstr "In afwachting"
+
+msgid "Austritt (Mitgliedschaft beenden)"
+msgstr "Uittreding (lidmaatschap beëindigen)"
+
+msgid "Austritt bestätigen"
+msgstr "Uittreding bevestigen"
+
+msgid "Automatisch genehmigt durch die 14-Tage-Schweigefrist -- der Vorstand hat keinen expliziten Beschluss gefasst (Status bleibt dauerhaft \"Ausstehend\", effektiver Status zeigt \"Genehmigt\"). Das ist der normale, erwartete Zustand."
+msgstr "Automatisch goedgekeurd door de 14-dagen-zwijgtermijn -- het bestuur heeft geen expliciet besluit genomen (status blijft permanent \"In afwachting\", effectieve status toont \"Goedgekeurd\"). Dit is de normale, verwachte toestand."
+
+msgid "Automatisches Kopieren war nicht möglich. Markieren Sie den Text unten und kopieren Sie ihn manuell."
+msgstr "Automatisch kopiëren was niet mogelijk. Markeer de tekst hieronder en kopieer deze handmatig."
+
+msgid "AVV-Eintrag \"%1\" wurde %2."
+msgstr "Verwerkersovereenkomst \"%1\" is %2."
+
+msgid "AVV-Eintrag anlegen"
+msgstr "Verwerkersovereenkomst aanmaken"
+
+msgid "AVV-Status"
+msgstr "Verwerkersovereenkomst-status"
+
+msgid "Backup & Wiederherstellung"
+msgstr "Back-up & herstel"
+
+msgid "Backup exportieren (.zip)"
+msgstr "Back-up exporteren (.zip)"
+
+msgid "Backup-Datei (.zip)"
+msgstr "Back-upbestand (.zip)"
+
+msgid "Beantragt"
+msgstr "Aangevraagd"
+
+msgid "Beantragt von %1 am %2"
+msgstr "Aangevraagd door %1 op %2"
+
+msgid "Bearbeiten"
+msgstr "Bewerken"
+
+msgid "Beendet"
+msgstr "Beëindigd"
+
+msgid "Beginn"
+msgstr "Begin"
+
+msgid "Begründung"
+msgstr "Motivering"
+
+msgid "Begründung (optional)"
+msgstr "Motivering (optioneel)"
+
+msgid "Begründung: %1"
+msgstr "Motivering: %1"
+
+msgid "Bei \"Vorstand\" können anwesende Mitglieder, die nicht dem Vorstand angehören, das gespeicherte Dokument später NICHT ansehen -- wählen Sie \"Mitglieder\", wenn es allen Teilnehmenden zugänglich sein soll."
+msgstr "Bij \"Bestuur\" kunnen aanwezige leden die niet tot het bestuur behoren het opgeslagen document later NIET inzien -- kies \"Leden\" als het toegankelijk moet zijn voor alle deelnemers."
+
+msgid "Bei \"Vorstand\" können anwesende Mitglieder, die nicht dem Vorstand angehören, das gespeicherte Whiteboard später NICHT ansehen -- wählen Sie \"Mitglieder\", wenn es allen Teilnehmenden zugänglich sein soll."
+msgstr "Bij \"Bestuur\" kunnen aanwezige leden die niet tot het bestuur behoren het opgeslagen whiteboard later NIET inzien -- kies \"Leden\" als het toegankelijk moet zijn voor alle deelnemers."
+
+msgid "Bei \"Vorstand\" können anwesende Mitglieder, die nicht dem Vorstand angehören, die Aufzeichnung später NICHT ansehen -- wählen Sie \"Mitglieder\", wenn die Aufnahme allen Teilnehmenden zugänglich sein soll."
+msgstr "Bij \"Bestuur\" kunnen aanwezige leden die niet tot het bestuur behoren de opname later NIET bekijken -- kies \"Leden\" als de opname toegankelijk moet zijn voor alle deelnemers."
+
+msgid "Bei geheimen Abstimmungen muss der Stream manuell unterbrochen werden. Eine automatische Unterbrechung gibt es in dieser Version noch nicht."
+msgstr "Bij geheime stemmingen moet de stream handmatig worden onderbroken. Een automatische onderbreking bestaat in deze versie nog niet."
+
+msgid "Beim Einstellen wird eine feste Gebühr von %1 fällig."
+msgstr "Bij het plaatsen wordt een vaste vergoeding van %1 in rekening gebracht."
+
+msgid "Beisitz"
+msgstr "Bijzitter"
+
+msgid "Beitrag erlassen"
+msgstr "Bijdrage kwijtschelden"
+
+msgid "Beitrag erlassen."
+msgstr "Bijdrage kwijtgescholden."
+
+msgid "Beitrag von %1 über %2 wirklich erlassen?"
+msgstr "Bijdrage van %1 ter waarde van %2 echt kwijtschelden?"
+
+msgid "Beiträge"
+msgstr "Bijdragen"
+
+msgid "Beiträge generieren"
+msgstr "Bijdragen genereren"
+
+msgid "Beitragsrechnung %1–%2"
+msgstr "Bijdragefactuur %1–%2"
+
+msgid "Beitragsrechnung per Post versenden"
+msgstr "Bijdragefactuur per post versturen"
+
+msgid "Beitragssatz"
+msgstr "Bijdragetarief"
+
+msgid "Beitragssätze und Beitragsgenerierung"
+msgstr "Bijdragetarieven en bijdragegeneratie"
+
+msgid "Beitragsübersicht"
+msgstr "Bijdrageoverzicht"
+
+msgid "Beitreten"
+msgstr "Deelnemen"
+
+msgid "Beitrittsvertrag (Version %1)"
+msgstr "Toetredingsovereenkomst (versie %1)"
+
+msgid "Beitrittsvertrag wird geladen ..."
+msgstr "Toetredingsovereenkomst wordt geladen ..."
+
+msgid "Beleg"
+msgstr "Bewijsstuk"
+
+msgid "Beleg: %1"
+msgstr "Bewijsstuk: %1"
+
+msgid "Belegnummer (optional)"
+msgstr "Bewijsstuknummer (optioneel)"
+
+msgid "Berechnet"
+msgstr "Berekend"
+
+msgid "Berechnet den EUR-Spendenpool für den gewählten Zeitraum (bezahlte Beiträge abzüglich einer festen Mindestbeteiligung je Zahler) und verteilt ihn proportional nach Verteilungs-Korb auf alle genehmigten Projekte. Erzeugt nur einen Prüf-/Entscheidungsdatensatz, keine Journalbuchung/Überweisung -- erneutes Ausführen für denselben Zeitraum erzeugt keine Duplikate."
+msgstr "Berekent de EUR-donatiepool voor de geselecteerde periode (betaalde bijdragen minus een vaste minimumbijdrage per betaler) en verdeelt deze proportioneel volgens verdelingsmand over alle goedgekeurde projecten. Genereert alleen een controle-/besluitrecord, geen journaalboeking/overboeking -- opnieuw uitvoeren voor dezelfde periode levert geen duplicaten op."
+
+msgid "Berechnet und speichert für JEDES aktive Politiker-Profil einen Gewichts-Schnappschuss für den gewählten Monat (Tag wird ignoriert, auf den Monatsersten normalisiert). Erneutes Ausführen für denselben Monat erzeugt keine Duplikate."
+msgstr "Berekent en slaat voor ELK actief politicusprofiel een gewichtssnapshot op voor de geselecteerde maand (dag wordt genegeerd, genormaliseerd naar de eerste van de maand). Opnieuw uitvoeren voor dezelfde maand levert geen duplicaten op."
+
+msgid "Bereiche"
+msgstr "Bereiken"
+
+msgid "Bereit"
+msgstr "Gereed"
+
+msgid "Bereits laufende (OPEN) Auktionen können bis zur erneuten Aktivierung nicht mehr abgewickelt werden (kein Gebot, kein Sofortkauf, kein Abwickeln) -- sie bleiben eingefroren."
+msgstr "Reeds lopende (OPEN) veilingen kunnen tot de hernieuwde activering niet meer worden afgewikkeld (geen bod, geen directe koop, geen afwikkeling) -- ze blijven bevroren."
+
+msgid "Bereits Mitglied? Zur Anmeldung."
+msgstr "Al lid? Naar aanmelden."
+
+msgid "Bereits verbundene Gäste anderer Server werden sofort aus der Besprechung entfernt. Neue Gäste können nicht mehr beitreten. Mitglieder Ihrer eigenen Organisation sind nicht betroffen."
+msgstr "Reeds verbonden gasten van andere servers worden onmiddellijk uit de vergadering verwijderd. Nieuwe gasten kunnen niet meer deelnemen. Leden van uw eigen organisatie worden niet beïnvloed."
+
+msgid "Berufs- oder Wirtschaftsverband"
+msgstr "Beroeps- of bedrijfsvereniging"
+
+msgid "Beschluss"
+msgstr "Besluit"
+
+msgid "Beschluss \"%1\" wurde erfasst."
+msgstr "Besluit \"%1\" is geregistreerd."
+
+msgid "Beschluss erfassen (Gremienbeschluss)"
+msgstr "Besluit registreren (orgaanbesluit)"
+
+msgid "Beschluss konnte nicht geladen werden."
+msgstr "Besluit kon niet worden geladen."
+
+msgid "Beschluss speichern"
+msgstr "Besluit opslaan"
+
+msgid "Beschlüsse"
+msgstr "Besluiten"
+
+msgid "Beschlusstext"
+msgstr "Besluittekst"
+
+msgid "Beschreibung"
+msgstr "Beschrijving"
+
+msgid "Beschreibung (optional)"
+msgstr "Beschrijving (optioneel)"
+
+msgid "Besetzung: %1"
+msgstr "Bezetting: %1"
+
+msgid "Besprechung \"%1\" wurde für alle beendet."
+msgstr "Vergadering \"%1\" is voor iedereen beëindigd."
+
+msgid "Besprechung für alle beenden"
+msgstr "Vergadering voor iedereen beëindigen"
+
+msgid "Besprechung ganz verlassen"
+msgstr "Vergadering volledig verlaten"
+
+msgid "Besprechung jetzt starten"
+msgstr "Vergadering nu starten"
+
+msgid "Besprechung verlassen"
+msgstr "Vergadering verlaten"
+
+msgid "Besprechung vom %1.%2.%3, %4:%5"
+msgstr "Vergadering van %1-%2-%3, %4:%5"
+
+msgid "Besprechung: %1"
+msgstr "Vergadering: %1"
+
+msgid "Bestätigen"
+msgstr "Bevestigen"
+
+msgid "Betrag"
+msgstr "Bedrag"
+
+msgid "Betrag (LTR)"
+msgstr "Bedrag (LTR)"
+
+msgid "Betreff"
+msgstr "Onderwerp"
+
+msgid "Betriebsmittelrücklage (%1)"
+msgstr "Bedrijfsmiddelenreserve (%1)"
+
+msgid "Betroffene Datenkategorien"
+msgstr "Betrokken gegevenscategorieën"
+
+msgid "Betroffene Personen benachrichtigt am (JJJJ-MM-TTTHH:MM:SS, optional)"
+msgstr "Betrokkenen geïnformeerd op (JJJJ-MM-DDTHH:MM:SS, optioneel)"
+
+msgid "Betroffene Ziele: %1"
+msgstr "Betrokken doelen: %1"
+
+msgid "Betroffenes Mitglied (ID, optional)"
+msgstr "Betrokken lid (ID, optioneel)"
+
+msgid "Betroffenes Mitglied: %1"
+msgstr "Betrokken lid: %1"
+
+msgid "Bewertung gespeichert."
+msgstr "Beoordeling opgeslagen."
+
+msgid "Bewertung zurückgezogen."
+msgstr "Beoordeling ingetrokken."
+
+msgid "Bezeichnung"
+msgstr "Benaming"
+
+msgid "Bezeichnung (z. B. \"PdV YouTube-Kanal\")"
+msgstr "Benaming (bijv. \"PdV YouTube-kanaal\")"
+
+msgid "Bieten"
+msgstr "Bieden"
+
+msgid "Bilanz"
+msgstr "Balans"
+
+msgid "Bilanz ausgeglichen"
+msgstr "Balans in evenwicht"
+
+msgid "Bilanz NICHT ausgeglichen"
+msgstr "Balans NIET in evenwicht"
+
+msgid "Bildschirm teilen"
+msgstr "Scherm delen"
+
+msgid "Bildschirm-Teilen beenden"
+msgstr "Schermdelen beëindigen"
+
+msgid "Bis (Geschäftsjahr)"
+msgstr "Tot (boekjaar)"
+
+msgid "Bis (JJJJ-MM-TT, optional)"
+msgstr "Tot (JJJJ-MM-DD, optioneel)"
+
+msgid "Bis (JJJJ-MM-TT, Pflichtfeld)"
+msgstr "Tot (JJJJ-MM-DD, verplicht veld)"
+
+msgid "Bis (JJJJ-MM-TT)"
+msgstr "Tot (JJJJ-MM-DD)"
+
+msgid "Bis (JJJJ-MM-TTTHH:MM:SS, optional)"
+msgstr "Tot (JJJJ-MM-DDTHH:MM:SS, optioneel)"
+
+msgid "Bis Sequenznummer (optional)"
+msgstr "Tot volgnummer (optioneel)"
+
+msgid "Bisherige Jahressumme (vor dieser Spende)"
+msgstr "Huidig jaartotaal (vóór deze donatie)"
+
+msgid "Bitcoin (BTC)"
+msgstr "Bitcoin (BTC)"
+
+msgid "Bitte 1 bis %1 Ziele auswählen."
+msgstr "Selecteer 1 tot %1 doelen."
+
+msgid "Bitte alle Felder ausfüllen."
+msgstr "Vul alle velden in."
+
+msgid "Bitte alle Felder gültig ausfüllen: Peg positiv, Cache-TTL positiv, Mindest-Quorum mind. 2, Ausreißer-Schwelle 1-10000 bps, Max. Spread >= Ausreißer-Schwelle."
+msgstr "Vul alle velden geldig in: peg positief, cache-TTL positief, minimumquorum ten minste 2, uitschieterdrempel 1-10000 bps, max. spread >= uitschieterdrempel."
+
+msgid "Bitte bei \"Vertreten\" angeben, durch wen."
+msgstr "Geef bij \"Vertegenwoordigd\" aan door wie."
+
+msgid "Bitte Beitragssatz sowie gültiges Beginn-/Enddatum (JJJJ-MM-TT) angeben."
+msgstr "Geef het bijdragetarief en een geldige begin-/einddatum (JJJJ-MM-DD) op."
+
+msgid "Bitte bestätigen Sie, dass Sie den Beitrittsvertrag gelesen haben."
+msgstr "Bevestig dat u de toetredingsovereenkomst hebt gelezen."
+
+msgid "Bitte Betreff und Text angeben."
+msgstr "Geef onderwerp en tekst op."
+
+msgid "Bitte Bezeichnung und eine gültige RTMP-URL (rtmp:// oder rtmps://) angeben."
+msgstr "Geef een benaming en een geldige RTMP-URL (rtmp:// of rtmps://) op."
+
+msgid "Bitte Bezeichnung, eine gültige RTMP-URL (rtmp:// oder rtmps://) und einen Stream-Schlüssel angeben."
+msgstr "Geef een benaming, een geldige RTMP-URL (rtmp:// of rtmps://) en een streamsleutel op."
+
+msgid "Bitte Code und Name angeben."
+msgstr "Geef code en naam op."
+
+msgid "Bitte Datum, Beschreibung und für jede Buchungszeile Konto, Betrag und Sphäre angeben -- und, falls ein Spendertyp gewählt ist, dessen Felder vollständig ausfüllen."
+msgstr "Geef datum, beschrijving en voor elke boekingsregel rekening, bedrag en sfeer op -- en, indien een donateurtype is geselecteerd, vul de bijbehorende velden volledig in."
+
+msgid "Bitte E-Mail und Passwort eingeben."
+msgstr "Voer e-mailadres en wachtwoord in."
+
+msgid "Bitte ein gültiges \"Bis\"-Datum angeben (JJJJ-MM-TT)."
+msgstr "Geef een geldige \"tot\"-datum op (JJJJ-MM-DD)."
+
+msgid "Bitte ein gültiges \"Von\"- und \"Bis\"-Geschäftsjahr angeben (Von ≤ Bis)."
+msgstr "Geef een geldig \"van\"- en \"tot\"-boekjaar op (Van ≤ Tot)."
+
+msgid "Bitte ein gültiges Datum (JJJJ-MM-TT) angeben."
+msgstr "Geef een geldige datum op (JJJJ-MM-DD)."
+
+msgid "Bitte ein gültiges Geschäftsjahr angeben (z. B. 2026)."
+msgstr "Geef een geldig boekjaar op (bijv. 2026)."
+
+msgid "Bitte ein gültiges Kalenderjahr angeben (JJJJ)."
+msgstr "Geef een geldig kalenderjaar op (JJJJ)."
+
+msgid "Bitte ein Mitglied auswählen."
+msgstr "Selecteer een lid."
+
+msgid "Bitte ein Mitglied und einen positiven Spendenbetrag angeben."
+msgstr "Geef een lid en een positief donatiebedrag op."
+
+msgid "Bitte ein positives Höchstgebot (LTR) angeben."
+msgstr "Geef een positief maximumbod (LTR) op."
+
+msgid "Bitte eine Begründung angeben."
+msgstr "Geef een motivering op."
+
+msgid "Bitte eine Datei auswählen."
+msgstr "Selecteer een bestand."
+
+msgid "Bitte eine gültige Position und einen Titel angeben."
+msgstr "Geef een geldige positie en een titel op."
+
+msgid "Bitte eine Laufzeit in ganzen Stunden (größer als 0) angeben."
+msgstr "Geef een looptijd in hele uren op (groter dan 0)."
+
+msgid "Bitte eine Option und einen positiven LTR-Einsatz angeben."
+msgstr "Geef een optie en een positieve LTR-inzet op."
+
+msgid "Bitte eine Person für \"Einzelne Person\" auswählen."
+msgstr "Selecteer een persoon voor \"Individuele persoon\"."
+
+msgid "Bitte eine Sitzung und eine gültige Position angeben."
+msgstr "Geef een vergadering en een geldige positie op."
+
+msgid "Bitte eine Zahl zwischen 1 und %1 angeben."
+msgstr "Geef een getal tussen 1 en %1 op."
+
+msgid "Bitte einen Ablehnungsgrund angeben -- dieser wird öffentlich auf dem Projekt angezeigt."
+msgstr "Geef een reden voor afwijzing op -- deze wordt openbaar bij het project weergegeven."
+
+msgid "Bitte einen Grund angeben."
+msgstr "Geef een reden op."
+
+msgid "Bitte einen gültigen Entdeckungszeitpunkt (JJJJ-MM-TTTHH:MM:SS), Beschreibung, betroffene Datenkategorien und Status angeben."
+msgstr "Geef een geldig ontdekkingstijdstip (JJJJ-MM-DDTHH:MM:SS), beschrijving, betrokken gegevenscategorieën en status op."
+
+msgid "Bitte einen gültigen Stichtag angeben (JJJJ-MM-TT)."
+msgstr "Geef een geldige peildatum op (JJJJ-MM-DD)."
+
+msgid "Bitte einen Inhalt eingeben."
+msgstr "Voer een inhoud in."
+
+msgid "Bitte einen Monat im Format JJJJ-MM-TT angeben."
+msgstr "Geef een maand op in het formaat JJJJ-MM-DD."
+
+msgid "Bitte einen Namen angeben."
+msgstr "Geef een naam op."
+
+msgid "Bitte Empfänger, einen positiven LTR-Betrag und eine Charakterisierung angeben."
+msgstr "Geef ontvanger, een positief LTR-bedrag en een karakterisering op."
+
+msgid "Bitte geben Sie einen Ablehnungsgrund an (wird beim Mitglied gespeichert)."
+msgstr "Geef een reden voor afwijzing op (wordt bij het lid opgeslagen)."
+
+msgid "Bitte Gremium, Titel, einen gültigen Termin (JJJJ-MM-TTTHH:MM) und ein Format angeben."
+msgstr "Geef orgaan, titel, een geldige datum/tijd (JJJJ-MM-DDTHH:MM) en een formaat op."
+
+msgid "Bitte gültige Datumsangaben (JJJJ-MM-TT) verwenden, oder das Feld leer lassen."
+msgstr "Gebruik geldige datumnotaties (JJJJ-MM-DD), of laat het veld leeg."
+
+msgid "Bitte gültige Werte für die optionalen Felder verwenden, oder leer lassen."
+msgstr "Gebruik geldige waarden voor de optionele velden, of laat ze leeg."
+
+msgid "Bitte Kategorie, Titel und Beschreibung angeben."
+msgstr "Geef categorie, titel en beschrijving op."
+
+msgid "Bitte Kontonummer, Name, Kontenklasse (0-9) und Kontotyp angeben."
+msgstr "Geef rekeningnummer, naam, rekeningklasse (0-9) en rekeningtype op."
+
+msgid "Bitte lesen Sie den folgenden rechtlichen Hinweistext vollständig, bevor Sie die Auktion aktivieren. Diese Plattform führt keine automatisierte Rechtsberatung durch -- die rechtliche Einordnung liegt bei Ihrer Organisation."
+msgstr "Lees de volgende juridische kennisgeving volledig voordat u de veiling activeert. Dit platform verstrekt geen geautomatiseerd juridisch advies -- de juridische beoordeling ligt bij uw organisatie."
+
+msgid "Bitte melden Sie sich mit Ihrer E-Mail-Adresse an."
+msgstr "Meld u aan met uw e-mailadres."
+
+msgid "Bitte mindestens 2 unterschiedliche Optionen angeben."
+msgstr "Geef ten minste 2 verschillende opties op."
+
+msgid "Bitte mindestens eine Empfängerin/einen Empfänger sowie Titel, einen gültigen Termin (JJJJ-MM-TTTHH:MM), Ort und Einladungstext angeben."
+msgstr "Geef ten minste één ontvanger, alsmede titel, een geldige datum/tijd (JJJJ-MM-DDTHH:MM), locatie en uitnodigingstekst op."
+
+msgid "Bitte Mitglied und einen positiven LTR-Betrag angeben."
+msgstr "Geef lid en een positief LTR-bedrag op."
+
+msgid "Bitte Mitglied, Rolle und ein gültiges Datum (JJJJ-MM-TT) angeben."
+msgstr "Geef lid, rol en een geldige datum (JJJJ-MM-DD) op."
+
+msgid "Bitte Name und eine gültige E-Mail-Adresse angeben."
+msgstr "Geef naam en een geldig e-mailadres op."
+
+msgid "Bitte Name und Spenderkategorie angeben."
+msgstr "Geef naam en donateurcategorie op."
+
+msgid "Bitte Name, eine gültige E-Mail-Adresse und eine Rolle angeben."
+msgstr "Geef naam, een geldig e-mailadres en een rol op."
+
+msgid "Bitte Name, Typ und ein gültiges Quorum (0-100) angeben."
+msgstr "Geef naam, type en een geldig quorum (0-100) op."
+
+msgid "Bitte nicht-negative Stimmzahlen und einen Status angeben."
+msgstr "Geef niet-negatieve stemaantallen en een status op."
+
+msgid "Bitte Start- und Enddatum im Format JJJJ-MM-TT angeben -- beide Felder sind hier Pflicht."
+msgstr "Geef begin- en einddatum op in het formaat JJJJ-MM-DD -- beide velden zijn hier verplicht."
+
+msgid "Bitte Titel, Beschlusstext, Status und nicht-negative Stimmzahlen angeben."
+msgstr "Geef titel, besluittekst, status en niet-negatieve stemaantallen op."
+
+msgid "Bitte Titel, Beschreibung und ein positives Sichtbarkeits-Gewicht (LTR) angeben."
+msgstr "Geef titel, beschrijving en een positief zichtbaarheidsgewicht (LTR) op."
+
+msgid "Bitte Titel, Beschreibung und einen positiven Startpreis (LTR) angeben."
+msgstr "Geef titel, beschrijving en een positieve startprijs (LTR) op."
+
+msgid "Bitte Titel, Verarbeitungsbeschreibung und Status angeben."
+msgstr "Geef titel, verwerkingsbeschrijving en status op."
+
+msgid "Bitte unterschiedliche Absender/Empfänger, einen positiven LTR-Betrag, eine Charakterisierung und eine Schiedsanordnungs-Referenz angeben."
+msgstr "Geef verschillende afzenders/ontvangers, een positief LTR-bedrag, een karakterisering en een arbitragebeschikking-referentie op."
+
+msgid "Bitte Verarbeiter, Verarbeitungszweck, Datenkategorien und AVV-Status angeben."
+msgstr "Geef verwerker, verwerkingsdoel, gegevenscategorieën en verwerkersovereenkomst-status op."
+
+msgid "Bitte wählen Sie mindestens ein Ziel aus."
+msgstr "Selecteer ten minste één doel."
+
+msgid "Bitte wenden Sie sich an ein ADMIN-Mitglied, falls Sie hierauf Zugriff benötigen."
+msgstr "Neem contact op met een ADMIN-lid als u hiervoor toegang nodig hebt."
+
+msgid "Bitte wenden Sie sich an Ihre Administration, falls Sie diese Funktion benötigen."
+msgstr "Neem contact op met uw administratie als u deze functie nodig hebt."
+
+msgid "Bitte Zielgremium (oder einen zu ändernden Antrag), Titel und Antragstext angeben."
+msgstr "Geef doelorgaan (of een te wijzigen voorstel), titel en voorsteltekst op."
+
+msgid "Board ist fast voll -- bitte speichern und leeren."
+msgstr "Board is bijna vol -- sla op en maak leeg."
+
+msgid "Board leeren"
+msgstr "Board leegmaken"
+
+msgid "Breakout-Räume erstellen"
+msgstr "Breakoutruimtes aanmaken"
+
+msgid "Breakout-Räume:"
+msgstr "Breakoutruimtes:"
+
+msgid "Brief an %1 wird verarbeitet."
+msgstr "Brief aan %1 wordt verwerkt."
+
+msgid "Brief an %1 wurde an Letterxpress übergeben."
+msgstr "Brief aan %1 is overgedragen aan Letterxpress."
+
+msgid "Buchen"
+msgstr "Boeken"
+
+msgid "Bucht eine bereits eingegangene Spende als LTR-Mint auf das gewählte Mitglied. Der aktuelle Kurs wird beim Bestätigen live abgefragt -- der genaue LTR-Betrag steht erst nach Bestätigung fest."
+msgstr "Boekt een reeds ontvangen donatie als LTR-mint op het geselecteerde lid. De huidige koers wordt bij bevestiging live opgevraagd -- het exacte LTR-bedrag staat pas na bevestiging vast."
+
+msgid "Buchung"
+msgstr "Boeking"
+
+msgid "Buchung (Haben): %1"
+msgstr "Boeking (credit): %1"
+
+msgid "Buchung (Soll): %1"
+msgstr "Boeking (debet): %1"
+
+msgid "Buchung buchen -- unveränderlich"
+msgstr "Boeking vastleggen -- onveranderlijk"
+
+msgid "Buchung oben auswählen, um Details zu sehen."
+msgstr "Selecteer bovenaan een boeking om details te zien."
+
+msgid "Buchung wurde gebucht."
+msgstr "Boeking is vastgelegd."
+
+msgid "Buchung: %1"
+msgstr "Boeking: %1"
+
+msgid "Buchungszeile hinzufügen"
+msgstr "Boekingsregel toevoegen"
+
+msgid "Buchungszeilen"
+msgstr "Boekingsregels"
+
+msgid "Buchungszeilen:"
+msgstr "Boekingsregels:"
+
+msgid "Cache-TTL"
+msgstr "Cache-TTL"
+
+msgid "Cache-TTL (Sekunden)"
+msgstr "Cache-TTL (seconden)"
+
+msgid "Charakterisierung"
+msgstr "Karakterisering"
+
+msgid "Charakterisierung: %1"
+msgstr "Karakterisering: %1"
+
+msgid "Chat"
+msgstr "Chat"
+
+msgid "Chat (%1)"
+msgstr "Chat (%1)"
+
+msgid "Code (eindeutig, z. B. SOMMERFEST-2027)"
+msgstr "Code (uniek, bijv. ZOMERFEEST-2027)"
+
+msgid "Committee-Quorum entscheiden"
+msgstr "Commissiequorum bepalen"
+
+msgid "Crowdfunding"
+msgstr "Crowdfunding"
+
+msgid "Crowdfunding-Projekt"
+msgstr "Crowdfundingproject"
+
+msgid "Darf nicht die E-Mail-Adresse sein."
+msgstr "Mag niet het e-mailadres zijn."
+
+msgid "Das Politiker-Ranking ist derzeit deaktiviert."
+msgstr "De politicusranglijst is momenteel gedeactiveerd."
+
+msgid "Das Projekt \"%1\" wird abgelehnt (Grund: \"%2\"). Der bereits gebuchte Einsatz von %3 wird NICHT zurückerstattet -- es gibt keinen Rückerstattungspfad, unabhängig von dieser Entscheidung."
+msgstr "Het project \"%1\" wordt afgewezen (reden: \"%2\"). De reeds geboekte inzet van %3 wordt NIET terugbetaald -- er is geen terugbetalingstraject, ongeacht dit besluit."
+
+msgid "Das Projekt \"%1\" wird genehmigt und für Like/Dislike-Reaktionen (Spenden) geöffnet."
+msgstr "Het project \"%1\" wordt goedgekeurd en geopend voor like/dislike-reacties (donaties)."
+
+msgid "Dashboard"
+msgstr "Dashboard"
+
+msgid "Datei:"
+msgstr "Bestand:"
+
+msgid "Datenkategorien"
+msgstr "Gegevenscategorieën"
+
+msgid "Datenkategorien: %1"
+msgstr "Gegevenscategorieën: %1"
+
+msgid "Datenpanne melden"
+msgstr "Datalek melden"
+
+msgid "Datenpanne wurde %1."
+msgstr "Datalek is %1."
+
+msgid "Datenpannen"
+msgstr "Datalekken"
+
+msgid "Datenschutz-Folgenabschätzung (DSFA)"
+msgstr "Gegevensbeschermingseffectbeoordeling (DPIA)"
+
+msgid "Datenstand"
+msgstr "Gegevensstand"
+
+msgid "Datum"
+msgstr "Datum"
+
+msgid "Datum (JJJJ-MM-TT)"
+msgstr "Datum (JJJJ-MM-DD)"
+
+msgid "Datum: %1"
+msgstr "Datum: %1"
+
+msgid "davon überfällig"
+msgstr "waarvan achterstallig"
+
+msgid "Deaktivieren"
+msgstr "Deactiveren"
+
+msgid "Deaktiviert"
+msgstr "Gedeactiveerd"
+
+msgid "Der aktuelle Stand der geteilten Notizen wird als Markdown-Dokument in der Dokumentenablage gespeichert."
+msgstr "De huidige stand van de gedeelde notities wordt als markdown-document opgeslagen in het documentenarchief."
+
+msgid "Der aktuelle Stand des Whiteboards wird als Bild in der Dokumentenablage gespeichert."
+msgstr "De huidige stand van het whiteboard wordt als afbeelding opgeslagen in het documentenarchief."
+
+msgid "Der Hauptantrag muss zuerst selbst terminiert werden."
+msgstr "Het hoofdvoorstel moet eerst zelf worden geagendeerd."
+
+msgid "Der Politiker-Status von %1 wird widerrufen. Eine spätere erneute Erteilung reaktiviert das Profil, aber beide Bewertungs-Körbe (Mitglieder und Gäste) beginnen dann wieder bei null -- die gelöschte Historie ist nicht wiederherstellbar."
+msgstr "De politicusstatus van %1 wordt ingetrokken. Een latere hernieuwde toekenning reactiveert het profiel, maar beide beoordelingsmanden (leden en gasten) beginnen dan weer bij nul -- de verwijderde geschiedenis kan niet worden hersteld."
+
+msgid "Der Sofortkaufpreis muss über dem Startpreis liegen."
+msgstr "De directe-koopprijs moet hoger zijn dan de startprijs."
+
+msgid "Der Sofortkaufpreis muss, falls angegeben, ein positiver LTR-Betrag sein."
+msgstr "De directe-koopprijs moet, indien opgegeven, een positief LTR-bedrag zijn."
+
+msgid "Der Stream wird neu verbunden -- die Zielplattform sieht dies unter Umständen erneut als neue Übertragung."
+msgstr "De stream wordt opnieuw verbonden -- het doelplatform kan dit onder omstandigheden als een nieuwe uitzending beschouwen."
+
+msgid "Der Versand von Einladungen ist Vorstand und Administration vorbehalten -- als Sitzungsleitung/Protokollführung dieses Gremiums können Sie die Sitzung verwalten, aber keine Einladungen verschicken."
+msgstr "Het verzenden van uitnodigingen is voorbehouden aan bestuur en administratie -- als vergaderleiding/notulist van dit orgaan kunt u de vergadering beheren, maar geen uitnodigingen verzenden."
+
+msgid "Derzeit keine aktive Besprechung."
+msgstr "Momenteel geen actieve vergadering."
+
+msgid "Details"
+msgstr "Details"
+
+msgid "Details anzeigen"
+msgstr "Details weergeven"
+
+msgid "Details ein-/ausblenden"
+msgstr "Details tonen/verbergen"
+
+msgid "Deutsche natürliche Person"
+msgstr "Duitse natuurlijke persoon"
+
+msgid "Deutsches Unternehmen/Organisation"
+msgstr "Duits bedrijf/organisatie"
+
+msgid "Diagnose: aktueller Kurs"
+msgstr "Diagnose: huidige koers"
+
+msgid "Dick"
+msgstr "Dik"
+
+msgid "Die Aktion steht im Konflikt mit dem aktuellen Zustand -- bitte Ansicht aktualisieren."
+msgstr "De actie is in strijd met de huidige status -- werk de weergave bij."
+
+msgid "Die angezeigte Frist ist die gesetzliche 72-Stunden-Uhr nach Art. 33 Abs. 1 DSGVO ab Kenntnisnahme -- sie entscheidet nicht, ob überhaupt eine Meldepflicht besteht (das legen ausschließlich Sie im Feld \"Meldung an Aufsichtsbehörde erforderlich\" fest) und ersetzt keine rechtliche Prüfung des Meldezeitpunkts. Bei einem echten Vorfall: Datenschutzbeauftragte/n oder Anwalt/Anwältin hinzuziehen."
+msgstr "De weergegeven termijn is de wettelijke 72-uurstermijn conform art. 33 lid 1 AVG vanaf kennisneming -- deze bepaalt niet of er überhaupt een meldplicht bestaat (dat legt uitsluitend u vast in het veld \"Melding aan toezichthouder vereist\") en vervangt geen juridische toetsing van het meldingstijdstip. Bij een daadwerkelijk incident: raadpleeg een functionaris gegevensbescherming of jurist."
+
+msgid "Die Aufzeichnung ist fehlgeschlagen."
+msgstr "De opname is mislukt."
+
+msgid "Die Aufzeichnung wird beendet und danach automatisch zu einer Videodatei zusammengeführt."
+msgstr "De opname wordt beëindigd en daarna automatisch samengevoegd tot een videobestand."
+
+msgid "Die Auktion ist derzeit deaktiviert."
+msgstr "De veiling is momenteel gedeactiveerd."
+
+msgid "Die Besprechung „%1\" ist bereits beendet."
+msgstr "De vergadering „%1\" is al beëindigd."
+
+msgid "Die Besprechung „%1\" lässt derzeit keine Gäste anderer Server zu. Bitten Sie die Moderation, den Gastzugang für diesen Raum freizuschalten."
+msgstr "De vergadering „%1\" staat momenteel geen gasten van andere servers toe. Vraag de moderator om gasttoegang voor deze ruimte vrij te geven."
+
+msgid "Die Besprechung läuft weiter. Die Zielplattform sieht eine Unterbrechung -- YouTube kann die Übertragung dabei beenden, sodass ein neuer Link nötig wird."
+msgstr "De vergadering loopt door. Het doelplatform ziet een onderbreking -- YouTube kan de uitzending daarbij beëindigen, zodat een nieuwe link nodig is."
+
+msgid "Die Besprechung selbst läuft für alle Teilnehmenden unverändert weiter."
+msgstr "De vergadering zelf loopt voor alle deelnemers ongewijzigd door."
+
+msgid "Die laufende Aufzeichnung/der Live-Stream im Hauptraum erfasst kein Audio/Video in Breakout-Räumen."
+msgstr "De lopende opname/livestream in de hoofdruimte legt geen audio/video in breakoutruimtes vast."
+
+msgid "Die Nachricht \"%1\" wird an alle aktiven Abonnentinnen und Abonnenten der Mailingliste \"%2\" verschickt. Dieser Schritt kann nicht rückgängig gemacht werden."
+msgstr "Het bericht \"%1\" wordt verzonden naar alle actieve abonnees van de mailinglijst \"%2\". Deze stap kan niet ongedaan worden gemaakt."
+
+msgid "Die neuen Passwörter stimmen nicht überein."
+msgstr "De nieuwe wachtwoorden komen niet overeen."
+
+msgid "Die Orakel-Konfiguration wird vollständig ersetzt: Anker-Asset %1, Spendenwährung %2, Peg %3, Cache-TTL %4s, Quorum %5, Ausreißer-Schwelle %6bps, Max. Spread %7bps."
+msgstr "De oracle-configuratie wordt volledig vervangen: ankerasset %1, donatievaluta %2, peg %3, cache-TTL %4s, quorum %5, uitschieterdrempel %6bps, max. spread %7bps."
+
+msgid "Die Passwörter stimmen nicht überein."
+msgstr "De wachtwoorden komen niet overeen."
+
+msgid "Die Risikoeinstufung (LOW/MEDIUM/HIGH/CRITICAL) hier ist eine Visualisierungshilfe aus Eintrittswahrscheinlichkeit × Schadenshöhe -- keine Art. 35 DSGVO Erforderlichkeits-Feststellung. Ob eine Datenschutz-Folgenabschätzung tatsächlich erforderlich ist, legen ausschließlich Sie im Feld \"DSFA erforderlich\" fest; dieses System berechnet das nicht."
+msgstr "De risicoclassificatie (LOW/MEDIUM/HIGH/CRITICAL) hier is een visualisatiehulpmiddel op basis van waarschijnlijkheid × ernst van de schade -- geen vaststelling van noodzaak conform art. 35 AVG. Of een gegevensbeschermingseffectbeoordeling daadwerkelijk vereist is, legt uitsluitend u vast in het veld \"DPIA vereist\"; dit systeem berekent dat niet."
+
+msgid "Die Rohaufnahmen bleiben erhalten -- wenden Sie sich an eine Administratorin oder einen Administrator, falls die Aufzeichnung wiederhergestellt werden soll."
+msgstr "De ruwe opnamen blijven bewaard -- neem contact op met een beheerder als de opname moet worden hersteld."
+
+msgid "Die Wertobergrenze muss, falls angegeben, ein positiver LTR-Betrag sein."
+msgstr "De waardebovengrens moet, indien opgegeven, een positief LTR-bedrag zijn."
+
+msgid "Die Wertobergrenze wird entfernt (kein Limit mehr)."
+msgstr "De waardebovengrens wordt verwijderd (geen limiet meer)."
+
+msgid "Die Wiederherstellung wurde nur teilweise durchgeführt -- einzelne Zeilen wurden möglicherweise bereits geschrieben, bevor der Fehler auftrat: %1. Prüfen Sie den Datenbestand und ziehen Sie bei Unsicherheit Ihre Entwicklerin oder Ihren Entwickler hinzu, bevor Sie es erneut versuchen."
+msgstr "Het herstel is slechts gedeeltelijk uitgevoerd -- afzonderlijke rijen zijn mogelijk al geschreven voordat de fout optrad: %1. Controleer het gegevensbestand en raadpleeg bij twijfel uw ontwikkelaar voordat u het opnieuw probeert."
+
+msgid "Die Zielorganisation enthält bereits Daten. Aktivieren Sie „Ziel überschreiben\", falls das beabsichtigt ist: %1"
+msgstr "De doelorganisatie bevat al gegevens. Schakel „Doel overschrijven\" in als dit de bedoeling is: %1"
+
+msgid "Diese Aktion LÖSCHT UNWIDERRUFLICH sämtliche Bewertungen (Mitglieder UND Gäste) sowie den gesamten Gewichtsverlauf für dieses Profil -- nicht nur den Status."
+msgstr "Deze actie VERWIJDERT ONHERROEPELIJK alle beoordelingen (leden ÉN gasten) alsmede de volledige gewichtsgeschiedenis voor dit profiel -- niet alleen de status."
+
+msgid "Diese Aktion mintet echtes LTR und kann nicht rückgängig gemacht werden."
+msgstr "Deze actie mint echte LTR en kan niet ongedaan worden gemaakt."
+
+msgid "Diese Aufzeichnung kann NICHT rückgängig gemacht werden, sobald Teilnehmende gesprochen haben."
+msgstr "Deze opname kan NIET ongedaan worden gemaakt zodra deelnemers hebben gesproken."
+
+msgid "Diese Auktion ist beendet, aber noch nicht abgewickelt."
+msgstr "Deze veiling is beëindigd, maar nog niet afgewikkeld."
+
+msgid "Diese Auswertung ist eine Nachweis-Hilfe für den Vorstand nach §§ 55/62 AO -- keine automatisierte Compliance-Entscheidung. Sie prüft nicht die Freie-Rücklage-Obergrenze, wendet nicht automatisch die Kleinorganisationen-Ausnahme (≤ 45.000 € gemäß § 55 Abs. 1 Nr. 5 Satz 4 AO) an und bestätigt nicht den Fortbestand der Gemeinnützigkeit. Die verwendete Frist von %1 Jahren ist gegen die aktuelle AO-Auslegung zu prüfen."
+msgstr "Deze evaluatie is een bewijshulpmiddel voor het bestuur conform §§ 55/62 AO -- geen geautomatiseerd nalevingsbesluit. Zij toetst niet de bovengrens van de vrije reserve, past niet automatisch de kleine-organisatie-uitzondering toe (≤ 45.000 € conform § 55 lid 1 nr. 5 zin 4 AO) en bevestigt niet het voortbestaan van de fiscale goeddoelstatus. De gehanteerde termijn van %1 jaar dient te worden getoetst aan de actuele AO-uitleg."
+
+msgid "Diese beiden Werte sind im ersten Geschäftsjahr identisch und weichen ab dem zweiten Jahr bewusst voneinander ab -- siehe Erläuterung im Datenmodell."
+msgstr "Deze twee waarden zijn in het eerste boekjaar identiek en wijken vanaf het tweede jaar bewust van elkaar af -- zie toelichting in het gegevensmodel."
+
+msgid "Diese Besprechung wird ab jetzt aufgezeichnet."
+msgstr "Deze vergadering wordt vanaf nu opgenomen."
+
+msgid "Diese Besprechung wird ab jetzt live gestreamt."
+msgstr "Deze vergadering wordt vanaf nu live uitgezonden."
+
+msgid "Diese Besprechung wird für alle Teilnehmenden beendet. Fortfahren?"
+msgstr "Deze vergadering wordt voor alle deelnemers beëindigd. Doorgaan?"
+
+msgid "Diese Buchung wird nach dem Bestätigen unveränderlich und Teil der offiziellen Bücher. Es gibt keine Funktion zum nachträglichen Ändern oder Stornieren."
+msgstr "Deze boeking wordt na bevestiging onveranderlijk en onderdeel van de officiële boeken. Er bestaat geen functie om deze achteraf te wijzigen of te storneren."
+
+msgid "Diese Datei passt nicht zum erwarteten Sicherungsformat: %1"
+msgstr "Dit bestand komt niet overeen met het verwachte back-upformaat: %1"
+
+msgid "Diese Korrekturübertragung ist ENDGÜLTIG und kann nicht widerrufen werden."
+msgstr "Deze correctieoverdracht is DEFINITIEF en kan niet worden herroepen."
+
+msgid "Diese Löschung ist ENDGÜLTIG und kann nicht rückgängig gemacht werden."
+msgstr "Deze verwijdering is DEFINITIEF en kan niet ongedaan worden gemaakt."
+
+msgid "Diese Organisation ist für die Verarbeitung Ihrer Audio-, Video- und Chatdaten in dieser Besprechung verantwortlich -- nicht Ihr eigener Heimserver."
+msgstr "Deze organisatie is verantwoordelijk voor de verwerking van uw audio-, video- en chatgegevens in deze vergadering -- niet uw eigen thuisserver."
+
+msgid "Diese Organisation ist nicht als politische Partei markiert (Organisationseinstellungen) -- §25 PartG gilt nur für politische Parteien. Für diese Organisation ist dieser Bericht daher bewusst ein No-Op, keine Fehlermeldung."
+msgstr "Deze organisatie is niet gemarkeerd als politieke partij (organisatie-instellingen) -- §25 PartG geldt alleen voor politieke partijen. Voor deze organisatie is dit rapport daarom bewust een no-op, geen foutmelding."
+
+msgid "Diese Raum-Kennung ist ungültig. Bitte kopieren Sie sie vollständig aus Ihrer Einladung."
+msgstr "Deze ruimte-ID is ongeldig. Kopieer deze volledig uit uw uitnodiging."
+
+msgid "Diese Seite konnte nicht geladen werden -- bitte laden Sie die Seite neu."
+msgstr "Deze pagina kon niet worden geladen -- laad de pagina opnieuw."
+
+msgid "Diese Übertragung ist ENDGÜLTIG und kann nicht widerrufen werden."
+msgstr "Deze overdracht is DEFINITIEF en kan niet worden herroepen."
+
+msgid "Diese Wiederherstellung ist NICHT rückgängig zu machen."
+msgstr "Dit herstel kan NIET ongedaan worden gemaakt."
+
+msgid "Dieser Antrag hat %1, der/die zuerst entschieden werden muss/müssen:"
+msgstr "Dit voorstel heeft %1 waarover eerst moet worden beslist:"
+
+msgid "Dieser Versand ist ENDGÜLTIG und verursacht reale Kosten pro Brief."
+msgstr "Deze verzending is DEFINITIEF en brengt reële kosten per brief met zich mee."
+
+msgid "Dieser Versand ist ENDGÜLTIG und verursacht reale Kosten."
+msgstr "Deze verzending is DEFINITIEF en brengt reële kosten met zich mee."
+
+msgid "Dieser Vorgang lässt sich nicht wiederholen -- schlägt er fehl, bleiben die Rohaufnahmen erhalten und ein Administrator kann helfen."
+msgstr "Dit proces kan niet worden herhaald -- mislukt het, dan blijven de ruwe opnamen bewaard en kan een beheerder helpen."
+
+msgid "Dieses Profil ist ehemalig -- über das Formular \"Politiker-Status erteilen\" oben kann es erneut aktiviert werden."
+msgstr "Dit profiel is voormalig -- via het formulier \"Politicusstatus toekennen\" hierboven kan het opnieuw worden geactiveerd."
+
+msgid "Dieses Projekt wurde bereits durch die 14-Tage-Schweigefrist automatisch genehmigt -- eine Vorstandsentscheidung ist serverseitig nicht mehr möglich."
+msgstr "Dit project is al automatisch goedgekeurd door de 14-dagen-zwijgtermijn -- een bestuursbesluit is serverzijdig niet meer mogelijk."
+
+msgid "Direkt buchen"
+msgstr "Direct boeken"
+
+msgid "Dislike"
+msgstr "Dislike"
+
+msgid "Dokument \"%1\" angelegt -- jetzt eine Datei hochladen."
+msgstr "Document \"%1\" aangemaakt -- upload nu een bestand."
+
+msgid "Dokument anlegen (danach Datei hochladen)"
+msgstr "Document aanmaken (daarna bestand uploaden)"
+
+msgid "Dokument löschen"
+msgstr "Document verwijderen"
+
+msgid "Dokument-ID (optional)"
+msgstr "Document-ID (optioneel)"
+
+msgid "Dokument:"
+msgstr "Document:"
+
+msgid "Dokumentation der acht Standard-TOM-Kategorien. \"Version\" ist ein einfacher Zähler, der bei jeder Aktualisierung um eins steigt -- keine eigene Versionshistorie mit Diff-Ansicht in dieser Welle."
+msgstr "Documentatie van de acht standaard TOM-categorieën. \"Versie\" is een eenvoudige teller die bij elke update met één oploopt -- geen eigen versiegeschiedenis met verschilweergave in deze fase."
+
+msgid "Dokumente"
+msgstr "Documenten"
+
+msgid "Dokumentenablage"
+msgstr "Documentenarchief"
+
+msgid "Drittdienst-Verarbeiter (z. B. Letterxpress) und der Stand des jeweiligen Auftragsverarbeitungsvertrags. \"Aktiv\" wird bei jedem Laden neu berechnet -- ein abgelaufener Prüftermin fällt sofort auf, ohne dass jemand daran denken muss, den Status manuell umzustellen."
+msgstr "Externe dienstverwerkers (bijv. Letterxpress) en de status van de bijbehorende verwerkersovereenkomst. \"Actief\" wordt bij elke keer laden opnieuw berekend -- een verstreken controletermijn valt onmiddellijk op, zonder dat iemand eraan hoeft te denken de status handmatig aan te passen."
+
+msgid "Drucken"
+msgstr "Afdrukken"
+
+msgid "DSFA"
+msgstr "DPIA"
+
+msgid "DSFA \"%1\" wurde %2."
+msgstr "DPIA \"%1\" is %2."
+
+msgid "DSFA anlegen"
+msgstr "DPIA aanmaken"
+
+msgid "DSFA erforderlich (Ihre Entscheidung)"
+msgstr "DPIA vereist (uw beslissing)"
+
+msgid "DSFA erforderlich: %1"
+msgstr "DPIA vereist: %1"
+
+msgid "DSGVO-Compliance"
+msgstr "AVG-naleving"
+
+msgid "DSGVO-Prüfprotokoll"
+msgstr "AVG-controlelogboek"
+
+msgid "Dünn"
+msgstr "Dun"
+
+msgid "E-Mail"
+msgstr "E-mail"
+
+msgid "Effektiv: %1"
+msgstr "Effectief: %1"
+
+msgid "Ehemalig"
+msgstr "Voormalig"
+
+msgid "Eigenkapital (gebucht)"
+msgstr "Eigen vermogen (geboekt)"
+
+msgid "Eigenkapitalkonto"
+msgstr "Eigenvermogenrekening"
+
+msgid "Ein ADMIN kann das Politiker-Ranking im Abschnitt \"Einstellungen\" unten aktivieren."
+msgstr "Een ADMIN kan de politicusranglijst activeren in de sectie \"Instellingen\" hieronder."
+
+msgid "Ein ADMIN kann die Auktion im Abschnitt \"Verwaltung\" unten aktivieren -- dafür muss zunächst der aktuelle rechtliche Hinweistext gelesen und bestätigt werden."
+msgstr "Een ADMIN kan de veiling activeren in de sectie \"Beheer\" hieronder -- hiervoor moet eerst de huidige juridische kennisgeving worden gelezen en bevestigd."
+
+msgid "Ein anderes Gebot führt weiterhin."
+msgstr "Een ander bod blijft leidend."
+
+msgid "Ein physischer Brief wird über den Postdienstleister Letterxpress an die im System hinterlegte Anschrift von %1 verschickt. Der Versand kann nicht zurückgerufen werden."
+msgstr "Een fysieke brief wordt via de postdienstverlener Letterxpress verzonden naar het in het systeem opgeslagen adres van %1. De verzending kan niet worden teruggeroepen."
+
+msgid "Eingabekontrolle"
+msgstr "Invoercontrole"
+
+msgid "Eingereicht von %1 am %2"
+msgstr "Ingediend door %1 op %2"
+
+msgid "Eingeschränkt (Degraded)"
+msgstr "Beperkt (Degraded)"
+
+msgid "Eingetreten"
+msgstr "Toegetreden"
+
+msgid "Einladung"
+msgstr "Uitnodiging"
+
+msgid "Einladung kopieren"
+msgstr "Uitnodiging kopiëren"
+
+msgid "Einladung per Post versenden"
+msgstr "Uitnodiging per post versturen"
+
+msgid "Einladungstext"
+msgstr "Uitnodigingstekst"
+
+msgid "Einnahme"
+msgstr "Inkomsten"
+
+msgid "Einnahmen"
+msgstr "Inkomsten"
+
+msgid "Einreichen"
+msgstr "Indienen"
+
+msgid "Einsatz (LTR)"
+msgstr "Inzet (LTR)"
+
+msgid "Einstellungen"
+msgstr "Instellingen"
+
+msgid "Eintrag oben auswählen, um Details zu sehen."
+msgstr "Selecteer bovenaan een vermelding om details te zien."
+
+msgid "Einträge"
+msgstr "Vermeldingen"
+
+msgid "Eintrittswahrscheinlichkeit"
+msgstr "Waarschijnlijkheid"
+
+msgid "Einzelne Person"
+msgstr "Individuele persoon"
+
+msgid "Empfänger"
+msgstr "Ontvanger"
+
+msgid "Empfänger:"
+msgstr "Ontvanger:"
+
+msgid "Enddatum (JJJJ-MM-TT)"
+msgstr "Einddatum (JJJJ-MM-DD)"
+
+msgid "Ende"
+msgstr "Einde"
+
+msgid "Endgültig ausführen"
+msgstr "Definitief uitvoeren"
+
+msgid "Endgültig buchen"
+msgstr "Definitief boeken"
+
+msgid "Endgültig löschen"
+msgstr "Definitief verwijderen"
+
+msgid "Endgültig übertragen"
+msgstr "Definitief overdragen"
+
+msgid "Endgültig wiederherstellen"
+msgstr "Definitief herstellen"
+
+msgid "Entdeckt am (JJJJ-MM-TTTHH:MM:SS) -- startet die 72h-Frist"
+msgstr "Ontdekt op (JJJJ-MM-DDTHH:MM:SS) -- start de 72-uurstermijn"
+
+msgid "Entdeckt am: %1 · Betroffene Datenkategorien: %2"
+msgstr "Ontdekt op: %1 · Betrokken gegevenscategorieën: %2"
+
+msgid "Entfernen"
+msgstr "Verwijderen"
+
+msgid "Enthaltungen"
+msgstr "Onthoudingen"
+
+msgid "Entität: %1"
+msgstr "Entiteit: %1"
+
+msgid "Entitäts-ID (optional)"
+msgstr "Entiteit-ID (optioneel)"
+
+msgid "Entitätstyp"
+msgstr "Entiteittype"
+
+msgid "Entscheidung"
+msgstr "Besluit"
+
+msgid "Entscheidung für \"%1\" gespeichert."
+msgstr "Besluit voor \"%1\" opgeslagen."
+
+msgid "Entscheidung speichern"
+msgstr "Besluit opslaan"
+
+msgid "Entscheidungsnotiz (optional)"
+msgstr "Besluitopmerking (optioneel)"
+
+msgid "Entscheidungsnotiz: %1"
+msgstr "Besluitopmerking: %1"
+
+msgid "Entschieden"
+msgstr "Beslist"
+
+msgid "Entschieden am"
+msgstr "Beslist op"
+
+msgid "Entschieden von %1 am %2"
+msgstr "Beslist door %1 op %2"
+
+msgid "Entwurf"
+msgstr "Concept"
+
+msgid "Entwurf \"%1\" als neuer Entwurf übernommen -- bitte prüfen und speichern."
+msgstr "Concept \"%1\" overgenomen als nieuw concept -- controleer en sla op."
+
+msgid "Entwurf \"%1\" wurde gespeichert."
+msgstr "Concept \"%1\" is opgeslagen."
+
+msgid "Entwurf erstellt am %1"
+msgstr "Concept aangemaakt op %1"
+
+msgid "Entwurf gespeichert."
+msgstr "Concept opgeslagen."
+
+msgid "Entwurf von %1 am %2 -- noch nicht Teil offizieller Berichte."
+msgstr "Concept van %1 op %2 -- nog geen onderdeel van officiële rapporten."
+
+msgid "Entwürfe können nicht nachträglich geändert oder gelöscht werden. Ist dieser Entwurf fehlerhaft, nutzen Sie „Als neuen Entwurf duplizieren\" unten, um eine korrigierte Kopie zu erstellen, und lassen Sie diesen Entwurf ungebucht liegen."
+msgstr "Concepten kunnen achteraf niet worden gewijzigd of verwijderd. Is dit concept onjuist, gebruik dan „Als nieuw concept dupliceren\" hieronder om een gecorrigeerde kopie te maken, en laat dit concept ongeboekt liggen."
+
+msgid "Erfasst von (Mitglieds-ID)"
+msgstr "Geregistreerd door (lid-ID)"
+
+msgid "Erfolgreich"
+msgstr "Succesvol"
+
+msgid "Erforderlichkeit/Verhältnismäßigkeit (optional)"
+msgstr "Noodzakelijkheid/proportionaliteit (optioneel)"
+
+msgid "Ergebnis"
+msgstr "Resultaat"
+
+msgid "Ergebnis:"
+msgstr "Resultaat:"
+
+msgid "Erinnerung wurde bestätigt."
+msgstr "Herinnering is bevestigd."
+
+msgid "Erinnerungen"
+msgstr "Herinneringen"
+
+msgid "Erlassen"
+msgstr "Kwijtschelden"
+
+msgid "Erledigte anzeigen"
+msgstr "Afgehandelde weergeven"
+
+msgid "Ernennen"
+msgstr "Benoemen"
+
+msgid "Eröffnungssaldo"
+msgstr "Openingssaldo"
+
+msgid "Erstellen"
+msgstr "Aanmaken"
+
+msgid "Erstellt"
+msgstr "Aangemaakt"
+
+msgid "Erstellt von %1 · %2 Teilnehmende"
+msgstr "Aangemaakt door %1 · %2 deelnemers"
+
+msgid "Erteilen"
+msgstr "Toekennen"
+
+msgid "Erteilen / Aktualisieren"
+msgstr "Toekennen / bijwerken"
+
+msgid "Ertragskonto"
+msgstr "Opbrengstrekening"
+
+msgid "Es läuft bereits eine meritokratische Vote für diesen Antrag -- siehe Abschnitt \"Vote\" unten."
+msgstr "Er loopt al een meritocratische stemming voor dit voorstel -- zie de sectie \"Stemming\" hieronder."
+
+msgid "Es werden %1 als Sichtbarkeits-Gewicht aus Ihrem freien LTR-Guthaben gebunden. Dieser Einsatz wird NICHT zurückerstattet, unabhängig von der späteren Vorstandsentscheidung."
+msgstr "Er wordt %1 als zichtbaarheidsgewicht vastgelegd uit uw vrije LTR-tegoed. Deze inzet wordt NIET terugbetaald, ongeacht het latere bestuursbesluit."
+
+msgid "Es werden %1 an %2 gutgeschrieben. Diese Gutschrift lässt sich nur durch eine gegenläufige Buchung (z. B. eine Schiedsverfahren-Korrekturübertragung) rückgängig machen."
+msgstr "Er wordt %1 gecrediteerd aan %2. Deze creditering kan alleen ongedaan worden gemaakt door een tegenboeking (bijv. een arbitrage-correctieoverdracht)."
+
+msgid "Es wird ein Angebot \"%1\" mit Startpreis %2%3 und %4 Stunden Laufzeit erstellt. Dabei wird eine feste Gebühr von %5 aus Ihrem freien LTR-Guthaben gebucht."
+msgstr "Er wordt een aanbieding \"%1\" aangemaakt met startprijs %2%3 en een looptijd van %4 uur. Daarbij wordt een vaste vergoeding van %5 geboekt uit uw vrije LTR-tegoed."
+
+msgid "EU-Bürger:in / EU-Rechtsperson"
+msgstr "EU-burger / EU-rechtspersoon"
+
+msgid "Export"
+msgstr "Exporteren"
+
+msgid "Extern"
+msgstr "Extern"
+
+msgid "Externe Spender"
+msgstr "Externe donateurs"
+
+msgid "Externe Spender sind keine Mitglieder -- eine eigenständige Adressverwaltung für Spendenbescheinigungen und die §25-PartG-Pflichtenprüfung, getrennt von der Mitgliederverwaltung."
+msgstr "Externe donateurs zijn geen leden -- een zelfstandig adresbeheer voor donatiebevestigingen en de §25-PartG-verplichtingentoets, gescheiden van het ledenbeheer."
+
+msgid "Externer Spender"
+msgstr "Externe donateur"
+
+msgid "Externer Spender (ID)"
+msgstr "Externe donateur (ID)"
+
+msgid "Falls die Zeichnung noch gebraucht wird: vorher als Dokument speichern."
+msgstr "Als de tekening nog nodig is: sla deze vooraf op als document."
+
+msgid "Falls diese E-Mail registriert ist, wurde ein Link versendet."
+msgstr "Als dit e-mailadres geregistreerd is, is er een link verzonden."
+
+msgid "Farbe wählen"
+msgstr "Kleur selecteren"
+
+msgid "Fehlende Angaben für das Transparenzregister: %1 Vorstandsmitglied(er) ohne Geburtsdatum und/oder Staatsangehörigkeit."
+msgstr "Ontbrekende gegevens voor het Transparantieregister: %1 bestuurslid/leden zonder geboortedatum en/of nationaliteit."
+
+msgid "Fehler"
+msgstr "Fout"
+
+msgid "Fehler: %1"
+msgstr "Fout: %1"
+
+msgid "Fehlgeschlagen"
+msgstr "Mislukt"
+
+msgid "Fertig"
+msgstr "Gereed"
+
+msgid "Fiat"
+msgstr "Fiat"
+
+msgid "Filter: Referenztyp"
+msgstr "Filter: referentietype"
+
+msgid "Filter: Status (persistiert)"
+msgstr "Filter: status (opgeslagen)"
+
+msgid "Filter: Status (Vorstandsbeschluss)"
+msgstr "Filter: status (bestuursbesluit)"
+
+msgid "Filtern"
+msgstr "Filteren"
+
+msgid "Finanzberichte"
+msgstr "Financiële rapporten"
+
+msgid "Finanzen"
+msgstr "Financiën"
+
+msgid "Format"
+msgstr "Formaat"
+
+msgid "Freie Rücklage (%1)"
+msgstr "Vrije reserve (%1)"
+
+msgid "Frist bald fällig"
+msgstr "Termijn verstrijkt binnenkort"
+
+msgid "Frist läuft"
+msgstr "Termijn loopt"
+
+msgid "Frist überschritten"
+msgstr "Termijn overschreden"
+
+msgid "Frist: %1"
+msgstr "Termijn: %1"
+
+msgid "Führend"
+msgstr "Leidend"
+
+msgid "Führend: %1"
+msgstr "Leidend: %1"
+
+msgid "Führend: Sie"
+msgstr "Leidend: u"
+
+msgid "Für alle beenden"
+msgstr "Voor iedereen beëindigen"
+
+msgid "Galerie"
+msgstr "Galerij"
+
+msgid "Gast"
+msgstr "Gast"
+
+msgid "Gast eines anderen Lapis-Cloud-Servers? Mit Heimatserver anmelden."
+msgstr "Gast van een andere Lapis Cloud-server? Aanmelden met thuisserver."
+
+msgid "Gast von %1"
+msgstr "Gast van %1"
+
+msgid "Gast-Gewicht"
+msgstr "Gastgewicht"
+
+msgid "Gast-Gewicht (reine Stimmenzahl, ungewichtet)"
+msgstr "Gastgewicht (louter stemaantal, ongewogen)"
+
+msgid "Gäste"
+msgstr "Gasten"
+
+msgid "Gäste anderer Server zulassen"
+msgstr "Gasten van andere servers toestaan"
+
+msgid "Gäste zugelassen"
+msgstr "Gasten toegestaan"
+
+msgid "Gastgeberin dieser Besprechung: %1"
+msgstr "Host van deze vergadering: %1"
+
+msgid "Gastzugang"
+msgstr "Gasttoegang"
+
+msgid "Gastzugang aktiviert."
+msgstr "Gasttoegang geactiveerd."
+
+msgid "Gastzugang beenden"
+msgstr "Gasttoegang beëindigen"
+
+msgid "Gastzugang beendet."
+msgstr "Gasttoegang beëindigd."
+
+msgid "Gastzugang offen"
+msgstr "Gasttoegang open"
+
+msgid "Gastzugang:"
+msgstr "Gasttoegang:"
+
+msgid "Geändert"
+msgstr "Gewijzigd"
+
+msgid "Geben Sie Ihre E-Mail-Adresse ein, um einen Link zum Zurücksetzen anzufordern. Erhalten Sie eine Bestätigung, tragen Sie anschließend den Token und Ihr neues Passwort ein."
+msgstr "Voer uw e-mailadres in om een link voor het resetten aan te vragen. Ontvangt u een bevestiging, voer dan vervolgens de token en uw nieuwe wachtwoord in."
+
+msgid "Gebot abgeben"
+msgstr "Bod uitbrengen"
+
+msgid "Gebot angenommen. Aktueller Preis: %1. %2"
+msgstr "Bod geaccepteerd. Huidige prijs: %1. %2"
+
+msgid "Gebot bestätigen"
+msgstr "Bod bevestigen"
+
+msgid "Gebot gespeichert."
+msgstr "Bod opgeslagen."
+
+msgid "Gebucht"
+msgstr "Geboekt"
+
+msgid "Gebucht am"
+msgstr "Geboekt op"
+
+msgid "Gebucht am %1 von %2 -- unveränderlich."
+msgstr "Geboekt op %1 door %2 -- onveranderlijk."
+
+msgid "Geburtsdatum"
+msgstr "Geboortedatum"
+
+msgid "Gelöscht."
+msgstr "Verwijderd."
+
+msgid "Gemeinnützigkeits-Berichte"
+msgstr "Rapporten fiscale goeddoelstatus"
+
+msgid "gemeldet"
+msgstr "gemeld"
+
+msgid "Gemeldet"
+msgstr "Gemeld"
+
+msgid "Gemintet:"
+msgstr "Gemint:"
+
+msgid "Genehmigen"
+msgstr "Goedkeuren"
+
+msgid "Genehmigt"
+msgstr "Goedgekeurd"
+
+msgid "Generisches RTMP"
+msgstr "Generieke RTMP"
+
+msgid "Geprüft von %1 am %2%3"
+msgstr "Gecontroleerd door %1 op %2%3"
+
+msgid "Gesamt"
+msgstr "Totaal"
+
+msgid "Gesamt (Summe, keine vergleichbare Einheit)"
+msgstr "Totaal (som, geen vergelijkbare eenheid)"
+
+msgid "Geschäftsjahr"
+msgstr "Boekjaar"
+
+msgid "Geschäftsjahr (JJJJ)"
+msgstr "Boekjaar (JJJJ)"
+
+msgid "Geschäftsjahr %1 · %2 bis %3"
+msgstr "Boekjaar %1 · %2 tot %3"
+
+msgid "Geschätzte Anzahl betroffener Personen (optional)"
+msgstr "Geschat aantal betrokkenen (optioneel)"
+
+msgid "Gesendet"
+msgstr "Verzonden"
+
+msgid "Gesendet am %1"
+msgstr "Verzonden op %1"
+
+msgid "Gespeichert -- Schlüssel wird nicht erneut angezeigt."
+msgstr "Opgeslagen -- sleutel wordt niet opnieuw weergegeven."
+
+msgid "Gewählter Modus: %1"
+msgstr "Geselecteerde modus: %1"
+
+msgid "Gewichts-Snapshot auslösen"
+msgstr "Gewichtssnapshot activeren"
+
+msgid "Gewichtsverlauf anzeigen/ausblenden"
+msgstr "Gewichtsgeschiedenis tonen/verbergen"
+
+msgid "Gewinn- und Verlustrechnung"
+msgstr "Winst-en-verliesrekening"
+
+msgid "Gewinn- und Verlustrechnung (GuV)"
+msgstr "Winst-en-verliesrekening (W&V)"
+
+msgid "Gewinner"
+msgstr "Winnaar"
+
+msgid "GoBD-revisionssicheres Protokoll aller Buchungen, Beschlüsse, Vorstandsmitgliedschaften und Spendenprüfungen -- unveränderlich und ausschließlich lesbar. Es gibt auf dieser Seite keine Funktion zum Bearbeiten oder Löschen von Einträgen."
+msgstr "GoBD-revisieveilig logboek van alle boekingen, besluiten, bestuurslidmaatschappen en donatiecontroles -- onveranderlijk en uitsluitend leesbaar. Er is op deze pagina geen functie om vermeldingen te bewerken of te verwijderen."
+
+msgid "Gold (XAU)"
+msgstr "Goud (XAU)"
+
+msgid "Gold (XAU) und Fiat-Kurse sind fachlich vorgesehen, aber serverseitig noch nicht implementiert (kein robuster kostenloser Mehrquellen-Feed verfügbar) -- daher hier nicht auswählbar."
+msgstr "Goud (XAU) en fiatkoersen zijn functioneel voorzien, maar serverzijdig nog niet geïmplementeerd (geen robuuste gratis meerbronnenfeed beschikbaar) -- daarom hier niet selecteerbaar."
+
+msgid "Gremien"
+msgstr "Organen"
+
+msgid "Gremium"
+msgstr "Orgaan"
+
+msgid "Gremium anlegen"
+msgstr "Orgaan aanmaken"
+
+msgid "Gremium oben auswählen, um die Besetzung zu sehen."
+msgstr "Selecteer bovenaan een orgaan om de bezetting te zien."
+
+msgid "Gremium: %1 · %2 · Termin: %3"
+msgstr "Orgaan: %1 · %2 · Datum: %3"
+
+msgid "Gremium: %1 · %2 · Termin: %3%4"
+msgstr "Orgaan: %1 · %2 · Datum: %3%4"
+
+msgid "Gremium: %1 · eingereicht von %2 am %3"
+msgstr "Orgaan: %1 · ingediend door %2 op %3"
+
+msgid "Guthaben & Buchungen eines Mitglieds"
+msgstr "Tegoed & boekingen van een lid"
+
+msgid "Guthaben von %1"
+msgstr "Tegoed van %1"
+
+msgid "Gutschreiben"
+msgstr "Crediteren"
+
+msgid "Gutschrift (Mint)"
+msgstr "Creditering (mint)"
+
+msgid "GuV"
+msgstr "W&V"
+
+msgid "Haben"
+msgstr "Credit"
+
+msgid "Hauptbuch"
+msgstr "Grootboek"
+
+msgid "Herunterladen"
+msgstr "Downloaden"
+
+msgid "Hinweis gelesen -- als Gast beitreten"
+msgstr "Kennisgeving gelezen -- als gast deelnemen"
+
+msgid "Hinweis: %1"
+msgstr "Opmerking: %1"
+
+msgid "Hinweis: Die tatsächlich gebuchte Währung ist die in der Konfiguration hinterlegte Spendenwährung -- diese Auswahl dient nur der Anzeige im Bestätigungsdialog."
+msgstr "Opmerking: de daadwerkelijk geboekte valuta is de in de configuratie vastgelegde donatievaluta -- deze selectie dient alleen ter weergave in het bevestigingsvenster."
+
+msgid "Hinweis: Eine im Hauptraum laufende Aufzeichnung oder ein Live-Stream erfasst dieses Gespräch nicht."
+msgstr "Opmerking: een in de hoofdruimte lopende opname of livestream legt dit gesprek niet vast."
+
+msgid "Hinweistext-Version %1"
+msgstr "Kennisgevingstekst versie %1"
+
+msgid "Hinzufügen"
+msgstr "Toevoegen"
+
+msgid "Hoch"
+msgstr "Hoog"
+
+msgid "Hochladen"
+msgstr "Uploaden"
+
+msgid "Höchstens %1 Zeichen."
+msgstr "Maximaal %1 tekens."
+
+msgid "Honorar"
+msgstr "Honorarium"
+
+msgid "Ich bestätige, den aktuellen Text gelesen zu haben"
+msgstr "Ik bevestig de huidige tekst te hebben gelezen"
+
+msgid "Ich habe den Beitrittsvertrag gelesen und akzeptiere ihn."
+msgstr "Ik heb de toetredingsovereenkomst gelezen en accepteer deze."
+
+msgid "Ideeller Bereich"
+msgstr "Ideëel domein"
+
+msgid "Ihr Einsatz wird NICHT zurückerstattet -- unabhängig davon, ob der Vorstand das Projekt später genehmigt oder ablehnt. Es gibt in diesem System keinen Rückerstattungspfad für diesen Einsatz."
+msgstr "Uw inzet wordt NIET terugbetaald -- ongeacht of het bestuur het project later goedkeurt of afwijst. Er bestaat in dit systeem geen terugbetalingstraject voor deze inzet."
+
+msgid "Ihr Gebot: %1, %2 LTR"
+msgstr "Uw bod: %1, %2 LTR"
+
+msgid "Ihr Höchstgebot"
+msgstr "Uw maximumbod"
+
+msgid "Ihr Höchstgebot (LTR)"
+msgstr "Uw maximumbod (LTR)"
+
+msgid "Ihr Höchstgebot ist verbindlich und reserviert LTR aus Ihrem freien Guthaben."
+msgstr "Uw maximumbod is bindend en reserveert LTR uit uw vrije tegoed."
+
+msgid "Ihr Höchstgebot muss mindestens dem Startpreis (%1) entsprechen."
+msgstr "Uw maximumbod moet ten minste overeenkomen met de startprijs (%1)."
+
+msgid "Ihr Löschantrag"
+msgstr "Uw verwijderingsverzoek"
+
+msgid "Ihr LTR-Guthaben"
+msgstr "Uw LTR-tegoed"
+
+msgid "Ihr LTR-Guthaben:"
+msgstr "Uw LTR-tegoed:"
+
+msgid "Ihr Mitgliedschaftsantrag wurde eingereicht und wird vom Vorstand geprüft. Sie sind noch nicht angemeldet -- nach der Freigabe können Sie sich mit Ihrem gewählten Passwort anmelden."
+msgstr "Uw lidmaatschapsaanvraag is ingediend en wordt door het bestuur beoordeeld. U bent nog niet aangemeld -- na goedkeuring kunt u zich aanmelden met uw gekozen wachtwoord."
+
+msgid "Ihr Mitgliedsdatensatz bleibt als anonymer Platzhalter bestehen (z. B. damit Beitragshistorie und Buchungen konsistent bleiben). Persönliche Felder werden geleert oder anonymisiert."
+msgstr "Uw lidrecord blijft bestaan als anonieme plaatshouder (bijv. zodat bijdragegeschiedenis en boekingen consistent blijven). Persoonlijke velden worden gewist of geanonimiseerd."
+
+msgid "Ihr Recht auf Auskunft (Art. 15/20 DSGVO) und auf Löschung (\"Recht auf Vergessenwerden\", Art. 17 DSGVO) -- eine Löschung wird hier nur BEANTRAGT, nie sofort ausgeführt. Über den Antrag entscheidet danach eine Administratorin oder ein Administrator gesondert."
+msgstr "Uw recht op inzage (art. 15/20 AVG) en op verwijdering (\"recht op vergetelheid\", art. 17 AVG) -- een verwijdering wordt hier alleen AANGEVRAAGD, nooit onmiddellijk uitgevoerd. Over de aanvraag beslist vervolgens afzonderlijk een beheerder."
+
+msgid "Ihre Bewertung:"
+msgstr "Uw beoordeling:"
+
+msgid "Ihre Reaktion:"
+msgstr "Uw reactie:"
+
+msgid "In Bearbeitung"
+msgstr "In behandeling"
+
+msgid "In Prüfung"
+msgstr "In beoordeling"
+
+msgid "In Warteschlange"
+msgstr "In wachtrij"
+
+msgid "inaktiv"
+msgstr "inactief"
+
+msgid "Inaktiv"
+msgstr "Inactief"
+
+msgid "Inaktive Gremien anzeigen"
+msgstr "Inactieve organen weergeven"
+
+msgid "Inaktive Konten anzeigen"
+msgstr "Inactieve rekeningen weergeven"
+
+msgid "Inaktive Kostenstellen anzeigen"
+msgstr "Inactieve kostenplaatsen weergeven"
+
+msgid "Inaktive Spender anzeigen"
+msgstr "Inactieve donateurs weergeven"
+
+msgid "Inhalt"
+msgstr "Inhoud"
+
+msgid "Inklusive ehemaliger Profile"
+msgstr "Inclusief voormalige profielen"
+
+msgid "ist beendet"
+msgstr "is beëindigd"
+
+msgid "ist unterbrochen"
+msgstr "is onderbroken"
+
+msgid "Ja"
+msgstr "Ja"
+
+msgid "Ja-Stimmen"
+msgstr "Ja-stemmen"
+
+msgid "Ja: %1 · Nein: %2 · Enthaltung: %3"
+msgstr "Ja: %1 · Nee: %2 · Onthouding: %3"
+
+msgid "Ja: %1 · Nein: %2 · Enthaltung: %3 · Quorum %4 · entschieden am %5 von %6"
+msgstr "Ja: %1 · Nee: %2 · Onthouding: %3 · Quorum %4 · beslist op %5 door %6"
+
+msgid "Jahresabschluss"
+msgstr "Jaarrekening"
+
+msgid "Jahresergebnis (dieses Geschäftsjahr)"
+msgstr "Jaarresultaat (dit boekjaar)"
+
+msgid "Jahressumme"
+msgstr "Jaartotaal"
+
+msgid "Jemand hat diesen Block bereits aktualisiert (zuletzt von %1)."
+msgstr "Iemand heeft dit blok al bijgewerkt (laatst door %1)."
+
+msgid "Jetzt live gehen"
+msgstr "Nu live gaan"
+
+msgid "Jetzt per Post versenden"
+msgstr "Nu per post verzenden"
+
+msgid "Jetzt terminieren"
+msgstr "Nu inplannen"
+
+msgid "Journal (Grundbuch)"
+msgstr "Journaal (dagboek)"
+
+msgid "Journaldetails"
+msgstr "Journaaldetails"
+
+msgid "Kalenderjahr (JJJJ)"
+msgstr "Kalenderjaar (JJJJ)"
+
+msgid "Kalenderjahr %1"
+msgstr "Kalenderjaar %1"
+
+msgid "Kamera an"
+msgstr "Camera aan"
+
+msgid "Kamera aus"
+msgstr "Camera uit"
+
+msgid "Kasse"
+msgstr "Kas"
+
+msgid "Kasse (Kassenbuch-fähig)"
+msgstr "Kas (geschikt voor kasboek)"
+
+msgid "Kassenbuch"
+msgstr "Kasboek"
+
+msgid "Kategorie"
+msgstr "Categorie"
+
+msgid "Kein AVV"
+msgstr "Geen AVV"
+
+msgid "Kein Beschluss verknüpft."
+msgstr "Geen besluit gekoppeld."
+
+msgid "Kein Grund angegeben."
+msgstr "Geen reden opgegeven."
+
+msgid "Kein Legal Hold"
+msgstr "Geen Legal Hold"
+
+msgid "Kein Limit"
+msgstr "Geen limiet"
+
+msgid "Kein Zugriff -- für diesen Bereich fehlt Ihnen die Berechtigung."
+msgstr "Geen toegang -- u heeft niet de vereiste rechten voor dit gebied."
+
+msgid "Keine Adresse hinterlegt"
+msgstr "Geen adres opgeslagen"
+
+msgid "Keine anderen Mitglieder vorhanden, an die übertragen werden könnte."
+msgstr "Er zijn geen andere leden aan wie kan worden overgedragen."
+
+msgid "Keine Änderungsanträge."
+msgstr "Geen wijzigingsvoorstellen."
+
+msgid "Keine anonymen Spenden über dem Schwellenwert im gewählten Kalenderjahr."
+msgstr "Geen anonieme giften boven de drempelwaarde in het geselecteerde kalenderjaar."
+
+msgid "Keine Anträge für diese Filter gefunden."
+msgstr "Geen voorstellen gevonden voor deze filters."
+
+msgid "Keine Anwesenheit erfasst."
+msgstr "Geen aanwezigheid geregistreerd."
+
+msgid "Keine Beiträge vorhanden."
+msgstr "Geen contributies aanwezig."
+
+msgid "Keine Beitragssätze vorhanden."
+msgstr "Geen contributietarieven aanwezig."
+
+msgid "Keine berechtigten Mitglieder gefunden."
+msgstr "Geen gerechtigde leden gevonden."
+
+msgid "Keine Berechtigung für diese Aktion."
+msgstr "Geen rechten voor deze actie."
+
+msgid "Keine Berechtigung, Anträge einzureichen."
+msgstr "Geen rechten om voorstellen in te dienen."
+
+msgid "Keine Berechtigung, neue Sitzungen anzulegen."
+msgstr "Geen rechten om nieuwe vergaderingen aan te maken."
+
+msgid "Keine Beschlüsse."
+msgstr "Geen besluiten."
+
+msgid "Keine Buchungen für diesen Filter."
+msgstr "Geen boekingen voor dit filter."
+
+msgid "Keine Buchungen im gewählten Zeitraum."
+msgstr "Geen boekingen in de geselecteerde periode."
+
+msgid "Keine Buchungen in diesem Abschnitt."
+msgstr "Geen boekingen in dit onderdeel."
+
+msgid "Keine Buchungszeilen."
+msgstr "Geen boekingsregels."
+
+msgid "Keine Daten in den registrierten Bereichen gefunden."
+msgstr "Geen gegevens gevonden in de geregistreerde gebieden."
+
+msgid "Keine Detaildaten für diesen Eintrag hinterlegt."
+msgstr "Geen detailgegevens opgeslagen voor dit item."
+
+msgid "Keine Dokumente in diesem Ordner."
+msgstr "Geen documenten in deze map."
+
+msgid "Keine Einträge für diese Filter gefunden."
+msgstr "Geen items gevonden voor deze filters."
+
+msgid "Keine Einträge gefunden."
+msgstr "Geen items gevonden."
+
+msgid "Keine Einträge im geprüften Bereich."
+msgstr "Geen items in het gecontroleerde gebied."
+
+msgid "Keine Erinnerungen vorhanden."
+msgstr "Geen herinneringen aanwezig."
+
+msgid "Keine fehlenden Angaben für das Transparenzregister."
+msgstr "Geen ontbrekende gegevens voor het UBO-register."
+
+msgid "Keine freigegebenen Stream-Ziele vorhanden -- bitte eine Administratorin oder einen Administrator kontaktieren."
+msgstr "Geen vrijgegeven streamdoelen aanwezig -- neem contact op met een beheerder."
+
+msgid "Keine Gebote abgegeben."
+msgstr "Geen biedingen uitgebracht."
+
+msgid "Keine geplante Sitzung für dieses Gremium verfügbar -- zuerst auf \"Sitzungen\" eine anlegen."
+msgstr "Geen geplande vergadering voor dit orgaan beschikbaar -- maak er eerst een aan onder \"Vergaderingen\"."
+
+msgid "Keine Kostenstelle mit Buchungen im gewählten Zeitraum."
+msgstr "Geen kostenplaats met boekingen in de geselecteerde periode."
+
+msgid "Keine Meldung erforderlich"
+msgstr "Geen melding vereist"
+
+msgid "Keine Mitglieder vorhanden, denen eine Spende gutgeschrieben werden könnte."
+msgstr "Er zijn geen leden aan wie een gift kan worden bijgeschreven."
+
+msgid "Keine Mitglieder vorhanden."
+msgstr "Geen leden aanwezig."
+
+msgid "Keine offenen Anträge."
+msgstr "Geen openstaande voorstellen."
+
+msgid "Keine offenen Beiträge."
+msgstr "Geen openstaande contributies."
+
+msgid "Keine offenen Melde-/Offenlegungspflichten im gewählten Kalenderjahr."
+msgstr "Geen openstaande melding-/openbaarmakingsplichten in het geselecteerde kalenderjaar."
+
+msgid "Keine Tagesordnungspunkte."
+msgstr "Geen agendapunten."
+
+msgid "Keine Treffer."
+msgstr "Geen resultaten."
+
+msgid "Kennzahlen"
+msgstr "Kengetallen"
+
+msgid "Kette prüfen"
+msgstr "Keten controleren"
+
+msgid "Ketten-Integrität prüfen"
+msgstr "Ketenintegriteit controleren"
+
+msgid "Kommunikation"
+msgstr "Communicatie"
+
+msgid "Konfiguration"
+msgstr "Configuratie"
+
+msgid "Konfiguration bearbeiten (ADMIN)"
+msgstr "Configuratie bewerken (ADMIN)"
+
+msgid "Konfiguration speichern"
+msgstr "Configuratie opslaan"
+
+msgid "Konten (SKR42 Kontenplan)"
+msgstr "Rekeningen (SKR42-rekeningschema)"
+
+msgid "Kontenklasse"
+msgstr "Rekeningklasse"
+
+msgid "Kontenklasse (erste Ziffer der Kontonummer, 0-9)"
+msgstr "Rekeningklasse (eerste cijfer van het rekeningnummer, 0-9)"
+
+msgid "Kontenklasse %1"
+msgstr "Rekeningklasse %1"
+
+msgid "Kontenplan & Journal"
+msgstr "Rekeningschema & journaal"
+
+msgid "Konto"
+msgstr "Rekening"
+
+msgid "Konto \"%1 · %2\" wurde angelegt."
+msgstr "Rekening \"%1 · %2\" is aangemaakt."
+
+msgid "Konto (ID)"
+msgstr "Rekening (ID)"
+
+msgid "Konto anlegen"
+msgstr "Rekening aanmaken"
+
+msgid "Konto deaktivieren"
+msgstr "Rekening deactiveren"
+
+msgid "Konto oben auswählen, um Hauptbuch/Kassenbuch zu sehen."
+msgstr "Selecteer hierboven een rekening om het grootboek/kasboek te bekijken."
+
+msgid "Konto wurde deaktiviert."
+msgstr "Rekening is gedeactiveerd."
+
+msgid "Kontodetails"
+msgstr "Rekeningdetails"
+
+msgid "Kontonummer (SKR42)"
+msgstr "Rekeningnummer (SKR42)"
+
+msgid "Kontotyp"
+msgstr "Rekeningtype"
+
+msgid "Konvertieren"
+msgstr "Converteren"
+
+msgid "Konvertierung ausgeführt."
+msgstr "Conversie uitgevoerd."
+
+msgid "Korb"
+msgstr "Mand"
+
+msgid "Körperschaft des öffentlichen Rechts"
+msgstr "Publiekrechtelijke rechtspersoon"
+
+msgid "Korrekturübertragung ausführen"
+msgstr "Correctie-overdracht uitvoeren"
+
+msgid "Korrekturübertragung ausgeführt: %1."
+msgstr "Correctie-overdracht uitgevoerd: %1."
+
+msgid "Kostenstelle"
+msgstr "Kostenplaats"
+
+msgid "Kostenstelle \"%1 · %2\" wurde angelegt."
+msgstr "Kostenplaats \"%1 · %2\" is aangemaakt."
+
+msgid "Kostenstelle anlegen"
+msgstr "Kostenplaats aanmaken"
+
+msgid "Kostenstelle deaktivieren"
+msgstr "Kostenplaats deactiveren"
+
+msgid "Kostenstelle wurde deaktiviert."
+msgstr "Kostenplaats is gedeactiveerd."
+
+msgid "Kostenstellen"
+msgstr "Kostenplaatsen"
+
+msgid "Kostenstellenbericht"
+msgstr "Kostenplaatsrapport"
+
+msgid "Kritisch"
+msgstr "Kritiek"
+
+msgid "Kumuliertes Ergebnis (seit Gründung)"
+msgstr "Cumulatief resultaat (sinds oprichting)"
+
+msgid "Kumuliertes Ergebnis (Σ Einnahmen − Ausgaben seit Gründung)"
+msgstr "Cumulatief resultaat (Σ inkomsten − uitgaven sinds oprichting)"
+
+msgid "Kurs abrufen"
+msgstr "Koers ophalen"
+
+msgid "Kurs-Status:"
+msgstr "Koersstatus:"
+
+msgid "Kurs: %1 je %2 (Status: %3, %4 Quelle(n): %5)"
+msgstr "Koers: %1 per %2 (status: %3, %4 bron(nen): %5)"
+
+msgid "Laden"
+msgstr "Laden"
+
+msgid "Lädt ein vollständiges ZIP-Backup aller Organisationsdaten herunter. Rein lesend und nicht destruktiv -- daher ohne Bestätigungsdialog."
+msgstr "Downloadt een volledige ZIP-back-up van alle organisatiegegevens. Uitsluitend lezend en niet destructief -- daarom zonder bevestigingsdialoog."
+
+msgid "Land (optional)"
+msgstr "Land (optioneel)"
+
+msgid "Latenz"
+msgstr "Latentie"
+
+msgid "laufend"
+msgstr "lopend"
+
+msgid "läuft"
+msgstr "loopt"
+
+msgid "Laufzeit in Stunden (z. B. 24)"
+msgstr "Looptijd in uren (bijv. 24)"
+
+msgid "Layout"
+msgstr "Lay-out"
+
+msgid "Legal Hold aktiv -- Löschung darf nicht ausgeführt werden."
+msgstr "Legal Hold actief -- verwijdering mag niet worden uitgevoerd."
+
+msgid "Legt ein Mitglied ohne Antrags-/Freigabeschritt an (z. B. für Beitritte auf Papier oder Datenmigration) -- Status sofort AKTIV."
+msgstr "Maakt een lid aan zonder aanvraag-/goedkeuringsstap (bijv. voor toetredingen op papier of gegevensmigratie) -- status direct AKTIV."
+
+msgid "Like"
+msgstr "Like"
+
+msgid "Like: %1 · Dislike: %2 · Verteilungs-Korb: %3"
+msgstr "Like: %1 · Dislike: %2 · Verdelingsmand: %3"
+
+msgid "Liste verwalten"
+msgstr "Lijst beheren"
+
+msgid "Live"
+msgstr "Live"
+
+msgid "Live-Stream"
+msgstr "Livestream"
+
+msgid "Live-Stream beenden"
+msgstr "Livestream beëindigen"
+
+msgid "Live-Stream beendet."
+msgstr "Livestream beëindigd."
+
+msgid "Live-Stream fehlgeschlagen."
+msgstr "Livestream mislukt."
+
+msgid "Live-Stream gestartet von %1 um %2:%3 · %4"
+msgstr "Livestream gestart door %1 om %2:%3 · %4"
+
+msgid "Live-Stream starten"
+msgstr "Livestream starten"
+
+msgid "Live-Stream starten …"
+msgstr "Livestream starten …"
+
+msgid "Live-Stream wird beendet."
+msgstr "Livestream wordt beëindigd."
+
+msgid "Live-Stream wird gestartet."
+msgstr "Livestream wordt gestart."
+
+msgid "Live-Stream:"
+msgstr "Livestream:"
+
+msgid "Löschen"
+msgstr "Verwijderen"
+
+msgid "Löschung abgelehnt"
+msgstr "Verwijdering afgewezen"
+
+msgid "Löschung ausgeführt"
+msgstr "Verwijdering uitgevoerd"
+
+msgid "Löschung beantragen"
+msgstr "Verwijdering aanvragen"
+
+msgid "Löschung beantragt"
+msgstr "Verwijdering aangevraagd"
+
+msgid "Löschung endgültig ausführen"
+msgstr "Verwijdering definitief uitvoeren"
+
+msgid "Löschung genehmigt"
+msgstr "Verwijdering goedgekeurd"
+
+msgid "Löschung wurde ausgeführt."
+msgstr "Verwijdering is uitgevoerd."
+
+msgid "Löschung wurde beantragt."
+msgstr "Verwijdering is aangevraagd."
+
+msgid "LTR gutschreiben"
+msgstr "LTR bijschrijven"
+
+msgid "LTR gutschreiben (Mint)"
+msgstr "LTR bijschrijven (minten)"
+
+msgid "LTR senden"
+msgstr "LTR verzenden"
+
+msgid "LTR übertragen"
+msgstr "LTR overdragen"
+
+msgid "LTR-Konto"
+msgstr "LTR-rekening"
+
+msgid "LTR-Übertragung bestätigen"
+msgstr "LTR-overdracht bevestigen"
+
+msgid "Mailingliste"
+msgstr "Mailinglijst"
+
+msgid "Mailingliste \"%1\" wurde angelegt."
+msgstr "Mailinglijst \"%1\" is aangemaakt."
+
+msgid "Mailinglisten"
+msgstr "Mailinglijsten"
+
+msgid "Mailinglisten anlegen, Mitglieder gezielt eintragen und Nachrichten an eine Liste verschicken."
+msgstr "Mailinglijsten aanmaken, leden gericht toevoegen en berichten naar een lijst versturen."
+
+msgid "Mailinglisten verwalten"
+msgstr "Mailinglijsten beheren"
+
+msgid "Mandatstext"
+msgstr "Mandaattekst"
+
+msgid "Mandatstext (optional)"
+msgstr "Mandaattekst (optioneel)"
+
+msgid "Mandatstext aktualisiert."
+msgstr "Mandaattekst bijgewerkt."
+
+msgid "Mandatstext speichern"
+msgstr "Mandaattekst opslaan"
+
+msgid "Manuelle Eintragung"
+msgstr "Handmatige invoer"
+
+msgid "Max. Spread"
+msgstr "Max. spread"
+
+msgid "Max. Spread (Basispunkte, >= Ausreißer-Schwelle)"
+msgstr "Max. spread (basispunten, >= uitschieterdrempel)"
+
+msgid "Maximal 50 Empfänger pro Versand."
+msgstr "Maximaal 50 ontvangers per verzending."
+
+msgid "Median-Kurs: %1"
+msgstr "Mediaankoers: %1"
+
+msgid "Mehr laden"
+msgstr "Meer laden"
+
+msgid "Meine Auktionen (als Verkäufer)"
+msgstr "Mijn veilingen (als verkoper)"
+
+msgid "Meine Beiträge"
+msgstr "Mijn contributies"
+
+msgid "Meine Buchungen"
+msgstr "Mijn boekingen"
+
+msgid "Meine Daten"
+msgstr "Mijn gegevens"
+
+msgid "Meine Gebote"
+msgstr "Mijn biedingen"
+
+msgid "Melde-/Offenlegungspflichten pro Spender"
+msgstr "Melding-/openbaarmakingsplichten per donateur"
+
+msgid "Meldung an Aufsichtsbehörde erforderlich (Ihre Entscheidung)"
+msgstr "Melding aan toezichthoudende autoriteit vereist (uw beslissing)"
+
+msgid "Meldung an Aufsichtsbehörde erforderlich: %1"
+msgstr "Melding aan toezichthoudende autoriteit vereist: %1"
+
+msgid "Meldung erfolgt"
+msgstr "Melding gedaan"
+
+msgid "Meritokratische Vote eröffnen"
+msgstr "Meritocratische stemming openen"
+
+msgid "Metadaten aller Auskunfts-/Löschvorgänge -- rein informativ, keine Aktionen auf dieser Liste."
+msgstr "Metadata van alle inzage-/verwijderingsverzoeken -- uitsluitend informatief, geen acties op deze lijst."
+
+msgid "Mikro an"
+msgstr "Micro aan"
+
+msgid "Mikrofon an"
+msgstr "Microfoon aan"
+
+msgid "Mikrofon aus"
+msgstr "Microfoon uit"
+
+msgid "Mindest-Quorum"
+msgstr "Minimumquorum"
+
+msgid "Mindest-Quorum (Quellen, mind. 2)"
+msgstr "Minimumquorum (bronnen, min. 2)"
+
+msgid "Mindestens %1 Zeichen."
+msgstr "Minimaal %1 tekens."
+
+msgid "Mindestens zwei Mitglieder erforderlich."
+msgstr "Minimaal twee leden vereist."
+
+msgid "Mitglied"
+msgstr "Lid"
+
+msgid "Mitglied (ID)"
+msgstr "Lid (ID)"
+
+msgid "Mitglied %1"
+msgstr "Lid %1"
+
+msgid "Mitglied anlegen"
+msgstr "Lid aanmaken"
+
+msgid "Mitglied direkt anlegen"
+msgstr "Lid direct aanmaken"
+
+msgid "Mitglied hinzufügen"
+msgstr "Lid toevoegen"
+
+msgid "Mitglied selbst"
+msgstr "Lid zelf"
+
+msgid "Mitglied werden"
+msgstr "Lid worden"
+
+msgid "Mitglied wurde eingetragen."
+msgstr "Lid is ingeschreven."
+
+msgid "Mitglied wurde hinzugefügt."
+msgstr "Lid is toegevoegd."
+
+msgid "Mitglieder"
+msgstr "Leden"
+
+msgid "Mitglieder anzeigen"
+msgstr "Leden weergeven"
+
+msgid "Mitglieder und Gäste können ab sofort Politiker-Profile einsehen und bewerten; BOARD/ADMIN können Politiker-Status erteilen/widerrufen."
+msgstr "Leden en gasten kunnen vanaf nu politicusprofielen bekijken en beoordelen; BOARD/ADMIN kunnen politicusstatus toekennen/intrekken."
+
+msgid "Mitglieder-Gewicht"
+msgstr "Ledengewicht"
+
+msgid "Mitglieder-Gewicht (LTR-gewichtet)"
+msgstr "Ledengewicht (LTR-gewogen)"
+
+msgid "Mitglieder: Like %1 / Dislike %2 · Gäste: Like %3 / Dislike %4"
+msgstr "Leden: Like %1 / Dislike %2 · Gasten: Like %3 / Dislike %4"
+
+msgid "Mitgliederverwaltung"
+msgstr "Ledenbeheer"
+
+msgid "Mitgliederverzeichnis"
+msgstr "Ledenoverzicht"
+
+msgid "Mitgliedschaft"
+msgstr "Lidmaatschap"
+
+msgid "Mitgliedschaft beenden"
+msgstr "Lidmaatschap beëindigen"
+
+msgid "Mitgliedschaft von \"%1\" (%2) wirklich beenden?"
+msgstr "Lidmaatschap van \"%1\" (%2) echt beëindigen?"
+
+msgid "Mitgliedschaft von \"%1\" wirklich beenden?"
+msgstr "Lidmaatschap van \"%1\" echt beëindigen?"
+
+msgid "Mitgliedschaft von %1 wurde beendet."
+msgstr "Lidmaatschap van %1 is beëindigd."
+
+msgid "Mittel"
+msgstr "Middelen"
+
+msgid "Mittelverwendung"
+msgstr "Besteding van middelen"
+
+msgid "Mittelverwendung nach Sphäre (informativ)"
+msgstr "Besteding van middelen per sfeer (informatief)"
+
+msgid "Mittelverwendungsrechnung"
+msgstr "Overzicht besteding van middelen"
+
+msgid "Mittelverwendungsrechnung (§55/§62 AO)"
+msgstr "Overzicht besteding van middelen (§55/§62 AO)"
+
+msgid "Mittelvortrag"
+msgstr "Overdracht van middelen"
+
+msgid "Mittelzufluss"
+msgstr "Instroom van middelen"
+
+msgid "Mittelzufluss nach Sphäre (informativ)"
+msgstr "Instroom van middelen per sfeer (informatief)"
+
+msgid "Möchten Sie Ihre Mitgliedschaft wirklich beenden? Dies ist nicht rückgängig zu machen -- Sie werden abgemeldet und können sich nicht erneut mit diesem Konto anmelden."
+msgstr "Wilt u uw lidmaatschap echt beëindigen? Dit kan niet ongedaan worden gemaakt -- u wordt afgemeld en kunt zich niet opnieuw met dit account aanmelden."
+
+msgid "Moderator"
+msgstr "Moderator"
+
+msgid "Moderator:"
+msgstr "Moderator:"
+
+msgid "Monat"
+msgstr "Maand"
+
+msgid "Monat (JJJJ-MM-TT, Tag wird ignoriert)"
+msgstr "Maand (JJJJ-MM-DD, dag wordt genegeerd)"
+
+msgid "Monatliche Verteilung berechnen"
+msgstr "Maandelijkse verdeling berekenen"
+
+msgid "Nachher"
+msgstr "Na"
+
+msgid "Nachricht"
+msgstr "Bericht"
+
+msgid "Nachricht \"%1\" wurde gesendet."
+msgstr "Bericht \"%1\" is verzonden."
+
+msgid "Nachricht senden"
+msgstr "Bericht verzenden"
+
+msgid "Nachrichten"
+msgstr "Berichten"
+
+msgid "Name"
+msgstr "Naam"
+
+msgid "Natürliche Person außerhalb der EU"
+msgstr "Natuurlijke persoon buiten de EU"
+
+msgid "Nein"
+msgstr "Nee"
+
+msgid "Nein-Stimmen"
+msgstr "Nee-stemmen"
+
+msgid "Neue Angebote können ebenfalls nicht erstellt werden, bis ein ADMIN die Auktion erneut aktiviert."
+msgstr "Nieuwe aanbiedingen kunnen evenmin worden aangemaakt totdat een ADMIN de veiling opnieuw activeert."
+
+msgid "Neue Besprechung"
+msgstr "Nieuwe bespreking"
+
+msgid "Neue Buchung"
+msgstr "Nieuwe boeking"
+
+msgid "Neue Datenpanne melden"
+msgstr "Nieuw datalek melden"
+
+msgid "Neue DSFA anlegen"
+msgstr "Nieuwe GEB aanmaken"
+
+msgid "Neue Kostenstelle anlegen"
+msgstr "Nieuwe kostenplaats aanmaken"
+
+msgid "Neue Mailingliste anlegen"
+msgstr "Nieuwe mailinglijst aanmaken"
+
+msgid "Neue Sitzung anlegen"
+msgstr "Nieuwe vergadering aanmaken"
+
+msgid "Neue TOM anlegen"
+msgstr "Nieuwe TOM aanmaken"
+
+msgid "Neue Version hochladen"
+msgstr "Nieuwe versie uploaden"
+
+msgid "Neuen Antrag einreichen"
+msgstr "Nieuw voorstel indienen"
+
+msgid "Neuen AVV-Eintrag anlegen"
+msgstr "Nieuw AVV-item aanmaken"
+
+msgid "Neuen Spender anlegen"
+msgstr "Nieuwe donateur aanmaken"
+
+msgid "Neuer Dokumenttitel"
+msgstr "Nieuwe documenttitel"
+
+msgid "Neuer Ordnername"
+msgstr "Nieuwe mapnaam"
+
+msgid "Neuer Stream-Schlüssel (leer lassen = unverändert lassen)"
+msgstr "Nieuwe streamsleutel (leeg laten = ongewijzigd laten)"
+
+msgid "Neues Angebot erstellen"
+msgstr "Nieuwe aanbieding aanmaken"
+
+msgid "Neues Gremium anlegen"
+msgstr "Nieuw orgaan aanmaken"
+
+msgid "Neues Konto anlegen"
+msgstr "Nieuwe rekening aanmaken"
+
+msgid "Neues Passwort"
+msgstr "Nieuw wachtwoord"
+
+msgid "Neues Passwort (mind. %1 Zeichen)"
+msgstr "Nieuw wachtwoord (min. %1 tekens)"
+
+msgid "Neues Passwort bestätigen"
+msgstr "Nieuw wachtwoord bevestigen"
+
+msgid "Neues Passwort erfüllt nicht die Anforderungen (mind. 12, max. 128 Zeichen, nicht die E-Mail-Adresse)."
+msgstr "Nieuw wachtwoord voldoet niet aan de vereisten (min. 12, max. 128 tekens, niet het e-mailadres)."
+
+msgid "Neues Passwort setzen"
+msgstr "Nieuw wachtwoord instellen"
+
+msgid "Neues Projekt einreichen"
+msgstr "Nieuw project indienen"
+
+msgid "Neues Stream-Ziel anlegen"
+msgstr "Nieuw streamdoel aanmaken"
+
+msgid "Nicht festgelegt"
+msgstr "Niet vastgelegd"
+
+msgid "Nicht gefunden."
+msgstr "Niet gevonden."
+
+msgid "Niedrig"
+msgstr "Laag"
+
+msgid "Niedrige Latenz"
+msgstr "Lage latentie"
+
+msgid "niemand zugewiesen"
+msgstr "niemand toegewezen"
+
+msgid "Noch kein Gewichtsverlauf vorhanden."
+msgstr "Nog geen gewichtsverloop aanwezig."
+
+msgid "Noch kein Konto? Jetzt Mitglied werden."
+msgstr "Nog geen account? Word nu lid."
+
+msgid "Noch keine Abonnentinnen und Abonnenten."
+msgstr "Nog geen abonnees."
+
+msgid "Noch keine aktiven Konten -- zuerst oben mindestens zwei Konten anlegen."
+msgstr "Nog geen actieve rekeningen -- maak hierboven eerst minimaal twee rekeningen aan."
+
+msgid "Noch keine Anträge vorhanden."
+msgstr "Nog geen voorstellen aanwezig."
+
+msgid "Noch keine Anwesenheit erfasst."
+msgstr "Nog geen aanwezigheid geregistreerd."
+
+msgid "Noch keine Aufzeichnungen."
+msgstr "Nog geen opnames."
+
+msgid "Noch keine Auktionen vorhanden."
+msgstr "Nog geen veilingen aanwezig."
+
+msgid "Noch keine AVV-Einträge angelegt."
+msgstr "Nog geen AVV-items aangemaakt."
+
+msgid "Noch keine Beschlüsse erfasst."
+msgstr "Nog geen besluiten geregistreerd."
+
+msgid "Noch keine Bestätigung des rechtlichen Hinweistexts erfolgt."
+msgstr "Nog geen bevestiging van de juridische kennisgeving."
+
+msgid "Noch keine Buchungen."
+msgstr "Nog geen boekingen."
+
+msgid "Noch keine Datenpannen erfasst."
+msgstr "Nog geen datalekken geregistreerd."
+
+msgid "Noch keine DSFA-Einträge angelegt."
+msgstr "Nog geen GEB-items aangemaakt."
+
+msgid "Noch keine Export-/Wiederherstellungsversuche protokolliert."
+msgstr "Nog geen export-/herstelpogingen geregistreerd."
+
+msgid "Noch keine externen Spender angelegt."
+msgstr "Nog geen externe donateurs aangemaakt."
+
+msgid "noch keine Gebote, Startpreis: %1"
+msgstr "nog geen biedingen, startprijs: %1"
+
+msgid "Noch keine Gremien vorhanden."
+msgstr "Nog geen organen aanwezig."
+
+msgid "Noch keine Konten angelegt."
+msgstr "Nog geen rekeningen aangemaakt."
+
+msgid "Noch keine Kostenstellen angelegt."
+msgstr "Nog geen kostenplaatsen aangemaakt."
+
+msgid "Noch keine Mailinglisten."
+msgstr "Nog geen mailinglijsten."
+
+msgid "Noch keine Mitglieder in diesem Gremium."
+msgstr "Nog geen leden in dit orgaan."
+
+msgid "Noch keine Nachrichten."
+msgstr "Nog geen berichten."
+
+msgid "Noch keine Notizen."
+msgstr "Nog geen notities."
+
+msgid "Noch keine Ordner vorhanden."
+msgstr "Nog geen mappen aanwezig."
+
+msgid "Noch keine Politiker-Profile vorhanden."
+msgstr "Nog geen politicusprofielen aanwezig."
+
+msgid "Noch keine postalischen Versandvorgänge protokolliert."
+msgstr "Nog geen postale verzendingen geregistreerd."
+
+msgid "Noch keine Projekte eingereicht."
+msgstr "Nog geen projecten ingediend."
+
+msgid "Noch keine Sitzungen vorhanden."
+msgstr "Nog geen vergaderingen aanwezig."
+
+msgid "Noch keine Stream-Ziele angelegt."
+msgstr "Nog geen streamdoelen aangemaakt."
+
+msgid "Noch keine Tagesordnungspunkte."
+msgstr "Nog geen agendapunten."
+
+msgid "Noch keine TOM-Einträge angelegt."
+msgstr "Nog geen TOM-items aangemaakt."
+
+msgid "Noch keine Version hochgeladen."
+msgstr "Nog geen versie geüpload."
+
+msgid "Noch keine Verteilung berechnet."
+msgstr "Nog geen verdeling berekend."
+
+msgid "Noch nicht festgelegt"
+msgstr "Nog niet vastgelegd"
+
+msgid "Noch niemand verbunden."
+msgstr "Nog niemand verbonden."
+
+msgid "Notiz (optional)"
+msgstr "Notitie (optioneel)"
+
+msgid "Notiz / erstellt von"
+msgstr "Notitie / aangemaakt door"
+
+msgid "Notizblock darf nicht leer sein."
+msgstr "Notitieblok mag niet leeg zijn."
+
+msgid "Notizblock entfernt."
+msgstr "Notitieblok verwijderd."
+
+msgid "Notizblock hinzufügen"
+msgstr "Notitieblok toevoegen"
+
+msgid "Notizblock ist zu lang (max. %1 Zeichen)."
+msgstr "Notitieblok is te lang (max. %1 tekens)."
+
+msgid "Notizen"
+msgstr "Notities"
+
+msgid "Notizen (optional)"
+msgstr "Notities (optioneel)"
+
+msgid "Notizen als Dokument gespeichert."
+msgstr "Notities opgeslagen als document."
+
+msgid "Notizen als Dokument speichern"
+msgstr "Notities opslaan als document"
+
+msgid "Nr."
+msgstr "Nr."
+
+msgid "Nummer"
+msgstr "Nummer"
+
+msgid "Nur aktive Profile"
+msgstr "Alleen actieve profielen"
+
+msgid "Nur bei Kontotyp „Aktivkonto\" wählbar."
+msgstr "Alleen selecteerbaar bij rekeningtype „Activarekening\"."
+
+msgid "Nur bei Kontotyp „Eigenkapitalkonto\" wählbar."
+msgstr "Alleen selecteerbaar bij rekeningtype „Eigenvermogensrekening\"."
+
+msgid "Nur Mitglieder"
+msgstr "Alleen leden"
+
+msgid "Obergrenze speichern"
+msgstr "Bovengrens opslaan"
+
+msgid "Offen"
+msgstr "Openstaand"
+
+msgid "Offen: %1 | Bezahlt: %2 | Gesamt: %3"
+msgstr "Openstaand: %1 | Betaald: %2 | Totaal: %3"
+
+msgid "Offene Anträge"
+msgstr "Openstaande voorstellen"
+
+msgid "Offenlegungspflicht (Rechenschaftsbericht)"
+msgstr "Openbaarmakingsplicht (verantwoordingsverslag)"
+
+msgid "Ohne diese Option lehnt der Server die Wiederherstellung ab, sobald die Zielorganisation nicht leer ist -- das ist der sichere Standardpfad. Aktivieren Sie diese Option nur, wenn Sie absichtlich in eine bereits befüllte Organisation wiederherstellen wollen."
+msgstr "Zonder deze optie wijst de server het herstel af zodra de doelorganisatie niet leeg is -- dit is het veilige standaardpad. Activeer deze optie alleen als u bewust wilt herstellen naar een reeds gevulde organisatie."
+
+msgid "Ohne Referenz (z. B. Gutschrift)"
+msgstr "Zonder referentie (bijv. creditnota)"
+
+msgid "Option"
+msgstr "Optie"
+
+msgid "Optionen (kommagetrennt, mind. 2)"
+msgstr "Opties (kommagescheiden, min. 2)"
+
+msgid "Orakel angehalten (HALT) -- kein aktueller Kurs verfügbar."
+msgstr "Orakel gestopt (HALT) -- geen actuele koers beschikbaar."
+
+msgid "Orakel-Konfiguration aktualisiert."
+msgstr "Orakelconfiguratie bijgewerkt."
+
+msgid "Ordner"
+msgstr "Map"
+
+msgid "Ordner \"%1\" angelegt."
+msgstr "Map \"%1\" aangemaakt."
+
+msgid "Ordner anlegen"
+msgstr "Map aanmaken"
+
+msgid "Ort"
+msgstr "Plaats"
+
+msgid "Ort (optional)"
+msgstr "Plaats (optioneel)"
+
+msgid "Ort: %1"
+msgstr "Plaats: %1"
+
+msgid "Owncast"
+msgstr "Owncast"
+
+msgid "Passiva"
+msgstr "Passiva"
+
+msgid "Passivkonto"
+msgstr "Passivarekening"
+
+msgid "Passwort"
+msgstr "Wachtwoord"
+
+msgid "Passwort (mind. %1 Zeichen)"
+msgstr "Wachtwoord (min. %1 tekens)"
+
+msgid "Passwort ändern"
+msgstr "Wachtwoord wijzigen"
+
+msgid "Passwort bestätigen"
+msgstr "Wachtwoord bevestigen"
+
+msgid "Passwort geändert."
+msgstr "Wachtwoord gewijzigd."
+
+msgid "Passwort vergessen?"
+msgstr "Wachtwoord vergeten?"
+
+msgid "Passwort wurde geändert -- bitte melden Sie sich neu an."
+msgstr "Wachtwoord is gewijzigd -- meld u opnieuw aan."
+
+msgid "Peer-Transfer"
+msgstr "Peer-overdracht"
+
+msgid "PeerTube"
+msgstr "PeerTube"
+
+msgid "Peg (Einheiten je LTR)"
+msgstr "Peg (eenheden per LTR)"
+
+msgid "Peg: Einheiten des Anker-Assets je LTR"
+msgstr "Peg: eenheden van het ankeractief per LTR"
+
+msgid "Per Post versenden"
+msgstr "Per post verzenden"
+
+msgid "Periodenbeginn (JJJJ-MM-TT)"
+msgstr "Periodebegin (JJJJ-MM-DD)"
+
+msgid "Periodenende (JJJJ-MM-TT)"
+msgstr "Periode-einde (JJJJ-MM-DD)"
+
+msgid "Person (nur bei \"Einzelne Person\")"
+msgstr "Persoon (alleen bij \"Afzonderlijke persoon\")"
+
+msgid "Pflicht"
+msgstr "Verplichting"
+
+msgid "Pflichten"
+msgstr "Verplichtingen"
+
+msgid "Pflichten:"
+msgstr "Verplichtingen:"
+
+msgid "Plattform"
+msgstr "Platform"
+
+msgid "PLZ (optional)"
+msgstr "Postcode (optioneel)"
+
+msgid "Politiker"
+msgstr "Politicus"
+
+msgid "Politiker-Profile"
+msgstr "Politicusprofielen"
+
+msgid "Politiker-Profile konnten nicht geladen werden."
+msgstr "Politicusprofielen konden niet worden geladen."
+
+msgid "Politiker-Ranking aktivieren"
+msgstr "Politicusranglijst activeren"
+
+msgid "Politiker-Ranking aktiviert."
+msgstr "Politicusranglijst geactiveerd."
+
+msgid "Politiker-Ranking deaktivieren"
+msgstr "Politicusranglijst deactiveren"
+
+msgid "Politiker-Ranking deaktiviert."
+msgstr "Politicusranglijst gedeactiveerd."
+
+msgid "Politiker-Ranking:"
+msgstr "Politicusranglijst:"
+
+msgid "Politiker-Status erteilen"
+msgstr "Politicusstatus toekennen"
+
+msgid "Politiker-Status für %1 erteilt."
+msgstr "Politicusstatus toegekend aan %1."
+
+msgid "Politiker-Status seit %1 (erteilt von %2)"
+msgstr "Politicusstatus sinds %1 (toegekend door %2)"
+
+msgid "Politiker-Status von %1 widerrufen."
+msgstr "Politicusstatus van %1 ingetrokken."
+
+msgid "Politiker-Status widerrufen"
+msgstr "Politicusstatus intrekken"
+
+msgid "Politiker-Status widerrufen bestätigen"
+msgstr "Intrekking van politicusstatus bevestigen"
+
+msgid "Position"
+msgstr "Positie"
+
+msgid "Position auf der Tagesordnung"
+msgstr "Positie op de agenda"
+
+msgid "Postfach"
+msgstr "Postvak"
+
+msgid "Postversand"
+msgstr "Postverzending"
+
+msgid "Postversand an %1 ist fehlgeschlagen: %2"
+msgstr "Postverzending naar %1 is mislukt: %2"
+
+msgid "Postversand fehlgeschlagen."
+msgstr "Postverzending mislukt."
+
+msgid "Postversand ist auf %1 Empfänger begrenzt (aktuell ausgewählt: %2) -- für mehr Empfänger bitte das PDF herunterladen und selbst verteilen."
+msgstr "Postverzending is beperkt tot %1 ontvangers (momenteel geselecteerd: %2) -- download voor meer ontvangers de PDF en verspreid deze zelf."
+
+msgid "Postversand ist derzeit deaktiviert --"
+msgstr "Postverzending is momenteel gedeactiveerd --"
+
+msgid "Postversand ist derzeit deaktiviert (`OrganizationSettings.postalMailEnabled = false`) -- alle Versandaktionen (Beitragsrechnung, Spendenbescheinigung, Einladung) schlagen fehl, bis eine Administratorin oder ein Administrator dies aktiviert. Diese Einstellung hat in dieser Version noch keine eigene Oberfläche."
+msgstr "Postverzending is momenteel gedeactiveerd (`OrganizationSettings.postalMailEnabled = false`) -- alle verzendacties (contributiefactuur, donatiebewijs, uitnodiging) mislukken totdat een beheerder dit activeert. Deze instelling heeft in deze versie nog geen eigen interface."
+
+msgid "Postversand-Übersicht"
+msgstr "Overzicht postverzending"
+
+msgid "Preis: %1 LTR (Vickrey-Zweitpreis)"
+msgstr "Prijs: %1 LTR (Vickrey-tweedeprijs)"
+
+msgid "Preisstand: %1:%2:%3 Uhr"
+msgstr "Prijsstand: %1:%2:%3 uur"
+
+msgid "Price-Oracle"
+msgstr "Price-Oracle"
+
+msgid "Privatverkauf"
+msgstr "Particuliere verkoop"
+
+msgid "Projekt"
+msgstr "Project"
+
+msgid "Projekt \"%1\" abgelehnt."
+msgstr "Project \"%1\" afgewezen."
+
+msgid "Projekt \"%1\" eingereicht."
+msgstr "Project \"%1\" ingediend."
+
+msgid "Projekt \"%1\" genehmigt."
+msgstr "Project \"%1\" goedgekeurd."
+
+msgid "Projekt ablehnen"
+msgstr "Project afwijzen"
+
+msgid "Projekt einreichen"
+msgstr "Project indienen"
+
+msgid "Projekt genehmigen"
+msgstr "Project goedkeuren"
+
+msgid "Projekte"
+msgstr "Projecten"
+
+msgid "Projekteinsatz"
+msgstr "Projectinzet"
+
+msgid "Projekteinsatz freigegeben"
+msgstr "Projectinzet vrijgegeven"
+
+msgid "Projektrücklage (%1)"
+msgstr "Projectreserve (%1)"
+
+msgid "Protokoll"
+msgstr "Notulen"
+
+msgid "Protokoll aller bisherigen Export-/Wiederherstellungsversuche -- rein informativ, keine Aktionen auf dieser Liste."
+msgstr "Logboek van alle eerdere export-/herstelpogingen -- uitsluitend informatief, geen acties op deze lijst."
+
+msgid "Protokoll aller bisherigen postalischen Versandvorgänge -- rein informativ, keine Aktionen auf dieser Liste. Neue Versandvorgänge werden direkt bei der jeweiligen Beitragsrechnung, Spendenbescheinigung oder Sitzungseinladung ausgelöst."
+msgstr "Logboek van alle eerdere postale verzendingen -- uitsluitend informatief, geen acties op deze lijst. Nieuwe verzendingen worden rechtstreeks bij de betreffende contributiefactuur, het donatiebewijs of de vergaderuitnodiging geactiveerd."
+
+msgid "Protokoll: %1"
+msgstr "Notulen: %1"
+
+msgid "Protokollentwurf erzeugen"
+msgstr "Conceptnotulen genereren"
+
+msgid "Protokollführung (optional)"
+msgstr "Notulist (optioneel)"
+
+msgid "Protokollführung: %1"
+msgstr "Notulist: %1"
+
+msgid "Protokolliert von (ID)"
+msgstr "Geregistreerd door (ID)"
+
+msgid "Prüfergebnis"
+msgstr "Controleresultaat"
+
+msgid "Prüfprotokoll"
+msgstr "Auditlogboek"
+
+msgid "Prüftermin (JJJJ-MM-TT, optional)"
+msgstr "Controledatum (JJJJ-MM-DD, optioneel)"
+
+msgid "Prüftermin überschritten -- als inaktiv markiert, bis neu geprüft."
+msgstr "Controledatum overschreden -- gemarkeerd als inactief totdat opnieuw gecontroleerd."
+
+msgid "Prüftermin: %1"
+msgstr "Controledatum: %1"
+
+msgid "Prüfung"
+msgstr "Controle"
+
+msgid "Quellen: %1"
+msgstr "Bronnen: %1"
+
+msgid "Quorum erreicht"
+msgstr "Quorum bereikt"
+
+msgid "Quorum in % (0-100)"
+msgstr "Quorum in % (0-100)"
+
+msgid "Quorum nicht erreicht"
+msgstr "Quorum niet bereikt"
+
+msgid "Quorum: %1%"
+msgstr "Quorum: %1%"
+
+msgid "Radierer"
+msgstr "Gum"
+
+msgid "Raum-Kennung aus Ihrer Einladung"
+msgstr "Ruimte-ID uit uw uitnodiging"
+
+msgid "Räume erstellen und verteilen"
+msgstr "Ruimtes aanmaken en verdelen"
+
+msgid "Re-Aggregation derselben Einnahmen/Ausgaben-Buchungen wie die GuV nach den vier §§ 51-68 AO Gemeinnützigkeitssphären -- kein eigener Berichtszeitraum, die Summen stimmen für denselben Zeitraum exakt mit der GuV überein."
+msgstr "Herclassificatie van dezelfde inkomsten-/uitgavenboekingen als de winst-en-verliesrekening volgens de vier §§ 51-68 AO-sferen van algemeen nut -- geen eigen verslagperiode, de totalen komen voor dezelfde periode exact overeen met de winst-en-verliesrekening."
+
+msgid "Reaktion gespeichert."
+msgstr "Reactie opgeslagen."
+
+msgid "Reaktion zurückgezogen."
+msgstr "Reactie ingetrokken."
+
+msgid "Rechnung (PDF)"
+msgstr "Factuur (PDF)"
+
+msgid "Rechtsgrundlage: %1"
+msgstr "Rechtsgrondslag: %1"
+
+msgid "Referenz"
+msgstr "Referentie"
+
+msgid "Rein diagnostisch -- prüft die Orakel-Gesundheit, ohne LTR zu minten."
+msgstr "Uitsluitend diagnostisch -- controleert de gezondheid van het orakel, zonder LTR te minten."
+
+msgid "Risikobewertung (optional)"
+msgstr "Risicobeoordeling (optioneel)"
+
+msgid "Risikostufe"
+msgstr "Risiconiveau"
+
+msgid "Rohdaten ein-/ausblenden"
+msgstr "Ruwe gegevens tonen/verbergen"
+
+msgid "Rolle"
+msgstr "Rol"
+
+msgid "Rolle: %1 · Sitzung gültig bis %2"
+msgstr "Rol: %1 · Sessie geldig tot %2"
+
+msgid "RTMP-Basis-URL"
+msgstr "RTMP-basis-URL"
+
+msgid "RTMP-URL Ihrer Owncast-Instanz, z. B. rtmp://owncast.example.org:1935/live"
+msgstr "RTMP-URL van uw Owncast-instantie, bijv. rtmp://owncast.example.org:1935/live"
+
+msgid "RTMP-URL Ihrer PeerTube-Instanz, z. B. rtmp://peertube.example.org:1935/live"
+msgstr "RTMP-URL van uw PeerTube-instantie, bijv. rtmp://peertube.example.org:1935/live"
+
+msgid "RTMP-Ziel-URL, z. B. für Facebook Live, LinkedIn Live oder Vimeo"
+msgstr "RTMP-doel-URL, bijv. voor Facebook Live, LinkedIn Live of Vimeo"
+
+msgid "Rücklagenart"
+msgstr "Reservetype"
+
+msgid "Rücklagenbewegungen (§62 AO)"
+msgstr "Reservemutaties (§62 AO)"
+
+msgid "Rücklagenzuführung"
+msgstr "Reservetoevoeging"
+
+msgid "Saldo"
+msgstr "Saldo"
+
+msgid "Sämtliche Politiker-Funktionen (Profile, Bewertungen, Vergabe/Widerruf, Snapshot) sind bis zur erneuten Aktivierung nicht mehr erreichbar -- bestehende Profile/Bewertungen bleiben dabei erhalten, sie werden nur unerreichbar, nicht gelöscht."
+msgstr "Alle politicusfuncties (profielen, beoordelingen, toekenning/intrekking, snapshot) zijn tot de hernieuwde activering niet meer bereikbaar -- bestaande profielen/beoordelingen blijven daarbij behouden, ze worden alleen onbereikbaar, niet verwijderd."
+
+msgid "Schadenshöhe"
+msgstr "Omvang van de schade"
+
+msgid "Schenkung"
+msgstr "Schenking"
+
+msgid "Schiedsanordnungs-Referenz (Pflichtfeld)"
+msgstr "Referentie arbitragebeschikking (verplicht veld)"
+
+msgid "Schiedsverfahren-Korrekturübertragung"
+msgstr "Correctie-overdracht via arbitrageprocedure"
+
+msgid "Schiedsverfahren-Korrekturübertragung bestätigen"
+msgstr "Correctie-overdracht via arbitrageprocedure bevestigen"
+
+msgid "Schließen"
+msgstr "Sluiten"
+
+msgid "Schlüssel gesetzt am %1 von %2"
+msgstr "Sleutel ingesteld op %1 door %2"
+
+msgid "Schlusssaldo"
+msgstr "Eindsaldo"
+
+msgid "Schlussstand"
+msgstr "Eindstand"
+
+msgid "Schriftführung"
+msgstr "Secretariaat"
+
+msgid "Seit (JJJJ-MM-TT)"
+msgstr "Sinds (JJJJ-MM-DD)"
+
+msgid "seit %1"
+msgstr "sinds %1"
+
+msgid "seit Gründung"
+msgstr "sinds oprichting"
+
+msgid "Selbstverwaltung"
+msgstr "Zelfbeheer"
+
+msgid "Senden"
+msgstr "Verzenden"
+
+msgid "Sendungsreferenz: %1"
+msgstr "Verzendreferentie: %1"
+
+msgid "Seq. %1"
+msgstr "Seq. %1"
+
+msgid "Sequenznummer %1"
+msgstr "Volgnummer %1"
+
+msgid "Sichtbar für ADMIN."
+msgstr "Zichtbaar voor ADMIN."
+
+msgid "Sichtbar für alle Mitglieder."
+msgstr "Zichtbaar voor alle leden."
+
+msgid "Sichtbar für BOARD/ADMIN."
+msgstr "Zichtbaar voor BOARD/ADMIN."
+
+msgid "Sichtbar für TREASURER/BOARD/ADMIN."
+msgstr "Zichtbaar voor TREASURER/BOARD/ADMIN."
+
+msgid "Sichtbarkeit"
+msgstr "Zichtbaarheid"
+
+msgid "Sichtbarkeits-Gewicht (LTR)"
+msgstr "Zichtbaarheidsgewicht (LTR)"
+
+msgid "Sie"
+msgstr "U"
+
+msgid "Sie bieten %1 auf \"%2\" (%3). Ihr Gebot wird gegen den aktuellen Preis zum Zeitpunkt der Bestätigung ausgewertet, nicht den hier angezeigten -- der Preis kann sich seit dem letzten Abruf geändert haben."
+msgstr "U biedt %1 op \"%2\" (%3). Uw bod wordt beoordeeld tegen de actuele prijs op het moment van bevestiging, niet tegen de hier weergegeven prijs -- de prijs kan sinds het laatste ophalen zijn gewijzigd."
+
+msgid "Sie buchen eine Spende von %1 für %2. Der aktuelle Kurs wird beim Bestätigen live abgefragt; der genaue LTR-Betrag steht erst nach Bestätigung fest."
+msgstr "U boekt een gift van %1 voor %2. De actuele koers wordt bij het bevestigen live opgevraagd; het exacte LTR-bedrag staat pas na bevestiging vast."
+
+msgid "Sie führen jetzt."
+msgstr "U heeft nu de leiding."
+
+msgid "Sie haben noch keine Auktionen eingestellt."
+msgstr "U heeft nog geen veilingen geplaatst."
+
+msgid "Sie haben noch keine Gebote abgegeben."
+msgstr "U heeft nog geen biedingen uitgebracht."
+
+msgid "Sie haben noch nicht bewertet."
+msgstr "U heeft nog niet beoordeeld."
+
+msgid "Sie haben noch nicht reagiert."
+msgstr "U heeft nog niet gereageerd."
+
+msgid "Sie kaufen \"%1\" sofort für %2."
+msgstr "U koopt \"%1\" direct voor %2."
+
+msgid "Sie können das Politiker-Ranking im Abschnitt \"Einstellungen\" unten aktivieren."
+msgstr "U kunt de politicusranglijst hieronder in het gedeelte \"Instellingen\" activeren."
+
+msgid "Sie nehmen als Teilnehmer teil."
+msgstr "U neemt deel als deelnemer."
+
+msgid "Sie sind ausgetreten."
+msgstr "U bent uitgetreden."
+
+msgid "Sie sind in einem Breakout-Raum."
+msgstr "U bevindt zich in een breakout-ruimte."
+
+msgid "Sie sind Moderator"
+msgstr "U bent moderator"
+
+msgid "Sie sind Moderator dieser Besprechung."
+msgstr "U bent moderator van deze bespreking."
+
+msgid "Sie sind über Ihren eigenen Heimserver angemeldet. Geben Sie die Raum-Kennung aus Ihrer Einladung ein, um einer Besprechung auf diesem Server beizutreten."
+msgstr "U bent aangemeld via uw eigen homeserver. Voer de ruimte-ID uit uw uitnodiging in om deel te nemen aan een bespreking op deze server."
+
+msgid "Sie sind zur Besprechung „%1\"%2 eingeladen.\n1. Melden Sie sich über Ihren eigenen Heimserver an.\n2. Öffnen Sie %3/#/conference\n3. Geben Sie dort diese Raum-Kennung ein: %4"
+msgstr "U bent uitgenodigd voor de bespreking „%1\"%2.\n1. Meld u aan via uw eigen homeserver.\n2. Open %3/#/conference\n3. Voer daar deze ruimte-ID in: %4"
+
+msgid "Sie starten jetzt einen Live-Stream zu: %1. Diese Ziele sind sofort öffentlich sichtbar -- die Übertragung kann NICHT zurückgeholt werden, sobald Teilnehmende gesprochen haben."
+msgstr "U start nu een livestream naar: %1. Deze doelen zijn direct publiekelijk zichtbaar -- de uitzending kan NIET worden teruggehaald zodra deelnemers hebben gesproken."
+
+msgid "Sie überschreibt Daten mit dem Stand aus der hochgeladenen Datei. Bereits vorhandene Daten in der Zielorganisation können dabei verloren gehen."
+msgstr "Dit overschrijft gegevens met de stand uit het geüploade bestand. Reeds aanwezige gegevens in de doelorganisatie kunnen daarbij verloren gaan."
+
+msgid "Sie übertragen %1 an %2 (%3). Es gibt keine Storno-/Widerruffunktion -- die einzige Korrekturmöglichkeit ist eine Schiedsverfahren-Korrekturübertragung durch TREASURER/BOARD/ADMIN."
+msgstr "U draagt %1 over aan %2 (%3). Er is geen storno-/herroepingsfunctie -- de enige correctiemogelijkheid is een correctie-overdracht via arbitrageprocedure door TREASURER/BOARD/ADMIN."
+
+msgid "Sie übertragen %1 von %2 an %3 (%4). Schiedsanordnungs-Referenz: „%5\"."
+msgstr "U draagt %1 over van %2 aan %3 (%4). Referentie arbitragebeschikking: „%5\"."
+
+msgid "Sie wurden dem Breakout-Raum \"%1\" zugewiesen."
+msgstr "U bent toegewezen aan de breakout-ruimte \"%1\"."
+
+msgid "Sie wurden in den Hauptraum zurückgeholt."
+msgstr "U bent teruggehaald naar de hoofdruimte."
+
+msgid "Sitzung"
+msgstr "Vergadering"
+
+msgid "Sitzung \"%1\" wurde angelegt."
+msgstr "Vergadering \"%1\" is aangemaakt."
+
+msgid "Sitzung (ID)"
+msgstr "Vergadering (ID)"
+
+msgid "Sitzung abgelaufen -- bitte erneut anmelden."
+msgstr "Sessie verlopen -- meld u opnieuw aan."
+
+msgid "Sitzung abgesagt."
+msgstr "Vergadering afgezegd."
+
+msgid "Sitzung absagen"
+msgstr "Vergadering afzeggen"
+
+msgid "Sitzung als durchgeführt markiert."
+msgstr "Vergadering gemarkeerd als gehouden."
+
+msgid "Sitzung anlegen"
+msgstr "Vergadering aanmaken"
+
+msgid "Sitzung oben auswählen, um Details zu sehen."
+msgstr "Selecteer hierboven een vergadering om de details te bekijken."
+
+msgid "Sitzungen"
+msgstr "Vergaderingen"
+
+msgid "Sitzungsleitung (optional)"
+msgstr "Vergaderleiding (optioneel)"
+
+msgid "Sitzungsleitung: %1"
+msgstr "Vergaderleiding: %1"
+
+msgid "Snapshot auslösen"
+msgstr "Snapshot activeren"
+
+msgid "Snapshot für %1 Profil(e) berechnet."
+msgstr "Snapshot berekend voor %1 profiel(en)."
+
+msgid "Sofort kaufen"
+msgstr "Direct kopen"
+
+msgid "Sofort kaufen für %1"
+msgstr "Direct kopen voor %1"
+
+msgid "Sofortkauf abgeschlossen: \"%1\" für %2."
+msgstr "Directe aankoop afgerond: \"%1\" voor %2."
+
+msgid "Sofortkauf bestätigen"
+msgstr "Directe aankoop bevestigen"
+
+msgid "Sofortkauf ist verbindlich -- kann nicht rückgängig gemacht werden."
+msgstr "Directe aankoop is bindend -- kan niet ongedaan worden gemaakt."
+
+msgid "Sofortkaufpreis"
+msgstr "Directe-aankoopprijs"
+
+msgid "Sofortkaufpreis (LTR, optional -- muss über dem Startpreis liegen)"
+msgstr "Directe-aankoopprijs (LTR, optioneel -- moet boven de startprijs liggen)"
+
+msgid "Soll"
+msgstr "Debet"
+
+msgid "Soll/Haben"
+msgstr "Debet/Credit"
+
+msgid "Sonstiges"
+msgstr "Overig"
+
+msgid "Speichern"
+msgstr "Opslaan"
+
+msgid "Spende zu LTR konvertieren"
+msgstr "Gift converteren naar LTR"
+
+msgid "Spende: %1"
+msgstr "Gift: %1"
+
+msgid "Spenden-Konvertierung bestätigen"
+msgstr "Giftconversie bevestigen"
+
+msgid "Spendenbescheinigung (PDF)"
+msgstr "Donatiebewijs (PDF)"
+
+msgid "Spendenbescheinigung %1"
+msgstr "Donatiebewijs %1"
+
+msgid "Spendenbescheinigung per Post versenden"
+msgstr "Donatiebewijs per post verzenden"
+
+msgid "Spendenbetrag"
+msgstr "Giftbedrag"
+
+msgid "Spendendes Mitglied (ID)"
+msgstr "Schenkend lid (ID)"
+
+msgid "Spendenprüfung"
+msgstr "Giftcontrole"
+
+msgid "Spendenrecht-Pflichten-Report (§25 PartG)"
+msgstr "Rapport verplichtingen giftenrecht (§25 PartG)"
+
+msgid "Spendenwährung"
+msgstr "Valuta van de gift"
+
+msgid "Spender"
+msgstr "Donateur"
+
+msgid "Spender \"%1\" wurde angelegt."
+msgstr "Donateur \"%1\" is aangemaakt."
+
+msgid "Spender anlegen"
+msgstr "Donateur aanmaken"
+
+msgid "Spender deaktivieren"
+msgstr "Donateur deactiveren"
+
+msgid "Spender wurde deaktiviert."
+msgstr "Donateur is gedeactiveerd."
+
+msgid "Spender-Zuordnung (optional)"
+msgstr "Donateurtoewijzing (optioneel)"
+
+msgid "Spender: %1 (extern)"
+msgstr "Donateur: %1 (extern)"
+
+msgid "Spender: ausdrücklich anonym"
+msgstr "Donateur: uitdrukkelijk anoniem"
+
+msgid "Spender: Mitglied %1"
+msgstr "Donateur: lid %1"
+
+msgid "Spenderkategorie"
+msgstr "Donateurscategorie"
+
+msgid "Spendertyp"
+msgstr "Donateurstype"
+
+msgid "Sphäre"
+msgstr "Sfeer"
+
+msgid "Sprecher"
+msgstr "Spreker"
+
+msgid "Staatsangehörigkeit"
+msgstr "Nationaliteit"
+
+msgid "Stand: %1"
+msgstr "Stand: %1"
+
+msgid "Standard"
+msgstr "Standaard"
+
+msgid "Startpreis"
+msgstr "Startprijs"
+
+msgid "Startpreis (LTR)"
+msgstr "Startprijs (LTR)"
+
+msgid "Status"
+msgstr "Status"
+
+msgid "Status:"
+msgstr "Status:"
+
+msgid "Status: %1"
+msgstr "Status: %1"
+
+msgid "Stellv. Vorsitz"
+msgstr "Vicevoorzitterschap"
+
+msgid "Stichtag (JJJJ-MM-TT)"
+msgstr "Peildatum (JJJJ-MM-DD)"
+
+msgid "Stichtag: %1"
+msgstr "Peildatum: %1"
+
+msgid "Straße (optional)"
+msgstr "Straat (optioneel)"
+
+msgid "Stream beenden"
+msgstr "Stream beëindigen"
+
+msgid "Stream beenden? Die Übertragung zu %1 endet sofort."
+msgstr "Stream beëindigen? De uitzending naar %1 eindigt onmiddellijk."
+
+msgid "Stream fortsetzen"
+msgstr "Stream hervatten"
+
+msgid "Stream unterbrechen"
+msgstr "Stream onderbreken"
+
+msgid "Stream unterbrochen."
+msgstr "Stream onderbroken."
+
+msgid "Stream wird beendet …"
+msgstr "Stream wordt beëindigd …"
+
+msgid "Stream wird fortgesetzt …"
+msgstr "Stream wordt hervat …"
+
+msgid "Stream-Schlüssel"
+msgstr "Streamsleutel"
+
+msgid "Stream-Ziel \"%1\" wurde angelegt."
+msgstr "Streamdoel \"%1\" is aangemaakt."
+
+msgid "Stream-Ziel \"%1\" wurde gelöscht."
+msgstr "Streamdoel \"%1\" is verwijderd."
+
+msgid "Stream-Ziel aktiviert."
+msgstr "Streamdoel geactiveerd."
+
+msgid "Stream-Ziel anlegen"
+msgstr "Streamdoel aanmaken"
+
+msgid "Stream-Ziel bearbeiten"
+msgstr "Streamdoel bewerken"
+
+msgid "Stream-Ziel deaktiviert."
+msgstr "Streamdoel gedeactiveerd."
+
+msgid "Stream-Ziel löschen"
+msgstr "Streamdoel verwijderen"
+
+msgid "Stream-Ziele"
+msgstr "Streamdoelen"
+
+msgid "Streaming-Ziel"
+msgstr "Streamingdoel"
+
+msgid "Stumm"
+msgstr "Gedempt"
+
+msgid "Suche nach Name"
+msgstr "Zoeken op naam"
+
+msgid "Suchen"
+msgstr "Zoeken"
+
+msgid "Summe %1"
+msgstr "Totaal %1"
+
+msgid "Summe Aktiva = Summe Passiva + Eigenkapital?"
+msgstr "Totaal activa = totaal passiva + eigen vermogen?"
+
+msgid "Summe Passiva + Eigenkapital"
+msgstr "Totaal passiva + eigen vermogen"
+
+msgid "System"
+msgstr "Systeem"
+
+msgid "Systemvorgang (kein Akteur hinterlegt)"
+msgstr "Systeembewerking (geen actor geregistreerd)"
+
+msgid "Tagesordnung"
+msgstr "Agenda"
+
+msgid "Tagesordnungspunkt \"%1\" hinzugefügt."
+msgstr "Agendapunt \"%1\" toegevoegd."
+
+msgid "Tagesordnungspunkt (optional)"
+msgstr "Agendapunt (optioneel)"
+
+msgid "Tagesordnungspunkt entfernt."
+msgstr "Agendapunt verwijderd."
+
+msgid "Tagesordnungspunkt hinzufügen"
+msgstr "Agendapunt toevoegen"
+
+msgid "Technisch-organisatorische Maßnahmen (TOM)"
+msgstr "Technische en organisatorische maatregelen (TOM)"
+
+msgid "Teilnehmende"
+msgstr "Deelnemers"
+
+msgid "Teilnehmende: %1"
+msgstr "Deelnemers: %1"
+
+msgid "Teilnehmer entfernen"
+msgstr "Deelnemer verwijderen"
+
+msgid "Termin (JJJJ-MM-TTTHH:MM, z. B. 2026-08-15T18:00)"
+msgstr "Datum/tijd (JJJJ-MM-DDTHH:MM, bijv. 2026-08-15T18:00)"
+
+msgid "Termin (JJJJ-MM-TTTHH:MM)"
+msgstr "Datum/tijd (JJJJ-MM-DDTHH:MM)"
+
+msgid "Terminieren"
+msgstr "Inplannen"
+
+msgid "Terminierung"
+msgstr "Planning"
+
+msgid "Text"
+msgstr "Tekst"
+
+msgid "Titel"
+msgstr "Titel"
+
+msgid "Titel darf nicht leer sein und höchstens %1 Zeichen haben."
+msgstr "Titel mag niet leeg zijn en mag maximaal %1 tekens bevatten."
+
+msgid "Token (aus der E-Mail bzw. vom Betreiber)"
+msgstr "Token (uit de e-mail of van de beheerder)"
+
+msgid "TOM"
+msgstr "TOM"
+
+msgid "TOM \"%1\" wurde %2."
+msgstr "TOM \"%1\" is %2."
+
+msgid "TOM anlegen"
+msgstr "TOM aanmaken"
+
+msgid "Top-Politiker"
+msgstr "Toppolitici"
+
+msgid "Transparenzregister-Bericht"
+msgstr "UBO-registerrapport"
+
+msgid "Trennungsgebot"
+msgstr "Scheidingsgebod"
+
+msgid "Treuhänder-Werkzeuge"
+msgstr "Trustee-tools"
+
+msgid "Twitch"
+msgstr "Twitch"
+
+msgid "Typ"
+msgstr "Type"
+
+msgid "Überholt -- Überprüfung fällig"
+msgstr "Verouderd -- controle vereist"
+
+msgid "Übersicht"
+msgstr "Overzicht"
+
+msgid "Übersicht, wie viele Datensätze in welchem Bereich zu Ihrer Person gespeichert sind, sowie ein vollständiger, maschinenlesbarer Export Ihrer Daten."
+msgstr "Overzicht van hoeveel gegevens in welk gebied over uw persoon zijn opgeslagen, plus een volledige, machineleesbare export van uw gegevens."
+
+msgid "Übertragung ausgeführt: %1 von %2 an %3"
+msgstr "Overdracht uitgevoerd: %1 van %2 aan %3"
+
+msgid "Übertragung empfangen"
+msgstr "Overdracht ontvangen"
+
+msgid "Übertragung gesendet"
+msgstr "Overdracht verzonden"
+
+msgid "Unbekannter Fehler"
+msgstr "Onbekende fout"
+
+msgid "unbekanntes Ziel"
+msgstr "onbekend doel"
+
+msgid "Unentschieden -- die höchsten beiden Gebotskörbe waren gleich hoch. Kein Gewinner, keine Belastung; der Antrag wird zurückgestellt (POSTPONED)."
+msgstr "Gelijkspel -- de twee hoogste biedmanden waren even hoog. Geen winnaar, geen belasting; het voorstel wordt aangehouden (POSTPONED)."
+
+msgid "Unerwarteter Fehler (HTTP %1): %2"
+msgstr "Onverwachte fout (HTTP %1): %2"
+
+msgid "Ungelesene Nachrichten: %1"
+msgstr "Ongelezen berichten: %1"
+
+msgid "Ungültige Anfrage."
+msgstr "Ongeldig verzoek."
+
+msgid "Unterbrochen"
+msgstr "Onderbroken"
+
+msgid "Unternehmen mit über 25 % staatlicher Beteiligung"
+msgstr "Onderneming met een staatsdeelname van meer dan 25%"
+
+msgid "Unterzeichnet"
+msgstr "Ondertekend"
+
+msgid "Unterzeichnet am (JJJJ-MM-TT, optional)"
+msgstr "Ondertekend op (JJJJ-MM-DD, optioneel)"
+
+msgid "Unverzügliche Meldepflicht"
+msgstr "Onverwijlde meldingsplicht"
+
+msgid "Unwiderruflich widerrufen"
+msgstr "Onherroepelijk ingetrokken"
+
+msgid "Upload fehlgeschlagen."
+msgstr "Upload mislukt."
+
+msgid "Ursprüngliches Gewicht"
+msgstr "Oorspronkelijk gewicht"
+
+msgid "v%1: %2 (%3 Bytes, hochgeladen von %4 am %5)"
+msgstr "v%1: %2 (%3 bytes, geüpload door %4 op %5)"
+
+msgid "Verarbeiter"
+msgstr "Verwerker"
+
+msgid "Verarbeitungsbeschreibung"
+msgstr "Verwerkingsbeschrijving"
+
+msgid "Verarbeitungsverzeichnis (AVV)"
+msgstr "Verwerkersregister (AVV)"
+
+msgid "Verarbeitungsverzeichnis (AVV), technisch-organisatorische Maßnahmen (TOM), Datenschutz-Folgenabschätzungen (DSFA) und Datenpannenmeldungen -- Dokumentations- und Arbeitswerkzeug für eine vom Vorstand getroffene Entscheidung, nie automatisierte Rechtsberatung."
+msgstr "Verwerkersregister (AVV), technische en organisatorische maatregelen (TOM), gegevensbeschermingseffectbeoordelingen (GEB) en meldingen van datalekken -- documentatie- en werkinstrument voor een door het bestuur genomen beslissing, nooit geautomatiseerd juridisch advies."
+
+msgid "Verarbeitungszweck"
+msgstr "Verwerkingsdoel"
+
+msgid "Verbindlichkeiten"
+msgstr "Verplichtingen"
+
+msgid "Verbindung unterbrochen -- wird automatisch neu verbunden …"
+msgstr "Verbinding verbroken -- wordt automatisch opnieuw verbonden …"
+
+msgid "Verbindung wird geprüft …"
+msgstr "Verbinding wordt gecontroleerd …"
+
+msgid "Verbindung wird hergestellt …"
+msgstr "Verbinding wordt tot stand gebracht …"
+
+msgid "Verfahren"
+msgstr "Procedure"
+
+msgid "Verfügbarkeitskontrolle"
+msgstr "Beschikbaarheidscontrole"
+
+msgid "Verkäufer: %1 · Endet: %2 · Gebote: %3"
+msgstr "Verkoper: %1 · Eindigt: %2 · Biedingen: %3"
+
+msgid "Verkauft an %1 für %2."
+msgstr "Verkocht aan %1 voor %2."
+
+msgid "Verlassen"
+msgstr "Verlaten"
+
+msgid "Verlauf"
+msgstr "Geschiedenis"
+
+msgid "Vermögensverwaltung"
+msgstr "Vermogensbeheer"
+
+msgid "Versand einer Einladung an ausgewählte Mitglieder -- als PDF zum Herunterladen (kostenlos, bis zu 1.000 Empfänger) oder per Post (kostenpflichtig über Letterxpress, bis zu 50 Empfänger, erfordert eine vollständige Anschrift jedes Empfängers)."
+msgstr "Verzending van een uitnodiging aan geselecteerde leden -- als downloadbare PDF (gratis, tot 1.000 ontvangers) of per post (tegen betaling via Letterxpress, tot 50 ontvangers, vereist een volledig adres van elke ontvanger)."
+
+msgid "Versendet"
+msgstr "Verzonden"
+
+msgid "Version %1"
+msgstr "Versie %1"
+
+msgid "Version hochgeladen."
+msgstr "Versie geüpload."
+
+msgid "Versionen"
+msgstr "Versies"
+
+msgid "Versionen von \"%1\":"
+msgstr "Versies van \"%1\":"
+
+msgid "Verstanden"
+msgstr "Begrepen"
+
+msgid "Verteilung berechnen"
+msgstr "Verdeling berekenen"
+
+msgid "Verteilung für %1 bis %2 berechnet (%3 Projekt(e))."
+msgstr "Verdeling voor %1 tot %2 berekend (%3 project(en))."
+
+msgid "Verteilungshistorie"
+msgstr "Verdelingsgeschiedenis"
+
+msgid "Vertreten durch (nur bei \"Vertreten\")"
+msgstr "Vertegenwoordigd door (alleen bij \"Vertegenwoordigd\")"
+
+msgid "vertreten durch %1"
+msgstr "vertegenwoordigd door %1"
+
+msgid "Verwalten"
+msgstr "Beheren"
+
+msgid "Verwalten Sie die externen RTMP-Ziele (YouTube, Twitch, PeerTube, Owncast, generisches RTMP), zu denen Moderatorinnen und Moderatoren eine Besprechung live übertragen können. Der Stream-Schlüssel wird verschlüsselt gespeichert und nach dem Speichern nie wieder angezeigt."
+msgstr "Beheer de externe RTMP-doelen (YouTube, Twitch, PeerTube, Owncast, generieke RTMP) waarnaar moderators een bespreking live kunnen uitzenden. De streamsleutel wordt versleuteld opgeslagen en na het opslaan nooit meer weergegeven."
+
+msgid "Verwaltet die Anker-Bindung des Libertaler (LTR) an ein reales Asset (aktuell: Bitcoin) und bucht eingegangene Spenden als LTR-Mint. Sichtbar für TREASURER/BOARD/ADMIN, Konfigurationsänderungen nur für ADMIN."
+msgstr "Beheert de ankerkoppeling van de Libertaler (LTR) aan een reëel activum (momenteel: Bitcoin) en boekt ontvangen giften als LTR-mint. Zichtbaar voor TREASURER/BOARD/ADMIN, configuratiewijzigingen alleen voor ADMIN."
+
+msgid "Verwaltung"
+msgstr "Beheer"
+
+msgid "Verwaltung (BOARD/ADMIN)"
+msgstr "Beheer (BOARD/ADMIN)"
+
+msgid "Verwerfen und aktuelle Version übernehmen"
+msgstr "Verwerpen en huidige versie overnemen"
+
+msgid "Videokonferenz"
+msgstr "Videoconferentie"
+
+msgid "Videokonferenz ist auf diesem Server nicht konfiguriert."
+msgstr "Videoconferentie is niet geconfigureerd op deze server."
+
+msgid "Videokonferenzen konnten nicht geladen werden."
+msgstr "Videoconferenties konden niet worden geladen."
+
+msgid "Vier-Sphären-Ergebnisrechnung"
+msgstr "Vier-sferenresultatenrekening"
+
+msgid "Vollständigen Datenexport herunterladen (JSON)"
+msgstr "Volledige gegevensexport downloaden (JSON)"
+
+msgid "Vollständiger Export und Wiederherstellung aller Organisationsdaten (Datenbank + Dokumente) -- nur für Administratorinnen und Administratoren."
+msgstr "Volledige export en herstel van alle organisatiegegevens (database + documenten) -- alleen voor beheerders."
+
+msgid "Von (Geschäftsjahr)"
+msgstr "Van (boekjaar)"
+
+msgid "Von (JJJJ-MM-TT, optional)"
+msgstr "Van (JJJJ-MM-DD, optioneel)"
+
+msgid "Von (JJJJ-MM-TT, Pflichtfeld)"
+msgstr "Van (JJJJ-MM-DD, verplicht veld)"
+
+msgid "Von (JJJJ-MM-TTTHH:MM:SS, optional)"
+msgstr "Van (JJJJ-MM-DDTHH:MM:SS, optioneel)"
+
+msgid "Von Sequenznummer (optional)"
+msgstr "Vanaf volgnummer (optioneel)"
+
+msgid "Vorher"
+msgstr "Voor"
+
+msgid "Vorläufig ablehnen"
+msgstr "Voorlopig afwijzen"
+
+msgid "Vorläufiges Passwort (mind. %1 Zeichen)"
+msgstr "Voorlopig wachtwoord (min. %1 tekens)"
+
+msgid "Vorsitz"
+msgstr "Voorzitterschap"
+
+msgid "Vorstand"
+msgstr "Bestuur"
+
+msgid "Vorstand & Transparenzregister"
+msgstr "Bestuur & UBO-register"
+
+msgid "Vorstandsentscheidung"
+msgstr "Bestuursbesluit"
+
+msgid "Vorstandsmitglied ernennen"
+msgstr "Bestuurslid benoemen"
+
+msgid "Vorstandsmitgliedschaft"
+msgstr "Bestuurslidmaatschap"
+
+msgid "Vorstandsmitgliedschaft beenden"
+msgstr "Bestuurslidmaatschap beëindigen"
+
+msgid "Vortragend (optional)"
+msgstr "Inleider (optioneel)"
+
+msgid "Vortragend: %1"
+msgstr "Inleider: %1"
+
+msgid "Vote"
+msgstr "Stemming"
+
+msgid "Vote abbrechen"
+msgstr "Stemming annuleren"
+
+msgid "Vote abgebrochen."
+msgstr "Stemming geannuleerd."
+
+msgid "Vote eröffnen"
+msgstr "Stemming openen"
+
+msgid "Vote eröffnet."
+msgstr "Stemming geopend."
+
+msgid "Vote geschlossen."
+msgstr "Stemming gesloten."
+
+msgid "Vote schließen"
+msgstr "Stemming sluiten"
+
+msgid "Weiter"
+msgstr "Volgende"
+
+msgid "Weiter bearbeiten"
+msgstr "Verder bewerken"
+
+msgid "Weitere Teilnehmende (%1)"
+msgstr "Overige deelnemers (%1)"
+
+msgid "Weitergabekontrolle"
+msgstr "Doorgiftecontrole"
+
+msgid "Weiterleitungspflicht"
+msgstr "Doorstortingsplicht"
+
+msgid "Weiterleitungspflichtige anonyme Spenden"
+msgstr "Anonieme giften met doorstortingsplicht"
+
+msgid "Wertobergrenze (LTR, leer = kein Limit)"
+msgstr "Waardebovengrens (LTR, leeg = geen limiet)"
+
+msgid "Wertobergrenze (LTR)"
+msgstr "Waardebovengrens (LTR)"
+
+msgid "Wertobergrenze aktualisiert."
+msgstr "Waardebovengrens bijgewerkt."
+
+msgid "Wertobergrenze setzen"
+msgstr "Waardebovengrens instellen"
+
+msgid "Wertobergrenze:"
+msgstr "Waardebovengrens:"
+
+msgid "Whiteboard"
+msgstr "Whiteboard"
+
+msgid "Whiteboard als Dokument gespeichert."
+msgstr "Whiteboard opgeslagen als document."
+
+msgid "Whiteboard als Dokument speichern"
+msgstr "Whiteboard opslaan als document"
+
+msgid "Whiteboard geleert."
+msgstr "Whiteboard gewist."
+
+msgid "Whiteboard leeren"
+msgstr "Whiteboard wissen"
+
+msgid "Widerrufen am %1 von %2"
+msgstr "Ingetrokken op %1 door %2"
+
+msgid "Wiederbeschaffungsrücklage (%1)"
+msgstr "Vervangingsreserve (%1)"
+
+msgid "Wiederherstellen"
+msgstr "Herstellen"
+
+msgid "Wiederherstellung"
+msgstr "Herstel"
+
+msgid "Wiederherstellung bestätigen"
+msgstr "Herstel bevestigen"
+
+msgid "Wiederherstellung erfolgreich abgeschlossen."
+msgstr "Herstel succesvol voltooid."
+
+msgid "Willkommen, %1"
+msgstr "Welkom, %1"
+
+msgid "Willkommen, %1."
+msgstr "Welkom, %1."
+
+msgid "Wird aufgezeichnet"
+msgstr "Wordt opgenomen"
+
+msgid "Wird ausgeführt …"
+msgstr "Wordt uitgevoerd …"
+
+msgid "Wird automatisch auf dieselbe Sitzung terminiert wie \"%1\"."
+msgstr "Wordt automatisch op dezelfde vergadering gepland als \"%1\"."
+
+msgid "wird beendet"
+msgstr "wordt beëindigd"
+
+msgid "Wird beendet …"
+msgstr "Wordt beëindigd …"
+
+msgid "Wird ein bestehender Antrag zum Ändern ausgewählt, wird dessen Gremium automatisch verwendet -- das Zielgremium oben wird dann ignoriert."
+msgstr "Als een bestaand voorstel wordt geselecteerd om te wijzigen, wordt automatisch het bijbehorende orgaan gebruikt -- het doelorgaan hierboven wordt dan genegeerd."
+
+msgid "Wird geladen …"
+msgstr "Wordt geladen …"
+
+msgid "wird gestartet"
+msgstr "wordt gestart"
+
+msgid "Wird gestartet …"
+msgstr "Wordt gestart …"
+
+msgid "Wird zusammengeführt …"
+msgstr "Wordt samengevoegd …"
+
+msgid "Wirklich entfernen?"
+msgstr "Echt verwijderen?"
+
+msgid "Wirtschaft"
+msgstr "Economie"
+
+msgid "Wirtschaftlicher Geschäftsbetrieb"
+msgstr "Economische bedrijfsactiviteit"
+
+msgid "YouTube Live"
+msgstr "YouTube Live"
+
+msgid "Zeigt offene Melde-/Offenlegungs-/Weiterleitungspflichten nach §25 PartG für ein Kalenderjahr, damit der Vorstand sie manuell abarbeiten kann. Berechnet keine unzulässigen Spenden -- solche werden beim Buchen serverseitig blockiert und können hier nie erscheinen."
+msgstr "Toont openstaande meldings-, openbaarmakings- en doorstortingsplichten volgens §25 PartG voor een kalenderjaar, zodat het bestuur ze handmatig kan afhandelen. Berekent geen ontoelaatbare giften -- deze worden bij het boeken serverzijdig geblokkeerd en kunnen hier nooit verschijnen."
+
+msgid "Zeitpunkt: %1"
+msgstr "Tijdstip: %1"
+
+msgid "Zeitraum"
+msgstr "Periode"
+
+msgid "Zeitraum: %1 bis %2"
+msgstr "Periode: %1 tot %2"
+
+msgid "Zeitraum: Geschäftsjahr %1 bis %2"
+msgstr "Periode: boekjaar %1 tot %2"
+
+msgid "Zeitstempel: %1"
+msgstr "Tijdstempel: %1"
+
+msgid "Ziel überschreiben (Zielorganisation enthält bereits Daten)"
+msgstr "Doel overschrijven (doelorganisatie bevat al gegevens)"
+
+msgid "Ziele auswählen (max. %1):"
+msgstr "Doelen selecteren (max. %1):"
+
+msgid "Zielgremium"
+msgstr "Doelorgaan"
+
+msgid "Zu LTR konvertieren"
+msgstr "Converteren naar LTR"
+
+msgid "Zuerst alle Änderungsanträge entscheiden"
+msgstr "Eerst alle wijzigingsvoorstellen beslissen"
+
+msgid "Zuführung/Auflösung"
+msgstr "Toevoeging/opheffing"
+
+msgid "Zugangskontrolle"
+msgstr "Toegangscontrole"
+
+msgid "Zugriffsebene"
+msgstr "Toegangsniveau"
+
+msgid "Zugriffskontrolle"
+msgstr "Autorisatiecontrole"
+
+msgid "zuletzt abgerufener Preis: %1"
+msgstr "laatst opgehaalde prijs: %1"
+
+msgid "Zuletzt aktualisiert: %1"
+msgstr "Laatst bijgewerkt: %1"
+
+msgid "Zuletzt bearbeitet von %1"
+msgstr "Laatst bewerkt door %1"
+
+msgid "Zuletzt bestätigt von %1 am %2 (Hinweistext-Version %3)."
+msgstr "Laatst bevestigd door %1 op %2 (versie kennisgevingstekst %3)."
+
+msgid "Zum Hauptantrag"
+msgstr "Naar het hoofdvoorstel"
+
+msgid "Zum LTR-Konto ->"
+msgstr "Naar de LTR-rekening ->"
+
+msgid "Zur Anmeldung"
+msgstr "Naar aanmelden"
+
+msgid "Zurück zum Hauptraum"
+msgstr "Terug naar de hoofdruimte"
+
+msgid "Zurückgestellt (reserviert, ungenutzt)"
+msgstr "Aangehouden (gereserveerd, ongebruikt)"
+
+msgid "Zurücksetzen anfordern"
+msgstr "Reset aanvragen"
+
+msgid "Zurücksetzen fehlgeschlagen."
+msgstr "Reset mislukt."
+
+msgid "Zurückziehen"
+msgstr "Intrekken"
+
+msgid "Zusätzlich zur Anonymisierung werden von Ihnen selbst versendete Nachrichten hart gelöscht, soweit dem keine gesetzliche Aufbewahrungspflicht entgegensteht. Von Ihnen empfangene Nachrichten anderer Mitglieder bleiben unberührt."
+msgstr "Naast de anonimisering worden door uzelf verzonden berichten hard verwijderd, voor zover geen wettelijke bewaarplicht zich daartegen verzet. Door u ontvangen berichten van andere leden blijven ongewijzigd."
+
+msgid "Zutrittskontrolle"
+msgstr "Fysieke toegangscontrole"
+
+msgid "Zweck (optional)"
+msgstr "Doel (optioneel)"
+
+msgid "Zweck: %1"
+msgstr "Doel: %1"
+
+msgid "Zweckbetrieb"
+msgstr "Doelgebonden bedrijf"
+
+msgid "Zwischengespeichert (Cached)"
+msgstr "Tijdelijk opgeslagen (cached)"

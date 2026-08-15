@@ -10,6 +10,8 @@ import io.kvision.html.div
 import io.kvision.html.h1
 import io.kvision.html.h2
 import io.kvision.html.p
+import io.kvision.i18n.gettext
+import io.kvision.i18n.tr
 import io.kvision.modal.Modal
 import io.kvision.panel.SimplePanel
 import io.kvision.panel.hPanel
@@ -132,12 +134,12 @@ fun renderPoliticianScreen(container: SimplePanel) {
             width = 900.px
             marginTop = 24.px
         }
-    root.h1("Politiker")
+    root.h1(tr("Politiker"))
 
     // ---- Top-Politiker (dashboard widget, top of screen) ---------------------------------------
-    root.h2("Top-Politiker")
+    root.h2(tr("Top-Politiker"))
     val topPanel = root.vPanel(spacing = 4)
-    topPanel.p("Wird geladen …") { addCssClasses("text-muted small") }
+    topPanel.p(tr("Wird geladen …")) { addCssClasses("text-muted small") }
 
     // ---- Feature-disabled banner (shown in place of the read-heavy area below when the primary
     // gate probe fails -- see file KDoc "The politicianRankingEnabled gate") -----------------------
@@ -145,15 +147,15 @@ fun renderPoliticianScreen(container: SimplePanel) {
     disabledBanner.hide()
 
     // ---- Politiker-Profile list -----------------------------------------------------------------
-    root.h2("Politiker-Profile")
+    root.h2(tr("Politiker-Profile"))
     val listControlsRow = root.hPanel(spacing = 8) { addCssClasses("align-items-center") }
     val includeFormerSelect =
         listControlsRow.select(
-            options = listOf("false" to "Nur aktive Profile", "true" to "Inklusive ehemaliger Profile"),
+            options = listOf("false" to tr("Nur aktive Profile"), "true" to tr("Inklusive ehemaliger Profile")),
             value = "false",
-            label = "Anzeige",
+            label = tr("Anzeige"),
         )
-    val politiciansRefreshButton = listControlsRow.button("Aktualisieren", style = ButtonStyle.OUTLINESECONDARY)
+    val politiciansRefreshButton = listControlsRow.button(tr("Aktualisieren"), style = ButtonStyle.OUTLINESECONDARY)
     val politiciansPanel = root.vPanel(spacing = 10)
 
     // ---- Verwaltung (BOARD/ADMIN, D3 staged disclosure -- always reachable, see file KDoc) ------
@@ -165,12 +167,12 @@ fun renderPoliticianScreen(container: SimplePanel) {
 
     fun loadTopPoliticians() {
         topPanel.removeAll()
-        topPanel.p("Wird geladen …") { addCssClasses("text-muted small") }
+        topPanel.p(tr("Wird geladen …")) { addCssClasses("text-muted small") }
         AppScope.launch {
             val top = guarded { rpcService<IPoliticianService>().getTopPoliticians(6) } ?: return@launch
             topPanel.removeAll()
             if (top.isEmpty()) {
-                topPanel.p("Noch keine Politiker-Profile vorhanden.") { addCssClasses("text-muted small") }
+                topPanel.p(tr("Noch keine Politiker-Profile vorhanden.")) { addCssClasses("text-muted small") }
             } else {
                 renderTopPoliticiansList(topPanel, top)
             }
@@ -182,7 +184,7 @@ fun renderPoliticianScreen(container: SimplePanel) {
         topPanel.show()
         politiciansPanel.show()
         politiciansPanel.removeAll()
-        politiciansPanel.p("Wird geladen …") { addCssClasses("text-muted small") }
+        politiciansPanel.p(tr("Wird geladen …")) { addCssClasses("text-muted small") }
         val includeFormer = includeFormerSelect.value == "true"
         AppScope.launch {
             val politicians =
@@ -190,7 +192,7 @@ fun renderPoliticianScreen(container: SimplePanel) {
                     ?: return@launch
             politiciansPanel.removeAll()
             if (politicians.isEmpty()) {
-                politiciansPanel.p("Noch keine Politiker-Profile vorhanden.") { addCssClasses("text-muted small") }
+                politiciansPanel.p(tr("Noch keine Politiker-Profile vorhanden.")) { addCssClasses("text-muted small") }
             } else {
                 politicians.forEach { politician ->
                     renderPoliticianCard(politiciansPanel, politician, canBoard, currentMemberId) { loadPoliticians() }
@@ -206,8 +208,8 @@ fun renderPoliticianScreen(container: SimplePanel) {
     loadPoliticians()
 
     if (boardPanel != null) {
-        boardPanel.h2("Verwaltung") { addCssClass("h5") }
-        boardPanel.div("Sichtbar für BOARD/ADMIN.") { addCssClasses("text-muted small mb-2") }
+        boardPanel.h2(tr("Verwaltung")) { addCssClass("h5") }
+        boardPanel.div(tr("Sichtbar für BOARD/ADMIN.")) { addCssClasses("text-muted small mb-2") }
         AppScope.launch {
             val members = guarded { rpcService<IMemberService>().listMembers() } ?: emptyList()
             renderGrantForm(boardPanel, members) { loadPoliticians() }
@@ -216,8 +218,8 @@ fun renderPoliticianScreen(container: SimplePanel) {
     }
 
     if (settingsPanel != null) {
-        settingsPanel.h2("Einstellungen") { addCssClass("h5") }
-        settingsPanel.div("Sichtbar für TREASURER/BOARD/ADMIN.") { addCssClasses("text-muted small mb-2") }
+        settingsPanel.h2(tr("Einstellungen")) { addCssClass("h5") }
+        settingsPanel.div(tr("Sichtbar für TREASURER/BOARD/ADMIN.")) { addCssClasses("text-muted small mb-2") }
         renderPoliticianRankingToggle(settingsPanel, canAdmin) { loadPoliticians() }
     }
 }
@@ -250,18 +252,18 @@ private suspend fun loadPoliticiansOrShowBanner(
         politiciansPanel.hide()
         disabledBanner.removeAll()
         disabledBanner.show()
-        disabledBanner.div("Das Politiker-Ranking ist derzeit deaktiviert.") { addCssClass("fw-bold") }
+        disabledBanner.div(tr("Das Politiker-Ranking ist derzeit deaktiviert.")) { addCssClass("fw-bold") }
         disabledBanner.div(
             when {
-                canAdmin -> "Sie können das Politiker-Ranking im Abschnitt \"Einstellungen\" unten aktivieren."
-                canTreasury -> "Ein ADMIN kann das Politiker-Ranking im Abschnitt \"Einstellungen\" unten aktivieren."
-                else -> "Bitte wenden Sie sich an ein ADMIN-Mitglied, falls Sie hierauf Zugriff benötigen."
+                canAdmin -> tr("Sie können das Politiker-Ranking im Abschnitt \"Einstellungen\" unten aktivieren.")
+                canTreasury -> tr("Ein ADMIN kann das Politiker-Ranking im Abschnitt \"Einstellungen\" unten aktivieren.")
+                else -> tr("Bitte wenden Sie sich an ein ADMIN-Mitglied, falls Sie hierauf Zugriff benötigen.")
             },
         ) { addCssClasses("text-muted small") }
         null
     } catch (e: Throwable) {
         politiciansPanel.removeAll()
-        politiciansPanel.p("Politiker-Profile konnten nicht geladen werden.") { addCssClasses("text-muted small") }
+        politiciansPanel.p(tr("Politiker-Profile konnten nicht geladen werden.")) { addCssClasses("text-muted small") }
         guarded<Unit> { throw e }
         null
     }
@@ -279,13 +281,13 @@ private fun renderTopPoliticiansList(
         row.div("${index + 1}.") { width = 24.px }
         row.div(politician.displayName) { addCssClasses("flex-grow-1 fw-bold") }
         val memberCell = row.vPanel(spacing = 0)
-        memberCell.div("Mitglieder") { addCssClasses("text-muted small") }
+        memberCell.div(tr("Mitglieder")) { addCssClasses("text-muted small") }
         memberCell.ltrSpan(politician.memberTrustWeight)
         val guestCell = row.vPanel(spacing = 0)
-        guestCell.div("Gäste") { addCssClasses("text-muted small") }
+        guestCell.div(tr("Gäste")) { addCssClasses("text-muted small") }
         guestCell.div(politician.guestTrustWeight.toString())
         val combinedCell = row.vPanel(spacing = 0)
-        combinedCell.div("Gesamt") { addCssClasses("text-muted small") }
+        combinedCell.div(tr("Gesamt")) { addCssClasses("text-muted small") }
         combinedCell.div(politician.combinedTrustWeight.toString()) { addCssClass("fw-bold") }
     }
 }
@@ -305,7 +307,7 @@ private fun renderPoliticianCard(
     val headerRow = card.hPanel(spacing = 8) { addCssClasses("align-items-center flex-wrap") }
     headerRow.div(politician.displayName) { addCssClasses("flex-grow-1 fw-bold") }
     if (currentMemberId != null && politician.memberId == currentMemberId) {
-        headerRow.div("(Sie)") { addCssClasses("text-muted small") }
+        headerRow.div(tr("(Sie)")) { addCssClasses("text-muted small") }
     }
     headerRow.statusBadge(politicianProfileStatusLabel(politician.status), politicianProfileStatusColor(politician.status))
 
@@ -313,11 +315,11 @@ private fun renderPoliticianCard(
         card.div(mandate) { addCssClasses("small") }
     }
 
-    card.div("Politiker-Status seit ${politician.grantedAt} (erteilt von ${politician.grantedByDisplayName})") {
+    card.div(gettext("Politiker-Status seit %1 (erteilt von %2)", politician.grantedAt, politician.grantedByDisplayName)) {
         addCssClasses("text-muted small")
     }
     if (politician.status == PoliticianProfileStatus.FORMER && politician.revokedAt != null) {
-        card.div("Widerrufen am ${politician.revokedAt} von ${politician.revokedByDisplayName ?: "--"}") {
+        card.div(gettext("Widerrufen am %1 von %2", politician.revokedAt, politician.revokedByDisplayName ?: "--")) {
             addCssClasses("text-muted small")
         }
     }
@@ -326,18 +328,23 @@ private fun renderPoliticianCard(
     // figures. Only memberTrustWeight is genuinely LTR-denominated and gets the ltrSpan badge.
     val weightRow = card.hPanel(spacing = 16) { addCssClasses("align-items-center flex-wrap") }
     val memberCell = weightRow.vPanel(spacing = 2)
-    memberCell.div("Mitglieder-Gewicht (LTR-gewichtet)") { addCssClasses("text-muted small") }
+    memberCell.div(tr("Mitglieder-Gewicht (LTR-gewichtet)")) { addCssClasses("text-muted small") }
     memberCell.ltrSpan(politician.memberTrustWeight)
     val guestCell = weightRow.vPanel(spacing = 2)
-    guestCell.div("Gast-Gewicht (reine Stimmenzahl, ungewichtet)") { addCssClasses("text-muted small") }
+    guestCell.div(tr("Gast-Gewicht (reine Stimmenzahl, ungewichtet)")) { addCssClasses("text-muted small") }
     guestCell.div(politician.guestTrustWeight.toString()) { addCssClass("fw-bold") }
     val combinedCell = weightRow.vPanel(spacing = 2)
-    combinedCell.div("Gesamt (Summe, keine vergleichbare Einheit)") { addCssClasses("text-muted small") }
+    combinedCell.div(tr("Gesamt (Summe, keine vergleichbare Einheit)")) { addCssClasses("text-muted small") }
     combinedCell.div(politician.combinedTrustWeight.toString()) { addCssClass("fw-bold") }
 
     card.div(
-        "Mitglieder: Like ${politician.memberLikeCount} / Dislike ${politician.memberDislikeCount} · " +
-            "Gäste: Like ${politician.guestLikeCount} / Dislike ${politician.guestDislikeCount}",
+        gettext(
+            "Mitglieder: Like %1 / Dislike %2 · Gäste: Like %3 / Dislike %4",
+            politician.memberLikeCount,
+            politician.memberDislikeCount,
+            politician.guestLikeCount,
+            politician.guestDislikeCount,
+        ),
     ) { addCssClasses("small text-muted") }
 
     // castRating/retractRating require status == ACTIVE server-side -- only RENDERED once active,
@@ -361,10 +368,10 @@ private fun renderRatingControls(
 ) {
     val ratingRow = card.hPanel(spacing = 8) { addCssClasses("align-items-center flex-wrap border-top pt-2 mt-1") }
     val myRatingPanel = ratingRow.vPanel(spacing = 0) { addCssClasses("flex-grow-1") }
-    myRatingPanel.div("Wird geladen …") { addCssClasses("text-muted small") }
-    val likeButton = ratingRow.button("Like", style = ButtonStyle.OUTLINESUCCESS)
-    val dislikeButton = ratingRow.button("Dislike", style = ButtonStyle.OUTLINEDANGER)
-    val retractButton = ratingRow.button("Zurückziehen", style = ButtonStyle.OUTLINESECONDARY)
+    myRatingPanel.div(tr("Wird geladen …")) { addCssClasses("text-muted small") }
+    val likeButton = ratingRow.button(tr("Like"), style = ButtonStyle.OUTLINESUCCESS)
+    val dislikeButton = ratingRow.button(tr("Dislike"), style = ButtonStyle.OUTLINEDANGER)
+    val retractButton = ratingRow.button(tr("Zurückziehen"), style = ButtonStyle.OUTLINESECONDARY)
 
     fun setButtonsDisabled(disabled: Boolean) {
         likeButton.disabled = disabled
@@ -374,17 +381,17 @@ private fun renderRatingControls(
 
     fun refreshMyRating() {
         myRatingPanel.removeAll()
-        myRatingPanel.div("Wird geladen …") { addCssClasses("text-muted small") }
+        myRatingPanel.div(tr("Wird geladen …")) { addCssClasses("text-muted small") }
         AppScope.launch {
             val ratings = guarded { rpcService<IPoliticianService>().getMyRating(politician.memberId) } ?: emptyList()
             val mine = ratings.firstOrNull()
             myRatingPanel.removeAll()
             if (mine == null) {
-                myRatingPanel.div("Sie haben noch nicht bewertet.") { addCssClasses("text-muted small") }
+                myRatingPanel.div(tr("Sie haben noch nicht bewertet.")) { addCssClasses("text-muted small") }
                 retractButton.hide()
             } else {
                 val row = myRatingPanel.hPanel(spacing = 6) { addCssClasses("align-items-center") }
-                row.div("Ihre Bewertung:") { addCssClasses("text-muted small") }
+                row.div(tr("Ihre Bewertung:")) { addCssClasses("text-muted small") }
                 row.typeBadge(politicianReactionValueLabel(mine.value), politicianReactionValueColor(mine.value))
                 row.typeBadge(politicianRaterTypeLabel(mine.raterType), politicianRaterTypeColor(mine.raterType))
                 retractButton.show()
@@ -398,7 +405,7 @@ private fun renderRatingControls(
             val result = guarded { rpcService<IPoliticianService>().castRating(politician.memberId, value) }
             setButtonsDisabled(false)
             if (result != null) {
-                notifySuccess("Bewertung gespeichert.")
+                notifySuccess(tr("Bewertung gespeichert."))
                 refreshMyRating()
                 onChanged()
             }
@@ -413,7 +420,7 @@ private fun renderRatingControls(
             val result = guarded { rpcService<IPoliticianService>().retractRating(politician.memberId) }
             setButtonsDisabled(false)
             if (result != null) {
-                notifySuccess("Bewertung zurückgezogen.")
+                notifySuccess(tr("Bewertung zurückgezogen."))
                 refreshMyRating()
                 onChanged()
             }
@@ -435,18 +442,20 @@ private fun renderBoardCardActions(
     onChanged: () -> Unit,
 ) {
     val panel = card.vPanel(spacing = 6) { addCssClasses("border-top pt-2 mt-2") }
-    panel.div("Verwaltung (BOARD/ADMIN)") { addCssClass("fw-bold") }
+    panel.div(tr("Verwaltung (BOARD/ADMIN)")) { addCssClass("fw-bold") }
 
     if (politician.status == PoliticianProfileStatus.FORMER) {
         panel.div(
-            "Dieses Profil ist ehemalig -- über das Formular \"Politiker-Status erteilen\" oben kann es erneut " +
-                "aktiviert werden.",
+            tr(
+                "Dieses Profil ist ehemalig -- über das Formular \"Politiker-Status erteilen\" oben kann es erneut " +
+                    "aktiviert werden.",
+            ),
         ) { addCssClasses("text-muted small") }
         return
     }
 
-    val mandateInput = panel.textArea(value = politician.mandateText, label = "Mandatstext", rows = 2)
-    val mandateSaveButton = panel.button("Mandatstext speichern", style = ButtonStyle.OUTLINESECONDARY)
+    val mandateInput = panel.textArea(value = politician.mandateText, label = tr("Mandatstext"), rows = 2)
+    val mandateSaveButton = panel.button(tr("Mandatstext speichern"), style = ButtonStyle.OUTLINESECONDARY)
     mandateSaveButton.onClick {
         val text = mandateInput.value?.trim()?.takeIf { it.isNotBlank() }
         mandateSaveButton.disabled = true
@@ -454,13 +463,13 @@ private fun renderBoardCardActions(
             val result = guarded { rpcService<IPoliticianService>().updateMandateText(politician.memberId, text) }
             mandateSaveButton.disabled = false
             if (result != null) {
-                notifySuccess("Mandatstext aktualisiert.")
+                notifySuccess(tr("Mandatstext aktualisiert."))
                 onChanged()
             }
         }
     }
 
-    val revokeButton = panel.button("Politiker-Status widerrufen", style = ButtonStyle.OUTLINEDANGER)
+    val revokeButton = panel.button(tr("Politiker-Status widerrufen"), style = ButtonStyle.OUTLINEDANGER)
     revokeButton.onClick {
         politicianRevokeConfirmDialog(politician.displayName) {
             revokeButton.disabled = true
@@ -468,7 +477,7 @@ private fun renderBoardCardActions(
                 val result = guarded { rpcService<IPoliticianService>().revokePoliticianStatus(politician.memberId) }
                 revokeButton.disabled = false
                 if (result != null) {
-                    notifySuccess("Politiker-Status von ${result.displayName} widerrufen.")
+                    notifySuccess(gettext("Politiker-Status von %1 widerrufen.", result.displayName))
                     onChanged()
                 }
             }
@@ -487,19 +496,24 @@ private fun politicianRevokeConfirmDialog(
     displayName: String,
     onConfirm: () -> Unit,
 ) {
-    val modal = Modal(caption = "Politiker-Status widerrufen bestätigen")
+    val modal = Modal(caption = tr("Politiker-Status widerrufen bestätigen"))
     modal.div(
-        "Diese Aktion LÖSCHT UNWIDERRUFLICH sämtliche Bewertungen (Mitglieder UND Gäste) sowie den gesamten " +
-            "Gewichtsverlauf für dieses Profil -- nicht nur den Status.",
+        tr(
+            "Diese Aktion LÖSCHT UNWIDERRUFLICH sämtliche Bewertungen (Mitglieder UND Gäste) sowie den gesamten " +
+                "Gewichtsverlauf für dieses Profil -- nicht nur den Status.",
+        ),
     ) { addCssClasses("fw-bold text-danger") }
     modal.div(
-        "Der Politiker-Status von $displayName wird widerrufen. Eine spätere erneute Erteilung reaktiviert das " +
-            "Profil, aber beide Bewertungs-Körbe (Mitglieder und Gäste) beginnen dann wieder bei null -- die " +
-            "gelöschte Historie ist nicht wiederherstellbar.",
+        gettext(
+            "Der Politiker-Status von %1 wird widerrufen. Eine spätere erneute Erteilung reaktiviert das " +
+                "Profil, aber beide Bewertungs-Körbe (Mitglieder und Gäste) beginnen dann wieder bei null -- die " +
+                "gelöschte Historie ist nicht wiederherstellbar.",
+            displayName,
+        ),
     )
-    modal.addButton(Button("Abbrechen", style = ButtonStyle.SECONDARY).apply { onClick { modal.hide() } })
+    modal.addButton(Button(tr("Abbrechen"), style = ButtonStyle.SECONDARY).apply { onClick { modal.hide() } })
     modal.addButton(
-        Button("Unwiderruflich widerrufen", style = ButtonStyle.DANGER).apply {
+        Button(tr("Unwiderruflich widerrufen"), style = ButtonStyle.DANGER).apply {
             onClick {
                 modal.hide()
                 onConfirm()
@@ -518,7 +532,7 @@ private fun renderWeightHistorySection(
     politician: PoliticianProfileDto,
 ) {
     val section = card.vPanel(spacing = 4) { addCssClasses("border-top pt-2 mt-2") }
-    val toggleButton = section.button("Gewichtsverlauf anzeigen/ausblenden", style = ButtonStyle.OUTLINESECONDARY)
+    val toggleButton = section.button(tr("Gewichtsverlauf anzeigen/ausblenden"), style = ButtonStyle.OUTLINESECONDARY)
     val historyPanel = section.vPanel(spacing = 4)
     historyPanel.hide()
     var loaded = false
@@ -531,13 +545,13 @@ private fun renderWeightHistorySection(
         historyPanel.show()
         if (!loaded) {
             historyPanel.removeAll()
-            historyPanel.p("Wird geladen …") { addCssClasses("text-muted small") }
+            historyPanel.p(tr("Wird geladen …")) { addCssClasses("text-muted small") }
             AppScope.launch {
                 val history = guarded { rpcService<IPoliticianService>().getWeightHistory(politician.memberId) } ?: return@launch
                 loaded = true
                 historyPanel.removeAll()
                 if (history.isEmpty()) {
-                    historyPanel.p("Noch kein Gewichtsverlauf vorhanden.") { addCssClasses("text-muted small") }
+                    historyPanel.p(tr("Noch kein Gewichtsverlauf vorhanden.")) { addCssClasses("text-muted small") }
                 } else {
                     renderWeightHistoryTable(historyPanel, history)
                 }
@@ -551,11 +565,11 @@ private fun renderWeightHistoryTable(
     history: List<PoliticianWeightSnapshotDto>,
 ) {
     val headerRow = panel.hPanel(spacing = 8) { addCssClasses("fw-bold border-bottom pb-1") }
-    headerRow.div("Monat") { width = 100.px }
-    headerRow.div("Mitglieder-Gewicht") { width = 160.px }
-    headerRow.div("Gast-Gewicht") { width = 110.px }
-    headerRow.div("Gesamt") { width = 90.px }
-    headerRow.div("Berechnet") { addCssClasses("flex-grow-1") }
+    headerRow.div(tr("Monat")) { width = 100.px }
+    headerRow.div(tr("Mitglieder-Gewicht")) { width = 160.px }
+    headerRow.div(tr("Gast-Gewicht")) { width = 110.px }
+    headerRow.div(tr("Gesamt")) { width = 90.px }
+    headerRow.div(tr("Berechnet")) { addCssClasses("flex-grow-1") }
 
     history.forEach { snapshot ->
         val row = panel.hPanel(spacing = 8) { addCssClasses("border-bottom py-1 align-items-center") }
@@ -585,27 +599,27 @@ private fun renderGrantForm(
     members: List<MemberSummaryDto>,
     onCompleted: () -> Unit,
 ) {
-    root.h2("Politiker-Status erteilen") { addCssClass("h6") }
+    root.h2(tr("Politiker-Status erteilen")) { addCssClass("h6") }
     if (members.isEmpty()) {
-        root.p("Keine Mitglieder vorhanden.") { addCssClasses("text-muted small") }
+        root.p(tr("Keine Mitglieder vorhanden.")) { addCssClasses("text-muted small") }
         return
     }
     val panel = root.vPanel(spacing = 6)
-    val memberSelect = panel.select(options = members.map { it.id to it.displayName }, label = "Mitglied")
-    val mandateInput = panel.textArea(label = "Mandatstext (optional)", rows = 2)
+    val memberSelect = panel.select(options = members.map { it.id to it.displayName }, label = tr("Mitglied"))
+    val mandateInput = panel.textArea(label = tr("Mandatstext (optional)"), rows = 2)
     val errorBox =
         panel.div().apply {
             addCssClass("text-danger")
             hide()
         }
-    val grantButton = panel.button("Erteilen / Aktualisieren", style = ButtonStyle.PRIMARY)
+    val grantButton = panel.button(tr("Erteilen / Aktualisieren"), style = ButtonStyle.PRIMARY)
 
     grantButton.onClick {
         errorBox.hide()
         val memberId = memberSelect.value
         val member = members.find { it.id == memberId }
         if (member == null) {
-            errorBox.content = "Bitte ein Mitglied auswählen."
+            errorBox.content = tr("Bitte ein Mitglied auswählen.")
             errorBox.show()
             return@onClick
         }
@@ -616,19 +630,22 @@ private fun renderGrantForm(
         // idempotent-upsert semantics so the caller isn't surprised by re-running this on an
         // already-ACTIVE profile.
         confirmDialog(
-            title = "Politiker-Status erteilen",
+            title = tr("Politiker-Status erteilen"),
             message =
-                "${member.displayName} erhält (oder behält) den Politiker-Status. Ein bereits aktives Profil wird " +
-                    "aktualisiert, ein ehemaliges (widerrufenes) Profil reaktiviert -- niemals wird ein zweites " +
-                    "Profil für dasselbe Mitglied angelegt.",
-            confirmLabel = "Erteilen",
+                gettext(
+                    "%1 erhält (oder behält) den Politiker-Status. Ein bereits aktives Profil wird " +
+                        "aktualisiert, ein ehemaliges (widerrufenes) Profil reaktiviert -- niemals wird ein zweites " +
+                        "Profil für dasselbe Mitglied angelegt.",
+                    member.displayName,
+                ),
+            confirmLabel = tr("Erteilen"),
         ) {
             grantButton.disabled = true
             AppScope.launch {
                 val result = guarded { rpcService<IPoliticianService>().grantPoliticianStatus(member.id, mandateText) }
                 grantButton.disabled = false
                 if (result != null) {
-                    notifySuccess("Politiker-Status für ${result.displayName} erteilt.")
+                    notifySuccess(gettext("Politiker-Status für %1 erteilt.", result.displayName))
                     mandateInput.value = null
                     onCompleted()
                 }
@@ -646,27 +663,29 @@ private fun renderSnapshotForm(
     root: SimplePanel,
     onCompleted: () -> Unit,
 ) {
-    root.h2("Gewichts-Snapshot auslösen") { addCssClass("h6") }
+    root.h2(tr("Gewichts-Snapshot auslösen")) { addCssClass("h6") }
     root.div(
-        "Berechnet und speichert für JEDES aktive Politiker-Profil einen Gewichts-Schnappschuss für den gewählten " +
-            "Monat (Tag wird ignoriert, auf den Monatsersten normalisiert). Erneutes Ausführen für denselben Monat " +
-            "erzeugt keine Duplikate.",
+        tr(
+            "Berechnet und speichert für JEDES aktive Politiker-Profil einen Gewichts-Schnappschuss für den gewählten " +
+                "Monat (Tag wird ignoriert, auf den Monatsersten normalisiert). Erneutes Ausführen für denselben Monat " +
+                "erzeugt keine Duplikate.",
+        ),
     ) { addCssClasses("text-muted small mb-2") }
     val panel = root.vPanel(spacing = 6)
-    val monthInput = panel.text(label = "Monat (JJJJ-MM-TT, Tag wird ignoriert)")
+    val monthInput = panel.text(label = tr("Monat (JJJJ-MM-TT, Tag wird ignoriert)"))
     val errorBox =
         panel.div().apply {
             addCssClass("text-danger")
             hide()
         }
-    val snapshotButton = panel.button("Snapshot auslösen", style = ButtonStyle.SECONDARY)
+    val snapshotButton = panel.button(tr("Snapshot auslösen"), style = ButtonStyle.SECONDARY)
 
     snapshotButton.onClick {
         errorBox.hide()
         val monthText = monthInput.value.orEmpty().trim()
         val periodMonth = runCatching { LocalDate.parse(monthText) }.getOrNull()
         if (periodMonth == null) {
-            errorBox.content = "Bitte einen Monat im Format JJJJ-MM-TT angeben."
+            errorBox.content = tr("Bitte einen Monat im Format JJJJ-MM-TT angeben.")
             errorBox.show()
             return@onClick
         }
@@ -675,7 +694,7 @@ private fun renderSnapshotForm(
             val result = guarded { rpcService<IPoliticianService>().snapshotWeights(periodMonth) }
             snapshotButton.disabled = false
             if (result != null) {
-                notifySuccess("Snapshot für ${result.size} Profil(e) berechnet.")
+                notifySuccess(gettext("Snapshot für %1 Profil(e) berechnet.", result.size))
                 onCompleted()
             }
         }
@@ -706,40 +725,44 @@ private fun renderPoliticianRankingToggle(
     onChanged: () -> Unit,
 ) {
     val panel = root.vPanel(spacing = 6)
-    panel.p("Wird geladen …") { addCssClasses("text-muted small") }
+    panel.p(tr("Wird geladen …")) { addCssClasses("text-muted small") }
 
     fun load() {
         panel.removeAll()
-        panel.p("Wird geladen …") { addCssClasses("text-muted small") }
+        panel.p(tr("Wird geladen …")) { addCssClasses("text-muted small") }
         AppScope.launch {
             val settings = guarded { rpcService<IOrganizationSettingsService>().getOrganizationSettings() } ?: return@launch
             panel.removeAll()
             val statusRow = panel.hPanel(spacing = 8) { addCssClasses("align-items-center") }
-            statusRow.div("Politiker-Ranking:") { addCssClasses("text-muted small") }
+            statusRow.div(tr("Politiker-Ranking:")) { addCssClasses("text-muted small") }
             statusRow.statusBadge(
-                if (settings.politicianRankingEnabled) "Aktiviert" else "Deaktiviert",
+                if (settings.politicianRankingEnabled) tr("Aktiviert") else tr("Deaktiviert"),
                 if (settings.politicianRankingEnabled) "success" else "secondary",
             )
             if (canAdmin) {
                 val toggleButton =
                     panel.button(
-                        if (settings.politicianRankingEnabled) "Deaktivieren" else "Aktivieren",
+                        if (settings.politicianRankingEnabled) tr("Deaktivieren") else tr("Aktivieren"),
                         style = if (settings.politicianRankingEnabled) ButtonStyle.OUTLINEDANGER else ButtonStyle.PRIMARY,
                     )
                 toggleButton.onClick {
                     val newValue = !settings.politicianRankingEnabled
                     confirmDialog(
-                        title = if (newValue) "Politiker-Ranking aktivieren" else "Politiker-Ranking deaktivieren",
+                        title = if (newValue) tr("Politiker-Ranking aktivieren") else tr("Politiker-Ranking deaktivieren"),
                         message =
                             if (newValue) {
-                                "Mitglieder und Gäste können ab sofort Politiker-Profile einsehen und bewerten; " +
-                                    "BOARD/ADMIN können Politiker-Status erteilen/widerrufen."
+                                tr(
+                                    "Mitglieder und Gäste können ab sofort Politiker-Profile einsehen und bewerten; " +
+                                        "BOARD/ADMIN können Politiker-Status erteilen/widerrufen.",
+                                )
                             } else {
-                                "Sämtliche Politiker-Funktionen (Profile, Bewertungen, Vergabe/Widerruf, Snapshot) sind " +
-                                    "bis zur erneuten Aktivierung nicht mehr erreichbar -- bestehende Profile/Bewertungen " +
-                                    "bleiben dabei erhalten, sie werden nur unerreichbar, nicht gelöscht."
+                                tr(
+                                    "Sämtliche Politiker-Funktionen (Profile, Bewertungen, Vergabe/Widerruf, Snapshot) sind " +
+                                        "bis zur erneuten Aktivierung nicht mehr erreichbar -- bestehende Profile/Bewertungen " +
+                                        "bleiben dabei erhalten, sie werden nur unerreichbar, nicht gelöscht.",
+                                )
                             },
-                        confirmLabel = if (newValue) "Aktivieren" else "Deaktivieren",
+                        confirmLabel = if (newValue) tr("Aktivieren") else tr("Deaktivieren"),
                     ) {
                         toggleButton.disabled = true
                         AppScope.launch {
@@ -751,7 +774,7 @@ private fun renderPoliticianRankingToggle(
                                 }
                             toggleButton.disabled = false
                             if (result != null) {
-                                notifySuccess(if (newValue) "Politiker-Ranking aktiviert." else "Politiker-Ranking deaktiviert.")
+                                notifySuccess(if (newValue) tr("Politiker-Ranking aktiviert.") else tr("Politiker-Ranking deaktiviert."))
                                 load()
                                 onChanged()
                             }
@@ -799,8 +822,8 @@ internal fun OrganizationSettingsDto.toInputWithPoliticianRankingEnabled(newValu
  * every [PoliticianProfileStatus] literal. */
 fun politicianProfileStatusLabel(status: PoliticianProfileStatus): String =
     when (status) {
-        PoliticianProfileStatus.ACTIVE -> "Aktiv"
-        PoliticianProfileStatus.FORMER -> "Ehemalig"
+        PoliticianProfileStatus.ACTIVE -> gettext("Aktiv")
+        PoliticianProfileStatus.FORMER -> gettext("Ehemalig")
     }
 
 fun politicianProfileStatusColor(status: PoliticianProfileStatus): String =
@@ -814,8 +837,8 @@ fun politicianProfileStatusColor(status: PoliticianProfileStatus): String =
  * already establishes for its (distinct, same-named-literal) enum. */
 fun politicianReactionValueLabel(value: PoliticianReactionValue): String =
     when (value) {
-        PoliticianReactionValue.LIKE -> "Like"
-        PoliticianReactionValue.DISLIKE -> "Dislike"
+        PoliticianReactionValue.LIKE -> gettext("Like")
+        PoliticianReactionValue.DISLIKE -> gettext("Dislike")
     }
 
 fun politicianReactionValueColor(value: PoliticianReactionValue): String =
@@ -828,8 +851,8 @@ fun politicianReactionValueColor(value: PoliticianReactionValue): String =
  * time, not a progressing status. */
 fun politicianRaterTypeLabel(type: PoliticianRaterType): String =
     when (type) {
-        PoliticianRaterType.MEMBER -> "Mitglied"
-        PoliticianRaterType.GAST -> "Gast"
+        PoliticianRaterType.MEMBER -> gettext("Mitglied")
+        PoliticianRaterType.GAST -> gettext("Gast")
     }
 
 fun politicianRaterTypeColor(type: PoliticianRaterType): String =

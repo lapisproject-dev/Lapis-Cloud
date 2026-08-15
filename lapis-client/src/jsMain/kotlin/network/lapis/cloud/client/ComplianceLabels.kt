@@ -1,5 +1,6 @@
 package network.lapis.cloud.client
 
+import io.kvision.i18n.gettext
 import network.lapis.cloud.shared.domain.AuditAction
 import network.lapis.cloud.shared.domain.AuditEntityType
 import network.lapis.cloud.shared.domain.AvvStatus
@@ -38,9 +39,9 @@ import network.lapis.cloud.shared.domain.TomCategory
  */
 fun auditActionLabel(action: AuditAction): String =
     when (action) {
-        AuditAction.CREATE -> "Erstellt"
-        AuditAction.UPDATE -> "Geändert"
-        AuditAction.POST -> "Gebucht"
+        AuditAction.CREATE -> gettext("Erstellt")
+        AuditAction.UPDATE -> gettext("Geändert")
+        AuditAction.POST -> gettext("Gebucht")
     }
 
 fun auditActionColor(action: AuditAction): String =
@@ -56,23 +57,23 @@ fun auditActionColor(action: AuditAction): String =
  */
 fun auditEntityTypeLabel(entityType: AuditEntityType): String =
     when (entityType) {
-        AuditEntityType.JOURNAL_ENTRY -> "Buchung"
-        AuditEntityType.PARTY_DONATION_VERDICT -> "Spendenprüfung"
-        AuditEntityType.RESOLUTION -> "Beschluss"
-        AuditEntityType.BOARD_MEMBERSHIP -> "Vorstandsmitgliedschaft"
+        AuditEntityType.JOURNAL_ENTRY -> gettext("Buchung")
+        AuditEntityType.PARTY_DONATION_VERDICT -> gettext("Spendenprüfung")
+        AuditEntityType.RESOLUTION -> gettext("Beschluss")
+        AuditEntityType.BOARD_MEMBERSHIP -> gettext("Vorstandsmitgliedschaft")
         // V1.0 Videokonferenzen, Wave 2 "Aufzeichnung" -- "Aufzeichnung" is the ONLY term used
         // across badge/banner/dialog/Lobby for this concept, see the Wave 2 design review's D15
         // "Terminology lock".
-        AuditEntityType.CONFERENCE_RECORDING -> "Aufzeichnung"
+        AuditEntityType.CONFERENCE_RECORDING -> gettext("Aufzeichnung")
         // V1.0 Videokonferenzen, Wave 3 "Externes Streaming" -- "Live-Stream"/"Streaming-Ziel" are
         // the SAME terms the Wave 3 design review's D3/D9 use throughout the badge/dialog/Lobby
         // surfaces, same "one term, everywhere" discipline as Wave 2's D15.
-        AuditEntityType.CONFERENCE_STREAM -> "Live-Stream"
-        AuditEntityType.CONFERENCE_STREAM_DESTINATION -> "Streaming-Ziel"
+        AuditEntityType.CONFERENCE_STREAM -> gettext("Live-Stream")
+        AuditEntityType.CONFERENCE_STREAM_DESTINATION -> gettext("Streaming-Ziel")
         // V1.0 Videokonferenzen, Wave 5 "Föderations-Gastbeitritt" -- "Gastzugang" is the ONLY term
         // used for the per-room federation-guest-access capability across badge/button/dialog/
         // invite, see the Wave 5 design review's D2 "Terminology lock".
-        AuditEntityType.CONFERENCE_ROOM -> "Gastzugang"
+        AuditEntityType.CONFERENCE_ROOM -> gettext("Gastzugang")
     }
 
 fun auditEntityTypeColor(entityType: AuditEntityType): String =
@@ -104,8 +105,8 @@ fun auditEntityTypeColor(entityType: AuditEntityType): String =
  * operation a `backup_operation_log` row records, not a lifecycle status. */
 fun backupOperationTypeLabel(type: BackupOperationType): String =
     when (type) {
-        BackupOperationType.EXPORT -> "Export"
-        BackupOperationType.RESTORE -> "Wiederherstellung"
+        BackupOperationType.EXPORT -> gettext("Export")
+        BackupOperationType.RESTORE -> gettext("Wiederherstellung")
     }
 
 fun backupOperationTypeColor(type: BackupOperationType): String =
@@ -119,8 +120,8 @@ fun backupOperationTypeColor(type: BackupOperationType): String =
  * FAILED=danger"). */
 fun backupOperationStatusLabel(status: BackupOperationStatus): String =
     when (status) {
-        BackupOperationStatus.SUCCEEDED -> "Erfolgreich"
-        BackupOperationStatus.FAILED -> "Fehlgeschlagen"
+        BackupOperationStatus.SUCCEEDED -> gettext("Erfolgreich")
+        BackupOperationStatus.FAILED -> gettext("Fehlgeschlagen")
     }
 
 fun backupOperationStatusColor(status: BackupOperationStatus): String =
@@ -138,9 +139,9 @@ fun backupOperationStatusColor(status: BackupOperationStatus): String =
  * paired with [activeStatusBadge] (D11), never alone -- see `DsgvoComplianceScreen.kt`. */
 fun avvStatusLabel(status: AvvStatus): String =
     when (status) {
-        AvvStatus.NONE -> "Kein AVV"
-        AvvStatus.DRAFT -> "Entwurf"
-        AvvStatus.SIGNED -> "Unterzeichnet"
+        AvvStatus.NONE -> gettext("Kein AVV")
+        AvvStatus.DRAFT -> gettext("Entwurf")
+        AvvStatus.SIGNED -> gettext("Unterzeichnet")
     }
 
 fun avvStatusColor(status: AvvStatus): String =
@@ -157,14 +158,14 @@ fun avvStatusColor(status: AvvStatus): String =
  * `dark` (D12: "both perimeter-flavored, least likely pair needing snap disambiguation"). */
 fun tomCategoryLabel(category: TomCategory): String =
     when (category) {
-        TomCategory.PHYSICAL_ACCESS_CONTROL -> "Zutrittskontrolle"
-        TomCategory.SYSTEM_ACCESS_CONTROL -> "Zugangskontrolle"
-        TomCategory.DATA_ACCESS_CONTROL -> "Zugriffskontrolle"
-        TomCategory.TRANSFER_CONTROL -> "Weitergabekontrolle"
-        TomCategory.INPUT_CONTROL -> "Eingabekontrolle"
-        TomCategory.ORDER_CONTROL -> "Auftragskontrolle"
-        TomCategory.AVAILABILITY_CONTROL -> "Verfügbarkeitskontrolle"
-        TomCategory.SEPARATION_CONTROL -> "Trennungsgebot"
+        TomCategory.PHYSICAL_ACCESS_CONTROL -> gettext("Zutrittskontrolle")
+        TomCategory.SYSTEM_ACCESS_CONTROL -> gettext("Zugangskontrolle")
+        TomCategory.DATA_ACCESS_CONTROL -> gettext("Zugriffskontrolle")
+        TomCategory.TRANSFER_CONTROL -> gettext("Weitergabekontrolle")
+        TomCategory.INPUT_CONTROL -> gettext("Eingabekontrolle")
+        TomCategory.ORDER_CONTROL -> gettext("Auftragskontrolle")
+        TomCategory.AVAILABILITY_CONTROL -> gettext("Verfügbarkeitskontrolle")
+        TomCategory.SEPARATION_CONTROL -> gettext("Trennungsgebot")
     }
 
 fun tomCategoryColor(category: TomCategory): String =
@@ -182,9 +183,9 @@ fun tomCategoryColor(category: TomCategory): String =
 /** `statusBadge` grammar (filled) -- a DSFA/DPIA row's lifecycle status. */
 fun dsfaStatusLabel(status: DsfaStatus): String =
     when (status) {
-        DsfaStatus.DRAFT -> "Entwurf"
-        DsfaStatus.COMPLETED -> "Abgeschlossen"
-        DsfaStatus.OUTDATED_REVIEW_DUE -> "Überholt -- Überprüfung fällig"
+        DsfaStatus.DRAFT -> gettext("Entwurf")
+        DsfaStatus.COMPLETED -> gettext("Abgeschlossen")
+        DsfaStatus.OUTDATED_REVIEW_DUE -> gettext("Überholt -- Überprüfung fällig")
     }
 
 fun dsfaStatusColor(status: DsfaStatus): String =
@@ -199,11 +200,11 @@ fun dsfaStatusColor(status: DsfaStatus): String =
  * `success` (D12: "closing a breach file is not a win"). */
 fun breachStatusLabel(status: BreachStatus): String =
     when (status) {
-        BreachStatus.REPORTED -> "Gemeldet"
-        BreachStatus.UNDER_ASSESSMENT -> "In Prüfung"
-        BreachStatus.NOTIFIED_AUTHORITY -> "Aufsichtsbehörde benachrichtigt"
-        BreachStatus.NO_NOTIFICATION_REQUIRED -> "Keine Meldung erforderlich"
-        BreachStatus.CLOSED -> "Abgeschlossen"
+        BreachStatus.REPORTED -> gettext("Gemeldet")
+        BreachStatus.UNDER_ASSESSMENT -> gettext("In Prüfung")
+        BreachStatus.NOTIFIED_AUTHORITY -> gettext("Aufsichtsbehörde benachrichtigt")
+        BreachStatus.NO_NOTIFICATION_REQUIRED -> gettext("Keine Meldung erforderlich")
+        BreachStatus.CLOSED -> gettext("Abgeschlossen")
     }
 
 fun breachStatusColor(status: BreachStatus): String =
@@ -221,10 +222,10 @@ fun breachStatusColor(status: BreachStatus): String =
  * it green would falsely claim "you made it in time". */
 fun breachDeadlineStatusLabel(status: BreachDeadlineStatus): String =
     when (status) {
-        BreachDeadlineStatus.WITHIN_WINDOW -> "Frist läuft"
-        BreachDeadlineStatus.DUE_SOON -> "Frist bald fällig"
-        BreachDeadlineStatus.OVERDUE -> "Frist überschritten"
-        BreachDeadlineStatus.SATISFIED -> "Meldung erfolgt"
+        BreachDeadlineStatus.WITHIN_WINDOW -> gettext("Frist läuft")
+        BreachDeadlineStatus.DUE_SOON -> gettext("Frist bald fällig")
+        BreachDeadlineStatus.OVERDUE -> gettext("Frist überschritten")
+        BreachDeadlineStatus.SATISFIED -> gettext("Meldung erfolgt")
     }
 
 fun breachDeadlineStatusColor(status: BreachDeadlineStatus): String =
@@ -241,10 +242,10 @@ fun breachDeadlineStatusColor(status: BreachDeadlineStatus): String =
  * gets `dark` (D12: "heat-scale convention: dark reads as beyond red"). */
 fun dpiaRiskBandLabel(band: DpiaRiskBand): String =
     when (band) {
-        DpiaRiskBand.LOW -> "Niedrig"
-        DpiaRiskBand.MEDIUM -> "Mittel"
-        DpiaRiskBand.HIGH -> "Hoch"
-        DpiaRiskBand.CRITICAL -> "Kritisch"
+        DpiaRiskBand.LOW -> gettext("Niedrig")
+        DpiaRiskBand.MEDIUM -> gettext("Mittel")
+        DpiaRiskBand.HIGH -> gettext("Hoch")
+        DpiaRiskBand.CRITICAL -> gettext("Kritisch")
     }
 
 fun dpiaRiskBandColor(band: DpiaRiskBand): String =
@@ -261,9 +262,9 @@ fun dpiaRiskBandColor(band: DpiaRiskBand): String =
  * derived band (D12). */
 fun riskLevelLabel(level: RiskLevel): String =
     when (level) {
-        RiskLevel.LOW -> "Niedrig"
-        RiskLevel.MEDIUM -> "Mittel"
-        RiskLevel.HIGH -> "Hoch"
+        RiskLevel.LOW -> gettext("Niedrig")
+        RiskLevel.MEDIUM -> gettext("Mittel")
+        RiskLevel.HIGH -> gettext("Hoch")
     }
 
 fun riskLevelColor(level: RiskLevel): String =
@@ -285,10 +286,10 @@ fun riskLevelColor(level: RiskLevel): String =
  * `success` -- data loss is not a "success" color even though the workflow completed as designed. */
 fun erasureStatusLabel(status: ErasureStatus): String =
     when (status) {
-        ErasureStatus.REQUESTED -> "Beantragt"
-        ErasureStatus.APPROVED -> "Genehmigt"
-        ErasureStatus.REJECTED -> "Abgelehnt"
-        ErasureStatus.COMPLETED -> "Ausgeführt"
+        ErasureStatus.REQUESTED -> gettext("Beantragt")
+        ErasureStatus.APPROVED -> gettext("Genehmigt")
+        ErasureStatus.REJECTED -> gettext("Abgelehnt")
+        ErasureStatus.COMPLETED -> gettext("Ausgeführt")
     }
 
 fun erasureStatusColor(status: ErasureStatus): String =
@@ -303,8 +304,8 @@ fun erasureStatusColor(status: ErasureStatus): String =
  * classification chosen once at request time, not a value that itself progresses. */
 fun erasureModeLabel(mode: ErasureMode): String =
     when (mode) {
-        ErasureMode.ANONYMIZE -> "Anonymisierung"
-        ErasureMode.HARD_DELETE_WHERE_UNCONSTRAINED -> "Anonymisierung + Hartlöschung eigener Nachrichten"
+        ErasureMode.ANONYMIZE -> gettext("Anonymisierung")
+        ErasureMode.HARD_DELETE_WHERE_UNCONSTRAINED -> gettext("Anonymisierung + Hartlöschung eigener Nachrichten")
     }
 
 fun erasureModeColor(mode: ErasureMode): String =
@@ -320,12 +321,16 @@ fun erasureModeColor(mode: ErasureMode): String =
 fun erasureModeDescription(mode: ErasureMode): String =
     when (mode) {
         ErasureMode.ANONYMIZE ->
-            "Ihr Mitgliedsdatensatz bleibt als anonymer Platzhalter bestehen (z. B. damit Beitragshistorie " +
-                "und Buchungen konsistent bleiben). Persönliche Felder werden geleert oder anonymisiert."
+            gettext(
+                "Ihr Mitgliedsdatensatz bleibt als anonymer Platzhalter bestehen (z. B. damit Beitragshistorie " +
+                    "und Buchungen konsistent bleiben). Persönliche Felder werden geleert oder anonymisiert.",
+            )
         ErasureMode.HARD_DELETE_WHERE_UNCONSTRAINED ->
-            "Zusätzlich zur Anonymisierung werden von Ihnen selbst versendete Nachrichten hart gelöscht, " +
-                "soweit dem keine gesetzliche Aufbewahrungspflicht entgegensteht. Von Ihnen empfangene " +
-                "Nachrichten anderer Mitglieder bleiben unberührt."
+            gettext(
+                "Zusätzlich zur Anonymisierung werden von Ihnen selbst versendete Nachrichten hart gelöscht, " +
+                    "soweit dem keine gesetzliche Aufbewahrungspflicht entgegensteht. Von Ihnen empfangene " +
+                    "Nachrichten anderer Mitglieder bleiben unberührt.",
+            )
     }
 
 /** `statusBadge` grammar (filled) -- which kind of DSGVO-rights event a
@@ -336,11 +341,11 @@ fun erasureModeDescription(mode: ErasureMode): String =
  * and gets its own `info` hue. */
 fun dsgvoAuditActionLabel(action: DsgvoAuditAction): String =
     when (action) {
-        DsgvoAuditAction.EXPORT -> "Auskunft exportiert"
-        DsgvoAuditAction.ERASURE_REQUESTED -> "Löschung beantragt"
-        DsgvoAuditAction.ERASURE_APPROVED -> "Löschung genehmigt"
-        DsgvoAuditAction.ERASURE_REJECTED -> "Löschung abgelehnt"
-        DsgvoAuditAction.ERASURE_EXECUTED -> "Löschung ausgeführt"
+        DsgvoAuditAction.EXPORT -> gettext("Auskunft exportiert")
+        DsgvoAuditAction.ERASURE_REQUESTED -> gettext("Löschung beantragt")
+        DsgvoAuditAction.ERASURE_APPROVED -> gettext("Löschung genehmigt")
+        DsgvoAuditAction.ERASURE_REJECTED -> gettext("Löschung abgelehnt")
+        DsgvoAuditAction.ERASURE_EXECUTED -> gettext("Löschung ausgeführt")
     }
 
 fun dsgvoAuditActionColor(action: DsgvoAuditAction): String =
@@ -364,8 +369,8 @@ fun dsgvoAuditActionColor(action: DsgvoAuditAction): String =
  * a negative-flavored hue -- "leaving isn't inherently negative -- term expiry is routine". */
 fun boardChangeTypeLabel(type: BoardChangeType): String =
     when (type) {
-        BoardChangeType.JOINED -> "Eingetreten"
-        BoardChangeType.LEFT -> "Ausgeschieden"
+        BoardChangeType.JOINED -> gettext("Eingetreten")
+        BoardChangeType.LEFT -> gettext("Ausgeschieden")
     }
 
 fun boardChangeTypeColor(type: BoardChangeType): String =

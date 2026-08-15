@@ -1,0 +1,4501 @@
+msgid ""
+msgstr ""
+"Content-Type: text/plain; charset=UTF-8\n"
+"Language: it\n"
+
+msgid " -- %1"
+msgstr " -- %1"
+
+msgid " · gemeldet am %1"
+msgstr " · segnalato il %1"
+
+msgid " · Moderator"
+msgstr " · Moderatore"
+
+msgid " (%1)"
+msgstr " (%1)"
+
+msgid " (Sie)"
+msgstr " (Lei)"
+
+msgid " bei %1"
+msgstr " presso %1"
+
+msgid "-- kein --"
+msgstr "-- nessuno --"
+
+msgid "-- kein (neuer Hauptantrag) --"
+msgstr "-- nessuna (nuova mozione principale) --"
+
+msgid "-- kein Spender --"
+msgstr "-- nessun donatore --"
+
+msgid "-- kein Tagesordnungspunkt --"
+msgstr "-- nessun punto all'ordine del giorno --"
+
+msgid "-- keine --"
+msgstr "-- nessuna --"
+
+msgid "-- keine Rücklage --"
+msgstr "-- nessuna riserva --"
+
+msgid "-- Konto wählen --"
+msgstr "-- selezionare il conto --"
+
+msgid "-- Spenderkategorie wählen --"
+msgstr "-- selezionare la categoria donatore --"
+
+msgid "-- Sphäre wählen --"
+msgstr "-- selezionare la sfera --"
+
+msgid "— Nicht zugeordnet —"
+msgstr "— Non assegnato —"
+
+msgid ", Sofortkaufpreis %1"
+msgstr ", prezzo di acquisto immediato %1"
+
+msgid "\"%1 · %2\" wirklich deaktivieren? Bestehende Buchungen bleiben erhalten, das Konto steht aber für neue Buchungen nicht mehr zur Verfügung."
+msgstr "Disattivare davvero \"%1 · %2\"? Le registrazioni esistenti restano invariate, ma il conto non sarà più disponibile per nuove registrazioni."
+
+msgid "\"%1 · %2\" wirklich deaktivieren? Bestehende Buchungen bleiben erhalten, die Kostenstelle steht aber für neue Buchungen nicht mehr zur Verfügung."
+msgstr "Disattivare davvero \"%1 · %2\"? Le registrazioni esistenti restano invariate, ma il centro di costo non sarà più disponibile per nuove registrazioni."
+
+msgid "\"%1\" aus der Besprechung entfernen?"
+msgstr "Rimuovere \"%1\" dalla riunione?"
+
+msgid "\"%1\" wird sofort geschlossen -- alle Verbindungen werden getrennt."
+msgstr "\"%1\" verrà chiuso immediatamente -- tutte le connessioni verranno interrotte."
+
+msgid "\"%1\" wirklich abbrechen? Es wird keine Abrechnung durchgeführt."
+msgstr "Annullare davvero \"%1\"? Non verrà eseguito alcun addebito."
+
+msgid "\"%1\" wirklich absagen?"
+msgstr "Annullare davvero \"%1\"?"
+
+msgid "\"%1\" wirklich deaktivieren? Bestehende Buchungen mit diesem Spender bleiben erhalten, er steht aber für neue Buchungen nicht mehr zur Verfügung."
+msgstr "Disattivare davvero \"%1\"? Le registrazioni esistenti relative a questo donatore restano invariate, ma non sarà più disponibile per nuove registrazioni."
+
+msgid "\"%1\" wirklich löschen? (Soft-Delete -- bisherige Versionen bleiben zu Prüfzwecken erhalten, das Dokument verschwindet aus der Ansicht.)"
+msgstr "Eliminare davvero \"%1\"? (Eliminazione reversibile -- le versioni precedenti restano conservate a fini di verifica, il documento scompare dalla visualizzazione.)"
+
+msgid "\"%1\" wirklich löschen? Dies ist nur möglich, solange kein aktiver oder unterbrochener Live-Stream dieses Ziel verwendet."
+msgstr "Eliminare davvero \"%1\"? Questo è possibile solo se nessuno streaming live attivo o interrotto utilizza questa destinazione."
+
+msgid "\"%1\" wirklich zurückziehen?"
+msgstr "Ritirare davvero \"%1\"?"
+
+msgid "\"%1\" wurde aktualisiert."
+msgstr "\"%1\" è stato aggiornato."
+
+msgid "\"%1\" wurde angelegt."
+msgstr "\"%1\" è stato creato."
+
+msgid "„Mittelvortrag\" ist der am Ende von %1 verbleibende §55-AO-Zeitwert-Topf (die Fristablauf-Uhr läuft seit dem frühesten Geschäftsjahr mit Aktivität, nicht erst ab %2) -- „davon überfällig\" ist der Anteil, dessen gesetzliche Frist bereits abgelaufen ist."
+msgstr "Il \"riporto fondi\" è il saldo residuo ai sensi dell'art. 55 AO al termine di %1 (il termine di scadenza decorre dal primo esercizio con attività, non da %2) -- la \"quota scaduta\" è la parte il cui termine legale è già trascorso."
+
+msgid "„Ziel überschreiben\" ist aktiviert: diese Organisation hat bereits Daten. Sie werden mit den Daten aus der Datei zusammengeführt/überschrieben."
+msgstr "\"Sovrascrivi destinazione\" è attivo: questa organizzazione dispone già di dati. Verranno uniti/sovrascritti con i dati del file."
+
+msgid "(gesetzliche Obergrenze hier nicht geprüft)"
+msgstr "(limite legale non verificato in questa sede)"
+
+msgid "(Jahresfehlbetrag)"
+msgstr "(disavanzo dell'esercizio)"
+
+msgid "(optional -- bei Zuordnung greifen die §25-PartG-Spendenannahme-Prüfungen dieser Partei)"
+msgstr "(opzionale -- se assegnato, si applicano i controlli sull'accettazione delle donazioni ai sensi del §25 PartG di questo partito)"
+
+msgid "(optional, für Spendenbescheinigungen)"
+msgstr "(opzionale, per le ricevute di donazione)"
+
+msgid "(Sie)"
+msgstr "(Lei)"
+
+msgid "%1"
+msgstr "%1"
+
+msgid "%1 -- %2"
+msgstr "%1 -- %2"
+
+msgid "%1 -- %2 (Beleg: %3)"
+msgstr "%1 -- %2 (giustificativo: %3)"
+
+msgid "%1 – %2"
+msgstr "%1 – %2"
+
+msgid "%1 · %2"
+msgstr "%1 · %2"
+
+msgid "%1 · %2 · %3"
+msgstr "%1 · %2 · %3"
+
+msgid "%1 · %2 · Entität %3"
+msgstr "%1 · %2 · entità %3"
+
+msgid "%1 · %2 · erfasst von %3"
+msgstr "%1 · %2 · registrato da %3"
+
+msgid "%1 · eingereicht von %2 am %3"
+msgstr "%1 · presentato da %2 il %3"
+
+msgid "%1 (%2 Abonnenten)"
+msgstr "%1 (%2 abbonati)"
+
+msgid "%1 (%2 Bytes)"
+msgstr "%1 (%2 byte)"
+
+msgid "%1 (%2)"
+msgstr "%1 (%2)"
+
+msgid "%1 (%2) -- eingereicht am %3"
+msgstr "%1 (%2) -- presentato il %3"
+
+msgid "%1 (%2): fehlt %3"
+msgstr "%1 (%2): manca %3"
+
+msgid "%1 (Gast)"
+msgstr "%1 (ospite)"
+
+msgid "%1 (Sie)"
+msgstr "%1 (Lei)"
+
+msgid "%1 an %2 gutgeschrieben."
+msgstr "%1 accreditato a %2."
+
+msgid "%1 an %2 übertragen."
+msgstr "%1 trasferito a %2."
+
+msgid "%1 bis %2: %3 (%4)"
+msgstr "%1 - %2: %3 (%4)"
+
+msgid "%1 bps"
+msgstr "%1 bps"
+
+msgid "%1 Breakout-Räume erstellt und Teilnehmende verteilt."
+msgstr "%1 stanze breakout create e partecipanti distribuiti."
+
+msgid "%1 Buchungszeilen"
+msgstr "%1 righe di registrazione"
+
+msgid "%1 Einträge geprüft (Sequenznummer %2–%3)."
+msgstr "%1 voci verificate (numero di sequenza %2–%3)."
+
+msgid "%1 erhält (oder behält) den Politiker-Status. Ein bereits aktives Profil wird aktualisiert, ein ehemaliges (widerrufenes) Profil reaktiviert -- niemals wird ein zweites Profil für dasselbe Mitglied angelegt."
+msgstr "%1 ottiene (o mantiene) lo status di politico. Un profilo già attivo viene aggiornato, un profilo precedente (revocato) viene riattivato -- non viene mai creato un secondo profilo per lo stesso socio."
+
+msgid "%1 für %2 gemintet."
+msgstr "%1 coniato per %2."
+
+msgid "%1 LTR"
+msgstr "%1 LTR"
+
+msgid "%1 neue Beiträge erzeugt (bereits vorhandene wurden übersprungen)."
+msgstr "%1 nuovi contributi generati (quelli già esistenti sono stati saltati)."
+
+msgid "%1 offene Erinnerung(en) -- siehe Abschnitt \"Erinnerungen\" unten."
+msgstr "%1 promemoria in sospeso -- vedere la sezione \"Promemoria\" più sotto."
+
+msgid "%1 physische Briefe werden über Letterxpress an die im System hinterlegten Anschriften der ausgewählten Mitglieder verschickt. Fehlt bei auch nur einer Person die vollständige Anschrift, wird der gesamte Versand abgelehnt -- kein Teilversand."
+msgstr "%1 lettere cartacee verranno inviate tramite Letterxpress agli indirizzi dei soci selezionati registrati nel sistema. Se anche una sola persona non ha l'indirizzo completo, l'intero invio viene rifiutato -- nessun invio parziale."
+
+msgid "%1 Quellen"
+msgstr "%1 fonti"
+
+msgid "%1 s"
+msgstr "%1 s"
+
+msgid "%1 Stimmen abgegeben."
+msgstr "%1 voti espressi."
+
+msgid "%1 Tabelle(n) · %2 Zeile(n) · %3 Datei(en) (%4 Bytes) · Bundle-Größe: %5 Bytes · Format-Version %6"
+msgstr "%1 tabella/e · %2 riga/righe · %3 file (%4 byte) · dimensione bundle: %5 byte · versione formato %6"
+
+msgid "%1 Tabelle(n), %2 Zeile(n), %3 Datei(en) wiederhergestellt."
+msgstr "%1 tabella/e, %2 riga/righe, %3 file ripristinati."
+
+msgid "%1 teilt den Bildschirm"
+msgstr "%1 condivide lo schermo"
+
+msgid "%1 von %2"
+msgstr "%1 di %2"
+
+msgid "%1 von %2 anwesend (erforderlich: %3, %4%)."
+msgstr "%1 di %2 presenti (richiesti: %3, %4%)."
+
+msgid "%1 von %2 Briefen erfolgreich übergeben."
+msgstr "%1 di %2 lettere consegnate con successo."
+
+msgid "%1 von %2 Briefen fehlgeschlagen -- Details unten."
+msgstr "%1 di %2 lettere non riuscite -- dettagli più sotto."
+
+msgid "%1 wurde abgelehnt."
+msgstr "%1 è stato respinto."
+
+msgid "%1 wurde als %2 ernannt."
+msgstr "%1 è stato nominato %2."
+
+msgid "%1 wurde angelegt."
+msgstr "%1 è stato creato."
+
+msgid "%1 wurde aufgenommen."
+msgstr "%1 è stato ammesso."
+
+msgid "%1: %2"
+msgstr "%1: %2"
+
+msgid "%1: %2 (%3, %4)"
+msgstr "%1: %2 (%3, %4)"
+
+msgid "%1: %2 anonymisiert, %3 gelöscht, %4 beibehalten"
+msgstr "%1: %2 anonimizzati, %3 eliminati, %4 mantenuti"
+
+msgid "%1: %2–%3: %4 (%5)"
+msgstr "%1: %2–%3: %4 (%5)"
+
+msgid "%1: %2, %3 LTR%4"
+msgstr "%1: %2, %3 LTR%4"
+
+msgid "%1: %2%3%4"
+msgstr "%1: %2%3%4"
+
+msgid "%1. %2"
+msgstr "%1. %2"
+
+msgid "%1. %2%3"
+msgstr "%1. %2%3"
+
+msgid "%1. %2%3%4"
+msgstr "%1. %2%3%4"
+
+msgid "↳ Änderungsantrag: %1"
+msgstr "↳ Emendamento: %1"
+
+msgid "◆ Live-Stream %1 → %2"
+msgstr "◆ Streaming live %1 → %2"
+
+msgid "● Aufzeichnung läuft"
+msgstr "● Registrazione in corso"
+
+msgid "✓ Kette intakt"
+msgstr "✓ Catena integra"
+
+msgid "✗ Kette gebrochen bei Sequenznummer %1"
+msgstr "✗ Catena interrotta al numero di sequenza %1"
+
+msgid "1 Buchungszeile"
+msgstr "1 riga di registrazione"
+
+msgid "Abbestellen"
+msgstr "Annulla iscrizione"
+
+msgid "Abbestellt am %1"
+msgstr "Disiscritto il %1"
+
+msgid "Abbrechen"
+msgstr "Annulla"
+
+msgid "Abgegeben"
+msgstr "Espresso"
+
+msgid "Abgelehnt"
+msgstr "Respinto"
+
+msgid "Abgeschlossen"
+msgstr "Concluso"
+
+msgid "Abgeschlossen (kein Verkauf)"
+msgstr "Concluso (nessuna vendita)"
+
+msgid "Abgeschlossen (verkauft)"
+msgstr "Concluso (venduto)"
+
+msgid "Abhilfemaßnahmen (optional)"
+msgstr "Misure correttive (opzionale)"
+
+msgid "Ablehnen"
+msgstr "Rifiuta"
+
+msgid "Ablehnungsgrund (nur für \"Ablehnen\" erforderlich, öffentlich sichtbar)"
+msgstr "Motivo del rifiuto (obbligatorio solo per \"Rifiuta\", visibile pubblicamente)"
+
+msgid "Ablehnungsgrund: %1"
+msgstr "Motivo del rifiuto: %1"
+
+msgid "Abmelden"
+msgstr "Disconnetti"
+
+msgid "Abonnenten"
+msgstr "Abbonati"
+
+msgid "Abonnieren"
+msgstr "Iscriviti"
+
+msgid "Abonniert seit %1"
+msgstr "Abbonato dal %1"
+
+msgid "Absagen"
+msgstr "Annulla"
+
+msgid "Absender"
+msgstr "Mittente"
+
+msgid "Abstimmung"
+msgstr "Votazione"
+
+msgid "Abstimmungseinsatz"
+msgstr "Puntata di voto"
+
+msgid "Abwickeln"
+msgstr "Liquidare"
+
+msgid "Administration"
+msgstr "Amministrazione"
+
+msgid "Akteur-Mitglieds-ID (optional)"
+msgstr "ID socio responsabile (opzionale)"
+
+msgid "Akteur: %1"
+msgstr "Responsabile: %1"
+
+msgid "Akteur: %1 · Betroffenes Mitglied: %2"
+msgstr "Responsabile: %1 · Socio interessato: %2"
+
+msgid "aktiv"
+msgstr "attivo"
+
+msgid "Aktiv"
+msgstr "Attivo"
+
+msgid "Aktiva"
+msgstr "Attività"
+
+msgid "Aktive Besprechungen"
+msgstr "Riunioni attive"
+
+msgid "Aktive Mitglieder nach Name. E-Mail/Rolle/Adresse sind hier aus Datenschutzgründen nicht einsehbar -- dafür existiert aktuell keine privilegierte Leseschnittstelle."
+msgstr "Soci attivi per nome. Per motivi di protezione dei dati, e-mail/ruolo/indirizzo non sono qui consultabili -- al momento non esiste un'interfaccia di lettura privilegiata a tale scopo."
+
+msgid "Aktivieren"
+msgstr "Attiva"
+
+msgid "Aktiviert"
+msgstr "Attivato"
+
+msgid "Aktivkonto"
+msgstr "Conto attivo"
+
+msgid "Aktualisieren"
+msgstr "Aggiorna"
+
+msgid "aktualisiert"
+msgstr "aggiornato"
+
+msgid "Aktuell keine Vorstandsmitglieder erfasst."
+msgstr "Al momento nessun membro del consiglio direttivo registrato."
+
+msgid "Aktueller Preis"
+msgstr "Prezzo attuale"
+
+msgid "Aktueller Preis (Sie führen)"
+msgstr "Prezzo attuale (è in testa)"
+
+msgid "Aktueller Schlüssel: %1 -- wird hier nie im Klartext angezeigt."
+msgstr "Chiave attuale: %1 -- non viene mai mostrata qui in chiaro."
+
+msgid "Aktueller Vorstand"
+msgstr "Consiglio direttivo attuale"
+
+msgid "Aktuelles Gewicht (10 %/Tag Zerfall)"
+msgstr "Peso attuale (decadimento 10%/giorno)"
+
+msgid "Aktuelles Passwort"
+msgstr "Password attuale"
+
+msgid "Aktuelles Passwort ist falsch."
+msgstr "La password attuale non è corretta."
+
+msgid "Alle"
+msgstr "Tutti"
+
+msgid "Alle (persistierter Status)"
+msgstr "Tutti (stato persistito)"
+
+msgid "Alle abwählen"
+msgstr "Deseleziona tutti"
+
+msgid "Alle aktuell anwesenden Teilnehmenden sehen sofort, dass aufgezeichnet wird -- unabhängig davon, wer die Aufzeichnung startet."
+msgstr "Tutti i partecipanti attualmente presenti vedono immediatamente che è in corso una registrazione -- indipendentemente da chi la avvia."
+
+msgid "Alle auswählen"
+msgstr "Seleziona tutti"
+
+msgid "Alle Beiträge"
+msgstr "Tutti i contributi"
+
+msgid "Alle Entitätstypen"
+msgstr "Tutti i tipi di entità"
+
+msgid "Alle Gebote"
+msgstr "Tutte le offerte"
+
+msgid "Alle Gremien"
+msgstr "Tutti gli organi"
+
+msgid "Alle Kategorien"
+msgstr "Tutte le categorie"
+
+msgid "Alle Löschanträge -- genehmigen/ablehnen, und einen genehmigten Antrag endgültig ausführen."
+msgstr "Tutte le richieste di cancellazione -- approvare/rifiutare ed eseguire in modo definitivo una richiesta approvata."
+
+msgid "Alle Status"
+msgstr "Tutti gli stati"
+
+msgid "Alle Teilnehmenden werden sofort aus ihren Breakout-Räumen in den Hauptraum zurückgeholt."
+msgstr "Tutti i partecipanti verranno immediatamente richiamati dalle rispettive stanze breakout alla stanza principale."
+
+msgid "Alle Teilnehmenden wurden in den Hauptraum zurückgeholt."
+msgstr "Tutti i partecipanti sono stati richiamati alla stanza principale."
+
+msgid "Alle Zeichnungen auf dem Whiteboard werden sofort für alle Teilnehmenden entfernt."
+msgstr "Tutti i disegni sulla lavagna verranno immediatamente rimossi per tutti i partecipanti."
+
+msgid "Alle zurückholen"
+msgstr "Richiama tutti"
+
+msgid "Als bezahlt markieren"
+msgstr "Contrassegna come pagato"
+
+msgid "Als bezahlt markiert."
+msgstr "Contrassegnato come pagato."
+
+msgid "Als Dokument speichern"
+msgstr "Salva come documento"
+
+msgid "Als durchgeführt markieren"
+msgstr "Contrassegna come eseguito"
+
+msgid "Als Entwurf speichern"
+msgstr "Salva come bozza"
+
+msgid "Als Gast beitreten"
+msgstr "Accedi come ospite"
+
+msgid "Als neuen Entwurf duplizieren"
+msgstr "Duplica come nuova bozza"
+
+msgid "Als PDF herunterladen"
+msgstr "Scarica come PDF"
+
+msgid "Als Vorstand können Sie hier nur reguläre Mitglieder anlegen -- Vorstand/Schatzmeister/Admin ist Admin vorbehalten."
+msgstr "Come membro del consiglio direttivo, qui può creare solo soci ordinari -- consiglio direttivo/tesoriere/amministratore sono riservati agli amministratori."
+
+msgid "Andere Partei/Fraktion"
+msgstr "Altro partito/gruppo parlamentare"
+
+msgid "Ändert bestehenden Antrag (optional)"
+msgstr "Modifica una mozione esistente (opzionale)"
+
+msgid "Änderungsantrag"
+msgstr "Emendamento"
+
+msgid "Änderungsantrag terminiert."
+msgstr "Emendamento programmato."
+
+msgid "Änderungsantrag zu: %1"
+msgstr "Emendamento a: %1"
+
+msgid "Änderungsantrag: %1"
+msgstr "Emendamento: %1"
+
+msgid "Änderungsanträge zu diesem Antrag"
+msgstr "Emendamenti a questa mozione"
+
+msgid "Änderungshinweis (optional)"
+msgstr "Nota di modifica (opzionale)"
+
+msgid "Anfrage fehlgeschlagen."
+msgstr "Richiesta non riuscita."
+
+msgid "Angebot \"%1\" erstellt."
+msgstr "Offerta \"%1\" creata."
+
+msgid "Angebot erstellen"
+msgstr "Crea offerta"
+
+msgid "angelegt"
+msgstr "creato"
+
+msgid "Angemeldet über den OIDC-Heimserver %1."
+msgstr "Accesso effettuato tramite il server di provenienza OIDC %1."
+
+msgid "Anker-Asset"
+msgstr "Asset di ancoraggio"
+
+msgid "Anlegen"
+msgstr "Crea"
+
+msgid "Anmelden"
+msgstr "Accedi"
+
+msgid "Anmeldung erfolgreich, aber Sitzungsdaten konnten nicht geladen werden."
+msgstr "Accesso riuscito, ma non è stato possibile caricare i dati della sessione."
+
+msgid "Anmeldung fehlgeschlagen."
+msgstr "Accesso non riuscito."
+
+msgid "Annehmen"
+msgstr "Accetta"
+
+msgid "Anonym"
+msgstr "Anonimo"
+
+msgid "Anonymisierung"
+msgstr "Anonimizzazione"
+
+msgid "Anonymisierung + Hartlöschung eigener Nachrichten"
+msgstr "Anonimizzazione + cancellazione definitiva dei messaggi propri"
+
+msgid "Antrag \"%1\" terminiert."
+msgstr "Mozione \"%1\" programmata."
+
+msgid "Antrag \"%1\" wurde eingereicht."
+msgstr "La mozione \"%1\" è stata presentata."
+
+msgid "Antrag angenommen zur Terminierung."
+msgstr "Mozione accettata per la programmazione."
+
+msgid "Antrag eingereicht"
+msgstr "Mozione presentata"
+
+msgid "Antrag einreichen"
+msgstr "Presenta mozione"
+
+msgid "Antrag oben auswählen, um Details zu sehen."
+msgstr "Selezionare una mozione qui sopra per vedere i dettagli."
+
+msgid "Antrag von %1 ablehnen"
+msgstr "Rifiuta mozione di %1"
+
+msgid "Antrag vorläufig abgelehnt."
+msgstr "Mozione respinta provvisoriamente."
+
+msgid "Antrag wurde abgelehnt."
+msgstr "La mozione è stata respinta."
+
+msgid "Antrag wurde genehmigt."
+msgstr "La mozione è stata approvata."
+
+msgid "Antrag wurde zurückgezogen."
+msgstr "La mozione è stata ritirata."
+
+msgid "Antrag zurückziehen"
+msgstr "Ritira mozione"
+
+msgid "Anträge"
+msgstr "Mozioni"
+
+msgid "Anträge verwalten"
+msgstr "Gestisci mozioni"
+
+msgid "Antragstext"
+msgstr "Testo della mozione"
+
+msgid "Antwort des Servers konnte nicht gelesen werden: %1"
+msgstr "Impossibile leggere la risposta del server: %1"
+
+msgid "Anwesenheit"
+msgstr "Presenza"
+
+msgid "Anwesenheit erfassen"
+msgstr "Rileva presenza"
+
+msgid "Anwesenheit von %1 gespeichert."
+msgstr "Presenza di %1 salvata."
+
+msgid "Anzahl der Breakout-Räume"
+msgstr "Numero di stanze breakout"
+
+msgid "Anzeige"
+msgstr "Visualizzazione"
+
+msgid "Anzeige-Info: Währung"
+msgstr "Informazioni di visualizzazione: valuta"
+
+msgid "Anzeigen"
+msgstr "Visualizza"
+
+msgid "Art der Löschung"
+msgstr "Tipo di cancellazione"
+
+msgid "Aufsichtsbehörde benachrichtigt"
+msgstr "Autorità di controllo informata"
+
+msgid "Aufsichtsbehörde benachrichtigt am (JJJJ-MM-TTTHH:MM:SS, optional)"
+msgstr "Autorità di controllo informata il (AAAA-MM-GGTHH:MM:SS, opzionale)"
+
+msgid "Auftragskontrolle"
+msgstr "Controllo dell'ordine"
+
+msgid "Aufwandskonto"
+msgstr "Conto di costo"
+
+msgid "Aufzeichnung"
+msgstr "Registrazione"
+
+msgid "Aufzeichnung beenden"
+msgstr "Termina registrazione"
+
+msgid "Aufzeichnung gestartet von %1 um %2:%3"
+msgstr "Registrazione avviata da %1 alle %2:%3"
+
+msgid "Aufzeichnung gestartet."
+msgstr "Registrazione avviata."
+
+msgid "Aufzeichnung jetzt starten"
+msgstr "Avvia registrazione ora"
+
+msgid "Aufzeichnung starten"
+msgstr "Avvia registrazione"
+
+msgid "Aufzeichnung wird beendet …"
+msgstr "Registrazione in fase di terminazione …"
+
+msgid "Aufzeichnung wird beendet."
+msgstr "Registrazione in fase di terminazione."
+
+msgid "Aufzeichnung wird zusammengeführt …"
+msgstr "Registrazione in fase di unione …"
+
+msgid "Aufzeichnung:"
+msgstr "Registrazione:"
+
+msgid "Aufzeichnungen"
+msgstr "Registrazioni"
+
+msgid "Auktion"
+msgstr "Asta"
+
+msgid "Auktion \"%1\" abgewickelt."
+msgstr "Asta \"%1\" liquidata."
+
+msgid "Auktion aktivieren -- rechtlicher Hinweis (Version %1)"
+msgstr "Attiva asta -- avvertenza legale (versione %1)"
+
+msgid "Auktion aktivieren …"
+msgstr "Attivazione asta …"
+
+msgid "Auktion aktiviert."
+msgstr "Asta attivata."
+
+msgid "Auktion deaktivieren"
+msgstr "Disattiva asta"
+
+msgid "Auktion deaktivieren bestätigen"
+msgstr "Conferma disattivazione asta"
+
+msgid "Auktion deaktiviert."
+msgstr "Asta disattivata."
+
+msgid "Auktionen"
+msgstr "Aste"
+
+msgid "Auktionen konnten nicht geladen werden."
+msgstr "Impossibile caricare le aste."
+
+msgid "Auktions-Einstellgebühr"
+msgstr "Commissione di attivazione asta"
+
+msgid "Auktions-Reservierung"
+msgstr "Riserva d'asta"
+
+msgid "Auktions-Reservierung freigegeben"
+msgstr "Riserva d'asta rilasciata"
+
+msgid "Auktionskauf"
+msgstr "Acquisto d'asta"
+
+msgid "Auktionsverkauf"
+msgstr "Vendita d'asta"
+
+msgid "Ausdrücklich anonym"
+msgstr "Espressamente anonimo"
+
+msgid "Ausgabe"
+msgstr "Uscita"
+
+msgid "Ausgaben"
+msgstr "Uscite"
+
+msgid "Ausgeführt"
+msgstr "Eseguito"
+
+msgid "Ausgeführt am %1"
+msgstr "Eseguito il %1"
+
+msgid "Ausgelöst am: %1"
+msgstr "Attivato il: %1"
+
+msgid "Ausgeschieden"
+msgstr "Uscito"
+
+msgid "Ausgeschiedene anzeigen"
+msgstr "Mostra usciti"
+
+msgid "Auskunft"
+msgstr "Diritto di accesso"
+
+msgid "Auskunft exportiert"
+msgstr "Diritto di accesso esportato"
+
+msgid "Auskunftsübersicht anzeigen"
+msgstr "Mostra riepilogo diritto di accesso"
+
+msgid "Ausreißer-Schwelle"
+msgstr "Soglia di anomalia"
+
+msgid "Ausreißer-Schwelle (Basispunkte, 1-10000)"
+msgstr "Soglia di anomalia (punti base, 1-10000)"
+
+msgid "Ausstehend"
+msgstr "In sospeso"
+
+msgid "Austritt (Mitgliedschaft beenden)"
+msgstr "Recesso (cessazione dell'adesione)"
+
+msgid "Austritt bestätigen"
+msgstr "Conferma recesso"
+
+msgid "Automatisch genehmigt durch die 14-Tage-Schweigefrist -- der Vorstand hat keinen expliziten Beschluss gefasst (Status bleibt dauerhaft \"Ausstehend\", effektiver Status zeigt \"Genehmigt\"). Das ist der normale, erwartete Zustand."
+msgstr "Approvato automaticamente per decorrenza del termine di silenzio di 14 giorni -- il consiglio direttivo non ha adottato una delibera esplicita (lo stato resta permanentemente \"In sospeso\", lo stato effettivo mostra \"Approvato\"). Questa è la condizione normale e prevista."
+
+msgid "Automatisches Kopieren war nicht möglich. Markieren Sie den Text unten und kopieren Sie ihn manuell."
+msgstr "Copia automatica non riuscita. Selezioni il testo sottostante e lo copi manualmente."
+
+msgid "AVV-Eintrag \"%1\" wurde %2."
+msgstr "La voce AVV \"%1\" è stata %2."
+
+msgid "AVV-Eintrag anlegen"
+msgstr "Crea voce AVV"
+
+msgid "AVV-Status"
+msgstr "Stato AVV"
+
+msgid "Backup & Wiederherstellung"
+msgstr "Backup e ripristino"
+
+msgid "Backup exportieren (.zip)"
+msgstr "Esporta backup (.zip)"
+
+msgid "Backup-Datei (.zip)"
+msgstr "File di backup (.zip)"
+
+msgid "Beantragt"
+msgstr "Richiesto"
+
+msgid "Beantragt von %1 am %2"
+msgstr "Richiesto da %1 il %2"
+
+msgid "Bearbeiten"
+msgstr "Modifica"
+
+msgid "Beendet"
+msgstr "Terminato"
+
+msgid "Beginn"
+msgstr "Inizio"
+
+msgid "Begründung"
+msgstr "Motivazione"
+
+msgid "Begründung (optional)"
+msgstr "Motivazione (opzionale)"
+
+msgid "Begründung: %1"
+msgstr "Motivazione: %1"
+
+msgid "Bei \"Vorstand\" können anwesende Mitglieder, die nicht dem Vorstand angehören, das gespeicherte Dokument später NICHT ansehen -- wählen Sie \"Mitglieder\", wenn es allen Teilnehmenden zugänglich sein soll."
+msgstr "Con \"Consiglio direttivo\", i soci presenti che non fanno parte del consiglio direttivo NON potranno successivamente visualizzare il documento salvato -- selezioni \"Soci\" se deve essere accessibile a tutti i partecipanti."
+
+msgid "Bei \"Vorstand\" können anwesende Mitglieder, die nicht dem Vorstand angehören, das gespeicherte Whiteboard später NICHT ansehen -- wählen Sie \"Mitglieder\", wenn es allen Teilnehmenden zugänglich sein soll."
+msgstr "Con \"Consiglio direttivo\", i soci presenti che non fanno parte del consiglio direttivo NON potranno successivamente visualizzare la lavagna salvata -- selezioni \"Soci\" se deve essere accessibile a tutti i partecipanti."
+
+msgid "Bei \"Vorstand\" können anwesende Mitglieder, die nicht dem Vorstand angehören, die Aufzeichnung später NICHT ansehen -- wählen Sie \"Mitglieder\", wenn die Aufnahme allen Teilnehmenden zugänglich sein soll."
+msgstr "Con \"Consiglio direttivo\", i soci presenti che non fanno parte del consiglio direttivo NON potranno successivamente visualizzare la registrazione -- selezioni \"Soci\" se la registrazione deve essere accessibile a tutti i partecipanti."
+
+msgid "Bei geheimen Abstimmungen muss der Stream manuell unterbrochen werden. Eine automatische Unterbrechung gibt es in dieser Version noch nicht."
+msgstr "Nelle votazioni segrete lo streaming deve essere interrotto manualmente. In questa versione non esiste ancora un'interruzione automatica."
+
+msgid "Beim Einstellen wird eine feste Gebühr von %1 fällig."
+msgstr "All'attivazione è dovuta una commissione fissa di %1."
+
+msgid "Beisitz"
+msgstr "Assessorato"
+
+msgid "Beitrag erlassen"
+msgstr "Condona contributo"
+
+msgid "Beitrag erlassen."
+msgstr "Contributo condonato."
+
+msgid "Beitrag von %1 über %2 wirklich erlassen?"
+msgstr "Condonare davvero il contributo di %1 pari a %2?"
+
+msgid "Beiträge"
+msgstr "Contributi"
+
+msgid "Beiträge generieren"
+msgstr "Genera contributi"
+
+msgid "Beitragsrechnung %1–%2"
+msgstr "Fattura contributo %1–%2"
+
+msgid "Beitragsrechnung per Post versenden"
+msgstr "Invia fattura contributo per posta"
+
+msgid "Beitragssatz"
+msgstr "Aliquota del contributo"
+
+msgid "Beitragssätze und Beitragsgenerierung"
+msgstr "Aliquote contributive e generazione contributi"
+
+msgid "Beitragsübersicht"
+msgstr "Riepilogo contributi"
+
+msgid "Beitreten"
+msgstr "Partecipa"
+
+msgid "Beitrittsvertrag (Version %1)"
+msgstr "Contratto di adesione (versione %1)"
+
+msgid "Beitrittsvertrag wird geladen ..."
+msgstr "Caricamento del contratto di adesione in corso..."
+
+msgid "Beleg"
+msgstr "Giustificativo"
+
+msgid "Beleg: %1"
+msgstr "Giustificativo: %1"
+
+msgid "Belegnummer (optional)"
+msgstr "Numero giustificativo (opzionale)"
+
+msgid "Berechnet"
+msgstr "Calcolato"
+
+msgid "Berechnet den EUR-Spendenpool für den gewählten Zeitraum (bezahlte Beiträge abzüglich einer festen Mindestbeteiligung je Zahler) und verteilt ihn proportional nach Verteilungs-Korb auf alle genehmigten Projekte. Erzeugt nur einen Prüf-/Entscheidungsdatensatz, keine Journalbuchung/Überweisung -- erneutes Ausführen für denselben Zeitraum erzeugt keine Duplikate."
+msgstr "Calcola il fondo donazioni in EUR per il periodo selezionato (contributi pagati al netto di una partecipazione minima fissa per pagante) e lo distribuisce proporzionalmente secondo il paniere di distribuzione a tutti i progetti approvati. Genera solo un record di verifica/decisione, nessuna registrazione contabile/bonifico -- una nuova esecuzione per lo stesso periodo non genera duplicati."
+
+msgid "Berechnet und speichert für JEDES aktive Politiker-Profil einen Gewichts-Schnappschuss für den gewählten Monat (Tag wird ignoriert, auf den Monatsersten normalisiert). Erneutes Ausführen für denselben Monat erzeugt keine Duplikate."
+msgstr "Calcola e salva per OGNI profilo politico attivo uno snapshot del peso per il mese selezionato (il giorno viene ignorato, normalizzato al primo del mese). Una nuova esecuzione per lo stesso mese non genera duplicati."
+
+msgid "Bereiche"
+msgstr "Aree"
+
+msgid "Bereit"
+msgstr "Pronto"
+
+msgid "Bereits laufende (OPEN) Auktionen können bis zur erneuten Aktivierung nicht mehr abgewickelt werden (kein Gebot, kein Sofortkauf, kein Abwickeln) -- sie bleiben eingefroren."
+msgstr "Le aste già in corso (APERTE) non potranno più essere liquidate fino alla riattivazione (nessuna offerta, nessun acquisto immediato, nessuna liquidazione) -- resteranno congelate."
+
+msgid "Bereits Mitglied? Zur Anmeldung."
+msgstr "Già socio? Vai all'accesso."
+
+msgid "Bereits verbundene Gäste anderer Server werden sofort aus der Besprechung entfernt. Neue Gäste können nicht mehr beitreten. Mitglieder Ihrer eigenen Organisation sind nicht betroffen."
+msgstr "Gli ospiti già connessi di altri server verranno immediatamente rimossi dalla riunione. Nuovi ospiti non potranno più partecipare. I soci della propria organizzazione non sono interessati."
+
+msgid "Berufs- oder Wirtschaftsverband"
+msgstr "Associazione professionale o economica"
+
+msgid "Beschluss"
+msgstr "Delibera"
+
+msgid "Beschluss \"%1\" wurde erfasst."
+msgstr "Delibera \"%1\" registrata."
+
+msgid "Beschluss erfassen (Gremienbeschluss)"
+msgstr "Registra delibera (delibera dell'organo)"
+
+msgid "Beschluss konnte nicht geladen werden."
+msgstr "Impossibile caricare la delibera."
+
+msgid "Beschluss speichern"
+msgstr "Salva delibera"
+
+msgid "Beschlüsse"
+msgstr "Delibere"
+
+msgid "Beschlusstext"
+msgstr "Testo della delibera"
+
+msgid "Beschreibung"
+msgstr "Descrizione"
+
+msgid "Beschreibung (optional)"
+msgstr "Descrizione (opzionale)"
+
+msgid "Besetzung: %1"
+msgstr "Composizione: %1"
+
+msgid "Besprechung \"%1\" wurde für alle beendet."
+msgstr "La riunione \"%1\" è stata terminata per tutti."
+
+msgid "Besprechung für alle beenden"
+msgstr "Termina riunione per tutti"
+
+msgid "Besprechung ganz verlassen"
+msgstr "Abbandona completamente la riunione"
+
+msgid "Besprechung jetzt starten"
+msgstr "Avvia riunione ora"
+
+msgid "Besprechung verlassen"
+msgstr "Abbandona riunione"
+
+msgid "Besprechung vom %1.%2.%3, %4:%5"
+msgstr "Riunione del %1.%2.%3, %4:%5"
+
+msgid "Besprechung: %1"
+msgstr "Riunione: %1"
+
+msgid "Bestätigen"
+msgstr "Conferma"
+
+msgid "Betrag"
+msgstr "Importo"
+
+msgid "Betrag (LTR)"
+msgstr "Importo (LTR)"
+
+msgid "Betreff"
+msgstr "Oggetto"
+
+msgid "Betriebsmittelrücklage (%1)"
+msgstr "Riserva per mezzi operativi (%1)"
+
+msgid "Betroffene Datenkategorien"
+msgstr "Categorie di dati interessate"
+
+msgid "Betroffene Personen benachrichtigt am (JJJJ-MM-TTTHH:MM:SS, optional)"
+msgstr "Persone interessate informate il (AAAA-MM-GGTHH:MM:SS, opzionale)"
+
+msgid "Betroffene Ziele: %1"
+msgstr "Destinazioni interessate: %1"
+
+msgid "Betroffenes Mitglied (ID, optional)"
+msgstr "Socio interessato (ID, opzionale)"
+
+msgid "Betroffenes Mitglied: %1"
+msgstr "Socio interessato: %1"
+
+msgid "Bewertung gespeichert."
+msgstr "Valutazione salvata."
+
+msgid "Bewertung zurückgezogen."
+msgstr "Valutazione ritirata."
+
+msgid "Bezeichnung"
+msgstr "Denominazione"
+
+msgid "Bezeichnung (z. B. \"PdV YouTube-Kanal\")"
+msgstr "Denominazione (ad es. \"Canale YouTube PdV\")"
+
+msgid "Bieten"
+msgstr "Offri"
+
+msgid "Bilanz"
+msgstr "Bilancio"
+
+msgid "Bilanz ausgeglichen"
+msgstr "Bilancio in pareggio"
+
+msgid "Bilanz NICHT ausgeglichen"
+msgstr "Bilancio NON in pareggio"
+
+msgid "Bildschirm teilen"
+msgstr "Condividi schermo"
+
+msgid "Bildschirm-Teilen beenden"
+msgstr "Termina condivisione schermo"
+
+msgid "Bis (Geschäftsjahr)"
+msgstr "A (esercizio)"
+
+msgid "Bis (JJJJ-MM-TT, optional)"
+msgstr "A (AAAA-MM-GG, opzionale)"
+
+msgid "Bis (JJJJ-MM-TT, Pflichtfeld)"
+msgstr "A (AAAA-MM-GG, campo obbligatorio)"
+
+msgid "Bis (JJJJ-MM-TT)"
+msgstr "A (AAAA-MM-GG)"
+
+msgid "Bis (JJJJ-MM-TTTHH:MM:SS, optional)"
+msgstr "A (AAAA-MM-GGTHH:MM:SS, opzionale)"
+
+msgid "Bis Sequenznummer (optional)"
+msgstr "Al numero di sequenza (opzionale)"
+
+msgid "Bisherige Jahressumme (vor dieser Spende)"
+msgstr "Totale annuo precedente (prima di questa donazione)"
+
+msgid "Bitcoin (BTC)"
+msgstr "Bitcoin (BTC)"
+
+msgid "Bitte 1 bis %1 Ziele auswählen."
+msgstr "Selezionare da 1 a %1 destinazioni."
+
+msgid "Bitte alle Felder ausfüllen."
+msgstr "Compilare tutti i campi."
+
+msgid "Bitte alle Felder gültig ausfüllen: Peg positiv, Cache-TTL positiv, Mindest-Quorum mind. 2, Ausreißer-Schwelle 1-10000 bps, Max. Spread >= Ausreißer-Schwelle."
+msgstr "Compilare correttamente tutti i campi: peg positivo, TTL cache positivo, quorum minimo almeno 2, soglia di anomalia 1-10000 bps, spread massimo >= soglia di anomalia."
+
+msgid "Bitte bei \"Vertreten\" angeben, durch wen."
+msgstr "In caso di \"Rappresentato\", indicare da chi."
+
+msgid "Bitte Beitragssatz sowie gültiges Beginn-/Enddatum (JJJJ-MM-TT) angeben."
+msgstr "Indicare l'aliquota del contributo e una data di inizio/fine valida (AAAA-MM-GG)."
+
+msgid "Bitte bestätigen Sie, dass Sie den Beitrittsvertrag gelesen haben."
+msgstr "Confermi di aver letto il contratto di adesione."
+
+msgid "Bitte Betreff und Text angeben."
+msgstr "Indicare oggetto e testo."
+
+msgid "Bitte Bezeichnung und eine gültige RTMP-URL (rtmp:// oder rtmps://) angeben."
+msgstr "Indicare la denominazione e un URL RTMP valido (rtmp:// o rtmps://)."
+
+msgid "Bitte Bezeichnung, eine gültige RTMP-URL (rtmp:// oder rtmps://) und einen Stream-Schlüssel angeben."
+msgstr "Indicare la denominazione, un URL RTMP valido (rtmp:// o rtmps://) e una chiave di streaming."
+
+msgid "Bitte Code und Name angeben."
+msgstr "Indicare codice e nome."
+
+msgid "Bitte Datum, Beschreibung und für jede Buchungszeile Konto, Betrag und Sphäre angeben -- und, falls ein Spendertyp gewählt ist, dessen Felder vollständig ausfüllen."
+msgstr "Indicare data, descrizione e per ogni riga di registrazione conto, importo e sfera -- e, se è selezionato un tipo di donatore, compilarne interamente i campi."
+
+msgid "Bitte E-Mail und Passwort eingeben."
+msgstr "Inserire e-mail e password."
+
+msgid "Bitte ein gültiges \"Bis\"-Datum angeben (JJJJ-MM-TT)."
+msgstr "Indicare una data \"a\" valida (AAAA-MM-GG)."
+
+msgid "Bitte ein gültiges \"Von\"- und \"Bis\"-Geschäftsjahr angeben (Von ≤ Bis)."
+msgstr "Indicare un esercizio \"da\" e \"a\" validi (da ≤ a)."
+
+msgid "Bitte ein gültiges Datum (JJJJ-MM-TT) angeben."
+msgstr "Indicare una data valida (AAAA-MM-GG)."
+
+msgid "Bitte ein gültiges Geschäftsjahr angeben (z. B. 2026)."
+msgstr "Indicare un esercizio valido (ad es. 2026)."
+
+msgid "Bitte ein gültiges Kalenderjahr angeben (JJJJ)."
+msgstr "Indicare un anno civile valido (AAAA)."
+
+msgid "Bitte ein Mitglied auswählen."
+msgstr "Selezionare un socio."
+
+msgid "Bitte ein Mitglied und einen positiven Spendenbetrag angeben."
+msgstr "Indicare un socio e un importo di donazione positivo."
+
+msgid "Bitte ein positives Höchstgebot (LTR) angeben."
+msgstr "Indicare un'offerta massima positiva (LTR)."
+
+msgid "Bitte eine Begründung angeben."
+msgstr "Indicare una motivazione."
+
+msgid "Bitte eine Datei auswählen."
+msgstr "Selezionare un file."
+
+msgid "Bitte eine gültige Position und einen Titel angeben."
+msgstr "Indicare una posizione e un titolo validi."
+
+msgid "Bitte eine Laufzeit in ganzen Stunden (größer als 0) angeben."
+msgstr "Indicare una durata in ore intere (maggiore di 0)."
+
+msgid "Bitte eine Option und einen positiven LTR-Einsatz angeben."
+msgstr "Indicare un'opzione e una puntata LTR positiva."
+
+msgid "Bitte eine Person für \"Einzelne Person\" auswählen."
+msgstr "Selezionare una persona per \"Persona singola\"."
+
+msgid "Bitte eine Sitzung und eine gültige Position angeben."
+msgstr "Indicare una sessione e una posizione valida."
+
+msgid "Bitte eine Zahl zwischen 1 und %1 angeben."
+msgstr "Indicare un numero compreso tra 1 e %1."
+
+msgid "Bitte einen Ablehnungsgrund angeben -- dieser wird öffentlich auf dem Projekt angezeigt."
+msgstr "Indicare un motivo di rifiuto -- verrà mostrato pubblicamente sul progetto."
+
+msgid "Bitte einen Grund angeben."
+msgstr "Indicare un motivo."
+
+msgid "Bitte einen gültigen Entdeckungszeitpunkt (JJJJ-MM-TTTHH:MM:SS), Beschreibung, betroffene Datenkategorien und Status angeben."
+msgstr "Indicare un momento di scoperta valido (AAAA-MM-GGTHH:MM:SS), la descrizione, le categorie di dati interessate e lo stato."
+
+msgid "Bitte einen gültigen Stichtag angeben (JJJJ-MM-TT)."
+msgstr "Indicare una data di riferimento valida (AAAA-MM-GG)."
+
+msgid "Bitte einen Inhalt eingeben."
+msgstr "Inserire un contenuto."
+
+msgid "Bitte einen Monat im Format JJJJ-MM-TT angeben."
+msgstr "Indicare un mese nel formato AAAA-MM-GG."
+
+msgid "Bitte einen Namen angeben."
+msgstr "Indicare un nome."
+
+msgid "Bitte Empfänger, einen positiven LTR-Betrag und eine Charakterisierung angeben."
+msgstr "Indicare destinatario, un importo LTR positivo e una caratterizzazione."
+
+msgid "Bitte geben Sie einen Ablehnungsgrund an (wird beim Mitglied gespeichert)."
+msgstr "Indichi un motivo di rifiuto (verrà salvato presso il socio)."
+
+msgid "Bitte Gremium, Titel, einen gültigen Termin (JJJJ-MM-TTTHH:MM) und ein Format angeben."
+msgstr "Indicare organo, titolo, una data valida (AAAA-MM-GGTHH:MM) e un formato."
+
+msgid "Bitte gültige Datumsangaben (JJJJ-MM-TT) verwenden, oder das Feld leer lassen."
+msgstr "Utilizzare date valide (AAAA-MM-GG) o lasciare il campo vuoto."
+
+msgid "Bitte gültige Werte für die optionalen Felder verwenden, oder leer lassen."
+msgstr "Utilizzare valori validi per i campi opzionali o lasciarli vuoti."
+
+msgid "Bitte Kategorie, Titel und Beschreibung angeben."
+msgstr "Indicare categoria, titolo e descrizione."
+
+msgid "Bitte Kontonummer, Name, Kontenklasse (0-9) und Kontotyp angeben."
+msgstr "Indicare numero di conto, nome, classe di conto (0-9) e tipo di conto."
+
+msgid "Bitte lesen Sie den folgenden rechtlichen Hinweistext vollständig, bevor Sie die Auktion aktivieren. Diese Plattform führt keine automatisierte Rechtsberatung durch -- die rechtliche Einordnung liegt bei Ihrer Organisation."
+msgstr "Legga per intero il seguente avviso legale prima di attivare l'asta. Questa piattaforma non fornisce alcuna consulenza legale automatizzata -- la valutazione legale spetta alla Sua organizzazione."
+
+msgid "Bitte melden Sie sich mit Ihrer E-Mail-Adresse an."
+msgstr "Effettui l'accesso con il Suo indirizzo e-mail."
+
+msgid "Bitte mindestens 2 unterschiedliche Optionen angeben."
+msgstr "Indicare almeno 2 opzioni diverse."
+
+msgid "Bitte mindestens eine Empfängerin/einen Empfänger sowie Titel, einen gültigen Termin (JJJJ-MM-TTTHH:MM), Ort und Einladungstext angeben."
+msgstr "Indicare almeno un destinatario/una destinataria, il titolo, una data valida (AAAA-MM-GGTHH:MM), il luogo e il testo dell'invito."
+
+msgid "Bitte Mitglied und einen positiven LTR-Betrag angeben."
+msgstr "Indicare il socio e un importo LTR positivo."
+
+msgid "Bitte Mitglied, Rolle und ein gültiges Datum (JJJJ-MM-TT) angeben."
+msgstr "Indicare socio, ruolo e una data valida (AAAA-MM-GG)."
+
+msgid "Bitte Name und eine gültige E-Mail-Adresse angeben."
+msgstr "Indicare nome e un indirizzo e-mail valido."
+
+msgid "Bitte Name und Spenderkategorie angeben."
+msgstr "Indicare nome e categoria donatore."
+
+msgid "Bitte Name, eine gültige E-Mail-Adresse und eine Rolle angeben."
+msgstr "Indicare nome, un indirizzo e-mail valido e un ruolo."
+
+msgid "Bitte Name, Typ und ein gültiges Quorum (0-100) angeben."
+msgstr "Indicare nome, tipo e un quorum valido (0-100)."
+
+msgid "Bitte nicht-negative Stimmzahlen und einen Status angeben."
+msgstr "Indicare numeri di voto non negativi e uno stato."
+
+msgid "Bitte Start- und Enddatum im Format JJJJ-MM-TT angeben -- beide Felder sind hier Pflicht."
+msgstr "Indicare data di inizio e di fine nel formato AAAA-MM-GG -- entrambi i campi sono qui obbligatori."
+
+msgid "Bitte Titel, Beschlusstext, Status und nicht-negative Stimmzahlen angeben."
+msgstr "Indicare titolo, testo della delibera, stato e numeri di voto non negativi."
+
+msgid "Bitte Titel, Beschreibung und ein positives Sichtbarkeits-Gewicht (LTR) angeben."
+msgstr "Indicare titolo, descrizione e un peso di visibilità positivo (LTR)."
+
+msgid "Bitte Titel, Beschreibung und einen positiven Startpreis (LTR) angeben."
+msgstr "Indicare titolo, descrizione e un prezzo di partenza positivo (LTR)."
+
+msgid "Bitte Titel, Verarbeitungsbeschreibung und Status angeben."
+msgstr "Indicare titolo, descrizione del trattamento e stato."
+
+msgid "Bitte unterschiedliche Absender/Empfänger, einen positiven LTR-Betrag, eine Charakterisierung und eine Schiedsanordnungs-Referenz angeben."
+msgstr "Indicare mittente/destinatario diversi, un importo LTR positivo, una caratterizzazione e un riferimento al provvedimento arbitrale."
+
+msgid "Bitte Verarbeiter, Verarbeitungszweck, Datenkategorien und AVV-Status angeben."
+msgstr "Indicare responsabile del trattamento, finalità del trattamento, categorie di dati e stato AVV."
+
+msgid "Bitte wählen Sie mindestens ein Ziel aus."
+msgstr "Selezionare almeno una destinazione."
+
+msgid "Bitte wenden Sie sich an ein ADMIN-Mitglied, falls Sie hierauf Zugriff benötigen."
+msgstr "Si rivolga a un socio AMMINISTRATORE se ha bisogno di accedervi."
+
+msgid "Bitte wenden Sie sich an Ihre Administration, falls Sie diese Funktion benötigen."
+msgstr "Si rivolga alla Sua amministrazione se ha bisogno di questa funzione."
+
+msgid "Bitte Zielgremium (oder einen zu ändernden Antrag), Titel und Antragstext angeben."
+msgstr "Indicare l'organo di destinazione (o una mozione da modificare), il titolo e il testo della mozione."
+
+msgid "Board ist fast voll -- bitte speichern und leeren."
+msgstr "La board è quasi piena -- si prega di salvare e svuotare."
+
+msgid "Board leeren"
+msgstr "Svuota board"
+
+msgid "Breakout-Räume erstellen"
+msgstr "Crea stanze breakout"
+
+msgid "Breakout-Räume:"
+msgstr "Stanze breakout:"
+
+msgid "Brief an %1 wird verarbeitet."
+msgstr "Lettera a %1 in fase di elaborazione."
+
+msgid "Brief an %1 wurde an Letterxpress übergeben."
+msgstr "La lettera a %1 è stata trasmessa a Letterxpress."
+
+msgid "Buchen"
+msgstr "Registra"
+
+msgid "Bucht eine bereits eingegangene Spende als LTR-Mint auf das gewählte Mitglied. Der aktuelle Kurs wird beim Bestätigen live abgefragt -- der genaue LTR-Betrag steht erst nach Bestätigung fest."
+msgstr "Registra una donazione già ricevuta come conio LTR sul socio selezionato. Il tasso di cambio attuale viene interrogato in tempo reale al momento della conferma -- l'importo LTR esatto sarà noto solo dopo la conferma."
+
+msgid "Buchung"
+msgstr "Registrazione contabile"
+
+msgid "Buchung (Haben): %1"
+msgstr "Registrazione (avere): %1"
+
+msgid "Buchung (Soll): %1"
+msgstr "Registrazione (dare): %1"
+
+msgid "Buchung buchen -- unveränderlich"
+msgstr "Registra scrittura -- non modificabile"
+
+msgid "Buchung oben auswählen, um Details zu sehen."
+msgstr "Selezionare una scrittura qui sopra per vedere i dettagli."
+
+msgid "Buchung wurde gebucht."
+msgstr "La scrittura è stata registrata."
+
+msgid "Buchung: %1"
+msgstr "Scrittura: %1"
+
+msgid "Buchungszeile hinzufügen"
+msgstr "Aggiungi riga di registrazione"
+
+msgid "Buchungszeilen"
+msgstr "Righe di registrazione"
+
+msgid "Buchungszeilen:"
+msgstr "Righe di registrazione:"
+
+msgid "Cache-TTL"
+msgstr "TTL cache"
+
+msgid "Cache-TTL (Sekunden)"
+msgstr "TTL cache (secondi)"
+
+msgid "Charakterisierung"
+msgstr "Caratterizzazione"
+
+msgid "Charakterisierung: %1"
+msgstr "Caratterizzazione: %1"
+
+msgid "Chat"
+msgstr "Chat"
+
+msgid "Chat (%1)"
+msgstr "Chat (%1)"
+
+msgid "Code (eindeutig, z. B. SOMMERFEST-2027)"
+msgstr "Codice (univoco, ad es. FESTA-ESTIVA-2027)"
+
+msgid "Committee-Quorum entscheiden"
+msgstr "Decidi quorum del comitato"
+
+msgid "Crowdfunding"
+msgstr "Crowdfunding"
+
+msgid "Crowdfunding-Projekt"
+msgstr "Progetto di crowdfunding"
+
+msgid "Darf nicht die E-Mail-Adresse sein."
+msgstr "Non può essere l'indirizzo e-mail."
+
+msgid "Das Politiker-Ranking ist derzeit deaktiviert."
+msgstr "La classifica dei politici è attualmente disattivata."
+
+msgid "Das Projekt \"%1\" wird abgelehnt (Grund: \"%2\"). Der bereits gebuchte Einsatz von %3 wird NICHT zurückerstattet -- es gibt keinen Rückerstattungspfad, unabhängig von dieser Entscheidung."
+msgstr "Il progetto \"%1\" verrà respinto (motivo: \"%2\"). La puntata già registrata di %3 NON verrà rimborsata -- non esiste un percorso di rimborso, indipendentemente da questa decisione."
+
+msgid "Das Projekt \"%1\" wird genehmigt und für Like/Dislike-Reaktionen (Spenden) geöffnet."
+msgstr "Il progetto \"%1\" verrà approvato e aperto alle reazioni Mi piace/Non mi piace (donazioni)."
+
+msgid "Dashboard"
+msgstr "Dashboard"
+
+msgid "Datei:"
+msgstr "File:"
+
+msgid "Datenkategorien"
+msgstr "Categorie di dati"
+
+msgid "Datenkategorien: %1"
+msgstr "Categorie di dati: %1"
+
+msgid "Datenpanne melden"
+msgstr "Segnala violazione dei dati"
+
+msgid "Datenpanne wurde %1."
+msgstr "Violazione dei dati %1."
+
+msgid "Datenpannen"
+msgstr "Violazioni dei dati"
+
+msgid "Datenschutz-Folgenabschätzung (DSFA)"
+msgstr "Valutazione d'impatto sulla protezione dei dati (DPIA)"
+
+msgid "Datenstand"
+msgstr "Stato dei dati"
+
+msgid "Datum"
+msgstr "Data"
+
+msgid "Datum (JJJJ-MM-TT)"
+msgstr "Data (AAAA-MM-GG)"
+
+msgid "Datum: %1"
+msgstr "Data: %1"
+
+msgid "davon überfällig"
+msgstr "di cui scaduto"
+
+msgid "Deaktivieren"
+msgstr "Disattiva"
+
+msgid "Deaktiviert"
+msgstr "Disattivato"
+
+msgid "Der aktuelle Stand der geteilten Notizen wird als Markdown-Dokument in der Dokumentenablage gespeichert."
+msgstr "Il saldo attuale delle note condivise viene salvato come documento Markdown nell'archivio documenti."
+
+msgid "Der aktuelle Stand des Whiteboards wird als Bild in der Dokumentenablage gespeichert."
+msgstr "Lo stato attuale della lavagna viene salvato come immagine nell'archivio documenti."
+
+msgid "Der Hauptantrag muss zuerst selbst terminiert werden."
+msgstr "La mozione principale deve prima essere programmata essa stessa."
+
+msgid "Der Politiker-Status von %1 wird widerrufen. Eine spätere erneute Erteilung reaktiviert das Profil, aber beide Bewertungs-Körbe (Mitglieder und Gäste) beginnen dann wieder bei null -- die gelöschte Historie ist nicht wiederherstellbar."
+msgstr "Lo status di politico di %1 verrà revocato. Un'eventuale nuova concessione successiva riattiva il profilo, ma entrambi i panieri di valutazione (soci e ospiti) ripartono da zero -- la cronologia eliminata non può essere ripristinata."
+
+msgid "Der Sofortkaufpreis muss über dem Startpreis liegen."
+msgstr "Il prezzo di acquisto immediato deve essere superiore al prezzo di partenza."
+
+msgid "Der Sofortkaufpreis muss, falls angegeben, ein positiver LTR-Betrag sein."
+msgstr "Il prezzo di acquisto immediato, se indicato, deve essere un importo LTR positivo."
+
+msgid "Der Stream wird neu verbunden -- die Zielplattform sieht dies unter Umständen erneut als neue Übertragung."
+msgstr "Lo streaming verrà riconnesso -- la piattaforma di destinazione potrebbe considerarlo nuovamente come una nuova trasmissione."
+
+msgid "Der Versand von Einladungen ist Vorstand und Administration vorbehalten -- als Sitzungsleitung/Protokollführung dieses Gremiums können Sie die Sitzung verwalten, aber keine Einladungen verschicken."
+msgstr "L'invio di inviti è riservato al consiglio direttivo e all'amministrazione -- in qualità di presidenza/segreteria di questo organo può gestire la sessione, ma non può inviare inviti."
+
+msgid "Derzeit keine aktive Besprechung."
+msgstr "Al momento nessuna riunione attiva."
+
+msgid "Details"
+msgstr "Dettagli"
+
+msgid "Details anzeigen"
+msgstr "Mostra dettagli"
+
+msgid "Details ein-/ausblenden"
+msgstr "Mostra/nascondi dettagli"
+
+msgid "Deutsche natürliche Person"
+msgstr "Persona fisica tedesca"
+
+msgid "Deutsches Unternehmen/Organisation"
+msgstr "Impresa/organizzazione tedesca"
+
+msgid "Diagnose: aktueller Kurs"
+msgstr "Diagnostica: tasso di cambio attuale"
+
+msgid "Dick"
+msgstr "Spesso"
+
+msgid "Die Aktion steht im Konflikt mit dem aktuellen Zustand -- bitte Ansicht aktualisieren."
+msgstr "L'azione è in conflitto con lo stato attuale -- si prega di aggiornare la visualizzazione."
+
+msgid "Die angezeigte Frist ist die gesetzliche 72-Stunden-Uhr nach Art. 33 Abs. 1 DSGVO ab Kenntnisnahme -- sie entscheidet nicht, ob überhaupt eine Meldepflicht besteht (das legen ausschließlich Sie im Feld \"Meldung an Aufsichtsbehörde erforderlich\" fest) und ersetzt keine rechtliche Prüfung des Meldezeitpunkts. Bei einem echten Vorfall: Datenschutzbeauftragte/n oder Anwalt/Anwältin hinzuziehen."
+msgstr "Il termine indicato è il termine legale di 72 ore ai sensi dell'art. 33 par. 1 GDPR a partire dalla conoscenza dei fatti -- non determina se sussista effettivamente un obbligo di notifica (ciò è stabilito esclusivamente da Lei nel campo \"Notifica all'autorità di controllo richiesta\") e non sostituisce una valutazione legale del momento della notifica. In caso di un incidente reale: rivolgersi al responsabile della protezione dei dati o a un avvocato."
+
+msgid "Die Aufzeichnung ist fehlgeschlagen."
+msgstr "La registrazione non è riuscita."
+
+msgid "Die Aufzeichnung wird beendet und danach automatisch zu einer Videodatei zusammengeführt."
+msgstr "La registrazione verrà terminata e successivamente unita automaticamente in un file video."
+
+msgid "Die Auktion ist derzeit deaktiviert."
+msgstr "L'asta è attualmente disattivata."
+
+msgid "Die Besprechung „%1\" ist bereits beendet."
+msgstr "La riunione \"%1\" è già terminata."
+
+msgid "Die Besprechung „%1\" lässt derzeit keine Gäste anderer Server zu. Bitten Sie die Moderation, den Gastzugang für diesen Raum freizuschalten."
+msgstr "La riunione \"%1\" al momento non consente ospiti di altri server. Chieda alla moderazione di abilitare l'accesso ospiti per questa stanza."
+
+msgid "Die Besprechung läuft weiter. Die Zielplattform sieht eine Unterbrechung -- YouTube kann die Übertragung dabei beenden, sodass ein neuer Link nötig wird."
+msgstr "La riunione continua senza interruzioni. La piattaforma di destinazione rileva un'interruzione -- YouTube potrebbe interrompere la trasmissione, rendendo necessario un nuovo link."
+
+msgid "Die Besprechung selbst läuft für alle Teilnehmenden unverändert weiter."
+msgstr "La riunione stessa prosegue invariata per tutti i partecipanti."
+
+msgid "Die laufende Aufzeichnung/der Live-Stream im Hauptraum erfasst kein Audio/Video in Breakout-Räumen."
+msgstr "La registrazione/lo streaming live in corso nella stanza principale non acquisisce audio/video nelle stanze breakout."
+
+msgid "Die Nachricht \"%1\" wird an alle aktiven Abonnentinnen und Abonnenten der Mailingliste \"%2\" verschickt. Dieser Schritt kann nicht rückgängig gemacht werden."
+msgstr "Il messaggio \"%1\" verrà inviato a tutti gli abbonati attivi della mailing list \"%2\". Questa operazione non può essere annullata."
+
+msgid "Die neuen Passwörter stimmen nicht überein."
+msgstr "Le nuove password non corrispondono."
+
+msgid "Die Orakel-Konfiguration wird vollständig ersetzt: Anker-Asset %1, Spendenwährung %2, Peg %3, Cache-TTL %4s, Quorum %5, Ausreißer-Schwelle %6bps, Max. Spread %7bps."
+msgstr "La configurazione dell'oracolo verrà interamente sostituita: asset di ancoraggio %1, valuta di donazione %2, peg %3, TTL cache %4s, quorum %5, soglia di anomalia %6bps, spread massimo %7bps."
+
+msgid "Die Passwörter stimmen nicht überein."
+msgstr "Le password non corrispondono."
+
+msgid "Die Risikoeinstufung (LOW/MEDIUM/HIGH/CRITICAL) hier ist eine Visualisierungshilfe aus Eintrittswahrscheinlichkeit × Schadenshöhe -- keine Art. 35 DSGVO Erforderlichkeits-Feststellung. Ob eine Datenschutz-Folgenabschätzung tatsächlich erforderlich ist, legen ausschließlich Sie im Feld \"DSFA erforderlich\" fest; dieses System berechnet das nicht."
+msgstr "La classificazione del rischio (BASSO/MEDIO/ALTO/CRITICO) qui è un ausilio di visualizzazione basato su probabilità di accadimento × entità del danno -- non una determinazione di necessità ai sensi dell'art. 35 GDPR. Se una valutazione d'impatto sulla protezione dei dati sia effettivamente necessaria è stabilito esclusivamente da Lei nel campo \"DPIA necessaria\"; il sistema non lo calcola."
+
+msgid "Die Rohaufnahmen bleiben erhalten -- wenden Sie sich an eine Administratorin oder einen Administrator, falls die Aufzeichnung wiederhergestellt werden soll."
+msgstr "Le registrazioni grezze restano conservate -- si rivolga a un amministratore o un'amministratrice se la registrazione deve essere ripristinata."
+
+msgid "Die Wertobergrenze muss, falls angegeben, ein positiver LTR-Betrag sein."
+msgstr "Il limite massimo di valore, se indicato, deve essere un importo LTR positivo."
+
+msgid "Die Wertobergrenze wird entfernt (kein Limit mehr)."
+msgstr "Il limite massimo di valore verrà rimosso (nessun limite)."
+
+msgid "Die Wiederherstellung wurde nur teilweise durchgeführt -- einzelne Zeilen wurden möglicherweise bereits geschrieben, bevor der Fehler auftrat: %1. Prüfen Sie den Datenbestand und ziehen Sie bei Unsicherheit Ihre Entwicklerin oder Ihren Entwickler hinzu, bevor Sie es erneut versuchen."
+msgstr "Il ripristino è stato eseguito solo parzialmente -- alcune righe potrebbero essere già state scritte prima che si verificasse l'errore: %1. Verifichi i dati e, in caso di dubbio, si rivolga al proprio sviluppatore prima di riprovare."
+
+msgid "Die Zielorganisation enthält bereits Daten. Aktivieren Sie „Ziel überschreiben\", falls das beabsichtigt ist: %1"
+msgstr "L'organizzazione di destinazione contiene già dati. Attivi \"Sovrascrivi destinazione\" se ciò è voluto: %1"
+
+msgid "Diese Aktion LÖSCHT UNWIDERRUFLICH sämtliche Bewertungen (Mitglieder UND Gäste) sowie den gesamten Gewichtsverlauf für dieses Profil -- nicht nur den Status."
+msgstr "Questa azione ELIMINA IN MODO IRREVOCABILE tutte le valutazioni (soci E ospiti) nonché l'intero andamento del peso per questo profilo -- non solo lo stato."
+
+msgid "Diese Aktion mintet echtes LTR und kann nicht rückgängig gemacht werden."
+msgstr "Questa azione conia LTR reali e non può essere annullata."
+
+msgid "Diese Aufzeichnung kann NICHT rückgängig gemacht werden, sobald Teilnehmende gesprochen haben."
+msgstr "Questa registrazione NON può essere annullata una volta che i partecipanti hanno parlato."
+
+msgid "Diese Auktion ist beendet, aber noch nicht abgewickelt."
+msgstr "Questa asta è terminata, ma non ancora liquidata."
+
+msgid "Diese Auswertung ist eine Nachweis-Hilfe für den Vorstand nach §§ 55/62 AO -- keine automatisierte Compliance-Entscheidung. Sie prüft nicht die Freie-Rücklage-Obergrenze, wendet nicht automatisch die Kleinorganisationen-Ausnahme (≤ 45.000 € gemäß § 55 Abs. 1 Nr. 5 Satz 4 AO) an und bestätigt nicht den Fortbestand der Gemeinnützigkeit. Die verwendete Frist von %1 Jahren ist gegen die aktuelle AO-Auslegung zu prüfen."
+msgstr "Questa valutazione è un ausilio documentale per il consiglio direttivo ai sensi dei §§ 55/62 AO -- non una decisione di conformità automatizzata. Non verifica il limite massimo della riserva libera, non applica automaticamente l'eccezione per piccole organizzazioni (≤ 45.000 € ai sensi del § 55 comma 1 n. 5 frase 4 AO) e non conferma il mantenimento del regime di pubblica utilità. Il termine di %1 anni utilizzato deve essere verificato rispetto all'interpretazione attuale dell'AO."
+
+msgid "Diese beiden Werte sind im ersten Geschäftsjahr identisch und weichen ab dem zweiten Jahr bewusst voneinander ab -- siehe Erläuterung im Datenmodell."
+msgstr "Questi due valori sono identici nel primo esercizio e divergono deliberatamente a partire dal secondo anno -- vedere la spiegazione nel modello dati."
+
+msgid "Diese Besprechung wird ab jetzt aufgezeichnet."
+msgstr "Questa riunione verrà registrata da questo momento."
+
+msgid "Diese Besprechung wird ab jetzt live gestreamt."
+msgstr "Questa riunione verrà trasmessa in streaming live da questo momento."
+
+msgid "Diese Besprechung wird für alle Teilnehmenden beendet. Fortfahren?"
+msgstr "Questa riunione verrà terminata per tutti i partecipanti. Continuare?"
+
+msgid "Diese Buchung wird nach dem Bestätigen unveränderlich und Teil der offiziellen Bücher. Es gibt keine Funktion zum nachträglichen Ändern oder Stornieren."
+msgstr "Dopo la conferma, questa scrittura diventerà non modificabile e parte integrante della contabilità ufficiale. Non esiste alcuna funzione per modificarla o stornarla successivamente."
+
+msgid "Diese Datei passt nicht zum erwarteten Sicherungsformat: %1"
+msgstr "Questo file non corrisponde al formato di backup previsto: %1"
+
+msgid "Diese Korrekturübertragung ist ENDGÜLTIG und kann nicht widerrufen werden."
+msgstr "Questo trasferimento correttivo è DEFINITIVO e non può essere revocato."
+
+msgid "Diese Löschung ist ENDGÜLTIG und kann nicht rückgängig gemacht werden."
+msgstr "Questa cancellazione è DEFINITIVA e non può essere annullata."
+
+msgid "Diese Organisation ist für die Verarbeitung Ihrer Audio-, Video- und Chatdaten in dieser Besprechung verantwortlich -- nicht Ihr eigener Heimserver."
+msgstr "Questa organizzazione è responsabile del trattamento dei Suoi dati audio, video e di chat in questa riunione -- non il Suo server di provenienza."
+
+msgid "Diese Organisation ist nicht als politische Partei markiert (Organisationseinstellungen) -- §25 PartG gilt nur für politische Parteien. Für diese Organisation ist dieser Bericht daher bewusst ein No-Op, keine Fehlermeldung."
+msgstr "Questa organizzazione non è contrassegnata come partito politico (impostazioni organizzazione) -- il §25 PartG si applica solo ai partiti politici. Per questa organizzazione, questo rapporto è pertanto deliberatamente un No-Op, non un messaggio di errore."
+
+msgid "Diese Raum-Kennung ist ungültig. Bitte kopieren Sie sie vollständig aus Ihrer Einladung."
+msgstr "Questo identificativo di stanza non è valido. Lo copi per intero dal Suo invito."
+
+msgid "Diese Seite konnte nicht geladen werden -- bitte laden Sie die Seite neu."
+msgstr "Impossibile caricare questa pagina -- si prega di ricaricarla."
+
+msgid "Diese Übertragung ist ENDGÜLTIG und kann nicht widerrufen werden."
+msgstr "Questo trasferimento è DEFINITIVO e non può essere revocato."
+
+msgid "Diese Wiederherstellung ist NICHT rückgängig zu machen."
+msgstr "Questo ripristino NON può essere annullato."
+
+msgid "Dieser Antrag hat %1, der/die zuerst entschieden werden muss/müssen:"
+msgstr "Questa mozione presenta %1 che deve/devono essere decisi per primi:"
+
+msgid "Dieser Versand ist ENDGÜLTIG und verursacht reale Kosten pro Brief."
+msgstr "Questo invio è DEFINITIVO e comporta costi reali per ogni lettera."
+
+msgid "Dieser Versand ist ENDGÜLTIG und verursacht reale Kosten."
+msgstr "Questo invio è DEFINITIVO e comporta costi reali."
+
+msgid "Dieser Vorgang lässt sich nicht wiederholen -- schlägt er fehl, bleiben die Rohaufnahmen erhalten und ein Administrator kann helfen."
+msgstr "Questa operazione non può essere ripetuta -- in caso di fallimento, le registrazioni grezze restano conservate e un amministratore può fornire assistenza."
+
+msgid "Dieses Profil ist ehemalig -- über das Formular \"Politiker-Status erteilen\" oben kann es erneut aktiviert werden."
+msgstr "Questo profilo è precedente -- può essere riattivato tramite il modulo \"Concedi status di politico\" più sopra."
+
+msgid "Dieses Projekt wurde bereits durch die 14-Tage-Schweigefrist automatisch genehmigt -- eine Vorstandsentscheidung ist serverseitig nicht mehr möglich."
+msgstr "Questo progetto è già stato approvato automaticamente per decorrenza del termine di silenzio di 14 giorni -- una decisione del consiglio direttivo non è più possibile lato server."
+
+msgid "Direkt buchen"
+msgstr "Registra direttamente"
+
+msgid "Dislike"
+msgstr "Non mi piace"
+
+msgid "Dokument \"%1\" angelegt -- jetzt eine Datei hochladen."
+msgstr "Documento \"%1\" creato -- ora carichi un file."
+
+msgid "Dokument anlegen (danach Datei hochladen)"
+msgstr "Crea documento (poi carichi il file)"
+
+msgid "Dokument löschen"
+msgstr "Elimina documento"
+
+msgid "Dokument-ID (optional)"
+msgstr "ID documento (opzionale)"
+
+msgid "Dokument:"
+msgstr "Documento:"
+
+msgid "Dokumentation der acht Standard-TOM-Kategorien. \"Version\" ist ein einfacher Zähler, der bei jeder Aktualisierung um eins steigt -- keine eigene Versionshistorie mit Diff-Ansicht in dieser Welle."
+msgstr "Documentazione delle otto categorie standard di misure tecniche e organizzative. \"Versione\" è un semplice contatore che aumenta di uno a ogni aggiornamento -- in questa fase non esiste ancora una cronologia delle versioni con vista differenze."
+
+msgid "Dokumente"
+msgstr "Documenti"
+
+msgid "Dokumentenablage"
+msgstr "Archivio documenti"
+
+msgid "Drittdienst-Verarbeiter (z. B. Letterxpress) und der Stand des jeweiligen Auftragsverarbeitungsvertrags. \"Aktiv\" wird bei jedem Laden neu berechnet -- ein abgelaufener Prüftermin fällt sofort auf, ohne dass jemand daran denken muss, den Status manuell umzustellen."
+msgstr "Responsabile del trattamento terzo (ad es. Letterxpress) e lo stato del relativo contratto di trattamento dati. \"Attivo\" viene ricalcolato a ogni caricamento -- una scadenza di verifica superata risulta immediatamente evidente, senza che nessuno debba ricordarsi di modificare manualmente lo stato."
+
+msgid "Drucken"
+msgstr "Stampa"
+
+msgid "DSFA"
+msgstr "DPIA"
+
+msgid "DSFA \"%1\" wurde %2."
+msgstr "DPIA \"%1\" è stata %2."
+
+msgid "DSFA anlegen"
+msgstr "Crea DPIA"
+
+msgid "DSFA erforderlich (Ihre Entscheidung)"
+msgstr "DPIA necessaria (Sua decisione)"
+
+msgid "DSFA erforderlich: %1"
+msgstr "DPIA necessaria: %1"
+
+msgid "DSGVO-Compliance"
+msgstr "Conformità GDPR"
+
+msgid "DSGVO-Prüfprotokoll"
+msgstr "Registro di conformità GDPR"
+
+msgid "Dünn"
+msgstr "Sottile"
+
+msgid "E-Mail"
+msgstr "E-mail"
+
+msgid "Effektiv: %1"
+msgstr "Effettivo: %1"
+
+msgid "Ehemalig"
+msgstr "Precedente"
+
+msgid "Eigenkapital (gebucht)"
+msgstr "Patrimonio netto (registrato)"
+
+msgid "Eigenkapitalkonto"
+msgstr "Conto di patrimonio netto"
+
+msgid "Ein ADMIN kann das Politiker-Ranking im Abschnitt \"Einstellungen\" unten aktivieren."
+msgstr "Un AMMINISTRATORE può attivare la classifica dei politici nella sezione \"Impostazioni\" più sotto."
+
+msgid "Ein ADMIN kann die Auktion im Abschnitt \"Verwaltung\" unten aktivieren -- dafür muss zunächst der aktuelle rechtliche Hinweistext gelesen und bestätigt werden."
+msgstr "Un AMMINISTRATORE può attivare l'asta nella sezione \"Amministrazione\" più sotto -- a tal fine è necessario prima leggere e confermare l'attuale avviso legale."
+
+msgid "Ein anderes Gebot führt weiterhin."
+msgstr "Un'altra offerta è ancora in testa."
+
+msgid "Ein physischer Brief wird über den Postdienstleister Letterxpress an die im System hinterlegte Anschrift von %1 verschickt. Der Versand kann nicht zurückgerufen werden."
+msgstr "Una lettera cartacea verrà inviata tramite il fornitore di servizi postali Letterxpress all'indirizzo di %1 registrato nel sistema. L'invio non può essere richiamato."
+
+msgid "Eingabekontrolle"
+msgstr "Controllo degli accessi"
+
+msgid "Eingereicht von %1 am %2"
+msgstr "Presentato da %1 il %2"
+
+msgid "Eingeschränkt (Degraded)"
+msgstr "Limitato (Degraded)"
+
+msgid "Eingetreten"
+msgstr "Entrato"
+
+msgid "Einladung"
+msgstr "Invito"
+
+msgid "Einladung kopieren"
+msgstr "Copia invito"
+
+msgid "Einladung per Post versenden"
+msgstr "Invia invito per posta"
+
+msgid "Einladungstext"
+msgstr "Testo dell'invito"
+
+msgid "Einnahme"
+msgstr "Entrata"
+
+msgid "Einnahmen"
+msgstr "Entrate"
+
+msgid "Einreichen"
+msgstr "Presenta"
+
+msgid "Einsatz (LTR)"
+msgstr "Puntata (LTR)"
+
+msgid "Einstellungen"
+msgstr "Impostazioni"
+
+msgid "Eintrag oben auswählen, um Details zu sehen."
+msgstr "Selezionare una voce qui sopra per vedere i dettagli."
+
+msgid "Einträge"
+msgstr "Voci"
+
+msgid "Eintrittswahrscheinlichkeit"
+msgstr "Probabilità di accadimento"
+
+msgid "Einzelne Person"
+msgstr "Persona singola"
+
+msgid "Empfänger"
+msgstr "Destinatario"
+
+msgid "Empfänger:"
+msgstr "Destinatario:"
+
+msgid "Enddatum (JJJJ-MM-TT)"
+msgstr "Data di fine (AAAA-MM-GG)"
+
+msgid "Ende"
+msgstr "Fine"
+
+msgid "Endgültig ausführen"
+msgstr "Esegui in modo definitivo"
+
+msgid "Endgültig buchen"
+msgstr "Registra in modo definitivo"
+
+msgid "Endgültig löschen"
+msgstr "Elimina definitivamente"
+
+msgid "Endgültig übertragen"
+msgstr "Trasferisci in modo definitivo"
+
+msgid "Endgültig wiederherstellen"
+msgstr "Ripristina in modo definitivo"
+
+msgid "Entdeckt am (JJJJ-MM-TTTHH:MM:SS) -- startet die 72h-Frist"
+msgstr "Scoperto il (AAAA-MM-GGTHH:MM:SS) -- avvia il termine di 72h"
+
+msgid "Entdeckt am: %1 · Betroffene Datenkategorien: %2"
+msgstr "Scoperto il: %1 · Categorie di dati interessate: %2"
+
+msgid "Entfernen"
+msgstr "Rimuovi"
+
+msgid "Enthaltungen"
+msgstr "Astensioni"
+
+msgid "Entität: %1"
+msgstr "Entità: %1"
+
+msgid "Entitäts-ID (optional)"
+msgstr "ID entità (opzionale)"
+
+msgid "Entitätstyp"
+msgstr "Tipo di entità"
+
+msgid "Entscheidung"
+msgstr "Decisione"
+
+msgid "Entscheidung für \"%1\" gespeichert."
+msgstr "Decisione per \"%1\" salvata."
+
+msgid "Entscheidung speichern"
+msgstr "Salva decisione"
+
+msgid "Entscheidungsnotiz (optional)"
+msgstr "Nota di decisione (opzionale)"
+
+msgid "Entscheidungsnotiz: %1"
+msgstr "Nota di decisione: %1"
+
+msgid "Entschieden"
+msgstr "Deciso"
+
+msgid "Entschieden am"
+msgstr "Deciso il"
+
+msgid "Entschieden von %1 am %2"
+msgstr "Deciso da %1 il %2"
+
+msgid "Entwurf"
+msgstr "Bozza"
+
+msgid "Entwurf \"%1\" als neuer Entwurf übernommen -- bitte prüfen und speichern."
+msgstr "Bozza \"%1\" ripresa come nuova bozza -- si prega di verificare e salvare."
+
+msgid "Entwurf \"%1\" wurde gespeichert."
+msgstr "La bozza \"%1\" è stata salvata."
+
+msgid "Entwurf erstellt am %1"
+msgstr "Bozza creata il %1"
+
+msgid "Entwurf gespeichert."
+msgstr "Bozza salvata."
+
+msgid "Entwurf von %1 am %2 -- noch nicht Teil offizieller Berichte."
+msgstr "Bozza di %1 del %2 -- non ancora parte dei rapporti ufficiali."
+
+msgid "Entwürfe können nicht nachträglich geändert oder gelöscht werden. Ist dieser Entwurf fehlerhaft, nutzen Sie „Als neuen Entwurf duplizieren\" unten, um eine korrigierte Kopie zu erstellen, und lassen Sie diesen Entwurf ungebucht liegen."
+msgstr "Le bozze non possono essere modificate o eliminate successivamente. Se questa bozza è errata, utilizzi \"Duplica come nuova bozza\" più sotto per creare una copia corretta e lasci questa bozza non registrata."
+
+msgid "Erfasst von (Mitglieds-ID)"
+msgstr "Registrato da (ID socio)"
+
+msgid "Erfolgreich"
+msgstr "Riuscito"
+
+msgid "Erforderlichkeit/Verhältnismäßigkeit (optional)"
+msgstr "Necessità/proporzionalità (opzionale)"
+
+msgid "Ergebnis"
+msgstr "Risultato"
+
+msgid "Ergebnis:"
+msgstr "Risultato:"
+
+msgid "Erinnerung wurde bestätigt."
+msgstr "Il promemoria è stato confermato."
+
+msgid "Erinnerungen"
+msgstr "Promemoria"
+
+msgid "Erlassen"
+msgstr "Condona"
+
+msgid "Erledigte anzeigen"
+msgstr "Mostra completati"
+
+msgid "Ernennen"
+msgstr "Nomina"
+
+msgid "Eröffnungssaldo"
+msgstr "Saldo di apertura"
+
+msgid "Erstellen"
+msgstr "Crea"
+
+msgid "Erstellt"
+msgstr "Creato"
+
+msgid "Erstellt von %1 · %2 Teilnehmende"
+msgstr "Creato da %1 · %2 partecipanti"
+
+msgid "Erteilen"
+msgstr "Concedi"
+
+msgid "Erteilen / Aktualisieren"
+msgstr "Concedi / Aggiorna"
+
+msgid "Ertragskonto"
+msgstr "Conto di provento"
+
+msgid "Es läuft bereits eine meritokratische Vote für diesen Antrag -- siehe Abschnitt \"Vote\" unten."
+msgstr "È già in corso una votazione meritocratica per questa mozione -- vedere la sezione \"Voto\" più sotto."
+
+msgid "Es werden %1 als Sichtbarkeits-Gewicht aus Ihrem freien LTR-Guthaben gebunden. Dieser Einsatz wird NICHT zurückerstattet, unabhängig von der späteren Vorstandsentscheidung."
+msgstr "Verranno vincolati %1 come peso di visibilità dal Suo saldo LTR libero. Questa puntata NON verrà rimborsata, indipendentemente dalla decisione successiva del consiglio direttivo."
+
+msgid "Es werden %1 an %2 gutgeschrieben. Diese Gutschrift lässt sich nur durch eine gegenläufige Buchung (z. B. eine Schiedsverfahren-Korrekturübertragung) rückgängig machen."
+msgstr "Verranno accreditati %1 a %2. Questo accredito può essere annullato solo tramite una registrazione contraria (ad es. un trasferimento correttivo da procedimento arbitrale)."
+
+msgid "Es wird ein Angebot \"%1\" mit Startpreis %2%3 und %4 Stunden Laufzeit erstellt. Dabei wird eine feste Gebühr von %5 aus Ihrem freien LTR-Guthaben gebucht."
+msgstr "Verrà creata un'offerta \"%1\" con prezzo di partenza %2%3 e durata di %4 ore. A tal fine verrà addebitata una commissione fissa di %5 dal Suo saldo LTR libero."
+
+msgid "EU-Bürger:in / EU-Rechtsperson"
+msgstr "Cittadino/a UE / persona giuridica UE"
+
+msgid "Export"
+msgstr "Esporta"
+
+msgid "Extern"
+msgstr "Esterno"
+
+msgid "Externe Spender"
+msgstr "Donatori esterni"
+
+msgid "Externe Spender sind keine Mitglieder -- eine eigenständige Adressverwaltung für Spendenbescheinigungen und die §25-PartG-Pflichtenprüfung, getrennt von der Mitgliederverwaltung."
+msgstr "I donatori esterni non sono soci -- una gestione anagrafica autonoma per le ricevute di donazione e la verifica degli obblighi ai sensi del §25 PartG, separata dalla gestione dei soci."
+
+msgid "Externer Spender"
+msgstr "Donatore esterno"
+
+msgid "Externer Spender (ID)"
+msgstr "Donatore esterno (ID)"
+
+msgid "Falls die Zeichnung noch gebraucht wird: vorher als Dokument speichern."
+msgstr "Se il disegno è ancora necessario: lo salvi prima come documento."
+
+msgid "Falls diese E-Mail registriert ist, wurde ein Link versendet."
+msgstr "Se questa e-mail è registrata, è stato inviato un link."
+
+msgid "Farbe wählen"
+msgstr "Scegli colore"
+
+msgid "Fehlende Angaben für das Transparenzregister: %1 Vorstandsmitglied(er) ohne Geburtsdatum und/oder Staatsangehörigkeit."
+msgstr "Dati mancanti per il Registro della Trasparenza: %1 membro/i del consiglio senza data di nascita e/o nazionalità."
+
+msgid "Fehler"
+msgstr "Errore"
+
+msgid "Fehler: %1"
+msgstr "Errore: %1"
+
+msgid "Fehlgeschlagen"
+msgstr "Non riuscito"
+
+msgid "Fertig"
+msgstr "Fatto"
+
+msgid "Fiat"
+msgstr "Fiat"
+
+msgid "Filter: Referenztyp"
+msgstr "Filtro: tipo di riferimento"
+
+msgid "Filter: Status (persistiert)"
+msgstr "Filtro: stato (persistito)"
+
+msgid "Filter: Status (Vorstandsbeschluss)"
+msgstr "Filtro: stato (delibera del consiglio direttivo)"
+
+msgid "Filtern"
+msgstr "Filtra"
+
+msgid "Finanzberichte"
+msgstr "Rapporti finanziari"
+
+msgid "Finanzen"
+msgstr "Finanze"
+
+msgid "Format"
+msgstr "Formato"
+
+msgid "Freie Rücklage (%1)"
+msgstr "Riserva libera (%1)"
+
+msgid "Frist bald fällig"
+msgstr "Termine in scadenza a breve"
+
+msgid "Frist läuft"
+msgstr "Termine in corso"
+
+msgid "Frist überschritten"
+msgstr "Termine scaduto"
+
+msgid "Frist: %1"
+msgstr "Termine: %1"
+
+msgid "Führend"
+msgstr "In testa"
+
+msgid "Führend: %1"
+msgstr "In testa: %1"
+
+msgid "Führend: Sie"
+msgstr "In testa: Lei"
+
+msgid "Für alle beenden"
+msgstr "Termina per tutti"
+
+msgid "Galerie"
+msgstr "Galleria"
+
+msgid "Gast"
+msgstr "Ospite"
+
+msgid "Gast eines anderen Lapis-Cloud-Servers? Mit Heimatserver anmelden."
+msgstr "Ospite di un altro server Lapis Cloud? Accedi con il server di provenienza."
+
+msgid "Gast von %1"
+msgstr "Ospite di %1"
+
+msgid "Gast-Gewicht"
+msgstr "Peso ospite"
+
+msgid "Gast-Gewicht (reine Stimmenzahl, ungewichtet)"
+msgstr "Peso ospite (mero conteggio dei voti, non ponderato)"
+
+msgid "Gäste"
+msgstr "Ospiti"
+
+msgid "Gäste anderer Server zulassen"
+msgstr "Consenti ospiti di altri server"
+
+msgid "Gäste zugelassen"
+msgstr "Ospiti ammessi"
+
+msgid "Gastgeberin dieser Besprechung: %1"
+msgstr "Ospitante di questa riunione: %1"
+
+msgid "Gastzugang"
+msgstr "Accesso ospiti"
+
+msgid "Gastzugang aktiviert."
+msgstr "Accesso ospiti attivato."
+
+msgid "Gastzugang beenden"
+msgstr "Termina accesso ospiti"
+
+msgid "Gastzugang beendet."
+msgstr "Accesso ospiti terminato."
+
+msgid "Gastzugang offen"
+msgstr "Accesso ospiti aperto"
+
+msgid "Gastzugang:"
+msgstr "Accesso ospiti:"
+
+msgid "Geändert"
+msgstr "Modificato"
+
+msgid "Geben Sie Ihre E-Mail-Adresse ein, um einen Link zum Zurücksetzen anzufordern. Erhalten Sie eine Bestätigung, tragen Sie anschließend den Token und Ihr neues Passwort ein."
+msgstr "Inserisca il Suo indirizzo e-mail per richiedere un link di ripristino. Una volta ricevuta la conferma, inserisca quindi il token e la nuova password."
+
+msgid "Gebot abgeben"
+msgstr "Effettua offerta"
+
+msgid "Gebot angenommen. Aktueller Preis: %1. %2"
+msgstr "Offerta accettata. Prezzo attuale: %1. %2"
+
+msgid "Gebot bestätigen"
+msgstr "Conferma offerta"
+
+msgid "Gebot gespeichert."
+msgstr "Offerta salvata."
+
+msgid "Gebucht"
+msgstr "Registrato"
+
+msgid "Gebucht am"
+msgstr "Registrato il"
+
+msgid "Gebucht am %1 von %2 -- unveränderlich."
+msgstr "Registrato il %1 da %2 -- non modificabile."
+
+msgid "Geburtsdatum"
+msgstr "Data di nascita"
+
+msgid "Gelöscht."
+msgstr "Eliminato."
+
+msgid "Gemeinnützigkeits-Berichte"
+msgstr "Rapporti sulla pubblica utilità"
+
+msgid "gemeldet"
+msgstr "segnalato"
+
+msgid "Gemeldet"
+msgstr "Segnalato"
+
+msgid "Gemintet:"
+msgstr "Coniato:"
+
+msgid "Genehmigen"
+msgstr "Approva"
+
+msgid "Genehmigt"
+msgstr "Approvato"
+
+msgid "Generisches RTMP"
+msgstr "RTMP generico"
+
+msgid "Geprüft von %1 am %2%3"
+msgstr "Verificato da %1 il %2%3"
+
+msgid "Gesamt"
+msgstr "Totale"
+
+msgid "Gesamt (Summe, keine vergleichbare Einheit)"
+msgstr "Totale (somma, nessuna unità comparabile)"
+
+msgid "Geschäftsjahr"
+msgstr "Esercizio"
+
+msgid "Geschäftsjahr (JJJJ)"
+msgstr "Esercizio (AAAA)"
+
+msgid "Geschäftsjahr %1 · %2 bis %3"
+msgstr "Esercizio %1 · dal %2 al %3"
+
+msgid "Geschätzte Anzahl betroffener Personen (optional)"
+msgstr "Numero stimato di persone interessate (opzionale)"
+
+msgid "Gesendet"
+msgstr "Inviato"
+
+msgid "Gesendet am %1"
+msgstr "Inviato il %1"
+
+msgid "Gespeichert -- Schlüssel wird nicht erneut angezeigt."
+msgstr "Salvato -- la chiave non verrà mostrata nuovamente."
+
+msgid "Gewählter Modus: %1"
+msgstr "Modalità selezionata: %1"
+
+msgid "Gewichts-Snapshot auslösen"
+msgstr "Attiva snapshot del peso"
+
+msgid "Gewichtsverlauf anzeigen/ausblenden"
+msgstr "Mostra/nascondi andamento del peso"
+
+msgid "Gewinn- und Verlustrechnung"
+msgstr "Conto economico"
+
+msgid "Gewinn- und Verlustrechnung (GuV)"
+msgstr "Conto economico (CE)"
+
+msgid "Gewinner"
+msgstr "Vincitore"
+
+msgid "GoBD-revisionssicheres Protokoll aller Buchungen, Beschlüsse, Vorstandsmitgliedschaften und Spendenprüfungen -- unveränderlich und ausschließlich lesbar. Es gibt auf dieser Seite keine Funktion zum Bearbeiten oder Löschen von Einträgen."
+msgstr "Registro a prova di revisione GoBD di tutte le scritture contabili, delibere, appartenenze al consiglio direttivo e verifiche delle donazioni -- non modificabile e a sola lettura. In questa pagina non esiste alcuna funzione per modificare o eliminare le voci."
+
+msgid "Gold (XAU)"
+msgstr "Oro (XAU)"
+
+msgid "Gold (XAU) und Fiat-Kurse sind fachlich vorgesehen, aber serverseitig noch nicht implementiert (kein robuster kostenloser Mehrquellen-Feed verfügbar) -- daher hier nicht auswählbar."
+msgstr "I tassi di cambio dell'oro (XAU) e delle valute fiat sono previsti dal punto di vista funzionale, ma non ancora implementati lato server (nessun feed multi-fonte gratuito e affidabile disponibile) -- pertanto non selezionabili qui."
+
+msgid "Gremien"
+msgstr "Organi"
+
+msgid "Gremium"
+msgstr "Organo"
+
+msgid "Gremium anlegen"
+msgstr "Crea organo"
+
+msgid "Gremium oben auswählen, um die Besetzung zu sehen."
+msgstr "Selezionare un organo qui sopra per vedere la composizione."
+
+msgid "Gremium: %1 · %2 · Termin: %3"
+msgstr "Organo: %1 · %2 · Data: %3"
+
+msgid "Gremium: %1 · %2 · Termin: %3%4"
+msgstr "Organo: %1 · %2 · Data: %3%4"
+
+msgid "Gremium: %1 · eingereicht von %2 am %3"
+msgstr "Organo: %1 · presentato da %2 il %3"
+
+msgid "Guthaben & Buchungen eines Mitglieds"
+msgstr "Saldo e registrazioni di un socio"
+
+msgid "Guthaben von %1"
+msgstr "Saldo di %1"
+
+msgid "Gutschreiben"
+msgstr "Accredita"
+
+msgid "Gutschrift (Mint)"
+msgstr "Accredito (conio)"
+
+msgid "GuV"
+msgstr "CE"
+
+msgid "Haben"
+msgstr "Avere"
+
+msgid "Hauptbuch"
+msgstr "Libro mastro"
+
+msgid "Herunterladen"
+msgstr "Scarica"
+
+msgid "Hinweis gelesen -- als Gast beitreten"
+msgstr "Avviso letto -- accedi come ospite"
+
+msgid "Hinweis: %1"
+msgstr "Nota: %1"
+
+msgid "Hinweis: Die tatsächlich gebuchte Währung ist die in der Konfiguration hinterlegte Spendenwährung -- diese Auswahl dient nur der Anzeige im Bestätigungsdialog."
+msgstr "Nota: la valuta effettivamente registrata è la valuta di donazione impostata nella configurazione -- questa selezione serve solo per la visualizzazione nella finestra di conferma."
+
+msgid "Hinweis: Eine im Hauptraum laufende Aufzeichnung oder ein Live-Stream erfasst dieses Gespräch nicht."
+msgstr "Nota: una registrazione o uno streaming live in corso nella stanza principale non acquisisce questa conversazione."
+
+msgid "Hinweistext-Version %1"
+msgstr "Avviso legale versione %1"
+
+msgid "Hinzufügen"
+msgstr "Aggiungi"
+
+msgid "Hoch"
+msgstr "Alto"
+
+msgid "Hochladen"
+msgstr "Carica"
+
+msgid "Höchstens %1 Zeichen."
+msgstr "Massimo %1 caratteri."
+
+msgid "Honorar"
+msgstr "Onorario"
+
+msgid "Ich bestätige, den aktuellen Text gelesen zu haben"
+msgstr "Confermo di aver letto il testo attuale"
+
+msgid "Ich habe den Beitrittsvertrag gelesen und akzeptiere ihn."
+msgstr "Ho letto e accetto il contratto di adesione."
+
+msgid "Ideeller Bereich"
+msgstr "Ambito ideale"
+
+msgid "Ihr Einsatz wird NICHT zurückerstattet -- unabhängig davon, ob der Vorstand das Projekt später genehmigt oder ablehnt. Es gibt in diesem System keinen Rückerstattungspfad für diesen Einsatz."
+msgstr "La Sua puntata NON verrà rimborsata -- indipendentemente dal fatto che il consiglio direttivo approvi o respinga successivamente il progetto. In questo sistema non esiste alcun percorso di rimborso per questa puntata."
+
+msgid "Ihr Gebot: %1, %2 LTR"
+msgstr "La Sua offerta: %1, %2 LTR"
+
+msgid "Ihr Höchstgebot"
+msgstr "La Sua offerta massima"
+
+msgid "Ihr Höchstgebot (LTR)"
+msgstr "La Sua offerta massima (LTR)"
+
+msgid "Ihr Höchstgebot ist verbindlich und reserviert LTR aus Ihrem freien Guthaben."
+msgstr "La Sua offerta massima è vincolante e riserva LTR dal Suo saldo libero."
+
+msgid "Ihr Höchstgebot muss mindestens dem Startpreis (%1) entsprechen."
+msgstr "La Sua offerta massima deve corrispondere almeno al prezzo di partenza (%1)."
+
+msgid "Ihr Löschantrag"
+msgstr "La Sua richiesta di cancellazione"
+
+msgid "Ihr LTR-Guthaben"
+msgstr "Il Suo saldo LTR"
+
+msgid "Ihr LTR-Guthaben:"
+msgstr "Il Suo saldo LTR:"
+
+msgid "Ihr Mitgliedschaftsantrag wurde eingereicht und wird vom Vorstand geprüft. Sie sind noch nicht angemeldet -- nach der Freigabe können Sie sich mit Ihrem gewählten Passwort anmelden."
+msgstr "La Sua domanda di adesione è stata presentata e verrà esaminata dal consiglio direttivo. Non ha ancora effettuato l'accesso -- dopo l'approvazione potrà accedere con la password scelta."
+
+msgid "Ihr Mitgliedsdatensatz bleibt als anonymer Platzhalter bestehen (z. B. damit Beitragshistorie und Buchungen konsistent bleiben). Persönliche Felder werden geleert oder anonymisiert."
+msgstr "Il Suo record socio resterà come segnaposto anonimo (ad es. affinché lo storico dei contributi e le registrazioni contabili restino coerenti). I campi personali verranno svuotati o anonimizzati."
+
+msgid "Ihr Recht auf Auskunft (Art. 15/20 DSGVO) und auf Löschung (\"Recht auf Vergessenwerden\", Art. 17 DSGVO) -- eine Löschung wird hier nur BEANTRAGT, nie sofort ausgeführt. Über den Antrag entscheidet danach eine Administratorin oder ein Administrator gesondert."
+msgstr "Il Suo diritto di accesso (art. 15/20 GDPR) e di cancellazione (\"diritto all'oblio\", art. 17 GDPR) -- una cancellazione viene qui solo RICHIESTA, mai eseguita immediatamente. Sulla richiesta decide successivamente e separatamente un amministratore o un'amministratrice."
+
+msgid "Ihre Bewertung:"
+msgstr "La Sua valutazione:"
+
+msgid "Ihre Reaktion:"
+msgstr "La Sua reazione:"
+
+msgid "In Bearbeitung"
+msgstr "In lavorazione"
+
+msgid "In Prüfung"
+msgstr "In verifica"
+
+msgid "In Warteschlange"
+msgstr "In coda"
+
+msgid "inaktiv"
+msgstr "inattivo"
+
+msgid "Inaktiv"
+msgstr "Inattivo"
+
+msgid "Inaktive Gremien anzeigen"
+msgstr "Mostra organi inattivi"
+
+msgid "Inaktive Konten anzeigen"
+msgstr "Mostra conti inattivi"
+
+msgid "Inaktive Kostenstellen anzeigen"
+msgstr "Mostra centri di costo inattivi"
+
+msgid "Inaktive Spender anzeigen"
+msgstr "Mostra donatori inattivi"
+
+msgid "Inhalt"
+msgstr "Contenuto"
+
+msgid "Inklusive ehemaliger Profile"
+msgstr "Inclusi i profili precedenti"
+
+msgid "ist beendet"
+msgstr "è terminato"
+
+msgid "ist unterbrochen"
+msgstr "è sospeso"
+
+msgid "Ja"
+msgstr "Sì"
+
+msgid "Ja-Stimmen"
+msgstr "Voti a favore"
+
+msgid "Ja: %1 · Nein: %2 · Enthaltung: %3"
+msgstr "Sì: %1 · No: %2 · Astensione: %3"
+
+msgid "Ja: %1 · Nein: %2 · Enthaltung: %3 · Quorum %4 · entschieden am %5 von %6"
+msgstr "Sì: %1 · No: %2 · Astensione: %3 · Quorum %4 · deciso il %5 da %6"
+
+msgid "Jahresabschluss"
+msgstr "Bilancio d'esercizio"
+
+msgid "Jahresergebnis (dieses Geschäftsjahr)"
+msgstr "Risultato dell'esercizio (esercizio corrente)"
+
+msgid "Jahressumme"
+msgstr "Totale annuo"
+
+msgid "Jemand hat diesen Block bereits aktualisiert (zuletzt von %1)."
+msgstr "Questo blocco è già stato aggiornato da qualcun altro (ultimo aggiornamento di %1)."
+
+msgid "Jetzt live gehen"
+msgstr "Vai in diretta ora"
+
+msgid "Jetzt per Post versenden"
+msgstr "Invia ora per posta"
+
+msgid "Jetzt terminieren"
+msgstr "Pianifica ora"
+
+msgid "Journal (Grundbuch)"
+msgstr "Giornale (libro giornale)"
+
+msgid "Journaldetails"
+msgstr "Dettagli del giornale"
+
+msgid "Kalenderjahr (JJJJ)"
+msgstr "Anno solare (AAAA)"
+
+msgid "Kalenderjahr %1"
+msgstr "Anno solare %1"
+
+msgid "Kamera an"
+msgstr "Videocamera attiva"
+
+msgid "Kamera aus"
+msgstr "Videocamera disattivata"
+
+msgid "Kasse"
+msgstr "Cassa"
+
+msgid "Kasse (Kassenbuch-fähig)"
+msgstr "Cassa (compatibile con libro cassa)"
+
+msgid "Kassenbuch"
+msgstr "Libro cassa"
+
+msgid "Kategorie"
+msgstr "Categoria"
+
+msgid "Kein AVV"
+msgstr "Nessun contratto di trattamento dati"
+
+msgid "Kein Beschluss verknüpft."
+msgstr "Nessuna delibera collegata."
+
+msgid "Kein Grund angegeben."
+msgstr "Nessun motivo indicato."
+
+msgid "Kein Legal Hold"
+msgstr "Nessun blocco legale"
+
+msgid "Kein Limit"
+msgstr "Nessun limite"
+
+msgid "Kein Zugriff -- für diesen Bereich fehlt Ihnen die Berechtigung."
+msgstr "Accesso negato -- non dispone dell'autorizzazione per quest'area."
+
+msgid "Keine Adresse hinterlegt"
+msgstr "Nessun indirizzo registrato"
+
+msgid "Keine anderen Mitglieder vorhanden, an die übertragen werden könnte."
+msgstr "Non sono presenti altri membri a cui trasferire."
+
+msgid "Keine Änderungsanträge."
+msgstr "Nessuna mozione di modifica."
+
+msgid "Keine anonymen Spenden über dem Schwellenwert im gewählten Kalenderjahr."
+msgstr "Nessuna donazione anonima sopra la soglia nell'anno solare selezionato."
+
+msgid "Keine Anträge für diese Filter gefunden."
+msgstr "Nessuna richiesta trovata per questi filtri."
+
+msgid "Keine Anwesenheit erfasst."
+msgstr "Nessuna presenza rilevata."
+
+msgid "Keine Beiträge vorhanden."
+msgstr "Nessun contributo presente."
+
+msgid "Keine Beitragssätze vorhanden."
+msgstr "Nessuna quota associativa presente."
+
+msgid "Keine berechtigten Mitglieder gefunden."
+msgstr "Nessun membro avente diritto trovato."
+
+msgid "Keine Berechtigung für diese Aktion."
+msgstr "Non è autorizzato/a a eseguire questa azione."
+
+msgid "Keine Berechtigung, Anträge einzureichen."
+msgstr "Non è autorizzato/a a presentare richieste."
+
+msgid "Keine Berechtigung, neue Sitzungen anzulegen."
+msgstr "Non è autorizzato/a a creare nuove sedute."
+
+msgid "Keine Beschlüsse."
+msgstr "Nessuna delibera."
+
+msgid "Keine Buchungen für diesen Filter."
+msgstr "Nessuna registrazione per questo filtro."
+
+msgid "Keine Buchungen im gewählten Zeitraum."
+msgstr "Nessuna registrazione nel periodo selezionato."
+
+msgid "Keine Buchungen in diesem Abschnitt."
+msgstr "Nessuna registrazione in questa sezione."
+
+msgid "Keine Buchungszeilen."
+msgstr "Nessuna riga di registrazione."
+
+msgid "Keine Daten in den registrierten Bereichen gefunden."
+msgstr "Nessun dato trovato nelle aree registrate."
+
+msgid "Keine Detaildaten für diesen Eintrag hinterlegt."
+msgstr "Nessun dato di dettaglio registrato per questa voce."
+
+msgid "Keine Dokumente in diesem Ordner."
+msgstr "Nessun documento in questa cartella."
+
+msgid "Keine Einträge für diese Filter gefunden."
+msgstr "Nessuna voce trovata per questi filtri."
+
+msgid "Keine Einträge gefunden."
+msgstr "Nessuna voce trovata."
+
+msgid "Keine Einträge im geprüften Bereich."
+msgstr "Nessuna voce nell'area verificata."
+
+msgid "Keine Erinnerungen vorhanden."
+msgstr "Nessun promemoria presente."
+
+msgid "Keine fehlenden Angaben für das Transparenzregister."
+msgstr "Nessun dato mancante per il registro della trasparenza."
+
+msgid "Keine freigegebenen Stream-Ziele vorhanden -- bitte eine Administratorin oder einen Administrator kontaktieren."
+msgstr "Nessuna destinazione di streaming abilitata -- contatti un amministratore o un'amministratrice."
+
+msgid "Keine Gebote abgegeben."
+msgstr "Nessuna offerta presentata."
+
+msgid "Keine geplante Sitzung für dieses Gremium verfügbar -- zuerst auf \"Sitzungen\" eine anlegen."
+msgstr "Nessuna seduta pianificata per questo organo -- prima crearne una in \"Sedute\"."
+
+msgid "Keine Kostenstelle mit Buchungen im gewählten Zeitraum."
+msgstr "Nessun centro di costo con registrazioni nel periodo selezionato."
+
+msgid "Keine Meldung erforderlich"
+msgstr "Nessuna comunicazione richiesta"
+
+msgid "Keine Mitglieder vorhanden, denen eine Spende gutgeschrieben werden könnte."
+msgstr "Non sono presenti membri a cui accreditare una donazione."
+
+msgid "Keine Mitglieder vorhanden."
+msgstr "Nessun membro presente."
+
+msgid "Keine offenen Anträge."
+msgstr "Nessuna richiesta aperta."
+
+msgid "Keine offenen Beiträge."
+msgstr "Nessun contributo aperto."
+
+msgid "Keine offenen Melde-/Offenlegungspflichten im gewählten Kalenderjahr."
+msgstr "Nessun obbligo di comunicazione/divulgazione aperto nell'anno solare selezionato."
+
+msgid "Keine Tagesordnungspunkte."
+msgstr "Nessun punto all'ordine del giorno."
+
+msgid "Keine Treffer."
+msgstr "Nessun risultato."
+
+msgid "Kennzahlen"
+msgstr "Indicatori"
+
+msgid "Kette prüfen"
+msgstr "Verifica catena"
+
+msgid "Ketten-Integrität prüfen"
+msgstr "Verifica integrità della catena"
+
+msgid "Kommunikation"
+msgstr "Comunicazione"
+
+msgid "Konfiguration"
+msgstr "Configurazione"
+
+msgid "Konfiguration bearbeiten (ADMIN)"
+msgstr "Modifica configurazione (ADMIN)"
+
+msgid "Konfiguration speichern"
+msgstr "Salva configurazione"
+
+msgid "Konten (SKR42 Kontenplan)"
+msgstr "Conti (piano dei conti SKR42)"
+
+msgid "Kontenklasse"
+msgstr "Classe di conto"
+
+msgid "Kontenklasse (erste Ziffer der Kontonummer, 0-9)"
+msgstr "Classe di conto (prima cifra del numero di conto, 0-9)"
+
+msgid "Kontenklasse %1"
+msgstr "Classe di conto %1"
+
+msgid "Kontenplan & Journal"
+msgstr "Piano dei conti e giornale"
+
+msgid "Konto"
+msgstr "Conto"
+
+msgid "Konto \"%1 · %2\" wurde angelegt."
+msgstr "Il conto \"%1 · %2\" è stato creato."
+
+msgid "Konto (ID)"
+msgstr "Conto (ID)"
+
+msgid "Konto anlegen"
+msgstr "Crea conto"
+
+msgid "Konto deaktivieren"
+msgstr "Disattiva conto"
+
+msgid "Konto oben auswählen, um Hauptbuch/Kassenbuch zu sehen."
+msgstr "Selezionare un conto sopra per visualizzare il libro mastro/libro cassa."
+
+msgid "Konto wurde deaktiviert."
+msgstr "Il conto è stato disattivato."
+
+msgid "Kontodetails"
+msgstr "Dettagli conto"
+
+msgid "Kontonummer (SKR42)"
+msgstr "Numero di conto (SKR42)"
+
+msgid "Kontotyp"
+msgstr "Tipo di conto"
+
+msgid "Konvertieren"
+msgstr "Converti"
+
+msgid "Konvertierung ausgeführt."
+msgstr "Conversione eseguita."
+
+msgid "Korb"
+msgstr "Carrello"
+
+msgid "Körperschaft des öffentlichen Rechts"
+msgstr "Ente di diritto pubblico"
+
+msgid "Korrekturübertragung ausführen"
+msgstr "Esegui trasferimento correttivo"
+
+msgid "Korrekturübertragung ausgeführt: %1."
+msgstr "Trasferimento correttivo eseguito: %1."
+
+msgid "Kostenstelle"
+msgstr "Centro di costo"
+
+msgid "Kostenstelle \"%1 · %2\" wurde angelegt."
+msgstr "Il centro di costo \"%1 · %2\" è stato creato."
+
+msgid "Kostenstelle anlegen"
+msgstr "Crea centro di costo"
+
+msgid "Kostenstelle deaktivieren"
+msgstr "Disattiva centro di costo"
+
+msgid "Kostenstelle wurde deaktiviert."
+msgstr "Il centro di costo è stato disattivato."
+
+msgid "Kostenstellen"
+msgstr "Centri di costo"
+
+msgid "Kostenstellenbericht"
+msgstr "Rendiconto per centro di costo"
+
+msgid "Kritisch"
+msgstr "Critico"
+
+msgid "Kumuliertes Ergebnis (seit Gründung)"
+msgstr "Risultato cumulato (dalla fondazione)"
+
+msgid "Kumuliertes Ergebnis (Σ Einnahmen − Ausgaben seit Gründung)"
+msgstr "Risultato cumulato (Σ entrate − uscite dalla fondazione)"
+
+msgid "Kurs abrufen"
+msgstr "Recupera quotazione"
+
+msgid "Kurs-Status:"
+msgstr "Stato quotazione:"
+
+msgid "Kurs: %1 je %2 (Status: %3, %4 Quelle(n): %5)"
+msgstr "Quotazione: %1 per %2 (stato: %3, %4 fonte/i: %5)"
+
+msgid "Laden"
+msgstr "Caricamento"
+
+msgid "Lädt ein vollständiges ZIP-Backup aller Organisationsdaten herunter. Rein lesend und nicht destruktiv -- daher ohne Bestätigungsdialog."
+msgstr "Scarica un backup ZIP completo di tutti i dati dell'organizzazione. Operazione puramente in lettura e non distruttiva -- pertanto senza finestra di conferma."
+
+msgid "Land (optional)"
+msgstr "Paese (facoltativo)"
+
+msgid "Latenz"
+msgstr "Latenza"
+
+msgid "laufend"
+msgstr "in corso"
+
+msgid "läuft"
+msgstr "in esecuzione"
+
+msgid "Laufzeit in Stunden (z. B. 24)"
+msgstr "Durata in ore (es. 24)"
+
+msgid "Layout"
+msgstr "Layout"
+
+msgid "Legal Hold aktiv -- Löschung darf nicht ausgeführt werden."
+msgstr "Blocco legale attivo -- l'eliminazione non può essere eseguita."
+
+msgid "Legt ein Mitglied ohne Antrags-/Freigabeschritt an (z. B. für Beitritte auf Papier oder Datenmigration) -- Status sofort AKTIV."
+msgstr "Crea un membro senza passaggio di richiesta/approvazione (ad es. per adesioni su carta o migrazione dati) -- stato immediatamente ATTIVO."
+
+msgid "Like"
+msgstr "Mi piace"
+
+msgid "Like: %1 · Dislike: %2 · Verteilungs-Korb: %3"
+msgstr "Mi piace: %1 · Non mi piace: %2 · Cesto di distribuzione: %3"
+
+msgid "Liste verwalten"
+msgstr "Gestisci elenco"
+
+msgid "Live"
+msgstr "Diretta"
+
+msgid "Live-Stream"
+msgstr "Streaming live"
+
+msgid "Live-Stream beenden"
+msgstr "Termina streaming live"
+
+msgid "Live-Stream beendet."
+msgstr "Streaming live terminato."
+
+msgid "Live-Stream fehlgeschlagen."
+msgstr "Streaming live non riuscito."
+
+msgid "Live-Stream gestartet von %1 um %2:%3 · %4"
+msgstr "Streaming live avviato da %1 alle %2:%3 · %4"
+
+msgid "Live-Stream starten"
+msgstr "Avvia streaming live"
+
+msgid "Live-Stream starten …"
+msgstr "Avvio streaming live …"
+
+msgid "Live-Stream wird beendet."
+msgstr "Terminazione dello streaming live in corso."
+
+msgid "Live-Stream wird gestartet."
+msgstr "Avvio dello streaming live in corso."
+
+msgid "Live-Stream:"
+msgstr "Streaming live:"
+
+msgid "Löschen"
+msgstr "Elimina"
+
+msgid "Löschung abgelehnt"
+msgstr "Eliminazione rifiutata"
+
+msgid "Löschung ausgeführt"
+msgstr "Eliminazione eseguita"
+
+msgid "Löschung beantragen"
+msgstr "Richiedi eliminazione"
+
+msgid "Löschung beantragt"
+msgstr "Eliminazione richiesta"
+
+msgid "Löschung endgültig ausführen"
+msgstr "Esegui eliminazione definitiva"
+
+msgid "Löschung genehmigt"
+msgstr "Eliminazione approvata"
+
+msgid "Löschung wurde ausgeführt."
+msgstr "L'eliminazione è stata eseguita."
+
+msgid "Löschung wurde beantragt."
+msgstr "L'eliminazione è stata richiesta."
+
+msgid "LTR gutschreiben"
+msgstr "Accredita LTR"
+
+msgid "LTR gutschreiben (Mint)"
+msgstr "Accredita LTR (conio)"
+
+msgid "LTR senden"
+msgstr "Invia LTR"
+
+msgid "LTR übertragen"
+msgstr "Trasferisci LTR"
+
+msgid "LTR-Konto"
+msgstr "Conto LTR"
+
+msgid "LTR-Übertragung bestätigen"
+msgstr "Conferma trasferimento LTR"
+
+msgid "Mailingliste"
+msgstr "Mailing list"
+
+msgid "Mailingliste \"%1\" wurde angelegt."
+msgstr "La mailing list \"%1\" è stata creata."
+
+msgid "Mailinglisten"
+msgstr "Mailing list"
+
+msgid "Mailinglisten anlegen, Mitglieder gezielt eintragen und Nachrichten an eine Liste verschicken."
+msgstr "Crea mailing list, iscriva membri in modo mirato e invii messaggi a un elenco."
+
+msgid "Mailinglisten verwalten"
+msgstr "Gestisci mailing list"
+
+msgid "Mandatstext"
+msgstr "Testo del mandato"
+
+msgid "Mandatstext (optional)"
+msgstr "Testo del mandato (facoltativo)"
+
+msgid "Mandatstext aktualisiert."
+msgstr "Testo del mandato aggiornato."
+
+msgid "Mandatstext speichern"
+msgstr "Salva testo del mandato"
+
+msgid "Manuelle Eintragung"
+msgstr "Registrazione manuale"
+
+msgid "Max. Spread"
+msgstr "Spread massimo"
+
+msgid "Max. Spread (Basispunkte, >= Ausreißer-Schwelle)"
+msgstr "Spread massimo (punti base, >= soglia di anomalia)"
+
+msgid "Maximal 50 Empfänger pro Versand."
+msgstr "Massimo 50 destinatari per invio."
+
+msgid "Median-Kurs: %1"
+msgstr "Quotazione mediana: %1"
+
+msgid "Mehr laden"
+msgstr "Carica altro"
+
+msgid "Meine Auktionen (als Verkäufer)"
+msgstr "Le mie aste (come venditore/venditrice)"
+
+msgid "Meine Beiträge"
+msgstr "I miei contributi"
+
+msgid "Meine Buchungen"
+msgstr "Le mie registrazioni"
+
+msgid "Meine Daten"
+msgstr "I miei dati"
+
+msgid "Meine Gebote"
+msgstr "Le mie offerte"
+
+msgid "Melde-/Offenlegungspflichten pro Spender"
+msgstr "Obblighi di comunicazione/divulgazione per donatore"
+
+msgid "Meldung an Aufsichtsbehörde erforderlich (Ihre Entscheidung)"
+msgstr "Comunicazione all'autorità di vigilanza richiesta (decisione a Sua discrezione)"
+
+msgid "Meldung an Aufsichtsbehörde erforderlich: %1"
+msgstr "Comunicazione all'autorità di vigilanza richiesta: %1"
+
+msgid "Meldung erfolgt"
+msgstr "Comunicazione effettuata"
+
+msgid "Meritokratische Vote eröffnen"
+msgstr "Apri votazione meritocratica"
+
+msgid "Metadaten aller Auskunfts-/Löschvorgänge -- rein informativ, keine Aktionen auf dieser Liste."
+msgstr "Metadati di tutte le richieste di informazioni/eliminazione -- puramente informativo, nessuna azione disponibile in questo elenco."
+
+msgid "Mikro an"
+msgstr "Microfono attivo"
+
+msgid "Mikrofon an"
+msgstr "Microfono attivo"
+
+msgid "Mikrofon aus"
+msgstr "Microfono disattivato"
+
+msgid "Mindest-Quorum"
+msgstr "Quorum minimo"
+
+msgid "Mindest-Quorum (Quellen, mind. 2)"
+msgstr "Quorum minimo (fonti, almeno 2)"
+
+msgid "Mindestens %1 Zeichen."
+msgstr "Almeno %1 caratteri."
+
+msgid "Mindestens zwei Mitglieder erforderlich."
+msgstr "Sono necessari almeno due membri."
+
+msgid "Mitglied"
+msgstr "Membro"
+
+msgid "Mitglied (ID)"
+msgstr "Membro (ID)"
+
+msgid "Mitglied %1"
+msgstr "Membro %1"
+
+msgid "Mitglied anlegen"
+msgstr "Crea membro"
+
+msgid "Mitglied direkt anlegen"
+msgstr "Crea membro direttamente"
+
+msgid "Mitglied hinzufügen"
+msgstr "Aggiungi membro"
+
+msgid "Mitglied selbst"
+msgstr "Il membro stesso"
+
+msgid "Mitglied werden"
+msgstr "Diventa membro"
+
+msgid "Mitglied wurde eingetragen."
+msgstr "Il membro è stato iscritto."
+
+msgid "Mitglied wurde hinzugefügt."
+msgstr "Il membro è stato aggiunto."
+
+msgid "Mitglieder"
+msgstr "Membri"
+
+msgid "Mitglieder anzeigen"
+msgstr "Mostra membri"
+
+msgid "Mitglieder und Gäste können ab sofort Politiker-Profile einsehen und bewerten; BOARD/ADMIN können Politiker-Status erteilen/widerrufen."
+msgstr "Membri e ospiti possono ora consultare e valutare i profili dei politici; BOARD/ADMIN possono concedere/revocare lo stato di politico."
+
+msgid "Mitglieder-Gewicht"
+msgstr "Peso del membro"
+
+msgid "Mitglieder-Gewicht (LTR-gewichtet)"
+msgstr "Peso del membro (ponderato per LTR)"
+
+msgid "Mitglieder: Like %1 / Dislike %2 · Gäste: Like %3 / Dislike %4"
+msgstr "Membri: Mi piace %1 / Non mi piace %2 · Ospiti: Mi piace %3 / Non mi piace %4"
+
+msgid "Mitgliederverwaltung"
+msgstr "Gestione dei membri"
+
+msgid "Mitgliederverzeichnis"
+msgstr "Elenco dei membri"
+
+msgid "Mitgliedschaft"
+msgstr "Iscrizione"
+
+msgid "Mitgliedschaft beenden"
+msgstr "Termina iscrizione"
+
+msgid "Mitgliedschaft von \"%1\" (%2) wirklich beenden?"
+msgstr "Terminare davvero l'iscrizione di \"%1\" (%2)?"
+
+msgid "Mitgliedschaft von \"%1\" wirklich beenden?"
+msgstr "Terminare davvero l'iscrizione di \"%1\"?"
+
+msgid "Mitgliedschaft von %1 wurde beendet."
+msgstr "L'iscrizione di %1 è stata terminata."
+
+msgid "Mittel"
+msgstr "Medio"
+
+msgid "Mittelverwendung"
+msgstr "Impiego dei fondi"
+
+msgid "Mittelverwendung nach Sphäre (informativ)"
+msgstr "Impiego dei fondi per ambito (informativo)"
+
+msgid "Mittelverwendungsrechnung"
+msgstr "Rendiconto dell'impiego dei fondi"
+
+msgid "Mittelverwendungsrechnung (§55/§62 AO)"
+msgstr "Rendiconto dell'impiego dei fondi (§§55/62 AO)"
+
+msgid "Mittelvortrag"
+msgstr "Riporto fondi"
+
+msgid "Mittelzufluss"
+msgstr "Afflusso di fondi"
+
+msgid "Mittelzufluss nach Sphäre (informativ)"
+msgstr "Afflusso di fondi per ambito (informativo)"
+
+msgid "Möchten Sie Ihre Mitgliedschaft wirklich beenden? Dies ist nicht rückgängig zu machen -- Sie werden abgemeldet und können sich nicht erneut mit diesem Konto anmelden."
+msgstr "Vuole davvero terminare la Sua iscrizione? L'operazione non è reversibile -- verrà disconnesso/a e non potrà più accedere nuovamente con questo account."
+
+msgid "Moderator"
+msgstr "Moderatore/Moderatrice"
+
+msgid "Moderator:"
+msgstr "Moderatore/Moderatrice:"
+
+msgid "Monat"
+msgstr "Mese"
+
+msgid "Monat (JJJJ-MM-TT, Tag wird ignoriert)"
+msgstr "Mese (AAAA-MM-GG, il giorno viene ignorato)"
+
+msgid "Monatliche Verteilung berechnen"
+msgstr "Calcola distribuzione mensile"
+
+msgid "Nachher"
+msgstr "Dopo"
+
+msgid "Nachricht"
+msgstr "Messaggio"
+
+msgid "Nachricht \"%1\" wurde gesendet."
+msgstr "Il messaggio \"%1\" è stato inviato."
+
+msgid "Nachricht senden"
+msgstr "Invia messaggio"
+
+msgid "Nachrichten"
+msgstr "Messaggi"
+
+msgid "Name"
+msgstr "Nome"
+
+msgid "Natürliche Person außerhalb der EU"
+msgstr "Persona fisica al di fuori dell'UE"
+
+msgid "Nein"
+msgstr "No"
+
+msgid "Nein-Stimmen"
+msgstr "Voti contrari"
+
+msgid "Neue Angebote können ebenfalls nicht erstellt werden, bis ein ADMIN die Auktion erneut aktiviert."
+msgstr "Non è inoltre possibile creare nuove offerte finché un ADMIN non riattiva l'asta."
+
+msgid "Neue Besprechung"
+msgstr "Nuova riunione"
+
+msgid "Neue Buchung"
+msgstr "Nuova registrazione"
+
+msgid "Neue Datenpanne melden"
+msgstr "Segnala nuova violazione dei dati"
+
+msgid "Neue DSFA anlegen"
+msgstr "Crea nuova DPIA"
+
+msgid "Neue Kostenstelle anlegen"
+msgstr "Crea nuovo centro di costo"
+
+msgid "Neue Mailingliste anlegen"
+msgstr "Crea nuova mailing list"
+
+msgid "Neue Sitzung anlegen"
+msgstr "Crea nuova seduta"
+
+msgid "Neue TOM anlegen"
+msgstr "Crea nuova TOM"
+
+msgid "Neue Version hochladen"
+msgstr "Carica nuova versione"
+
+msgid "Neuen Antrag einreichen"
+msgstr "Presenta nuova richiesta"
+
+msgid "Neuen AVV-Eintrag anlegen"
+msgstr "Crea nuova voce del contratto di trattamento dati"
+
+msgid "Neuen Spender anlegen"
+msgstr "Crea nuovo donatore"
+
+msgid "Neuer Dokumenttitel"
+msgstr "Nuovo titolo del documento"
+
+msgid "Neuer Ordnername"
+msgstr "Nuovo nome cartella"
+
+msgid "Neuer Stream-Schlüssel (leer lassen = unverändert lassen)"
+msgstr "Nuova chiave di streaming (lasciare vuoto per non modificare)"
+
+msgid "Neues Angebot erstellen"
+msgstr "Crea nuova offerta"
+
+msgid "Neues Gremium anlegen"
+msgstr "Crea nuovo organo"
+
+msgid "Neues Konto anlegen"
+msgstr "Crea nuovo conto"
+
+msgid "Neues Passwort"
+msgstr "Nuova password"
+
+msgid "Neues Passwort (mind. %1 Zeichen)"
+msgstr "Nuova password (almeno %1 caratteri)"
+
+msgid "Neues Passwort bestätigen"
+msgstr "Conferma nuova password"
+
+msgid "Neues Passwort erfüllt nicht die Anforderungen (mind. 12, max. 128 Zeichen, nicht die E-Mail-Adresse)."
+msgstr "La nuova password non soddisfa i requisiti (min. 12, max. 128 caratteri, non l'indirizzo e-mail)."
+
+msgid "Neues Passwort setzen"
+msgstr "Imposta nuova password"
+
+msgid "Neues Projekt einreichen"
+msgstr "Presenta nuovo progetto"
+
+msgid "Neues Stream-Ziel anlegen"
+msgstr "Crea nuova destinazione di streaming"
+
+msgid "Nicht festgelegt"
+msgstr "Non definito"
+
+msgid "Nicht gefunden."
+msgstr "Non trovato."
+
+msgid "Niedrig"
+msgstr "Basso"
+
+msgid "Niedrige Latenz"
+msgstr "Bassa latenza"
+
+msgid "niemand zugewiesen"
+msgstr "nessuno assegnato"
+
+msgid "Noch kein Gewichtsverlauf vorhanden."
+msgstr "Nessuno storico dei pesi ancora disponibile."
+
+msgid "Noch kein Konto? Jetzt Mitglied werden."
+msgstr "Non ha ancora un account? Diventi membro ora."
+
+msgid "Noch keine Abonnentinnen und Abonnenten."
+msgstr "Nessun abbonato o abbonata ancora presente."
+
+msgid "Noch keine aktiven Konten -- zuerst oben mindestens zwei Konten anlegen."
+msgstr "Nessun conto attivo ancora -- creare prima almeno due conti sopra."
+
+msgid "Noch keine Anträge vorhanden."
+msgstr "Nessuna richiesta presente ancora."
+
+msgid "Noch keine Anwesenheit erfasst."
+msgstr "Nessuna presenza rilevata ancora."
+
+msgid "Noch keine Aufzeichnungen."
+msgstr "Nessuna registrazione ancora."
+
+msgid "Noch keine Auktionen vorhanden."
+msgstr "Nessuna asta presente ancora."
+
+msgid "Noch keine AVV-Einträge angelegt."
+msgstr "Nessuna voce del contratto di trattamento dati creata ancora."
+
+msgid "Noch keine Beschlüsse erfasst."
+msgstr "Nessuna delibera registrata ancora."
+
+msgid "Noch keine Bestätigung des rechtlichen Hinweistexts erfolgt."
+msgstr "Il testo informativo legale non è stato ancora confermato."
+
+msgid "Noch keine Buchungen."
+msgstr "Nessuna registrazione ancora."
+
+msgid "Noch keine Datenpannen erfasst."
+msgstr "Nessuna violazione dei dati registrata ancora."
+
+msgid "Noch keine DSFA-Einträge angelegt."
+msgstr "Nessuna voce DPIA creata ancora."
+
+msgid "Noch keine Export-/Wiederherstellungsversuche protokolliert."
+msgstr "Nessun tentativo di esportazione/ripristino registrato ancora."
+
+msgid "Noch keine externen Spender angelegt."
+msgstr "Nessun donatore esterno creato ancora."
+
+msgid "noch keine Gebote, Startpreis: %1"
+msgstr "nessuna offerta ancora, prezzo di partenza: %1"
+
+msgid "Noch keine Gremien vorhanden."
+msgstr "Nessun organo presente ancora."
+
+msgid "Noch keine Konten angelegt."
+msgstr "Nessun conto creato ancora."
+
+msgid "Noch keine Kostenstellen angelegt."
+msgstr "Nessun centro di costo creato ancora."
+
+msgid "Noch keine Mailinglisten."
+msgstr "Nessuna mailing list ancora."
+
+msgid "Noch keine Mitglieder in diesem Gremium."
+msgstr "Nessun membro in questo organo ancora."
+
+msgid "Noch keine Nachrichten."
+msgstr "Nessun messaggio ancora."
+
+msgid "Noch keine Notizen."
+msgstr "Nessuna nota ancora."
+
+msgid "Noch keine Ordner vorhanden."
+msgstr "Nessuna cartella presente ancora."
+
+msgid "Noch keine Politiker-Profile vorhanden."
+msgstr "Nessun profilo di politico presente ancora."
+
+msgid "Noch keine postalischen Versandvorgänge protokolliert."
+msgstr "Nessun invio postale registrato ancora."
+
+msgid "Noch keine Projekte eingereicht."
+msgstr "Nessun progetto presentato ancora."
+
+msgid "Noch keine Sitzungen vorhanden."
+msgstr "Nessuna seduta presente ancora."
+
+msgid "Noch keine Stream-Ziele angelegt."
+msgstr "Nessuna destinazione di streaming creata ancora."
+
+msgid "Noch keine Tagesordnungspunkte."
+msgstr "Nessun punto all'ordine del giorno ancora."
+
+msgid "Noch keine TOM-Einträge angelegt."
+msgstr "Nessuna voce TOM creata ancora."
+
+msgid "Noch keine Version hochgeladen."
+msgstr "Nessuna versione caricata ancora."
+
+msgid "Noch keine Verteilung berechnet."
+msgstr "Nessuna distribuzione calcolata ancora."
+
+msgid "Noch nicht festgelegt"
+msgstr "Non ancora definito"
+
+msgid "Noch niemand verbunden."
+msgstr "Nessuno connesso ancora."
+
+msgid "Notiz (optional)"
+msgstr "Nota (facoltativa)"
+
+msgid "Notiz / erstellt von"
+msgstr "Nota / creato da"
+
+msgid "Notizblock darf nicht leer sein."
+msgstr "Il blocco note non può essere vuoto."
+
+msgid "Notizblock entfernt."
+msgstr "Blocco note rimosso."
+
+msgid "Notizblock hinzufügen"
+msgstr "Aggiungi blocco note"
+
+msgid "Notizblock ist zu lang (max. %1 Zeichen)."
+msgstr "Il blocco note è troppo lungo (max. %1 caratteri)."
+
+msgid "Notizen"
+msgstr "Note"
+
+msgid "Notizen (optional)"
+msgstr "Note (facoltative)"
+
+msgid "Notizen als Dokument gespeichert."
+msgstr "Note salvate come documento."
+
+msgid "Notizen als Dokument speichern"
+msgstr "Salva note come documento"
+
+msgid "Nr."
+msgstr "N."
+
+msgid "Nummer"
+msgstr "Numero"
+
+msgid "Nur aktive Profile"
+msgstr "Solo profili attivi"
+
+msgid "Nur bei Kontotyp „Aktivkonto\" wählbar."
+msgstr "Selezionabile solo con tipo di conto \"Conto attivo\"."
+
+msgid "Nur bei Kontotyp „Eigenkapitalkonto\" wählbar."
+msgstr "Selezionabile solo con tipo di conto \"Conto di capitale proprio\"."
+
+msgid "Nur Mitglieder"
+msgstr "Solo membri"
+
+msgid "Obergrenze speichern"
+msgstr "Salva soglia massima"
+
+msgid "Offen"
+msgstr "Aperto"
+
+msgid "Offen: %1 | Bezahlt: %2 | Gesamt: %3"
+msgstr "Aperto: %1 | Pagato: %2 | Totale: %3"
+
+msgid "Offene Anträge"
+msgstr "Richieste aperte"
+
+msgid "Offenlegungspflicht (Rechenschaftsbericht)"
+msgstr "Obbligo di divulgazione (relazione sulla gestione)"
+
+msgid "Ohne diese Option lehnt der Server die Wiederherstellung ab, sobald die Zielorganisation nicht leer ist -- das ist der sichere Standardpfad. Aktivieren Sie diese Option nur, wenn Sie absichtlich in eine bereits befüllte Organisation wiederherstellen wollen."
+msgstr "Senza questa opzione il server rifiuta il ripristino non appena l'organizzazione di destinazione non è vuota -- questo è il percorso predefinito sicuro. Attivi questa opzione solo se intende ripristinare deliberatamente in un'organizzazione già popolata."
+
+msgid "Ohne Referenz (z. B. Gutschrift)"
+msgstr "Senza riferimento (es. accredito)"
+
+msgid "Option"
+msgstr "Opzione"
+
+msgid "Optionen (kommagetrennt, mind. 2)"
+msgstr "Opzioni (separate da virgola, almeno 2)"
+
+msgid "Orakel angehalten (HALT) -- kein aktueller Kurs verfügbar."
+msgstr "Oracolo sospeso (HALT) -- nessuna quotazione attuale disponibile."
+
+msgid "Orakel-Konfiguration aktualisiert."
+msgstr "Configurazione dell'oracolo aggiornata."
+
+msgid "Ordner"
+msgstr "Cartella"
+
+msgid "Ordner \"%1\" angelegt."
+msgstr "Cartella \"%1\" creata."
+
+msgid "Ordner anlegen"
+msgstr "Crea cartella"
+
+msgid "Ort"
+msgstr "Luogo"
+
+msgid "Ort (optional)"
+msgstr "Luogo (facoltativo)"
+
+msgid "Ort: %1"
+msgstr "Luogo: %1"
+
+msgid "Owncast"
+msgstr "Owncast"
+
+msgid "Passiva"
+msgstr "Passività"
+
+msgid "Passivkonto"
+msgstr "Conto passivo"
+
+msgid "Passwort"
+msgstr "Password"
+
+msgid "Passwort (mind. %1 Zeichen)"
+msgstr "Password (almeno %1 caratteri)"
+
+msgid "Passwort ändern"
+msgstr "Cambia password"
+
+msgid "Passwort bestätigen"
+msgstr "Conferma password"
+
+msgid "Passwort geändert."
+msgstr "Password modificata."
+
+msgid "Passwort vergessen?"
+msgstr "Password dimenticata?"
+
+msgid "Passwort wurde geändert -- bitte melden Sie sich neu an."
+msgstr "La password è stata modificata -- effettui nuovamente l'accesso."
+
+msgid "Peer-Transfer"
+msgstr "Trasferimento tra pari"
+
+msgid "PeerTube"
+msgstr "PeerTube"
+
+msgid "Peg (Einheiten je LTR)"
+msgstr "Peg (unità per LTR)"
+
+msgid "Peg: Einheiten des Anker-Assets je LTR"
+msgstr "Peg: unità dell'asset di ancoraggio per LTR"
+
+msgid "Per Post versenden"
+msgstr "Invia per posta"
+
+msgid "Periodenbeginn (JJJJ-MM-TT)"
+msgstr "Inizio periodo (AAAA-MM-GG)"
+
+msgid "Periodenende (JJJJ-MM-TT)"
+msgstr "Fine periodo (AAAA-MM-GG)"
+
+msgid "Person (nur bei \"Einzelne Person\")"
+msgstr "Persona (solo per \"Persona singola\")"
+
+msgid "Pflicht"
+msgstr "Obbligatorio"
+
+msgid "Pflichten"
+msgstr "Obblighi"
+
+msgid "Pflichten:"
+msgstr "Obblighi:"
+
+msgid "Plattform"
+msgstr "Piattaforma"
+
+msgid "PLZ (optional)"
+msgstr "CAP (facoltativo)"
+
+msgid "Politiker"
+msgstr "Politico"
+
+msgid "Politiker-Profile"
+msgstr "Profili dei politici"
+
+msgid "Politiker-Profile konnten nicht geladen werden."
+msgstr "Impossibile caricare i profili dei politici."
+
+msgid "Politiker-Ranking aktivieren"
+msgstr "Attiva classifica politici"
+
+msgid "Politiker-Ranking aktiviert."
+msgstr "Classifica politici attivata."
+
+msgid "Politiker-Ranking deaktivieren"
+msgstr "Disattiva classifica politici"
+
+msgid "Politiker-Ranking deaktiviert."
+msgstr "Classifica politici disattivata."
+
+msgid "Politiker-Ranking:"
+msgstr "Classifica politici:"
+
+msgid "Politiker-Status erteilen"
+msgstr "Concedi stato di politico"
+
+msgid "Politiker-Status für %1 erteilt."
+msgstr "Stato di politico concesso a %1."
+
+msgid "Politiker-Status seit %1 (erteilt von %2)"
+msgstr "Stato di politico dal %1 (concesso da %2)"
+
+msgid "Politiker-Status von %1 widerrufen."
+msgstr "Stato di politico revocato per %1."
+
+msgid "Politiker-Status widerrufen"
+msgstr "Revoca stato di politico"
+
+msgid "Politiker-Status widerrufen bestätigen"
+msgstr "Conferma revoca dello stato di politico"
+
+msgid "Position"
+msgstr "Posizione"
+
+msgid "Position auf der Tagesordnung"
+msgstr "Posizione nell'ordine del giorno"
+
+msgid "Postfach"
+msgstr "Casella postale"
+
+msgid "Postversand"
+msgstr "Invio postale"
+
+msgid "Postversand an %1 ist fehlgeschlagen: %2"
+msgstr "L'invio postale a %1 non è riuscito: %2"
+
+msgid "Postversand fehlgeschlagen."
+msgstr "Invio postale non riuscito."
+
+msgid "Postversand ist auf %1 Empfänger begrenzt (aktuell ausgewählt: %2) -- für mehr Empfänger bitte das PDF herunterladen und selbst verteilen."
+msgstr "L'invio postale è limitato a %1 destinatari (attualmente selezionati: %2) -- per un numero maggiore di destinatari scarichi il PDF e provveda alla distribuzione autonomamente."
+
+msgid "Postversand ist derzeit deaktiviert --"
+msgstr "L'invio postale è attualmente disattivato --"
+
+msgid "Postversand ist derzeit deaktiviert (`OrganizationSettings.postalMailEnabled = false`) -- alle Versandaktionen (Beitragsrechnung, Spendenbescheinigung, Einladung) schlagen fehl, bis eine Administratorin oder ein Administrator dies aktiviert. Diese Einstellung hat in dieser Version noch keine eigene Oberfläche."
+msgstr "L'invio postale è attualmente disattivato (`OrganizationSettings.postalMailEnabled = false`) -- tutte le azioni di invio (fattura di contribuzione, ricevuta di donazione, invito) falliscono finché un amministratore o un'amministratrice non le attiva. Questa impostazione non ha ancora un'interfaccia propria in questa versione."
+
+msgid "Postversand-Übersicht"
+msgstr "Panoramica invii postali"
+
+msgid "Preis: %1 LTR (Vickrey-Zweitpreis)"
+msgstr "Prezzo: %1 LTR (secondo prezzo alla Vickrey)"
+
+msgid "Preisstand: %1:%2:%3 Uhr"
+msgstr "Aggiornamento prezzo: %1:%2:%3"
+
+msgid "Price-Oracle"
+msgstr "Price-Oracle"
+
+msgid "Privatverkauf"
+msgstr "Vendita privata"
+
+msgid "Projekt"
+msgstr "Progetto"
+
+msgid "Projekt \"%1\" abgelehnt."
+msgstr "Progetto \"%1\" respinto."
+
+msgid "Projekt \"%1\" eingereicht."
+msgstr "Progetto \"%1\" presentato."
+
+msgid "Projekt \"%1\" genehmigt."
+msgstr "Progetto \"%1\" approvato."
+
+msgid "Projekt ablehnen"
+msgstr "Respingi progetto"
+
+msgid "Projekt einreichen"
+msgstr "Presenta progetto"
+
+msgid "Projekt genehmigen"
+msgstr "Approva progetto"
+
+msgid "Projekte"
+msgstr "Progetti"
+
+msgid "Projekteinsatz"
+msgstr "Impiego di progetto"
+
+msgid "Projekteinsatz freigegeben"
+msgstr "Impiego di progetto approvato"
+
+msgid "Projektrücklage (%1)"
+msgstr "Riserva di progetto (%1)"
+
+msgid "Protokoll"
+msgstr "Verbale"
+
+msgid "Protokoll aller bisherigen Export-/Wiederherstellungsversuche -- rein informativ, keine Aktionen auf dieser Liste."
+msgstr "Registro di tutti i precedenti tentativi di esportazione/ripristino -- puramente informativo, nessuna azione disponibile in questo elenco."
+
+msgid "Protokoll aller bisherigen postalischen Versandvorgänge -- rein informativ, keine Aktionen auf dieser Liste. Neue Versandvorgänge werden direkt bei der jeweiligen Beitragsrechnung, Spendenbescheinigung oder Sitzungseinladung ausgelöst."
+msgstr "Registro di tutti gli invii postali precedenti -- puramente informativo, nessuna azione disponibile in questo elenco. Nuovi invii vengono avviati direttamente dalla relativa fattura di contribuzione, ricevuta di donazione o invito alla seduta."
+
+msgid "Protokoll: %1"
+msgstr "Verbale: %1"
+
+msgid "Protokollentwurf erzeugen"
+msgstr "Genera bozza di verbale"
+
+msgid "Protokollführung (optional)"
+msgstr "Verbalizzazione (facoltativa)"
+
+msgid "Protokollführung: %1"
+msgstr "Verbalizzazione: %1"
+
+msgid "Protokolliert von (ID)"
+msgstr "Verbalizzato da (ID)"
+
+msgid "Prüfergebnis"
+msgstr "Esito della verifica"
+
+msgid "Prüfprotokoll"
+msgstr "Registro delle verifiche"
+
+msgid "Prüftermin (JJJJ-MM-TT, optional)"
+msgstr "Data di verifica (AAAA-MM-GG, facoltativa)"
+
+msgid "Prüftermin überschritten -- als inaktiv markiert, bis neu geprüft."
+msgstr "Data di verifica superata -- contrassegnato come inattivo finché non viene riverificato."
+
+msgid "Prüftermin: %1"
+msgstr "Data di verifica: %1"
+
+msgid "Prüfung"
+msgstr "Verifica"
+
+msgid "Quellen: %1"
+msgstr "Fonti: %1"
+
+msgid "Quorum erreicht"
+msgstr "Quorum raggiunto"
+
+msgid "Quorum in % (0-100)"
+msgstr "Quorum in % (0-100)"
+
+msgid "Quorum nicht erreicht"
+msgstr "Quorum non raggiunto"
+
+msgid "Quorum: %1%"
+msgstr "Quorum: %1%"
+
+msgid "Radierer"
+msgstr "Gomma"
+
+msgid "Raum-Kennung aus Ihrer Einladung"
+msgstr "Identificativo della stanza dal Suo invito"
+
+msgid "Räume erstellen und verteilen"
+msgstr "Crea e distribuisci stanze"
+
+msgid "Re-Aggregation derselben Einnahmen/Ausgaben-Buchungen wie die GuV nach den vier §§ 51-68 AO Gemeinnützigkeitssphären -- kein eigener Berichtszeitraum, die Summen stimmen für denselben Zeitraum exakt mit der GuV überein."
+msgstr "Ri-aggregazione delle stesse registrazioni di entrate/uscite del conto economico secondo i quattro ambiti di utilità pubblica §§51-68 AO -- nessun periodo di riferimento proprio, i totali corrispondono esattamente al conto economico per lo stesso periodo."
+
+msgid "Reaktion gespeichert."
+msgstr "Reazione salvata."
+
+msgid "Reaktion zurückgezogen."
+msgstr "Reazione ritirata."
+
+msgid "Rechnung (PDF)"
+msgstr "Fattura (PDF)"
+
+msgid "Rechtsgrundlage: %1"
+msgstr "Base giuridica: %1"
+
+msgid "Referenz"
+msgstr "Riferimento"
+
+msgid "Rein diagnostisch -- prüft die Orakel-Gesundheit, ohne LTR zu minten."
+msgstr "Puramente diagnostico -- verifica lo stato di salute dell'oracolo senza coniare LTR."
+
+msgid "Risikobewertung (optional)"
+msgstr "Valutazione del rischio (facoltativa)"
+
+msgid "Risikostufe"
+msgstr "Livello di rischio"
+
+msgid "Rohdaten ein-/ausblenden"
+msgstr "Mostra/nascondi dati grezzi"
+
+msgid "Rolle"
+msgstr "Ruolo"
+
+msgid "Rolle: %1 · Sitzung gültig bis %2"
+msgstr "Ruolo: %1 · sessione valida fino al %2"
+
+msgid "RTMP-Basis-URL"
+msgstr "URL base RTMP"
+
+msgid "RTMP-URL Ihrer Owncast-Instanz, z. B. rtmp://owncast.example.org:1935/live"
+msgstr "URL RTMP della Sua istanza Owncast, ad es. rtmp://owncast.example.org:1935/live"
+
+msgid "RTMP-URL Ihrer PeerTube-Instanz, z. B. rtmp://peertube.example.org:1935/live"
+msgstr "URL RTMP della Sua istanza PeerTube, ad es. rtmp://peertube.example.org:1935/live"
+
+msgid "RTMP-Ziel-URL, z. B. für Facebook Live, LinkedIn Live oder Vimeo"
+msgstr "URL RTMP di destinazione, ad es. per Facebook Live, LinkedIn Live o Vimeo"
+
+msgid "Rücklagenart"
+msgstr "Tipo di riserva"
+
+msgid "Rücklagenbewegungen (§62 AO)"
+msgstr "Movimenti di riserva (§62 AO)"
+
+msgid "Rücklagenzuführung"
+msgstr "Accantonamento a riserva"
+
+msgid "Saldo"
+msgstr "Saldo"
+
+msgid "Sämtliche Politiker-Funktionen (Profile, Bewertungen, Vergabe/Widerruf, Snapshot) sind bis zur erneuten Aktivierung nicht mehr erreichbar -- bestehende Profile/Bewertungen bleiben dabei erhalten, sie werden nur unerreichbar, nicht gelöscht."
+msgstr "Tutte le funzioni relative ai politici (profili, valutazioni, concessione/revoca, snapshot) non sono più raggiungibili fino alla riattivazione -- i profili e le valutazioni esistenti restano conservati, diventano solo irraggiungibili, non vengono eliminati."
+
+msgid "Schadenshöhe"
+msgstr "Entità del danno"
+
+msgid "Schenkung"
+msgstr "Donazione"
+
+msgid "Schiedsanordnungs-Referenz (Pflichtfeld)"
+msgstr "Riferimento all'ordinanza arbitrale (campo obbligatorio)"
+
+msgid "Schiedsverfahren-Korrekturübertragung"
+msgstr "Trasferimento correttivo da procedimento arbitrale"
+
+msgid "Schiedsverfahren-Korrekturübertragung bestätigen"
+msgstr "Conferma trasferimento correttivo da procedimento arbitrale"
+
+msgid "Schließen"
+msgstr "Chiudi"
+
+msgid "Schlüssel gesetzt am %1 von %2"
+msgstr "Chiave impostata il %1 da %2"
+
+msgid "Schlusssaldo"
+msgstr "Saldo finale"
+
+msgid "Schlussstand"
+msgstr "Stato finale"
+
+msgid "Schriftführung"
+msgstr "Segreteria"
+
+msgid "Seit (JJJJ-MM-TT)"
+msgstr "Da (AAAA-MM-GG)"
+
+msgid "seit %1"
+msgstr "dal %1"
+
+msgid "seit Gründung"
+msgstr "dalla fondazione"
+
+msgid "Selbstverwaltung"
+msgstr "Autogestione"
+
+msgid "Senden"
+msgstr "Invia"
+
+msgid "Sendungsreferenz: %1"
+msgstr "Riferimento spedizione: %1"
+
+msgid "Seq. %1"
+msgstr "Seq. %1"
+
+msgid "Sequenznummer %1"
+msgstr "Numero di sequenza %1"
+
+msgid "Sichtbar für ADMIN."
+msgstr "Visibile per ADMIN."
+
+msgid "Sichtbar für alle Mitglieder."
+msgstr "Visibile per tutti i membri."
+
+msgid "Sichtbar für BOARD/ADMIN."
+msgstr "Visibile per BOARD/ADMIN."
+
+msgid "Sichtbar für TREASURER/BOARD/ADMIN."
+msgstr "Visibile per TREASURER/BOARD/ADMIN."
+
+msgid "Sichtbarkeit"
+msgstr "Visibilità"
+
+msgid "Sichtbarkeits-Gewicht (LTR)"
+msgstr "Peso di visibilità (LTR)"
+
+msgid "Sie"
+msgstr "Lei"
+
+msgid "Sie bieten %1 auf \"%2\" (%3). Ihr Gebot wird gegen den aktuellen Preis zum Zeitpunkt der Bestätigung ausgewertet, nicht den hier angezeigten -- der Preis kann sich seit dem letzten Abruf geändert haben."
+msgstr "Sta offrendo %1 su \"%2\" (%3). La Sua offerta verrà valutata rispetto al prezzo attuale al momento della conferma, non a quello qui mostrato -- il prezzo potrebbe essere cambiato dall'ultimo aggiornamento."
+
+msgid "Sie buchen eine Spende von %1 für %2. Der aktuelle Kurs wird beim Bestätigen live abgefragt; der genaue LTR-Betrag steht erst nach Bestätigung fest."
+msgstr "Sta registrando una donazione di %1 per %2. La quotazione attuale verrà interrogata in tempo reale alla conferma; l'importo esatto in LTR sarà noto solo dopo la conferma."
+
+msgid "Sie führen jetzt."
+msgstr "Ora è Lei a condurre."
+
+msgid "Sie haben noch keine Auktionen eingestellt."
+msgstr "Non ha ancora messo all'asta nulla."
+
+msgid "Sie haben noch keine Gebote abgegeben."
+msgstr "Non ha ancora presentato offerte."
+
+msgid "Sie haben noch nicht bewertet."
+msgstr "Non ha ancora valutato."
+
+msgid "Sie haben noch nicht reagiert."
+msgstr "Non ha ancora reagito."
+
+msgid "Sie kaufen \"%1\" sofort für %2."
+msgstr "Sta acquistando \"%1\" immediatamente per %2."
+
+msgid "Sie können das Politiker-Ranking im Abschnitt \"Einstellungen\" unten aktivieren."
+msgstr "Può attivare la classifica politici nella sezione \"Impostazioni\" qui sotto."
+
+msgid "Sie nehmen als Teilnehmer teil."
+msgstr "Sta partecipando come partecipante."
+
+msgid "Sie sind ausgetreten."
+msgstr "È uscito/a."
+
+msgid "Sie sind in einem Breakout-Raum."
+msgstr "È in una stanza breakout."
+
+msgid "Sie sind Moderator"
+msgstr "È moderatore/moderatrice"
+
+msgid "Sie sind Moderator dieser Besprechung."
+msgstr "È il moderatore/la moderatrice di questa riunione."
+
+msgid "Sie sind über Ihren eigenen Heimserver angemeldet. Geben Sie die Raum-Kennung aus Ihrer Einladung ein, um einer Besprechung auf diesem Server beizutreten."
+msgstr "Ha effettuato l'accesso tramite il Suo server domestico. Inserisca l'identificativo della stanza dal Suo invito per partecipare a una riunione su questo server."
+
+msgid "Sie sind zur Besprechung „%1\"%2 eingeladen.\n1. Melden Sie sich über Ihren eigenen Heimserver an.\n2. Öffnen Sie %3/#/conference\n3. Geben Sie dort diese Raum-Kennung ein: %4"
+msgstr "È stato/a invitato/a alla riunione „%1\"%2.\n1. Effettui l'accesso tramite il Suo server domestico.\n2. Apra %3/#/conference\n3. Inserisca lì questo identificativo di stanza: %4"
+
+msgid "Sie starten jetzt einen Live-Stream zu: %1. Diese Ziele sind sofort öffentlich sichtbar -- die Übertragung kann NICHT zurückgeholt werden, sobald Teilnehmende gesprochen haben."
+msgstr "Sta per avviare uno streaming live verso: %1. Queste destinazioni sono immediatamente visibili pubblicamente -- la trasmissione NON può essere ritirata una volta che i partecipanti hanno parlato."
+
+msgid "Sie überschreibt Daten mit dem Stand aus der hochgeladenen Datei. Bereits vorhandene Daten in der Zielorganisation können dabei verloren gehen."
+msgstr "Sovrascrive i dati con lo stato del file caricato. I dati già presenti nell'organizzazione di destinazione potrebbero andare persi."
+
+msgid "Sie übertragen %1 an %2 (%3). Es gibt keine Storno-/Widerruffunktion -- die einzige Korrekturmöglichkeit ist eine Schiedsverfahren-Korrekturübertragung durch TREASURER/BOARD/ADMIN."
+msgstr "Sta trasferendo %1 a %2 (%3). Non esiste una funzione di storno/revoca -- l'unica possibilità di correzione è un trasferimento correttivo da procedimento arbitrale da parte di TREASURER/BOARD/ADMIN."
+
+msgid "Sie übertragen %1 von %2 an %3 (%4). Schiedsanordnungs-Referenz: „%5\"."
+msgstr "Sta trasferendo %1 da %2 a %3 (%4). Riferimento all'ordinanza arbitrale: „%5\"."
+
+msgid "Sie wurden dem Breakout-Raum \"%1\" zugewiesen."
+msgstr "Le è stata assegnata la stanza breakout \"%1\"."
+
+msgid "Sie wurden in den Hauptraum zurückgeholt."
+msgstr "È stato/a riportato/a nella stanza principale."
+
+msgid "Sitzung"
+msgstr "Seduta"
+
+msgid "Sitzung \"%1\" wurde angelegt."
+msgstr "La seduta \"%1\" è stata creata."
+
+msgid "Sitzung (ID)"
+msgstr "Seduta (ID)"
+
+msgid "Sitzung abgelaufen -- bitte erneut anmelden."
+msgstr "Sessione scaduta -- effettui nuovamente l'accesso."
+
+msgid "Sitzung abgesagt."
+msgstr "Seduta annullata."
+
+msgid "Sitzung absagen"
+msgstr "Annulla seduta"
+
+msgid "Sitzung als durchgeführt markiert."
+msgstr "Seduta contrassegnata come svolta."
+
+msgid "Sitzung anlegen"
+msgstr "Crea seduta"
+
+msgid "Sitzung oben auswählen, um Details zu sehen."
+msgstr "Selezionare una seduta sopra per visualizzarne i dettagli."
+
+msgid "Sitzungen"
+msgstr "Sedute"
+
+msgid "Sitzungsleitung (optional)"
+msgstr "Presidenza della seduta (facoltativa)"
+
+msgid "Sitzungsleitung: %1"
+msgstr "Presidenza della seduta: %1"
+
+msgid "Snapshot auslösen"
+msgstr "Avvia snapshot"
+
+msgid "Snapshot für %1 Profil(e) berechnet."
+msgstr "Snapshot calcolato per %1 profilo/i."
+
+msgid "Sofort kaufen"
+msgstr "Acquista subito"
+
+msgid "Sofort kaufen für %1"
+msgstr "Acquista subito per %1"
+
+msgid "Sofortkauf abgeschlossen: \"%1\" für %2."
+msgstr "Acquisto immediato completato: \"%1\" per %2."
+
+msgid "Sofortkauf bestätigen"
+msgstr "Conferma acquisto immediato"
+
+msgid "Sofortkauf ist verbindlich -- kann nicht rückgängig gemacht werden."
+msgstr "L'acquisto immediato è vincolante -- non può essere annullato."
+
+msgid "Sofortkaufpreis"
+msgstr "Prezzo di acquisto immediato"
+
+msgid "Sofortkaufpreis (LTR, optional -- muss über dem Startpreis liegen)"
+msgstr "Prezzo di acquisto immediato (LTR, facoltativo -- deve superare il prezzo di partenza)"
+
+msgid "Soll"
+msgstr "Avere"
+
+msgid "Soll/Haben"
+msgstr "Dare/Avere"
+
+msgid "Sonstiges"
+msgstr "Altro"
+
+msgid "Speichern"
+msgstr "Salva"
+
+msgid "Spende zu LTR konvertieren"
+msgstr "Converti donazione in LTR"
+
+msgid "Spende: %1"
+msgstr "Donazione: %1"
+
+msgid "Spenden-Konvertierung bestätigen"
+msgstr "Conferma conversione donazione"
+
+msgid "Spendenbescheinigung (PDF)"
+msgstr "Ricevuta di donazione (PDF)"
+
+msgid "Spendenbescheinigung %1"
+msgstr "Ricevuta di donazione %1"
+
+msgid "Spendenbescheinigung per Post versenden"
+msgstr "Invia ricevuta di donazione per posta"
+
+msgid "Spendenbetrag"
+msgstr "Importo della donazione"
+
+msgid "Spendendes Mitglied (ID)"
+msgstr "Membro donatore (ID)"
+
+msgid "Spendenprüfung"
+msgstr "Verifica della donazione"
+
+msgid "Spendenrecht-Pflichten-Report (§25 PartG)"
+msgstr "Rapporto sugli obblighi in materia di diritto delle donazioni (§25 PartG)"
+
+msgid "Spendenwährung"
+msgstr "Valuta della donazione"
+
+msgid "Spender"
+msgstr "Donatore"
+
+msgid "Spender \"%1\" wurde angelegt."
+msgstr "Il donatore \"%1\" è stato creato."
+
+msgid "Spender anlegen"
+msgstr "Crea donatore"
+
+msgid "Spender deaktivieren"
+msgstr "Disattiva donatore"
+
+msgid "Spender wurde deaktiviert."
+msgstr "Il donatore è stato disattivato."
+
+msgid "Spender-Zuordnung (optional)"
+msgstr "Assegnazione donatore (facoltativa)"
+
+msgid "Spender: %1 (extern)"
+msgstr "Donatore: %1 (esterno)"
+
+msgid "Spender: ausdrücklich anonym"
+msgstr "Donatore: espressamente anonimo"
+
+msgid "Spender: Mitglied %1"
+msgstr "Donatore: membro %1"
+
+msgid "Spenderkategorie"
+msgstr "Categoria donatore"
+
+msgid "Spendertyp"
+msgstr "Tipo di donatore"
+
+msgid "Sphäre"
+msgstr "Ambito"
+
+msgid "Sprecher"
+msgstr "Relatore"
+
+msgid "Staatsangehörigkeit"
+msgstr "Nazionalità"
+
+msgid "Stand: %1"
+msgstr "Aggiornato al: %1"
+
+msgid "Standard"
+msgstr "Standard"
+
+msgid "Startpreis"
+msgstr "Prezzo di partenza"
+
+msgid "Startpreis (LTR)"
+msgstr "Prezzo di partenza (LTR)"
+
+msgid "Status"
+msgstr "Stato"
+
+msgid "Status:"
+msgstr "Stato:"
+
+msgid "Status: %1"
+msgstr "Stato: %1"
+
+msgid "Stellv. Vorsitz"
+msgstr "Vicepresidenza"
+
+msgid "Stichtag (JJJJ-MM-TT)"
+msgstr "Data di riferimento (AAAA-MM-GG)"
+
+msgid "Stichtag: %1"
+msgstr "Data di riferimento: %1"
+
+msgid "Straße (optional)"
+msgstr "Via (facoltativa)"
+
+msgid "Stream beenden"
+msgstr "Termina stream"
+
+msgid "Stream beenden? Die Übertragung zu %1 endet sofort."
+msgstr "Terminare lo stream? La trasmissione verso %1 termina immediatamente."
+
+msgid "Stream fortsetzen"
+msgstr "Riprendi stream"
+
+msgid "Stream unterbrechen"
+msgstr "Sospendi stream"
+
+msgid "Stream unterbrochen."
+msgstr "Stream sospeso."
+
+msgid "Stream wird beendet …"
+msgstr "Terminazione dello stream in corso …"
+
+msgid "Stream wird fortgesetzt …"
+msgstr "Ripresa dello stream in corso …"
+
+msgid "Stream-Schlüssel"
+msgstr "Chiave di streaming"
+
+msgid "Stream-Ziel \"%1\" wurde angelegt."
+msgstr "La destinazione di streaming \"%1\" è stata creata."
+
+msgid "Stream-Ziel \"%1\" wurde gelöscht."
+msgstr "La destinazione di streaming \"%1\" è stata eliminata."
+
+msgid "Stream-Ziel aktiviert."
+msgstr "Destinazione di streaming attivata."
+
+msgid "Stream-Ziel anlegen"
+msgstr "Crea destinazione di streaming"
+
+msgid "Stream-Ziel bearbeiten"
+msgstr "Modifica destinazione di streaming"
+
+msgid "Stream-Ziel deaktiviert."
+msgstr "Destinazione di streaming disattivata."
+
+msgid "Stream-Ziel löschen"
+msgstr "Elimina destinazione di streaming"
+
+msgid "Stream-Ziele"
+msgstr "Destinazioni di streaming"
+
+msgid "Streaming-Ziel"
+msgstr "Destinazione di streaming"
+
+msgid "Stumm"
+msgstr "Muto"
+
+msgid "Suche nach Name"
+msgstr "Cerca per nome"
+
+msgid "Suchen"
+msgstr "Cerca"
+
+msgid "Summe %1"
+msgstr "Totale %1"
+
+msgid "Summe Aktiva = Summe Passiva + Eigenkapital?"
+msgstr "Somma attività = somma passività + capitale proprio?"
+
+msgid "Summe Passiva + Eigenkapital"
+msgstr "Somma passività + capitale proprio"
+
+msgid "System"
+msgstr "Sistema"
+
+msgid "Systemvorgang (kein Akteur hinterlegt)"
+msgstr "Operazione di sistema (nessun attore registrato)"
+
+msgid "Tagesordnung"
+msgstr "Ordine del giorno"
+
+msgid "Tagesordnungspunkt \"%1\" hinzugefügt."
+msgstr "Punto all'ordine del giorno \"%1\" aggiunto."
+
+msgid "Tagesordnungspunkt (optional)"
+msgstr "Punto all'ordine del giorno (facoltativo)"
+
+msgid "Tagesordnungspunkt entfernt."
+msgstr "Punto all'ordine del giorno rimosso."
+
+msgid "Tagesordnungspunkt hinzufügen"
+msgstr "Aggiungi punto all'ordine del giorno"
+
+msgid "Technisch-organisatorische Maßnahmen (TOM)"
+msgstr "Misure tecniche e organizzative (TOM)"
+
+msgid "Teilnehmende"
+msgstr "Partecipanti"
+
+msgid "Teilnehmende: %1"
+msgstr "Partecipanti: %1"
+
+msgid "Teilnehmer entfernen"
+msgstr "Rimuovi partecipante"
+
+msgid "Termin (JJJJ-MM-TTTHH:MM, z. B. 2026-08-15T18:00)"
+msgstr "Data e ora (AAAA-MM-GGTHH:MM, es. 2026-08-15T18:00)"
+
+msgid "Termin (JJJJ-MM-TTTHH:MM)"
+msgstr "Data e ora (AAAA-MM-GGTHH:MM)"
+
+msgid "Terminieren"
+msgstr "Pianifica"
+
+msgid "Terminierung"
+msgstr "Pianificazione"
+
+msgid "Text"
+msgstr "Testo"
+
+msgid "Titel"
+msgstr "Titolo"
+
+msgid "Titel darf nicht leer sein und höchstens %1 Zeichen haben."
+msgstr "Il titolo non può essere vuoto e deve avere al massimo %1 caratteri."
+
+msgid "Token (aus der E-Mail bzw. vom Betreiber)"
+msgstr "Token (dall'e-mail o dal gestore)"
+
+msgid "TOM"
+msgstr "TOM"
+
+msgid "TOM \"%1\" wurde %2."
+msgstr "TOM \"%1\" %2."
+
+msgid "TOM anlegen"
+msgstr "Crea TOM"
+
+msgid "Top-Politiker"
+msgstr "Politici principali"
+
+msgid "Transparenzregister-Bericht"
+msgstr "Rapporto sul registro della trasparenza"
+
+msgid "Trennungsgebot"
+msgstr "Principio di separazione"
+
+msgid "Treuhänder-Werkzeuge"
+msgstr "Strumenti fiduciari"
+
+msgid "Twitch"
+msgstr "Twitch"
+
+msgid "Typ"
+msgstr "Tipo"
+
+msgid "Überholt -- Überprüfung fällig"
+msgstr "Superato -- verifica in scadenza"
+
+msgid "Übersicht"
+msgstr "Panoramica"
+
+msgid "Übersicht, wie viele Datensätze in welchem Bereich zu Ihrer Person gespeichert sind, sowie ein vollständiger, maschinenlesbarer Export Ihrer Daten."
+msgstr "Panoramica di quanti record sono memorizzati in quale area riguardo alla Sua persona, oltre a un'esportazione completa e leggibile da macchina dei Suoi dati."
+
+msgid "Übertragung ausgeführt: %1 von %2 an %3"
+msgstr "Trasferimento eseguito: %1 da %2 a %3"
+
+msgid "Übertragung empfangen"
+msgstr "Trasferimento ricevuto"
+
+msgid "Übertragung gesendet"
+msgstr "Trasferimento inviato"
+
+msgid "Unbekannter Fehler"
+msgstr "Errore sconosciuto"
+
+msgid "unbekanntes Ziel"
+msgstr "destinazione sconosciuta"
+
+msgid "Unentschieden -- die höchsten beiden Gebotskörbe waren gleich hoch. Kein Gewinner, keine Belastung; der Antrag wird zurückgestellt (POSTPONED)."
+msgstr "Parità -- i due cesti di offerte più alti erano di pari importo. Nessun vincitore, nessun addebito; la richiesta viene rinviata (POSTPONED)."
+
+msgid "Unerwarteter Fehler (HTTP %1): %2"
+msgstr "Errore imprevisto (HTTP %1): %2"
+
+msgid "Ungelesene Nachrichten: %1"
+msgstr "Messaggi non letti: %1"
+
+msgid "Ungültige Anfrage."
+msgstr "Richiesta non valida."
+
+msgid "Unterbrochen"
+msgstr "Sospeso"
+
+msgid "Unternehmen mit über 25 % staatlicher Beteiligung"
+msgstr "Impresa con oltre il 25% di partecipazione statale"
+
+msgid "Unterzeichnet"
+msgstr "Firmato"
+
+msgid "Unterzeichnet am (JJJJ-MM-TT, optional)"
+msgstr "Firmato il (AAAA-MM-GG, facoltativo)"
+
+msgid "Unverzügliche Meldepflicht"
+msgstr "Obbligo di comunicazione immediata"
+
+msgid "Unwiderruflich widerrufen"
+msgstr "Revocato irrevocabilmente"
+
+msgid "Upload fehlgeschlagen."
+msgstr "Caricamento non riuscito."
+
+msgid "Ursprüngliches Gewicht"
+msgstr "Peso originale"
+
+msgid "v%1: %2 (%3 Bytes, hochgeladen von %4 am %5)"
+msgstr "v%1: %2 (%3 byte, caricato da %4 il %5)"
+
+msgid "Verarbeiter"
+msgstr "Responsabile del trattamento"
+
+msgid "Verarbeitungsbeschreibung"
+msgstr "Descrizione del trattamento"
+
+msgid "Verarbeitungsverzeichnis (AVV)"
+msgstr "Registro delle attività di trattamento"
+
+msgid "Verarbeitungsverzeichnis (AVV), technisch-organisatorische Maßnahmen (TOM), Datenschutz-Folgenabschätzungen (DSFA) und Datenpannenmeldungen -- Dokumentations- und Arbeitswerkzeug für eine vom Vorstand getroffene Entscheidung, nie automatisierte Rechtsberatung."
+msgstr "Registro delle attività di trattamento, misure tecniche e organizzative (TOM), valutazioni d'impatto sulla protezione dei dati (DPIA) e notifiche di violazione dei dati -- strumento di documentazione e di lavoro per una decisione presa dal consiglio direttivo, mai consulenza legale automatizzata."
+
+msgid "Verarbeitungszweck"
+msgstr "Finalità del trattamento"
+
+msgid "Verbindlichkeiten"
+msgstr "Debiti"
+
+msgid "Verbindung unterbrochen -- wird automatisch neu verbunden …"
+msgstr "Connessione interrotta -- riconnessione automatica in corso …"
+
+msgid "Verbindung wird geprüft …"
+msgstr "Verifica della connessione in corso …"
+
+msgid "Verbindung wird hergestellt …"
+msgstr "Connessione in corso …"
+
+msgid "Verfahren"
+msgstr "Procedura"
+
+msgid "Verfügbarkeitskontrolle"
+msgstr "Controllo di disponibilità"
+
+msgid "Verkäufer: %1 · Endet: %2 · Gebote: %3"
+msgstr "Venditore/Venditrice: %1 · Termina: %2 · Offerte: %3"
+
+msgid "Verkauft an %1 für %2."
+msgstr "Venduto a %1 per %2."
+
+msgid "Verlassen"
+msgstr "Abbandona"
+
+msgid "Verlauf"
+msgstr "Cronologia"
+
+msgid "Vermögensverwaltung"
+msgstr "Gestione patrimoniale"
+
+msgid "Versand einer Einladung an ausgewählte Mitglieder -- als PDF zum Herunterladen (kostenlos, bis zu 1.000 Empfänger) oder per Post (kostenpflichtig über Letterxpress, bis zu 50 Empfänger, erfordert eine vollständige Anschrift jedes Empfängers)."
+msgstr "Invio di un invito ai membri selezionati -- come PDF da scaricare (gratuito, fino a 1.000 destinatari) o per posta (a pagamento tramite Letterxpress, fino a 50 destinatari, richiede l'indirizzo completo di ogni destinatario)."
+
+msgid "Versendet"
+msgstr "Inviato"
+
+msgid "Version %1"
+msgstr "Versione %1"
+
+msgid "Version hochgeladen."
+msgstr "Versione caricata."
+
+msgid "Versionen"
+msgstr "Versioni"
+
+msgid "Versionen von \"%1\":"
+msgstr "Versioni di \"%1\":"
+
+msgid "Verstanden"
+msgstr "Capito"
+
+msgid "Verteilung berechnen"
+msgstr "Calcola distribuzione"
+
+msgid "Verteilung für %1 bis %2 berechnet (%3 Projekt(e))."
+msgstr "Distribuzione calcolata per %1-%2 (%3 progetto/i)."
+
+msgid "Verteilungshistorie"
+msgstr "Cronologia delle distribuzioni"
+
+msgid "Vertreten durch (nur bei \"Vertreten\")"
+msgstr "Rappresentato da (solo per \"Rappresentato\")"
+
+msgid "vertreten durch %1"
+msgstr "rappresentato da %1"
+
+msgid "Verwalten"
+msgstr "Gestisci"
+
+msgid "Verwalten Sie die externen RTMP-Ziele (YouTube, Twitch, PeerTube, Owncast, generisches RTMP), zu denen Moderatorinnen und Moderatoren eine Besprechung live übertragen können. Der Stream-Schlüssel wird verschlüsselt gespeichert und nach dem Speichern nie wieder angezeigt."
+msgstr "Gestisca le destinazioni RTMP esterne (YouTube, Twitch, PeerTube, Owncast, RTMP generico) verso cui moderatori e moderatrici possono trasmettere in diretta una riunione. La chiave di streaming viene memorizzata in forma crittografata e non viene più mostrata dopo il salvataggio."
+
+msgid "Verwaltet die Anker-Bindung des Libertaler (LTR) an ein reales Asset (aktuell: Bitcoin) und bucht eingegangene Spenden als LTR-Mint. Sichtbar für TREASURER/BOARD/ADMIN, Konfigurationsänderungen nur für ADMIN."
+msgstr "Gestisce l'ancoraggio del Libertaler (LTR) a un asset reale (attualmente: Bitcoin) e registra le donazioni ricevute come conio di LTR. Visibile per TREASURER/BOARD/ADMIN, modifiche alla configurazione solo per ADMIN."
+
+msgid "Verwaltung"
+msgstr "Amministrazione"
+
+msgid "Verwaltung (BOARD/ADMIN)"
+msgstr "Amministrazione (BOARD/ADMIN)"
+
+msgid "Verwerfen und aktuelle Version übernehmen"
+msgstr "Scarta e adotta la versione attuale"
+
+msgid "Videokonferenz"
+msgstr "Videoconferenza"
+
+msgid "Videokonferenz ist auf diesem Server nicht konfiguriert."
+msgstr "La videoconferenza non è configurata su questo server."
+
+msgid "Videokonferenzen konnten nicht geladen werden."
+msgstr "Impossibile caricare le videoconferenze."
+
+msgid "Vier-Sphären-Ergebnisrechnung"
+msgstr "Rendiconto dei quattro ambiti"
+
+msgid "Vollständigen Datenexport herunterladen (JSON)"
+msgstr "Scarica esportazione completa dei dati (JSON)"
+
+msgid "Vollständiger Export und Wiederherstellung aller Organisationsdaten (Datenbank + Dokumente) -- nur für Administratorinnen und Administratoren."
+msgstr "Esportazione e ripristino completi di tutti i dati dell'organizzazione (database + documenti) -- solo per amministratori e amministratrici."
+
+msgid "Von (Geschäftsjahr)"
+msgstr "Da (esercizio)"
+
+msgid "Von (JJJJ-MM-TT, optional)"
+msgstr "Da (AAAA-MM-GG, facoltativo)"
+
+msgid "Von (JJJJ-MM-TT, Pflichtfeld)"
+msgstr "Da (AAAA-MM-GG, campo obbligatorio)"
+
+msgid "Von (JJJJ-MM-TTTHH:MM:SS, optional)"
+msgstr "Da (AAAA-MM-GGTHH:MM:SS, facoltativo)"
+
+msgid "Von Sequenznummer (optional)"
+msgstr "Da numero di sequenza (facoltativo)"
+
+msgid "Vorher"
+msgstr "Prima"
+
+msgid "Vorläufig ablehnen"
+msgstr "Respingi in via preliminare"
+
+msgid "Vorläufiges Passwort (mind. %1 Zeichen)"
+msgstr "Password provvisoria (almeno %1 caratteri)"
+
+msgid "Vorsitz"
+msgstr "Presidenza"
+
+msgid "Vorstand"
+msgstr "Consiglio direttivo"
+
+msgid "Vorstand & Transparenzregister"
+msgstr "Consiglio direttivo e registro della trasparenza"
+
+msgid "Vorstandsentscheidung"
+msgstr "Decisione del consiglio direttivo"
+
+msgid "Vorstandsmitglied ernennen"
+msgstr "Nomina membro del consiglio direttivo"
+
+msgid "Vorstandsmitgliedschaft"
+msgstr "Appartenenza al consiglio direttivo"
+
+msgid "Vorstandsmitgliedschaft beenden"
+msgstr "Termina appartenenza al consiglio direttivo"
+
+msgid "Vortragend (optional)"
+msgstr "Relatore/Relatrice (facoltativo)"
+
+msgid "Vortragend: %1"
+msgstr "Relatore/Relatrice: %1"
+
+msgid "Vote"
+msgstr "Votazione"
+
+msgid "Vote abbrechen"
+msgstr "Annulla votazione"
+
+msgid "Vote abgebrochen."
+msgstr "Votazione annullata."
+
+msgid "Vote eröffnen"
+msgstr "Apri votazione"
+
+msgid "Vote eröffnet."
+msgstr "Votazione aperta."
+
+msgid "Vote geschlossen."
+msgstr "Votazione chiusa."
+
+msgid "Vote schließen"
+msgstr "Chiudi votazione"
+
+msgid "Weiter"
+msgstr "Avanti"
+
+msgid "Weiter bearbeiten"
+msgstr "Continua a modificare"
+
+msgid "Weitere Teilnehmende (%1)"
+msgstr "Altri partecipanti (%1)"
+
+msgid "Weitergabekontrolle"
+msgstr "Controllo della trasmissione"
+
+msgid "Weiterleitungspflicht"
+msgstr "Obbligo di inoltro"
+
+msgid "Weiterleitungspflichtige anonyme Spenden"
+msgstr "Donazioni anonime soggette a obbligo di inoltro"
+
+msgid "Wertobergrenze (LTR, leer = kein Limit)"
+msgstr "Soglia massima di valore (LTR, vuoto = nessun limite)"
+
+msgid "Wertobergrenze (LTR)"
+msgstr "Soglia massima di valore (LTR)"
+
+msgid "Wertobergrenze aktualisiert."
+msgstr "Soglia massima di valore aggiornata."
+
+msgid "Wertobergrenze setzen"
+msgstr "Imposta soglia massima di valore"
+
+msgid "Wertobergrenze:"
+msgstr "Soglia massima di valore:"
+
+msgid "Whiteboard"
+msgstr "Lavagna"
+
+msgid "Whiteboard als Dokument gespeichert."
+msgstr "Lavagna salvata come documento."
+
+msgid "Whiteboard als Dokument speichern"
+msgstr "Salva lavagna come documento"
+
+msgid "Whiteboard geleert."
+msgstr "Lavagna svuotata."
+
+msgid "Whiteboard leeren"
+msgstr "Svuota lavagna"
+
+msgid "Widerrufen am %1 von %2"
+msgstr "Revocato il %1 da %2"
+
+msgid "Wiederbeschaffungsrücklage (%1)"
+msgstr "Riserva di sostituzione (%1)"
+
+msgid "Wiederherstellen"
+msgstr "Ripristina"
+
+msgid "Wiederherstellung"
+msgstr "Ripristino"
+
+msgid "Wiederherstellung bestätigen"
+msgstr "Conferma ripristino"
+
+msgid "Wiederherstellung erfolgreich abgeschlossen."
+msgstr "Ripristino completato con successo."
+
+msgid "Willkommen, %1"
+msgstr "Benvenuto/a, %1"
+
+msgid "Willkommen, %1."
+msgstr "Benvenuto/a, %1."
+
+msgid "Wird aufgezeichnet"
+msgstr "In registrazione"
+
+msgid "Wird ausgeführt …"
+msgstr "Esecuzione in corso …"
+
+msgid "Wird automatisch auf dieselbe Sitzung terminiert wie \"%1\"."
+msgstr "Verrà programmato automaticamente sulla stessa seduta di \"%1\"."
+
+msgid "wird beendet"
+msgstr "in fase di terminazione"
+
+msgid "Wird beendet …"
+msgstr "Terminazione in corso …"
+
+msgid "Wird ein bestehender Antrag zum Ändern ausgewählt, wird dessen Gremium automatisch verwendet -- das Zielgremium oben wird dann ignoriert."
+msgstr "Se viene selezionata una richiesta esistente da modificare, il suo organo viene utilizzato automaticamente -- l'organo di destinazione indicato sopra viene quindi ignorato."
+
+msgid "Wird geladen …"
+msgstr "Caricamento in corso …"
+
+msgid "wird gestartet"
+msgstr "in fase di avvio"
+
+msgid "Wird gestartet …"
+msgstr "Avvio in corso …"
+
+msgid "Wird zusammengeführt …"
+msgstr "Unione in corso …"
+
+msgid "Wirklich entfernen?"
+msgstr "Rimuovere davvero?"
+
+msgid "Wirtschaft"
+msgstr "Economia"
+
+msgid "Wirtschaftlicher Geschäftsbetrieb"
+msgstr "Attività economica d'impresa"
+
+msgid "YouTube Live"
+msgstr "YouTube Live"
+
+msgid "Zeigt offene Melde-/Offenlegungs-/Weiterleitungspflichten nach §25 PartG für ein Kalenderjahr, damit der Vorstand sie manuell abarbeiten kann. Berechnet keine unzulässigen Spenden -- solche werden beim Buchen serverseitig blockiert und können hier nie erscheinen."
+msgstr "Mostra gli obblighi aperti di comunicazione/divulgazione/inoltro ai sensi del §25 PartG per un anno solare, affinché il consiglio direttivo possa gestirli manualmente. Non calcola donazioni non ammissibili -- queste vengono bloccate lato server al momento della registrazione e non possono mai comparire qui."
+
+msgid "Zeitpunkt: %1"
+msgstr "Momento: %1"
+
+msgid "Zeitraum"
+msgstr "Periodo"
+
+msgid "Zeitraum: %1 bis %2"
+msgstr "Periodo: dal %1 al %2"
+
+msgid "Zeitraum: Geschäftsjahr %1 bis %2"
+msgstr "Periodo: esercizio %1-%2"
+
+msgid "Zeitstempel: %1"
+msgstr "Timestamp: %1"
+
+msgid "Ziel überschreiben (Zielorganisation enthält bereits Daten)"
+msgstr "Sovrascrivi destinazione (l'organizzazione di destinazione contiene già dati)"
+
+msgid "Ziele auswählen (max. %1):"
+msgstr "Selezionare destinazioni (max. %1):"
+
+msgid "Zielgremium"
+msgstr "Organo di destinazione"
+
+msgid "Zu LTR konvertieren"
+msgstr "Converti in LTR"
+
+msgid "Zuerst alle Änderungsanträge entscheiden"
+msgstr "Decidere prima tutte le mozioni di modifica"
+
+msgid "Zuführung/Auflösung"
+msgstr "Accantonamento/Utilizzo"
+
+msgid "Zugangskontrolle"
+msgstr "Controllo degli accessi"
+
+msgid "Zugriffsebene"
+msgstr "Livello di accesso"
+
+msgid "Zugriffskontrolle"
+msgstr "Controllo degli accessi"
+
+msgid "zuletzt abgerufener Preis: %1"
+msgstr "ultimo prezzo recuperato: %1"
+
+msgid "Zuletzt aktualisiert: %1"
+msgstr "Ultimo aggiornamento: %1"
+
+msgid "Zuletzt bearbeitet von %1"
+msgstr "Ultima modifica di %1"
+
+msgid "Zuletzt bestätigt von %1 am %2 (Hinweistext-Version %3)."
+msgstr "Ultima conferma di %1 il %2 (versione del testo informativo %3)."
+
+msgid "Zum Hauptantrag"
+msgstr "Alla richiesta principale"
+
+msgid "Zum LTR-Konto ->"
+msgstr "Al conto LTR ->"
+
+msgid "Zur Anmeldung"
+msgstr "Vai al login"
+
+msgid "Zurück zum Hauptraum"
+msgstr "Torna alla stanza principale"
+
+msgid "Zurückgestellt (reserviert, ungenutzt)"
+msgstr "Rinviato (riservato, non utilizzato)"
+
+msgid "Zurücksetzen anfordern"
+msgstr "Richiedi reimpostazione"
+
+msgid "Zurücksetzen fehlgeschlagen."
+msgstr "Reimpostazione non riuscita."
+
+msgid "Zurückziehen"
+msgstr "Ritira"
+
+msgid "Zusätzlich zur Anonymisierung werden von Ihnen selbst versendete Nachrichten hart gelöscht, soweit dem keine gesetzliche Aufbewahrungspflicht entgegensteht. Von Ihnen empfangene Nachrichten anderer Mitglieder bleiben unberührt."
+msgstr "Oltre all'anonimizzazione, i messaggi da Lei inviati vengono eliminati definitivamente, salvo che non vi si opponga un obbligo legale di conservazione. I messaggi da Lei ricevuti da altri membri restano invariati."
+
+msgid "Zutrittskontrolle"
+msgstr "Controllo degli accessi fisici"
+
+msgid "Zweck (optional)"
+msgstr "Scopo (facoltativo)"
+
+msgid "Zweck: %1"
+msgstr "Scopo: %1"
+
+msgid "Zweckbetrieb"
+msgstr "Attività strumentale"
+
+msgid "Zwischengespeichert (Cached)"
+msgstr "Memorizzato nella cache"

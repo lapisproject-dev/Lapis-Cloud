@@ -10,6 +10,8 @@ import io.kvision.html.div
 import io.kvision.html.h1
 import io.kvision.html.h2
 import io.kvision.html.p
+import io.kvision.i18n.gettext
+import io.kvision.i18n.tr
 import io.kvision.panel.SimplePanel
 import io.kvision.panel.hPanel
 import io.kvision.panel.vPanel
@@ -110,23 +112,24 @@ fun renderMotionsScreen(container: SimplePanel) {
             width = 800.px
             marginTop = 24.px
         }
-    root.h1("Anträge")
+    root.h1(tr("Anträge"))
 
-    root.h2("Übersicht")
+    root.h2(tr("Übersicht"))
     val filterRow = root.hPanel(spacing = 8) { addCssClasses("align-items-center") }
-    val committeeFilterSelect = filterRow.select(options = listOf("" to "Alle Gremien"), value = "", label = "Gremium")
-    val statusFilterOptions = listOf("" to "Alle Status") + MotionStatus.entries.map { it.name to motionStatusLabel(it) }
-    val statusFilterSelect = filterRow.select(options = statusFilterOptions, value = "", label = "Status")
-    val refreshButton = filterRow.button("Aktualisieren", style = ButtonStyle.OUTLINESECONDARY)
+    val committeeFilterSelect = filterRow.select(options = listOf("" to tr("Alle Gremien")), value = "", label = tr("Gremium"))
+    val statusFilterOptions =
+        listOf("" to tr("Alle Status")) + MotionStatus.entries.map { it.name to motionStatusLabel(it) }
+    val statusFilterSelect = filterRow.select(options = statusFilterOptions, value = "", label = tr("Status"))
+    val refreshButton = filterRow.button(tr("Aktualisieren"), style = ButtonStyle.OUTLINESECONDARY)
     val motionListPanel = root.vPanel(spacing = 6)
 
-    root.h2("Details")
+    root.h2(tr("Details"))
     val detailPanel = root.vPanel(spacing = 10)
-    detailPanel.p("Antrag oben auswählen, um Details zu sehen.")
+    detailPanel.p(tr("Antrag oben auswählen, um Details zu sehen."))
 
-    root.h2("Neuen Antrag einreichen")
+    root.h2(tr("Neuen Antrag einreichen"))
     val submissionPanel = root.vPanel(spacing = 6)
-    submissionPanel.p("Wird geladen …") { addCssClasses("text-muted small") }
+    submissionPanel.p(tr("Wird geladen …")) { addCssClasses("text-muted small") }
 
     var committees: List<CommitteeDto> = emptyList()
     var currentDetailMotionId: String? = null
@@ -149,7 +152,7 @@ fun renderMotionsScreen(container: SimplePanel) {
             val status = statusFilterSelect.value?.takeIf { it.isNotBlank() }?.let { MotionStatus.valueOf(it) }
             val motions = guarded { rpcService<IGovernanceService>().listMotions(committeeId, status) } ?: return@launch
             if (motions.isEmpty()) {
-                motionListPanel.p("Noch keine Anträge vorhanden.")
+                motionListPanel.p(tr("Noch keine Anträge vorhanden."))
                 return@launch
             }
             renderMotionList(motionListPanel, motions) { selected ->
@@ -163,7 +166,7 @@ fun renderMotionsScreen(container: SimplePanel) {
 
     AppScope.launch {
         committees = guarded { rpcService<IGovernanceService>().listCommittees(activeOnly = false) } ?: emptyList()
-        committeeFilterSelect.options = listOf("" to "Alle Gremien") + committees.map { it.id to it.name }
+        committeeFilterSelect.options = listOf("" to tr("Alle Gremien")) + committees.map { it.id to it.name }
         committeeFilterSelect.value = ""
         refreshMotions()
 
@@ -195,7 +198,7 @@ fun renderMotionsScreen(container: SimplePanel) {
 
         submissionPanel.removeAll()
         if (submittableCommittees.isEmpty()) {
-            submissionPanel.p("Keine Berechtigung, Anträge einzureichen.")
+            submissionPanel.p(tr("Keine Berechtigung, Anträge einzureichen."))
         } else {
             // Eligible amendment targets: every non-terminal MAIN Motion (amendsMotionId == null)
             // across the Committees the caller may submit to -- see [renderMotionSubmissionForm]
@@ -255,16 +258,21 @@ private fun renderMotionRow(
             if (indented) addCssClasses("ps-4")
         }
     val headerRow = row.hPanel(spacing = 8) { addCssClasses("align-items-center") }
-    val title = if (isAmendment) "↳ Änderungsantrag: ${motion.title}" else motion.title
+    val title = if (isAmendment) gettext("↳ Änderungsantrag: %1", motion.title) else motion.title
     headerRow.div(title) { addCssClasses("flex-grow-1 fw-bold") }
-    if (isAmendment) headerRow.typeBadge("Änderungsantrag", "secondary")
+    if (isAmendment) headerRow.typeBadge(tr("Änderungsantrag"), "secondary")
     headerRow.statusBadge(motionStatusLabel(motion.status), motionStatusColor(motion.status))
     row.div(
-        "${motion.targetCommitteeName} · eingereicht von ${motion.submitterDisplayName} am ${motion.submittedAt}",
+        gettext(
+            "%1 · eingereicht von %2 am %3",
+            motion.targetCommitteeName,
+            motion.submitterDisplayName,
+            motion.submittedAt,
+        ),
     ) { addCssClasses("text-muted small") }
 
     val actionRow = row.hPanel(spacing = 8)
-    val showButton = actionRow.button("Details anzeigen", style = ButtonStyle.OUTLINESECONDARY)
+    val showButton = actionRow.button(tr("Details anzeigen"), style = ButtonStyle.OUTLINESECONDARY)
     showButton.onClick { onSelect(motion) }
 }
 
@@ -284,25 +292,28 @@ private fun renderMotionSubmissionForm(
     onSubmitted: () -> Unit,
 ) {
     val committeeOptions = submittableCommittees.map { it.id to it.name }
-    val committeeSelect = panel.select(options = committeeOptions, value = submittableCommittees.firstOrNull()?.id, label = "Zielgremium")
+    val committeeSelect =
+        panel.select(options = committeeOptions, value = submittableCommittees.firstOrNull()?.id, label = tr("Zielgremium"))
     val amendsOptions =
-        listOf("" to "-- kein (neuer Hauptantrag) --") +
-            amendableMotions.map { (committee, motion) -> motion.id to "${committee.name}: ${motion.title}" }
-    val amendsSelect = panel.select(options = amendsOptions, value = "", label = "Ändert bestehenden Antrag (optional)")
+        listOf("" to tr("-- kein (neuer Hauptantrag) --")) +
+            amendableMotions.map { (committee, motion) -> motion.id to gettext("%1: %2", committee.name, motion.title) }
+    val amendsSelect = panel.select(options = amendsOptions, value = "", label = tr("Ändert bestehenden Antrag (optional)"))
     panel.div(
-        "Wird ein bestehender Antrag zum Ändern ausgewählt, wird dessen Gremium automatisch verwendet -- " +
-            "das Zielgremium oben wird dann ignoriert.",
+        tr(
+            "Wird ein bestehender Antrag zum Ändern ausgewählt, wird dessen Gremium automatisch verwendet -- " +
+                "das Zielgremium oben wird dann ignoriert.",
+        ),
     ) { addCssClasses("text-muted small") }
-    val titleInput = panel.text(label = "Titel")
-    val rationaleInput = panel.text(label = "Begründung")
-    val textInput = panel.textArea(label = "Antragstext", rows = 4)
+    val titleInput = panel.text(label = tr("Titel"))
+    val rationaleInput = panel.text(label = tr("Begründung"))
+    val textInput = panel.textArea(label = tr("Antragstext"), rows = 4)
     val errorBox =
         panel.div().apply {
             addCssClass("text-danger")
             hide()
         }
 
-    val submitButton = panel.button("Antrag einreichen", style = ButtonStyle.PRIMARY)
+    val submitButton = panel.button(tr("Antrag einreichen"), style = ButtonStyle.PRIMARY)
     submitButton.onClick {
         errorBox.hide()
         val amendsId = amendsSelect.value?.takeIf { it.isNotBlank() }
@@ -317,7 +328,7 @@ private fun renderMotionSubmissionForm(
         val text = textInput.value.orEmpty().trim()
 
         if (targetCommitteeId == null || !Validation.isNonBlank(title) || !Validation.isNonBlank(text)) {
-            errorBox.content = "Bitte Zielgremium (oder einen zu ändernden Antrag), Titel und Antragstext angeben."
+            errorBox.content = tr("Bitte Zielgremium (oder einen zu ändernden Antrag), Titel und Antragstext angeben.")
             errorBox.show()
             return@onClick
         }
@@ -338,7 +349,7 @@ private fun renderMotionSubmissionForm(
                 }
             submitButton.disabled = false
             if (result != null) {
-                notifySuccess("Antrag \"$title\" wurde eingereicht.")
+                notifySuccess(gettext("Antrag \"%1\" wurde eingereicht.", title))
                 titleInput.value = null
                 rationaleInput.value = null
                 textInput.value = null
@@ -366,7 +377,7 @@ private fun renderMotionDetail(
     onChanged: () -> Unit,
 ) {
     panel.removeAll()
-    panel.p("Wird geladen …")
+    panel.p(tr("Wird geladen …"))
     AppScope.launch {
         val motion = guarded { rpcService<IGovernanceService>().getMotion(motionId) } ?: return@launch
         val roster =
@@ -428,18 +439,30 @@ private fun renderMotionMeta(
     onChanged: () -> Unit,
 ) {
     val headerRow = panel.hPanel(spacing = 8) { addCssClasses("align-items-center") }
-    val title = if (motion.amendsMotionId != null) "Änderungsantrag: ${motion.title}" else motion.title
+    val title = if (motion.amendsMotionId != null) gettext("Änderungsantrag: %1", motion.title) else motion.title
     headerRow.h2(title) { addCssClasses("h4 flex-grow-1") }
-    if (motion.amendsMotionId != null) headerRow.typeBadge("Änderungsantrag", "secondary")
+    if (motion.amendsMotionId != null) headerRow.typeBadge(tr("Änderungsantrag"), "secondary")
     headerRow.statusBadge(motionStatusLabel(motion.status), motionStatusColor(motion.status))
 
     panel.div(
-        "Gremium: ${motion.targetCommitteeName} · eingereicht von ${motion.submitterDisplayName} am ${motion.submittedAt}",
+        gettext(
+            "Gremium: %1 · eingereicht von %2 am %3",
+            motion.targetCommitteeName,
+            motion.submitterDisplayName,
+            motion.submittedAt,
+        ),
     ) { addCssClasses("text-muted small") }
     if (motion.rationale.isNotBlank()) panel.p(motion.rationale) { addCssClass("mb-0") }
     panel.p(motion.effectiveText) { addCssClass("mb-0") }
     motion.reviewedByDisplayName?.let { reviewer ->
-        panel.div("Geprüft von $reviewer am ${motion.reviewedAt}${motion.reviewNote?.let { " -- $it" } ?: ""}") {
+        panel.div(
+            gettext(
+                "Geprüft von %1 am %2%3",
+                reviewer,
+                motion.reviewedAt,
+                motion.reviewNote?.let { " -- $it" } ?: "",
+            ),
+        ) {
             addCssClasses("text-muted small")
         }
     }
@@ -470,17 +493,17 @@ private fun renderWithdrawAction(
     val managerMayWithdraw = canManage && motion.status != MotionStatus.WITHDRAWN
     if (!submitterMayWithdraw && !managerMayWithdraw) return
 
-    val withdrawButton = panel.button("Zurückziehen", style = ButtonStyle.OUTLINEDANGER)
+    val withdrawButton = panel.button(tr("Zurückziehen"), style = ButtonStyle.OUTLINEDANGER)
     withdrawButton.onClick {
         confirmDialog(
-            title = "Antrag zurückziehen",
-            message = "\"${motion.title}\" wirklich zurückziehen?",
-            confirmLabel = "Zurückziehen",
+            title = tr("Antrag zurückziehen"),
+            message = gettext("\"%1\" wirklich zurückziehen?", motion.title),
+            confirmLabel = tr("Zurückziehen"),
         ) {
             AppScope.launch {
                 val result = guarded { rpcService<IGovernanceService>().withdrawMotion(motion.id) }
                 if (result != null) {
-                    notifyInfo("Antrag wurde zurückgezogen.")
+                    notifyInfo(tr("Antrag wurde zurückgezogen."))
                     onChanged()
                 }
             }
@@ -496,8 +519,8 @@ private fun renderAmendmentContext(
     onSelectMotion: (String) -> Unit,
 ) {
     val callout = panel.vPanel(spacing = 4) { addCssClasses("alert alert-light border") }
-    callout.div("Änderungsantrag zu: ${parent.title}") { addCssClass("fw-bold") }
-    val link = callout.button("Zum Hauptantrag", style = ButtonStyle.OUTLINESECONDARY)
+    callout.div(gettext("Änderungsantrag zu: %1", parent.title)) { addCssClass("fw-bold") }
+    val link = callout.button(tr("Zum Hauptantrag"), style = ButtonStyle.OUTLINESECONDARY)
     link.onClick { onSelectMotion(parent.id) }
 }
 
@@ -508,16 +531,16 @@ private fun renderAmendmentsSection(
     amendments: List<MotionDto>,
     onSelectMotion: (String) -> Unit,
 ) {
-    panel.h2("Änderungsanträge zu diesem Antrag") { addCssClass("h5") }
+    panel.h2(tr("Änderungsanträge zu diesem Antrag")) { addCssClass("h5") }
     if (amendments.isEmpty()) {
-        panel.p("Keine Änderungsanträge.")
+        panel.p(tr("Keine Änderungsanträge."))
         return
     }
     amendments.forEach { amendment ->
         val row = panel.hPanel(spacing = 8) { addCssClasses("border-bottom py-1 align-items-center") }
         row.div(amendment.title) { addCssClasses("flex-grow-1") }
         row.statusBadge(motionStatusLabel(amendment.status), motionStatusColor(amendment.status))
-        val showButton = row.button("Anzeigen", style = ButtonStyle.OUTLINESECONDARY)
+        val showButton = row.button(tr("Anzeigen"), style = ButtonStyle.OUTLINESECONDARY)
         showButton.onClick { onSelectMotion(amendment.id) }
     }
 }
@@ -529,11 +552,11 @@ private fun renderReviewSection(
     onChanged: () -> Unit,
 ) {
     if (!canManage) return
-    panel.h2("Prüfung") { addCssClass("h5") }
-    val noteInput = panel.text(label = "Notiz (optional)")
+    panel.h2(tr("Prüfung")) { addCssClass("h5") }
+    val noteInput = panel.text(label = tr("Notiz (optional)"))
     val actionRow = panel.hPanel(spacing = 8)
-    val acceptButton = actionRow.button("Annehmen", style = ButtonStyle.SUCCESS)
-    val rejectButton = actionRow.button("Vorläufig ablehnen", style = ButtonStyle.OUTLINEDANGER)
+    val acceptButton = actionRow.button(tr("Annehmen"), style = ButtonStyle.SUCCESS)
+    val rejectButton = actionRow.button(tr("Vorläufig ablehnen"), style = ButtonStyle.OUTLINEDANGER)
 
     fun review(decision: MotionReviewDecision) {
         acceptButton.disabled = true
@@ -551,7 +574,11 @@ private fun renderReviewSection(
             rejectButton.disabled = false
             if (result != null) {
                 val message =
-                    if (decision == MotionReviewDecision.ACCEPT) "Antrag angenommen zur Terminierung." else "Antrag vorläufig abgelehnt."
+                    if (decision == MotionReviewDecision.ACCEPT) {
+                        tr("Antrag angenommen zur Terminierung.")
+                    } else {
+                        tr("Antrag vorläufig abgelehnt.")
+                    }
                 notifySuccess(message)
                 onChanged()
             }
@@ -574,25 +601,25 @@ private fun renderScheduleSection(
     onChanged: () -> Unit,
 ) {
     if (!canManage) return
-    panel.h2("Terminierung") { addCssClass("h5") }
+    panel.h2(tr("Terminierung")) { addCssClass("h5") }
 
     if (motion.amendsMotionId != null) {
         val parentMeetingId = parent?.meetingId
         if (parentMeetingId == null) {
-            panel.p("Der Hauptantrag muss zuerst selbst terminiert werden.")
+            panel.p(tr("Der Hauptantrag muss zuerst selbst terminiert werden."))
             return
         }
-        panel.div("Wird automatisch auf dieselbe Sitzung terminiert wie \"${parent.title}\".") {
+        panel.div(gettext("Wird automatisch auf dieselbe Sitzung terminiert wie \"%1\".", parent.title)) {
             addCssClasses("text-muted small")
         }
-        val scheduleButton = panel.button("Jetzt terminieren", style = ButtonStyle.PRIMARY)
+        val scheduleButton = panel.button(tr("Jetzt terminieren"), style = ButtonStyle.PRIMARY)
         scheduleButton.onClick {
             scheduleButton.disabled = true
             AppScope.launch {
                 val result = guarded { rpcService<IGovernanceService>().scheduleMotion(motion.id, parentMeetingId, 0) }
                 scheduleButton.disabled = false
                 if (result != null) {
-                    notifySuccess("Änderungsantrag terminiert.")
+                    notifySuccess(tr("Änderungsantrag terminiert."))
                     onChanged()
                 }
             }
@@ -606,7 +633,7 @@ private fun renderScheduleSection(
                 rpcService<IGovernanceService>().listMeetings(motion.targetCommitteeId, MeetingStatus.PLANNED)
             } ?: emptyList()
         if (meetings.isEmpty()) {
-            panel.p("Keine geplante Sitzung für dieses Gremium verfügbar -- zuerst auf \"Sitzungen\" eine anlegen.")
+            panel.p(tr("Keine geplante Sitzung für dieses Gremium verfügbar -- zuerst auf \"Sitzungen\" eine anlegen."))
             return@launch
         }
         renderScheduleForm(panel, motion, meetings, onChanged)
@@ -619,16 +646,16 @@ private fun renderScheduleForm(
     meetings: List<MeetingDto>,
     onChanged: () -> Unit,
 ) {
-    val meetingOptions = meetings.map { it.id to "${it.title} (${it.scheduledAt})" }
-    val meetingSelect = panel.select(options = meetingOptions, value = meetings.firstOrNull()?.id, label = "Sitzung")
-    val positionInput = panel.text(value = "1", label = "Position auf der Tagesordnung")
+    val meetingOptions = meetings.map { it.id to gettext("%1 (%2)", it.title, it.scheduledAt) }
+    val meetingSelect = panel.select(options = meetingOptions, value = meetings.firstOrNull()?.id, label = tr("Sitzung"))
+    val positionInput = panel.text(value = "1", label = tr("Position auf der Tagesordnung"))
     val errorBox =
         panel.div().apply {
             addCssClass("text-danger")
             hide()
         }
 
-    val scheduleButton = panel.button("Terminieren", style = ButtonStyle.PRIMARY)
+    val scheduleButton = panel.button(tr("Terminieren"), style = ButtonStyle.PRIMARY)
     scheduleButton.onClick {
         errorBox.hide()
         val meetingId = meetingSelect.value
@@ -638,7 +665,7 @@ private fun renderScheduleForm(
                 .trim()
                 .toIntOrNull()
         if (meetingId == null || position == null) {
-            errorBox.content = "Bitte eine Sitzung und eine gültige Position angeben."
+            errorBox.content = tr("Bitte eine Sitzung und eine gültige Position angeben.")
             errorBox.show()
             return@onClick
         }
@@ -647,7 +674,7 @@ private fun renderScheduleForm(
             val result = guarded { rpcService<IGovernanceService>().scheduleMotion(motion.id, meetingId, position) }
             scheduleButton.disabled = false
             if (result != null) {
-                notifySuccess("Antrag \"${motion.title}\" terminiert.")
+                notifySuccess(gettext("Antrag \"%1\" terminiert.", motion.title))
                 onChanged()
             }
         }
@@ -672,34 +699,36 @@ private fun renderResolutionSection(
     onChanged: () -> Unit,
 ) {
     if (!canManage) return
-    panel.h2("Entscheidung") { addCssClass("h5") }
+    panel.h2(tr("Entscheidung")) { addCssClass("h5") }
 
     if (pendingAmendments.isNotEmpty()) {
         val count = pendingAmendments.size
         val warningBox = panel.vPanel(spacing = 4) { addCssClasses("alert alert-warning") }
         val noun = if (count == 1) "1 offenen Änderungsantrag" else "$count offene Änderungsanträge"
-        warningBox.div("Dieser Antrag hat $noun, der/die zuerst entschieden werden muss/müssen:") { addCssClass("fw-bold") }
+        warningBox.div(gettext("Dieser Antrag hat %1, der/die zuerst entschieden werden muss/müssen:", noun)) {
+            addCssClass("fw-bold")
+        }
         pendingAmendments.forEach { amendment ->
             val row = warningBox.hPanel(spacing = 8) { addCssClasses("align-items-center") }
             row.div(amendment.title) { addCssClasses("flex-grow-1") }
             row.statusBadge(motionStatusLabel(amendment.status), motionStatusColor(amendment.status))
-            val link = row.button("Anzeigen", style = ButtonStyle.OUTLINESECONDARY)
+            val link = row.button(tr("Anzeigen"), style = ButtonStyle.OUTLINESECONDARY)
             link.onClick { onSelectMotion(amendment.id) }
         }
         val disabledRow = panel.hPanel(spacing = 8)
-        disabledRow.button("Committee-Quorum entscheiden", style = ButtonStyle.PRIMARY).apply {
+        disabledRow.button(tr("Committee-Quorum entscheiden"), style = ButtonStyle.PRIMARY).apply {
             disabled = true
-            title = "Zuerst alle Änderungsanträge entscheiden"
+            title = tr("Zuerst alle Änderungsanträge entscheiden")
         }
-        disabledRow.button("Meritokratische Vote eröffnen", style = ButtonStyle.OUTLINEPRIMARY).apply {
+        disabledRow.button(tr("Meritokratische Vote eröffnen"), style = ButtonStyle.OUTLINEPRIMARY).apply {
             disabled = true
-            title = "Zuerst alle Änderungsanträge entscheiden"
+            title = tr("Zuerst alle Änderungsanträge entscheiden")
         }
         return
     }
 
     if (activeVote != null && activeVote.status == VoteStatus.OPEN) {
-        panel.p("Es läuft bereits eine meritokratische Vote für diesen Antrag -- siehe Abschnitt \"Vote\" unten.")
+        panel.p(tr("Es läuft bereits eine meritokratische Vote für diesen Antrag -- siehe Abschnitt \"Vote\" unten."))
         return
     }
 
@@ -713,19 +742,19 @@ private fun renderCommitteeQuorumResolutionForm(
     onChanged: () -> Unit,
 ) {
     val formPanel = panel.vPanel(spacing = 4) { addCssClasses("border rounded p-2") }
-    formPanel.p("Committee-Quorum entscheiden") { addCssClass("fw-bold") }
-    val votesYesInput = formPanel.text(value = "0", label = "Ja-Stimmen")
-    val votesNoInput = formPanel.text(value = "0", label = "Nein-Stimmen")
-    val votesAbstainInput = formPanel.text(value = "0", label = "Enthaltungen")
+    formPanel.p(tr("Committee-Quorum entscheiden")) { addCssClass("fw-bold") }
+    val votesYesInput = formPanel.text(value = "0", label = tr("Ja-Stimmen"))
+    val votesNoInput = formPanel.text(value = "0", label = tr("Nein-Stimmen"))
+    val votesAbstainInput = formPanel.text(value = "0", label = tr("Enthaltungen"))
     val statusOptions = ResolutionStatus.entries.map { it.name to resolutionStatusLabel(it) }
-    val statusSelect = formPanel.select(options = statusOptions, value = ResolutionStatus.ADOPTED.name, label = "Status")
+    val statusSelect = formPanel.select(options = statusOptions, value = ResolutionStatus.ADOPTED.name, label = tr("Status"))
     val errorBox =
         formPanel.div().apply {
             addCssClass("text-danger")
             hide()
         }
 
-    val resolveButton = formPanel.button("Entscheidung speichern", style = ButtonStyle.PRIMARY)
+    val resolveButton = formPanel.button(tr("Entscheidung speichern"), style = ButtonStyle.PRIMARY)
     resolveButton.onClick {
         errorBox.hide()
         val votesYes =
@@ -754,7 +783,7 @@ private fun renderCommitteeQuorumResolutionForm(
             votesAbstain < 0 ||
             statusValue == null
         ) {
-            errorBox.content = "Bitte nicht-negative Stimmzahlen und einen Status angeben."
+            errorBox.content = tr("Bitte nicht-negative Stimmzahlen und einen Status angeben.")
             errorBox.show()
             return@onClick
         }
@@ -775,7 +804,7 @@ private fun renderCommitteeQuorumResolutionForm(
                 }
             resolveButton.disabled = false
             if (result != null) {
-                notifySuccess("Entscheidung für \"${motion.title}\" gespeichert.")
+                notifySuccess(gettext("Entscheidung für \"%1\" gespeichert.", motion.title))
                 onChanged()
             }
         }
@@ -788,15 +817,15 @@ private fun renderOpenVoteForm(
     onChanged: () -> Unit,
 ) {
     val formPanel = panel.vPanel(spacing = 4) { addCssClasses("border rounded p-2") }
-    formPanel.p("Meritokratische Vote eröffnen") { addCssClass("fw-bold") }
-    val labelsInput = formPanel.text(value = "YES,NO", label = "Optionen (kommagetrennt, mind. 2)")
+    formPanel.p(tr("Meritokratische Vote eröffnen")) { addCssClass("fw-bold") }
+    val labelsInput = formPanel.text(value = "YES,NO", label = tr("Optionen (kommagetrennt, mind. 2)"))
     val errorBox =
         formPanel.div().apply {
             addCssClass("text-danger")
             hide()
         }
 
-    val openButton = formPanel.button("Vote eröffnen", style = ButtonStyle.OUTLINEPRIMARY)
+    val openButton = formPanel.button(tr("Vote eröffnen"), style = ButtonStyle.OUTLINEPRIMARY)
     openButton.onClick {
         errorBox.hide()
         val labels =
@@ -807,7 +836,7 @@ private fun renderOpenVoteForm(
                 .filter { it.isNotBlank() }
                 .distinct()
         if (labels.size < 2) {
-            errorBox.content = "Bitte mindestens 2 unterschiedliche Optionen angeben."
+            errorBox.content = tr("Bitte mindestens 2 unterschiedliche Optionen angeben.")
             errorBox.show()
             return@onClick
         }
@@ -817,7 +846,7 @@ private fun renderOpenVoteForm(
                 guarded { rpcService<IGovernanceService>().openVote(VoteOpenInput(motionId = motion.id, optionLabels = labels)) }
             openButton.disabled = false
             if (result != null) {
-                notifySuccess("Vote eröffnet.")
+                notifySuccess(tr("Vote eröffnet."))
                 onChanged()
             }
         }
@@ -828,9 +857,9 @@ private fun renderOutcomeSummary(
     panel: SimplePanel,
     motion: MotionDto,
 ) {
-    panel.h2("Ergebnis") { addCssClass("h5") }
+    panel.h2(tr("Ergebnis")) { addCssClass("h5") }
     if (motion.resolutionId == null) {
-        panel.p("Kein Beschluss verknüpft.")
+        panel.p(tr("Kein Beschluss verknüpft."))
         return
     }
     AppScope.launch {
@@ -843,7 +872,7 @@ private fun renderOutcomeSummary(
                 null
             }
         if (resolution == null) {
-            panel.p("Beschluss konnte nicht geladen werden.")
+            panel.p(tr("Beschluss konnte nicht geladen werden."))
         } else {
             renderResolutionRow(panel, resolution)
         }
@@ -866,7 +895,7 @@ private fun renderVoteSection(
     isEligibleToBallot: Boolean,
     onChanged: () -> Unit,
 ) {
-    panel.h2("Vote") { addCssClass("h5") }
+    panel.h2(tr("Vote")) { addCssClass("h5") }
     val headerRow = panel.hPanel(spacing = 8) { addCssClasses("align-items-center") }
     headerRow.div(vote.title) { addCssClasses("flex-grow-1") }
     headerRow.statusBadge(voteStatusLabel(vote.status), voteStatusColor(vote.status))
@@ -875,14 +904,21 @@ private fun renderVoteSection(
         val ballots = guarded { rpcService<IGovernanceService>().listVoteBallots(vote.id) } ?: emptyList()
 
         if (vote.status == VoteStatus.OPEN) {
-            panel.div("${ballots.size} Stimmen abgegeben.") { addCssClasses("text-muted small") }
+            panel.div(gettext("%1 Stimmen abgegeben.", ballots.size)) { addCssClasses("text-muted small") }
             val myBallot = ballots.find { it.memberId == currentMemberId }
             if (myBallot != null) {
                 val optionLabel = vote.options.find { it.id == myBallot.optionId }?.label ?: myBallot.optionId
-                panel.div("Ihr Gebot: $optionLabel, ${myBallot.stakeLtr} LTR") { addCssClasses("text-muted small") }
+                panel.div(gettext("Ihr Gebot: %1, %2 LTR", optionLabel, myBallot.stakeLtr)) {
+                    addCssClasses("text-muted small")
+                }
             }
             if (canManage) {
-                panel.div("Teilnehmende: ${ballots.joinToString(", ") { it.memberDisplayName }.ifBlank { "keine" }}") {
+                panel.div(
+                    gettext(
+                        "Teilnehmende: %1",
+                        ballots.joinToString(", ") { it.memberDisplayName }.ifBlank { "keine" },
+                    ),
+                ) {
                     addCssClasses("text-muted small")
                 }
             }
@@ -896,27 +932,37 @@ private fun renderVoteSection(
             vote.options.forEach { option ->
                 val row = panel.hPanel(spacing = 8) { addCssClasses("align-items-center") }
                 row.div(option.label) { addCssClasses("flex-grow-1") }
-                if (option.id == vote.winnerOptionId) row.statusBadge("Gewinner", "success")
-                row.div("${option.basketTotalLtr} LTR") { addCssClasses("text-muted small") }
+                if (option.id == vote.winnerOptionId) row.statusBadge(tr("Gewinner"), "success")
+                row.div(gettext("%1 LTR", option.basketTotalLtr)) { addCssClasses("text-muted small") }
             }
             if (vote.winnerOptionId == null) {
                 panel.p(
-                    "Unentschieden -- die höchsten beiden Gebotskörbe waren gleich hoch. Kein Gewinner, keine " +
-                        "Belastung; der Antrag wird zurückgestellt (POSTPONED).",
+                    tr(
+                        "Unentschieden -- die höchsten beiden Gebotskörbe waren gleich hoch. Kein Gewinner, keine " +
+                            "Belastung; der Antrag wird zurückgestellt (POSTPONED).",
+                    ),
                 )
             } else {
                 vote.secondPriceLtr?.let { price ->
-                    panel.div("Preis: $price LTR (Vickrey-Zweitpreis)") { addCssClasses("text-muted small") }
+                    panel.div(gettext("Preis: %1 LTR (Vickrey-Zweitpreis)", price)) { addCssClasses("text-muted small") }
                 }
             }
-            panel.h2("Alle Gebote") { addCssClass("h6") }
+            panel.h2(tr("Alle Gebote")) { addCssClass("h6") }
             if (ballots.isEmpty()) {
-                panel.p("Keine Gebote abgegeben.")
+                panel.p(tr("Keine Gebote abgegeben."))
             } else {
                 ballots.forEach { ballot ->
                     val optionLabel = vote.options.find { it.id == ballot.optionId }?.label ?: ballot.optionId
                     val settledSuffix = ballot.settledLtr?.let { " · belastet: $it LTR" } ?: ""
-                    panel.div("${ballot.memberDisplayName}: $optionLabel, ${ballot.stakeLtr} LTR$settledSuffix") {
+                    panel.div(
+                        gettext(
+                            "%1: %2, %3 LTR%4",
+                            ballot.memberDisplayName,
+                            optionLabel,
+                            ballot.stakeLtr,
+                            settledSuffix,
+                        ),
+                    ) {
                         addCssClasses("text-muted small")
                     }
                 }
@@ -932,24 +978,28 @@ private fun renderBallotForm(
     onChanged: () -> Unit,
 ) {
     val formPanel = panel.vPanel(spacing = 4) { addCssClasses("border rounded p-2") }
-    formPanel.p("Gebot abgeben") { addCssClass("fw-bold") }
+    formPanel.p(tr("Gebot abgeben")) { addCssClass("fw-bold") }
     val optionOptions = vote.options.sortedBy { it.position }.map { it.id to it.label }
     val optionSelect =
-        formPanel.select(options = optionOptions, value = currentOptionId ?: optionOptions.firstOrNull()?.first, label = "Option")
-    val stakeInput = formPanel.text(label = "Einsatz (LTR)")
+        formPanel.select(
+            options = optionOptions,
+            value = currentOptionId ?: optionOptions.firstOrNull()?.first,
+            label = tr("Option"),
+        )
+    val stakeInput = formPanel.text(label = tr("Einsatz (LTR)"))
     val errorBox =
         formPanel.div().apply {
             addCssClass("text-danger")
             hide()
         }
 
-    val castButton = formPanel.button("Gebot abgeben", style = ButtonStyle.PRIMARY)
+    val castButton = formPanel.button(tr("Gebot abgeben"), style = ButtonStyle.PRIMARY)
     castButton.onClick {
         errorBox.hide()
         val optionId = optionSelect.value
         val stakeText = stakeInput.value.orEmpty().trim()
         if (optionId == null || !Validation.isPositiveDecimal(stakeText)) {
-            errorBox.content = "Bitte eine Option und einen positiven LTR-Einsatz angeben."
+            errorBox.content = tr("Bitte eine Option und einen positiven LTR-Einsatz angeben.")
             errorBox.show()
             return@onClick
         }
@@ -963,7 +1013,7 @@ private fun renderBallotForm(
                 }
             castButton.disabled = false
             if (result != null) {
-                notifySuccess("Gebot gespeichert.")
+                notifySuccess(tr("Gebot gespeichert."))
                 onChanged()
             }
         }
@@ -978,27 +1028,27 @@ private fun renderVoteControls(
     onChanged: () -> Unit,
 ) {
     val actionRow = panel.hPanel(spacing = 8)
-    val closeButton = actionRow.button("Vote schließen", style = ButtonStyle.SUCCESS)
+    val closeButton = actionRow.button(tr("Vote schließen"), style = ButtonStyle.SUCCESS)
     closeButton.onClick {
         AppScope.launch {
             val result = guarded { rpcService<IGovernanceService>().closeVote(vote.id) }
             if (result != null) {
-                notifySuccess("Vote geschlossen.")
+                notifySuccess(tr("Vote geschlossen."))
                 onChanged()
             }
         }
     }
-    val abortButton = actionRow.button("Vote abbrechen", style = ButtonStyle.OUTLINEDANGER)
+    val abortButton = actionRow.button(tr("Vote abbrechen"), style = ButtonStyle.OUTLINEDANGER)
     abortButton.onClick {
         confirmDialog(
-            title = "Vote abbrechen",
-            message = "\"${vote.title}\" wirklich abbrechen? Es wird keine Abrechnung durchgeführt.",
-            confirmLabel = "Abbrechen",
+            title = tr("Vote abbrechen"),
+            message = gettext("\"%1\" wirklich abbrechen? Es wird keine Abrechnung durchgeführt.", vote.title),
+            confirmLabel = tr("Abbrechen"),
         ) {
             AppScope.launch {
                 val result = guarded { rpcService<IGovernanceService>().abortVote(vote.id) }
                 if (result != null) {
-                    notifyInfo("Vote abgebrochen.")
+                    notifyInfo(tr("Vote abgebrochen."))
                     onChanged()
                 }
             }

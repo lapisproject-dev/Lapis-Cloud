@@ -11,6 +11,8 @@ import io.kvision.html.h1
 import io.kvision.html.h2
 import io.kvision.html.link
 import io.kvision.html.p
+import io.kvision.i18n.gettext
+import io.kvision.i18n.tr
 import io.kvision.modal.Modal
 import io.kvision.panel.SimplePanel
 import io.kvision.panel.hPanel
@@ -66,26 +68,28 @@ fun renderDsgvoRightsScreen(container: SimplePanel) {
             width = 900.px
             marginTop = 24.px
         }
-    root.h1("Meine Daten")
+    root.h1(tr("Meine Daten"))
     root.div(
-        "Ihr Recht auf Auskunft (Art. 15/20 DSGVO) und auf Löschung (\"Recht auf Vergessenwerden\", " +
-            "Art. 17 DSGVO) -- eine Löschung wird hier nur BEANTRAGT, nie sofort ausgeführt. Über den " +
-            "Antrag entscheidet danach eine Administratorin oder ein Administrator gesondert.",
+        tr(
+            "Ihr Recht auf Auskunft (Art. 15/20 DSGVO) und auf Löschung (\"Recht auf Vergessenwerden\", " +
+                "Art. 17 DSGVO) -- eine Löschung wird hier nur BEANTRAGT, nie sofort ausgeführt. Über den " +
+                "Antrag entscheidet danach eine Administratorin oder ein Administrator gesondert.",
+        ),
     ) { addCssClasses("text-muted small") }
 
     renderSelfServiceSection(root)
 
     // D10: additive, not exclusive -- appended below the self-service section, never a second tab.
     if (AppState.hasRole(AccountRole.ADMIN)) {
-        root.h2("Anträge verwalten")
+        root.h2(tr("Anträge verwalten"))
         root.div(
-            "Alle Löschanträge -- genehmigen/ablehnen, und einen genehmigten Antrag endgültig ausführen.",
+            tr("Alle Löschanträge -- genehmigen/ablehnen, und einen genehmigten Antrag endgültig ausführen."),
         ) { addCssClasses("text-muted small") }
         renderAdminQueueSection(root)
 
-        root.h2("DSGVO-Prüfprotokoll")
+        root.h2(tr("DSGVO-Prüfprotokoll"))
         root.div(
-            "Metadaten aller Auskunfts-/Löschvorgänge -- rein informativ, keine Aktionen auf dieser Liste.",
+            tr("Metadaten aller Auskunfts-/Löschvorgänge -- rein informativ, keine Aktionen auf dieser Liste."),
         ) { addCssClasses("text-muted small") }
         renderDsgvoAuditLogSection(root)
     }
@@ -100,25 +104,27 @@ private fun renderSelfServiceSection(root: SimplePanel) {
     // `AppState.session` is always non-null by the time this screen renders -- see Routing.kt.
     val myMemberId = AppState.session?.memberId ?: return
 
-    root.h2("Auskunft") { addCssClass("h4") }
+    root.h2(tr("Auskunft")) { addCssClass("h4") }
     root.div(
-        "Übersicht, wie viele Datensätze in welchem Bereich zu Ihrer Person gespeichert sind, sowie " +
-            "ein vollständiger, maschinenlesbarer Export Ihrer Daten.",
+        tr(
+            "Übersicht, wie viele Datensätze in welchem Bereich zu Ihrer Person gespeichert sind, sowie " +
+                "ein vollständiger, maschinenlesbarer Export Ihrer Daten.",
+        ),
     ) { addCssClasses("text-muted small") }
     val manifestPanel = root.vPanel(spacing = 4)
-    val manifestButton = root.button("Auskunftsübersicht anzeigen", style = ButtonStyle.OUTLINEPRIMARY)
+    val manifestButton = root.button(tr("Auskunftsübersicht anzeigen"), style = ButtonStyle.OUTLINEPRIMARY)
     manifestButton.onClick {
         manifestPanel.removeAll()
-        manifestPanel.p("Wird geladen …") { addCssClasses("text-muted small") }
+        manifestPanel.p(tr("Wird geladen …")) { addCssClasses("text-muted small") }
         AppScope.launch {
             val manifest = guarded { rpcService<IDsgvoService>().exportManifest(myMemberId) }
             manifestPanel.removeAll()
             if (manifest != null) renderExportManifest(manifestPanel, manifest)
         }
     }
-    root.link("Vollständigen Datenexport herunterladen (JSON)", url = dsgvoExportUrl(myMemberId), target = "_blank")
+    root.link(tr("Vollständigen Datenexport herunterladen (JSON)"), url = dsgvoExportUrl(myMemberId), target = "_blank")
 
-    root.h2("Löschung beantragen") { addCssClass("h4") }
+    root.h2(tr("Löschung beantragen")) { addCssClass("h4") }
     val formHolder = root.vPanel(spacing = 6)
     val statusPanel = root.vPanel(spacing = 6)
     renderErasureRequestForm(formHolder, myMemberId) { request -> renderOwnErasureStatusCard(statusPanel, request) }
@@ -128,9 +134,9 @@ private fun renderExportManifest(
     panel: SimplePanel,
     manifest: ExportManifestDto,
 ) {
-    panel.div("Stand: ${manifest.generatedAt}") { addCssClasses("text-muted small") }
+    panel.div(gettext("Stand: %1", manifest.generatedAt)) { addCssClasses("text-muted small") }
     if (manifest.sectionCounts.isEmpty()) {
-        panel.div("Keine Daten in den registrierten Bereichen gefunden.") { addCssClasses("text-muted small") }
+        panel.div(tr("Keine Daten in den registrierten Bereichen gefunden.")) { addCssClasses("text-muted small") }
         return
     }
     manifest.sectionCounts.entries.sortedBy { it.key }.forEach { (section, count) ->
@@ -155,23 +161,23 @@ private fun renderErasureRequestForm(
     val panel = root.vPanel(spacing = 6) { addCssClasses("border rounded p-3") }
 
     val modeOptions = ErasureMode.entries.map { it.name to erasureModeLabel(it) }
-    val modeSelect = panel.select(options = modeOptions, value = ErasureMode.ANONYMIZE.name, label = "Art der Löschung")
+    val modeSelect = panel.select(options = modeOptions, value = ErasureMode.ANONYMIZE.name, label = tr("Art der Löschung"))
     val modeCaption = panel.div(erasureModeDescription(ErasureMode.ANONYMIZE)) { addCssClasses("text-muted small") }
     modeSelect.subscribe { value ->
         modeCaption.content = value?.let { erasureModeDescription(ErasureMode.valueOf(it)) } ?: ""
     }
 
-    val reasonInput = panel.textArea(label = "Begründung", rows = 2)
+    val reasonInput = panel.textArea(label = tr("Begründung"), rows = 2)
     val errorBox =
         panel.div().apply {
             addCssClass("text-danger")
             hide()
         }
 
-    val submitButton = panel.button("Löschung beantragen", style = ButtonStyle.PRIMARY)
+    val submitButton = panel.button(tr("Löschung beantragen"), style = ButtonStyle.PRIMARY)
     // D10(b): permanent, always visible directly under the submit button -- not conditional on
     // whether a request was just made this visit.
-    panel.div(ERASURE_SELF_STATUS_VISIBILITY_CAPTION) { addCssClasses("text-muted small") }
+    panel.div(tr(ERASURE_SELF_STATUS_VISIBILITY_CAPTION)) { addCssClasses("text-muted small") }
 
     submitButton.onClick {
         errorBox.hide()
@@ -179,7 +185,7 @@ private fun renderErasureRequestForm(
         val modeValue = modeSelect.value
 
         if (!Validation.isNonBlank(reason) || modeValue == null) {
-            errorBox.content = "Bitte eine Begründung angeben."
+            errorBox.content = tr("Bitte eine Begründung angeben.")
             errorBox.show()
             return@onClick
         }
@@ -190,7 +196,7 @@ private fun renderErasureRequestForm(
                 guarded { rpcService<IDsgvoService>().requestErasure(myMemberId, reason, ErasureMode.valueOf(modeValue)) }
             submitButton.disabled = false
             if (result != null) {
-                notifySuccess("Löschung wurde beantragt.")
+                notifySuccess(tr("Löschung wurde beantragt."))
                 reasonInput.value = null
                 onRequested(result)
             }
@@ -204,11 +210,11 @@ private fun renderOwnErasureStatusCard(
 ) {
     panel.removeAll()
     val card = panel.vPanel(spacing = 6) { addCssClasses("border rounded p-3") }
-    card.div("Ihr Löschantrag") { addCssClass("fw-bold") }
+    card.div(tr("Ihr Löschantrag")) { addCssClass("fw-bold") }
     card.erasureStepTracker(request)
-    card.div("Gewählter Modus: ${erasureModeLabel(request.mode)}") { addCssClasses("small") }
+    card.div(gettext("Gewählter Modus: %1", erasureModeLabel(request.mode))) { addCssClasses("small") }
     card.div(erasureModeDescription(request.mode)) { addCssClasses("text-muted small") }
-    card.div("Begründung: ${request.reason}") { addCssClasses("text-muted small") }
+    card.div(gettext("Begründung: %1", request.reason)) { addCssClasses("text-muted small") }
 }
 
 // ================================================================================================
@@ -217,9 +223,9 @@ private fun renderOwnErasureStatusCard(
 
 private fun renderAdminQueueSection(root: SimplePanel) {
     val filterRow = root.hPanel(spacing = 8) { addCssClasses("align-items-center") }
-    val statusOptions = listOf("" to "Alle Status") + ErasureStatus.entries.map { it.name to erasureStatusLabel(it) }
-    val statusSelect = filterRow.select(options = statusOptions, value = "", label = "Status")
-    val filterButton = filterRow.button("Filtern", style = ButtonStyle.OUTLINESECONDARY)
+    val statusOptions = listOf("" to tr("Alle Status")) + ErasureStatus.entries.map { it.name to erasureStatusLabel(it) }
+    val statusSelect = filterRow.select(options = statusOptions, value = "", label = tr("Status"))
+    val filterButton = filterRow.button(tr("Filtern"), style = ButtonStyle.OUTLINESECONDARY)
 
     val listPanel = root.vPanel(spacing = 8)
 
@@ -229,7 +235,7 @@ private fun renderAdminQueueSection(root: SimplePanel) {
         AppScope.launch {
             val requests = guarded { rpcService<IDsgvoService>().listErasureRequests(status) } ?: return@launch
             if (requests.isEmpty()) {
-                listPanel.p("Keine Anträge für diese Filter gefunden.")
+                listPanel.p(tr("Keine Anträge für diese Filter gefunden."))
                 return@launch
             }
             requests.forEach { request -> renderAdminRequestRow(listPanel, request, ::refreshList) }
@@ -250,7 +256,7 @@ private fun renderAdminRequestRow(
     headerRow.typeBadge(erasureModeLabel(request.mode), erasureModeColor(request.mode))
 
     row.erasureStepTracker(request)
-    row.div("Begründung: ${request.reason}") { addCssClasses("small") }
+    row.div(gettext("Begründung: %1", request.reason)) { addCssClasses("small") }
     // D5: the same plain-language consequence line the requesting member saw, read-only, verbatim
     // -- a deciding ADMIN sees exactly what the requester saw, not a re-paraphrased version.
     row.div(erasureModeDescription(request.mode)) { addCssClasses("text-muted small") }
@@ -260,7 +266,7 @@ private fun renderAdminRequestRow(
         renderDecidePanel(row, request, onChanged)
     }
     if (request.status == ErasureStatus.APPROVED) {
-        val executeButton = row.button("Endgültig löschen", style = ButtonStyle.DANGER)
+        val executeButton = row.button(tr("Endgültig löschen"), style = ButtonStyle.DANGER)
         executeButton.onClick {
             executeErasureConfirmDialog(request) {
                 executeButton.disabled = true
@@ -268,7 +274,7 @@ private fun renderAdminRequestRow(
                     val result = guarded { rpcService<IDsgvoService>().executeErasure(request.id) }
                     executeButton.disabled = false
                     if (result != null) {
-                        notifySuccess("Löschung wurde ausgeführt.")
+                        notifySuccess(tr("Löschung wurde ausgeführt."))
                         onChanged()
                     }
                 }
@@ -283,10 +289,10 @@ private fun renderDecidePanel(
     onDecided: () -> Unit,
 ) {
     val decidePanel = row.vPanel(spacing = 6) { addCssClasses("border-top pt-2 mt-2") }
-    val noteInput = decidePanel.textArea(label = "Entscheidungsnotiz (optional)", rows = 2)
+    val noteInput = decidePanel.textArea(label = tr("Entscheidungsnotiz (optional)"), rows = 2)
     val buttonsRow = decidePanel.hPanel(spacing = 8)
-    val approveButton = buttonsRow.button("Genehmigen", style = ButtonStyle.SUCCESS)
-    val rejectButton = buttonsRow.button("Ablehnen", style = ButtonStyle.OUTLINEDANGER)
+    val approveButton = buttonsRow.button(tr("Genehmigen"), style = ButtonStyle.SUCCESS)
+    val rejectButton = buttonsRow.button(tr("Ablehnen"), style = ButtonStyle.OUTLINEDANGER)
 
     fun decide(approve: Boolean) {
         approveButton.disabled = true
@@ -297,7 +303,7 @@ private fun renderDecidePanel(
             approveButton.disabled = false
             rejectButton.disabled = false
             if (result != null) {
-                notifySuccess(if (approve) "Antrag wurde genehmigt." else "Antrag wurde abgelehnt.")
+                notifySuccess(if (approve) tr("Antrag wurde genehmigt.") else tr("Antrag wurde abgelehnt."))
                 onDecided()
             }
         }
@@ -316,18 +322,18 @@ private fun executeErasureConfirmDialog(
     request: ErasureRequestDto,
     onConfirm: () -> Unit,
 ) {
-    val modal = Modal(caption = "Löschung endgültig ausführen")
-    modal.div("Diese Löschung ist ENDGÜLTIG und kann nicht rückgängig gemacht werden.") { addCssClasses("fw-bold text-danger") }
-    modal.div("Betroffenes Mitglied: ${request.subjectDisplayName}")
-    modal.div("Gewählter Modus: ${erasureModeLabel(request.mode)}") { addCssClasses("fw-bold mt-1") }
+    val modal = Modal(caption = tr("Löschung endgültig ausführen"))
+    modal.div(tr("Diese Löschung ist ENDGÜLTIG und kann nicht rückgängig gemacht werden.")) { addCssClasses("fw-bold text-danger") }
+    modal.div(gettext("Betroffenes Mitglied: %1", request.subjectDisplayName))
+    modal.div(gettext("Gewählter Modus: %1", erasureModeLabel(request.mode))) { addCssClasses("fw-bold mt-1") }
     modal.div(erasureModeDescription(request.mode))
     request.decisionNote?.takeIf { it.isNotBlank() }?.let { note ->
-        modal.div("Entscheidungsnotiz: $note") { addCssClasses("small text-muted mt-1") }
+        modal.div(gettext("Entscheidungsnotiz: %1", note)) { addCssClasses("small text-muted mt-1") }
     }
 
-    modal.addButton(Button("Abbrechen", style = ButtonStyle.SECONDARY).apply { onClick { modal.hide() } })
+    modal.addButton(Button(tr("Abbrechen"), style = ButtonStyle.SECONDARY).apply { onClick { modal.hide() } })
     modal.addButton(
-        Button("Endgültig löschen", style = ButtonStyle.DANGER).apply {
+        Button(tr("Endgültig löschen"), style = ButtonStyle.DANGER).apply {
             onClick {
                 modal.hide()
                 onConfirm()
@@ -346,9 +352,9 @@ private fun executeErasureConfirmDialog(
  */
 private fun SimplePanel.legalHoldIndicator(legalHold: Boolean) {
     if (legalHold) {
-        div("Legal Hold aktiv -- Löschung darf nicht ausgeführt werden.") { addCssClasses("alert alert-danger") }
+        div(tr("Legal Hold aktiv -- Löschung darf nicht ausgeführt werden.")) { addCssClasses("alert alert-danger") }
     } else {
-        div("Kein Legal Hold") { addCssClasses("text-muted small") }
+        div(tr("Kein Legal Hold")) { addCssClasses("text-muted small") }
     }
 }
 
@@ -368,9 +374,9 @@ private fun SimplePanel.erasureStepTracker(request: ErasureRequestDto) {
     ) {
         if (state == ErasureStepState.FUTURE) pillRow.typeBadge(label, "secondary") else pillRow.statusBadge(label, color)
     }
-    pill("Beantragt", states[0], "secondary")
+    pill(tr("Beantragt"), states[0], "secondary")
     pill(erasureStep2Label(request.status), states[1], erasureStep2Color(request.status))
-    pill("Ausgeführt", states[2], "danger")
+    pill(tr("Ausgeführt"), states[2], "danger")
 
     val captionPanel = vPanel(spacing = 2) { addCssClasses("small text-muted") }
     captionPanel.div(erasureRequestedCaption(request))
@@ -384,8 +390,8 @@ private fun SimplePanel.erasureStepTracker(request: ErasureRequestDto) {
 
 private fun renderDsgvoAuditLogSection(root: SimplePanel) {
     val filterRow = root.hPanel(spacing = 8) { addCssClasses("align-items-center") }
-    val subjectInput = filterRow.text(label = "Betroffenes Mitglied (ID, optional)")
-    val filterButton = filterRow.button("Filtern", style = ButtonStyle.OUTLINESECONDARY)
+    val subjectInput = filterRow.text(label = tr("Betroffenes Mitglied (ID, optional)"))
+    val filterButton = filterRow.button(tr("Filtern"), style = ButtonStyle.OUTLINESECONDARY)
     val listPanel = root.vPanel(spacing = 6)
 
     fun refreshList() {
@@ -394,7 +400,7 @@ private fun renderDsgvoAuditLogSection(root: SimplePanel) {
         AppScope.launch {
             val entries = guarded { rpcService<IDsgvoService>().listAuditLog(subjectId) } ?: return@launch
             if (entries.isEmpty()) {
-                listPanel.p("Keine Einträge gefunden.")
+                listPanel.p(tr("Keine Einträge gefunden."))
                 return@launch
             }
             entries.forEach { entry -> renderDsgvoAuditLogRow(listPanel, entry) }
@@ -413,16 +419,22 @@ private fun renderDsgvoAuditLogRow(
     headerRow.statusBadge(dsgvoAuditActionLabel(entry.action), dsgvoAuditActionColor(entry.action))
     headerRow.div(entry.occurredAt.toString()) { addCssClasses("flex-grow-1 text-muted small") }
 
-    row.div("Akteur: ${dsgvoAuditActorDisplayText(entry)} · Betroffenes Mitglied: ${entry.subjectMemberId}") {
+    row.div(gettext("Akteur: %1 · Betroffenes Mitglied: %2", dsgvoAuditActorDisplayText(entry), entry.subjectMemberId)) {
         addCssClasses("text-muted small")
     }
-    entry.legalBasis?.let { row.div("Rechtsgrundlage: $it") { addCssClasses("text-muted small") } }
+    entry.legalBasis?.let { row.div(gettext("Rechtsgrundlage: %1", it)) { addCssClasses("text-muted small") } }
     if (entry.outcome.isNotEmpty()) {
-        row.div("Ergebnis:") { addCssClasses("small mt-1") }
+        row.div(tr("Ergebnis:")) { addCssClasses("small mt-1") }
         entry.outcome.forEach { outcome ->
+            val retentionSuffix = outcome.retentionReason?.let { gettext(" (%1)", it) } ?: ""
             row.div(
-                "${outcome.table}: ${outcome.rowsAnonymized} anonymisiert, ${outcome.rowsDeleted} gelöscht, " +
-                    "${outcome.rowsRetained} beibehalten" + (outcome.retentionReason?.let { " ($it)" } ?: ""),
+                gettext(
+                    "%1: %2 anonymisiert, %3 gelöscht, %4 beibehalten",
+                    outcome.table,
+                    outcome.rowsAnonymized,
+                    outcome.rowsDeleted,
+                    outcome.rowsRetained,
+                ) + retentionSuffix,
             ) { addCssClasses("small text-muted") }
         }
     }
@@ -432,8 +444,8 @@ private fun renderDsgvoAuditLogRow(
  * `AuditLogEntryDto.actorMemberDisplayName` on the GoBD ledger audit log) -- shown as the raw
  * member ID, honestly, rather than fabricating a lookup this wave's scope does not cover. */
 fun dsgvoAuditActorDisplayText(entry: DsgvoAuditLogEntryDto): String {
-    val actorId = entry.actorMemberId ?: return "Systemvorgang (kein Akteur hinterlegt)"
-    return if (entry.actorRole != null) "$actorId (${entry.actorRole})" else actorId
+    val actorId = entry.actorMemberId ?: return gettext("Systemvorgang (kein Akteur hinterlegt)")
+    return if (entry.actorRole != null) gettext("%1 (%2)", actorId, entry.actorRole) else actorId
 }
 
 // ================================================================================================
@@ -467,9 +479,9 @@ fun erasureStepStates(status: ErasureStatus): List<ErasureStepState> =
  * actual verdict ("Genehmigt"/"Abgelehnt"), never the raw enum name. */
 fun erasureStep2Label(status: ErasureStatus): String =
     when (status) {
-        ErasureStatus.REQUESTED -> "Entschieden"
-        ErasureStatus.APPROVED, ErasureStatus.COMPLETED -> "Genehmigt"
-        ErasureStatus.REJECTED -> "Abgelehnt"
+        ErasureStatus.REQUESTED -> gettext("Entschieden")
+        ErasureStatus.APPROVED, ErasureStatus.COMPLETED -> gettext("Genehmigt")
+        ErasureStatus.REJECTED -> gettext("Abgelehnt")
     }
 
 /** Mirrors [erasureStatusColor]'s own scale for the equivalent status -- only used while the pill is
@@ -492,10 +504,10 @@ fun erasureStep2Color(status: ErasureStatus): String =
  * scope does not cover -- same honesty posture as [dsgvoAuditActorDisplayText].
  */
 fun erasureRequestedByDisplayText(request: ErasureRequestDto): String =
-    if (request.requestedBy == request.subjectMemberId) "Mitglied selbst" else request.requestedBy
+    if (request.requestedBy == request.subjectMemberId) gettext("Mitglied selbst") else request.requestedBy
 
 fun erasureRequestedCaption(request: ErasureRequestDto): String =
-    "Beantragt von ${erasureRequestedByDisplayText(request)} am ${request.requestedAt}"
+    gettext("Beantragt von %1 am %2", erasureRequestedByDisplayText(request), request.requestedAt)
 
 fun erasureDecidedCaption(request: ErasureRequestDto): String? {
     val decidedBy = request.decidedBy ?: return null
@@ -503,13 +515,13 @@ fun erasureDecidedCaption(request: ErasureRequestDto): String? {
     val notePart =
         request.decisionNote
             ?.takeIf { it.isNotBlank() }
-            ?.let { ": $it" }
+            ?.let { gettext(": %1", it) }
             .orEmpty()
-    return "Entschieden von $decidedBy am $decidedAt$notePart"
+    return gettext("Entschieden von %1 am %2", decidedBy, decidedAt) + notePart
 }
 
 /** [ErasureRequestDto] has no `executedBy` field (only [ErasureRequestDto.executedAt]) --
  * deliberate deviation from the design review's literal wording ("Ausgeführt von ${executedAt}",
  * which uses a timestamp as if it were an actor); `executeErasure` is ADMIN-only by role but the DTO
  * does not record which specific ADMIN pressed the button, so this caption says "am", not "von". */
-fun erasureExecutedCaption(request: ErasureRequestDto): String? = request.executedAt?.let { "Ausgeführt am $it" }
+fun erasureExecutedCaption(request: ErasureRequestDto): String? = request.executedAt?.let { gettext("Ausgeführt am %1", it) }

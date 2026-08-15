@@ -1,5 +1,6 @@
 package network.lapis.cloud.client
 
+import io.kvision.i18n.tr
 import io.kvision.panel.SimplePanel
 import io.kvision.routing.Routing
 import network.lapis.cloud.shared.domain.AccountRole
@@ -267,7 +268,7 @@ fun initRouting(pageContainer: SimplePanel) {
             render(pageContainer)
         } catch (e: Throwable) {
             kotlin.js.console.error("Screen render failed: ${e.message}", e)
-            notifyError("Diese Seite konnte nicht geladen werden -- bitte laden Sie die Seite neu.")
+            notifyError(tr("Diese Seite konnte nicht geladen werden -- bitte laden Sie die Seite neu."))
         }
     }
 
@@ -413,7 +414,7 @@ private inline fun requireRole(
     if (!AppState.isAuthenticated) {
         routing.navigate(Routes.LOGIN)
     } else if (!AppState.hasRole(*roles)) {
-        notifyError("Kein Zugriff -- für diesen Bereich fehlt Ihnen die Berechtigung.")
+        notifyError(tr("Kein Zugriff -- für diesen Bereich fehlt Ihnen die Berechtigung."))
         routing.navigate(Routes.DASHBOARD)
     } else {
         body()

@@ -14,6 +14,8 @@ import io.kvision.html.div
 import io.kvision.html.h1
 import io.kvision.html.h2
 import io.kvision.html.p
+import io.kvision.i18n.gettext
+import io.kvision.i18n.tr
 import io.kvision.modal.Modal
 import io.kvision.panel.SimplePanel
 import io.kvision.panel.hPanel
@@ -136,36 +138,36 @@ fun renderAuctionScreen(container: SimplePanel) {
             width = 900.px
             marginTop = 24.px
         }
-    root.h1("Auktion")
+    root.h1(tr("Auktion"))
 
     // ---- Neues Angebot erstellen (D3: renderMyLtrBalanceInline first, before any input field --
     // identical position to CrowdfundingScreen.kt's own submit form) ---------------------------
-    root.h2("Neues Angebot erstellen")
+    root.h2(tr("Neues Angebot erstellen"))
     val createPanel = root.vPanel(spacing = 6)
     createPanel.renderMyLtrBalanceInline()
-    createPanel.div("Beim Einstellen wird eine feste Gebühr von ${formatLtr(0.01.toDecimal())} fällig.") {
+    createPanel.div(gettext("Beim Einstellen wird eine feste Gebühr von %1 fällig.", formatLtr(0.01.toDecimal()))) {
         addCssClasses("text-muted small")
     }
 
     // ---- Auktionen (browse) ---------------------------------------------------------------
-    root.h2("Auktionen")
+    root.h2(tr("Auktionen"))
     val staleRow = root.hPanel(spacing = 8) { addCssClasses("align-items-center") }
-    val staleLabel = staleRow.div("Wird geladen …") { addCssClasses("text-muted small flex-grow-1") }
-    val auctionsRefreshButton = staleRow.button("Aktualisieren", style = ButtonStyle.OUTLINESECONDARY)
+    val staleLabel = staleRow.div(tr("Wird geladen …")) { addCssClasses("text-muted small flex-grow-1") }
+    val auctionsRefreshButton = staleRow.button(tr("Aktualisieren"), style = ButtonStyle.OUTLINESECONDARY)
     val filterRow = root.hPanel(spacing = 8) { addCssClasses("align-items-center") }
     val statusFilterOptions =
-        listOf("" to "Alle (persistierter Status)") + AuctionStatus.entries.map { it.name to auctionStatusLabel(it) }
-    val statusFilterSelect = filterRow.select(options = statusFilterOptions, value = "", label = "Filter: Status (persistiert)")
+        listOf("" to tr("Alle (persistierter Status)")) + AuctionStatus.entries.map { it.name to auctionStatusLabel(it) }
+    val statusFilterSelect = filterRow.select(options = statusFilterOptions, value = "", label = tr("Filter: Status (persistiert)"))
     val disabledBanner = root.vPanel(spacing = 4) { addCssClasses("border rounded p-3 bg-body-tertiary") }
     disabledBanner.hide()
     val auctionsPanel = root.vPanel(spacing = 10)
 
     // ---- Meine Gebote ------------------------------------------------------------------------
-    root.h2("Meine Gebote")
+    root.h2(tr("Meine Gebote"))
     val myBidsPanel = root.vPanel(spacing = 6)
 
     // ---- Meine Auktionen (als Verkäufer) --------------------------------------------------
-    root.h2("Meine Auktionen (als Verkäufer)")
+    root.h2(tr("Meine Auktionen (als Verkäufer)"))
     val myAuctionsPanel = root.vPanel(spacing = 10)
 
     // ---- Verwaltung (ADMIN only, D3 staged disclosure) ----------------------------------------
@@ -175,16 +177,17 @@ fun renderAuctionScreen(container: SimplePanel) {
         disabledBanner.hide()
         auctionsPanel.show()
         auctionsPanel.removeAll()
-        auctionsPanel.p("Wird geladen …") { addCssClasses("text-muted small") }
-        staleLabel.content = "Wird geladen …"
+        auctionsPanel.p(tr("Wird geladen …")) { addCssClasses("text-muted small") }
+        staleLabel.content = tr("Wird geladen …")
         val statusFilter = parseOptionalEnum<AuctionStatus>(statusFilterSelect.value)
         AppScope.launch {
             val auctions = loadAuctionsOrShowBanner(statusFilter, auctionsPanel, disabledBanner) ?: return@launch
             val fetchedAt = Clock.System.now().toLocalDateTime(TimeZone.currentSystemDefault())
-            staleLabel.content = "Preisstand: ${fetchedAt.hour.pad2()}:${fetchedAt.minute.pad2()}:${fetchedAt.second.pad2()} Uhr"
+            staleLabel.content =
+                gettext("Preisstand: %1:%2:%3 Uhr", fetchedAt.hour.pad2(), fetchedAt.minute.pad2(), fetchedAt.second.pad2())
             auctionsPanel.removeAll()
             if (auctions.isEmpty()) {
-                auctionsPanel.p("Noch keine Auktionen vorhanden.") { addCssClasses("text-muted small") }
+                auctionsPanel.p(tr("Noch keine Auktionen vorhanden.")) { addCssClasses("text-muted small") }
             } else {
                 auctions.forEach { auction ->
                     renderAuctionCard(auctionsPanel, auction, currentMemberId) {
@@ -210,8 +213,8 @@ fun renderAuctionScreen(container: SimplePanel) {
     loadMyAuctionsInto(myAuctionsPanel, currentMemberId)
 
     if (adminPanel != null) {
-        adminPanel.h2("Verwaltung") { addCssClass("h5") }
-        adminPanel.div("Sichtbar für ADMIN.") { addCssClasses("text-muted small mb-2") }
+        adminPanel.h2(tr("Verwaltung")) { addCssClass("h5") }
+        adminPanel.div(tr("Sichtbar für ADMIN.")) { addCssClasses("text-muted small mb-2") }
         // Enabling/disabling flips the same `requireAuctionEnabled` gate `listMyBids`/`listMyAuctions`
         // sit behind (see file KDoc) -- without refreshing them here too, an ADMIN who just enabled
         // the auction would keep seeing "Die Auktion ist derzeit deaktiviert." in both sections until
@@ -249,19 +252,21 @@ private suspend fun loadAuctionsOrShowBanner(
         disabledBanner.removeAll()
         disabledBanner.show()
         val canAdmin = AppState.hasRole(AccountRole.ADMIN)
-        disabledBanner.div("Die Auktion ist derzeit deaktiviert.") { addCssClass("fw-bold") }
+        disabledBanner.div(tr("Die Auktion ist derzeit deaktiviert.")) { addCssClass("fw-bold") }
         disabledBanner.div(
             if (canAdmin) {
-                "Ein ADMIN kann die Auktion im Abschnitt \"Verwaltung\" unten aktivieren -- dafür muss zunächst der " +
-                    "aktuelle rechtliche Hinweistext gelesen und bestätigt werden."
+                tr(
+                    "Ein ADMIN kann die Auktion im Abschnitt \"Verwaltung\" unten aktivieren -- dafür muss zunächst der " +
+                        "aktuelle rechtliche Hinweistext gelesen und bestätigt werden.",
+                )
             } else {
-                "Bitte wenden Sie sich an ein ADMIN-Mitglied, falls Sie hierauf Zugriff benötigen."
+                tr("Bitte wenden Sie sich an ein ADMIN-Mitglied, falls Sie hierauf Zugriff benötigen.")
             },
         ) { addCssClasses("text-muted small") }
         null
     } catch (e: Throwable) {
         auctionsPanel.removeAll()
-        auctionsPanel.p("Auktionen konnten nicht geladen werden.") { addCssClasses("text-muted small") }
+        auctionsPanel.p(tr("Auktionen konnten nicht geladen werden.")) { addCssClasses("text-muted small") }
         guarded<Unit> { throw e }
         null
     }
@@ -298,15 +303,15 @@ private suspend fun <T> loadOrShowDisabledNotice(
 
 private fun loadMyBidsInto(panel: SimplePanel) {
     panel.removeAll()
-    panel.p("Wird geladen …") { addCssClasses("text-muted small") }
+    panel.p(tr("Wird geladen …")) { addCssClasses("text-muted small") }
     AppScope.launch {
         val bids =
-            loadOrShowDisabledNotice(panel, "Die Auktion ist derzeit deaktiviert.") {
+            loadOrShowDisabledNotice(panel, tr("Die Auktion ist derzeit deaktiviert.")) {
                 rpcService<IAuctionService>().listMyBids()
             } ?: return@launch
         panel.removeAll()
         if (bids.isEmpty()) {
-            panel.p("Sie haben noch keine Gebote abgegeben.") { addCssClasses("text-muted small") }
+            panel.p(tr("Sie haben noch keine Gebote abgegeben.")) { addCssClasses("text-muted small") }
         } else {
             renderMyBidsTable(panel, bids)
         }
@@ -318,15 +323,15 @@ private fun loadMyAuctionsInto(
     currentMemberId: String?,
 ) {
     panel.removeAll()
-    panel.p("Wird geladen …") { addCssClasses("text-muted small") }
+    panel.p(tr("Wird geladen …")) { addCssClasses("text-muted small") }
     AppScope.launch {
         val auctions =
-            loadOrShowDisabledNotice(panel, "Die Auktion ist derzeit deaktiviert.") {
+            loadOrShowDisabledNotice(panel, tr("Die Auktion ist derzeit deaktiviert.")) {
                 rpcService<IAuctionService>().listMyAuctions()
             } ?: return@launch
         panel.removeAll()
         if (auctions.isEmpty()) {
-            panel.p("Sie haben noch keine Auktionen eingestellt.") { addCssClasses("text-muted small") }
+            panel.p(tr("Sie haben noch keine Auktionen eingestellt.")) { addCssClasses("text-muted small") }
         } else {
             auctions.forEach { auction ->
                 renderAuctionCard(panel, auction, currentMemberId) {
@@ -346,20 +351,20 @@ private fun renderCreateListingForm(
     onCompleted: () -> Unit,
 ) {
     val panel = root.vPanel(spacing = 6)
-    val titleInput = panel.text(label = "Titel")
-    val descriptionInput = panel.textArea(label = "Beschreibung", rows = 3)
-    val startingBidInput = panel.text(label = "Startpreis (LTR)")
-    val buyNowInput = panel.text(label = "Sofortkaufpreis (LTR, optional -- muss über dem Startpreis liegen)")
+    val titleInput = panel.text(label = tr("Titel"))
+    val descriptionInput = panel.textArea(label = tr("Beschreibung"), rows = 3)
+    val startingBidInput = panel.text(label = tr("Startpreis (LTR)"))
+    val buyNowInput = panel.text(label = tr("Sofortkaufpreis (LTR, optional -- muss über dem Startpreis liegen)"))
     // durationHours is server-bounded (1..2160h); deliberately not duplicated as a client-facing
     // constant, per CreateAuctionListingInput's own KDoc -- a loose "z. B. 24" placeholder hint
     // only, same posture Money.kt/Validation.kt already take toward every other server-owned bound.
-    val durationInput = panel.text(label = "Laufzeit in Stunden (z. B. 24)")
+    val durationInput = panel.text(label = tr("Laufzeit in Stunden (z. B. 24)"))
     val errorBox =
         panel.div().apply {
             addCssClass("text-danger")
             hide()
         }
-    val submitButton = panel.button("Angebot erstellen", style = ButtonStyle.PRIMARY)
+    val submitButton = panel.button(tr("Angebot erstellen"), style = ButtonStyle.PRIMARY)
 
     submitButton.onClick {
         errorBox.hide()
@@ -371,12 +376,12 @@ private fun renderCreateListingForm(
         val durationHours = durationText.toIntOrNull()
 
         if (!Validation.isNonBlank(title) || !Validation.isNonBlank(description) || !Validation.isPositiveDecimal(startingBidText)) {
-            errorBox.content = "Bitte Titel, Beschreibung und einen positiven Startpreis (LTR) angeben."
+            errorBox.content = tr("Bitte Titel, Beschreibung und einen positiven Startpreis (LTR) angeben.")
             errorBox.show()
             return@onClick
         }
         if (durationHours == null || durationHours <= 0) {
-            errorBox.content = "Bitte eine Laufzeit in ganzen Stunden (größer als 0) angeben."
+            errorBox.content = tr("Bitte eine Laufzeit in ganzen Stunden (größer als 0) angeben.")
             errorBox.show()
             return@onClick
         }
@@ -384,13 +389,13 @@ private fun renderCreateListingForm(
         var buyNowPrice: Decimal? = null
         if (buyNowText.isNotBlank()) {
             if (!Validation.isPositiveDecimal(buyNowText)) {
-                errorBox.content = "Der Sofortkaufpreis muss, falls angegeben, ein positiver LTR-Betrag sein."
+                errorBox.content = tr("Der Sofortkaufpreis muss, falls angegeben, ein positiver LTR-Betrag sein.")
                 errorBox.show()
                 return@onClick
             }
             val parsed = buyNowText.toDouble().toDecimal()
             if (parsed.toDouble() <= startingBid.toDouble()) {
-                errorBox.content = "Der Sofortkaufpreis muss über dem Startpreis liegen."
+                errorBox.content = tr("Der Sofortkaufpreis muss über dem Startpreis liegen.")
                 errorBox.show()
                 return@onClick
             }
@@ -399,14 +404,20 @@ private fun renderCreateListingForm(
 
         // Tier 1 "Kostenpflichtig" (D4): the plain, neutral-framed confirmDialog -- states the
         // flat listing fee plus the chosen parameters plainly before the caller commits.
-        val buyNowSummary = buyNowPrice?.let { ", Sofortkaufpreis ${formatLtr(it)}" } ?: ""
+        val buyNowSummary = buyNowPrice?.let { gettext(", Sofortkaufpreis %1", formatLtr(it)) } ?: ""
         confirmDialog(
-            title = "Angebot erstellen",
+            title = tr("Angebot erstellen"),
             message =
-                "Es wird ein Angebot \"$title\" mit Startpreis ${formatLtr(startingBid)}$buyNowSummary und " +
-                    "$durationHours Stunden Laufzeit erstellt. Dabei wird eine feste Gebühr von " +
-                    "${formatLtr(0.01.toDecimal())} aus Ihrem freien LTR-Guthaben gebucht.",
-            confirmLabel = "Erstellen",
+                gettext(
+                    "Es wird ein Angebot \"%1\" mit Startpreis %2%3 und %4 Stunden Laufzeit erstellt. Dabei wird eine feste " +
+                        "Gebühr von %5 aus Ihrem freien LTR-Guthaben gebucht.",
+                    title,
+                    formatLtr(startingBid),
+                    buyNowSummary,
+                    durationHours,
+                    formatLtr(0.01.toDecimal()),
+                ),
+            confirmLabel = tr("Erstellen"),
         ) {
             submitButton.disabled = true
             AppScope.launch {
@@ -424,7 +435,7 @@ private fun renderCreateListingForm(
                     }
                 submitButton.disabled = false
                 if (result != null) {
-                    notifySuccess("Angebot \"${result.title}\" erstellt.")
+                    notifySuccess(gettext("Angebot \"%1\" erstellt.", result.title))
                     titleInput.value = null
                     descriptionInput.value = null
                     startingBidInput.value = null
@@ -452,39 +463,48 @@ private fun renderAuctionCard(
     headerRow.div(auction.title) { addCssClasses("flex-grow-1 fw-bold") }
     headerRow.statusBadge(auctionStatusLabel(auction.status), auctionStatusColor(auction.status))
     if (auction.status != auction.effectiveStatus) {
-        headerRow.statusBadge("Effektiv: ${auctionStatusLabel(auction.effectiveStatus)}", auctionStatusColor(auction.effectiveStatus))
+        headerRow.statusBadge(
+            gettext("Effektiv: %1", auctionStatusLabel(auction.effectiveStatus)),
+            auctionStatusColor(auction.effectiveStatus),
+        )
     }
 
     card.div(auction.description) { addCssClasses("small") }
-    card.div("Verkäufer: ${auction.sellerDisplayName} · Endet: ${auction.endsAt} · Gebote: ${auction.bidCount}") {
+    card.div(gettext("Verkäufer: %1 · Endet: %2 · Gebote: %3", auction.sellerDisplayName, auction.endsAt, auction.bidCount)) {
         addCssClasses("text-muted small")
     }
 
     val priceRow = card.hPanel(spacing = 16) { addCssClasses("align-items-center flex-wrap") }
     val startCell = priceRow.vPanel(spacing = 2)
-    startCell.div("Startpreis") { addCssClasses("text-muted small") }
+    startCell.div(tr("Startpreis")) { addCssClasses("text-muted small") }
     startCell.ltrSpan(auction.startingBidLtr)
     val currentPriceForDisplay = auction.currentPriceLtr
     if (currentPriceForDisplay != null) {
         val currentCell = priceRow.vPanel(spacing = 2)
-        currentCell.div(if (auction.leaderIsMe) "Aktueller Preis (Sie führen)" else "Aktueller Preis") {
+        currentCell.div(if (auction.leaderIsMe) tr("Aktueller Preis (Sie führen)") else tr("Aktueller Preis")) {
             addCssClasses("text-muted small")
         }
         currentCell.ltrSpan(currentPriceForDisplay)
         auction.currentLeaderDisplayName?.let { leader ->
-            currentCell.div(if (auction.leaderIsMe) "Führend: Sie" else "Führend: $leader") { addCssClasses("text-muted small") }
+            currentCell.div(if (auction.leaderIsMe) tr("Führend: Sie") else gettext("Führend: %1", leader)) {
+                addCssClasses("text-muted small")
+            }
         }
     }
     val buyNowPriceForDisplay = auction.buyNowPriceLtr
     if (buyNowPriceForDisplay != null) {
         val buyNowCell = priceRow.vPanel(spacing = 2)
-        buyNowCell.div("Sofortkaufpreis") { addCssClasses("text-muted small") }
+        buyNowCell.div(tr("Sofortkaufpreis")) { addCssClasses("text-muted small") }
         buyNowCell.ltrSpan(buyNowPriceForDisplay)
     }
 
     if (auction.effectiveStatus == AuctionStatus.SETTLED) {
         card.div(
-            "Verkauft an ${auction.winnerDisplayName ?: "--"} für ${auction.finalPriceLtr?.let { formatLtr(it) } ?: "--"}.",
+            gettext(
+                "Verkauft an %1 für %2.",
+                auction.winnerDisplayName ?: "--",
+                auction.finalPriceLtr?.let { formatLtr(it) } ?: "--",
+            ),
         ) { addCssClasses("small") }
     }
 
@@ -498,15 +518,15 @@ private fun renderAuctionCard(
     // flipped (see file KDoc "Confirm-dialog tier" -- no confirm dialog here, deterministic).
     if (auction.status == AuctionStatus.OPEN && auction.effectiveStatus != AuctionStatus.OPEN) {
         val settleRow = card.hPanel(spacing = 8) { addCssClasses("border-top pt-2 mt-1") }
-        settleRow.div("Diese Auktion ist beendet, aber noch nicht abgewickelt.") { addCssClasses("text-muted small flex-grow-1") }
-        val settleButton = settleRow.button("Abwickeln", style = ButtonStyle.OUTLINESECONDARY)
+        settleRow.div(tr("Diese Auktion ist beendet, aber noch nicht abgewickelt.")) { addCssClasses("text-muted small flex-grow-1") }
+        val settleButton = settleRow.button(tr("Abwickeln"), style = ButtonStyle.OUTLINESECONDARY)
         settleButton.onClick {
             settleButton.disabled = true
             AppScope.launch {
                 val result = guarded { rpcService<IAuctionService>().settleAuction(auction.id) }
                 settleButton.disabled = false
                 if (result != null) {
-                    notifySuccess("Auktion \"${result.title}\" abgewickelt.")
+                    notifySuccess(gettext("Auktion \"%1\" abgewickelt.", result.title))
                     onChanged()
                 }
             }
@@ -528,9 +548,9 @@ private fun renderBidAndBuyNowControls(
 ) {
     val controlsPanel = card.vPanel(spacing = 6) { addCssClasses("border-top pt-2 mt-1") }
     val bidRow = controlsPanel.hPanel(spacing = 8) { addCssClasses("align-items-end flex-wrap") }
-    val bidInput = bidRow.text(label = "Ihr Höchstgebot (LTR)")
-    val bidButton = bidRow.button("Bieten", style = ButtonStyle.OUTLINEDANGER)
-    val bidBusyLabel = bidRow.div("Wird ausgeführt …") { addCssClasses("text-muted small") }
+    val bidInput = bidRow.text(label = tr("Ihr Höchstgebot (LTR)"))
+    val bidButton = bidRow.button(tr("Bieten"), style = ButtonStyle.OUTLINEDANGER)
+    val bidBusyLabel = bidRow.div(tr("Wird ausgeführt …")) { addCssClasses("text-muted small") }
     bidBusyLabel.hide()
     val errorBox =
         controlsPanel.div().apply {
@@ -542,19 +562,20 @@ private fun renderBidAndBuyNowControls(
         errorBox.hide()
         val bidText = bidInput.value.orEmpty().trim()
         if (!Validation.isPositiveDecimal(bidText)) {
-            errorBox.content = "Bitte ein positives Höchstgebot (LTR) angeben."
+            errorBox.content = tr("Bitte ein positives Höchstgebot (LTR) angeben.")
             errorBox.show()
             return@onClick
         }
         val bidAmount = bidText.toDouble().toDecimal()
         if (bidAmount.toDouble() < auction.startingBidLtr.toDouble()) {
-            errorBox.content = "Ihr Höchstgebot muss mindestens dem Startpreis (${formatLtr(auction.startingBidLtr)}) entsprechen."
+            errorBox.content =
+                gettext("Ihr Höchstgebot muss mindestens dem Startpreis (%1) entsprechen.", formatLtr(auction.startingBidLtr))
             errorBox.show()
             return@onClick
         }
         val lastFetchedPriceText =
-            auction.currentPriceLtr?.let { "zuletzt abgerufener Preis: ${formatLtr(it)}" }
-                ?: "noch keine Gebote, Startpreis: ${formatLtr(auction.startingBidLtr)}"
+            auction.currentPriceLtr?.let { gettext("zuletzt abgerufener Preis: %1", formatLtr(it)) }
+                ?: gettext("noch keine Gebote, Startpreis: %1", formatLtr(auction.startingBidLtr))
         placeBidConfirmDialog(auction.title, bidAmount, lastFetchedPriceText) {
             bidButton.disabled = true
             bidBusyLabel.show()
@@ -563,8 +584,8 @@ private fun renderBidAndBuyNowControls(
                 bidButton.disabled = false
                 bidBusyLabel.hide()
                 if (result != null) {
-                    val leadCopy = if (result.youAreLeader) "Sie führen jetzt." else "Ein anderes Gebot führt weiterhin."
-                    notifySuccess("Gebot angenommen. Aktueller Preis: ${formatLtr(result.currentPriceLtr)}. $leadCopy")
+                    val leadCopy = if (result.youAreLeader) gettext("Sie führen jetzt.") else gettext("Ein anderes Gebot führt weiterhin.")
+                    notifySuccess(gettext("Gebot angenommen. Aktueller Preis: %1. %2", formatLtr(result.currentPriceLtr), leadCopy))
                     bidInput.value = null
                     onChanged()
                 }
@@ -576,8 +597,8 @@ private fun renderBidAndBuyNowControls(
     val currentPrice = auction.currentPriceLtr
     if (buyNowPrice != null && (currentPrice == null || currentPrice.toDouble() < buyNowPrice.toDouble())) {
         val buyNowRow = controlsPanel.hPanel(spacing = 8) { addCssClasses("align-items-center") }
-        val buyNowButton = buyNowRow.button("Sofort kaufen für ${formatLtr(buyNowPrice)}", style = ButtonStyle.DANGER)
-        val buyNowBusyLabel = buyNowRow.div("Wird ausgeführt …") { addCssClasses("text-muted small") }
+        val buyNowButton = buyNowRow.button(gettext("Sofort kaufen für %1", formatLtr(buyNowPrice)), style = ButtonStyle.DANGER)
+        val buyNowBusyLabel = buyNowRow.div(tr("Wird ausgeführt …")) { addCssClasses("text-muted small") }
         buyNowBusyLabel.hide()
         buyNowButton.onClick {
             buyNowConfirmDialog(auction.title, buyNowPrice) {
@@ -589,7 +610,7 @@ private fun renderBidAndBuyNowControls(
                     buyNowBusyLabel.hide()
                     if (result != null) {
                         val finalPrice = result.finalPriceLtr ?: buyNowPrice
-                        notifySuccess("Sofortkauf abgeschlossen: \"${result.title}\" für ${formatLtr(finalPrice)}.")
+                        notifySuccess(gettext("Sofortkauf abgeschlossen: \"%1\" für %2.", result.title, formatLtr(finalPrice)))
                         onChanged()
                     }
                 }
@@ -607,16 +628,23 @@ private fun placeBidConfirmDialog(
     lastFetchedPriceText: String,
     onConfirm: () -> Unit,
 ) {
-    val modal = Modal(caption = "Gebot bestätigen")
-    modal.div("Ihr Höchstgebot ist verbindlich und reserviert LTR aus Ihrem freien Guthaben.") { addCssClasses("fw-bold text-danger") }
+    val modal = Modal(caption = tr("Gebot bestätigen"))
+    modal.div(tr("Ihr Höchstgebot ist verbindlich und reserviert LTR aus Ihrem freien Guthaben.")) {
+        addCssClasses("fw-bold text-danger")
+    }
     modal.div(
-        "Sie bieten ${formatLtr(maxBid)} auf \"$auctionTitle\" ($lastFetchedPriceText). Ihr Gebot wird gegen den " +
-            "aktuellen Preis zum Zeitpunkt der Bestätigung ausgewertet, nicht den hier angezeigten -- der Preis kann " +
-            "sich seit dem letzten Abruf geändert haben.",
+        gettext(
+            "Sie bieten %1 auf \"%2\" (%3). Ihr Gebot wird gegen den " +
+                "aktuellen Preis zum Zeitpunkt der Bestätigung ausgewertet, nicht den hier angezeigten -- der Preis kann " +
+                "sich seit dem letzten Abruf geändert haben.",
+            formatLtr(maxBid),
+            auctionTitle,
+            lastFetchedPriceText,
+        ),
     )
-    modal.addButton(Button("Abbrechen", style = ButtonStyle.SECONDARY).apply { onClick { modal.hide() } })
+    modal.addButton(Button(tr("Abbrechen"), style = ButtonStyle.SECONDARY).apply { onClick { modal.hide() } })
     modal.addButton(
-        Button("Gebot abgeben", style = ButtonStyle.DANGER).apply {
+        Button(tr("Gebot abgeben"), style = ButtonStyle.DANGER).apply {
             onClick {
                 modal.hide()
                 onConfirm()
@@ -632,12 +660,12 @@ private fun buyNowConfirmDialog(
     buyNowPrice: Decimal,
     onConfirm: () -> Unit,
 ) {
-    val modal = Modal(caption = "Sofortkauf bestätigen")
-    modal.div("Sofortkauf ist verbindlich -- kann nicht rückgängig gemacht werden.") { addCssClasses("fw-bold text-danger") }
-    modal.div("Sie kaufen \"$auctionTitle\" sofort für ${formatLtr(buyNowPrice)}.")
-    modal.addButton(Button("Abbrechen", style = ButtonStyle.SECONDARY).apply { onClick { modal.hide() } })
+    val modal = Modal(caption = tr("Sofortkauf bestätigen"))
+    modal.div(tr("Sofortkauf ist verbindlich -- kann nicht rückgängig gemacht werden.")) { addCssClasses("fw-bold text-danger") }
+    modal.div(gettext("Sie kaufen \"%1\" sofort für %2.", auctionTitle, formatLtr(buyNowPrice)))
+    modal.addButton(Button(tr("Abbrechen"), style = ButtonStyle.SECONDARY).apply { onClick { modal.hide() } })
     modal.addButton(
-        Button("Sofort kaufen", style = ButtonStyle.DANGER).apply {
+        Button(tr("Sofort kaufen"), style = ButtonStyle.DANGER).apply {
             onClick {
                 modal.hide()
                 onConfirm()
@@ -656,18 +684,18 @@ private fun renderMyBidsTable(
     bids: List<AuctionBidDto>,
 ) {
     val headerRow = panel.hPanel(spacing = 8) { addCssClasses("fw-bold border-bottom pb-1") }
-    headerRow.div("Auktion") { addCssClasses("flex-grow-1") }
-    headerRow.div("Ihr Höchstgebot") { width = 140.px }
-    headerRow.div("Führend") { width = 90.px }
-    headerRow.div("Status") { width = 160.px }
-    headerRow.div("Abgegeben") { width = 160.px }
+    headerRow.div(tr("Auktion")) { addCssClasses("flex-grow-1") }
+    headerRow.div(tr("Ihr Höchstgebot")) { width = 140.px }
+    headerRow.div(tr("Führend")) { width = 90.px }
+    headerRow.div(tr("Status")) { width = 160.px }
+    headerRow.div(tr("Abgegeben")) { width = 160.px }
 
     bids.forEach { bid ->
         val row = panel.hPanel(spacing = 8) { addCssClasses("border-bottom py-1 align-items-center") }
         row.div(bid.auctionTitle) { addCssClasses("flex-grow-1") }
         val bidCell = row.div { width = 140.px }
         bidCell.ltrSpan(bid.maxBidLtr)
-        row.div(if (bid.isCurrentLeader) "Ja" else "Nein") { width = 90.px }
+        row.div(if (bid.isCurrentLeader) tr("Ja") else tr("Nein")) { width = 90.px }
         val statusCell = row.div { width = 160.px }
         statusCell.statusBadge(auctionStatusLabel(bid.auctionStatus), auctionStatusColor(bid.auctionStatus))
         row.div(bid.createdAt.toString()) {
@@ -686,11 +714,11 @@ private fun renderAdminSection(
     onSettingsChanged: () -> Unit,
 ) {
     val settingsPanel = root.vPanel(spacing = 4)
-    settingsPanel.p("Wird geladen …") { addCssClasses("text-muted small") }
+    settingsPanel.p(tr("Wird geladen …")) { addCssClasses("text-muted small") }
 
     fun loadSettings() {
         settingsPanel.removeAll()
-        settingsPanel.p("Wird geladen …") { addCssClasses("text-muted small") }
+        settingsPanel.p(tr("Wird geladen …")) { addCssClasses("text-muted small") }
         AppScope.launch {
             val settings = guarded { rpcService<IAuctionService>().getAuctionSettings() } ?: return@launch
             settingsPanel.removeAll()
@@ -699,8 +727,8 @@ private fun renderAdminSection(
     }
 
     val actionsRow = root.hPanel(spacing = 8) { addCssClasses("mt-2") }
-    val enableButton = actionsRow.button("Auktion aktivieren …", style = ButtonStyle.PRIMARY)
-    val disableButton = actionsRow.button("Auktion deaktivieren", style = ButtonStyle.OUTLINEDANGER)
+    val enableButton = actionsRow.button(tr("Auktion aktivieren …"), style = ButtonStyle.PRIMARY)
+    val disableButton = actionsRow.button(tr("Auktion deaktivieren"), style = ButtonStyle.OUTLINEDANGER)
 
     enableButton.onClick {
         enableButton.disabled = true
@@ -720,7 +748,7 @@ private fun renderAdminSection(
                                 )
                             }
                         if (result != null) {
-                            notifySuccess("Auktion aktiviert.")
+                            notifySuccess(tr("Auktion aktiviert."))
                             loadSettings()
                             onSettingsChanged()
                         }
@@ -737,7 +765,7 @@ private fun renderAdminSection(
                 val result = guarded { rpcService<IAuctionService>().disableAuction() }
                 disableButton.disabled = false
                 if (result != null) {
-                    notifySuccess("Auktion deaktiviert.")
+                    notifySuccess(tr("Auktion deaktiviert."))
                     loadSettings()
                     onSettingsChanged()
                 }
@@ -745,15 +773,15 @@ private fun renderAdminSection(
         }
     }
 
-    root.h2("Wertobergrenze (LTR)") { addCssClass("h6") }
+    root.h2(tr("Wertobergrenze (LTR)")) { addCssClass("h6") }
     val maxValuePanel = root.vPanel(spacing = 6)
-    val maxValueInput = maxValuePanel.text(label = "Wertobergrenze (LTR, leer = kein Limit)")
+    val maxValueInput = maxValuePanel.text(label = tr("Wertobergrenze (LTR, leer = kein Limit)"))
     val maxValueErrorBox =
         maxValuePanel.div().apply {
             addCssClass("text-danger")
             hide()
         }
-    val maxValueSaveButton = maxValuePanel.button("Obergrenze speichern", style = ButtonStyle.SECONDARY)
+    val maxValueSaveButton = maxValuePanel.button(tr("Obergrenze speichern"), style = ButtonStyle.SECONDARY)
     maxValueSaveButton.onClick {
         maxValueErrorBox.hide()
         val text = maxValueInput.value.orEmpty().trim()
@@ -762,29 +790,30 @@ private fun renderAdminSection(
                 null
             } else {
                 if (!Validation.isPositiveDecimal(text)) {
-                    maxValueErrorBox.content = "Die Wertobergrenze muss, falls angegeben, ein positiver LTR-Betrag sein."
+                    maxValueErrorBox.content = tr("Die Wertobergrenze muss, falls angegeben, ein positiver LTR-Betrag sein.")
                     maxValueErrorBox.show()
                     return@onClick
                 }
                 text.toDouble().toDecimal()
             }
         confirmDialog(
-            title = "Wertobergrenze setzen",
+            title = tr("Wertobergrenze setzen"),
             message =
                 value?.let {
-                    "Die Wertobergrenze wird auf ${formatLtr(
-                        it,
-                    )} gesetzt -- neue Angebote dürfen diesen Wert nicht überschreiten."
+                    gettext(
+                        "Die Wertobergrenze wird auf %1 gesetzt -- neue Angebote dürfen diesen Wert nicht überschreiten.",
+                        formatLtr(it),
+                    )
                 }
-                    ?: "Die Wertobergrenze wird entfernt (kein Limit mehr).",
-            confirmLabel = "Speichern",
+                    ?: tr("Die Wertobergrenze wird entfernt (kein Limit mehr)."),
+            confirmLabel = tr("Speichern"),
         ) {
             maxValueSaveButton.disabled = true
             AppScope.launch {
                 val result = guarded { rpcService<IAuctionService>().setAuctionMaxValueLtr(value) }
                 maxValueSaveButton.disabled = false
                 if (result != null) {
-                    notifySuccess("Wertobergrenze aktualisiert.")
+                    notifySuccess(tr("Wertobergrenze aktualisiert."))
                     maxValueInput.value = null
                     loadSettings()
                 }
@@ -800,28 +829,32 @@ private fun renderAuctionSettingsSummary(
     settings: AuctionSettingsDto,
 ) {
     val statusRow = panel.hPanel(spacing = 8) { addCssClasses("align-items-center") }
-    statusRow.div("Status:") { addCssClasses("text-muted small") }
+    statusRow.div(tr("Status:")) { addCssClasses("text-muted small") }
     statusRow.statusBadge(
-        if (settings.auctionEnabled) "Aktiviert" else "Deaktiviert",
+        if (settings.auctionEnabled) tr("Aktiviert") else tr("Deaktiviert"),
         if (settings.auctionEnabled) "success" else "secondary",
     )
 
     val capRow = panel.hPanel(spacing = 8) { addCssClasses("align-items-center") }
-    capRow.div("Wertobergrenze:") { addCssClasses("text-muted small") }
+    capRow.div(tr("Wertobergrenze:")) { addCssClasses("text-muted small") }
     val maxValue = settings.auctionMaxValueLtr
     if (maxValue != null) {
         capRow.ltrSpan(maxValue)
     } else {
-        capRow.div("Kein Limit") { addCssClasses("small") }
+        capRow.div(tr("Kein Limit")) { addCssClasses("small") }
     }
 
     if (settings.lastAcknowledgedByDisplayName != null) {
         panel.div(
-            "Zuletzt bestätigt von ${settings.lastAcknowledgedByDisplayName} am ${settings.lastAcknowledgedAt} " +
-                "(Hinweistext-Version ${settings.lastDisclaimerVersion}).",
+            gettext(
+                "Zuletzt bestätigt von %1 am %2 (Hinweistext-Version %3).",
+                settings.lastAcknowledgedByDisplayName,
+                settings.lastAcknowledgedAt,
+                settings.lastDisclaimerVersion,
+            ),
         ) { addCssClasses("text-muted small") }
     } else {
-        panel.div("Noch keine Bestätigung des rechtlichen Hinweistexts erfolgt.") { addCssClasses("text-muted small") }
+        panel.div(tr("Noch keine Bestätigung des rechtlichen Hinweistexts erfolgt.")) { addCssClasses("text-muted small") }
     }
 }
 
@@ -836,11 +869,13 @@ private fun auctionEnableDisclaimerModal(
     disclaimer: AuctionComplianceDisclaimerDto,
     onConfirm: () -> Unit,
 ) {
-    val modal = Modal(caption = "Auktion aktivieren -- rechtlicher Hinweis (Version ${disclaimer.version})")
+    val modal = Modal(caption = gettext("Auktion aktivieren -- rechtlicher Hinweis (Version %1)", disclaimer.version))
     modal.div(
-        "Bitte lesen Sie den folgenden rechtlichen Hinweistext vollständig, bevor Sie die Auktion aktivieren. Diese " +
-            "Plattform führt keine automatisierte Rechtsberatung durch -- die rechtliche Einordnung liegt bei Ihrer " +
-            "Organisation.",
+        tr(
+            "Bitte lesen Sie den folgenden rechtlichen Hinweistext vollständig, bevor Sie die Auktion aktivieren. Diese " +
+                "Plattform führt keine automatisierte Rechtsberatung durch -- die rechtliche Einordnung liegt bei Ihrer " +
+                "Organisation.",
+        ),
     ) { addCssClasses("text-muted small mb-2") }
     modal.div {
         addCssClasses("border rounded p-2 mb-2")
@@ -848,9 +883,9 @@ private fun auctionEnableDisclaimerModal(
         overflow = Overflow.AUTO
         content = disclaimer.text
     }
-    modal.addButton(Button("Abbrechen", style = ButtonStyle.SECONDARY).apply { onClick { modal.hide() } })
+    modal.addButton(Button(tr("Abbrechen"), style = ButtonStyle.SECONDARY).apply { onClick { modal.hide() } })
     modal.addButton(
-        Button("Ich bestätige, den aktuellen Text gelesen zu haben", style = ButtonStyle.PRIMARY).apply {
+        Button(tr("Ich bestätige, den aktuellen Text gelesen zu haben"), style = ButtonStyle.PRIMARY).apply {
             onClick {
                 modal.hide()
                 onConfirm()
@@ -866,15 +901,17 @@ private fun auctionEnableDisclaimerModal(
  * every mutating AND read method in `AuctionService.kt` (no carve-out for already-OPEN auctions).
  */
 private fun auctionDisableConfirmDialog(onConfirm: () -> Unit) {
-    val modal = Modal(caption = "Auktion deaktivieren bestätigen")
+    val modal = Modal(caption = tr("Auktion deaktivieren bestätigen"))
     modal.div(
-        "Bereits laufende (OPEN) Auktionen können bis zur erneuten Aktivierung nicht mehr abgewickelt werden " +
-            "(kein Gebot, kein Sofortkauf, kein Abwickeln) -- sie bleiben eingefroren.",
+        tr(
+            "Bereits laufende (OPEN) Auktionen können bis zur erneuten Aktivierung nicht mehr abgewickelt werden " +
+                "(kein Gebot, kein Sofortkauf, kein Abwickeln) -- sie bleiben eingefroren.",
+        ),
     ) { addCssClasses("fw-bold text-danger") }
-    modal.div("Neue Angebote können ebenfalls nicht erstellt werden, bis ein ADMIN die Auktion erneut aktiviert.")
-    modal.addButton(Button("Abbrechen", style = ButtonStyle.SECONDARY).apply { onClick { modal.hide() } })
+    modal.div(tr("Neue Angebote können ebenfalls nicht erstellt werden, bis ein ADMIN die Auktion erneut aktiviert."))
+    modal.addButton(Button(tr("Abbrechen"), style = ButtonStyle.SECONDARY).apply { onClick { modal.hide() } })
     modal.addButton(
-        Button("Deaktivieren", style = ButtonStyle.DANGER).apply {
+        Button(tr("Deaktivieren"), style = ButtonStyle.DANGER).apply {
             onClick {
                 modal.hide()
                 onConfirm()
@@ -893,9 +930,9 @@ private fun auctionDisableConfirmDialog(onConfirm: () -> Unit) {
  * [AuctionStatus] literal. */
 fun auctionStatusLabel(status: AuctionStatus): String =
     when (status) {
-        AuctionStatus.OPEN -> "Offen"
-        AuctionStatus.SETTLED -> "Abgeschlossen (verkauft)"
-        AuctionStatus.CLOSED_NO_SALE -> "Abgeschlossen (kein Verkauf)"
+        AuctionStatus.OPEN -> gettext("Offen")
+        AuctionStatus.SETTLED -> gettext("Abgeschlossen (verkauft)")
+        AuctionStatus.CLOSED_NO_SALE -> gettext("Abgeschlossen (kein Verkauf)")
     }
 
 fun auctionStatusColor(status: AuctionStatus): String =

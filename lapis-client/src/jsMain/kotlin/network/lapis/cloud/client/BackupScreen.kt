@@ -10,6 +10,8 @@ import io.kvision.html.h1
 import io.kvision.html.h2
 import io.kvision.html.link
 import io.kvision.html.p
+import io.kvision.i18n.gettext
+import io.kvision.i18n.tr
 import io.kvision.modal.Modal
 import io.kvision.panel.SimplePanel
 import io.kvision.panel.hPanel
@@ -45,26 +47,32 @@ fun renderBackupScreen(container: SimplePanel) {
             width = 800.px
             marginTop = 24.px
         }
-    root.h1("Backup & Wiederherstellung")
+    root.h1(tr("Backup & Wiederherstellung"))
     root.div(
-        "Vollständiger Export und Wiederherstellung aller Organisationsdaten (Datenbank + Dokumente) -- " +
-            "nur für Administratorinnen und Administratoren.",
+        tr(
+            "Vollständiger Export und Wiederherstellung aller Organisationsdaten (Datenbank + Dokumente) -- " +
+                "nur für Administratorinnen und Administratoren.",
+        ),
     ) { addCssClasses("text-muted small") }
 
     // ---- Export -------------------------------------------------------------------------------
-    root.h2("Export")
+    root.h2(tr("Export"))
     root.div(
-        "Lädt ein vollständiges ZIP-Backup aller Organisationsdaten herunter. Rein lesend und nicht " +
-            "destruktiv -- daher ohne Bestätigungsdialog.",
+        tr(
+            "Lädt ein vollständiges ZIP-Backup aller Organisationsdaten herunter. Rein lesend und nicht " +
+                "destruktiv -- daher ohne Bestätigungsdialog.",
+        ),
     ) { addCssClasses("text-muted small") }
-    root.link("Backup exportieren (.zip)", url = BackupHttp.EXPORT_URL, target = "_blank")
+    root.link(tr("Backup exportieren (.zip)"), url = BackupHttp.EXPORT_URL, target = "_blank")
 
     // ---- Operations log (declared before the restore panel so its `loadOperations`/refresh
     // closure can be passed down as a callback) ------------------------------------------------
-    root.h2("Verlauf")
+    root.h2(tr("Verlauf"))
     root.div(
-        "Protokoll aller bisherigen Export-/Wiederherstellungsversuche -- rein informativ, keine " +
-            "Aktionen auf dieser Liste.",
+        tr(
+            "Protokoll aller bisherigen Export-/Wiederherstellungsversuche -- rein informativ, keine " +
+                "Aktionen auf dieser Liste.",
+        ),
     ) { addCssClasses("text-muted small") }
     val logPanel = root.vPanel(spacing = 6)
 
@@ -73,7 +81,7 @@ fun renderBackupScreen(container: SimplePanel) {
         AppScope.launch {
             val operations = guarded { rpcService<IBackupService>().listOperations() } ?: return@launch
             if (operations.isEmpty()) {
-                logPanel.p("Noch keine Export-/Wiederherstellungsversuche protokolliert.")
+                logPanel.p(tr("Noch keine Export-/Wiederherstellungsversuche protokolliert."))
             } else {
                 operations.forEach { operation -> renderOperationRow(logPanel, operation) }
             }
@@ -81,7 +89,7 @@ fun renderBackupScreen(container: SimplePanel) {
     }
 
     // ---- Restore --------------------------------------------------------------------------------
-    root.h2("Wiederherstellung")
+    root.h2(tr("Wiederherstellung"))
     renderRestorePanel(root, onCompleted = ::loadOperations)
 
     loadOperations()
@@ -104,14 +112,16 @@ private fun renderRestorePanel(
 ) {
     val panel = root.vPanel(spacing = 6) { addCssClasses("border rounded p-3") }
 
-    val allowNonEmptyTargetCheck = panel.checkBox(label = "Ziel überschreiben (Zielorganisation enthält bereits Daten)")
+    val allowNonEmptyTargetCheck = panel.checkBox(label = tr("Ziel überschreiben (Zielorganisation enthält bereits Daten)"))
     panel.div(
-        "Ohne diese Option lehnt der Server die Wiederherstellung ab, sobald die Zielorganisation nicht " +
-            "leer ist -- das ist der sichere Standardpfad. Aktivieren Sie diese Option nur, wenn Sie " +
-            "absichtlich in eine bereits befüllte Organisation wiederherstellen wollen.",
+        tr(
+            "Ohne diese Option lehnt der Server die Wiederherstellung ab, sobald die Zielorganisation nicht " +
+                "leer ist -- das ist der sichere Standardpfad. Aktivieren Sie diese Option nur, wenn Sie " +
+                "absichtlich in eine bereits befüllte Organisation wiederherstellen wollen.",
+        ),
     ) { addCssClasses("text-muted small") }
 
-    val fileUpload = panel.upload(label = "Backup-Datei (.zip)")
+    val fileUpload = panel.upload(label = tr("Backup-Datei (.zip)"))
 
     val errorBox =
         panel.div().apply {
@@ -131,50 +141,62 @@ private fun renderRestorePanel(
     fun handleRestoreOutcome(outcome: RestoreOutcome) {
         when (outcome) {
             is RestoreOutcome.Success -> {
-                notifySuccess("Wiederherstellung erfolgreich.")
+                notifySuccess(tr("Wiederherstellung erfolgreich."))
                 val box = successSummaryPanel.vPanel(spacing = 2) { addCssClasses("alert alert-success") }
-                box.div("Wiederherstellung erfolgreich abgeschlossen.") { addCssClass("fw-bold") }
+                box.div(tr("Wiederherstellung erfolgreich abgeschlossen.")) { addCssClass("fw-bold") }
                 box.div(
-                    "${outcome.result.tablesRestored} Tabelle(n), ${outcome.result.totalRowCount} Zeile(n), " +
-                        "${outcome.result.blobsRestored} Datei(en) wiederhergestellt.",
+                    gettext(
+                        "%1 Tabelle(n), %2 Zeile(n), %3 Datei(en) wiederhergestellt.",
+                        outcome.result.tablesRestored,
+                        outcome.result.totalRowCount,
+                        outcome.result.blobsRestored,
+                    ),
                 )
                 if (outcome.result.warnings.isNotEmpty()) {
-                    outcome.result.warnings.forEach { warning -> box.div("Hinweis: $warning") { addCssClasses("small") } }
+                    outcome.result.warnings.forEach { warning ->
+                        box.div(gettext("Hinweis: %1", warning)) { addCssClasses("small") }
+                    }
                 }
             }
             is RestoreOutcome.IncompatibleBundle -> {
-                errorBox.content = "Diese Datei passt nicht zum erwarteten Sicherungsformat: ${outcome.message}"
+                errorBox.content = gettext("Diese Datei passt nicht zum erwarteten Sicherungsformat: %1", outcome.message)
                 errorBox.show()
             }
             is RestoreOutcome.NonEmptyTarget -> {
                 errorBox.content =
-                    "Die Zielorganisation enthält bereits Daten. Aktivieren Sie „Ziel überschreiben\", falls " +
-                    "das beabsichtigt ist: ${outcome.message}"
+                    gettext(
+                        "Die Zielorganisation enthält bereits Daten. Aktivieren Sie „Ziel überschreiben\", falls " +
+                            "das beabsichtigt ist: %1",
+                        outcome.message,
+                    )
                 errorBox.show()
             }
             is RestoreOutcome.Incomplete -> {
                 val box = incompleteWarningPanel.vPanel(spacing = 2) { addCssClasses("alert alert-danger") }
                 box.div(
-                    "Die Wiederherstellung wurde nur teilweise durchgeführt -- einzelne Zeilen wurden " +
-                        "möglicherweise bereits geschrieben, bevor der Fehler auftrat: ${outcome.message}. Prüfen " +
-                        "Sie den Datenbestand und ziehen Sie bei Unsicherheit Ihre Entwicklerin oder Ihren " +
-                        "Entwickler hinzu, bevor Sie es erneut versuchen.",
+                    gettext(
+                        "Die Wiederherstellung wurde nur teilweise durchgeführt -- einzelne Zeilen wurden " +
+                            "möglicherweise bereits geschrieben, bevor der Fehler auftrat: %1. Prüfen " +
+                            "Sie den Datenbestand und ziehen Sie bei Unsicherheit Ihre Entwicklerin oder Ihren " +
+                            "Entwickler hinzu, bevor Sie es erneut versuchen.",
+                        outcome.message,
+                    ),
                 ) { addCssClass("fw-bold") }
             }
             is RestoreOutcome.Other -> {
-                errorBox.content = "Unerwarteter Fehler (HTTP ${outcome.status}): ${outcome.message}"
+                errorBox.content = gettext("Unerwarteter Fehler (HTTP %1): %2", outcome.status, outcome.message)
                 errorBox.show()
             }
         }
     }
 
-    val restoreButton = panel.button("Wiederherstellen", style = ButtonStyle.PRIMARY)
+    val restoreButton = panel.button(tr("Wiederherstellen"), style = ButtonStyle.PRIMARY)
     restoreButton.onClick {
         errorBox.hide()
         val selected = fileUpload.value?.firstOrNull()
         val nativeFile = selected?.let { fileUpload.getNativeFile(it) }
         if (nativeFile == null) {
-            errorBox.content = "Bitte eine Datei auswählen."
+            errorBox.content = tr("Bitte eine Datei auswählen.")
             errorBox.show()
             return@onClick
         }
@@ -210,27 +232,31 @@ private fun restoreConfirmDialog(
     allowNonEmptyTarget: Boolean,
     onConfirm: () -> Unit,
 ) {
-    val modal = Modal(caption = "Wiederherstellung bestätigen")
-    modal.div("Diese Wiederherstellung ist NICHT rückgängig zu machen.") { addCssClasses("fw-bold text-danger") }
+    val modal = Modal(caption = tr("Wiederherstellung bestätigen"))
+    modal.div(tr("Diese Wiederherstellung ist NICHT rückgängig zu machen.")) { addCssClasses("fw-bold text-danger") }
     modal.div(
-        "Sie überschreibt Daten mit dem Stand aus der hochgeladenen Datei. Bereits vorhandene Daten in der " +
-            "Zielorganisation können dabei verloren gehen.",
+        tr(
+            "Sie überschreibt Daten mit dem Stand aus der hochgeladenen Datei. Bereits vorhandene Daten in der " +
+                "Zielorganisation können dabei verloren gehen.",
+        ),
     )
 
     val detailRow = modal.hPanel(spacing = 8) { addCssClasses("border rounded p-2 mt-2 mb-2 small") }
-    detailRow.div("Datei:") { addCssClasses("text-muted") }
-    detailRow.div("${file.name} (${file.size.toLong()} Bytes)") { addCssClass("flex-grow-1") }
+    detailRow.div(tr("Datei:")) { addCssClasses("text-muted") }
+    detailRow.div(gettext("%1 (%2 Bytes)", file.name, file.size.toLong())) { addCssClass("flex-grow-1") }
 
     if (allowNonEmptyTarget) {
         modal.div(
-            "„Ziel überschreiben\" ist aktiviert: diese Organisation hat bereits Daten. Sie werden mit den " +
-                "Daten aus der Datei zusammengeführt/überschrieben.",
+            tr(
+                "„Ziel überschreiben\" ist aktiviert: diese Organisation hat bereits Daten. Sie werden mit den " +
+                    "Daten aus der Datei zusammengeführt/überschrieben.",
+            ),
         ) { addCssClasses("fw-bold text-danger mt-1") }
     }
 
-    modal.addButton(Button("Abbrechen", style = ButtonStyle.SECONDARY).apply { onClick { modal.hide() } })
+    modal.addButton(Button(tr("Abbrechen"), style = ButtonStyle.SECONDARY).apply { onClick { modal.hide() } })
     modal.addButton(
-        Button("Endgültig wiederherstellen", style = ButtonStyle.DANGER).apply {
+        Button(tr("Endgültig wiederherstellen"), style = ButtonStyle.DANGER).apply {
             onClick {
                 modal.hide()
                 onConfirm()
@@ -252,18 +278,24 @@ private fun renderOperationRow(
     val headerRow = row.hPanel(spacing = 8) { addCssClasses("align-items-center") }
     headerRow.typeBadge(backupOperationTypeLabel(operation.operationType), backupOperationTypeColor(operation.operationType))
     headerRow.statusBadge(backupOperationStatusLabel(operation.status), backupOperationStatusColor(operation.status))
-    headerRow.div(operation.actorMemberDisplayName ?: "Mitglied ${operation.actorMemberId}") {
+    headerRow.div(operation.actorMemberDisplayName ?: gettext("Mitglied %1", operation.actorMemberId)) {
         addCssClasses("flex-grow-1 text-muted small")
     }
-    headerRow.div("${operation.startedAt} – ${operation.finishedAt}") { addCssClasses("text-muted small") }
+    headerRow.div(gettext("%1 – %2", operation.startedAt, operation.finishedAt)) { addCssClasses("text-muted small") }
 
     row.div(
-        "${operation.tableCount} Tabelle(n) · ${operation.totalRowCount} Zeile(n) · ${operation.blobCount} Datei(en) " +
-            "(${operation.blobBytesTotal} Bytes) · Bundle-Größe: ${operation.bundleSizeBytes} Bytes · " +
-            "Format-Version ${operation.bundleFormatVersion}",
+        gettext(
+            "%1 Tabelle(n) · %2 Zeile(n) · %3 Datei(en) (%4 Bytes) · Bundle-Größe: %5 Bytes · Format-Version %6",
+            operation.tableCount,
+            operation.totalRowCount,
+            operation.blobCount,
+            operation.blobBytesTotal,
+            operation.bundleSizeBytes,
+            operation.bundleFormatVersion,
+        ),
     ) { addCssClasses("small") }
 
     operation.errorMessage?.let { message ->
-        row.div("Fehler: $message") { addCssClasses("text-danger small") }
+        row.div(gettext("Fehler: %1", message)) { addCssClasses("text-danger small") }
     }
 }

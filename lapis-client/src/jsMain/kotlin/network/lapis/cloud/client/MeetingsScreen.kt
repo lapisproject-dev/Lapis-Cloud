@@ -11,6 +11,8 @@ import io.kvision.html.h1
 import io.kvision.html.h2
 import io.kvision.html.link
 import io.kvision.html.p
+import io.kvision.i18n.gettext
+import io.kvision.i18n.tr
 import io.kvision.panel.SimplePanel
 import io.kvision.panel.hPanel
 import io.kvision.panel.vPanel
@@ -105,23 +107,24 @@ fun renderMeetingsScreen(container: SimplePanel) {
             width = 800.px
             marginTop = 24.px
         }
-    root.h1("Sitzungen")
+    root.h1(tr("Sitzungen"))
 
-    root.h2("Übersicht")
+    root.h2(tr("Übersicht"))
     val filterRow = root.hPanel(spacing = 8) { addCssClasses("align-items-center") }
-    val committeeFilterSelect = filterRow.select(options = listOf("" to "Alle Gremien"), value = "", label = "Gremium")
-    val statusFilterOptions = listOf("" to "Alle Status") + MeetingStatus.entries.map { it.name to meetingStatusLabel(it) }
-    val statusFilterSelect = filterRow.select(options = statusFilterOptions, value = "", label = "Status")
-    val refreshButton = filterRow.button("Aktualisieren", style = ButtonStyle.OUTLINESECONDARY)
+    val committeeFilterSelect = filterRow.select(options = listOf("" to tr("Alle Gremien")), value = "", label = tr("Gremium"))
+    val statusFilterOptions =
+        listOf("" to tr("Alle Status")) + MeetingStatus.entries.map { it.name to meetingStatusLabel(it) }
+    val statusFilterSelect = filterRow.select(options = statusFilterOptions, value = "", label = tr("Status"))
+    val refreshButton = filterRow.button(tr("Aktualisieren"), style = ButtonStyle.OUTLINESECONDARY)
     val meetingListPanel = root.vPanel(spacing = 6)
 
-    root.h2("Details")
+    root.h2(tr("Details"))
     val detailPanel = root.vPanel(spacing = 10)
-    detailPanel.p("Sitzung oben auswählen, um Details zu sehen.")
+    detailPanel.p(tr("Sitzung oben auswählen, um Details zu sehen."))
 
-    root.h2("Neue Sitzung anlegen")
+    root.h2(tr("Neue Sitzung anlegen"))
     val creationPanel = root.vPanel(spacing = 6)
-    creationPanel.p("Wird geladen …") { addCssClasses("text-muted small") }
+    creationPanel.p(tr("Wird geladen …")) { addCssClasses("text-muted small") }
 
     var committees: List<CommitteeDto> = emptyList()
     var currentDetailMeetingId: String? = null
@@ -140,7 +143,7 @@ fun renderMeetingsScreen(container: SimplePanel) {
             val status = statusFilterSelect.value?.takeIf { it.isNotBlank() }?.let { MeetingStatus.valueOf(it) }
             val meetings = guarded { rpcService<IGovernanceService>().listMeetings(committeeId, status) } ?: return@launch
             if (meetings.isEmpty()) {
-                meetingListPanel.p("Noch keine Sitzungen vorhanden.")
+                meetingListPanel.p(tr("Noch keine Sitzungen vorhanden."))
                 return@launch
             }
             meetings.forEach { meeting ->
@@ -156,7 +159,7 @@ fun renderMeetingsScreen(container: SimplePanel) {
 
     AppScope.launch {
         committees = guarded { rpcService<IGovernanceService>().listCommittees(activeOnly = false) } ?: emptyList()
-        committeeFilterSelect.options = listOf("" to "Alle Gremien") + committees.map { it.id to it.name }
+        committeeFilterSelect.options = listOf("" to tr("Alle Gremien")) + committees.map { it.id to it.name }
         committeeFilterSelect.value = ""
         refreshMeetings()
 
@@ -184,7 +187,7 @@ fun renderMeetingsScreen(container: SimplePanel) {
 
         creationPanel.removeAll()
         if (manageableCommittees.isEmpty()) {
-            creationPanel.p("Keine Berechtigung, neue Sitzungen anzulegen.")
+            creationPanel.p(tr("Keine Berechtigung, neue Sitzungen anzulegen."))
         } else {
             val memberCandidates = guarded { rpcService<IMemberService>().listMembers() } ?: emptyList()
             renderMeetingCreationForm(creationPanel, manageableCommittees, memberCandidates) { refreshMeetings() }
@@ -201,15 +204,15 @@ private fun renderMeetingRow(
     val headerRow = row.hPanel(spacing = 8) { addCssClasses("align-items-center") }
     headerRow.div(meeting.title) { addCssClasses("flex-grow-1 fw-bold") }
     headerRow.statusBadge(meetingStatusLabel(meeting.status), meetingStatusColor(meeting.status))
-    row.div("${meeting.committeeName} · ${meetingFormatLabel(meeting.format)} · ${meeting.scheduledAt}") {
+    row.div(gettext("%1 · %2 · %3", meeting.committeeName, meetingFormatLabel(meeting.format), meeting.scheduledAt)) {
         addCssClasses("text-muted small")
     }
     meeting.location?.takeIf { it.isNotBlank() }?.let { location ->
-        row.div("Ort: $location") { addCssClasses("text-muted small") }
+        row.div(gettext("Ort: %1", location)) { addCssClasses("text-muted small") }
     }
 
     val actionRow = row.hPanel(spacing = 8)
-    val showButton = actionRow.button("Details anzeigen", style = ButtonStyle.OUTLINESECONDARY)
+    val showButton = actionRow.button(tr("Details anzeigen"), style = ButtonStyle.OUTLINESECONDARY)
     showButton.onClick { onSelect(meeting) }
 }
 
@@ -220,22 +223,22 @@ private fun renderMeetingCreationForm(
     onCreated: () -> Unit,
 ) {
     val committeeOptions = committees.map { it.id to it.name }
-    val committeeSelect = panel.select(options = committeeOptions, value = committees.firstOrNull()?.id, label = "Gremium")
-    val titleInput = panel.text(label = "Titel")
-    val scheduledAtInput = panel.text(label = "Termin (JJJJ-MM-TTTHH:MM, z. B. 2026-08-15T18:00)")
-    val locationInput = panel.text(label = "Ort (optional)")
+    val committeeSelect = panel.select(options = committeeOptions, value = committees.firstOrNull()?.id, label = tr("Gremium"))
+    val titleInput = panel.text(label = tr("Titel"))
+    val scheduledAtInput = panel.text(label = tr("Termin (JJJJ-MM-TTTHH:MM, z. B. 2026-08-15T18:00)"))
+    val locationInput = panel.text(label = tr("Ort (optional)"))
     val formatOptions = MeetingFormat.entries.map { it.name to meetingFormatLabel(it) }
-    val formatSelect = panel.select(options = formatOptions, value = MeetingFormat.IN_PERSON.name, label = "Format")
-    val memberOptions = listOf("" to "-- keine --") + memberCandidates.map { it.id to it.displayName }
-    val chairSelect = panel.select(options = memberOptions, value = "", label = "Sitzungsleitung (optional)")
-    val minuteTakerSelect = panel.select(options = memberOptions, value = "", label = "Protokollführung (optional)")
+    val formatSelect = panel.select(options = formatOptions, value = MeetingFormat.IN_PERSON.name, label = tr("Format"))
+    val memberOptions = listOf("" to tr("-- keine --")) + memberCandidates.map { it.id to it.displayName }
+    val chairSelect = panel.select(options = memberOptions, value = "", label = tr("Sitzungsleitung (optional)"))
+    val minuteTakerSelect = panel.select(options = memberOptions, value = "", label = tr("Protokollführung (optional)"))
     val errorBox =
         panel.div().apply {
             addCssClass("text-danger")
             hide()
         }
 
-    val createButton = panel.button("Sitzung anlegen", style = ButtonStyle.PRIMARY)
+    val createButton = panel.button(tr("Sitzung anlegen"), style = ButtonStyle.PRIMARY)
     createButton.onClick {
         errorBox.hide()
         val committeeId = committeeSelect.value
@@ -247,7 +250,7 @@ private fun renderMeetingCreationForm(
         val minuteTakerId = minuteTakerSelect.value?.takeIf { it.isNotBlank() }
 
         if (committeeId == null || !Validation.isNonBlank(title) || scheduledAt == null || formatValue == null) {
-            errorBox.content = "Bitte Gremium, Titel, einen gültigen Termin (JJJJ-MM-TTTHH:MM) und ein Format angeben."
+            errorBox.content = tr("Bitte Gremium, Titel, einen gültigen Termin (JJJJ-MM-TTTHH:MM) und ein Format angeben.")
             errorBox.show()
             return@onClick
         }
@@ -270,7 +273,7 @@ private fun renderMeetingCreationForm(
                 }
             createButton.disabled = false
             if (result != null) {
-                notifySuccess("Sitzung \"$title\" wurde angelegt.")
+                notifySuccess(gettext("Sitzung \"%1\" wurde angelegt.", title))
                 titleInput.value = null
                 scheduledAtInput.value = null
                 locationInput.value = null
@@ -296,7 +299,7 @@ private fun renderMeetingDetail(
     onChanged: () -> Unit,
 ) {
     panel.removeAll()
-    panel.p("Wird geladen …")
+    panel.p(tr("Wird geladen …"))
     AppScope.launch {
         val detail = guarded { rpcService<IGovernanceService>().getMeetingDetail(meetingId) } ?: return@launch
         val roster =
@@ -333,42 +336,53 @@ private fun renderMeetingMeta(
     headerRow.h2(meeting.title) { addCssClasses("h4 flex-grow-1") }
     headerRow.statusBadge(meetingStatusLabel(meeting.status), meetingStatusColor(meeting.status))
 
-    panel.div("Gremium: ${meeting.committeeName} · ${meetingFormatLabel(meeting.format)} · Termin: ${meeting.scheduledAt}") {
+    panel.div(
+        gettext(
+            "Gremium: %1 · %2 · Termin: %3",
+            meeting.committeeName,
+            meetingFormatLabel(meeting.format),
+            meeting.scheduledAt,
+        ),
+    ) {
         addCssClasses("text-muted small")
     }
     meeting.location?.takeIf { it.isNotBlank() }?.let { location ->
-        panel.div("Ort: $location") { addCssClasses("text-muted small") }
+        panel.div(gettext("Ort: %1", location)) { addCssClasses("text-muted small") }
     }
-    meeting.chairDisplayName?.let { chair -> panel.div("Sitzungsleitung: $chair") { addCssClasses("text-muted small") } }
-    meeting.minuteTakerDisplayName?.let { taker -> panel.div("Protokollführung: $taker") { addCssClasses("text-muted small") } }
+    meeting.chairDisplayName?.let { chair ->
+        panel.div(gettext("Sitzungsleitung: %1", chair)) { addCssClasses("text-muted small") }
+    }
+    meeting.minuteTakerDisplayName?.let { taker ->
+        panel.div(gettext("Protokollführung: %1", taker)) { addCssClasses("text-muted small") }
+    }
 
     // Status transitions: only meaningful from PLANNED. HELD is a forward/completing transition
     // (no confirm dialog, mirrors `updateMeetingStatus -> HELD` being unwrapped per the design
     // review D7); CANCELLED is destructive and gets the real confirm step, per the same D7 list.
     if (canManage && meeting.status == MeetingStatus.PLANNED) {
         val actionRow = panel.hPanel(spacing = 8)
-        val heldButton = actionRow.button("Als durchgeführt markieren", style = ButtonStyle.SUCCESS)
+        val heldButton = actionRow.button(tr("Als durchgeführt markieren"), style = ButtonStyle.SUCCESS)
         heldButton.onClick {
             AppScope.launch {
                 val result = guarded { rpcService<IGovernanceService>().updateMeetingStatus(meeting.id, MeetingStatus.HELD) }
                 if (result != null) {
-                    notifySuccess("Sitzung als durchgeführt markiert.")
+                    notifySuccess(tr("Sitzung als durchgeführt markiert."))
                     onChanged()
                 }
             }
         }
-        val cancelButton = actionRow.button("Absagen", style = ButtonStyle.OUTLINEDANGER)
+        val cancelButton = actionRow.button(tr("Absagen"), style = ButtonStyle.OUTLINEDANGER)
         cancelButton.onClick {
             confirmDialog(
-                title = "Sitzung absagen",
-                message = "\"${meeting.title}\" wirklich absagen?",
-                confirmLabel = "Absagen",
+                title = tr("Sitzung absagen"),
+                message = gettext("\"%1\" wirklich absagen?", meeting.title),
+                confirmLabel = tr("Absagen"),
             ) {
                 AppScope.launch {
                     val result =
                         guarded { rpcService<IGovernanceService>().updateMeetingStatus(meeting.id, MeetingStatus.CANCELLED) }
                     if (result != null) {
-                        notifyInfo("Sitzung abgesagt.")
+                        notifyInfo(tr("Sitzung abgesagt."))
                         onChanged()
                     }
                 }
@@ -396,39 +410,43 @@ private fun renderEinladungSection(
     eligibleMembers: List<MemberSummaryDto>,
 ) {
     if (!canManage) return
-    panel.h2("Einladung") { addCssClass("h5") }
+    panel.h2(tr("Einladung")) { addCssClass("h5") }
 
     if (!isBoardOrAdminGlobal) {
         panel.div(
-            "Der Versand von Einladungen ist Vorstand und Administration vorbehalten -- als " +
-                "Sitzungsleitung/Protokollführung dieses Gremiums können Sie die Sitzung verwalten, aber " +
-                "keine Einladungen verschicken.",
+            tr(
+                "Der Versand von Einladungen ist Vorstand und Administration vorbehalten -- als " +
+                    "Sitzungsleitung/Protokollführung dieses Gremiums können Sie die Sitzung verwalten, aber " +
+                    "keine Einladungen verschicken.",
+            ),
         ) { addCssClasses("text-muted small") }
         return
     }
 
     panel.div(
-        "Versand einer Einladung an ausgewählte Mitglieder -- als PDF zum Herunterladen (kostenlos, bis zu " +
-            "1.000 Empfänger) oder per Post (kostenpflichtig über Letterxpress, bis zu 50 Empfänger, " +
-            "erfordert eine vollständige Anschrift jedes Empfängers).",
+        tr(
+            "Versand einer Einladung an ausgewählte Mitglieder -- als PDF zum Herunterladen (kostenlos, bis zu " +
+                "1.000 Empfänger) oder per Post (kostenpflichtig über Letterxpress, bis zu 50 Empfänger, " +
+                "erfordert eine vollständige Anschrift jedes Empfängers).",
+        ),
     ) { addCssClasses("text-muted small") }
 
     if (eligibleMembers.isEmpty()) {
-        panel.p("Keine berechtigten Mitglieder gefunden.")
+        panel.p(tr("Keine berechtigten Mitglieder gefunden."))
         return
     }
 
     val formPanel = panel.vPanel(spacing = 6) { addCssClasses("border rounded p-3") }
-    val titleInput = formPanel.text(value = meeting.title, label = "Titel")
-    val eventDateTimeInput = formPanel.text(value = meeting.scheduledAt.toString(), label = "Termin (JJJJ-MM-TTTHH:MM)")
-    val locationInput = formPanel.text(value = meeting.location.orEmpty(), label = "Ort")
-    val bodyTextInput = formPanel.textArea(label = "Einladungstext", rows = 4)
+    val titleInput = formPanel.text(value = meeting.title, label = tr("Titel"))
+    val eventDateTimeInput = formPanel.text(value = meeting.scheduledAt.toString(), label = tr("Termin (JJJJ-MM-TTTHH:MM)"))
+    val locationInput = formPanel.text(value = meeting.location.orEmpty(), label = tr("Ort"))
+    val bodyTextInput = formPanel.textArea(label = tr("Einladungstext"), rows = 4)
 
-    formPanel.p("Empfänger") { addCssClasses("fw-bold mb-1") }
+    formPanel.p(tr("Empfänger")) { addCssClasses("fw-bold mb-1") }
     val recipientsPanel = formPanel.vPanel(spacing = 2) { addCssClasses("border rounded p-2") }
     val quickToggleRow = recipientsPanel.hPanel(spacing = 8)
-    val selectAllLink = quickToggleRow.link("Alle auswählen", url = "javascript:void(0)")
-    val deselectAllLink = quickToggleRow.link("Alle abwählen", url = "javascript:void(0)")
+    val selectAllLink = quickToggleRow.link(tr("Alle auswählen"), url = "javascript:void(0)")
+    val deselectAllLink = quickToggleRow.link(tr("Alle abwählen"), url = "javascript:void(0)")
     // Unchecked by default -- a costly/PII-sharing action must never default to "everyone selected".
     val checkboxesByMember =
         eligibleMembers.associateWith { member -> recipientsPanel.checkBox(label = member.displayName) }
@@ -445,7 +463,7 @@ private fun renderEinladungSection(
     fun selectedRecipients(): List<MemberSummaryDto> = checkboxesByMember.filterValues { it.value }.keys.toList()
 
     val actionRow = formPanel.hPanel(spacing = 8)
-    val downloadButton = actionRow.button("Als PDF herunterladen", style = ButtonStyle.OUTLINEPRIMARY)
+    val downloadButton = actionRow.button(tr("Als PDF herunterladen"), style = ButtonStyle.OUTLINEPRIMARY)
     downloadButton.onClick {
         errorBox.hide()
         val recipients = selectedRecipients()
@@ -462,8 +480,10 @@ private fun renderEinladungSection(
             !Validation.isNonBlank(bodyText)
         ) {
             errorBox.content =
-                "Bitte mindestens eine Empfängerin/einen Empfänger sowie Titel, einen gültigen Termin " +
-                "(JJJJ-MM-TTTHH:MM), Ort und Einladungstext angeben."
+                tr(
+                    "Bitte mindestens eine Empfängerin/einen Empfänger sowie Titel, einen gültigen Termin " +
+                        "(JJJJ-MM-TTTHH:MM), Ort und Einladungstext angeben.",
+                )
             errorBox.show()
             return@onClick
         }
@@ -476,7 +496,7 @@ private fun renderEinladungSection(
     val postalActionPanel = formPanel.vPanel(spacing = 4)
     AppScope.launch {
         if (isPostalMailEnabled()) {
-            val postalButton = postalActionPanel.button("Per Post versenden", style = ButtonStyle.OUTLINEDANGER)
+            val postalButton = postalActionPanel.button(tr("Per Post versenden"), style = ButtonStyle.OUTLINEDANGER)
             postalButton.onClick {
                 errorBox.hide()
                 val recipients = selectedRecipients()
@@ -493,16 +513,21 @@ private fun renderEinladungSection(
                     !Validation.isNonBlank(bodyText)
                 ) {
                     errorBox.content =
-                        "Bitte mindestens eine Empfängerin/einen Empfänger sowie Titel, einen gültigen Termin " +
-                        "(JJJJ-MM-TTTHH:MM), Ort und Einladungstext angeben."
+                        tr(
+                            "Bitte mindestens eine Empfängerin/einen Empfänger sowie Titel, einen gültigen Termin " +
+                                "(JJJJ-MM-TTTHH:MM), Ort und Einladungstext angeben.",
+                        )
                     errorBox.show()
                     return@onClick
                 }
                 if (recipients.size > MAX_POSTAL_INVITATION_RECIPIENTS_UI) {
                     errorBox.content =
-                        "Postversand ist auf $MAX_POSTAL_INVITATION_RECIPIENTS_UI Empfänger begrenzt (aktuell " +
-                        "ausgewählt: ${recipients.size}) -- für mehr Empfänger bitte das PDF herunterladen und " +
-                        "selbst verteilen."
+                        gettext(
+                            "Postversand ist auf %1 Empfänger begrenzt (aktuell ausgewählt: %2) -- für mehr " +
+                                "Empfänger bitte das PDF herunterladen und selbst verteilen.",
+                            MAX_POSTAL_INVITATION_RECIPIENTS_UI,
+                            recipients.size,
+                        )
                     errorBox.show()
                     return@onClick
                 }
@@ -527,9 +552,15 @@ private fun renderEinladungSection(
                         if (results != null) {
                             val sentCount = results.count { it.status == PostalDeliveryStatus.SENT }
                             if (sentCount == results.size) {
-                                notifySuccess("$sentCount von ${results.size} Briefen erfolgreich übergeben.")
+                                notifySuccess(gettext("%1 von %2 Briefen erfolgreich übergeben.", sentCount, results.size))
                             } else {
-                                notifyError("${results.size - sentCount} von ${results.size} Briefen fehlgeschlagen -- Details unten.")
+                                notifyError(
+                                    gettext(
+                                        "%1 von %2 Briefen fehlgeschlagen -- Details unten.",
+                                        results.size - sentCount,
+                                        results.size,
+                                    ),
+                                )
                             }
                             results.forEach { log -> outcomePanel.renderPostalDispatchOutcome(log) }
                         }
@@ -556,25 +587,25 @@ private fun renderAgendaSection(
     eligibleMembers: List<MemberSummaryDto>,
     onChanged: () -> Unit,
 ) {
-    panel.h2("Tagesordnung") { addCssClass("h5") }
+    panel.h2(tr("Tagesordnung")) { addCssClass("h5") }
     val agenda = detail.agenda.sortedBy { it.position }
     if (agenda.isEmpty()) {
-        panel.p("Noch keine Tagesordnungspunkte.")
+        panel.p(tr("Noch keine Tagesordnungspunkte."))
     } else {
         agenda.forEach { item ->
             val row = panel.hPanel(spacing = 8) { addCssClasses("border-bottom py-1 align-items-center") }
             val description = if (item.description.isNullOrBlank()) "" else " -- ${item.description}"
-            row.div("${item.position}. ${item.title}$description") { addCssClasses("flex-grow-1") }
+            row.div(gettext("%1. %2%3", item.position, item.title, description)) { addCssClasses("flex-grow-1") }
             item.presenterDisplayName?.let { presenter ->
-                row.div("Vortragend: $presenter") { addCssClasses("text-muted small") }
+                row.div(gettext("Vortragend: %1", presenter)) { addCssClasses("text-muted small") }
             }
             if (canManage) {
-                val removeButton = row.button("Entfernen", style = ButtonStyle.OUTLINEDANGER)
+                val removeButton = row.button(tr("Entfernen"), style = ButtonStyle.OUTLINEDANGER)
                 removeButton.onClick {
                     AppScope.launch {
                         val result = guarded { rpcService<IGovernanceService>().removeAgendaItem(item.id) }
                         if (result != null) {
-                            notifySuccess("Tagesordnungspunkt entfernt.")
+                            notifySuccess(tr("Tagesordnungspunkt entfernt."))
                             onChanged()
                         }
                     }
@@ -598,19 +629,19 @@ private fun renderAddAgendaItemForm(
     onChanged: () -> Unit,
 ) {
     val formPanel = panel.vPanel(spacing = 4) { addCssClasses("border-top pt-2 mt-2") }
-    formPanel.p("Tagesordnungspunkt hinzufügen") { addCssClass("fw-bold") }
-    val positionInput = formPanel.text(value = nextPosition.toString(), label = "Position")
-    val titleInput = formPanel.text(label = "Titel")
-    val descriptionInput = formPanel.text(label = "Beschreibung (optional)")
-    val presenterOptions = listOf("" to "-- kein --") + eligibleMembers.map { it.id to it.displayName }
-    val presenterSelect = formPanel.select(options = presenterOptions, value = "", label = "Vortragend (optional)")
+    formPanel.p(tr("Tagesordnungspunkt hinzufügen")) { addCssClass("fw-bold") }
+    val positionInput = formPanel.text(value = nextPosition.toString(), label = tr("Position"))
+    val titleInput = formPanel.text(label = tr("Titel"))
+    val descriptionInput = formPanel.text(label = tr("Beschreibung (optional)"))
+    val presenterOptions = listOf("" to tr("-- kein --")) + eligibleMembers.map { it.id to it.displayName }
+    val presenterSelect = formPanel.select(options = presenterOptions, value = "", label = tr("Vortragend (optional)"))
     val errorBox =
         formPanel.div().apply {
             addCssClass("text-danger")
             hide()
         }
 
-    val addButton = formPanel.button("Hinzufügen", style = ButtonStyle.OUTLINEPRIMARY)
+    val addButton = formPanel.button(tr("Hinzufügen"), style = ButtonStyle.OUTLINEPRIMARY)
     addButton.onClick {
         errorBox.hide()
         val position =
@@ -623,7 +654,7 @@ private fun renderAddAgendaItemForm(
         val presenterId = presenterSelect.value?.takeIf { it.isNotBlank() }
 
         if (position == null || !Validation.isNonBlank(title)) {
-            errorBox.content = "Bitte eine gültige Position und einen Titel angeben."
+            errorBox.content = tr("Bitte eine gültige Position und einen Titel angeben.")
             errorBox.show()
             return@onClick
         }
@@ -644,7 +675,7 @@ private fun renderAddAgendaItemForm(
                 }
             addButton.disabled = false
             if (result != null) {
-                notifySuccess("Tagesordnungspunkt \"$title\" hinzugefügt.")
+                notifySuccess(gettext("Tagesordnungspunkt \"%1\" hinzugefügt.", title))
                 onChanged()
             }
         }
@@ -658,16 +689,16 @@ private fun renderAttendanceSection(
     eligibleMembers: List<MemberSummaryDto>,
     onChanged: () -> Unit,
 ) {
-    panel.h2("Anwesenheit") { addCssClass("h5") }
+    panel.h2(tr("Anwesenheit")) { addCssClass("h5") }
     if (detail.attendance.isEmpty()) {
-        panel.p("Noch keine Anwesenheit erfasst.")
+        panel.p(tr("Noch keine Anwesenheit erfasst."))
     } else {
         detail.attendance.forEach { attendance ->
             val row = panel.hPanel(spacing = 8) { addCssClasses("border-bottom py-1 align-items-center") }
             row.div(attendance.memberDisplayName) { addCssClasses("flex-grow-1") }
             row.statusBadge(attendanceStatusLabel(attendance.status), attendanceStatusColor(attendance.status))
             attendance.representedByDisplayName?.let { representative ->
-                row.div("vertreten durch $representative") { addCssClasses("text-muted small") }
+                row.div(gettext("vertreten durch %1", representative)) { addCssClasses("text-muted small") }
             }
             attendance.note?.takeIf { it.isNotBlank() }?.let { note ->
                 row.div(note) { addCssClasses("text-muted small") }
@@ -690,9 +721,9 @@ private fun renderAttendanceRecordingForm(
     onChanged: () -> Unit,
 ) {
     val formPanel = panel.vPanel(spacing = 6) { addCssClasses("border-top pt-2 mt-2") }
-    formPanel.p("Anwesenheit erfassen") { addCssClass("fw-bold") }
+    formPanel.p(tr("Anwesenheit erfassen")) { addCssClass("fw-bold") }
     if (eligibleMembers.isEmpty()) {
-        formPanel.p("Keine berechtigten Mitglieder gefunden.")
+        formPanel.p(tr("Keine berechtigten Mitglieder gefunden."))
         return
     }
     val existingByMember = existingAttendance.associateBy { it.memberId }
@@ -705,21 +736,25 @@ private fun renderAttendanceRecordingForm(
         val topRow = row.hPanel(spacing = 8) { addCssClasses("align-items-center") }
         topRow.div(member.displayName) { addCssClasses("flex-grow-1") }
         val statusSelect =
-            topRow.select(options = statusOptions, value = (existing?.status ?: AttendanceStatus.PRESENT).name, label = "Status")
+            topRow.select(
+                options = statusOptions,
+                value = (existing?.status ?: AttendanceStatus.PRESENT).name,
+                label = tr("Status"),
+            )
         val representedBySelect =
             row.select(
                 options = representedOptions,
                 value = existing?.representedByMemberId.orEmpty(),
-                label = "Vertreten durch (nur bei \"Vertreten\")",
+                label = tr("Vertreten durch (nur bei \"Vertreten\")"),
             )
-        val noteInput = row.text(value = existing?.note, label = "Notiz (optional)")
-        val saveButton = row.button("Speichern", style = ButtonStyle.OUTLINEPRIMARY)
+        val noteInput = row.text(value = existing?.note, label = tr("Notiz (optional)"))
+        val saveButton = row.button(tr("Speichern"), style = ButtonStyle.OUTLINEPRIMARY)
         saveButton.onClick {
             val statusValue = statusSelect.value ?: return@onClick
             val status = AttendanceStatus.valueOf(statusValue)
             val representedById = representedBySelect.value?.takeIf { it.isNotBlank() }
             if (status == AttendanceStatus.REPRESENTED && representedById == null) {
-                notifyError("Bitte bei \"Vertreten\" angeben, durch wen.")
+                notifyError(tr("Bitte bei \"Vertreten\" angeben, durch wen."))
                 return@onClick
             }
             saveButton.disabled = true
@@ -738,7 +773,7 @@ private fun renderAttendanceRecordingForm(
                     }
                 saveButton.disabled = false
                 if (result != null) {
-                    notifySuccess("Anwesenheit von ${member.displayName} gespeichert.")
+                    notifySuccess(gettext("Anwesenheit von %1 gespeichert.", member.displayName))
                     onChanged()
                 }
             }
@@ -752,9 +787,9 @@ private fun renderResolutionSection(
     canManage: Boolean,
     onChanged: () -> Unit,
 ) {
-    panel.h2("Beschlüsse") { addCssClass("h5") }
+    panel.h2(tr("Beschlüsse")) { addCssClass("h5") }
     if (detail.resolutions.isEmpty()) {
-        panel.p("Noch keine Beschlüsse erfasst.")
+        panel.p(tr("Noch keine Beschlüsse erfasst."))
     } else {
         detail.resolutions.forEach { resolution -> renderResolutionRow(panel, resolution) }
     }
@@ -775,14 +810,20 @@ fun renderResolutionRow(
 ) {
     val row = panel.vPanel(spacing = 4) { addCssClasses("border rounded p-2") }
     val headerRow = row.hPanel(spacing = 8) { addCssClasses("align-items-center") }
-    headerRow.div("${resolution.number}: ${resolution.title}") { addCssClasses("flex-grow-1 fw-bold") }
+    headerRow.div(gettext("%1: %2", resolution.number, resolution.title)) { addCssClasses("flex-grow-1 fw-bold") }
     headerRow.statusBadge(resolutionStatusLabel(resolution.status), resolutionStatusColor(resolution.status))
     headerRow.typeBadge(resolutionModeLabel(resolution.resolutionMode), resolutionModeColor(resolution.resolutionMode))
     row.p(resolution.text) { addCssClass("mb-0") }
     row.div(
-        "Ja: ${resolution.votesYes} · Nein: ${resolution.votesNo} · Enthaltung: ${resolution.votesAbstain} · " +
-            "Quorum ${if (resolution.quorumMet) "erreicht" else "nicht erreicht"} · " +
-            "entschieden am ${resolution.decidedAt} von ${resolution.recordedByDisplayName}",
+        gettext(
+            "Ja: %1 · Nein: %2 · Enthaltung: %3 · Quorum %4 · entschieden am %5 von %6",
+            resolution.votesYes,
+            resolution.votesNo,
+            resolution.votesAbstain,
+            if (resolution.quorumMet) "erreicht" else "nicht erreicht",
+            resolution.decidedAt,
+            resolution.recordedByDisplayName,
+        ),
     ) { addCssClasses("text-muted small") }
 }
 
@@ -793,25 +834,25 @@ private fun renderRecordResolutionForm(
     onChanged: () -> Unit,
 ) {
     val formPanel = panel.vPanel(spacing = 4) { addCssClasses("border-top pt-2 mt-2") }
-    formPanel.p("Beschluss erfassen (Gremienbeschluss)") { addCssClass("fw-bold") }
+    formPanel.p(tr("Beschluss erfassen (Gremienbeschluss)")) { addCssClass("fw-bold") }
     val agendaOptions =
-        listOf("" to "-- kein Tagesordnungspunkt --") +
-            agenda.sortedBy { it.position }.map { it.id to "${it.position}. ${it.title}" }
-    val agendaSelect = formPanel.select(options = agendaOptions, value = "", label = "Tagesordnungspunkt (optional)")
-    val titleInput = formPanel.text(label = "Titel")
-    val textInput = formPanel.textArea(label = "Beschlusstext", rows = 3)
-    val votesYesInput = formPanel.text(value = "0", label = "Ja-Stimmen")
-    val votesNoInput = formPanel.text(value = "0", label = "Nein-Stimmen")
-    val votesAbstainInput = formPanel.text(value = "0", label = "Enthaltungen")
+        listOf("" to tr("-- kein Tagesordnungspunkt --")) +
+            agenda.sortedBy { it.position }.map { it.id to gettext("%1. %2", it.position, it.title) }
+    val agendaSelect = formPanel.select(options = agendaOptions, value = "", label = tr("Tagesordnungspunkt (optional)"))
+    val titleInput = formPanel.text(label = tr("Titel"))
+    val textInput = formPanel.textArea(label = tr("Beschlusstext"), rows = 3)
+    val votesYesInput = formPanel.text(value = "0", label = tr("Ja-Stimmen"))
+    val votesNoInput = formPanel.text(value = "0", label = tr("Nein-Stimmen"))
+    val votesAbstainInput = formPanel.text(value = "0", label = tr("Enthaltungen"))
     val statusOptions = ResolutionStatus.entries.map { it.name to resolutionStatusLabel(it) }
-    val statusSelect = formPanel.select(options = statusOptions, value = ResolutionStatus.ADOPTED.name, label = "Status")
+    val statusSelect = formPanel.select(options = statusOptions, value = ResolutionStatus.ADOPTED.name, label = tr("Status"))
     val errorBox =
         formPanel.div().apply {
             addCssClass("text-danger")
             hide()
         }
 
-    val saveButton = formPanel.button("Beschluss speichern", style = ButtonStyle.PRIMARY)
+    val saveButton = formPanel.button(tr("Beschluss speichern"), style = ButtonStyle.PRIMARY)
     saveButton.onClick {
         errorBox.hide()
         val title = titleInput.value.orEmpty().trim()
@@ -845,7 +886,7 @@ private fun renderRecordResolutionForm(
             votesAbstain < 0 ||
             statusValue == null
         ) {
-            errorBox.content = "Bitte Titel, Beschlusstext, Status und nicht-negative Stimmzahlen angeben."
+            errorBox.content = tr("Bitte Titel, Beschlusstext, Status und nicht-negative Stimmzahlen angeben.")
             errorBox.show()
             return@onClick
         }
@@ -869,7 +910,7 @@ private fun renderRecordResolutionForm(
                 }
             saveButton.disabled = false
             if (result != null) {
-                notifySuccess("Beschluss \"$title\" wurde erfasst.")
+                notifySuccess(gettext("Beschluss \"%1\" wurde erfasst.", title))
                 titleInput.value = null
                 textInput.value = null
                 votesYesInput.value = "0"
@@ -895,10 +936,10 @@ private fun renderProtocolSection(
     panel: SimplePanel,
     meetingId: String,
 ) {
-    panel.h2("Protokoll") { addCssClass("h5") }
+    panel.h2(tr("Protokoll")) { addCssClass("h5") }
     val actionRow = panel.hPanel(spacing = 8) { addCssClasses("align-items-center") }
-    val generateButton = actionRow.button("Protokollentwurf erzeugen", style = ButtonStyle.OUTLINESECONDARY)
-    actionRow.div("Sichtbar für alle Mitglieder.") { addCssClasses("text-muted small") }
+    val generateButton = actionRow.button(tr("Protokollentwurf erzeugen"), style = ButtonStyle.OUTLINESECONDARY)
+    actionRow.div(tr("Sichtbar für alle Mitglieder.")) { addCssClasses("text-muted small") }
     val previewPanel = panel.vPanel(spacing = 8)
 
     generateButton.onClick {
@@ -918,50 +959,63 @@ private fun renderProtocolPreview(
     // container (not the surrounding "Drucken" button, filters, or navbar) survives to the
     // printed page / "Save as PDF" output. See that file's own KDoc comment for the full rationale.
     val printArea = panel.vPanel(spacing = 6) { addCssClass("protocol-print-area") }
-    printArea.h2("Protokoll: ${draft.meeting.title}") { addCssClass("h5") }
+    printArea.h2(gettext("Protokoll: %1", draft.meeting.title)) { addCssClass("h5") }
     val locationSuffix = if (draft.meeting.location.isNullOrBlank()) "" else " · Ort: ${draft.meeting.location}"
     printArea.div(
-        "Gremium: ${draft.meeting.committeeName} · ${meetingFormatLabel(draft.meeting.format)} · " +
-            "Termin: ${draft.meeting.scheduledAt}$locationSuffix",
+        gettext(
+            "Gremium: %1 · %2 · Termin: %3%4",
+            draft.meeting.committeeName,
+            meetingFormatLabel(draft.meeting.format),
+            draft.meeting.scheduledAt,
+            locationSuffix,
+        ),
     )
 
-    printArea.p("Anwesenheit") { addCssClasses("fw-bold mb-1") }
+    printArea.p(tr("Anwesenheit")) { addCssClasses("fw-bold mb-1") }
     if (draft.attendance.isEmpty()) {
-        printArea.p("Keine Anwesenheit erfasst.") { addCssClass("small") }
+        printArea.p(tr("Keine Anwesenheit erfasst.")) { addCssClass("small") }
     } else {
         draft.attendance.forEach { attendance ->
             val representedName = attendance.representedByDisplayName
             val representedSuffix = if (representedName == null) "" else " (vertreten durch $representedName)"
             val noteSuffix = if (attendance.note.isNullOrBlank()) "" else " -- ${attendance.note}"
             printArea.div(
-                "${attendance.memberDisplayName}: ${attendanceStatusLabel(attendance.status)}$representedSuffix$noteSuffix",
+                gettext(
+                    "%1: %2%3%4",
+                    attendance.memberDisplayName,
+                    attendanceStatusLabel(attendance.status),
+                    representedSuffix,
+                    noteSuffix,
+                ),
             ) { addCssClass("small") }
         }
     }
 
-    printArea.p("Tagesordnung") { addCssClasses("fw-bold mb-1 mt-2") }
+    printArea.p(tr("Tagesordnung")) { addCssClasses("fw-bold mb-1 mt-2") }
     if (draft.agenda.isEmpty()) {
-        printArea.p("Keine Tagesordnungspunkte.") { addCssClass("small") }
+        printArea.p(tr("Keine Tagesordnungspunkte.")) { addCssClass("small") }
     } else {
         draft.agenda.sortedBy { it.position }.forEach { item ->
             val descriptionSuffix = if (item.description.isNullOrBlank()) "" else " -- ${item.description}"
             val presenterName = item.presenterDisplayName
             val presenterSuffix = if (presenterName == null) "" else " (Vortragend: $presenterName)"
-            printArea.div("${item.position}. ${item.title}$descriptionSuffix$presenterSuffix") { addCssClass("small") }
+            printArea.div(gettext("%1. %2%3%4", item.position, item.title, descriptionSuffix, presenterSuffix)) {
+                addCssClass("small")
+            }
         }
     }
 
-    printArea.p("Beschlüsse") { addCssClasses("fw-bold mb-1 mt-2") }
+    printArea.p(tr("Beschlüsse")) { addCssClasses("fw-bold mb-1 mt-2") }
     if (draft.resolutions.isEmpty()) {
-        printArea.p("Keine Beschlüsse.") { addCssClass("small") }
+        printArea.p(tr("Keine Beschlüsse.")) { addCssClass("small") }
     } else {
         draft.resolutions.forEach { resolution -> renderResolutionRow(printArea, resolution) }
     }
 
     renderQuorumRow(printArea, draft.quorum)
-    printArea.div("Entwurf erstellt am ${draft.generatedAt}") { addCssClasses("text-muted small mt-2") }
+    printArea.div(gettext("Entwurf erstellt am %1", draft.generatedAt)) { addCssClasses("text-muted small mt-2") }
 
-    val printButton = panel.button("Drucken", style = ButtonStyle.OUTLINESECONDARY)
+    val printButton = panel.button(tr("Drucken"), style = ButtonStyle.OUTLINESECONDARY)
     printButton.onClick { window.print() }
 }
 
@@ -975,12 +1029,17 @@ private fun renderQuorumRow(
 ) {
     val row = panel.hPanel(spacing = 8) { addCssClasses("align-items-center") }
     row.statusBadge(
-        if (quorum.met) "Quorum erreicht" else "Quorum nicht erreicht",
+        if (quorum.met) tr("Quorum erreicht") else tr("Quorum nicht erreicht"),
         if (quorum.met) "success" else "danger",
     )
     row.div(
-        "${quorum.presentCount} von ${quorum.eligibleMemberCount} anwesend " +
-            "(erforderlich: ${quorum.requiredCount}, ${quorum.quorumPercent}%).",
+        gettext(
+            "%1 von %2 anwesend (erforderlich: %3, %4%).",
+            quorum.presentCount,
+            quorum.eligibleMemberCount,
+            quorum.requiredCount,
+            quorum.quorumPercent,
+        ),
     )
 }
 

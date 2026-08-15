@@ -1,5 +1,6 @@
 package network.lapis.cloud.client
 
+import io.kvision.i18n.gettext
 import kotlinx.browser.window
 import kotlinx.coroutines.await
 import kotlinx.serialization.Serializable
@@ -109,11 +110,14 @@ fun parseRestoreOutcome(
                 .fold(
                     onSuccess = { RestoreOutcome.Success(it) },
                     onFailure = {
-                        RestoreOutcome.Other(status, "Antwort des Servers konnte nicht gelesen werden: $bodyText")
+                        RestoreOutcome.Other(
+                            status,
+                            gettext("Antwort des Servers konnte nicht gelesen werden: %1", bodyText),
+                        )
                     },
                 )
         400 -> RestoreOutcome.IncompatibleBundle(bodyText)
         409 -> RestoreOutcome.NonEmptyTarget(bodyText)
         422 -> RestoreOutcome.Incomplete(bodyText)
-        else -> RestoreOutcome.Other(status, bodyText.ifBlank { "Unbekannter Fehler (HTTP $status)." })
+        else -> RestoreOutcome.Other(status, bodyText.ifBlank { gettext("Unbekannter Fehler (HTTP %1).", status) })
     }

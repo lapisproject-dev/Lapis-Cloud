@@ -10,6 +10,8 @@ import io.kvision.html.div
 import io.kvision.html.h1
 import io.kvision.html.h2
 import io.kvision.html.span
+import io.kvision.i18n.gettext
+import io.kvision.i18n.tr
 import io.kvision.modal.Modal
 import io.kvision.panel.SimplePanel
 import io.kvision.panel.hPanel
@@ -65,23 +67,25 @@ fun renderConferenceStreamDestinationsScreen(container: SimplePanel) {
             width = 800.px
             marginTop = 24.px
         }
-    root.h1("Stream-Ziele")
+    root.h1(tr("Stream-Ziele"))
     root.div(
-        "Verwalten Sie die externen RTMP-Ziele (YouTube, Twitch, PeerTube, Owncast, generisches RTMP), " +
-            "zu denen Moderatorinnen und Moderatoren eine Besprechung live übertragen können. Der " +
-            "Stream-Schlüssel wird verschlüsselt gespeichert und nach dem Speichern nie wieder angezeigt.",
+        tr(
+            "Verwalten Sie die externen RTMP-Ziele (YouTube, Twitch, PeerTube, Owncast, generisches RTMP), " +
+                "zu denen Moderatorinnen und Moderatoren eine Besprechung live übertragen können. Der " +
+                "Stream-Schlüssel wird verschlüsselt gespeichert und nach dem Speichern nie wieder angezeigt.",
+        ),
     ) { addCssClasses("text-muted small") }
 
     val listPanel = root.vPanel(spacing = 8)
 
     fun refreshList() {
         listPanel.removeAll()
-        listPanel.div("Wird geladen …") { addCssClasses("text-muted small") }
+        listPanel.div(tr("Wird geladen …")) { addCssClasses("text-muted small") }
         AppScope.launch {
             val destinations = guarded { rpcService<IConferenceStreamingService>().listDestinations() } ?: return@launch
             listPanel.removeAll()
             if (destinations.isEmpty()) {
-                listPanel.div("Noch keine Stream-Ziele angelegt.") { addCssClasses("text-muted small") }
+                listPanel.div(tr("Noch keine Stream-Ziele angelegt.")) { addCssClasses("text-muted small") }
             } else {
                 destinations
                     .sortedBy { it.label }
@@ -90,7 +94,7 @@ fun renderConferenceStreamDestinationsScreen(container: SimplePanel) {
         }
     }
 
-    root.h2("Neues Stream-Ziel anlegen")
+    root.h2(tr("Neues Stream-Ziel anlegen"))
     renderDestinationCreateForm(root, ::refreshList)
 
     refreshList()
@@ -114,17 +118,20 @@ private fun renderDestinationRow(
 
     row.div(destination.rtmpUrl) { addCssClasses("text-muted small") }
     row.div(
-        "Schlüssel gesetzt am ${conferenceStreamDestinationDateLabel(destination.streamKeySetAt)} von " +
+        gettext(
+            "Schlüssel gesetzt am %1 von %2",
+            conferenceStreamDestinationDateLabel(destination.streamKeySetAt),
             destination.createdByDisplayName,
+        ),
     ) { addCssClasses("text-muted small") }
 
     val actionRow = row.hPanel(spacing = 8) { addCssClasses("flex-wrap") }
-    val editButton = actionRow.button("Bearbeiten", style = ButtonStyle.OUTLINEPRIMARY)
+    val editButton = actionRow.button(tr("Bearbeiten"), style = ButtonStyle.OUTLINEPRIMARY)
     editButton.onClick { renderDestinationEditModal(destination, onChanged) }
 
     val toggleButton =
         actionRow.button(
-            if (destination.enabled) "Deaktivieren" else "Aktivieren",
+            if (destination.enabled) tr("Deaktivieren") else tr("Aktivieren"),
             style = if (destination.enabled) ButtonStyle.OUTLINESECONDARY else ButtonStyle.OUTLINESUCCESS,
         )
     toggleButton.onClick {
@@ -136,25 +143,28 @@ private fun renderDestinationRow(
                 }
             toggleButton.disabled = false
             if (result != null) {
-                notifySuccess(if (result.enabled) "Stream-Ziel aktiviert." else "Stream-Ziel deaktiviert.")
+                notifySuccess(if (result.enabled) tr("Stream-Ziel aktiviert.") else tr("Stream-Ziel deaktiviert."))
                 onChanged()
             }
         }
     }
 
-    val deleteButton = actionRow.button("Löschen", style = ButtonStyle.OUTLINEDANGER)
+    val deleteButton = actionRow.button(tr("Löschen"), style = ButtonStyle.OUTLINEDANGER)
     deleteButton.onClick {
         confirmDialog(
-            title = "Stream-Ziel löschen",
+            title = tr("Stream-Ziel löschen"),
             message =
-                "\"${destination.label}\" wirklich löschen? Dies ist nur möglich, solange kein aktiver " +
-                    "oder unterbrochener Live-Stream dieses Ziel verwendet.",
-            confirmLabel = "Löschen",
+                gettext(
+                    "\"%1\" wirklich löschen? Dies ist nur möglich, solange kein aktiver oder unterbrochener " +
+                        "Live-Stream dieses Ziel verwendet.",
+                    destination.label,
+                ),
+            confirmLabel = tr("Löschen"),
         ) {
             AppScope.launch {
                 val result = guarded { rpcService<IConferenceStreamingService>().deleteDestination(destination.id) }
                 if (result == true) {
-                    notifyInfo("Stream-Ziel \"${destination.label}\" wurde gelöscht.")
+                    notifyInfo(gettext("Stream-Ziel \"%1\" wurde gelöscht.", destination.label))
                     onChanged()
                 }
             }
@@ -172,25 +182,25 @@ private fun renderDestinationCreateForm(
     onCreated: () -> Unit,
 ) {
     val panel = root.vPanel(spacing = 6) { addCssClasses("border rounded p-3") }
-    val labelInput = panel.text(label = "Bezeichnung (z. B. \"PdV YouTube-Kanal\")")
+    val labelInput = panel.text(label = tr("Bezeichnung (z. B. \"PdV YouTube-Kanal\")"))
     val platformOptions = ConferenceStreamPlatform.entries.map { it.name to conferenceStreamPlatformLabel(it) }
     val platformSelect =
-        panel.select(options = platformOptions, value = ConferenceStreamPlatform.GENERIC_RTMP.name, label = "Plattform")
-    val urlInput = panel.text(label = "RTMP-Basis-URL")
+        panel.select(options = platformOptions, value = ConferenceStreamPlatform.GENERIC_RTMP.name, label = tr("Plattform"))
+    val urlInput = panel.text(label = tr("RTMP-Basis-URL"))
     val hintLine = panel.div { addCssClasses("text-muted small") }
 
     // D1: the lock glyph is the one non-technical cue this field behaves differently from every
     // other text field on the page (Kare).
     val keyRow = panel.hPanel(spacing = 6) { addCssClasses("align-items-end") }
     keyRow.span("🔒") { addCssClasses("text-muted mb-2") }
-    val keyInput = keyRow.password(label = "Stream-Schlüssel") { addCssClasses("flex-grow-1") }
+    val keyInput = keyRow.password(label = tr("Stream-Schlüssel")) { addCssClasses("flex-grow-1") }
 
     val errorBox =
         panel.div().apply {
             addCssClass("text-danger")
             hide()
         }
-    val createButton = panel.button("Stream-Ziel anlegen", style = ButtonStyle.PRIMARY)
+    val createButton = panel.button(tr("Stream-Ziel anlegen"), style = ButtonStyle.PRIMARY)
 
     fun applyPlatformDefaults() {
         val platform = ConferenceStreamPlatform.valueOf(platformSelect.value ?: ConferenceStreamPlatform.GENERIC_RTMP.name)
@@ -208,7 +218,7 @@ private fun renderDestinationCreateForm(
         val key = keyInput.value.orEmpty()
         if (!Validation.isNonBlank(label) || !conferenceStreamUrlLooksValid(url) || key.isBlank()) {
             errorBox.content =
-                "Bitte Bezeichnung, eine gültige RTMP-URL (rtmp:// oder rtmps://) und einen Stream-Schlüssel angeben."
+                tr("Bitte Bezeichnung, eine gültige RTMP-URL (rtmp:// oder rtmps://) und einen Stream-Schlüssel angeben.")
             errorBox.show()
             return@onClick
         }
@@ -218,7 +228,7 @@ private fun renderDestinationCreateForm(
             val result = guarded { rpcService<IConferenceStreamingService>().createDestination(label, platform, url, key) }
             createButton.disabled = false
             if (result != null) {
-                notifySuccess("Stream-Ziel \"$label\" wurde angelegt.")
+                notifySuccess(gettext("Stream-Ziel \"%1\" wurde angelegt.", label))
                 labelInput.value = null
                 urlInput.value = null
                 keyInput.value = null
@@ -239,14 +249,15 @@ private fun renderDestinationEditModal(
     destination: ConferenceStreamDestinationDto,
     onChanged: () -> Unit,
 ) {
-    val modal = Modal(caption = "Stream-Ziel bearbeiten")
-    val labelInput = modal.text(label = "Bezeichnung", value = destination.label)
-    val urlInput = modal.text(label = "RTMP-Basis-URL", value = destination.rtmpUrl)
+    val modal = Modal(caption = tr("Stream-Ziel bearbeiten"))
+    val labelInput = modal.text(label = tr("Bezeichnung"), value = destination.label)
+    val urlInput = modal.text(label = tr("RTMP-Basis-URL"), value = destination.rtmpUrl)
 
     val keyRow = modal.hPanel(spacing = 6) { addCssClasses("align-items-end") }
     keyRow.span("🔒") { addCssClasses("text-muted mb-2") }
-    val keyInput = keyRow.password(label = "Neuer Stream-Schlüssel (leer lassen = unverändert lassen)") { addCssClasses("flex-grow-1") }
-    modal.div("Aktueller Schlüssel: ${destination.streamKeyMask} -- wird hier nie im Klartext angezeigt.") {
+    val keyInput =
+        keyRow.password(label = tr("Neuer Stream-Schlüssel (leer lassen = unverändert lassen)")) { addCssClasses("flex-grow-1") }
+    modal.div(gettext("Aktueller Schlüssel: %1 -- wird hier nie im Klartext angezeigt.", destination.streamKeyMask)) {
         addCssClasses("text-muted small")
     }
 
@@ -261,16 +272,16 @@ private fun renderDestinationEditModal(
             hide()
         }
 
-    val cancelButton = Button("Abbrechen", style = ButtonStyle.SECONDARY).apply { onClick { modal.hide() } }
+    val cancelButton = Button(tr("Abbrechen"), style = ButtonStyle.SECONDARY).apply { onClick { modal.hide() } }
     val saveButton =
-        Button("Speichern", style = ButtonStyle.PRIMARY).apply {
+        Button(tr("Speichern"), style = ButtonStyle.PRIMARY).apply {
             onClick {
                 errorBox.hide()
                 val label = labelInput.value.orEmpty().trim()
                 val url = urlInput.value.orEmpty().trim()
                 val newKey = keyInput.value?.takeIf { it.isNotEmpty() }
                 if (!Validation.isNonBlank(label) || !conferenceStreamUrlLooksValid(url)) {
-                    errorBox.content = "Bitte Bezeichnung und eine gültige RTMP-URL (rtmp:// oder rtmps://) angeben."
+                    errorBox.content = tr("Bitte Bezeichnung und eine gültige RTMP-URL (rtmp:// oder rtmps://) angeben.")
                     errorBox.show()
                     return@onClick
                 }
@@ -286,14 +297,14 @@ private fun renderDestinationEditModal(
                         // this confirmation line appears, proving to the admin the secret left their
                         // control, before the modal is dismissed (by the admin's own "Fertig" click).
                         keyInput.value = null
-                        savedBox.content = "Gespeichert -- Schlüssel wird nicht erneut angezeigt."
+                        savedBox.content = tr("Gespeichert -- Schlüssel wird nicht erneut angezeigt.")
                         savedBox.show()
                         onChanged()
                     }
                 }
             }
         }
-    val doneButton = Button("Fertig", style = ButtonStyle.SECONDARY).apply { onClick { modal.hide() } }
+    val doneButton = Button(tr("Fertig"), style = ButtonStyle.SECONDARY).apply { onClick { modal.hide() } }
 
     modal.addButton(cancelButton)
     modal.addButton(saveButton)
@@ -311,11 +322,11 @@ private fun renderDestinationEditModal(
  * `internal` so it is shared across this package without duplication. */
 internal fun conferenceStreamPlatformLabel(platform: ConferenceStreamPlatform): String =
     when (platform) {
-        ConferenceStreamPlatform.YOUTUBE -> "YouTube Live"
-        ConferenceStreamPlatform.TWITCH -> "Twitch"
-        ConferenceStreamPlatform.PEERTUBE -> "PeerTube"
-        ConferenceStreamPlatform.OWNCAST -> "Owncast"
-        ConferenceStreamPlatform.GENERIC_RTMP -> "Generisches RTMP"
+        ConferenceStreamPlatform.YOUTUBE -> gettext("YouTube Live")
+        ConferenceStreamPlatform.TWITCH -> gettext("Twitch")
+        ConferenceStreamPlatform.PEERTUBE -> gettext("PeerTube")
+        ConferenceStreamPlatform.OWNCAST -> gettext("Owncast")
+        ConferenceStreamPlatform.GENERIC_RTMP -> gettext("Generisches RTMP")
     }
 
 /** D9 (Zhuo/Rams) -- generic PLATFORM-TYPE iconography, deliberately NOT a trademarked platform
@@ -343,9 +354,9 @@ internal fun conferenceStreamPresetUrl(platform: ConferenceStreamPlatform): Stri
 
 internal fun conferenceStreamPlatformHint(platform: ConferenceStreamPlatform): String? =
     when (platform) {
-        ConferenceStreamPlatform.PEERTUBE -> "RTMP-URL Ihrer PeerTube-Instanz, z. B. rtmp://peertube.example.org:1935/live"
-        ConferenceStreamPlatform.OWNCAST -> "RTMP-URL Ihrer Owncast-Instanz, z. B. rtmp://owncast.example.org:1935/live"
-        ConferenceStreamPlatform.GENERIC_RTMP -> "RTMP-Ziel-URL, z. B. für Facebook Live, LinkedIn Live oder Vimeo"
+        ConferenceStreamPlatform.PEERTUBE -> tr("RTMP-URL Ihrer PeerTube-Instanz, z. B. rtmp://peertube.example.org:1935/live")
+        ConferenceStreamPlatform.OWNCAST -> tr("RTMP-URL Ihrer Owncast-Instanz, z. B. rtmp://owncast.example.org:1935/live")
+        ConferenceStreamPlatform.GENERIC_RTMP -> tr("RTMP-Ziel-URL, z. B. für Facebook Live, LinkedIn Live oder Vimeo")
         ConferenceStreamPlatform.YOUTUBE, ConferenceStreamPlatform.TWITCH -> null
     }
 

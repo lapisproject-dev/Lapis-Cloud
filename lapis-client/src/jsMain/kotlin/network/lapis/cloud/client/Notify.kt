@@ -1,5 +1,6 @@
 package network.lapis.cloud.client
 
+import io.kvision.i18n.tr
 import io.kvision.toast.ToastContainer
 import io.kvision.toast.ToastContainerPosition
 
@@ -19,11 +20,11 @@ fun initNotifications() {
 }
 
 fun notifyError(message: String) {
-    toastContainer?.showToast(message, title = "Fehler", className = "text-bg-danger")
+    toastContainer?.showToast(message, title = tr("Fehler"), className = "text-bg-danger")
 }
 
 fun notifySuccess(message: String) {
-    toastContainer?.showToast(message, title = "Erfolgreich", className = "text-bg-success")
+    toastContainer?.showToast(message, title = tr("Erfolgreich"), className = "text-bg-success")
 }
 
 fun notifyInfo(message: String) {

@@ -1,5 +1,6 @@
 package network.lapis.cloud.client
 
+import io.kvision.i18n.gettext
 import network.lapis.cloud.shared.domain.AccountRole
 
 /**
@@ -34,9 +35,10 @@ object Validation {
         email: String,
     ): String? =
         when {
-            password.length < PASSWORD_MIN_LENGTH -> "Mindestens $PASSWORD_MIN_LENGTH Zeichen."
-            password.length > PASSWORD_MAX_LENGTH -> "Höchstens $PASSWORD_MAX_LENGTH Zeichen."
-            email.isNotBlank() && password.equals(email, ignoreCase = true) -> "Darf nicht die E-Mail-Adresse sein."
+            password.length < PASSWORD_MIN_LENGTH -> gettext("Mindestens %1 Zeichen.", PASSWORD_MIN_LENGTH)
+            password.length > PASSWORD_MAX_LENGTH -> gettext("Höchstens %1 Zeichen.", PASSWORD_MAX_LENGTH)
+            email.isNotBlank() && password.equals(email, ignoreCase = true) ->
+                gettext("Darf nicht die E-Mail-Adresse sein.")
             else -> null
         }
 

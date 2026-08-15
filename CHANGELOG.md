@@ -8,6 +8,32 @@ All notable changes to this project are documented here. Format follows
 
 ### Added
 
+**Language switcher: 8 languages (German source + 7 AI-translated)**
+
+Adds a navbar language switcher (globe icon, always visible including to anonymous/logged-out
+visitors) covering German (source), English, French, Spanish, Italian, Dutch, Polish, and
+Russian. Every user-facing string across all 45 `lapis-client` screen files (~1499 extracted
+messages) is now wrapped in KVision's `tr()`/`gettext()` i18n functions, with the choice between
+the two governed by a specific correctness rule: `tr()`'s marker string only resolves when a
+KVision widget's `render()` calls `translate()` on its own `content`/`label` property, so any
+value returned from a plain function, passed as an argument into another `gettext(fmt, arg)` call,
+or concatenated with other strings must use `gettext()` (immediate resolution) instead -- `tr()`
+silently leaks its internal `###KvI18nS###` marker or the wrong text otherwise. This distinction
+was the dominant bug class across three independent passes (initial implementation, then a
+dedicated correctness-review pass) and is documented in `I18nCatalogManager.kt`'s own KDoc.
+
+Replaces KVision's own `kvision-i18n` module (`DefaultI18nManager`) with a custom
+`I18nCatalogManager`, because `DefaultI18nManager` crashes the entire app on load
+(`TypeError: ...gettextJs... is not a function`) due to an interop mismatch between this
+project's Kotlin/JS toolchain and the `gettext.js` npm package's CJS export shape -- confirmed via
+a real browser load of the production bundle, not just a compile check. The custom manager needs
+no JS library at all: a flat `msgid -> msgstr` lookup per language plus `%1`/`%2`/... placeholder
+substitution, sourced from the same `po2json`-format JSON catalogs KVision's own
+`generatePotFile`/`convertPoToJson` Gradle tasks already produce from the project's `.po` files.
+
+Language preference persists in `localStorage` and takes effect immediately (no page reload) via
+`I18n.language`'s setter, which KVision itself wires to restart every root panel.
+
 **Video conferencing live on the VPS 4000 test instance**
 
 Deployed and live-verified against `https://pzb.parteidervernunft.de`. Signaling subdomain is

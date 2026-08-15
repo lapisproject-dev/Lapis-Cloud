@@ -8,6 +8,8 @@ import io.kvision.html.div
 import io.kvision.html.h1
 import io.kvision.html.h2
 import io.kvision.html.p
+import io.kvision.i18n.gettext
+import io.kvision.i18n.tr
 import io.kvision.panel.SimplePanel
 import io.kvision.panel.hPanel
 import io.kvision.panel.vPanel
@@ -64,11 +66,11 @@ fun renderNonprofitComplianceReportsScreen(container: SimplePanel) {
             width = 900.px
             marginTop = 24.px
         }
-    root.h1("Gemeinnützigkeits-Berichte")
+    root.h1(tr("Gemeinnützigkeits-Berichte"))
 
     val toggleRow = root.hPanel(spacing = 8)
-    val fourSphereButton = toggleRow.button("Vier-Sphären-Ergebnisrechnung", style = ButtonStyle.OUTLINEPRIMARY)
-    val useOfFundsButton = toggleRow.button("Mittelverwendungsrechnung", style = ButtonStyle.OUTLINEPRIMARY)
+    val fourSphereButton = toggleRow.button(tr("Vier-Sphären-Ergebnisrechnung"), style = ButtonStyle.OUTLINEPRIMARY)
+    val useOfFundsButton = toggleRow.button(tr("Mittelverwendungsrechnung"), style = ButtonStyle.OUTLINEPRIMARY)
     val contentPanel = root.vPanel(spacing = 10)
 
     fourSphereButton.onClick {
@@ -88,18 +90,20 @@ fun renderNonprofitComplianceReportsScreen(container: SimplePanel) {
 // ============================================================================================
 
 private fun renderFourSphereIncomeStatementView(panel: SimplePanel) {
-    panel.h2("Vier-Sphären-Ergebnisrechnung")
+    panel.h2(tr("Vier-Sphären-Ergebnisrechnung"))
     panel.div(
-        "Re-Aggregation derselben Einnahmen/Ausgaben-Buchungen wie die GuV nach den vier " +
-            "§§ 51-68 AO Gemeinnützigkeitssphären -- kein eigener Berichtszeitraum, die Summen " +
-            "stimmen für denselben Zeitraum exakt mit der GuV überein.",
+        tr(
+            "Re-Aggregation derselben Einnahmen/Ausgaben-Buchungen wie die GuV nach den vier " +
+                "§§ 51-68 AO Gemeinnützigkeitssphären -- kein eigener Berichtszeitraum, die Summen " +
+                "stimmen für denselben Zeitraum exakt mit der GuV überein.",
+        ),
     ) { addCssClasses("text-muted small") }
 
     val filterControls = panel.dateRangeFilter()
     // `to` is a required LocalDate server-side (matches the GuV's own filter shape) -- pre-filled
     // to today so the first render already shows a meaningful report.
     filterControls.toInput.value = todayIso()
-    val loadButton = panel.button("Laden", style = ButtonStyle.OUTLINESECONDARY)
+    val loadButton = panel.button(tr("Laden"), style = ButtonStyle.OUTLINESECONDARY)
     val errorBox =
         panel.div().apply {
             addCssClass("text-danger")
@@ -111,13 +115,13 @@ private fun renderFourSphereIncomeStatementView(panel: SimplePanel) {
         errorBox.hide()
         val to = filterControls.parseTo()
         if (to == null) {
-            errorBox.content = "Bitte ein gültiges \"Bis\"-Datum angeben (JJJJ-MM-TT)."
+            errorBox.content = tr("Bitte ein gültiges \"Bis\"-Datum angeben (JJJJ-MM-TT).")
             errorBox.show()
             return
         }
         val from = filterControls.parseFrom()
         resultPanel.removeAll()
-        resultPanel.p("Wird geladen …") { addCssClasses("text-muted small") }
+        resultPanel.p(tr("Wird geladen …")) { addCssClasses("text-muted small") }
         AppScope.launch {
             val statement =
                 guarded { rpcService<IAccountingService>().getFourSphereIncomeStatement(from, to) } ?: return@launch
@@ -141,16 +145,16 @@ private fun renderFourSphereIncomeStatementBody(
     panel.div(periodRangeCaption(statement.from, statement.to)) { addCssClasses("text-muted small") }
 
     val headerRow = panel.hPanel(spacing = 8) { addCssClasses("fw-bold border-bottom pb-1") }
-    headerRow.div("Sphäre") { width = 260.px }
-    headerRow.div("Einnahmen") { width = 120.px }
-    headerRow.div("Ausgaben") { width = 120.px }
-    headerRow.div("Ergebnis") { width = 120.px }
+    headerRow.div(tr("Sphäre")) { width = 260.px }
+    headerRow.div(tr("Einnahmen")) { width = 120.px }
+    headerRow.div(tr("Ausgaben")) { width = 120.px }
+    headerRow.div(tr("Ergebnis")) { width = 120.px }
     headerRow.div("") { addCssClasses("flex-grow-1") }
 
     statement.spheres.forEach { sphere -> renderSphereRow(panel, sphere) }
 
     val footerRow = panel.hPanel(spacing = 8) { addCssClasses("fw-bold border-top pt-1") }
-    footerRow.div("Gesamt") { width = 260.px }
+    footerRow.div(tr("Gesamt")) { width = 260.px }
     footerRow.moneySpan(statement.totalIncome).width = 120.px
     footerRow.moneySpan(statement.totalExpense).width = 120.px
     footerRow.moneySpan(statement.result, warnIfNegative = true).width = 120.px
@@ -174,7 +178,7 @@ private fun renderSphereRow(
     headerRow.moneySpan(sphere.totalExpense).width = 120.px
     headerRow.moneySpan(sphere.result, warnIfNegative = true).width = 120.px
     val toggleButton =
-        headerRow.button("Details ein-/ausblenden", style = ButtonStyle.OUTLINESECONDARY) {
+        headerRow.button(tr("Details ein-/ausblenden"), style = ButtonStyle.OUTLINESECONDARY) {
             addCssClasses("flex-grow-1")
         }
 
@@ -184,8 +188,8 @@ private fun renderSphereRow(
         expanded = !expanded
         if (expanded) {
             detailPanel.removeAll()
-            renderStatementLineTable(detailPanel, "Einnahmen", sphere.incomeLines, sphere.totalIncome)
-            renderStatementLineTable(detailPanel, "Ausgaben", sphere.expenseLines, sphere.totalExpense)
+            renderStatementLineTable(detailPanel, tr("Einnahmen"), sphere.incomeLines, sphere.totalIncome)
+            renderStatementLineTable(detailPanel, tr("Ausgaben"), sphere.expenseLines, sphere.totalExpense)
             detailPanel.show()
         } else {
             detailPanel.hide()
@@ -198,7 +202,7 @@ private fun renderSphereRow(
 // ============================================================================================
 
 private fun renderUseOfFundsView(panel: SimplePanel) {
-    panel.h2("Mittelverwendungsrechnung (§55/§62 AO)")
+    panel.h2(tr("Mittelverwendungsrechnung (§55/§62 AO)"))
 
     // D4: persistent, non-dismissible, above even the filter controls -- see file KDoc. Rendered
     // immediately with `timelyUseYears = null` (a loading placeholder, never a hardcoded "2")
@@ -209,9 +213,9 @@ private fun renderUseOfFundsView(panel: SimplePanel) {
         }
 
     val filterRow = panel.hPanel(spacing = 8) { addCssClasses("align-items-center") }
-    val fromYearControls = filterRow.fiscalYearFilter(currentYear = currentYear(), label = "Von (Geschäftsjahr)")
-    val toYearControls = filterRow.fiscalYearFilter(currentYear = currentYear(), label = "Bis (Geschäftsjahr)")
-    val loadButton = filterRow.button("Laden", style = ButtonStyle.OUTLINESECONDARY)
+    val fromYearControls = filterRow.fiscalYearFilter(currentYear = currentYear(), label = tr("Von (Geschäftsjahr)"))
+    val toYearControls = filterRow.fiscalYearFilter(currentYear = currentYear(), label = tr("Bis (Geschäftsjahr)"))
+    val loadButton = filterRow.button(tr("Laden"), style = ButtonStyle.OUTLINESECONDARY)
     val errorBox =
         panel.div().apply {
             addCssClass("text-danger")
@@ -224,12 +228,12 @@ private fun renderUseOfFundsView(panel: SimplePanel) {
         val fromFiscalYear = fromYearControls.parseYear()
         val toFiscalYear = toYearControls.parseYear()
         if (fromFiscalYear == null || toFiscalYear == null || fromFiscalYear > toFiscalYear) {
-            errorBox.content = "Bitte ein gültiges \"Von\"- und \"Bis\"-Geschäftsjahr angeben (Von ≤ Bis)."
+            errorBox.content = tr("Bitte ein gültiges \"Von\"- und \"Bis\"-Geschäftsjahr angeben (Von ≤ Bis).")
             errorBox.show()
             return
         }
         resultPanel.removeAll()
-        resultPanel.p("Wird geladen …") { addCssClasses("text-muted small") }
+        resultPanel.p(tr("Wird geladen …")) { addCssClasses("text-muted small") }
         AppScope.launch {
             val statement =
                 guarded { rpcService<IAccountingService>().getUseOfFundsStatement(fromFiscalYear, toFiscalYear) } ?: return@launch
@@ -251,23 +255,23 @@ private fun renderUseOfFundsBody(
     }
 
     val headerRow = panel.hPanel(spacing = 8) { addCssClasses("fw-bold border-bottom pb-1") }
-    headerRow.div("Geschäftsjahr") { width = 100.px }
-    headerRow.div("Mittelzufluss") { width = 110.px }
-    headerRow.div("Mittelverwendung") { width = 130.px }
-    headerRow.div("Rücklagenzuführung") { width = 140.px }
-    headerRow.div("Mittelvortrag") { width = 110.px }
-    headerRow.div("davon überfällig") { width = 110.px }
+    headerRow.div(tr("Geschäftsjahr")) { width = 100.px }
+    headerRow.div(tr("Mittelzufluss")) { width = 110.px }
+    headerRow.div(tr("Mittelverwendung")) { width = 130.px }
+    headerRow.div(tr("Rücklagenzuführung")) { width = 140.px }
+    headerRow.div(tr("Mittelvortrag")) { width = 110.px }
+    headerRow.div(tr("davon überfällig")) { width = 110.px }
     headerRow.div("") { addCssClasses("flex-grow-1") }
 
     if (statement.years.isEmpty()) {
-        panel.p("Keine Buchungen im gewählten Zeitraum.") { addCssClasses("text-muted small") }
+        panel.p(tr("Keine Buchungen im gewählten Zeitraum.")) { addCssClasses("text-muted small") }
     }
     // Never re-sorted -- [UseOfFundsStatementDto.years] KDoc: "one UseOfFundsYearDto per fiscal
     // year in [fromFiscalYear, toFiscalYear]", already in that order.
     statement.years.forEach { year -> renderUseOfFundsYearRow(panel, year) }
 
     val totalRow = panel.hPanel(spacing = 8) { addCssClasses("fw-bold border-top pt-1") }
-    totalRow.div("Gesamt") { width = 100.px }
+    totalRow.div(tr("Gesamt")) { width = 100.px }
     totalRow.moneySpan(statement.totalFundsReceived).width = 110.px
     totalRow.moneySpan(statement.totalFundsUsed).width = 130.px
     totalRow.moneySpan(statement.totalFundsAllocatedToReserves, warnIfNegative = true).width = 140.px
@@ -276,10 +280,14 @@ private fun renderUseOfFundsBody(
     totalRow.div("") { addCssClasses("flex-grow-1") }
 
     panel.div(
-        "„Mittelvortrag\" ist der am Ende von ${statement.toFiscalYear} verbleibende §55-AO-" +
-            "Zeitwert-Topf (die Fristablauf-Uhr läuft seit dem frühesten Geschäftsjahr mit " +
-            "Aktivität, nicht erst ab ${statement.fromFiscalYear}) -- „davon überfällig\" ist der " +
-            "Anteil, dessen gesetzliche Frist bereits abgelaufen ist.",
+        gettext(
+            "„Mittelvortrag\" ist der am Ende von %1 verbleibende §55-AO-Zeitwert-Topf (die " +
+                "Fristablauf-Uhr läuft seit dem frühesten Geschäftsjahr mit Aktivität, nicht erst ab " +
+                "%2) -- „davon überfällig\" ist der Anteil, dessen gesetzliche Frist bereits " +
+                "abgelaufen ist.",
+            statement.toFiscalYear,
+            statement.fromFiscalYear,
+        ),
     ) { addCssClasses("text-muted small") }
 }
 
@@ -300,7 +308,7 @@ private fun renderUseOfFundsYearRow(
     overdueSpan.width = 110.px
     if (hasOverdueAmount(year.overdueAmount)) overdueSpan.addCssClasses("text-danger fw-bold")
     val toggleButton =
-        headerRow.button("Details ein-/ausblenden", style = ButtonStyle.OUTLINESECONDARY) {
+        headerRow.button(tr("Details ein-/ausblenden"), style = ButtonStyle.OUTLINESECONDARY) {
             addCssClasses("flex-grow-1")
         }
 
@@ -311,8 +319,8 @@ private fun renderUseOfFundsYearRow(
         if (expanded) {
             detailPanel.removeAll()
             renderReserveMovementsTable(detailPanel, year.reserveMovements)
-            renderSphereAmountTable(detailPanel, "Mittelzufluss nach Sphäre (informativ)", year.receivedBySphere)
-            renderSphereAmountTable(detailPanel, "Mittelverwendung nach Sphäre (informativ)", year.usedBySphere)
+            renderSphereAmountTable(detailPanel, tr("Mittelzufluss nach Sphäre (informativ)"), year.receivedBySphere)
+            renderSphereAmountTable(detailPanel, tr("Mittelverwendung nach Sphäre (informativ)"), year.usedBySphere)
             detailPanel.show()
         } else {
             detailPanel.hide()
@@ -327,11 +335,11 @@ private fun renderReserveMovementsTable(
     panel: SimplePanel,
     movements: List<ReserveMovementDto>,
 ) {
-    panel.p("Rücklagenbewegungen (§62 AO)") { addCssClasses("fw-bold small") }
+    panel.p(tr("Rücklagenbewegungen (§62 AO)")) { addCssClasses("fw-bold small") }
     val headerRow = panel.hPanel(spacing = 8) { addCssClasses("fw-bold border-bottom pb-1 small") }
-    headerRow.div("Rücklagenart") { addCssClasses("flex-grow-1") }
-    headerRow.div("Zuführung/Auflösung") { width = 140.px }
-    headerRow.div("Schlussstand") { width = 120.px }
+    headerRow.div(tr("Rücklagenart")) { addCssClasses("flex-grow-1") }
+    headerRow.div(tr("Zuführung/Auflösung")) { width = 140.px }
+    headerRow.div(tr("Schlussstand")) { width = 120.px }
 
     movements.forEach { movement ->
         val row = panel.hPanel(spacing = 8) { addCssClasses("border-bottom py-1 align-items-center") }
@@ -341,7 +349,7 @@ private fun renderReserveMovementsTable(
         row.moneySpan(movement.closingBalance).width = 120.px
 
         if (movement.reserveType == ReserveType.FREIE_RUECKLAGE) {
-            panel.div("(gesetzliche Obergrenze hier nicht geprüft)") { addCssClasses("text-muted small ps-2") }
+            panel.div(tr("(gesetzliche Obergrenze hier nicht geprüft)")) { addCssClasses("text-muted small ps-2") }
         }
     }
 }
@@ -353,8 +361,8 @@ private fun renderSphereAmountTable(
 ) {
     panel.p(title) { addCssClasses("fw-bold small") }
     val headerRow = panel.hPanel(spacing = 8) { addCssClasses("border-bottom pb-1 small") }
-    headerRow.div("Sphäre") { addCssClasses("flex-grow-1") }
-    headerRow.div("Betrag") { width = 120.px }
+    headerRow.div(tr("Sphäre")) { addCssClasses("flex-grow-1") }
+    headerRow.div(tr("Betrag")) { width = 120.px }
 
     amounts.forEach { entry ->
         val row = panel.hPanel(spacing = 8) { addCssClasses("border-bottom py-1 align-items-center") }
@@ -376,17 +384,20 @@ private fun renderSphereAmountTable(
  */
 fun mittelverwendungsBannerText(timelyUseYears: Int?): String {
     val years = timelyUseYears?.toString() ?: "…"
-    return "Diese Auswertung ist eine Nachweis-Hilfe für den Vorstand nach §§ 55/62 AO -- keine " +
-        "automatisierte Compliance-Entscheidung. Sie prüft nicht die Freie-Rücklage-Obergrenze, " +
-        "wendet nicht automatisch die Kleinorganisationen-Ausnahme (≤ 45.000 € gemäß § 55 Abs. 1 " +
-        "Nr. 5 Satz 4 AO) an und bestätigt nicht den Fortbestand der Gemeinnützigkeit. Die " +
-        "verwendete Frist von $years Jahren ist gegen die aktuelle AO-Auslegung zu prüfen."
+    return gettext(
+        "Diese Auswertung ist eine Nachweis-Hilfe für den Vorstand nach §§ 55/62 AO -- keine " +
+            "automatisierte Compliance-Entscheidung. Sie prüft nicht die Freie-Rücklage-Obergrenze, " +
+            "wendet nicht automatisch die Kleinorganisationen-Ausnahme (≤ 45.000 € gemäß § 55 Abs. 1 " +
+            "Nr. 5 Satz 4 AO) an und bestätigt nicht den Fortbestand der Gemeinnützigkeit. Die " +
+            "verwendete Frist von %1 Jahren ist gegen die aktuelle AO-Auslegung zu prüfen.",
+        years,
+    )
 }
 
 fun useOfFundsPeriodCaption(
     fromFiscalYear: Int,
     toFiscalYear: Int,
-): String = "Zeitraum: Geschäftsjahr $fromFiscalYear bis $toFiscalYear"
+): String = gettext("Zeitraum: Geschäftsjahr %1 bis %2", fromFiscalYear, toFiscalYear)
 
 /** The only place besides D6's own `warnIfNegative` gate where this screen inspects a raw
  * [Decimal]'s value -- a **typed** numeric comparison ([Decimal.toDouble] against `0.0`), never

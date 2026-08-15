@@ -3,6 +3,7 @@ package network.lapis.cloud.client
 import io.kvision.html.Button
 import io.kvision.html.ButtonStyle
 import io.kvision.html.div
+import io.kvision.i18n.tr
 import io.kvision.modal.Modal
 
 /**
@@ -16,13 +17,13 @@ import io.kvision.modal.Modal
 fun confirmDialog(
     title: String,
     message: String,
-    confirmLabel: String = "Bestätigen",
+    confirmLabel: String = tr("Bestätigen"),
     onConfirm: () -> Unit,
 ) {
     val modal = Modal(caption = title)
     modal.div(message)
     modal.addButton(
-        Button("Abbrechen", style = ButtonStyle.SECONDARY).apply {
+        Button(tr("Abbrechen"), style = ButtonStyle.SECONDARY).apply {
             onClick { modal.hide() }
         },
     )

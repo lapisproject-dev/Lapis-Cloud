@@ -1,5 +1,6 @@
 package network.lapis.cloud.client
 
+import io.kvision.i18n.tr
 import io.kvision.utils.obj
 import kotlinx.browser.window
 import kotlinx.coroutines.await
@@ -50,7 +51,7 @@ object AuthHttp {
                 this.password = password
             }
         val response = postJson("/api/auth/login", JSON.stringify(body))
-        return if (response.ok) null else response.text().await().ifBlank { "Anmeldung fehlgeschlagen." }
+        return if (response.ok) null else response.text().await().ifBlank { tr("Anmeldung fehlgeschlagen.") }
     }
 
     /**
@@ -72,7 +73,7 @@ object AuthHttp {
     suspend fun requestPasswordReset(email: String): String? {
         val body = obj<PasswordResetRequestBody> { this.email = email }
         val response = postJson("/api/auth/password-reset/request", JSON.stringify(body))
-        return if (response.ok) null else response.text().await().ifBlank { "Anfrage fehlgeschlagen." }
+        return if (response.ok) null else response.text().await().ifBlank { tr("Anfrage fehlgeschlagen.") }
     }
 
     suspend fun confirmPasswordReset(
@@ -85,7 +86,7 @@ object AuthHttp {
                 this.newPassword = newPassword
             }
         val response = postJson("/api/auth/password-reset/confirm", JSON.stringify(body))
-        return if (response.ok) null else response.text().await().ifBlank { "Zurücksetzen fehlgeschlagen." }
+        return if (response.ok) null else response.text().await().ifBlank { tr("Zurücksetzen fehlgeschlagen.") }
     }
 
     private suspend fun postJson(

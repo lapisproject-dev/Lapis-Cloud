@@ -9,6 +9,8 @@ import io.kvision.html.div
 import io.kvision.html.h1
 import io.kvision.html.h2
 import io.kvision.html.p
+import io.kvision.i18n.gettext
+import io.kvision.i18n.tr
 import io.kvision.panel.SimplePanel
 import io.kvision.panel.hPanel
 import io.kvision.panel.vPanel
@@ -61,12 +63,12 @@ fun renderFinancialReportsScreen(container: SimplePanel) {
             width = 900.px
             marginTop = 24.px
         }
-    root.h1("Finanzberichte")
+    root.h1(tr("Finanzberichte"))
 
     val toggleRow = root.hPanel(spacing = 8)
-    val guvButton = toggleRow.button("GuV", style = ButtonStyle.OUTLINEPRIMARY)
-    val bilanzButton = toggleRow.button("Bilanz", style = ButtonStyle.OUTLINEPRIMARY)
-    val jahresabschlussButton = toggleRow.button("Jahresabschluss", style = ButtonStyle.OUTLINEPRIMARY)
+    val guvButton = toggleRow.button(tr("GuV"), style = ButtonStyle.OUTLINEPRIMARY)
+    val bilanzButton = toggleRow.button(tr("Bilanz"), style = ButtonStyle.OUTLINEPRIMARY)
+    val jahresabschlussButton = toggleRow.button(tr("Jahresabschluss"), style = ButtonStyle.OUTLINEPRIMARY)
     val contentPanel = root.vPanel(spacing = 10)
 
     guvButton.onClick {
@@ -90,13 +92,13 @@ fun renderFinancialReportsScreen(container: SimplePanel) {
 // ============================================================================================
 
 private fun renderIncomeStatementView(panel: SimplePanel) {
-    panel.h2("Gewinn- und Verlustrechnung (GuV)")
+    panel.h2(tr("Gewinn- und Verlustrechnung (GuV)"))
     val filterControls = panel.dateRangeFilter()
     // `to` is a required LocalDate server-side (unlike the Journal/Hauptbuch/Kassenbuch filters'
     // optional `to`) -- pre-filled to today so the first render shows a meaningful report instead
     // of an immediate validation error before the treasurer has touched anything.
     filterControls.toInput.value = todayIso()
-    val loadButton = panel.button("Laden", style = ButtonStyle.OUTLINESECONDARY)
+    val loadButton = panel.button(tr("Laden"), style = ButtonStyle.OUTLINESECONDARY)
     val errorBox =
         panel.div().apply {
             addCssClass("text-danger")
@@ -108,13 +110,13 @@ private fun renderIncomeStatementView(panel: SimplePanel) {
         errorBox.hide()
         val to = filterControls.parseTo()
         if (to == null) {
-            errorBox.content = "Bitte ein gültiges \"Bis\"-Datum angeben (JJJJ-MM-TT)."
+            errorBox.content = tr("Bitte ein gültiges \"Bis\"-Datum angeben (JJJJ-MM-TT).")
             errorBox.show()
             return
         }
         val from = filterControls.parseFrom()
         resultPanel.removeAll()
-        resultPanel.p("Wird geladen …") { addCssClasses("text-muted small") }
+        resultPanel.p(tr("Wird geladen …")) { addCssClasses("text-muted small") }
         AppScope.launch {
             val statement =
                 guarded { rpcService<IAccountingService>().getIncomeStatement(from, to) } ?: return@launch
@@ -131,12 +133,12 @@ private fun renderIncomeStatementBody(
     statement: IncomeStatementDto,
 ) {
     panel.div(periodRangeCaption(statement.from, statement.to)) { addCssClasses("text-muted small") }
-    renderStatementLineTable(panel, "Einnahmen", statement.incomeLines, statement.totalIncome)
-    renderStatementLineTable(panel, "Ausgaben", statement.expenseLines, statement.totalExpense)
+    renderStatementLineTable(panel, tr("Einnahmen"), statement.incomeLines, statement.totalIncome)
+    renderStatementLineTable(panel, tr("Ausgaben"), statement.expenseLines, statement.totalExpense)
 
     val negative = isNegative(statement.result)
     val resultRow = panel.hPanel(spacing = 8) { addCssClasses("fw-bold border-top pt-2 align-items-center") }
-    resultRow.div("Ergebnis") { addCssClasses("flex-grow-1") }
+    resultRow.div(tr("Ergebnis")) { addCssClasses("flex-grow-1") }
     resultRow.moneySpan(statement.result, warnIfNegative = true).width = 130.px
     resultQualifierLabel(negative)?.let { qualifier ->
         panel.div(qualifier) { addCssClasses("text-danger small") }
@@ -148,10 +150,10 @@ private fun renderIncomeStatementBody(
 // ============================================================================================
 
 private fun renderBalanceSheetView(panel: SimplePanel) {
-    panel.h2("Bilanz")
+    panel.h2(tr("Bilanz"))
     val filterRow = panel.hPanel(spacing = 8) { addCssClasses("align-items-center") }
-    val asOfInput = filterRow.text(value = todayIso(), label = "Stichtag (JJJJ-MM-TT)")
-    val loadButton = filterRow.button("Laden", style = ButtonStyle.OUTLINESECONDARY)
+    val asOfInput = filterRow.text(value = todayIso(), label = tr("Stichtag (JJJJ-MM-TT)"))
+    val loadButton = filterRow.button(tr("Laden"), style = ButtonStyle.OUTLINESECONDARY)
     val errorBox =
         panel.div().apply {
             addCssClass("text-danger")
@@ -163,12 +165,12 @@ private fun renderBalanceSheetView(panel: SimplePanel) {
         errorBox.hide()
         val asOf = runCatching { LocalDate.parse(asOfInput.value.orEmpty().trim()) }.getOrNull()
         if (asOf == null) {
-            errorBox.content = "Bitte einen gültigen Stichtag angeben (JJJJ-MM-TT)."
+            errorBox.content = tr("Bitte einen gültigen Stichtag angeben (JJJJ-MM-TT).")
             errorBox.show()
             return
         }
         resultPanel.removeAll()
-        resultPanel.p("Wird geladen …") { addCssClasses("text-muted small") }
+        resultPanel.p(tr("Wird geladen …")) { addCssClasses("text-muted small") }
         AppScope.launch {
             val sheet = guarded { rpcService<IAccountingService>().getBalanceSheet(asOf) } ?: return@launch
             resultPanel.removeAll()
@@ -189,34 +191,34 @@ private fun renderBalanceSheetBody(
     panel: SimplePanel,
     sheet: BalanceSheetDto,
 ) {
-    panel.div("Stichtag: ${sheet.asOf}") { addCssClasses("text-muted small") }
+    panel.div(gettext("Stichtag: %1", sheet.asOf)) { addCssClasses("text-muted small") }
 
-    panel.p("Aktiva") { addCssClass("fw-bold") }
-    renderStatementLineTable(panel, "Aktiva", sheet.assetLines, sheet.totalAssets, showSectionLabel = false)
+    panel.p(tr("Aktiva")) { addCssClass("fw-bold") }
+    renderStatementLineTable(panel, tr("Aktiva"), sheet.assetLines, sheet.totalAssets, showSectionLabel = false)
 
-    panel.p("Passiva") { addCssClass("fw-bold") }
+    panel.p(tr("Passiva")) { addCssClass("fw-bold") }
     renderStatementLineTable(
         panel,
-        "Verbindlichkeiten",
+        tr("Verbindlichkeiten"),
         sheet.liabilityLines,
         sheet.totalLiabilities,
     )
     renderStatementLineTable(
         panel,
-        "Eigenkapital (gebucht)",
+        tr("Eigenkapital (gebucht)"),
         sheet.equityLines,
         sheet.bookedEquity,
     )
     val accumulatedRow = panel.hPanel(spacing = 8) { addCssClasses("border-bottom py-1 align-items-center") }
-    accumulatedRow.div("Kumuliertes Ergebnis (Σ Einnahmen − Ausgaben seit Gründung)") { addCssClasses("flex-grow-1 fst-italic") }
+    accumulatedRow.div(tr("Kumuliertes Ergebnis (Σ Einnahmen − Ausgaben seit Gründung)")) { addCssClasses("flex-grow-1 fst-italic") }
     accumulatedRow.moneySpan(sheet.accumulatedResult, warnIfNegative = true).width = 130.px
 
     val totalPassivaRow = panel.hPanel(spacing = 8) { addCssClasses("fw-bold border-top pt-1 align-items-center") }
-    totalPassivaRow.div("Summe Passiva + Eigenkapital") { addCssClasses("flex-grow-1") }
+    totalPassivaRow.div(tr("Summe Passiva + Eigenkapital")) { addCssClasses("flex-grow-1") }
     totalPassivaRow.moneySpan(sheet.totalEquityAndLiabilities).width = 130.px
 
     val balanceRow = panel.hPanel(spacing = 8) { addCssClasses("align-items-center mt-2") }
-    balanceRow.div("Summe Aktiva = Summe Passiva + Eigenkapital?") { addCssClasses("flex-grow-1") }
+    balanceRow.div(tr("Summe Aktiva = Summe Passiva + Eigenkapital?")) { addCssClasses("flex-grow-1") }
     balanceRow.statusBadge(balancedLabel(sheet.balanced), balancedColor(sheet.balanced))
 }
 
@@ -225,10 +227,10 @@ private fun renderBalanceSheetBody(
 // ============================================================================================
 
 private fun renderAnnualFinancialStatementView(panel: SimplePanel) {
-    panel.h2("Jahresabschluss")
+    panel.h2(tr("Jahresabschluss"))
     val filterRow = panel.hPanel(spacing = 8) { addCssClasses("align-items-center") }
     val filterControls = filterRow.fiscalYearFilter(currentYear = currentYear())
-    val loadButton = filterRow.button("Laden", style = ButtonStyle.OUTLINESECONDARY)
+    val loadButton = filterRow.button(tr("Laden"), style = ButtonStyle.OUTLINESECONDARY)
     val errorBox =
         panel.div().apply {
             addCssClass("text-danger")
@@ -240,12 +242,12 @@ private fun renderAnnualFinancialStatementView(panel: SimplePanel) {
         errorBox.hide()
         val fiscalYear = filterControls.parseYear()
         if (fiscalYear == null) {
-            errorBox.content = "Bitte ein gültiges Geschäftsjahr angeben (z. B. 2026)."
+            errorBox.content = tr("Bitte ein gültiges Geschäftsjahr angeben (z. B. 2026).")
             errorBox.show()
             return
         }
         resultPanel.removeAll()
-        resultPanel.p("Wird geladen …") { addCssClasses("text-muted small") }
+        resultPanel.p(tr("Wird geladen …")) { addCssClasses("text-muted small") }
         AppScope.launch {
             val statement =
                 guarded { rpcService<IAccountingService>().getAnnualFinancialStatement(fiscalYear) } ?: return@launch
@@ -268,27 +270,29 @@ private fun renderAnnualFinancialStatementBody(
     statement: AnnualFinancialStatementDto,
 ) {
     panel.div(
-        "Geschäftsjahr ${statement.fiscalYear} · ${statement.periodStart} bis ${statement.periodEnd}",
+        gettext("Geschäftsjahr %1 · %2 bis %3", statement.fiscalYear, statement.periodStart, statement.periodEnd),
     ) { addCssClasses("text-muted small") }
 
-    panel.p("Gewinn- und Verlustrechnung") { addCssClass("fw-bold") }
+    panel.p(tr("Gewinn- und Verlustrechnung")) { addCssClass("fw-bold") }
     renderIncomeStatementBody(panel, statement.incomeStatement)
 
-    panel.p("Bilanz") { addCssClass("fw-bold") }
+    panel.p(tr("Bilanz")) { addCssClass("fw-bold") }
     renderBalanceSheetBody(panel, statement.balanceSheet)
 
-    panel.p("Kennzahlen") { addCssClass("fw-bold") }
+    panel.p(tr("Kennzahlen")) { addCssClass("fw-bold") }
     val periodResultRow = panel.hPanel(spacing = 8) { addCssClasses("border-bottom py-1 align-items-center") }
-    periodResultRow.div("Jahresergebnis (dieses Geschäftsjahr)") { addCssClasses("flex-grow-1") }
+    periodResultRow.div(tr("Jahresergebnis (dieses Geschäftsjahr)")) { addCssClasses("flex-grow-1") }
     periodResultRow.moneySpan(statement.periodResult, warnIfNegative = true).width = 130.px
 
     val accumulatedResultRow = panel.hPanel(spacing = 8) { addCssClasses("border-bottom py-1 align-items-center") }
-    accumulatedResultRow.div("Kumuliertes Ergebnis (seit Gründung)") { addCssClasses("flex-grow-1") }
+    accumulatedResultRow.div(tr("Kumuliertes Ergebnis (seit Gründung)")) { addCssClasses("flex-grow-1") }
     accumulatedResultRow.moneySpan(statement.accumulatedResult, warnIfNegative = true).width = 130.px
 
     panel.div(
-        "Diese beiden Werte sind im ersten Geschäftsjahr identisch und weichen ab dem zweiten Jahr " +
-            "bewusst voneinander ab -- siehe Erläuterung im Datenmodell.",
+        tr(
+            "Diese beiden Werte sind im ersten Geschäftsjahr identisch und weichen ab dem zweiten Jahr " +
+                "bewusst voneinander ab -- siehe Erläuterung im Datenmodell.",
+        ),
     ) { addCssClasses("text-muted small") }
 }
 
@@ -319,21 +323,21 @@ fun renderStatementLineTable(
         panel.p(title) { addCssClass("fw-bold") }
     }
     if (lines.isEmpty()) {
-        panel.p("Keine Buchungen in diesem Abschnitt.") { addCssClasses("text-muted small") }
+        panel.p(tr("Keine Buchungen in diesem Abschnitt.")) { addCssClasses("text-muted small") }
     } else {
         val headerRow = panel.hPanel(spacing = 8) { addCssClasses("fw-bold border-bottom pb-1") }
-        headerRow.div("Konto") { addCssClasses("flex-grow-1") }
-        headerRow.div("Kontenklasse") { width = 110.px }
-        headerRow.div("Betrag") { width = 130.px }
+        headerRow.div(tr("Konto")) { addCssClasses("flex-grow-1") }
+        headerRow.div(tr("Kontenklasse")) { width = 110.px }
+        headerRow.div(tr("Betrag")) { width = 130.px }
         lines.sortedBy { it.accountNumber }.forEach { line ->
             val row = panel.hPanel(spacing = 8) { addCssClasses("border-bottom py-1") }
-            row.div("${line.accountNumber} · ${line.name}") { addCssClasses("flex-grow-1") }
+            row.div(gettext("%1 · %2", line.accountNumber, line.name)) { addCssClasses("flex-grow-1") }
             row.div(line.accountClass.toString()) { width = 110.px }
             row.div(formatMoney(line.balance)) { width = 130.px }
         }
     }
     val totalRow = panel.hPanel(spacing = 8) { addCssClasses("fw-bold border-top pt-1") }
-    totalRow.div("Summe $title") { addCssClasses("flex-grow-1") }
+    totalRow.div(gettext("Summe %1", title)) { addCssClasses("flex-grow-1") }
     totalRow.div("") { width = 110.px }
     totalRow.div(formatMoney(total)) { width = 130.px }
 }
@@ -350,7 +354,7 @@ fun renderStatementLineTable(
 fun periodRangeCaption(
     from: LocalDate?,
     to: LocalDate,
-): String = "Zeitraum: ${from?.toString() ?: "seit Gründung"} bis $to"
+): String = gettext("Zeitraum: %1 bis %2", from?.toString() ?: gettext("seit Gründung"), to)
 
 /** D6: the only place this screen inspects a raw [Decimal]'s sign -- a **typed** numeric
  * comparison ([Decimal.toDouble] against `0.0`), never string/regex inspection of the rendered
@@ -360,9 +364,9 @@ fun isNegative(amount: Decimal): Boolean = amount.toDouble() < 0.0
 /** Only ever called with a GuV/Jahresabschluss [IncomeStatementDto.result]/
  * [AnnualFinancialStatementDto.periodResult] -- a negative result there is specifically a
  * Jahresfehlbetrag (net loss), the one qualifier this screen adds beyond the bare figure. */
-fun resultQualifierLabel(negative: Boolean): String? = if (negative) "(Jahresfehlbetrag)" else null
+fun resultQualifierLabel(negative: Boolean): String? = if (negative) gettext("(Jahresfehlbetrag)") else null
 
-fun balancedLabel(balanced: Boolean): String = if (balanced) "Bilanz ausgeglichen" else "Bilanz NICHT ausgeglichen"
+fun balancedLabel(balanced: Boolean): String = if (balanced) gettext("Bilanz ausgeglichen") else gettext("Bilanz NICHT ausgeglichen")
 
 fun balancedColor(balanced: Boolean): String = if (balanced) "success" else "danger"
 

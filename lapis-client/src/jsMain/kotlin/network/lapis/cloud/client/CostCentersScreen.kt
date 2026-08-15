@@ -8,6 +8,8 @@ import io.kvision.html.div
 import io.kvision.html.h1
 import io.kvision.html.h2
 import io.kvision.html.p
+import io.kvision.i18n.gettext
+import io.kvision.i18n.tr
 import io.kvision.panel.SimplePanel
 import io.kvision.panel.hPanel
 import io.kvision.panel.vPanel
@@ -52,13 +54,13 @@ fun renderCostCentersScreen(container: SimplePanel) {
             width = 800.px
             marginTop = 24.px
         }
-    root.h1("Kostenstellen")
+    root.h1(tr("Kostenstellen"))
 
     // ---- List (Kostenstellen-Übersicht) ----------------------------------------------------
-    root.h2("Übersicht")
+    root.h2(tr("Übersicht"))
     val filterRow = root.hPanel(spacing = 8) { addCssClasses("align-items-center") }
-    val includeInactiveCheck = filterRow.checkBox(label = "Inaktive Kostenstellen anzeigen")
-    val refreshButton = filterRow.button("Aktualisieren", style = ButtonStyle.OUTLINESECONDARY)
+    val includeInactiveCheck = filterRow.checkBox(label = tr("Inaktive Kostenstellen anzeigen"))
+    val refreshButton = filterRow.button(tr("Aktualisieren"), style = ButtonStyle.OUTLINESECONDARY)
     val listPanel = root.vPanel(spacing = 6)
 
     fun refreshList() {
@@ -69,7 +71,7 @@ fun renderCostCentersScreen(container: SimplePanel) {
                     rpcService<IAccountingService>().listCostCenters(activeOnly = !includeInactiveCheck.value)
                 } ?: return@launch
             if (costCenters.isEmpty()) {
-                listPanel.p("Noch keine Kostenstellen angelegt.")
+                listPanel.p(tr("Noch keine Kostenstellen angelegt."))
                 return@launch
             }
             costCenters.forEach { costCenter ->
@@ -81,12 +83,12 @@ fun renderCostCentersScreen(container: SimplePanel) {
     refreshList()
 
     if (canManage) {
-        root.h2("Neue Kostenstelle anlegen")
+        root.h2(tr("Neue Kostenstelle anlegen"))
         renderCostCenterCreationForm(root, ::refreshList)
     }
 
     // ---- Report -----------------------------------------------------------------------------
-    root.h2("Kostenstellenbericht")
+    root.h2(tr("Kostenstellenbericht"))
     renderCostCenterReportView(root)
 }
 
@@ -111,19 +113,23 @@ private fun renderCostCenterRow(
 
     if (canManage && costCenter.active) {
         val actionRow = row.hPanel(spacing = 8)
-        val deactivateButton = actionRow.button("Deaktivieren", style = ButtonStyle.OUTLINEDANGER)
+        val deactivateButton = actionRow.button(tr("Deaktivieren"), style = ButtonStyle.OUTLINEDANGER)
         deactivateButton.onClick {
             confirmDialog(
-                title = "Kostenstelle deaktivieren",
+                title = tr("Kostenstelle deaktivieren"),
                 message =
-                    "\"${costCenter.code} · ${costCenter.name}\" wirklich deaktivieren? Bestehende Buchungen " +
-                        "bleiben erhalten, die Kostenstelle steht aber für neue Buchungen nicht mehr zur Verfügung.",
-                confirmLabel = "Deaktivieren",
+                    gettext(
+                        "\"%1 · %2\" wirklich deaktivieren? Bestehende Buchungen bleiben erhalten, die " +
+                            "Kostenstelle steht aber für neue Buchungen nicht mehr zur Verfügung.",
+                        costCenter.code,
+                        costCenter.name,
+                    ),
+                confirmLabel = tr("Deaktivieren"),
             ) {
                 AppScope.launch {
                     val result = guarded { rpcService<IAccountingService>().deactivateCostCenter(costCenter.id) }
                     if (result != null) {
-                        notifyInfo("Kostenstelle wurde deaktiviert.")
+                        notifyInfo(tr("Kostenstelle wurde deaktiviert."))
                         onChanged()
                     }
                 }
@@ -144,16 +150,16 @@ private fun renderCostCenterCreationForm(
     onCreated: () -> Unit,
 ) {
     val panel = root.vPanel(spacing = 6)
-    val codeInput = panel.text(label = "Code (eindeutig, z. B. SOMMERFEST-2027)")
-    val nameInput = panel.text(label = "Name")
-    val descriptionInput = panel.text(label = "Beschreibung (optional)")
+    val codeInput = panel.text(label = tr("Code (eindeutig, z. B. SOMMERFEST-2027)"))
+    val nameInput = panel.text(label = tr("Name"))
+    val descriptionInput = panel.text(label = tr("Beschreibung (optional)"))
     val errorBox =
         panel.div().apply {
             addCssClass("text-danger")
             hide()
         }
 
-    val createButton = panel.button("Kostenstelle anlegen", style = ButtonStyle.PRIMARY)
+    val createButton = panel.button(tr("Kostenstelle anlegen"), style = ButtonStyle.PRIMARY)
     createButton.onClick {
         errorBox.hide()
         val code = codeInput.value.orEmpty().trim()
@@ -161,7 +167,7 @@ private fun renderCostCenterCreationForm(
         val description = descriptionInput.value?.trim()?.takeIf { it.isNotBlank() }
 
         if (!Validation.isNonBlank(code) || !Validation.isNonBlank(name)) {
-            errorBox.content = "Bitte Code und Name angeben."
+            errorBox.content = tr("Bitte Code und Name angeben.")
             errorBox.show()
             return@onClick
         }
@@ -176,7 +182,7 @@ private fun renderCostCenterCreationForm(
                 }
             createButton.disabled = false
             if (result != null) {
-                notifySuccess("Kostenstelle \"$code · $name\" wurde angelegt.")
+                notifySuccess(gettext("Kostenstelle \"%1 · %2\" wurde angelegt.", code, name))
                 codeInput.value = null
                 nameInput.value = null
                 descriptionInput.value = null
@@ -199,7 +205,7 @@ private fun renderCostCenterCreationForm(
 private fun renderCostCenterReportView(panel: SimplePanel) {
     val filterControls = panel.dateRangeFilter()
     filterControls.toInput.value = todayIso()
-    val loadButton = panel.button("Laden", style = ButtonStyle.OUTLINESECONDARY)
+    val loadButton = panel.button(tr("Laden"), style = ButtonStyle.OUTLINESECONDARY)
     val errorBox =
         panel.div().apply {
             addCssClass("text-danger")
@@ -211,13 +217,13 @@ private fun renderCostCenterReportView(panel: SimplePanel) {
         errorBox.hide()
         val to = filterControls.parseTo()
         if (to == null) {
-            errorBox.content = "Bitte ein gültiges \"Bis\"-Datum angeben (JJJJ-MM-TT)."
+            errorBox.content = tr("Bitte ein gültiges \"Bis\"-Datum angeben (JJJJ-MM-TT).")
             errorBox.show()
             return
         }
         val from = filterControls.parseFrom()
         resultPanel.removeAll()
-        resultPanel.p("Wird geladen …") { addCssClasses("text-muted small") }
+        resultPanel.p(tr("Wird geladen …")) { addCssClasses("text-muted small") }
         AppScope.launch {
             val report =
                 guarded { rpcService<IAccountingService>().getCostCenterReport(from, to) } ?: return@launch
@@ -244,13 +250,13 @@ private fun renderCostCenterReportBody(
     panel.div(periodRangeCaption(report.from, report.to)) { addCssClasses("text-muted small") }
 
     if (report.costCenters.isEmpty()) {
-        panel.p("Keine Kostenstelle mit Buchungen im gewählten Zeitraum.") { addCssClasses("text-muted small") }
+        panel.p(tr("Keine Kostenstelle mit Buchungen im gewählten Zeitraum.")) { addCssClasses("text-muted small") }
     } else {
         val headerRow = panel.hPanel(spacing = 8) { addCssClasses("fw-bold border-bottom pb-1") }
-        headerRow.div("Kostenstelle") { addCssClasses("flex-grow-1") }
-        headerRow.div("Einnahmen") { width = 120.px }
-        headerRow.div("Ausgaben") { width = 120.px }
-        headerRow.div("Ergebnis") { width = 120.px }
+        headerRow.div(tr("Kostenstelle")) { addCssClasses("flex-grow-1") }
+        headerRow.div(tr("Einnahmen")) { width = 120.px }
+        headerRow.div(tr("Ausgaben")) { width = 120.px }
+        headerRow.div(tr("Ergebnis")) { width = 120.px }
 
         report.costCenters.forEach { costCenter ->
             val row = panel.hPanel(spacing = 8) { addCssClasses("border-bottom py-1 align-items-center") }
@@ -266,13 +272,13 @@ private fun renderCostCenterReportBody(
         panel.hPanel(spacing = 8) {
             addCssClasses("border-top py-1 align-items-center fst-italic text-muted")
         }
-    unassignedRow.div("— Nicht zugeordnet —") { addCssClasses("flex-grow-1") }
+    unassignedRow.div(tr("— Nicht zugeordnet —")) { addCssClasses("flex-grow-1") }
     unassignedRow.div(formatMoney(report.unassignedIncome)) { width = 120.px }
     unassignedRow.div(formatMoney(report.unassignedExpense)) { width = 120.px }
     unassignedRow.moneySpan(report.unassignedResult, warnIfNegative = true).width = 120.px
 
     val totalRow = panel.hPanel(spacing = 8) { addCssClasses("fw-bold border-top pt-1 align-items-center") }
-    totalRow.div("Gesamt") { addCssClasses("flex-grow-1") }
+    totalRow.div(tr("Gesamt")) { addCssClasses("flex-grow-1") }
     totalRow.div(formatMoney(report.totalIncome)) { width = 120.px }
     totalRow.div(formatMoney(report.totalExpense)) { width = 120.px }
     totalRow.moneySpan(report.result, warnIfNegative = true).width = 120.px
@@ -285,13 +291,13 @@ private fun renderCostCenterReportBody(
 /** Shared "code · name" label formatting for a [CostCenterDto] row -- factored out so the list
  * row and (via [costCenterResultLabel]) the report table can never drift into two slightly
  * different renderings of the same identity. */
-fun costCenterLabel(costCenter: CostCenterDto): String = "${costCenter.code} · ${costCenter.name}"
+fun costCenterLabel(costCenter: CostCenterDto): String = gettext("%1 · %2", costCenter.code, costCenter.name)
 
 /** Same "code · name" identity as [costCenterLabel], but for a [CostCenterResultDto] row (the
  * report table's shape, which does not carry the full [CostCenterDto]) -- kept as a separate
  * function rather than a shared interface, since the two DTOs otherwise have no supertype in
  * common and coercing one would be more machinery than the one-line duplication it avoids. */
-fun costCenterResultLabel(costCenter: CostCenterResultDto): String = "${costCenter.code} · ${costCenter.name}"
+fun costCenterResultLabel(costCenter: CostCenterResultDto): String = gettext("%1 · %2", costCenter.code, costCenter.name)
 
 /** Mirrors `LedgerScreen.kt`/`FinancialReportsScreen.kt`'s own private `todayIso()` -- no shared
  * date-util file exists in this client (each screen that needs "today as JJJJ-MM-TT" carries its

@@ -11,6 +11,8 @@ import io.kvision.html.h1
 import io.kvision.html.h2
 import io.kvision.html.link
 import io.kvision.html.p
+import io.kvision.i18n.gettext
+import io.kvision.i18n.tr
 import io.kvision.modal.Modal
 import io.kvision.panel.SimplePanel
 import io.kvision.panel.hPanel
@@ -64,7 +66,7 @@ fun renderBoardMembershipScreen(container: SimplePanel) {
             width = 900.px
             marginTop = 24.px
         }
-    root.h1("Vorstand & Transparenzregister")
+    root.h1(tr("Vorstand & Transparenzregister"))
     root.div(BOARD_MEMBERSHIP_HEADER_NOTE) { addCssClasses("text-muted small") }
 
     var currentBoard: List<BoardMembershipDto> = emptyList()
@@ -85,7 +87,7 @@ fun renderBoardMembershipScreen(container: SimplePanel) {
     }
 
     // ---- Current roster -----------------------------------------------------------------------
-    root.h2("Aktueller Vorstand")
+    root.h2(tr("Aktueller Vorstand"))
     val rosterPanel = root.vPanel(spacing = 6)
 
     fun refreshRoster() {
@@ -94,7 +96,7 @@ fun renderBoardMembershipScreen(container: SimplePanel) {
             val board = guarded { rpcService<IBoardMembershipService>().listCurrentBoard() } ?: return@launch
             currentBoard = board
             if (board.isEmpty()) {
-                rosterPanel.p("Aktuell keine Vorstandsmitglieder erfasst.")
+                rosterPanel.p(tr("Aktuell keine Vorstandsmitglieder erfasst."))
                 return@launch
             }
             board
@@ -106,12 +108,12 @@ fun renderBoardMembershipScreen(container: SimplePanel) {
     refreshRoster()
 
     // ---- Manual appointment (administrative/supplementary path, see D9 KDoc above) -----------
-    root.h2("Manuelle Eintragung")
+    root.h2(tr("Manuelle Eintragung"))
     root.div(MANUAL_APPOINTMENT_CAPTION) { addCssClasses("text-muted small") }
     renderAppointmentForm(root, currentBoardProvider = { currentBoard }, onAppointed = ::refreshAll)
 
     // ---- Transparenzregister report ------------------------------------------------------------
-    root.h2("Transparenzregister-Bericht")
+    root.h2(tr("Transparenzregister-Bericht"))
     val reportPanel = root.vPanel(spacing = 6)
 
     fun refreshReport() {
@@ -125,12 +127,12 @@ fun renderBoardMembershipScreen(container: SimplePanel) {
     refreshReport()
 
     // ---- Reminders ------------------------------------------------------------------------------
-    root.h2("Erinnerungen")
+    root.h2(tr("Erinnerungen"))
     // D8(b): unconditional, non-dismissible, above the list itself (X2).
     root.div(TRANSPARENZREGISTER_REMINDER_HONESTY_BANNER) { addCssClasses("alert alert-warning") }
 
     val reminderFilterRow = root.hPanel(spacing = 8) { addCssClasses("align-items-center") }
-    val includeResolvedCheck = reminderFilterRow.checkBox(label = "Erledigte anzeigen")
+    val includeResolvedCheck = reminderFilterRow.checkBox(label = tr("Erledigte anzeigen"))
     val reminderPanel = root.vPanel(spacing = 6)
 
     fun refreshReminders() {
@@ -141,14 +143,14 @@ fun renderBoardMembershipScreen(container: SimplePanel) {
                     rpcService<IBoardMembershipService>().listTransparenzregisterReminders(includeResolvedCheck.value)
                 } ?: return@launch
             if (reminders.isEmpty()) {
-                reminderPanel.p("Keine Erinnerungen vorhanden.")
+                reminderPanel.p(tr("Keine Erinnerungen vorhanden."))
                 return@launch
             }
             reminders.forEach { reminder -> renderReminderRow(reminderPanel, reminder, ::refreshAll) }
         }
     }
     refreshRemindersFn = ::refreshReminders
-    val reminderRefreshButton = reminderFilterRow.button("Aktualisieren", style = ButtonStyle.OUTLINESECONDARY)
+    val reminderRefreshButton = reminderFilterRow.button(tr("Aktualisieren"), style = ButtonStyle.OUTLINESECONDARY)
     reminderRefreshButton.onClick { refreshReminders() }
     refreshReminders()
 }
@@ -166,19 +168,19 @@ private fun renderBoardRow(
     val headerRow = row.hPanel(spacing = 8) { addCssClasses("align-items-center") }
     headerRow.div(membership.memberDisplayName) { addCssClasses("flex-grow-1 fw-bold") }
     headerRow.typeBadge(committeeRoleLabel(membership.committeeRole), committeeRoleColor(membership.committeeRole))
-    headerRow.div("seit ${membership.startedAt}") { addCssClasses("text-muted small") }
+    headerRow.div(gettext("seit %1", membership.startedAt)) { addCssClasses("text-muted small") }
 
     // D9: every roster row links back to the Governance Committees screen's EXECUTIVE_BOARD
     // committee -- this screen is not the only place a board seat changes.
     row.link(BOARD_COMMITTEE_CROSS_LINK_CAPTION, url = "#${Routes.COMMITTEES}") { addCssClasses("text-muted small") }
 
-    val endButton = row.button("Mitgliedschaft beenden", style = ButtonStyle.OUTLINEDANGER)
+    val endButton = row.button(tr("Mitgliedschaft beenden"), style = ButtonStyle.OUTLINEDANGER)
     endButton.onClick {
         endBoardMembershipDialog(membership) { until ->
             AppScope.launch {
                 val result = guarded { rpcService<IBoardMembershipService>().endBoardMembership(membership.id, until) }
                 if (result != null) {
-                    notifyInfo("Mitgliedschaft von ${membership.memberDisplayName} wurde beendet.")
+                    notifyInfo(gettext("Mitgliedschaft von %1 wurde beendet.", membership.memberDisplayName))
                     onChanged()
                 }
             }
@@ -193,23 +195,29 @@ private fun endBoardMembershipDialog(
     membership: BoardMembershipDto,
     onConfirm: (LocalDate) -> Unit,
 ) {
-    val modal = Modal(caption = "Vorstandsmitgliedschaft beenden")
-    modal.p("Mitgliedschaft von \"${membership.memberDisplayName}\" (${committeeRoleLabel(membership.committeeRole)}) wirklich beenden?")
-    val untilInput = modal.text(value = todayIso(), label = "Enddatum (JJJJ-MM-TT)")
+    val modal = Modal(caption = tr("Vorstandsmitgliedschaft beenden"))
+    modal.p(
+        gettext(
+            "Mitgliedschaft von \"%1\" (%2) wirklich beenden?",
+            membership.memberDisplayName,
+            committeeRoleLabel(membership.committeeRole),
+        ),
+    )
+    val untilInput = modal.text(value = todayIso(), label = tr("Enddatum (JJJJ-MM-TT)"))
     val errorBox =
         modal.div().apply {
             addCssClass("text-danger")
             hide()
         }
     modal.addButton(
-        Button("Abbrechen", style = ButtonStyle.SECONDARY).apply { onClick { modal.hide() } },
+        Button(tr("Abbrechen"), style = ButtonStyle.SECONDARY).apply { onClick { modal.hide() } },
     )
     modal.addButton(
-        Button("Mitgliedschaft beenden", style = ButtonStyle.DANGER).apply {
+        Button(tr("Mitgliedschaft beenden"), style = ButtonStyle.DANGER).apply {
             onClick {
                 val until = runCatching { LocalDate.parse(untilInput.value.orEmpty().trim()) }.getOrNull()
                 if (until == null) {
-                    errorBox.content = "Bitte ein gültiges Datum (JJJJ-MM-TT) angeben."
+                    errorBox.content = tr("Bitte ein gültiges Datum (JJJJ-MM-TT) angeben.")
                     errorBox.show()
                     return@onClick
                 }
@@ -243,9 +251,9 @@ private fun renderAppointmentForm(
 ) {
     val panel = root.vPanel(spacing = 6) { addCssClasses("border rounded p-3") }
     val roleOptions = CommitteeRole.entries.map { it.name to committeeRoleLabel(it) }
-    val memberSelect = panel.select(options = emptyList(), label = "Mitglied")
-    val roleSelect = panel.select(options = roleOptions, value = CommitteeRole.MEMBER.name, label = "Rolle")
-    val startedAtInput = panel.text(value = todayIso(), label = "Seit (JJJJ-MM-TT)")
+    val memberSelect = panel.select(options = emptyList(), label = tr("Mitglied"))
+    val roleSelect = panel.select(options = roleOptions, value = CommitteeRole.MEMBER.name, label = tr("Rolle"))
+    val startedAtInput = panel.text(value = todayIso(), label = tr("Seit (JJJJ-MM-TT)"))
     val errorBox =
         panel.div().apply {
             addCssClass("text-danger")
@@ -259,7 +267,7 @@ private fun renderAppointmentForm(
         memberSelect.value = members.firstOrNull()?.id
     }
 
-    val appointButton = panel.button("Vorstandsmitglied ernennen", style = ButtonStyle.PRIMARY)
+    val appointButton = panel.button(tr("Vorstandsmitglied ernennen"), style = ButtonStyle.PRIMARY)
     appointButton.onClick {
         errorBox.hide()
         val memberId = memberSelect.value
@@ -267,7 +275,7 @@ private fun renderAppointmentForm(
         val startedAt = runCatching { LocalDate.parse(startedAtInput.value.orEmpty().trim()) }.getOrNull()
 
         if (memberId == null || roleValue == null || startedAt == null) {
-            errorBox.content = "Bitte Mitglied, Rolle und ein gültiges Datum (JJJJ-MM-TT) angeben."
+            errorBox.content = tr("Bitte Mitglied, Rolle und ein gültiges Datum (JJJJ-MM-TT) angeben.")
             errorBox.show()
             return@onClick
         }
@@ -281,7 +289,7 @@ private fun renderAppointmentForm(
                 val result = guarded { rpcService<IBoardMembershipService>().appointBoardMember(input) }
                 appointButton.disabled = false
                 if (result != null) {
-                    notifySuccess("${result.memberDisplayName} wurde als ${committeeRoleLabel(role)} ernannt.")
+                    notifySuccess(gettext("%1 wurde als %2 ernannt.", result.memberDisplayName, committeeRoleLabel(role)))
                     onAppointed()
                 }
             }
@@ -290,9 +298,9 @@ private fun renderAppointmentForm(
         val displaced = findDisplacedIncumbent(currentBoardProvider(), role, memberId)
         if (displaced != null) {
             confirmDialog(
-                title = "Vorstandsmitglied ernennen",
+                title = tr("Vorstandsmitglied ernennen"),
                 message = displacedIncumbentWarningText(role, displaced.memberDisplayName),
-                confirmLabel = "Ernennen",
+                confirmLabel = tr("Ernennen"),
                 onConfirm = ::doAppoint,
             )
         } else {
@@ -351,10 +359,15 @@ private fun renderTransparenzregisterReport(
         box.div(beneficialOwnerGapsSummary(report.beneficialOwnerDataGaps.size)) { addCssClass("fw-bold") }
         report.beneficialOwnerDataGaps.forEach { gap -> box.div(beneficialOwnerGapDetail(gap)) { addCssClasses("small") } }
     } else {
-        panel.div("Keine fehlenden Angaben für das Transparenzregister.") { addCssClasses("text-muted small") }
+        panel.div(tr("Keine fehlenden Angaben für das Transparenzregister.")) { addCssClasses("text-muted small") }
     }
     if (report.openReminders.isNotEmpty()) {
-        panel.div("${report.openReminders.size} offene Erinnerung(en) -- siehe Abschnitt \"Erinnerungen\" unten.") {
+        panel.div(
+            gettext(
+                "%1 offene Erinnerung(en) -- siehe Abschnitt \"Erinnerungen\" unten.",
+                report.openReminders.size,
+            ),
+        ) {
             addCssClasses("text-muted small")
         }
     }
@@ -362,18 +375,26 @@ private fun renderTransparenzregisterReport(
 
 /** Exact summary line for the beneficial-owner-data-gaps `alert-warning` box. */
 fun beneficialOwnerGapsSummary(count: Int): String =
-    "Fehlende Angaben für das Transparenzregister: $count Vorstandsmitglied(er) ohne Geburtsdatum und/oder " +
-        "Staatsangehörigkeit."
+    gettext(
+        "Fehlende Angaben für das Transparenzregister: %1 Vorstandsmitglied(er) ohne Geburtsdatum und/oder " +
+            "Staatsangehörigkeit.",
+        count,
+    )
 
 /** Per-gap detail line -- names the SPECIFIC missing field(s), not just "unvollständig" (plan: "each
  * gap listed with the specific missing field(s) named, not just 'incomplete'"). */
 fun beneficialOwnerGapDetail(gap: BeneficialOwnerDataGapDto): String {
     val missingFields =
         buildList {
-            if (gap.missingDateOfBirth) add("Geburtsdatum")
-            if (gap.missingNationality) add("Staatsangehörigkeit")
+            if (gap.missingDateOfBirth) add(gettext("Geburtsdatum"))
+            if (gap.missingNationality) add(gettext("Staatsangehörigkeit"))
         }
-    return "${gap.memberDisplayName} (${committeeRoleLabel(gap.committeeRole)}): fehlt ${missingFields.joinToString(", ")}"
+    return gettext(
+        "%1 (%2): fehlt %3",
+        gap.memberDisplayName,
+        committeeRoleLabel(gap.committeeRole),
+        missingFields.joinToString(", "),
+    )
 }
 
 // ================================================================================================
@@ -392,7 +413,7 @@ private fun renderReminderRow(
     headerRow.div(reminder.memberDisplayName) { addCssClasses("flex-grow-1 fw-bold") }
     headerRow.statusBadge(reminderResolutionLabel(reminder.resolved), reminderResolutionColor(reminder.resolved))
 
-    row.div("Ausgelöst am: ${reminder.triggeredAt}") { addCssClasses("text-muted small") }
+    row.div(gettext("Ausgelöst am: %1", reminder.triggeredAt)) { addCssClasses("text-muted small") }
 
     if (reminder.resolved) {
         row.div(resolvedCaption(reminder)) { addCssClasses("text-muted small") }
@@ -405,7 +426,7 @@ private fun renderReminderRow(
                 val result = guarded { rpcService<IBoardMembershipService>().resolveTransparenzregisterReminder(reminder.id) }
                 resolveButton.disabled = false
                 if (result != null) {
-                    notifySuccess("Erinnerung wurde bestätigt.")
+                    notifySuccess(tr("Erinnerung wurde bestätigt."))
                     onChanged()
                 }
             }

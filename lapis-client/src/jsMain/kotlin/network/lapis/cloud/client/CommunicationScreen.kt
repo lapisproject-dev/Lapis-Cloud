@@ -9,6 +9,8 @@ import io.kvision.html.div
 import io.kvision.html.h1
 import io.kvision.html.h2
 import io.kvision.html.p
+import io.kvision.i18n.gettext
+import io.kvision.i18n.tr
 import io.kvision.panel.SimplePanel
 import io.kvision.panel.hPanel
 import io.kvision.panel.vPanel
@@ -47,7 +49,7 @@ fun renderCommunicationScreen(container: SimplePanel) {
             width = 640.px
             marginTop = 24.px
         }
-    root.h1("Kommunikation")
+    root.h1(tr("Kommunikation"))
 
     val refreshMailingLists = renderMailingLists(root)
     renderInbox(root)
@@ -67,7 +69,7 @@ fun renderCommunicationScreen(container: SimplePanel) {
  * trigger" wiring `LedgerScreen.kt`'s `refreshJournalFn` establishes for the equivalent dependency.
  */
 private fun renderMailingLists(root: SimplePanel): () -> Unit {
-    root.h2("Mailinglisten")
+    root.h2(tr("Mailinglisten"))
     val panel = root.vPanel(spacing = 4)
 
     fun refresh() {
@@ -75,13 +77,13 @@ private fun renderMailingLists(root: SimplePanel): () -> Unit {
         AppScope.launch {
             val lists = guarded { rpcService<IMailingService>().listMailingLists() } ?: return@launch
             if (lists.isEmpty()) {
-                panel.p("Noch keine Mailinglisten.")
+                panel.p(tr("Noch keine Mailinglisten."))
                 return@launch
             }
             lists.forEach { list ->
                 val row = panel.hPanel(spacing = 8) { addCssClass("align-items-center") }
-                row.div("${list.name} (${list.subscriberCount} Abonnenten)") { addCssClass("flex-grow-1") }
-                val toggleButton = row.button(if (list.isSubscribedByCurrentMember) "Abbestellen" else "Abonnieren")
+                row.div(gettext("%1 (%2 Abonnenten)", list.name, list.subscriberCount)) { addCssClass("flex-grow-1") }
+                val toggleButton = row.button(if (list.isSubscribedByCurrentMember) tr("Abbestellen") else tr("Abonnieren"))
                 toggleButton.onClick {
                     AppScope.launch {
                         val result =
@@ -103,11 +105,11 @@ private fun renderMailingLists(root: SimplePanel): () -> Unit {
 }
 
 private fun renderInbox(root: SimplePanel) {
-    root.h2("Postfach")
+    root.h2(tr("Postfach"))
     val panel = root.vPanel(spacing = 4)
     AppScope.launch {
         val unread = guarded { rpcService<IDirectMessageService>().unreadCount() } ?: return@launch
-        panel.div("Ungelesene Nachrichten: $unread")
+        panel.div(gettext("Ungelesene Nachrichten: %1", unread))
     }
 }
 
@@ -121,9 +123,9 @@ private fun renderMailingListAdminSection(
     root: SimplePanel,
     refreshSelfService: () -> Unit,
 ) {
-    root.h2("Mailinglisten verwalten")
+    root.h2(tr("Mailinglisten verwalten"))
     root.div(
-        "Mailinglisten anlegen, Mitglieder gezielt eintragen und Nachrichten an eine Liste verschicken.",
+        tr("Mailinglisten anlegen, Mitglieder gezielt eintragen und Nachrichten an eine Liste verschicken."),
     ) { addCssClasses("text-muted small") }
 
     // `refreshListSelector` breaks the same forward-reference cycle `LedgerScreen.kt`'s
@@ -148,15 +150,15 @@ private fun renderCreateMailingListForm(
     onCreated: (newListId: String) -> Unit,
 ) {
     val panel = root.vPanel(spacing = 6) { addCssClasses("border rounded p-3") }
-    panel.div("Neue Mailingliste anlegen") { addCssClass("fw-bold") }
-    val nameInput = panel.text(label = "Name")
-    val descriptionInput = panel.text(label = "Beschreibung (optional)")
+    panel.div(tr("Neue Mailingliste anlegen")) { addCssClass("fw-bold") }
+    val nameInput = panel.text(label = tr("Name"))
+    val descriptionInput = panel.text(label = tr("Beschreibung (optional)"))
     val errorBox =
         panel.div().apply {
             addCssClass("text-danger")
             hide()
         }
-    val createButton = panel.button("Anlegen", style = ButtonStyle.PRIMARY)
+    val createButton = panel.button(tr("Anlegen"), style = ButtonStyle.PRIMARY)
 
     createButton.onClick {
         errorBox.hide()
@@ -164,7 +166,7 @@ private fun renderCreateMailingListForm(
         val description = descriptionInput.value?.trim()?.takeIf { it.isNotBlank() }
 
         if (!Validation.isNonBlank(name)) {
-            errorBox.content = "Bitte einen Namen angeben."
+            errorBox.content = tr("Bitte einen Namen angeben.")
             errorBox.show()
             return@onClick
         }
@@ -174,7 +176,7 @@ private fun renderCreateMailingListForm(
             val result = guarded { rpcService<IMailingService>().createMailingList(name, description) }
             createButton.disabled = false
             if (result != null) {
-                notifySuccess("Mailingliste \"$name\" wurde angelegt.")
+                notifySuccess(gettext("Mailingliste \"%1\" wurde angelegt.", name))
                 nameInput.value = null
                 descriptionInput.value = null
                 refreshSelfService()
@@ -196,10 +198,10 @@ private fun renderManageListSelector(
     root: SimplePanel,
     refreshSelfService: () -> Unit,
 ): (selectId: String?) -> Unit {
-    root.div("Liste verwalten") { addCssClasses("fw-bold mt-2") }
+    root.div(tr("Liste verwalten")) { addCssClasses("fw-bold mt-2") }
     val row = root.hPanel(spacing = 8) { addCssClasses("align-items-end") }
-    val listSelect = row.select(options = emptyList(), label = "Mailingliste")
-    val manageButton = row.button("Verwalten", style = ButtonStyle.OUTLINESECONDARY)
+    val listSelect = row.select(options = emptyList(), label = tr("Mailingliste"))
+    val manageButton = row.button(tr("Verwalten"), style = ButtonStyle.OUTLINESECONDARY)
     val detailPanel = root.vPanel(spacing = 10)
 
     var lists: List<MailingListDto> = emptyList()
@@ -207,7 +209,7 @@ private fun renderManageListSelector(
     fun refresh(selectId: String?) {
         AppScope.launch {
             lists = guarded { rpcService<IMailingService>().listMailingLists() } ?: emptyList()
-            listSelect.options = lists.map { it.id to "${it.name} (${it.subscriberCount} Abonnenten)" }
+            listSelect.options = lists.map { it.id to gettext("%1 (%2 Abonnenten)", it.name, it.subscriberCount) }
             listSelect.value = selectId?.takeIf { id -> lists.any { it.id == id } } ?: lists.firstOrNull()?.id
         }
     }
@@ -239,7 +241,7 @@ private fun renderMailingListDetail(
     }
 
     // ---- Abonnenten ----------------------------------------------------------------------------
-    detail.div("Abonnenten") { addCssClasses("fw-bold mt-2") }
+    detail.div(tr("Abonnenten")) { addCssClasses("fw-bold mt-2") }
     val subscribersPanel = detail.vPanel(spacing = 4)
 
     fun refreshSubscribers() {
@@ -247,7 +249,7 @@ private fun renderMailingListDetail(
         AppScope.launch {
             val subscribers = guarded { rpcService<IMailingService>().listSubscribers(list.id) } ?: return@launch
             if (subscribers.isEmpty()) {
-                subscribersPanel.p("Noch keine Abonnentinnen und Abonnenten.")
+                subscribersPanel.p(tr("Noch keine Abonnentinnen und Abonnenten."))
                 return@launch
             }
             subscribers.forEach { subscriber -> renderSubscriberRow(subscribersPanel, subscriber) }
@@ -256,10 +258,10 @@ private fun renderMailingListDetail(
     refreshSubscribers()
 
     // ---- Mitglied hinzufügen ---------------------------------------------------------------------
-    detail.div("Mitglied hinzufügen") { addCssClasses("fw-bold mt-2") }
+    detail.div(tr("Mitglied hinzufügen")) { addCssClasses("fw-bold mt-2") }
     val addRow = detail.hPanel(spacing = 8) { addCssClasses("align-items-end") }
-    val memberSelect = addRow.select(options = emptyList(), label = "Mitglied")
-    val addButton = addRow.button("Hinzufügen", style = ButtonStyle.OUTLINEPRIMARY)
+    val memberSelect = addRow.select(options = emptyList(), label = tr("Mitglied"))
+    val addButton = addRow.button(tr("Hinzufügen"), style = ButtonStyle.OUTLINEPRIMARY)
     AppScope.launch {
         val members = guarded { rpcService<IMemberService>().listMembers() } ?: emptyList()
         memberSelect.options = members.map { it.id to it.displayName }
@@ -271,7 +273,7 @@ private fun renderMailingListDetail(
             val result = guarded { rpcService<IMailingService>().adminSubscribeMember(list.id, memberId) }
             addButton.disabled = false
             if (result != null) {
-                notifySuccess("Mitglied wurde eingetragen.")
+                notifySuccess(tr("Mitglied wurde eingetragen."))
                 refreshSubscribers()
                 refreshSelfService()
             }
@@ -279,19 +281,19 @@ private fun renderMailingListDetail(
     }
 
     // ---- Nachrichten -------------------------------------------------------------------------
-    detail.div("Nachrichten") { addCssClasses("fw-bold mt-2") }
+    detail.div(tr("Nachrichten")) { addCssClasses("fw-bold mt-2") }
     val composePanel = detail.vPanel(spacing = 6) { addCssClasses("border rounded p-3") }
-    val subjectInput = composePanel.text(label = "Betreff")
-    val bodyInput = composePanel.textArea(label = "Text", rows = 4)
+    val subjectInput = composePanel.text(label = tr("Betreff"))
+    val bodyInput = composePanel.textArea(label = tr("Text"), rows = 4)
     val composeErrorBox =
         composePanel.div().apply {
             addCssClass("text-danger")
             hide()
         }
-    val draftButton = composePanel.button("Als Entwurf speichern", style = ButtonStyle.OUTLINEPRIMARY)
+    val draftButton = composePanel.button(tr("Als Entwurf speichern"), style = ButtonStyle.OUTLINEPRIMARY)
     // D2: permanent, always-visible honesty caption -- not conditional on having just sent a
     // message. See MAILING_SEND_STUB_CAPTION KDoc.
-    composePanel.div(MAILING_SEND_STUB_CAPTION) { addCssClasses("text-muted small") }
+    composePanel.div(tr(MAILING_SEND_STUB_CAPTION)) { addCssClasses("text-muted small") }
 
     val messagesPanel = detail.vPanel(spacing = 6)
 
@@ -300,7 +302,7 @@ private fun renderMailingListDetail(
         AppScope.launch {
             val messages = guarded { rpcService<IMailingService>().listMailingMessages(list.id) } ?: return@launch
             if (messages.isEmpty()) {
-                messagesPanel.p("Noch keine Nachrichten.")
+                messagesPanel.p(tr("Noch keine Nachrichten."))
                 return@launch
             }
             messages.forEach { message -> renderMailingMessageRow(messagesPanel, message, list.name, ::refreshMessages) }
@@ -314,7 +316,7 @@ private fun renderMailingListDetail(
         val bodyText = bodyInput.value.orEmpty().trim()
 
         if (!Validation.isNonBlank(subject) || !Validation.isNonBlank(bodyText)) {
-            composeErrorBox.content = "Bitte Betreff und Text angeben."
+            composeErrorBox.content = tr("Bitte Betreff und Text angeben.")
             composeErrorBox.show()
             return@onClick
         }
@@ -324,7 +326,7 @@ private fun renderMailingListDetail(
             val result = guarded { rpcService<IMailingService>().createDraftMessage(list.id, subject, bodyText) }
             draftButton.disabled = false
             if (result != null) {
-                notifySuccess("Entwurf \"$subject\" wurde gespeichert.")
+                notifySuccess(gettext("Entwurf \"%1\" wurde gespeichert.", subject))
                 subjectInput.value = null
                 bodyInput.value = null
                 refreshMessages()
@@ -341,9 +343,9 @@ private fun renderSubscriberRow(
     row.div(subscriber.memberDisplayName) { addCssClass("flex-grow-1") }
     val statusText =
         if (subscriber.unsubscribedAt != null) {
-            "Abbestellt am ${subscriber.unsubscribedAt}"
+            gettext("Abbestellt am %1", subscriber.unsubscribedAt)
         } else {
-            "Abonniert seit ${subscriber.subscribedAt}"
+            gettext("Abonniert seit %1", subscriber.subscribedAt)
         }
     row.div(statusText) { addCssClasses("text-muted small") }
 }
@@ -366,24 +368,28 @@ private fun renderMailingMessageRow(
     val headerRow = row.hPanel(spacing = 8) { addCssClasses("align-items-center") }
     headerRow.div(message.subject) { addCssClass("flex-grow-1") }
     headerRow.statusBadge(mailingMessageStatusLabel(message.status), mailingMessageStatusColor(message.status))
-    message.sentAt?.let { sentAt -> row.div("Gesendet am $sentAt") { addCssClasses("text-muted small") } }
+    message.sentAt?.let { sentAt -> row.div(gettext("Gesendet am %1", sentAt)) { addCssClasses("text-muted small") } }
 
     if (message.status == MailingMessageStatus.DRAFT) {
-        val sendButton = row.button("Senden", style = ButtonStyle.OUTLINEDANGER)
+        val sendButton = row.button(tr("Senden"), style = ButtonStyle.OUTLINEDANGER)
         sendButton.onClick {
             confirmDialog(
-                title = "Nachricht senden",
+                title = tr("Nachricht senden"),
                 message =
-                    "Die Nachricht \"${message.subject}\" wird an alle aktiven Abonnentinnen und Abonnenten der " +
-                        "Mailingliste \"$listName\" verschickt. Dieser Schritt kann nicht rückgängig gemacht werden.",
-                confirmLabel = "Senden",
+                    gettext(
+                        "Die Nachricht \"%1\" wird an alle aktiven Abonnentinnen und Abonnenten der " +
+                            "Mailingliste \"%2\" verschickt. Dieser Schritt kann nicht rückgängig gemacht werden.",
+                        message.subject,
+                        listName,
+                    ),
+                confirmLabel = tr("Senden"),
             ) {
                 sendButton.disabled = true
                 AppScope.launch {
                     val result = guarded { rpcService<IMailingService>().sendMailingMessage(message.id) }
                     sendButton.disabled = false
                     if (result != null) {
-                        notifySuccess("Nachricht \"${message.subject}\" wurde gesendet.")
+                        notifySuccess(gettext("Nachricht \"%1\" wurde gesendet.", message.subject))
                         onChanged()
                     }
                 }
@@ -406,10 +412,10 @@ private fun renderMailingMessageRow(
  */
 fun mailingMessageStatusLabel(status: MailingMessageStatus): String =
     when (status) {
-        MailingMessageStatus.DRAFT -> "Entwurf"
-        MailingMessageStatus.SENT -> "Gesendet"
-        MailingMessageStatus.QUEUED -> "In Warteschlange"
-        MailingMessageStatus.FAILED -> "Fehlgeschlagen"
+        MailingMessageStatus.DRAFT -> gettext("Entwurf")
+        MailingMessageStatus.SENT -> gettext("Gesendet")
+        MailingMessageStatus.QUEUED -> gettext("In Warteschlange")
+        MailingMessageStatus.FAILED -> gettext("Fehlgeschlagen")
     }
 
 fun mailingMessageStatusColor(status: MailingMessageStatus): String =

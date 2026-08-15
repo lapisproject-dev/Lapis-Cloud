@@ -13,6 +13,8 @@ import io.kvision.html.h1
 import io.kvision.html.h2
 import io.kvision.html.link
 import io.kvision.html.p
+import io.kvision.i18n.gettext
+import io.kvision.i18n.tr
 import io.kvision.modal.Modal
 import io.kvision.panel.SimplePanel
 import io.kvision.panel.hPanel
@@ -95,11 +97,11 @@ fun renderLtrLedgerScreen(container: SimplePanel) {
             width = 900.px
             marginTop = 24.px
         }
-    root.h1("LTR-Konto")
+    root.h1(tr("LTR-Konto"))
 
     // ---- (1) Balance card ------------------------------------------------------------------
     val balanceCard = root.vPanel(spacing = 4) { addCssClasses("border rounded p-3") }
-    balanceCard.p("Wird geladen …") { addCssClasses("text-muted small") }
+    balanceCard.p(tr("Wird geladen …")) { addCssClasses("text-muted small") }
 
     fun refreshBalance() {
         balanceCard.removeAll()
@@ -107,21 +109,21 @@ fun renderLtrLedgerScreen(container: SimplePanel) {
             val balance = guarded { rpcService<ILtrLedgerService>().getMyBalance() } ?: return@launch
             balanceCard.removeAll()
             val row = balanceCard.hPanel(spacing = 8) { addCssClasses("align-items-center") }
-            row.div("Ihr LTR-Guthaben") { addCssClasses("fw-bold flex-grow-1") }
+            row.div(tr("Ihr LTR-Guthaben")) { addCssClasses("fw-bold flex-grow-1") }
             row.ltrSpan(balance.freeBalanceLtr)
         }
     }
     refreshBalance()
 
     // ---- (2) Own entries + referenceType filter (D10 empty state) --------------------------
-    root.h2("Meine Buchungen")
+    root.h2(tr("Meine Buchungen"))
     val filterRow = root.hPanel(spacing = 8) { addCssClasses("align-items-center") }
     val referenceFilterOptions =
-        listOf("" to "Alle") +
-            listOf("NONE" to "Ohne Referenz (z. B. Gutschrift)") +
+        listOf("" to tr("Alle")) +
+            listOf("NONE" to tr("Ohne Referenz (z. B. Gutschrift)")) +
             LtrLedgerReferenceType.entries.map { it.name to ltrLedgerReferenceTypeLabel(it) }
-    val referenceFilterSelect = filterRow.select(options = referenceFilterOptions, value = "", label = "Filter: Referenztyp")
-    val entriesRefreshButton = filterRow.button("Aktualisieren", style = ButtonStyle.OUTLINESECONDARY)
+    val referenceFilterSelect = filterRow.select(options = referenceFilterOptions, value = "", label = tr("Filter: Referenztyp"))
+    val entriesRefreshButton = filterRow.button(tr("Aktualisieren"), style = ButtonStyle.OUTLINESECONDARY)
     val entriesPanel = root.vPanel(spacing = 6)
 
     var myEntriesCache: List<LtrLedgerEntryDto> = emptyList()
@@ -136,9 +138,9 @@ fun renderLtrLedgerScreen(container: SimplePanel) {
                 else -> myEntriesCache.filter { it.referenceType?.name == filterValue }
             }
         if (myEntriesCache.isEmpty()) {
-            entriesPanel.p("Noch keine Buchungen.")
+            entriesPanel.p(tr("Noch keine Buchungen."))
         } else if (filtered.isEmpty()) {
-            entriesPanel.p("Keine Buchungen für diesen Filter.")
+            entriesPanel.p(tr("Keine Buchungen für diesen Filter."))
         } else {
             renderLtrEntriesTable(entriesPanel, filtered)
         }
@@ -146,7 +148,7 @@ fun renderLtrLedgerScreen(container: SimplePanel) {
 
     fun refreshMyEntries() {
         entriesPanel.removeAll()
-        entriesPanel.p("Wird geladen …") { addCssClasses("text-muted small") }
+        entriesPanel.p(tr("Wird geladen …")) { addCssClasses("text-muted small") }
         AppScope.launch {
             val entries = guarded { rpcService<ILtrLedgerService>().listMyEntries() } ?: return@launch
             myEntriesCache = entries
@@ -160,7 +162,7 @@ fun renderLtrLedgerScreen(container: SimplePanel) {
     // Members list backs every member-picker on this screen (self-service recipient picker AND,
     // if `canTreasury`, the treasury member-lookup/mint/arbitration pickers) -- fetched once here,
     // `IMemberService.listMembers()` is unauthenticated-safe/AKTIV-only per its own KDoc.
-    root.h2("LTR senden")
+    root.h2(tr("LTR senden"))
     val transferSectionPanel = root.vPanel(spacing = 6)
     val treasuryPanel =
         if (canTreasury) {
@@ -181,8 +183,8 @@ fun renderLtrLedgerScreen(container: SimplePanel) {
 
         // ---- (4) Treuhänder-Werkzeuge (canTreasury only) ------------------------------------
         if (treasuryPanel != null) {
-            treasuryPanel.h2("Treuhänder-Werkzeuge") { addCssClass("h5") }
-            treasuryPanel.div("Sichtbar für TREASURER/BOARD/ADMIN.") { addCssClasses("text-muted small mb-2") }
+            treasuryPanel.h2(tr("Treuhänder-Werkzeuge")) { addCssClass("h5") }
+            treasuryPanel.div(tr("Sichtbar für TREASURER/BOARD/ADMIN.")) { addCssClasses("text-muted small mb-2") }
 
             renderMemberLookupSection(treasuryPanel, members)
             renderMintForm(treasuryPanel, members) {
@@ -207,17 +209,17 @@ fun renderLtrLedgerScreen(container: SimplePanel) {
  */
 fun SimplePanel.renderMyLtrBalanceInline(): SimplePanel {
     val panel = this.hPanel(spacing = 8) { addCssClasses("align-items-center border rounded p-2 mb-2") }
-    panel.div("Wird geladen …") { addCssClasses("text-muted small") }
+    panel.div(tr("Wird geladen …")) { addCssClasses("text-muted small") }
     AppScope.launch {
         val balance = guarded { rpcService<ILtrLedgerService>().getMyBalance() }
         panel.removeAll()
-        panel.div("Ihr LTR-Guthaben:") { addCssClasses("text-muted small") }
+        panel.div(tr("Ihr LTR-Guthaben:")) { addCssClasses("text-muted small") }
         if (balance != null) {
             panel.ltrSpan(balance.freeBalanceLtr)
         } else {
             panel.div("--") { addCssClasses("text-muted small") }
         }
-        panel.link("Zum LTR-Konto ->", url = "#${Routes.LTR_LEDGER}") { addCssClasses("ms-auto small") }
+        panel.link(tr("Zum LTR-Konto ->"), url = "#${Routes.LTR_LEDGER}") { addCssClasses("ms-auto small") }
     }
     return panel
 }
@@ -231,11 +233,11 @@ private fun renderLtrEntriesTable(
     entries: List<LtrLedgerEntryDto>,
 ) {
     val headerRow = panel.hPanel(spacing = 8) { addCssClasses("fw-bold border-bottom pb-1") }
-    headerRow.div("Datum") { width = 140.px }
-    headerRow.div("Typ") { width = 200.px }
-    headerRow.div("Betrag") { width = 120.px }
-    headerRow.div("Referenz") { addCssClasses("flex-grow-1") }
-    headerRow.div("Notiz / erstellt von") { width = 200.px }
+    headerRow.div(tr("Datum")) { width = 140.px }
+    headerRow.div(tr("Typ")) { width = 200.px }
+    headerRow.div(tr("Betrag")) { width = 120.px }
+    headerRow.div(tr("Referenz")) { addCssClasses("flex-grow-1") }
+    headerRow.div(tr("Notiz / erstellt von")) { width = 200.px }
 
     entries.forEach { entry ->
         val row = panel.hPanel(spacing = 8) { addCssClasses("border-bottom py-1 align-items-center") }
@@ -245,7 +247,7 @@ private fun renderLtrEntriesTable(
         val amountCell = row.div { width = 120.px }
         amountCell.ltrSpan(entry.amountLtr, warnIfNegative = true)
         row.div(entry.referenceType?.let { ltrLedgerReferenceTypeLabel(it) } ?: "--") { addCssClasses("flex-grow-1 text-muted small") }
-        val noteParts = listOfNotNull(entry.note, entry.createdByDisplayName?.let { "von $it" })
+        val noteParts = listOfNotNull(entry.note, entry.createdByDisplayName?.let { gettext("von %1", it) })
         row.div(if (noteParts.isEmpty()) "--" else noteParts.joinToString(" · ")) {
             width = 200.px
             addCssClasses("text-muted small")
@@ -264,17 +266,21 @@ private fun renderPeerTransferForm(
 ) {
     root.removeAll()
     if (recipientCandidates.isEmpty()) {
-        root.p("Keine anderen Mitglieder vorhanden, an die übertragen werden könnte.") { addCssClasses("text-muted small") }
+        root.p(tr("Keine anderen Mitglieder vorhanden, an die übertragen werden könnte.")) { addCssClasses("text-muted small") }
         return
     }
     val panel = root.vPanel(spacing = 6)
     val recipientSelect =
-        panel.select(options = recipientCandidates.map { it.id to it.displayName }, label = "Empfänger")
-    val amountInput = panel.text(label = "Betrag (LTR)")
+        panel.select(options = recipientCandidates.map { it.id to it.displayName }, label = tr("Empfänger"))
+    val amountInput = panel.text(label = tr("Betrag (LTR)"))
     val characterizationOptions = PeerTransferCharacterization.entries.map { it.name to peerTransferCharacterizationLabel(it) }
     val characterizationSelect =
-        panel.select(options = characterizationOptions, value = PeerTransferCharacterization.SONSTIGES.name, label = "Charakterisierung")
-    val purposeInput = panel.text(label = "Zweck (optional)")
+        panel.select(
+            options = characterizationOptions,
+            value = PeerTransferCharacterization.SONSTIGES.name,
+            label = tr("Charakterisierung"),
+        )
+    val purposeInput = panel.text(label = tr("Zweck (optional)"))
     val errorBox =
         panel.div().apply {
             addCssClass("text-danger")
@@ -282,7 +288,7 @@ private fun renderPeerTransferForm(
         }
     val outcomePanel = panel.vPanel(spacing = 4)
 
-    val sendButton = panel.button("LTR übertragen", style = ButtonStyle.OUTLINEDANGER)
+    val sendButton = panel.button(tr("LTR übertragen"), style = ButtonStyle.OUTLINEDANGER)
     sendButton.onClick {
         errorBox.hide()
         outcomePanel.removeAll()
@@ -294,7 +300,7 @@ private fun renderPeerTransferForm(
         val purpose = purposeInput.value?.trim()?.takeIf { it.isNotBlank() }
 
         if (recipient == null || !Validation.isPositiveDecimal(amountText) || characterization == null) {
-            errorBox.content = "Bitte Empfänger, einen positiven LTR-Betrag und eine Charakterisierung angeben."
+            errorBox.content = tr("Bitte Empfänger, einen positiven LTR-Betrag und eine Charakterisierung angeben.")
             errorBox.show()
             return@onClick
         }
@@ -318,7 +324,7 @@ private fun renderPeerTransferForm(
                     }
                 sendButton.disabled = false
                 if (result != null) {
-                    notifySuccess("${formatLtr(result.amountLtr)} an ${result.recipientDisplayName} übertragen.")
+                    notifySuccess(gettext("%1 an %2 übertragen.", formatLtr(result.amountLtr), result.recipientDisplayName))
                     renderPeerTransferResult(outcomePanel, result)
                     amountInput.value = null
                     purposeInput.value = null
@@ -340,13 +346,20 @@ private fun renderPeerTransferResult(
     result: PeerTransferResultDto,
 ) {
     val box = panel.vPanel(spacing = 2) { addCssClasses("border rounded p-2 bg-body-tertiary small") }
-    box.div("Übertragung ausgeführt: ${formatLtr(result.amountLtr)} von ${result.senderDisplayName} an ${result.recipientDisplayName}") {
+    box.div(
+        gettext(
+            "Übertragung ausgeführt: %1 von %2 an %3",
+            formatLtr(result.amountLtr),
+            result.senderDisplayName,
+            result.recipientDisplayName,
+        ),
+    ) {
         addCssClass("fw-bold")
     }
-    box.div("Charakterisierung: ${peerTransferCharacterizationLabel(result.characterization)}") { addCssClass("text-muted") }
-    result.purpose?.let { box.div("Zweck: $it") { addCssClass("text-muted") } }
-    box.div("Buchung (Soll): ${result.outEntryId}") { addCssClass("text-muted") }
-    box.div("Buchung (Haben): ${result.inEntryId}") { addCssClass("text-muted") }
+    box.div(gettext("Charakterisierung: %1", peerTransferCharacterizationLabel(result.characterization))) { addCssClass("text-muted") }
+    result.purpose?.let { box.div(gettext("Zweck: %1", it)) { addCssClass("text-muted") } }
+    box.div(gettext("Buchung (Soll): %1", result.outEntryId)) { addCssClass("text-muted") }
+    box.div(gettext("Buchung (Haben): %1", result.inEntryId)) { addCssClass("text-muted") }
 }
 
 /**
@@ -362,16 +375,20 @@ private fun peerTransferConfirmDialog(
     characterization: PeerTransferCharacterization,
     onConfirm: () -> Unit,
 ) {
-    val modal = Modal(caption = "LTR-Übertragung bestätigen")
-    modal.div("Diese Übertragung ist ENDGÜLTIG und kann nicht widerrufen werden.") { addCssClasses("fw-bold text-danger") }
+    val modal = Modal(caption = tr("LTR-Übertragung bestätigen"))
+    modal.div(tr("Diese Übertragung ist ENDGÜLTIG und kann nicht widerrufen werden.")) { addCssClasses("fw-bold text-danger") }
     modal.div(
-        "Sie übertragen ${formatLtr(amount)} an $recipientDisplayName " +
-            "(${peerTransferCharacterizationLabel(characterization)}). Es gibt keine Storno-/Widerruffunktion -- " +
-            "die einzige Korrekturmöglichkeit ist eine Schiedsverfahren-Korrekturübertragung durch TREASURER/BOARD/ADMIN.",
+        gettext(
+            "Sie übertragen %1 an %2 (%3). Es gibt keine Storno-/Widerruffunktion -- " +
+                "die einzige Korrekturmöglichkeit ist eine Schiedsverfahren-Korrekturübertragung durch TREASURER/BOARD/ADMIN.",
+            formatLtr(amount),
+            recipientDisplayName,
+            peerTransferCharacterizationLabel(characterization),
+        ),
     )
-    modal.addButton(Button("Abbrechen", style = ButtonStyle.SECONDARY).apply { onClick { modal.hide() } })
+    modal.addButton(Button(tr("Abbrechen"), style = ButtonStyle.SECONDARY).apply { onClick { modal.hide() } })
     modal.addButton(
-        Button("Endgültig übertragen", style = ButtonStyle.DANGER).apply {
+        Button(tr("Endgültig übertragen"), style = ButtonStyle.DANGER).apply {
             onClick {
                 modal.hide()
                 onConfirm()
@@ -389,21 +406,21 @@ private fun renderMemberLookupSection(
     root: SimplePanel,
     members: List<MemberSummaryDto>,
 ) {
-    root.h2("Guthaben & Buchungen eines Mitglieds") { addCssClass("h6") }
+    root.h2(tr("Guthaben & Buchungen eines Mitglieds")) { addCssClass("h6") }
     if (members.isEmpty()) {
-        root.p("Keine Mitglieder vorhanden.") { addCssClasses("text-muted small") }
+        root.p(tr("Keine Mitglieder vorhanden.")) { addCssClasses("text-muted small") }
         return
     }
     val row = root.hPanel(spacing = 8) { addCssClasses("align-items-center") }
-    val memberSelect = row.select(options = members.map { it.id to it.displayName }, label = "Mitglied")
-    val showButton = row.button("Anzeigen", style = ButtonStyle.OUTLINESECONDARY)
+    val memberSelect = row.select(options = members.map { it.id to it.displayName }, label = tr("Mitglied"))
+    val showButton = row.button(tr("Anzeigen"), style = ButtonStyle.OUTLINESECONDARY)
     val resultPanel = root.vPanel(spacing = 6)
 
     showButton.onClick {
         val memberId = memberSelect.value ?: return@onClick
         val displayName = members.find { it.id == memberId }?.displayName.orEmpty()
         resultPanel.removeAll()
-        resultPanel.p("Wird geladen …") { addCssClasses("text-muted small") }
+        resultPanel.p(tr("Wird geladen …")) { addCssClasses("text-muted small") }
         AppScope.launch {
             val balance = guarded { rpcService<ILtrLedgerService>().getMemberBalance(memberId) }
             val entries = guarded { rpcService<ILtrLedgerService>().listMemberEntries(memberId) }
@@ -411,11 +428,11 @@ private fun renderMemberLookupSection(
             if (balance == null || entries == null) return@launch
 
             val balanceRow = resultPanel.hPanel(spacing = 8) { addCssClasses("align-items-center") }
-            balanceRow.div("Guthaben von $displayName") { addCssClasses("fw-bold flex-grow-1") }
+            balanceRow.div(gettext("Guthaben von %1", displayName)) { addCssClasses("fw-bold flex-grow-1") }
             balanceRow.ltrSpan(balance.freeBalanceLtr)
 
             if (entries.isEmpty()) {
-                resultPanel.p("Noch keine Buchungen.")
+                resultPanel.p(tr("Noch keine Buchungen."))
             } else {
                 renderLtrEntriesTable(resultPanel, entries)
             }
@@ -428,22 +445,22 @@ private fun renderMintForm(
     members: List<MemberSummaryDto>,
     onCompleted: () -> Unit,
 ) {
-    root.h2("LTR gutschreiben (Mint)") { addCssClass("h6") }
+    root.h2(tr("LTR gutschreiben (Mint)")) { addCssClass("h6") }
     if (members.isEmpty()) {
-        root.p("Keine Mitglieder vorhanden.") { addCssClasses("text-muted small") }
+        root.p(tr("Keine Mitglieder vorhanden.")) { addCssClasses("text-muted small") }
         return
     }
     val panel = root.vPanel(spacing = 6)
-    val memberSelect = panel.select(options = members.map { it.id to it.displayName }, label = "Mitglied")
-    val amountInput = panel.text(label = "Betrag (LTR)")
-    val noteInput = panel.text(label = "Notiz (optional)")
+    val memberSelect = panel.select(options = members.map { it.id to it.displayName }, label = tr("Mitglied"))
+    val amountInput = panel.text(label = tr("Betrag (LTR)"))
+    val noteInput = panel.text(label = tr("Notiz (optional)"))
     val errorBox =
         panel.div().apply {
             addCssClass("text-danger")
             hide()
         }
 
-    val mintButton = panel.button("Gutschreiben", style = ButtonStyle.PRIMARY)
+    val mintButton = panel.button(tr("Gutschreiben"), style = ButtonStyle.PRIMARY)
     mintButton.onClick {
         errorBox.hide()
         val memberId = memberSelect.value
@@ -452,7 +469,7 @@ private fun renderMintForm(
         val note = noteInput.value?.trim()?.takeIf { it.isNotBlank() }
 
         if (member == null || !Validation.isPositiveDecimal(amountText)) {
-            errorBox.content = "Bitte Mitglied und einen positiven LTR-Betrag angeben."
+            errorBox.content = tr("Bitte Mitglied und einen positiven LTR-Betrag angeben.")
             errorBox.show()
             return@onClick
         }
@@ -461,11 +478,15 @@ private fun renderMintForm(
         // Tier 1 "Kostenpflichtig" (D4): the plain, neutral-framed confirmDialog -- a MINT is
         // material to the recipient/organization but not costly to the treasurer performing it.
         confirmDialog(
-            title = "LTR gutschreiben",
+            title = tr("LTR gutschreiben"),
             message =
-                "Es werden ${formatLtr(amount)} an ${member.displayName} gutgeschrieben. Diese Gutschrift lässt sich " +
-                    "nur durch eine gegenläufige Buchung (z. B. eine Schiedsverfahren-Korrekturübertragung) rückgängig machen.",
-            confirmLabel = "Gutschreiben",
+                gettext(
+                    "Es werden %1 an %2 gutgeschrieben. Diese Gutschrift lässt sich " +
+                        "nur durch eine gegenläufige Buchung (z. B. eine Schiedsverfahren-Korrekturübertragung) rückgängig machen.",
+                    formatLtr(amount),
+                    member.displayName,
+                ),
+            confirmLabel = tr("Gutschreiben"),
         ) {
             mintButton.disabled = true
             AppScope.launch {
@@ -475,7 +496,7 @@ private fun renderMintForm(
                     }
                 mintButton.disabled = false
                 if (result != null) {
-                    notifySuccess("${formatLtr(amount)} an ${member.displayName} gutgeschrieben.")
+                    notifySuccess(gettext("%1 an %2 gutgeschrieben.", formatLtr(amount), member.displayName))
                     amountInput.value = null
                     noteInput.value = null
                     onCompleted()
@@ -490,20 +511,24 @@ private fun renderArbitrationTransferForm(
     members: List<MemberSummaryDto>,
     onCompleted: () -> Unit,
 ) {
-    root.h2("Schiedsverfahren-Korrekturübertragung") { addCssClass("h6") }
+    root.h2(tr("Schiedsverfahren-Korrekturübertragung")) { addCssClass("h6") }
     if (members.size < 2) {
-        root.p("Mindestens zwei Mitglieder erforderlich.") { addCssClasses("text-muted small") }
+        root.p(tr("Mindestens zwei Mitglieder erforderlich.")) { addCssClasses("text-muted small") }
         return
     }
     val panel = root.vPanel(spacing = 6)
     val memberOptions = members.map { it.id to it.displayName }
-    val senderSelect = panel.select(options = memberOptions, label = "Absender")
-    val recipientSelect = panel.select(options = memberOptions, label = "Empfänger")
-    val amountInput = panel.text(label = "Betrag (LTR)")
+    val senderSelect = panel.select(options = memberOptions, label = tr("Absender"))
+    val recipientSelect = panel.select(options = memberOptions, label = tr("Empfänger"))
+    val amountInput = panel.text(label = tr("Betrag (LTR)"))
     val characterizationOptions = PeerTransferCharacterization.entries.map { it.name to peerTransferCharacterizationLabel(it) }
     val characterizationSelect =
-        panel.select(options = characterizationOptions, value = PeerTransferCharacterization.SONSTIGES.name, label = "Charakterisierung")
-    val purposeInput = panel.text(label = "Schiedsanordnungs-Referenz (Pflichtfeld)")
+        panel.select(
+            options = characterizationOptions,
+            value = PeerTransferCharacterization.SONSTIGES.name,
+            label = tr("Charakterisierung"),
+        )
+    val purposeInput = panel.text(label = tr("Schiedsanordnungs-Referenz (Pflichtfeld)"))
     val errorBox =
         panel.div().apply {
             addCssClass("text-danger")
@@ -511,7 +536,7 @@ private fun renderArbitrationTransferForm(
         }
     val outcomePanel = panel.vPanel(spacing = 4)
 
-    val executeButton = panel.button("Korrekturübertragung ausführen", style = ButtonStyle.OUTLINEDANGER)
+    val executeButton = panel.button(tr("Korrekturübertragung ausführen"), style = ButtonStyle.OUTLINEDANGER)
     executeButton.onClick {
         errorBox.hide()
         outcomePanel.removeAll()
@@ -532,8 +557,10 @@ private fun renderArbitrationTransferForm(
             !Validation.isNonBlank(purpose)
         ) {
             errorBox.content =
-                "Bitte unterschiedliche Absender/Empfänger, einen positiven LTR-Betrag, eine Charakterisierung " +
-                "und eine Schiedsanordnungs-Referenz angeben."
+                tr(
+                    "Bitte unterschiedliche Absender/Empfänger, einen positiven LTR-Betrag, eine Charakterisierung " +
+                        "und eine Schiedsanordnungs-Referenz angeben.",
+                )
             errorBox.show()
             return@onClick
         }
@@ -556,7 +583,7 @@ private fun renderArbitrationTransferForm(
                     }
                 executeButton.disabled = false
                 if (result != null) {
-                    notifySuccess("Korrekturübertragung ausgeführt: ${formatLtr(result.amountLtr)}.")
+                    notifySuccess(gettext("Korrekturübertragung ausgeführt: %1.", formatLtr(result.amountLtr)))
                     renderPeerTransferResult(outcomePanel, result)
                     amountInput.value = null
                     purposeInput.value = null
@@ -578,15 +605,21 @@ private fun arbitrationTransferConfirmDialog(
     purpose: String,
     onConfirm: () -> Unit,
 ) {
-    val modal = Modal(caption = "Schiedsverfahren-Korrekturübertragung bestätigen")
-    modal.div("Diese Korrekturübertragung ist ENDGÜLTIG und kann nicht widerrufen werden.") { addCssClasses("fw-bold text-danger") }
+    val modal = Modal(caption = tr("Schiedsverfahren-Korrekturübertragung bestätigen"))
+    modal.div(tr("Diese Korrekturübertragung ist ENDGÜLTIG und kann nicht widerrufen werden.")) { addCssClasses("fw-bold text-danger") }
     modal.div(
-        "Sie übertragen ${formatLtr(amount)} von $senderDisplayName an $recipientDisplayName " +
-            "(${peerTransferCharacterizationLabel(characterization)}). Schiedsanordnungs-Referenz: „$purpose\".",
+        gettext(
+            "Sie übertragen %1 von %2 an %3 (%4). Schiedsanordnungs-Referenz: „%5\".",
+            formatLtr(amount),
+            senderDisplayName,
+            recipientDisplayName,
+            peerTransferCharacterizationLabel(characterization),
+            purpose,
+        ),
     )
-    modal.addButton(Button("Abbrechen", style = ButtonStyle.SECONDARY).apply { onClick { modal.hide() } })
+    modal.addButton(Button(tr("Abbrechen"), style = ButtonStyle.SECONDARY).apply { onClick { modal.hide() } })
     modal.addButton(
-        Button("Endgültig ausführen", style = ButtonStyle.DANGER).apply {
+        Button(tr("Endgültig ausführen"), style = ButtonStyle.DANGER).apply {
             onClick {
                 modal.hide()
                 onConfirm()
@@ -604,17 +637,17 @@ private fun arbitrationTransferConfirmDialog(
  * lifecycle status that progresses. Covers every [LtrLedgerEntryType] literal. */
 fun ltrLedgerEntryTypeLabel(type: LtrLedgerEntryType): String =
     when (type) {
-        LtrLedgerEntryType.MINT -> "Gutschrift (Mint)"
-        LtrLedgerEntryType.PROJECT_STAKE -> "Projekteinsatz"
-        LtrLedgerEntryType.PROJECT_STAKE_RELEASE -> "Projekteinsatz freigegeben"
-        LtrLedgerEntryType.VOTE_STAKE -> "Abstimmungseinsatz"
-        LtrLedgerEntryType.PEER_TRANSFER_OUT -> "Übertragung gesendet"
-        LtrLedgerEntryType.PEER_TRANSFER_IN -> "Übertragung empfangen"
-        LtrLedgerEntryType.AUCTION_LISTING_FEE -> "Auktions-Einstellgebühr"
-        LtrLedgerEntryType.AUCTION_HOLD -> "Auktions-Reservierung"
-        LtrLedgerEntryType.AUCTION_HOLD_RELEASE -> "Auktions-Reservierung freigegeben"
-        LtrLedgerEntryType.AUCTION_SALE_OUT -> "Auktionskauf"
-        LtrLedgerEntryType.AUCTION_SALE_IN -> "Auktionsverkauf"
+        LtrLedgerEntryType.MINT -> gettext("Gutschrift (Mint)")
+        LtrLedgerEntryType.PROJECT_STAKE -> gettext("Projekteinsatz")
+        LtrLedgerEntryType.PROJECT_STAKE_RELEASE -> gettext("Projekteinsatz freigegeben")
+        LtrLedgerEntryType.VOTE_STAKE -> gettext("Abstimmungseinsatz")
+        LtrLedgerEntryType.PEER_TRANSFER_OUT -> gettext("Übertragung gesendet")
+        LtrLedgerEntryType.PEER_TRANSFER_IN -> gettext("Übertragung empfangen")
+        LtrLedgerEntryType.AUCTION_LISTING_FEE -> gettext("Auktions-Einstellgebühr")
+        LtrLedgerEntryType.AUCTION_HOLD -> gettext("Auktions-Reservierung")
+        LtrLedgerEntryType.AUCTION_HOLD_RELEASE -> gettext("Auktions-Reservierung freigegeben")
+        LtrLedgerEntryType.AUCTION_SALE_OUT -> gettext("Auktionskauf")
+        LtrLedgerEntryType.AUCTION_SALE_IN -> gettext("Auktionsverkauf")
     }
 
 fun ltrLedgerEntryTypeColor(type: LtrLedgerEntryType): String =
@@ -634,16 +667,16 @@ fun ltrLedgerEntryTypeColor(type: LtrLedgerEntryType): String =
 
 fun ltrLedgerReferenceTypeLabel(type: LtrLedgerReferenceType): String =
     when (type) {
-        LtrLedgerReferenceType.CROWDFUNDING_PROJECT -> "Crowdfunding-Projekt"
-        LtrLedgerReferenceType.VOTE -> "Abstimmung"
-        LtrLedgerReferenceType.PEER_TRANSFER -> "Peer-Transfer"
-        LtrLedgerReferenceType.AUCTION -> "Auktion"
+        LtrLedgerReferenceType.CROWDFUNDING_PROJECT -> gettext("Crowdfunding-Projekt")
+        LtrLedgerReferenceType.VOTE -> gettext("Abstimmung")
+        LtrLedgerReferenceType.PEER_TRANSFER -> gettext("Peer-Transfer")
+        LtrLedgerReferenceType.AUCTION -> gettext("Auktion")
     }
 
 fun peerTransferCharacterizationLabel(characterization: PeerTransferCharacterization): String =
     when (characterization) {
-        PeerTransferCharacterization.SCHENKUNG -> "Schenkung"
-        PeerTransferCharacterization.HONORAR -> "Honorar"
-        PeerTransferCharacterization.PRIVATVERKAUF -> "Privatverkauf"
-        PeerTransferCharacterization.SONSTIGES -> "Sonstiges"
+        PeerTransferCharacterization.SCHENKUNG -> gettext("Schenkung")
+        PeerTransferCharacterization.HONORAR -> gettext("Honorar")
+        PeerTransferCharacterization.PRIVATVERKAUF -> gettext("Privatverkauf")
+        PeerTransferCharacterization.SONSTIGES -> gettext("Sonstiges")
     }

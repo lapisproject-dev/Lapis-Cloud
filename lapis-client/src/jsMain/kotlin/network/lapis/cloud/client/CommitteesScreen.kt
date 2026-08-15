@@ -10,6 +10,8 @@ import io.kvision.html.div
 import io.kvision.html.h1
 import io.kvision.html.h2
 import io.kvision.html.p
+import io.kvision.i18n.gettext
+import io.kvision.i18n.tr
 import io.kvision.modal.Modal
 import io.kvision.panel.SimplePanel
 import io.kvision.panel.hPanel
@@ -60,17 +62,17 @@ fun renderCommitteesScreen(container: SimplePanel) {
             width = 720.px
             marginTop = 24.px
         }
-    root.h1("Gremien")
+    root.h1(tr("Gremien"))
     val canManage = AppState.hasRole(AccountRole.BOARD, AccountRole.ADMIN)
 
-    root.h2("Übersicht")
+    root.h2(tr("Übersicht"))
     val filterRow = root.hPanel(spacing = 8) { addCssClasses("align-items-center") }
-    val includeInactiveCheck = filterRow.checkBox(label = "Inaktive Gremien anzeigen")
+    val includeInactiveCheck = filterRow.checkBox(label = tr("Inaktive Gremien anzeigen"))
     val committeePanel = root.vPanel(spacing = 6)
 
-    root.h2("Mitglieder")
+    root.h2(tr("Mitglieder"))
     val rosterPanel = root.vPanel(spacing = 6)
-    rosterPanel.p("Gremium oben auswählen, um die Besetzung zu sehen.")
+    rosterPanel.p(tr("Gremium oben auswählen, um die Besetzung zu sehen."))
 
     fun selectCommittee(committee: CommitteeDto) {
         renderCommitteeRoster(rosterPanel, committee, canManage)
@@ -83,7 +85,7 @@ fun renderCommitteesScreen(container: SimplePanel) {
                 guarded { rpcService<IGovernanceService>().listCommittees(activeOnly = !includeInactiveCheck.value) }
                     ?: return@launch
             if (committees.isEmpty()) {
-                committeePanel.p("Noch keine Gremien vorhanden.")
+                committeePanel.p(tr("Noch keine Gremien vorhanden."))
                 return@launch
             }
             committees.forEach { committee ->
@@ -92,12 +94,12 @@ fun renderCommitteesScreen(container: SimplePanel) {
         }
     }
 
-    val refreshButton = filterRow.button("Aktualisieren", style = ButtonStyle.OUTLINESECONDARY)
+    val refreshButton = filterRow.button(tr("Aktualisieren"), style = ButtonStyle.OUTLINESECONDARY)
     refreshButton.onClick { refreshCommittees() }
     refreshCommittees()
 
     if (canManage) {
-        root.h2("Neues Gremium anlegen")
+        root.h2(tr("Neues Gremium anlegen"))
         renderCommitteeCreation(root, ::refreshCommittees)
     }
 }
@@ -113,16 +115,16 @@ private fun renderCommitteeRow(
     val headerRow = row.hPanel(spacing = 8) { addCssClasses("align-items-center") }
     headerRow.div(committee.name) { addCssClasses("flex-grow-1 fw-bold") }
     headerRow.typeBadge(committeeTypeLabel(committee.type), committeeTypeColor(committee.type))
-    headerRow.statusBadge(if (committee.active) "Aktiv" else "Inaktiv", if (committee.active) "success" else "secondary")
+    headerRow.statusBadge(if (committee.active) tr("Aktiv") else tr("Inaktiv"), if (committee.active) "success" else "secondary")
 
     if (committee.description.isNotBlank()) row.p(committee.description) { addCssClass("mb-0") }
-    row.div("Quorum: ${committee.quorumPercent}%") { addCssClasses("text-muted small") }
+    row.div(gettext("Quorum: %1%", committee.quorumPercent)) { addCssClasses("text-muted small") }
 
     val actionRow = row.hPanel(spacing = 8)
-    val showButton = actionRow.button("Mitglieder anzeigen", style = ButtonStyle.OUTLINESECONDARY)
+    val showButton = actionRow.button(tr("Mitglieder anzeigen"), style = ButtonStyle.OUTLINESECONDARY)
     showButton.onClick { onSelect(committee) }
     if (canManage) {
-        val editButton = actionRow.button("Bearbeiten", style = ButtonStyle.OUTLINEPRIMARY)
+        val editButton = actionRow.button(tr("Bearbeiten"), style = ButtonStyle.OUTLINEPRIMARY)
         val editPanel = row.vPanel(spacing = 6) { addCssClasses("border-top pt-2 mt-2") }
         editPanel.hide()
         var editOpen = false
@@ -148,18 +150,18 @@ private fun renderCommitteeEditForm(
     onSaved: () -> Unit,
 ) {
     val typeOptions = CommitteeType.entries.map { it.name to committeeTypeLabel(it) }
-    val nameInput = panel.text(value = committee.name, label = "Name")
-    val typeSelect = panel.select(options = typeOptions, value = committee.type.name, label = "Typ")
-    val descriptionInput = panel.text(value = committee.description, label = "Beschreibung")
-    val quorumInput = panel.text(value = committee.quorumPercent.toString(), label = "Quorum in % (0-100)")
-    val activeCheck = panel.checkBox(value = committee.active, label = "Aktiv")
+    val nameInput = panel.text(value = committee.name, label = tr("Name"))
+    val typeSelect = panel.select(options = typeOptions, value = committee.type.name, label = tr("Typ"))
+    val descriptionInput = panel.text(value = committee.description, label = tr("Beschreibung"))
+    val quorumInput = panel.text(value = committee.quorumPercent.toString(), label = tr("Quorum in % (0-100)"))
+    val activeCheck = panel.checkBox(value = committee.active, label = tr("Aktiv"))
     val errorBox =
         panel.div().apply {
             addCssClass("text-danger")
             hide()
         }
 
-    val saveButton = panel.button("Speichern", style = ButtonStyle.PRIMARY)
+    val saveButton = panel.button(tr("Speichern"), style = ButtonStyle.PRIMARY)
     saveButton.onClick {
         errorBox.hide()
         val name = nameInput.value.orEmpty().trim()
@@ -172,7 +174,7 @@ private fun renderCommitteeEditForm(
                 .toIntOrNull()
 
         if (!Validation.isNonBlank(name) || typeValue == null || quorumPercent == null || quorumPercent !in 0..100) {
-            errorBox.content = "Bitte Name, Typ und ein gültiges Quorum (0-100) angeben."
+            errorBox.content = tr("Bitte Name, Typ und ein gültiges Quorum (0-100) angeben.")
             errorBox.show()
             return@onClick
         }
@@ -194,7 +196,7 @@ private fun renderCommitteeEditForm(
                 }
             saveButton.disabled = false
             if (result != null) {
-                notifySuccess("\"$name\" wurde aktualisiert.")
+                notifySuccess(gettext("\"%1\" wurde aktualisiert.", name))
                 onSaved()
             }
         }
@@ -207,17 +209,17 @@ private fun renderCommitteeCreation(
 ) {
     val typeOptions = CommitteeType.entries.map { it.name to committeeTypeLabel(it) }
     val panel = root.vPanel(spacing = 6)
-    val nameInput = panel.text(label = "Name")
-    val typeSelect = panel.select(options = typeOptions, value = CommitteeType.WORKING_GROUP.name, label = "Typ")
-    val descriptionInput = panel.text(label = "Beschreibung")
-    val quorumInput = panel.text(value = "50", label = "Quorum in % (0-100)")
+    val nameInput = panel.text(label = tr("Name"))
+    val typeSelect = panel.select(options = typeOptions, value = CommitteeType.WORKING_GROUP.name, label = tr("Typ"))
+    val descriptionInput = panel.text(label = tr("Beschreibung"))
+    val quorumInput = panel.text(value = "50", label = tr("Quorum in % (0-100)"))
     val errorBox =
         panel.div().apply {
             addCssClass("text-danger")
             hide()
         }
 
-    val createButton = panel.button("Gremium anlegen", style = ButtonStyle.PRIMARY)
+    val createButton = panel.button(tr("Gremium anlegen"), style = ButtonStyle.PRIMARY)
     createButton.onClick {
         errorBox.hide()
         val name = nameInput.value.orEmpty().trim()
@@ -230,7 +232,7 @@ private fun renderCommitteeCreation(
                 .toIntOrNull()
 
         if (!Validation.isNonBlank(name) || typeValue == null || quorumPercent == null || quorumPercent !in 0..100) {
-            errorBox.content = "Bitte Name, Typ und ein gültiges Quorum (0-100) angeben."
+            errorBox.content = tr("Bitte Name, Typ und ein gültiges Quorum (0-100) angeben.")
             errorBox.show()
             return@onClick
         }
@@ -251,7 +253,7 @@ private fun renderCommitteeCreation(
                 }
             createButton.disabled = false
             if (result != null) {
-                notifySuccess("\"$name\" wurde angelegt.")
+                notifySuccess(gettext("\"%1\" wurde angelegt.", name))
                 nameInput.value = null
                 descriptionInput.value = null
                 quorumInput.value = "50"
@@ -267,9 +269,9 @@ private fun renderCommitteeRoster(
     canManage: Boolean,
 ) {
     rosterPanel.removeAll()
-    rosterPanel.h2("Besetzung: ${committee.name}") { addCssClass("h5") }
+    rosterPanel.h2(gettext("Besetzung: %1", committee.name)) { addCssClass("h5") }
     val rosterFilterRow = rosterPanel.hPanel(spacing = 8) { addCssClasses("align-items-center") }
-    val includeEndedCheck = rosterFilterRow.checkBox(label = "Ausgeschiedene anzeigen")
+    val includeEndedCheck = rosterFilterRow.checkBox(label = tr("Ausgeschiedene anzeigen"))
     val rosterListPanel = rosterPanel.vPanel(spacing = 4)
     val addMemberPanel = if (canManage) rosterPanel.vPanel(spacing = 6) { addCssClasses("border-top pt-2 mt-2") } else null
 
@@ -281,14 +283,14 @@ private fun renderCommitteeRoster(
                     rpcService<IGovernanceService>().listCommitteeMembers(committee.id, activeOnly = !includeEndedCheck.value)
                 } ?: return@launch
             if (memberships.isEmpty()) {
-                rosterListPanel.p("Noch keine Mitglieder in diesem Gremium.")
+                rosterListPanel.p(tr("Noch keine Mitglieder in diesem Gremium."))
                 return@launch
             }
             memberships.forEach { membership -> renderRosterRow(rosterListPanel, membership, canManage, ::refreshRoster) }
         }
     }
 
-    val rosterRefreshButton = rosterFilterRow.button("Aktualisieren", style = ButtonStyle.OUTLINESECONDARY)
+    val rosterRefreshButton = rosterFilterRow.button(tr("Aktualisieren"), style = ButtonStyle.OUTLINESECONDARY)
     rosterRefreshButton.onClick { refreshRoster() }
     refreshRoster()
 
@@ -306,17 +308,22 @@ private fun renderRosterRow(
     val row = panel.hPanel(spacing = 8) { addCssClasses("border-bottom py-1 align-items-center") }
     row.div(membership.memberDisplayName) { addCssClasses("flex-grow-1") }
     row.typeBadge(committeeRoleLabel(membership.role), committeeRoleColor(membership.role))
-    val period = if (membership.until != null) "${membership.since} – ${membership.until}" else "seit ${membership.since}"
+    val period =
+        if (membership.until != null) {
+            gettext("%1 – %2", membership.since, membership.until)
+        } else {
+            gettext("seit %1", membership.since)
+        }
     row.div(period) { addCssClasses("text-muted small") }
 
     if (canManage && membership.until == null) {
-        val endButton = row.button("Mitgliedschaft beenden", style = ButtonStyle.OUTLINEDANGER)
+        val endButton = row.button(tr("Mitgliedschaft beenden"), style = ButtonStyle.OUTLINEDANGER)
         endButton.onClick {
             endCommitteeMembershipDialog(membership.memberDisplayName) { until ->
                 AppScope.launch {
                     val result = guarded { rpcService<IGovernanceService>().endCommitteeMembership(membership.id, until) }
                     if (result != null) {
-                        notifyInfo("Mitgliedschaft von ${membership.memberDisplayName} wurde beendet.")
+                        notifyInfo(gettext("Mitgliedschaft von %1 wurde beendet.", membership.memberDisplayName))
                         onChanged()
                     }
                 }
@@ -331,23 +338,23 @@ private fun endCommitteeMembershipDialog(
     memberDisplayName: String,
     onConfirm: (LocalDate) -> Unit,
 ) {
-    val modal = Modal(caption = "Mitgliedschaft beenden")
-    modal.p("Mitgliedschaft von \"$memberDisplayName\" wirklich beenden?")
-    val untilInput = modal.text(value = todayIso(), label = "Enddatum (JJJJ-MM-TT)")
+    val modal = Modal(caption = tr("Mitgliedschaft beenden"))
+    modal.p(gettext("Mitgliedschaft von \"%1\" wirklich beenden?", memberDisplayName))
+    val untilInput = modal.text(value = todayIso(), label = tr("Enddatum (JJJJ-MM-TT)"))
     val errorBox =
         modal.div().apply {
             addCssClass("text-danger")
             hide()
         }
     modal.addButton(
-        Button("Abbrechen", style = ButtonStyle.SECONDARY).apply { onClick { modal.hide() } },
+        Button(tr("Abbrechen"), style = ButtonStyle.SECONDARY).apply { onClick { modal.hide() } },
     )
     modal.addButton(
-        Button("Mitgliedschaft beenden", style = ButtonStyle.DANGER).apply {
+        Button(tr("Mitgliedschaft beenden"), style = ButtonStyle.DANGER).apply {
             onClick {
                 val until = runCatching { LocalDate.parse(untilInput.value.orEmpty().trim()) }.getOrNull()
                 if (until == null) {
-                    errorBox.content = "Bitte ein gültiges Datum (JJJJ-MM-TT) angeben."
+                    errorBox.content = tr("Bitte ein gültiges Datum (JJJJ-MM-TT) angeben.")
                     errorBox.show()
                     return@onClick
                 }
@@ -369,11 +376,11 @@ private fun renderAddCommitteeMemberForm(
     committeeId: String,
     onAdded: () -> Unit,
 ) {
-    panel.p("Mitglied hinzufügen") { addCssClass("fw-bold") }
+    panel.p(tr("Mitglied hinzufügen")) { addCssClass("fw-bold") }
     val roleOptions = CommitteeRole.entries.map { it.name to committeeRoleLabel(it) }
-    val memberSelect = panel.select(options = emptyList(), label = "Mitglied")
-    val roleSelect = panel.select(options = roleOptions, value = CommitteeRole.MEMBER.name, label = "Rolle")
-    val sinceInput = panel.text(value = todayIso(), label = "Seit (JJJJ-MM-TT)")
+    val memberSelect = panel.select(options = emptyList(), label = tr("Mitglied"))
+    val roleSelect = panel.select(options = roleOptions, value = CommitteeRole.MEMBER.name, label = tr("Rolle"))
+    val sinceInput = panel.text(value = todayIso(), label = tr("Seit (JJJJ-MM-TT)"))
     val errorBox =
         panel.div().apply {
             addCssClass("text-danger")
@@ -387,7 +394,7 @@ private fun renderAddCommitteeMemberForm(
         memberSelect.value = members.firstOrNull()?.id
     }
 
-    val addButton = panel.button("Mitglied hinzufügen", style = ButtonStyle.PRIMARY)
+    val addButton = panel.button(tr("Mitglied hinzufügen"), style = ButtonStyle.PRIMARY)
     addButton.onClick {
         errorBox.hide()
         val memberId = memberSelect.value
@@ -395,7 +402,7 @@ private fun renderAddCommitteeMemberForm(
         val since = runCatching { LocalDate.parse(sinceInput.value.orEmpty().trim()) }.getOrNull()
 
         if (memberId == null || roleValue == null || since == null) {
-            errorBox.content = "Bitte Mitglied, Rolle und ein gültiges Datum (JJJJ-MM-TT) angeben."
+            errorBox.content = tr("Bitte Mitglied, Rolle und ein gültiges Datum (JJJJ-MM-TT) angeben.")
             errorBox.show()
             return@onClick
         }
@@ -411,7 +418,7 @@ private fun renderAddCommitteeMemberForm(
                 }
             addButton.disabled = false
             if (result != null) {
-                notifySuccess("Mitglied wurde hinzugefügt.")
+                notifySuccess(tr("Mitglied wurde hinzugefügt."))
                 onAdded()
             }
         }
@@ -455,11 +462,11 @@ fun committeeTypeColor(type: CommitteeType): String =
 
 fun committeeRoleLabel(role: CommitteeRole): String =
     when (role) {
-        CommitteeRole.CHAIR -> "Vorsitz"
-        CommitteeRole.DEPUTY_CHAIR -> "Stellv. Vorsitz"
-        CommitteeRole.SECRETARY -> "Schriftführung"
-        CommitteeRole.MEMBER -> "Mitglied"
-        CommitteeRole.ASSESSOR -> "Beisitz"
+        CommitteeRole.CHAIR -> gettext("Vorsitz")
+        CommitteeRole.DEPUTY_CHAIR -> gettext("Stellv. Vorsitz")
+        CommitteeRole.SECRETARY -> gettext("Schriftführung")
+        CommitteeRole.MEMBER -> gettext("Mitglied")
+        CommitteeRole.ASSESSOR -> gettext("Beisitz")
     }
 
 fun committeeRoleColor(role: CommitteeRole): String =

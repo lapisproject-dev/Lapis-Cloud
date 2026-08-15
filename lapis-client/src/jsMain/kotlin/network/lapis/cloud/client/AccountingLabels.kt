@@ -1,5 +1,6 @@
 package network.lapis.cloud.client
 
+import io.kvision.i18n.gettext
 import network.lapis.cloud.shared.domain.DonorCategory
 import network.lapis.cloud.shared.domain.GemeinnuetzigkeitSphere
 import network.lapis.cloud.shared.domain.ReserveType
@@ -25,10 +26,10 @@ import network.lapis.cloud.shared.domain.ReserveType
  */
 fun sphereLabel(sphere: GemeinnuetzigkeitSphere): String =
     when (sphere) {
-        GemeinnuetzigkeitSphere.IDEELLER_BEREICH -> "Ideeller Bereich"
-        GemeinnuetzigkeitSphere.VERMOEGENSVERWALTUNG -> "Vermögensverwaltung"
-        GemeinnuetzigkeitSphere.ZWECKBETRIEB -> "Zweckbetrieb"
-        GemeinnuetzigkeitSphere.WIRTSCHAFTLICHER_GESCHAEFTSBETRIEB -> "Wirtschaftlicher Geschäftsbetrieb"
+        GemeinnuetzigkeitSphere.IDEELLER_BEREICH -> gettext("Ideeller Bereich")
+        GemeinnuetzigkeitSphere.VERMOEGENSVERWALTUNG -> gettext("Vermögensverwaltung")
+        GemeinnuetzigkeitSphere.ZWECKBETRIEB -> gettext("Zweckbetrieb")
+        GemeinnuetzigkeitSphere.WIRTSCHAFTLICHER_GESCHAEFTSBETRIEB -> gettext("Wirtschaftlicher Geschäftsbetrieb")
     }
 
 fun sphereColor(sphere: GemeinnuetzigkeitSphere): String =
@@ -47,11 +48,11 @@ fun sphereColor(sphere: GemeinnuetzigkeitSphere): String =
  */
 fun reserveTypeLabel(type: ReserveType): String =
     when (type) {
-        ReserveType.PROJEKTRUECKLAGE -> "Projektrücklage"
-        ReserveType.FREIE_RUECKLAGE -> "Freie Rücklage"
-        ReserveType.WIEDERBESCHAFFUNGSRUECKLAGE -> "Wiederbeschaffungsrücklage"
-        ReserveType.BETRIEBSMITTELRUECKLAGE -> "Betriebsmittelrücklage"
-    } + " (${type.paragraphRef})"
+        ReserveType.PROJEKTRUECKLAGE -> gettext("Projektrücklage (%1)", type.paragraphRef)
+        ReserveType.FREIE_RUECKLAGE -> gettext("Freie Rücklage (%1)", type.paragraphRef)
+        ReserveType.WIEDERBESCHAFFUNGSRUECKLAGE -> gettext("Wiederbeschaffungsrücklage (%1)", type.paragraphRef)
+        ReserveType.BETRIEBSMITTELRUECKLAGE -> gettext("Betriebsmittelrücklage (%1)", type.paragraphRef)
+    }
 
 fun reserveTypeColor(type: ReserveType): String =
     when (type) {
@@ -73,15 +74,15 @@ fun reserveTypeColor(type: ReserveType): String =
  */
 fun donorCategoryLabel(category: DonorCategory): String =
     when (category) {
-        DonorCategory.GERMAN_NATURAL_PERSON -> "Deutsche natürliche Person"
-        DonorCategory.EU_NATURAL_PERSON -> "EU-Bürger:in / EU-Rechtsperson"
-        DonorCategory.NON_EU_FOREIGN_NATURAL_PERSON -> "Natürliche Person außerhalb der EU"
-        DonorCategory.GERMAN_COMPANY_OR_ORGANIZATION -> "Deutsches Unternehmen/Organisation"
-        DonorCategory.PUBLIC_LAW_CORPORATION -> "Körperschaft des öffentlichen Rechts"
-        DonorCategory.OVER_25_PERCENT_STATE_OWNED_COMPANY -> "Unternehmen mit über 25 % staatlicher Beteiligung"
-        DonorCategory.OTHER_PARTY_OR_PARLIAMENTARY_GROUP_ENTITY -> "Andere Partei/Fraktion"
-        DonorCategory.PROFESSIONAL_OR_TRADE_ASSOCIATION -> "Berufs- oder Wirtschaftsverband"
-        DonorCategory.ANONYMOUS -> "Anonym"
+        DonorCategory.GERMAN_NATURAL_PERSON -> gettext("Deutsche natürliche Person")
+        DonorCategory.EU_NATURAL_PERSON -> gettext("EU-Bürger:in / EU-Rechtsperson")
+        DonorCategory.NON_EU_FOREIGN_NATURAL_PERSON -> gettext("Natürliche Person außerhalb der EU")
+        DonorCategory.GERMAN_COMPANY_OR_ORGANIZATION -> gettext("Deutsches Unternehmen/Organisation")
+        DonorCategory.PUBLIC_LAW_CORPORATION -> gettext("Körperschaft des öffentlichen Rechts")
+        DonorCategory.OVER_25_PERCENT_STATE_OWNED_COMPANY -> gettext("Unternehmen mit über 25 % staatlicher Beteiligung")
+        DonorCategory.OTHER_PARTY_OR_PARLIAMENTARY_GROUP_ENTITY -> gettext("Andere Partei/Fraktion")
+        DonorCategory.PROFESSIONAL_OR_TRADE_ASSOCIATION -> gettext("Berufs- oder Wirtschaftsverband")
+        DonorCategory.ANONYMOUS -> gettext("Anonym")
     }
 
 fun donorCategoryColor(category: DonorCategory): String =

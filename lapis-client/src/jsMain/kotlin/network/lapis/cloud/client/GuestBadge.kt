@@ -7,6 +7,7 @@ import io.kvision.core.Trigger
 import io.kvision.core.enablePopover
 import io.kvision.html.Span
 import io.kvision.html.span
+import io.kvision.i18n.gettext
 import io.kvision.utils.px
 
 /**
@@ -68,11 +69,11 @@ private val WANDERER_SVG =
  * Pure, jsTest-able popover/aria text -- factored out so it doesn't need a DOM harness (see
  * `GuestBadgeTest`).
  */
-fun guestBadgeAriaLabel(homeserverUrl: String): String = "Gast von $homeserverUrl"
+fun guestBadgeAriaLabel(homeserverUrl: String): String = gettext("Gast von %1", homeserverUrl)
 
-fun guestBadgePopoverTitle(homeserverUrl: String): String = "Gast von $homeserverUrl"
+fun guestBadgePopoverTitle(homeserverUrl: String): String = gettext("Gast von %1", homeserverUrl)
 
-fun guestBadgePopoverBody(homeserverUrl: String): String = "Angemeldet über den OIDC-Heimserver $homeserverUrl."
+fun guestBadgePopoverBody(homeserverUrl: String): String = gettext("Angemeldet über den OIDC-Heimserver %1.", homeserverUrl)
 
 /**
  * 18x18px circular guest indicator with a hover/focus/tap popover ("Gast von {homeserverUrl}") and
