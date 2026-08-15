@@ -6,6 +6,8 @@ All notable changes to this project are documented here. Format follows
 
 ## [Unreleased]
 
+## [0.12.0] — 2026-08-15
+
 ### Added
 
 **Language switcher: 8 languages (German source + 7 AI-translated)**
