@@ -107,15 +107,18 @@ dependencies {
     testImplementation(libs.kotlin.scripting.jvm)
 }
 
-// V0.7.1 Authentifizierung -- operator-run, one-time admin-password bootstrap for a fresh REAL
-// deployment (no member-onboarding workflow exists yet, see AdminBootstrap KDoc). Reads
+// V0.7.1 Authentifizierung -- operator-run, one-time admin bootstrap for a fresh REAL deployment
+// (no member-onboarding workflow exists yet, see AdminBootstrap KDoc). Reads
 // LAPIS_BOOTSTRAP_ADMIN_EMAIL/LAPIS_BOOTSTRAP_ADMIN_PASSWORD/LAPIS_DB_URL (etc.) from the
 // environment, never from Gradle properties (keeps the password out of the Gradle invocation /
 // shell history / `ps` output): `LAPIS_BOOTSTRAP_ADMIN_EMAIL=... LAPIS_BOOTSTRAP_ADMIN_PASSWORD=...
-// ./gradlew :lapis-server:bootstrapAdmin`.
+// ./gradlew :lapis-server:bootstrapAdmin`. Two modes -- see AdminBootstrap KDoc "Two modes".
 tasks.register<JavaExec>("bootstrapAdmin") {
     group = "application"
-    description = "One-time CLI to set an existing member's initial admin password (V0.7.1 Authentifizierung)."
+    description =
+        "One-time CLI: sets an existing member's admin password, or (with " +
+        "LAPIS_BOOTSTRAP_ADMIN_DISPLAY_NAME also set) creates the very first member+admin " +
+        "row on a genuinely fresh deployment (V0.7.1 Authentifizierung)."
     mainClass.set("network.lapis.cloud.server.bootstrap.AdminBootstrapKt")
     classpath = sourceSets["main"].runtimeClasspath
 }
