@@ -98,6 +98,18 @@ actually what's there.
 
 ### Fixed
 
+**`registerApplication` timing side-channel closed (same shape as the FRIEND-wave security-audit F1 finding)**
+
+The duplicate-email no-op path in `registerApplication` returned after a single, sub-millisecond
+`SELECT COUNT`, while the new-application path additionally paid bcrypt's ~250ms cost
+(`PasswordHasher.hash`) inside the account-creation branch. Status code and response body were
+already identical either way (the endpoint's documented "account-enumeration hardening"), but the
+response-time gap was itself a side channel — an attacker could enumerate this political party's
+applicant/member roster by latency alone, without ever reading the response body. Fixed by hashing
+the password unconditionally before the transaction starts, so both paths now pay the same
+dominant cost. `registerFriend` already got this fix during the FRIEND wave (see above); this
+closes the identical, independently-discovered gap in the older `registerApplication` endpoint.
+
 **GRID/SPEAKER egress still failed after the shm_size fix -- real cause was hairpin-NAT, not Chrome memory**
 
 The `shm_size: 1gb` fix below turned out to be necessary but not sufficient. `GRID`/`SPEAKER`

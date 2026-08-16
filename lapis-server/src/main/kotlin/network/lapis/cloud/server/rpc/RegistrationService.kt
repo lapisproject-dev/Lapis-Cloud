@@ -124,6 +124,15 @@ class RegistrationService(
         PasswordPolicy.validate(newPassword = input.password, email = normalizedEmail)
 
         val now = nowLocalDateTime()
+        // Timing-oracle fix (same shape as the FRIEND-wave security-audit F1 finding, see
+        // registerFriend KDoc): hash the password BEFORE the transaction, unconditionally, instead
+        // of inside the "new member" branch below. bcrypt (PasswordHasher.hash, ~250ms at
+        // BCRYPT_COST) previously ran ONLY on the newly-created-application path -- the duplicate-
+        // email no-op below returned after a single, sub-millisecond SELECT COUNT. Status code and
+        // body are identical either way, but the ~250ms/~1ms response-time gap was itself a side
+        // channel that let an attacker enumerate this political party's membership-applicant roster
+        // via latency alone, without ever looking at the response body.
+        val passwordHash = PasswordHasher.hash(input.password)
         transaction {
             val alreadyExists = MemberTable.selectAll().where { MemberTable.email.lowerCase() eq normalizedEmail }.count() > 0
             // See class/interface KDoc "account-enumeration hardening" -- silent no-op, identical
@@ -143,7 +152,7 @@ class RegistrationService(
                 it[id] = Uuid.random()
                 it[AccountTable.memberId] = memberId
                 it[role] = AccountRole.MEMBER
-                it[passwordHash] = PasswordHasher.hash(input.password)
+                it[AccountTable.passwordHash] = passwordHash
             }
             MembershipAgreementAcknowledgmentTable.insert {
                 it[id] = Uuid.random()

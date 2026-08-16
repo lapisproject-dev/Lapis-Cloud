@@ -225,6 +225,43 @@ class RegistrationServiceTest :
             }
         }
 
+        test(
+            "registerApplication: the duplicate-email no-op path pays the same bcrypt cost as the " +
+                "new-application path (timing side-channel closed, same shape as the FRIEND-wave F1 fix)",
+        ) {
+            testApplication {
+                application {
+                    install(StatusPages) { installRegistrationExceptionHandlers() }
+                    routing { registerRegistrationTestRoutes(LoginRateLimiter()) }
+                }
+                val email = "reg-timing@example.org"
+
+                // First call creates the application.
+                val first = client.post("/test/register?email=$email")
+                first.status shouldBe HttpStatusCode.OK
+                val memberId = requireNotNull(findMemberIdByEmail(email))
+                createdMemberIds += memberId
+
+                // Second call hits the duplicate-email no-op branch. Before this fix that branch
+                // returned after a single, sub-millisecond SELECT COUNT -- well before
+                // PasswordHasher.hash (bcrypt cost 12, tens-to-hundreds of ms) was ever reached, so
+                // an attacker could distinguish "this email is already an applicant/member" from "this
+                // email is new" by response latency alone, without ever reading the (identical)
+                // response body -- enumerating this political party's applicant/member roster.
+                val start = System.nanoTime()
+                val second = client.post("/test/register?email=$email")
+                val elapsedMillis = (System.nanoTime() - start) / 1_000_000
+                second.status shouldBe HttpStatusCode.OK
+
+                // Conservative floor: a plain SELECT COUNT on the in-memory test DB completes in
+                // low single-digit milliseconds, while bcrypt at cost 12 takes tens of milliseconds
+                // at an absolute minimum on any real hardware. If the fix regresses (the hash moves
+                // back inside the "new member" branch only), this duplicate-path call becomes fast
+                // again and this assertion starts failing.
+                (elapsedMillis >= 20L) shouldBe true
+            }
+        }
+
         test("registerApplication: repeated attempts eventually trip the rate limiter") {
             testApplication {
                 application {
