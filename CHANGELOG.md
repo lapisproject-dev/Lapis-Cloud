@@ -6,6 +6,8 @@ All notable changes to this project are documented here. Format follows
 
 ## [Unreleased]
 
+## [0.13.0] — 2026-08-16
+
 ### Added
 
 **`FRIEND` — a self-registerable, board-approval-free account for video-conference-only participation (V0.11.0)**
