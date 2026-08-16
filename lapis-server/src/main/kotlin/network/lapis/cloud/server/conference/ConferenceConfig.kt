@@ -30,23 +30,40 @@ class ConferenceConfig private constructor(
     val tokenTtlMinutes: Long,
     /**
      * V1.0 Videokonferenzen Wave 5 "Föderations-Gastbeitritt" security-audit fix -- a SEPARATE,
-     * much shorter TTL used ONLY for a [MemberStatus.GAST] caller's minted participant token (and,
-     * for consistency, their TURN credential), never for [tokenTtlMinutes]'s AKTIV-member default.
+     * much shorter TTL used for a [MemberStatus.GUEST] caller's minted participant token (and,
+     * for consistency, their TURN credential), never for [tokenTtlMinutes]'s ACTIVE-member default.
+     * Since V0.11.0 this also covers [MemberStatus.FRIEND] -- a self-registered, identity-unverified
+     * caller warrants at least as short a replay window as a federated guest, see
+     * `ConferenceBreakoutService` KDoc "FRIEND gets the same SHORT guestTokenTtlMinutes LiveKit
+     * token a GUEST always got".
      * Rationale: [network.lapis.cloud.server.rpc.ConferenceService.setRoomGuestAccess]`(false)`
      * disconnects a guest's LiveKit session via `RemoveParticipant`, but that call does NOT
      * invalidate the already-issued JWT itself -- LiveKit has no token-revocation list, so the same
      * token can be re-presented to rejoin the room directly, bypassing this server's
      * `allowFederationGuests` gate entirely, for as long as the token remains unexpired. A 4-hour
      * default (`DEFAULT_TOKEN_TTL_MINUTES`) would leave a 4-hour reconnect capability after
-     * revocation; bounding GUEST tokens to a short TTL bounds that residual replay window instead
-     * of promising a guarantee (`IConferenceService.setRoomGuestAccess` design review D16, "a room
-     * that no longer admits guests must not silently keep guests inside it") the token layer alone
-     * cannot fully deliver. AKTIV members are unaffected -- [tokenTtlMinutes] keeps its historical
-     * 4-hour default. See [load] KDoc for the `LAPIS_LIVEKIT_GUEST_TOKEN_TTL_MINUTES` env var.
+     * revocation; bounding non-member tokens to a short TTL bounds that residual replay window
+     * instead of promising a guarantee (`IConferenceService.setRoomGuestAccess` design review D16,
+     * "a room that no longer admits guests must not silently keep guests inside it") the token layer
+     * alone cannot fully deliver. ACTIVE members are unaffected -- [tokenTtlMinutes] keeps its
+     * historical 4-hour default. See [load] KDoc for the `LAPIS_LIVEKIT_GUEST_TOKEN_TTL_MINUTES` env
+     * var.
      */
     val guestTokenTtlMinutes: Long,
     /** Wave-1 "Kleinsitzung" ceiling -- mirrors `deploy/local/livekit.yaml`'s own `room.max_participants: 25`, enforced a second time at the RPC layer (a future wave's `ConferenceService`). */
     val maxParticipants: Int,
+    /**
+     * Security-audit F4 fix -- a SEPARATE, per-room ceiling on how many concurrently-open
+     * [network.lapis.cloud.shared.domain.MemberStatusSets.NON_MEMBER] (GUEST/FRIEND) participations
+     * a single room may have at once, independent of [maxParticipants] (LiveKit's own global
+     * `room.max_participants` ceiling, which does not distinguish members from non-members). Without
+     * this, a room with `allowFederationGuests = true` could fill its entire [maxParticipants] budget
+     * with self-registered, identity-unverified FRIEND/GUEST accounts, crowding out ACTIVE members.
+     * Enforced in [network.lapis.cloud.server.rpc.ConferenceService.joinRoom] by counting open
+     * (`leftAt IS NULL`) `conference_participation` rows for the room whose member `status` is in
+     * `NON_MEMBER`. See [load] KDoc for the `LAPIS_CONFERENCE_MAX_NON_MEMBER_PARTICIPANTS` env var.
+     */
+    val maxNonMemberParticipants: Int,
     /**
      * TURN relay URL(s) handed to the browser as `RTCIceServer.urls` alongside a fresh
      * [network.lapis.cloud.server.conference.TurnCredentialMinter]-minted credential on every
@@ -79,6 +96,7 @@ class ConferenceConfig private constructor(
         return "ConferenceConfig(enabled=$enabled, livekitUrl='$livekitUrl', livekitApiUrl='$livekitApiUrl', " +
             "apiKey=$keyState, apiSecret=$secretState, " +
             "tokenTtlMinutes=$tokenTtlMinutes, guestTokenTtlMinutes=$guestTokenTtlMinutes, maxParticipants=$maxParticipants, " +
+            "maxNonMemberParticipants=$maxNonMemberParticipants, " +
             "turnEnabled=$turnEnabled, turnUrls=$turnUrls, turnSharedSecret=$turnSecretState)"
     }
 
@@ -98,13 +116,19 @@ class ConferenceConfig private constructor(
         private const val DEFAULT_GUEST_TOKEN_TTL_MINUTES = 15L
         private const val DEFAULT_MAX_PARTICIPANTS = 25
 
+        /** See [maxNonMemberParticipants] KDoc (security-audit F4 fix) -- a fraction of [DEFAULT_MAX_PARTICIPANTS], not equal to it: a room's non-member share of the 25-seat "Kleinsitzung" ceiling should be a minority by default. */
+        private const val DEFAULT_MAX_NON_MEMBER_PARTICIPANTS = 20
+
         /**
          * Reads `LAPIS_LIVEKIT_URL`/`LAPIS_LIVEKIT_API_URL`/`LAPIS_LIVEKIT_API_KEY`/
          * `LAPIS_LIVEKIT_API_SECRET`/`LAPIS_LIVEKIT_TOKEN_TTL_MINUTES`/
-         * `LAPIS_LIVEKIT_GUEST_TOKEN_TTL_MINUTES`/`LAPIS_CONFERENCE_MAX_PARTICIPANTS` via [env]
-         * (defaults to [System.getenv]). `LAPIS_LIVEKIT_GUEST_TOKEN_TTL_MINUTES` defaults to
-         * [DEFAULT_GUEST_TOKEN_TTL_MINUTES] (15) independently of `LAPIS_LIVEKIT_TOKEN_TTL_MINUTES`
-         * -- see [guestTokenTtlMinutes] KDoc.
+         * `LAPIS_LIVEKIT_GUEST_TOKEN_TTL_MINUTES`/`LAPIS_CONFERENCE_MAX_PARTICIPANTS`/
+         * `LAPIS_CONFERENCE_MAX_NON_MEMBER_PARTICIPANTS` via [env] (defaults to [System.getenv]).
+         * `LAPIS_LIVEKIT_GUEST_TOKEN_TTL_MINUTES` defaults to [DEFAULT_GUEST_TOKEN_TTL_MINUTES] (15)
+         * independently of `LAPIS_LIVEKIT_TOKEN_TTL_MINUTES` -- see [guestTokenTtlMinutes] KDoc.
+         * `LAPIS_CONFERENCE_MAX_NON_MEMBER_PARTICIPANTS` defaults to
+         * [DEFAULT_MAX_NON_MEMBER_PARTICIPANTS] (20) independently of
+         * `LAPIS_CONFERENCE_MAX_PARTICIPANTS` -- see [maxNonMemberParticipants] KDoc.
          *
          * **Startup behaviour** (three-way, deliberately NOT a plain "enabled/disabled" boolean
          * gate):
@@ -152,6 +176,8 @@ class ConferenceConfig private constructor(
             val guestTtlMinutes =
                 env("LAPIS_LIVEKIT_GUEST_TOKEN_TTL_MINUTES")?.trim()?.toLongOrNull() ?: DEFAULT_GUEST_TOKEN_TTL_MINUTES
             val maxParticipants = env("LAPIS_CONFERENCE_MAX_PARTICIPANTS")?.trim()?.toIntOrNull() ?: DEFAULT_MAX_PARTICIPANTS
+            val maxNonMemberParticipants =
+                env("LAPIS_CONFERENCE_MAX_NON_MEMBER_PARTICIPANTS")?.trim()?.toIntOrNull() ?: DEFAULT_MAX_NON_MEMBER_PARTICIPANTS
             val turnUrls =
                 env("LAPIS_TURN_URLS")
                     ?.split(",")
@@ -191,6 +217,7 @@ class ConferenceConfig private constructor(
                 tokenTtlMinutes = ttlMinutes,
                 guestTokenTtlMinutes = guestTtlMinutes,
                 maxParticipants = maxParticipants,
+                maxNonMemberParticipants = maxNonMemberParticipants,
                 turnUrls = turnUrls,
                 turnSharedSecret = turnSharedSecret,
             )

@@ -23,6 +23,7 @@ import network.lapis.cloud.server.db.generated.CrowdfundingProjectTable
 import network.lapis.cloud.server.db.generated.CrowdfundingReactionTable
 import network.lapis.cloud.server.db.generated.MemberTable
 import network.lapis.cloud.server.db.generated.MembershipTierTable
+import network.lapis.cloud.server.federation.FederationInboxRateLimiter
 import network.lapis.cloud.server.module
 import network.lapis.cloud.server.rpc.AccountingService
 import network.lapis.cloud.server.rpc.AuditLogService
@@ -94,7 +95,7 @@ import kotlin.uuid.Uuid
  * [network.lapis.cloud.server.rpc.requireActiveMembership], re-reading A's LIVE
  * [network.lapis.cloud.server.db.generated.MemberTable.status] inside
  * [CrowdfundingService.submitProject]'s own transaction and throwing `ForbiddenException` (403,
- * not 401) because that status is now [MemberStatus.AUSGETRETEN]. A 403 (not a 200, and not a
+ * not 401) because that status is now [MemberStatus.WITHDRAWN]. A 403 (not a 200, and not a
  * fallback-triggered 401) is therefore the one outcome that discriminates "the AUSGETRETEN gate
  * holds via the fallback authentication path too" from "the fallback path bypasses it entirely".
  *
@@ -150,7 +151,12 @@ class ExitCascadeJourneyTest :
                     module()
                     routing {
                         post("/e2e5/register") {
-                            RegistrationService(call = call, registrationRateLimiter = LoginRateLimiter()).registerApplication(
+                            RegistrationService(
+                                call = call,
+                                registrationRateLimiter = LoginRateLimiter(),
+                                friendRegistrationRateLimiter = LoginRateLimiter(),
+                                friendSignupIpRateLimiter = FederationInboxRateLimiter(),
+                            ).registerApplication(
                                 RegistrationInput(
                                     displayName = call.request.queryParameters["name"]!!,
                                     email = call.request.queryParameters["email"]!!,
@@ -163,7 +169,12 @@ class ExitCascadeJourneyTest :
                         }
                         post("/e2e5/reject/{id}") {
                             val dto =
-                                RegistrationService(call = call, registrationRateLimiter = LoginRateLimiter()).rejectApplication(
+                                RegistrationService(
+                                    call = call,
+                                    registrationRateLimiter = LoginRateLimiter(),
+                                    friendRegistrationRateLimiter = LoginRateLimiter(),
+                                    friendSignupIpRateLimiter = FederationInboxRateLimiter(),
+                                ).rejectApplication(
                                     memberId = call.parameters["id"]!!,
                                     reason = "E2E Scenario 5 -- deliberate rejection",
                                 )
@@ -174,11 +185,19 @@ class ExitCascadeJourneyTest :
                                 RegistrationService(
                                     call = call,
                                     registrationRateLimiter = LoginRateLimiter(),
+                                    friendRegistrationRateLimiter = LoginRateLimiter(),
+                                    friendSignupIpRateLimiter = FederationInboxRateLimiter(),
                                 ).approveApplication(call.parameters["id"]!!)
                             call.respondText(dto.status.name)
                         }
                         post("/e2e5/leave-membership") {
-                            val dto = RegistrationService(call = call, registrationRateLimiter = LoginRateLimiter()).leaveMembership()
+                            val dto =
+                                RegistrationService(
+                                    call = call,
+                                    registrationRateLimiter = LoginRateLimiter(),
+                                    friendRegistrationRateLimiter = LoginRateLimiter(),
+                                    friendSignupIpRateLimiter = FederationInboxRateLimiter(),
+                                ).leaveMembership()
                             call.respondText(dto.status.name)
                         }
                         // Session-only-gated (resolveCurrentMember, no requireActiveMembership, no
@@ -336,8 +355,8 @@ class ExitCascadeJourneyTest :
                 val applicantBId = memberIdByEmail(emailB)
                 createdMemberIds += applicantAId
                 createdMemberIds += applicantBId
-                memberStatusOf(applicantAId) shouldBe MemberStatus.ANTRAG
-                memberStatusOf(applicantBId) shouldBe MemberStatus.ANTRAG
+                memberStatusOf(applicantAId) shouldBe MemberStatus.APPLICATION
+                memberStatusOf(applicantBId) shouldBe MemberStatus.APPLICATION
 
                 // ── Step 2: both real logins (real HTTP, real session cookies) -- ANTRAG can log in ──
                 val rawTokenA = client.realLogin(email = emailA, password = E2E_STRONG_PASSWORD)
@@ -346,8 +365,8 @@ class ExitCascadeJourneyTest :
                 // ── Step 3: BOARD rejects B -- a session that really was live at rejection time ────
                 val rejected = client.post("/e2e5/reject/$applicantBId") { header("X-Member-Id", BOARD_ID) }
                 rejected.status shouldBe HttpStatusCode.OK
-                rejected.bodyAsText() shouldBe MemberStatus.ABGELEHNT.name
-                memberStatusOf(applicantBId) shouldBe MemberStatus.ABGELEHNT
+                rejected.bodyAsText() shouldBe MemberStatus.REJECTED.name
+                memberStatusOf(applicantBId) shouldBe MemberStatus.REJECTED
 
                 // ── Step 4: the v0.9.0 fix -- B's session, genuinely live a moment ago, now fails ──
                 // ── on replay across BOTH domains, closing the V0.7.2-audit-disclosed session- ─────
@@ -358,8 +377,8 @@ class ExitCascadeJourneyTest :
                 // ── Step 5: BOARD approves A (a completely separate transaction) -- ANTRAG -> AKTIV ──
                 val approved = client.post("/e2e5/approve/$applicantAId") { header("X-Member-Id", BOARD_ID) }
                 approved.status shouldBe HttpStatusCode.OK
-                approved.bodyAsText() shouldBe MemberStatus.AKTIV.name
-                memberStatusOf(applicantAId) shouldBe MemberStatus.AKTIV
+                approved.bodyAsText() shouldBe MemberStatus.ACTIVE.name
+                memberStatusOf(applicantAId) shouldBe MemberStatus.ACTIVE
 
                 // ── Step 6: A accumulates real cross-domain history, all BEFORE exit ─────────────
                 // LTR minted, then staked into a real Crowdfunding project via A's OWN real session.
@@ -436,8 +455,8 @@ class ExitCascadeJourneyTest :
                 // ── Step 7: A's self-service exit -- the SAME session live since step 2. ────────
                 val leftResponse = client.post("/e2e5/leave-membership") { withSession(rawTokenA) }
                 leftResponse.status shouldBe HttpStatusCode.OK
-                leftResponse.bodyAsText() shouldBe MemberStatus.AUSGETRETEN.name
-                memberStatusOf(applicantAId) shouldBe MemberStatus.AUSGETRETEN
+                leftResponse.bodyAsText() shouldBe MemberStatus.WITHDRAWN.name
+                memberStatusOf(applicantAId) shouldBe MemberStatus.WITHDRAWN
 
                 // ── Step 8: continued lockout, A's OWN dead session, across MULTIPLE domains -- ──
                 // ── mirrors Scenario 4's traced 401 (session revoked before any authorization ─────

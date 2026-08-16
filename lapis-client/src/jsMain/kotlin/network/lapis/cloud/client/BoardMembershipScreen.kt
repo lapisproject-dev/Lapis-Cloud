@@ -234,7 +234,7 @@ private fun endBoardMembershipDialog(
 // ================================================================================================
 
 /**
- * Member picker sourced from `IMemberService.listMembers()` -- same AKTIV-filtered directory
+ * Member picker sourced from `IMemberService.listMembers()` -- same ACTIVE-filtered directory
  * `CommitteesScreen.renderAddCommitteeMemberForm` already uses.
  *
  * Displaced-incumbent heads-up (plan/design, not itself irreversible-data-loss tier): before

@@ -122,7 +122,7 @@ class PriceOracleServiceTest :
                     it[MemberTable.id] = id
                     it[displayName] = "Price-Oracle Testmitglied"
                     it[MemberTable.email] = email
-                    it[status] = MemberStatus.AKTIV
+                    it[status] = MemberStatus.ACTIVE
                     it[joinedAt] = kotlinx.datetime.LocalDate(2026, 1, 1)
                     it[membershipTierId] = null
                 }

@@ -65,7 +65,7 @@ import network.lapis.cloud.shared.rpc.IMemberService
  *   documented rule verbatim -- see [renderWithdrawAction], fixed in review round 1 after
  *   originally being narrowed to non-terminal statuses only).
  * - `submitMotion`: the broadest gate of the whole wave -- any [network.lapis.cloud.shared.domain
- *   .MemberStatus.AKTIV] member for the General Assembly, or any active Committee membership (any
+ *   .MemberStatus.ACTIVE] member for the General Assembly, or any active Committee membership (any
  *   role) for a specific Committee. The submission form below restricts its target-Committee
  *   picker to Committees the caller plausibly qualifies for (mirrors the Meetings screen's
  *   `manageableCommittees` computation), but a stale client-side cache is still gracefully
@@ -172,7 +172,7 @@ fun renderMotionsScreen(container: SimplePanel) {
 
         // Which Committees the current member may plausibly submit a Motion to (plan §4's
         // broadest gate) -- BOARD/ADMIN may submit anywhere active; the General Assembly is a
-        // broad AKTIV-member right (residual "was I actually still AKTIV" race falls through to
+        // broad ACTIVE-member right (residual "was I actually still ACTIVE" race falls through to
         // guarded()'s 403 toast, see file KDoc); any other Committee requires an active membership
         // of ANY CommitteeRole (not just leadership, unlike the Meetings screen's own
         // manageableCommittees computation).

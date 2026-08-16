@@ -9,7 +9,6 @@ import network.lapis.cloud.server.db.DbClock
 import network.lapis.cloud.server.db.generated.AccountTable
 import network.lapis.cloud.server.db.generated.MemberTable
 import network.lapis.cloud.server.db.generated.SessionTable
-import network.lapis.cloud.shared.domain.MemberStatus
 import org.jetbrains.exposed.v1.core.and
 import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.core.greater
@@ -103,12 +102,12 @@ object SessionStore {
                 it[lastUsedAt] = now
             }
 
-            // V0.8.2 OIDC-Gastzugang-Federation: MemberTable is already joined above (no extra
-            // query) -- isGuest is a free byproduct of that join, see CurrentMember KDoc.
+            // V0.8.2 OIDC-Gastzugang-Federation / V0.11.0: MemberTable is already joined above (no
+            // extra query) -- status is a free byproduct of that join, see CurrentMember KDoc.
             CurrentMember(
                 memberId = row[SessionTable.memberId],
                 role = row[AccountTable.role],
-                isGuest = row[MemberTable.status] == MemberStatus.GAST,
+                status = row[MemberTable.status],
             )
         }
     }

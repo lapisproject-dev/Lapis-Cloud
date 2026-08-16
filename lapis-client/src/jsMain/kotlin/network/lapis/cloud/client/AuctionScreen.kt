@@ -48,10 +48,10 @@ import kotlin.time.Clock
  * `requireActiveMembership`/`requireAuctionEnabled` call sites, not guessed from method names --
  * see `Routes.AUCTION` KDoc for the route-level `requireAuth` reasoning):
  * - [IAuctionService.createListing]/[IAuctionService.placeBid]/[IAuctionService.buyNow]/
- *   [IAuctionService.settleAuction] -- MEMBER+, additionally must be AKTIV
+ *   [IAuctionService.settleAuction] -- MEMBER+, additionally must be ACTIVE
  *   (`requireActiveMembership` INSIDE the server transaction, not reachable as an `AccountRole`
  *   predicate -- same reasoning `LtrLedgerScreen.kt`/`CrowdfundingScreen.kt` already document for
- *   their own AKTIV-gated writes). [placeBid]/[buyNow] additionally reject the auction's own seller
+ *   their own ACTIVE-gated writes). [placeBid]/[buyNow] additionally reject the auction's own seller
  *   server-side -- mirrored here as a client-side UX hint (the bid/Sofortkauf controls are simply
  *   not rendered for the seller's own listing), never the actual security boundary.
  * - [IAuctionService.getAuction]/[IAuctionService.listAuctions]/[IAuctionService.listMyBids]/
@@ -80,7 +80,7 @@ import kotlin.time.Clock
  * during this wave's independent verification). The remaining, genuinely mutating actions
  * (createListing/placeBid/buyNow/settleAuction) are NOT specially wrapped -- if the feature is
  * disabled they simply surface the ordinary `guarded()` `ConflictException` toast, same "loose UX
- * affordance, not the security boundary" posture this wave already established for AKTIV-gating; a
+ * affordance, not the security boundary" posture this wave already established for ACTIVE-gating; a
  * one-off toast on a deliberate user action is a different situation from a silently stuck first-load
  * placeholder.
  *

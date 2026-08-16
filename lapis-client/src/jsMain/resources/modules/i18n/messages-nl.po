@@ -4366,7 +4366,7 @@ msgstr "Legal Hold actief -- verwijdering mag niet worden uitgevoerd."
 #: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:183
 msgid ""
 "Legt ein Mitglied ohne Antrags-/Freigabeschritt an (z. B. für Beitritte auf "
-"Papier oder Datenmigration) -- Status sofort AKTIV."
+"Papier oder Datenmigration) -- Status sofort Aktiv."
 msgstr ""
 "Maakt een lid aan zonder aanvraag-/goedkeuringsstap (bijv. voor toetredingen "
 "op papier of gegevensmigratie) -- status direct AKTIV."
@@ -7377,6 +7377,84 @@ msgstr "Doelgebonden bedrijf"
 #: src/jsMain/kotlin/network/lapis/cloud/client/PriceOracleScreen.kt:567
 msgid "Zwischengespeichert (Cached)"
 msgstr "Tijdelijk opgeslagen (cached)"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/FriendRegistrationScreen.kt:40
+#: src/jsMain/kotlin/network/lapis/cloud/client/FriendRegistrationScreen.kt:86
+msgid "Freund-Konto anlegen"
+msgstr "Vriendenaccount aanmaken"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/FriendRegistrationScreen.kt:41
+msgid ""
+"Ein Freund-Konto ist keine Mitgliedschaft -- es dient ausschließlich der "
+"Teilnahme an Videokonferenzen, zu denen Sie eingeladen wurden."
+msgstr ""
+"Een vriendenaccount is geen lidmaatschap -- het dient uitsluitend om deel te "
+"nemen aan videoconferenties waarvoor u bent uitgenodigd."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/FriendRegistrationScreen.kt:47
+msgid "Nutzungsbedingungen werden geladen ..."
+msgstr "Gebruiksvoorwaarden worden geladen ..."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/FriendRegistrationScreen.kt:60
+msgid "Nutzungsbedingungen fuer Freund-Konten (Version %1)"
+msgstr "Gebruiksvoorwaarden voor vriendenaccounts (versie %1)"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/FriendRegistrationScreen.kt:68
+msgid "Anzeigename (nicht überprüft)"
+msgstr "Weergavenaam (niet geverifieerd)"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/FriendRegistrationScreen.kt:73
+msgid ""
+"Ich habe die Nutzungsbedingungen für Freund-Konten gelesen und akzeptiere "
+"sie."
+msgstr "Ik heb de gebruiksvoorwaarden voor vriendenaccounts gelezen en accepteer ze."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/FriendRegistrationScreen.kt:105
+msgid "Bitte bestätigen Sie, dass Sie die Nutzungsbedingungen gelesen haben."
+msgstr "Bevestig dat u de gebruiksvoorwaarden hebt gelezen."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/FriendRegistrationScreen.kt:135
+msgid "Doch lieber Mitglied werden? Zum Beitrittsantrag."
+msgstr "Liever toch lid worden? Naar de lidmaatschapsaanvraag."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/FriendRegistrationScreen.kt:138
+msgid "Bereits ein Konto? Zur Anmeldung."
+msgstr "Al een account? Naar aanmelden."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/FriendRegistrationScreen.kt:143
+msgid "Freund-Konto angelegt"
+msgstr "Vriendenaccount aangemaakt"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/FriendRegistrationScreen.kt:145
+msgid ""
+"Ihr Freund-Konto ist sofort nutzbar -- Sie können sich jetzt mit Ihrem "
+"gewählten Passwort anmelden und an Videokonferenzen teilnehmen, zu denen Sie "
+"eingeladen wurden."
+msgstr ""
+"Uw vriendenaccount is direct bruikbaar -- u kunt nu inloggen met uw gekozen "
+"wachtwoord en deelnemen aan videoconferenties waarvoor u bent uitgenodigd."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/LoginScreen.kt:96
+msgid "Nur an einer Videokonferenz teilnehmen? Freund-Konto anlegen."
+msgstr ""
+"Wilt u alleen deelnemen aan een videoconferentie? Maak een vriendenaccount "
+"aan."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberStatusLabels.kt:19
+msgid "Antrag"
+msgstr "Aanvraag"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberStatusLabels.kt:22
+msgid "Ausgetreten"
+msgstr "Uitgetreden"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberStatusLabels.kt:24
+msgid "Freund"
+msgstr "Vriend"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:70
+msgid "%1 (Freund-Konto seit %2)"
+msgstr "%1 (vriendenaccount sinds %2)"
 
 #~ msgid ""
 #~ "Sobald aus dieser Sitzung heraus eine geheime Abstimmung geöffnet wird, "

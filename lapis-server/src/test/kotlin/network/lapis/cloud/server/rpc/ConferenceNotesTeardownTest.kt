@@ -135,7 +135,7 @@ class ConferenceNotesTeardownTest :
                     it[MemberTable.id] = id
                     it[displayName] = email.substringBefore("@")
                     it[MemberTable.email] = email
-                    it[MemberTable.status] = MemberStatus.AKTIV
+                    it[MemberTable.status] = MemberStatus.ACTIVE
                     it[joinedAt] = LocalDate(2026, 1, 1)
                     it[membershipTierId] = null
                 }

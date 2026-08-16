@@ -106,7 +106,7 @@ fun HttpRequestBuilder.withSession(rawToken: String) {
 fun createRealMember(
     displayName: String,
     email: String,
-    status: MemberStatus = MemberStatus.AKTIV,
+    status: MemberStatus = MemberStatus.ACTIVE,
     role: AccountRole = AccountRole.MEMBER,
     password: String? = null,
 ): Uuid {
@@ -137,7 +137,7 @@ const val E2E_STRONG_PASSWORD = "a-genuinely-strong-e2e-password-1"
  * Tears down every Governance/Membership/Accounting fixture row an E2E scenario created, in
  * FK-safe order. Must be called from inside an already-open `transaction {}`.
  *
- * **Why the member rows are RETIRED (status -> [MemberStatus.AUSGETRETEN]) rather than deleted.**
+ * **Why the member rows are RETIRED (status -> [MemberStatus.WITHDRAWN]) rather than deleted.**
  * `audit_log_entry.actor_member_id` has a real FK to `member.id`, AND it is one of the fields
  * [network.lapis.cloud.server.audit.AuditHashChain.canonicalPayload] folds into every row's
  * `entry_hash`. That leaves exactly three options for a member who has produced audit entries, and
@@ -235,7 +235,7 @@ fun hardDeleteGovernanceAndMembershipFixtures(
     if (memberIds.isNotEmpty()) {
         // See KDoc: retire, never delete -- the audit hash chain covers actor_member_id.
         MemberTable.update({ MemberTable.id inList memberIds }) {
-            it[status] = MemberStatus.AUSGETRETEN
+            it[status] = MemberStatus.WITHDRAWN
             it[membershipTierId] = null
         }
     }

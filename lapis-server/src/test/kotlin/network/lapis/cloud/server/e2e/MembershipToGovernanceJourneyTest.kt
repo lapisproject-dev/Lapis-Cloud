@@ -27,6 +27,7 @@ import network.lapis.cloud.server.db.generated.MemberTable
 import network.lapis.cloud.server.db.generated.MembershipTierTable
 import network.lapis.cloud.server.db.generated.ResolutionTable
 import network.lapis.cloud.server.db.generated.VoteBallotTable
+import network.lapis.cloud.server.federation.FederationInboxRateLimiter
 import network.lapis.cloud.server.module
 import network.lapis.cloud.server.rpc.AccountingService
 import network.lapis.cloud.server.rpc.AuditLogService
@@ -163,7 +164,12 @@ class MembershipToGovernanceJourneyTest :
                     module()
                     routing {
                         post("/e2e1/register") {
-                            RegistrationService(call = call, registrationRateLimiter = LoginRateLimiter()).registerApplication(
+                            RegistrationService(
+                                call = call,
+                                registrationRateLimiter = LoginRateLimiter(),
+                                friendRegistrationRateLimiter = LoginRateLimiter(),
+                                friendSignupIpRateLimiter = FederationInboxRateLimiter(),
+                            ).registerApplication(
                                 RegistrationInput(
                                     displayName = APPLICANT_DISPLAY_NAME,
                                     email = call.request.queryParameters["email"]!!,
@@ -179,6 +185,8 @@ class MembershipToGovernanceJourneyTest :
                                 RegistrationService(
                                     call = call,
                                     registrationRateLimiter = LoginRateLimiter(),
+                                    friendRegistrationRateLimiter = LoginRateLimiter(),
+                                    friendSignupIpRateLimiter = FederationInboxRateLimiter(),
                                 ).approveApplication(call.parameters["id"]!!)
                             call.respondText(dto.status.name)
                         }
@@ -422,7 +430,7 @@ class MembershipToGovernanceJourneyTest :
                     }
                 createdMemberIds += applicantId
                 // The registration seam itself: a real applicant starts ANTRAG, not AKTIV.
-                memberStatusOf(applicantId) shouldBe MemberStatus.ANTRAG
+                memberStatusOf(applicantId) shouldBe MemberStatus.APPLICATION
 
                 // ── Step 2: real login (real HTTP, real session cookie) -- ANTRAG can log in by design ──
                 val rawToken = client.realLogin(email = email, password = E2E_STRONG_PASSWORD)
@@ -473,7 +481,7 @@ class MembershipToGovernanceJourneyTest :
                 // ── completely separate transaction) -- ANTRAG -> AKTIV ─────────────────────────
                 val approved = client.post("/e2e1/approve/$applicantId") { header("X-Member-Id", BOARD_ID) }
                 approved.status shouldBe HttpStatusCode.OK
-                approved.bodyAsText() shouldBe "AKTIV"
+                approved.bodyAsText() shouldBe "ACTIVE"
 
                 // ── Step 6: cross-domain seam #2 -- the SAME session cookie, no re-login, now ──
                 // ── succeeds: the status gate re-reads live DB status per call rather than ──────

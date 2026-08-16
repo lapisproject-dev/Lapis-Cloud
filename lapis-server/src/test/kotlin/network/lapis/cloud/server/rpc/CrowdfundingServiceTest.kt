@@ -102,7 +102,7 @@ class CrowdfundingServiceTest :
 
         fun createTestMember(
             email: String,
-            status: MemberStatus = MemberStatus.AKTIV,
+            status: MemberStatus = MemberStatus.ACTIVE,
         ): Uuid {
             val id = Uuid.random()
             transaction {
@@ -255,7 +255,7 @@ class CrowdfundingServiceTest :
                     install(StatusPages) { installCrowdfundingExceptionHandlers() }
                     routing { registerCrowdfundingTestRoutes() }
                 }
-                val gast = createTestMember("cf-gast@example.org", status = MemberStatus.GAST)
+                val gast = createTestMember("cf-gast@example.org", status = MemberStatus.GUEST)
                 mintLtr(gast, BigDecimal("10.00"))
                 val response = client.post("/test/submit-project?title=X&weight=1.00") { header("X-Member-Id", gast.toString()) }
                 response.status shouldBe HttpStatusCode.Forbidden
@@ -408,7 +408,7 @@ class CrowdfundingServiceTest :
                 createdProjectIds += pId
                 client.post("/test/approve-project/$projectId") { header("X-Member-Id", BOARD_ID) }
 
-                val antrag = createTestMember("cf-gate-antrag@example.org", status = MemberStatus.ANTRAG)
+                val antrag = createTestMember("cf-gate-antrag@example.org", status = MemberStatus.APPLICATION)
                 val rejected = client.post("/test/cast-reaction/$projectId/LIKE") { header("X-Member-Id", antrag.toString()) }
                 rejected.status shouldBe HttpStatusCode.Forbidden
                 val reactionRowCount =
@@ -442,12 +442,12 @@ class CrowdfundingServiceTest :
                 createdProjectIds += Uuid.parse(projectId)
                 client.post("/test/approve-project/$projectId") { header("X-Member-Id", BOARD_ID) }
 
-                val abgelehnt = createTestMember("cf-gate2-abgelehnt@example.org", status = MemberStatus.ABGELEHNT)
+                val abgelehnt = createTestMember("cf-gate2-abgelehnt@example.org", status = MemberStatus.REJECTED)
                 val abgelehntResponse =
                     client.post("/test/cast-reaction/$projectId/LIKE") { header("X-Member-Id", abgelehnt.toString()) }
                 abgelehntResponse.status shouldBe HttpStatusCode.Forbidden
 
-                val ausgetreten = createTestMember("cf-gate2-ausgetreten@example.org", status = MemberStatus.AUSGETRETEN)
+                val ausgetreten = createTestMember("cf-gate2-ausgetreten@example.org", status = MemberStatus.WITHDRAWN)
                 val ausgetretenResponse =
                     client.post("/test/cast-reaction/$projectId/LIKE") { header("X-Member-Id", ausgetreten.toString()) }
                 ausgetretenResponse.status shouldBe HttpStatusCode.Forbidden
@@ -475,7 +475,7 @@ class CrowdfundingServiceTest :
                 val regression = client.post("/test/retract-reaction/$projectId") { header("X-Member-Id", aktiv.toString()) }
                 regression.status shouldBe HttpStatusCode.OK
 
-                val antrag = createTestMember("cf-gate3-antrag@example.org", status = MemberStatus.ANTRAG)
+                val antrag = createTestMember("cf-gate3-antrag@example.org", status = MemberStatus.APPLICATION)
                 val rejected = client.post("/test/retract-reaction/$projectId") { header("X-Member-Id", antrag.toString()) }
                 rejected.status shouldBe HttpStatusCode.Forbidden
             }

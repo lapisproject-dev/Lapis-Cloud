@@ -58,7 +58,7 @@ fun CurrentMember.isActiveCommitteeMember(committeeId: Uuid): Boolean =
 
 /**
  * Motionsverwaltung (V0.2.2) submission rule. Asymmetric on purpose: submitting *to* the
- * General Assembly is a broad participation right (any [MemberStatus.AKTIV] member, mirroring
+ * General Assembly is a broad participation right (any [MemberStatus.ACTIVE] member, mirroring
  * every member's stake in a general assembly), while submitting *to* a specific Committee requires
  * an active membership of that Committee — any [CommitteeRole], not just leadership, so a
  * rank-and-file committee member can propose something to their own committee, but a non-member
@@ -78,7 +78,7 @@ fun CurrentMember.canSubmitMotion(targetCommitteeId: Uuid): Boolean {
         transaction {
             MemberTable
                 .selectAll()
-                .where { (MemberTable.id eq memberId) and (MemberTable.status eq MemberStatus.AKTIV) }
+                .where { (MemberTable.id eq memberId) and (MemberTable.status eq MemberStatus.ACTIVE) }
                 .count() > 0
         }
     } else {

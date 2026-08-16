@@ -37,10 +37,26 @@ import kotlin.uuid.Uuid
 class DocumentService(
     private val call: ApplicationCall,
 ) : IDocumentService {
-    override suspend fun listFolders(): List<DocumentFolderDto> =
-        transaction {
+    /**
+     * **V0.11.0 security fix (pre-existing, found while auditing the FRIEND-wave blast radius)**:
+     * this method previously did not call [resolveCurrentMember] AT ALL -- the full folder tree
+     * (names only) was readable with no session, by anyone on the internet. Now requires at least
+     * an authenticated caller. Deliberately does NOT additionally filter by
+     * [network.lapis.cloud.server.security.canAccessDocumentAtLevel]: [DocumentFolderTable] carries
+     * no [DocumentAccessLevel] of its own (only individual [DocumentTable] rows do -- a folder is a
+     * navigational container, not itself access-controlled content), so per-level folder filtering
+     * would need a schema change out of scope for this wave. The actual content-access boundary
+     * remains fully intact at [listDocuments]/[createDocument]/the document download route, which
+     * already gate on [DocumentAccessLevel] per document. A [network.lapis.cloud.shared.domain
+     * .MemberStatus.FRIEND] can therefore see folder NAMES (like any other authenticated caller
+     * could before this fix) but not folder CONTENTS.
+     */
+    override suspend fun listFolders(): List<DocumentFolderDto> {
+        resolveCurrentMember(call)
+        return transaction {
             DocumentFolderTable.selectAll().map { it.toDocumentFolderDto() }
         }
+    }
 
     override suspend fun createFolder(
         name: String,

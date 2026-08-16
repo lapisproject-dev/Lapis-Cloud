@@ -60,7 +60,7 @@ class ServiceIntegrationTest :
         /**
          * Direct-DB `Member(status=GAST)` + `Account(role=MEMBER)` insert, mirroring the identical
          * idiom used across the suite (e.g. `CrowdfundingServiceTest`/`PoliticianServiceTest`'s own
-         * `createTestMember(..., status = MemberStatus.GAST)`) -- this is exactly the shape
+         * `createTestMember(..., status = MemberStatus.GUEST)`) -- this is exactly the shape
          * [network.lapis.cloud.server.federation.OidcGuestMemberStore] produces for a real federated
          * guest, so resolving this member via the trusted `X-Member-Id` test header exercises the
          * same [network.lapis.cloud.server.security.CurrentMember.isGuest] path a real guest session
@@ -73,7 +73,7 @@ class ServiceIntegrationTest :
                     it[MemberTable.id] = id
                     it[displayName] = "Gast-Testmitglied (Document-Guest-Access-Test)"
                     it[MemberTable.email] = email
-                    it[status] = MemberStatus.GAST
+                    it[status] = MemberStatus.GUEST
                     it[joinedAt] = LocalDate(2026, 1, 1)
                     it[membershipTierId] = null
                 }

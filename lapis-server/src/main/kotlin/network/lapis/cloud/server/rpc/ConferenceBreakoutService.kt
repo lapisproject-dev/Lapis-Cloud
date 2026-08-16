@@ -28,7 +28,7 @@ import network.lapis.cloud.shared.domain.ConferenceBreakoutRoomDto
 import network.lapis.cloud.shared.domain.ConferenceJoinTokenDto
 import network.lapis.cloud.shared.domain.ConferenceRole
 import network.lapis.cloud.shared.domain.ConferenceTurnServer
-import network.lapis.cloud.shared.domain.MemberStatus
+import network.lapis.cloud.shared.domain.MemberStatusSets
 import network.lapis.cloud.shared.rpc.BadRequestException
 import network.lapis.cloud.shared.rpc.ConflictException
 import network.lapis.cloud.shared.rpc.ForbiddenException
@@ -590,7 +590,7 @@ class ConferenceBreakoutService(
                         ?: throw ForbiddenException("Caller does not hold an open assignment to breakout room $breakoutUuid")
                 TokenPrep(
                     livekitRoomName = assignmentRow[ConferenceBreakoutRoomTable.livekitRoomName],
-                    isGuest = currentMemberIsGuest(current.memberId),
+                    isNonMember = currentMemberIsNonMember(current.memberId),
                     displayName = memberDisplayName(current.memberId),
                 )
             }
@@ -603,7 +603,7 @@ class ConferenceBreakoutService(
             memberId = current.memberId,
             displayName = prep.displayName,
             role = ConferenceRole.PARTICIPANT,
-            isGuest = prep.isGuest,
+            isNonMember = prep.isNonMember,
         )
     }
 
@@ -662,7 +662,7 @@ class ConferenceBreakoutService(
                     }
                 RejoinPrep(
                     livekitRoomName = row[ConferenceRoomTable.livekitRoomName],
-                    isGuest = currentMemberIsGuest(current.memberId),
+                    isNonMember = currentMemberIsNonMember(current.memberId),
                     displayName = memberDisplayName(current.memberId),
                     role = role,
                 )
@@ -674,7 +674,7 @@ class ConferenceBreakoutService(
             memberId = current.memberId,
             displayName = prep.displayName,
             role = prep.role,
-            isGuest = prep.isGuest,
+            isNonMember = prep.isNonMember,
         )
     }
 
@@ -682,13 +682,13 @@ class ConferenceBreakoutService(
 
     private data class TokenPrep(
         val livekitRoomName: String,
-        val isGuest: Boolean,
+        val isNonMember: Boolean,
         val displayName: String,
     )
 
     private data class RejoinPrep(
         val livekitRoomName: String,
-        val isGuest: Boolean,
+        val isNonMember: Boolean,
         val displayName: String,
         val role: ConferenceRole,
     )
@@ -729,8 +729,16 @@ class ConferenceBreakoutService(
         if (!isCreator && !current.isPrivileged) throw ForbiddenException()
     }
 
-    private fun currentMemberIsGuest(memberId: Uuid): Boolean =
-        MemberTable.selectAll().where { MemberTable.id eq memberId }.single()[MemberTable.status] == MemberStatus.GAST
+    /**
+     * V0.11.0: widened from `== MemberStatus.GUEST` to `in MemberStatusSets.NON_MEMBER` so a
+     * FRIEND gets the same SHORT `guestTokenTtlMinutes` LiveKit token a GUEST always got -- this
+     * feeds a token-TTL decision, not an access decision (that gate already ran in
+     * [ConferenceService.joinRoom]/[requireRoomEntryAuthorization] before a breakout assignment
+     * could even exist for this member).
+     */
+    private fun currentMemberIsNonMember(memberId: Uuid): Boolean =
+        MemberTable.selectAll().where { MemberTable.id eq memberId }.single()[MemberTable.status] in
+            MemberStatusSets.NON_MEMBER
 
     private fun memberDisplayName(memberId: Uuid): String =
         MemberTable.selectAll().where { MemberTable.id eq memberId }.single()[MemberTable.displayName]
@@ -755,16 +763,16 @@ class ConferenceBreakoutService(
         )
     }
 
-    /** Shared by [requestBreakoutJoinToken]/[rejoinMainRoomToken] -- same [LiveKitAccessToken.mintParticipantToken]/[TurnCredentialMinter.mint] shape [ConferenceService.joinRoom] establishes, including the guest-vs-AKTIV TTL split. */
+    /** Shared by [requestBreakoutJoinToken]/[rejoinMainRoomToken] -- same [LiveKitAccessToken.mintParticipantToken]/[TurnCredentialMinter.mint] shape [ConferenceService.joinRoom] establishes, including the non-member-vs-ACTIVE TTL split. */
     private fun mintJoinToken(
         roomIdForDto: Uuid,
         livekitRoomName: String,
         memberId: Uuid,
         displayName: String,
         role: ConferenceRole,
-        isGuest: Boolean,
+        isNonMember: Boolean,
     ): ConferenceJoinTokenDto {
-        val effectiveTtl = if (isGuest) config.guestTokenTtlMinutes else config.tokenTtlMinutes
+        val effectiveTtl = if (isNonMember) config.guestTokenTtlMinutes else config.tokenTtlMinutes
         val minted =
             LiveKitAccessToken.mintParticipantToken(
                 apiKey = config.apiKey,

@@ -34,7 +34,7 @@ private fun member(
     id = id,
     displayName = displayName,
     email = "$displayName@example.org".lowercase().replace(" ", "."),
-    status = MemberStatus.AKTIV,
+    status = MemberStatus.ACTIVE,
     joinedAt = LocalDate(2024, 1, 1),
     role = AccountRole.MEMBER,
     street = if (withAddress) "Musterstrasse 5" else null,

@@ -103,7 +103,7 @@ class ConferenceRecordingServiceTest :
 
         fun createTestMember(
             email: String,
-            status: MemberStatus = MemberStatus.AKTIV,
+            status: MemberStatus = MemberStatus.ACTIVE,
         ): Uuid {
             val id = Uuid.random()
             transaction {
@@ -620,7 +620,7 @@ class ConferenceRecordingServiceTest :
                 val creator = createTestMember("rec-d13-happy@example.org")
                 val roomId = createTestRoom(creator, "D13-Sitzung")
                 transaction { ConferenceRoomTable.update({ ConferenceRoomTable.id eq roomId }) { it[allowFederationGuests] = true } }
-                val guest = createTestMember("rec-d13-guest@example.org", status = MemberStatus.GAST)
+                val guest = createTestMember("rec-d13-guest@example.org", status = MemberStatus.GUEST)
                 transaction {
                     ConferenceParticipationTable.insert {
                         it[id] = Uuid.random()
@@ -655,7 +655,7 @@ class ConferenceRecordingServiceTest :
                 transaction { ConferenceRoomTable.update({ ConferenceRoomTable.id eq openRoomId }) { it[allowFederationGuests] = true } }
                 val closedRoomId = createTestRoom(creator, "D13-Geschlossen")
 
-                val neverJoinedGuest = createTestMember("rec-d13-never@example.org", status = MemberStatus.GAST)
+                val neverJoinedGuest = createTestMember("rec-d13-never@example.org", status = MemberStatus.GUEST)
                 client
                     .get(
                         "/test/active-recording?roomId=$openRoomId",
@@ -663,7 +663,7 @@ class ConferenceRecordingServiceTest :
                     .status shouldBe
                     HttpStatusCode.Forbidden
 
-                val closedRoomGuest = createTestMember("rec-d13-closed@example.org", status = MemberStatus.GAST)
+                val closedRoomGuest = createTestMember("rec-d13-closed@example.org", status = MemberStatus.GUEST)
                 transaction {
                     ConferenceParticipationTable.insert {
                         it[id] = Uuid.random()
@@ -681,7 +681,7 @@ class ConferenceRecordingServiceTest :
                     .status shouldBe
                     HttpStatusCode.Forbidden
 
-                listOf(MemberStatus.ANTRAG, MemberStatus.AUSGETRETEN, MemberStatus.ABGELEHNT).forEach { status ->
+                listOf(MemberStatus.APPLICATION, MemberStatus.WITHDRAWN, MemberStatus.REJECTED).forEach { status ->
                     val member = createTestMember("rec-d13-${status.name.lowercase()}@example.org", status = status)
                     client.get("/test/active-recording?roomId=$openRoomId") { header("X-Member-Id", member.toString()) }.status shouldBe
                         HttpStatusCode.Forbidden

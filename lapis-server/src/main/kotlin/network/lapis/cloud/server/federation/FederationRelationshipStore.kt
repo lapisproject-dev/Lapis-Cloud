@@ -202,7 +202,7 @@ object FederationRelationshipStore {
      * (no mutation) if a concurrent transaction already moved it away from [expectedStatus]. See
      * class KDoc "Concurrency" point 2; mirrors
      * [network.lapis.cloud.server.rpc.RegistrationService.approveApplication]'s own
-     * `status eq MemberStatus.ANTRAG` WHERE-clause CAS.
+     * `status eq MemberStatus.APPLICATION` WHERE-clause CAS.
      */
     fun updateStatusIfCurrently(
         id: Uuid,

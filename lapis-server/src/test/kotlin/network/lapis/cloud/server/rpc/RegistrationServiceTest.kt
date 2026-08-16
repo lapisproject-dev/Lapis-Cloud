@@ -9,6 +9,7 @@ import io.ktor.client.request.header
 import io.ktor.client.request.post
 import io.ktor.client.statement.bodyAsText
 import io.ktor.http.HttpStatusCode
+import io.ktor.server.application.ApplicationCall
 import io.ktor.server.application.call
 import io.ktor.server.application.install
 import io.ktor.server.plugins.statuspages.StatusPages
@@ -27,6 +28,7 @@ import network.lapis.cloud.server.db.generated.AccountTable
 import network.lapis.cloud.server.db.generated.MemberTable
 import network.lapis.cloud.server.db.generated.MembershipAgreementAcknowledgmentTable
 import network.lapis.cloud.server.db.generated.SessionTable
+import network.lapis.cloud.server.federation.FederationInboxRateLimiter
 import network.lapis.cloud.server.security.LoginRateLimiter
 import network.lapis.cloud.server.security.PasswordHasher
 import network.lapis.cloud.server.security.SessionStore
@@ -74,7 +76,7 @@ class RegistrationServiceTest :
 
         fun createTestMember(
             email: String,
-            status: MemberStatus = MemberStatus.ANTRAG,
+            status: MemberStatus = MemberStatus.APPLICATION,
         ): Uuid {
             val id = Uuid.random()
             transaction {
@@ -136,7 +138,7 @@ class RegistrationServiceTest :
 
                 val memberId = requireNotNull(findMemberIdByEmail(email))
                 createdMemberIds += memberId
-                statusOf(memberId) shouldBe MemberStatus.ANTRAG
+                statusOf(memberId) shouldBe MemberStatus.APPLICATION
 
                 val ackCount =
                     transaction {
@@ -247,8 +249,8 @@ class RegistrationServiceTest :
                     install(StatusPages) { installRegistrationExceptionHandlers() }
                     routing { registerRegistrationTestRoutes(LoginRateLimiter()) }
                 }
-                val applicant = createTestMember("reg-list-applicant@example.org", MemberStatus.ANTRAG)
-                val activeMember = createTestMember("reg-list-active@example.org", MemberStatus.AKTIV)
+                val applicant = createTestMember("reg-list-applicant@example.org", MemberStatus.APPLICATION)
+                val activeMember = createTestMember("reg-list-active@example.org", MemberStatus.ACTIVE)
 
                 val forbidden = client.get("/test/pending") { header("X-Member-Id", MEMBER_ID) }
                 forbidden.status shouldBe HttpStatusCode.Forbidden
@@ -265,14 +267,14 @@ class RegistrationServiceTest :
                     install(StatusPages) { installRegistrationExceptionHandlers() }
                     routing { registerRegistrationTestRoutes(LoginRateLimiter()) }
                 }
-                val applicant = createTestMember("reg-approve@example.org", MemberStatus.ANTRAG)
+                val applicant = createTestMember("reg-approve@example.org", MemberStatus.APPLICATION)
 
                 val forbidden = client.post("/test/approve/$applicant") { header("X-Member-Id", MEMBER_ID) }
                 forbidden.status shouldBe HttpStatusCode.Forbidden
 
                 val approved = client.post("/test/approve/$applicant") { header("X-Member-Id", BOARD_ID) }
                 approved.status shouldBe HttpStatusCode.OK
-                statusOf(applicant) shouldBe MemberStatus.AKTIV
+                statusOf(applicant) shouldBe MemberStatus.ACTIVE
 
                 val secondDecision = client.post("/test/approve/$applicant") { header("X-Member-Id", BOARD_ID) }
                 secondDecision.status shouldBe HttpStatusCode.Conflict
@@ -285,16 +287,16 @@ class RegistrationServiceTest :
                     install(StatusPages) { installRegistrationExceptionHandlers() }
                     routing { registerRegistrationTestRoutes(LoginRateLimiter()) }
                 }
-                val applicant = createTestMember("reg-reject@example.org", MemberStatus.ANTRAG)
+                val applicant = createTestMember("reg-reject@example.org", MemberStatus.APPLICATION)
 
                 val blankReason = client.post("/test/reject/$applicant?reason=") { header("X-Member-Id", BOARD_ID) }
                 blankReason.status shouldBe HttpStatusCode.Conflict
-                statusOf(applicant) shouldBe MemberStatus.ANTRAG
+                statusOf(applicant) shouldBe MemberStatus.APPLICATION
 
                 val rejected =
                     client.post("/test/reject/$applicant?reason=Unvollstaendige+Unterlagen") { header("X-Member-Id", BOARD_ID) }
                 rejected.status shouldBe HttpStatusCode.OK
-                statusOf(applicant) shouldBe MemberStatus.ABGELEHNT
+                statusOf(applicant) shouldBe MemberStatus.REJECTED
 
                 val reason =
                     transaction { MemberTable.selectAll().where { MemberTable.id eq applicant }.single()[MemberTable.rejectionReason] }
@@ -310,7 +312,7 @@ class RegistrationServiceTest :
                     install(StatusPages) { installRegistrationExceptionHandlers() }
                     routing { registerRegistrationTestRoutes(LoginRateLimiter()) }
                 }
-                val applicant = createTestMember("reg-reject-session@example.org", MemberStatus.ANTRAG)
+                val applicant = createTestMember("reg-reject-session@example.org", MemberStatus.APPLICATION)
                 val session = SessionStore.createSession(applicant)
                 val otherSession = SessionStore.createSession(applicant)
 
@@ -321,7 +323,7 @@ class RegistrationServiceTest :
                 val rejected =
                     client.post("/test/reject/$applicant?reason=Unvollstaendige+Unterlagen") { header("X-Member-Id", BOARD_ID) }
                 rejected.status shouldBe HttpStatusCode.OK
-                statusOf(applicant) shouldBe MemberStatus.ABGELEHNT
+                statusOf(applicant) shouldBe MemberStatus.REJECTED
 
                 // Real behavioral assertion, same mechanism resolveCurrentMember uses in production --
                 // not a "was the method called" check.
@@ -336,11 +338,11 @@ class RegistrationServiceTest :
                     install(StatusPages) { installRegistrationExceptionHandlers() }
                     routing { registerRegistrationTestRoutes(LoginRateLimiter()) }
                 }
-                val applicant = createTestMember("reg-reject-no-session@example.org", MemberStatus.ANTRAG)
+                val applicant = createTestMember("reg-reject-no-session@example.org", MemberStatus.APPLICATION)
 
                 val rejected = client.post("/test/reject/$applicant?reason=Kein+Login") { header("X-Member-Id", BOARD_ID) }
                 rejected.status shouldBe HttpStatusCode.OK
-                statusOf(applicant) shouldBe MemberStatus.ABGELEHNT
+                statusOf(applicant) shouldBe MemberStatus.REJECTED
             }
         }
 
@@ -352,7 +354,7 @@ class RegistrationServiceTest :
                     install(StatusPages) { installRegistrationExceptionHandlers() }
                     routing { registerRegistrationTestRoutes(LoginRateLimiter()) }
                 }
-                val applicant = createTestMember("reg-race@example.org", MemberStatus.ANTRAG)
+                val applicant = createTestMember("reg-race@example.org", MemberStatus.APPLICATION)
 
                 val outcomes = runConcurrentApproveAndReject(client = client, applicantId = applicant)
 
@@ -360,7 +362,7 @@ class RegistrationServiceTest :
                 outcomes.count { it == HttpStatusCode.Conflict } shouldBe 1
 
                 val finalStatus = statusOf(applicant)
-                (finalStatus == MemberStatus.AKTIV || finalStatus == MemberStatus.ABGELEHNT) shouldBe true
+                (finalStatus == MemberStatus.ACTIVE || finalStatus == MemberStatus.REJECTED) shouldBe true
             }
         }
 
@@ -390,7 +392,7 @@ class RegistrationServiceTest :
                 happyPath.status shouldBe HttpStatusCode.OK
                 val memberId = requireNotNull(findMemberIdByEmail(email))
                 createdMemberIds += memberId
-                statusOf(memberId) shouldBe MemberStatus.AKTIV
+                statusOf(memberId) shouldBe MemberStatus.ACTIVE
 
                 val loginWorks = PasswordHasher.verify(rawPassword = STRONG_PASSWORD, storedHash = storedPasswordHashDirect(memberId))
                 loginWorks shouldBe true
@@ -435,18 +437,18 @@ class RegistrationServiceTest :
                     install(StatusPages) { installRegistrationExceptionHandlers() }
                     routing { registerRegistrationTestRoutes(LoginRateLimiter()) }
                 }
-                val member = createTestMember("reg-leave@example.org", MemberStatus.AKTIV)
+                val member = createTestMember("reg-leave@example.org", MemberStatus.ACTIVE)
                 val session = SessionStore.createSession(member)
                 val otherSession = SessionStore.createSession(member)
 
                 val response = client.post("/test/leave") { header("Authorization", "Bearer ${session.rawToken}") }
                 response.status shouldBe HttpStatusCode.OK
-                statusOf(member) shouldBe MemberStatus.AUSGETRETEN
+                statusOf(member) shouldBe MemberStatus.WITHDRAWN
 
                 SessionStore.resolve(session.rawToken) shouldBe null
                 SessionStore.resolve(otherSession.rawToken) shouldBe null
 
-                val applicant = createTestMember("reg-leave-antrag@example.org", MemberStatus.ANTRAG)
+                val applicant = createTestMember("reg-leave-antrag@example.org", MemberStatus.APPLICATION)
                 val applicantSession = SessionStore.createSession(applicant)
                 val secondLeave = client.post("/test/leave") { header("Authorization", "Bearer ${applicantSession.rawToken}") }
                 secondLeave.status shouldBe HttpStatusCode.Conflict
@@ -532,13 +534,25 @@ private fun StatusPagesConfig.installRegistrationExceptionHandlers() {
 
 /** Shared throwaway routes for [RegistrationService] -- mirrors [CrowdfundingServiceTest]'s `registerCrowdfundingTestRoutes` style. */
 private fun Route.registerRegistrationTestRoutes(rateLimiter: LoginRateLimiter) {
+    // V0.11.0: fresh throwaway instances per test-route-set, same convention `rateLimiter` above
+    // already establishes -- these two are exercised directly by FriendRegistrationTest, not here.
+    val friendRateLimiter = LoginRateLimiter()
+    val friendIpRateLimiter = FederationInboxRateLimiter()
+
+    fun registrationService(call: ApplicationCall) =
+        RegistrationService(
+            call = call,
+            registrationRateLimiter = rateLimiter,
+            friendRegistrationRateLimiter = friendRateLimiter,
+            friendSignupIpRateLimiter = friendIpRateLimiter,
+        )
     get("/test/agreement") {
-        val dto = RegistrationService(call = call, registrationRateLimiter = rateLimiter).getMembershipAgreement()
+        val dto = registrationService(call).getMembershipAgreement()
         call.respondText("${dto.version}:${dto.sha256}")
     }
     post("/test/register") {
         val q = call.request.queryParameters
-        RegistrationService(call = call, registrationRateLimiter = rateLimiter).registerApplication(
+        registrationService(call).registerApplication(
             RegistrationInput(
                 displayName = q["displayName"] ?: "Testmitglied",
                 email = q["email"]!!,
@@ -550,26 +564,22 @@ private fun Route.registerRegistrationTestRoutes(rateLimiter: LoginRateLimiter) 
         call.respondText("OK")
     }
     get("/test/pending") {
-        val list = RegistrationService(call = call, registrationRateLimiter = rateLimiter).listPendingApplications()
+        val list = registrationService(call).listPendingApplications()
         call.respondText(list.joinToString(",") { it.id })
     }
     post("/test/approve/{id}") {
-        val dto = RegistrationService(call = call, registrationRateLimiter = rateLimiter).approveApplication(call.parameters["id"]!!)
+        val dto = registrationService(call).approveApplication(call.parameters["id"]!!)
         call.respondText(dto.status.name)
     }
     post("/test/reject/{id}") {
         val reason = call.request.queryParameters["reason"] ?: ""
-        val dto =
-            RegistrationService(
-                call = call,
-                registrationRateLimiter = rateLimiter,
-            ).rejectApplication(memberId = call.parameters["id"]!!, reason = reason)
+        val dto = registrationService(call).rejectApplication(memberId = call.parameters["id"]!!, reason = reason)
         call.respondText(dto.status.name)
     }
     post("/test/create-direct") {
         val q = call.request.queryParameters
         val dto =
-            RegistrationService(call = call, registrationRateLimiter = rateLimiter).createMemberDirect(
+            registrationService(call).createMemberDirect(
                 AdminCreateMemberInput(
                     displayName = q["displayName"] ?: "Direktmitglied",
                     email = q["email"]!!,
@@ -580,7 +590,7 @@ private fun Route.registerRegistrationTestRoutes(rateLimiter: LoginRateLimiter) 
         call.respondText("${dto.id}:${dto.status}:${dto.role}")
     }
     post("/test/leave") {
-        val dto = RegistrationService(call = call, registrationRateLimiter = rateLimiter).leaveMembership()
+        val dto = registrationService(call).leaveMembership()
         call.respondText(dto.status.name)
     }
 }

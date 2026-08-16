@@ -67,7 +67,7 @@ class OidcGuestSessionTest :
 
             transaction {
                 val memberRow = MemberTable.selectAll().where { MemberTable.id eq memberId }.single()
-                memberRow[MemberTable.status] shouldBe MemberStatus.GAST
+                memberRow[MemberTable.status] shouldBe MemberStatus.GUEST
                 memberRow[MemberTable.displayName] shouldBe "Visiting Guest"
 
                 val accountRow = AccountTable.selectAll().where { AccountTable.memberId eq memberId }.single()
@@ -180,7 +180,7 @@ class OidcGuestSessionTest :
                     it[MemberTable.id] = id
                     it[displayName] = "Real Member, Not A Guest"
                     it[email] = "real-member-${Uuid.random()}@example.org"
-                    it[status] = MemberStatus.AKTIV
+                    it[status] = MemberStatus.ACTIVE
                     it[joinedAt] = kotlinx.datetime.LocalDate(2026, 1, 1)
                     it[membershipTierId] = null
                 }

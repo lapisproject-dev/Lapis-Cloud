@@ -17,7 +17,7 @@ import kotlinx.serialization.Serializable
 enum class ConferenceRole { MODERATOR, PARTICIPANT }
 
 /**
- * Role: MEMBER+, caller must be [MemberStatus.AKTIV]. Both fields are validated server-side
+ * Role: MEMBER+, caller must be [MemberStatus.ACTIVE]. Both fields are validated server-side
  * ([title] non-blank, at most 200 characters; [description] at most 1000 characters) -- see
  * [network.lapis.cloud.shared.rpc.IConferenceService.createRoom] KDoc. Wave 1's UI never surfaces
  * [description] as a user-facing field (D1 of the Wave 1 design review: "one button, no form") --
@@ -147,12 +147,12 @@ data class ConferenceParticipantDto(
     val live: Boolean,
     /**
      * Wave 5 "Föderations-Gastbeitritt": non-null ONLY for a participant whose member row is
-     * [MemberStatus.GAST] AND who has an `oidc_guest_profile` row -- `null` for every ordinary
+     * [MemberStatus.GUEST] AND who has an `oidc_guest_profile` row -- `null` for every ordinary
      * member. Drives `GuestBadge.kt`'s `guestBadge(homeserverUrl)` in the in-call roster, exactly
      * like `SessionInfoDto.homeserverUrl` already drives it in the navbar. Never derived
      * client-side -- a stale `oidc_guest_profile` row left behind on a member later promoted to
-     * AKTIV must NOT surface a guest badge for them, which is why the server-side query behind
-     * this field re-checks `member.status == GAST` on every read, not just presence of a profile
+     * ACTIVE must NOT surface a guest badge for them, which is why the server-side query behind
+     * this field re-checks `member.status == GUEST` on every read, not just presence of a profile
      * row (see `ConferenceService.listParticipants` KDoc).
      */
     val homeserverUrl: String? = null,
@@ -222,11 +222,12 @@ data class ConferenceGuestConsentDisclaimerDto(
  * client renders a precise German reason from (see
  * `network.lapis.cloud.client.conferenceGuestJoinBlockedReason`).
  *
- * [createdByMemberId]/[createdByDisplayName] (design review D14) let a GUEST see WHO the room's
- * moderator is -- the client's synthesized [ConferenceRoomDto] for an unjoined guest carries these
- * through unchanged; this does NOT grant the guest any moderator affordance (`canModerate` still
- * compares the CALLER's own id against `createdByMemberId`, which a GAST caller can never equal,
- * since [ConferenceRoomInput] is only ever submitted by an AKTIV caller via `createRoom`).
+ * [createdByMemberId]/[createdByDisplayName] (design review D14) let a GUEST (or, since V0.11.0, a
+ * FRIEND) see WHO the room's moderator is -- the client's synthesized [ConferenceRoomDto] for an
+ * unjoined guest carries these through unchanged; this does NOT grant the guest any moderator
+ * affordance (`canModerate` still compares the CALLER's own id against `createdByMemberId`, which
+ * a GUEST or FRIEND caller can never equal, since [ConferenceRoomInput] is only ever submitted by
+ * an ACTIVE caller via `createRoom`).
  * [organizationName] (`organization_settings.name`) is the DSGVO-verantwortliche Organisation
  * named by the disclaimer's layer-1 org line -- deliberately NOT part of the hashed
  * [ConferenceGuestConsentDisclaimerDto.text], see that class's own KDoc "The organization name is
@@ -241,8 +242,16 @@ data class ConferenceGuestJoinInfoDto(
     val organizationName: String,
     val createdByMemberId: String,
     val createdByDisplayName: String,
-    /** `true` iff the CALLER is [MemberStatus.GAST] -- lets the client pick the guest vs. moderator-preview rendering. */
+    /** `true` iff the CALLER is [MemberStatus.GUEST] specifically -- lets the client pick the federated-guest vs. moderator-preview rendering. Does NOT cover [MemberStatus.FRIEND]; see [callerIsNonMember] for that. */
     val callerIsGuest: Boolean,
+    /**
+     * V0.11.0 -- `true` iff the caller's status is in [network.lapis.cloud.shared.domain
+     * .MemberStatusSets.NON_MEMBER] (GUEST or FRIEND). Deliberately a SEPARATE field from
+     * [callerIsGuest] rather than overloading it, so the client can render the right copy for a
+     * FRIEND (no home server, unlike a federated GUEST) without conflating the two. Defaults to
+     * `false` so every pre-existing construction site of this DTO stays source-compatible.
+     */
+    val callerIsNonMember: Boolean = false,
     val disclaimer: ConferenceGuestConsentDisclaimerDto,
 )
 
@@ -250,7 +259,7 @@ data class ConferenceGuestJoinInfoDto(
  * Wave 5 -- proof the guest was shown the CURRENT disclaimer text. Same shape
  * [AuctionComplianceAcknowledgmentInput] already establishes. Read by
  * [network.lapis.cloud.shared.rpc.IConferenceService.joinRoom] ONLY for a
- * [MemberStatus.GAST] caller -- ignored (no side effect, no acknowledgment row written) for every
+ * [MemberStatus.GUEST] caller -- ignored (no side effect, no acknowledgment row written) for every
  * other caller, see that method's own KDoc.
  */
 @Serializable

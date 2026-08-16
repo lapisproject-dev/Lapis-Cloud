@@ -96,7 +96,7 @@ class BoardMembershipServiceTest :
         fun createTestMember(
             email: String,
             role: AccountRole = AccountRole.MEMBER,
-            status: MemberStatus = MemberStatus.AKTIV,
+            status: MemberStatus = MemberStatus.ACTIVE,
         ): Uuid {
             val id = Uuid.random()
             transaction {

@@ -200,31 +200,41 @@ private fun refreshNavbar(navbar: Navbar) {
     leftNav.navLink(tr("Dashboard"), url = "#${Routes.DASHBOARD}", icon = "fas fa-house")
     leftNav.navLink(tr("Videokonferenz"), url = "#${Routes.CONFERENCE}", icon = "fas fa-video")
 
-    // requireAuth-tier, unconditional for every authenticated member -- see `Routes.CONTRIBUTIONS`/
-    // `DOCUMENTS`/`COMMUNICATION`/`DSGVO_RIGHTS` KDoc for the per-route verification. "Meine Daten"
-    // self-adapts its content per role (ADMIN-only "Anträge verwalten" queue lives inside the
-    // screen) rather than forking the nav label, unchanged from the prior flat-list comment.
-    leftNav.dropDown(tr("Mitgliedschaft"), icon = "fas fa-id-card", forNavbar = true) {
-        ddLink(tr("Beiträge"), url = "#${Routes.CONTRIBUTIONS}", icon = "fas fa-coins")
-        ddLink(tr("Dokumente"), url = "#${Routes.DOCUMENTS}", icon = "fas fa-file-lines")
-        ddLink(tr("Kommunikation"), url = "#${Routes.COMMUNICATION}", icon = "fas fa-envelope")
-        ddLink(tr("Meine Daten"), url = "#${Routes.DSGVO_RIGHTS}", icon = "fas fa-shield-halved")
-    }
-    // requireAuth-tier -- see `Routes.COMMITTEES`/`MEETINGS`/`MOTIONS` KDoc.
-    leftNav.dropDown(tr("Selbstverwaltung"), icon = "fas fa-people-group", forNavbar = true) {
-        ddLink(tr("Gremien"), url = "#${Routes.COMMITTEES}", icon = "fas fa-people-group")
-        ddLink(tr("Sitzungen"), url = "#${Routes.MEETINGS}", icon = "fas fa-calendar-days")
-        ddLink(tr("Anträge"), url = "#${Routes.MOTIONS}", icon = "fas fa-file-signature")
-    }
-    // requireAuth-tier -- see `Routes.LTR_LEDGER`/`CROWDFUNDING`/`AUCTION`/`POLITICIANS` KDoc for
-    // the per-route verification; narrower role-gated sub-sections inside these screens (e.g.
-    // Auktion's ADMIN-only Verwaltung, Politiker's BOARD/ADMIN Verwaltung) are unchanged, still
-    // gated INSIDE the screen, not via separate nav entries.
-    leftNav.dropDown(tr("Wirtschaft"), icon = "fas fa-coins", forNavbar = true) {
-        ddLink(tr("LTR-Konto"), url = "#${Routes.LTR_LEDGER}", icon = "fas fa-wallet")
-        ddLink(tr("Crowdfunding"), url = "#${Routes.CROWDFUNDING}", icon = "fas fa-hand-holding-heart")
-        ddLink(tr("Auktion"), url = "#${Routes.AUCTION}", icon = "fas fa-gavel")
-        ddLink(tr("Politiker"), url = "#${Routes.POLITICIANS}", icon = "fas fa-landmark")
+    // requireAuth-tier, unconditional for every authenticated ORGANIZATION member -- see
+    // `Routes.CONTRIBUTIONS`/`DOCUMENTS`/`COMMUNICATION`/`DSGVO_RIGHTS` KDoc for the per-route
+    // verification. "Meine Daten" self-adapts its content per role (ADMIN-only "Anträge verwalten"
+    // queue lives inside the screen) rather than forking the nav label, unchanged from the prior
+    // flat-list comment.
+    //
+    // V0.11.0: all three dropdowns below are now additionally gated on `session.status !=
+    // MemberStatus.FRIEND` -- a self-registered FRIEND has no Beitragspflicht, no
+    // governance/accounting/LTR rights, and (since this wave's `canAccessDocumentAtLevel` fix) no
+    // PUBLIC_MEMBERS document access either, so showing these entries would only ever lead to a
+    // guaranteed-to-fail RPC call. Driven from `SessionInfoDto.status`, not a new client-side
+    // boolean, per this wave's own convention.
+    if (NavVisibility.showsOrganizationMemberDropdowns(session.status)) {
+        leftNav.dropDown(tr("Mitgliedschaft"), icon = "fas fa-id-card", forNavbar = true) {
+            ddLink(tr("Beiträge"), url = "#${Routes.CONTRIBUTIONS}", icon = "fas fa-coins")
+            ddLink(tr("Dokumente"), url = "#${Routes.DOCUMENTS}", icon = "fas fa-file-lines")
+            ddLink(tr("Kommunikation"), url = "#${Routes.COMMUNICATION}", icon = "fas fa-envelope")
+            ddLink(tr("Meine Daten"), url = "#${Routes.DSGVO_RIGHTS}", icon = "fas fa-shield-halved")
+        }
+        // requireAuth-tier -- see `Routes.COMMITTEES`/`MEETINGS`/`MOTIONS` KDoc.
+        leftNav.dropDown(tr("Selbstverwaltung"), icon = "fas fa-people-group", forNavbar = true) {
+            ddLink(tr("Gremien"), url = "#${Routes.COMMITTEES}", icon = "fas fa-people-group")
+            ddLink(tr("Sitzungen"), url = "#${Routes.MEETINGS}", icon = "fas fa-calendar-days")
+            ddLink(tr("Anträge"), url = "#${Routes.MOTIONS}", icon = "fas fa-file-signature")
+        }
+        // requireAuth-tier -- see `Routes.LTR_LEDGER`/`CROWDFUNDING`/`AUCTION`/`POLITICIANS` KDoc for
+        // the per-route verification; narrower role-gated sub-sections inside these screens (e.g.
+        // Auktion's ADMIN-only Verwaltung, Politiker's BOARD/ADMIN Verwaltung) are unchanged, still
+        // gated INSIDE the screen, not via separate nav entries.
+        leftNav.dropDown(tr("Wirtschaft"), icon = "fas fa-coins", forNavbar = true) {
+            ddLink(tr("LTR-Konto"), url = "#${Routes.LTR_LEDGER}", icon = "fas fa-wallet")
+            ddLink(tr("Crowdfunding"), url = "#${Routes.CROWDFUNDING}", icon = "fas fa-hand-holding-heart")
+            ddLink(tr("Auktion"), url = "#${Routes.AUCTION}", icon = "fas fa-gavel")
+            ddLink(tr("Politiker"), url = "#${Routes.POLITICIANS}", icon = "fas fa-landmark")
+        }
     }
     // Accounting UI wave, design decision D15 -- gated on TREASURER/BOARD/ADMIN (the same three
     // roles the LEDGER route itself requires), so a plain MEMBER never even sees this dropdown
@@ -273,7 +283,7 @@ private fun refreshNavbar(navbar: Navbar) {
     // V0.8.4 Guest Badge: a federated OIDC guest session gets a visual indicator in place of the
     // ordinary "(role)" display -- a non-guest session's display below is completely unchanged.
     // homeserverUrl != null is a defensive guard (see GuestBadge.kt guestBadge KDoc): it should
-    // always be set for a real guest (OidcGuestProfileTable is 1:1 with a GAST member), but the
+    // always be set for a real guest (OidcGuestProfileTable is 1:1 with a GUEST member), but the
     // DTO models it as nullable, so we don't force-unwrap without a check -- falling back to the
     // ordinary display is safer than crashing or showing a badge with no home-server text.
     if (session.isGuest && session.homeserverUrl != null) {

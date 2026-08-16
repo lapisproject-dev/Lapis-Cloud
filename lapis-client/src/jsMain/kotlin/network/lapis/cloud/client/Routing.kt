@@ -15,6 +15,12 @@ import network.lapis.cloud.shared.domain.AccountRole
 object Routes {
     const val LOGIN = "/login"
     const val REGISTER = "/register"
+
+    // V0.11.0 FRIEND self-registration -- see FriendRegistrationScreen KDoc. Deliberately a
+    // separate route from REGISTER, not a query-param variant of it: the two screens ask for
+    // acceptance of two different legal documents (FriendTermsDisclaimer vs.
+    // MembershipAgreementDisclaimer) and end on different confirmation copy.
+    const val REGISTER_FRIEND = "/register-friend"
     const val DASHBOARD = "/dashboard"
     const val MEMBERS = "/members"
     const val CONTRIBUTIONS = "/contributions"
@@ -127,7 +133,7 @@ object Routes {
     // member needs to *reach* this screen at all (`submitProject`/`listProjects`/`getProject`/
     // `getMyReaction`/`castReaction`/`retractReaction`/`listDistributions`) only calls
     // `resolveCurrentMember(call)` (`submitProject`/`castReaction`/`retractReaction` additionally
-    // gate on AKTIV membership INSIDE the transaction, not reachable as an `AccountRole` predicate)
+    // gate on ACTIVE membership INSIDE the transaction, not reachable as an `AccountRole` predicate)
     // -- no `requireRole` call guards any of them. This route therefore uses `requireAuth`, same
     // posture as [LTR_LEDGER]/the Governance UI wave routes above, NOT the Accounting UI wave's
     // route-level `requireRole`. The narrower BOARD/ADMIN tier (`approveProject`/`rejectProject`)
@@ -142,7 +148,7 @@ object Routes {
     // gate verified against `AuctionService.kt`: every method a plain member needs to *reach* this
     // screen at all (`createListing`/`placeBid`/`buyNow`/`getAuction`/`listAuctions`/`listMyBids`/
     // `listMyAuctions`/`settleAuction`) only calls `resolveCurrentMember(call)`
-    // (`createListing`/`placeBid`/`buyNow`/`settleAuction` additionally gate on AKTIV membership
+    // (`createListing`/`placeBid`/`buyNow`/`settleAuction` additionally gate on ACTIVE membership
     // INSIDE the transaction, not reachable as an `AccountRole` predicate, same reasoning
     // [LTR_LEDGER]/[CROWDFUNDING] already document) -- no `requireRole` call guards any of them.
     // This route therefore uses `requireAuth`, same posture as [LTR_LEDGER]/[CROWDFUNDING], NOT the
@@ -161,7 +167,7 @@ object Routes {
     // verified against `PoliticianService.kt`: every method a plain member needs to *reach* this
     // screen at all (`listPoliticians`/`getPoliticianProfile`/`getTopPoliticians`/`getMyRating`/
     // `getWeightHistory`/`castRating`/`retractRating`) only calls `resolveCurrentMember(call)`
-    // (`castRating`/`retractRating` additionally gate on AKTIV-OR-GAST membership INSIDE the
+    // (`castRating`/`retractRating` additionally gate on ACTIVE-OR-GUEST membership INSIDE the
     // transaction, not reachable as an `AccountRole` predicate, same reasoning [LTR_LEDGER]/
     // [CROWDFUNDING]/[AUCTION] already document) -- no `requireRole` call guards any of them. This
     // route therefore uses `requireAuth`, same posture as [LTR_LEDGER]/[CROWDFUNDING]/[AUCTION], NOT
@@ -202,8 +208,9 @@ object Routes {
     // exactly like those routes' own in-screen `canTreasury`/`canBoard`/`canAdmin` splits.
     //
     // V1.0 Videokonferenzen, Wave 5 "Föderations-Gastbeitritt" -- `requireAuth` alone already
-    // admits a GAST session (`AppState.session?.isGuest`, never separately checked by this route),
-    // so `joinRoom` is now AKTIV-unconditional-or-(GAST + the target room's own
+    // admits a GUEST (or, since V0.11.0, a FRIEND) session (`AppState.session?.isGuest`, never
+    // separately checked by this route), so `joinRoom` is now
+    // ACTIVE-unconditional-or-(GUEST/FRIEND + the target room's own
     // `allowFederationGuests` opt-in + a current consent acknowledgment) -- see
     // `IConferenceService` KDoc "Federated guest join". `ConferenceScreen.kt` branches this route's
     // OWN rendering on `isGuest` (`renderGuestLobby` vs. `renderLobby`), never a second route.
@@ -284,6 +291,13 @@ fun initRouting(pageContainer: SimplePanel) {
             routing.navigate(Routes.DASHBOARD)
         } else {
             show(::renderRegistrationScreen)
+        }
+    }
+    routing.kvOn(Routes.REGISTER_FRIEND) {
+        if (AppState.isAuthenticated) {
+            routing.navigate(Routes.DASHBOARD)
+        } else {
+            show(::renderFriendRegistrationScreen)
         }
     }
     routing.kvOn(Routes.DASHBOARD) {

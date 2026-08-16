@@ -85,4 +85,21 @@ class ConferenceGuestConsentDisclaimerTest :
             text shouldNotContain "Datenschutzerklaerung"
             text shouldNotContain "fuer"
         }
+
+        test("does not overclaim a home server for every guest") {
+            // V0.11.0 FRIEND wave: HEADLINE used to claim "Sie treten als Gast eines anderen
+            // Servers bei." -- true for a federated GUEST but false for a self-registered FRIEND,
+            // who has no other server at all. See class KDoc on DETAIL.
+            ConferenceGuestConsentDisclaimer.HEADLINE shouldNotContain "eines anderen Servers"
+            ConferenceGuestConsentDisclaimer.TEXT shouldNotContain "eines anderen Servers"
+            // The home-server disclosure must now be conditional ("Treten Sie ... bei"), not a
+            // blanket claim that every guest has one.
+            ConferenceGuestConsentDisclaimer.TEXT shouldContain "föderierten"
+        }
+
+        test("discloses FRIEND's display name is unverified") {
+            val text = ConferenceGuestConsentDisclaimer.TEXT
+            text shouldContain "Freund-Konto"
+            text shouldContain "NICHT verifiziert"
+        }
     })

@@ -47,8 +47,8 @@ import kotlin.time.Clock
  * plain `AppState.hasRole(BOARD, ADMIN)` check, same posture as `DocumentsScreen.canManage` -- a UX
  * nicety on top of the server's real authority, not the actual security boundary.
  *
- * "Add committee member" non-AKTIV-target requirement (plan §5): the member picker is populated
- * from `IMemberService.listMembers()`, which is already AKTIV-filtered server-side -- a non-AKTIV
+ * "Add committee member" non-ACTIVE-target requirement (plan §5): the member picker is populated
+ * from `IMemberService.listMembers()`, which is already ACTIVE-filtered server-side -- a non-ACTIVE
  * member simply cannot be selected through this form in the first place. The only residual case is
  * a race (status changes between page load and submit), which correctly falls through to
  * `guarded()`'s generic "Keine Berechtigung für diese Aktion" toast -- both the caller-role check
@@ -367,9 +367,9 @@ private fun endCommitteeMembershipDialog(
 }
 
 /**
- * Member picker sourced from `IMemberService.listMembers()` -- same AKTIV-filtered directory
+ * Member picker sourced from `IMemberService.listMembers()` -- same ACTIVE-filtered directory
  * `MemberAdministrationScreen.renderMemberDirectory` already uses (see plan §5: this structurally
- * satisfies "clear error for a non-AKTIV target", a non-AKTIV member cannot be selected here).
+ * satisfies "clear error for a non-ACTIVE target", a non-ACTIVE member cannot be selected here).
  */
 private fun renderAddCommitteeMemberForm(
     panel: SimplePanel,

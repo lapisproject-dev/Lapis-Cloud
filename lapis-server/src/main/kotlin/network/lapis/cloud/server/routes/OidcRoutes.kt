@@ -61,6 +61,7 @@ import network.lapis.cloud.server.security.SESSION_COOKIE_NAME
 import network.lapis.cloud.server.security.SessionStore
 import network.lapis.cloud.server.security.SessionTokens
 import network.lapis.cloud.server.security.resolveCurrentMember
+import network.lapis.cloud.shared.domain.MemberStatusSets
 import network.lapis.cloud.shared.domain.OidcLoginEventType
 import org.jetbrains.exposed.v1.core.and
 import org.jetbrains.exposed.v1.core.eq
@@ -1186,6 +1187,30 @@ private suspend fun issueTokens(
             OIDC_JSON.encodeToString(OidcTokenErrorDto.serializer(), OidcTokenErrorDto(error = "server_error")),
             contentType = io.ktor.http.ContentType.Application.Json,
             status = HttpStatusCode.InternalServerError,
+        )
+        return
+    }
+    // V0.11.0 security fix -- the single most severe gap the FRIEND wave forced into the open: this
+    // OP issued ID tokens (an outward-facing "this member is a GUEST of a trusted org" federation
+    // credential) with NO membership-status gate at all. Before FRIEND existed this already let any
+    // logged-in APPLICATION/GUEST caller federate outward; a self-service FRIEND account would have
+    // turned this endpoint into an open identity-laundering service -- anyone self-registers as
+    // FRIEND here, then walks into any federated partner org as "a GUEST from a trusted home
+    // server". Checked on EVERY call to issueTokens -- i.e. both the authorization_code grant AND
+    // the refresh_token grant (the latter re-issues from a stored memberId without otherwise
+    // re-validating the subject, see the refresh_token grant handler above), so a status change
+    // between grants (e.g. leaveMembership) takes effect on the very next refresh.
+    if (memberRow[MemberTable.status] !in MemberStatusSets.ORGANIZATION_MEMBER) {
+        OidcLoginAuditRecorder.record(
+            eventType = OidcLoginEventType.ISSUER_TOKEN_ISSUE_FAILED,
+            memberId = memberId,
+            remoteParty = clientId,
+            reason = "MEMBER_NOT_ORGANIZATION_MEMBER",
+        )
+        call.respondText(
+            OIDC_JSON.encodeToString(OidcTokenErrorDto.serializer(), OidcTokenErrorDto(error = "invalid_grant")),
+            contentType = io.ktor.http.ContentType.Application.Json,
+            status = HttpStatusCode.BadRequest,
         )
         return
     }

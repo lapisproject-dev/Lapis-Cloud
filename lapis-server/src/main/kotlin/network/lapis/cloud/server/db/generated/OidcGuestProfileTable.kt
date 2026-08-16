@@ -8,7 +8,7 @@ import org.jetbrains.exposed.v1.core.Column
 import org.jetbrains.exposed.v1.core.Table
 import org.jetbrains.exposed.v1.datetime.datetime
 
-/** RP side: guest-specific profile fields that don't belong on the shared member/account tables -- 1:1 with a local `Member(status=GAST)` row. Carries personal data, covered by [network.lapis.cloud.server.dsgvo.OidcGuestPersonalData]. */
+/** RP side: guest-specific profile fields that don't belong on the shared member/account tables -- 1:1 with a local `Member(status=GUEST)` row. Carries personal data, covered by [network.lapis.cloud.server.dsgvo.OidcGuestPersonalData]. */
 public object OidcGuestProfileTable : Table("oidc_guest_profile") {
     public val id: Column<Uuid> = uuid("id")
     public val memberId: Column<Uuid> = reference("member_id", MemberTable.id)

@@ -91,15 +91,15 @@ private val ZERO_WEIGHT_RESULT =
  * profile is left `status=FORMER`: whichever transaction wins the lock commits fully (delete-then-
  * flip, or insert-then-commit) before the other proceeds, and if revoke wins second it re-reads and
  * sweeps up whatever the rating transaction just committed. The guest-rating addition below follows
- * this EXACT SAME discipline -- [requireActiveOrGuestMembership] is a plain unlocked read of the
+ * this EXACT SAME discipline -- [requirePoliticianRaterMembership] is a plain unlocked read of the
  * rater's own row, in the identical position [requireActiveMembership] always occupied, so no new
- * race class is introduced by allowing a GAST-status rater through.
+ * race class is introduced by allowing a GUEST-status rater through.
  *
  * ## Guest-rating weighting (closes the V0.6.4 scope cut)
  *
- * [castRating]/[retractRating] now accept a [MemberStatus.GAST] caller too (via
- * [requireActiveOrGuestMembership], not [requireActiveMembership]) now that V0.8.2's OIDC
- * guest-identity federation makes GAST a real, reachable status. [PoliticianReactionDto.raterType]
+ * [castRating]/[retractRating] now accept a [MemberStatus.GUEST] caller too (via
+ * [requirePoliticianRaterMembership], not [requireActiveMembership]) now that V0.8.2's OIDC
+ * guest-identity federation makes GUEST a real, reachable status. [PoliticianReactionDto.raterType]
  * ([network.lapis.cloud.shared.domain.PoliticianRaterType]) is frozen at cast time from the
  * rater's status at that moment. [computeWeights] splits `politician_reaction` by [raterType] and
  * feeds each half through a DELIBERATELY DIFFERENT calculation:
@@ -242,9 +242,9 @@ class PoliticianService(
 
     /**
      * See class KDoc "Revoke-vs-rate concurrency" -- locks the profile row FOR UPDATE before
-     * reading its status. [requireActiveOrGuestMembership] gates the RATER's own membership status
+     * reading its status. [requirePoliticianRaterMembership] gates the RATER's own membership status
      * (a plain read on [MemberTable], unrelated to the profile lock above) -- see class KDoc
-     * "Guest-rating weighting" for why this is [requireActiveOrGuestMembership], not
+     * "Guest-rating weighting" for why this is [requirePoliticianRaterMembership], not
      * [requireActiveMembership], since the guest-rating wave.
      */
     override suspend fun castRating(
@@ -256,8 +256,8 @@ class PoliticianService(
         val targetMemberId = politicianMemberId.toMemberUuidOrThrow()
         val now = nowLocalDateTime()
         return transaction {
-            val raterStatus = requireActiveOrGuestMembership(current.memberId)
-            val raterType = if (raterStatus == MemberStatus.GAST) PoliticianRaterType.GAST else PoliticianRaterType.MEMBER
+            val raterStatus = requirePoliticianRaterMembership(current.memberId)
+            val raterType = if (raterStatus == MemberStatus.GUEST) PoliticianRaterType.GAST else PoliticianRaterType.MEMBER
             val profileRow = requireProfileRowByMember(memberId = targetMemberId, forUpdate = true)
             if (profileRow[PoliticianProfileTable.status] != PoliticianProfileStatus.ACTIVE) {
                 throw ConflictException("PoliticianProfile for member $targetMemberId is not ACTIVE -- ratings are not open")
@@ -288,7 +288,7 @@ class PoliticianService(
                         it[reactionValue] = value
                         // Re-freshed on every recast (cheap) rather than relying on an unstated
                         // "raterType never changes for a memberId" invariant -- a member's status
-                        // could in principle change between casts (e.g. GAST -> AKTIV onboarding).
+                        // could in principle change between casts (e.g. GUEST -> ACTIVE onboarding).
                         it[PoliticianReactionTable.raterType] = raterType
                         it[castAt] = now
                     }
@@ -302,13 +302,13 @@ class PoliticianService(
         }
     }
 
-    /** See [castRating] KDoc -- same [requireActiveOrGuestMembership] gate. */
+    /** See [castRating] KDoc -- same [requirePoliticianRaterMembership] gate. */
     override suspend fun retractRating(politicianMemberId: String) {
         val current = resolveCurrentMember(call)
         requirePoliticianRankingEnabled()
         val targetMemberId = politicianMemberId.toMemberUuidOrThrow()
         transaction {
-            requireActiveOrGuestMembership(current.memberId)
+            requirePoliticianRaterMembership(current.memberId)
             val profileRow = requireProfileRowByMember(memberId = targetMemberId, forUpdate = true)
             val profileId = profileRow[PoliticianProfileTable.id]
             PoliticianReactionTable.deleteWhere {
@@ -320,7 +320,7 @@ class PoliticianService(
     /**
      * Deliberately NOT gated on [requireActiveMembership] -- unlike [castRating]/[retractRating],
      * this is a read of the caller's own state, and a member whose status changed after casting a
-     * rating (e.g. AKTIV -> AUSGETRETEN) must still be able to see what they previously voted,
+     * rating (e.g. ACTIVE -> WITHDRAWN) must still be able to see what they previously voted,
      * same "no status check on a read of one's own state" precedent
      * [ICrowdfundingService.getMyReaction] already establishes.
      */

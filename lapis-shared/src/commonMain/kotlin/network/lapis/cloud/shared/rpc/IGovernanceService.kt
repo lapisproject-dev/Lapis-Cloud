@@ -155,7 +155,7 @@ interface IGovernanceService {
     suspend fun generateProtocolDraft(meetingId: String): ProtocolDraftDto
 
     /**
-     * Role: any member with [network.lapis.cloud.shared.domain.MemberStatus.AKTIV] when the
+     * Role: any member with [network.lapis.cloud.shared.domain.MemberStatus.ACTIVE] when the
      * target is the General Assembly; any active [CommitteeMembershipDto] (any
      * [network.lapis.cloud.shared.domain.CommitteeRole]) of the target Committee otherwise; or
      * BOARD/ADMIN. See `GovernanceAuthorization.canSubmitMotion`.

@@ -61,7 +61,7 @@ class AuthService(
     override suspend fun getSessionInfo(): SessionInfoDto {
         val current = resolveCurrentMember(call)
         // Left-join onto OidcGuestProfileTable (V0.8.4 Guest Badge): yields a non-null
-        // homeserverUrl for a genuine GAST member (always has a 1:1 profile row -- see
+        // homeserverUrl for a genuine GUEST member (always has a 1:1 profile row -- see
         // OidcGuestMemberStore.resolveOrCreateGuestMember) and null for a real, non-guest member
         // (no matching row) -- no separate `if (isGuest)` branch/query needed.
         val (displayName, homeserverUrl) =
@@ -87,6 +87,7 @@ class AuthService(
             expiresAt = expiresAt,
             isGuest = current.isGuest,
             homeserverUrl = homeserverUrl,
+            status = current.status,
         )
     }
 }

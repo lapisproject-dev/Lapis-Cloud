@@ -106,7 +106,7 @@ class ElectionServiceTest :
 
         fun createTestMember(
             email: String,
-            status: MemberStatus = MemberStatus.AKTIV,
+            status: MemberStatus = MemberStatus.ACTIVE,
         ): Uuid {
             val id = Uuid.random()
             transaction {
@@ -686,7 +686,7 @@ class ElectionServiceTest :
                 val committeeId = createTestCommittee("Board Gate Antrag")
                 val chair = createTestMember("election-boardgate-antrag-chair@example.org")
                 addMember(committeeId, chair, CommitteeRole.CHAIR)
-                val applicant = createTestMember("election-boardgate-antrag-applicant@example.org", status = MemberStatus.ANTRAG)
+                val applicant = createTestMember("election-boardgate-antrag-applicant@example.org", status = MemberStatus.APPLICATION)
                 val others = (1..3).map { createTestMember("election-boardgate-antrag-other$it@example.org") }
 
                 val meetingId = createTestMeeting(committeeId, LocalDateTime(2026, 9, 1, 18, 0))
@@ -771,7 +771,7 @@ class ElectionServiceTest :
                 // exactly the residual window canStandAsCandidate's submission-time-only check
                 // cannot cover.
                 transaction {
-                    MemberTable.update({ MemberTable.id eq candidate }) { it[status] = MemberStatus.AUSGETRETEN }
+                    MemberTable.update({ MemberTable.id eq candidate }) { it[status] = MemberStatus.WITHDRAWN }
                 }
 
                 val tallyResponse = client.post("/test/tally/$electionId") { header("X-Member-Id", electionBoardMembers[0].toString()) }
@@ -855,7 +855,7 @@ class ElectionServiceTest :
                 val committeeId = createTestCommittee("Antrag Gate Executive Board")
                 val chair = createTestMember("election-antrag-chair@example.org")
                 addMember(committeeId, chair, CommitteeRole.CHAIR)
-                val applicant = createTestMember("election-antrag-applicant@example.org", status = MemberStatus.ANTRAG)
+                val applicant = createTestMember("election-antrag-applicant@example.org", status = MemberStatus.APPLICATION)
                 addMember(committeeId, applicant, CommitteeRole.MEMBER)
                 val electionBoardMembers = (1..3).map { createTestMember("election-antrag-wv$it@example.org") }
 
@@ -887,7 +887,7 @@ class ElectionServiceTest :
                 val committeeId = createTestCommittee("Ausgetreten Gate Executive Board")
                 val chair = createTestMember("election-ausgetreten-chair@example.org")
                 addMember(committeeId, chair, CommitteeRole.CHAIR)
-                val departed = createTestMember("election-ausgetreten-departed@example.org", status = MemberStatus.AUSGETRETEN)
+                val departed = createTestMember("election-ausgetreten-departed@example.org", status = MemberStatus.WITHDRAWN)
                 addMember(committeeId, departed, CommitteeRole.MEMBER)
                 val electionBoardMembers = (1..3).map { createTestMember("election-ausgetreten-wv$it@example.org") }
 
@@ -919,7 +919,7 @@ class ElectionServiceTest :
                 val committeeId = createTestCommittee("Aktiv Regression Executive Board")
                 val chair = createTestMember("election-aktiv-regression-chair@example.org")
                 addMember(committeeId, chair, CommitteeRole.CHAIR)
-                val member = createTestMember("election-aktiv-regression-member@example.org", status = MemberStatus.AKTIV)
+                val member = createTestMember("election-aktiv-regression-member@example.org", status = MemberStatus.ACTIVE)
                 addMember(committeeId, member, CommitteeRole.MEMBER)
                 val electionBoardMembers = (1..3).map { createTestMember("election-aktiv-regression-wv$it@example.org") }
 

@@ -69,7 +69,7 @@
 //    documents for `ltr_ledger_entry`).
 //
 // **Wave 5 "Föderations-Gastbeitritt" addition**: `conference_room.allowFederationGuests`
-// (default `false`) -- the per-room opt-in that gates `MemberStatus.GAST` out of `joinRoom` unless
+// (default `false`) -- the per-room opt-in that gates `MemberStatus.GUEST` out of `joinRoom` unless
 // its creator/moderator explicitly enables it. Every room created before this wave (and every room
 // created by the D1 one-click flow, which never sets it) is guest-CLOSED by default -- loosening
 // `joinRoom` without this column would have made every existing and future room guest-joinable
@@ -184,7 +184,7 @@ classDiagram(name = "Conference") {
             stereotype("Column") { "columnName" to "max_participants" }
         }
         // V1.0 Videokonferenzen, Wave 5 "Föderations-Gastbeitritt" -- the per-room opt-in that
-        // gates MemberStatus.GAST out of joinRoom. Defaults to FALSE so every room created before
+        // gates MemberStatus.GUEST out of joinRoom. Defaults to FALSE so every room created before
         // this wave (and every room created by the D1 one-click flow) is guest-CLOSED unless its
         // creator/moderator explicitly opts in -- loosening joinRoom without this column would
         // have made every existing and future room guest-joinable with zero creator consent. Set

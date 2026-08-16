@@ -14,8 +14,8 @@ enum class PoliticianProfileStatus { ACTIVE, FORMER }
 enum class PoliticianReactionValue { LIKE, DISLIKE }
 
 /**
- * Distinguishes who cast a [PoliticianReactionDto] -- MEMBER for an [MemberStatus.AKTIV] member,
- * GAST for a federated OIDC guest ([MemberStatus.GAST]). Frozen at cast time on
+ * Distinguishes who cast a [PoliticianReactionDto] -- MEMBER for an [MemberStatus.ACTIVE] member,
+ * GAST for a federated OIDC guest ([MemberStatus.GUEST]). Frozen at cast time on
  * `politician_reaction.rater_type`, NOT re-derived from the rater's current status on every read
  * -- a historical fact about HOW this vote was cast, same "immutable historical fact" character
  * `cast_at` itself already has. Introduced in the guest-rating wave that closes V0.6.4's own

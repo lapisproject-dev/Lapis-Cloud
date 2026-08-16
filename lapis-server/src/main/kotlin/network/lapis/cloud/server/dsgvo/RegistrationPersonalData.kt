@@ -3,6 +3,8 @@ package network.lapis.cloud.server.dsgvo
 import kotlinx.serialization.json.buildJsonArray
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
+import network.lapis.cloud.server.db.generated.FriendEmailVerificationTokenTable
+import network.lapis.cloud.server.db.generated.FriendTermsAcknowledgmentTable
 import network.lapis.cloud.server.db.generated.MembershipAgreementAcknowledgmentTable
 import network.lapis.cloud.server.db.generated.PasswordResetTokenTable
 import network.lapis.cloud.shared.domain.ErasureMode
@@ -31,6 +33,15 @@ import kotlin.uuid.Uuid
  *   authorizes a password change), not an activity record anyone has a legal or organizational
  *   interest in keeping -- same "no retention duty" treatment [SessionPersonalData] already
  *   applies to `session` for the identical reason.
+ *
+ * **V0.11.0 FRIEND self-registration additions -- both hard-deleted, no retention duty:**
+ * - **[FriendTermsAcknowledgmentTable]**: unlike [MembershipAgreementAcknowledgmentTable] (a real
+ *   private-law Beitrittsvertrag consent record with a genuine accountability retention duty), the
+ *   FRIEND terms acknowledgment documents a much smaller, non-contractual act (see
+ *   [network.lapis.cloud.server.rpc.FriendTermsDisclaimer] KDoc) with no comparable retention
+ *   interest -- hard-deleted just like [PasswordResetTokenTable].
+ * - **[FriendEmailVerificationTokenTable]**: same "purely transient access-control artifact" reasoning
+ *   as [PasswordResetTokenTable] -- hard-deleted regardless of [ErasureMode].
  */
 object RegistrationPersonalData : PersonalDataContributor {
     override val sectionKey = "registration"
@@ -39,6 +50,8 @@ object RegistrationPersonalData : PersonalDataContributor {
         setOf(
             MembershipAgreementAcknowledgmentTable,
             PasswordResetTokenTable,
+            FriendTermsAcknowledgmentTable,
+            FriendEmailVerificationTokenTable,
         )
 
     override fun export(memberId: Uuid) =
@@ -60,9 +73,27 @@ object RegistrationPersonalData : PersonalDataContributor {
                         }
                 },
             )
-            // password_reset_token deliberately NOT exported -- a hash of a bearer secret, not
-            // meaningful personal data on its own, same reasoning SessionPersonalData already
-            // gives for omitting SessionTable.tokenHash from its own export.
+            // password_reset_token / friend_email_verification_token deliberately NOT exported --
+            // a hash of a bearer secret, not meaningful personal data on its own, same reasoning
+            // SessionPersonalData already gives for omitting SessionTable.tokenHash from its own
+            // export.
+            put(
+                "friendTermsAcknowledgments",
+                buildJsonArray {
+                    FriendTermsAcknowledgmentTable
+                        .selectAll()
+                        .where { FriendTermsAcknowledgmentTable.memberId eq memberId }
+                        .forEach { row ->
+                            add(
+                                buildJsonObject {
+                                    put("id", row[FriendTermsAcknowledgmentTable.id].toString())
+                                    put("termsVersion", row[FriendTermsAcknowledgmentTable.termsVersion])
+                                    put("acknowledgedAt", row[FriendTermsAcknowledgmentTable.acknowledgedAt].toString())
+                                },
+                            )
+                        }
+                },
+            )
         }
 
     override fun erase(
@@ -75,6 +106,9 @@ object RegistrationPersonalData : PersonalDataContributor {
                 .where { MembershipAgreementAcknowledgmentTable.memberId eq memberId }
                 .count()
         val tokensDeleted = PasswordResetTokenTable.deleteWhere { PasswordResetTokenTable.memberId eq memberId }
+        val friendTermsDeleted = FriendTermsAcknowledgmentTable.deleteWhere { FriendTermsAcknowledgmentTable.memberId eq memberId }
+        val friendTokensDeleted =
+            FriendEmailVerificationTokenTable.deleteWhere { FriendEmailVerificationTokenTable.memberId eq memberId }
 
         return listOf(
             TableErasureOutcome(
@@ -85,6 +119,8 @@ object RegistrationPersonalData : PersonalDataContributor {
                         "reason as auction_compliance_acknowledgment (Art. 17(3)(b) DSGVO).",
             ),
             TableErasureOutcome(table = "password_reset_token", rowsDeleted = tokensDeleted),
+            TableErasureOutcome(table = "friend_terms_acknowledgment", rowsDeleted = friendTermsDeleted),
+            TableErasureOutcome(table = "friend_email_verification_token", rowsDeleted = friendTokensDeleted),
         )
     }
 }

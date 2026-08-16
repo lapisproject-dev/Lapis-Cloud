@@ -6,6 +6,96 @@ All notable changes to this project are documented here. Format follows
 
 ## [Unreleased]
 
+### Added
+
+**`FRIEND` — a self-registerable, board-approval-free account for video-conference-only participation (V0.11.0)**
+
+A new `MemberStatus.FRIEND`: anyone can create one at `/register-friend` with just a name, email
+and password (after echoing back the current, versioned+hashed FRIEND terms of use) — no board
+approval, no identity verification. Scope is deliberately narrow: video-conference access only, on
+a per-room opt-in basis (a room's moderator must explicitly enable `allowFederationGuests`, which
+defaults `false` on every room). A FRIEND has no Beitragspflicht, no governance/accounting/LTR
+rights, and no `PUBLIC_MEMBERS` document access. `registerFriend` is rate-limited by IP and email
+(separate limiter budget from the existing membership-application endpoint) plus a global
+`LAPIS_FRIEND_MAX_ACCOUNTS` account cap (default 500). Email verification mechanics exist
+(`friend_email_verification_token`, 24h TTL) but enforcement stays behind
+`LAPIS_FRIEND_REQUIRE_EMAIL_VERIFICATION` (default `false`) — no real SMTP transport exists
+anywhere in this codebase yet, see `FriendVerificationMailer` KDoc.
+
+A FRIEND can self-upgrade to a real membership application at any time (`applyForMembership`,
+`FRIEND -> APPLICATION`) without losing its account or session (`member.friend_since` is retained
+through the transition); conference access, however, IS lost for the duration of the application --
+`status` becomes `APPLICATION`, which is outside the conference-eligible status set, same as any
+other applicant -- and is only regained on a board decision: approval (`-> ACTIVE`) or rejection,
+which falls back to `FRIEND` rather than the terminal `REJECTED` (thanks to the retained
+`friend_since`), so a declined membership application never destroys the underlying friend account.
+
+Client: a new `/register-friend` self-registration screen (linked from the login screen), and the
+"Mitgliedschaft"/"Selbstverwaltung"/"Wirtschaft" nav dropdowns are now hidden for a FRIEND session.
+
+### Changed
+
+**`MemberStatus` literals renamed German → English (breaking change, see below)**
+
+`ANTRAG` → `APPLICATION`, `AKTIV` → `ACTIVE`, `GAST` → `GUEST`, `AUSGETRETEN` → `WITHDRAWN`,
+`ABGELEHNT` → `REJECTED`. Purely a rename — no behavioral change to the existing five statuses.
+This is a **breaking change for any external API/OIDC federation consumer**: the RPC wire value of
+`MemberDto.status` and the OIDC `membership_status` ID-token claim (`OidcRoutes.issueTokens`) both
+now emit the English literal instead of the German one. Federation partners degrade gracefully —
+the receiving side stores the claim opaquely and never parses/compares it (`OidcGuestProfileTable
+.membershipStatus`, DSGVO-export-only) — but any *other* integration that pattern-matches on the
+old German strings will need updating.
+
+**`canAccessDocumentAtLevel(PUBLIC_MEMBERS)` — security fix, closes a pre-existing gap**
+
+Was a denylist of exactly one status (`!isGuest`) — this silently granted `PUBLIC_MEMBERS`
+document access to `MemberStatus.APPLICATION` (an applicant who *can* log in, since `AuthRoutes`
+only blocks `WITHDRAWN`/`REJECTED`) as well as, without this fix, the new `FRIEND` status. Rewritten
+as a positive check: `status in MemberStatusSets.ORGANIZATION_MEMBER` (currently just `ACTIVE`).
+Existing member-facing behavior is unchanged; a pending applicant no longer reads internal
+documents before being admitted.
+
+**OIDC OP token issuance now requires organization membership — the most severe fix in this wave**
+
+`OidcRoutes.issueTokens` (both the `authorization_code` exchange and the `refresh_token` grant) had
+no membership-status gate at all: any logged-in caller — including `APPLICATION`, and now
+self-service `FRIEND` — could obtain a federation ID token asserting itself as a member of this
+organization to a partner server. Fixed: `issueTokens` now refuses unless the subject's status is
+in `MemberStatusSets.ORGANIZATION_MEMBER`, checked on every call including a refresh, so a status
+change (e.g. `leaveMembership`) takes effect on the very next token refresh.
+
+**Other endpoints gained a membership-status gate they were previously missing** (pre-existing
+gaps found while auditing the FRIEND wave's blast radius, not new regressions):
+`DirectMessageService` (all five methods — any authenticated caller could DM any member id,
+unthrottled), `MailingService.listMailingLists`/`subscribe`/`unsubscribe`, `LtrLedgerService
+.getMyBalance`/`listMyEntries` (defence in depth), and `DocumentService.listFolders` (previously
+did not even call `resolveCurrentMember` — the folder tree was readable with no session at all;
+folder *names* remain visible to any authenticated caller, only folder *contents* were ever
+access-controlled — a schema change to add per-folder access levels is out of scope for this wave).
+
+**Conference-room access — `FRIEND` admitted on the same terms as a federated `GUEST`**
+
+`allowFederationGuests` per-room opt-in (defaults `false`) now gates every non-member status
+(`GUEST` and `FRIEND`), not just `GUEST` — a self-registered `FRIEND` would otherwise have gotten
+*broader* room access than a federated `GUEST`, which at least proved an identity at a trusted home
+server. Room enumeration (`listActiveRooms`/`getRoom`/`createRoom`) stays `ACTIVE`-only for both.
+The guest-consent disclaimer text was revised to also disclose that a `FRIEND`'s display name is
+unverified (a version bump — clients must re-fetch it via `getGuestJoinInfo`).
+
+### Operator notes
+
+**pdv2 — Flyway `V3__member_status_english_and_friend.sql` required before this wave can deploy
+there.** `V1__baseline.sql` was edited in place (English `CHECK` literal set + `FRIEND` +
+`friend_since`/`email_verified_at`/the two new FRIEND tables) **and** a genuinely new, idempotent
+`V3` migration ships alongside it, rewriting any existing German-valued `member.status` rows on an
+already-migrated database. A plain `flyway migrate` on `pdv2`'s next deploy picks it up — no
+`flyway repair` needed, `V3` is a new file, not a checksum change to an already-applied one.
+**This migration rewrites live production rows** (unlike `V2`, which only added columns) — take a
+`pg_dump` of the `member` table before deploying. The `DROP CONSTRAINT IF EXISTS
+member_status_check` step targets PostgreSQL's auto-naming convention for the pre-rename baseline's
+unnamed `CHECK` constraint — run `\d member` on `pdv2` before the deploy to confirm that name is
+actually what's there.
+
 ### Fixed
 
 **GRID/SPEAKER egress still failed after the shm_size fix -- real cause was hairpin-NAT, not Chrome memory**

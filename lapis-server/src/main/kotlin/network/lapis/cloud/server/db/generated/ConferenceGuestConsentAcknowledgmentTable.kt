@@ -16,7 +16,8 @@ public object ConferenceGuestConsentAcknowledgmentTable : Table("conference_gues
     public val acknowledgedAt: Column<LocalDateTime> = datetime("acknowledged_at")
     public val consentVersion: Column<String> = varchar("consent_version", 50)
     public val consentSha256: Column<String> = varchar("consent_sha256", 64)
-    public val homeserverUrl: Column<String> = varchar("homeserver_url", 2048)
+    // V0.11.0: nullable -- a FRIEND has no federated home server, see V3 migration KDoc.
+    public val homeserverUrl: Column<String?> = varchar("homeserver_url", 2048).nullable()
     public val organizationName: Column<String> = varchar("organization_name", 300)
 
     override val primaryKey: PrimaryKey = PrimaryKey(id)

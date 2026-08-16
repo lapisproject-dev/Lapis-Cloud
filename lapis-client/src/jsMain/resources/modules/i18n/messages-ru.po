@@ -4360,7 +4360,7 @@ msgstr ""
 #: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:183
 msgid ""
 "Legt ein Mitglied ohne Antrags-/Freigabeschritt an (z. B. für Beitritte auf "
-"Papier oder Datenmigration) -- Status sofort AKTIV."
+"Papier oder Datenmigration) -- Status sofort Aktiv."
 msgstr ""
 "Создаёт участника без этапа заявки/утверждения (например, для бумажных "
 "заявлений о вступлении или миграции данных) -- статус сразу AKTIV."
@@ -7371,6 +7371,83 @@ msgstr "Целевая деятельность"
 #: src/jsMain/kotlin/network/lapis/cloud/client/PriceOracleScreen.kt:567
 msgid "Zwischengespeichert (Cached)"
 msgstr "Кэшировано"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/FriendRegistrationScreen.kt:40
+#: src/jsMain/kotlin/network/lapis/cloud/client/FriendRegistrationScreen.kt:86
+msgid "Freund-Konto anlegen"
+msgstr "Создать аккаунт друга"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/FriendRegistrationScreen.kt:41
+msgid ""
+"Ein Freund-Konto ist keine Mitgliedschaft -- es dient ausschließlich der "
+"Teilnahme an Videokonferenzen, zu denen Sie eingeladen wurden."
+msgstr ""
+"Аккаунт друга -- это не членство: он служит исключительно для участия в "
+"видеоконференциях, на которые вас пригласили."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/FriendRegistrationScreen.kt:47
+msgid "Nutzungsbedingungen werden geladen ..."
+msgstr "Загрузка условий использования ..."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/FriendRegistrationScreen.kt:60
+msgid "Nutzungsbedingungen fuer Freund-Konten (Version %1)"
+msgstr "Условия использования аккаунтов друзей (версия %1)"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/FriendRegistrationScreen.kt:68
+msgid "Anzeigename (nicht überprüft)"
+msgstr "Отображаемое имя (не проверено)"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/FriendRegistrationScreen.kt:73
+msgid ""
+"Ich habe die Nutzungsbedingungen für Freund-Konten gelesen und akzeptiere "
+"sie."
+msgstr "Я прочитал(а) и принимаю условия использования аккаунтов друзей."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/FriendRegistrationScreen.kt:105
+msgid "Bitte bestätigen Sie, dass Sie die Nutzungsbedingungen gelesen haben."
+msgstr "Подтвердите, что вы прочитали условия использования."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/FriendRegistrationScreen.kt:135
+msgid "Doch lieber Mitglied werden? Zum Beitrittsantrag."
+msgstr "Предпочитаете стать участником? Перейти к заявке на членство."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/FriendRegistrationScreen.kt:138
+msgid "Bereits ein Konto? Zur Anmeldung."
+msgstr "Уже есть аккаунт? Перейти ко входу."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/FriendRegistrationScreen.kt:143
+msgid "Freund-Konto angelegt"
+msgstr "Аккаунт друга создан"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/FriendRegistrationScreen.kt:145
+msgid ""
+"Ihr Freund-Konto ist sofort nutzbar -- Sie können sich jetzt mit Ihrem "
+"gewählten Passwort anmelden und an Videokonferenzen teilnehmen, zu denen Sie "
+"eingeladen wurden."
+msgstr ""
+"Ваш аккаунт друга можно использовать сразу -- теперь вы можете войти с "
+"выбранным паролем и участвовать в видеоконференциях, на которые вас "
+"пригласили."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/LoginScreen.kt:96
+msgid "Nur an einer Videokonferenz teilnehmen? Freund-Konto anlegen."
+msgstr "Хотите только участвовать в видеоконференции? Создайте аккаунт друга."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberStatusLabels.kt:19
+msgid "Antrag"
+msgstr "Заявка"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberStatusLabels.kt:22
+msgid "Ausgetreten"
+msgstr "Выбыл"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberStatusLabels.kt:24
+msgid "Freund"
+msgstr "Друг"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:70
+msgid "%1 (Freund-Konto seit %2)"
+msgstr "%1 (аккаунт друга с %2)"
 
 #~ msgid ""
 #~ "Sobald aus dieser Sitzung heraus eine geheime Abstimmung geöffnet wird, "

@@ -64,7 +64,9 @@ class ConferenceGuestAccessSchemaDriftTest :
             entity.attributeByName("acknowledged_at")?.nullable shouldBe false
             entity.attributeByName("consent_version")?.nullable shouldBe false
             entity.attributeByName("consent_sha256")?.nullable shouldBe false
-            entity.attributeByName("homeserver_url")?.nullable shouldBe false
+            // V0.11.0: made nullable -- a FRIEND has no federated home server, see
+            // 30-conference-guest-access.kuml.kts's own comment on this attribute.
+            entity.attributeByName("homeserver_url")?.nullable shouldBe true
             entity.attributeByName("organization_name")?.nullable shouldBe false
         }
     })

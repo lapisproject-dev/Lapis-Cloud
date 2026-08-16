@@ -112,7 +112,7 @@ class ContributionService(
                     .selectAll()
                     .where {
                         (MemberTable.membershipTierId eq tierId) and
-                            (MemberTable.status eq MemberStatus.AKTIV)
+                            (MemberTable.status eq MemberStatus.ACTIVE)
                     }.map { it[MemberTable.id] }
 
             var created = 0

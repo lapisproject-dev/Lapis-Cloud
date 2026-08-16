@@ -27,9 +27,9 @@ class MemberService(
     // X-Member-Id is chosen — see IMemberService KDoc). Only id + displayName are selected,
     // so email and role (PII / authorization-relevant) never leave the server for this call.
     //
-    // V0.7.2: tightened to AKTIV only -- was previously unfiltered (every member regardless of
+    // V0.7.2: tightened to ACTIVE only -- was previously unfiltered (every member regardless of
     // status). Once self-registration (IRegistrationService.registerApplication) starts producing
-    // real ANTRAG/ABGELEHNT/AUSGETRETEN rows, an unfiltered picker would list a not-yet-approved
+    // real APPLICATION/REJECTED/WITHDRAWN rows, an unfiltered picker would list a not-yet-approved
     // applicant's, a rejected applicant's, or a departed former member's display name to an
     // UNAUTHENTICATED caller -- actively wrong for a login-picker, and for a political party, a
     // real exposure (listing who applied/was rejected/left to anyone, no login required).
@@ -37,7 +37,7 @@ class MemberService(
         transaction {
             MemberTable
                 .select(MemberTable.id, MemberTable.displayName)
-                .where { MemberTable.status eq MemberStatus.AKTIV }
+                .where { MemberTable.status eq MemberStatus.ACTIVE }
                 .map {
                     MemberSummaryDto(
                         id = it[MemberTable.id].toString(),
@@ -125,4 +125,5 @@ fun ResultRow.toMemberDto(): MemberDto =
         reviewedById = this[MemberTable.reviewedBy]?.toString(),
         reviewedAt = this[MemberTable.reviewedAt],
         rejectionReason = this[MemberTable.rejectionReason],
+        friendSince = this[MemberTable.friendSince],
     )

@@ -83,7 +83,7 @@ class OrganizationBackupRoundTripTest :
                     it[id] = adminId
                     it[displayName] = "Roundtrip Admin"
                     it[email] = "roundtrip-admin@example.org"
-                    it[status] = MemberStatus.AKTIV
+                    it[status] = MemberStatus.ACTIVE
                     it[joinedAt] = LocalDate(2027, 1, 1)
                     it[membershipTierId] = memberTierId
                 }
@@ -208,13 +208,16 @@ class OrganizationBackupRoundTripTest :
             try {
                 bundleFile.outputStream().use { out ->
                     OrganizationExportService(database = sourceDb, documentStorageRoot = sourceStorageRoot)
-                        .streamExport(actor = CurrentMember(memberId = adminId, role = AccountRole.ADMIN), sink = out)
+                        .streamExport(
+                            actor = CurrentMember(memberId = adminId, role = AccountRole.ADMIN, status = MemberStatus.ACTIVE),
+                            sink = out,
+                        )
                 }
 
                 val restoreResult =
                     OrganizationRestoreService(database = targetDb, documentStorageRoot = targetStorageRoot)
                         .restore(
-                            actor = CurrentMember(memberId = adminId, role = AccountRole.ADMIN),
+                            actor = CurrentMember(memberId = adminId, role = AccountRole.ADMIN, status = MemberStatus.ACTIVE),
                             bundleFile = bundleFile,
                             allowNonEmptyTarget = false,
                         )
@@ -266,7 +269,7 @@ class OrganizationBackupRoundTripTest :
                 val secondRestore =
                     OrganizationRestoreService(database = targetDb, documentStorageRoot = targetStorageRoot)
                         .restore(
-                            actor = CurrentMember(memberId = adminId, role = AccountRole.ADMIN),
+                            actor = CurrentMember(memberId = adminId, role = AccountRole.ADMIN, status = MemberStatus.ACTIVE),
                             bundleFile = bundleFile,
                             allowNonEmptyTarget = true,
                         )
@@ -306,7 +309,7 @@ class OrganizationBackupRoundTripTest :
                     it[id] = adminId
                     it[displayName] = "Guard Admin"
                     it[email] = "guard-admin@example.org"
-                    it[status] = MemberStatus.AKTIV
+                    it[status] = MemberStatus.ACTIVE
                     it[joinedAt] = LocalDate(2027, 1, 1)
                     it[membershipTierId] = null
                 }
@@ -322,7 +325,10 @@ class OrganizationBackupRoundTripTest :
                     OrganizationExportService(
                         database = sourceDb,
                         documentStorageRoot = storageRoot,
-                    ).streamExport(actor = CurrentMember(memberId = adminId, role = AccountRole.ADMIN), sink = out)
+                    ).streamExport(
+                        actor = CurrentMember(memberId = adminId, role = AccountRole.ADMIN, status = MemberStatus.ACTIVE),
+                        sink = out,
+                    )
                 }
                 // Restoring the bundle into the SAME source database it came from is, by definition,
                 // a non-empty target -- must be rejected without allowNonEmptyTarget=true.
@@ -330,7 +336,10 @@ class OrganizationBackupRoundTripTest :
                     OrganizationRestoreService(
                         database = sourceDb,
                         documentStorageRoot = storageRoot,
-                    ).restore(actor = CurrentMember(memberId = adminId, role = AccountRole.ADMIN), bundleFile = bundleFile)
+                    ).restore(
+                        actor = CurrentMember(memberId = adminId, role = AccountRole.ADMIN, status = MemberStatus.ACTIVE),
+                        bundleFile = bundleFile,
+                    )
                     throw AssertionError("Expected NonEmptyTargetException")
                 } catch (e: NonEmptyTargetException) {
                     (e.message?.contains("member") == true) shouldBe true

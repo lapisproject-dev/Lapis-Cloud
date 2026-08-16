@@ -332,7 +332,7 @@ class SystemicConsensusService(
         val kId = input.systemicConsensusId.toUuidOrNotFound("SystemicConsensus")
         return transaction {
             // ANTRAG membership-gate audit (2026-07-30): closes the gap disclosed since V0.7.2 --
-            // an ANTRAG applicant must not be able to cast a (potentially BINDING) resistance
+            // an APPLICATION applicant must not be able to cast a (potentially BINDING) resistance
             // ballot before board approval. Defense in depth: the eligible check below only
             // re-validates against the SystemicConsensusEligibleVoterTable snapshot taken at
             // freezeOptions/reopenRating time, itself derived from eligibleMemberIds -- for a
@@ -341,7 +341,7 @@ class SystemicConsensusService(
             // re-validates the seated member's status at seat-time, so this check stays as an
             // independent second layer (defense in depth against any future seating path that
             // bypasses addCommitteeMember, or a legacy row predating that fix). Member-only
-            // (AKTIV), not requireActiveOrGuestMembership -- guests never get vote weight in this
+            // (ACTIVE), not requirePoliticianRaterMembership -- guests never get vote weight in this
             // project's concept.
             requireActiveMembership(memberId = current.memberId)
             val row = requireSystemicConsensusRow(kId)

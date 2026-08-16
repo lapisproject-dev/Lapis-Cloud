@@ -19,7 +19,7 @@ import network.lapis.cloud.shared.domain.DocumentAccessLevel
  * This follows the precedent `IPriceOracleService`/`ILtrLedgerService` already establish, and the
  * case is stronger here, on three independent axes:
  * 1. **Two different authorization axes, not one.** Every [IConferenceService] method gates on
- *    "AKTIV local member" plus, for two methods, "creator-or-BOARD/ADMIN". Recording WRITES
+ *    "ACTIVE local member" plus, for two methods, "creator-or-BOARD/ADMIN". Recording WRITES
  *    ([startRecording]/[stopRecording]) gate on that same creator-or-BOARD/ADMIN shape, but
  *    recording READS ([listRecordings]) gate on `DocumentAccessLevel`
  *    ([network.lapis.cloud.server.security.canAccessDocumentAtLevel]) -- a completely different
@@ -99,11 +99,12 @@ interface IConferenceRecordingService {
     suspend fun stopRecording(recordingId: String): ConferenceRecordingDto
 
     /**
-     * Role: MEMBER+, AKTIV **or** [network.lapis.cloud.shared.domain.MemberStatus.GAST] (Wave 5
-     * "Föderations-Gastbeitritt", design review D13 -- widened from AKTIV-only: a federated guest
-     * actually inside the room has the SAME legal right to know it is being recorded as an AKTIV
-     * member; the disclaimer they consented to before joining explicitly promises this). A GAST
-     * caller is admitted iff the room has `allowFederationGuests = true` AND the caller has joined
+     * Role: MEMBER+, ACTIVE, [network.lapis.cloud.shared.domain.MemberStatus.GUEST], or (V0.11.0)
+     * [network.lapis.cloud.shared.domain.MemberStatus.FRIEND] (Wave 5
+     * "Föderations-Gastbeitritt", design review D13 -- widened from ACTIVE-only: a federated guest
+     * (or friend) actually inside the room has the SAME legal right to know it is being recorded as
+     * an ACTIVE member; the disclaimer they consented to before joining explicitly promises this). A
+     * GUEST or FRIEND caller is admitted iff the room has `allowFederationGuests = true` AND the caller has joined
      * it at some point (same narrowing `listParticipants` applies, see
      * `network.lapis.cloud.server.rpc.requireGuestHasJoinedRoom`). The in-call view's authoritative
      * detail source for the recording banner/badge ("Aufzeichnung gestartet von X um HH:MM").
@@ -121,7 +122,7 @@ interface IConferenceRecordingService {
     suspend fun getActiveRecording(roomId: String): List<ConferenceRecordingDto>
 
     /**
-     * Role: MEMBER+, AKTIV. Filtered server-side to recordings the caller may see:
+     * Role: MEMBER+, ACTIVE. Filtered server-side to recordings the caller may see:
      * `current.canAccessDocumentAtLevel(recording.accessLevel) || current.memberId == recording.startedByMemberId`
      * -- see `network.lapis.cloud.server.security.canAccessDocumentAtLevel` and a later wave's
      * `ConferenceRecordingAccess.mayAccess` for where this exact predicate is centralized (used

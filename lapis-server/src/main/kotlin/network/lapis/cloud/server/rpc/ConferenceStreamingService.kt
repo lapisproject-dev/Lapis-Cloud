@@ -1241,7 +1241,7 @@ class ConferenceStreamingService(
             // requireActiveMembership to the shared conference-domain gate so a federated GUEST
             // who is actually in the room (allowFederationGuests + has joined) can see the stream
             // badge too -- "everyone in the room has a legal right to know" applies to a guest
-            // exactly as much as to an AKTIV member. See requireRoomEntryAuthorization KDoc.
+            // exactly as much as to an ACTIVE member. See requireRoomEntryAuthorization KDoc.
             val status = requireRoomEntryAuthorization(roomRow = room, current = current)
             requireGuestHasJoinedRoom(roomId = roomUuid, current = current, status = status)
             val row =

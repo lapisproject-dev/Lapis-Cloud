@@ -21,10 +21,10 @@ import network.lapis.cloud.shared.domain.PoliticianWeightSnapshotDto
  *
  * **Gast rating basket (CLOSED, guest-rating wave)**: the V0.6.4 "member-only rating, no Gast
  * basket" scope cut -- see `20-politician.kuml.kts` file header -- is closed now that V0.8.2's
- * OIDC guest-identity federation makes `MemberStatus.GAST` a real, reachable status. [castRating]/
- * [retractRating] now accept a GAST-status caller too (via
- * `network.lapis.cloud.server.rpc.requireActiveOrGuestMembership`, still excluding
- * ANTRAG/AUSGETRETEN/ABGELEHNT). [getTopPoliticians] sorts by the COMBINED (member+guest) weight;
+ * OIDC guest-identity federation makes `MemberStatus.GUEST` a real, reachable status. [castRating]/
+ * [retractRating] now accept a GUEST-status caller too (via
+ * `network.lapis.cloud.server.rpc.requirePoliticianRaterMembership`, still excluding
+ * APPLICATION/WITHDRAWN/REJECTED). [getTopPoliticians] sorts by the COMBINED (member+guest) weight;
  * [listPoliticians]/[getPoliticianProfile] expose all three (member/guest/combined) separately.
  * See [network.lapis.cloud.shared.domain.PoliticianProfileDto] KDoc for the exact weight shapes,
  * including the disclosed guest-weighting interim simplification.
@@ -70,9 +70,9 @@ interface IPoliticianService {
     ): PoliticianProfileDto
 
     /**
-     * Role: MEMBER+, caller must be [network.lapis.cloud.shared.domain.MemberStatus.AKTIV] OR
-     * [network.lapis.cloud.shared.domain.MemberStatus.GAST] (guest-rating wave -- ANTRAG/
-     * AUSGETRETEN/ABGELEHNT remain excluded). Upsert-on-unique-key, same idiom as
+     * Role: MEMBER+, caller must be [network.lapis.cloud.shared.domain.MemberStatus.ACTIVE] OR
+     * [network.lapis.cloud.shared.domain.MemberStatus.GUEST] (guest-rating wave -- APPLICATION/
+     * WITHDRAWN/REJECTED remain excluded). Upsert-on-unique-key, same idiom as
      * [ICrowdfundingService.castReaction] -- casting again with a different [value] changes the
      * rating, it does not add a second one. Rating itself costs the rater nothing (no LTR debit),
      * for both members and guests. [politicianMemberId] must reference an ACTIVE profile. The
@@ -83,7 +83,7 @@ interface IPoliticianService {
         value: PoliticianReactionValue,
     ): PoliticianReactionDto
 
-    /** Role: MEMBER+ or GAST (for themselves only) -- same gate as [castRating]. No-op if the caller has no rating on this politician. */
+    /** Role: MEMBER+ or GUEST (for themselves only) -- same gate as [castRating]. No-op if the caller has no rating on this politician. */
     suspend fun retractRating(politicianMemberId: String)
 
     /**

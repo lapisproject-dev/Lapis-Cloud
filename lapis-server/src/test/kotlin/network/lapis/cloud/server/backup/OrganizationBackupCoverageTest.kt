@@ -8,6 +8,7 @@ import network.lapis.cloud.server.db.DatabaseConfig
 import network.lapis.cloud.server.db.DevSeedData
 import network.lapis.cloud.server.security.CurrentMember
 import network.lapis.cloud.shared.domain.AccountRole
+import network.lapis.cloud.shared.domain.MemberStatus
 import org.jetbrains.exposed.v1.jdbc.transactions.transaction
 import java.io.ByteArrayOutputStream
 import java.nio.file.Files
@@ -44,7 +45,10 @@ class OrganizationBackupCoverageTest :
                         OrganizationExportService(
                             database = database,
                             documentStorageRoot = storageRoot,
-                        ).streamExport(actor = CurrentMember(memberId = ADMIN_ID, role = AccountRole.ADMIN), sink = out)
+                        ).streamExport(
+                            actor = CurrentMember(memberId = ADMIN_ID, role = AccountRole.ADMIN, status = MemberStatus.ACTIVE),
+                            sink = out,
+                        )
                     }.toByteArray()
 
             val dataEntryTables = mutableSetOf<String>()

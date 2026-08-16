@@ -41,6 +41,7 @@ import network.lapis.cloud.shared.domain.ConferenceRoomDto
 import network.lapis.cloud.shared.domain.ConferenceRoomInput
 import network.lapis.cloud.shared.domain.ConferenceTurnServer
 import network.lapis.cloud.shared.domain.MemberStatus
+import network.lapis.cloud.shared.domain.MemberStatusSets
 import network.lapis.cloud.shared.rpc.BadRequestException
 import network.lapis.cloud.shared.rpc.ConflictException
 import network.lapis.cloud.shared.rpc.ForbiddenException
@@ -101,13 +102,23 @@ private data class JoinPrep(
     val role: ConferenceRole,
     val displayName: String,
     /**
-     * Wave 5 "Föderations-Gastbeitritt" -- non-null iff the caller is [MemberStatus.GAST] (read
-     * from [OidcGuestProfileTable] inside the same authorization transaction that verified the
-     * consent). `null` for every AKTIV caller -- drives whether [ConferenceService.joinRoom]'s
-     * second `transaction {}` writes a [ConferenceGuestConsentAcknowledgmentTable] row at all.
+     * V0.11.0 -- `true` iff the caller's status is in [network.lapis.cloud.shared.domain
+     * .MemberStatusSets.NON_MEMBER] (GUEST or FRIEND). Drives whether [ConferenceService.joinRoom]'s
+     * second `transaction {}` writes a [ConferenceGuestConsentAcknowledgmentTable] row at all, and
+     * the short-vs-long token TTL choice -- deliberately NOT derived from [guestHomeserverUrl]
+     * (which is always `null` for a FRIEND, see that field's own KDoc), so a FRIEND is held to the
+     * exact same consent-and-short-TTL discipline a GUEST always was.
+     */
+    val isNonMember: Boolean = false,
+    /**
+     * Wave 5 "Föderations-Gastbeitritt" -- non-null iff the caller is [MemberStatus.GUEST]
+     * specifically (read from [OidcGuestProfileTable] inside the same authorization transaction
+     * that verified the consent). `null` for every ACTIVE caller AND for a [MemberStatus.FRIEND]
+     * caller (V0.11.0) -- a FRIEND has no home server, by design; see [isNonMember] for the field
+     * that actually drives the non-member-vs-member branch.
      */
     val guestHomeserverUrl: String? = null,
-    /** Wave 5 -- snapshotted alongside [guestHomeserverUrl], see [ConferenceGuestConsentAcknowledgmentTable] KDoc. */
+    /** Wave 5 -- snapshotted alongside [isNonMember], see [ConferenceGuestConsentAcknowledgmentTable] KDoc. */
     val guestOrganizationName: String? = null,
 )
 
@@ -181,10 +192,10 @@ private data class RevokePlan(
  *
  * [requireRoomEntryAuthorization] is the SINGLE place "may this caller enter/inspect this room at
  * all" is decided -- both [joinRoom] and [listParticipants] funnel through it so the two can never
- * drift apart. It always runs [requireActiveOrGuestMembership] FIRST, so an ANTRAG/AUSGETRETEN/
- * ABGELEHNT caller is rejected identically whether or not the room happens to be guest-opted-in --
- * the per-room `allowFederationGuests` toggle can only NARROW the pre-existing status gate, never
- * widen it.
+ * drift apart. It always runs [requireConferenceEligibleMembership] FIRST, so an
+ * APPLICATION/WITHDRAWN/REJECTED caller is rejected identically whether or not the room happens to
+ * be guest-opted-in -- the per-room `allowFederationGuests` toggle can only NARROW the pre-existing
+ * status gate, never widen it.
  */
 class ConferenceService(
     private val call: ApplicationCall,
@@ -359,17 +370,17 @@ class ConferenceService(
                 }
                 val status = requireRoomEntryAuthorization(roomRow = row, current = current)
 
-                // Wave 5: consent is verified for a GAST caller ONLY. For an AKTIV caller
-                // `guestConsent` is ignored entirely -- passing a bogus value is a no-op, and no
-                // acknowledgment row is ever written for them. This is what keeps AKTIV callers
-                // byte-for-byte unaffected by this wave.
+                // Wave 5 / V0.11.0: consent is verified for a NON-MEMBER caller (GUEST or FRIEND)
+                // ONLY. For an ACTIVE caller `guestConsent` is ignored entirely -- passing a bogus
+                // value is a no-op, and no acknowledgment row is ever written for them. This is
+                // what keeps ACTIVE callers byte-for-byte unaffected by this wave.
                 var guestHomeserver: String? = null
                 var guestOrganizationName: String? = null
-                if (status == MemberStatus.GAST) {
+                if (status in MemberStatusSets.NON_MEMBER) {
                     val consent =
                         guestConsent
                             ?: throw ConflictException(
-                                "A federated guest must acknowledge the current ConferenceGuestConsentDisclaimer " +
+                                "A non-member must acknowledge the current ConferenceGuestConsentDisclaimer " +
                                     "before joining -- call getGuestJoinInfo and submit its version/sha256 unmodified",
                             )
                     if (!ConferenceGuestConsentDisclaimer.matches(version = consent.consentVersion, sha256 = consent.consentSha256)) {
@@ -378,17 +389,21 @@ class ConferenceService(
                                 "-- call getGuestJoinInfo again and submit its CURRENT version/sha256 unmodified",
                         )
                     }
-                    // 1:1 with a GAST member (OidcGuestMemberStore), but read defensively.
-                    guestHomeserver =
-                        OidcGuestProfileTable
-                            .selectAll()
-                            .where { OidcGuestProfileTable.memberId eq current.memberId }
-                            .singleOrNull()
-                            ?.get(OidcGuestProfileTable.homeserverUrl)
-                            ?: throw ConflictException(
-                                "Guest profile missing for this federated identity -- please sign in again",
-                            )
                     guestOrganizationName = organizationDisplayName()
+                    if (status == MemberStatus.GUEST) {
+                        // 1:1 with a GUEST member (OidcGuestMemberStore), but read defensively. A
+                        // FRIEND has no OidcGuestProfile row at all -- guestHomeserver stays null by
+                        // design for FRIEND, see JoinPrep.guestHomeserverUrl KDoc.
+                        guestHomeserver =
+                            OidcGuestProfileTable
+                                .selectAll()
+                                .where { OidcGuestProfileTable.memberId eq current.memberId }
+                                .singleOrNull()
+                                ?.get(OidcGuestProfileTable.homeserverUrl)
+                                ?: throw ConflictException(
+                                    "Guest profile missing for this federated identity -- please sign in again",
+                                )
+                    }
                 }
 
                 val role =
@@ -401,17 +416,19 @@ class ConferenceService(
                     livekitRoomName = row[ConferenceRoomTable.livekitRoomName],
                     role = role,
                     displayName = memberDisplayName(current.memberId),
+                    isNonMember = status in MemberStatusSets.NON_MEMBER,
                     guestHomeserverUrl = guestHomeserver,
                     guestOrganizationName = guestOrganizationName,
                 )
             }
         val now = nowLocalDateTime()
-        // Security-audit fix: a GAST-issued token gets ConferenceConfig.guestTokenTtlMinutes (short,
-        // default 15min) rather than the AKTIV-member config.tokenTtlMinutes (4h default) -- see that
-        // property's KDoc "why a separate, shorter TTL". prep.guestHomeserverUrl is non-null iff the
-        // caller was verified GAST in the first transaction above (class KDoc "Federated guest
-        // entry"); AKTIV callers are entirely unaffected.
-        val effectiveTtl = if (prep.guestHomeserverUrl != null) config.guestTokenTtlMinutes else config.tokenTtlMinutes
+        // Security-audit fix: a non-member-issued token gets ConferenceConfig.guestTokenTtlMinutes
+        // (short, default 15min) rather than the ACTIVE-member config.tokenTtlMinutes (4h default)
+        // -- see that
+        // property's KDoc "why a separate, shorter TTL". prep.isNonMember is true iff the caller
+        // was verified GUEST or FRIEND in the first transaction above (class KDoc "Federated guest
+        // entry" / V0.11.0 FRIEND); ACTIVE callers are entirely unaffected.
+        val effectiveTtl = if (prep.isNonMember) config.guestTokenTtlMinutes else config.tokenTtlMinutes
         val minted =
             LiveKitAccessToken.mintParticipantToken(
                 apiKey = config.apiKey,
@@ -448,7 +465,7 @@ class ConferenceService(
             // LiveKitAccessToken.mintParticipantToken/TurnCredentialMinter.mint just happened OUTSIDE
             // any transaction (class KDoc "Transaction boundaries around the LiveKit network call"),
             // a real network-latency gap in which a concurrent setRoomGuestAccess(false) or a
-            // member-status change (e.g. leaveMembership -> AUSGETRETEN) could have committed. Re-read
+            // member-status change (e.g. leaveMembership -> WITHDRAWN) could have committed. Re-read
             // the room row with a FOR-UPDATE lock and re-run the exact same
             // requireRoomEntryAuthorization gate the first transaction used, so a room/room-access
             // state that changed in that gap is honored, not the stale snapshot in [prep]. The FOR
@@ -471,7 +488,34 @@ class ConferenceService(
             if (freshRoomRow[ConferenceRoomTable.endedAt] != null) {
                 throw ConflictException("Conference room $roomUuid has already ended")
             }
-            requireRoomEntryAuthorization(roomRow = freshRoomRow, current = current)
+            val freshStatus = requireRoomEntryAuthorization(roomRow = freshRoomRow, current = current)
+
+            // Security-audit F4 fix: a per-room ceiling on concurrently-open NON_MEMBER
+            // (GUEST/FRIEND) participations, separate from LiveKit's own global maxParticipants
+            // (which does not distinguish members from non-members) -- see
+            // ConferenceConfig.maxNonMemberParticipants KDoc. Checked here, INSIDE the same
+            // FOR-UPDATE-locked room row as the TOCTOU re-check above, so a burst of concurrent
+            // non-member joins to the SAME room cannot all pass the count check and all insert --
+            // every other joinRoom call for this room blocks on the room-row lock until this
+            // transaction commits or rolls back. Never applies to an ORGANIZATION_MEMBER (ACTIVE)
+            // caller.
+            if (freshStatus in MemberStatusSets.NON_MEMBER) {
+                val openNonMemberCount =
+                    (ConferenceParticipationTable innerJoin MemberTable)
+                        .selectAll()
+                        .where {
+                            (ConferenceParticipationTable.roomId eq roomUuid) and
+                                ConferenceParticipationTable.leftAt.isNull() and
+                                (MemberTable.status inList MemberStatusSets.NON_MEMBER)
+                        }.count()
+                if (openNonMemberCount >= config.maxNonMemberParticipants) {
+                    throw ConflictException(
+                        "This conference room has reached its non-member participant limit " +
+                            "(${config.maxNonMemberParticipants}) -- try again later or ask a member to invite you " +
+                            "once a slot frees up",
+                    )
+                }
+            }
 
             ConferenceParticipationTable.insert {
                 it[id] = Uuid.random()
@@ -484,11 +528,12 @@ class ConferenceService(
                 it[joinedAt] = now
                 it[leftAt] = null
             }
-            // Wave 5: append-only, one row PER JOIN (a re-join writes a SECOND row) -- consent is
-            // per-join, not a one-time acceptance. Written in the SAME transaction as the
-            // participation row above so a guest can never appear in the roster without a matching
-            // proof.
-            if (prep.guestHomeserverUrl != null) {
+            // Wave 5 / V0.11.0: append-only, one row PER JOIN (a re-join writes a SECOND row) --
+            // consent is per-join, not a one-time acceptance. Written in the SAME transaction as
+            // the participation row above so a non-member can never appear in the roster without a
+            // matching proof. Gated on prep.isNonMember (NOT prep.guestHomeserverUrl != null) so a
+            // FRIEND -- whose guestHomeserverUrl is always null -- still gets this row written.
+            if (prep.isNonMember) {
                 ConferenceGuestConsentAcknowledgmentTable.insert {
                     it[id] = Uuid.random()
                     it[ConferenceGuestConsentAcknowledgmentTable.memberId] = current.memberId
@@ -496,6 +541,7 @@ class ConferenceService(
                     it[acknowledgedAt] = now
                     it[consentVersion] = guestConsent!!.consentVersion
                     it[consentSha256] = guestConsent.consentSha256
+                    // null for a FRIEND (no federated home server), by design.
                     it[ConferenceGuestConsentAcknowledgmentTable.homeserverUrl] = prep.guestHomeserverUrl
                     it[organizationName] = prep.guestOrganizationName!!
                 }
@@ -620,9 +666,9 @@ class ConferenceService(
                     .toList()
             val participantIds = rows.map { it[ConferenceParticipationTable.memberId] }.distinct()
             // Security-audit fix (privacy/consent mismatch): ConferenceGuestConsentDisclaimer's own
-            // DETAIL text promises "Ihr Gaststatus und Ihr Heimserver sind fuer alle uebrigen
+            // DETAIL text promises a federated guest's home server address is "fuer alle uebrigen
             // Teilnehmenden dieser Besprechung sichtbar" -- i.e. visible to FELLOW PARTICIPANTS of
-            // THIS meeting, not org-wide. Without this check, any AKTIV member could call
+            // THIS meeting, not org-wide. Without this check, any ACTIVE member could call
             // listParticipants on any room id (discoverable via listActiveRooms) and see every
             // guest's homeserverUrl regardless of whether they ever joined that room, which is a
             // broader disclosure than the disclaimer describes. A caller who is either the room's
@@ -632,8 +678,8 @@ class ConferenceService(
             val callerIsParticipant =
                 room[ConferenceRoomTable.createdByMemberId] == current.memberId ||
                     current.memberId in participantIds
-            // ONE query, no N+1. The `status eq GAST` predicate is load-bearing, not decorative: a
-            // stale oidc_guest_profile row left behind on a member who was later promoted to AKTIV
+            // ONE query, no N+1. The `status eq GUEST` predicate is load-bearing, not decorative: a
+            // stale oidc_guest_profile row left behind on a member who was later promoted to ACTIVE
             // must NOT surface a guest badge for them (see ConferenceParticipantDto.homeserverUrl
             // KDoc).
             val guestHomeservers: Map<Uuid, String> =
@@ -642,7 +688,7 @@ class ConferenceService(
                 } else {
                     (MemberTable innerJoin OidcGuestProfileTable)
                         .selectAll()
-                        .where { (MemberTable.id inList participantIds) and (MemberTable.status eq MemberStatus.GAST) }
+                        .where { (MemberTable.id inList participantIds) and (MemberTable.status eq MemberStatus.GUEST) }
                         .associate { it[MemberTable.id] to it[OidcGuestProfileTable.homeserverUrl] }
                 }
             rows.map { row ->
@@ -743,8 +789,11 @@ class ConferenceService(
         requireWithinRate(limiter = guestInfoRateLimiter, memberId = current.memberId)
         val id = roomId.toConferenceUuid()
         return transaction {
-            // ANTRAG/AUSGETRETEN/ABGELEHNT -> ForbiddenException, same as every other entry point.
-            val status = requireActiveOrGuestMembership(current.memberId)
+            // APPLICATION/WITHDRAWN/REJECTED -> ForbiddenException, same as every other entry
+            // point. V0.11.0: widened from requireActiveOrGuestMembership to
+            // requireConferenceEligibleMembership so a FRIEND can pre-join-probe a room exactly
+            // like a GUEST always could.
+            val status = requireConferenceEligibleMembership(memberId = current.memberId)
             val row =
                 ConferenceRoomTable.selectAll().where { ConferenceRoomTable.id eq id }.singleOrNull()
                     ?: throw NotFoundException("Conference room $id not found")
@@ -757,7 +806,8 @@ class ConferenceService(
                 organizationName = organizationDisplayName(),
                 createdByMemberId = creatorId.toString(),
                 createdByDisplayName = memberDisplayName(creatorId),
-                callerIsGuest = status == MemberStatus.GAST,
+                callerIsGuest = status == MemberStatus.GUEST,
+                callerIsNonMember = status in MemberStatusSets.NON_MEMBER,
                 disclaimer =
                     ConferenceGuestConsentDisclaimerDto(
                         version = ConferenceGuestConsentDisclaimer.VERSION,
@@ -809,12 +859,17 @@ class ConferenceService(
                     if (allowFederationGuests) {
                         emptyList()
                     } else {
+                        // V0.11.0 security fix: was `MemberTable.status eq MemberStatus.GUEST` --
+                        // widened to inList(NON_MEMBER) so revoking guest access also disconnects
+                        // already-connected FRIENDs, not just GUESTs. Leaving this GUEST-only would
+                        // have defeated the primary control this design leans on (see
+                        // MembershipGuardsTest / FriendConferenceAccessTest).
                         (ConferenceParticipationTable innerJoin MemberTable)
                             .selectAll()
                             .where {
                                 (ConferenceParticipationTable.roomId eq id) and
                                     ConferenceParticipationTable.leftAt.isNull() and
-                                    (MemberTable.status eq MemberStatus.GAST)
+                                    (MemberTable.status inList MemberStatusSets.NON_MEMBER)
                             }.map { it[ConferenceParticipationTable.memberId] }
                             .distinct()
                     }

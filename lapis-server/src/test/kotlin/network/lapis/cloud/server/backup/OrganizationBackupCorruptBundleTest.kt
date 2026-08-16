@@ -184,7 +184,10 @@ class OrganizationBackupCorruptBundleTest :
                 OrganizationExportService(
                     database = sourceDb,
                     documentStorageRoot = sourceStorageRoot,
-                ).streamExport(actor = CurrentMember(memberId = adminId, role = AccountRole.ADMIN), sink = out)
+                ).streamExport(
+                    actor = CurrentMember(memberId = adminId, role = AccountRole.ADMIN, status = MemberStatus.ACTIVE),
+                    sink = out,
+                )
             }
 
             // Rewrite the bundle with the "member" table's data/<table>.jsonl entry's content
@@ -216,7 +219,10 @@ class OrganizationBackupCorruptBundleTest :
                 OrganizationRestoreService(
                     database = targetDb,
                     documentStorageRoot = targetStorageRoot,
-                ).restore(actor = CurrentMember(memberId = adminId, role = AccountRole.ADMIN), bundleFile = tamperedBundle)
+                ).restore(
+                    actor = CurrentMember(memberId = adminId, role = AccountRole.ADMIN, status = MemberStatus.ACTIVE),
+                    bundleFile = tamperedBundle,
+                )
                 throw AssertionError("Expected RestoreIncompleteException")
             } catch (e: RestoreIncompleteException) {
                 (e.message?.contains("checksum") == true) shouldBe true
@@ -242,7 +248,10 @@ class OrganizationBackupCorruptBundleTest :
                 OrganizationExportService(
                     database = sourceDb,
                     documentStorageRoot = sourceStorageRoot,
-                ).streamExport(actor = CurrentMember(memberId = adminId, role = AccountRole.ADMIN), sink = out)
+                ).streamExport(
+                    actor = CurrentMember(memberId = adminId, role = AccountRole.ADMIN, status = MemberStatus.ACTIVE),
+                    sink = out,
+                )
             }
 
             val outsideCanary = File(targetStorageRoot.parentFile, "zipslip-canary-${Uuid.random()}.txt")
@@ -267,7 +276,10 @@ class OrganizationBackupCorruptBundleTest :
                     OrganizationRestoreService(
                         database = targetDb,
                         documentStorageRoot = targetStorageRoot,
-                    ).restore(actor = CurrentMember(memberId = adminId, role = AccountRole.ADMIN), bundleFile = tamperedBundle)
+                    ).restore(
+                        actor = CurrentMember(memberId = adminId, role = AccountRole.ADMIN, status = MemberStatus.ACTIVE),
+                        bundleFile = tamperedBundle,
+                    )
                 (result.warnings.any { it.contains("unsafe path") }) shouldBe true
             } finally {
                 validBundle.delete()
@@ -288,7 +300,7 @@ private fun seedAdmin(
             it[id] = adminId
             it[MemberTable.displayName] = displayName
             it[email] = "corrupt-test-admin-${Uuid.random()}@example.org"
-            it[status] = MemberStatus.AKTIV
+            it[status] = MemberStatus.ACTIVE
             it[joinedAt] = LocalDate(2027, 1, 1)
             it[membershipTierId] = null
         }
@@ -311,5 +323,5 @@ private fun adminOf(database: org.jetbrains.exposed.v1.jdbc.Database): CurrentMe
                 .singleOrNull()
         }
     val memberId = existing ?: seedAdmin(database = database)
-    return CurrentMember(memberId = memberId, role = AccountRole.ADMIN)
+    return CurrentMember(memberId = memberId, role = AccountRole.ADMIN, status = MemberStatus.ACTIVE)
 }

@@ -34,6 +34,13 @@ public object MemberTable : Table("member") {
     public val reviewedAt: Column<LocalDateTime?> = datetime("reviewed_at").nullable()
     public val rejectionReason: Column<String?> = varchar("rejection_reason", 1000).nullable()
 
+    // V0.11.0 FRIEND self-registration. friendSince is set once on FRIEND self-registration and
+    // NEVER cleared (see network.lapis.cloud.shared.domain.MemberDto KDoc). emailVerifiedAt stays
+    // null unless LAPIS_FRIEND_REQUIRE_EMAIL_VERIFICATION is enabled and the member consumed a
+    // verification token.
+    public val friendSince: Column<LocalDate?> = date("friend_since").nullable()
+    public val emailVerifiedAt: Column<LocalDateTime?> = datetime("email_verified_at").nullable()
+
     override val primaryKey: PrimaryKey = PrimaryKey(id)
 
     // Note: 1 check constraint(s) declared on this entity are not

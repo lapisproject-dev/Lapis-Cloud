@@ -115,7 +115,13 @@ CREATE TABLE member (
     reviewed_by UUID NULL,
     reviewed_at TIMESTAMP NULL,
     rejection_reason VARCHAR(1000) NULL,
-    CHECK (status IN ('ANTRAG', 'AKTIV', 'GAST', 'AUSGETRETEN', 'ABGELEHNT'))
+    -- V0.11.0 FRIEND self-registration. friend_since is set once on FRIEND self-registration and
+    -- NEVER cleared. email_verified_at stays NULL unless LAPIS_FRIEND_REQUIRE_EMAIL_VERIFICATION
+    -- is enabled and the member consumed a verification token (see friend_email_verification_token
+    -- in 23-registration.kuml.kts).
+    friend_since DATE NULL,
+    email_verified_at TIMESTAMP NULL,
+    CONSTRAINT chk_member_status CHECK (status IN ('APPLICATION', 'ACTIVE', 'GUEST', 'WITHDRAWN', 'REJECTED', 'FRIEND'))
 );
 
 CREATE TABLE account (
@@ -957,11 +963,36 @@ CREATE TABLE membership_agreement_acknowledgment (
     agreement_sha256 VARCHAR(64) NOT NULL
 );
 
+-- V0.11.0 friend_terms_acknowledgment -- append-only proof record that a FRIEND registrant echoed
+-- back the CURRENT FriendTermsDisclaimer. Deliberately a separate table from
+-- membership_agreement_acknowledgment -- see 23-registration.kuml.kts file header.
+CREATE TABLE friend_terms_acknowledgment (
+    id UUID NOT NULL PRIMARY KEY,
+    member_id UUID NOT NULL,
+    acknowledged_at TIMESTAMP NOT NULL,
+    terms_version VARCHAR(50) NOT NULL,
+    terms_sha256 VARCHAR(64) NOT NULL
+);
+
 -- password_reset_token -- single-use, short-TTL, hash-only-persisted reset token. Only
 -- token_hash is ever stored (SHA-256, reusing network.lapis.cloud.server.security.SessionTokens
 -- unchanged), never the raw bearer-usable token -- same discipline `session.token_hash` already
 -- establishes. consumed_at is nullable (null until consumed exactly once).
 CREATE TABLE password_reset_token (
+    id UUID NOT NULL PRIMARY KEY,
+    member_id UUID NOT NULL,
+    token_hash VARCHAR(64) NOT NULL,
+    created_at TIMESTAMP NOT NULL,
+    expires_at TIMESTAMP NOT NULL,
+    consumed_at TIMESTAMP NULL
+);
+
+-- V0.11.0 friend_email_verification_token -- structural clone of password_reset_token (same
+-- single-use, hash-only-persisted discipline), for the FRIEND self-registration email-verification
+-- mechanic (see network.lapis.cloud.server.security.FriendEmailVerificationTokenStore). Only
+-- token_hash is ever stored, never the raw bearer-usable token. TTL is 24h (not 1h like a password
+-- reset) -- this is a first-contact link, not an account-takeover credential.
+CREATE TABLE friend_email_verification_token (
     id UUID NOT NULL PRIMARY KEY,
     member_id UUID NOT NULL,
     token_hash VARCHAR(64) NOT NULL,
@@ -1107,7 +1138,9 @@ ALTER TABLE auction_bid ADD CONSTRAINT fk_auction_bid_bidder_member_id FOREIGN K
 ALTER TABLE auction_compliance_acknowledgment ADD CONSTRAINT fk_auction_compliance_acknowledgment_acknowledged_by_member_id FOREIGN KEY (acknowledged_by_member_id) REFERENCES member(id);
 ALTER TABLE session ADD CONSTRAINT fk_session_member_id FOREIGN KEY (member_id) REFERENCES member(id);
 ALTER TABLE membership_agreement_acknowledgment ADD CONSTRAINT fk_membership_agreement_acknowledgment_member_id FOREIGN KEY (member_id) REFERENCES member(id);
+ALTER TABLE friend_terms_acknowledgment ADD CONSTRAINT fk_friend_terms_acknowledgment_member_id FOREIGN KEY (member_id) REFERENCES member(id);
 ALTER TABLE password_reset_token ADD CONSTRAINT fk_password_reset_token_member_id FOREIGN KEY (member_id) REFERENCES member(id);
+ALTER TABLE friend_email_verification_token ADD CONSTRAINT fk_friend_email_verification_token_member_id FOREIGN KEY (member_id) REFERENCES member(id);
 
 -- Indexes
 
@@ -1221,9 +1254,13 @@ CREATE UNIQUE INDEX uq_session_token_hash ON session (token_hash);
 CREATE INDEX idx_session_member_id ON session (member_id);
 CREATE INDEX idx_session_expires_at ON session (expires_at);
 CREATE INDEX idx_membership_agreement_acknowledgment_member ON membership_agreement_acknowledgment (member_id);
+CREATE INDEX idx_friend_terms_acknowledgment_member ON friend_terms_acknowledgment (member_id);
 CREATE UNIQUE INDEX uq_password_reset_token_token_hash ON password_reset_token (token_hash);
 CREATE INDEX idx_password_reset_token_member ON password_reset_token (member_id);
 CREATE INDEX idx_password_reset_token_expires_at ON password_reset_token (expires_at);
+CREATE UNIQUE INDEX uq_friend_email_verification_token_token_hash ON friend_email_verification_token (token_hash);
+CREATE INDEX idx_friend_email_verification_token_member ON friend_email_verification_token (member_id);
+CREATE INDEX idx_friend_email_verification_token_expires_at ON friend_email_verification_token (expires_at);
 
 CREATE INDEX idx_price_oracle_conversion_member ON price_oracle_conversion (member_id);
 
@@ -1705,6 +1742,10 @@ ALTER TABLE conference_stream_target ADD CONSTRAINT fk_conference_stream_target_
 -- re-login), and organization_name (snapshotted for the identical reason -- organization_settings
 -- .name is mutable, and a DSGVO Rechenschaftsnachweis must name the controller as it was presented
 -- at consent time, not as it reads today -- design review D15).
+--
+-- V0.11.0: homeserver_url is now NULLable -- a FRIEND (self-registered, non-federated) has no home
+-- server, but still writes this same acknowledgment row on every join (see MemberStatusSets
+-- .NON_MEMBER). NULL means "non-member with no federated home server", not "unknown"/"pending".
 
 CREATE TABLE conference_guest_consent_acknowledgment (
     id UUID NOT NULL PRIMARY KEY,
@@ -1713,7 +1754,7 @@ CREATE TABLE conference_guest_consent_acknowledgment (
     acknowledged_at TIMESTAMP NOT NULL,
     consent_version VARCHAR(50) NOT NULL,
     consent_sha256 VARCHAR(64) NOT NULL,
-    homeserver_url VARCHAR(2048) NOT NULL,
+    homeserver_url VARCHAR(2048) NULL,
     organization_name VARCHAR(300) NOT NULL
 );
 CREATE INDEX idx_conference_guest_consent_ack_member ON conference_guest_consent_acknowledgment (member_id);

@@ -112,7 +112,7 @@ class PoliticianServiceTest :
 
         fun createTestMember(
             email: String,
-            status: MemberStatus = MemberStatus.AKTIV,
+            status: MemberStatus = MemberStatus.ACTIVE,
         ): Uuid {
             val id = Uuid.random()
             transaction {
@@ -677,8 +677,8 @@ class PoliticianServiceTest :
 
         // ── Error cases ───────────────────────────────────────────────────────
 
-        // GAST is now an ALLOWED rater status -- see the "guest-rating" tests below. Only
-        // ANTRAG/AUSGETRETEN/ABGELEHNT remain excluded by requireActiveOrGuestMembership.
+        // GUEST is now an ALLOWED rater status -- see the "guest-rating" tests below. Only
+        // APPLICATION/WITHDRAWN/REJECTED remain excluded by requirePoliticianRaterMembership.
         test("castRating: rejected for an ANTRAG (not-yet-approved) rater") {
             testApplication {
                 application {
@@ -687,7 +687,7 @@ class PoliticianServiceTest :
                 }
                 val politician = createTestMember("pol-nonaktiv-target-antrag@example.org")
                 client.post("/test/grant?memberId=$politician") { header("X-Member-Id", BOARD_ID) }
-                val applicant = createTestMember("pol-nonaktiv-rater-antrag@example.org", status = MemberStatus.ANTRAG)
+                val applicant = createTestMember("pol-nonaktiv-rater-antrag@example.org", status = MemberStatus.APPLICATION)
 
                 val response =
                     client.post("/test/rate?politicianId=$politician&value=LIKE") { header("X-Member-Id", applicant.toString()) }
@@ -703,7 +703,7 @@ class PoliticianServiceTest :
                 }
                 val politician = createTestMember("pol-nonaktiv-target-ausgetreten@example.org")
                 client.post("/test/grant?memberId=$politician") { header("X-Member-Id", BOARD_ID) }
-                val departed = createTestMember("pol-nonaktiv-rater-ausgetreten@example.org", status = MemberStatus.AUSGETRETEN)
+                val departed = createTestMember("pol-nonaktiv-rater-ausgetreten@example.org", status = MemberStatus.WITHDRAWN)
 
                 val response =
                     client.post("/test/rate?politicianId=$politician&value=LIKE") { header("X-Member-Id", departed.toString()) }
@@ -719,7 +719,7 @@ class PoliticianServiceTest :
                 }
                 val politician = createTestMember("pol-nonaktiv-target-abgelehnt@example.org")
                 client.post("/test/grant?memberId=$politician") { header("X-Member-Id", BOARD_ID) }
-                val rejected = createTestMember("pol-nonaktiv-rater-abgelehnt@example.org", status = MemberStatus.ABGELEHNT)
+                val rejected = createTestMember("pol-nonaktiv-rater-abgelehnt@example.org", status = MemberStatus.REJECTED)
 
                 val response =
                     client.post("/test/rate?politicianId=$politician&value=LIKE") { header("X-Member-Id", rejected.toString()) }
@@ -735,7 +735,7 @@ class PoliticianServiceTest :
                 }
                 val politician = createTestMember("pol-retract-antrag-target@example.org")
                 client.post("/test/grant?memberId=$politician") { header("X-Member-Id", BOARD_ID) }
-                val applicant = createTestMember("pol-retract-antrag-rater@example.org", status = MemberStatus.ANTRAG)
+                val applicant = createTestMember("pol-retract-antrag-rater@example.org", status = MemberStatus.APPLICATION)
 
                 val response =
                     client.post("/test/retract?politicianId=$politician") { header("X-Member-Id", applicant.toString()) }
@@ -753,7 +753,7 @@ class PoliticianServiceTest :
                 }
                 val politician = createTestMember("pol-guest-cast-target@example.org")
                 client.post("/test/grant?memberId=$politician") { header("X-Member-Id", BOARD_ID) }
-                val guest = createTestMember("pol-guest-cast-rater@example.org", status = MemberStatus.GAST)
+                val guest = createTestMember("pol-guest-cast-rater@example.org", status = MemberStatus.GUEST)
 
                 val response = client.post("/test/rate?politicianId=$politician&value=LIKE") { header("X-Member-Id", guest.toString()) }
                 response.status shouldBe HttpStatusCode.OK
@@ -786,7 +786,7 @@ class PoliticianServiceTest :
                 }
                 val politician = createTestMember("pol-guest-retract-target@example.org")
                 client.post("/test/grant?memberId=$politician") { header("X-Member-Id", BOARD_ID) }
-                val guest = createTestMember("pol-guest-retract-rater@example.org", status = MemberStatus.GAST)
+                val guest = createTestMember("pol-guest-retract-rater@example.org", status = MemberStatus.GUEST)
 
                 client.post("/test/rate?politicianId=$politician&value=LIKE") { header("X-Member-Id", guest.toString()) }
                 val retractResponse =
@@ -806,7 +806,7 @@ class PoliticianServiceTest :
                 }
                 val politician = createTestMember("pol-guest-recast-target@example.org")
                 client.post("/test/grant?memberId=$politician") { header("X-Member-Id", BOARD_ID) }
-                val guest = createTestMember("pol-guest-recast-rater@example.org", status = MemberStatus.GAST)
+                val guest = createTestMember("pol-guest-recast-rater@example.org", status = MemberStatus.GUEST)
 
                 client.post("/test/rate?politicianId=$politician&value=LIKE") { header("X-Member-Id", guest.toString()) }
                 client.post("/test/rate?politicianId=$politician&value=DISLIKE") { header("X-Member-Id", guest.toString()) }
@@ -840,7 +840,7 @@ class PoliticianServiceTest :
                 }
                 val politician = createTestMember("pol-isolation-guest-only@example.org")
                 client.post("/test/grant?memberId=$politician") { header("X-Member-Id", BOARD_ID) }
-                val guest = createTestMember("pol-isolation-guest-rater@example.org", status = MemberStatus.GAST)
+                val guest = createTestMember("pol-isolation-guest-rater@example.org", status = MemberStatus.GUEST)
 
                 // No LTR minted for the guest at all -- proves guestTrustWeight is not silently
                 // reading ltrBalanceProvider for guests, and proves member pool isolation.
@@ -887,8 +887,8 @@ class PoliticianServiceTest :
                 }
                 val politician = createTestMember("pol-guest-floor@example.org")
                 client.post("/test/grant?memberId=$politician") { header("X-Member-Id", BOARD_ID) }
-                val guest1 = createTestMember("pol-guest-floor-1@example.org", status = MemberStatus.GAST)
-                val guest2 = createTestMember("pol-guest-floor-2@example.org", status = MemberStatus.GAST)
+                val guest1 = createTestMember("pol-guest-floor-1@example.org", status = MemberStatus.GUEST)
+                val guest2 = createTestMember("pol-guest-floor-2@example.org", status = MemberStatus.GUEST)
 
                 client.post("/test/rate?politicianId=$politician&value=DISLIKE") { header("X-Member-Id", guest1.toString()) }
                 client.post("/test/rate?politicianId=$politician&value=DISLIKE") { header("X-Member-Id", guest2.toString()) }
@@ -910,7 +910,7 @@ class PoliticianServiceTest :
                 val politician = createTestMember("pol-combined-arithmetic@example.org")
                 client.post("/test/grant?memberId=$politician") { header("X-Member-Id", BOARD_ID) }
                 val member = createTestMember("pol-combined-arithmetic-member@example.org")
-                val guest = createTestMember("pol-combined-arithmetic-guest@example.org", status = MemberStatus.GAST)
+                val guest = createTestMember("pol-combined-arithmetic-guest@example.org", status = MemberStatus.GUEST)
                 mintLtr(member, BigDecimal("42.00"))
 
                 client.post("/test/rate?politicianId=$politician&value=LIKE") { header("X-Member-Id", member.toString()) }
@@ -952,7 +952,7 @@ class PoliticianServiceTest :
 
                 // A gets 200 guest likes -- dwarfs B's pure-member weight for the COMBINED sort.
                 repeat(200) { i ->
-                    val guest = createTestMember("pol-combined-flip-guest-$i@example.org", status = MemberStatus.GAST)
+                    val guest = createTestMember("pol-combined-flip-guest-$i@example.org", status = MemberStatus.GUEST)
                     client.post("/test/rate?politicianId=$politicianA&value=LIKE") { header("X-Member-Id", guest.toString()) }
                 }
 
@@ -973,7 +973,7 @@ class PoliticianServiceTest :
                 val politician = createTestMember("pol-revoke-guest@example.org")
                 client.post("/test/grant?memberId=$politician") { header("X-Member-Id", BOARD_ID) }
                 val member = createTestMember("pol-revoke-guest-member@example.org")
-                val guest = createTestMember("pol-revoke-guest-guest@example.org", status = MemberStatus.GAST)
+                val guest = createTestMember("pol-revoke-guest-guest@example.org", status = MemberStatus.GUEST)
                 mintLtr(member, BigDecimal("10.00"))
                 client.post("/test/rate?politicianId=$politician&value=LIKE") { header("X-Member-Id", member.toString()) }
                 client.post("/test/rate?politicianId=$politician&value=LIKE") { header("X-Member-Id", guest.toString()) }
@@ -1022,7 +1022,7 @@ class PoliticianServiceTest :
                 val politician = createTestMember("pol-snapshot-guest@example.org")
                 client.post("/test/grant?memberId=$politician") { header("X-Member-Id", BOARD_ID) }
                 val member = createTestMember("pol-snapshot-guest-member@example.org")
-                val guest = createTestMember("pol-snapshot-guest-guest@example.org", status = MemberStatus.GAST)
+                val guest = createTestMember("pol-snapshot-guest-guest@example.org", status = MemberStatus.GUEST)
                 mintLtr(member, BigDecimal("7.00"))
                 client.post("/test/rate?politicianId=$politician&value=LIKE") { header("X-Member-Id", member.toString()) }
                 client.post("/test/rate?politicianId=$politician&value=LIKE") { header("X-Member-Id", guest.toString()) }
@@ -1064,7 +1064,7 @@ class PoliticianServiceTest :
                 }
                 val politician = createTestMember("pol-race-guest-target@example.org")
                 client.post("/test/grant?memberId=$politician") { header("X-Member-Id", BOARD_ID) }
-                val guest = createTestMember("pol-race-guest-rater@example.org", status = MemberStatus.GAST)
+                val guest = createTestMember("pol-race-guest-rater@example.org", status = MemberStatus.GUEST)
 
                 runConcurrentRevokeAndRate(client = client, politicianMemberId = politician, raterMemberId = guest)
 

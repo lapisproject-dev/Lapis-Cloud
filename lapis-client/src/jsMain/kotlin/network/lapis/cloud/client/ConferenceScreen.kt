@@ -313,7 +313,7 @@ import kotlin.time.Clock
  *   .allowFederationGuests] stays in the DTO for API completeness/tests; the client never sets it
  *   at [renderLobby]'s single-button creation flow (Wave 4 D1 deliberately deleted the lobby
  *   creation form). Guest access is always enabled from INSIDE a running room.
- * - **D5 -- lobby room cards show `"Gastzugang offen"`** ([renderRoomCard]) so an AKTIV member can
+ * - **D5 -- lobby room cards show `"Gastzugang offen"`** ([renderRoomCard]) so an ACTIVE member can
  *   see outsiders may be present before joining, same vocabulary as the in-call D3 badge.
  * - **D6 -- guest entry via a plain room-id field** ([renderGuestLobby]), client-side UUID-shape
  *   validated ([Validation.looksLikeRoomId]) before any RPC fires. The moderator's own "Einladung
@@ -335,7 +335,7 @@ import kotlin.time.Clock
  *   [ConferenceRoomDto] from [network.lapis.cloud.shared.domain.ConferenceGuestJoinInfoDto]'s real
  *   `createdByMemberId`/`createdByDisplayName` (never a blanked-out placeholder) -- `canModerate`
  *   still structurally evaluates `false` for the guest ([conferenceIsModerator] compares the
- *   CALLER's own id, which a GAST can never equal since `createRoom` is AKTIV-only), so no
+ *   CALLER's own id, which a GUEST or FRIEND can never equal since `createRoom` is ACTIVE-only), so no
  *   moderator affordance leaks.
  * - **D16 -- revoking guest access asks first.** [confirmDialog] warns that already-connected
  *   guests will be disconnected immediately before the moderator confirms (Norman: visible system
@@ -379,8 +379,8 @@ fun renderConferenceScreen(container: SimplePanel) {
             return@launch
         }
         // V1.0 Videokonferenzen, Wave 5 "Föderations-Gastbeitritt" -- a federated guest gets an
-        // entirely different lobby: no "Besprechung jetzt starten" (createRoom is AKTIV-only) and
-        // no "Aktive Besprechungen" list (listActiveRooms is AKTIV-only and would 403 on every
+        // entirely different lobby: no "Besprechung jetzt starten" (createRoom is ACTIVE-only) and
+        // no "Aktive Besprechungen" list (listActiveRooms is ACTIVE-only and would 403 on every
         // load, exactly the confusing generic toast this wave exists to avoid -- see design review
         // "Accepted as planned"). See [renderGuestLobby].
         if (AppState.session?.isGuest == true) {
@@ -513,7 +513,7 @@ private fun renderRoomCard(
     if (room.myRole == ConferenceRole.MODERATOR) {
         infoCell.statusBadge(tr("Sie sind Moderator"), "primary")
     }
-    // V1.0 Videokonferenzen, Wave 5 "Föderations-Gastbeitritt", design review D5 -- an AKTIV member
+    // V1.0 Videokonferenzen, Wave 5 "Föderations-Gastbeitritt", design review D5 -- an ACTIVE member
     // deciding whether to join deserves to know outsiders may be present BEFORE joining, not only
     // after. Same "Gastzugang"/"info" vocabulary the in-call status badge (D3) uses.
     if (room.allowFederationGuests) {
@@ -538,8 +538,8 @@ private fun renderRoomCard(
 
 /**
  * A federated guest's own lobby -- deliberately NOT [renderLobby] with a few items hidden: no
- * "Besprechung jetzt starten" button ([IConferenceService.createRoom] is AKTIV-only) and no
- * "Aktive Besprechungen" list ([IConferenceService.listActiveRooms] is AKTIV-only and would 403
+ * "Besprechung jetzt starten" button ([IConferenceService.createRoom] is ACTIVE-only) and no
+ * "Aktive Besprechungen" list ([IConferenceService.listActiveRooms] is ACTIVE-only and would 403
  * on every load, producing exactly the confusing generic "Keine Berechtigung" toast this whole
  * wave exists to avoid -- see [AppState.guarded] KDoc). A guest instead pastes a room id from an
  * out-of-band invitation (see [conferenceInviteText]) into a plain text field.
@@ -605,13 +605,13 @@ private fun renderGuestLobby(
                 AppScope.launch {
                     val token = guarded { rpcService<IConferenceService>().joinRoom(info.roomId, consent) }
                     if (token != null) {
-                        // Design review D14: a guest cannot call getRoom (AKTIV-only), so a minimal
+                        // Design review D14: a guest cannot call getRoom (ACTIVE-only), so a minimal
                         // local ConferenceRoomDto is synthesized from the two calls just made. It
                         // carries the REAL createdByMemberId/createdByDisplayName from
                         // getGuestJoinInfo -- the guest can see WHO the moderator is (D14), even
                         // though `canModerate` still structurally evaluates false for them
-                        // (conferenceIsModerator compares the caller's OWN id, which a GAST can
-                        // never equal, since createRoom is AKTIV-only -- see that function's KDoc).
+                        // (conferenceIsModerator compares the caller's OWN id, which a GUEST or FRIEND can
+                        // never equal, since createRoom is ACTIVE-only -- see that function's KDoc).
                         val syntheticRoom =
                             ConferenceRoomDto(
                                 id = info.roomId,
@@ -1048,7 +1048,7 @@ private fun enterCall(
     // proposal: no precedent in this client for a checkbox that fires a server mutation on change,
     // and it would force an optimistic-UI violation this file's own "only update UI state once the
     // guarded {} call's result confirms success" rule forbids). Built UNCONDITIONALLY -- the status
-    // badge is visible to every participant (D3: an ordinary AKTIV member deserves to know the room
+    // badge is visible to every participant (D3: an ordinary ACTIVE member deserves to know the room
     // is open to another organization's members too); only the buttons are moderator-gated.
     val guestAccessRow = callPanel.hPanel(spacing = 8) { addCssClasses("align-items-center flex-wrap") }
     guestAccessRow.div(tr("Gastzugang:")) { addCssClasses("text-muted small") }
@@ -1118,7 +1118,7 @@ private fun enterCall(
         inviteButton.onClick {
             // Security-audit fix: the organization name is not in scope at this call site by
             // default (unlike the guest pre-join lobby) -- fetch it via getGuestJoinInfo, the same
-            // RPC that already exposes it to any AKTIV member on this room (never the
+            // RPC that already exposes it to any ACTIVE member on this room (never the
             // BOARD/ADMIN/TREASURER-only OrganizationSettingsService), rather than substituting the
             // room's own title. On failure (or if the org name comes back blank), conferenceInviteText
             // simply drops the "bei {org}" clause -- never fabricates a wrong one.
@@ -1909,8 +1909,8 @@ private fun enterCall(
             secretBallotPauseBanner.hide()
             return
         }
-        // Role: MEMBER+, AKTIV -- NEVER privilege-gated, same "everyone in the room has a legal
-        // right to know" rule [IConferenceStreamingService.getActiveStream] KDoc establishes.
+        // Role: MEMBER+, ACTIVE, GUEST, or FRIEND -- NEVER privilege-gated, same "everyone in the
+        // room has a legal right to know" rule [IConferenceStreamingService.getActiveStream] KDoc establishes.
         val streams = guarded { rpcService<IConferenceStreamingService>().getActiveStream(room.id) }
         activeStreamDto = streams?.singleOrNull()
         updateStreamDetailLine()

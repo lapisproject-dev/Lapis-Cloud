@@ -42,7 +42,7 @@ class AdminBootstrapTest :
                     it[MemberTable.id] = id
                     it[displayName] = "Bootstrap Testmitglied"
                     it[MemberTable.email] = email
-                    it[status] = MemberStatus.AKTIV
+                    it[status] = MemberStatus.ACTIVE
                     it[joinedAt] = LocalDate(2026, 1, 1)
                     it[membershipTierId] = null
                 }
@@ -148,7 +148,7 @@ class AdminBootstrapTest :
             transaction(db) {
                 val row = (MemberTable innerJoin AccountTable).selectAll().single()
                 row[MemberTable.email] shouldBe "first-admin@example.org"
-                row[MemberTable.status] shouldBe MemberStatus.AKTIV
+                row[MemberTable.status] shouldBe MemberStatus.ACTIVE
                 row[AccountTable.role] shouldBe AccountRole.ADMIN
                 PasswordHasher.verify(rawPassword = STRONG_PASSWORD, storedHash = row[AccountTable.passwordHash]) shouldBe true
             }
@@ -176,7 +176,7 @@ class AdminBootstrapTest :
                     it[id] = Uuid.random()
                     it[displayName] = "Bereits vorhandenes Mitglied"
                     it[email] = "already-here@example.org"
-                    it[status] = MemberStatus.AKTIV
+                    it[status] = MemberStatus.ACTIVE
                     it[joinedAt] = LocalDate(2026, 1, 1)
                     it[membershipTierId] = null
                 }

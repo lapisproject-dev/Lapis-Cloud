@@ -212,7 +212,7 @@ class ConferenceServiceTest :
 
         fun createTestMember(
             email: String,
-            status: MemberStatus = MemberStatus.AKTIV,
+            status: MemberStatus = MemberStatus.ACTIVE,
         ): Uuid {
             val id = Uuid.random()
             transaction {
@@ -235,7 +235,7 @@ class ConferenceServiceTest :
         }
 
         /**
-         * Wave 5 "Föderations-Gastbeitritt" -- a real `MemberStatus.GAST` member with a matching
+         * Wave 5 "Föderations-Gastbeitritt" -- a real `MemberStatus.GUEST` member with a matching
          * `oidc_guest_profile` row, minted via the REAL production
          * [OidcGuestMemberStore.resolveOrCreateGuestMember] function (same pattern
          * `FederationGuestJourneyTest` uses at its own `:250`) rather than a hand-rolled insert, so
@@ -386,7 +386,7 @@ class ConferenceServiceTest :
                         )
                     }
                 }
-                val applicant = createTestMember("conf-create-antrag@example.org", status = MemberStatus.ANTRAG)
+                val applicant = createTestMember("conf-create-antrag@example.org", status = MemberStatus.APPLICATION)
 
                 client.post("/test/create-room?title=Sitzung") { header("X-Member-Id", applicant.toString()) }.status shouldBe
                     HttpStatusCode.Forbidden
@@ -1872,7 +1872,7 @@ class ConferenceServiceTest :
                 ) { header("X-Member-Id", creator.toString()) }
                 val closedRoomId = createRoom(client = client, creatorId = creator, title = "T6-Geschlossen")
 
-                listOf(MemberStatus.ANTRAG, MemberStatus.AUSGETRETEN, MemberStatus.ABGELEHNT).forEach { status ->
+                listOf(MemberStatus.APPLICATION, MemberStatus.WITHDRAWN, MemberStatus.REJECTED).forEach { status ->
                     val member = createTestMember("conf-w5-t6-${status.name.lowercase()}@example.org", status = status)
                     listOf(openRoomId, closedRoomId).forEach { roomId ->
                         client
@@ -2063,7 +2063,7 @@ class ConferenceServiceTest :
 
                 // Promote a GAST to AKTIV AFTER they already have an oidc_guest_profile row.
                 val (memberId, _) = createTestGuestMember("t16-promoted")
-                transaction { MemberTable.update({ MemberTable.id eq memberId }) { it[status] = MemberStatus.AKTIV } }
+                transaction { MemberTable.update({ MemberTable.id eq memberId }) { it[status] = MemberStatus.ACTIVE } }
                 client.post("/test/join-room?roomId=$roomId") { header("X-Member-Id", memberId.toString()) }.status shouldBe
                     HttpStatusCode.OK
 
@@ -2279,7 +2279,7 @@ class ConferenceServiceTest :
                 }
                 val creator = createTestMember("conf-w5-t21@example.org")
                 val roomId = createRoom(client = client, creatorId = creator, title = "T21-Raum")
-                val applicant = createTestMember("conf-w5-t21-antrag@example.org", status = MemberStatus.ANTRAG)
+                val applicant = createTestMember("conf-w5-t21-antrag@example.org", status = MemberStatus.APPLICATION)
 
                 client.get("/test/guest-join-info?roomId=$roomId") { header("X-Member-Id", applicant.toString()) }.status shouldBe
                     HttpStatusCode.Forbidden

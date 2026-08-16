@@ -51,9 +51,16 @@ class LtrLedgerService(
     private val call: ApplicationCall,
     private val ltrBalanceProvider: LtrBalanceProvider = LedgerBackedLtrBalanceProvider(),
 ) : ILtrLedgerService {
+    /**
+     * **V0.11.0 defence-in-depth**: added [requireActiveMembership] -- self-scoped and harmless
+     * for a non-member (a FRIEND simply sees an empty balance, since it can never earn LTR by any
+     * write path), but a clear, honest [network.lapis.cloud.shared.rpc.ForbiddenException] is
+     * better than silently returning a zero balance for a status this feature was never meant for.
+     */
     override suspend fun getMyBalance(): LtrLedgerBalanceDto {
         val current = resolveCurrentMember(call)
         return transaction {
+            requireActiveMembership(memberId = current.memberId)
             LtrLedgerBalanceDto(memberId = current.memberId.toString(), freeBalanceLtr = ltrBalanceProvider.freeBalance(current.memberId))
         }
     }
@@ -67,10 +74,14 @@ class LtrLedgerService(
         }
     }
 
+    /** See [getMyBalance] KDoc "V0.11.0 defence-in-depth" -- same reasoning. */
     override suspend fun listMyEntries(limit: Int): List<LtrLedgerEntryDto> {
         val current = resolveCurrentMember(call)
         val boundedLimit = limit.coerceIn(1, MAX_ENTRY_LIST_LIMIT)
-        return transaction { loadEntries(condition = LtrLedgerEntryTable.memberId eq current.memberId, limit = boundedLimit) }
+        return transaction {
+            requireActiveMembership(memberId = current.memberId)
+            loadEntries(condition = LtrLedgerEntryTable.memberId eq current.memberId, limit = boundedLimit)
+        }
     }
 
     override suspend fun listMemberEntries(

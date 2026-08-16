@@ -14,10 +14,12 @@ import io.ktor.server.routing.post
 import io.ktor.util.date.GMTDate
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
+import network.lapis.cloud.server.db.DbClock
 import network.lapis.cloud.server.db.generated.AccountTable
 import network.lapis.cloud.server.db.generated.MemberTable
 import network.lapis.cloud.server.federation.OidcBackChannelLogoutNotifier
 import network.lapis.cloud.server.mail.PasswordResetMailer
+import network.lapis.cloud.server.security.FriendEmailVerificationTokenStore
 import network.lapis.cloud.server.security.LoginRateLimiter
 import network.lapis.cloud.server.security.PasswordHasher
 import network.lapis.cloud.server.security.PasswordPolicy
@@ -26,6 +28,7 @@ import network.lapis.cloud.server.security.SESSION_COOKIE_NAME
 import network.lapis.cloud.server.security.SessionStore
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.MemberStatus
+import network.lapis.cloud.shared.domain.MemberStatusSets
 import network.lapis.cloud.shared.rpc.WeakPasswordException
 import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.core.lowerCase
@@ -59,6 +62,11 @@ data class PasswordResetConfirmRequest(
     val newPassword: String,
 )
 
+@Serializable
+data class FriendEmailVerifyRequest(
+    val token: String,
+)
+
 /**
  * Public login/logout HTTP endpoints (V0.7.1 Authentifizierung) — deliberately outside the Kilua
  * RPC layer, mounted BEFORE any authentication is required, the exact opposite of every RPC
@@ -85,13 +93,15 @@ data class PasswordResetConfirmRequest(
  * to attach a `SameSite=Strict` cookie to a cross-site request, which covers the classic CSRF
  * attack shape (forged cross-origin form/fetch) even without a token.
  *
- * **V0.7.2 login gate**: [MemberStatus.AUSGETRETEN]/[MemberStatus.ABGELEHNT] accounts are rejected
- * with the SAME generic `401 Invalid credentials` response as a wrong password -- no separate
- * status code or message, so a caller can never learn from this endpoint whether an email belongs
- * to a departed/rejected identity versus simply not existing. [MemberStatus.ANTRAG] (an applicant
- * checking on their still-pending status) and [MemberStatus.GAST] (currently unreachable in
- * practice -- no Gast identity/login path exists yet, but not excluded here on principle) may
- * still log in.
+ * **V0.7.2 login gate** (V0.11.0: gate expressed as [MemberStatusSets.LOGIN_BLOCKED] rather than an
+ * inline `setOf`): [MemberStatus.WITHDRAWN]/[MemberStatus.REJECTED] accounts are rejected with the
+ * SAME generic `401 Invalid credentials` response as a wrong password -- no separate status code
+ * or message, so a caller can never learn from this endpoint whether an email belongs to a
+ * departed/rejected identity versus simply not existing. [MemberStatus.APPLICATION] (an applicant
+ * checking on their still-pending status), [MemberStatus.GUEST] (a federated OIDC guest -- reaches
+ * this endpoint only if it ever sets a local password, currently not offered but not excluded here
+ * on principle), and [MemberStatus.FRIEND] (V0.11.0 self-registered account -- MUST be able to log
+ * in, that is the entire point of self-registration) may all still log in.
  *
  * **V0.7.2 password reset**: `/api/auth/password-reset/request`/`/api/auth/password-reset/confirm`
  * live here, not in `network.lapis.cloud.shared.rpc.IRegistrationService`, for the exact same
@@ -108,6 +118,14 @@ fun Route.registerAuthRoutes(
     cookieSecure: Boolean,
     passwordResetRateLimiter: LoginRateLimiter,
     passwordResetMailer: PasswordResetMailer,
+    /**
+     * V0.11.0 FRIEND self-registration -- throttles `/api/auth/friend/verify-email`. A SEPARATE
+     * instance from [passwordResetRateLimiter]/[rateLimiter], and -- unlike
+     * `/api/auth/password-reset/confirm`, which has NO throttle at all (a pre-existing gap this new
+     * endpoint deliberately does not copy) -- this endpoint IS throttled from day one, keyed by IP
+     * only (the endpoint is unauthenticated and the token itself is the only identity involved).
+     */
+    friendEmailVerifyRateLimiter: LoginRateLimiter,
 ) {
     post("/api/auth/login") {
         val request =
@@ -141,7 +159,7 @@ fun Route.registerAuthRoutes(
         // password, so a wrong-password attempt against a departed/rejected account still takes
         // the exact same passwordOk==false path as any other wrong password (no extra branch that
         // could leak status via response timing).
-        val statusBlocksLogin = accountRow?.get(MemberTable.status) in setOf(MemberStatus.AUSGETRETEN, MemberStatus.ABGELEHNT)
+        val statusBlocksLogin = accountRow?.get(MemberTable.status) in MemberStatusSets.LOGIN_BLOCKED
         if (accountRow == null || !passwordOk || statusBlocksLogin) {
             rateLimiter.recordFailure(emailKey)
             rateLimiter.recordFailure(ipKey)
@@ -288,6 +306,43 @@ fun Route.registerAuthRoutes(
         // KDoc gives for its own OTHER-session revocation, except here there is no "caller's own
         // current session" to preserve: the caller of THIS endpoint is unauthenticated by design.
         SessionStore.revokeAllForMember(memberId = memberId)
+        call.respond(HttpStatusCode.NoContent)
+    }
+
+    /**
+     * V0.11.0 FRIEND self-registration -- consumes an email-verification token issued by
+     * [RegistrationService.registerFriend][network.lapis.cloud.server.rpc.RegistrationService.registerFriend]
+     * and stamps [MemberTable.emailVerifiedAt]. Only meaningful once
+     * `LAPIS_FRIEND_REQUIRE_EMAIL_VERIFICATION=true` is set (see [network.lapis.cloud.server.rpc.FriendRegistrationConfig]
+     * KDoc) -- harmless to call before that (it still records a real, verified timestamp, just one
+     * no gate currently checks). Rate-limited by IP -- see [friendEmailVerifyRateLimiter] KDoc.
+     */
+    post("/api/auth/friend/verify-email") {
+        val request =
+            runCatching { Json.decodeFromString(FriendEmailVerifyRequest.serializer(), call.receiveText()) }.getOrNull()
+        if (request == null || request.token.isBlank()) {
+            call.respond(HttpStatusCode.BadRequest, "token is required")
+            return@post
+        }
+        val ipKey = "ip:${call.request.origin.remoteHost}"
+        if (!friendEmailVerifyRateLimiter.checkAllowed(ipKey)) {
+            call.respondText("Too many requests -- try again later", status = HttpStatusCode.TooManyRequests)
+            return@post
+        }
+        friendEmailVerifyRateLimiter.recordFailure(ipKey)
+
+        val memberId = FriendEmailVerificationTokenStore.consumeToken(request.token)
+        if (memberId == null) {
+            call.respondText("Invalid or expired token", status = HttpStatusCode.BadRequest)
+            return@post
+        }
+        friendEmailVerifyRateLimiter.reset(ipKey)
+        val now = DbClock.nowLocalDateTime()
+        transaction {
+            MemberTable.update({ MemberTable.id eq memberId }) {
+                it[emailVerifiedAt] = now
+            }
+        }
         call.respond(HttpStatusCode.NoContent)
     }
 }

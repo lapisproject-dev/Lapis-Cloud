@@ -3,9 +3,15 @@ package network.lapis.cloud.server.rpc
 import java.security.MessageDigest
 
 /**
- * The versioned, hashed DSGVO consent disclosure a federated guest (`MemberStatus.GAST`) must be
- * shown -- and echo back verbatim (via [matches]) -- before [ConferenceService.joinRoom] will admit
- * them to a room whose `allowFederationGuests` opt-in is set. See [IConferenceService]
+ * The versioned, hashed DSGVO consent disclosure a non-member conference participant --
+ * `MemberStatus.GUEST` (federated, has a home server) OR `MemberStatus.FRIEND` (self-registered,
+ * NO home server, unverified display name) -- must be shown -- and echo back verbatim (via
+ * [matches]) -- before [ConferenceService.joinRoom] will admit them to a room whose
+ * `allowFederationGuests` opt-in is set. [TEXT] is deliberately ONE shared wording honest for BOTH
+ * cases (see [DETAIL] KDoc below) rather than two caller-conditional variants -- simpler, and the
+ * server already exposes [network.lapis.cloud.shared.domain.ConferenceGuestJoinInfoDto
+ * .callerIsGuest]/`.callerIsNonMember` if a future wave wants to branch the client rendering
+ * instead. See [IConferenceService]
  * [network.lapis.cloud.shared.rpc.IConferenceService] KDoc "Federated guest join" for the full
  * authorization matrix this backs, and [network.lapis.cloud.shared.domain.ConferenceGuestJoinInfoDto]
  * KDoc for why this disclaimer's version/sha256 must travel as DATA (a pre-join read call), never as
@@ -38,10 +44,20 @@ import java.security.MessageDigest
  * invariant, and silently invalidate every historical acknowledgment on an org rename.
  */
 object ConferenceGuestConsentDisclaimer {
-    const val VERSION: String = "2026-08-10.v1"
+    /**
+     * V0.11.0 FRIEND wave -- bumped from `"2026-08-10.v1"`. The wording change below (HEADLINE no
+     * longer claims "eines anderen Servers", DETAIL's home-server sentence is no longer a blanket
+     * claim, and a new FRIEND-unverified-name sentence was added) is a real, hash-changing edit --
+     * see class KDoc "immutability/versioning contract".
+     */
+    const val VERSION: String = "2026-08-16.v1"
 
-    /** Layer 1, line 1 -- see class KDoc "Two-layer disclosure". */
-    val HEADLINE: String = "Sie treten als Gast eines anderen Servers bei."
+    /**
+     * Layer 1, line 1 -- see class KDoc "Two-layer disclosure". Deliberately does NOT say "eines
+     * anderen Servers" (unlike the pre-V0.11.0 wording) -- that was true for a federated GUEST but
+     * false for a FRIEND, who has no other server at all. [DETAIL] carries the case-specific detail.
+     */
+    val HEADLINE: String = "Sie treten dieser Besprechung als Gast bei."
 
     /**
      * Layer 1, exactly two entries -- the two facts this whole wave exists to convey. See class
@@ -64,14 +80,28 @@ object ConferenceGuestConsentDisclaimer {
             """.trimIndent(),
         )
 
-    /** Layer 2 remainder -- see class KDoc "Two-layer disclosure". */
+    /**
+     * Layer 2 remainder -- see class KDoc "Two-layer disclosure". The "Sichtbare Gast-Markierung"
+     * paragraph (V0.11.0 FRIEND wave) is written to stay honest for BOTH admission paths this
+     * disclaimer now covers, without needing a caller-conditional variant: a federated
+     * `MemberStatus.GUEST` has a home server, whose address is disclosed; a self-registered
+     * `MemberStatus.FRIEND` has none -- but unlike a GUEST (identity asserted by a trusted OIDC
+     * home server), a FRIEND's display name was typed in at self-registration and verified by
+     * nobody, which is disclosed instead. Pinned by
+     * `ConferenceGuestConsentDisclaimerTest`'s "does not overclaim a home server for every guest"
+     * / "discloses FRIEND's display name is unverified" tests.
+     */
     private val DETAIL: String =
         """
         Ihre Kontrolle: Sie können Kamera und Mikrofon jederzeit ausschalten und die Besprechung
         jederzeit verlassen. Ohne Kamera wird lediglich Ihr Anzeigename dargestellt.
 
-        Sichtbare Gast-Markierung: Ihr Gaststatus und Ihr Heimserver sind für alle übrigen
-        Teilnehmenden dieser Besprechung sichtbar.
+        Sichtbare Gast-Markierung: Ihr Gaststatus ist für alle übrigen Teilnehmenden dieser
+        Besprechung sichtbar. Treten Sie über einen anderen (föderierten) Server bei, ist zusätzlich
+        dessen Adresse -- Ihr Heimserver -- für alle übrigen Teilnehmenden sichtbar. Treten Sie
+        stattdessen mit einem selbst registrierten Freund-Konto bei, entfällt diese
+        Heimserver-Angabe -- dafür ist Ihr Anzeigename in diesem Fall NICHT verifiziert: er wurde bei
+        der Registrierung frei gewählt und von niemandem geprüft.
 
         Dieser Hinweis stellt keine Rechtsberatung dar. Ein reales Deployment sollte diesen Text
         unter einer neuen Version durch die eigene, rechtlich geprüfte Fassung ersetzen.

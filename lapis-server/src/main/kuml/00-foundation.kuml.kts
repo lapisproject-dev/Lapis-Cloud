@@ -26,6 +26,16 @@
 // 23-registration.kuml.kts, not here -- this file only extends the `member` entity/enum Foundation
 // already owns.
 //
+// V0.11.0: `MemberStatus` literals renamed German -> English (ANTRAG->APPLICATION,
+// AKTIV->ACTIVE, GAST->GUEST, AUSGETRETEN->WITHDRAWN, ABGELEHNT->REJECTED) plus a new FRIEND
+// literal -- a self-registerable, board-approval-free, identity-unverified NON-membership
+// account, scoped to video-conference access only (network.lapis.cloud.shared.domain
+// .MemberStatusSets.CONFERENCE_ELIGIBLE). `member` gains `friendSince` (set once on FRIEND
+// self-registration, never cleared) and `emailVerifiedAt` (V0.11.0 friend-email-verification
+// mechanic, see 23-registration.kuml.kts `friend_email_verification_token`). See Flyway
+// `V3__member_status_english_and_friend.sql` for the real-data migration on an already-`V1`
+// baseline.
+//
 // This is the versioned source-of-truth *model* for the schema shape (ADR-0016), verified
 // against both the real Flyway-migrated H2 schema and the hand-written Exposed Table objects
 // (network.lapis.cloud.server.db.tables.FoundationTables.kt) by SchemaDriftTest. Per ADR-0016's
@@ -53,15 +63,21 @@ classDiagram(name = "Foundation") {
     applyProfile(ermMappingProfile)
 
     val memberStatus = enumOf(name = "MemberStatus") {
-        literal(name = "ANTRAG")
-        literal(name = "AKTIV")
-        literal(name = "GAST")
-        literal(name = "AUSGETRETEN")
-        // V0.7.2 Beitritts-Workflow: a board-rejected ANTRAG lands here, retained with a
-        // rejectionReason -- never silently reused as AUSGETRETEN, which means something
+        literal(name = "APPLICATION")
+        literal(name = "ACTIVE")
+        literal(name = "GUEST")
+        literal(name = "WITHDRAWN")
+        // V0.7.2 Beitritts-Workflow: a board-rejected APPLICATION lands here, retained with a
+        // rejectionReason -- never silently reused as WITHDRAWN, which means something
         // structurally different ("left after having been admitted"). See
         // network.lapis.cloud.shared.domain.MemberStatus KDoc.
-        literal(name = "ABGELEHNT")
+        literal(name = "REJECTED")
+        // V0.11.0: self-registered, board-approval-free, identity-unverified NON-membership
+        // account. Scope today: video conferencing ONLY (MemberStatusSets.CONFERENCE_ELIGIBLE).
+        // No Beitragspflicht, no governance/accounting/LTR rights. Upgradeable to ACTIVE via the
+        // regular APPLICATION route -- see `friendSince` below and IRegistrationService
+        // .applyForMembership.
+        literal(name = "FRIEND")
     }
 
     val accountRole = enumOf(name = "AccountRole") {
@@ -152,6 +168,22 @@ classDiagram(name = "Foundation") {
         attribute(name = "rejectionReason", type = "String") {
             multiplicity = Multiplicity(0, 1)
             stereotype("Column") { "columnName" to "rejection_reason"; "sqlType" to "VARCHAR(1000)" }
+        }
+        // V0.11.0 FRIEND self-registration. Set on FRIEND self-registration, NEVER cleared. Two
+        // jobs: (1) keeps a friend-originated membership application conference-eligible while it
+        // is pending (see MemberStatusSets.CONFERENCE_ELIGIBLE), and (2) tells rejectApplication
+        // to fall back to FRIEND rather than REJECTED, so a declined membership application does
+        // not also destroy the friend account.
+        attribute(name = "friendSince", type = "LocalDate") {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") { "columnName" to "friend_since" }
+        }
+        // V0.11.0 friend-email-verification mechanic (see 23-registration.kuml.kts
+        // friend_email_verification_token). Null until the member consumes a verification token
+        // -- or forever, while LAPIS_FRIEND_REQUIRE_EMAIL_VERIFICATION stays at its default false.
+        attribute(name = "emailVerifiedAt", type = "LocalDateTime") {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") { "columnName" to "email_verified_at" }
         }
     }
 

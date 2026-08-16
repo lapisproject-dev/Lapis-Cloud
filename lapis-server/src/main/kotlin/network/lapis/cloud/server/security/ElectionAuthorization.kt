@@ -41,7 +41,7 @@ fun CurrentMember.isElectionBoardMember(electionId: Uuid): Boolean =
 /**
  * Self-nomination eligibility for [network.lapis.cloud.shared.domain.ElectionType.SINGLE_CHOICE]/
  * [network.lapis.cloud.shared.domain.ElectionType.MULTI_CHOICE] -- mirrors [canSubmitMotion]'s
- * General Assembly branch (any [MemberStatus.AKTIV] member), since standing as a candidate
+ * General Assembly branch (any [MemberStatus.ACTIVE] member), since standing as a candidate
  * for a personnel election is, like submitting to the General Assembly, a broad participation
  * right of active membership, not scoped to a specific Committee's own membership. No third-party
  * nomination flow exists in this wave (self-nomination only).
@@ -51,7 +51,7 @@ fun CurrentMember.canStandAsCandidate(): Boolean {
     return transaction {
         MemberTable
             .selectAll()
-            .where { (MemberTable.id eq memberId) and (MemberTable.status eq MemberStatus.AKTIV) }
+            .where { (MemberTable.id eq memberId) and (MemberTable.status eq MemberStatus.ACTIVE) }
             .count() > 0
     }
 }

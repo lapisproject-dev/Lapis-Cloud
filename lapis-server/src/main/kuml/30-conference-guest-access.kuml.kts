@@ -6,7 +6,7 @@
 // opt-in column that gates who is even allowed to reach this table.
 //
 // **This file models exactly one new table.** `conference_guest_consent_acknowledgment` is the
-// append-only, per-join proof that a federated OIDC guest (`MemberStatus.GAST`) was shown the
+// append-only, per-join proof that a federated OIDC guest (`MemberStatus.GUEST`) was shown the
 // current, versioned+hashed DSGVO consent text
 // (`network.lapis.cloud.server.rpc.ConferenceGuestConsentDisclaimer`) before `joinRoom` minted them
 // a LiveKit token -- same three-column `version`/`sha256`/`acknowledged_at` shape
@@ -39,6 +39,7 @@
 // «Column».fkEntity overrides within this single-file evaluation -- same cross-domain-stub pattern
 // 28-conference-recording.kuml.kts/29-conference-streaming.kuml.kts already establish.
 import dev.kuml.profile.erm.ermMappingProfile
+import dev.kuml.uml.Multiplicity
 import dev.kuml.uml.dsl.applyProfile
 import dev.kuml.uml.dsl.stereotype
 
@@ -103,7 +104,16 @@ classDiagram(name = "ConferenceGuestAccess") {
         // subsequent login (see OidcGuestMemberStore.resolveOrCreateGuestMember's upsert). The
         // DSGVO proof must say which home server the guest was on WHEN they consented. See file
         // header.
+        //
+        // V0.11.0 FRIEND self-registration: made nullable (was NOT NULL) -- a FRIEND has no
+        // federated home server at all (no oidc_guest_profile row), yet still writes exactly the
+        // same one acknowledgment-row-per-join proof a GUEST does, see
+        // `network.lapis.cloud.server.rpc.ConferenceService.joinRoom`'s own "FRIEND: no home
+        // server, guestHomeserver stays null by design" comment and
+        // `V3__member_status_english_and_friend.sql`'s "conference_guest_consent_acknowledgment
+        // .homeserver_url must become nullable" step.
         attribute(name = "homeserverUrl", type = "String") {
+            multiplicity = Multiplicity(0, 1)
             stereotype("Column") { "columnName" to "homeserver_url"; "sqlType" to "VARCHAR(2048)" }
         }
         // The controlling organization's display name, snapshotted at consent time for the

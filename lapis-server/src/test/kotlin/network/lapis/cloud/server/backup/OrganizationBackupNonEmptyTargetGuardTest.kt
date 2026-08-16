@@ -38,7 +38,7 @@ class OrganizationBackupNonEmptyTargetGuardTest :
                     it[id] = sourceAdminId
                     it[displayName] = "Guard Source Admin"
                     it[email] = "guard-source-admin@example.org"
-                    it[status] = MemberStatus.AKTIV
+                    it[status] = MemberStatus.ACTIVE
                     it[joinedAt] = LocalDate(2027, 1, 1)
                     it[membershipTierId] = null
                 }
@@ -57,7 +57,7 @@ class OrganizationBackupNonEmptyTargetGuardTest :
                     it[id] = targetExistingMemberId
                     it[displayName] = "Pre-Existing Target Member"
                     it[email] = "pre-existing-target-member@example.org"
-                    it[status] = MemberStatus.AKTIV
+                    it[status] = MemberStatus.ACTIVE
                     it[joinedAt] = LocalDate(2026, 6, 1)
                     it[membershipTierId] = null
                 }
@@ -67,13 +67,16 @@ class OrganizationBackupNonEmptyTargetGuardTest :
             try {
                 bundleFile.outputStream().use { out ->
                     OrganizationExportService(database = sourceDb, documentStorageRoot = sourceStorageRoot)
-                        .streamExport(actor = CurrentMember(memberId = sourceAdminId, role = AccountRole.ADMIN), sink = out)
+                        .streamExport(
+                            actor = CurrentMember(memberId = sourceAdminId, role = AccountRole.ADMIN, status = MemberStatus.ACTIVE),
+                            sink = out,
+                        )
                 }
 
                 try {
                     OrganizationRestoreService(database = targetDb, documentStorageRoot = targetStorageRoot)
                         .restore(
-                            actor = CurrentMember(memberId = sourceAdminId, role = AccountRole.ADMIN),
+                            actor = CurrentMember(memberId = sourceAdminId, role = AccountRole.ADMIN, status = MemberStatus.ACTIVE),
                             bundleFile = bundleFile,
                             allowNonEmptyTarget = false,
                         )
@@ -92,7 +95,7 @@ class OrganizationBackupNonEmptyTargetGuardTest :
                 val result =
                     OrganizationRestoreService(database = targetDb, documentStorageRoot = targetStorageRoot)
                         .restore(
-                            actor = CurrentMember(memberId = sourceAdminId, role = AccountRole.ADMIN),
+                            actor = CurrentMember(memberId = sourceAdminId, role = AccountRole.ADMIN, status = MemberStatus.ACTIVE),
                             bundleFile = bundleFile,
                             allowNonEmptyTarget = true,
                         )
@@ -118,7 +121,7 @@ class OrganizationBackupNonEmptyTargetGuardTest :
                     it[id] = adminId
                     it[displayName] = "Guard EmptyOk Admin"
                     it[email] = "guard-emptyok-admin@example.org"
-                    it[status] = MemberStatus.AKTIV
+                    it[status] = MemberStatus.ACTIVE
                     it[joinedAt] = LocalDate(2027, 1, 1)
                     it[membershipTierId] = null
                 }
@@ -135,14 +138,17 @@ class OrganizationBackupNonEmptyTargetGuardTest :
                     OrganizationExportService(
                         database = sourceDb,
                         documentStorageRoot = sourceStorageRoot,
-                    ).streamExport(actor = CurrentMember(memberId = adminId, role = AccountRole.ADMIN), sink = out)
+                    ).streamExport(
+                        actor = CurrentMember(memberId = adminId, role = AccountRole.ADMIN, status = MemberStatus.ACTIVE),
+                        sink = out,
+                    )
                 }
                 // targetDb is freshly migrated -- only the two Flyway-seeded singleton rows exist,
                 // no explicit allowNonEmptyTarget needed.
                 val result =
                     OrganizationRestoreService(database = targetDb, documentStorageRoot = targetStorageRoot)
                         .restore(
-                            actor = CurrentMember(memberId = adminId, role = AccountRole.ADMIN),
+                            actor = CurrentMember(memberId = adminId, role = AccountRole.ADMIN, status = MemberStatus.ACTIVE),
                             bundleFile = bundleFile,
                             allowNonEmptyTarget = false,
                         )

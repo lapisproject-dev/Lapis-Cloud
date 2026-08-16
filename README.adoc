@@ -179,6 +179,14 @@ legal counsel — not something this project can decide once for everyone. See `
   reset "would be sent" — same honestly-disclosed-stub posture `MailingService.sendMailingMessage`
   has had since V0.4/V0.1.5. A real SMTP-backed implementation is a drop-in replacement whenever an
   operator can verify one end to end.
+* **FRIEND email verification is present but unenforced, for the same reason.** `MemberStatus.FRIEND`
+  (V0.11.0) is a self-registerable status (`/register-friend`, no board approval, no identity check)
+  scoped strictly to video-conference access on a per-room opt-in basis — it is not membership in
+  the organization, carries no Beitragspflicht/governance/accounting/LTR rights, and no
+  `PUBLIC_MEMBERS` document access. The `friend_email_verification_token` mechanics exist end to
+  end, but enforcement stays behind `LAPIS_FRIEND_REQUIRE_EMAIL_VERIFICATION` (default `false`):
+  same root cause as the bullet above, no real SMTP transport exists anywhere in this codebase yet
+  to actually deliver the verification email.
 * **UI coverage beyond Governance and Accounting.** Compliance (Transparenzregister, §25 PartG,
   audit log, backup/restore, DSGVO), mail-merge/postal dispatch, and the LTR economy (Crowdfunding,
   Auction, Peer-Transfer, Politician Profiles) still have no UI — reachable only via Kilua RPC / the

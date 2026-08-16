@@ -118,7 +118,7 @@ class GovernanceServiceTest :
 
         fun createTestMember(
             email: String,
-            status: MemberStatus = MemberStatus.AKTIV,
+            status: MemberStatus = MemberStatus.ACTIVE,
         ): Uuid {
             val id = Uuid.random()
             transaction {
@@ -498,7 +498,7 @@ class GovernanceServiceTest :
         }
 
         test(
-            "submitMotion: General Assembly target requires MemberStatus.AKTIV; Committee target requires " +
+            "submitMotion: General Assembly target requires MemberStatus.ACTIVE; Committee target requires " +
                 "any-role membership, not just leadership; unauthenticated is rejected",
         ) {
             testApplication {
@@ -517,7 +517,7 @@ class GovernanceServiceTest :
                 createdCommitteeIds += Uuid.parse(mvCommitteeId)
 
                 val aktivMember = createTestMember("motion-mv-aktiv@example.org")
-                val motionStatusMember = createTestMember("motion-mv-motionstatus@example.org", MemberStatus.ANTRAG)
+                val motionStatusMember = createTestMember("motion-mv-motionstatus@example.org", MemberStatus.APPLICATION)
 
                 val allowed =
                     client.post("/test/submit-motion/$mvCommitteeId") { header("X-Member-Id", aktivMember.toString()) }.bodyAsText()
@@ -1005,7 +1005,7 @@ class GovernanceServiceTest :
         }
 
         test(
-            "General Assembly quorum eligibility counts only MemberStatus.AKTIV members directly from " +
+            "General Assembly quorum eligibility counts only MemberStatus.ACTIVE members directly from " +
                 "MemberTable, unaffected by CommitteeMembershipTable rows",
         ) {
             testApplication {
@@ -1034,7 +1034,7 @@ class GovernanceServiceTest :
 
                 createTestMember("mv-quorum-aktiv-1@example.org")
                 createTestMember("mv-quorum-aktiv-2@example.org")
-                createTestMember("mv-quorum-motionstatus@example.org", MemberStatus.ANTRAG)
+                createTestMember("mv-quorum-motionstatus@example.org", MemberStatus.APPLICATION)
                 // Deliberately never added to CommitteeMembershipTable for mvCommitteeId.
 
                 val afterMeetingId =
@@ -1307,7 +1307,7 @@ class GovernanceServiceTest :
                 createdCommitteeIds += Uuid.parse(committeeId)
 
                 val chair = createTestMember("abst-antrag-chair@example.org")
-                val applicant = createTestMember("abst-antrag-applicant@example.org", status = MemberStatus.ANTRAG)
+                val applicant = createTestMember("abst-antrag-applicant@example.org", status = MemberStatus.APPLICATION)
                 client.post("/test/add-member/$committeeId/$chair/CHAIR") { header("X-Member-Id", BOARD_ID) }
                 // Round-2 review fix (2026-07-30): addCommitteeMember now itself rejects a non-AKTIV
                 // seatee (see GovernanceService.kt), so the RPC route can no longer be used to
@@ -1374,7 +1374,7 @@ class GovernanceServiceTest :
                 createdCommitteeIds += Uuid.parse(committeeId)
 
                 val chair = createTestMember("abst-ausgetreten-chair@example.org")
-                val departed = createTestMember("abst-ausgetreten-departed@example.org", status = MemberStatus.AUSGETRETEN)
+                val departed = createTestMember("abst-ausgetreten-departed@example.org", status = MemberStatus.WITHDRAWN)
                 client.post("/test/add-member/$committeeId/$chair/CHAIR") { header("X-Member-Id", BOARD_ID) }
                 // Round-2 review fix (2026-07-30): see the identical comment in the ANTRAG variant of
                 // this test above -- addCommitteeMember now rejects a non-AKTIV seatee itself, so seat
@@ -1436,7 +1436,7 @@ class GovernanceServiceTest :
                 createdCommitteeIds += Uuid.parse(committeeId)
 
                 val chair = createTestMember("abst-aktiv-regression-chair@example.org")
-                val member = createTestMember("abst-aktiv-regression-member@example.org", status = MemberStatus.AKTIV)
+                val member = createTestMember("abst-aktiv-regression-member@example.org", status = MemberStatus.ACTIVE)
                 client.post("/test/add-member/$committeeId/$chair/CHAIR") { header("X-Member-Id", BOARD_ID) }
                 client.post("/test/add-member/$committeeId/$member/MEMBER") { header("X-Member-Id", BOARD_ID) }
                 seedLtrBalance(member, BigDecimal("50.00"))
@@ -1483,7 +1483,7 @@ class GovernanceServiceTest :
                         .post("/test/create-committee/Status Gate%20Antrag/EXECUTIVE_BOARD/50") { header("X-Member-Id", BOARD_ID) }
                         .bodyAsText()
                 createdCommitteeIds += Uuid.parse(committeeId)
-                val applicant = createTestMember("status-gate-antrag@example.org", status = MemberStatus.ANTRAG)
+                val applicant = createTestMember("status-gate-antrag@example.org", status = MemberStatus.APPLICATION)
 
                 val response =
                     client.post("/test/add-member/$committeeId/$applicant/MEMBER") { header("X-Member-Id", BOARD_ID) }
@@ -1504,7 +1504,7 @@ class GovernanceServiceTest :
                         ) { header("X-Member-Id", BOARD_ID) }
                         .bodyAsText()
                 createdCommitteeIds += Uuid.parse(committeeId)
-                val departed = createTestMember("status-gate-ausgetreten@example.org", status = MemberStatus.AUSGETRETEN)
+                val departed = createTestMember("status-gate-ausgetreten@example.org", status = MemberStatus.WITHDRAWN)
 
                 val response =
                     client.post("/test/add-member/$committeeId/$departed/MEMBER") { header("X-Member-Id", BOARD_ID) }
@@ -1523,7 +1523,7 @@ class GovernanceServiceTest :
                         .post("/test/create-committee/Status Gate%20Abgelehnt/EXECUTIVE_BOARD/50") { header("X-Member-Id", BOARD_ID) }
                         .bodyAsText()
                 createdCommitteeIds += Uuid.parse(committeeId)
-                val rejected = createTestMember("status-gate-abgelehnt@example.org", status = MemberStatus.ABGELEHNT)
+                val rejected = createTestMember("status-gate-abgelehnt@example.org", status = MemberStatus.REJECTED)
 
                 val response =
                     client.post("/test/add-member/$committeeId/$rejected/MEMBER") { header("X-Member-Id", BOARD_ID) }
@@ -1542,7 +1542,7 @@ class GovernanceServiceTest :
                         .post("/test/create-committee/Status Gate%20Gast/EXECUTIVE_BOARD/50") { header("X-Member-Id", BOARD_ID) }
                         .bodyAsText()
                 createdCommitteeIds += Uuid.parse(committeeId)
-                val guest = createTestMember("status-gate-gast@example.org", status = MemberStatus.GAST)
+                val guest = createTestMember("status-gate-gast@example.org", status = MemberStatus.GUEST)
 
                 val response =
                     client.post("/test/add-member/$committeeId/$guest/MEMBER") { header("X-Member-Id", BOARD_ID) }
@@ -1561,7 +1561,7 @@ class GovernanceServiceTest :
                         .post("/test/create-committee/Status Gate%20Aktiv/EXECUTIVE_BOARD/50") { header("X-Member-Id", BOARD_ID) }
                         .bodyAsText()
                 createdCommitteeIds += Uuid.parse(committeeId)
-                val member = createTestMember("status-gate-aktiv@example.org", status = MemberStatus.AKTIV)
+                val member = createTestMember("status-gate-aktiv@example.org", status = MemberStatus.ACTIVE)
 
                 val response =
                     client.post("/test/add-member/$committeeId/$member/MEMBER") { header("X-Member-Id", BOARD_ID) }

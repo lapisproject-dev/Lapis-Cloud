@@ -4401,7 +4401,7 @@ msgstr "Retención legal activa: no se puede ejecutar la eliminación."
 #: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:183
 msgid ""
 "Legt ein Mitglied ohne Antrags-/Freigabeschritt an (z. B. für Beitritte auf "
-"Papier oder Datenmigration) -- Status sofort AKTIV."
+"Papier oder Datenmigration) -- Status sofort Aktiv."
 msgstr ""
 "Crea un miembro sin el paso de solicitud/aprobación (p. ej., para altas en "
 "papel o migración de datos); el estado pasa inmediatamente a ACTIVO."
@@ -7421,6 +7421,83 @@ msgstr "Explotación vinculada al fin"
 #: src/jsMain/kotlin/network/lapis/cloud/client/PriceOracleScreen.kt:567
 msgid "Zwischengespeichert (Cached)"
 msgstr "Almacenado en caché"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/FriendRegistrationScreen.kt:40
+#: src/jsMain/kotlin/network/lapis/cloud/client/FriendRegistrationScreen.kt:86
+msgid "Freund-Konto anlegen"
+msgstr "Crear cuenta de amigo"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/FriendRegistrationScreen.kt:41
+msgid ""
+"Ein Freund-Konto ist keine Mitgliedschaft -- es dient ausschließlich der "
+"Teilnahme an Videokonferenzen, zu denen Sie eingeladen wurden."
+msgstr ""
+"Una cuenta de amigo no es una membresía -- sirve exclusivamente para "
+"participar en videoconferencias a las que haya sido invitado."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/FriendRegistrationScreen.kt:47
+msgid "Nutzungsbedingungen werden geladen ..."
+msgstr "Cargando condiciones de uso ..."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/FriendRegistrationScreen.kt:60
+msgid "Nutzungsbedingungen fuer Freund-Konten (Version %1)"
+msgstr "Condiciones de uso para cuentas de amigo (versión %1)"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/FriendRegistrationScreen.kt:68
+msgid "Anzeigename (nicht überprüft)"
+msgstr "Nombre visible (no verificado)"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/FriendRegistrationScreen.kt:73
+msgid ""
+"Ich habe die Nutzungsbedingungen für Freund-Konten gelesen und akzeptiere "
+"sie."
+msgstr "He leído y acepto las condiciones de uso para cuentas de amigo."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/FriendRegistrationScreen.kt:105
+msgid "Bitte bestätigen Sie, dass Sie die Nutzungsbedingungen gelesen haben."
+msgstr "Confirme que ha leído las condiciones de uso."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/FriendRegistrationScreen.kt:135
+msgid "Doch lieber Mitglied werden? Zum Beitrittsantrag."
+msgstr "¿Prefiere hacerse miembro? Vaya a la solicitud de afiliación."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/FriendRegistrationScreen.kt:138
+msgid "Bereits ein Konto? Zur Anmeldung."
+msgstr "¿Ya tiene una cuenta? Inicie sesión."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/FriendRegistrationScreen.kt:143
+msgid "Freund-Konto angelegt"
+msgstr "Cuenta de amigo creada"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/FriendRegistrationScreen.kt:145
+msgid ""
+"Ihr Freund-Konto ist sofort nutzbar -- Sie können sich jetzt mit Ihrem "
+"gewählten Passwort anmelden und an Videokonferenzen teilnehmen, zu denen Sie "
+"eingeladen wurden."
+msgstr ""
+"Su cuenta de amigo está lista para usarse de inmediato -- ahora puede "
+"iniciar sesión con la contraseña elegida y participar en videoconferencias a "
+"las que haya sido invitado."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/LoginScreen.kt:96
+msgid "Nur an einer Videokonferenz teilnehmen? Freund-Konto anlegen."
+msgstr "¿Solo desea participar en una videoconferencia? Cree una cuenta de amigo."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberStatusLabels.kt:19
+msgid "Antrag"
+msgstr "Solicitud"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberStatusLabels.kt:22
+msgid "Ausgetreten"
+msgstr "Baja"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberStatusLabels.kt:24
+msgid "Freund"
+msgstr "Amigo"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:70
+msgid "%1 (Freund-Konto seit %2)"
+msgstr "%1 (cuenta de amigo desde %2)"
 
 #~ msgid ""
 #~ "Sobald aus dieser Sitzung heraus eine geheime Abstimmung geöffnet wird, "

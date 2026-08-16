@@ -13,20 +13,59 @@ import kotlinx.serialization.Serializable
  *
  * V0.7.2 Beitritts-/Registrierungs-Workflow delivers the actual admission/exit lifecycle this
  * stub always anticipated (see `network.lapis.cloud.shared.rpc.IRegistrationService`):
- * [ANTRAG] -> [AKTIV] (board-approved) or [ANTRAG] -> [ABGELEHNT] (board-rejected, retained with
- * a reason -- never silently reused as [AUSGETRETEN], which means something structurally
- * different: "left after having been admitted"), and [AKTIV] -> [AUSGETRETEN]
+ * [APPLICATION] -> [ACTIVE] (board-approved) or [APPLICATION] -> [REJECTED] (board-rejected,
+ * retained with a reason -- never silently reused as [WITHDRAWN], which means something
+ * structurally different: "left after having been admitted"), and [ACTIVE] -> [WITHDRAWN]
  * (member-initiated self-service exit, no board approval needed -- "Eintritt und Austritt sind
- * ausschliesslich Willenserklaerungen der Vertragspartner"). [GAST] is deliberately UNCHANGED and
- * unused by this wave -- it is a separate, larger, still-unbuilt pre-membership guest-identity
- * concept (see the V0.6.4 Politiker-Profile guest-rating-basket scope cut), not a target for the
- * Austritt transition.
+ * ausschliesslich Willenserklaerungen der Vertragspartner"). [GUEST] is a separate, larger
+ * pre-membership guest-identity concept (see the V0.6.4 Politiker-Profile guest-rating-basket
+ * scope cut and the OIDC federation wave), not a target for the Austritt transition.
+ *
+ * This wave (V0.11.0) renamed every literal from German to English (`ANTRAG`->`APPLICATION`,
+ * `AKTIV`->`ACTIVE`, `GAST`->`GUEST`, `AUSGETRETEN`->`WITHDRAWN`, `ABGELEHNT`->`REJECTED`, see
+ * Flyway `V3__member_status_english_and_friend.sql`) and added [FRIEND]: a self-registerable,
+ * board-approval-free, identity-unverified NON-membership account. Scope today is video
+ * conferencing ONLY (see [MemberStatusSets.CONFERENCE_ELIGIBLE]) -- no Beitragspflicht, no
+ * governance/accounting/LTR rights, no membership document access. Upgradeable to [APPLICATION]
+ * via `IRegistrationService.applyForMembership`; see [MemberDto.friendSince].
  */
 @Serializable
-enum class MemberStatus { ANTRAG, AKTIV, GAST, AUSGETRETEN, ABGELEHNT }
+enum class MemberStatus { APPLICATION, ACTIVE, GUEST, WITHDRAWN, REJECTED, FRIEND }
 
 @Serializable
 enum class AccountRole { MEMBER, BOARD, TREASURER, ADMIN }
+
+/**
+ * The ONE place a "which statuses may do X" question is answered. Every authorization gate in
+ * this codebase resolves through a named set here rather than an inline `== ACTIVE` / `!isGuest`
+ * comparison, so widening a capability for a future status is a one-line edit in this object
+ * plus a test, never a hunt through N call sites. Deliberately in `lapis-shared` (not server-only)
+ * so a client can render the same distinction without re-deriving it.
+ */
+object MemberStatusSets {
+    /** Full contractual membership of THIS organization (Satzung/Beitrag/Governance/LTR). */
+    val ORGANIZATION_MEMBER: Set<MemberStatus> = setOf(MemberStatus.ACTIVE)
+
+    /**
+     * Authenticated, but NOT a member of this organization. The positive counterpart of the
+     * historical `isGuest` denylist -- every "members only" gate tests [ORGANIZATION_MEMBER]
+     * instead of this set directly.
+     */
+    val NON_MEMBER: Set<MemberStatus> = setOf(MemberStatus.GUEST, MemberStatus.FRIEND)
+
+    /** May enter a conference room. THE extension point for widening FRIEND later. */
+    val CONFERENCE_ELIGIBLE: Set<MemberStatus> =
+        setOf(MemberStatus.ACTIVE, MemberStatus.GUEST, MemberStatus.FRIEND)
+
+    /**
+     * Politician-rating basket (V0.6.4 guest basket), deliberately EXCLUDES [MemberStatus.FRIEND]
+     * -- an unverified, self-registered name must not move a public trust metric.
+     */
+    val POLITICIAN_RATER: Set<MemberStatus> = setOf(MemberStatus.ACTIVE, MemberStatus.GUEST)
+
+    /** May not log in at all (`AuthRoutes` gate). */
+    val LOGIN_BLOCKED: Set<MemberStatus> = setOf(MemberStatus.WITHDRAWN, MemberStatus.REJECTED)
+}
 
 /**
  * [street]/[postalCode]/[city]/[country] (V0.4.1) are a minimal, single, nullable postal address
@@ -44,7 +83,19 @@ enum class AccountRole { MEMBER, BOARD, TREASURER, ADMIN }
  * metadata -- set by `IRegistrationService.approveApplication`/`rejectApplication` (same shape as
  * `CrowdfundingProjectDto`'s own reviewedBy/reviewedAt/rejectionReason fields). All three stay
  * `null` for a member who was created directly (`IRegistrationService.createMemberDirect`, no
- * approval step) or who has not yet been decided ([MemberStatus.ANTRAG]).
+ * approval step) or who has not yet been decided ([MemberStatus.APPLICATION]).
+ *
+ * [friendSince] (V0.11.0) is set once, on [MemberStatus.FRIEND] self-registration, and NEVER
+ * cleared afterwards -- including after `applyForMembership` flips the row to [MemberStatus
+ * .APPLICATION]. Its ONE job: it tells `rejectApplication` to fall back to [MemberStatus.FRIEND]
+ * rather than [MemberStatus.REJECTED] for a friend-originated application, so a declined membership
+ * application does not also destroy the friend account. It does NOT keep conference access alive
+ * during the pending application -- [MemberStatusSets.CONFERENCE_ELIGIBLE] checks the row's CURRENT
+ * `status` only, and `status` is [MemberStatus.APPLICATION] (not in that set) for the whole time the
+ * application is pending, so a friend-originated applicant temporarily loses conference access
+ * exactly like any other applicant, regaining it only if/when the board approves (-> [MemberStatus
+ * .ACTIVE]) or rejects back to [MemberStatus.FRIEND] via the `friendSince` fallback above. `null`
+ * for every member who never went through friend self-registration.
  */
 @Serializable
 data class MemberDto(
@@ -63,6 +114,7 @@ data class MemberDto(
     val reviewedById: String? = null,
     val reviewedAt: LocalDateTime? = null,
     val rejectionReason: String? = null,
+    val friendSince: LocalDate? = null,
 )
 
 /**

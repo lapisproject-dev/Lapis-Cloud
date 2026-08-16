@@ -494,7 +494,7 @@ class ElectionService(
         val wId = input.electionId.toUuidOrNotFound("Election")
         return transaction {
             // ANTRAG membership-gate audit (2026-07-30): closes the gap disclosed since V0.7.2 --
-            // an ANTRAG applicant must not be able to cast a binding personnel/YES-NO vote before
+            // an APPLICATION applicant must not be able to cast a binding personnel/YES-NO vote before
             // board approval. Defense in depth: the eligible check below only re-validates against
             // the ElectionEligibleVoterTable snapshot taken at openVoting time, which itself derives
             // from eligibleMemberIds -- for a non-GENERAL_ASSEMBLY Committee that is raw Committee
@@ -502,7 +502,7 @@ class ElectionService(
             // GovernanceService.addCommitteeMember re-validates the seated member's status at
             // seat-time, so this check stays as an independent second layer (defense in depth
             // against any future seating path that bypasses addCommitteeMember, or a legacy row
-            // predating that fix). Member-only (AKTIV), not requireActiveOrGuestMembership --
+            // predating that fix). Member-only (ACTIVE), not requirePoliticianRaterMembership --
             // guests never get vote weight in this project's concept.
             requireActiveMembership(memberId = current.memberId)
             val electionRow = requireElectionRow(wId)
@@ -869,13 +869,13 @@ class ElectionService(
                         // directly and was never routed through that method, so the addCommitteeMember
                         // root-cause fix above does NOT cover it despite comments elsewhere in this
                         // file (castElectionBallot) assuming Committee seats only ever originate
-                        // there. canStandAsCandidate only re-checks AKTIV at submitCandidacy time
-                        // (ElectionAuthorization.kt); a candidate who was AKTIV then but calls
-                        // leaveMembership (-> AUSGETRETEN) before tally() runs would otherwise be
+                        // there. canStandAsCandidate only re-checks ACTIVE at submitCandidacy time
+                        // (ElectionAuthorization.kt); a candidate who was ACTIVE then but calls
+                        // leaveMembership (-> WITHDRAWN) before tally() runs would otherwise be
                         // seated here with no live status recheck at all -- for an EXECUTIVE_BOARD
                         // targetCommittee that means a departed member becoming a real, audited
                         // Vorstand seat (BoardMembershipEvents.recordBoardJoin) below. Same gate,
-                        // same semantics as addCommitteeMember: AKTIV-only, applied to the winner
+                        // same semantics as addCommitteeMember: ACTIVE-only, applied to the winner
                         // being seated, not the caller (current.isElectionBoard(wId) already gates
                         // the caller above). forUpdate = true (round-3 audit fix, 2026-07-30): this
                         // check gates a CommitteeMembershipTable insert a few lines below in this

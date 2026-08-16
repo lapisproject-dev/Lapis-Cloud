@@ -39,8 +39,8 @@ data class RegistrationInput(
 
 /**
  * Input for [network.lapis.cloud.shared.rpc.IRegistrationService.createMemberDirect] -- a
- * BOARD/ADMIN-created member that starts at [MemberStatus.AKTIV] immediately (no
- * [MemberStatus.ANTRAG]/approval step), e.g. for members who joined on paper, or as part of a
+ * BOARD/ADMIN-created member that starts at [MemberStatus.ACTIVE] immediately (no
+ * [MemberStatus.APPLICATION]/approval step), e.g. for members who joined on paper, or as part of a
  * data migration. [temporaryPassword] is set directly by the creating BOARD/ADMIN account and
  * must satisfy `network.lapis.cloud.server.security.PasswordPolicy` -- the new member can change
  * it themselves afterward via `IAuthService.changePassword`; this wave does not add a
@@ -53,4 +53,33 @@ data class AdminCreateMemberInput(
     val email: String,
     val role: AccountRole,
     val temporaryPassword: String,
+)
+
+/**
+ * V0.11.0 -- the FRIEND terms of use, echoed back (unmodified) to
+ * [network.lapis.cloud.shared.rpc.IRegistrationService.registerFriend]. Deliberately NOT
+ * [MembershipAgreementDto]: a FRIEND does not enter the Satzung/Beitritts contract -- it is a
+ * self-registered, non-membership account scoped to video-conference access only (see
+ * [MemberStatus] KDoc). Same versioned+hashed echo-back mechanism as [MembershipAgreementDto].
+ */
+@Serializable
+data class FriendTermsDto(
+    val version: String,
+    val text: String,
+    val sha256: String,
+)
+
+/**
+ * Self-registration input for [network.lapis.cloud.shared.rpc.IRegistrationService.registerFriend].
+ * [termsVersion]/[termsSha256] must match [FriendTermsDto.version]/[FriendTermsDto.sha256] exactly
+ * (server re-verifies both, constant-time hash comparison). [displayName] is deliberately
+ * UNVERIFIED -- no identity check is performed, see [MemberStatus.FRIEND] KDoc.
+ */
+@Serializable
+data class FriendRegistrationInput(
+    val displayName: String,
+    val email: String,
+    val password: String,
+    val termsVersion: String,
+    val termsSha256: String,
 )

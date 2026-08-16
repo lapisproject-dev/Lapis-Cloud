@@ -48,11 +48,11 @@ import network.lapis.cloud.shared.rpc.IPoliticianService
  * - [IPoliticianService.listPoliticians]/[IPoliticianService.getPoliticianProfile]/
  *   [IPoliticianService.getTopPoliticians]/[IPoliticianService.getMyRating]/
  *   [IPoliticianService.getWeightHistory] -- any authenticated member.
- * - [IPoliticianService.castRating]/[IPoliticianService.retractRating] -- MEMBER+/AKTIV OR GAST
- *   (`requireActiveOrGuestMembership`). Rendered for any authenticated caller regardless of role --
+ * - [IPoliticianService.castRating]/[IPoliticianService.retractRating] -- MEMBER+/ACTIVE OR GUEST
+ *   (`requirePoliticianRaterMembership`). Rendered for any authenticated caller regardless of role --
  *   [network.lapis.cloud.shared.domain.SessionInfoDto] carries no member-status field at all, same
  *   reasoning `LtrLedgerScreen.kt`/`CrowdfundingScreen.kt`/`AuctionScreen.kt` already document for
- *   their own AKTIV-gated writes -- only rendered on `status == ACTIVE` profiles.
+ *   their own ACTIVE-gated writes -- only rendered on `status == ACTIVE` profiles.
  * - [IPoliticianService.grantPoliticianStatus]/[IPoliticianService.revokePoliticianStatus]/
  *   [IPoliticianService.updateMandateText]/[IPoliticianService.snapshotWeights] --
  *   `current.requireRole(BOARD, ADMIN)`. Gated here as `canBoard`.
@@ -72,7 +72,7 @@ import network.lapis.cloud.shared.rpc.IPoliticianService
  * fire for the same disabled state. The BOARD "Verwaltung" forms and the "Einstellungen" toggle
  * stay visible regardless of that probe's outcome (role-gated only, not feature-flag-gated) -- a
  * disabled feature simply makes their buttons fail with the ordinary `guarded()` `ConflictException`
- * toast, same posture every other AKTIV-/flag-gated write in this codebase already takes. The
+ * toast, same posture every other ACTIVE-/flag-gated write in this codebase already takes. The
  * "Einstellungen" toggle is the ONLY path to re-enable the feature, so it is never hidden by the
  * banner above it.
  *

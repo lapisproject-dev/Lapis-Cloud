@@ -109,6 +109,18 @@ class SchemaDriftTest :
                 ?.foreignKey shouldBe null
         }
 
+        test("member.friend_since/email_verified_at are nullable (V0.11.0 FRIEND self-registration)") {
+            val entity = model.entities.single { it.name == "member" }
+            val real = transaction { introspectTable("member") }
+
+            listOf("friend_since", "email_verified_at").forEach { column ->
+                withClue(clue = "column '$column'") {
+                    entity.attributeByName(column)?.nullable shouldBe true
+                    real.columns.getValue(column).nullable shouldBe true
+                }
+            }
+        }
+
         test("account table shape matches the real migrated schema") {
             val entity = model.entities.single { it.name == "account" }
             val real = transaction { introspectTable("account") }
@@ -164,7 +176,9 @@ class SchemaDriftTest :
             status?.type shouldBe
                 ErmDataType.Enum(
                     name = "MemberStatus",
-                    values = listOf("ANTRAG", "AKTIV", "GAST", "AUSGETRETEN", "ABGELEHNT"),
+                    // V0.11.0: German -> English rename + new FRIEND literal. Order must match the
+                    // kUML `literal()` declaration order in 00-foundation.kuml.kts exactly.
+                    values = listOf("APPLICATION", "ACTIVE", "GUEST", "WITHDRAWN", "REJECTED", "FRIEND"),
                     externalFqName = "network.lapis.cloud.shared.domain.MemberStatus",
                 )
             role?.type shouldBe

@@ -4,8 +4,13 @@ import io.ktor.server.plugins.origin
 import kotlinx.datetime.LocalDateTime
 import network.lapis.cloud.server.db.DbClock
 import network.lapis.cloud.server.db.generated.AccountTable
+import network.lapis.cloud.server.db.generated.FriendTermsAcknowledgmentTable
 import network.lapis.cloud.server.db.generated.MemberTable
 import network.lapis.cloud.server.db.generated.MembershipAgreementAcknowledgmentTable
+import network.lapis.cloud.server.federation.FederationInboxRateLimiter
+import network.lapis.cloud.server.mail.FriendVerificationMailer
+import network.lapis.cloud.server.mail.NoOpFriendVerificationMailer
+import network.lapis.cloud.server.security.FriendEmailVerificationTokenStore
 import network.lapis.cloud.server.security.LoginRateLimiter
 import network.lapis.cloud.server.security.PasswordHasher
 import network.lapis.cloud.server.security.PasswordPolicy
@@ -14,6 +19,8 @@ import network.lapis.cloud.server.security.requireRole
 import network.lapis.cloud.server.security.resolveCurrentMember
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.AdminCreateMemberInput
+import network.lapis.cloud.shared.domain.FriendRegistrationInput
+import network.lapis.cloud.shared.domain.FriendTermsDto
 import network.lapis.cloud.shared.domain.MemberDto
 import network.lapis.cloud.shared.domain.MemberStatus
 import network.lapis.cloud.shared.domain.MembershipAgreementDto
@@ -34,6 +41,9 @@ import kotlin.uuid.Uuid
 private val REGISTRATION_BOARD_ROLES = arrayOf(AccountRole.BOARD, AccountRole.ADMIN)
 private val ESCALATED_ROLES = arrayOf(AccountRole.BOARD, AccountRole.TREASURER, AccountRole.ADMIN)
 
+/** [MemberTable.displayName] is `VARCHAR(200)` -- reject an overlong [FriendRegistrationInput.displayName] client-side AND server-side rather than letting Postgres throw. */
+private const val MAX_DISPLAY_NAME_LENGTH = 200
+
 /**
  * V0.7.2 Beitritts-/Registrierungs-Workflow -- see [IRegistrationService] KDoc for the full
  * fachlich model.
@@ -46,7 +56,7 @@ private val ESCALATED_ROLES = arrayOf(AccountRole.BOARD, AccountRole.TREASURER, 
  * voting, LTR participation, data access) is a more consequential, harder-to-undo decision than
  * approving a crowdfunding listing, and this codebase's own concept explicitly frames admission
  * as requiring the board's actual will, not its silence. [approveApplication]/[rejectApplication]
- * therefore have NO auto-approval fallback: an [MemberStatus.ANTRAG] application stays pending
+ * therefore have NO auto-approval fallback: an [MemberStatus.APPLICATION] application stays pending
  * indefinitely until a BOARD/ADMIN account actually decides it.
  *
  * **Concurrency: row-lock + compare-and-swap, IDENTICAL contract to
@@ -54,13 +64,29 @@ private val ESCALATED_ROLES = arrayOf(AccountRole.BOARD, AccountRole.TREASURER, 
  * `forUpdate = true`, taking a row-level lock on the applicant BEFORE re-reading its status -- so
  * a second, concurrent board decision on the SAME applicant (one caller approving while another
  * rejects) blocks until the first commits, then re-reads the now-decided status and fails the
- * `ANTRAG` check instead of silently racing. The `UPDATE` itself is additionally a
- * compare-and-swap (`status eq ANTRAG` in the WHERE clause, checked-for-zero afterwards) as
+ * `APPLICATION` check instead of silently racing. The `UPDATE` itself is additionally a
+ * compare-and-swap (`status eq APPLICATION` in the WHERE clause, checked-for-zero afterwards) as
  * defense in depth against the same lost-update.
  */
 class RegistrationService(
     private val call: ApplicationCall,
     private val registrationRateLimiter: LoginRateLimiter,
+    /**
+     * V0.11.0 FRIEND self-registration -- a SEPARATE [LoginRateLimiter] instance from
+     * [registrationRateLimiter] on purpose: friend-signup spam must never exhaust the membership-
+     * application budget (or vice versa). Failure-window limiter, same shape/idiom as
+     * [registrationRateLimiter].
+     */
+    private val friendRegistrationRateLimiter: LoginRateLimiter,
+    /**
+     * V0.11.0 -- hard per-IP request-rate cap on top of [friendRegistrationRateLimiter].
+     * [FederationInboxRateLimiter] counts EVERY request (not just failures) and is the right tool
+     * for an open, unauthenticated, spam-prone endpoint -- same reasoning
+     * `POST /federation/oidc/register` already applies.
+     */
+    private val friendSignupIpRateLimiter: FederationInboxRateLimiter,
+    private val friendRegistrationConfig: FriendRegistrationConfig = FriendRegistrationConfig.load(),
+    private val friendVerificationMailer: FriendVerificationMailer = NoOpFriendVerificationMailer(),
 ) : IRegistrationService {
     override suspend fun getMembershipAgreement(): MembershipAgreementDto =
         MembershipAgreementDto(
@@ -109,7 +135,7 @@ class RegistrationService(
                 it[id] = memberId
                 it[displayName] = input.displayName
                 it[email] = normalizedEmail
-                it[status] = MemberStatus.ANTRAG
+                it[status] = MemberStatus.APPLICATION
                 it[joinedAt] = now.date
                 it[membershipTierId] = null
             }
@@ -135,7 +161,7 @@ class RegistrationService(
         return transaction {
             (MemberTable innerJoin AccountTable)
                 .selectAll()
-                .where { MemberTable.status eq MemberStatus.ANTRAG }
+                .where { MemberTable.status eq MemberStatus.APPLICATION }
                 .orderBy(MemberTable.joinedAt)
                 .map { it.toMemberDto() }
         }
@@ -150,9 +176,9 @@ class RegistrationService(
             requireApplicationRow(id = targetId, forUpdate = true)
             val updated =
                 MemberTable.update({
-                    (MemberTable.id eq targetId) and (MemberTable.status eq MemberStatus.ANTRAG)
+                    (MemberTable.id eq targetId) and (MemberTable.status eq MemberStatus.APPLICATION)
                 }) {
-                    it[status] = MemberStatus.AKTIV
+                    it[status] = MemberStatus.ACTIVE
                     it[reviewedBy] = current.memberId
                     it[reviewedAt] = now
                 }
@@ -164,15 +190,21 @@ class RegistrationService(
     }
 
     /**
-     * BOARD/ADMIN-only rejection of an [MemberStatus.ANTRAG] applicant -- see
+     * BOARD/ADMIN-only rejection of an [MemberStatus.APPLICATION] applicant -- see
      * [IRegistrationService.rejectApplication] KDoc. Every live session the applicant already
-     * established (while still ANTRAG) is revoked after the transaction commits, mirroring
-     * [leaveMembership]'s "revoke after commit, outside the lock" placement -- once ABGELEHNT, the
+     * established (while still APPLICATION) is revoked after the transaction commits, mirroring
+     * [leaveMembership]'s "revoke after commit, outside the lock" placement -- once REJECTED, the
      * applicant must not remain logged in anywhere. Closes the session-hygiene gap the V0.7.2
      * ANTRAG-membership-gate audit (commit 5082d55) found and deliberately deferred; complementary
      * to, not a replacement for, `AuthRoutes.kt`'s login gate, which independently blocks a NEW login
-     * for an ABGELEHNT account but does nothing about a session that already existed before this
+     * for a REJECTED account but does nothing about a session that already existed before this
      * decision.
+     *
+     * V0.11.0: a friend-originated application (`MemberTable.friendSince != null`) falls back to
+     * [MemberStatus.FRIEND] rather than [MemberStatus.REJECTED] -- see [MemberDto.friendSince] KDoc
+     * "load-bearing". Rejecting a plain [MemberStatus.APPLICATION] that never had a friend account
+     * (`friendSince == null`) is unaffected and still lands on [MemberStatus.REJECTED] exactly as
+     * before. Sessions are still revoked either way -- see class KDoc.
      */
     override suspend fun rejectApplication(
         memberId: String,
@@ -185,12 +217,14 @@ class RegistrationService(
         val now = nowLocalDateTime()
         val result =
             transaction {
-                requireApplicationRow(id = targetId, forUpdate = true)
+                val applicationRow = requireApplicationRow(id = targetId, forUpdate = true)
+                val fallbackStatus =
+                    if (applicationRow[MemberTable.friendSince] != null) MemberStatus.FRIEND else MemberStatus.REJECTED
                 val updated =
                     MemberTable.update({
-                        (MemberTable.id eq targetId) and (MemberTable.status eq MemberStatus.ANTRAG)
+                        (MemberTable.id eq targetId) and (MemberTable.status eq MemberStatus.APPLICATION)
                     }) {
-                        it[status] = MemberStatus.ABGELEHNT
+                        it[status] = fallbackStatus
                         it[rejectionReason] = reason
                         it[reviewedBy] = current.memberId
                         it[reviewedAt] = now
@@ -226,7 +260,7 @@ class RegistrationService(
                 it[id] = memberId
                 it[displayName] = input.displayName
                 it[email] = normalizedEmail
-                it[status] = MemberStatus.AKTIV
+                it[status] = MemberStatus.ACTIVE
                 it[joinedAt] = now.date
                 it[membershipTierId] = null
             }
@@ -243,7 +277,7 @@ class RegistrationService(
     /**
      * Member-initiated, no board approval -- see [IRegistrationService.leaveMembership] KDoc.
      * Every one of the caller's live sessions is revoked (not just OTHER sessions, unlike
-     * [AuthService.changePassword]) -- once AUSGETRETEN, the former member must not remain
+     * [AuthService.changePassword]) -- once WITHDRAWN, the former member must not remain
      * logged in anywhere.
      */
     override suspend fun leaveMembership(): MemberDto {
@@ -252,9 +286,9 @@ class RegistrationService(
             transaction {
                 val updated =
                     MemberTable.update({
-                        (MemberTable.id eq current.memberId) and (MemberTable.status eq MemberStatus.AKTIV)
+                        (MemberTable.id eq current.memberId) and (MemberTable.status eq MemberStatus.ACTIVE)
                     }) {
-                        it[status] = MemberStatus.AUSGETRETEN
+                        it[status] = MemberStatus.WITHDRAWN
                     }
                 if (updated == 0) {
                     throw ConflictException("Not an active member -- already left, never approved, or rejected")
@@ -263,6 +297,168 @@ class RegistrationService(
             }
         SessionStore.revokeAllForMember(memberId = current.memberId)
         return result
+    }
+
+    override suspend fun getFriendTerms(): FriendTermsDto =
+        FriendTermsDto(
+            version = FriendTermsDisclaimer.VERSION,
+            text = FriendTermsDisclaimer.TEXT,
+            sha256 = FriendTermsDisclaimer.SHA256,
+        )
+
+    /**
+     * V0.11.0 FRIEND self-registration -- see [IRegistrationService.registerFriend] KDoc. Mirrors
+     * [registerApplication]'s rate-limiting/enumeration-hardening shape closely, on its OWN limiter
+     * instances (see constructor KDoc), plus a global account cap ([FriendRegistrationConfig
+     * .maxFriendAccounts]) [registerApplication] has no equivalent of (an applicant needs a board
+     * to act; a friend needs nothing but this endpoint, so the unbounded-growth risk is real here in
+     * a way it structurally isn't there).
+     */
+    override suspend fun registerFriend(input: FriendRegistrationInput) {
+        // 1. Hard per-IP request-rate cap FIRST -- cheapest possible rejection for the highest-
+        // volume abuse shape (see FederationInboxRateLimiter KDoc "counts EVERY request").
+        val ipKey = "ip:${call.request.origin.remoteHost}"
+        if (!friendSignupIpRateLimiter.checkAndRecord(ipKey)) {
+            throw ConflictException("Too many registration attempts -- try again later")
+        }
+
+        val normalizedEmail = input.email.trim().lowercase()
+        val emailKey = "email:$normalizedEmail"
+        // 2. Failure-window limiter -- unconditional record idiom, same as registerApplication.
+        if (!friendRegistrationRateLimiter.checkAllowed(emailKey) || !friendRegistrationRateLimiter.checkAllowed(ipKey)) {
+            throw ConflictException("Too many registration attempts -- try again later")
+        }
+        friendRegistrationRateLimiter.recordFailure(emailKey)
+        friendRegistrationRateLimiter.recordFailure(ipKey)
+
+        if (!FriendTermsDisclaimer.matches(version = input.termsVersion, sha256 = input.termsSha256)) {
+            throw ConflictException(
+                "termsVersion/termsSha256 do not match the current FriendTermsDisclaimer -- " +
+                    "call getFriendTerms again and submit its CURRENT version/sha256 unmodified",
+            )
+        }
+        if (input.displayName.isBlank()) throw ConflictException("displayName must not be blank")
+        if (input.displayName.length > MAX_DISPLAY_NAME_LENGTH) {
+            throw ConflictException("displayName must be at most $MAX_DISPLAY_NAME_LENGTH characters")
+        }
+        PasswordPolicy.validate(newPassword = input.password, email = normalizedEmail)
+
+        val now = nowLocalDateTime()
+        // Security-audit F1 fix: hash the password BEFORE the transaction, unconditionally, instead
+        // of inside the "new member" branch below. bcrypt (PasswordHasher.hash, ~250ms at
+        // BCRYPT_COST) previously ran ONLY on the newly-created-account path -- the duplicate-email
+        // no-op below returned after a single, sub-millisecond SELECT COUNT. Status code and body are
+        // identical either way, but the ~250ms/~1ms response-time gap was itself a side channel that
+        // let an attacker enumerate this political party's FRIEND roster via latency alone, without
+        // ever looking at the response body. Computing the hash here means BOTH paths -- duplicate
+        // and new -- now pay the same dominant bcrypt cost before the transaction even starts.
+        val passwordHash = PasswordHasher.hash(input.password)
+        var newMemberId: Uuid? = null
+        transaction {
+            // Security-audit F2 fix: the global FRIEND-account cap is now checked BEFORE the
+            // duplicate-email check (previously the reverse order). With duplicate-first, once the
+            // cap was reached an existing email kept returning the silent-success no-op while a new
+            // email started throwing ConflictException -- a binary, timing-independent oracle letting
+            // an attacker probe "does email X already have a FRIEND account?" by first exhausting the
+            // cap with throwaway registrations. Checking the cap first makes the ConflictException
+            // fire identically for a duplicate OR a brand-new email once the cap is reached, closing
+            // that oracle. Checked INSIDE the transaction so a burst of concurrent registrations near
+            // the cap cannot all pass the check and all insert (a benign, self-correcting overshoot by
+            // at most `concurrent request count` is acceptable for this soft cap; a hard guarantee
+            // would need a locking counter row, not worth the complexity for a DoS-bound, not a
+            // correctness-bound, limit).
+            val currentFriendCount = MemberTable.selectAll().where { MemberTable.status eq MemberStatus.FRIEND }.count()
+            if (currentFriendCount >= friendRegistrationConfig.maxFriendAccounts) {
+                throw ConflictException("Too many FRIEND accounts already registered -- try again later")
+            }
+
+            // See class/interface KDoc "account-enumeration hardening" -- silent no-op, identical
+            // response either way, same posture as registerApplication.
+            val alreadyExists = MemberTable.selectAll().where { MemberTable.email.lowerCase() eq normalizedEmail }.count() > 0
+            if (alreadyExists) return@transaction
+
+            val memberId = Uuid.random()
+            MemberTable.insert {
+                it[id] = memberId
+                it[displayName] = input.displayName
+                it[email] = normalizedEmail
+                it[status] = MemberStatus.FRIEND
+                it[joinedAt] = now.date
+                it[membershipTierId] = null
+                it[friendSince] = now.date
+            }
+            AccountTable.insert {
+                it[id] = Uuid.random()
+                it[AccountTable.memberId] = memberId
+                it[role] = AccountRole.MEMBER
+                it[AccountTable.passwordHash] = passwordHash
+            }
+            // Deliberately NOT MembershipAgreementAcknowledgmentTable -- a FRIEND has not accepted
+            // the Satzung, see FriendTermsAcknowledgmentTable KDoc (23-registration.kuml.kts).
+            FriendTermsAcknowledgmentTable.insert {
+                it[id] = Uuid.random()
+                it[FriendTermsAcknowledgmentTable.memberId] = memberId
+                it[acknowledgedAt] = now
+                it[termsVersion] = input.termsVersion
+                it[termsSha256] = input.termsSha256
+            }
+            newMemberId = memberId
+        }
+
+        // Email verification (B6): only if a NEW row was actually created (never for the silent
+        // duplicate-email no-op above -- sending a verification token there would leak, via a
+        // side channel, that the email already belongs to an existing member, defeating the
+        // enumeration hardening this whole method otherwise achieves).
+        val createdMemberId = newMemberId
+        if (createdMemberId != null) {
+            val rawToken = FriendEmailVerificationTokenStore.createToken(createdMemberId)
+            friendVerificationMailer.send(email = normalizedEmail, rawToken = rawToken)
+        }
+    }
+
+    /**
+     * V0.11.0 -- the CALLER's own `FRIEND -> APPLICATION` upgrade, see
+     * [IRegistrationService.applyForMembership] KDoc. Sessions are deliberately NOT revoked (unlike
+     * [rejectApplication]/[leaveMembership]) -- this is an upward transition by the member's own
+     * will; forcing a re-login mid-conference would be user-hostile, and every gate re-reads status
+     * per call anyway.
+     */
+    override suspend fun applyForMembership(
+        agreementVersion: String,
+        agreementSha256: String,
+    ): MemberDto {
+        val current = resolveCurrentMember(call)
+        if (!MembershipAgreementDisclaimer.matches(version = agreementVersion, sha256 = agreementSha256)) {
+            throw ConflictException(
+                "agreementVersion/agreementSha256 do not match the current MembershipAgreementDisclaimer -- " +
+                    "call getMembershipAgreement again and submit its CURRENT version/sha256 unmodified",
+            )
+        }
+        val now = nowLocalDateTime()
+        return transaction {
+            MemberTable
+                .selectAll()
+                .where { MemberTable.id eq current.memberId }
+                .forUpdate()
+                .singleOrNull() ?: throw NotFoundException("Member ${current.memberId} not found")
+            val updated =
+                MemberTable.update({
+                    (MemberTable.id eq current.memberId) and (MemberTable.status eq MemberStatus.FRIEND)
+                }) {
+                    it[status] = MemberStatus.APPLICATION
+                }
+            if (updated == 0) {
+                throw ConflictException("Not a FRIEND account -- already applied, or already a member")
+            }
+            MembershipAgreementAcknowledgmentTable.insert {
+                it[id] = Uuid.random()
+                it[MembershipAgreementAcknowledgmentTable.memberId] = current.memberId
+                it[acknowledgedAt] = now
+                it[MembershipAgreementAcknowledgmentTable.agreementVersion] = agreementVersion
+                it[MembershipAgreementAcknowledgmentTable.agreementSha256] = agreementSha256
+            }
+            loadMember(current.memberId)
+        }
     }
 
     // ── Internal helpers ──────────────────────────────────────────────────────────────────
@@ -274,7 +470,7 @@ class RegistrationService(
     ): ResultRow {
         val query = MemberTable.selectAll().where { MemberTable.id eq id }
         val row = (if (forUpdate) query.forUpdate() else query).singleOrNull() ?: throw NotFoundException("Member $id not found")
-        if (row[MemberTable.status] != MemberStatus.ANTRAG) {
+        if (row[MemberTable.status] != MemberStatus.APPLICATION) {
             throw ConflictException("Member $id is not a pending application (status=${row[MemberTable.status]})")
         }
         return row

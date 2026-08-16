@@ -89,7 +89,7 @@ import network.lapis.cloud.shared.domain.CreateAuctionListingInput
 @RpcService
 interface IAuctionService {
     /**
-     * Role: MEMBER+, caller must be [network.lapis.cloud.shared.domain.MemberStatus.AKTIV].
+     * Role: MEMBER+, caller must be [network.lapis.cloud.shared.domain.MemberStatus.ACTIVE].
      * Debits the caller a flat 0.01 LTR listing fee (pure spam guard, same disclaimer class/
      * magnitude as [IPeerTransferService.transferLtr]'s `MIN_TRANSFER_LTR`) -- NO platform
      * provision is ever taken on the eventual sale price.
@@ -97,7 +97,7 @@ interface IAuctionService {
     suspend fun createListing(input: CreateAuctionListingInput): AuctionDto
 
     /**
-     * Role: MEMBER+, caller must be AKTIV, and may not be the auction's own seller. [maxBidLtr] is
+     * Role: MEMBER+, caller must be ACTIVE, and may not be the auction's own seller. [maxBidLtr] is
      * the caller's PROXY maximum -- the server only ever charges up to the second-highest bidder's
      * maximum plus the minimum increment (see class KDoc "Reservation model"). A bidder may only
      * ever raise their own standing bid, never lower it.
@@ -108,7 +108,7 @@ interface IAuctionService {
     ): AuctionBidResultDto
 
     /**
-     * Role: MEMBER+, caller must be AKTIV, may not be the seller. Immediately ends the auction at
+     * Role: MEMBER+, caller must be ACTIVE, may not be the seller. Immediately ends the auction at
      * the fixed `buyNowPriceLtr`, only while the live proxy-bid price has not already reached it.
      */
     suspend fun buyNow(auctionId: String): AuctionDto
@@ -130,7 +130,7 @@ interface IAuctionService {
     suspend fun listMyAuctions(): List<AuctionDto>
 
     /**
-     * Role: MEMBER+, caller must be AKTIV. Explicitly forces the lazy-close evaluation for one
+     * Role: MEMBER+, caller must be ACTIVE. Explicitly forces the lazy-close evaluation for one
      * auction -- rejected with [ConflictException] if `endsAt` has not passed yet (no early
      * settlement). Idempotent once already SETTLED/CLOSED_NO_SALE.
      */

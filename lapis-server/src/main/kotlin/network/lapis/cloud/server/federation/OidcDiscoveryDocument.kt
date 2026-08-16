@@ -35,7 +35,7 @@ object OidcScopes {
      * Every scope this Issuer will ever grant. **Voting rights are deliberately never a scope
      * literal here, full stop** -- guests never get vote weight; that is enforced structurally by
      * [network.lapis.cloud.server.rpc.requireActiveMembership] and friends already excluding
-     * [network.lapis.cloud.shared.domain.MemberStatus.GAST], not by an OIDC scope grant/deny, so
+     * [network.lapis.cloud.shared.domain.MemberStatus.GUEST], not by an OIDC scope grant/deny, so
      * there is no scope string for a malicious/misconfigured home server to even attempt to smuggle
      * a vote-weight claim through.
      */

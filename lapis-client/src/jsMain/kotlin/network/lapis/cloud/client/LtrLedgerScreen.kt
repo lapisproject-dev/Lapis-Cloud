@@ -39,7 +39,7 @@ import network.lapis.cloud.shared.rpc.IPeerTransferService
  * LTR-Wirtschaft UI wave, screen 1 of 5 -- "LTR-Konto", the LTR-economy home. Hosts
  * [ILtrLedgerService] (own balance/entries always self-service; another member's balance/entries
  * and [ILtrLedgerService.mintLtr] gated TREASURER/BOARD/ADMIN) AND both [IPeerTransferService]
- * forms ([IPeerTransferService.transferLtr] self-service MEMBER+/AKTIV; [IPeerTransferService
+ * forms ([IPeerTransferService.transferLtr] self-service MEMBER+/ACTIVE; [IPeerTransferService
  * .executeArbitrationTransfer] TREASURER/BOARD/ADMIN-only) on the same screen -- that interface's
  * own KDoc documents that transfer history is deliberately NOT exposed through a second, parallel
  * read path: every transfer's two ledger rows (`referenceType == PEER_TRANSFER`) already surface
@@ -53,11 +53,11 @@ import network.lapis.cloud.shared.rpc.IPeerTransferService
  * - [ILtrLedgerService.getMemberBalance]/[ILtrLedgerService.listMemberEntries] for a DIFFERENT
  *   member, and [ILtrLedgerService.mintLtr] -- `current.requireRole(TREASURER, BOARD, ADMIN)`
  *   server-side. Gated here as `canTreasury`.
- * - [IPeerTransferService.transferLtr] -- MEMBER+, but the caller must additionally be AKTIV,
+ * - [IPeerTransferService.transferLtr] -- MEMBER+, but the caller must additionally be ACTIVE,
  *   checked via `requireActiveMembership` INSIDE the server transaction, not reachable as an
  *   `AccountRole` predicate -- [network.lapis.cloud.shared.domain.SessionInfoDto] carries no
- *   member-status field at all, so this client cannot pre-gate on AKTIV the way it can on role.
- *   A non-AKTIV caller sees the ordinary `guarded()` ConflictException toast, same established
+ *   member-status field at all, so this client cannot pre-gate on ACTIVE the way it can on role.
+ *   A non-ACTIVE caller sees the ordinary `guarded()` ConflictException toast, same established
  *   pattern as `CrowdfundingService.submitProject`/`MotionsScreen`'s ballot form.
  * - [IPeerTransferService.executeArbitrationTransfer] -- `current.requireRole(TREASURER, BOARD,
  *   ADMIN)` server-side. Gated here as `canTreasury`, same tier as the mint form.
@@ -161,7 +161,7 @@ fun renderLtrLedgerScreen(container: SimplePanel) {
 
     // Members list backs every member-picker on this screen (self-service recipient picker AND,
     // if `canTreasury`, the treasury member-lookup/mint/arbitration pickers) -- fetched once here,
-    // `IMemberService.listMembers()` is unauthenticated-safe/AKTIV-only per its own KDoc.
+    // `IMemberService.listMembers()` is unauthenticated-safe/ACTIVE-only per its own KDoc.
     root.h2(tr("LTR senden"))
     val transferSectionPanel = root.vPanel(spacing = 6)
     val treasuryPanel =

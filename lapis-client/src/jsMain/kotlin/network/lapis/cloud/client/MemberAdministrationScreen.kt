@@ -61,14 +61,19 @@ private fun renderPendingApplications(root: SimplePanel) {
             }
             applications.forEach { application ->
                 val row = pendingPanel.hPanel(spacing = 8) { addCssClasses("border rounded p-2 align-items-center") }
-                row.div(
+                val friendSince = application.friendSince
+                val summary =
                     gettext(
                         "%1 (%2) -- eingereicht am %3",
                         application.displayName,
                         application.email,
                         application.joinedAt,
-                    ),
-                ) {
+                    )
+                // V0.11.0: shows the board that this applicant came from an existing FRIEND account
+                // (see MemberDto.friendSince KDoc "load-bearing") -- FriendUpgradePathTest covers the
+                // applyForMembership transition itself; this is purely informational.
+                val label = if (friendSince != null) gettext("%1 (Freund-Konto seit %2)", summary, friendSince) else summary
+                row.div(label) {
                     addCssClass("flex-grow-1")
                 }
                 val approveButton = row.button(tr("Annehmen"), style = ButtonStyle.SUCCESS)
@@ -133,7 +138,7 @@ private fun rejectApplicationDialog(
 
 /**
  * `IMemberService.listMembers()` returns id+displayName only, deliberately -- it is still
- * reachable unauthenticated (the historical "picker" bootstrap endpoint, AKTIV-filtered since
+ * reachable unauthenticated (the historical "picker" bootstrap endpoint, ACTIVE-filtered since
  * V0.7.2), and there is no privileged read RPC for another member's email/role/address. This
  * directly bounds what this directory can show -- see V0.7.3 plan "Open Question 2". A small
  * follow-up wave adding a BOARD/ADMIN-gated detailed read would improve this; not added here
@@ -182,7 +187,7 @@ private fun renderDirectMemberCreation(root: SimplePanel) {
     root.p(
         tr(
             "Legt ein Mitglied ohne Antrags-/Freigabeschritt an (z. B. für Beitritte auf Papier oder " +
-                "Datenmigration) -- Status sofort AKTIV.",
+                "Datenmigration) -- Status sofort Aktiv.",
         ),
     )
 

@@ -25,6 +25,7 @@ import network.lapis.cloud.server.db.DevSeedData
 import network.lapis.cloud.server.db.generated.AccountTable
 import network.lapis.cloud.server.db.generated.MemberTable
 import network.lapis.cloud.server.db.generated.SessionTable
+import network.lapis.cloud.server.federation.FederationInboxRateLimiter
 import network.lapis.cloud.server.module
 import network.lapis.cloud.server.routes.registerBackupRoutes
 import network.lapis.cloud.server.rpc.AccountingService
@@ -333,7 +334,7 @@ class OrganizationSnapshotJourneyTest :
                         it[id] = Uuid.parse(ADMIN_ID)
                         it[displayName] = "Bootstrap Admin (pre-restore placeholder)"
                         it[email] = "bootstrap-admin-placeholder@example.org"
-                        it[status] = MemberStatus.AKTIV
+                        it[status] = MemberStatus.ACTIVE
                         it[joinedAt] = LocalDate(2026, 1, 1)
                         it[membershipTierId] = null
                     }
@@ -469,7 +470,12 @@ private fun Route.registerScenario6TestRoutes() {
         call.respondText(c.id)
     }
     post("/e2e6/register") {
-        RegistrationService(call = call, registrationRateLimiter = LoginRateLimiter()).registerApplication(
+        RegistrationService(
+            call = call,
+            registrationRateLimiter = LoginRateLimiter(),
+            friendRegistrationRateLimiter = LoginRateLimiter(),
+            friendSignupIpRateLimiter = FederationInboxRateLimiter(),
+        ).registerApplication(
             RegistrationInput(
                 displayName = "Snapshot Journey Applicant",
                 email = call.request.queryParameters["email"]!!,
@@ -481,7 +487,12 @@ private fun Route.registerScenario6TestRoutes() {
         call.respondText("OK")
     }
     post("/e2e6/approve/{id}") {
-        RegistrationService(call = call, registrationRateLimiter = LoginRateLimiter()).approveApplication(call.parameters["id"]!!)
+        RegistrationService(
+            call = call,
+            registrationRateLimiter = LoginRateLimiter(),
+            friendRegistrationRateLimiter = LoginRateLimiter(),
+            friendSignupIpRateLimiter = FederationInboxRateLimiter(),
+        ).approveApplication(call.parameters["id"]!!)
         call.respondText("OK")
     }
     post("/e2e6/add-committee-member/{committeeId}/{memberId}") {

@@ -87,6 +87,15 @@ fun renderLoginScreen(container: SimplePanel) {
             link(tr("Noch kein Konto? Jetzt Mitglied werden."), url = "#${Routes.REGISTER}")
         }
 
+        // V0.11.0 FRIEND self-registration -- third entry link, for a caller who wants NOTHING but
+        // video-conference access (no Beitritt, no board approval). Deliberately its own paragraph,
+        // not merged into the REGISTER link above, so the copy can be honest about the narrower
+        // scope right where the choice is made.
+        div {
+            marginTop = 8.px
+            link(tr("Nur an einer Videokonferenz teilnehmen? Freund-Konto anlegen."), url = "#${Routes.REGISTER_FRIEND}")
+        }
+
         // V0.8.2 OIDC-Gastzugang-Federation: a plain, full-page-navigation link (NOT an SPA hash
         // route) to the server-rendered "log in with your home server" entry point -- see
         // `network.lapis.cloud.server.routes.OidcRoutes` KDoc. This is the only UI touch-point this

@@ -113,11 +113,11 @@ class DocumentRoutesGuestAccessTest :
                     }
 
                     val creatorId =
-                        createMember("doc-route-guest-access-creator@example.org", AccountRole.BOARD, MemberStatus.AKTIV)
+                        createMember("doc-route-guest-access-creator@example.org", AccountRole.BOARD, MemberStatus.ACTIVE)
                     val memberId =
-                        createMember("doc-route-guest-access-member@example.org", AccountRole.MEMBER, MemberStatus.AKTIV)
+                        createMember("doc-route-guest-access-member@example.org", AccountRole.MEMBER, MemberStatus.ACTIVE)
                     val guestId =
-                        createMember("doc-route-guest-access-guest@example.org", AccountRole.MEMBER, MemberStatus.GAST)
+                        createMember("doc-route-guest-access-guest@example.org", AccountRole.MEMBER, MemberStatus.GUEST)
 
                     val folderId = Uuid.random()
                     val documentId = Uuid.random()

@@ -208,7 +208,7 @@ class GovernanceService(
             // .addOption's eligibleMembersOf -- so a status-blind seat here silently grants
             // real governance standing (voting, motion submission, Systemic-Consensus
             // participation) to a member the org never actually admitted, or already let go.
-            // Member-only (AKTIV), not requireActiveOrGuestMembership -- Committee seating is
+            // Member-only (ACTIVE), not requirePoliticianRaterMembership -- Committee seating is
             // fundamentally a voting-eligibility mechanism and this project's own concept states
             // "Keine Stimmrechte für Gäste". Checked on the SEATED member (input.memberId), not
             // the caller -- the caller's BOARD/ADMIN role is already separately enforced above
@@ -969,15 +969,15 @@ class GovernanceService(
         val optId = input.optionId.toVoteOptionUuid()
         return transaction {
             // ANTRAG membership-gate audit (2026-07-30): closes the gap disclosed since V0.7.2 --
-            // an ANTRAG applicant must not be able to cast a governance vote (and stake LTR on it)
+            // an APPLICATION applicant must not be able to cast a governance vote (and stake LTR on it)
             // before board approval. Defense in depth: eligibleMemberIds below only re-checks live
-            // AKTIV status for a GENERAL_ASSEMBLY Committee -- for any other Committee type,
+            // ACTIVE status for a GENERAL_ASSEMBLY Committee -- for any other Committee type,
             // eligibility is Committee membership alone (CommitteeMembershipTable). As of the
             // addCommitteeMember root-cause fix (2026-07-30), addCommitteeMember re-validates the
-            // seated member's status at seat-time, so a fresh non-AKTIV row can no longer be
+            // seated member's status at seat-time, so a fresh non-ACTIVE row can no longer be
             // created there -- this check stays as an independent second layer (defense in depth
             // against any future seating path that bypasses addCommitteeMember, or a legacy row
-            // predating that fix). Member-only (AKTIV), not requireActiveOrGuestMembership -- this
+            // predating that fix). Member-only (ACTIVE), not requirePoliticianRaterMembership -- this
             // project's own concept states "Keine Stimmrechte für Gäste": guests never get vote
             // weight, full stop.
             requireActiveMembership(memberId = current.memberId)

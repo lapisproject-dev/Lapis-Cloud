@@ -36,17 +36,17 @@ import network.lapis.cloud.shared.rpc.ICrowdfundingService
  * **Role gating** (verified against `CrowdfundingService.kt`'s actual `requireRole`/
  * `requireActiveMembership` call sites, not guessed from method names -- see `Routes.CROWDFUNDING`
  * KDoc for the route-level `requireAuth` reasoning):
- * - [ICrowdfundingService.submitProject] -- MEMBER+, additionally must be AKTIV
+ * - [ICrowdfundingService.submitProject] -- MEMBER+, additionally must be ACTIVE
  *   (`requireActiveMembership` INSIDE the server transaction, not reachable as an `AccountRole`
  *   predicate -- [network.lapis.cloud.shared.domain.SessionInfoDto] carries no member-status field
- *   at all, same reasoning `LtrLedgerScreen.kt`'s own KDoc documents for `transferLtr`). A non-AKTIV
+ *   at all, same reasoning `LtrLedgerScreen.kt`'s own KDoc documents for `transferLtr`). A non-ACTIVE
  *   caller sees the ordinary `guarded()` ConflictException toast.
  * - [ICrowdfundingService.listProjects]/[ICrowdfundingService.getProject]/
  *   [ICrowdfundingService.getMyReaction]/[ICrowdfundingService.listDistributions] -- any
  *   authenticated member. Rendered unconditionally.
  * - [ICrowdfundingService.approveProject]/[ICrowdfundingService.rejectProject] --
  *   `current.requireRole(BOARD, ADMIN)` server-side. Gated here as `canBoard`.
- * - [ICrowdfundingService.castReaction]/[ICrowdfundingService.retractReaction] -- MEMBER+/AKTIV
+ * - [ICrowdfundingService.castReaction]/[ICrowdfundingService.retractReaction] -- MEMBER+/ACTIVE
  *   (same `requireActiveMembership` gate as `submitProject`), and additionally only meaningful once
  *   `effectiveStatus == APPROVED` (server throws `ConflictException` otherwise) -- this screen
  *   therefore only RENDERS the Like/Dislike buttons on an approved project, never shows-then-fails

@@ -5,7 +5,7 @@ import java.security.MessageDigest
 /**
  * The versioned, hashed Beitrittsvertrag/Satzungs-text a registrant must be shown -- and echo back
  * verbatim (via [matches]) -- before [RegistrationService.registerApplication] will create their
- * `Member(status=ANTRAG)`+`Account`. Same shape/mechanism as [AuctionComplianceDisclaimer]
+ * `Member(status=APPLICATION)`+`Account`. Same shape/mechanism as [AuctionComplianceDisclaimer]
  * (see [network.lapis.cloud.shared.rpc.IAuctionService] KDoc "The disclaimer-acknowledgment
  * mechanism"); the reasoning for using this exact pattern here is stronger than for auctions,
  * not weaker -- membership in this codebase's own concept is explicitly a private-law contract,

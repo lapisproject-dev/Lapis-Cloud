@@ -20,6 +20,7 @@ import network.lapis.cloud.server.db.DevSeedData
 import network.lapis.cloud.server.db.generated.CommitteeMembershipTable
 import network.lapis.cloud.server.db.generated.MemberTable
 import network.lapis.cloud.server.db.generated.VoteBallotTable
+import network.lapis.cloud.server.federation.FederationInboxRateLimiter
 import network.lapis.cloud.server.module
 import network.lapis.cloud.server.rpc.GovernanceService
 import network.lapis.cloud.server.rpc.LtrLedgerService
@@ -78,7 +79,7 @@ import kotlin.uuid.Uuid
  * replaying that same cookie, for every RPC call, `castVoteBallot` included -- the authentication
  * layer forecloses the request before the [network.lapis.cloud.server.rpc.requireActiveMembership]
  * *authorization* gate is ever reached. And because [RegistrationService] never sets
- * `MemberStatus.AUSGETRETEN` via ANY OTHER path in this codebase (grepped: `leaveMembership` is the
+ * `MemberStatus.WITHDRAWN` via ANY OTHER path in this codebase (grepped: `leaveMembership` is the
  * sole call site), there is no real, production-reachable way to observe a live session paired
  * with an `AUSGETRETEN` status at all -- the "stale Committee seat + live session" combination the
  * plan's 403 assertion was designed to probe does not actually exist as an attack surface for THIS
@@ -128,7 +129,12 @@ class GovernanceStatusMachineJourneyTest :
                     module()
                     routing {
                         post("/e2e4/register") {
-                            RegistrationService(call = call, registrationRateLimiter = LoginRateLimiter()).registerApplication(
+                            RegistrationService(
+                                call = call,
+                                registrationRateLimiter = LoginRateLimiter(),
+                                friendRegistrationRateLimiter = LoginRateLimiter(),
+                                friendSignupIpRateLimiter = FederationInboxRateLimiter(),
+                            ).registerApplication(
                                 RegistrationInput(
                                     displayName = APPLICANT_DISPLAY_NAME,
                                     email = call.request.queryParameters["email"]!!,
@@ -144,11 +150,19 @@ class GovernanceStatusMachineJourneyTest :
                                 RegistrationService(
                                     call = call,
                                     registrationRateLimiter = LoginRateLimiter(),
+                                    friendRegistrationRateLimiter = LoginRateLimiter(),
+                                    friendSignupIpRateLimiter = FederationInboxRateLimiter(),
                                 ).approveApplication(call.parameters["id"]!!)
                             call.respondText(dto.status.name)
                         }
                         post("/e2e4/leave-membership") {
-                            val dto = RegistrationService(call = call, registrationRateLimiter = LoginRateLimiter()).leaveMembership()
+                            val dto =
+                                RegistrationService(
+                                    call = call,
+                                    registrationRateLimiter = LoginRateLimiter(),
+                                    friendRegistrationRateLimiter = LoginRateLimiter(),
+                                    friendSignupIpRateLimiter = FederationInboxRateLimiter(),
+                                ).leaveMembership()
                             call.respondText(dto.status.name)
                         }
                         post("/e2e4/mint-ltr/{memberId}") {
@@ -268,7 +282,7 @@ class GovernanceStatusMachineJourneyTest :
                         MemberTable.selectAll().where { MemberTable.email eq email }.single()[MemberTable.id]
                     }
                 createdMemberIds += applicantId
-                memberStatusOf(applicantId) shouldBe MemberStatus.ANTRAG
+                memberStatusOf(applicantId) shouldBe MemberStatus.APPLICATION
 
                 // ── Step 2: real login (real HTTP, real session cookie) -- ANTRAG can log in ────
                 val rawToken = client.realLogin(email = email, password = E2E_STRONG_PASSWORD)
@@ -294,8 +308,8 @@ class GovernanceStatusMachineJourneyTest :
                 // ── transaction) -- ANTRAG -> AKTIV ───────────────────────────────────────────
                 val approved = client.post("/e2e4/approve/$applicantId") { header("X-Member-Id", BOARD_ID) }
                 approved.status shouldBe HttpStatusCode.OK
-                approved.bodyAsText() shouldBe "AKTIV"
-                memberStatusOf(applicantId) shouldBe MemberStatus.AKTIV
+                approved.bodyAsText() shouldBe "ACTIVE"
+                memberStatusOf(applicantId) shouldBe MemberStatus.ACTIVE
 
                 // ── Step 6: the IDENTICAL addCommitteeMember call, replayed with no other change, ─
                 // ── now succeeds. ──────────────────────────────────────────────────────────────
@@ -346,8 +360,8 @@ class GovernanceStatusMachineJourneyTest :
                 // ── since step 2 -- AKTIV -> AUSGETRETEN. ─────────────────────────────────────
                 val leftResponse = client.post("/e2e4/leave-membership") { withSession(rawToken) }
                 leftResponse.status shouldBe HttpStatusCode.OK
-                leftResponse.bodyAsText() shouldBe "AUSGETRETEN"
-                memberStatusOf(applicantId) shouldBe MemberStatus.AUSGETRETEN
+                leftResponse.bodyAsText() shouldBe "WITHDRAWN"
+                memberStatusOf(applicantId) shouldBe MemberStatus.WITHDRAWN
 
                 // ── Step 10: REAL, CONFIRMED, DELIBERATELY-NOT-FIXED gap -- see class KDoc. ─────
                 // ── leaveMembership does not end the open CommitteeMembershipTable row: the ──────

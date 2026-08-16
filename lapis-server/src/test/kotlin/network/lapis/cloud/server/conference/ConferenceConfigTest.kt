@@ -33,6 +33,7 @@ class ConferenceConfigTest :
             config.tokenTtlMinutes shouldBe 240L
             config.guestTokenTtlMinutes shouldBe 15L
             config.maxParticipants shouldBe 25
+            config.maxNonMemberParticipants shouldBe 20
         }
 
         test("all three set -> enabled, and LAPIS_LIVEKIT_API_URL derives from ws:// -> http://") {
@@ -85,11 +86,13 @@ class ConferenceConfigTest :
                         "LAPIS_LIVEKIT_API_SECRET" to VALID_SECRET,
                         "LAPIS_LIVEKIT_TOKEN_TTL_MINUTES" to "60",
                         "LAPIS_CONFERENCE_MAX_PARTICIPANTS" to "10",
+                        "LAPIS_CONFERENCE_MAX_NON_MEMBER_PARTICIPANTS" to "3",
                     ),
                 )
 
             config.tokenTtlMinutes shouldBe 60L
             config.maxParticipants shouldBe 10
+            config.maxNonMemberParticipants shouldBe 3
         }
 
         test("unparseable TTL/max-participants fall back to defaults rather than crashing") {
@@ -101,11 +104,13 @@ class ConferenceConfigTest :
                         "LAPIS_LIVEKIT_API_SECRET" to VALID_SECRET,
                         "LAPIS_LIVEKIT_TOKEN_TTL_MINUTES" to "not-a-number",
                         "LAPIS_CONFERENCE_MAX_PARTICIPANTS" to "not-a-number-either",
+                        "LAPIS_CONFERENCE_MAX_NON_MEMBER_PARTICIPANTS" to "also-not-a-number",
                     ),
                 )
 
             config.tokenTtlMinutes shouldBe 240L
             config.maxParticipants shouldBe 25
+            config.maxNonMemberParticipants shouldBe 20
         }
 
         // ── Guest token TTL (Wave 5 security-audit fix) ─────────────────────
@@ -152,6 +157,38 @@ class ConferenceConfigTest :
                 )
 
             config.guestTokenTtlMinutes shouldBe 15L
+        }
+
+        // ── Non-member participant cap (security-audit F4 fix) ──────────────
+
+        test("maxNonMemberParticipants defaults to 20, independently of a custom LAPIS_CONFERENCE_MAX_PARTICIPANTS") {
+            val config =
+                ConferenceConfig.load(
+                    envOf(
+                        "LAPIS_LIVEKIT_URL" to VALID_URL,
+                        "LAPIS_LIVEKIT_API_KEY" to VALID_KEY,
+                        "LAPIS_LIVEKIT_API_SECRET" to VALID_SECRET,
+                        "LAPIS_CONFERENCE_MAX_PARTICIPANTS" to "25",
+                    ),
+                )
+
+            config.maxParticipants shouldBe 25
+            config.maxNonMemberParticipants shouldBe 20
+        }
+
+        test("custom LAPIS_CONFERENCE_MAX_NON_MEMBER_PARTICIPANTS is parsed and left independent of maxParticipants") {
+            val config =
+                ConferenceConfig.load(
+                    envOf(
+                        "LAPIS_LIVEKIT_URL" to VALID_URL,
+                        "LAPIS_LIVEKIT_API_KEY" to VALID_KEY,
+                        "LAPIS_LIVEKIT_API_SECRET" to VALID_SECRET,
+                        "LAPIS_CONFERENCE_MAX_NON_MEMBER_PARTICIPANTS" to "5",
+                    ),
+                )
+
+            config.maxNonMemberParticipants shouldBe 5
+            config.maxParticipants shouldBe 25
         }
 
         listOf(

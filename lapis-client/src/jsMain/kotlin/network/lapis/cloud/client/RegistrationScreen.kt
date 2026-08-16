@@ -28,7 +28,7 @@ import network.lapis.cloud.shared.rpc.IRegistrationService
  * accept the CURRENT, versioned+hashed Beitrittsvertrag text (`getMembershipAgreement()`) before
  * `registerApplication(...)` is even enabled; this is a real legal-acknowledgment step ("Membership
  * is a private-law contract", see `IRegistrationService` KDoc), not decorative. On success the
- * applicant is `ANTRAG` (pending board approval) -- this screen ends on a clear "application
+ * applicant is `APPLICATION` (pending board approval) -- this screen ends on a clear "application
  * pending" notice, never a dashboard, and never auto-logs in (the server response is `Unit`
  * unconditionally, including for a duplicate email -- see [IRegistrationService.registerApplication]
  * KDoc "account-enumeration hardening" -- so this screen shows the IDENTICAL pending state either

@@ -70,10 +70,12 @@ import network.lapis.cloud.shared.domain.ConferenceJoinTokenDto
  *
  * ## Guests in breakout rooms -- explicit decision
  *
- * **Yes**, a [network.lapis.cloud.shared.domain.MemberStatus.GAST] participant of a room with
+ * **Yes**, a [network.lapis.cloud.shared.domain.MemberStatus.GUEST] or (V0.11.0)
+ * [network.lapis.cloud.shared.domain.MemberStatus.FRIEND] participant of a room with
  * `allowFederationGuests = true` CAN be assigned to and rejoin breakout rooms, on identical terms to
- * an AKTIV member. Reasoning: a breakout room's participant set is always a SUBSET of the parent
- * meeting's already-consented audience -- every eligible member, AKTIV or GAST, already passed
+ * an ACTIVE member. Reasoning: a breakout room's participant set is always a SUBSET of the parent
+ * meeting's already-consented audience -- every eligible member, ACTIVE, GUEST, or FRIEND, already
+ * passed
  * [IConferenceService.joinRoom]'s guest consent gate for the PARENT room before ever being live in
  * it. A breakout room only NARROWS who can see the guest, it never widens it beyond what
  * `network.lapis.cloud.server.rpc.ConferenceGuestConsentDisclaimer`'s existing "visible to all other
@@ -163,7 +165,7 @@ interface IConferenceBreakoutService {
 
     /**
      * Role: any caller holding (or having held) a `conference_participation` row for [roomId] --
-     * i.e. any current or past participant of the PARENT meeting, AKTIV or GAST alike. Returns the
+     * i.e. any current or past participant of the PARENT meeting, ACTIVE, GUEST, or FRIEND alike. Returns the
      * caller's currently OPEN breakout assignment for [roomId]'s active batch as a single-or-empty
      * list (`singleOrNull()` on the client side), never `null` directly -- same "at most one" list
      * shape [IConferenceRecordingService.getActiveRecording]/[IConferenceStreamingService.getActiveStream]
@@ -184,8 +186,8 @@ interface IConferenceBreakoutService {
      * be weakened. Mints a fresh, room-pinned participant token via the SAME
      * `LiveKitAccessToken.mintParticipantToken` [IConferenceService.joinRoom] uses -- writes NO new
      * row (the assignment row already proves entitlement; this call is read-only from the DB's own
-     * perspective). A GAST caller gets the SAME short guest TTL [IConferenceService.joinRoom] uses
-     * for a guest -- see class KDoc "Guests in breakout rooms". Everyone (including the parent
+     * perspective). A GUEST or FRIEND caller gets the SAME short non-member TTL [IConferenceService.joinRoom] uses
+     * for a guest or friend -- see class KDoc "Guests in breakout rooms". Everyone (including the parent
      * room's own moderator, if ever manually assigned) gets
      * [network.lapis.cloud.shared.domain.ConferenceRole.PARTICIPANT] -- see class KDoc "No breakout-
      * room moderator".

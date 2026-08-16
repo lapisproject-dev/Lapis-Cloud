@@ -210,7 +210,13 @@ class DomainModelMergerTest :
             // it contributes +4 «Entity» declarations (2 stubs + 2 real tables) and +2 drops (both
             // stubs merge into the already-existing member/conference_room entities) versus the
             // V1.0-Wave-5 baseline above (97 -> 99).
-            val distinctTableNames = 99
+            // 23-registration.kuml.kts (V0.11.0 FRIEND self-registration) adds exactly two more real
+            // tables (friend_terms_acknowledgment, friend_email_verification_token) on top of its
+            // pre-existing membership_agreement_acknowledgment/password_reset_token entities, both
+            // resolving member_id through the SAME already-existing Member stub this file already
+            // contributes -- so no new stub, no new drop, just +2 real-table «Entity» declarations
+            // versus the V1.0-Wave-6 baseline above (99 -> 101).
+            val distinctTableNames = 101
 
             val result =
                 UmlToExposedViaErmScriptTransformer().transform(
@@ -304,6 +310,9 @@ class DomainModelMergerTest :
                     "AuctionComplianceAcknowledgmentTable.kt",
                     "SessionTable.kt",
                     "MembershipAgreementAcknowledgmentTable.kt",
+                    // V0.11.0 FRIEND self-registration.
+                    "FriendTermsAcknowledgmentTable.kt",
+                    "FriendEmailVerificationTokenTable.kt",
                     "PasswordResetTokenTable.kt",
                     "FederationActorKeyTable.kt",
                     "FederationRelationshipTable.kt",

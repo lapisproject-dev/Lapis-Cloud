@@ -19,7 +19,7 @@ import kotlinx.serialization.Serializable
 enum class AuctionStatus { OPEN, SETTLED, CLOSED_NO_SALE }
 
 /**
- * Role: MEMBER+, caller must be [MemberStatus.AKTIV] and `OrganizationSettings.auctionEnabled`
+ * Role: MEMBER+, caller must be [MemberStatus.ACTIVE] and `OrganizationSettings.auctionEnabled`
  * must be `true` (see [network.lapis.cloud.shared.rpc.IAuctionService] KDoc "The auctionEnabled
  * gate"). [buyNowPriceLtr], if set, must be strictly greater than [startingBidLtr]. If an ADMIN
  * has configured `OrganizationSettings.auctionMaxValueLtr`, both [startingBidLtr] and

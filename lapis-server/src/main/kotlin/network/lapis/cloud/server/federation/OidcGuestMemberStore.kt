@@ -28,13 +28,13 @@ data class OidcGuestClaims(
 
 /**
  * V0.8.2 design decision: a guest visiting this server IS represented as a real `Member` row with
- * `status = GAST`, paired with a real `Account` row (`role = MEMBER`, `oidc_issuer`/`oidc_subject`
+ * `status = GUEST`, paired with a real `Account` row (`role = MEMBER`, `oidc_issuer`/`oidc_subject`
  * populated) -- reusing every existing FK-based mechanism and the exact same
  * [network.lapis.cloud.server.security.SessionStore] session machinery a real local member uses.
  * See `25-oidc-guest-federation.kuml.kts` file header for the full reasoning (why not a separate,
  * disjoint guest-identity concept: `account.oidc_subject` was reserved in V0.7.1 with the explicit
  * stated intent that "an OIDC path can later mint sessions via the same SessionStore", and
- * `MemberStatus.GAST` already exists, already excluded from every AKTIV-gated action, for exactly
+ * `MemberStatus.GUEST` already exists, already excluded from every ACTIVE-gated action, for exactly
  * this purpose).
  *
  * **Created once per federated identity, reused on subsequent visits** -- looked up by
@@ -76,7 +76,7 @@ object OidcGuestMemberStore {
                             ?: claims.preferredUsername?.takeIf { name -> name.isNotBlank() }
                             ?: "Gast"
                         it[email] = syntheticEmail(issuer = claims.issuer, subject = claims.subject)
-                        it[status] = MemberStatus.GAST
+                        it[status] = MemberStatus.GUEST
                         it[joinedAt] = now.date
                         it[membershipTierId] = null
                     }

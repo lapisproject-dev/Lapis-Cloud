@@ -133,7 +133,7 @@ class ConferenceStreamingServiceTest :
 
         fun createTestMember(
             email: String,
-            status: MemberStatus = MemberStatus.AKTIV,
+            status: MemberStatus = MemberStatus.ACTIVE,
             role: AccountRole = AccountRole.MEMBER,
         ): Uuid {
             val id = Uuid.random()
@@ -1471,7 +1471,7 @@ class ConferenceStreamingServiceTest :
                 val creator = createTestMember("stream-d13-happy@example.org")
                 val roomId = createTestRoom(creator, "D13-Sitzung")
                 transaction { ConferenceRoomTable.update({ ConferenceRoomTable.id eq roomId }) { it[allowFederationGuests] = true } }
-                val guest = createTestMember("stream-d13-guest@example.org", status = MemberStatus.GAST)
+                val guest = createTestMember("stream-d13-guest@example.org", status = MemberStatus.GUEST)
                 transaction {
                     ConferenceParticipationTable.insert {
                         it[id] = Uuid.random()
@@ -1504,11 +1504,11 @@ class ConferenceStreamingServiceTest :
                 transaction { ConferenceRoomTable.update({ ConferenceRoomTable.id eq openRoomId }) { it[allowFederationGuests] = true } }
                 val closedRoomId = createTestRoom(creator, "D13-Geschlossen")
 
-                val neverJoinedGuest = createTestMember("stream-d13-never@example.org", status = MemberStatus.GAST)
+                val neverJoinedGuest = createTestMember("stream-d13-never@example.org", status = MemberStatus.GUEST)
                 client.get("/test/active-stream?roomId=$openRoomId") { header("X-Member-Id", neverJoinedGuest.toString()) }.status shouldBe
                     HttpStatusCode.Forbidden
 
-                val closedRoomGuest = createTestMember("stream-d13-closed@example.org", status = MemberStatus.GAST)
+                val closedRoomGuest = createTestMember("stream-d13-closed@example.org", status = MemberStatus.GUEST)
                 transaction {
                     ConferenceParticipationTable.insert {
                         it[id] = Uuid.random()

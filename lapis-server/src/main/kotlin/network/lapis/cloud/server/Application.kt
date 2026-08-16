@@ -191,6 +191,14 @@ fun Application.module() {
     val passwordResetRateLimiter = LoginRateLimiter()
     val passwordResetMailer = NoOpPasswordResetMailer()
 
+    // V0.11.0 FRIEND self-registration -- constructed once here, same lifecycle as
+    // registrationRateLimiter above. TWO SEPARATE limiter instances (failure-window +
+    // hard-request-rate) on purpose: friend-signup spam must never exhaust the membership-
+    // application budget (or vice versa) -- see RegistrationService constructor KDoc.
+    val friendRegistrationRateLimiter = LoginRateLimiter(maxFailures = 3, window = 60.minutes)
+    val friendSignupIpRateLimiter = FederationInboxRateLimiter(maxRequests = 5, window = 60.minutes)
+    val friendEmailVerifyRateLimiter = LoginRateLimiter()
+
     // V0.8.1 Federation-Grundgerüst -- this server's own ActivityPub Actor keypair must exist from
     // first boot onward (unconditional, not LAPIS_SEED_DEMO_DATA-gated, see
     // FederationActorKeyProvisioner KDoc), and the two in-memory inbox guards are constructed once
@@ -415,6 +423,18 @@ fun Application.module() {
     // appended -- which is correct for and relies on this deployment's topology having exactly ONE
     // trusted hop (Apache, on the same machine) between the internet and this process; if a second
     // reverse proxy is ever added in front of Apache, this needs skipLastProxies(N) instead.
+    //
+    // V0.11.0 FRIEND-wave review (2026-08-16): pdv2's reverse proxy has since migrated from Apache
+    // to Caddy (see the vault's "Infrastruktur PdV" migration notes). Caddy's own `reverse_proxy`
+    // directive has the SAME append-not-replace default behaviour for X-Forwarded-For described
+    // above (it adds the immediate client's IP onto whatever header arrived, never strips/replaces
+    // an attacker-supplied prefix), so useLastProxy()'s "exactly ONE trusted hop" reasoning should
+    // still hold unmodified with Caddy in that hop instead of Apache. **This has NOT been
+    // re-verified live against the actual Caddy config the way the original fix was tcpdump-
+    // verified against Apache** -- do that (curl the public endpoint with a self-supplied
+    // X-Forwarded-For, confirm Caddy appends rather than replaces) before relying on this for a new
+    // security-sensitive rate limiter, and update this comment (and its Apache-specific wording
+    // above) once confirmed.
     install(XForwardedHeaders) {
         useLastProxy()
     }
@@ -468,7 +488,14 @@ fun Application.module() {
         registerService(IAuthService::class) { call -> AuthService(call) }
         registerService(
             IRegistrationService::class,
-        ) { call -> RegistrationService(call = call, registrationRateLimiter = registrationRateLimiter) }
+        ) { call ->
+            RegistrationService(
+                call = call,
+                registrationRateLimiter = registrationRateLimiter,
+                friendRegistrationRateLimiter = friendRegistrationRateLimiter,
+                friendSignupIpRateLimiter = friendSignupIpRateLimiter,
+            )
+        }
         registerService(IFederationService::class) { call -> FederationService(call) }
         registerService(ITrustAnchorService::class) { call -> TrustAnchorService(call) }
         registerService(IConferenceService::class) { call ->
@@ -561,6 +588,7 @@ fun Application.module() {
             cookieSecure = cookieSecure,
             passwordResetRateLimiter = passwordResetRateLimiter,
             passwordResetMailer = passwordResetMailer,
+            friendEmailVerifyRateLimiter = friendEmailVerifyRateLimiter,
         )
         registerFederationRoutes(inboxRateLimiter = federationInboxRateLimiter, replayGuard = federationReplayGuard)
         registerOidcRoutes(cookieSecure = cookieSecure, registrationRateLimiter = oidcRegistrationRateLimiter)

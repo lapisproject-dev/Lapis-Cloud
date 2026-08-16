@@ -248,12 +248,12 @@ class CrowdfundingService(
             // not covered by the wave's own inventory sweep (only submitProject was checked in this
             // file) -- the Verteilungs-Korb basket is "LTR-unweighted" (17-crowdfunding.kuml.kts
             // header point 2) but still a binding vote that determines the real-EUR monthly
-            // distribution split (computeMonthlyDistribution below). An ANTRAG applicant (who can
-            // log in by design, see PeerTransferService's own KDoc) or an ABGELEHNT applicant with
+            // distribution split (computeMonthlyDistribution below). An APPLICATION applicant (who can
+            // log in by design, see PeerTransferService's own KDoc) or a REJECTED applicant with
             // a still-live session (rejectApplication does not call
             // SessionStore.revokeAllForMember, unlike leaveMembership) must not get a vote in that
-            // split before board approval. Same idiom as submitProject in this file: AKTIV-only,
-            // not requireActiveOrGuestMembership -- Crowdfunding is explicitly still GAST-excluded
+            // split before board approval. Same idiom as submitProject in this file: ACTIVE-only,
+            // not requirePoliticianRaterMembership -- Crowdfunding is explicitly still GUEST-excluded
             // per this project's own "Known limitations".
             requireActiveMembership(memberId = current.memberId)
             val projectRow = requireProjectRow(id = pId)

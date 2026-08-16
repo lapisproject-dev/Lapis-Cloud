@@ -26,7 +26,7 @@ import network.lapis.cloud.shared.domain.ConferenceStreamTargetDto
  * This follows the exact precedent [IConferenceRecordingService]'s own KDoc sets out for itself
  * relative to [IConferenceService], and the case is stronger here, on THREE independent axes:
  *
- * 1. **A third, genuinely different authorization shape.** [IConferenceService] gates on "AKTIV
+ * 1. **A third, genuinely different authorization shape.** [IConferenceService] gates on "ACTIVE
  *    local member" (+ creator-or-BOARD/ADMIN for two methods); [IConferenceRecordingService] adds
  *    `DocumentAccessLevel`. This wave adds **ADMIN-only credential CRUD**
  *    ([listDestinations]/[createDestination]/[updateDestination]/[setDestinationEnabled]/
@@ -285,10 +285,11 @@ interface IConferenceStreamingService {
     // ── Transparency read -- every participant has a legal right to this ──────────────────────
 
     /**
-     * Role: MEMBER+, AKTIV **or** [network.lapis.cloud.shared.domain.MemberStatus.GAST] (Wave 5
+     * Role: MEMBER+, ACTIVE, [network.lapis.cloud.shared.domain.MemberStatus.GUEST], or (V0.11.0)
+     * [network.lapis.cloud.shared.domain.MemberStatus.FRIEND] (Wave 5
      * "Föderations-Gastbeitritt", design review D13 -- same widening as
-     * [IConferenceRecordingService.getActiveRecording], same reasoning: a federated guest inside
-     * the room has the same legal right to know as an AKTIV member, and the same
+     * [IConferenceRecordingService.getActiveRecording], same reasoning: a federated guest (or
+     * friend) inside the room has the same legal right to know as an ACTIVE member, and the same
      * `allowFederationGuests` + "has joined" narrowing applies). NEVER gated on any privilege --
      * DSGVO/Persoenlichkeitsrecht means EVERYONE in the room must be able to see THAT and WHERE it
      * is being streamed, same "everyone in the room has a legal right to know" rule

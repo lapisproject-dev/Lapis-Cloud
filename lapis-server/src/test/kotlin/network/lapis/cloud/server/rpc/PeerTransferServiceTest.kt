@@ -74,7 +74,7 @@ class PeerTransferServiceTest :
 
         fun createTestMember(
             email: String,
-            status: MemberStatus = MemberStatus.AKTIV,
+            status: MemberStatus = MemberStatus.ACTIVE,
         ): Uuid {
             val id = Uuid.random()
             transaction {
@@ -285,7 +285,7 @@ class PeerTransferServiceTest :
                     install(StatusPages) { installPeerTransferExceptionHandlers() }
                     routing { registerPeerTransferTestRoutes() }
                 }
-                val sender = createTestMember("pt-antrag-sender@example.org", status = MemberStatus.ANTRAG)
+                val sender = createTestMember("pt-antrag-sender@example.org", status = MemberStatus.APPLICATION)
                 val recipient = createTestMember("pt-antrag-recipient@example.org")
                 mintLtr(sender, BigDecimal("10.00"))
 
@@ -305,7 +305,7 @@ class PeerTransferServiceTest :
                     install(StatusPages) { installPeerTransferExceptionHandlers() }
                     routing { registerPeerTransferTestRoutes() }
                 }
-                val sender = createTestMember("pt-ausgetreten-sender@example.org", status = MemberStatus.AUSGETRETEN)
+                val sender = createTestMember("pt-ausgetreten-sender@example.org", status = MemberStatus.WITHDRAWN)
                 val recipient = createTestMember("pt-ausgetreten-recipient@example.org")
                 mintLtr(sender, BigDecimal("10.00"))
 
@@ -323,7 +323,7 @@ class PeerTransferServiceTest :
                     install(StatusPages) { installPeerTransferExceptionHandlers() }
                     routing { registerPeerTransferTestRoutes() }
                 }
-                val sender = createTestMember("pt-abgelehnt-sender@example.org", status = MemberStatus.ABGELEHNT)
+                val sender = createTestMember("pt-abgelehnt-sender@example.org", status = MemberStatus.REJECTED)
                 val recipient = createTestMember("pt-abgelehnt-recipient@example.org")
                 mintLtr(sender, BigDecimal("10.00"))
 
@@ -341,7 +341,7 @@ class PeerTransferServiceTest :
                     install(StatusPages) { installPeerTransferExceptionHandlers() }
                     routing { registerPeerTransferTestRoutes() }
                 }
-                val sender = createTestMember("pt-aktiv-regression-sender@example.org", status = MemberStatus.AKTIV)
+                val sender = createTestMember("pt-aktiv-regression-sender@example.org", status = MemberStatus.ACTIVE)
                 val recipient = createTestMember("pt-aktiv-regression-recipient@example.org")
                 mintLtr(sender, BigDecimal("10.00"))
 

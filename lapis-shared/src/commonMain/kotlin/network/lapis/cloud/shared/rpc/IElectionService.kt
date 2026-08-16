@@ -62,7 +62,7 @@ interface IElectionService {
     suspend fun listElectionBoard(electionId: String): List<ElectionBoardMemberDto>
 
     /**
-     * Role: self, [network.lapis.cloud.shared.domain.MemberStatus.AKTIV] (self-nomination only,
+     * Role: self, [network.lapis.cloud.shared.domain.MemberStatus.ACTIVE] (self-nomination only,
      * no third-party nomination in this wave). Requires [ElectionStatus.PREPARATION] and a
      * [network.lapis.cloud.shared.domain.ElectionType.SINGLE_CHOICE]/
      * [network.lapis.cloud.shared.domain.ElectionType.MULTI_CHOICE] Election.

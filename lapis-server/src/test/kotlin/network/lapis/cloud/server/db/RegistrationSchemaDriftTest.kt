@@ -4,6 +4,8 @@ import dev.kuml.erm.model.ErmModel
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldContainExactlyInAnyOrder
 import io.kotest.matchers.shouldBe
+import network.lapis.cloud.server.db.generated.FriendEmailVerificationTokenTable
+import network.lapis.cloud.server.db.generated.FriendTermsAcknowledgmentTable
 import network.lapis.cloud.server.db.generated.MembershipAgreementAcknowledgmentTable
 import network.lapis.cloud.server.db.generated.PasswordResetTokenTable
 import org.jetbrains.exposed.v1.jdbc.JdbcTransaction
@@ -12,13 +14,16 @@ import java.io.File
 
 /**
  * ADR-0016 (MDA persistence pipeline) — Registration domain (V0.7.2 Beitritts-/
- * Registrierungs-Workflow).
+ * Registrierungs-Workflow, plus V0.11.0 FRIEND self-registration's own
+ * `friend_terms_acknowledgment`/`friend_email_verification_token` tables).
  *
  * Verifies that `lapis-server/src/main/kuml/23-registration.kuml.kts` is a faithful model of both
  * (a) the real, Flyway-migrated H2 schema (`membership_agreement_acknowledgment`/
- * `password_reset_token`), and (b) the hand-written [MembershipAgreementAcknowledgmentTable]/
- * [PasswordResetTokenTable] Exposed objects. Mirrors [SessionSchemaDriftTest]'s shape — see
- * [SchemaDriftTest]'s KDoc for the full designModelStrategy option B rationale.
+ * `password_reset_token`/`friend_terms_acknowledgment`/`friend_email_verification_token`), and (b)
+ * the hand-written [MembershipAgreementAcknowledgmentTable]/[PasswordResetTokenTable]/
+ * [FriendTermsAcknowledgmentTable]/[FriendEmailVerificationTokenTable] Exposed objects. Mirrors
+ * [SessionSchemaDriftTest]'s shape — see [SchemaDriftTest]'s KDoc for the full
+ * designModelStrategy option B rationale.
  */
 class RegistrationSchemaDriftTest :
     FunSpec({
@@ -29,9 +34,15 @@ class RegistrationSchemaDriftTest :
 
         fun ErmModel.entityNameOf(entityId: String): String? = entities.firstOrNull { it.id == entityId }?.name
 
-        test("model declares exactly the two new entities plus the Member stub") {
+        test("model declares exactly the four new entities plus the Member stub") {
             model.entities.map { it.name }.toSet() shouldBe
-                setOf("member", "membership_agreement_acknowledgment", "password_reset_token")
+                setOf(
+                    "member",
+                    "membership_agreement_acknowledgment",
+                    "friend_terms_acknowledgment",
+                    "friend_email_verification_token",
+                    "password_reset_token",
+                )
         }
 
         test(
@@ -55,6 +66,56 @@ class RegistrationSchemaDriftTest :
             real.foreignKeys["member_id"] shouldBe "member"
             model.entityNameOf(entity.attributeByName("member_id")?.foreignKey?.targetEntityId ?: "") shouldBe "member"
             entity.attributeByName("member_id")?.nullable shouldBe false
+        }
+
+        test(
+            "friend_terms_acknowledgment table shape matches the real migrated schema and FriendTermsAcknowledgmentTable 1:1",
+        ) {
+            val entity = model.entities.single { it.name == "friend_terms_acknowledgment" }
+            val real = transaction { introspectRegistrationTable("friend_terms_acknowledgment") }
+
+            entity.attributes.map { it.name }.toSet() shouldBe real.columns.keys
+            entity.attributes.forEach { attr ->
+                withClue(clue = "column '${attr.name}'") {
+                    real.columns.getValue(attr.name!!).nullable shouldBe attr.nullable
+                }
+            }
+            entity.attributes.map { it.name } shouldContainExactlyInAnyOrder
+                FriendTermsAcknowledgmentTable.columns.map { it.name }
+
+            real.primaryKeyColumns shouldBe setOf("id")
+            entity.attributeByName("id")?.primaryKey shouldBe true
+
+            real.foreignKeys["member_id"] shouldBe "member"
+            model.entityNameOf(entity.attributeByName("member_id")?.foreignKey?.targetEntityId ?: "") shouldBe "member"
+            entity.attributeByName("member_id")?.nullable shouldBe false
+        }
+
+        test(
+            "friend_email_verification_token table shape matches the real migrated schema and FriendEmailVerificationTokenTable 1:1",
+        ) {
+            val entity = model.entities.single { it.name == "friend_email_verification_token" }
+            val real = transaction { introspectRegistrationTable("friend_email_verification_token") }
+
+            entity.attributes.map { it.name }.toSet() shouldBe real.columns.keys
+            entity.attributes.forEach { attr ->
+                withClue(clue = "column '${attr.name}'") {
+                    real.columns.getValue(attr.name!!).nullable shouldBe attr.nullable
+                }
+            }
+            entity.attributes.map { it.name } shouldContainExactlyInAnyOrder
+                FriendEmailVerificationTokenTable.columns.map { it.name }
+
+            real.primaryKeyColumns shouldBe setOf("id")
+            entity.attributeByName("id")?.primaryKey shouldBe true
+
+            real.foreignKeys["member_id"] shouldBe "member"
+            model.entityNameOf(entity.attributeByName("member_id")?.foreignKey?.targetEntityId ?: "") shouldBe "member"
+            entity.attributeByName("member_id")?.nullable shouldBe false
+
+            entity.attributeByName("consumed_at")?.nullable shouldBe true
+
+            real.uniqueConstraints shouldContainExactlyInAnyOrder listOf(setOf("token_hash"))
         }
 
         test("password_reset_token table shape matches the real migrated schema and PasswordResetTokenTable 1:1") {

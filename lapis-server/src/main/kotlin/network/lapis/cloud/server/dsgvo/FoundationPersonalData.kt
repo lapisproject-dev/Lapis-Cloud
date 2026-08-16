@@ -58,6 +58,10 @@ object FoundationPersonalData : PersonalDataContributor {
             put("reviewedBy", memberRow[MemberTable.reviewedBy]?.toString())
             put("reviewedAt", memberRow[MemberTable.reviewedAt]?.toString())
             put("rejectionReason", memberRow[MemberTable.rejectionReason])
+            // V0.11.0 FRIEND self-registration -- PII (origin/verification metadata), exported
+            // alongside the other member fields above.
+            put("friendSince", memberRow[MemberTable.friendSince]?.toString())
+            put("emailVerifiedAt", memberRow[MemberTable.emailVerifiedAt]?.toString())
 
             val accountRow = AccountTable.selectAll().where { AccountTable.memberId eq memberId }.singleOrNull()
             if (accountRow != null) {
@@ -95,6 +99,9 @@ object FoundationPersonalData : PersonalDataContributor {
                 it[reviewedBy] = null
                 it[reviewedAt] = null
                 it[rejectionReason] = null
+                // V0.11.0 FRIEND self-registration -- PII, nulled out the same way.
+                it[friendSince] = null
+                it[emailVerifiedAt] = null
             }
         val accountsDeleted = AccountTable.deleteWhere { AccountTable.memberId eq memberId }
         return listOf(

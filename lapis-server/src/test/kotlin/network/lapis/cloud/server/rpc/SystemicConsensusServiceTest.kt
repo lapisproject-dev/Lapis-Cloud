@@ -90,7 +90,7 @@ class SystemicConsensusServiceTest :
 
         fun createTestMember(
             email: String,
-            status: MemberStatus = MemberStatus.AKTIV,
+            status: MemberStatus = MemberStatus.ACTIVE,
         ): Uuid {
             val id = Uuid.random()
             transaction {
@@ -746,7 +746,7 @@ class SystemicConsensusServiceTest :
                 val committeeId = createTestCommittee("SK Antrag Gate Executive Board")
                 val chair = createTestMember("sk-antrag-chair@example.org")
                 addMember(committeeId, chair, CommitteeRole.CHAIR)
-                val applicant = createTestMember("sk-antrag-applicant@example.org", status = MemberStatus.ANTRAG)
+                val applicant = createTestMember("sk-antrag-applicant@example.org", status = MemberStatus.APPLICATION)
                 addMember(committeeId, applicant, CommitteeRole.MEMBER)
 
                 val meetingId = createTestMeeting(committeeId, LocalDateTime(2026, 10, 1, 18, 0))
@@ -784,7 +784,7 @@ class SystemicConsensusServiceTest :
                 val committeeId = createTestCommittee("SK Ausgetreten Gate Executive Board")
                 val chair = createTestMember("sk-ausgetreten-chair@example.org")
                 addMember(committeeId, chair, CommitteeRole.CHAIR)
-                val departed = createTestMember("sk-ausgetreten-departed@example.org", status = MemberStatus.AUSGETRETEN)
+                val departed = createTestMember("sk-ausgetreten-departed@example.org", status = MemberStatus.WITHDRAWN)
                 addMember(committeeId, departed, CommitteeRole.MEMBER)
 
                 val meetingId = createTestMeeting(committeeId, LocalDateTime(2026, 10, 2, 18, 0))
@@ -822,7 +822,7 @@ class SystemicConsensusServiceTest :
                 val committeeId = createTestCommittee("SK Aktiv Regression Executive Board")
                 val chair = createTestMember("sk-aktiv-regression-chair@example.org")
                 addMember(committeeId, chair, CommitteeRole.CHAIR)
-                val member = createTestMember("sk-aktiv-regression-member@example.org", status = MemberStatus.AKTIV)
+                val member = createTestMember("sk-aktiv-regression-member@example.org", status = MemberStatus.ACTIVE)
                 addMember(committeeId, member, CommitteeRole.MEMBER)
 
                 val meetingId = createTestMeeting(committeeId, LocalDateTime(2026, 10, 3, 18, 0))

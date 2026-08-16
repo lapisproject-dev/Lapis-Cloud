@@ -163,7 +163,7 @@ object AdminBootstrap {
      * `ADMIN` -- closes the chicken-and-egg gap [setInitialAdminPassword] cannot: that function only
      * ever sets a password on a row that already exists, and every other way to mint an account in
      * this codebase ([network.lapis.cloud.server.rpc.RegistrationService.registerApplication] /
-     * `createMemberDirect`) either lands as a pending `ANTRAG` application with no board yet able to
+     * `createMemberDirect`) either lands as a pending `APPLICATION` application with no board yet able to
      * approve it, or itself requires an already-authenticated ADMIN/BOARD caller.
      *
      * **Refuses unless [MemberTable] is completely empty** -- see [BootstrapFirstAdminResult.NotEmpty]
@@ -225,7 +225,7 @@ object AdminBootstrap {
                 it[id] = memberId
                 it[MemberTable.displayName] = trimmedDisplayName
                 it[MemberTable.email] = normalizedEmail
-                it[status] = MemberStatus.AKTIV
+                it[status] = MemberStatus.ACTIVE
                 it[joinedAt] = DbClock.nowLocalDateTime().date
                 it[membershipTierId] = null
             }

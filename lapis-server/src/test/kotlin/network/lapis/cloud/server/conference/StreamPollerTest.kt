@@ -232,7 +232,7 @@ class StreamPollerTest :
                     it[MemberTable.id] = id
                     it[displayName] = "StreamPoller Testmitglied"
                     it[MemberTable.email] = email
-                    it[status] = MemberStatus.AKTIV
+                    it[status] = MemberStatus.ACTIVE
                     it[joinedAt] = LocalDate(2026, 1, 1)
                     it[membershipTierId] = null
                 }

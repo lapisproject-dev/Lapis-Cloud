@@ -30,12 +30,22 @@ import kotlin.uuid.Uuid
 
 private val BOARD_ROLES = arrayOf(AccountRole.BOARD, AccountRole.ADMIN)
 
+/**
+ * **V0.11.0 security fix**: [listMailingLists]/[subscribe]/[unsubscribe] previously had NO
+ * membership-status gate at all -- any authenticated caller (including a self-registered FRIEND)
+ * could enumerate and subscribe to org mailing lists. All three now call [requireActiveMembership]
+ * -- communication/mailing lists are ACTIVE-only per spec, same as [DirectMessageService]. Board-
+ * only endpoints ([createMailingList]/[adminSubscribeMember]/[listSubscribers]/
+ * [createDraftMessage]/[listMailingMessages]/[sendMailingMessage]) were never reachable by a
+ * non-privileged caller to begin with ([requireRole]).
+ */
 class MailingService(
     private val call: ApplicationCall,
 ) : IMailingService {
     override suspend fun listMailingLists(): List<MailingListDto> {
         val current = resolveCurrentMember(call)
         return transaction {
+            requireActiveMembership(memberId = current.memberId)
             MailingListTable.selectAll().map { row ->
                 val listId = row[MailingListTable.id]
                 val subscriberCount =
@@ -85,6 +95,7 @@ class MailingService(
         val listId = Uuid.parse(mailingListId)
         val now = DbClock.nowLocalDateTime()
         transaction {
+            requireActiveMembership(memberId = current.memberId)
             val existing =
                 MailingListSubscriptionTable
                     .selectAll()
@@ -113,6 +124,7 @@ class MailingService(
         val listId = Uuid.parse(mailingListId)
         val now = DbClock.nowLocalDateTime()
         transaction {
+            requireActiveMembership(memberId = current.memberId)
             MailingListSubscriptionTable.update(
                 {
                     (MailingListSubscriptionTable.mailingListId eq listId) and

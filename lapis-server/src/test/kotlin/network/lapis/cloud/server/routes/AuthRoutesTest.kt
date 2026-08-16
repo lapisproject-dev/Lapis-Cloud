@@ -75,7 +75,7 @@ class AuthRoutesTest :
                     it[MemberTable.id] = id
                     it[displayName] = "Auth-Routes Testmitglied ohne Passwort"
                     it[MemberTable.email] = email
-                    it[status] = MemberStatus.AKTIV
+                    it[status] = MemberStatus.ACTIVE
                     it[joinedAt] = LocalDate(2026, 1, 1)
                     it[membershipTierId] = null
                 }
@@ -93,7 +93,7 @@ class AuthRoutesTest :
         fun createTestMemberWithPassword(
             email: String,
             password: String,
-            status: MemberStatus = MemberStatus.AKTIV,
+            status: MemberStatus = MemberStatus.ACTIVE,
         ): Uuid {
             val id = Uuid.random()
             transaction {
@@ -307,7 +307,7 @@ class AuthRoutesTest :
 
                 val email = "auth-routes-ausgetreten@example.org"
                 val password = "a-genuinely-strong-password-1"
-                createTestMemberWithPassword(email, password, status = MemberStatus.AUSGETRETEN)
+                createTestMemberWithPassword(email, password, status = MemberStatus.WITHDRAWN)
 
                 val response = client.post("/api/auth/login") { setBody("""{"email":"$email","password":"$password"}""") }
                 response.status shouldBe HttpStatusCode.Unauthorized
@@ -321,7 +321,7 @@ class AuthRoutesTest :
 
                 val email = "auth-routes-abgelehnt@example.org"
                 val password = "a-genuinely-strong-password-1"
-                createTestMemberWithPassword(email, password, status = MemberStatus.ABGELEHNT)
+                createTestMemberWithPassword(email, password, status = MemberStatus.REJECTED)
 
                 val response = client.post("/api/auth/login") { setBody("""{"email":"$email","password":"$password"}""") }
                 response.status shouldBe HttpStatusCode.Unauthorized
@@ -335,7 +335,7 @@ class AuthRoutesTest :
 
                 val email = "auth-routes-antrag@example.org"
                 val password = "a-genuinely-strong-password-1"
-                createTestMemberWithPassword(email, password, status = MemberStatus.ANTRAG)
+                createTestMemberWithPassword(email, password, status = MemberStatus.APPLICATION)
 
                 val response = client.post("/api/auth/login") { setBody("""{"email":"$email","password":"$password"}""") }
                 response.status shouldBe HttpStatusCode.OK
@@ -354,6 +354,7 @@ class AuthRoutesTest :
                             cookieSecure = true,
                             passwordResetRateLimiter = LoginRateLimiter(),
                             passwordResetMailer = mailer,
+                            friendEmailVerifyRateLimiter = LoginRateLimiter(),
                         )
                     }
                 }
@@ -383,6 +384,7 @@ class AuthRoutesTest :
                             cookieSecure = true,
                             passwordResetRateLimiter = LoginRateLimiter(),
                             passwordResetMailer = mailer,
+                            friendEmailVerifyRateLimiter = LoginRateLimiter(),
                         )
                     }
                 }
@@ -416,6 +418,7 @@ class AuthRoutesTest :
                             cookieSecure = true,
                             passwordResetRateLimiter = LoginRateLimiter(),
                             passwordResetMailer = mailer,
+                            friendEmailVerifyRateLimiter = LoginRateLimiter(),
                         )
                     }
                 }
@@ -454,6 +457,7 @@ class AuthRoutesTest :
                             cookieSecure = true,
                             passwordResetRateLimiter = LoginRateLimiter(),
                             passwordResetMailer = mailer,
+                            friendEmailVerifyRateLimiter = LoginRateLimiter(),
                         )
                     }
                 }
@@ -487,6 +491,7 @@ class AuthRoutesTest :
                             cookieSecure = true,
                             passwordResetRateLimiter = LoginRateLimiter(),
                             passwordResetMailer = mailer,
+                            friendEmailVerifyRateLimiter = LoginRateLimiter(),
                         )
                     }
                 }
@@ -525,6 +530,7 @@ class AuthRoutesTest :
                             cookieSecure = true,
                             passwordResetRateLimiter = LoginRateLimiter(),
                             passwordResetMailer = mailer,
+                            friendEmailVerifyRateLimiter = LoginRateLimiter(),
                         )
                     }
                 }
@@ -550,6 +556,7 @@ class AuthRoutesTest :
                             cookieSecure = true,
                             passwordResetRateLimiter = LoginRateLimiter(),
                             passwordResetMailer = mailer,
+                            friendEmailVerifyRateLimiter = LoginRateLimiter(),
                         )
                     }
                 }

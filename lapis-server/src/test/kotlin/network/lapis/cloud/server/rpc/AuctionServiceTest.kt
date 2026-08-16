@@ -110,7 +110,7 @@ class AuctionServiceTest :
 
         fun createTestMember(
             email: String,
-            status: MemberStatus = MemberStatus.AKTIV,
+            status: MemberStatus = MemberStatus.ACTIVE,
         ): Uuid {
             val id = Uuid.random()
             transaction {
@@ -494,7 +494,7 @@ class AuctionServiceTest :
                     routing { registerAuctionTestRoutes() }
                 }
                 val seller = createTestMember("buynow-antrag-seller@example.org")
-                val buyer = createTestMember("buynow-antrag-buyer@example.org", status = MemberStatus.ANTRAG)
+                val buyer = createTestMember("buynow-antrag-buyer@example.org", status = MemberStatus.APPLICATION)
                 mintLtr(seller, BigDecimal("1.00"))
                 mintLtr(buyer, BigDecimal("100.00"))
 
@@ -520,7 +520,7 @@ class AuctionServiceTest :
                     routing { registerAuctionTestRoutes() }
                 }
                 val seller = createTestMember("buynow-ausgetreten-seller@example.org")
-                val buyer = createTestMember("buynow-ausgetreten-buyer@example.org", status = MemberStatus.AUSGETRETEN)
+                val buyer = createTestMember("buynow-ausgetreten-buyer@example.org", status = MemberStatus.WITHDRAWN)
                 mintLtr(seller, BigDecimal("1.00"))
                 mintLtr(buyer, BigDecimal("100.00"))
 
@@ -545,7 +545,7 @@ class AuctionServiceTest :
                     routing { registerAuctionTestRoutes() }
                 }
                 val seller = createTestMember("buynow-aktiv-regression-seller@example.org")
-                val buyer = createTestMember("buynow-aktiv-regression-buyer@example.org", status = MemberStatus.AKTIV)
+                val buyer = createTestMember("buynow-aktiv-regression-buyer@example.org", status = MemberStatus.ACTIVE)
                 mintLtr(seller, BigDecimal("1.00"))
                 mintLtr(buyer, BigDecimal("100.00"))
 
@@ -737,7 +737,7 @@ class AuctionServiceTest :
                     install(StatusPages) { installAuctionExceptionHandlers() }
                     routing { registerAuctionTestRoutes() }
                 }
-                val guest = createTestMember("authz-guest@example.org", status = MemberStatus.AUSGETRETEN)
+                val guest = createTestMember("authz-guest@example.org", status = MemberStatus.WITHDRAWN)
                 mintLtr(guest, BigDecimal("10.00"))
 
                 val createResp =

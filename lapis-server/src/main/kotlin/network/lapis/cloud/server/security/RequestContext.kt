@@ -7,6 +7,7 @@ import network.lapis.cloud.server.db.generated.MemberTable
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.DocumentAccessLevel
 import network.lapis.cloud.shared.domain.MemberStatus
+import network.lapis.cloud.shared.domain.MemberStatusSets
 import network.lapis.cloud.shared.rpc.ForbiddenException
 import network.lapis.cloud.shared.rpc.UnauthenticatedException
 import org.jetbrains.exposed.v1.core.eq
@@ -39,28 +40,34 @@ private val logger = KotlinLogging.logger {}
  * working unmodified. [AuthTestMode.trustedHeaderAuthEnabled] is structurally `false` in any real
  * (Postgres) deployment — see that object's KDoc for the full defense-in-depth reasoning.
  *
- * [isGuest] (V0.8.2 OIDC-Gastzugang-Federation) is `true` iff this [CurrentMember] was resolved via
- * a [network.lapis.cloud.server.db.generated.MemberTable] row with
- * `status == `[network.lapis.cloud.shared.domain.MemberStatus.GAST]` -- see
- * [network.lapis.cloud.server.federation.OidcGuestMemberStore] KDoc for the full "guest = real
- * Member row" design decision. Existing `status`-checking gates
- * ([network.lapis.cloud.server.rpc.requireActiveMembership] and friends) already exclude
- * [network.lapis.cloud.shared.domain.MemberStatus.GAST] structurally and do not need this field --
- * it exists as a POSITIVE, greppable signal for any future call site that wants to special-case a
- * guest explicitly, rather than relying on "GAST fails requireActiveMembership" tribal knowledge.
- * [canAccessDocumentAtLevel] is exactly such a call site: `PUBLIC_MEMBERS`-level document access
- * requires `isGuest == false` (closed gap, see that function's KDoc -- V0.8.2 originally shipped
- * this role-only and flagged it as a known, deliberately-left-open gap; a later wave closed it).
- * `BOARD_ONLY`/`ADMIN_ONLY` never needed an explicit [isGuest] check to begin with: a guest's
- * `role` is always [network.lapis.cloud.shared.domain.AccountRole.MEMBER] (never `BOARD`/`ADMIN` --
- * no write path in this codebase elevates a guest's `Account.role` after creation), so
- * [isPrivileged] and `role == ADMIN` already excluded a guest transitively.
+ * [status] (V0.11.0) carries the caller's real [network.lapis.cloud.shared.domain.MemberStatus] --
+ * every gate re-reads [network.lapis.cloud.server.db.generated.MemberTable] per call anyway (no
+ * caching), so this is a free byproduct of the join both construction sites already perform.
+ * [isGuest] and [isNonMember] below are DERIVED from it, not independently stored -- see their own
+ * KDoc for the historical vs. current authorization-decision distinction.
  */
 data class CurrentMember(
     val memberId: Uuid,
     val role: AccountRole,
-    val isGuest: Boolean = false,
-)
+    val status: MemberStatus,
+) {
+    /**
+     * Retained for the V0.8.4 Guest-Badge wire contract ([network.lapis.cloud.shared.domain
+     * .SessionInfoDto.isGuest]) ONLY -- never for an authorization decision. Use
+     * `status in MemberStatusSets.X` for those. See [isNonMember] for the authorization-relevant
+     * positive-capability replacement this V0.11.0 wave introduced.
+     */
+    val isGuest: Boolean get() = status == MemberStatus.GUEST
+
+    /**
+     * Not a member of THIS organization ([network.lapis.cloud.shared.domain.MemberStatusSets
+     * .NON_MEMBER] -- currently [MemberStatus.GUEST] and [MemberStatus.FRIEND]). Replaces every
+     * former `isGuest`-as-authorization use: a denylist of exactly one status was the wrong shape
+     * for a status set that was about to grow (V0.11.0 added [MemberStatus.FRIEND] specifically
+     * to close that gap before it could silently widen access).
+     */
+    val isNonMember: Boolean get() = status in MemberStatusSets.NON_MEMBER
+}
 
 private const val MEMBER_ID_HEADER = "X-Member-Id"
 
@@ -116,7 +123,7 @@ private fun resolveFromTrustedHeader(call: ApplicationCall): CurrentMember? {
         CurrentMember(
             memberId = memberId,
             role = row[AccountTable.role],
-            isGuest = row[MemberTable.status] == MemberStatus.GAST,
+            status = row[MemberTable.status],
         )
     }
 }
@@ -134,20 +141,22 @@ val CurrentMember.isPrivileged: Boolean
  * ADMIN_ONLY collapse into the same check. Used identically by [DocumentAccessLevel]-filtered
  * reads (listDocuments/listVersions) and the HTTP download route so the two never drift apart.
  *
- * `PUBLIC_MEMBERS` means "visible to members of THIS organization" and therefore additionally
- * requires [CurrentMember.isGuest] to be `false` -- a federated OIDC guest (V0.8.2) always
- * resolves with `role = MEMBER` (see [network.lapis.cloud.server.federation.OidcGuestMemberStore])
- * but is not actually a member of the visited organization, so a bare role check alone would
- * wrongly grant PUBLIC_MEMBERS-tier internal-document access (statutes, meeting minutes, board
- * correspondence -- a fundamentally different content domain than the Timeline access the
- * Gastzugang concept actually describes for guests). `BOARD_ONLY`/`ADMIN_ONLY` need no separate
- * guest check: a guest's `role` can never be `BOARD`/`ADMIN` (nothing in this codebase elevates a
- * guest's `Account.role` after creation), so [isPrivileged] and `role == ADMIN` already exclude a
- * guest transitively.
+ * `PUBLIC_MEMBERS` means "visible to members of THIS organization" and therefore requires
+ * `status` to be in [MemberStatusSets.ORGANIZATION_MEMBER] (currently just [MemberStatus.ACTIVE]).
+ * **V0.11.0 rewrite**: this used to be the denylist `!isGuest`, which had two problems the FRIEND
+ * wave forced into the open -- (1) a self-registered [MemberStatus.FRIEND] would otherwise pass it
+ * (denylist of one status is the wrong shape for a status set that just grew), and (2) it silently
+ * ALSO passed for [MemberStatus.APPLICATION] (an applicant who *can* log in -- `AuthRoutes` only
+ * blocks [MemberStatus.WITHDRAWN]/[MemberStatus.REJECTED] -- was never meant to read internal
+ * documents before being admitted). Both are closed by testing organization-membership positively
+ * instead of guest-status negatively. `BOARD_ONLY`/`ADMIN_ONLY` need no separate non-member check:
+ * neither a guest's nor a friend's `role` can ever be `BOARD`/`ADMIN` (nothing in this codebase
+ * elevates a non-member's `Account.role` after creation), so [isPrivileged] and `role == ADMIN`
+ * already exclude them transitively.
  */
 fun CurrentMember.canAccessDocumentAtLevel(level: DocumentAccessLevel): Boolean =
     when (level) {
-        DocumentAccessLevel.PUBLIC_MEMBERS -> !isGuest
+        DocumentAccessLevel.PUBLIC_MEMBERS -> status in MemberStatusSets.ORGANIZATION_MEMBER
         DocumentAccessLevel.BOARD_ONLY -> isPrivileged
         DocumentAccessLevel.ADMIN_ONLY -> role == AccountRole.ADMIN
     }

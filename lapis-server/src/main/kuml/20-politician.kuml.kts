@@ -24,7 +24,7 @@
 //
 // **Scope-cut CLOSED (guest-rating wave): member-only rating, no Gast basket.** The concept
 // document's Mitglied/Gast two-basket mechanic originally needed an operational Gast (guest)
-// identity that did not exist -- `MemberStatus.GAST` (00-foundation.kuml.kts) was, at V0.6.4 ship
+// identity that did not exist -- `MemberStatus.GUEST` (00-foundation.kuml.kts) was, at V0.6.4 ship
 // time, an inert enum literal nothing in this codebase ever set, queried, or transitioned a
 // member into. V0.8.2's OIDC guest-identity federation (`OidcGuestMemberStore`) closed that gap:
 // every federated OIDC guest is now a real `member` row with `status = GAST`. This wave therefore

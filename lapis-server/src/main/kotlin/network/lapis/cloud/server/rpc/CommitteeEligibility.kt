@@ -26,7 +26,7 @@ import kotlin.uuid.Uuid
  * risking the democratic and meritocratic paths silently drifting apart.
  *
  * For a [CommitteeType.GENERAL_ASSEMBLY]-typed Committee, eligibility is "all members with
- * [MemberStatus.AKTIV]" queried directly from [MemberTable]: syncing every member into
+ * [MemberStatus.ACTIVE]" queried directly from [MemberTable]: syncing every member into
  * [CommitteeMembershipTable] on join/leave would be a brittle parallel bookkeeping system.
  * Known limitation of this path: unlike the Committee path (date-scoped via `since`/`until`), it
  * checks *current* [MemberStatus], not "status as of [scheduledDate]" -- an accepted
@@ -42,7 +42,7 @@ internal fun eligibleMemberIds(
     return if (committeeRow[CommitteeTable.type] == CommitteeType.GENERAL_ASSEMBLY) {
         MemberTable
             .selectAll()
-            .where { MemberTable.status eq MemberStatus.AKTIV }
+            .where { MemberTable.status eq MemberStatus.ACTIVE }
             .map { it[MemberTable.id] }
             .toSet()
     } else {

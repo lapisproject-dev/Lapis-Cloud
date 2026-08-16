@@ -70,21 +70,24 @@ import network.lapis.cloud.shared.domain.ConferenceRoomInput
  * ## Federated guest join (Wave 5 "Föderations-Gastbeitritt") -- opt-in per room, consent-gated,
  * never a blanket widening
  *
- * [joinRoom] admits [network.lapis.cloud.shared.domain.MemberStatus.GAST] (via
- * `network.lapis.cloud.server.rpc.requireActiveOrGuestMembership`) ONLY for a room whose
+ * [joinRoom] admits [network.lapis.cloud.shared.domain.MemberStatus.GUEST] and (V0.11.0)
+ * [network.lapis.cloud.shared.domain.MemberStatus.FRIEND] (via
+ * `network.lapis.cloud.server.rpc.requireConferenceEligibleMembership`) ONLY for a room whose
  * `allowFederationGuests` column is `true` (default `false` -- see [ConferenceRoomInput
  * .allowFederationGuests] KDoc), and ONLY against a matching, CURRENT
  * `network.lapis.cloud.server.rpc.ConferenceGuestConsentDisclaimer` acknowledgment (see [joinRoom]'s
  * own KDoc). Every OTHER method on this interface keeps its pre-Wave-5 `requireActiveMembership`
- * gate verbatim -- [listActiveRooms]/[getRoom]/[createRoom] stay AKTIV-only (a guest can neither
- * browse nor create rooms) -- with the single, narrowly-scoped exception of [listParticipants] (see
- * its own KDoc) and the two new Wave-5 methods [getGuestJoinInfo]/[setRoomGuestAccess].
+ * gate verbatim -- [listActiveRooms]/[getRoom]/[createRoom] stay ACTIVE-only (a guest or friend can
+ * neither browse nor create rooms) -- with the single, narrowly-scoped exception of
+ * [listParticipants] (see its own KDoc) and the two new Wave-5 methods
+ * [getGuestJoinInfo]/[setRoomGuestAccess].
  *
- * A federated guest gets NO moderator rights, cannot be promoted, cannot toggle
- * `allowFederationGuests`, cannot start/stop a recording or stream, cannot rename or end the room,
- * and cannot remove another participant -- every mutating method besides [joinRoom]/[leaveRoom]
- * still requires either room creatorship or a global BOARD/ADMIN role, neither of which a GAST
- * member can ever hold. A guest's LiveKit grant is otherwise IDENTICAL to an ordinary participant's
+ * A federated guest (or, since V0.11.0, a self-registered friend) gets NO moderator rights, cannot
+ * be promoted, cannot toggle `allowFederationGuests`, cannot start/stop a recording or stream,
+ * cannot rename or end the room, and cannot remove another participant -- every mutating method
+ * besides [joinRoom]/[leaveRoom] still requires either room creatorship or a global BOARD/ADMIN
+ * role, neither of which a GUEST or FRIEND member can ever hold. A guest's LiveKit grant is
+ * otherwise IDENTICAL to an ordinary participant's
  * (`canPublish`/`canSubscribe`/`canPublishData` all `true`, same as [ConferenceRole.PARTICIPANT]) --
  * Wave 5 does NOT introduce a reduced, publish-restricted guest grant; that remains a possible
  * future item, not this wave's scope.
@@ -113,9 +116,9 @@ import network.lapis.cloud.shared.domain.ConferenceRoomInput
  *   an admission queue: [joinRoom] either admits immediately (opt-in + valid consent) or rejects
  *   outright, there is no pending/awaiting-approval state anywhere in this schema.
  * - **No four-tier role system** (Moderator/Präsentator/Teilnehmer/Zuhörer) or in-meeting role
- *   hand-over -- see "Two-tier role model" above. A federated guest is always
- *   [ConferenceRole.PARTICIPANT], never [ConferenceRole.MODERATOR] (`createRoom` is AKTIV-only, so
- *   `conference_room.created_by_member_id` can never equal a GAST member's id).
+ *   hand-over -- see "Two-tier role model" above. A federated guest (or friend) is always
+ *   [ConferenceRole.PARTICIPANT], never [ConferenceRole.MODERATOR] (`createRoom` is ACTIVE-only, so
+ *   `conference_room.created_by_member_id` can never equal a GUEST or FRIEND member's id).
  * - **No E2EE opt-in mode.**
  * - **No scaling-class auto-switching** (Kleinsitzung/Mittelsitzung/Großveranstaltung) -- a single
  *   hardcoded Kleinsitzung profile (`maxParticipants` defaulting to 25) applies to every room.
@@ -140,7 +143,7 @@ interface IConferenceService {
     suspend fun getAvailability(): ConferenceAvailabilityDto
 
     /**
-     * Role: MEMBER+, caller must be [network.lapis.cloud.shared.domain.MemberStatus.AKTIV]. Bounded
+     * Role: MEMBER+, caller must be [network.lapis.cloud.shared.domain.MemberStatus.ACTIVE]. Bounded
      * to the 200 most recently created active rooms -- DoS guard, same class of cap
      * [network.lapis.cloud.shared.rpc.IAuctionService.listAuctions]'s own limit enforces. Performs
      * the lazy reconciliation described in class KDoc "Lazy reconciliation" before returning.
@@ -152,7 +155,7 @@ interface IConferenceService {
     suspend fun listActiveRooms(): List<ConferenceRoomDto>
 
     /**
-     * Role: MEMBER+, caller must be AKTIV. Performs the SAME per-room lazy reconciliation as
+     * Role: MEMBER+, caller must be ACTIVE. Performs the SAME per-room lazy reconciliation as
      * [listActiveRooms], scoped to [roomId]. Throttled per caller (shared budget with
      * [listActiveRooms]/[listParticipants]) -- see [network.lapis.cloud.server.rpc.ConferenceService]
      * KDoc "Request-rate throttling beyond createRoom".
@@ -160,7 +163,7 @@ interface IConferenceService {
     suspend fun getRoom(roomId: String): ConferenceRoomDto
 
     /**
-     * Role: MEMBER+, caller must be AKTIV. Throttled per caller via a reused
+     * Role: MEMBER+, caller must be ACTIVE. Throttled per caller via a reused
      * [network.lapis.cloud.server.security.LoginRateLimiter] instance (generic per-member throttle,
      * same reuse [network.lapis.cloud.server.routes.registerOidcRoutes]'s own `"/register"` handler
      * already establishes for OIDC Dynamic Client Registration) -- rejects with [ConflictException]
@@ -172,8 +175,9 @@ interface IConferenceService {
     suspend fun createRoom(input: ConferenceRoomInput): ConferenceRoomDto
 
     /**
-     * Role: MEMBER+, caller must be AKTIV **or** [network.lapis.cloud.shared.domain.MemberStatus
-     * .GAST]. The room must exist and have `endedAt == null` (else [ConflictException]). Mints a
+     * Role: MEMBER+, caller must be ACTIVE, [network.lapis.cloud.shared.domain.MemberStatus.GUEST],
+     * or (V0.11.0) [network.lapis.cloud.shared.domain.MemberStatus.FRIEND]. The room must exist and
+     * have `endedAt == null` (else [ConflictException]). Mints a
      * fresh, room-pinned participant token (never cached, see
      * [network.lapis.cloud.server.conference.LiveKitAccessToken.mintParticipantToken] KDoc) and
      * records a new, open [ConferenceParticipantDto] row -- rejoining an already-left room creates a
@@ -184,18 +188,20 @@ interface IConferenceService {
      * join/leave loop that would otherwise mint unbounded LiveKit tokens and
      * `conference_participation` rows.
      *
-     * **Wave 5 "Föderations-Gastbeitritt":** an AKTIV caller is COMPLETELY unaffected --
-     * [guestConsent] defaults to `null` and is IGNORED for a non-GAST caller (no acknowledgment row
-     * is ever written for them, and passing a bogus value changes nothing). For a
-     * [network.lapis.cloud.shared.domain.MemberStatus.GAST] caller the call additionally requires
+     * **Wave 5 "Föderations-Gastbeitritt":** an ACTIVE caller is COMPLETELY unaffected --
+     * [guestConsent] defaults to `null` and is IGNORED for a non-GUEST/FRIEND caller (no
+     * acknowledgment row is ever written for them, and passing a bogus value changes nothing). For a
+     * [network.lapis.cloud.shared.domain.MemberStatus.GUEST] or (V0.11.0) `FRIEND` caller the call
+     * additionally requires
      * (a) the room's own `allowFederationGuests` opt-in AND (b) a [guestConsent] whose
      * `consentVersion`/`consentSha256` match the CURRENT
      * `network.lapis.cloud.server.rpc.ConferenceGuestConsentDisclaimer` -- both re-verified
-     * server-side (constant-time hash comparison), never a client-side-only gate. A GAST supplying
-     * no/stale/tampered consent, or targeting a room that has not opted in, is rejected with
-     * [ForbiddenException]/[ConflictException] and ZERO side effects: no LiveKit token, no
-     * `conference_participation` row, no acknowledgment row. ANTRAG/AUSGETRETEN/ABGELEHNT remain
-     * rejected exactly as before -- this wave widens the gate to AKTIV+GAST only, never further.
+     * server-side (constant-time hash comparison), never a client-side-only gate. A GUEST or FRIEND
+     * supplying no/stale/tampered consent, or targeting a room that has not opted in, is rejected
+     * with [ForbiddenException]/[ConflictException] and ZERO side effects: no LiveKit token, no
+     * `conference_participation` row, no acknowledgment row. APPLICATION/WITHDRAWN/REJECTED remain
+     * rejected exactly as before -- this wave (and its V0.11.0 FRIEND extension) widens the gate to
+     * ACTIVE+GUEST+FRIEND only, never further.
      * Call [getGuestJoinInfo] first to obtain the current version/sha256 to echo back unmodified.
      */
     suspend fun joinRoom(
@@ -224,8 +230,9 @@ interface IConferenceService {
     suspend fun endRoom(roomId: String): ConferenceRoomDto
 
     /**
-     * Role: MEMBER+, caller must be AKTIV **or** [network.lapis.cloud.shared.domain.MemberStatus
-     * .GAST]. Live roster ordered by `joinedAt` -- see
+     * Role: MEMBER+, caller must be ACTIVE, [network.lapis.cloud.shared.domain.MemberStatus.GUEST],
+     * or (V0.11.0) [network.lapis.cloud.shared.domain.MemberStatus.FRIEND]. Live roster ordered by
+     * `joinedAt` -- see
      * [network.lapis.cloud.shared.domain.ConferenceParticipantDto] KDoc for what
      * [network.lapis.cloud.shared.domain.ConferenceParticipantDto.live] does and does not guarantee.
      * Throttled per caller (shared budget with [listActiveRooms]/[getRoom]) -- see
@@ -233,12 +240,13 @@ interface IConferenceService {
      * createRoom"; rejects with [ConflictException] once exceeded, because every call fans out into
      * an outbound LiveKit `ListParticipants` admin call.
      *
-     * **Wave 5:** a [network.lapis.cloud.shared.domain.MemberStatus.GAST] caller is admitted iff
-     * the room has `allowFederationGuests = true` AND the caller has at least one
-     * `conference_participation` row for this room (i.e. they actually joined it at some point via
-     * [joinRoom]) -- a guest can never enumerate the roster of a room they were merely told the id
-     * of. Every guest participant's [network.lapis.cloud.shared.domain.ConferenceParticipantDto
-     * .homeserverUrl] is populated; every ordinary member's is `null`.
+     * **Wave 5 (V0.11.0-extended):** a [network.lapis.cloud.shared.domain.MemberStatus.GUEST] or
+     * `FRIEND` caller is admitted iff the room has `allowFederationGuests = true` AND the caller has
+     * at least one `conference_participation` row for this room (i.e. they actually joined it at
+     * some point via [joinRoom]) -- a guest or friend can never enumerate the roster of a room they
+     * were merely told the id of. Every guest participant's
+     * [network.lapis.cloud.shared.domain.ConferenceParticipantDto.homeserverUrl] is populated; every
+     * ordinary member's (and every FRIEND's, who has no home server) is `null`.
      */
     suspend fun listParticipants(roomId: String): List<ConferenceParticipantDto>
 
@@ -267,15 +275,16 @@ interface IConferenceService {
     ): ConferenceRoomDto
 
     /**
-     * Wave 5 "Föderations-Gastbeitritt". Role: MEMBER+, caller must be AKTIV **or**
-     * [network.lapis.cloud.shared.domain.MemberStatus.GAST] (reuses
-     * `network.lapis.cloud.server.rpc.requireActiveOrGuestMembership`). NEVER throws merely
+     * Wave 5 "Föderations-Gastbeitritt". Role: MEMBER+, caller must be ACTIVE,
+     * [network.lapis.cloud.shared.domain.MemberStatus.GUEST], or (V0.11.0)
+     * [network.lapis.cloud.shared.domain.MemberStatus.FRIEND] (reuses
+     * `network.lapis.cloud.server.rpc.requireConferenceEligibleMembership`). NEVER throws merely
      * because a room does not admit guests -- it returns `allowsFederationGuests = false` instead,
      * so the client can render an honest, specific reason (see [ConferenceGuestJoinInfoDto] KDoc
      * for why this must be data, not an exception). Throws [NotFoundException] for an unknown room
-     * id and [ForbiddenException] for an ANTRAG/AUSGETRETEN/ABGELEHNT caller. An AKTIV moderator
-     * may call this on their own room to preview exactly what a guest will be asked to confirm
-     * (`callerIsGuest = false` in that case). Throttled per caller on its OWN budget (this method
+     * id and [ForbiddenException] for an APPLICATION/WITHDRAWN/REJECTED caller. An ACTIVE moderator
+     * may call this on their own room to preview exactly what a guest or friend will be asked to
+     * confirm (`callerIsGuest = false` in that case). Throttled per caller on its OWN budget (this method
      * makes NO outbound LiveKit call, so it deliberately does not share
      * [listActiveRooms]/[getRoom]/[listParticipants]'s shared budget) -- rejects with
      * [ConflictException] once exceeded.
@@ -287,10 +296,11 @@ interface IConferenceService {
      * SAME `requireModeratorOrPrivileged` gate as [endRoom]/[removeParticipant]/[renameRoom]. The
      * room must still be active (`endedAt == null`), else [ConflictException]. Turning the opt-in
      * OFF additionally DISCONNECTS every currently-joined
-     * [network.lapis.cloud.shared.domain.MemberStatus.GAST] from the LiveKit room and closes their
+     * [network.lapis.cloud.shared.domain.MemberStatus.GUEST] or (V0.11.0)
+     * [network.lapis.cloud.shared.domain.MemberStatus.FRIEND] from the LiveKit room and closes their
      * open `conference_participation` rows (same machinery [removeParticipant] uses) -- a room
-     * that "no longer admits guests" must not silently keep guests inside it (design review D16).
-     * Ordinary AKTIV participants are never touched. Writes an
+     * that "no longer admits guests" must not silently keep guests (or friends) inside it (design
+     * review D16). Ordinary ACTIVE participants are never touched. Writes an
      * [network.lapis.cloud.shared.domain.AuditEntityType.CONFERENCE_ROOM] audit-log row either way
      * (grant or revoke).
      */

@@ -25,6 +25,14 @@ import kotlin.uuid.Uuid
  * Content is only ever visible to sender and recipient — see [IDirectMessageService] KDoc.
  * Every query here filters by (senderId = current OR recipientId = current); there is no
  * separate "board can read all DMs" code path.
+ *
+ * **V0.11.0 security fix**: every method here previously had NO membership-status gate at all --
+ * any authenticated caller (including [network.lapis.cloud.shared.domain.MemberStatus.APPLICATION]
+ * and, once FRIEND self-registration shipped, an unverified [network.lapis.cloud.shared.domain
+ * .MemberStatus.FRIEND]) could DM any member id, unthrottled. Every method now calls
+ * [requireActiveMembership] first -- a FRIEND has no legitimate DM need under this wave's scope
+ * (conference access only). This was the highest-priority item on the FRIEND-wave risk list found
+ * while planning it, and predates FRIEND entirely (it applied to APPLICATION/GUEST before too).
  */
 class DirectMessageService(
     private val call: ApplicationCall,
@@ -40,6 +48,7 @@ class DirectMessageService(
         val recipient = Uuid.parse(recipientId)
         val now = DbClock.nowLocalDateTime()
         return transaction {
+            requireActiveMembership(memberId = current.memberId)
             val id = Uuid.random()
             DirectMessageTable.insert {
                 it[DirectMessageTable.id] = id
@@ -55,6 +64,7 @@ class DirectMessageService(
     override suspend fun listInbox(): List<DirectMessageDto> {
         val current = resolveCurrentMember(call)
         return transaction {
+            requireActiveMembership(memberId = current.memberId)
             baseQuery()
                 .where { DirectMessageTable.recipientId eq current.memberId }
                 .orderBy(DirectMessageTable.sentAt, SortOrder.DESC)
@@ -66,6 +76,7 @@ class DirectMessageService(
         val current = resolveCurrentMember(call)
         val other = Uuid.parse(otherMemberId)
         return transaction {
+            requireActiveMembership(memberId = current.memberId)
             baseQuery()
                 .where {
                     ((DirectMessageTable.senderId eq current.memberId) and (DirectMessageTable.recipientId eq other)) or
@@ -80,6 +91,7 @@ class DirectMessageService(
         val id = Uuid.parse(messageId)
         val now = DbClock.nowLocalDateTime()
         transaction {
+            requireActiveMembership(memberId = current.memberId)
             DirectMessageTable.update(
                 { (DirectMessageTable.id eq id) and (DirectMessageTable.recipientId eq current.memberId) },
             ) {
@@ -91,6 +103,7 @@ class DirectMessageService(
     override suspend fun unreadCount(): Int {
         val current = resolveCurrentMember(call)
         return transaction {
+            requireActiveMembership(memberId = current.memberId)
             DirectMessageTable
                 .selectAll()
                 .where { (DirectMessageTable.recipientId eq current.memberId) and (DirectMessageTable.readAt.isNull()) }

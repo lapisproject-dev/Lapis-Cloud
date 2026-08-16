@@ -73,7 +73,7 @@ import network.lapis.cloud.shared.rpc.IPostalMailService
  * Attendance/agenda-presenter member pickers (design: "per-eligible-member status recording")
  * are sourced from the same eligibility rule `computeQuorum`/`checkQuorum` use server-side
  * (`CommitteeEligibility.eligibleMemberIds`): for a [CommitteeType.GENERAL_ASSEMBLY] Committee,
- * every [network.lapis.cloud.shared.domain.MemberStatus.AKTIV] member
+ * every [network.lapis.cloud.shared.domain.MemberStatus.ACTIVE] member
  * (`IMemberService.listMembers()`, current status -- the server's own General-Assembly path is
  * date-blind too, see that function's KDoc); for any other Committee, that Committee's active
  * roster (`listCommitteeMembers`, reused for the [GovernanceAuthzUi] check above, so no extra
@@ -286,7 +286,7 @@ private fun renderMeetingCreationForm(
 /**
  * Loads [MeetingDetailDto] plus this specific meeting's Committee roster (for the
  * [GovernanceAuthzUi] check and, for a non-General-Assembly Committee, the eligible-member
- * picker source) and, for a General-Assembly Committee, the full AKTIV member directory --
+ * picker source) and, for a General-Assembly Committee, the full ACTIVE member directory --
  * see file KDoc. [committees] is the already-loaded list from [renderMeetingsScreen], reused to
  * look up the meeting's own [CommitteeDto] (for its [CommitteeType]) without an extra round trip.
  */
