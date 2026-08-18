@@ -116,4 +116,54 @@ class ValidationTest {
         val requiredRoles = setOf(AccountRole.BOARD, AccountRole.ADMIN)
         assertTrue(isRouteAllowed(authenticated = true, callerRole = AccountRole.BOARD, requiredRoles = requiredRoles))
     }
+
+    @Test
+    fun isPositiveDecimal_acceptsAPlausibleAmount() {
+        assertTrue(Validation.isPositiveDecimal("1.50"))
+    }
+
+    @Test
+    fun isPositiveDecimal_acceptsAnAmountWithSurroundingWhitespace() {
+        assertTrue(Validation.isPositiveDecimal("  0.01  "))
+    }
+
+    @Test
+    fun isPositiveDecimal_rejectsZero() {
+        assertFalse(Validation.isPositiveDecimal("0.00"))
+    }
+
+    @Test
+    fun isPositiveDecimal_rejectsNegativeAmounts() {
+        assertFalse(Validation.isPositiveDecimal("-5.00"))
+    }
+
+    @Test
+    fun isPositiveDecimal_rejectsNonNumericText() {
+        assertFalse(Validation.isPositiveDecimal("not-a-number"))
+    }
+
+    @Test
+    fun isPositiveDecimal_rejectsBlank() {
+        assertFalse(Validation.isPositiveDecimal(""))
+    }
+
+    /**
+     * Security-Audit-Fund S-C1 (2026-08-18): `"Infinity"` is a value [String.toDoubleOrNull]
+     * (Kotlin/JS) happily parses, and `Double.POSITIVE_INFINITY > 0.0` is `true` -- without the
+     * [Double.isFinite] guard this used to slip through as a "positive decimal".
+     */
+    @Test
+    fun isPositiveDecimal_rejectsInfinityLiteral() {
+        assertFalse(Validation.isPositiveDecimal("Infinity"))
+    }
+
+    @Test
+    fun isPositiveDecimal_rejectsNegativeInfinityLiteral() {
+        assertFalse(Validation.isPositiveDecimal("-Infinity"))
+    }
+
+    @Test
+    fun isPositiveDecimal_rejectsNaNLiteral() {
+        assertFalse(Validation.isPositiveDecimal("NaN"))
+    }
 }

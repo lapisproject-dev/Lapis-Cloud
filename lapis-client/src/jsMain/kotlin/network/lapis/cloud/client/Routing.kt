@@ -243,6 +243,17 @@ object Routes {
     // in-screen role split (unlike those routes' `canTreasury`/`canBoard`/`canAdmin`) -- Welle
     // V1.1.1 has no BOARD/ADMIN/TREASURER-only surface at all yet.
     const val SOCIAL_NETWORK = "/social-network"
+
+    // Soziales Netzwerk, Welle V1.1.2 "Kommentarbaum, Boosts, rekursive Gesamtgewichtung" -- deep-
+    // linkable Thread-Ansicht, first parameterized route in this client (Navigo `:id` syntax, read
+    // in `SocialThreadScreen.kt` via the route handler's `Match.data`, see `initRouting`'s own
+    // comment on that route). Accepts EITHER a root post's id OR any descendant's id --
+    // `renderSocialThreadScreen` resolves a non-root id via `getPost(id).rootId` first, exactly the
+    // client-side resolution `ISocialNetworkService.getThread` KDoc "K4" prescribes for a Nicht-
+    // Wurzel-ID. Same `requireAuth` gate as [SOCIAL_NETWORK] -- no separate role split, and this is
+    // also the deep-link target `LtrLedgerScreen.kt`'s `SOCIAL_POST`-referenced ledger rows resolve
+    // to (Review-Fund G4).
+    const val SOCIAL_NETWORK_POST = "/social-network/post/:id"
 }
 
 private var appRouting: Routing? = null
@@ -396,6 +407,19 @@ fun initRouting(pageContainer: SimplePanel) {
     }
     routing.kvOn(Routes.SOCIAL_NETWORK) {
         requireAuth(routing) { show(::renderSocialNetworkScreen) }
+    }
+    // Welle V1.1.2: `:id` is read off Navigo's own `Match.data` object -- `kvOn`'s handler is typed
+    // `Any` (an external/dynamic Navigo `Match`), so this is the one unavoidable `asDynamic()` cast
+    // in this file; every OTHER route above uses the id-less `kvOn(String) { ... }` overload.
+    routing.kvOn(Routes.SOCIAL_NETWORK_POST) { params ->
+        val id = params.asDynamic().data.id as? String
+        requireAuth(routing) {
+            if (id.isNullOrBlank()) {
+                routing.navigate(Routes.SOCIAL_NETWORK)
+            } else {
+                show { container -> renderSocialThreadScreen(container, id) }
+            }
+        }
     }
     routing.kvOn("/") {
         routing.navigate(if (AppState.isAuthenticated) Routes.DASHBOARD else Routes.LOGIN)

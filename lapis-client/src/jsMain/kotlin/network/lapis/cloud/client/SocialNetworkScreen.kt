@@ -10,6 +10,7 @@ import io.kvision.html.button
 import io.kvision.html.div
 import io.kvision.html.h1
 import io.kvision.html.h2
+import io.kvision.html.link
 import io.kvision.html.p
 import io.kvision.i18n.gettext
 import io.kvision.i18n.tr
@@ -18,6 +19,7 @@ import io.kvision.panel.hPanel
 import io.kvision.panel.vPanel
 import io.kvision.utils.px
 import kotlinx.coroutines.launch
+import network.lapis.cloud.shared.domain.SocialCommentInput
 import network.lapis.cloud.shared.domain.SocialPostDto
 import network.lapis.cloud.shared.domain.SocialPostInput
 import network.lapis.cloud.shared.domain.SocialPostState
@@ -26,34 +28,42 @@ import network.lapis.cloud.shared.domain.SocialTimelineQuery
 import network.lapis.cloud.shared.rpc.ISocialNetworkService
 
 /**
- * Soziales Netzwerk, Welle V1.1.1 "Fundament & Post-Kern" -- self-contained domain
- * ([ISocialNetworkService]) covering the Welle-1 read/write surface: Timeline lesen, Post
- * verfassen (Inhalt + LTR-Einsatz + Sichtbarkeitsstufe), und den eigenen Post unsichtbar machen.
- * See `32-social-network.kuml.kts` file header and the vault concept notes ("Soziales Netzwerk",
- * "Meritokratisches System und Libertaler" § "Im sozialen Netz") for the full fachlich model this
- * screen surfaces.
+ * Soziales Netzwerk, Welle V1.1.1 "Fundament & Post-Kern" + Welle V1.1.2 "Kommentarbaum, Boosts,
+ * rekursive Gesamtgewichtung" -- self-contained domain ([ISocialNetworkService]) covering: Timeline
+ * lesen (jetzt nach Gesamtgewicht sortiert, siehe [SocialPostDto.totalCurrentWeightLtr]), Post
+ * verfassen (Inhalt + LTR-Einsatz + Sichtbarkeitsstufe), eigenen Post unsichtbar machen, sowie seit
+ * Welle V1.1.2 Kommentieren, Boosten und die Thread-Ansicht (`renderSocialThreadScreen`, eigene
+ * Route [Routes.SOCIAL_NETWORK_POST]). See `32-social-network.kuml.kts` file header and the vault
+ * concept notes ("Soziales Netzwerk", "Meritokratisches System und Libertaler" § "Im sozialen
+ * Netz") for the full fachlich model this screen surfaces.
  *
  * **Role gating** (verified against `SocialNetworkService.kt`'s actual call sites, same discipline
  * `CrowdfundingScreen.kt`'s own KDoc documents):
- * - [ISocialNetworkService.createPost] -- MEMBER+, additionally must be `ACTIVE`
+ * - [ISocialNetworkService.createPost]/[ISocialNetworkService.createComment]/
+ *   [ISocialNetworkService.boostPost] -- MEMBER+, additionally must be `ACTIVE`
  *   (`requireActiveMembership` INSIDE the server transaction, not reachable as an `AccountRole`
  *   predicate -- same "not surfaced client-side, server rejects with the ordinary `guarded()`
  *   ForbiddenException toast" posture as `CrowdfundingScreen`'s `submitProject`). Welle V1.1.4
  *   widens this to `LTR_ELIGIBLE` (also admits FRIEND) -- not yet the case in this wave.
- * - [ISocialNetworkService.listTimeline]/[ISocialNetworkService.getPost] -- any authenticated
- *   member, filtered server-side by the caller's own visibility tier.
+ * - [ISocialNetworkService.listTimeline]/[ISocialNetworkService.getPost]/
+ *   [ISocialNetworkService.getThread] -- any authenticated member, filtered server-side by the
+ *   caller's own visibility tier.
  * - [ISocialNetworkService.hideOwnPost] -- the author only (`ForbiddenException` otherwise);
  *   rendered here only as a button on the author's OWN post cards (`session.memberId` compared
- *   against [SocialPostDto.authorMemberId]), so a non-author never sees the control at all.
+ *   against [SocialPostDto.authorMemberId]), so a non-author never sees the control at all. Since
+ *   Welle V1.1.2 this is deliberately NOT reflected as a visible-vs-hidden state on OTHER nodes in
+ *   a rendered thread -- a suppressed descendant is simply absent from [SocialThreadDto.nodes]
+ *   (K2, no cascade write, see `SocialNetworkService.hideOwnPost` KDoc).
  *
  * **D7-analogue (no refund)**: mirrors `CrowdfundingScreen.kt`'s own must-fix D7 -- there is no
- * `updatePost`/refund path anywhere in this domain; `hideOwnPost` does not return the stake either.
- * Stated plainly under the weight input, same placement `CrowdfundingScreen`'s own copy uses.
+ * `updatePost`/refund path anywhere in this domain; `hideOwnPost` does not return the stake either,
+ * and neither does a comment's or a boost's stake (same posture, stated in both
+ * [renderComposeForm]'s and [renderReplyForm]'s copy).
  *
- * **Confirm-dialog tier (D4-analogue)**: `createPost` uses the plain [confirmDialog] (Tier 1
- * "Kostenpflichtig", material to the author's own balance) -- same tier `CrowdfundingScreen`'s
- * `submitProject` uses. `hideOwnPost` also gets a light confirm (irreversible, see [SocialPostState]
- * KDoc "S6" -- no `unhideOwnPost` exists).
+ * **Confirm-dialog tier (D4-analogue)**: `createPost`/`createComment`/`boostPost` all use the plain
+ * [confirmDialog] (Tier 1 "Kostenpflichtig", material to the author's/booster's own balance) --
+ * same tier `CrowdfundingScreen`'s `submitProject` uses. `hideOwnPost` also gets a light confirm
+ * (irreversible, see [SocialPostState] KDoc "S6" -- no `unhideOwnPost` exists).
  *
  * **Empty state (D10-analogue)**: zero posts renders "Noch keine Beiträge." instead of a blank list.
  */
@@ -196,19 +206,23 @@ private fun renderSocialPostCard(
     card.div(post.content) { addCssClasses("small") }
     card.div(gettext("Veröffentlicht am %1", post.publishedAt)) { addCssClasses("text-muted small") }
 
-    // Zwei Kennzahlen nebeneinander, nie zu einer verschmolzen (Meritokratie-Konzept "Anzeige in
-    // der Timeline"): das aktuelle Gewicht des Beitrags UND das Gewicht (freier LTR-Bestand) des
-    // Autors -- macht ökonomisches Gewicht direkt sichtbar statt Eitelkeits-Metriken wie
-    // Followerzahlen.
+    // Drei Kennzahlen nebeneinander, nie zu einer verschmolzen (Meritokratie-Konzept "Anzeige in
+    // der Timeline"): das GESAMTgewicht (Sortierkriterium der Timeline seit Welle V1.1.2, siehe
+    // [SocialPostDto.totalCurrentWeightLtr] KDoc), das Eigengewicht (Einsatz + eigene Boosts) und
+    // das Gewicht (freier LTR-Bestand) des Autors -- macht ökonomisches Gewicht direkt sichtbar
+    // statt Eitelkeits-Metriken wie Followerzahlen.
     //
-    // Security-Audit-Fund S-1 (2026-08-18): [SocialPostDto.authorFreeBalanceLtr] ist jetzt `null`,
-    // wenn der Server den Betrachter nicht als ORGANIZATION_MEMBER einstuft (z. B. ein
-    // selbst-registriertes FRIEND-Konto) -- die zweite Kennzahl wird dann schlicht weggelassen,
-    // statt einen falschen Platzhalterwert (z. B. 0,00 LTR) vorzutäuschen.
+    // Security-Audit-Fund S-1 (2026-08-18): [SocialPostDto.authorFreeBalanceLtr] ist `null`, wenn
+    // der Server den Betrachter nicht als ORGANIZATION_MEMBER einstuft (z. B. ein selbst-
+    // registriertes FRIEND-Konto) -- die dritte Kennzahl wird dann schlicht weggelassen, statt
+    // einen falschen Platzhalterwert (z. B. 0,00 LTR) vorzutäuschen.
     val weightRow = card.hPanel(spacing = 16) { addCssClasses("align-items-center flex-wrap") }
-    val postWeightCell = weightRow.vPanel(spacing = 2)
-    postWeightCell.div(tr("Aktuelles Gewicht des Beitrags")) { addCssClasses("text-muted small") }
-    postWeightCell.ltrSpan(post.ownCurrentWeightLtr)
+    val totalWeightCell = weightRow.vPanel(spacing = 2)
+    totalWeightCell.div(tr("Gesamtgewicht")) { addCssClasses("text-muted small") }
+    totalWeightCell.ltrSpan(post.totalCurrentWeightLtr)
+    val ownWeightCell = weightRow.vPanel(spacing = 2)
+    ownWeightCell.div(tr("Eigengewicht")) { addCssClasses("text-muted small") }
+    ownWeightCell.ltrSpan(post.ownCurrentWeightLtr)
     val authorFreeBalance = post.authorFreeBalanceLtr
     if (authorFreeBalance != null) {
         val authorWeightCell = weightRow.vPanel(spacing = 2)
@@ -216,8 +230,79 @@ private fun renderSocialPostCard(
         authorWeightCell.ltrSpan(authorFreeBalance)
     }
 
+    // NEU Welle V1.1.2: Antwort-/Boost-Zähler, direkt unter den Gewichts-Kennzahlen -- macht die
+    // Diskussionsaktivität sichtbar, ohne selbst ins Sortierkriterium einzufließen (das bleibt
+    // ausschließlich [SocialPostDto.totalCurrentWeightLtr]).
+    card.div(
+        gettext("%1 Antworten · %2 Boosts", post.totalDescendantCount.toString(), post.boostCount.toString()),
+    ) { addCssClasses("text-muted small") }
+
+    val actionsRow = card.hPanel(spacing = 8) { addCssClasses("align-items-center flex-wrap") }
+    actionsRow.button(tr("Thread öffnen"), style = ButtonStyle.OUTLINESECONDARY).onClick {
+        navigateTo("${Routes.SOCIAL_NETWORK}/post/${post.id}")
+    }
+    // "Antworten" fuehrt -- wie "Thread öffnen" -- in die Thread-Ansicht: das Antwort-Formular lebt
+    // dort inline unter jedem Knoten (inkl. der Wurzel), nicht als Duplikat auf der Timeline-Karte.
+    actionsRow.button(tr("Antworten"), style = ButtonStyle.OUTLINESECONDARY).onClick {
+        navigateTo("${Routes.SOCIAL_NETWORK}/post/${post.id}")
+    }
+    renderBoostControl(actionsRow, post, onChanged)
+
     if (isAuthor && post.state == SocialPostState.VISIBLE) {
         renderHideOwnPostControl(card, post, onChanged)
+    }
+}
+
+/**
+ * "Boosten" -- monetäres Like, siehe [ISocialNetworkService.boostPost] KDoc (S3/S4/E6/K5). Der
+ * Betrag wird -- wie der Einsatz im Compose-Formular ([renderComposeForm]) -- ERST inline erfasst
+ * und validiert, DANN per [confirmDialog] bestätigt (Tier 1 "Kostenpflichtig", derselbe
+ * zweistufige Ablauf wie `AuctionScreen.kt`'s Gebotsabgabe): keine Betragseingabe im Modal selbst.
+ */
+private fun renderBoostControl(
+    row: SimplePanel,
+    post: SocialPostDto,
+    onChanged: () -> Unit,
+) {
+    val amountInput = row.text(label = tr("Boost-Betrag (LTR)")) { width = 140.px }
+    val errorBox =
+        row.div().apply {
+            addCssClass("text-danger")
+            hide()
+        }
+    val boostButton = row.button(tr("Boosten"), style = ButtonStyle.OUTLINEPRIMARY)
+    boostButton.onClick {
+        errorBox.hide()
+        val amountText = amountInput.value.orEmpty().trim()
+        if (!Validation.isPositiveDecimal(amountText)) {
+            errorBox.content = tr("Bitte einen positiven Betrag (LTR) angeben.")
+            errorBox.show()
+            return@onClick
+        }
+        // Stolperfalle 15 (Review Runde 1, 2026-08-18): round to 2 decimal places client-side BEFORE
+        // sending -- otherwise a stray third digit (e.g. "1.005") only fails after the round trip
+        // with a server ConflictException that reads like a bug.
+        val amount = Validation.roundToTwoDecimalPlaces(amountText.toDouble()).toDecimal()
+        confirmDialog(
+            title = tr("Beitrag boosten"),
+            message =
+                gettext(
+                    "Sie zahlen %1 aus Ihrem freien LTR-Guthaben. Dieser Betrag wird NICHT zurückerstattet.",
+                    formatLtr(amount),
+                ),
+            confirmLabel = tr("Boosten"),
+        ) {
+            boostButton.disabled = true
+            AppScope.launch {
+                val result = guarded { rpcService<ISocialNetworkService>().boostPost(post.id, amount) }
+                boostButton.disabled = false
+                if (result != null) {
+                    notifySuccess(tr("Beitrag geboostet."))
+                    amountInput.value = null
+                    onChanged()
+                }
+            }
+        }
     }
 }
 
@@ -274,3 +359,207 @@ fun socialPostVisibilityColor(visibility: SocialPostVisibility): String =
         SocialPostVisibility.MEMBERS_ONLY -> "primary"
         SocialPostVisibility.MEMBERS_AND_EXTERNAL -> "info"
     }
+
+// ================================================================================================
+// Thread-Ansicht (Welle V1.1.2)
+// ================================================================================================
+
+/**
+ * Thread-Ansicht, Welle V1.1.2 -- rendert den vollständigen Kommentarbaum ab der Wurzel des über
+ * [postId] erreichten Knotens. [postId] darf ein BELIEBIGER Knoten sein, nicht nur die Wurzel
+ * (siehe [Routes.SOCIAL_NETWORK_POST] KDoc) -- [ISocialNetworkService.getThread] selbst verlangt
+ * zwingend eine Wurzel-Id (K4), deshalb wird zuerst [ISocialNetworkService.getPost] aufgerufen, um
+ * die kanonische `rootId` aufzulösen, genau der client-seitige Auflösungsweg, den
+ * `ISocialNetworkService.getThread`s eigene KDoc für eine Nicht-Wurzel-Id vorschreibt.
+ *
+ * `requireAuth`-gated wie [renderSocialNetworkScreen] -- kein separater Rollen-Split.
+ */
+fun renderSocialThreadScreen(
+    container: SimplePanel,
+    postId: String,
+) {
+    val root =
+        container.vPanel(spacing = 14) {
+            addCssClass("mx-auto")
+            width = 900.px
+            marginTop = 24.px
+        }
+    root.link(tr("← Zurück zur Timeline"), url = "#${Routes.SOCIAL_NETWORK}") { addCssClasses("small") }
+    root.h1(tr("Thread"))
+    val truncatedNotice = root.div()
+    truncatedNotice.hide()
+    val nodesPanel = root.vPanel(spacing = 10)
+    nodesPanel.p(tr("Wird geladen …")) { addCssClasses("text-muted small") }
+
+    fun loadThread(rootId: String) {
+        nodesPanel.removeAll()
+        truncatedNotice.hide()
+        AppScope.launch {
+            val thread = guarded { rpcService<ISocialNetworkService>().getThread(rootId) } ?: return@launch
+            nodesPanel.removeAll()
+            if (thread.truncated) {
+                // D10-analogue "sichtbarer Hinweis, nie stilles Abschneiden" (Implementierungsplan
+                // § 5.2) -- [SocialThreadDto.totalNodeCount] macht die Deckelung fuer den Nutzer
+                // konkret statt nur "es fehlt etwas" zu sagen.
+                truncatedNotice.content =
+                    gettext(
+                        "Dieser Thread hat %1 Beiträge -- nur die ersten 5 000 werden angezeigt.",
+                        thread.totalNodeCount.toString(),
+                    )
+                truncatedNotice.addCssClasses("text-warning small")
+                truncatedNotice.show()
+            }
+            if (thread.nodes.isEmpty()) {
+                nodesPanel.p(tr("Dieser Beitrag ist nicht (mehr) verfügbar.")) { addCssClasses("text-muted small") }
+                return@launch
+            }
+            // Fund #12 (Review Runde 1, 2026-08-18): [thread.nodes] is the flat preorder, root first
+            // (K1) -- [rootVisibility] is threaded down to every node's reply form so it can show
+            // the WURZEL's visibility (S5), not the visibility of whichever direct node the form
+            // happens to be attached to. See [renderReplyForm] KDoc for why that distinction matters.
+            val rootVisibility = thread.nodes.first().visibility
+            thread.nodes.forEach { node -> renderThreadNode(nodesPanel, node, rootVisibility) { loadThread(rootId) } }
+        }
+    }
+
+    AppScope.launch {
+        // getPost zuerst -- liefert fuer JEDE gueltige Id (Wurzel oder Nachfahre) die kanonische
+        // rootId; getThread selbst wuerde eine Nicht-Wurzel-Id mit NotFoundException ablehnen (K4).
+        val post = guarded { rpcService<ISocialNetworkService>().getPost(postId) } ?: return@launch
+        loadThread(post.rootId)
+    }
+}
+
+/**
+ * Ein einzelner Thread-Knoten -- Einrückung nach [SocialPostDto.depth], visuell gedeckelt bei 8
+ * Ebenen (Implementierungsplan § 5.2: "64 Ebenen Einrückung sind kein Layout"), darüber ein
+ * "↳ Fortsetzung"-Hinweis statt weiter einzurücken. [thread.nodes] liefert bereits die vollständige
+ * Präorder-Reihenfolge (K1: Geschwister nach Gesamtgewicht absteigend) -- diese Funktion rendert
+ * nur noch flach in dieser Reihenfolge, baut selbst keinen Baum auf.
+ */
+private fun renderThreadNode(
+    panel: SimplePanel,
+    node: SocialPostDto,
+    rootVisibility: SocialPostVisibility,
+    onChanged: () -> Unit,
+) {
+    val isAuthor = AppState.session?.memberId == node.authorMemberId
+    val cappedDepth = minOf(node.depth, 8)
+    val card =
+        panel.vPanel(spacing = 6) {
+            addCssClasses("border rounded p-3")
+            marginLeft = (cappedDepth * 16).px
+        }
+    if (node.depth > 8) {
+        card.div(tr("↳ Fortsetzung")) { addCssClasses("text-muted small") }
+    }
+
+    val headerRow = card.hPanel(spacing = 8) { addCssClasses("align-items-center flex-wrap") }
+    headerRow.div(node.authorDisplayName) { addCssClasses("flex-grow-1 fw-bold") }
+    headerRow.statusBadge(socialPostVisibilityLabel(node.visibility), socialPostVisibilityColor(node.visibility))
+
+    card.div(node.content) { addCssClasses("small") }
+    card.div(gettext("Veröffentlicht am %1", node.publishedAt)) { addCssClasses("text-muted small") }
+
+    val weightRow = card.hPanel(spacing = 16) { addCssClasses("align-items-center flex-wrap") }
+    val totalWeightCell = weightRow.vPanel(spacing = 2)
+    totalWeightCell.div(tr("Gesamtgewicht")) { addCssClasses("text-muted small") }
+    totalWeightCell.ltrSpan(node.totalCurrentWeightLtr)
+    val ownWeightCell = weightRow.vPanel(spacing = 2)
+    ownWeightCell.div(tr("Eigengewicht")) { addCssClasses("text-muted small") }
+    ownWeightCell.ltrSpan(node.ownCurrentWeightLtr)
+
+    card.div(
+        gettext("%1 Antworten · %2 Boosts", node.totalDescendantCount.toString(), node.boostCount.toString()),
+    ) { addCssClasses("text-muted small") }
+
+    val actionsRow = card.hPanel(spacing = 8) { addCssClasses("align-items-center flex-wrap") }
+    renderBoostControl(actionsRow, node, onChanged)
+    val replyPanel = card.vPanel(spacing = 6) { hide() }
+    val replyButton = actionsRow.button(tr("Antworten"), style = ButtonStyle.OUTLINESECONDARY)
+    replyButton.onClick { if (replyPanel.visible) replyPanel.hide() else replyPanel.show() }
+    renderReplyForm(replyPanel, node, rootVisibility) { onChanged() }
+
+    if (isAuthor && node.state == SocialPostState.VISIBLE) {
+        renderHideOwnPostControl(card, node, onChanged)
+    }
+}
+
+/**
+ * Antwort-Formular, inline unter jedem Knoten (Implementierungsplan § 5.2). **Kein Sichtbarkeits-
+ * Auswahlfeld** (S5) -- stattdessen ein statischer Hinweis, welche Sichtbarkeitsstufe die Antwort
+ * erben wird (vom WURZEL-Post, siehe [SocialCommentInput] KDoc), damit S5 für den Nutzer sichtbar
+ * ist statt eine Auswahl anzubieten, die der Server ohnehin ignoriert.
+ *
+ * Fund #12 (Review Runde 1, 2026-08-18): der Hinweis zeigt [rootVisibility] -- die Sichtbarkeit des
+ * WURZEL-Posts des Threads --, NICHT [parent].visibility (die Sichtbarkeit des direkten Knotens,
+ * unter dem dieses Formular hängt). Genau diese Verwechslung (direkter Elternteil statt Wurzel) ist
+ * server-seitig bereits die Ursache von S5 -- eine Antwort erbt IMMER von der Wurzel, nie vom
+ * direkten Elternteil (siehe `SocialNetworkService.rootVisibilityOf` KDoc), also darf auch die
+ * Client-Anzeige nicht suggerieren, der direkte Elternteil sei die maßgebliche Quelle.
+ */
+private fun renderReplyForm(
+    root: SimplePanel,
+    parent: SocialPostDto,
+    rootVisibility: SocialPostVisibility,
+    onCompleted: () -> Unit,
+) {
+    val contentInput = root.textArea(label = tr("Antwort"), rows = 2)
+    val weightInput = root.text(label = tr("Einsatz (LTR)"))
+    root.div(
+        gettext("Ihre Antwort erbt die Sichtbarkeit des Ursprungsbeitrags: %1.", socialPostVisibilityLabel(rootVisibility)),
+    ) { addCssClasses("text-muted small") }
+    // D7-analogue (kein Rueckerstattungspfad) -- identisch zu renderComposeForm's eigener Copy.
+    root.div(
+        tr(
+            "Ihr Einsatz wird NICHT zurückerstattet -- auch nicht, wenn Sie die Antwort später " +
+                "unsichtbar machen.",
+        ),
+    ) { addCssClasses("text-muted small") }
+    val errorBox =
+        root.div().apply {
+            addCssClass("text-danger")
+            hide()
+        }
+    val submitButton = root.button(tr("Antworten"), style = ButtonStyle.PRIMARY)
+    submitButton.onClick {
+        errorBox.hide()
+        val content = contentInput.value.orEmpty().trim()
+        val weightText = weightInput.value.orEmpty().trim()
+        if (!Validation.isNonBlank(content) || !Validation.isPositiveDecimal(weightText)) {
+            errorBox.content = tr("Bitte Inhalt und einen positiven Einsatz (LTR) angeben.")
+            errorBox.show()
+            return@onClick
+        }
+        // Stolperfalle 15 (Review Runde 1, 2026-08-18): round to 2 decimal places client-side, same
+        // as renderBoostControl.
+        val weight = Validation.roundToTwoDecimalPlaces(weightText.toDouble()).toDecimal()
+        confirmDialog(
+            title = tr("Antwort veröffentlichen"),
+            message =
+                gettext(
+                    "Es werden %1 aus Ihrem freien LTR-Guthaben gebunden. Dieser Einsatz wird NICHT " +
+                        "zurückerstattet.",
+                    formatLtr(weight),
+                ),
+            confirmLabel = tr("Antworten"),
+        ) {
+            submitButton.disabled = true
+            AppScope.launch {
+                val result =
+                    guarded {
+                        rpcService<ISocialNetworkService>().createComment(
+                            SocialCommentInput(parentId = parent.id, content = content, initialWeightLtr = weight),
+                        )
+                    }
+                submitButton.disabled = false
+                if (result != null) {
+                    notifySuccess(tr("Antwort veröffentlicht."))
+                    contentInput.value = null
+                    weightInput.value = null
+                    onCompleted()
+                }
+            }
+        }
+    }
+}

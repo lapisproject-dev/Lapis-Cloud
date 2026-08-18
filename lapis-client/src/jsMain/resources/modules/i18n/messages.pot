@@ -237,12 +237,17 @@ msgstr ""
 msgid "%1 (Sie)"
 msgstr ""
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:499
+#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:513
 msgid "%1 an %2 gutgeschrieben."
 msgstr ""
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:327
+#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:341
 msgid "%1 an %2 übertragen."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/SocialNetworkScreen.kt:229
+#: src/jsMain/kotlin/network/lapis/cloud/client/SocialNetworkScreen.kt:456
+msgid "%1 Antworten · %2 Boosts"
 msgstr ""
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/ContributionsScreen.kt:92
@@ -385,8 +390,16 @@ msgstr ""
 msgid "%1. %2%3%4"
 msgstr ""
 
+#: src/jsMain/kotlin/network/lapis/cloud/client/SocialNetworkScreen.kt:376
+msgid "← Zurück zur Timeline"
+msgstr ""
+
 #: src/jsMain/kotlin/network/lapis/cloud/client/MotionsScreen.kt:261
 msgid "↳ Änderungsantrag: %1"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/SocialNetworkScreen.kt:437
+msgid "↳ Fortsetzung"
 msgstr ""
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:3823
@@ -444,8 +457,8 @@ msgstr ""
 #: src/jsMain/kotlin/network/lapis/cloud/client/ConfirmDialog.kt:26
 #: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:334
 #: src/jsMain/kotlin/network/lapis/cloud/client/LedgerScreen.kt:1196
-#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:389
-#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:620
+#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:403
+#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:634
 #: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:121
 #: src/jsMain/kotlin/network/lapis/cloud/client/MotionsScreen.kt:1046
 #: src/jsMain/kotlin/network/lapis/cloud/client/PoliticianScreen.kt:514
@@ -521,16 +534,16 @@ msgstr ""
 msgid "Absagen"
 msgstr ""
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:521
+#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:535
 msgid "Absender"
 msgstr ""
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/AuditLogScreen.kt:452
-#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:673
+#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:689
 msgid "Abstimmung"
 msgstr ""
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:643
+#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:657
 msgid "Abstimmungseinsatz"
 msgstr ""
 
@@ -608,7 +621,7 @@ msgstr ""
 #: src/jsMain/kotlin/network/lapis/cloud/client/MeetingsScreen.kt:118
 #: src/jsMain/kotlin/network/lapis/cloud/client/MotionsScreen.kt:123
 #: src/jsMain/kotlin/network/lapis/cloud/client/PoliticianScreen.kt:158
-#: src/jsMain/kotlin/network/lapis/cloud/client/SocialNetworkScreen.kt:77
+#: src/jsMain/kotlin/network/lapis/cloud/client/SocialNetworkScreen.kt:79
 msgid "Aktualisieren"
 msgstr ""
 
@@ -641,10 +654,6 @@ msgstr ""
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/CrowdfundingScreen.kt:304
 msgid "Aktuelles Gewicht (10 %/Tag Zerfall)"
-msgstr ""
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/SocialNetworkScreen.kt:205
-msgid "Aktuelles Gewicht des Beitrags"
 msgstr ""
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/DashboardScreen.kt:92
@@ -825,11 +834,11 @@ msgstr ""
 msgid "Angemeldet über den OIDC-Heimserver %1."
 msgstr ""
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/SocialNetworkScreen.kt:260
+#: src/jsMain/kotlin/network/lapis/cloud/client/SocialNetworkScreen.kt:342
 msgid "Angemeldete + externe Nutzer"
 msgstr ""
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/SocialNetworkScreen.kt:259
+#: src/jsMain/kotlin/network/lapis/cloud/client/SocialNetworkScreen.kt:341
 msgid "Angemeldete Nutzer"
 msgstr ""
 
@@ -938,8 +947,27 @@ msgstr ""
 msgid "Antragstext"
 msgstr ""
 
+#: src/jsMain/kotlin/network/lapis/cloud/client/SocialNetworkScreen.kt:482
+msgid "Antwort"
+msgstr ""
+
 #: src/jsMain/kotlin/network/lapis/cloud/client/BackupHttp.kt:115
 msgid "Antwort des Servers konnte nicht gelesen werden: %1"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/SocialNetworkScreen.kt:511
+msgid "Antwort veröffentlichen"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/SocialNetworkScreen.kt:530
+msgid "Antwort veröffentlicht."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/SocialNetworkScreen.kt:238
+#: src/jsMain/kotlin/network/lapis/cloud/client/SocialNetworkScreen.kt:462
+#: src/jsMain/kotlin/network/lapis/cloud/client/SocialNetworkScreen.kt:499
+#: src/jsMain/kotlin/network/lapis/cloud/client/SocialNetworkScreen.kt:518
+msgid "Antworten"
 msgstr ""
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/MeetingsScreen.kt:692
@@ -967,7 +995,7 @@ msgstr ""
 msgid "Anzeige-Info: Währung"
 msgstr ""
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:416
+#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:430
 #: src/jsMain/kotlin/network/lapis/cloud/client/MotionsScreen.kt:543
 #: src/jsMain/kotlin/network/lapis/cloud/client/MotionsScreen.kt:715
 msgid "Anzeigen"
@@ -1048,7 +1076,7 @@ msgstr ""
 #: src/jsMain/kotlin/network/lapis/cloud/client/App.kt:235
 #: src/jsMain/kotlin/network/lapis/cloud/client/AuctionScreen.kt:141
 #: src/jsMain/kotlin/network/lapis/cloud/client/AuctionScreen.kt:687
-#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:675
+#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:691
 msgid "Auktion"
 msgstr ""
 
@@ -1088,23 +1116,23 @@ msgstr ""
 msgid "Auktionen konnten nicht geladen werden."
 msgstr ""
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:646
+#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:660
 msgid "Auktions-Einstellgebühr"
 msgstr ""
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:647
+#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:661
 msgid "Auktions-Reservierung"
 msgstr ""
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:648
+#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:662
 msgid "Auktions-Reservierung freigegeben"
 msgstr ""
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:649
+#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:663
 msgid "Auktionskauf"
 msgstr ""
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:650
+#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:664
 msgid "Auktionsverkauf"
 msgstr ""
 
@@ -1276,8 +1304,12 @@ msgstr ""
 msgid "Beisitz"
 msgstr ""
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:676
+#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:692
 msgid "Beitrag (Soziales Netzwerk)"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/SocialNetworkScreen.kt:276
+msgid "Beitrag boosten"
 msgstr ""
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/ContributionsScreen.kt:252
@@ -1288,19 +1320,23 @@ msgstr ""
 msgid "Beitrag erlassen."
 msgstr ""
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/SocialNetworkScreen.kt:243
+#: src/jsMain/kotlin/network/lapis/cloud/client/SocialNetworkScreen.kt:289
+msgid "Beitrag geboostet."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/SocialNetworkScreen.kt:325
 msgid "Beitrag unsichtbar gemacht."
 msgstr ""
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/SocialNetworkScreen.kt:230
+#: src/jsMain/kotlin/network/lapis/cloud/client/SocialNetworkScreen.kt:312
 msgid "Beitrag unsichtbar machen"
 msgstr ""
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/SocialNetworkScreen.kt:151
+#: src/jsMain/kotlin/network/lapis/cloud/client/SocialNetworkScreen.kt:153
 msgid "Beitrag veröffentlichen"
 msgstr ""
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/SocialNetworkScreen.kt:170
+#: src/jsMain/kotlin/network/lapis/cloud/client/SocialNetworkScreen.kt:172
 msgid "Beitrag veröffentlicht."
 msgstr ""
 
@@ -1316,7 +1352,11 @@ msgstr ""
 msgid "Beiträge generieren"
 msgstr ""
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:651
+#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:666
+msgid "Beitrags-Boost"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:665
 msgid "Beitrags-Einsatz"
 msgstr ""
 
@@ -1504,9 +1544,9 @@ msgstr ""
 msgid "Betrag"
 msgstr ""
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:275
-#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:455
-#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:523
+#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:289
+#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:469
+#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:537
 msgid "Betrag (LTR)"
 msgstr ""
 
@@ -1763,7 +1803,11 @@ msgstr ""
 msgid "Bitte einen Namen angeben."
 msgstr ""
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:303
+#: src/jsMain/kotlin/network/lapis/cloud/client/SocialNetworkScreen.kt:270
+msgid "Bitte einen positiven Betrag (LTR) angeben."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:317
 msgid "Bitte Empfänger, einen positiven LTR-Betrag und eine Charakterisierung angeben."
 msgstr ""
 
@@ -1783,7 +1827,8 @@ msgstr ""
 msgid "Bitte gültige Werte für die optionalen Felder verwenden, oder leer lassen."
 msgstr ""
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/SocialNetworkScreen.kt:143
+#: src/jsMain/kotlin/network/lapis/cloud/client/SocialNetworkScreen.kt:145
+#: src/jsMain/kotlin/network/lapis/cloud/client/SocialNetworkScreen.kt:505
 msgid "Bitte Inhalt und einen positiven Einsatz (LTR) angeben."
 msgstr ""
 
@@ -1812,7 +1857,7 @@ msgstr ""
 msgid "Bitte mindestens eine Empfängerin/einen Empfänger sowie Titel, einen gültigen Termin (JJJJ-MM-TTTHH:MM), Ort und Einladungstext angeben."
 msgstr ""
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:472
+#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:486
 msgid "Bitte Mitglied und einen positiven LTR-Betrag angeben."
 msgstr ""
 
@@ -1863,7 +1908,7 @@ msgstr ""
 msgid "Bitte Titel, Verarbeitungsbeschreibung und Status angeben."
 msgstr ""
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:560
+#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:574
 msgid "Bitte unterschiedliche Absender/Empfänger, einen positiven LTR-Betrag, eine Charakterisierung und eine Schiedsanordnungs-Referenz angeben."
 msgstr ""
 
@@ -1897,6 +1942,15 @@ msgstr ""
 msgid "Board leeren"
 msgstr ""
 
+#: src/jsMain/kotlin/network/lapis/cloud/client/SocialNetworkScreen.kt:259
+msgid "Boost-Betrag (LTR)"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/SocialNetworkScreen.kt:265
+#: src/jsMain/kotlin/network/lapis/cloud/client/SocialNetworkScreen.kt:282
+msgid "Boosten"
+msgstr ""
+
 #: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:3286
 msgid "Breakout-Räume erstellen"
 msgstr ""
@@ -1927,11 +1981,11 @@ msgstr ""
 msgid "Buchung"
 msgstr ""
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:362
+#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:376
 msgid "Buchung (Haben): %1"
 msgstr ""
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:361
+#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:375
 msgid "Buchung (Soll): %1"
 msgstr ""
 
@@ -1973,12 +2027,12 @@ msgstr ""
 msgid "Cache-TTL (Sekunden)"
 msgstr ""
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:281
-#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:529
+#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:295
+#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:543
 msgid "Charakterisierung"
 msgstr ""
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:359
+#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:373
 msgid "Charakterisierung: %1"
 msgstr ""
 
@@ -2006,7 +2060,7 @@ msgstr ""
 msgid "Crowdfunding"
 msgstr ""
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:672
+#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:688
 msgid "Crowdfunding-Projekt"
 msgstr ""
 
@@ -2109,7 +2163,7 @@ msgstr ""
 msgid "Der aktuelle Stand des Whiteboards wird als Bild in der Dokumentenablage gespeichert."
 msgstr ""
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/SocialNetworkScreen.kt:232
+#: src/jsMain/kotlin/network/lapis/cloud/client/SocialNetworkScreen.kt:314
 msgid "Der Beitrag verschwindet aus der Timeline, bleibt aber über seine ID erreichbar (z. B. über den Kontoauszug). Das ist NICHT umkehrbar und erstattet keinen LTR-Einsatz."
 msgstr ""
 
@@ -2308,7 +2362,7 @@ msgstr ""
 msgid "Diese Datei passt nicht zum erwarteten Sicherungsformat: %1"
 msgstr ""
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:609
+#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:623
 msgid "Diese Korrekturübertragung ist ENDGÜLTIG und kann nicht widerrufen werden."
 msgstr ""
 
@@ -2328,11 +2382,11 @@ msgstr ""
 msgid "Diese Raum-Kennung ist ungültig. Bitte kopieren Sie sie vollständig aus Ihrer Einladung."
 msgstr ""
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/Routing.kt:292
+#: src/jsMain/kotlin/network/lapis/cloud/client/Routing.kt:303
 msgid "Diese Seite konnte nicht geladen werden -- bitte laden Sie die Seite neu."
 msgstr ""
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:379
+#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:393
 msgid "Diese Übertragung ist ENDGÜLTIG und kann nicht widerrufen werden."
 msgstr ""
 
@@ -2342,6 +2396,14 @@ msgstr ""
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/MotionsScreen.kt:708
 msgid "Dieser Antrag hat %1, der/die zuerst entschieden werden muss/müssen:"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/SocialNetworkScreen.kt:402
+msgid "Dieser Beitrag ist nicht (mehr) verfügbar."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/SocialNetworkScreen.kt:394
+msgid "Dieser Thread hat %1 Beiträge -- nur die ersten 5 000 werden angezeigt."
 msgstr ""
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/PostalMailScreen.kt:242
@@ -2471,6 +2533,11 @@ msgstr ""
 msgid "Ehemalig"
 msgstr ""
 
+#: src/jsMain/kotlin/network/lapis/cloud/client/SocialNetworkScreen.kt:216
+#: src/jsMain/kotlin/network/lapis/cloud/client/SocialNetworkScreen.kt:452
+msgid "Eigengewicht"
+msgstr ""
+
 #: src/jsMain/kotlin/network/lapis/cloud/client/FinancialReportsScreen.kt:208
 msgid "Eigenkapital (gebucht)"
 msgstr ""
@@ -2499,7 +2566,7 @@ msgstr ""
 msgid "Ein physischer Brief wird über den Postdienstleister Letterxpress an die im System hinterlegte Anschrift von %1 verschickt. Der Versand kann nicht zurückgerufen werden."
 msgstr ""
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/SocialNetworkScreen.kt:123
+#: src/jsMain/kotlin/network/lapis/cloud/client/SocialNetworkScreen.kt:125
 msgid "Ein veröffentlichter Beitrag kann nicht mehr bearbeitet werden -- Tippfehler bleiben Tippfehler oder werden in einem neuen Beitrag richtiggestellt."
 msgstr ""
 
@@ -2552,7 +2619,8 @@ msgid "Einreichen"
 msgstr ""
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/MotionsScreen.kt:989
-#: src/jsMain/kotlin/network/lapis/cloud/client/SocialNetworkScreen.kt:109
+#: src/jsMain/kotlin/network/lapis/cloud/client/SocialNetworkScreen.kt:111
+#: src/jsMain/kotlin/network/lapis/cloud/client/SocialNetworkScreen.kt:483
 msgid "Einsatz (LTR)"
 msgstr ""
 
@@ -2576,8 +2644,8 @@ msgstr ""
 msgid "Einzelne Person"
 msgstr ""
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:274
-#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:522
+#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:288
+#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:536
 #: src/jsMain/kotlin/network/lapis/cloud/client/MeetingsScreen.kt:445
 msgid "Empfänger"
 msgstr ""
@@ -2595,7 +2663,7 @@ msgstr ""
 msgid "Ende"
 msgstr ""
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:622
+#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:636
 msgid "Endgültig ausführen"
 msgstr ""
 
@@ -2608,7 +2676,7 @@ msgstr ""
 msgid "Endgültig löschen"
 msgstr ""
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:391
+#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:405
 msgid "Endgültig übertragen"
 msgstr ""
 
@@ -2795,12 +2863,16 @@ msgstr ""
 msgid "Es werden %1 als Sichtbarkeits-Gewicht aus Ihrem freien LTR-Guthaben gebunden. Dieser Einsatz wird NICHT zurückerstattet, unabhängig von der späteren Vorstandsentscheidung."
 msgstr ""
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:483
+#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:497
 msgid "Es werden %1 an %2 gutgeschrieben. Diese Gutschrift lässt sich nur durch eine gegenläufige Buchung (z. B. eine Schiedsverfahren-Korrekturübertragung) rückgängig machen."
 msgstr ""
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/SocialNetworkScreen.kt:153
+#: src/jsMain/kotlin/network/lapis/cloud/client/SocialNetworkScreen.kt:155
 msgid "Es werden %1 aus Ihrem freien LTR-Guthaben gebunden. Dieser Einsatz wird NICHT zurückerstattet, auch nicht durch späteres Unsichtbarmachen."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/SocialNetworkScreen.kt:513
+msgid "Es werden %1 aus Ihrem freien LTR-Guthaben gebunden. Dieser Einsatz wird NICHT zurückerstattet."
 msgstr ""
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/AuctionScreen.kt:411
@@ -3130,6 +3202,11 @@ msgstr ""
 msgid "Gesamt (Summe, keine vergleichbare Einheit)"
 msgstr ""
 
+#: src/jsMain/kotlin/network/lapis/cloud/client/SocialNetworkScreen.kt:213
+#: src/jsMain/kotlin/network/lapis/cloud/client/SocialNetworkScreen.kt:449
+msgid "Gesamtgewicht"
+msgstr ""
+
 #: src/jsMain/kotlin/network/lapis/cloud/client/NonprofitComplianceReportsScreen.kt:258
 msgid "Geschäftsjahr"
 msgstr ""
@@ -3163,7 +3240,7 @@ msgstr ""
 msgid "Gewählter Modus: %1"
 msgstr ""
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/SocialNetworkScreen.kt:208
+#: src/jsMain/kotlin/network/lapis/cloud/client/SocialNetworkScreen.kt:221
 msgid "Gewicht des Autors"
 msgstr ""
 
@@ -3231,20 +3308,20 @@ msgstr ""
 msgid "Gremium: %1 · eingereicht von %2 am %3"
 msgstr ""
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:409
+#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:423
 msgid "Guthaben & Buchungen eines Mitglieds"
 msgstr ""
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:431
+#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:445
 msgid "Guthaben von %1"
 msgstr ""
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:463
-#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:489
+#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:477
+#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:503
 msgid "Gutschreiben"
 msgstr ""
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:640
+#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:654
 msgid "Gutschrift (Mint)"
 msgstr ""
 
@@ -3307,7 +3384,7 @@ msgstr ""
 msgid "Höchstens %1 Zeichen."
 msgstr ""
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:682
+#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:698
 msgid "Honorar"
 msgstr ""
 
@@ -3327,8 +3404,12 @@ msgstr ""
 msgid "Ideeller Bereich"
 msgstr ""
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/SocialNetworkScreen.kt:117
+#: src/jsMain/kotlin/network/lapis/cloud/client/SocialNetworkScreen.kt:119
 msgid "Ihr Einsatz wird NICHT zurückerstattet -- auch nicht, wenn Sie den Beitrag später unsichtbar machen. Es gibt in diesem System keinen Rückerstattungspfad für diesen Einsatz."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/SocialNetworkScreen.kt:489
+msgid "Ihr Einsatz wird NICHT zurückerstattet -- auch nicht, wenn Sie die Antwort später unsichtbar machen."
 msgstr ""
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/CrowdfundingScreen.kt:198
@@ -3383,6 +3464,10 @@ msgstr ""
 msgid "Ihr Recht auf Auskunft (Art. 15/20 DSGVO) und auf Löschung (\"Recht auf Vergessenwerden\", Art. 17 DSGVO) -- eine Löschung wird hier nur BEANTRAGT, nie sofort ausgeführt. Über den Antrag entscheidet danach eine Administratorin oder ein Administrator gesondert."
 msgstr ""
 
+#: src/jsMain/kotlin/network/lapis/cloud/client/SocialNetworkScreen.kt:485
+msgid "Ihre Antwort erbt die Sichtbarkeit des Ursprungsbeitrags: %1."
+msgstr ""
+
 #: src/jsMain/kotlin/network/lapis/cloud/client/PoliticianScreen.kt:394
 msgid "Ihre Bewertung:"
 msgstr ""
@@ -3429,7 +3514,7 @@ msgid "Inaktive Spender anzeigen"
 msgstr ""
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceNotesController.kt:433
-#: src/jsMain/kotlin/network/lapis/cloud/client/SocialNetworkScreen.kt:108
+#: src/jsMain/kotlin/network/lapis/cloud/client/SocialNetworkScreen.kt:110
 msgid "Inhalt"
 msgstr ""
 
@@ -3565,7 +3650,7 @@ msgstr ""
 msgid "Kein Limit"
 msgstr ""
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/Routing.kt:448
+#: src/jsMain/kotlin/network/lapis/cloud/client/Routing.kt:472
 msgid "Kein Zugriff -- für diesen Bereich fehlt Ihnen die Berechtigung."
 msgstr ""
 
@@ -3573,7 +3658,7 @@ msgstr ""
 msgid "Keine Adresse hinterlegt"
 msgstr ""
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:269
+#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:283
 msgid "Keine anderen Mitglieder vorhanden, an die übertragen werden könnte."
 msgstr ""
 
@@ -3701,8 +3786,8 @@ msgstr ""
 msgid "Keine Mitglieder vorhanden, denen eine Spende gutgeschrieben werden könnte."
 msgstr ""
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:411
-#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:450
+#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:425
+#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:464
 #: src/jsMain/kotlin/network/lapis/cloud/client/PoliticianScreen.kt:604
 msgid "Keine Mitglieder vorhanden."
 msgstr ""
@@ -3840,11 +3925,11 @@ msgstr ""
 msgid "Körperschaft des öffentlichen Rechts"
 msgstr ""
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:539
+#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:553
 msgid "Korrekturübertragung ausführen"
 msgstr ""
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:586
+#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:600
 msgid "Korrekturübertragung ausgeführt: %1."
 msgstr ""
 
@@ -4055,11 +4140,11 @@ msgstr ""
 msgid "Löschung wurde beantragt."
 msgstr ""
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:481
+#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:495
 msgid "LTR gutschreiben"
 msgstr ""
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:448
+#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:462
 msgid "LTR gutschreiben (Mint)"
 msgstr ""
 
@@ -4067,7 +4152,7 @@ msgstr ""
 msgid "LTR senden"
 msgstr ""
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:291
+#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:305
 msgid "LTR übertragen"
 msgstr ""
 
@@ -4077,7 +4162,7 @@ msgstr ""
 msgid "LTR-Konto"
 msgstr ""
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:378
+#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:392
 msgid "LTR-Übertragung bestätigen"
 msgstr ""
 
@@ -4213,7 +4298,7 @@ msgstr ""
 msgid "Mindestens %1 Zeichen."
 msgstr ""
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:516
+#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:530
 msgid "Mindestens zwei Mitglieder erforderlich."
 msgstr ""
 
@@ -4224,8 +4309,8 @@ msgstr ""
 #: src/jsMain/kotlin/network/lapis/cloud/client/DonorsScreen.kt:442
 #: src/jsMain/kotlin/network/lapis/cloud/client/LedgerScreen.kt:846
 #: src/jsMain/kotlin/network/lapis/cloud/client/LedgerScreen.kt:853
-#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:415
-#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:454
+#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:429
+#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:468
 #: src/jsMain/kotlin/network/lapis/cloud/client/PoliticianScreen.kt:608
 #: src/jsMain/kotlin/network/lapis/cloud/client/PoliticianScreen.kt:854
 #: src/jsMain/kotlin/network/lapis/cloud/client/PriceOracleScreen.kt:407
@@ -4485,7 +4570,7 @@ msgstr ""
 msgid "Neuen AVV-Eintrag anlegen"
 msgstr ""
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/SocialNetworkScreen.kt:70
+#: src/jsMain/kotlin/network/lapis/cloud/client/SocialNetworkScreen.kt:72
 msgid "Neuen Beitrag verfassen"
 msgstr ""
 
@@ -4603,7 +4688,7 @@ msgstr ""
 msgid "Noch keine AVV-Einträge angelegt."
 msgstr ""
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/SocialNetworkScreen.kt:87
+#: src/jsMain/kotlin/network/lapis/cloud/client/SocialNetworkScreen.kt:89
 msgid "Noch keine Beiträge."
 msgstr ""
 
@@ -4616,7 +4701,7 @@ msgid "Noch keine Bestätigung des rechtlichen Hinweistexts erfolgt."
 msgstr ""
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:141
-#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:435
+#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:449
 msgid "Noch keine Buchungen."
 msgstr ""
 
@@ -4719,7 +4804,7 @@ msgstr ""
 msgid "Noch niemand verbunden."
 msgstr ""
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:456
+#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:470
 #: src/jsMain/kotlin/network/lapis/cloud/client/MeetingsScreen.kt:750
 #: src/jsMain/kotlin/network/lapis/cloud/client/MotionsScreen.kt:556
 #: src/jsMain/kotlin/network/lapis/cloud/client/PriceOracleScreen.kt:417
@@ -4820,7 +4905,7 @@ msgstr ""
 msgid "Offenlegungspflicht (Rechenschaftsbericht)"
 msgstr ""
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/SocialNetworkScreen.kt:258
+#: src/jsMain/kotlin/network/lapis/cloud/client/SocialNetworkScreen.kt:340
 msgid "Öffentlich"
 msgstr ""
 
@@ -4917,7 +5002,7 @@ msgstr ""
 msgid "Passwort wurde geändert -- bitte melden Sie sich neu an."
 msgstr ""
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:674
+#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:690
 msgid "Peer-Transfer"
 msgstr ""
 
@@ -5085,7 +5170,7 @@ msgstr ""
 msgid "Price-Oracle"
 msgstr ""
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:683
+#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:699
 msgid "Privatverkauf"
 msgstr ""
 
@@ -5122,11 +5207,11 @@ msgstr ""
 msgid "Projekte"
 msgstr ""
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:641
+#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:655
 msgid "Projekteinsatz"
 msgstr ""
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:642
+#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:656
 msgid "Projekteinsatz freigegeben"
 msgstr ""
 
@@ -5321,19 +5406,19 @@ msgstr ""
 msgid "Schadenshöhe"
 msgstr ""
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:681
+#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:697
 msgid "Schenkung"
 msgstr ""
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:531
+#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:545
 msgid "Schiedsanordnungs-Referenz (Pflichtfeld)"
 msgstr ""
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:514
+#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:528
 msgid "Schiedsverfahren-Korrekturübertragung"
 msgstr ""
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:608
+#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:622
 msgid "Schiedsverfahren-Korrekturübertragung bestätigen"
 msgstr ""
 
@@ -5414,7 +5499,7 @@ msgid "Sichtbar für TREASURER/BOARD/ADMIN."
 msgstr ""
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/DocumentsScreen.kt:174
-#: src/jsMain/kotlin/network/lapis/cloud/client/SocialNetworkScreen.kt:112
+#: src/jsMain/kotlin/network/lapis/cloud/client/SocialNetworkScreen.kt:114
 msgid "Sichtbarkeit"
 msgstr ""
 
@@ -5502,11 +5587,11 @@ msgstr ""
 msgid "Sie überschreibt Daten mit dem Stand aus der hochgeladenen Datei. Bereits vorhandene Daten in der Zielorganisation können dabei verloren gehen."
 msgstr ""
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:381
+#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:395
 msgid "Sie übertragen %1 an %2 (%3). Es gibt keine Storno-/Widerruffunktion -- die einzige Korrekturmöglichkeit ist eine Schiedsverfahren-Korrekturübertragung durch TREASURER/BOARD/ADMIN."
 msgstr ""
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:611
+#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:625
 msgid "Sie übertragen %1 von %2 an %3 (%4). Schiedsanordnungs-Referenz: „%5\"."
 msgstr ""
 
@@ -5516,6 +5601,10 @@ msgstr ""
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:2779
 msgid "Sie wurden in den Hauptraum zurückgeholt."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/SocialNetworkScreen.kt:278
+msgid "Sie zahlen %1 aus Ihrem freien LTR-Guthaben. Dieser Betrag wird NICHT zurückerstattet."
 msgstr ""
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:3255
@@ -5642,12 +5731,12 @@ msgstr ""
 msgid "Soll/Haben"
 msgstr ""
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:684
+#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:700
 msgid "Sonstiges"
 msgstr ""
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/App.kt:241
-#: src/jsMain/kotlin/network/lapis/cloud/client/SocialNetworkScreen.kt:67
+#: src/jsMain/kotlin/network/lapis/cloud/client/SocialNetworkScreen.kt:69
 msgid "Soziales Netzwerk"
 msgstr ""
 
@@ -6005,7 +6094,15 @@ msgstr ""
 msgid "Text"
 msgstr ""
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/SocialNetworkScreen.kt:75
+#: src/jsMain/kotlin/network/lapis/cloud/client/SocialNetworkScreen.kt:377
+msgid "Thread"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/SocialNetworkScreen.kt:233
+msgid "Thread öffnen"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/SocialNetworkScreen.kt:77
 msgid "Timeline"
 msgstr ""
 
@@ -6085,15 +6182,15 @@ msgstr ""
 msgid "Übersicht, wie viele Datensätze in welchem Bereich zu Ihrer Person gespeichert sind, sowie ein vollständiger, maschinenlesbarer Export Ihrer Daten."
 msgstr ""
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:350
+#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:364
 msgid "Übertragung ausgeführt: %1 von %2 an %3"
 msgstr ""
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:645
+#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:659
 msgid "Übertragung empfangen"
 msgstr ""
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:644
+#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:658
 msgid "Übertragung gesendet"
 msgstr ""
 
@@ -6121,8 +6218,8 @@ msgstr ""
 msgid "Ungültige Anfrage."
 msgstr ""
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/SocialNetworkScreen.kt:227
-#: src/jsMain/kotlin/network/lapis/cloud/client/SocialNetworkScreen.kt:236
+#: src/jsMain/kotlin/network/lapis/cloud/client/SocialNetworkScreen.kt:309
+#: src/jsMain/kotlin/network/lapis/cloud/client/SocialNetworkScreen.kt:318
 msgid "Unsichtbar machen"
 msgstr ""
 
@@ -6230,12 +6327,13 @@ msgstr ""
 msgid "Vermögensverwaltung"
 msgstr ""
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/SocialNetworkScreen.kt:134
-#: src/jsMain/kotlin/network/lapis/cloud/client/SocialNetworkScreen.kt:158
+#: src/jsMain/kotlin/network/lapis/cloud/client/SocialNetworkScreen.kt:136
+#: src/jsMain/kotlin/network/lapis/cloud/client/SocialNetworkScreen.kt:160
 msgid "Veröffentlichen"
 msgstr ""
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/SocialNetworkScreen.kt:197
+#: src/jsMain/kotlin/network/lapis/cloud/client/SocialNetworkScreen.kt:199
+#: src/jsMain/kotlin/network/lapis/cloud/client/SocialNetworkScreen.kt:445
 msgid "Veröffentlicht am %1"
 msgstr ""
 
@@ -6604,7 +6702,7 @@ msgstr ""
 #: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:104
 #: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:151
 #: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:212
-#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:423
+#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:437
 #: src/jsMain/kotlin/network/lapis/cloud/client/MeetingsScreen.kt:127
 #: src/jsMain/kotlin/network/lapis/cloud/client/MeetingsScreen.kt:302
 #: src/jsMain/kotlin/network/lapis/cloud/client/MotionsScreen.kt:132
@@ -6622,7 +6720,8 @@ msgstr ""
 #: src/jsMain/kotlin/network/lapis/cloud/client/PriceOracleScreen.kt:140
 #: src/jsMain/kotlin/network/lapis/cloud/client/PriceOracleScreen.kt:144
 #: src/jsMain/kotlin/network/lapis/cloud/client/PriceOracleScreen.kt:182
-#: src/jsMain/kotlin/network/lapis/cloud/client/SocialNetworkScreen.kt:82
+#: src/jsMain/kotlin/network/lapis/cloud/client/SocialNetworkScreen.kt:381
+#: src/jsMain/kotlin/network/lapis/cloud/client/SocialNetworkScreen.kt:84
 msgid "Wird geladen …"
 msgstr ""
 
@@ -6790,11 +6889,11 @@ msgstr ""
 msgid "Zutrittskontrolle"
 msgstr ""
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:283
+#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:297
 msgid "Zweck (optional)"
 msgstr ""
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:360
+#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:374
 msgid "Zweck: %1"
 msgstr ""
 

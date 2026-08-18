@@ -65,9 +65,15 @@
 // Sichtbarkeits-Gewicht into a real LTR debit, see 32-social-network.kuml.kts's own header) and a
 // new `SOCIAL_POST` `ltrLedgerReferenceType` literal below -- same additive-only discipline. Fits
 // the existing `VARCHAR(21)`/`VARCHAR(20)` column widths unchanged (18 and 11 characters
-// respectively). `SOCIAL_POST_BOOST` (Welle V1.1.2 monetary Like) is deliberately NOT added yet --
-// see 32-social-network.kuml.kts file header for why that wave's own tables/literals stay out of
-// this codebase until their corresponding migration lands.
+// respectively).
+//
+// V1.1.2 (Soziales Netzwerk, Welle "Kommentarbaum, Boosts, rekursive Gesamtgewichtung")
+// additively appends `SOCIAL_POST_BOOST` (network.lapis.cloud.server.rpc.SocialNetworkService
+// .boostPost binding a monetary "Like" into a real LTR debit) at the END of the enum below --
+// `ltrLedgerReferenceType` does NOT gain a new literal for this: a boost's `referenceId` points at
+// the boosted POST's id (K5 in the V1.1.2 plan, so a ledger deep-link resolves to the post, not to
+// a boost row with no dedicated UI), reusing the existing `SOCIAL_POST` literal. 17 characters, fits
+// the existing `VARCHAR(21)` `entry_type` column width unchanged.
 //
 // Migration note (corrected 2026-08-18, Review-Fund G3 -- the previous wording here was wrong):
 // `V1__baseline.sql`'s `entry_type`/`reference_type` CHECK constraints ARE edited in-place by this
@@ -145,6 +151,7 @@ classDiagram(name = "LtrLedger") {
         literal(name = "AUCTION_SALE_OUT")
         literal(name = "AUCTION_SALE_IN")
         literal(name = "SOCIAL_POST_STAKE")
+        literal(name = "SOCIAL_POST_BOOST")
     }
 
     // Literal order is load-bearing, same reason as above. `CROWDFUNDING_PROJECT` is this wave's

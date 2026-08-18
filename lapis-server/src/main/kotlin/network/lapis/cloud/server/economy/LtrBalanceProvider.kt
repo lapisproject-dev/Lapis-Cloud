@@ -4,6 +4,8 @@ import network.lapis.cloud.server.db.generated.LtrLedgerEntryTable
 import network.lapis.cloud.server.db.generated.MemberTable
 import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.core.inList
+import org.jetbrains.exposed.v1.core.sum
+import org.jetbrains.exposed.v1.jdbc.select
 import org.jetbrains.exposed.v1.jdbc.selectAll
 import java.math.BigDecimal
 import kotlin.uuid.Uuid
@@ -67,34 +69,48 @@ interface LtrBalanceProvider {
  * "derive from the ledger" idiom this codebase's EUR-side `GeneralLedgerCalculator` already
  * uses. A member without any ledger rows is treated as having a zero balance, not an error: most
  * members will not have been minted any LTR yet.
+ *
+ * Security-Audit-Fund S-A2 (2026-08-18, Welle V1.1.2): [freeBalance]/[freeBalances] used to load
+ * EVERY ledger row for the member(s) in question and fold them in Kotlin -- a member with many
+ * ledger entries (cheaper to accumulate since the 30/min `boostPost` path landed in this same
+ * wave) made every future [freeBalance] call proportionally more expensive, and
+ * [network.lapis.cloud.server.rpc.SocialNetworkService.listTimeline] calls [freeBalances] on
+ * every distinct post author of every page. Both now push the summation into the database via
+ * `SUM(amount_ltr) ... GROUP BY member_id` -- one aggregate row (or zero rows, for a member with
+ * no ledger entries) instead of N raw rows crossing the JDBC boundary. `.setScale(2)` on the
+ * result is defensive, not corrective: [LtrLedgerEntryTable.amountLtr] is `decimal(18, 2)`, so a
+ * `SUM` over it is already scale-2 on both H2 and Postgres, this only guards against a driver
+ * returning a different scale for an all-NULL/empty aggregate.
  */
 class LedgerBackedLtrBalanceProvider : LtrBalanceProvider {
-    override fun freeBalance(memberId: Uuid): BigDecimal =
-        LtrLedgerEntryTable
-            .selectAll()
+    override fun freeBalance(memberId: Uuid): BigDecimal {
+        val total = LtrLedgerEntryTable.amountLtr.sum()
+        return LtrLedgerEntryTable
+            .select(total)
             .where { LtrLedgerEntryTable.memberId eq memberId }
-            .fold(BigDecimal.ZERO.setScale(2)) { acc, row -> acc + row[LtrLedgerEntryTable.amountLtr] }
+            .singleOrNull()
+            ?.get(total)
+            ?.setScale(2)
+            ?: BigDecimal.ZERO.setScale(2)
+    }
 
     /**
-     * One query for every requested member's ledger rows (`memberId inList memberIds`), summed in
-     * Kotlin per member -- NOT one query per member. See [LtrBalanceProvider.freeBalances] KDoc.
-     * A member with no ledger rows at all is simply absent from the returned map -- callers that
-     * need a zero default for such a member must apply it themselves (mirrors
+     * One `GROUP BY member_id` query for every requested member's ledger sum -- NOT one query per
+     * member, and (since Security-Audit-Fund S-A2) not one row per ledger entry either. See
+     * [LtrBalanceProvider.freeBalances] KDoc. A member with no ledger rows at all is simply absent
+     * from the returned map -- callers that need a zero default for such a member must apply it
+     * themselves (mirrors
      * [network.lapis.cloud.server.rpc.CrowdfundingService.reactionCountsByProject]'s own
      * "absent means zero, caller defaults it" convention).
      */
     override fun freeBalances(memberIds: Collection<Uuid>): Map<Uuid, BigDecimal> {
         if (memberIds.isEmpty()) return emptyMap()
-        val rows =
-            LtrLedgerEntryTable
-                .selectAll()
-                .where { LtrLedgerEntryTable.memberId inList memberIds }
-                .toList()
-        return rows
-            .groupBy { it[LtrLedgerEntryTable.memberId] }
-            .mapValues { (_, entries) ->
-                entries.fold(BigDecimal.ZERO.setScale(2)) { acc, row -> acc + row[LtrLedgerEntryTable.amountLtr] }
-            }
+        val total = LtrLedgerEntryTable.amountLtr.sum()
+        return LtrLedgerEntryTable
+            .select(LtrLedgerEntryTable.memberId, total)
+            .where { LtrLedgerEntryTable.memberId inList memberIds }
+            .groupBy(LtrLedgerEntryTable.memberId)
+            .associate { row -> row[LtrLedgerEntryTable.memberId] to (row[total]?.setScale(2) ?: BigDecimal.ZERO.setScale(2)) }
     }
 
     override fun lockForDebit(memberId: Uuid) {

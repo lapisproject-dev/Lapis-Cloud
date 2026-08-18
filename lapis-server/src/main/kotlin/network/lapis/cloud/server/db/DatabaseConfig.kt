@@ -42,6 +42,24 @@ object DatabaseConfig {
         val isPostgres = jdbcUrl.startsWith("jdbc:postgresql")
         val driverClassName = if (isPostgres) "org.postgresql.Driver" else "org.h2.Driver"
         val poolSize = System.getenv("LAPIS_DB_POOL_SIZE")?.toIntOrNull() ?: 10
+        // Security-Audit-Fund S-A1 (2026-08-18, Welle V1.1.2 "Kommentarbaum, Boosts, rekursive
+        // Gesamtgewichtung"): the real fix for the pool-exhaustion risk this fund described (two
+        // concurrent SocialNetworkService writes against the same large thread's root post, one
+        // blocked on the other's `SELECT ... FOR UPDATE` row lock) is SocialNetworkService's own
+        // change -- the expensive subtree aggregation moved out of the write transaction, see
+        // `SocialNetworkService.loadPostAfterCommit` KDoc -- NOT this line.
+        //
+        // Corrected (Review Runde 2 / Security-Audit Runde 2, 2026-08-18, Fund N-3): an earlier
+        // revision of this comment overstated what `connectionTimeout` does. HikariConfig's field
+        // default is already 30s regardless of whether this codebase sets it -- so this line is
+        // behaviorally a no-op except for making it `LAPIS_DB_CONNECTION_TIMEOUT_MS`-configurable.
+        // More importantly, `connectionTimeout` bounds how long a caller waits to ACQUIRE a
+        // connection from the pool when none are free -- it does NOT bound how long an
+        // already-acquired connection may be held waiting on a database-level row lock, so it was
+        // never a backstop against the S-A1 scenario itself. A genuine backstop against a stuck
+        // `FOR UPDATE` wait would be a Postgres-side `lock_timeout`/`statement_timeout`, which this
+        // codebase does not yet set anywhere -- noted as a follow-up, not yet actioned.
+        val connectionTimeoutMs = System.getenv("LAPIS_DB_CONNECTION_TIMEOUT_MS")?.toLongOrNull() ?: 30_000L
 
         val hikariConfig =
             HikariConfig().apply {
@@ -50,6 +68,7 @@ object DatabaseConfig {
                 this.password = password
                 this.driverClassName = driverClassName
                 this.maximumPoolSize = poolSize
+                this.connectionTimeout = connectionTimeoutMs
                 this.poolName = "lapis-cloud-db-pool"
             }
         val dataSource = HikariDataSource(hikariConfig)

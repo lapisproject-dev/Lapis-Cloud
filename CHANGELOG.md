@@ -32,6 +32,54 @@ Welle V1.1.2 (comments/threads/boosts/recursive weight aggregation) and later wa
 (LTR_ELIGIBLE-widened posting eligibility, public HTTP read path, legal removal/reporting) are
 intentionally not part of this wave — see `ISocialNetworkService` KDoc "Deliberately INCOMPLETE".
 
+**Soziales Netzwerk, Welle V1.1.2 "Kommentarbaum, Boosts, rekursive Gesamtgewichtung" — Kommentieren,
+monetäre Boosts, rekursives Gesamtgewicht als neues Timeline-Sortierkriterium**
+
+Kommentare sind vollwertige Posts: `ISocialNetworkService.createComment` schreibt eine reguläre
+`social_post`-Zeile mit `parentId`/`rootId`/`depth` (gedeckelt bei 64 Ebenen, Service-Guard **und**
+DB-`CHECK`) und bindet ihren eigenen Einsatz als `SOCIAL_POST_STAKE`-Debit — ein Kommentar ist kein
+Sonderfall. Die Sichtbarkeit eines Kommentars wird **vom Wurzel-Post übernommen**, nicht vom
+direkten Elternteil und nicht vom Client wählbar (S5) — ein öffentlicher Kommentar unter einem
+internen Post würde sonst schon durch seine Existenz den internen Kontext verraten. Neu:
+`ISocialNetworkService.boostPost` — ein monetäres "Like" (eigener `SOCIAL_POST_BOOST`-Ledger-Debit,
+mindestens 0,01 LTR, mehrfache Boosts desselben Mitglieds sind bewusst erlaubt und werden summiert,
+ein 5-Sekunden-Fenster schützt nur gegen den Doppelklick, kein DB-Constraint) und
+`ISocialNetworkService.getThread` — lädt den vollständigen Teilbaum eines Posts in **einer**
+zusätzlichen Query (`root_id`-Prädikat, seit V4 vorhanden) und liefert ihn flach in Präorder,
+gedeckelt bei 5 000 Knoten (`truncated`-Flag statt stillem Abschneiden).
+
+Das **Gesamtgewicht** eines Posts — Eigengewicht (Einsatz + eigene Boosts, je ab ihrem eigenen
+Zeitpunkt zerfallend) plus die rekursive Summe der Gesamtgewichte aller Nachfahren — ist ab jetzt
+das Sortierkriterium der Timeline (`SocialPostDto.totalCurrentWeightLtr`), nicht mehr das bloße
+Eigengewicht: ein wenig beworbener, aber viel diskutierter Post kann so vor einem hoch bezahlten,
+unkommentierten Post stehen. Die Aggregation ist **rein rekursiv im fachlichen Sinn, ohne SQL-
+Rekursion**: ein geladener Teilbaum wird als reine, DB-freie Kotlin-Funktion (`SocialPostWeight
+.totalWeightsUnrounded`) nach `depth` absteigend gefaltet — kein `WITH RECURSIVE`, kein
+Ebenen-Abstieg, weil die Zerfallsmathematik nie in SQL wandern darf (`POWER()` ist Fließkomma, siehe
+`WeightDecayClock`). Ein unsichtbar gemachter oder rechtlich entfernter Nachfahre **behält sein
+Gewicht** in dieser Summe (E3, Ökonomie und Sichtbarkeit sind getrennte Belange) — nur seine
+Anzeige verschwindet, zur Lesezeit über die Vorfahrenkette. `hideOwnPost` selbst schreibt weiterhin
+ausschließlich die eigene Zeile: **kein Cascade-`UPDATE`** auf Kind-Posts (K2) — ein Cascade-Write
+würde fremde Autoren-Zeilen falsch zuschreiben, wäre unbeschränkt groß (ein 5 000-Knoten-Thread), und
+ist ohnehin unnötig, weil der Teilbaum für die Gewichtsrechnung bereits im Speicher liegt.
+
+Schema: neue Tabelle `social_post_boost` (`V5__social_post_boost.sql`, kein
+`UNIQUE(post_id, member_id)` — ein Boost ist eine echte Zahlung, zwei Zahlungen sind zweimal
+Gewicht), neuer zusammengesetzter Index `idx_social_post_root_published`. Neue
+`LtrLedgerEntryType.SOCIAL_POST_BOOST`-Ledger-Klassifikation, `SocialNetworkPersonalData` um Boosts
+erweitert (`boostsGiven`-Export, Retain-with-reason wie jede andere Ledger-nahe Zeile).
+
+Client: die Timeline-Karte zeigt jetzt drei Gewichts-Kennzahlen nebeneinander (Gesamtgewicht,
+Eigengewicht, Gewicht des Autors) plus eine Antworten-/Boosts-Zähler-Zeile, mit
+"Thread öffnen"/"Antworten"/"Boosten"-Aktionen. Neue Thread-Ansicht
+(`/social-network/post/:id`, das erste parametrisierte Routing in diesem Client) mit
+tiefen-gedeckelter Einrückung (max. 8 Ebenen, darüber "↳ Fortsetzung") und einem inline
+Antwort-Formular pro Knoten ohne Sichtbarkeits-Auswahlfeld (stattdessen ein Hinweis auf die geerbte
+Stufe). `LtrLedgerScreen` verlinkt einen `SOCIAL_POST`-referenzierten Kontoauszugs-Eintrag jetzt
+direkt in die Thread-Ansicht (schließt Review-Fund G4) — der Bezug wird zur Lesezeit über
+`referenceId` aufgelöst, nie als Inhaltsausschnitt in der unveränderlichen Ledger-`note` eingefroren.
+Alle neuen UI-Strings in allen 8 Sprachen übersetzt.
+
 ### Operator notes
 
 **pdv2 — `V1__baseline.sql`'s checksum changed again; verify `flyway_schema_history` before the next
@@ -54,6 +102,17 @@ edits `V1__baseline.sql` in place (V2's FRIEND-adjacent columns, V3's status-lit
 V4's ledger-constraint widening) — the correction below fixes an incorrect claim about this in the
 `v0.13.0` entry, which stated no `flyway repair` would be needed there because `V3` itself was a new
 file, without accounting for `V3`'s own accompanying `V1` in-place edit.
+
+**pdv2 — `V1__baseline.sql`'s checksum changes AGAIN with Welle V1.1.2; this is a SEPARATE
+`flyway repair` requirement, not already covered by the V1.1.1 note above.** Welle V1.1.2
+(`V5__social_post_boost.sql`) edits `V1__baseline.sql`'s `ltr_ledger_entry.entry_type` `CHECK`
+constraint a second time, adding `'SOCIAL_POST_BOOST'` to the same literal list V1.1.1 widened for
+`'SOCIAL_POST_STAKE'`. Same mechanism, same consequence: `V1`'s on-disk checksum no longer matches
+whatever `pdv2`'s `flyway_schema_history` recorded the last time `V1` was validated, so
+`flyway migrate` fails validation before `V5` (or any later migration) ever runs. `flyway repair`
+must run again immediately before this wave's deploy, even if V1.1.1's own repair already happened
+on an earlier deploy — each in-place `V1__baseline.sql` edit is its own checksum change and needs
+its own repair step, they do not accumulate into a single fix.
 
 **Correction to the `v0.13.0` entry below**: "no `flyway repair` needed, `V3` is a new file, not a
 checksum change to an already-applied one" (under that entry's own Operator notes) is inaccurate —

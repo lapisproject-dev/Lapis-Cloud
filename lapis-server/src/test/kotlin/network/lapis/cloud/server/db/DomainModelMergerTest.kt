@@ -221,7 +221,14 @@ class DomainModelMergerTest :
             // (social_post.author_member_id resolves through it) -- so it contributes +2 «Entity»
             // declarations (the stub + the one real table) and +1 drop (the stub merges into the
             // already-existing member entity) versus the V0.11.0 baseline above (101 -> 102).
-            val distinctTableNames = 102
+            // 32-social-network.kuml.kts (Soziales Netzwerk, Welle V1.1.2 "Kommentarbaum, Boosts,
+            // rekursive Gesamtgewichtung") adds exactly one more real table (social_post_boost) --
+            // NO new cross-domain stub this time: social_post_boost.post_id resolves through the
+            // already-real SocialPost entity and social_post_boost.member_id resolves through the
+            // already-existing Member stub from the V1.1.1 entry above -- so it contributes +1
+            // «Entity» declaration (just the one real table, no stub, no drop) versus the
+            // V1.1.1 baseline above (102 -> 103).
+            val distinctTableNames = 103
 
             val result =
                 UmlToExposedViaErmScriptTransformer().transform(
@@ -349,6 +356,8 @@ class DomainModelMergerTest :
                     "ConferenceBreakoutAssignmentTable.kt",
                     // Soziales Netzwerk, Welle V1.1.1 "Fundament & Post-Kern".
                     "SocialPostTable.kt",
+                    // Soziales Netzwerk, Welle V1.1.2 "Kommentarbaum, Boosts, rekursive Gesamtgewichtung".
+                    "SocialPostBoostTable.kt",
                 )
         }
 

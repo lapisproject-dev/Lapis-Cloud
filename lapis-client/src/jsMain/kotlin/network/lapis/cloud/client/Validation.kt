@@ -56,8 +56,35 @@ object Validation {
      * deliberately NOT duplicated here -- same "loose mirror, not the security boundary" posture
      * every other function in this object already documents; a stake that passes this check but
      * misses the server's exact floor still gets a clear `guarded()` conflict toast.
+     *
+     * Security-Audit-Fund S-C1 (2026-08-18, Welle V1.1.2): [String.toDoubleOrNull] (Kotlin/JS)
+     * successfully parses the literal `"Infinity"` (and `"-Infinity"`/`"NaN"`), and
+     * `Double.POSITIVE_INFINITY > 0.0` is `true` -- without the [Double.isFinite] check below, a
+     * boost/reply confirmation dialog would show a nonsense amount before the server-side
+     * `Decimal` serialization/`normalizeWeight` rejected it. Purely cosmetic/misleading, never a
+     * server-side risk (same "loose mirror, not the security boundary" posture as every other
+     * function in this object) -- but worth guarding since the whole POINT of this function is to
+     * give an accurate preview before the round trip.
      */
-    fun isPositiveDecimal(value: String): Boolean = value.trim().toDoubleOrNull()?.let { it > 0.0 } ?: false
+    fun isPositiveDecimal(value: String): Boolean = value.trim().toDoubleOrNull()?.let { it.isFinite() && it > 0.0 } ?: false
+
+    /**
+     * Soziales Netzwerk V1.1.2, Stolperfalle 15 (Review Runde 1, 2026-08-18): [isPositiveDecimal]
+     * accepts a value like "1.005" (three decimal places) -- the server's own `normalizeWeight`
+     * only rejects it AFTER the round trip, with a `ConflictException` ("must have at most 2
+     * decimal places") that reads like a bug to whoever typed it, not a validation message. Rounds
+     * to 2 places client-side BEFORE the value is sent as a `Decimal`, same "loose mirror, not the
+     * security boundary" posture as every other function in this object -- the server still
+     * re-normalizes authoritatively, this just avoids surfacing that specific confusing round trip
+     * for the extremely common case of one stray extra digit.
+     *
+     * **Not HALF_UP** (Review Runde 2, 2026-08-18): [kotlin.math.round] ties-to-even (banker's
+     * rounding), unlike [network.lapis.cloud.server.economy.WeightDecayClock.round2]'s
+     * `HALF_UP`. A tie like `0.125` rounds here to `0.12`, not `0.13`. Harmless in practice --
+     * at most 0.005 LTR different from the server's own authoritative re-normalization, never in
+     * the caller's disfavor -- but real, so this KDoc no longer claims otherwise.
+     */
+    fun roundToTwoDecimalPlaces(value: Double): Double = kotlin.math.round(value * 100.0) / 100.0
 
     /**
      * V1.0 Videokonferenzen, Wave 5 "Föderations-Gastbeitritt" -- design review D6: a malformed

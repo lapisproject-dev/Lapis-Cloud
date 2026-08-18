@@ -83,6 +83,16 @@ enum class LtrLedgerEntryType {
      * reverse this debit, see that method's own KDoc.
      */
     SOCIAL_POST_STAKE,
+
+    /**
+     * [network.lapis.cloud.server.rpc.SocialNetworkService.boostPost] binding a monetary "Like"
+     * (V1.1.2 Soziales Netzwerk) -- see `32-social-network.kuml.kts` file header for the full
+     * fachlich model. `referenceId` points at the boosted POST's id, not a `social_post_boost` row
+     * (K5, see that method's own KDoc) -- reuses [LtrLedgerReferenceType.SOCIAL_POST]. Never
+     * released/refunded, same "no release path" posture as [SOCIAL_POST_STAKE]/
+     * [AUCTION_LISTING_FEE] -- there is no `unboostPost`.
+     */
+    SOCIAL_POST_BOOST,
 }
 
 /**

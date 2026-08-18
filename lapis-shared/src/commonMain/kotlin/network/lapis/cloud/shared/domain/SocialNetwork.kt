@@ -55,19 +55,25 @@ data class SocialPostInput(
 
 /**
  * `parentId`/`limit`/`offset`/`includeHidden`/`authorMemberId` sind bereits Teil der Welle-1-Form,
- * auch wenn diese Welle noch keine Kommentare schreibt (jeder Post hat `parentId = null`) -- so
- * ändert sich die Interface-Form nicht mehr, sobald Welle V1.1.2 Kommentare/Threads einführt.
- * `limit`/`offset` sind reine Pagination-Parameter über die nach Eigengewicht sortierte
- * Wurzel-Post-Liste. Korrigiert (NEU-2, Review Runde 2, 2026-08-18): anders als hier zuvor
+ * auch wenn Welle 1 noch keine Kommentare schreibt (jeder Post hat `parentId = null`) -- so ändert
+ * sich die Interface-Form nicht mehr, seit Welle V1.1.2 Kommentare/Threads einführt.
+ * `limit`/`offset` sind reine Pagination-Parameter über die nach Gesamtgewicht (Eigengewicht + Summe
+ * aller Nachfahren-Gewichte, seit Welle V1.1.2 -- siehe [SocialPostDto.totalCurrentWeightLtr])
+ * sortierte Wurzel-Post-Liste. Korrigiert (NEU-2, Review Runde 2, 2026-08-18): anders als hier zuvor
  * behauptet, ist der `SocialPostWeight.RANKING_HORIZON_DAYS`-Ranking-Horizont-Cutoff bereits SEIT
- * Review-Fund S1 (2026-08-18) aktiv, nicht erst ab Welle V1.1.2 -- siehe `SocialPostWeight
- * .RANKING_HORIZON_DAYS` KDoc. Ausnahme: die `includeHidden`-Selbstansicht des Autors auf die
- * eigenen `authorMemberId`-Posts filtert NICHT nach diesem Horizont (siehe `SocialNetworkService
- * .listTimeline` KDoc).
+ * Review-Fund S1 (2026-08-18) aktiv -- siehe `SocialPostWeight.RANKING_HORIZON_DAYS` KDoc. Ausnahme:
+ * die `includeHidden`-Selbstansicht des Autors auf die eigenen `authorMemberId`-Posts filtert NICHT
+ * nach diesem Horizont (siehe `SocialNetworkService.listTimeline` KDoc). Seit Welle V1.1.2 gilt der
+ * Horizont auch für Nachfahren/Boosts, die in die Gesamtgewichts-Aggregation einfließen.
  */
 @Serializable
 data class SocialTimelineQuery(
-    /** `null` = Wurzel-Posts (Timeline). Gesetzt = direkte Antworten unterhalb dieses Knotens (ab Welle V1.1.2 fachlich sinnvoll -- diese Welle erzeugt nie einen Post mit gesetztem `parentId`). */
+    /**
+     * `null` = Wurzel-Posts (Timeline). Gesetzt = direkte Antworten unterhalb dieses Knotens. Seit
+     * Welle V1.1.2 fachlich befüllbar -- für einen vollständigen, tief verschachtelten Thread
+     * (nicht nur die direkten Antworten EINER Ebene) ist jedoch `ISocialNetworkService.getThread`
+     * der vorgesehene Weg, nicht dieses Feld; siehe dessen KDoc.
+     */
     val parentId: String? = null,
     val limit: Int = 12,
     val offset: Int = 0,
@@ -93,10 +99,42 @@ data class SocialTimelinePageDto(
 )
 
 /**
- * Welle-1-Form: zeigt nur [ownCurrentWeightLtr] (zerfallener Eigeneinsatz). `totalCurrentWeightLtr`/
- * `boostCount`/`directCommentCount`/`totalDescendantCount` sind Welle-V1.1.2-Felder (rekursive
- * Gewichtsaggregation über Kommentare/Boosts) und werden absichtlich erst dann ergänzt, wenn der
- * Aggregator existiert -- siehe `SocialPostWeight` KDoc.
+ * Rolle: jeder Aufrufer, der `ISocialNetworkService.createComment` erreicht (dieselbe Mitglieds-Rolle
+ * wie [SocialPostInput]/`createPost`). [initialWeightLtr] wird -- exakt wie bei einem Wurzel-Post --
+ * als [LtrLedgerEntryType.SOCIAL_POST_STAKE]-Debit gegen das eigene freie LTR-Guthaben gebucht: ein
+ * Kommentar ist ein vollwertiger Post, kein Sonderfall.
+ *
+ * **Bewusst KEINE `visibility`** (S5): sie wird vom WURZEL-Post übernommen, nicht vom Client
+ * gewählt -- ein öffentlicher Kommentar unter einem internen Post würde schon durch seine bloße
+ * Existenz den internen Kontext leaken. Absichtlich nicht als vom Server ignoriertes Feld
+ * mitgeführt: ein Feld, das der Server stillschweigend verwirft, ist eine Falle.
+ */
+@Serializable
+data class SocialCommentInput(
+    val parentId: String,
+    val content: String,
+    val initialWeightLtr: Decimal,
+)
+
+/**
+ * Ergebnis von `ISocialNetworkService.getThread`. [nodes] ist eine flache Präorder-Liste (Wurzel
+ * zuerst, [SocialPostDto.depth] ist bereits befüllt) -- die Baumstruktur ergibt sich aus
+ * `parentId`/`depth`, es gibt keinen verschachtelten DTO-Baum.
+ */
+@Serializable
+data class SocialThreadDto(
+    /** Präorder, Wurzel zuerst. Geschwister nach [SocialPostDto.totalCurrentWeightLtr] absteigend (K1). */
+    val nodes: List<SocialPostDto>,
+    /** `true`, wenn der Teilbaum [network.lapis.cloud.server.rpc.SocialPostWeight.THREAD_MAX_NODES] überschritten hat und abgeschnitten wurde. */
+    val truncated: Boolean,
+    /** Knotenzahl VOR der Deckelung/Sichtbarkeitsfilterung -- macht die Deckelung sichtbar statt still. */
+    val totalNodeCount: Int,
+)
+
+/**
+ * Seit Welle V1.1.2 um die rekursive Gewichtsaggregation über Kommentare/Boosts erweitert -- siehe
+ * `SocialPostWeight` KDoc für die Berechnung, `ISocialNetworkService.createComment`/`.getThread`/
+ * `.boostPost` für die schreibenden/lesenden Zugriffe.
  */
 @Serializable
 data class SocialPostDto(
@@ -125,7 +163,25 @@ data class SocialPostDto(
     val state: SocialPostState,
     val stateReason: String?,
     val initialWeightLtr: Decimal,
-    /** Eigengewicht (zerfallener [initialWeightLtr]) -- siehe [network.lapis.cloud.server.rpc.SocialPostWeight.ownWeightUnrounded]. */
+    /**
+     * Eigengewicht -- seit Welle V1.1.2 zerfallener [initialWeightLtr] PLUS Summe der je ab ihrem
+     * eigenen Zeitpunkt zerfallenen eigenen Boosts (siehe
+     * [network.lapis.cloud.server.rpc.SocialPostWeight.ownWeightUnrounded] Überladung). NICHT das
+     * Sortierkriterium der Timeline -- siehe [totalCurrentWeightLtr].
+     */
     val ownCurrentWeightLtr: Decimal,
+    /**
+     * NEU Welle V1.1.2. [ownCurrentWeightLtr] + rekursive Summe der Gesamtgewichte aller Nachfahren.
+     * DAS Sortierkriterium der Timeline (Konzept: ein viel diskutierter Beitrag steigt, auch wenn
+     * sein Eigeneinsatz klein war). Enthält AUCH das Gewicht unsichtbar gemachter/rechtlich
+     * entfernter Nachfahren (E3) -- Sichtbarkeit und Ökonomie sind getrennte Belange.
+     */
+    val totalCurrentWeightLtr: Decimal,
+    /** NEU Welle V1.1.2. Anzahl direkter, für den Betrachter sichtbarer Kind-Posts. */
+    val directCommentCount: Int,
+    /** NEU Welle V1.1.2. Anzahl aller sichtbaren Nachfahren (transitiv). */
+    val totalDescendantCount: Int,
+    /** NEU Welle V1.1.2. Anzahl Boosts auf DIESEN Knoten (nicht auf Nachfahren). */
+    val boostCount: Int,
     val publishedAt: LocalDateTime,
 )

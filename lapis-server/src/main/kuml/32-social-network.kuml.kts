@@ -1,17 +1,18 @@
-// Soziales Netzwerk domain, Welle V1.1.1 "Fundament & Post-Kern" -- see the concept documents
-// ("03 Bereiche/Lapis Cloud/Soziales Netzwerk.md" and "03 Bereiche/Lapis Cloud/Meritokratisches
-// System und Libertaler.md", "Im sozialen Netz -- Gewichtung von Posts" section, vault) for the
-// full fachlich specification this implements, plus the accompanying implementation plan
-// ("V1.1 Soziales Netzwerk", 2026-08-18) for the researched code-reuse basis.
+// Soziales Netzwerk domain, Welle V1.1.1 "Fundament & Post-Kern" + Welle V1.1.2 "Kommentarbaum,
+// Boosts, rekursive Gesamtgewichtung" -- see the concept documents ("03 Bereiche/Lapis Cloud/
+// Soziales Netzwerk.md" and "03 Bereiche/Lapis Cloud/Meritokratisches System und Libertaler.md",
+// "Im sozialen Netz -- Gewichtung von Posts" section, vault) for the full fachlich specification
+// this implements, plus the accompanying implementation plans ("V1.1 Soziales Netzwerk" and its
+// "V1.1.2"-delta plan, both 2026-08-18) for the researched code-reuse basis.
 //
-// **Only `SocialPost` plus the two Welle-1 enums exist in this file.** `SocialPostBoost`
-// (Welle V1.1.2, rekursive Kommentargewichtung + Boosts), `SocialPostReport`/
-// `SocialPostReportCategory`/`SocialPostReportStatus` (Welle V1.1.5, Moderation) and
-// `SocialPostErasure` (Welle V1.1.5, DSGVO-Hard-Delete) are deliberately NOT modelled yet -- adding
-// their enums/classes here before the corresponding tables/migrations exist would let this file
-// drift ahead of `SocialNetworkSchemaDriftTest`'s own three-way comparison (model <-> migrated
-// schema <-> hand-written Table object), which is exactly the class of bug that test exists to
-// catch. Each later wave extends this file when its own migration lands, never before.
+// **`SocialPost` plus the two Welle-1 enums plus `SocialPostBoost` (Welle V1.1.2) exist in this
+// file.** `SocialPostReport`/`SocialPostReportCategory`/`SocialPostReportStatus` (Welle V1.1.5,
+// Moderation) and `SocialPostErasure` (Welle V1.1.5, DSGVO-Hard-Delete) are deliberately NOT
+// modelled yet -- adding their enums/classes here before the corresponding tables/migrations exist
+// would let this file drift ahead of `SocialNetworkSchemaDriftTest`'s own three-way comparison
+// (model <-> migrated schema <-> hand-written Table object), which is exactly the class of bug that
+// test exists to catch. Each later wave extends this file when its own migration lands, never
+// before.
 //
 // **`root_id` is a denormalized, but structurally-immutable column** (S1 in the plan's open-decision
 // table): a post never changes its parent after publication (Unveraenderlichkeit, see the
@@ -23,13 +24,49 @@
 // is ever persisted anywhere in this domain, only the immutable tree-shape pointer.
 //
 // **Post and comment share one table** (S2): a Welle-1 post always has `parentId = null`,
-// `rootId = id`, `depth = 0`. Comments (Welle V1.1.2) reuse every column unchanged -- same author/
-// content/weight/decay/visibility/state shape the concept document itself describes as "Child-Posts".
+// `rootId = id`, `depth = 0`. Comments (Welle V1.1.2, `SocialNetworkService.createComment`) reuse
+// every column unchanged -- same author/content/weight/decay/visibility/state shape the concept
+// document itself describes as "Child-Posts". `social_post` itself is NOT altered by V1.1.2 -- the
+// `parent_id`/`root_id`/`depth` columns already existed since V4 and are simply populated with
+// non-default values for the first time; the best evidence the V4 "post and comment in one table"
+// decision (S2) actually holds up.
 //
 // **Sichtbarkeit is chosen once, at publication, and is never re-derived from an ancestor at read
-// time** (S5, prepared for Welle V1.1.2): a comment inherits its root post's `visibility` at INSERT
-// time (`SocialNetworkService.createPost` sets `visibility = rootId's own value` once comments
-// exist) rather than joining through `root_id` on every read.
+// time** (S5, UMGESETZT seit Welle V1.1.2): a comment inherits its ROOT post's `visibility` at
+// INSERT time (`SocialNetworkService.createComment` reads the root row's `visibility` and copies it
+// onto the new comment row) rather than joining through `root_id` on every read. Deliberately the
+// ROOT post's visibility, not the direct parent's -- in a consistent data set the two are identical
+// once this invariant is enforced at every write, but reading from `root_id` is the single place
+// the invariant is established and cannot silently propagate a once-introduced inconsistent row
+// further down the tree.
+//
+// **S4 (Welle V1.1.2)**: a `SocialPostBoost` decays from its OWN `boosted_at`, never from the
+// boosted post's `published_at` -- otherwise a boost on a 100-day-old post would be economically
+// near-worthless (0.9^100 ~= 3e-5 of its value) the instant it is cast, defeating the entire point
+// of "boost a post you still find valuable, however old it is".
+//
+// **S3 (Welle V1.1.2)**: `social_post_boost` deliberately carries NO `UNIQUE(post_id, member_id)`
+// constraint. A boost is a genuine LTR payment, exactly like `crowdfunding_reaction`'s Like/Dislike
+// is NOT a payment (that table DOES enforce one reaction per member per project) -- two payments
+// from the same member on the same post are two payments, not a toggle. Accidental rapid double-
+// submission is guarded in the service layer instead (`SocialPostWeight.BOOST_DUPLICATE_WINDOW`,
+// see `SocialNetworkService.boostPost` KDoc "E6") -- a real DB constraint would also outlaw a
+// legitimate second boost from the same member the following day.
+//
+// **E3 (Welle V1.1.2)**: a `HIDDEN_BY_AUTHOR`/`REMOVED_LEGAL` comment KEEPS its weight in its
+// parent's/every ancestor's aggregated total -- economic history and read-time visibility are
+// deliberately separate concerns (see `SocialPostWeight.totalWeightsUnrounded`/`.suppressedIds`
+// KDoc); excluding a hidden node's weight would destroy weight OTHER members contributed by
+// replying to it, and would contradict this domain's "no refund, ever" posture.
+//
+// **Kein Cascade-Write beim Unsichtbarmachen (K2, Welle V1.1.2)**: `hideOwnPost` still only ever
+// writes its own row (unchanged since Welle V1.1.1) -- suppressing a hidden subtree from `getThread`
+// happens entirely at READ time, via `SocialPostWeight.suppressedIds` walking the already-loaded
+// subtree top-down by `depth`. A cascading `UPDATE` across a node's descendants would (a) falsely
+// attribute another author's `state_changed_by` to the ancestor's author, (b) be unboundedly large
+// (a 5000-node thread = 5000 rows in one transaction, contending with `lockForDebit` locks), and
+// (c) not be cleanly reversible if this posture is ever revisited. See `SocialNetworkService
+// .hideOwnPost` KDoc for the full reasoning this file header only summarizes.
 import dev.kuml.profile.erm.ermMappingProfile
 import dev.kuml.uml.Multiplicity
 import dev.kuml.uml.dsl.applyProfile
@@ -145,6 +182,39 @@ classDiagram(name = "SocialNetwork") {
         attribute(name = "stateReason", type = "String") {
             multiplicity = Multiplicity(0, 1)
             stereotype("Column") { "columnName" to "state_reason"; "sqlType" to "VARCHAR(2000)" }
+        }
+    }
+
+    // Welle V1.1.2 -- monetary "Like". Deliberately its own table, not a column on SocialPost: a
+    // post can be boosted arbitrarily many times (S3), each one its own decaying contribution (S4),
+    // so a single row per boost is the only shape that can hold that.
+    val socialPostBoost = classOf(name = "SocialPostBoost") {
+        stereotype("Entity") { "tableName" to "social_post_boost"; "kotlinObjectName" to "SocialPostBoostTable" }
+        stereotype("Index") { "columns" to listOf("post_id"); "name" to "idx_social_post_boost_post" }
+        stereotype("Index") { "columns" to listOf("member_id"); "name" to "idx_social_post_boost_member" }
+        stereotype("Index") {
+            "columns" to listOf("post_id", "member_id", "boosted_at")
+            "name" to "idx_social_post_boost_dup"
+        }
+
+        attribute(name = "id", type = "UUID") {
+            stereotype("Id")
+            stereotype("Column") { "columnName" to "id" }
+        }
+        // Real FK -> social_post (id), NOT NULL.
+        attribute(name = "postId", type = "UUID") {
+            stereotype("Column") { "columnName" to "post_id"; "fkEntity" to "SocialPost" }
+        }
+        // Real FK -> member (id), NOT NULL.
+        attribute(name = "memberId", type = "UUID") {
+            stereotype("Column") { "columnName" to "member_id"; "fkEntity" to "Member" }
+        }
+        attribute(name = "amountLtr", type = "BigDecimal") {
+            stereotype("Column") { "columnName" to "amount_ltr"; "sqlType" to "DECIMAL(18,2)" }
+        }
+        // Own decay anchor (S4) -- deliberately NOT the boosted post's publishedAt.
+        attribute(name = "boostedAt", type = "LocalDateTime") {
+            stereotype("Column") { "columnName" to "boosted_at" }
         }
     }
 }

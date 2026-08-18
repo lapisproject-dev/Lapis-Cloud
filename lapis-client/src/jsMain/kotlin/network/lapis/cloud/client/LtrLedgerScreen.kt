@@ -246,7 +246,21 @@ private fun renderLtrEntriesTable(
         typeCell.typeBadge(ltrLedgerEntryTypeLabel(entry.entryType), ltrLedgerEntryTypeColor(entry.entryType))
         val amountCell = row.div { width = 120.px }
         amountCell.ltrSpan(entry.amountLtr, warnIfNegative = true)
-        row.div(entry.referenceType?.let { ltrLedgerReferenceTypeLabel(it) } ?: "--") { addCssClasses("flex-grow-1 text-muted small") }
+        val referenceCell = row.div { addCssClasses("flex-grow-1 text-muted small") }
+        val referenceType = entry.referenceType
+        val referenceId = entry.referenceId
+        if (referenceType == LtrLedgerReferenceType.SOCIAL_POST && referenceId != null) {
+            // Review-Fund G4 (closed Welle V1.1.2): "Transaktionsbeschreibung mit Inhaltsbezug" aus
+            // dem Meritokratie-Konzept -- der Inhaltsbezug wird ZUR LESEZEIT über referenceId
+            // aufgelöst (nie ein Inhaltsausschnitt in der unveränderlichen Ledger-note eingefroren,
+            // siehe SocialNetworkService.kt's eigene E5/K5-Kommentare), folgt damit automatisch
+            // einem späteren DSGVO-Tombstone (Welle V1.1.5). Funktioniert auch für einen eigenen
+            // HIDDEN_BY_AUTHOR-Post -- der bleibt über getPost direkt erreichbar (siehe
+            // SocialNetworkScreen.kt's eigene renderHideOwnPostControl KDoc).
+            referenceCell.link(ltrLedgerReferenceTypeLabel(referenceType), url = "#${Routes.SOCIAL_NETWORK}/post/$referenceId")
+        } else {
+            referenceCell.content = referenceType?.let { ltrLedgerReferenceTypeLabel(it) } ?: "--"
+        }
         val noteParts = listOfNotNull(entry.note, entry.createdByDisplayName?.let { gettext("von %1", it) })
         row.div(if (noteParts.isEmpty()) "--" else noteParts.joinToString(" · ")) {
             width = 200.px
@@ -649,6 +663,7 @@ fun ltrLedgerEntryTypeLabel(type: LtrLedgerEntryType): String =
         LtrLedgerEntryType.AUCTION_SALE_OUT -> gettext("Auktionskauf")
         LtrLedgerEntryType.AUCTION_SALE_IN -> gettext("Auktionsverkauf")
         LtrLedgerEntryType.SOCIAL_POST_STAKE -> gettext("Beitrags-Einsatz")
+        LtrLedgerEntryType.SOCIAL_POST_BOOST -> gettext("Beitrags-Boost")
     }
 
 fun ltrLedgerEntryTypeColor(type: LtrLedgerEntryType): String =
@@ -665,6 +680,7 @@ fun ltrLedgerEntryTypeColor(type: LtrLedgerEntryType): String =
         LtrLedgerEntryType.AUCTION_SALE_OUT -> "danger"
         LtrLedgerEntryType.AUCTION_SALE_IN -> "success"
         LtrLedgerEntryType.SOCIAL_POST_STAKE -> "warning"
+        LtrLedgerEntryType.SOCIAL_POST_BOOST -> "warning"
     }
 
 fun ltrLedgerReferenceTypeLabel(type: LtrLedgerReferenceType): String =

@@ -276,13 +276,18 @@ msgstr "%1 (gość)"
 msgid "%1 (Sie)"
 msgstr "%1 (Pan/Pani)"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:499
+#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:513
 msgid "%1 an %2 gutgeschrieben."
 msgstr "%1 zaksięgowano na rzecz %2."
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:327
+#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:341
 msgid "%1 an %2 übertragen."
 msgstr "%1 przeniesiono na %2."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/SocialNetworkScreen.kt:229
+#: src/jsMain/kotlin/network/lapis/cloud/client/SocialNetworkScreen.kt:456
+msgid "%1 Antworten · %2 Boosts"
+msgstr "%1 odpowiedzi · %2 podbić"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/ContributionsScreen.kt:92
 msgid "%1 bis %2: %3 (%4)"
@@ -441,9 +446,17 @@ msgstr "%1. %2%3"
 msgid "%1. %2%3%4"
 msgstr "%1. %2%3%4"
 
+#: src/jsMain/kotlin/network/lapis/cloud/client/SocialNetworkScreen.kt:376
+msgid "← Zurück zur Timeline"
+msgstr "← Powrót do osi czasu"
+
 #: src/jsMain/kotlin/network/lapis/cloud/client/MotionsScreen.kt:261
 msgid "↳ Änderungsantrag: %1"
 msgstr "↳ Wniosek o zmianę: %1"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/SocialNetworkScreen.kt:437
+msgid "↳ Fortsetzung"
+msgstr "↳ Ciąg dalszy"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:3823
 msgid "◆ Live-Stream %1 → %2"
@@ -500,8 +513,8 @@ msgstr "Subskrypcja anulowana dnia %1"
 #: src/jsMain/kotlin/network/lapis/cloud/client/ConfirmDialog.kt:26
 #: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:334
 #: src/jsMain/kotlin/network/lapis/cloud/client/LedgerScreen.kt:1196
-#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:389
-#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:620
+#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:403
+#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:634
 #: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:121
 #: src/jsMain/kotlin/network/lapis/cloud/client/MotionsScreen.kt:1046
 #: src/jsMain/kotlin/network/lapis/cloud/client/PoliticianScreen.kt:514
@@ -578,16 +591,16 @@ msgstr "Subskrybuje od %1"
 msgid "Absagen"
 msgstr "Odwołaj"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:521
+#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:535
 msgid "Absender"
 msgstr "Nadawca"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/AuditLogScreen.kt:452
-#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:673
+#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:689
 msgid "Abstimmung"
 msgstr "Głosowanie"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:643
+#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:657
 msgid "Abstimmungseinsatz"
 msgstr "Stawka głosowania"
 
@@ -671,7 +684,7 @@ msgstr "Konto aktywów"
 #: src/jsMain/kotlin/network/lapis/cloud/client/MeetingsScreen.kt:118
 #: src/jsMain/kotlin/network/lapis/cloud/client/MotionsScreen.kt:123
 #: src/jsMain/kotlin/network/lapis/cloud/client/PoliticianScreen.kt:158
-#: src/jsMain/kotlin/network/lapis/cloud/client/SocialNetworkScreen.kt:77
+#: src/jsMain/kotlin/network/lapis/cloud/client/SocialNetworkScreen.kt:79
 msgid "Aktualisieren"
 msgstr "Aktualizuj"
 
@@ -705,10 +718,6 @@ msgstr "Aktualny zarząd"
 #: src/jsMain/kotlin/network/lapis/cloud/client/CrowdfundingScreen.kt:304
 msgid "Aktuelles Gewicht (10 %/Tag Zerfall)"
 msgstr "Aktualna waga (rozpad 10%/dzień)"
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/SocialNetworkScreen.kt:205
-msgid "Aktuelles Gewicht des Beitrags"
-msgstr "Aktualna waga posta"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/DashboardScreen.kt:92
 msgid "Aktuelles Passwort"
@@ -908,11 +917,11 @@ msgstr "utworzono"
 msgid "Angemeldet über den OIDC-Heimserver %1."
 msgstr "Zalogowano przez serwer macierzysty OIDC %1."
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/SocialNetworkScreen.kt:260
+#: src/jsMain/kotlin/network/lapis/cloud/client/SocialNetworkScreen.kt:342
 msgid "Angemeldete + externe Nutzer"
 msgstr "Zalogowani + zewnętrzni użytkownicy"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/SocialNetworkScreen.kt:259
+#: src/jsMain/kotlin/network/lapis/cloud/client/SocialNetworkScreen.kt:341
 msgid "Angemeldete Nutzer"
 msgstr "Zalogowani użytkownicy"
 
@@ -1021,9 +1030,28 @@ msgstr "Zarządzaj wnioskami"
 msgid "Antragstext"
 msgstr "Treść wniosku"
 
+#: src/jsMain/kotlin/network/lapis/cloud/client/SocialNetworkScreen.kt:482
+msgid "Antwort"
+msgstr "Odpowiedź"
+
 #: src/jsMain/kotlin/network/lapis/cloud/client/BackupHttp.kt:115
 msgid "Antwort des Servers konnte nicht gelesen werden: %1"
 msgstr "Nie udało się odczytać odpowiedzi serwera: %1"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/SocialNetworkScreen.kt:511
+msgid "Antwort veröffentlichen"
+msgstr "Opublikuj odpowiedź"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/SocialNetworkScreen.kt:530
+msgid "Antwort veröffentlicht."
+msgstr "Odpowiedź opublikowana."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/SocialNetworkScreen.kt:238
+#: src/jsMain/kotlin/network/lapis/cloud/client/SocialNetworkScreen.kt:462
+#: src/jsMain/kotlin/network/lapis/cloud/client/SocialNetworkScreen.kt:499
+#: src/jsMain/kotlin/network/lapis/cloud/client/SocialNetworkScreen.kt:518
+msgid "Antworten"
+msgstr "Odpowiedz"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/MeetingsScreen.kt:692
 #: src/jsMain/kotlin/network/lapis/cloud/client/MeetingsScreen.kt:974
@@ -1050,7 +1078,7 @@ msgstr "Wyświetlanie"
 msgid "Anzeige-Info: Währung"
 msgstr "Informacja o wyświetlaniu: waluta"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:416
+#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:430
 #: src/jsMain/kotlin/network/lapis/cloud/client/MotionsScreen.kt:543
 #: src/jsMain/kotlin/network/lapis/cloud/client/MotionsScreen.kt:715
 msgid "Anzeigen"
@@ -1131,7 +1159,7 @@ msgstr "Nagrania"
 #: src/jsMain/kotlin/network/lapis/cloud/client/App.kt:235
 #: src/jsMain/kotlin/network/lapis/cloud/client/AuctionScreen.kt:141
 #: src/jsMain/kotlin/network/lapis/cloud/client/AuctionScreen.kt:687
-#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:675
+#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:691
 msgid "Auktion"
 msgstr "Aukcja"
 
@@ -1171,23 +1199,23 @@ msgstr "Aukcje"
 msgid "Auktionen konnten nicht geladen werden."
 msgstr "Nie udało się wczytać aukcji."
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:646
+#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:660
 msgid "Auktions-Einstellgebühr"
 msgstr "Opłata za wystawienie aukcji"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:647
+#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:661
 msgid "Auktions-Reservierung"
 msgstr "Rezerwacja aukcyjna"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:648
+#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:662
 msgid "Auktions-Reservierung freigegeben"
 msgstr "Rezerwacja aukcyjna zwolniona"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:649
+#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:663
 msgid "Auktionskauf"
 msgstr "Zakup aukcyjny"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:650
+#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:664
 msgid "Auktionsverkauf"
 msgstr "Sprzedaż aukcyjna"
 
@@ -1388,9 +1416,13 @@ msgstr "Przy wystawieniu naliczana jest stała opłata w wysokości %1."
 msgid "Beisitz"
 msgstr "Członek zwyczajny"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:676
+#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:692
 msgid "Beitrag (Soziales Netzwerk)"
 msgstr "Post (sieć społecznościowa)"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/SocialNetworkScreen.kt:276
+msgid "Beitrag boosten"
+msgstr "Podbij wpis"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/ContributionsScreen.kt:252
 msgid "Beitrag erlassen"
@@ -1400,19 +1432,23 @@ msgstr "Umorz składkę"
 msgid "Beitrag erlassen."
 msgstr "Składka umorzona."
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/SocialNetworkScreen.kt:243
+#: src/jsMain/kotlin/network/lapis/cloud/client/SocialNetworkScreen.kt:289
+msgid "Beitrag geboostet."
+msgstr "Wpis podbity."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/SocialNetworkScreen.kt:325
 msgid "Beitrag unsichtbar gemacht."
 msgstr "Post ukryty."
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/SocialNetworkScreen.kt:230
+#: src/jsMain/kotlin/network/lapis/cloud/client/SocialNetworkScreen.kt:312
 msgid "Beitrag unsichtbar machen"
 msgstr "Ukryj post"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/SocialNetworkScreen.kt:151
+#: src/jsMain/kotlin/network/lapis/cloud/client/SocialNetworkScreen.kt:153
 msgid "Beitrag veröffentlichen"
 msgstr "Opublikuj post"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/SocialNetworkScreen.kt:170
+#: src/jsMain/kotlin/network/lapis/cloud/client/SocialNetworkScreen.kt:172
 msgid "Beitrag veröffentlicht."
 msgstr "Post opublikowany."
 
@@ -1428,7 +1464,11 @@ msgstr "Składki"
 msgid "Beiträge generieren"
 msgstr "Generuj składki"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:651
+#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:666
+msgid "Beitrags-Boost"
+msgstr "Podbicie wpisu"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:665
 msgid "Beitrags-Einsatz"
 msgstr "Stawka posta"
 
@@ -1646,9 +1686,9 @@ msgstr "Potwierdź"
 msgid "Betrag"
 msgstr "Kwota"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:275
-#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:455
-#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:523
+#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:289
+#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:469
+#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:537
 msgid "Betrag (LTR)"
 msgstr "Kwota (LTR)"
 
@@ -1932,7 +1972,11 @@ msgstr "Podaj miesiąc w formacie RRRR-MM-DD."
 msgid "Bitte einen Namen angeben."
 msgstr "Podaj nazwę."
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:303
+#: src/jsMain/kotlin/network/lapis/cloud/client/SocialNetworkScreen.kt:270
+msgid "Bitte einen positiven Betrag (LTR) angeben."
+msgstr "Podaj dodatnią kwotę (LTR)."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:317
 msgid ""
 "Bitte Empfänger, einen positiven LTR-Betrag und eine Charakterisierung "
 "angeben."
@@ -1961,7 +2005,8 @@ msgid ""
 msgstr ""
 "Używaj prawidłowych wartości dla pól opcjonalnych lub pozostaw je puste."
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/SocialNetworkScreen.kt:143
+#: src/jsMain/kotlin/network/lapis/cloud/client/SocialNetworkScreen.kt:145
+#: src/jsMain/kotlin/network/lapis/cloud/client/SocialNetworkScreen.kt:505
 msgid "Bitte Inhalt und einen positiven Einsatz (LTR) angeben."
 msgstr "Podaj treść i dodatnią stawkę (LTR)."
 
@@ -2001,7 +2046,7 @@ msgstr ""
 "Podaj co najmniej jednego odbiorcę/jedną odbiorczynię oraz tytuł, prawidłowy "
 "termin (RRRR-MM-DDTHH:MM), miejsce i treść zaproszenia."
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:472
+#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:486
 msgid "Bitte Mitglied und einen positiven LTR-Betrag angeben."
 msgstr "Podaj członka i dodatnią kwotę LTR."
 
@@ -2059,7 +2104,7 @@ msgstr "Podaj tytuł, opis i dodatnią cenę wywoławczą (LTR)."
 msgid "Bitte Titel, Verarbeitungsbeschreibung und Status angeben."
 msgstr "Podaj tytuł, opis przetwarzania i status."
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:560
+#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:574
 msgid ""
 "Bitte unterschiedliche Absender/Empfänger, einen positiven LTR-Betrag, eine "
 "Charakterisierung und eine Schiedsanordnungs-Referenz angeben."
@@ -2107,6 +2152,15 @@ msgstr "Tablica jest już prawie pełna -- zapisz i wyczyść ją."
 msgid "Board leeren"
 msgstr "Wyczyść tablicę"
 
+#: src/jsMain/kotlin/network/lapis/cloud/client/SocialNetworkScreen.kt:259
+msgid "Boost-Betrag (LTR)"
+msgstr "Kwota podbicia (LTR)"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/SocialNetworkScreen.kt:265
+#: src/jsMain/kotlin/network/lapis/cloud/client/SocialNetworkScreen.kt:282
+msgid "Boosten"
+msgstr "Podbij"
+
 #: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:3286
 msgid "Breakout-Räume erstellen"
 msgstr "Utwórz pokoje grupowe"
@@ -2143,11 +2197,11 @@ msgstr ""
 msgid "Buchung"
 msgstr "Księgowanie"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:362
+#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:376
 msgid "Buchung (Haben): %1"
 msgstr "Księgowanie (Ma): %1"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:361
+#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:375
 msgid "Buchung (Soll): %1"
 msgstr "Księgowanie (Winien): %1"
 
@@ -2189,12 +2243,12 @@ msgstr "TTL pamięci podręcznej"
 msgid "Cache-TTL (Sekunden)"
 msgstr "TTL pamięci podręcznej (sekundy)"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:281
-#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:529
+#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:295
+#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:543
 msgid "Charakterisierung"
 msgstr "Charakterystyka"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:359
+#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:373
 msgid "Charakterisierung: %1"
 msgstr "Charakterystyka: %1"
 
@@ -2222,7 +2276,7 @@ msgstr "Zdecyduj o kworum komitetu"
 msgid "Crowdfunding"
 msgstr "Finansowanie społecznościowe"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:672
+#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:688
 msgid "Crowdfunding-Projekt"
 msgstr "Projekt finansowania społecznościowego"
 
@@ -2342,7 +2396,7 @@ msgid ""
 msgstr ""
 "Aktualny stan tablicy zostanie zapisany jako obraz w repozytorium dokumentów."
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/SocialNetworkScreen.kt:232
+#: src/jsMain/kotlin/network/lapis/cloud/client/SocialNetworkScreen.kt:314
 msgid ""
 "Der Beitrag verschwindet aus der Timeline, bleibt aber über seine ID "
 "erreichbar (z. B. über den Kontoauszug). Das ist NICHT umkehrbar und "
@@ -2665,7 +2719,7 @@ msgstr ""
 msgid "Diese Datei passt nicht zum erwarteten Sicherungsformat: %1"
 msgstr "Ten plik nie odpowiada oczekiwanemu formatowi kopii zapasowej: %1"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:609
+#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:623
 msgid ""
 "Diese Korrekturübertragung ist ENDGÜLTIG und kann nicht widerrufen werden."
 msgstr "Ten przelew korygujący jest OSTATECZNY i nie może zostać cofnięty."
@@ -2703,12 +2757,12 @@ msgstr ""
 "Ten identyfikator pokoju jest nieprawidłowy. Skopiuj go w całości ze swojego "
 "zaproszenia."
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/Routing.kt:292
+#: src/jsMain/kotlin/network/lapis/cloud/client/Routing.kt:303
 msgid ""
 "Diese Seite konnte nicht geladen werden -- bitte laden Sie die Seite neu."
 msgstr "Nie udało się wczytać tej strony -- odśwież stronę."
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:379
+#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:393
 msgid "Diese Übertragung ist ENDGÜLTIG und kann nicht widerrufen werden."
 msgstr "Ta transmisja jest OSTATECZNA i nie może zostać cofnięta."
 
@@ -2719,6 +2773,14 @@ msgstr "Tego przywrócenia NIE można cofnąć."
 #: src/jsMain/kotlin/network/lapis/cloud/client/MotionsScreen.kt:708
 msgid "Dieser Antrag hat %1, der/die zuerst entschieden werden muss/müssen:"
 msgstr "Ten wniosek ma %1, które muszą zostać rozstrzygnięte jako pierwsze:"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/SocialNetworkScreen.kt:402
+msgid "Dieser Beitrag ist nicht (mehr) verfügbar."
+msgstr "Ten wpis nie jest (już) dostępny."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/SocialNetworkScreen.kt:394
+msgid "Dieser Thread hat %1 Beiträge -- nur die ersten 5 000 werden angezeigt."
+msgstr "Ten wątek ma %1 wpisów -- wyświetlanych jest tylko pierwsze 5000."
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/PostalMailScreen.kt:242
 msgid "Dieser Versand ist ENDGÜLTIG und verursacht reale Kosten pro Brief."
@@ -2874,6 +2936,11 @@ msgstr "Efektywnie: %1"
 msgid "Ehemalig"
 msgstr "Były"
 
+#: src/jsMain/kotlin/network/lapis/cloud/client/SocialNetworkScreen.kt:216
+#: src/jsMain/kotlin/network/lapis/cloud/client/SocialNetworkScreen.kt:452
+msgid "Eigengewicht"
+msgstr "Waga własna"
+
 #: src/jsMain/kotlin/network/lapis/cloud/client/FinancialReportsScreen.kt:208
 msgid "Eigenkapital (gebucht)"
 msgstr "Kapitał własny (zaksięgowany)"
@@ -2921,7 +2988,7 @@ msgstr ""
 "Fizyczny list zostanie wysłany przez dostawcę usług pocztowych Letterxpress "
 "na adres %1 zapisany w systemie. Wysyłki nie można wycofać."
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/SocialNetworkScreen.kt:123
+#: src/jsMain/kotlin/network/lapis/cloud/client/SocialNetworkScreen.kt:125
 msgid ""
 "Ein veröffentlichter Beitrag kann nicht mehr bearbeitet werden -- Tippfehler "
 "bleiben Tippfehler oder werden in einem neuen Beitrag richtiggestellt."
@@ -2978,7 +3045,8 @@ msgid "Einreichen"
 msgstr "Złóż"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/MotionsScreen.kt:989
-#: src/jsMain/kotlin/network/lapis/cloud/client/SocialNetworkScreen.kt:109
+#: src/jsMain/kotlin/network/lapis/cloud/client/SocialNetworkScreen.kt:111
+#: src/jsMain/kotlin/network/lapis/cloud/client/SocialNetworkScreen.kt:483
 msgid "Einsatz (LTR)"
 msgstr "Stawka (LTR)"
 
@@ -3002,8 +3070,8 @@ msgstr "Prawdopodobieństwo wystąpienia"
 msgid "Einzelne Person"
 msgstr "Pojedyncza osoba"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:274
-#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:522
+#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:288
+#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:536
 #: src/jsMain/kotlin/network/lapis/cloud/client/MeetingsScreen.kt:445
 msgid "Empfänger"
 msgstr "Odbiorca"
@@ -3021,7 +3089,7 @@ msgstr "Data końcowa (RRRR-MM-DD)"
 msgid "Ende"
 msgstr "Koniec"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:622
+#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:636
 msgid "Endgültig ausführen"
 msgstr "Wykonaj ostatecznie"
 
@@ -3034,7 +3102,7 @@ msgstr "Zaksięguj ostatecznie"
 msgid "Endgültig löschen"
 msgstr "Usuń ostatecznie"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:391
+#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:405
 msgid "Endgültig übertragen"
 msgstr "Przenieś ostatecznie"
 
@@ -3240,7 +3308,7 @@ msgstr ""
 "%1 zostanie zablokowane jako waga widoczności z Twojego wolnego salda LTR. "
 "Ta stawka NIE zostanie zwrócona, niezależnie od późniejszej decyzji zarządu."
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:483
+#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:497
 msgid ""
 "Es werden %1 an %2 gutgeschrieben. Diese Gutschrift lässt sich nur durch "
 "eine gegenläufige Buchung (z. B. eine Schiedsverfahren-Korrekturübertragung) "
@@ -3250,13 +3318,19 @@ msgstr ""
 "przeciwstawnym księgowaniem (np. przelewem korygującym w postępowaniu "
 "arbitrażowym)."
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/SocialNetworkScreen.kt:153
+#: src/jsMain/kotlin/network/lapis/cloud/client/SocialNetworkScreen.kt:155
 msgid ""
 "Es werden %1 aus Ihrem freien LTR-Guthaben gebunden. Dieser Einsatz wird "
 "NICHT zurückerstattet, auch nicht durch späteres Unsichtbarmachen."
 msgstr ""
 "Z Twojego dostępnego salda LTR zostanie zarezerwowane %1. Ta stawka NIE "
 "zostanie zwrócona, nawet jeśli później ukryjesz post."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/SocialNetworkScreen.kt:513
+msgid ""
+"Es werden %1 aus Ihrem freien LTR-Guthaben gebunden. Dieser Einsatz wird "
+"NICHT zurückerstattet."
+msgstr "Zostanie zablokowane %1 z Twojego wolnego salda LTR. Ta stawka NIE zostanie zwrócona."
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/AuctionScreen.kt:411
 msgid ""
@@ -3607,6 +3681,11 @@ msgstr "Razem"
 msgid "Gesamt (Summe, keine vergleichbare Einheit)"
 msgstr "Razem (suma, brak porównywalnej jednostki)"
 
+#: src/jsMain/kotlin/network/lapis/cloud/client/SocialNetworkScreen.kt:213
+#: src/jsMain/kotlin/network/lapis/cloud/client/SocialNetworkScreen.kt:449
+msgid "Gesamtgewicht"
+msgstr "Waga całkowita"
+
 #: src/jsMain/kotlin/network/lapis/cloud/client/NonprofitComplianceReportsScreen.kt:258
 msgid "Geschäftsjahr"
 msgstr "Rok obrotowy"
@@ -3640,7 +3719,7 @@ msgstr "Zapisano -- klucz nie zostanie wyświetlony ponownie."
 msgid "Gewählter Modus: %1"
 msgstr "Wybrany tryb: %1"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/SocialNetworkScreen.kt:208
+#: src/jsMain/kotlin/network/lapis/cloud/client/SocialNetworkScreen.kt:221
 msgid "Gewicht des Autors"
 msgstr "Waga autora"
 
@@ -3721,20 +3800,20 @@ msgstr "Gremium: %1 · %2 · Termin: %3%4"
 msgid "Gremium: %1 · eingereicht von %2 am %3"
 msgstr "Gremium: %1 · złożono przez %2 dnia %3"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:409
+#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:423
 msgid "Guthaben & Buchungen eines Mitglieds"
 msgstr "Saldo i księgowania członka"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:431
+#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:445
 msgid "Guthaben von %1"
 msgstr "Saldo użytkownika %1"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:463
-#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:489
+#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:477
+#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:503
 msgid "Gutschreiben"
 msgstr "Zaksięguj wpłatę"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:640
+#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:654
 msgid "Gutschrift (Mint)"
 msgstr "Wpłata (emisja)"
 
@@ -3807,7 +3886,7 @@ msgstr "Prześlij"
 msgid "Höchstens %1 Zeichen."
 msgstr "Maksymalnie %1 znaków."
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:682
+#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:698
 msgid "Honorar"
 msgstr "Honorarium"
 
@@ -3829,7 +3908,7 @@ msgstr "Przeczytałem/-am i akceptuję warunki korzystania z kont znajomych."
 msgid "Ideeller Bereich"
 msgstr "Sfera niematerialna"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/SocialNetworkScreen.kt:117
+#: src/jsMain/kotlin/network/lapis/cloud/client/SocialNetworkScreen.kt:119
 msgid ""
 "Ihr Einsatz wird NICHT zurückerstattet -- auch nicht, wenn Sie den Beitrag "
 "später unsichtbar machen. Es gibt in diesem System keinen "
@@ -3837,6 +3916,12 @@ msgid ""
 msgstr ""
 "Twoja stawka NIE zostanie zwrócona -- nawet jeśli później ukryjesz post. "
 "System ten nie przewiduje żadnej ścieżki zwrotu dla tej stawki."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/SocialNetworkScreen.kt:489
+msgid ""
+"Ihr Einsatz wird NICHT zurückerstattet -- auch nicht, wenn Sie die Antwort "
+"später unsichtbar machen."
+msgstr "Twoja stawka NIE zostanie zwrócona -- nawet jeśli później ukryjesz odpowiedź."
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/CrowdfundingScreen.kt:198
 msgid ""
@@ -3923,6 +4008,10 @@ msgstr ""
 "zapomnianym\", art. 17 RODO) -- usunięcie jest tu tylko WNIOSKOWANE, nigdy "
 "wykonywane od razu. O wniosku decyduje następnie oddzielnie administrator."
 
+#: src/jsMain/kotlin/network/lapis/cloud/client/SocialNetworkScreen.kt:485
+msgid "Ihre Antwort erbt die Sichtbarkeit des Ursprungsbeitrags: %1."
+msgstr "Twoja odpowiedź dziedziczy widoczność pierwotnego wpisu: %1."
+
 #: src/jsMain/kotlin/network/lapis/cloud/client/PoliticianScreen.kt:394
 msgid "Ihre Bewertung:"
 msgstr "Twoja ocena:"
@@ -3969,7 +4058,7 @@ msgid "Inaktive Spender anzeigen"
 msgstr "Wyświetl nieaktywnych darczyńców"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceNotesController.kt:433
-#: src/jsMain/kotlin/network/lapis/cloud/client/SocialNetworkScreen.kt:108
+#: src/jsMain/kotlin/network/lapis/cloud/client/SocialNetworkScreen.kt:110
 msgid "Inhalt"
 msgstr "Treść"
 
@@ -4108,7 +4197,7 @@ msgstr "Brak blokady prawnej (Legal Hold)"
 msgid "Kein Limit"
 msgstr "Brak limitu"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/Routing.kt:448
+#: src/jsMain/kotlin/network/lapis/cloud/client/Routing.kt:472
 msgid "Kein Zugriff -- für diesen Bereich fehlt Ihnen die Berechtigung."
 msgstr "Brak dostępu -- nie posiadają Państwo uprawnień do tego obszaru."
 
@@ -4116,7 +4205,7 @@ msgstr "Brak dostępu -- nie posiadają Państwo uprawnień do tego obszaru."
 msgid "Keine Adresse hinterlegt"
 msgstr "Nie zapisano adresu"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:269
+#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:283
 msgid "Keine anderen Mitglieder vorhanden, an die übertragen werden könnte."
 msgstr "Brak innych członków, na których można by dokonać przeniesienia."
 
@@ -4254,8 +4343,8 @@ msgid ""
 "Keine Mitglieder vorhanden, denen eine Spende gutgeschrieben werden könnte."
 msgstr "Brak członków, którym można by przypisać darowiznę."
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:411
-#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:450
+#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:425
+#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:464
 #: src/jsMain/kotlin/network/lapis/cloud/client/PoliticianScreen.kt:604
 msgid "Keine Mitglieder vorhanden."
 msgstr "Brak członków."
@@ -4395,11 +4484,11 @@ msgstr "Koszyk"
 msgid "Körperschaft des öffentlichen Rechts"
 msgstr "Podmiot prawa publicznego"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:539
+#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:553
 msgid "Korrekturübertragung ausführen"
 msgstr "Wykonaj przelew korygujący"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:586
+#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:600
 msgid "Korrekturübertragung ausgeführt: %1."
 msgstr "Wykonano przelew korygujący: %1."
 
@@ -4620,11 +4709,11 @@ msgstr "Usunięcie zostało wykonane."
 msgid "Löschung wurde beantragt."
 msgstr "Wniesiono o usunięcie."
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:481
+#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:495
 msgid "LTR gutschreiben"
 msgstr "Zaksięguj LTR"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:448
+#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:462
 msgid "LTR gutschreiben (Mint)"
 msgstr "Zaksięguj LTR (emisja)"
 
@@ -4632,7 +4721,7 @@ msgstr "Zaksięguj LTR (emisja)"
 msgid "LTR senden"
 msgstr "Wyślij LTR"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:291
+#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:305
 msgid "LTR übertragen"
 msgstr "Przenieś LTR"
 
@@ -4642,7 +4731,7 @@ msgstr "Przenieś LTR"
 msgid "LTR-Konto"
 msgstr "Konto LTR"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:378
+#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:392
 msgid "LTR-Übertragung bestätigen"
 msgstr "Potwierdź przeniesienie LTR"
 
@@ -4786,7 +4875,7 @@ msgstr "Minimalne kworum (źródła, min. 2)"
 msgid "Mindestens %1 Zeichen."
 msgstr "Co najmniej %1 znaków."
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:516
+#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:530
 msgid "Mindestens zwei Mitglieder erforderlich."
 msgstr "Wymagane są co najmniej dwaj członkowie."
 
@@ -4797,8 +4886,8 @@ msgstr "Wymagane są co najmniej dwaj członkowie."
 #: src/jsMain/kotlin/network/lapis/cloud/client/DonorsScreen.kt:442
 #: src/jsMain/kotlin/network/lapis/cloud/client/LedgerScreen.kt:846
 #: src/jsMain/kotlin/network/lapis/cloud/client/LedgerScreen.kt:853
-#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:415
-#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:454
+#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:429
+#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:468
 #: src/jsMain/kotlin/network/lapis/cloud/client/PoliticianScreen.kt:608
 #: src/jsMain/kotlin/network/lapis/cloud/client/PoliticianScreen.kt:854
 #: src/jsMain/kotlin/network/lapis/cloud/client/PriceOracleScreen.kt:407
@@ -5074,7 +5163,7 @@ msgstr "Złóż nowy wniosek"
 msgid "Neuen AVV-Eintrag anlegen"
 msgstr "Utwórz nowy wpis AVV"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/SocialNetworkScreen.kt:70
+#: src/jsMain/kotlin/network/lapis/cloud/client/SocialNetworkScreen.kt:72
 msgid "Neuen Beitrag verfassen"
 msgstr "Napisz nowy post"
 
@@ -5199,7 +5288,7 @@ msgstr "Brak dotychczasowych aukcji."
 msgid "Noch keine AVV-Einträge angelegt."
 msgstr "Nie utworzono jeszcze żadnych wpisów AVV."
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/SocialNetworkScreen.kt:87
+#: src/jsMain/kotlin/network/lapis/cloud/client/SocialNetworkScreen.kt:89
 msgid "Noch keine Beiträge."
 msgstr "Jeszcze brak postów."
 
@@ -5212,7 +5301,7 @@ msgid "Noch keine Bestätigung des rechtlichen Hinweistexts erfolgt."
 msgstr "Nie potwierdzono jeszcze treści pouczenia prawnego."
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:141
-#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:435
+#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:449
 msgid "Noch keine Buchungen."
 msgstr "Brak dotychczasowych księgowań."
 
@@ -5315,7 +5404,7 @@ msgstr "Jeszcze nieustalone"
 msgid "Noch niemand verbunden."
 msgstr "Nikt jeszcze nie jest połączony."
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:456
+#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:470
 #: src/jsMain/kotlin/network/lapis/cloud/client/MeetingsScreen.kt:750
 #: src/jsMain/kotlin/network/lapis/cloud/client/MotionsScreen.kt:556
 #: src/jsMain/kotlin/network/lapis/cloud/client/PriceOracleScreen.kt:417
@@ -5416,7 +5505,7 @@ msgstr "Otwarte wnioski"
 msgid "Offenlegungspflicht (Rechenschaftsbericht)"
 msgstr "Obowiązek ujawnienia (sprawozdanie z działalności)"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/SocialNetworkScreen.kt:258
+#: src/jsMain/kotlin/network/lapis/cloud/client/SocialNetworkScreen.kt:340
 msgid "Öffentlich"
 msgstr "Publiczny"
 
@@ -5521,7 +5610,7 @@ msgstr "Nie pamiętasz hasła?"
 msgid "Passwort wurde geändert -- bitte melden Sie sich neu an."
 msgstr "Hasło zostało zmienione -- prosimy zalogować się ponownie."
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:674
+#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:690
 msgid "Peer-Transfer"
 msgstr "Przelew peer-to-peer"
 
@@ -5704,7 +5793,7 @@ msgstr "Stan cenowy: %1:%2:%3"
 msgid "Price-Oracle"
 msgstr "Wyrocznia cenowa"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:683
+#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:699
 msgid "Privatverkauf"
 msgstr "Sprzedaż prywatna"
 
@@ -5741,11 +5830,11 @@ msgstr "Zatwierdź projekt"
 msgid "Projekte"
 msgstr "Projekty"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:641
+#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:655
 msgid "Projekteinsatz"
 msgstr "Zastosowanie projektu"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:642
+#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:656
 msgid "Projekteinsatz freigegeben"
 msgstr "Zastosowanie projektu zwolnione"
 
@@ -5976,19 +6065,19 @@ msgstr ""
 msgid "Schadenshöhe"
 msgstr "Wysokość szkody"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:681
+#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:697
 msgid "Schenkung"
 msgstr "Darowizna"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:531
+#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:545
 msgid "Schiedsanordnungs-Referenz (Pflichtfeld)"
 msgstr "Referencja postanowienia arbitrażowego (pole obowiązkowe)"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:514
+#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:528
 msgid "Schiedsverfahren-Korrekturübertragung"
 msgstr "Przelew korygujący w postępowaniu arbitrażowym"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:608
+#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:622
 msgid "Schiedsverfahren-Korrekturübertragung bestätigen"
 msgstr "Potwierdź przelew korygujący w postępowaniu arbitrażowym"
 
@@ -6069,7 +6158,7 @@ msgid "Sichtbar für TREASURER/BOARD/ADMIN."
 msgstr "Widoczne dla TREASURER/BOARD/ADMIN."
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/DocumentsScreen.kt:174
-#: src/jsMain/kotlin/network/lapis/cloud/client/SocialNetworkScreen.kt:112
+#: src/jsMain/kotlin/network/lapis/cloud/client/SocialNetworkScreen.kt:114
 msgid "Sichtbarkeit"
 msgstr "Widoczność"
 
@@ -6191,7 +6280,7 @@ msgstr ""
 "Powoduje to nadpisanie danych stanem z przesłanego pliku. Dane już "
 "istniejące w organizacji docelowej mogą przy tym zostać utracone."
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:381
+#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:395
 msgid ""
 "Sie übertragen %1 an %2 (%3). Es gibt keine Storno-/Widerruffunktion -- die "
 "einzige Korrekturmöglichkeit ist eine Schiedsverfahren-Korrekturübertragung "
@@ -6201,7 +6290,7 @@ msgstr ""
 "jedyną możliwością korekty jest przelew korygujący w postępowaniu "
 "arbitrażowym dokonany przez TREASURER/BOARD/ADMIN."
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:611
+#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:625
 msgid "Sie übertragen %1 von %2 an %3 (%4). Schiedsanordnungs-Referenz: „%5\"."
 msgstr ""
 "Przenoszą Państwo %1 od %2 na %3 (%4). Referencja postanowienia "
@@ -6214,6 +6303,12 @@ msgstr "Zostali Państwo przydzieleni do pokoju grupy roboczej „%1\"."
 #: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:2779
 msgid "Sie wurden in den Hauptraum zurückgeholt."
 msgstr "Zostali Państwo przywołani z powrotem do pokoju głównego."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/SocialNetworkScreen.kt:278
+msgid ""
+"Sie zahlen %1 aus Ihrem freien LTR-Guthaben. Dieser Betrag wird NICHT "
+"zurückerstattet."
+msgstr "Zapłacisz %1 z wolnego salda LTR. Ta kwota NIE zostanie zwrócona."
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:3255
 #: src/jsMain/kotlin/network/lapis/cloud/client/MotionsScreen.kt:650
@@ -6358,12 +6453,12 @@ msgstr "Winien"
 msgid "Soll/Haben"
 msgstr "Winien/Ma"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:684
+#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:700
 msgid "Sonstiges"
 msgstr "Inne"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/App.kt:241
-#: src/jsMain/kotlin/network/lapis/cloud/client/SocialNetworkScreen.kt:67
+#: src/jsMain/kotlin/network/lapis/cloud/client/SocialNetworkScreen.kt:69
 msgid "Soziales Netzwerk"
 msgstr "Sieć społecznościowa"
 
@@ -6722,7 +6817,15 @@ msgstr "Planowanie terminu"
 msgid "Text"
 msgstr "Tekst"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/SocialNetworkScreen.kt:75
+#: src/jsMain/kotlin/network/lapis/cloud/client/SocialNetworkScreen.kt:377
+msgid "Thread"
+msgstr "Wątek"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/SocialNetworkScreen.kt:233
+msgid "Thread öffnen"
+msgstr "Otwórz wątek"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/SocialNetworkScreen.kt:77
 msgid "Timeline"
 msgstr "Oś czasu"
 
@@ -6808,15 +6911,15 @@ msgstr ""
 "poszczególnych obszarach, a także pełny, czytelny maszynowo eksport Państwa "
 "danych."
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:350
+#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:364
 msgid "Übertragung ausgeführt: %1 von %2 an %3"
 msgstr "Wykonano przelew: %1 od %2 na %3"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:645
+#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:659
 msgid "Übertragung empfangen"
 msgstr "Przelew odebrany"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:644
+#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:658
 msgid "Übertragung gesendet"
 msgstr "Przelew wysłany"
 
@@ -6848,8 +6951,8 @@ msgstr "Nieprzeczytane wiadomości: %1"
 msgid "Ungültige Anfrage."
 msgstr "Nieprawidłowe żądanie."
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/SocialNetworkScreen.kt:227
-#: src/jsMain/kotlin/network/lapis/cloud/client/SocialNetworkScreen.kt:236
+#: src/jsMain/kotlin/network/lapis/cloud/client/SocialNetworkScreen.kt:309
+#: src/jsMain/kotlin/network/lapis/cloud/client/SocialNetworkScreen.kt:318
 msgid "Unsichtbar machen"
 msgstr "Ukryj"
 
@@ -6965,12 +7068,13 @@ msgstr "Historia"
 msgid "Vermögensverwaltung"
 msgstr "Zarządzanie majątkiem"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/SocialNetworkScreen.kt:134
-#: src/jsMain/kotlin/network/lapis/cloud/client/SocialNetworkScreen.kt:158
+#: src/jsMain/kotlin/network/lapis/cloud/client/SocialNetworkScreen.kt:136
+#: src/jsMain/kotlin/network/lapis/cloud/client/SocialNetworkScreen.kt:160
 msgid "Veröffentlichen"
 msgstr "Opublikuj"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/SocialNetworkScreen.kt:197
+#: src/jsMain/kotlin/network/lapis/cloud/client/SocialNetworkScreen.kt:199
+#: src/jsMain/kotlin/network/lapis/cloud/client/SocialNetworkScreen.kt:445
 msgid "Veröffentlicht am %1"
 msgstr "Opublikowano %1"
 
@@ -7368,7 +7472,7 @@ msgstr ""
 #: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:104
 #: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:151
 #: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:212
-#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:423
+#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:437
 #: src/jsMain/kotlin/network/lapis/cloud/client/MeetingsScreen.kt:127
 #: src/jsMain/kotlin/network/lapis/cloud/client/MeetingsScreen.kt:302
 #: src/jsMain/kotlin/network/lapis/cloud/client/MotionsScreen.kt:132
@@ -7386,7 +7490,8 @@ msgstr ""
 #: src/jsMain/kotlin/network/lapis/cloud/client/PriceOracleScreen.kt:140
 #: src/jsMain/kotlin/network/lapis/cloud/client/PriceOracleScreen.kt:144
 #: src/jsMain/kotlin/network/lapis/cloud/client/PriceOracleScreen.kt:182
-#: src/jsMain/kotlin/network/lapis/cloud/client/SocialNetworkScreen.kt:82
+#: src/jsMain/kotlin/network/lapis/cloud/client/SocialNetworkScreen.kt:381
+#: src/jsMain/kotlin/network/lapis/cloud/client/SocialNetworkScreen.kt:84
 msgid "Wird geladen …"
 msgstr "Trwa wczytywanie…"
 
@@ -7570,11 +7675,11 @@ msgstr ""
 msgid "Zutrittskontrolle"
 msgstr "Kontrola wstępu"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:283
+#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:297
 msgid "Zweck (optional)"
 msgstr "Cel (opcjonalnie)"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:360
+#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:374
 msgid "Zweck: %1"
 msgstr "Cel: %1"
 
@@ -7585,6 +7690,9 @@ msgstr "Działalność statutowa uprzywilejowana"
 #: src/jsMain/kotlin/network/lapis/cloud/client/PriceOracleScreen.kt:567
 msgid "Zwischengespeichert (Cached)"
 msgstr "Zbuforowane (Cached)"
+
+#~ msgid "Aktuelles Gewicht des Beitrags"
+#~ msgstr "Aktualna waga posta"
 
 #~ msgid ""
 #~ "Sobald aus dieser Sitzung heraus eine geheime Abstimmung geöffnet wird, "

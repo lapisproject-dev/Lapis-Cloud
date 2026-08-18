@@ -6,6 +6,7 @@ import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldContainExactlyInAnyOrder
 import io.kotest.matchers.shouldBe
 import kotlinx.datetime.LocalDateTime
+import network.lapis.cloud.server.db.generated.SocialPostBoostTable
 import network.lapis.cloud.server.db.generated.SocialPostTable
 import network.lapis.cloud.shared.domain.SocialPostState
 import network.lapis.cloud.shared.domain.SocialPostVisibility
@@ -39,8 +40,8 @@ class SocialNetworkSchemaDriftTest :
         val scriptFile = File(KumlModelLoader.kumlSourceDir, "32-social-network.kuml.kts")
         val model: ErmModel by lazy { KumlModelLoader.loadErmModel(scriptFile) }
 
-        test("model declares exactly the social_post entity plus the Member stub") {
-            model.entities.map { it.name }.toSet() shouldBe setOf("member", "social_post")
+        test("model declares exactly the social_post/social_post_boost entities plus the Member stub") {
+            model.entities.map { it.name }.toSet() shouldBe setOf("member", "social_post", "social_post_boost")
         }
 
         test("social_post table shape matches the real migrated schema and SocialPostTable 1:1") {
@@ -84,6 +85,62 @@ class SocialNetworkSchemaDriftTest :
             val real = transaction { introspectSocialPostTable() }
             ("content_erased_at" in real.columns.keys) shouldBe false
             ("content_erasure_note" in real.columns.keys) shouldBe false
+        }
+
+        test("social_post_boost table shape matches the real migrated schema and SocialPostBoostTable 1:1") {
+            val entity = model.entities.single { it.name == "social_post_boost" }
+            val real = transaction { introspectSocialPostBoostTable() }
+
+            entity.attributes.map { it.name }.toSet() shouldBe real.columns.keys
+            entity.attributes.forEach { attr ->
+                withClue(clue = "column '${attr.name}'") {
+                    real.columns.getValue(attr.name!!).nullable shouldBe attr.nullable
+                }
+            }
+            entity.attributes.map { it.name } shouldContainExactlyInAnyOrder SocialPostBoostTable.columns.map { it.name }
+
+            real.foreignKeys["post_id"] shouldBe "social_post"
+            real.foreignKeys["member_id"] shouldBe "member"
+            entity.attributeByName("post_id")?.nullable shouldBe false
+            entity.attributeByName("member_id")?.nullable shouldBe false
+            entity.attributeByName("amount_ltr")?.type shouldBe ErmDataType.Decimal(18, 2)
+        }
+
+        test("chk_social_post_boost_min_amount rejects an amount_ltr below 0.01") {
+            val outcome =
+                runCatching {
+                    transaction {
+                        val postId = Uuid.random()
+                        SocialPostTable.insert {
+                            it[id] = postId
+                            it[parentId] = null
+                            it[rootId] = postId
+                            it[depth] = 0
+                            it[authorMemberId] = SEED_ADMIN_MEMBER_ID
+                            it[content] = "chk_social_post_boost_min_amount probe root -- never expected to persist"
+                            it[visibility] = SocialPostVisibility.PUBLIC
+                            it[initialWeightLtr] = BigDecimal("1.00")
+                            it[publishedAt] = LocalDateTime(2026, 1, 1, 0, 0, 0)
+                            it[state] = SocialPostState.VISIBLE
+                            it[stateChangedAt] = null
+                            it[stateChangedBy] = null
+                            it[stateReason] = null
+                        }
+                        SocialPostBoostTable.insert {
+                            it[id] = Uuid.random()
+                            it[SocialPostBoostTable.postId] = postId
+                            it[memberId] = SEED_ADMIN_MEMBER_ID
+                            it[amountLtr] = BigDecimal("0.00")
+                            it[boostedAt] = LocalDateTime(2026, 1, 1, 0, 0, 0)
+                        }
+                    }
+                }
+            // The failing transaction{} block rolls back automatically -- nothing to clean up (the
+            // probe root social_post row is rolled back with it).
+            outcome.isFailure shouldBe true
+            val exception = outcome.exceptionOrNull()
+            (exception is ExposedSQLException) shouldBe true
+            (exception?.message ?: "").contains("chk_social_post_boost_min_amount", ignoreCase = true) shouldBe true
         }
 
         // G8 (Review Runde 1, 2026-08-18): the two tests above never actually exercised
@@ -222,6 +279,52 @@ private fun JdbcTransaction.introspectSocialPostTable(): IntrospectedSocialPostT
 
     val columns = nullableByColumn.mapValues { (_, nullable) -> IntrospectedSocialPostColumn(nullable = nullable) }
     return IntrospectedSocialPostTable(columns = columns, foreignKeys = fkByColumn)
+}
+
+/** Result of introspecting the real `social_post_boost` table's shape via `information_schema`. Mirrors [IntrospectedSocialPostTable]. */
+private data class IntrospectedSocialPostBoostTable(
+    val columns: Map<String, IntrospectedSocialPostColumn>,
+    val foreignKeys: Map<String, String>,
+)
+
+private fun JdbcTransaction.introspectSocialPostBoostTable(): IntrospectedSocialPostBoostTable {
+    val nullableByColumn = mutableMapOf<String, Boolean>()
+    exec(
+        """
+        SELECT column_name, is_nullable
+        FROM information_schema.columns
+        WHERE table_name = 'social_post_boost'
+        """.trimIndent(),
+    ) { rs ->
+        while (rs.next()) {
+            nullableByColumn[rs.getString("column_name")] = rs.getString("is_nullable") == "YES"
+        }
+    }
+
+    val fkByColumn = mutableMapOf<String, String>()
+    exec(
+        """
+        SELECT kcu.column_name AS fk_column, tc2.table_name AS ref_table
+        FROM information_schema.table_constraints tc
+        JOIN information_schema.key_column_usage kcu
+            ON tc.constraint_name = kcu.constraint_name
+            AND tc.table_schema = kcu.table_schema
+        JOIN information_schema.referential_constraints rc
+            ON tc.constraint_name = rc.constraint_name
+            AND tc.constraint_schema = rc.constraint_schema
+        JOIN information_schema.table_constraints tc2
+            ON rc.unique_constraint_name = tc2.constraint_name
+            AND rc.unique_constraint_schema = tc2.table_schema
+        WHERE tc.constraint_type = 'FOREIGN KEY' AND tc.table_name = 'social_post_boost'
+        """.trimIndent(),
+    ) { rs ->
+        while (rs.next()) {
+            fkByColumn[rs.getString("fk_column")] = rs.getString("ref_table")
+        }
+    }
+
+    val columns = nullableByColumn.mapValues { (_, nullable) -> IntrospectedSocialPostColumn(nullable = nullable) }
+    return IntrospectedSocialPostBoostTable(columns = columns, foreignKeys = fkByColumn)
 }
 
 /** Small local stand-in for Kotest's `withClue` to keep imports minimal (mirrors [CrowdfundingSchemaDriftTest]'s). */

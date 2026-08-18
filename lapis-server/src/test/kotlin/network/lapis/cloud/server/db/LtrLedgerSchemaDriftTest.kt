@@ -122,6 +122,7 @@ class LtrLedgerSchemaDriftTest :
                             "AUCTION_SALE_OUT",
                             "AUCTION_SALE_IN",
                             "SOCIAL_POST_STAKE",
+                            "SOCIAL_POST_BOOST",
                         ),
                     externalFqName = "network.lapis.cloud.shared.domain.LtrLedgerEntryType",
                 )

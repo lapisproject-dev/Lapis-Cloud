@@ -412,6 +412,16 @@ fun Application.module() {
     // never-a-constructor-default reasoning as socialCreateRateLimiter/streamingReadRateLimiter above.
     val socialReadRateLimiter = FederationInboxRateLimiter(maxRequests = 60, window = 1.minutes)
 
+    // V1.1.2 Soziales Netzwerk, Welle "Kommentarbaum, Boosts, rekursive Gesamtgewichtung" --
+    // boostPost's OWN budget (30/min), deliberately NOT shared with socialCreateRateLimiter (10/min)
+    // -- a boost is a frequent, cheap gesture (one click, plausibly several times per session),
+    // while createPost/createComment/hideOwnPost are rarer, more consequential creations. A shared
+    // budget would either throttle legitimate boosting or effectively raise the post-spam ceiling to
+    // accommodate it. Module-scoped, NEVER a constructor default -- same reasoning as
+    // socialCreateRateLimiter/socialReadRateLimiter above (see SocialNetworkService
+    // .requireBoostRateLimit KDoc).
+    val socialBoostRateLimiter = FederationInboxRateLimiter(maxRequests = 30, window = 1.minutes)
+
     // Fix (2026-08-14): must be installed BEFORE anything that reads call.request.origin (every
     // plugin/route below, plus every IP-keyed rate limiter in AuthRoutes/RegistrationService/
     // FederationRoutes/OidcRoutes) -- XForwardedHeaders overrides ApplicationRequest.origin from
@@ -505,6 +515,7 @@ fun Application.module() {
                 call = call,
                 createRateLimiter = socialCreateRateLimiter,
                 readRateLimiter = socialReadRateLimiter,
+                boostRateLimiter = socialBoostRateLimiter,
             )
         }
         registerService(IAuthService::class) { call -> AuthService(call) }

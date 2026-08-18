@@ -128,6 +128,7 @@ class SocialNetworkPersonalDataTest :
                                     call = call,
                                     createRateLimiter = FederationInboxRateLimiter(window = 1.minutes),
                                     readRateLimiter = FederationInboxRateLimiter(window = 1.minutes),
+                                    boostRateLimiter = FederationInboxRateLimiter(window = 1.minutes),
                                 )
                             val p =
                                 service.createPost(
@@ -177,6 +178,7 @@ class SocialNetworkPersonalDataTest :
                                     call = call,
                                     createRateLimiter = FederationInboxRateLimiter(window = 1.minutes),
                                     readRateLimiter = FederationInboxRateLimiter(window = 1.minutes),
+                                    boostRateLimiter = FederationInboxRateLimiter(window = 1.minutes),
                                 )
                             val p =
                                 service.createPost(

@@ -219,6 +219,12 @@ CREATE TABLE committee_membership (
 -- same widening idempotently for an already-migrated deployment (pdv2) via a DROP/ADD pair that
 -- targets BOTH the pre-existing Postgres-auto-generated unnamed-constraint name AND this new
 -- explicit name -- see that migration's own header comment.
+--
+-- V1.1.2 (Soziales Netzwerk, "Kommentarbaum, Boosts, rekursive Gesamtgewichtung"): the SAME
+-- entry_type CHECK constraint is edited in place AGAIN, this time to add SOCIAL_POST_BOOST --
+-- identical pattern, identical operator caveat (see V5__social_post_boost.sql's own header and this
+-- wave's CHANGELOG.md entry: `flyway repair` is needed again before the next pdv2 deploy, this is
+-- NOT already covered by the V1.1.1 note above).
 CREATE TABLE ltr_ledger_entry (
     id UUID NOT NULL PRIMARY KEY,
     entry_type VARCHAR(21) NOT NULL,
@@ -232,7 +238,7 @@ CREATE TABLE ltr_ledger_entry (
     CONSTRAINT chk_ltr_ledger_entry_entry_type CHECK (entry_type IN (
         'MINT', 'PROJECT_STAKE', 'PROJECT_STAKE_RELEASE', 'VOTE_STAKE', 'PEER_TRANSFER_OUT', 'PEER_TRANSFER_IN',
         'AUCTION_LISTING_FEE', 'AUCTION_HOLD', 'AUCTION_HOLD_RELEASE', 'AUCTION_SALE_OUT', 'AUCTION_SALE_IN',
-        'SOCIAL_POST_STAKE'
+        'SOCIAL_POST_STAKE', 'SOCIAL_POST_BOOST'
     )),
     CONSTRAINT chk_ltr_ledger_entry_reference_type
         CHECK (reference_type IN ('CROWDFUNDING_PROJECT', 'VOTE', 'PEER_TRANSFER', 'AUCTION', 'SOCIAL_POST'))

@@ -71,4 +71,34 @@ object SocialVisibility {
             }
         return visibilityCondition and (SocialPostTable.state neq SocialPostState.REMOVED_LEGAL)
     }
+
+    /**
+     * NEU Welle V1.1.2 (X4, Implementierungsplan Stolperfalle 9): pure-Kotlin Zwilling von
+     * [readableByCondition] für bereits IN-MEMORY geladene Zeilen (Exposed's `Op<Boolean>` kann nur
+     * in einer `WHERE`-Klausel ausgewertet werden, nicht gegen einen schon geladenen [ResultRow]).
+     * Gebraucht von [SocialNetworkService.getThread]/[SocialNetworkService.createComment]/
+     * [SocialNetworkService.boostPost] als Defense-in-Depth-Prüfung EINZELNER Knoten eines bereits
+     * geladenen Teilbaums, gegen eine (durch fehlerhafte Daten theoretisch mögliche) eingeschleuste
+     * Zeile mit abweichender Sichtbarkeit -- die eigentliche Sichtbarkeits-VERERBUNG (S5) sorgt
+     * dafür, dass in einem korrekten Datenbestand jeder Knoten ohnehin dieselbe Sichtbarkeitsstufe
+     * wie sein Wurzel-Post trägt. **Muss inhaltlich synchron zu [readableByCondition] bleiben** --
+     * beide Funktionen kodieren dieselbe Regel zweimal (einmal als SQL-`WHERE`, einmal als reine
+     * Kotlin-Prädikatfunktion), weil Exposed keinen Weg bietet, eine `Op<Boolean>` gegen einen
+     * bereits materialisierten Wert auszuwerten, ohne eine zweite (nutzlose) Datenbank-Rundreise.
+     */
+    fun isReadable(
+        visibility: SocialPostVisibility,
+        state: SocialPostState,
+        status: MemberStatus,
+    ): Boolean {
+        if (state == SocialPostState.REMOVED_LEGAL) return false
+        val allowed =
+            when {
+                status in MemberStatusSets.ORGANIZATION_MEMBER ->
+                    setOf(SocialPostVisibility.PUBLIC, SocialPostVisibility.MEMBERS_ONLY, SocialPostVisibility.MEMBERS_AND_EXTERNAL)
+                status in MemberStatusSets.NON_MEMBER -> setOf(SocialPostVisibility.PUBLIC, SocialPostVisibility.MEMBERS_AND_EXTERNAL)
+                else -> setOf(SocialPostVisibility.PUBLIC)
+            }
+        return visibility in allowed
+    }
 }
