@@ -8,18 +8,15 @@ import kotlinx.datetime.toInstant
 import kotlinx.datetime.toLocalDateTime
 import network.lapis.cloud.server.db.DbClock
 import network.lapis.cloud.server.db.generated.LtrLedgerEntryTable
-import network.lapis.cloud.server.db.generated.MemberTable
 import network.lapis.cloud.server.db.generated.SocialPostBoostTable
 import network.lapis.cloud.server.db.generated.SocialPostTable
 import network.lapis.cloud.server.economy.LedgerBackedLtrBalanceProvider
 import network.lapis.cloud.server.economy.LtrBalanceProvider
-import network.lapis.cloud.server.economy.WeightDecayClock
 import network.lapis.cloud.server.federation.FederationInboxRateLimiter
 import network.lapis.cloud.server.security.resolveCurrentMember
 import network.lapis.cloud.shared.domain.LtrLedgerEntryType
 import network.lapis.cloud.shared.domain.LtrLedgerReferenceType
 import network.lapis.cloud.shared.domain.MemberStatus
-import network.lapis.cloud.shared.domain.MemberStatusSets
 import network.lapis.cloud.shared.domain.SocialCommentInput
 import network.lapis.cloud.shared.domain.SocialPostDto
 import network.lapis.cloud.shared.domain.SocialPostInput
@@ -34,14 +31,12 @@ import network.lapis.cloud.shared.rpc.ISocialNetworkService
 import network.lapis.cloud.shared.rpc.NotFoundException
 import org.jetbrains.exposed.v1.core.Op
 import org.jetbrains.exposed.v1.core.ResultRow
-import org.jetbrains.exposed.v1.core.SortOrder
 import org.jetbrains.exposed.v1.core.and
 import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.core.greaterEq
 import org.jetbrains.exposed.v1.core.inList
 import org.jetbrains.exposed.v1.core.isNull
 import org.jetbrains.exposed.v1.jdbc.insert
-import org.jetbrains.exposed.v1.jdbc.select
 import org.jetbrains.exposed.v1.jdbc.selectAll
 import org.jetbrains.exposed.v1.jdbc.transactions.transaction
 import org.jetbrains.exposed.v1.jdbc.update
@@ -57,33 +52,24 @@ private const val MAX_CONTENT_LENGTH = 5_000
 private const val MAX_TIMELINE_LIMIT = 100
 
 /**
- * Review-Fund S1 (2026-08-18): defensiver DB-seitiger Deckel für [SocialNetworkService.listTimeline]s
- * Kandidaten-Menge -- UNABHÄNGIG von [SocialTimelineQuery.limit]/`.offset` (der Seitengröße), weil
- * die eigentliche Sortierung nach Gewicht in Kotlin passiert (Gewicht ist nirgends eine SQL-Spalte,
- * siehe [SocialPostWeight] KDoc), nicht per SQL `ORDER BY` -- ein `.limit(offset + limit)` VOR der
- * Sortierung würde beliebige statt die tatsächlich gewichtsstärksten Zeilen liefern und die
- * Rangfolge stillschweigend verfälschen. Dieser Deckel greift zusätzlich zum
- * [SocialPostWeight.RANKING_HORIZON_DAYS]-Zeitfenster-Filter (der die Kandidatenmenge fachlich
- * bereits stark eingrenzt) als reiner Speicher-/Query-Größen-Backstop für den Fall, dass eine
- * Organisation binnen des Horizonts dennoch ungewöhnlich viele Posts anhäuft -- bei
- * SQL-seitigem `ORDER BY published_at DESC` vor dem Cut werden im (praktisch unerreichbaren)
- * Überlauf-Fall die neuesten Beiträge bevorzugt behalten, ein plausibler Least-Surprise-Kompromiss,
- * kein Korrektheits-Anspruch für Rang N jenseits dieses Deckels. NEU-5 (Review Runde 2,
- * 2026-08-18): der `RANKING_HORIZON_DAYS`-Filter gilt NICHT für `selfHiddenView` (die eigene
- * Übersicht des Autors, siehe [SocialNetworkService.listTimeline]) -- dieser Deckel hier bleibt
- * dort trotzdem als unabhängiger Speicher-Backstop aktiv.
- */
-private const val MAX_TIMELINE_WORKING_SET_ROWS = 2_000
-
-/**
  * Soziales Netzwerk, Welle V1.1.1 "Fundament & Post-Kern" + Welle V1.1.2 "Kommentarbaum, Boosts,
- * rekursive Gesamtgewichtung" -- see `32-social-network.kuml.kts` file header and
- * [ISocialNetworkService] KDoc for the full fachlich model. Write pattern is 1:1 modelled after
- * `CrowdfundingService.submitProject` (rate limit -> validate -> membership gate ->
- * `lockForDebit` -> `freeBalance` check -> insert business row -> insert ledger debit), see that
- * method's own KDoc for the lock-ordering rationale this mirrors. **Lock-Reihenfolge im gesamten
- * Modul: POST-Zeile -> MEMBER-Zeile, niemals umgekehrt** -- sonst Deadlock gegen einen parallelen
- * `boostPost`/`createComment`, bzw. gegen `CrowdfundingService`/`GovernanceService`.
+ * rekursive Gesamtgewichtung" + Welle V1.1.3 "Öffentlicher SEO-Lesepfad" -- see
+ * `32-social-network.kuml.kts` file header and [ISocialNetworkService] KDoc for the full fachlich
+ * model. Write pattern is 1:1 modelled after `CrowdfundingService.submitProject` (rate limit ->
+ * validate -> membership gate -> `lockForDebit` -> `freeBalance` check -> insert business row ->
+ * insert ledger debit), see that method's own KDoc for the lock-ordering rationale this mirrors.
+ * **Lock-Reihenfolge im gesamten Modul: POST-Zeile -> MEMBER-Zeile, niemals umgekehrt** -- sonst
+ * Deadlock gegen einen parallelen `boostPost`/`createComment`, bzw. gegen
+ * `CrowdfundingService`/`GovernanceService`.
+ *
+ * **Welle V1.1.3**: the actual load/aggregate/map pipeline behind [listTimeline]/[getPost]/
+ * [getThread] was extracted (moved, not copied) into [SocialReadPipeline] -- it is now shared
+ * verbatim with the new unauthenticated public HTTP read path
+ * (`network.lapis.cloud.server.routes.SocialPublicRoutes`). This class retains everything
+ * caller-specific: auth (`resolveCurrentMember`), rate limiting, and building the
+ * [SocialVisibility.readableByCondition]-based `condition`/`nodeReadable` arguments the pipeline
+ * takes as parameters. `SocialReadPipeline.SocialReadCaps.AUTHENTICATED` is passed at every call
+ * site below -- the public path uses its own, stricter `.PUBLIC` caps instead, see that class KDoc.
  *
  * [createRateLimiter]/[readRateLimiter]/[boostRateLimiter] are request-rate limiters (not
  * failure-rate ones, see [FederationInboxRateLimiter] KDoc) -- module-scoped, constructed once in
@@ -402,115 +388,24 @@ class SocialNetworkService(
             // that branch is the author's own complete overview of their own posts (not a
             // "ranking" in the weight-sorted sense the horizon exists to bound), so an own post
             // older than the horizon must not silently vanish from the author's own view of it.
-            // MAX_TIMELINE_WORKING_SET_ROWS below still caps selfHiddenView as a separate,
-            // unconditional DoS backstop. Welle V1.1.2 extends the same exemption to the subtree
-            // load below (loadSubtreeRows' own `horizon` argument).
+            // SocialReadPipeline.SocialReadCaps.AUTHENTICATED.workingSetRows below still caps
+            // selfHiddenView as a separate, unconditional DoS backstop. Welle V1.1.2 extends the
+            // same exemption to the subtree load below (the `horizon` argument passed to
+            // SocialReadPipeline.timelinePage).
             if (!selfHiddenView) {
                 condition = condition and (SocialPostTable.publishedAt greaterEq horizon)
             }
 
-            // Security-Audit-Fund S-3 (2026-08-18): ranking only ever needs id/publishedAt/rootId
-            // here (Welle V1.1.2: rootId added, to resolve the candidate roots' full subtrees below)
-            // -- loading every OTHER column (content up to 5000 chars, visibility, state, ...) for
-            // up to MAX_TIMELINE_WORKING_SET_ROWS rows just to discard all but <=MAX_TIMELINE_LIMIT
-            // of them afterwards was pure waste. Project only the ranking-relevant columns here; the
-            // full row is loaded further below, ONLY for the <=MAX_TIMELINE_LIMIT ids that actually
-            // survive paging.
-            val rankingRows =
-                SocialPostTable
-                    .select(
-                        SocialPostTable.id,
-                        SocialPostTable.publishedAt,
-                        SocialPostTable.rootId,
-                        // Fund #9 (Review Runde 1, 2026-08-18): needed below ONLY as the ranking
-                        // comparator's fallback when totalWeightById is missing an entry -- still a
-                        // single scalar column, not the S-3 violation `content` would be.
-                        SocialPostTable.initialWeightLtr,
-                    ).where { condition }
-                    // Defensive backstop, independent of the horizon filter above -- see
-                    // MAX_TIMELINE_WORKING_SET_ROWS KDoc for why this can't just be
-                    // .limit(offset + limit): sorting by weight happens below, in Kotlin, not here.
-                    .orderBy(SocialPostTable.publishedAt, SortOrder.DESC)
-                    .limit(MAX_TIMELINE_WORKING_SET_ROWS)
-                    .toList()
-
-            // Welle V1.1.2: resolve every candidate root's FULL subtree in ONE additional query
-            // (root_id inList ...), then aggregate Gesamtgewicht in Kotlin -- see SocialPostWeight
-            // KDoc "Live-rekursive Berechnung zur Lesezeit, ohne SQL-Rekursion".
-            val rootIds = rankingRows.map { it[SocialPostTable.rootId] }.distinct()
             val subtreeHorizon = if (selfHiddenView) null else horizon
-            val subtreeRows =
-                loadSubtreeRows(rootIds = rootIds, horizon = subtreeHorizon, maxRows = SocialPostWeight.TIMELINE_MAX_DESCENDANT_ROWS)
-            val weightNodes = subtreeRows.map { it.toWeightNode() }
-            val subtreeIds = subtreeRows.map { it[SocialPostTable.id] }
-            val boosts = loadBoosts(postIds = subtreeIds, maxRows = SocialPostWeight.TIMELINE_MAX_BOOST_ROWS)
-            // Review-Fund S1 (2026-08-18) lesson, still true in V1.1.2: compute every row's weight
-            // EXACTLY ONCE into a map before sorting -- never inside the comparator.
-            //
-            // Security-Audit-Fund S-A2 (2026-08-18): a single aggregateWeightsUnrounded call yields
-            // BOTH totalWeightById and ownWeightById from the same internal fold -- see that
-            // function's KDoc. Previously ownWeightByIdOf recomputed every node's own weight a
-            // SECOND time below, discarding the internal ownById map aggregateWeightsUnrounded (nee
-            // totalWeightsUnrounded) already built and threw away.
-            val aggregated = SocialPostWeight.aggregateWeightsUnrounded(nodes = weightNodes, boostsByPostId = boosts, now = now)
-            val totalWeightById = aggregated.totalById
-
-            // Fund #9 (Review Runde 1, 2026-08-18): the fallback here must match toDtos' own
-            // fallback (Eigengewicht, not BigDecimal.ZERO) -- a missing entry in totalWeightById
-            // only happens in the (practically unreachable) TIMELINE_MAX_DESCENDANT_ROWS overflow
-            // case, and a ZERO fallback here while toDtos still shows the row's real own weight
-            // would rank the SAME row far lower than what its own displayed weight suggests.
-            // Recomputing ownWeightUnrounded costs nothing extra: initialWeightLtr/publishedAt are
-            // already part of this lightweight ranking projection.
-            val ranked =
-                rankingRows.sortedWith(
-                    compareByDescending<ResultRow> { row ->
-                        totalWeightById[row[SocialPostTable.id]] ?: SocialPostWeight.ownWeightUnrounded(
-                            initialWeightLtr = row[SocialPostTable.initialWeightLtr],
-                            publishedAt = row[SocialPostTable.publishedAt],
-                            now = now,
-                        )
-                    }.thenByDescending { it[SocialPostTable.publishedAt] }
-                        .thenBy { it[SocialPostTable.id].toString() },
-                )
-            // S-3: resolve the final page's ids from the lightweight ranking above FIRST, then load
-            // full rows for ONLY those ids -- never for the whole (up to 2000-row) candidate set.
-            val pageIds = ranked.drop(offset).take(limit).map { it[SocialPostTable.id] }
-            val fullRowById =
-                if (pageIds.isEmpty()) {
-                    emptyMap()
-                } else {
-                    // N-1 (Welle V1.1.2): re-apply `condition`, not just `id inList pageIds` -- the
-                    // ids already came from a condition-filtered set, so this changes nothing
-                    // observable, but keeps the visibility invariant explicit at every query where
-                    // it must hold (defense in depth, deliberately NOT "optimized away").
-                    SocialPostTable
-                        .selectAll()
-                        .where { (SocialPostTable.id inList pageIds) and condition }
-                        .associateBy { it[SocialPostTable.id] }
-                }
-            // `inList` gives no row-order guarantee of its own -- rebuild the page in ranked order.
-            val page = pageIds.mapNotNull { fullRowById[it] }
-
-            val stateById = subtreeRows.associate { it[SocialPostTable.id] to it[SocialPostTable.state] }
-            val suppressed = SocialPostWeight.suppressedIds(nodes = weightNodes, stateById = stateById)
-            val countsById = SocialPostWeight.descendantCounts(weightNodes.filter { it.id !in suppressed })
-            val boostCountById = boosts.mapValues { it.value.size }
-            val ownWeightById = aggregated.ownById
-
-            SocialTimelinePageDto(
-                posts =
-                    toDtos(
-                        rows = page,
-                        now = now,
-                        viewerStatus = current.status,
-                        totalWeightById = totalWeightById,
-                        countsById = countsById,
-                        boostCountById = boostCountById,
-                        ownWeightById = ownWeightById,
-                    ),
-                totalRankedCount = ranked.size,
-                rankingHorizonFrom = ranked.lastOrNull()?.get(SocialPostTable.publishedAt) ?: now,
+            SocialReadPipeline.timelinePage(
+                condition = condition,
+                horizon = subtreeHorizon,
+                limit = limit,
+                offset = offset,
+                now = now,
+                viewerStatus = current.status,
+                caps = SocialReadPipeline.SocialReadCaps.AUTHENTICATED,
+                ltrBalanceProvider = ltrBalanceProvider,
             )
         }
     }
@@ -520,12 +415,11 @@ class SocialNetworkService(
      * gefundener Post und ein existierender, aber für [current] nicht sichtbarer Post liefern
      * identisch [NotFoundException], kein Existenz-Orakel (siehe Implementierungsplan § 7.2 X3).
      *
-     * **Kostenfalle (Welle V1.1.2)**: ergänzt um einen Teilbaum-Load (`rootId eq row[rootId]`,
-     * gedeckelt bei [SocialPostWeight.THREAD_MAX_NODES]) zur Berechnung von
-     * [SocialPostDto.totalCurrentWeightLtr] und den Zählern -- `getPost` auf einen Knoten eines
-     * 5000-Knoten-Threads lädt jetzt den ganzen Thread. Das ist unvermeidbar (das Gesamtgewicht ist
-     * definitionsgemäß eine Baumsumme) und durch [SocialPostWeight.THREAD_MAX_NODES] +
-     * [readRateLimiter] gedeckelt.
+     * **Kostenfalle (Welle V1.1.2)**: [SocialReadPipeline.post] lädt zur Berechnung von
+     * [SocialPostDto.totalCurrentWeightLtr] und den Zählern den ganzen Thread -- `getPost` auf
+     * einen Knoten eines 5000-Knoten-Threads lädt jetzt den ganzen Thread. Das ist unvermeidbar
+     * (das Gesamtgewicht ist definitionsgemäß eine Baumsumme) und durch
+     * [SocialPostWeight.THREAD_MAX_NODES] + [readRateLimiter] gedeckelt.
      */
     override suspend fun getPost(id: String): SocialPostDto {
         val current = resolveCurrentMember(call)
@@ -533,13 +427,14 @@ class SocialNetworkService(
         val postId = id.toSocialUuid()
         val now = DbClock.nowLocalDateTime()
         return transaction {
-            val row =
-                SocialPostTable
-                    .selectAll()
-                    .where { (SocialPostTable.id eq postId) and SocialVisibility.readableByCondition(status = current.status) }
-                    .singleOrNull()
-                    ?: throw NotFoundException("SocialPost $id not found")
-            dtoWithSubtreeAggregation(row = row, now = now, viewerStatus = current.status)
+            SocialReadPipeline.post(
+                postUuid = postId,
+                condition = SocialVisibility.readableByCondition(status = current.status),
+                now = now,
+                viewerStatus = current.status,
+                caps = SocialReadPipeline.SocialReadCaps.AUTHENTICATED,
+                ltrBalanceProvider = ltrBalanceProvider,
+            ) ?: throw NotFoundException("SocialPost $id not found")
         }
     }
 
@@ -554,92 +449,15 @@ class SocialNetworkService(
         val rootUuid = rootId.toSocialUuid()
         val now = DbClock.nowLocalDateTime()
         return transaction {
-            val rootRow =
-                SocialPostTable
-                    .selectAll()
-                    .where { (SocialPostTable.id eq rootUuid) and SocialVisibility.readableByCondition(status = current.status) }
-                    .singleOrNull()
-                    ?: throw NotFoundException("SocialPost $rootId not found")
-            // K4: only a genuine root id is accepted -- a comment id must resolve via getPost(id).rootId first.
-            if (rootRow[SocialPostTable.rootId] != rootUuid) throw NotFoundException("SocialPost $rootId not found")
-            // K3: no existence oracle -- a hidden/removed root is NotFound, not an empty-but-counted thread.
-            if (rootRow[SocialPostTable.state] != SocialPostState.VISIBLE) throw NotFoundException("SocialPost $rootId not found")
-
-            val subtreeRows =
-                loadSubtreeRows(
-                    rootIds = listOf(rootUuid),
-                    horizon = null,
-                    maxRows = SocialPostWeight.THREAD_MAX_NODES + 1,
-                    rootFirst = true,
-                )
-            val totalNodeCount = subtreeRows.size
-            val truncated = totalNodeCount > SocialPostWeight.THREAD_MAX_NODES
-            val limitedRows = if (truncated) subtreeRows.take(SocialPostWeight.THREAD_MAX_NODES) else subtreeRows
-
-            val weightNodes = limitedRows.map { it.toWeightNode() }
-            val nodeIds = limitedRows.map { it[SocialPostTable.id] }
-            val boosts = loadBoosts(postIds = nodeIds, maxRows = SocialPostWeight.TIMELINE_MAX_BOOST_ROWS)
-            // Security-Audit-Fund S-A2 (2026-08-18): one aggregateWeightsUnrounded call yields both
-            // maps -- see listTimeline's own identical fix for the full rationale.
-            val aggregated = SocialPostWeight.aggregateWeightsUnrounded(nodes = weightNodes, boostsByPostId = boosts, now = now)
-            val totalWeightById = aggregated.totalById
-            val stateById = limitedRows.associate { it[SocialPostTable.id] to it[SocialPostTable.state] }
-            val suppressed = SocialPostWeight.suppressedIds(nodes = weightNodes, stateById = stateById)
-            val countsById = SocialPostWeight.descendantCounts(weightNodes.filter { it.id !in suppressed })
-            val boostCountById = boosts.mapValues { it.value.size }
-            val ownWeightById = aggregated.ownById
-
-            // X4 Defense-in-Depth: exclude a node whose OWN visibility/state, checked individually
-            // (not inherited from the root), is not readable for this caller -- on top of state-based
-            // suppression above.
-            val displayableIds =
-                limitedRows
-                    .filter { row ->
-                        val id = row[SocialPostTable.id]
-                        id !in suppressed &&
-                            SocialVisibility.isReadable(
-                                visibility = row[SocialPostTable.visibility],
-                                state = row[SocialPostTable.state],
-                                status = current.status,
-                            )
-                    }.map { it[SocialPostTable.id] }
-            // [loadSubtreeRows]' slim projection has no authorMemberId/content/stateReason -- [toDtos]
-            // needs the FULL row. Reload full rows for ONLY the ids that survive filtering, same "full
-            // row only for what actually renders" discipline as [listTimeline]'s own N-1 page reload.
-            //
-            // Fund #11 (Review Runde 1, 2026-08-18): re-apply [SocialVisibility.readableByCondition]
-            // here too, not just `id inList displayableIds` -- [displayableIds] was already
-            // visibility-filtered above via [SocialVisibility.isReadable] on the in-memory rows, so
-            // this changes nothing observable today, but keeps the visibility invariant explicit at
-            // EVERY query where it must hold, exactly the defense-in-depth discipline
-            // [listTimeline]'s own N-1 fix documents -- deliberately NOT "optimized away".
-            val fullRowById =
-                if (displayableIds.isEmpty()) {
-                    emptyMap()
-                } else {
-                    SocialPostTable
-                        .selectAll()
-                        .where {
-                            (SocialPostTable.id inList displayableIds) and
-                                SocialVisibility.readableByCondition(status = current.status)
-                        }.associateBy { it[SocialPostTable.id] }
-                }
-            val preorder = buildPreorder(rows = displayableIds.mapNotNull { fullRowById[it] }, totalWeightById = totalWeightById)
-
-            SocialThreadDto(
-                nodes =
-                    toDtos(
-                        rows = preorder,
-                        now = now,
-                        viewerStatus = current.status,
-                        totalWeightById = totalWeightById,
-                        countsById = countsById,
-                        boostCountById = boostCountById,
-                        ownWeightById = ownWeightById,
-                    ),
-                truncated = truncated,
-                totalNodeCount = totalNodeCount,
-            )
+            SocialReadPipeline.thread(
+                rootUuid = rootUuid,
+                condition = SocialVisibility.readableByCondition(status = current.status),
+                nodeReadable = { v, s -> SocialVisibility.isReadable(visibility = v, state = s, status = current.status) },
+                now = now,
+                viewerStatus = current.status,
+                caps = SocialReadPipeline.SocialReadCaps.AUTHENTICATED,
+                ltrBalanceProvider = ltrBalanceProvider,
+            ) ?: throw NotFoundException("SocialPost $rootId not found")
         }
     }
 
@@ -765,7 +583,7 @@ class SocialNetworkService(
     /**
      * Review-Fund S1 (2026-08-18): [now] minus [SocialPostWeight.RANKING_HORIZON_DAYS], via
      * `Instant`-difference against a fixed [TimeZone.UTC] reference -- same discipline as
-     * [WeightDecayClock.daysElapsed], never calendar-day subtraction.
+     * `WeightDecayClock.daysElapsed`, never calendar-day subtraction.
      */
     private fun rankingHorizon(now: LocalDateTime): LocalDateTime =
         (now.toInstant(TimeZone.UTC) - SocialPostWeight.RANKING_HORIZON_DAYS.days).toLocalDateTime(TimeZone.UTC)
@@ -809,183 +627,10 @@ class SocialNetworkService(
     }
 
     /**
-     * Lädt den vollständigen Wald unter [rootIds] in EINER Query (`root_id inList rootIds`) -- die
-     * Wurzeln selbst eingeschlossen, weil `root_id` für eine Wurzel auf sie selbst zeigt
-     * (V4-Invariante). KEIN ebenenweiser Abstieg, KEIN `WITH RECURSIVE`: `root_id` (S1) macht den
-     * Teilbaum zu einem flachen Prädikat, und die eigentliche Rekursion findet in
-     * [SocialPostWeight.totalWeightsUnrounded] statt -- in Kotlin/`BigDecimal`, weil die
-     * Zerfallsmathematik niemals in SQL wandern darf (`POWER()` ist in H2 wie in Postgres
-     * Fließkomma, das bricht die 40-Jahre-Reproduzierbarkeit).
-     *
-     * Schlanke Projektion (`id`, `parentId`, `rootId`, `depth`, `initialWeightLtr`, `publishedAt`,
-     * `state`, `visibility`) -- NIEMALS `selectAll()`: `content` ist bis zu 5000 Zeichen und wird
-     * für die Aggregation nie gebraucht (dieselbe Lehre wie Security-Fund S-3 auf der Wurzel-Ebene).
-     * [horizon] ist `null` für [getThread]/[getPost] (dort will man den vollständigen Thread) und
-     * gesetzt für [listTimeline].
-     *
-     * **Fund #2 (Review Runde 1, 2026-08-18)**: ein reiner `publishedAt DESC`-Cut lässt bei jedem
-     * Überlauf (`maxRows` überschritten) die WURZEL herausfallen -- die Wurzel ist per Definition
-     * der ÄLTESTE Knoten ihres Teilbaums, also immer das erste Opfer eines "behalte die neuesten N"-
-     * Schnitts. Fehlt die Wurzel im Zeilensatz, findet [buildPreorder] (das nur bei `parentId ==
-     * null` startet) keine Wurzel mehr und liefert einen LEEREN Thread mit `truncated = true` --
-     * ein übergroßer, aber realer Thread, der wie ein leerer aussieht, und ein günstiger DoS-Hebel
-     * (ca. 5000 billige Kommentare auf einen Post, und der gesamte Thread verschwindet für jeden
-     * Leser). [rootFirst] behebt das für die Thread-LESEPFADE ([getThread]/
-     * [dtoWithSubtreeAggregation]): Sortierung `depth ASC, publishedAt ASC` statt `publishedAt
-     * DESC` -- die Wurzel hat `depth = 0`, ist also IMMER die allererste Zeile, und weil jedes Kind
-     * per Konstruktion `depth = parent.depth + 1` hat, kann ein `.limit()`/`.take()`-Schnitt auf
-     * dieser Sortierung nur Knoten verlieren, deren ELTERNTEIL bereits früher in derselben
-     * Sortierung enthalten war -- kein erreichbares-aber-elternloses Kind entsteht. [listTimeline]s
-     * eigener Teilbaum-Load behält bewusst das ALTE `publishedAt DESC`-Verhalten (siehe
-     * [SocialPostWeight.TIMELINE_MAX_DESCENDANT_ROWS] KDoc "die jüngsten Nachfahren tragen das
-     * meiste Gewicht") -- dort sind die Kandidaten-Wurzeln bereits über `rankingRows` fixiert, eine
-     * dort verlorene Wurzel ist also nicht dasselbe Fehlerbild wie hier.
-     */
-    private fun loadSubtreeRows(
-        rootIds: List<Uuid>,
-        horizon: LocalDateTime?,
-        maxRows: Int,
-        rootFirst: Boolean = false,
-    ): List<ResultRow> {
-        if (rootIds.isEmpty()) return emptyList()
-        var condition: Op<Boolean> = SocialPostTable.rootId inList rootIds
-        if (horizon != null) {
-            condition = condition and (SocialPostTable.publishedAt greaterEq horizon)
-        }
-        val query =
-            SocialPostTable
-                .select(
-                    SocialPostTable.id,
-                    SocialPostTable.parentId,
-                    SocialPostTable.rootId,
-                    SocialPostTable.depth,
-                    SocialPostTable.initialWeightLtr,
-                    SocialPostTable.publishedAt,
-                    SocialPostTable.state,
-                    SocialPostTable.visibility,
-                ).where { condition }
-        val sorted =
-            if (rootFirst) {
-                query.orderBy(SocialPostTable.depth to SortOrder.ASC, SocialPostTable.publishedAt to SortOrder.ASC)
-            } else {
-                query.orderBy(SocialPostTable.publishedAt, SortOrder.DESC)
-            }
-        return sorted.limit(maxRows).toList()
-    }
-
-    /** Alle Boosts zu [postIds] in EINER Query -- Anti-N+1-Muster wie `CrowdfundingService.reactionCountsByProject`. */
-    private fun loadBoosts(
-        postIds: List<Uuid>,
-        maxRows: Int,
-    ): Map<Uuid, List<SocialPostWeight.BoostContribution>> {
-        if (postIds.isEmpty()) return emptyMap()
-        return SocialPostBoostTable
-            .select(SocialPostBoostTable.postId, SocialPostBoostTable.amountLtr, SocialPostBoostTable.boostedAt)
-            .where { SocialPostBoostTable.postId inList postIds }
-            .orderBy(SocialPostBoostTable.boostedAt, SortOrder.DESC)
-            .limit(maxRows)
-            .toList()
-            .groupBy { it[SocialPostBoostTable.postId] }
-            .mapValues { (_, rows) ->
-                rows.map {
-                    SocialPostWeight.BoostContribution(
-                        amountLtr = it[SocialPostBoostTable.amountLtr],
-                        boostedAt = it[SocialPostBoostTable.boostedAt],
-                    )
-                }
-            }
-    }
-
-    /**
-     * K1: builds the flat preorder [rows] must be delivered in for [SocialThreadDto.nodes] --
-     * root(s) first, then each node's children ordered by [totalWeightById] descending, tiebreak
-     * `publishedAt` ascending, then `id`. Recursion depth is bounded by [SocialPostWeight.MAX_DEPTH]
-     * (64, enforced at write time in [createComment]), so this is never at risk of a stack overflow
-     * regardless of a thread's breadth (up to [SocialPostWeight.THREAD_MAX_NODES] siblings at any
-     * one level are fine -- only the recursion DEPTH matters for stack safety, and that is capped).
-     */
-    private fun buildPreorder(
-        rows: List<ResultRow>,
-        totalWeightById: Map<Uuid, BigDecimal>,
-    ): List<ResultRow> {
-        val byParent = rows.filter { it[SocialPostTable.parentId] != null }.groupBy { it[SocialPostTable.parentId] }
-        val roots = rows.filter { it[SocialPostTable.parentId] == null }
-        val siblingComparator =
-            compareByDescending<ResultRow> { totalWeightById[it[SocialPostTable.id]] ?: BigDecimal.ZERO }
-                .thenBy { it[SocialPostTable.publishedAt] }
-                .thenBy { it[SocialPostTable.id].toString() }
-        val result = mutableListOf<ResultRow>()
-
-        fun visit(node: ResultRow) {
-            result += node
-            byParent[node[SocialPostTable.id]].orEmpty().sortedWith(siblingComparator).forEach { visit(it) }
-        }
-        roots.sortedWith(siblingComparator).forEach { visit(it) }
-        return result
-    }
-
-    private fun ResultRow.toWeightNode(): SocialPostWeight.WeightNode =
-        SocialPostWeight.WeightNode(
-            id = this[SocialPostTable.id],
-            parentId = this[SocialPostTable.parentId],
-            depth = this[SocialPostTable.depth],
-            initialWeightLtr = this[SocialPostTable.initialWeightLtr],
-            publishedAt = this[SocialPostTable.publishedAt],
-        )
-
-    /**
-     * Shared by [getPost] and [loadPostOrThrow]: loads [row]'s full subtree (via its `root_id`),
-     * aggregates Gesamtgewicht/Zähler/Boosts, and returns the DTO for exactly this one row. See
-     * [getPost] KDoc "Kostenfalle" for the cost this incurs on a large thread.
-     */
-    private fun dtoWithSubtreeAggregation(
-        row: ResultRow,
-        now: LocalDateTime,
-        viewerStatus: MemberStatus,
-    ): SocialPostDto {
-        val rootId = row[SocialPostTable.rootId]
-        val subtreeRows =
-            loadSubtreeRows(rootIds = listOf(rootId), horizon = null, maxRows = SocialPostWeight.THREAD_MAX_NODES, rootFirst = true)
-        val weightNodes = subtreeRows.map { it.toWeightNode() }
-        val nodeIds = subtreeRows.map { it[SocialPostTable.id] }
-        val boosts = loadBoosts(postIds = nodeIds, maxRows = SocialPostWeight.TIMELINE_MAX_BOOST_ROWS)
-        // Security-Audit-Fund S-A2 (2026-08-18): one aggregateWeightsUnrounded call yields both
-        // maps -- see listTimeline's own identical fix for the full rationale.
-        val aggregated = SocialPostWeight.aggregateWeightsUnrounded(nodes = weightNodes, boostsByPostId = boosts, now = now)
-        val totalWeightById = aggregated.totalById
-        val stateById = subtreeRows.associate { it[SocialPostTable.id] to it[SocialPostTable.state] }
-        val suppressed = SocialPostWeight.suppressedIds(nodes = weightNodes, stateById = stateById)
-        val countsById = SocialPostWeight.descendantCounts(weightNodes.filter { it.id !in suppressed })
-        val boostCountById = boosts.mapValues { it.value.size }
-        val ownWeightById = aggregated.ownById
-        return toDtos(
-            rows = listOf(row),
-            now = now,
-            viewerStatus = viewerStatus,
-            totalWeightById = totalWeightById,
-            countsById = countsById,
-            boostCountById = boostCountById,
-            ownWeightById = ownWeightById,
-        ).single()
-    }
-
-    private fun loadPostOrThrow(
-        id: Uuid,
-        now: LocalDateTime,
-        viewerStatus: MemberStatus,
-    ): SocialPostDto {
-        val row =
-            SocialPostTable.selectAll().where { SocialPostTable.id eq id }.singleOrNull()
-                ?: throw NotFoundException("SocialPost $id not found")
-        return dtoWithSubtreeAggregation(row = row, now = now, viewerStatus = viewerStatus)
-    }
-
-    /**
      * Security-Audit-Fund S-A1 (2026-08-18): called by [createPost]/[createComment]/[boostPost]/
      * [hideOwnPost] AFTER their own write transaction has already committed -- opens a SECOND,
-     * separate, lock-free read transaction that runs [loadPostOrThrow]'s subtree aggregation (up to
-     * [SocialPostWeight.THREAD_MAX_NODES] rows plus up to [SocialPostWeight.TIMELINE_MAX_BOOST_ROWS]
-     * boost rows) with NO row lock held on either the POST or MEMBER row.
+     * separate, lock-free read transaction that runs [SocialReadPipeline.post]'s subtree
+     * aggregation with NO row lock held on either the POST or MEMBER row.
      *
      * Before this fix, that same aggregation ran INSIDE the write transaction, while the `SELECT
      * ... FOR UPDATE` lock(s) taken earlier in that same transaction (POST row for
@@ -997,95 +642,26 @@ class SocialNetworkService(
      * `LAPIS_DB_POOL_SIZE` connection pool (default 10, see [network.lapis.cloud.server.db
      * .DatabaseConfig]), starving the WHOLE application, not just the social network module.
      *
-     * The row itself is already committed by the time this runs, so a plain, unlocked `SELECT` is
-     * sufficient and correct -- there is nothing left to protect against a concurrent writer here,
-     * only against reading a row that does not exist yet, which cannot happen since the write
-     * transaction above already committed it.
+     * The row itself is already committed by the time this runs, so `condition = Op.TRUE` (a plain,
+     * unlocked lookup by id alone) is sufficient and correct -- there is nothing left to protect
+     * against a concurrent writer here, only against reading a row that does not exist yet, which
+     * cannot happen since the write transaction above already committed it.
      */
     private fun loadPostAfterCommit(
         id: Uuid,
         now: LocalDateTime,
         viewerStatus: MemberStatus,
-    ): SocialPostDto = transaction { loadPostOrThrow(id = id, now = now, viewerStatus = viewerStatus) }
-
-    /**
-     * Batched author lookup (display name + free LTR balance) -- ONE query for every distinct
-     * author across [rows], not one query per row, same anti-N+1 discipline as
-     * `CrowdfundingService.reactionCountsByProject`/`LedgerBackedLtrBalanceProvider.freeBalances`.
-     *
-     * Security-Audit-Fund S-1 (2026-08-18): [SocialPostDto.authorFreeBalanceLtr] is only populated
-     * for a [viewerStatus] that is [MemberStatusSets.ORGANIZATION_MEMBER] -- same tier
-     * `LtrLedgerService.getMemberBalance` already requires for a FOREIGN member's balance (there
-     * via `LTR_TREASURY_ROLES`, an even narrower gate; here it's every ORGANIZATION_MEMBER,
-     * because the "Gewicht des Autors" figure is a deliberate, member-facing meritocracy feature
-     * of this timeline -- see [SocialNetworkScreen.kt][network.lapis.cloud.client
-     * .renderSocialPostCard]'s own KDoc). A [MemberStatusSets.NON_MEMBER] reader (self-registered
-     * FRIEND, no board approval needed) or an APPLICATION/WITHDRAWN/REJECTED caller gets `null`
-     * for every row instead -- and [ltrBalanceProvider.freeBalances] is skipped entirely for that
-     * caller, so this is also one fewer query for every non-member timeline read.
-     *
-     * **Welle V1.1.2**: [totalWeightById]/[countsById]/[boostCountById]/[ownWeightById] are
-     * PRE-COMPUTED by the caller, NEVER re-derived here per row (S1 lesson -- see
-     * [SocialPostWeight] KDoc). A missing entry in any of them (can happen for [loadPostOrThrow]
-     * right after an insert, before any real subtree existed to load from -- though in practice
-     * [dtoWithSubtreeAggregation] always loads at least the row itself) defaults to Eigengewicht/0,
-     * never an exception, never a silent `getValue` crash on the production path.
-     */
-    private fun toDtos(
-        rows: List<ResultRow>,
-        now: LocalDateTime,
-        viewerStatus: MemberStatus,
-        totalWeightById: Map<Uuid, BigDecimal>,
-        countsById: Map<Uuid, SocialPostWeight.DescendantCounts>,
-        boostCountById: Map<Uuid, Int>,
-        ownWeightById: Map<Uuid, BigDecimal>,
-    ): List<SocialPostDto> {
-        if (rows.isEmpty()) return emptyList()
-        val authorIds = rows.map { it[SocialPostTable.authorMemberId] }.distinct()
-        val displayNames =
-            MemberTable
-                .selectAll()
-                .where { MemberTable.id inList authorIds }
-                .associate { it[MemberTable.id] to it[MemberTable.displayName] }
-        val freeBalances =
-            if (viewerStatus in MemberStatusSets.ORGANIZATION_MEMBER) {
-                ltrBalanceProvider.freeBalances(authorIds)
-            } else {
-                emptyMap()
-            }
-        return rows.map { row ->
-            val id = row[SocialPostTable.id]
-            val authorId = row[SocialPostTable.authorMemberId]
-            val ownWeight =
-                ownWeightById[id] ?: SocialPostWeight.ownWeightUnrounded(
-                    initialWeightLtr = row[SocialPostTable.initialWeightLtr],
-                    publishedAt = row[SocialPostTable.publishedAt],
-                    now = now,
-                )
-            val totalWeight = totalWeightById[id] ?: ownWeight
-            val counts = countsById[id] ?: SocialPostWeight.DescendantCounts(direct = 0, total = 0)
-            SocialPostDto(
-                id = id.toString(),
-                parentId = row[SocialPostTable.parentId]?.toString(),
-                rootId = row[SocialPostTable.rootId].toString(),
-                depth = row[SocialPostTable.depth],
-                authorMemberId = authorId.toString(),
-                authorDisplayName = displayNames[authorId] ?: "",
-                authorFreeBalanceLtr = freeBalances[authorId],
-                content = row[SocialPostTable.content],
-                visibility = row[SocialPostTable.visibility],
-                state = row[SocialPostTable.state],
-                stateReason = row[SocialPostTable.stateReason],
-                initialWeightLtr = row[SocialPostTable.initialWeightLtr],
-                ownCurrentWeightLtr = WeightDecayClock.round2(ownWeight),
-                totalCurrentWeightLtr = WeightDecayClock.round2(totalWeight),
-                directCommentCount = counts.direct,
-                totalDescendantCount = counts.total,
-                boostCount = boostCountById[id] ?: 0,
-                publishedAt = row[SocialPostTable.publishedAt],
-            )
+    ): SocialPostDto =
+        transaction {
+            SocialReadPipeline.post(
+                postUuid = id,
+                condition = Op.TRUE,
+                now = now,
+                viewerStatus = viewerStatus,
+                caps = SocialReadPipeline.SocialReadCaps.AUTHENTICATED,
+                ltrBalanceProvider = ltrBalanceProvider,
+            ) ?: throw NotFoundException("SocialPost $id not found")
         }
-    }
 }
 
 internal fun String.toSocialUuid(): Uuid = runCatching { Uuid.parse(this) }.getOrElse { throw NotFoundException("Invalid id: $this") }

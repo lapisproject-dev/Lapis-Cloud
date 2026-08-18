@@ -63,6 +63,15 @@ dependencies {
     // chosen over hand-rolling (departure from V0.8.1's HTTP-Signatures posture).
     implementation(libs.nimbus.jose.jwt)
 
+    // V1.1.3 Soziales Netzwerk "Öffentlicher SEO-Lesepfad" — see gradle/libs.versions.toml for the
+    // license-/dependency-choice rationale. NUR hier: lapis-shared/lapis-client bekommen dies NICHT
+    // (der KVision-Client baut sein DOM über KVision-Komponenten, nicht über HTML-Strings; eine
+    // gemeinsame Dependency würde nur die JS-Bundle-Größe erhöhen und einen zweiten, konkurrierenden
+    // Renderweg im Client legitimieren). Bewusst NICHT io.ktor:ktor-server-html-builder — siehe
+    // SocialPublicHtml.kt Datei-Header für die Begründung (Rendering nach String, nicht direkt in
+    // den Response-Stream).
+    implementation(libs.kotlinx.html.jvm)
+
     // Pre-existing gap found+fixed during V0.7.3 review round 1: h2 was testImplementation-only,
     // so `DatabaseConfig`'s own documented "LAPIS_DB_URL unset -> in-memory H2, zero external
     // setup" default was actually unusable via `./gradlew :lapis-server:run` (H2 driver missing

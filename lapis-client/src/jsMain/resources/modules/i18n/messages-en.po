@@ -2784,6 +2784,10 @@ msgstr "This motion has %1 that must be decided first:"
 msgid "Dieser Beitrag ist nicht (mehr) verfügbar."
 msgstr "This post is not (or no longer) available."
 
+#: src/jsMain/kotlin/network/lapis/cloud/client/SocialNetworkScreen.kt:130
+msgid "Dieser Beitrag wird öffentlich sichtbar und von Suchmaschinen indexiert."
+msgstr "This post will become publicly visible and indexed by search engines."
+
 #: src/jsMain/kotlin/network/lapis/cloud/client/SocialNetworkScreen.kt:394
 msgid "Dieser Thread hat %1 Beiträge -- nur die ersten 5 000 werden angezeigt."
 msgstr "This thread has %1 posts -- only the first 5,000 are shown."

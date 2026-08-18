@@ -54,6 +54,7 @@ import network.lapis.cloud.server.routes.registerDsgvoRoutes
 import network.lapis.cloud.server.routes.registerFederationRoutes
 import network.lapis.cloud.server.routes.registerMailmergeRoutes
 import network.lapis.cloud.server.routes.registerOidcRoutes
+import network.lapis.cloud.server.routes.registerSocialPublicRoutes
 import network.lapis.cloud.server.routes.registerTrustAnchorRoutes
 import network.lapis.cloud.server.rpc.AccountingService
 import network.lapis.cloud.server.rpc.AuctionService
@@ -422,6 +423,31 @@ fun Application.module() {
     // .requireBoostRateLimit KDoc).
     val socialBoostRateLimiter = FederationInboxRateLimiter(maxRequests = 30, window = 1.minutes)
 
+    // V1.1.3 Soziales Netzwerk "Öffentlicher SEO-Lesepfad" -- die ERSTEN IP-gekeyten Limiter dieses
+    // Codebase für einen Pfad, der ohne jedes Konto erreichbar ist (Federation-Inbox ist der einzige
+    // Präzedenzfall, aber die verlangt eine gültige HTTP-Signatur). Modul-scoped, NIEMALS
+    // Konstruktor-Default -- dieselbe Begründung wie bei socialCreateRateLimiter/socialReadRateLimiter
+    // oben. maxTrackedKeys deutlich über dem Klassen-Default (10 000): der Schlüsselraum ist hier
+    // NICHT durch die Mitgliederzahl begrenzt, sondern durch das Internet -- siehe
+    // FederationInboxRateLimiter KDoc "Bounded-eviction hardening" für die zugehörige Härtung.
+    //
+    // Security-Audit-Fund S-2 (2026-08-18): war ursprünglich 120/min -- DOPPELT so großzügig wie der
+    // AUTHENTIFIZIERTE socialReadRateLimiter (60/min) oben, obwohl SocialReadPipeline.SocialReadCaps
+    // .PUBLIC's eigene KDoc verlangt, dass der kontenlose Pfad der STRENGSTE Konsument dieser Pipeline
+    // sein muss (kein LTR-Einsatz, keine Mitgliedschaft, keine Zurechenbarkeit -- ein Aufrufer hier
+    // "bezahlt" für nichts). Auf 30/min gesenkt, deutlich unter den authentifizierten 60/min. Ein
+    // gemeinsamer Limiter für sowohl `/s` (Timeline, durch die feste Seitengröße 20 ohnehin billig)
+    // als auch `/s/{id}` (potenziell teurer Thread-Render) ist für diese Runde bewusst ausreichend --
+    // beide Endpunkte profitieren zusätzlich und unabhängig von den S-1-Härtungen (Byte-Budget +
+    // gesenktes `threadMaxNodes`), die die Kosten EINES einzelnen Requests deckeln, unabhängig davon,
+    // wie oft er wiederholt wird.
+    val socialPublicReadRateLimiter = FederationInboxRateLimiter(maxRequests = 30, window = 1.minutes, maxTrackedKeys = 50_000)
+
+    // Eigener, deutlich strengerer Limiter: die Sitemap ist der teuerste öffentliche Endpunkt
+    // (gruppierte Aggregat-Query über alle öffentlichen Wurzeln) und für einen Crawler genügt ein
+    // Abruf pro Stunde.
+    val socialPublicSitemapRateLimiter = FederationInboxRateLimiter(maxRequests = 10, window = 1.minutes, maxTrackedKeys = 50_000)
+
     // Fix (2026-08-14): must be installed BEFORE anything that reads call.request.origin (every
     // plugin/route below, plus every IP-keyed rate limiter in AuthRoutes/RegistrationService/
     // FederationRoutes/OidcRoutes) -- XForwardedHeaders overrides ApplicationRequest.origin from
@@ -626,6 +652,11 @@ fun Application.module() {
         registerFederationRoutes(inboxRateLimiter = federationInboxRateLimiter, replayGuard = federationReplayGuard)
         registerOidcRoutes(cookieSecure = cookieSecure, registrationRateLimiter = oidcRegistrationRateLimiter)
         registerTrustAnchorRoutes()
+        // V1.1.3 Soziales Netzwerk "Öffentlicher SEO-Lesepfad" -- literal routes (/s, /s/{id}, ...),
+        // registered before staticFiles for the same "literal beats catch-all" reasoning documented
+        // on that call below; no collision with any RPC service path or the SPA's own routes (see
+        // registerSocialPublicRoutes KDoc).
+        registerSocialPublicRoutes(readRateLimiter = socialPublicReadRateLimiter, sitemapRateLimiter = socialPublicSitemapRateLimiter)
         getAllServiceManagers().forEach { applyRoutes(it) }
         // Registered last: literal routes above (/api/..., RPC service paths) always win over this
         // catch-all in Ktor's routing trie regardless of registration order, but keeping it last

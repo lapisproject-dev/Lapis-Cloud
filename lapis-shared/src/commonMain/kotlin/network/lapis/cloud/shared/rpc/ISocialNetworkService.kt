@@ -11,12 +11,20 @@ import network.lapis.cloud.shared.domain.SocialTimelineQuery
 
 /**
  * Soziales Netzwerk, Welle V1.1.1 "Fundament & Post-Kern" + Welle V1.1.2 "Kommentarbaum, Boosts,
- * rekursive Gesamtgewichtung" -- see `32-social-network.kuml.kts` file header for the full
- * fachlich model. Deliberately INCOMPLETE: `removePostForLegalReason`/`reportPost`/`listReports`/
- * `decideReport`/`requestContentErasure`/`listContentErasures`/`decideContentErasure`/
- * `executeContentErasure` (Welle V1.1.5) are NOT declared here as TODO stubs -- later waves extend
- * this interface when their own tables/service methods land, exactly like every other domain
- * interface in this codebase grows additively.
+ * rekursive Gesamtgewichtung" + Welle V1.1.3 "Öffentlicher SEO-Lesepfad" -- see
+ * `32-social-network.kuml.kts` file header for the full fachlich model. Deliberately INCOMPLETE:
+ * `removePostForLegalReason`/`reportPost`/`listReports`/`decideReport`/`requestContentErasure`/
+ * `listContentErasures`/`decideContentErasure`/`executeContentErasure` (Welle V1.1.5) are NOT
+ * declared here as TODO stubs -- later waves extend this interface when their own tables/service
+ * methods land, exactly like every other domain interface in this codebase grows additively.
+ *
+ * **Welle V1.1.3**: this interface covers ONLY the authenticated Kilua-RPC surface, unchanged in
+ * this wave. The new unauthenticated public HTML read path (`GET /s`, `GET /s/{id}`,
+ * `GET /sitemap.xml`, `GET /robots.txt`) does NOT run through this interface at all -- it is a
+ * dedicated Ktor route family (`network.lapis.cloud.server.routes.SocialPublicRoutes`) that shares
+ * the underlying load/aggregate pipeline (`network.lapis.cloud.server.rpc.SocialReadPipeline`) but
+ * has no RPC service class and no wire contract here. A JS consumer wanting the public view fetches
+ * the rendered HTML/XML directly, not via this interface.
  */
 @RpcService
 interface ISocialNetworkService {

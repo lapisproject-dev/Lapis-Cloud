@@ -14,17 +14,14 @@ import org.jetbrains.exposed.v1.core.neq
 /**
  * The SINGLE place a "may this caller read this [network.lapis.cloud.server.db.generated
  * .SocialPostTable] row" question is answered -- shared by the authenticated RPC read path
- * ([SocialNetworkService]) AND, from Welle V1.1.3 onward, the unauthenticated public HTTP read
- * path (`SocialPublicRoutes`). Deliberately extracted into its own file NOW, in Welle V1.1.1,
- * rather than left inline in [SocialNetworkService] -- Welle V1.1.3 needs [publicReadableCondition]
- * verbatim, and a security test (planned) compares the RPC path's ID set against this same
- * condition on a shared fixture; having only ONE function to call from both places is the whole
- * point (see the implementation plan's X2/X14 findings for why this matters more than usual: this
- * domain is the first in this codebase with an unauthenticated read path at all).
- *
- * [publicReadableCondition] is not yet called by anything in this wave (no unauthenticated route
- * exists until Welle V1.1.3) -- kept here anyway so the eventual public route reuses it rather
- * than reinventing it.
+ * ([SocialNetworkService]) AND, since Welle V1.1.3, the unauthenticated public HTTP read path
+ * (`network.lapis.cloud.server.routes.SocialPublicRoutes`). Deliberately extracted into its own
+ * file already in Welle V1.1.1, rather than left inline in [SocialNetworkService] -- Welle V1.1.3
+ * needed [publicReadableCondition] verbatim, and Testgruppe T4 (`SocialPublicRoutesTest`) compares
+ * the public route's rendered ID set against this same condition on a shared fixture; having only
+ * ONE function to call from both places is the whole point (see the implementation plan's X2/X14
+ * findings for why this matters more than usual: this domain is the first in this codebase with an
+ * unauthenticated read path at all).
  */
 object SocialVisibility {
     /** Ohne Login: ausschließlich [SocialPostVisibility.PUBLIC] + [SocialPostState.VISIBLE]. */
@@ -101,4 +98,21 @@ object SocialVisibility {
             }
         return visibility in allowed
     }
+
+    /**
+     * NEU Welle V1.1.3 (X4, Implementierungsplan Stolperfalle 1). Pure-Kotlin Zwilling von
+     * [publicReadableCondition] für bereits IN-MEMORY geladene Zeilen -- exakt dasselbe Verhältnis
+     * wie [isReadable] zu [readableByCondition]. Gebraucht von
+     * `network.lapis.cloud.server.rpc.SocialReadPipeline.thread`'s `nodeReadable`-Callback im
+     * öffentlichen Pfad als Defense-in-Depth-Prüfung EINZELNER Knoten eines bereits geladenen
+     * Teilbaums, gegen eine (durch fehlerhafte Daten theoretisch mögliche) eingeschleuste Zeile mit
+     * abweichender Sichtbarkeit unter einer öffentlichen Wurzel (Testgruppe T12). **Muss inhaltlich
+     * synchron zu [publicReadableCondition] bleiben** -- beide Funktionen kodieren dieselbe Regel
+     * zweimal (einmal als SQL-`WHERE`, einmal als reine Kotlin-Prädikatfunktion), aus demselben
+     * Grund, den [isReadable]s KDoc für sein eigenes SQL/Kotlin-Paar nennt.
+     */
+    fun isPublicReadable(
+        visibility: SocialPostVisibility,
+        state: SocialPostState,
+    ): Boolean = visibility == SocialPostVisibility.PUBLIC && state == SocialPostState.VISIBLE
 }

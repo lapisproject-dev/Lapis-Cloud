@@ -16,8 +16,11 @@ import kotlinx.serialization.Serializable
  * enum, pinned by `SocialNetworkSchemaDriftTest`) -- cheap to extend, expensive to reorder, same
  * discipline every other domain enum in this codebase follows.
  *
- * - [PUBLIC]: sichtbar für alle, auch nicht angemeldete Besucher (erreichbar erst ab Welle V1.1.3's
- *   öffentlichem HTTP-Lesepfad -- diese Welle filtert nur bereits authentifizierte Aufrufer).
+ * - [PUBLIC]: sichtbar für alle, auch nicht angemeldete Besucher -- seit Welle V1.1.3 tatsächlich
+ *   ohne Login erreichbar über den öffentlichen HTTP-Lesepfad
+ *   (`network.lapis.cloud.server.routes.SocialPublicRoutes`, `GET /s`/`GET /s/{id}`), gefiltert über
+ *   [network.lapis.cloud.server.rpc.SocialVisibility.publicReadableCondition]. Ein `PUBLIC`-Post ist
+ *   ab Veröffentlichung dauerhaft von Suchmaschinen indexierbar.
  * - [MEMBERS_ONLY]: nur [MemberStatusSets.ORGANIZATION_MEMBER].
  * - [MEMBERS_AND_EXTERNAL]: zusätzlich [MemberStatusSets.NON_MEMBER] (GUEST/FRIEND).
  */

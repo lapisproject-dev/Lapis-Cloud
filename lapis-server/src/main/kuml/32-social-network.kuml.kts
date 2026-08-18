@@ -1,9 +1,17 @@
 // Soziales Netzwerk domain, Welle V1.1.1 "Fundament & Post-Kern" + Welle V1.1.2 "Kommentarbaum,
-// Boosts, rekursive Gesamtgewichtung" -- see the concept documents ("03 Bereiche/Lapis Cloud/
-// Soziales Netzwerk.md" and "03 Bereiche/Lapis Cloud/Meritokratisches System und Libertaler.md",
-// "Im sozialen Netz -- Gewichtung von Posts" section, vault) for the full fachlich specification
-// this implements, plus the accompanying implementation plans ("V1.1 Soziales Netzwerk" and its
-// "V1.1.2"-delta plan, both 2026-08-18) for the researched code-reuse basis.
+// Boosts, rekursive Gesamtgewichtung" + Welle V1.1.3 "Oeffentlicher SEO-Lesepfad" -- see the concept
+// documents ("03 Bereiche/Lapis Cloud/Soziales Netzwerk.md" and "03 Bereiche/Lapis Cloud/
+// Meritokratisches System und Libertaler.md", "Im sozialen Netz -- Gewichtung von Posts" section,
+// vault) for the full fachlich specification this implements, plus the accompanying implementation
+// plans ("V1.1 Soziales Netzwerk", its "V1.1.2"-delta plan, and the "V1.1.3"-delta plan, all
+// 2026-08-18) for the researched code-reuse basis.
+//
+// **Welle V1.1.3 adds NO new class/enum/attribute here** -- the public read path
+// (`network.lapis.cloud.server.routes.SocialPublicRoutes`, `GET /s`/`GET /s/{id}`/`GET
+// /sitemap.xml`/`GET /robots.txt`) reads through the EXISTING `SocialPost` table and the EXISTING
+// `SocialPostVisibility.PUBLIC`/`SocialPostState.VISIBLE` values -- see the `content` attribute's
+// own comment below for the one load-bearing consequence of this wave (content now reaches an
+// unauthenticated HTML response body).
 //
 // **`SocialPost` plus the two Welle-1 enums plus `SocialPostBoost` (Welle V1.1.2) exist in this
 // file.** `SocialPostReport`/`SocialPostReportCategory`/`SocialPostReportStatus` (Welle V1.1.5,
@@ -88,7 +96,7 @@ classDiagram(name = "SocialNetwork") {
     // Literal order is load-bearing: SocialNetworkSchemaDriftTest asserts ErmDataType.Enum.values
     // in exactly this order, matching network.lapis.cloud.shared.domain.SocialPostVisibility.
     val socialPostVisibility = enumOf(name = "SocialPostVisibility") {
-        literal(name = "PUBLIC") // Stufe 1 -- auch ohne Login (Welle V1.1.3 macht das erreichbar)
+        literal(name = "PUBLIC") // Stufe 1 -- auch ohne Login erreichbar, seit Welle V1.1.3 tatsaechlich ueber GET /s, /s/{id} (SocialPublicRoutes)
         literal(name = "MEMBERS_ONLY") // Stufe 2 -- nur ORGANIZATION_MEMBER
         literal(name = "MEMBERS_AND_EXTERNAL") // Stufe 3 -- + NON_MEMBER (GUEST/FRIEND)
     }
@@ -140,8 +148,15 @@ classDiagram(name = "SocialNetwork") {
         attribute(name = "authorMemberId", type = "UUID") {
             stereotype("Column") { "columnName" to "author_member_id"; "fkEntity" to "Member" }
         }
-        // Plain text only in this and every wave through V1.1.3 (S7) -- no Markdown/HTML, no
-        // `unsafe` rendering path exists anywhere near this column.
+        // Plain text only, still true as of Welle V1.1.3 (S7) -- no Markdown/HTML at write time.
+        // FORTGESCHRIEBEN (Welle V1.1.3): ab dieser Welle landet der Inhalt roh in einem
+        // unauthentifizierten HTML-Response-Body (SocialPublicRoutes/SocialPublicHtml, GET /s,
+        // /s/{id}) -- die vorherige Aussage "kein Rendering-Pfad in der Naehe dieser Spalte" ist
+        // NICHT mehr wahr. Sicherheit ruht jetzt auf kotlinx.html's Textknoten-/Attribut-Escaping
+        // (SocialPublicHtml.kt Datei-Header) PLUS einem Quelltext-Scan-Test, der die
+        // Escape-umgehende kotlinx.html-API aus SocialPublicHtml.kt/SocialPublicRoutes.kt fernhaelt
+        // (SocialPublicHtmlTest "T6"). Wer hier weiterhin "kein Rendering-Pfad" liest, uebersieht
+        // die groesste Sicherheits-Aenderung dieser Welle.
         attribute(name = "content", type = "String") {
             stereotype("Column") { "columnName" to "content"; "sqlType" to "TEXT" }
         }

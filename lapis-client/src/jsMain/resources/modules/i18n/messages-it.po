@@ -2813,6 +2813,10 @@ msgstr "Questa mozione presenta %1 che deve/devono essere decisi per primi:"
 msgid "Dieser Beitrag ist nicht (mehr) verfügbar."
 msgstr "Questo post non è (più) disponibile."
 
+#: src/jsMain/kotlin/network/lapis/cloud/client/SocialNetworkScreen.kt:130
+msgid "Dieser Beitrag wird öffentlich sichtbar und von Suchmaschinen indexiert."
+msgstr "Questo post diventerà visibile pubblicamente e verrà indicizzato dai motori di ricerca."
+
 #: src/jsMain/kotlin/network/lapis/cloud/client/SocialNetworkScreen.kt:394
 msgid "Dieser Thread hat %1 Beiträge -- nur die ersten 5 000 werden angezeigt."
 msgstr "Questa discussione ha %1 post -- vengono mostrati solo i primi 5.000."

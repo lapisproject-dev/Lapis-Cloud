@@ -59,11 +59,16 @@ object SocialPostWeight {
      * (derselbe strukturelle Deckel, den `getThread` für EINEN Baum ohnehin schon durchsetzt --
      * `listTimeline` darf über alle Kandidaten-Wurzeln einer Seite hinweg nicht großzügiger sein als
      * ein einzelner Thread-Abruf), und immer noch ~400x der typischen Seitengröße, also weit über
-     * jedem plausiblen legitimen Lastfall. Kritisch, weil [network.lapis.cloud.server.rpc
-     * .SocialVisibility.publicReadableCondition] bereits für den kommenden unauthentifizierten
-     * Lesepfad (Welle V1.1.3) vorgesehen ist -- dieselbe Aggregations-Pipeline wird dort ohne jedes
-     * Konto und ohne LTR-Einsatz erreichbar, der Deckel muss also schon JETZT eng sein, nicht erst
-     * wenn der öffentliche Pfad existiert.
+     * jedem plausiblen legitimen Lastfall.
+     *
+     * **Welle V1.1.3-Fortschreibung**: dieser Wert ist [network.lapis.cloud.server.rpc
+     * .SocialReadPipeline.SocialReadCaps.AUTHENTICATED]s `descendantRows` -- der seit dieser Welle
+     * existierende öffentliche, kontenlose Lesepfad (`network.lapis.cloud.server.routes
+     * .SocialPublicRoutes`, `network.lapis.cloud.server.rpc.SocialVisibility
+     * .publicReadableCondition`) benutzt NICHT diese Konstante, sondern die eigenen, noch engeren
+     * Werte aus `SocialReadCaps.PUBLIC` (2 000 statt 5 000) -- dieselbe Aggregations-Pipeline ist
+     * dort ohne jedes Konto und ohne LTR-Einsatz erreichbar, der Deckel dort ist also strenger,
+     * nicht identisch. Dieser hier bleibt UNVERÄNDERT für den authentifizierten Pfad.
      */
     const val TIMELINE_MAX_DESCENDANT_ROWS: Int = 5_000
 
@@ -73,7 +78,9 @@ object SocialPostWeight {
      * von `20_000` auf `5_000` gesenkt: ein Boost ist strukturell an einen Post gebunden (jede Zeile
      * hier korrespondiert zu einer Zeile in [TIMELINE_MAX_DESCENDANT_ROWS]s Kandidatenmenge), also
      * ist derselbe Deckel-Wert die naheliegende, konsistente Wahl -- kein eigenständig hergeleiteter
-     * zweiter Wert nötig.
+     * zweiter Wert nötig. **Welle V1.1.3-Fortschreibung**: wie [TIMELINE_MAX_DESCENDANT_ROWS] ist
+     * dies `SocialReadCaps.AUTHENTICATED.boostRows` -- der öffentliche Pfad benutzt
+     * `SocialReadCaps.PUBLIC.boostRows` (2 000) statt dieser Konstante.
      */
     const val TIMELINE_MAX_BOOST_ROWS: Int = 5_000
 

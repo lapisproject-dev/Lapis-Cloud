@@ -2778,6 +2778,10 @@ msgstr "Ten wniosek ma %1, które muszą zostać rozstrzygnięte jako pierwsze:"
 msgid "Dieser Beitrag ist nicht (mehr) verfügbar."
 msgstr "Ten wpis nie jest (już) dostępny."
 
+#: src/jsMain/kotlin/network/lapis/cloud/client/SocialNetworkScreen.kt:130
+msgid "Dieser Beitrag wird öffentlich sichtbar und von Suchmaschinen indexiert."
+msgstr "Ten wpis stanie się publicznie widoczny i zostanie zaindeksowany przez wyszukiwarki."
+
 #: src/jsMain/kotlin/network/lapis/cloud/client/SocialNetworkScreen.kt:394
 msgid "Dieser Thread hat %1 Beiträge -- nur die ersten 5 000 werden angezeigt."
 msgstr "Ten wątek ma %1 wpisów -- wyświetlanych jest tylko pierwsze 5000."

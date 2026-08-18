@@ -2779,6 +2779,10 @@ msgstr ""
 msgid "Dieser Beitrag ist nicht (mehr) verfügbar."
 msgstr "Этот пост недоступен (или больше недоступен)."
 
+#: src/jsMain/kotlin/network/lapis/cloud/client/SocialNetworkScreen.kt:130
+msgid "Dieser Beitrag wird öffentlich sichtbar und von Suchmaschinen indexiert."
+msgstr "Эта публикация станет общедоступной и будет проиндексирована поисковыми системами."
+
 #: src/jsMain/kotlin/network/lapis/cloud/client/SocialNetworkScreen.kt:394
 msgid "Dieser Thread hat %1 Beiträge -- nur die ersten 5 000 werden angezeigt."
 msgstr "В этой ветке %1 постов -- показаны только первые 5000."

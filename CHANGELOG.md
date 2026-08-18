@@ -80,6 +80,51 @@ direkt in die Thread-Ansicht (schließt Review-Fund G4) — der Bezug wird zur L
 `referenceId` aufgelöst, nie als Inhaltsausschnitt in der unveränderlichen Ledger-`note` eingefroren.
 Alle neuen UI-Strings in allen 8 Sprachen übersetzt.
 
+**Soziales Netzwerk, Welle V1.1.3 "Öffentlicher SEO-Lesepfad" — Timeline und Einzelbeiträge ohne
+Login lesbar, Sitemap, robots.txt**
+
+Der erste unauthentifizierte HTML-Lesepfad dieses Servers: `GET /s` (öffentliche Timeline, seitenweise
+paginiert, feste Seitengröße 20, max. 25 Seiten — kein client-steuerbarer `limit`), `GET /s/{id}`
+(Einzelpost mit vollständigem öffentlichen Thread; eine Kommentar-ID wird per `308 Permanent
+Redirect` auf ihre Wurzel-ID aufgelöst, kein zweiter Renderpfad), `GET /s/assets/style.css`,
+`GET /sitemap.xml` (+ Shards ab 45 000 URLs, gedeckelt bei 10), `GET /robots.txt`. Nur
+`SocialPostVisibility.PUBLIC` + `SocialPostState.VISIBLE` Wurzel-Posts sind erreichbar
+(`SocialVisibility.publicReadableCondition`, bereits seit Welle V1.1.1 vorbereitet, bis jetzt von
+nichts aufgerufen).
+
+Die Lade-/Aggregationspipeline hinter `listTimeline`/`getThread`/`getPost` wurde dafür — als reiner
+Move, nicht kopiert — aus `SocialNetworkService` in eine neue, geteilte `SocialReadPipeline`
+extrahiert, parametrisiert über eigene, deutlich strengere Größendeckel für den öffentlichen Pfad
+(`SocialReadCaps.PUBLIC`: 500/2 000/2 000 Zeilen statt 2 000/5 000/5 000 beim authentifizierten
+Pfad) — derselbe Angriffspfad ohne jedes Konto und ohne LTR-Einsatz muss der strengste Konsument
+dieser Pipeline sein, nicht ein gleichberechtigter. `SocialNetworkServiceTest` blieb dabei
+inhaltlich unverändert grün, der Beweis, dass die Extraktion verhaltensneutral war.
+
+Rendering über `kotlinx.html` (neue Dependency, nur `lapis-server`) nach `String`, nie direkt in den
+Response-Stream — Voraussetzung für den ETag-Mechanismus (§ unten) und für pure-Funktion-Tests ohne
+`testApplication`. Das öffentliche View-Modell (`PublicPostView`) hat strukturell **kein** Feld für
+Autor-Mitglieds-UUID, freies LTR-Guthaben oder Kommentar-/Boost-Zähler (Datenminimierung by
+construction) — ein anonymer Leser sieht Autoren-Anzeigename, Inhalt und Gesamtgewicht, sonst
+nichts. `toDtos`s `viewerStatus`-Parameter wurde von `MemberStatus` auf `MemberStatus?` erweitert
+(`null` == unauthentifizierter Besucher) statt eines missbrauchten Enum-Literals als Platzhalter.
+
+Caching: `ETag` ist ein schwacher SHA-256-Hash über den fertig gerenderten Body (nicht ein aus
+DB-Aggregaten zusammengesetzter Fingerprint) — nie stale, nie falsch-invalidiert, `If-None-Match`
+liefert `304`. Security-Header (CSP `default-src 'none'; style-src 'self'`, `X-Content-Type-Options`,
+`Referrer-Policy: no-referrer`, `X-Frame-Options: DENY`) werden ausschließlich innerhalb dieser
+Handler gesetzt, niemals als globales Plugin — eine anwendungsweite CSP würde die KVision-SPA
+zerlegen. Zwei neue IP-gekeyte Rate-Limiter (120/min Lesepfad, 10/min Sitemap); IPv6-Adressen werden
+für das Rate-Limiting auf ihr /64-Präfix normalisiert (ohne diese Normalisierung wäre der Limiter für
+IPv6 wirkungslos). `FederationInboxRateLimiter`s Eviction wurde zusätzlich gehärtet: bei
+Kapazitätsüberschreitung werden jetzt auch nicht-abgelaufene Einträge nach ältestem `windowStart`
+entfernt — der öffentliche Lesepfad ist der erste Aufrufer, dessen Schlüsselraum nicht durch die
+Mitgliederzahl begrenzt ist.
+
+Client: neuer Transparenzhinweis im Post-Composer beim Wählen von `PUBLIC` ("Dieser Beitrag wird
+öffentlich sichtbar und von Suchmaschinen indexiert") — ursprünglich für Welle V1.1.4 geplant, auf
+diese Welle vorgezogen, weil die Aussage ab jetzt wahr ist, nicht mehr hypothetisch. Alle neuen
+UI-Strings in allen 8 Sprachen übersetzt.
+
 ### Operator notes
 
 **pdv2 — `V1__baseline.sql`'s checksum changed again; verify `flyway_schema_history` before the next
@@ -120,6 +165,22 @@ that wave's `V1__baseline.sql` edit (English `CHECK` literal set) changes `V1`'s
 like this wave's does. If `pdv2` has already deployed `v0.13.0` successfully, its
 `flyway_schema_history` was presumably already repaired or reconciled at that time (worth confirming
 before this wave's deploy); if not, both checksum changes need reconciling together.
+
+**Soziales Netzwerk, Welle V1.1.3 — no migration, no `flyway repair` this time.** Unlike every
+wave of this domain so far (V1.1.1 and V1.1.2 above both edited `V1__baseline.sql` in place, each
+needing its own `flyway repair` before deploy), this wave ships **zero** schema changes — the
+public read path queries the existing `social_post`/`social_post_boost` tables through the existing
+`SocialPostVisibility.PUBLIC`/`SocialPostState.VISIBLE` values. This is stated explicitly so its
+absence reads as intentional, not as an oversight: no `V6__*.sql` file exists for this wave, and
+none is needed.
+
+**`LAPIS_PUBLIC_BASE_URL` is SEO-relevant starting with this wave, not just Federation-relevant.**
+Since V0.8.1 this env var only mattered for ActivityPub Actor/inbox/outbox URIs; it now ALSO seeds
+every `canonical`/`og:url` link and every `<loc>` in `/sitemap.xml` that this wave's public read
+path emits. A deployment still running on the `http://localhost:8080` default (see
+`FederationConfig.publicBaseUrl` KDoc) will publish `localhost` URLs into search engines the moment
+`/sitemap.xml` is submitted — verify this env var points at the real public HTTPS origin before
+enabling crawling on a real deployment, not just before enabling Federation.
 
 ### Fixed
 

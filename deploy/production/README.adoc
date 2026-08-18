@@ -296,6 +296,37 @@ sudo setfacl -R -d -m u:999:rwx,u:1001:rwx "$VOL"   # default ACL: new subdirect
 +
 Verify with `docker exec -u lapiscloud lapis-cloud-server sh -c 'touch /app/egress-out/<any-recording-id>/write-test && rm /app/egress-out/<any-recording-id>/write-test'` -- must succeed silently. A `FAILED` recording from before this fix keeps its raw per-track files on disk (deliberately never deleted on failure, see `RecordingPoller`'s own KDoc "Raw-file fate on FAILED must be explicit and safe") but has no automatic retry -- it stays `FAILED` in the UI; only recordings started after the ACL fix compose successfully.
 
+== Public read path (SEO)
+
+Welle V1.1.3 "Öffentlicher SEO-Lesepfad" added the first unauthenticated HTML read path this app
+serves: `GET /s` (public timeline), `GET /s/{id}` (a single public post plus its thread),
+`GET /sitemap.xml` (+ shards once the URL count exceeds 45,000), `GET /robots.txt`. Nothing here
+needs a dedicated Caddyfile block -- it is served from the same `127.0.0.1:8080` upstream as
+everything else, through the same `reverse_proxy` directive already shown above.
+
+**`LAPIS_PUBLIC_BASE_URL` must point at the real public HTTPS origin before this path is exposed to
+the internet.** Every `canonical`/`og:url` link this path emits, and every `<loc>` entry in
+`/sitemap.xml`, is built from this env var -- if it is left at its `http://localhost:8080` default
+(see `FederationConfig.publicBaseUrl` KDoc), a search engine that crawls `/sitemap.xml` will index
+`localhost` URLs. This env var already had to be set correctly for Federation to work at all (see
+"Quick start" above); this wave makes it SEO-relevant too, not just Federation-relevant.
+
+**Caddy is free to cache these responses** -- every `200` response under `/s`/`/s/{id}` carries
+`Cache-Control: public, max-age=300, stale-while-revalidate=3600`; `/s/assets/style.css` carries
+`max-age=86400, immutable`; `/sitemap.xml`/`/robots.txt` carry `max-age=3600`/`max-age=86400`. No
+extra Caddyfile directive is required for this -- `reverse_proxy` alone does not cache responses on
+its own, so nothing changes unless a caching layer (a CDN in front of Caddy, or Caddy's own
+`cache-handler` plugin if that is ever added) is introduced later; if one is, be aware that after a
+legal removal or a DSGVO tombstone the affected page can remain cached and publicly reachable for up
+to five minutes (`max-age=300`) after the underlying row changes -- accepted and deliberately short,
+see the implementation plan's own § 5.2 for the reasoning; whoever needs faster propagation purges
+the cache layer manually.
+
+**Submit the sitemap to search engines once this path is live**: Google Search Console and Bing
+Webmaster Tools both accept `https://<LAPIS_PUBLIC_BASE_URL>/sitemap.xml` directly as a sitemap
+submission -- `robots.txt` also advertises it via its `Sitemap:` line, so a well-behaved crawler
+discovers it on its own, but an explicit submission speeds up first indexing.
+
 == Secrets
 
 `.env` in this directory is the only place production secrets for this stack live (database

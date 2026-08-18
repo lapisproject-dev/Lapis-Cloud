@@ -121,6 +121,22 @@ private fun renderComposeForm(
     val visibilitySelect =
         panel.select(options = visibilityOptions, value = SocialPostVisibility.MEMBERS_ONLY.name, label = tr("Sichtbarkeit"))
 
+    // Welle V1.1.3 (vorgezogen aus V1.1.4, siehe Implementierungsplan Stolperfalle 15): ab dieser
+    // Welle ist ein PUBLIC-Beitrag tatsaechlich ueber den unauthentifizierten Lesepfad
+    // (SocialPublicRoutes, GET /s) dauerhaft von Suchmaschinen indexierbar -- der Hinweis ist ab
+    // jetzt eine wahre Aussage, keine hypothetische mehr. Reaktive Sichtbarkeit ueber
+    // .subscribe{}, dasselbe Idiom wie DsgvoRightsScreen.kt's modeCaption.
+    val publicNotice =
+        panel.div(tr("Dieser Beitrag wird öffentlich sichtbar und von Suchmaschinen indexiert.")) {
+            addCssClasses("text-muted small")
+        }
+
+    fun applyPublicNoticeVisibility(visibilityValue: String?) {
+        if (visibilityValue == SocialPostVisibility.PUBLIC.name) publicNotice.show() else publicNotice.hide()
+    }
+    applyPublicNoticeVisibility(visibilitySelect.value)
+    visibilitySelect.subscribe { value -> applyPublicNoticeVisibility(value) }
+
     // D7-analogue (kein Rueckerstattungspfad) -- siehe CrowdfundingScreen.kt's eigene Copy an
     // derselben Stelle.
     panel.div(

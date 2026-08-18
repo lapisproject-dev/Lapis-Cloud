@@ -2814,6 +2814,10 @@ msgstr "Esta moción tiene %1 pendiente(s) que debe(n) decidirse primero:"
 msgid "Dieser Beitrag ist nicht (mehr) verfügbar."
 msgstr "Esta publicación no está (o ya no está) disponible."
 
+#: src/jsMain/kotlin/network/lapis/cloud/client/SocialNetworkScreen.kt:130
+msgid "Dieser Beitrag wird öffentlich sichtbar und von Suchmaschinen indexiert."
+msgstr "Esta publicación se volverá visible públicamente y será indexada por los motores de búsqueda."
+
 #: src/jsMain/kotlin/network/lapis/cloud/client/SocialNetworkScreen.kt:394
 msgid "Dieser Thread hat %1 Beiträge -- nur die ersten 5 000 werden angezeigt."
 msgstr "Este hilo tiene %1 publicaciones -- solo se muestran las primeras 5000."
