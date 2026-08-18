@@ -6,6 +6,62 @@ All notable changes to this project are documented here. Format follows
 
 ## [Unreleased]
 
+### Added
+
+**Soziales Netzwerk, Welle V1.1.1 "Fundament & Post-Kern" — Timeline lesen, Post verfassen, eigenen Post unsichtbar machen**
+
+The first wave of a new "Soziales Netzwerk" domain: `ISocialNetworkService` (`createPost`/
+`listTimeline`/`getPost`/`hideOwnPost`), backed by a new `social_post` table
+(`V4__social_network_core.sql`, schema `32-social-network.kuml.kts`). A member composes a post
+(content + a positive LTR stake bound from their own free balance + one of three visibility tiers —
+`PUBLIC`/`MEMBERS_ONLY`/`MEMBERS_AND_EXTERNAL`); the stake decays 10 %/day via a new
+`WeightDecayClock` (extracted from `CrowdfundingWeightDecay`'s own unrounded-then-rounded decay
+math, which now delegates to it — behavior unchanged, verified by 40-year stability tests). A post
+is immutable once published (no `updatePost`) and can only be hidden by its own author
+(`hideOwnPost`, irreversible, no LTR refund, still directly reachable by ID afterwards, e.g. via the
+account statement). New `LtrLedgerEntryType.SOCIAL_POST_STAKE`/`LtrLedgerReferenceType.SOCIAL_POST`
+ledger classifications, and a `SocialNetworkPersonalData` DSGVO export/erasure contributor.
+
+Client: new `/social-network` screen (composer + timeline, reachable from the "Wirtschaft" nav
+dropdown, `requireAuth`-gated like Crowdfunding/Auktion/Politiker — no BOARD/ADMIN/TREASURER split
+exists in this wave yet). `LtrLedgerScreen`'s entry-/reference-type label tables extended for the
+two new ledger classifications above. All new UI strings translated into all 8 languages (German
+source + English, French, Dutch, Italian, Spanish, Polish, Russian).
+
+Welle V1.1.2 (comments/threads/boosts/recursive weight aggregation) and later waves
+(LTR_ELIGIBLE-widened posting eligibility, public HTTP read path, legal removal/reporting) are
+intentionally not part of this wave — see `ISocialNetworkService` KDoc "Deliberately INCOMPLETE".
+
+### Operator notes
+
+**pdv2 — `V1__baseline.sql`'s checksum changed again; verify `flyway_schema_history` before the next
+deploy.** This wave widens `ltr_ledger_entry`'s two `CHECK` constraints (`entry_type` gains
+`'SOCIAL_POST_STAKE'`, `reference_type` gains `'SOCIAL_POST'`) by editing them **in place** in
+`V1__baseline.sql`, the same pattern the FRIEND wave (`v0.13.0`) used for its own `V1` edit. `V4`
+carries the actual runtime widening as an idempotent, repeatable-safe `ALTER TABLE ... DROP
+CONSTRAINT IF EXISTS ... / ADD CONSTRAINT` pair (dual-named, covering both Postgres's
+auto-generated constraint name and this repo's own explicit one — see `V4__social_network_core.sql`
+header) and is what actually changes `pdv2`'s schema. But **editing `V1__baseline.sql`'s file
+content changes its checksum**, and Flyway's default `validateOnMigrate = true`
+(`DatabaseConfig.kt`) fails the whole `migrate()` call on an already-migrated database if `V1`'s
+recorded checksum in `flyway_schema_history` no longer matches the file on disk — independent of
+`V4` being a clean, never-before-applied file. Before deploying this wave to `pdv2`: run
+`SELECT * FROM flyway_schema_history WHERE version = '1'` and compare against `flyway info`'s output
+for the checksum Flyway now computes from the repo's `V1__baseline.sql` — if they differ, run
+`flyway repair` (recomputes and re-stores the stored checksum against the current file content) as
+the deploy's first step, *before* `flyway migrate`. This exact risk applies to **every** wave that
+edits `V1__baseline.sql` in place (V2's FRIEND-adjacent columns, V3's status-literal rename, and now
+V4's ledger-constraint widening) — the correction below fixes an incorrect claim about this in the
+`v0.13.0` entry, which stated no `flyway repair` would be needed there because `V3` itself was a new
+file, without accounting for `V3`'s own accompanying `V1` in-place edit.
+
+**Correction to the `v0.13.0` entry below**: "no `flyway repair` needed, `V3` is a new file, not a
+checksum change to an already-applied one" (under that entry's own Operator notes) is inaccurate —
+that wave's `V1__baseline.sql` edit (English `CHECK` literal set) changes `V1`'s checksum exactly
+like this wave's does. If `pdv2` has already deployed `v0.13.0` successfully, its
+`flyway_schema_history` was presumably already repaired or reconciled at that time (worth confirming
+before this wave's deploy); if not, both checksum changes need reconciling together.
+
 ### Fixed
 
 **Concurrent-duplicate-registration race in `registerApplication`/`registerFriend` — a losing request

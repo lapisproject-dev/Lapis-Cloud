@@ -3,9 +3,8 @@ package network.lapis.cloud.server.rpc
 import kotlinx.datetime.LocalDateTime
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toInstant
+import network.lapis.cloud.server.economy.WeightDecayClock
 import java.math.BigDecimal
-import java.math.MathContext
-import java.math.RoundingMode
 import kotlin.time.Duration.Companion.days
 
 /**
@@ -32,38 +31,58 @@ import kotlin.time.Duration.Companion.days
  * exists anywhere in this codebase yet (Crowdfunding has no `crowdfunding_comment` table), so
  * [currentWeight] computes ONLY the Eigengewicht term -- the recursive extension is a genuinely
  * separate, later feature, not something to simulate or approximate here.
+ *
+ * **V1.1.1 refactor (Soziales Netzwerk)**: the pure decay math (raising
+ * [DECAY_KEEP_RATE_PER_DAY]/[WeightDecayClock.KEEP_RATE_PER_DAY] to the elapsed-day power, and the
+ * `Instant`-vs-`TimeZone.UTC` elapsed-days computation) was extracted into
+ * [WeightDecayClock] so the Soziales-Netzwerk domain's own weight aggregation (which must sum
+ * MANY unrounded contributions before rounding once, see that object's KDoc) can share it without
+ * duplicating the 40-Jahre-stable arithmetic. This object's own public SIGNATURE is unchanged by
+ * the refactor itself -- [currentWeight]/[isAutoApproved]/[daysElapsed]/[DECAY_KEEP_RATE_PER_DAY]
+ * all delegate to [WeightDecayClock] internally. The rounded OUTPUT is numerically
+ * indistinguishable from the pre-refactor original for every realistic project weight, verified by
+ * the pre-existing `CrowdfundingWeightDecayTest` continuing to pass unchanged -- but the delegation
+ * is not literally "same code, just moved": it introduces one additional `MathContext`-bounded
+ * rounding step versus the original's exact `multiply`, with zero practical effect at this
+ * system's scale (see below). See [WeightDecayClock]
+ * KDoc's "Precision caveat" (corrected 2026-08-18, Review-Fund G1, then corrected again the same
+ * day, Review-Fund NEU-3) for what this codebase's `MathContext(20)`-based decay math actually
+ * guarantees (20 significant digits / ~10^-20 relative error per operation, hence determinism, not
+ * unlimited/exact precision) -- an earlier revision of that KDoc, and of this comment's own wording
+ * here ("byte-for-byte"), overstated it, and the first correction pass still misattributed the
+ * rounding and picked magnitude thresholds that didn't match how `MathContext` precision works.
  */
 object CrowdfundingWeightDecay {
     /**
      * Fraction of a project's weight retained per elapsed day (10%/day decay = 90% kept) --
      * current understanding of the concept document, verify with the product/governance owner
-     * before treating this as final.
+     * before treating this as final. Delegates to [WeightDecayClock.KEEP_RATE_PER_DAY] (V1.1.1
+     * refactor) -- kept as a `val` here so existing call sites/tests referencing this name are
+     * unaffected.
      */
-    val DECAY_KEEP_RATE_PER_DAY: BigDecimal = BigDecimal("0.9")
+    val DECAY_KEEP_RATE_PER_DAY: BigDecimal = WeightDecayClock.KEEP_RATE_PER_DAY
 
     /** Board silence-is-approval window -- current understanding, verify (see class KDoc). */
     const val BOARD_REVIEW_WINDOW_DAYS: Long = 14
-
-    /** Internal computation precision for [BigDecimal.pow] -- display values are always rounded to 2dp by [currentWeight] afterward. */
-    private val DECAY_MATH_CONTEXT = MathContext(20)
 
     /**
      * [initialWeightLtr] decayed by [DECAY_KEEP_RATE_PER_DAY] raised to the whole number of days
      * elapsed between [submittedAt] and [now] (24h-rolling via [daysElapsed], never calendar-day
      * subtraction -- see that function's KDoc). Rounded to 2 decimal places (matching
-     * `ltr_ledger_entry.amount_ltr`'s own scale) via [RoundingMode.HALF_UP] -- this is a DISPLAY/
-     * comparison value, never itself persisted, so a rounding choice here has no bookkeeping
-     * consequence the way it would for an actual ledger write.
+     * `ltr_ledger_entry.amount_ltr`'s own scale) via [WeightDecayClock.round2] -- this is a
+     * DISPLAY/comparison value, never itself persisted, so a rounding choice here has no
+     * bookkeeping consequence the way it would for an actual ledger write. Delegates to
+     * [WeightDecayClock.decayedUnrounded] + [WeightDecayClock.round2] (V1.1.1 refactor) -- see
+     * class KDoc.
      */
     fun currentWeight(
         initialWeightLtr: BigDecimal,
         submittedAt: LocalDateTime,
         now: LocalDateTime,
-    ): BigDecimal {
-        val days = daysElapsed(from = submittedAt, now = now)
-        val decayFactor = DECAY_KEEP_RATE_PER_DAY.pow(days.toInt(), DECAY_MATH_CONTEXT)
-        return (initialWeightLtr * decayFactor).setScale(2, RoundingMode.HALF_UP)
-    }
+    ): BigDecimal =
+        WeightDecayClock.round2(
+            WeightDecayClock.decayedUnrounded(amountLtr = initialWeightLtr, since = submittedAt, now = now),
+        )
 
     /**
      * `true` once at least [BOARD_REVIEW_WINDOW_DAYS] * 24h have elapsed between [submittedAt]
@@ -85,11 +104,14 @@ object CrowdfundingWeightDecay {
      * silence-is-approval boundary. Negative-appearing input (`now` before `from`, which should
      * never happen in practice) floors to 0 rather than throwing, since a decay curve going
      * "into the future" relative to its own submission has no sensible negative-days meaning.
+     * Delegates to [WeightDecayClock.daysElapsed] (V1.1.1 refactor) -- kept as its own `internal`
+     * function (not deleted/inlined) because `CrowdfundingWeightDecayTest` calls it directly as
+     * its own regression proof for this refactor.
      */
     internal fun daysElapsed(
         from: LocalDateTime,
         now: LocalDateTime,
-    ): Long = elapsedDuration(from = from, now = now).inWholeDays.coerceAtLeast(0)
+    ): Long = WeightDecayClock.daysElapsed(from = from, now = now)
 
     private fun elapsedDuration(
         from: LocalDateTime,

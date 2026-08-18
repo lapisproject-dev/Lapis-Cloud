@@ -86,6 +86,7 @@ import network.lapis.cloud.server.rpc.PoliticianService
 import network.lapis.cloud.server.rpc.PostalMailService
 import network.lapis.cloud.server.rpc.PriceOracleService
 import network.lapis.cloud.server.rpc.RegistrationService
+import network.lapis.cloud.server.rpc.SocialNetworkService
 import network.lapis.cloud.server.rpc.SystemicConsensusService
 import network.lapis.cloud.server.rpc.TrustAnchorService
 import network.lapis.cloud.server.security.LoginRateLimiter
@@ -122,6 +123,7 @@ import network.lapis.cloud.shared.rpc.IPoliticianService
 import network.lapis.cloud.shared.rpc.IPostalMailService
 import network.lapis.cloud.shared.rpc.IPriceOracleService
 import network.lapis.cloud.shared.rpc.IRegistrationService
+import network.lapis.cloud.shared.rpc.ISocialNetworkService
 import network.lapis.cloud.shared.rpc.ISystemicConsensusService
 import network.lapis.cloud.shared.rpc.ITrustAnchorService
 import network.lapis.cloud.shared.rpc.UnauthenticatedException
@@ -399,6 +401,17 @@ fun Application.module() {
     val streamingMutateRateLimiter = FederationInboxRateLimiter(maxRequests = 30, window = 1.minutes)
     val streamingReadRateLimiter = FederationInboxRateLimiter(maxRequests = 60, window = 1.minutes)
 
+    // V1.1.1 Soziales Netzwerk, Welle "Fundament & Post-Kern" -- SocialNetworkService.createPost's
+    // own budget. Constructed here, NOT left to the service's own constructor default -- same
+    // "registerService's factory lambda constructs a fresh service per RPC call" reasoning as
+    // conferenceGuestAccessRateLimiter/every other module-scoped limiter above.
+    val socialCreateRateLimiter = FederationInboxRateLimiter(maxRequests = 10, window = 1.minutes)
+
+    // Review-Fund S1 (2026-08-18): SocialNetworkService.listTimeline/getPost had NO rate limit at
+    // all before this fix, unlike every other read path in this codebase -- same module-scoped,
+    // never-a-constructor-default reasoning as socialCreateRateLimiter/streamingReadRateLimiter above.
+    val socialReadRateLimiter = FederationInboxRateLimiter(maxRequests = 60, window = 1.minutes)
+
     // Fix (2026-08-14): must be installed BEFORE anything that reads call.request.origin (every
     // plugin/route below, plus every IP-keyed rate limiter in AuthRoutes/RegistrationService/
     // FederationRoutes/OidcRoutes) -- XForwardedHeaders overrides ApplicationRequest.origin from
@@ -485,6 +498,15 @@ fun Application.module() {
         registerService(IPriceOracleService::class) { call -> PriceOracleService(call = call, orchestrator = priceOracleOrchestrator) }
         registerService(IPoliticianService::class) { call -> PoliticianService(call = call) }
         registerService(IAuctionService::class) { call -> AuctionService(call = call) }
+        registerService(
+            ISocialNetworkService::class,
+        ) { call ->
+            SocialNetworkService(
+                call = call,
+                createRateLimiter = socialCreateRateLimiter,
+                readRateLimiter = socialReadRateLimiter,
+            )
+        }
         registerService(IAuthService::class) { call -> AuthService(call) }
         registerService(
             IRegistrationService::class,

@@ -234,6 +234,11 @@ private fun refreshNavbar(navbar: Navbar) {
             ddLink(tr("Crowdfunding"), url = "#${Routes.CROWDFUNDING}", icon = "fas fa-hand-holding-heart")
             ddLink(tr("Auktion"), url = "#${Routes.AUCTION}", icon = "fas fa-gavel")
             ddLink(tr("Politiker"), url = "#${Routes.POLITICIANS}", icon = "fas fa-landmark")
+            // Soziales Netzwerk, Welle V1.1.1 -- see `Routes.SOCIAL_NETWORK` KDoc for the role-gate
+            // verification. Placed in "Wirtschaft" (not "Mitgliedschaft"/"Selbstverwaltung") because
+            // `createPost` binds LTR from the author's free balance, same economic-weight posture as
+            // Crowdfunding/Auktion/Politiker above, not a pure membership/self-governance feature.
+            ddLink(tr("Soziales Netzwerk"), url = "#${Routes.SOCIAL_NETWORK}", icon = "fas fa-comments")
         }
     }
     // Accounting UI wave, design decision D15 -- gated on TREASURER/BOARD/ADMIN (the same three

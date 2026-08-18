@@ -648,6 +648,7 @@ fun ltrLedgerEntryTypeLabel(type: LtrLedgerEntryType): String =
         LtrLedgerEntryType.AUCTION_HOLD_RELEASE -> gettext("Auktions-Reservierung freigegeben")
         LtrLedgerEntryType.AUCTION_SALE_OUT -> gettext("Auktionskauf")
         LtrLedgerEntryType.AUCTION_SALE_IN -> gettext("Auktionsverkauf")
+        LtrLedgerEntryType.SOCIAL_POST_STAKE -> gettext("Beitrags-Einsatz")
     }
 
 fun ltrLedgerEntryTypeColor(type: LtrLedgerEntryType): String =
@@ -663,6 +664,7 @@ fun ltrLedgerEntryTypeColor(type: LtrLedgerEntryType): String =
         LtrLedgerEntryType.AUCTION_HOLD_RELEASE -> "info"
         LtrLedgerEntryType.AUCTION_SALE_OUT -> "danger"
         LtrLedgerEntryType.AUCTION_SALE_IN -> "success"
+        LtrLedgerEntryType.SOCIAL_POST_STAKE -> "warning"
     }
 
 fun ltrLedgerReferenceTypeLabel(type: LtrLedgerReferenceType): String =
@@ -671,6 +673,7 @@ fun ltrLedgerReferenceTypeLabel(type: LtrLedgerReferenceType): String =
         LtrLedgerReferenceType.VOTE -> gettext("Abstimmung")
         LtrLedgerReferenceType.PEER_TRANSFER -> gettext("Peer-Transfer")
         LtrLedgerReferenceType.AUCTION -> gettext("Auktion")
+        LtrLedgerReferenceType.SOCIAL_POST -> gettext("Beitrag (Soziales Netzwerk)")
     }
 
 fun peerTransferCharacterizationLabel(characterization: PeerTransferCharacterization): String =

@@ -60,6 +60,29 @@
 // every OTHER debit path stays automatically aware of an open auction reservation, closing
 // exactly the class of gap the V0.6.1 `castVoteBallot` security fix above had to retrofit).
 //
+// V1.1.1 (Soziales Netzwerk, Welle "Fundament & Post-Kern") additively appends `SOCIAL_POST_STAKE`
+// (network.lapis.cloud.server.rpc.SocialNetworkService.createPost binding a post's chosen
+// Sichtbarkeits-Gewicht into a real LTR debit, see 32-social-network.kuml.kts's own header) and a
+// new `SOCIAL_POST` `ltrLedgerReferenceType` literal below -- same additive-only discipline. Fits
+// the existing `VARCHAR(21)`/`VARCHAR(20)` column widths unchanged (18 and 11 characters
+// respectively). `SOCIAL_POST_BOOST` (Welle V1.1.2 monetary Like) is deliberately NOT added yet --
+// see 32-social-network.kuml.kts file header for why that wave's own tables/literals stay out of
+// this codebase until their corresponding migration lands.
+//
+// Migration note (corrected 2026-08-18, Review-Fund G3 -- the previous wording here was wrong):
+// `V1__baseline.sql`'s `entry_type`/`reference_type` CHECK constraints ARE edited in-place by this
+// wave -- they are now explicitly NAMED (`chk_ltr_ledger_entry_entry_type`/
+// `chk_ltr_ledger_entry_reference_type`) and already widened to include `SOCIAL_POST_STAKE`/
+// `SOCIAL_POST` directly, exactly the same "fresh installs/tests get the widened schema straight
+// from the baseline" convention V2/V3 already established for other domains (see
+// `V1__baseline.sql`'s own header comment right above this table's `CREATE TABLE`). Editing the
+// baseline in-place here is safe because a baseline edit only breaks Flyway's checksum validation
+// for a database that already recorded `V1__baseline.sql` in its `flyway_schema_history` -- exactly
+// what `V4__social_network_core.sql` exists for: it applies the SAME widening idempotently against
+// an already-migrated deployment (pdv2) via a dual-DROP/ADD pair that targets both the pre-existing
+// Postgres-auto-generated unnamed-constraint name and this new explicit name -- see that
+// migration's own trailing header comment for the exact mechanics.
+//
 // **`referenceType`/`referenceId` are a polymorphic, DB-FK-less opaque pointer** -- directly
 // mirrors `audit_log_entry.entity_type`/`entity_id` (14-audit-log.kuml.kts): no single FK
 // constraint could express "targets crowdfunding_project today, possibly an auction lot or a
@@ -121,6 +144,7 @@ classDiagram(name = "LtrLedger") {
         literal(name = "AUCTION_HOLD_RELEASE")
         literal(name = "AUCTION_SALE_OUT")
         literal(name = "AUCTION_SALE_IN")
+        literal(name = "SOCIAL_POST_STAKE")
     }
 
     // Literal order is load-bearing, same reason as above. `CROWDFUNDING_PROJECT` is this wave's
@@ -133,6 +157,7 @@ classDiagram(name = "LtrLedger") {
         literal(name = "VOTE")
         literal(name = "PEER_TRANSFER")
         literal(name = "AUCTION")
+        literal(name = "SOCIAL_POST")
     }
 
     val ltrLedgerEntry = classOf(name = "LtrLedgerEntry") {

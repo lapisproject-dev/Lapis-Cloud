@@ -229,6 +229,20 @@ object Routes {
     // INSIDE `ConferenceScreen.kt` itself as `canModerate`, exactly like that screen's own
     // `endRoom`/`removeParticipant` split.
     const val CONFERENCE_STREAM_DESTINATIONS = "/conference-stream-destinations"
+
+    // Soziales Netzwerk, Welle V1.1.1 "Fundament & Post-Kern" -- `ISocialNetworkService`,
+    // self-contained domain: Timeline lesen, Post verfassen (Inhalt + LTR-Einsatz +
+    // Sichtbarkeitsstufe), eigenen Post unsichtbar machen. Role gate verified against
+    // `SocialNetworkService.kt`: every method a plain member needs to *reach* this screen at all
+    // (`createPost`/`listTimeline`/`getPost`/`hideOwnPost`) only calls `resolveCurrentMember(call)`
+    // (`createPost` additionally gates on ACTIVE membership INSIDE the transaction, not reachable
+    // as an `AccountRole` predicate, same reasoning [LTR_LEDGER]/[CROWDFUNDING]/[AUCTION]/
+    // [POLITICIANS] already document) -- no `requireRole` call guards any of them. This route
+    // therefore uses `requireAuth`, same posture as [LTR_LEDGER]/[CROWDFUNDING]/[AUCTION]/
+    // [POLITICIANS], NOT the Accounting UI wave's route-level `requireRole`. There is no
+    // in-screen role split (unlike those routes' `canTreasury`/`canBoard`/`canAdmin`) -- Welle
+    // V1.1.1 has no BOARD/ADMIN/TREASURER-only surface at all yet.
+    const val SOCIAL_NETWORK = "/social-network"
 }
 
 private var appRouting: Routing? = null
@@ -379,6 +393,9 @@ fun initRouting(pageContainer: SimplePanel) {
     }
     routing.kvOn(Routes.CONFERENCE_STREAM_DESTINATIONS) {
         requireRole(routing, AccountRole.ADMIN) { show(::renderConferenceStreamDestinationsScreen) }
+    }
+    routing.kvOn(Routes.SOCIAL_NETWORK) {
+        requireAuth(routing) { show(::renderSocialNetworkScreen) }
     }
     routing.kvOn("/") {
         routing.navigate(if (AppState.isAuthenticated) Routes.DASHBOARD else Routes.LOGIN)

@@ -74,6 +74,15 @@ enum class LtrLedgerEntryType {
 
     /** Credit half of the [AUCTION_SALE_OUT] pair, crediting the seller -- see that literal's KDoc. */
     AUCTION_SALE_IN,
+
+    /**
+     * [network.lapis.cloud.server.rpc.SocialNetworkService.createPost] binding a post's
+     * author-chosen Sichtbarkeits-Gewicht (V1.1.1 Soziales Netzwerk) -- see
+     * `32-social-network.kuml.kts` file header for the full fachlich model. Never released/
+     * refunded, same "no release path" posture as [AUCTION_LISTING_FEE] -- `hideOwnPost` does not
+     * reverse this debit, see that method's own KDoc.
+     */
+    SOCIAL_POST_STAKE,
 }
 
 /**
@@ -86,7 +95,7 @@ enum class LtrLedgerEntryType {
  * `auction.id`, never at `auction_bid`); additively extended by later waves.
  */
 @Serializable
-enum class LtrLedgerReferenceType { CROWDFUNDING_PROJECT, VOTE, PEER_TRANSFER, AUCTION }
+enum class LtrLedgerReferenceType { CROWDFUNDING_PROJECT, VOTE, PEER_TRANSFER, AUCTION, SOCIAL_POST }
 
 /**
  * One row of the append-only LTR ledger. [amountLtr] is signed: positive for a credit (e.g.

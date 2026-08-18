@@ -210,6 +210,15 @@ CREATE TABLE committee_membership (
 -- deployment of the pre-V0.6.1 schema, so this baseline is edited destructively (DROP + CREATE
 -- inline) rather than adding a V2 migration -- consistent with this codebase's "V1__baseline.sql
 -- is ONE consolidated migration" convention.
+--
+-- V1.1.1 (Soziales Netzwerk): the two CHECK constraints below are now explicitly NAMED
+-- (chk_ltr_ledger_entry_entry_type/chk_ltr_ledger_entry_reference_type) and include the new
+-- SOCIAL_POST_STAKE/SOCIAL_POST literals directly -- same "fresh installs/tests get the widened
+-- schema straight from the baseline" convention V2__conference_secret_ballot_stream_pause.sql's own
+-- header already established for conference_stream.status. V4__social_network_core.sql applies the
+-- same widening idempotently for an already-migrated deployment (pdv2) via a DROP/ADD pair that
+-- targets BOTH the pre-existing Postgres-auto-generated unnamed-constraint name AND this new
+-- explicit name -- see that migration's own header comment.
 CREATE TABLE ltr_ledger_entry (
     id UUID NOT NULL PRIMARY KEY,
     entry_type VARCHAR(21) NOT NULL,
@@ -220,11 +229,13 @@ CREATE TABLE ltr_ledger_entry (
     created_by UUID NULL,
     created_at TIMESTAMP NOT NULL,
     member_id UUID NOT NULL,
-    CHECK (entry_type IN (
+    CONSTRAINT chk_ltr_ledger_entry_entry_type CHECK (entry_type IN (
         'MINT', 'PROJECT_STAKE', 'PROJECT_STAKE_RELEASE', 'VOTE_STAKE', 'PEER_TRANSFER_OUT', 'PEER_TRANSFER_IN',
-        'AUCTION_LISTING_FEE', 'AUCTION_HOLD', 'AUCTION_HOLD_RELEASE', 'AUCTION_SALE_OUT', 'AUCTION_SALE_IN'
+        'AUCTION_LISTING_FEE', 'AUCTION_HOLD', 'AUCTION_HOLD_RELEASE', 'AUCTION_SALE_OUT', 'AUCTION_SALE_IN',
+        'SOCIAL_POST_STAKE'
     )),
-    CHECK (reference_type IN ('CROWDFUNDING_PROJECT', 'VOTE', 'PEER_TRANSFER', 'AUCTION'))
+    CONSTRAINT chk_ltr_ledger_entry_reference_type
+        CHECK (reference_type IN ('CROWDFUNDING_PROJECT', 'VOTE', 'PEER_TRANSFER', 'AUCTION', 'SOCIAL_POST'))
 );
 
 CREATE TABLE journal_entry (

@@ -35,16 +35,16 @@ class DomainModelMergerTest :
         // ── Test 1: merging the real 22 domain scripts ───────────────────────────────────
 
         test(
-            "merging the real 32 domain scripts succeeds and the uml-to-erm -> erm-to-exposed chain " +
+            "merging the real 33 domain scripts succeeds and the uml-to-erm -> erm-to-exposed chain " +
                 "produces exactly one Table file per distinct table name",
         ) {
             val scriptFiles =
                 requireNotNull(KumlModelLoader.kumlSourceDir.listFiles { f -> f.name.endsWith(".kuml.kts") }) {
                     "kUML source dir not found or not a directory: ${KumlModelLoader.kumlSourceDir.absolutePath}"
                 }.sortedBy { it.name }
-            // V1.0 Videokonferenzen, Wave 6 "Breakout-Räume" -- was 31, now 32 with the addition of
-            // 31-conference-breakout.kuml.kts.
-            scriptFiles shouldHaveSize 32
+            // Soziales Netzwerk, Welle V1.1.1 -- was 32, now 33 with the addition of
+            // 32-social-network.kuml.kts.
+            scriptFiles shouldHaveSize 33
 
             val diagrams = scriptFiles.map { KumlModelLoader.loadUmlDiagram(it) }
 
@@ -216,7 +216,12 @@ class DomainModelMergerTest :
             // resolving member_id through the SAME already-existing Member stub this file already
             // contributes -- so no new stub, no new drop, just +2 real-table «Entity» declarations
             // versus the V1.0-Wave-6 baseline above (99 -> 101).
-            val distinctTableNames = 101
+            // 32-social-network.kuml.kts (Soziales Netzwerk, Welle V1.1.1 "Fundament & Post-Kern")
+            // adds exactly one more real table (social_post), WITH its own cross-domain Member stub
+            // (social_post.author_member_id resolves through it) -- so it contributes +2 «Entity»
+            // declarations (the stub + the one real table) and +1 drop (the stub merges into the
+            // already-existing member entity) versus the V0.11.0 baseline above (101 -> 102).
+            val distinctTableNames = 102
 
             val result =
                 UmlToExposedViaErmScriptTransformer().transform(
@@ -342,6 +347,8 @@ class DomainModelMergerTest :
                     // V1.0 Videokonferenzen, Wave 6 "Breakout-Räume".
                     "ConferenceBreakoutRoomTable.kt",
                     "ConferenceBreakoutAssignmentTable.kt",
+                    // Soziales Netzwerk, Welle V1.1.1 "Fundament & Post-Kern".
+                    "SocialPostTable.kt",
                 )
         }
 
