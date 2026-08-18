@@ -32,6 +32,7 @@ import org.jetbrains.exposed.v1.core.ResultRow
 import org.jetbrains.exposed.v1.core.and
 import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.core.lowerCase
+import org.jetbrains.exposed.v1.exceptions.ExposedSQLException
 import org.jetbrains.exposed.v1.jdbc.insert
 import org.jetbrains.exposed.v1.jdbc.selectAll
 import org.jetbrains.exposed.v1.jdbc.transactions.transaction
@@ -67,6 +68,27 @@ private const val MAX_DISPLAY_NAME_LENGTH = 200
  * `APPLICATION` check instead of silently racing. The `UPDATE` itself is additionally a
  * compare-and-swap (`status eq APPLICATION` in the WHERE clause, checked-for-zero afterwards) as
  * defense in depth against the same lost-update.
+ *
+ * **Concurrent-duplicate-registration race (V0.13.1).** [registerApplication]/[registerFriend]'s
+ * own `alreadyExists` pre-check (see each method's KDoc "account-enumeration hardening") is racy
+ * under concurrency on its own, same "pre-check is racy, the DB-level UNIQUE is the real backstop"
+ * shape [AccountingService.createLedgerAccount]/[PoliticianService.grantPoliticianStatus] already
+ * establish for THEIR OWN first-write races: two simultaneous requests with the SAME email can both
+ * observe `alreadyExists == false` before either commits, and the loser's `MemberTable.insert` then
+ * violates the table's `UNIQUE(email)` constraint (`V1__baseline.sql` line 101) instead of the
+ * pre-check catching it. Both methods catch the resulting [ExposedSQLException] around their own
+ * insert sequence and treat it EXACTLY like the synchronous `alreadyExists` branch -- a silent
+ * no-op, not a rethrown error -- because the winner of the race already created the account in full;
+ * surfacing a 500 (or any different response) to the loser would both be a wrong error AND reopen
+ * the very enumeration-hardening timing/response-shape guarantee this class's KDoc "account-
+ * enumeration hardening" documents. No retry is needed (unlike
+ * [PoliticianService.grantPoliticianStatus]'s idempotent-upsert retry) because there is nothing left
+ * for the loser to converge to -- the winner's row already IS the final state. Each try block wraps
+ * ALL of that path's inserts (not just the first), because a Postgres transaction is aborted after
+ * the FIRST failing statement -- any further statement on the same connection would itself throw
+ * (a different, unrelated error) rather than silently no-op, so the whole insert sequence must share
+ * one catch, exactly mirroring how [ElectionService.castElectionBallot]'s own multi-insert
+ * ballot-casting path wraps its whole insert sequence in one try block for the identical reason.
  */
 class RegistrationService(
     private val call: ApplicationCall,
@@ -140,26 +162,40 @@ class RegistrationService(
             if (alreadyExists) return@transaction
 
             val memberId = Uuid.random()
-            MemberTable.insert {
-                it[id] = memberId
-                it[displayName] = input.displayName
-                it[email] = normalizedEmail
-                it[status] = MemberStatus.APPLICATION
-                it[joinedAt] = now.date
-                it[membershipTierId] = null
-            }
-            AccountTable.insert {
-                it[id] = Uuid.random()
-                it[AccountTable.memberId] = memberId
-                it[role] = AccountRole.MEMBER
-                it[AccountTable.passwordHash] = passwordHash
-            }
-            MembershipAgreementAcknowledgmentTable.insert {
-                it[id] = Uuid.random()
-                it[MembershipAgreementAcknowledgmentTable.memberId] = memberId
-                it[acknowledgedAt] = now
-                it[agreementVersion] = input.agreementVersion
-                it[agreementSha256] = input.agreementSha256
+            try {
+                MemberTable.insert {
+                    it[id] = memberId
+                    it[displayName] = input.displayName
+                    it[email] = normalizedEmail
+                    it[status] = MemberStatus.APPLICATION
+                    it[joinedAt] = now.date
+                    it[membershipTierId] = null
+                }
+                AccountTable.insert {
+                    it[id] = Uuid.random()
+                    it[AccountTable.memberId] = memberId
+                    it[role] = AccountRole.MEMBER
+                    it[AccountTable.passwordHash] = passwordHash
+                }
+                MembershipAgreementAcknowledgmentTable.insert {
+                    it[id] = Uuid.random()
+                    it[MembershipAgreementAcknowledgmentTable.memberId] = memberId
+                    it[acknowledgedAt] = now
+                    it[agreementVersion] = input.agreementVersion
+                    it[agreementSha256] = input.agreementSha256
+                }
+            } catch (e: ExposedSQLException) {
+                // Concurrent-duplicate-registration race -- see class KDoc "Concurrent-duplicate-
+                // registration race" for the full reasoning. The ONLY constraint that can plausibly
+                // fire for a freshly-`Uuid.random()`-minted memberId inserted first into MemberTable
+                // (whose sole UNIQUE constraint besides its own primary key is `email`) and then
+                // referenced-but-never-duplicated by AccountTable/MembershipAgreementAcknowledgmentTable
+                // is MemberTable's `UNIQUE(email)` -- so, per this codebase's established "narrowly-
+                // scoped try block, no further discrimination" idiom (see
+                // AccountingService.createLedgerAccount/PoliticianService.grantPoliticianStatus/
+                // ElectionService.castElectionBallot), a caught violation here always means "someone
+                // else won the race for this email". Silent no-op, NOT a rethrow -- same response as
+                // the synchronous alreadyExists branch above.
             }
         }
     }
@@ -214,6 +250,13 @@ class RegistrationService(
      * "load-bearing". Rejecting a plain [MemberStatus.APPLICATION] that never had a friend account
      * (`friendSince == null`) is unaffected and still lands on [MemberStatus.REJECTED] exactly as
      * before. Sessions are still revoked either way -- see class KDoc.
+     *
+     * V0.13.1 "stale roster" fix: also ends every open [network.lapis.cloud.server.db.generated
+     * .CommitteeMembershipTable] row the applicant holds -- see [endAllOpenCommitteeMembershipsForMember]
+     * KDoc. Runs for BOTH fallback branches (REJECTED and the FRIEND fallback above) -- an
+     * APPLICATION applicant is not expected to already hold a Committee seat, but the cleanup is
+     * applied defensively either way, same posture the FRIEND-fallback branch itself already takes
+     * toward an unusual prior state.
      */
     override suspend fun rejectApplication(
         memberId: String,
@@ -241,6 +284,9 @@ class RegistrationService(
                 if (updated == 0) {
                     throw ConflictException("Application $memberId was concurrently decided -- retry")
                 }
+                // See KDoc "stale roster" fix -- same transaction as the status flip above, so a
+                // rejected applicant can never be observed still seated in a Committee.
+                endAllOpenCommitteeMembershipsForMember(memberId = targetId, until = now.date, current = current)
                 loadMember(targetId)
             }
         SessionStore.revokeAllForMember(memberId = targetId)
@@ -288,9 +334,17 @@ class RegistrationService(
      * Every one of the caller's live sessions is revoked (not just OTHER sessions, unlike
      * [AuthService.changePassword]) -- once WITHDRAWN, the former member must not remain
      * logged in anywhere.
+     *
+     * V0.13.1 "stale roster" fix: also ends every open [network.lapis.cloud.server.db.generated
+     * .CommitteeMembershipTable] row the leaving member holds -- see
+     * [endAllOpenCommitteeMembershipsForMember] KDoc. Without this, a member who left via this
+     * self-service path kept showing up as an active Committee member in
+     * [network.lapis.cloud.server.rpc.GovernanceService.listCommitteeMembers]`(activeOnly=true)`
+     * despite no longer being a member at all.
      */
     override suspend fun leaveMembership(): MemberDto {
         val current = resolveCurrentMember(call)
+        val now = nowLocalDateTime()
         val result =
             transaction {
                 val updated =
@@ -302,6 +356,9 @@ class RegistrationService(
                 if (updated == 0) {
                     throw ConflictException("Not an active member -- already left, never approved, or rejected")
                 }
+                // See KDoc "stale roster" fix -- same transaction as the status flip above, so a
+                // withdrawn member can never be observed still seated in a Committee.
+                endAllOpenCommitteeMembershipsForMember(memberId = current.memberId, until = now.date, current = current)
                 loadMember(current.memberId)
             }
         SessionStore.revokeAllForMember(memberId = current.memberId)
@@ -387,31 +444,40 @@ class RegistrationService(
             if (alreadyExists) return@transaction
 
             val memberId = Uuid.random()
-            MemberTable.insert {
-                it[id] = memberId
-                it[displayName] = input.displayName
-                it[email] = normalizedEmail
-                it[status] = MemberStatus.FRIEND
-                it[joinedAt] = now.date
-                it[membershipTierId] = null
-                it[friendSince] = now.date
+            try {
+                MemberTable.insert {
+                    it[id] = memberId
+                    it[displayName] = input.displayName
+                    it[email] = normalizedEmail
+                    it[status] = MemberStatus.FRIEND
+                    it[joinedAt] = now.date
+                    it[membershipTierId] = null
+                    it[friendSince] = now.date
+                }
+                AccountTable.insert {
+                    it[id] = Uuid.random()
+                    it[AccountTable.memberId] = memberId
+                    it[role] = AccountRole.MEMBER
+                    it[AccountTable.passwordHash] = passwordHash
+                }
+                // Deliberately NOT MembershipAgreementAcknowledgmentTable -- a FRIEND has not accepted
+                // the Satzung, see FriendTermsAcknowledgmentTable KDoc (23-registration.kuml.kts).
+                FriendTermsAcknowledgmentTable.insert {
+                    it[id] = Uuid.random()
+                    it[FriendTermsAcknowledgmentTable.memberId] = memberId
+                    it[acknowledgedAt] = now
+                    it[termsVersion] = input.termsVersion
+                    it[termsSha256] = input.termsSha256
+                }
+                newMemberId = memberId
+            } catch (e: ExposedSQLException) {
+                // Concurrent-duplicate-registration race -- see class KDoc "Concurrent-duplicate-
+                // registration race". Same reasoning as registerApplication's own catch: the only
+                // constraint that can fire here is MemberTable's UNIQUE(email), silent no-op, NOT a
+                // rethrow. newMemberId stays null, so the email-verification send below is correctly
+                // skipped -- identical to the synchronous alreadyExists branch's behavior (see that
+                // branch's own "createdMemberId != null" gate below).
             }
-            AccountTable.insert {
-                it[id] = Uuid.random()
-                it[AccountTable.memberId] = memberId
-                it[role] = AccountRole.MEMBER
-                it[AccountTable.passwordHash] = passwordHash
-            }
-            // Deliberately NOT MembershipAgreementAcknowledgmentTable -- a FRIEND has not accepted
-            // the Satzung, see FriendTermsAcknowledgmentTable KDoc (23-registration.kuml.kts).
-            FriendTermsAcknowledgmentTable.insert {
-                it[id] = Uuid.random()
-                it[FriendTermsAcknowledgmentTable.memberId] = memberId
-                it[acknowledgedAt] = now
-                it[termsVersion] = input.termsVersion
-                it[termsSha256] = input.termsSha256
-            }
-            newMemberId = memberId
         }
 
         // Email verification (B6): only if a NEW row was actually created (never for the silent

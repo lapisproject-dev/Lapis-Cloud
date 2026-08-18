@@ -2,6 +2,7 @@ package network.lapis.cloud.server.e2e
 
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
+import io.kotest.matchers.shouldNotBe
 import io.ktor.client.request.get
 import io.ktor.client.request.header
 import io.ktor.client.request.post
@@ -87,20 +88,24 @@ import kotlin.uuid.Uuid
  * not one, block the replay), so nothing here is changed in production code -- this KDoc and the
  * assertion below simply record the verified reality in place of the plan's untraced assumption.
  *
- * **The genuine, confirmed gap this scenario DOES surface and asserts (not fixed, per the wave's
- * own explicit "flag, don't fix" instruction for this exact finding)**:
- * [RegistrationService.leaveMembership] does NOT end the member's open
- * [network.lapis.cloud.server.db.generated.CommitteeMembershipTable] row. `listCommitteeMembers
- * (activeOnly = true)` therefore still lists the now-`AUSGETRETEN` member as an active seat holder
- * on the Committee they were validly seated on while `AKTIV` -- asserted in step 10 through that
- * REAL production read path (not merely through this file's local direct-DB helper, which does not
- * reproduce `listCommitteeMembers`' `innerJoin MemberTable`; see step 10's own comment for why
- * observing through the characterized API is what makes the assertion fail if the characterized
- * behavior later changes). This is NOT separately exploitable
- * for voting (the session-revocation-plus-authorization double lock proven above holds regardless
- * of the stale seat), but it is a real, currently-live data inconsistency -- see the V1.0
- * CHANGELOG's "Known limitations" section. Whether every status transition should auto-end open
- * Committee seats is a real product-design decision, out of scope for this test wave.
+ * **The "stale Committee seat" gap this scenario used to surface (previously documented, NOT fixed,
+ * per the wave's original "flag, don't fix" instruction) is now CLOSED (V0.13.1)**:
+ * [RegistrationService.leaveMembership] previously did NOT end the member's open
+ * [network.lapis.cloud.server.db.generated.CommitteeMembershipTable] row, so `listCommitteeMembers
+ * (activeOnly = true)` kept listing the now-`AUSGETRETEN` member as an active seat holder on the
+ * Committee they were validly seated on while `AKTIV`. [RegistrationService.leaveMembership] (and,
+ * symmetrically, `RegistrationService.rejectApplication`) now call the shared
+ * `endAllOpenCommitteeMembershipsForMember` helper (extracted from
+ * [GovernanceService.endCommitteeMembership]'s own per-row ending logic) inside the SAME transaction
+ * as the status flip, so the member's open seat is ended (`until` set) atomically with `AKTIV ->
+ * AUSGETRETEN`. Step 10 below now asserts the FIXED behavior through the REAL production read path
+ * (`GovernanceService.listCommitteeMembers(activeOnly = true)`, via the `/e2e4/committee-members`
+ * route) -- not merely through this file's local direct-DB helper, which does not reproduce
+ * `listCommitteeMembers`' `innerJoin MemberTable`; observing through the characterized API is what
+ * makes the assertion fail if the characterized behavior regresses. This was never separately
+ * exploitable for voting even while the gap was open (the session-revocation-plus-authorization
+ * double lock proven below holds regardless of the seat's state), but it WAS a real, live data-
+ * inconsistency bug -- see the CHANGELOG `[Unreleased]` entry for the fix.
  */
 class GovernanceStatusMachineJourneyTest :
     FunSpec({
@@ -121,7 +126,7 @@ class GovernanceStatusMachineJourneyTest :
         test(
             "real registration -> ANTRAG Committee-seat refusal -> board approval -> the IDENTICAL " +
                 "seat call now succeeds -> a real vote decided ONLY via that just-created seat -> " +
-                "self-service exit -> the stale Committee seat survives exit (documented gap) -> " +
+                "self-service exit -> the Committee seat is now closed on exit (V0.13.1 fix) -> " +
                 "the exited member's OWN prior session can no longer vote at all",
         ) {
             testApplication {
@@ -363,28 +368,28 @@ class GovernanceStatusMachineJourneyTest :
                 leftResponse.bodyAsText() shouldBe "WITHDRAWN"
                 memberStatusOf(applicantId) shouldBe MemberStatus.WITHDRAWN
 
-                // ── Step 10: REAL, CONFIRMED, DELIBERATELY-NOT-FIXED gap -- see class KDoc. ─────
-                // ── leaveMembership does not end the open CommitteeMembershipTable row: the ──────
-                // ── now-AUSGETRETEN member is still listed as an ACTIVE Committee seat holder. ───
+                // ── Step 10: V0.13.1 FIX, previously a documented gap -- see class KDoc. ─────────
+                // ── leaveMembership now ends the open CommitteeMembershipTable row atomically ────
+                // ── with the AKTIV -> AUSGETRETEN flip: the now-AUSGETRETEN member is NO LONGER ───
+                // ── listed as an active Committee seat holder. ───────────────────────────────────
                 //
                 // Asserted through the REAL production read path (GovernanceService
                 // .listCommitteeMembers(activeOnly = true), via the /e2e4/committee-members route)
                 // -- NOT merely through this file's local direct-DB helper. That distinction is the
                 // whole point of a characterization test: `listCommitteeMembers` does
                 // `CommitteeMembershipTable innerJoin MemberTable`, which `committeeMembersOf`
-                // below deliberately does not, so the two are genuinely different queries. If this
-                // gap is later closed the natural way -- by teaching `listCommitteeMembers` to
-                // filter on the joined MemberTable.status -- a direct-DB-only assertion here would
-                // keep passing unchanged while the class KDoc's and the CHANGELOG's claim about
-                // `listCommitteeMembers` silently became false. Observing through the characterized
-                // API is what makes this assertion actually fail when the characterized behavior
-                // changes.
+                // below deliberately does not, so the two are genuinely different queries -- both
+                // must now agree the seat is closed, not just one of them.
                 client
                     .get("/e2e4/committee-members/$committeeId?activeOnly=true") { header("X-Member-Id", BOARD_ID) }
-                    .bodyAsText() shouldBe "$applicantId=null"
-                // The underlying row itself, unfiltered and unjoined -- proves the stale seat is a
-                // genuine persisted `until IS NULL` row, not an artifact of the read path's join.
-                committeeMembersOf(committeeId = committeeId, activeOnly = true) shouldBe mapOf(applicantId to null)
+                    .bodyAsText() shouldBe ""
+                // The underlying row itself, unfiltered -- still exists (the row is ENDED, not
+                // deleted) but its `until` is no longer null, so the activeOnly-scoped helper query
+                // returns nothing for it either.
+                committeeMembersOf(committeeId = committeeId, activeOnly = true) shouldBe emptyMap()
+                val closedRow = committeeMembersOf(committeeId = committeeId, activeOnly = false)
+                closedRow.keys shouldBe setOf(applicantId)
+                closedRow[applicantId] shouldNotBe null
 
                 // ── Step 11: a FRESH vote on the same Committee, so the stale seat from step 10 ──
                 // ── has something new to (fail to) be leveraged against. ─────────────────────────

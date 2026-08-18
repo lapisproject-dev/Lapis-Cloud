@@ -6,6 +6,40 @@ All notable changes to this project are documented here. Format follows
 
 ## [Unreleased]
 
+### Fixed
+
+**Concurrent-duplicate-registration race in `registerApplication`/`registerFriend` — a losing request
+got a raw 500 instead of the documented silent no-op**
+
+Both endpoints' account-enumeration hardening relies on a pre-check (`SELECT COUNT` on
+`member.email`) to turn a duplicate email into a silent no-op response, identical to a genuinely new
+registration. That pre-check is racy under concurrency: two simultaneous requests with the same
+email could both observe "does not exist yet" before either commits, and the loser's `MemberTable`
+insert then violated the table's `UNIQUE(email)` constraint (`V1__baseline.sql` line 101) and
+surfaced as an uncaught `ExposedSQLException` (500) instead of the intended no-op — briefly
+reopening the exact timing/response-shape oracle the enumeration hardening exists to close. Fixed
+using this codebase's established "pre-check + `ExposedSQLException` backstop" idiom
+(`AccountingService.createLedgerAccount`, `PoliticianService.grantPoliticianStatus`,
+`ElectionService.castElectionBallot`): both methods' insert sequences are now wrapped in a
+try/catch that treats a caught unique-constraint violation exactly like the synchronous
+`alreadyExists` branch — no retry needed, since the race's winner already created the final account
+state in full.
+
+**`leaveMembership`/`rejectApplication` left a stale `CommitteeMembershipTable` roster entry behind**
+
+Neither method ended any of the affected member's open (`until == null`) Committee memberships when
+flipping `MemberTable.status` to `WITHDRAWN`/`REJECTED`/`FRIEND` — a departed or rejected member kept
+being listed as an active Committee member by `GovernanceService.listCommitteeMembers(activeOnly =
+true)`. Not a security hole on its own (`castVoteBallot` independently re-checks live membership
+status before accepting a vote), but a genuine correctness/observability bug. Fixed by extracting
+`GovernanceService.endCommitteeMembership`'s core per-row ending logic (including its
+EXECUTIVE_BOARD → `BoardMembershipTable`/audit-log cascade, unchanged) into a shared, transaction-
+free `endCommitteeMembershipRow` helper, plus a new `endAllOpenCommitteeMembershipsForMember` that
+sweeps every open row for a given member. `leaveMembership`/`rejectApplication` now call it inside
+their existing transaction, right after the status flip, so a member can never be observed
+withdrawn/rejected-but-still-seated on a Committee — `rejectApplication` applies the cleanup for
+both its REJECTED and FRIEND-fallback branches.
+
 ## [0.13.0] — 2026-08-16
 
 ### Added

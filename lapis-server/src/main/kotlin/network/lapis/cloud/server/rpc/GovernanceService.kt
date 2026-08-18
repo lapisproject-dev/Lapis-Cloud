@@ -18,6 +18,7 @@ import network.lapis.cloud.server.db.generated.VoteOptionTable
 import network.lapis.cloud.server.db.generated.VoteTable
 import network.lapis.cloud.server.economy.LedgerBackedLtrBalanceProvider
 import network.lapis.cloud.server.economy.LtrBalanceProvider
+import network.lapis.cloud.server.security.CurrentMember
 import network.lapis.cloud.server.security.canRecordForMeeting
 import network.lapis.cloud.server.security.canSubmitMotion
 import network.lapis.cloud.server.security.requireRole
@@ -287,50 +288,11 @@ class GovernanceService(
             val membershipRow =
                 CommitteeMembershipTable.selectAll().where { CommitteeMembershipTable.id eq id }.singleOrNull()
                     ?: throw NotFoundException("CommitteeMembership $membershipId not found")
-            val updated =
-                CommitteeMembershipTable.update({ CommitteeMembershipTable.id eq id }) {
-                    it[CommitteeMembershipTable.until] = until
-                }
-            if (updated == 0) throw NotFoundException("CommitteeMembership $membershipId not found")
-            // V0.5.2 §20 GwG: mirror image of the addCommitteeMember hook above -- ending a
-            // membership in an EXECUTIVE_BOARD Committee via this governance path (removal,
-            // resignation processed through the ordinary Committee-membership flow rather than
-            // BoardMembershipService.endBoardMembership) is a genuine Vorstandsaenderung too. Only
-            // acts if a corresponding open BoardMembershipTable row actually exists for this member
-            // -- it may not, e.g. if the seat was never tracked there in the first place.
-            val committeeType =
-                CommitteeTable
-                    .selectAll()
-                    .where { CommitteeTable.id eq membershipRow[CommitteeMembershipTable.committeeId] }
-                    .single()[CommitteeTable.type]
-            if (committeeType == CommitteeType.EXECUTIVE_BOARD) {
-                val openBoardMembershipRow =
-                    BoardMembershipTable
-                        .selectAll()
-                        .where {
-                            (BoardMembershipTable.memberId eq membershipRow[CommitteeMembershipTable.memberId]) and
-                                (BoardMembershipTable.endedAt.isNull())
-                        }.singleOrNull()
-                if (openBoardMembershipRow != null) {
-                    val openBoardMembershipId = openBoardMembershipRow[BoardMembershipTable.id]
-                    BoardMembershipEvents.recordBoardLeave(
-                        boardMembershipId = openBoardMembershipId,
-                        endedAt = until,
-                        now = nowLocalDateTime(),
-                    )
-                    // V0.5.3 GoBD audit log: called last, after recordBoardLeave's own writes and
-                    // before the final read-only select below -- see auditBoardMembershipEnd KDoc
-                    // for the full call-site rationale.
-                    auditBoardMembershipEnd(
-                        boardMembershipId = openBoardMembershipId,
-                        memberId = openBoardMembershipRow[BoardMembershipTable.memberId],
-                        committeeRole = openBoardMembershipRow[BoardMembershipTable.committeeRole],
-                        startedAt = openBoardMembershipRow[BoardMembershipTable.startedAt],
-                        endedAt = until,
-                        current = current,
-                    )
-                }
-            }
+            // V0.5.2 §20 GwG cascade (EXECUTIVE_BOARD -> BoardMembershipTable + audit log) lives in
+            // the shared endCommitteeMembershipRow helper (V0.13.1 extraction) -- see its KDoc.
+            // RegistrationService.leaveMembership/rejectApplication reuse the EXACT SAME function for
+            // their own "stale roster" cleanup, see endAllOpenCommitteeMembershipsForMember KDoc.
+            endCommitteeMembershipRow(membershipRow = membershipRow, until = until, current = current)
             (CommitteeMembershipTable innerJoin MemberTable)
                 .selectAll()
                 .where { CommitteeMembershipTable.id eq id }
@@ -1576,4 +1538,88 @@ class GovernanceService(
 
     private fun String.toVoteOptionUuid(): Uuid =
         runCatching { Uuid.parse(this) }.getOrElse { throw NotFoundException("Invalid id: $this") }
+}
+
+/**
+ * Core of [GovernanceService.endCommitteeMembership] -- ends [membershipRow] (an already-loaded
+ * [CommitteeMembershipTable] row): sets `until` and, if the row's Committee is EXECUTIVE_BOARD,
+ * cascades onto [BoardMembershipTable] + the GoBD audit log exactly as
+ * [GovernanceService.endCommitteeMembership] has always done -- see that method's own KDoc for the
+ * §20 GwG Vorstandsaenderung reasoning it mirrors from [GovernanceService.addCommitteeMember].
+ * Transaction-free by contract, same as [BoardMembershipEvents] -- must run inside the caller's own
+ * already-open `transaction {}`.
+ *
+ * Extracted (V0.13.1, "stale roster" fix) so [RegistrationService.leaveMembership]/
+ * [RegistrationService.rejectApplication] can reuse the EXACT SAME ending logic for their own
+ * cleanup (see [endAllOpenCommitteeMembershipsForMember]) instead of re-implementing a second,
+ * inevitably-drifting copy of the EXECUTIVE_BOARD cascade.
+ */
+internal fun endCommitteeMembershipRow(
+    membershipRow: ResultRow,
+    until: LocalDate,
+    current: CurrentMember,
+) {
+    val id = membershipRow[CommitteeMembershipTable.id]
+    val updated = CommitteeMembershipTable.update({ CommitteeMembershipTable.id eq id }) { it[CommitteeMembershipTable.until] = until }
+    if (updated == 0) throw NotFoundException("CommitteeMembership $id not found")
+    val committeeType =
+        CommitteeTable
+            .selectAll()
+            .where { CommitteeTable.id eq membershipRow[CommitteeMembershipTable.committeeId] }
+            .single()[CommitteeTable.type]
+    if (committeeType == CommitteeType.EXECUTIVE_BOARD) {
+        val openBoardMembershipRow =
+            BoardMembershipTable
+                .selectAll()
+                .where {
+                    (BoardMembershipTable.memberId eq membershipRow[CommitteeMembershipTable.memberId]) and
+                        (BoardMembershipTable.endedAt.isNull())
+                }.singleOrNull()
+        if (openBoardMembershipRow != null) {
+            val openBoardMembershipId = openBoardMembershipRow[BoardMembershipTable.id]
+            BoardMembershipEvents.recordBoardLeave(
+                boardMembershipId = openBoardMembershipId,
+                endedAt = until,
+                now = DbClock.nowLocalDateTime(),
+            )
+            // V0.5.3 GoBD audit log: called last, after recordBoardLeave's own writes -- see
+            // auditBoardMembershipEnd KDoc for the full call-site rationale.
+            auditBoardMembershipEnd(
+                boardMembershipId = openBoardMembershipId,
+                memberId = openBoardMembershipRow[BoardMembershipTable.memberId],
+                committeeRole = openBoardMembershipRow[BoardMembershipTable.committeeRole],
+                startedAt = openBoardMembershipRow[BoardMembershipTable.startedAt],
+                endedAt = until,
+                current = current,
+            )
+        }
+    }
+}
+
+/**
+ * Ends every currently-open (`until == null`) [CommitteeMembershipTable] row for [memberId] -- see
+ * [endCommitteeMembershipRow] for the per-row logic (including the EXECUTIVE_BOARD cascade).
+ * Transaction-free, same contract -- must run inside the caller's own already-open `transaction {}`.
+ *
+ * Closes the "stale roster" gap (V0.13.1): [RegistrationService.leaveMembership]/
+ * [RegistrationService.rejectApplication] flip [MemberTable.status] and revoke sessions, but
+ * previously left any open Committee seat dangling -- a departed/rejected member kept showing up in
+ * [GovernanceService.listCommitteeMembers]`(activeOnly=true)` (no security hole on its own,
+ * [GovernanceService.castVoteBallot] independently re-checks live membership, but a genuine
+ * correctness/observability bug). [current] is the ACTOR whose decision caused the ending -- the
+ * departing member themself for `leaveMembership`, the deciding BOARD/ADMIN for
+ * `rejectApplication` -- and is only used for [auditBoardMembershipEnd]'s attribution, mirroring
+ * [GovernanceService.endCommitteeMembership]'s own use of its caller.
+ */
+internal fun endAllOpenCommitteeMembershipsForMember(
+    memberId: Uuid,
+    until: LocalDate,
+    current: CurrentMember,
+) {
+    val openRows =
+        CommitteeMembershipTable
+            .selectAll()
+            .where { (CommitteeMembershipTable.memberId eq memberId) and (CommitteeMembershipTable.until.isNull()) }
+            .toList()
+    openRows.forEach { row -> endCommitteeMembershipRow(membershipRow = row, until = until, current = current) }
 }

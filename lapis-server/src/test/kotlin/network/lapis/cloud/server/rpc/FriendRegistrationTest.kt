@@ -2,6 +2,7 @@ package network.lapis.cloud.server.rpc
 
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
+import io.ktor.client.HttpClient
 import io.ktor.client.request.get
 import io.ktor.client.request.post
 import io.ktor.client.statement.bodyAsText
@@ -16,6 +17,7 @@ import io.ktor.server.routing.get
 import io.ktor.server.routing.post
 import io.ktor.server.routing.routing
 import io.ktor.server.testing.testApplication
+import kotlinx.coroutines.runBlocking
 import network.lapis.cloud.server.db.DatabaseConfig
 import network.lapis.cloud.server.db.DevSeedData
 import network.lapis.cloud.server.db.generated.AccountTable
@@ -39,6 +41,8 @@ import org.jetbrains.exposed.v1.core.inList
 import org.jetbrains.exposed.v1.jdbc.deleteWhere
 import org.jetbrains.exposed.v1.jdbc.selectAll
 import org.jetbrains.exposed.v1.jdbc.transactions.transaction
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.TimeUnit
 import kotlin.time.Duration.Companion.minutes
 import kotlin.uuid.Uuid
 
@@ -243,6 +247,37 @@ class FriendRegistrationTest :
             }
         }
 
+        test(
+            "registerFriend: two concurrent requests with the SAME email -- both succeed identically (no 500), exactly one account created, exactly one verification mail sent (V0.13.1 race fix)",
+        ) {
+            testApplication {
+                val recordingMailer = RecordingFriendVerificationMailer()
+                application {
+                    install(StatusPages) { installFriendRegistrationExceptionHandlers() }
+                    routing { registerFriendRegistrationTestRoutes(mailer = recordingMailer) }
+                }
+                val email = "friend-concurrent-dup@example.org"
+
+                val outcomes = runConcurrentDuplicateFriendRegistrations(client = client, email = email)
+
+                // BEFORE the V0.13.1 fix, the loser of this race hit an uncaught ExposedSQLException
+                // from MemberTable's UNIQUE(email) constraint and got a raw 500 instead of the
+                // account-enumeration-hardening no-op every OTHER duplicate-email path already gets.
+                outcomes.count { it == HttpStatusCode.OK } shouldBe 2
+
+                val memberId = requireNotNull(findMemberIdByEmail(email))
+                createdMemberIds += memberId
+
+                val rowCount = transaction { MemberTable.selectAll().where { MemberTable.email eq email }.count() }
+                rowCount shouldBe 1L
+                // Exactly ONE verification mail -- the race loser's silent no-op (whether via the
+                // synchronous alreadyExists pre-check or the ExposedSQLException backstop) must never
+                // send a second one, same "createdMemberId != null" gate as the sequential-duplicate
+                // test above.
+                recordingMailer.sentTo shouldBe listOf(email)
+            }
+        }
+
         test("registerFriend: repeated attempts eventually trip the failure-window rate limiter") {
             testApplication {
                 application {
@@ -381,6 +416,50 @@ private class RecordingFriendVerificationMailer : FriendVerificationMailer {
         sentTo += email
         return DeliveryStatus.SENT
     }
+}
+
+/**
+ * Fires TWO `/test/register-friend` requests with the SAME [email] from two independent OS threads,
+ * synchronized via [CountDownLatch] so both are issued as close to simultaneously as possible --
+ * same shape as [RegistrationServiceTest]'s own `runConcurrentApproveAndReject`/
+ * `runConcurrentDuplicateRegistrations` helpers, reused here to exercise the V0.13.1
+ * concurrent-duplicate-registration race fix in [RegistrationService.registerFriend].
+ */
+private fun runConcurrentDuplicateFriendRegistrations(
+    client: HttpClient,
+    email: String,
+    timeoutSeconds: Long = 20,
+): List<HttpStatusCode> {
+    val startLatch = CountDownLatch(2)
+    val doneLatch = CountDownLatch(2)
+    val results = mutableListOf<HttpStatusCode>()
+    val failures = mutableListOf<Throwable>()
+
+    fun requestThread(): Thread =
+        Thread {
+            try {
+                startLatch.countDown()
+                startLatch.await(timeoutSeconds, TimeUnit.SECONDS)
+                runBlocking {
+                    val response = client.post("/test/register-friend?email=$email")
+                    synchronized(results) { results += response.status }
+                }
+            } catch (t: Throwable) {
+                synchronized(failures) { failures += t }
+            } finally {
+                doneLatch.countDown()
+            }
+        }
+
+    val first = requestThread()
+    val second = requestThread()
+    first.start()
+    second.start()
+
+    val completed = doneLatch.await(timeoutSeconds, TimeUnit.SECONDS)
+    check(completed) { "Concurrent duplicate FRIEND registrations did not complete within ${timeoutSeconds}s -- likely deadlock" }
+    if (failures.isNotEmpty()) throw failures.first()
+    return results.toList()
 }
 
 private fun cleanUpFriendRegistrationTestData(memberIds: List<Uuid>) {

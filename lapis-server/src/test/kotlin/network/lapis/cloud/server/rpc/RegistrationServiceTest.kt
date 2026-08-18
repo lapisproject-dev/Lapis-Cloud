@@ -25,15 +25,26 @@ import kotlinx.datetime.LocalDate
 import network.lapis.cloud.server.db.DatabaseConfig
 import network.lapis.cloud.server.db.DevSeedData
 import network.lapis.cloud.server.db.generated.AccountTable
+import network.lapis.cloud.server.db.generated.AuditLogEntryTable
+import network.lapis.cloud.server.db.generated.BoardMembershipTable
+import network.lapis.cloud.server.db.generated.CommitteeMembershipTable
+import network.lapis.cloud.server.db.generated.CommitteeTable
 import network.lapis.cloud.server.db.generated.MemberTable
 import network.lapis.cloud.server.db.generated.MembershipAgreementAcknowledgmentTable
 import network.lapis.cloud.server.db.generated.SessionTable
+import network.lapis.cloud.server.db.generated.TransparenzregisterReminderTable
 import network.lapis.cloud.server.federation.FederationInboxRateLimiter
 import network.lapis.cloud.server.security.LoginRateLimiter
 import network.lapis.cloud.server.security.PasswordHasher
 import network.lapis.cloud.server.security.SessionStore
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.AdminCreateMemberInput
+import network.lapis.cloud.shared.domain.AuditAction
+import network.lapis.cloud.shared.domain.AuditEntityType
+import network.lapis.cloud.shared.domain.CommitteeInput
+import network.lapis.cloud.shared.domain.CommitteeMembershipInput
+import network.lapis.cloud.shared.domain.CommitteeRole
+import network.lapis.cloud.shared.domain.CommitteeType
 import network.lapis.cloud.shared.domain.MemberStatus
 import network.lapis.cloud.shared.domain.RegistrationInput
 import network.lapis.cloud.shared.rpc.ConflictException
@@ -41,12 +52,14 @@ import network.lapis.cloud.shared.rpc.ForbiddenException
 import network.lapis.cloud.shared.rpc.NotFoundException
 import network.lapis.cloud.shared.rpc.UnauthenticatedException
 import network.lapis.cloud.shared.rpc.WeakPasswordException
+import org.jetbrains.exposed.v1.core.and
 import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.core.inList
 import org.jetbrains.exposed.v1.jdbc.deleteWhere
 import org.jetbrains.exposed.v1.jdbc.insert
 import org.jetbrains.exposed.v1.jdbc.selectAll
 import org.jetbrains.exposed.v1.jdbc.transactions.transaction
+import org.jetbrains.exposed.v1.jdbc.update
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
 import kotlin.uuid.Uuid
@@ -66,13 +79,14 @@ private const val STRONG_PASSWORD = "a-genuinely-strong-password-1"
 class RegistrationServiceTest :
     FunSpec({
         val createdMemberIds = mutableListOf<Uuid>()
+        val createdCommitteeIds = mutableListOf<Uuid>()
 
         beforeSpec {
             DatabaseConfig.connect()
             DevSeedData.seedIfEmpty(force = true)
         }
 
-        afterSpec { cleanUpRegistrationTestData(createdMemberIds) }
+        afterSpec { cleanUpRegistrationTestData(memberIds = createdMemberIds, committeeIds = createdCommitteeIds) }
 
         fun createTestMember(
             email: String,
@@ -259,6 +273,31 @@ class RegistrationServiceTest :
                 // back inside the "new member" branch only), this duplicate-path call becomes fast
                 // again and this assertion starts failing.
                 (elapsedMillis >= 20L) shouldBe true
+            }
+        }
+
+        test(
+            "registerApplication: two concurrent requests with the SAME email -- both succeed identically (no 500), exactly one account created (V0.13.1 race fix)",
+        ) {
+            testApplication {
+                application {
+                    install(StatusPages) { installRegistrationExceptionHandlers() }
+                    routing { registerRegistrationTestRoutes(LoginRateLimiter()) }
+                }
+                val email = "reg-concurrent-dup@example.org"
+
+                val outcomes = runConcurrentDuplicateRegistrations(client = client, path = "/test/register", email = email)
+
+                // BEFORE the V0.13.1 fix, the loser of this race hit an uncaught ExposedSQLException
+                // from MemberTable's UNIQUE(email) constraint and got a raw 500 instead of the
+                // account-enumeration-hardening no-op every OTHER duplicate-email path already gets.
+                outcomes.count { it == HttpStatusCode.OK } shouldBe 2
+
+                val memberId = requireNotNull(findMemberIdByEmail(email))
+                createdMemberIds += memberId
+
+                val rowCount = transaction { MemberTable.selectAll().where { MemberTable.email eq email }.count() }
+                rowCount shouldBe 1L
             }
         }
 
@@ -491,6 +530,149 @@ class RegistrationServiceTest :
                 secondLeave.status shouldBe HttpStatusCode.Conflict
             }
         }
+
+        test(
+            "leaveMembership: stale-roster fix -- an open (non-EXECUTIVE_BOARD) Committee membership is ended when the member leaves (V0.13.1)",
+        ) {
+            testApplication {
+                application {
+                    install(StatusPages) { installRegistrationExceptionHandlers() }
+                    routing {
+                        registerRegistrationTestRoutes(LoginRateLimiter())
+                        registerCommitteeHelperRoutesForRegistrationTests()
+                    }
+                }
+                val member = createTestMember("reg-leave-committee@example.org", MemberStatus.ACTIVE)
+                val session = SessionStore.createSession(member)
+
+                val committeeId =
+                    client.post("/test/gov/create-committee/WORKING_GROUP") { header("X-Member-Id", BOARD_ID) }.bodyAsText()
+                createdCommitteeIds += Uuid.parse(committeeId)
+                client
+                    .post("/test/gov/add-member/$committeeId/$member") { header("X-Member-Id", BOARD_ID) }
+                    .status shouldBe HttpStatusCode.OK
+
+                val beforeLeave = client.get("/test/gov/list-members/$committeeId") { header("X-Member-Id", BOARD_ID) }.bodyAsText()
+                beforeLeave.contains(member.toString()) shouldBe true
+
+                client.post("/test/leave") { header("Authorization", "Bearer ${session.rawToken}") }.status shouldBe HttpStatusCode.OK
+
+                // The real behavioral assertion: GovernanceService.listCommitteeMembers(activeOnly =
+                // true) -- exactly the query this fix targets -- must no longer list the departed
+                // member.
+                val afterLeave = client.get("/test/gov/list-members/$committeeId") { header("X-Member-Id", BOARD_ID) }.bodyAsText()
+                afterLeave.contains(member.toString()) shouldBe false
+
+                val untilSet =
+                    transaction {
+                        CommitteeMembershipTable
+                            .selectAll()
+                            .where { CommitteeMembershipTable.memberId eq member }
+                            .single()[CommitteeMembershipTable.until]
+                    }
+                untilSet shouldNotBe null
+            }
+        }
+
+        test(
+            "leaveMembership: stale-roster fix -- EXECUTIVE_BOARD cascade (BoardMembershipTable ended + GoBD audit UPDATE entry) when the member leaves (V0.13.1)",
+        ) {
+            testApplication {
+                application {
+                    install(StatusPages) { installRegistrationExceptionHandlers() }
+                    routing {
+                        registerRegistrationTestRoutes(LoginRateLimiter())
+                        registerCommitteeHelperRoutesForRegistrationTests()
+                    }
+                }
+                val member = createTestMember("reg-leave-board@example.org", MemberStatus.ACTIVE)
+                val session = SessionStore.createSession(member)
+
+                val committeeId =
+                    client.post("/test/gov/create-committee/EXECUTIVE_BOARD") { header("X-Member-Id", BOARD_ID) }.bodyAsText()
+                createdCommitteeIds += Uuid.parse(committeeId)
+                client
+                    .post("/test/gov/add-member/$committeeId/$member") { header("X-Member-Id", BOARD_ID) }
+                    .status shouldBe HttpStatusCode.OK
+
+                val boardMembershipId =
+                    transaction {
+                        BoardMembershipTable.selectAll().where { BoardMembershipTable.memberId eq member }.single()[
+                            BoardMembershipTable.id,
+                        ]
+                    }
+                transaction {
+                    BoardMembershipTable.selectAll().where { BoardMembershipTable.id eq boardMembershipId }.single()[
+                        BoardMembershipTable.endedAt,
+                    ]
+                } shouldBe null
+
+                client.post("/test/leave") { header("Authorization", "Bearer ${session.rawToken}") }.status shouldBe HttpStatusCode.OK
+
+                // Same EXECUTIVE_BOARD cascade endCommitteeMembership itself has always performed --
+                // see GovernanceServiceTest's own "addCommitteeMember/endCommitteeMembership ... write
+                // BOARD_MEMBERSHIP CREATE/UPDATE audit entries" test for the direct-call-site version
+                // of this same assertion.
+                val endedAt =
+                    transaction {
+                        BoardMembershipTable.selectAll().where { BoardMembershipTable.id eq boardMembershipId }.single()[
+                            BoardMembershipTable.endedAt,
+                        ]
+                    }
+                endedAt shouldNotBe null
+
+                val updateAuditCount =
+                    transaction {
+                        AuditLogEntryTable
+                            .selectAll()
+                            .where {
+                                (AuditLogEntryTable.entityType eq AuditEntityType.BOARD_MEMBERSHIP) and
+                                    (AuditLogEntryTable.entityId eq boardMembershipId) and
+                                    (AuditLogEntryTable.action eq AuditAction.UPDATE)
+                            }.count()
+                    }
+                updateAuditCount shouldBe 1L
+            }
+        }
+
+        test(
+            "rejectApplication: stale-roster fix -- ends an open Committee membership when the application is rejected (V0.13.1)",
+        ) {
+            testApplication {
+                application {
+                    install(StatusPages) { installRegistrationExceptionHandlers() }
+                    routing {
+                        registerRegistrationTestRoutes(LoginRateLimiter())
+                        registerCommitteeHelperRoutesForRegistrationTests()
+                    }
+                }
+                // An APPLICATION applicant is not expected to already hold a Committee seat --
+                // addCommitteeMember itself requires ACTIVE (see its own status-gate tests in
+                // GovernanceServiceTest). Seeded defensively anyway (see rejectApplication KDoc "stale
+                // roster" fix): create the member ACTIVE, seat it, THEN downgrade it back to
+                // APPLICATION directly (bypassing the normal transitions -- this is test setup for an
+                // otherwise-unreachable-in-practice prior state, not a real business flow) for the
+                // actual rejectApplication call under test.
+                val applicant = createTestMember("reg-reject-committee@example.org", MemberStatus.ACTIVE)
+                val committeeId =
+                    client.post("/test/gov/create-committee/WORKING_GROUP") { header("X-Member-Id", BOARD_ID) }.bodyAsText()
+                createdCommitteeIds += Uuid.parse(committeeId)
+                client
+                    .post("/test/gov/add-member/$committeeId/$applicant") { header("X-Member-Id", BOARD_ID) }
+                    .status shouldBe HttpStatusCode.OK
+                transaction { MemberTable.update({ MemberTable.id eq applicant }) { it[status] = MemberStatus.APPLICATION } }
+
+                val beforeReject = client.get("/test/gov/list-members/$committeeId") { header("X-Member-Id", BOARD_ID) }.bodyAsText()
+                beforeReject.contains(applicant.toString()) shouldBe true
+
+                val rejected = client.post("/test/reject/$applicant?reason=Testablehnung") { header("X-Member-Id", BOARD_ID) }
+                rejected.status shouldBe HttpStatusCode.OK
+                statusOf(applicant) shouldBe MemberStatus.REJECTED
+
+                val afterReject = client.get("/test/gov/list-members/$committeeId") { header("X-Member-Id", BOARD_ID) }.bodyAsText()
+                afterReject.contains(applicant.toString()) shouldBe false
+            }
+        }
     })
 
 private fun storedPasswordHashDirect(memberId: Uuid): String? =
@@ -541,13 +723,83 @@ private fun runConcurrentApproveAndReject(
     return results.toList()
 }
 
-private fun cleanUpRegistrationTestData(memberIds: List<Uuid>) {
-    if (memberIds.isEmpty()) return
+/**
+ * Fires TWO requests to [path] with the SAME [email] from two independent OS threads, synchronized
+ * via [CountDownLatch] so both are issued as close to simultaneously as possible -- same shape as
+ * [runConcurrentApproveAndReject] above, reused here to exercise the V0.13.1
+ * concurrent-duplicate-registration race fix in [RegistrationService.registerApplication].
+ */
+private fun runConcurrentDuplicateRegistrations(
+    client: HttpClient,
+    path: String,
+    email: String,
+    timeoutSeconds: Long = 20,
+): List<HttpStatusCode> {
+    val startLatch = CountDownLatch(2)
+    val doneLatch = CountDownLatch(2)
+    val results = mutableListOf<HttpStatusCode>()
+    val failures = mutableListOf<Throwable>()
+
+    fun requestThread(): Thread =
+        Thread {
+            try {
+                startLatch.countDown()
+                startLatch.await(timeoutSeconds, TimeUnit.SECONDS)
+                runBlocking {
+                    val response = client.post("$path?email=$email")
+                    synchronized(results) { results += response.status }
+                }
+            } catch (t: Throwable) {
+                synchronized(failures) { failures += t }
+            } finally {
+                doneLatch.countDown()
+            }
+        }
+
+    val first = requestThread()
+    val second = requestThread()
+    first.start()
+    second.start()
+
+    val completed = doneLatch.await(timeoutSeconds, TimeUnit.SECONDS)
+    check(completed) { "Concurrent duplicate registrations did not complete within ${timeoutSeconds}s -- likely deadlock" }
+    if (failures.isNotEmpty()) throw failures.first()
+    return results.toList()
+}
+
+/**
+ * [committeeIds] cleanup added for the V0.13.1 "stale roster" fix tests, which seat members into
+ * fresh throwaway Committees via [registerCommitteeHelperRoutesForRegistrationTests] -- mirrors
+ * [cleanUpGovernanceTestData]'s own ordering (null out [AuditLogEntryTable.actorMemberId] FKs
+ * before deleting [MemberTable] rows; [AuditLogEntryTable] rows themselves are never deleted, see
+ * `AuditLogRecorder` KDoc) but simplified: this file's Committees are never used for
+ * Meetings/Motions/Votes/Resolutions, so none of [cleanUpGovernanceTestData]'s handling for those
+ * applies here.
+ */
+private fun cleanUpRegistrationTestData(
+    memberIds: List<Uuid>,
+    committeeIds: List<Uuid> = emptyList(),
+) {
+    if (memberIds.isEmpty() && committeeIds.isEmpty()) return
     transaction {
-        SessionTable.deleteWhere { SessionTable.memberId inList memberIds }
-        MembershipAgreementAcknowledgmentTable.deleteWhere { MembershipAgreementAcknowledgmentTable.memberId inList memberIds }
-        AccountTable.deleteWhere { AccountTable.memberId inList memberIds }
-        MemberTable.deleteWhere { MemberTable.id inList memberIds }
+        if (memberIds.isNotEmpty()) {
+            AuditLogEntryTable.update({ AuditLogEntryTable.actorMemberId inList memberIds }) {
+                it[actorMemberId] = null
+            }
+            TransparenzregisterReminderTable.deleteWhere { TransparenzregisterReminderTable.memberId inList memberIds }
+            BoardMembershipTable.deleteWhere { BoardMembershipTable.memberId inList memberIds }
+            CommitteeMembershipTable.deleteWhere { CommitteeMembershipTable.memberId inList memberIds }
+        }
+        if (committeeIds.isNotEmpty()) {
+            CommitteeMembershipTable.deleteWhere { CommitteeMembershipTable.committeeId inList committeeIds }
+            CommitteeTable.deleteWhere { CommitteeTable.id inList committeeIds }
+        }
+        if (memberIds.isNotEmpty()) {
+            SessionTable.deleteWhere { SessionTable.memberId inList memberIds }
+            MembershipAgreementAcknowledgmentTable.deleteWhere { MembershipAgreementAcknowledgmentTable.memberId inList memberIds }
+            AccountTable.deleteWhere { AccountTable.memberId inList memberIds }
+            MemberTable.deleteWhere { MemberTable.id inList memberIds }
+        }
     }
 }
 
@@ -629,5 +881,47 @@ private fun Route.registerRegistrationTestRoutes(rateLimiter: LoginRateLimiter) 
     post("/test/leave") {
         val dto = registrationService(call).leaveMembership()
         call.respondText(dto.status.name)
+    }
+}
+
+/**
+ * Minimal throwaway [GovernanceService] routes for the V0.13.1 "stale roster" fix tests --
+ * only what's needed to seat a member into a Committee and read the roster back, mirroring
+ * [GovernanceServiceTest]'s own `registerGovernanceTestRoutes` route shapes (`create-committee`/
+ * `add-member`) but pared down to this file's needs (fixed `MEMBER` role/`since`, no Meeting/Motion/
+ * Vote routes).
+ */
+private fun Route.registerCommitteeHelperRoutesForRegistrationTests() {
+    post("/test/gov/create-committee/{type}") {
+        val service = GovernanceService(call = call)
+        val c =
+            service.createCommittee(
+                CommitteeInput(
+                    name = "RegistrationServiceTest Committee ${Uuid.random()}",
+                    type = CommitteeType.valueOf(call.parameters["type"]!!),
+                    description = "Stale-roster-fix test committee",
+                    quorumPercent = 50,
+                ),
+            )
+        call.respondText(c.id)
+    }
+    post("/test/gov/add-member/{committeeId}/{memberId}") {
+        val service = GovernanceService(call = call)
+        val m =
+            service.addCommitteeMember(
+                committeeId = call.parameters["committeeId"]!!,
+                input =
+                    CommitteeMembershipInput(
+                        memberId = call.parameters["memberId"]!!,
+                        role = CommitteeRole.MEMBER,
+                        since = LocalDate(2026, 1, 1),
+                    ),
+            )
+        call.respondText(m.id)
+    }
+    get("/test/gov/list-members/{committeeId}") {
+        val service = GovernanceService(call = call)
+        val list = service.listCommitteeMembers(committeeId = call.parameters["committeeId"]!!, activeOnly = true)
+        call.respondText(list.joinToString(",") { it.memberId })
     }
 }
