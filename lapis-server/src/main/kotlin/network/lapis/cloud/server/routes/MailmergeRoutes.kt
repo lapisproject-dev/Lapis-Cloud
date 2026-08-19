@@ -272,6 +272,8 @@ internal fun generateBeitragsrechnung(
                 paidAmount = row[ContributionTable.paidAmount],
                 note = row[ContributionTable.note],
                 createdAt = row[ContributionTable.createdAt],
+                dueDate = row[ContributionTable.dueDate],
+                paymentMethod = row[ContributionTable.paymentMethod],
             )
         val member =
             loadMailmergeMember(row[ContributionTable.memberId])

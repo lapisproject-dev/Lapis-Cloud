@@ -39,6 +39,8 @@ import network.lapis.cloud.shared.domain.LedgerAccountDto
 import network.lapis.cloud.shared.domain.LedgerAccountInput
 import network.lapis.cloud.shared.domain.LedgerAccountType
 import network.lapis.cloud.shared.domain.MemberSummaryDto
+import network.lapis.cloud.shared.domain.OrganizationSettingsDto
+import network.lapis.cloud.shared.domain.OrganizationSettingsInput
 import network.lapis.cloud.shared.domain.PostalDeliveryStatus
 import network.lapis.cloud.shared.domain.PostingDto
 import network.lapis.cloud.shared.domain.PostingInput
@@ -149,6 +151,14 @@ fun renderLedgerScreen(container: SimplePanel) {
         renderAccountCreationForm(root, ::refreshAccounts)
     }
 
+    // ---- Kontenzuordnung Zahlungsverkehr (V1.2.1 Zahlungs-Fundament) ----------------------
+    // Deliberately its OWN, narrower role check -- ADMIN-only, NOT the screen-wide `canManage`
+    // (TREASURER/ADMIN) -- see renderPaymentAccountMappingSection KDoc "Role gate" (Review Round 1,
+    // 2026-08-19, MINOR-5): OrganizationSettingsService.updateOrganizationSettings itself requires
+    // AccountRole.ADMIN only, so a TREASURER must not see an editable form that always fails.
+    root.h2(tr("Kontenzuordnung Zahlungsverkehr"))
+    renderPaymentAccountMappingSection(root, AppState.hasRole(AccountRole.ADMIN))
+
     // ---- Journal (Grundbuch) --------------------------------------------------------------
     root.h2(tr("Journal (Grundbuch)"))
     val journalFilterRow = root.hPanel(spacing = 8) { addCssClasses("align-items-center") }
@@ -244,6 +254,144 @@ fun renderLedgerScreen(container: SimplePanel) {
         }
     }
 }
+
+// ============================================================================================
+// Kontenzuordnung Zahlungsverkehr (V1.2.1 "Zahlungs-Fundament")
+// ============================================================================================
+
+/**
+ * Welle V1.2.1 "Zahlungs-Fundament" — lets an ADMIN pick which SKR42 [LedgerAccountDto]s
+ * [ContributionPostingBridge][network.lapis.cloud.server.rpc.ContributionPostingBridge] books a
+ * manually marked-paid contribution into (`OrganizationSettingsDto.paymentBankAccountId`/
+ * `.paymentFeeAccountId`/`.contributionIncomeAccountId`). Unlike `renderPoliticianRankingToggle`
+ * (`PoliticianScreen.kt`) these three fields ARE part of the generic `updateOrganizationSettings`
+ * write-set (plain configuration, not a liability-relevant feature toggle) -- see
+ * `OrganizationSettingsDto` KDoc. Same "wholesale-replace every OTHER field unchanged" idiom that
+ * KDoc's own `toInputWithPoliticianRankingEnabled` helper establishes -- see
+ * [OrganizationSettingsDto.toInputWithPaymentAccountMapping] below.
+ *
+ * **Role gate (Review Round 1, 2026-08-19, MINOR-5):** [canManage] here is deliberately
+ * `AppState.hasRole(ADMIN)` ONLY, narrower than [renderLedgerScreen]'s own screen-wide `canManage`
+ * (`TREASURER`/`ADMIN`) that gates account creation/journal posting -- because
+ * `OrganizationSettingsService.updateOrganizationSettings` itself requires `AccountRole.ADMIN` only.
+ * Widening the endpoint to accept `TREASURER` was rejected: `updateOrganizationSettings` is a broad,
+ * wholesale settings-update method that also writes bank IBAN/BIC, tax-exemption data, and other
+ * org-wide fields with no established TREASURER-write precedent elsewhere in this codebase, so
+ * narrowing the CLIENT-side gate on just this section to match the actual, unwidened endpoint
+ * requirement was the least invasive fix.
+ *
+ * While unconfigured (any of the three still unset), a paid contribution's status still transitions
+ * but no journal entry is booked -- the empty option in each select IS a valid, savable choice
+ * (clears that mapping back to `null`), not merely a placeholder.
+ */
+private fun renderPaymentAccountMappingSection(
+    root: SimplePanel,
+    canManage: Boolean,
+) {
+    val panel = root.vPanel(spacing = 8)
+    panel.p(tr("Wird geladen …")) { addCssClasses("text-muted small") }
+
+    fun load() {
+        panel.removeAll()
+        panel.p(tr("Wird geladen …")) { addCssClasses("text-muted small") }
+        AppScope.launch {
+            val accounts = guarded { rpcService<IAccountingService>().listLedgerAccounts(activeOnly = true) } ?: return@launch
+            val settings = guarded { rpcService<IOrganizationSettingsService>().getOrganizationSettings() } ?: return@launch
+            panel.removeAll()
+
+            if (!canManage) {
+                val unconfigured = tr("(nicht konfiguriert)")
+                panel.p(
+                    gettext(
+                        "Bankkonto: %1 · Gebührenkonto: %2 · Beitragserlöskonto: %3",
+                        accounts.find { it.id == settings.paymentBankAccountId }?.name ?: unconfigured,
+                        accounts.find { it.id == settings.paymentFeeAccountId }?.name ?: unconfigured,
+                        accounts.find { it.id == settings.contributionIncomeAccountId }?.name ?: unconfigured,
+                    ),
+                )
+                return@launch
+            }
+
+            panel.p(
+                tr(
+                    "Solange eines der drei Konten nicht zugeordnet ist, wird ein als bezahlt markierter " +
+                        "Beitrag NICHT gebucht -- der Status wechselt trotzdem auf \"bezahlt\".",
+                ),
+            ) { addCssClasses("text-muted small") }
+
+            val accountOptions = listOf("" to tr("(nicht konfiguriert)")) + accounts.map { it.id to "${it.accountNumber} · ${it.name}" }
+
+            val bankSelect =
+                panel.select(
+                    options = accountOptions,
+                    value = settings.paymentBankAccountId.orEmpty(),
+                    label = tr("Bankkonto"),
+                )
+            val feeSelect =
+                panel.select(options = accountOptions, value = settings.paymentFeeAccountId.orEmpty(), label = tr("Gebührenkonto"))
+            val incomeSelect =
+                panel.select(
+                    options = accountOptions,
+                    value = settings.contributionIncomeAccountId.orEmpty(),
+                    label = tr("Beitragserlöskonto"),
+                )
+
+            val saveButton = panel.button(tr("Kontenzuordnung speichern"), style = ButtonStyle.PRIMARY)
+            saveButton.onClick {
+                saveButton.disabled = true
+                AppScope.launch {
+                    try {
+                        val result =
+                            guarded {
+                                rpcService<IOrganizationSettingsService>().updateOrganizationSettings(
+                                    settings.toInputWithPaymentAccountMapping(
+                                        paymentBankAccountId = bankSelect.value?.takeIf { it.isNotBlank() },
+                                        paymentFeeAccountId = feeSelect.value?.takeIf { it.isNotBlank() },
+                                        contributionIncomeAccountId = incomeSelect.value?.takeIf { it.isNotBlank() },
+                                    ),
+                                )
+                            }
+                        if (result != null) {
+                            notifySuccess(tr("Kontenzuordnung gespeichert."))
+                            load()
+                        }
+                    } finally {
+                        // Review Round 4 (2026-08-19): guarded() rethrows CancellationException -- a
+                        // plain post-guarded() re-enable never runs if this coroutine is cancelled
+                        // mid-flight, leaving the button permanently disabled until a page refresh.
+                        // Same bug class as ContributionsScreen.kt's payButton (Review Round 2,
+                        // SHOULD-3) -- that fix's own comment named this call site as its model, but
+                        // the fix itself wasn't applied here at the time.
+                        saveButton.disabled = false
+                    }
+                }
+            }
+        }
+    }
+    load()
+}
+
+private fun OrganizationSettingsDto.toInputWithPaymentAccountMapping(
+    paymentBankAccountId: String?,
+    paymentFeeAccountId: String?,
+    contributionIncomeAccountId: String?,
+) = OrganizationSettingsInput(
+    name = name,
+    street = street,
+    postalCode = postalCode,
+    city = city,
+    country = country,
+    bankIban = bankIban,
+    bankBic = bankBic,
+    taxExemptionAuthority = taxExemptionAuthority,
+    taxExemptionDate = taxExemptionDate,
+    isPoliticalParty = isPoliticalParty,
+    postalMailEnabled = postalMailEnabled,
+    politicianRankingEnabled = politicianRankingEnabled,
+    paymentBankAccountId = paymentBankAccountId,
+    paymentFeeAccountId = paymentFeeAccountId,
+    contributionIncomeAccountId = contributionIncomeAccountId,
+)
 
 // ============================================================================================
 // Accounts (Kontenplan)

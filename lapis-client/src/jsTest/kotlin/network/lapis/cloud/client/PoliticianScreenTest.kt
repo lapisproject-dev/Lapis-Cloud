@@ -46,6 +46,9 @@ class PoliticianScreenTest {
             politicianRankingEnabled = false,
             auctionEnabled = true,
             auctionMaxValueLtr = 500.0.toDecimal(),
+            paymentBankAccountId = "account-bank-1",
+            paymentFeeAccountId = "account-fee-1",
+            contributionIncomeAccountId = "account-income-1",
         )
 
     @Test
@@ -62,6 +65,9 @@ class PoliticianScreenTest {
         assertEquals(fullSettings.taxExemptionDate, input.taxExemptionDate)
         assertEquals(fullSettings.isPoliticalParty, input.isPoliticalParty)
         assertEquals(fullSettings.postalMailEnabled, input.postalMailEnabled)
+        assertEquals(fullSettings.paymentBankAccountId, input.paymentBankAccountId)
+        assertEquals(fullSettings.paymentFeeAccountId, input.paymentFeeAccountId)
+        assertEquals(fullSettings.contributionIncomeAccountId, input.contributionIncomeAccountId)
         assertTrue(input.politicianRankingEnabled, "expected politicianRankingEnabled to be flipped to true")
     }
 
@@ -79,6 +85,9 @@ class PoliticianScreenTest {
         assertEquals(fullSettings.taxExemptionDate, input.taxExemptionDate)
         assertEquals(fullSettings.isPoliticalParty, input.isPoliticalParty)
         assertEquals(fullSettings.postalMailEnabled, input.postalMailEnabled)
+        assertEquals(fullSettings.paymentBankAccountId, input.paymentBankAccountId)
+        assertEquals(fullSettings.paymentFeeAccountId, input.paymentFeeAccountId)
+        assertEquals(fullSettings.contributionIncomeAccountId, input.contributionIncomeAccountId)
         assertFalse(input.politicianRankingEnabled, "expected politicianRankingEnabled to be flipped to false")
     }
 
@@ -107,6 +116,9 @@ class PoliticianScreenTest {
         assertEquals(null, input.bankBic)
         assertEquals(null, input.taxExemptionAuthority)
         assertEquals(null, input.taxExemptionDate)
+        assertEquals(null, input.paymentBankAccountId)
+        assertEquals(null, input.paymentFeeAccountId)
+        assertEquals(null, input.contributionIncomeAccountId)
         assertFalse(input.isPoliticalParty)
         assertFalse(input.postalMailEnabled)
         assertTrue(input.politicianRankingEnabled)

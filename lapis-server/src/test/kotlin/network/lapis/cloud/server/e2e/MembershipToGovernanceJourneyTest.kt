@@ -89,14 +89,21 @@ import kotlin.uuid.Uuid
  * V0.4 (a real Beitragsrechnung PDF generated from the just-paid contribution) -> V0.5 (the GoBD
  * audit hash chain records the vote's settlement Resolution and still verifies).
  *
- * **Real, confirmed scope gap found while researching this scenario (see V1.0 CHANGELOG "Known
- * limitations" -- flagged, not fixed, per the wave's own plan)**: [ContributionService
- * .markContributionPaid] does NOT post anything to [AccountingService] -- it only flips
- * [network.lapis.cloud.server.db.generated.ContributionTable.status] to `PAID`. The V0.1<->V0.3
- * seam a treasurer actually relies on in this codebase is two independent, manually-sequenced
- * calls (`markContributionPaid`, then a separate `postJournalEntry`), not one automatic posting --
- * this test reproduces exactly that real two-call idiom rather than asserting a feature that does
- * not exist.
+ * **Historical scope gap, fixed by Welle V1.2.1 "Zahlungs-Fundament" (Befund B-1) -- updated
+ * 2026-08-19, Review Round 1**: at V1.0 time, [ContributionService.markContributionPaid] did NOT
+ * post anything to [AccountingService] -- it only flipped
+ * [network.lapis.cloud.server.db.generated.ContributionTable.status] to `PAID`. Since V1.2.1,
+ * `markContributionPaid` internally calls
+ * `network.lapis.cloud.server.rpc.ContributionPostingBridge.postContributionPayment` in the SAME
+ * transaction, booking a real journal entry -- but only when an ADMIN has configured the
+ * `OrganizationSettings` payment-account mapping (`paymentBankAccountId`/`paymentFeeAccountId`/
+ * `contributionIncomeAccountId`); see that bridge's own KDoc "Verhält sich degradierend statt
+ * scheiternd". THIS test's fixture never configures that mapping, so `markContributionPaid` still
+ * degrades to a status-only write here -- the two-call idiom below (`markContributionPaid`, then a
+ * separate manual `postJournalEntry`) still faithfully reproduces this scenario's real, unconfigured
+ * starting state; it is no longer evidence of a missing feature, only of this test not exercising
+ * the now-existing automatic booking path. See `ContributionPostingBridgeTest`/the RPC-level
+ * `OrganizationSettingsService` tests for coverage of the configured-mapping path itself.
  *
  * **A second real, confirmed gap**: there is no production RPC path that ever assigns
  * [network.lapis.cloud.server.db.generated.MemberTable.membershipTierId] after a member is

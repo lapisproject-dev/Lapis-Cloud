@@ -12,6 +12,7 @@ import network.lapis.cloud.shared.domain.DonationDuty
 import network.lapis.cloud.shared.domain.DonorCategory
 import network.lapis.cloud.shared.domain.JournalEntrySnapshot
 import network.lapis.cloud.shared.domain.JournalEntryStatus
+import network.lapis.cloud.shared.domain.OrganizationSettingsPaymentMappingSnapshot
 import network.lapis.cloud.shared.domain.PartyDonationVerdictSnapshot
 import network.lapis.cloud.shared.domain.ResolutionMode
 import network.lapis.cloud.shared.domain.ResolutionSnapshot
@@ -162,6 +163,19 @@ class AuditLogScreenTest {
             )
         val raw = Json.encodeToString(PartyDonationVerdictSnapshot.serializer(), snapshot)
         assertEquals(snapshot, decodeAuditSnapshot(AuditEntityType.PARTY_DONATION_VERDICT, raw))
+    }
+
+    @Test
+    fun decodeAuditSnapshot_organizationSettingsPaymentMapping_roundTrips() {
+        // Security Round 1 (2026-08-19, MAJOR-2).
+        val snapshot =
+            OrganizationSettingsPaymentMappingSnapshot(
+                paymentBankAccountId = "00000000-0000-0000-0000-000000000101",
+                paymentFeeAccountId = null,
+                contributionIncomeAccountId = "00000000-0000-0000-0000-000000000102",
+            )
+        val raw = Json.encodeToString(OrganizationSettingsPaymentMappingSnapshot.serializer(), snapshot)
+        assertEquals(snapshot, decodeAuditSnapshot(AuditEntityType.ORGANIZATION_SETTINGS, raw))
     }
 
     @Test

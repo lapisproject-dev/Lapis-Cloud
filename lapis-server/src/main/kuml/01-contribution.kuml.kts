@@ -1,12 +1,11 @@
 // Contribution domain — membership_tier/contribution (V2__contributions.sql).
 //
-// This is the versioned source-of-truth *model* for the schema shape (ADR-0016), verified
-// against both the real Flyway-migrated H2 schema and the hand-written Exposed Table objects
-// (network.lapis.cloud.server.db.tables.ContributionTables.kt) by SchemaDriftTest. Per
-// ADR-0016's designModelStrategy option B, this is a verification-only artifact for now: the
-// hand-written Table objects remain the actually-compiled/actually-imported-by-N-files source.
-// See docs/architecture/domain-model.adoc and CLAUDE.md's kUML-Repo-Konventionen (vault) for the
-// full rationale (enum-to-VARCHAR type-fidelity gap, Kotlin-object-naming-override gap).
+// The generated `db/generated/*.kt` files ARE the compiled/imported-by-N-files source since
+// 4756e69 ("swap production persistence to kUML-generated Exposed tables") — this model is the
+// versioned source of truth for schema *shape*, not a verification-only artifact pointing at a
+// hand-written Table object (that earlier framing is stale, belonged to the pre-4756e69 era, and
+// must not be copied into new domain files — see 10-accounting.kuml.kts/32-social-network.kuml.kts
+// for the current framing this file now follows).
 //
 // MembershipTier is fully defined *here* (this is its owning domain, first introduced by
 // V2__contributions.sql) — Foundation's 00-foundation.kuml.kts separately carries only a
@@ -15,11 +14,32 @@
 // file, symmetrically, carries a minimal id-only Member stub (owned by Foundation) purely so
 // UmlToErmTransformer can resolve contribution.member_id's association target.
 //
-// Known, accepted gaps (see SchemaDriftTest for the pinned assertions):
+// Known, accepted gaps (see PaymentsSchemaDriftTest/ContributionSchemaDriftTest for the pinned
+// assertions):
 //  - membership_tier.active's `DEFAULT TRUE` and contribution.created_at's implicit
 //    application-supplied default are not modelled via defaultValue here (SchemaDriftTest,
 //    like foundation's, does not introspect column defaults — only name/nullable/FK shape) —
 //    consistent with the established, minimal-scope drift-check pattern from foundation.
+//
+// **Welle V1.2.1 "Zahlungs-Fundament"** (see vault "Lapis Cloud V1.2 -- Zahlungsverkehr" plan §§
+// 0.1/2.1/2.2/2.5) closes Befund B-1: a paid contribution never produced a journal entry or audit
+// trail. This wave adds:
+//  - Four new `ContributionStatus` literals (`DEBIT_SCHEDULED`/`DEBIT_SUBMITTED`/`RETURNED`/
+//    `IN_DUNNING`) -- unused by any V1.2.1 code path (SEPA/Mahnwesen are later sub-waves V1.2.2/
+//    V1.2.3), but the enum widening itself (VARCHAR(7)->VARCHAR(15) + CHECK) is a single atomic
+//    schema change this wave makes once, rather than re-widening the CHECK constraint three more
+//    times across the later sub-waves -- see plan § 2.1's "erwogene Alternative, verworfen".
+//    `ContributionStatusSets` (network.lapis.cloud.shared.domain, mirrors `MemberStatusSets`) is
+//    the ONE place a "which statuses may do X" question about these is answered.
+//  - `contribution.dueDate`/`contribution.paymentMethod` (new `ContributionPaymentMethod` enum:
+//    MANUAL/SEPA_DEBIT/GATEWAY) -- see plan § 2.2. `sepaMandateId` (plan § 2.2) is DELIBERATELY
+//    NOT added here: it FKs to `sepa_mandate`, a table V1.2.2 introduces -- adding the column now
+//    without its target table would leave a dangling reference. It arrives together with
+//    `sepa_mandate` in V1.2.2's own migration/model edit.
+//  - `membershipTier.paymentTermDays` (Int, NOT NULL, default 14) -- the "Zahlungsziel" in days
+//    `ContributionService.generateContributionsForPeriod` now reads to compute a freshly generated
+//    contribution's `dueDate` (`periodStart + paymentTermDays`). Existing tiers backfill to 14 in
+//    `V7__payments.sql` (see that migration's comment for why 14, not 0).
 import dev.kuml.profile.erm.ermMappingProfile
 import dev.kuml.uml.Multiplicity
 import dev.kuml.uml.dsl.applyProfile
@@ -45,11 +65,30 @@ classDiagram(name = "Contribution") {
         literal(name = "YEARLY")
     }
 
+    // Literal order is load-bearing (PaymentsSchemaDriftTest pins ErmDataType.Enum.values against
+    // network.lapis.cloud.shared.domain.ContributionStatus in exactly this order) -- the four V1.2.1
+    // additions are appended LAST, never reordered/inserted among the original four. See file header
+    // "Welle V1.2.1" and network.lapis.cloud.shared.domain.ContributionStatusSets KDoc for what each
+    // new literal means.
     val contributionStatus = enumOf(name = "ContributionStatus") {
         literal(name = "OPEN")
         literal(name = "PAID")
         literal(name = "WAIVED")
         literal(name = "OVERDUE")
+        // V1.2.1 additions -- see file header. Unused by any V1.2.1 code path on purpose (SEPA/
+        // Mahnwesen write these starting V1.2.2/V1.2.3); the widening happens once, here.
+        literal(name = "DEBIT_SCHEDULED")
+        literal(name = "DEBIT_SUBMITTED")
+        literal(name = "RETURNED")
+        literal(name = "IN_DUNNING")
+    }
+
+    // V1.2.1 (plan § 2.2). Longest literal SEPA_DEBIT (10) -> VARCHAR(12), matching
+    // chk_contribution_payment_method in V7__payments.sql.
+    val contributionPaymentMethod = enumOf(name = "ContributionPaymentMethod") {
+        literal(name = "MANUAL")
+        literal(name = "SEPA_DEBIT")
+        literal(name = "GATEWAY")
     }
 
     val membershipTier = classOf(name = "MembershipTier") {
@@ -74,6 +113,14 @@ classDiagram(name = "Contribution") {
         attribute(name = "active", type = "Boolean") {
             defaultValue = "TRUE"
             stereotype("Column") { "columnName" to "active" }
+        }
+        // V1.2.1 (plan § 2.6/Teil 10). "Zahlungsziel" in days -- see file header "Welle V1.2.1".
+        // NOT NULL, default 14 (a common German invoice payment term, and the same magnitude as
+        // sepa_prenotification_days' own default -- no legal claim either way, just a sane default
+        // an ADMIN can change per tier).
+        attribute(name = "paymentTermDays", type = "Int") {
+            defaultValue = "14"
+            stereotype("Column") { "columnName" to "payment_term_days" }
         }
     }
 
@@ -118,6 +165,21 @@ classDiagram(name = "Contribution") {
         }
         attribute(name = "createdAt", type = "LocalDateTime") {
             stereotype("Column") { "columnName" to "created_at" }
+        }
+        // V1.2.1 (plan § 2.2). NOT NULL -- backfilled from period_start for every pre-existing row
+        // (see V7__payments.sql), computed as periodStart + membershipTier.paymentTermDays for every
+        // newly generated row (ContributionService.generateContributionsForPeriod).
+        attribute(name = "dueDate", type = "LocalDate") {
+            stereotype("Column") { "columnName" to "due_date" }
+        }
+        // V1.2.1 (plan § 2.2). NOT NULL, default MANUAL -- which payment path THIS contribution
+        // line is on (per-line, not a member-wide setting, see plan Entscheidungspunkt E-5).
+        attribute(name = "paymentMethod", type = contributionPaymentMethod) {
+            defaultValue = "MANUAL"
+            stereotype("Column") {
+                "columnName" to "payment_method"
+                "enumType" to "network.lapis.cloud.shared.domain.ContributionPaymentMethod"
+            }
         }
     }
 

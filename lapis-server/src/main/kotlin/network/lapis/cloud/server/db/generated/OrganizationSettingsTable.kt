@@ -5,6 +5,7 @@ package network.lapis.cloud.server.db.generated
 import java.math.BigDecimal
 import kotlin.uuid.Uuid
 import kotlinx.datetime.LocalDate
+import network.lapis.cloud.shared.domain.PaymentProvider
 import org.jetbrains.exposed.v1.core.Column
 import org.jetbrains.exposed.v1.core.Table
 import org.jetbrains.exposed.v1.datetime.date
@@ -25,6 +26,14 @@ public object OrganizationSettingsTable : Table("organization_settings") {
     public val politicianRankingEnabled: Column<Boolean> = bool("politician_ranking_enabled")
     public val auctionEnabled: Column<Boolean> = bool("auction_enabled")
     public val auctionMaxValueLtr: Column<BigDecimal?> = decimal("auction_max_value_ltr", 18, 2).nullable()
+    public val sepaDebitEnabled: Column<Boolean> = bool("sepa_debit_enabled")
+    // TODO default = "FALSE"
+    public val paymentGatewayEnabled: Column<Boolean> = bool("payment_gateway_enabled")
+    // TODO default = "FALSE"
+    public val paymentGatewayProvider: Column<PaymentProvider?> = enumerationByName<PaymentProvider>("payment_gateway_provider", 8).nullable()
+    public val paymentBankAccountId: Column<Uuid?> = optReference("payment_bank_account_id", LedgerAccountTable.id)
+    public val paymentFeeAccountId: Column<Uuid?> = optReference("payment_fee_account_id", LedgerAccountTable.id)
+    public val contributionIncomeAccountId: Column<Uuid?> = optReference("contribution_income_account_id", LedgerAccountTable.id)
 
     override val primaryKey: PrimaryKey = PrimaryKey(id)
 }

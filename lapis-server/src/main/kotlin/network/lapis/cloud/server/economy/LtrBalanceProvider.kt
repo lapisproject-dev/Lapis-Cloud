@@ -47,7 +47,7 @@ interface LtrBalanceProvider {
      * writers against [memberId]'s free balance. `freeBalance` alone is a `SUM(amount_ltr)`
      * aggregate over [LtrLedgerEntryTable] — no single row can carry a DB-level
      * non-negativity CHECK for it, exactly the same aggregate-invariant gap
-     * `AccountingService.requireNonNegativeCashBalances`'s KDoc documents for the EUR/cash-register
+     * `CashRegisterGuard.requireNonNegativeCashBalances`'s KDoc documents for the EUR/cash-register
      * case. Every call site that reads `freeBalance` to decide whether a new debiting ledger row
      * may be inserted (`GovernanceService.castVoteBallot`'s stake,
      * `CrowdfundingService.submitProject`'s initial weight, and any future LTR-debiting write)

@@ -43,7 +43,8 @@ import kotlin.uuid.Uuid
  *
  * **Deadlock-avoidance contract (must be followed by every call site):** [record] must always be
  * the LAST database operation of the caller's transaction that takes a row lock. If a caller took
- * some OTHER row lock (e.g. `AccountingService.lockCashRegisterAccounts`) it must do so BEFORE
+ * some OTHER row lock (e.g. `CashRegisterGuard.requireNonNegativeCashBalances`, which itself takes
+ * a `LedgerAccountTable` row lock) it must do so BEFORE
  * calling [record], never after -- two transactions that lock the chain-state row and some other
  * row in opposite order can deadlock. Every current call site in this codebase (see
  * `AccountingService`/`GovernanceService`/`BoardMembershipService`) already satisfies this: each

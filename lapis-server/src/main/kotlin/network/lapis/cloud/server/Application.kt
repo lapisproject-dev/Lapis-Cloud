@@ -81,12 +81,14 @@ import network.lapis.cloud.server.rpc.LtrLedgerService
 import network.lapis.cloud.server.rpc.MailingService
 import network.lapis.cloud.server.rpc.MemberService
 import network.lapis.cloud.server.rpc.OrganizationSettingsService
+import network.lapis.cloud.server.rpc.PaymentGatewayService
 import network.lapis.cloud.server.rpc.PeerTransferService
 import network.lapis.cloud.server.rpc.PingService
 import network.lapis.cloud.server.rpc.PoliticianService
 import network.lapis.cloud.server.rpc.PostalMailService
 import network.lapis.cloud.server.rpc.PriceOracleService
 import network.lapis.cloud.server.rpc.RegistrationService
+import network.lapis.cloud.server.rpc.SepaService
 import network.lapis.cloud.server.rpc.SocialNetworkService
 import network.lapis.cloud.server.rpc.SystemicConsensusService
 import network.lapis.cloud.server.rpc.TrustAnchorService
@@ -118,12 +120,14 @@ import network.lapis.cloud.shared.rpc.ILtrLedgerService
 import network.lapis.cloud.shared.rpc.IMailingService
 import network.lapis.cloud.shared.rpc.IMemberService
 import network.lapis.cloud.shared.rpc.IOrganizationSettingsService
+import network.lapis.cloud.shared.rpc.IPaymentGatewayService
 import network.lapis.cloud.shared.rpc.IPeerTransferService
 import network.lapis.cloud.shared.rpc.IPingService
 import network.lapis.cloud.shared.rpc.IPoliticianService
 import network.lapis.cloud.shared.rpc.IPostalMailService
 import network.lapis.cloud.shared.rpc.IPriceOracleService
 import network.lapis.cloud.shared.rpc.IRegistrationService
+import network.lapis.cloud.shared.rpc.ISepaService
 import network.lapis.cloud.shared.rpc.ISocialNetworkService
 import network.lapis.cloud.shared.rpc.ISystemicConsensusService
 import network.lapis.cloud.shared.rpc.ITrustAnchorService
@@ -551,6 +555,8 @@ fun Application.module() {
         registerService(IPriceOracleService::class) { call -> PriceOracleService(call = call, orchestrator = priceOracleOrchestrator) }
         registerService(IPoliticianService::class) { call -> PoliticianService(call = call) }
         registerService(IAuctionService::class) { call -> AuctionService(call = call) }
+        registerService(ISepaService::class) { call -> SepaService(call = call) }
+        registerService(IPaymentGatewayService::class) { call -> PaymentGatewayService(call = call) }
         registerService(
             ISocialNetworkService::class,
         ) { call ->

@@ -197,6 +197,7 @@ class PostalMailServiceTest :
                     it[paidAmount] = null
                     it[note] = null
                     it[createdAt] = KotlinLocalDateTime(year, 1, 1, 0, 0)
+                    it[dueDate] = LocalDate(year, 1, 15)
                 }
             }
             createdContributionIds += id

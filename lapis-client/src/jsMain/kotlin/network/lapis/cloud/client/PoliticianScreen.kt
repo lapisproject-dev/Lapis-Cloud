@@ -811,6 +811,9 @@ internal fun OrganizationSettingsDto.toInputWithPoliticianRankingEnabled(newValu
         isPoliticalParty = isPoliticalParty,
         postalMailEnabled = postalMailEnabled,
         politicianRankingEnabled = newValue,
+        paymentBankAccountId = paymentBankAccountId,
+        paymentFeeAccountId = paymentFeeAccountId,
+        contributionIncomeAccountId = contributionIncomeAccountId,
     )
 
 // ================================================================================================

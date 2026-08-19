@@ -35,16 +35,16 @@ class DomainModelMergerTest :
         // ── Test 1: merging the real 22 domain scripts ───────────────────────────────────
 
         test(
-            "merging the real 33 domain scripts succeeds and the uml-to-erm -> erm-to-exposed chain " +
+            "merging the real 34 domain scripts succeeds and the uml-to-erm -> erm-to-exposed chain " +
                 "produces exactly one Table file per distinct table name",
         ) {
             val scriptFiles =
                 requireNotNull(KumlModelLoader.kumlSourceDir.listFiles { f -> f.name.endsWith(".kuml.kts") }) {
                     "kUML source dir not found or not a directory: ${KumlModelLoader.kumlSourceDir.absolutePath}"
                 }.sortedBy { it.name }
-            // Soziales Netzwerk, Welle V1.1.1 -- was 32, now 33 with the addition of
-            // 32-social-network.kuml.kts.
-            scriptFiles shouldHaveSize 33
+            // Zahlungsverkehr, Welle V1.2.1 "Zahlungs-Fundament" -- was 33, now 34 with the addition
+            // of 33-payments.kuml.kts.
+            scriptFiles shouldHaveSize 34
 
             val diagrams = scriptFiles.map { KumlModelLoader.loadUmlDiagram(it) }
 
@@ -235,7 +235,26 @@ class DomainModelMergerTest :
             // V1.1.1 entry above, and social_post_report/-erasure's post_id resolves through the
             // already-real SocialPost entity -- so it contributes +2 «Entity» declarations (the two
             // real tables, no stub, no drop) versus the V1.1.2 baseline above (103 -> 105).
-            val distinctTableNames = 105
+            // 11-organization-settings.kuml.kts (Zahlungsverkehr, Welle V1.2.1 "Zahlungs-Fundament")
+            // adds no new real table, but gains its FIRST cross-domain stub (id-only LedgerAccount,
+            // for the three new payment-account-mapping FKs) -- the stub dedups into the already-real
+            // ledger_account entity 10-accounting.kuml.kts declared earlier (alphabetically before
+            // this file) -- so it contributes +1 «Entity» declaration (the stub) and +1 drop, net 0
+            // change to distinctTableNames (105 -> 105).
+            // 33-payments.kuml.kts (Zahlungsverkehr, Welle V1.2.1 "Zahlungs-Fundament") adds exactly
+            // one more real table (payment_transaction), WITH THREE cross-domain stubs (Member,
+            // Contribution, JournalEntry -- payment_transaction.member_id/contribution_id/
+            // journal_entry_id resolve through them) -- all three dedup into already-real entities
+            // (00-foundation.kuml.kts's member, 01-contribution.kuml.kts's contribution,
+            // 10-accounting.kuml.kts's journal_entry) -- so it contributes +4 «Entity» declarations
+            // (3 stubs + 1 real table) and +3 drops versus the V1.1.5 baseline above (105 -> 106).
+            // 33-payments.kuml.kts also declares sepa_compliance_acknowledgment and
+            // payment_gateway_compliance_acknowledgment (the two opt-in-gate acknowledgment tables,
+            // see file header "Compliance-gate acknowledgment tables") -- both real tables, NO new
+            // stub (both resolve acknowledged_by_member_id through the SAME Member stub already
+            // counted above) -- so +2 more «Entity» declarations, no drop, versus the previous line
+            // (106 -> 108).
+            val distinctTableNames = 108
 
             val result =
                 UmlToExposedViaErmScriptTransformer().transform(
@@ -374,6 +393,12 @@ class DomainModelMergerTest :
                     // kein Drop, versus der V1.1.2-Baseline oben (103 -> 105).
                     "SocialPostReportTable.kt",
                     "SocialPostErasureTable.kt",
+                    // Zahlungsverkehr, Welle V1.2.1 "Zahlungs-Fundament" -- one new real table
+                    // (payment_transaction); its three cross-domain stubs (Member/Contribution/
+                    // JournalEntry) all dedup into already-real entities, no new Table file for them.
+                    "PaymentTransactionTable.kt",
+                    "SepaComplianceAcknowledgmentTable.kt",
+                    "PaymentGatewayComplianceAcknowledgmentTable.kt",
                 )
         }
 

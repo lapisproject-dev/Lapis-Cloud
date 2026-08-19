@@ -60,6 +60,7 @@ class BeitragsrechnungPdfGeneratorTest :
                     paidAmount = null,
                     note = null,
                     createdAt = kotlinx.datetime.LocalDateTime(2026, 1, 1, 0, 0),
+                    dueDate = LocalDate(2026, 1, 15),
                 )
 
             val bytes = BeitragsrechnungPdfGenerator.generate(contribution = contribution, member = MEMBER, organization = ORGANIZATION)

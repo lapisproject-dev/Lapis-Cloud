@@ -56,6 +56,21 @@ import kotlinx.serialization.Serializable
  * [network.lapis.cloud.shared.domain.AuctionSettingsDto] for that. See
  * `network.lapis.cloud.server.rpc.AuctionService`/`21-auction.kuml.kts` file header for the full
  * rationale.
+ *
+ * [sepaDebitEnabled]/[paymentGatewayEnabled] (Welle V1.2.1 "Zahlungs-Fundament") are **READ-ONLY
+ * here**, same treatment as [auctionEnabled] -- absent from [OrganizationSettingsInput], settable
+ * ONLY via [network.lapis.cloud.shared.rpc.ISepaService.enableSepaDebit]/`disableSepaDebit` and
+ * [network.lapis.cloud.shared.rpc.IPaymentGatewayService.enablePaymentGateway]/`disablePaymentGateway`
+ * (both disclaimer-acknowledgment-gated). [paymentGatewayProvider] is set together with
+ * [paymentGatewayEnabled] by `enablePaymentGateway`, same read-only tier.
+ *
+ * [paymentBankAccountId]/[paymentFeeAccountId]/[contributionIncomeAccountId] (Welle V1.2.1) are
+ * ordinary, ADMIN-writable configuration -- part of [OrganizationSettingsInput] like every field
+ * above [sepaDebitEnabled] -- which SKR42 `LedgerAccount`s a manually marked-paid contribution
+ * books into (see `network.lapis.cloud.server.rpc.ContributionPostingBridge` KDoc). Any `null`
+ * degrades the bridge to a no-op (no journal entry, contribution status still transitions) rather
+ * than throwing -- so a fresh/unconfigured organization's `markContributionPaid` behaves exactly as
+ * it did before this wave.
  */
 @Serializable
 data class OrganizationSettingsDto(
@@ -74,6 +89,12 @@ data class OrganizationSettingsDto(
     val politicianRankingEnabled: Boolean = false,
     val auctionEnabled: Boolean = false,
     val auctionMaxValueLtr: Decimal? = null,
+    val sepaDebitEnabled: Boolean = false,
+    val paymentGatewayEnabled: Boolean = false,
+    val paymentGatewayProvider: PaymentProvider? = null,
+    val paymentBankAccountId: String? = null,
+    val paymentFeeAccountId: String? = null,
+    val contributionIncomeAccountId: String? = null,
 )
 
 /** Replaces every field of the single [OrganizationSettingsDto] row wholesale (no partial update). */
@@ -93,4 +114,10 @@ data class OrganizationSettingsInput(
     val postalMailEnabled: Boolean = false,
     /** See [OrganizationSettingsDto.politicianRankingEnabled] KDoc. */
     val politicianRankingEnabled: Boolean = false,
+    /** V1.2.1. See [OrganizationSettingsDto.paymentBankAccountId] KDoc. */
+    val paymentBankAccountId: String? = null,
+    /** V1.2.1. See [OrganizationSettingsDto.paymentFeeAccountId] KDoc. */
+    val paymentFeeAccountId: String? = null,
+    /** V1.2.1. See [OrganizationSettingsDto.contributionIncomeAccountId] KDoc. */
+    val contributionIncomeAccountId: String? = null,
 )

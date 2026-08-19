@@ -303,9 +303,11 @@ class AccountingService(
             requireActiveLedgerAccounts(input.postings.map { it.ledgerAccountId.toAccountingUuid("LedgerAccount") })
             requireActiveCostCenters(input.postings.mapNotNull { it.costCenterId?.toAccountingUuid("CostCenter") })
             val cashAccountIds =
-                loadCashRegisterAccountIds(input.postings.map { it.ledgerAccountId.toAccountingUuid("LedgerAccount") })
-            requireVoucherForCashPostings(voucherReference = input.voucherReference, cashAccountIds = cashAccountIds)
-            requireNonNegativeCashBalances(postings = input.postings, cashAccountIds = cashAccountIds)
+                CashRegisterGuard.loadCashRegisterAccountIds(
+                    input.postings.map { it.ledgerAccountId.toAccountingUuid("LedgerAccount") },
+                )
+            CashRegisterGuard.requireVoucherForCashPostings(voucherReference = input.voucherReference, cashAccountIds = cashAccountIds)
+            CashRegisterGuard.requireNonNegativeCashBalances(postings = input.postings, cashAccountIds = cashAccountIds)
             val donorMemberId = input.donorMemberId?.toAccountingUuid("Member")
             val externalDonorId = input.externalDonorId?.toAccountingUuid("ExternalDonor")
             if (donorMemberId != null) requireExistingMember(donorMemberId)
@@ -397,9 +399,13 @@ class AccountingService(
             requireBalanced(postings)
             requireActiveLedgerAccounts(postings.map { it.ledgerAccountId.toAccountingUuid("LedgerAccount") })
             requireActiveCostCenters(postings.mapNotNull { it.costCenterId?.toAccountingUuid("CostCenter") })
-            val cashAccountIds = loadCashRegisterAccountIds(postings.map { it.ledgerAccountId.toAccountingUuid("LedgerAccount") })
-            requireVoucherForCashPostings(voucherReference = entryRow[JournalEntryTable.voucherReference], cashAccountIds = cashAccountIds)
-            requireNonNegativeCashBalances(postings = postings, cashAccountIds = cashAccountIds)
+            val cashAccountIds =
+                CashRegisterGuard.loadCashRegisterAccountIds(postings.map { it.ledgerAccountId.toAccountingUuid("LedgerAccount") })
+            CashRegisterGuard.requireVoucherForCashPostings(
+                voucherReference = entryRow[JournalEntryTable.voucherReference],
+                cashAccountIds = cashAccountIds,
+            )
+            CashRegisterGuard.requireNonNegativeCashBalances(postings = postings, cashAccountIds = cashAccountIds)
             val donorCategory = entryRow[JournalEntryTable.donorCategory]
             requireDonationIncomePosting(postings = postings, donorCategory = donorCategory)
             var partyDonationVerdict: DonationComplianceResult? = null
@@ -1467,120 +1473,11 @@ class AccountingService(
         }
     }
 
-    /** The subset of [ledgerAccountIds] whose [LedgerAccountTable.isCashRegister] is `true`. */
-    private fun loadCashRegisterAccountIds(ledgerAccountIds: Collection<Uuid>): Set<Uuid> {
-        val distinctIds = ledgerAccountIds.distinct()
-        if (distinctIds.isEmpty()) return emptySet()
-        return LedgerAccountTable
-            .selectAll()
-            .where { (LedgerAccountTable.id inList distinctIds) and (LedgerAccountTable.isCashRegister eq true) }
-            .map { it[LedgerAccountTable.id] }
-            .toSet()
-    }
-
-    /**
-     * GoBD "kein Buchen ohne Beleg": rejects with [ConflictException] if [cashAccountIds] is
-     * non-empty (i.e. the entry references at least one cash-register [LedgerAccountTable] row) and
-     * [voucherReference] is null/blank. [cashAccountIds] is computed once by the caller (shared with
-     * [requireNonNegativeCashBalances]) via [loadCashRegisterAccountIds] -- a DB lookup of the
-     * referenced accounts' [LedgerAccountTable.isCashRegister] state, the same tier as
-     * [requireActiveLedgerAccounts] (not the tier of a static-input-shape `BadRequestException`
-     * check). Every other (non-cash) posting stays free of this requirement, matching
-     * [network.lapis.cloud.shared.domain.JournalEntryInput.voucherReference]'s existing
-     * nullable/optional contract.
-     */
-    private fun requireVoucherForCashPostings(
-        voucherReference: String?,
-        cashAccountIds: Set<Uuid>,
-    ) {
-        if (!voucherReference.isNullOrBlank()) return
-        if (cashAccountIds.isNotEmpty()) {
-            throw ConflictException(
-                "Postings against a cash-register LedgerAccount require a non-blank voucherReference (kein Buchen ohne Beleg)",
-            )
-        }
-    }
-
-    /**
-     * GoBD "Kassenbestand darf nie negativ werden": for every cash-register [LedgerAccountTable] row
-     * in [cashAccountIds] ([postings] references, computed once by the caller and shared with
-     * [requireVoucherForCashPostings]), aggregates this entry's own net signed delta for that account
-     * (grouped once per account, not checked line-by-line -- a single entry may legitimately carry
-     * offsetting lines against the same cash account) and rejects with [ConflictException] if that
-     * account's pre-existing cumulative `POSTED` balance ([currentPostedBalance]) plus this delta
-     * would be strictly negative. Draining a cash account to exactly `0` is allowed -- only a
-     * strictly negative projected balance is rejected.
-     *
-     * Concurrency: this is a check-then-act (read balance, decide, then the caller's transaction
-     * inserts the new postings) with no DB-level CHECK/UNIQUE constraint able to back it up --
-     * unlike e.g. the LedgerAccount.accountNumber uniqueness case, "sum of postings >= 0" is an
-     * aggregate invariant no single-row constraint can express. [lockCashRegisterAccounts] takes a
-     * row-level lock (`SELECT ... FOR UPDATE`) on every account in [cashAccountIds] before the
-     * balance read, so two concurrent transactions touching the same cash account are serialized:
-     * the second transaction's [currentPostedBalance] read blocks until the first commits (or rolls
-     * back) and therefore always sees the first transaction's postings, preventing both from
-     * independently computing a non-negative projected balance that is jointly negative.
-     */
-    private fun requireNonNegativeCashBalances(
-        postings: List<PostingInput>,
-        cashAccountIds: Set<Uuid>,
-    ) {
-        if (cashAccountIds.isEmpty()) return
-        lockCashRegisterAccounts(cashAccountIds)
-        val postingsByAccount = postings.groupBy { it.ledgerAccountId.toAccountingUuid("LedgerAccount") }
-        // isCashRegister implies ASSET (requireCashRegisterOnlyOnAsset), so the normal-balance side
-        // is always DEBIT -- call normalBalanceSideOf rather than hardcoding PostingSide.DEBIT, to
-        // avoid a second, drifting sign-convention source of truth.
-        val normalSide = GeneralLedgerCalculator.normalBalanceSideOf(LedgerAccountType.ASSET)
-        cashAccountIds.forEach { accountId ->
-            val entryDelta =
-                postingsByAccount.getValue(accountId).fold(BigDecimal.ZERO) { acc, posting ->
-                    val signed = if (posting.side == normalSide) posting.amount else posting.amount.negate()
-                    acc + signed
-                }
-            val projectedBalance = currentPostedBalance(accountId = accountId, normalSide = normalSide) + entryDelta
-            if (projectedBalance.signum() < 0) {
-                throw ConflictException(
-                    "Posting would drive cash-register LedgerAccount $accountId negative (projected balance $projectedBalance)",
-                )
-            }
-        }
-    }
-
-    /**
-     * Takes a `SELECT ... FOR UPDATE` row lock on every [LedgerAccountTable] row in [accountIds],
-     * held for the remainder of the caller's transaction -- the mutex [requireNonNegativeCashBalances]
-     * relies on to serialize concurrent postJournalEntry/postDraftEntry calls against the same
-     * cash-register account. See that function's KDoc for the race it closes.
-     */
-    private fun lockCashRegisterAccounts(accountIds: Set<Uuid>) {
-        // orderBy(id) gives every concurrent transaction the same lock-acquisition order for a
-        // multi-cash-account entry -- without it, two transactions locking the same account set in
-        // different physical scan order could each hold one lock and wait on the other, deadlocking.
-        LedgerAccountTable
-            .selectAll()
-            .where { LedgerAccountTable.id inList accountIds }
-            .orderBy(LedgerAccountTable.id)
-            .forUpdate()
-            .toList()
-    }
-
-    /** Cumulative net balance of every existing `POSTED` posting against [accountId], signed by [normalSide]. */
-    private fun currentPostedBalance(
-        accountId: Uuid,
-        normalSide: PostingSide,
-    ): BigDecimal {
-        val rows =
-            (PostingTable innerJoin JournalEntryTable)
-                .selectAll()
-                .where { (PostingTable.ledgerAccountId eq accountId) and (JournalEntryTable.status eq JournalEntryStatus.POSTED) }
-                .toList()
-        return rows.fold(BigDecimal.ZERO) { acc, row ->
-            val amount = row[PostingTable.amount]
-            val signed = if (row[PostingTable.side] == normalSide) amount else amount.negate()
-            acc + signed
-        }
-    }
+    // loadCashRegisterAccountIds/requireVoucherForCashPostings/requireNonNegativeCashBalances/
+    // lockCashRegisterAccounts/currentPostedBalance moved to CashRegisterGuard -- Security Round 1
+    // (2026-08-19, MAJOR-1) -- so ContributionPostingBridge can apply the SAME GoBD cash-register
+    // guards this class's own postJournalEntry/postDraftEntry always have, rather than bypassing
+    // them entirely (see CashRegisterGuard's own KDoc for the full rationale).
 
     /** Every referenced [LedgerAccountTable] row must exist and be [LedgerAccountTable.active]. */
     private fun requireActiveLedgerAccounts(ledgerAccountIds: List<Uuid>) {

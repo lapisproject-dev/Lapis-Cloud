@@ -149,7 +149,13 @@ classDiagram(name = "AuditLog") {
     // (see this file's audit_log_entry.entity_type below) was widened from VARCHAR(22) to
     // VARCHAR(29) to fit CONFERENCE_STREAM_DESTINATION, the new longest literal -- CONFERENCE_ROOM
     // (V1.0 Videokonferenzen Wave 5 "Föderations-Gastbeitritt", appended LAST after that) fits
-    // within the existing VARCHAR(29) width, no further widening needed. Additive append only --
+    // within the existing VARCHAR(29) width, no further widening needed. SOCIAL_POST (Soziales
+    // Netzwerk, Welle V1.1.5) was appended LAST after that. ORGANIZATION_SETTINGS (Welle V1.2.1
+    // "Zahlungs-Fundament", Security Round 1, 2026-08-19, MAJOR-2) was appended LAST after that --
+    // network.lapis.cloud.server.rpc.OrganizationSettingsService.updateOrganizationSettings audits
+    // changes to the payment-account mapping (paymentBankAccountId/paymentFeeAccountId/
+    // contributionIncomeAccountId), see that method's own KDoc. 21 chars, fits within the existing
+    // VARCHAR(29) width, no further widening needed. Additive append only --
     // never reorder existing literals, see this enum's own "cheap to extend, expensive to reorder"
     // note class-wide.
     val auditEntityType = enumOf(name = "AuditEntityType") {
@@ -162,6 +168,7 @@ classDiagram(name = "AuditLog") {
         literal(name = "CONFERENCE_STREAM_DESTINATION")
         literal(name = "CONFERENCE_ROOM")
         literal(name = "SOCIAL_POST") // Soziales Netzwerk, Welle V1.1.5 -- rechtliche Entfernung + Melde-Entscheidung
+        literal(name = "ORGANIZATION_SETTINGS") // Welle V1.2.1, Security Round 1 -- Konten-Zuordnungs-Aenderung
     }
 
     // Genesis-singleton row (see file header) -- gapless sequence_number + hash-chain

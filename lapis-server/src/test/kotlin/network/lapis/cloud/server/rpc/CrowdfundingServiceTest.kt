@@ -163,6 +163,7 @@ class CrowdfundingServiceTest :
                     it[createdAt] = paidAt
                     it[ContributionTable.memberId] = memberId
                     it[membershipTierId] = DevSeedData.standardTierId
+                    it[dueDate] = paidAt.date
                 }
             }
             createdContributionIds += id

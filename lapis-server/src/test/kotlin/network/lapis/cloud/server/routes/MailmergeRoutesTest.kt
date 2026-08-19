@@ -169,6 +169,7 @@ class MailmergeRoutesTest :
                     it[paidAmount] = null
                     it[note] = null
                     it[createdAt] = KotlinLocalDateTime(2026, 1, 1, 0, 0)
+                    it[dueDate] = LocalDate(2026, 1, 15)
                 }
             }
             createdContributionIds += id

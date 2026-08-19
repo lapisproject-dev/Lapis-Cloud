@@ -22,6 +22,7 @@ import kotlinx.datetime.toLocalDateTime
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.ContributionDto
 import network.lapis.cloud.shared.domain.ContributionStatus
+import network.lapis.cloud.shared.domain.ContributionStatusSets
 import network.lapis.cloud.shared.domain.PostalDeliveryStatus
 import network.lapis.cloud.shared.rpc.IContributionService
 import network.lapis.cloud.shared.rpc.IPostalMailService
@@ -229,23 +230,46 @@ private fun renderContributionRow(
         row.postalMailDisabledNotice()
     }
 
-    if (canMarkPaid) {
+    // Review Round 3 (2026-08-19, SHOULD-5): canMarkPaid/canWaive are role-only gates, never
+    // status-aware on their own -- an already-SETTLED (PAID/WAIVED) row must still hide both
+    // buttons, or a stale-rendered row (e.g. another actor settled it between this list's fetch
+    // and the click, or a race between the two buttons on the same row) surfaces a raw, English,
+    // technical ConflictException to the user instead of the button simply not being there. Same
+    // "hide, don't just disable, an action that would always fail" convention this codebase already
+    // follows elsewhere for status-gated actions.
+    val isSettled = contribution.status in ContributionStatusSets.SETTLED
+    if (canMarkPaid && !isSettled) {
         val payButton = row.button(tr("Als bezahlt markieren"), style = ButtonStyle.SUCCESS)
         payButton.onClick {
+            // Disabled for the duration of the in-flight RPC call -- reduces (does not replace,
+            // see ContributionService.markContributionPaid's own server-side idempotency guard)
+            // the chance an accidental double-click double-posts a journal entry. Same pattern as
+            // LedgerScreen.kt's saveButton around the account-mapping save call. Review Round 1
+            // (2026-08-19, CRITICAL-2).
+            payButton.disabled = true
             AppScope.launch {
-                val now = Clock.System.now().toLocalDateTime(TimeZone.currentSystemDefault())
-                val result =
-                    guarded {
-                        rpcService<IContributionService>().markContributionPaid(contribution.id, now, contribution.amountDue, null)
+                try {
+                    val now = Clock.System.now().toLocalDateTime(TimeZone.currentSystemDefault())
+                    val result =
+                        guarded {
+                            rpcService<IContributionService>().markContributionPaid(contribution.id, now, contribution.amountDue, null)
+                        }
+                    if (result != null) {
+                        notifySuccess(tr("Als bezahlt markiert."))
+                        onChanged()
                     }
-                if (result != null) {
-                    notifySuccess(tr("Als bezahlt markiert."))
-                    onChanged()
+                } finally {
+                    // Review Round 2 (2026-08-19, SHOULD-3): guarded() rethrows CancellationException
+                    // (see its own KDoc/implementation) -- a plain post-guarded() re-enable never runs
+                    // if this coroutine is cancelled mid-flight, leaving the button permanently
+                    // disabled until a page refresh. finally runs regardless of success, a business
+                    // exception guarded() swallowed, or cancellation.
+                    payButton.disabled = false
                 }
             }
         }
     }
-    if (canWaive) {
+    if (canWaive && !isSettled) {
         val waiveButton = row.button(tr("Erlassen"), style = ButtonStyle.OUTLINEWARNING)
         waiveButton.onClick {
             confirmDialog(

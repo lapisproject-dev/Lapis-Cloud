@@ -77,6 +77,11 @@ fun auditEntityTypeLabel(entityType: AuditEntityType): String =
         // Soziales Netzwerk, Welle V1.1.5 -- "Beitrag" ist der Begriff, den `SocialNetworkScreen.kt`
         // durchgängig für einen `SocialPost` verwendet ("Beitrag verfassen"/"Beitrag melden"...).
         AuditEntityType.SOCIAL_POST -> gettext("Beitrag")
+        // Zahlungsverkehr, Welle V1.2.1, Security Round 1 (2026-08-19, MAJOR-2) -- eine Änderung der
+        // Zahlungs-Konto-Zuordnung (`paymentBankAccountId`/`paymentFeeAccountId`/
+        // `contributionIncomeAccountId`), die entscheidet, wohin jeder künftige Mitgliedsbeitrag
+        // gebucht wird -- siehe `OrganizationSettingsService.updateOrganizationSettings` KDoc.
+        AuditEntityType.ORGANIZATION_SETTINGS -> gettext("Organisationseinstellungen")
     }
 
 fun auditEntityTypeColor(entityType: AuditEntityType): String =
@@ -97,6 +102,10 @@ fun auditEntityTypeColor(entityType: AuditEntityType): String =
         // "danger" -- eine rechtliche Entfernung/Melde-Entscheidung ist die folgenreichste
         // Eintragsart dieses Log, konsistent zu PARTY_DONATION_VERDICT's Einstufung oben.
         AuditEntityType.SOCIAL_POST -> "danger"
+        // "warning" -- eine Zahlungs-Konto-Zuordnungsänderung ist administrativ, nicht per se ein
+        // Fehlverhalten (anders als PARTY_DONATION_VERDICT/SOCIAL_POST's "danger"), aber finanziell
+        // hoch relevant genug, um dieselbe Aufmerksamkeits-Stufe wie CONFERENCE_STREAM zu verdienen.
+        AuditEntityType.ORGANIZATION_SETTINGS -> "warning"
     }
 
 // ------------------------------------------------------------------------------------------------

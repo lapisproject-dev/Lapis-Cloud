@@ -122,9 +122,41 @@ class ContributionSchemaDriftTest :
             status?.type shouldBe
                 ErmDataType.Enum(
                     name = "ContributionStatus",
-                    values = listOf("OPEN", "PAID", "WAIVED", "OVERDUE"),
+                    // V1.2.1 "Zahlungs-Fundament" appended four literals -- see
+                    // 01-contribution.kuml.kts file header "Welle V1.2.1". Order is load-bearing.
+                    values =
+                        listOf(
+                            "OPEN",
+                            "PAID",
+                            "WAIVED",
+                            "OVERDUE",
+                            "DEBIT_SCHEDULED",
+                            "DEBIT_SUBMITTED",
+                            "RETURNED",
+                            "IN_DUNNING",
+                        ),
                     externalFqName = "network.lapis.cloud.shared.domain.ContributionStatus",
                 )
+        }
+
+        // V1.2.1 "Zahlungs-Fundament" addendum.
+        test("contribution.payment_method is modelled as a real ErmDataType.Enum column") {
+            val paymentMethod = model.entities.single { it.name == "contribution" }.attributeByName("payment_method")
+            paymentMethod?.type shouldBe
+                ErmDataType.Enum(
+                    name = "ContributionPaymentMethod",
+                    values = listOf("MANUAL", "SEPA_DEBIT", "GATEWAY"),
+                    externalFqName = "network.lapis.cloud.shared.domain.ContributionPaymentMethod",
+                )
+        }
+
+        // V1.2.1 "Zahlungs-Fundament" addendum -- contribution.due_date is NOT NULL,
+        // membership_tier.payment_term_days defaults to 14 (not modelled via defaultValue here,
+        // same "SchemaDriftTest does not introspect column defaults" gap the file header documents).
+        test("contribution.due_date is NOT NULL -- V1.2.1 addendum") {
+            val entity = model.entities.single { it.name == "contribution" }
+            entity.attributeByName("due_date")?.nullable shouldBe false
+            entity.attributeByName("payment_method")?.nullable shouldBe false
         }
 
         test("decimal columns are modelled with the real schema's DECIMAL(12,2) precision, not the default DECIMAL(19,2)") {

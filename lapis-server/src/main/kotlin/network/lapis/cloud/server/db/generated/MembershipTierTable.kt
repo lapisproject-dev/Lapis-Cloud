@@ -16,6 +16,8 @@ public object MembershipTierTable : Table("membership_tier") {
     public val billingInterval: Column<BillingInterval> = enumerationByName<BillingInterval>("billing_interval", 9)
     public val active: Column<Boolean> = bool("active")
     // TODO default = "TRUE"
+    public val paymentTermDays: Column<Int> = integer("payment_term_days")
+    // TODO default = "14"
 
     override val primaryKey: PrimaryKey = PrimaryKey(id)
 

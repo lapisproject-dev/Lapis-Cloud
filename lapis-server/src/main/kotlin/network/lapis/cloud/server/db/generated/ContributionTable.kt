@@ -6,6 +6,7 @@ import java.math.BigDecimal
 import kotlin.uuid.Uuid
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.LocalDateTime
+import network.lapis.cloud.shared.domain.ContributionPaymentMethod
 import network.lapis.cloud.shared.domain.ContributionStatus
 import org.jetbrains.exposed.v1.core.Column
 import org.jetbrains.exposed.v1.core.Table
@@ -17,19 +18,22 @@ public object ContributionTable : Table("contribution") {
     public val periodStart: Column<LocalDate> = date("period_start")
     public val periodEnd: Column<LocalDate> = date("period_end")
     public val amountDue: Column<BigDecimal> = decimal("amount_due", 12, 2)
-    public val status: Column<ContributionStatus> = enumerationByName<ContributionStatus>("status", 7)
+    public val status: Column<ContributionStatus> = enumerationByName<ContributionStatus>("status", 15)
     public val paidAt: Column<LocalDateTime?> = datetime("paid_at").nullable()
     public val paidAmount: Column<BigDecimal?> = decimal("paid_amount", 12, 2).nullable()
     public val note: Column<String?> = varchar("note", 1000).nullable()
     public val createdAt: Column<LocalDateTime> = datetime("created_at")
     public val memberId: Column<Uuid> = reference("member_id", MemberTable.id)
     public val membershipTierId: Column<Uuid> = reference("membership_tier_id", MembershipTierTable.id)
+    public val dueDate: Column<LocalDate> = date("due_date")
+    public val paymentMethod: Column<ContributionPaymentMethod> = enumerationByName<ContributionPaymentMethod>("payment_method", 12)
+    // TODO default = "MANUAL"
 
     override val primaryKey: PrimaryKey = PrimaryKey(id)
 
     // Note: 3 index(es) declared on this entity are not emitted —
     // Exposed's index {} DSL needs typed column references, not wired up in this wave.
 
-    // Note: 1 check constraint(s) declared on this entity are not
+    // Note: 2 check constraint(s) declared on this entity are not
     // emitted — Exposed's check {} DSL needs a typed Op<Boolean>, not a raw SQL string.
 }

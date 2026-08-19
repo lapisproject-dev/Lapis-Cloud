@@ -46,6 +46,19 @@ enum class AuditAction { CREATE, UPDATE, POST }
  * REQUEST) vorbehalten. Der vor/nach-Snapshot trägt dabei niemals Post-INHALT, nur `state`/
  * `stateReason`/`visibility`/`contentErasedAt` -- siehe [SocialPostModerationSnapshot] KDoc für
  * die Begründung (append-only/hash-gekettete Snapshots dürfen niemals `content` tragen).
+ * `ORGANIZATION_SETTINGS` (Welle V1.2.1 "Zahlungs-Fundament", Security Round 1, 2026-08-19,
+ * MAJOR-2) wurde LAST danach angehängt -- `OrganizationSettingsService.updateOrganizationSettings`
+ * schreibt `entityType = ORGANIZATION_SETTINGS`, `action = UPDATE`, `entityId =
+ * OrganizationSettingsService.ORGANIZATION_SETTINGS_ID` mit einem
+ * [OrganizationSettingsPaymentMappingSnapshot] vor/nach, aber NUR wenn sich mindestens eines der
+ * drei Zahlungs-Konto-Zuordnungsfelder (`paymentBankAccountId`/`paymentFeeAccountId`/
+ * `contributionIncomeAccountId`) tatsächlich geändert hat -- diese Methode ersetzt sonst pauschal
+ * viele nicht-finanzielle Felder (Adresse, IBAN-Anzeige, Gemeinnützigkeits-Daten) bei jedem Aufruf,
+ * und ein Audit-Eintrag bei jeder solchen Änderung würde die GoBD-Spur mit für diese
+ * Konto-Routing-Frage irrelevanten Einträgen fluten. Siehe
+ * `OrganizationSettingsService.updateOrganizationSettings` KDoc für die volle Begründung (GoBD
+ * Nachvollziehbarkeit: WER hat WANN die Konten-Zuordnung geändert, in die jeder künftige
+ * Mitgliedsbeitrag gebucht wird).
  * Additive append only -- never reorder existing literals,
  * see this enum's own "cheap to extend, expensive to reorder" note class-wide.
  */
@@ -60,6 +73,7 @@ enum class AuditEntityType {
     CONFERENCE_STREAM_DESTINATION,
     CONFERENCE_ROOM,
     SOCIAL_POST,
+    ORGANIZATION_SETTINGS,
 }
 
 /**
@@ -232,4 +246,20 @@ data class SocialPostModerationSnapshot(
     val stateReason: String?,
     val visibility: SocialPostVisibility,
     val contentErasedAt: LocalDateTime?,
+)
+
+/**
+ * Structured payload for an [AuditEntityType.ORGANIZATION_SETTINGS] audit entry (Welle V1.2.1
+ * "Zahlungs-Fundament", Security Round 1, 2026-08-19, MAJOR-2) --
+ * `network.lapis.cloud.server.rpc.OrganizationSettingsService.updateOrganizationSettings`'s ONLY
+ * audit signal, deliberately narrowed to the three payment-account-mapping fields rather than the
+ * full wholesale-replace diff of every `OrganizationSettingsInput` field -- see that method's own
+ * KDoc for why. Carries LedgerAccount ids only (never account numbers/names), matching every other
+ * snapshot's id-only PII-minimization convention (see [JournalEntrySnapshot] KDoc).
+ */
+@Serializable
+data class OrganizationSettingsPaymentMappingSnapshot(
+    val paymentBankAccountId: String?,
+    val paymentFeeAccountId: String?,
+    val contributionIncomeAccountId: String?,
 )

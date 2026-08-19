@@ -23,6 +23,7 @@ import network.lapis.cloud.shared.domain.AuditLogEntryDto
 import network.lapis.cloud.shared.domain.AuditLogListQuery
 import network.lapis.cloud.shared.domain.BoardMembershipSnapshot
 import network.lapis.cloud.shared.domain.JournalEntrySnapshot
+import network.lapis.cloud.shared.domain.OrganizationSettingsPaymentMappingSnapshot
 import network.lapis.cloud.shared.domain.PartyDonationVerdictSnapshot
 import network.lapis.cloud.shared.domain.ResolutionSnapshot
 import network.lapis.cloud.shared.domain.SocialPostModerationSnapshot
@@ -353,6 +354,12 @@ fun decodeAuditSnapshot(
             // schreiben beide SocialPostModerationSnapshot (siehe dessen KDoc: ausschließlich
             // Metadaten, NIEMALS den Post-Inhalt).
             AuditEntityType.SOCIAL_POST -> lenientSnapshotJson.decodeFromString<SocialPostModerationSnapshot>(raw)
+            // Zahlungsverkehr, Welle V1.2.1, Security Round 1 (2026-08-19, MAJOR-2) --
+            // OrganizationSettingsService.updateOrganizationSettings writes
+            // OrganizationSettingsPaymentMappingSnapshot (only the three LedgerAccount ids, see that
+            // type's own KDoc for the "no full-diff" rationale).
+            AuditEntityType.ORGANIZATION_SETTINGS ->
+                lenientSnapshotJson.decodeFromString<OrganizationSettingsPaymentMappingSnapshot>(raw)
         }
     }.getOrNull()
 
@@ -366,6 +373,7 @@ private fun renderSnapshotBody(
         is ResolutionSnapshot -> renderResolutionSnapshotBody(panel, decoded)
         is BoardMembershipSnapshot -> renderBoardMembershipSnapshotBody(panel, decoded)
         is PartyDonationVerdictSnapshot -> renderPartyDonationVerdictSnapshotBody(panel, decoded)
+        is OrganizationSettingsPaymentMappingSnapshot -> renderOrganizationSettingsPaymentMappingSnapshotBody(panel, decoded)
         else -> renderRawSnapshotFallback(panel, raw)
     }
 }
@@ -495,6 +503,21 @@ private fun renderPartyDonationVerdictSnapshotBody(
         val row = panel.hPanel(spacing = 4) { addCssClasses("flex-wrap") }
         snapshot.duties.forEach { duty -> row.typeBadge(donationDutyLabel(duty), donationDutyColor(duty)) }
     }
+}
+
+/** Zahlungsverkehr, Welle V1.2.1, Security Round 1 (2026-08-19, MAJOR-2) -- id-only, same PII-
+ * minimization convention as [renderJournalEntrySnapshotBody]'s `createdBy`/`donorMemberId` rows;
+ * `null` means "unconfigured", shown explicitly rather than omitting the row. */
+private fun renderOrganizationSettingsPaymentMappingSnapshotBody(
+    panel: SimplePanel,
+    snapshot: OrganizationSettingsPaymentMappingSnapshot,
+) {
+    panel.labelValueRow(gettext("Bankkonto (LedgerAccount-ID)"), snapshot.paymentBankAccountId ?: tr("nicht konfiguriert"))
+    panel.labelValueRow(gettext("Gebührenkonto (LedgerAccount-ID)"), snapshot.paymentFeeAccountId ?: tr("nicht konfiguriert"))
+    panel.labelValueRow(
+        gettext("Beitragserlöskonto (LedgerAccount-ID)"),
+        snapshot.contributionIncomeAccountId ?: tr("nicht konfiguriert"),
+    )
 }
 
 /** D2: never silently drop the data -- a future `entityType` this client predates, or malformed

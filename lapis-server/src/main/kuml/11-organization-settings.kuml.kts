@@ -40,6 +40,32 @@
 // `AuctionService.setAuctionMaxValueLtr`, also bypassing the generic update path -- both fields
 // are therefore modelled here (this is still the single row that owns them) but read-only from
 // `OrganizationSettingsService`'s own perspective; see that class's KDoc.
+//
+// **Welle V1.2.1 "Zahlungs-Fundament"** (vault "Lapis Cloud V1.2 -- Zahlungsverkehr" plan §§
+// 2.4/3.5/6.1) adds two independent groups of fields:
+//  - **Compliance-Gates** `sepaDebitEnabled`/`paymentGatewayEnabled` (+ `paymentGatewayProvider`,
+//    which provider an enabled gateway gate names) -- SAME "opt-in gate, NOT part of the generic
+//    `updateOrganizationSettings` write-set" treatment `auctionEnabled` already established above.
+//    Settable ONLY via the new `ISepaService.enableSepaDebit`/`disableSepaDebit` and
+//    `IPaymentGatewayService.enablePaymentGateway`/`disablePaymentGateway`
+//    (`network.lapis.cloud.server.rpc.SepaComplianceDisclaimer`/`PaymentGatewayComplianceDisclaimer`
+//    disclaimer-acknowledgment flow, mirroring `AuctionComplianceDisclaimer` exactly). Neither gate
+//    has any real functionality behind it yet in V1.2.1 (SEPA mandates/PSP webhooks are V1.2.2/
+//    V1.2.4) -- the gate exists now so those later sub-waves find it already built and reviewed.
+//    `sepaCreditorId`/`sepaCreditorName`/`sepaPrenotificationDays` (plan § 2.4) are DELIBERATELY
+//    NOT added here yet -- they configure SEPA batch/pre-notification behaviour that does not exist
+//    until V1.2.2 and arrive together with `sepa_mandate`/`sepa_debit_batch` in that sub-wave's own
+//    migration. Same reasoning for `dunningEnabled` (V1.2.3).
+//  - **Kontenzuordnung Zahlungsverkehr** `paymentBankAccountId`/`paymentFeeAccountId`/
+//    `contributionIncomeAccountId` (plan § 3.5's "Konten-Zuordnung ist konfigurierbar, nicht
+//    hartkodiert") -- which SKR42 `LedgerAccount`s `ContributionPostingBridge` books a manually
+//    marked-paid contribution into. All three nullable; while any is unset the bridge is a no-op
+//    (degrades, does not throw) and `markContributionPaid` behaves exactly as before this wave --
+//    see `ContributionPostingBridge` KDoc. UNLIKE the two gates above, these ARE part of the
+//    generic `updateOrganizationSettings` write-set (plain configuration, not a liability-relevant
+//    feature toggle) -- see `OrganizationSettingsService` KDoc. `donationIncomeAccountId` (plan §
+//    3.5, needed once PSP-sourced donations exist) is DELIBERATELY NOT added here -- V1.2.1 books
+//    contributions only, donations arrive with the PSP reconciliation flow in V1.2.4.
 import dev.kuml.profile.erm.ermMappingProfile
 import dev.kuml.uml.Multiplicity
 import dev.kuml.uml.dsl.applyProfile
@@ -47,6 +73,18 @@ import dev.kuml.uml.dsl.stereotype
 
 classDiagram(name = "OrganizationSettings") {
     applyProfile(ermMappingProfile)
+
+    // Accounting-owned stub — id-only, mirrors the cross-domain-stub pattern every other domain's
+    // own Member stub already establishes (e.g. 01-contribution.kuml.kts). Only exists here so
+    // UmlToErmTransformer can resolve the three V1.2.1 payment-account-mapping attributes' FK
+    // target within this single-file evaluation.
+    val ledgerAccount = classOf(name = "LedgerAccount") {
+        stereotype("Entity") { "tableName" to "ledger_account"; "kotlinObjectName" to "LedgerAccountTable" }
+        attribute(name = "id", type = "UUID") {
+            stereotype("Id")
+            stereotype("Column") { "columnName" to "id" }
+        }
+    }
 
     val organizationSettings = classOf(name = "OrganizationSettings") {
         stereotype("Entity") { "tableName" to "organization_settings"; "kotlinObjectName" to "OrganizationSettingsTable" }
@@ -141,6 +179,49 @@ classDiagram(name = "OrganizationSettings") {
         attribute(name = "auctionMaxValueLtr", type = "BigDecimal") {
             multiplicity = Multiplicity(0, 1)
             stereotype("Column") { "columnName" to "auction_max_value_ltr"; "sqlType" to "DECIMAL(18,2)" }
+        }
+        // V1.2.1 Zahlungs-Fundament: opt-in gate, NOT NULL, defaults to FALSE. Same read-only-from-
+        // OrganizationSettingsService treatment as auctionEnabled above -- see file header addendum.
+        // Settable ONLY via ISepaService.enableSepaDebit (disclaimer-acknowledgment)/disableSepaDebit.
+        attribute(name = "sepaDebitEnabled", type = "Boolean") {
+            defaultValue = "FALSE"
+            stereotype("Column") { "columnName" to "sepa_debit_enabled" }
+        }
+        // V1.2.1 Zahlungs-Fundament: opt-in gate, NOT NULL, defaults to FALSE. Same treatment as
+        // sepaDebitEnabled above. Settable ONLY via IPaymentGatewayService.enablePaymentGateway
+        // (disclaimer-acknowledgment)/disablePaymentGateway.
+        attribute(name = "paymentGatewayEnabled", type = "Boolean") {
+            defaultValue = "FALSE"
+            stereotype("Column") { "columnName" to "payment_gateway_enabled" }
+        }
+        // V1.2.1 Zahlungs-Fundament: nullable, which provider an ENABLED gateway gate names
+        // (PAYPAL/STRIPE -- network.lapis.cloud.shared.domain.PaymentProvider). Set together with
+        // paymentGatewayEnabled by IPaymentGatewayService.enablePaymentGateway, same read-only
+        // treatment.
+        attribute(name = "paymentGatewayProvider", type = "String") {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") { "columnName" to "payment_gateway_provider"; "sqlType" to "VARCHAR(8)" }
+        }
+        // V1.2.1 Zahlungs-Fundament (plan § 3.5 "Konten-Zuordnung ist konfigurierbar"). Nullable FK
+        // -> ledger_account. Part of the GENERIC updateOrganizationSettings write-set (plain
+        // configuration, not a liability-relevant feature toggle) -- see file header addendum.
+        attribute(name = "paymentBankAccountId", type = "UUID") {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") { "columnName" to "payment_bank_account_id"; "fkEntity" to "LedgerAccount" }
+        }
+        // V1.2.1 Zahlungs-Fundament. Nullable FK -> ledger_account -- where a PSP fee (if the
+        // provider reports one) is booked as expense. Unused until fee_amount can ever be non-null
+        // (V1.2.4), but configured alongside the other two account-mapping fields from the start.
+        attribute(name = "paymentFeeAccountId", type = "UUID") {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") { "columnName" to "payment_fee_account_id"; "fkEntity" to "LedgerAccount" }
+        }
+        // V1.2.1 Zahlungs-Fundament. Nullable FK -> ledger_account -- where a contribution's
+        // brutto amount is booked as income (e.g. "40000 Echte Mitgliedsbeiträge"). See
+        // ContributionPostingBridge KDoc for the full booking shape.
+        attribute(name = "contributionIncomeAccountId", type = "UUID") {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") { "columnName" to "contribution_income_account_id"; "fkEntity" to "LedgerAccount" }
         }
     }
 }

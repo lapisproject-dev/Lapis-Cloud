@@ -44,6 +44,7 @@ object PersonalDataRegistry {
             OidcGuestPersonalData,
             ConferencePersonalData,
             SocialNetworkPersonalData,
+            PaymentsPersonalData,
         )
 
     /**

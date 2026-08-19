@@ -32,8 +32,13 @@ class OrganizationSettingsSchemaDriftTest :
         val scriptFile = File(KumlModelLoader.kumlSourceDir, "11-organization-settings.kuml.kts")
         val model by lazy { KumlModelLoader.loadErmModel(scriptFile) }
 
-        test("model declares exactly the organization_settings entity, no cross-domain stubs") {
-            model.entities.map { it.name }.toSet() shouldBe setOf("organization_settings")
+        // V1.2.1 Zahlungs-Fundament: the organization_settings entity now carries three LedgerAccount
+        // FKs (payment_bank_account_id/payment_fee_account_id/contribution_income_account_id), so
+        // this file gained its first cross-domain stub (id-only LedgerAccount) -- see
+        // 11-organization-settings.kuml.kts file header addendum. Test name/assertion updated
+        // accordingly; the entities set now has two members, not one.
+        test("model declares exactly the organization_settings entity plus the V1.2.1 LedgerAccount stub") {
+            model.entities.map { it.name }.toSet() shouldBe setOf("organization_settings", "ledger_account")
         }
 
         test("organization_settings table shape matches the real migrated schema") {
@@ -55,6 +60,18 @@ class OrganizationSettingsSchemaDriftTest :
             val entity = model.entities.single { it.name == "organization_settings" }
             entity.attributeByName("auction_enabled")?.nullable shouldBe false
             entity.attributeByName("auction_max_value_ltr")?.nullable shouldBe true
+        }
+
+        test(
+            "sepa_debit_enabled/payment_gateway_enabled are NOT NULL, provider/account-mapping fields are nullable -- V1.2.1 addendum",
+        ) {
+            val entity = model.entities.single { it.name == "organization_settings" }
+            entity.attributeByName("sepa_debit_enabled")?.nullable shouldBe false
+            entity.attributeByName("payment_gateway_enabled")?.nullable shouldBe false
+            entity.attributeByName("payment_gateway_provider")?.nullable shouldBe true
+            entity.attributeByName("payment_bank_account_id")?.nullable shouldBe true
+            entity.attributeByName("payment_fee_account_id")?.nullable shouldBe true
+            entity.attributeByName("contribution_income_account_id")?.nullable shouldBe true
         }
 
         test("organization_settings entity column-name set matches the generated OrganizationSettingsTable 1:1") {

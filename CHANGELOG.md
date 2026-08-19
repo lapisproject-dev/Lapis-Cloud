@@ -6,6 +6,139 @@ All notable changes to this project are documented here. Format follows
 
 ## [Unreleased]
 
+### Added
+
+**Zahlungsverkehr, Welle V1.2.1 "Zahlungs-Fundament" — Beitragswesen bekommt erstmals eine echte Buchungsbrücke**
+
+Erste Sub-Welle von V1.2 "Zahlungsverkehr" (vgl. vault "Lapis Cloud V1.2 — Zahlungsverkehr"-Plan).
+Behebt Befund B-1 dieses Plans: `ContributionService.markContributionPaid` schrieb bislang
+**ausschließlich** ein Statusfeld — kein `JournalEntry`, keine `Posting`-Zeilen, kein Audit-Log-
+Eintrag. Ein als bezahlt markierter Mitgliedsbeitrag tauchte damit in keiner GuV, keinem Hauptbuch
+und keinem Jahresabschluss auf, solange die Schatzmeisterin nicht zusätzlich von Hand einen
+Journaleintrag erfasste. Diese Welle schließt die Lücke für den manuellen Zahlungsweg — Voraussetzung
+für die folgenden Sub-Wellen V1.2.2 (SEPA-Lastschriftmandate), V1.2.3 (automatisiertes Mahnwesen) und
+V1.2.4 (Zahlungsdienstleister-Anbindung), die dieselbe Buchungsbrücke wiederverwenden.
+
+- **`ContributionPostingBridge`** (`network.lapis.cloud.server.rpc`) — die eine Stelle, an der ein
+  bezahlter Beitrag zu einem SKR42-Buchungssatz wird (Soll Bankkonto [+ Soll Gebührenkonto, falls
+  eine Gebühr gemeldet wird] / Haben Beitragserlöskonto, Sphäre `IDEELLER_BEREICH`). Bewusst **kein**
+  Aufruf von `AccountingService.postJournalEntry` — der ist rollen-gegated auf einen `CurrentMember`
+  und würde bei einer Parteispende den §25-PartG-Check auslösen; ein Mitgliedsbeitrag ist keine
+  Spende. Verhält sich **degradierend statt scheiternd**: ist die Kontenzuordnung (s. u.) nicht
+  konfiguriert, wird nicht gebucht, `markContributionPaid` verhält sich exakt wie vor dieser Welle —
+  kein Zwangs-Rollout einer Buchungslogik auf `pdv2`. Bei erfolgreicher Buchung wird zusätzlich **ein**
+  `AuditEntityType.JOURNAL_ENTRY`-Audit-Log-Eintrag geschrieben (wiederverwendet den bestehenden
+  Typ/Snapshot — kein neues `AuditEntityType`-Literal, keine `audit_log_entry`-CHECK-Verbreiterung
+  nötig für diese Welle).
+- **`ContributionStatus`** um vier Literale erweitert (`DEBIT_SCHEDULED`/`DEBIT_SUBMITTED`/
+  `RETURNED`/`IN_DUNNING`) — in dieser Welle von keinem Codepfad geschrieben (SEPA/Mahnwesen folgen
+  in V1.2.2/V1.2.3), die Spalten-/CHECK-Verbreiterung geschieht bewusst einmalig jetzt statt dreimal
+  über die Folgewellen verteilt. **`ContributionStatusSets`** (neu, analog `MemberStatusSets`) ist ab
+  sofort die eine Stelle, an der „welche Status dürfen/brauchen X" beantwortet wird.
+- **`contribution.dueDate`/`.paymentMethod`** (neue `ContributionPaymentMethod`-Enum:
+  `MANUAL`/`SEPA_DEBIT`/`GATEWAY`) sowie **`membershipTier.paymentTermDays`** ("Zahlungsziel" in
+  Tagen, Default 14) — `ContributionService.generateContributionsForPeriod` befüllt `dueDate` ab
+  sofort als `periodStart + paymentTermDays`. Bestandszeilen werden in der Migration konservativ auf
+  `period_start` zurückgefüllt.
+- **Kontenzuordnung Zahlungsverkehr** in `OrganizationSettings` (`paymentBankAccountId`/
+  `paymentFeeAccountId`/`contributionIncomeAccountId`, alle drei nullbare FKs auf `LedgerAccount`,
+  Teil des generischen `updateOrganizationSettings`-Schreibpfads) — ein neuer Abschnitt im
+  Kontenplan-/Journal-Screen (`LedgerScreen`) lässt einen ADMIN diese drei Konten aus dem bestehenden
+  Kontenplan auswählen (siehe „Fixed (Review Round 1)" unten, MINOR-5, für den client-seitig auf
+  ADMIN-only verengten Rollen-Gate).
+- **`ISepaService`/`IPaymentGatewayService`** — je ein neuer, bewusst minimaler RPC-Service mit
+  ausschließlich dem Opt-in-Gate-Mechanismus (`getXComplianceDisclaimer`/`enableX`/`disableX`/
+  `getXSettings`), exaktes Abbild von `IAuctionService`s Disclaimer-Acknowledgment-Mechanismus
+  (`SepaComplianceDisclaimer`/`PaymentGatewayComplianceDisclaimer`, versionierter+gehashter
+  Rechtshinweis, wortgleiche Bestätigung erforderlich, append-only Acknowledgment-Tabelle). Hinter
+  `sepaDebitEnabled`/`paymentGatewayEnabled` steckt in dieser Welle **keine** echte Funktionalität —
+  weder Mandatsverwaltung noch pain.008-Erzeugung noch PSP-Webhook existieren bereits. Das Gate
+  entsteht jetzt bewusst vorab, damit V1.2.2/V1.2.4 es bereits gebaut und geprüft vorfinden; beide
+  Interfaces werden dort additiv um die eigentliche Funktionalität erweitert, nicht ersetzt.
+- **`payment_transaction`** (neue Tabelle, `33-payments.kuml.kts`) — methodenneutrales,
+  PSP-logik-freies Schema-Grundgerüst für eingehende Zahlungen (Plan § 2.3). Kein Codepfad dieser
+  Welle schreibt hinein (Webhook-Ingestion ist V1.2.4) — der eindeutige Index
+  `uq_payment_transaction_provider_event` (der spätere Idempotenz-Anker gegen Webhook-Wiederholungen)
+  existiert trotzdem bereits ab dieser Migration.
+- **`PaymentsPersonalData`** (neuer DSGVO-`PersonalDataContributor`, analog `ContributionPersonalData`)
+  deckt `payment_transaction`/`sepa_compliance_acknowledgment`/`payment_gateway_compliance_acknowledgment`
+  ab — handelsrechtliche Aufbewahrungspflicht (GoBD/HGB/AO) schlägt Löschung, nur das Freitextfeld
+  `reconciliation_note` wird bei einer Löschanfrage geleert.
+- Migration `V7__payments.sql` + vier In-place-Blöcke in `V1__baseline.sql` (Statuserweiterung
+  `contribution.status`, neue Spalten `contribution.due_date`/`.payment_method`,
+  `membership_tier.payment_term_days`, sechs neue `organization_settings`-Spalten + drei neue FKs) —
+  siehe Operator-Notiz unten.
+
+### Deviations from the original "Lapis Cloud V1.2 — Zahlungsverkehr"-Plandokument
+
+Der 2026-08-19 erstellte Implementierungsplan sah für V1.2.1 einige Details vor, die sich bei der
+Umsetzung als zu weitgehend für den Zuschnitt dieser Sub-Welle erwiesen haben:
+
+- **Keine `audit_log_entry.entity_type`-CHECK-Verbreiterung.** Der Plan sah vor, alle vier künftigen
+  Literale (`SEPA_MANDATE`/`SEPA_DEBIT_BATCH`/`DUNNING_NOTICE`/`PAYMENT_TRANSACTION`) bereits jetzt
+  in einem Rutsch aufzunehmen. `ContributionPostingBridge` bucht stattdessen über den **bestehenden**
+  `AuditEntityType.JOURNAL_ENTRY`-Typ (kein Feature dieser Welle erzeugt einen
+  `PAYMENT_TRANSACTION`-Audit-Eintrag) — die vier neuen Literale kommen erst mit den Wellen, die sie
+  tatsächlich schreiben (V1.2.2–V1.2.4), nach demselben inkrementellen Verbreiterungs-Muster wie
+  jede vorherige Welle.
+- **Kein `contribution.sepa_mandate_id`.** FKt auf `sepa_mandate`, das erst V1.2.2 einführt — eine
+  Spalte ohne existierendes Zieltabelle wäre eine hängende Referenz gewesen.
+- **Kontenzuordnung auf drei statt vier Konten beschränkt** — `donationIncomeAccountId` (aus Plan §
+  3.5) fehlt bewusst: Spenden über einen PSP sind V1.2.4-Scope, diese Welle bucht ausschließlich
+  Beiträge.
+- **`sepaCreditorId`/`sepaCreditorName`/`sepaPrenotificationDays`/`dunningEnabled`** (Plan § 2.4)
+  kommen nicht in dieser Welle — sie konfigurieren Funktionalität (SEPA-Batches, Mahnwesen), die
+  noch nicht existiert, und ziehen mit den jeweiligen Tabellen in V1.2.2/V1.2.3 nach.
+- **`ContributionPostingBridge.actorMemberId` bleibt nicht-nullbar**, statt der im Plan vorgesehenen
+  vorausschauend-nullbaren Signatur — kein nicht-menschlicher Aufrufer (SEPA-Poller,
+  Zahlungsdienstleister-Webhook) existiert in dieser Welle, der `actorMemberId = null` überhaupt
+  bräuchte. Offen geflaggt für die künftige Welle, die den ersten System-/Poller-Akteur einführt
+  (dokumentiert in der Klassen-eigenen KDoc "Offene Anschlussfrage für V1.2.2/V1.2.4").
+- **Neuer Code liegt in den bestehenden Paketen `server/rpc`/`server/dsgvo`**, nicht in einem neuen
+  `server/payment`-Paket — zurückgestellt, bis tatsächlicher SEPA-XML-/PSP-HTTP-Client-Code
+  existiert, der ein eigenes Paket rechtfertigt.
+
+### Operator notes
+
+1. **`pdv2` — `V1__baseline.sql`s Prüfsumme ändert sich erneut; `flyway repair` VOR dem Deploy.**
+   Diese Welle editiert `V1__baseline.sql` in place an VIER Stellen (siehe „Deviations" oben für die
+   inhaltliche Abweichung von der ursprünglichen Vier-Block-Aufteilung des Plans): (1)
+   `contribution.status` `VARCHAR(7)`→`VARCHAR(15)` + CHECK-Verbreiterung um die vier neuen Literale,
+   (2) `contribution.due_date`/`.payment_method` (neue Spalten), (3)
+   `membership_tier.payment_term_days` (neue Spalte), (4) sechs neue `organization_settings`-Spalten
+   + drei neue FKs auf `ledger_account`. `V7__payments.sql` trägt die laufzeitwirksame,
+   idempotente Wiederholung aller vier Blöcke (dual benanntes `DROP CONSTRAINT IF EXISTS`/`ADD` für
+   jeden CHECK, `ADD COLUMN IF NOT EXISTS` für jede neue Spalte) und ist, was `pdv2`s Schema
+   tatsächlich verändert. Aber das Editieren von `V1__baseline.sql`s Dateiinhalt ändert dessen
+   Prüfsumme, und Flywayss Standard `validateOnMigrate = true` (`DatabaseConfig.kt`) lässt den
+   gesamten `migrate()`-Aufruf auf einer bereits migrierten Datenbank scheitern, wenn `V1`s in
+   `flyway_schema_history` gespeicherte Prüfsumme nicht mehr zur Datei auf der Platte passt —
+   unabhängig davon, dass `V7` selbst eine unberührte, noch nie angewandte Datei ist. Vor dem Deploy
+   dieser Welle auf `pdv2`: `SELECT * FROM flyway_schema_history WHERE version = '1'` gegen `flyway
+   info`s aktuell berechnete Prüfsumme prüfen — bei Abweichung `flyway repair` (schreibt die
+   gespeicherte Prüfsumme gegen den aktuellen Dateiinhalt neu) als allerersten Schritt ausführen,
+   *vor* `flyway migrate`. Dieselbe Falle wie bei jeder vorherigen Welle, die `V1__baseline.sql` in
+   place editiert hat (siehe die Operator-Notizen zu `v0.6.0`/V1.1.1/V1.1.5 weiter unten in dieser
+   Datei) — jede In-place-Änderung ist ihre eigene, gesondert zu behebende Prüfsummen-Abweichung,
+   sie akkumulieren sich nicht zu einer einzigen Reparatur.
+2. **Zusätzlich `\d contribution` und `\d organization_settings` auf `pdv2` vor dem Deploy prüfen.**
+   `contribution.status`s CHECK ist im ursprünglichen `V1__baseline.sql` anonym (inline im `CREATE
+   TABLE`) — auf `pdv2` trägt er PostgreSQLs Autonamen `contribution_status_check`, den `V7`s
+   Doppel-`DROP` abdeckt. `organization_settings` hatte vor dieser Welle keine einzige FK — die drei
+   neuen FKs auf `ledger_account` sind auf `pdv2` also garantiert neu, keine Namenskollisionsgefahr.
+3. **Kein Verhaltensunterschied für eine unkonfigurierte `pdv2`-Instanz.** `sepaDebitEnabled`/
+   `paymentGatewayEnabled` sind beide `FALSE` per Default, und die Kontenzuordnung
+   (`paymentBankAccountId`/`paymentFeeAccountId`/`contributionIncomeAccountId`) ist nach der
+   Migration `NULL` — `ContributionPostingBridge` bucht also erst, nachdem ein ADMIN die drei Konten
+   im Kontenplan-Screen zuordnet. Bis dahin verhält sich `markContributionPaid` exakt wie vor dieser
+   Welle (Plan § 9.13).
+4. **`pdv2` — Security Round 1 (2026-08-19) fügt ein FÜNFTES `V1__baseline.sql`-In-place-Edit
+   hinzu (`audit_log_entry.entity_type`-CHECK um `ORGANIZATION_SETTINGS` erweitert) und einen
+   entsprechenden idempotenten Block in `V7__payments.sql`.** Gleiche Falle wie Operator-Notiz 1
+   oben, separat zu beheben — `flyway repair` VOR `flyway migrate`, `V1`s aktuell berechnete
+   Prüfsumme gegen `flyway_schema_history` prüfen. Siehe „Fixed (Security Round 1, 2026-08-19)"
+   unten, MAJOR-2, für den fachlichen Grund der Erweiterung.
+
 ### Fixed
 
 **`Dockerfile`'s build stage never copied `lapis-detekt-rules` into the container** — `settings
@@ -15,6 +148,351 @@ server`/`lapis-client`. Every Docker build since this module was added therefore
 untriggered until the first Docker rebuild after that point, found live during the `v0.15.0` deploy
 to `pdv2` (2026-08-19). Fixed by adding the same two `COPY` lines (`build.gradle.kts` first for
 layer caching, then the full module) already used for the other three modules.
+
+### Fixed (Review Round 1, 2026-08-19)
+
+Unabhängiges Code-Review von `feature/v1.2.1-zahlungs-fundament` (Commit `c0a628e`). Alle
+Critical-/Major-Befunde plus die als billig eingestuften Minor-Befunde behoben, siehe die dortige
+Review-Notiz für den vollen Wortlaut jedes Befunds.
+
+- **CRITICAL-1 — Kontenzuordnung war über die RPC-Schicht faktisch nie konfigurierbar.**
+  `OrganizationSettingsService.updateOrganizationSettings`s `UPDATE`-Schreibmenge wies die drei
+  neuen Spalten (`paymentBankAccountId`/`paymentFeeAccountId`/`contributionIncomeAccountId`) nie
+  zu, und `toOrganizationSettingsDto()` las sie auf dem Rückweg nie zurück — `LedgerScreen`s
+  „Kontenzuordnung gespeichert"-Toast war also eine leere Behauptung, `ContributionPostingBridge`
+  sah die drei Spalten dauerhaft `null`, `markContributionPaid` blieb in der Praxis für immer eine
+  reine Statusänderung, unabhängig vom eigentlichen Zweck dieser Welle. Behoben durch Ergänzen der
+  drei Felder in beiden Stellen (`sepaDebitEnabled`/`paymentGatewayEnabled`/`paymentGatewayProvider`
+  bleiben bewusst NUR im Lese-Mapper, nicht im Schreibpfad — sie sind laut
+  `OrganizationSettingsDto`-KDoc weiterhin exklusiv über `ISepaService`/`IPaymentGatewayService`
+  setzbar, kein Verhalten dieser drei ändert sich). Neuer RPC-Ebenen-Test
+  `ContributionPaymentRpcTest` deckt jetzt den echten Rundweg über `IOrganizationSettingsService`
+  ab (statt wie bisher nur `ContributionPostingBridgeTest`s direkter Exposed-Schreibzugriff, der
+  genau diesen kaputten Pfad umging) sowie `markContributionPaid` Ende-zu-Ende über
+  `ContributionService` mit einer über die RPC konfigurierten Zuordnung.
+- **CRITICAL-2 — `markContributionPaid` bucht bei Wiederholung doppelt.** Das `UPDATE` hatte keine
+  `WHERE`-Absicherung gegen einen bereits abgeschlossenen Status — ein zweiter Aufruf traf den
+  Datensatz erneut, `ContributionPostingBridge.postContributionPayment` lief ein zweites Mal, ein
+  Doppel-Journaleintrag entstand. Behoben durch eine `WHERE`-Bedingung, die jeden bereits
+  `ContributionStatusSets.SETTLED`-Status (`PAID`/`WAIVED`) ausschließt; trifft das `UPDATE` keine
+  Zeile, unterscheidet ein Folge-Lookup jetzt sauber „existiert nicht" (`NotFoundException`, wie
+  bisher) von „existiert, ist aber bereits abgeschlossen" (neu: `ConflictException`). Zusätzlich,
+  als reduzierende (nicht ersetzende) Client-seitige Maßnahme:
+  `ContributionsScreen`s „Als bezahlt markieren"-Button wird jetzt für die Dauer des RPC-Aufrufs
+  deaktiviert, analog `LedgerScreen`s `saveButton`. Neue Tests in `ContributionPaymentRpcTest`
+  (zweiter Aufruf wirft `ConflictException`, es existiert danach genau EIN Journaleintrag).
+- **MAJOR-3 — Bridge prüfte nicht, ob die zugeordneten Konten noch aktiv sind.**
+  `ContributionPostingBridge` prüfte bislang nur, ob die drei Konten-IDs gesetzt sind, nie, ob das
+  referenzierte `LedgerAccount` noch `active` ist — anders als `AccountingService.postJournalEntry`s
+  `requireActiveLedgerAccounts`. Deaktiviert eine Schatzmeisterin ein zugeordnetes Konto ohne die
+  Zuordnung nachzuziehen, bucht die Bridge weiterhin lautlos hinein. Behoben durch eine zusätzliche
+  Aktiv-Prüfung vor dem Buchen — bei einem inaktiven Konto degradiert die Bridge (wie beim
+  unkonfigurierten Fall) zu `null` statt zu werfen (ein reiner Statuswechsel darf nicht an einem
+  Ledger-Problem scheitern), schreibt aber eine eigene, unterscheidbare WARN-Zeile. Neuer Test in
+  `ContributionPostingBridgeTest`.
+- **MAJOR-4 — client-gelieferter `paidAt` leckte in den unveränderlichen GoBD-Audit-Trail.**
+  `journal_entry.created_at` und der Audit-Log-Eintrags `occurredAt` übernahmen bislang direkt den
+  unvalidierten `paidAt`-RPC-Parameter (korrekt nur für `entryDate`/`postedAt`, das Buchungsdatum) —
+  eine Schatzmeisterin konnte damit vor- oder zurückdatieren, was der hash-verkettete Audit-Trail als
+  tatsächlichen Erfassungszeitpunkt behauptet. Behoben: beide Felder nutzen jetzt `DbClock
+  .nowLocalDateTime()` (bzw. den Default-Parameter von `AuditLogRecorder.record`), exakt wie jede
+  andere `createdAt=`/`occurredAt=`-Stelle in dieser Codebase. Neuer Test in
+  `ContributionPostingBridgeTest` mit stark zurückdatiertem `paidAt`.
+- **MINOR-5 — Rollen-Gate zwischen Client-Formular und Endpunkt wich voneinander ab.**
+  `LedgerScreen`s Kontenzuordnungs-Abschnitt war auf TREASURER/ADMIN gegated, der Endpunkt
+  (`updateOrganizationSettings`) verlangt aber ADMIN-only — eine Schatzmeisterin sah ein editierbares
+  Formular, das immer mit `ForbiddenException` scheiterte. Entscheidung: den CLIENT-seitigen Gate
+  auf ADMIN-only verengt (nicht den Endpunkt geweitet) — `updateOrganizationSettings` ist eine
+  breite, pauschale Settings-Methode, die u. a. auch IBAN/BIC und Steuerdaten schreibt, ohne
+  etablierten TREASURER-Schreibzugriff andernorts in dieser Codebase; die Kontenzuordnungs-Sektion
+  bekommt jetzt ihren eigenen `AppState.hasRole(ADMIN)`-Check statt der Screen-weiten `canManage`.
+- **MINOR-6 — CHANGELOG „Deviations"-Abschnitt unvollständig.** Zwei tatsächliche Abweichungen
+  ergänzt (s. o.): `actorMemberId` bleibt nicht-nullbar (kein System-Akteur existiert noch), neuer
+  Code liegt in `server/rpc`/`server/dsgvo` statt einem neuen `server/payment`-Paket.
+- **MINOR-7 — veraltete KDoc in `MembershipToGovernanceJourneyTest`.** Beschrieb
+  `markContributionPaid` weiterhin als „postet nichts an `AccountingService`" — genau das war der
+  Zweck dieser Welle. KDoc korrigiert: die Bridge existiert jetzt, dieser Test bucht aber weiterhin
+  über das alte Zwei-Aufruf-Muster, weil sein Fixture die Kontenzuordnung nie konfiguriert (bewusst
+  unverändert, kein Verhalten dieses Tests ändert sich).
+- **MINOR-8 — Rundungs-Test aus Plan § 8.8 ergänzt.** 100 Beiträge à 33,33 € über
+  `ContributionPostingBridge` gebucht, Summe der Bankkonto-Postings exakt `3333.00` — kein Cent
+  durch Rundung verloren.
+
+Nicht behoben (bewusst außerhalb des Scopes dieser Runde): der NIT-Befund zu
+`disablePaymentGateway`, das `paymentGatewayProvider` nach Deaktivierung gesetzt lässt.
+
+### Fixed (Review Round 2, 2026-08-19)
+
+Unabhängiges Code-Review von `feature/v1.2.1-zahlungs-fundament` (Commit `2149394`, Runde 2 der
+Pflicht-Review-Schleife dieser Welle). Der Major-Befund plus die als billig eingestuften
+Should-Fix-Befunde behoben.
+
+- **MAJOR — `markContributionWaived` konnte einen bereits gebuchten Journaleintrag verwaist
+  zurücklassen.** Anders als `markContributionPaid` (Review Round 1, CRITICAL-2) hatte das `UPDATE`
+  in `markContributionWaived` keine `WHERE`-Absicherung gegen einen bereits abgeschlossenen Status —
+  ein BOARD-Mitglied konnte einen von einer Schatzmeisterin bereits als `PAID` markierten (und damit
+  über `ContributionPostingBridge` real gebuchten) Beitrag anschließend auf `WAIVED` setzen. Ergebnis:
+  die Mitgliederübersicht zeigte €0 offen/bezahlt, während das Hauptbuch weiterhin den vollen Betrag
+  als Beitragserlös auswies — ohne Storno, ohne Ausgleichsbuchung, ohne jeden Audit-Log-Eintrag zum
+  Erlass selbst. Widerspricht direkt `ContributionStatusSets.SETTLED`s eigener KDoc („Finally settled,
+  never to be touched again"). Behoben durch dieselbe `WHERE`-Absicherung wie bei `markContributionPaid`
+  (`ContributionStatusSets.SETTLED` ausgeschlossen) und dieselbe `NotFoundException`/`ConflictException`-
+  Unterscheidung bei einem Folge-Lookup. Neuer Test in `ContributionPaymentRpcTest` (Beitrag erst
+  `PAID` mit konfigurierter Kontenzuordnung, dann `markContributionWaived`-Versuch: wirft
+  `ConflictException`, Status bleibt `PAID`, Journaleintrags-Anzahl unverändert — kein Phantom-Storno).
+- **SHOULD-1 — `ContributionPostingBridge` prüfte die Bilanz der selbst konstruierten Buchungssätze
+  nicht.** `AccountingService.postJournalEntry`s regulärer Pfad erzwingt Σsoll = Σhaben über
+  `requireBalanced`/`JournalEntryBalance.validateBalanced`, bevor gebucht wird — die Bridge umgeht
+  diesen Pfad bewusst (§25-PartG-Grund, s. o.), stellte die Invariante aber nie selbst wieder her,
+  sondern vertraute rein auf die Arithmetik. In V1.2.1 unerreichbar (kein Aufrufer setzt bislang ein
+  nicht-`null` `providerFee`), aber eine latente Rundungs-Lücke, die V1.2.2 (SEPA-
+  Rücklastschriftgebühr) und V1.2.4 (PSP-Gebühr) real auslösen werden, sobald sie dieselbe Bridge
+  aufrufen. Behoben durch Wiederverwendung von `JournalEntryBalance.validateBalanced` (bereits
+  `internal`, selbes Package) unmittelbar vor dem ersten Insert — wirft `ConflictException`, sobald
+  die konstruierten Postings nicht balancieren ODER eine Nachkommastelle jenseits der zwei, die
+  `PostingTable.amount` als `DECIMAL(15,2)` fasst, aufweisen (derselbe Skalen-Guard, den
+  `JournalEntryBalance`s eigene KDoc als „Sub-cent rounding guard" beschreibt). Neuer Test in
+  `ContributionPostingBridgeTest`: `paidAmount`/`providerFee` mit drei Nachkommastellen (kein
+  bestehendes `require(...)` in `postContributionPayment` schützt vor Skala > 2) wirft
+  `ConflictException`, kein Journaleintrag entsteht.
+- **SHOULD-2 — veraltete CHANGELOG-Zeile widersprach dem MINOR-5-Fix aus Review Round 1.** Der
+  `### Added`-Eintrag zur Kontenzuordnung sprach weiterhin von „eine Schatzmeisterin" wählt die drei
+  Konten aus — MINOR-5 hatte den Client-Gate aber bereits auf ADMIN-only verengt, korrekt
+  dokumentiert im „Fixed (Review Round 1)"-Abschnitt derselben CHANGELOG-Version. Beide Abschnitte
+  widersprachen sich damit. Korrigiert auf ADMIN.
+- **SHOULD-3 — `payButton.disabled = false` wurde bei Coroutine-Abbruch nicht wiederhergestellt.**
+  `ContributionsScreen.kt`s „Als bezahlt markieren"-Button deaktivierte sich vor dem RPC-Aufruf und
+  reaktivierte sich danach — aber `guarded {}` wirft eine `CancellationException` unverändert weiter
+  (siehe ihre eigene Implementierung), sodass die Reaktivierungszeile bei einem Abbruch mitten im
+  Aufruf nie erreicht wurde und der Button bis zu einem Seiten-Neuladen dauerhaft deaktiviert blieb.
+  Geringe praktische Auswirkung (die serverseitige Absicherung ist der eigentliche Schutz), aber
+  billig korrekt zu beheben: Reaktivierung jetzt in einem `finally`-Block, läuft unabhängig davon, ob
+  der Aufruf erfolgreich war, eine Fachausnahme warf, oder abgebrochen wurde.
+
+**Bekannte Einschränkung dieser Sub-Welle (bewusst, nicht versehentlich):** `WAIVED` und `PAID` sind
+mit dem neuen `markContributionWaived`-Guard ab sofort zwei sich gegenseitig ausschließende
+Endzustände ohne Storno-/„Erlass rückgängig machen"-Pfad. Ein bereits `PAID`er Beitrag kann nie mehr
+erlassen werden — und umgekehrt (bereits vor dieser Runde so, jetzt aber durch den neuen Guard auch
+explizit erzwungen statt nur implizit über `markContributionPaid`s eigenen Guard) kann ein bereits
+`WAIVED`er Beitrag nie mehr als bezahlt markiert werden. Ein Storno-/Un-Waive-RPC existiert in V1.2.1
+bewusst nicht — falsche Statuswechsel dieser Art erfordern aktuell einen direkten Datenbankeingriff.
+Die Auflösung dieser Einschränkung folgt einer künftigen Welle, die noch nicht geplant ist.
+
+### Fixed (Review Round 3, 2026-08-19)
+
+Unabhängiges Code-Review von `feature/v1.2.1-zahlungs-fundament` (Commit `82b9832`, Runde 3 der
+Pflicht-Review-Schleife dieser Welle). Der Major-Befund plus die als billig eingestuften
+Should-Fix-Befunde behoben.
+
+- **MAJOR — eine zweite Bildschirm-Helper-Funktion löschte die Kontenzuordnung über dieselbe
+  Wholesale-Replace-RPC.** `OrganizationSettingsService.updateOrganizationSettings` ersetzt laut
+  eigener `OrganizationSettingsInput`-KDoc IMMER jedes Feld, kein Partial-Update. `LedgerScreen.kt`s
+  `toInputWithPaymentAccountMapping`-Helper wurde in dieser Welle korrekt um die drei neuen Felder
+  (`paymentBankAccountId`/`paymentFeeAccountId`/`contributionIncomeAccountId`) ergänzt — aber
+  `PoliticianScreen.kt`s eigener, unabhängiger Helper `toInputWithPoliticianRankingEnabled` (baut
+  ebenfalls ein `OrganizationSettingsInput` für denselben Endpunkt) wurde dabei übersehen und leitete
+  weiterhin `null` für alle drei Felder weiter. Konkretes Fehlerszenario: ein ADMIN konfiguriert die
+  drei SKR42-Zahlungskonten im Kontenplan-Screen — Beiträge buchen korrekt ins Hauptbuch. Derselbe
+  ADMIN (gleiches Rollen-Gate auf beiden Screens) schaltet später auf `PoliticianScreen` den
+  unabhängigen „Politiker-Ranking aktiviert"-Schalter um — dieser EINE Aufruf löscht lautlos alle
+  drei Kontenzuordnungen. Ab da degradiert `ContributionPostingBridge` bei jedem weiteren
+  `markContributionPaid` still auf den No-op-Pfad (nur eine WARN-Zeile) — der Beitrag wird weiterhin
+  korrekt als `PAID` markiert, aber nichts erreicht mehr das Hauptbuch. Dieselbe Fehlerklasse wie der
+  in Review Round 1 behobene CRITICAL-1-Befund, nur über einen anderen, bis dahin ungeprüften
+  Code-Pfad. Behoben durch Ergänzen der drei Felder auch in `PoliticianScreen.kt`s Helper (Grep über
+  alle `OrganizationSettingsInput(`-Konstruktionsstellen in `lapis-client` bestätigt: nur diese zwei
+  Helfer existieren, beide sind jetzt vollständig und deckungsgleich). Zusätzlich: der bereits
+  existierende `PoliticianScreenTest`, dessen eigene KDoc ausdrücklich das Verhindern genau dieser
+  Regressionsklasse als Zweck nennt, hatte seine handgeführte Feldliste bei der Einführung der drei
+  neuen Felder nie erweitert und die Regression deshalb nicht gefangen — die drei Felder sind jetzt in
+  der `fullSettings`-Testfixture mit unterscheidbaren Werten belegt und in allen drei bestehenden
+  Testfällen (inkl. Null-Toleranz-Fall) als Round-Trip-Assertion ergänzt.
+- **SHOULD-1 — `markContributionPaid`/`ContributionPostingBridge`-KDoc behauptete fälschlich
+  „wirft nie".** `ContributionService.kt`s KDoc zu `markContributionPaid` beschrieb den
+  Status-Übergang zu `PAID` weiterhin als „regardless of whether the bridge booked anything" — vor
+  Review Round 2s Bilanz-Prüfung (`requireBalanced`) korrekt, seitdem aber falsch: wirft die Bridge
+  wegen unausgeglichener Buchungssätze eine `ConflictException`, reisst das die GESAMTE
+  `markContributionPaid`-Transaktion zurück, inklusive des Status-Updates. Beide betroffenen KDocs
+  (`ContributionService.markContributionPaid` und `ContributionPostingBridge`s Klassen-KDoc)
+  korrigiert: die Bridge degradiert nur bei unkonfigurierter Zuordnung/inaktivem Konto, wirft aber
+  bei unausgeglichenen Buchungssätzen — relevant für künftige Aufrufer (V1.2.2/V1.2.4), die
+  entscheiden müssen, ob sie einen Aufruf dieser Bridge in eigene Fehlerbehandlung einpacken müssen.
+- **SHOULD-2 — Round-2-Regressionstest für den Erlass-Guard konnte vakuos grün bleiben.**
+  `ContributionPaymentRpcTest`s Test zum bereits-`PAID`en Erlass-Versuch prüfte nur, dass sich die
+  Journaleintrags-Anzahl nach dem Erlass-Versuch NICHT ändert — ohne unabhängig zu bestätigen, dass
+  der vorangegangene `mark-paid`-Aufruf überhaupt einen Journaleintrag erzeugt hatte. Eine Regression
+  in der Kontenzuordnungs-Vorbereitung dieses Tests hätte 0→0 ergeben und wäre trotzdem grün
+  geblieben, ohne das eigentliche Szenario (verwaister Journaleintrag) noch zu prüfen. Behoben durch
+  Erfassen der Anzahl auch VOR dem `mark-paid`-Aufruf und einer Assertion, dass sie exakt um eins
+  steigt — analog zum bereits bestehenden Round-1-Idempotenz-Test in derselben Datei. Zusätzlich einen
+  neuen, eigenständigen Test für den legitimen `OPEN → WAIVED`-Pfad ergänzt (ein nie bezahlter Beitrag
+  wird erfolgreich erlassen) — dieser Pfad war bislang durch keinen Test in dieser Datei abgesichert.
+- **SHOULD-3 — zwei Kommentare in `ContributionPostingBridge.kt` widersprachen sich scheinbar zur
+  Frage, ob die Bilanz-Prüfung „dupliziert" ist.** Ein Kommentar sprach von bewusster Duplizierung
+  (statt Extraktion in eine gemeinsame Funktion), ein anderer von Wiederverwendung statt Duplizierung
+  derselben Logik — beide für sich genommen korrekt (die Prüf-LOGIK wird über
+  `JournalEntryBalance.validateBalanced` wiederverwendet, nur die AUFRUFSTELLE in dieser Bridge ist
+  eigenständig, getrennt von `AccountingService`s eigenem Aufruf derselben Funktion), aber
+  verwirrend im Zusammenlesen. Beide Kommentare umformuliert, damit sie erkennbar dasselbe sagen.
+- **SHOULD-4/5 — zwei CHANGELOG-Textfehler.** Ein Abschnitt-Titel „Review Round 2" widersprach dem
+  Fließtext direkt darunter („Runde 3 der Pflicht-Review-Schleife") — auf „Runde 2" korrigiert, passend
+  zum Titel. Ein unvollständiger Satz („Diese Einschränkung folgt einer künftigen Welle, keiner ist
+  bereits geplant.") korrigiert zu „Die Auflösung dieser Einschränkung folgt einer künftigen Welle,
+  die noch nicht geplant ist." — Bedeutung unverändert (kein Un-Waive-RPC existiert, keine konkrete
+  künftige Welle ist dafür terminiert).
+- **SHOULD — beide Aktions-Buttons blieben auf einer bereits abgeschlossenen Beitragszeile
+  sichtbar.** `ContributionsScreen.kt`s `canMarkPaid`/`canWaive` sind reine Rollen-Gates, nie
+  statusabhängig — eine bereits `PAID`/`WAIVED`e Zeile (etwa durch einen zwischenzeitlich woanders
+  abgeschlossenen Vorgang seit dem letzten Laden der Liste) zeigte weiterhin beide Buttons. Mit den
+  Guards aus Round 1/2 führt ein Klick darauf jetzt zu einer rohen, englischen, technischen
+  `ConflictException`-Meldung statt eines sinnvollen UI-Zustands. Behoben durch Ausblenden (nicht nur
+  Deaktivieren) beider Buttons, sobald `contribution.status` in `ContributionStatusSets.SETTLED` liegt
+  — dieselbe Konvention, die diese Codebase bereits an anderer Stelle für status-abhängig immer
+  scheiternde Aktionen verwendet.
+
+### Fixed (Review Round 4, 2026-08-19)
+
+Vierte und letzte Runde der Pflicht-Review-Schleife (Commit `f31d750`) — `approved: true`, keine
+kritischen oder schweren Funde mehr, nur ein billiger, klar abgegrenzter Minor-Fund direkt behoben,
+statt eine weitere Runde anzustoßen:
+
+- **MINOR — derselbe Fehlerklasse, die Round 2 für `ContributionsScreen.kt`s `payButton` behoben
+  hatte, blieb an ihrem eigenen zitierten Vorbild unbehoben.** `LedgerScreen.kt`s
+  `saveButton.disabled = false` stand als einfache Anweisung nach dem `guarded {}`-Aufruf, nicht in
+  einem `finally`-Block — `guarded()` wirft eine `CancellationException` unverändert weiter, eine
+  mitten im Request abgebrochene Coroutine überspringt die Wiederfreischaltung also und der Button
+  bleibt bis zu einem vollständigen Seiten-Reload dauerhaft deaktiviert. Ironie: der Round-2-Fix für
+  `ContributionsScreen.kt` nennt in seinem eigenen Kommentar ausdrücklich „Same pattern as
+  `LedgerScreen.kt`'s `saveButton`" als Vorbild — genau dieses Vorbild hatte den Fix selbst nie
+  bekommen. Behoben mit demselben `try`/`finally`-Muster.
+
+Zwei weitere, als „nicht blockierend" eingestufte Minor-Funde bewusst **nicht** in dieser Welle
+behoben, sondern als bekannte Folgearbeit vermerkt: (1) eine deaktivierte, aber weiterhin
+zugeordnete Kontenzuordnung zeigt sich im Kontenplan-Screen als „(nicht konfiguriert)" statt als
+„zugeordnet, aber inaktiv" — der Auswahl-Dropdown lädt nur `activeOnly = true`; (2) `OrganizationSettingsService.updateOrganizationSettings`
+parst Konto-IDs mit rohem `Uuid.parse` statt der im selben Paket etablierten
+`runCatching { Uuid.parse(...) }.getOrElse { throw NotFoundException(...) }`-Konvention, wodurch eine
+fehlerhafte ID als unabgefangene 500 statt als saubere 404 durchschlägt.
+
+### Fixed (Security Round 1, 2026-08-19)
+
+Erste, sicherheitsfokussierte Prüfrunde nach den vier abgeschlossenen Korrektheits-Review-Runden
+(Commit `ae8e4ed`) — unabhängig vom obigen Review-Loop, siehe die dortige Audit-Notiz für den
+vollen Wortlaut jedes Befunds.
+
+- **MAJOR-1 — `ContributionPostingBridge` umging den GoBD-Kassenbestands-Guard UND dessen
+  Nebenläufigkeits-Lock.** Die Brücke reimplementierte bewusst nur zwei der sechs Guards aus
+  `AccountingService.postJournalEntry`s Preamble (`requireBalanced`, den Aktiv-Konto-Check) — die
+  GoBD-Pflicht „Kassenbestand darf nie negativ werden" (`requireNonNegativeCashBalances`, inklusive
+  des `SELECT ... FOR UPDATE`-Zeilenlocks, der Nebenläufigkeit mit einem echten
+  `postJournalEntry`/`postDraftEntry`-Aufruf serialisiert) hatte **keine** DB-seitige Rückendeckung —
+  die Anwendungsprüfung war die einzige Durchsetzung, und genau die fehlte hier. Ein ADMIN, der ein
+  `isCashRegister = true`-Konto als `paymentBankAccountId`/`paymentFeeAccountId`/
+  `contributionIncomeAccountId` zuordnete, hätte diese Kasse mit jedem `markContributionPaid`
+  stillschweigend weiter ins Negative treiben können. Zwei ergänzende Fixes, nicht alternativ:
+  - **Laufzeit-Guard (Reuse, kein Duplikat):** `loadCashRegisterAccountIds`/
+    `requireVoucherForCashPostings`/`requireNonNegativeCashBalances`/`lockCashRegisterAccounts`/
+    `currentPostedBalance` aus `AccountingService` in ein neues, geteiltes `CashRegisterGuard`-Objekt
+    extrahiert (gleiche „pure Logik in Schwesterdatei extrahiert, wiederverwendet statt dupliziert"-
+    Idiom wie `JournalEntryBalance`) — `AccountingService` delegiert jetzt selbst dorthin, und
+    `ContributionPostingBridge` wendet dieselben zwei Guards vor ihren eigenen Inserts an, in
+    derselben Reihenfolge wie `postJournalEntry`.
+  - **Unreachable by construction:** `OrganizationSettingsService.updateOrganizationSettings`
+    (`requireValidPaymentAccountMapping`, SHOULD-1 unten) lehnt jetzt ohnehin bereits ab, ein
+    Kassenkonto überhaupt als Zuordnungsziel zu speichern — der Laufzeit-Guard bleibt trotzdem als
+    Verteidigung in der Tiefe bestehen (z. B. für Bestandsdaten, deren Zuordnung vor diesem Fix
+    gesetzt wurde). Test: `ContributionPostingBridgeTest` (direkter Tabellen-Write, umgeht bewusst
+    die neue RPC-seitige Validierung) und `ContributionPaymentRpcTest` (SHOULD-1, über den echten
+    RPC-Pfad).
+- **MAJOR-2 — die Kontenzuordnungs-Änderung war finanziell hoch relevant, aber komplett spurlos.**
+  `OrganizationSettingsService.updateOrganizationSettings` schrieb `paymentBankAccountId`/
+  `paymentFeeAccountId`/`contributionIncomeAccountId` — die entscheiden, wohin JEDER künftige
+  Beitrag gebucht wird — ohne jeden `AuditLogRecorder.record`-Aufruf. Ein kompromittierter/
+  unehrlicher ADMIN hätte die Zuordnung umbiegen, eine Weile falsch buchen lassen und zurückbiegen
+  können, ohne dass die hash-verkettete GoBD-Spur je verrät, WER das WANN getan hat — nur die
+  resultierenden `JOURNAL_ENTRY`-Einträge selbst wären sichtbar. Neues `AuditEntityType.ORGANIZATION_SETTINGS`-Literal
+  (append-only ans Ende, `14-audit-log.kuml.kts` synchron gehalten, `audit_log_entry.entity_type`-
+  CHECK in `V1__baseline.sql` in-place erweitert + idempotenter Block in `V7__payments.sql`, siehe
+  Operator-Notiz 4 oben — **in `V7` gefaltet statt eines neuen `V8`**, weil dieser Branch noch nicht
+  gemerged/released/deployed ist und `V7`s Prüfsumme also noch von niemandem konsumiert wurde: reine
+  Vor-Release-Iteration derselben Welle, nicht ein späterer Fund). Neuer
+  `OrganizationSettingsPaymentMappingSnapshot` (nur die drei Konto-IDs, keine weiteren Felder) als
+  Vorher/Nachher-Payload — bewusst NICHT der volle Diff aller `OrganizationSettingsInput`-Felder:
+  die Methode ersetzt bei jedem Aufruf pauschal auch viele nicht-finanzielle Felder (Adresse,
+  IBAN-Anzeige, Gemeinnützigkeits-Daten), ein Audit-Eintrag bei jedem dieser Aufrufe hätte die
+  GoBD-Spur mit für die Konten-Routing-Frage irrelevanten Einträgen geflutet. Ein Audit-Eintrag
+  entsteht deshalb NUR, wenn sich mindestens eines der drei Felder tatsächlich ändert. `record()`
+  bleibt die letzte lock-nehmende Operation der Transaktion. Test: `ContributionPaymentRpcTest`
+  (Audit-Eintrag bei Änderung, keiner bei No-op-Wiederholung).
+- **SHOULD-1 — die drei Kontenzuordnungs-Felder wurden ungeprüft übernommen.** Schließt zugleich den
+  in „Fixed (Review Round 4)" oben unter Punkt (2) bereits als bekannte Folgearbeit vermerkten
+  rohen-`Uuid.parse`-Fund: `requireValidPaymentAccountMapping` verlangt jetzt Existenz, `active`,
+  `isCashRegister = false` (MAJOR-1s "unreachable by construction"-Hälfte) und den zur Rolle
+  passenden `LedgerAccountType` (Bank → `ASSET`, Gebühr → `EXPENSE`, Ertrag → `INCOME`) für jedes
+  gesetzte Feld; eine fehlerhaft geformte ID wirft jetzt `NotFoundException` (statt einer
+  unabgefangenen 500) über dieselbe `runCatching { Uuid.parse(...) }.getOrElse { ... }`-Konvention
+  wie `ContributionService.toContributionUuid`/`AccountingService.toAccountingUuid`; eine
+  existierende, aber semantisch falsche Zuordnung wirft `ConflictException`.
+- **SHOULD-2 — DSGVO-Art.-15-Export/Löschung von `payment_transaction` waren asymmetrisch.**
+  `erase()` leerte `reconciliation_note`, weil das Feld personenbezogene Daten ÜBER die betroffene
+  Person enthalten kann — `export()` gab dasselbe Feld aber nie aus, sodass eine betroffene Person
+  eine Bemerkung über sich löschen lassen konnte, ohne sie je über den eigenen Art.-15-Export gesehen
+  zu haben. `export()` liefert jetzt zusätzlich `providerPaymentId`/`currency`/`feeAmount`/
+  `payerReference`/`reconciliationNote`. Neuer Test `PaymentsPersonalDataTest`.
+- **SHOULD-3 — Disclaimer-Versions-Staleness ohne Re-Acknowledgment-Prüfung (ererbt von
+  `AuctionComplianceDisclaimer`, kein neuer Fund, aber jetzt geschlossen).** Wird
+  `SepaComplianceDisclaimer`/`PaymentGatewayComplianceDisclaimer`s `VERSION`/`TEXT` künftig
+  überarbeitet, während das jeweilige Flag bereits `true` ist, verglich bislang nichts die
+  gespeicherte Acknowledgment-Version gegen die aktuelle — das Feature bliebe gegen eine veraltete
+  Zustimmung aktiv. Zwei neue, eigenständige öffentliche Helfer
+  (`sepaDisclaimerIsCurrentlyAcknowledged`/`paymentGatewayDisclaimerIsCurrentlyAcknowledged`, je
+  eigene `transaction {}`, sicher sowohl eigenständig als auch aus einer bereits offenen heraus
+  aufrufbar) — kein aktueller V1.2.1-Aufrufer gated echtes Verhalten darauf (dieselbe
+  geerbte, hier bewusst nicht geschlossene Lücke besteht unverändert bei
+  `AuctionComplianceDisclaimer`), aber spätere Wellen (SEPA-Mandatserstellung, PSP-Checkout) finden
+  den Baustein bereits fertig vor. Tests: `SepaServiceTest`/`PaymentGatewayServiceTest`.
+- **Nit — `disablePaymentGateway` ließ `payment_gateway_provider` stehen.** Nur
+  `paymentGatewayEnabled` wurde zurückgesetzt, ein deaktiviertes Gateway meldete also weiterhin
+  einen Provider. Jetzt wird `paymentGatewayProvider` beim Deaktivieren mit geleert. Test:
+  `PaymentGatewayServiceTest`.
+
+**Nicht in dieser Runde behoben (bewusst, siehe Audit-Notiz für den vollen Wortlaut):** MINOR-4
+(Kilua-RPC-Exception-Message-Serialisierung — die Behauptung aus dem Korrektheits-Review-Loop wurde
+unabhängig als FALSCH verifiziert, Exception-Messages werden sehr wohl an den Client serialisiert,
+aber keine aktuelle Message dieser Codebase leckt etwas Sensibles; rein informativ für V1.2.2/
+V1.2.4, die künftig keine SEPA-Mandats-/PSP-Details in Exception-Messages legen dürfen) und
+INFORMATIONAL-8 (Schema-Fußangeln in `payment_transaction` für SPÄTERE Wellen — `payer_reference`
+Freitext, kein `CHECK` auf `currency`, `'MANUAL'`-Provider DB-seitig erlaubt aber App-seitig
+abgelehnt — die Tabelle hat in dieser Welle null Zeilen und keinen schreibenden Codepfad).
+
+### Security Round 2 (2026-08-19) — Verifikation, `approved: true`
+
+Unabhängige Verifikationsrunde (Commit `0640fb4`) prüfte beide Security-Round-1-Fixes gegen den
+tatsächlichen Code statt gegen den Fix-Bericht: MAJOR-1 als **verbatim** Extraktion bestätigt (Diff
+gegen den entfernten `AccountingService`-Block zeigt identische Logik/Fehlermeldungen/Lock-
+Reihenfolge; `AccountingServiceTest`s 54 unveränderte Tests — inklusive des Nebenläufigkeits-Tests
+für den `FOR UPDATE`-Lock — blieben grün und belegen damit direkt, dass die Extraktion bestehendes,
+bereits ausgeliefertes Verhalten NICHT regressiert hat), MAJOR-2 als vollständig geschlossen
+bestätigt (Drei-Wege-Konsistenz kUML/`V1__baseline.sql`/Schema-Drift-Test, Audit-Eintrag feuert
+nachweislich nur bei tatsächlicher Änderung, No-op-Wiederholung erzeugt nachweislich keinen
+Eintrag). `./gradlew clean check --no-daemon --rerun-tasks` lief frisch durch (1908 Server-Tests,
+0 Fehler). `approved: true`.
+
+**Bekannte Einschränkungen (nicht blockierend, für spätere Wellen vorgemerkt):**
+- **`LedgerScreen`s Kontenzuordnungs-Dropdown filtert weder nach Kontotyp noch schließt es
+  Kassenkonten aus** — dieselbe Fundklasse wie „Fixed (Review Round 3)"s `PoliticianScreen`-Fund,
+  server-seitig durch `requireValidPaymentAccountMapping` bereits vollständig abgesichert (siehe
+  SHOULD-1 oben), rein UX-seitig unpräzise (rohe englische Server-Exception statt Client-seitiger
+  Vorfilterung).
+- **Deaktivierung eines aktuell zugeordneten Kontos** (`deactivateLedgerAccount`) hat keine eigene
+  Prüfung — `ContributionPostingBridge` behandelt das als erwarteten, degradierenden Zustand, aber
+  danach schlägt JEDE `updateOrganizationSettings`-Änderung (auch fachfremde wie der
+  Politiker-Ranking-Toggle in `PoliticianScreen`) mit `ConflictException` fehl, bis die Zuordnung
+  über `LedgerScreen` auf `null` zurückgesetzt oder ein neues Konto gewählt wird.
+- **`CashRegisterGuard`'s ID-Parsing** nutzt `Uuid.parse` statt der sonst üblichen
+  `toAccountingUuid`-Konvention (wirft `IllegalArgumentException`/500 statt `NotFoundException`/404
+  bei einer fehlerhaft geformten ID) — an allen drei aktuellen Aufrufstellen unerreichbar, da die IDs
+  vorher bereits validiert wurden.
 
 ## [0.15.0] — 2026-08-19
 
