@@ -20,11 +20,13 @@ COPY gradle ./gradle
 COPY lapis-shared/build.gradle.kts ./lapis-shared/build.gradle.kts
 COPY lapis-server/build.gradle.kts ./lapis-server/build.gradle.kts
 COPY lapis-client/build.gradle.kts ./lapis-client/build.gradle.kts
+COPY lapis-detekt-rules/build.gradle.kts ./lapis-detekt-rules/build.gradle.kts
 
 # Now the full source tree.
 COPY lapis-shared ./lapis-shared
 COPY lapis-server ./lapis-server
 COPY lapis-client ./lapis-client
+COPY lapis-detekt-rules ./lapis-detekt-rules
 
 # Builds the server's installDist layout (bin/+lib/, the same application-plugin output the prior
 # systemd-based deployment used) and the client's minified production webpack bundle in one
