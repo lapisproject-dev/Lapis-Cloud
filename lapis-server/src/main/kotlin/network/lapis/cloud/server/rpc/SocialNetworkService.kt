@@ -17,6 +17,7 @@ import network.lapis.cloud.server.security.resolveCurrentMember
 import network.lapis.cloud.shared.domain.LtrLedgerEntryType
 import network.lapis.cloud.shared.domain.LtrLedgerReferenceType
 import network.lapis.cloud.shared.domain.MemberStatus
+import network.lapis.cloud.shared.domain.MemberStatusSets
 import network.lapis.cloud.shared.domain.SocialCommentInput
 import network.lapis.cloud.shared.domain.SocialPostDto
 import network.lapis.cloud.shared.domain.SocialPostInput
@@ -101,9 +102,11 @@ class SocialNetworkService(
         // DTO. See [loadPostAfterCommit] KDoc for why.
         val postId =
             transaction {
-                // Welle 1: requireActiveMembership -- ab Welle V1.1.4: requireLtrEligibleMembership
-                // (siehe Implementierungsplan § 4.5 und § 4.9).
-                requireActiveMembership(memberId = current.memberId)
+                // Welle V1.1.4: requireActiveMembership -> requireLtrEligibleMembership (ACTIVE UND
+                // FRIEND). Der zurückgegebene Status wird sofort für requireVisibilityAllowedFor
+                // gebraucht -- ein FRIEND darf keine MEMBERS_ONLY-Sichtbarkeit wählen, siehe deren KDoc.
+                val callerStatus = requireLtrEligibleMembership(memberId = current.memberId)
+                requireVisibilityAllowedFor(status = callerStatus, visibility = input.visibility)
 
                 // Serializes this debit-causing read-then-write against every other LTR-debiting call
                 // for this same member -- see LtrBalanceProvider.lockForDebit KDoc, same idiom as
@@ -170,7 +173,10 @@ class SocialNetworkService(
         // transaction's row locks (parent POST row, then MEMBER row) are still held.
         val commentId =
             transaction {
-                requireActiveMembership(memberId = current.memberId)
+                // Welle V1.1.4: requireLtrEligibleMembership -- keine Sichtbarkeitsprüfung nötig wie
+                // bei createPost, ein Kommentar erbt die Stufe vom Wurzel-Post (S5, rootVisibilityOf
+                // unten) und der isReadable-Check gegen den Aufrufer läuft ohnehin schon direkt darunter.
+                requireLtrEligibleMembership(memberId = current.memberId)
 
                 // Sperre 1 (von 2). Lock-Reihenfolge im gesamten Modul: POST-Zeile -> MEMBER-Zeile.
                 // Niemals umgekehrt -- sonst Deadlock gegen einen parallelen boostPost/createComment.
@@ -264,7 +270,10 @@ class SocialNetworkService(
         // KDoc -- the subtree aggregation for the returned DTO no longer runs while this write
         // transaction's row locks (POST row, then MEMBER row) are still held.
         transaction {
-            requireActiveMembership(memberId = current.memberId)
+            // Welle V1.1.4: requireLtrEligibleMembership -- keine Sichtbarkeitsprüfung nötig, der
+            // isReadable-Check gegen den Aufrufer läuft direkt darunter (gleiche Begründung wie bei
+            // createComment).
+            requireLtrEligibleMembership(memberId = current.memberId)
             val post =
                 SocialPostTable
                     .selectAll()
@@ -610,6 +619,44 @@ class SocialNetworkService(
         if (content.isBlank()) throw ConflictException("content must not be blank")
         if (content.length > MAX_CONTENT_LENGTH) {
             throw ConflictException("content exceeds the maximum length of $MAX_CONTENT_LENGTH characters")
+        }
+    }
+
+    /**
+     * Welle V1.1.4. Ein [MemberStatusSets.NON_MEMBER]-Autor darf **keine**
+     * [SocialPostVisibility.MEMBERS_ONLY]-Stufe wählen -- er könnte den entstehenden Post danach
+     * weder lesen ([SocialVisibility.readableByCondition]) noch über [hideOwnPost] wieder
+     * unsichtbar machen (dessen S-B1-Lesbarkeitsprüfung läuft VOR der Eigentümerprüfung), während
+     * sein LTR-Einsatz unwiderruflich gebunden bliebe. Serverseitig, nicht nur clientseitig: der
+     * Client filtert die Auswahl zwar ebenfalls (SocialNetworkScreen), aber die Invariante muss auch
+     * gegen einen direkten RPC-Aufruf halten. [SocialPostVisibility.MEMBERS_AND_EXTERNAL] und
+     * [SocialPostVisibility.PUBLIC] bleiben für ihn offen -- beide sind für ihn lesbar.
+     *
+     * Gilt nur für [createPost]: [createComment] erbt die Stufe vom Wurzel-Post (S5) und kann sie
+     * gar nicht wählen, und ein Kommentar entsteht ohnehin nur unter einem für den Aufrufer bereits
+     * lesbaren Elternknoten.
+     *
+     * **Security-Audit-Runde 1, F3 (2026-08-19, reine Dokumentation, kein Verhaltensfix)**: der
+     * vorgelagerte [requireLtrEligibleMembership]-Aufruf in [createPost] liest den Status OHNE
+     * `forUpdate` (`forUpdate = false`, der Default). Theoretisch könnte derselbe Nutzer in einer
+     * zweiten, zeitgleichen Aktion in genau dem Fenster zwischen diesem Statuslesevorgang und dem
+     * Commit von [createPost] seinen eigenen Status ändern (z. B. `applyForMembership` auslösen),
+     * sodass die hier geprüfte `status`-Variable bereits geringfügig veraltet ist, wenn dieser
+     * Guard sie auswertet. Kein Angreifergewinn -- der Nutzer kann sich nur gegen SICH SELBST
+     * "racen" -- und strukturell identisch zu jedem Alt-Post eines später ausgetretenen Mitglieds
+     * (ein bereits veröffentlichter Post bleibt unter seiner ursprünglichen Sichtbarkeit stehen).
+     * Kein Fix nötig laut Audit; siehe [requireMembershipStatusIn] KDoc für die allgemeine
+     * `forUpdate`-Faustregel, der dieser Aufruf bewusst folgt (`social_post` ist eine
+     * Inhaltszeile, keine Autoritäts-Zeile).
+     */
+    private fun requireVisibilityAllowedFor(
+        status: MemberStatus,
+        visibility: SocialPostVisibility,
+    ) {
+        if (status in MemberStatusSets.NON_MEMBER && visibility == SocialPostVisibility.MEMBERS_ONLY) {
+            throw ConflictException(
+                "Sichtbarkeitsstufe MEMBERS_ONLY steht nur Mitgliedern der Organisation offen",
+            )
         }
     }
 

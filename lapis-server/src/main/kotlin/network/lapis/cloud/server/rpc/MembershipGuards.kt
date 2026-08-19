@@ -6,7 +6,9 @@ import network.lapis.cloud.server.db.generated.MemberTable
 import network.lapis.cloud.server.security.CurrentMember
 import network.lapis.cloud.shared.domain.MemberStatus
 import network.lapis.cloud.shared.domain.MemberStatusSets
+import network.lapis.cloud.shared.rpc.ConflictException
 import network.lapis.cloud.shared.rpc.ForbiddenException
+import network.lapis.cloud.shared.rpc.NotFoundException
 import org.jetbrains.exposed.v1.core.ResultRow
 import org.jetbrains.exposed.v1.core.and
 import org.jetbrains.exposed.v1.core.eq
@@ -67,6 +69,109 @@ fun requireActiveMembership(
         allowed = MemberStatusSets.ORGANIZATION_MEMBER,
         forUpdate = forUpdate,
     )
+}
+
+/**
+ * Welle V1.1.4 -- "darf LTR halten/ausgeben, soweit das soziale Netz betroffen ist":
+ * [MemberStatus.ACTIVE] UND [MemberStatus.FRIEND], siehe [MemberStatusSets.LTR_ELIGIBLE] KDoc für
+ * die vollständige fachliche Begründung und für die drei bewussten Ausschlüsse (GUEST/APPLICATION/
+ * WITHDRAWN+REJECTED).
+ *
+ * **Bewusst NICHT als Ersatz für [requireActiveMembership] gedacht.** Dieser Guard gehört
+ * ausschliesslich an (a) die drei LTR-ausgebenden Schreibpfade des sozialen Netzes
+ * ([SocialNetworkService.createPost]/[SocialNetworkService.createComment]/
+ * [SocialNetworkService.boostPost]) und (b) die beiden Selbstauskunfts-Lesepfade des LTR-Kontos
+ * ([LtrLedgerService.getMyBalance]/[LtrLedgerService.listMyEntries]). Jeder andere heutige
+ * [requireActiveMembership]-Aufrufer (Governance, Crowdfunding, Systemisches Konsensieren, Wahlen,
+ * Auktion, Peer-Transfer, Direktnachrichten, Mailinglisten, Konferenz-Verwaltungspfade) bleibt
+ * unverändert ACTIVE-only; `MembershipGuardsTest`/`FriendCapabilityBoundaryTest` pinnen genau das.
+ *
+ * Gibt -- anders als [requireActiveMembership] (`Unit`) und wie
+ * [requirePoliticianRaterMembership] -- den frisch gelesenen [MemberStatus] zurück, damit ein
+ * Aufrufer, der anschliessend statusabhängig verzweigen muss (z. B. [SocialNetworkService
+ * .createPost]s Sichtbarkeitsstufen-Beschränkung für Nicht-Mitglieder, siehe § 2.2), keine zweite
+ * Query auf dieselbe Zeile braucht.
+ *
+ * [forUpdate] bleibt standardmässig `false`, konsistent mit jedem anderen "in-place-Aktion statt
+ * neuer Autoritäts-Zeile"-Aufrufer (siehe [requireMembershipStatusIn] KDoc): ein `social_post` ist
+ * ein Inhaltsdatensatz, keine Mitgliedschafts-/Amts-Zeile, deren Gültigkeit vom Status zum
+ * Zeitpunkt einer SPÄTEREN Anweisung derselben Transaktion abhinge.
+ *
+ * **Security-Audit-Runde 1, F1 (2026-08-19)**: bis zu diesem Fix wertete dieser Guard
+ * [FriendRegistrationConfig.requireEmailVerification] NICHT aus, obwohl
+ * [requireConferenceEligibleMembership] denselben Schalter für den Konferenzzugang bereits seit
+ * V0.11.0 auswertet -- ein Betreiber, der den Schalter künftig aktiviert (sobald ein echter
+ * SMTP-Mailer existiert), hätte damit ein unverifiziertes FRIEND-Konto zwar aus Konferenzen
+ * ausgesperrt, es aber weiterhin unbehindert LTR ausgeben/posten/Autorenguthaben abgreifen lassen
+ * -- die Schutzmassnahme hätte lautlos genau dort NICHT gewirkt, wo sie am nötigsten wäre. Fix
+ * übernimmt exakt [requireConferenceEligibleMembership]s Muster: derselbe Zusatzcheck
+ * (`MemberTable.emailVerifiedAt != null`), in DERSELBEN Query wie der Statuslesevorgang (kein
+ * zweiter Round-Trip), und greift NUR für [MemberStatus.FRIEND] -- ein [MemberStatus.ACTIVE]
+ * Mitglied braucht keine zusätzliche E-Mail-Verifikation für LTR-Nutzung, das ist bereits durch
+ * die Mitgliedschaft selbst abgedeckt (identische Statusabhängigkeit wie bei
+ * [requireConferenceEligibleMembership]). [config] defaults to a fresh
+ * [FriendRegistrationConfig.load] per call, same "cheap, pure env-var read, safe to repeat"
+ * reasoning as [requireConferenceEligibleMembership]. Solange
+ * `LAPIS_FRIEND_REQUIRE_EMAIL_VERIFICATION` auf seinem Default (`false`) steht -- dem aktuellen
+ * Produktivzustand, siehe [FriendRegistrationConfig.requireEmailVerification] KDoc -- ändert sich
+ * am bisherigen Verhalten nichts.
+ */
+fun requireLtrEligibleMembership(
+    memberId: Uuid,
+    forUpdate: Boolean = false,
+    config: FriendRegistrationConfig = FriendRegistrationConfig.load(),
+): MemberStatus {
+    val query = MemberTable.selectAll().where { MemberTable.id eq memberId }
+    val row = (if (forUpdate) query.forUpdate() else query).singleOrNull()
+    val status = row?.get(MemberTable.status)
+    if (status == null || status !in MemberStatusSets.LTR_ELIGIBLE) throw ForbiddenException()
+    if (status == MemberStatus.FRIEND && config.requireEmailVerification && row[MemberTable.emailVerifiedAt] == null) {
+        throw ForbiddenException("This FRIEND account has not verified its email address yet")
+    }
+    return status
+}
+
+/**
+ * Security-Audit-Runde 1, F4 (2026-08-19): the RECEIVING side of an LTR credit --
+ * [LtrLedgerService.mintLtr]'s target and [PeerTransferService.transferLtr]'s recipient -- had NO
+ * status gate at all, only an existence check (`requireMemberExists`/an inline `MemberTable`
+ * lookup). LTR could therefore be booked onto a GUEST/APPLICATION/WITHDRAWN/REJECTED member.
+ * Newly relevant since THIS wave gates the self-service balance/entry lookups
+ * ([LtrLedgerService.getMyBalance]/[LtrLedgerService.listMyEntries]) on
+ * [MemberStatusSets.LTR_ELIGIBLE] via [requireLtrEligibleMembership]: such an account could then
+ * neither see nor spend its own (accidentally booked) balance. For GUEST specifically this also
+ * contradicts this wave's own newly-written doctrine ("a federated guest identity keeps its LTR
+ * account on its home server", see [MemberStatusSets.LTR_ELIGIBLE] KDoc) -- a doctrine that was
+ * never actually enforced at either credit path until this fix.
+ *
+ * Throws [NotFoundException] for a genuinely unknown [memberId] (same contract as the
+ * existence-only checks this replaces) and [ConflictException] -- not [ForbiddenException] -- for
+ * a known member whose status is outside [MemberStatusSets.LTR_ELIGIBLE]: the CALLER is authorized
+ * to mint/transfer, only the TARGET is unsuitable, which is a conflict with the request's own
+ * target, not an authorization failure of the caller.
+ *
+ * Security-Audit-Runde 2, G2 (2026-08-19): the [ConflictException] message deliberately does NOT
+ * include [status]. `ConflictException` is `@RpcServiceException`-serialized to the JS client (same
+ * as any other user-facing conflict message in this module), and [transferLtr]'s guard call runs
+ * BEFORE any balance check and behind no rate limiter -- any ACTIVE member could otherwise probe an
+ * arbitrary member UUID and learn its exact status (APPLICATION vs. REJECTED vs. WITHDRAWN vs.
+ * GUEST), the same class of enumeration leak `MemberService.listMembers` was scoped to
+ * ORGANIZATION_MEMBER to avoid ("for a political party, a real exposure"). Whether the target is
+ * `LTR_ELIGIBLE` at all is already the whole point of this exception; the finer-grained status is
+ * not something a caller needs to see.
+ */
+fun requireLtrEligibleRecipient(memberId: Uuid): MemberStatus {
+    val status =
+        MemberTable
+            .selectAll()
+            .where { MemberTable.id eq memberId }
+            .singleOrNull()
+            ?.get(MemberTable.status)
+            ?: throw NotFoundException("Member $memberId not found")
+    if (status !in MemberStatusSets.LTR_ELIGIBLE) {
+        throw ConflictException("Member $memberId cannot receive LTR")
+    }
+    return status
 }
 
 /**

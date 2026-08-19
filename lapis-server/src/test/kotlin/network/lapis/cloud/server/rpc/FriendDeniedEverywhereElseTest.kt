@@ -64,14 +64,21 @@ private val ENABLED_CONFIG =
 
 /**
  * The negative matrix from the wave's own test plan: [MemberStatus.FRIEND] is refused by every
- * endpoint OUTSIDE its granted scope (conference access only). One assertion per gate, mirroring
- * the naming/shape the plan itself specifies. Representative coverage across every risk category
- * the plan's B2 decision table lists (conference room enumeration/creation, LTR economy,
+ * endpoint OUTSIDE its granted scope (conference access, and -- since Welle V1.1.4 -- the LTR
+ * economy's self-service surface, see [MemberStatusSets.LTR_ELIGIBLE]). One assertion per gate,
+ * mirroring the naming/shape the plan itself specifies. Representative coverage across every risk
+ * category the plan's B2 decision table lists (conference room enumeration/creation,
  * politician-rating, direct messages, mailing lists, document access) -- not an exhaustive
  * per-endpoint enumeration of literally every governance/election method, most of which gate on an
  * EXISTING target entity first and would need substantial fixture setup unrelated to the FRIEND
  * question itself; [MembershipGuardsTest] already proves the underlying guard primitives
  * exhaustively for every status × every guard function.
+ *
+ * **LTR economy note (Welle V1.1.4):** [LtrLedgerService.getMyBalance]/`.listMyEntries` moved OUT
+ * of this negative matrix -- FRIEND is deliberately admitted there now
+ * ([MemberStatusSets.LTR_ELIGIBLE]), see `LtrLedgerServiceTest`'s own positive coverage. Sending a
+ * peer transfer ([PeerTransferService.transferLtr]) remains refused below -- only the sender side
+ * is gated, and that gate is unchanged by V1.1.4.
  */
 class FriendDeniedEverywhereElseTest :
     FunSpec({
@@ -247,7 +254,12 @@ class FriendDeniedEverywhereElseTest :
             }
         }
 
-        test("FRIEND is refused by getMyBalance and listMyEntries (LtrLedgerService) -- defence in depth, a FRIEND has no LTR balance") {
+        test(
+            "Welle V1.1.4 update: FRIEND is now ADMITTED by getMyBalance/listMyEntries (LtrLedgerService) -- LTR_ELIGIBLE " +
+                "widens this defence-in-depth gate; a fresh FRIEND simply sees an empty balance/entry list (0.00 LTR, no " +
+                "write path has run yet), same as a fresh ACTIVE member. See MembershipGuards.requireLtrEligibleMembership " +
+                "KDoc and FriendCapabilityBoundaryTest for the domains that remain ACTIVE-only.",
+        ) {
             testApplication {
                 application {
                     install(StatusPages) { installDeniedExceptionHandlers() }
@@ -255,8 +267,8 @@ class FriendDeniedEverywhereElseTest :
                 }
                 val friend = createFriendMember("denied-ltr-ledger@example.org")
 
-                client.get("/test/my-balance") { header("X-Member-Id", friend.toString()) }.status shouldBe HttpStatusCode.Forbidden
-                client.get("/test/my-entries") { header("X-Member-Id", friend.toString()) }.status shouldBe HttpStatusCode.Forbidden
+                client.get("/test/my-balance") { header("X-Member-Id", friend.toString()) }.status shouldBe HttpStatusCode.OK
+                client.get("/test/my-entries") { header("X-Member-Id", friend.toString()) }.status shouldBe HttpStatusCode.OK
             }
         }
 

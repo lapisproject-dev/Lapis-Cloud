@@ -7,7 +7,6 @@ import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
 import network.lapis.cloud.server.db.DbClock
 import network.lapis.cloud.server.db.generated.LtrLedgerEntryTable
-import network.lapis.cloud.server.db.generated.MemberTable
 import network.lapis.cloud.server.db.generated.PriceOracleConfigTable
 import network.lapis.cloud.server.db.generated.PriceOracleConversionTable
 import network.lapis.cloud.server.db.truncatedToDbPrecision
@@ -143,8 +142,14 @@ class PriceOracleService(
         val sourcesUsed = quote.contributingSourceIds.joinToString(",")
 
         return transaction {
-            MemberTable.selectAll().where { MemberTable.id eq targetId }.singleOrNull()
-                ?: throw NotFoundException("Member ${input.memberId} not found")
+            // Security-Audit-Runde 2, G1 (2026-08-19): this was an inline existence-only check --
+            // the exact pattern Security-Audit-Runde 1's F4 already replaced in
+            // LtrLedgerService.mintLtr/PeerTransferService.transferLtr. A discretionary donation
+            // conversion is a fresh MINT, not the settlement of a pre-existing obligation (unlike
+            // e.g. AUCTION_SALE_IN), so it belongs on the gated side just like mintLtr does -- see
+            // requireLtrEligibleRecipient's own KDoc for why a GUEST/APPLICATION/WITHDRAWN/REJECTED
+            // target must not receive LTR it could then neither see nor spend.
+            requireLtrEligibleRecipient(memberId = targetId)
 
             val ledgerEntryId = Uuid.random()
             LtrLedgerEntryTable.insert {

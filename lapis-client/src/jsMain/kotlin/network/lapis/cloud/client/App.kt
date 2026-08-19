@@ -206,39 +206,60 @@ private fun refreshNavbar(navbar: Navbar) {
     // queue lives inside the screen) rather than forking the nav label, unchanged from the prior
     // flat-list comment.
     //
-    // V0.11.0: all three dropdowns below are now additionally gated on `session.status !=
-    // MemberStatus.FRIEND` -- a self-registered FRIEND has no Beitragspflicht, no
-    // governance/accounting/LTR rights, and (since this wave's `canAccessDocumentAtLevel` fix) no
-    // PUBLIC_MEMBERS document access either, so showing these entries would only ever lead to a
-    // guaranteed-to-fail RPC call. Driven from `SessionInfoDto.status`, not a new client-side
-    // boolean, per this wave's own convention.
-    if (NavVisibility.showsOrganizationMemberDropdowns(session.status)) {
+    // V0.11.0, umgebaut in Welle V1.1.4: die drei Dropdowns unten waren bis V1.1.3 pauschal auf
+    // `session.status != MemberStatus.FRIEND` gegattert. Seit V1.1.4 ist ein FRIEND
+    // [network.lapis.cloud.shared.domain.MemberStatusSets.LTR_ELIGIBLE] und darf LTR halten/im
+    // sozialen Netz ausgeben (siehe [MembershipGuards.requireLtrEligibleMembership] KDoc) --
+    // "Wirtschaft" (LTR-Konto, Soziales Netzwerk) und "Meine Daten" (DSGVO-Betroffenenrechte)
+    // öffnen sich deshalb jetzt fein granular über [NavVisibility]s sieben Prädikate, während
+    // Governance/Crowdfunding/Auktion/Politiker/Beiträge/Dokumente/Kommunikation weiterhin
+    // ausschliesslich ORGANIZATION_MEMBER (ACTIVE) vorbehalten bleiben -- für die genau diese Sets
+    // wäre eine RPC von einem FRIEND aus weiterhin ein garantiertes 403.
+    if (NavVisibility.showsMembershipSection(session.status)) {
         leftNav.dropDown(tr("Mitgliedschaft"), icon = "fas fa-id-card", forNavbar = true) {
             ddLink(tr("Beiträge"), url = "#${Routes.CONTRIBUTIONS}", icon = "fas fa-coins")
             ddLink(tr("Dokumente"), url = "#${Routes.DOCUMENTS}", icon = "fas fa-file-lines")
             ddLink(tr("Kommunikation"), url = "#${Routes.COMMUNICATION}", icon = "fas fa-envelope")
             ddLink(tr("Meine Daten"), url = "#${Routes.DSGVO_RIGHTS}", icon = "fas fa-shield-halved")
         }
+    } else if (NavVisibility.showsDsgvoRights(session.status)) {
+        // Welle V1.1.4: ein FRIEND hat kein volles "Mitgliedschaft"-Dropdown (Beiträge/Dokumente/
+        // Kommunikation bleiben ORGANIZATION_MEMBER-exklusiv), braucht aber trotzdem einen
+        // erreichbaren Betroffenenrechte-Einstieg, sobald er eigene, potenziell öffentlich
+        // indexierte Inhalte erzeugt (Art. 12 Abs. 2 DSGVO) -- siehe Plan Teil 0.7. Einzelner
+        // Top-Level-Link statt eines Ein-Eintrag-Dropdowns.
+        leftNav.navLink(tr("Meine Daten"), url = "#${Routes.DSGVO_RIGHTS}", icon = "fas fa-shield-halved")
+    }
+    if (NavVisibility.showsSelfGovernance(session.status)) {
         // requireAuth-tier -- see `Routes.COMMITTEES`/`MEETINGS`/`MOTIONS` KDoc.
         leftNav.dropDown(tr("Selbstverwaltung"), icon = "fas fa-people-group", forNavbar = true) {
             ddLink(tr("Gremien"), url = "#${Routes.COMMITTEES}", icon = "fas fa-people-group")
             ddLink(tr("Sitzungen"), url = "#${Routes.MEETINGS}", icon = "fas fa-calendar-days")
             ddLink(tr("Anträge"), url = "#${Routes.MOTIONS}", icon = "fas fa-file-signature")
         }
+    }
+    if (NavVisibility.showsEconomySection(session.status)) {
         // requireAuth-tier -- see `Routes.LTR_LEDGER`/`CROWDFUNDING`/`AUCTION`/`POLITICIANS` KDoc for
         // the per-route verification; narrower role-gated sub-sections inside these screens (e.g.
         // Auktion's ADMIN-only Verwaltung, Politiker's BOARD/ADMIN Verwaltung) are unchanged, still
         // gated INSIDE the screen, not via separate nav entries.
         leftNav.dropDown(tr("Wirtschaft"), icon = "fas fa-coins", forNavbar = true) {
-            ddLink(tr("LTR-Konto"), url = "#${Routes.LTR_LEDGER}", icon = "fas fa-wallet")
-            ddLink(tr("Crowdfunding"), url = "#${Routes.CROWDFUNDING}", icon = "fas fa-hand-holding-heart")
-            ddLink(tr("Auktion"), url = "#${Routes.AUCTION}", icon = "fas fa-gavel")
-            ddLink(tr("Politiker"), url = "#${Routes.POLITICIANS}", icon = "fas fa-landmark")
+            if (NavVisibility.showsLtrLedger(session.status)) {
+                ddLink(tr("LTR-Konto"), url = "#${Routes.LTR_LEDGER}", icon = "fas fa-wallet")
+            }
+            if (NavVisibility.showsMemberOnlyEconomy(session.status)) {
+                ddLink(tr("Crowdfunding"), url = "#${Routes.CROWDFUNDING}", icon = "fas fa-hand-holding-heart")
+                ddLink(tr("Auktion"), url = "#${Routes.AUCTION}", icon = "fas fa-gavel")
+                ddLink(tr("Politiker"), url = "#${Routes.POLITICIANS}", icon = "fas fa-landmark")
+            }
             // Soziales Netzwerk, Welle V1.1.1 -- see `Routes.SOCIAL_NETWORK` KDoc for the role-gate
             // verification. Placed in "Wirtschaft" (not "Mitgliedschaft"/"Selbstverwaltung") because
             // `createPost` binds LTR from the author's free balance, same economic-weight posture as
             // Crowdfunding/Auktion/Politiker above, not a pure membership/self-governance feature.
-            ddLink(tr("Soziales Netzwerk"), url = "#${Routes.SOCIAL_NETWORK}", icon = "fas fa-comments")
+            // Seit V1.1.4 auch für FRIEND (LTR_ELIGIBLE) sichtbar.
+            if (NavVisibility.showsSocialNetwork(session.status)) {
+                ddLink(tr("Soziales Netzwerk"), url = "#${Routes.SOCIAL_NETWORK}", icon = "fas fa-comments")
+            }
         }
     }
     // Accounting UI wave, design decision D15 -- gated on TREASURER/BOARD/ADMIN (the same three

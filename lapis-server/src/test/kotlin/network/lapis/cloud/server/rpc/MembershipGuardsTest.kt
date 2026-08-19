@@ -3,6 +3,7 @@ package network.lapis.cloud.server.rpc
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import kotlinx.datetime.LocalDate
+import kotlinx.datetime.LocalDateTime
 import network.lapis.cloud.server.db.DatabaseConfig
 import network.lapis.cloud.server.db.DevSeedData
 import network.lapis.cloud.server.db.generated.AccountTable
@@ -12,13 +13,16 @@ import network.lapis.cloud.server.db.generated.MemberTable
 import network.lapis.cloud.server.security.CurrentMember
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.MemberStatus
+import network.lapis.cloud.shared.rpc.ConflictException
 import network.lapis.cloud.shared.rpc.ForbiddenException
+import network.lapis.cloud.shared.rpc.NotFoundException
 import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.core.inList
 import org.jetbrains.exposed.v1.jdbc.deleteWhere
 import org.jetbrains.exposed.v1.jdbc.insert
 import org.jetbrains.exposed.v1.jdbc.selectAll
 import org.jetbrains.exposed.v1.jdbc.transactions.transaction
+import org.jetbrains.exposed.v1.jdbc.update
 import kotlin.uuid.Uuid
 
 /**
@@ -93,6 +97,104 @@ class MembershipGuardsTest :
                 val isAllowed = allowed(block = { id -> requireActiveMembership(memberId = id) }, memberId = memberId)
                 withClueStatus(status = status) { isAllowed shouldBe (status == MemberStatus.ACTIVE) }
             }
+        }
+
+        test("requireLtrEligibleMembership: allows ACTIVE and FRIEND, denies everything else, returns the caller's status") {
+            MemberStatus.entries.forEach { status ->
+                val memberId = membersByStatus.getValue(status)
+                val expected = status == MemberStatus.ACTIVE || status == MemberStatus.FRIEND
+                val result = runCatching { transaction { requireLtrEligibleMembership(memberId = memberId) } }
+                withClueStatus(status = status) {
+                    if (expected) {
+                        result.getOrThrow() shouldBe status
+                    } else {
+                        (result.exceptionOrNull() is ForbiddenException) shouldBe true
+                    }
+                }
+            }
+        }
+
+        test("requireLtrEligibleMembership: an unknown memberId is denied (ForbiddenException)") {
+            val isAllowed =
+                allowed(block = { id -> requireLtrEligibleMembership(memberId = id) }, memberId = Uuid.random())
+            isAllowed shouldBe false
+        }
+
+        test("requireLtrEligibleMembership: forUpdate=true behaves identically to forUpdate=false for status admission") {
+            MemberStatus.entries.forEach { status ->
+                val memberId = membersByStatus.getValue(status)
+                val expected = status == MemberStatus.ACTIVE || status == MemberStatus.FRIEND
+                val isAllowed =
+                    allowed(
+                        block = { id -> requireLtrEligibleMembership(memberId = id, forUpdate = true) },
+                        memberId = memberId,
+                    )
+                withClueStatus(status = status) { isAllowed shouldBe expected }
+            }
+        }
+
+        test(
+            "Security-Audit-Runde 1, F1: requireLtrEligibleMembership honours " +
+                "LAPIS_FRIEND_REQUIRE_EMAIL_VERIFICATION -- denies an unverified FRIEND, admits a verified FRIEND, " +
+                "and does not affect ACTIVE at all",
+        ) {
+            val verifyingConfig =
+                FriendRegistrationConfig.load { key ->
+                    if (key == "LAPIS_FRIEND_REQUIRE_EMAIL_VERIFICATION") "true" else null
+                }
+
+            // The shared FRIEND fixture member never had emailVerifiedAt set -- exactly the
+            // "unverified" case this switch exists to catch.
+            val unverifiedFriend = membersByStatus.getValue(MemberStatus.FRIEND)
+            val unverifiedResult =
+                runCatching { transaction { requireLtrEligibleMembership(memberId = unverifiedFriend, config = verifyingConfig) } }
+            (unverifiedResult.exceptionOrNull() is ForbiddenException) shouldBe true
+
+            // A second, dedicated FRIEND with emailVerifiedAt populated -- must be admitted even
+            // with the switch on.
+            val verifiedFriend = createTestMember(MemberStatus.FRIEND)
+            transaction {
+                MemberTable.update({ MemberTable.id eq verifiedFriend }) {
+                    it[emailVerifiedAt] = LocalDateTime(2026, 1, 1, 0, 0)
+                }
+            }
+            val verifiedResult =
+                runCatching { transaction { requireLtrEligibleMembership(memberId = verifiedFriend, config = verifyingConfig) } }
+            verifiedResult.getOrThrow() shouldBe MemberStatus.FRIEND
+
+            // ACTIVE is untouched by the switch -- the extra check only ever narrows FRIEND, same
+            // as requireConferenceEligibleMembership's own contract.
+            val active = membersByStatus.getValue(MemberStatus.ACTIVE)
+            val activeResult = runCatching { transaction { requireLtrEligibleMembership(memberId = active, config = verifyingConfig) } }
+            activeResult.getOrThrow() shouldBe MemberStatus.ACTIVE
+
+            // Default config (the actual production default, requireEmailVerification=false)
+            // still admits the unverified FRIEND -- confirms the fix is opt-in, not a behavior
+            // change for today's deployment.
+            val defaultResult = runCatching { transaction { requireLtrEligibleMembership(memberId = unverifiedFriend) } }
+            defaultResult.getOrThrow() shouldBe MemberStatus.FRIEND
+        }
+
+        test(
+            "requireLtrEligibleRecipient: allows ACTIVE and FRIEND, denies everything else with ConflictException, returns the target's status",
+        ) {
+            MemberStatus.entries.forEach { status ->
+                val memberId = membersByStatus.getValue(status)
+                val expected = status == MemberStatus.ACTIVE || status == MemberStatus.FRIEND
+                val result = runCatching { transaction { requireLtrEligibleRecipient(memberId = memberId) } }
+                withClueStatus(status = status) {
+                    if (expected) {
+                        result.getOrThrow() shouldBe status
+                    } else {
+                        (result.exceptionOrNull() is ConflictException) shouldBe true
+                    }
+                }
+            }
+        }
+
+        test("requireLtrEligibleRecipient: an unknown memberId is denied with NotFoundException, not ConflictException") {
+            val result = runCatching { transaction { requireLtrEligibleRecipient(memberId = Uuid.random()) } }
+            (result.exceptionOrNull() is NotFoundException) shouldBe true
         }
 
         test("requirePoliticianRaterMembership: allows ACTIVE and GUEST, denies FRIEND and everything else") {

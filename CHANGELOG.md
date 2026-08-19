@@ -125,6 +125,101 @@ Client: neuer Transparenzhinweis im Post-Composer beim Wählen von `PUBLIC` ("Di
 diese Welle vorgezogen, weil die Aussage ab jetzt wahr ist, nicht mehr hypothetisch. Alle neuen
 UI-Strings in allen 8 Sprachen übersetzt.
 
+**Soziales Netzwerk, Welle V1.1.4 "LTR_ELIGIBLE/FRIEND-Erweiterung" — ein FRIEND darf im sozialen
+Netz posten, kommentieren, boosten und sein eigenes LTR-Konto einsehen**
+
+Neues `MemberStatusSets.LTR_ELIGIBLE = {ACTIVE, FRIEND}` (`Foundation.kt`) und der zugehörige
+`MembershipGuards.requireLtrEligibleMembership`-Guard — bewusst NICHT als Ersatz für
+`requireActiveMembership` gedacht, sondern ausschließlich für die drei LTR-ausgebenden Schreibpfade
+des sozialen Netzes (`createPost`/`createComment`/`boostPost`) sowie die beiden
+Selbstauskunfts-Lesepfade des LTR-Kontos (`LtrLedgerService.getMyBalance`/`listMyEntries`). Jede
+andere `requireActiveMembership`-Aufrufstelle (Governance, Crowdfunding, Systemisches Konsensieren,
+Wahlen, Auktion, Peer-Transfer-Senderseite, Direktnachrichten, Mailinglisten,
+Konferenz-Verwaltungspfade) bleibt unverändert `ACTIVE`-only — eine neue `FriendCapabilityBoundaryTest`
+pinnt das als Regressions-Wall gegen jede dieser Domänen. `GUEST` bleibt bewusst außen vor: eine
+föderierte OIDC-Gastidentität führt ihr LTR-Konto auf ihrem Heimatserver, nicht hier.
+
+Neue serverseitige Invariante `SocialNetworkService.requireVisibilityAllowedFor`: ein
+`NON_MEMBER`-Autor (FRIEND, GUEST) darf keine `MEMBERS_ONLY`-Sichtbarkeit wählen — ohne diese Sperre
+könnte ein FRIEND einen Post erzeugen, den er danach weder lesen (`SocialVisibility
+.readableByCondition`) noch über `hideOwnPost` je wieder unsichtbar machen könnte (dessen
+S-B1-Lesbarkeitsprüfung läuft VOR der Eigentümerprüfung), während sein LTR-Einsatz unwiderruflich
+gebunden bliebe. `MEMBERS_AND_EXTERNAL` und `PUBLIC` bleiben für ihn offen. `SocialVisibility`
+selbst bleibt unverändert bei `ORGANIZATION_MEMBER`/`NON_MEMBER` — die Lese-Sichtbarkeitsstufen
+haben mit `LTR_ELIGIBLE` nichts zu tun, sonst sähe ein FRIEND plötzlich `MEMBERS_ONLY`-Inhalte.
+
+`SocialPostDto.authorFreeBalanceLtr` ist ab dieser Welle für jeden `LTR_ELIGIBLE`-Betrachter befüllt
+(also auch für FRIEND), nicht mehr nur für `ORGANIZATION_MEMBER` — eine bewusste, dokumentierte
+Produktentscheidung (nicht die vom Implementierungsplan empfohlene Selbst-Ausnahme-Variante): ein
+FRIEND-Betrachter sieht damit das Autorengewicht jedes Autors in seiner Timeline. Der
+unauthentifizierte öffentliche Lesepfad (`SocialPublicRoutes`) bleibt davon unberührt und liefert
+weiterhin nie ein Autorengewicht. Der damit verbundene Scraping-Vektor (Cap
+`LAPIS_FRIEND_MAX_ACCOUNTS`, Default 500, × unbegrenzte Timeline-Reads) ist im Code als bewusst
+akzeptiertes Restrisiko dokumentiert.
+
+Erwerbswege für FRIEND-Guthaben brauchten keine Codeänderung — `LtrLedgerService.mintLtr`
+(TREASURER/BOARD/ADMIN-Rollen-Gate, Zielmitglied nur auf Existenz geprüft) und
+`PeerTransferService.transferLtr`s Empfangsseite (Senderseite bleibt `ACTIVE`-only) funktionierten
+bereits vorher für ein FRIEND-Ziel; beide Pfade sind jetzt mit dedizierten Tests abgesichert.
+
+Client: `NavVisibility` von einem einzigen Prädikat auf sieben feingranulare Prädikate umgebaut —
+"LTR-Konto" und "Soziales Netzwerk" sind jetzt auch für FRIEND sichtbar, "Meine Daten"
+(DSGVO-Betroffenenrechte) für jeden authentifizierten Status (Art. 12 Abs. 2 DSGVO), während
+Governance/Crowdfunding/Auktion/Politiker/Beiträge/Dokumente/Kommunikation weiterhin
+`ORGANIZATION_MEMBER`-exklusiv bleiben. Der Post-Composer blendet `MEMBERS_ONLY` für einen
+`NON_MEMBER`-Aufrufer aus und defaultet auf `MEMBERS_AND_EXTERNAL` (nie `PUBLIC`, um eine
+unbeabsichtigte Suchmaschinen-Indexierung als Voreinstellung auszuschließen). Ein neuer Hinweis
+erklärt einem frisch registrierten FRIEND mit 0,00 LTR, woher ein Guthaben kommt, bevor der erste
+Postversuch an der Guthabenprüfung scheitert. Das Peer-Transfer-Sende-Formular im LTR-Konto wird für
+einen `NON_MEMBER`-Aufrufer komplett ausgeblendet statt an einem garantierten 403 zu scheitern —
+der Empfang funktioniert unverändert. Alle neuen UI-Strings in allen 8 Sprachen übersetzt.
+
+**Rechtliche Kopplung (Entscheidungspunkt E-D, Nutzerentscheidung 2026-08-19):** ein FRIEND darf ab
+dieser Welle sofort `PUBLIC` posten (weltweit sichtbar und seit V1.1.3 von Suchmaschinen
+indexierbar), obwohl der Moderations-/Melde-Pfad (V1.1.5, DSA Art. 16) noch nicht existiert. Mit
+identitäts-ungeprüften, selbstregistrierten Autoren öffentlich indexierten Inhalts steigt das
+DSA-/Haftungsrisiko gegenüber einer rein mitgliederinternen Sichtbarkeit deutlich. Diese
+Freischaltung ist nur unter der ausdrücklich vom Nutzer bestätigten Bedingung vertretbar, dass
+**Welle V1.1.5 verbindlich die unmittelbar nächste Welle wird, ohne etwas dazwischen** — kein
+Deployment dieser Welle ohne einen konkreten, kurzfristigen Plan für V1.1.5 in Produktion bringen.
+
+**Akzeptiertes Restrisiko (Entscheidungspunkt E-D, Security-Audit-Runde 1, Fund 2, Nutzerentscheidung
+2026-08-19):** so belassen wie oben entschieden — `PUBLIC` bleibt für FRIEND offen, keine
+zusätzliche Sperre. Daraus folgt ein weiteres, bewusst akzeptiertes Detailrisiko: ein ACTIVE-
+Mitglied kann per minimaler Peer-Transfer-Überweisung (0,01 LTR, der Mindest-Einsatz) einem
+identitäts-ungeprüften FRIEND-Konto de facto die Fähigkeit verschaffen, auf der öffentlichen,
+suchmaschinen-indexierten Domain zu veröffentlichen — eine reale Autoritätsdelegation, die bewusst
+akzeptiert wird (analog zum bereits akzeptierten Scraping-Vektor weiter oben), nicht durch einen
+Code-Fehler entsteht. Siehe `MemberStatusSets.LTR_ELIGIBLE` KDoc (`Foundation.kt`) für die
+vollständige Begründung.
+
+**Security-Audit-Runde 1 (2026-08-19)** — Funde behoben:
+
+- **F1 (schwer):** `MembershipGuards.requireLtrEligibleMembership` wertete
+  `FriendRegistrationConfig.requireEmailVerification` nicht aus, obwohl
+  `requireConferenceEligibleMembership` denselben Schalter für den Konferenzzugang bereits seit
+  V0.11.0 auswertet — ein zukünftig aktivierter Verifikationszwang hätte ein unverifiziertes FRIEND
+  nur aus Konferenzen, nicht aber vom LTR-Ausgeben im sozialen Netz ausgesperrt. Behoben durch
+  Übernahme desselben Musters (Zusatzcheck `emailVerifiedAt != null` für FRIEND, in derselben
+  Query). Betrifft nur den Fall `LAPIS_FRIEND_REQUIRE_EMAIL_VERIFICATION=true`; am aktuellen
+  Produktivzustand (Default `false`) ändert sich nichts. Siehe `Foundation.kt`s `LTR_ELIGIBLE`-KDoc
+  für die korrigierte Restrisiko-Beschreibung.
+- **F3 (gering, Dokumentation):** `requireVisibilityAllowedFor`s vorgelagerter Guard liest ohne
+  `forUpdate` — ein theoretisches, durch zwei zeitgleiche Aktionen desselben Nutzers auslösbares
+  TOCTOU-Fenster, strukturell identisch zu jedem Alt-Post eines später ausgetretenen Mitglieds. Kein
+  Verhaltensfix nötig, jetzt als KDoc-Hinweis dokumentiert.
+- **F4 (gering):** die Empfängerseite von `LtrLedgerService.mintLtr` und
+  `PeerTransferService.transferLtr` hatte kein Statusgate auf der Zielseite (nur Existenzprüfung) —
+  LTR konnte an GUEST/APPLICATION/WITHDRAWN/REJECTED gebucht werden. Neu relevant, weil diese Welle
+  die Selbstauskunft erstmals auf `LTR_ELIGIBLE` gattert: ein solches Konto hätte sein eigenes
+  (versehentlich gebuchtes) Guthaben weder einsehen noch ausgeben können. Behoben durch einen neuen
+  `MembershipGuards.requireLtrEligibleRecipient`-Guard (Existenz- + Statusprüfung in einer Query,
+  `ConflictException` bei ungeeignetem Ziel) in beiden Pfaden.
+- **F5 (gering):** kein Verhaltensfix — Rate-Limiter-Struktur ist laut Audit akzeptabel; ein
+  Null-Guthaben-Fast-Path vor `lockForDebit` wurde bewusst NICHT eingeführt, um die bestehende
+  TOCTOU-Disziplin der gesperrten `freeBalance`-Prüfung nicht zu verkomplizieren. Akzeptierter,
+  geringer Kostenpunkt (eine unnötige sperrende Transaktion bei eindeutig unzureichendem Guthaben).
+
 ### Operator notes
 
 **pdv2 — `V1__baseline.sql`'s checksum changed again; verify `flyway_schema_history` before the next

@@ -6175,6 +6175,10 @@ msgstr ""
 msgid "Sie führen jetzt."
 msgstr "You are now presenting."
 
+#: src/jsMain/kotlin/network/lapis/cloud/client/SocialNetworkScreen.kt:98
+msgid "Sie haben derzeit kein LTR-Guthaben. Für einen Beitrag ist ein Einsatz von mindestens 0,01 LTR nötig. LTR erhalten Sie durch eine Zuwendung der Organisation oder durch eine Überweisung eines Mitglieds."
+msgstr "You currently have no LTR balance. A post requires a stake of at least 0.01 LTR. You receive LTR through a grant from the organization or a transfer from a member."
+
 #: src/jsMain/kotlin/network/lapis/cloud/client/AuctionScreen.kt:334
 msgid "Sie haben noch keine Auktionen eingestellt."
 msgstr "You have not listed any auctions yet."

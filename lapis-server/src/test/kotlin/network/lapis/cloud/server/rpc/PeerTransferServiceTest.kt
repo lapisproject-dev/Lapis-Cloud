@@ -356,6 +356,92 @@ class PeerTransferServiceTest :
         }
 
         test(
+            "transferLtr: rejected for a FRIEND sender (Welle V1.1.4 -- LTR_ELIGIBLE widens the RECEIVING side, sender stays ACTIVE-only)",
+        ) {
+            testApplication {
+                application {
+                    install(StatusPages) { installPeerTransferExceptionHandlers() }
+                    routing { registerPeerTransferTestRoutes() }
+                }
+                val sender = createTestMember("pt-friend-sender@example.org", status = MemberStatus.FRIEND)
+                val recipient = createTestMember("pt-friend-sender-recipient@example.org")
+                mintLtr(sender, BigDecimal("10.00"))
+
+                val response =
+                    client.post("/test/transfer?recipientId=$recipient&amount=1.00&characterization=SONSTIGES") {
+                        header("X-Member-Id", sender.toString())
+                    }
+                response.status shouldBe HttpStatusCode.Forbidden
+                freeBalanceOf(sender).compareTo(BigDecimal("10.00")) shouldBe 0
+            }
+        }
+
+        test(
+            "transferLtr: an ACTIVE sender CAN transfer to a FRIEND recipient -- proves the second LTR acquisition path Welle V1.1.4 relies on (Plan Teil 0.4)",
+        ) {
+            testApplication {
+                application {
+                    install(StatusPages) { installPeerTransferExceptionHandlers() }
+                    routing { registerPeerTransferTestRoutes() }
+                }
+                val sender = createTestMember("pt-to-friend-sender@example.org", status = MemberStatus.ACTIVE)
+                val friendRecipient = createTestMember("pt-to-friend-recipient@example.org", status = MemberStatus.FRIEND)
+                mintLtr(sender, BigDecimal("10.00"))
+
+                val response =
+                    client.post("/test/transfer?recipientId=$friendRecipient&amount=4.00&characterization=SONSTIGES") {
+                        header("X-Member-Id", sender.toString())
+                    }
+                response.status shouldBe HttpStatusCode.OK
+                freeBalanceOf(sender).compareTo(BigDecimal("6.00")) shouldBe 0
+                freeBalanceOf(friendRecipient).compareTo(BigDecimal("4.00")) shouldBe 0
+
+                val inEntry =
+                    transaction {
+                        LtrLedgerEntryTable
+                            .selectAll()
+                            .where {
+                                (LtrLedgerEntryTable.memberId eq friendRecipient) and
+                                    (LtrLedgerEntryTable.entryType eq LtrLedgerEntryType.PEER_TRANSFER_IN)
+                            }.single()
+                    }
+                inEntry[LtrLedgerEntryTable.amountLtr].compareTo(BigDecimal("4.00")) shouldBe 0
+
+                // Der Empfaenger kann sein eigenes, per Peer-Transfer erworbenes Guthaben ab dieser
+                // Welle auch selbst einsehen (getMyBalance/listMyEntries -- requireLtrEligibleMembership).
+                val friendOwnBalance = client.get("/test/my-balance") { header("X-Member-Id", friendRecipient.toString()) }
+                friendOwnBalance.status shouldBe HttpStatusCode.OK
+                BigDecimal(friendOwnBalance.bodyAsText()).compareTo(BigDecimal("4.00")) shouldBe 0
+            }
+        }
+
+        test(
+            "Security-Audit-Runde 1, F4: transferLtr rejects a GUEST/APPLICATION/WITHDRAWN/REJECTED recipient with Conflict, " +
+                "not merely NotFound -- the recipient EXISTS, only its status is unsuitable for receiving LTR",
+        ) {
+            testApplication {
+                application {
+                    install(StatusPages) { installPeerTransferExceptionHandlers() }
+                    routing { registerPeerTransferTestRoutes() }
+                }
+                val sender = createTestMember("pt-f4-sender@example.org", status = MemberStatus.ACTIVE)
+                mintLtr(sender, BigDecimal("40.00"))
+
+                listOf(MemberStatus.GUEST, MemberStatus.APPLICATION, MemberStatus.WITHDRAWN, MemberStatus.REJECTED).forEach { status ->
+                    val recipient = createTestMember("pt-f4-recipient-${status.name.lowercase()}@example.org", status = status)
+                    val response =
+                        client.post("/test/transfer?recipientId=$recipient&amount=1.00&characterization=SONSTIGES") {
+                            header("X-Member-Id", sender.toString())
+                        }
+                    response.status shouldBe HttpStatusCode.Conflict
+                    freeBalanceOf(recipient).compareTo(BigDecimal.ZERO) shouldBe 0
+                }
+                // Der Sender blieb bei jedem abgelehnten Versuch unangetastet.
+                freeBalanceOf(sender).compareTo(BigDecimal("40.00")) shouldBe 0
+            }
+        }
+
+        test(
             "executeArbitrationTransfer: MEMBER forbidden, blank/whitespace purpose rejected, TREASURER moves LTR between two third-party members with initiatedBy recorded",
         ) {
             testApplication {
@@ -413,6 +499,31 @@ class PeerTransferServiceTest :
                             }.single()[LtrLedgerEntryTable.createdBy]
                     }
                 outEntryCreatedBy shouldBe Uuid.parse(TREASURER_ID)
+            }
+        }
+
+        test(
+            "executeArbitrationTransfer: succeeds for a WITHDRAWN recipient (Security-Audit Runde 2, G3 -- " +
+                "settling a pre-existing obligation must remain possible even for a member who has since left)",
+        ) {
+            testApplication {
+                application {
+                    install(StatusPages) { installPeerTransferExceptionHandlers() }
+                    routing { registerPeerTransferTestRoutes() }
+                }
+                val sender = createTestMember("pt-arbitration-sender-active@example.org")
+                val withdrawnRecipient = createTestMember("pt-arbitration-recipient-withdrawn@example.org", status = MemberStatus.WITHDRAWN)
+                mintLtr(sender, BigDecimal("10.00"))
+
+                val response =
+                    client.post(
+                        "/test/arbitration-transfer?senderId=$sender&recipientId=$withdrawnRecipient&amount=4.00" +
+                            "&characterization=SONSTIGES&purpose=Schiedsanordnung%20Az.%2099",
+                    ) { header("X-Member-Id", TREASURER_ID) }
+                response.status shouldBe HttpStatusCode.OK
+
+                freeBalanceOf(sender).compareTo(BigDecimal("6.00")) shouldBe 0
+                freeBalanceOf(withdrawnRecipient).compareTo(BigDecimal("4.00")) shouldBe 0
             }
         }
 
@@ -587,5 +698,9 @@ private fun Route.registerPeerTransferTestRoutes() {
     get("/test/my-entries") {
         val service = LtrLedgerService(call = call)
         call.respondText(service.listMyEntries().joinToString(",") { it.entryType.name })
+    }
+    get("/test/my-balance") {
+        val service = LtrLedgerService(call = call)
+        call.respondText(service.getMyBalance().freeBalanceLtr.toString())
     }
 }

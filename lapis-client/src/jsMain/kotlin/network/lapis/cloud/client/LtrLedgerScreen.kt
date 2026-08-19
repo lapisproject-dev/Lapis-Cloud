@@ -26,6 +26,7 @@ import network.lapis.cloud.shared.domain.ArbitrationTransferInput
 import network.lapis.cloud.shared.domain.LtrLedgerEntryDto
 import network.lapis.cloud.shared.domain.LtrLedgerEntryType
 import network.lapis.cloud.shared.domain.LtrLedgerReferenceType
+import network.lapis.cloud.shared.domain.MemberStatusSets
 import network.lapis.cloud.shared.domain.MemberSummaryDto
 import network.lapis.cloud.shared.domain.MintLtrInput
 import network.lapis.cloud.shared.domain.PeerTransferCharacterization
@@ -53,12 +54,17 @@ import network.lapis.cloud.shared.rpc.IPeerTransferService
  * - [ILtrLedgerService.getMemberBalance]/[ILtrLedgerService.listMemberEntries] for a DIFFERENT
  *   member, and [ILtrLedgerService.mintLtr] -- `current.requireRole(TREASURER, BOARD, ADMIN)`
  *   server-side. Gated here as `canTreasury`.
- * - [IPeerTransferService.transferLtr] -- MEMBER+, but the caller must additionally be ACTIVE,
- *   checked via `requireActiveMembership` INSIDE the server transaction, not reachable as an
- *   `AccountRole` predicate -- [network.lapis.cloud.shared.domain.SessionInfoDto] carries no
- *   member-status field at all, so this client cannot pre-gate on ACTIVE the way it can on role.
- *   A non-ACTIVE caller sees the ordinary `guarded()` ConflictException toast, same established
- *   pattern as `CrowdfundingService.submitProject`/`MotionsScreen`'s ballot form.
+ * - [IPeerTransferService.transferLtr] -- MEMBER+, but the caller must additionally be `ACTIVE`
+ *   (senderseite bleibt `ORGANIZATION_MEMBER`-exklusiv auch nach Welle V1.1.4, siehe
+ *   `PeerTransferService.kt`'s eigene KDoc), checked via `requireActiveMembership` INSIDE the
+ *   server transaction, not reachable as an `AccountRole` predicate. **Welle V1.1.4**: the send
+ *   form is now hidden entirely for a [network.lapis.cloud.shared.domain.MemberStatusSets
+ *   .NON_MEMBER] caller (via [network.lapis.cloud.shared.domain.SessionInfoDto.status], which DOES
+ *   carry the status since the FRIEND wave) -- consistent with [NavVisibility]'s own KDoc posture
+ *   "showing ... would only ever lead to a guaranteed-to-fail RPC call". RECEIVING a transfer is
+ *   unaffected and still shown in the entries table (`PEER_TRANSFER_IN`), since a FRIEND is
+ *   [network.lapis.cloud.shared.domain.MemberStatusSets.LTR_ELIGIBLE] and CAN hold LTR since this
+ *   wave.
  * - [IPeerTransferService.executeArbitrationTransfer] -- `current.requireRole(TREASURER, BOARD,
  *   ADMIN)` server-side. Gated here as `canTreasury`, same tier as the mint form.
  *
@@ -162,8 +168,16 @@ fun renderLtrLedgerScreen(container: SimplePanel) {
     // Members list backs every member-picker on this screen (self-service recipient picker AND,
     // if `canTreasury`, the treasury member-lookup/mint/arbitration pickers) -- fetched once here,
     // `IMemberService.listMembers()` is unauthenticated-safe/ACTIVE-only per its own KDoc.
-    root.h2(tr("LTR senden"))
-    val transferSectionPanel = root.vPanel(spacing = 6)
+    //
+    // Welle V1.1.4: das Sende-Formular wird fuer einen NON_MEMBER-Aufrufer (FRIEND) komplett
+    // ausgeblendet statt scheitern zu lassen -- `transferLtr`'s Senderseite bleibt ACTIVE-only, ein
+    // FRIEND bekaeme dort nur einen 403-Toast. Konsistent mit `NavVisibility`'s eigener Hausregel
+    // ("would only ever lead to a guaranteed-to-fail RPC call"). Der Empfang funktioniert
+    // unveraendert und wird oben in der Buchungsliste korrekt angezeigt (PEER_TRANSFER_IN).
+    val callerStatus = AppState.session?.status
+    val showsTransferForm = callerStatus == null || callerStatus !in MemberStatusSets.NON_MEMBER
+    if (showsTransferForm) root.h2(tr("LTR senden"))
+    val transferSectionPanel = if (showsTransferForm) root.vPanel(spacing = 6) else null
     val treasuryPanel =
         if (canTreasury) {
             root.vPanel(spacing = 10) { addCssClasses("border rounded p-3 mt-2") }
@@ -176,9 +190,11 @@ fun renderLtrLedgerScreen(container: SimplePanel) {
         val recipientCandidates = members.filter { it.id != currentMemberId }
 
         // ---- (3) Self-service Peer-Transfer send form (outside the treasury panel) ----------
-        renderPeerTransferForm(transferSectionPanel, recipientCandidates) {
-            refreshBalance()
-            refreshMyEntries()
+        if (transferSectionPanel != null) {
+            renderPeerTransferForm(transferSectionPanel, recipientCandidates) {
+                refreshBalance()
+                refreshMyEntries()
+            }
         }
 
         // ---- (4) Treuhänder-Werkzeuge (canTreasury only) ------------------------------------
@@ -206,8 +222,15 @@ fun renderLtrLedgerScreen(container: SimplePanel) {
  * field, identical position on both screens per D3). Fetches [ILtrLedgerService.getMyBalance]
  * independently on every call -- deliberately not threaded down from a caller, since the whole
  * point is "works standalone, one line, no extra plumbing at the call site".
+ *
+ * **Welle V1.1.4**: [onLoaded] is an optional callback (default no-op) fired once with the loaded
+ * free balance (`null` on a failed/guarded RPC) -- lets [renderSocialNetworkScreen] show a
+ * dedicated Null-Guthaben-Hinweis below this strip for a freshly self-registered FRIEND without a
+ * second, redundant `getMyBalance` round trip. Source-compatible default argument, so the three
+ * pre-existing call sites (`CrowdfundingScreen`/`AuctionScreen`/`SocialNetworkScreen`) are
+ * unaffected.
  */
-fun SimplePanel.renderMyLtrBalanceInline(): SimplePanel {
+fun SimplePanel.renderMyLtrBalanceInline(onLoaded: (Decimal?) -> Unit = {}): SimplePanel {
     val panel = this.hPanel(spacing = 8) { addCssClasses("align-items-center border rounded p-2 mb-2") }
     panel.div(tr("Wird geladen …")) { addCssClasses("text-muted small") }
     AppScope.launch {
@@ -220,6 +243,7 @@ fun SimplePanel.renderMyLtrBalanceInline(): SimplePanel {
             panel.div("--") { addCssClasses("text-muted small") }
         }
         panel.link(tr("Zum LTR-Konto ->"), url = "#${Routes.LTR_LEDGER}") { addCssClasses("ms-auto small") }
+        onLoaded(balance?.freeBalanceLtr)
     }
     return panel
 }

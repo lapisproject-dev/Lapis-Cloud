@@ -1,7 +1,10 @@
 package network.lapis.cloud.client
 
+import network.lapis.cloud.shared.domain.MemberStatus
 import network.lapis.cloud.shared.domain.SocialPostVisibility
 import kotlin.test.Test
+import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
 /**
@@ -10,6 +13,10 @@ import kotlin.test.assertTrue
  * posture as [CrowdfundingScreenTest]/[AuctionScreenTest]. No rendering harness exists in this
  * module (see [GovernanceAuthzUiTest] KDoc), so the DOM-building `renderSocialNetworkScreen` etc.
  * are out of scope here, same as every other screen's `*ScreenTest.kt`.
+ *
+ * **Welle V1.1.4** adds coverage for [SocialComposerVisibility], the pure filter/default logic
+ * extracted from `renderComposeForm` -- mirrors the server's `requireVisibilityAllowedFor`
+ * invariant client-side.
  */
 class SocialNetworkScreenTest {
     private val semanticColors = setOf("primary", "secondary", "success", "danger", "warning", "info", "dark")
@@ -29,6 +36,54 @@ class SocialNetworkScreenTest {
         SocialPostVisibility.entries.forEach { visibility ->
             val color = socialPostVisibilityColor(visibility)
             assertTrue(color in semanticColors, "expected a real Bootstrap hue for $visibility, got \"$color\"")
+        }
+    }
+
+    @Test
+    fun allowedVisibilities_forFriend_excludesMembersOnly() {
+        val allowed = SocialComposerVisibility.allowedVisibilities(MemberStatus.FRIEND)
+        assertFalse(SocialPostVisibility.MEMBERS_ONLY in allowed, "FRIEND must not see MEMBERS_ONLY as an option")
+        assertTrue(SocialPostVisibility.MEMBERS_AND_EXTERNAL in allowed)
+        assertTrue(SocialPostVisibility.PUBLIC in allowed)
+    }
+
+    @Test
+    fun allowedVisibilities_forGuest_alsoExcludesMembersOnly() {
+        val allowed = SocialComposerVisibility.allowedVisibilities(MemberStatus.GUEST)
+        assertFalse(SocialPostVisibility.MEMBERS_ONLY in allowed, "GUEST is NON_MEMBER too, must not see MEMBERS_ONLY")
+    }
+
+    @Test
+    fun allowedVisibilities_forActive_includesAllThreeStages() {
+        val allowed = SocialComposerVisibility.allowedVisibilities(MemberStatus.ACTIVE)
+        assertEquals(SocialPostVisibility.entries.toList(), allowed)
+    }
+
+    @Test
+    fun allowedVisibilities_forNullStatus_includesAllThreeStages() {
+        // null == kein bekannter Session-Status (defensiver Fallback) -- verhaelt sich wie
+        // ORGANIZATION_MEMBER, nicht wie NON_MEMBER, damit kein authentifizierter Aufrufer
+        // faelschlich eingeschraenkt wird, waehrend die Session noch laedt.
+        val allowed = SocialComposerVisibility.allowedVisibilities(null)
+        assertEquals(SocialPostVisibility.entries.toList(), allowed)
+    }
+
+    @Test
+    fun defaultVisibility_forFriend_isMembersAndExternal_neverPublic() {
+        assertEquals(SocialPostVisibility.MEMBERS_AND_EXTERNAL, SocialComposerVisibility.defaultVisibility(MemberStatus.FRIEND))
+    }
+
+    @Test
+    fun defaultVisibility_forActive_remainsMembersOnly() {
+        assertEquals(SocialPostVisibility.MEMBERS_ONLY, SocialComposerVisibility.defaultVisibility(MemberStatus.ACTIVE))
+    }
+
+    @Test
+    fun defaultVisibility_isAlwaysWithinAllowedVisibilities() {
+        MemberStatus.entries.forEach { status ->
+            val default = SocialComposerVisibility.defaultVisibility(status)
+            val allowed = SocialComposerVisibility.allowedVisibilities(status)
+            assertTrue(default in allowed, "default $default for $status must be one of the allowed options $allowed")
         }
     }
 }

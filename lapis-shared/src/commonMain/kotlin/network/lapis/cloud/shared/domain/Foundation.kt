@@ -58,6 +58,61 @@ object MemberStatusSets {
         setOf(MemberStatus.ACTIVE, MemberStatus.GUEST, MemberStatus.FRIEND)
 
     /**
+     * Darf LTR halten, empfangen und im SOZIALEN NETZ ausgeben (Beitrags-/Kommentar-Einsatz und
+     * Boost) sowie das eigene LTR-Konto einsehen. Bewusst NICHT "darf LTR generell ausgeben":
+     * Abstimmungs-Einsätze (`GovernanceService.castVoteBallot`), Crowdfunding-Projektgewichtung,
+     * Systemisches Konsensieren, Wahlen und der Auktionsmarkt bleiben [ORGANIZATION_MEMBER]-exklusiv
+     * -- siehe Vault "Meritokratisches System und Libertaler", Grundprinzip "Gäste dürfen handeln,
+     * nicht ausgeben", das für das Posten gezielt und ausschliesslich dafür aufgehoben wird
+     * (Vault "Soziales Netzwerk" § "FRIEND-Erweiterung -- neues Capability-Set").
+     *
+     * [MemberStatus.GUEST] ist bewusst NICHT enthalten, obwohl GUEST und [MemberStatus.FRIEND] sonst
+     * gemeinsam [NON_MEMBER] bilden und von `SocialVisibility.readableByCondition` identisch behandelt
+     * werden: eine föderierte OIDC-Gastidentität führt ihr LTR-Konto auf ihrem HEIMATSERVER, nicht
+     * hier -- ein hiesiges Guthaben für sie zu führen wäre eine zweite, nicht abgleichbare
+     * Kontoführung derselben Person. Ein GUEST darf im sozialen Netz also LESEN, aber nicht POSTEN.
+     * Diese Asymmetrie ist gewollt und durch einen eigenen Test gepinnt.
+     *
+     * [MemberStatus.APPLICATION] ist ebenfalls nicht enthalten -- ein Beitrittsantragsteller darf sich
+     * einloggen, um seinen Antragsstand zu sehen, aber nichts wirtschaftlich Bindendes tun (siehe den
+     * "ANTRAG membership-gate audit"-Kommentar in `PeerTransferService.transferLtr`). Das gilt auch
+     * für einen FRIEND, der gerade `applyForMembership` ausgelöst hat: seine Zeile steht für die Dauer
+     * des Antrags auf APPLICATION, er verliert das Posting-Recht also vorübergehend, exakt wie er nach
+     * [CONFERENCE_ELIGIBLE] auch den Konferenzzugang verliert (siehe [MemberDto.friendSince] KDoc).
+     *
+     * **Akzeptiertes Restrisiko (Welle V1.1.4, Entscheidungspunkt E-C)**: ein FRIEND-Konto ist
+     * kostenlos, selbstregistriert und OHNE E-Mail-Verifikation nutzbar. `FriendRegistrationConfig
+     * .requireEmailVerification` (`LAPIS_FRIEND_REQUIRE_EMAIL_VERIFICATION`, Default `false`) IST
+     * ein Verifikationszwang-Schalter und wird -- seit Security-Audit-Runde 1, F1 (2026-08-19) --
+     * auch von `MembershipGuards.requireLtrEligibleMembership` ausgewertet, exakt wie schon vorher
+     * von `requireConferenceEligibleMembership`; siehe dessen KDoc für das gemeinsame Muster. Das
+     * verbleibende Restrisiko besteht also NICHT mehr darin, dass es diesen Schalter für die
+     * LTR-Fläche gar nicht gäbe, sondern einzig darin, dass er standardmäßig `false` bleibt, weil
+     * kein echter SMTP-Transport existiert -- sobald ein Mailer existiert und der Schalter auf
+     * `true` gestellt wird, greift die Sperre auf BEIDEN Flächen (Konferenz UND LTR/soziales Netz)
+     * gemeinsam. Die einzige mengenmäßige Bremse bis dahin ist der globale Registrierungs-Deckel
+     * `LAPIS_FRIEND_MAX_ACCOUNTS` (Default 500, siehe `FriendRegistrationConfig`/
+     * `RegistrationService.registerFriend`) -- er begrenzt sowohl die Zahl potenzieller
+     * LTR-Ausgeber als auch, in Kombination mit dem in [SocialReadPipeline]s `toDtos`-KDoc
+     * dokumentierten Scraping-Vektor (Autorengewicht-Sichtbarkeit für `LTR_ELIGIBLE`-Betrachter),
+     * die Zahl möglicher Abfrager.
+     *
+     * **Akzeptiertes Restrisiko (Welle V1.1.4, Entscheidungspunkt E-D, Security-Audit-Runde 1
+     * F2, Nutzerentscheidung 2026-08-19)**: `SocialPostVisibility.PUBLIC` bleibt für
+     * [MemberStatus.FRIEND] offen (siehe `SocialNetworkService.requireVisibilityAllowedFor`, die
+     * nur `MEMBERS_ONLY` für [NON_MEMBER] sperrt). Damit kann ein ACTIVE-Mitglied per minimaler Peer-Transfer-
+     * Überweisung (0,01 LTR, der Mindest-Einsatz, siehe `PeerTransferService`) einem identitäts-
+     * ungeprüften FRIEND-Konto de facto die Fähigkeit verschaffen, auf der öffentlichen,
+     * suchmaschinen-indexierten Domain zu veröffentlichen -- eine reale Autoritätsdelegation ohne
+     * jede Identitätsprüfung auf der Empfängerseite. Dies ist eine bewusst akzeptierte
+     * Produktentscheidung (analog zum bereits akzeptierten Scraping-Vektor oben), NICHT ein
+     * Code-Fehler -- sie entsteht strukturell aus der Kombination "FRIEND darf PUBLIC posten" +
+     * "jedes ACTIVE-Mitglied darf LTR an jedes LTR_ELIGIBLE-Ziel überweisen" und wäre nur durch
+     * eine zusätzliche, hier bewusst nicht gezogene Einschränkung schließbar.
+     */
+    val LTR_ELIGIBLE: Set<MemberStatus> = setOf(MemberStatus.ACTIVE, MemberStatus.FRIEND)
+
+    /**
      * Politician-rating basket (V0.6.4 guest basket), deliberately EXCLUDES [MemberStatus.FRIEND]
      * -- an unverified, self-registered name must not move a public trust metric.
      */

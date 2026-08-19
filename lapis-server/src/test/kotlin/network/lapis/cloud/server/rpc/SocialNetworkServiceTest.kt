@@ -254,7 +254,7 @@ class SocialNetworkServiceTest :
         }
 
         test(
-            "createPost: requires ORGANIZATION_MEMBER (ACTIVE) -- FRIEND cannot post yet (Welle V1.1.1, LTR_ELIGIBLE widening is Welle V1.1.4)",
+            "createPost: Welle V1.1.4 widens LTR_ELIGIBLE to admit FRIEND -- a FRIEND with sufficient balance can post PUBLIC",
         ) {
             testApplication {
                 application {
@@ -265,11 +265,95 @@ class SocialNetworkServiceTest :
                 mintLtr(friend, BigDecimal("10.00"))
                 val response =
                     client.post("/test/create-post?content=x&weight=1.00&visibility=PUBLIC") { header("X-Member-Id", friend.toString()) }
-                response.status shouldBe HttpStatusCode.Forbidden
+                response.status shouldBe HttpStatusCode.OK
+                createdPostIds += Uuid.parse(response.bodyAsText().substringBefore(":"))
             }
         }
 
-        test("createPost: requires ORGANIZATION_MEMBER -- GUEST and APPLICATION are rejected too") {
+        test(
+            "createPost: Welle V1.1.4 -- a FRIEND with sufficient balance can also post MEMBERS_AND_EXTERNAL",
+        ) {
+            testApplication {
+                application {
+                    install(StatusPages) { installSocialExceptionHandlers() }
+                    routing { registerSocialNetworkTestRoutes(createRateLimiter = generousLimiter()) }
+                }
+                val friend = createTestMember("social-friend-mae@example.org", status = MemberStatus.FRIEND)
+                mintLtr(friend, BigDecimal("10.00"))
+                val response =
+                    client.post("/test/create-post?content=x&weight=1.00&visibility=MEMBERS_AND_EXTERNAL") {
+                        header("X-Member-Id", friend.toString())
+                    }
+                response.status shouldBe HttpStatusCode.OK
+                createdPostIds += Uuid.parse(response.bodyAsText().substringBefore(":"))
+            }
+        }
+
+        test(
+            "createPost: Welle V1.1.4 -- a FRIEND (NON_MEMBER) is REJECTED with ConflictException for MEMBERS_ONLY (the MEMBERS_ONLY trap, E-B)",
+        ) {
+            testApplication {
+                application {
+                    install(StatusPages) { installSocialExceptionHandlers() }
+                    routing { registerSocialNetworkTestRoutes(createRateLimiter = generousLimiter()) }
+                }
+                val friend = createTestMember("social-friend-members-only@example.org", status = MemberStatus.FRIEND)
+                mintLtr(friend, BigDecimal("10.00"))
+                val response =
+                    client.post("/test/create-post?content=x&weight=1.00&visibility=MEMBERS_ONLY") {
+                        header("X-Member-Id", friend.toString())
+                    }
+                // ConflictException (not ForbiddenException) -- the caller IS LTR_ELIGIBLE, the
+                // chosen VISIBILITY is what is rejected. See requireVisibilityAllowedFor KDoc.
+                response.status shouldBe HttpStatusCode.Conflict
+
+                // Regression guard: no post row and no LTR debit must exist for this rejected attempt.
+                transaction {
+                    SocialPostTable.selectAll().where { SocialPostTable.authorMemberId eq friend }.count() shouldBe 0L
+                    LtrLedgerEntryTable
+                        .selectAll()
+                        .where {
+                            (LtrLedgerEntryTable.memberId eq friend) and
+                                (LtrLedgerEntryTable.entryType eq LtrLedgerEntryType.SOCIAL_POST_STAKE)
+                        }.count() shouldBe 0L
+                }
+            }
+        }
+
+        test("createPost: an ACTIVE member can still post MEMBERS_ONLY (regression -- E-B only narrows NON_MEMBER)") {
+            testApplication {
+                application {
+                    install(StatusPages) { installSocialExceptionHandlers() }
+                    routing { registerSocialNetworkTestRoutes(createRateLimiter = generousLimiter()) }
+                }
+                val active = createTestMember("social-active-members-only@example.org", status = MemberStatus.ACTIVE)
+                mintLtr(active, BigDecimal("10.00"))
+                val response =
+                    client.post("/test/create-post?content=x&weight=1.00&visibility=MEMBERS_ONLY") {
+                        header("X-Member-Id", active.toString())
+                    }
+                response.status shouldBe HttpStatusCode.OK
+                createdPostIds += Uuid.parse(response.bodyAsText().substringBefore(":"))
+            }
+        }
+
+        test("createPost: a FRIEND with 0.00 balance gets ConflictException (balance), never ForbiddenException (status)") {
+            testApplication {
+                application {
+                    install(StatusPages) { installSocialExceptionHandlers() }
+                    routing { registerSocialNetworkTestRoutes(createRateLimiter = generousLimiter()) }
+                }
+                val friend = createTestMember("social-friend-zero-balance@example.org", status = MemberStatus.FRIEND)
+                // no mintLtr -- balance stays 0.00
+                val response =
+                    client.post("/test/create-post?content=x&weight=0.01&visibility=PUBLIC") {
+                        header("X-Member-Id", friend.toString())
+                    }
+                response.status shouldBe HttpStatusCode.Conflict
+            }
+        }
+
+        test("createPost: requires LTR_ELIGIBLE (Welle V1.1.4) -- GUEST and APPLICATION are rejected") {
             testApplication {
                 application {
                     install(StatusPages) { installSocialExceptionHandlers() }
@@ -429,6 +513,30 @@ class SocialNetworkServiceTest :
                             }.count()
                     }
                 ledgerEntryCount shouldBe 1L
+            }
+        }
+
+        test(
+            "hideOwnPost: Welle V1.1.4 -- a FRIEND can hide their own MEMBERS_AND_EXTERNAL post (hideOwnPost has no Membership-Gate, unchanged)",
+        ) {
+            testApplication {
+                application {
+                    install(StatusPages) { installSocialExceptionHandlers() }
+                    routing { registerSocialNetworkTestRoutes(createRateLimiter = generousLimiter()) }
+                }
+                val friend = createTestMember("social-hide-friend@example.org", status = MemberStatus.FRIEND)
+                mintLtr(friend, BigDecimal("5.00"))
+                val postId =
+                    client
+                        .post("/test/create-post?content=FriendHideMe&weight=1.00&visibility=MEMBERS_AND_EXTERNAL") {
+                            header("X-Member-Id", friend.toString())
+                        }.bodyAsText()
+                        .substringBefore(":")
+                createdPostIds += Uuid.parse(postId)
+
+                val hideResult = client.post("/test/hide-post/$postId") { header("X-Member-Id", friend.toString()) }
+                hideResult.status shouldBe HttpStatusCode.OK
+                hideResult.bodyAsText() shouldBe "HIDDEN_BY_AUTHOR"
             }
         }
 
@@ -623,7 +731,9 @@ class SocialNetworkServiceTest :
         }
 
         test(
-            "S-1 (Security-Audit Runde 1, 2026-08-18): authorFreeBalanceLtr is populated for an ORGANIZATION_MEMBER viewer but null for a NON_MEMBER (FRIEND) viewer",
+            "S-1 (Security-Audit Runde 1, 2026-08-18), erweitert Welle V1.1.4 (E-A Option B): " +
+                "authorFreeBalanceLtr is populated for any LTR_ELIGIBLE viewer (ACTIVE AND now FRIEND), " +
+                "but stays null for a GUEST (NON_MEMBER, not LTR_ELIGIBLE) viewer",
         ) {
             testApplication {
                 application {
@@ -641,6 +751,7 @@ class SocialNetworkServiceTest :
 
                 val activeViewer = createTestMember("social-s1-active@example.org")
                 val friendViewer = createTestMember("social-s1-friend@example.org", status = MemberStatus.FRIEND)
+                val guestViewer = createTestMember("social-s1-guest@example.org", status = MemberStatus.GUEST)
 
                 // 7.00 minted minus the 1.00 stake debited by createPost itself -- see
                 // "lockForDebit -> freeBalance check -> insert -> ledger debit" in createPost.
@@ -649,12 +760,18 @@ class SocialNetworkServiceTest :
                 val asActive = client.get("/test/get-post/$postId") { header("X-Member-Id", activeViewer.toString()) }.bodyAsText()
                 asActive.split(":")[2] shouldBe "6.00"
 
-                // NON_MEMBER (FRIEND, self-registered, no board approval) must never learn another
-                // member's exact free LTR balance via the timeline -- see LtrLedgerService
-                // .getMemberBalance's own LTR_TREASURY_ROLES gate for the boundary this used to
-                // bypass entirely.
+                // Welle V1.1.4, Entscheidungspunkt E-A, Option B (Nutzerentscheidung 2026-08-19,
+                // abweichend von der Plan-Empfehlung Option A): a FRIEND viewer now sees ANY
+                // author's free LTR balance too, same as an ORGANIZATION_MEMBER viewer -- see
+                // SocialReadPipeline.toDtos KDoc for the accepted scraping-vector trade-off.
                 val asFriend = client.get("/test/get-post/$postId") { header("X-Member-Id", friendViewer.toString()) }.bodyAsText()
-                asFriend.split(":")[2] shouldBe "null"
+                asFriend.split(":")[2] shouldBe "6.00"
+
+                // GUEST is NON_MEMBER but NOT LTR_ELIGIBLE (see MemberStatusSets.LTR_ELIGIBLE KDoc --
+                // a federated guest-identity's LTR account lives on its home server) -- must still
+                // never learn another member's exact free LTR balance via the timeline.
+                val asGuest = client.get("/test/get-post/$postId") { header("X-Member-Id", guestViewer.toString()) }.bodyAsText()
+                asGuest.split(":")[2] shouldBe "null"
             }
         }
 
@@ -775,6 +892,61 @@ class SocialNetworkServiceTest :
                     }
                 stakeRow[LtrLedgerEntryTable.entryType] shouldBe LtrLedgerEntryType.SOCIAL_POST_STAKE
                 stakeRow[LtrLedgerEntryTable.amountLtr].compareTo(BigDecimal("-2.00")) shouldBe 0
+            }
+        }
+
+        test("createComment: Welle V1.1.4 -- a FRIEND can comment under a fremd PUBLIC post, inherits visibility=PUBLIC") {
+            testApplication {
+                application {
+                    install(StatusPages) { installSocialExceptionHandlers() }
+                    routing { registerSocialNetworkTestRoutes(createRateLimiter = generousLimiter()) }
+                }
+                val author = createTestMember("social-comment-friend-author@example.org")
+                mintLtr(author, BigDecimal("10.00"))
+                val rootId =
+                    client
+                        .post("/test/create-post?content=Root&weight=1.00&visibility=PUBLIC") { header("X-Member-Id", author.toString()) }
+                        .bodyAsText()
+                        .substringBefore(":")
+                createdPostIds += Uuid.parse(rootId)
+
+                val friend = createTestMember("social-comment-friend@example.org", status = MemberStatus.FRIEND)
+                mintLtr(friend, BigDecimal("5.00"))
+                val commentResponse =
+                    client
+                        .post("/test/create-comment?parentId=$rootId&content=FriendKommentar&weight=1.00") {
+                            header("X-Member-Id", friend.toString())
+                        }.bodyAsText()
+                val parts = commentResponse.split(":")
+                parts[1] shouldBe rootId // parentId
+                parts[4] shouldBe SocialPostVisibility.PUBLIC.name // visibility inherited from root (S5)
+                createdPostIds += Uuid.parse(parts[0])
+            }
+        }
+
+        test(
+            "createComment: Welle V1.1.4 -- a FRIEND targeting a MEMBERS_ONLY post (id known) gets NotFoundException, no existence oracle",
+        ) {
+            testApplication {
+                application {
+                    install(StatusPages) { installSocialExceptionHandlers() }
+                    routing { registerSocialNetworkTestRoutes(createRateLimiter = generousLimiter()) }
+                }
+                val author = createTestMember("social-comment-friend-internal-author@example.org")
+                mintLtr(author, BigDecimal("10.00"))
+                val rootId =
+                    client
+                        .post("/test/create-post?content=Internal&weight=1.00&visibility=MEMBERS_ONLY") {
+                            header("X-Member-Id", author.toString())
+                        }.bodyAsText()
+                        .substringBefore(":")
+                createdPostIds += Uuid.parse(rootId)
+
+                val friend = createTestMember("social-comment-friend-internal@example.org", status = MemberStatus.FRIEND)
+                mintLtr(friend, BigDecimal("5.00"))
+                val response =
+                    client.post("/test/create-comment?parentId=$rootId&content=x&weight=1.00") { header("X-Member-Id", friend.toString()) }
+                response.status shouldBe HttpStatusCode.NotFound
             }
         }
 
@@ -1124,6 +1296,31 @@ class SocialNetworkServiceTest :
                 ledgerRow[LtrLedgerEntryTable.amountLtr].compareTo(BigDecimal("-2.00")) shouldBe 0
                 // K5: referenceId is the POST id, not a boost row id.
                 ledgerRow[LtrLedgerEntryTable.referenceId] shouldBe Uuid.parse(postId)
+            }
+        }
+
+        test("boostPost: Welle V1.1.4 -- a FRIEND can boost a fremd MEMBERS_AND_EXTERNAL post") {
+            testApplication {
+                application {
+                    install(StatusPages) { installSocialExceptionHandlers() }
+                    routing { registerSocialNetworkTestRoutes(createRateLimiter = generousLimiter(), boostRateLimiter = generousLimiter()) }
+                }
+                val author = createTestMember("social-boost-friend-author@example.org")
+                val friendBooster = createTestMember("social-boost-friend-booster@example.org", status = MemberStatus.FRIEND)
+                mintLtr(author, BigDecimal("5.00"))
+                mintLtr(friendBooster, BigDecimal("5.00"))
+                val postId =
+                    client
+                        .post("/test/create-post?content=BoostableByFriend&weight=1.00&visibility=MEMBERS_AND_EXTERNAL") {
+                            header("X-Member-Id", author.toString())
+                        }.bodyAsText()
+                        .substringBefore(":")
+                createdPostIds += Uuid.parse(postId)
+
+                val boostResponse =
+                    client.post("/test/boost/$postId?amount=2.00") { header("X-Member-Id", friendBooster.toString()) }
+                boostResponse.status shouldBe HttpStatusCode.OK
+                boostResponse.bodyAsText().split(":")[1] shouldBe "1" // boostCount
             }
         }
 

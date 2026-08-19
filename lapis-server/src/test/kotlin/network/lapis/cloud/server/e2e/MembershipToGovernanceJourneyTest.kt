@@ -33,7 +33,6 @@ import network.lapis.cloud.server.rpc.AccountingService
 import network.lapis.cloud.server.rpc.AuditLogService
 import network.lapis.cloud.server.rpc.ContributionService
 import network.lapis.cloud.server.rpc.GovernanceService
-import network.lapis.cloud.server.rpc.LtrLedgerService
 import network.lapis.cloud.server.rpc.MemberService
 import network.lapis.cloud.server.rpc.MembershipAgreementDisclaimer
 import network.lapis.cloud.server.rpc.RegistrationService
@@ -53,7 +52,6 @@ import network.lapis.cloud.shared.domain.MeetingFormat
 import network.lapis.cloud.shared.domain.MeetingInput
 import network.lapis.cloud.shared.domain.MemberStatus
 import network.lapis.cloud.shared.domain.MembershipTierInput
-import network.lapis.cloud.shared.domain.MintLtrInput
 import network.lapis.cloud.shared.domain.MotionInput
 import network.lapis.cloud.shared.domain.MotionReviewDecision
 import network.lapis.cloud.shared.domain.MotionStatus
@@ -71,6 +69,7 @@ import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.core.greater
 import org.jetbrains.exposed.v1.core.inList
 import org.jetbrains.exposed.v1.jdbc.deleteWhere
+import org.jetbrains.exposed.v1.jdbc.insert
 import org.jetbrains.exposed.v1.jdbc.selectAll
 import org.jetbrains.exposed.v1.jdbc.transactions.transaction
 import org.jetbrains.exposed.v1.jdbc.update
@@ -189,16 +188,6 @@ class MembershipToGovernanceJourneyTest :
                                     friendSignupIpRateLimiter = FederationInboxRateLimiter(),
                                 ).approveApplication(call.parameters["id"]!!)
                             call.respondText(dto.status.name)
-                        }
-                        post("/e2e1/mint-ltr/{memberId}") {
-                            LtrLedgerService(call = call).mintLtr(
-                                MintLtrInput(
-                                    memberId = call.parameters["memberId"]!!,
-                                    amountLtr = BigDecimal("25.00"),
-                                    note = "E2E Scenario 1 Startguthaben",
-                                ),
-                            )
-                            call.respondText("OK")
                         }
                         post("/e2e1/create-committee") {
                             val c =
@@ -462,9 +451,29 @@ class MembershipToGovernanceJourneyTest :
                 // ── login->session->RPC path proves the V0.9.0 ANTRAG membership gate holds. ─────
                 // ── See the class KDoc for why the non-existent-voteId probe is the assertion that ─
                 // ── actually discriminates "gate present" from "gate removed". ───────────────────
-                client
-                    .post("/e2e1/mint-ltr/$applicantId") { header("X-Member-Id", TREASURER_ID) }
-                    .status shouldBe HttpStatusCode.OK
+                // Security-Audit-Runde 1, F4 (2026-08-19): the real /e2e1/mint-ltr RPC route now
+                // correctly REFUSES to credit an APPLICATION target (LtrLedgerService.mintLtr goes
+                // through MembershipGuards.requireLtrEligibleRecipient, see its KDoc) -- an
+                // applicant "darf nichts wirtschaftlich Bindendes tun" per Foundation.kt's own
+                // LTR_ELIGIBLE KDoc, and minting LTR onto one was exactly the gap F4 closed. This
+                // scenario's actual point is unaffected (a funded-but-not-yet-a-member caller must
+                // still be refused the vote), so the seed switches to a direct-DB ledger insert --
+                // bypassing the RPC layer on purpose, the same "Direct-DB MINT seed" idiom
+                // [LtrLedgerServiceTest]/[PeerTransferServiceTest] already use for fixture setup
+                // that must reach a state the RPC surface itself no longer permits.
+                transaction {
+                    LtrLedgerEntryTable.insert {
+                        it[id] = Uuid.random()
+                        it[memberId] = applicantId
+                        it[entryType] = LtrLedgerEntryType.MINT
+                        it[amountLtr] = BigDecimal("25.00")
+                        it[referenceType] = null
+                        it[referenceId] = null
+                        it[note] = "E2E Scenario 1 Startguthaben (direct-DB seed, see Security-Audit-Runde 1 F4 comment above)"
+                        it[createdBy] = null
+                        it[createdAt] = LocalDateTime(2026, 1, 1, 0, 0)
+                    }
+                }
                 ltrBalanceOf(applicantId) shouldBe BigDecimal("25.00")
 
                 val forbiddenOnMissingVote =

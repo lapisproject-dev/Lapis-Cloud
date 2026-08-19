@@ -73,7 +73,12 @@ class PeerTransferService(
             // always exists -- checked anyway as defense in depth, symmetric with the recipient
             // check right below, so lockBothAccounts never receives an unverified id.
             requireMemberExists(current.memberId)
-            requireMemberExists(recipientId)
+            // Security-Audit-Runde 1, F4 (2026-08-19): was `requireMemberExists(recipientId)`
+            // (existence only) -- now also gates the RECIPIENT's status on
+            // MemberStatusSets.LTR_ELIGIBLE, see MembershipGuards.requireLtrEligibleRecipient
+            // KDoc. Throws ConflictException (not ForbiddenException) for a known-but-unsuitable
+            // recipient -- the CALLER is authorized, only the TARGET is unsuitable.
+            requireLtrEligibleRecipient(memberId = recipientId)
             lockBothAccounts(a = current.memberId, b = recipientId)
             val freeBalance = ltrBalanceProvider.freeBalance(current.memberId)
             if (normalizedAmount > freeBalance) {
@@ -103,6 +108,14 @@ class PeerTransferService(
         val normalizedAmount = validateAndNormalizeAmount(input.amountLtr)
         val now = nowLocalDateTime()
         return transaction {
+            // Security-Audit-Runde 2, G3 (2026-08-19): deliberately still `requireMemberExists`
+            // on BOTH sides, not `requireLtrEligibleRecipient` (the F4 fix applied to the ordinary
+            // transferLtr recipient a few lines above). An arbitration transfer SETTLES an
+            // already-existing obligation under a BOARD/TREASURER/ADMIN caller -- the same
+            // "pre-existing obligation, not a discretionary new credit" reasoning that keeps
+            // AUCTION_SALE_IN/AUCTION_HOLD_RELEASE ungated -- and must remain executable even if
+            // either party has since left the organization or never had LTR_ELIGIBLE status. This
+            // is the intended, permanent exception, not an oversight.
             requireMemberExists(senderId)
             requireMemberExists(recipientId)
             lockBothAccounts(a = senderId, b = recipientId)

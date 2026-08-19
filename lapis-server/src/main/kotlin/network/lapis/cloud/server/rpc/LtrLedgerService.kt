@@ -52,34 +52,52 @@ class LtrLedgerService(
     private val ltrBalanceProvider: LtrBalanceProvider = LedgerBackedLtrBalanceProvider(),
 ) : ILtrLedgerService {
     /**
-     * **V0.11.0 defence-in-depth**: added [requireActiveMembership] -- self-scoped and harmless
-     * for a non-member (a FRIEND simply sees an empty balance, since it can never earn LTR by any
-     * write path), but a clear, honest [network.lapis.cloud.shared.rpc.ForbiddenException] is
-     * better than silently returning a zero balance for a status this feature was never meant for.
+     * **V0.11.0 defence-in-depth**, KDoc korrigiert in Welle **V1.1.4**: [requireLtrEligibleMembership]
+     * (vormals [requireActiveMembership]) -- self-scoped, wirft
+     * [network.lapis.cloud.shared.rpc.ForbiddenException] für jeden Status ausserhalb
+     * [network.lapis.cloud.shared.domain.MemberStatusSets.LTR_ELIGIBLE]. Der ursprüngliche Satz „a
+     * FRIEND simply sees an empty balance, since it can never earn LTR by any write path" ist ab
+     * dieser Welle **sachlich falsch**: ein FRIEND kann per [mintLtr] (durch TREASURER/BOARD/ADMIN)
+     * und per Peer-Transfer-Empfang (`PeerTransferService.transferLtr`, Senderseite bleibt
+     * ACTIVE-only) LTR halten und es im sozialen Netz (`SocialNetworkService.createPost`/
+     * `createComment`/`boostPost`) ausgeben. Ein klarer, ehrlicher [network.lapis.cloud.shared.rpc
+     * .ForbiddenException] bleibt trotzdem besser als ein stiller Nullsaldo für jeden Status, für
+     * den dieses Feature nie gedacht war (GUEST/APPLICATION/WITHDRAWN/REJECTED).
      */
     override suspend fun getMyBalance(): LtrLedgerBalanceDto {
         val current = resolveCurrentMember(call)
         return transaction {
-            requireActiveMembership(memberId = current.memberId)
+            requireLtrEligibleMembership(memberId = current.memberId)
             LtrLedgerBalanceDto(memberId = current.memberId.toString(), freeBalanceLtr = ltrBalanceProvider.freeBalance(current.memberId))
         }
     }
 
+    /**
+     * Welle V1.1.4: für die Selbstauskunft (`targetId == current.memberId`) gilt seither derselbe
+     * [requireLtrEligibleMembership]-Guard wie [getMyBalance] -- vorher war dieser Pfad ungegattert
+     * und damit eine Umgehung von [getMyBalance]s eigener, absichtlicher Statussperre (rein
+     * defensive Konsistenz, kein bekannter Missbrauchspfad: beide Pfade lieferten für jeden Status
+     * ohnehin nur die eigene, unkritische Selbstauskunft). Für eine FREMDE Zielperson
+     * (`targetId != current.memberId`) bleibt es unverändert bei der Rollenprüfung
+     * (TREASURER/BOARD/ADMIN) ohne Statusgate -- diese Abfrage betrifft nicht den Zielstatus,
+     * sondern den Status des ANFRAGENDEN, dessen Berechtigung bereits über die Rolle geprüft ist.
+     */
     override suspend fun getMemberBalance(memberId: String): LtrLedgerBalanceDto {
         val current = resolveCurrentMember(call)
         val targetId = memberId.toMemberUuidOrThrow()
         if (targetId != current.memberId) current.requireRole(*LTR_TREASURY_ROLES)
         return transaction {
+            if (targetId == current.memberId) requireLtrEligibleMembership(memberId = current.memberId)
             LtrLedgerBalanceDto(memberId = targetId.toString(), freeBalanceLtr = ltrBalanceProvider.freeBalance(targetId))
         }
     }
 
-    /** See [getMyBalance] KDoc "V0.11.0 defence-in-depth" -- same reasoning. */
+    /** See [getMyBalance] KDoc -- same reasoning, same Welle-V1.1.4-KDoc-Korrektur. */
     override suspend fun listMyEntries(limit: Int): List<LtrLedgerEntryDto> {
         val current = resolveCurrentMember(call)
         val boundedLimit = limit.coerceIn(1, MAX_ENTRY_LIST_LIMIT)
         return transaction {
-            requireActiveMembership(memberId = current.memberId)
+            requireLtrEligibleMembership(memberId = current.memberId)
             loadEntries(condition = LtrLedgerEntryTable.memberId eq current.memberId, limit = boundedLimit)
         }
     }
@@ -92,7 +110,10 @@ class LtrLedgerService(
         val targetId = memberId.toMemberUuidOrThrow()
         if (targetId != current.memberId) current.requireRole(*LTR_TREASURY_ROLES)
         val boundedLimit = limit.coerceIn(1, MAX_ENTRY_LIST_LIMIT)
-        return transaction { loadEntries(condition = LtrLedgerEntryTable.memberId eq targetId, limit = boundedLimit) }
+        return transaction {
+            if (targetId == current.memberId) requireLtrEligibleMembership(memberId = current.memberId)
+            loadEntries(condition = LtrLedgerEntryTable.memberId eq targetId, limit = boundedLimit)
+        }
     }
 
     override suspend fun mintLtr(input: MintLtrInput): LtrLedgerEntryDto {
@@ -105,8 +126,11 @@ class LtrLedgerService(
         if (normalizedAmount < MIN_MINT_LTR) throw ConflictException("amountLtr must be at least $MIN_MINT_LTR")
         val now = nowLocalDateTime()
         return transaction {
-            MemberTable.selectAll().where { MemberTable.id eq targetId }.singleOrNull()
-                ?: throw NotFoundException("Member ${input.memberId} not found")
+            // Security-Audit-Runde 1, F4 (2026-08-19): was an existence-only check
+            // (`MemberTable.selectAll()...singleOrNull() ?: throw NotFoundException`) -- now also
+            // gates the TARGET's status on MemberStatusSets.LTR_ELIGIBLE, see
+            // MembershipGuards.requireLtrEligibleRecipient KDoc.
+            requireLtrEligibleRecipient(memberId = targetId)
             val newEntryId = Uuid.random()
             LtrLedgerEntryTable.insert {
                 it[LtrLedgerEntryTable.id] = newEntryId

@@ -19,6 +19,8 @@ import io.kvision.panel.hPanel
 import io.kvision.panel.vPanel
 import io.kvision.utils.px
 import kotlinx.coroutines.launch
+import network.lapis.cloud.shared.domain.MemberStatus
+import network.lapis.cloud.shared.domain.MemberStatusSets
 import network.lapis.cloud.shared.domain.SocialCommentInput
 import network.lapis.cloud.shared.domain.SocialPostDto
 import network.lapis.cloud.shared.domain.SocialPostInput
@@ -40,11 +42,16 @@ import network.lapis.cloud.shared.rpc.ISocialNetworkService
  * **Role gating** (verified against `SocialNetworkService.kt`'s actual call sites, same discipline
  * `CrowdfundingScreen.kt`'s own KDoc documents):
  * - [ISocialNetworkService.createPost]/[ISocialNetworkService.createComment]/
- *   [ISocialNetworkService.boostPost] -- MEMBER+, additionally must be `ACTIVE`
- *   (`requireActiveMembership` INSIDE the server transaction, not reachable as an `AccountRole`
- *   predicate -- same "not surfaced client-side, server rejects with the ordinary `guarded()`
- *   ForbiddenException toast" posture as `CrowdfundingScreen`'s `submitProject`). Welle V1.1.4
- *   widens this to `LTR_ELIGIBLE` (also admits FRIEND) -- not yet the case in this wave.
+ *   [ISocialNetworkService.boostPost] -- MEMBER+, additionally must be `LTR_ELIGIBLE`
+ *   (`requireLtrEligibleMembership` INSIDE the server transaction, not reachable as an
+ *   `AccountRole` predicate -- same "not surfaced client-side, server rejects with the ordinary
+ *   `guarded()` ForbiddenException toast" posture as `CrowdfundingScreen`'s `submitProject`).
+ *   **Welle V1.1.4** widened this from `ORGANIZATION_MEMBER` to `MemberStatusSets.LTR_ELIGIBLE`
+ *   (also admits [network.lapis.cloud.shared.domain.MemberStatus.FRIEND]) -- this screen now
+ *   filters the visibility select to exclude [SocialPostVisibility.MEMBERS_ONLY] for a
+ *   [MemberStatusSets.NON_MEMBER] caller (mirrors the server's own
+ *   `SocialNetworkService.requireVisibilityAllowedFor` invariant) and shows a dedicated hint when
+ *   the caller's free LTR balance is 0,00.
  * - [ISocialNetworkService.listTimeline]/[ISocialNetworkService.getPost]/
  *   [ISocialNetworkService.getThread] -- any authenticated member, filtered server-side by the
  *   caller's own visibility tier.
@@ -79,7 +86,28 @@ fun renderSocialNetworkScreen(container: SimplePanel) {
     // ---- Neuen Beitrag verfassen (D3-analogue: renderMyLtrBalanceInline vor jedem Eingabefeld) --
     root.h2(tr("Neuen Beitrag verfassen"))
     val composerPanel = root.vPanel(spacing = 6)
-    composerPanel.renderMyLtrBalanceInline()
+    // Welle V1.1.4: ein frisch selbst-registriertes FRIEND-Konto hat 0,00 LTR -- createPost wirft
+    // dann eine technisch korrekte, aber fachlich unerklaerte ConflictException ("initialWeightLtr
+    // ... exceeds free LTR balance 0.00"). Dieser Hinweis (unterhalb der Guthaben-Zeile, D3-analog)
+    // erklaert die Ursache VOR dem ersten fehlgeschlagenen Versuch, statt den Fehler nur als Toast
+    // nach dem Absenden zu zeigen.
+    lateinit var zeroBalanceHintHolder: SimplePanel
+    composerPanel.renderMyLtrBalanceInline { balance ->
+        if (balance != null && balance.toDouble() == 0.0) {
+            zeroBalanceHintHolder.div(
+                tr(
+                    "Sie haben derzeit kein LTR-Guthaben. Für einen Beitrag ist ein Einsatz von " +
+                        "mindestens 0,01 LTR nötig. LTR erhalten Sie durch eine Zuwendung der " +
+                        "Organisation oder durch eine Überweisung eines Mitglieds.",
+                ),
+            ) { addCssClasses("text-muted small") }
+        }
+    }
+    // Erst NACH dem renderMyLtrBalanceInline-Aufruf angelegt, damit der Hinweis im DOM UNTERHALB
+    // der Guthaben-Zeile steht (D3-Reihenfolge) -- der Callback oben feuert erst asynchron, nachdem
+    // dieser synchrone Codeblock vollstaendig durchgelaufen ist, das lateinit ist zu dem Zeitpunkt
+    // also sicher initialisiert.
+    zeroBalanceHintHolder = composerPanel.div()
 
     // ---- Timeline (Container jetzt angelegt, befuellt durch loadTimeline()) --------------------
     root.h2(tr("Timeline"))
@@ -110,6 +138,39 @@ fun renderSocialNetworkScreen(container: SimplePanel) {
 // Compose-Formular
 // ================================================================================================
 
+/**
+ * Welle V1.1.4 -- reine, DOM-freie Sichtbarkeitsauswahl-Logik für den Compose-Formular, extrahiert
+ * damit sie in [SocialNetworkScreenTest] ohne Rendering-Harness (existiert in diesem Modul nicht,
+ * siehe [NavVisibilityTest]/[GovernanceAuthzUiTest]) unit-getestet werden kann. Spiegelt exakt die
+ * serverseitige Invariante `SocialNetworkService.requireVisibilityAllowedFor` -- ein
+ * [MemberStatusSets.NON_MEMBER]-Aufrufer (FRIEND) darf [SocialPostVisibility.MEMBERS_ONLY] nicht
+ * wählen, weil er den entstehenden Post danach weder lesen noch je wieder unsichtbar machen könnte,
+ * während sein LTR-Einsatz gebunden bliebe. Die serverseitige Prüfung bleibt die eigentliche
+ * Grenze (gilt auch gegen einen direkten RPC-Aufruf) -- dies ist nur die Client-seitige Spiegelung
+ * in der Auswahlliste.
+ */
+object SocialComposerVisibility {
+    fun allowedVisibilities(status: MemberStatus?): List<SocialPostVisibility> =
+        if (status != null && status in MemberStatusSets.NON_MEMBER) {
+            SocialPostVisibility.entries.filter { it != SocialPostVisibility.MEMBERS_ONLY }
+        } else {
+            SocialPostVisibility.entries
+        }
+
+    /**
+     * Default für [MemberStatusSets.NON_MEMBER] ist die ENGERE der beiden ihm offenen Stufen
+     * ([SocialPostVisibility.MEMBERS_AND_EXTERNAL]), NICHT [SocialPostVisibility.PUBLIC] -- eine
+     * unbeabsichtigte Suchmaschinen-Indexierung darf nie die Voreinstellung sein. Für
+     * [MemberStatusSets.ORGANIZATION_MEMBER] unverändert [SocialPostVisibility.MEMBERS_ONLY].
+     */
+    fun defaultVisibility(status: MemberStatus?): SocialPostVisibility =
+        if (status != null && status in MemberStatusSets.NON_MEMBER) {
+            SocialPostVisibility.MEMBERS_AND_EXTERNAL
+        } else {
+            SocialPostVisibility.MEMBERS_ONLY
+        }
+}
+
 private fun renderComposeForm(
     root: SimplePanel,
     onCompleted: () -> Unit,
@@ -117,9 +178,12 @@ private fun renderComposeForm(
     val panel = root.vPanel(spacing = 6)
     val contentInput = panel.textArea(label = tr("Inhalt"), rows = 3)
     val weightInput = panel.text(label = tr("Einsatz (LTR)"))
-    val visibilityOptions = SocialPostVisibility.entries.map { it.name to socialPostVisibilityLabel(it) }
+
+    val callerStatus = AppState.session?.status
+    val defaultVisibility = SocialComposerVisibility.defaultVisibility(callerStatus)
+    val visibilityOptions = SocialComposerVisibility.allowedVisibilities(callerStatus).map { it.name to socialPostVisibilityLabel(it) }
     val visibilitySelect =
-        panel.select(options = visibilityOptions, value = SocialPostVisibility.MEMBERS_ONLY.name, label = tr("Sichtbarkeit"))
+        panel.select(options = visibilityOptions, value = defaultVisibility.name, label = tr("Sichtbarkeit"))
 
     // Welle V1.1.3 (vorgezogen aus V1.1.4, siehe Implementierungsplan Stolperfalle 15): ab dieser
     // Welle ist ein PUBLIC-Beitrag tatsaechlich ueber den unauthentifizierten Lesepfad
@@ -163,7 +227,7 @@ private fun renderComposeForm(
         errorBox.hide()
         val content = contentInput.value.orEmpty().trim()
         val weightText = weightInput.value.orEmpty().trim()
-        val visibility = parseOptionalEnum<SocialPostVisibility>(visibilitySelect.value) ?: SocialPostVisibility.MEMBERS_ONLY
+        val visibility = parseOptionalEnum<SocialPostVisibility>(visibilitySelect.value) ?: defaultVisibility
 
         if (!Validation.isNonBlank(content) || !Validation.isPositiveDecimal(weightText)) {
             errorBox.content = tr("Bitte Inhalt und einen positiven Einsatz (LTR) angeben.")

@@ -507,12 +507,30 @@ internal object SocialReadPipeline {
      * Literals (z. B. `REJECTED`) als Platzhalter: ein Sentinel wäre eine stille Falle, sobald jemand
      * die Semantik dieses Literals ändert.
      *
-     * Security-Audit-Fund S-1 (2026-08-18): [SocialPostDto.authorFreeBalanceLtr] is only populated
-     * for a [viewerStatus] that is non-null AND [MemberStatusSets.ORGANIZATION_MEMBER] -- same tier
-     * `LtrLedgerService.getMemberBalance` already requires for a FOREIGN member's balance. A `null`
-     * [viewerStatus] (anonymous visitor) or a [MemberStatusSets.NON_MEMBER] reader gets `null` for
-     * every row instead -- and [ltrBalanceProvider]`.freeBalances` is skipped entirely for that
-     * caller, so this is also one fewer query for every non-member/anonymous timeline read.
+     * Security-Audit-Fund S-1 (2026-08-18), **erweitert in Welle V1.1.4 (Entscheidungspunkt E-A,
+     * Option B, Nutzerentscheidung 2026-08-19)**: [SocialPostDto.authorFreeBalanceLtr] wird für
+     * jeden [viewerStatus] befüllt, der non-null ist UND in [MemberStatusSets.LTR_ELIGIBLE] liegt
+     * (also ACTIVE UND FRIEND) -- nicht mehr nur [MemberStatusSets.ORGANIZATION_MEMBER]. Ein
+     * FRIEND-Betrachter sieht damit das Autorengewicht JEDES Autors in seiner Timeline, nicht nur
+     * das eigene. Ein `null` [viewerStatus] (unauthentifizierter Besucher über den öffentlichen
+     * Lesepfad, `SocialPublicRoutes.kt`) bleibt unverändert bei `null` für jede Zeile --
+     * [ltrBalanceProvider]`.freeBalances` wird für ihn weiterhin komplett übersprungen.
+     *
+     * **Bewusst getroffene, vom Nutzer bestätigte Entscheidung -- kein übersehenes Risiko:** ein
+     * FRIEND-Konto ist kostenlos, selbstregistriert und identitäts-ungeprüft (Cap
+     * `LAPIS_FRIEND_MAX_ACCOUNTS`, Default 500). Bis zu 500 selbstregistrierte FRIEND-Konten können
+     * ab dieser Welle über unbegrenzte Timeline-Reads (Lesepfad-Rate-Limit 60/min,
+     * `readRateLimiter`) die LTR-Vermögensverteilung ALLER Mitglieder abgreifen (Scraping-Vektor).
+     * Der Plan (`soziales_netzwerk_v1.1.4_plan.md` Teil 3, Option A) hatte stattdessen eine
+     * Selbst-Ausnahme empfohlen (Grenze bleibt ORGANIZATION_MEMBER, FRIEND sieht nur sein EIGENES
+     * Gewicht) -- der Nutzer hat sich explizit für die einfachere, weitere Option B entschieden. Die
+     * nächste Security-Runde soll diesen Vektor **nicht** als neuen Fund behandeln, sondern als
+     * bekanntes, akzeptiertes Restrisiko -- siehe [MemberStatusSets.LTR_ELIGIBLE]s eigenes KDoc,
+     * Absatz "Akzeptiertes Restrisiko (Welle V1.1.4, Entscheidungspunkt E-C)", für die vollständige
+     * Einordnung inkl. `LAPIS_FRIEND_MAX_ACCOUNTS` als einziger mengenmäßiger Bremse.
+     *
+     * Der unauthentifizierte, öffentliche Lesepfad (`SocialPublicRoutes.kt`, `viewerStatus = null`)
+     * ist von dieser Erweiterung UNBERÜHRT -- er sieht weiterhin nie ein Autorengewicht.
      *
      * [totalWeightById]/[countsById]/[boostCountById]/[ownWeightById] are PRE-COMPUTED by the
      * caller, NEVER re-derived here per row. A missing entry in any of them defaults to
@@ -536,7 +554,7 @@ internal object SocialReadPipeline {
                 .where { MemberTable.id inList authorIds }
                 .associate { it[MemberTable.id] to it[MemberTable.displayName] }
         val freeBalances =
-            if (viewerStatus != null && viewerStatus in MemberStatusSets.ORGANIZATION_MEMBER) {
+            if (viewerStatus != null && viewerStatus in MemberStatusSets.LTR_ELIGIBLE) {
                 ltrBalanceProvider.freeBalances(authorIds)
             } else {
                 emptyMap()
