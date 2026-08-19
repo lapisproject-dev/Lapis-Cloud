@@ -6,6 +6,8 @@ All notable changes to this project are documented here. Format follows
 
 ## [Unreleased]
 
+## [0.14.0] — 2026-08-19
+
 ### Added
 
 **Soziales Netzwerk, Welle V1.1.1 "Fundament & Post-Kern" — Timeline lesen, Post verfassen, eigenen Post unsichtbar machen**
