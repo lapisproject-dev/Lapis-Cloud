@@ -6,6 +6,16 @@ All notable changes to this project are documented here. Format follows
 
 ## [Unreleased]
 
+### Fixed
+
+**`Dockerfile`'s build stage never copied `lapis-detekt-rules` into the container** — `settings
+.gradle.kts` includes it as a module, but the `COPY` list only ever named `lapis-shared`/`lapis-
+server`/`lapis-client`. Every Docker build since this module was added therefore failed with
+`Configuring project ':lapis-detekt-rules' without an existing directory is not allowed` — silently
+untriggered until the first Docker rebuild after that point, found live during the `v0.15.0` deploy
+to `pdv2` (2026-08-19). Fixed by adding the same two `COPY` lines (`build.gradle.kts` first for
+layer caching, then the full module) already used for the other three modules.
+
 ## [0.15.0] — 2026-08-19
 
 ### Added
