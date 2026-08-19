@@ -34,13 +34,46 @@ enum class SocialPostVisibility { PUBLIC, MEMBERS_ONLY, MEMBERS_AND_EXTERNAL }
  * - [HIDDEN_BY_AUTHOR]: die "stille Notbremse" des Autors -- irreversibel (siehe
  *   `SocialNetworkService.hideOwnPost` KDoc), keine LTR-Rückerstattung, Post bleibt per direkter
  *   ID-Abfrage erreichbar.
- * - [REMOVED_LEGAL]: BOARD/ADMIN-ausgelöste rechtliche Entfernung (DSA Art. 16/6) --
- *   `removePostForLegalReason` schreibt diesen Wert erstmals in Welle V1.1.5; die Spalte existiert
- *   bereits jetzt, damit `V4__social_network_core.sql`'s CHECK-Constraint nicht in einer späteren
- *   Welle erneut angefasst werden muss.
+ * - [REMOVED_LEGAL]: BOARD/ADMIN-ausgelöste rechtliche Entfernung (DSA Art. 16/6), seit Welle
+ *   V1.1.5 tatsächlich geschrieben von `removePostForLegalReason`. **`state_reason` ist ab dieser
+ *   Welle öffentlicher Text** (Entscheidungspunkt E-B, 2026-08-19): für einen `PUBLIC`-Post wird er
+ *   jedem anonymen Besucher auf einer 451-Hinweisseite angezeigt
+ *   (`network.lapis.cloud.server.routes.SocialPublicHtml.legallyRemovedPage`); für einen
+ *   nicht-öffentlichen Post erfährt ihn jeder Aufrufer, dessen Sichtbarkeitsstufe den Post
+ *   umfasste, über `ISocialNetworkService.getRemovalNotice`. Er darf deshalb **keine internen
+ *   Vorgangsdaten** enthalten (Kanzleinamen, Aktenzeichen, Klarnamen Dritter) -- interne Details
+ *   gehören in `SocialPostReportDto`/`SocialPostErasureDto`'s `decisionNote`, die beide strikt
+ *   intern bleiben.
  */
 @Serializable
 enum class SocialPostState { VISIBLE, HIDDEN_BY_AUTHOR, REMOVED_LEGAL }
+
+/**
+ * Welle V1.1.5 -- DSA Art. 16 Abs. 2 Meldegründe. Literal order is load-bearing (matches
+ * `32-social-network.kuml.kts`'s `socialPostReportCategory` enum).
+ */
+@Serializable
+enum class SocialPostReportCategory { ILLEGAL_CONTENT, DEFAMATION, COPYRIGHT, PERSONAL_DATA, HATE_SPEECH, SPAM, OTHER }
+
+/**
+ * Welle V1.1.5 -- Zustandsautomat einer Meldung: `OPEN --> UNDER_REVIEW --> ACTION_TAKEN` bzw.
+ * `OPEN --> DISMISSED`. Literal order is load-bearing (matches `32-social-network.kuml.kts`'s
+ * `socialPostReportStatus` enum).
+ */
+@Serializable
+enum class SocialPostReportStatus { OPEN, UNDER_REVIEW, ACTION_TAKEN, DISMISSED }
+
+/**
+ * Welle V1.1.5 -- Zustandsautomat eines post-bezogenen DSGVO-Content-Löschantrags:
+ * `REQUESTED --approve--> APPROVED --execute--> EXECUTED` bzw. `REQUESTED --reject--> REJECTED`.
+ * Bewusst NICHT [ErasureStatus] wiederverwenden -- siehe Plan § 2.3 ("Warum nicht ErasureStatus
+ * wiederverwenden?"): der Endzustand heißt hier fachlich `EXECUTED` (der Post-Inhalt ist
+ * getombstonet), nicht `COMPLETED` (der Contributor-Walk über alle Tabellen ist gelaufen), und
+ * `32-social-network.kuml.kts` ist ein eigenständiges `classDiagram`, das kein Enum aus
+ * `04-dsgvo.kuml.kts` referenzieren kann. Literal order is load-bearing.
+ */
+@Serializable
+enum class SocialPostErasureStatus { REQUESTED, APPROVED, REJECTED, EXECUTED }
 
 /**
  * Rolle: jeder Aufrufer, der `ISocialNetworkService.createPost` erreicht (Welle 1:
@@ -165,6 +198,16 @@ data class SocialPostDto(
     val visibility: SocialPostVisibility,
     val state: SocialPostState,
     val stateReason: String?,
+    /**
+     * Welle V1.1.5. `null` == niemals per Art.-17-Antrag getombstonet -- das eigentliche Flag, an
+     * dem Renderer/Client erkennen, dass [content] kein Nutzertext mehr ist, sondern einer der
+     * beiden `network.lapis.cloud.server.rpc.SocialContentTombstone`-Marker. [content] selbst
+     * bleibt UNVERÄNDERT durchgereicht (es *ist* nach dem Tombstoning der Marker-Text) -- kein
+     * Renderer muss den Marker-Wortlaut kennen, nur diesen Zeitstempel abfragen. Orthogonal zu
+     * [state]/[stateReason]: eine rechtliche Entfernung (`REMOVED_LEGAL`) fasst `content`/dieses
+     * Feld NIE an, ein Tombstoning fasst `state` NIE an -- beide können gleichzeitig gelten.
+     */
+    val contentErasedAt: LocalDateTime? = null,
     val initialWeightLtr: Decimal,
     /**
      * Eigengewicht -- seit Welle V1.1.2 zerfallener [initialWeightLtr] PLUS Summe der je ab ihrem
@@ -187,4 +230,116 @@ data class SocialPostDto(
     /** NEU Welle V1.1.2. Anzahl Boosts auf DIESEN Knoten (nicht auf Nachfahren). */
     val boostCount: Int,
     val publishedAt: LocalDateTime,
+)
+
+// ================================================================================================
+// Welle V1.1.5 "Moderation, DSA-Melde-Mechanismus, DSGVO-Content-Hard-Delete" -- siehe
+// `ISocialNetworkService` KDoc für die neun RPC-Methoden dieser Welle und
+// `32-social-network.kuml.kts` file header für das Schema.
+// ================================================================================================
+
+/**
+ * Eingabe für `ISocialNetworkService.reportPost` (authentifizierter Pfad) UND den öffentlichen
+ * `POST /s/{id}/report`-Formular-Handler (`network.lapis.cloud.server.rpc.SocialReportSubmission`,
+ * die geteilte Kernlogik hinter beiden Wegen). [reporterContact] ist bewusst OPTIONAL (DSA Art. 16
+ * Abs. 2 lit. c erlaubt Anonymität bei Meldungen zu Straftaten nach Art. 3-7 RL 2011/93/EU;
+ * Entscheidungspunkt E-F macht sie generell optional, weil es noch keinen funktionierenden
+ * Mailversand gibt, über den eine Pflichtangabe ohnehin folgenlos bliebe).
+ */
+@Serializable
+data class SocialPostReportInput(
+    val postId: String,
+    val category: SocialPostReportCategory,
+    /** DSA Art. 16 Abs. 2 lit. a, Pflichtfeld -- die "hinreichend begründete Erläuterung". */
+    val description: String,
+    val reporterContact: String? = null,
+    /** DSA Art. 16 Abs. 2 lit. d, Pflichtfeld. */
+    val goodFaithConfirmed: Boolean = false,
+)
+
+/**
+ * Eine Meldung, wie sie `ISocialNetworkService.listReports`/`.decideReport` (BOARD/ADMIN) sehen.
+ * [postExcerpt]/[postState]/[postVisibility] geben dem Moderationsteam Kontext auf den gemeldeten
+ * Post, OHNE ihn separat per `getPost` nachladen zu müssen -- dieser Lesepfad schließt bewusst auch
+ * bereits `REMOVED_LEGAL`-Posts ein (§ 5.1 des Plans), sonst könnte eine Meldung zu einem bereits
+ * entfernten Post nicht mehr im Kontext angezeigt werden.
+ */
+@Serializable
+data class SocialPostReportDto(
+    val id: String,
+    val postId: String,
+    val postExcerpt: String,
+    val postState: SocialPostState,
+    val postVisibility: SocialPostVisibility,
+    val reportedAt: LocalDateTime,
+    /** `null` == anonyme öffentliche Meldung. */
+    val reporterMemberId: String?,
+    /**
+     * Security-Audit-Fund MINOR-4 (Runde 1, 2026-08-19): vorher wurde `social_post_report
+     * .reporter_contact` gespeichert (und das öffentliche Meldeformular versprach, sie zur
+     * Ergebnismitteilung nach Art. 16 Abs. 4/5 DSA zu nutzen), aber dieses DTO trug das Feld nicht
+     * bis in die BOARD/ADMIN-Moderationswarteschlange weiter -- die Daten wurden für einen
+     * angegebenen Zweck erhoben, den kein Codepfad erfüllen konnte (Datenminimierungs-/
+     * Zweckbindungsproblem, unabhängig davon, ob ein automatischer Mailer bereits existiert).
+     * `null` sowohl bei einer anonymen öffentlichen Meldung ohne Kontaktangabe als auch bei einer
+     * authentifizierten Meldung ohne `reporterContact`.
+     */
+    val reporterContact: String?,
+    val category: SocialPostReportCategory,
+    val description: String,
+    val goodFaithConfirmed: Boolean,
+    val status: SocialPostReportStatus,
+    val decidedBy: String?,
+    val decidedAt: LocalDateTime?,
+    /** Rein intern -- wird NIE auf dem öffentlichen Pfad gerendert (im Unterschied zu [SocialPostDto.stateReason]). */
+    val decisionNote: String?,
+)
+
+/**
+ * Eingabe für `ISocialNetworkService.requestContentErasure` -- ein post-bezogener DSGVO-Art.-17-
+ * Antrag (Plan § 0.4: für eine betroffene Person OHNE eigenes Lapis-Cloud-Konto, im Unterschied zum
+ * bestehenden, mitglieds-bezogenen `IDsgvoService.requestErasure`-Pfad). [subjectMemberId] `null` ==
+ * externe betroffene Person ohne Konto ODER der Aufrufer beantragt für sich selbst.
+ */
+@Serializable
+data class SocialPostErasureInput(
+    val postId: String,
+    val reason: String,
+    val subjectMemberId: String? = null,
+    val requesterContact: String? = null,
+)
+
+/** Ein post-bezogener DSGVO-Content-Löschantrag, wie ihn `ISocialNetworkService.listContentErasures` (ADMIN) sieht. */
+@Serializable
+data class SocialPostErasureDto(
+    val id: String,
+    val postId: String,
+    val requestedAt: LocalDateTime,
+    val requestedBy: String?,
+    val subjectMemberId: String?,
+    val requesterContact: String?,
+    val reason: String,
+    val status: SocialPostErasureStatus,
+    val decidedBy: String?,
+    val decidedAt: LocalDateTime?,
+    val decisionNote: String?,
+    val executedAt: LocalDateTime?,
+    val sourceReportId: String?,
+)
+
+/**
+ * Welle V1.1.5 (E-B). Was ein Leser über einen rechtlich entfernten Beitrag erfahren darf -- und
+ * mehr nicht. Rückgabetyp von `ISocialNetworkService.getRemovalNotice`. Bewusst KEIN abgespeckter
+ * [SocialPostDto]: kein `content` (auch kein Marker), kein `authorDisplayName`, keine Gewichte,
+ * keine Zähler -- ein DTO, das diese Felder hätte, würde früher oder später mit Platzhaltern
+ * befüllt und damit falsche Zahlen behaupten.
+ */
+@Serializable
+data class SocialPostRemovalNoticeDto(
+    val postId: String,
+    val visibility: SocialPostVisibility,
+    val removedAt: LocalDateTime,
+    val reason: String,
+    /** Dient dem Client nur zur "Ihr Beitrag"-Kennzeichnung (DSA Art. 17, E-C) -- verrät für jeden anderen Aufrufer nichts über den Autor. */
+    val isOwnPost: Boolean,
 )

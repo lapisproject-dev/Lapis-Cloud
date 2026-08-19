@@ -254,6 +254,13 @@ object Routes {
     // also the deep-link target `LtrLedgerScreen.kt`'s `SOCIAL_POST`-referenced ledger rows resolve
     // to (Review-Fund G4).
     const val SOCIAL_NETWORK_POST = "/social-network/post/:id"
+
+    // Welle V1.1.5 "Moderation, DSA-Melde-Mechanismus, DSGVO-Content-Hard-Delete" -- BOARD/ADMIN
+    // (verifiziert gegen `SocialNetworkService.kt`: `listReports`/`decideReport` sind BOARD ODER
+    // ADMIN, `listContentErasures`/`decideContentErasure`/`executeContentErasure` sind ADMIN allein
+    // -- die feinere ADMIN-only-Schwelle für Löschanträge wird IN-SCREEN durchgesetzt, siehe
+    // `SocialModerationScreen.kt`, nicht durch eine zweite Route).
+    const val SOCIAL_MODERATION = "/social-moderation"
 }
 
 private var appRouting: Routing? = null
@@ -420,6 +427,9 @@ fun initRouting(pageContainer: SimplePanel) {
                 show { container -> renderSocialThreadScreen(container, id) }
             }
         }
+    }
+    routing.kvOn(Routes.SOCIAL_MODERATION) {
+        requireRole(routing, AccountRole.BOARD, AccountRole.ADMIN) { show(::renderSocialModerationScreen) }
     }
     routing.kvOn("/") {
         routing.navigate(if (AppState.isAuthenticated) Routes.DASHBOARD else Routes.LOGIN)

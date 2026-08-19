@@ -2,29 +2,43 @@ package network.lapis.cloud.shared.rpc
 
 import dev.kilua.rpc.annotations.RpcService
 import dev.kilua.rpc.types.Decimal
+import kotlinx.datetime.LocalDateTime
 import network.lapis.cloud.shared.domain.SocialCommentInput
 import network.lapis.cloud.shared.domain.SocialPostDto
+import network.lapis.cloud.shared.domain.SocialPostErasureDto
+import network.lapis.cloud.shared.domain.SocialPostErasureInput
+import network.lapis.cloud.shared.domain.SocialPostErasureStatus
 import network.lapis.cloud.shared.domain.SocialPostInput
+import network.lapis.cloud.shared.domain.SocialPostRemovalNoticeDto
+import network.lapis.cloud.shared.domain.SocialPostReportDto
+import network.lapis.cloud.shared.domain.SocialPostReportInput
+import network.lapis.cloud.shared.domain.SocialPostReportStatus
 import network.lapis.cloud.shared.domain.SocialThreadDto
 import network.lapis.cloud.shared.domain.SocialTimelinePageDto
 import network.lapis.cloud.shared.domain.SocialTimelineQuery
 
 /**
  * Soziales Netzwerk, Welle V1.1.1 "Fundament & Post-Kern" + Welle V1.1.2 "Kommentarbaum, Boosts,
- * rekursive Gesamtgewichtung" + Welle V1.1.3 "Öffentlicher SEO-Lesepfad" -- see
- * `32-social-network.kuml.kts` file header for the full fachlich model. Deliberately INCOMPLETE:
- * `removePostForLegalReason`/`reportPost`/`listReports`/`decideReport`/`requestContentErasure`/
- * `listContentErasures`/`decideContentErasure`/`executeContentErasure` (Welle V1.1.5) are NOT
- * declared here as TODO stubs -- later waves extend this interface when their own tables/service
- * methods land, exactly like every other domain interface in this codebase grows additively.
+ * rekursive Gesamtgewichtung" + Welle V1.1.3 "Öffentlicher SEO-Lesepfad" + Welle V1.1.4
+ * "LTR_ELIGIBLE/FRIEND-Erweiterung" + Welle V1.1.5 "Moderation, DSA-Melde-Mechanismus,
+ * DSGVO-Content-Hard-Delete" -- see `32-social-network.kuml.kts` file header for the full fachlich
+ * model this domain implements.
  *
- * **Welle V1.1.3**: this interface covers ONLY the authenticated Kilua-RPC surface, unchanged in
- * this wave. The new unauthenticated public HTML read path (`GET /s`, `GET /s/{id}`,
- * `GET /sitemap.xml`, `GET /robots.txt`) does NOT run through this interface at all -- it is a
- * dedicated Ktor route family (`network.lapis.cloud.server.routes.SocialPublicRoutes`) that shares
- * the underlying load/aggregate pipeline (`network.lapis.cloud.server.rpc.SocialReadPipeline`) but
- * has no RPC service class and no wire contract here. A JS consumer wanting the public view fetches
- * the rendered HTML/XML directly, not via this interface.
+ * **Welle V1.1.5 adds NINE methods**, not eight: the eight vordeklarierten Namen
+ * (`removePostForLegalReason`/`reportPost`/`listReports`/`decideReport`/`requestContentErasure`/
+ * `listContentErasures`/`decideContentErasure`/`executeContentErasure`) plus [getRemovalNotice] --
+ * a NINTH method, added additively as the resolution of Entscheidungspunkt E-B (der öffentliche
+ * Entfernungshinweis geht über den öffentlichen HTTP-Pfad hinaus und braucht ein Äquivalent für
+ * nicht-öffentliche Sichtbarkeitsstufen, siehe [getRemovalNotice] KDoc).
+ *
+ * **Welle V1.1.3**: this interface covers ONLY the authenticated Kilua-RPC surface. The
+ * unauthenticated public HTML read path (`GET /s`, `GET /s/{id}`, `GET /sitemap.xml`,
+ * `GET /robots.txt`, and, since Welle V1.1.5, `GET`/`POST /s/{id}/report`) does NOT run through
+ * this interface at all -- it is a dedicated Ktor route family
+ * (`network.lapis.cloud.server.routes.SocialPublicRoutes`) that shares the underlying
+ * load/aggregate pipeline (`network.lapis.cloud.server.rpc.SocialReadPipeline`) but has no RPC
+ * service class and no wire contract here. A JS consumer wanting the public view fetches the
+ * rendered HTML/XML directly, not via this interface.
  */
 @RpcService
 interface ISocialNetworkService {
@@ -127,4 +141,154 @@ interface ISocialNetworkService {
         postId: String,
         amountLtr: Decimal,
     ): SocialPostDto
+
+    // ── Welle V1.1.5 -- Moderation (DSA Art. 16/6) ─────────────────────────────────────────────
+
+    /**
+     * Rolle: BOARD oder ADMIN (Entscheidungspunkt E-D -- jeder für sich allein, kein
+     * Vier-Augen-Zwang, DSA Art. 6 verlangt unverzügliches Handeln). [reason] ist PFLICHT (nicht
+     * leer, ≤ 2000 Zeichen) UND ist ab dieser Welle **öffentlicher Text** (Entscheidungspunkt E-B):
+     * für einen `PUBLIC`-Post wird er jedem anonymen Besucher auf der 451-Hinweisseite unter
+     * `GET /s/{id}` angezeigt; für einen nicht-öffentlichen Post über [getRemovalNotice]. Enthält
+     * deshalb NIEMALS interne Vorgangsdaten -- diese gehören in `SocialPostReportDto.decisionNote`
+     * bzw. `SocialPostErasureDto.decisionNote`, beide bleiben strikt intern.
+     *
+     * Bewusst NICHT [network.lapis.cloud.server.rpc.SocialVisibility.isReadable]-gegattert (anders
+     * als jeder andere Schreibpfad dieser Domäne) -- ein Moderator muss auch einen
+     * `MEMBERS_ONLY`-Post entfernen können, den er selbst (bei abweichendem Status) nicht lesen
+     * dürfte. Ein bereits `REMOVED_LEGAL`-Post wirft `ConflictException` ("bereits entfernt"),
+     * NICHT `NotFoundException` -- der Aufrufer ist bereits BOARD/ADMIN und darf den Zustand
+     * kennen, hier gibt es kein Existenz-Orakel zu schützen. `HIDDEN_BY_AUTHOR` ist ein zulässiger
+     * Ausgangszustand (Verstecken ≠ Entfernen). Fasst `content` NIE an (orthogonal zum
+     * Content-Tombstoning, siehe [SocialPostDto.contentErasedAt] KDoc) und schreibt KEINEN
+     * Cascade-`UPDATE` auf Kind-Posts -- die Unterdrückung des Teilbaums entsteht wie bei
+     * [hideOwnPost] ausschließlich zur Lesezeit über `SocialPostWeight.suppressedIds`. Keine
+     * LTR-Rückerstattung. Schließt alle offenen [reportPost]-Meldungen auf diesen Post automatisch
+     * auf `ACTION_TAKEN`.
+     */
+    suspend fun removePostForLegalReason(
+        postId: String,
+        reason: String,
+    ): SocialPostDto
+
+    /**
+     * Rolle: jeder authentifizierte Aufrufer (auch FRIEND/GUEST) -- eine Meldung kostet kein LTR
+     * und ist keine Autoritätsausübung. Rückgabe bewusst `Unit`, die Antwort ist **identisch**, ob
+     * der Post existiert, für den Aufrufer lesbar ist, für ihn nicht lesbar ist, oder gar nicht
+     * existiert (Enumeration-Härtung -- ohne das wäre dies ein Existenz-Orakel für
+     * `MEMBERS_ONLY`-Posts). Der Autor darf seinen eigenen Post nicht melden -- ebenfalls stiller
+     * No-Op, kein `ConflictException` (sonst wieder ein Signal-Unterschied). Der öffentliche Pfad
+     * (`GET`/`POST /s/{id}/report`) teilt sich dieselbe Kernlogik über
+     * `network.lapis.cloud.server.rpc.SocialReportSubmission`.
+     */
+    suspend fun reportPost(input: SocialPostReportInput)
+
+    /**
+     * Rolle: BOARD oder ADMIN. Sortiert `reportedAt DESC` (Tiebreaker `id DESC`), Seitengröße
+     * gedeckelt bei 200 Zeilen. `status = null` == alle Status.
+     *
+     * **Security-Audit-Fund MAJOR-2 (Runde 1, 2026-08-19): echte Keyset-Pagination**, analog
+     * [network.lapis.cloud.shared.rpc.IAuditLogService.listAuditLog]'s
+     * `beforeSequenceNumber`-Cursor. Vorher war die Warteschlange hart bei 200 Zeilen gedeckelt,
+     * OHNE jede Seitennavigation -- über den seit dieser Welle öffentlichen, unauthentifizierten
+     * Melde-Weg (`POST /s/{id}/report`) erreichbar konnte sie so über die Grenze hinaus anwachsen;
+     * ältere offene Meldungen wären dauerhaft über keine UI mehr erreichbar gewesen, was der DSA-
+     * Art.-16-Pflicht widerspricht, eingehende Meldungen tatsächlich zu prüfen. Anders als
+     * [IAuditLogService.listAuditLog] gibt es hier keine monoton wachsende `sequenceNumber`-Spalte
+     * -- der Cursor ist deshalb ein KOMPOSIT aus `beforeReportedAt`/`beforeId` (Zeitstempel plus
+     * Tiebreaker, weil `reportedAt` bei zwei schnell aufeinanderfolgenden Meldungen theoretisch
+     * kollidieren kann, `id` dagegen als `UUID.random()` selbst keine Sortierreihenfolge trägt und
+     * daher NICHT als alleiniger Cursor taugt). Beide `null` == erste Seite; nur eines von beiden
+     * gesetzt wird wie "kein Cursor" behandelt (kein Fehler, einfach keine Filterung). Aufrufer
+     * bilden den nächsten Cursor aus der zuletzt gesehenen Zeile dieser Antwort
+     * (`reportedAt`/`id` des LETZTEN Elements).
+     */
+    suspend fun listReports(
+        status: SocialPostReportStatus?,
+        beforeReportedAt: LocalDateTime? = null,
+        beforeId: String? = null,
+    ): List<SocialPostReportDto>
+
+    /**
+     * Rolle: BOARD oder ADMIN. Zulässige Zielwerte: `UNDER_REVIEW`/`ACTION_TAKEN`/`DISMISSED` --
+     * `OPEN` als Ziel wirft `ConflictException` (kein Zurückdrehen). Ausgangszustand muss `OPEN`
+     * oder `UNDER_REVIEW` sein. Entfernt den gemeldeten Post NICHT selbst -- das ist der separate
+     * [removePostForLegalReason]-Aufruf.
+     */
+    suspend fun decideReport(
+        reportId: String,
+        decision: SocialPostReportStatus,
+        note: String?,
+    ): SocialPostReportDto
+
+    // ── Welle V1.1.5 -- DSGVO-Content-Hard-Delete (post-bezogener Art.-17-Antrag) ──────────────
+
+    /**
+     * Rolle: self-or-ADMIN (Muster `IDsgvoService.requestErasure`) -- kein Rollen-Gate im engeren
+     * Sinn, jeder authentifizierte Aufrufer (auch FRIEND/GUEST) darf einen Löschantrag stellen.
+     * **Nicht auf eigene Beiträge beschränkt** -- ein Post kann personenbezogene Daten des
+     * Antragstellers enthalten, ohne dass dieser ihn selbst verfasst hat (z. B. namentliche
+     * Erwähnung in einem fremden Beitrag). Für einen Nicht-ADMIN gilt daher dieselbe
+     * Lesbarkeits-Schranke wie beim Lesen selbst (`SocialVisibility.readableByCondition` in der
+     * `SocialNetworkService`-Implementierung, identische Enumeration-Härtung wie [reportPost]: ein
+     * unlesbarer und ein nicht existierender Post liefern ununterscheidbar `NotFoundException`).
+     * Ein ADMIN darf zusätzlich im Namen einer externen betroffenen Person (per
+     * [SocialPostErasureInput.subjectMemberId] bzw. `requesterContact`) beantragen und ist dabei
+     * NICHT an die Lesbarkeit des Posts für sich selbst gebunden (reine Existenzprüfung) -- der
+     * Weg, auf dem eine per E-Mail/Post eingegangene Löschforderung eines Dritten OHNE eigenes
+     * Lapis-Cloud-Konto ins System kommt (im Unterschied zum bestehenden, mitglieds-bezogenen
+     * `IDsgvoService.requestErasure`-Pfad, dessen `subjectMemberId` strukturell NOT NULL ist).
+     */
+    suspend fun requestContentErasure(input: SocialPostErasureInput): SocialPostErasureDto
+
+    /**
+     * Rolle: ADMIN (Entscheidungspunkt E-E -- eine Art.-17-Abwägung ist eine Datenschutz-, keine
+     * Moderationsentscheidung, dieselbe Schwelle wie `IDsgvoService.listErasureRequests`).
+     *
+     * **Security-Audit-Fund MAJOR-2 (Runde 1, 2026-08-19)**: dieselbe Keyset-Pagination wie
+     * [listReports] -- siehe dessen KDoc für die volle Begründung. Sortiert `requestedAt DESC`
+     * (Tiebreaker `id DESC`), Cursor-Komposit `beforeRequestedAt`/`beforeId`.
+     */
+    suspend fun listContentErasures(
+        status: SocialPostErasureStatus?,
+        beforeRequestedAt: LocalDateTime? = null,
+        beforeId: String? = null,
+    ): List<SocialPostErasureDto>
+
+    /** Rolle: ADMIN. `REQUESTED --approve--> APPROVED` bzw. `REQUESTED --reject--> REJECTED`. */
+    suspend fun decideContentErasure(
+        erasureId: String,
+        approve: Boolean,
+        note: String?,
+    ): SocialPostErasureDto
+
+    /**
+     * Rolle: ADMIN. Nur auf einem `APPROVED`-Antrag ausführbar (`ConflictException` sonst,
+     * identisch zu `IDsgvoService.executeErasure`). Überschreibt `content` IN PLACE mit dem
+     * anlassabhängigen Tombstone-Marker (`network.lapis.cloud.server.rpc.SocialContentTombstone
+     * .ON_POST_REQUEST`), setzt [SocialPostDto.contentErasedAt]. Fasst `state` NIE an --
+     * orthogonal zu [removePostForLegalReason]. Idempotent: ein zweiter Aufruf auf einen bereits
+     * getombstoneten Post überschreibt den Marker nicht erneut ("erster Schreiber gewinnt"),
+     * schlägt aber auch nicht fehl.
+     */
+    suspend fun executeContentErasure(erasureId: String): SocialPostErasureDto
+
+    // ── Welle V1.1.5 -- öffentlicher Entfernungshinweis für nicht-öffentliche Beiträge (E-B) ──
+
+    /**
+     * Welle V1.1.5 (E-B). Begründung einer rechtlichen Entfernung für einen Aufrufer, dessen
+     * Status die Sichtbarkeitsstufe des entfernten Beitrags zulässt -- das Äquivalent der
+     * öffentlichen 451-Hinweisseite (`GET /s/{id}`) für `MEMBERS_ONLY`/`MEMBERS_AND_EXTERNAL`-Posts,
+     * die nie eine öffentliche URL hatten. **Kein Rollen-Gate** -- jeder authentifizierte
+     * Aufrufer, auch FRIEND/GUEST, im Rahmen seiner Sichtbarkeitsstufe. Wirft `NotFoundException`
+     * für ALLES andere (unbekannte UUID, Beitrag außerhalb der Stufe des Aufrufers, Beitrag nicht
+     * `REMOVED_LEGAL`) -- ununterscheidbar von einer unbekannten UUID, kein Existenz-Orakel.
+     *
+     * Bewusst eine EIGENE Methode statt einer Aufweichung von [getPost]: [getPost] bleibt für
+     * `REMOVED_LEGAL` unverändert streng, sein Rückgabetyp ist [SocialPostDto], und ein
+     * "Post-DTO mit leerem Inhalt" wäre genau die Art Halbwahrheit, die später jemand als echten
+     * Post rendert. Der Client ruft diese Methode als expliziten Fallback, NACHDEM
+     * [getPost]/[getThread] `NotFoundException` geliefert haben.
+     */
+    suspend fun getRemovalNotice(postId: String): SocialPostRemovalNoticeDto
 }

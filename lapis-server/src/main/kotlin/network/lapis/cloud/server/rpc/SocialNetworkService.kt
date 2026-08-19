@@ -6,21 +6,38 @@ import kotlinx.datetime.LocalDateTime
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toInstant
 import kotlinx.datetime.toLocalDateTime
+import kotlinx.serialization.json.Json
+import network.lapis.cloud.server.audit.AuditLogRecorder
 import network.lapis.cloud.server.db.DbClock
 import network.lapis.cloud.server.db.generated.LtrLedgerEntryTable
+import network.lapis.cloud.server.db.generated.MemberTable
 import network.lapis.cloud.server.db.generated.SocialPostBoostTable
+import network.lapis.cloud.server.db.generated.SocialPostErasureTable
+import network.lapis.cloud.server.db.generated.SocialPostReportTable
 import network.lapis.cloud.server.db.generated.SocialPostTable
 import network.lapis.cloud.server.economy.LedgerBackedLtrBalanceProvider
 import network.lapis.cloud.server.economy.LtrBalanceProvider
 import network.lapis.cloud.server.federation.FederationInboxRateLimiter
+import network.lapis.cloud.server.security.requireRole
 import network.lapis.cloud.server.security.resolveCurrentMember
+import network.lapis.cloud.shared.domain.AccountRole
+import network.lapis.cloud.shared.domain.AuditAction
+import network.lapis.cloud.shared.domain.AuditEntityType
 import network.lapis.cloud.shared.domain.LtrLedgerEntryType
 import network.lapis.cloud.shared.domain.LtrLedgerReferenceType
 import network.lapis.cloud.shared.domain.MemberStatus
 import network.lapis.cloud.shared.domain.MemberStatusSets
 import network.lapis.cloud.shared.domain.SocialCommentInput
 import network.lapis.cloud.shared.domain.SocialPostDto
+import network.lapis.cloud.shared.domain.SocialPostErasureDto
+import network.lapis.cloud.shared.domain.SocialPostErasureInput
+import network.lapis.cloud.shared.domain.SocialPostErasureStatus
 import network.lapis.cloud.shared.domain.SocialPostInput
+import network.lapis.cloud.shared.domain.SocialPostModerationSnapshot
+import network.lapis.cloud.shared.domain.SocialPostRemovalNoticeDto
+import network.lapis.cloud.shared.domain.SocialPostReportDto
+import network.lapis.cloud.shared.domain.SocialPostReportInput
+import network.lapis.cloud.shared.domain.SocialPostReportStatus
 import network.lapis.cloud.shared.domain.SocialPostState
 import network.lapis.cloud.shared.domain.SocialPostVisibility
 import network.lapis.cloud.shared.domain.SocialThreadDto
@@ -30,14 +47,20 @@ import network.lapis.cloud.shared.rpc.ConflictException
 import network.lapis.cloud.shared.rpc.ForbiddenException
 import network.lapis.cloud.shared.rpc.ISocialNetworkService
 import network.lapis.cloud.shared.rpc.NotFoundException
+import org.jetbrains.exposed.v1.core.JoinType
 import org.jetbrains.exposed.v1.core.Op
 import org.jetbrains.exposed.v1.core.ResultRow
+import org.jetbrains.exposed.v1.core.SortOrder
 import org.jetbrains.exposed.v1.core.and
 import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.core.greaterEq
 import org.jetbrains.exposed.v1.core.inList
 import org.jetbrains.exposed.v1.core.isNull
+import org.jetbrains.exposed.v1.core.less
+import org.jetbrains.exposed.v1.core.neq
+import org.jetbrains.exposed.v1.core.or
 import org.jetbrains.exposed.v1.jdbc.insert
+import org.jetbrains.exposed.v1.jdbc.select
 import org.jetbrains.exposed.v1.jdbc.selectAll
 import org.jetbrains.exposed.v1.jdbc.transactions.transaction
 import org.jetbrains.exposed.v1.jdbc.update
@@ -51,6 +74,42 @@ private const val MAX_CONTENT_LENGTH = 5_000
 
 /** [SocialTimelineQuery.limit] Deckelung -- Pagination-DoS-Guard, analog zu anderen `coerceIn`-Pagination-Caps in diesem Codebase. */
 private const val MAX_TIMELINE_LIMIT = 100
+
+/** Welle V1.1.5 -- BOARD/ADMIN, Muster `ContributionService.kt`'s eigene `X_BOARD_ROLES`-Konstante. */
+private val SOCIAL_MODERATION_ROLES = arrayOf(AccountRole.BOARD, AccountRole.ADMIN)
+
+/** `SocialPostTable.stateReason`-Spaltenbreite, Pflicht-Begründung von [SocialNetworkService.removePostForLegalReason]. */
+private const val MAX_MODERATION_REASON_LENGTH = 2_000
+
+/** `SocialPostErasureTable.requester_contact`-Spaltenbreite. */
+private const val MAX_CONTACT_LENGTH = 320
+
+/** `SocialPostErasureTable.reason`-Spaltenbreite. */
+private const val MAX_ERASURE_REASON_LENGTH = 4_000
+
+/** Pagination-Deckel für [SocialNetworkService.listReports]/[SocialNetworkService.listContentErasures] -- Muster `AuditLogService.MAX_PAGE_SIZE`. */
+private const val MAX_MODERATION_PAGE_SIZE = 200
+
+/** Kürzung von `content` für [SocialPostReportDto.postExcerpt] -- kein Volltext in der Moderationsliste nötig. */
+private const val REPORT_POST_EXCERPT_LENGTH = 300
+
+/**
+ * `SocialPostReportTable.decision_note`/`SocialPostErasureTable.decision_note`-Spaltenbreite (beide
+ * `VARCHAR(2000)`, siehe `32-social-network.kuml.kts`). Review-Fund 5 (Runde 1, 2026-08-19): ohne
+ * diese Prüfung wirft ein `note`-Wert oberhalb der Spaltenbreite eine rohe `ExposedSQLException` ->
+ * HTTP 500 statt eines sauberen `ConflictException`, anders als jedes andere Freitextfeld dieser
+ * Welle ([requireModerationReason]/[requireErasureReason]/[requireContactLength]).
+ */
+private const val MAX_DECISION_NOTE_LENGTH = 2_000
+
+/**
+ * Welle V1.1.5 (E-B). Defensiv: [SocialNetworkService.removePostForLegalReason] erzwingt eine
+ * nichtleere Begründung, aber weder ein Renderer noch [SocialNetworkService.getRemovalNotice]
+ * dürfen je auf `null` laufen -- selbe Konstante wie `SocialPublicRoutes.LEGAL_REMOVAL_FALLBACK_REASON`,
+ * bewusst dupliziert (zwei-Zeilen, nicht-domänenlogische Textkonstante, dieselbe Duplikations-
+ * Disziplin wie `rankingHorizon` in `SocialPublicRoutes.kt`).
+ */
+internal const val LEGAL_REMOVAL_FALLBACK_REASON = "Dieser Beitrag wurde aus rechtlichen Gründen entfernt."
 
 /**
  * Soziales Netzwerk, Welle V1.1.1 "Fundament & Post-Kern" + Welle V1.1.2 "Kommentarbaum, Boosts,
@@ -89,6 +148,10 @@ class SocialNetworkService(
     private val createRateLimiter: FederationInboxRateLimiter,
     private val readRateLimiter: FederationInboxRateLimiter,
     private val boostRateLimiter: FederationInboxRateLimiter,
+    /** Welle V1.1.5 -- `removePostForLegalReason`/`decideReport`/`decideContentErasure`/`executeContentErasure` (BOARD/ADMIN, 20/min). */
+    private val moderationRateLimiter: FederationInboxRateLimiter,
+    /** Welle V1.1.5 -- `reportPost` (jeder authentifizierte Aufrufer, 5/Stunde). */
+    private val reportRateLimiter: FederationInboxRateLimiter,
     private val ltrBalanceProvider: LtrBalanceProvider = LedgerBackedLtrBalanceProvider(),
 ) : ISocialNetworkService {
     override suspend fun createPost(input: SocialPostInput): SocialPostDto {
@@ -375,13 +438,29 @@ class SocialNetworkService(
                 }
             }
 
-            var condition: Op<Boolean> =
-                SocialVisibility.readableByCondition(status = current.status) and
-                    (if (parentUuid != null) SocialPostTable.parentId eq parentUuid else SocialPostTable.parentId.isNull())
+            // Welle V1.1.5 (E-C, DSA Art. 17): selfHiddenView baut ab jetzt auf
+            // SocialVisibility.ownAuthorViewCondition statt readableByCondition -- der Autor darf
+            // seine EIGENEN Posts unabhaengig von seiner heutigen Sichtbarkeitsstufe sehen (dieselbe
+            // Begruendung, aus der hideOwnPost bewusst kein Membership-Gate hat). readableByCondition
+            // wuerde REMOVED_LEGAL unbedingt ausschliessen (ein `and` kann das nicht wieder aufheben)
+            // -- genau der Zielkonflikt, den E-C aufloest: der Autor muss seine Entfernung + Grund
+            // sehen koennen.
+            val baseVisibilityCondition: Op<Boolean> =
+                if (selfHiddenView) {
+                    SocialVisibility.ownAuthorViewCondition(authorMemberId = current.memberId)
+                } else {
+                    SocialVisibility.readableByCondition(status = current.status)
+                }
+            val parentCondition: Op<Boolean> =
+                if (parentUuid != null) SocialPostTable.parentId eq parentUuid else SocialPostTable.parentId.isNull()
+            var condition: Op<Boolean> = baseVisibilityCondition and parentCondition
             condition =
                 if (selfHiddenView) {
                     condition and
-                        (SocialPostTable.state inList listOf(SocialPostState.VISIBLE, SocialPostState.HIDDEN_BY_AUTHOR)) and
+                        (
+                            SocialPostTable.state inList
+                                listOf(SocialPostState.VISIBLE, SocialPostState.HIDDEN_BY_AUTHOR, SocialPostState.REMOVED_LEGAL)
+                        ) and
                         (SocialPostTable.authorMemberId eq current.memberId)
                 } else {
                     condition and (SocialPostTable.state eq SocialPostState.VISIBLE)
@@ -554,13 +633,450 @@ class SocialNetworkService(
         return loadPostAfterCommit(id = id, now = now, viewerStatus = current.status)
     }
 
+    // ── Welle V1.1.5 -- Moderation (DSA Art. 16/6) ──────────────────────────────────────────
+
+    /**
+     * Bewusst NICHT [hideOwnPost] kopiert -- siehe [ISocialNetworkService.removePostForLegalReason]
+     * KDoc für die fachlichen Unterschiede. Rollen-Gate läuft als ALLERERSTE Anweisung, VOR jedem
+     * Ressourcen-Lookup (Stolperfalle 3: eine Garbage-UUID muss `ForbiddenException` liefern, nicht
+     * `NotFoundException`). **Fasst `SocialVisibility.isReadable` bewusst NICHT auf** -- ein
+     * Moderator muss auch einen `MEMBERS_ONLY`-Post entfernen können, den er selbst nicht lesen
+     * dürfte.
+     */
+    override suspend fun removePostForLegalReason(
+        postId: String,
+        reason: String,
+    ): SocialPostDto {
+        val current = resolveCurrentMember(call)
+        current.requireRole(*SOCIAL_MODERATION_ROLES)
+        requireModerationRateLimit(memberId = current.memberId)
+        val id = postId.toSocialUuid()
+        requireModerationReason(reason)
+        val now = DbClock.nowLocalDateTime()
+        transaction {
+            // Sperre 1. Bewusst KEIN SocialVisibility.isReadable-Gate hier (siehe Methoden-KDoc).
+            val row =
+                SocialPostTable
+                    .selectAll()
+                    .where { SocialPostTable.id eq id }
+                    .forUpdate()
+                    .singleOrNull()
+                    ?: throw NotFoundException("SocialPost $postId not found")
+            // Kein Existenz-Orakel zu schuetzen: der Aufrufer ist bereits BOARD/ADMIN und darf den
+            // Zustand kennen -- ConflictException statt NotFoundException, bewusste Abweichung von
+            // hideOwnPost.
+            if (row[SocialPostTable.state] == SocialPostState.REMOVED_LEGAL) {
+                throw ConflictException("SocialPost $postId is already REMOVED_LEGAL")
+            }
+            val updated =
+                SocialPostTable.update({
+                    (SocialPostTable.id eq id) and (SocialPostTable.state neq SocialPostState.REMOVED_LEGAL)
+                }) {
+                    it[state] = SocialPostState.REMOVED_LEGAL
+                    it[stateChangedAt] = now
+                    it[stateChangedBy] = current.memberId
+                    it[stateReason] = reason
+                }
+            if (updated == 0) throw ConflictException("SocialPost $postId was concurrently changed -- retry")
+
+            // Offene Meldungen auf diesen Post automatisch schliessen -- decisionNote ist ein FESTER
+            // interner Text, NIE der nun oeffentliche `reason` (Addendum § 4/Teil 3).
+            SocialPostReportTable.update({
+                (SocialPostReportTable.postId eq id) and
+                    (SocialPostReportTable.status inList listOf(SocialPostReportStatus.OPEN, SocialPostReportStatus.UNDER_REVIEW))
+            }) {
+                it[status] = SocialPostReportStatus.ACTION_TAKEN
+                it[decidedBy] = current.memberId
+                it[decidedAt] = now
+                it[decisionNote] = "Beitrag entfernt, siehe Moderationsbegruendung"
+            }
+
+            // Als LETZTE sperrende Operation -- Deadlock-Vertrag (Stolperfalle 2). Snapshot traegt
+            // NIEMALS content (Stolperfalle 1).
+            AuditLogRecorder.record(
+                actorMemberId = current.memberId,
+                actorRole = current.role,
+                entityType = AuditEntityType.SOCIAL_POST,
+                entityId = id,
+                action = AuditAction.UPDATE,
+                before =
+                    Json.encodeToString(
+                        SocialPostModerationSnapshot(
+                            state = row[SocialPostTable.state],
+                            stateReason = row[SocialPostTable.stateReason],
+                            visibility = row[SocialPostTable.visibility],
+                            contentErasedAt = row[SocialPostTable.contentErasedAt],
+                        ),
+                    ),
+                after =
+                    Json.encodeToString(
+                        SocialPostModerationSnapshot(
+                            state = SocialPostState.REMOVED_LEGAL,
+                            stateReason = reason,
+                            visibility = row[SocialPostTable.visibility],
+                            contentErasedAt = row[SocialPostTable.contentErasedAt],
+                        ),
+                    ),
+            )
+        }
+        // condition = Op.TRUE (bewusst, siehe loadPostAfterCommit KDoc) -- der BOARD-Aufrufer soll
+        // das Ergebnis inkl. state/stateReason sehen.
+        return loadPostAfterCommit(id = id, now = now, viewerStatus = current.status)
+    }
+
+    /**
+     * Kein Rollen-Gate -- jeder authentifizierte Aufrufer. Enumeration-Härtung: die Antwort ist
+     * IMMER `Unit`, egal ob der Post existiert, für den Aufrufer lesbar ist, oder gar nicht (sonst
+     * ein Existenz-Orakel für `MEMBERS_ONLY`-Posts, dieselbe Klasse Lücke wie S-B1). Der Autor darf
+     * seinen eigenen Post nicht melden -- ebenfalls stiller No-Op.
+     */
+    override suspend fun reportPost(input: SocialPostReportInput) {
+        val current = resolveCurrentMember(call)
+        requireReportRateLimit(memberId = current.memberId)
+        val postUuid = input.postId.toSocialUuid()
+        val now = DbClock.nowLocalDateTime()
+        // Geteilte Kernlogik mit dem oeffentlichen POST /s/{id}/report-Weg -- siehe
+        // SocialReportSubmission KDoc ("die einzige Stelle, an der diese Frage beantwortet wird").
+        transaction {
+            SocialReportSubmission.submitAuthenticated(
+                postId = postUuid,
+                category = input.category,
+                description = input.description,
+                reporterContact = input.reporterContact,
+                goodFaithConfirmed = input.goodFaithConfirmed,
+                reporterMemberId = current.memberId,
+                readableCondition = SocialVisibility.readableByCondition(status = current.status),
+                now = now,
+            )
+        }
+    }
+
+    override suspend fun listReports(
+        status: SocialPostReportStatus?,
+        beforeReportedAt: LocalDateTime?,
+        beforeId: String?,
+    ): List<SocialPostReportDto> {
+        val current = resolveCurrentMember(call)
+        current.requireRole(*SOCIAL_MODERATION_ROLES)
+        requireReadRateLimit(memberId = current.memberId)
+        // Security-Audit-Fund MAJOR-2 (2026-08-19): the cursor is a COMPOSITE (reportedAt, id) --
+        // only applied when BOTH halves are present (matches the interface KDoc: one set without
+        // the other is treated as "no cursor", never an error). See [ISocialNetworkService
+        // .listReports] KDoc for why a single sequence-number-style column does not exist here.
+        val cursorId = beforeId?.let { it.toSocialUuid() }
+        return transaction {
+            // Bewusst KEIN SocialVisibility-Filter -- siehe SocialVisibility.moderationReadableCondition
+            // KDoc: der Vorstand muss eine Meldung zu einem bereits REMOVED_LEGAL/MEMBERS_ONLY-Post
+            // im Kontext sehen koennen.
+            val conditions = mutableListOf<Op<Boolean>>()
+            if (status != null) conditions += (SocialPostReportTable.status eq status)
+            if (beforeReportedAt != null && cursorId != null) {
+                conditions +=
+                    (SocialPostReportTable.reportedAt less beforeReportedAt) or
+                    (
+                        (SocialPostReportTable.reportedAt eq beforeReportedAt) and
+                            (SocialPostReportTable.id less cursorId)
+                    )
+            }
+            val baseQuery =
+                SocialPostReportTable
+                    .join(SocialPostTable, JoinType.INNER, SocialPostReportTable.postId, SocialPostTable.id)
+                    .selectAll()
+            val filtered = if (conditions.isEmpty()) baseQuery else baseQuery.where { conditions.reduce { a, b -> a and b } }
+            filtered
+                .orderBy(SocialPostReportTable.reportedAt to SortOrder.DESC, SocialPostReportTable.id to SortOrder.DESC)
+                .limit(MAX_MODERATION_PAGE_SIZE)
+                .map { it.toReportDto() }
+        }
+    }
+
+    override suspend fun decideReport(
+        reportId: String,
+        decision: SocialPostReportStatus,
+        note: String?,
+    ): SocialPostReportDto {
+        val current = resolveCurrentMember(call)
+        current.requireRole(*SOCIAL_MODERATION_ROLES)
+        requireModerationRateLimit(memberId = current.memberId)
+        requireDecisionNoteLength(note)
+        if (decision == SocialPostReportStatus.OPEN) throw ConflictException("Cannot set a report back to OPEN")
+        val id = reportId.toSocialUuid()
+        val now = DbClock.nowLocalDateTime()
+        return transaction {
+            val row =
+                SocialPostReportTable
+                    .selectAll()
+                    .where { SocialPostReportTable.id eq id }
+                    .forUpdate()
+                    .singleOrNull() ?: throw NotFoundException("SocialPostReport $reportId not found")
+            val currentStatus = row[SocialPostReportTable.status]
+            if (currentStatus != SocialPostReportStatus.OPEN && currentStatus != SocialPostReportStatus.UNDER_REVIEW) {
+                throw ConflictException("SocialPostReport $reportId is not OPEN/UNDER_REVIEW")
+            }
+            SocialPostReportTable.update({ SocialPostReportTable.id eq id }) {
+                it[SocialPostReportTable.status] = decision
+                it[decidedBy] = current.memberId
+                it[decidedAt] = now
+                it[decisionNote] = note
+            }
+            // entityId = die POST-Id (nicht die Report-Id), damit listAuditLog(entityId = postId)
+            // die vollstaendige Moderationsgeschichte eines Beitrags an einer Stelle zeigt.
+            AuditLogRecorder.record(
+                actorMemberId = current.memberId,
+                actorRole = current.role,
+                entityType = AuditEntityType.SOCIAL_POST,
+                entityId = row[SocialPostReportTable.postId],
+                action = AuditAction.UPDATE,
+            )
+            loadReportDto(id)
+        }
+    }
+
+    // ── Welle V1.1.5 -- DSGVO-Content-Hard-Delete (post-bezogener Art.-17-Antrag) ───────────
+
+    override suspend fun requestContentErasure(input: SocialPostErasureInput): SocialPostErasureDto {
+        val current = resolveCurrentMember(call)
+        requireRateLimit(memberId = current.memberId)
+        val postUuid = input.postId.toSocialUuid()
+        requireErasureReason(input.reason)
+        requireContactLength(input.requesterContact)
+        val subjectUuid = input.subjectMemberId?.toSocialUuid()
+        // self-or-ADMIN (Muster DsgvoService.requireSelfOrAdmin) -- ein Aufrufer darf fuer sich
+        // selbst (subjectUuid == current.memberId ODER subjectUuid == null) beantragen; ein ADMIN
+        // darf zusaetzlich im Namen einer externen betroffenen Person beantragen.
+        if (subjectUuid != null && subjectUuid != current.memberId && current.role != AccountRole.ADMIN) {
+            throw ForbiddenException()
+        }
+        val now = DbClock.nowLocalDateTime()
+        return transaction {
+            if (subjectUuid != null) {
+                val subjectExists = MemberTable.select(MemberTable.id).where { MemberTable.id eq subjectUuid }.firstOrNull() != null
+                if (!subjectExists) throw NotFoundException("Member ${input.subjectMemberId} not found")
+            }
+            // Enumeration-Härtung (Review-Fund 1, Runde 1 2026-08-19): fuer einen Nicht-ADMIN muss
+            // ein fuer ihn unlesbarer Post (z. B. MEMBERS_ONLY per geleaktem Link) dieselbe
+            // NotFoundException liefern wie ein tatsaechlich nicht existierender Post -- sonst ein
+            // Existenz-/Lesbarkeits-Orakel derselben Klasse wie das historische S-B1 und
+            // [reportPost]s eigene Haertung. ADMIN bleibt bewusst bei der reinen Existenzpruefung
+            // (Plan § 3.5: ADMIN muss "im Namen einer externen betroffenen Person" auch fuer einen
+            // fuer ihn selbst nicht lesbaren MEMBERS_ONLY-Post beantragen koennen, analog zu
+            // [listReports]' eigener bewusster Umgehung der Sichtbarkeit).
+            val postVisible =
+                if (current.role == AccountRole.ADMIN) {
+                    SocialPostTable.select(SocialPostTable.id).where { SocialPostTable.id eq postUuid }.firstOrNull() != null
+                } else {
+                    SocialPostTable
+                        .select(SocialPostTable.id)
+                        .where { (SocialPostTable.id eq postUuid) and SocialVisibility.readableByCondition(status = current.status) }
+                        .firstOrNull() != null
+                }
+            if (!postVisible) throw NotFoundException("SocialPost ${input.postId} not found")
+            val id = Uuid.random()
+            SocialPostErasureTable.insert {
+                it[SocialPostErasureTable.id] = id
+                it[SocialPostErasureTable.postId] = postUuid
+                it[requestedAt] = now
+                it[requestedBy] = current.memberId
+                it[SocialPostErasureTable.subjectMemberId] = subjectUuid
+                it[requesterContact] = input.requesterContact
+                it[reason] = input.reason
+                it[status] = SocialPostErasureStatus.REQUESTED
+            }
+            loadErasureDto(id)
+        }
+    }
+
+    override suspend fun listContentErasures(
+        status: SocialPostErasureStatus?,
+        beforeRequestedAt: LocalDateTime?,
+        beforeId: String?,
+    ): List<SocialPostErasureDto> {
+        val current = resolveCurrentMember(call)
+        current.requireRole(AccountRole.ADMIN)
+        requireReadRateLimit(memberId = current.memberId)
+        // Security-Audit-Fund MAJOR-2 (2026-08-19): see [listReports] KDoc -- same composite-cursor
+        // reasoning, mirrored here with requestedAt/id.
+        val cursorId = beforeId?.let { it.toSocialUuid() }
+        return transaction {
+            val conditions = mutableListOf<Op<Boolean>>()
+            if (status != null) conditions += (SocialPostErasureTable.status eq status)
+            if (beforeRequestedAt != null && cursorId != null) {
+                conditions +=
+                    (SocialPostErasureTable.requestedAt less beforeRequestedAt) or
+                    (
+                        (SocialPostErasureTable.requestedAt eq beforeRequestedAt) and
+                            (SocialPostErasureTable.id less cursorId)
+                    )
+            }
+            val baseQuery = SocialPostErasureTable.selectAll()
+            val filtered = if (conditions.isEmpty()) baseQuery else baseQuery.where { conditions.reduce { a, b -> a and b } }
+            filtered
+                .orderBy(SocialPostErasureTable.requestedAt to SortOrder.DESC, SocialPostErasureTable.id to SortOrder.DESC)
+                .limit(MAX_MODERATION_PAGE_SIZE)
+                .map { it.toErasureDto() }
+        }
+    }
+
+    override suspend fun decideContentErasure(
+        erasureId: String,
+        approve: Boolean,
+        note: String?,
+    ): SocialPostErasureDto {
+        val current = resolveCurrentMember(call)
+        current.requireRole(AccountRole.ADMIN)
+        requireModerationRateLimit(memberId = current.memberId)
+        requireDecisionNoteLength(note)
+        val id = erasureId.toSocialUuid()
+        val now = DbClock.nowLocalDateTime()
+        return transaction {
+            val row =
+                SocialPostErasureTable
+                    .selectAll()
+                    .where { SocialPostErasureTable.id eq id }
+                    .forUpdate()
+                    .singleOrNull() ?: throw NotFoundException("SocialPostErasure $erasureId not found")
+            if (row[SocialPostErasureTable.status] != SocialPostErasureStatus.REQUESTED) {
+                throw ConflictException("SocialPostErasure $erasureId is not in REQUESTED state")
+            }
+            val newStatus = if (approve) SocialPostErasureStatus.APPROVED else SocialPostErasureStatus.REJECTED
+            SocialPostErasureTable.update({ SocialPostErasureTable.id eq id }) {
+                it[status] = newStatus
+                it[decidedBy] = current.memberId
+                it[decidedAt] = now
+                it[decisionNote] = note
+            }
+            // Security-Audit-Fund (Runde 1, 2026-08-19): [decideReport] already records an audit-log
+            // entry for its approve/reject/dismiss decision -- this method's equivalent decision
+            // (arguably the MORE consequential of the two: it gates an eventual real content
+            // deletion via [executeContentErasure]) previously did not, an asymmetric accountability
+            // trail. Same shape as [decideReport]'s own call: entityId is the POST id (not the
+            // erasure id), so `listAuditLog(entityId = postId)` shows a post's full moderation
+            // history -- including erasure decisions -- in one place. As the LAST locking database
+            // operation in this transaction (per AuditLogRecorder's own deadlock-avoidance contract)
+            // -- loadErasureDto below is a plain, unlocked read.
+            AuditLogRecorder.record(
+                actorMemberId = current.memberId,
+                actorRole = current.role,
+                entityType = AuditEntityType.SOCIAL_POST,
+                entityId = row[SocialPostErasureTable.postId],
+                action = AuditAction.UPDATE,
+            )
+            loadErasureDto(id)
+        }
+    }
+
+    /**
+     * Schreibt `content` mit [SocialContentTombstone.ON_POST_REQUEST] -- fasst `state` NIE an
+     * (orthogonal zu [removePostForLegalReason], siehe [SocialPostDto.contentErasedAt] KDoc).
+     * Idempotent: ein bereits getombstoneter Post wird NICHT erneut ueberschrieben ("erster
+     * Schreiber gewinnt"), der Antrag wird trotzdem auf `EXECUTED` gesetzt.
+     */
+    override suspend fun executeContentErasure(erasureId: String): SocialPostErasureDto {
+        val current = resolveCurrentMember(call)
+        current.requireRole(AccountRole.ADMIN)
+        requireModerationRateLimit(memberId = current.memberId)
+        val id = erasureId.toSocialUuid()
+        val now = DbClock.nowLocalDateTime()
+        return transaction {
+            // Sperrreihenfolge: Erasure-Zeile zuerst (serialisiert zwei gleichzeitige execute-Aufrufe
+            // auf denselben Antrag), dann die Post-Zeile.
+            val erasureRow =
+                SocialPostErasureTable
+                    .selectAll()
+                    .where { SocialPostErasureTable.id eq id }
+                    .forUpdate()
+                    .singleOrNull() ?: throw NotFoundException("SocialPostErasure $erasureId not found")
+            if (erasureRow[SocialPostErasureTable.status] != SocialPostErasureStatus.APPROVED) {
+                throw ConflictException("SocialPostErasure $erasureId is not APPROVED")
+            }
+            val postId = erasureRow[SocialPostErasureTable.postId]
+            val postRow =
+                SocialPostTable
+                    .selectAll()
+                    .where { SocialPostTable.id eq postId }
+                    .forUpdate()
+                    .singleOrNull() ?: throw NotFoundException("SocialPost $postId not found")
+            val alreadyTombstoned = postRow[SocialPostTable.contentErasedAt] != null
+            if (!alreadyTombstoned) {
+                SocialPostTable.update({ SocialPostTable.id eq postId }) {
+                    it[content] = SocialContentTombstone.ON_POST_REQUEST
+                    it[contentErasedAt] = now
+                    it[contentErasureNote] = "Post-bezogener Loeschantrag $id, Art. 17 DSGVO"
+                }
+            }
+            SocialPostErasureTable.update({ SocialPostErasureTable.id eq id }) {
+                it[status] = SocialPostErasureStatus.EXECUTED
+                it[executedAt] = now
+            }
+            // Als LETZTE sperrende Operation. Snapshot traegt NIEMALS content.
+            AuditLogRecorder.record(
+                actorMemberId = current.memberId,
+                actorRole = current.role,
+                entityType = AuditEntityType.SOCIAL_POST,
+                entityId = postId,
+                action = AuditAction.UPDATE,
+                before =
+                    Json.encodeToString(
+                        SocialPostModerationSnapshot(
+                            state = postRow[SocialPostTable.state],
+                            stateReason = postRow[SocialPostTable.stateReason],
+                            visibility = postRow[SocialPostTable.visibility],
+                            contentErasedAt = postRow[SocialPostTable.contentErasedAt],
+                        ),
+                    ),
+                after =
+                    Json.encodeToString(
+                        SocialPostModerationSnapshot(
+                            state = postRow[SocialPostTable.state],
+                            stateReason = postRow[SocialPostTable.stateReason],
+                            visibility = postRow[SocialPostTable.visibility],
+                            contentErasedAt = if (alreadyTombstoned) postRow[SocialPostTable.contentErasedAt] else now,
+                        ),
+                    ),
+            )
+            loadErasureDto(id)
+        }
+    }
+
+    // ── Welle V1.1.5 -- oeffentlicher Entfernungshinweis fuer nicht-oeffentliche Beitraege (E-B) ──
+
+    override suspend fun getRemovalNotice(postId: String): SocialPostRemovalNoticeDto {
+        val current = resolveCurrentMember(call)
+        requireReadRateLimit(memberId = current.memberId)
+        val postUuid = postId.toSocialUuid()
+        return transaction {
+            val row =
+                SocialPostTable
+                    .select(
+                        SocialPostTable.visibility,
+                        SocialPostTable.stateReason,
+                        SocialPostTable.stateChangedAt,
+                        SocialPostTable.publishedAt,
+                        SocialPostTable.authorMemberId,
+                    ).where {
+                        (SocialPostTable.id eq postUuid) and
+                            SocialVisibility.removalNoticeReadableCondition(status = current.status)
+                    }.singleOrNull() ?: throw NotFoundException("SocialPost $postId not found")
+            SocialPostRemovalNoticeDto(
+                postId = postUuid.toString(),
+                visibility = row[SocialPostTable.visibility],
+                removedAt = row[SocialPostTable.stateChangedAt] ?: row[SocialPostTable.publishedAt],
+                reason = row[SocialPostTable.stateReason]?.takeIf { it.isNotBlank() } ?: LEGAL_REMOVAL_FALLBACK_REASON,
+                isOwnPost = row[SocialPostTable.authorMemberId] == current.memberId,
+            )
+        }
+    }
+
     // ── Internal helpers ──────────────────────────────────────────────────────────────────
 
     /**
      * Shared by [createPost], [createComment], and, since Security-Audit-Fund S-2 (2026-08-18),
      * [hideOwnPost] too -- all three are mutating actions gated by the same [createRateLimiter]
      * budget, deliberately NOT separate limiter instances (see [requireBoostRateLimit] KDoc for why
-     * [boostPost] is the one exception).
+     * [boostPost] is the one exception). Stale-KDoc fix (Security-Audit Runde 1, 2026-08-19):
+     * [requestContentErasure] (Welle V1.1.5) is a FOURTH sharer of this same budget -- this KDoc
+     * previously still only named three, even though that method has called this function since
+     * the wave landed.
      */
     private fun requireRateLimit(memberId: Uuid) {
         if (!createRateLimiter.checkAndRecord(memberId.toString())) {
@@ -588,6 +1104,62 @@ class SocialNetworkService(
             throw ConflictException("Zu viele Boosts in kurzer Zeit -- bitte kurz warten und erneut versuchen.")
         }
     }
+
+    /** Welle V1.1.5 -- [removePostForLegalReason]/[decideReport]/[decideContentErasure]/[executeContentErasure] (BOARD/ADMIN, 20/min). */
+    private fun requireModerationRateLimit(memberId: Uuid) {
+        if (!moderationRateLimiter.checkAndRecord(memberId.toString())) {
+            throw ConflictException("Zu viele Moderationsaktionen in kurzer Zeit -- bitte kurz warten und erneut versuchen.")
+        }
+    }
+
+    /** Welle V1.1.5 -- [reportPost] (jeder authentifizierte Aufrufer, 5/Stunde). */
+    private fun requireReportRateLimit(memberId: Uuid) {
+        if (!reportRateLimiter.checkAndRecord(memberId.toString())) {
+            throw ConflictException("Zu viele Meldungen in kurzer Zeit -- bitte kurz warten und erneut versuchen.")
+        }
+    }
+
+    private fun requireModerationReason(reason: String) {
+        if (reason.isBlank()) throw ConflictException("reason must not be blank")
+        if (reason.length > MAX_MODERATION_REASON_LENGTH) {
+            throw ConflictException("reason exceeds the maximum length of $MAX_MODERATION_REASON_LENGTH characters")
+        }
+    }
+
+    private fun requireErasureReason(reason: String) {
+        if (reason.isBlank()) throw ConflictException("reason must not be blank")
+        if (reason.length > MAX_ERASURE_REASON_LENGTH) {
+            throw ConflictException("reason exceeds the maximum length of $MAX_ERASURE_REASON_LENGTH characters")
+        }
+    }
+
+    private fun requireContactLength(contact: String?) {
+        if (contact != null && contact.length > MAX_CONTACT_LENGTH) {
+            throw ConflictException("contact exceeds the maximum length of $MAX_CONTACT_LENGTH characters")
+        }
+    }
+
+    /** [decideReport]/[decideContentErasure] -- siehe [MAX_DECISION_NOTE_LENGTH] KDoc. */
+    private fun requireDecisionNoteLength(note: String?) {
+        if (note != null && note.length > MAX_DECISION_NOTE_LENGTH) {
+            throw ConflictException("note exceeds the maximum length of $MAX_DECISION_NOTE_LENGTH characters")
+        }
+    }
+
+    private fun loadReportDto(id: Uuid): SocialPostReportDto =
+        SocialPostReportTable
+            .join(SocialPostTable, JoinType.INNER, SocialPostReportTable.postId, SocialPostTable.id)
+            .selectAll()
+            .where { SocialPostReportTable.id eq id }
+            .single()
+            .toReportDto()
+
+    private fun loadErasureDto(id: Uuid): SocialPostErasureDto =
+        SocialPostErasureTable
+            .selectAll()
+            .where { SocialPostErasureTable.id eq id }
+            .single()
+            .toErasureDto()
 
     /**
      * Review-Fund S1 (2026-08-18): [now] minus [SocialPostWeight.RANKING_HORIZON_DAYS], via
@@ -712,3 +1284,40 @@ class SocialNetworkService(
 }
 
 internal fun String.toSocialUuid(): Uuid = runCatching { Uuid.parse(this) }.getOrElse { throw NotFoundException("Invalid id: $this") }
+
+private fun ResultRow.toReportDto(): SocialPostReportDto =
+    SocialPostReportDto(
+        id = this[SocialPostReportTable.id].toString(),
+        postId = this[SocialPostReportTable.postId].toString(),
+        postExcerpt = this[SocialPostTable.content].take(REPORT_POST_EXCERPT_LENGTH),
+        postState = this[SocialPostTable.state],
+        postVisibility = this[SocialPostTable.visibility],
+        reportedAt = this[SocialPostReportTable.reportedAt],
+        reporterMemberId = this[SocialPostReportTable.reporterMemberId]?.toString(),
+        // MINOR-4 (Security-Audit Runde 1, 2026-08-19): see SocialPostReportDto.reporterContact KDoc.
+        reporterContact = this[SocialPostReportTable.reporterContact],
+        category = this[SocialPostReportTable.category],
+        description = this[SocialPostReportTable.description],
+        goodFaithConfirmed = this[SocialPostReportTable.goodFaithConfirmed],
+        status = this[SocialPostReportTable.status],
+        decidedBy = this[SocialPostReportTable.decidedBy]?.toString(),
+        decidedAt = this[SocialPostReportTable.decidedAt],
+        decisionNote = this[SocialPostReportTable.decisionNote],
+    )
+
+private fun ResultRow.toErasureDto(): SocialPostErasureDto =
+    SocialPostErasureDto(
+        id = this[SocialPostErasureTable.id].toString(),
+        postId = this[SocialPostErasureTable.postId].toString(),
+        requestedAt = this[SocialPostErasureTable.requestedAt],
+        requestedBy = this[SocialPostErasureTable.requestedBy]?.toString(),
+        subjectMemberId = this[SocialPostErasureTable.subjectMemberId]?.toString(),
+        requesterContact = this[SocialPostErasureTable.requesterContact],
+        reason = this[SocialPostErasureTable.reason],
+        status = this[SocialPostErasureTable.status],
+        decidedBy = this[SocialPostErasureTable.decidedBy]?.toString(),
+        decidedAt = this[SocialPostErasureTable.decidedAt],
+        decisionNote = this[SocialPostErasureTable.decisionNote],
+        executedAt = this[SocialPostErasureTable.executedAt],
+        sourceReportId = this[SocialPostErasureTable.sourceReportId]?.toString(),
+    )

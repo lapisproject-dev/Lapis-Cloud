@@ -292,6 +292,8 @@ private fun refreshNavbar(navbar: Navbar) {
                 url = "#${Routes.BOARD_MEMBERSHIP}",
                 icon = "fas fa-landmark-flag",
             )
+            // Welle V1.1.5 -- siehe `Routes.SOCIAL_MODERATION` KDoc für die Rollen-Verifikation.
+            ddLink(tr("Moderation"), url = "#${Routes.SOCIAL_MODERATION}", icon = "fas fa-flag")
         }
     }
     // ADMIN-only-tier -- see `Routes.BACKUP`/`CONFERENCE_STREAM_DESTINATIONS` KDoc.

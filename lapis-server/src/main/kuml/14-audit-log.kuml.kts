@@ -161,6 +161,7 @@ classDiagram(name = "AuditLog") {
         literal(name = "CONFERENCE_STREAM")
         literal(name = "CONFERENCE_STREAM_DESTINATION")
         literal(name = "CONFERENCE_ROOM")
+        literal(name = "SOCIAL_POST") // Soziales Netzwerk, Welle V1.1.5 -- rechtliche Entfernung + Melde-Entscheidung
     }
 
     // Genesis-singleton row (see file header) -- gapless sequence_number + hash-chain

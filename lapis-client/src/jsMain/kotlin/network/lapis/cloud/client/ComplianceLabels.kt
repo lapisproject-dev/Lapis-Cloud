@@ -74,6 +74,9 @@ fun auditEntityTypeLabel(entityType: AuditEntityType): String =
         // used for the per-room federation-guest-access capability across badge/button/dialog/
         // invite, see the Wave 5 design review's D2 "Terminology lock".
         AuditEntityType.CONFERENCE_ROOM -> gettext("Gastzugang")
+        // Soziales Netzwerk, Welle V1.1.5 -- "Beitrag" ist der Begriff, den `SocialNetworkScreen.kt`
+        // durchgängig für einen `SocialPost` verwendet ("Beitrag verfassen"/"Beitrag melden"...).
+        AuditEntityType.SOCIAL_POST -> gettext("Beitrag")
     }
 
 fun auditEntityTypeColor(entityType: AuditEntityType): String =
@@ -91,6 +94,9 @@ fun auditEntityTypeColor(entityType: AuditEntityType): String =
         // "info" -- matches the Wave 5 design review's D3 in-call "Gastzugang" status badge color
         // ("open guest access is a state of affairs, not an achievement").
         AuditEntityType.CONFERENCE_ROOM -> "info"
+        // "danger" -- eine rechtliche Entfernung/Melde-Entscheidung ist die folgenreichste
+        // Eintragsart dieses Log, konsistent zu PARTY_DONATION_VERDICT's Einstufung oben.
+        AuditEntityType.SOCIAL_POST -> "danger"
     }
 
 // ------------------------------------------------------------------------------------------------

@@ -117,6 +117,20 @@ class ValidationTest {
         assertTrue(isRouteAllowed(authenticated = true, callerRole = AccountRole.BOARD, requiredRoles = requiredRoles))
     }
 
+    // Welle V1.1.5 -- Routes.SOCIAL_MODERATION uses the same {BOARD, ADMIN} guard shape as
+    // Routes.MEMBERS/DSGVO_COMPLIANCE/BOARD_MEMBERSHIP; MEMBER is denied, ADMIN is allowed.
+    @Test
+    fun isRouteAllowed_deniesMemberOnSocialModerationsBoardOrAdminGuard() {
+        val requiredRoles = setOf(AccountRole.BOARD, AccountRole.ADMIN)
+        assertFalse(isRouteAllowed(authenticated = true, callerRole = AccountRole.MEMBER, requiredRoles = requiredRoles))
+    }
+
+    @Test
+    fun isRouteAllowed_allowsAdminOnSocialModerationsBoardOrAdminGuard() {
+        val requiredRoles = setOf(AccountRole.BOARD, AccountRole.ADMIN)
+        assertTrue(isRouteAllowed(authenticated = true, callerRole = AccountRole.ADMIN, requiredRoles = requiredRoles))
+    }
+
     @Test
     fun isPositiveDecimal_acceptsAPlausibleAmount() {
         assertTrue(Validation.isPositiveDecimal("1.50"))

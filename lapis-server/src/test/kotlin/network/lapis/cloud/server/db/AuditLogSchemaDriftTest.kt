@@ -135,6 +135,7 @@ class AuditLogSchemaDriftTest :
                             "CONFERENCE_STREAM",
                             "CONFERENCE_STREAM_DESTINATION",
                             "CONFERENCE_ROOM",
+                            "SOCIAL_POST",
                         ),
                     externalFqName = "network.lapis.cloud.shared.domain.AuditEntityType",
                 )

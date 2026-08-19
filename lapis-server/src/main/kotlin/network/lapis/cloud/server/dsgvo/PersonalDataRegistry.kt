@@ -85,6 +85,12 @@ object PersonalDataRegistry {
                 "by an unconstrained UUID) -- same accountability-is-its-own-legal-basis treatment as " +
                 "dsgvo_audit_log. Never appears in the information_schema FK walk (no real FK exists), " +
                 "listed here purely for documentation -- see 25-oidc-guest-federation.kuml.kts file header.",
+            "social_post_erasure" to
+                "Welle V1.1.5. Manages the (post-bezogener Art.-17-)erasure process itself and " +
+                "references members only by UUID (requested_by/subject_member_id/decided_by). " +
+                "Persists after execution as a procedural record -- same posture as erasure_request " +
+                "for the mitglieds-bezogenen Pfad. Andernfalls waere ein Loeschantrag durch seine " +
+                "eigene Ausfuehrung loeschbar.",
         )
 
     init {

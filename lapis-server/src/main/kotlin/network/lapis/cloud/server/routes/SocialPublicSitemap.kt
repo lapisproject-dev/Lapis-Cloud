@@ -124,24 +124,22 @@ internal object SocialPublicSitemap {
 
         val maxPublishedAt = SocialPostTable.publishedAt.max()
         val maxStateChangedAt = SocialPostTable.stateChangedAt.max()
+        // Welle V1.1.5 (Plan § 5.4): ein Tombstoning (`executeContentErasure`/
+        // `SocialNetworkPersonalData.erase`) aendert den Seiteninhalt eines Threads, OHNE
+        // `state_changed_at` zu bewegen (die rechtliche Entfernung ist orthogonal dazu, siehe
+        // `SocialPostDto.contentErasedAt` KDoc) -- ohne dieses dritte `max()` signalisiert ein
+        // Tombstone dem Crawler KEINE Aenderung, und die alte, inhaltstragende Version bleibt bis
+        // zum naechsten spontanen Re-Crawl im Index.
+        val maxContentErasedAt = SocialPostTable.contentErasedAt.max()
         val lastmodByRootId = mutableMapOf<Uuid, LocalDateTime?>()
         rootIds.chunked(ROOT_ID_QUERY_CHUNK_SIZE).forEach { chunk ->
             SocialPostTable
-                .select(SocialPostTable.rootId, maxPublishedAt, maxStateChangedAt)
+                .select(SocialPostTable.rootId, maxPublishedAt, maxStateChangedAt, maxContentErasedAt)
                 .where { SocialPostTable.rootId inList chunk }
                 .groupBy(SocialPostTable.rootId)
                 .forEach { row ->
-                    val published = row[maxPublishedAt]
-                    val stateChanged = row[maxStateChangedAt]
-                    val lastmod =
-                        if (published == null) {
-                            stateChanged
-                        } else if (stateChanged != null && stateChanged > published) {
-                            stateChanged
-                        } else {
-                            published
-                        }
-                    lastmodByRootId[row[SocialPostTable.rootId]] = lastmod
+                    val candidates = listOfNotNull(row[maxPublishedAt], row[maxStateChangedAt], row[maxContentErasedAt])
+                    lastmodByRootId[row[SocialPostTable.rootId]] = candidates.maxOrNull()
                 }
         }
         return rootIds.mapNotNull { id -> lastmodByRootId[id]?.let { SitemapEntry(id = id, lastmod = it) } }

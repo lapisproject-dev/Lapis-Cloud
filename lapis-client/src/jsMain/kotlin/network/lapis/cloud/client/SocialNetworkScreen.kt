@@ -2,9 +2,11 @@ package network.lapis.cloud.client
 
 import dev.kilua.rpc.types.toDecimal
 import dev.kilua.rpc.types.toDouble
+import io.kvision.form.check.checkBox
 import io.kvision.form.select.select
 import io.kvision.form.text.text
 import io.kvision.form.text.textArea
+import io.kvision.html.Button
 import io.kvision.html.ButtonStyle
 import io.kvision.html.button
 import io.kvision.html.div
@@ -14,20 +16,28 @@ import io.kvision.html.link
 import io.kvision.html.p
 import io.kvision.i18n.gettext
 import io.kvision.i18n.tr
+import io.kvision.modal.Modal
 import io.kvision.panel.SimplePanel
 import io.kvision.panel.hPanel
 import io.kvision.panel.vPanel
 import io.kvision.utils.px
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
+import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.MemberStatus
 import network.lapis.cloud.shared.domain.MemberStatusSets
 import network.lapis.cloud.shared.domain.SocialCommentInput
 import network.lapis.cloud.shared.domain.SocialPostDto
+import network.lapis.cloud.shared.domain.SocialPostErasureInput
 import network.lapis.cloud.shared.domain.SocialPostInput
+import network.lapis.cloud.shared.domain.SocialPostRemovalNoticeDto
+import network.lapis.cloud.shared.domain.SocialPostReportCategory
+import network.lapis.cloud.shared.domain.SocialPostReportInput
 import network.lapis.cloud.shared.domain.SocialPostState
 import network.lapis.cloud.shared.domain.SocialPostVisibility
 import network.lapis.cloud.shared.domain.SocialTimelineQuery
 import network.lapis.cloud.shared.rpc.ISocialNetworkService
+import network.lapis.cloud.shared.rpc.NotFoundException
 
 /**
  * Soziales Netzwerk, Welle V1.1.1 "Fundament & Post-Kern" + Welle V1.1.2 "Kommentarbaum, Boosts,
@@ -132,6 +142,65 @@ fun renderSocialNetworkScreen(container: SimplePanel) {
     refreshButton.onClick { loadTimeline() }
     renderComposeForm(composerPanel) { loadTimeline() }
     loadTimeline()
+
+    // ---- Welle V1.1.5 (E-C, DSA Art. 17): Eigenansicht "Meine entfernten Beiträge" -------------
+    val myMemberId = AppState.session?.memberId
+    if (myMemberId != null) {
+        root.h2(tr("Meine entfernten Beiträge"))
+        val ownRemovedPanel = root.vPanel(spacing = 10)
+
+        fun loadOwnRemoved() {
+            ownRemovedPanel.removeAll()
+            ownRemovedPanel.p(tr("Wird geladen …")) { addCssClasses("text-muted small") }
+            AppScope.launch {
+                val page =
+                    guarded {
+                        rpcService<ISocialNetworkService>().listTimeline(
+                            SocialTimelineQuery(includeHidden = true, authorMemberId = myMemberId, limit = 100),
+                        )
+                    }
+                ownRemovedPanel.removeAll()
+                val removed = page?.posts?.filter { it.state == SocialPostState.REMOVED_LEGAL }.orEmpty()
+                if (removed.isEmpty()) {
+                    ownRemovedPanel.p(tr("Keine entfernten eigenen Beiträge.")) { addCssClasses("text-muted small") }
+                } else {
+                    removed.forEach { post -> renderOwnRemovedPostCard(ownRemovedPanel, post) }
+                }
+            }
+        }
+        loadOwnRemoved()
+    }
+}
+
+/**
+ * Welle V1.1.5 (E-C, DSA Art. 17) -- eine deutlich markierte Karte für den Autor selbst, mit
+ * [SocialPostDto.state] + [SocialPostDto.stateReason]. Nutzt dieselbe Eigenansicht-Query wie
+ * `listTimeline(includeHidden = true, authorMemberId = self)`, gefiltert clientseitig auf
+ * `REMOVED_LEGAL` -- der Server liefert dort zusätzlich `VISIBLE`/`HIDDEN_BY_AUTHOR` mit, die in
+ * der normalen Timeline bzw. über [renderHideOwnPostControl] bereits sichtbar sind.
+ */
+private fun renderOwnRemovedPostCard(
+    panel: SimplePanel,
+    post: SocialPostDto,
+) {
+    val card = panel.vPanel(spacing = 6) { addCssClasses("border rounded p-3 border-danger") }
+    card.statusBadge(tr("Rechtlich entfernt"), "danger")
+    card.div(gettext("Begründung: %1", post.stateReason.orEmpty())) { addCssClasses("small") }
+    card.div(gettext("Veröffentlicht am %1", post.publishedAt)) { addCssClasses("text-muted small") }
+}
+
+/**
+ * Welle V1.1.5 (E-B) -- Hinweiskarte aus [SocialPostRemovalNoticeDto], aufgerufen als Fallback in
+ * [renderSocialThreadScreen], wenn [ISocialNetworkService.getPost] `NotFoundException` liefert.
+ */
+private fun renderRemovalNotice(
+    panel: SimplePanel,
+    notice: SocialPostRemovalNoticeDto,
+) {
+    val card = panel.vPanel(spacing = 6) { addCssClasses("border rounded p-3 border-danger") }
+    card.div(SocialModerationUi.removalNoticeHeadline(isOwnPost = notice.isOwnPost)) { addCssClasses("fw-bold text-danger") }
+    card.div(gettext("Entfernt am %1", notice.removedAt)) { addCssClasses("text-muted small") }
+    card.div(notice.reason) { addCssClasses("small") }
 }
 
 // ================================================================================================
@@ -283,7 +352,7 @@ private fun renderSocialPostCard(
     headerRow.div(post.authorDisplayName) { addCssClasses("flex-grow-1 fw-bold") }
     headerRow.statusBadge(socialPostVisibilityLabel(post.visibility), socialPostVisibilityColor(post.visibility))
 
-    card.div(post.content) { addCssClasses("small") }
+    renderPostContentText(card, post)
     card.div(gettext("Veröffentlicht am %1", post.publishedAt)) { addCssClasses("text-muted small") }
 
     // Drei Kennzahlen nebeneinander, nie zu einer verschmolzen (Meritokratie-Konzept "Anzeige in
@@ -327,10 +396,21 @@ private fun renderSocialPostCard(
         navigateTo("${Routes.SOCIAL_NETWORK}/post/${post.id}")
     }
     renderBoostControl(actionsRow, post, onChanged)
+    renderReportControl(actionsRow, post, isAuthor, onChanged)
+    renderRequestErasureControl(actionsRow, post, onChanged)
 
     if (isAuthor && post.state == SocialPostState.VISIBLE) {
         renderHideOwnPostControl(card, post, onChanged)
     }
+    renderRemoveForLegalReasonControl(card, post, onChanged)
+}
+
+/** Welle V1.1.5 -- gedämpfte Kursivschrift für einen getombstoneten Post (`content` ist dann der Marker-Text), sonst normale Anzeige. */
+private fun renderPostContentText(
+    panel: SimplePanel,
+    post: SocialPostDto,
+) {
+    panel.div(post.content) { addCssClasses(if (post.contentErasedAt != null) "small fst-italic text-muted" else "small") }
 }
 
 /**
@@ -422,6 +502,218 @@ private fun renderHideOwnPostControl(
 }
 
 // ================================================================================================
+// Welle V1.1.5 -- Moderation (DSA Art. 16/6), DSGVO-Content-Löschantrag
+// ================================================================================================
+
+/**
+ * Reine, DOM-freie Prädikate für die Rollen-/Zustands-Gates dieser Welle -- extrahiert nach dem
+ * Muster [SocialComposerVisibility], testbar ohne Rendering-Harness (existiert in diesem Modul
+ * nicht).
+ */
+object SocialModerationUi {
+    /** Spiegelt `SocialNetworkService.SOCIAL_MODERATION_ROLES` (server-seitige Wahrheit bleibt maßgeblich). */
+    fun canRemove(role: AccountRole?): Boolean = role == AccountRole.BOARD || role == AccountRole.ADMIN
+
+    /** Der Autor darf seinen eigenen Post nicht melden; ein bereits nicht-`VISIBLE`r Post hat nichts mehr zu melden. */
+    fun canReport(
+        isAuthor: Boolean,
+        state: SocialPostState,
+    ): Boolean = !isAuthor && state == SocialPostState.VISIBLE
+
+    /** Welle V1.1.5 (E-B) -- die Überschrift der Hinweiskarte in [renderRemovalNotice], je nachdem ob der Betrachter selbst der Autor ist. */
+    fun removalNoticeHeadline(isOwnPost: Boolean): String =
+        if (isOwnPost) {
+            gettext("Ihr Beitrag wurde aus rechtlichen Gründen entfernt.")
+        } else {
+            gettext("Dieser Beitrag wurde aus rechtlichen Gründen entfernt.")
+        }
+}
+
+/** "Melden" -- DSA Art. 16, siehe [ISocialNetworkService.reportPost] KDoc. Nicht sichtbar für den Autor oder einen nicht-`VISIBLE`n Post. */
+private fun renderReportControl(
+    row: SimplePanel,
+    post: SocialPostDto,
+    isAuthor: Boolean,
+    onChanged: () -> Unit,
+) {
+    if (!SocialModerationUi.canReport(isAuthor = isAuthor, state = post.state)) return
+    val reportButton = row.button(tr("Melden"), style = ButtonStyle.OUTLINESECONDARY)
+    reportButton.onClick { openReportDialog(post, onChanged) }
+}
+
+private fun openReportDialog(
+    post: SocialPostDto,
+    onChanged: () -> Unit,
+) {
+    val modal = Modal(caption = tr("Beitrag melden"))
+    modal.div(
+        tr(
+            "Bitte begründen Sie, warum dieser Beitrag rechtswidrig ist (Digital Services Act, " +
+                "Verordnung (EU) 2022/2065, Art. 16).",
+        ),
+    ) { addCssClasses("small text-muted") }
+    val categoryOptions = SocialPostReportCategory.entries.map { it.name to socialPostReportCategoryLabel(it) }
+    val categorySelect = modal.select(options = categoryOptions, label = tr("Kategorie"))
+    val descriptionInput = modal.textArea(label = tr("Begründung"), rows = 3)
+    val goodFaithCheck =
+        modal.checkBox(
+            label = tr("Ich erkläre, dass diese Meldung nach bestem Wissen zutreffend und in gutem Glauben abgegeben wird."),
+        )
+    val errorBox =
+        modal.div().apply {
+            addCssClass("text-danger")
+            hide()
+        }
+    modal.addButton(Button(tr("Abbrechen"), style = ButtonStyle.SECONDARY).apply { onClick { modal.hide() } })
+    val submitButton = Button(tr("Melden"), style = ButtonStyle.PRIMARY)
+    submitButton.onClick {
+        errorBox.hide()
+        val description = descriptionInput.value.orEmpty().trim()
+        val category = parseOptionalEnum<SocialPostReportCategory>(categorySelect.value)
+        if (!Validation.isNonBlank(description) || category == null || goodFaithCheck.value != true) {
+            errorBox.content = tr("Bitte Kategorie und Begründung angeben und die Gutgläubigkeitserklärung bestätigen.")
+            errorBox.show()
+            return@onClick
+        }
+        submitButton.disabled = true
+        AppScope.launch {
+            val result =
+                guarded {
+                    rpcService<ISocialNetworkService>().reportPost(
+                        SocialPostReportInput(
+                            postId = post.id,
+                            category = category,
+                            description = description,
+                            goodFaithConfirmed = true,
+                        ),
+                    )
+                }
+            submitButton.disabled = false
+            if (result != null) {
+                modal.hide()
+                notifySuccess(tr("Meldung übermittelt."))
+                onChanged()
+            }
+        }
+    }
+    modal.addButton(submitButton)
+    modal.show()
+}
+
+/**
+ * "Löschung beantragen (DSGVO)" -- der post-bezogene Art.-17-Antrag
+ * ([ISocialNetworkService.requestContentErasure]). Sichtbar für JEDEN authentifizierten Aufrufer --
+ * die betroffene Person ist nicht notwendig der Autor.
+ */
+private fun renderRequestErasureControl(
+    row: SimplePanel,
+    post: SocialPostDto,
+    onChanged: () -> Unit,
+) {
+    val button = row.button(tr("Löschung beantragen (DSGVO)"), style = ButtonStyle.OUTLINESECONDARY)
+    button.onClick { openRequestErasureDialog(post, onChanged) }
+}
+
+private fun openRequestErasureDialog(
+    post: SocialPostDto,
+    onChanged: () -> Unit,
+) {
+    val modal = Modal(caption = tr("Löschung des Beitragsinhalts beantragen (Art. 17 DSGVO)"))
+    modal.div(
+        tr(
+            "Beantragt die Löschung NUR des Beitragsinhalts (nicht des gesamten Beitrags) -- über " +
+                "den Antrag entscheidet eine Administratorin oder ein Administrator gesondert.",
+        ),
+    ) { addCssClasses("small text-muted") }
+    val reasonInput = modal.textArea(label = tr("Begründung"), rows = 3)
+    val errorBox =
+        modal.div().apply {
+            addCssClass("text-danger")
+            hide()
+        }
+    modal.addButton(Button(tr("Abbrechen"), style = ButtonStyle.SECONDARY).apply { onClick { modal.hide() } })
+    val submitButton = Button(tr("Beantragen"), style = ButtonStyle.PRIMARY)
+    submitButton.onClick {
+        errorBox.hide()
+        val reason = reasonInput.value.orEmpty().trim()
+        if (!Validation.isNonBlank(reason)) {
+            errorBox.content = tr("Bitte eine Begründung angeben.")
+            errorBox.show()
+            return@onClick
+        }
+        submitButton.disabled = true
+        AppScope.launch {
+            val result =
+                guarded {
+                    rpcService<ISocialNetworkService>().requestContentErasure(SocialPostErasureInput(postId = post.id, reason = reason))
+                }
+            submitButton.disabled = false
+            if (result != null) {
+                modal.hide()
+                notifySuccess(tr("Löschantrag übermittelt."))
+                onChanged()
+            }
+        }
+    }
+    modal.addButton(submitButton)
+    modal.show()
+}
+
+/**
+ * "Rechtlich entfernen" -- [ISocialNetworkService.removePostForLegalReason], BOARD/ADMIN. Die
+ * Pflicht-`textArea` bekommt einen unübersehbaren Warnhinweis: die Begründung wird ab Welle V1.1.5
+ * öffentlich sichtbar (Entscheidungspunkt E-B). Client-seitige Nichtleer-Vorprüfung + `errorBox` VOR
+ * dem [confirmDialog] (Muster `CrowdfundingScreen.renderBoardDecidePanel`).
+ */
+private fun renderRemoveForLegalReasonControl(
+    card: SimplePanel,
+    post: SocialPostDto,
+    onChanged: () -> Unit,
+) {
+    if (!SocialModerationUi.canRemove(AppState.session?.role)) return
+    if (post.state == SocialPostState.REMOVED_LEGAL) return
+    val row = card.vPanel(spacing = 6) { addCssClasses("border-top pt-2 mt-1") }
+    val reasonInput = row.textArea(label = tr("Begründung"), rows = 2)
+    row.div(tr("Diese Begründung wird öffentlich sichtbar -- auch für nicht angemeldete Besucher.")) {
+        addCssClasses("text-danger small fw-bold")
+    }
+    val errorBox =
+        row.div().apply {
+            addCssClass("text-danger")
+            hide()
+        }
+    val removeButton = row.button(tr("Rechtlich entfernen"), style = ButtonStyle.OUTLINEDANGER)
+    removeButton.onClick {
+        errorBox.hide()
+        val reason = reasonInput.value.orEmpty().trim()
+        if (!Validation.isNonBlank(reason)) {
+            errorBox.content = tr("Bitte eine Begründung angeben.")
+            errorBox.show()
+            return@onClick
+        }
+        confirmDialog(
+            title = tr("Beitrag rechtlich entfernen"),
+            message =
+                tr(
+                    "Diese Begründung wird öffentlich sichtbar -- auch für nicht angemeldete Besucher. " +
+                        "Es gibt keine LTR-Rückerstattung.",
+                ),
+            confirmLabel = tr("Entfernen"),
+        ) {
+            removeButton.disabled = true
+            AppScope.launch {
+                val result = guarded { rpcService<ISocialNetworkService>().removePostForLegalReason(post.id, reason) }
+                removeButton.disabled = false
+                if (result != null) {
+                    notifySuccess(tr("Beitrag entfernt."))
+                    onChanged()
+                }
+            }
+        }
+    }
+}
+
+// ================================================================================================
 // German label/badge-color tables
 // ================================================================================================
 
@@ -505,7 +797,35 @@ fun renderSocialThreadScreen(
     AppScope.launch {
         // getPost zuerst -- liefert fuer JEDE gueltige Id (Wurzel oder Nachfahre) die kanonische
         // rootId; getThread selbst wuerde eine Nicht-Wurzel-Id mit NotFoundException ablehnen (K4).
-        val post = guarded { rpcService<ISocialNetworkService>().getPost(postId) } ?: return@launch
+        //
+        // Welle V1.1.5 (E-B): NotFoundException wird HIER, ausserhalb von guarded(), abgefangen --
+        // guarded() wuerde sofort einen "Nicht gefunden."-Toast zeigen, bevor der explizite
+        // getRemovalNotice-Fallback ueberhaupt eine Chance hat. Jede andere Exception (inkl.
+        // CancellationException) laeuft weiterhin durch guarded()'s normale Fehlerbehandlung.
+        val post =
+            try {
+                rpcService<ISocialNetworkService>().getPost(postId)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: NotFoundException) {
+                null
+            } catch (e: Throwable) {
+                // Jede andere Exception: dieselbe Fehlerbehandlung wie ueberall sonst (Toast +
+                // null), realisiert durch einen zweiten Aufruf ueber guarded() -- getPost ist rein
+                // lesend, ein Zweitaufruf ist folgenlos.
+                guarded { rpcService<ISocialNetworkService>().getPost(postId) }
+            }
+        if (post == null) {
+            nodesPanel.removeAll()
+            val notice = guarded { rpcService<ISocialNetworkService>().getRemovalNotice(postId) }
+            nodesPanel.removeAll()
+            if (notice != null) {
+                renderRemovalNotice(nodesPanel, notice)
+            } else {
+                nodesPanel.p(tr("Dieser Beitrag ist nicht (mehr) verfügbar.")) { addCssClasses("text-muted small") }
+            }
+            return@launch
+        }
         loadThread(post.rootId)
     }
 }
@@ -538,7 +858,7 @@ private fun renderThreadNode(
     headerRow.div(node.authorDisplayName) { addCssClasses("flex-grow-1 fw-bold") }
     headerRow.statusBadge(socialPostVisibilityLabel(node.visibility), socialPostVisibilityColor(node.visibility))
 
-    card.div(node.content) { addCssClasses("small") }
+    renderPostContentText(card, node)
     card.div(gettext("Veröffentlicht am %1", node.publishedAt)) { addCssClasses("text-muted small") }
 
     val weightRow = card.hPanel(spacing = 16) { addCssClasses("align-items-center flex-wrap") }
@@ -559,10 +879,13 @@ private fun renderThreadNode(
     val replyButton = actionsRow.button(tr("Antworten"), style = ButtonStyle.OUTLINESECONDARY)
     replyButton.onClick { if (replyPanel.visible) replyPanel.hide() else replyPanel.show() }
     renderReplyForm(replyPanel, node, rootVisibility) { onChanged() }
+    renderReportControl(actionsRow, node, isAuthor, onChanged)
+    renderRequestErasureControl(actionsRow, node, onChanged)
 
     if (isAuthor && node.state == SocialPostState.VISIBLE) {
         renderHideOwnPostControl(card, node, onChanged)
     }
+    renderRemoveForLegalReasonControl(card, node, onChanged)
 }
 
 /**

@@ -13,14 +13,14 @@
 // own comment below for the one load-bearing consequence of this wave (content now reaches an
 // unauthenticated HTML response body).
 //
-// **`SocialPost` plus the two Welle-1 enums plus `SocialPostBoost` (Welle V1.1.2) exist in this
-// file.** `SocialPostReport`/`SocialPostReportCategory`/`SocialPostReportStatus` (Welle V1.1.5,
-// Moderation) and `SocialPostErasure` (Welle V1.1.5, DSGVO-Hard-Delete) are deliberately NOT
-// modelled yet -- adding their enums/classes here before the corresponding tables/migrations exist
-// would let this file drift ahead of `SocialNetworkSchemaDriftTest`'s own three-way comparison
-// (model <-> migrated schema <-> hand-written Table object), which is exactly the class of bug that
-// test exists to catch. Each later wave extends this file when its own migration lands, never
-// before.
+// **Welle V1.1.5 "Moderation, DSA-Melde-Mechanismus, DSGVO-Content-Hard-Delete" adds:**
+// `SocialPost.contentErasedAt`/`.contentErasureNote` (two new attributes, `V6__social_moderation_
+// and_erasure.sql`), the three new enums `SocialPostReportCategory`/`SocialPostReportStatus`/
+// `SocialPostErasureStatus`, and the two new classes `SocialPostReport` (DSA Art. 16 Meldungen)
+// und `SocialPostErasure` (post-bezogener DSGVO-Art.-17-Antrag, fuer betroffene Personen OHNE
+// eigenes Lapis-Cloud-Konto -- siehe Implementierungsplan § 0.4 "die strukturelle Grenze"). Die
+// rechtliche Entfernung selbst (`SocialPostState.REMOVED_LEGAL`) braucht KEINE neue Spalte hier --
+// das Enum-Literal und `stateReason` existieren bereits seit Welle V1.1.1.
 //
 // **`root_id` is a denormalized, but structurally-immutable column** (S1 in the plan's open-decision
 // table): a post never changes its parent after publication (Unveraenderlichkeit, see the
@@ -193,10 +193,28 @@ classDiagram(name = "SocialNetwork") {
             stereotype("Column") { "columnName" to "state_changed_by"; "fkEntity" to "Member" }
         }
         // Populated by the Welle-V1.1.5 rechtliche-Entfernung path (BOARD/ADMIN, Pflichtfeld dort).
-        // hideOwnPost (this wave) leaves it null -- the author's own reason, if any, is not modelled.
+        // hideOwnPost leaves it null -- the author's own reason, if any, is not modelled.
+        // **Welle V1.1.5 (Entscheidungspunkt E-B): oeffentlich sichtbar** -- fuer einen PUBLIC-Post
+        // ueber die 451-Hinweisseite (GET /s/{id}), fuer jeden anderen ueber getRemovalNotice. Darf
+        // deshalb NIE interne Vorgangsdaten enthalten, siehe SocialPostState.REMOVED_LEGAL KDoc.
         attribute(name = "stateReason", type = "String") {
             multiplicity = Multiplicity(0, 1)
             stereotype("Column") { "columnName" to "state_reason"; "sqlType" to "VARCHAR(2000)" }
+        }
+        // Welle V1.1.5. `null` == niemals per Art.-17-Antrag getombstonet. Gesetzt von
+        // SocialNetworkService.executeContentErasure und SocialNetworkPersonalData.erase
+        // (HARD_DELETE_WHERE_UNCONSTRAINED-Zweig) -- beide ueberschreiben `content` mit einem
+        // festen SocialContentTombstone-Marker und setzen diesen Zeitstempel. Orthogonal zu
+        // `state`/`stateReason` -- eine rechtliche Entfernung fasst dieses Feld NIE an.
+        attribute(name = "contentErasedAt", type = "LocalDateTime") {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") { "columnName" to "content_erased_at" }
+        }
+        // Interne Begruendung/Rechtsgrundlage der Content-Loeschung (z. B. Antrags-Id) -- wird
+        // NIEMALS oeffentlich gerendert, im Unterschied zu `stateReason`.
+        attribute(name = "contentErasureNote", type = "String") {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") { "columnName" to "content_erasure_note"; "sqlType" to "VARCHAR(2000)" }
         }
     }
 
@@ -230,6 +248,166 @@ classDiagram(name = "SocialNetwork") {
         // Own decay anchor (S4) -- deliberately NOT the boosted post's publishedAt.
         attribute(name = "boostedAt", type = "LocalDateTime") {
             stereotype("Column") { "columnName" to "boosted_at" }
+        }
+    }
+
+    // ============================================================================================
+    // Welle V1.1.5 "Moderation, DSA-Melde-Mechanismus, DSGVO-Content-Hard-Delete"
+    // ============================================================================================
+
+    // Literal order is load-bearing -- matches network.lapis.cloud.shared.domain.SocialPostReportCategory.
+    val socialPostReportCategory = enumOf(name = "SocialPostReportCategory") {
+        literal(name = "ILLEGAL_CONTENT")
+        literal(name = "DEFAMATION")
+        literal(name = "COPYRIGHT")
+        literal(name = "PERSONAL_DATA")
+        literal(name = "HATE_SPEECH")
+        literal(name = "SPAM")
+        literal(name = "OTHER")
+    }
+
+    // Literal order is load-bearing -- matches network.lapis.cloud.shared.domain.SocialPostReportStatus.
+    val socialPostReportStatus = enumOf(name = "SocialPostReportStatus") {
+        literal(name = "OPEN")
+        literal(name = "UNDER_REVIEW")
+        literal(name = "ACTION_TAKEN")
+        literal(name = "DISMISSED")
+    }
+
+    // Literal order is load-bearing -- matches network.lapis.cloud.shared.domain.SocialPostErasureStatus.
+    // Bewusst KEIN gemeinsames Enum mit ErasureStatus (04-dsgvo.kuml.kts) -- diese Datei ist ein
+    // eigenstaendiges classDiagram und kann kein Enum aus einer anderen Datei referenzieren; siehe
+    // Implementierungsplan § 2.3.
+    val socialPostErasureStatus = enumOf(name = "SocialPostErasureStatus") {
+        literal(name = "REQUESTED")
+        literal(name = "APPROVED")
+        literal(name = "REJECTED")
+        literal(name = "EXECUTED")
+    }
+
+    // DSA Art. 16 Melde-/Abhilfeverfahren -- ein Datensatz je Meldung, oeffentlich (anonym) oder
+    // authentifiziert eingereicht.
+    val socialPostReport = classOf(name = "SocialPostReport") {
+        stereotype("Entity") { "tableName" to "social_post_report"; "kotlinObjectName" to "SocialPostReportTable" }
+        stereotype("Index") { "columns" to listOf("post_id"); "name" to "idx_social_post_report_post" }
+        stereotype("Index") { "columns" to listOf("status", "reported_at"); "name" to "idx_social_post_report_status" }
+        stereotype("Index") { "columns" to listOf("reporter_member_id"); "name" to "idx_social_post_report_reporter" }
+
+        attribute(name = "id", type = "UUID") {
+            stereotype("Id")
+            stereotype("Column") { "columnName" to "id" }
+        }
+        attribute(name = "postId", type = "UUID") {
+            stereotype("Column") { "columnName" to "post_id"; "fkEntity" to "SocialPost" }
+        }
+        attribute(name = "reportedAt", type = "LocalDateTime") {
+            stereotype("Column") { "columnName" to "reported_at" }
+        }
+        // NULL = anonyme oeffentliche Meldung (POST /s/{id}/report ohne Konto).
+        attribute(name = "reporterMemberId", type = "UUID") {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") { "columnName" to "reporter_member_id"; "fkEntity" to "Member" }
+        }
+        attribute(name = "reporterContact", type = "String") {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") { "columnName" to "reporter_contact"; "sqlType" to "VARCHAR(320)" }
+        }
+        attribute(name = "category", type = socialPostReportCategory) {
+            stereotype("Column") {
+                "columnName" to "category"
+                "enumType" to "network.lapis.cloud.shared.domain.SocialPostReportCategory"
+            }
+        }
+        attribute(name = "description", type = "String") {
+            stereotype("Column") { "columnName" to "description"; "sqlType" to "VARCHAR(4000)" }
+        }
+        attribute(name = "goodFaithConfirmed", type = "Boolean") {
+            stereotype("Column") { "columnName" to "good_faith_confirmed" }
+        }
+        attribute(name = "status", type = socialPostReportStatus) {
+            defaultValue = "OPEN"
+            stereotype("Column") {
+                "columnName" to "status"
+                "enumType" to "network.lapis.cloud.shared.domain.SocialPostReportStatus"
+            }
+        }
+        attribute(name = "decidedBy", type = "UUID") {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") { "columnName" to "decided_by"; "fkEntity" to "Member" }
+        }
+        attribute(name = "decidedAt", type = "LocalDateTime") {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") { "columnName" to "decided_at" }
+        }
+        // Rein intern -- wird NIE oeffentlich gerendert (im Unterschied zu SocialPost.stateReason).
+        attribute(name = "decisionNote", type = "String") {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") { "columnName" to "decision_note"; "sqlType" to "VARCHAR(2000)" }
+        }
+    }
+
+    // Post-bezogener DSGVO-Art.-17-Antrag -- fuer betroffene Personen OHNE eigenes Lapis-Cloud-Konto
+    // (der mitglieds-bezogene Pfad bleibt ErasureRequest/IDsgvoService, siehe 04-dsgvo.kuml.kts).
+    val socialPostErasure = classOf(name = "SocialPostErasure") {
+        stereotype("Entity") { "tableName" to "social_post_erasure"; "kotlinObjectName" to "SocialPostErasureTable" }
+        stereotype("Index") { "columns" to listOf("post_id"); "name" to "idx_social_post_erasure_post" }
+        stereotype("Index") { "columns" to listOf("status", "requested_at"); "name" to "idx_social_post_erasure_status" }
+        stereotype("Index") { "columns" to listOf("subject_member_id"); "name" to "idx_social_post_erasure_subject" }
+
+        attribute(name = "id", type = "UUID") {
+            stereotype("Id")
+            stereotype("Column") { "columnName" to "id" }
+        }
+        attribute(name = "postId", type = "UUID") {
+            stereotype("Column") { "columnName" to "post_id"; "fkEntity" to "SocialPost" }
+        }
+        attribute(name = "requestedAt", type = "LocalDateTime") {
+            stereotype("Column") { "columnName" to "requested_at" }
+        }
+        // NULL = externe betroffene Person ohne Konto.
+        attribute(name = "requestedBy", type = "UUID") {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") { "columnName" to "requested_by"; "fkEntity" to "Member" }
+        }
+        // Gesetzt, wenn die betroffene Person ein Konto hat.
+        attribute(name = "subjectMemberId", type = "UUID") {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") { "columnName" to "subject_member_id"; "fkEntity" to "Member" }
+        }
+        attribute(name = "requesterContact", type = "String") {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") { "columnName" to "requester_contact"; "sqlType" to "VARCHAR(320)" }
+        }
+        attribute(name = "reason", type = "String") {
+            stereotype("Column") { "columnName" to "reason"; "sqlType" to "VARCHAR(4000)" }
+        }
+        attribute(name = "status", type = socialPostErasureStatus) {
+            defaultValue = "REQUESTED"
+            stereotype("Column") {
+                "columnName" to "status"
+                "enumType" to "network.lapis.cloud.shared.domain.SocialPostErasureStatus"
+            }
+        }
+        attribute(name = "decidedBy", type = "UUID") {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") { "columnName" to "decided_by"; "fkEntity" to "Member" }
+        }
+        attribute(name = "decidedAt", type = "LocalDateTime") {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") { "columnName" to "decided_at" }
+        }
+        attribute(name = "decisionNote", type = "String") {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") { "columnName" to "decision_note"; "sqlType" to "VARCHAR(2000)" }
+        }
+        attribute(name = "executedAt", type = "LocalDateTime") {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") { "columnName" to "executed_at" }
+        }
+        // Gesetzt, wenn dieser Antrag aus einer PERSONAL_DATA-Meldung entstanden ist.
+        attribute(name = "sourceReportId", type = "UUID") {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") { "columnName" to "source_report_id"; "fkEntity" to "SocialPostReport" }
         }
     }
 }

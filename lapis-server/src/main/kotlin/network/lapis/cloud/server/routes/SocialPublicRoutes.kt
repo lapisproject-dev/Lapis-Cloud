@@ -7,12 +7,17 @@ import io.ktor.http.HttpStatusCode
 import io.ktor.server.application.ApplicationCall
 import io.ktor.server.application.call
 import io.ktor.server.plugins.origin
+import io.ktor.server.request.contentLength
+import io.ktor.server.request.contentType
+import io.ktor.server.request.formFieldLimit
+import io.ktor.server.request.receiveParameters
 import io.ktor.server.request.uri
 import io.ktor.server.response.header
 import io.ktor.server.response.respond
 import io.ktor.server.response.respondText
 import io.ktor.server.routing.Route
 import io.ktor.server.routing.get
+import io.ktor.server.routing.post
 import kotlinx.coroutines.CancellationException
 import kotlinx.datetime.LocalDateTime
 import kotlinx.datetime.TimeZone
@@ -24,10 +29,14 @@ import network.lapis.cloud.server.economy.LedgerBackedLtrBalanceProvider
 import network.lapis.cloud.server.economy.LtrBalanceProvider
 import network.lapis.cloud.server.federation.FederationConfig
 import network.lapis.cloud.server.federation.FederationInboxRateLimiter
+import network.lapis.cloud.server.rpc.LEGAL_REMOVAL_FALLBACK_REASON
 import network.lapis.cloud.server.rpc.SocialPostWeight
 import network.lapis.cloud.server.rpc.SocialReadPipeline
+import network.lapis.cloud.server.rpc.SocialReportSubmission
 import network.lapis.cloud.server.rpc.SocialVisibility
 import network.lapis.cloud.shared.domain.SocialPostDto
+import network.lapis.cloud.shared.domain.SocialPostReportCategory
+import network.lapis.cloud.shared.domain.SocialPostVisibility
 import network.lapis.cloud.shared.domain.SocialThreadDto
 import org.jetbrains.exposed.v1.core.and
 import org.jetbrains.exposed.v1.core.eq
@@ -58,6 +67,21 @@ private const val PUBLIC_MAX_PAGES = 25
  * [hasOnlyAllowedQueryParams]/[canonicalRedirectIfNeeded].
  */
 private val TIMELINE_ALLOWED_QUERY_PARAMS = setOf("page")
+
+/**
+ * Security-Audit-Fund MAJOR-1 (Runde 1, 2026-08-19): `POST /s/{id}/report`'s hard ceiling on
+ * `Content-Length` -- checked in [reportBodyExceedsLimit] BEFORE `call.receiveParameters()` ever
+ * buffers a byte. The domain fields this route accepts max out at `description` (4000 chars,
+ * [network.lapis.cloud.server.rpc.SocialReportSubmission]'s `MAX_DESCRIPTION_LENGTH`) +
+ * `reporterContact` (320 chars) + a short `category` enum name + a `goodFaith`/`website` checkbox
+ * value -- comfortably under 5 KB even accounting for URL-encoding overhead and field-name
+ * repetition. 16 KiB leaves generous headroom for that without coming anywhere close to Ktor's
+ * default 50 MiB `formFieldLimit` (`io.ktor.server.request.formFieldLimit`), which an unauthenticated
+ * caller could otherwise use to force tens-of-megabytes allocations per request before the
+ * EXISTING domain-level length check in `SocialReportSubmission.submitPublic` (which only runs
+ * AFTER the body is already fully in memory) ever gets a chance to reject anything.
+ */
+private const val REPORT_MAX_BODY_BYTES = 16 * 1024L
 
 /**
  * Security-Audit-Fund S-3 (2026-08-18): `GET /s/{id}` accepts NO query parameters at all -- every
@@ -116,6 +140,8 @@ private val THREAD_ALLOWED_QUERY_PARAMS = emptySet<String>()
 fun Route.registerSocialPublicRoutes(
     readRateLimiter: FederationInboxRateLimiter,
     sitemapRateLimiter: FederationInboxRateLimiter,
+    /** Welle V1.1.5 -- `POST /s/{id}/report` (öffentlicher Melde-Weg), EIGENER, deutlich strengerer Limiter als [readRateLimiter]. */
+    reportRateLimiter: FederationInboxRateLimiter,
 ) {
     val baseUrl = FederationConfig.publicBaseUrl.trimEnd('/')
     val ltrBalanceProvider: LtrBalanceProvider = LedgerBackedLtrBalanceProvider()
@@ -211,7 +237,11 @@ fun Route.registerSocialPublicRoutes(
                             .singleOrNull()
                     val rootId = row?.get(SocialPostTable.rootId)
                     when {
-                        rootId == null -> PostResolution.NotFound
+                        // Welle V1.1.5 (E-B): war die primaere Aufloesung leer, weil dieser Beitrag
+                        // rechtlich entfernt wurde? resolveRemovalNotice deckt den weit
+                        // ueberwiegenden Regelfall (unbekannte UUID, nicht-oeffentlicher Beitrag,
+                        // vom Autor versteckter Beitrag) selbst ab und faellt dort auf NotFound zurueck.
+                        rootId == null -> resolveRemovalNotice(postUuid = postUuid)
                         // K4: a non-root id (a comment) is 308-redirected to its root -- never rendered directly.
                         rootId != postUuid -> {
                             // G5-Fix (Review-Runde 1): only the COMMENT's own readability was checked
@@ -245,6 +275,7 @@ fun Route.registerSocialPublicRoutes(
                 }
             when (resolution) {
                 is PostResolution.NotFound -> call.respondPublicNotFound(baseUrl = baseUrl)
+                is PostResolution.LegallyRemoved -> call.respondPublicLegallyRemoved(view = resolution.view, baseUrl = baseUrl)
                 is PostResolution.Redirect -> call.respondPublicRedirect(baseUrl = baseUrl, rootId = resolution.rootId)
                 is PostResolution.Found -> {
                     val view = resolution.thread.toPublicThreadView()
@@ -259,6 +290,108 @@ fun Route.registerSocialPublicRoutes(
         }
     }
 
+    // Welle V1.1.5 -- DSA Art. 16, öffentlicher Melde-Weg. Ein anonymer Leser hat keinen
+    // Kilua-RPC-Client (die CSP dieses Pfads verbietet jedes Skript) und kann
+    // ISocialNetworkService.reportPost folglich nicht aufrufen -- deshalb ein klassisches
+    // HTML-<form method=post>, dieselbe Kernlogik (SocialReportSubmission) wie der authentifizierte
+    // RPC-Pfad.
+    get("/s/{id}/report") {
+        call.withPublicErrorHandling(baseUrl = baseUrl) {
+            if (!readRateLimiter.checkAndRecord(rateLimitKeyFor(remoteHost = call.request.origin.remoteHost))) {
+                call.respondPublicTooManyRequests(baseUrl = baseUrl)
+                return@withPublicErrorHandling
+            }
+            val postUuid = call.parameters["id"]?.let { runCatching { Uuid.parse(it) }.getOrNull() }
+            if (postUuid == null) {
+                call.respondPublicNotFound(baseUrl = baseUrl)
+                return@withPublicErrorHandling
+            }
+            val exists =
+                transaction {
+                    SocialPostTable
+                        .select(SocialPostTable.id)
+                        .where { (SocialPostTable.id eq postUuid) and SocialVisibility.publicReadableCondition() }
+                        .firstOrNull() != null
+                }
+            if (!exists) {
+                call.respondPublicNotFound(baseUrl = baseUrl)
+                return@withPublicErrorHandling
+            }
+            val body = SocialPublicHtml.reportFormPage(postId = postUuid.toString(), baseUrl = baseUrl)
+            call.response.header(HttpHeaders.CacheControl, "no-store")
+            call.applyPublicPageHeaders()
+            call.respondText(text = body, contentType = HTML_CONTENT_TYPE)
+        }
+    }
+
+    post("/s/{id}/report") {
+        call.withPublicErrorHandling(baseUrl = baseUrl) {
+            // EIGENER, deutlich strengerer Limiter -- nicht der 30/min-Lese-Limiter (Plan § 4.3).
+            if (!reportRateLimiter.checkAndRecord(rateLimitKeyFor(remoteHost = call.request.origin.remoteHost))) {
+                call.respondPublicTooManyRequests(baseUrl = baseUrl)
+                return@withPublicErrorHandling
+            }
+            // MAJOR-1 (Security-Audit Runde 1, 2026-08-19): reject an oversized -- or length-less,
+            // i.e. chunked-encoded -- body BEFORE `receiveParameters()` buffers anything. `null`
+            // (no `Content-Length` header) is treated the SAME as "too large": a length-less body
+            // would otherwise bypass this check entirely. See [reportBodyExceedsLimit]/
+            // [REPORT_MAX_BODY_BYTES] KDoc.
+            if (reportBodyExceedsLimit(contentLength = call.request.contentLength())) {
+                call.respondPublicMalformedRequest(baseUrl = baseUrl, status = HttpStatusCode.PayloadTooLarge)
+                return@withPublicErrorHandling
+            }
+            // MINOR-3 (Security-Audit Runde 1, 2026-08-19): `receiveParameters()` throws for any
+            // non-form-encoded `Content-Type` (including a missing one -- `contentType()` then
+            // returns `ContentType.Any`, which never `.match()`es a concrete pattern), and that
+            // exception previously escaped all the way to `withPublicErrorHandling`'s catch-all,
+            // logging an ERROR-level stack trace and returning a bare 500 for what is really a
+            // trivial, cheap-to-reject client input error -- an unauthenticated caller could
+            // trigger unbounded ERROR-level log writes at will. Rejecting explicitly here, before
+            // `receiveParameters()` is ever called, keeps this a clean, unlogged 400.
+            if (!call.request.contentType().match(ContentType.Application.FormUrlEncoded)) {
+                call.respondPublicMalformedRequest(baseUrl = baseUrl, status = HttpStatusCode.BadRequest)
+                return@withPublicErrorHandling
+            }
+            // Defense in depth (MAJOR-1, Security-Audit Runde 2 Fund N-1): caps Ktor's OWN form-field
+            // buffering (default 50 MiB, see REPORT_MAX_BODY_BYTES KDoc). Currently UNREACHABLE, since
+            // the content-type gate above already rejects anything but `FormUrlEncoded` -- including
+            // `multipart/form-data` -- before this line runs. Kept anyway so the cap is already in
+            // place the moment that gate is ever widened to also accept multipart bodies; if that
+            // never happens, this line stays a no-op.
+            call.formFieldLimit = REPORT_MAX_BODY_BYTES
+            val postUuid = call.parameters["id"]?.let { runCatching { Uuid.parse(it) }.getOrNull() }
+            val params = call.receiveParameters()
+            // Honeypot: klassischer No-JS-Bot-Schutz -- ausgefuellt => stiller No-Op, IDENTISCHE
+            // Antwort wie ein legitimer Submit (Enumeration-Haertung).
+            val honeypotFilled = !params["website"].isNullOrBlank()
+            if (postUuid != null && !honeypotFilled) {
+                val category = params["category"]?.let { raw -> runCatching { SocialPostReportCategory.valueOf(raw) }.getOrNull() }
+                val description = params["description"].orEmpty().trim()
+                val contact = params["contact"]?.trim()?.takeIf { it.isNotBlank() }
+                val goodFaith = params["goodFaith"] != null
+                val now = DbClock.nowLocalDateTime()
+                transaction {
+                    SocialReportSubmission.submitPublic(
+                        postId = postUuid,
+                        category = category,
+                        description = description,
+                        reporterContact = contact,
+                        goodFaithConfirmed = goodFaith,
+                        now = now,
+                    )
+                }
+            }
+            // Antwort IMMER identisch (Plan § 4.3) -- ob gespeichert wurde, ob der Post existiert,
+            // ob das Honeypot-Feld ausgefuellt war. KEIN CSRF-Token (kein Schreibpfad mit einer
+            // Session/privilegierten Wirkung dahinter -- ein fremdgesteuertes Absenden ist
+            // funktional identisch zu direktem Spam und wird vom IP-Limiter behandelt).
+            val body = SocialPublicHtml.reportSubmittedPage(baseUrl = baseUrl)
+            call.response.header(HttpHeaders.CacheControl, "no-store")
+            call.applyPublicPageHeaders()
+            call.respondText(text = body, contentType = HTML_CONTENT_TYPE)
+        }
+    }
+
     // Static asset -- not rate-limited (constant, in-memory string, no DB access) and not gated by
     // readRateLimiter's read budget, unlike /s and /s/{id} -- see class KDoc "Ablauf pro Handler".
     // Still wrapped in withPublicErrorHandling (M1) -- "cheap and constant today" is not a reason to
@@ -268,7 +401,12 @@ fun Route.registerSocialPublicRoutes(
             call.respondPublicCacheable(
                 body = SocialPublicHtml.STYLESHEET,
                 contentType = ContentType.Text.CSS.withParameter("charset", "utf-8"),
-                cacheControl = "public, max-age=86400, immutable",
+                // Welle V1.1.5 Review-Runde 2: war zuvor "max-age=86400, immutable" -- das liess einen
+                // bereits gecachten Stand des Stylesheets (samt sichtbarem statt per CSS ausgeblendetem
+                // Honeypot-Feld, vor V1.1.5) bis zu 24 h ueberleben, ohne dass ein Client je erneut
+                // nachfragt. Diese URL ist NICHT versioniert (kein Hash im Pfad) und darf deshalb kein
+                // `immutable` tragen, solange ihr Inhalt sich mit kuenftigen Wellen aendern kann.
+                cacheControl = "public, max-age=300",
             )
         }
     }
@@ -355,6 +493,7 @@ fun Route.registerSocialPublicRoutes(
                 Disallow: /federation/
                 Disallow: /.well-known/
                 Disallow: /rpc/
+                Disallow: /s/*/report
 
                 Sitemap: $baseUrl/sitemap.xml
                 """.trimIndent() + "\n"
@@ -379,7 +518,58 @@ private sealed interface PostResolution {
         val rootId: Uuid,
     ) : PostResolution
 
+    /** Welle V1.1.5 (E-B). */
+    data class LegallyRemoved(
+        val view: PublicRemovalNoticeView,
+    ) : PostResolution
+
     data object NotFound : PostResolution
+}
+
+/**
+ * Welle V1.1.5 (E-B). Zweite, ENGE Abfrage für den Fall, dass die primäre Auflösung unter
+ * [SocialVisibility.publicReadableCondition] leer blieb: war diese ID ein öffentlicher Beitrag, der
+ * rechtlich entfernt wurde? Wenn nein -- und das ist der überwältigende Regelfall (unbekannte UUID,
+ * nicht-öffentlicher Beitrag, vom Autor versteckter Beitrag) -- bleibt es beim 404.
+ *
+ * Läuft bewusst NICHT über `SocialReadPipeline.post`/`.thread` (Stolperfalle 23): beide geben für
+ * eine nicht-`VISIBLE` Wurzel hart `null` zurück und laden zusätzlich den ganzen Thread inkl.
+ * Gewichtsaggregation -- für eine Seite ohne jeden Inhalt und ohne jede Zahl ist beides falsch.
+ * Eine einzelne Zeile, schlanke Projektion, keine Aggregation.
+ */
+private fun resolveRemovalNotice(postUuid: Uuid): PostResolution {
+    val row =
+        SocialPostTable
+            .select(
+                SocialPostTable.rootId,
+                SocialPostTable.stateReason,
+                SocialPostTable.stateChangedAt,
+                SocialPostTable.publishedAt,
+            ).where { (SocialPostTable.id eq postUuid) and SocialVisibility.publicRemovalNoticeCondition() }
+            .singleOrNull() ?: return PostResolution.NotFound
+    // Defense in depth, exakt das Muster des bestehenden G5-Fix: ein Nicht-Wurzel-Hinweis wird nur
+    // ausgeliefert, wenn die WURZEL des Threads ebenfalls PUBLIC ist. Bewusst OHNE state-Bedingung --
+    // die Wurzel darf selbst REMOVED_LEGAL sein (ganzer Thread entfernt).
+    val rootId = row[SocialPostTable.rootId]
+    if (rootId != postUuid) {
+        val rootIsPublic =
+            SocialPostTable
+                .select(SocialPostTable.id)
+                .where { (SocialPostTable.id eq rootId) and (SocialPostTable.visibility eq SocialPostVisibility.PUBLIC) }
+                .firstOrNull() != null
+        if (!rootIsPublic) return PostResolution.NotFound
+    }
+    val removedAt = row[SocialPostTable.stateChangedAt] ?: row[SocialPostTable.publishedAt]
+    val reason = row[SocialPostTable.stateReason]?.takeIf { it.isNotBlank() } ?: LEGAL_REMOVAL_FALLBACK_REASON
+    return PostResolution.LegallyRemoved(
+        view =
+            PublicRemovalNoticeView(
+                postId = postUuid.toString(),
+                reasonLines = reason.split("\n"),
+                removedAtIso = removedAt.toString(),
+                removedAtHuman = removedAt.toHumanDate(),
+            ),
+    )
 }
 
 /**
@@ -445,6 +635,9 @@ private fun SocialPostDto.toPublicView(): PublicPostView =
         depth = depth,
         authorDisplayName = authorDisplayName,
         contentLines = content.split("\n"),
+        // Welle V1.1.5 -- das Flag, an dem der Renderer erkennt, dass `content` kein Nutzertext
+        // mehr ist, sondern einer der beiden SocialContentTombstone-Marker.
+        contentErased = contentErasedAt != null,
         totalWeightLtr = totalCurrentWeightLtr.toPlainString(),
         ownWeightLtr = ownCurrentWeightLtr.toPlainString(),
         publishedAtIso = publishedAt.toString(),
@@ -466,15 +659,18 @@ private fun LocalDateTime.toHumanDate(): String = "%02d.%02d.%04d".format(dayOfM
  *
  * `style-src 'self'` (statt eines Inline-Erlaubnis-Schlüsselworts) ist möglich, WEIL das CSS unter
  * `/s/assets/style.css` ausgeliefert wird und nirgends inline steht -- das ist der eigentliche Grund
- * für die separate CSS-Route. `form-action 'none'` gilt für diese Welle; V1.1.5 (Melde-Formular)
- * zieht das auf `'self'` hoch. Kein HSTS hier -- das ist Sache des Reverse Proxy (Caddy setzt es bei
- * automatischem HTTPS selbst). Kein `Cross-Origin-Resource-Policy` -- für Top-Level-Navigation
- * wirkungslos und ein potenzieller Stolperstein für Social-Media-Vorschau-Scraper.
+ * für die separate CSS-Route. **`form-action 'self'` seit Welle V1.1.5** (hochgezogen von `'none'`)
+ * -- das Melde-Formular (`GET`/`POST /s/{id}/report`) ist ein klassisches HTML-`<form>` ohne
+ * jedes JavaScript, `'self'` ist die engstmögliche Direktive, die es zulässt. Alle anderen
+ * Direktiven bleiben unverändert, insbesondere `default-src 'none'` und `frame-ancestors 'none'`.
+ * Kein HSTS hier -- das ist Sache des Reverse Proxy (Caddy setzt es bei automatischem HTTPS selbst).
+ * Kein `Cross-Origin-Resource-Policy` -- für Top-Level-Navigation wirkungslos und ein potenzieller
+ * Stolperstein für Social-Media-Vorschau-Scraper.
  */
 private fun ApplicationCall.applyPublicPageHeaders() {
     response.header(
         "Content-Security-Policy",
-        "default-src 'none'; style-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'",
+        "default-src 'none'; style-src 'self'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'",
     )
     response.header("X-Content-Type-Options", "nosniff")
     response.header("Referrer-Policy", "no-referrer")
@@ -526,6 +722,62 @@ private suspend fun ApplicationCall.respondPublicNotFound(baseUrl: String) {
     response.header(HttpHeaders.CacheControl, "no-store")
     applyPublicPageHeaders()
     respondText(text = SocialPublicHtml.notFoundPage(baseUrl = baseUrl), contentType = HTML_CONTENT_TYPE, status = HttpStatusCode.NotFound)
+}
+
+/**
+ * Welle V1.1.5 (E-B). RFC 7725 -- die Ressource existiert, ist aber aus rechtlichen Gründen nicht
+ * auslieferbar, und der Antwortkörper trägt die Erklärung. Ktor hat keine `HttpStatusCode`-Konstante
+ * dafür; konstruiert wie das bestehende 308 in [respondPublicCanonicalRedirect].
+ *
+ * `no-store` aus demselben Grund wie [respondPublicNotFound]: der Zustand darf sich jederzeit ändern
+ * (Korrektur der Begründung, spätere vollständige Löschung), und ein CDN, das diese Antwort
+ * festhält, würde die Änderung überdauern. **KEIN ETag** -- niemals über [respondPublicCacheable]
+ * (Stolperfalle 22): ein Besucher, der noch den ETag der alten, inhaltstragenden 200-Antwort im
+ * `If-None-Match` schickt, kann strukturell kein 304 bekommen -- die Anfrage erreicht
+ * [respondPublicCacheable] gar nicht mehr.
+ *
+ * Kein `Link: <…>; rel="blocked-by"`-Header (RFC 7725 § 3) -- dieser Header benennt die blockierende
+ * Instanz; hier ist das der Betreiber selbst, der auf der Seite ohnehin namentlich steht. Ein
+ * Selbstverweis wäre reines Rauschen.
+ */
+private suspend fun ApplicationCall.respondPublicLegallyRemoved(
+    view: PublicRemovalNoticeView,
+    baseUrl: String,
+) {
+    response.header(HttpHeaders.CacheControl, "no-store")
+    applyPublicPageHeaders()
+    respondText(
+        text = SocialPublicHtml.legallyRemovedPage(view = view, baseUrl = baseUrl),
+        contentType = HTML_CONTENT_TYPE,
+        status = HttpStatusCode(451, "Unavailable For Legal Reasons"),
+    )
+}
+
+/**
+ * Security-Audit-Fund MAJOR-1 (Runde 1, 2026-08-19): `true` iff [contentLength] should cause the
+ * request to be rejected BEFORE `receiveParameters()` buffers anything -- either it exceeds
+ * [REPORT_MAX_BODY_BYTES], or it is `null` (no `Content-Length` header at all, e.g. chunked
+ * transfer encoding), which would otherwise bypass a length check entirely. `internal` so
+ * `SocialPublicRoutesTest` can unit-test the boundary directly, without needing to fabricate a
+ * real chunked-encoded HTTP request through the Ktor test client to exercise the `null` branch.
+ */
+internal fun reportBodyExceedsLimit(contentLength: Long?): Boolean = contentLength == null || contentLength > REPORT_MAX_BODY_BYTES
+
+/**
+ * MAJOR-1/MINOR-3 (Security-Audit Runde 1, 2026-08-19): shared generic responder for a malformed
+ * request `POST /s/{id}/report` rejects BEFORE touching the domain -- oversized body, missing
+ * `Content-Length`, wrong `Content-Type`. Deliberately the SAME fixed body text for every one of
+ * these reasons (never distinguishing which check failed) -- same "do not leak internals to an
+ * anonymous caller" discipline as [respondPublicServerError]. `no-store` for the same reason as
+ * [respondPublicNotFound] -- nothing here should ever be cached by a proxy/CDN.
+ */
+private suspend fun ApplicationCall.respondPublicMalformedRequest(
+    baseUrl: String,
+    status: HttpStatusCode,
+) {
+    response.header(HttpHeaders.CacheControl, "no-store")
+    applyPublicPageHeaders()
+    respondText(text = SocialPublicHtml.malformedRequestPage(baseUrl = baseUrl), contentType = HTML_CONTENT_TYPE, status = status)
 }
 
 /** `no-store` + `Retry-After` (§ 5.2): ein 429, das nur eine IP betraf, darf nicht für andere Leser gecacht werden. */

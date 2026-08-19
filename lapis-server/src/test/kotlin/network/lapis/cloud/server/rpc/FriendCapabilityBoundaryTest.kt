@@ -119,6 +119,14 @@ class FriendCapabilityBoundaryTest :
                 // Depth-first loeschen (Stolperfalle 12, mirror SocialNetworkServiceTest afterSpec) --
                 // ein root_id/parent_id-Self-FK verbietet einen einzelnen Bulk-Delete, wenn ein
                 // Kommentar existiert.
+                // Welle V1.1.5: social_post_report/social_post_erasure both FK to social_post,
+                // deleted BEFORE boosts/posts (same reasoning as SocialNetworkServiceTest afterSpec).
+                network.lapis.cloud.server.db.generated.SocialPostErasureTable.deleteWhere {
+                    network.lapis.cloud.server.db.generated.SocialPostErasureTable.postId inList selectSocialPostIdsOf(createdMemberIds)
+                }
+                network.lapis.cloud.server.db.generated.SocialPostReportTable.deleteWhere {
+                    network.lapis.cloud.server.db.generated.SocialPostReportTable.postId inList selectSocialPostIdsOf(createdMemberIds)
+                }
                 SocialPostBoostTable.deleteWhere { SocialPostBoostTable.postId inList selectSocialPostIdsOf(createdMemberIds) }
                 var remaining = selectSocialPostIdsOf(createdMemberIds)
                 while (remaining.isNotEmpty()) {
@@ -449,6 +457,113 @@ class FriendCapabilityBoundaryTest :
                 // extra teardown is needed here.
             }
         }
+
+        // ── Welle V1.1.5 -- die sechs neuen BOARD/ADMIN(-only) Moderationsmethoden ─────────────
+
+        test("SocialNetworkService.removePostForLegalReason: FRIEND is Forbidden") {
+            testApplication {
+                application {
+                    install(StatusPages) { installBoundaryExceptionHandlers() }
+                    routing { registerBoundaryTestRoutes() }
+                }
+                client
+                    .post("/test/remove-post-for-legal-reason?postId=${garbageId()}&reason=x") { header("X-Member-Id", friend.toString()) }
+                    .status shouldBe HttpStatusCode.Forbidden
+            }
+        }
+
+        test("SocialNetworkService.listReports: FRIEND is Forbidden") {
+            testApplication {
+                application {
+                    install(StatusPages) { installBoundaryExceptionHandlers() }
+                    routing { registerBoundaryTestRoutes() }
+                }
+                client.get("/test/list-reports") { header("X-Member-Id", friend.toString()) }.status shouldBe HttpStatusCode.Forbidden
+            }
+        }
+
+        test("SocialNetworkService.decideReport: FRIEND is Forbidden") {
+            testApplication {
+                application {
+                    install(StatusPages) { installBoundaryExceptionHandlers() }
+                    routing { registerBoundaryTestRoutes() }
+                }
+                client
+                    .post("/test/decide-report?reportId=${garbageId()}") { header("X-Member-Id", friend.toString()) }
+                    .status shouldBe HttpStatusCode.Forbidden
+            }
+        }
+
+        test("SocialNetworkService.listContentErasures: FRIEND is Forbidden") {
+            testApplication {
+                application {
+                    install(StatusPages) { installBoundaryExceptionHandlers() }
+                    routing { registerBoundaryTestRoutes() }
+                }
+                client
+                    .get("/test/list-content-erasures") { header("X-Member-Id", friend.toString()) }
+                    .status shouldBe HttpStatusCode.Forbidden
+            }
+        }
+
+        test("SocialNetworkService.decideContentErasure: FRIEND is Forbidden") {
+            testApplication {
+                application {
+                    install(StatusPages) { installBoundaryExceptionHandlers() }
+                    routing { registerBoundaryTestRoutes() }
+                }
+                client
+                    .post("/test/decide-content-erasure?erasureId=${garbageId()}") { header("X-Member-Id", friend.toString()) }
+                    .status shouldBe HttpStatusCode.Forbidden
+            }
+        }
+
+        test("SocialNetworkService.executeContentErasure: FRIEND is Forbidden") {
+            testApplication {
+                application {
+                    install(StatusPages) { installBoundaryExceptionHandlers() }
+                    routing { registerBoundaryTestRoutes() }
+                }
+                client
+                    .post("/test/execute-content-erasure?erasureId=${garbageId()}") { header("X-Member-Id", friend.toString()) }
+                    .status shouldBe HttpStatusCode.Forbidden
+            }
+        }
+
+        // ── Gegenprobe-Erweiterung: die drei NEUEN legitimen V1.1.5-Öffnungen ─────────────────
+
+        test(
+            "Gegenprobe: the SAME FRIEND CAN reportPost/requestContentErasure -- and getRemovalNotice on a garbage id " +
+                "yields NotFoundException, NOT ForbiddenException (proof it is deliberately un-role-gated)",
+        ) {
+            testApplication {
+                application {
+                    install(StatusPages) { installBoundaryExceptionHandlers() }
+                    routing {
+                        registerBoundaryTestRoutes()
+                        registerSocialAndLedgerGegenprobeRoutes()
+                    }
+                }
+                val postResponse =
+                    client.post("/test/create-post?content=GegenprobeMeldung&weight=1.00&visibility=MEMBERS_AND_EXTERNAL") {
+                        header("X-Member-Id", friend.toString())
+                    }
+                postResponse.status shouldBe HttpStatusCode.OK
+                val postId = postResponse.bodyAsText().substringBefore(":")
+
+                val otherFriend = createTestMember("friend-wall-reporter-${Uuid.random()}@example.org")
+                val reportResponse = client.post("/test/report-post?postId=$postId") { header("X-Member-Id", otherFriend.toString()) }
+                reportResponse.status shouldBe HttpStatusCode.OK
+
+                val erasureResponse =
+                    client.post("/test/request-content-erasure?postId=$postId") { header("X-Member-Id", friend.toString()) }
+                erasureResponse.status shouldBe HttpStatusCode.OK
+
+                val noticeResponse =
+                    client.get("/test/get-removal-notice?postId=${garbageId()}") { header("X-Member-Id", friend.toString()) }
+                noticeResponse.status shouldBe HttpStatusCode.NotFound
+            }
+        }
     })
 
 private fun StatusPagesConfig.installBoundaryExceptionHandlers() {
@@ -476,6 +591,54 @@ private fun selectSocialPostIdsOf(memberIds: List<Uuid>): List<Uuid> {
 
 /** Throwaway routes -- ONE per Aufrufstelle aus Plan § 2.4/5.3, no wire format to reverse-engineer. */
 private fun Route.registerBoundaryTestRoutes() {
+    fun socialModerationService(callCtx: io.ktor.server.application.ApplicationCall) =
+        SocialNetworkService(
+            call = callCtx,
+            createRateLimiter = FederationInboxRateLimiter(maxRequests = 1_000, window = 1.minutes),
+            readRateLimiter = FederationInboxRateLimiter(maxRequests = 1_000, window = 1.minutes),
+            boostRateLimiter = FederationInboxRateLimiter(maxRequests = 1_000, window = 1.minutes),
+            moderationRateLimiter = FederationInboxRateLimiter(maxRequests = 1_000, window = 1.minutes),
+            reportRateLimiter = FederationInboxRateLimiter(maxRequests = 1_000, window = 1.minutes),
+        )
+    // Welle V1.1.5 -- die sechs BOARD/ADMIN-only (bzw. ADMIN-only) Moderationsmethoden. Jede läuft
+    // mit einer syntaktisch gültigen, aber garantiert nicht existierenden Ziel-Id -- das Rollen-Gate
+    // muss VOR jedem Ressourcen-Lookup laufen, siehe Klassen-KDoc.
+    post("/test/remove-post-for-legal-reason") {
+        val service = socialModerationService(call)
+        val q = call.request.queryParameters
+        service.removePostForLegalReason(postId = q["postId"]!!, reason = q["reason"] ?: "x")
+        call.respondText("ok")
+    }
+    get("/test/list-reports") {
+        val service = socialModerationService(call)
+        call.respondText(service.listReports(status = null).size.toString())
+    }
+    post("/test/decide-report") {
+        val service = socialModerationService(call)
+        val q = call.request.queryParameters
+        service.decideReport(
+            reportId = q["reportId"]!!,
+            decision = network.lapis.cloud.shared.domain.SocialPostReportStatus.DISMISSED,
+            note = null,
+        )
+        call.respondText("ok")
+    }
+    get("/test/list-content-erasures") {
+        val service = socialModerationService(call)
+        call.respondText(service.listContentErasures(status = null).size.toString())
+    }
+    post("/test/decide-content-erasure") {
+        val service = socialModerationService(call)
+        val q = call.request.queryParameters
+        service.decideContentErasure(erasureId = q["erasureId"]!!, approve = true, note = null)
+        call.respondText("ok")
+    }
+    post("/test/execute-content-erasure") {
+        val service = socialModerationService(call)
+        val q = call.request.queryParameters
+        service.executeContentErasure(q["erasureId"]!!)
+        call.respondText("ok")
+    }
     post("/test/cast-vote-ballot") {
         val service = GovernanceService(call = call)
         val q = call.request.queryParameters
@@ -629,6 +792,8 @@ private fun Route.registerSocialAndLedgerGegenprobeRoutes() {
             createRateLimiter = FederationInboxRateLimiter(maxRequests = 1_000, window = 1.minutes),
             readRateLimiter = FederationInboxRateLimiter(maxRequests = 1_000, window = 1.minutes),
             boostRateLimiter = FederationInboxRateLimiter(maxRequests = 1_000, window = 1.minutes),
+            moderationRateLimiter = FederationInboxRateLimiter(maxRequests = 1_000, window = 1.minutes),
+            reportRateLimiter = FederationInboxRateLimiter(maxRequests = 1_000, window = 1.minutes),
         )
     post("/test/create-post") {
         val service = socialService(call)
@@ -666,6 +831,37 @@ private fun Route.registerSocialAndLedgerGegenprobeRoutes() {
         val service = socialService(call)
         val p = service.hideOwnPost(call.parameters["id"]!!)
         call.respondText(p.state.name)
+    }
+    // Welle V1.1.5 -- die drei NEUEN legitimen FRIEND-Öffnungen: reportPost/requestContentErasure
+    // haben absichtlich kein Rollen-Gate, getRemovalNotice ebenfalls nicht (Addendum § 2.3).
+    post("/test/report-post") {
+        val service = socialService(call)
+        val q = call.request.queryParameters
+        service.reportPost(
+            network.lapis.cloud.shared.domain.SocialPostReportInput(
+                postId = q["postId"]!!,
+                category = network.lapis.cloud.shared.domain.SocialPostReportCategory.OTHER,
+                description = "Boundary-Wall-Testmeldung",
+                goodFaithConfirmed = true,
+            ),
+        )
+        call.respondText("ok")
+    }
+    post("/test/request-content-erasure") {
+        val service = socialService(call)
+        val q = call.request.queryParameters
+        val e =
+            service.requestContentErasure(
+                network.lapis.cloud.shared.domain
+                    .SocialPostErasureInput(postId = q["postId"]!!, reason = "Boundary-Wall-Testantrag"),
+            )
+        call.respondText(e.id)
+    }
+    get("/test/get-removal-notice") {
+        val service = socialService(call)
+        val q = call.request.queryParameters
+        val n = service.getRemovalNotice(q["postId"]!!)
+        call.respondText(n.postId)
     }
     get("/test/my-balance") {
         val service = LtrLedgerService(call = call)

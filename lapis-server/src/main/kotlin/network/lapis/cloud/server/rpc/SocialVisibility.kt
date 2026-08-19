@@ -10,6 +10,7 @@ import org.jetbrains.exposed.v1.core.and
 import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.core.inList
 import org.jetbrains.exposed.v1.core.neq
+import kotlin.uuid.Uuid
 
 /**
  * The SINGLE place a "may this caller read this [network.lapis.cloud.server.db.generated
@@ -30,16 +31,44 @@ object SocialVisibility {
             (SocialPostTable.state eq SocialPostState.VISIBLE)
 
     /**
+     * Addendum V1.1.5 § 1.2, Extraktion 1: der reine Sichtbarkeitsstufen-Teil von
+     * [readableByCondition], OHNE dessen `state`-Klausel. **Reine Umstellung** -- [readableByCondition]
+     * liefert danach byte-gleiche Semantik, verifiziert von einem eigenen Extraktions-Guard-Test
+     * (`SocialNetworkServiceTest`/`SocialVisibilityTest`, "Test 49" im Addendum). Existiert, damit
+     * [publicRemovalNoticeCondition]/[removalNoticeReadableCondition] (E-B) dieselbe Stufenregel
+     * nicht ein zweites Mal kodieren müssen (§ 9 Stolperfalle 6: keine zweite Wahrheitsquelle für
+     * dieselbe Regel).
+     */
+    fun visibilityTierCondition(status: MemberStatus): Op<Boolean> =
+        when {
+            status in MemberStatusSets.ORGANIZATION_MEMBER ->
+                SocialPostTable.visibility inList
+                    listOf(
+                        SocialPostVisibility.PUBLIC,
+                        SocialPostVisibility.MEMBERS_ONLY,
+                        SocialPostVisibility.MEMBERS_AND_EXTERNAL,
+                    )
+            status in MemberStatusSets.NON_MEMBER ->
+                SocialPostTable.visibility inList listOf(SocialPostVisibility.PUBLIC, SocialPostVisibility.MEMBERS_AND_EXTERNAL)
+            // APPLICATION/WITHDRAWN/REJECTED -- can log in (APPLICATION) or once could
+            // (WITHDRAWN/REJECTED, see AuthRoutes' own LOGIN_BLOCKED gate for why the latter two
+            // never actually reach here in practice), but are not yet/no longer either an
+            // organization member or a recognized non-member guest -- treated identically to an
+            // unauthenticated reader.
+            else -> (SocialPostTable.visibility eq SocialPostVisibility.PUBLIC)
+        }
+
+    /**
      * Für einen authentifizierten Aufrufer mit gegebenem [status]. `state` wird NUR insofern
      * gefiltert, als [SocialPostState.REMOVED_LEGAL] hier IMMER ausgeschlossen wird (Review-Fund
      * S1, 2026-08-18): ein aus rechtlichen Gründen entfernter Post muss auch über einen direkten
-     * Link gesperrt bleiben, sonst unterläuft der Link die Entfernung (DSA Art. 16/6). Diese Welle
-     * (V1.1.1) schreibt `REMOVED_LEGAL` nirgends (kein Codepfad existiert vor Welle V1.1.5) --
-     * dieser Ausschluss wird trotzdem JETZT gesetzt, bevor irgendein anderer Aufrufer diese
-     * gemeinsame Bedingung wiederverwendet, siehe Implementierungsplan § 7.2 und diese Klasse KDoc.
-     * **Keine BOARD/ADMIN-Sonderrolle in dieser Welle** -- bis Welle V1.1.5 einen echten
-     * Moderations-/Entfernungspfad einführt, ist `REMOVED_LEGAL` für JEDEN Aufrufer, auch BOARD/
-     * ADMIN, identisch zu "existiert nicht" (einfachste, sichere Umsetzung; siehe Implementierungsplan).
+     * Link gesperrt bleiben, sonst unterläuft der Link die Entfernung (DSA Art. 16/6). **Keine
+     * BOARD/ADMIN-Sonderrolle** -- `REMOVED_LEGAL` ist über DIESE Funktion für JEDEN Aufrufer,
+     * auch BOARD/ADMIN, identisch zu "existiert nicht"; die drei Ausnahmen, die Welle V1.1.5
+     * tatsächlich braucht (BOARD-Moderationsansicht, Autor-Eigenansicht, Entfernungshinweis E-B),
+     * laufen über eigene, benannte Funktionen daneben ([moderationReadableCondition],
+     * `ownAuthorViewCondition`, [removalNoticeReadableCondition]/[publicRemovalNoticeCondition]) --
+     * diese Funktion selbst bleibt bewusst UNVERÄNDERT (Addendum § 4, Plan § 5.5).
      *
      * `HIDDEN_BY_AUTHOR` wird dagegen weiterhin NICHT gefiltert -- dieser Post ist über direkten
      * ID-Zugriff ([SocialNetworkService.getPost]) weiterhin erreichbar (Konzept: "Direkter Zugriff
@@ -47,27 +76,8 @@ object SocialVisibility {
      * .listTimeline]), kombinieren dieses Ergebnis selbst mit einer eigenen, engeren
      * `state`-Bedingung (die `REMOVED_LEGAL`-Exklusion hier ist für sie redundant, aber harmlos).
      */
-    fun readableByCondition(status: MemberStatus): Op<Boolean> {
-        val visibilityCondition =
-            when {
-                status in MemberStatusSets.ORGANIZATION_MEMBER ->
-                    SocialPostTable.visibility inList
-                        listOf(
-                            SocialPostVisibility.PUBLIC,
-                            SocialPostVisibility.MEMBERS_ONLY,
-                            SocialPostVisibility.MEMBERS_AND_EXTERNAL,
-                        )
-                status in MemberStatusSets.NON_MEMBER ->
-                    SocialPostTable.visibility inList listOf(SocialPostVisibility.PUBLIC, SocialPostVisibility.MEMBERS_AND_EXTERNAL)
-                // APPLICATION/WITHDRAWN/REJECTED -- can log in (APPLICATION) or once could
-                // (WITHDRAWN/REJECTED, see AuthRoutes' own LOGIN_BLOCKED gate for why the latter two
-                // never actually reach here in practice), but are not yet/no longer either an
-                // organization member or a recognized non-member guest -- treated identically to an
-                // unauthenticated reader.
-                else -> (SocialPostTable.visibility eq SocialPostVisibility.PUBLIC)
-            }
-        return visibilityCondition and (SocialPostTable.state neq SocialPostState.REMOVED_LEGAL)
-    }
+    fun readableByCondition(status: MemberStatus): Op<Boolean> =
+        visibilityTierCondition(status = status) and (SocialPostTable.state neq SocialPostState.REMOVED_LEGAL)
 
     /**
      * NEU Welle V1.1.2 (X4, Implementierungsplan Stolperfalle 9): pure-Kotlin Zwilling von
@@ -89,15 +99,22 @@ object SocialVisibility {
         status: MemberStatus,
     ): Boolean {
         if (state == SocialPostState.REMOVED_LEGAL) return false
-        val allowed =
-            when {
-                status in MemberStatusSets.ORGANIZATION_MEMBER ->
-                    setOf(SocialPostVisibility.PUBLIC, SocialPostVisibility.MEMBERS_ONLY, SocialPostVisibility.MEMBERS_AND_EXTERNAL)
-                status in MemberStatusSets.NON_MEMBER -> setOf(SocialPostVisibility.PUBLIC, SocialPostVisibility.MEMBERS_AND_EXTERNAL)
-                else -> setOf(SocialPostVisibility.PUBLIC)
-            }
-        return visibility in allowed
+        return visibility in allowedVisibilities(status = status)
     }
+
+    /**
+     * Addendum V1.1.5 § 1.2, Extraktion 2: das Kotlin-Pendant von [visibilityTierCondition], aus
+     * [isReadable] herausgezogen -- reine Umstellung, [isReadable] bleibt byte-gleich. `private`,
+     * weil bisher nur [isReadable]/[isRemovalNoticeReadable] es brauchen; bei Bedarf jederzeit
+     * anhebbar.
+     */
+    private fun allowedVisibilities(status: MemberStatus): Set<SocialPostVisibility> =
+        when {
+            status in MemberStatusSets.ORGANIZATION_MEMBER ->
+                setOf(SocialPostVisibility.PUBLIC, SocialPostVisibility.MEMBERS_ONLY, SocialPostVisibility.MEMBERS_AND_EXTERNAL)
+            status in MemberStatusSets.NON_MEMBER -> setOf(SocialPostVisibility.PUBLIC, SocialPostVisibility.MEMBERS_AND_EXTERNAL)
+            else -> setOf(SocialPostVisibility.PUBLIC)
+        }
 
     /**
      * NEU Welle V1.1.3 (X4, Implementierungsplan Stolperfalle 1). Pure-Kotlin Zwilling von
@@ -115,4 +132,66 @@ object SocialVisibility {
         visibility: SocialPostVisibility,
         state: SocialPostState,
     ): Boolean = visibility == SocialPostVisibility.PUBLIC && state == SocialPostState.VISIBLE
+
+    /**
+     * Welle V1.1.5 (E-B), öffentlicher Pfad. Die EINZIGE Bedingung, unter der der öffentliche Pfad
+     * über die bloße Existenz eines nicht mehr auslieferbaren Beitrags Auskunft gibt. Bewusst NICHT
+     * symmetrisch zu [publicReadableCondition]: dort `state eq VISIBLE`, hier `state eq
+     * REMOVED_LEGAL` -- die beiden Bedingungen sind DISJUNKT, es gibt keine Zeile, die beide
+     * erfüllt.
+     *
+     * `visibility eq PUBLIC` ist die Angel des Ganzen: ein `MEMBERS_ONLY`-Beitrag, der rechtlich
+     * entfernt wird, fällt hier durch und bleibt auf dem öffentlichen Pfad ein 404 -- der
+     * öffentliche Pfad darf niemals verraten, dass ein nicht-öffentlicher Beitrag jemals existiert
+     * hat. Das ist unbedenklich, weil `visibility` write-once ist (§ 0 des Addendums, Fakt 1): eine
+     * Zeile, die diese Bedingung heute erfüllt, war zu jedem Zeitpunkt ihres Lebens unter
+     * `/s/{id}` mit vollem Inhalt abrufbar -- der Hinweis offenbart also strikt WENIGER, als
+     * dieselbe URL vorher offenbart hat.
+     *
+     * `HIDDEN_BY_AUTHOR` ist hier bewusst NICHT enthalten: ein Autor, der seinen Beitrag versteckt,
+     * trifft eine private Entscheidung, über die der öffentliche Pfad kein Wort verlieren darf.
+     */
+    fun publicRemovalNoticeCondition(): Op<Boolean> =
+        (SocialPostTable.visibility eq SocialPostVisibility.PUBLIC) and
+            (SocialPostTable.state eq SocialPostState.REMOVED_LEGAL)
+
+    /**
+     * Welle V1.1.5 (E-B), authentifizierter Pfad -- das Äquivalent von
+     * [publicRemovalNoticeCondition] für [ISocialNetworkService.getRemovalNotice]: liefert genau
+     * die `REMOVED_LEGAL`-Zeilen, deren Sichtbarkeitsstufe [status] zulässt (nicht nur `PUBLIC`).
+     * Disjunkt zu [readableByCondition] aus demselben Grund wie [publicRemovalNoticeCondition] zu
+     * [publicReadableCondition].
+     */
+    fun removalNoticeReadableCondition(status: MemberStatus): Op<Boolean> =
+        visibilityTierCondition(status = status) and (SocialPostTable.state eq SocialPostState.REMOVED_LEGAL)
+
+    /** Pure-Kotlin Zwilling von [removalNoticeReadableCondition] -- selbe Beziehung wie [isReadable] zu [readableByCondition]. */
+    fun isRemovalNoticeReadable(
+        visibility: SocialPostVisibility,
+        state: SocialPostState,
+        status: MemberStatus,
+    ): Boolean = state == SocialPostState.REMOVED_LEGAL && visibility in allowedVisibilities(status = status)
+
+    /**
+     * NUR für den Moderations-Lesepfad ([SocialNetworkService.listReports]/
+     * [SocialNetworkService.listContentErasures]). Umgeht bewusst JEDE Sichtbarkeits- und
+     * State-Filterung -- ein Vorstand muss auch eine Meldung/einen Löschantrag zu einem bereits
+     * `REMOVED_LEGAL`-Post oder einem `MEMBERS_ONLY`-Post im Kontext sehen können, unabhängig
+     * davon, ob er selbst nach [isReadable] Zugriff hätte. Die Funktion existiert, damit dieser
+     * Verzicht benannt und auffindbar ist statt implizit -- es entsteht dadurch KEIN BOARD-weiter
+     * "alles sehen"-Endpunkt: `listReports`/`listContentErasures` liefern ausschließlich Posts, zu
+     * denen bereits ein Report-/Erasure-Datensatz existiert; `getPost`/`getThread`/`listTimeline`
+     * bleiben für BOARD/ADMIN unverändert streng.
+     */
+    fun moderationReadableCondition(): Op<Boolean> = Op.TRUE
+
+    /**
+     * DSA Art. 17 (E-C) -- die Eigenansicht des Autors in `SocialNetworkService.listTimeline`s
+     * `selfHiddenView`-Zweig. Der Autor darf seinen EIGENEN Post immer sehen, unabhängig von seinem
+     * heutigen Mitgliedsstatus -- dieselbe Begründung, aus der `hideOwnPost` bewusst gar kein
+     * Membership-Gate hat. Bewusst OHNE Sichtbarkeitsstufen-Filter (der Autor darf jede seiner
+     * eigenen Stufen sehen) -- der `state`-Filter (`VISIBLE`/`HIDDEN_BY_AUTHOR`/`REMOVED_LEGAL`
+     * für die Eigenansicht) bleibt Sache des Aufrufers, siehe `listTimeline`.
+     */
+    fun ownAuthorViewCondition(authorMemberId: Uuid): Op<Boolean> = SocialPostTable.authorMemberId eq authorMemberId
 }

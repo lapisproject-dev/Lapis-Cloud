@@ -7777,6 +7777,220 @@ msgstr "Activité liée à l'objet social"
 msgid "Zwischengespeichert (Cached)"
 msgstr "Mis en cache (Cached)"
 
+#: src/jsMain/kotlin/network/lapis/cloud/client/SocialModerationScreen.kt:110
+msgid "Anonyme öffentliche Meldung"
+msgstr "Signalement public anonyme"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/SocialModerationScreen.kt:255
+msgid "Antrag abgelehnt."
+msgstr "Demande rejetée."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/SocialModerationScreen.kt:255
+msgid "Antrag genehmigt."
+msgstr "Demande approuvée."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/SocialNetworkScreen.kt:635
+msgid "Beantragen"
+msgstr "Demander"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/SocialNetworkScreen.kt:624
+msgid "Beantragt die Löschung NUR des Beitragsinhalts (nicht des gesamten Beitrags) -- über den Antrag entscheidet eine Administratorin oder ein Administrator gesondert."
+msgstr "Demande la suppression UNIQUEMENT du contenu de la publication (pas de la publication entière) -- une administratrice ou un administrateur statue séparément sur la demande."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/SocialModerationScreen.kt:148
+msgid "Begründung für Beitragsentfernung"
+msgstr "Justification du retrait de la publication"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/SocialModerationScreen.kt:152
+msgid "Beitrag entfernen"
+msgstr "Retirer la publication"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/SocialModerationScreen.kt:167
+#: src/jsMain/kotlin/network/lapis/cloud/client/SocialNetworkScreen.kt:708
+msgid "Beitrag entfernt."
+msgstr "Publication retirée."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/SocialNetworkScreen.kt:548
+msgid "Beitrag melden"
+msgstr "Signaler la publication"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/SocialModerationScreen.kt:160
+#: src/jsMain/kotlin/network/lapis/cloud/client/SocialNetworkScreen.kt:695
+msgid "Beitrag rechtlich entfernen"
+msgstr "Retirer la publication légalement"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/SocialModerationScreen.kt:107
+msgid "Beitrag: %1"
+msgstr "Publication : %1"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/SocialModerationScreen.kt:60
+msgid "Beitrags-Löschanträge"
+msgstr "Demandes de suppression de publications"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/SocialModerationScreen.kt:215
+msgid "Betroffene Person: %1"
+msgstr "Personne concernée : %1"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/SocialNetworkScreen.kt:574
+msgid "Bitte Kategorie und Begründung angeben und die Gutgläubigkeitserklärung bestätigen."
+msgstr "Veuillez indiquer une catégorie et une justification et confirmer la déclaration de bonne foi."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/SocialNetworkScreen.kt:551
+msgid "Bitte begründen Sie, warum dieser Beitrag rechtswidrig ist (Digital Services Act, Verordnung (EU) 2022/2065, Art. 16)."
+msgstr "Veuillez expliquer pourquoi cette publication est illicite (Digital Services Act, règlement (UE) 2022/2065, art. 16)."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/SocialModerationScreen.kt:149
+#: src/jsMain/kotlin/network/lapis/cloud/client/SocialModerationScreen.kt:161
+#: src/jsMain/kotlin/network/lapis/cloud/client/SocialNetworkScreen.kt:677
+msgid "Diese Begründung wird öffentlich sichtbar -- auch für nicht angemeldete Besucher."
+msgstr "Cette justification deviendra publique -- y compris pour les visiteurs non connectés."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/SocialNetworkScreen.kt:698
+msgid "Diese Begründung wird öffentlich sichtbar -- auch für nicht angemeldete Besucher. Es gibt keine LTR-Rückerstattung."
+msgstr "Cette justification deviendra publique -- y compris pour les visiteurs non connectés. Aucun remboursement de LTR n'est prévu."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/SocialNetworkScreen.kt:528
+msgid "Dieser Beitrag wurde aus rechtlichen Gründen entfernt."
+msgstr "Cette publication a été retirée pour des raisons légales."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/SocialModerationScreen.kt:282
+msgid "Endgültig entfernen"
+msgstr "Supprimer définitivement"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/SocialNetworkScreen.kt:202
+msgid "Entfernt am %1"
+msgstr "Retiré le %1"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/SocialModerationScreen.kt:126
+msgid "Entscheidungsnotiz (optional, rein intern)"
+msgstr "Note de décision (facultative, usage interne uniquement)"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/SocialModerationScreen.kt:109
+msgid "Gemeldet von: %1"
+msgstr "Signalé par : %1"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/SocialModerationScreen.kt:302
+msgid "Hassrede"
+msgstr "Discours de haine"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/SocialNetworkScreen.kt:560
+msgid "Ich erkläre, dass diese Meldung nach bestem Wissen zutreffend und in gutem Glauben abgegeben wird."
+msgstr "Je déclare que ce signalement est soumis de bonne foi et en toute sincérité, au mieux de ma connaissance."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/SocialNetworkScreen.kt:526
+msgid "Ihr Beitrag wurde aus rechtlichen Gründen entfernt."
+msgstr "Votre publication a été retirée pour des raisons légales."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/SocialModerationScreen.kt:140
+msgid "In Prüfung nehmen"
+msgstr "Mettre en examen"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/SocialModerationScreen.kt:224
+#: src/jsMain/kotlin/network/lapis/cloud/client/SocialModerationScreen.kt:269
+msgid "Inhalt endgültig entfernen"
+msgstr "Supprimer définitivement le contenu"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/SocialModerationScreen.kt:230
+msgid "Inhalt wurde entfernt."
+msgstr "Le contenu a été supprimé."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/SocialModerationScreen.kt:194
+msgid "Keine Löschanträge für diese Filter gefunden."
+msgstr "Aucune demande de suppression trouvée pour ces filtres."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/SocialModerationScreen.kt:86
+msgid "Keine Meldungen für diese Filter gefunden."
+msgstr "Aucun signalement trouvé pour ces filtres."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/SocialNetworkScreen.kt:165
+msgid "Keine entfernten eigenen Beiträge."
+msgstr "Aucune publication personnelle retirée."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/SocialNetworkScreen.kt:653
+msgid "Löschantrag übermittelt."
+msgstr "Demande de suppression envoyée."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/SocialNetworkScreen.kt:613
+msgid "Löschung beantragen (DSGVO)"
+msgstr "Demander la suppression (RGPD)"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/SocialNetworkScreen.kt:621
+msgid "Löschung des Beitragsinhalts beantragen (Art. 17 DSGVO)"
+msgstr "Demander la suppression du contenu de la publication (art. 17 RGPD)"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/SocialModerationScreen.kt:311
+msgid "Maßnahme ergriffen"
+msgstr "Mesure prise"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/SocialNetworkScreen.kt:149
+msgid "Meine entfernten Beiträge"
+msgstr "Mes publications retirées"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/SocialNetworkScreen.kt:540
+#: src/jsMain/kotlin/network/lapis/cloud/client/SocialNetworkScreen.kt:568
+msgid "Melden"
+msgstr "Signaler"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/SocialModerationScreen.kt:134
+msgid "Meldung aktualisiert."
+msgstr "Signalement mis à jour."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/SocialNetworkScreen.kt:594
+msgid "Meldung übermittelt."
+msgstr "Signalement envoyé."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/SocialModerationScreen.kt:56
+msgid "Meldungen"
+msgstr "Signalements"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/SocialModerationScreen.kt:54
+msgid "Moderation"
+msgstr "Modération"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/SocialModerationScreen.kt:274
+msgid "Nach der Löschung: prüfen Sie, ob die Beitrags-URL zusätzlich über die Google-Search-Console als „Entfernung“ gemeldet werden sollte -- die Sitemap-Aktualisierung allein garantiert keine schnelle Entfernung aus dem Suchmaschinen-Index."
+msgstr "Après la suppression : vérifiez si l'URL de la publication doit également être signalée à Google Search Console comme « suppression » -- la mise à jour du sitemap seule ne garantit pas un retrait rapide de l'index du moteur de recherche."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/SocialModerationScreen.kt:301
+msgid "Personenbezogene Daten"
+msgstr "Données personnelles"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/SocialModerationScreen.kt:62
+msgid "Post-bezogene Löschanträge nach Art. 17 DSGVO -- Entscheidung und endgültige Ausführung sind ADMIN-only."
+msgstr "Demandes de suppression liées à une publication au titre de l'art. 17 RGPD -- la décision et l'exécution définitive relèvent exclusivement de l'ADMIN."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/SocialNetworkScreen.kt:685
+msgid "Rechtlich entfernen"
+msgstr "Retirer légalement"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/SocialNetworkScreen.kt:187
+msgid "Rechtlich entfernt"
+msgstr "Retiré légalement"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/SocialModerationScreen.kt:298
+msgid "Rechtswidriger Inhalt"
+msgstr "Contenu illicite"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/SocialModerationScreen.kt:303
+msgid "Spam"
+msgstr "Spam"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/SocialModerationScreen.kt:300
+msgid "Urheberrechtsverletzung"
+msgstr "Violation du droit d'auteur"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/SocialModerationScreen.kt:212
+msgid "beantragt am %1"
+msgstr "demandé le %1"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/SocialModerationScreen.kt:105
+msgid "gemeldet am %1"
+msgstr "signalé le %1"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/SocialModerationScreen.kt:299
+msgid "Üble Nachrede/Verleumdung"
+msgstr "Diffamation"
+
 #~ msgid "Aktuelles Gewicht des Beitrags"
 #~ msgstr "Poids actuel de la publication"
 

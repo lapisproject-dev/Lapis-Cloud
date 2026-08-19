@@ -582,6 +582,9 @@ internal object SocialReadPipeline {
                 visibility = row[SocialPostTable.visibility],
                 state = row[SocialPostTable.state],
                 stateReason = row[SocialPostTable.stateReason],
+                // Welle V1.1.5 -- `content` selbst wird UNVERAENDERT durchgereicht (es *ist* nach
+                // dem Tombstoning der Marker-Text); dieses Feld ist das eigentliche Flag.
+                contentErasedAt = row[SocialPostTable.contentErasedAt],
                 initialWeightLtr = row[SocialPostTable.initialWeightLtr],
                 ownCurrentWeightLtr = WeightDecayClock.round2(ownWeight),
                 totalCurrentWeightLtr = WeightDecayClock.round2(totalWeight),

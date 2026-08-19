@@ -33,8 +33,21 @@ enum class AuditAction { CREATE, UPDATE, POST }
  * after that -- see `network.lapis.cloud.server.rpc.ConferenceService.setRoomGuestAccess` KDoc for
  * why the room-level federation-guest-access toggle is audited (a moderator granting/revoking
  * another organization's members access to this room's audio/video is a governance-relevant fact).
- * Additive append only -- never reorder existing literals, see this enum's own "cheap to extend,
- * expensive to reorder" note class-wide.
+ * `SOCIAL_POST` (Soziales Netzwerk, Welle V1.1.5 "Moderation, DSA-Melde-Mechanismus,
+ * DSGVO-Content-Hard-Delete") was appended LAST after that -- a BOARD/ADMIN-ausgelöste rechtliche
+ * Entfernung (`SocialNetworkService.removePostForLegalReason`) und eine ADMIN-Entscheidung über
+ * eine Meldung (`.decideReport`, `entityId` = die Post-Id, nicht die Report-Id, damit
+ * `listAuditLog(entityId = postId)` die vollständige Moderationsgeschichte eines Beitrags an
+ * einer Stelle zeigt) sind beide `UPDATE`-Aktionen auf `entityType = SOCIAL_POST`. Der
+ * post-bezogene DSGVO-Content-Löschantrag (`.executeContentErasure`) läuft bewusst über DIESEN
+ * Log (`entityType = SOCIAL_POST`, `action = UPDATE`, `entityId` = die Post-Id) und NICHT über
+ * `dsgvo_audit_log` -- letzteres bleibt dem bestehenden, mitgliedsweiten Erasure-Pfad
+ * (`DsgvoService`/`network.lapis.cloud.server.dsgvo.SocialNetworkPersonalData.erase`, ON_AUTHOR_
+ * REQUEST) vorbehalten. Der vor/nach-Snapshot trägt dabei niemals Post-INHALT, nur `state`/
+ * `stateReason`/`visibility`/`contentErasedAt` -- siehe [SocialPostModerationSnapshot] KDoc für
+ * die Begründung (append-only/hash-gekettete Snapshots dürfen niemals `content` tragen).
+ * Additive append only -- never reorder existing literals,
+ * see this enum's own "cheap to extend, expensive to reorder" note class-wide.
  */
 @Serializable
 enum class AuditEntityType {
@@ -46,6 +59,7 @@ enum class AuditEntityType {
     CONFERENCE_STREAM,
     CONFERENCE_STREAM_DESTINATION,
     CONFERENCE_ROOM,
+    SOCIAL_POST,
 }
 
 /**
@@ -199,4 +213,23 @@ data class PartyDonationVerdictSnapshot(
     val priorPostedTotalThisYear: Decimal,
     val verdict: String,
     val duties: List<DonationDuty>,
+)
+
+/**
+ * Structured payload for an [AuditEntityType.SOCIAL_POST] audit entry (Welle V1.1.5) --
+ * `removePostForLegalReason` (state UPDATE) und `decideReport` (Meldungs-Entscheidung). **Trägt
+ * ausschließlich Metadaten -- NIEMALS den Post-`content`.** `AuditLogRecorder.record` schreibt in
+ * eine append-only, hash-gekettete, nachweislich unveränderliche Tabelle
+ * (`AuditLogImmutabilityTest` scannt den Quelltext dagegen); ein Snapshot, der den Post-Inhalt
+ * enthielte, würde genau den Inhalt konservieren, den eine spätere Art.-17-Löschung entfernen
+ * muss -- und wäre danach nicht mehr entfernbar, ohne die Hash-Kette zu brechen. [visibility] ist
+ * unveränderlich (write-once, siehe `SocialVisibility` KDoc) und deshalb unbedenklich; [state]/
+ * [stateReason] sind genau die beiden Felder, die eine rechtliche Entfernung tatsächlich ändert.
+ */
+@Serializable
+data class SocialPostModerationSnapshot(
+    val state: SocialPostState,
+    val stateReason: String?,
+    val visibility: SocialPostVisibility,
+    val contentErasedAt: LocalDateTime?,
 )

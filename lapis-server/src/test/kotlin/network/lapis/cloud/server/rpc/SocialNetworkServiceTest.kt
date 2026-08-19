@@ -1,7 +1,6 @@
 package network.lapis.cloud.server.rpc
 
 import io.kotest.core.spec.style.FunSpec
-import io.kotest.matchers.collections.shouldBeEmpty
 import io.kotest.matchers.shouldBe
 import io.ktor.client.request.get
 import io.ktor.client.request.header
@@ -30,17 +29,24 @@ import kotlinx.datetime.toLocalDateTime
 import network.lapis.cloud.server.db.DatabaseConfig
 import network.lapis.cloud.server.db.DevSeedData
 import network.lapis.cloud.server.db.generated.AccountTable
+import network.lapis.cloud.server.db.generated.AuditLogEntryTable
 import network.lapis.cloud.server.db.generated.LtrLedgerEntryTable
 import network.lapis.cloud.server.db.generated.MemberTable
 import network.lapis.cloud.server.db.generated.SocialPostBoostTable
+import network.lapis.cloud.server.db.generated.SocialPostErasureTable
+import network.lapis.cloud.server.db.generated.SocialPostReportTable
 import network.lapis.cloud.server.db.generated.SocialPostTable
 import network.lapis.cloud.server.federation.FederationInboxRateLimiter
 import network.lapis.cloud.shared.domain.AccountRole
+import network.lapis.cloud.shared.domain.AuditEntityType
 import network.lapis.cloud.shared.domain.LtrLedgerEntryType
 import network.lapis.cloud.shared.domain.LtrLedgerReferenceType
 import network.lapis.cloud.shared.domain.MemberStatus
 import network.lapis.cloud.shared.domain.SocialCommentInput
+import network.lapis.cloud.shared.domain.SocialPostErasureStatus
 import network.lapis.cloud.shared.domain.SocialPostInput
+import network.lapis.cloud.shared.domain.SocialPostReportCategory
+import network.lapis.cloud.shared.domain.SocialPostReportStatus
 import network.lapis.cloud.shared.domain.SocialPostState
 import network.lapis.cloud.shared.domain.SocialPostVisibility
 import network.lapis.cloud.shared.domain.SocialTimelineQuery
@@ -90,6 +96,10 @@ class SocialNetworkServiceTest :
                     // Welle V1.1.2 (Stolperfalle 12): comments now exist, so a single bulk delete
                     // over the whole id set can violate the self-referencing parent_id/root_id FK.
                     // Delete deepest-depth batches first, repeatedly, until nothing remains.
+                    // Welle V1.1.5: social_post_report/social_post_erasure both FK to social_post
+                    // (Stolperfalle 11) -- deleted BEFORE boosts/posts, same reasoning.
+                    SocialPostErasureTable.deleteWhere { SocialPostErasureTable.postId inList createdPostIds }
+                    SocialPostReportTable.deleteWhere { SocialPostReportTable.postId inList createdPostIds }
                     SocialPostBoostTable.deleteWhere { SocialPostBoostTable.postId inList createdPostIds }
                     val remaining = createdPostIds.toMutableList()
                     while (remaining.isNotEmpty()) {
@@ -108,8 +118,21 @@ class SocialNetworkServiceTest :
                 if (createdMemberIds.isNotEmpty()) {
                     LtrLedgerEntryTable.deleteWhere { LtrLedgerEntryTable.memberId inList createdMemberIds }
                     AccountTable.deleteWhere { AccountTable.memberId inList createdMemberIds }
-                    MemberTable.deleteWhere { MemberTable.id inList createdMemberIds }
                 }
+            }
+            // Welle V1.1.5: a BOARD/ADMIN test member who actually performed a moderation action
+            // (removePostForLegalReason/decideReport/executeContentErasure) is now an
+            // audit_log_entry.actor_member_id -- an FK to an APPEND-ONLY, hash-chained table
+            // (AuditLogRecorder KDoc), so a batch hard-delete across ALL created members fails the
+            // instant one of them was such an actor. Deleted member-by-member in its OWN,
+            // independent `transaction {}` (not merely a caught exception inside the shared
+            // transaction above, which risks leaving that connection's transaction state poisoned
+            // for whatever runs after it) so one audited actor cannot block cleanup of every other
+            // member -- consistent with the house rule "Mitglieder auf WITHDRAWN setzen, nie
+            // löschen" wherever the GoBD hash chain is involved; here, simply leaving the orphaned
+            // row behind is harmless (this H2 instance is scoped to this one JVM test run).
+            createdMemberIds.forEach { memberId ->
+                runCatching { transaction { MemberTable.deleteWhere { MemberTable.id eq memberId } } }
             }
         }
 
@@ -131,6 +154,32 @@ class SocialNetworkServiceTest :
                     it[AccountTable.id] = Uuid.random()
                     it[memberId] = id
                     it[AccountTable.role] = AccountRole.MEMBER
+                }
+            }
+            createdMemberIds += id
+            return id
+        }
+
+        /** Welle V1.1.5 -- wie [createTestMember], aber mit einer wählbaren [AccountTable.role] für die neuen BOARD/ADMIN-Gates. */
+        fun createTestMemberWithRole(
+            email: String,
+            role: AccountRole,
+            status: MemberStatus = MemberStatus.ACTIVE,
+        ): Uuid {
+            val id = Uuid.random()
+            transaction {
+                MemberTable.insert {
+                    it[MemberTable.id] = id
+                    it[displayName] = "Social Testmitglied ($role)"
+                    it[MemberTable.email] = email
+                    it[MemberTable.status] = status
+                    it[joinedAt] = LocalDate(2026, 1, 1)
+                    it[membershipTierId] = null
+                }
+                AccountTable.insert {
+                    it[AccountTable.id] = Uuid.random()
+                    it[memberId] = id
+                    it[AccountTable.role] = role
                 }
             }
             createdMemberIds += id
@@ -374,7 +423,17 @@ class SocialNetworkServiceTest :
             }
         }
 
-        test("no production source file calls SocialPostTable.update( outside hideOwnPost's state* columns -- unveraenderlichkeit scan") {
+        // Welle V1.1.5 rewrite (Plan Stolperfalle 1/5, orthogonality of state vs. content): this
+        // scan used to assert EXACTLY one SocialPostTable.update( call site (hideOwnPost). This
+        // welle deliberately adds THREE more, all documented, all consistent with the "content is
+        // immutable EXCEPT via the two Art.-17-tombstone paths, state is mutable only via
+        // hideOwnPost/removePostForLegalReason" invariant:
+        //   - SocialNetworkService.removePostForLegalReason -- state* columns only, like hideOwnPost.
+        //   - SocialNetworkService.executeContentErasure -- content/contentErasedAt/contentErasureNote
+        //     only (the post-bezogener Art.-17-Tombstone-Schreibpfad).
+        //   - SocialNetworkPersonalData.eraseSocialPosts (dsgvo package) -- same three columns (the
+        //     mitglieds-weite Art.-17-Tombstone-Schreibpfad).
+        test("SocialPostTable.update( exists at exactly the four Welle-V1.1.5-documented sites") {
             val mainSourceDir =
                 File("src/main/kotlin").let { relative -> if (relative.exists()) relative else File("lapis-server/src/main/kotlin") }
             require(mainSourceDir.exists()) { "main source dir not found: ${mainSourceDir.absolutePath}" }
@@ -385,32 +444,60 @@ class SocialNetworkServiceTest :
                     .filter { it.isFile && it.extension == "kt" }
                     .flatMap { file ->
                         file.readLines().mapIndexedNotNull { index, line ->
-                            if (line.contains("SocialPostTable.update(")) "${file.path}:${index + 1}" else null
+                            if (line.contains("SocialPostTable.update(")) file.path else null
                         }
                     }.toList()
-            // Exactly one legitimate mutation site is allowed: SocialNetworkService.hideOwnPost's
-            // own state/stateChangedAt/stateChangedBy update -- nothing else in production code may
-            // ever call SocialPostTable.update( (there is no updatePost RPC method, content is
-            // immutable after publication).
-            offenders.size shouldBe 1
-            offenders.single().contains("SocialNetworkService.kt") shouldBe true
+            offenders.size shouldBe 4
+            offenders.count { it.contains("SocialNetworkService.kt") } shouldBe 3
+            offenders.count { it.contains("SocialNetworkPersonalData.kt") } shouldBe 1
         }
 
         test(
-            "no production source file ever assigns SocialPostTable.content/initialWeightLtr/visibility/publishedAt/parentId inside an update( block",
+            "every SocialPostTable.update( block touches only its documented columns -- state-only blocks never touch content, content-tombstone blocks never touch state/initialWeightLtr/visibility/publishedAt/parentId",
         ) {
             val mainSourceDir =
                 File("src/main/kotlin").let { relative -> if (relative.exists()) relative else File("lapis-server/src/main/kotlin") }
+            val neverTouched = listOf("it[initialWeightLtr]", "it[visibility]", "it[publishedAt]", "it[parentId]")
+
+            fun updateBlocksOf(file: File): List<List<String>> {
+                val lines = file.readLines()
+                val blocks = mutableListOf<List<String>>()
+                var searchFrom = 0
+                while (true) {
+                    val start = lines.drop(searchFrom).indexOfFirst { it.contains("SocialPostTable.update(") }
+                    if (start < 0) break
+                    val absoluteStart = start + searchFrom
+                    val end = lines.drop(absoluteStart).indexOfFirst { it.trim() == "}" } + absoluteStart
+                    blocks += lines.subList(absoluteStart, end + 1)
+                    searchFrom = end + 1
+                }
+                return blocks
+            }
+
             val serviceFile = File(mainSourceDir, "network/lapis/cloud/server/rpc/SocialNetworkService.kt")
-            require(serviceFile.exists()) { "SocialNetworkService.kt not found at ${serviceFile.absolutePath}" }
-            val lines = serviceFile.readLines()
-            val updateBlockStart = lines.indexOfFirst { it.contains("SocialPostTable.update(") }
-            (updateBlockStart >= 0) shouldBe true
-            val updateBlockEnd = lines.drop(updateBlockStart).indexOfFirst { it.trim() == "}" } + updateBlockStart
-            val updateBlockLines = lines.subList(updateBlockStart, updateBlockEnd + 1)
-            val immutableColumnTokens = listOf("it[content]", "it[initialWeightLtr]", "it[visibility]", "it[publishedAt]", "it[parentId]")
-            val offenders = updateBlockLines.filter { line -> immutableColumnTokens.any { line.contains(it) } }
-            offenders.shouldBeEmpty()
+            val personalDataFile = File(mainSourceDir, "network/lapis/cloud/server/dsgvo/SocialNetworkPersonalData.kt")
+            val serviceBlocks = updateBlocksOf(serviceFile)
+            val personalDataBlocks = updateBlocksOf(personalDataFile)
+            serviceBlocks.size shouldBe 3
+            personalDataBlocks.size shouldBe 1
+
+            // hideOwnPost/removePostForLegalReason -- state* only, NEVER content.
+            val stateOnlyBlocks = serviceBlocks.filter { block -> block.none { it.contains("it[content]") } }
+            stateOnlyBlocks.size shouldBe 2
+            stateOnlyBlocks.forEach { block ->
+                (neverTouched.any { token -> block.any { it.contains(token) } }) shouldBe false
+                block.any { it.contains("it[state]") } shouldBe true
+            }
+
+            // executeContentErasure/SocialNetworkPersonalData.eraseSocialPosts -- content-tombstone
+            // blocks, NEVER state/initialWeightLtr/visibility/publishedAt/parentId.
+            val contentTombstoneBlocks = (serviceBlocks + personalDataBlocks).filter { block -> block.any { it.contains("it[content]") } }
+            contentTombstoneBlocks.size shouldBe 2
+            contentTombstoneBlocks.forEach { block ->
+                (neverTouched.any { token -> block.any { it.contains(token) } }) shouldBe false
+                block.any { it.contains("it[state]") } shouldBe false
+                block.any { it.contains("it[contentErasedAt]") } shouldBe true
+            }
         }
 
         test("listTimeline: visibility filtering matrix across three poster visibilities and four viewer statuses") {
@@ -1912,6 +1999,953 @@ class SocialNetworkServiceTest :
                 nodesEncoded.startsWith(rootId) shouldBe true
             }
         }
+
+        // ── Welle V1.1.5 -- Moderation, DSA-Melde-Mechanismus, DSGVO-Content-Hard-Delete ────────
+
+        test("removePostForLegalReason: role gate -- ACTIVE without role and TREASURER are Forbidden, BOARD and ADMIN succeed") {
+            testApplication {
+                application {
+                    install(StatusPages) { installSocialExceptionHandlers() }
+                    routing {
+                        registerSocialNetworkTestRoutes(
+                            createRateLimiter = generousLimiter(),
+                            moderationRateLimiter = generousLimiter(),
+                        )
+                    }
+                }
+                val author = createTestMember("v115-role-author@example.org")
+                mintLtr(author, BigDecimal("5.00"))
+                val member = createTestMember("v115-role-member@example.org")
+                val treasurer = createTestMemberWithRole("v115-role-treasurer@example.org", AccountRole.TREASURER)
+                val board = createTestMemberWithRole("v115-role-board@example.org", AccountRole.BOARD)
+                val admin = createTestMemberWithRole("v115-role-admin@example.org", AccountRole.ADMIN)
+
+                suspend fun createPost(): String {
+                    val id =
+                        client
+                            .post("/test/create-post?content=x&weight=0.10&visibility=PUBLIC") { header("X-Member-Id", author.toString()) }
+                            .bodyAsText()
+                            .substringBefore(":")
+                    createdPostIds += Uuid.parse(id)
+                    return id
+                }
+
+                val postForMember = createPost()
+                client
+                    .post("/test/remove-for-legal-reason/$postForMember?reason=x") { header("X-Member-Id", member.toString()) }
+                    .status shouldBe HttpStatusCode.Forbidden
+
+                val postForTreasurer = createPost()
+                client
+                    .post("/test/remove-for-legal-reason/$postForTreasurer?reason=x") { header("X-Member-Id", treasurer.toString()) }
+                    .status shouldBe HttpStatusCode.Forbidden
+
+                val postForBoard = createPost()
+                client
+                    .post("/test/remove-for-legal-reason/$postForBoard?reason=x") { header("X-Member-Id", board.toString()) }
+                    .status shouldBe HttpStatusCode.OK
+
+                val postForAdmin = createPost()
+                client
+                    .post("/test/remove-for-legal-reason/$postForAdmin?reason=x") { header("X-Member-Id", admin.toString()) }
+                    .status shouldBe HttpStatusCode.OK
+            }
+        }
+
+        test(
+            "removePostForLegalReason: blank reason is rejected; MEMBERS_ONLY IS removable (no isReadable gate); second removal is Conflict, not NotFound",
+        ) {
+            testApplication {
+                application {
+                    install(StatusPages) { installSocialExceptionHandlers() }
+                    routing {
+                        registerSocialNetworkTestRoutes(
+                            createRateLimiter = generousLimiter(),
+                            moderationRateLimiter = generousLimiter(),
+                        )
+                    }
+                }
+                val author = createTestMember("v115-reason-author@example.org")
+                mintLtr(author, BigDecimal("5.00"))
+                val admin = createTestMemberWithRole("v115-reason-admin@example.org", AccountRole.ADMIN)
+                val postId =
+                    client
+                        .post(
+                            "/test/create-post?content=x&weight=0.10&visibility=MEMBERS_ONLY",
+                        ) { header("X-Member-Id", author.toString()) }
+                        .bodyAsText()
+                        .substringBefore(":")
+                createdPostIds += Uuid.parse(postId)
+
+                client
+                    .post("/test/remove-for-legal-reason/$postId?reason=%20") { header("X-Member-Id", admin.toString()) }
+                    .status shouldBe HttpStatusCode.Conflict
+
+                val firstRemoval =
+                    client.post(
+                        "/test/remove-for-legal-reason/$postId?reason=Verstoss",
+                    ) { header("X-Member-Id", admin.toString()) }
+                firstRemoval.status shouldBe HttpStatusCode.OK
+                firstRemoval.bodyAsText() shouldBe "$postId:REMOVED_LEGAL:Verstoss"
+
+                client
+                    .post("/test/remove-for-legal-reason/$postId?reason=Nochmal") { header("X-Member-Id", admin.toString()) }
+                    .status shouldBe HttpStatusCode.Conflict
+            }
+        }
+
+        test("removePostForLegalReason: no LTR refund, post disappears from getPost/listTimeline, audit log entry carries no content") {
+            testApplication {
+                application {
+                    install(StatusPages) { installSocialExceptionHandlers() }
+                    routing {
+                        registerSocialNetworkTestRoutes(
+                            createRateLimiter = generousLimiter(),
+                            readRateLimiter = generousLimiter(),
+                            moderationRateLimiter = generousLimiter(),
+                        )
+                    }
+                }
+                val author = createTestMember("v115-audit-author@example.org")
+                mintLtr(author, BigDecimal("5.00"))
+                val admin = createTestMemberWithRole("v115-audit-admin@example.org", AccountRole.ADMIN)
+                val secretContent = "GeheimerInhaltXyz123"
+                val postId =
+                    client
+                        .post("/test/create-post?content=$secretContent&weight=1.00&visibility=PUBLIC") {
+                            header("X-Member-Id", author.toString())
+                        }.bodyAsText()
+                        .substringBefore(":")
+                createdPostIds += Uuid.parse(postId)
+
+                val balanceBefore = client.get("/test/free-balance") { header("X-Member-Id", author.toString()) }.bodyAsText()
+
+                client
+                    .post("/test/remove-for-legal-reason/$postId?reason=DSA-Verstoss") { header("X-Member-Id", admin.toString()) }
+                    .status shouldBe HttpStatusCode.OK
+
+                val balanceAfter = client.get("/test/free-balance") { header("X-Member-Id", author.toString()) }.bodyAsText()
+                balanceAfter shouldBe balanceBefore
+
+                client.get("/test/get-post/$postId") { header("X-Member-Id", author.toString()) }.status shouldBe HttpStatusCode.NotFound
+                client.get("/test/get-post/$postId") { header("X-Member-Id", admin.toString()) }.status shouldBe HttpStatusCode.NotFound
+                client.get("/test/list-timeline") { header("X-Member-Id", admin.toString()) }.bodyAsText().contains(postId) shouldBe false
+
+                val auditRow =
+                    transaction {
+                        AuditLogEntryTable
+                            .selectAll()
+                            .where {
+                                (AuditLogEntryTable.entityType eq AuditEntityType.SOCIAL_POST) and
+                                    (AuditLogEntryTable.entityId eq Uuid.parse(postId))
+                            }.orderBy(AuditLogEntryTable.sequenceNumber)
+                            .last()
+                    }
+                auditRow[AuditLogEntryTable.action].name shouldBe "UPDATE"
+                (auditRow[AuditLogEntryTable.beforeSnapshot] ?: "").contains(secretContent) shouldBe false
+                (auditRow[AuditLogEntryTable.afterSnapshot] ?: "").contains(secretContent) shouldBe false
+            }
+        }
+
+        test("removePostForLegalReason: closes open/under-review reports on the post to ACTION_TAKEN") {
+            testApplication {
+                application {
+                    install(StatusPages) {
+                        installSocialExceptionHandlers()
+                    }
+                    routing {
+                        registerSocialNetworkTestRoutes(
+                            createRateLimiter = generousLimiter(),
+                            reportRateLimiter = generousLimiter(),
+                            moderationRateLimiter = generousLimiter(),
+                        )
+                    }
+                }
+                val author = createTestMember("v115-close-report-author@example.org")
+                mintLtr(author, BigDecimal("5.00"))
+                val reporter = createTestMember("v115-close-report-reporter@example.org")
+                val admin = createTestMemberWithRole("v115-close-report-admin@example.org", AccountRole.ADMIN)
+                val postId =
+                    client
+                        .post("/test/create-post?content=x&weight=0.10&visibility=PUBLIC") { header("X-Member-Id", author.toString()) }
+                        .bodyAsText()
+                        .substringBefore(":")
+                createdPostIds += Uuid.parse(postId)
+
+                client
+                    .post("/test/report-post?postId=$postId&category=SPAM&description=Spam&goodFaith=true") {
+                        header("X-Member-Id", reporter.toString())
+                    }.status shouldBe HttpStatusCode.OK
+
+                client
+                    .post("/test/remove-for-legal-reason/$postId?reason=Spam-entfernt") { header("X-Member-Id", admin.toString()) }
+                    .status shouldBe HttpStatusCode.OK
+
+                val reportStatus =
+                    transaction {
+                        SocialPostReportTable.selectAll().where { SocialPostReportTable.postId eq Uuid.parse(postId) }.single()[
+                            SocialPostReportTable.status,
+                        ]
+                    }
+                reportStatus shouldBe SocialPostReportStatus.ACTION_TAKEN
+            }
+        }
+
+        test(
+            "reportPost: enumeration hardening -- unknown post, unreadable MEMBERS_ONLY post, and a readable post all return OK identically, only the readable one creates a row; own-post report is a silent no-op",
+        ) {
+            testApplication {
+                application {
+                    install(StatusPages) { installSocialExceptionHandlers() }
+                    routing {
+                        registerSocialNetworkTestRoutes(
+                            createRateLimiter = generousLimiter(),
+                            reportRateLimiter = generousLimiter(),
+                        )
+                    }
+                }
+                val author = createTestMember("v115-enum-author@example.org")
+                mintLtr(author, BigDecimal("5.00"))
+                val friend = createTestMember("v115-enum-friend@example.org", status = MemberStatus.FRIEND)
+                mintLtr(friend, BigDecimal("5.00"))
+
+                val membersOnlyPostId =
+                    client
+                        .post(
+                            "/test/create-post?content=x&weight=0.10&visibility=MEMBERS_ONLY",
+                        ) { header("X-Member-Id", author.toString()) }
+                        .bodyAsText()
+                        .substringBefore(":")
+                createdPostIds += Uuid.parse(membersOnlyPostId)
+
+                val publicPostId =
+                    client
+                        .post("/test/create-post?content=x&weight=0.10&visibility=PUBLIC") { header("X-Member-Id", author.toString()) }
+                        .bodyAsText()
+                        .substringBefore(":")
+                createdPostIds += Uuid.parse(publicPostId)
+
+                val unknownId = Uuid.random().toString()
+
+                val r1 =
+                    client.post("/test/report-post?postId=$unknownId&category=SPAM&description=x&goodFaith=true") {
+                        header("X-Member-Id", friend.toString())
+                    }
+                val r2 =
+                    client.post("/test/report-post?postId=$membersOnlyPostId&category=SPAM&description=x&goodFaith=true") {
+                        header("X-Member-Id", friend.toString())
+                    }
+                val r3 =
+                    client.post("/test/report-post?postId=$publicPostId&category=SPAM&description=x&goodFaith=true") {
+                        header("X-Member-Id", friend.toString())
+                    }
+                r1.status shouldBe HttpStatusCode.OK
+                r2.status shouldBe HttpStatusCode.OK
+                r3.status shouldBe HttpStatusCode.OK
+                r1.bodyAsText() shouldBe r2.bodyAsText()
+                r2.bodyAsText() shouldBe r3.bodyAsText()
+
+                fun reportCountFor(postId: String): Long =
+                    transaction { SocialPostReportTable.selectAll().where { SocialPostReportTable.postId eq Uuid.parse(postId) }.count() }
+                reportCountFor(publicPostId) shouldBe 1L
+                reportCountFor(membersOnlyPostId) shouldBe 0L
+
+                // Own-post report -- silent no-op, no additional row.
+                client
+                    .post("/test/report-post?postId=$publicPostId&category=SPAM&description=x&goodFaith=true") {
+                        header("X-Member-Id", author.toString())
+                    }.status shouldBe HttpStatusCode.OK
+                reportCountFor(publicPostId) shouldBe 1L
+            }
+        }
+
+        test("reportPost: validation -- blank description and goodFaithConfirmed=false are rejected") {
+            testApplication {
+                application {
+                    install(StatusPages) { installSocialExceptionHandlers() }
+                    routing {
+                        registerSocialNetworkTestRoutes(
+                            createRateLimiter = generousLimiter(),
+                            reportRateLimiter = generousLimiter(),
+                        )
+                    }
+                }
+                val author = createTestMember("v115-validate-author@example.org")
+                mintLtr(author, BigDecimal("5.00"))
+                val reporter = createTestMember("v115-validate-reporter@example.org")
+                val postId =
+                    client
+                        .post("/test/create-post?content=x&weight=0.10&visibility=PUBLIC") { header("X-Member-Id", author.toString()) }
+                        .bodyAsText()
+                        .substringBefore(":")
+                createdPostIds += Uuid.parse(postId)
+
+                client
+                    .post("/test/report-post?postId=$postId&category=SPAM&description=%20&goodFaith=true") {
+                        header("X-Member-Id", reporter.toString())
+                    }.status shouldBe HttpStatusCode.Conflict
+                client
+                    .post("/test/report-post?postId=$postId&category=SPAM&description=x&goodFaith=false") {
+                        header("X-Member-Id", reporter.toString())
+                    }.status shouldBe HttpStatusCode.Conflict
+            }
+        }
+
+        test("listReports/decideReport: role gate (BOARD or ADMIN) and status state machine") {
+            testApplication {
+                application {
+                    install(StatusPages) { installSocialExceptionHandlers() }
+                    routing {
+                        registerSocialNetworkTestRoutes(
+                            createRateLimiter = generousLimiter(),
+                            readRateLimiter = generousLimiter(),
+                            reportRateLimiter = generousLimiter(),
+                            moderationRateLimiter = generousLimiter(),
+                        )
+                    }
+                }
+                val author = createTestMember("v115-decide-author@example.org")
+                mintLtr(author, BigDecimal("5.00"))
+                val reporter = createTestMember("v115-decide-reporter@example.org")
+                val board = createTestMemberWithRole("v115-decide-board@example.org", AccountRole.BOARD)
+                val member = createTestMember("v115-decide-member@example.org")
+                val postId =
+                    client
+                        .post("/test/create-post?content=x&weight=0.10&visibility=PUBLIC") { header("X-Member-Id", author.toString()) }
+                        .bodyAsText()
+                        .substringBefore(":")
+                createdPostIds += Uuid.parse(postId)
+                client
+                    .post("/test/report-post?postId=$postId&category=SPAM&description=x&goodFaith=true") {
+                        header("X-Member-Id", reporter.toString())
+                    }.status shouldBe HttpStatusCode.OK
+
+                client.get("/test/list-reports") { header("X-Member-Id", member.toString()) }.status shouldBe HttpStatusCode.Forbidden
+                val listResponse = client.get("/test/list-reports") { header("X-Member-Id", board.toString()) }
+                listResponse.status shouldBe HttpStatusCode.OK
+                val reportId = listResponse.bodyAsText().substringBefore(":")
+
+                client
+                    .post("/test/decide-report/$reportId?decision=OPEN") { header("X-Member-Id", board.toString()) }
+                    .status shouldBe HttpStatusCode.Conflict
+
+                val underReview =
+                    client.post("/test/decide-report/$reportId?decision=UNDER_REVIEW") { header("X-Member-Id", board.toString()) }
+                underReview.status shouldBe HttpStatusCode.OK
+                underReview.bodyAsText() shouldBe "$reportId:UNDER_REVIEW"
+
+                client
+                    .post("/test/decide-report/$reportId?decision=DISMISSED") { header("X-Member-Id", board.toString()) }
+                    .status shouldBe HttpStatusCode.OK
+
+                client
+                    .post("/test/decide-report/$reportId?decision=UNDER_REVIEW") { header("X-Member-Id", board.toString()) }
+                    .status shouldBe HttpStatusCode.Conflict
+            }
+        }
+
+        test(
+            "decideReport/decideContentErasure: note length validation -- a note over the 2000-char decision_note " +
+                "column width is a clean Conflict, not a raw SQL exception (Review-Fund 5, Runde 1 2026-08-19); " +
+                "exactly at the limit succeeds",
+        ) {
+            testApplication {
+                application {
+                    install(StatusPages) { installSocialExceptionHandlers() }
+                    routing {
+                        registerSocialNetworkTestRoutes(
+                            createRateLimiter = generousLimiter(),
+                            readRateLimiter = generousLimiter(),
+                            reportRateLimiter = generousLimiter(),
+                            moderationRateLimiter = generousLimiter(),
+                        )
+                    }
+                }
+                val author = createTestMember("v115-note-len-author@example.org")
+                mintLtr(author, BigDecimal("5.00"))
+                val reporter = createTestMember("v115-note-len-reporter@example.org")
+                val board = createTestMemberWithRole("v115-note-len-board@example.org", AccountRole.BOARD)
+                val admin = createTestMemberWithRole("v115-note-len-admin@example.org", AccountRole.ADMIN)
+                val postId =
+                    client
+                        .post("/test/create-post?content=x&weight=0.10&visibility=PUBLIC") { header("X-Member-Id", author.toString()) }
+                        .bodyAsText()
+                        .substringBefore(":")
+                createdPostIds += Uuid.parse(postId)
+
+                client
+                    .post("/test/report-post?postId=$postId&category=SPAM&description=x&goodFaith=true") {
+                        header("X-Member-Id", reporter.toString())
+                    }.status shouldBe HttpStatusCode.OK
+                // orderBy(reportedAt DESC) -- the just-created report sorts first even in this
+                // spec-wide shared DB, same pattern the "decideReport" test above already relies on.
+                val reportId =
+                    client
+                        .get("/test/list-reports") { header("X-Member-Id", board.toString()) }
+                        .bodyAsText()
+                        .substringBefore(":")
+
+                val tooLongNote = "x".repeat(2001)
+                val exactLimitNote = "x".repeat(2000)
+
+                client
+                    .post("/test/decide-report/$reportId?decision=UNDER_REVIEW&note=$tooLongNote") {
+                        header("X-Member-Id", board.toString())
+                    }.status shouldBe HttpStatusCode.Conflict
+                client
+                    .post("/test/decide-report/$reportId?decision=UNDER_REVIEW&note=$exactLimitNote") {
+                        header("X-Member-Id", board.toString())
+                    }.status shouldBe HttpStatusCode.OK
+
+                val erasureId =
+                    client
+                        .post("/test/request-content-erasure?postId=$postId&reason=x") { header("X-Member-Id", author.toString()) }
+                        .bodyAsText()
+                        .substringBefore(":")
+
+                client
+                    .post("/test/decide-content-erasure/$erasureId?approve=true&note=$tooLongNote") {
+                        header("X-Member-Id", admin.toString())
+                    }.status shouldBe HttpStatusCode.Conflict
+                client
+                    .post("/test/decide-content-erasure/$erasureId?approve=true&note=$exactLimitNote") {
+                        header("X-Member-Id", admin.toString())
+                    }.status shouldBe HttpStatusCode.OK
+            }
+        }
+
+        test(
+            "Content erasure: self-or-ADMIN request gate, ADMIN-only decide/execute (E-E), full state machine REQUESTED->APPROVED->EXECUTED",
+        ) {
+            testApplication {
+                application {
+                    install(StatusPages) { installSocialExceptionHandlers() }
+                    routing {
+                        registerSocialNetworkTestRoutes(
+                            createRateLimiter = generousLimiter(),
+                            readRateLimiter = generousLimiter(),
+                            moderationRateLimiter = generousLimiter(),
+                        )
+                    }
+                }
+                val author = createTestMember("v115-erasure-author@example.org")
+                mintLtr(author, BigDecimal("5.00"))
+                val other = createTestMember("v115-erasure-other@example.org")
+                val board = createTestMemberWithRole("v115-erasure-board@example.org", AccountRole.BOARD)
+                val admin = createTestMemberWithRole("v115-erasure-admin@example.org", AccountRole.ADMIN)
+                val postId =
+                    client
+                        .post("/test/create-post?content=OriginalInhalt&weight=0.10&visibility=PUBLIC") {
+                            header("X-Member-Id", author.toString())
+                        }.bodyAsText()
+                        .substringBefore(":")
+                createdPostIds += Uuid.parse(postId)
+
+                // Ein anderes Mitglied darf NICHT im Namen des Autors beantragen, ohne ADMIN zu sein.
+                client
+                    .post("/test/request-content-erasure?postId=$postId&reason=x&subjectMemberId=$author") {
+                        header("X-Member-Id", other.toString())
+                    }.status shouldBe HttpStatusCode.Forbidden
+
+                // Der Autor darf fuer sich selbst beantragen.
+                val requestResponse =
+                    client.post("/test/request-content-erasure?postId=$postId&reason=Bitte+entfernen") {
+                        header("X-Member-Id", author.toString())
+                    }
+                requestResponse.status shouldBe HttpStatusCode.OK
+                val erasureId = requestResponse.bodyAsText().substringBefore(":")
+
+                // BOARD darf NICHT entscheiden (E-E: ADMIN allein).
+                client
+                    .post("/test/decide-content-erasure/$erasureId?approve=true") { header("X-Member-Id", board.toString()) }
+                    .status shouldBe HttpStatusCode.Forbidden
+
+                val decideResponse =
+                    client.post("/test/decide-content-erasure/$erasureId?approve=true") { header("X-Member-Id", admin.toString()) }
+                decideResponse.status shouldBe HttpStatusCode.OK
+                decideResponse.bodyAsText() shouldBe "$erasureId:APPROVED"
+
+                client
+                    .post("/test/execute-content-erasure/$erasureId") { header("X-Member-Id", board.toString()) }
+                    .status shouldBe HttpStatusCode.Forbidden
+
+                val executeResponse =
+                    client.post("/test/execute-content-erasure/$erasureId") { header("X-Member-Id", admin.toString()) }
+                executeResponse.status shouldBe HttpStatusCode.OK
+                executeResponse.bodyAsText() shouldBe "$erasureId:EXECUTED"
+
+                // Tombstone-Kerntest: content ist der Marker, state UNVERAENDERT.
+                val row = transaction { SocialPostTable.selectAll().where { SocialPostTable.id eq Uuid.parse(postId) }.single() }
+                row[SocialPostTable.content] shouldBe SocialContentTombstone.ON_POST_REQUEST
+                (row[SocialPostTable.contentErasedAt] != null) shouldBe true
+                row[SocialPostTable.state] shouldBe SocialPostState.VISIBLE
+
+                // Idempotenz: ein zweites execute wirft nicht und ueberschreibt den Marker nicht erneut.
+                val secondExecute =
+                    client.post("/test/execute-content-erasure/$erasureId") { header("X-Member-Id", admin.toString()) }
+                secondExecute.status shouldBe HttpStatusCode.Conflict // bereits EXECUTED, nicht mehr APPROVED
+            }
+        }
+
+        test(
+            "requestContentErasure: enumeration hardening -- a FRIEND with a real MEMBERS_ONLY post's UUID and a FRIEND " +
+                "with a garbage UUID both get NotFoundException, NOT a 200 existence leak; ADMIN bypasses the readability " +
+                "gate and CAN request erasure for a MEMBERS_ONLY post on behalf of a third party (Review-Fund 1, Runde 1)",
+        ) {
+            testApplication {
+                application {
+                    install(StatusPages) { installSocialExceptionHandlers() }
+                    routing {
+                        registerSocialNetworkTestRoutes(
+                            createRateLimiter = generousLimiter(),
+                            readRateLimiter = generousLimiter(),
+                            moderationRateLimiter = generousLimiter(),
+                        )
+                    }
+                }
+                val author = createTestMember("v115-erasure-oracle-author@example.org")
+                mintLtr(author, BigDecimal("5.00"))
+                val friend = createTestMember("v115-erasure-oracle-friend@example.org", status = MemberStatus.FRIEND)
+                val admin = createTestMemberWithRole("v115-erasure-oracle-admin@example.org", AccountRole.ADMIN)
+
+                val membersOnlyPostId =
+                    client
+                        .post("/test/create-post?content=Geheim&weight=0.10&visibility=MEMBERS_ONLY") {
+                            header("X-Member-Id", author.toString())
+                        }.bodyAsText()
+                        .substringBefore(":")
+                createdPostIds += Uuid.parse(membersOnlyPostId)
+
+                val unknownId = Uuid.random().toString()
+
+                // Ein FRIEND (NON_MEMBER-Sichtbarkeitsstufe) kann MEMBERS_ONLY nicht lesen -- die
+                // reale UUID muss GENAUSO 404 liefern wie eine frei erfundene UUID.
+                val realButUnreadable =
+                    client.post("/test/request-content-erasure?postId=$membersOnlyPostId&reason=x") {
+                        header("X-Member-Id", friend.toString())
+                    }
+                val garbage =
+                    client.post("/test/request-content-erasure?postId=$unknownId&reason=x") {
+                        header("X-Member-Id", friend.toString())
+                    }
+                realButUnreadable.status shouldBe HttpStatusCode.NotFound
+                garbage.status shouldBe HttpStatusCode.NotFound
+                realButUnreadable.bodyAsText() shouldBe "SocialPost $membersOnlyPostId not found"
+                garbage.bodyAsText() shouldBe "SocialPost $unknownId not found"
+                transaction {
+                    SocialPostErasureTable.selectAll().where { SocialPostErasureTable.postId eq Uuid.parse(membersOnlyPostId) }.count()
+                } shouldBe 0L
+
+                // Gegenprobe: ADMIN darf trotz derselben fehlenden eigenen Lesbarkeit "im Namen einer
+                // externen betroffenen Person" beantragen (Plan § 3.5) -- reine Existenzpruefung.
+                val adminRequest =
+                    client.post("/test/request-content-erasure?postId=$membersOnlyPostId&reason=Externe+Betroffene") {
+                        header("X-Member-Id", admin.toString())
+                    }
+                adminRequest.status shouldBe HttpStatusCode.OK
+                transaction {
+                    SocialPostErasureTable.selectAll().where { SocialPostErasureTable.postId eq Uuid.parse(membersOnlyPostId) }.count()
+                } shouldBe 1L
+            }
+        }
+
+        test(
+            "E-A: executeContentErasure writes ON_POST_REQUEST, SocialNetworkPersonalData writes ON_AUTHOR_REQUEST -- the two texts differ",
+        ) {
+            (SocialContentTombstone.ON_POST_REQUEST == SocialContentTombstone.ON_AUTHOR_REQUEST) shouldBe false
+        }
+
+        test(
+            "getRemovalNotice: readable for a status whose tier admits the post, NotFoundException for an unreadable/non-removed/unknown post, no content/author leak",
+        ) {
+            testApplication {
+                application {
+                    install(StatusPages) { installSocialExceptionHandlers() }
+                    routing {
+                        registerSocialNetworkTestRoutes(
+                            createRateLimiter = generousLimiter(),
+                            readRateLimiter = generousLimiter(),
+                            moderationRateLimiter = generousLimiter(),
+                        )
+                    }
+                }
+                val author = createTestMember("v115-notice-author@example.org")
+                mintLtr(author, BigDecimal("5.00"))
+                val active = createTestMember("v115-notice-active@example.org")
+                val friend = createTestMember("v115-notice-friend@example.org", status = MemberStatus.FRIEND)
+                mintLtr(friend, BigDecimal("5.00"))
+                val admin = createTestMemberWithRole("v115-notice-admin@example.org", AccountRole.ADMIN)
+
+                val membersOnlyPostId =
+                    client
+                        .post("/test/create-post?content=Geheim&weight=0.10&visibility=MEMBERS_ONLY") {
+                            header("X-Member-Id", author.toString())
+                        }.bodyAsText()
+                        .substringBefore(":")
+                createdPostIds += Uuid.parse(membersOnlyPostId)
+                client
+                    .post(
+                        "/test/remove-for-legal-reason/$membersOnlyPostId?reason=Rechtsverstoss",
+                    ) { header("X-Member-Id", admin.toString()) }
+                    .status shouldBe HttpStatusCode.OK
+
+                // ACTIVE (ORGANIZATION_MEMBER) sieht den Hinweis zu einem entfernten MEMBERS_ONLY-Post.
+                val activeResponse =
+                    client.get("/test/get-removal-notice/$membersOnlyPostId") { header("X-Member-Id", active.toString()) }
+                activeResponse.status shouldBe HttpStatusCode.OK
+                val activeBody = activeResponse.bodyAsText()
+                activeBody.contains("Rechtsverstoss") shouldBe true
+                activeBody.contains("Geheim") shouldBe false
+                activeBody.endsWith(":false") shouldBe true // isOwnPost
+
+                // FRIEND (NON_MEMBER) sieht den MEMBERS_ONLY-Hinweis NICHT.
+                client
+                    .get("/test/get-removal-notice/$membersOnlyPostId") { header("X-Member-Id", friend.toString()) }
+                    .status shouldBe HttpStatusCode.NotFound
+
+                // Der Autor sieht isOwnPost = true.
+                val authorResponse =
+                    client.get("/test/get-removal-notice/$membersOnlyPostId") { header("X-Member-Id", author.toString()) }
+                authorResponse.bodyAsText().endsWith(":true") shouldBe true
+
+                // Unbekannte UUID -> NotFoundException.
+                client
+                    .get("/test/get-removal-notice/${Uuid.random()}") { header("X-Member-Id", active.toString()) }
+                    .status shouldBe HttpStatusCode.NotFound
+
+                // Ein normaler VISIBLE Post ist kein Removal-Notice-Kandidat.
+                val visiblePostId =
+                    client
+                        .post("/test/create-post?content=x&weight=0.10&visibility=PUBLIC") { header("X-Member-Id", author.toString()) }
+                        .bodyAsText()
+                        .substringBefore(":")
+                createdPostIds += Uuid.parse(visiblePostId)
+                client
+                    .get("/test/get-removal-notice/$visiblePostId") { header("X-Member-Id", active.toString()) }
+                    .status shouldBe HttpStatusCode.NotFound
+
+                // Addendum-Test 50 (Review-Fund 10, Runde 1 2026-08-19): HIDDEN_BY_AUTHOR ist
+                // ebenfalls kein Removal-Notice-Kandidat -- `removalNoticeReadableCondition`s
+                // `state eq REMOVED_LEGAL`-Klausel schliesst das "by construction" aus, war aber
+                // bisher ungetestet.
+                val hiddenByAuthorPostId =
+                    client
+                        .post("/test/create-post?content=x&weight=0.10&visibility=PUBLIC") { header("X-Member-Id", author.toString()) }
+                        .bodyAsText()
+                        .substringBefore(":")
+                createdPostIds += Uuid.parse(hiddenByAuthorPostId)
+                client
+                    .post("/test/hide-post/$hiddenByAuthorPostId") { header("X-Member-Id", author.toString()) }
+                    .bodyAsText() shouldBe "HIDDEN_BY_AUTHOR"
+                client
+                    .get("/test/get-removal-notice/$hiddenByAuthorPostId") { header("X-Member-Id", active.toString()) }
+                    .status shouldBe HttpStatusCode.NotFound
+                client
+                    .get("/test/get-removal-notice/$hiddenByAuthorPostId") { header("X-Member-Id", author.toString()) }
+                    .status shouldBe HttpStatusCode.NotFound
+            }
+        }
+
+        test(
+            "Structural test: executeContentErasure keeps the whole thread visible with the tombstone marker; removePostForLegalReason suppresses the subtree -- weight is identical either way (E3)",
+        ) {
+            testApplication {
+                application {
+                    install(StatusPages) { installSocialExceptionHandlers() }
+                    routing {
+                        registerSocialNetworkTestRoutes(
+                            createRateLimiter = generousLimiter(),
+                            readRateLimiter = generousLimiter(),
+                            moderationRateLimiter = generousLimiter(),
+                        )
+                    }
+                }
+                val author = createTestMember("v115-structural-author@example.org")
+                mintLtr(author, BigDecimal("10.00"))
+                val admin = createTestMemberWithRole("v115-structural-admin@example.org", AccountRole.ADMIN)
+
+                val aId =
+                    client
+                        .post("/test/create-post?content=A&weight=1.00&visibility=PUBLIC") { header("X-Member-Id", author.toString()) }
+                        .bodyAsText()
+                        .substringBefore(":")
+                createdPostIds += Uuid.parse(aId)
+                val bId =
+                    client
+                        .post("/test/create-comment?parentId=$aId&content=B&weight=1.00") { header("X-Member-Id", author.toString()) }
+                        .bodyAsText()
+                        .substringBefore(":")
+                createdPostIds += Uuid.parse(bId)
+                val cId =
+                    client
+                        .post("/test/create-comment?parentId=$bId&content=C&weight=1.00") { header("X-Member-Id", author.toString()) }
+                        .bodyAsText()
+                        .substringBefore(":")
+                createdPostIds += Uuid.parse(cId)
+
+                // /test/get-thread encodes "truncated:totalNodeCount:id1(depth1;weight1),id2(...),...".
+                fun rootWeightFrom(threadBody: String): String {
+                    val nodesEncoded = threadBody.split(":", limit = 3)[2]
+                    return nodesEncoded
+                        .split(",")
+                        .first { it.startsWith(aId) }
+                        .substringAfter(";")
+                        .substringBefore(")")
+                }
+
+                val threadBefore = client.get("/test/get-thread/$aId") { header("X-Member-Id", author.toString()) }.bodyAsText()
+                val totalWeightBefore = rootWeightFrom(threadBefore)
+
+                // executeContentErasure(B): request+approve+execute.
+                val erasureId =
+                    client
+                        .post("/test/request-content-erasure?postId=$bId&reason=x") { header("X-Member-Id", author.toString()) }
+                        .bodyAsText()
+                        .substringBefore(":")
+                client
+                    .post("/test/decide-content-erasure/$erasureId?approve=true") { header("X-Member-Id", admin.toString()) }
+                    .status shouldBe HttpStatusCode.OK
+                client
+                    .post("/test/execute-content-erasure/$erasureId") { header("X-Member-Id", admin.toString()) }
+                    .status shouldBe HttpStatusCode.OK
+
+                val threadAfterErasure = client.get("/test/get-thread/$aId") { header("X-Member-Id", author.toString()) }.bodyAsText()
+                threadAfterErasure.contains(bId) shouldBe true
+                threadAfterErasure.contains(cId) shouldBe true
+                val bRow = transaction { SocialPostTable.selectAll().where { SocialPostTable.id eq Uuid.parse(bId) }.single() }
+                bRow[SocialPostTable.content] shouldBe SocialContentTombstone.ON_POST_REQUEST
+                bRow[SocialPostTable.state] shouldBe SocialPostState.VISIBLE
+                val totalWeightAfterErasure = rootWeightFrom(threadAfterErasure)
+                totalWeightAfterErasure shouldBe totalWeightBefore
+
+                // removePostForLegalReason(B): B and C now vanish from the thread, but the weight stays.
+                client
+                    .post("/test/remove-for-legal-reason/$bId?reason=Rechtsverstoss") { header("X-Member-Id", admin.toString()) }
+                    .status shouldBe HttpStatusCode.OK
+                val threadAfterRemoval = client.get("/test/get-thread/$aId") { header("X-Member-Id", author.toString()) }.bodyAsText()
+                threadAfterRemoval.contains(bId) shouldBe false
+                threadAfterRemoval.contains(cId) shouldBe false
+                val totalWeightAfterRemoval = rootWeightFrom(threadAfterRemoval)
+                totalWeightAfterRemoval shouldBe totalWeightBefore
+            }
+        }
+
+        // ── Security-Audit-Fund MAJOR-2 (Runde 1, 2026-08-19) -- keyset pagination ──────────────
+
+        test(
+            "MAJOR-2: listReports keyset pagination -- 205 seeded reports (past MAX_MODERATION_PAGE_SIZE=200) " +
+                "page fully via beforeReportedAt/beforeId with no repeats and no skips",
+        ) {
+            testApplication {
+                application {
+                    install(StatusPages) { installSocialExceptionHandlers() }
+                    routing {
+                        registerSocialNetworkTestRoutes(createRateLimiter = generousLimiter(), readRateLimiter = generousLimiter())
+                    }
+                }
+                val author = createTestMember("v115-page-reports-author@example.org")
+                val board = createTestMemberWithRole("v115-page-reports-board@example.org", AccountRole.BOARD)
+                val postId = Uuid.random()
+                transaction {
+                    SocialPostTable.insert {
+                        it[SocialPostTable.id] = postId
+                        it[SocialPostTable.parentId] = null
+                        it[SocialPostTable.rootId] = postId
+                        it[SocialPostTable.depth] = 0
+                        it[SocialPostTable.authorMemberId] = author
+                        it[SocialPostTable.content] = "Seeded fuer Pagination"
+                        it[SocialPostTable.visibility] = SocialPostVisibility.PUBLIC
+                        it[SocialPostTable.initialWeightLtr] = BigDecimal("0.01")
+                        it[SocialPostTable.publishedAt] = LocalDateTime(2026, 1, 1, 0, 0)
+                        it[SocialPostTable.state] = SocialPostState.VISIBLE
+                        it[SocialPostTable.stateChangedAt] = null
+                        it[SocialPostTable.stateChangedBy] = null
+                        it[SocialPostTable.stateReason] = null
+                    }
+                }
+                createdPostIds += postId
+
+                val reportCount = 205
+                // This is a spec-wide SHARED database -- other tests above create their OWN real
+                // report rows (dated at the actual system clock) on their OWN posts, which coexist
+                // with these 205 here. Rather than fight that via clock games (a future base still
+                // does not isolate page2 -- the foreign rows would just sort as "older" than ALL of
+                // these, landing IN page2 alongside the tail of this test's own rows), the pagination
+                // walk below is made robust to that noise by design: it pages through EVERY row in
+                // the whole queue (own + foreign), filtering down to this test's own `postId` at each
+                // step, and keeps going until every one of this test's own 205 ids has been seen --
+                // proving full, gap-free, duplicate-free keyset-cursor coverage regardless of how
+                // many foreign rows interleave.
+                val base = LocalDateTime(2026, 1, 1, 0, 0)
+                val reportIds = (0 until reportCount).map { Uuid.random() }
+                transaction {
+                    SocialPostReportTable.batchInsert(
+                        reportIds.withIndex().toList(),
+                        shouldReturnGeneratedValues = false,
+                    ) { (index, reportId) ->
+                        this[SocialPostReportTable.id] = reportId
+                        this[SocialPostReportTable.postId] = postId
+                        // Strictly increasing -- one distinct reportedAt per row, so this test's own
+                        // relative ordering is unambiguous without depending on the composite
+                        // tiebreaker (that is covered separately below).
+                        this[SocialPostReportTable.reportedAt] =
+                            (base.toInstant(TimeZone.UTC) + index.seconds).toLocalDateTime(TimeZone.UTC)
+                        this[SocialPostReportTable.category] = SocialPostReportCategory.SPAM
+                        this[SocialPostReportTable.description] = "Seeded report $index"
+                        this[SocialPostReportTable.goodFaithConfirmed] = true
+                        this[SocialPostReportTable.status] = SocialPostReportStatus.OPEN
+                    }
+                }
+
+                fun parsePage(body: String): List<Triple<String, String, String>> =
+                    if (body.isBlank()) {
+                        emptyList()
+                    } else {
+                        body.split(",").map {
+                            val parts = it.split(":", limit = 4)
+                            Triple(parts[0], parts[1], parts[3]) // id, postId, reportedAt
+                        }
+                    }
+
+                var cursorReportedAt: String? = null
+                var cursorId: String? = null
+                var pageCount = 0
+                var firstPageSize = -1
+                val ownIdsSeen = mutableListOf<String>()
+                while (true) {
+                    val url =
+                        if (cursorReportedAt == null) {
+                            "/test/list-reports"
+                        } else {
+                            "/test/list-reports?beforeReportedAt=$cursorReportedAt&beforeId=$cursorId"
+                        }
+                    val body = client.get(url) { header("X-Member-Id", board.toString()) }.bodyAsText()
+                    val page = parsePage(body)
+                    pageCount++
+                    if (pageCount == 1) firstPageSize = page.size
+                    if (page.isEmpty()) break
+                    page.filter { (_, ownerPostId, _) -> ownerPostId == postId.toString() }.forEach { (id, _, _) -> ownIdsSeen += id }
+                    val (lastId, _, lastReportedAt) = page.last()
+                    cursorReportedAt = lastReportedAt
+                    cursorId = lastId
+                    // Server page size is a fixed 200 (MAX_MODERATION_PAGE_SIZE) -- a short page means
+                    // this was the last one.
+                    if (page.size < 200) break
+                    (pageCount < 20) shouldBe true // safety valve against an infinite loop bug
+                }
+
+                // The 200-row cap is genuinely enforced (M-2's original problem).
+                firstPageSize shouldBe 200
+                // More than one page was needed to see every one of this test's own rows -- proves
+                // the cursor was actually exercised, not just accepted and ignored.
+                (pageCount > 1) shouldBe true
+                // Every seeded id was reached, exactly once -- no gaps, no duplicates.
+                ownIdsSeen.size shouldBe reportCount
+                ownIdsSeen.toSet().size shouldBe reportCount
+                ownIdsSeen.toSet() shouldBe reportIds.map { it.toString() }.toSet()
+
+                transaction { SocialPostReportTable.deleteWhere { SocialPostReportTable.postId eq postId } }
+            }
+        }
+
+        test(
+            "MAJOR-2: listContentErasures keyset pagination -- 205 seeded erasure requests page fully via " +
+                "beforeRequestedAt/beforeId with no repeats and no skips",
+        ) {
+            testApplication {
+                application {
+                    install(StatusPages) { installSocialExceptionHandlers() }
+                    routing {
+                        registerSocialNetworkTestRoutes(createRateLimiter = generousLimiter(), readRateLimiter = generousLimiter())
+                    }
+                }
+                val author = createTestMember("v115-page-erasures-author@example.org")
+                val admin = createTestMemberWithRole("v115-page-erasures-admin@example.org", AccountRole.ADMIN)
+                val postId = Uuid.random()
+                transaction {
+                    SocialPostTable.insert {
+                        it[SocialPostTable.id] = postId
+                        it[SocialPostTable.parentId] = null
+                        it[SocialPostTable.rootId] = postId
+                        it[SocialPostTable.depth] = 0
+                        it[SocialPostTable.authorMemberId] = author
+                        it[SocialPostTable.content] = "Seeded fuer Pagination"
+                        it[SocialPostTable.visibility] = SocialPostVisibility.PUBLIC
+                        it[SocialPostTable.initialWeightLtr] = BigDecimal("0.01")
+                        it[SocialPostTable.publishedAt] = LocalDateTime(2026, 1, 1, 0, 0)
+                        it[SocialPostTable.state] = SocialPostState.VISIBLE
+                        it[SocialPostTable.stateChangedAt] = null
+                        it[SocialPostTable.stateChangedBy] = null
+                        it[SocialPostTable.stateReason] = null
+                    }
+                }
+                createdPostIds += postId
+
+                val erasureCount = 205
+                // Same shared-database reasoning as the listReports pagination test above -- the
+                // walk below pages through the WHOLE queue (own + any foreign erasure requests from
+                // earlier tests), filtering down to this test's own `postId`, rather than assuming an
+                // exact page split.
+                val base = LocalDateTime(2026, 1, 1, 0, 0)
+                val erasureIds = (0 until erasureCount).map { Uuid.random() }
+                transaction {
+                    SocialPostErasureTable.batchInsert(
+                        erasureIds.withIndex().toList(),
+                        shouldReturnGeneratedValues = false,
+                    ) { (index, erasureId) ->
+                        this[SocialPostErasureTable.id] = erasureId
+                        this[SocialPostErasureTable.postId] = postId
+                        this[SocialPostErasureTable.requestedAt] =
+                            (base.toInstant(TimeZone.UTC) + index.seconds).toLocalDateTime(TimeZone.UTC)
+                        this[SocialPostErasureTable.reason] = "Seeded erasure $index"
+                        this[SocialPostErasureTable.status] = SocialPostErasureStatus.REQUESTED
+                    }
+                }
+
+                fun parsePage(body: String): List<Triple<String, String, String>> =
+                    if (body.isBlank()) {
+                        emptyList()
+                    } else {
+                        body.split(",").map {
+                            val parts = it.split(":", limit = 4)
+                            Triple(parts[0], parts[1], parts[3]) // id, postId, requestedAt
+                        }
+                    }
+
+                var cursorRequestedAt: String? = null
+                var cursorId: String? = null
+                var pageCount = 0
+                var firstPageSize = -1
+                val ownIdsSeen = mutableListOf<String>()
+                while (true) {
+                    val url =
+                        if (cursorRequestedAt == null) {
+                            "/test/list-content-erasures"
+                        } else {
+                            "/test/list-content-erasures?beforeRequestedAt=$cursorRequestedAt&beforeId=$cursorId"
+                        }
+                    val body = client.get(url) { header("X-Member-Id", admin.toString()) }.bodyAsText()
+                    val page = parsePage(body)
+                    pageCount++
+                    if (pageCount == 1) firstPageSize = page.size
+                    if (page.isEmpty()) break
+                    page.filter { (_, ownerPostId, _) -> ownerPostId == postId.toString() }.forEach { (id, _, _) -> ownIdsSeen += id }
+                    val (lastId, _, lastRequestedAt) = page.last()
+                    cursorRequestedAt = lastRequestedAt
+                    cursorId = lastId
+                    if (page.size < 200) break
+                    (pageCount < 20) shouldBe true // safety valve against an infinite loop bug
+                }
+
+                firstPageSize shouldBe 200
+                (pageCount > 1) shouldBe true
+                ownIdsSeen.size shouldBe erasureCount
+                ownIdsSeen.toSet().size shouldBe erasureCount
+                ownIdsSeen.toSet() shouldBe erasureIds.map { it.toString() }.toSet()
+
+                transaction { SocialPostErasureTable.deleteWhere { SocialPostErasureTable.postId eq postId } }
+            }
+        }
     })
 
 private fun StatusPagesConfig.installSocialExceptionHandlers() {
@@ -1941,6 +2975,8 @@ private fun Route.registerSocialNetworkTestRoutes(
     createRateLimiter: FederationInboxRateLimiter,
     readRateLimiter: FederationInboxRateLimiter = createRateLimiter,
     boostRateLimiter: FederationInboxRateLimiter = createRateLimiter,
+    moderationRateLimiter: FederationInboxRateLimiter = createRateLimiter,
+    reportRateLimiter: FederationInboxRateLimiter = createRateLimiter,
 ) {
     fun service(call: io.ktor.server.application.ApplicationCall) =
         SocialNetworkService(
@@ -1948,6 +2984,8 @@ private fun Route.registerSocialNetworkTestRoutes(
             createRateLimiter = createRateLimiter,
             readRateLimiter = readRateLimiter,
             boostRateLimiter = boostRateLimiter,
+            moderationRateLimiter = moderationRateLimiter,
+            reportRateLimiter = reportRateLimiter,
         )
     post("/test/create-post") {
         val service = service(call)
@@ -2039,5 +3077,99 @@ private fun Route.registerSocialNetworkTestRoutes(
     get("/test/free-balance") {
         val service = LtrLedgerService(call = call)
         call.respondText(service.getMyBalance().freeBalanceLtr.toString())
+    }
+
+    // ── Welle V1.1.5 test routes ──────────────────────────────────────────────────────────
+    post("/test/remove-for-legal-reason/{id}") {
+        val service = service(call)
+        val reason = call.request.queryParameters["reason"] ?: "Testbegruendung"
+        val p = service.removePostForLegalReason(postId = call.parameters["id"]!!, reason = reason)
+        call.respondText("${p.id}:${p.state}:${p.stateReason}")
+    }
+    post("/test/report-post") {
+        val service = service(call)
+        val q = call.request.queryParameters
+        service.reportPost(
+            network.lapis.cloud.shared.domain.SocialPostReportInput(
+                postId = q["postId"]!!,
+                category =
+                    network.lapis.cloud.shared.domain.SocialPostReportCategory
+                        .valueOf(q["category"] ?: "OTHER"),
+                description = q["description"] ?: "Testbeschreibung",
+                goodFaithConfirmed = q["goodFaith"]?.toBoolean() ?: true,
+            ),
+        )
+        call.respondText("ok")
+    }
+    get("/test/list-reports") {
+        val service = service(call)
+        val q = call.request.queryParameters
+        val status =
+            q["status"]?.let {
+                network.lapis.cloud.shared.domain.SocialPostReportStatus
+                    .valueOf(it)
+            }
+        // Security-Audit-Fund MAJOR-2 (2026-08-19): beforeReportedAt/beforeId expose the keyset
+        // cursor to tests -- both optional, "no cursor" == first page.
+        val beforeReportedAt = q["beforeReportedAt"]?.let { LocalDateTime.parse(it) }
+        val beforeId = q["beforeId"]
+        val reports = service.listReports(status = status, beforeReportedAt = beforeReportedAt, beforeId = beforeId)
+        // id:postId:status:reportedAt -- reportedAt appended so a test can build the next page's cursor.
+        call.respondText(reports.joinToString(",") { "${it.id}:${it.postId}:${it.status}:${it.reportedAt}" })
+    }
+    post("/test/decide-report/{id}") {
+        val service = service(call)
+        val decision =
+            network.lapis.cloud.shared.domain.SocialPostReportStatus
+                .valueOf(call.request.queryParameters["decision"]!!)
+        val note = call.request.queryParameters["note"]
+        val r = service.decideReport(reportId = call.parameters["id"]!!, decision = decision, note = note)
+        call.respondText("${r.id}:${r.status}")
+    }
+    post("/test/request-content-erasure") {
+        val service = service(call)
+        val q = call.request.queryParameters
+        val e =
+            service.requestContentErasure(
+                network.lapis.cloud.shared.domain.SocialPostErasureInput(
+                    postId = q["postId"]!!,
+                    reason = q["reason"] ?: "Testbegruendung",
+                    subjectMemberId = q["subjectMemberId"],
+                ),
+            )
+        call.respondText("${e.id}:${e.postId}:${e.status}")
+    }
+    get("/test/list-content-erasures") {
+        val service = service(call)
+        val q = call.request.queryParameters
+        val status =
+            q["status"]?.let {
+                network.lapis.cloud.shared.domain.SocialPostErasureStatus
+                    .valueOf(it)
+            }
+        // Security-Audit-Fund MAJOR-2 (2026-08-19): see /test/list-reports above -- same cursor exposure.
+        val beforeRequestedAt = q["beforeRequestedAt"]?.let { LocalDateTime.parse(it) }
+        val beforeId = q["beforeId"]
+        val erasures =
+            service.listContentErasures(status = status, beforeRequestedAt = beforeRequestedAt, beforeId = beforeId)
+        // id:postId:status:requestedAt -- requestedAt appended so a test can build the next page's cursor.
+        call.respondText(erasures.joinToString(",") { "${it.id}:${it.postId}:${it.status}:${it.requestedAt}" })
+    }
+    post("/test/decide-content-erasure/{id}") {
+        val service = service(call)
+        val approve = call.request.queryParameters["approve"]?.toBoolean() ?: true
+        val note = call.request.queryParameters["note"]
+        val e = service.decideContentErasure(erasureId = call.parameters["id"]!!, approve = approve, note = note)
+        call.respondText("${e.id}:${e.status}")
+    }
+    post("/test/execute-content-erasure/{id}") {
+        val service = service(call)
+        val e = service.executeContentErasure(call.parameters["id"]!!)
+        call.respondText("${e.id}:${e.status}")
+    }
+    get("/test/get-removal-notice/{id}") {
+        val service = service(call)
+        val n = service.getRemovalNotice(call.parameters["id"]!!)
+        call.respondText("${n.postId}:${n.visibility}:${n.reason}:${n.isOwnPost}")
     }
 }

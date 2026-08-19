@@ -228,7 +228,14 @@ class DomainModelMergerTest :
             // already-existing Member stub from the V1.1.1 entry above -- so it contributes +1
             // «Entity» declaration (just the one real table, no stub, no drop) versus the
             // V1.1.1 baseline above (102 -> 103).
-            val distinctTableNames = 103
+            // 32-social-network.kuml.kts (Soziales Netzwerk, Welle V1.1.5 "Moderation, DSA-Melde-
+            // Mechanismus, DSGVO-Content-Hard-Delete") adds exactly two more real tables
+            // (social_post_report, social_post_erasure) -- NO new cross-domain stub: both resolve
+            // their member-referencing columns through the already-existing Member stub from the
+            // V1.1.1 entry above, and social_post_report/-erasure's post_id resolves through the
+            // already-real SocialPost entity -- so it contributes +2 «Entity» declarations (the two
+            // real tables, no stub, no drop) versus the V1.1.2 baseline above (103 -> 105).
+            val distinctTableNames = 105
 
             val result =
                 UmlToExposedViaErmScriptTransformer().transform(
@@ -358,6 +365,15 @@ class DomainModelMergerTest :
                     "SocialPostTable.kt",
                     // Soziales Netzwerk, Welle V1.1.2 "Kommentarbaum, Boosts, rekursive Gesamtgewichtung".
                     "SocialPostBoostTable.kt",
+                    // Soziales Netzwerk, Welle V1.1.5 "Moderation, DSA-Melde-Mechanismus,
+                    // DSGVO-Content-Hard-Delete" -- zwei weitere reale Tabellen, KEIN neuer
+                    // Cross-Domain-Stub (social_post_report.post_id/social_post_erasure.post_id
+                    // loesen ueber die bereits reale SocialPost-Entity auf,
+                    // reporter_member_id/subject_member_id/decided_by/requested_by ueber den bereits
+                    // bestehenden Member-Stub aus der V1.1.1-Zeile oben) -- +2 «Entity»-Deklarationen,
+                    // kein Drop, versus der V1.1.2-Baseline oben (103 -> 105).
+                    "SocialPostReportTable.kt",
+                    "SocialPostErasureTable.kt",
                 )
         }
 

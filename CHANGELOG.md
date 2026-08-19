@@ -6,6 +6,289 @@ All notable changes to this project are documented here. Format follows
 
 ## [Unreleased]
 
+### Added
+
+**Soziales Netzwerk, Welle V1.1.5 "Moderation, DSA-Melde-Mechanismus, DSGVO-Content-Hard-Delete" —
+rechtliche Entfernung, öffentlicher Melde-Weg, post-bezogener Art.-17-Löschantrag**
+
+Erfüllt die in `v0.14.0` eingegangene rechtliche Kopplung (siehe dortiger Abschnitt "Rechtliche
+Kopplung"): `PUBLIC`-Posting durch identitäts-ungeprüfte, selbstregistrierte `FRIEND`-Konten war
+seit V1.1.4 offen, ohne dass es einen Melde- oder Entfernungspfad gab — dieser Zustand ist mit
+dieser Welle beendet.
+
+**Rechtliche Entfernung** — `ISocialNetworkService.removePostForLegalReason` (BOARD oder ADMIN,
+Pflicht-Begründung, keine LTR-Rückerstattung) setzt `SocialPostState.REMOVED_LEGAL` erstmals
+tatsächlich (das Enum-Literal und die DB-Spalten existierten bereits seit V4, geschrieben wurde nie).
+Bewusst NICHT nach dem Muster von `hideOwnPost` gebaut: kein `SocialVisibility.isReadable`-Gate (ein
+Moderator muss auch einen `MEMBERS_ONLY`-Post entfernen können), ein bereits entfernter Post liefert
+`ConflictException` statt `NotFoundException` (kein Existenz-Orakel zu schützen — der Aufrufer ist
+bereits BOARD/ADMIN), und ein `AuditLogRecorder`-Eintrag (`AuditEntityType.SOCIAL_POST`, neues,
+letztes Literal) protokolliert den Vorgang — der Snapshot (`SocialPostModerationSnapshot`) trägt
+ausschließlich `state`/`stateReason`/`visibility`/`contentErasedAt`, NIEMALS den Post-Inhalt, weil das
+GoBD-Log append-only und hash-gekettet ist und ein Art.-17-Löschung sonst nie vollständig wirksam
+werden könnte. Offene Meldungen auf den Post werden automatisch auf `ACTION_TAKEN` geschlossen.
+
+**Öffentlicher Entfernungshinweis (Entscheidungspunkt E-B, 2026-08-19)** — anders als die ursprüngliche
+Planempfehlung hat sich der Nutzer bewusst für **öffentliche** Transparenz über den Entfernungsgrund
+entschieden: `GET /s/{id}` liefert für einen ehemals `PUBLIC` + `REMOVED_LEGAL`-Post ab sofort
+**`451 Unavailable For Legal Reasons`** (RFC 7725) statt `404`, mit der Begründung (`state_reason`,
+jetzt ausdrücklich öffentlicher Text) im Seitenkörper — ohne Originalinhalt, ohne Autorenname,
+`Cache-Control: no-store`, kein `ETag` (ein alter `If-None-Match` kann daher nie ein stale `304`
+erzeugen). Für nicht-öffentliche Sichtbarkeitsstufen (die nie eine öffentliche URL hatten) übernimmt
+eine NEUNTE RPC-Methode, `ISocialNetworkService.getRemovalNotice`, dieselbe Rolle — kein Rollen-Gate,
+jeder authentifizierte Aufrufer im Rahmen seiner Sichtbarkeitsstufe, `NotFoundException` für alles
+andere (kein Existenz-Orakel). Eine Timeline zählt entfernte Beiträge nie auf — der Hinweis ist nur
+über die bekannte Post-ID erreichbar, nie durch Blättern. Der Autor selbst erfährt Entfernung und
+Begründung zusätzlich über eine erweiterte Eigenansicht ("Meine entfernten Beiträge",
+Entscheidungspunkt E-C, DSA Art. 17) in `listTimeline(includeHidden = true, authorMemberId = self)`.
+
+**DSA Art. 16 Melde-Mechanismus** — `ISocialNetworkService.reportPost` (jeder authentifizierte
+Aufrufer, kein Rollen-Gate) UND ein öffentlicher, kontenloser Weg (`GET`/`POST /s/{id}/report`, ein
+klassisches HTML-`<form>` ohne JavaScript — der öffentliche Lesepfad hat keinen Kilua-RPC-Client
+und kann keinen bekommen, ohne die CSP zu öffnen) teilen sich dieselbe Kernlogik
+(`SocialReportSubmission`). Enumeration-Härtung: die Antwort ist in beiden Fällen identisch, ob der
+Post existiert, für den Aufrufer lesbar ist, oder gar nicht — nur bei tatsächlicher Lesbarkeit
+entsteht eine `social_post_report`-Zeile, sonst ein stiller No-Op; der Autor darf seinen eigenen Post
+nicht melden. Der öffentliche Pfad hebt `Content-Security-Policy`s `form-action` von `'none'` auf
+`'self'` (alle anderen Direktiven unverändert), trägt ein per CSS ausgeblendetes Honeypot-Feld,
+speichert nie eine IP-Adresse, und `robots.txt` bekommt `Disallow: /s/*/report`. BOARD/ADMIN
+verwalten Meldungen über `listReports`/`decideReport` (Zustandsautomat
+`OPEN → UNDER_REVIEW → ACTION_TAKEN` bzw. `→ DISMISSED`).
+
+**Post-bezogener DSGVO-Art.-17-Löschantrag** — `requestContentErasure` (self-or-ADMIN, auch für eine
+externe betroffene Person OHNE eigenes Lapis-Cloud-Konto — der bestehende, mitglieds-bezogene
+`IDsgvoService`-Pfad kann das strukturell nicht, weil `subject_member_id` dort NOT NULL ist) /
+`listContentErasures` / `decideContentErasure` / `executeContentErasure` (Entscheidungspunkt E-E:
+die drei letzteren sind **ADMIN allein**, dieselbe Schwelle wie der bestehende `DsgvoService` — eine
+Art.-17-Abwägung ist eine Datenschutz-, keine Moderationsentscheidung). `executeContentErasure`
+überschreibt `content` mit einem festen Marker (`SocialContentTombstone.ON_POST_REQUEST`) und setzt
+die seit V4 vorbereiteten, bisher nie beschriebenen Spalten `content_erased_at`/
+`content_erasure_note` — `id`/`parent_id`/`root_id`/`depth`/`initial_weight_ltr`/`published_at`/
+`state` bleiben unverändert, das Tombstoning ist **orthogonal** zur rechtlichen Entfernung (beide
+können gleichzeitig gelten; im Doppelfall gewinnt der Zustand für die Erreichbarkeit — die 451-Seite
+zeigt weder Originalinhalt noch Marker). Idempotent: "erster Schreiber gewinnt", kein zweiter
+Overwrite. Der bestehende mitglieds-weite Löschpfad
+(`SocialNetworkPersonalData.erase(HARD_DELETE_WHERE_UNCONSTRAINED)`) wird von "retain-with-reason"
+(V1.1.1/V1.1.2, die Spalten existierten noch nicht) auf echtes Tombstoning aufgewertet — schreibt
+einen ANDEREN, ebenfalls festen Marker (`SocialContentTombstone.ON_AUTHOR_REQUEST`,
+Entscheidungspunkt E-A: der Tombstone-Text unterscheidet sich nach Anlass, nicht durch eine
+Datenbankspalte, sondern durch den jeweiligen Schreibpfad selbst) und meldet das Ergebnis als
+`rowsAnonymized`, nicht `rowsDeleted` — die Zeile überlebt. `social_post_report` wird zusätzlich vom
+bestehenden `SocialNetworkPersonalData`-DSGVO-Contributor abgedeckt (retain-with-reason in beiden
+Modi), `social_post_erasure` ist in `PersonalDataRegistry.noPersonalDataAllowlist` gelistet (verwaltet
+den Löschprozess selbst, sonst wäre ein Löschantrag durch seine eigene Ausführung löschbar).
+
+Schema: neue Tabellen `social_post_report`/`social_post_erasure` sowie die zwei neuen `social_post`-
+Spalten `content_erased_at`/`content_erasure_note` (`V6__social_moderation_and_erasure.sql`, plus ein
+weiterer In-place-Eingriff in `V1__baseline.sql` für `audit_log_entry.entity_type`s
+`CHECK`-Constraint — siehe Operator notes unten). Client: neuer, BOARD/ADMIN-gegateter
+`/social-moderation`-Screen (Meldungs-Warteschlange für BOARD+ADMIN, Löschantrags-Warteschlange
+ADMIN-only, im "Verwaltung"-Nav-Dropdown), sowie Erweiterungen von `SocialNetworkScreen.kt`
+("Melden"/"Löschung beantragen (DSGVO)"-Buttons, "Rechtlich entfernen" mit unübersehbarem
+Öffentlichkeits-Warnhinweis am Begründungsfeld, Tombstone-Anzeige, Eigenansicht entfernter Beiträge,
+Entfernungshinweis-Fallback in der Thread-Ansicht).
+
+### Known limitations (tracked for later versions)
+
+- Kein Social-Network-E2E-Journey-Test (`e2e/SocialModerationJourneyTest.kt`) in dieser Welle — die
+  Moderations-/Melde-/Löschpfade sind durch Unit-/Integrationstests
+  (`SocialNetworkServiceTest`/`SocialPublicRoutesTest`/`FriendCapabilityBoundaryTest`) abgedeckt, aber
+  noch nicht durch einen End-to-End-Erzählbogen über den echten, vollständig verdrahteten `module()`.
+- DSA Art. 16 Abs. 4/5 (Eingangs-/Entscheidungsmitteilung an den Meldenden) bleibt eine dokumentierte
+  Lücke — es existiert noch kein funktionierender Mailversand (`NoOpFriendVerificationMailer`).
+- Kein NetzDG-Fristen-/Transparenzbericht-Mechanismus, kein DSA-Art.-20-Widerspruchsverfahren
+  (Kleinstunternehmens-Ausnahme) — beides bewusst außerhalb des Umfangs, siehe Konzeptnotiz.
+
+### Fixed (Review Round 1, 2026-08-19)
+
+**`requestContentErasure` was an unhardened existence/readability oracle for non-`PUBLIC` posts**
+
+The post-lookup inside `requestContentErasure` only checked existence (`SELECT id WHERE id = ...`),
+with no `SocialVisibility`-based readability check at all — a FRIEND/GUEST holding a `MEMBERS_ONLY`
+post's UUID (leaked link, screenshot, forwarded thread) got HTTP 200 + a full `SocialPostErasureDto`
+for a post they cannot read, while an unknown UUID got 404 — the same class of timing/response-shape
+existence oracle `reportPost`'s enumeration hardening exists to close. Fixed by gating the lookup on
+`SocialVisibility.readableByCondition` for every non-ADMIN caller (an unreadable and a nonexistent
+post now both yield an identical `NotFoundException`); an ADMIN caller keeps the pure existence check,
+preserving the documented ability to request erasure "im Namen einer externen betroffenen Person" for
+a post the ADMIN may not personally be in the readability audience for. `ISocialNetworkService
+.requestContentErasure`'s KDoc, which over-claimed "für die eigenen Beiträge" (own posts only), now
+accurately describes the real self-or-ADMIN, readability-gated authorization model.
+
+**Honeypot field on the public report form (`GET /s/{id}/report`) was `type="hidden"`, not CSS-hidden as documented**
+
+A naive scraper skips `type="hidden"` inputs outright and only fills visible text fields, which made
+the honeypot a no-op against exactly the bot class it was meant to catch. Fixed to match its own KDoc/
+CHANGELOG description: a real `<input type="text">` wrapped in a `<div class="hp">`, hidden purely via
+a new `.hp { position: absolute; left: -9999px; top: -9999px; }` rule in `SocialPublicHtml.STYLESHEET`
+— present in the DOM as an ordinary-looking text field to a scraper, invisible to a human visitor. The
+functional behavior (filled ⇒ silent no-op, confirmed by `T-Report-3`) is unchanged.
+
+**Inverted KDoc on `AuditEntityType.SOCIAL_POST`** claimed the post-bezogene DSGVO-Content-
+Löschantrag (`.executeContentErasure`) "läuft bewusst NICHT über diesen Log, sondern ausschließlich
+über `dsgvo_audit_log`" — the opposite of the actual, correct code (it writes an `AuditLogRecorder`
+entry with `entityType = SOCIAL_POST` and writes nothing to `dsgvo_audit_log`; that table remains the
+member-wide `SocialNetworkPersonalData.erase`/`ON_AUTHOR_REQUEST` path's territory). KDoc corrected to
+describe the actual, correct behavior.
+
+**Unvalidated `note` on `decideReport`/`decideContentErasure`** — every other free-text field in this
+wave has a length guard against its `VARCHAR(2000)` `decision_note` column, but these two RPC methods
+did not; an over-length `note` surfaced as a raw `ExposedSQLException` (HTTP 500) instead of a clean
+`ConflictException`. Fixed with the same validation pattern as `requireModerationReason`/
+`requireErasureReason`/`requireContactLength`.
+
+**Missing 7-language translations for this wave's ~52 new client-side strings** (`SocialModerationScreen.kt`,
+the moderation additions to `SocialNetworkScreen.kt`) — previously German-only, unlike every prior
+Social-Network wave. The board's public-reason warning ("Diese Begründung wird öffentlich sichtbar —
+auch für nicht angemeldete Besucher") is a liability mitigation the addendum calls mandatory; delivered
+only in German it failed to mitigate for non-German-reading board members. `messages.pot` and all 7
+`messages-<lang>.po` files now carry translated entries for all new strings.
+
+### Fixed (Review Round 2, 2026-08-19)
+
+**Honeypot field on the public report form had no `aria-hidden`** — `position: absolute; left: -9999px`
+hides an element visually but a screen reader still announces it; a blind visitor filling in the
+"Website" field would have their genuine DSA Art. 16 notice silently discarded as a bot submission.
+Fixed with `aria-hidden="true"` on the wrapping `div.hp`.
+
+**`/s/assets/style.css` was served `max-age=86400, immutable`** — this pre-existing (V1.1.3) route's
+content changed in this wave (the new `.hp` honeypot-hiding rule), but the URL itself is unversioned.
+A client or CDN with the pre-V1.1.5 stylesheet already cached could keep serving the old CSS — and
+therefore a *visibly labelled* "Website" field on the report form — for up to 24 hours after deploy,
+silently swallowing real reports from anyone who filled it in. Fixed to `max-age=300`, no `immutable`;
+this route cannot safely claim immutability without a content-addressed/versioned URL, which it does
+not have.
+
+**Known, accepted narrowing (not a bug, documented for completeness):** the `requestContentErasure`
+existence/readability fix (Review Round 1, above) also gates out `REMOVED_LEGAL` posts for every
+non-ADMIN caller, since `SocialVisibility.readableByCondition` excludes that state unconditionally —
+including for the post's own author. Concretely: a member whose post was legally removed can see the
+removal and its reason via `getRemovalNotice`, but can no longer self-serve a content-erasure request
+for that same post via `requestContentErasure` (an ADMIN can still file on their behalf, the documented
+"im Namen einer externen betroffenen Person" channel). Not reachable from the client UI today (neither
+`renderOwnRemovedPostCard` nor `renderRemovalNotice` render an erasure button), not a new information
+leak (the removal notice is already public for previously-`PUBLIC` posts), and orthogonal to this
+wave's own design (legal removal and content erasure are deliberately separate mechanisms, plan § 2.1)
+— but it is a real behavioral narrowing versus the pre-fix state, left as-is because closing it would
+mean either weakening the enumeration-hardening fix or adding a bespoke third condition for a case with
+no current UI path. Candidate for a small follow-up if a legally-removed post's own author is expected
+to self-serve an erasure request in a future wave.
+
+### Fixed (Security Round 1, 2026-08-19)
+
+**`POST /s/{id}/report` accepted an effectively unbounded request body (heap-exhaustion DoS)** — the
+handler called `receiveParameters()` with no prior `Content-Length` check and no `formFieldLimit`
+override; Ktor's JVM default form-field limit is 50 MiB, and for the `application/x-www-form-urlencoded`
+content type this route always uses, Ktor's own default transform reads the *entire* body into memory
+with **no size cap of its own at all** — the 4000-character domain-level cap in
+`SocialReportSubmission.submitPublic` only runs *after* the body is already fully buffered, so it
+bounded nothing about allocation. The rate limiter counts *requests*, not bytes, so an attacker
+controlling multiple IPv6 `/64`s could hold many large concurrent bodies in memory simultaneously.
+Fixed with two complementary, transport-level guards, both applied *before* `receiveParameters()` is
+ever called: (1) a `Content-Length` pre-check rejects anything over 16 KiB (generous headroom over the
+actual domain fields' combined maximum) *and* rejects a request with no `Content-Length` header at all
+(chunked transfer encoding, which would otherwise bypass a length pre-check entirely) — this is what
+actually protects the url-encoded path, since Ktor's own `formFieldLimit` is never consulted for it; (2)
+`call.formFieldLimit` is additionally set to the same 16 KiB ceiling as defense in depth, protecting a
+caller who instead sends `Content-Type: multipart/form-data`, which *does* route through Ktor's own,
+size-limited multipart reader. A new test proves the rejection happens at the transport level — an
+oversized submission never reaches `SocialReportSubmission`, confirmed by asserting no report row is
+written, distinct from simply re-testing the pre-existing domain-level length cap.
+
+**Moderation queues (`listReports`/`listContentErasures`) were capped at 200 rows with no pagination —
+floodable by the new anonymous report endpoint** — both queries did `.orderBy(DESC).limit(200)` with no
+offset and no keyset cursor, diverging from this codebase's own established pattern
+(`AuditLogService.listAuditLog` pairs the same 200-row cap with `beforeSequenceNumber` keyset
+pagination). Since `reportPost`/`requestContentErasure` are now reachable by unauthenticated or
+low-privilege callers, an attacker could eventually push more than 200 open items into either queue,
+making older genuine reports/erasure requests permanently unreachable through any UI — defeating the DSA
+Art. 16 "notices actually get reviewed" duty this wave exists to satisfy. Fixed with real keyset
+pagination on both `ISocialNetworkService.listReports` (new `beforeReportedAt`/`beforeId` parameters) and
+`.listContentErasures` (new `beforeRequestedAt`/`beforeId`) — a composite cursor rather than
+`AuditLogService`'s single `sequenceNumber`, because neither `social_post_report` nor
+`social_post_erasure` has a monotonically increasing sequence column; the timestamp column alone could
+theoretically tie under concurrent inserts, so `id` (`DESC`) breaks ties deterministically. Both `null`
+== first page; only one of the pair set is treated as "no cursor", never an error. `SocialModerationScreen.kt`
+gained a "Mehr laden" affordance for both queues, following `AuditLogScreen.kt`'s existing keyset-pagination
+UI pattern verbatim. New tests seed 205 rows (past the 200-row page size) for both queues and confirm the
+second page is reachable via the cursor with no repeated or skipped rows.
+
+**Inaccurate absolute privacy claim on the public report form** — the privacy notice stated "Ihre
+IP-Adresse wird NICHT gespeichert" as an unqualified claim; in fact `FederationInboxRateLimiter` retains
+an IP-derived key in memory for up to the rate-limit window, and the production reverse proxy logs client
+IPs in its access log by default. Narrowed to "wird nicht MIT Ihrer Meldung gespeichert" — accurate,
+because the IP genuinely never lands in the `social_post_report` row itself.
+
+**Wrong `Content-Type` on the report `POST` caused a logged 500 instead of a clean 400** —
+`receiveParameters()` throws for any non-form-encoded `Content-Type` (including a missing one), and that
+exception previously escaped to `withPublicErrorHandling`'s catch-all, logging an ERROR-level stack trace
+and returning a bare 500 for a trivial, cheap-to-reject input error — an unauthenticated caller could
+trigger unbounded ERROR-level log writes at will. Fixed by validating `Content-Type` before
+`receiveParameters()` is ever called, returning a clean 400 via a new generic
+`SocialPublicHtml.malformedRequestPage`.
+
+**Collected reporter contact was captured but never surfaced anywhere** — `social_post_report
+.reporter_contact` is stored (and the report form's own copy promises it will be used to notify the
+reporter of the outcome, per DSA Art. 16 Abs. 4/5), but `SocialPostReportDto` had no field carrying it
+through to the BOARD/ADMIN moderation queue — data collected for a stated purpose no code path could
+actually fulfil. Fixed: `SocialPostReportDto` gained a `reporterContact: String?` field, populated by the
+existing mapping query, and displayed (only when non-blank) in `SocialModerationScreen.kt`'s report row
+so a moderator can at least manually follow up, even without an automated mailer yet.
+
+**Stale KDoc on `requireRateLimit`** — its sharer list named `createPost`/`createComment`/`hideOwnPost`
+but not `requestContentErasure`, added as a fourth consumer of the same rate-limit budget when this wave
+landed. KDoc corrected.
+
+**`decideContentErasure` wrote no audit-log entry, unlike its sibling `decideReport`** — an asymmetric
+accountability trail for what is, if anything, the *more* consequential of the two decisions (it gates an
+eventual real content deletion via `executeContentErasure`). Fixed with the same `AuditLogRecorder.record`
+call `decideReport` already makes (`entityType = SOCIAL_POST`, `action = UPDATE`, entity id is the post,
+not the erasure) — placed as the last locking database operation in the transaction, per
+`AuditLogRecorder`'s own deadlock-avoidance contract.
+
+### Known limitations (Security Round 1, 2026-08-19 — additions)
+
+- The honeypot anti-spam field is hidden only via an external CSS rule — a JS-free/CSS-free client (a
+  text-mode browser, reader mode, a stripped-CSS proxy) would see a plain, labelled field and, if filled,
+  have their genuine report silently discarded with no operator-visible signal. A future improvement
+  could quarantine/flag honeypot-tripped submissions instead of discarding them outright, or log a
+  counter — not built this round.
+- `social_post_report` has no retention/purge policy — decided reports accumulate indefinitely; a future
+  wave should add a scheduled retention window.
+- The existing GDPR Art. 15 self-export (`SocialNetworkPersonalData.reportSummaryJson`) omits the
+  member's own report `description`/`reporterContact` text from their own data export — only metadata
+  (id/postId/category/status/reportedAt) is included today.
+- `social_post_erasure.source_report_id` (column + FK + DTO field) exists but no code path ever writes it
+  — the report→erasure link this field was meant to carry is not wired up.
+- A minor, low-severity count-arithmetic race in `SocialNetworkPersonalData.eraseSocialPosts`'s outcome
+  summary (`alreadyTombstoned = postCount - tombstoned`, computed from a `COUNT(*)` taken before the
+  `UPDATE`) could theoretically go negative under a concurrent insert by the same author — cosmetic only,
+  no data-integrity impact.
+
+### Operator notes
+
+1. **`pdv2` — `V1__baseline.sql`s Prüfsumme ändert sich erneut; `flyway repair` VOR dem Deploy.**
+   Diese Welle verbreitert `audit_log_entry`s `entity_type`-`CHECK` um `'SOCIAL_POST'` durch einen
+   In-place-Eingriff in `V1__baseline.sql` — dasselbe Muster wie V1.1.1/V1.1.2. `V6` trägt die
+   laufzeitwirksame Verbreiterung als idempotentes, dual benanntes `DROP … IF EXISTS`/`ADD`-Paar. Vor
+   dem Deploy: `flyway info` prüfen und bei Prüfsummen-Abweichung `flyway repair` als ersten Schritt
+   ausführen; zusätzlich `\d audit_log_entry` auf `pdv2` gegenprüfen, um den tatsächlichen
+   Constraint-Namen zu bestätigen.
+2. **Die V1.1.4-Kopplung ist erfüllt.** Der Absatz "Rechtliche Kopplung" im `v0.14.0`-Eintrag und der
+   entsprechende Absatz im `LTR_ELIGIBLE`-KDoc (`Foundation.kt`) beschreiben ab dieser Version einen
+   erledigten Zustand.
+3. **Google-Search-Console-„Entfernungen" ist ein manueller Betriebsschritt** nach jeder
+   `executeContentErasure`-Ausführung — Sitemap-`lastmod` allein garantiert keine schnelle Entfernung
+   aus dem Suchmaschinen-Index (der ADMIN-Ausführungsdialog verlinkt diesen Hinweis).
+4. **`GET /s/{id}` liefert für einen rechtlich entfernten, ehemals `PUBLIC`-Beitrag ab dieser Welle
+   `451 Unavailable For Legal Reasons` statt `404`**, mit `Cache-Control: no-store`. Reverse-Proxy-/
+   Monitoring-Regeln, die 4xx-Fehlerraten alarmieren, brauchen ggf. eine Ausnahme für `451`. Caddy
+   leitet den Status unverändert durch, keine Konfigurationsänderung nötig.
+5. **Vorgelagertes Caching**: die 451-Antwort selbst ist `no-store` und kann nie stale werden. Die
+   Restlücke ist ausschließlich eine **vor** der Entfernung bereits ausgelieferte, bis zu ~1 h stale
+   200-Antwort — sobald ein CDN vor `pdv2` steht, ist ein Purge-Schritt in den Entfernungs-Workflow
+   aufzunehmen (im heutigen Betrieb ohne CDN keine Handlung nötig).
+
 ## [0.14.0] — 2026-08-19
 
 ### Added

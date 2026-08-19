@@ -25,6 +25,7 @@ import network.lapis.cloud.shared.domain.BoardMembershipSnapshot
 import network.lapis.cloud.shared.domain.JournalEntrySnapshot
 import network.lapis.cloud.shared.domain.PartyDonationVerdictSnapshot
 import network.lapis.cloud.shared.domain.ResolutionSnapshot
+import network.lapis.cloud.shared.domain.SocialPostModerationSnapshot
 import network.lapis.cloud.shared.rpc.IAuditLogService
 
 /**
@@ -348,6 +349,10 @@ fun decodeAuditSnapshot(
             // `{"allowFederationGuests":...}` JSON string as `after`, falls through to the raw-text
             // fallback.
             AuditEntityType.CONFERENCE_ROOM -> null
+            // Soziales Netzwerk, Welle V1.1.5 -- `removePostForLegalReason`/`executeContentErasure`
+            // schreiben beide SocialPostModerationSnapshot (siehe dessen KDoc: ausschließlich
+            // Metadaten, NIEMALS den Post-Inhalt).
+            AuditEntityType.SOCIAL_POST -> lenientSnapshotJson.decodeFromString<SocialPostModerationSnapshot>(raw)
         }
     }.getOrNull()
 

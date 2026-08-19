@@ -1,6 +1,8 @@
 package network.lapis.cloud.client
 
+import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.MemberStatus
+import network.lapis.cloud.shared.domain.SocialPostState
 import network.lapis.cloud.shared.domain.SocialPostVisibility
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -85,5 +87,40 @@ class SocialNetworkScreenTest {
             val allowed = SocialComposerVisibility.allowedVisibilities(status)
             assertTrue(default in allowed, "default $default for $status must be one of the allowed options $allowed")
         }
+    }
+
+    // ── Welle V1.1.5 -- SocialModerationUi pure predicates ────────────────────────────────────
+
+    @Test
+    fun canRemove_trueOnlyForBoardOrAdmin() {
+        assertTrue(SocialModerationUi.canRemove(AccountRole.BOARD))
+        assertTrue(SocialModerationUi.canRemove(AccountRole.ADMIN))
+        assertFalse(SocialModerationUi.canRemove(AccountRole.MEMBER))
+        assertFalse(SocialModerationUi.canRemove(AccountRole.TREASURER))
+        assertFalse(SocialModerationUi.canRemove(null))
+    }
+
+    @Test
+    fun canReport_falseForTheAuthor_regardlessOfState() {
+        assertFalse(SocialModerationUi.canReport(isAuthor = true, state = SocialPostState.VISIBLE))
+    }
+
+    @Test
+    fun canReport_falseForANonVisiblePost() {
+        assertFalse(SocialModerationUi.canReport(isAuthor = false, state = SocialPostState.HIDDEN_BY_AUTHOR))
+        assertFalse(SocialModerationUi.canReport(isAuthor = false, state = SocialPostState.REMOVED_LEGAL))
+    }
+
+    @Test
+    fun canReport_trueForANonAuthorOnAVisiblePost() {
+        assertTrue(SocialModerationUi.canReport(isAuthor = false, state = SocialPostState.VISIBLE))
+    }
+
+    @Test
+    fun removalNoticeHeadline_differsByOwnPostFlag_bothNonBlank() {
+        val own = SocialModerationUi.removalNoticeHeadline(isOwnPost = true)
+        val other = SocialModerationUi.removalNoticeHeadline(isOwnPost = false)
+        assertTrue(own.isNotBlank())
+        assertTrue(other.isNotBlank())
     }
 }

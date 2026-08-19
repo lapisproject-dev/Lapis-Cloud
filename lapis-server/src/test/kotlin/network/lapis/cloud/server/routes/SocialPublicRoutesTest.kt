@@ -7,13 +7,19 @@ import io.kotest.matchers.shouldBe
 import io.kotest.matchers.shouldNotBe
 import io.kotest.matchers.string.shouldContain
 import io.kotest.matchers.string.shouldNotContain
+import io.ktor.client.request.forms.submitForm
 import io.ktor.client.request.get
 import io.ktor.client.request.head
 import io.ktor.client.request.header
+import io.ktor.client.request.post
+import io.ktor.client.request.setBody
 import io.ktor.client.statement.bodyAsText
+import io.ktor.http.ContentType
 import io.ktor.http.Headers
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
+import io.ktor.http.Parameters
+import io.ktor.http.contentType
 import io.ktor.server.application.call
 import io.ktor.server.application.install
 import io.ktor.server.plugins.autohead.AutoHeadResponse
@@ -30,6 +36,7 @@ import network.lapis.cloud.server.db.DevSeedData
 import network.lapis.cloud.server.db.generated.LtrLedgerEntryTable
 import network.lapis.cloud.server.db.generated.MemberTable
 import network.lapis.cloud.server.db.generated.SocialPostBoostTable
+import network.lapis.cloud.server.db.generated.SocialPostReportTable
 import network.lapis.cloud.server.db.generated.SocialPostTable
 import network.lapis.cloud.server.economy.LedgerBackedLtrBalanceProvider
 import network.lapis.cloud.server.federation.FederationInboxRateLimiter
@@ -195,13 +202,20 @@ class SocialPublicRoutesTest :
         suspend fun testApp(
             readLimiter: FederationInboxRateLimiter = generousLimiter(),
             sitemapLimiter: FederationInboxRateLimiter = generousLimiter(),
+            reportLimiter: FederationInboxRateLimiter = generousLimiter(),
             block: suspend ApplicationTestBuilder.() -> Unit,
         ) {
             testApplication {
                 application {
                     install(XForwardedHeaders) { useLastProxy() }
                     install(AutoHeadResponse)
-                    routing { registerSocialPublicRoutes(readRateLimiter = readLimiter, sitemapRateLimiter = sitemapLimiter) }
+                    routing {
+                        registerSocialPublicRoutes(
+                            readRateLimiter = readLimiter,
+                            sitemapRateLimiter = sitemapLimiter,
+                            reportRateLimiter = reportLimiter,
+                        )
+                    }
                 }
                 block()
             }
@@ -219,15 +233,23 @@ class SocialPublicRoutesTest :
         }
 
         // ── T2 ──────────────────────────────────────────────────────────────────────────
+        // Welle V1.1.5 (E-B): a PUBLIC + REMOVED_LEGAL root is no longer 404 -- see the dedicated
+        // 451 test group below. This test keeps every OTHER non-public state/visibility combination
+        // (including a REMOVED_LEGAL post that was NEVER PUBLIC) at plain 404.
         test("T2: non-public visibility/state, random, and malformed ids all 404 -- never 403, never 500") {
             testApp {
                 val author = createAuthor()
                 val membersOnly = insertPost(authorMemberId = author, visibility = SocialPostVisibility.MEMBERS_ONLY)
                 val membersExt = insertPost(authorMemberId = author, visibility = SocialPostVisibility.MEMBERS_AND_EXTERNAL)
                 val hidden = insertPost(authorMemberId = author, state = SocialPostState.HIDDEN_BY_AUTHOR)
-                val removed = insertPost(authorMemberId = author, state = SocialPostState.REMOVED_LEGAL)
+                val membersOnlyRemoved =
+                    insertPost(
+                        authorMemberId = author,
+                        visibility = SocialPostVisibility.MEMBERS_ONLY,
+                        state = SocialPostState.REMOVED_LEGAL,
+                    )
                 val ids =
-                    listOf(membersOnly, membersExt, hidden, removed).map { it.toString() } +
+                    listOf(membersOnly, membersExt, hidden, membersOnlyRemoved).map { it.toString() } +
                         listOf(Uuid.random().toString(), "not-a-uuid", "..%2Fetc%2Fpasswd", "%00", "x".repeat(300))
                 ids.forEach { id ->
                     val response = client.get("/s/$id")
@@ -236,6 +258,336 @@ class SocialPublicRoutesTest :
                     body shouldNotContain "Exception"
                     body shouldNotContain "at network.lapis"
                 }
+            }
+        }
+
+        // ── Welle V1.1.5 (E-B) -- the public 451 "Unavailable For Legal Reasons" page ──────────
+
+        test("T43: a PUBLIC post rechtlich entfernt liefert 451 (nicht 404), mit Cache-Control: no-store, ohne ETag, robots noindex") {
+            testApp {
+                val author = createAuthor()
+                val id = insertPost(authorMemberId = author, state = SocialPostState.REMOVED_LEGAL)
+                transaction {
+                    SocialPostTable.update({ SocialPostTable.id eq id }) {
+                        it[stateReason] = "Verstoss gegen geltendes Recht"
+                        it[stateChangedAt] = DbClock.nowLocalDateTime()
+                    }
+                }
+                val response = client.get("/s/$id")
+                response.status.value shouldBe 451
+                response.headers[HttpHeaders.CacheControl] shouldBe "no-store"
+                response.headers[HttpHeaders.ETag] shouldBe null
+                response.bodyAsText() shouldContain "noindex"
+                assertSecurityHeaders(response.headers)
+
+                // Fehlt weiterhin in Timeline und Sitemap.
+                client.get("/s").bodyAsText() shouldNotContain id.toString()
+                client.get("/sitemap.xml").bodyAsText() shouldNotContain id.toString()
+            }
+        }
+
+        test("T44: kein stale 200/304 ueber If-None-Match nach der Entfernung -- 451, niemals 304") {
+            testApp {
+                val author = createAuthor()
+                val id = insertPost(authorMemberId = author, content = "Wird gleich entfernt")
+                val etag = client.get("/s/$id").headers[HttpHeaders.ETag]
+                etag shouldNotBe null
+
+                transaction {
+                    SocialPostTable.update({ SocialPostTable.id eq id }) {
+                        it[state] = SocialPostState.REMOVED_LEGAL
+                        it[stateReason] = "x"
+                        it[stateChangedAt] = DbClock.nowLocalDateTime()
+                    }
+                }
+                val response = client.get("/s/$id") { header(HttpHeaders.IfNoneMatch, etag!!) }
+                response.status.value shouldBe 451
+            }
+        }
+
+        test(
+            "T45: der 451-Body enthaelt den Originalinhalt nirgends (auch nicht in title/description) und nicht den Autorennamen, aber die Begruendung",
+        ) {
+            testApp {
+                val author = createAuthor(displayName = "Geheimer Autorenname")
+                val id = insertPost(authorMemberId = author, content = "GeheimerOriginalInhaltXyz")
+                transaction {
+                    SocialPostTable.update({ SocialPostTable.id eq id }) {
+                        it[state] = SocialPostState.REMOVED_LEGAL
+                        it[stateReason] = "OeffentlicheBegruendungAbc"
+                        it[stateChangedAt] = DbClock.nowLocalDateTime()
+                    }
+                }
+                val body = client.get("/s/$id").bodyAsText()
+                body shouldNotContain "GeheimerOriginalInhaltXyz"
+                body shouldNotContain "Geheimer Autorenname"
+                body shouldContain "OeffentlicheBegruendungAbc"
+            }
+        }
+
+        test(
+            "T46: kein Orakel -- ein rechtlich entfernter MEMBERS_ONLY-Post und ein HIDDEN_BY_AUTHOR-PUBLIC-Post bleiben 404, wie eine unbekannte UUID",
+        ) {
+            testApp {
+                val author = createAuthor()
+                val membersOnlyRemoved =
+                    insertPost(
+                        authorMemberId = author,
+                        visibility = SocialPostVisibility.MEMBERS_ONLY,
+                        state = SocialPostState.REMOVED_LEGAL,
+                    )
+                val publicHidden =
+                    insertPost(authorMemberId = author, visibility = SocialPostVisibility.PUBLIC, state = SocialPostState.HIDDEN_BY_AUTHOR)
+                client.get("/s/$membersOnlyRemoved").status shouldBe HttpStatusCode.NotFound
+                client.get("/s/$publicHidden").status shouldBe HttpStatusCode.NotFound
+                client.get("/s/${Uuid.random()}").status shouldBe HttpStatusCode.NotFound
+            }
+        }
+
+        test("T47: XSS -- eine reason mit Skript-Payload wird im 451-Body escaped ausgeliefert") {
+            testApp {
+                val author = createAuthor()
+                val id = insertPost(authorMemberId = author, state = SocialPostState.REMOVED_LEGAL)
+                transaction {
+                    SocialPostTable.update({ SocialPostTable.id eq id }) {
+                        it[stateReason] = "<script>alert(1)</script>"
+                        it[stateChangedAt] = DbClock.nowLocalDateTime()
+                    }
+                }
+                val body = client.get("/s/$id").bodyAsText()
+                body shouldNotContain "<script>"
+                body shouldContain "&lt;script&gt;"
+            }
+        }
+
+        test(
+            "T48: Orthogonalitaet -- getombstoneter UND rechtlich entfernter Post liefert die 451-Seite, weder Originalinhalt noch Tombstone-Marker (in beiden Reihenfolgen)",
+        ) {
+            testApp {
+                val author = createAuthor()
+                val idA = insertPost(authorMemberId = author, content = "OriginalA")
+                transaction {
+                    SocialPostTable.update({ SocialPostTable.id eq idA }) {
+                        it[content] = "TOMBSTONE_MARKER_A"
+                        it[contentErasedAt] = DbClock.nowLocalDateTime()
+                    }
+                }
+                transaction {
+                    SocialPostTable.update({ SocialPostTable.id eq idA }) {
+                        it[state] = SocialPostState.REMOVED_LEGAL
+                        it[stateReason] = "x"
+                        it[stateChangedAt] = DbClock.nowLocalDateTime()
+                    }
+                }
+                val bodyA = client.get("/s/$idA").bodyAsText()
+                bodyA shouldNotContain "OriginalA"
+                bodyA shouldNotContain "TOMBSTONE_MARKER_A"
+
+                val idB = insertPost(authorMemberId = author, content = "OriginalB")
+                transaction {
+                    SocialPostTable.update({ SocialPostTable.id eq idB }) {
+                        it[state] = SocialPostState.REMOVED_LEGAL
+                        it[stateReason] = "x"
+                        it[stateChangedAt] = DbClock.nowLocalDateTime()
+                    }
+                }
+                transaction {
+                    SocialPostTable.update({ SocialPostTable.id eq idB }) {
+                        it[content] = "TOMBSTONE_MARKER_B"
+                        it[contentErasedAt] = DbClock.nowLocalDateTime()
+                    }
+                }
+                val bodyB = client.get("/s/$idB").bodyAsText()
+                bodyB shouldNotContain "OriginalB"
+                bodyB shouldNotContain "TOMBSTONE_MARKER_B"
+            }
+        }
+
+        // ── Welle V1.1.5 -- oeffentlicher Melde-Weg (DSA Art. 16) ──────────────────────────────
+
+        test("T-Report-1: GET /s/{id}/report on a public post renders the form, noindex, no-store") {
+            testApp {
+                val author = createAuthor()
+                val id = insertPost(authorMemberId = author)
+                val response = client.get("/s/$id/report")
+                response.status shouldBe HttpStatusCode.OK
+                response.headers[HttpHeaders.CacheControl] shouldBe "no-store"
+                val body = response.bodyAsText()
+                body shouldContain "noindex"
+                body shouldContain "category"
+                // Review-Fund 4 (Runde 1, 2026-08-19): the honeypot must be a REAL text field, only
+                // CSS-hidden (class "hp", see SocialPublicHtml.STYLESHEET) -- a naive scraper skips
+                // type="hidden" fields, which would make the honeypot a no-op. No type="hidden" field
+                // exists anywhere on this page at all.
+                body shouldContain "class=\"hp\""
+                body shouldContain "name=\"website\""
+                body shouldNotContain "type=\"hidden\""
+            }
+        }
+
+        test("T-Report-2: GET /s/{id}/report on a non-public/unknown post is 404") {
+            testApp {
+                val author = createAuthor()
+                val membersOnly = insertPost(authorMemberId = author, visibility = SocialPostVisibility.MEMBERS_ONLY)
+                client.get("/s/$membersOnly/report").status shouldBe HttpStatusCode.NotFound
+                client.get("/s/${Uuid.random()}/report").status shouldBe HttpStatusCode.NotFound
+            }
+        }
+
+        test(
+            "T-Report-3: POST /s/{id}/report creates an anonymous report row (reporter_member_id IS NULL); honeypot and non-public post yield the SAME confirmation page but no row",
+        ) {
+            testApp {
+                val author = createAuthor()
+                val id = insertPost(authorMemberId = author)
+                val membersOnly = insertPost(authorMemberId = author, visibility = SocialPostVisibility.MEMBERS_ONLY)
+
+                val legit =
+                    client.submitForm(
+                        url = "/s/$id/report",
+                        formParameters =
+                            Parameters.build {
+                                append("category", "SPAM")
+                                append("description", "Testmeldung")
+                                append("goodFaith", "on")
+                            },
+                    )
+                legit.status shouldBe HttpStatusCode.OK
+                legit.headers[HttpHeaders.CacheControl] shouldBe "no-store"
+
+                val honeypot =
+                    client.submitForm(
+                        url = "/s/$id/report",
+                        formParameters =
+                            Parameters.build {
+                                append("category", "SPAM")
+                                append("description", "Bot-Meldung")
+                                append("goodFaith", "on")
+                                append("website", "http://spam.example")
+                            },
+                    )
+                honeypot.status shouldBe legit.status
+                honeypot.bodyAsText() shouldBe legit.bodyAsText()
+
+                val nonPublic =
+                    client.submitForm(
+                        url = "/s/$membersOnly/report",
+                        formParameters =
+                            Parameters.build {
+                                append("category", "SPAM")
+                                append("description", "x")
+                                append("goodFaith", "on")
+                            },
+                    )
+                nonPublic.status shouldBe legit.status
+                nonPublic.bodyAsText() shouldBe legit.bodyAsText()
+
+                val rows =
+                    transaction {
+                        SocialPostReportTable
+                            .selectAll()
+                            .where { SocialPostReportTable.postId eq id }
+                            .toList()
+                    }
+                rows.size shouldBe 1
+                rows.single()[SocialPostReportTable.reporterMemberId] shouldBe null
+
+                transaction {
+                    SocialPostReportTable.deleteWhere { SocialPostReportTable.postId inList listOf(id, membersOnly) }
+                }
+            }
+        }
+
+        test("T-Report-4: robots.txt disallows /s/*/report") {
+            testApp {
+                client.get("/robots.txt").bodyAsText() shouldContain "Disallow: /s/*/report"
+            }
+        }
+
+        test("T-Report-5: CSP now allows form-action 'self' (up from 'none'), all other directives unchanged") {
+            testApp {
+                val author = createAuthor()
+                val id = insertPost(authorMemberId = author)
+                val response = client.get("/s/$id")
+                response.status shouldBe HttpStatusCode.OK
+                val cspHeader = response.headers["Content-Security-Policy"] ?: ""
+                cspHeader shouldContain "form-action 'self'"
+                cspHeader shouldContain "default-src 'none'"
+                cspHeader shouldContain "frame-ancestors 'none'"
+            }
+        }
+
+        test(
+            "MAJOR-1: an oversized POST /s/{id}/report body is rejected (413) BEFORE receiveParameters() " +
+                "ever buffers it, and no report row is written -- same pattern as FederationRoutesTest's own " +
+                "\"an oversized body is rejected (413) before any JSON parsing\"",
+        ) {
+            testApp {
+                val author = createAuthor()
+                val id = insertPost(authorMemberId = author)
+
+                // 16 KiB is REPORT_MAX_BODY_BYTES in SocialPublicRoutes.kt (private there, mirrored
+                // here) -- well past it, but nowhere near the domain-level MAX_DESCRIPTION_LENGTH
+                // (4000 chars) check in SocialReportSubmission.submitPublic, which only runs AFTER
+                // the body is fully buffered -- proving THIS rejection happens strictly earlier, at
+                // the transport/framework level.
+                val oversizedBody = ("category=SPAM&goodFaith=on&description=" + "x".repeat(20_000)).toByteArray(Charsets.UTF_8)
+                val response =
+                    client.post("/s/$id/report") {
+                        contentType(ContentType.Application.FormUrlEncoded)
+                        setBody(oversizedBody)
+                    }
+                response.status shouldBe HttpStatusCode.PayloadTooLarge
+                response.headers[HttpHeaders.CacheControl] shouldBe "no-store"
+
+                transaction {
+                    SocialPostReportTable.selectAll().where { SocialPostReportTable.postId eq id }.count()
+                } shouldBe 0L
+            }
+        }
+
+        test(
+            "MAJOR-1 unit: reportBodyExceedsLimit -- null (no Content-Length, e.g. chunked encoding) and " +
+                "over-ceiling both reject; at-ceiling and under do not",
+        ) {
+            reportBodyExceedsLimit(contentLength = null) shouldBe true
+            reportBodyExceedsLimit(contentLength = 16 * 1024L + 1) shouldBe true
+            reportBodyExceedsLimit(contentLength = 16 * 1024L) shouldBe false
+            reportBodyExceedsLimit(contentLength = 100L) shouldBe false
+        }
+
+        test("MINOR-3: POST /s/{id}/report with a non-form-encoded Content-Type is a clean 400, not a raw 500") {
+            testApp {
+                val author = createAuthor()
+                val id = insertPost(authorMemberId = author)
+
+                val response =
+                    client.post("/s/$id/report") {
+                        contentType(ContentType.Application.Json)
+                        setBody("""{"category":"SPAM"}""")
+                    }
+                response.status shouldBe HttpStatusCode.BadRequest
+                response.headers[HttpHeaders.CacheControl] shouldBe "no-store"
+
+                transaction {
+                    SocialPostReportTable.selectAll().where { SocialPostReportTable.postId eq id }.count()
+                } shouldBe 0L
+            }
+        }
+
+        test("T-Tombstone-Sitemap: content_erased_at alone bumps the thread's sitemap lastmod") {
+            testApp {
+                val author = createAuthor()
+                val id = insertPost(authorMemberId = author, publishedAt = LocalDateTime(2020, 1, 1, 0, 0, 0))
+                val before = extractLastmod(client.get("/sitemap.xml").bodyAsText(), id)
+                transaction {
+                    SocialPostTable.update({ SocialPostTable.id eq id }) {
+                        it[content] = "Tombstone-Marker"
+                        it[contentErasedAt] = DbClock.nowLocalDateTime()
+                    }
+                }
+                val after = extractLastmod(client.get("/sitemap.xml").bodyAsText(), id)
+                (after > before) shouldBe true
             }
         }
 

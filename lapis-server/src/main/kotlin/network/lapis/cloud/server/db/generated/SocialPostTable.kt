@@ -27,6 +27,8 @@ public object SocialPostTable : Table("social_post") {
     public val stateChangedAt: Column<LocalDateTime?> = datetime("state_changed_at").nullable()
     public val stateChangedBy: Column<Uuid?> = optReference("state_changed_by", MemberTable.id)
     public val stateReason: Column<String?> = varchar("state_reason", 2000).nullable()
+    public val contentErasedAt: Column<LocalDateTime?> = datetime("content_erased_at").nullable()
+    public val contentErasureNote: Column<String?> = varchar("content_erasure_note", 2000).nullable()
 
     override val primaryKey: PrimaryKey = PrimaryKey(id)
 

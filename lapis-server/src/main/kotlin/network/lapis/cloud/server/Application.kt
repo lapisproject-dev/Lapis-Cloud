@@ -448,6 +448,23 @@ fun Application.module() {
     // Abruf pro Stunde.
     val socialPublicSitemapRateLimiter = FederationInboxRateLimiter(maxRequests = 10, window = 1.minutes, maxTrackedKeys = 50_000)
 
+    // V1.1.5 Soziales Netzwerk "Moderation, DSA-Melde-Mechanismus, DSGVO-Content-Hard-Delete" --
+    // vier neue, module-scoped Rate-Limiter, NIEMALS als Konstruktor-Default (Stolperfalle 15,
+    // dieselbe Begründung wie jeder andere Limiter in diesem Block).
+    //
+    // BOARD/ADMIN-Moderationsaktionen (removePostForLegalReason/decideReport/decideContentErasure/
+    // executeContentErasure) -- seltener, folgenreicher als ein gewöhnlicher Post, 20/min.
+    val socialModerationRateLimiter = FederationInboxRateLimiter(maxRequests = 20, window = 1.minutes)
+
+    // reportPost (authentifizierter RPC-Pfad, jeder Aufrufer) -- 5/Stunde, deckt eine
+    // Missbrauchsspitze, ohne einen legitimen wiederholten Melder auszubremsen.
+    val socialReportRateLimiter = FederationInboxRateLimiter(maxRequests = 5, window = 60.minutes)
+
+    // POST /s/{id}/report (öffentlicher, kontenloser Melde-Weg) -- EIGENER, deutlich strengerer
+    // IP-gekeyter Limiter als der Lese-Pfad (socialPublicReadRateLimiter), analog zu
+    // socialPublicSitemapRateLimiter's Verhältnis zu socialPublicReadRateLimiter.
+    val socialPublicReportRateLimiter = FederationInboxRateLimiter(maxRequests = 3, window = 60.minutes, maxTrackedKeys = 50_000)
+
     // Fix (2026-08-14): must be installed BEFORE anything that reads call.request.origin (every
     // plugin/route below, plus every IP-keyed rate limiter in AuthRoutes/RegistrationService/
     // FederationRoutes/OidcRoutes) -- XForwardedHeaders overrides ApplicationRequest.origin from
@@ -542,6 +559,8 @@ fun Application.module() {
                 createRateLimiter = socialCreateRateLimiter,
                 readRateLimiter = socialReadRateLimiter,
                 boostRateLimiter = socialBoostRateLimiter,
+                moderationRateLimiter = socialModerationRateLimiter,
+                reportRateLimiter = socialReportRateLimiter,
             )
         }
         registerService(IAuthService::class) { call -> AuthService(call) }
@@ -656,7 +675,11 @@ fun Application.module() {
         // registered before staticFiles for the same "literal beats catch-all" reasoning documented
         // on that call below; no collision with any RPC service path or the SPA's own routes (see
         // registerSocialPublicRoutes KDoc).
-        registerSocialPublicRoutes(readRateLimiter = socialPublicReadRateLimiter, sitemapRateLimiter = socialPublicSitemapRateLimiter)
+        registerSocialPublicRoutes(
+            readRateLimiter = socialPublicReadRateLimiter,
+            sitemapRateLimiter = socialPublicSitemapRateLimiter,
+            reportRateLimiter = socialPublicReportRateLimiter,
+        )
         getAllServiceManagers().forEach { applyRoutes(it) }
         // Registered last: literal routes above (/api/..., RPC service paths) always win over this
         // catch-all in Ktor's routing trie regardless of registration order, but keeping it last

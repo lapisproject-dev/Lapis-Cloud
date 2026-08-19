@@ -1,25 +1,38 @@
 package network.lapis.cloud.server.routes
 
 import kotlinx.html.FlowContent
+import kotlinx.html.FormMethod
 import kotlinx.html.HTML
 import kotlinx.html.a
 import kotlinx.html.article
 import kotlinx.html.body
+import kotlinx.html.checkBoxInput
+import kotlinx.html.div
+import kotlinx.html.em
+import kotlinx.html.emailInput
 import kotlinx.html.footer
+import kotlinx.html.form
 import kotlinx.html.h1
 import kotlinx.html.h2
 import kotlinx.html.head
 import kotlinx.html.header
 import kotlinx.html.html
+import kotlinx.html.label
 import kotlinx.html.link
 import kotlinx.html.main
 import kotlinx.html.meta
 import kotlinx.html.nav
+import kotlinx.html.option
 import kotlinx.html.p
 import kotlinx.html.section
+import kotlinx.html.select
 import kotlinx.html.stream.createHTML
+import kotlinx.html.submitInput
+import kotlinx.html.textArea
+import kotlinx.html.textInput
 import kotlinx.html.time
 import kotlinx.html.title
+import network.lapis.cloud.shared.domain.SocialPostReportCategory
 
 /**
  * V1.1.3 Soziales Netzwerk "Öffentlicher SEO-Lesepfad" -- the FIRST unauthenticated HTML-rendering
@@ -79,6 +92,7 @@ internal object SocialPublicHtml {
         .notice { color: #888; font-size: 0.85rem; font-style: italic; }
         nav { display: flex; justify-content: space-between; margin-top: 1.5rem; gap: 1rem; }
         a { color: inherit; }
+        .hp { position: absolute; left: -9999px; top: -9999px; }
         """
 
     /** Title length ceiling -- shared by `<title>` and `og:title`. */
@@ -225,8 +239,8 @@ internal object SocialPublicHtml {
                 nav { a(href = "$baseUrl/s") { +"← Zur Timeline" } }
                 article {
                     h1 { +view.root.excerptTitle }
-                    renderPostMeta(post = view.root)
-                    view.root.contentLines.forEach { line -> p { +line } }
+                    renderPostMeta(post = view.root, baseUrl = baseUrl)
+                    renderPostContent(post = view.root, lines = view.root.contentLines)
                 }
                 if (view.descendants.isNotEmpty() || view.truncated) {
                     section {
@@ -294,6 +308,31 @@ internal object SocialPublicHtml {
         }
 
     /**
+     * Security-Audit-Fund MAJOR-1/MINOR-3 (Runde 1, 2026-08-19): the generic 400/413 page
+     * `POST /s/{id}/report` falls back to for a malformed request rejected BEFORE the body is ever
+     * parsed (oversized body, missing `Content-Length`, wrong `Content-Type`) -- see
+     * `SocialPublicRoutes.respondPublicMalformedRequest`. Deliberately a single fixed string
+     * covering every one of those reasons, same "no internals to an anonymous caller" discipline
+     * as [serverErrorPage]. `robots` is `noindex` for the same reason as [notFoundPage].
+     */
+    fun malformedRequestPage(baseUrl: String): String =
+        createHTML(prettyPrint = false).html {
+            attributes["lang"] = "de"
+            renderHead(
+                pageTitle = "Ungültige Anfrage – Lapis Cloud",
+                description = "Diese Anfrage konnte nicht verarbeitet werden.",
+                canonicalUrl = null,
+                robots = "noindex",
+                ogType = null,
+            )
+            body {
+                h1 { +"Ungültige Anfrage" }
+                p { +"Diese Anfrage konnte nicht verarbeitet werden. Bitte versuchen Sie es erneut." }
+                a(href = "$baseUrl/s") { +"Zur Timeline" }
+            }
+        }
+
+    /**
      * M1-Fix (Review-Runde 1): the generic 500 page every public handler falls back to via
      * `SocialPublicRoutes.withPublicErrorHandling`. Deliberately a FIXED string with no interpolated
      * exception message/stack trace anywhere -- an internal error detail is never something an
@@ -317,6 +356,190 @@ internal object SocialPublicHtml {
                 p { +"Bei der Verarbeitung dieser Anfrage ist ein Fehler aufgetreten. Bitte versuchen Sie es später erneut." }
                 a(href = "$baseUrl/s") { +"Zur Timeline" }
             }
+        }
+
+    /**
+     * Welle V1.1.5 (E-B). Trägt AUSSCHLIESSLICH: die Tatsache der Entfernung, das Datum und die
+     * Begründung. Ausdrücklich NICHT: den ursprünglichen Inhalt, einen Ausschnitt davon, den
+     * Autorennamen, Gewichte, Antwortzahlen, einen Melde-Link (an einem bereits entfernten Beitrag
+     * gibt es nichts mehr zu melden). `description` ist ein FESTER Satz und trägt die Begründung
+     * NICHT -- eine Meta-Description wandert in Such-Snippets, die Begründung soll gelesen werden
+     * können, nicht ausgestreut. `robots = "noindex"` wie [notFoundPage].
+     *
+     * Der Autorenname fehlt bewusst: E-B macht die BEGRÜNDUNG öffentlich, nicht die Zuordnung einer
+     * mutmaßlichen Rechtsverletzung zu einer namentlich benannten Person.
+     */
+    fun legallyRemovedPage(
+        view: PublicRemovalNoticeView,
+        baseUrl: String,
+    ): String =
+        createHTML(prettyPrint = false).html {
+            attributes["lang"] = "de"
+            renderHead(
+                pageTitle = "Beitrag aus rechtlichen Gründen entfernt – Lapis Cloud",
+                description = "Dieser Beitrag wurde aus rechtlichen Gründen entfernt.",
+                canonicalUrl = null,
+                robots = "noindex",
+                ogType = null,
+            )
+            body {
+                header { h1 { +"Beitrag aus rechtlichen Gründen entfernt" } }
+                main {
+                    p {
+                        +"Dieser Beitrag wurde am ${view.removedAtHuman} aus rechtlichen Gründen entfernt. "
+                        +"Der ursprüngliche Inhalt ist nicht mehr verfügbar."
+                    }
+                    section {
+                        h2 { +"Begründung" }
+                        view.reasonLines.forEach { line -> p { +line } }
+                    }
+                    p { +"Die Entfernung erfolgt nach den Vorgaben des Digital Services Act (Verordnung (EU) 2022/2065)." }
+                }
+                footer { a(href = "$baseUrl/s") { +"Zur Timeline" } }
+            }
+        }
+
+    /**
+     * Welle V1.1.5 (Plan § 4.2) -- DSA Art. 16 Meldeformular für [postId]. Ein klassisches
+     * `<form method=post>` ohne jedes JavaScript (die CSP dieses Pfads erlaubt keine Skripte).
+     * `contact` ist OPTIONAL (Entscheidungspunkt E-F), `goodFaith` ist ein PFLICHT-Checkbox (DSA
+     * Art. 16 Abs. 2 lit. d). Enthält ein per CSS ausgeblendetes Honeypot-Feld (`website`) --
+     * klassischer No-JS-Bot-Schutz, ausgefüllt ⇒ stiller No-Op serverseitig. **Bewusst ein ganz
+     * normales `<input type="text">`** (kein `type="hidden"`) -- ein simpler Scraper füllt üblicherweise
+     * nur sichtbare Textfelder aus und überspringt `type="hidden"` von vornherein, was den Honeypot
+     * wirkungslos machen würde (Review-Fund 4, Runde 1 2026-08-19). Stattdessen versteckt allein die
+     * `.hp`-Regel in [STYLESHEET] das umschließende `<div>` (`position: absolute; left: -9999px`) --
+     * für einen menschlichen Besucher unsichtbar, im DOM aber ein ganz normal aussehendes Textfeld.
+     */
+    fun reportFormPage(
+        postId: String,
+        baseUrl: String,
+    ): String =
+        createHTML(prettyPrint = false).html {
+            attributes["lang"] = "de"
+            renderHead(
+                pageTitle = "Beitrag melden – Lapis Cloud",
+                description = "Diesen Beitrag wegen eines möglichen Rechtsverstoßes melden.",
+                canonicalUrl = null,
+                robots = "noindex",
+                ogType = null,
+            )
+            body {
+                nav { a(href = "$baseUrl/s/$postId") { +"← Zurück zum Beitrag" } }
+                header { h1 { +"Beitrag melden" } }
+                main {
+                    p {
+                        +(
+                            "Bitte begründen Sie, warum dieser Beitrag rechtswidrig ist (Digital Services Act, " +
+                                "Verordnung (EU) 2022/2065, Art. 16). Name und E-Mail-Adresse sind freiwillig -- " +
+                                "ohne Angabe können wir Ihnen den Eingang und die Entscheidung nicht mitteilen."
+                        )
+                    }
+                    form(action = "$baseUrl/s/$postId/report", method = FormMethod.post) {
+                        // Honeypot -- siehe diese Funktions-KDoc. Muss ein normales, im Markup
+                        // sichtbares `<input type="text">` sein (nur per CSS ausgeblendet), damit ein
+                        // simpler Scraper es tatsaechlich befuellt.
+                        div(classes = "hp") {
+                            attributes["aria-hidden"] = "true"
+                            label {
+                                htmlFor = "website"
+                                +"Website"
+                            }
+                            textInput(name = "website") {
+                                attributes["id"] = "website"
+                                attributes["tabindex"] = "-1"
+                                attributes["autocomplete"] = "off"
+                            }
+                        }
+                        label {
+                            htmlFor = "category"
+                            +"Kategorie"
+                        }
+                        select {
+                            attributes["id"] = "category"
+                            name = "category"
+                            SocialPostReportCategory.entries.forEach { category ->
+                                option {
+                                    value = category.name
+                                    +reportCategoryLabel(category)
+                                }
+                            }
+                        }
+                        label {
+                            htmlFor = "description"
+                            +"Begründung (Pflichtfeld)"
+                        }
+                        textArea {
+                            attributes["id"] = "description"
+                            name = "description"
+                            rows = "5"
+                            attributes["maxlength"] = "4000"
+                            attributes["required"] = "required"
+                        }
+                        label {
+                            htmlFor = "contact"
+                            +"E-Mail-Adresse (optional)"
+                        }
+                        emailInput {
+                            attributes["id"] = "contact"
+                            name = "contact"
+                        }
+                        label {
+                            checkBoxInput {
+                                name = "goodFaith"
+                                attributes["required"] = "required"
+                            }
+                            +" Ich erkläre, dass diese Meldung nach bestem Wissen zutreffend und in gutem Glauben abgegeben wird."
+                        }
+                        p { +"Der genaue Beitrag wird automatisch aus der Adresse dieser Seite übernommen." }
+                        submitInput(classes = null) { value = "Meldung absenden" }
+                    }
+                    p {
+                        +(
+                            "Welche Daten wir zu welchem Zweck erheben: die von Ihnen eingegebenen Angaben (Kategorie, " +
+                                "Begründung, optional E-Mail) sowie der Zeitpunkt der Meldung. Ihre IP-Adresse wird " +
+                                // MINOR-2 (Security-Audit Runde 1, 2026-08-19): "wird NICHT gespeichert" war eine
+                                // unqualifizierte Absolutaussage -- tatsaechlich haelt FederationInboxRateLimiter
+                                // einen von der IP abgeleiteten Schluessel bis zu Ablauf des Rate-Limit-Fensters im
+                                // Speicher, und der vorgeschaltete Apache-Reverse-Proxy loggt Client-IPs per Default
+                                // in seinem Access-Log. Praezisiert auf "nicht MIT Ihrer Meldung" -- korrekt, weil
+                                // die IP nie in der social_post_report-Zeile selbst landet.
+                                "nicht MIT Ihrer Meldung gespeichert. Die Daten dienen ausschließlich der Bearbeitung " +
+                                "dieser Meldung nach Art. 16 DSA."
+                        )
+                    }
+                }
+                footer { a(href = "$baseUrl/s") { +"Zur Timeline" } }
+            }
+        }
+
+    /** Welle V1.1.5 -- IMMER dieselbe Antwort (Plan § 4.3), egal ob die Meldung gespeichert wurde, egal ob der Post existiert, egal ob das Honeypot-Feld ausgefüllt war. */
+    fun reportSubmittedPage(baseUrl: String): String =
+        createHTML(prettyPrint = false).html {
+            attributes["lang"] = "de"
+            renderHead(
+                pageTitle = "Meldung übermittelt – Lapis Cloud",
+                description = "Ihre Meldung wurde übermittelt.",
+                canonicalUrl = null,
+                robots = "noindex",
+                ogType = null,
+            )
+            body {
+                h1 { +"Meldung übermittelt" }
+                p { +"Vielen Dank. Ihre Meldung wird geprüft." }
+                a(href = "$baseUrl/s") { +"Zur Timeline" }
+            }
+        }
+
+    private fun reportCategoryLabel(category: SocialPostReportCategory): String =
+        when (category) {
+            SocialPostReportCategory.ILLEGAL_CONTENT -> "Rechtswidriger Inhalt"
+            SocialPostReportCategory.DEFAMATION -> "Üble Nachrede/Verleumdung"
+            SocialPostReportCategory.COPYRIGHT -> "Urheberrechtsverletzung"
+            SocialPostReportCategory.PERSONAL_DATA -> "Personenbezogene Daten"
+            SocialPostReportCategory.HATE_SPEECH -> "Hassrede"
+            SocialPostReportCategory.SPAM -> "Spam"
+            SocialPostReportCategory.OTHER -> "Sonstiges"
         }
 
     private fun timelineCanonicalUrl(
@@ -371,8 +594,8 @@ internal object SocialPublicHtml {
     ) {
         article {
             h2 { a(href = "$baseUrl/s/${post.id}") { +post.excerptTitle } }
-            renderPostMeta(post = post)
-            post.contentLines.take(SUMMARY_LINE_COUNT).forEach { line -> p { +line } }
+            renderPostMeta(post = post, baseUrl = baseUrl)
+            renderPostContent(post = post, lines = post.contentLines.take(SUMMARY_LINE_COUNT))
             if (post.contentLines.size > SUMMARY_LINE_COUNT) {
                 p(classes = "notice") {
                     +"Gekürzt — "
@@ -402,12 +625,21 @@ internal object SocialPublicHtml {
     ) {
         article {
             h2 { a(href = "$baseUrl/s/${post.id}") { +post.excerptTitle } }
-            renderPostMeta(post = post)
-            post.contentLines.forEach { line -> p { +line } }
+            renderPostMeta(post = post, baseUrl = baseUrl)
+            renderPostContent(post = post, lines = post.contentLines)
         }
     }
 
-    private fun FlowContent.renderPostMeta(post: PublicPostView) {
+    /**
+     * Welle V1.1.5 (Plan § 4.6): trägt seit dieser Welle auch den Melde-Link
+     * (`$baseUrl/s/{id}/report`) -- damit erscheint der Link an Wurzelpost UND jedem gerenderten
+     * Nachfahren (`renderThreadDescendant`) sowie in der Timeline-Zusammenfassung, jeder der drei
+     * Aufrufer hat [baseUrl] bereits im Scope.
+     */
+    private fun FlowContent.renderPostMeta(
+        post: PublicPostView,
+        baseUrl: String,
+    ) {
         p {
             +post.authorDisplayName
             +" · "
@@ -416,6 +648,25 @@ internal object SocialPublicHtml {
                 +post.publishedAtHuman
             }
             +" · Gesamtgewicht ${post.totalWeightLtr} LTR"
+            +" · "
+            a(href = "$baseUrl/s/${post.id}/report") { +"Diesen Beitrag melden" }
+        }
+    }
+
+    /**
+     * Welle V1.1.5 (Plan § 5.3): rendert [lines] als getombstonete, gedämpfte Kursivschrift
+     * (`<em>`), wenn [PublicPostView.contentErased] gilt -- sonst wie bisher als normale Absätze.
+     * Rein kosmetisch, die Datenminimierung ist bereits durch die Überschreibung von `content` in
+     * der Datenbank erledigt (der Marker-Text selbst kommt unverändert aus [lines]).
+     */
+    private fun FlowContent.renderPostContent(
+        post: PublicPostView,
+        lines: List<String>,
+    ) {
+        if (post.contentErased) {
+            lines.forEach { line -> p { em { +line } } }
+        } else {
+            lines.forEach { line -> p { +line } }
         }
     }
 
@@ -489,6 +740,8 @@ internal data class PublicPostView(
     val authorDisplayName: String,
     /** Plain Text, an Zeilenumbrüchen gesplittet (S7) -- jede Zeile wird als eigener Textknoten ausgegeben. */
     val contentLines: List<String>,
+    /** Welle V1.1.5 -- `true` ⇒ [contentLines] ist der Tombstone-Marker, kein Nutzertext mehr (`SocialPostDto.contentErasedAt != null`). Rein kosmetisch (`<em>` statt `<p>`-Absatz). */
+    val contentErased: Boolean = false,
     /** Bereits auf 2 Nachkommastellen formatiert -- der Renderer rechnet nie. */
     val totalWeightLtr: String,
     val ownWeightLtr: String,
@@ -510,4 +763,12 @@ internal data class PublicThreadView(
     val descendants: List<PublicPostView>,
     /** `true` ⇒ Hinweistext "Weitere Antworten werden hier nicht angezeigt", niemals stilles Abschneiden. */
     val truncated: Boolean,
+)
+
+/** Welle V1.1.5 (E-B) -- siehe [SocialPublicHtml.legallyRemovedPage] KDoc für das Datenminimierungs-Prinzip dieses View-Modells. */
+internal data class PublicRemovalNoticeView(
+    val postId: String,
+    val reasonLines: List<String>,
+    val removedAtIso: String,
+    val removedAtHuman: String,
 )
