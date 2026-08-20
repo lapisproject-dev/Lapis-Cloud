@@ -403,8 +403,10 @@ fun main() {
                 "ru" to messagesRu,
             ),
         )
-    // UI/UX-Design-Team-Review 2026-08-14: loads theme.css (papyrus/lapis-lazuli/gold palette,
-    // ported from cloud.lapisproject.dev's tokens.css) into the webpack bundle. `js("require(...)")`
+    // UI/UX-Design-Team-Review 2026-08-14, revised 2026-08-20 (theme redesign wave): loads
+    // theme.css into the webpack bundle -- white ground + near-black navbar + a more saturated
+    // lapis blue, a deliberate divergence from cloud.lapisproject.dev's own papyrus/cream palette
+    // for this admin app specifically (see that file's own header comment). `js("require(...)")`
     // is the standard Kotlin/JS idiom for a raw stylesheet import under `cssSupport { enabled.set(true) }`
     // (see lapis-client/build.gradle.kts) -- css-loader/style-loader inject it as a `<style>` tag at
     // runtime, same mechanism BootstrapCssModule already relies on internally for Bootstrap's own CSS.

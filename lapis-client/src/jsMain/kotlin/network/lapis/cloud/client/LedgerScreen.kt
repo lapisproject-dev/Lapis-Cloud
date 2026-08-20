@@ -22,6 +22,11 @@ import io.kvision.modal.Modal
 import io.kvision.panel.SimplePanel
 import io.kvision.panel.hPanel
 import io.kvision.panel.vPanel
+import io.kvision.table.Table
+import io.kvision.table.TableType
+import io.kvision.table.cell
+import io.kvision.table.row
+import io.kvision.table.table
 import io.kvision.utils.px
 import kotlinx.coroutines.launch
 import kotlinx.datetime.LocalDate
@@ -138,8 +143,16 @@ fun renderLedgerScreen(container: SimplePanel) {
                 accountListPanel.p(tr("Noch keine Konten angelegt."))
                 return@launch
             }
+            // UI theme redesign wave (2026-08-20): real Bootstrap table (table-striped/table-hover),
+            // replacing the previous hand-rolled "border rounded p-2" vPanel-per-row layout -- see
+            // root CLAUDE.md "UI/UX-Design-Team" review.
+            val table =
+                accountListPanel.table(
+                    headerNames = listOf(tr("Konto"), tr("Typ"), tr("Status"), tr("Details"), tr("Aktionen")),
+                    types = setOf(TableType.STRIPED, TableType.HOVER),
+                )
             accounts.sortedBy { it.accountNumber }.forEach { account ->
-                renderAccountRow(accountListPanel, account, canManage, ::selectAccount, ::refreshAccounts)
+                renderAccountRow(table, account, canManage, ::selectAccount, ::refreshAccounts)
             }
         }
     }
@@ -212,8 +225,16 @@ fun renderLedgerScreen(container: SimplePanel) {
                 journalListPanel.p(tr("Keine Buchungen im gewählten Zeitraum."))
                 return@launch
             }
+            // UI theme redesign wave (2026-08-20): real Bootstrap table (table-striped/table-hover),
+            // replacing the previous hand-rolled "border rounded p-2" vPanel-per-row layout -- see
+            // root CLAUDE.md "UI/UX-Design-Team" review.
+            val table =
+                journalListPanel.table(
+                    headerNames = listOf(tr("Buchung"), tr("Status"), tr("Details"), tr("Aktionen")),
+                    types = setOf(TableType.STRIPED, TableType.HOVER),
+                )
             entries.forEach { entry ->
-                renderJournalRow(journalListPanel, entry) { id ->
+                renderJournalRow(table, entry) { id ->
                     selectJournalEntry(id)
                     refreshJournalDetail()
                 }
@@ -398,46 +419,47 @@ private fun OrganizationSettingsDto.toInputWithPaymentAccountMapping(
 // ============================================================================================
 
 private fun renderAccountRow(
-    panel: SimplePanel,
+    table: Table,
     account: LedgerAccountDto,
     canManage: Boolean,
     onSelect: (LedgerAccountDto) -> Unit,
     onChanged: () -> Unit,
 ) {
-    val row = panel.vPanel(spacing = 4) { addCssClasses("border rounded p-2") }
-    val headerRow = row.hPanel(spacing = 8) { addCssClasses("align-items-center") }
-    headerRow.div(gettext("%1 · %2", account.accountNumber, account.name)) { addCssClasses("flex-grow-1 fw-bold") }
-    headerRow.typeBadge(ledgerAccountTypeLabel(account.type), ledgerAccountTypeColor(account.type))
-    headerRow.activeStatusBadge(account.active)
+    table.row {
+        cell(gettext("%1 · %2", account.accountNumber, account.name)) { addCssClass("fw-bold") }
+        cell { typeBadge(ledgerAccountTypeLabel(account.type), ledgerAccountTypeColor(account.type)) }
+        cell { activeStatusBadge(account.active) }
 
-    val metaParts = mutableListOf(gettext("Kontenklasse %1", account.accountClass))
-    account.reserveType?.let { metaParts.add(reserveTypeLabel(it)) }
-    if (account.isCashRegister) metaParts.add(tr("Kasse"))
-    row.div(metaParts.joinToString(" · ")) { addCssClasses("text-muted small") }
+        val metaParts = mutableListOf(gettext("Kontenklasse %1", account.accountClass))
+        account.reserveType?.let { metaParts.add(reserveTypeLabel(it)) }
+        if (account.isCashRegister) metaParts.add(tr("Kasse"))
+        cell(metaParts.joinToString(" · ")) { addCssClasses("text-muted small") }
 
-    val actionRow = row.hPanel(spacing = 8)
-    val showButton = actionRow.button(tr("Details anzeigen"), style = ButtonStyle.OUTLINESECONDARY)
-    showButton.onClick { onSelect(account) }
+        val actionsCell = cell()
+        val actionRow = actionsCell.hPanel(spacing = 8) { addCssClasses("flex-wrap") }
+        val showButton = actionRow.button(tr("Details anzeigen"), style = ButtonStyle.OUTLINESECONDARY)
+        showButton.onClick { onSelect(account) }
 
-    if (canManage && account.active) {
-        val deactivateButton = actionRow.button(tr("Deaktivieren"), style = ButtonStyle.OUTLINEDANGER)
-        deactivateButton.onClick {
-            confirmDialog(
-                title = tr("Konto deaktivieren"),
-                message =
-                    gettext(
-                        "\"%1 · %2\" wirklich deaktivieren? Bestehende Buchungen bleiben erhalten, das Konto steht " +
-                            "aber für neue Buchungen nicht mehr zur Verfügung.",
-                        account.accountNumber,
-                        account.name,
-                    ),
-                confirmLabel = tr("Deaktivieren"),
-            ) {
-                AppScope.launch {
-                    val result = guarded { rpcService<IAccountingService>().deactivateLedgerAccount(account.id) }
-                    if (result != null) {
-                        notifyInfo(tr("Konto wurde deaktiviert."))
-                        onChanged()
+        if (canManage && account.active) {
+            val deactivateButton = actionRow.button(tr("Deaktivieren"), style = ButtonStyle.OUTLINEDANGER)
+            deactivateButton.onClick {
+                confirmDialog(
+                    title = tr("Konto deaktivieren"),
+                    message =
+                        gettext(
+                            "\"%1 · %2\" wirklich deaktivieren? Bestehende Buchungen bleiben erhalten, das Konto steht " +
+                                "aber für neue Buchungen nicht mehr zur Verfügung.",
+                            account.accountNumber,
+                            account.name,
+                        ),
+                    confirmLabel = tr("Deaktivieren"),
+                ) {
+                    AppScope.launch {
+                        val result = guarded { rpcService<IAccountingService>().deactivateLedgerAccount(account.id) }
+                        if (result != null) {
+                            notifyInfo(tr("Konto wurde deaktiviert."))
+                            onChanged()
+                        }
                     }
                 }
             }
@@ -716,23 +738,25 @@ private fun renderKassenbuchView(
  * not an incidental display convenience.
  */
 private fun renderJournalRow(
-    panel: SimplePanel,
+    table: Table,
     entry: JournalEntryDto,
     onSelect: (String) -> Unit,
 ) {
-    val row = panel.vPanel(spacing = 4) { addCssClasses("border rounded p-2") }
-    val headerRow = row.hPanel(spacing = 8) { addCssClasses("align-items-center") }
-    headerRow.div(entry.description) { addCssClasses("flex-grow-1 fw-bold") }
-    headerRow.statusBadge(journalEntryStatusLabel(entry.status), journalEntryStatusColor(entry.status))
+    table.row {
+        cell(entry.description) { addCssClass("fw-bold") }
+        cell { statusBadge(journalEntryStatusLabel(entry.status), journalEntryStatusColor(entry.status)) }
 
-    val postingsCount = entry.postings.size
-    val postingsNoun = if (postingsCount == 1) gettext("1 Buchungszeile") else gettext("%1 Buchungszeilen", postingsCount)
-    row.div(gettext("%1 · %2 · erfasst von %3", entry.entryDate, postingsNoun, entry.createdByDisplayName)) {
-        addCssClasses("text-muted small")
+        val postingsCount = entry.postings.size
+        val postingsNoun = if (postingsCount == 1) gettext("1 Buchungszeile") else gettext("%1 Buchungszeilen", postingsCount)
+        cell(gettext("%1 · %2 · erfasst von %3", entry.entryDate, postingsNoun, entry.createdByDisplayName)) {
+            addCssClasses("text-muted small")
+        }
+
+        cell {
+            val showButton = button(tr("Details anzeigen"), style = ButtonStyle.OUTLINESECONDARY)
+            showButton.onClick { onSelect(entry.id) }
+        }
     }
-
-    val showButton = row.button(tr("Details anzeigen"), style = ButtonStyle.OUTLINESECONDARY)
-    showButton.onClick { onSelect(entry.id) }
 }
 
 /**
@@ -876,8 +900,14 @@ private fun renderDonorInfo(
     }
 }
 
-/** D8: two-column Soll/Haben layout -- the amount lands in exactly one of the two columns per its
- * [PostingDto.side], never a single "Betrag" column plus a side badge. */
+/**
+ * D8: two-column Soll/Haben layout -- the amount lands in exactly one of the two columns per its
+ * [PostingDto.side], never a single "Betrag" column plus a side badge.
+ *
+ * UI theme redesign wave (2026-08-20): real Bootstrap table (table-striped/table-hover), replacing
+ * the previous hand-rolled "border-bottom py-1" hPanel-per-row layout -- see root CLAUDE.md
+ * "UI/UX-Design-Team" review. D8's two-column Soll/Haben layout itself is unchanged.
+ */
 private fun renderPostingsTable(
     panel: SimplePanel,
     postings: List<PostingDto>,
@@ -886,26 +916,21 @@ private fun renderPostingsTable(
         panel.p(tr("Keine Buchungszeilen."))
         return
     }
-    val headerRow = panel.hPanel(spacing = 8) { addCssClasses("fw-bold border-bottom pb-1") }
-    headerRow.div(tr("Konto")) { addCssClasses("flex-grow-1") }
-    headerRow.div(tr("Soll")) { width = 110.px }
-    headerRow.div(tr("Haben")) { width = 110.px }
-    headerRow.div(tr("Sphäre")) { width = 200.px }
-    headerRow.div(tr("Kostenstelle")) { width = 150.px }
-
+    val table =
+        panel.table(
+            headerNames = listOf(tr("Konto"), tr("Soll"), tr("Haben"), tr("Sphäre"), tr("Kostenstelle")),
+            types = setOf(TableType.STRIPED, TableType.HOVER),
+        )
     postings.forEach { posting ->
-        val row = panel.hPanel(spacing = 8) { addCssClasses("border-bottom py-1 align-items-center") }
-        row.div(gettext("%1 · %2", posting.ledgerAccountNumber, posting.ledgerAccountName)) { addCssClasses("flex-grow-1") }
-        row.div(if (posting.side == PostingSide.DEBIT) formatMoney(posting.amount) else "") { width = 110.px }
-        row.div(if (posting.side == PostingSide.CREDIT) formatMoney(posting.amount) else "") { width = 110.px }
-        val sphereCell = row.div { width = 200.px }
-        sphereCell.typeBadge(sphereLabel(posting.sphere), sphereColor(posting.sphere))
-        val costCenterCell =
-            row.div {
-                width = 150.px
+        table.row {
+            cell(gettext("%1 · %2", posting.ledgerAccountNumber, posting.ledgerAccountName))
+            cell(if (posting.side == PostingSide.DEBIT) formatMoney(posting.amount) else "")
+            cell(if (posting.side == PostingSide.CREDIT) formatMoney(posting.amount) else "")
+            cell { typeBadge(sphereLabel(posting.sphere), sphereColor(posting.sphere)) }
+            cell(posting.costCenterCode?.let { gettext("%1 · %2", it, posting.costCenterName) } ?: "--") {
                 addCssClasses("text-muted small")
             }
-        costCenterCell.content = posting.costCenterCode?.let { gettext("%1 · %2", it, posting.costCenterName) } ?: "--"
+        }
     }
 }
 

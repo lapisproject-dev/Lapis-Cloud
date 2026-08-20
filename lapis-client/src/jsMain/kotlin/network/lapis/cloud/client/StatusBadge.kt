@@ -2,6 +2,7 @@ package network.lapis.cloud.client
 
 import io.kvision.core.Container
 import io.kvision.html.Span
+import io.kvision.html.icon
 import io.kvision.html.span
 import io.kvision.i18n.tr
 
@@ -48,3 +49,31 @@ fun Container.typeBadge(
  */
 fun Container.activeStatusBadge(active: Boolean): Span =
     statusBadge(if (active) tr("Aktiv") else tr("Inaktiv"), if (active) "success" else "secondary")
+
+/**
+ * UI theme redesign wave (2026-08-20) -- a THIRD badge grammar, alongside [statusBadge]/[typeBadge]
+ * above, but on a different axis entirely: those two render a Bootstrap badge-hue (one of eight),
+ * `roleBadge` renders one of the seven semantic `--lapis-role-*` colors from `theme.css` (a legacy
+ * pattern from PZB, an older sister project, that color-coded role icons throughout its UI) plus a
+ * FontAwesome icon -- for WHO someone is (their [network.lapis.cloud.shared.domain.AccountRole]) or
+ * what standing they hold (their [network.lapis.cloud.shared.domain.MemberStatus]), not a generic
+ * per-enum status. Same WCAG 1.4.1 rule as [statusBadge]/[typeBadge]: color is never the only
+ * signal, so the text label is mandatory, not optional -- there is no icon-only overload. See
+ * `MemberStatusLabels.kt`'s `accountRoleBadge`/`memberStatusRoleBadge` for the concrete
+ * enum-to-`roleClass`/icon mapping and its rationale (including why `lapis-role-party` is currently
+ * unassigned).
+ *
+ * @param text the German label, always shown next to the icon
+ * @param roleClass one of `lapis-role-admin`/`-party`/`-bank`/`-board`/`-member`/`-guest`/`-inactive`
+ * @param faIcon a FontAwesome icon class string, e.g. `"fas fa-user-shield"`
+ */
+fun Container.roleBadge(
+    text: String,
+    roleClass: String,
+    faIcon: String,
+): Span =
+    span {
+        addCssClasses("lapis-role-badge $roleClass")
+        icon(faIcon)
+        span(text)
+    }

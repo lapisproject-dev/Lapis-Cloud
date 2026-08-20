@@ -18,10 +18,16 @@ import io.kvision.modal.Modal
 import io.kvision.panel.SimplePanel
 import io.kvision.panel.hPanel
 import io.kvision.panel.vPanel
+import io.kvision.table.Table
+import io.kvision.table.TableType
+import io.kvision.table.cell
+import io.kvision.table.row
+import io.kvision.table.table
 import io.kvision.utils.px
 import kotlinx.coroutines.launch
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.AdminCreateMemberInput
+import network.lapis.cloud.shared.domain.MemberDto
 import network.lapis.cloud.shared.domain.MemberSummaryDto
 import network.lapis.cloud.shared.rpc.IMemberService
 import network.lapis.cloud.shared.rpc.IRegistrationService
@@ -59,49 +65,69 @@ private fun renderPendingApplications(root: SimplePanel) {
                 pendingPanel.p(tr("Keine offenen Anträge."))
                 return@launch
             }
+            // UI theme redesign wave (2026-08-20): real Bootstrap table (table-striped/table-hover),
+            // replacing the previous hand-rolled "border rounded p-2" hPanel-per-row layout -- see
+            // root CLAUDE.md "UI/UX-Design-Team" review. `MemberDto.role` (unlike `MemberSummaryDto`,
+            // see `renderMemberDirectory` below) IS available here, so the "Rolle" column uses the
+            // new [accountRoleBadge] semantic role badge.
+            val table =
+                pendingPanel.table(
+                    headerNames = listOf(tr("Antragsteller"), tr("Rolle"), tr("Aktionen")),
+                    types = setOf(TableType.STRIPED, TableType.HOVER),
+                )
             applications.forEach { application ->
-                val row = pendingPanel.hPanel(spacing = 8) { addCssClasses("border rounded p-2 align-items-center") }
-                val friendSince = application.friendSince
-                val summary =
-                    gettext(
-                        "%1 (%2) -- eingereicht am %3",
-                        application.displayName,
-                        application.email,
-                        application.joinedAt,
-                    )
-                // V0.11.0: shows the board that this applicant came from an existing FRIEND account
-                // (see MemberDto.friendSince KDoc "load-bearing") -- FriendUpgradePathTest covers the
-                // applyForMembership transition itself; this is purely informational.
-                val label = if (friendSince != null) gettext("%1 (Freund-Konto seit %2)", summary, friendSince) else summary
-                row.div(label) {
-                    addCssClass("flex-grow-1")
+                renderPendingApplicationRow(table, application, onChanged = ::refresh)
+            }
+        }
+    }
+    refresh()
+}
+
+private fun renderPendingApplicationRow(
+    table: Table,
+    application: MemberDto,
+    onChanged: () -> Unit,
+) {
+    table.row {
+        val friendSince = application.friendSince
+        val summary =
+            gettext(
+                "%1 (%2) -- eingereicht am %3",
+                application.displayName,
+                application.email,
+                application.joinedAt,
+            )
+        // V0.11.0: shows the board that this applicant came from an existing FRIEND account
+        // (see MemberDto.friendSince KDoc "load-bearing") -- FriendUpgradePathTest covers the
+        // applyForMembership transition itself; this is purely informational.
+        val label = if (friendSince != null) gettext("%1 (Freund-Konto seit %2)", summary, friendSince) else summary
+        cell(label)
+        cell { accountRoleBadge(application.role) }
+        val actionsCell = cell()
+        val actionsRow = actionsCell.hPanel(spacing = 8)
+        val approveButton = actionsRow.button(tr("Annehmen"), style = ButtonStyle.SUCCESS)
+        approveButton.onClick {
+            AppScope.launch {
+                val result = guarded { rpcService<IRegistrationService>().approveApplication(application.id) }
+                if (result != null) {
+                    notifySuccess(gettext("%1 wurde aufgenommen.", application.displayName))
+                    onChanged()
                 }
-                val approveButton = row.button(tr("Annehmen"), style = ButtonStyle.SUCCESS)
-                approveButton.onClick {
-                    AppScope.launch {
-                        val result = guarded { rpcService<IRegistrationService>().approveApplication(application.id) }
-                        if (result != null) {
-                            notifySuccess(gettext("%1 wurde aufgenommen.", application.displayName))
-                            refresh()
-                        }
-                    }
-                }
-                val rejectButton = row.button(tr("Ablehnen"), style = ButtonStyle.OUTLINEDANGER)
-                rejectButton.onClick {
-                    rejectApplicationDialog(application.displayName) { reason ->
-                        AppScope.launch {
-                            val result = guarded { rpcService<IRegistrationService>().rejectApplication(application.id, reason) }
-                            if (result != null) {
-                                notifyInfo(gettext("%1 wurde abgelehnt.", application.displayName))
-                                refresh()
-                            }
-                        }
+            }
+        }
+        val rejectButton = actionsRow.button(tr("Ablehnen"), style = ButtonStyle.OUTLINEDANGER)
+        rejectButton.onClick {
+            rejectApplicationDialog(application.displayName) { reason ->
+                AppScope.launch {
+                    val result = guarded { rpcService<IRegistrationService>().rejectApplication(application.id, reason) }
+                    if (result != null) {
+                        notifyInfo(gettext("%1 wurde abgelehnt.", application.displayName))
+                        onChanged()
                     }
                 }
             }
         }
     }
-    refresh()
 }
 
 /** Reject requires a non-blank reason -- see `IRegistrationService.rejectApplication` KDoc, a real
@@ -169,7 +195,17 @@ private fun renderMemberDirectory(root: SimplePanel) {
         if (filtered.isEmpty()) {
             directoryPanel.p(tr("Keine Treffer."))
         } else {
-            filtered.forEach { directoryPanel.div(it.displayName) { addCssClasses("border-bottom py-1") } }
+            // UI theme redesign wave (2026-08-20): real Bootstrap table, replacing the previous
+            // hand-rolled "border-bottom py-1" div-per-row list. Single "Name" column only -- no
+            // role/status badge here, unlike renderPendingApplicationRow above: `listMembers()`
+            // returns [MemberSummaryDto] (id+displayName only, deliberately -- see this file's own
+            // `renderMemberDirectory` KDoc), which carries no role/status to badge.
+            val table =
+                directoryPanel.table(
+                    headerNames = listOf(tr("Name")),
+                    types = setOf(TableType.STRIPED, TableType.HOVER),
+                )
+            filtered.forEach { member -> table.row { cell(member.displayName) } }
         }
     }
 

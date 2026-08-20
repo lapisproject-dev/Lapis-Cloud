@@ -14,6 +14,11 @@ import io.kvision.i18n.tr
 import io.kvision.panel.SimplePanel
 import io.kvision.panel.hPanel
 import io.kvision.panel.vPanel
+import io.kvision.table.Table
+import io.kvision.table.TableType
+import io.kvision.table.cell
+import io.kvision.table.row
+import io.kvision.table.table
 import io.kvision.utils.px
 import kotlinx.coroutines.launch
 import kotlinx.datetime.LocalDate
@@ -88,17 +93,20 @@ private fun renderOwnSummary(
         if (summary.contributions.isEmpty()) {
             panel.p(tr("Keine Beiträge vorhanden."))
         } else {
+            // UI theme redesign wave (2026-08-20): real Bootstrap table (table-striped/table-hover),
+            // replacing the previous hand-rolled "border-bottom py-1" div-per-row list -- see root
+            // CLAUDE.md "UI/UX-Design-Team" review. The four interpolated values are unchanged, just
+            // split across columns instead of one concatenated sentence.
+            val table =
+                panel.table(
+                    headerNames = listOf(tr("Zeitraum"), tr("Betrag"), tr("Status")),
+                    types = setOf(TableType.STRIPED, TableType.HOVER),
+                )
             summary.contributions.forEach { contribution ->
-                panel.div(
-                    gettext(
-                        "%1 bis %2: %3 (%4)",
-                        contribution.periodStart,
-                        contribution.periodEnd,
-                        contribution.amountDue,
-                        contribution.status,
-                    ),
-                ) {
-                    addCssClasses("border-bottom py-1")
+                table.row {
+                    cell(gettext("%1 bis %2", contribution.periodStart, contribution.periodEnd))
+                    cell(contribution.amountDue.toString())
+                    cell(contribution.status.toString())
                 }
             }
         }
@@ -168,8 +176,16 @@ private fun renderOrgWideContributions(root: SimplePanel) {
                 listPanel.p(tr("Keine offenen Beiträge."))
                 return@launch
             }
+            // UI theme redesign wave (2026-08-20): real Bootstrap table (table-striped/table-hover),
+            // replacing the previous hand-rolled "border rounded p-2" hPanel-per-row layout -- see
+            // root CLAUDE.md "UI/UX-Design-Team" review.
+            val table =
+                listPanel.table(
+                    headerNames = listOf(tr("Mitglied"), tr("Zeitraum"), tr("Betrag"), tr("Status"), tr("Aktionen")),
+                    types = setOf(TableType.STRIPED, TableType.HOVER),
+                )
             contributions.forEach { contribution ->
-                renderContributionRow(listPanel, contribution, canMarkPaid, canWaive, postalMailEnabled, ::refresh)
+                renderContributionRow(table, contribution, canMarkPaid, canWaive, postalMailEnabled, ::refresh)
             }
         }
     }
@@ -177,111 +193,115 @@ private fun renderOrgWideContributions(root: SimplePanel) {
 }
 
 private fun renderContributionRow(
-    parent: SimplePanel,
+    table: Table,
     contribution: ContributionDto,
     canMarkPaid: Boolean,
     canWaive: Boolean,
     postalMailEnabled: Boolean,
     onChanged: () -> Unit,
 ) {
-    val container = parent.vPanel(spacing = 2)
-    val row = container.hPanel(spacing = 8) { addCssClasses("border rounded p-2 align-items-center") }
-    row.div(
-        gettext(
-            "%1: %2–%3: %4 (%5)",
-            contribution.memberDisplayName,
-            contribution.periodStart,
-            contribution.periodEnd,
-            contribution.amountDue,
-            contribution.status,
-        ),
-    ) { addCssClass("flex-grow-1") }
+    table.row {
+        cell(contribution.memberDisplayName)
+        cell(gettext("%1–%2", contribution.periodStart, contribution.periodEnd))
+        cell(contribution.amountDue.toString())
+        cell(contribution.status.toString())
 
-    // D3: only rendered here (renderOrgWideContributions, TREASURER/BOARD/ADMIN-gated by the
-    // caller) -- never on renderOwnSummary. See MailmergeHttp KDoc for why.
-    row.link(tr("Rechnung (PDF)"), url = MailmergeHttp.invoiceUrl(contribution.id), target = "_blank")
+        val actionsCell = cell()
+        val actionsPanel = actionsCell.vPanel(spacing = 4)
+        val row = actionsPanel.hPanel(spacing = 8) { addCssClasses("flex-wrap align-items-center") }
 
-    val outcomePanel = container.vPanel(spacing = 2)
-    if (postalMailEnabled) {
-        val postalButton = row.button(tr("Per Post versenden"), style = ButtonStyle.OUTLINEDANGER)
-        postalButton.onClick {
-            postalDispatchConfirmDialog(
-                caption = tr("Beitragsrechnung per Post versenden"),
-                recipientDisplayName = contribution.memberDisplayName,
-                documentLabel = gettext("Beitragsrechnung %1–%2", contribution.periodStart, contribution.periodEnd),
-            ) {
-                postalButton.disabled = true
-                outcomePanel.removeAll()
-                AppScope.launch {
-                    val result = guarded { rpcService<IPostalMailService>().dispatchBeitragsrechnungByPost(contribution.id) }
-                    postalButton.disabled = false
-                    if (result != null) {
-                        if (result.status == PostalDeliveryStatus.SENT) {
-                            notifySuccess(gettext("Brief an %1 wurde an Letterxpress übergeben.", result.recipientDisplayName))
-                        } else {
-                            notifyError(tr("Postversand fehlgeschlagen."))
+        // D3: only rendered here (renderOrgWideContributions, TREASURER/BOARD/ADMIN-gated by the
+        // caller) -- never on renderOwnSummary. See MailmergeHttp KDoc for why.
+        row.link(tr("Rechnung (PDF)"), url = MailmergeHttp.invoiceUrl(contribution.id), target = "_blank")
+
+        val outcomePanel = actionsPanel.vPanel(spacing = 2)
+        if (postalMailEnabled) {
+            val postalButton = row.button(tr("Per Post versenden"), style = ButtonStyle.OUTLINEDANGER)
+            postalButton.onClick {
+                postalDispatchConfirmDialog(
+                    caption = tr("Beitragsrechnung per Post versenden"),
+                    recipientDisplayName = contribution.memberDisplayName,
+                    documentLabel = gettext("Beitragsrechnung %1–%2", contribution.periodStart, contribution.periodEnd),
+                ) {
+                    postalButton.disabled = true
+                    outcomePanel.removeAll()
+                    AppScope.launch {
+                        val result = guarded { rpcService<IPostalMailService>().dispatchBeitragsrechnungByPost(contribution.id) }
+                        postalButton.disabled = false
+                        if (result != null) {
+                            if (result.status == PostalDeliveryStatus.SENT) {
+                                notifySuccess(gettext("Brief an %1 wurde an Letterxpress übergeben.", result.recipientDisplayName))
+                            } else {
+                                notifyError(tr("Postversand fehlgeschlagen."))
+                            }
+                            outcomePanel.renderPostalDispatchOutcome(result)
                         }
-                        outcomePanel.renderPostalDispatchOutcome(result)
+                    }
+                }
+            }
+        } else {
+            row.postalMailDisabledNotice()
+        }
+
+        // Review Round 3 (2026-08-19, SHOULD-5): canMarkPaid/canWaive are role-only gates, never
+        // status-aware on their own -- an already-SETTLED (PAID/WAIVED) row must still hide both
+        // buttons, or a stale-rendered row (e.g. another actor settled it between this list's fetch
+        // and the click, or a race between the two buttons on the same row) surfaces a raw, English,
+        // technical ConflictException to the user instead of the button simply not being there. Same
+        // "hide, don't just disable, an action that would always fail" convention this codebase already
+        // follows elsewhere for status-gated actions.
+        val isSettled = contribution.status in ContributionStatusSets.SETTLED
+        if (canMarkPaid && !isSettled) {
+            val payButton = row.button(tr("Als bezahlt markieren"), style = ButtonStyle.SUCCESS)
+            payButton.onClick {
+                // Disabled for the duration of the in-flight RPC call -- reduces (does not replace,
+                // see ContributionService.markContributionPaid's own server-side idempotency guard)
+                // the chance an accidental double-click double-posts a journal entry. Same pattern as
+                // LedgerScreen.kt's saveButton around the account-mapping save call. Review Round 1
+                // (2026-08-19, CRITICAL-2).
+                payButton.disabled = true
+                AppScope.launch {
+                    try {
+                        val now = Clock.System.now().toLocalDateTime(TimeZone.currentSystemDefault())
+                        val result =
+                            guarded {
+                                rpcService<IContributionService>().markContributionPaid(
+                                    contribution.id,
+                                    now,
+                                    contribution.amountDue,
+                                    null,
+                                )
+                            }
+                        if (result != null) {
+                            notifySuccess(tr("Als bezahlt markiert."))
+                            onChanged()
+                        }
+                    } finally {
+                        // Review Round 2 (2026-08-19, SHOULD-3): guarded() rethrows CancellationException
+                        // (see its own KDoc/implementation) -- a plain post-guarded() re-enable never runs
+                        // if this coroutine is cancelled mid-flight, leaving the button permanently
+                        // disabled until a page refresh. finally runs regardless of success, a business
+                        // exception guarded() swallowed, or cancellation.
+                        payButton.disabled = false
                     }
                 }
             }
         }
-    } else {
-        row.postalMailDisabledNotice()
-    }
-
-    // Review Round 3 (2026-08-19, SHOULD-5): canMarkPaid/canWaive are role-only gates, never
-    // status-aware on their own -- an already-SETTLED (PAID/WAIVED) row must still hide both
-    // buttons, or a stale-rendered row (e.g. another actor settled it between this list's fetch
-    // and the click, or a race between the two buttons on the same row) surfaces a raw, English,
-    // technical ConflictException to the user instead of the button simply not being there. Same
-    // "hide, don't just disable, an action that would always fail" convention this codebase already
-    // follows elsewhere for status-gated actions.
-    val isSettled = contribution.status in ContributionStatusSets.SETTLED
-    if (canMarkPaid && !isSettled) {
-        val payButton = row.button(tr("Als bezahlt markieren"), style = ButtonStyle.SUCCESS)
-        payButton.onClick {
-            // Disabled for the duration of the in-flight RPC call -- reduces (does not replace,
-            // see ContributionService.markContributionPaid's own server-side idempotency guard)
-            // the chance an accidental double-click double-posts a journal entry. Same pattern as
-            // LedgerScreen.kt's saveButton around the account-mapping save call. Review Round 1
-            // (2026-08-19, CRITICAL-2).
-            payButton.disabled = true
-            AppScope.launch {
-                try {
-                    val now = Clock.System.now().toLocalDateTime(TimeZone.currentSystemDefault())
-                    val result =
-                        guarded {
-                            rpcService<IContributionService>().markContributionPaid(contribution.id, now, contribution.amountDue, null)
+        if (canWaive && !isSettled) {
+            val waiveButton = row.button(tr("Erlassen"), style = ButtonStyle.OUTLINEWARNING)
+            waiveButton.onClick {
+                confirmDialog(
+                    title = tr("Beitrag erlassen"),
+                    message =
+                        gettext("Beitrag von %1 über %2 wirklich erlassen?", contribution.memberDisplayName, contribution.amountDue),
+                    confirmLabel = tr("Erlassen"),
+                ) {
+                    AppScope.launch {
+                        val result = guarded { rpcService<IContributionService>().markContributionWaived(contribution.id, null) }
+                        if (result != null) {
+                            notifySuccess(tr("Beitrag erlassen."))
+                            onChanged()
                         }
-                    if (result != null) {
-                        notifySuccess(tr("Als bezahlt markiert."))
-                        onChanged()
-                    }
-                } finally {
-                    // Review Round 2 (2026-08-19, SHOULD-3): guarded() rethrows CancellationException
-                    // (see its own KDoc/implementation) -- a plain post-guarded() re-enable never runs
-                    // if this coroutine is cancelled mid-flight, leaving the button permanently
-                    // disabled until a page refresh. finally runs regardless of success, a business
-                    // exception guarded() swallowed, or cancellation.
-                    payButton.disabled = false
-                }
-            }
-        }
-    }
-    if (canWaive && !isSettled) {
-        val waiveButton = row.button(tr("Erlassen"), style = ButtonStyle.OUTLINEWARNING)
-        waiveButton.onClick {
-            confirmDialog(
-                title = tr("Beitrag erlassen"),
-                message = gettext("Beitrag von %1 über %2 wirklich erlassen?", contribution.memberDisplayName, contribution.amountDue),
-                confirmLabel = tr("Erlassen"),
-            ) {
-                AppScope.launch {
-                    val result = guarded { rpcService<IContributionService>().markContributionWaived(contribution.id, null) }
-                    if (result != null) {
-                        notifySuccess(tr("Beitrag erlassen."))
-                        onChanged()
                     }
                 }
             }

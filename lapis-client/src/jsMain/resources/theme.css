@@ -1,29 +1,64 @@
 /*
- * UI/UX-Design-Team-Review 2026-08-14 (navbar-overflow/icon/branding wave).
+ * UI/UX-Design-Team-Review 2026-08-20 (theme redesign wave).
  *
- * Ports the "sunlit-limestone / papyrus neutrals + lapis-lazuli blue + gold pyrite fleck" palette
- * already established for the Lapis Cloud family on cloud.lapisproject.dev (see that repo's
- * src/styles/tokens.css) into the KVision admin client, which until now rendered with unmodified
- * Bootstrap defaults (blue-and-white, no brand identity at all). Values below are copied verbatim
- * from tokens.css's light-mode :root block -- deliberately not reinvented, so the deployed app and
- * the public website read as the same product. Dark-mode tokens exist on the website but are not
- * ported here: this app has no theme toggle yet, so a half-wired dark palette would just be dead
- * code (Rams: no ornament without function).
+ * Deliberately DIVERGES from the "sunlit-limestone / papyrus neutrals + lapis-lazuli blue + gold
+ * pyrite fleck" palette on cloud.lapisproject.dev (see that repo's src/styles/tokens.css) -- the
+ * 2026-08-14 wave (see git blame on this file) ported that palette verbatim so the marketing site
+ * and this admin client would read as the same product. This review overturns that call for the
+ * admin app specifically: an internal tool worn 8 hours a day by BOARD/TREASURER/ADMIN staff is a
+ * different register of the same brand than a 3-minute marketing visit (Zhuo's "dashboard vs.
+ * landing page" distinction) -- white ground + near-black chrome reads as a workbench, not a
+ * brochure, without abandoning the brand (gold fleck, lapis blue, and the Georgia wordmark all
+ * survive, just redistributed). The public website's own palette is UNCHANGED by this file.
+ *
+ * Second, structural change this wave: seven semantic per-ROLE colors (`--lapis-role-*`), a legacy
+ * pattern from PZB (an older sister project) that color-coded role icons across its UI. Always
+ * rendered together with a FontAwesome icon AND a text label (`.lapis-role-badge`, see
+ * `StatusBadge.kt`'s `roleBadge()`) -- color is a second channel here, never the sole signal
+ * (Norman/WCAG 1.4.1), same rule this file's `statusBadge`/`typeBadge` selectors already implied.
+ *
+ * Dark-mode tokens still aren't ported: this app has no theme toggle yet, so a half-wired dark
+ * palette would just be dead code (Rams: no ornament without function) -- unchanged from the
+ * previous review's call.
  */
 
 :root {
-  --lapis-bg: #F3E7C9;
-  --lapis-surface: #FBF3E0;
-  --lapis-text: #241C10;
-  --lapis-muted: #6E5A38;
-  --lapis-border: #D9C39A;
-  --lapis-accent: #234B87;
-  --lapis-accent-soft: #E2E9F4;
-  --lapis-accent-contrast: #FBF3E0;
-  --lapis-fleck: #C9A227;
-  /* No "Cinzel" here: the website bundles that webfont, this app doesn't (no npm/CDN font
-     dependency added for one brand-text span) -- Georgia is the honest fallback, not a stand-in
-     for a font that silently never loads. */
+  /* Grund & Fläche -- Weiß, wie gewünscht; Trennung über Haarlinien, nicht über Schatten */
+  --lapis-bg:              #FFFFFF;
+  --lapis-surface:         #FFFFFF;
+  --lapis-surface-sunken:  #F6F7F9;  /* Zebra-Zeilen, Tabellenkopf, inaktive Bereiche */
+
+  /* Tinte -- identisch mit der Menüfläche */
+  --lapis-text:            #14181E;
+  --lapis-muted:           #5A626E;
+  --lapis-border:          #E3E6EB;
+  --lapis-border-strong:   #C9CFD8;
+
+  /* Navigation -- Beinahe-Schwarz mit kühlem Lapis-Unterton, kein #000000 */
+  --lapis-nav:             #14181E;
+  --lapis-nav-hover-bg:    #1E242E;
+  --lapis-nav-text:        #EDEAE3;
+  --lapis-nav-muted:       #A8AEB8;
+
+  /* Akzent -- Lapis, deutlich gesättigter als vorher, auf Weiß lesbar */
+  --lapis-accent:          #1E56C8;
+  --lapis-accent-strong:   #17429B;
+  --lapis-accent-soft:     #E7EDFB;
+  --lapis-accent-contrast: #FFFFFF;
+
+  /* Gold -- nur auf Schwarz (aktiv/Fokus/Wortmarke) */
+  --lapis-fleck:           #C9A227;
+  --lapis-fleck-ink:       #8A6B10;  /* dieselbe Familie, aber auf Weiß lesbar */
+
+  /* Semantische Rollenfarben (PZB-Erbe) -- alle ≥5:1 Kontrast auf Weiß */
+  --lapis-role-admin:      #C62828;
+  --lapis-role-party:      #8A6B10;
+  --lapis-role-bank:       #1B7F4B;
+  --lapis-role-board:      #6A3DBE;
+  --lapis-role-member:     #0F6C79;
+  --lapis-role-guest:      #B35300;
+  --lapis-role-inactive:   #6B7280;
+
   --lapis-font-display: Georgia, serif;
 }
 
@@ -32,34 +67,37 @@ body {
   color: var(--lapis-text);
 }
 
-/* Navbar: lapis-lazuli ground, papyrus text, gold on hover/active -- mirrors the "deep blue with
-   gold flecks" reading of the gem mark itself rather than an arbitrary accent choice.
-   `!important` is load-bearing here, not decorative: KVision's `navbar()` factory defaults
-   `bgColor` to `BsBgColor.BODYTERTIARY`, which renders Bootstrap's own `.bg-body-tertiary`
-   utility class -- and Bootstrap ships EVERY `.bg-*`/`.text-*` utility with `!important`
-   (see bootstrap.css), so a plain-specificity override here loses regardless of selector
-   weight or stylesheet order. Verified live: without `!important` the navbar rendered pale
-   gray (`.bg-body-tertiary`'s value), not the intended blue, despite `.lapis-navbar` having
-   higher selector specificity than `.bg-body-tertiary` alone. */
+/* Navbar: near-black, cool lapis undertone -- text/nav share the same value as the ink color
+   (Ive's "the navigation IS the document's ink, become a surface" idea) -- deliberate divergence
+   from the marketing website's cream+blue palette: an internal admin tool is a different register
+   of the same brand, worn 8 hours a day, not visited for 3 minutes (Zhuo's Stripe-dashboard
+   analogy). `!important` is load-bearing (see prior note on Bootstrap's `.bg-body-tertiary`). */
 .navbar.lapis-navbar {
-  background-color: var(--lapis-accent) !important;
-  border-bottom: 1px solid var(--lapis-fleck);
+  background-color: var(--lapis-nav) !important;
+  border-bottom: 1px solid var(--lapis-nav-hover-bg);
 }
 
 .lapis-navbar .navbar-brand,
 .lapis-navbar .nav-link,
 .lapis-navbar .dropdown-toggle {
-  color: var(--lapis-accent-contrast) !important;
+  color: var(--lapis-nav-text) !important;
 }
 
 .lapis-navbar .nav-link:hover,
 .lapis-navbar .nav-link:focus,
-.lapis-navbar .dropdown-toggle:hover,
-.lapis-navbar .dropdown-item:hover,
-.lapis-navbar .dropdown-item:focus {
-  color: var(--lapis-fleck) !important;
+.lapis-navbar .dropdown-toggle:hover {
+  color: #FFFFFF !important;
+  background-color: var(--lapis-nav-hover-bg);
 }
 
+/* Active nav item: the one place gold does chrome duty, per Jobs' "gold lives on black, with
+   exactly one job" ruling. */
+.lapis-navbar .nav-link.active {
+  color: var(--lapis-fleck) !important;
+  border-bottom: 2px solid var(--lapis-fleck);
+}
+
+/* Dropdown menu stays light -- it's a list of destinations (content), not chrome (Jobs). */
 .lapis-navbar .dropdown-menu {
   background-color: var(--lapis-surface);
   border-color: var(--lapis-border);
@@ -83,8 +121,13 @@ body {
   letter-spacing: 0.01em;
 }
 
-/* Primary buttons/links reuse the same accent instead of Bootstrap's default blue, so the chrome
-   and the content area read as one palette, not two competing blues. */
+/* Global focus ring: gold works on both black nav and white content -- the one place gold serves
+   two grounds, because a focus ring's only job is "be visible everywhere". */
+:focus-visible {
+  outline: 2px solid var(--lapis-fleck);
+  outline-offset: 2px;
+}
+
 .btn-primary {
   background-color: var(--lapis-accent);
   border-color: var(--lapis-accent);
@@ -92,8 +135,8 @@ body {
 
 .btn-primary:hover,
 .btn-primary:focus {
-  background-color: var(--lapis-fleck);
-  border-color: var(--lapis-fleck);
+  background-color: var(--lapis-accent-strong);
+  border-color: var(--lapis-accent-strong);
 }
 
 .card,
@@ -101,3 +144,46 @@ body {
   background-color: var(--lapis-surface);
   border-color: var(--lapis-border);
 }
+
+/* Tables: zebra + header on the sunken surface, row hover on the soft accent, so scanning a long
+   member/contribution list has a rhythm without needing borders on every cell. */
+.table {
+  color: var(--lapis-text);
+}
+
+.table thead th {
+  background-color: var(--lapis-surface-sunken);
+  border-color: var(--lapis-border-strong);
+  font-weight: 600;
+}
+
+.table-striped > tbody > tr:nth-of-type(odd) > * {
+  background-color: var(--lapis-surface-sunken);
+}
+
+.table-hover > tbody > tr:hover > * {
+  background-color: var(--lapis-accent-soft);
+}
+
+.table td,
+.table th {
+  border-color: var(--lapis-border);
+}
+
+/* Semantic role badges -- text label ALWAYS accompanies the color (Norman: color accelerates
+   recognition, it never encodes alone), e.g. <span class="lapis-role-badge lapis-role-admin">
+   <i class="fas fa-shield"></i> Admin</span>. */
+.lapis-role-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35em;
+  font-weight: 500;
+}
+
+.lapis-role-admin    { color: var(--lapis-role-admin); }
+.lapis-role-party    { color: var(--lapis-role-party); }
+.lapis-role-bank     { color: var(--lapis-role-bank); }
+.lapis-role-board    { color: var(--lapis-role-board); }
+.lapis-role-member   { color: var(--lapis-role-member); }
+.lapis-role-guest    { color: var(--lapis-role-guest); }
+.lapis-role-inactive { color: var(--lapis-role-inactive); }

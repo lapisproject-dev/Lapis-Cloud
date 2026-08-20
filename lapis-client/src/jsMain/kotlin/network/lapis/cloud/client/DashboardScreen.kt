@@ -76,13 +76,25 @@ fun renderDashboardScreen(container: SimplePanel) {
     renderAccountActions(root)
 }
 
+/**
+ * UI theme redesign wave (2026-08-20): a real Bootstrap card, replacing the previous plain
+ * `btn btn-outline-primary` link stack -- see root CLAUDE.md "UI/UX-Design-Team" review. Bootstrap
+ * ships no dedicated card JS component (it is pure markup/CSS convention, confirmed against the
+ * KVision 9.6.0 source tree -- no `Card` class exists there either), so "real card" here means the
+ * genuine `.card` > `.card-body` DOM shape rather than an ad hoc bordered `vPanel`. The whole card
+ * stays clickable via Bootstrap's `.stretched-link` utility on the inner link -- `.card` itself is
+ * `position: relative` by default in Bootstrap, exactly the positioned ancestor `.stretched-link`
+ * needs, so no extra CSS is required here.
+ */
 private fun navTile(
     parent: SimplePanel,
     label: String,
     route: String,
 ) {
-    parent.link(label, url = "#$route") {
-        addCssClasses("btn btn-outline-primary text-start")
+    val card = parent.div { addCssClasses("card") }
+    val body = card.div { addCssClasses("card-body py-2 px-3") }
+    body.link(label, url = "#$route") {
+        addCssClasses("card-title stretched-link text-decoration-none fw-semibold mb-0 d-block")
     }
 }
 
