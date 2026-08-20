@@ -19,9 +19,11 @@ import io.kvision.panel.SimplePanel
 import io.kvision.panel.hPanel
 import io.kvision.panel.vPanel
 import io.kvision.utils.px
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.AnchorAsset
+import network.lapis.cloud.shared.domain.AnchorPolicy
 import network.lapis.cloud.shared.domain.DonationConversionInput
 import network.lapis.cloud.shared.domain.MemberSummaryDto
 import network.lapis.cloud.shared.domain.OraclePriceStatusDto
@@ -54,25 +56,22 @@ import network.lapis.cloud.shared.rpc.IPriceOracleService
  *   [Routes.COST_CENTERS]/[Routes.DONORS]'s in-screen ADMIN-only write split -- a TREASURER/BOARD
  *   caller sees the current config read-only, with no edit form rendered at all.
  *
- * **`anchorAsset` disabled-option finding (design decision D12, verified before implementation)**:
- * [AnchorAsset.GOLD_XAU]/[AnchorAsset.FIAT] are real, additively-extensible enum literals, but
- * `updateOracleConfig` hard-rejects anything other than [AnchorAsset.BITCOIN_BTC] server-side (see
- * that interface's own KDoc "Scope-cut"). D12 asked for these two to render as *structurally*
- * disabled `<option>`s rather than a clickable-looking control with a "(noch nicht implementiert)"
- * label bolted on. Checked against this codebase's actual `io.kvision.form.select.select` DSL
- * (`SimpleSelectInput`) before writing this form: its `options` parameter is a plain
- * `List<StringPair>` with no per-option `disabled` field, and no screen anywhere in this client
- * builds a `<select>` any other way (grep confirms zero precedent for a richer/manual option-tag
- * construction). Rather than inventing an unverified widget pattern for a single screen -- exactly
- * the risk this wave's own CRITICAL LESSON (`addCssClass` singular/plural) warns against, and the
- * same "don't invent, verify or fall back" discipline `AuctionScreen.kt`/`PoliticianScreen.kt`
- * already apply to their own first-load `ConflictException` handling -- this form takes the
- * strictly *more* honest fallback Rams' own principle actually calls for: [AnchorAsset.GOLD_XAU]/
- * [AnchorAsset.FIAT] are not offered as selectable options at all (only [AnchorAsset.BITCOIN_BTC]
- * is), with a static help line directly under the select naming both by their scope-cut reason
- * (verbatim from [AnchorAsset]'s own KDoc). A control that never renders as clickable cannot lie
- * about being clickable -- this satisfies D12's honesty requirement without a fabricated KVision
- * API. `donationCurrency` uses a closed `{EUR, USD}` select instead (matches
+ * **`anchorAsset` selectability (design decision D12, superseded V0.6.6)**: originally
+ * [AnchorAsset.GOLD_XAU]/[AnchorAsset.FIAT] were structurally excluded from the `<select>`'s
+ * options because `updateOracleConfig` hard-rejected anything other than
+ * [AnchorAsset.BITCOIN_BTC] server-side. As of V0.6.6 "Price-Oracle: Gold- und Fiat-Anker" all
+ * three [AnchorAsset] literals have real, wired price sources (see `IPriceOracleService` KDoc
+ * "Anchor coverage"), so all three are now real, selectable `<option>`s
+ * (`AnchorAsset.entries.map { it.name to anchorAssetLabel(it) }`) -- the server still rejects an
+ * anchor switch a given DEPLOYMENT cannot serve (fewer configured `LAPIS_ORACLE_*` sources than
+ * `AnchorPolicy.quorumFloor`), surfaced to the operator via the normal `guarded {}`
+ * `ConflictException` path, same as any other server-side validation failure this screen already
+ * relies on -- this form does NOT attempt to detect key presence client-side (the server's error
+ * message is the honest single source of truth for that). A per-anchor help line under the select
+ * (updated on every selection change via `anchorAssetSelect.subscribe { ... }`) states the
+ * quorum-floor/refresh-interval/recommended-TTL facts for the currently selected anchor, all read
+ * from the shared [AnchorPolicy] object rather than a duplicated constant (file KDoc's own "never
+ * duplicate a server constant" rule). `donationCurrency` uses a closed `{EUR, USD}` select instead (matches
  * `PriceOracleService.kt`'s private `SUPPORTED_DONATION_CURRENCIES` exactly) -- the one deliberate
  * exception to "never duplicate a server constant" this wave's plan calls out, justified because a
  * free-text field here would always server-reject any other value, a strictly worse UX than a
@@ -85,15 +84,33 @@ import network.lapis.cloud.shared.rpc.IPriceOracleService
  * `LtrLedgerScreen.peerTransferConfirmDialog`/`AuctionScreen.placeBidConfirmDialog` -- no shared
  * tier-preset component exists yet in `ConfirmDialog.kt`, same "out of scope for a single-screen
  * change" reasoning those two files already document) -- it MINTS real LTR into the target member's
- * ledger and is not reversible via any RPC this interface offers. Its copy deliberately does **not**
- * show a computed/estimated `ltrMinted` figure: doing so would require re-implementing the server's
- * exact formula (`donationAmount / (anchorUnitsPerLtr * anchorPrice)`) client-side against a
- * separately-fetched [OraclePriceStatusDto] quote, precisely the "client-side re-derivation of a
- * server-owned monetary figure" `Money.kt`'s own file KDoc forbids for EUR and this wave extends to
- * LTR by the same reasoning -- the dialog instead states plainly that the live price is fetched at
- * confirmation time and the exact LTR amount is only known afterwards. The real
- * [PriceOracleConversionDto] figures are shown only AFTER a successful call, verbatim, never
- * re-summed. [IPriceOracleService.previewCurrentPrice] gets no confirm dialog -- pure read-only
+ * ledger and is not reversible via any RPC this interface offers.
+ *
+ * **Pre-commit `ltrMinted` estimate (Review Round 1 / MAJOR-2, supersedes the original design)**:
+ * this dialog originally showed NO computed/estimated `ltrMinted` figure at all, reasoning that doing
+ * so would require re-implementing the server's exact formula
+ * (`donationAmount / (anchorUnitsPerLtr * anchorPrice)`) client-side, precisely the "client-side
+ * re-derivation of a server-owned monetary figure" `Money.kt`'s own file KDoc forbids for EUR. The
+ * review found a real, safety-relevant gap in that design: with the anchor now switchable
+ * (V0.6.6), an ADMIN who switches `anchorAsset` without ALSO updating `anchorUnitsPerLtr` to the new
+ * anchor's scale can silently mint orders-of-magnitude too much LTR per donation (see
+ * `AnchorSourcePolicy.kt`'s `plausiblePegBand` KDoc for the concrete ~50,000x FIAT / ~25x GOLD_XAU
+ * failure mode this closed server-side) -- and this dialog, showing NOTHING, was the one place an
+ * operator could otherwise have caught an obviously-wrong number before committing. [estimateLtrMinted]
+ * therefore computes a best-effort, clearly-labeled ESTIMATE (fetched fresh via
+ * [IPriceOracleService.getOracleConfig]/[IPriceOracleService.previewCurrentPrice] right before the
+ * dialog opens) -- this is deliberately NOT the same thing the original design KDoc forbade: it uses
+ * [Double] arithmetic (not exact [java.math.BigDecimal]/[dev.kilua.rpc.types.Decimal] math), is
+ * labeled "geschätzt, kann beim Bestätigen leicht abweichen" (may differ slightly at confirmation),
+ * and is NEVER itself booked, compared against, or substituted for the server's real result -- the
+ * real [PriceOracleConversionDto] figures are still shown only AFTER a successful call, verbatim,
+ * never re-summed, exactly as before. This is the same "the oracle's own quote is inherently a live
+ * snapshot" reasoning [OraclePriceStatusDto]'s own diagnostic-preview feature already relies on, just
+ * surfaced one step earlier where a catastrophic misconfiguration can actually be caught. If the
+ * config/quote fetch fails or the oracle is halted, the estimate is silently omitted (not an error
+ * toast) -- the dialog still opens, and the real convert call below surfaces any real error normally.
+ *
+ * [IPriceOracleService.previewCurrentPrice] gets no confirm dialog -- pure read-only
  * diagnostic, never mints (see [IPriceOracleService] KDoc). Every non-idempotent button disables
  * itself for the duration of the in-flight request (double-submit protection,
  * `LedgerScreen.postDirectButton`'s idiom); [previewCurrentPrice]/[convertDonationToLtr]
@@ -129,8 +146,9 @@ fun renderPriceOracleScreen(container: SimplePanel) {
     root.h1(tr("Price-Oracle"))
     root.div(
         tr(
-            "Verwaltet die Anker-Bindung des Libertaler (LTR) an ein reales Asset (aktuell: Bitcoin) und bucht " +
-                "eingegangene Spenden als LTR-Mint. Sichtbar für TREASURER/BOARD/ADMIN, Konfigurationsänderungen nur für ADMIN.",
+            "Verwaltet die Anker-Bindung des Libertaler (LTR) an ein reales Asset (konfigurierbar: Bitcoin, Gold " +
+                "oder Fiat/Euro) und bucht eingegangene Spenden als LTR-Mint. Sichtbar für TREASURER/BOARD/ADMIN, " +
+                "Konfigurationsänderungen nur für ADMIN.",
         ),
     ) { addCssClasses("text-muted small") }
 
@@ -220,12 +238,14 @@ private fun SimplePanel.labeledValue(
 }
 
 /**
- * D12 finding (see file KDoc): [AnchorAsset.GOLD_XAU]/[AnchorAsset.FIAT] are deliberately NOT
- * offered as selectable options -- only [AnchorAsset.BITCOIN_BTC] is -- with a static help line
- * naming both by their scope-cut reason instead of a clickable-looking-but-dead control.
- * `donationCurrency` mirrors `PriceOracleService.kt`'s private `SUPPORTED_DONATION_CURRENCIES`
- * (`{EUR, USD}`) as a closed select -- the wave's one deliberate exception to "never duplicate a
- * server constant" (see file KDoc).
+ * V0.6.6 finding (see file KDoc "anchorAsset selectability"): every [AnchorAsset] literal is now a
+ * real, selectable option -- a per-anchor help line under the select (re-rendered on every
+ * selection change) states the quorum-floor/refresh-interval/recommended-TTL facts from the shared
+ * [AnchorPolicy], and both the minQuorum/cacheTtl client-side validation and the confirm-dialog
+ * copy are anchor-aware instead of a hardcoded `< 2`/`BITCOIN_BTC` literal. `donationCurrency`
+ * mirrors `PriceOracleService.kt`'s private `SUPPORTED_DONATION_CURRENCIES` (`{EUR, USD}`) as a
+ * closed select -- the wave's one deliberate exception to "never duplicate a server constant" (see
+ * file KDoc).
  */
 private fun renderConfigForm(
     root: SimplePanel,
@@ -235,15 +255,10 @@ private fun renderConfigForm(
     val panel = root.vPanel(spacing = 6) { addCssClasses("border rounded p-3 mt-2") }
     panel.div(tr("Konfiguration bearbeiten (ADMIN)")) { addCssClass("fw-bold") }
 
-    val anchorAssetOptions = listOf(AnchorAsset.BITCOIN_BTC.name to anchorAssetLabel(AnchorAsset.BITCOIN_BTC))
+    val anchorAssetOptions = AnchorAsset.entries.map { it.name to anchorAssetLabel(it) }
     val anchorAssetSelect =
-        panel.select(options = anchorAssetOptions, value = AnchorAsset.BITCOIN_BTC.name, label = tr("Anker-Asset"))
-    panel.div(
-        tr(
-            "Gold (XAU) und Fiat-Kurse sind fachlich vorgesehen, aber serverseitig noch nicht implementiert (kein " +
-                "robuster kostenloser Mehrquellen-Feed verfügbar) -- daher hier nicht auswählbar.",
-        ),
-    ) { addCssClasses("text-muted small") }
+        panel.select(options = anchorAssetOptions, value = config.anchorAsset.name, label = tr("Anker-Asset"))
+    val anchorHelpBox = panel.div("") { addCssClasses("text-muted small") }
 
     val donationCurrencyOptions = listOf("EUR" to "EUR", "USD" to "USD")
     val donationCurrencySelect =
@@ -253,12 +268,52 @@ private fun renderConfigForm(
     anchorUnitsInput.value = config.anchorUnitsPerLtr.toString()
     val cacheTtlInput = panel.text(label = tr("Cache-TTL (Sekunden)"))
     cacheTtlInput.value = config.cacheTtlSeconds.toString()
-    val minQuorumInput = panel.text(label = tr("Mindest-Quorum (Quellen, mind. 2)"))
+    val minQuorumInput = panel.text(label = tr("Mindest-Quorum (Quellen)"))
     minQuorumInput.value = config.minQuorum.toString()
     val outlierThresholdInput = panel.text(label = tr("Ausreißer-Schwelle (Basispunkte, 1-10000)"))
     outlierThresholdInput.value = config.outlierThresholdBps.toString()
     val maxSpreadInput = panel.text(label = tr("Max. Spread (Basispunkte, >= Ausreißer-Schwelle)"))
     maxSpreadInput.value = config.maxSpreadBps.toString()
+
+    fun selectedAnchor(): AnchorAsset = AnchorAsset.valueOf(anchorAssetSelect.value ?: config.anchorAsset.name)
+
+    fun renderAnchorHelp() {
+        val anchor = selectedAnchor()
+        val floor = AnchorPolicy.quorumFloor(anchor)
+        val refresh = AnchorPolicy.refreshIntervalSeconds(anchor)
+        val recommendedTtl = AnchorPolicy.recommendedCacheTtlSeconds(anchor)
+        anchorHelpBox.content =
+            when (anchor) {
+                AnchorAsset.BITCOIN_BTC ->
+                    gettext(
+                        "Bitcoin nutzt drei kostenlose, schlüssellose Quellen (Coinbase/Kraken/Bitstamp). " +
+                            "Mindest-Quorum: %1. Kein Refresh-Intervall -- jede Anfrage ruft live ab.",
+                        floor,
+                    )
+                AnchorAsset.GOLD_XAU ->
+                    gettext(
+                        "Gold (XAU) benötigt mindestens %1 von drei konfigurierten Preisquellen-API-Schlüsseln " +
+                            "auf dem Server (LAPIS_ORACLE_GOLDAPI_KEY, LAPIS_ORACLE_METALPRICEAPI_KEY, " +
+                            "LAPIS_ORACLE_ALPHAVANTAGE_KEY); mit allen dreien bleibt der Anker auch beim Ausfall " +
+                            "einer Quelle verfügbar. Preise werden höchstens alle %2s neu abgerufen (empfohlene " +
+                            "Cache-TTL: %3s).",
+                        floor,
+                        refresh,
+                        recommendedTtl,
+                    )
+                AnchorAsset.FIAT ->
+                    gettext(
+                        "Fiat ist an den Euro gebunden (1 Anker-Einheit = 1 EUR) und nutzt die EZB-Referenzkurse " +
+                            "als einzige Quelle (Mindest-Quorum: %1). Preise werden höchstens alle %2s neu " +
+                            "abgerufen (empfohlene Cache-TTL: %3s).",
+                        floor,
+                        refresh,
+                        recommendedTtl,
+                    )
+            }
+    }
+    renderAnchorHelp()
+    anchorAssetSelect.subscribe { renderAnchorHelp() }
 
     val errorBox =
         panel.div().apply {
@@ -269,6 +324,9 @@ private fun renderConfigForm(
 
     saveButton.onClick {
         errorBox.hide()
+        val anchorAsset = selectedAnchor()
+        val quorumFloor = AnchorPolicy.quorumFloor(anchorAsset)
+        val refreshInterval = AnchorPolicy.refreshIntervalSeconds(anchorAsset)
         val donationCurrency = donationCurrencySelect.value.orEmpty()
         val anchorUnitsText = anchorUnitsInput.value.orEmpty().trim()
         val cacheTtl =
@@ -295,17 +353,22 @@ private fun renderConfigForm(
         if (!Validation.isPositiveDecimal(anchorUnitsText) ||
             cacheTtl == null ||
             cacheTtl <= 0 ||
+            cacheTtl < refreshInterval ||
             minQuorum == null ||
-            minQuorum < 2 ||
+            minQuorum < quorumFloor ||
             outlierThreshold == null ||
             outlierThreshold !in 1..10_000 ||
             maxSpread == null ||
             maxSpread < outlierThreshold
         ) {
             errorBox.content =
-                tr(
-                    "Bitte alle Felder gültig ausfüllen: Peg positiv, Cache-TTL positiv, Mindest-Quorum mind. 2, " +
-                        "Ausreißer-Schwelle 1-10000 bps, Max. Spread >= Ausreißer-Schwelle.",
+                gettext(
+                    "Bitte alle Felder gültig ausfüllen: Peg positiv, Cache-TTL positiv und mindestens %1s " +
+                        "(Refresh-Intervall für %2), Mindest-Quorum mindestens %3, Ausreißer-Schwelle 1-10000 bps, " +
+                        "Max. Spread >= Ausreißer-Schwelle.",
+                    refreshInterval,
+                    anchorAssetLabel(anchorAsset),
+                    quorumFloor,
                 )
             errorBox.show()
             return@onClick
@@ -321,7 +384,7 @@ private fun renderConfigForm(
                     "Die Orakel-Konfiguration wird vollständig ersetzt: Anker-Asset %1, " +
                         "Spendenwährung %2, Peg %3, Cache-TTL %4s, Quorum " +
                         "%5, Ausreißer-Schwelle %6bps, Max. Spread %7bps.",
-                    anchorAssetLabel(AnchorAsset.BITCOIN_BTC),
+                    anchorAssetLabel(anchorAsset),
                     donationCurrency,
                     anchorUnitsPerLtr,
                     cacheTtl,
@@ -337,7 +400,7 @@ private fun renderConfigForm(
                     guarded {
                         rpcService<IPriceOracleService>().updateOracleConfig(
                             PriceOracleConfigInput(
-                                anchorAsset = AnchorAsset.BITCOIN_BTC,
+                                anchorAsset = anchorAsset,
                                 donationCurrency = donationCurrency,
                                 anchorUnitsPerLtr = anchorUnitsPerLtr,
                                 cacheTtlSeconds = cacheTtl,
@@ -443,27 +506,38 @@ private fun renderConvertForm(
         }
         val amount = amountText.toDouble().toDecimal()
 
-        convertDonationConfirmDialog(member.displayName, amount, displayCurrency) {
-            convertButton.disabled = true
-            convertBusyLabel.show()
-            AppScope.launch {
-                val result =
-                    guarded {
-                        rpcService<IPriceOracleService>().convertDonationToLtr(
-                            DonationConversionInput(
-                                memberId = member.id,
-                                donationAmount = amount,
-                                note = note,
-                            ),
-                        )
+        // Pre-commit estimate fetch (Review Round 1 / MAJOR-2, see file KDoc "Pre-commit ltrMinted
+        // estimate") -- best-effort: silently omitted (never an error toast) if this fails, since
+        // the real convert call below still surfaces any real error normally.
+        convertButton.disabled = true
+        convertBusyLabel.show()
+        AppScope.launch {
+            val estimate = silently { estimateLtrMintedFromLiveQuote(amount) }
+            convertButton.disabled = false
+            convertBusyLabel.hide()
+
+            convertDonationConfirmDialog(member.displayName, amount, displayCurrency, estimate) {
+                convertButton.disabled = true
+                convertBusyLabel.show()
+                AppScope.launch {
+                    val result =
+                        guarded {
+                            rpcService<IPriceOracleService>().convertDonationToLtr(
+                                DonationConversionInput(
+                                    memberId = member.id,
+                                    donationAmount = amount,
+                                    note = note,
+                                ),
+                            )
+                        }
+                    convertButton.disabled = false
+                    convertBusyLabel.hide()
+                    if (result != null) {
+                        notifySuccess(gettext("%1 für %2 gemintet.", formatLtr(result.ltrMinted), member.displayName))
+                        renderConversionResult(outcomePanel, result)
+                        amountInput.value = null
+                        noteInput.value = null
                     }
-                convertButton.disabled = false
-                convertBusyLabel.hide()
-                if (result != null) {
-                    notifySuccess(gettext("%1 für %2 gemintet.", formatLtr(result.ltrMinted), member.displayName))
-                    renderConversionResult(outcomePanel, result)
-                    amountInput.value = null
-                    noteInput.value = null
                 }
             }
         }
@@ -471,15 +545,70 @@ private fun renderConvertForm(
 }
 
 /**
+ * Fetches the current oracle config + a live/cached quote and computes a best-effort
+ * [estimateLtrMinted] from them -- `null` if the oracle is halted or either RPC call fails. See file
+ * KDoc "Pre-commit `ltrMinted` estimate" -- called only from within [silently], never shown as an
+ * error to the operator on its own (the confirm dialog simply omits the estimate line).
+ */
+private suspend fun estimateLtrMintedFromLiveQuote(donationAmount: Decimal): Decimal? {
+    val config = rpcService<IPriceOracleService>().getOracleConfig()
+    val status = rpcService<IPriceOracleService>().previewCurrentPrice()
+    val anchorPrice = status.medianPrice ?: return null
+    return estimateLtrMinted(donationAmount = donationAmount, anchorUnitsPerLtr = config.anchorUnitsPerLtr, anchorPrice = anchorPrice)
+}
+
+/**
+ * Runs [block], returning `null` on ANY failure instead of the [guarded] wrapper's error toast --
+ * for best-effort, non-critical fetches (the pre-commit `ltrMinted` estimate) where a failure should
+ * be silent, not user-facing, and the real action this precedes still goes through [guarded] normally.
+ * Rethrows [CancellationException] exactly like [guarded] does -- swallowing it would break
+ * structured concurrency.
+ */
+private suspend fun <T> silently(block: suspend () -> T): T? =
+    try {
+        block()
+    } catch (e: CancellationException) {
+        throw e
+    } catch (e: Exception) {
+        null
+    }
+
+/**
+ * Client-side ESTIMATE of the server's `computeLtrMinted` (`PriceOracleService.kt`) -- Review Round 1
+ * / MAJOR-2 fix, see file KDoc "Pre-commit `ltrMinted` estimate" for why this is NOT the "client-side
+ * re-derivation of a server-owned monetary figure" the original design avoided. [Double] arithmetic
+ * on purpose (no exact-decimal math available for this in commonMain/JS) -- acceptable because this
+ * value is only ever shown as a rounded, clearly-labeled estimate, never committed, compared
+ * bit-for-bit, or substituted for the server's real result. Returns `null` if [anchorUnitsPerLtr] or
+ * [anchorPrice] is not strictly positive (mirrors the server's own division-by-zero guard without
+ * duplicating its exact dust-floor threshold).
+ *
+ * `internal` (not `private`) so [PriceOracleScreenTest] can cover it directly, same reasoning as
+ * [formatDonationAmount].
+ */
+internal fun estimateLtrMinted(
+    donationAmount: Decimal,
+    anchorUnitsPerLtr: Decimal,
+    anchorPrice: Decimal,
+): Decimal? {
+    val peg = anchorUnitsPerLtr.toDouble()
+    val price = anchorPrice.toDouble()
+    if (peg <= 0.0 || price <= 0.0) return null
+    return (donationAmount.toDouble() / (peg * price)).toDecimal()
+}
+
+/**
  * Tier 2 "Endgültig" (D4): bespoke modal, same shape as `LtrLedgerScreen.peerTransferConfirmDialog`/
- * `AuctionScreen.placeBidConfirmDialog`. Deliberately does NOT show an estimated `ltrMinted` (see
- * file KDoc "Confirm-dialog tier") -- states plainly that the price is fetched live at confirmation
- * time.
+ * `AuctionScreen.placeBidConfirmDialog`. Shows a clearly-labeled ESTIMATED `ltrMinted` when
+ * [estimatedLtrMinted] is non-null (Review Round 1 / MAJOR-2 fix, see file KDoc "Pre-commit
+ * `ltrMinted` estimate") -- `null` (fetch failed, or the oracle is halted) falls back to the
+ * original copy stating plainly that the price is fetched live at confirmation time.
  */
 private fun convertDonationConfirmDialog(
     memberDisplayName: String,
     amount: Decimal,
     displayCurrency: String,
+    estimatedLtrMinted: Decimal?,
     onConfirm: () -> Unit,
 ) {
     val modal = Modal(caption = tr("Spenden-Konvertierung bestätigen"))
@@ -492,6 +621,15 @@ private fun convertDonationConfirmDialog(
             memberDisplayName,
         ),
     )
+    if (estimatedLtrMinted != null) {
+        modal.div(gettext("Geschätzt: ca. %1 (kann beim Bestätigen leicht abweichen).", formatLtr(estimatedLtrMinted))) {
+            addCssClasses("text-muted small")
+        }
+    } else {
+        modal.div(tr("Schätzung nicht verfügbar (Orakel angehalten oder Kurs konnte nicht abgerufen werden).")) {
+            addCssClasses("text-muted small")
+        }
+    }
     modal.addButton(Button(tr("Abbrechen"), style = ButtonStyle.SECONDARY).apply { onClick { modal.hide() } })
     modal.addButton(
         Button(tr("Konvertieren"), style = ButtonStyle.DANGER).apply {

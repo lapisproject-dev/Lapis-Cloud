@@ -12,10 +12,12 @@ import network.lapis.cloud.server.db.generated.PriceOracleConversionTable
 import network.lapis.cloud.server.db.truncatedToDbPrecision
 import network.lapis.cloud.server.economy.oracle.PriceOracleOrchestrator
 import network.lapis.cloud.server.economy.oracle.QuoteOutcome
+import network.lapis.cloud.server.economy.oracle.plausiblePegBand
 import network.lapis.cloud.server.security.requireRole
 import network.lapis.cloud.server.security.resolveCurrentMember
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.AnchorAsset
+import network.lapis.cloud.shared.domain.AnchorPolicy
 import network.lapis.cloud.shared.domain.DonationConversionInput
 import network.lapis.cloud.shared.domain.LtrLedgerEntryType
 import network.lapis.cloud.shared.domain.OraclePriceStatusDto
@@ -50,7 +52,8 @@ private const val LTR_MINTED_SCALE = 2
 private val logger = KotlinLogging.logger {}
 
 /**
- * V0.6.5 Price-Oracle fuer die Anker-Bindung RPC surface -- see [IPriceOracleService] KDoc and
+ * V0.6.5 Price-Oracle fuer die Anker-Bindung RPC surface (V0.6.6 "Gold- und Fiat-Anker" extends
+ * [validateConfigInput] to be anchor-generic, see that function's own KDoc) -- see [IPriceOracleService] KDoc and
  * `19-price-oracle.kuml.kts` file header for the full fachlich model. [orchestrator] is a
  * singleton constructed once by `Application.module` (owns the pooled HTTP client and the
  * in-memory quote cache) and passed in here, never constructed per-call.
@@ -76,19 +79,40 @@ class PriceOracleService(
         current.requireRole(AccountRole.ADMIN)
         validateConfigInput(input)
         val now = nowLocalDateTime()
-        return transaction {
-            PriceOracleConfigTable.update({ PriceOracleConfigTable.id eq PRICE_ORACLE_CONFIG_ID }) {
-                it[anchorAsset] = input.anchorAsset
-                it[donationCurrency] = input.donationCurrency
-                it[anchorUnitsPerLtr] = input.anchorUnitsPerLtr
-                it[cacheTtlSeconds] = input.cacheTtlSeconds
-                it[minQuorum] = input.minQuorum
-                it[outlierThresholdBps] = input.outlierThresholdBps
-                it[maxSpreadBps] = input.maxSpreadBps
-                it[updatedAt] = now
+        val (updated, quoteAffectingFieldsChanged) =
+            transaction {
+                // Security-Audit-Runde 1 / S1 (first half): read the CURRENTLY persisted row before
+                // applying the update, so we can tell a genuine quote-affecting change apart from a
+                // no-op (or peg-only) re-save below -- see quoteOutcomeAffectingFieldsChanged() KDoc.
+                val before = loadConfig()
+                PriceOracleConfigTable.update({ PriceOracleConfigTable.id eq PRICE_ORACLE_CONFIG_ID }) {
+                    it[anchorAsset] = input.anchorAsset
+                    it[donationCurrency] = input.donationCurrency
+                    it[anchorUnitsPerLtr] = input.anchorUnitsPerLtr
+                    it[cacheTtlSeconds] = input.cacheTtlSeconds
+                    it[minQuorum] = input.minQuorum
+                    it[outlierThresholdBps] = input.outlierThresholdBps
+                    it[maxSpreadBps] = input.maxSpreadBps
+                    it[updatedAt] = now
+                }
+                loadConfig() to quoteOutcomeAffectingFieldsChanged(before = before, input = input)
             }
-            loadConfig()
+        // Review Round 2 / NEW-1 (second facet), narrowed by Security-Audit-Runde 1 / S1 (first
+        // half): a config change that actually affects a quote outcome takes effect on the very next
+        // currentQuote() call once the orchestrator's replay/cache state for every anchor is dropped
+        // here -- otherwise a tightened threshold or lowered TTL could be masked by a stale
+        // LastAttempt replay for up to one refreshIntervalSeconds. See invalidateReplayState() KDoc.
+        // Unconditionally invalidating on EVERY save (including a no-op re-save, or one that only
+        // touches anchorUnitsPerLtr) was itself the S1 finding -- it let a "tune a field, save, click
+        // preview" admin workflow (or a rapid malicious save-loop) burn through the free-tier gold/
+        // fiat API quotas via unlimited real fan-outs; see PriceOracleOrchestrator.lastFanoutAt for
+        // the second, complementary half of this fix (a hard floor that still applies even when this
+        // check correctly determines invalidation IS needed, e.g. a rapid sequence of genuinely
+        // different threshold tweaks).
+        if (quoteAffectingFieldsChanged) {
+            orchestrator.invalidateReplayState()
         }
+        return updated
     }
 
     override suspend fun previewCurrentPrice(): OraclePriceStatusDto {
@@ -200,9 +224,26 @@ class PriceOracleService(
         }
     }
 
+    /**
+     * V0.6.6: the old hardcoded `anchorAsset != BITCOIN_BTC` rejection is replaced by a generic,
+     * anchor-aware set of checks -- see [AnchorPolicy] KDoc and [IPriceOracleService] KDoc "Anchor
+     * coverage". Order matters: the cheap scalar checks run first, then the two checks that need
+     * [orchestrator]'s configured-source counts.
+     */
     private fun validateConfigInput(input: PriceOracleConfigInput) {
-        if (input.minQuorum < 2) throw ConflictException("minQuorum must be at least 2")
+        val floor = AnchorPolicy.quorumFloor(input.anchorAsset)
+        if (input.minQuorum < floor) {
+            throw ConflictException("minQuorum must be at least $floor for anchorAsset ${input.anchorAsset}")
+        }
         if (input.cacheTtlSeconds <= 0) throw ConflictException("cacheTtlSeconds must be positive")
+        val refreshInterval = AnchorPolicy.refreshIntervalSeconds(input.anchorAsset)
+        if (input.cacheTtlSeconds < refreshInterval) {
+            throw ConflictException(
+                "cacheTtlSeconds (${input.cacheTtlSeconds}) must be at least the ${input.anchorAsset} refresh " +
+                    "interval (${refreshInterval}s) -- a shorter TTL guarantees a halt window between refreshes " +
+                    "(recommended: ${AnchorPolicy.recommendedCacheTtlSeconds(input.anchorAsset)}s)",
+            )
+        }
         if (input.outlierThresholdBps !in 1..10_000) throw ConflictException("outlierThresholdBps must be between 1 and 10000")
         if (input.maxSpreadBps < input.outlierThresholdBps) {
             throw ConflictException("maxSpreadBps (${input.maxSpreadBps}) must be >= outlierThresholdBps (${input.outlierThresholdBps})")
@@ -211,10 +252,36 @@ class PriceOracleService(
             throw ConflictException("donationCurrency must be one of $SUPPORTED_DONATION_CURRENCIES")
         }
         if (input.anchorUnitsPerLtr <= BigDecimal.ZERO) throw ConflictException("anchorUnitsPerLtr must be positive")
-        if (input.anchorAsset != AnchorAsset.BITCOIN_BTC) {
+        // Review Round 1 / MAJOR-2: an anchor switch left paired with a peg from the OLD anchor's
+        // scale (e.g. a BTC-scale 0.000001 carried over onto a freshly-selected FIAT anchor) is
+        // structurally indistinguishable from a valid config by every check above -- it is positive,
+        // and every other field validates independently. See plausiblePegBand's own KDoc for exactly
+        // this failure mode (a ~50,000x over-mint for FIAT, ~25x for GOLD_XAU) and how the bounds
+        // below were chosen.
+        val pegBand = plausiblePegBand(input.anchorAsset)
+        if (input.anchorUnitsPerLtr !in pegBand) {
             throw ConflictException(
-                "anchorAsset ${input.anchorAsset} is not yet implemented -- only BITCOIN_BTC has wired price sources " +
-                    "(see network.lapis.cloud.server.economy.oracle.PriceOracleSource KDoc)",
+                "anchorUnitsPerLtr ${input.anchorUnitsPerLtr} is implausible for anchorAsset ${input.anchorAsset} " +
+                    "(expected roughly $pegBand ${input.anchorAsset} units per LTR) -- this usually means the peg " +
+                    "was left over from a DIFFERENT anchor after switching anchorAsset; update anchorUnitsPerLtr to " +
+                    "match the new anchor before saving",
+            )
+        }
+
+        // "Fail clearly, not silently": selecting an anchor whose sources THIS DEPLOYMENT has not
+        // configured would otherwise produce a confusing runtime HALT on the first donation
+        // conversion instead of an actionable error here.
+        val available = orchestrator.configuredSourceCount(input.anchorAsset)
+        if (available < floor) {
+            throw ConflictException(
+                "anchorAsset ${input.anchorAsset} has only $available configured price source(s) on this " +
+                    "deployment, below the required minimum of $floor. ${envHint(input.anchorAsset)}",
+            )
+        }
+        if (available < input.minQuorum) {
+            throw ConflictException(
+                "minQuorum ${input.minQuorum} exceeds the $available configured price source(s) for " +
+                    "anchorAsset ${input.anchorAsset} -- the oracle could never reach quorum",
             )
         }
     }
@@ -263,6 +330,54 @@ class PriceOracleService(
     private fun String.toMemberUuidOrThrow(): Uuid =
         runCatching { Uuid.parse(this) }.getOrElse { throw NotFoundException("Invalid id: $this") }
 }
+
+/**
+ * Security-Audit-Runde 1 / S1 (first half): does [input], if applied on top of [before], change ANY
+ * field that [PriceOracleOrchestrator.currentQuote]'s median/outlier/spread/cache algorithm actually
+ * reads? Used by [PriceOracleService.updateOracleConfig] to decide whether
+ * `orchestrator.invalidateReplayState()` is genuinely needed -- see that call site's own comment.
+ *
+ * **Deliberately excludes [PriceOracleConfigInput.anchorUnitsPerLtr]**: the peg is read ONLY by
+ * [PriceOracleService.computeLtrMinted], strictly downstream of [orchestrator]'s quote -- it never
+ * enters [PriceOracleOrchestrator.currentQuote] (not the fan-out, not [plausibilityBand], not the
+ * median/outlier/spread math, not the cache key). An ADMIN who *only* re-pegs LTR (a routine,
+ * expected operation whenever the anchor's real-world price has moved a lot) must not pay for a
+ * fresh network fan-out on the next preview -- there is nothing about the ORACLE'S quote that peg
+ * change could possibly have invalidated.
+ *
+ * Every field actually compared below IS read by [PriceOracleOrchestrator.currentQuote] (directly or
+ * via [CacheKey]/`effectiveQuorum`/[plausibilityBand]'s caller): [PriceOracleConfigInput.anchorAsset]
+ * and [PriceOracleConfigInput.donationCurrency] select the [CacheKey] and the source set;
+ * [PriceOracleConfigInput.cacheTtlSeconds] bounds the cache-fallback window;
+ * [PriceOracleConfigInput.minQuorum] feeds `effectiveQuorum`;
+ * [PriceOracleConfigInput.outlierThresholdBps]/[PriceOracleConfigInput.maxSpreadBps] gate the
+ * outlier/spread survivor checks. [before]'s own `id`/`updatedAt` are intentionally never compared
+ * (the former is the fixed singleton row id, the latter always differs by construction and carries
+ * no quote-relevant information).
+ */
+private fun quoteOutcomeAffectingFieldsChanged(
+    before: PriceOracleConfigDto,
+    input: PriceOracleConfigInput,
+): Boolean =
+    before.anchorAsset != input.anchorAsset ||
+        before.donationCurrency != input.donationCurrency ||
+        before.cacheTtlSeconds != input.cacheTtlSeconds ||
+        before.minQuorum != input.minQuorum ||
+        before.outlierThresholdBps != input.outlierThresholdBps ||
+        before.maxSpreadBps != input.maxSpreadBps
+
+/** Never names a key VALUE, only the env var NAME -- see class KDoc "Secrets in logs / exceptions". */
+private fun envHint(anchor: AnchorAsset): String =
+    when (anchor) {
+        AnchorAsset.GOLD_XAU ->
+            "Configure at least two of LAPIS_ORACLE_GOLDAPI_KEY, LAPIS_ORACLE_METALPRICEAPI_KEY, " +
+                "LAPIS_ORACLE_ALPHAVANTAGE_KEY and restart the server -- a gold anchor requires two " +
+                "independent sources, and configuring all three leaves margin for one being down."
+        AnchorAsset.BITCOIN_BTC ->
+            "The three Bitcoin sources need no configuration -- this indicates a wiring bug in Application.module."
+        AnchorAsset.FIAT ->
+            "The ECB reference-rate source needs no configuration -- this indicates a wiring bug in Application.module."
+    }
 
 private fun ResultRow.toPriceOracleConfigDto(): PriceOracleConfigDto =
     PriceOracleConfigDto(

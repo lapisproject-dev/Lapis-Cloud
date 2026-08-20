@@ -8,6 +8,366 @@ All notable changes to this project are documented here. Format follows
 
 ### Added
 
+**Price-Oracle, Welle V0.6.6 "Gold- und Fiat-Anker" — GOLD_XAU/FIAT-Preisquellen, generalisiertes Quorum, Anker-Routing-Fix**
+
+Erweitert den bislang Bitcoin-exklusiven Price-Oracle (V0.6.5) um zwei weitere Anker-Assets und
+behebt dabei zwei latente Fehler im Orchestrator, die erst mit einem zweiten Anker real geworden
+wären.
+
+- **Zwei latente Orchestrator-Bugs behoben** (Voraussetzung für alles Weitere): `PriceOracleOrchestrator`
+  fragte bisher *alle* konfigurierten Quellen ab, unabhängig vom aktiven Anker, und cachte genau
+  ein unverschlüsseltes Quote-Objekt ohne Anker-/Währungs-Schlüssel. Beides wäre ab dem Moment, in
+  dem ein zweiter Anker existiert, echte Datenverfälschung gewesen (ein BTC-Kurs hätte als
+  Gold-Kurs ausgeliefert werden können). Jetzt: Quellen werden nach `PriceOracleSource.anchor`
+  gruppiert, `currentQuote` fragt nur die Teilmenge des aktiven Ankers ab, und der Cache ist über
+  `(anchorAsset, donationCurrency)` geschlüsselt.
+- **Drei neue GOLD_XAU-Quellen** (`GoldPriceSources.kt`): `GoldApiIoGoldPriceSource` (GoldAPI.io,
+  gegen eine echte, aus dem alten PZB-Schwesterprojekt übernommene Testfixture verifiziert),
+  `MetalPriceApiGoldPriceSource` (MetalpriceAPI.com — liest bewusst `rates[currency]`, **niemals**
+  den reziproken `rates["XAU"+currency]`-Schlüssel, sonst Faktor-10-Millionen-Fehler), und
+  `AlphaVantageGoldPriceSource` (Alpha Vantage `GOLD_SILVER_SPOT` — **nicht** `CURRENCY_EXCHANGE_RATE`,
+  das kein XAU-Instrument kennt; live gegen die Dokumentation und den öffentlichen Silber-Demo-Pfad
+  verifiziert am 2026-08-20, siehe Klassen-KDoc). Ein Gold-Anker benötigt mindestens zwei der drei
+  `LAPIS_ORACLE_GOLDAPI_KEY`/`LAPIS_ORACLE_METALPRICEAPI_KEY`/`LAPIS_ORACLE_ALPHAVANTAGE_KEY`
+  (optionale Env-Vars, graceful Degradation bei fehlendem Schlüssel).
+- **Eine neue FIAT-Quelle** (`EcbFiatPriceSource`, `FiatPriceSources.kt`): die tägliche
+  EZB-Referenzkurs-Feed, Anker-Einheit fest auf 1 EUR (bewusster Scope-Cut, keine
+  `anchor_fiat_currency`-Spalte). Die XML-Fetch-/Parse-Logik lebt in einem neuen, geteilten
+  `EcbReferenceRateClient` (XXE-gehärtet), den sowohl `EcbFiatPriceSource` als auch die
+  Alpha-Vantage-Währungsumrechnung (unten) nutzen.
+- **Alpha-Vantage-Story (Entscheidung D9 im Planungsdokument)**: `GOLD_SILVER_SPOT` liefert USD je
+  Feinunze ohne native Währungsumrechnung. Die Umrechnung nach EUR/USD läuft über den geteilten
+  `EcbReferenceRateClient` — schlägt die EZB-Anfrage fehl, liefert die Quelle **niemals** den
+  rohen USD-Wert zurück, sondern `null` und fällt aus dem Quorum heraus (Test schützt explizit
+  gegen die invertierte ~4642-statt-3446-Fehlrechnung).
+- **Anker-spezifische Quorum-Untergrenze, hart im Code verankert** (`AnchorPolicy.quorumFloor`,
+  `lapis-shared`): BTC 2, Gold 2, Fiat 1. Der Orchestrator klemmt `minQuorum` **immer nach oben**
+  auf diese Untergrenze (`effectiveQuorum = maxOf(config.minQuorum, quorumFloor(anchor))`) — niemals
+  eine Sonderbehandlung "bei nur 1 Quelle Prüfung überspringen". Selbst ein per Direkt-SQL oder
+  Backup-Restore auf 1 gesetzter `minQuorum` kann für BTC/Gold strukturell keinen
+  Ein-Quellen-Kurs mehr erzeugen.
+- **Neue Plausibilitätsbänder** (`AnchorSourcePolicy.kt`) fangen die klassische Base/Quote-Inversion
+  einer Metall-/FX-API ab (z. B. `0,00046` statt `2160` EUR/oz) — außerhalb des Bands liegende
+  Antworten werden verworfen (zählen als "nicht geantwortet"), niemals automatisch invertiert.
+- **Anker-spezifisches Refresh-Intervall** (`AnchorPolicy.refreshIntervalSeconds`): 12h für
+  Gold/Fiat (Free-Tier-Budget-Rechnung siehe `GoldPriceSources.kt` KDoc), 0s (unverändert) für BTC
+  — der BTC-Pfad ist dadurch nachweislich Byte-für-Byte unverändert.
+- **`validateConfigInput`/`updateOracleConfig`** generisch statt BTC-hartcodiert: prüft jetzt
+  `configuredSourceCount(anchor) >= quorumFloor(anchor)` (via `PriceOracleOrchestrator.configuredSourceCount`)
+  statt einer festen "nur BITCOIN_BTC"-Ablehnung, plus eine neue `cacheTtlSeconds >=
+  refreshIntervalSeconds`-Prüfung.
+- **Admin-Oberfläche** (`PriceOracleScreen.kt`): alle drei `AnchorAsset`-Werte sind jetzt echte,
+  auswählbare Optionen (vorher nur BITCOIN_BTC); ein Hinweistext unter der Auswahl zeigt
+  Quorum-Untergrenze/Refresh-Intervall/empfohlene Cache-TTL für den gewählten Anker, gespeist aus
+  demselben `AnchorPolicy`-Objekt wie die serverseitige Validierung.
+- **Keine neue Migration nötig** — `V1__baseline.sql` hatte den `CHECK (anchor_asset IN
+  ('BITCOIN_BTC','GOLD_XAU','FIAT'))` bereits von Anfang an; diese Welle ist rein Anwendungsschicht.
+
+### Fixed (Review Round 1, 2026-08-20)
+
+Unabhängiges Code-Review von `feature/price-oracle-gold-fiat` (Commit `45bde96`). Beide Major-Befunde
+plus der als billig eingestufte Minor-Befund und der Nit behoben.
+
+- **MAJOR-1 — der Refresh-Intervall-Kurzschluss griff nur auf dem Erfolgspfad, ein Quellen-Ausfall
+  konnte sich dadurch selbst verstärken und das Free-Tier-Kontingent der GESUNDEN Quellen mit
+  auffressen.** Der Kurzschluss war nur erreichbar, wenn der gecachte Quote bereits älter als das
+  Refresh-Intervall war — jeder Aufruf, der bis zum echten Fan-out durchdrang, hatte also per
+  Definition einen bereits veralteten Cache. Erreichte dieser Fan-out kein Quorum, blieb der Cache
+  unangetastet, und der NÄCHSTE Aufruf (egal wie kurz danach) fächerte erneut auf — unbegrenzt, ohne
+  Cooldown, ohne Single-Flight-Schutz gegen gleichzeitige Aufrufe. Konkret: läuft GoldAPI.ios
+  Monatskontingent aus (nur noch 1 von 2 nötigen Gold-Quellen plausibel), und bucht eine
+  Schatzmeisterin an einem Abend 20 Spenden, hätten früher alle 20 unabhängig aufgefächert statt 1
+  echter Fetch + 19 aus dem Cache bedient — Alpha Vantages enges 5-Anfragen/Minute-Limit wäre dadurch
+  fast sofort mitgerissen worden, rein wegen des Fehlerpfad-Verhaltens, nicht wegen eines echten
+  Problems dieser Quelle. Behoben in `PriceOracleOrchestrator.kt`: ein neuer `LastAttempt`-Zustand
+  (Zeitstempel + exaktes `QuoteOutcome`) wird bei JEDEM echten Fan-out-Versuch geschrieben, Erfolg
+  ODER Fehlschlag — der Refresh-Intervall-Kurzschluss gated jetzt auf diesem Zustand statt auf dem
+  (nur bei Erfolg geschriebenen) `CachedQuote`, sodass ein fehlgeschlagener Versuch sein
+  Refresh-Fenster genauso "verbraucht" wie ein erfolgreicher. Zusätzlich ein Single-Flight-Mutex pro
+  `(anchor, donationCurrency)`-Schlüssel, damit gleichzeitige Aufrufe während eines laufenden
+  Fan-outs nicht ebenfalls unabhängig auffächern (BITCOIN_BTC mit Refresh-Intervall 0 nimmt weder den
+  neuen Zustand noch den Mutex — der BTC-Pfad bleibt dadurch nachweislich unverändert). Zwei neue
+  Regressionstests in `PriceOracleOrchestratorTest.kt` beweisen: ein fehlgeschlagener Fan-out wird
+  innerhalb des Refresh-Fensters NICHT erneut versucht (gleiches Halt-Ergebnis, unveränderte
+  Quellen-Aufrufzähler), und 20 rasche Aufrufe während eines partiellen Gold-Ausfalls erzeugen genau
+  EINEN Fan-out, nicht das 20-Fache der Anfragen über alle konfigurierten Quellen hinweg.
+- **MAJOR-2 — keine Plausibilitätsprüfung auf die GRÖSSENORDNUNG von `anchorUnitsPerLtr`, ein
+  Anker-Wechsel ohne begleitende Peg-Anpassung konnte dadurch stillschweigend um Größenordnungen zu
+  viel LTR minten.** Vor dieser Welle war der Anker fest auf `BITCOIN_BTC` gesetzt, wodurch die
+  richtige Größenordnung von `anchorUnitsPerLtr` strukturell fixiert war (gesät bei `0.000001`,
+  BTC-Bruchteil-Skala). Mit dem jetzt umschaltbaren Anker prüfte nichts, ob der vom ADMIN
+  konfigurierte Peg-WERT überhaupt zur neuen Anker-Skala passt: ein ADMIN wechselt `anchorAsset` von
+  BITCOIN_BTC auf FIAT, lässt `anchorUnitsPerLtr` aber beim alten BTC-Skala-Wert `0.000001` — eine
+  durchaus plausible Bedienfehler-Situation, da nichts in der Konfigurations-UI oder -Validierung
+  darauf hinweist. `validateConfigInput` akzeptierte das bisher anstandslos (positiv, alle anderen
+  Prüfungen unabhängig grün). Bei der tatsächlichen Konvertierung, mit `anchorPrice ≈ 1.0` für einen
+  EUR-verankerten FIAT-Quote, mintete eine 10-EUR-Spende dadurch rund 10.000.000 statt der
+  beabsichtigten ~10 LTR — ein Faktor-50.000-Fehler; gegen GOLD_XAU ein kleinerer, aber ebenso realer
+  ~25-facher Fehler. Der Spenden-Bestätigungsdialog zeigte bis dahin keinen Vorab-Schätzwert, sodass
+  ein Operator keine Chance hatte, den offensichtlich falschen Betrag vor der Buchung zu bemerken.
+  Behoben mit zwei unabhängigen Maßnahmen: (1) **Serverseitig** ein neues, code-fixes
+  `plausiblePegBand(anchor)` in `AnchorSourcePolicy.kt` (analog zum bestehenden `plausibilityBand`
+  für Live-Quotes, aber für den konfigurierten Peg selbst) mit bewusst weiten, aber
+  anker-spezifischen Bändern (BTC `1e-8..1e-2`, GOLD_XAU `1e-5..1e-1`, FIAT `0.01..1000`
+  Anker-Einheiten je LTR) — in `validateConfigInput` verdrahtet, sodass ein Anker-Wechsel mit einem
+  für diesen Anker unplausiblen Peg bereits beim Speichern mit einer klaren, handlungsanweisenden
+  Fehlermeldung abgelehnt wird, statt erst bei der nächsten Spende als falsche Zahl aufzufallen. Bewusst
+  ein harter, code-fixer Reject statt eines voll ADMIN-konfigurierbaren Bands (wie bei `AnchorPolicy`)
+  — als Sicherheitsnetz gegen genau den eigenen Bedienfehler ergibt ein lockerbares Band keinen Sinn.
+  (2) **Clientseitig** zeigt der Spenden-Bestätigungsdialog (`PriceOracleScreen.kt`) jetzt einen
+  klar als Schätzung gekennzeichneten `ltrMinted`-Vorabwert, berechnet aus einem frisch abgerufenen
+  Konfig-/Live-Quote (`estimateLtrMinted`, Double-Arithmetik, ausdrücklich KEINE exakte
+  Server-Nachbildung, sondern ein grober Warnwert) — konsistent mit der ursprünglichen Design-Absicht
+  ("der Kurs ist ein Live-Schnappschuss"), nur einen Schritt früher offengelegt, wo eine
+  katastrophale Fehlkonfiguration tatsächlich auffallen kann. Vier neue Tests in
+  `PriceOracleServiceTest.kt` (Reject für FIAT/GOLD_XAU mit BTC-Skala-Peg, Accept für beide Anker mit
+  passender Peg-Größenordnung) sowie vier neue Tests in `PriceOracleScreenTest.kt` für
+  `estimateLtrMinted` (inkl. eines Tests, der explizit beweist, dass ein implausibel großes Ergebnis
+  SICHTBAR gemacht wird statt clientseitig korrigiert oder versteckt zu werden).
+- **MINOR-3 — `AlphaVantageGoldPriceSource`s KDoc empfahl bereits, die Quelle nicht ohne beide
+  nativ-EUR-Quellen (GoldAPI.io + MetalpriceAPI) zu konfigurieren, aber nichts warnte davon beim
+  Speichern oder Start.** `PriceOracleStartupCheck.logSourceInventory` loggt jetzt zusätzlich ein
+  `WARN` (keine harte Ablehnung — die Konfiguration bleibt gültig, ist nur riskanter), wenn das
+  Gold-Quellenset Alpha Vantage enthält, aber nicht beide nativ-EUR-Quellen.
+- **NIT-1 — Kommentar in `PriceOracleOrchestratorTest.kt` behauptete fälschlich eine durchgängige
+  ×500-Skalierung aller BTC-Preisliterale.** Der "BigDecimal precision"-Test nutzt bewusst einen
+  additiven Offset statt der ×500-Skalierung (um exakte Nachkommastellen-Erhaltung zu prüfen) — der
+  Kommentar benennt diese eine Ausnahme jetzt korrekt.
+
+### Fixed (Review Round 2 follow-ups, 2026-08-20)
+
+Zwei von Review Round 2 als "cheap, nicht blockierend" eingestufte Nachbesserungen, `approved: true`
+bereits erteilt — kein neuer Review-Zyklus nötig.
+
+- **NEW-1 — der wiederholte (replayte) Refresh-Intervall-Kurzschluss prüfte `cacheTtlSeconds` nicht
+  erneut, ein `CACHED`-Ergebnis konnte dadurch bis zu einem vollen Refresh-Intervall über seine
+  eigene konfigurierte TTL hinaus ausgeliefert werden.** Round 1s Fix (`LastAttempt`) gated korrekt
+  auf JEDEM Fan-out-Versuch, Erfolg oder Fehlschlag — aber ein `Ok(CACHED)`-Ergebnis wurde danach
+  verbatim wiederholt, ohne erneut zu prüfen, ob der zugrundeliegende `priceTimestamp` inzwischen
+  seine eigene `cacheTtlSeconds`-Grenze überschritten hat. Im Extremfall (Gold-Anker,
+  `cacheTtlSeconds == refreshIntervalSeconds == 43_200s`, das erlaubte Minimum) konnte ein Preis so
+  bis zu ~24h statt der konfigurierten 12h alt ausgeliefert werden. Behoben in
+  `PriceOracleOrchestrator.currentQuote`: vor dem Replay eines `Ok(CACHED)`-Ergebnisses wird dessen
+  `priceTimestamp` erneut gegen `config.cacheTtlSeconds` geprüft; ist die zugrundeliegende
+  Cache-Antwort selbst inzwischen abgelaufen, fällt der Aufruf auf einen echten Fan-out durch (nicht
+  auf einen stillen Halt) — Erholung bekommt so eine echte Chance, sobald der Cache-Fallback selbst
+  verfallen ist. Zweite, kleinere Facette desselben Befunds: ein ADMIN, der `outlierThresholdBps`
+  oder `cacheTtlSeconds` als Reaktion auf einen schlechten Kurs verschärft, sah die Änderung bisher
+  erst nach Ablauf des Refresh-Fensters, weil `LastAttempt` nur nach `(anchor, donationCurrency)`
+  geschlüsselt war, nicht nach den übrigen Konfigurationsfeldern. Behoben mit einer neuen
+  `PriceOracleOrchestrator.invalidateReplayState()`-Methode (leert `lastAttempts` UND `cache`, aus
+  Symmetriegründen — sonst könnte ein Fallback auf eine unter der alten Konfiguration akzeptierte
+  `CachedQuote` zurückgreifen), aufgerufen von `PriceOracleService.updateOracleConfig` unmittelbar
+  nach erfolgreichem Persistieren. Zwei neue Regressionstests: `PriceOracleOrchestratorTest.kt`
+  beweist, dass ein nahe an seiner eigenen TTL-Grenze aufgezeichnetes `CACHED`-Ergebnis nach
+  weiterem Altern einen echten Fan-out statt eines Replays auslöst; `PriceOracleServiceTest.kt`
+  beweist, dass ein erfolgreicher `updateOracleConfig`-Aufruf die anstehende Replay-State sofort
+  invalidiert, statt das Refresh-Fenster abzuwarten.
+- **NEW-2 — der in Round 1 eingeführte Per-`CacheKey`-Mutex (Single-Flight-Schutz) hatte keine
+  Testabdeckung; jeder bestehende Test rief den Orchestrator sequenziell innerhalb einer Coroutine
+  auf, sodass der Single-Flight-Pfad nie tatsächlich unter echter Nebenläufigkeit geprüft wurde.**
+  Ein zukünftiges Refactoring hätte den Mutex stillschweigend entfernen können, ohne dass die
+  bestehende Testsuite rot geworden wäre. Neuer Test in `PriceOracleOrchestratorTest.kt`: 20
+  gleichzeitige `async`-Aufrufe von `currentQuote` für denselben `CacheKey` gegen eine Quelle, die
+  vor der Antwort kurz `delay()`t (damit die Aufrufe tatsächlich zeitlich überlappen), `awaitAll()`,
+  Assertion, dass jede zugrundeliegende Quelle trotz 20 gleichzeitiger Aufrufer genau EINMAL
+  aufgerufen wurde.
+
+### Fixed (Security Round 1, 2026-08-20)
+
+Unabhängiges Security-Audit von `feature/price-oracle-gold-fiat` (Commit `60600ca`), nach den bereits
+abgeschlossenen zwei Correctness-Review-Runden. Ein MAJOR-Befund (S1), drei MINOR-Befunde behoben
+(S2, S4, S5), ein weiterer MINOR-Befund (S3) bewusst nur dokumentarisch statt im Code behoben —
+Scope-Begründung unten. Drei Nits (S6/S7/S8) wie vom Audit selbst empfohlen unbehandelt gelassen.
+
+- **S1 (MAJOR) — `updateOracleConfig` löschte den Free-Tier-Kontingent-Schutz bei JEDEM Speichern,
+  auch bei einem No-op-Save, und untergrub damit die zentrale "code-fix, nicht ADMIN-tunbar"-Garantie
+  dieser Welle.** Der Refresh-Intervall-Kurzschluss (Review Round 1s MAJOR-1-Fix) ist die
+  dokumentierte, tragende Verteidigung gegen ein Erschöpfen/Sperren des Gold-/Fiat-API-Kontingents —
+  aber Review Round 2s eigener NEW-1-Fix rief `PriceOracleOrchestrator.invalidateReplayState()`
+  bedingungslos bei JEDEM erfolgreichen `updateOracleConfig`-Aufruf auf, unabhängig davon, ob sich
+  überhaupt ein für den Kurs relevantes Feld geändert hatte. Konkretes, völlig gutartiges
+  Alltagsszenario: ein ADMIN justiert `outlierThresholdBps`, speichert, klickt "Kurs abrufen" zur
+  Vorschau — ein völlig normaler, von der Funktion selbst erwarteter Workflow. Jeder
+  Speichern-plus-Vorschau-Zyklus kostet einen vollen Fan-out (echte Anfrage an JEDE konfigurierte
+  Gold-Quelle). 25 solcher Zyklen an einem Nachmittag erschöpfen Alpha Vantages GESAMTES Tageskontingent;
+  5 Zyklen innerhalb einer Minute reißen dessen 5/Minute-Burst-Limit; 100 Zyklen über einen Monat
+  erschöpfen GoldAPI.ios/MetalpriceAPIs Monatsbudget vollständig — mit realer, bis zu einen Kalendermonat
+  andauernder Betriebsunterbrechung für JEDE nachfolgende `convertDonationToLtr`. Zusätzlich eine
+  vorsätzliche Missbrauchs-Variante: eine gekaperte ADMIN-Session könnte Speichern→Vorschau absichtlich
+  in Schleife treiben, um die API-Schlüssel der Organisation gezielt zu erschöpfen/sperren zu lassen —
+  ein Verfügbarkeits-Angriff mit externer, nicht selbstheilender Folge, wie es ihn im bisherigen
+  ADMIN-Funktionsumfang dieser Codebase nicht gab. Behoben mit ZWEI komplementären, unabhängigen
+  Maßnahmen (beide implementiert, schützen gegen unterschiedliche Ausprägungen desselben Problems):
+  (1) **Compare-before-invalidate** in `PriceOracleService.updateOracleConfig` — liest die aktuell
+  persistierte Konfigurationszeile VOR dem Update, und ruft `invalidateReplayState()` nur noch auf,
+  wenn sich mindestens eines der tatsächlich kurs-relevanten Felder geändert hat
+  (`anchorAsset`/`donationCurrency`/`cacheTtlSeconds`/`minQuorum`/`outlierThresholdBps`/`maxSpreadBps`
+  — neue private Funktion `quoteOutcomeAffectingFieldsChanged`). Bewusst OHNE `anchorUnitsPerLtr`
+  (den LTR-Peg) in diesem Vergleich: der Peg wird ausschließlich stromabwärts in `computeLtrMinted`
+  gelesen, nie von `PriceOracleOrchestrator.currentQuote` selbst — ein reines Peg-Re-Pegging (eine
+  routinemäßige Operation, wann immer sich der Realwelt-Kurs stark bewegt hat) kostet dadurch keinen
+  frischen Fan-out mehr. Ein No-op-Save (identische Konfiguration erneut gespeichert) kostet jetzt
+  nichts. (2) **Ein harter, invalidierungssicherer Floor auf die Fan-out-Frequenz** —
+  `PriceOracleOrchestrator` führt jetzt eine zweite, von `lastAttempts`/`cache` komplett unabhängige
+  `lastFanoutAt`-Map, die `invalidateReplayState()` NIEMALS zurücksetzt. `currentQuote` verweigert
+  einen echten Fan-out für einen `CacheKey`, wenn dessen letzter echter Fan-out weniger als 60s
+  zurückliegt — unabhängig davon, wie oft `updateOracleConfig` in der Zwischenzeit aufgerufen wurde.
+  Das ist der robustere Schutz gegen die vorsätzliche Missbrauchs-Variante speziell, weil er nicht
+  darauf angewiesen ist, dass Fix (1) korrekt JEDES kurs-relevante Feld erkennt. Drei neue Tests:
+  `PriceOracleServiceTest.kt` beweist, dass ein No-op-Save keinen frischen Fan-out auslöst UND dass
+  ein reines Peg-Only-Save weder invalidiert noch den neuen Peg-Wert für die nächste Konvertierung
+  verschluckt; `PriceOracleOrchestratorTest.kt` beweist, dass 9 rasche
+  `invalidateReplayState()`+`currentQuote()`-Zyklen (simuliert eine Speichern-Schleife mit jeweils
+  echten Konfigurationsänderungen) innerhalb des 60s-Floors zu GENAU EINEM echten Fan-out führen, nicht
+  zehn — und dass der Floor nach Ablauf wieder freigibt, statt den Oracle dauerhaft zu blockieren. Der
+  bereits bestehende Review-Round-2-Test (echte `outlierThresholdBps`-Änderung invalidiert weiterhin
+  sofort) bleibt unverändert grün.
+- **S2 (MINOR) — Ktors interne Logger (unabhängig vom bewusst vermiedenen `Logging`-Plugin) geben die
+  volle Request-URL — inklusive der Query-String-API-Schlüssel für MetalpriceAPI und Alpha Vantage —
+  auf TRACE-Level aus, ohne dass die Logging-Konfiguration diesen Namespace nach unten begrenzt.**
+  Diese Welle vermeidet Ktors `Logging`-Plugin bewusst genau deswegen — aber Ktor 3.5.1s EIGENE interne
+  Plugins (`SaveBody`, `HttpTimeout`, `HttpCallValidator`) loggen `request.url` unabhängig davon
+  wortwörtlich auf TRACE, auf Pfaden, die jede Oracle-Anfrage durchläuft. `logback.xml` hatte bisher
+  keinen expliziten Floor auf den `io.ktor`-Namespace — nur einen Root-Level. Realistisches Szenario:
+  Gold-Quellen fangen an zu scheitern, ein Operator hebt Root- oder `io.ktor`-Level auf DEBUG/TRACE an,
+  um zu diagnostizieren — ein normaler, erwarteter Troubleshooting-Schritt — und die
+  Query-String-API-Schlüssel landen in Klartext in stdout/dem Docker-Log-Treiber/jedem
+  Log-Aggregator. Behoben mit einem expliziten `<logger name="io.ktor.client" level="INFO"/>` in
+  `logback.xml`, mit Kommentar, WARUM dieser Floor existiert (damit ein künftiger Maintainer ihn nicht
+  für willkürlich hält und entfernt). `oracleHttpClient()`s KDoc in `OracleHttpClient.kt` erwähnt jetzt
+  explizit auch dieses interne-Logger-Risiko, nicht mehr nur die `Logging`-Plugin-Vermeidung. Die
+  optionale Nice-to-have-Prüfung (MetalpriceAPI-Header-Alternative statt Query-String-Key) wurde
+  zurückgestellt — ohne verifizierten Zugriff auf MetalpriceAPIs aktuelle API-Dokumentation ist das
+  keine risikofrei triviale Änderung; der `logback.xml`-Floor allein schließt die eigentliche Lücke
+  bereits vollständig.
+- **S3 (MINOR) — bewusst nur dokumentarisch behoben, kein Code-Fix diese Runde.** Der
+  64-KB-Response-Cap (`readCappedBodyOrNull`) begrenzt in Ktor 3.5.1 unter der aktuell verwendeten
+  nicht-streamenden `httpClient.get(url)`-Aufrufform NICHT den tatsächlichen Speicherverbrauch — Ktors
+  interner `SaveBody`-Plugin puffert die GESAMTE Response bereits vollständig, bevor jeglicher Code
+  dieser Codebase überhaupt läuft. Der Cap begrenzt also nur die Parse-/Verarbeitungskosten, nicht die
+  Allokation selbst; eine bösartige oder fehlerhafte, aber allowlistete Quelle könnte über die volle
+  8s-Anfrage-Timeout-Dauer (diese Welle von 5s auf 8s erweitert, plus vier neu allowlistete Hosts)
+  hunderte MB bis ~1GB pro Quelle puffern lassen, bei Gold sogar 3x parallel. Ein echter Fix erfordert
+  die Umstellung aller 7 aktuellen Call-Sites (3x `BitcoinPriceSources.kt`, 3x `GoldPriceSources.kt`,
+  1x `EcbReferenceRateClient.kt`) auf Ktors streamendes `prepareRequest{}.execute{}`-Idiom — eine
+  materielle Restrukturierung jeder einzelnen Call-Site-Form, nicht nur des geteilten Helpers. Bewusste
+  Scope-Entscheidung: diese Runde nur `readCappedBodyOrNull`s KDoc korrigiert (beschreibt jetzt exakt,
+  was der Cap tatsächlich garantiert — Parse-/Verarbeitungskosten, NICHT Peer-Pufferung — statt der
+  vorher zu weitgehenden "verhindert Gigabyte-Response"-Behauptung), Code-Restrukturierung auf eine
+  spätere, eigenständige Welle vertagt.
+- **S4 (MINOR) — das Plausibilitätsband des FIAT-Ankers war seine EINZIGE numerische Schutzmaßnahme
+  (Quorum-Floor 1, kein Median-/Ausreißer-Check bei nur einer Quelle möglich) und war breit genug, um
+  bei einer kompromittierten/fehlerhaften ECB-Quelle ein ~11,6-faches Über-Minten für die
+  FIAT+USD-Spendenwährungs-Kombination zuzulassen.** Ein echter EUR/USD-Kurs liegt bei ~1,16; das
+  bisherige Band (`0,1..10`) umspannte zwei volle Größenordnungen darum herum. Da FIAT einen
+  Quorum-Floor von 1 hat (eine bereits getroffene, bewusste und hier NICHT revidierte
+  Design-Entscheidung), ist das Plausibilitätsband die EINZIGE Verteidigung, sobald die eine Quelle
+  kompromittiert ist — bei n=1 gibt es kein Median-über-mehrere-Quellen-Sicherheitsnetz. Ein
+  manipulierter ECB-Kurs von `0,1` hätte das alte Band passiert, `LIVE`-Status gemeldet, und rund
+  11,6x zu viel LTR pro Spende gemintet (reine EUR-Spenden sind NICHT betroffen — das EUR-Bein ist ein
+  hartcodierter `1`-Wert ohne HTTP-Aufruf). Behoben in `AnchorSourcePolicy.kt`: FIAT-Band auf
+  `0,5..2,0` verengt — real-existierende EUR/USD-Kurse haben diesen Bereich in der modernen
+  Floating-Rate-Historie praktisch nie verlassen, das Band bleibt also großzügig für legitime
+  Kursbewegungen. Neuer Test beweist, dass ein `0,1`-skalierter manipulierter Kurs jetzt korrekt als
+  implausibel für FIAT+USD abgelehnt wird, während der bestehende korrekte EUR/USD-Kurs (~1,1605, aus
+  den bestehenden Test-Fixtures) weiterhin durchgeht.
+- **S5 (MINOR, nur Dokumentation) — bei genau 2 konfigurierten Gold-Quellen (der Quorum-Floor) ist die
+  Ausreißer-Ablehnung mathematisch wirkungslos — eine einzelne kompromittierte Quelle kann den Preis um
+  ~3% verzerren und trotzdem `LIVE` melden — und die bisherige Operator-Anleitung lenkte Deployments
+  aktiv auf genau diese Konfiguration zu, ohne diesen Trade-off offenzulegen.** Bereits vom Audit
+  korrekt hergeleitete Mathematik, keine eigene Neuherleitung nötig: bei n=2 ist
+  `median([a,b]) == (a+b)/2`, wodurch beide Quellen IMMER identisch weit vom Median abweichen — die
+  Ausreißer-Prüfung kann nur beide akzeptieren oder beide ablehnen, niemals die schlechte Quelle
+  einzeln erkennen. Bei den gesäten 300bps-Standardwerten kann eine einzelne bösartige/fehlerhafte
+  Quelle unter genau 2 den finalen Preis um bis zu ~3,1% verzerren, während der Quote weiterhin `LIVE`
+  meldet. Das ist eine reale, bereits bestehende Eigenschaft des Designs (kein Bug) — der Befund ist,
+  dass sie bisher UNDOKUMENTIERT war, und dass die bestehende Operator-Anleitung (die
+  Alpha-Vantage-Pairing-WARN, das Produktions-README) die 2-Quellen-Paarung `goldapi + metalpriceapi`
+  aktiv als "sichere" Wahl empfahl — korrekt vor dem ECB-Kopplungsrisiko von Alpha Vantage warnend,
+  aber ohne ein Wort zu dieser separaten, ebenso realen "keine Ausreißer-Resilienz bei genau 2
+  Quellen"-Eigenschaft. Behoben rein dokumentarisch: `AnchorPolicy.quorumFloor`s KDoc (`PriceOracle.kt`),
+  `PriceOracleStartupCheck.warnIfGoldRiskyAlphaVantagePairing`s KDoc und `deploy/production/README.adoc`s
+  Gold-Anker-Abschnitt stellen jetzt klar, dass Quorum=2 bei genau 2 konfigurierten Quellen
+  VERFÜGBARKEITS-Redundanz bietet (eine Quelle darf ausfallen, Gold funktioniert weiter), aber KEINE
+  Ausreißer-/Manipulations-Resilienz (eine einzelne schlechte Quelle unter genau 2 kann strukturell
+  nicht bevorzugt herausgefiltert werden) — mit der praktischen Verzerrungs-Obergrenze
+  `min(2×outlierThresholdBps, maxSpreadBps)/2`. Die Empfehlung, alle DREI Gold-Quellen zu
+  konfigurieren, wird jetzt explizit als Sicherheits-Baseline (nicht nur Ausfall-Vermeidung)
+  begründet.
+
+Nicht in dieser Runde behoben (bewusst, siehe Audit): S6 (redundante Fetch-Zeit-Neuprüfung der
+Währung über die RPC-Grenze hinaus — echtes, aber sehr geringes Defense-in-Depth-Risiko), S7
+(KDoc-Kommentar behauptet "neun" statt sieben allowlistete Hosts — kosmetisch), S8
+(`deploy/local/README.adoc` fehlen die neuen Env-Vars — laut Audit läuft dieser Dev-Stack ohnehin nicht
+so, wie dort dokumentiert, daher niedrige Priorität).
+
+### Fixed (Security Round 2, 2026-08-20)
+
+Finale Verifikations-Runde des Security-Audits von `feature/price-oracle-gold-fiat` (Commit `c9d78a0`),
+`approved: true`. Bestätigt, dass der S1-Fix aus Runde 1 (harter, invalidierungssicherer Floor auf die
+Fan-out-Frequenz) korrekt implementiert ist, findet aber einen neuen, ausdrücklich nicht
+Merge-blockierenden Restbefund (S9), der noch vor einem echten, gold-verankerten Produktivbetrieb
+geschlossen werden sollte, plus drei rein informative Nits (S10–S12), die bewusst unbehandelt bleiben.
+
+- **S9 (sollte vor echtem Produktivbetrieb behoben werden, nicht Merge-blockierend) — der 60s-Floor aus
+  Runde 1 war ~1440x lockerer als das tatsächliche Free-Tier-Kadenz-Budget, das er eigentlich schützen
+  sollte.** `GoldPriceSources.kt`s eigene dokumentierte Budget-Rechnung geht von einer 12-STUNDEN-Kadenz
+  aus (passend zu `refreshIntervalSeconds`), was `<=62` Anfragen/Monat gegen GoldAPI.ios/MetalpriceAPIs
+  100/Monat-Obergrenzen ergibt. Der 60-SEKUNDEN-Floor erlaubte dagegen bis zu 1440 Fan-outs/Tag/Schlüssel
+  — rund das 700-fache des dokumentierten `<=2`/Tag-Budgets, und selbst genau an Alpha Vantages
+  5/Minute-Burst-Obergrenze. Der Floor machte "unbegrenzt" zu "endlich", aber "endlich bei 1440/Tag" ist
+  kein sinnvoller Schutz für eine Ressource, deren reales Budget bei ~2/Tag liegt. Behoben: der Floor
+  wird jetzt aus `AnchorPolicy.refreshIntervalSeconds(anchor)` selbst abgeleitet statt aus einer
+  eigenständigen Konstante — `floorSeconds = refreshIntervalSeconds(anchor) / HARD_FLOOR_FANOUT_DIVISOR`
+  (neue Konstante, Divisor `3`). Für GOLD_XAU/FIAT (12h-Refresh-Intervall) ergibt das einen 14.400s-Floor
+  (4h) — höchstens 6 echte Fan-outs/Tag/Schlüssel, das 3-fache des dokumentierten `<=2`/Tag-Budgets statt
+  des vorherigen ~700-fachen, und weiterhin komfortabel unter Alpha Vantages 25/Tag-Kontingent (24%
+  Auslastung) sowie weit von dessen 5/Minute-Obergrenze entfernt. Divisor `3` (statt z. B. `1`, also gar
+  keine Verschärfung über das Intervall hinaus) bewusst gewählt, damit eine echte, rasche Folge
+  UNTERSCHIEDLICHER Admin-Konfigurationsänderungen weiterhin innerhalb eines menschlich sinnvollen
+  Zeitfensters (4h statt 12h) wiederherstellbar bleibt, statt jede echte Änderung das volle
+  Refresh-Intervall aussitzen zu lassen. **BTC vollständig unberührt bestätigt**: der Divisor wird nur
+  auf `refreshIntervalSeconds(anchor)` angewendet, und BTCs ist `0` — das gesamte
+  `if (refreshInterval > 0)`-Gate (Mutex, `lastAttempts`, `lastFanoutAt`, der Floor selbst) wird für BTC
+  komplett übersprungen, exakt wie vor S9; ein bestehender Test (`PriceOracleOrchestratorTest.kt`, "BTC's
+  refresh interval is 0") beweist das jetzt explizit auch für den neuen, verschärften Floor (5
+  aufeinanderfolgende Aufrufe ohne Uhr-Vorlauf fan-outen alle real, ohne jede Drosselung). Zwei neue
+  Tests: der bestehende S1-Floor-Test wurde auf den neuen 14.400s-Wert umgestellt (9 rasche
+  `invalidateReplayState()`+`currentQuote()`-Zyklen innerhalb des Fensters erzeugen weiterhin GENAU EINEN
+  echten Fan-out); ein komplett neuer Test simuliert einen vollen 86.400s-Tag rapider,
+  konfigurationsändernder Save-Zyklen im 900s-Abstand (weit innerhalb des alten 60s-Floors gelegen
+  hätten, hätte also unter der Runde-1-Logik alle 97 real fan-outen lassen) und beweist, dass exakt 7
+  echte Fan-outs stattfinden — konsistent mit dem neuen, engeren Floor, nicht mit dem alten
+  60s-Verhalten. `lastFanoutAt`s KDoc, `GoldPriceSources.kt`s "Free-tier request budget"-Abschnitt und
+  `deploy/production/README.adoc`s Gold-Anker-Abschnitt korrigieren jetzt alle die vorherige, technisch
+  korrekte aber materiell irreführende Behauptung ("60s-Floor schützt das Budget") auf die tatsächliche
+  Worst-Case-Rate (6 Fan-outs/Tag/Schlüssel, 3x das dokumentierte Budget).
+
+Zusätzlich drei rein informative Befunde aus Runde 2, bewusst unbehandelt gelassen (kein Code-Fix nötig,
+hier dokumentiert statt stillschweigend fallengelassen):
+
+- **S10 (Nit)** — der Fan-out-Floor ist pro `CacheKey` (Anker + Spendenwährung) geschlüsselt: ein ADMIN,
+  der `donationCurrency` zwischen EUR/USD auf demselben Gold-Anker wechselt, bekommt einen unabhängigen
+  Floor pro Währung — bis zum 2-fachen der effektiven Fan-out-Rate gegenüber einem einzigen globalen
+  Floor. Begrenzt (es existieren nur eine Handvoll Währungs-/Anker-Kombinationen) und geringes Risiko.
+- **S11 (Nit, bereits vor dem S1-Fix bestehend, nicht durch S9 eingeführt)** — `invalidateReplayState()`
+  nimmt beim Löschen des Zustands nicht den Per-Key-Mutex — ein Config-Save, das WÄHREND ein Fan-out für
+  diesen Schlüssel bereits läuft eintrifft, kann wenige Sekunden später vom Ergebnis dieses noch
+  laufenden Fan-outs stillschweigend überschrieben werden, sodass eine gerade verschärfte Schwelle erst
+  beim NÄCHSTEN Aufruf statt sofort greift. Zeitfenster begrenzt auf ungefähr die Dauer eines Fan-outs
+  (wenige Sekunden), erfordert spezifisches ADMIN-seitiges Timing; bestehende Tests decken diese exakte
+  Verschränkung nicht ab.
+- **S12 (informativ, kein Defekt)** — der verschärfte Fan-out-Floor kann auf einem spezifischen Pfad eine
+  legitime, kontingent-getriebene Recovery verzögern: fällt ein wiedergegebenes gecachtes Quote als über
+  seine eigene `cacheTtlSeconds` hinaus gealtert auf (der frühere Korrektheits-Review-Fix für genau
+  diesen Fall), fällt der Code auf einen echten Fan-out durch — ist das Floor-Fenster zu diesem exakten
+  Zeitpunkt noch nicht abgelaufen, wird dieser Recovery-Fan-out verzögert statt sofort ausgeführt. Fail
+  safe (bleibt etwas länger in `Halt`, liefert nie einen falschen Preis) und selbstheilend, sobald das
+  Floor-Fenster verstreicht — der Vollständigkeit halber markiert, nicht weil ein Fix nötig wäre.
+
+### Added
+
 **Zahlungsverkehr, Welle V1.2.2 "SEPA-Lastschriftmandate" — Mandatsverwaltung, Lastschriftläufe, pain.008-Dateierzeugung, Rücklastschriften**
 
 Zweite Sub-Welle von V1.2 "Zahlungsverkehr" (vgl. vault "sepa_v1.2.2_plan.md"), auf `ISepaService`s

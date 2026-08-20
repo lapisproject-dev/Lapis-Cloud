@@ -333,3 +333,45 @@ discovers it on its own, but an explicit submission speeds up first indexing.
 password, LiveKit API key/secret, coturn shared secret -- see `deploy/local/docker-compose.yml` for
 the dev-only equivalents of those, which must NOT be reused here). Never committed, never logged,
 never baked into the image.
+
+== Price-Oracle: Gold anchor (optional)
+
+`LAPIS_ORACLE_GOLDAPI_KEY`, `LAPIS_ORACLE_METALPRICEAPI_KEY`, `LAPIS_ORACLE_ALPHAVANTAGE_KEY` are
+**all optional**. Only needed if this deployment's `price_oracle_config.anchor_asset` is switched
+to `GOLD_XAU` (an ADMIN action via `updateOracleConfig`, default remains `BITCOIN_BTC`). A
+gold-anchored deployment requires **at least two of the three** keys -- `updateOracleConfig` rejects
+the anchor switch otherwise, naming the missing env vars.
+
+**Configuring all three keys is the recommended security baseline, not just an outage-avoidance
+nicety.** With exactly 2 sources configured, the quorum floor is met and gold works normally, but the
+outlier-rejection check is mathematically unable to discriminate a single bad source from a good one
+at n=2 (the median of two values is always their average, so both deviate from it identically -- see
+`network.lapis.cloud.shared.domain.AnchorPolicy.quorumFloor` KDoc for the exact math). Concretely: a
+single compromised or malfunctioning source among exactly 2 can still skew the reported gold price by
+roughly 3% (at the seeded default `outlierThresholdBps`) while the quote continues to report `LIVE`.
+This holds for **any** 2-of-3 pairing, including the "safe-looking" `goldapi + metalpriceapi` pair
+below -- 2 sources buys the same one-source-may-fail *availability* redundancy the always-on Bitcoin
+source set already has (a single provider outage does not halt donation conversion), but **not**
+manipulation/outlier resilience. Configure all three keys if operationally feasible; treat a 2-key
+deployment as availability-only, not tamper-resistant.
+
+If `LAPIS_ORACLE_ALPHAVANTAGE_KEY` is configured, that source also reaches `www.ecb.europa.eu` for
+its USD-to-donation-currency conversion leg (the free ECB daily reference-rate feed, keyless) --
+relevant to any egress firewall rules. The FIAT anchor's own source (`EcbFiatPriceSource`) reaches
+the same host and needs no key at all.
+
+Get free API keys: https://www.goldapi.io (Sandbox tier, no card), https://metalpriceapi.com (free
+tier), https://www.alphavantage.co/support/#api-key (free signup, no card). See
+`network.lapis.cloud.server.economy.oracle.GoldPriceSources` KDoc for the exact free-tier request
+budget this deployment's 12h refresh interval stays within.
+
+**Worst-case fan-out rate under repeated config saves** (Security-Audit-Runde 2 / S9): the 12h
+refresh interval is the normal-operation cadence (`<=2` real fan-outs/day/key), not a hard ceiling
+on its own -- a rapid sequence of genuinely different `updateOracleConfig` changes (an ADMIN tuning
+thresholds in direct response to a bad quote, or a hijacked-session save-loop) can each force a fresh
+real fan-out. `PriceOracleOrchestrator` enforces an additional, config-invalidation-proof hard floor
+derived from the anchor's own refresh interval (currently `refreshIntervalSeconds / 3` = 4h for
+GOLD_XAU/FIAT), capping this worst case at **at most 6 real fan-outs/day/key** -- a 3x multiple of
+the normal-operation budget, not an unbounded rate. See
+`network.lapis.cloud.server.economy.oracle.PriceOracleOrchestrator.lastFanoutAt` KDoc for the full
+derivation.

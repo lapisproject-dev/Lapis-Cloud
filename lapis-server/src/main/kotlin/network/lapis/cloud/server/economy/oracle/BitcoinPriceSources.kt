@@ -13,8 +13,13 @@ import kotlin.time.Clock
 
 private val logger = KotlinLogging.logger {}
 
-/** Logs an oracle source failure -- sanitized (source id + exception class name only, never the response body or raw exception message). See [CoinbaseBitcoinPriceSource] KDoc "Error handling / SSRF / DoS". */
-private fun logSourceFailure(
+/**
+ * Logs an oracle source failure -- sanitized (source id + exception class name only, never the
+ * response body or raw exception message). See [CoinbaseBitcoinPriceSource] KDoc "Error handling /
+ * SSRF / DoS". `internal` (not `private`) as of V0.6.6 so `GoldPriceSources.kt`/`FiatPriceSources.kt`/
+ * `EcbReferenceRateClient` share this ONE sanitized logging helper instead of duplicating it.
+ */
+internal fun logSourceFailure(
     sourceId: String,
     cause: Throwable,
 ) {
@@ -155,7 +160,15 @@ class BitstampBitcoinPriceSource(
     }
 }
 
-/** The three real, independent BTC sources sharing one [oracleHttpClient] -- constructed once by `Application.module`, never per-request. */
+/**
+ * The three real, independent BTC sources sharing one [oracleHttpClient] -- constructed once by
+ * `Application.module`, never per-request. See `defaultGoldOracleSources` (GoldAPI.io/
+ * MetalpriceAPI/Alpha Vantage, key-gated) and `defaultFiatOracleSources` (the ECB reference-rate
+ * feed) for the V0.6.6 sibling factories, and `defaultOracleSources` for the one function that
+ * combines all three into the list actually passed to [PriceOracleOrchestrator]. No behavioural
+ * change to this file's own sources in V0.6.6 -- this is the code path whose behaviour must stay
+ * provably byte-for-byte unchanged.
+ */
 fun defaultBitcoinOracleSources(httpClient: HttpClient = oracleHttpClient()): List<PriceOracleSource> =
     listOf(
         CoinbaseBitcoinPriceSource(httpClient = httpClient),

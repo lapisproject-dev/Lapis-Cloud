@@ -95,6 +95,15 @@ services:
       # `openssl rand -base64 32`, never reuse across deployments.
       LAPIS_STREAMING_ENABLED: "true"
       LAPIS_SECRET_ENCRYPTION_KEY: ${LAPIS_SECRET_ENCRYPTION_KEY:?LAPIS_SECRET_ENCRYPTION_KEY must be set in .env}
+      # Price-Oracle Gold anchor (V0.6.6) -- all three OPTIONAL, unlike the ":?must be set" vars
+      # above. Only needed if this deployment's anchor is switched to GOLD_XAU (default stays
+      # BITCOIN_BTC, which needs none of these). A gold anchor requires at least TWO of the three;
+      # configuring all three is recommended so one provider outage does not halt donation
+      # conversion -- see README.adoc "Price-Oracle: Gold anchor (optional)". The Alpha Vantage key
+      # additionally makes that source reach www.ecb.europa.eu for its currency conversion leg.
+      LAPIS_ORACLE_GOLDAPI_KEY: ${LAPIS_ORACLE_GOLDAPI_KEY:-}
+      LAPIS_ORACLE_METALPRICEAPI_KEY: ${LAPIS_ORACLE_METALPRICEAPI_KEY:-}
+      LAPIS_ORACLE_ALPHAVANTAGE_KEY: ${LAPIS_ORACLE_ALPHAVANTAGE_KEY:-}
     volumes:
       # Named volumes, not bind mounts -- survive `docker compose up -d --build` image rebuilds/
       # recreations, which a container's own writable layer would not. lapis-document-storage

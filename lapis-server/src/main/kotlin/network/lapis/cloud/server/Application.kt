@@ -36,8 +36,10 @@ import network.lapis.cloud.server.conference.SecretBallotStreamGuard
 import network.lapis.cloud.server.conference.StreamPoller
 import network.lapis.cloud.server.db.DatabaseConfig
 import network.lapis.cloud.server.db.DevSeedData
+import network.lapis.cloud.server.economy.oracle.OracleSourceConfig
 import network.lapis.cloud.server.economy.oracle.PriceOracleOrchestrator
-import network.lapis.cloud.server.economy.oracle.defaultBitcoinOracleSources
+import network.lapis.cloud.server.economy.oracle.PriceOracleStartupCheck
+import network.lapis.cloud.server.economy.oracle.defaultOracleSources
 import network.lapis.cloud.server.federation.FederationActorKeyProvisioner
 import network.lapis.cloud.server.federation.FederationConfig
 import network.lapis.cloud.server.federation.FederationInboxRateLimiter
@@ -180,10 +182,16 @@ fun Application.module() {
     // documentStorageRoot.
     val postalMailProvider = LetterxpressPostalMailProvider()
 
-    // V0.6.5 Price-Oracle fuer die Anker-Bindung -- constructed once here (owns the pooled HTTP
-    // client AND the in-memory quote cache, see PriceOracleOrchestrator KDoc "Singleton
-    // lifecycle"), same lifecycle as postalMailProvider/documentStorageRoot above.
-    val priceOracleOrchestrator = PriceOracleOrchestrator(sources = defaultBitcoinOracleSources())
+    // V0.6.5 Price-Oracle fuer die Anker-Bindung, V0.6.6 "Gold- und Fiat-Anker" -- constructed once
+    // here (owns the pooled HTTP client AND the in-memory quote cache, see PriceOracleOrchestrator
+    // KDoc "Singleton lifecycle"), same lifecycle as postalMailProvider/documentStorageRoot above.
+    // Gold sources are key-gated and simply absent when their LAPIS_ORACLE_* env vars are unset
+    // (OracleSourceConfig KDoc) -- a BTC-anchored deployment needs no oracle configuration at all,
+    // exactly as before this wave.
+    val oracleSourceConfig = OracleSourceConfig.load()
+    val priceOracleOrchestrator = PriceOracleOrchestrator(sources = defaultOracleSources(config = oracleSourceConfig))
+    PriceOracleStartupCheck.logSourceInventory(priceOracleOrchestrator)
+    PriceOracleStartupCheck.warnIfActiveAnchorUnderprovisioned(priceOracleOrchestrator)
 
     // V0.7.1 Authentifizierung -- constructed once here (owns the per-instance in-memory failure
     // map, see LoginRateLimiter KDoc "Known scope-cut"), same lifecycle as the other singletons

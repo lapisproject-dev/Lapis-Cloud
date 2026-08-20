@@ -21,19 +21,27 @@
 // already established -- so a later wave can add the queue without an enum-literal-order-breaking
 // re-model.
 //
-// **Scope-cut: Bitcoin-only anchor.** `AnchorAsset` defines three literals (BITCOIN_BTC/GOLD_XAU/
-// FIAT) but only BITCOIN_BTC has real, wired price sources this wave
+// **V0.6.6 "Price-Oracle: Gold- und Fiat-Anker": all three anchors now wired.** `AnchorAsset`
+// defines three literals (BITCOIN_BTC/GOLD_XAU/FIAT), and as of V0.6.6 all three have real price
+// sources: BITCOIN_BTC keeps its three free, no-API-key public endpoints
 // (network.lapis.cloud.server.economy.oracle.defaultBitcoinOracleSources: Coinbase/Kraken/
-// Bitstamp, three independent, free, no-API-key public endpoints). GOLD_XAU/FIAT are deliberately
-// unimplemented: a robust, free, no-API-key, >=2-independent-source feed set for spot gold
-// (LBMA/COMEX/Kitco-class data) requires paid API keys this codebase has no budget/secret-
-// management story for yet, and fiat cross-rates have essentially ONE authoritative free source
-// (ECB reference rates) -- a degenerate single-source case that structurally cannot satisfy the
-// >=2-source quorum this whole design leans on. `IPriceOracleService.updateOracleConfig` rejects
-// any non-BITCOIN_BTC `anchorAsset` with a clear "not yet implemented" error rather than silently
-// accepting a config with no sources behind it. The `PriceOracleSource` interface itself is
-// anchor-agnostic -- wiring a keyed gold/fiat source set is a later wave's addition, not a
-// re-model of this one.
+// Bitstamp); GOLD_XAU gains three key-gated sources (defaultGoldOracleSources: GoldAPI.io,
+// MetalpriceAPI, Alpha Vantage `GOLD_SILVER_SPOT`), of which a deployment must configure at least
+// `AnchorPolicy.quorumFloor(GOLD_XAU)` (2 of 3, via the optional `LAPIS_ORACLE_GOLDAPI_KEY`/
+// `LAPIS_ORACLE_METALPRICEAPI_KEY`/`LAPIS_ORACLE_ALPHAVANTAGE_KEY` env vars,
+// network.lapis.cloud.server.economy.oracle.OracleSourceConfig); FIAT gains one source
+// (defaultFiatOracleSources: the ECB daily reference-rate feed, keyless), its anchor unit
+// code-fixed to exactly one EUR (a deliberate scope-cut -- no `anchor_fiat_currency` column, so an
+// arbitrary fiat anchor currency is a later wave's addition). `IPriceOracleService.updateOracleConfig`
+// still rejects an anchor switch a given DEPLOYMENT cannot serve (fewer configured sources than the
+// anchor's quorum floor) with a clear error naming the missing env vars, rather than silently
+// accepting a config with insufficient sources behind it. The `PriceOracleSource` interface itself
+// stayed anchor-agnostic throughout -- wiring the gold/fiat source sets was an additive change, not
+// a re-model of this one. `PriceOracleOrchestrator` itself gained two prerequisite fixes this wave:
+// it now queries only the ACTIVE anchor's sources (previously it queried every configured source
+// regardless of anchor) and its cache is now keyed by (anchor, donationCurrency) (previously a
+// single unkeyed slot) -- both were latent bugs that would have let e.g. a BTC price be served as a
+// gold price the moment a second anchor existed.
 //
 // **price_oracle_config is a single-row, ADMIN-tunable policy row** -- same "exactly one row by
 // convention, seeded once with a fixed sentinel id" idiom `organization_settings`

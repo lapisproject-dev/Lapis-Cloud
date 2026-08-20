@@ -20,9 +20,14 @@ data class SourcePriceResult(
  * The pluggable price-source boundary for [PriceOracleOrchestrator] -- this wave's analogue of
  * [network.lapis.cloud.server.economy.LtrBalanceProvider]/
  * [network.lapis.cloud.server.postal.PostalMailProvider]. Every implementation must be an
- * independent, no-authentication, publicly reachable price feed -- see
- * `network.lapis.cloud.server.economy.oracle.defaultBitcoinOracleSources` for the three concrete
- * `AnchorAsset.BITCOIN_BTC` implementations this wave wires (Coinbase/Kraken/Bitstamp).
+ * independent, publicly reachable price feed; authentication, if any, is a deployment-supplied API
+ * key injected by [OracleSourceConfig] and never derived from
+ * [network.lapis.cloud.shared.domain.PriceOracleConfigDto] (the SSRF invariant) -- see
+ * `network.lapis.cloud.server.economy.oracle.defaultBitcoinOracleSources` for the three
+ * no-authentication `AnchorAsset.BITCOIN_BTC` implementations (Coinbase/Kraken/Bitstamp),
+ * `defaultGoldOracleSources` for the three key-gated `AnchorAsset.GOLD_XAU` implementations
+ * (GoldAPI.io/MetalpriceAPI/Alpha Vantage), and `defaultFiatOracleSources` for the one
+ * `AnchorAsset.FIAT` implementation (ECB reference rates, keyless).
  *
  * **`fetchPrice` must NEVER throw.** Every failure path (network error, timeout, non-2xx status,
  * an unparseable/missing-field response body, an oversized response, a non-allowlisted/non-HTTPS
