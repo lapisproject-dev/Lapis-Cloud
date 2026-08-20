@@ -5,6 +5,7 @@ import io.kvision.BootstrapCssModule
 import io.kvision.BootstrapModule
 import io.kvision.CoreModule
 import io.kvision.FontAwesomeModule
+import io.kvision.dropdown.DropDown
 import io.kvision.dropdown.ddLink
 import io.kvision.dropdown.dropDown
 import io.kvision.html.Link
@@ -168,8 +169,33 @@ class App : Application() {
     }
 }
 
+/**
+ * Nav-Highlight-Welle 2026-08-20: [Nav.navLink] wrapper that additionally registers the resulting
+ * [Link] with [NavHighlight] under its target [route] -- every top-level nav link goes through
+ * this instead of calling `navLink` directly, so the active-route highlight (see [NavHighlight])
+ * covers it without each call site remembering to register itself.
+ */
+private fun Nav.routedNavLink(
+    route: String,
+    label: String,
+    icon: String,
+): Link = navLink(label, url = "#$route", icon = icon).also { NavHighlight.register(route, it) }
+
+/**
+ * Nav-Highlight-Welle 2026-08-20: [DropDown.ddLink] wrapper that additionally registers the
+ * resulting [Link] with [NavHighlight] under its target [route], AND ties it to the enclosing
+ * dropdown's own header button ([DropDown.button]) so the header itself also lights up when one of
+ * its entries is the active route -- see [NavHighlight] KDoc.
+ */
+private fun DropDown.routedDdLink(
+    route: String,
+    label: String,
+    icon: String,
+): Link = ddLink(label, url = "#$route", icon = icon).also { NavHighlight.register(route, it, button) }
+
 private fun refreshNavbar(navbar: Navbar) {
     navbar.removeAll()
+    NavHighlight.reset()
     // Sprachumschalter-Feature 2026-08-14: the navbar is no longer hidden for anonymous sessions
     // (previously `navbar.hide(); return` here) -- a first-time visitor on the login/registration
     // screens needs the language switcher just as much as an authenticated member does, arguably
@@ -197,8 +223,8 @@ private fun refreshNavbar(navbar: Navbar) {
     // grouped its role-gated entries contiguously by tier, see each dropdown's own comment for
     // the KDoc cross-references the flat-list version carried per link.
     val leftNav: Nav = navbar.nav()
-    leftNav.navLink(tr("Dashboard"), url = "#${Routes.DASHBOARD}", icon = "fas fa-house")
-    leftNav.navLink(tr("Videokonferenz"), url = "#${Routes.CONFERENCE}", icon = "fas fa-video")
+    leftNav.routedNavLink(Routes.DASHBOARD, tr("Dashboard"), icon = "fas fa-house")
+    leftNav.routedNavLink(Routes.CONFERENCE, tr("Videokonferenz"), icon = "fas fa-video")
 
     // requireAuth-tier, unconditional for every authenticated ORGANIZATION member -- see
     // `Routes.CONTRIBUTIONS`/`DOCUMENTS`/`COMMUNICATION`/`DSGVO_RIGHTS` KDoc for the per-route
@@ -217,10 +243,10 @@ private fun refreshNavbar(navbar: Navbar) {
     // wäre eine RPC von einem FRIEND aus weiterhin ein garantiertes 403.
     if (NavVisibility.showsMembershipSection(session.status)) {
         leftNav.dropDown(tr("Mitgliedschaft"), icon = "fas fa-id-card", forNavbar = true) {
-            ddLink(tr("Beiträge"), url = "#${Routes.CONTRIBUTIONS}", icon = "fas fa-coins")
-            ddLink(tr("Dokumente"), url = "#${Routes.DOCUMENTS}", icon = "fas fa-file-lines")
-            ddLink(tr("Kommunikation"), url = "#${Routes.COMMUNICATION}", icon = "fas fa-envelope")
-            ddLink(tr("Meine Daten"), url = "#${Routes.DSGVO_RIGHTS}", icon = "fas fa-shield-halved")
+            routedDdLink(Routes.CONTRIBUTIONS, tr("Beiträge"), icon = "fas fa-coins")
+            routedDdLink(Routes.DOCUMENTS, tr("Dokumente"), icon = "fas fa-file-lines")
+            routedDdLink(Routes.COMMUNICATION, tr("Kommunikation"), icon = "fas fa-envelope")
+            routedDdLink(Routes.DSGVO_RIGHTS, tr("Meine Daten"), icon = "fas fa-shield-halved")
         }
     } else if (NavVisibility.showsDsgvoRights(session.status)) {
         // Welle V1.1.4: ein FRIEND hat kein volles "Mitgliedschaft"-Dropdown (Beiträge/Dokumente/
@@ -228,14 +254,14 @@ private fun refreshNavbar(navbar: Navbar) {
         // erreichbaren Betroffenenrechte-Einstieg, sobald er eigene, potenziell öffentlich
         // indexierte Inhalte erzeugt (Art. 12 Abs. 2 DSGVO) -- siehe Plan Teil 0.7. Einzelner
         // Top-Level-Link statt eines Ein-Eintrag-Dropdowns.
-        leftNav.navLink(tr("Meine Daten"), url = "#${Routes.DSGVO_RIGHTS}", icon = "fas fa-shield-halved")
+        leftNav.routedNavLink(Routes.DSGVO_RIGHTS, tr("Meine Daten"), icon = "fas fa-shield-halved")
     }
     if (NavVisibility.showsSelfGovernance(session.status)) {
         // requireAuth-tier -- see `Routes.COMMITTEES`/`MEETINGS`/`MOTIONS` KDoc.
         leftNav.dropDown(tr("Selbstverwaltung"), icon = "fas fa-people-group", forNavbar = true) {
-            ddLink(tr("Gremien"), url = "#${Routes.COMMITTEES}", icon = "fas fa-people-group")
-            ddLink(tr("Sitzungen"), url = "#${Routes.MEETINGS}", icon = "fas fa-calendar-days")
-            ddLink(tr("Anträge"), url = "#${Routes.MOTIONS}", icon = "fas fa-file-signature")
+            routedDdLink(Routes.COMMITTEES, tr("Gremien"), icon = "fas fa-people-group")
+            routedDdLink(Routes.MEETINGS, tr("Sitzungen"), icon = "fas fa-calendar-days")
+            routedDdLink(Routes.MOTIONS, tr("Anträge"), icon = "fas fa-file-signature")
         }
     }
     if (NavVisibility.showsEconomySection(session.status)) {
@@ -245,12 +271,12 @@ private fun refreshNavbar(navbar: Navbar) {
         // gated INSIDE the screen, not via separate nav entries.
         leftNav.dropDown(tr("Wirtschaft"), icon = "fas fa-coins", forNavbar = true) {
             if (NavVisibility.showsLtrLedger(session.status)) {
-                ddLink(tr("LTR-Konto"), url = "#${Routes.LTR_LEDGER}", icon = "fas fa-wallet")
+                routedDdLink(Routes.LTR_LEDGER, tr("LTR-Konto"), icon = "fas fa-wallet")
             }
             if (NavVisibility.showsMemberOnlyEconomy(session.status)) {
-                ddLink(tr("Crowdfunding"), url = "#${Routes.CROWDFUNDING}", icon = "fas fa-hand-holding-heart")
-                ddLink(tr("Auktion"), url = "#${Routes.AUCTION}", icon = "fas fa-gavel")
-                ddLink(tr("Politiker"), url = "#${Routes.POLITICIANS}", icon = "fas fa-landmark")
+                routedDdLink(Routes.CROWDFUNDING, tr("Crowdfunding"), icon = "fas fa-hand-holding-heart")
+                routedDdLink(Routes.AUCTION, tr("Auktion"), icon = "fas fa-gavel")
+                routedDdLink(Routes.POLITICIANS, tr("Politiker"), icon = "fas fa-landmark")
             }
             // Soziales Netzwerk, Welle V1.1.1 -- see `Routes.SOCIAL_NETWORK` KDoc for the role-gate
             // verification. Placed in "Wirtschaft" (not "Mitgliedschaft"/"Selbstverwaltung") because
@@ -258,7 +284,7 @@ private fun refreshNavbar(navbar: Navbar) {
             // Crowdfunding/Auktion/Politiker above, not a pure membership/self-governance feature.
             // Seit V1.1.4 auch für FRIEND (LTR_ELIGIBLE) sichtbar.
             if (NavVisibility.showsSocialNetwork(session.status)) {
-                ddLink(tr("Soziales Netzwerk"), url = "#${Routes.SOCIAL_NETWORK}", icon = "fas fa-comments")
+                routedDdLink(Routes.SOCIAL_NETWORK, tr("Soziales Netzwerk"), icon = "fas fa-comments")
             }
         }
     }
@@ -268,41 +294,41 @@ private fun refreshNavbar(navbar: Navbar) {
     // `DONORS`/`AUDIT_LOG`/`POSTAL_MAIL`/`PRICE_ORACLE` KDoc for the per-route verification.
     if (AppState.hasRole(AccountRole.TREASURER, AccountRole.BOARD, AccountRole.ADMIN)) {
         leftNav.dropDown(tr("Finanzen"), icon = "fas fa-chart-line", forNavbar = true) {
-            ddLink(tr("Kontenplan & Journal"), url = "#${Routes.LEDGER}", icon = "fas fa-book")
-            ddLink(tr("Finanzberichte"), url = "#${Routes.FINANCIAL_REPORTS}", icon = "fas fa-chart-pie")
-            ddLink(
+            routedDdLink(Routes.LEDGER, tr("Kontenplan & Journal"), icon = "fas fa-book")
+            routedDdLink(Routes.FINANCIAL_REPORTS, tr("Finanzberichte"), icon = "fas fa-chart-pie")
+            routedDdLink(
+                Routes.COMPLIANCE_REPORTS,
                 tr("Gemeinnützigkeits-Berichte"),
-                url = "#${Routes.COMPLIANCE_REPORTS}",
                 icon = "fas fa-scale-balanced",
             )
-            ddLink(tr("Kostenstellen"), url = "#${Routes.COST_CENTERS}", icon = "fas fa-tags")
-            ddLink(tr("Spender"), url = "#${Routes.DONORS}", icon = "fas fa-heart")
-            ddLink(tr("Prüfprotokoll"), url = "#${Routes.AUDIT_LOG}", icon = "fas fa-magnifying-glass")
-            ddLink(tr("Postversand"), url = "#${Routes.POSTAL_MAIL}", icon = "fas fa-envelope-open-text")
-            ddLink(tr("Price-Oracle"), url = "#${Routes.PRICE_ORACLE}", icon = "fas fa-chart-simple")
+            routedDdLink(Routes.COST_CENTERS, tr("Kostenstellen"), icon = "fas fa-tags")
+            routedDdLink(Routes.DONORS, tr("Spender"), icon = "fas fa-heart")
+            routedDdLink(Routes.AUDIT_LOG, tr("Prüfprotokoll"), icon = "fas fa-magnifying-glass")
+            routedDdLink(Routes.POSTAL_MAIL, tr("Postversand"), icon = "fas fa-envelope-open-text")
+            routedDdLink(Routes.PRICE_ORACLE, tr("Price-Oracle"), icon = "fas fa-chart-simple")
         }
     }
     // BOARD/ADMIN-tier -- see `Routes.MEMBERS`/`DSGVO_COMPLIANCE`/`BOARD_MEMBERSHIP` KDoc.
     if (AppState.hasRole(AccountRole.BOARD, AccountRole.ADMIN)) {
         leftNav.dropDown(tr("Verwaltung"), icon = "fas fa-user-gear", forNavbar = true) {
-            ddLink(tr("Mitgliederverwaltung"), url = "#${Routes.MEMBERS}", icon = "fas fa-users-gear")
-            ddLink(tr("DSGVO-Compliance"), url = "#${Routes.DSGVO_COMPLIANCE}", icon = "fas fa-shield-halved")
-            ddLink(
+            routedDdLink(Routes.MEMBERS, tr("Mitgliederverwaltung"), icon = "fas fa-users-gear")
+            routedDdLink(Routes.DSGVO_COMPLIANCE, tr("DSGVO-Compliance"), icon = "fas fa-shield-halved")
+            routedDdLink(
+                Routes.BOARD_MEMBERSHIP,
                 tr("Vorstand & Transparenzregister"),
-                url = "#${Routes.BOARD_MEMBERSHIP}",
                 icon = "fas fa-landmark-flag",
             )
             // Welle V1.1.5 -- siehe `Routes.SOCIAL_MODERATION` KDoc für die Rollen-Verifikation.
-            ddLink(tr("Moderation"), url = "#${Routes.SOCIAL_MODERATION}", icon = "fas fa-flag")
+            routedDdLink(Routes.SOCIAL_MODERATION, tr("Moderation"), icon = "fas fa-flag")
         }
     }
     // ADMIN-only-tier -- see `Routes.BACKUP`/`CONFERENCE_STREAM_DESTINATIONS` KDoc.
     if (AppState.hasRole(AccountRole.ADMIN)) {
         leftNav.dropDown(tr("System"), icon = "fas fa-server", forNavbar = true) {
-            ddLink(tr("Backup & Wiederherstellung"), url = "#${Routes.BACKUP}", icon = "fas fa-database")
-            ddLink(
+            routedDdLink(Routes.BACKUP, tr("Backup & Wiederherstellung"), icon = "fas fa-database")
+            routedDdLink(
+                Routes.CONFERENCE_STREAM_DESTINATIONS,
                 tr("Stream-Ziele"),
-                url = "#${Routes.CONFERENCE_STREAM_DESTINATIONS}",
                 icon = "fas fa-satellite-dish",
             )
         }
@@ -331,6 +357,7 @@ private fun refreshNavbar(navbar: Navbar) {
             navigateTo(Routes.LOGIN)
         }
     }
+    NavHighlight.apply()
 }
 
 /**

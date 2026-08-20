@@ -301,7 +301,11 @@ fun initRouting(pageContainer: SimplePanel) {
      * fine. A real render exception now at least reaches the console and a user-facing toast
      * instead of vanishing.
      */
-    fun show(render: (SimplePanel) -> Unit) {
+    fun show(
+        route: String,
+        render: (SimplePanel) -> Unit,
+    ) {
+        NavHighlight.setActiveRoute(route)
         pageContainer.removeAll()
         try {
             render(pageContainer)
@@ -315,105 +319,127 @@ fun initRouting(pageContainer: SimplePanel) {
         if (AppState.isAuthenticated) {
             routing.navigate(Routes.DASHBOARD)
         } else {
-            show(::renderLoginScreen)
+            show(Routes.LOGIN, ::renderLoginScreen)
         }
     }
     routing.kvOn(Routes.REGISTER) {
         if (AppState.isAuthenticated) {
             routing.navigate(Routes.DASHBOARD)
         } else {
-            show(::renderRegistrationScreen)
+            show(Routes.REGISTER, ::renderRegistrationScreen)
         }
     }
     routing.kvOn(Routes.REGISTER_FRIEND) {
         if (AppState.isAuthenticated) {
             routing.navigate(Routes.DASHBOARD)
         } else {
-            show(::renderFriendRegistrationScreen)
+            show(Routes.REGISTER_FRIEND, ::renderFriendRegistrationScreen)
         }
     }
     routing.kvOn(Routes.DASHBOARD) {
-        requireAuth(routing) { show(::renderDashboardScreen) }
+        requireAuth(routing) { show(Routes.DASHBOARD, ::renderDashboardScreen) }
     }
     routing.kvOn(Routes.MEMBERS) {
-        requireRole(routing, AccountRole.BOARD, AccountRole.ADMIN) { show(::renderMemberAdministrationScreen) }
+        requireRole(routing, AccountRole.BOARD, AccountRole.ADMIN) {
+            show(Routes.MEMBERS, ::renderMemberAdministrationScreen)
+        }
     }
     routing.kvOn(Routes.CONTRIBUTIONS) {
-        requireAuth(routing) { show(::renderContributionsScreen) }
+        requireAuth(routing) { show(Routes.CONTRIBUTIONS, ::renderContributionsScreen) }
     }
     routing.kvOn(Routes.DOCUMENTS) {
-        requireAuth(routing) { show(::renderDocumentsScreen) }
+        requireAuth(routing) { show(Routes.DOCUMENTS, ::renderDocumentsScreen) }
     }
     routing.kvOn(Routes.COMMUNICATION) {
-        requireAuth(routing) { show(::renderCommunicationScreen) }
+        requireAuth(routing) { show(Routes.COMMUNICATION, ::renderCommunicationScreen) }
     }
     routing.kvOn(Routes.COMMITTEES) {
-        requireAuth(routing) { show(::renderCommitteesScreen) }
+        requireAuth(routing) { show(Routes.COMMITTEES, ::renderCommitteesScreen) }
     }
     routing.kvOn(Routes.MEETINGS) {
-        requireAuth(routing) { show(::renderMeetingsScreen) }
+        requireAuth(routing) { show(Routes.MEETINGS, ::renderMeetingsScreen) }
     }
     routing.kvOn(Routes.MOTIONS) {
-        requireAuth(routing) { show(::renderMotionsScreen) }
+        requireAuth(routing) { show(Routes.MOTIONS, ::renderMotionsScreen) }
     }
     routing.kvOn(Routes.LEDGER) {
-        requireRole(routing, AccountRole.TREASURER, AccountRole.BOARD, AccountRole.ADMIN) { show(::renderLedgerScreen) }
+        requireRole(routing, AccountRole.TREASURER, AccountRole.BOARD, AccountRole.ADMIN) {
+            show(Routes.LEDGER, ::renderLedgerScreen)
+        }
     }
     routing.kvOn(Routes.FINANCIAL_REPORTS) {
-        requireRole(routing, AccountRole.TREASURER, AccountRole.BOARD, AccountRole.ADMIN) { show(::renderFinancialReportsScreen) }
+        requireRole(routing, AccountRole.TREASURER, AccountRole.BOARD, AccountRole.ADMIN) {
+            show(Routes.FINANCIAL_REPORTS, ::renderFinancialReportsScreen)
+        }
     }
     routing.kvOn(Routes.COMPLIANCE_REPORTS) {
         requireRole(routing, AccountRole.TREASURER, AccountRole.BOARD, AccountRole.ADMIN) {
-            show(::renderNonprofitComplianceReportsScreen)
+            show(Routes.COMPLIANCE_REPORTS, ::renderNonprofitComplianceReportsScreen)
         }
     }
     routing.kvOn(Routes.COST_CENTERS) {
-        requireRole(routing, AccountRole.TREASURER, AccountRole.BOARD, AccountRole.ADMIN) { show(::renderCostCentersScreen) }
+        requireRole(routing, AccountRole.TREASURER, AccountRole.BOARD, AccountRole.ADMIN) {
+            show(Routes.COST_CENTERS, ::renderCostCentersScreen)
+        }
     }
     routing.kvOn(Routes.DONORS) {
-        requireRole(routing, AccountRole.TREASURER, AccountRole.BOARD, AccountRole.ADMIN) { show(::renderDonorsScreen) }
+        requireRole(routing, AccountRole.TREASURER, AccountRole.BOARD, AccountRole.ADMIN) {
+            show(Routes.DONORS, ::renderDonorsScreen)
+        }
     }
     routing.kvOn(Routes.AUDIT_LOG) {
-        requireRole(routing, AccountRole.TREASURER, AccountRole.BOARD, AccountRole.ADMIN) { show(::renderAuditLogScreen) }
+        requireRole(routing, AccountRole.TREASURER, AccountRole.BOARD, AccountRole.ADMIN) {
+            show(Routes.AUDIT_LOG, ::renderAuditLogScreen)
+        }
     }
     routing.kvOn(Routes.BACKUP) {
-        requireRole(routing, AccountRole.ADMIN) { show(::renderBackupScreen) }
+        requireRole(routing, AccountRole.ADMIN) { show(Routes.BACKUP, ::renderBackupScreen) }
     }
     routing.kvOn(Routes.DSGVO_COMPLIANCE) {
-        requireRole(routing, AccountRole.BOARD, AccountRole.ADMIN) { show(::renderDsgvoComplianceScreen) }
+        requireRole(routing, AccountRole.BOARD, AccountRole.ADMIN) {
+            show(Routes.DSGVO_COMPLIANCE, ::renderDsgvoComplianceScreen)
+        }
     }
     routing.kvOn(Routes.DSGVO_RIGHTS) {
-        requireAuth(routing) { show(::renderDsgvoRightsScreen) }
+        requireAuth(routing) { show(Routes.DSGVO_RIGHTS, ::renderDsgvoRightsScreen) }
     }
     routing.kvOn(Routes.BOARD_MEMBERSHIP) {
-        requireRole(routing, AccountRole.BOARD, AccountRole.ADMIN) { show(::renderBoardMembershipScreen) }
+        requireRole(routing, AccountRole.BOARD, AccountRole.ADMIN) {
+            show(Routes.BOARD_MEMBERSHIP, ::renderBoardMembershipScreen)
+        }
     }
     routing.kvOn(Routes.POSTAL_MAIL) {
-        requireRole(routing, AccountRole.TREASURER, AccountRole.BOARD, AccountRole.ADMIN) { show(::renderPostalMailScreen) }
+        requireRole(routing, AccountRole.TREASURER, AccountRole.BOARD, AccountRole.ADMIN) {
+            show(Routes.POSTAL_MAIL, ::renderPostalMailScreen)
+        }
     }
     routing.kvOn(Routes.LTR_LEDGER) {
-        requireAuth(routing) { show(::renderLtrLedgerScreen) }
+        requireAuth(routing) { show(Routes.LTR_LEDGER, ::renderLtrLedgerScreen) }
     }
     routing.kvOn(Routes.CROWDFUNDING) {
-        requireAuth(routing) { show(::renderCrowdfundingScreen) }
+        requireAuth(routing) { show(Routes.CROWDFUNDING, ::renderCrowdfundingScreen) }
     }
     routing.kvOn(Routes.AUCTION) {
-        requireAuth(routing) { show(::renderAuctionScreen) }
+        requireAuth(routing) { show(Routes.AUCTION, ::renderAuctionScreen) }
     }
     routing.kvOn(Routes.POLITICIANS) {
-        requireAuth(routing) { show(::renderPoliticianScreen) }
+        requireAuth(routing) { show(Routes.POLITICIANS, ::renderPoliticianScreen) }
     }
     routing.kvOn(Routes.PRICE_ORACLE) {
-        requireRole(routing, AccountRole.TREASURER, AccountRole.BOARD, AccountRole.ADMIN) { show(::renderPriceOracleScreen) }
+        requireRole(routing, AccountRole.TREASURER, AccountRole.BOARD, AccountRole.ADMIN) {
+            show(Routes.PRICE_ORACLE, ::renderPriceOracleScreen)
+        }
     }
     routing.kvOn(Routes.CONFERENCE) {
-        requireAuth(routing) { show(::renderConferenceScreen) }
+        requireAuth(routing) { show(Routes.CONFERENCE, ::renderConferenceScreen) }
     }
     routing.kvOn(Routes.CONFERENCE_STREAM_DESTINATIONS) {
-        requireRole(routing, AccountRole.ADMIN) { show(::renderConferenceStreamDestinationsScreen) }
+        requireRole(routing, AccountRole.ADMIN) {
+            show(Routes.CONFERENCE_STREAM_DESTINATIONS, ::renderConferenceStreamDestinationsScreen)
+        }
     }
     routing.kvOn(Routes.SOCIAL_NETWORK) {
-        requireAuth(routing) { show(::renderSocialNetworkScreen) }
+        requireAuth(routing) { show(Routes.SOCIAL_NETWORK, ::renderSocialNetworkScreen) }
     }
     // Welle V1.1.2: `:id` is read off Navigo's own `Match.data` object -- `kvOn`'s handler is typed
     // `Any` (an external/dynamic Navigo `Match`), so this is the one unavoidable `asDynamic()` cast
@@ -424,12 +450,14 @@ fun initRouting(pageContainer: SimplePanel) {
             if (id.isNullOrBlank()) {
                 routing.navigate(Routes.SOCIAL_NETWORK)
             } else {
-                show { container -> renderSocialThreadScreen(container, id) }
+                show(Routes.SOCIAL_NETWORK_POST) { container -> renderSocialThreadScreen(container, id) }
             }
         }
     }
     routing.kvOn(Routes.SOCIAL_MODERATION) {
-        requireRole(routing, AccountRole.BOARD, AccountRole.ADMIN) { show(::renderSocialModerationScreen) }
+        requireRole(routing, AccountRole.BOARD, AccountRole.ADMIN) {
+            show(Routes.SOCIAL_MODERATION, ::renderSocialModerationScreen)
+        }
     }
     routing.kvOn("/") {
         routing.navigate(if (AppState.isAuthenticated) Routes.DASHBOARD else Routes.LOGIN)

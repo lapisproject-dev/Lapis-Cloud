@@ -81,6 +81,7 @@ body {
 .lapis-navbar .nav-link,
 .lapis-navbar .dropdown-toggle {
   color: var(--lapis-nav-text) !important;
+  border-bottom: 2px solid transparent; /* reserves the 2px so .active below never grows the navbar */
 }
 
 .lapis-navbar .nav-link:hover,
@@ -91,7 +92,9 @@ body {
 }
 
 /* Active nav item: the one place gold does chrome duty, per Jobs' "gold lives on black, with
-   exactly one job" ruling. */
+   exactly one job" ruling. Also fires on a dropdown's own header button: `DropDownButton` renders
+   with BOTH `dropdown-toggle` and `nav-link` when `forNavbar = true` (see NavHighlight.kt), so no
+   separate `.dropdown-toggle.active` selector is needed here. */
 .lapis-navbar .nav-link.active {
   color: var(--lapis-fleck) !important;
   border-bottom: 2px solid var(--lapis-fleck);
@@ -110,6 +113,17 @@ body {
 .lapis-navbar .dropdown-item:hover,
 .lapis-navbar .dropdown-item:focus {
   background-color: var(--lapis-accent-soft);
+}
+
+/* Active dropdown entry AND the language switcher's active-language item (both use plain
+   `.active`, see App.kt's `addLanguageSwitcher`/NavHighlight.kt) -- light accent fill + a gold
+   left edge, not Bootstrap's default blue-fill/white-text (Kare: color, never text-on-color, for a
+   list-of-destinations item). Declared after :hover/:focus above so it wins at equal specificity. */
+.lapis-navbar .dropdown-item.active,
+.lapis-navbar .dropdown-item:active {
+  background-color: var(--lapis-accent-soft);
+  color: var(--lapis-text);
+  box-shadow: inset 3px 0 0 var(--lapis-fleck-ink);
 }
 
 .lapis-brand-mark {
