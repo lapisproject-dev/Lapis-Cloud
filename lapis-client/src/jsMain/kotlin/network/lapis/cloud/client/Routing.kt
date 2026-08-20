@@ -261,6 +261,30 @@ object Routes {
     // -- die feinere ADMIN-only-Schwelle für Löschanträge wird IN-SCREEN durchgesetzt, siehe
     // `SocialModerationScreen.kt`, nicht durch eine zweite Route).
     const val SOCIAL_MODERATION = "/social-moderation"
+
+    // V1.2.2 SEPA-Client-UI wave -- Plan §3 "Routen (Routing.kt)". Route-level guard is
+    // TREASURER/BOARD/ADMIN, verified against `SepaService.kt`'s `requireSepaReadable()` call sites
+    // for `listMandates`/`getMyMandate`-adjacent read paths (Plan §1 matrix) -- the SAME tier as
+    // [LEDGER]/[COST_CENTERS]/[DONORS]. The narrower TREASURER/ADMIN write tier
+    // (`grantMandate`-on-behalf/`revokeMandate`-of-others) is gated IN-SCREEN via
+    // `SepaAuthzUi.canGrantOnBehalf`/`canTreasuryAct`, never a second route -- exactly like
+    // [LEDGER]/[COST_CENTERS]/[DONORS]'s own in-screen `canManage` split.
+    const val SEPA_MANDATES = "/sepa-mandates"
+
+    // V1.2.2 SEPA-Client-UI wave -- same TREASURER/BOARD/ADMIN route-level guard as
+    // [SEPA_MANDATES], verified against `requireSepaReadable()`'s tier for
+    // `listBatches`/`getBatch`/`listReturns`. The narrower TREASURER/ADMIN tier
+    // (`previewDebitBatch`/`createDebitBatch`/`notifyBatch`/`generateBatchFile`/
+    // `markBatchSubmitted`/`cancelBatch`/`settleBatch`/`recordReturn`, all `requireSepaUsable()`)
+    // is gated IN-SCREEN via `SepaAuthzUi.canTreasuryAct`/`canRecordReturn`, not a second route.
+    const val SEPA_BATCHES = "/sepa-batches"
+
+    // V1.2.2 SEPA-Client-UI wave -- ADMIN-only, verified against `SepaService.kt`:
+    // `getSepaComplianceDisclaimer`/`enableSepaDebit`/`disableSepaDebit`/`getSepaSettings`/
+    // `getSepaCreditorSettings`/`updateSepaCreditorSettings` all call
+    // `current.requireRole(AccountRole.ADMIN)`, uniformly -- same route-level ADMIN-only posture as
+    // [BACKUP]/[CONFERENCE_STREAM_DESTINATIONS], the only other ADMIN-only routes in this client.
+    const val SEPA_SETTINGS = "/sepa-settings"
 }
 
 private var appRouting: Routing? = null
@@ -457,6 +481,21 @@ fun initRouting(pageContainer: SimplePanel) {
     routing.kvOn(Routes.SOCIAL_MODERATION) {
         requireRole(routing, AccountRole.BOARD, AccountRole.ADMIN) {
             show(Routes.SOCIAL_MODERATION, ::renderSocialModerationScreen)
+        }
+    }
+    routing.kvOn(Routes.SEPA_MANDATES) {
+        requireRole(routing, AccountRole.TREASURER, AccountRole.BOARD, AccountRole.ADMIN) {
+            show(Routes.SEPA_MANDATES, ::renderSepaMandatesScreen)
+        }
+    }
+    routing.kvOn(Routes.SEPA_BATCHES) {
+        requireRole(routing, AccountRole.TREASURER, AccountRole.BOARD, AccountRole.ADMIN) {
+            show(Routes.SEPA_BATCHES, ::renderSepaBatchesScreen)
+        }
+    }
+    routing.kvOn(Routes.SEPA_SETTINGS) {
+        requireRole(routing, AccountRole.ADMIN) {
+            show(Routes.SEPA_SETTINGS, ::renderSepaSettingsScreen)
         }
     }
     routing.kvOn("/") {

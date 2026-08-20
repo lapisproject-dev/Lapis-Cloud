@@ -180,4 +180,100 @@ class ValidationTest {
     fun isPositiveDecimal_rejectsNaNLiteral() {
         assertFalse(Validation.isPositiveDecimal("NaN"))
     }
+
+    // ── V1.2.2 SEPA-Client-UI wave: looksLikeIban/looksLikeBic/formatIbanGroups ────────────────────
+
+    @Test
+    fun looksLikeIban_acceptsValidGermanIban() {
+        assertTrue(Validation.looksLikeIban("DE89370400440532013000"))
+    }
+
+    @Test
+    fun looksLikeIban_acceptsValidGermanIbanGroupedWithSpaces() {
+        assertTrue(Validation.looksLikeIban("DE89 3704 0044 0532 0130 00"))
+    }
+
+    @Test
+    fun looksLikeIban_acceptsValidGermanIbanInLowercase() {
+        assertTrue(Validation.looksLikeIban("de89370400440532013000"))
+    }
+
+    @Test
+    fun looksLikeIban_acceptsValidAustrianIban() {
+        assertTrue(Validation.looksLikeIban("AT611904300234573201"))
+    }
+
+    @Test
+    fun looksLikeIban_acceptsValidDutchIban() {
+        assertTrue(Validation.looksLikeIban("NL91ABNA0417164300"))
+    }
+
+    @Test
+    fun looksLikeIban_rejectsBrokenCheckDigit() {
+        // Last digit of a valid IBAN flipped -- shape still matches, mod-97 check digit fails.
+        assertFalse(Validation.looksLikeIban("DE89370400440532013001"))
+    }
+
+    @Test
+    fun looksLikeIban_rejectsBlank() {
+        assertFalse(Validation.looksLikeIban(""))
+    }
+
+    @Test
+    fun looksLikeIban_rejectsTooShort() {
+        assertFalse(Validation.looksLikeIban("DE89"))
+    }
+
+    @Test
+    fun looksLikeIban_rejectsTooLong() {
+        assertFalse(Validation.looksLikeIban("DE89370400440532013000123456789012"))
+    }
+
+    @Test
+    fun looksLikeIban_rejectsSpecialCharacters() {
+        assertFalse(Validation.looksLikeIban("DE89-3704-0044-0532-0130-00"))
+    }
+
+    @Test
+    fun looksLikeIban_rejectsDigitPrefixInsteadOfCountryCode() {
+        assertFalse(Validation.looksLikeIban("1234DE370400440532013000"))
+    }
+
+    @Test
+    fun looksLikeBic_acceptsElevenCharacterBic() {
+        assertTrue(Validation.looksLikeBic("MARKDEF1100"))
+    }
+
+    @Test
+    fun looksLikeBic_acceptsEightCharacterBic() {
+        assertTrue(Validation.looksLikeBic("MARKDEFF"))
+    }
+
+    @Test
+    fun looksLikeBic_rejectsSevenCharacters() {
+        assertFalse(Validation.looksLikeBic("MARKDEF"))
+    }
+
+    @Test
+    fun looksLikeBic_acceptsLowercaseAfterUppercasing() {
+        assertTrue(Validation.looksLikeBic("markdeff"))
+    }
+
+    @Test
+    fun formatIbanGroups_groupsInFours() {
+        assertEquals("DE89 3704 0044 0532 0130 00", Validation.formatIbanGroups("DE89370400440532013000"))
+    }
+
+    @Test
+    fun formatIbanGroups_isIdempotentOnAlreadyGroupedInput() {
+        val once = Validation.formatIbanGroups("DE89370400440532013000")
+        val twice = Validation.formatIbanGroups(once)
+        assertEquals(once, twice)
+    }
+
+    @Test
+    fun formatIbanGroups_doesNotChangeTheUnderlyingCharacterSequence() {
+        val raw = "DE89370400440532013000"
+        assertEquals(raw, Validation.formatIbanGroups(raw).replace(" ", ""))
+    }
 }

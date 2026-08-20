@@ -98,6 +98,62 @@ object Validation {
      */
     fun looksLikeRoomId(value: String): Boolean =
         Regex("^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$").matches(value.trim())
+
+    /**
+     * V1.2.2 SEPA-Client-UI wave -- loose mirror of
+     * `network.lapis.cloud.server.payment.sepa.IbanValidator.isValid`, same "loose mirror, not the
+     * security boundary" posture as every other function in this object. Deliberately does NOT
+     * port `IbanValidator.SEPA_COUNTRIES` (the closed country allowlist) -- only the generic
+     * ISO-13616 shape (2 letters, 2 check digits, 11-30 alphanumeric BBAN characters) plus the
+     * mod-97-10 check-digit algorithm, ported verbatim from `IbanValidator.mod97Check` (iterative,
+     * never a single giant `BigInteger`/`Long` -- a 34-character IBAN expands past 60 decimal
+     * digits). Whitespace is stripped and the value uppercased before either check, mirroring how
+     * [formatIbanGroups] and the server's own `IbanValidator.normalize` both treat a
+     * human-typed/copy-pasted IBAN.
+     */
+    fun looksLikeIban(value: String): Boolean {
+        val normalized =
+            value
+                .trim()
+                .replace(" ", "")
+                .replace("\t", "")
+                .uppercase()
+        if (!Regex("^[A-Z]{2}[0-9]{2}[A-Z0-9]{11,30}$").matches(normalized)) return false
+        return ibanMod97Check(normalized)
+    }
+
+    private fun ibanMod97Check(iban: String): Boolean {
+        val rearranged = iban.substring(4) + iban.substring(0, 4)
+        var remainder = 0
+        for (ch in rearranged) {
+            val value = if (ch in '0'..'9') (ch - '0') else (ch - 'A' + 10)
+            if (value < 10) {
+                remainder = (remainder * 10 + value) % 97
+            } else {
+                remainder = (remainder * 10 + value / 10) % 97
+                remainder = (remainder * 10 + value % 10) % 97
+            }
+        }
+        return remainder == 1
+    }
+
+    /**
+     * V1.2.2 SEPA-Client-UI wave -- loose "looks like a BIC/SWIFT code" shape check (8 or 11
+     * characters: 4-letter bank code, 2-letter country code, 2-character location code, optional
+     * 3-character branch code). Uppercased before matching, so a lowercase-typed BIC is accepted
+     * exactly like [looksLikeIban] accepts a lowercase-typed IBAN -- the server is still the real
+     * validator, this is only an immediate-feedback UX check.
+     */
+    fun looksLikeBic(value: String): Boolean = Regex("^[A-Z]{6}[A-Z0-9]{2}([A-Z0-9]{3})?$").matches(value.trim().uppercase())
+
+    /**
+     * V1.2.2 SEPA-Client-UI wave, Stolperfalle S-15: a pure, read-only DISPLAY transform, never
+     * fed back into an input field's own value (see [SepaMandateSection] -- the echo is a separate,
+     * read-only line, checked on blur/submit, never `onInput`). Strips all existing whitespace
+     * first, then re-groups in fours -- idempotent regardless of whether [value] already carries
+     * (correct or incorrect) spacing.
+     */
+    fun formatIbanGroups(value: String): String = value.replace(" ", "").chunked(4).joinToString(" ")
 }
 
 /**

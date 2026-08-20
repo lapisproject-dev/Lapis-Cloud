@@ -306,6 +306,10 @@ private fun refreshNavbar(navbar: Navbar) {
             routedDdLink(Routes.AUDIT_LOG, tr("Prüfprotokoll"), icon = "fas fa-magnifying-glass")
             routedDdLink(Routes.POSTAL_MAIL, tr("Postversand"), icon = "fas fa-envelope-open-text")
             routedDdLink(Routes.PRICE_ORACLE, tr("Price-Oracle"), icon = "fas fa-chart-simple")
+            // V1.2.2 SEPA-Client-UI wave -- see Routes.SEPA_MANDATES/SEPA_BATCHES KDoc for the
+            // TREASURER/BOARD/ADMIN role-gate verification.
+            routedDdLink(Routes.SEPA_MANDATES, tr("SEPA-Mandate"), icon = "fas fa-file-contract")
+            routedDdLink(Routes.SEPA_BATCHES, tr("SEPA-Lastschrift"), icon = "fas fa-money-check-dollar")
         }
     }
     // BOARD/ADMIN-tier -- see `Routes.MEMBERS`/`DSGVO_COMPLIANCE`/`BOARD_MEMBERSHIP` KDoc.
@@ -331,6 +335,9 @@ private fun refreshNavbar(navbar: Navbar) {
                 tr("Stream-Ziele"),
                 icon = "fas fa-satellite-dish",
             )
+            // V1.2.2 SEPA-Client-UI wave -- see Routes.SEPA_SETTINGS KDoc for the ADMIN-only
+            // role-gate verification.
+            routedDdLink(Routes.SEPA_SETTINGS, tr("SEPA-Konfiguration"), icon = "fas fa-building-columns")
         }
     }
 

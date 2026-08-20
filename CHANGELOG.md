@@ -431,6 +431,42 @@ der achtwöchigen Rückgabefrist über die **bestehende, unveränderte** `Contri
   ans Ende angehängt — `DUNNING_NOTICE`/`PAYMENT_TRANSACTION` bleiben bewusst unbenutzt (kein
   Schreiber in dieser Welle).
 
+**SEPA-Client-UI, Folge-Session — schließt den in der Backend-Welle bewusst offen gelassenen
+Frontend-Scope-Cut**
+
+Der komplette KVision-Client-Pfad zum oben beschriebenen Backend, in derselben Rollen-Matrix
+(TREASURER/BOARD/ADMIN je nach Aktion, siehe `SepaAuthzUi`-KDoc).
+
+- **`SepaMandatesScreen`** (`/sepa-mandates`, TREASURER/BOARD/ADMIN) — Mandatsliste, On-Behalf-
+  Erteilung (nur TREASURER/ADMIN, [SepaAuthzUi.canGrantOnBehalf]), Widerruf.
+- **`SepaBatchesScreen`** (`/sepa-batches`, TREASURER/BOARD/ADMIN) — Lauf-Liste mit Paginierung,
+  Vorschau→Anlegen (K7), Lauf-Detailansicht mit Lebenszyklus-Aktionen
+  (Ankündigen/Dateierzeugung/Einreichen/Abrechnen/Stornieren je nach Status,
+  [SepaAuthzUi.nextBatchAction]), Rücklastschriften-Erfassung. `SelectedBatchState` cached die
+  jüngsten `failedItemIds` aus einer `settleBatch`-Antwort pro Lauf, weil `getBatch()` dieses Feld
+  laut eigenem KDoc grundsätzlich leer zurückgibt (siehe Kommentar "S-5" in der Klasse selbst).
+- **Mandats-Kachel auf `ContributionsScreen`** (`renderSepaMandateSection`) — Plan §4.1/K1: für ein
+  MEMBER ohne aktives SEPA rendert die Sektion bewusst gar nichts (kein Platzhalter), für
+  TREASURER/BOARD/ADMIN im selben Zustand eine erklärende Zeile.
+- **`SepaSettingsScreen`** (`/sepa-settings`, ADMIN-only) — Gläubiger-Konfiguration, Feature-Schalter,
+  Rechtshinweis-Bestätigung; Struktur identisch zu `AuctionScreen`s Admin-Sektion/Disclaimer-Modal.
+- **Routing/Navbar** — drei neue Routen (`Routes.SEPA_MANDATES`/`SEPA_BATCHES`/`SEPA_SETTINGS`),
+  je nach Rolle gated; Navbar-Eintrag analog zu den übrigen Zahlungsverkehr-Screens.
+- **`SepaLabels.kt`** — deutsche Label-/Badge-Farbtabellen für jeden SEPA-Enum, exaktes
+  `AccountingLabels.kt`/`ComplianceLabels.kt`-Muster (`when` über `entries`, `gettext(...)`).
+- **`SepaGuard.kt`/`SepaAuthzUi.kt`/`SepaHttp.kt`** — SEPA-spezifische Fehlermeldungs-Übersetzung
+  (`ConflictException` trägt serverseitig nie eine Nachricht, siehe Klassen-KDoc "S-1/S-2"),
+  clientseitige Rollen-Spiegelung der drei server-durchgesetzten Tiers (reine UX, keine
+  Sicherheitsgrenze), URL-Builder für den einen rohen Datei-Download-Endpunkt
+  (`SEPA_FILE_DOWNLOAD_ROLES`, TREASURER/ADMIN — bewusst ohne BOARD, Security Round 1 MAJOR-1).
+- **Zwei Review-Round-2-Fixes vor dem ersten Commit auf `master`**: `settleBatch`s eigene Antwort
+  wird jetzt direkt zurück in `showDetail`/`SelectedBatchState` gespeist statt über einen
+  informationslosen `getBatch()`-Refetch verworfen zu werden (MAJOR — vorher waren die
+  Fehler-Banner/-Marker toter Code); `SelectedBatchState.apply` unterscheidet seitdem per
+  `fromSettle`-Flag zwischen einer autoritativen `settleBatch`-Antwort (überschreibt den Cache auch
+  mit einer leeren Liste) und einem uninformativen `getBatch()`-Refetch (MINOR — sonst blieb nach
+  einem vollständig erfolgreichen Zweitversuch das alte Fehler-Banner stehen).
+
 ### Deviations from the "sepa_v1.2.2_plan.md"-Implementierungsplan
 
 - **`SepaVorabankuendigungPdfGenerator` und der zweite Datei-Download-Pfad
@@ -452,12 +488,13 @@ der achtwöchigen Rückgabefrist über die **bestehende, unveränderte** `Contri
   Versions-Ablehnung. **Bekannte Lücke, kein stillschweigendes Weglassen** — Folgeauftrag: XSD
   beschaffen, lizenzprüfen, unter `lapis-server/src/test/resources/sepa/pain.008.001.08.xsd`
   einchecken, Suite auf echte `javax.xml.validation.SchemaFactory`-Validierung umstellen.
-- **Kein KVision-Frontend** (`SepaMandateScreen`/`SepaBatchScreen`/`SepaReturnScreen`, Mandats-Kachel
-  auf `ContributionsScreen`, Routing, Navbar-Eintrag, `SepaLabels.kt`, i18n-Extraktion über alle
-  sieben Sprachen) und **kein `SepaMandateJourneyTest`** (E2E). Der komplette Backend-Pfad
-  (Mandate/Läufe/Dateierzeugung/Rückläufer/Poller/Abrechnung) ist über RPC vollständig funktionsfähig
-  und getestet; ohne UI ist er nur über direkte RPC-Aufrufe (oder eine spätere Welle) bedienbar.
-  Größter bewusster Scope-Cut dieser Implementierungs-Session — eigener Folgeauftrag.
+- **Kein `SepaMandateJourneyTest`** (E2E). Das KVision-Frontend selbst (`SepaMandatesScreen`/
+  `SepaBatchesScreen`/`SepaSettingsScreen`, Mandats-Kachel auf `ContributionsScreen`, Routing,
+  Navbar-Eintrag, `SepaLabels.kt`) wurde in einer eigenen Folge-Session nachgezogen (siehe
+  „Added — SEPA-Client-UI" unten) — verbleibender Scope-Cut ist nur noch die durchgehende
+  End-to-End-Journey-Testsuite; der komplette Backend-Pfad
+  (Mandate/Läufe/Dateierzeugung/Rückläufer/Poller/Abrechnung) sowie die Client-UI sind einzeln
+  unit-getestet.
 - **`SepaService`s Rollen-Konstanten und `IbanValidator`/`SepaCharacterSet`/etc. wurden nicht gegen
   die im Plan skizzierten exakten Codezeilen abgeglichen**, sondern nach demselben Muster wie die
   übrigen Zahlungsverkehr-Dateien neu geschrieben — inhaltlich deckungsgleich mit dem Plan, aber
@@ -465,8 +502,9 @@ der achtwöchigen Rückgabefrist über die **bestehende, unveränderte** `Contri
 
 ### Known limitations (tracked for later versions)
 
-- Siehe "Deviations" oben — PDF-Vorabankündigung, XSD-Validierung und Frontend/E2E sind die drei
-  größten bekannten Lücken dieser Welle.
+- Siehe "Deviations" oben — PDF-Vorabankündigung, XSD-Validierung und die `SepaMandateJourneyTest`-
+  E2E-Suite sind die größten bekannten Lücken dieser Welle. Das KVision-Frontend selbst ist seit der
+  Client-UI-Folge-Session (siehe „Added — SEPA-Client-UI" oben) keine Lücke mehr.
 - `sepa_return.return_fee` wird erfasst, nicht gebucht (Entscheidungspunkt D-13) — die Schatzmeisterin
   bucht ein Rücklastschriftentgelt weiterhin über den bestehenden `LedgerScreen`.
 - Postversand der Vorabankündigung über Letterxpress bleibt V1.2.3 vorbehalten (teilt sich die

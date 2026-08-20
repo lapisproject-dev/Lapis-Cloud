@@ -141,7 +141,16 @@ data class SepaDebitBatchDto(
      * amount increase (E-7). `null` while status == DRAFT.
      */
     val requiredNoticeDays: Int?,
-    /** `notified_at.date + required_notice_days` -- the file may be generated at the earliest on this day. */
+    /**
+     * `notified_at.date + required_notice_days`. NOT a calendar-time gate -- `generateBatchFile`
+     * (`SepaService.prepareBatchFileGeneration`) requires this batch's OWN [requestedCollectionDate]
+     * to be on or after this date, not the calendar date the check happens to run on. Since
+     * [requestedCollectionDate] is fixed once the batch is NOTIFIED, whether generation is possible
+     * is a permanent, timeless property of the batch -- it never "becomes" possible by waiting for a
+     * clock to advance past this date (Review Round 2, 2026-08-20, MAJOR -- see
+     * `SepaAuthzUi.nextBatchAction` KDoc for the client-side bug this earlier, imprecise phrasing
+     * caused).
+     */
     val fileGenerationAllowedFrom: LocalDate?,
     val generatedAt: LocalDateTime?,
     val generatedDocumentId: String?,

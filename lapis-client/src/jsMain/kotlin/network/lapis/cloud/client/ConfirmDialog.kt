@@ -1,5 +1,6 @@
 package network.lapis.cloud.client
 
+import io.kvision.form.text.text
 import io.kvision.html.Button
 import io.kvision.html.ButtonStyle
 import io.kvision.html.div
@@ -35,5 +36,53 @@ fun confirmDialog(
             }
         },
     )
+    modal.show()
+}
+
+/**
+ * V1.2.2 SEPA-Client-UI wave -- like [confirmDialog], but additionally collects a free-text reason
+ * (e.g. mandate revocation, batch cancellation). [dangerNote], when given, renders as its own
+ * bold/red line ABOVE [message] -- same "name exactly what freezes/breaks" grammar
+ * `AuctionScreen.auctionDisableConfirmDialog` already established, not a generic warning icon.
+ *
+ * Raskin-Auflage (dieser Wellen-Plan §3): der Bestätigen-Knopf sitzt NICHT an der Stelle des
+ * Auslösers -- Modal-Footer, `SECONDARY` links ("Abbrechen"), `DANGER` rechts ([confirmLabel]).
+ * When [reasonRequired] is `true`, that button starts (and stays) `disabled` while the reason field
+ * is blank -- [onConfirm] is only ever invoked with a non-blank, trimmed reason in that case.
+ */
+fun confirmWithReasonDialog(
+    title: String,
+    message: String,
+    dangerNote: String? = null,
+    reasonLabel: String,
+    reasonRequired: Boolean,
+    confirmLabel: String = tr("Bestätigen"),
+    onConfirm: (String?) -> Unit,
+) {
+    val modal = Modal(caption = title)
+    dangerNote?.let { modal.div(it) { addCssClasses("fw-bold text-danger") } }
+    modal.div(message)
+    val reasonInput = modal.text(label = reasonLabel)
+
+    val cancelButton = Button(tr("Abbrechen"), style = ButtonStyle.SECONDARY).apply { onClick { modal.hide() } }
+    val confirmButton =
+        Button(confirmLabel, style = ButtonStyle.DANGER).apply {
+            disabled = reasonRequired
+            onClick {
+                val reason = reasonInput.value?.trim()?.takeIf { it.isNotBlank() }
+                if (reasonRequired && reason == null) return@onClick
+                modal.hide()
+                onConfirm(reason)
+            }
+        }
+    if (reasonRequired) {
+        reasonInput.subscribe { value ->
+            confirmButton.disabled = value?.trim().isNullOrBlank()
+        }
+    }
+    // Raskin-Auflage: Abbrechen links, die eigentliche (rote) Aktion rechts -- kein Knopf an der
+    // Stelle des Auslösers, unabhängig davon, wo im Bildschirm dieses Modal geöffnet wurde.
+    modal.addButton(cancelButton)
+    modal.addButton(confirmButton)
     modal.show()
 }

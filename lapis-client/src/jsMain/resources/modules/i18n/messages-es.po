@@ -276,6 +276,11 @@ msgstr "%1 (invitado)"
 msgid "%1 (Sie)"
 msgstr "%1 (usted)"
 
+#: src/jsMain/kotlin/network/lapis/cloud/client/SepaMandateSection.kt:124
+msgid "%1 am %2 von IBAN %3 (Mandatsreferenz %4, Gläubiger-ID %5)"
+msgstr ""
+"%1 el %2 desde el IBAN %3 (referencia del mandato %4, ID de acreedor %5)"
+
 #: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:513
 msgid "%1 an %2 gutgeschrieben."
 msgstr "%1 abonado a %2."
@@ -351,6 +356,18 @@ msgstr ""
 "registradas en el sistema de los miembros seleccionados. Si a una sola "
 "persona le falta la dirección completa, se rechaza todo el envío -- no hay "
 "envío parcial."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/SepaBatchesScreen.kt:537
+msgid ""
+"%1 Positionen konnten nicht gebucht werden -- erneut versuchen mit "
+"\"Abrechnen\"."
+msgstr ""
+"No se pudieron contabilizar %1 posiciones -- vuelva a intentarlo con "
+"\"Liquidar\"."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/SepaBatchesScreen.kt:619
+msgid "%1 Positionen konnten nicht gebucht werden."
+msgstr "No se pudieron contabilizar %1 posiciones."
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/PriceOracleScreen.kt:206
 msgid "%1 Quellen"
@@ -533,12 +550,20 @@ msgstr "Cancelar"
 msgid "Abgegeben"
 msgstr "Emitido"
 
+#: src/jsMain/kotlin/network/lapis/cloud/client/SepaLabels.kt:28
+msgid "Abgelaufen"
+msgstr "Caducado"
+
 #: src/jsMain/kotlin/network/lapis/cloud/client/ComplianceLabels.kt:291
 #: src/jsMain/kotlin/network/lapis/cloud/client/CrowdfundingScreen.kt:589
 #: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:484
 #: src/jsMain/kotlin/network/lapis/cloud/client/MemberStatusLabels.kt:23
 msgid "Abgelehnt"
 msgstr "Rechazado"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/SepaBatchesScreen.kt:471
+msgid "Abgerechnet"
+msgstr "Liquidado"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/ComplianceLabels.kt:187
 #: src/jsMain/kotlin/network/lapis/cloud/client/ComplianceLabels.kt:207
@@ -592,6 +617,14 @@ msgstr "Suscribirse"
 msgid "Abonniert seit %1"
 msgstr "Suscrito desde %1"
 
+#: src/jsMain/kotlin/network/lapis/cloud/client/SepaLabels.kt:61
+msgid "Abrechenbar"
+msgstr "Liquidable"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/SepaBatchesScreen.kt:609
+msgid "Abrechnen"
+msgstr "Liquidar"
+
 #: src/jsMain/kotlin/network/lapis/cloud/client/MeetingsScreen.kt:374
 #: src/jsMain/kotlin/network/lapis/cloud/client/MeetingsScreen.kt:379
 msgid "Absagen"
@@ -633,6 +666,10 @@ msgstr "Actor: %1 · Miembro afectado: %2"
 #: src/jsMain/kotlin/network/lapis/cloud/client/ContributionsScreen.kt:119
 msgid "aktiv"
 msgstr "activo"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/SepaMandatesScreen.kt:92
+msgid "Aktionen"
+msgstr "Acciones"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/CommitteesScreen.kt:118
 #: src/jsMain/kotlin/network/lapis/cloud/client/CommitteesScreen.kt:157
@@ -758,6 +795,10 @@ msgstr ""
 msgid "Alle auswählen"
 msgstr "Seleccionar todo"
 
+#: src/jsMain/kotlin/network/lapis/cloud/client/SepaBatchesScreen.kt:303
+msgid "Alle Beitragssätze"
+msgstr "Todas las cuotas"
+
 #: src/jsMain/kotlin/network/lapis/cloud/client/ContributionsScreen.kt:155
 msgid "Alle Beiträge"
 msgstr "Todas las cuotas"
@@ -852,6 +893,10 @@ msgstr "Guardar como borrador"
 msgid "Als Gast beitreten"
 msgstr "Unirse como invitado"
 
+#: src/jsMain/kotlin/network/lapis/cloud/client/SepaBatchesScreen.kt:595
+msgid "Als eingereicht markieren"
+msgstr "Marcar como presentado"
+
 #: src/jsMain/kotlin/network/lapis/cloud/client/LedgerScreen.kt:666
 msgid "Als neuen Entwurf duplizieren"
 msgstr "Duplicar como nuevo borrador"
@@ -921,6 +966,10 @@ msgstr "Crear oferta"
 msgid "angelegt"
 msgstr "creado"
 
+#: src/jsMain/kotlin/network/lapis/cloud/client/SepaBatchesScreen.kt:468
+msgid "Angekündigt"
+msgstr "Notificado"
+
 #: src/jsMain/kotlin/network/lapis/cloud/client/GuestBadge.kt:76
 msgid "Angemeldet über den OIDC-Heimserver %1."
 msgstr "Sesión iniciada a través del servidor de origen OIDC %1."
@@ -937,6 +986,14 @@ msgstr "Usuarios conectados"
 #: src/jsMain/kotlin/network/lapis/cloud/client/PriceOracleScreen.kt:240
 msgid "Anker-Asset"
 msgstr "Activo de referencia"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/SepaBatchesScreen.kt:563
+msgid "Ankündigen"
+msgstr "Notificar"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/SepaBatchesScreen.kt:485
+msgid "Ankündigungsfrist: %1 Tage"
+msgstr "Plazo de aviso: %1 días"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/CommunicationScreen.kt:161
 msgid "Anlegen"
@@ -971,6 +1028,10 @@ msgstr "Anonimización"
 #: src/jsMain/kotlin/network/lapis/cloud/client/ComplianceLabels.kt:308
 msgid "Anonymisierung + Hartlöschung eigener Nachrichten"
 msgstr "Anonimización + eliminación definitiva de los propios mensajes"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/SepaMandateSection.kt:121
+msgid "Anstehende Lastschriften"
+msgstr "Próximas domiciliaciones"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/MemberStatusLabels.kt:19
 msgid "Antrag"
@@ -1228,6 +1289,10 @@ msgstr "Compra en subasta"
 msgid "Auktionsverkauf"
 msgstr "Venta en subasta"
 
+#: src/jsMain/kotlin/network/lapis/cloud/client/SepaLabels.kt:108
+msgid "Aus rechtlichen Gründen zurückgewiesen (SL01)"
+msgstr "Rechazado por motivos legales (SL01)"
+
 #: src/jsMain/kotlin/network/lapis/cloud/client/LedgerScreen.kt:848
 msgid "Ausdrücklich anonym"
 msgstr "Expresamente anónimo"
@@ -1263,6 +1328,10 @@ msgstr "Dado de baja"
 #: src/jsMain/kotlin/network/lapis/cloud/client/CommitteesScreen.kt:274
 msgid "Ausgeschiedene anzeigen"
 msgstr "Mostrar dados de baja"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/SepaBatchesScreen.kt:406
+msgid "Ausgeschlossen:"
+msgstr "Excluido:"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/MemberStatusLabels.kt:22
 msgid "Ausgetreten"
@@ -1332,6 +1401,10 @@ msgstr "Crear entrada de AVV"
 #: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoComplianceScreen.kt:207
 msgid "AVV-Status"
 msgstr "Estado del AVV"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/SepaMandateSection.kt:182
+msgid "BIC (optional)"
+msgstr "BIC (opcional)"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/App.kt:279
 #: src/jsMain/kotlin/network/lapis/cloud/client/BackupScreen.kt:50
@@ -1418,6 +1491,10 @@ msgstr ""
 "junta directiva NO podrán ver posteriormente la grabación -- seleccione "
 "\"Miembros\" si la grabación debe ser accesible para todos los participantes."
 
+#: src/jsMain/kotlin/network/lapis/cloud/client/SepaBatchesScreen.kt:822
+msgid "Bei \"Sonstiger Grund\" ist ein Freitext erforderlich."
+msgstr "Se requiere texto libre para \"Otro motivo\"."
+
 #: src/jsMain/kotlin/network/lapis/cloud/client/AuctionScreen.kt:148
 msgid "Beim Einstellen wird eine feste Gebühr von %1 fällig."
 msgstr "Al publicar se aplicará una tarifa fija de %1."
@@ -1493,6 +1570,10 @@ msgstr "Enviar factura de cuota por correo postal"
 #: src/jsMain/kotlin/network/lapis/cloud/client/ContributionsScreen.kt:124
 msgid "Beitragssatz"
 msgstr "Tarifa de cuota"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/SepaBatchesScreen.kt:300
+msgid "Beitragssatz (optional, leer = alle)"
+msgstr "Cuota (opcional, vacío = todas)"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/ContributionsScreen.kt:108
 msgid "Beitragssätze und Beitragsgenerierung"
@@ -1582,6 +1663,10 @@ msgstr ""
 "reactivación (sin pujas, sin compra inmediata, sin liquidación) -- "
 "permanecerán congeladas."
 
+#: src/jsMain/kotlin/network/lapis/cloud/client/SepaSettingsScreen.kt:201
+msgid "Bereit für Dateierzeugung:"
+msgstr "Listo para generar el archivo:"
+
 #: src/jsMain/kotlin/network/lapis/cloud/client/RegistrationScreen.kt:136
 msgid "Bereits Mitglied? Zur Anmeldung."
 msgstr "¿Ya es miembro? Ir a iniciar sesión."
@@ -1595,6 +1680,10 @@ msgstr ""
 "Los invitados de otros servidores ya conectados serán eliminados de "
 "inmediato de la reunión. Los nuevos invitados ya no podrán unirse. Los "
 "miembros de su propia organización no se ven afectados."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/SepaLabels.kt:121
+msgid "Bereits in einem laufenden Lastschriftlauf"
+msgstr "Ya está incluido en un lote de domiciliación en curso"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/AccountingLabels.kt:84
 msgid "Berufs- oder Wirtschaftsverband"
@@ -1687,6 +1776,10 @@ msgstr "Reunión: %1"
 msgid "Bestätigen"
 msgstr "Confirmar"
 
+#: src/jsMain/kotlin/network/lapis/cloud/client/SepaBatchesScreen.kt:599
+msgid "Bestätigen Sie, dass diese Datei bei der Bank eingereicht wurde."
+msgstr "Confirme que este archivo se ha presentado al banco."
+
 #: src/jsMain/kotlin/network/lapis/cloud/client/AuditLogScreen.kt:427
 #: src/jsMain/kotlin/network/lapis/cloud/client/CrowdfundingScreen.kt:558
 #: src/jsMain/kotlin/network/lapis/cloud/client/DonorsScreen.kt:404
@@ -1702,6 +1795,10 @@ msgstr "Importe"
 #: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:537
 msgid "Betrag (LTR)"
 msgstr "Importe (LTR)"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/SepaLabels.kt:123
+msgid "Betrag nicht positiv"
+msgstr "Importe no positivo"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/CommunicationScreen.kt:286
 msgid "Betreff"
@@ -1903,6 +2000,14 @@ msgstr "Indique un ejercicio válido (p. ej., 2026)."
 msgid "Bitte ein gültiges Kalenderjahr angeben (JJJJ)."
 msgstr "Indique un año natural válido (AAAA)."
 
+#: src/jsMain/kotlin/network/lapis/cloud/client/SepaMandateSection.kt:227
+msgid "Bitte das SEPA-Lastschriftmandat bestätigen."
+msgstr "Confirme el mandato de domiciliación SEPA."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/SepaMandateSection.kt:223
+msgid "Bitte den Namen des Kontoinhabers angeben."
+msgstr "Indique el nombre del titular de la cuenta."
+
 #: src/jsMain/kotlin/network/lapis/cloud/client/PoliticianScreen.kt:622
 msgid "Bitte ein Mitglied auswählen."
 msgstr "Seleccione un miembro."
@@ -1940,6 +2045,10 @@ msgstr "Indique una opción y una apuesta positiva en LTR."
 msgid "Bitte eine Person für \"Einzelne Person\" auswählen."
 msgstr "Seleccione una persona para \"Persona individual\"."
 
+#: src/jsMain/kotlin/network/lapis/cloud/client/SepaBatchesScreen.kt:819
+msgid "Bitte eine Position auswählen."
+msgstr "Seleccione una posición."
+
 #: src/jsMain/kotlin/network/lapis/cloud/client/MotionsScreen.kt:668
 msgid "Bitte eine Sitzung und eine gültige Position angeben."
 msgstr "Indique una sesión y un cargo válido."
@@ -1970,6 +2079,10 @@ msgstr ""
 #: src/jsMain/kotlin/network/lapis/cloud/client/FinancialReportsScreen.kt:168
 msgid "Bitte einen gültigen Stichtag angeben (JJJJ-MM-TT)."
 msgstr "Indique una fecha de referencia válida (AAAA-MM-DD)."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/SepaBatchesScreen.kt:821
+msgid "Bitte einen Grund auswählen."
+msgstr "Seleccione un motivo."
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceNotesController.kt:443
 msgid "Bitte einen Inhalt eingeben."
@@ -2043,6 +2156,24 @@ msgstr ""
 "Lea el siguiente aviso legal por completo antes de activar la subasta. Esta "
 "plataforma no realiza asesoramiento jurídico automatizado -- la calificación "
 "legal corresponde a su organización."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/SepaBatchesScreen.kt:319
+msgid ""
+"Bitte gültige Daten (JJJJ-MM-TT) für Einzugsdatum und Fälligkeit angeben."
+msgstr ""
+"Indique fechas válidas (AAAA-MM-DD) para la fecha de cobro y la fecha de "
+"vencimiento."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/SepaSettingsScreen.kt:144
+msgid ""
+"Bitte lesen Sie den folgenden rechtlichen Hinweistext vollständig, bevor Sie "
+"SEPA-Lastschrift aktivieren. Diese Plattform führt keine automatisierte "
+"Rechtsberatung durch -- die rechtliche Einordnung liegt bei Ihrer "
+"Organisation."
+msgstr ""
+"Lea el siguiente aviso legal en su totalidad antes de activar la "
+"domiciliación SEPA. Esta plataforma no ofrece asesoramiento legal "
+"automatizado -- la evaluación legal es responsabilidad de su organización."
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/LoginScreen.kt:38
 msgid "Bitte melden Sie sich mit Ihrer E-Mail-Adresse an."
@@ -2306,6 +2437,27 @@ msgstr "Proyecto de crowdfunding"
 msgid "Darf nicht die E-Mail-Adresse sein."
 msgstr "No puede ser la dirección de correo electrónico."
 
+#: src/jsMain/kotlin/network/lapis/cloud/client/SepaBatchesScreen.kt:329
+msgid "Das Einzugsdatum muss in der Zukunft liegen."
+msgstr "La fecha de cobro debe ser futura."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/SepaMandateSection.kt:240
+msgid ""
+"Das Mandat konnte nicht erteilt werden -- mögliche Gründe: für dieses "
+"Mitglied besteht bereits ein aktives Mandat, die IBAN ist ungültig oder liegt "
+"außerhalb des SEPA-Raums, der Name des Kontoinhabers ist leer, die BIC hat "
+"kein gültiges Format, das Unterschriftsdatum liegt in der Zukunft oder mehr "
+"als 12 Monate zurück, oder die Funktion ist nicht aktiviert, der aktuelle "
+"Rechtshinweis wurde nicht erneut bestätigt, oder es wurden zu viele Anfragen "
+"in kurzer Zeit gestellt."
+msgstr ""
+"No se pudo otorgar el mandato -- causas posibles: este miembro ya tiene un "
+"mandato activo, el IBAN no es válido o está fuera de la zona SEPA, el nombre "
+"del titular de la cuenta está vacío, el BIC no tiene un formato válido, la "
+"fecha de firma está en el futuro o hace más de 12 meses, o la función no está "
+"activada, no se ha vuelto a confirmar el aviso legal vigente, o se realizaron "
+"demasiadas solicitudes en poco tiempo."
+
 #: src/jsMain/kotlin/network/lapis/cloud/client/PoliticianScreen.kt:255
 msgid "Das Politiker-Ranking ist derzeit deaktiviert."
 msgstr "La clasificación de políticos está actualmente desactivada."
@@ -2328,9 +2480,41 @@ msgstr ""
 "El proyecto \"%1\" será aprobado y se abrirá para reacciones de Me gusta/No "
 "me gusta (donativos)."
 
+#: src/jsMain/kotlin/network/lapis/cloud/client/SepaMandateSection.kt:95
+msgid ""
+"Das SEPA-Lastschriftmandat wird widerrufen. Zukünftige Beiträge können "
+"danach nicht mehr per Lastschrift eingezogen werden."
+msgstr ""
+"El mandato de domiciliación SEPA será revocado. A partir de entonces, las "
+"futuras cuotas ya no podrán cobrarse por domiciliación."
+
 #: src/jsMain/kotlin/network/lapis/cloud/client/App.kt:200
 msgid "Dashboard"
 msgstr "Panel"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/SepaBatchesScreen.kt:487
+msgid "Datei erzeugbar ab: %1"
+msgstr "Archivo generable a partir de: %1"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/SepaBatchesScreen.kt:567
+msgid "Datei erzeugen"
+msgstr "Generar archivo"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/SepaBatchesScreen.kt:586
+msgid ""
+"Datei erzeugen -- Vorabankündigungsfrist erst ab %1 gewahrt (Einzugsdatum "
+"%2)"
+msgstr ""
+"Generar archivo -- el plazo de preaviso solo se cumple a partir del %1 "
+"(fecha de cobro %2)"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/SepaBatchesScreen.kt:591
+msgid "Datei erzeugen -- noch nicht möglich"
+msgstr "Generar archivo -- aún no es posible"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/SepaBatchesScreen.kt:469
+msgid "Datei erzeugt"
+msgstr "Archivo generado"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/BackupScreen.kt:245
 msgid "Datei:"
@@ -2376,6 +2560,10 @@ msgstr "Fecha"
 #: src/jsMain/kotlin/network/lapis/cloud/client/LedgerScreen.kt:792
 msgid "Datum (JJJJ-MM-TT)"
 msgstr "Fecha (AAAA-MM-DD)"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/SepaMandateSection.kt:183
+msgid "Datum der Unterschrift (JJJJ-MM-TT)"
+msgstr "Fecha de la firma (AAAA-MM-DD)"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/LedgerScreen.kt:622
 msgid "Datum: %1"
@@ -2433,6 +2621,20 @@ msgstr ""
 msgid "Der Hauptantrag muss zuerst selbst terminiert werden."
 msgstr "La moción principal debe programarse primero por sí misma."
 
+#: src/jsMain/kotlin/network/lapis/cloud/client/SepaBatchesScreen.kt:367
+msgid ""
+"Der Lauf konnte nicht angelegt werden -- mögliche Gründe: das Einzugsdatum "
+"liegt nicht in der Zukunft, es wurde kein fälliger Beitrag mit aktivem "
+"SEPA-Mandat gefunden, der Lauf hätte mehr Positionen als zulässig, oder die "
+"Funktion ist nicht aktiviert, der aktuelle Rechtshinweis wurde nicht erneut "
+"bestätigt, oder es wurden zu viele Anfragen in kurzer Zeit gestellt."
+msgstr ""
+"No se pudo crear el lote -- causas posibles: la fecha de cobro no está en el "
+"futuro, no se encontró ninguna cuota vencida con un mandato SEPA activo, el "
+"lote tendría más posiciones de las permitidas, o la función no está activada, "
+"no se ha vuelto a confirmar el aviso legal vigente, o se realizaron "
+"demasiadas solicitudes en poco tiempo."
+
 #: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:3993
 msgid "Der Live-Stream ist wegen einer geheimen Abstimmung unterbrochen."
 msgstr ""
@@ -2477,6 +2679,14 @@ msgstr ""
 "El envío de invitaciones está reservado a la junta directiva y a la "
 "administración -- como presidencia/secretaría de este órgano puede gestionar "
 "la sesión, pero no enviar invitaciones."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/SepaBatchesScreen.kt:267
+msgid ""
+"Der rechtliche Hinweistext für SEPA-Lastschrift wurde seit der letzten "
+"Bestätigung (Version %1) auf Version %2 aktualisiert."
+msgstr ""
+"El texto legal informativo sobre domiciliación SEPA se ha actualizado de la "
+"versión %1 (última confirmada) a la versión %2."
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:442
 msgid "Derzeit keine aktive Besprechung."
@@ -2581,9 +2791,33 @@ msgstr ""
 "YouTube puede finalizar la emisión, por lo que sería necesario un nuevo "
 "enlace."
 
+#: src/jsMain/kotlin/network/lapis/cloud/client/SepaMandateSection.kt:225
+msgid "Die BIC ist ungültig."
+msgstr "El BIC no es válido."
+
 #: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:3501
 msgid "Die Besprechung selbst läuft für alle Teilnehmenden unverändert weiter."
 msgstr "La reunión en sí continúa sin cambios para todos los participantes."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/SepaBatchesScreen.kt:569
+msgid ""
+"Die Datei konnte nicht erzeugt werden -- mögliche Gründe: die "
+"Vorabankündigungsfrist ist für das Einzugsdatum dieses Laufs nicht gewahrt, "
+"die Gläubiger-Stammdaten der Organisation (Gläubiger-ID, Name, IBAN oder BIC "
+"in den Organisationseinstellungen) fehlen oder sind ungültig, alle Positionen "
+"des Laufs wurden zwischenzeitlich storniert, der Lauf wurde bereits von einem "
+"gleichzeitigen Versuch verarbeitet, oder die Funktion ist nicht aktiviert, "
+"der aktuelle Rechtshinweis wurde nicht erneut bestätigt, oder es wurden zu "
+"viele Anfragen in kurzer Zeit gestellt."
+msgstr ""
+"No se pudo generar el archivo -- causas posibles: no se cumple el plazo de "
+"preaviso para la fecha de cobro de este lote, faltan o no son válidos los "
+"datos maestros del acreedor de la organización (identificador de acreedor, "
+"nombre, IBAN o BIC en la configuración de la organización), todas las "
+"posiciones del lote se cancelaron entretanto, el lote ya fue procesado por un "
+"intento simultáneo, o la función no está activada, no se ha vuelto a "
+"confirmar el aviso legal vigente, o se realizaron demasiadas solicitudes en "
+"poco tiempo."
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:3289
 msgid ""
@@ -2615,6 +2849,10 @@ msgstr ""
 "La configuración del oráculo se sustituirá por completo: activo de "
 "referencia %1, moneda de donativo %2, paridad %3, TTL de caché %4 s, cuórum "
 "%5, umbral de valores atípicos %6 pb, diferencial máximo %7 pb."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/SepaMandateSection.kt:224
+msgid "Die IBAN ist ungültig."
+msgstr "El IBAN no es válido."
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/FriendRegistrationScreen.kt:106
 #: src/jsMain/kotlin/network/lapis/cloud/client/RegistrationScreen.kt:101
@@ -2650,6 +2888,32 @@ msgid ""
 "Die Wertobergrenze muss, falls angegeben, ein positiver LTR-Betrag sein."
 msgstr ""
 "El límite máximo de valor, si se indica, debe ser un importe positivo en LTR."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/SepaBatchesScreen.kt:823
+msgid ""
+"Die Rücklastschriftgebühr muss, falls angegeben, ein positiver Betrag sein."
+msgstr "Si se indica, la comisión de devolución debe ser un importe positivo."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/SepaBatchesScreen.kt:836
+msgid ""
+"Die Rücklastschrift konnte nicht erfasst werden -- mögliche Gründe: das "
+"Rückgabedatum liegt in der Zukunft, die Rücklastschriftgebühr ist ungültig "
+"(nicht positiv oder mehr als 2 Nachkommastellen), für diese Position ist "
+"bereits ein Rückläufer erfasst, die Position befindet sich nicht mehr im "
+"dafür zulässigen Status, oder die Funktion ist nicht aktiviert, der aktuelle "
+"Rechtshinweis wurde nicht erneut bestätigt, oder es wurden zu viele Anfragen "
+"in kurzer Zeit gestellt."
+msgstr ""
+"No se pudo registrar la devolución -- causas posibles: la fecha de devolución "
+"está en el futuro, la comisión de devolución no es válida (no es positiva o "
+"tiene más de 2 decimales), ya se ha registrado una devolución para esta "
+"posición, la posición ya no se encuentra en el estado requerido, o la función "
+"no está activada, no se ha vuelto a confirmar el aviso legal vigente, o se "
+"realizaron demasiadas solicitudes en poco tiempo."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/SepaSettingsScreen.kt:239
+msgid "Die Vorabankündigungsfrist muss zwischen 1 und 30 Tagen liegen."
+msgstr "El plazo de preaviso debe estar entre 1 y 30 días."
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/AuctionScreen.kt:808
 msgid "Die Wertobergrenze wird entfernt (kein Limit mehr)."
@@ -2817,6 +3081,15 @@ msgstr "Esta publicación no está (o ya no está) disponible."
 #: src/jsMain/kotlin/network/lapis/cloud/client/SocialNetworkScreen.kt:130
 msgid "Dieser Beitrag wird öffentlich sichtbar und von Suchmaschinen indexiert."
 msgstr "Esta publicación se volverá visible públicamente y será indexada por los motores de búsqueda."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/SepaBatchesScreen.kt:742
+msgid "Dieser Grund führt automatisch zum Widerruf des Mandats."
+msgstr "Este motivo revoca automáticamente el mandato."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/SepaBatchesScreen.kt:505
+msgid ""
+"Dieser Lastschriftlauf wird storniert und kann nicht fortgesetzt werden."
+msgstr "Este lote de domiciliación se cancelará y no podrá reanudarse."
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/SocialNetworkScreen.kt:394
 msgid "Dieser Thread hat %1 Beiträge -- nur die ersten 5 000 werden angezeigt."
@@ -3040,6 +3313,10 @@ msgstr ""
 msgid "Eingabekontrolle"
 msgstr "Control de entrada"
 
+#: src/jsMain/kotlin/network/lapis/cloud/client/SepaBatchesScreen.kt:470
+msgid "Eingereicht"
+msgstr "Presentado"
+
 #: src/jsMain/kotlin/network/lapis/cloud/client/CrowdfundingScreen.kt:281
 msgid "Eingereicht von %1 am %2"
 msgstr "Presentado por %1 el %2"
@@ -3068,6 +3345,10 @@ msgstr "Enviar invitación por correo postal"
 #: src/jsMain/kotlin/network/lapis/cloud/client/MeetingsScreen.kt:443
 msgid "Einladungstext"
 msgstr "Texto de la invitación"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/SepaLabels.kt:80
+msgid "Einmalig (OOFF)"
+msgstr "Único (OOFF)"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/LedgerScreen.kt:517
 msgid "Einnahme"
@@ -3109,6 +3390,14 @@ msgstr "Probabilidad de ocurrencia"
 #: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:3895
 msgid "Einzelne Person"
 msgstr "Persona individual"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/SepaBatchesScreen.kt:462
+msgid "Einzugsdatum %1"
+msgstr "Fecha de cobro %1"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/SepaBatchesScreen.kt:298
+msgid "Einzugsdatum (JJJJ-MM-TT)"
+msgstr "Fecha de cobro (AAAA-MM-DD)"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:288
 #: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:536
@@ -3255,6 +3544,14 @@ msgstr ""
 "borrador es incorrecto, utilice «Duplicar como nuevo borrador» de abajo para "
 "crear una copia corregida y deje este borrador sin contabilizar."
 
+#: src/jsMain/kotlin/network/lapis/cloud/client/SepaMandatesScreen.kt:91
+msgid "Erfasst von"
+msgstr "Registrado por"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/SepaMandateSection.kt:86
+msgid "Erfasst von %1 in Ihrem Namen."
+msgstr "Registrado por %1 en su nombre."
+
 #: src/jsMain/kotlin/network/lapis/cloud/client/AuditLogScreen.kt:417
 msgid "Erfasst von (Mitglieds-ID)"
 msgstr "Registrado por (ID de miembro)"
@@ -3278,6 +3575,10 @@ msgstr "Resultado"
 #: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:427
 msgid "Ergebnis:"
 msgstr "Resultado:"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/SepaBatchesScreen.kt:392
+msgid "Erhöht?"
+msgstr "¿Aumentado?"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/BoardMembershipScreen.kt:429
 msgid "Erinnerung wurde bestätigt."
@@ -3305,6 +3606,10 @@ msgstr "Nombrar"
 msgid "Eröffnungssaldo"
 msgstr "Saldo de apertura"
 
+#: src/jsMain/kotlin/network/lapis/cloud/client/SepaBatchesScreen.kt:274
+msgid "Erneut bestätigen (SEPA-Konfiguration)"
+msgstr "Confirmar de nuevo (configuración SEPA)"
+
 #: src/jsMain/kotlin/network/lapis/cloud/client/AuctionScreen.kt:420
 msgid "Erstellen"
 msgstr "Crear"
@@ -3313,9 +3618,17 @@ msgstr "Crear"
 msgid "Erstellt"
 msgstr "Creado"
 
+#: src/jsMain/kotlin/network/lapis/cloud/client/SepaBatchesScreen.kt:118
+msgid "Erstellt am"
+msgstr "Creado el"
+
 #: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:510
 msgid "Erstellt von %1 · %2 Teilnehmende"
 msgstr "Creado por %1 · %2 participantes"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/SepaLabels.kt:78
+msgid "Erstmalig (FRST)"
+msgstr "Primero (FRST)"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/PoliticianScreen.kt:641
 msgid "Erteilen"
@@ -3324,6 +3637,10 @@ msgstr "Conceder"
 #: src/jsMain/kotlin/network/lapis/cloud/client/PoliticianScreen.kt:615
 msgid "Erteilen / Aktualisieren"
 msgstr "Conceder/Actualizar"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/SepaMandatesScreen.kt:90
+msgid "Erteilt am"
+msgstr "Otorgado el"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/LedgerScreen.kt:1228
 msgid "Ertragskonto"
@@ -3384,6 +3701,10 @@ msgstr ""
 #: src/jsMain/kotlin/network/lapis/cloud/client/AccountingLabels.kt:78
 msgid "EU-Bürger:in / EU-Rechtsperson"
 msgstr "Ciudadano/a de la UE / persona jurídica de la UE"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/SepaMandatesScreen.kt:120
+msgid "Es können höchstens 10 Mandate pro Minute erfasst werden."
+msgstr "Se pueden registrar como máximo 10 mandatos por minuto."
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/BackupScreen.kt:59
 #: src/jsMain/kotlin/network/lapis/cloud/client/ComplianceLabels.kt:108
@@ -3504,6 +3825,10 @@ msgstr "Formato"
 msgid "Freie Rücklage (%1)"
 msgstr "Reserva libre (%1)"
 
+#: src/jsMain/kotlin/network/lapis/cloud/client/SepaBatchesScreen.kt:745
+msgid "Freitext (Pflicht bei \"Sonstiger Grund\")"
+msgstr "Texto libre (obligatorio para \"Otro motivo\")"
+
 #: src/jsMain/kotlin/network/lapis/cloud/client/MemberStatusLabels.kt:24
 msgid "Freund"
 msgstr "Amigo"
@@ -3532,6 +3857,14 @@ msgstr "Plazo superado"
 #: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoComplianceScreen.kt:666
 msgid "Frist: %1"
 msgstr "Plazo: %1"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/SepaBatchesScreen.kt:299
+msgid "Fällig bis (JJJJ-MM-TT)"
+msgstr "Vence el (AAAA-MM-DD)"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/SepaBatchesScreen.kt:119
+msgid "Fälligkeit"
+msgstr "Fecha de vencimiento"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/AuctionScreen.kt:689
 msgid "Führend"
@@ -3670,6 +4003,10 @@ msgstr "Contabilizado el %1 por %2 -- inmutable."
 msgid "Geburtsdatum"
 msgstr "Fecha de nacimiento"
 
+#: src/jsMain/kotlin/network/lapis/cloud/client/SepaBatchesScreen.kt:700
+msgid "Gebühr"
+msgstr "Comisión"
+
 #: src/jsMain/kotlin/network/lapis/cloud/client/DocumentsScreen.kt:110
 msgid "Gelöscht."
 msgstr "Eliminado."
@@ -3679,6 +4016,10 @@ msgstr "Eliminado."
 #: src/jsMain/kotlin/network/lapis/cloud/client/NonprofitComplianceReportsScreen.kt:69
 msgid "Gemeinnützigkeits-Berichte"
 msgstr "Informes de utilidad pública"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/SepaBatchesScreen.kt:668
+msgid "fehlgeschlagen"
+msgstr "fallido"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoComplianceScreen.kt:821
 msgid "gemeldet"
@@ -3762,6 +4103,10 @@ msgstr "Guardado -- la clave no se volverá a mostrar."
 msgid "Gewählter Modus: %1"
 msgstr "Modo seleccionado: %1"
 
+#: src/jsMain/kotlin/network/lapis/cloud/client/SepaBatchesScreen.kt:646
+msgid "Gespeichert."
+msgstr "Guardado."
+
 #: src/jsMain/kotlin/network/lapis/cloud/client/SocialNetworkScreen.kt:221
 msgid "Gewicht des Autors"
 msgstr "Peso del autor"
@@ -3797,6 +4142,22 @@ msgstr ""
 "membresías de la junta directiva y comprobaciones de donativos -- inmutable "
 "y de solo lectura. En esta página no existe ninguna función para editar o "
 "eliminar entradas."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/SepaSettingsScreen.kt:197
+msgid "Gläubiger-Identifikationsnummer"
+msgstr "Número de identificación del acreedor"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/SepaSettingsScreen.kt:195
+msgid "Gläubigereinstellungen"
+msgstr "Configuración del acreedor"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/SepaSettingsScreen.kt:257
+msgid "Gläubigereinstellungen gespeichert."
+msgstr "Configuración del acreedor guardada."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/SepaSettingsScreen.kt:198
+msgid "Gläubigername"
+msgstr "Nombre del acreedor"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/PriceOracleScreen.kt:558
 msgid "Gold (XAU)"
@@ -3861,6 +4222,18 @@ msgstr "Abonar"
 #: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:654
 msgid "Gutschrift (Mint)"
 msgstr "Abono (acuñación)"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/SepaBatchesScreen.kt:507
+msgid "Grund"
+msgstr "Motivo"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/SepaMandateSection.kt:99
+msgid "Grund (optional)"
+msgstr "Motivo (opcional)"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/SepaLabels.kt:107
+msgid "Grund bankseitig nicht spezifiziert (MS03)"
+msgstr "Motivo no especificado por el banco (MS03)"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/FinancialReportsScreen.kt:69
 msgid "GuV"
@@ -3935,9 +4308,29 @@ msgstr "Máximo %1 caracteres."
 msgid "Honorar"
 msgstr "Honorarios"
 
+#: src/jsMain/kotlin/network/lapis/cloud/client/SepaBatchesScreen.kt:392
+msgid "IBAN"
+msgstr "IBAN"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/SepaMandateSection.kt:84
+msgid "IBAN %1"
+msgstr "IBAN %1"
+
 #: src/jsMain/kotlin/network/lapis/cloud/client/AuctionScreen.kt:888
 msgid "Ich bestätige, den aktuellen Text gelesen zu haben"
 msgstr "Confirmo haber leído el texto actual"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/SepaMandateSection.kt:187
+msgid ""
+"Ich ermächtige, per SEPA-Lastschrift fällige Beträge von meinem Konto "
+"einzuziehen, und weise mein Kreditinstitut an, diese Lastschriften "
+"einzulösen. Ich kann innerhalb von acht Wochen, beginnend mit dem "
+"Belastungsdatum, die Erstattung des belasteten Betrags verlangen."
+msgstr ""
+"Autorizo el cobro de los importes vencidos de mi cuenta mediante "
+"domiciliación SEPA y ordeno a mi entidad bancaria que atienda estos adeudos. "
+"Puedo solicitar la devolución del importe adeudado dentro de un plazo de "
+"ocho semanas a partir de la fecha de adeudo."
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/RegistrationScreen.kt:71
 msgid "Ich habe den Beitrittsvertrag gelesen und akzeptiere ihn."
@@ -4244,6 +4637,14 @@ msgstr "Sin límite"
 msgid "Kein Zugriff -- für diesen Bereich fehlt Ihnen die Berechtigung."
 msgstr "Sin acceso: no dispone de los permisos necesarios para este área."
 
+#: src/jsMain/kotlin/network/lapis/cloud/client/SepaLabels.kt:120
+msgid "Kein aktives Mandat"
+msgstr "Sin mandato activo"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/SepaLabels.kt:103
+msgid "Kein gültiges Mandat (MD01)"
+msgstr "Mandato no válido (MD01)"
+
 #: src/jsMain/kotlin/network/lapis/cloud/client/DonorsScreen.kt:480
 msgid "Keine Adresse hinterlegt"
 msgstr "No hay ninguna dirección registrada"
@@ -4371,6 +4772,10 @@ msgstr ""
 "No hay ninguna sesión planificada disponible para este órgano; primero cree "
 "una en «Sesiones»."
 
+#: src/jsMain/kotlin/network/lapis/cloud/client/SepaBatchesScreen.kt:388
+msgid "Keine fälligen Beiträge mit aktivem Mandat gefunden."
+msgstr "No se han encontrado cuotas pendientes con un mandato activo."
+
 #: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:1205
 msgid "Keine geplanten Sitzungen vorhanden."
 msgstr "No hay sesiones planificadas disponibles."
@@ -4378,6 +4783,10 @@ msgstr "No hay sesiones planificadas disponibles."
 #: src/jsMain/kotlin/network/lapis/cloud/client/CostCentersScreen.kt:253
 msgid "Keine Kostenstelle mit Buchungen im gewählten Zeitraum."
 msgstr "No hay ningún centro de coste con asientos en el período seleccionado."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/SepaMandatesScreen.kt:77
+msgid "Keine Mandate für diese Filter gefunden."
+msgstr "No se han encontrado mandatos para estos filtros."
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/ComplianceLabels.kt:206
 msgid "Keine Meldung erforderlich"
@@ -4407,6 +4816,10 @@ msgid "Keine offenen Melde-/Offenlegungspflichten im gewählten Kalenderjahr."
 msgstr ""
 "No hay obligaciones de notificación o divulgación pendientes en el año "
 "natural seleccionado."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/SepaBatchesScreen.kt:695
+msgid "Keine Rücklastschriften für diese Filter."
+msgstr "No hay devoluciones para estos filtros."
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/MeetingsScreen.kt:996
 msgid "Keine Tagesordnungspunkte."
@@ -4489,9 +4902,17 @@ msgstr "Cuenta (ID)"
 msgid "Konto anlegen"
 msgstr "Crear cuenta"
 
+#: src/jsMain/kotlin/network/lapis/cloud/client/SepaLabels.kt:98
+msgid "Konto aufgelöst (AC04)"
+msgstr "Cuenta cancelada (AC04)"
+
 #: src/jsMain/kotlin/network/lapis/cloud/client/LedgerScreen.kt:278
 msgid "Konto deaktivieren"
 msgstr "Desactivar cuenta"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/SepaLabels.kt:99
+msgid "Konto gesperrt (AC06)"
+msgstr "Cuenta bloqueada (AC06)"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/LedgerScreen.kt:122
 msgid "Konto oben auswählen, um Hauptbuch/Kassenbuch zu sehen."
@@ -4506,9 +4927,17 @@ msgstr "La cuenta se ha desactivado."
 msgid "Kontodetails"
 msgstr "Detalles de la cuenta"
 
+#: src/jsMain/kotlin/network/lapis/cloud/client/SepaLabels.kt:100
+msgid "Kontoinhaber-Angaben ungültig (AC13)"
+msgstr "Datos del titular de la cuenta no válidos (AC13)"
+
 #: src/jsMain/kotlin/network/lapis/cloud/client/LedgerScreen.kt:312
 msgid "Kontonummer (SKR42)"
 msgstr "Número de cuenta (SKR42)"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/SepaLabels.kt:97
+msgid "Kontonummer ungültig (AC01)"
+msgstr "Número de cuenta no válido (AC01)"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/LedgerScreen.kt:315
 msgid "Kontotyp"
@@ -4632,6 +5061,34 @@ msgstr "en curso"
 msgid "läuft"
 msgstr "en ejecución"
 
+#: src/jsMain/kotlin/network/lapis/cloud/client/SepaBatchesScreen.kt:734
+msgid "Lauf"
+msgstr "Lote"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/SepaBatchesScreen.kt:617
+msgid "Lauf abgerechnet."
+msgstr "Lote liquidado."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/SepaBatchesScreen.kt:371
+msgid "Lauf angelegt."
+msgstr "Lote creado."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/SepaBatchesScreen.kt:357
+msgid "Lauf anlegen (%1 Positionen, %2)"
+msgstr "Crear lote (%1 posiciones, %2)"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/SepaBatchesScreen.kt:83
+msgid "Lauf oben auswählen, um Details zu sehen."
+msgstr "Seleccione un lote arriba para ver los detalles."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/SepaBatchesScreen.kt:504
+msgid "Lauf stornieren"
+msgstr "Cancelar lote"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/SepaBatchesScreen.kt:519
+msgid "Lauf storniert."
+msgstr "Lote cancelado."
+
 #: src/jsMain/kotlin/network/lapis/cloud/client/AuctionScreen.kt:361
 msgid "Laufzeit in Stunden (z. B. 24)"
 msgstr "Duración en horas (p. ej., 24)"
@@ -4651,6 +5108,10 @@ msgid ""
 msgstr ""
 "Crea un miembro sin el paso de solicitud/aprobación (p. ej., para altas en "
 "papel o migración de datos); el estado pasa inmediatamente a ACTIVO."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/SepaLabels.kt:81
+msgid "Letztmalig (FNAL)"
+msgstr "Final (FNAL)"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/CrowdfundingScreen.kt:340
 #: src/jsMain/kotlin/network/lapis/cloud/client/CrowdfundingScreen.kt:603
@@ -4803,6 +5264,46 @@ msgstr ""
 #: src/jsMain/kotlin/network/lapis/cloud/client/CommunicationScreen.kt:126
 msgid "Mailinglisten verwalten"
 msgstr "Gestionar listas de correo"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/SepaLabels.kt:124
+msgid "Mandat abgelaufen"
+msgstr "Mandato caducado"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/SepaMandateSection.kt:65
+msgid "Mandat erteilen"
+msgstr "Otorgar mandato"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/SepaMandateSection.kt:253
+msgid "Mandat erteilt."
+msgstr "Mandato otorgado."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/SepaMandatesScreen.kt:106
+msgid "Mandat im Namen eines Mitglieds erfassen"
+msgstr "Registrar mandato en nombre de un miembro"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/SepaBatchesScreen.kt:700
+msgid "Mandat widerrufen"
+msgstr "Revocar mandato"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/SepaMandateSection.kt:108
+msgid "Mandat widerrufen."
+msgstr "Mandato revocado."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/SepaMandatesScreen.kt:149
+msgid "Mandat wirklich widerrufen?"
+msgstr "¿Revocar realmente este mandato?"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/SepaMandatesScreen.kt:42
+msgid "Mandate"
+msgstr "Mandatos"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/SepaBatchesScreen.kt:392
+msgid "Mandatsreferenz"
+msgstr "Referencia del mandato"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/SepaMandateSection.kt:83
+msgid "Mandatsreferenz %1"
+msgstr "Referencia del mandato %1"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/PoliticianScreen.kt:457
 msgid "Mandatstext"
@@ -4960,6 +5461,10 @@ msgstr "Crear miembro directamente"
 #: src/jsMain/kotlin/network/lapis/cloud/client/CommunicationScreen.kt:261
 msgid "Mitglied hinzufügen"
 msgstr "Añadir miembro"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/SepaLabels.kt:122
+msgid "Mitglied nicht aktiv"
+msgstr "Miembro no activo"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:507
 msgid "Mitglied selbst"
@@ -5138,6 +5643,10 @@ msgstr "Mensajes"
 msgid "Name"
 msgstr "Nombre"
 
+#: src/jsMain/kotlin/network/lapis/cloud/client/SepaMandateSection.kt:178
+msgid "Name des Kontoinhabers"
+msgstr "Nombre del titular de la cuenta"
+
 #: src/jsMain/kotlin/network/lapis/cloud/client/AccountingLabels.kt:79
 msgid "Natürliche Person außerhalb der EU"
 msgstr "Persona física fuera de la UE"
@@ -5188,6 +5697,20 @@ msgstr "Crear nuevo centro de coste"
 msgid "Neue Mailingliste anlegen"
 msgstr "Crear nueva lista de correo"
 
+#: src/jsMain/kotlin/network/lapis/cloud/client/SepaSettingsScreen.kt:171
+msgid ""
+"Neue Mandate, Vorschauen und Lastschriftläufe können bis zur erneuten "
+"Aktivierung nicht mehr angelegt werden. Bereits erteilte Mandate bleiben "
+"bestehen, können von ihren Inhabern aber nicht mehr selbst widerrufen "
+"werden, solange die Funktion deaktiviert ist (die Beitragsseite zeigt in "
+"diesem Zustand keine Mandatsverwaltung mehr an)."
+msgstr ""
+"Ya no se podrán crear nuevos mandatos, vistas previas ni lotes de "
+"domiciliación hasta que se vuelva a activar la función. Los mandatos ya "
+"otorgados permanecen vigentes, pero sus titulares ya no podrán revocarlos "
+"por sí mismos mientras la función esté desactivada (en este estado, la "
+"página de cuotas ya no muestra la gestión de mandatos)."
+
 #: src/jsMain/kotlin/network/lapis/cloud/client/MeetingsScreen.kt:125
 msgid "Neue Sitzung anlegen"
 msgstr "Crear nueva sesión"
@@ -5219,6 +5742,10 @@ msgstr "Crear nuevo donante"
 #: src/jsMain/kotlin/network/lapis/cloud/client/DocumentsScreen.kt:172
 msgid "Neuer Dokumenttitel"
 msgstr "Nuevo título de documento"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/SepaBatchesScreen.kt:288
+msgid "Neuer Lauf"
+msgstr "Nuevo lote"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/DocumentsScreen.kt:148
 msgid "Neuer Ordnername"
@@ -5458,6 +5985,10 @@ msgstr "Nota (opcional)"
 #: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:240
 msgid "Notiz / erstellt von"
 msgstr "Nota / creado por"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/SepaBatchesScreen.kt:489
+msgid "Notiz: %1"
+msgstr "Nota: %1"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceNotesController.kt:336
 msgid "Notizblock darf nicht leer sein."
@@ -6074,6 +6605,10 @@ msgstr ""
 msgid "RTMP-Ziel-URL, z. B. für Facebook Live, LinkedIn Live oder Vimeo"
 msgstr "URL de destino RTMP, p. ej., para Facebook Live, LinkedIn Live o Vimeo"
 
+#: src/jsMain/kotlin/network/lapis/cloud/client/SepaLabels.kt:63
+msgid "Rückgelastschrift"
+msgstr "Devuelto"
+
 #: src/jsMain/kotlin/network/lapis/cloud/client/LedgerScreen.kt:317
 #: src/jsMain/kotlin/network/lapis/cloud/client/NonprofitComplianceReportsScreen.kt:340
 msgid "Rücklagenart"
@@ -6086,6 +6621,91 @@ msgstr "Movimientos de reservas (§62 AO)"
 #: src/jsMain/kotlin/network/lapis/cloud/client/NonprofitComplianceReportsScreen.kt:261
 msgid "Rücklagenzuführung"
 msgstr "Dotación a reservas"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/SepaBatchesScreen.kt:710
+msgid "Rücklastschrift erfassen"
+msgstr "Registrar devolución"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/SepaBatchesScreen.kt:848
+msgid "Rücklastschrift erfasst."
+msgstr "Devolución registrada."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/SepaBatchesScreen.kt:736
+msgid "Rücklastschrift-Datum (JJJJ-MM-TT)"
+msgstr "Fecha de devolución (AAAA-MM-DD)"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/SepaBatchesScreen.kt:681
+msgid "Rücklastschriften"
+msgstr "Devoluciones"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/SepaBatchesScreen.kt:746
+msgid "Rücklastschriftgebühr in EUR (optional)"
+msgstr "Comisión de devolución en EUR (opcional)"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/SepaSettingsScreen.kt:40
+msgid "SEPA-Konfiguration"
+msgstr "Configuración SEPA"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/SepaMandateSection.kt:54
+msgid "SEPA-Konfiguration öffnen"
+msgstr "Abrir configuración SEPA"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/SepaBatchesScreen.kt:68
+msgid "SEPA-Lastschrift"
+msgstr "Domiciliación SEPA"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/SepaSettingsScreen.kt:142
+msgid "SEPA-Lastschrift aktivieren -- rechtlicher Hinweis (Version %1)"
+msgstr "Activar domiciliación SEPA -- aviso legal (versión %1)"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/SepaSettingsScreen.kt:66
+msgid "SEPA-Lastschrift aktivieren …"
+msgstr "Activar domiciliación SEPA…"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/SepaSettingsScreen.kt:87
+msgid "SEPA-Lastschrift aktiviert."
+msgstr "Domiciliación SEPA activada."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/SepaSettingsScreen.kt:67
+msgid "SEPA-Lastschrift deaktivieren"
+msgstr "Desactivar domiciliación SEPA"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/SepaSettingsScreen.kt:169
+msgid "SEPA-Lastschrift deaktivieren bestätigen"
+msgstr "Confirmar desactivación de la domiciliación SEPA"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/SepaSettingsScreen.kt:104
+msgid "SEPA-Lastschrift deaktiviert."
+msgstr "Domiciliación SEPA desactivada."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/SepaMandateSection.kt:50
+msgid "SEPA-Lastschrift ist für diese Organisation nicht aktiviert."
+msgstr "La domiciliación SEPA no está activada para esta organización."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/SepaBatchesScreen.kt:350
+#: src/jsMain/kotlin/network/lapis/cloud/client/SepaBatchesScreen.kt:514
+#: src/jsMain/kotlin/network/lapis/cloud/client/SepaBatchesScreen.kt:614
+#: src/jsMain/kotlin/network/lapis/cloud/client/SepaBatchesScreen.kt:638
+msgid ""
+"SEPA-Lastschrift-Aktion war nicht erfolgreich (Konflikt) -- häufige Gründe "
+"sind, dass die Funktion nicht aktiviert ist, der aktuelle Rechtshinweis noch "
+"nicht erneut bestätigt wurde, zu viele Anfragen in kurzer Zeit gestellt "
+"wurden, oder sich der Status von Lauf/Mandat zwischenzeitlich geändert hat. "
+"Ein Administrator prüft das ggf. unter SEPA-Konfiguration."
+msgstr ""
+"La acción de domiciliación SEPA no se pudo completar (conflicto) -- las "
+"causas más frecuentes son que la función no está activada, no se ha vuelto a "
+"confirmar el aviso legal vigente, se realizaron demasiadas solicitudes en "
+"poco tiempo, o el estado del lote/mandato cambió entretanto. Un administrador "
+"puede revisarlo en la configuración de SEPA."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/SepaMandateSection.kt:62
+msgid "SEPA-Lastschriftmandat"
+msgstr "Mandato de domiciliación SEPA"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/SepaMandatesScreen.kt:38
+msgid "SEPA-Mandate"
+msgstr "Mandatos SEPA"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/LedgerScreen.kt:461
 #: src/jsMain/kotlin/network/lapis/cloud/client/LedgerScreen.kt:519
@@ -6150,6 +6770,10 @@ msgstr "Secretaría"
 msgid "Seit (JJJJ-MM-TT)"
 msgstr "Desde (AAAA-MM-DD)"
 
+#: src/jsMain/kotlin/network/lapis/cloud/client/SepaBatchesScreen.kt:530
+msgid "pain.008 herunterladen"
+msgstr "Descargar pain.008"
+
 #: src/jsMain/kotlin/network/lapis/cloud/client/BoardMembershipScreen.kt:171
 #: src/jsMain/kotlin/network/lapis/cloud/client/CommitteesScreen.kt:315
 msgid "seit %1"
@@ -6158,6 +6782,10 @@ msgstr "desde %1"
 #: src/jsMain/kotlin/network/lapis/cloud/client/FinancialReportsScreen.kt:357
 msgid "seit Gründung"
 msgstr "desde la fundación"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/SepaMandatesScreen.kt:140
+msgid "Selbst"
+msgstr "Propio"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/App.kt:223
 msgid "Selbstverwaltung"
@@ -6181,6 +6809,10 @@ msgstr "Sec. %1"
 #: src/jsMain/kotlin/network/lapis/cloud/client/AuditLogScreen.kt:282
 msgid "Sequenznummer %1"
 msgstr "Número de secuencia %1"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/SepaBatchesScreen.kt:120
+msgid "Sequenztyp"
+msgstr "Tipo de secuencia"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/AuctionScreen.kt:217
 msgid "Sichtbar für ADMIN."
@@ -6235,6 +6867,11 @@ msgstr ""
 #: src/jsMain/kotlin/network/lapis/cloud/client/AuctionScreen.kt:587
 msgid "Sie führen jetzt."
 msgstr "Ahora dirige usted."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/SepaMandateSection.kt:64
+msgid "Sie haben aktuell kein aktives SEPA-Lastschriftmandat hinterlegt."
+msgstr ""
+"Actualmente no tiene registrado ningún mandato de domiciliación SEPA activo."
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/SocialNetworkScreen.kt:98
 msgid "Sie haben derzeit kein LTR-Guthaben. Für einen Beitrag ist ein Einsatz von mindestens 0,01 LTR nötig. LTR erhalten Sie durch eine Zuwendung der Organisation oder durch eine Überweisung eines Mitglieds."
@@ -6501,6 +7138,10 @@ msgstr "Debe"
 msgid "Soll/Haben"
 msgstr "Debe/Haber"
 
+#: src/jsMain/kotlin/network/lapis/cloud/client/SepaLabels.kt:109
+msgid "Sonstiger Grund (siehe Freitext)"
+msgstr "Otro motivo (ver texto libre)"
+
 #: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:700
 msgid "Sonstiges"
 msgstr "Otros"
@@ -6692,6 +7333,22 @@ msgstr "Fecha de referencia (AAAA-MM-DD)"
 msgid "Stichtag: %1"
 msgstr "Fecha de referencia: %1"
 
+#: src/jsMain/kotlin/network/lapis/cloud/client/SepaBatchesScreen.kt:501
+msgid "Stornieren"
+msgstr "Cancelar"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/SepaBatchesScreen.kt:506
+msgid "Stornieren kann nicht rückgängig gemacht werden."
+msgstr "La cancelación no se puede deshacer."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/SepaLabels.kt:45
+msgid "Storniert"
+msgstr "Cancelado"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/SepaBatchesScreen.kt:482
+msgid "Storniert: %1"
+msgstr "Cancelado: %1"
+
 #: src/jsMain/kotlin/network/lapis/cloud/client/DonorsScreen.kt:212
 msgid "Straße (optional)"
 msgstr "Calle (opcional)"
@@ -6784,6 +7441,10 @@ msgstr "Buscar por nombre"
 #: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:176
 msgid "Suchen"
 msgstr "Buscar"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/SepaBatchesScreen.kt:123
+msgid "Summe"
+msgstr "Total"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/FinancialReportsScreen.kt:340
 msgid "Summe %1"
@@ -6913,6 +7574,10 @@ msgstr "Crear TOM"
 msgid "Top-Politiker"
 msgstr "Mejores políticos"
 
+#: src/jsMain/kotlin/network/lapis/cloud/client/SepaLabels.kt:101
+msgid "Transaktion untersagt (AG01)"
+msgstr "Transacción prohibida (AG01)"
+
 #: src/jsMain/kotlin/network/lapis/cloud/client/BoardMembershipScreen.kt:116
 msgid "Transparenzregister-Bericht"
 msgstr "Informe del registro de transparencia"
@@ -7025,6 +7690,10 @@ msgstr "Obligación de notificación inmediata"
 #: src/jsMain/kotlin/network/lapis/cloud/client/PoliticianScreen.kt:516
 msgid "Unwiderruflich widerrufen"
 msgstr "Revocado de forma irrevocable"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/SepaLabels.kt:102
+msgid "Unzureichende Kontodeckung (AM04)"
+msgstr "Fondos insuficientes (AM04)"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/DocumentHttp.kt:45
 msgid "Upload fehlgeschlagen."
@@ -7253,6 +7922,10 @@ msgstr ""
 "Exportación y restauración completas de todos los datos de la organización "
 "(base de datos + documentos): solo para administradoras y administradores."
 
+#: src/jsMain/kotlin/network/lapis/cloud/client/SepaLabels.kt:106
+msgid "Vom Zahlungspflichtigen ohne Grundangabe abgelehnt (MS02)"
+msgstr "Rechazado por el deudor sin motivo (MS02)"
+
 #: src/jsMain/kotlin/network/lapis/cloud/client/NonprofitComplianceReportsScreen.kt:216
 msgid "Von (Geschäftsjahr)"
 msgstr "Desde (ejercicio económico)"
@@ -7273,6 +7946,10 @@ msgstr "Desde (AAAA-MM-DDTHH:MM:SS, opcional)"
 msgid "Von Sequenznummer (optional)"
 msgstr "Desde el número de secuencia (opcional)"
 
+#: src/jsMain/kotlin/network/lapis/cloud/client/SepaSettingsScreen.kt:199
+msgid "Vorabankündigungsfrist in Tagen (1-30)"
+msgstr "Plazo de preaviso en días (1-30)"
+
 #: src/jsMain/kotlin/network/lapis/cloud/client/AuditLogScreen.kt:307
 msgid "Vorher"
 msgstr "Antes"
@@ -7284,6 +7961,10 @@ msgstr "Rechazar provisionalmente"
 #: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:199
 msgid "Vorläufiges Passwort (mind. %1 Zeichen)"
 msgstr "Contraseña provisional (mín. %1 caracteres)"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/SepaBatchesScreen.kt:311
+msgid "Vorschau berechnen"
+msgstr "Calcular vista previa"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/CommitteesScreen.kt:465
 msgid "Vorsitz"
@@ -7417,9 +8098,17 @@ msgstr "Pizarra vaciada."
 msgid "Whiteboard leeren"
 msgstr "Vaciar pizarra"
 
+#: src/jsMain/kotlin/network/lapis/cloud/client/SepaLabels.kt:27
+msgid "Widerrufen"
+msgstr "Revocado"
+
 #: src/jsMain/kotlin/network/lapis/cloud/client/PoliticianScreen.kt:322
 msgid "Widerrufen am %1 von %2"
 msgstr "Revocado el %1 por %2"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/SepaLabels.kt:104
+msgid "Widerspruch des Zahlungspflichtigen (MD06)"
+msgstr "Reclamación del deudor (MD06)"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/AccountingLabels.kt:53
 msgid "Wiederbeschaffungsrücklage (%1)"
@@ -7441,6 +8130,10 @@ msgstr "Confirmar restauración"
 #: src/jsMain/kotlin/network/lapis/cloud/client/BackupScreen.kt:146
 msgid "Wiederherstellung erfolgreich abgeschlossen."
 msgstr "Restauración completada correctamente."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/SepaLabels.kt:79
+msgid "Wiederkehrend (RCUR)"
+msgstr "Recurrente (RCUR)"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/DashboardScreen.kt:44
 msgid "Willkommen, %1"
@@ -7583,6 +8276,10 @@ msgstr ""
 "conforme al §25 PartG para un año natural, de modo que la junta directiva "
 "pueda gestionarlas manualmente. No calcula donaciones no permitidas; estas "
 "se bloquean en el servidor al contabilizarlas y nunca pueden aparecer aquí."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/SepaLabels.kt:105
+msgid "Zahlungspflichtiger verstorben (MD07)"
+msgstr "Deudor fallecido (MD07)"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/AuditLogScreen.kt:284
 msgid "Zeitpunkt: %1"
@@ -7858,6 +8555,10 @@ msgstr "Eliminar contenido definitivamente"
 msgid "Inhalt wurde entfernt."
 msgstr "El contenido fue eliminado."
 
+#: src/jsMain/kotlin/network/lapis/cloud/client/SepaBatchesScreen.kt:109
+msgid "Keine Läufe vorhanden."
+msgstr "No hay lotes disponibles."
+
 #: src/jsMain/kotlin/network/lapis/cloud/client/SocialModerationScreen.kt:194
 msgid "Keine Löschanträge für diese Filter gefunden."
 msgstr "No se encontraron solicitudes de eliminación para estos filtros."
@@ -7869,6 +8570,10 @@ msgstr "No se encontraron denuncias para estos filtros."
 #: src/jsMain/kotlin/network/lapis/cloud/client/SocialNetworkScreen.kt:165
 msgid "Keine entfernten eigenen Beiträge."
 msgstr "No hay publicaciones propias eliminadas."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/SepaBatchesScreen.kt:77
+msgid "Läufe"
+msgstr "Lotes"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/SocialNetworkScreen.kt:653
 msgid "Löschantrag übermittelt."
@@ -7918,6 +8623,10 @@ msgstr "Tras la eliminación: compruebe si la URL de la publicación también de
 #: src/jsMain/kotlin/network/lapis/cloud/client/SocialModerationScreen.kt:301
 msgid "Personenbezogene Daten"
 msgstr "Datos personales"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/SepaBatchesScreen.kt:122
+msgid "Positionen"
+msgstr "Posiciones"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/SocialModerationScreen.kt:62
 msgid "Post-bezogene Löschanträge nach Art. 17 DSGVO -- Entscheidung und endgültige Ausführung sind ADMIN-only."

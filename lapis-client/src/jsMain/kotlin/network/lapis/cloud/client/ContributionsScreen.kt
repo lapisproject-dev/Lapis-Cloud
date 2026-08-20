@@ -71,6 +71,10 @@ fun renderContributionsScreen(container: SimplePanel) {
         }
     root.h1(tr("Beitragsübersicht"))
 
+    // V1.2.2 SEPA-Client-UI wave -- see SepaMandateSection.kt file KDoc "K1". Owns its own panel,
+    // renders nothing at all for a plain MEMBER when SEPA is disabled for this organization.
+    renderSepaMandateSection(root)
+
     renderOwnSummary(root, session.memberId)
 
     if (AppState.hasRole(AccountRole.TREASURER, AccountRole.ADMIN)) {
