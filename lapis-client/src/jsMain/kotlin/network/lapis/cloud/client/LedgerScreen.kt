@@ -432,7 +432,7 @@ private fun renderAccountRow(
 
         val metaParts = mutableListOf(gettext("Kontenklasse %1", account.accountClass))
         account.reserveType?.let { metaParts.add(reserveTypeLabel(it)) }
-        if (account.isCashRegister) metaParts.add(tr("Kasse"))
+        if (account.isCashRegister) metaParts.add(gettext("Kasse"))
         cell(metaParts.joinToString(" · ")) { addCssClasses("text-muted small") }
 
         val actionsCell = cell()
