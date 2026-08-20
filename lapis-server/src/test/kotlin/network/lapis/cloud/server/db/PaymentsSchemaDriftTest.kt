@@ -9,9 +9,18 @@ import io.kotest.matchers.shouldBe
 import network.lapis.cloud.server.db.generated.PaymentGatewayComplianceAcknowledgmentTable
 import network.lapis.cloud.server.db.generated.PaymentTransactionTable
 import network.lapis.cloud.server.db.generated.SepaComplianceAcknowledgmentTable
+import network.lapis.cloud.server.db.generated.SepaDebitBatchTable
+import network.lapis.cloud.server.db.generated.SepaDebitItemTable
+import network.lapis.cloud.server.db.generated.SepaMandateTable
+import network.lapis.cloud.server.db.generated.SepaReturnTable
 import network.lapis.cloud.shared.domain.PaymentIntent
 import network.lapis.cloud.shared.domain.PaymentProvider
 import network.lapis.cloud.shared.domain.PaymentTransactionStatus
+import network.lapis.cloud.shared.domain.SepaDebitBatchStatus
+import network.lapis.cloud.shared.domain.SepaDebitItemStatus
+import network.lapis.cloud.shared.domain.SepaMandateStatus
+import network.lapis.cloud.shared.domain.SepaReturnReason
+import network.lapis.cloud.shared.domain.SepaSequenceType
 import org.jetbrains.exposed.v1.jdbc.JdbcTransaction
 import org.jetbrains.exposed.v1.jdbc.transactions.transaction
 import java.io.File
@@ -37,16 +46,22 @@ class PaymentsSchemaDriftTest :
 
         test(
             "model declares exactly the payment_transaction/sepa_compliance_acknowledgment/" +
-                "payment_gateway_compliance_acknowledgment entities plus the Member/Contribution/JournalEntry stubs",
+                "payment_gateway_compliance_acknowledgment/sepa_mandate/sepa_debit_batch/sepa_debit_item/sepa_return " +
+                "entities plus the Member/Contribution/JournalEntry/Document stubs",
         ) {
             model.entities.map { it.name }.toSet() shouldBe
                 setOf(
                     "member",
                     "contribution",
                     "journal_entry",
+                    "document",
                     "payment_transaction",
                     "sepa_compliance_acknowledgment",
                     "payment_gateway_compliance_acknowledgment",
+                    "sepa_mandate",
+                    "sepa_debit_batch",
+                    "sepa_debit_item",
+                    "sepa_return",
                 )
         }
 
@@ -146,6 +161,161 @@ class PaymentsSchemaDriftTest :
                     byIndex.values
                 }
             uniqueIndexColumnSets shouldContain setOf("provider", "provider_event_id")
+        }
+
+        // ── V1.2.2 "SEPA-Lastschriftmandate" ─────────────────────────────────────────────
+
+        test("sepa_mandate table shape matches the real migrated schema and SepaMandateTable 1:1") {
+            val entity = model.entities.single { it.name == "sepa_mandate" }
+            val real = transaction { introspectGenericTable("sepa_mandate") }
+
+            entity.attributes.map { it.name }.toSet() shouldBe real.columns.keys
+            entity.attributes.map { it.name } shouldContainExactlyInAnyOrder SepaMandateTable.columns.map { it.name }
+
+            real.foreignKeys["member_id"] shouldBe "member"
+            real.foreignKeys["revoked_by"] shouldBe "member"
+            real.foreignKeys["created_by"] shouldBe "member"
+
+            entity.attributeByName("revoked_by")?.nullable shouldBe true
+            entity.attributeByName("status")?.type shouldBe
+                ErmDataType.Enum(
+                    name = "SepaMandateStatus",
+                    values = SepaMandateStatus.entries.map { it.name },
+                    externalFqName = "network.lapis.cloud.shared.domain.SepaMandateStatus",
+                )
+            entity.attributeByName("sequence_type")?.type shouldBe
+                ErmDataType.Enum(
+                    name = "SepaSequenceType",
+                    values = SepaSequenceType.entries.map { it.name },
+                    externalFqName = "network.lapis.cloud.shared.domain.SepaSequenceType",
+                )
+            entity.attributeByName("last_debited_amount")?.type shouldBe ErmDataType.Decimal(12, 2)
+        }
+
+        test("sepa_debit_batch table shape matches the real migrated schema and SepaDebitBatchTable 1:1") {
+            val entity = model.entities.single { it.name == "sepa_debit_batch" }
+            val real = transaction { introspectGenericTable("sepa_debit_batch") }
+
+            entity.attributes.map { it.name }.toSet() shouldBe real.columns.keys
+            entity.attributes.map { it.name } shouldContainExactlyInAnyOrder SepaDebitBatchTable.columns.map { it.name }
+
+            real.foreignKeys["created_by"] shouldBe "member"
+            real.foreignKeys["generated_document_id"] shouldBe "document"
+            real.foreignKeys["prenotification_document_id"] shouldBe "document"
+            entity.attributeByName("status")?.type shouldBe
+                ErmDataType.Enum(
+                    name = "SepaDebitBatchStatus",
+                    values = SepaDebitBatchStatus.entries.map { it.name },
+                    externalFqName = "network.lapis.cloud.shared.domain.SepaDebitBatchStatus",
+                )
+            entity.attributeByName("total_amount")?.type shouldBe ErmDataType.Decimal(14, 2)
+
+            // Security Round 1 (2026-08-20, MAJOR-4): creditor_id/creditor_name/creditor_iban/
+            // creditor_bic are the frozen-at-createDebitBatch-time snapshot of the org's SEPA
+            // creditor identity -- all four nullable (see SepaDebitBatchTable KDoc/kUML model).
+            entity.attributeByName("creditor_id")?.nullable shouldBe true
+            entity.attributeByName("creditor_name")?.nullable shouldBe true
+            entity.attributeByName("creditor_iban")?.nullable shouldBe true
+            entity.attributeByName("creditor_bic")?.nullable shouldBe true
+
+            val uniqueIndexColumnSets =
+                transaction {
+                    val byIndex = mutableMapOf<String, MutableSet<String>>()
+                    exec(
+                        """
+                        SELECT i.index_name AS name, ic.column_name
+                        FROM information_schema.index_columns ic
+                        JOIN information_schema.indexes i
+                            ON ic.index_name = i.index_name AND ic.table_name = i.table_name
+                        WHERE i.index_type_name = 'UNIQUE INDEX' AND ic.table_name = 'sepa_debit_batch'
+                        """.trimIndent(),
+                    ) { rs ->
+                        while (rs.next()) {
+                            byIndex.getOrPut(rs.getString("name")) { mutableSetOf() }.add(rs.getString("column_name"))
+                        }
+                    }
+                    byIndex.values
+                }
+            uniqueIndexColumnSets shouldContain setOf("message_id")
+        }
+
+        test("sepa_debit_item table shape matches the real migrated schema and SepaDebitItemTable 1:1") {
+            val entity = model.entities.single { it.name == "sepa_debit_item" }
+            val real = transaction { introspectGenericTable("sepa_debit_item") }
+
+            entity.attributes.map { it.name }.toSet() shouldBe real.columns.keys
+            entity.attributes.map { it.name } shouldContainExactlyInAnyOrder SepaDebitItemTable.columns.map { it.name }
+
+            real.foreignKeys["batch_id"] shouldBe "sepa_debit_batch"
+            real.foreignKeys["contribution_id"] shouldBe "contribution"
+            real.foreignKeys["mandate_id"] shouldBe "sepa_mandate"
+            real.foreignKeys["journal_entry_id"] shouldBe "journal_entry"
+            entity.attributeByName("status")?.type shouldBe
+                ErmDataType.Enum(
+                    name = "SepaDebitItemStatus",
+                    values = SepaDebitItemStatus.entries.map { it.name },
+                    externalFqName = "network.lapis.cloud.shared.domain.SepaDebitItemStatus",
+                )
+            entity.attributeByName("amount")?.type shouldBe ErmDataType.Decimal(12, 2)
+
+            val uniqueIndexColumnSets =
+                transaction {
+                    val byIndex = mutableMapOf<String, MutableSet<String>>()
+                    exec(
+                        """
+                        SELECT i.index_name AS name, ic.column_name
+                        FROM information_schema.index_columns ic
+                        JOIN information_schema.indexes i
+                            ON ic.index_name = i.index_name AND ic.table_name = i.table_name
+                        WHERE i.index_type_name = 'UNIQUE INDEX' AND ic.table_name = 'sepa_debit_item'
+                        """.trimIndent(),
+                    ) { rs ->
+                        while (rs.next()) {
+                            byIndex.getOrPut(rs.getString("name")) { mutableSetOf() }.add(rs.getString("column_name"))
+                        }
+                    }
+                    byIndex.values
+                }
+            uniqueIndexColumnSets shouldContain setOf("batch_id", "contribution_id")
+            uniqueIndexColumnSets shouldContain setOf("batch_id", "end_to_end_id")
+        }
+
+        test("sepa_return table shape matches the real migrated schema and SepaReturnTable 1:1") {
+            val entity = model.entities.single { it.name == "sepa_return" }
+            val real = transaction { introspectGenericTable("sepa_return") }
+
+            entity.attributes.map { it.name }.toSet() shouldBe real.columns.keys
+            entity.attributes.map { it.name } shouldContainExactlyInAnyOrder SepaReturnTable.columns.map { it.name }
+
+            real.foreignKeys["debit_item_id"] shouldBe "sepa_debit_item"
+            real.foreignKeys["recorded_by"] shouldBe "member"
+            entity.attributeByName("reason_code")?.type shouldBe
+                ErmDataType.Enum(
+                    name = "SepaReturnReason",
+                    values = SepaReturnReason.entries.map { it.name },
+                    externalFqName = "network.lapis.cloud.shared.domain.SepaReturnReason",
+                )
+            entity.attributeByName("return_fee")?.type shouldBe ErmDataType.Decimal(12, 2)
+
+            val uniqueIndexColumnSets =
+                transaction {
+                    val byIndex = mutableMapOf<String, MutableSet<String>>()
+                    exec(
+                        """
+                        SELECT i.index_name AS name, ic.column_name
+                        FROM information_schema.index_columns ic
+                        JOIN information_schema.indexes i
+                            ON ic.index_name = i.index_name AND ic.table_name = i.table_name
+                        WHERE i.index_type_name = 'UNIQUE INDEX' AND ic.table_name = 'sepa_return'
+                        """.trimIndent(),
+                    ) { rs ->
+                        while (rs.next()) {
+                            byIndex.getOrPut(rs.getString("name")) { mutableSetOf() }.add(rs.getString("column_name"))
+                        }
+                    }
+                    byIndex.values
+                }
+            uniqueIndexColumnSets shouldContain setOf("debit_item_id")
         }
     })
 

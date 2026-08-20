@@ -28,6 +28,7 @@ public object ContributionTable : Table("contribution") {
     public val dueDate: Column<LocalDate> = date("due_date")
     public val paymentMethod: Column<ContributionPaymentMethod> = enumerationByName<ContributionPaymentMethod>("payment_method", 12)
     // TODO default = "MANUAL"
+    public val sepaMandateId: Column<Uuid?> = optReference("sepa_mandate_id", SepaMandateTable.id)
 
     override val primaryKey: PrimaryKey = PrimaryKey(id)
 

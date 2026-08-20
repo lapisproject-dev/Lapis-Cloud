@@ -82,6 +82,10 @@ fun auditEntityTypeLabel(entityType: AuditEntityType): String =
         // `contributionIncomeAccountId`), die entscheidet, wohin jeder künftige Mitgliedsbeitrag
         // gebucht wird -- siehe `OrganizationSettingsService.updateOrganizationSettings` KDoc.
         AuditEntityType.ORGANIZATION_SETTINGS -> gettext("Organisationseinstellungen")
+        // Zahlungsverkehr, Welle V1.2.2 "SEPA-Lastschriftmandate" -- "SEPA-Mandat"/"SEPA-Lastschriftlauf"
+        // sind die Begriffe, die SepaMandateScreen.kt/SepaBatchScreen.kt durchgängig verwenden.
+        AuditEntityType.SEPA_MANDATE -> gettext("SEPA-Mandat")
+        AuditEntityType.SEPA_DEBIT_BATCH -> gettext("SEPA-Lastschriftlauf")
     }
 
 fun auditEntityTypeColor(entityType: AuditEntityType): String =
@@ -106,6 +110,12 @@ fun auditEntityTypeColor(entityType: AuditEntityType): String =
         // Fehlverhalten (anders als PARTY_DONATION_VERDICT/SOCIAL_POST's "danger"), aber finanziell
         // hoch relevant genug, um dieselbe Aufmerksamkeits-Stufe wie CONFERENCE_STREAM zu verdienen.
         AuditEntityType.ORGANIZATION_SETTINGS -> "warning"
+        // "primary" -- ein erteiltes/widerrufenes Mandat ist ein finanziell zentraler Vorgang,
+        // dieselbe Einstufung wie JOURNAL_ENTRY oben.
+        AuditEntityType.SEPA_MANDATE -> "primary"
+        // "warning" -- ein Lastschriftlauf-Statuswechsel ist administrativ, dieselbe Einstufung wie
+        // ORGANIZATION_SETTINGS oben.
+        AuditEntityType.SEPA_DEBIT_BATCH -> "warning"
     }
 
 // ------------------------------------------------------------------------------------------------

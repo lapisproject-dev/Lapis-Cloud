@@ -59,6 +59,13 @@ enum class AuditAction { CREATE, UPDATE, POST }
  * `OrganizationSettingsService.updateOrganizationSettings` KDoc für die volle Begründung (GoBD
  * Nachvollziehbarkeit: WER hat WANN die Konten-Zuordnung geändert, in die jeder künftige
  * Mitgliedsbeitrag gebucht wird).
+ * `SEPA_MANDATE`/`SEPA_DEBIT_BATCH` (Welle V1.2.2 "SEPA-Lastschriftmandate") were appended LAST after
+ * that -- `SepaService`'s mandate/batch-lifecycle methods write `entityType = SEPA_MANDATE` for every
+ * mandate grant/revoke/poller-driven expiry-or-lapse (see [SepaMandateSnapshot] KDoc for why it never
+ * carries account data) and `entityType = SEPA_DEBIT_BATCH` for every batch state transition (see
+ * [SepaDebitBatchSnapshot]). `DUNNING_NOTICE`/`PAYMENT_TRANSACTION` were deliberately NOT added ahead
+ * of need -- this wave has no writer for either, same "no build-ahead-of-need" rule Welle V1.2.1
+ * already applied to itself for these same two literals.
  * Additive append only -- never reorder existing literals,
  * see this enum's own "cheap to extend, expensive to reorder" note class-wide.
  */
@@ -74,6 +81,8 @@ enum class AuditEntityType {
     CONFERENCE_ROOM,
     SOCIAL_POST,
     ORGANIZATION_SETTINGS,
+    SEPA_MANDATE,
+    SEPA_DEBIT_BATCH,
 }
 
 /**
@@ -262,4 +271,57 @@ data class OrganizationSettingsPaymentMappingSnapshot(
     val paymentBankAccountId: String?,
     val paymentFeeAccountId: String?,
     val contributionIncomeAccountId: String?,
+)
+
+/**
+ * Structured payload for an [AuditEntityType.SEPA_MANDATE] audit entry (Welle V1.2.2). **NEVER
+ * carries the IBAN, the sealed ciphertext, the BIC, or the account-holder name** -- [AuditLogRecorder]
+ * writes into an append-only, hash-chained table; a snapshot carrying account data would preserve
+ * exactly the data a later Art. 17 erasure would have to remove -- and would then no longer be
+ * removable without breaking the chain. Same reasoning as [SocialPostModerationSnapshot] (V1.1.5).
+ * Enforced by `PaymentsRegressionScanTest`.
+ *
+ * [mandateReference] is pseudonymous by construction (see
+ * `network.lapis.cloud.server.payment.sepa.SepaMandateReferenceGenerator` KDoc) and may therefore be
+ * this snapshot's only mandate-identifying feature.
+ */
+@Serializable
+data class SepaMandateSnapshot(
+    val memberId: String,
+    val mandateReference: String,
+    val status: SepaMandateStatus,
+    val sequenceType: SepaSequenceType,
+    val signatureDate: LocalDate,
+    val lastUsedAt: LocalDate?,
+    /** `false` -> entered on the member's behalf (E-12) -- the GoBD-/abuse-relevant part of the event. */
+    val createdBySelf: Boolean,
+)
+
+/** Same "no IBAN, no account-holder name, no item detail -- only aggregates" discipline as [SepaMandateSnapshot]. */
+@Serializable
+data class SepaDebitBatchSnapshot(
+    val messageId: String,
+    val status: SepaDebitBatchStatus,
+    val sequenceType: SepaSequenceType,
+    val requestedCollectionDate: LocalDate,
+    val itemCount: Int,
+    val totalAmount: Decimal,
+    val requiredNoticeDays: Int?,
+    val notifiedAt: LocalDateTime?,
+    val generatedDocumentId: String?,
+)
+
+/**
+ * Structured payload for an [AuditEntityType.ORGANIZATION_SETTINGS] audit entry written by
+ * `ISepaService.updateSepaCreditorSettings` (Welle V1.2.2) -- carries the SEPA creditor
+ * identification number/name and the pre-notification period, all public organization attributes
+ * (not personal data), only ever written on an ACTUAL change (same narrowing
+ * `OrganizationSettingsService.updateOrganizationSettings` already applies, see
+ * [OrganizationSettingsPaymentMappingSnapshot] KDoc).
+ */
+@Serializable
+data class SepaCreditorSettingsSnapshot(
+    val sepaCreditorId: String?,
+    val sepaCreditorName: String?,
+    val sepaPrenotificationDays: Int,
 )

@@ -29,8 +29,11 @@ class ContributionSchemaDriftTest :
         val scriptFile = File(KumlModelLoader.kumlSourceDir, "01-contribution.kuml.kts")
         val model: ErmModel by lazy { KumlModelLoader.loadErmModel(scriptFile) }
 
-        test("model declares exactly membership_tier, contribution and the member stub") {
-            model.entities.map { it.name }.toSet() shouldBe setOf("membership_tier", "contribution", "member")
+        test("model declares exactly membership_tier, contribution, and the member/sepa_mandate stubs") {
+            // Welle V1.2.2 "SEPA-Lastschriftmandate" adds a SepaMandate stub (id-only, real entity
+            // owned by 33-payments.kuml.kts) so contribution.sepaMandateId's FK target can resolve --
+            // see this file's own file header addendum.
+            model.entities.map { it.name }.toSet() shouldBe setOf("membership_tier", "contribution", "member", "sepa_mandate")
         }
 
         // ── (1) Model vs. real H2-migrated schema ───────────────────────────────

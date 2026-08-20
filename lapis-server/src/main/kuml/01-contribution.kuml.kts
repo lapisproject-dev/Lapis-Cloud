@@ -32,14 +32,18 @@
 //    `ContributionStatusSets` (network.lapis.cloud.shared.domain, mirrors `MemberStatusSets`) is
 //    the ONE place a "which statuses may do X" question about these is answered.
 //  - `contribution.dueDate`/`contribution.paymentMethod` (new `ContributionPaymentMethod` enum:
-//    MANUAL/SEPA_DEBIT/GATEWAY) -- see plan § 2.2. `sepaMandateId` (plan § 2.2) is DELIBERATELY
-//    NOT added here: it FKs to `sepa_mandate`, a table V1.2.2 introduces -- adding the column now
-//    without its target table would leave a dangling reference. It arrives together with
-//    `sepa_mandate` in V1.2.2's own migration/model edit.
+//    MANUAL/SEPA_DEBIT/GATEWAY) -- see plan § 2.2. `sepaMandateId` (plan § 2.2) was DELIBERATELY
+//    NOT added in V1.2.1: it FKs to `sepa_mandate`, a table that did not exist yet.
 //  - `membershipTier.paymentTermDays` (Int, NOT NULL, default 14) -- the "Zahlungsziel" in days
 //    `ContributionService.generateContributionsForPeriod` now reads to compute a freshly generated
 //    contribution's `dueDate` (`periodStart + paymentTermDays`). Existing tiers backfill to 14 in
 //    `V7__payments.sql` (see that migration's comment for why 14, not 0).
+//
+// **Welle V1.2.2 "SEPA-Lastschriftmandate"** (vault "sepa_v1.2.2_plan.md" Teil 5.1) adds exactly
+// one column: `contribution.sepaMandateId`, nullable FK -> `sepa_mandate` (owned by
+// `33-payments.kuml.kts`, which introduces that table). The FK is deliberately set here, not in V7,
+// because `sepa_mandate` did not exist until this wave -- see that migration's own comment for why
+// this in-place `V1__baseline.sql` edit is mirrored, idempotently, by `V8__sepa_mandates.sql`.
 import dev.kuml.profile.erm.ermMappingProfile
 import dev.kuml.uml.Multiplicity
 import dev.kuml.uml.dsl.applyProfile
@@ -53,6 +57,17 @@ classDiagram(name = "Contribution") {
     // contribution.member_id's association target within this single-file evaluation.
     val member = classOf(name = "Member") {
         stereotype("Entity") { "tableName" to "member"; "kotlinObjectName" to "MemberTable" }
+        attribute(name = "id", type = "UUID") {
+            stereotype("Id")
+            stereotype("Column") { "columnName" to "id" }
+        }
+    }
+
+    // Payments-owned stub — id-only, mirrors the cross-domain-stub pattern above. V1.2.2 -- only
+    // exists here so UmlToErmTransformer can resolve contribution.sepaMandateId's association
+    // target within this single-file evaluation. Real entity defined in 33-payments.kuml.kts.
+    val sepaMandate = classOf(name = "SepaMandate") {
+        stereotype("Entity") { "tableName" to "sepa_mandate"; "kotlinObjectName" to "SepaMandateTable" }
         attribute(name = "id", type = "UUID") {
             stereotype("Id")
             stereotype("Column") { "columnName" to "id" }
@@ -180,6 +195,13 @@ classDiagram(name = "Contribution") {
                 "columnName" to "payment_method"
                 "enumType" to "network.lapis.cloud.shared.domain.ContributionPaymentMethod"
             }
+        }
+        // V1.2.2 (plan Teil 5.1). Nullable FK -> sepa_mandate -- which mandate this contribution
+        // line is (or was) bound to for an in-flight/settled SEPA debit run. null both before any
+        // run and again once a run is cancelled/the mandate is revoked -- see SepaService KDoc.
+        attribute(name = "sepaMandateId", type = "UUID") {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") { "columnName" to "sepa_mandate_id"; "fkEntity" to "SepaMandate" }
         }
     }
 

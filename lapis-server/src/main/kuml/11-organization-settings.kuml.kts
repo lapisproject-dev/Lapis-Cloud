@@ -52,10 +52,18 @@
 //    disclaimer-acknowledgment flow, mirroring `AuctionComplianceDisclaimer` exactly). Neither gate
 //    has any real functionality behind it yet in V1.2.1 (SEPA mandates/PSP webhooks are V1.2.2/
 //    V1.2.4) -- the gate exists now so those later sub-waves find it already built and reviewed.
-//    `sepaCreditorId`/`sepaCreditorName`/`sepaPrenotificationDays` (plan § 2.4) are DELIBERATELY
-//    NOT added here yet -- they configure SEPA batch/pre-notification behaviour that does not exist
-//    until V1.2.2 and arrive together with `sepa_mandate`/`sepa_debit_batch` in that sub-wave's own
-//    migration. Same reasoning for `dunningEnabled` (V1.2.3).
+//    `sepaCreditorId`/`sepaCreditorName`/`sepaPrenotificationDays` (plan § 2.4) were DELIBERATELY
+//    NOT added in V1.2.1 -- they configure SEPA batch/pre-notification behaviour that did not exist
+//    yet. Same reasoning for `dunningEnabled` (V1.2.3, still not added).
+//  - **Welle V1.2.2 "SEPA-Lastschriftmandate"** (vault "sepa_v1.2.2_plan.md" Teil 1.2 D-4) adds
+//    exactly those three fields now, alongside `sepa_mandate`/`sepa_debit_batch`/`sepa_debit_item`/
+//    `sepa_return` in `33-payments.kuml.kts`. `sepaCreditorId` is nullable -- the Gläubiger-
+//    Identifikationsnummer must be applied for at the Deutsche Bundesbank first (E-11); until it is
+//    set, `ISepaService.generateBatchFile` refuses with an actionable message, everything else
+//    (mandates, batch creation/notification) works. `sepaPrenotificationDays` is NOT NULL, default
+//    14 (`SepaPrenotificationCalculator.FULL_NOTICE_DAYS`). All three are settable ONLY via
+//    `ISepaService.updateSepaCreditorSettings`, never via the generic `updateOrganizationSettings`
+//    -- same read-only-from-OrganizationSettingsService treatment as `sepaDebitEnabled` above.
 //  - **Kontenzuordnung Zahlungsverkehr** `paymentBankAccountId`/`paymentFeeAccountId`/
 //    `contributionIncomeAccountId` (plan § 3.5's "Konten-Zuordnung ist konfigurierbar, nicht
 //    hartkodiert") -- which SKR42 `LedgerAccount`s `ContributionPostingBridge` books a manually
@@ -222,6 +230,26 @@ classDiagram(name = "OrganizationSettings") {
         attribute(name = "contributionIncomeAccountId", type = "UUID") {
             multiplicity = Multiplicity(0, 1)
             stereotype("Column") { "columnName" to "contribution_income_account_id"; "fkEntity" to "LedgerAccount" }
+        }
+        // V1.2.2 SEPA-Lastschriftmandate (plan D-4/E-11). Nullable -- unset until an ADMIN applies
+        // for and enters the Bundesbank Gläubiger-Identifikationsnummer. Settable ONLY via
+        // ISepaService.updateSepaCreditorSettings -- see file header addendum.
+        attribute(name = "sepaCreditorId", type = "String") {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") { "columnName" to "sepa_creditor_id"; "sqlType" to "VARCHAR(35)" }
+        }
+        // V1.2.2 SEPA-Lastschriftmandate. Nullable, the creditor's own name as it appears in the
+        // pain.008 file's GrpHdr/InitgPty and PmtInf/Cdtr elements.
+        attribute(name = "sepaCreditorName", type = "String") {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") { "columnName" to "sepa_creditor_name"; "sqlType" to "VARCHAR(70)" }
+        }
+        // V1.2.2 SEPA-Lastschriftmandate. NOT NULL, defaults to
+        // SepaPrenotificationCalculator.FULL_NOTICE_DAYS (14) -- see that object's own KDoc for the
+        // legal-status disclosure this default rests on.
+        attribute(name = "sepaPrenotificationDays", type = "Int") {
+            defaultValue = "14"
+            stereotype("Column") { "columnName" to "sepa_prenotification_days" }
         }
     }
 }

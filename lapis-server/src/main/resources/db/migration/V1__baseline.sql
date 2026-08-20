@@ -61,7 +61,11 @@ CREATE TABLE organization_settings (
     payment_bank_account_id UUID NULL,
     payment_fee_account_id UUID NULL,
     contribution_income_account_id UUID NULL,
-    CHECK (payment_gateway_provider IS NULL OR payment_gateway_provider IN ('PAYPAL', 'STRIPE', 'MANUAL'))
+    sepa_creditor_id VARCHAR(35) NULL,
+    sepa_creditor_name VARCHAR(70) NULL,
+    sepa_prenotification_days INT NOT NULL DEFAULT 14,
+    CHECK (payment_gateway_provider IS NULL OR payment_gateway_provider IN ('PAYPAL', 'STRIPE', 'MANUAL')),
+    CHECK (sepa_prenotification_days >= 1 AND sepa_prenotification_days <= 30)
 );
 
 CREATE TABLE committee (
@@ -171,6 +175,12 @@ CREATE TABLE contribution (
     membership_tier_id UUID NOT NULL,
     due_date DATE NOT NULL,
     payment_method VARCHAR(12) NOT NULL DEFAULT 'MANUAL',
+    -- sepa_mandate_id (V1.2.2 SEPA-Lastschriftmandate): deliberately NO inline FK here -- sepa_mandate
+    -- is a genuinely new table that lives ONLY in V8__sepa_mandates.sql (never folded into this
+    -- baseline, same V4-V7 precedent for brand-new tables), so on a truly fresh DB this column would
+    -- reference a not-yet-existing table if the FK were declared inline. V8 adds the FK constraint
+    -- once sepa_mandate exists (it creates that table earlier in its own script).
+    sepa_mandate_id UUID NULL,
     CHECK (status IN ('OPEN', 'PAID', 'WAIVED', 'OVERDUE', 'DEBIT_SCHEDULED', 'DEBIT_SUBMITTED', 'RETURNED', 'IN_DUNNING')),
     CHECK (payment_method IN ('MANUAL', 'SEPA_DEBIT', 'GATEWAY'))
 );
@@ -689,7 +699,7 @@ CREATE TABLE audit_log_entry (
     entry_hash VARCHAR(64) NOT NULL,
     previous_entry_hash VARCHAR(64) NULL,
     CHECK (actor_role IN ('MEMBER', 'BOARD', 'TREASURER', 'ADMIN')),
-    CHECK (entity_type IN ('JOURNAL_ENTRY', 'PARTY_DONATION_VERDICT', 'RESOLUTION', 'BOARD_MEMBERSHIP', 'CONFERENCE_RECORDING', 'CONFERENCE_STREAM', 'CONFERENCE_STREAM_DESTINATION', 'CONFERENCE_ROOM', 'SOCIAL_POST', 'ORGANIZATION_SETTINGS')),
+    CHECK (entity_type IN ('JOURNAL_ENTRY', 'PARTY_DONATION_VERDICT', 'RESOLUTION', 'BOARD_MEMBERSHIP', 'CONFERENCE_RECORDING', 'CONFERENCE_STREAM', 'CONFERENCE_STREAM_DESTINATION', 'CONFERENCE_ROOM', 'SOCIAL_POST', 'ORGANIZATION_SETTINGS', 'SEPA_MANDATE', 'SEPA_DEBIT_BATCH')),
     CHECK (action IN ('CREATE', 'UPDATE', 'POST'))
 );
 

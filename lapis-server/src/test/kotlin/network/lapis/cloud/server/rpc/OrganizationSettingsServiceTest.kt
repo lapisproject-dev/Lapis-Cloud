@@ -21,6 +21,7 @@ import network.lapis.cloud.server.db.DatabaseConfig
 import network.lapis.cloud.server.db.DevSeedData
 import network.lapis.cloud.server.db.generated.OrganizationSettingsTable
 import network.lapis.cloud.shared.domain.OrganizationSettingsInput
+import network.lapis.cloud.shared.rpc.ConflictException
 import network.lapis.cloud.shared.rpc.ForbiddenException
 import network.lapis.cloud.shared.rpc.UnauthenticatedException
 import org.jetbrains.exposed.v1.core.eq
@@ -131,6 +132,45 @@ class OrganizationSettingsServiceTest :
                 val getAfterUpdate = client.get("/test/get") { header("X-Member-Id", TREASURER_ID) }
                 getAfterUpdate.bodyAsText() shouldBe
                     "$ORGANIZATION_SETTINGS_ID:Testverein e.V.:Musterstrasse 1:DE02120300000000202051"
+            }
+        }
+
+        // Security Round 1 (2026-08-20, MINOR-5): bankIban/bankBic are used as the SEPA CREDITOR's
+        // own IBAN/BIC in every generated pain.008 file -- previously persisted with zero validation,
+        // so a malformed value would only surface much later, deep inside SepaPain008Writer, as a
+        // raw HTTP 500. Now rejected with ConflictException at the point they are SAVED.
+        test("updateOrganizationSettings rejects a malformed bankIban/bankBic with ConflictException, not a raw 500") {
+            testApplication {
+                application {
+                    install(StatusPages) {
+                        exception<ConflictException> { call, cause ->
+                            call.respondText(cause.message, status = HttpStatusCode.Conflict)
+                        }
+                    }
+                    routing { registerOrgSettingsTestRoutes() }
+                }
+
+                // An altered check digit on an otherwise-valid IBAN -- same fixture idiom
+                // IbanValidatorTest's own "an altered check digit is rejected" test uses.
+                val badIban =
+                    client.post(
+                        "/test/update?name=Testverein%20e.V.&bankIban=DE89370400440532013001&bankBic=BYLADEM1001",
+                    ) { header("X-Member-Id", ADMIN_ID) }
+                badIban.status shouldBe HttpStatusCode.Conflict
+
+                // "1234567" is 7 characters -- BicValidator.isValid requires exactly 8 or 11.
+                val badBic =
+                    client.post(
+                        "/test/update?name=Testverein%20e.V.&bankIban=DE02120300000000202051&bankBic=1234567",
+                    ) { header("X-Member-Id", ADMIN_ID) }
+                badBic.status shouldBe HttpStatusCode.Conflict
+
+                // A valid pair still succeeds -- the guard rejects only malformed values, not every write.
+                val good =
+                    client.post(
+                        "/test/update?name=Testverein%20e.V.&bankIban=DE89370400440532013000&bankBic=COBADEFFXXX",
+                    ) { header("X-Member-Id", ADMIN_ID) }
+                good.status shouldBe HttpStatusCode.OK
             }
         }
 

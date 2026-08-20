@@ -254,7 +254,15 @@ class DomainModelMergerTest :
             // stub (both resolve acknowledged_by_member_id through the SAME Member stub already
             // counted above) -- so +2 more «Entity» declarations, no drop, versus the previous line
             // (106 -> 108).
-            val distinctTableNames = 108
+            // Welle V1.2.2 "SEPA-Lastschriftmandate" (vault "sepa_v1.2.2_plan.md") adds FOUR more
+            // real tables to 33-payments.kuml.kts (sepa_mandate/sepa_debit_batch/sepa_debit_item/
+            // sepa_return), plus a Document stub in that same file (dedups into 02-document.kuml.kts's
+            // already-real document entity, +1 drop) and a SepaMandate stub in
+            // 01-contribution.kuml.kts (for contribution.sepaMandateId, dedups into 33-payments.
+            // kuml.kts's own now-real sepa_mandate entity, +1 more drop) -- net +6 «Entity»
+            // declarations (4 real tables + 2 stubs), 2 drops, versus the V1.2.1 baseline above
+            // (108 -> 112).
+            val distinctTableNames = 112
 
             val result =
                 UmlToExposedViaErmScriptTransformer().transform(
@@ -399,6 +407,13 @@ class DomainModelMergerTest :
                     "PaymentTransactionTable.kt",
                     "SepaComplianceAcknowledgmentTable.kt",
                     "PaymentGatewayComplianceAcknowledgmentTable.kt",
+                    // Zahlungsverkehr, Welle V1.2.2 "SEPA-Lastschriftmandate" -- four new real
+                    // tables; the Document/SepaMandate stubs added alongside them both dedup into
+                    // already-real entities (document/sepa_mandate), no new Table file for them.
+                    "SepaMandateTable.kt",
+                    "SepaDebitBatchTable.kt",
+                    "SepaDebitItemTable.kt",
+                    "SepaReturnTable.kt",
                 )
         }
 

@@ -45,6 +45,8 @@ import network.lapis.cloud.server.federation.FederationReplayGuard
 import network.lapis.cloud.server.federation.OidcSigningKeyProvisioner
 import network.lapis.cloud.server.federation.TrustAnchorSigningKeyProvisioner
 import network.lapis.cloud.server.mail.NoOpPasswordResetMailer
+import network.lapis.cloud.server.payment.sepa.SepaBatchPoller
+import network.lapis.cloud.server.payment.sepa.SepaConfig
 import network.lapis.cloud.server.postal.LetterxpressPostalMailProvider
 import network.lapis.cloud.server.routes.registerAuthRoutes
 import network.lapis.cloud.server.routes.registerBackupRoutes
@@ -54,6 +56,7 @@ import network.lapis.cloud.server.routes.registerDsgvoRoutes
 import network.lapis.cloud.server.routes.registerFederationRoutes
 import network.lapis.cloud.server.routes.registerMailmergeRoutes
 import network.lapis.cloud.server.routes.registerOidcRoutes
+import network.lapis.cloud.server.routes.registerSepaRoutes
 import network.lapis.cloud.server.routes.registerSocialPublicRoutes
 import network.lapis.cloud.server.routes.registerTrustAnchorRoutes
 import network.lapis.cloud.server.rpc.AccountingService
@@ -365,6 +368,22 @@ fun Application.module() {
         streamPoller.start()
     }
 
+    // V1.2.2 SEPA-Lastschriftmandate -- SepaConfig.load() is pure string parsing (same
+    // "safe to call unconditionally" posture as conferenceConfig/conferenceStreamingConfig above)
+    // and deliberately does NOT fail-fast on a missing LAPIS_SECRET_ENCRYPTION_KEY -- see that
+    // class's own KDoc "Fail-fast posture deliberately DIFFERENT". SepaBatchPoller is constructed
+    // unconditionally, `.start()` gated on sepaConfig.pollerEnabled, same reasoning as
+    // recordingPoller/streamPoller above.
+    val sepaConfig = SepaConfig.load()
+    val sepaBatchPoller = SepaBatchPoller(sepaConfig = sepaConfig)
+    if (sepaConfig.pollerEnabled) {
+        sepaBatchPoller.start()
+    }
+    // Security Round 1 (2026-08-20, MINOR-4) -- shared, module-scoped instance for
+    // SepaService.grantMandate/revokeMandate; see that class' own "Rate limiting" KDoc for why a
+    // constructor-default instance would be non-functional in production.
+    val sepaMandateWriteRateLimiter = FederationInboxRateLimiter(maxRequests = 10, window = 1.minutes)
+
     // V1.0 Videokonferenzen, Wave 9 "Stream-Pause bei geheimen Abstimmungen" (D6) -- constructed here,
     // NOT left to ElectionService's/SystemicConsensusService's own constructor defaults (there ARE
     // none -- see those classes' own `streamGuard` KDoc): reuses the SAME liveKitEgressClient/
@@ -555,7 +574,16 @@ fun Application.module() {
         registerService(IPriceOracleService::class) { call -> PriceOracleService(call = call, orchestrator = priceOracleOrchestrator) }
         registerService(IPoliticianService::class) { call -> PoliticianService(call = call) }
         registerService(IAuctionService::class) { call -> AuctionService(call = call) }
-        registerService(ISepaService::class) { call -> SepaService(call = call) }
+        registerService(
+            ISepaService::class,
+        ) { call ->
+            SepaService(
+                call = call,
+                sepaConfig = sepaConfig,
+                documentStorageRoot = documentStorageRoot,
+                mandateWriteRateLimiter = sepaMandateWriteRateLimiter,
+            )
+        }
         registerService(IPaymentGatewayService::class) { call -> PaymentGatewayService(call = call) }
         registerService(
             ISocialNetworkService::class,
@@ -666,6 +694,7 @@ fun Application.module() {
         registerConferenceRecordingRoutes(documentStorageRoot)
         registerDsgvoRoutes()
         registerMailmergeRoutes(documentStorageRoot)
+        registerSepaRoutes(documentStorageRoot = documentStorageRoot, sepaConfig = sepaConfig)
         registerBackupRoutes(database = DatabaseConfig.connect(), documentStorageRoot = documentStorageRoot)
         registerAuthRoutes(
             rateLimiter = loginRateLimiter,

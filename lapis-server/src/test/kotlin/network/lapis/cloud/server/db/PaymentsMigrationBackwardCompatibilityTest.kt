@@ -125,6 +125,93 @@ class PaymentsMigrationBackwardCompatibilityTest :
                 dueDateOf(connection = connection, id = contributionId) shouldBe periodStart
             }
         }
+
+        // Welle V1.2.2 "SEPA-Lastschriftmandate" (vault plan "sepa_v1.2.2_plan.md" Teil 15.3): the
+        // SAME kind of test as V7 above, one migration later -- boots a fresh DB, builds the
+        // POST-V7/PRE-V8 shape (pre-V7 baseline + the REAL V7 script applied verbatim), applies
+        // `V8__sepa_mandates.sql` verbatim from the classpath, and asserts its documented guarantees.
+        test(
+            "V8 adds contribution.sepa_mandate_id, the three organization_settings SEPA columns, creates the four new " +
+                "tables, widens audit_log_entry.entity_type for SEPA_MANDATE/SEPA_DEBIT_BATCH, and a second run is a clean no-op",
+        ) {
+            val jdbcUrl = "jdbc:h2:mem:sepa-migration-backcompat-${UUID.randomUUID()};MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE"
+            DriverManager.getConnection(jdbcUrl, "sa", "").use { connection ->
+                connection.autoCommit = true
+                createPreV7BaselineSchema(connection)
+                connection.createStatement().use { stmt ->
+                    // V8's FK targets that neither the pre-V7 baseline nor V7 itself create.
+                    stmt.execute("CREATE TABLE document (id UUID NOT NULL PRIMARY KEY)")
+                }
+
+                // Pre-existing rows inserted BEFORE V7 runs -- same sequence as the V7 test above --
+                // because V7's own due_date backfill (period_start -> due_date) only ever runs once,
+                // for rows that already exist AT migration time; a row inserted AFTER V7 has already
+                // widened due_date to NOT NULL would need due_date supplied explicitly, which
+                // insertContribution (written for the pre-V7 shape) deliberately does not do.
+                val memberId = UUID.randomUUID()
+                insertMember(connection = connection, id = memberId)
+                val tierId = UUID.randomUUID()
+                insertMembershipTier(connection = connection, id = tierId)
+                val contributionId = UUID.randomUUID()
+                insertContribution(
+                    connection = connection,
+                    id = contributionId,
+                    memberId = memberId,
+                    tierId = tierId,
+                    periodStart = "2026-04-01",
+                    status = "OPEN",
+                )
+
+                applyV7Migration(connection)
+                applyV8Migration(connection)
+
+                // (a) contribution.sepa_mandate_id exists, nullable, and the pre-existing row reads NULL.
+                tableHasColumn(connection = connection, tableName = "contribution", columnName = "sepa_mandate_id") shouldBe true
+                columnIsNotNull(connection = connection, tableName = "contribution", columnName = "sepa_mandate_id") shouldBe false
+                sepaMandateIdOf(connection = connection, id = contributionId) shouldBe null
+
+                // (b) organization_settings gains the three new columns, correct default.
+                tableHasColumn(connection = connection, tableName = "organization_settings", columnName = "sepa_creditor_id") shouldBe true
+                tableHasColumn(connection = connection, tableName = "organization_settings", columnName = "sepa_creditor_name") shouldBe
+                    true
+                tableHasColumn(
+                    connection = connection,
+                    tableName = "organization_settings",
+                    columnName = "sepa_prenotification_days",
+                ) shouldBe true
+                sepaPrenotificationDaysOf(connection) shouldBe 14
+
+                // (c) the four new tables exist and are usable.
+                tableRowCount(connection = connection, tableName = "sepa_mandate") shouldBe 0L
+                tableRowCount(connection = connection, tableName = "sepa_debit_batch") shouldBe 0L
+                tableRowCount(connection = connection, tableName = "sepa_debit_item") shouldBe 0L
+                tableRowCount(connection = connection, tableName = "sepa_return") shouldBe 0L
+
+                // (d) audit_log_entry.entity_type's widened CHECK accepts both new literals, still
+                // accepts a pre-existing one, and still rejects a bogus one (CHECK really re-set, not
+                // just dropped).
+                insertAuditLogEntry(connection = connection, id = UUID.randomUUID(), entityType = "SEPA_MANDATE")
+                insertAuditLogEntry(connection = connection, id = UUID.randomUUID(), entityType = "SEPA_DEBIT_BATCH")
+                insertAuditLogEntry(connection = connection, id = UUID.randomUUID(), entityType = "JOURNAL_ENTRY")
+                insertAuditLogEntry(connection = connection, id = UUID.randomUUID(), entityType = "ORGANIZATION_SETTINGS")
+                val auditCheckViolation =
+                    runCatching { insertAuditLogEntry(connection = connection, id = UUID.randomUUID(), entityType = "BOGUS") }
+                auditCheckViolation.isFailure shouldBe true
+                (auditCheckViolation.exceptionOrNull() is SQLException) shouldBe true
+
+                // (e) A genuine sepa_mandate row can be inserted and referenced from contribution.
+                val mandateId = UUID.randomUUID()
+                insertMinimalSepaMandate(connection = connection, id = mandateId, memberId = memberId)
+                setContributionSepaMandateId(connection = connection, id = contributionId, mandateId = mandateId)
+                sepaMandateIdOf(connection = connection, id = contributionId) shouldBe mandateId.toString()
+
+                // (f) Running V8 a SECOND time is a clean no-op -- row counts unchanged, no exception.
+                val mandateCountBefore = tableRowCount(connection = connection, tableName = "sepa_mandate")
+                applyV8Migration(connection)
+                tableRowCount(connection = connection, tableName = "sepa_mandate") shouldBe mandateCountBefore
+                sepaMandateIdOf(connection = connection, id = contributionId) shouldBe mandateId.toString()
+            }
+        }
     })
 
 /**
@@ -368,6 +455,74 @@ private fun tableRowCount(
             rs.getLong(1)
         }
     }
+
+/** Executes the REAL `V8__sepa_mandates.sql` file from the classpath verbatim, via H2's own script runner -- never a hand-copied/abbreviated re-statement of it. */
+private fun applyV8Migration(connection: Connection) {
+    val resourceStream =
+        requireNotNull(
+            Thread.currentThread().contextClassLoader.getResourceAsStream("db/migration/V8__sepa_mandates.sql"),
+        ) {
+            "V8__sepa_mandates.sql not found on the test classpath"
+        }
+    resourceStream.use { stream ->
+        RunScript.execute(connection, InputStreamReader(stream, Charsets.UTF_8))
+    }
+}
+
+private fun sepaMandateIdOf(
+    connection: Connection,
+    id: UUID,
+): String? =
+    connection.prepareStatement("SELECT CAST(sepa_mandate_id AS VARCHAR) FROM contribution WHERE id = ?").use { ps ->
+        ps.setObject(1, id)
+        ps.executeQuery().use { rs ->
+            check(rs.next()) { "contribution row $id not found" }
+            rs.getString(1)
+        }
+    }
+
+private fun sepaPrenotificationDaysOf(connection: Connection): Int =
+    connection.createStatement().use { stmt ->
+        stmt
+            .executeQuery(
+                "SELECT sepa_prenotification_days FROM organization_settings WHERE id = '00000000-0000-0000-0000-0000000000f2'",
+            ).use { rs ->
+                check(rs.next()) { "organization_settings baseline row not found" }
+                rs.getInt(1)
+            }
+    }
+
+private fun insertMinimalSepaMandate(
+    connection: Connection,
+    id: UUID,
+    memberId: UUID,
+) {
+    connection
+        .prepareStatement(
+            "INSERT INTO sepa_mandate (id, member_id, mandate_reference, debtor_name, debtor_iban_ciphertext, " +
+                "debtor_iban_set_at, debtor_iban_last4, signature_date, sequence_type, status, granted_at, created_by) " +
+                "VALUES (?, ?, ?, 'Erika Mustermann', 'v1:AAAA:BBBB', TIMESTAMP '2026-08-19 00:00:00', '3000', " +
+                "DATE '2026-08-19', 'FRST', 'ACTIVE', TIMESTAMP '2026-08-19 00:00:00', ?)",
+        ).use { ps ->
+            ps.setObject(1, id)
+            ps.setObject(2, memberId)
+            ps.setString(3, "LC-${id.toString().take(8)}-20260819-0001")
+            ps.setObject(4, memberId)
+            ps.executeUpdate()
+        }
+}
+
+private fun setContributionSepaMandateId(
+    connection: Connection,
+    id: UUID,
+    mandateId: UUID,
+) {
+    connection.prepareStatement("UPDATE contribution SET sepa_mandate_id = ? WHERE id = ?").use { ps ->
+        ps.setObject(1, mandateId)
+        ps.setObject(2, id)
+        ps.executeUpdate()
+    }
+}
 
 /** Executes the REAL `V7__payments.sql` file from the classpath verbatim, via H2's own script runner -- never a hand-copied/abbreviated re-statement of it. */
 private fun applyV7Migration(connection: Connection) {

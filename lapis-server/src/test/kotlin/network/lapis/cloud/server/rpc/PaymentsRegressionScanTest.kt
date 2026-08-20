@@ -68,7 +68,7 @@ class PaymentsRegressionScanTest :
         // ltr_ledger_entry landen. Structural guard: none of this wave's new files import the LTR
         // ledger's own table/enum types, and the enum itself has not silently grown a Euro-adjacent
         // literal.
-        test("no V1.2.1 payments file imports LtrLedgerEntryTable/LtrLedgerEntryType/LtrLedgerReferenceType") {
+        test("no V1.2.1/V1.2.2 payments file imports LtrLedgerEntryTable/LtrLedgerEntryType/LtrLedgerReferenceType") {
             val paymentsFiles =
                 listOf(
                     "ContributionPostingBridge.kt",
@@ -77,7 +77,12 @@ class PaymentsRegressionScanTest :
                     "PaymentGatewayComplianceDisclaimer.kt",
                     "PaymentGatewayService.kt",
                 ).map { File(serverMainDir, "network/lapis/cloud/server/rpc/$it") } +
-                    File(serverMainDir, "network/lapis/cloud/server/dsgvo/PaymentsPersonalData.kt")
+                    File(serverMainDir, "network/lapis/cloud/server/dsgvo/PaymentsPersonalData.kt") +
+                    (
+                        File(serverMainDir, "network/lapis/cloud/server/payment/sepa").listFiles { f ->
+                            f.extension == "kt"
+                        } ?: emptyArray()
+                    ).toList()
             val forbiddenPatterns = listOf("LtrLedgerEntryTable", "LtrLedgerEntryType", "LtrLedgerReferenceType")
 
             val offenders =
@@ -86,6 +91,31 @@ class PaymentsRegressionScanTest :
                     file.readLines().mapIndexedNotNull { index, line ->
                         val hit = forbiddenPatterns.firstOrNull { line.contains(it) }
                         if (hit != null) "${file.path}:${index + 1}: matched '$hit'" else null
+                    }
+                }
+            offenders.shouldBeEmpty()
+        }
+
+        // Welle V1.2.2 "SEPA-Lastschriftmandate" -- forward-looking guard, same "structural coverage
+        // test" idiom as the two tests above: no server/payment/sepa/ file (nor SepaService.kt/
+        // SepaRoutes.kt) ever interpolates a variable whose name suggests it holds an IBAN,
+        // ciphertext, secret, key, or decrypted plaintext into a logger.* call -- the full IBAN must
+        // never reach a log line, see SepaService KDoc rule 5 "the full IBAN never leaves this class".
+        test("no Sepa* server file interpolates an iban/ciphertext/secret/key/plaintext-named variable in a logger.* call") {
+            val sepaFiles =
+                (File(serverMainDir, "network/lapis/cloud/server/payment/sepa").listFiles { f -> f.extension == "kt" } ?: emptyArray())
+                    .toList() +
+                    listOf(
+                        File(serverMainDir, "network/lapis/cloud/server/rpc/SepaService.kt"),
+                        File(serverMainDir, "network/lapis/cloud/server/routes/SepaRoutes.kt"),
+                    )
+            val loggerLinePattern =
+                Regex("""logger\.\w+\s*\{[^}]*\$\{?\w*(iban|ciphertext|secret|key|plaintext)\w*""", RegexOption.IGNORE_CASE)
+            val offenders =
+                sepaFiles.flatMap { file ->
+                    if (!file.exists()) return@flatMap emptyList()
+                    file.readLines().mapIndexedNotNull { index, line ->
+                        if (loggerLinePattern.containsMatchIn(line)) "${file.path}:${index + 1}: $line" else null
                     }
                 }
             offenders.shouldBeEmpty()

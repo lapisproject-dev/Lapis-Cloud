@@ -8,6 +8,327 @@ All notable changes to this project are documented here. Format follows
 
 ### Added
 
+**Zahlungsverkehr, Welle V1.2.2 "SEPA-Lastschriftmandate" — Mandatsverwaltung, Lastschriftläufe, pain.008-Dateierzeugung, Rücklastschriften**
+
+Zweite Sub-Welle von V1.2 "Zahlungsverkehr" (vgl. vault "sepa_v1.2.2_plan.md"), auf `ISepaService`s
+in V1.2.1 gebautem, bis dahin ungenutztem Compliance-Gate (`sepaDebitEnabled`) aufbauend. Bringt der
+Plattform erstmals eine echte SEPA-Basislastschrift-Strecke: Mitglieder erteilen/widerrufen eigene
+Mandate (oder eine Schatzmeisterin erfasst sie stellvertretend), eine Schatzmeisterin bildet daraus
+Lastschriftläufe, kündigt sie an, erzeugt eine pain.008.001.08-Sammellastschriftdatei zum manuellen
+Hochladen im Online-Banking, bestätigt die Einreichung, erfasst Rückläufer, und verbucht nach Ablauf
+der achtwöchigen Rückgabefrist über die **bestehende, unveränderte** `ContributionPostingBridge`.
+
+- **`sepa_mandate`/`sepa_debit_batch`/`sepa_debit_item`/`sepa_return`** (vier neue Tabellen,
+  `33-payments.kuml.kts`, Migration `V8__sepa_mandates.sql` — **nicht** `V7`, dessen Prüfsumme mit
+  `33ef637` bereits verbraucht ist) plus `contribution.sepaMandateId` (modelliert in
+  `01-contribution.kuml.kts`, das `contribution` besitzt) und drei neue
+  `organization_settings`-Spalten (`sepaCreditorId`/`sepaCreditorName`/`sepaPrenotificationDays`,
+  modelliert in `11-organization-settings.kuml.kts`). Die IBAN liegt ausschließlich `SecretBox`-
+  versiegelt (AES-256-GCM, AAD = `sepa_mandate.id`) vor und wird nach der Erfassung **nie wieder**
+  zurückgegeben — kein DTO, kein Log, keine Exception-Message, kein Audit-Snapshot trägt sie je.
+- **`network.lapis.cloud.server.payment.sepa`** (neues Paket, von V1.2.1 bewusst vertagt) — fünf
+  reine, DB-freie Logikbausteine: `IbanValidator` (selbst geschriebene ISO-7064-Mod-97-10-Prüfung +
+  Länder-Längentabelle, keine neue Abhängigkeit), `SepaCharacterSet` (Umlaut-Transliteration nach
+  deutscher Bankkonvention, `ä→ae` etc., dann NFD-Akzent-Stripping, unbekanntes Zeichen → `.`),
+  `SepaMandateReferenceGenerator` (`LC-<8hex>-<yyyyMMdd>-<4hex>`, kein fortlaufender Zähler),
+  `SepaPrenotificationCalculator` (Entscheidungspunkt E-7: volle 14-Tage-Frist bei Betragserhöhung,
+  auch wenn kürzer konfiguriert), `SepaPain008Writer` (schreibt ausschließlich über
+  `javax.xml.stream.XMLStreamWriter` — JDK-nativ, keine neue Abhängigkeit, maskiert genau einmal,
+  im Gegensatz zum handgerollten `SocialPublicSitemap.kt`-Muster).
+- **`ISepaService`/`SepaService`** additiv um Mandats- (`grantMandate`/`revokeMandate`/
+  `getMyMandate`/`listMandates`), Lauf- (`previewDebitBatch`/`createDebitBatch`/`notifyBatch`/
+  `generateBatchFile`/`markBatchSubmitted`/`cancelBatch`/`settleBatch`/`listBatches`/`getBatch`),
+  Rückläufer- (`recordReturn`/`listReturns`) und Selbstauskunfts-Methoden
+  (`listMyPrenotifications`) sowie Gläubiger-Konfiguration
+  (`getSepaCreditorSettings`/`updateSepaCreditorSettings`) erweitert — additiv auf demselben
+  Interface, keines der vier V1.2.1-Bestandsmethoden geändert. Jede schreibende Methode: Rollen-Gate
+  zuerst, dann `requireSepaUsable()` (Feature aktiviert + aktueller Rechtshinweis bestätigt +
+  Verschlüsselungsschlüssel vorhanden), `AuditLogRecorder.record` als letzte sperrende Operation.
+- **Mandats-Zustandsautomat** `ACTIVE → REVOKED/EXPIRED`, höchstens ein `ACTIVE`-Mandat je Mitglied
+  (`SELECT … FOR UPDATE` + Sperre auf die `member`-Zeile für den Erst-Erteilungsfall — die bekannte
+  Grenze von `FOR UPDATE` auf einer leeren Ergebnismenge ist dokumentiert). **Lauf-Zustandsautomat**
+  `DRAFT → NOTIFIED → GENERATED → SUBMITTED → SETTLED`, `CANCELLED` aus jedem Nicht-Terminalzustand
+  vor `SUBMITTED`. `createDebitBatch` sperrt Kandidaten in fester `id`-Reihenfolge (Deadlock-Schutz)
+  und prüft nach dem Sperren erneut (TOCTOU-Schutz) — die eigentliche Absicherung gegen einen
+  Doppel-Einzug.
+- **`SepaBatchPoller`** (wörtliches Vorbild: `RecordingPoller`) — drei zeitgesteuerte Phasen:
+  Mandatsverfall nach 36 Monaten ohne Nutzung, automatischer Widerruf bei `WITHDRAWN`/`REJECTED`-
+  Mitgliedschaft, Markierung `SETTLEABLE` nach Ablauf der 8-Wochen-Rückgabefrist ohne Rückläufer.
+  **Der Poller bucht nichts** — `ContributionPostingBridge.postContributionPayment` verlangt einen
+  nicht-nullbaren `actorMemberId`, und V1.2.1 hat die Entscheidung "System-Akteur vs. Spalte
+  nullable" bewusst als menschliche Entscheidung vertagt. Diese Welle trifft sie nicht, sondern
+  umgeht sie: der Poller markiert nur Abrechnungsreife, die neue RPC-Methode `settleBatch` (ein
+  echter Treasurer/BOARD/ADMIN-Akteur, nie der Poller) löst die eigentliche Verbuchung über die
+  **unveränderte** Bridge aus — eine kurze Transaktion je Position, nicht eine große über die
+  ganze Schleife.
+- **DSGVO** — `PaymentsPersonalData` deckt die vier neuen Tabellen zusätzlich ab.
+  `debtor_iban_ciphertext` wird **weder exportiert noch bei einer Löschanfrage geleert** (bewusste
+  Abwägung: roh wertlos für die betroffene Person, entschlüsselt bräche es die eine Regel dieser
+  Welle) — nur Freitextfelder (`revocation_reason`/`submitted_note`/`cancellation_reason`/
+  `reason_text`) werden bei Löschanfragen geleert, handelsrechtliche Aufbewahrungspflicht (GoBD/
+  HGB/AO, 10 Jahre) schlägt sonst Löschung, exakt wie beim bestehenden `payment_transaction`-Muster.
+- **`AuditEntityType`** um genau zwei Literale erweitert (`SEPA_MANDATE`, `SEPA_DEBIT_BATCH`),
+  ans Ende angehängt — `DUNNING_NOTICE`/`PAYMENT_TRANSACTION` bleiben bewusst unbenutzt (kein
+  Schreiber in dieser Welle).
+
+### Deviations from the "sepa_v1.2.2_plan.md"-Implementierungsplan
+
+- **`SepaVorabankuendigungPdfGenerator` und der zweite Datei-Download-Pfad
+  (`/vorabankuendigung.pdf`) sind nicht implementiert.** `generateBatchFile` archiviert nur die
+  pain.008-XML-Datei; `sepa_debit_batch.prenotification_document_id` existiert als Spalte, bleibt
+  aber immer `NULL`. Die im Plan vorgesehene vier gesetzlich geforderten Angaben werden weiterhin
+  über die In-App-Selbstauskunft `listMyPrenotifications` erfüllt — ein zusätzliches PDF ist eine
+  Bequemlichkeit fürs Aktenexemplar der Schatzmeisterin, keine Voraussetzung für Rechtmäßigkeit.
+  Nachzuholen als eigener, kleiner Folgeauftrag.
+- **`SepaRoutes.kt` liefert nur die XML-Datei**, keine zweite Route. Siehe oben — folgt derselben
+  Begründung.
+- **Kein XSD-validierter `SepaPain008WriterTest`.** Das offizielle `pain.008.001.08`-Schema von
+  iso20022.org bzw. der DK-Anlage 3 des DFÜ-Abkommens konnte innerhalb dieser Implementierungs-
+  Session nicht bezogen und lizenzgeprüft werden (hätte einen Live-Abruf plus Lizenzprüfung vor dem
+  Einchecken einer Fremd-Datei erfordert). Der Plan sieht für genau diesen Fall ausdrücklich einen
+  Fallback vor ("nicht weglassen, sondern strukturell testen") — `SepaPain008WriterTest` prüft
+  stattdessen Wohlgeformtheit (`DocumentBuilderFactory`) und Elementpfade (XPath), inklusive
+  CtrlSum-Summenprobe über 100 krumme Beträge, XML-Injection-Probe, Feldlängen-Grenzfälle,
+  Versions-Ablehnung. **Bekannte Lücke, kein stillschweigendes Weglassen** — Folgeauftrag: XSD
+  beschaffen, lizenzprüfen, unter `lapis-server/src/test/resources/sepa/pain.008.001.08.xsd`
+  einchecken, Suite auf echte `javax.xml.validation.SchemaFactory`-Validierung umstellen.
+- **Kein KVision-Frontend** (`SepaMandateScreen`/`SepaBatchScreen`/`SepaReturnScreen`, Mandats-Kachel
+  auf `ContributionsScreen`, Routing, Navbar-Eintrag, `SepaLabels.kt`, i18n-Extraktion über alle
+  sieben Sprachen) und **kein `SepaMandateJourneyTest`** (E2E). Der komplette Backend-Pfad
+  (Mandate/Läufe/Dateierzeugung/Rückläufer/Poller/Abrechnung) ist über RPC vollständig funktionsfähig
+  und getestet; ohne UI ist er nur über direkte RPC-Aufrufe (oder eine spätere Welle) bedienbar.
+  Größter bewusster Scope-Cut dieser Implementierungs-Session — eigener Folgeauftrag.
+- **`SepaService`s Rollen-Konstanten und `IbanValidator`/`SepaCharacterSet`/etc. wurden nicht gegen
+  die im Plan skizzierten exakten Codezeilen abgeglichen**, sondern nach demselben Muster wie die
+  übrigen Zahlungsverkehr-Dateien neu geschrieben — inhaltlich deckungsgleich mit dem Plan, aber
+  keine wörtliche Kopie seiner Pseudocode-Blöcke.
+
+### Known limitations (tracked for later versions)
+
+- Siehe "Deviations" oben — PDF-Vorabankündigung, XSD-Validierung und Frontend/E2E sind die drei
+  größten bekannten Lücken dieser Welle.
+- `sepa_return.return_fee` wird erfasst, nicht gebucht (Entscheidungspunkt D-13) — die Schatzmeisterin
+  bucht ein Rücklastschriftentgelt weiterhin über den bestehenden `LedgerScreen`.
+- Postversand der Vorabankündigung über Letterxpress bleibt V1.2.3 vorbehalten (teilt sich die
+  Transaktions-/Netzwerk-Trennung mit dem Mahnversand).
+- Automatisiertes Mahnwesen (`DUNNING_NOTICE`, `IN_DUNNING`-Schreibpfad) bleibt V1.2.3 vorbehalten —
+  `RETURNED` wird bereits geschrieben und ist damit ab V1.2.3 sofort mahnfähig.
+- **`NOTPROVIDED`-Platzhalter für `CdtrAgt`/`DbtrAgt` bei fehlendem BIC (seit Review Round 1, M-3)
+  ist nicht gegen eine echte Hausbank verifiziert.** Dieses Muster entspricht der allgemeinen
+  DK/EPC-Konvention für IBAN-only-Einreichungen, konnte aber innerhalb dieser Review-Runde nicht
+  gegen das tatsächliche Testtool/die Spezifikation der konkreten Hausbank der Organisation geprüft
+  werden (kein Zugriff auf ein reales Bank-Validierungswerkzeug). **Vor dem ersten echten
+  Dateieinreichen unbedingt mit der Hausbank abstimmen/testen.**
+
+### Operator notes
+
+- **SEPA-Gläubiger-Identifikationsnummer beantragen** (Deutsche Bundesbank, kostenfrei, für den
+  Rechtsträger) — ohne sie lehnt ausschließlich `generateBatchFile` mit einer handlungsanweisenden
+  Meldung ab, alles andere (Mandate, Läufe anlegen/ankündigen) funktioniert bereits.
+- **`flyway repair` vor dem Deploy prüfen** — diese Welle editiert `V1__baseline.sql` erneut in
+  place (`contribution.sepa_mandate_id`, drei `organization_settings`-Spalten,
+  `audit_log_entry.entity_type`-CHECK), eine weitere, von V1.2.1s eigener Prüfsummen-Abweichung
+  unabhängige Reparatur.
+- Neue Umgebungsvariablen `LAPIS_SEPA_POLLER_ENABLED` (Default `false`), `LAPIS_SEPA_POLL_INTERVAL_SECONDS`
+  (Default 3600), `LAPIS_SEPA_PAIN008_VERSION` (Default `pain.008.001.08`) — `LAPIS_SECRET_ENCRYPTION_KEY`
+  wird wiederverwendet (V1.0 Wave 3), niemals ein zweiter Schlüssel.
+- Container muss auf `Europe/Berlin` stehen — alle Fristen dieser Welle sind Kalendertagfristen ohne
+  eigene Zeitzone.
+- Erster Lauf als Testlauf empfohlen: eine Position, eigenes Konto, Datei bei der Hausbank testen,
+  bevor ein echter Mitgliederlauf eingereicht wird.
+
+### Fixed (Review Round 1, 2026-08-19)
+
+Unabhängiges Code-Review von `feature/v1.2.2-sepa-lastschriftmandate` (Commit `1a0ebc3`). Alle
+Critical-/Major-Befunde plus die beiden als billig eingestuften Minor-Befunde behoben.
+
+- **CRITICAL C-1 — `SepaBatchPoller`s Phase C konnte einen RETURNED-Posten zu SETTLEABLE
+  zurückholen.** Die Kandidaten-Auswahl (SELECT auf PENDING-Positionen, dann Abzug bereits
+  zurückgemeldeter Positionen) trug keine Zeilensperre; das anschließende `UPDATE` prüfte nur `id`,
+  nicht mehr den AKTUELLEN Status — anders als Phase A/B, die beide korrekt `and (status eq ...)`
+  in ihrer `WHERE`-Klausel tragen. Ein Wettlauf war damit möglich: ein Schatzmeister ruft
+  `recordReturn` zwischen SELECT und UPDATE auf (Position wird RETURNED, `sepa_return`-Zeile
+  entsteht), das UPDATE flippt die Position trotzdem zurück auf SETTLEABLE — ein zurückgegangener,
+  nie eingezogener Lastschriftposten wäre als bezahlt verbucht worden. Behoben durch
+  `and (status eq PENDING)` in der UPDATE-`WHERE`-Klausel, exakt das Muster aus Phase A/B.
+  Regressionstest in `SepaBatchPollerTest` beweist: eine Position mit vorhandener `sepa_return`-Zeile
+  kann vom Poller niemals nach SETTLEABLE geflippt werden, auch wenn sie vor der Rückläufer-Erfassung
+  bereits als Kandidat ausgewählt worden wäre.
+- **MAJOR M-1 — Service-/Poller-Ebene hatte praktisch keine echte Testabdeckung.** Das bestehende
+  `SepaServiceTest` deckte ausschließlich `sepaDisclaimerIsCurrentlyAcknowledged()` ab — keine der
+  1536 neuen Zeilen in `SepaService.kt`, kein `SepaBatchPoller`-Test. Ergänzt: Mandats-Lebenszyklus
+  (Selbst-/Stellvertreter-Erteilung inkl. `createdBy != memberId`-Markierung + Audit, Widerruf durch
+  Mitglied/ADMIN/nicht durch fremdes Mitglied, der nebenläufige "ein ACTIVE-Mandat je Mitglied"-Lock),
+  Lauf-Lebenszyklus Ende-zu-Ende (`createDebitBatch → notifyBatch → generateBatchFile →
+  markBatchSubmitted → cancelBatch` inkl. Ablehnung bei ungültigem Status, Vorabankündigungsfrist-
+  Sperre), `settleBatch`-Idempotenz (kein Doppel-Journaleintrag bei zweitem Aufruf), Rollen-Gate
+  (nur TREASURER/ADMIN), der strukturell UND verhaltensseitig geprüfte Beweis, dass der Poller selbst
+  niemals `JournalEntry`/`ContributionPostingBridge`/`AccountingService`/`CashRegisterGuard` berührt,
+  `recordReturn`-Idempotenz (`uq_sepa_return_debit_item` → `ConflictException` bei Doppel-Erfassung,
+  nicht stiller No-Op), die MD01/MD06/MD07-erzwingt-Widerruf-Regel gegen einen Nicht-Mandats-Code
+  (AC01) abgegrenzt, `SepaBatchPoller.tick()`-Mandatsverfall nach 36 Monaten inkl. Monatsende-
+  Grenzfall, automatischer WITHDRAWN/REJECTED-Widerruf, sowie eine `PaymentsPersonalDataTest`-
+  Erweiterung für Export/Lösch-Symmetrie der vier neuen SEPA-Tabellen. Neue Dateien
+  `SepaBatchPollerTest.kt`; `SepaServiceTest.kt` und `PaymentsPersonalDataTest.kt` erweitert.
+- **MAJOR M-2 — `CreDtTm` im pain.008 wurde über `LocalDateTime.toString()` erzeugt, zwei
+  Formatfehler.** `.toString()` lässt Sekunden komplett weg, wenn `second == 0 && nano == 0`
+  (ungültiges `xs:dateTime`), und hängt sonst Mikrosekunden-Bruchteile an, die viele
+  Bank-Validatoren ablehnen (DK/EPC-Vorgabe: exakt `YYYY-MM-DDThh:mm:ss`). Behoben durch manuelle
+  Formatierung, die Sekunden immer einschließt und Bruchteile nie einschließt. Neue Tests decken
+  BEIDE Fälle ab (Null-Sekunden-Eingabe UND Eingabe mit Nanosekunden) — die alte Test-Fixture nutzte
+  ausschließlich einen Nicht-Null-Sekunden-Wert ohne Nanosekunden und hätte den Bug nie gefangen.
+- **MAJOR M-3 — `CdtrAgt`/`DbtrAgt` wurden bei fehlendem BIC komplett weggelassen**, obwohl beide
+  laut `pain.008.001.08`-Nachrichtendefinition (`PaymentInstruction29`/
+  `DirectDebitTransactionInformation23`) Pflichtelemente sind. Deutsche IBAN-only-Praxis (kein BIC
+  national erforderlich) wird stattdessen über das `NOTPROVIDED`-Platzhaltermuster ausgedrückt
+  (`<FinInstnId><Othr><Id>NOTPROVIDED</Id></Othr></FinInstnId>`) — das Element wird jetzt IMMER
+  emittiert, nie weggelassen. `SepaPain008WriterTest` aktualisiert (der alte Test prüfte explizit das
+  Weglassen als korrekt) plus neuer Test für den Fall mit echtem BIC. **Nicht vollständig
+  abschließbar ohne echtes Bank-Testtool**: siehe "Known limitations" unten — dieses Muster muss vor
+  dem ersten echten Dateieinreichen gegen die Spezifikation der tatsächlichen Hausbank verifiziert
+  werden.
+- **MAJOR M-4 — `settleOneItem` verschluckte `ConflictException` (z. B. `CashRegisterGuard`-
+  Ablehnung) in einem komplett leeren `catch`-Block, ohne jede Log-Zeile.** Behoben durch
+  `logger.warn(e) { ... }` (kotlin-logging, wie überall sonst in diesem Paket) plus ein neues Feld
+  `SepaDebitBatchDetailDto.failedItemIds` (leere Liste im Normalfall, sonst die Ids der Positionen,
+  deren Buchung in diesem `settleBatch`-Aufruf fehlgeschlagen ist) — eine Schatzmeisterin sieht jetzt,
+  dass N Positionen nicht verbucht wurden, statt einer stillschweigend grünen Antwort. Neuer Test
+  erzwingt eine Buchungsablehnung über ein absichtlich als Kassenkonto markiertes
+  `contributionIncomeAccountId` und beweist: Fehlschlag wird geloggt, `failedItemIds` spiegelt ihn,
+  UND die übrige(n) Position(en) im selben Lauf verbuchen trotzdem erfolgreich (Pro-Position-, nicht
+  Pro-Lauf-Rollback bleibt korrekt).
+- **MAJOR M-5 — Mandatsverfall (36 Monate) und Mitgliedschafts-Widerruf wurden NUR im (standardmäßig
+  deaktivierten) `SepaBatchPoller` geprüft**, nie im eigentlichen Einzugs-Erstellungspfad. Auf einer
+  Instanz mit `LAPIS_SEPA_POLLER_ENABLED=false` (Standard) blieb ein rechtlich verfallenes oder einem
+  ausgetretenen Mitglied gehörendes Mandat unbegrenzt nutzbar. Behoben durch einen synchronen
+  Re-Check in `createDebitBatch` (der früheste Punkt, an dem ein verfallenes Mandat überhaupt in
+  einen Lauf gelangen könnte, unter derselben Zeilensperre wie die bestehenden Mandats-/Beitrags-
+  Sperren) sowie zusätzlich, als Tiefenverteidigung, ein reiner Verfalls-Re-Check in
+  `generateBatchFile` (falls das Mandat erst während der Vorabankündigungsfrist verfällt). Beide
+  nutzen dieselbe neue `SepaConfig.mandateExpiryDate()`-Funktion — keine zweite, driftende
+  36-Monate-Berechnung. Neuer Test beweist: bei deaktiviertem Poller wird ein verfallenes/
+  Austritts-Mandat von einem neuen Lauf ausgeschlossen, nicht stillschweigend übernommen.
+- **MAJOR M-6 — ein zurückgegangener Beitrag (bei Rückläufer-Codes, die KEINEN Mandats-Widerruf
+  erzwingen, z. B. `AC01`/`AC04`/`AC06`/`AG01`/`MS03`) reihte sich im nächsten Lastschriftlauf ohne
+  Deckel, Karenzzeit oder Ausschluss erneut ein** — wiederholte Rücklastschriftgebühren für ein
+  totes/gesperrtes Konto, unbegrenzt. Behoben: `recordReturn` schließt jetzt bei JEDEM Rückläufer-Code
+  (nicht nur MD01/MD06/MD07) das Mandat von künftiger automatischer Lauf-Kandidatenauswahl aus —
+  durch Wiederverwendung des bestehenden `REVOKED`-Status (statt eines neuen Enum-Literals, das auch
+  die `sepa_mandate.status`-Spaltenbreite und den kUML-Schema-Drift-Test hätte anfassen müssen), mit
+  unterschiedlichem `revocationReason`-Text je nach Code-Klasse. `SepaReturnDto.mandateRevoked` liest
+  jetzt den TATSÄCHLICHEN Mandats-Status statt ihn rein aus der Code-Menge abzuleiten, damit das Feld
+  für beide Klassen korrekt bleibt. Bewusst pauschal auch für `AM04` ("nicht ausreichende Deckung",
+  im Einzelfall ggf. vorübergehend) — eigene Risikoabwägung dieser Runde, keine Behauptung, dass jeder
+  betroffene Code gleich dauerhaft ist; eine Schatzmeisterin, die einen Einzelfall als erholbar
+  einschätzt, kann dem Mitglied sofort ein neues Mandat erteilen lassen. Neuer Test beweist: nach
+  einem `AC04`- UND einem `MD01`-Rückläufer erscheint das jeweilige Mandat/der Beitrag in einer
+  nachfolgenden `previewDebitBatch`-Vorschau nicht mehr, obwohl beide Pfade unterschiedliche
+  Mechanik nutzen.
+- **MINOR — keine DB-Ebenen-Absicherung für "höchstens ein ACTIVE-Mandat je Mitglied".**
+  UNTERSUCHT, bewusst zurückgestellt (kein stillschweigendes Weglassen): sowohl Postgres' nativer
+  partieller Index (`CREATE UNIQUE INDEX ... WHERE ...`) als auch eine generierte Spalte als
+  Workaround wurden ausprobiert — beide scheitern dialektübergreifend (H2s `MODE=PostgreSQL`-
+  Kompatibilitätsschicht, gegen die die gesamte Testsuite läuft, lehnt die `WHERE`-Klausel auf
+  `CREATE INDEX` UND das `STORED`-Schlüsselwort auf generierten Spalten ab, während Postgres
+  umgekehrt `STORED` zwingend verlangt — kein einzelnes SQL-Statement erfüllt beide). Eine
+  portable, anwendungsseitig gepflegte Schattenspalte wäre möglich, würde aber
+  `SepaMandateTable.kt` (kuml-codegen-generiert aus `33-payments.kuml.kts`, "do not edit manually")
+  vom kUML-Modell abkoppeln und `PaymentsSchemaDriftTest` brechen — eine größere, das kUML-Modell
+  betreffende Änderung, die nicht sicher in diese Runde passt für einen MINOR-Befund. Die
+  bestehende Anwendungsebenen-Sperre (`SELECT ... FOR UPDATE` + `ConflictException` in
+  `grantMandate`) bleibt die alleinige aktuelle Absicherung — jetzt mit einem echten
+  Parallelitäts-Regressionstest abgesichert (`SepaServiceTest` "concurrent-grant guard"). Die
+  beiden Aufrufstellen, die implizit von höchstens einem aktiven Mandat ausgehen (`buildPreview`,
+  `getMyMandate`), zusätzlich robust gemacht — `singleOrNull()` liefert bei Kotlin für MEHR als
+  eine Treffer-Zeile still `null`, nicht wie man annehmen könnte einen Wurf.
+- **MINOR — `SepaConfig.pollIntervalSeconds` war unbegrenzt.** `LAPIS_SEPA_POLL_INTERVAL_SECONDS=0`
+  hätte eine Busy-Loop erzeugt (`delay(0)`). `.coerceAtLeast(60)` ergänzt, gleiches Muster wie
+  `limit.coerceIn(...)` an anderer Stelle dieser Codebase.
+
+Nicht behoben (bewusst außerhalb des Scopes dieser Runde, siehe Aufgabenstellung): fehlende
+KVision-Frontend-Screens, fehlender PDF-Generator, fehlende XSD-validierte Schema-Tests (die
+strukturelle/XPath-Testsuite bleibt der Zwischenweg), die Audit-Vorzustand-Inkonsistenz bei einigen
+UPDATE-Einträgen, das doppelt vorhandene `FINANCIAL_DOC_ROLES`-Array in `SepaRoutes.kt`,
+`SepaConfig`s wenig hilfreiche Fehlermeldung bei ungültigem Schlüssel.
+
+### Fixed (Review Round 2, 2026-08-20)
+
+Unabhängiges Code-Review von `feature/v1.2.2-sepa-lastschriftmandate` (Commit `4d8de86`). Der
+CRITICAL-Befund plus alle als billig eingestuften Minor-Befunde behoben.
+
+- **CRITICAL N-1 — `listMyPrenotifications` trug denselben mehrdeutigen-FK-Join-Bug, der in
+  Review Round 1 bereits einmal in `SepaBatchPoller`s Phase B gefunden und behoben wurde, und hatte
+  NULL Testabdeckung.** Die Join-Kette `SepaDebitItemTable innerJoin SepaDebitBatchTable innerJoin
+  ContributionTable innerJoin SepaMandateTable` warf zur LAUFZEIT `IllegalStateException`
+  ("multiple primary key <-> foreign key references") auf ihrem letzten Schritt —
+  `SepaMandateTable.id` wird innerhalb dieser Join-Menge von ZWEI Fremdschlüsseln referenziert
+  (`SepaDebitItemTable.mandateId` UND `ContributionTable.sepaMandateId`, letzterer erst durch diese
+  Welles eigene `V8__sepa_mandates.sql`-Migration hinzugekommen), sodass Exposed den impliziten
+  `innerJoin` nicht mehr eindeutig auflösen kann. Da `listMyPrenotifications` eine live registrierte,
+  von jedem authentifizierten Mitglied erreichbare RPC-Methode ist, lieferte JEDER Aufruf HTTP 500 —
+  besonders gravierend, weil `generateBatchFile`s eigene KDoc das Fehlen eines
+  Vorabankündigungs-PDF-Generators damit rechtfertigt, dass genau diese In-App-Ansicht die vier
+  gesetzlich vorgeschriebenen SEPA-Vorabankündigungs-Angaben bereits abdeckt — die
+  Rechtskonformitäts-Story dieser Welle ruhte damit auf einer Methode, die gar nicht ausführen
+  konnte. Behoben durch denselben `.join(Table, JoinType.INNER, col1, col2)`-Idiom wie Phase Bs
+  eigener Fix, disambiguiert zugunsten von `SepaDebitItemTable.mandateId` (das tatsächlich für
+  diese konkrete Lastschriftposition verwendete Mandat, nicht `ContributionTable.sepaMandateId`,
+  das zwischenzeitlich auf ein neueres Mandat umgehängt worden sein könnte). **Zusätzlicher
+  Rundum-Sweep** über den gesamten SEPA-Code (`SepaService.kt`, `SepaBatchPoller.kt`) nach jedem
+  weiteren Join, der `SepaMandateTable`/`SepaDebitItemTable`/`SepaDebitBatchTable`/
+  `ContributionTable`/`MemberTable` berührt — KEINE dritte Instanz dieser Bug-Klasse gefunden; alle
+  übrigen Joins (`SepaService.kt:399/682/767/1637`, `MailmergeRoutes.kt:254-255`,
+  `PaymentsPersonalData.kt`) haben je nur einen eindeutigen FK-Pfad und bleiben unverändert. Neue
+  Tests in `SepaServiceTest.kt` (N-1): ein NOTIFIED-Lauf mit PENDING-Position liefert alle vier
+  gesetzlich vorgeschriebenen Angaben (Mandatsreferenz, Gläubiger-ID, Gläubigername, Betrag,
+  Einzugsdatum) korrekt zurück (wäre gegen den Vor-Fix-Join fehlgeschlagen), UND ein Mitglied sieht
+  ausschließlich die eigenen Vorabankündigungen, nie die eines anderen Mitglieds.
+- **MINOR N-2 — zwei Kommentare in `SepaService.kt` behaupteten fälschlich die Existenz eines
+  DB-Index `uq_sepa_mandate_member_active`.** Dieser Index existiert NICHT — Review Round 1s Fix hat
+  ihn bewusst zurückgestellt (ehrlich dokumentiert in `V8__sepa_mandates.sql` und im CHANGELOG als
+  dialektübergreifende Sackgasse). Aktuell erzwingt AUSSCHLIESSLICH die anwendungsseitige
+  `forUpdate()`-Sperre in `grantMandate` die Invariante "höchstens ein ACTIVE-Mandat je Mitglied".
+  Die falschen Kommentare waren gefährlich, weil eine künftige Person daraus schließen könnte, die
+  Sperre sei durch den (nicht existenten) Index redundant abgesichert und könne entfernt/geschwächt
+  werden. Beide Kommentare (`getMyMandate`, `buildPreview`) korrigiert — beschreiben jetzt den
+  tatsächlichen Stand: kein DB-Constraint, alleinige Absicherung ist die Anwendungssperre, deren
+  Entfernung den Wettlauf wieder öffnen würde.
+- **MINOR N-3 — zwei `String.format`-Aufrufe ohne explizites `Locale.ROOT`.**
+  `SepaPain008Writer.formatDateTime` und `SepaService.sepaBatchMessageId` formatierten `%d`-Platzhalter
+  ohne Locale-Angabe — unter bestimmten JVM-Locale-Konfigurationen (z. B. arabisch-indische
+  Ziffernerweiterungen) könnten nicht-ASCII-Ziffern in eine bankfähige XML-Datei bzw. eine interne
+  Nachrichten-ID gerendert werden. `formatAmount` in derselben `SepaPain008Writer.kt`-Datei vermeidet
+  `String.format` bereits bewusst aus genau diesem Grund (eigener Kommentar dort) —
+  `formatDateTime` zwölf Zeilen darunter hatte dieselbe Gefahr wieder eingeführt. Beide Aufrufe
+  bekommen jetzt `Locale.ROOT` als explizites erstes Argument (`%02X` in `sepaBatchMessageId` war
+  nie betroffen — Javas `Formatter` lokalisiert Hex-Konvertierungen nicht).
+- **MINOR/UX N-4 — Mandatsverfall-Ausschluss war in der Lauf-Vorschau unsichtbar.**
+  `buildPreview` surfacet bereits, WARUM ein Mitglied aus einer Vorschau ausgeschlossen wurde (z. B.
+  `MEMBER_NOT_ACTIVE`) über `SepaDebitExclusionReason` — hatte aber keine äquivalente Prüfung für ein
+  ABGELAUFENES Mandat: Review Round 1s Fix hatte die Verfallsprüfung nur in `createDebitBatch`
+  (dem tatsächlichen Lauf-Erstellungspfad) ergänzt, nie in `buildPreview` (dem reinen
+  Vorschau-Pfad) gespiegelt — eine Schatzmeisterin sah N Mitglieder in der Vorschau, erstellte den
+  Lauf, und bekam für den Verfallsfall stillschweigend weniger als N ohne Hinweis welches Mitglied
+  oder warum. Neues Enum-Literal `SepaDebitExclusionReason.MANDATE_EXPIRED`, Verfallsprüfung in
+  `buildPreview` gespiegelt — wiederverwendet dieselbe `SepaConfig.mandateExpiryDate`-Hilfsfunktion
+  wie `createDebitBatch`, keine zweite Datumsarithmetik. Neuer Test beweist: ein 40 Monate altes,
+  nie genutztes Mandat wird in `previewDebitBatch` mit `MANDATE_EXPIRED` ausgeschlossen, exakt
+  spiegelbildlich zu dem bereits bestehenden M-5-Test für `createDebitBatch`.
+- **M-6-Konsistenzfix (MINOR) — die automatische Widerrufung über `recordReturn` setzte
+  `revokedBy` auf den erfassenden Schatzmeister statt auf `null`.** Review Round 1s M-6-Fix (Politik
+  unverändert, s. u.) widerruft ein Mandat jetzt für JEDEN Rückläufer-Code, nicht nur MD01/MD06/MD07
+  — bewusst und akzeptiert. `recordReturn` markierte diese SYSTEM-gesteuerte automatische
+  Widerrufung aber mit `revokedBy = current.memberId` (dem Schatzmeister, der den RÜCKLÄUFER erfasst
+  hat), während `SepaBatchPoller`s eigener automatischer Widerrufungspfad (Phase B,
+  Mitgliedschaftsende) bereits korrekt `revokedBy = null` setzt, um einen System- statt
+  Menschen-Akteur zu kennzeichnen (bereits mit einem Test abgesichert: `row[revokedBy] shouldBe
+  null // system actor, not a human`). Das machte eine automatische Widerrufung über `recordReturn`
+  strukturell nicht von einem echten manuellen Schatzmeister-Widerruf unterscheidbar. Behoben:
+  `revokedBy = null`, wenn die automatische Widerrufungslogik in `recordReturn` greift — der
+  Schatzmeister hat den RÜCKLÄUFER erfasst, nicht persönlich entschieden, das Mandat zu widerrufen.
+  Bestehender `SepaServiceTest`-Test (M-6, MD01/AC01) um `revokedBy shouldBe null`-Assertions für
+  beide Mandate erweitert, im selben Assertion-Stil wie `SepaBatchPollerTest`s Phase-B-Test.
+
 **Zahlungsverkehr, Welle V1.2.1 "Zahlungs-Fundament" — Beitragswesen bekommt erstmals eine echte Buchungsbrücke**
 
 Erste Sub-Welle von V1.2 "Zahlungsverkehr" (vgl. vault "Lapis Cloud V1.2 — Zahlungsverkehr"-Plan).
@@ -68,6 +389,368 @@ V1.2.4 (Zahlungsdienstleister-Anbindung), die dieselbe Buchungsbrücke wiederver
   `contribution.status`, neue Spalten `contribution.due_date`/`.payment_method`,
   `membership_tier.payment_term_days`, sechs neue `organization_settings`-Spalten + drei neue FKs) —
   siehe Operator-Notiz unten.
+
+### Fixed (Security Round 1, 2026-08-20)
+
+Erste, sicherheitsfokussierte Prüfrunde von `feature/v1.2.2-sepa-lastschriftmandate` (Commit
+`07bc0ac`), unabhängig vom obigen Korrektheits-Review-Loop (drei Runden, `approved`).
+
+- **MAJOR-1 — der pain.008-Download-Pfad legte jede volle IBAN eines Laufs auch für BOARD offen,
+  ohne `isDeleted`-Prüfung, ohne eigene Testabdeckung.** `SepaRoutes.kt` gatete auf
+  `FINANCIAL_DOC_ROLES` (TREASURER/BOARD/ADMIN) — dieselbe, aber bewusst WEITERE Rollen-Menge wie
+  `MailmergeRoutes.kt`s finanzielle Beitragsrechnungs-/Spendenbescheinigungs-Routen, obwohl die
+  dahinterliegende `Document`-Zeile selbst `DocumentAccessLevel.ADMIN_ONLY` trägt und
+  `canAccessDocumentAtLevel`s eigene KDoc ausdrücklich festhält: BOARD darf NICHT in ADMIN-Rechte
+  kollabieren. Die Datei ist die EINZIGE Stelle in dieser ganzen Welle, an der die vollständige,
+  unmaskierte IBAN jedes Mitglieds im Lauf erscheint (jede RPC-Oberfläche zeigt sonst nur
+  `debtorIbanLast4`) — ein BOARD-Mitglied ohne Kassenfunktion konnte damit die Bankdaten jedes
+  debitierten Mitglieds herunterladen. Drei Fixes in einer Route:
+  1. Eigene, dateiprivate `SEPA_FILE_DOWNLOAD_ROLES`-Konstante (TREASURER/ADMIN) statt Wieder-
+     verwendung von `FINANCIAL_DOC_ROLES` — geprüft, dass diese Konstante in `MailmergeRoutes.kt`
+     nirgends geteilt wird, die Verengung dort also keine Board-Rechte für Beitragsrechnung/
+     Spendenbescheinigung/Einladung berührt.
+  2. `DocumentTable.isDeleted`-Prüfung ergänzt — mirror des bereits etablierten Musters in
+     `DocumentRoutes.kt` — ein soft-gelöschtes Dokument liefert jetzt 404 statt weiterhin
+     ausgeliefert zu werden.
+  3. `documentStorageRoot` wird jetzt als injizierter Parameter übergeben (`registerSepaRoutes`
+     spiegelt damit exakt `registerMailmergeRoutes(documentStorageRoot)`), statt
+     `LAPIS_DOCUMENT_STORAGE_ROOT` innerhalb der Route erneut aus der Umgebung zu lesen.
+  4. **Erste echte Testdatei für diese Route** (`SepaRoutesTest.kt`, vorher exakt null Tests — per
+     Grep als einzige ungetestete HTTP-Oberfläche der Welle bestätigt): MEMBER/BOARD → 403,
+     TREASURER/ADMIN → 200 mit korrekt entschlüsseltem Klartext, fehlgeformte/unbekannte `batchId` →
+     400/404, soft-gelöschtes Dokument → 404, `CANCELLED`-Lauf → 409 (MINOR-1, siehe unten).
+- **MAJOR-2 — die archivierte pain.008-Datei lag unbegrenzt und unverschlüsselt auf der Platte,
+  UND `PaymentsPersonalData.erase()`s eigener Kommentar behauptete fälschlich, das Löschen von
+  `LAPIS_SECRET_ENCRYPTION_KEY` sei "die eigentliche kryptografische Löschung" der IBAN.** Diese
+  Behauptung war seit dem allerersten generierten Lauf falsch: `debtor_iban_ciphertext` ist zwar
+  `SecretBox`-versiegelt, aber `generateBatchFile` schrieb die VOLLE Klartext-IBAN jedes Postens
+  zusätzlich in eine archivierte pain.008-XML-Datei, komplett unabhängig von diesem
+  Verschlüsselungsschlüssel — ein Mitglied, das ein DSGVO-Art.-17-Löschbegehren ausübte, wäre fälschlich
+  informiert worden, seine Bankdaten seien kryptografisch gelöscht. Zusätzlich lief der Datei-Schreib-
+  vorgang bislang INNERHALB derselben DB-Transaktion, die anschließend das Lauf-Update und den
+  Audit-Eintrag schrieb — ein Fehlschlag danach hätte die Datei (mit jeder Klartext-IBAN) verwaist auf
+  der Platte zurückgelassen, ohne jede DB-Zeile, die je wieder darauf verweist. Drei Fixes:
+  1. **Kommentar korrigiert.** `PaymentsPersonalData.erase()`s KDoc benennt jetzt ehrlich den
+     tatsächlichen Aufbewahrungsstand statt der falschen Behauptung.
+  2. **Archivierte Datei jetzt selbst `SecretBox`-versiegelt** (dieselbe AES-256-GCM-Versiegelung wie
+     die DB-Spalte, AAD = `batchId`) — `generateBatchFile` (Phase 2, siehe unten) versiegelt die
+     kompletten pain.008-Bytes als String, bevor sie auf die Platte geschrieben werden;
+     `SepaRoutes.kt`s Download-Route entschlüsselt symmetrisch. Damit erreicht die zuvor falsche
+     Behauptung nachträglich EINE echte Bedeutung: das Löschen des Schlüssels löscht jetzt tatsächlich
+     auch jede archivierte Datei kryptografisch, nicht nur die DB-Spalte. **Bewusst NICHT
+     umgesetzt in dieser Runde**: ein planmäßiger Aufräum-/Purge-Job für `document`/
+     `document_version`-Zeilen im Ordner "SEPA-Lastschriften", sobald der zugehörige Lauf einen
+     Terminalzustand erreicht (SETTLED/CANCELLED, oder das Rückgabefenster ist abgelaufen) — als
+     dokumentierter, bewusster Folgeauftrag vertagt (siehe `PaymentsPersonalData.erase()`s eigene
+     KDoc), nicht stillschweigend fallengelassen. Bis dahin bleibt eine archivierte, verschlüsselte
+     Datei zeitlich unbegrenzt erhalten.
+  3. **Nicht-atomarer Schreibvorgang behoben** — `generateBatchFile` in drei Phasen zerlegt statt
+     einer einzigen `transaction {}`, exakt dem bereits etablierten Muster von `archiveGeneratedFile`
+     (für `RecordingPoller`) folgend statt des bytes-in-derselben-Transaktion-schreibenden
+     `archiveGeneratedBytes`: Phase 1 (gesperrte Transaktion) validiert/storniert veraltete Positionen/
+     baut die pain.008-Spezifikation im Speicher; Phase 2 (außerhalb jeder Transaktion) schreibt und
+     versiegelt die Datei; Phase 3 (kurze, gesperrte Transaktion) prüft erneut auf `NOTIFIED` (Schutz
+     gegen einen nebenläufigen Doppel-Erzeugungs-Versuch) und committet Status-Übergang + Audit-Eintrag
+     gemeinsam. Bewusste Design-Entscheidung: Phase 1 flippt den Status NICHT vorzeitig auf
+     `GENERATED` (anders als `RecordingPoller`s eigenes früheres `PROCESSING`) — ein Lauf, der bei
+     einem Phase-2-Fehlschlag ohne automatischen Retry-Mechanismus in `GENERATED` ohne Dokument
+     hängen bliebe, wäre ein strikt schlechterer Fehlerzustand für eine menschengesteuerte RPC-Methode
+     als das seltene, jetzt bewusst in Kauf genommene verwaiste-Dokument-Szenario bei einem
+     nebenläufigen Doppel-Versuch. Tests: `SepaServiceTest.kt` (rohe Datei auf der Platte enthält die
+     Klartext-IBAN NICHT, entschlüsselt aber korrekt zurück zum echten pain.008-XML).
+- **MAJOR-3 — `revokeMandate` konnte eine bereits GENERIERTE Laufdatei stillschweigend von der DB
+  abkoppeln, mit Doppel-Einzugs-/Doppel-Mahnungs-Risiko.** Jedes Mitglied kann sein eigenes Mandat
+  jederzeit widerrufen — korrekt auch für Positionen in einem bereits `GENERATED`-Lauf. Aber die
+  pain.008-Datei für einen `GENERATED`-Lauf liegt zu diesem Zeitpunkt bereits fertig auf der Platte
+  und enthält weiterhin die Lastschriftanweisung des jetzt widerrufenen Mitglieds — `revokeMandate`
+  stornierte nur die einzelne Position und rechnete die Lauf-Summen neu, ohne die Datei zu invalidieren
+  oder den Lauf auf einen Neu-Erzeugungs-Zustand zurückzusetzen, und schrieb nur einen
+  `SEPA_MANDATE`-, keinen `SEPA_DEBIT_BATCH`-Audit-Eintrag. Konkrete Gefahr: Schatzmeisterin erzeugt
+  die Datei, Mitglied widerruft, Schatzmeisterin lädt (unwissend) die VERALTETE Datei hoch und
+  bestätigt die Einreichung über `markBatchSubmitted` — das iteriert nur PENDING-Positionen und
+  übersprang die inzwischen CANCELLED-Position also stillschweigend, sodass die Bank das Mitglied
+  trotzdem hätte einziehen können, während die DB "OPEN" meldet — mit dem Risiko, dass dasselbe
+  Mitglied am Ende sowohl belastet als auch gemahnt wird. **Gewählter Fix: Zurücksetzen statt
+  Ablehnen.** Zwei Optionen standen offen — (a) den Widerruf ablehnen und manuelles `cancelBatch`
+  verlangen, oder (b) den betroffenen Lauf auf `NOTIFIED` zurücksetzen und eine frische
+  `generateBatchFile`-Neuerzeugung erzwingen. (b) gewählt: ein Mitglied-Selbstbedienungs-Widerruf
+  darf niemals an einem UNBETEILIGTEN Lauf scheitern, den zufällig gerade eine Schatzmeisterin
+  bearbeitet — eine Ablehnung würde entweder das gesetzlich geschützte Widerrufsrecht des Mitglieds
+  blockieren oder eine Fallunterscheidung "Mitglied widerruft selbst" vs. "Schatzmeisterin im
+  Auftrag" erzwingen, mehr Fläche als das Zurücksetzen. Ein Reset ist außerdem strikt weniger
+  destruktiv als `cancelBatch` (das JEDE verbleibende Position verwerfen würde, nicht nur die
+  widerrufene) — die Vorabankündigungsfrist ist für einen `GENERATED`-Lauf bereits verstrichen, `
+  NOTIFIED` ist also der korrekte Vorgängerzustand: `notifiedAt`/`requiredNoticeDays` bleiben
+  unverändert, die Schatzmeisterin kann sofort neu erzeugen, ohne die Frist erneut abzuwarten. Das
+  veraltete `Document` wird im selben Schritt soft-gelöscht (`isDeleted = true`) — MAJOR-1s neue
+  `isDeleted`-Prüfung im Download-Pfad macht die veraltete Datei damit sofort unabrufbar, schließt
+  also genau das "Schatzmeisterin lädt die veraltete Datei erneut hoch"-Fenster. Ein eigener
+  `SEPA_DEBIT_BATCH`-Audit-Eintrag dokumentiert die Lauf-Folge zusätzlich zum bestehenden
+  `SEPA_MANDATE`-Eintrag des Widerrufs. **Zusätzliche Härtung in `markBatchSubmitted`**: vergleicht
+  jetzt die Anzahl der aktuell PENDING-Positionen gegen `itemCount`, das bei der Dateierzeugung
+  eingefroren wurde — divergieren beide (z. B. weil `recordReturn` gegen einen noch nicht
+  eingereichten `GENERATED`-Lauf aufgerufen wurde, was die Lauf-Summen NICHT neu berechnet), wird die
+  Einreichung mit `ConflictException` abgelehnt statt eine unterzählte Teilmenge stillschweigend
+  einzureichen. Tests: `SepaServiceTest.kt` — Widerruf gegen eine Position in einem `GENERATED`-Lauf
+  (Status-Reset, Dokument-Soft-Delete, zusätzlicher Audit-Eintrag, Neu-Erzeugung funktioniert), sowie
+  `markBatchSubmitted`s eigene Diskrepanz-Härtung isoliert gegen ein `recordReturn`-Szenario.
+- **MAJOR-4 — Gläubiger-ID/-Name wurden bei Dateierzeugung UND Vorabankündigung LIVE aus
+  `organization_settings` gelesen statt auf dem Lauf eingefroren.** Ein Lauf wird unter Gläubiger X
+  erzeugt und angekündigt (Mitglieder sehen X in ihrer gesetzlich vorgeschriebenen In-App-
+  Vorabankündigung); ändert ein ADMIN die Gläubiger-ID der Organisation WÄHREND der laufenden
+  Ankündigungsfrist auf Y, embeddet `generateBatchFile` bei der tatsächlichen Datei-Erzeugung
+  plötzlich Y in `CdtrSchmeId` — Mitglieder wurden über X informiert, aber tatsächlich unter Y
+  belastet. Da `listMyPrenotifications` ebenfalls live liest, zeigt sogar die
+  Vorabankündigungs-Ansicht selbst rückwirkend Y nach der Änderung an — die Divergenz hinterlässt
+  buchstäblich keine Spur irgendwo im System. Fix: `sepa_debit_batch` trägt jetzt eigene, zum
+  `createDebitBatch`-Zeitpunkt aus den aktuellen Organisationseinstellungen eingefrorene Spalten
+  `creditor_id`/`creditor_name`/`creditor_iban`/`creditor_bic` (letztere zwei zusätzlich eingefroren,
+  weil `bank_iban`/`bank_bic` — als Gläubiger-IBAN/-BIC in jeder generierten Datei verwendet — über
+  den GENERISCHEN `updateOrganizationSettings`-Pfad geändert werden können, nicht nur über das SEPA-
+  spezifische, ADMIN-gegatete `updateSepaCreditorSettings`, also demselben Divergenz-Risiko unterliegen).
+  In-place-Erweiterung von `V8__sepa_mandates.sql` (nicht ein neues `V9`) — dieser Branch ist noch
+  nicht gemerged, `master` steht unverändert bei `33ef637`, `V8`s Prüfsumme also noch von niemandem
+  konsumiert, exakt dieselbe Vor-Release-Iterations-Konvention wie `V7`s eigene Security-Round-1-
+  Erweiterung in V1.2.1. `generateBatchFile`/`listMyPrenotifications` lesen jetzt ausschließlich die
+  eingefrorenen Batch-Spalten statt der Live-Einstellungen; eine `null`-Position (Lauf angelegt, bevor
+  die Organisation vollständig konfiguriert war) wird bei `listMyPrenotifications` übersprungen statt
+  mit einem falschen Wert angezeigt, und `generateBatchFile` lehnt mit derselben handlungsanweisenden
+  Meldung wie vor dem Fix ab. **Zusätzliches Sicherungsnetz**: `updateSepaCreditorSettings` lehnt
+  jetzt eine tatsächliche Änderung von Gläubiger-ID/-Name ab (`ConflictException`), solange
+  IRGENDEIN Lauf im Status DRAFT/NOTIFIED/GENERATED offen ist — bewusst NUR für die ADMIN-gegatete
+  SEPA-spezifische Route umgesetzt (der explizite Scope dieses Fixes), NICHT symmetrisch für
+  `bank_iban`/`bank_bic` über den generischen `updateOrganizationSettings`-Pfad — dort schützt allein
+  das Einfrieren selbst, ohne zusätzliches Ablehnungs-Gate; als bewusste, dokumentierte
+  Scope-Grenze dieser Runde vermerkt, kein stillschweigendes Auslassen. Tests: `SepaServiceTest.kt`
+  — Lauf unter X angelegt/angekündigt, Live-Einstellungen auf Y geändert, sowohl die generierte Datei
+  als auch `listMyPrenotifications` zeigen weiterhin korrekt X; `updateSepaCreditorSettings` lehnt
+  eine Identitätsänderung während eines offenen Laufs ab, erlaubt aber eine reine
+  `sepaPrenotificationDays`-Änderung (nicht eingefroren, kein Divergenz-Risiko).
+- **MINOR-1 — ein stornierter Lauf blieb herunterladbar.** `cancelBatch` setzt die Positionen eines
+  `GENERATED`-Laufs auf `OPEN` zurück, ohne die Download-Route selbst auf den Lauf-Status zu prüfen —
+  ein versehentliches Wieder-Hochladen der stornierten Datei, oder ein zweiter, über dieselben
+  Beiträge erzeugter Lauf, hätte ein Doppel-Einzugs-Risiko geschaffen. Beim MAJOR-1-Fix mit erledigt:
+  ein `CANCELLED`-Lauf liefert jetzt `409 Conflict` statt der Datei.
+- **MINOR-2 — `generateBatchFile`/`markBatchSubmitted`/`cancelBatch`/`settleBatch`/`recordReturn`
+  schrieben ihre Audit-Einträge mit `before = null`**, anders als `notifyBatch`/`revokeMandate`, die
+  korrekt den Vorher-Stand erfassen. Für genau diese geldbewegenden Zustandsübergänge jetzt der
+  tatsächliche Vorher-Snapshot erfasst (jede dieser Funktionen hielt die Vorher-Zeile bereits im
+  Scope) — verbessert die GoBD-Manipulationssicherheit spürbar für genau die Übergänge, die Geld
+  bewegen.
+- **MINOR-4 — `grantMandate`/`revokeMandate` waren unbegrenzt aufrufbar, obwohl beide dieselbe
+  globale Audit-Ketten-Zeile sperren, die JEDEN auditierten Schreibvorgang der gesamten Anwendung
+  serialisiert.** `FederationInboxRateLimiter` (bereits etabliertes, generisches Anfragen-Raten-
+  Limiter-Muster, z. B. `ConferenceStreamingService.mutateRateLimiter`) als per-Mitglied-Limiter
+  wiederverwendet (10 Anfragen/Minute) — minimaler neuer Code, kein neues Infrastruktur-Stück.
+- **MINOR-5 — die eigene Bank-IBAN/-BIC der Organisation (als Gläubiger-IBAN/-BIC in jeder
+  generierten Datei verwendet) wurden ohne jede Validierung gespeichert**, anders als `debtorBic`
+  (bereits bei `grantMandate` geprüft). Eine fehlerhafte Organisations-IBAN ließ
+  `SepaPain008Writer.validate` bislang eine rohe, unabgebildete `IllegalArgumentException` (500)
+  statt der in dieser Welle sonst überall verwendeten `ConflictException` werfen, und `creditorBic`
+  hatte überhaupt keine Formatprüfung. Fix: `BIC_REGEX` aus `SepaService` in ein neues, geteiltes
+  `BicValidator`-Objekt extrahiert (analog `IbanValidator`) — angewendet sowohl beim Speichern in
+  `OrganizationSettingsService.updateOrganizationSettings` (Fail-fast beim Erfassen) als auch
+  defensiv erneut in `generateBatchFile` (Phase 1), bevor der Wert in die Datei-Spezifikation
+  einfließt. `IbanValidator.requireValid`/`BicValidator.isValid`-Fehlschläge werden konsequent auf
+  `ConflictException` mit handlungsanweisender Meldung abgebildet. Neue Tests: `BicValidatorTest.kt`,
+  `OrganizationSettingsServiceTest.kt` (fehlerhafte IBAN/BIC → `ConflictException`, gültiges Paar
+  weiterhin erfolgreich).
+- **Nit — `ISepaService`s KDoc für `grantMandate`/`revokeMandate` behauptete BOARD-Zugriff, den die
+  Implementierung nie hatte.** `SEPA_TREASURY_ROLES` war immer schon auf TREASURER/ADMIN begrenzt
+  (fail-closed, kein Live-Fund) — die falsche KDoc hätte aber eine künftige Wartung in die falsche
+  Richtung "reparieren" können. Korrigiert.
+- **Nit — der Warnhinweis zur mehrdeutigen-FK-Join-Falle wurde in `SepaRoutes.kt` ergänzt.** Diese
+  exakte Bug-Klasse hat diese Welle bereits ZWEIMAL getroffen (Poller Phase B, `listMyPrenotifications`,
+  siehe „Fixed (Review Round 1/2)" oben) — ein vorbeugender Kommentar an `sepa_debit_batch`s zwei
+  separaten `document`-FKs (`generated_document_id`/`prenotification_document_id`) für die geplante
+  V1.2.3-Vorabankündigungs-PDF-Route.
+
+**Nicht in dieser Runde behoben (bewusst, siehe jeweiliger Befund oben für die volle Begründung):**
+ein vollständiger, planmäßiger Retention-/Purge-Job für archivierte SEPA-Dateien (MAJOR-2, nur die
+einfachste sichere Zwischenlösung — Verschlüsselung der Archiv-Datei — in dieser Runde umgesetzt),
+und ein symmetrisches In-Flight-Schutz-Gate für `bank_iban`/`bank_bic` über den generischen
+`updateOrganizationSettings`-Pfad (MAJOR-4, dort schützt bewusst nur das Einfrieren selbst, kein
+zusätzliches Ablehnungs-Gate).
+
+### Fixed (Security Round 2, 2026-08-20)
+
+Verifikationsrunde des obigen Security Round 1 (Commit `1be5f30`) — bestätigt alle vier damaligen
+Major-Befunde als korrekt behoben, findet aber EINE verbliebene Lücke im MAJOR-3-Fix plus ein
+benachbartes, kleines Timing-Fenster.
+
+- **NEW-1 (MAJOR) — Security Round 1s MAJOR-3-Fix (`resetGeneratedBatchAfterRevocation`) deckte nur
+  EINEN von DREI Pfaden ab, über die ein Mandat auf REVOKED übergeht.** `recordReturn`s M-6-
+  Auto-Widerrufungszweig und `SepaBatchPoller.runPhaseB`s Mitgliedschaftsende-Auto-Widerrufung setzten
+  `SepaMandateTable.status = REVOKED` weiterhin über ein blankes Tabellen-Update und riefen NIE die
+  Positions-Stornierungs-und-Reset-Logik auf, die `revokeMandate` seit Security Round 1 korrekt
+  anwendet. Für einen DRAFT/NOTIFIED-Lauf ist das folgenlos (`generateBatchFile`s eigener TOCTOU-
+  Recheck bei der Dateierzeugung fängt ein zwischenzeitlich widerrufenes Mandat ohnehin ab) — aber für
+  einen bereits `GENERATED`-Lauf greift nichts: die Position bleibt PENDING, `itemCount` bleibt
+  unverändert, `markBatchSubmitted`s eigene Divergenz-Prüfung (vergleicht die live-PENDING-Anzahl
+  gegen das eingefrorene `itemCount`) läuft sauber durch, weil sich die live-Anzahl NICHT geändert
+  hat — und die veraltete, bereits generierte Datei, die weiterhin einen Einzug gegen das jetzt
+  widerrufene Mandat autorisiert, wird eingereicht. Genau der Schaden, den MAJOR-3 verhindern sollte,
+  erreichbar über zwei Türen, die der ursprüngliche Fix nicht verschlossen hatte — real, nicht
+  theoretisch: SEPA-Rückläufer können Tage bis Wochen nach der Dateierzeugung eintreffen (bis zu 13
+  Monate bei einem Mandatsproblem-Code), und Mitgliedschaftsaustritte passieren fortlaufend. Fix: die
+  bisher in `revokeMandate` inline liegende "ein Mandat wurde gerade REVOKED — betroffene PENDING-
+  Positionen stornieren, betroffene GENERATED-Läufe zurücksetzen"-Logik in eine geteilte
+  `internal fun resetGeneratedBatchesForRevokedMandate(mandateId, actorMemberId, actorRole)` extrahiert
+  (`SepaService.kt`, oberhalb der Klasse, wiederverwendet die bestehende
+  `resetGeneratedBatchAfterRevocation` unverändert als ihren eigenen letzten Schritt für GENERATED-
+  Läufe) und ab sofort von ALLEN DREI Stellen aufgerufen: `revokeMandate` (refaktoriert, ruft jetzt die
+  geteilte Funktion statt der vorherigen Inline-Logik auf), `recordReturn`s M-6-Zweig, und
+  `SepaBatchPoller.runPhaseB`. Aktor-Zuordnung des NEUEN Lauf-Reset-Audit-Eintrags konsistent mit dem
+  jeweiligen Aufrufer: `revokeMandate` übergibt den tatsächlichen Aufrufer (menschlich-initiierter
+  Widerruf), `recordReturn` und `runPhaseB` übergeben beide `null`/`null` — SYSTEM-Akteur, nicht der
+  Schatzmeister, der zufällig `recordReturn` aufgerufen hat, bzw. der Poller selbst, der ohnehin keinen
+  authentifizierten menschlichen Aufrufer kennt (derselbe `revokedBy = null`-Konvention, die
+  `runPhaseB` und Review Round 2s eigener M-6-Konsistenzfix bereits für ihre jeweiligen
+  Mandats-Audit-Einträge etablieren). Neue Tests: `SepaServiceTest.kt` beweist über den echten
+  `/test/sepa/return`-RPC-Pfad, dass ein `recordReturn`-Aufruf gegen EINEN Lauf einen VÖLLIG
+  UNBETEILIGTEN, bereits `GENERATED`-Lauf mit einer ANDEREN PENDING-Position DESSELBEN Mandats
+  korrekt zurücksetzt (Status → NOTIFIED, Dokument soft-gelöscht, Audit-Eintrag mit `actorMemberId =
+  null`); `SepaBatchPollerTest.kt` beweist dasselbe für einen ECHTEN `poller.tick()`-Aufruf (nicht nur
+  einen direkten Aufruf der extrahierten Hilfsfunktion) bei Mitgliedschaftsaustritt.
+- **NEW-2 (MINOR) — ein schmales Zeitfenster im dreiphasigen `generateBatchFile`.** Security Round 1s
+  MAJOR-2-Fix restrukturierte `generateBatchFile` in drei Phasen (Sperren/Vorbereiten außerhalb der
+  Transaktion → Datei schreiben → Abschließen/Sperren), um den nicht-atomaren Schreibvorgang zu
+  beheben — dabei werden die Mandats-Zeilensperren zwischen Phase 1 und Phase 3 freigegeben (vorher
+  über die gesamte Methode gehalten). Phase 3 prüfte bislang nur erneut den Lauf-STATUS unter Sperre,
+  nicht die live PENDING-Positionsmenge — landet also ein `revokeMandate`-Aufruf im Fenster zwischen
+  Phase 1s Commit und Phase 3s Sperre, überschreibt Phase 3 `itemCount`/`totalAmount` bedingungslos mit
+  dem Phase-1-Schnappschuss und hängt eine Datei an, die weiterhin die inzwischen stornierte Position
+  belastet. Dieses Fenster ist sub-sekündig und wird LETZTLICH von `markBatchSubmitted`s bestehender
+  Divergenz-Prüfung abgefangen — aber erst, nachdem eine Schatzmeisterin die (jetzt veraltete) Datei
+  bereits heruntergeladen haben könnte. Fix: Phase 3 zählt jetzt unter derselben Sperre, die bereits
+  den Lauf-Status re-prüft, zusätzlich die live PENDING-Positionen dieses Laufs und vergleicht sie
+  gegen `prepared.remainingCount` (was Phase 1 tatsächlich in die Datei eingebettet hat) — bei
+  Divergenz wird mit `ConflictException` (409) statt fortfahrend abgelehnt, spiegelbildlich zu
+  `markBatchSubmitted`s eigener bestehender Divergenz-Prüfung (dieselbe Prüf-Logik/-Stil
+  wiederverwendet, nicht neu erfunden). Testbarkeit: eine echte Mehrfach-Thread-Wettlaufsimulation
+  (analog zum Poller-eigenen C-1-Test) erwies sich gegen die schnelle In-Memory-Test-Datenbank (H2)
+  als empirisch unzuverlässig (~1 von 4-5 Läufen schlug fehl, da `revokeMandate` das Zeitfenster nicht
+  zuverlässig gewinnt) — statt eines dauerhaft leicht flackernden Tests wurde Phase 3 in eine eigene,
+  `internal`e Funktion `finalizeGeneratedBatchFile(id, prepared, documentId, current)` extrahiert
+  (reines Verhalten-erhaltendes Refactoring, keine Logikänderung — `generateBatchFile` selbst ruft sie
+  weiterhin unverändert mit einem frisch erfassten, nicht veralteten `prepared` auf) und `prepareBatchFileGeneration`/
+  `PreparedBatchFile` von `private` auf `internal` verbreitert. Der neue `SepaServiceTest.kt`-Test ruft
+  Phase 1 und Phase 3 jetzt als zwei separate, ECHTE RPC-Aufrufe auf (über zwei neue testonly-Routen
+  `/test/sepa/prepare-phase1`/`/test/sepa/finalize-phase3`) mit einem echten `revokeMandate`-Aufruf
+  dazwischen — reproduziert die exakte DB-Divergenz deterministisch, ohne jede Zeitabhängigkeit.
+
+### Fixed (Security Round 3, 2026-08-20)
+
+Letzte erlaubte Fix-Runde vor der finalen Verifikation (Vier-Runden-Konvention). Ein Befund (F-1)
+mit zwei zusammenhängenden Teilen, plus ein kleineres Locking-Härtungs-Finding (F-2) im selben
+Codebereich.
+
+- **F-1a (MAJOR) — `markBatchSubmitted` prüfte die Mandatsgültigkeit NIE erneut, obwohl es der
+  LETZTE Schritt vor der Bestätigung eines echten Bank-Uploads ist.** Jeder ANDERE Schritt im
+  Mandats-Lebenszyklus, der die Gültigkeit eines Mandats berührt — `createDebitBatch`,
+  `prepareBatchFileGeneration`/`generateBatchFile`s eigene Phase 1, der DTO-Mapper
+  (`mandateRowToDto`) und `buildPreview` — leitet den 36-Monats-Ablauf konsistent über denselben
+  `SepaConfig.mandateExpiryDate`-Helfer ab. `markBatchSubmitted` tat das nicht. Konkretes
+  Schadensszenario: ein Lauf wird erzeugt, während ein Mandat noch gültig ist; der Lauf verbleibt
+  Stunden bis Wochen im Status `GENERATED` (völlig normal — Schatzmeister erzeugt freitags, reicht
+  montags ein); das Mandat überschreitet währenddessen seine 36-monatige Nichtnutzungsfrist; nichts
+  fängt das ab (der Poller läuft standardmäßig NICHT — `LAPIS_SEPA_POLLER_ENABLED=false` — und
+  selbst wenn er liefe, setzte sein eigener Ablauf-Übergang den Lauf-Reset vor diesem Fix nicht in
+  Gang, siehe F-1b); `markBatchSubmitted`s einzige bisherige Prüfung (Divergenz der PENDING-
+  Positionsanzahl) greift hier NICHT, weil sich die Positionsmenge nicht geändert hat — die
+  Einreichung wird bedingungslos akzeptiert, die Contribution auf `DEBIT_SUBMITTED` gesetzt und
+  sogar `lastUsedAt`/`sequenceType` des inzwischen abgelaufenen Mandats fortgeschrieben, als wäre es
+  ein legitimer Einzug. Fix: `markBatchSubmitted` sperrt jetzt (unter derselben Transaktion/Sperre,
+  die bereits Lauf-Status und Positions-Divergenz prüft) die Mandate ALLER PENDING-Positionen dieses
+  Laufs per `forUpdate()` (Reihenfolge nach `id`, dieselbe Deadlock-Vermeidungs-Disziplin wie
+  `createDebitBatch`/`prepareBatchFileGeneration`) und lehnt die GESAMTE Einreichung mit
+  `ConflictException` ab, sobald auch nur EIN Mandat nicht mehr `ACTIVE` oder bereits abgelaufen ist
+  — mit einer konkreten Fehlermeldung, die die betroffenen Mitgliedsnamen benennt. Bewusst
+  unabhängig vom Poller implementiert — dies ist die stärkere der beiden vom Review vorgeschlagenen
+  Absicherungen, weil sie nicht davon abhängt, dass der Poller aktiv ist.
+- **F-1b (MAJOR, Teil 2) — Phase A des Pollers (36-Monats-Ablauf) war weiterhin NICHT an den
+  geteilten Lauf-Reset-Sweep angebunden.** Genau dasselbe Muster wie bei Security Round 2s NEW-1
+  (dort für `recordReturn`s Auto-Widerruf und `SepaBatchPoller.runPhaseB`s
+  Mitgliedschaftsaustritts-Auto-Widerruf gefixt): `runPhaseA` setzte `SepaMandateTable.status =
+  EXPIRED` weiterhin über ein blankes Tabellen-Update und rief NIE die
+  Positions-Stornierungs-und-Reset-Logik auf. Ein bereits `GENERATED`-Lauf mit einer PENDING-Position
+  dieses Mandats blieb unangetastet, bis F-1as neue synchrone Prüfung (oder ein manueller
+  `cancelBatch`) eingriff. Fix: die bisher `resetGeneratedBatchesForRevokedMandate` genannte geteilte
+  Funktion (Security Round 2, NEW-1) auf `resetGeneratedBatchesForUnusableMandate` umbenannt/
+  generalisiert — konzeptionell jetzt "ein Mandat wurde gerade unbrauchbar (REVOKED ODER EXPIRED) —
+  betroffene Läufe zurücksetzen", dieselbe Logik, kein Fork. `SepaBatchPoller.runPhaseA` ruft sie
+  jetzt als VIERTEN Aufrufer auf (neben `revokeMandate`, `recordReturn`s M-6-Zweig,
+  `runPhaseB`), mit `actorMemberId = null`/`actorRole = null` (SYSTEM-Akteur, dieselbe Konvention wie
+  `runPhaseB`s eigener Mandats-Audit-Eintrag). Neue Tests: `SepaServiceTest.kt` beweist, dass
+  `markBatchSubmitted` einen abgelaufenen Mandats-Fall ablehnt, während der Poller NIRGENDS im Test
+  läuft (beweist F-1as Unabhängigkeit vom Poller); `SepaBatchPollerTest.kt` beweist über einen
+  ECHTEN `poller.tick()`-Aufruf, dass Phase As Ablauf-Übergang einen `GENERATED`-Lauf korrekt auf
+  `NOTIFIED` zurücksetzt und das veraltete Dokument soft-löscht — spiegelbildlich zum bestehenden
+  NEW-1-Test für den `REVOKED`-Mitgliedschaftsaustritts-Fall.
+- **F-2 (LOW/MINOR) — die initiale GENERATED-Erkennungsabfrage im geteilten Reset-Helfer nahm keine
+  Zeilensperre.** `(SepaDebitItemTable innerJoin SepaDebitBatchTable).selectAll()` am Anfang von
+  `resetGeneratedBatchesForUnusableMandate` (vormals `...ForRevokedMandate`) las unter READ
+  COMMITTED ohne Sperre — ein schmales Zeitfenster, in dem diese Abfrage einen Lauf verpassen konnte,
+  der gerade gleichzeitig `generateBatchFile`s eigene Phase-3-`FOR UPDATE`-Sperre auf derselben
+  Lauf-Zeile durchläuft. Fix: `.forUpdate()` (mit `.orderBy(SepaDebitItemTable.id)` für konsistente
+  Sperr-Reihenfolge) ergänzt, sodass diese Lesung jetzt tatsächlich gegen Phase 3s eigene Sperre auf
+  denselben Zeilen serialisiert — ein Einzeiler plus KDoc-Begründung, matching diese Datei's
+  bestehende Dokumentationsdisziplin für nicht-offensichtliche Locking-Entscheidungen.
+- **Fünfte-Instanz-Sweep (Security Round 3, eigenständig durchgeführt):** alle bloßen
+  Mandats-/Positions-/Lauf-Status-Schreibvorgänge in `SepaService.kt` und `SepaBatchPoller.kt`
+  einzeln durchgegangen (`grep` nach `it[status] =`/`it[SepaMandateTable.status]`/
+  `it[SepaDebitItemTable.status]`/`it[SepaDebitBatchTable.status]`). Ergebnis: **nichts Weiteres
+  gefunden** — jede verbleibende REVOKED-/EXPIRED-Transition eines Mandats läuft inzwischen über den
+  geteilten `resetGeneratedBatchesForUnusableMandate`-Helfer (vier Aufrufer: `revokeMandate`,
+  `recordReturn`, `runPhaseA`, `runPhaseB`); alle übrigen Status-Schreibvorgänge (Batch-
+  Vorwärtsübergänge wie DRAFT→NOTIFIED→GENERATED→SUBMITTED→SETTLED, Item-Übergänge wie
+  PENDING→SETTLEABLE→SETTLED/RETURNED, `cancelBatch`s eigene Stornierung ihres GESAMTEN eigenen
+  Laufs) sind entweder reine Vorwärtsfortschritte ohne "wird unbrauchbar"-Semantik oder bereits die
+  einzige Schreibstelle für ihren jeweiligen Übergang (z. B. Phase C/`SETTLEABLE` — nur EIN
+  Aufrufer existiert).
+
+### Security Round 4 (2026-08-20) — finale Verifikation, `approved: true`
+
+Letzte erlaubte Runde der Vier-Runden-Konvention. Unabhängige Verifikation von F-1a/F-1b/F-2
+gegen den tatsächlichen Code (nicht gegen den Fix-Bericht): F-1a bestätigt innerhalb derselben
+gesperrten Transaktion wie die bestehende Positions-Divergenz-Prüfung, deckt nachweislich JEDES
+PENDING-Mandat ab, lehnt die GESAMTE Einreichung ab; der Test beweist Unabhängigkeit vom Poller
+(kein `poller.tick()`-Aufruf im Testumfang). F-1b bestätigt als EINE geteilte Funktion (kein
+Fork, alter Name `resetGeneratedBatchesForRevokedMandate` im Code nicht mehr auffindbar), vier
+Aufrufer, Phase-A-Test läuft über einen echten `poller.tick()`. F-2 bestätigt: die neue
+`forUpdate()`-Sperre serialisiert nachweislich gegen `generateBatchFile`s Phase-3-Sperre auf
+denselben Zeilen. Fünfte-Instanz-Sweep eigenständig neu hergeleitet (nicht nur die Fix-Behauptung
+übernommen) — für den geprüften Umfang bestätigt sauber. Build lief frisch durch (2540 Tests
+gesamt, 0 Fehler). Ganzheitlicher Abschlusscheck: Buchhaltungsgrenze weiterhin exakt EIN Aufruf
+(`settleBatch`), IBAN-Verschlüsselung (DB-Spalte UND archivierte Datei) Ende-zu-Ende intakt,
+Rollen-Gate auf `markBatchSubmitted` unverändert TREASURER/ADMIN.
+
+**Zwei Folgepunkte, dokumentiert für V1.2.3, kein Merge-Blocker:**
+- **Mitgliedschaftsaustritt ist die eine verbleibende Variante desselben Musters, noch
+  ausschließlich Poller-gebunden.** `RegistrationService`s WITHDRAWN/REJECTED-Übergänge fassen
+  `SepaMandateTable` nicht an — der Mandats-Widerruf bei Mitgliedschaftsende passiert bisher NUR
+  in Poller-Phase B, die standardmäßig deaktiviert ist (`LAPIS_SEPA_POLLER_ENABLED=false`). Weder
+  `prepareBatchFileGeneration` noch die neue `markBatchSubmitted`-Prüfung berücksichtigen den
+  Mitgliedsstatus, nur Mandatsstatus/-ablauf. Bewertung: **niedrig**, deutlich unter F-1 — ein
+  abgelaufenes Mandat bedeutet gar keine SEPA-Ermächtigung mehr (Regelwerksverstoß, garantierte
+  MD01-Rückgabe), während ein ausgetretenes Mitglieds-Mandat rechtlich gültig bleibt, bis es
+  widerrufen wird, und der Einzug einen tatsächlich geschuldeten, bereits vorangekündigten Beitrag
+  einzieht. Der Schaden ist Verhaltens-Drift zwischen Poller-an/-aus, keine unautorisierte
+  Lastschrift. Fix bei Gelegenheit (V1.2.3): dieselbe `MemberStatusSets.ORGANIZATION_MEMBER`-
+  Prüfung, die `createDebitBatch` bereits nutzt, in denselben gesperrten Block bei
+  `markBatchSubmitted` aufnehmen. Falls die Vereins-/Partei-Position ist, dass ein
+  Austritts-Mandat als ungültig statt nur unerwünscht gilt, vor Produktivbetrieb auf MEDIUM
+  hochstufen und vorziehen.
+- **Audit-Chain-Sperr-Reihenfolge im Poller (informativ, kein neuer Fund dieser Runde).**
+  `AuditLogRecorder.record` sperrt die Singleton-Chain-Status-Zeile; Konvention ist, dass dieser
+  Aufruf der LETZTE sperrende Vorgang einer Transaktion sein soll. Poller-Phase A/B rufen `record`
+  jedoch VOR dem Reset-Helfer auf (der seinerseits Item-/Lauf-/Contribution-/Dokument-Sperren
+  nimmt) — umgekehrte Reihenfolge zu `revokeMandate`, das den Helfer zuerst und das Audit zuletzt
+  aufruft. Theoretisches Deadlock-Potenzial (Poller hält Chain-Status, will Item X;
+  `revokeMandate` hält Item X, will Chain-Status) — Postgres erkennt das, Poller loggt eine
+  Warnung und versucht es beim nächsten Tick erneut, RPC-Aufrufer sieht einen 500 und kann erneut
+  versuchen. Keine fehlerhafte Geldbewegung, keine Umgehung. Ererbt von Phase Bs bereits
+  bestehender Struktur (Security Round 2), keine Regression dieser Runde.
 
 ### Deviations from the original "Lapis Cloud V1.2 — Zahlungsverkehr"-Plandokument
 

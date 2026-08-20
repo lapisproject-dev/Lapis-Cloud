@@ -360,6 +360,14 @@ fun decodeAuditSnapshot(
             // type's own KDoc for the "no full-diff" rationale).
             AuditEntityType.ORGANIZATION_SETTINGS ->
                 lenientSnapshotJson.decodeFromString<OrganizationSettingsPaymentMappingSnapshot>(raw)
+            // Zahlungsverkehr, Welle V1.2.2 "SEPA-Lastschriftmandate" -- SepaMandateSnapshot/
+            // SepaDebitBatchSnapshot exist server-side (see AuditLog.kt), but this client-side
+            // decode/render pair is deliberately not extended for them this wave (frontend scope
+            // cut, see CHANGELOG "Known limitations") -- same "no dedicated snapshot type decoded
+            // yet" fallback as CONFERENCE_RECORDING/CONFERENCE_STREAM above, falls through to the
+            // raw-text display.
+            AuditEntityType.SEPA_MANDATE -> null
+            AuditEntityType.SEPA_DEBIT_BATCH -> null
         }
     }.getOrNull()
 
