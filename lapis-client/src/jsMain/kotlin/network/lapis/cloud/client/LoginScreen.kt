@@ -105,6 +105,10 @@ fun renderLoginScreen(container: SimplePanel) {
             link(
                 tr("Gast eines anderen Lapis-Cloud-Servers? Mit Heimatserver anmelden."),
                 url = "/federation/oidc/rp/login",
+                // Echte volle Seitennavigation, keine SPA-Hash-Route -- ohne dieses Opt-out fängt
+                // das globale `Link.useDataNavigoForLinks = true` (App.kt main()) den Klick ab und
+                // navigo behandelt den Pfad faelschlich als unbekannte Client-Route (notFound).
+                dataNavigo = false,
             )
         }
 
@@ -115,7 +119,11 @@ fun renderLoginScreen(container: SimplePanel) {
 /** Minimal request+confirm "forgot password" flow -- see V0.7.3 plan Open Question 3. Collapsed
  * behind a toggle link so it doesn't crowd the primary login form. */
 private fun renderForgotPasswordToggle(parent: SimplePanel) {
-    val toggleLink = parent.link(tr("Passwort vergessen?"), url = "javascript:void(0)")
+    // dataNavigo = false: kein echter Routen-Link, nur ein lokaler Panel-Toggle -- ohne dieses
+    // Opt-out feuert navigo (globales Link.useDataNavigoForLinks = true, siehe App.kt main()) auf
+    // demselben Klick zusaetzlich seinen eigenen notFound-Handler und navigiert die ganze Seite neu,
+    // was das gerade geoeffnete Panel im selben Tick wieder verwirft.
+    val toggleLink = parent.link(tr("Passwort vergessen?"), url = "javascript:void(0)", dataNavigo = false)
     val panel = parent.vPanel(spacing = 6) { hide() }
     toggleLink.onClick { if (panel.visible) panel.hide() else panel.show() }
 
