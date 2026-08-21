@@ -8,6 +8,138 @@ All notable changes to this project are documented here. Format follows
 
 ### Added
 
+**Echter SMTP-Versand, Welle V1.2.3 — Passwort-Reset + FRIEND-E-Mail-Verifizierung, erstmals echte Mail-Zustellung**
+
+Ersetzt `NoOpPasswordResetMailer`/`NoOpFriendVerificationMailer` (reine Logging-Stubs seit V0.7.2/
+V0.11.0) durch einen echten, optionalen SMTP-Transport.
+
+- **Bibliothekswahl**: Jakarta Mail API 2.1.5 + Eclipse Angus Mail 2.0.5 (der direkte JavaMail-/
+  Jakarta-Mail-Nachfolger und die Referenzimplementierung, auf der jeder Kotlin-/Java-Wrapper
+  aufsitzt). `net.axay:simplekotlinmail` (PZB-Vorbild) bewusst **abgelehnt** — letztes Release
+  01/2022, laut eigenem README eingestellt. `simple-java-mail` ebenfalls abgelehnt — würde
+  Angus/Jakarta Mail transitiv genauso mitbringen, plus jsoup u. a. für nicht benötigte
+  Funktionalität. **Lizenz-Abweichung bewusst angenommen**: `angus-mail` ist EPL-2.0 OR
+  GPL-2.0-w-CPE (keine rein permissive Option, dieselbe Lizenzkombination wie das OpenJDK selbst)
+  — als unveränderte Binär-Bibliothek überträgt das datei-basierte schwache Copyleft von EPL-2.0
+  keine Pflichten auf eigenen Code, analog zur bestehenden `nimbus-jose-jwt`-Begründung.
+- **Sieben Env-Vars, fünf davon Pflicht, Alles-oder-Nichts**: `LAPIS_SMTP_HOST`/
+  `LAPIS_SMTP_USERNAME`/`LAPIS_SMTP_PASSWORD`/`LAPIS_SMTP_FROM_ADDRESS`/`LAPIS_SMTP_FROM_NAME`
+  (Pflicht, sobald irgendeine `LAPIS_SMTP_*`-Variable gesetzt ist) plus `LAPIS_SMTP_PORT`/
+  `LAPIS_SMTP_REPLY_TO` (optional, Port mit Default `465`). Kein `LAPIS_SMTP_STARTTLS` —
+  Transportsicherheit leitet sich ausschließlich aus dem Port ab (Stand nach der Design-Review-
+  Runde weiter unten: `FROM_NAME` wurde dort von optional auf Pflicht hochgestuft, `STARTTLS`
+  ersatzlos gestrichen, `REPLY_TO` neu hinzugefügt). `SmtpConfig.load` liefert eine dreiteilige
+  `SmtpConfigState` (`NotConfigured` / `Configured` / `Incomplete`) — kein separates
+  `LAPIS_SMTP_ENABLED`-Flag, die Anwesenheit irgendeiner Variable IST das Opt-in.
+- **Fail-fast, nicht graceful degradation**: `SmtpStartupCheck.verifyAndLog` wirft eine
+  `IllegalStateException` bei `Incomplete` (Server startet nicht) — anders als `SepaConfig`/
+  `OracleSourceConfig` (DB-Flag-gesteuert, nie fail-fast), aber konsistent mit
+  `ConferenceStreamingConfig` (Env-Var-Opt-in, "angeschaltet aber kaputt" ist immer ein
+  Bedienfehler). Port 465 = implizites TLS, Port 587/25 = erzwungenes STARTTLS
+  (`starttls.required=true`) — es gibt keinen konfigurierbaren Klartext-Modus.
+- **Fire-and-forget, mit Sicherheits-Begründung, nicht nur UX**: `MailDispatcher.enqueue` kehrt
+  sofort zurück, der eigentliche Sendeversuch läuft in einer eigenen `CoroutineScope`
+  (`SupervisorJob() + Dispatchers.IO`, max. 4 gleichzeitige Sendevorgänge, DoS-Deckel für die
+  beiden unauthentifizierten Call-Sites). Grund: `POST /api/auth/password-reset/request` liefert
+  laut eigenem KDoc die identische Antwort unabhängig davon, ob die E-Mail registriert ist — ein
+  synchroner SMTP-Roundtrip (100–800 ms TLS-Handshake) fände nur im "E-Mail existiert"-Zweig statt
+  und würde damit einen Timing-Seitenkanal öffnen, der genau die Enumeration-Härtung leakt, die sie
+  verhindern soll. Dieselbe Begründung gilt für `RegistrationService.registerFriend`s stillen
+  Duplikat-No-op. Ein Zustellfehler erscheint als ERROR-Log-Zeile, nie als Fehler beim Aufrufer.
+- **Zwei dünne Adapter, ein Transport**: `SmtpPasswordResetMailer`/`SmtpFriendVerificationMailer`
+  teilen sich denselben `MailDispatcher`/`MailTransport` — kein zweiter, paralleler
+  Zustellmechanismus. Bugfix im Zuge dieser Welle: `RegistrationService`s
+  `friendVerificationMailer`-Parameter hatte bisher einen Default-Wert und wurde am
+  `Application.kt`-Call-Site NIE tatsächlich übergeben, sodass FRIEND-Verifizierungsmails still auf
+  dem No-Op-Stub blieben, obwohl anderswo bereits ein echter Mailer existierte. Der Default ist
+  jetzt entfernt, der Compiler erzwingt die Verdrahtung.
+- **Client-Deep-Links (Option B)**: die realen Mails verlinken jetzt auf `#/password-reset?token=...`
+  bzw. `#/verify-email?token=...` — zwei neue KVision-Screens (`renderPasswordResetScreen`,
+  `renderVerifyEmailScreen`) plus `Routes`-Einträge. Der Token bleibt im Hash-Fragment und erreicht
+  damit nie einen Server-Zugriffslog oder Referer-Header.
+- **`LAPIS_FRIEND_REQUIRE_EMAIL_VERIFICATION` bleibt unverändert auf `false`** — die Option wäre
+  mit einem echten Mailer jetzt erstmals sinnvoll aktivierbar, die Aktivierung selbst ist aber eine
+  separate, später zu treffende Entscheidung.
+- **Review-Runde**: `.env.example` lieferte die vier Pflichtwerte für netcup halb vorbefüllt aus
+  (HOST/PORT/FROM_ADDRESS/FROM_NAME gesetzt, USERNAME/PASSWORD leer) — ein `cp .env.example .env`
+  ohne SMTP-Absicht crash-loopte den Container über `SmtpStartupCheck`s eigenen Fail-fast. Jetzt
+  alle sieben `LAPIS_SMTP_*`-Werte leer, Beispielwerte nur noch als Kommentar. `docker-compose.yml`
+  reichte `LAPIS_SMTP_STARTTLS` nicht durch, obwohl README/`SmtpConfig` es als Override
+  dokumentieren. `SmtpConfig.load` akzeptierte für `LAPIS_SMTP_STARTTLS` jeden Nicht-"true"-Wert
+  stillschweigend als `false` (z. B. `"1"`/`"yes"`) statt ihn wie den benachbarten
+  `LAPIS_SMTP_PORT`-Parser als `invalid` zu melden. `MailDispatcher`s Sende-Permit wird jetzt über
+  `Job.invokeOnCompletion` statt einem `finally` im Coroutine-Body freigegeben (schließt einen
+  Permit-Leak, falls der Dispatcher-Scope je vor Abschluss eines Sendevorgangs gecancelt wird) und
+  der Scope ist neu an einen `ApplicationStopping`-Hook gebunden. Empfängeradressen erscheinen in
+  Log-Zeilen jetzt maskiert (`m***@example.org`) statt im Klartext. Neue Tests:
+  `parseHashQueryParam` (Client-Hash-Query-Parsing, 10 Fälle), zwei `JakartaMailTransportTest`-Fälle
+  gegen den echten Jakarta-Mail-`Provider`-ServiceLoader (guards gegen ein zukünftiges
+  Shadow-Jar/Dependency-Downgrade, das `angus-mail` vom Runtime-Classpath entfernt), zwei
+  `SmtpConfigTest`-Fälle für einen ungültigen `LAPIS_SMTP_STARTTLS`-Wert (beide zusammen mit der
+  Variable selbst in der Design-Review-Runde weiter unten ersatzlos wieder entfernt — existieren
+  im aktuellen Stand nicht mehr).
+- **Review-Runde 2**: `MailDispatcher` verwarf bislang jede Mail oberhalb von exakt
+  `maxConcurrentSends` (Default 4) sofort und endgültig -- ohne Warteschlange, ohne Retry.
+  `SmtpConfig.DEFAULT_CONNECT_TIMEOUT_MS` (10 s) bedeutete konkret: eine 10-sekündige
+  Relay-Störung blockierte alle vier Worker gleichzeitig, und jede Passwort-Reset-Anfrage bzw.
+  FRIEND-Registrierung in diesem Fenster verlor ihre E-Mail lautlos (Token liegt gültig in der DB,
+  HTTP-Antwort bleibt erfolgreich, einzige Spur eine ERROR-Log-Zeile) -- ein Widerspruch zur
+  eigenen Fail-fast-Doktrin dieser Welle. `MailDispatcher` nutzt jetzt einen begrenzten `Channel`
+  (`queueCapacity`, Default 64) als zweite Pufferstufe VOR den vier Sende-Workern; zusammen
+  absorbieren beide Stufen bis zu 68 gleichzeitige `enqueue`-Aufrufe während eines transienten
+  Relay-Ausfalls, bevor überhaupt eine Mail verworfen wird (siehe `MailDispatcher` KDoc "Warum 4
+  und 64" für die volle Herleitung der beiden Werte). Ersetzt dabei auch den bisherigen
+  `Semaphore.tryAcquire()`/`Job.invokeOnCompletion { permits.release() }`-Mechanismus aus Review-
+  Runde 1 -- die Worker-Anzahl selbst ist jetzt die Nebenläufigkeitsgrenze, kein separater
+  Permit-Leak-Zustand mehr denkbar. Weiterhin KEIN Retry: eine Mail, die auch die 64er-Queue nicht
+  mehr aufnimmt, bleibt verworfen. Zweitens: `SmtpConfigTest` deckte den Fall ab, dass EIN
+  `LAPIS_SMTP_*`-Wert leer ist (gemischt mit gültigen übrigen), nie den Fall, dass ALLE sieben
+  Variablen als Leerstring gesetzt sind -- exakt die Form, in der
+  `deploy/production/docker-compose.yml`s `${LAPIS_SMTP_HOST:-}`-Passthrough sie an jeden
+  Container liefert, der SMTP nicht konfiguriert hat. Neuer Test sichert ab, dass dieser Fall
+  weiterhin `NotConfigured` liefert, nicht `Incomplete` (der ursprüngliche Review-Runde-1-
+  KRITISCH-Befund wäre sonst durch eine zukünftige Änderung an `SmtpConfig.load`s
+  `.takeUnless { it.isBlank() }`-Guard unbemerkt wieder aufgetreten).
+- `MailingService.sendMailingMessage` (Massenversand an Mailinglisten-Abonnenten) ist bewusst
+  **nicht** Teil dieser Welle — bleibt die bestehende Simulation (ein `SENT`-Logeintrag pro
+  Abonnent, kein echter Transport).
+- Neue Doku: `deploy/production/README.adoc` Abschnitt "E-Mail-Versand (SMTP, optional)",
+  `deploy/production/.env.example`/`docker-compose.yml` um die sieben `LAPIS_SMTP_*`-Variablen
+  ergänzt.
+- **Design-Review (UI/UX-Team)**: Produktname `Lapis Cloud` aus beiden Mail-Templates entfernt
+  (white-label: PdV und ELB sind zwei Piloten) — Betreffzeile jetzt `Passwort zurücksetzen –
+  <LAPIS_SMTP_FROM_NAME>` mit echtem Gedankenstrich (U+2013) statt `--`. `LAPIS_SMTP_FROM_NAME` von
+  optional auf **Pflicht** hochgestuft → Pflichtgruppe ist jetzt fünfteilig. **Breaking für
+  bestehende Deployments** mit SMTP-Konfiguration: Wert muss vor dem Deploy in der `.env` stehen,
+  sonst Fail-fast (siehe README.adoc "Deploy ordering"). `LAPIS_SMTP_STARTTLS` **ersatzlos
+  gestrichen** (Env-Var, Parser-Zweig, Compose-Zeile, README-Absatz, 4 Tests) — Transportsicherheit
+  folgt allein dem Port. Da die Welle nie released war, ist das keine Migration, sondern Streichung
+  vor Erstauslieferung. `LAPIS_SMTP_REPLY_TO` neu, optional: gesetzt → `Reply-To`-Header; nicht
+  gesetzt → Fußzeile verweist auf `LAPIS_PUBLIC_BASE_URL`. Keine Mail ohne Rückweg. Beide
+  Deep-Link-Screens `width = 380.px` → `maxWidth = 380.px` + `width = 100.perc` (Mails werden
+  überwiegend auf Telefonen geöffnet). Sieben fehlende `msgid`-Einträge der beiden neuen Screens in
+  `messages.pot` + 7 `.po` nachgetragen — die Basis-Implementierung hatte neue `tr()`-Strings
+  eingeführt, ohne die i18n-Kataloge anzufassen, abweichend von jeder vorherigen Welle mit neuen
+  UI-Strings. `LAPIS_FRIEND_REQUIRE_EMAIL_VERIFICATION` bleibt weiterhin `false` — Formulierung
+  präzisiert: aktivierbar erst, wenn die Zustellrate über mindestens 30 Tage Pilotbetrieb gemessen
+  ist (setzt die V1.2.4-Metriken voraus).
+  **Bewusst nach V1.2.4 verschoben**: Zustell-Metriken, ein Einlöseort/Token-Feld (`LoginScreen.kt`
+  bleibt vorerst bei `width = 380.px`), eine HTML-Hülle (Logo/Farbschema), eine persistente Outbox.
+- **Review-Runde 3**: die Design-Review-Runde hatte zwei `tr()`/`gettext()`-Strings übersehen, die
+  bei der Recherche nach den "sieben fehlenden" Einträgen oben nicht mitgezählt wurden --
+  `DashboardScreen.kt`s Sitzungszeile (jetzt `"Status: %1 · Rolle: %2 · Sitzung gültig bis %3"`,
+  ersetzt den alten zweiteiligen String, der ohne die neue `Status`-Ergänzung nicht mehr im Code
+  vorkommt und in allen 7 `.po`-Katalogen als `#~`-Eintrag erhalten bleibt) und
+  `AuthHttp.kt`s `"Bestätigung fehlgeschlagen."` (abgelaufener/ungültiger Token am
+  `#/verify-email`-Deep-Link). Beide jetzt in `messages.pot` + allen 7 `.po`-Katalogen nachgetragen.
+  Zweitens: `NoOpMailTransport` gab bislang `MailSendOutcome.Sent` zurück, obwohl nie wirklich an
+  einen Relay übergeben wurde -- auf jedem Deployment ohne `LAPIS_SMTP_*` (Default, aktueller Stand
+  beider Piloten PdV/ELB) erzeugte das zwei sich widersprechende INFO-Zeilen pro Sendeversuch
+  (`NoOpMailTransport`s eigene "würde gesendet -- kein SMTP konfiguriert" gefolgt von
+  `MailDispatcher`s "Mail delivered"). Neuer `MailSendOutcome.Skipped`-Fall schließt den
+  Widerspruch. Drittens: `maskEmailForLogging`s KDoc behauptete fälschlich, `MailDispatcher`
+  validiere `to` vorab als echte Adresse -- tut es nicht, korrigiert.
+
 **Price-Oracle, Welle V0.6.6 "Gold- und Fiat-Anker" — GOLD_XAU/FIAT-Preisquellen, generalisiertes Quorum, Anker-Routing-Fix**
 
 Erweitert den bislang Bitcoin-exklusiven Price-Oracle (V0.6.5) um zwei weitere Anker-Assets und

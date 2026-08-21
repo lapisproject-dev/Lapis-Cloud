@@ -1,53 +1,31 @@
 package network.lapis.cloud.server.mail
 
-import io.github.oshai.kotlinlogging.KotlinLogging
 import network.lapis.cloud.shared.domain.DeliveryStatus
-
-private val logger = KotlinLogging.logger {}
 
 /**
  * Abstraction over "send this email-verification link/token to this email" (V0.11.0 FRIEND self-
- * registration). Same swap-seam shape [PasswordResetMailer] already establishes -- a real SMTP-
- * backed implementation can later replace [NoOpFriendVerificationMailer] without touching
- * `RegistrationService.registerFriend`'s call site.
+ * registration). Same swap-seam shape [PasswordResetMailer] already establishes.
  *
- * **Honest, disclosed non-delivery, same established precedent as [PasswordResetMailer]/
- * [network.lapis.cloud.server.rpc.MailingService.sendMailingMessage]**: this codebase has NO real
- * SMTP/email-transport integration anywhere. [NoOpFriendVerificationMailer] follows the exact same
- * convention rather than silently claiming a working delivery. The token-generation/storage/
- * consumption mechanics themselves ARE fully real -- see
- * [network.lapis.cloud.server.security.FriendEmailVerificationTokenStore] -- only the email
- * TRANSPORT is a disclosed stub. This is exactly why email-verification ENFORCEMENT stays behind
- * `LAPIS_FRIEND_REQUIRE_EMAIL_VERIFICATION` (default `false`, see `RegistrationService` KDoc "Email
- * verification"): hard-requiring verification while no real delivery exists would make FRIEND
- * unusable and would violate this project's own explicit no-overclaiming norm.
+ * **V1.2.3: real SMTP transport, optional** -- see [PasswordResetMailer] KDoc "real SMTP
+ * transport, optional" for the full story; [SmtpFriendVerificationMailer] is the sole
+ * implementation now, delegating to the SAME [MailDispatcher]/[MailTransport] instance
+ * [SmtpPasswordResetMailer] uses (one transport, two thin adapters). The token-generation/
+ * storage/consumption mechanics themselves have always been fully real -- see
+ * [network.lapis.cloud.server.security.FriendEmailVerificationTokenStore]. This is exactly why
+ * email-verification ENFORCEMENT still stays behind `LAPIS_FRIEND_REQUIRE_EMAIL_VERIFICATION`
+ * (default `false`, see `RegistrationService` KDoc "Email verification"): the client-side deep-link
+ * screen a verification mail now points to (`#/verify-email?token=...`) exists as of this wave,
+ * but activating hard enforcement is a separate, later operational decision.
  */
 interface FriendVerificationMailer {
     /**
-     * Attempts to deliver [rawToken] to [email] as an email-verification link/token. Synchronous:
-     * returns once the attempt has completed (or been simulated).
+     * Hands [rawToken] to [email] off for delivery -- see [PasswordResetMailer.send] KDoc
+     * "Fire-and-forget" for the full contract, identical here. **Never logs [rawToken]** -- same
+     * discipline [PasswordResetMailer.send] documents, for the same account-takeover-adjacent-
+     * oracle reason.
      */
     fun send(
         email: String,
         rawToken: String,
     ): DeliveryStatus
-}
-
-/**
- * See [FriendVerificationMailer] KDoc "Honest, disclosed non-delivery" for the full rationale.
- * **Never logs [rawToken]** -- logging the raw, bearer-usable verification token would defeat the
- * entire hash-only-persisted security model
- * [network.lapis.cloud.server.security.FriendEmailVerificationTokenStore] establishes (a leaked/
- * misconfigured log sink would become an account-takeover-adjacent oracle).
- */
-class NoOpFriendVerificationMailer : FriendVerificationMailer {
-    override fun send(
-        email: String,
-        rawToken: String,
-    ): DeliveryStatus {
-        logger.info {
-            "Friend email-verification message would be sent to $email (no real SMTP transport configured -- see FriendVerificationMailer KDoc)"
-        }
-        return DeliveryStatus.SENT
-    }
 }

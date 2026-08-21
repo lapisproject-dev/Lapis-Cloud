@@ -432,9 +432,12 @@ fun mailingMessageStatusColor(status: MailingMessageStatus): String =
  * "send" is a stub: it writes one [network.lapis.cloud.shared.domain.MailingDeliveryLogDto] row per
  * active subscriber with [network.lapis.cloud.shared.domain.DeliveryStatus.SENT] unconditionally
  * (`MailingService.kt`'s `runCatching { DeliveryStatus.SENT }` can never actually fail, per its own
- * inline comment) -- no real SMTP/delivery provider is wired. Same honesty posture as
- * `DsgvoRightsScreen.kt`'s `ERASURE_SELF_STATUS_VISIBILITY_CAPTION` and this project's README's own
- * documented `NoOpPasswordResetMailer` precedent.
+ * inline comment) -- no real bulk-delivery provider is wired for THIS (mailing-list) send path,
+ * deliberately out of scope for V1.2.3's SMTP transport (see `MailTemplates.kt`/`MailDispatcher.kt`
+ * KDoc "does NOT cover MailingService.sendMailingMessage") -- that wave only wires up the two
+ * single-recipient transactional mailers (password-reset, FRIEND email verification), not this
+ * bulk-mailing simulation. Same honesty posture as `DsgvoRightsScreen.kt`'s
+ * `ERASURE_SELF_STATUS_VISIBILITY_CAPTION`.
  */
 const val MAILING_SEND_STUB_CAPTION =
     "Der Versand ist in dieser Version ein interner Protokolleintrag -- es wird noch keine echte " +

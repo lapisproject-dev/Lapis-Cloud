@@ -25,6 +25,10 @@ private external interface PasswordResetConfirmBody {
     var newPassword: String
 }
 
+private external interface FriendEmailVerifyBody {
+    var token: String
+}
+
 /**
  * Mirrors `network.lapis.cloud.server.routes.AuthRoutes.kt` 1:1 -- login/logout/password-reset are
  * dedicated HTTP routes, not Kilua RPC (see `IAuthService` KDoc for why: these must be reachable
@@ -87,6 +91,17 @@ object AuthHttp {
             }
         val response = postJson("/api/auth/password-reset/confirm", JSON.stringify(body))
         return if (response.ok) null else response.text().await().ifBlank { tr("Zurücksetzen fehlgeschlagen.") }
+    }
+
+    /**
+     * V1.2.3 -- backs [renderVerifyEmailScreen]'s `#/verify-email?token=...` deep link (Option B of
+     * the SMTP-Versand plan). Mirrors `POST /api/auth/friend/verify-email` 1:1, same shape as
+     * [confirmPasswordReset] above.
+     */
+    suspend fun confirmFriendEmailVerification(token: String): String? {
+        val body = obj<FriendEmailVerifyBody> { this.token = token }
+        val response = postJson("/api/auth/friend/verify-email", JSON.stringify(body))
+        return if (response.ok) null else response.text().await().ifBlank { tr("Bestätigung fehlgeschlagen.") }
     }
 
     private suspend fun postJson(

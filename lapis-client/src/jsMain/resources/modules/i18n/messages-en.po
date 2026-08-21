@@ -65,6 +65,35 @@ msgstr "-- select donor category --"
 msgid "-- Sphäre wählen --"
 msgstr "-- select sphere --"
 
+#: src/jsMain/kotlin/network/lapis/cloud/client/VerifyEmailDeepLinkScreen.kt:40
+msgid "Bestätigung wird verarbeitet ..."
+msgstr "Confirmation is being processed ..."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PasswordResetDeepLinkScreen.kt:58
+msgid "Bitte ein neues Passwort eingeben."
+msgstr "Please enter a new password."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PasswordResetDeepLinkScreen.kt:44
+msgid "Bitte vergeben Sie Ihr neues Passwort."
+msgstr "Please set your new password."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PasswordResetDeepLinkScreen.kt:39
+#: src/jsMain/kotlin/network/lapis/cloud/client/VerifyEmailDeepLinkScreen.kt:35
+msgid "Dieser Link enthält keinen gültigen Token. Bitte fordern Sie einen neuen Link an."
+msgstr "This link does not contain a valid token. Please request a new link."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/VerifyEmailDeepLinkScreen.kt:32
+msgid "E-Mail-Adresse bestätigen"
+msgstr "Confirm email address"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/VerifyEmailDeepLinkScreen.kt:55
+msgid "E-Mail-Adresse bestätigt."
+msgstr "Email address confirmed."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/VerifyEmailDeepLinkScreen.kt:54
+msgid "Ihre E-Mail-Adresse wurde bestätigt."
+msgstr "Your email address has been confirmed."
+
 #: src/jsMain/kotlin/network/lapis/cloud/client/CostCentersScreen.kt:275
 msgid "— Nicht zugeordnet —"
 msgstr "— Not assigned —"
@@ -1762,6 +1791,10 @@ msgstr "Confirm"
 #: src/jsMain/kotlin/network/lapis/cloud/client/SepaBatchesScreen.kt:599
 msgid "Bestätigen Sie, dass diese Datei bei der Bank eingereicht wurde."
 msgstr "Confirm that this file has been submitted to the bank."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuthHttp.kt:104
+msgid "Bestätigung fehlgeschlagen."
+msgstr "Confirmation failed."
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/AuditLogScreen.kt:427
 #: src/jsMain/kotlin/network/lapis/cloud/client/CrowdfundingScreen.kt:558
@@ -6514,10 +6547,6 @@ msgstr "Show/hide raw data"
 msgid "Rolle"
 msgstr "Role"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/DashboardScreen.kt:45
-msgid "Rolle: %1 · Sitzung gültig bis %2"
-msgstr "Role: %1 · Session valid until %2"
-
 #: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceStreamDestinationsScreen.kt:189
 #: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceStreamDestinationsScreen.kt:254
 msgid "RTMP-Basis-URL"
@@ -7249,6 +7278,10 @@ msgstr "Status:"
 #: src/jsMain/kotlin/network/lapis/cloud/client/CrowdfundingScreen.kt:270
 msgid "Status: %1"
 msgstr "Status: %1"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/DashboardScreen.kt:52
+msgid "Status: %1 · Rolle: %2 · Sitzung gültig bis %3"
+msgstr "Status: %1 · Role: %2 · Session valid until %3"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/CommitteesScreen.kt:466
 msgid "Stellv. Vorsitz"
@@ -8610,3 +8643,6 @@ msgstr "Defamation"
 #~ msgstr ""
 #~ "For secret ballots, the stream must be interrupted manually. Automatic "
 #~ "interruption does not yet exist in this version."
+
+#~ msgid "Rolle: %1 · Sitzung gültig bis %2"
+#~ msgstr "Role: %1 · Session valid until %2"

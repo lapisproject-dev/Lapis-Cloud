@@ -44,6 +44,13 @@ import java.util.Base64
  * key-loading convention" -- a later wave adding, say, SMTP password encryption is expected to add
  * its OWN `LAPIS_..._ENABLED` gate but reuse THIS SAME `LAPIS_SECRET_ENCRYPTION_KEY` and this
  * exact validation shape, not mint a second key/env-var/class.
+ *
+ * **V1.2.3 turned out NOT to be that later wave.** `network.lapis.cloud.server.mail.SmtpConfig`
+ * reads its credentials from `LAPIS_SMTP_USERNAME`/`LAPIS_SMTP_PASSWORD` env vars and holds them
+ * only in memory for the process lifetime -- nothing SMTP-related is ever persisted at rest, so
+ * there was nothing for [SecretBox]/[secretEncryptionKey] to encrypt. This class's own opt-in gate
+ * anticipation above still stands for a genuinely different future case (an SMTP credential stored
+ * in the database, e.g. per-organization outbound relay settings).
  */
 class ConferenceStreamingConfig private constructor(
     /** Master opt-in -- streaming additionally requires [ConferenceConfig.enabled] (a deployment cannot stream without also being able to confer at all). */

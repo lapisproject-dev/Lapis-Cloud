@@ -25,6 +25,7 @@ import network.lapis.cloud.server.db.generated.FriendTermsAcknowledgmentTable
 import network.lapis.cloud.server.db.generated.MemberTable
 import network.lapis.cloud.server.db.generated.MembershipAgreementAcknowledgmentTable
 import network.lapis.cloud.server.federation.FederationInboxRateLimiter
+import network.lapis.cloud.server.mail.FakeFriendVerificationMailer
 import network.lapis.cloud.server.security.LoginRateLimiter
 import network.lapis.cloud.server.security.PasswordHasher
 import network.lapis.cloud.server.security.SessionStore
@@ -328,6 +329,7 @@ private fun Route.registerFriendUpgradeTestRoutes() {
             registrationRateLimiter = LoginRateLimiter(),
             friendRegistrationRateLimiter = LoginRateLimiter(),
             friendSignupIpRateLimiter = FederationInboxRateLimiter(),
+            friendVerificationMailer = FakeFriendVerificationMailer(),
         )
     post("/test/apply-for-membership") {
         val q = call.request.queryParameters
@@ -348,6 +350,7 @@ private fun Route.registerRegistrationTestRoutes(rateLimiter: LoginRateLimiter) 
             registrationRateLimiter = rateLimiter,
             friendRegistrationRateLimiter = LoginRateLimiter(),
             friendSignupIpRateLimiter = FederationInboxRateLimiter(),
+            friendVerificationMailer = FakeFriendVerificationMailer(),
         )
     post("/test/approve/{id}") {
         val dto = registrationService(call).approveApplication(call.parameters["id"]!!)

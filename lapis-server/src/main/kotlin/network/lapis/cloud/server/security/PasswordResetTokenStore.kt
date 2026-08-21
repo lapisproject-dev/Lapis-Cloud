@@ -37,7 +37,8 @@ private val logger = KotlinLogging.logger {}
  * [SessionTokens.hash] of the raw token, computed fresh on every [createToken]/[consumeToken]
  * call. The raw, bearer-usable token exists only transiently in memory and (briefly) in the
  * outbound "reset your password" message -- see [network.lapis.cloud.server.mail.PasswordResetMailer]
- * KDoc for why NO real email transport delivers it anywhere in this codebase today.
+ * KDoc for the delivery story (V1.2.3: real SMTP transport whenever configured, an honest
+ * disclosed non-delivery stub otherwise).
  *
  * **Single-use, atomically**: [consumeToken] claims a token via a `SELECT ... FOR UPDATE` row
  * lock followed by a compare-and-swap `UPDATE ... WHERE consumed_at IS NULL` -- so two concurrent

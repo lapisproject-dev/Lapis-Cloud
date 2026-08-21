@@ -1,4 +1,5 @@
 package network.lapis.cloud.server.rpc
+import io.github.oshai.kotlinlogging.KotlinLogging
 import io.ktor.server.application.ApplicationCall
 import io.ktor.server.plugins.origin
 import kotlinx.datetime.LocalDateTime
@@ -9,7 +10,7 @@ import network.lapis.cloud.server.db.generated.MemberTable
 import network.lapis.cloud.server.db.generated.MembershipAgreementAcknowledgmentTable
 import network.lapis.cloud.server.federation.FederationInboxRateLimiter
 import network.lapis.cloud.server.mail.FriendVerificationMailer
-import network.lapis.cloud.server.mail.NoOpFriendVerificationMailer
+import network.lapis.cloud.server.mail.isValidMailboxAddress
 import network.lapis.cloud.server.security.FriendEmailVerificationTokenStore
 import network.lapis.cloud.server.security.LoginRateLimiter
 import network.lapis.cloud.server.security.PasswordHasher
@@ -38,6 +39,8 @@ import org.jetbrains.exposed.v1.jdbc.selectAll
 import org.jetbrains.exposed.v1.jdbc.transactions.transaction
 import org.jetbrains.exposed.v1.jdbc.update
 import kotlin.uuid.Uuid
+
+private val logger = KotlinLogging.logger {}
 
 private val REGISTRATION_BOARD_ROLES = arrayOf(AccountRole.BOARD, AccountRole.ADMIN)
 private val ESCALATED_ROLES = arrayOf(AccountRole.BOARD, AccountRole.TREASURER, AccountRole.ADMIN)
@@ -108,7 +111,14 @@ class RegistrationService(
      */
     private val friendSignupIpRateLimiter: FederationInboxRateLimiter,
     private val friendRegistrationConfig: FriendRegistrationConfig = FriendRegistrationConfig.load(),
-    private val friendVerificationMailer: FriendVerificationMailer = NoOpFriendVerificationMailer(),
+    /**
+     * V1.2.3: no default value on purpose (a pre-existing gap this wave fixes -- `Application.kt`'s
+     * `registerService(IRegistrationService::class) { ... }` call site used to construct this class
+     * WITHOUT this parameter, silently falling back to `NoOpFriendVerificationMailer` even though a
+     * real `SmtpFriendVerificationMailer` existed and was wired up elsewhere. The compiler now
+     * enforces the wiring instead of allowing a silent default.
+     */
+    private val friendVerificationMailer: FriendVerificationMailer,
 ) : IRegistrationService {
     override suspend fun getMembershipAgreement(): MembershipAgreementDto =
         MembershipAgreementDto(
@@ -143,6 +153,12 @@ class RegistrationService(
             )
         }
         if (input.displayName.isBlank()) throw ConflictException("displayName must not be blank")
+        // CRLF-log-injection fix (security-review, V1.2.3): reject a malformed email BEFORE it is
+        // ever persisted into MemberTable -- see `isValidMailboxAddress` KDoc "Promoted to a
+        // top-level `internal` function" for the full attack chain this closes (an unauthenticated
+        // \r/\n-bearing email otherwise survives into every later password-reset/FRIEND-verification
+        // log line for this row via MailDispatcher.enqueue's maskEmailForLogging call).
+        if (!isValidMailboxAddress(normalizedEmail)) throw ConflictException("email is not a valid mailbox address")
         PasswordPolicy.validate(newPassword = input.password, email = normalizedEmail)
 
         val now = nowLocalDateTime()
@@ -407,6 +423,11 @@ class RegistrationService(
         if (input.displayName.length > MAX_DISPLAY_NAME_LENGTH) {
             throw ConflictException("displayName must be at most $MAX_DISPLAY_NAME_LENGTH characters")
         }
+        // CRLF-log-injection fix (security-review, V1.2.3): see registerApplication's identical
+        // check for the full attack-chain writeup -- registerFriend is the unauthenticated, no-login
+        // entry point the finding actually walked end to end (FriendEmailVerificationTokenStore
+        // .createToken -> SmtpFriendVerificationMailer.send -> MailDispatcher.enqueue).
+        if (!isValidMailboxAddress(normalizedEmail)) throw ConflictException("email is not a valid mailbox address")
         PasswordPolicy.validate(newPassword = input.password, email = normalizedEmail)
 
         val now = nowLocalDateTime()
@@ -487,7 +508,12 @@ class RegistrationService(
         val createdMemberId = newMemberId
         if (createdMemberId != null) {
             val rawToken = FriendEmailVerificationTokenStore.createToken(createdMemberId)
-            friendVerificationMailer.send(email = normalizedEmail, rawToken = rawToken)
+            // V1.2.3: runCatching, not a bare call -- a misbehaving FriendVerificationMailer
+            // implementation throwing here must never abort registration; the member/account row
+            // is already committed by this point, so a mail-send failure is purely a delivery
+            // problem, not a reason to fail the whole registerFriend call.
+            runCatching { friendVerificationMailer.send(email = normalizedEmail, rawToken = rawToken) }
+                .onFailure { e -> logger.error { "friendVerificationMailer.send threw: ${e::class.simpleName}" } }
         }
     }
 

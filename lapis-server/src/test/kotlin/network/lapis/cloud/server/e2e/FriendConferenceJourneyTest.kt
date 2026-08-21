@@ -28,6 +28,7 @@ import network.lapis.cloud.server.db.generated.FriendTermsAcknowledgmentTable
 import network.lapis.cloud.server.db.generated.MemberTable
 import network.lapis.cloud.server.db.generated.MembershipAgreementAcknowledgmentTable
 import network.lapis.cloud.server.federation.FederationInboxRateLimiter
+import network.lapis.cloud.server.mail.FakeFriendVerificationMailer
 import network.lapis.cloud.server.module
 import network.lapis.cloud.server.rpc.ConferenceGuestConsentDisclaimer
 import network.lapis.cloud.server.rpc.ConferenceService
@@ -155,6 +156,7 @@ class FriendConferenceJourneyTest :
                                 registrationRateLimiter = LoginRateLimiter(),
                                 friendRegistrationRateLimiter = LoginRateLimiter(),
                                 friendSignupIpRateLimiter = FederationInboxRateLimiter(),
+                                friendVerificationMailer = FakeFriendVerificationMailer(),
                             )
                         post("/friend-journey/register") {
                             val q = call.request.queryParameters

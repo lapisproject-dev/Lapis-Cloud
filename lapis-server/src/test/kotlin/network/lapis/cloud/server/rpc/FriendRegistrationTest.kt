@@ -25,8 +25,8 @@ import network.lapis.cloud.server.db.generated.FriendTermsAcknowledgmentTable
 import network.lapis.cloud.server.db.generated.MemberTable
 import network.lapis.cloud.server.db.generated.MembershipAgreementAcknowledgmentTable
 import network.lapis.cloud.server.federation.FederationInboxRateLimiter
+import network.lapis.cloud.server.mail.FakeFriendVerificationMailer
 import network.lapis.cloud.server.mail.FriendVerificationMailer
-import network.lapis.cloud.server.mail.NoOpFriendVerificationMailer
 import network.lapis.cloud.server.security.LoginRateLimiter
 import network.lapis.cloud.shared.domain.DeliveryStatus
 import network.lapis.cloud.shared.domain.FriendRegistrationInput
@@ -134,6 +134,24 @@ class FriendRegistrationTest :
             }
         }
 
+        test("registerFriend: a throwing mailer never fails registration -- member/account row is still created") {
+            testApplication {
+                val throwingMailer = ThrowingFriendVerificationMailer()
+                application {
+                    install(StatusPages) { installFriendRegistrationExceptionHandlers() }
+                    routing { registerFriendRegistrationTestRoutes(mailer = throwingMailer) }
+                }
+                val email = "friend-throwing-mailer@example.org"
+
+                val response = client.post("/test/register-friend?email=$email&displayName=Wirft+Trotzdem")
+                response.status shouldBe HttpStatusCode.OK
+
+                val memberId = requireNotNull(findMemberIdByEmail(email))
+                createdMemberIds += memberId
+                statusOf(memberId) shouldBe MemberStatus.FRIEND
+            }
+        }
+
         test("registerFriend: a stale/mismatched terms version+hash is rejected, no row created, mailer never invoked") {
             testApplication {
                 val recordingMailer = RecordingFriendVerificationMailer()
@@ -162,6 +180,38 @@ class FriendRegistrationTest :
                 val response = client.post("/test/register-friend?email=$email&password=short")
                 response.status shouldBe HttpStatusCode.BadRequest
                 findMemberIdByEmail(email) shouldBe null
+            }
+        }
+
+        test(
+            "registerFriend: a malformed email (embedded CR/LF, header/log injection attempt) is rejected, no row created (security-review fix V1.2.3)",
+        ) {
+            testApplication {
+                val recordingMailer = RecordingFriendVerificationMailer()
+                application {
+                    install(StatusPages) { installFriendRegistrationExceptionHandlers() }
+                    routing { registerFriendRegistrationTestRoutes(mailer = recordingMailer) }
+                }
+                // %0D%0A decodes to an actual CR/LF pair by the time RegistrationService sees
+                // `queryParameters["email"]` -- the same shape as the finding's attack string
+                // (a forged fake log line appended after a real recipient address).
+                val forgedEmail =
+                    "a@evil.tld%0D%0A16:05:11.000%20%5Bmain%5D%20ERROR%20n.l.c.s.security.SessionStore%20-%20forged"
+
+                val response = client.post("/test/register-friend?email=$forgedEmail")
+                response.status shouldBe HttpStatusCode.Conflict
+                findMemberIdByEmail("a@evil.tld") shouldBe null
+                recordingMailer.sentTo shouldBe emptyList()
+            }
+        }
+
+        test("registerFriend: a plain malformed email (no @, whitespace-only) is rejected, no row created") {
+            testApplication {
+                application {
+                    install(StatusPages) { installFriendRegistrationExceptionHandlers() }
+                    routing { registerFriendRegistrationTestRoutes() }
+                }
+                client.post("/test/register-friend?email=not-an-email-at-all").status shouldBe HttpStatusCode.Conflict
             }
         }
 
@@ -418,6 +468,14 @@ private class RecordingFriendVerificationMailer : FriendVerificationMailer {
     }
 }
 
+/** V1.2.3 -- proves `registerFriend` never throws just because its mailer does. */
+private class ThrowingFriendVerificationMailer : FriendVerificationMailer {
+    override fun send(
+        email: String,
+        rawToken: String,
+    ): DeliveryStatus = throw IllegalStateException("simulated mailer failure")
+}
+
 /**
  * Fires TWO `/test/register-friend` requests with the SAME [email] from two independent OS threads,
  * synchronized via [CountDownLatch] so both are issued as close to simultaneously as possible --
@@ -498,7 +556,7 @@ private fun Route.registerFriendRegistrationTestRoutes(
     friendRateLimiter: LoginRateLimiter = LoginRateLimiter(),
     friendIpRateLimiter: FederationInboxRateLimiter = FederationInboxRateLimiter(),
     config: FriendRegistrationConfig = FriendRegistrationConfig.load { null },
-    mailer: FriendVerificationMailer = NoOpFriendVerificationMailer(),
+    mailer: FriendVerificationMailer = FakeFriendVerificationMailer(),
 ) {
     fun registrationService(call: ApplicationCall) =
         RegistrationService(

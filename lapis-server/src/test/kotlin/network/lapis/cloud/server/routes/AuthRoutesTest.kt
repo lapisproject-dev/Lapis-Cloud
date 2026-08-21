@@ -374,6 +374,36 @@ class AuthRoutesTest :
             }
         }
 
+        // V1.2.3 Echter SMTP-Versand -- a throwing mailer must never surface to the caller. This is
+        // what proves the fire-and-forget contract PasswordResetMailer.send/MailDispatcher document
+        // actually holds at this route: even a mailer that throws SYNCHRONOUSLY (worse than a real
+        // MailDispatcher, which only ever fails asynchronously inside its own coroutine) must not
+        // change `/request`'s response at all -- same generic 200, same body, regardless of email.
+        test("password-reset/request: a throwing mailer never changes the response (fire-and-forget contract)") {
+            testApplication {
+                val mailer = ThrowingPasswordResetMailer()
+                application {
+                    routing {
+                        registerAuthRoutes(
+                            rateLimiter = LoginRateLimiter(),
+                            cookieSecure = true,
+                            passwordResetRateLimiter = LoginRateLimiter(),
+                            passwordResetMailer = mailer,
+                            friendEmailVerifyRateLimiter = LoginRateLimiter(),
+                        )
+                    }
+                }
+
+                val email = "auth-routes-reset-throwing-mailer@example.org"
+                createTestMemberWithPassword(email, "a-genuinely-strong-password-1")
+
+                val response = client.post("/api/auth/password-reset/request") { setBody("""{"email":"$email"}""") }
+
+                response.status shouldBe HttpStatusCode.OK
+                response.bodyAsText() shouldBe "If this email is registered, a password-reset link has been sent."
+            }
+        }
+
         test("password-reset/request: repeated requests eventually trip the rate limiter") {
             testApplication {
                 val mailer = CapturingPasswordResetMailer()
@@ -605,6 +635,14 @@ private class CapturingPasswordResetMailer : PasswordResetMailer {
         lastRawToken = rawToken
         return DeliveryStatus.SENT
     }
+}
+
+/** V1.2.3 -- proves `/api/auth/password-reset/request`'s response is unaffected by a mailer that throws. */
+private class ThrowingPasswordResetMailer : PasswordResetMailer {
+    override fun send(
+        email: String,
+        rawToken: String,
+    ): DeliveryStatus = throw IllegalStateException("simulated mailer failure")
 }
 
 private fun cleanUpAuthRoutesTestData(memberIds: List<Uuid>) {

@@ -285,6 +285,17 @@ object Routes {
     // `current.requireRole(AccountRole.ADMIN)`, uniformly -- same route-level ADMIN-only posture as
     // [BACKUP]/[CONFERENCE_STREAM_DESTINATIONS], the only other ADMIN-only routes in this client.
     const val SEPA_SETTINGS = "/sepa-settings"
+
+    // V1.2.3 Echter SMTP-Versand, Option B "Client-Deep-Links" -- the password-reset/FRIEND-email-
+    // verification mails MailTemplates.kt builds now link here (`#/password-reset?token=...`,
+    // `#/verify-email?token=...`), NOT a raw query on the actual page URL: the "?" lives inside the
+    // hash fragment, which never leaves the browser (see this file's own KDoc "same-origin serving
+    // this depends on" and [hashQueryParam]'s own KDoc) -- so the bearer-usable token never reaches
+    // a server access log or a `Referer` header. Deliberately UNGUARDED (no `requireAuth`/
+    // `requireRole`) -- both screens must be reachable by a logged-out visitor clicking a mail link,
+    // which is the entire point.
+    const val PASSWORD_RESET = "/password-reset"
+    const val VERIFY_EMAIL = "/verify-email"
 }
 
 private var appRouting: Routing? = null
@@ -498,6 +509,15 @@ fun initRouting(pageContainer: SimplePanel) {
             show(Routes.SEPA_SETTINGS, ::renderSepaSettingsScreen)
         }
     }
+    // V1.2.3 Echter SMTP-Versand, Option B -- deliberately UNGUARDED, see Routes.PASSWORD_RESET/
+    // Routes.VERIFY_EMAIL KDoc. Navigo matches the path portion only; the "?token=..." query is
+    // read separately via [hashQueryParam] inside each screen, not off the route match itself.
+    routing.kvOn(Routes.PASSWORD_RESET) {
+        show(Routes.PASSWORD_RESET) { container -> renderPasswordResetScreen(container, hashQueryParam("token")) }
+    }
+    routing.kvOn(Routes.VERIFY_EMAIL) {
+        show(Routes.VERIFY_EMAIL) { container -> renderVerifyEmailScreen(container, hashQueryParam("token")) }
+    }
     routing.kvOn("/") {
         routing.navigate(if (AppState.isAuthenticated) Routes.DASHBOARD else Routes.LOGIN)
     }
@@ -552,3 +572,51 @@ private inline fun requireRole(
         body()
     }
 }
+
+/**
+ * V1.2.3 Echter SMTP-Versand, Option B -- reads a query parameter out of the CURRENT hash
+ * fragment (e.g. `#/password-reset?token=abc123` -> `"abc123"`), never off
+ * `window.location.search` (that is the actual-URL query string, always empty for this hash-
+ * routed SPA -- see this file's own top KDoc "the fragment never leaves the browser"). Deliberately
+ * hand-rolled string splitting rather than `URLSearchParams(window.location.hash)` -- the latter
+ * would need the leading `#` stripped and a base first ("#/x?y=z" is not a valid standalone URL
+ * query string on every browser's `URLSearchParams` implementation), and this SPA's hash values are
+ * simple enough (no nested "&"/"=" inside a value) that hand-rolled parsing is both correct and the
+ * smaller surface. Returns `null` if the current hash has no query part or no matching key.
+ */
+private fun hashQueryParam(name: String): String? = parseHashQueryParam(kotlinx.browser.window.location.hash, name)
+
+/**
+ * The pure, DOM-independent parsing core of [hashQueryParam] -- split out (and lifted to
+ * `internal`, same precedent as [NavRouteMatch]) purely so it is unit-testable without ever
+ * touching `kotlinx.browser.window.location`, matching the "pure, DOM-independent functions" test
+ * scope [ValidationTest]'s own KDoc documents for this module. [hashQueryParam] itself stays a
+ * thin, untested one-liner around this.
+ */
+internal fun parseHashQueryParam(
+    hash: String,
+    name: String,
+): String? {
+    val queryStart = hash.indexOf('?')
+    if (queryStart < 0) return null
+    val query = hash.substring(queryStart + 1)
+    for (pair in query.split("&")) {
+        val eq = pair.indexOf('=')
+        if (eq < 0) continue
+        val key = pair.substring(0, eq)
+        if (key == name) {
+            return jsDecodeUriComponent(pair.substring(eq + 1))
+        }
+    }
+    return null
+}
+
+/** Binds to the JS global `decodeURIComponent` -- there is no Kotlin/JS stdlib wrapper for it. */
+private external fun decodeURIComponent(encodedURI: String): String
+
+private fun jsDecodeUriComponent(value: String): String =
+    try {
+        decodeURIComponent(value)
+    } catch (e: Throwable) {
+        value
+    }

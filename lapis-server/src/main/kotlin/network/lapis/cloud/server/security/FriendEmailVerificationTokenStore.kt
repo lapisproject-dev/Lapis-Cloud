@@ -40,8 +40,8 @@ private val logger = KotlinLogging.logger {}
  * **Only a hash of the token is ever stored** -- same discipline as [PasswordResetTokenStore],
  * enforced by [SessionTokens.hash]/[SessionTokens.newRawToken]. The raw, bearer-usable token
  * exists only transiently in memory and (briefly) in the outbound verification message -- see
- * [network.lapis.cloud.server.mail.FriendVerificationMailer] KDoc for why NO real email transport
- * delivers it anywhere in this codebase today.
+ * [network.lapis.cloud.server.mail.FriendVerificationMailer] KDoc for the delivery story (V1.2.3:
+ * real SMTP transport whenever configured, an honest disclosed non-delivery stub otherwise).
  */
 object FriendEmailVerificationTokenStore {
     /** Documented tunable -- how long a freshly issued verification token stays valid. See class KDoc for why this is longer than [PasswordResetTokenStore.RESET_TTL]. */

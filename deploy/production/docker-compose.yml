@@ -104,6 +104,19 @@ services:
       LAPIS_ORACLE_GOLDAPI_KEY: ${LAPIS_ORACLE_GOLDAPI_KEY:-}
       LAPIS_ORACLE_METALPRICEAPI_KEY: ${LAPIS_ORACLE_METALPRICEAPI_KEY:-}
       LAPIS_ORACLE_ALPHAVANTAGE_KEY: ${LAPIS_ORACLE_ALPHAVANTAGE_KEY:-}
+      # Echter E-Mail-Versand (SMTP, V1.2.3) -- alle OPTIONAL, aber ALL-OR-NOTHING: entweder alle
+      # fünf Pflichtwerte (HOST/USERNAME/PASSWORD/FROM_ADDRESS/FROM_NAME) oder gar keiner. Eine
+      # halbe Konfiguration lässt den Server bewusst nicht starten -- siehe README.adoc
+      # "E-Mail-Versand". LAPIS_SMTP_REPLY_TO ist optional -- gesetzt, trägt jede ausgehende Mail
+      # einen Reply-To-Header darauf; ungesetzt, verweist die Mail-Fußzeile stattdessen auf
+      # LAPIS_PUBLIC_BASE_URL.
+      LAPIS_SMTP_HOST: ${LAPIS_SMTP_HOST:-}
+      LAPIS_SMTP_PORT: ${LAPIS_SMTP_PORT:-}
+      LAPIS_SMTP_USERNAME: ${LAPIS_SMTP_USERNAME:-}
+      LAPIS_SMTP_PASSWORD: ${LAPIS_SMTP_PASSWORD:-}
+      LAPIS_SMTP_FROM_ADDRESS: ${LAPIS_SMTP_FROM_ADDRESS:-}
+      LAPIS_SMTP_FROM_NAME: ${LAPIS_SMTP_FROM_NAME:-}
+      LAPIS_SMTP_REPLY_TO: ${LAPIS_SMTP_REPLY_TO:-}
     volumes:
       # Named volumes, not bind mounts -- survive `docker compose up -d --build` image rebuilds/
       # recreations, which a container's own writable layer would not. lapis-document-storage

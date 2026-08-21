@@ -108,8 +108,9 @@ data class FriendEmailVerifyRequest(
  * "reachable before any session exists" reason login/logout do (see
  * [network.lapis.cloud.shared.rpc.IAuthService] KDoc). See
  * [network.lapis.cloud.server.security.PasswordResetTokenStore] KDoc for the token-mechanics
- * contract and [network.lapis.cloud.server.mail.PasswordResetMailer] KDoc for why delivery is an
- * honest, disclosed non-op. `/request` always returns the IDENTICAL response whether or not
+ * contract and [network.lapis.cloud.server.mail.PasswordResetMailer] KDoc for the delivery story
+ * (V1.2.3: real SMTP transport whenever configured, an honest disclosed non-op otherwise).
+ * `/request` always returns the IDENTICAL response whether or not
  * [PasswordResetRequestRequest.email] is registered (same account-enumeration posture as
  * `/api/auth/login`).
  */
@@ -256,7 +257,14 @@ fun Route.registerAuthRoutes(
         // is registered. A token is only actually created/sent when accountRow != null.
         if (accountRow != null) {
             val rawToken = PasswordResetTokenStore.createToken(accountRow[MemberTable.id])
-            passwordResetMailer.send(email = normalizedEmail, rawToken = rawToken)
+            // V1.2.3: runCatching, not a bare call -- a misbehaving PasswordResetMailer
+            // implementation throwing here must NEVER change this endpoint's response (same
+            // account-enumeration-hardening reasoning as MailDispatcher's own fire-and-forget
+            // posture: this branch already only runs for a REGISTERED email, so any observable
+            // difference -- including an exception turning into a 500 -- would itself be the
+            // timing/response-shape leak this endpoint exists to prevent).
+            runCatching { passwordResetMailer.send(email = normalizedEmail, rawToken = rawToken) }
+                .onFailure { e -> logger.error { "passwordResetMailer.send threw: ${e::class.simpleName}" } }
         }
         call.respond(HttpStatusCode.OK, "If this email is registered, a password-reset link has been sent.")
     }

@@ -5,6 +5,7 @@ import dev.kilua.rpc.getAllServiceManagers
 import dev.kilua.rpc.initRpc
 import io.ktor.http.HttpStatusCode
 import io.ktor.server.application.Application
+import io.ktor.server.application.ApplicationStopping
 import io.ktor.server.application.call
 import io.ktor.server.application.install
 import io.ktor.server.engine.embeddedServer
@@ -46,7 +47,18 @@ import network.lapis.cloud.server.federation.FederationInboxRateLimiter
 import network.lapis.cloud.server.federation.FederationReplayGuard
 import network.lapis.cloud.server.federation.OidcSigningKeyProvisioner
 import network.lapis.cloud.server.federation.TrustAnchorSigningKeyProvisioner
-import network.lapis.cloud.server.mail.NoOpPasswordResetMailer
+import network.lapis.cloud.server.mail.FriendVerificationMailer
+import network.lapis.cloud.server.mail.JakartaMailTransport
+import network.lapis.cloud.server.mail.MailBranding
+import network.lapis.cloud.server.mail.MailDispatcher
+import network.lapis.cloud.server.mail.MailTransport
+import network.lapis.cloud.server.mail.NoOpMailTransport
+import network.lapis.cloud.server.mail.PasswordResetMailer
+import network.lapis.cloud.server.mail.SmtpConfig
+import network.lapis.cloud.server.mail.SmtpConfigState
+import network.lapis.cloud.server.mail.SmtpFriendVerificationMailer
+import network.lapis.cloud.server.mail.SmtpPasswordResetMailer
+import network.lapis.cloud.server.mail.SmtpStartupCheck
 import network.lapis.cloud.server.payment.sepa.SepaBatchPoller
 import network.lapis.cloud.server.payment.sepa.SepaConfig
 import network.lapis.cloud.server.postal.LetterxpressPostalMailProvider
@@ -201,21 +213,63 @@ fun Application.module() {
     val loginRateLimiter = LoginRateLimiter()
     val cookieSecure = System.getenv("LAPIS_COOKIE_SECURE")?.equals("false", ignoreCase = true) != true
 
+    // V1.2.3 Echter SMTP-Versand -- EIN Transport für BEIDE Mailer (Passwort-Reset + FRIEND-
+    // E-Mail-Verifizierung), siehe SmtpConfig KDoc. Ohne LAPIS_SMTP_*-Env-Vars fällt der
+    // Transport auf NoOpMailTransport zurück (loggt, sendet nicht, blockiert den Start nicht) --
+    // dieselbe graceful-degradation-Haltung wie OracleSourceConfig/LetterxpressPostalMailProvider.
+    // SmtpStartupCheck.verifyAndLog wirft IllegalStateException bei einer unvollständigen
+    // Konfiguration -- siehe dessen KDoc "Fail-fast or only loud".
+    val smtpConfigState = SmtpConfig.load()
+    SmtpStartupCheck.verifyAndLog(smtpConfigState)
+    val mailTransport: MailTransport =
+        when (smtpConfigState) {
+            is SmtpConfigState.Configured -> JakartaMailTransport(config = smtpConfigState.config)
+            else -> NoOpMailTransport()
+        }
+    // V1.2.3 Design-Review -- the white-label sender identity every rendered mail needs (see
+    // MailBranding KDoc). Configured: derived from the operator's own LAPIS_SMTP_FROM_NAME/
+    // LAPIS_SMTP_REPLY_TO. NotConfigured/Incomplete (Incomplete never reaches here --
+    // SmtpStartupCheck.verifyAndLog above already threw): MailBranding.notConfigured() applies,
+    // which NoOpMailTransport is the only consumer of (logs a subject line, sends nothing).
+    val mailBranding =
+        when (smtpConfigState) {
+            is SmtpConfigState.Configured ->
+                MailBranding(
+                    fromDisplayName = smtpConfigState.config.fromDisplayName,
+                    replyTo = smtpConfigState.config.replyTo,
+                )
+            else -> MailBranding.notConfigured()
+        }
+    val mailDispatcher = MailDispatcher(transport = mailTransport)
+    // Bind mailDispatcher's dedicated CoroutineScope to Ktor's own lifecycle -- without this hook
+    // the scope is never cancelled deliberately (see MailDispatcher KDoc "Lifecycle"), which lets
+    // its worker coroutines and any in-flight/queued sends dangle past shutdown instead of being
+    // torn down together with the rest of the application (see MailDispatcher.shutdown KDoc).
+    monitor.subscribe(ApplicationStopping) { mailDispatcher.shutdown() }
+
     // V0.7.2 Beitritts-/Registrierungs-Workflow -- constructed once here, same lifecycle as
-    // loginRateLimiter above. passwordResetMailer is the honest, disclosed non-delivery stub (see
-    // NoOpPasswordResetMailer KDoc) -- a real SMTP-backed implementation can later replace it here
-    // without touching AuthRoutes' call site.
+    // loginRateLimiter above. passwordResetMailer delegates to mailDispatcher above -- a real
+    // SMTP-backed send whenever LAPIS_SMTP_* is configured, an honest disclosed non-delivery stub
+    // otherwise (see SmtpConfig/NoOpMailTransport KDoc).
     val registrationRateLimiter = LoginRateLimiter()
     val passwordResetRateLimiter = LoginRateLimiter()
-    val passwordResetMailer = NoOpPasswordResetMailer()
+    val passwordResetMailer: PasswordResetMailer =
+        SmtpPasswordResetMailer(dispatcher = mailDispatcher, branding = mailBranding)
 
     // V0.11.0 FRIEND self-registration -- constructed once here, same lifecycle as
     // registrationRateLimiter above. TWO SEPARATE limiter instances (failure-window +
     // hard-request-rate) on purpose: friend-signup spam must never exhaust the membership-
     // application budget (or vice versa) -- see RegistrationService constructor KDoc.
+    // friendVerificationMailer uses the SAME mailDispatcher/mailTransport as passwordResetMailer
+    // above (V1.2.3: one transport, two thin adapters) -- this parameter used to have a default
+    // value and was never actually passed at the registerService(IRegistrationService::class)
+    // call site below, silently keeping FRIEND verification mails on the No-Op stub even when a
+    // real mailer existed elsewhere; the default is gone now, the compiler enforces the wiring.
     val friendRegistrationRateLimiter = LoginRateLimiter(maxFailures = 3, window = 60.minutes)
     val friendSignupIpRateLimiter = FederationInboxRateLimiter(maxRequests = 5, window = 60.minutes)
     val friendEmailVerifyRateLimiter = LoginRateLimiter()
+    val friendVerificationMailer: FriendVerificationMailer =
+        SmtpFriendVerificationMailer(dispatcher = mailDispatcher, branding = mailBranding)
 
     // V0.8.1 Federation-Grundgerüst -- this server's own ActivityPub Actor keypair must exist from
     // first boot onward (unconditional, not LAPIS_SEED_DEMO_DATA-gated, see
@@ -614,6 +668,7 @@ fun Application.module() {
                 registrationRateLimiter = registrationRateLimiter,
                 friendRegistrationRateLimiter = friendRegistrationRateLimiter,
                 friendSignupIpRateLimiter = friendSignupIpRateLimiter,
+                friendVerificationMailer = friendVerificationMailer,
             )
         }
         registerService(IFederationService::class) { call -> FederationService(call) }

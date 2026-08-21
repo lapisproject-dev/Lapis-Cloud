@@ -26,6 +26,7 @@ import network.lapis.cloud.server.db.generated.AccountTable
 import network.lapis.cloud.server.db.generated.MemberTable
 import network.lapis.cloud.server.db.generated.SessionTable
 import network.lapis.cloud.server.federation.FederationInboxRateLimiter
+import network.lapis.cloud.server.mail.FakeFriendVerificationMailer
 import network.lapis.cloud.server.module
 import network.lapis.cloud.server.routes.registerBackupRoutes
 import network.lapis.cloud.server.rpc.AccountingService
@@ -475,6 +476,7 @@ private fun Route.registerScenario6TestRoutes() {
             registrationRateLimiter = LoginRateLimiter(),
             friendRegistrationRateLimiter = LoginRateLimiter(),
             friendSignupIpRateLimiter = FederationInboxRateLimiter(),
+            friendVerificationMailer = FakeFriendVerificationMailer(),
         ).registerApplication(
             RegistrationInput(
                 displayName = "Snapshot Journey Applicant",
@@ -492,6 +494,7 @@ private fun Route.registerScenario6TestRoutes() {
             registrationRateLimiter = LoginRateLimiter(),
             friendRegistrationRateLimiter = LoginRateLimiter(),
             friendSignupIpRateLimiter = FederationInboxRateLimiter(),
+            friendVerificationMailer = FakeFriendVerificationMailer(),
         ).approveApplication(call.parameters["id"]!!)
         call.respondText("OK")
     }

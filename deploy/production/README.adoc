@@ -375,3 +375,64 @@ GOLD_XAU/FIAT), capping this worst case at **at most 6 real fan-outs/day/key** -
 the normal-operation budget, not an unbounded rate. See
 `network.lapis.cloud.server.economy.oracle.PriceOracleOrchestrator.lastFanoutAt` KDoc for the full
 derivation.
+
+== E-Mail-Versand (SMTP, optional)
+
+`LAPIS_SMTP_HOST`, `LAPIS_SMTP_PORT`, `LAPIS_SMTP_USERNAME`, `LAPIS_SMTP_PASSWORD`,
+`LAPIS_SMTP_FROM_ADDRESS`, `LAPIS_SMTP_FROM_NAME`, `LAPIS_SMTP_REPLY_TO` (optional) -- **all
+optional, but ALL-OR-NOTHING for the five required ones**
+(`HOST`/`USERNAME`/`PASSWORD`/`FROM_ADDRESS`/`FROM_NAME`). Without any `LAPIS_SMTP_*` variable set,
+this deployment sends no real mail at all -- password-reset and FRIEND-email-verification messages
+are only logged (`NoOpMailTransport`), exactly as before this feature existed. With a **partial**
+configuration (some but not all five required variables set), the server refuses to start
+(`IllegalStateException`, fail-fast) -- see `network.lapis.cloud.server.mail.SmtpStartupCheck` KDoc
+"Fail-fast or only loud" for why a half configuration is treated as an operator error rather than a
+legitimate intermediate state.
+
+**`LAPIS_SMTP_FROM_NAME` is the only sender identity a recipient ever sees** (V1.2.3 Design-Review):
+`network.lapis.cloud.server.mail.MailTemplates` no longer hardcodes a product name, so an unset
+`LAPIS_SMTP_FROM_NAME` is now a fail-fast startup error rather than a mail that quietly says "Lapis
+Cloud" to people who have never heard that name (PdV and ELB are two separate, white-labeled
+pilots -- see `network.lapis.cloud.server.mail.MailBranding` KDoc).
+
+**Deploy ordering for existing deployments with SMTP already configured (breaking change)**: set
+`LAPIS_SMTP_FROM_NAME` in the deployment's `.env` file *before* deploying this version -- e.g.
+`LAPIS_SMTP_FROM_NAME=Partei der Vernunft`. Deploying with SMTP configured but no
+`LAPIS_SMTP_FROM_NAME` set crash-loops the container (`SmtpStartupCheck` throws
+`IllegalStateException` on every start). While editing `.env`, also remove any leftover
+`LAPIS_SMTP_STARTTLS` line -- that variable no longer exists and is silently ignored, but keeping
+`.env` clean avoids confusion later. Setting `LAPIS_SMTP_REPLY_TO` at the same time is optional.
+After deploying, verify the container was actually recreated (image digest/`Created` timestamp, not
+just a green health check) and check the startup log for a line naming the new `fromName=`. A first
+live test -- one password-reset request to an address you control -- confirms sender name, dash
+character (`–`, not `--`) in the subject, a footer, and no leftover "Lapis Cloud" in the body.
+
+**Port 465 = implicit SSL/TLS, NOT STARTTLS.** `LAPIS_SMTP_PORT=587` or `25` switches to STARTTLS,
+which is then *required* (`mail.smtp.starttls.required=true`) -- there is no plaintext fallback,
+ever. Transport security follows the port alone; there is deliberately no override variable
+(V1.2.3 Design-Review removed `LAPIS_SMTP_STARTTLS` before this feature's first release -- one
+fewer knob is one fewer way to accidentally weaken transport security).
+
+**`LAPIS_SMTP_REPLY_TO`** (optional): when set, every outgoing mail carries a `Reply-To` header on
+this address and the mail footer invites a reply. When unset, the footer instead points recipients
+at `LAPIS_PUBLIC_BASE_URL` -- no mail ever leaves without some way back to the operator.
+
+**Egress firewall**: the server needs outbound access to the configured SMTP host/port (e.g.
+`mxe9fb.netcup.net:465` for a netcup mailbox).
+
+**The From address must match the authenticated mailbox** (`LAPIS_SMTP_FROM_ADDRESS` ==
+`LAPIS_SMTP_USERNAME`'s mailbox), or the relay rejects the message with a 5xx error.
+
+**SPF/DKIM/DMARC** for the sending domain must authorize the relay's outbound mail servers, or
+messages land in recipients' spam folders even though the SMTP transaction itself succeeds. This is
+a DNS/deployment concern, not something this codebase can verify.
+
+**`LAPIS_PUBLIC_BASE_URL` must be correct** before enabling SMTP -- every link
+`network.lapis.cloud.server.mail.MailTemplates` builds is `$LAPIS_PUBLIC_BASE_URL/#/...`. A
+deployment with SMTP configured but a stale/default `LAPIS_PUBLIC_BASE_URL` sends real mail
+containing unusable `http://localhost:8080` links -- `SmtpStartupCheck` logs a `WARN` for exactly
+this case, but only a WARN, not a startup failure (an operator can legitimately be mid-migration).
+
+`LAPIS_FRIEND_REQUIRE_EMAIL_VERIFICATION` (see `network.lapis.cloud.server.rpc.FriendRegistrationConfig`
+KDoc) stays on its default `false` regardless of whether SMTP is configured -- activating hard
+enforcement is a separate, later operational decision, not automatically flipped by this wave.

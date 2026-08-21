@@ -174,19 +174,23 @@ legal counsel — not something this project can decide once for everyone. See `
 
 === What doesn't work yet
 
-* **No real email delivery anywhere in this codebase.** Password-reset tokens are real
-  (hash-only-persisted, single-use, short-TTL) but `NoOpPasswordResetMailer` only logs that a
-  reset "would be sent" — same honestly-disclosed-stub posture `MailingService.sendMailingMessage`
-  has had since V0.4/V0.1.5. A real SMTP-backed implementation is a drop-in replacement whenever an
-  operator can verify one end to end.
-* **FRIEND email verification is present but unenforced, for the same reason.** `MemberStatus.FRIEND`
-  (V0.11.0) is a self-registerable status (`/register-friend`, no board approval, no identity check)
-  scoped strictly to video-conference access on a per-room opt-in basis — it is not membership in
-  the organization, carries no Beitragspflicht/governance/accounting/LTR rights, and no
-  `PUBLIC_MEMBERS` document access. The `friend_email_verification_token` mechanics exist end to
-  end, but enforcement stays behind `LAPIS_FRIEND_REQUIRE_EMAIL_VERIFICATION` (default `false`):
-  same root cause as the bullet above, no real SMTP transport exists anywhere in this codebase yet
-  to actually deliver the verification email.
+* **Real email delivery exists (V1.2.3) but is optional and off by default.** Password-reset
+  tokens are real (hash-only-persisted, single-use, short-TTL); `SmtpPasswordResetMailer` sends a
+  real message via Jakarta Mail/Eclipse Angus whenever `LAPIS_SMTP_*` is configured
+  (`deploy/production/README.adoc` "E-Mail-Versand (SMTP, optional)"), and falls back to the same
+  honestly-disclosed `NoOpMailTransport` log-only stub `MailingService.sendMailingMessage` has had
+  since V0.4/V0.1.5 when it is not. `MailingService.sendMailingMessage`'s own bulk-mailing simulation
+  is unaffected — this wave only wires up the two single-recipient transactional mailers.
+* **FRIEND email verification now has a working delivery path AND a client landing screen (V1.2.3),
+  but enforcement is still off.** `MemberStatus.FRIEND` (V0.11.0) is a self-registerable status
+  (`/register-friend`, no board approval, no identity check) scoped strictly to video-conference
+  access on a per-room opt-in basis — it is not membership in the organization, carries no
+  Beitragspflicht/governance/accounting/LTR rights, and no `PUBLIC_MEMBERS` document access. The
+  `friend_email_verification_token` mechanics, the real mail (`SmtpFriendVerificationMailer`), and
+  the `#/verify-email?token=...` client deep link (`renderVerifyEmailScreen`) all exist end to end
+  now; `LAPIS_FRIEND_REQUIRE_EMAIL_VERIFICATION` (default `false`) stays off regardless — activating
+  hard enforcement is a separate, later operational decision, not something this wave flips
+  automatically.
 * **UI coverage beyond Governance and Accounting.** Compliance (Transparenzregister, §25 PartG,
   audit log, backup/restore, DSGVO), mail-merge/postal dispatch, and the LTR economy (Crowdfunding,
   Auction, Peer-Transfer, Politician Profiles) still have no UI — reachable only via Kilua RPC / the

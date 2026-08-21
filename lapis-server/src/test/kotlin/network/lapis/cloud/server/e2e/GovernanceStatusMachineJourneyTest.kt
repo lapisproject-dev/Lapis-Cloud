@@ -22,6 +22,7 @@ import network.lapis.cloud.server.db.generated.CommitteeMembershipTable
 import network.lapis.cloud.server.db.generated.MemberTable
 import network.lapis.cloud.server.db.generated.VoteBallotTable
 import network.lapis.cloud.server.federation.FederationInboxRateLimiter
+import network.lapis.cloud.server.mail.FakeFriendVerificationMailer
 import network.lapis.cloud.server.module
 import network.lapis.cloud.server.rpc.GovernanceService
 import network.lapis.cloud.server.rpc.LtrLedgerService
@@ -139,6 +140,7 @@ class GovernanceStatusMachineJourneyTest :
                                 registrationRateLimiter = LoginRateLimiter(),
                                 friendRegistrationRateLimiter = LoginRateLimiter(),
                                 friendSignupIpRateLimiter = FederationInboxRateLimiter(),
+                                friendVerificationMailer = FakeFriendVerificationMailer(),
                             ).registerApplication(
                                 RegistrationInput(
                                     displayName = APPLICANT_DISPLAY_NAME,
@@ -157,6 +159,7 @@ class GovernanceStatusMachineJourneyTest :
                                     registrationRateLimiter = LoginRateLimiter(),
                                     friendRegistrationRateLimiter = LoginRateLimiter(),
                                     friendSignupIpRateLimiter = FederationInboxRateLimiter(),
+                                    friendVerificationMailer = FakeFriendVerificationMailer(),
                                 ).approveApplication(call.parameters["id"]!!)
                             call.respondText(dto.status.name)
                         }
@@ -167,6 +170,7 @@ class GovernanceStatusMachineJourneyTest :
                                     registrationRateLimiter = LoginRateLimiter(),
                                     friendRegistrationRateLimiter = LoginRateLimiter(),
                                     friendSignupIpRateLimiter = FederationInboxRateLimiter(),
+                                    friendVerificationMailer = FakeFriendVerificationMailer(),
                                 ).leaveMembership()
                             call.respondText(dto.status.name)
                         }

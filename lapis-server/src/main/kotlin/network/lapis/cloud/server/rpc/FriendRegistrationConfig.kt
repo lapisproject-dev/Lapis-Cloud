@@ -12,10 +12,11 @@ class FriendRegistrationConfig private constructor(
      * `LAPIS_FRIEND_REQUIRE_EMAIL_VERIFICATION` -- default `false`. When `true`,
      * [network.lapis.cloud.shared.domain.MemberStatusSets.CONFERENCE_ELIGIBLE] additionally
      * requires `emailVerifiedAt != null` for a [network.lapis.cloud.shared.domain.MemberStatus
-     * .FRIEND] caller. Defaults to `false` because this codebase has NO real SMTP/email-transport
-     * integration anywhere -- see [network.lapis.cloud.server.mail.FriendVerificationMailer] KDoc.
-     * Flip to `true` only once a real mailer implementation replaces
-     * [network.lapis.cloud.server.mail.NoOpFriendVerificationMailer].
+     * .FRIEND] caller. Defaults to `false` -- unrelated to whether real SMTP transport is
+     * configured (V1.2.3 added one, see [network.lapis.cloud.server.mail.SmtpConfig]): flipping this
+     * to `true` is a separate, later operational decision an operator makes deliberately, not
+     * something a working mail transport flips automatically. See
+     * [network.lapis.cloud.server.mail.FriendVerificationMailer] KDoc for the full delivery story.
      */
     val requireEmailVerification: Boolean,
     /**

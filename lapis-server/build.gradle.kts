@@ -63,6 +63,15 @@ dependencies {
     // chosen over hand-rolling (departure from V0.8.1's HTTP-Signatures posture).
     implementation(libs.nimbus.jose.jwt)
 
+    // V1.2.3 Echter SMTP-Versand -- see gradle/libs.versions.toml for the library-choice/license
+    // rationale. runtimeOnly for angus-mail: it is discovered via the JavaMail
+    // META-INF/services/jakarta.mail.Provider ServiceLoader mechanism at runtime, never referenced
+    // by class name from our code -- the compile classpath only needs jakarta.mail-api. Do NOT
+    // introduce a shadow/fat-jar for :lapis-server (installDist keeps jars separate) -- a naive
+    // jar-merge clobbers that services file and breaks provider lookup at runtime.
+    implementation(libs.jakarta.mail.api)
+    runtimeOnly(libs.angus.mail)
+
     // V1.1.3 Soziales Netzwerk "Öffentlicher SEO-Lesepfad" — see gradle/libs.versions.toml for the
     // license-/dependency-choice rationale. NUR hier: lapis-shared/lapis-client bekommen dies NICHT
     // (der KVision-Client baut sein DOM über KVision-Komponenten, nicht über HTML-Strings; eine

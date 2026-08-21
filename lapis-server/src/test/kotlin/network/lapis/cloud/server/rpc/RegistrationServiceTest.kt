@@ -34,6 +34,7 @@ import network.lapis.cloud.server.db.generated.MembershipAgreementAcknowledgment
 import network.lapis.cloud.server.db.generated.SessionTable
 import network.lapis.cloud.server.db.generated.TransparenzregisterReminderTable
 import network.lapis.cloud.server.federation.FederationInboxRateLimiter
+import network.lapis.cloud.server.mail.FakeFriendVerificationMailer
 import network.lapis.cloud.server.security.LoginRateLimiter
 import network.lapis.cloud.server.security.PasswordHasher
 import network.lapis.cloud.server.security.SessionStore
@@ -198,6 +199,36 @@ class RegistrationServiceTest :
                 val response = client.post("/test/register?email=$email&password=short")
                 response.status shouldBe HttpStatusCode.BadRequest
                 findMemberIdByEmail(email) shouldBe null
+            }
+        }
+
+        test(
+            "registerApplication: a malformed email (embedded CR/LF, header/log injection attempt) is rejected, no row created (security-review fix V1.2.3)",
+        ) {
+            testApplication {
+                application {
+                    install(StatusPages) { installRegistrationExceptionHandlers() }
+                    routing { registerRegistrationTestRoutes(LoginRateLimiter()) }
+                }
+                // %0D%0A decodes to an actual CR/LF pair by the time RegistrationService sees
+                // `queryParameters["email"]` -- same attack shape as the CRLF-log-injection finding
+                // (a forged fake log line appended after a real recipient address).
+                val forgedEmail =
+                    "a@evil.tld%0D%0A16:05:11.000%20%5Bmain%5D%20ERROR%20n.l.c.s.security.SessionStore%20-%20forged"
+
+                val response = client.post("/test/register?email=$forgedEmail")
+                response.status shouldBe HttpStatusCode.Conflict
+                findMemberIdByEmail("a@evil.tld") shouldBe null
+            }
+        }
+
+        test("registerApplication: a plain malformed email (no @) is rejected, no row created") {
+            testApplication {
+                application {
+                    install(StatusPages) { installRegistrationExceptionHandlers() }
+                    routing { registerRegistrationTestRoutes(LoginRateLimiter()) }
+                }
+                client.post("/test/register?email=not-an-email-at-all").status shouldBe HttpStatusCode.Conflict
             }
         }
 
@@ -834,6 +865,7 @@ private fun Route.registerRegistrationTestRoutes(rateLimiter: LoginRateLimiter) 
             registrationRateLimiter = rateLimiter,
             friendRegistrationRateLimiter = friendRateLimiter,
             friendSignupIpRateLimiter = friendIpRateLimiter,
+            friendVerificationMailer = FakeFriendVerificationMailer(),
         )
     get("/test/agreement") {
         val dto = registrationService(call).getMembershipAgreement()

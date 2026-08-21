@@ -42,7 +42,20 @@ fun renderDashboardScreen(container: SimplePanel) {
             marginTop = 24.px
         }
     root.h1(gettext("Willkommen, %1", session.displayName))
-    root.p(gettext("Rolle: %1 · Sitzung gültig bis %2", session.role, session.expiresAt))
+    // Zeigt sowohl MemberStatus (Kontotyp -- z.B. "Freund" statt der reinen Berechtigungsstufe) als
+    // auch AccountRole (Berechtigungsstufe): ein Freund-Konto hat technisch korrekt AccountRole.MEMBER
+    // (dieselbe Basis-Stufe wie jedes einfache Konto), aber "Rolle: MEMBER" allein liest sich fuer ein
+    // Freund-Konto wie eine volle Mitgliedschaft. session.status existiert bereits seit V0.11.0 (fuer
+    // die Navigations-Steuerung), wurde hier aber nie mit angezeigt -- reiner Anzeige-Fix, kein neues
+    // Feld noetig.
+    root.p(
+        gettext(
+            "Status: %1 · Rolle: %2 · Sitzung gültig bis %3",
+            memberStatusLabel(session.status),
+            accountRoleLabel(session.role),
+            session.expiresAt,
+        ),
+    )
 
     root.h2(tr("Bereiche"))
     val nav = root.vPanel(spacing = 6)
