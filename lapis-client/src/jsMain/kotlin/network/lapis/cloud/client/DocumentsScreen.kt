@@ -89,7 +89,13 @@ fun renderDocumentsScreen(container: SimplePanel) {
             } else {
                 documents.forEach { document ->
                     val row = documentPanel.hPanel(spacing = 8) { addCssClasses("border rounded p-2 align-items-center") }
-                    val titleLink = row.link(document.title, url = "javascript:void(0)") { addCssClass("flex-grow-1") }
+                    // dataNavigo = false: rein lokaler Klick-Handler (laedt Versionen unten,
+                    // keine Route) -- siehe LoginScreen.kt-Kommentar zum globalen
+                    // Link.useDataNavigoForLinks-Default (V1.2.4-Audit, dataNavigo-Sweep).
+                    val titleLink =
+                        row.link(document.title, url = "javascript:void(0)", dataNavigo = false) {
+                            addCssClass("flex-grow-1")
+                        }
                     titleLink.onClick { loadVersions(document) }
                     if (canManage) {
                         val deleteButton = row.button(tr("Löschen"), style = ButtonStyle.OUTLINEDANGER)

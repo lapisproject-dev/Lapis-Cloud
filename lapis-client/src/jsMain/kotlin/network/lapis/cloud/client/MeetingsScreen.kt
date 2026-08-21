@@ -445,8 +445,10 @@ private fun renderEinladungSection(
     formPanel.p(tr("Empfänger")) { addCssClasses("fw-bold mb-1") }
     val recipientsPanel = formPanel.vPanel(spacing = 2) { addCssClasses("border rounded p-2") }
     val quickToggleRow = recipientsPanel.hPanel(spacing = 8)
-    val selectAllLink = quickToggleRow.link(tr("Alle auswählen"), url = "javascript:void(0)")
-    val deselectAllLink = quickToggleRow.link(tr("Alle abwählen"), url = "javascript:void(0)")
+    // dataNavigo = false auf beiden: rein lokale Checkbox-Toggle, keine Route (V1.2.4-Audit,
+    // dataNavigo-Sweep) -- siehe LoginScreen.kt-Kommentar zum globalen Default.
+    val selectAllLink = quickToggleRow.link(tr("Alle auswählen"), url = "javascript:void(0)", dataNavigo = false)
+    val deselectAllLink = quickToggleRow.link(tr("Alle abwählen"), url = "javascript:void(0)", dataNavigo = false)
     // Unchecked by default -- a costly/PII-sharing action must never default to "everyone selected".
     val checkboxesByMember =
         eligibleMembers.associateWith { member -> recipientsPanel.checkBox(label = member.displayName) }

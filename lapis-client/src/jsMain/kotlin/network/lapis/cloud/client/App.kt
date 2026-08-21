@@ -355,8 +355,17 @@ private fun refreshNavbar(navbar: Navbar) {
     } else {
         rightNav.navLinkDisabled(gettext("%1 (%2)", session.displayName, session.role), icon = "fas fa-user")
     }
+    // dataNavigo = false: rein lokaler Klick-Handler (kein Ziel-Route) -- ohne dieses Opt-out
+    // feuert navigo (globales Link.useDataNavigoForLinks = true, siehe main()) auf demselben Klick
+    // zusaetzlich seinen notFound-Handler und navigiert; funktioniert bisher nur zufaellig, weil
+    // AuthHttp.logout() ohnehin bei Routes.LOGIN landet (V1.2.4-Audit, dataNavigo-Sweep).
     val logoutLink =
-        rightNav.navLink(tr("Abmelden"), url = "javascript:void(0)", icon = "fas fa-right-from-bracket")
+        rightNav.navLink(
+            tr("Abmelden"),
+            url = "javascript:void(0)",
+            icon = "fas fa-right-from-bracket",
+            dataNavigo = false,
+        )
     logoutLink.onClick {
         AppScope.launch {
             AuthHttp.logout()
@@ -384,7 +393,9 @@ private fun addLanguageSwitcher(
     val current = SUPPORTED_LANGUAGES.firstOrNull { it.first == I18n.language } ?: SUPPORTED_LANGUAGES.first()
     rightNav.dropDown(current.first.uppercase(), icon = "fas fa-globe", forNavbar = true) {
         SUPPORTED_LANGUAGES.forEach { (code, nativeName) ->
-            val link = ddLink(nativeName, url = "javascript:void(0)")
+            // dataNavigo = false: rein lokaler Klick-Handler, keine Route (V1.2.4-Audit,
+            // dataNavigo-Sweep) -- siehe Kommentar bei "Abmelden" oben.
+            val link = ddLink(nativeName, url = "javascript:void(0)", dataNavigo = false)
             if (code == current.first) {
                 link.addCssClass("active")
             }
