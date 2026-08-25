@@ -135,6 +135,41 @@ body {
   letter-spacing: 0.01em;
 }
 
+/* V1.2.5 White-Label-Branding: operator-supplied navbar logo image (App.kt's `brandLogoImgHtml`
+   span) -- capped to the same visual footprint the gem mark/text brand occupied, so a tall/wide
+   logo file cannot blow out the navbar height. */
+.lapis-brand-logo {
+  max-height: 22px;
+  width: auto;
+  vertical-align: middle;
+}
+
+/* Smaller variant of .lapis-brand-mark, reused by LapisAttribution.kt's own gem icon -- same SVG
+   markup (App.kt's LAPIS_GEM_MARK_SVG), just visually scaled down for a footer-sized credit line
+   rather than the full navbar brand. */
+.lapis-attribution-mark svg {
+  width: 12px;
+  height: 12px;
+}
+
+/* V1.2.5 White-Label-Branding: the unremovable "Betrieben mit Lapis Cloud" credit
+   (LapisAttribution.kt) -- deliberately muted/small, deliberately NOT `position: fixed` (must
+   scroll with the page like any other footer content, never float over it). */
+.lapis-attribution {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35em;
+  font-size: 0.8rem;
+  color: var(--lapis-muted);
+  margin-top: 2rem;
+  text-align: center;
+}
+
+.lapis-attribution a {
+  color: inherit;
+}
+
 /* Global focus ring: gold works on both black nav and white content -- the one place gold serves
    two grounds, because a focus ring's only job is "be visible everywhere". */
 :focus-visible {

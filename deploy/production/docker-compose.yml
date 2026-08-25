@@ -117,6 +117,11 @@ services:
       LAPIS_SMTP_FROM_ADDRESS: ${LAPIS_SMTP_FROM_ADDRESS:-}
       LAPIS_SMTP_FROM_NAME: ${LAPIS_SMTP_FROM_NAME:-}
       LAPIS_SMTP_REPLY_TO: ${LAPIS_SMTP_REPLY_TO:-}
+      # White-Label-Branding (V1.2.5) -- BEIDE optional, siehe .env.example. Der Text "Betrieben
+      # mit Lapis Cloud" bleibt davon unberührt IMMER sichtbar -- siehe README.adoc
+      # "White-Label-Branding".
+      LAPIS_BRAND_TITLE: ${LAPIS_BRAND_TITLE:-}
+      LAPIS_BRAND_LOGO_PATH: ${LAPIS_BRAND_LOGO_PATH:-}
     volumes:
       # Named volumes, not bind mounts -- survive `docker compose up -d --build` image rebuilds/
       # recreations, which a container's own writable layer would not. lapis-document-storage
@@ -124,6 +129,12 @@ services:
       # lapis-egress-output is the shared raw-recording volume (see environment: above).
       - lapis-document-storage:/app/document-storage
       - lapis-egress-output:/app/egress-out
+      # White-Label-Branding (V1.2.5) -- a BIND mount, deliberately NOT a named volume like the two
+      # above: the logo file is deployment-local, operator-supplied, version-controlled-adjacent
+      # content (see .gitignore's "deploy/production/branding/*" entry), not runtime state a
+      # rebuild must preserve. The operator drops the file directly into
+      # deploy/production/branding/ on the host; :ro because lapis-server only ever reads it.
+      - ./branding:/app/branding:ro
     ports:
       # Loopback-only, matching the prior systemd deployment's Apache-proxies-to-127.0.0.1:8080
       # setup exactly -- Apache's vhost config needs no change for this cutover.

@@ -131,4 +131,10 @@ deploy/production/livekit.yaml
 deploy/production/turnserver.conf
 deploy/production/egress.yaml
 
+# White-Label-Branding (V1.2.5) -- operator-supplied logo file, deployment-local, never repo
+# content (see docker-compose.yml's "./branding:/app/branding:ro" bind mount). .gitkeep keeps the
+# directory itself present so the bind mount has somewhere to attach to on a fresh checkout.
+deploy/production/branding/*
+!deploy/production/branding/.gitkeep
+
 .DS_Store

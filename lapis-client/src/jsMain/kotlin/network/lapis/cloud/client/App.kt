@@ -72,13 +72,46 @@ val AppScope: CoroutineScope = CoroutineScope(window.asCoroutineDispatcher())
  * already follows without a `suffix` prop. `stroke="currentColor"` picks up `.lapis-brand-mark`'s
  * `color` from theme.css rather than hardcoding a color here, so a future dark-mode pass only
  * needs to touch the CSS, not this markup.
+ *
+ * `internal`, not `private` (V1.2.5 White-Label-Branding) -- `LapisAttribution.kt`'s
+ * `lapisAttribution()` reuses this exact markup at a smaller size (`.lapis-attribution-mark` CSS
+ * override in theme.css), rather than introducing a second, potentially-drifting SVG constant --
+ * see that file's own KDoc.
  */
-private const val LAPIS_GEM_MARK_SVG = """<svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+internal const val LAPIS_GEM_MARK_SVG = """<svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
     <polygon points="12,1 21,8 17,23 7,23 3,8" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" />
     <polyline points="12,1 12,23" stroke="currentColor" stroke-width="1" opacity="0.55" />
     <polyline points="3,8 21,8" stroke="currentColor" stroke-width="1" opacity="0.55" />
     <polyline points="7,23 12,8 17,23" stroke="currentColor" stroke-width="1" opacity="0.55" />
 </svg>"""
+
+/**
+ * V1.2.5 White-Label-Branding -- builds a real `<img>` tag for [App.start]'s navbar brand-mark
+ * `rich = true` span (see that call site's own comment for why this path, not `Link.image`).
+ * `src`/`alt` are HTML-attribute-escaped even though both ultimately derive from server-injected,
+ * already-escaped values (`Branding.logoUrl`/`Branding.title`, themselves sourced from
+ * `network.lapis.cloud.server.branding.BrandingHtml`'s own JSON-context escaping) -- defense in
+ * depth costs nothing here and this function has no other caller to rely on that upstream
+ * discipline never changing.
+ */
+private fun brandLogoImgHtml(
+    src: String,
+    alt: String,
+): String = """<img src="${escapeHtmlAttribute(src)}" alt="${escapeHtmlAttribute(alt)}">"""
+
+private fun escapeHtmlAttribute(value: String): String =
+    buildString {
+        for (ch in value) {
+            when (ch) {
+                '&' -> append("&amp;")
+                '<' -> append("&lt;")
+                '>' -> append("&gt;")
+                '"' -> append("&quot;")
+                '\'' -> append("&#39;")
+                else -> append(ch)
+            }
+        }
+    }
 
 /**
  * Sprachumschalter-Feature 2026-08-14: supported UI languages, in the order shown in the
@@ -130,19 +163,42 @@ private fun setLanguage(code: String) {
 class App : Application() {
     override fun start() {
         root("lapis-client") {
-            val navbar = navbar(label = "Lapis Cloud", link = "#${Routes.DASHBOARD}", className = "lapis-navbar")
+            val navbar = navbar(label = Branding.title, link = "#${Routes.DASHBOARD}", className = "lapis-navbar")
             // UI/UX-Design-Team-Review 2026-08-14 (Forstall): the brand mark reuses the exact
             // gem-glyph polygon geometry from cloud.lapisproject.dev's Logo.astro, not a
             // reinterpretation, so the deployed app and the marketing site read as one product.
-            // `labelFirst = false` puts this child (added below) before the "Lapis Cloud" text --
+            // `labelFirst = false` puts this child (added below) before the brand title text --
             // see `Link.render()`: labelFirst controls whether the label+icon/image render before
             // or after `childrenVNodes()`, and `Link` is itself a `Container`, so `brandLink.span`
             // is a normal child add, not a special API.
             navbar.brandLink.labelFirst = false
             navbar.brandLink.addCssClass("lapis-brand-text")
-            navbar.brandLink.span(content = LAPIS_GEM_MARK_SVG, rich = true, className = "lapis-brand-mark")
+            // V1.2.5 White-Label-Branding, three-state rule (UI/UX-Design-Team-Review, Jobs' final
+            // review): a custom logo always wins; absent that, the Lapis gem mark shows ONLY next
+            // to the untouched default title (an operator who set a custom title but no logo gets
+            // no mark at all, rather than a mark that misleadingly still reads "Lapis" branding
+            // next to their own name). Rendered as a real `<img src="...">` element (Ive's
+            // requirement) via the same `rich = true` HTML-string mechanism the gem mark below
+            // already uses -- not KVision's `Link.image` property, whose exact mutation semantics
+            // on an already-constructed `Link` were not verified against this pinned KVision
+            // version (see V1.2.5 plan "Offene Frage 1"); this path is proven to compile and
+            // render in this exact codebase already.
+            when {
+                Branding.logoUrl != null ->
+                    navbar.brandLink.span(
+                        content = brandLogoImgHtml(src = Branding.logoUrl!!, alt = Branding.title),
+                        rich = true,
+                        className = "lapis-brand-logo",
+                    )
+                Branding.title == Branding.DEFAULT_TITLE ->
+                    navbar.brandLink.span(content = LAPIS_GEM_MARK_SVG, rich = true, className = "lapis-brand-mark")
+                else -> {
+                    // Custom title, no custom logo -- no mark, see comment above.
+                }
+            }
             refreshNavbar(navbar)
             val pageContainer = vPanel()
+            lapisAttribution()
 
             initNotifications()
             AppState.onSessionChange = { refreshNavbar(navbar) }

@@ -34,7 +34,7 @@ fun renderLoginScreen(container: SimplePanel) {
         width = 380.px
         marginTop = 64.px
 
-        h1("Lapis Cloud")
+        h1(Branding.title)
         p(tr("Bitte melden Sie sich mit Ihrer E-Mail-Adresse an."))
 
         val errorBox =
@@ -113,6 +113,15 @@ fun renderLoginScreen(container: SimplePanel) {
         }
 
         renderForgotPasswordToggle(this)
+
+        // V1.2.5 White-Label-Branding, UI/UX-Design-Team-Review -- an explicit SECOND call site
+        // for `lapisAttribution()`, directly beneath the login card, in addition to `App.kt`'s own
+        // root-level copy (which already renders on this screen too, further down the page). The
+        // login screen is the one page a white-labeled deployment's very first-ever visitor sees,
+        // so the design review chose to keep the credit immediately visible right there rather
+        // than relying solely on the app-shell-wide copy below the fold.
+        div { marginTop = 32.px }
+        lapisAttribution()
     }
 }
 

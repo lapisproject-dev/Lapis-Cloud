@@ -1826,6 +1826,10 @@ msgstr "Kwota niedodatnia"
 msgid "Betreff"
 msgstr "Temat"
 
+#: src/jsMain/kotlin/network/lapis/cloud/client/LapisAttribution.kt:33
+msgid "Betrieben mit Lapis Cloud"
+msgstr "Obsługiwane przez Lapis Cloud"
+
 #: src/jsMain/kotlin/network/lapis/cloud/client/AccountingLabels.kt:54
 msgid "Betriebsmittelrücklage (%1)"
 msgstr "Rezerwa środków obrotowych (%1)"

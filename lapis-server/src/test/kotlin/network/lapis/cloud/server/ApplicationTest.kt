@@ -55,4 +55,43 @@ class ApplicationTest :
                 response.status shouldBe HttpStatusCode.OK
             }
         }
+
+        // V1.2.5 White-Label-Branding -- with zero LAPIS_BRAND_* env vars set (this test
+        // environment's default), "/" must keep returning 404 exactly like the "root route 404s
+        // when no client build is present" test above: `module()`'s new `get("/")` handler
+        // replaces `staticFiles`' own prior handling of that route, and it MUST preserve the same
+        // 404-on-no-build behavior (see Application.kt `serveIndexHtml` KDoc, V1.2.5 plan
+        // stolperfalle 8.1) -- not fall through to a naive `200` with an empty body.
+        test("root route still 404s when no client build is present, now via the branding-aware handler") {
+            testApplication {
+                application { module() }
+
+                val response = client.get("/")
+
+                response.status shouldBe HttpStatusCode.NotFound
+            }
+        }
+
+        // Same reasoning as above, for the second literal route module() now registers.
+        test("/index.html also 404s when no client build is present") {
+            testApplication {
+                application { module() }
+
+                val response = client.get("/index.html")
+
+                response.status shouldBe HttpStatusCode.NotFound
+            }
+        }
+
+        // V1.2.5 White-Label-Branding -- with zero LAPIS_BRAND_* env vars set, no logo is
+        // configured at all, so this route must 404, never attempt to stream a nonexistent file.
+        test("branding logo route 404s when LAPIS_BRAND_LOGO_PATH is unset") {
+            testApplication {
+                application { module() }
+
+                val response = client.get("/api/branding/logo")
+
+                response.status shouldBe HttpStatusCode.NotFound
+            }
+        }
     })

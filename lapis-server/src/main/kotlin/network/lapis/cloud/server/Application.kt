@@ -3,12 +3,16 @@ package network.lapis.cloud.server
 import dev.kilua.rpc.applyRoutes
 import dev.kilua.rpc.getAllServiceManagers
 import dev.kilua.rpc.initRpc
+import io.ktor.http.ContentType
+import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
 import io.ktor.server.application.Application
+import io.ktor.server.application.ApplicationCall
 import io.ktor.server.application.ApplicationStopping
 import io.ktor.server.application.call
 import io.ktor.server.application.install
 import io.ktor.server.engine.embeddedServer
+import io.ktor.server.http.content.LocalFileContent
 import io.ktor.server.http.content.staticFiles
 import io.ktor.server.netty.Netty
 import io.ktor.server.plugins.autohead.AutoHeadResponse
@@ -17,9 +21,15 @@ import io.ktor.server.plugins.compression.Compression
 import io.ktor.server.plugins.forwardedheaders.XForwardedHeaders
 import io.ktor.server.plugins.partialcontent.PartialContent
 import io.ktor.server.plugins.statuspages.StatusPages
+import io.ktor.server.response.header
+import io.ktor.server.response.respond
 import io.ktor.server.response.respondText
 import io.ktor.server.routing.get
 import io.ktor.server.routing.routing
+import network.lapis.cloud.server.branding.BrandConfig
+import network.lapis.cloud.server.branding.BrandingHtml
+import network.lapis.cloud.server.branding.BrandingStartupCheck
+import network.lapis.cloud.server.branding.ResolvedBranding
 import network.lapis.cloud.server.conference.ConferenceConfig
 import network.lapis.cloud.server.conference.ConferenceNotesState
 import network.lapis.cloud.server.conference.ConferenceRecordingConfig
@@ -187,6 +197,27 @@ fun Application.module() {
     // harmless -- requests to "/" just 404 instead of breaking server startup or the test suite.
     val clientDistRoot = File(System.getenv("LAPIS_CLIENT_DIST_ROOT") ?: "../lapis-client/build/dist/js/productionExecutable")
     clientDistRoot.mkdirs()
+
+    // V1.2.5 White-Label-Branding -- operator-supplied web-UI title/optional logo (see BrandConfig
+    // KDoc). Constructed here, right after clientDistRoot above (cachedIndexHtml below needs it).
+    // Deliberately NEVER fail-fast, unlike SmtpConfig/SmtpStartupCheck above -- see
+    // BrandingStartupCheck KDoc "why branding is never fail-fast": broken cosmetic configuration
+    // (a bad title, a missing/oversized logo file) must never stop this server from starting.
+    val brandConfig = BrandConfig.load()
+    val resolvedBranding = BrandingStartupCheck.resolve(config = brandConfig)
+    // Injected exactly ONCE, not per-request -- branding is process-constant for the lifetime of
+    // this deployment (no restart-free hot-reload). Unlike staticFiles' own per-request file
+    // resolution, a deployment whose client build appears on disk only AFTER this `by lazy` first
+    // resolves would keep serving the pre-build 404 for "/" until the process restarts -- a
+    // deliberate, documented divergence (V1.2.5 plan, stolperfalle 8.4), not a bug.
+    val cachedIndexHtml: String? by lazy {
+        val indexFile = File(clientDistRoot, "index.html")
+        if (!indexFile.exists()) {
+            null
+        } else {
+            BrandingHtml.inject(html = indexFile.readText(), brand = resolvedBranding)
+        }
+    }
 
     // V0.4.2 Letterxpress postal-mail dispatch -- see LetterxpressPostalMailProvider KDoc for the
     // sandbox/live-mode default and the "wire format not verified" disclosure. Constructed once
@@ -777,11 +808,85 @@ fun Application.module() {
             readRateLimiter = socialPublicReadRateLimiter,
             sitemapRateLimiter = socialPublicSitemapRateLimiter,
             reportRateLimiter = socialPublicReportRateLimiter,
+            brandTitle = resolvedBranding.title,
         )
         getAllServiceManagers().forEach { applyRoutes(it) }
+        // V1.2.5 White-Label-Branding -- literal routes, registered before staticFiles below for
+        // the same "literal beats catch-all" reasoning as registerSocialPublicRoutes' own routes.
+        // "/" and "/index.html" replace staticFiles' own handling of the SPA shell so the
+        // branding-injected index.html (cachedIndexHtml above) is served instead of the raw file on
+        // disk -- every OTHER asset (main.bundle.js, theme.css, ...) still falls through to
+        // staticFiles unchanged.
+        get("/") { serveIndexHtml(call = call, cachedIndexHtml = cachedIndexHtml) }
+        get("/index.html") { serveIndexHtml(call = call, cachedIndexHtml = cachedIndexHtml) }
+        get("/api/branding/logo") { serveBrandingLogo(call = call, branding = resolvedBranding) }
         // Registered last: literal routes above (/api/..., RPC service paths) always win over this
         // catch-all in Ktor's routing trie regardless of registration order, but keeping it last
         // documents the intent -- this is the fallback for everything not already handled above.
         staticFiles("/", clientDistRoot)
     }
 }
+
+/**
+ * V1.2.5 White-Label-Branding -- serves the branding-injected `index.html` (see
+ * [BrandingHtml.inject]), or 404 when no client build is present, exactly matching `staticFiles`'
+ * own prior behavior for "/" in that case (see `ApplicationTest` "root route 404s when no client
+ * build is present" -- that test must stay green after this route replaces `staticFiles` for "/").
+ */
+private suspend fun serveIndexHtml(
+    call: ApplicationCall,
+    cachedIndexHtml: String?,
+) {
+    if (cachedIndexHtml == null) {
+        call.respond(HttpStatusCode.NotFound)
+        return
+    }
+    // Explicit charset -- `staticFiles` derives Content-Type/charset from the file extension
+    // automatically; this manual handler must set it itself or a default-encoding mismatch could
+    // corrupt the umlauts already present in index.html (stolperfalle 8.5).
+    call.respondText(text = cachedIndexHtml, contentType = ContentType.parse("text/html; charset=utf-8"))
+}
+
+/**
+ * V1.2.5 White-Label-Branding -- streams the operator-supplied logo file (never buffers it into
+ * memory), exactly the [LocalFileContent] pattern `network.lapis.cloud.server.routes
+ * .registerDocumentRoutes` already establishes. 404 whenever [ResolvedBranding.logoAvailable] is
+ * false (BrandingStartupCheck already ruled out anything not safely servable) or the path's own
+ * extension somehow falls outside the fixed allowlist below (defense-in-depth belt-and-braces,
+ * mirrors [BrandConfig]'s own allowlist -- `logoPath` itself is operator-only, never user input).
+ */
+private suspend fun serveBrandingLogo(
+    call: ApplicationCall,
+    branding: ResolvedBranding,
+) {
+    val logoPath = branding.logoPath
+    if (!branding.logoAvailable || logoPath == null) {
+        call.respond(HttpStatusCode.NotFound)
+        return
+    }
+    val contentType = brandingLogoContentType(logoPath)
+    if (contentType == null) {
+        call.respond(HttpStatusCode.NotFound)
+        return
+    }
+    call.response.header(HttpHeaders.CacheControl, "public, max-age=300")
+    // Ktor's HttpHeaders has no XContentTypeOptions constant -- same literal-string convention
+    // `SocialPublicRoutes.kt`'s own `applyPublicPageHeaders` already uses for this exact header.
+    call.response.header("X-Content-Type-Options", "nosniff")
+    call.respond(LocalFileContent(File(logoPath), contentType))
+}
+
+/**
+ * Fixed allowlist, NOT `ContentType.parse` on an arbitrary extension -- mirrors
+ * [BrandConfig]'s own `ALLOWED_LOGO_EXTENSIONS` (see that class' KDoc); kept as a separate literal
+ * map rather than importing that private set, since the two lists serving two different purposes
+ * (config-time acceptance vs. response Content-Type) drifting apart would fail closed (404), never
+ * open.
+ */
+private fun brandingLogoContentType(path: String): ContentType? =
+    when (path.substringAfterLast('.', missingDelimiterValue = "").lowercase()) {
+        "svg" -> ContentType.parse("image/svg+xml")
+        "png" -> ContentType.Image.PNG
+        "webp" -> ContentType.parse("image/webp")
+        else -> null
+    }

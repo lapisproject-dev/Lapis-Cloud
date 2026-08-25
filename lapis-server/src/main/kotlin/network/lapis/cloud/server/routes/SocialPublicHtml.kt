@@ -32,6 +32,7 @@ import kotlinx.html.textArea
 import kotlinx.html.textInput
 import kotlinx.html.time
 import kotlinx.html.title
+import network.lapis.cloud.server.branding.BrandConfig
 import network.lapis.cloud.shared.domain.SocialPostReportCategory
 
 /**
@@ -189,6 +190,8 @@ internal object SocialPublicHtml {
     fun timelinePage(
         view: PublicTimelineView,
         baseUrl: String,
+        /** V1.2.5 White-Label-Branding -- see [registerSocialPublicRoutes]' own `brandTitle` KDoc. */
+        brandTitle: String = BrandConfig.DEFAULT_TITLE,
     ): String {
         val pageTitle = if (view.page <= 1) "Soziales Netzwerk – Lapis Cloud" else "Soziales Netzwerk – Seite ${view.page} – Lapis Cloud"
         return createHTML(prettyPrint = false).html {
@@ -217,7 +220,7 @@ internal object SocialPublicHtml {
                         }
                     }
                 }
-                footer { p { +"Lapis Cloud" } }
+                footer { p { +"$brandTitle · Betrieben mit Lapis Cloud" } }
             }
         }
     }
@@ -225,6 +228,8 @@ internal object SocialPublicHtml {
     fun postPage(
         view: PublicThreadView,
         baseUrl: String,
+        /** V1.2.5 White-Label-Branding -- see [registerSocialPublicRoutes]' own `brandTitle` KDoc. */
+        brandTitle: String = BrandConfig.DEFAULT_TITLE,
     ): String =
         createHTML(prettyPrint = false).html {
             attributes["lang"] = "de"
@@ -268,7 +273,7 @@ internal object SocialPublicHtml {
                         }
                     }
                 }
-                footer { p { +"Lapis Cloud" } }
+                footer { p { +"$brandTitle · Betrieben mit Lapis Cloud" } }
             }
         }
 

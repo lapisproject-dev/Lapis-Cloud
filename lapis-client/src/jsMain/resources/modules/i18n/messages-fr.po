@@ -1837,6 +1837,10 @@ msgstr "Montant non positif"
 msgid "Betreff"
 msgstr "Objet"
 
+#: src/jsMain/kotlin/network/lapis/cloud/client/LapisAttribution.kt:33
+msgid "Betrieben mit Lapis Cloud"
+msgstr "Propulsé par Lapis Cloud"
+
 #: src/jsMain/kotlin/network/lapis/cloud/client/AccountingLabels.kt:54
 msgid "Betriebsmittelrücklage (%1)"
 msgstr "Réserve de fonctionnement (%1)"

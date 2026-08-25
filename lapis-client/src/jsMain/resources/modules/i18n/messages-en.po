@@ -1820,6 +1820,10 @@ msgstr "Amount not positive"
 msgid "Betreff"
 msgstr "Subject"
 
+#: src/jsMain/kotlin/network/lapis/cloud/client/LapisAttribution.kt:33
+msgid "Betrieben mit Lapis Cloud"
+msgstr "Powered by Lapis Cloud"
+
 #: src/jsMain/kotlin/network/lapis/cloud/client/AccountingLabels.kt:54
 msgid "Betriebsmittelrücklage (%1)"
 msgstr "Operating reserve (%1)"

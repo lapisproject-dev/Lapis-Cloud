@@ -1837,6 +1837,10 @@ msgstr "Importe no positivo"
 msgid "Betreff"
 msgstr "Asunto"
 
+#: src/jsMain/kotlin/network/lapis/cloud/client/LapisAttribution.kt:33
+msgid "Betrieben mit Lapis Cloud"
+msgstr "Desarrollado con Lapis Cloud"
+
 #: src/jsMain/kotlin/network/lapis/cloud/client/AccountingLabels.kt:54
 msgid "Betriebsmittelrücklage (%1)"
 msgstr "Reserva de medios operativos (%1)"

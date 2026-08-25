@@ -5,6 +5,17 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Lapis Cloud</title>
     <!--
+      V1.2.5 White-Label-Branding: dev-time default payload. `network.lapis.cloud.server.branding
+      .BrandingHtml.inject` overwrites BOTH the <title> text above and this element's JSON content
+      with the operator's actual LAPIS_BRAND_TITLE/LAPIS_BRAND_LOGO_PATH whenever the server serves
+      "/"/"/index.html" -- see that class' own KDoc. This raw file (as opposed to the
+      server-injected version) is only ever seen directly by `./gradlew :lapis-client:run`/local
+      webpack-dev-server, so `logoUrl: null` here is the correct, harmless dev default; it is NEVER
+      what a real deployment serves. `network.lapis.cloud.client.Branding` reads this element and
+      falls back to the SAME defaults (DEFAULT_TITLE, no logo) if it is ever missing entirely.
+    -->
+    <script type="application/json" id="lapis-brand">{"title":"Lapis Cloud","logoUrl":null}</script>
+    <!--
       Governance UI wave (Sitzungen / Meetings screen): global print stylesheet backing the
       "Protokoll" tab's "Drucken" button (`window.print()` in `MeetingsScreen.kt`) -- per the
       approved UI/UX-Design-Team design decisions, D5. Added once, globally, rather than per

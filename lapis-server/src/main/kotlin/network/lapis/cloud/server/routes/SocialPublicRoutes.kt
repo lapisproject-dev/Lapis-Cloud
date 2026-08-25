@@ -23,6 +23,7 @@ import kotlinx.datetime.LocalDateTime
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toInstant
 import kotlinx.datetime.toLocalDateTime
+import network.lapis.cloud.server.branding.BrandConfig
 import network.lapis.cloud.server.db.DbClock
 import network.lapis.cloud.server.db.generated.SocialPostTable
 import network.lapis.cloud.server.economy.LedgerBackedLtrBalanceProvider
@@ -142,6 +143,13 @@ fun Route.registerSocialPublicRoutes(
     sitemapRateLimiter: FederationInboxRateLimiter,
     /** Welle V1.1.5 -- `POST /s/{id}/report` (öffentlicher Melde-Weg), EIGENER, deutlich strengerer Limiter als [readRateLimiter]. */
     reportRateLimiter: FederationInboxRateLimiter,
+    /**
+     * V1.2.5 White-Label-Branding -- [network.lapis.cloud.server.branding.ResolvedBranding.title],
+     * threaded through into [SocialPublicHtml.timelinePage]/[SocialPublicHtml.postPage]'s footer
+     * (see those functions' own KDoc). Defaults to [BrandConfig.DEFAULT_TITLE] so every existing
+     * test call site of this function keeps compiling/behaving unchanged.
+     */
+    brandTitle: String = BrandConfig.DEFAULT_TITLE,
 ) {
     val baseUrl = FederationConfig.publicBaseUrl.trimEnd('/')
     val ltrBalanceProvider: LtrBalanceProvider = LedgerBackedLtrBalanceProvider()
@@ -197,7 +205,7 @@ fun Route.registerSocialPublicRoutes(
                     page = page,
                     hasNext = page * PUBLIC_PAGE_SIZE < pageDto.totalRankedCount,
                 )
-            val body = SocialPublicHtml.timelinePage(view = view, baseUrl = baseUrl)
+            val body = SocialPublicHtml.timelinePage(view = view, baseUrl = baseUrl, brandTitle = brandTitle)
             call.respondPublicCacheable(
                 body = body,
                 contentType = HTML_CONTENT_TYPE,
@@ -279,7 +287,7 @@ fun Route.registerSocialPublicRoutes(
                 is PostResolution.Redirect -> call.respondPublicRedirect(baseUrl = baseUrl, rootId = resolution.rootId)
                 is PostResolution.Found -> {
                     val view = resolution.thread.toPublicThreadView()
-                    val body = SocialPublicHtml.postPage(view = view, baseUrl = baseUrl)
+                    val body = SocialPublicHtml.postPage(view = view, baseUrl = baseUrl, brandTitle = brandTitle)
                     call.respondPublicCacheable(
                         body = body,
                         contentType = HTML_CONTENT_TYPE,

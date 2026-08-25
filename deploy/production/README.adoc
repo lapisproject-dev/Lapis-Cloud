@@ -480,3 +480,41 @@ this case, but only a WARN, not a startup failure (an operator can legitimately 
 `LAPIS_FRIEND_REQUIRE_EMAIL_VERIFICATION` (see `network.lapis.cloud.server.rpc.FriendRegistrationConfig`
 KDoc) stays on its default `false` regardless of whether SMTP is configured -- activating hard
 enforcement is a separate, later operational decision, not automatically flipped by this wave.
+
+== White-Label-Branding (optional)
+
+`LAPIS_BRAND_TITLE`, `LAPIS_BRAND_LOGO_PATH` -- **both optional, independent of each other**
+(unlike SMTP above, there is no all-or-nothing requirement). Neither variable set: the deployment
+shows the plain "Lapis Cloud" title and the Lapis gem mark, exactly as before this feature existed.
+
+**`LAPIS_BRAND_TITLE`** replaces the page `<title>`, the navbar brand text, and the login screen's
+heading (`network.lapis.cloud.client.Branding.title`). Trimmed; falls back to the "Lapis Cloud"
+default (and logs a `WARN` naming the variable, never the rejected value) if it is blank, longer
+than 80 characters, or contains a control character (`\r`/`\n`/tab/etc.) -- see
+`network.lapis.cloud.server.branding.BrandConfig` KDoc. **Never fail-fast**: unlike a broken SMTP
+configuration, a rejected branding value degrades to the default, it never stops the server from
+starting.
+
+**`LAPIS_BRAND_LOGO_PATH`** is an absolute filesystem path **inside the container**, never a URL --
+there is deliberately no `LAPIS_BRAND_LOGO_PATH` equivalent that fetches from an operator-supplied
+URL (would reopen an SSRF surface for a purely cosmetic feature). Drop the actual logo file into
+`deploy/production/branding/` on the host (bind-mounted read-only to `/app/branding` in
+`docker-compose.yml`) and point this variable at the in-container path, e.g.
+`LAPIS_BRAND_LOGO_PATH=/app/branding/logo.svg`. Requirements, all checked at startup
+(`network.lapis.cloud.server.branding.BrandingStartupCheck`), each one degrading to "no logo shown"
+with a `WARN` log line rather than refusing to start:
+
+* Extension `.svg`, `.png`, or `.webp` (case-insensitive).
+* At most 512 KiB.
+* A regular, readable file that actually exists at that path.
+
+The logo, when active, is streamed at `GET /api/branding/logo` (`Cache-Control: public,
+max-age=300`) and shown in the navbar in place of the Lapis gem mark. A custom title with NO custom
+logo shows no mark at all next to it, rather than a mark that would misleadingly still read as
+"Lapis" branding next to an operator's own name.
+
+**"Betrieben mit Lapis Cloud" is NOT removable by this or any other configuration.** Every screen
+(app shell and login screen alike) carries a small, fixed credit linking to
+`https://cloud.lapisproject.dev`, regardless of `LAPIS_BRAND_TITLE`/`LAPIS_BRAND_LOGO_PATH` --
+`LAPIS_BRAND_*` rebrands the deployment's own presentation, it does not white-label away where the
+platform itself comes from.
