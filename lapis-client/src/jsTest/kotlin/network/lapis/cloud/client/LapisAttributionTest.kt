@@ -30,9 +30,13 @@ import kotlin.test.assertEquals
  *
  * Manual QA substitute for the DOM/visual side (mirrors `GuestBadgeTest`'s own convention): open a
  * deployment with `LAPIS_BRAND_TITLE`/`LAPIS_BRAND_LOGO_PATH` both set, confirm the "Betrieben mit
- * Lapis Cloud" line still appears below the login card AND below the app shell on every screen, in
- * every language via the switcher, and that its link opens `https://cloud.lapisproject.dev` in a
- * new tab (`target="_blank"`, `rel="noopener noreferrer"`).
+ * Lapis Cloud" line appears exactly ONCE per screen -- below the app shell, which already wraps
+ * every screen including the login screen. (`LoginScreen.kt` originally added a SECOND,
+ * screen-local call site on top of that for "extra visibility" -- found live 2026-08-25 to render
+ * as an obvious duplicate directly below the login card instead, since the login screen is short
+ * enough that both copies land within view without scrolling; removed.) Check every language via
+ * the switcher, and that the link opens `https://cloud.lapisproject.dev` in a new tab
+ * (`target="_blank"`, `rel="noopener noreferrer"`).
  */
 class LapisAttributionTest {
     @Test
