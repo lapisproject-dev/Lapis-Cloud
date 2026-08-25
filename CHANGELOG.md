@@ -140,6 +140,111 @@ V0.11.0) durch einen echten, optionalen SMTP-Transport.
   Widerspruch. Drittens: `maskEmailForLogging`s KDoc behauptete fälschlich, `MailDispatcher`
   validiere `to` vorab als echte Adresse -- tut es nicht, korrigiert.
 
+> [!note] Produktionsbefund nach dem Deploy (2026-08-25)
+> Live gemeldet: keine Mail kommt an. Direkte Verbindungstests von pdv2 aus zeigten kein Code-/
+> Konfigurationsproblem, sondern dass **netcup ausgehende Mail-Ports (25/465/587) auf diesem
+> VPS-Produkt standardmäßig blockt** -- betraf nicht nur das eigene Postfach, sondern jedes Ziel
+> (auch `smtp.gmail.com:465`), klassisches Anti-Spam-Verhalten von VPS-Anbietern. Offen: ein
+> netcup-Support-Ticket zur Freischaltung der ausgehenden Ports, reine Nutzer-Handlung.
+
+**dataNavigo-Audit, Welle V1.2.4 — fünf weitere tote Links, plus ein struktureller Fund über die Download-Links**
+
+Live gemeldet: zwei Login-Screen-Links (OIDC-Gastzugang, "Passwort vergessen?") taten beim Klick
+nichts. Ursache: das globale `Link.useDataNavigoForLinks = true` (V0.7.3, eingeführt um
+`#/...`-Hash-Routen-Links klickbar zu machen) lässt `navigo` seither JEDEN Link-Klick abfangen --
+auch echte Volle-Seiten-Navigationen und reine lokale Klick-Handler ohne Routing-Absicht.
+
+- Fix für die zwei gemeldeten Links: `dataNavigo = false` auf beiden `link(...)`-Aufrufen in
+  `LoginScreen.kt` (OIDC-Gastzugang-Link, "Passwort vergessen?"-Toggle).
+- **Vollständiger Sweep** aller `link()`/`navLink()`/`ddLink()`-Aufrufstellen im gesamten
+  `lapis-client`-Modul deckte fünf weitere, bislang nur zufällig funktionierende Fundstellen auf --
+  funktionierten bisher nur, weil ihre `onClick`-Handler idempotent zum `navigo`-`notFound`-
+  Fallback waren: `App.kt`s "Abmelden"-`navLink` (Logout landet ohnehin bei `/login`),
+  `App.kt`s Sprachumschalter-`ddLink` (rendert ohnehin neu), `DocumentsScreen.kt`s
+  Dokumenttitel-Link (lädt Versionen), `MeetingsScreen.kt`s "Alle auswählen"/"Alle abwählen"-Links.
+  Alle fünf jetzt ebenfalls mit `dataNavigo = false`.
+- **Wichtiger Nebenbefund, der eine größere befürchtete Lücke ausschließt**: alle PDF-/
+  Datei-Download-Links (Rechnung, Spendenbescheinigung, DSGVO-Export, SEPA `pain.008`, Backup,
+  Aufzeichnungen) waren nie betroffen -- `navigo`s eigener Code schließt jeden Link mit
+  `target="_blank"` bereits selbst von der Klick-Abfangung aus (`navigo/lib/es/index.js`, Zeile
+  196), unabhängig von `dataNavigo`.
+
+**White-Label-Branding, Welle V1.2.5 — Titel + Logo pro Deployment konfigurierbar, mit unentfernbarem Lapis-Cloud-Verweis**
+
+Neue `network.lapis.cloud.server.branding`-Package: operator-konfigurierbares Web-UI-Branding
+(Seiten-`<title>` + optionales Navbar-Logo), analog zum etablierten `LAPIS_SMTP_*`-Muster.
+
+- **`LAPIS_BRAND_TITLE`/`LAPIS_BRAND_LOGO_PATH`**, beide optional, unabhängig voneinander (anders
+  als SMTP kein Alles-oder-Nichts) -- `BrandConfig.load` ist reine String-Validierung, niemals I/O,
+  niemals ein Wurf. `BrandingStartupCheck` (das eine Stück echter I/O, das die Logo-Datei probt)
+  ist **bewusst NIEMALS fail-fast**, anders als `SmtpConfig`/`SmtpStartupCheck` -- eine defekte
+  kosmetische Konfiguration degradiert auf das Default-Branding, ist aber nie ein Startgrund-Abbruch.
+  `LAPIS_BRAND_LOGO_PATH` ist ein absoluter Dateipfad **innerhalb des Containers**, niemals eine
+  URL -- ein `LAPIS_BRAND_LOGO_URL`-Äquivalent mit Server-seitigem Fetch würde für ein rein
+  kosmetisches Feature eine SSRF-Angriffsfläche wiedereröffnen.
+- **Server-seitige HTML-Injektion** (`BrandingHtml`): injiziert Titel + ein
+  `<script type="application/json" id="lapis-brand">`-Payload in das ausgelieferte `index.html`.
+  Zwei getrennte Escaping-Kontexte (HTML-Text-Knoten und JSON-Literal innerhalb eines
+  `<script>`-Elements) -- ein Titel mit der Teilzeichenkette `</script>` kann das umgebende Tag
+  nicht vorzeitig schließen (JSON-Unicode-Escape für `<`).
+- **Logo-Ausgabe** über `GET /api/branding/logo`, feste Erweiterungs-Allowlist (`svg`/`png`/`webp`,
+  512 KiB Obergrenze), `Cache-Control`/`X-Content-Type-Options`-Header, niemals gepuffert
+  (`LocalFileContent`, wie `registerDocumentRoutes` es bereits etabliert).
+- **UI/UX-Design-Team-Entscheidung (Nutzer-Vorgabe)**: unabhängig vom Custom-Branding bleibt ein
+  "Betrieben mit Lapis Cloud"-Verweis (`LapisAttribution.kt`) fest im Quelltext verankert --
+  `Branding.PLATFORM_NAME`/`PLATFORM_URL` kommen NIE aus der Branding-Konfiguration. Erscheint auf
+  jedem Screen (App-Shell) sowie zusätzlich auf den öffentlichen `/s`-Social-Timeline-Seiten (dort
+  als Text im Footer, kein Bild -- deren strikte CSP hat kein `img-src`, ein Logo dort wäre ohne
+  Header-Änderung technisch gar nicht darstellbar). Alle 7 Sprachkataloge fest übersetzt statt per
+  `gettext`-Parameter, damit kein Übersetzer den Produktnamen selbst wegkürzt.
+- **Zwei Live-Bugs nach dem ersten Deploy gefunden und gefixt**: das Logo-Sizing-CSS
+  (`.lapis-brand-logo { max-height: 22px }`) traf den umschließenden `<span>` statt des
+  eingebetteten `<img>` -- ein echtes Logo mit großer intrinsischer Höhe (PdVs Signet, ~200px)
+  sprengte die Navbar unbegrenzt; Fix per Nachfahren-Selektor `.lapis-brand-logo img`. Zweitens
+  erschien der "Betrieben mit"-Hinweis auf dem Login-Screen doppelt -- eine ursprünglich bewusste
+  zweite Aufrufstelle in `LoginScreen.kt` ("extra Sichtbarkeit") landete auf der kurzen Login-Seite
+  direkt neben der App-Shell-eigenen Kopie statt "below the fold"; die zweite Aufrufstelle entfernt.
+- Für PdV eingesetzt: `LAPIS_BRAND_TITLE=Partei der Vernunft`, mehrere Logo-Iterationen mit dem
+  Nutzer (Signet weiß → Signet schwarz → volles Logo/Negativ-Variante getestet → zurück zu Signet
+  schwarz).
+
+**Zweite, eigenständige Lapis-Cloud-Instanz für ELB, Welle V1.2.6 — `deploy/production-elb/`**
+
+`elb.parteidervernunft.de` + `video-elb.parteidervernunft.de`, komplett neuer, unabhängiger Docker-
+Compose-Stack neben der PdV-Instanz auf demselben Host (pdv2) -- kein Application-Code geändert,
+reine Deploy-Konfiguration.
+
+- Eigene Postgres, eigene Container, eigene named Volumes (Compose-Projektname `lapis-cloud-elb`
+  namespaced das automatisch), eigene frisch generierte Secrets (DB-Passwort, LiveKit-/TURN-/
+  Streaming-Schlüssel -- keiner mit PdV geteilt).
+- **Jeder host-sichtbare Port verschoben**, um Kollisionen mit PdVs eigenem Stack zu vermeiden:
+  `lapis-server` 8080→8081, Postgres 5432→5433, LiveKit-Signaling 7880→7885, LiveKit-ICE
+  7881/7882→7891/7892, coturn 3478→3479 + Relay-Range 51000-51019→51020-51039, Redis 6379→6380.
+  Container-interne Ports unverändert -- nur das host-seitige Docker-Compose-Mapping unterscheidet
+  sich, da jeder Dienst seinen eigenen isolierten Netzwerk-Namensraum hat. Dabei einen echten
+  Copy-Paste-Fehler in einer ersten Fassung gefunden und korrigiert: `LAPIS_TURN_URLS` hatte den
+  Port `3478` (PdVs eigenen) hartcodiert statt `3479` -- unkorrigiert hätte das ELBs eigene Browser
+  stillschweigend an PdVs TURN-Relay verwiesen statt an das eigene.
+- **`egress` läuft NICHT mit `network_mode: host`**, anders als bei PdV -- zwei Container können
+  nicht beide den Host-Port `7980` binden (LiveKit-Egresses nicht konfigurierbarer eingebetteter
+  Template-Server-Port), und PdVs `egress` beansprucht das bereits. Dokumentierte Konsequenz: Wave 1
+  (Live-Anrufe) und Wave 2 "Aufzeichnung" (Track Egress, startet nie Chrome) funktionieren identisch
+  zu PdV; Wave 3 externes Streaming im `GRID`/`SPEAKER`-Layout (Chrome-basiertes Room-Composite,
+  tritt dem Raum als echter WebRTC-Teilnehmer bei) kann denselben Hairpin-NAT-Fehler treffen, den
+  PdVs eigener `egress` vor dessen Host-Networking-Fix hatte -- `SINGLE_PARTICIPANT`-Layout ist
+  davon unbetroffen.
+- Der geteilte `lapis-egress-output`-ACL-Selfheal-Timer (siehe Aufzeichnungs-Bugfix oben) ist ein
+  Per-Compose-Projekt-benanntes Volume -- der bestehende systemd-Timer wurde erweitert, um beide
+  Instanzen abzudecken, statt einen zweiten Timer anzulegen.
+- Branding: `LAPIS_BRAND_TITLE=Ecclesia Libertas Biblica`, zugeschnittenes Kreuz-Logo (Original-SVG
+  hatte einen A4-Seiten-`viewBox` statt eines engen Zuschnitts ums eigentliche Motiv -- als eigene
+  Deploy-Kopie non-destruktiv korrigiert, Original im Vault unangetastet).
+- Erster Admin-Account per `AdminBootstrap`-CLI (bewusst kein Netzwerk-Endpunkt, siehe dessen KDoc)
+  über einen SSH-Tunnel gegen die ELB-Produktionsdatenbank angelegt -- die zunächst per
+  `LAPIS_BOOTSTRAP_ADMIN_*`-Env-Vars auf dem `lapis-server`-Service erwartete automatische
+  Ausführung existiert nicht, `AdminBootstrap` ist ein separat aufgerufenes Gradle-`JavaExec`-Task
+  (`./gradlew :lapis-server:bootstrapAdmin`), kein Teil des normalen Server-Starts.
+
 **Price-Oracle, Welle V0.6.6 "Gold- und Fiat-Anker" — GOLD_XAU/FIAT-Preisquellen, generalisiertes Quorum, Anker-Routing-Fix**
 
 Erweitert den bislang Bitcoin-exklusiven Price-Oracle (V0.6.5) um zwei weitere Anker-Assets und
