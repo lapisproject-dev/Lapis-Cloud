@@ -137,8 +137,17 @@ body {
 
 /* V1.2.5 White-Label-Branding: operator-supplied navbar logo image (App.kt's `brandLogoImgHtml`
    span) -- capped to the same visual footprint the gem mark/text brand occupied, so a tall/wide
-   logo file cannot blow out the navbar height. */
-.lapis-brand-logo {
+   logo file cannot blow out the navbar height. `.lapis-brand-logo` is the class KVision's `span()`
+   puts on the WRAPPING <span>, not on the raw `<img>` inside it (`brandLogoImgHtml` emits a plain
+   `<img src="..." alt="...">` with no class of its own) -- a bare `.lapis-brand-logo { max-height }`
+   rule constrains that span's own box, not the child img, so the img still renders at its natural
+   size and can overflow the span/navbar visually. Found live 2026-08-25 against a real deployed
+   logo (PdV's signet, natural height ~200px) -- every test fixture used during this feature's own
+   review apparently never exercised an SVG with a large intrinsic size. The descendant selector
+   below is the actual fix; the bare selector is kept too in case a future caller ever puts this
+   class directly on an img. */
+.lapis-brand-logo,
+.lapis-brand-logo img {
   max-height: 22px;
   width: auto;
   vertical-align: middle;
