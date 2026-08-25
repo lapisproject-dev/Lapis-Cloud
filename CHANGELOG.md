@@ -140,12 +140,20 @@ V0.11.0) durch einen echten, optionalen SMTP-Transport.
   Widerspruch. Drittens: `maskEmailForLogging`s KDoc behauptete fälschlich, `MailDispatcher`
   validiere `to` vorab als echte Adresse -- tut es nicht, korrigiert.
 
-> [!note] Produktionsbefund nach dem Deploy (2026-08-25)
-> Live gemeldet: keine Mail kommt an. Direkte Verbindungstests von pdv2 aus zeigten kein Code-/
-> Konfigurationsproblem, sondern dass **netcup ausgehende Mail-Ports (25/465/587) auf diesem
-> VPS-Produkt standardmäßig blockt** -- betraf nicht nur das eigene Postfach, sondern jedes Ziel
-> (auch `smtp.gmail.com:465`), klassisches Anti-Spam-Verhalten von VPS-Anbietern. Offen: ein
-> netcup-Support-Ticket zur Freischaltung der ausgehenden Ports, reine Nutzer-Handlung.
+**Produktionsbefund nach dem Deploy (2026-08-25, Stand 2026-08-25 aktualisiert):** Live gemeldet:
+keine Mail kommt an. Direkte Verbindungstests von pdv2 aus zeigten keinen Code-/Konfigurations-
+fehler -- ausgehende Verbindungen auf Port 25/465/587 scheitern für JEDES Ziel (eigenes Postfach,
+`smtp.gmail.com`, `smtp.office365.com`, IPv4 wie IPv6), während Port 443 zu einer beliebigen
+Adresse normal funktioniert. Eine `tcpdump`-Mitschnitt-Probe auf `eth0` während eines Verbindungs-
+versuchs zeigt: das SYN-Paket verlässt den Host tatsächlich (kein lokales `nftables`-/Host-
+Firewall-Problem), erhält aber nie eine Antwort -- ein "silent drop" irgendwo im Netzwerkpfad
+oberhalb dieses Hosts. **netcup-Support hat auf Nachfrage bestritten, dass ausgehende Ports
+geblockt werden** -- widerspricht der gemessenen Evidenz. Ungeklärt, wer/was den Drop verursacht
+(netcup selbst trotz gegenteiliger Auskunft, ein vorgeschalteter Anti-Abuse-Filter, oder ein
+Transitnetz weiter oben im Pfad). Offen: die `tcpdump`-Evidenz (SYN gesendet, nie beantwortet, drei
+unabhängige Ziele, beide IP-Versionen) an netcups technischen Support weiterreichen, da eine reine
+Ja/Nein-Antwort der Erstsupport-Ebene die eigentliche Netzwerk-Diagnose offenbar nicht abgedeckt
+hat -- reine Nutzer-Handlung.
 
 **dataNavigo-Audit, Welle V1.2.4 — fünf weitere tote Links, plus ein struktureller Fund über die Download-Links**
 
