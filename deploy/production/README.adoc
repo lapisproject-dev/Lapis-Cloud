@@ -272,7 +272,7 @@ host. A startup WARN from `ConferenceRecordingConfig` ("ffmpeg probe failed") af
 the image wasn't actually rebuilt (stale container still running the pre-Wave-2 image) -- re-run
 `docker compose up -d --build lapis-server`.
 
-**Shared `lapis-egress-output` volume needs a default ACL, not just a one-off `chmod`.**
+**Shared `lapis-egress-output` volume needs a self-healing ACL fix, not just a default ACL.**
 `egress` (raw-track writer, uid 1001, primary gid 0/root) and `lapis-server` (`ffmpeg` composer,
 uid 999/`lapiscloud`, own gid 999 -- NOT a member of `root`) run as different, unrelated users but
 both need write access into the same per-recording subdirectory under the shared volume. `egress`
@@ -282,19 +282,63 @@ only fixes directories that already exist at the time it's run; every NEW record
 subdirectory that reverts to the same unwritable-by-`lapiscloud` state, so composition fails again
 on the very next recording with `ffmpeg exited with code 243` / `Permission denied` opening
 `composed-N.mp4` (found live on this deployment 2026-08-18, three days after the volume-root fix).
-The durable fix is a POSIX default ACL on the volume root, so every subdirectory `egress` creates
-inherits write access for both UIDs automatically -- run once per fresh volume (a wiped/recreated
-`lapis-cloud_lapis-egress-output` volume needs this reapplied):
+
+A POSIX **default ACL** on the volume root (granting `lapiscloud` `rwx` so every new subdirectory
+inherits it) was applied next as the presumed durable fix -- but this recurred a second time,
+2026-08-23, five days later, for a structural reason rather than an application mistake: Linux
+computes a newly-created object's *effective* ACL mask as the inherited default ACL's mask **ANDed
+with the creating process's own requested mode's group bits** (`man 5 acl`, "Interaction between
+mode and ACLs"). `egress` requests mode `0755` (group bits `r-x`) for every subdirectory it
+creates, so the inherited default `mask::rwx` gets silently capped down to `mask::r-x` on every
+single new recording, discarding the write grant even though the named ACL entry itself still says
+`rwx` (`getfacl` shows this as `user:lapiscloud:rwx #effective:r-x`). A default ACL therefore
+**cannot** be durable here no matter how it's set up -- it is re-derived and re-capped at every
+`mkdir`, for as long as `egress` keeps requesting mode `0755`.
+
+The actually-durable fix (installed 2026-08-25) is a systemd timer on the HOST that re-applies the
+ACL to the whole volume every 30 seconds, self-healing any newly-capped subdirectory well within
+`RecordingPoller`'s own poll interval:
 +
 [source,bash]
 ----
 sudo apt-get install -y acl   # once per host, if not already present
-VOL=$(docker volume inspect lapis-cloud_lapis-egress-output --format '{{.Mountpoint}}')
-sudo setfacl -R -m u:999:rwx,u:1001:rwx "$VOL"      # fix directories that already exist
-sudo setfacl -R -d -m u:999:rwx,u:1001:rwx "$VOL"   # default ACL: new subdirectories inherit it
+
+sudo tee /etc/systemd/system/lapis-egress-acl-fix.service > /dev/null << 'EOF'
+[Unit]
+Description=Re-apply lapiscloud ACL grant on the shared LiveKit egress-output volume (self-heal for POSIX ACL mask-capping on newly created directories -- see Lapis-Cloud repo deploy/production/README.adoc, "Video conferencing" section, "Shared lapis-egress-output volume" paragraph)
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/setfacl -R -m u:lapiscloud:rwx -m mask::rwx /var/lib/docker/volumes/lapis-cloud_lapis-egress-output/_data/
+ExecStart=/usr/bin/setfacl -R -d -m u:lapiscloud:rwx -m mask::rwx /var/lib/docker/volumes/lapis-cloud_lapis-egress-output/_data/
+EOF
+
+sudo tee /etc/systemd/system/lapis-egress-acl-fix.timer > /dev/null << 'EOF'
+[Unit]
+Description=Periodically re-apply lapiscloud ACL grant on the shared LiveKit egress-output volume
+
+[Timer]
+OnBootSec=30s
+OnUnitActiveSec=30s
+AccuracySec=5s
+
+[Install]
+WantedBy=timers.target
+EOF
+
+sudo systemctl daemon-reload
+sudo systemctl enable --now lapis-egress-acl-fix.timer
 ----
 +
-Verify with `docker exec -u lapiscloud lapis-cloud-server sh -c 'touch /app/egress-out/<any-recording-id>/write-test && rm /app/egress-out/<any-recording-id>/write-test'` -- must succeed silently. A `FAILED` recording from before this fix keeps its raw per-track files on disk (deliberately never deleted on failure, see `RecordingPoller`'s own KDoc "Raw-file fate on FAILED must be explicit and safe") but has no automatic retry -- it stays `FAILED` in the UI; only recordings started after the ACL fix compose successfully.
+This uses the plain volume mountpoint path directly (`docker volume inspect
+lapis-cloud_lapis-egress-output --format '{{.Mountpoint}}'` if it ever needs to be re-derived, e.g.
+after a volume recreation) rather than the `$VOL` shell variable from the original one-off fix, so
+the unit file has no external dependency at run time. `sudo systemctl status
+lapis-egress-acl-fix.timer` / `... .service` show it firing; a fresh/recreated
+`lapis-cloud_lapis-egress-output` volume needs no extra step -- the timer's next tick (at most 30s
+later) picks up any new directories on its own.
+
+Verify with `docker exec -u lapiscloud lapis-cloud-server sh -c 'touch /app/egress-out/<any-recording-id>/write-test && rm /app/egress-out/<any-recording-id>/write-test'` -- must succeed silently. A `FAILED` recording keeps its raw per-track files on disk (deliberately never deleted on failure, see `RecordingPoller`'s own KDoc "Raw-file fate on FAILED must be explicit and safe") but has no automatic retry -- it stays `FAILED` in the UI. To recover one after fixing the underlying permission issue, reset it for the poller to retry: `UPDATE conference_recording SET status='PROCESSING', compose_attempts=0 WHERE id='<recording-id>';` (only if its raw per-track directory still exists under the volume -- check first, a `FAILED` recording whose directory was since cleaned up some other way cannot be recovered this way).
 
 == Public read path (SEO)
 
