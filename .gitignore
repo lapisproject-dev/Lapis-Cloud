@@ -137,4 +137,12 @@ deploy/production/egress.yaml
 deploy/production/branding/*
 !deploy/production/branding/.gitkeep
 
+# ELB second-instance deployment (V1.2.6) -- same reasoning as deploy/production/ above, mirrored
+# for the second pilot's own directory.
+deploy/production-elb/livekit.yaml
+deploy/production-elb/turnserver.conf
+deploy/production-elb/egress.yaml
+deploy/production-elb/branding/*
+!deploy/production-elb/branding/.gitkeep
+
 .DS_Store

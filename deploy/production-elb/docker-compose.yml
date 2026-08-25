@@ -1,0 +1,172 @@
+# Lapis Cloud -- SECOND PRODUCTION INSTANCE, for the ELB pilot (Ecclesia Libertas Biblica),
+# co-located with the PdV instance (../production/) on the same host (pdv2, 159.195.38.47). This
+# is a full, independent copy of ../production/docker-compose.yml -- own Postgres, own containers,
+# own named volumes (Compose namespaces those by `name:` below automatically) -- with every
+# HOST-visible port shifted so it can run alongside the PdV stack without collision. Container-
+# INTERNAL ports (what LiveKit/coturn listen on inside their own isolated network namespace) are
+# UNCHANGED from ../production/ -- only host-side publishes had to move.
+#
+# Port scheme vs. ../production/ (PdV):
+#   lapis-server        127.0.0.1:8080 -> 127.0.0.1:8081
+#   postgres (host-only) 127.0.0.1:5432 -> 127.0.0.1:5433
+#   livekit signaling    127.0.0.1:7880 -> 127.0.0.1:7885
+#   livekit ICE tcp      7881 (public)  -> 7891 (public)
+#   livekit ICE udp      7882 (public)  -> 7892 (public)
+#   coturn               3478 (public)  -> 3479 (public)
+#   coturn relay range   51000-51019    -> 51020-51039 (public)
+#   redis (host-only)    127.0.0.1:6379 -> 127.0.0.1:6380
+#
+# egress deliberately does NOT use `network_mode: host` here, unlike ../production/'s own egress
+# service -- see that service's own comment for why PdV's needs it (Chrome-based Room-Composite/
+# GRID/SPEAKER egress reaching this host's own public IP, "hairpin NAT"). Two containers cannot
+# BOTH bind the host network namespace's port 7980 (LiveKit egress's embedded, non-configurable
+# template server port) at the same time -- running a second host-networked egress here would
+# collide with PdV's. Consequence: Wave 1 (live calls) and Wave 2 "Aufzeichnung" (Track Egress,
+# never launches Chrome, unaffected by the hairpin-NAT issue) work exactly like PdV's; Wave 3
+# external streaming in GRID/SPEAKER layout (Chrome-based Room-Composite) may hit the same
+# hairpin-NAT failure PdV originally had before its host-networking fix --
+# ConferenceStreamLayout.SINGLE_PARTICIPANT (SDK-based, no Chrome) is unaffected either way. Only
+# ONE of the two instances on this host can have a host-networked egress; PdV already does.
+#
+# Usage (from this directory):
+#   cp .env.example .env   # fill in real secrets, never commit .env
+#   ./render-secrets.sh    # renders livekit.yaml/turnserver.conf/egress.yaml from .env
+#   docker compose up -d --build
+#   docker compose logs -f lapis-server
+name: lapis-cloud-elb
+
+networks:
+  internal:
+
+services:
+  postgres:
+    image: postgres:17.10
+    container_name: lapis-cloud-elb-postgres
+    environment:
+      POSTGRES_DB: ${LAPIS_DB_NAME:-lapiscloud}
+      POSTGRES_USER: ${LAPIS_DB_USER:?LAPIS_DB_USER must be set in .env}
+      POSTGRES_PASSWORD: ${LAPIS_DB_PASSWORD:?LAPIS_DB_PASSWORD must be set in .env}
+    volumes:
+      - lapis-elb-postgres-data:/var/lib/postgresql/data
+    ports:
+      - "127.0.0.1:5433:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks: [internal]
+    restart: unless-stopped
+
+  lapis-server:
+    build:
+      context: ../..
+      dockerfile: Dockerfile
+    container_name: lapis-cloud-elb-server
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      LAPIS_DB_URL: jdbc:postgresql://postgres:5432/${LAPIS_DB_NAME:-lapiscloud}
+      LAPIS_DB_USER: ${LAPIS_DB_USER:?LAPIS_DB_USER must be set in .env}
+      LAPIS_DB_PASSWORD: ${LAPIS_DB_PASSWORD:?LAPIS_DB_PASSWORD must be set in .env}
+      LAPIS_PUBLIC_BASE_URL: ${LAPIS_PUBLIC_BASE_URL:?LAPIS_PUBLIC_BASE_URL must be set in .env}
+      LAPIS_LIVEKIT_URL: ${LAPIS_LIVEKIT_URL:?LAPIS_LIVEKIT_URL must be set in .env}
+      LAPIS_LIVEKIT_API_URL: http://livekit:7880
+      LAPIS_LIVEKIT_API_KEY: ${LAPIS_LIVEKIT_API_KEY:?LAPIS_LIVEKIT_API_KEY must be set in .env}
+      LAPIS_LIVEKIT_API_SECRET: ${LAPIS_LIVEKIT_API_SECRET:?LAPIS_LIVEKIT_API_SECRET must be set in .env}
+      # Port 3479, NOT 3478 -- this instance's own coturn (see port-scheme comment above). Getting
+      # this wrong would silently advertise PdV's TURN relay to ELB's own browsers instead.
+      LAPIS_TURN_URLS: turn:${LAPIS_PUBLIC_IP:?LAPIS_PUBLIC_IP must be set in .env}:3479?transport=udp,turn:${LAPIS_PUBLIC_IP}:3479?transport=tcp
+      LAPIS_TURN_SHARED_SECRET: ${LAPIS_TURN_SECRET:?LAPIS_TURN_SECRET must be set in .env}
+      LAPIS_RECORDING_ENABLED: "true"
+      LAPIS_EGRESS_OUTPUT_CONTAINER_DIR: /out
+      LAPIS_EGRESS_OUTPUT_HOST_DIR: /app/egress-out
+      LAPIS_STREAMING_ENABLED: "true"
+      LAPIS_SECRET_ENCRYPTION_KEY: ${LAPIS_SECRET_ENCRYPTION_KEY:?LAPIS_SECRET_ENCRYPTION_KEY must be set in .env}
+      LAPIS_ORACLE_GOLDAPI_KEY: ${LAPIS_ORACLE_GOLDAPI_KEY:-}
+      LAPIS_ORACLE_METALPRICEAPI_KEY: ${LAPIS_ORACLE_METALPRICEAPI_KEY:-}
+      LAPIS_ORACLE_ALPHAVANTAGE_KEY: ${LAPIS_ORACLE_ALPHAVANTAGE_KEY:-}
+      LAPIS_SMTP_HOST: ${LAPIS_SMTP_HOST:-}
+      LAPIS_SMTP_PORT: ${LAPIS_SMTP_PORT:-}
+      LAPIS_SMTP_USERNAME: ${LAPIS_SMTP_USERNAME:-}
+      LAPIS_SMTP_PASSWORD: ${LAPIS_SMTP_PASSWORD:-}
+      LAPIS_SMTP_FROM_ADDRESS: ${LAPIS_SMTP_FROM_ADDRESS:-}
+      LAPIS_SMTP_FROM_NAME: ${LAPIS_SMTP_FROM_NAME:-}
+      LAPIS_SMTP_REPLY_TO: ${LAPIS_SMTP_REPLY_TO:-}
+      LAPIS_BRAND_TITLE: ${LAPIS_BRAND_TITLE:-}
+      LAPIS_BRAND_LOGO_PATH: ${LAPIS_BRAND_LOGO_PATH:-}
+      # First-admin bootstrap (see AdminBootstrap KDoc) -- only ever acts on a genuinely empty
+      # `member` table, so safe to leave set permanently. Needs all three or none: bootstrap mode
+      # only engages once LAPIS_BOOTSTRAP_ADMIN_DISPLAY_NAME is set.
+      LAPIS_BOOTSTRAP_ADMIN_EMAIL: ${LAPIS_BOOTSTRAP_ADMIN_EMAIL:-}
+      LAPIS_BOOTSTRAP_ADMIN_DISPLAY_NAME: ${LAPIS_BOOTSTRAP_ADMIN_DISPLAY_NAME:-}
+      LAPIS_BOOTSTRAP_ADMIN_PASSWORD: ${LAPIS_BOOTSTRAP_ADMIN_PASSWORD:-}
+    volumes:
+      - lapis-elb-document-storage:/app/document-storage
+      - lapis-elb-egress-output:/app/egress-out
+      - ./branding:/app/branding:ro
+    ports:
+      - "127.0.0.1:8081:8080"
+    networks: [internal]
+    restart: unless-stopped
+
+  livekit:
+    image: livekit/livekit-server:v1.13.5
+    container_name: lapis-cloud-elb-livekit
+    command: ["--config", "/etc/livekit.yaml"]
+    volumes:
+      - ./livekit.yaml:/etc/livekit.yaml:ro
+    ports:
+      - "127.0.0.1:7885:7880"
+      - "7891:7881/tcp"
+      - "7892:7882/udp"
+    networks: [internal]
+    restart: unless-stopped
+
+  coturn:
+    image: coturn/coturn:4.17.0-alpine
+    container_name: lapis-cloud-elb-coturn
+    command: ["-c", "/etc/coturn/turnserver.conf"]
+    volumes:
+      - ./turnserver.conf:/etc/coturn/turnserver.conf:ro
+    ports:
+      - "3479:3478/udp"
+      - "3479:3478/tcp"
+      - "51020-51039:51000-51019/udp"
+    restart: unless-stopped
+
+  redis:
+    image: redis:7.4-alpine
+    container_name: lapis-cloud-elb-redis
+    command: ["redis-server", "--save", "", "--appendonly", "no"]
+    networks: [internal]
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:6380:6379"
+
+  # NOT `network_mode: host` -- see this file's own header comment "egress deliberately does NOT
+  # use network_mode: host here" for why. Bridge-networked, same as every other service in this
+  # stack; reaches its siblings by compose-internal service name (see egress.yaml's own ws_url/
+  # redis.address, which say `livekit`/`redis`, not `127.0.0.1:...` like PdV's host-networked
+  # config does).
+  egress:
+    image: livekit/egress:v1.13.0
+    container_name: lapis-cloud-elb-egress
+    environment:
+      EGRESS_CONFIG_FILE: /etc/egress.yaml
+    volumes:
+      - ./egress.yaml:/etc/egress.yaml:ro
+      - lapis-elb-egress-output:/out
+      - /tmp
+    cap_add:
+      - SYS_ADMIN
+    shm_size: '1gb'
+    networks: [internal]
+    depends_on: [redis, livekit]
+    restart: unless-stopped
+
+volumes:
+  lapis-elb-postgres-data:
+  lapis-elb-document-storage:
+  lapis-elb-egress-output:

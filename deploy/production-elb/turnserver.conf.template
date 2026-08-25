@@ -1,0 +1,23 @@
+# Lapis Cloud -- ELB SECOND INSTANCE coturn config. This is a TEMPLATE, not the real file: the
+# placeholders below are substituted from deploy/production-elb/.env by render-secrets.sh (see
+# ../production/README.adoc "Video conferencing"). The rendered turnserver.conf is gitignored --
+# never commit it.
+#
+# Identical to ../production/turnserver.conf.template except `realm` -- container-INTERNAL ports
+# below (listening-port/min-port/max-port) are unchanged from PdV's copy on purpose: only the
+# HOST-side docker-compose port mapping differs between the two instances (3479 instead of 3478,
+# 51020-51039 instead of 51000-51019), since each coturn container has its own isolated network
+# namespace. See ../production-elb/docker-compose.yml's own header comment for the full port
+# scheme.
+listening-port=3478
+min-port=51000
+max-port=51019
+realm=elb.parteidervernunft.de
+use-auth-secret
+static-auth-secret=${LAPIS_TURN_SECRET}
+external-ip=${LAPIS_PUBLIC_IP}
+no-tls
+no-dtls
+fingerprint
+log-file=stdout
+no-cli

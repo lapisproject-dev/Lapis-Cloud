@@ -518,3 +518,42 @@ logo shows no mark at all next to it, rather than a mark that would misleadingly
 `https://cloud.lapisproject.dev`, regardless of `LAPIS_BRAND_TITLE`/`LAPIS_BRAND_LOGO_PATH` --
 `LAPIS_BRAND_*` rebrands the deployment's own presentation, it does not white-label away where the
 platform itself comes from.
+
+== A second, co-located instance on the same host (ELB pilot)
+
+`../production-elb/` is a full second copy of this directory -- its own Postgres, its own
+`lapis-server`/LiveKit/coturn/redis/egress containers, its own named volumes -- for the ELB pilot,
+running alongside this PdV instance on the same physical host (pdv2). Set it up exactly like this
+directory (`cp .env.example .env`, fill in real values, `./render-secrets.sh`,
+`docker compose up -d --build`), then add its own Caddy vhost blocks (see "Reverse proxy" above)
+for `elb.parteidervernunft.de` -> `127.0.0.1:8081` and `video-elb.parteidervernunft.de` ->
+`127.0.0.1:7885`.
+
+**Every host-visible port had to move** to avoid colliding with this instance's own -- see
+`../production-elb/docker-compose.yml`'s own header comment for the full table (`lapis-server`
+`8081`, Postgres `5433`, LiveKit signaling `7885`, LiveKit ICE `7891`/`7892`, coturn `3479` +
+relay range `51020-51039`, redis `6380`). Container-INTERNAL ports are unchanged from this
+directory's own config -- only the docker-compose HOST-side mapping differs, since each service
+has its own isolated network namespace.
+
+**One real limitation, not just a port-numbering exercise**: `egress` in `../production-elb/`
+does NOT use `network_mode: host`, unlike this directory's own `egress` service -- two containers
+cannot both bind the host's port 7980 (LiveKit egress's non-configurable embedded template-server
+port), and this instance already claims host networking. Consequence for ELB: Wave 1 (live calls)
+and Wave 2 "Aufzeichnung" (Track Egress, never launches Chrome) work identically to this instance;
+Wave 3 external streaming in `GRID`/`SPEAKER` layout (Chrome-based Room-Composite, joins the room
+as a real WebRTC participant) may hit the same hairpin-NAT failure this instance's own `egress`
+comment documents at length, since ELB's copy lacks the host-networking fix for it --
+`ConferenceStreamLayout.SINGLE_PARTICIPANT` (SDK-based, no Chrome) is unaffected either way. Only
+one host-networked `egress` can exist per physical host; a third co-located instance would need
+its own solution here (e.g. freeing port 7980 some other way), not a repeat of this same
+workaround.
+
+**The `deploy/production/branding/`/`deploy/production-elb/branding/` self-heal ACL timer (see
+"Video conferencing" above, "Shared lapis-egress-output volume") needs its own copy per instance**
+-- `lapis-egress-output` is a per-Compose-project named volume (`lapis-cloud_lapis-egress-output`
+vs. `lapis-cloud-elb_lapis-egress-output`), so the same POSIX ACL mask-capping bug will recur
+independently on ELB's own volume the first time its own `egress` creates a recording directory.
+Either add a second `systemctl enable --now` timer pointed at the second volume's mountpoint, or
+generalize the existing unit to loop over both -- this file does not prescribe which, only flags
+that skipping it silently leaves ELB's own recordings permanently `FAILED`.

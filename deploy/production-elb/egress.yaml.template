@@ -1,0 +1,29 @@
+# Lapis Cloud -- ELB SECOND INSTANCE Egress config. This is a TEMPLATE, not the real file: the
+# placeholders below are substituted from deploy/production-elb/.env by render-secrets.sh (see
+# ../production/README.adoc "Video conferencing"). The rendered egress.yaml is gitignored -- never
+# commit it.
+#
+# UNLIKE ../production/egress.yaml.template, this service does NOT run with `network_mode: host`
+# -- see ../production-elb/docker-compose.yml's own header comment for why (two containers cannot
+# both bind the host's port 7980, LiveKit egress's non-configurable embedded template-server port;
+# PdV's egress already claims host networking on this shared box). Bridge-networked instead, same
+# as every other service in this stack -- `ws_url`/`redis.address` below therefore use the
+# compose-internal SERVICE NAMES (`livekit`/`redis`), not `127.0.0.1:<port>` like PdV's copy does.
+# `api_key`/`api_secret` below MUST equal this instance's OWN rendered livekit.yaml `keys:` entry
+# byte-for-byte (render-secrets.sh guarantees this from the same .env).
+log_level: info
+api_key: ${LAPIS_LIVEKIT_API_KEY}
+api_secret: ${LAPIS_LIVEKIT_API_SECRET}
+ws_url: ws://livekit:7880
+insecure: true # plain ws:// over the compose-internal bridge network only, never reaches the public internet
+redis:
+  address: redis:6379
+
+# Consequence of the bridge-networked (non-host) setup above: Room-Composite egress in GRID/SPEAKER
+# layout (Chrome-based, joins the room as a real WebRTC participant to render the composite) may
+# hit the same hairpin-NAT failure ("Start signal not received") PdV originally had before its own
+# host-networking fix -- see ../production/docker-compose.yml's `egress:` comment for the full
+# diagnosis. ConferenceStreamLayout.SINGLE_PARTICIPANT (SDK-based, never launches Chrome) and Wave 2
+# "Aufzeichnung" Track Egress (also never launches Chrome) are both unaffected either way. If
+# GRID/SPEAKER is needed for ELB later, the fix would require freeing up host-network port 7980 --
+# not something this file alone can solve.
