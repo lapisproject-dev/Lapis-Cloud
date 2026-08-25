@@ -7,13 +7,22 @@
 # for the rationale behind each setting that carries over unchanged: no `--dev` flag/6-byte secret,
 # no static `turn_servers` block, embedded TURN disabled in favor of the sibling coturn service).
 # The load-bearing PRODUCTION difference is `rtc.node_ip` below.
+#
+# tcp_port/udp_port are 7891/7892 here, NOT 7881/7882 like ../production/'s own copy -- found live
+# 2026-08-25 ("could not establish pc connection", every ICE candidate LiveKit offered pointed at
+# PdV's own published ports): LiveKit bakes its OWN configured tcp_port/udp_port literally into
+# every ICE candidate it hands to the browser (`host 159.195.38.47:<tcp_port/udp_port>`) -- it has
+# no concept of Docker's host-side port remapping, unlike the plain HTTP signaling port above
+# (proxied by Caddy, the browser never sees the raw port number). The docker-compose host-side
+# mapping for THESE two ports must therefore be IDENTICAL to what's configured here, never
+# remapped -- see docker-compose.yml's own `livekit:` comment.
 port: 7880
 
 rtc:
-  tcp_port: 7881
+  tcp_port: 7891
   # Single-port UDP mux, same choice as local dev (see that file's header) -- simpler firewall
   # surface than a port range, and this is the LiveKit-recommended production default too.
-  udp_port: 7882
+  udp_port: 7892
   use_external_ip: false
   # PRODUCTION: the VPS's real public IP, not 127.0.0.1. Real browsers on the internet need this
   # advertised as the ICE host candidate -- without it, LiveKit would advertise its Docker-internal

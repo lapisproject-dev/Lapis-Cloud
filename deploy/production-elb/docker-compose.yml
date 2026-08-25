@@ -2,18 +2,27 @@
 # co-located with the PdV instance (../production/) on the same host (pdv2, 159.195.38.47). This
 # is a full, independent copy of ../production/docker-compose.yml -- own Postgres, own containers,
 # own named volumes (Compose namespaces those by `name:` below automatically) -- with every
-# HOST-visible port shifted so it can run alongside the PdV stack without collision. Container-
-# INTERNAL ports (what LiveKit/coturn listen on inside their own isolated network namespace) are
-# UNCHANGED from ../production/ -- only host-side publishes had to move.
+# HOST-visible port shifted so it can run alongside the PdV stack without collision.
+#
+# Container-INTERNAL ports are unchanged from ../production/ for every service EXCEPT LiveKit's
+# `rtc.tcp_port`/`udp_port` and coturn's relay port range -- those two are the load-bearing
+# exception, found live 2026-08-25 ("could not establish pc connection" on ELB, every ICE candidate
+# pointed at PdV's own ports). LiveKit and coturn each bake their OWN configured port number
+# literally into the WebRTC/TURN protocol payload they hand back to the browser (an ICE candidate,
+# or an allocated relay address) -- unlike the plain HTTP signaling port (Caddy-proxied, the port
+# number never reaches the browser), remapping ONLY the docker-compose host-side port for these two
+# is not enough: the container-internal config itself must also use the externally-published number,
+# or the browser gets told to connect to an address nothing is listening on externally. See
+# livekit.yaml.template's/turnserver.conf.template's own comments for the specifics.
 #
 # Port scheme vs. ../production/ (PdV):
 #   lapis-server        127.0.0.1:8080 -> 127.0.0.1:8081
 #   postgres (host-only) 127.0.0.1:5432 -> 127.0.0.1:5433
-#   livekit signaling    127.0.0.1:7880 -> 127.0.0.1:7885
-#   livekit ICE tcp      7881 (public)  -> 7891 (public)
-#   livekit ICE udp      7882 (public)  -> 7892 (public)
-#   coturn               3478 (public)  -> 3479 (public)
-#   coturn relay range   51000-51019    -> 51020-51039 (public)
+#   livekit signaling    127.0.0.1:7880 -> 127.0.0.1:7885 (Caddy-proxied, host-side remap only, fine)
+#   livekit ICE tcp      7881 (public)  -> 7891 (public, internal AND external -- see above)
+#   livekit ICE udp      7882 (public)  -> 7892 (public, internal AND external -- see above)
+#   coturn               3478 (public)  -> 3479 (public, host-side remap only, fine -- see turnserver.conf.template)
+#   coturn relay range   51000-51019    -> 51020-51039 (public, internal AND external -- see above)
 #   redis (host-only)    127.0.0.1:6379 -> 127.0.0.1:6380
 #
 # egress deliberately does NOT use `network_mode: host` here, unlike ../production/'s own egress
@@ -119,8 +128,10 @@ services:
       - ./livekit.yaml:/etc/livekit.yaml:ro
     ports:
       - "127.0.0.1:7885:7880"
-      - "7891:7881/tcp"
-      - "7892:7882/udp"
+      # No remap for these two -- must equal livekit.yaml.template's own rtc.tcp_port/udp_port, see
+      # this file's own header comment.
+      - "7891:7891/tcp"
+      - "7892:7892/udp"
     networks: [internal]
     restart: unless-stopped
 
@@ -131,9 +142,14 @@ services:
     volumes:
       - ./turnserver.conf:/etc/coturn/turnserver.conf:ro
     ports:
+      # listening-port itself is fine to remap (3479 host -> 3478 container) -- the client only
+      # ever needs to reach it once for the initial control channel, Docker's own NAT handles the
+      # return path transparently. The relay-port RANGE below is NOT fine to remap -- see this
+      # file's own header comment: coturn allocates a relay address from its OWN internal range and
+      # tells the client to connect there directly, so internal and external numbers must match.
       - "3479:3478/udp"
       - "3479:3478/tcp"
-      - "51020-51039:51000-51019/udp"
+      - "51020-51039:51020-51039/udp"
     restart: unless-stopped
 
   redis:

@@ -3,15 +3,18 @@
 # ../production/README.adoc "Video conferencing"). The rendered turnserver.conf is gitignored --
 # never commit it.
 #
-# Identical to ../production/turnserver.conf.template except `realm` -- container-INTERNAL ports
-# below (listening-port/min-port/max-port) are unchanged from PdV's copy on purpose: only the
-# HOST-side docker-compose port mapping differs between the two instances (3479 instead of 3478,
-# 51020-51039 instead of 51000-51019), since each coturn container has its own isolated network
-# namespace. See ../production-elb/docker-compose.yml's own header comment for the full port
-# scheme.
+# `realm` differs from ../production/'s copy, as does `min-port`/`max-port` -- found live
+# 2026-08-25 ("could not establish pc connection"): coturn allocates a TURN relay address from its
+# OWN configured min-port/max-port range and hands that address back to the browser literally, the
+# same "port number baked into the protocol payload" issue livekit.yaml.template's own comment
+# describes. A relay allocated from 51000-51019 (PdV's own externally-published range) would be
+# unreachable here, since ELB only publishes 51020-51039 externally -- so min-port/max-port below
+# must equal the externally-published range, not just docker-compose.yml's host-side mapping.
+# `listening-port` itself stays 3478 (safe to remap on the host side only, see
+# docker-compose.yml's own comment) -- only the relay range needed this treatment.
 listening-port=3478
-min-port=51000
-max-port=51019
+min-port=51020
+max-port=51039
 realm=elb.parteidervernunft.de
 use-auth-secret
 static-auth-secret=${LAPIS_TURN_SECRET}
