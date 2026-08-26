@@ -121,6 +121,16 @@ class SchemaDriftTest :
             }
         }
 
+        test("member.external_reference is nullable (V1.2.11 PdV-CSV-Import)") {
+            val entity = model.entities.single { it.name == "member" }
+            val real = transaction { introspectTable("member") }
+
+            withClue(clue = "column 'external_reference'") {
+                entity.attributeByName("external_reference")?.nullable shouldBe true
+                real.columns.getValue("external_reference").nullable shouldBe true
+            }
+        }
+
         test("account table shape matches the real migrated schema") {
             val entity = model.entities.single { it.name == "account" }
             val real = transaction { introspectTable("account") }
@@ -176,9 +186,10 @@ class SchemaDriftTest :
             status?.type shouldBe
                 ErmDataType.Enum(
                     name = "MemberStatus",
-                    // V0.11.0: German -> English rename + new FRIEND literal. Order must match the
-                    // kUML `literal()` declaration order in 00-foundation.kuml.kts exactly.
-                    values = listOf("APPLICATION", "ACTIVE", "GUEST", "WITHDRAWN", "REJECTED", "FRIEND"),
+                    // V0.11.0: German -> English rename + new FRIEND literal. V1.2.11: DONOR/
+                    // DECEASED appended (PdV-CSV-Import, see MemberStatus KDoc). Order must match
+                    // the kUML `literal()` declaration order in 00-foundation.kuml.kts exactly.
+                    values = listOf("APPLICATION", "ACTIVE", "GUEST", "WITHDRAWN", "REJECTED", "FRIEND", "DONOR", "DECEASED"),
                     externalFqName = "network.lapis.cloud.shared.domain.MemberStatus",
                 )
             role?.type shouldBe

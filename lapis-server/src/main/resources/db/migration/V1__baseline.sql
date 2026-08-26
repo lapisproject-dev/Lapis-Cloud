@@ -118,6 +118,11 @@ CREATE TABLE ledger_account (
     CHECK (reserve_type IN ('PROJEKTRUECKLAGE', 'FREIE_RUECKLAGE', 'WIEDERBESCHAFFUNGSRUECKLAGE', 'BETRIEBSMITTELRUECKLAGE'))
 );
 
+-- V1.2.11 (PdV-CSV-Import): `member.status`-CHECK erneut in place erweitert (DONOR/DECEASED, see
+-- network.lapis.cloud.shared.domain.MemberStatus KDoc) + neue Spalte `external_reference` (the
+-- source-CRM's own person number, set only for imported rows) -- `flyway repair` erneut nötig,
+-- NICHT durch die V9-Notiz abgedeckt. See V10__member_donor_deceased_and_external_reference.sql
+-- for the idempotent already-migrated-instance counterpart.
 CREATE TABLE member (
     id UUID NOT NULL PRIMARY KEY,
     display_name VARCHAR(200) NOT NULL,
@@ -144,7 +149,13 @@ CREATE TABLE member (
     -- in 23-registration.kuml.kts).
     friend_since DATE NULL,
     email_verified_at TIMESTAMP NULL,
-    CONSTRAINT chk_member_status CHECK (status IN ('APPLICATION', 'ACTIVE', 'GUEST', 'WITHDRAWN', 'REJECTED', 'FRIEND'))
+    -- V1.2.11 PdV-CSV-Import: the source-CRM's own person number. NULL for organically created
+    -- members -- no UNIQUE (a partial unique index scoped to non-NULL values is not expressible
+    -- under H2's MODE=PostgreSQL test dialect, same limitation V9__dunning.sql's
+    -- uq_dunning_notice_slot already documents); uniqueness is enforced procedurally by
+    -- MemberCsvImport's own idempotency check instead.
+    external_reference VARCHAR(50) NULL,
+    CONSTRAINT chk_member_status CHECK (status IN ('APPLICATION', 'ACTIVE', 'GUEST', 'WITHDRAWN', 'REJECTED', 'FRIEND', 'DONOR', 'DECEASED'))
 );
 
 CREATE TABLE account (
@@ -1205,6 +1216,8 @@ ALTER TABLE friend_email_verification_token ADD CONSTRAINT fk_friend_email_verif
 -- Indexes
 
 CREATE UNIQUE INDEX uq_account_member_id ON account (member_id);
+-- V1.2.11 PdV-CSV-Import: lookup index for MemberCsvImport's idempotency check.
+CREATE INDEX idx_member_external_reference ON member (external_reference);
 CREATE UNIQUE INDEX uq_contribution_member_tier_period ON contribution (member_id, membership_tier_id, period_start, period_end);
 CREATE INDEX idx_contribution_member ON contribution (member_id);
 CREATE INDEX idx_contribution_status ON contribution (status);

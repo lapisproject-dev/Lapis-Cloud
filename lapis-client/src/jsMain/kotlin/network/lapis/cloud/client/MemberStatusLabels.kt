@@ -25,6 +25,9 @@ fun memberStatusLabel(status: MemberStatus): String =
         MemberStatus.WITHDRAWN -> gettext("Ausgetreten")
         MemberStatus.REJECTED -> gettext("Abgelehnt")
         MemberStatus.FRIEND -> gettext("Freund")
+        // V1.2.11 PdV-CSV-Import -- see MemberStatus KDoc.
+        MemberStatus.DONOR -> gettext("Spender")
+        MemberStatus.DECEASED -> gettext("Verstorben")
     }
 
 fun memberStatusColor(status: MemberStatus): String =
@@ -35,6 +38,9 @@ fun memberStatusColor(status: MemberStatus): String =
         MemberStatus.WITHDRAWN -> "secondary"
         MemberStatus.REJECTED -> "danger"
         MemberStatus.FRIEND -> "info"
+        // V1.2.11 PdV-CSV-Import: "primary" was an unused Bootstrap hue before this wave.
+        MemberStatus.DONOR -> "primary"
+        MemberStatus.DECEASED -> "dark"
     }
 
 // ------------------------------------------------------------------------------------------------
@@ -106,6 +112,10 @@ fun memberStatusBadgeClass(status: MemberStatus): String =
         MemberStatus.WITHDRAWN -> "lapis-role-inactive"
         MemberStatus.REJECTED -> "lapis-role-inactive"
         MemberStatus.FRIEND -> "lapis-role-guest"
+        // V1.2.11 PdV-CSV-Import: DONOR is a non-member standing, like GUEST/FRIEND; DECEASED is
+        // terminal, like WITHDRAWN/REJECTED.
+        MemberStatus.DONOR -> "lapis-role-guest"
+        MemberStatus.DECEASED -> "lapis-role-inactive"
     }
 
 fun memberStatusIcon(status: MemberStatus): String =
@@ -116,6 +126,10 @@ fun memberStatusIcon(status: MemberStatus): String =
         MemberStatus.WITHDRAWN -> "fas fa-right-from-bracket"
         MemberStatus.REJECTED -> "fas fa-user-xmark"
         MemberStatus.FRIEND -> "fas fa-user-plus"
+        // V1.2.11 PdV-CSV-Import: a ribbon, not a cross -- religiously neutral, the mandatory text
+        // label carries the meaning (WCAG 1.4.1, see StatusBadge.kt KDoc).
+        MemberStatus.DONOR -> "fas fa-hand-holding-heart"
+        MemberStatus.DECEASED -> "fas fa-ribbon"
     }
 
 /** Convenience wrapper around [network.lapis.cloud.client.roleBadge] -- reuses [memberStatusLabel]

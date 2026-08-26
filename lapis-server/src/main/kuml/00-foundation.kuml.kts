@@ -36,6 +36,15 @@
 // `V3__member_status_english_and_friend.sql` for the real-data migration on an already-`V1`
 // baseline.
 //
+// V1.2.11 (PdV-CSV-Import, operator-run `MemberCsvImport` CLI): `MemberStatus` gains two source-
+// CRM statuses this codebase had no prior equivalent for, DONOR (financial supporter, not a
+// member) and DECEASED (terminal, login-blocked) -- see network.lapis.cloud.shared.domain
+// .MemberStatus KDoc for the full rationale and the deliberate distinction from the accounting
+// module's `external_donor` booking entity. `member` also gains `externalReference`, the source-
+// CRM's own person number, set only for imported rows (NULL for organically created members). See
+// Flyway `V10__member_donor_deceased_and_external_reference.sql` for the real-data migration on an
+// already-`V1` baseline.
+//
 // This is the versioned source-of-truth *model* for the schema shape (ADR-0016), verified
 // against both the real Flyway-migrated H2 schema and the hand-written Exposed Table objects
 // (network.lapis.cloud.server.db.tables.FoundationTables.kt) by SchemaDriftTest. Per ADR-0016's
@@ -78,6 +87,14 @@ classDiagram(name = "Foundation") {
         // regular APPLICATION route -- see `friendSince` below and IRegistrationService
         // .applyForMembership.
         literal(name = "FRIEND")
+        // V1.2.11 PdV-CSV-Import: two source-CRM statuses with no prior equivalent here. DONOR =
+        // Spender/Foerderer (financial supporter, NOT a member, no Beitragspflicht, in NO
+        // MemberStatusSets capability set). Bewusst NICHT identisch mit der external_donor-Entitaet
+        // aus 10-accounting.kuml.kts (§25 PartG Buchungs-Spenderidentitaet) -- hier ein
+        // MITGLIEDSCHAFTSSTATUS einer member-Zeile, dort eine Buchungsentitaet.
+        literal(name = "DONOR")
+        // DECEASED = verstorben. Terminal status, login-blocked (MemberStatusSets.LOGIN_BLOCKED).
+        literal(name = "DECEASED")
     }
 
     val accountRole = enumOf(name = "AccountRole") {
@@ -184,6 +201,16 @@ classDiagram(name = "Foundation") {
         attribute(name = "emailVerifiedAt", type = "LocalDateTime") {
             multiplicity = Multiplicity(0, 1)
             stereotype("Column") { "columnName" to "email_verified_at" }
+        }
+        // V1.2.11 PdV-CSV-Import: the source-CRM's own person number. Set only for imported rows,
+        // NULL for organically created members -- deliberately no `unique` tag, since a partial
+        // unique index (`WHERE external_reference IS NOT NULL`) is not expressible under H2's
+        // MODE=PostgreSQL test dialect (same limitation V9__dunning.sql's uq_dunning_notice_slot
+        // and SepaMandateTable already document). Uniqueness is instead enforced procedurally by
+        // MemberCsvImport's own idempotency check.
+        attribute(name = "externalReference", type = "String") {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") { "columnName" to "external_reference"; "sqlType" to "VARCHAR(50)" }
         }
     }
 

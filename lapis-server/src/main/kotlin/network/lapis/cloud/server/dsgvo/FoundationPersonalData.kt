@@ -62,6 +62,9 @@ object FoundationPersonalData : PersonalDataContributor {
             // alongside the other member fields above.
             put("friendSince", memberRow[MemberTable.friendSince]?.toString())
             put("emailVerifiedAt", memberRow[MemberTable.emailVerifiedAt]?.toString())
+            // V1.2.11 PdV-CSV-Import: the source-CRM person number is a personal reference and
+            // belongs in the Art. 15 DSGVO Auskunft alongside the other member fields above.
+            put("externalReference", memberRow[MemberTable.externalReference])
 
             val accountRow = AccountTable.selectAll().where { AccountTable.memberId eq memberId }.singleOrNull()
             if (accountRow != null) {
@@ -102,6 +105,10 @@ object FoundationPersonalData : PersonalDataContributor {
                 // V0.11.0 FRIEND self-registration -- PII, nulled out the same way.
                 it[friendSince] = null
                 it[emailVerifiedAt] = null
+                // V1.2.11 PdV-CSV-Import: the source-CRM person number is a direct re-identification
+                // key back into the source CRM -- nulled out on erasure like every other PII field
+                // above, so an erased member cannot be re-linked to the CRM export after the fact.
+                it[externalReference] = null
             }
         val accountsDeleted = AccountTable.deleteWhere { AccountTable.memberId eq memberId }
         return listOf(

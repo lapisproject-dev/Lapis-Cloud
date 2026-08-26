@@ -8,6 +8,62 @@ All notable changes to this project are documented here. Format follows
 
 ### Added
 
+**Einmaliger CSV-Mitglieder-Import, Welle V1.2.11 — operator-ausgeführtes CLI für den PdV-CRM-Export**
+
+**Nur PdV.** Dieses Werkzeug ist ausschließlich für die PdV-Produktionsinstanz bestimmt. Die
+ELB-Instanz hat keine vergleichbare Mitgliederliste und wird nie importiert — die
+Schema-Erweiterung (DONOR/DECEASED, `external_reference`) trifft aber **beide** Instanzen, weil
+sie über `V1__baseline.sql`/`V10` läuft.
+
+- **`MemberCsvImport`** (`./gradlew :lapis-server:importMembersFromCsv`), 1:1 nach dem Muster von
+  `AdminBootstrap`/`FlywayRepair` — alle Eingaben aus der Umgebung, nie aus Gradle-Properties, kein
+  netzwerk-erreichbarer Endpunkt, gleiche Vertrauensgrenze wie ein manuelles `psql` gegen die
+  Produktions-DB.
+- **Fünf Filter-/Mapping-Regeln in verbindlicher Reihenfolge** (Status → E-Mail-Pflicht →
+  Dateiweite E-Mail-Deduplizierung → Eintrittsdatum-Pflicht → defensive Feldprüfungen), die die
+  581 Datensätze der Quelle auf 408 importierbare reduzieren: 210 ACTIVE, 102 WITHDRAWN, 75 DONOR,
+  21 DECEASED.
+- **Zwei neue `MemberStatus`-Literale**: `DONOR` (Spender/Förderer, kein Mitglied, keine
+  Beitragspflicht) und `DECEASED` (verstorben, terminal). Beide stehen in **keinem**
+  `MemberStatusSets`-Capability-Set außer `LOGIN_BLOCKED` — bewusst nicht identisch mit der
+  `external_donor`-Buchungsentität aus dem Buchhaltungsmodul (§25 PartG), das ist ein
+  Mitgliedschaftsstatus einer `member`-Zeile, keine Buchungsentität.
+- **Trockenlauf als Default** — ohne `LAPIS_MEMBER_IMPORT_COMMIT=true` parst/filtert/berichtet das
+  Werkzeug und rollt am Ende zurück, ohne etwas zu schreiben. Die zentrale Sicherung dieser Welle:
+  581 reale Personendatensätze gegen eine Produktions-DB, ein einziger Lauf, kein Undo.
+- **Zwei unbedingte Idempotenz-Prüfungen** (nicht eine als Fallback der anderen) —
+  `external_reference` UND `email` — verhindern sowohl doppelte Importe eines bereits importierten
+  Datensatzes als auch einen `UNIQUE`-Konflikt, falls das eigene Admin-Konto mit derselben E-Mail
+  auch im CRM-Export steht.
+- **PII-Bericht in eine lokale Datei** (`0600` wo POSIX-Rechte verfügbar sind, sonst
+  Plattform-Default) — vollständiges Protokoll jedes Datensatzes (importiert/übersprungen +
+  Grund), niemals überschrieben. Auf `stdout`/im Log ausschließlich Aggregate — keine Namen,
+  E-Mails oder Personennummern, auch nicht in Fehlermeldungen.
+- **Sicherheitsfix im Zuge dieser Welle**: `IMemberService.listMembers()` war bislang bewusst
+  unauthentifiziert (historischer Bootstrap für einen längst durch echte Session-Auth (V0.7.1/
+  V0.7.3) ersetzten `X-Member-Id`-Picker) — nach diesem Import wären das 210 echte PdV-Mitglieder,
+  ohne Login abrufbar (Art. 9 Abs. 1 DSGVO, Parteizugehörigkeit als besondere Kategorie
+  personenbezogener Daten). `listMembers()` verlangt jetzt wie jede andere Methode dieses
+  Interfaces einen authentifizierten Aufrufer — alle bestehenden Aufrufer liegen bereits hinter
+  dem `requireAuth`-Tier der Client-Navigation, kein funktionaler Verlust.
+- **Known gaps** (bewusst): keine `account`-Zeilen/Logins für importierte Mitglieder (bewusste
+  Trennung `member` ≠ `account`, spätere eigene Welle); `Kündigungsdatum`/`Austrittsdatum` gehen
+  ersatzlos verloren (kein Schemafeld dafür); `membership_tier_id` bleibt `NULL` — für die 210
+  ACTIVE-Mitglieder entstehen dadurch **keine** Beiträge und greift **kein** Mahnwesen, bis ein
+  Tarif von Hand zugeordnet wird; `IMemberService.updateMemberAddress`/
+  `updateMemberBeneficialOwnerData` scheitern für kontenlose Mitglieder an ihrem
+  `MemberTable innerJoin AccountTable`-`.single()` (500 statt sauberem 404) — bekannte, nicht in
+  dieser Welle behobene Kante.
+
+**Operator-Hinweis**: `V10__member_donor_deceased_and_external_reference.sql` ändert
+`V1__baseline.sql` erneut in place (`member.status`-CHECK-Erweiterung um `DONOR`/`DECEASED`, neue
+Spalte `member.external_reference`) — vor dem nächsten Deploy auf **pdv2 UND der ELB-Instanz**
+`flyway repair` ausführen (`./gradlew :lapis-server:flywayRepair`). Diese Notiz ist **nicht** durch
+die V9-Notiz abgedeckt. Reihenfolge zwingend: `flyway repair` → Deploy der neuen Serverversion →
+erst danach `importMembersFromCsv` (Trockenlauf, dann Echtlauf) — das CLI migriert über
+`DatabaseConfig.connect()` selbst, und ein Import vor dem Deploy würde `DONOR`/`DECEASED`-Zeilen
+schreiben, die der noch laufende alte Serverprozess beim Lesen nicht deserialisieren kann.
+
 **Mobil-optimierte Steuerleiste für die Call-Ansicht, Welle V1.2.10 — icon-only-Leiste mit Auto-Hide, "Mehr"-Offenlegung, Bottom-Sheet-Schienen unter 768px**
 
 Die Call-Ansicht war bisher auf schmalen Viewports faktisch unbenutzbar: eine feste

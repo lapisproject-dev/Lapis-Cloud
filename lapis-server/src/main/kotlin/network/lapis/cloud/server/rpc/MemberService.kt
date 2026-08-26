@@ -23,18 +23,20 @@ import kotlin.uuid.Uuid
 class MemberService(
     private val call: ApplicationCall,
 ) : IMemberService {
-    // Deliberately unauthenticated (bootstrap for the "current member" picker before an
-    // X-Member-Id is chosen — see IMemberService KDoc). Only id + displayName are selected,
-    // so email and role (PII / authorization-relevant) never leave the server for this call.
+    // V1.2.11 (PdV-CSV-Import, security fix): now requires an authenticated caller -- see
+    // IMemberService.listMembers KDoc for the full rationale. Only id + displayName are selected,
+    // so email and role (PII / authorization-relevant) never leave the server for this call
+    // regardless.
     //
     // V0.7.2: tightened to ACTIVE only -- was previously unfiltered (every member regardless of
     // status). Once self-registration (IRegistrationService.registerApplication) starts producing
     // real APPLICATION/REJECTED/WITHDRAWN rows, an unfiltered picker would list a not-yet-approved
-    // applicant's, a rejected applicant's, or a departed former member's display name to an
-    // UNAUTHENTICATED caller -- actively wrong for a login-picker, and for a political party, a
-    // real exposure (listing who applied/was rejected/left to anyone, no login required).
-    override suspend fun listMembers(): List<MemberSummaryDto> =
-        transaction {
+    // applicant's, a rejected applicant's, or a departed former member's display name -- actively
+    // wrong for a member picker, and for a political party, a real exposure (listing who applied/
+    // was rejected/left).
+    override suspend fun listMembers(): List<MemberSummaryDto> {
+        resolveCurrentMember(call)
+        return transaction {
             MemberTable
                 .select(MemberTable.id, MemberTable.displayName)
                 .where { MemberTable.status eq MemberStatus.ACTIVE }
@@ -45,6 +47,7 @@ class MemberService(
                     )
                 }
         }
+    }
 
     override suspend fun getCurrentMember(): MemberDto {
         val current = resolveCurrentMember(call)

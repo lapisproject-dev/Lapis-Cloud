@@ -167,7 +167,8 @@ fun renderLtrLedgerScreen(container: SimplePanel) {
 
     // Members list backs every member-picker on this screen (self-service recipient picker AND,
     // if `canTreasury`, the treasury member-lookup/mint/arbitration pickers) -- fetched once here,
-    // `IMemberService.listMembers()` is unauthenticated-safe/ACTIVE-only per its own KDoc.
+    // `IMemberService.listMembers()` is ACTIVE-only and, since V1.2.11, requires an authenticated
+    // caller, which this screen already is (see its own KDoc).
     //
     // Welle V1.1.4: das Sende-Formular wird fuer einen NON_MEMBER-Aufrufer (FRIEND) komplett
     // ausgeblendet statt scheitern zu lassen -- `transferLtr`'s Senderseite bleibt ACTIVE-only, ein

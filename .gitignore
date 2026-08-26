@@ -145,4 +145,10 @@ deploy/production-elb/egress.yaml
 deploy/production-elb/branding/*
 !deploy/production-elb/branding/.gitkeep
 
+# V1.2.11 PdV-CSV-Mitglieder-Import -- die CRM-Exportdatei enthaelt echte personenbezogene
+# Daten von 581 realen Personen, ebenso der erzeugte Ausschluss-Bericht. Beides ist
+# deployment-lokal und darf NIEMALS Repo-Inhalt werden.
+import-data/
+*.import-report.csv
+
 .DS_Store

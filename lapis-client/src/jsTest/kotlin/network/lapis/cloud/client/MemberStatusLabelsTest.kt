@@ -49,4 +49,22 @@ class MemberStatusLabelsTest {
     fun memberStatusColor_activeIsSuccess() {
         assertEquals("success", memberStatusColor(MemberStatus.ACTIVE))
     }
+
+    // V1.2.11 PdV-CSV-Import -- pin tests for the two new literals.
+
+    @Test
+    fun memberStatusLabel_donorIsSpender() {
+        assertEquals("Spender", memberStatusLabel(MemberStatus.DONOR))
+    }
+
+    @Test
+    fun memberStatusLabel_deceasedIsVerstorben() {
+        assertEquals("Verstorben", memberStatusLabel(MemberStatus.DECEASED))
+    }
+
+    /** DECEASED must never read as "success" -- it is a terminal, not an active, standing. */
+    @Test
+    fun memberStatusColor_deceasedIsNotSuccess() {
+        assertTrue(memberStatusColor(MemberStatus.DECEASED) != "success")
+    }
 }

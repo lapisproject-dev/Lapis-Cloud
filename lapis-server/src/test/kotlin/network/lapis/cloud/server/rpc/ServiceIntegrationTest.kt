@@ -453,7 +453,33 @@ class ServiceIntegrationTest :
             }
         }
 
-        test("members: listMembers works without X-Member-Id (picker bootstrap) and leaks no email/role") {
+        // V1.2.11 (PdV-CSV-Import, security fix): listMembers now requires authentication -- see
+        // IMemberService.listMembers KDoc for the full rationale. Split into two tests: the
+        // UnauthenticatedException path (was previously the whole point of this test) and the
+        // authenticated happy path (was previously implicit, since the call needed no header at all).
+        test("members: listMembers rejects a caller with no X-Member-Id / no session") {
+            testApplication {
+                application {
+                    install(StatusPages) {
+                        exception<UnauthenticatedException> { call, cause ->
+                            call.respondText(cause.message, status = HttpStatusCode.Unauthorized)
+                        }
+                    }
+                    routing {
+                        get("/test/list-members") {
+                            val service = MemberService(call)
+                            val members = service.listMembers()
+                            call.respondText(members.joinToString(",") { "${it.id}:${it.displayName}" })
+                        }
+                    }
+                }
+
+                val response = client.get("/test/list-members")
+                response.status shouldBe HttpStatusCode.Unauthorized
+            }
+        }
+
+        test("members: listMembers works for an authenticated caller and leaks no email/role") {
             testApplication {
                 application {
                     routing {
@@ -468,9 +494,7 @@ class ServiceIntegrationTest :
                     }
                 }
 
-                // No X-Member-Id header at all: must still succeed, since this is the
-                // unauthenticated bootstrap for choosing a member in the first place.
-                val response = client.get("/test/list-members")
+                val response = client.get("/test/list-members") { header("X-Member-Id", MEMBER_ID) }
                 response.status shouldBe HttpStatusCode.OK
 
                 val entries = response.bodyAsText().split(",")

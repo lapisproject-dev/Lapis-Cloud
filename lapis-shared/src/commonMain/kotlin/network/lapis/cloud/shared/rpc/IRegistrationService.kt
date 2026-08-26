@@ -27,11 +27,13 @@ import network.lapis.cloud.shared.domain.RegistrationInput
  * with no auto-approval fallback. See `RegistrationService` KDoc for the full reasoning.
  *
  * **[registerApplication] and [getMembershipAgreement] are deliberately reachable without
- * authentication** -- the same "must work before any session exists" shape `IMemberService.listMembers`
- * already establishes, not the "differently-shaped payload" reason login/logout live outside the
- * RPC layer entirely (see `IAuthService` KDoc) -- registration's payload is small and RPC-shaped,
- * so it stays a normal `@RpcService` method, just one that never calls `resolveCurrentMember`
- * first.
+ * authentication** -- they must work before any session exists (a prospective member has no
+ * account yet), not the "differently-shaped payload" reason login/logout live outside the RPC
+ * layer entirely (see `IAuthService` KDoc) -- registration's payload is small and RPC-shaped, so
+ * it stays a normal `@RpcService` method, just one that never calls `resolveCurrentMember` first.
+ * (Historically `IMemberService.listMembers` was cited alongside these two as sharing this shape;
+ * since V1.2.11 that method requires an authenticated caller -- see its own KDoc -- so it is no
+ * longer part of this comparison.)
  */
 @RpcService
 interface IRegistrationService {

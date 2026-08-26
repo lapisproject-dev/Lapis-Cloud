@@ -504,6 +504,25 @@ class SepaBatchPollerTest :
             row[SepaMandateTable.revokedBy] shouldBe null // system actor, not a human
         }
 
+        test(
+            "Security finding fix (2026-08-26, LOW/latent): Phase B's ACTIVE mandate is also auto-revoked " +
+                "when the member's status becomes DECEASED -- MemberStatusSets.MEMBERSHIP_ENDED must include " +
+                "the V1.2.11 terminal status, not just the pre-existing WITHDRAWN/REJECTED pair",
+        ) {
+            val treasurer = createMember(email = "poller-b1d-treasurer-${Uuid.random()}@example.org", role = AccountRole.TREASURER)
+            val member = createMember(email = "poller-b1d-member-${Uuid.random()}@example.org", status = MemberStatus.DECEASED)
+            // grantedAt recent enough to stay within the 36-month Phase A window -- otherwise Phase A
+            // would expire this mandate first and Phase B would never see it as ACTIVE anymore.
+            val mandateId = createMandate(memberId = member, createdBy = treasurer, grantedAt = LocalDateTime(2026, 1, 1, 9, 0))
+
+            val poller = SepaBatchPoller(sepaConfig = SepaConfig.load { null }, clock = { LocalDateTime(2026, 8, 19, 12, 0) })
+            runBlocking { poller.tick() }
+
+            val row = transaction { SepaMandateTable.selectAll().where { SepaMandateTable.id eq mandateId }.single() }
+            row[SepaMandateTable.status] shouldBe SepaMandateStatus.REVOKED
+            row[SepaMandateTable.revokedBy] shouldBe null // system actor, not a human
+        }
+
         test("Phase B: ACTIVE mandate untouched while the member stays ACTIVE") {
             val treasurer = createMember(email = "poller-b2-treasurer-${Uuid.random()}@example.org", role = AccountRole.TREASURER)
             val member = createMember(email = "poller-b2-member-${Uuid.random()}@example.org", status = MemberStatus.ACTIVE)

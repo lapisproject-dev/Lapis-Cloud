@@ -155,6 +155,20 @@ tasks.register<JavaExec>("flywayRepair") {
     classpath = sourceSets["main"].runtimeClasspath
 }
 
+// V1.2.11 "Einmaliger CSV-Mitglieder-Import" -- one-time, operator-run CLI for the PdV CRM CSV
+// import (PdV instance only, see MemberCsvImport KDoc). Reads ALL inputs from the environment,
+// never from Gradle properties -- same reasoning as bootstrapAdmin/flywayRepair above (keeps
+// values out of shell history / `ps` output). Default is a Trockenlauf (dry run); only
+// LAPIS_MEMBER_IMPORT_COMMIT=true actually writes.
+tasks.register<JavaExec>("importMembersFromCsv") {
+    group = "application"
+    description =
+        "One-time CLI: imports a CRM CSV export into the member table (PdV instance only -- see " +
+        "MemberCsvImport KDoc). Dry-run unless LAPIS_MEMBER_IMPORT_COMMIT=true."
+    mainClass.set("network.lapis.cloud.server.bootstrap.MemberCsvImportKt")
+    classpath = sourceSets["main"].runtimeClasspath
+}
+
 tasks.test {
     useJUnitPlatform()
     // V0.7.1 Authentifizierung -- the ONLY place that sets this JVM system property. Read once by

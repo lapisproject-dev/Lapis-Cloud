@@ -552,6 +552,96 @@ independent safeguards before a real letter can ever be issued (poller flag, DB 
 acknowledgment, an active level, and -- for postal dispatch -- the third flag above). See
 `network.lapis.cloud.server.payment.dunning.DunningConfig`/`DunningPoller` KDoc.
 
+== Einmaliger Mitglieder-CSV-Import (nur PdV)
+
+`network.lapis.cloud.server.bootstrap.MemberCsvImport` (`./gradlew :lapis-server:importMembersFromCsv`)
+is a one-time, operator-run CLI that bulk-imports the PdV's legacy CRM member export into `member`
+-- see its own KDoc for the full mechanism (parsing rules, idempotency, the PII report). **PdV
+only** -- the ELB instance has no comparable legacy membership list and is never imported, though
+the schema change this wave's migration makes (the `DONOR`/`DECEASED` `member.status` literals,
+the new `external_reference` column) still applies to both instances.
+
+The run order below is **not negotiable** -- deviating from it can write rows the still-running
+old server process cannot read back (see step 2's own note).
+
+CAUTION: Every command below needs `LAPIS_DB_PASSWORD`. Putting a secret directly on a command line
+(`LAPIS_DB_PASSWORD='...' ./gradlew ...`) writes it in plain text into the operator's own
+`~/.bash_history`/`~/.zsh_history` on the production host -- exactly what `MemberCsvImport`'s own
+KDoc ("Environment variables") cites as the reason every input comes from `System.getenv` rather
+than a Gradle property in the first place ("out of shell history / `ps` output"). Instead, create a
+throwaway credentials file once and `source` it -- `source`d assignments never touch shell history,
+only the interactive command line does:
+
+[source,bash]
+----
+umask 077  # belt-and-suspenders; the explicit chmod below is what actually matters
+cat > /root/lapis-import.env <<'EOF'
+LAPIS_DB_URL=jdbc:postgresql://localhost:<tunnelled-port>/lapiscloud
+LAPIS_DB_USER=lapiscloud
+LAPIS_DB_PASSWORD=...
+EOF
+chmod 600 /root/lapis-import.env
+----
+
+Delete `/root/lapis-import.env` once the Echtlauf (step 4) has completed -- it is a standing copy of
+a production DB credential and, like the CSV/report files in step 5, has no retention concept of its
+own.
+
+. `flywayRepair` on **both** pdv2 and the ELB instance (this wave edits `V1__baseline.sql` in place
+  again -- see the CHANGELOG "Operator-Hinweis" for this wave):
++
+[source,bash]
+----
+set -a; . /root/lapis-import.env; set +a
+./gradlew :lapis-server:flywayRepair
+----
+
+. Deploy the new server version (`docker compose up -d --build lapis-server`). `DatabaseConfig
+  .connect()` migrates internally on server start -- this is what actually applies `V10`. Running
+  the import tool *before* this step would let it apply `V10` and write `DONOR`/`DECEASED` rows
+  while the OLD server process is still running against the same database; that process's
+  `MemberStatus` enum does not know those literals, and Exposed's `enumerationByName` throws on
+  read. Deploy first, always.
+
+. Trockenlauf (writes nothing -- no `LAPIS_MEMBER_IMPORT_COMMIT`):
++
+[source,bash]
+----
+set -a; . /root/lapis-import.env; set +a
+LAPIS_MEMBER_IMPORT_CSV_PATH=/srv/import-data/pdv-crm-export.csv \
+LAPIS_MEMBER_IMPORT_REPORT_PATH=/srv/import-data/dry-run.import-report.csv \
+  ./gradlew :lapis-server:importMembersFromCsv
+----
++
+**Abnahmekriterium**: the printed aggregates must match the expected counts exactly (581 total
+records, 408 importable -- 210 ACTIVE / 102 WITHDRAWN / 75 DONOR / 21 DECEASED -- 3
+STATUS_NOT_IMPORTABLE, 162 MISSING_EMAIL, 2 DUPLICATE_EMAIL_IN_FILE, 6 MISSING_JOINED_AT) and every
+defensive skip reason (UNKNOWN_STATUS, UNPARSEABLE_JOINED_AT, UNPARSEABLE_DATE_OF_BIRTH,
+DISPLAY_NAME_BLANK, FIELD_TOO_LONG) must be zero. Any deviation: stop, find the root cause -- do
+not proceed on an "it's close enough" basis.
+
+. Echtlauf, with `LAPIS_MEMBER_IMPORT_COMMIT=true` and a DIFFERENT report path than the dry run:
++
+[source,bash]
+----
+set -a; . /root/lapis-import.env; set +a
+LAPIS_MEMBER_IMPORT_CSV_PATH=/srv/import-data/pdv-crm-export.csv \
+LAPIS_MEMBER_IMPORT_REPORT_PATH=/srv/import-data/commit.import-report.csv \
+LAPIS_MEMBER_IMPORT_COMMIT=true \
+  ./gradlew :lapis-server:importMembersFromCsv
+----
+
+. Retrieve the report, store it somewhere safe (it is the sole audit trail of a one-time,
+  non-repeatable operation), then delete the CSV and BOTH reports from the server -- they are PII
+  holdings with no retention concept of their own (`deploy/production/import-data/` and
+  `*.import-report.csv` are `.gitignore`d for exactly this reason -- never commit them). Also
+  delete `/root/lapis-import.env` now -- see its own note in the CAUTION block above.
+
+**Known gaps** (bewusst, siehe CHANGELOG-Eintrag dieser Welle): keine `account`-Zeilen/Logins für
+importierte Mitglieder; `Kündigungsdatum`/`Austrittsdatum` gehen ersatzlos verloren;
+`membership_tier_id` bleibt `NULL` -- für die importierten ACTIVE-Mitglieder entstehen dadurch
+**keine** Beiträge und greift **kein** Mahnwesen, bis ein Tarif von Hand zugeordnet wird.
+
 == A second, co-located instance on the same host (ELB pilot)
 
 `../production-elb/` is a full second copy of this directory -- its own Postgres, its own

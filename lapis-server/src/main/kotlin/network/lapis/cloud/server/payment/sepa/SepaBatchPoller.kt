@@ -23,7 +23,7 @@ import network.lapis.cloud.server.rpc.ORGANIZATION_SETTINGS_ID
 import network.lapis.cloud.server.rpc.resetGeneratedBatchesForUnusableMandate
 import network.lapis.cloud.shared.domain.AuditAction
 import network.lapis.cloud.shared.domain.AuditEntityType
-import network.lapis.cloud.shared.domain.MemberStatus
+import network.lapis.cloud.shared.domain.MemberStatusSets
 import network.lapis.cloud.shared.domain.SepaDebitBatchStatus
 import network.lapis.cloud.shared.domain.SepaDebitItemStatus
 import network.lapis.cloud.shared.domain.SepaMandateStatus
@@ -191,6 +191,17 @@ class SepaBatchPoller(
      * `actorMemberId = null, actorRole = null` -- SAME system-actor convention this phase already
      * uses for its own mandate-level [AuditLogRecorder.record] call just below: this poller runs in
      * a background coroutine with no authenticated human caller at all.
+     *
+     * Security finding fix (2026-08-26, LOW/latent, feature/v1.2.11-member-csv-import): the
+     * WITHDRAWN/REJECTED literal pair below used to be hardcoded here, so V1.2.11's new DECEASED
+     * terminal status silently fell through this defense-in-depth revocation -- a member set to
+     * DECEASED (only reachable via a direct `psql` status change today, see `MemberStatus` KDoc)
+     * kept its ACTIVE mandate and any already-GENERATED pain.008 file untouched. Not exploitable
+     * via the normal debit-generation path, which is a positive
+     * [MemberStatusSets.ORGANIZATION_MEMBER] allowlist that DECEASED was never in (see
+     * `SepaService`'s contribution-eligibility check) -- this is purely the belt-and-suspenders
+     * layer. Now reads [MemberStatusSets.MEMBERSHIP_ENDED] instead, so a future terminal status
+     * gets this revocation for free too.
      */
     private fun runPhaseB(now: LocalDateTime) {
         val candidates =
@@ -200,7 +211,7 @@ class SepaBatchPoller(
                     .selectAll()
                     .where {
                         (SepaMandateTable.status eq SepaMandateStatus.ACTIVE) and
-                            (MemberTable.status inList listOf(MemberStatus.WITHDRAWN, MemberStatus.REJECTED))
+                            (MemberTable.status inList MemberStatusSets.MEMBERSHIP_ENDED)
                     }.map { it[SepaMandateTable.id] }
             }
         for (mandateId in candidates) {

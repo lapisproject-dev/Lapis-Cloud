@@ -55,6 +55,7 @@ import org.jetbrains.exposed.v1.jdbc.deleteWhere
 import org.jetbrains.exposed.v1.jdbc.insert
 import org.jetbrains.exposed.v1.jdbc.selectAll
 import org.jetbrains.exposed.v1.jdbc.transactions.transaction
+import org.jetbrains.exposed.v1.jdbc.update
 import java.math.BigDecimal
 import kotlin.uuid.Uuid
 
@@ -236,6 +237,14 @@ class DsgvoServiceTest :
                 val subject = createDsgvoTestMember("dsgvo-export-subject@example.org")
                 val subjectHeader = subject.toString()
 
+                // V1.2.11 PdV-CSV-Import: externalReference, checked to survive export verbatim,
+                // then to be nulled by erasure -- see FoundationPersonalData.export/erase.
+                transaction {
+                    MemberTable.update({ MemberTable.id eq subject }) {
+                        it[externalReference] = "P-000123"
+                    }
+                }
+
                 // Contribution: TREASURER generates + marks paid with a note (later checked to
                 // survive export verbatim, then to be scrubbed by erasure -- see the erasure test).
                 // Uses the dedicated dsgvoTestTierId, not DevSeedData.standardTierId -- see class KDoc.
@@ -320,6 +329,9 @@ class DsgvoServiceTest :
                 bundleText shouldContain "Musterstrasse-1"
                 bundleText shouldContain "38100"
                 bundleText shouldContain "Braunschweig"
+                // V1.2.11 PdV-CSV-Import: externalReference, exported alongside the other member
+                // fields above.
+                bundleText shouldContain "P-000123"
                 // V0.4.1 donor attribution: the entry is present in the subject's own export and
                 // is correctly attributed via the "donorMemberId" role (not "createdBy", which
                 // belongs to TREASURER here) -- see AccountingPersonalData.export.
@@ -440,6 +452,13 @@ class DsgvoServiceTest :
                 val subject = createDsgvoTestMember("dsgvo-erasure-subject@example.org")
                 val subjectHeader = subject.toString()
 
+                // V1.2.11 PdV-CSV-Import: set before erasure so we can prove ANONYMIZE nulls it too.
+                transaction {
+                    MemberTable.update({ MemberTable.id eq subject }) {
+                        it[externalReference] = "P-000456"
+                    }
+                }
+
                 client.post("/test/generate-contributions") { header("X-Member-Id", TREASURER_ID) }
                 val listId = client.post("/test/create-list") { header("X-Member-Id", subjectHeader) }.bodyAsText()
                 client.post("/test/subscribe/$listId") { header("X-Member-Id", subjectHeader) }
@@ -491,6 +510,9 @@ class DsgvoServiceTest :
                     memberRow[MemberTable.postalCode] shouldBe null
                     memberRow[MemberTable.city] shouldBe null
                     memberRow[MemberTable.country] shouldBe null
+                    // V1.2.11 PdV-CSV-Import: externalReference, nulled alongside the other PII
+                    // fields, see FoundationPersonalData.erase.
+                    memberRow[MemberTable.externalReference] shouldBe null
 
                     // V0.4.1 donor attribution: the JournalEntry row survives verbatim -- neither
                     // the row nor its donorMemberId FK is touched by erasure, see

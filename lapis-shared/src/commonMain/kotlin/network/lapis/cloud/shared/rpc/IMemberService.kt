@@ -14,11 +14,21 @@ import network.lapis.cloud.shared.domain.MemberSummaryDto
 @RpcService
 interface IMemberService {
     /**
-     * Deliberately callable without authentication (it's the bootstrap for the "current
-     * member" picker used *before* an `X-Member-Id` is chosen) — but that means it must never
-     * return PII or authorization-relevant fields. Returns only id + displayName; use
-     * [getCurrentMember] (which does require an authenticated caller) for the full [MemberDto]
-     * including email and role.
+     * V1.2.11 (PdV-CSV-Import, security fix): now requires an authenticated caller, same as every
+     * other method on this interface. Historically this was deliberately callable WITHOUT
+     * authentication — it was the bootstrap for a legacy "current member" picker used *before* an
+     * `X-Member-Id` was chosen, back when that trusted header was the only auth mechanism this
+     * codebase had (V0.1.2-V0.1.4). Real session-cookie auth (V0.7.1 Authentifizierung, V0.7.3
+     * Basis-Mehrseiten-UI) replaced that picker everywhere in the client — every screen that calls
+     * this method today (`MemberAdministrationScreen`, `CommitteesScreen`, `MeetingsScreen`,
+     * `SepaMandatesScreen`, `LtrLedgerScreen`, and others) is already behind the app's own
+     * `requireAuth`-tier routing, so gating this call server-side costs nothing functionally. What
+     * it fixes: before this wave, an unauthenticated caller could enumerate id + displayName of
+     * every ACTIVE member with a single unauthenticated HTTP request — harmless when the member
+     * count was a handful of demo rows, but a real exposure of a political party's membership list
+     * (Art. 9 Abs. 1 DSGVO special-category data) once V1.2.11's CSV import populates real member
+     * rows. Still returns only id + displayName (never email/role — PII/authorization-relevant
+     * fields); use [getCurrentMember] for the full [MemberDto].
      */
     suspend fun listMembers(): List<MemberSummaryDto>
 

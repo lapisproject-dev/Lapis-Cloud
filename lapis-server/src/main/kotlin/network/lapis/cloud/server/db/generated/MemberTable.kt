@@ -41,6 +41,10 @@ public object MemberTable : Table("member") {
     public val friendSince: Column<LocalDate?> = date("friend_since").nullable()
     public val emailVerifiedAt: Column<LocalDateTime?> = datetime("email_verified_at").nullable()
 
+    // V1.2.11 PdV-CSV-Import -- the source-CRM's own person number. NULL for organically created
+    // members; no uniqueIndex, see 00-foundation.kuml.kts.
+    public val externalReference: Column<String?> = varchar("external_reference", 50).nullable()
+
     override val primaryKey: PrimaryKey = PrimaryKey(id)
 
     // Note: 1 check constraint(s) declared on this entity are not

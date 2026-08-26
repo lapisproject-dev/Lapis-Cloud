@@ -28,9 +28,29 @@ import kotlinx.serialization.Serializable
  * conferencing ONLY (see [MemberStatusSets.CONFERENCE_ELIGIBLE]) -- no Beitragspflicht, no
  * governance/accounting/LTR rights, no membership document access. Upgradeable to [APPLICATION]
  * via `IRegistrationService.applyForMembership`; see [MemberDto.friendSince].
+ *
+ * V1.2.11 (PdV-CSV-Import): [DONOR] and [DECEASED] are two source-CRM statuses this codebase had
+ * no prior equivalent for, added to admit a one-time bulk import of the PdV's legacy membership
+ * database (`MemberCsvImport`) without inventing a status this codebase's own admission workflow
+ * would ever produce. Both are appended at the END of the literal list (not inserted alphabetically
+ * or semantically) -- this codebase's convention for extending an already-CHECK-constrained,
+ * already-serialized enum without disturbing any existing ordinal-sensitive code (see V9's own note
+ * for `AuditEntityType`). Neither is in ANY [MemberStatusSets] capability set except
+ * [MemberStatusSets.LOGIN_BLOCKED] -- see that set's own KDoc.
+ *
+ * [DONOR] = Spender/Förderer: a financial supporter, NOT a member, no Beitragspflicht. Deliberately
+ * NOT the same concept as the accounting module's `external_donor` entity (§25 PartG booking-side
+ * donor identity, see `10-accounting.kuml.kts`) -- this is a MEMBERSHIP STATUS on a `member` row
+ * (imported from the CRM export as a bulk contact list), that is a booking entity tied to actual
+ * ledger postings. The two are never linked and must not be confused.
+ *
+ * [DECEASED] = verstorben: a terminal status, login-blocked, imported as-is from the source CRM's
+ * own "verstorben" literal. There is no transition path INTO this status from this codebase's own
+ * admission/exit workflow (`IRegistrationService`) -- it exists purely to admit already-deceased
+ * historical CRM rows without silently dropping them or misrepresenting them as [WITHDRAWN].
  */
 @Serializable
-enum class MemberStatus { APPLICATION, ACTIVE, GUEST, WITHDRAWN, REJECTED, FRIEND }
+enum class MemberStatus { APPLICATION, ACTIVE, GUEST, WITHDRAWN, REJECTED, FRIEND, DONOR, DECEASED }
 
 @Serializable
 enum class AccountRole { MEMBER, BOARD, TREASURER, ADMIN }
@@ -118,8 +138,39 @@ object MemberStatusSets {
      */
     val POLITICIAN_RATER: Set<MemberStatus> = setOf(MemberStatus.ACTIVE, MemberStatus.GUEST)
 
-    /** May not log in at all (`AuthRoutes` gate). */
-    val LOGIN_BLOCKED: Set<MemberStatus> = setOf(MemberStatus.WITHDRAWN, MemberStatus.REJECTED)
+    /**
+     * May not log in at all (`AuthRoutes` gate).
+     *
+     * V1.2.11 (PdV-CSV-Import) added [MemberStatus.DECEASED] and [MemberStatus.DONOR] here:
+     * [MemberStatus.DECEASED] is terminal by definition -- a deceased person can never authenticate.
+     * [MemberStatus.DONOR] is blocked as a deliberate default, not a technical necessity: the import
+     * tool never creates an `account` row for a DONOR (see `MemberCsvImport` KDoc), so login is
+     * already structurally impossible today -- but SHOULD a later donor-self-service portal ever
+     * grant one an account, the block here means that capability must be switched on deliberately by
+     * widening this set, not discovered as an accidental side effect of an account merely existing.
+     */
+    val LOGIN_BLOCKED: Set<MemberStatus> =
+        setOf(MemberStatus.WITHDRAWN, MemberStatus.REJECTED, MemberStatus.DECEASED, MemberStatus.DONOR)
+
+    /**
+     * A membership that has definitively ended -- self-initiated exit ([MemberStatus.WITHDRAWN]),
+     * board-rejected application ([MemberStatus.REJECTED]), or death ([MemberStatus.DECEASED]).
+     * Deliberately EXCLUDES [MemberStatus.DONOR]: a donor was never an [ORGANIZATION_MEMBER] in the
+     * first place (see [SepaService]'s own contribution-eligibility check, which already gates on
+     * [ORGANIZATION_MEMBER] alone), so there is nothing membership-shaped to have "ended" for one.
+     *
+     * The one current consumer is `SepaBatchPoller.runPhaseB`'s defense-in-depth mandate revocation:
+     * the actual debit-generation path is a positive allowlist ([ORGANIZATION_MEMBER]), so this set
+     * is not what stops a DECEASED member from being charged -- it is what stops an ACTIVE SEPA
+     * mandate and any already-GENERATED pain.008 file from being left authorizing a debit for a
+     * membership that will never be charged anyway (see that function's own KDoc "Security Round 2"
+     * and CLAUDE.md's V1.2.11 finding on the pre-[DECEASED] version of this list). Added here, in
+     * [MemberStatusSets], instead of left as a poller-local literal, so a FUTURE terminal status
+     * gets this defense-in-depth revocation for free instead of requiring every hardcoded call site
+     * to be found and re-widened by hand.
+     */
+    val MEMBERSHIP_ENDED: Set<MemberStatus> =
+        setOf(MemberStatus.WITHDRAWN, MemberStatus.REJECTED, MemberStatus.DECEASED)
 }
 
 /**
@@ -173,10 +224,11 @@ data class MemberDto(
 )
 
 /**
- * Reduced projection of [MemberDto] for the unauthenticated "current member" picker
- * (see [network.lapis.cloud.shared.rpc.IMemberService.listMembers]). Deliberately excludes
- * [MemberDto.email] and [MemberDto.role] — those are PII / authorization-relevant fields that
- * must not be readable by a caller who hasn't authenticated yet.
+ * Reduced projection of [MemberDto] for member-picker UI (committee/meeting/ledger/etc. member
+ * selectors, see [network.lapis.cloud.shared.rpc.IMemberService.listMembers]). Requires an
+ * authenticated caller since V1.2.11 (PdV-CSV-Import, see that method's own KDoc for why), but
+ * still deliberately excludes [MemberDto.email] and [MemberDto.role] — those remain PII/
+ * authorization-relevant fields no picker-shaped call needs to expose, authenticated or not.
  */
 @Serializable
 data class MemberSummaryDto(
