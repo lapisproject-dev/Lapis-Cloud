@@ -1,6 +1,7 @@
 package network.lapis.cloud.client
 
 import kotlinx.browser.document
+import kotlinx.browser.window
 import org.w3c.dom.Element
 import kotlin.js.Promise
 
@@ -72,4 +73,13 @@ internal fun exitBrowserFullscreen(): Promise<dynamic> {
     val dynDoc = document.asDynamic()
     val doc = document.unsafeCast<FullscreenDocument>()
     return if (dynDoc.exitFullscreen != undefined) doc.exitFullscreen() else doc.webkitExitFullscreen()
+}
+
+/** V1.2.10 -- wörtliches Gegenstück zu [fullscreenApiAvailable]: true nur wenn `getDisplayMedia` am
+ * `navigator.mediaDevices` real existiert. iOS Safari und die meisten mobilen Browser haben das
+ * nicht -- der Bildschirmteilen-Button wird dort gar nicht erst gerendert statt in einen
+ * Fehler-Toast zu laufen (Forstall, Design-Review V1.2.10). */
+internal fun screenShareAvailable(): Boolean {
+    val md = window.navigator.asDynamic().mediaDevices ?: return false
+    return md.getDisplayMedia != undefined
 }

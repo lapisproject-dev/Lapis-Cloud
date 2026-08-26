@@ -335,11 +335,171 @@ body {
   box-shadow: inset 0 0 0 1px var(--lapis-accent);
 }
 
-@media (max-width: 600px) {
+/* V1.2.10 -- mobil-optimierte Steuerleiste (UI/UX-Design-Team-Review 2026-08-26): Breakpoint auf
+   768px angehoben (war 600px) und die Bottom-Sheet-Regel jetzt UNCONDITIONAL, statt nur die
+   `width` innerhalb der bereits bestehenden Vollbild-Overlay-Regel oben zu überschreiben. Ersetzt
+   die alte `@media (max-width: 600px)`-Regel vollständig (nicht daneben behalten) --
+   Spezifitätsfalle: `.lapis-conference-fullscreen .lapis-conference-roster` (0-2-0) schlägt einen
+   einklassigen `.lapis-conference-roster` (0-1-0) unabhängig von der Quellreihenfolge, deshalb führt
+   diese Regel die `.lapis-conference-fullscreen`-Variante explizit als zusätzlichen,
+   gleich-spezifischen Selektor mit -- sonst würde Vollbild+Telefon lautlos auf das alte
+   `position:absolute;width:clamp(...)`-Overlay oben zurückfallen. */
+@media (max-width: 767.98px) {
+  .lapis-conference-roster,
+  .lapis-conference-chat,
   .lapis-conference-fullscreen .lapis-conference-roster,
   .lapis-conference-fullscreen .lapis-conference-chat {
-    width: 100%;
+    position: fixed;
+    left: 0;
+    right: 0;
+    top: 0;
+    bottom: calc(56px + env(safe-area-inset-bottom, 0px));
+    width: auto;
+    z-index: 4;
+    margin: 0;
+    overflow-y: auto;
+    background-color: var(--lapis-surface);
+    border-top: 1px solid var(--lapis-border-strong);
+    border-left: none;
   }
+
+  .lapis-conference-roster.lapis-conference-rail-capped,
+  .lapis-conference-fullscreen .lapis-conference-roster.lapis-conference-rail-capped {
+    bottom: auto;
+    max-height: 40%;
+  }
+
+  .lapis-conference-chat.lapis-conference-rail-flexible,
+  .lapis-conference-fullscreen .lapis-conference-chat.lapis-conference-rail-flexible {
+    top: 40%;
+  }
+
+  /* Unter 768px trägt der Button selbst keinen Text mehr an (siehe .btn::after unten) -- vermeidet
+     einen unbenutzten leeren `::after`-Anker auf dem schmalen Icon-only-Button. */
+  .lapis-conference-controls-row .btn::after {
+    display: none;
+  }
+}
+
+/* V1.2.10 -- mobil-optimierte Steuerleiste, UI/UX-Design-Team-Review 2026-08-26. Fixe untere
+   Leiste in allen Modi und Breiten (Ive: eine Leiste, kein Sonderfall pro Breite). WARNUNG: niemals
+   transform/filter/perspective auf `.lapis-conference-call-panel` oder einen Vorfahren legen -- das
+   würde `position: fixed` hier lautlos zerstören (Atkinson, containing-block-Regel der CSS-Spec). */
+.lapis-conference-controls-row {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 5;
+  height: calc(56px + env(safe-area-inset-bottom, 0px));
+  padding: 0 8px calc(env(safe-area-inset-bottom, 0px)) 8px;
+  background-color: var(--lapis-surface);
+  border-top: 1px solid var(--lapis-border-strong);
+  justify-content: center;
+  transition: opacity 0.2s ease, transform 0.2s ease;
+}
+
+.lapis-conference-controls-row .btn {
+  min-width: 44px;
+  min-height: 44px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  position: relative;
+}
+
+/* Ab 768px: Beschriftung unter dem Icon, aus `data-label` (siehe ConferenceScreen.kt's
+   `setStaticA11yLabel`/`updateMicButtonState` etc.) statt `Button.text` -- die Steuerleiste selbst
+   bleibt icon-only, aber ein größerer Viewport hat Platz für die Wörter darunter (Norman). */
+.lapis-conference-controls-row .btn::after {
+  content: attr(data-label);
+  font-size: 11px;
+  line-height: 1;
+}
+
+.lapis-conference-controls-hidden {
+  opacity: 0;
+  transform: translateY(8px);
+  pointer-events: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lapis-conference-controls-row {
+    transition: none;
+  }
+}
+
+/* Reserviert Platz für die fixe untere Leiste, damit der letzte Inhalt im normalen Fluss
+   (z.B. das Ende der Roster-Liste im Normalmodus) nicht dahinter verschwindet. */
+.lapis-conference-call-panel {
+  padding-bottom: calc(56px + env(safe-area-inset-bottom, 0px) + 12px);
+}
+
+/* "Mehr"-Blatt: fixe untere Overlay-Karte über der Steuerleiste, rechtsbündig ab 768px, volle
+   Breite darunter (siehe die Breakpoint-Regel unten).
+   Review fix (V1.2.10) -- `right: 8px` used to anchor this sheet to the raw VIEWPORT edge, while
+   `.lapis-conference-controls-row` (see below) is `left:0;right:0;justify-content:center` and thus
+   centers `moreToggleButton` on the full viewport, not on this 960px column -- on any desktop
+   window wider than ~1000-1100px the sheet popped open far to the right of the button that opened
+   it. `renderConferenceScreen`'s own `root` column (ConferenceScreen.kt) is `max-width:960px` with
+   `margin: 0 auto`, i.e. its right edge sits `(100vw - 960px) / 2` in from the viewport's right edge
+   once the viewport exceeds 960px, and flush with the edge (0) below that. The formula below tracks
+   that SAME right edge (plus the original 8px gutter) instead of the raw viewport edge, so the
+   sheet's anchor point grows with the window exactly the way the button cluster's own right portion
+   does -- closing the gap on wide screens without needing the button's actual DOM rect. `max()`
+   keeps the 8px floor for any viewport at or below 960px, matching the previous (correct-there)
+   behavior exactly. */
+.lapis-conference-more-sheet {
+  position: fixed;
+  right: max(8px, calc((100vw - 960px) / 2 + 8px));
+  bottom: calc(56px + env(safe-area-inset-bottom, 0px) + 8px);
+  z-index: 4;
+  width: min(420px, calc(100vw - 16px));
+  max-height: 60vh;
+  overflow-y: auto;
+  background-color: var(--lapis-surface);
+  border: 1px solid var(--lapis-border-strong);
+  border-radius: 8px;
+  padding: 12px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+}
+
+@media (max-width: 767.98px) {
+  .lapis-conference-more-sheet {
+    left: 0;
+    right: 0;
+    width: auto;
+    border-radius: 8px 8px 0 0;
+  }
+}
+
+/* Teilnehmer-/Ungelesen-Zähler-Badge auf `rosterToggleButton`/`chatToggleButton` -- setzt auf
+   `.lapis-conference-controls-row .btn { position: relative }` oben auf. */
+.lapis-conference-control-badge {
+  position: absolute;
+  top: 0;
+  right: 6px;
+  transform: translate(30%, -30%);
+  min-width: 16px;
+  height: 16px;
+  padding: 0 3px;
+  border-radius: 8px;
+  background-color: var(--lapis-role-admin);
+  color: #FFFFFF;
+  font-size: 10px;
+  line-height: 16px;
+  text-align: center;
+  display: none;
+}
+
+/* Sticky DSGVO-Transparenzbanner -- bleibt beim Scrollen auf dem Telefon sichtbar (V1.0-Zusage
+   erstmals auf schmalen Viewports eingelöst). */
+.lapis-conference-transparency-banner {
+  position: sticky;
+  top: 0;
+  z-index: 6;
 }
 
 /* Defensiver Belt-and-suspenders: native :fullscreen-Pseudoklasse als Backup, falls der

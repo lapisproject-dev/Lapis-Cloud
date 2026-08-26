@@ -8,6 +8,59 @@ All notable changes to this project are documented here. Format follows
 
 ### Added
 
+**Mobil-optimierte Steuerleiste für die Call-Ansicht, Welle V1.2.10 — icon-only-Leiste mit Auto-Hide, "Mehr"-Offenlegung, Bottom-Sheet-Schienen unter 768px**
+
+Die Call-Ansicht war bisher auf schmalen Viewports faktisch unbenutzbar: eine feste
+Steuerleiste mit acht textbeschrifteten Buttons passt nicht auf ein Telefon, und die
+Chat-/Teilnehmerliste-Overlay-Schiene aus V1.2.9 galt nur im Browser-Vollbild — im
+Normalmodus (der einzige Modus, den iOS Safari überhaupt anbietet, siehe unten) blieben
+beide Panels im normalen Fluss und liefen unter der festen Leiste weg.
+
+- **Icon-only-Steuerleiste, feste Reihenfolge** (Mikrofon/Kamera/[Bildschirm teilen]/
+  Teilnehmende/Chat/Mehr/[Zurück zum Hauptraum]/Verlassen) — Beschriftung erscheint ab 768px
+  unter dem Icon (`data-label`/`::after`), darunter bleibt sie icon-only, `title`/`aria-label`
+  sind auf jeder Breite gesetzt.
+- **Fixe untere Leiste in allen Modi und Breiten** (nicht nur im Vollbild wie bisher) — eine
+  Leiste, kein Sonderfall pro Breite.
+- **Auto-Hide nach 5s Inaktivität, generell** (nicht nur im Vollbild) — iOS Safari hat keine
+  Fullscreen-API, Auto-Hide ist dort die einzige Möglichkeit, der Videofläche mehr Platz zu
+  geben. Jede Zeiger-/Tastatur-/Touch-Aktivität blendet die Leiste sofort wieder ein; ein
+  offenes "Mehr"-Blatt verhindert das Ausblenden.
+- **"Mehr"-Offenlegung statt Popup-Menü** — Whiteboard, Notizen sowie die bisherigen
+  Einrichtungs-Zeilen (Gastzugang, Sitzungsverknüpfung, Breakout-Verwaltung) wandern in ein
+  Blatt, das sich über den "Mehr"-Knopf öffnet und nach jeder Auswahl offen bleibt (keine
+  Auto-Schließung nach einem Klick). Im Vollbild ist der Knopf ausgeblendet — dort sind alle
+  Inhalte des Blatts ohnehin per Design nicht verfügbar (unverändert seit V1.2.9).
+- **Chat/Teilnehmerliste als Bottom-Sheet/Overlay bereits unter 768px, in JEDEM Modus** (bisher:
+  nur im Browser-Vollbild) — dieselbe 40/60-Stapellogik wie die V1.2.9-Vollbild-Schiene
+  (`conferenceRailLayout`, unverändert wiederverwendet).
+- **Zwei ehrliche Verhaltensänderungen für Bestandsnutzer**: der Bildschirmteilen-Knopf wird auf
+  Geräten ohne `getDisplayMedia` (iOS Safari, die meisten mobilen Browser) gar nicht erst
+  gerendert, statt in einen Fehler-Toast zu laufen; die Moderator-Einrichtungszeilen sind jetzt
+  einen Tipp auf "Mehr" entfernt statt sofort sichtbar.
+- **"Verlassen" ist jetzt `ButtonStyle.DANGER`** (gefüllt), vormals `SECONDARY` — zwei fast
+  identische destruktive Aktionen ("Verlassen" hier, "Für alle beenden" auf dem separaten
+  Moderator-Knopf) dürfen nie gleich aussehen; "Für alle beenden" bleibt bewusst
+  `OUTLINEDANGER`.
+- **Aufzeichnungs-/Stream-Transparenzbanner jetzt sticky** — bleiben beim Scrollen auf einem
+  langen, schmalen Bildschirm sichtbar, DSGVO-Transparenz-Zusage aus V1.0 gestärkt, nicht
+  abgeschwächt.
+- **Root-Ursache eines mobilen Layout-Overflows behoben**: die Call-Ansicht setzte auf ihrem
+  Root-Panel eine feste `width = 960.px` ohne Fallback — auf einem Telefon konnte
+  `document.documentElement.scrollWidth` dadurch nie unter 960px fallen, unabhängig davon, wie
+  sehr die Leiste selbst mobil optimiert wurde. Fix nach dem bereits im Repo etablierten Muster
+  (`PasswordResetDeepLinkScreen.kt`/`VerifyEmailDeepLinkScreen.kt`): `maxWidth = 960.px` +
+  `width = 100.perc` statt `width = 960.px`. **Dieselbe Falle besteht unverändert auf elf
+  weiteren Screens** (`DashboardScreen`/`CommunicationScreen`: 640px; `CommitteesScreen`/
+  `MemberAdministrationScreen`: 720px; `BackupScreen`/`ConferenceStreamDestinationsScreen`/
+  `CostCentersScreen`/`DocumentsScreen`: 800px; `SepaBatchesScreen`: 960px) — bewusst
+  **nicht** Teil dieser Welle, eigene, mechanische Folge-Welle.
+- Der reale `scrollWidth`-Messwert bei 375px sowie die übrige Live-Browser-Verifikation aus dem
+  Design-Review (Auto-Hide-Fingertipp-Rückkehr, sticky Banner beim Scrollen, gleichzeitiges
+  Chat+Roster-Overlay auf 375px, `screenShareButton`/Vollbild-Knopf-Abwesenheit auf iOS) laufen
+  als Teil des Review-Loops dieser Welle, nicht als Teil dieses Commits — diese Umgebung hat
+  keinen laufenden Dev-Stack mit echter LiveKit-Verbindung zur Verfügung.
+
 **Vollbildmodus für Videokonferenzen, Welle V1.2.9 — echter Browser-Vollbildmodus mit optionalen Overlay-Schienen für Chat und Teilnehmerliste**
 
 Die Call-Ansicht bekommt einen optional ein-/ausschaltbaren Vollbildmodus (echte Browser-

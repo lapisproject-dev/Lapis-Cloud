@@ -17,6 +17,7 @@ import io.kvision.modal.Modal
 import io.kvision.panel.SimplePanel
 import io.kvision.panel.hPanel
 import io.kvision.panel.vPanel
+import io.kvision.utils.perc
 import io.kvision.utils.px
 import kotlinx.browser.document
 import kotlinx.browser.window
@@ -343,10 +344,18 @@ import kotlin.time.Clock
  *   status) -- see the "Gastzugang beenden" click handler in [enterCall].
  */
 fun renderConferenceScreen(container: SimplePanel) {
+    // V1.2.10 -- Root-Ursache des mobilen 960px-Overflows (Plan Abschnitt 0): eine feste
+    // Pixelbreite ohne Fallback lässt `scrollWidth` auf schmalen Viewports nie unter 960px fallen,
+    // egal wie sehr die Call-Ansicht selbst mobil optimiert wird. Fix nach dem bereits im Repo
+    // etablierten Muster (PasswordResetDeepLinkScreen.kt/VerifyEmailDeepLinkScreen.kt): `maxWidth`
+    // statt `width` für die feste Obergrenze, `width = 100.perc` für den Schrumpf auf schmale
+    // Viewports. Dieselbe hartcodierte-Breite-ohne-Fallback-Falle besteht auf elf weiteren Screens
+    // (Dashboard etc.) -- bewusst NICHT Teil dieser Welle, siehe CHANGELOG.md.
     val root =
         container.vPanel(spacing = 14) {
             addCssClass("mx-auto")
-            width = 960.px
+            maxWidth = 960.px
+            width = 100.perc
             marginTop = 24.px
         }
     root.h1(tr("Videokonferenz"))
@@ -884,6 +893,12 @@ private fun enterCall(
     var guestHomeserverRefreshJob: Job? = null
     var gridElement: HTMLElement? = null
     var stageElement: HTMLElement? = null
+    // V1.2.10 -- unread-chat-count/participant-count badge elements, grabbed once via
+    // `addAfterInsertHook` on `chatToggleButton`/`rosterToggleButton` (see those buttons' own
+    // declaration below) -- same "grab once, mutate forever" discipline as `gridElement`/
+    // `stageElement` above. `null` until the buttons have actually mounted.
+    var chatBadgeEl: HTMLElement? = null
+    var rosterBadgeEl: HTMLElement? = null
     // Wave 4, D3: the two grid sub-containers -- created ONCE inside `gridDiv`'s own
     // `addAfterInsertHook` (see below), never recreated by `applyConferenceGridReflow`, same
     // "grab once, mutate forever" discipline as `gridElement`/`stageElement` themselves.
@@ -945,22 +960,76 @@ private fun enterCall(
     connectionStatusLine.hide()
 
     // --- Control bar (persistent, D5: never hover-only) -----------------------------------------
-    // V1.2.9, review fix -- `lapis-conference-controls-row` scopes theme.css's `.btn.active`
-    // active-state ring to THIS row's toggle buttons (roster/chat) instead of leaking globally
-    // onto every `.btn.active` on the page (e.g. the whiteboard toolbar's eraser/thin/thick
-    // buttons, which toggle their own unrelated `.active` class -- see theme.css comment).
+    // V1.2.10 -- mobil-optimierte Steuerleiste (UI/UX-Design-Team-Review 2026-08-26): feste
+    // Icon-Reihenfolge (Mikro/Kamera/[Bildschirm]/Teilnehmende/Chat/Mehr/[Zurück]/Verlassen), fixe
+    // untere Leiste in ALLEN Modi und Breiten (Ive: eine Leiste, kein Sonderfall pro Breite), Text
+    // ab 768px unter dem Icon via `::after{content:attr(data-label)}` (theme.css) statt als
+    // `Button.text`. `lapis-conference-controls-row` scopes theme.css's `.btn.active` active-state
+    // ring to THIS row's toggle buttons (roster/chat/more) instead of leaking globally onto every
+    // `.btn.active` on the page (e.g. the whiteboard toolbar's eraser/thin/thick buttons, which
+    // toggle their own unrelated `.active` class -- see theme.css comment).
     val controlsRow =
-        callPanel.hPanel(spacing = 8) { addCssClasses("align-items-center flex-wrap lapis-conference-controls-row") }
-    val micButton = controlsRow.button(tr("Mikrofon aus"), style = ButtonStyle.OUTLINESECONDARY)
-    val cameraButton = controlsRow.button(tr("Kamera aus"), style = ButtonStyle.OUTLINESECONDARY)
-    val screenShareButton = controlsRow.button(tr("Bildschirm teilen"), style = ButtonStyle.OUTLINESECONDARY)
+        callPanel.hPanel(spacing = 6) { addCssClasses("align-items-center flex-wrap lapis-conference-controls-row") }
+    val micButton = controlsRow.button("", icon = "fas fa-microphone", style = ButtonStyle.OUTLINESECONDARY)
+    val cameraButton = controlsRow.button("", icon = "fas fa-video", style = ButtonStyle.OUTLINESECONDARY)
+    // V1.2.10 -- verschwindet vollständig auf Geräten ohne `getDisplayMedia` (iOS Safari) statt in
+    // einen Fehler-Toast zu laufen, sobald angeklickt (Forstall, Design-Review V1.2.10).
+    val screenShareButton =
+        if (screenShareAvailable()) {
+            controlsRow.button("", icon = "fas fa-display", style = ButtonStyle.OUTLINESECONDARY)
+        } else {
+            null
+        }
     // V1.2.9 Vollbildmodus: neuer Sichtbarkeits-Schalter für die Teilnehmerliste (D7) -- direkt vor
     // chatToggleButton, damit beide Overlay-Schienen-Schalter im Vollbild nebeneinander sitzen.
-    val rosterToggleButton = controlsRow.button(tr("Teilnehmende"), style = ButtonStyle.OUTLINESECONDARY)
-    val chatToggleButton = controlsRow.button(tr("Chat"), style = ButtonStyle.OUTLINESECONDARY)
-    // V1.0 Videokonferenzen, Wave 7 "Whiteboard" -- same toggle-button-in-controlsRow shape as
-    // chatToggleButton, wired further below once whiteboardPanel/whiteboardController exist.
-    // Review fix: gated on `!isBreakout`, same as `canModerate`/`pollInFlightRecordingStatus` above.
+    val rosterToggleButton = controlsRow.button("", icon = "fas fa-users", style = ButtonStyle.OUTLINESECONDARY)
+    val chatToggleButton = controlsRow.button("", icon = "fas fa-comments", style = ButtonStyle.OUTLINESECONDARY)
+    // V1.2.10 -- Badge-DOM für Teilnehmer-/Ungelesen-Zähler, einmalig erzeugt (theme.css's
+    // `.lapis-conference-controls-row .btn` trägt `position: relative`, damit dieses absolut
+    // positionierte `<span>` sich an seinem Button ausrichtet). Sichtbarkeit/Inhalt werden
+    // ausschließlich von `updateRosterToggleBadge`/`updateChatToggleBadge` gepflegt.
+    rosterToggleButton.addAfterInsertHook { vnode ->
+        val el = (vnode.elm as? HTMLElement) ?: return@addAfterInsertHook
+        val badge = document.createElement("span") as HTMLElement
+        badge.className = "lapis-conference-control-badge"
+        el.appendChild(badge)
+        rosterBadgeEl = badge
+    }
+    chatToggleButton.addAfterInsertHook { vnode ->
+        val el = (vnode.elm as? HTMLElement) ?: return@addAfterInsertHook
+        val badge = document.createElement("span") as HTMLElement
+        badge.className = "lapis-conference-control-badge"
+        el.appendChild(badge)
+        chatBadgeEl = badge
+    }
+    // V1.2.10 -- "Mehr"-Offenlegung (kein Popup-Menü, Tesler): Whiteboard/Notizen sowie die
+    // Einrichtungs-Zeilen (Gastzugang/Sitzung/Breakout) wandern ins `moreSheet` weiter unten.
+    val moreToggleButton = controlsRow.button("", icon = "fas fa-ellipsis", style = ButtonStyle.OUTLINESECONDARY)
+    // Wave 6: inside a breakout room, "Zurück zum Hauptraum" is the everyday, low-stakes, FREQUENT
+    // action and reads as the confident default (PRIMARY); "Besprechung ganz verlassen" is the
+    // rarer, heavier one -- a deliberate INVERSION of the main room's own button-weight convention,
+    // where "Verlassen" alone is the everyday action. Flagged explicitly here so a future reviewer
+    // does not "fix" this back to match the main room by reflex (design review verdict).
+    val backToMainButton =
+        if (isBreakout) {
+            controlsRow.button("", icon = "fas fa-arrow-left", style = ButtonStyle.PRIMARY).apply { addCssClass("ms-2") }
+        } else {
+            null
+        }
+    // V1.2.10 -- `DANGER` (gefüllt) statt vormals `SECONDARY`: zwei fast identische destruktive
+    // Aktionen ("Verlassen" hier, "Für alle beenden" auf `endButton`) dürfen nie gleich aussehen
+    // (Tesler, Design-Review V1.2.10 F3) -- `endButton` bleibt bewusst `OUTLINEDANGER`.
+    val leaveButton = controlsRow.button("", icon = "fas fa-phone-slash", style = ButtonStyle.DANGER)
+    leaveButton.addCssClass("ms-2")
+
+    // V1.2.10 -- "Mehr"-Blatt, DOM-Position direkt nach controlsRow. Bleibt nach jedem Klick offen
+    // (Tesler: Offenlegung, kein Popup, das sich beim Auswählen sofort wieder schließt).
+    val moreSheet = callPanel.vPanel(spacing = 8) { addCssClasses("lapis-conference-more-sheet") }
+    moreSheet.hide()
+
+    // V1.0 Videokonferenzen, Wave 7 "Whiteboard" -- V1.2.10: wandert aus controlsRow ins Mehr-Blatt,
+    // MIT Text (volle Breite, linksbündig -- Norman: irgendwo müssen die Wörter stehen). Gate
+    // unverändert `!isBreakout`, same as `canModerate`/`pollInFlightRecordingStatus` above.
     // Every IConferenceWhiteboardService RPC below is keyed on `room.id` -- the PARENT room's id,
     // never a breakout room's own id (see this function's own top-of-function comment on `room`) --
     // and `requireOpenParticipation` on the server checks that id against ConferenceParticipationTable,
@@ -970,29 +1039,37 @@ private fun enterCall(
     // strokes if co-located in the same breakout room. No breakout-room-scoped whiteboard exists in V1
     // (deliberate scope cut, mirrors Wave 6's "No breakout-room moderator").
     val whiteboardToggleButton =
-        if (!isBreakout) controlsRow.button(tr("Whiteboard"), style = ButtonStyle.OUTLINESECONDARY) else null
-    // V1.0 Videokonferenzen, Wave 8 "Geteilte Notizen" -- same `!isBreakout` gate as
-    // whiteboardToggleButton immediately above, and for the identical reason (Wave 7's own audited
-    // "breakout whiteboard bleeds into main room" fix, task-list item #42 -- see
-    // ConferenceNotesController KDoc / IConferenceNotesService KDoc for why this closes off, by
-    // construction, the same class of bug for notes). No breakout-room-scoped notes exist in V1.
-    val notesToggleButton =
-        if (!isBreakout) controlsRow.button(tr("Notizen"), style = ButtonStyle.OUTLINESECONDARY) else null
-    // Wave 6: inside a breakout room, "Zurück zum Hauptraum" is the everyday, low-stakes, FREQUENT
-    // action and reads as the confident default (PRIMARY); "Besprechung ganz verlassen" is the
-    // rarer, heavier one (SECONDARY) -- a deliberate INVERSION of the main room's own button-weight
-    // convention, where "Verlassen" alone is the everyday action. Flagged explicitly here so a
-    // future reviewer does not "fix" this back to match the main room by reflex (design review
-    // verdict).
-    val backToMainButton =
-        if (isBreakout) {
-            controlsRow.button(tr("Zurück zum Hauptraum"), style = ButtonStyle.PRIMARY).apply { addCssClass("ms-2") }
+        if (!isBreakout) {
+            val btn = moreSheet.button(tr("Whiteboard"), icon = "fas fa-chalkboard", style = ButtonStyle.OUTLINESECONDARY)
+            btn.addCssClass("w-100 text-start")
+            btn
         } else {
             null
         }
-    val leaveButton =
-        controlsRow.button(if (isBreakout) tr("Besprechung ganz verlassen") else tr("Verlassen"), style = ButtonStyle.SECONDARY)
-    leaveButton.addCssClass("ms-2")
+    // V1.0 Videokonferenzen, Wave 8 "Geteilte Notizen" -- V1.2.10: same move as whiteboardToggleButton
+    // immediately above, same `!isBreakout` gate and reasoning (Wave 7's own audited "breakout
+    // whiteboard bleeds into main room" fix, task-list item #42 -- see ConferenceNotesController
+    // KDoc / IConferenceNotesService KDoc for why this closes off, by construction, the same class
+    // of bug for notes). No breakout-room-scoped notes exist in V1.
+    val notesToggleButton =
+        if (!isBreakout) {
+            val btn = moreSheet.button(tr("Notizen"), icon = "fas fa-note-sticky", style = ButtonStyle.OUTLINESECONDARY)
+            btn.addCssClass("w-100 text-start")
+            btn
+        } else {
+            null
+        }
+
+    // V1.2.10 -- statische a11y-Labels (title/aria-label/data-label) für Buttons, deren Text sich
+    // NIE ändert -- Kare/Norman-Regel: Handlungsknöpfe (mic/camera/screenShare/leave/backToMain)
+    // bekommen KEIN `aria-pressed`; Ansichtsschalter (roster/chat/more/whiteboard/notes) bekommen
+    // zusätzlich `aria-pressed`, gesetzt dynamisch in `applyPanelVisibility()`.
+    screenShareButton?.setStaticA11yLabel(tr("Bildschirm teilen"))
+    moreToggleButton.setStaticA11yLabel(tr("Mehr"))
+    leaveButton.setStaticA11yLabel(if (isBreakout) tr("Besprechung ganz verlassen") else tr("Verlassen"))
+    backToMainButton?.setStaticA11yLabel(tr("Zurück zum Hauptraum"))
+    whiteboardToggleButton?.setStaticA11yLabel(tr("Whiteboard"))
+    notesToggleButton?.setStaticA11yLabel(tr("Notizen"))
 
     // D5/D6: "end for everyone" gets its own, spatially separate row -- never adjacent to "Verlassen"
     // (Tesler: near-identical destructive actions placed next to each other is a classic slip-inducing
@@ -1060,7 +1137,10 @@ private fun enterCall(
     // guarded {} call's result confirms success" rule forbids). Built UNCONDITIONALLY -- the status
     // badge is visible to every participant (D3: an ordinary ACTIVE member deserves to know the room
     // is open to another organization's members too); only the buttons are moderator-gated.
-    val guestAccessRow = callPanel.hPanel(spacing = 8) { addCssClasses("align-items-center flex-wrap lapis-conference-config-row") }
+    // V1.2.10 -- Empfänger `moreSheet` statt `callPanel` (Plan Abschnitt 3.8): Einrichtungs-Zeilen
+    // wandern ins "Mehr"-Blatt. `lapis-conference-config-row` bleibt unverändert für die
+    // Vollbild-Ausblendlogik (`applyPanelVisibility()`), die Klasse ist von der Umhängung unberührt.
+    val guestAccessRow = moreSheet.hPanel(spacing = 8) { addCssClasses("align-items-center flex-wrap lapis-conference-config-row") }
     guestAccessRow.div(tr("Gastzugang:")) { addCssClasses("text-muted small") }
     var guestAccessOpen = room.allowFederationGuests
     val guestAccessBadge = guestAccessRow.statusBadge("", "secondary")
@@ -1160,7 +1240,8 @@ private fun enterCall(
     // Stream nur pausieren, wenn IRGENDJEMAND diesen Raum vorher an eine Sitzung gebunden hat, also
     // muss diese Zeile sichtbar bleiben, auch wenn (der Normalfall) nichts gebunden ist -- nie hinter
     // einem "erweiterte Einstellungen"-Toggle versteckt.
-    val meetingBindingRow = callPanel.hPanel(spacing = 8) { addCssClasses("align-items-center flex-wrap lapis-conference-config-row") }
+    // V1.2.10 -- Empfänger `moreSheet` statt `callPanel`, siehe guestAccessRow oben.
+    val meetingBindingRow = moreSheet.hPanel(spacing = 8) { addCssClasses("align-items-center flex-wrap lapis-conference-config-row") }
     meetingBindingRow.div(tr("Sitzung:")) { addCssClasses("text-muted small") }
     var boundMeetingId = room.meetingId
     var boundMeetingTitle = room.meetingTitle
@@ -1236,7 +1317,8 @@ private fun enterCall(
     lateinit var refreshRosterRef: () -> Unit
     var breakoutCreateButton: Button? = null
     var breakoutRecallButton: Button? = null
-    val breakoutOverviewPanel = callPanel.vPanel(spacing = 2) { addCssClasses("ms-2 lapis-conference-config-row") }
+    // V1.2.10 -- Empfänger `moreSheet` statt `callPanel`, siehe guestAccessRow oben.
+    val breakoutOverviewPanel = moreSheet.vPanel(spacing = 2) { addCssClasses("ms-2 lapis-conference-config-row") }
     breakoutOverviewPanel.hide()
     // The moderator's own local mirror of the currently open batch -- kept in sync purely from the
     // RETURN VALUE of createBreakoutRooms/assignParticipants/recallAll (event-driven, no dedicated
@@ -1273,7 +1355,8 @@ private fun enterCall(
     }
 
     if (canModerate) {
-        val breakoutRow = callPanel.hPanel(spacing = 8) { addCssClasses("align-items-center flex-wrap lapis-conference-config-row") }
+        // V1.2.10 -- Empfänger `moreSheet` statt `callPanel`, siehe guestAccessRow oben.
+        val breakoutRow = moreSheet.hPanel(spacing = 8) { addCssClasses("align-items-center flex-wrap lapis-conference-config-row") }
         breakoutRow.div(tr("Breakout-Räume:")) { addCssClasses("text-muted small") }
         val createBtn = breakoutRow.button(tr("Räume erstellen und verteilen"), style = ButtonStyle.OUTLINEPRIMARY)
         breakoutCreateButton = createBtn
@@ -1338,7 +1421,10 @@ private fun enterCall(
     streamTargetsPanel.hide()
 
     // D3/D4: non-blocking, dual-action, no auto-fade, no silent timeout -- see file KDoc.
-    val recordingBanner = callPanel.vPanel(spacing = 6) { addCssClasses("border border-danger rounded p-2") }
+    // V1.2.10 -- `lapis-conference-transparency-banner`: sticky beim Scrollen (theme.css), damit die
+    // DSGVO-Transparenz-Meldung auf schmalen Viewports nicht aus dem sichtbaren Bereich läuft.
+    val recordingBanner =
+        callPanel.vPanel(spacing = 6) { addCssClasses("border border-danger rounded p-2 lapis-conference-transparency-banner") }
     recordingBanner.hide()
     // D16: a screen-reader user must be told with the same immediacy a sighted user sees the banner.
     recordingBanner.addAfterInsertHook { vnode -> (vnode.elm as? HTMLElement)?.setAttribute("role", "alert") }
@@ -1358,7 +1444,9 @@ private fun enterCall(
     // Wave 3 -- same shape/discipline as the recording banner above, own text/own acknowledge state
     // (D3: the two facts -- "is being recorded" / "is being streamed" -- must stay independently
     // dismissable, never coupled).
-    val streamBanner = callPanel.vPanel(spacing = 6) { addCssClasses("border border-danger rounded p-2") }
+    // V1.2.10 -- same sticky treatment as recordingBanner immediately above.
+    val streamBanner =
+        callPanel.vPanel(spacing = 6) { addCssClasses("border border-danger rounded p-2 lapis-conference-transparency-banner") }
     streamBanner.hide()
     streamBanner.addAfterInsertHook { vnode -> (vnode.elm as? HTMLElement)?.setAttribute("role", "alert") }
     streamBanner.div(CONFERENCE_STREAM_BANNER_TEXT) { addCssClass("fw-bold") }
@@ -2298,19 +2386,48 @@ private fun enterCall(
     // pattern) -- see IConferenceNotesService.getNotesState KDoc "late-joiner seed".
     var notesController: ConferenceNotesController? = null
 
-    fun updateChatToggleLabel() {
-        chatToggleButton.text = if (unreadChatCount > 0) gettext("Chat (%1)", unreadChatCount) else tr("Chat")
+    // V1.2.10 -- Badge statt `Button.text` (die Steuerleiste ist jetzt icon-only). `title`/
+    // `aria-label` tragen weiterhin die vollständige, screenreader-taugliche Zählangabe; das
+    // sichtbare `<span>`-Badge (siehe `chatBadgeEl`'s eigene `addAfterInsertHook`-Erzeugung oben)
+    // trägt nur die nackte Zahl.
+    fun updateChatToggleBadge() {
+        chatToggleButton.getElement()?.let { el ->
+            val label = if (unreadChatCount > 0) gettext("Chat, %1 ungelesene Nachrichten", unreadChatCount) else tr("Chat")
+            el.title = label
+            el.setAttribute("aria-label", label)
+        }
+        chatBadgeEl?.let { el ->
+            if (unreadChatCount > 0) {
+                el.textContent = unreadChatCount.toString()
+                el.style.display = "flex"
+            } else {
+                el.style.display = "none"
+            }
+        }
     }
 
-    // V1.2.9 Vollbildmodus, D7 -- analog updateChatToggleLabel.
-    fun updateRosterToggleLabel() {
-        rosterToggleButton.text = if (tiles.isEmpty()) tr("Teilnehmende") else gettext("Teilnehmende (%1)", tiles.size)
+    // V1.2.9 Vollbildmodus, D7 -- analog updateChatToggleBadge; V1.2.10 auf Badge statt Text
+    // umgestellt, siehe dessen Kommentar oben.
+    fun updateRosterToggleBadge() {
+        rosterToggleButton.getElement()?.let { el ->
+            val label = if (tiles.isEmpty()) tr("Teilnehmende") else gettext("Teilnehmende, %1", tiles.size)
+            el.title = label
+            el.setAttribute("aria-label", label)
+        }
+        rosterBadgeEl?.let { el ->
+            if (tiles.isNotEmpty()) {
+                el.textContent = tiles.size.toString()
+                el.style.display = "flex"
+            } else {
+                el.style.display = "none"
+            }
+        }
     }
 
     // --- V1.2.9 Vollbildmodus -- die EINE Rendering-Funktion, die aus panelState liest (Alan Kay:
     // ein Wertetyp, ein Reducer, eine reine Ableitung, Rendering ist dumm). Muss textuell NACH
     // rosterPanel/chatPanel/rosterToggleButton/chatToggleButton/fullscreenButton UND
-    // updateChatToggleLabel/updateRosterToggleLabel stehen -- Kotlin erlaubt keine
+    // updateChatToggleBadge/updateRosterToggleBadge stehen -- Kotlin erlaubt keine
     // Vorwärtsreferenz auf eine lokale Deklaration innerhalb desselben Funktionskörpers.
     fun applyPanelVisibility() {
         if (panelState.rosterVisible()) rosterPanel.show() else rosterPanel.hide()
@@ -2322,8 +2439,8 @@ private fun enterCall(
             chatPanel.hide()
             chatOpen = false
         }
-        updateChatToggleLabel()
-        updateRosterToggleLabel()
+        updateChatToggleBadge()
+        updateRosterToggleBadge()
 
         if (panelState.rosterVisible()) {
             rosterToggleButton.addCssClass("active")
@@ -2335,6 +2452,12 @@ private fun enterCall(
         } else {
             chatToggleButton.removeCssClass("active")
         }
+        // V1.2.10, Kare/Norman-Regel -- Ansichtsschalter (roster/chat/more/whiteboard/notes)
+        // bekommen zusätzlich zu `title`/`aria-label` ein `aria-pressed`, das den Panel-Zustand
+        // spiegelt; reine Handlungsknöpfe (mic/camera/screenShare/leave/backToMain) bekommen
+        // KEINES -- sie lösen eine Aktion aus, sie halten keinen An/Aus-Zustand.
+        rosterToggleButton.getElement()?.setAttribute("aria-pressed", panelState.rosterVisible().toString())
+        chatToggleButton.getElement()?.setAttribute("aria-pressed", panelState.chatVisible().toString())
 
         val railLayout = conferenceRailLayout(panelState)
         if (railLayout.rosterCapped) {
@@ -2376,6 +2499,25 @@ private fun enterCall(
             whiteboardToggleButton?.show()
             notesToggleButton?.show()
         }
+        whiteboardToggleButton?.getElement()?.setAttribute("aria-pressed", whiteboardOpen.toString())
+        notesToggleButton?.getElement()?.setAttribute("aria-pressed", notesOpen.toString())
+
+        // V1.2.10 -- "Mehr"-Blatt.
+        if (panelState.moreOpen) moreSheet.show() else moreSheet.hide()
+        if (panelState.moreOpen) moreToggleButton.addCssClass("active") else moreToggleButton.removeCssClass("active")
+        moreToggleButton.getElement()?.setAttribute("aria-pressed", panelState.moreOpen.toString())
+        // Im Vollbild ist das Mehr-Blatt inhaltsleer (alles darin ist bereits
+        // `.lapis-conference-config-row`-ausgeblendet, siehe theme.css) -- Knopf entfernen statt ein
+        // leeres Blatt anbietbar zu lassen (Jobs' Schlusswort, Design-Review V1.2.10).
+        if (panelState.fullscreen) moreToggleButton.hide() else moreToggleButton.show()
+
+        // V1.2.10 -- Auto-Hide-Sichtbarkeit der gesamten Steuerleiste (generell, nicht nur im
+        // Vollbild -- iOS Safari hat keine Fullscreen-API, siehe `fullscreenApiAvailable`).
+        if (panelState.controlsVisible) {
+            controlsRow.removeCssClass("lapis-conference-controls-hidden")
+        } else {
+            controlsRow.addCssClass("lapis-conference-controls-hidden")
+        }
 
         val fullscreenLabel = if (panelState.fullscreen) tr("Vollbild beenden") else tr("Vollbild")
         fullscreenButton?.icon = if (panelState.fullscreen) "fas fa-compress" else "fas fa-expand"
@@ -2387,6 +2529,55 @@ private fun enterCall(
         }
     }
     applyPanelVisibility() // initialer Render, Default-Zustand
+
+    // V1.2.10 -- icon/`text-danger`-Zustand statt vormals `Button.text`-Umschaltung (die
+    // Steuerleiste ist jetzt icon-only, siehe controlsRow-Deklaration oben). Deklariert hier, auf
+    // Funktionsebene von `enterCall` (nicht innerhalb eines der beiden `AppScope.launch{}`-Blöcke,
+    // die sie unten verwenden) -- Kotlin erlaubt keine Vorwärtsreferenz auf eine lokale Deklaration,
+    // und dieselben Funktionen werden sowohl im initialen Connect-Block als auch in den späteren
+    // `micButton.onClick`/`cameraButton.onClick`-Handlern gebraucht, die textuell NACH dem
+    // Connect-Block stehen.
+    fun updateMicButtonState() {
+        micButton.icon = if (micEnabled) "fas fa-microphone" else "fas fa-microphone-slash"
+        if (micEnabled) micButton.removeCssClass("text-danger") else micButton.addCssClass("text-danger")
+        val label = if (micEnabled) tr("Mikrofon ausschalten") else tr("Mikrofon einschalten")
+        micButton.getElement()?.let { el ->
+            el.title = label
+            el.setAttribute("aria-label", label)
+            // Review fix (V1.2.10) -- `data-label` was never set here, so `theme.css`'s
+            // `.lapis-conference-controls-row .btn::after{content:attr(data-label)}` (under-icon
+            // text at >=768px, see `controlsRow`'s own KDoc + CHANGELOG) never applied to mic/camera,
+            // unlike every other button in this row (see `setStaticA11yLabel`, which sets all three
+            // attributes together for buttons whose label never changes).
+            el.setAttribute("data-label", label)
+        }
+    }
+
+    fun updateCameraButtonState() {
+        cameraButton.icon = if (cameraEnabled) "fas fa-video" else "fas fa-video-slash"
+        if (cameraEnabled) cameraButton.removeCssClass("text-danger") else cameraButton.addCssClass("text-danger")
+        val label = if (cameraEnabled) tr("Kamera ausschalten") else tr("Kamera einschalten")
+        cameraButton.getElement()?.let { el ->
+            el.title = label
+            el.setAttribute("aria-label", label)
+            // Review fix (V1.2.10) -- same missing `data-label` as `updateMicButtonState` above.
+            el.setAttribute("data-label", label)
+        }
+    }
+    // Review fix (V1.2.10) -- `updateMicButtonState`/`updateCameraButtonState` were previously only
+    // ever invoked from the initial connect block's failure branch (`!micOk`/`!cameraOk`) or from
+    // the buttons' own `onClick` handlers, i.e. AFTER the participant's first click. In the ordinary
+    // success path (permission granted, device works) neither function ever ran before that first
+    // click, so `micButton`/`cameraButton` -- constructed icon-only with `text = ""` at declaration,
+    // see `controlsRow`'s own KDoc -- carried no `title`/`aria-label`/`data-label` at all: no
+    // accessible name for a screen-reader user, and no under-icon text on wide viewports, unlike
+    // every other button in this row (roster/chat get theirs via `updateRosterToggleBadge`/
+    // `updateChatToggleBadge` in `applyPanelVisibility()`'s own initial call; the rest via
+    // `setStaticA11yLabel` at construction). Call both once here, synchronously, so the buttons carry
+    // the correct labels for the `micEnabled = true` / `cameraEnabled = true` defaults (declared
+    // above) from the very first render -- independent of whether the connect attempt below succeeds.
+    updateMicButtonState()
+    updateCameraButtonState()
 
     // V1.2.9, D5 -- Klick fordert nur an, `fullscreenchange` ist die alleinige Wahrheitsquelle. Beide
     // Listener sind Pflicht (Safari feuert nur `webkitfullscreenchange`, siehe Stolperfalle 10).
@@ -2403,11 +2594,54 @@ private fun enterCall(
     document.addEventListener("fullscreenchange", fullscreenChangeListener)
     document.addEventListener("webkitfullscreenchange", fullscreenChangeListener)
 
+    // V1.2.10 -- Auto-Hide der Steuerleiste, generell (nicht nur im Vollbild -- iOS Safari hat keine
+    // Fullscreen-API, siehe `fullscreenApiAvailable`). Bewusste Abweichung vom Design-Review-Vorschlag
+    // eines `window.setInterval`: dieses Modul hat bereits ZWEI periodische Prüf-Schleifen
+    // (`sweepGridReflow`/`pollInFlightRecordingStatus`), beide als
+    // `AppScope.launch { while (connectionState.isLive()) { delay(...); ... } }` -- kein
+    // `setInterval`/`clearInterval`-Muster existiert irgendwo im Modul. Die Anforderung (ein
+    // Reducer-Aufruf pro Sichtbarkeitswechsel, nicht pro Ereignis, throttled auf 1 Hz) wird im
+    // etablierten Idiom umgesetzt -- macht ein explizites `clearInterval` beim Teardown überflüssig
+    // (die Schleife endet von selbst, sobald `connectionState.isLive()` `false` wird, exakt wie bei
+    // den beiden bestehenden Sweeps). Der Handler selbst schreibt nur eine Variable (Atkinson): kein
+    // Reducer-Aufruf bei jedem einzelnen `pointermove`, nur wenn die Leiste tatsächlich gerade
+    // ausgeblendet war.
+    var lastActivityMs = Clock.System.now().toEpochMilliseconds()
+    val onControlsActivity: (Event) -> Unit = {
+        lastActivityMs = Clock.System.now().toEpochMilliseconds()
+        if (!panelState.controlsVisible) {
+            panelState = conferencePanelReduce(panelState, ConferencePanelEvent.PointerActivity)
+            applyPanelVisibility()
+        }
+    }
+    document.addEventListener("pointermove", onControlsActivity)
+    document.addEventListener("pointerdown", onControlsActivity)
+    document.addEventListener("touchstart", onControlsActivity, js("({ passive: true })"))
+    document.addEventListener("keydown", onControlsActivity)
+
+    AppScope.launch {
+        while (connectionState.isLive()) {
+            delay(CONFERENCE_CONTROLS_ACTIVITY_POLL_INTERVAL_MS)
+            if (!connectionState.isLive()) break
+            if (panelState.controlsVisible &&
+                Clock.System.now().toEpochMilliseconds() - lastActivityMs >= CONFERENCE_CONTROLS_AUTO_HIDE_MS
+            ) {
+                panelState = conferencePanelReduce(panelState, ConferencePanelEvent.InactivityElapsed)
+                applyPanelVisibility()
+            }
+        }
+    }
+
     // V1.2.9, D6 -- Pflicht-Aufräumen beim Verlassen des Calls (Resource-Leak- + "Lobby bleibt im
     // Browser-Vollbild"-Vermeidung). Muss textuell VOR der ersten returnToLobby(...)-Call-Site stehen.
+    // V1.2.10 erweitert: räumt zusätzlich die vier Auto-Hide-Aktivitäts-Listener ab.
     fun cleanupFullscreen() {
         document.removeEventListener("fullscreenchange", fullscreenChangeListener)
         document.removeEventListener("webkitfullscreenchange", fullscreenChangeListener)
+        document.removeEventListener("pointermove", onControlsActivity)
+        document.removeEventListener("pointerdown", onControlsActivity)
+        document.removeEventListener("touchstart", onControlsActivity)
+        document.removeEventListener("keydown", onControlsActivity)
         if (currentFullscreenElement() != null) {
             runCatching { exitBrowserFullscreen() }
         }
@@ -2484,7 +2718,7 @@ private fun enterCall(
                 }
             }
         }
-        updateRosterToggleLabel()
+        updateRosterToggleBadge()
     }
     refreshRosterRef = ::refreshRoster
 
@@ -2720,7 +2954,7 @@ private fun enterCall(
         chatLog.getElement()?.let { el -> el.scrollTop = el.scrollHeight.toDouble() }
         if (!chatOpen && !isOwn) {
             unreadChatCount += 1
-            updateChatToggleLabel()
+            updateChatToggleBadge()
         }
     }
 
@@ -2760,7 +2994,7 @@ private fun enterCall(
         val interactive = connectionState is ConferenceConnectionState.Connected
         micButton.disabled = !interactive
         cameraButton.disabled = !interactive
-        screenShareButton.disabled = !interactive
+        screenShareButton?.disabled = !interactive
         chatSendButton.disabled = !interactive
     }
 
@@ -3022,11 +3256,11 @@ private fun enterCall(
         if (!micOk) {
             micEnabled = false
             setTileMic(tiles.getValue(joinToken.identity), micEnabled)
-            micButton.text = tr("Mikrofon an")
+            updateMicButtonState()
         }
         if (!cameraOk) {
             cameraEnabled = false
-            cameraButton.text = tr("Kamera an")
+            updateCameraButtonState()
         }
     }
 
@@ -3045,7 +3279,7 @@ private fun enterCall(
             if (result != null) {
                 micEnabled = desired
                 setTileMic(tiles.getValue(joinToken.identity), micEnabled)
-                micButton.text = if (micEnabled) tr("Mikrofon aus") else tr("Mikrofon an")
+                updateMicButtonState()
             }
         }
     }
@@ -3058,20 +3292,26 @@ private fun enterCall(
             cameraButton.disabled = false
             if (result != null) {
                 cameraEnabled = desired
-                cameraButton.text = if (cameraEnabled) tr("Kamera aus") else tr("Kamera an")
+                updateCameraButtonState()
             }
         }
     }
-    screenShareButton.onClick {
-        screenShareButton.disabled = true
-        AppScope.launch {
-            val desired = !screenShareEnabled
-            // Same fix as micButton.onClick above -- see that handler's comment.
-            val result = guarded { session.setScreenShare(desired) }
-            screenShareButton.disabled = false
-            if (result != null) {
-                screenShareEnabled = desired
-                screenShareButton.text = if (screenShareEnabled) tr("Bildschirm-Teilen beenden") else tr("Bildschirm teilen")
+    // V1.2.10 -- `screenShareButton` is now nullable (absent on devices without `getDisplayMedia`,
+    // see its own declaration) -- no text/slash-icon feedback (Kare: no FA6 counterpart for
+    // "screen-share off"), only the same `.active`-ring treatment `rosterToggleButton`/
+    // `chatToggleButton` already use.
+    screenShareButton?.let { btn ->
+        btn.onClick {
+            btn.disabled = true
+            AppScope.launch {
+                val desired = !screenShareEnabled
+                // Same fix as micButton.onClick above -- see that handler's comment.
+                val result = guarded { session.setScreenShare(desired) }
+                btn.disabled = false
+                if (result != null) {
+                    screenShareEnabled = desired
+                    if (screenShareEnabled) btn.addCssClass("active") else btn.removeCssClass("active")
+                }
             }
         }
     }
@@ -3083,6 +3323,11 @@ private fun enterCall(
     }
     chatToggleButton.onClick {
         panelState = conferencePanelReduce(current = panelState, event = ConferencePanelEvent.ChatToggled)
+        applyPanelVisibility()
+    }
+    // V1.2.10 -- "Mehr"-Blatt.
+    moreToggleButton.onClick {
+        panelState = conferencePanelReduce(current = panelState, event = ConferencePanelEvent.MoreToggled)
         applyPanelVisibility()
     }
     fullscreenButton?.onClick {
@@ -3232,6 +3477,28 @@ private fun enterCall(
                     onBeforeReturn = ::cleanupFullscreen,
                 )
             }
+        }
+    }
+}
+
+/** V1.2.10 -- sets `title`/`aria-label`/`data-label` on a button whose accessible text NEVER
+ * changes after construction (e.g. `leaveButton`, `moreToggleButton`) -- the same "set once, via
+ * `addAfterInsertHook` if the element does not exist yet" idiom `ConferenceWhiteboardController.kt`
+ * and this file's own `fullscreenButton` wiring already use, so a caller here never has to hand-roll
+ * the `getElement() ?: addAfterInsertHook { ... }` fallback itself. `data-label` feeds
+ * `theme.css`'s `.lapis-conference-controls-row .btn::after{content:attr(data-label)}` (the
+ * under-icon text shown at >=768px); it is harmless-but-unused on buttons living in `.lapis-
+ * conference-more-sheet`, which render real KVision button text instead. */
+private fun Button.setStaticA11yLabel(label: String) {
+    getElement()?.let { el ->
+        el.title = label
+        el.setAttribute("aria-label", label)
+        el.setAttribute("data-label", label)
+    } ?: addAfterInsertHook { vnode ->
+        (vnode.elm as? HTMLElement)?.apply {
+            title = label
+            setAttribute("aria-label", label)
+            setAttribute("data-label", label)
         }
     }
 }
@@ -4308,6 +4575,16 @@ internal const val CONFERENCE_SPEAKING_PRIORITY_WINDOW_MS = 8_000L
  * switching. */
 internal const val CONFERENCE_GRID_REFLOW_SWEEP_INTERVAL_MS = 2_000L
 
+/** V1.2.10 -- how long (ms) the control bar stays visible after the last pointer/keyboard/touch
+ * activity before [enterCall]'s auto-hide poll blends it out. Approved as specified (design review
+ * "5s"). */
+internal const val CONFERENCE_CONTROLS_AUTO_HIDE_MS = 5_000L
+
+/** V1.2.10 -- [enterCall]'s auto-hide poll cadence; the SOLE trigger for re-checking whether
+ * [CONFERENCE_CONTROLS_AUTO_HIDE_MS] has elapsed (mirrors [CONFERENCE_GRID_REFLOW_SWEEP_INTERVAL_MS]'s
+ * own "poll, don't react to every raw event" shape immediately above). */
+internal const val CONFERENCE_CONTROLS_ACTIVITY_POLL_INTERVAL_MS = 1_000L
+
 /**
  * Security-audit fix -- debounce window [enterCall]'s `scheduleGuestHomeserverRefresh` waits after
  * the LAST `onParticipantJoined` event before actually calling `refreshGuestHomeservers`, coalescing
@@ -4542,6 +4819,11 @@ internal fun conferenceConnectionReduce(
  * Raskin/Duarte-Streits): Normalmodus- und Vollbild-Zustand sind unabhängige Absichten desselben
  * Nutzers, kein gemeinsames Flag -- ABER innerhalb jedes Kontexts muss der jeweilige Button-Zustand
  * (`.active`) den Panel-Zustand IMMER korrekt widerspiegeln (Raskins Bedingung, nicht verhandelbar).
+ * V1.2.10 ergänzt zwei weitere, ebenfalls modus-übergreifende Felder: [moreOpen] (das "Mehr"-Blatt
+ * hat kein Normal-/Vollbild-Doppel, es existiert nur außerhalb des Vollbilds -- siehe
+ * `applyPanelVisibility`'s eigene "im Vollbild ausgeblendet"-Logik) und [controlsVisible]
+ * (Auto-Hide der Steuerleiste, generell, nicht nur im Vollbild -- iOS Safari hat keine
+ * Fullscreen-API, siehe `fullscreenApiAvailable`).
  */
 internal data class ConferencePanelState(
     val fullscreen: Boolean = false,
@@ -4549,11 +4831,17 @@ internal data class ConferencePanelState(
     val normalChatOpen: Boolean = false, // heutiges chatOpen-Default
     val fullscreenRosterOpen: Boolean = false,
     val fullscreenChatOpen: Boolean = false,
+    val controlsVisible: Boolean = true, // V1.2.10
+    val moreOpen: Boolean = false, // V1.2.10
 )
 
 /** V1.2.9 -- Events in [conferencePanelReduce]. [FullscreenEntered]/[FullscreenExited] werden
  * AUSSCHLIESSLICH vom `fullscreenchange`-Listener gefeuert, niemals vom Klick-Handler direkt --
- * siehe file KDoc "D5"-Analogie zu [conferenceConnectionReduce]. */
+ * siehe file KDoc "D5"-Analogie zu [conferenceConnectionReduce]. V1.2.10 ergänzt drei Events für
+ * die mobil-optimierte Steuerleiste: [MoreToggled] (Klick auf den "Mehr"-Knopf), [PointerActivity]
+ * (Zeiger-/Tastatur-/Touch-Aktivität -- blendet eine ausgeblendete Leiste wieder ein) und
+ * [InactivityElapsed] (periodischer Poll stellt fest, dass die Inaktivitäts-Frist abgelaufen ist --
+ * blendet die Leiste aus, außer das "Mehr"-Blatt ist gerade offen). */
 internal sealed class ConferencePanelEvent {
     internal data object FullscreenEntered : ConferencePanelEvent()
 
@@ -4562,6 +4850,12 @@ internal sealed class ConferencePanelEvent {
     internal data object RosterToggled : ConferencePanelEvent()
 
     internal data object ChatToggled : ConferencePanelEvent()
+
+    internal data object MoreToggled : ConferencePanelEvent() // V1.2.10
+
+    internal data object PointerActivity : ConferencePanelEvent() // V1.2.10
+
+    internal data object InactivityElapsed : ConferencePanelEvent() // V1.2.10
 }
 
 /**
@@ -4572,6 +4866,14 @@ internal sealed class ConferencePanelEvent {
  * Vollbild-Episode nie verändert wurde. Idempotent: ein zweiter `FullscreenEntered`/`FullscreenExited`
  * auf bereits passendem `fullscreen`-Wert gibt `current` unverändert zurück (schützt gegen doppelt
  * gefeuerte `fullscreenchange`-Events, z.B. Chrome + andere Browser-Eigenheiten).
+ *
+ * V1.2.10: jede Zustandsänderung, die eine Nutzeraktion widerspiegelt (Fullscreen-Wechsel,
+ * Roster-/Chat-/Mehr-Toggle), setzt zugleich `controlsVisible = true` -- eine Interaktion mit der
+ * Leiste selbst ist immer auch "Aktivität", die die Auto-Hide-Frist zurücksetzt. [PointerActivity]
+ * ist ein No-op, wenn die Leiste bereits sichtbar ist (idempotent, verhindert unnötige Re-Renders
+ * bei jedem einzelnen `pointermove`). [InactivityElapsed] ist ein No-op, solange das "Mehr"-Blatt
+ * offen ist (eine offene Offenlegung darf der Steuerleiste nicht unter den Füßen wegblenden) oder
+ * die Leiste bereits ausgeblendet ist.
  */
 internal fun conferencePanelReduce(
     current: ConferencePanelState,
@@ -4582,22 +4884,38 @@ internal fun conferencePanelReduce(
             if (current.fullscreen) {
                 current
             } else {
-                current.copy(fullscreen = true, fullscreenRosterOpen = false, fullscreenChatOpen = false)
+                current.copy(
+                    fullscreen = true,
+                    fullscreenRosterOpen = false,
+                    fullscreenChatOpen = false,
+                    moreOpen = false,
+                    controlsVisible = true,
+                )
             }
         is ConferencePanelEvent.FullscreenExited ->
-            if (!current.fullscreen) current else current.copy(fullscreen = false)
+            if (!current.fullscreen) current else current.copy(fullscreen = false, controlsVisible = true)
         is ConferencePanelEvent.RosterToggled ->
-            if (current.fullscreen) {
-                current.copy(fullscreenRosterOpen = !current.fullscreenRosterOpen)
-            } else {
-                current.copy(normalRosterOpen = !current.normalRosterOpen)
-            }
+            (
+                if (current.fullscreen) {
+                    current.copy(fullscreenRosterOpen = !current.fullscreenRosterOpen)
+                } else {
+                    current.copy(normalRosterOpen = !current.normalRosterOpen)
+                }
+            ).copy(controlsVisible = true)
         is ConferencePanelEvent.ChatToggled ->
-            if (current.fullscreen) {
-                current.copy(fullscreenChatOpen = !current.fullscreenChatOpen)
-            } else {
-                current.copy(normalChatOpen = !current.normalChatOpen)
-            }
+            (
+                if (current.fullscreen) {
+                    current.copy(fullscreenChatOpen = !current.fullscreenChatOpen)
+                } else {
+                    current.copy(normalChatOpen = !current.normalChatOpen)
+                }
+            ).copy(controlsVisible = true)
+        is ConferencePanelEvent.MoreToggled ->
+            current.copy(moreOpen = !current.moreOpen, controlsVisible = true)
+        is ConferencePanelEvent.PointerActivity ->
+            if (current.controlsVisible) current else current.copy(controlsVisible = true)
+        is ConferencePanelEvent.InactivityElapsed ->
+            if (current.moreOpen || !current.controlsVisible) current else current.copy(controlsVisible = false)
     }
 
 internal fun ConferencePanelState.rosterVisible(): Boolean = if (fullscreen) fullscreenRosterOpen else normalRosterOpen
