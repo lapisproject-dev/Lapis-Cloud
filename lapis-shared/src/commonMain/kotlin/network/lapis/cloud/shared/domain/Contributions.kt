@@ -55,7 +55,14 @@ object ContributionStatusSets {
     /** Bound up in an in-flight SEPA debit run -- must not enter a second, concurrent run. */
     val DEBIT_IN_FLIGHT: Set<ContributionStatus> = setOf(ContributionStatus.DEBIT_SCHEDULED, ContributionStatus.DEBIT_SUBMITTED)
 
-    /** May be dunned. Deliberately excludes [DEBIT_IN_FLIGHT] -- a running debit collection is not (yet) a default. */
+    /**
+     * May be dunned. Deliberately excludes [DEBIT_IN_FLIGHT] -- a running debit collection is not
+     * (yet) a default. Real writers as of Welle V1.2.7 "Automatisiertes Mahnwesen": `OPEN ->
+     * OVERDUE` is written by `network.lapis.cloud.server.payment.dunning.DunningPoller`'s own
+     * Phase A (purely time-derived, no audit entry -- see that class' own KDoc);
+     * `network.lapis.cloud.server.payment.dunning.DunningIssuance` moves an [OVERDUE]/[RETURNED]/
+     * already-[IN_DUNNING] contribution INTO [IN_DUNNING] on its first successful notice.
+     */
     val DUNNABLE: Set<ContributionStatus> = setOf(ContributionStatus.OVERDUE, ContributionStatus.RETURNED, ContributionStatus.IN_DUNNING)
 }
 

@@ -86,6 +86,10 @@ fun auditEntityTypeLabel(entityType: AuditEntityType): String =
         // sind die Begriffe, die SepaMandateScreen.kt/SepaBatchScreen.kt durchgängig verwenden.
         AuditEntityType.SEPA_MANDATE -> gettext("SEPA-Mandat")
         AuditEntityType.SEPA_DEBIT_BATCH -> gettext("SEPA-Lastschriftlauf")
+        // Zahlungsverkehr, Welle V1.2.7 "Automatisiertes Mahnwesen" -- "Mahnung" ist der Begriff,
+        // den ein künftiges MahnwesenScreen.kt konsistent zu SepaMandateScreen.kt/SepaBatchScreen.kt
+        // verwenden soll.
+        AuditEntityType.DUNNING_NOTICE -> gettext("Mahnung")
     }
 
 fun auditEntityTypeColor(entityType: AuditEntityType): String =
@@ -116,6 +120,9 @@ fun auditEntityTypeColor(entityType: AuditEntityType): String =
         // "warning" -- ein Lastschriftlauf-Statuswechsel ist administrativ, dieselbe Einstufung wie
         // ORGANIZATION_SETTINGS oben.
         AuditEntityType.SEPA_DEBIT_BATCH -> "warning"
+        // "danger" -- eine ausgestellte Mahnung ist eine folgenreiche, forderungseinzug-nahe
+        // Eintragsart, konsistent zu SOCIAL_POST/PARTY_DONATION_VERDICT's Einstufung oben.
+        AuditEntityType.DUNNING_NOTICE -> "danger"
     }
 
 // ------------------------------------------------------------------------------------------------

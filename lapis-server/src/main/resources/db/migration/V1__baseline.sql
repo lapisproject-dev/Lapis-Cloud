@@ -64,6 +64,7 @@ CREATE TABLE organization_settings (
     sepa_creditor_id VARCHAR(35) NULL,
     sepa_creditor_name VARCHAR(70) NULL,
     sepa_prenotification_days INT NOT NULL DEFAULT 14,
+    dunning_enabled BOOLEAN NOT NULL DEFAULT FALSE,
     CHECK (payment_gateway_provider IS NULL OR payment_gateway_provider IN ('PAYPAL', 'STRIPE', 'MANUAL')),
     CHECK (sepa_prenotification_days >= 1 AND sepa_prenotification_days <= 30)
 );
@@ -699,7 +700,7 @@ CREATE TABLE audit_log_entry (
     entry_hash VARCHAR(64) NOT NULL,
     previous_entry_hash VARCHAR(64) NULL,
     CHECK (actor_role IN ('MEMBER', 'BOARD', 'TREASURER', 'ADMIN')),
-    CHECK (entity_type IN ('JOURNAL_ENTRY', 'PARTY_DONATION_VERDICT', 'RESOLUTION', 'BOARD_MEMBERSHIP', 'CONFERENCE_RECORDING', 'CONFERENCE_STREAM', 'CONFERENCE_STREAM_DESTINATION', 'CONFERENCE_ROOM', 'SOCIAL_POST', 'ORGANIZATION_SETTINGS', 'SEPA_MANDATE', 'SEPA_DEBIT_BATCH')),
+    CHECK (entity_type IN ('JOURNAL_ENTRY', 'PARTY_DONATION_VERDICT', 'RESOLUTION', 'BOARD_MEMBERSHIP', 'CONFERENCE_RECORDING', 'CONFERENCE_STREAM', 'CONFERENCE_STREAM_DESTINATION', 'CONFERENCE_ROOM', 'SOCIAL_POST', 'ORGANIZATION_SETTINGS', 'SEPA_MANDATE', 'SEPA_DEBIT_BATCH', 'DUNNING_NOTICE')),
     CHECK (action IN ('CREATE', 'UPDATE', 'POST'))
 );
 

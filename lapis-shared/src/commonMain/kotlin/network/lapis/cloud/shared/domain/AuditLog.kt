@@ -63,9 +63,13 @@ enum class AuditAction { CREATE, UPDATE, POST }
  * that -- `SepaService`'s mandate/batch-lifecycle methods write `entityType = SEPA_MANDATE` for every
  * mandate grant/revoke/poller-driven expiry-or-lapse (see [SepaMandateSnapshot] KDoc for why it never
  * carries account data) and `entityType = SEPA_DEBIT_BATCH` for every batch state transition (see
- * [SepaDebitBatchSnapshot]). `DUNNING_NOTICE`/`PAYMENT_TRANSACTION` were deliberately NOT added ahead
- * of need -- this wave has no writer for either, same "no build-ahead-of-need" rule Welle V1.2.1
- * already applied to itself for these same two literals.
+ * [SepaDebitBatchSnapshot]). `PAYMENT_TRANSACTION` was deliberately NOT added ahead of need -- no
+ * wave has a writer for it yet, same "no build-ahead-of-need" rule Welle V1.2.1 already applied to
+ * itself. `DUNNING_NOTICE` (Welle V1.2.7 "Automatisiertes Mahnwesen") was appended LAST after
+ * that -- `network.lapis.cloud.server.payment.dunning.DunningIssuance`'s single shared issuance
+ * path (used by both the poller and every manual RPC override) writes `entityType =
+ * DUNNING_NOTICE` for every notice CREATE (issued/skipped) and UPDATE (cancelled) -- see
+ * [DunningNoticeSnapshot] KDoc for why it never carries member/address data.
  * Additive append only -- never reorder existing literals,
  * see this enum's own "cheap to extend, expensive to reorder" note class-wide.
  */
@@ -83,6 +87,7 @@ enum class AuditEntityType {
     ORGANIZATION_SETTINGS,
     SEPA_MANDATE,
     SEPA_DEBIT_BATCH,
+    DUNNING_NOTICE,
 }
 
 /**
@@ -324,4 +329,50 @@ data class SepaCreditorSettingsSnapshot(
     val sepaCreditorId: String?,
     val sepaCreditorName: String?,
     val sepaPrenotificationDays: Int,
+)
+
+/**
+ * Structured payload for an [AuditEntityType.DUNNING_NOTICE] audit entry (Welle V1.2.7). **NEVER
+ * carries the member's name/address/e-mail** -- same PII-minimization discipline
+ * [SocialPostModerationSnapshot]/[SepaMandateSnapshot] already establish for an append-only,
+ * hash-chained table: a snapshot carrying personal data would preserve exactly the data a later
+ * Art. 17 erasure would have to remove, and could then no longer be removed without breaking the
+ * chain. [issuedBySystem] is `true` iff [network.lapis.cloud.server.payment.dunning.DunningPoller]
+ * (not a human treasurer) issued this notice -- the GoBD-/accountability-relevant part of the
+ * event; the actor itself is already carried by [AuditLogEntryDto.actorMemberId] (`null` for the
+ * poller, same system-actor convention `SepaBatchPoller` already uses).
+ */
+@Serializable
+data class DunningNoticeSnapshot(
+    val contributionId: String,
+    val cycleNumber: Int,
+    val levelNumber: Int,
+    val levelName: String,
+    val status: DunningNoticeStatus,
+    val amountDue: Decimal,
+    val feeAmount: Decimal?,
+    val respondBy: LocalDate,
+    val documentId: String?,
+    val issuedBySystem: Boolean,
+)
+
+/**
+ * Structured payload for an [AuditEntityType.ORGANIZATION_SETTINGS] audit entry written by
+ * `network.lapis.cloud.server.rpc.DunningService.createDunningLevel`/`updateDunningLevel`/
+ * `deactivateDunningLevel` (Welle V1.2.7 -- Security Round, "kein Audit-Trail fuer die
+ * Mahnstufen-Leiter" finding). Reuses [AuditEntityType.ORGANIZATION_SETTINGS] with
+ * `entityId = network.lapis.cloud.server.rpc.ORGANIZATION_SETTINGS_ID`, the SAME idiom
+ * [SepaCreditorSettingsSnapshot] already establishes for an org-wide configuration change that
+ * doesn't warrant its OWN [AuditEntityType] literal (a `dunning_level` row is configuration, not a
+ * per-member fact) -- see that snapshot's own KDoc and `SepaService.updateSepaCreditorSettings` for
+ * the precedent this mirrors. No PII (a dunning level carries no member data at all).
+ */
+@Serializable
+data class DunningLevelSnapshot(
+    val levelNumber: Int,
+    val name: String,
+    val graceDays: Int,
+    val responseDays: Int,
+    val feeAmount: Decimal?,
+    val active: Boolean,
 )

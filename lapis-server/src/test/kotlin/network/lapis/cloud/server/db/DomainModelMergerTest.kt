@@ -35,16 +35,16 @@ class DomainModelMergerTest :
         // ── Test 1: merging the real 22 domain scripts ───────────────────────────────────
 
         test(
-            "merging the real 34 domain scripts succeeds and the uml-to-erm -> erm-to-exposed chain " +
+            "merging the real 35 domain scripts succeeds and the uml-to-erm -> erm-to-exposed chain " +
                 "produces exactly one Table file per distinct table name",
         ) {
             val scriptFiles =
                 requireNotNull(KumlModelLoader.kumlSourceDir.listFiles { f -> f.name.endsWith(".kuml.kts") }) {
                     "kUML source dir not found or not a directory: ${KumlModelLoader.kumlSourceDir.absolutePath}"
                 }.sortedBy { it.name }
-            // Zahlungsverkehr, Welle V1.2.1 "Zahlungs-Fundament" -- was 33, now 34 with the addition
-            // of 33-payments.kuml.kts.
-            scriptFiles shouldHaveSize 34
+            // Zahlungsverkehr, Welle V1.2.7 "Automatisiertes Mahnwesen" -- was 34, now 35 with the
+            // addition of 34-dunning.kuml.kts.
+            scriptFiles shouldHaveSize 35
 
             val diagrams = scriptFiles.map { KumlModelLoader.loadUmlDiagram(it) }
 
@@ -262,7 +262,14 @@ class DomainModelMergerTest :
             // kuml.kts's own now-real sepa_mandate entity, +1 more drop) -- net +6 «Entity»
             // declarations (4 real tables + 2 stubs), 2 drops, versus the V1.2.1 baseline above
             // (108 -> 112).
-            val distinctTableNames = 112
+            // 34-dunning.kuml.kts (Zahlungsverkehr, Welle V1.2.7 "Automatisiertes Mahnwesen") adds
+            // exactly three more real tables (dunning_level, dunning_notice,
+            // dunning_compliance_acknowledgment), WITH FOUR cross-domain stubs (Member, Contribution,
+            // Document, PostalDeliveryLog -- all four already real by this point: member/
+            // contribution/document/postal_delivery_log) -- so it contributes +7 «Entity»
+            // declarations (4 stubs + 3 real tables) and 4 drops (all four stubs dedup into the
+            // already-existing entities) versus the V1.2.2 baseline above (112 -> 115).
+            val distinctTableNames = 115
 
             val result =
                 UmlToExposedViaErmScriptTransformer().transform(
@@ -414,6 +421,12 @@ class DomainModelMergerTest :
                     "SepaDebitBatchTable.kt",
                     "SepaDebitItemTable.kt",
                     "SepaReturnTable.kt",
+                    // Zahlungsverkehr, Welle V1.2.7 "Automatisiertes Mahnwesen" -- three new real
+                    // tables; the Member/Contribution/Document/PostalDeliveryLog stubs added
+                    // alongside them all dedup into already-real entities, no new Table file for them.
+                    "DunningLevelTable.kt",
+                    "DunningNoticeTable.kt",
+                    "DunningComplianceAcknowledgmentTable.kt",
                 )
         }
 

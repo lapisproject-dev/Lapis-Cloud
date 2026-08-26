@@ -251,5 +251,13 @@ classDiagram(name = "OrganizationSettings") {
             defaultValue = "14"
             stereotype("Column") { "columnName" to "sepa_prenotification_days" }
         }
+        // V1.2.7 Automatisiertes Mahnwesen. Opt-in gate, NOT NULL, defaults to FALSE. Same read-
+        // only-from-OrganizationSettingsService treatment as sepaDebitEnabled/auctionEnabled above
+        // -- see 34-dunning.kuml.kts file header. Settable ONLY via
+        // IDunningService.enableDunning (disclaimer-acknowledgment)/disableDunning.
+        attribute(name = "dunningEnabled", type = "Boolean") {
+            defaultValue = "FALSE"
+            stereotype("Column") { "columnName" to "dunning_enabled" }
+        }
     }
 }

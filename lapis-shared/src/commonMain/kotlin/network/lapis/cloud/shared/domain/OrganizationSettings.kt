@@ -71,6 +71,11 @@ import kotlinx.serialization.Serializable
  * degrades the bridge to a no-op (no journal entry, contribution status still transitions) rather
  * than throwing -- so a fresh/unconfigured organization's `markContributionPaid` behaves exactly as
  * it did before this wave.
+ *
+ * [dunningEnabled] (Welle V1.2.7 "Automatisiertes Mahnwesen") is **READ-ONLY here**, same treatment
+ * as [sepaDebitEnabled] -- absent from [OrganizationSettingsInput], settable ONLY via
+ * [network.lapis.cloud.shared.rpc.IDunningService.enableDunning] (disclaimer-acknowledgment)/
+ * `disableDunning`.
  */
 @Serializable
 data class OrganizationSettingsDto(
@@ -95,6 +100,7 @@ data class OrganizationSettingsDto(
     val paymentBankAccountId: String? = null,
     val paymentFeeAccountId: String? = null,
     val contributionIncomeAccountId: String? = null,
+    val dunningEnabled: Boolean = false,
 )
 
 /** Replaces every field of the single [OrganizationSettingsDto] row wholesale (no partial update). */

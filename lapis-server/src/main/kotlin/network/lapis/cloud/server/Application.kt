@@ -69,6 +69,8 @@ import network.lapis.cloud.server.mail.SmtpConfigState
 import network.lapis.cloud.server.mail.SmtpFriendVerificationMailer
 import network.lapis.cloud.server.mail.SmtpPasswordResetMailer
 import network.lapis.cloud.server.mail.SmtpStartupCheck
+import network.lapis.cloud.server.payment.dunning.DunningConfig
+import network.lapis.cloud.server.payment.dunning.DunningPoller
 import network.lapis.cloud.server.payment.sepa.SepaBatchPoller
 import network.lapis.cloud.server.payment.sepa.SepaConfig
 import network.lapis.cloud.server.postal.LetterxpressPostalMailProvider
@@ -77,6 +79,7 @@ import network.lapis.cloud.server.routes.registerBackupRoutes
 import network.lapis.cloud.server.routes.registerConferenceRecordingRoutes
 import network.lapis.cloud.server.routes.registerDocumentRoutes
 import network.lapis.cloud.server.routes.registerDsgvoRoutes
+import network.lapis.cloud.server.routes.registerDunningRoutes
 import network.lapis.cloud.server.routes.registerFederationRoutes
 import network.lapis.cloud.server.routes.registerMailmergeRoutes
 import network.lapis.cloud.server.routes.registerOidcRoutes
@@ -101,6 +104,7 @@ import network.lapis.cloud.server.rpc.DirectMessageService
 import network.lapis.cloud.server.rpc.DocumentService
 import network.lapis.cloud.server.rpc.DsgvoComplianceService
 import network.lapis.cloud.server.rpc.DsgvoService
+import network.lapis.cloud.server.rpc.DunningService
 import network.lapis.cloud.server.rpc.ElectionService
 import network.lapis.cloud.server.rpc.FederationService
 import network.lapis.cloud.server.rpc.GovernanceService
@@ -140,6 +144,7 @@ import network.lapis.cloud.shared.rpc.IDirectMessageService
 import network.lapis.cloud.shared.rpc.IDocumentService
 import network.lapis.cloud.shared.rpc.IDsgvoComplianceService
 import network.lapis.cloud.shared.rpc.IDsgvoService
+import network.lapis.cloud.shared.rpc.IDunningService
 import network.lapis.cloud.shared.rpc.IElectionService
 import network.lapis.cloud.shared.rpc.IFederationService
 import network.lapis.cloud.shared.rpc.IGovernanceService
@@ -477,6 +482,31 @@ fun Application.module() {
     // constructor-default instance would be non-functional in production.
     val sepaMandateWriteRateLimiter = FederationInboxRateLimiter(maxRequests = 10, window = 1.minutes)
 
+    // V1.2.7 Automatisiertes Mahnwesen -- DunningConfig.load() is pure string parsing, same
+    // deliberately-non-fail-fast posture as SepaConfig (see that class' own KDoc): the feature is
+    // DB-flag-gated (organization_settings.dunning_enabled), not env-var-gated. DunningPoller is
+    // constructed unconditionally, `.start()` gated on dunningConfig.pollerEnabled, same reasoning
+    // as sepaBatchPoller/recordingPoller/streamPoller above. Reuses the SAME postalMailProvider
+    // instance as PostalMailService (documentStorageRoot already constructed above) -- see
+    // DunningPoller class KDoc "Phase B".
+    val dunningConfig = DunningConfig.load()
+    val dunningPoller =
+        DunningPoller(
+            dunningConfig = dunningConfig,
+            documentStorageRoot = documentStorageRoot,
+            postalMailProvider = postalMailProvider,
+        )
+    if (dunningConfig.pollerEnabled) {
+        dunningPoller.start()
+    }
+    monitor.subscribe(ApplicationStopping) { dunningPoller.stop() }
+    val dunningIssueRateLimiter = FederationInboxRateLimiter(maxRequests = 10, window = 1.minutes)
+    // Security review LOW finding -- `POST /api/dunning/contributions/{id}/preview.pdf` had no rate
+    // limit at all (see registerDunningRoutes' own `previewRateLimiter` KDoc). Own instance, same
+    // budget shape as dunningIssueRateLimiter, because the RPC service and this raw Ktor route are
+    // wired independently here.
+    val dunningPreviewRateLimiter = FederationInboxRateLimiter(maxRequests = 10, window = 1.minutes)
+
     // V1.0 Videokonferenzen, Wave 9 "Stream-Pause bei geheimen Abstimmungen" (D6) -- constructed here,
     // NOT left to ElectionService's/SystemicConsensusService's own constructor defaults (there ARE
     // none -- see those classes' own `streamGuard` KDoc): reuses the SAME liveKitEgressClient/
@@ -679,6 +709,16 @@ fun Application.module() {
         }
         registerService(IPaymentGatewayService::class) { call -> PaymentGatewayService(call = call) }
         registerService(
+            IDunningService::class,
+        ) { call ->
+            DunningService(
+                call = call,
+                dunningConfig = dunningConfig,
+                documentStorageRoot = documentStorageRoot,
+                issueRateLimiter = dunningIssueRateLimiter,
+            )
+        }
+        registerService(
             ISocialNetworkService::class,
         ) { call ->
             SocialNetworkService(
@@ -789,6 +829,7 @@ fun Application.module() {
         registerDsgvoRoutes()
         registerMailmergeRoutes(documentStorageRoot)
         registerSepaRoutes(documentStorageRoot = documentStorageRoot, sepaConfig = sepaConfig)
+        registerDunningRoutes(storageRoot = documentStorageRoot, previewRateLimiter = dunningPreviewRateLimiter)
         registerBackupRoutes(database = DatabaseConfig.connect(), documentStorageRoot = documentStorageRoot)
         registerAuthRoutes(
             rateLimiter = loginRateLimiter,

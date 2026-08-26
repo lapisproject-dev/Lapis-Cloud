@@ -38,6 +38,8 @@ public object OrganizationSettingsTable : Table("organization_settings") {
     public val sepaCreditorName: Column<String?> = varchar("sepa_creditor_name", 70).nullable()
     public val sepaPrenotificationDays: Column<Int> = integer("sepa_prenotification_days")
     // TODO default = "14"
+    public val dunningEnabled: Column<Boolean> = bool("dunning_enabled")
+    // TODO default = "FALSE"
 
     override val primaryKey: PrimaryKey = PrimaryKey(id)
 }

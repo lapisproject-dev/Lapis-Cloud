@@ -104,6 +104,20 @@ services:
       LAPIS_SMTP_REPLY_TO: ${LAPIS_SMTP_REPLY_TO:-}
       LAPIS_BRAND_TITLE: ${LAPIS_BRAND_TITLE:-}
       LAPIS_BRAND_LOGO_PATH: ${LAPIS_BRAND_LOGO_PATH:-}
+      # SEPA-Lastschriftlauf-Poller (V1.2.2) -- Bugfix (F-2, 2026-08-26): war seit V1.2.2 nirgends
+      # durchgereicht, der Poller war damit in Produktion nie einschaltbar. ALLE optional, default
+      # aus -- darf auf höchstens EINER Instanz aktiviert werden (siehe SepaBatchPoller KDoc; pdv2
+      # UND diese ELB-Instanz sind zwei separate Instanzen -- nur eine darf den Poller einschalten).
+      LAPIS_SEPA_POLLER_ENABLED: ${LAPIS_SEPA_POLLER_ENABLED:-}
+      LAPIS_SEPA_POLL_INTERVAL_SECONDS: ${LAPIS_SEPA_POLL_INTERVAL_SECONDS:-}
+      # Automatisiertes Mahnwesen (V1.2.7) -- ALLE optional, default aus. Fünf voneinander
+      # unabhängige Sicherungen, bis eine reale Mahnung das Haus verlässt -- siehe DunningConfig/
+      # DunningPoller KDoc und README.adoc "Automatisiertes Mahnwesen". Gleiche Ein-Instanz-Regel
+      # wie beim SEPA-Poller oben.
+      LAPIS_DUNNING_POLLER_ENABLED: ${LAPIS_DUNNING_POLLER_ENABLED:-}
+      LAPIS_DUNNING_POLL_INTERVAL_SECONDS: ${LAPIS_DUNNING_POLL_INTERVAL_SECONDS:-}
+      LAPIS_DUNNING_MAX_NOTICES_PER_TICK: ${LAPIS_DUNNING_MAX_NOTICES_PER_TICK:-}
+      LAPIS_DUNNING_POSTAL_DISPATCH_ENABLED: ${LAPIS_DUNNING_POSTAL_DISPATCH_ENABLED:-}
       # First-admin bootstrap (see AdminBootstrap KDoc) -- only ever acts on a genuinely empty
       # `member` table, so safe to leave set permanently. Needs all three or none: bootstrap mode
       # only engages once LAPIS_BOOTSTRAP_ADMIN_DISPLAY_NAME is set.

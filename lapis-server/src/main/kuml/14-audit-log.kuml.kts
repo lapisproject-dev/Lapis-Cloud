@@ -169,6 +169,7 @@ classDiagram(name = "AuditLog") {
         literal(name = "CONFERENCE_ROOM")
         literal(name = "SOCIAL_POST") // Soziales Netzwerk, Welle V1.1.5 -- rechtliche Entfernung + Melde-Entscheidung
         literal(name = "ORGANIZATION_SETTINGS") // Welle V1.2.1, Security Round 1 -- Konten-Zuordnungs-Aenderung
+        literal(name = "DUNNING_NOTICE") // Welle V1.2.7 Automatisiertes Mahnwesen -- siehe DunningService/DunningPoller KDoc
     }
 
     // Genesis-singleton row (see file header) -- gapless sequence_number + hash-chain

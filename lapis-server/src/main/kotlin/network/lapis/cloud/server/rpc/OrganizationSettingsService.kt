@@ -274,4 +274,7 @@ fun ResultRow.toOrganizationSettingsDto(): OrganizationSettingsDto =
         paymentBankAccountId = this[OrganizationSettingsTable.paymentBankAccountId]?.toString(),
         paymentFeeAccountId = this[OrganizationSettingsTable.paymentFeeAccountId]?.toString(),
         contributionIncomeAccountId = this[OrganizationSettingsTable.contributionIncomeAccountId]?.toString(),
+        // V1.2.7 Automatisiertes Mahnwesen -- read-only here, same treatment as sepaDebitEnabled
+        // above. Settable ONLY via IDunningService.enableDunning/disableDunning.
+        dunningEnabled = this[OrganizationSettingsTable.dunningEnabled],
     )

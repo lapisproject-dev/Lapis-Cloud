@@ -368,6 +368,12 @@ fun decodeAuditSnapshot(
             // raw-text display.
             AuditEntityType.SEPA_MANDATE -> null
             AuditEntityType.SEPA_DEBIT_BATCH -> null
+            // Zahlungsverkehr, Welle V1.2.7 "Automatisiertes Mahnwesen" -- DunningNoticeSnapshot
+            // exists server-side (see AuditLog.kt), but this client-side decode/render pair is
+            // deliberately not extended for it this wave (backend-only wave, see CHANGELOG "Known
+            // gaps") -- same "no dedicated snapshot type decoded yet" fallback as SEPA_MANDATE/
+            // SEPA_DEBIT_BATCH above, falls through to the raw-text display.
+            AuditEntityType.DUNNING_NOTICE -> null
         }
     }.getOrNull()
 

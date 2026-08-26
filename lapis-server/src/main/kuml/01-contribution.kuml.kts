@@ -26,7 +26,7 @@
 // trail. This wave adds:
 //  - Four new `ContributionStatus` literals (`DEBIT_SCHEDULED`/`DEBIT_SUBMITTED`/`RETURNED`/
 //    `IN_DUNNING`) -- unused by any V1.2.1 code path (SEPA/Mahnwesen are later sub-waves V1.2.2/
-//    V1.2.3), but the enum widening itself (VARCHAR(7)->VARCHAR(15) + CHECK) is a single atomic
+//    V1.2.7), but the enum widening itself (VARCHAR(7)->VARCHAR(15) + CHECK) is a single atomic
 //    schema change this wave makes once, rather than re-widening the CHECK constraint three more
 //    times across the later sub-waves -- see plan § 2.1's "erwogene Alternative, verworfen".
 //    `ContributionStatusSets` (network.lapis.cloud.shared.domain, mirrors `MemberStatusSets`) is
@@ -91,7 +91,7 @@ classDiagram(name = "Contribution") {
         literal(name = "WAIVED")
         literal(name = "OVERDUE")
         // V1.2.1 additions -- see file header. Unused by any V1.2.1 code path on purpose (SEPA/
-        // Mahnwesen write these starting V1.2.2/V1.2.3); the widening happens once, here.
+        // Mahnwesen write these starting V1.2.2/V1.2.7); the widening happens once, here.
         literal(name = "DEBIT_SCHEDULED")
         literal(name = "DEBIT_SUBMITTED")
         literal(name = "RETURNED")

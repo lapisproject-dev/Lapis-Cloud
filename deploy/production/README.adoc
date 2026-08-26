@@ -519,6 +519,39 @@ logo shows no mark at all next to it, rather than a mark that would misleadingly
 `LAPIS_BRAND_*` rebrands the deployment's own presentation, it does not white-label away where the
 platform itself comes from.
 
+== SEPA-Lastschriftlauf-Poller (optional)
+
+`LAPIS_SEPA_POLLER_ENABLED` (default `false`) starts the background poller
+(`network.lapis.cloud.server.payment.sepa.SepaBatchPoller`) that auto-expires stale mandates,
+lapses a withdrawn/rejected member's mandate, and marks SEPA-Lastschrift items settleable after the
+8-week return window. **Fix (2026-08-26, F-2)**: this variable existed since V1.2.2 but was never
+passed through `docker-compose.yml` -- the poller could not be enabled on any production
+deployment until now. Set `LAPIS_SEPA_POLLER_ENABLED=true` on **at most one** instance;
+`LAPIS_SEPA_POLL_INTERVAL_SECONDS` (default 3600, floor 60) tunes the poll interval.
+
+== Automatisiertes Mahnwesen (optional)
+
+`LAPIS_DUNNING_POLLER_ENABLED` (default `false`) starts the background poller
+(`network.lapis.cloud.server.payment.dunning.DunningPoller`) that fälligstellt overdue
+contributions and, once `organization_settings.dunning_enabled` is switched on via
+`IDunningService.enableDunning` (ADMIN, disclaimer-acknowledgment-gated) AND at least one active
+`dunning_level` exists, escalates them through the configured dunning ladder -- generating and
+archiving a PDF per notice. Set `LAPIS_DUNNING_POLLER_ENABLED=true` on **at most one** instance,
+same discipline as the SEPA poller above.
+
+* `LAPIS_DUNNING_POLL_INTERVAL_SECONDS` (default 3600, floor 60).
+* `LAPIS_DUNNING_MAX_NOTICES_PER_TICK` (default 200, `1..5000`) -- cost-/DoS-cap per poll pass.
+* `LAPIS_DUNNING_POSTAL_DISPATCH_ENABLED` (default `false`) -- a THIRD, independent gate on top of
+  `organizationSettings.postalMailEnabled` (see "E-Mail-Versand" above's sibling postal-dispatch
+  precedent). Automated postal dispatch of a dunning letter costs real money per letter and
+  transfers a member's postal address to Letterxpress -- keep this off until an AVV is in place and
+  the wording has been reviewed via the `preview.pdf` route.
+
+No default dunning levels are seeded -- an empty `dunning_level` table is itself one of five
+independent safeguards before a real letter can ever be issued (poller flag, DB flag, disclaimer
+acknowledgment, an active level, and -- for postal dispatch -- the third flag above). See
+`network.lapis.cloud.server.payment.dunning.DunningConfig`/`DunningPoller` KDoc.
+
 == A second, co-located instance on the same host (ELB pilot)
 
 `../production-elb/` is a full second copy of this directory -- its own Postgres, its own

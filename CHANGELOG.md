@@ -8,6 +8,79 @@ All notable changes to this project are documented here. Format follows
 
 ### Added
 
+**Automatisiertes Mahnwesen, Welle V1.2.7 — konfigurierbare Mahnstufen-Leiter, Poller-gesteuerte Eskalation, PDF-Mahnungen, optionaler Postversand**
+
+Der bislang manuelle Umgang mit überfälligen Mitgliedsbeiträgen (`ContributionStatus.OVERDUE`
+wurde bislang von niemandem geschrieben) wird durch eine automatisierte Mahnkette ersetzt:
+konfigurierbare Mahnstufen (`dunning_level`), eine append-only Mahnhistorie pro Beitrag
+(`dunning_notice`), ein Poller, der die Eskalation zeitgesteuert durchläuft, und eine manuelle
+Treuhänder-Override-Ebene (überspringen/zurücksetzen/stornieren) für dieselbe Kette.
+
+- **Fünf voneinander unabhängige Sicherungen** bis eine reale Mahnung das Haus verlässt:
+  `LAPIS_DUNNING_POLLER_ENABLED` (Poller startet nicht), `organization_settings.dunning_enabled`
+  (DB-Flag, per `IDunningService.enableDunning`/`disableDunning` mit Rechtshinweis-Bestätigung
+  geschaltet — exakter Klon des `SepaComplianceDisclaimer`-Mechanismus aus V1.2.1/V1.2.2), eine
+  bestätigte Disclaimer-Version, mindestens eine aktive `dunning_level`-Zeile (bewusst **kein**
+  Seeding von Standardstufen), und für Postversand zusätzlich `LAPIS_DUNNING_POSTAL_DISPATCH_ENABLED`
+  **und** `organization_settings.postalMailEnabled`.
+- **`DunningPoller`** (wörtlich nach `SepaBatchPoller`/`RecordingPoller` modelliert: eine Coroutine,
+  kein In-Memory-Zustand, jeder Tick fragt seine Kandidaten frisch ab) läuft in drei Phasen: Phase A
+  stellt rein zeitabgeleitet `OPEN → OVERDUE` fällig (bewusst **ohne** Audit-Eintrag — ein reiner
+  Zustandswechsel ohne menschliche Entscheidung würde die hash-gekettete Audit-Chain unnötig
+  fluten); Phase B eskaliert jeden mahnfähigen Beitrag über den EINEN gemeinsamen Ausstellungspfad
+  (`issueDunningNotice`), den auch jede manuelle RPC-Methode nutzt — direkte Lehre aus dem
+  V1.2.2-Security-Review ("vier Pfade, ein Helfer"); Phase C heilt Mahnungen mit fehlendem
+  `document_id` selbst (Crash zwischen Notice-Insert und PDF-Archivierung), **ohne** einen
+  fehlgeschlagenen Postversand zu wiederholen (at-most-once-Disziplin — ein verlorener Brief ist
+  eine sichtbare Lücke, ein doppelt versandter Brief kostet echtes Geld).
+- **Kein Aufruf von `AccountingService`/`ContributionPostingBridge`/`CashRegisterGuard`** irgendwo
+  in diesem Feature — Mahngebühren werden auf `dunning_notice.fee_amount` erfasst, aber nie gebucht,
+  exakt dasselbe "erfasst, nicht gebucht"-Präzedens wie `sepa_return.return_fee` seit V1.2.2.
+  `contribution.amount_due` wird von diesem Feature niemals verändert.
+- **§ 286 BGB strukturell erzwungen**: eine Mahngebühr auf der ersten konfigurierten Mahnstufe wird
+  von `DunningService.createDunningLevel`/`updateDunningLevel` mit `ConflictException` abgelehnt —
+  eine erste Zahlungserinnerung begründet den Verzug in aller Regel erst. Obergrenze 25,00 € je
+  Mahnstufe (technische Kappung, keine rechtliche Freigabe jeder Höhe darunter). Keine
+  Verzugszinsen-Berechnung.
+- **`cycle_number` statt partiellem Unique-Index**: H2s `MODE=PostgreSQL`-Kompatibilitätsschicht
+  (Testsuite) unterstützt kein `CREATE UNIQUE INDEX … WHERE`, dieselbe Einschränkung, die
+  `sepa_mandate`s eigene Migration bereits dokumentiert. `resetDunning` storniert stattdessen alle
+  Notices des laufenden Zyklus; der nächste Ausstellungsversuch erkennt automatisch, dass der
+  höchste Zyklus vollständig storniert ist, und beginnt in einem neuen Zyklus bei Stufe 1 — kein
+  `DELETE`, kein partieller Index, `uq_dunning_notice_slot (contribution_id, cycle_number,
+  level_number)` bleibt die alleinige DB-seitige Idempotenz-Garantie.
+- **SEPA-Wechselwirkung**: ein Beitrag mit `paymentMethod = SEPA_DEBIT` und aktivem Mandat wird
+  NICHT gemahnt (der nächste Lastschriftlauf zieht ein) — außer der Status ist bereits `RETURNED`
+  (eine geplatzte Lastschrift wird weiterhin gemahnt).
+- **Mahnen ausgetretener Mitglieder**: bewusst NICHT auf `MemberStatusSets.ORGANIZATION_MEMBER`
+  gegated (anders als `SepaService.createDebitBatch`) — eine Schuld überlebt den Austritt, der Fall
+  bleibt in der Übersicht sichtbar.
+- **`MahnungPdfGenerator`** wiederverwendet `LetterPdfBuilder`/`GermanAmountInWords`/`formatEuro`
+  ohne neuen PDF-Stack (dritter Nutzer nach `BeitragsrechnungPdfGenerator`/
+  `SpendenbescheinigungPdfGenerator`) — **nicht anwaltlich geprüft**, gleiche Offenlegung wie bei
+  der Spendenbescheinigung. `POST /api/dunning/contributions/{id}/preview.pdf` erlaubt eine
+  Trockenlauf-Prüfung des Wortlauts der nächsten Stufe, ohne eine Notice-Zeile anzulegen.
+- **`AuditEntityType.DUNNING_NOTICE`** als letztes Literal angehängt; `DunningNoticeSnapshot` trägt
+  wie `SepaMandateSnapshot` niemals Name/Adresse — nur Beitrags-/Stufen-/Betrags-Metadaten.
+  `issuedBySystem` unterscheidet Poller- von Treuhänder-ausgestellten Mahnungen.
+  `DunningPersonalData` behält alle `dunning_notice`-Zeilen bei Löschantrag (GoBD/HGB/AO,
+  10 Jahre — Teil der Beitragshistorie, exakt `ContributionPersonalData`s eigene Begründung) und
+  leert nur das Freitextfeld `cancellation_reason`.
+- **Bugfix im Zuge dieser Welle (F-2)**: `LAPIS_SEPA_POLLER_ENABLED` fehlte seit V1.2.2 in beiden
+  `docker-compose.yml` — der SEPA-Poller war in Produktion nie einschaltbar. Jetzt zusammen mit den
+  vier neuen `LAPIS_DUNNING_*`-Variablen nachgezogen, siehe README.adoc "SEPA-Lastschriftlauf-
+  Poller"/"Automatisiertes Mahnwesen".
+- **Known gaps** (bewusst, siehe `IDunningService` KDoc): kein KVision-Admin-UI (Backend-only diese
+  Welle, gleicher gestaffelter Rollout wie `ISepaService`s V1.2.1/V1.2.2-Trennung); keine
+  Verzugszins-Berechnung; keine Inkasso-/Titulierungsstufe über die konfigurierte Leiter hinaus;
+  `network.lapis.cloud.client.AuditLogScreen`/`ComplianceLabels` zeigen `DUNNING_NOTICE`-Einträge
+  vorerst nur mit Rohtext-Fallback (keine strukturierte Snapshot-Anzeige), analog zu
+  `SEPA_MANDATE`/`SEPA_DEBIT_BATCH`.
+
+**Operator-Hinweis**: `V9__dunning.sql` ändert `V1__baseline.sql` erneut in place
+(`organization_settings.dunning_enabled`, `audit_log_entry.entity_type`-CHECK-Erweiterung) — vor
+dem nächsten Deploy auf **pdv2 UND der ELB-Instanz** `flyway repair` ausführen.
+
 **Echter SMTP-Versand, Welle V1.2.3 — Passwort-Reset + FRIEND-E-Mail-Verifizierung, erstmals echte Mail-Zustellung**
 
 Ersetzt `NoOpPasswordResetMailer`/`NoOpFriendVerificationMailer` (reine Logging-Stubs seit V0.7.2/

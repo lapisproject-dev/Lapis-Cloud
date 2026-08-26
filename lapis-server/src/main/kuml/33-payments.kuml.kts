@@ -13,7 +13,8 @@
 // 2.3's own description for the V1.2.1 shape of this table, as opposed to the fuller PSP-specific
 // extension a later sub-wave adds). Explicitly OUT of scope for this file and NOT modelled anywhere
 // in this repo yet:
-//  - `dunning_level`/`dunning_notice` (automatisiertes Mahnwesen) -- V1.2.3.
+//  - `dunning_level`/`dunning_notice` (automatisiertes Mahnwesen) -- V1.2.7, modelled in
+//    34-dunning.kuml.kts, which owns those tables.
 //  - `payment_checkout_session` and any PSP-webhook/HTTP-client-specific extension of
 //    `payment_transaction` (e.g. real webhook ingestion writing rows here) -- V1.2.4. No code path
 //    yet inserts into `payment_transaction`; it exists now as the schema skeleton later sub-waves
@@ -38,7 +39,8 @@
 // `sepa_debit_item`, `sepa_return` -- plus five new enums (`SepaMandateStatus`/`SepaSequenceType`/
 // `SepaDebitBatchStatus`/`SepaDebitItemStatus`/`SepaReturnReason`). `AuditEntityType` gains exactly
 // two literals for this wave, `SEPA_MANDATE`/`SEPA_DEBIT_BATCH`, appended LAST (see
-// `AuditLog.kt`'s own KDoc) -- `DUNNING_NOTICE`/`PAYMENT_TRANSACTION` remain deliberately unadded,
+// `AuditLog.kt`'s own KDoc) -- `PAYMENT_TRANSACTION` remains deliberately unadded (`DUNNING_NOTICE`
+// was added in Welle V1.2.7, see 34-dunning.kuml.kts),
 // same "no build-ahead-of-need" rule. `contribution.sepaMandateId` (a new FK column on the
 // EXISTING `contribution` table) is modelled in `01-contribution.kuml.kts` -- that file owns
 // `contribution`, not this one; see its own file header addendum. The three new
