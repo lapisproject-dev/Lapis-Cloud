@@ -8,6 +8,40 @@ All notable changes to this project are documented here. Format follows
 
 ### Added
 
+**Vollbildmodus für Videokonferenzen, Welle V1.2.9 — echter Browser-Vollbildmodus mit optionalen Overlay-Schienen für Chat und Teilnehmerliste**
+
+Die Call-Ansicht bekommt einen optional ein-/ausschaltbaren Vollbildmodus (echte Browser-
+Fullscreen-API, kein CSS-Trick), ausgelöst über ein Icon oben rechts im Video-Bereich. Im
+Vollbild lassen sich Chat und Teilnehmerliste unabhängig voneinander als Overlay-Schiene
+einblenden — UX-Vorbild ausdrücklich Zoom/BigBlueButton.
+
+- **Vollbild-Element ist der gesamte Call-Bereich**, nicht nur das Video-Grid — Aufzeichnungs-/
+  Stream-Banner, Status-Badges und die persönliche Steuerleiste (Mikrofon/Kamera/Bildschirm/
+  Verlassen) bleiben im Vollbild immer sichtbar. Die DSGVO-Transparenzzusage aus V1.0 (persistenter
+  Aufzeichnungs-Banner als struktureller Nachweis) bleibt dadurch strukturell gewahrt.
+- **Klick fordert nur an, `fullscreenchange` ist die Wahrheit** — dieselbe Disziplin wie „UI erst
+  nach bestätigtem `guarded {}`-Ergebnis aktualisieren" (V1.0), nur für die Browser-API statt für
+  einen RPC-Call. Der Button lügt nach einem Esc-Ausstieg oder einer vom Browser abgelehnten
+  Anfrage nie über den tatsächlichen Zustand.
+- **Neuer Teilnehmerlisten-Toggle** — die Teilnehmerliste war bisher immer sichtbar und hatte keinen
+  Sichtbarkeits-Schalter; Normalmodus-Default bleibt bewusst offen, kein Bestandsnutzer verliert
+  beim Update schweigend eine Information.
+- **Getrennte Schienen-Zustände für Vollbild und Normalmodus** — der Normalmodus-Zustand von Chat/
+  Teilnehmerliste bleibt beim Ein- und Aussteigen aus dem Vollbild unangetastet; jeder Vollbild-
+  Eintritt startet mit beiden Schienen geschlossen.
+- **Einrichtungs-Zeilen im Vollbild ausgeblendet** (Gastzugang, Sitzungsverknüpfung, Breakout-
+  Verwaltung) — Aufzeichnung/Stream beenden bleiben bewusst sichtbar, das ist kein Verwaltungs-
+  Vorgang, sondern eine Handlung, die im Ernstfall keine drei Klicks über einen Vollbild-Ausstieg
+  entfernt sein darf.
+- **Whiteboard und geteilte Notizen sind im Vollbild bewusst nicht verfügbar** — ihre Schalter
+  werden dort ausgeblendet statt deaktiviert, expliziter Schnitt dieser Welle, keine Lücke.
+- **Kein Fullscreen-Button ohne echte Fullscreen-API** (z. B. iOS Safari) — der Schalter wird dort
+  gar nicht erst gerendert statt disabled-und-verwirrend angezeigt.
+- **Kein eigenes Tastenkürzel** — Browser-eigenes Esc/F11 genügt, ein eigenes Kürzel würde mit dem
+  Chat-Eingabefeld kollidieren.
+- Grid-Videokachel-Maße von Inline-Styles nach `theme.css` verschoben (Voraussetzung für die
+  Vollbild-CSS-Überschreibung).
+
 **Automatisiertes Mahnwesen, Welle V1.2.7 — konfigurierbare Mahnstufen-Leiter, Poller-gesteuerte Eskalation, PDF-Mahnungen, optionaler Postversand**
 
 Der bislang manuelle Umgang mit überfälligen Mitgliedsbeiträgen (`ContributionStatus.OVERDUE`

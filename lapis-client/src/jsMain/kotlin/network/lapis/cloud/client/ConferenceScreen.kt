@@ -22,6 +22,7 @@ import kotlinx.browser.document
 import kotlinx.browser.window
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.await
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.datetime.LocalDateTime
@@ -351,7 +352,7 @@ fun renderConferenceScreen(container: SimplePanel) {
     root.h1(tr("Videokonferenz"))
     val statusLine = root.div(tr("Wird geladen …")) { addCssClasses("text-muted small") }
     val lobbyPanel = root.vPanel(spacing = 10)
-    val callPanel = root.vPanel(spacing = 10)
+    val callPanel = root.vPanel(spacing = 10) { addCssClass("lapis-conference-call-panel") }
     callPanel.hide()
 
     var activeSession: LiveKitRoomSession? = null
@@ -928,13 +929,14 @@ private fun enterCall(
     // switched between rooms always sees at a glance which one they are currently in.
     var roomTitle = if (isBreakout) gettext("%1 – %2", room.title, breakoutLabel.orEmpty()) else room.title
     val titleRow = callPanel.hPanel(spacing = 8) { addCssClasses("align-items-center flex-wrap") }
-    callPanel.div(
-        when {
-            isBreakout -> tr("Sie sind in einem Breakout-Raum.")
-            canModerate -> tr("Sie sind Moderator dieser Besprechung.")
-            else -> tr("Sie nehmen als Teilnehmer teil.")
-        },
-    ) { addCssClasses("text-muted small") }
+    val roleLine =
+        callPanel.div(
+            when {
+                isBreakout -> tr("Sie sind in einem Breakout-Raum.")
+                canModerate -> tr("Sie sind Moderator dieser Besprechung.")
+                else -> tr("Sie nehmen als Teilnehmer teil.")
+            },
+        ) { addCssClasses("text-muted small lapis-conference-config-row") }
 
     // Wave 4, D10: a calm, non-alarming status line for Connecting/Reconnecting -- see
     // [renderConnectionState] (declared further below, once every button it disables/enables
@@ -943,10 +945,18 @@ private fun enterCall(
     connectionStatusLine.hide()
 
     // --- Control bar (persistent, D5: never hover-only) -----------------------------------------
-    val controlsRow = callPanel.hPanel(spacing = 8) { addCssClasses("align-items-center flex-wrap") }
+    // V1.2.9, review fix -- `lapis-conference-controls-row` scopes theme.css's `.btn.active`
+    // active-state ring to THIS row's toggle buttons (roster/chat) instead of leaking globally
+    // onto every `.btn.active` on the page (e.g. the whiteboard toolbar's eraser/thin/thick
+    // buttons, which toggle their own unrelated `.active` class -- see theme.css comment).
+    val controlsRow =
+        callPanel.hPanel(spacing = 8) { addCssClasses("align-items-center flex-wrap lapis-conference-controls-row") }
     val micButton = controlsRow.button(tr("Mikrofon aus"), style = ButtonStyle.OUTLINESECONDARY)
     val cameraButton = controlsRow.button(tr("Kamera aus"), style = ButtonStyle.OUTLINESECONDARY)
     val screenShareButton = controlsRow.button(tr("Bildschirm teilen"), style = ButtonStyle.OUTLINESECONDARY)
+    // V1.2.9 Vollbildmodus: neuer Sichtbarkeits-Schalter für die Teilnehmerliste (D7) -- direkt vor
+    // chatToggleButton, damit beide Overlay-Schienen-Schalter im Vollbild nebeneinander sitzen.
+    val rosterToggleButton = controlsRow.button(tr("Teilnehmende"), style = ButtonStyle.OUTLINESECONDARY)
     val chatToggleButton = controlsRow.button(tr("Chat"), style = ButtonStyle.OUTLINESECONDARY)
     // V1.0 Videokonferenzen, Wave 7 "Whiteboard" -- same toggle-button-in-controlsRow shape as
     // chatToggleButton, wired further below once whiteboardPanel/whiteboardController exist.
@@ -1050,7 +1060,7 @@ private fun enterCall(
     // guarded {} call's result confirms success" rule forbids). Built UNCONDITIONALLY -- the status
     // badge is visible to every participant (D3: an ordinary ACTIVE member deserves to know the room
     // is open to another organization's members too); only the buttons are moderator-gated.
-    val guestAccessRow = callPanel.hPanel(spacing = 8) { addCssClasses("align-items-center flex-wrap") }
+    val guestAccessRow = callPanel.hPanel(spacing = 8) { addCssClasses("align-items-center flex-wrap lapis-conference-config-row") }
     guestAccessRow.div(tr("Gastzugang:")) { addCssClasses("text-muted small") }
     var guestAccessOpen = room.allowFederationGuests
     val guestAccessBadge = guestAccessRow.statusBadge("", "secondary")
@@ -1150,7 +1160,7 @@ private fun enterCall(
     // Stream nur pausieren, wenn IRGENDJEMAND diesen Raum vorher an eine Sitzung gebunden hat, also
     // muss diese Zeile sichtbar bleiben, auch wenn (der Normalfall) nichts gebunden ist -- nie hinter
     // einem "erweiterte Einstellungen"-Toggle versteckt.
-    val meetingBindingRow = callPanel.hPanel(spacing = 8) { addCssClasses("align-items-center flex-wrap") }
+    val meetingBindingRow = callPanel.hPanel(spacing = 8) { addCssClasses("align-items-center flex-wrap lapis-conference-config-row") }
     meetingBindingRow.div(tr("Sitzung:")) { addCssClasses("text-muted small") }
     var boundMeetingId = room.meetingId
     var boundMeetingTitle = room.meetingTitle
@@ -1226,7 +1236,7 @@ private fun enterCall(
     lateinit var refreshRosterRef: () -> Unit
     var breakoutCreateButton: Button? = null
     var breakoutRecallButton: Button? = null
-    val breakoutOverviewPanel = callPanel.vPanel(spacing = 2) { addCssClasses("ms-2") }
+    val breakoutOverviewPanel = callPanel.vPanel(spacing = 2) { addCssClasses("ms-2 lapis-conference-config-row") }
     breakoutOverviewPanel.hide()
     // The moderator's own local mirror of the currently open batch -- kept in sync purely from the
     // RETURN VALUE of createBreakoutRooms/assignParticipants/recallAll (event-driven, no dedicated
@@ -1263,7 +1273,7 @@ private fun enterCall(
     }
 
     if (canModerate) {
-        val breakoutRow = callPanel.hPanel(spacing = 8) { addCssClasses("align-items-center flex-wrap") }
+        val breakoutRow = callPanel.hPanel(spacing = 8) { addCssClasses("align-items-center flex-wrap lapis-conference-config-row") }
         breakoutRow.div(tr("Breakout-Räume:")) { addCssClasses("text-muted small") }
         val createBtn = breakoutRow.button(tr("Räume erstellen und verteilen"), style = ButtonStyle.OUTLINEPRIMARY)
         breakoutCreateButton = createBtn
@@ -2115,9 +2125,23 @@ private fun enterCall(
         AppScope.launch { pollInFlightStreamStatus() }
     }
 
+    // --- V1.2.9 Vollbildmodus: Video-Bereich, umschließt Bühne/Grid/Roster/Chat -----------------
+    val videoArea = callPanel.vPanel(spacing = 10) { addCssClass("lapis-conference-video-area") }
+
+    // --- V1.2.9 Vollbildmodus: Overlay-Controls-Ecke (Geschwister von gridDiv, NIEMALS Kind --
+    // KVision/snabbdom-Re-Render-Grenze, siehe Datei-KDoc Zeilen 866-871) ---------------------------
+    var panelState = ConferencePanelState()
+    val overlayControls = videoArea.hPanel(spacing = 4) { addCssClass("lapis-conference-video-overlay-controls") }
+    val fullscreenButton =
+        if (fullscreenApiAvailable()) {
+            overlayControls.button("", icon = "fas fa-expand", style = ButtonStyle.OUTLINESECONDARY) { addCssClass("btn-sm") }
+        } else {
+            null
+        }
+
     // --- Screen-share stage (hidden until a "screen_share"-sourced track subscribes) --------------
     val stageDiv =
-        callPanel.div {
+        videoArea.div {
             addCssClasses("border rounded p-2 text-center")
             display = io.kvision.core.Display.NONE
         }
@@ -2125,11 +2149,8 @@ private fun enterCall(
 
     // --- Video tile grid (responsive CSS grid, D3) -------------------------------------------------
     val gridDiv =
-        callPanel.div {
-            addCssClasses("border rounded p-2")
-            minHeight = 220.px
-            maxHeight = 480.px
-            overflow = Overflow.AUTO
+        videoArea.div {
+            addCssClasses("border rounded p-2 lapis-conference-grid")
         }
     // Wave 4, D3: `gridElement` now holds TWO sub-containers, built ONCE here (never recreated by
     // `applyConferenceGridReflow` below -- same "grab once, mutate forever" discipline this file
@@ -2236,11 +2257,14 @@ private fun enterCall(
     AppScope.launch { sweepGridReflow() }
 
     // --- Participant roster (live, driven by the same RoomEvent stream as the tiles) --------------
-    callPanel.h2(tr("Teilnehmende")) { addCssClasses("h6 mt-2") }
-    val rosterList = callPanel.vPanel(spacing = 4) { addCssClasses("border rounded p-2") }
+    // V1.2.9: erstmals togglebar (D7) -- Default im Normalmodus bleibt OFFEN (Julie Zhuo: kein
+    // Bestandsnutzer verliert beim Update schweigend eine Information, die er seit V1.0 hat).
+    val rosterPanel = videoArea.vPanel(spacing = 4) { addCssClass("lapis-conference-roster") }
+    rosterPanel.h2(tr("Teilnehmende")) { addCssClasses("h6 mt-2") }
+    val rosterList = rosterPanel.vPanel(spacing = 4) { addCssClasses("border rounded p-2") }
 
     // --- Collapsible chat side panel (D7: off by default) ------------------------------------------
-    val chatPanel = callPanel.vPanel(spacing = 6) { addCssClasses("border rounded p-2") }
+    val chatPanel = videoArea.vPanel(spacing = 6) { addCssClasses("border rounded p-2 lapis-conference-chat") }
     chatPanel.hide()
     chatPanel.h2(tr("Chat")) { addCssClass("h6") }
     val chatLog =
@@ -2276,6 +2300,117 @@ private fun enterCall(
 
     fun updateChatToggleLabel() {
         chatToggleButton.text = if (unreadChatCount > 0) gettext("Chat (%1)", unreadChatCount) else tr("Chat")
+    }
+
+    // V1.2.9 Vollbildmodus, D7 -- analog updateChatToggleLabel.
+    fun updateRosterToggleLabel() {
+        rosterToggleButton.text = if (tiles.isEmpty()) tr("Teilnehmende") else gettext("Teilnehmende (%1)", tiles.size)
+    }
+
+    // --- V1.2.9 Vollbildmodus -- die EINE Rendering-Funktion, die aus panelState liest (Alan Kay:
+    // ein Wertetyp, ein Reducer, eine reine Ableitung, Rendering ist dumm). Muss textuell NACH
+    // rosterPanel/chatPanel/rosterToggleButton/chatToggleButton/fullscreenButton UND
+    // updateChatToggleLabel/updateRosterToggleLabel stehen -- Kotlin erlaubt keine
+    // Vorwärtsreferenz auf eine lokale Deklaration innerhalb desselben Funktionskörpers.
+    fun applyPanelVisibility() {
+        if (panelState.rosterVisible()) rosterPanel.show() else rosterPanel.hide()
+        if (panelState.chatVisible()) {
+            chatPanel.show()
+            chatOpen = true
+            unreadChatCount = 0
+        } else {
+            chatPanel.hide()
+            chatOpen = false
+        }
+        updateChatToggleLabel()
+        updateRosterToggleLabel()
+
+        if (panelState.rosterVisible()) {
+            rosterToggleButton.addCssClass("active")
+        } else {
+            rosterToggleButton.removeCssClass("active")
+        }
+        if (panelState.chatVisible()) {
+            chatToggleButton.addCssClass("active")
+        } else {
+            chatToggleButton.removeCssClass("active")
+        }
+
+        val railLayout = conferenceRailLayout(panelState)
+        if (railLayout.rosterCapped) {
+            rosterPanel.addCssClass("lapis-conference-rail-capped")
+        } else {
+            rosterPanel.removeCssClass("lapis-conference-rail-capped")
+        }
+        if (railLayout.chatFlexible) {
+            chatPanel.addCssClass("lapis-conference-rail-flexible")
+        } else {
+            chatPanel.removeCssClass("lapis-conference-rail-flexible")
+        }
+
+        // D6/Stolperfalle 7: KVision-Widgets kennen addCssClass/removeCssClass NUR auf sich selbst --
+        // callPanel.getElement() liefert das rohe org.w3c.dom.HTMLElement, dort gilt classList.add/remove.
+        callPanel.getElement()?.classList?.let { classList ->
+            if (panelState.fullscreen) classList.add("lapis-conference-fullscreen") else classList.remove("lapis-conference-fullscreen")
+        }
+
+        // V1.2.9, review fix -- CHANGELOG.md's own claim ("Whiteboard und geteilte Notizen sind im
+        // Vollbild bewusst nicht verfügbar -- ihre Schalter werden dort ausgeblendet statt
+        // deaktiviert") was previously undelivered: `whiteboardToggleButton`/`notesToggleButton`
+        // sit in `controlsRow`, which is never gated by `.lapis-conference-config-row`, and this
+        // function never touched them. Hiding just the switches would still leave an
+        // ALREADY-OPEN panel visible/interactive across the transition -- "not available" must
+        // also mean an open panel gets closed, not merely un-openable going forward.
+        if (panelState.fullscreen) {
+            whiteboardToggleButton?.hide()
+            notesToggleButton?.hide()
+            if (whiteboardOpen) {
+                whiteboardOpen = false
+                whiteboardPanel.hide()
+            }
+            if (notesOpen) {
+                notesOpen = false
+                notesPanel.hide()
+            }
+        } else {
+            whiteboardToggleButton?.show()
+            notesToggleButton?.show()
+        }
+
+        val fullscreenLabel = if (panelState.fullscreen) tr("Vollbild beenden") else tr("Vollbild")
+        fullscreenButton?.icon = if (panelState.fullscreen) "fas fa-compress" else "fas fa-expand"
+        // title/aria-label MÜSSEN bei jedem Umschalten neu gesetzt werden -- addAfterInsertHook feuert
+        // nur einmal beim initialen Insert, nicht bei jedem applyPanelVisibility()-Aufruf (Stolperfalle 8).
+        fullscreenButton?.getElement()?.let { el ->
+            el.title = fullscreenLabel
+            el.setAttribute("aria-label", fullscreenLabel)
+        }
+    }
+    applyPanelVisibility() // initialer Render, Default-Zustand
+
+    // V1.2.9, D5 -- Klick fordert nur an, `fullscreenchange` ist die alleinige Wahrheitsquelle. Beide
+    // Listener sind Pflicht (Safari feuert nur `webkitfullscreenchange`, siehe Stolperfalle 10).
+    val fullscreenChangeListener: (Event) -> Unit = {
+        val el = callPanel.getElement()
+        val isNowFullscreen = currentFullscreenElement() != null && currentFullscreenElement() == el
+        panelState =
+            conferencePanelReduce(
+                current = panelState,
+                event = if (isNowFullscreen) ConferencePanelEvent.FullscreenEntered else ConferencePanelEvent.FullscreenExited,
+            )
+        applyPanelVisibility()
+    }
+    document.addEventListener("fullscreenchange", fullscreenChangeListener)
+    document.addEventListener("webkitfullscreenchange", fullscreenChangeListener)
+
+    // V1.2.9, D6 -- Pflicht-Aufräumen beim Verlassen des Calls (Resource-Leak- + "Lobby bleibt im
+    // Browser-Vollbild"-Vermeidung). Muss textuell VOR der ersten returnToLobby(...)-Call-Site stehen.
+    fun cleanupFullscreen() {
+        document.removeEventListener("fullscreenchange", fullscreenChangeListener)
+        document.removeEventListener("webkitfullscreenchange", fullscreenChangeListener)
+        if (currentFullscreenElement() != null) {
+            runCatching { exitBrowserFullscreen() }
+        }
     }
 
     fun refreshRoster() {
@@ -2349,6 +2484,7 @@ private fun enterCall(
                 }
             }
         }
+        updateRosterToggleLabel()
     }
     refreshRosterRef = ::refreshRoster
 
@@ -2731,7 +2867,14 @@ private fun enterCall(
                             is PostDisconnectDestination.Ended -> {
                                 transition(ConferenceConnectionEvent.ResolvedAsEnded)
                                 notifyInfo(tr("Die Besprechung wurde beendet oder die Verbindung getrennt."))
-                                returnToLobby(callPanel, lobbyPanel, setActiveSession, onReturnedToLobby, baseDocumentTitle)
+                                returnToLobby(
+                                    callPanel = callPanel,
+                                    lobbyPanel = lobbyPanel,
+                                    setActiveSession = setActiveSession,
+                                    onReturnedToLobby = onReturnedToLobby,
+                                    originalTitle = baseDocumentTitle,
+                                    onBeforeReturn = ::cleanupFullscreen,
+                                )
                             }
                             is PostDisconnectDestination.Breakout -> {
                                 val breakoutToken =
@@ -2744,7 +2887,14 @@ private fun enterCall(
                                     // this call landed -- same "server says no" -> Ended fallback
                                     // every other guarded {} failure in this function already takes.
                                     transition(ConferenceConnectionEvent.ResolvedAsEnded)
-                                    returnToLobby(callPanel, lobbyPanel, setActiveSession, onReturnedToLobby, baseDocumentTitle)
+                                    returnToLobby(
+                                        callPanel = callPanel,
+                                        lobbyPanel = lobbyPanel,
+                                        setActiveSession = setActiveSession,
+                                        onReturnedToLobby = onReturnedToLobby,
+                                        originalTitle = baseDocumentTitle,
+                                        onBeforeReturn = ::cleanupFullscreen,
+                                    )
                                 } else {
                                     notifyInfo(
                                         gettext(
@@ -2753,6 +2903,12 @@ private fun enterCall(
                                         ),
                                     )
                                     setActiveSession(null)
+                                    // V1.2.9, review fix -- direct re-entry (no Lobby round-trip),
+                                    // so `cleanupFullscreen()` is not reached via `returnToLobby`'s
+                                    // `onBeforeReturn` here. Must run BEFORE `enterCall` declares a
+                                    // fresh `panelState`/listener pair, same discipline as every
+                                    // `returnToLobby(...)` call site above.
+                                    cleanupFullscreen()
                                     enterCall(
                                         ConferenceCallTarget.BreakoutRoom(
                                             breakoutRoomId = destination.assignment.breakoutRoomId,
@@ -2774,10 +2930,20 @@ private fun enterCall(
                                     // No longer holds an open participation (e.g. was actually
                                     // kicked, not recalled) -- same fallback as above.
                                     transition(ConferenceConnectionEvent.ResolvedAsEnded)
-                                    returnToLobby(callPanel, lobbyPanel, setActiveSession, onReturnedToLobby, baseDocumentTitle)
+                                    returnToLobby(
+                                        callPanel = callPanel,
+                                        lobbyPanel = lobbyPanel,
+                                        setActiveSession = setActiveSession,
+                                        onReturnedToLobby = onReturnedToLobby,
+                                        originalTitle = baseDocumentTitle,
+                                        onBeforeReturn = ::cleanupFullscreen,
+                                    )
                                 } else {
                                     notifyInfo(tr("Sie wurden in den Hauptraum zurückgeholt."))
                                     setActiveSession(null)
+                                    // V1.2.9, review fix -- same direct-re-entry cleanup as the
+                                    // `Breakout` branch above.
+                                    cleanupFullscreen()
                                     enterCall(
                                         ConferenceCallTarget.MainRoom(destination.parentRoom),
                                         mainToken,
@@ -2807,7 +2973,14 @@ private fun enterCall(
         if (connected == null) {
             transition(ConferenceConnectionEvent.ConnectFailed("connect failed"))
             setActiveSession(null)
-            returnToLobby(callPanel, lobbyPanel, setActiveSession, onReturnedToLobby, baseDocumentTitle)
+            returnToLobby(
+                callPanel = callPanel,
+                lobbyPanel = lobbyPanel,
+                setActiveSession = setActiveSession,
+                onReturnedToLobby = onReturnedToLobby,
+                originalTitle = baseDocumentTitle,
+                onBeforeReturn = ::cleanupFullscreen,
+            )
             return@launch
         }
         transition(ConferenceConnectionEvent.ConnectSucceeded)
@@ -2902,14 +3075,29 @@ private fun enterCall(
             }
         }
     }
+    // V1.2.9 Vollbildmodus -- getrieben vom Panel-State-Reducer statt einem losen Boolean-Flag,
+    // damit Normalmodus- und Vollbild-Sichtbarkeit unabhängig voneinander geführt werden (D4/D5).
+    rosterToggleButton.onClick {
+        panelState = conferencePanelReduce(current = panelState, event = ConferencePanelEvent.RosterToggled)
+        applyPanelVisibility()
+    }
     chatToggleButton.onClick {
-        chatOpen = !chatOpen
-        if (chatOpen) {
-            chatPanel.show()
-            unreadChatCount = 0
-            updateChatToggleLabel()
-        } else {
-            chatPanel.hide()
+        panelState = conferencePanelReduce(current = panelState, event = ConferencePanelEvent.ChatToggled)
+        applyPanelVisibility()
+    }
+    fullscreenButton?.onClick {
+        val el = callPanel.getElement() ?: return@onClick
+        AppScope.launch {
+            try {
+                if (currentFullscreenElement() == null) {
+                    requestFullscreenOn(el).await()
+                } else {
+                    exitBrowserFullscreen().await()
+                }
+                // Kein Zustands-Update hier -- fullscreenChangeListener ist die alleinige Quelle (D5).
+            } catch (e: Throwable) {
+                notifyError(tr("Vollbildmodus wurde vom Browser abgelehnt."))
+            }
         }
     }
     // Review fix: `whiteboardToggleButton` is `null` inside a breakout call -- see its own
@@ -2983,9 +3171,20 @@ private fun enterCall(
             val mainToken = guarded { rpcService<IConferenceBreakoutService>().rejoinMainRoomToken(room.id) }
             setActiveSession(null)
             if (mainToken != null) {
+                // V1.2.9, review fix -- same direct-re-entry cleanup as `onDisconnected`'s
+                // `Breakout`/`Main` branches above; this button is the third and last direct
+                // `enterCall(...)` re-entry point that bypasses `returnToLobby`.
+                cleanupFullscreen()
                 enterCall(ConferenceCallTarget.MainRoom(room), mainToken, lobbyPanel, callPanel, setActiveSession, onReturnedToLobby)
             } else {
-                returnToLobby(callPanel, lobbyPanel, setActiveSession, onReturnedToLobby, baseDocumentTitle)
+                returnToLobby(
+                    callPanel = callPanel,
+                    lobbyPanel = lobbyPanel,
+                    setActiveSession = setActiveSession,
+                    onReturnedToLobby = onReturnedToLobby,
+                    originalTitle = baseDocumentTitle,
+                    onBeforeReturn = ::cleanupFullscreen,
+                )
             }
         }
     }
@@ -3002,7 +3201,14 @@ private fun enterCall(
             guarded { session.disconnect() }
             guarded { rpcService<IConferenceService>().leaveRoom(room.id) }
             setActiveSession(null)
-            returnToLobby(callPanel, lobbyPanel, setActiveSession, onReturnedToLobby, baseDocumentTitle)
+            returnToLobby(
+                callPanel = callPanel,
+                lobbyPanel = lobbyPanel,
+                setActiveSession = setActiveSession,
+                onReturnedToLobby = onReturnedToLobby,
+                originalTitle = baseDocumentTitle,
+                onBeforeReturn = ::cleanupFullscreen,
+            )
         }
     }
 
@@ -3017,7 +3223,14 @@ private fun enterCall(
                     notifySuccess(gettext("Besprechung \"%1\" wurde für alle beendet.", result.title))
                 }
                 setActiveSession(null)
-                returnToLobby(callPanel, lobbyPanel, setActiveSession, onReturnedToLobby, baseDocumentTitle)
+                returnToLobby(
+                    callPanel = callPanel,
+                    lobbyPanel = lobbyPanel,
+                    setActiveSession = setActiveSession,
+                    onReturnedToLobby = onReturnedToLobby,
+                    originalTitle = baseDocumentTitle,
+                    onBeforeReturn = ::cleanupFullscreen,
+                )
             }
         }
     }
@@ -3043,7 +3256,12 @@ private fun returnToLobby(
     setActiveSession: (LiveKitRoomSession?) -> Unit,
     onReturnedToLobby: () -> Unit,
     originalTitle: String? = null,
+    // V1.2.9 Vollbildmodus, D6 -- Aufräumen VOR dem Verlassen (z. B. `cleanupFullscreen`), damit die
+    // Lobby nach dem Verlassen nie im Browser-Vollbild verbleibt und der fullscreenchange-Listener
+    // dieses Calls nicht über den Lobby-Wechsel hinaus lebt.
+    onBeforeReturn: () -> Unit = {},
 ) {
+    onBeforeReturn()
     setActiveSession(null)
     callPanel.removeAll()
     callPanel.hide()
@@ -4317,3 +4535,93 @@ internal fun conferenceConnectionReduce(
             }
         is ConferenceConnectionState.Ended -> current
     }
+
+/**
+ * V1.2.9 Vollbildmodus -- der Zustand, aus dem [ConferenceScreen.kt]'s `enterCall#applyPanelVisibility`
+ * unconditional rendert. Getrennte `normal*`/`fullscreen*`-Flags PRO ABSICHT (Jobs' Auflösung des
+ * Raskin/Duarte-Streits): Normalmodus- und Vollbild-Zustand sind unabhängige Absichten desselben
+ * Nutzers, kein gemeinsames Flag -- ABER innerhalb jedes Kontexts muss der jeweilige Button-Zustand
+ * (`.active`) den Panel-Zustand IMMER korrekt widerspiegeln (Raskins Bedingung, nicht verhandelbar).
+ */
+internal data class ConferencePanelState(
+    val fullscreen: Boolean = false,
+    val normalRosterOpen: Boolean = true, // D8: Bestandsverhalten unverändert offen
+    val normalChatOpen: Boolean = false, // heutiges chatOpen-Default
+    val fullscreenRosterOpen: Boolean = false,
+    val fullscreenChatOpen: Boolean = false,
+)
+
+/** V1.2.9 -- Events in [conferencePanelReduce]. [FullscreenEntered]/[FullscreenExited] werden
+ * AUSSCHLIESSLICH vom `fullscreenchange`-Listener gefeuert, niemals vom Klick-Handler direkt --
+ * siehe file KDoc "D5"-Analogie zu [conferenceConnectionReduce]. */
+internal sealed class ConferencePanelEvent {
+    internal data object FullscreenEntered : ConferencePanelEvent()
+
+    internal data object FullscreenExited : ConferencePanelEvent()
+
+    internal data object RosterToggled : ConferencePanelEvent()
+
+    internal data object ChatToggled : ConferencePanelEvent()
+}
+
+/**
+ * V1.2.9 -- der EINE Ort, an dem sich [ConferencePanelState] ändert. `FullscreenEntered` setzt BEIDE
+ * Vollbild-Flags zurück auf `false` (saubere Bildfläche beim Eintritt, kein "Erinnern" der letzten
+ * Vollbild-Session) und lässt die `normal*`-Flags unangetastet. `FullscreenExited` stellt exakt den
+ * Normalmodus-Zustand von vor dem Eintritt wieder her, weil `normal*` während der gesamten
+ * Vollbild-Episode nie verändert wurde. Idempotent: ein zweiter `FullscreenEntered`/`FullscreenExited`
+ * auf bereits passendem `fullscreen`-Wert gibt `current` unverändert zurück (schützt gegen doppelt
+ * gefeuerte `fullscreenchange`-Events, z.B. Chrome + andere Browser-Eigenheiten).
+ */
+internal fun conferencePanelReduce(
+    current: ConferencePanelState,
+    event: ConferencePanelEvent,
+): ConferencePanelState =
+    when (event) {
+        is ConferencePanelEvent.FullscreenEntered ->
+            if (current.fullscreen) {
+                current
+            } else {
+                current.copy(fullscreen = true, fullscreenRosterOpen = false, fullscreenChatOpen = false)
+            }
+        is ConferencePanelEvent.FullscreenExited ->
+            if (!current.fullscreen) current else current.copy(fullscreen = false)
+        is ConferencePanelEvent.RosterToggled ->
+            if (current.fullscreen) {
+                current.copy(fullscreenRosterOpen = !current.fullscreenRosterOpen)
+            } else {
+                current.copy(normalRosterOpen = !current.normalRosterOpen)
+            }
+        is ConferencePanelEvent.ChatToggled ->
+            if (current.fullscreen) {
+                current.copy(fullscreenChatOpen = !current.fullscreenChatOpen)
+            } else {
+                current.copy(normalChatOpen = !current.normalChatOpen)
+            }
+    }
+
+internal fun ConferencePanelState.rosterVisible(): Boolean = if (fullscreen) fullscreenRosterOpen else normalRosterOpen
+
+internal fun ConferencePanelState.chatVisible(): Boolean = if (fullscreen) fullscreenChatOpen else normalChatOpen
+
+/** V1.2.9 -- reine Ableitung für die Rail-Stapel-CSS-Klassen im Vollbild (D10). Außerhalb des
+ * Vollbilds bedeutungslos (die Rail existiert nur dort), aber bewusst nicht auf `fullscreen`
+ * gegated -- der Aufrufer entscheidet, ob er das Ergebnis anwendet. Nur EIN Panel offen -> es nimmt
+ * die volle Höhe ein (railOccupied, weder capped noch flexible); BEIDE offen -> Roster wird auf 40%
+ * gedeckelt (rosterCapped) und Chat füllt den Rest flexibel (chatFlexible).
+ */
+internal data class ConferenceRailLayout(
+    val rosterCapped: Boolean,
+    val chatFlexible: Boolean,
+    val railOccupied: Boolean,
+)
+
+internal fun conferenceRailLayout(state: ConferencePanelState): ConferenceRailLayout {
+    val rosterOpen = state.rosterVisible()
+    val chatOpen = state.chatVisible()
+    return ConferenceRailLayout(
+        rosterCapped = rosterOpen && chatOpen,
+        chatFlexible = rosterOpen && chatOpen,
+        railOccupied = rosterOpen || chatOpen,
+    )
+}

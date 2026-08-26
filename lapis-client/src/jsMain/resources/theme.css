@@ -245,3 +245,108 @@ body {
 .lapis-role-member   { color: var(--lapis-role-member); }
 .lapis-role-guest    { color: var(--lapis-role-guest); }
 .lapis-role-inactive { color: var(--lapis-role-inactive); }
+
+/* V1.2.9 Vollbildmodus für Videokonferenzen -- UI/UX-Design-Team-Review 2026-08-26. Ausschließlich
+   per addCssClass/removeCssClass auf KVision-verwaltete Container angewendet -- niemals auf die
+   rohen Video/Audio-Tile-DOM-Interna innerhalb von .lapis-conference-grid (siehe ConferenceScreen.kt
+   Datei-KDoc Zeilen 866-871 zur KVision/snabbdom-Raw-DOM-Grenze). */
+
+.lapis-conference-video-area {
+  position: relative;
+}
+
+.lapis-conference-video-overlay-controls {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  z-index: 3;
+}
+
+/* D11: Maße aus ConferenceScreen.kt's Inline-Styles übernommen, unverändert im Normalmodus. Kein
+   !important -- dieses Projekt erlaubt !important nur gegen Bootstrap-Klassen, nicht als
+   Gewohnheit. */
+.lapis-conference-grid {
+  min-height: 220px;
+  max-height: 480px;
+  overflow: auto;
+}
+
+/* D9: Einrichtungs-Zeilen (Gastzugang, Sitzungsverknüpfung, Breakout-Verwaltung, Rollenzeile) --
+   im Vollbild ausgeblendet. Aufzeichnungs-/Stream-Banner, Status-Badges, moderatorRow/
+   recordingRow/streamingRow, controlsRow und die Verbindungsstatuszeile tragen diese Klasse
+   NICHT und bleiben daher immer sichtbar (DSGVO-Transparenz, R1). */
+.lapis-conference-fullscreen .lapis-conference-config-row {
+  display: none;
+}
+
+/* D11 fullscreen override: Grid darf den ganzen verfügbaren Platz einnehmen. */
+.lapis-conference-fullscreen .lapis-conference-grid {
+  max-height: none;
+  flex: 1 1 auto;
+}
+
+/* D10: eine Overlay-Schiene rechts, undurchsichtig, harte Kante -- Zoom/BBB-Vorbild, kein
+   Milchglas/Transparenz. Roster UND Chat teilen dieselbe Positionierung; ihre vertikale Aufteilung
+   hängt vom conferenceRailLayout()-Ergebnis ab (siehe rail-capped/rail-flexible unten). Außerhalb
+   von .lapis-conference-fullscreen bleiben beide Panels im normalen Fluss (position: static,
+   Default) -- Normalmodus ist byte-identisch zu vor dieser Welle. */
+.lapis-conference-fullscreen .lapis-conference-roster,
+.lapis-conference-fullscreen .lapis-conference-chat {
+  position: absolute;
+  right: 0;
+  left: auto;
+  width: clamp(280px, 28vw, 380px);
+  z-index: 2;
+  margin: 0;
+  background-color: var(--lapis-surface);
+  border-left: 1px solid var(--lapis-border-strong);
+  overflow-y: auto;
+}
+
+.lapis-conference-fullscreen .lapis-conference-roster {
+  top: 0;
+  bottom: 0;
+}
+
+.lapis-conference-fullscreen .lapis-conference-roster.lapis-conference-rail-capped {
+  bottom: auto;
+  max-height: 40%;
+}
+
+.lapis-conference-fullscreen .lapis-conference-chat {
+  top: 0;
+  bottom: 0;
+}
+
+.lapis-conference-fullscreen .lapis-conference-chat.lapis-conference-rail-flexible {
+  top: 40%;
+}
+
+/* Sichtbarer Aktiv-Zustand der Roster-/Chat-Toggle-Buttons (Raskin-Bedingung: Panel-Zustand
+   muss am eigenen Schalter ablesbar sein, in jedem Kontext). Review-Fix: vormals zusätzlich ein
+   globaler `.btn.active`-Fallback ohne jede Scope-Klammer -- traf dadurch auch fachfremde
+   `.btn.active`-Elemente wie die Eraser/Thin/Thick-Buttons der Whiteboard-Toolbar
+   (ConferenceWhiteboardController.kt), die ihre eigene `active`-Klasse unabhängig togglen. Beide
+   Selektoren unten sind jetzt real erreichbare Container: `fullscreenButton` lebt in
+   `.lapis-conference-video-overlay-controls`, `rosterToggleButton`/`chatToggleButton` leben in
+   `.lapis-conference-controls-row`. */
+.lapis-conference-video-overlay-controls .btn.active,
+.lapis-conference-controls-row .btn.active {
+  box-shadow: inset 0 0 0 1px var(--lapis-accent);
+}
+
+@media (max-width: 600px) {
+  .lapis-conference-fullscreen .lapis-conference-roster,
+  .lapis-conference-fullscreen .lapis-conference-chat {
+    width: 100%;
+  }
+}
+
+/* Defensiver Belt-and-suspenders: native :fullscreen-Pseudoklasse als Backup, falls der
+   JS-getriebene Klassenwechsel je um einen Frame nachhinkt. Nicht die Wahrheitsquelle (das ist
+   ausschließlich das fullscreenchange-Event, D5) -- nur eine Absicherung minimaler Größe. */
+.lapis-conference-call-panel:fullscreen,
+.lapis-conference-call-panel:-webkit-full-screen {
+  width: 100%;
+  height: 100%;
+}
