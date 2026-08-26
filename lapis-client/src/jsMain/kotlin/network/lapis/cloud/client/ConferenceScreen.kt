@@ -2540,7 +2540,10 @@ private fun enterCall(
     fun updateMicButtonState() {
         micButton.icon = if (micEnabled) "fas fa-microphone" else "fas fa-microphone-slash"
         if (micEnabled) micButton.removeCssClass("text-danger") else micButton.addCssClass("text-danger")
-        val label = if (micEnabled) tr("Mikrofon ausschalten") else tr("Mikrofon einschalten")
+        // Bug fix (post-V1.2.10, live browser test) -- `resolvedA11yText` strips the raw
+        // "###KvI18nS###" marker `tr()` leaves behind when its result is written straight into a
+        // DOM attribute instead of a KVision-managed widget property; see that function's own KDoc.
+        val label = resolvedA11yText(if (micEnabled) tr("Mikrofon ausschalten") else tr("Mikrofon einschalten"))
         micButton.getElement()?.let { el ->
             el.title = label
             el.setAttribute("aria-label", label)
@@ -2556,7 +2559,9 @@ private fun enterCall(
     fun updateCameraButtonState() {
         cameraButton.icon = if (cameraEnabled) "fas fa-video" else "fas fa-video-slash"
         if (cameraEnabled) cameraButton.removeCssClass("text-danger") else cameraButton.addCssClass("text-danger")
-        val label = if (cameraEnabled) tr("Kamera ausschalten") else tr("Kamera einschalten")
+        // Bug fix (post-V1.2.10, live browser test) -- see `updateMicButtonState`'s own comment
+        // above / `resolvedA11yText`'s KDoc for why this strip is needed.
+        val label = resolvedA11yText(if (cameraEnabled) tr("Kamera ausschalten") else tr("Kamera einschalten"))
         cameraButton.getElement()?.let { el ->
             el.title = label
             el.setAttribute("aria-label", label)
@@ -3481,6 +3486,23 @@ private fun enterCall(
     }
 }
 
+/**
+ * Bug found via live browser testing of V1.2.10 (real Chrome, mobile-width emulation): `tr()`
+ * unconditionally wraps its result in an internal `"###KvI18nS###"` marker (confirmed by
+ * decompiling KVision 9.6.0's compiled JS -- the marker is stripped and resolved against the
+ * active language catalog only inside KVision's OWN snabbdom vnode-patch cycle, e.g. when a
+ * KVision widget property like [io.kvision.core.Widget.title] is set). Writing a `tr(...)` result
+ * straight into a RAW DOM attribute via `getElement()`/`addAfterInsertHook` -- as
+ * [setStaticA11yLabel] and the mic/camera state functions below do, because `title`/`aria-label`/
+ * `data-label` need to be set together and KVision's `Widget.title` alone cannot carry
+ * `aria-label`/`data-label` -- bypasses that patch cycle entirely, so the raw marker leaks
+ * verbatim into the rendered `title`/`aria-label` (e.g. a screen reader announcing literally
+ * "###KvI18nS###Mikrofon einschalten"). Stripping the known marker prefix defensively is a no-op
+ * for any already-resolved string (`removePrefix` on a non-matching prefix is a no-op), so this is
+ * safe to apply unconditionally rather than only when the leak is suspected.
+ */
+private fun resolvedA11yText(text: String): String = text.removePrefix("###KvI18nS###")
+
 /** V1.2.10 -- sets `title`/`aria-label`/`data-label` on a button whose accessible text NEVER
  * changes after construction (e.g. `leaveButton`, `moreToggleButton`) -- the same "set once, via
  * `addAfterInsertHook` if the element does not exist yet" idiom `ConferenceWhiteboardController.kt`
@@ -3490,15 +3512,16 @@ private fun enterCall(
  * under-icon text shown at >=768px); it is harmless-but-unused on buttons living in `.lapis-
  * conference-more-sheet`, which render real KVision button text instead. */
 private fun Button.setStaticA11yLabel(label: String) {
+    val resolved = resolvedA11yText(label)
     getElement()?.let { el ->
-        el.title = label
-        el.setAttribute("aria-label", label)
-        el.setAttribute("data-label", label)
+        el.title = resolved
+        el.setAttribute("aria-label", resolved)
+        el.setAttribute("data-label", resolved)
     } ?: addAfterInsertHook { vnode ->
         (vnode.elm as? HTMLElement)?.apply {
-            title = label
-            setAttribute("aria-label", label)
-            setAttribute("data-label", label)
+            title = resolved
+            setAttribute("aria-label", resolved)
+            setAttribute("data-label", resolved)
         }
     }
 }
