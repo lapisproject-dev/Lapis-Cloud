@@ -141,6 +141,20 @@ tasks.register<JavaExec>("bootstrapAdmin") {
     classpath = sourceSets["main"].runtimeClasspath
 }
 
+// Operator-run repair for the recurring "V1__baseline.sql in-place edit changed its checksum"
+// situation every wave that widens an existing CHECK/adds a column via that file hits (see
+// FlywayRepair KDoc for the full mechanism). Reads LAPIS_DB_URL/LAPIS_DB_USER/LAPIS_DB_PASSWORD
+// from the environment, never from Gradle properties, same reasoning as bootstrapAdmin above.
+tasks.register<JavaExec>("flywayRepair") {
+    group = "application"
+    description =
+        "One-time CLI: runs Flyway repair() against LAPIS_DB_URL to realign flyway_schema_history " +
+        "checksums with the current migration files on disk -- run BEFORE the next deploy whenever " +
+        "a wave edits V1__baseline.sql in place (see CHANGELOG.md's recurring OPERATOR NOTE)."
+    mainClass.set("network.lapis.cloud.server.bootstrap.FlywayRepairKt")
+    classpath = sourceSets["main"].runtimeClasspath
+}
+
 tasks.test {
     useJUnitPlatform()
     // V0.7.1 Authentifizierung -- the ONLY place that sets this JVM system property. Read once by
