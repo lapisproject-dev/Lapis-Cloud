@@ -25,17 +25,16 @@
 #   coturn relay range   51000-51019    -> 51020-51039 (public, internal AND external -- see above)
 #   redis (host-only)    127.0.0.1:6379 -> 127.0.0.1:6380
 #
-# egress deliberately does NOT use `network_mode: host` here, unlike ../production/'s own egress
-# service -- see that service's own comment for why PdV's needs it (Chrome-based Room-Composite/
-# GRID/SPEAKER egress reaching this host's own public IP, "hairpin NAT"). Two containers cannot
-# BOTH bind the host network namespace's port 7980 (LiveKit egress's embedded, non-configurable
-# template server port) at the same time -- running a second host-networked egress here would
-# collide with PdV's. Consequence: Wave 1 (live calls) and Wave 2 "Aufzeichnung" (Track Egress,
-# never launches Chrome, unaffected by the hairpin-NAT issue) work exactly like PdV's; Wave 3
-# external streaming in GRID/SPEAKER layout (Chrome-based Room-Composite) may hit the same
-# hairpin-NAT failure PdV originally had before its host-networking fix --
-# ConferenceStreamLayout.SINGLE_PARTICIPANT (SDK-based, no Chrome) is unaffected either way. Only
-# ONE of the two instances on this host can have a host-networked egress; PdV already does.
+# egress DOES use `network_mode: host` here, same as ../production/'s own egress and for the
+# identical reason (Chrome-based Room-Composite/GRID/SPEAKER egress needs to reach this host's own
+# public IP, "hairpin NAT" -- see that service's own comment for the full diagnosis). An earlier
+# version of this file avoided host networking here, wrongly assuming LiveKit egress's embedded
+# template server (port 7980, hardcoded) had no way to avoid colliding with PdV's own already-
+# host-networked egress on the same port -- found live 2026-08-25 that `template_port` IS a real,
+# documented `egress.yaml` field (verified directly against the pinned v1.13.0 source, not just
+# assumed): ELB's own egress.yaml.template sets `template_port: 7981`, PdV's stays at the 7980
+# default, no collision. GRID/SPEAKER external streaming therefore works identically to PdV now,
+# not just Wave 1/Wave 2.
 #
 # Usage (from this directory):
 #   cp .env.example .env   # fill in real secrets, never commit .env
@@ -174,13 +173,19 @@ services:
     volumes:
       - ./egress.yaml:/etc/egress.yaml:ro
       - lapis-elb-egress-output:/out
-      - /tmp
+      - /tmp # egress scratch space
     cap_add:
-      - SYS_ADMIN
+      - SYS_ADMIN # documented as required since egress v1.7.6 (Chrome sandbox, Room-Composite egress)
     shm_size: '1gb'
-    networks: [internal]
+    # network_mode: host -- see this file's own header comment "egress DOES use network_mode: host
+    # here" for the hairpin-NAT reasoning (identical to ../production/'s own egress) and the
+    # template_port: 7981 fix (egress.yaml.template) that makes this safe to run alongside PdV's own
+    # host-networked egress on the same physical host.
+    network_mode: host
     depends_on: [redis, livekit]
     restart: unless-stopped
+    # No `ports:` mapping needed even under `network_mode: host` -- egress never listens for inbound
+    # connections at all, same reasoning as ../production/'s own copy.
 
 volumes:
   lapis-elb-postgres-data:

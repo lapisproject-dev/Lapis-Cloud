@@ -3,27 +3,36 @@
 # ../production/README.adoc "Video conferencing"). The rendered egress.yaml is gitignored -- never
 # commit it.
 #
-# UNLIKE ../production/egress.yaml.template, this service does NOT run with `network_mode: host`
-# -- see ../production-elb/docker-compose.yml's own header comment for why (two containers cannot
-# both bind the host's port 7980, LiveKit egress's non-configurable embedded template-server port;
-# PdV's egress already claims host networking on this shared box). Bridge-networked instead, same
-# as every other service in this stack -- `ws_url`/`redis.address` below therefore use the
-# compose-internal SERVICE NAMES (`livekit`/`redis`), not `127.0.0.1:<port>` like PdV's copy does.
+# Runs with `network_mode: host`, same as ../production/'s own copy and for the identical reason
+# (Chrome-based Room-Composite/GRID/SPEAKER egress needs to reach this host's own public IP as a
+# real WebRTC participant, which a bridge-networked container cannot on a host that doesn't support
+# NAT hairpinning -- see ../production/docker-compose.yml's `egress:` comment for the full
+# diagnosis). `ws_url`/`redis.address` therefore use `127.0.0.1:<ELB's own loopback-published
+# port>`, not the compose-internal service names -- host networking means compose-internal DNS no
+# longer resolves here.
+#
+# `template_port: 7981` is the actual fix that makes running TWO host-networked egress instances on
+# one physical host possible at all -- LiveKit egress's embedded template server (serves the
+# compositing HTML/JS page to Chrome) defaults to port 7980, hardcoded as a Go constant
+# (`defaultTemplatePort`, pkg/config/service.go), and PdV's own egress already binds that on this
+# shared host's network namespace under `network_mode: host` -- a second instance on the SAME
+# default port would collide and one would fail to start. `template_port` IS a real, documented
+# `egress.yaml` field (README.md "Optional fields", `ServiceConfig.TemplatePort`) despite this
+# project's own earlier comments assuming otherwise -- verified directly against the pinned v1.13.0
+# source before relying on it. Setting only `template_port` is sufficient; `template_base` is
+# auto-derived from it (`http://localhost:<template_port>/`) when left unset, exactly as PdV's own
+# copy leaves it unset for its own (default 7980) port.
+#
 # `api_key`/`api_secret` below MUST equal this instance's OWN rendered livekit.yaml `keys:` entry
 # byte-for-byte (render-secrets.sh guarantees this from the same .env).
 log_level: info
 api_key: ${LAPIS_LIVEKIT_API_KEY}
 api_secret: ${LAPIS_LIVEKIT_API_SECRET}
-ws_url: ws://livekit:7880
-insecure: true # plain ws:// over the compose-internal bridge network only, never reaches the public internet
+ws_url: ws://127.0.0.1:7885
+insecure: true # plain ws:// over loopback only, never reaches the public internet -- same trust
+# boundary LAPIS_LIVEKIT_API_URL (http://livekit:7880, from lapis-server's OWN compose-internal
+# network, unaffected by this service's host networking) already uses for Wave 1.
 redis:
-  address: redis:6379
-
-# Consequence of the bridge-networked (non-host) setup above: Room-Composite egress in GRID/SPEAKER
-# layout (Chrome-based, joins the room as a real WebRTC participant to render the composite) may
-# hit the same hairpin-NAT failure ("Start signal not received") PdV originally had before its own
-# host-networking fix -- see ../production/docker-compose.yml's `egress:` comment for the full
-# diagnosis. ConferenceStreamLayout.SINGLE_PARTICIPANT (SDK-based, never launches Chrome) and Wave 2
-# "Aufzeichnung" Track Egress (also never launches Chrome) are both unaffected either way. If
-# GRID/SPEAKER is needed for ELB later, the fix would require freeing up host-network port 7980 --
-# not something this file alone can solve.
+  # 127.0.0.1:6380 -- ELB's own redis loopback publish (docker-compose.yml), NOT PdV's 6379.
+  address: 127.0.0.1:6380
+template_port: 7981

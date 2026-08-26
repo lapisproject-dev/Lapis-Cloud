@@ -532,22 +532,28 @@ for `elb.parteidervernunft.de` -> `127.0.0.1:8081` and `video-elb.parteidervernu
 **Every host-visible port had to move** to avoid colliding with this instance's own -- see
 `../production-elb/docker-compose.yml`'s own header comment for the full table (`lapis-server`
 `8081`, Postgres `5433`, LiveKit signaling `7885`, LiveKit ICE `7891`/`7892`, coturn `3479` +
-relay range `51020-51039`, redis `6380`). Container-INTERNAL ports are unchanged from this
-directory's own config -- only the docker-compose HOST-side mapping differs, since each service
-has its own isolated network namespace.
+relay range `51020-51039`, redis `6380`). **Not just a host-side remap for every port**, though --
+found live 2026-08-25 ("could not establish pc connection" on ELB, every ICE candidate pointed at
+PdV's own ports): LiveKit and coturn each bake their own configured port number literally into the
+WebRTC/TURN protocol payload they hand back to the browser (an ICE candidate, or an allocated TURN
+relay address), unlike the plain HTTP signaling port (Caddy-proxied, the raw port number never
+reaches the browser). For LiveKit's `rtc.tcp_port`/`udp_port` and coturn's relay `min-port`/
+`max-port` range specifically, the container-INTERNAL config and the docker-compose HOST-side
+publish must be IDENTICAL numbers -- `../production-elb/livekit.yaml.template`'s/
+`turnserver.conf.template`'s own comments have the specifics. Every other service's internal port
+is unaffected and stays a simple host-side remap, same isolated-network-namespace reasoning as
+before.
 
-**One real limitation, not just a port-numbering exercise**: `egress` in `../production-elb/`
-does NOT use `network_mode: host`, unlike this directory's own `egress` service -- two containers
-cannot both bind the host's port 7980 (LiveKit egress's non-configurable embedded template-server
-port), and this instance already claims host networking. Consequence for ELB: Wave 1 (live calls)
-and Wave 2 "Aufzeichnung" (Track Egress, never launches Chrome) work identically to this instance;
-Wave 3 external streaming in `GRID`/`SPEAKER` layout (Chrome-based Room-Composite, joins the room
-as a real WebRTC participant) may hit the same hairpin-NAT failure this instance's own `egress`
-comment documents at length, since ELB's copy lacks the host-networking fix for it --
-`ConferenceStreamLayout.SINGLE_PARTICIPANT` (SDK-based, no Chrome) is unaffected either way. Only
-one host-networked `egress` can exist per physical host; a third co-located instance would need
-its own solution here (e.g. freeing port 7980 some other way), not a repeat of this same
-workaround.
+**`egress` in `../production-elb/` DOES use `network_mode: host`, same as this directory's own
+copy** -- found live 2026-08-25 that LiveKit egress's embedded template-server port (7980 by
+default) is a real, documented `egress.yaml` field (`template_port`, verified against the pinned
+v1.13.0 source), not the hardcoded, non-configurable value an earlier version of this file assumed.
+ELB's own `egress.yaml.template` sets `template_port: 7981`; PdV's stays at the 7980 default -- no
+collision between the two host-networked instances. Wave 3 external streaming in `GRID`/`SPEAKER`
+layout works identically to PdV now, not just Wave 1 (live calls) and Wave 2 "Aufzeichnung". A
+third co-located instance would need its own distinct `template_port` (and its own shifted
+LiveKit/coturn ports, same treatment as ELB's above) -- straightforward now that the mechanism is
+known, not a structural dead end.
 
 **The `deploy/production/branding/`/`deploy/production-elb/branding/` self-heal ACL timer (see
 "Video conferencing" above, "Shared lapis-egress-output volume") needs its own copy per instance**
