@@ -380,7 +380,12 @@ class MembershipToGovernanceJourneyTest :
                             )
                         }
                         post("/e2e1/update-address/{memberId}") {
-                            MemberService(call).updateMemberAddress(
+                            MemberService(
+                                call = call,
+                                friendVerificationMailer = FakeFriendVerificationMailer(),
+                                memberCoreDataFriendMailRateLimiter = FederationInboxRateLimiter(),
+                                memberCoreDataFriendMailActorRateLimiter = FederationInboxRateLimiter(),
+                            ).updateMemberAddress(
                                 memberId = call.parameters["memberId"]!!,
                                 street = "Musterstrasse 1",
                                 postalCode = "38100",

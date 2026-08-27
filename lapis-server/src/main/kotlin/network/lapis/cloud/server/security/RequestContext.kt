@@ -136,6 +136,17 @@ val CurrentMember.isPrivileged: Boolean
     get() = role == AccountRole.ADMIN || role == AccountRole.BOARD
 
 /**
+ * Welle V1.2.12 -- moved here from `RegistrationService` (was `private val`, so
+ * `MemberService`'s own peer-protection check for `updateMemberCoreData`/`updateMemberStatus`
+ * could not see it -- see the plan's blocker finding B-2). `Set`, not `Array` -- `in` on an
+ * `Array` is O(n) and a top-level `val` holding an `Array` is a mutable shared instance (Kotlin's
+ * `Array` has no structural immutability); a `Set` is both faster to test against and genuinely
+ * immutable. `internal`, same visibility [isPrivileged]/[requireRole] already have -- every
+ * `lapis-server` call site is in this one module.
+ */
+internal val ESCALATED_ROLES: Set<AccountRole> = setOf(AccountRole.BOARD, AccountRole.TREASURER, AccountRole.ADMIN)
+
+/**
  * Three distinct [DocumentAccessLevel] tiers, three distinct outcomes — ADMIN_ONLY must require
  * the ADMIN role specifically, not just "privileged" (BOARD or ADMIN), otherwise BOARD_ONLY and
  * ADMIN_ONLY collapse into the same check. Used identically by [DocumentAccessLevel]-filtered

@@ -19,11 +19,20 @@ object Validation {
     /** Mirrors `network.lapis.cloud.server.security.PasswordPolicy.MAX_LENGTH`. */
     const val PASSWORD_MAX_LENGTH: Int = 128
 
+    /**
+     * Mirrors `network.lapis.cloud.server.rpc.MEMBER_EMAIL_MAX_LENGTH` (`MemberTable.email` is
+     * `VARCHAR(320)`) -- Review Runde 3 NIT fix: without this, an overlong address only ever
+     * failed server-side, round-tripping to [network.lapis.cloud.shared.rpc.MemberEmailTooLongException]
+     * instead of being caught immediately the way [PASSWORD_MIN_LENGTH]/[PASSWORD_MAX_LENGTH]
+     * already are for the password field on this same screen.
+     */
+    const val EMAIL_MAX_LENGTH: Int = 320
+
     /** A deliberately loose "looks like an email" check -- the server is the real validator. */
     fun looksLikeEmail(value: String): Boolean {
         val trimmed = value.trim()
         val at = trimmed.indexOf('@')
-        return at > 0 && at < trimmed.length - 1 && trimmed.indexOf('.', at) > at
+        return at > 0 && at < trimmed.length - 1 && trimmed.indexOf('.', at) > at && trimmed.length <= EMAIL_MAX_LENGTH
     }
 
     fun isNonBlank(value: String): Boolean = value.isNotBlank()

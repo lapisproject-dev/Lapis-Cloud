@@ -34,6 +34,8 @@ import network.lapis.cloud.server.db.generated.MailingListTable
 import network.lapis.cloud.server.db.generated.MailingMessageTable
 import network.lapis.cloud.server.db.generated.MemberTable
 import network.lapis.cloud.server.db.generated.MembershipTierTable
+import network.lapis.cloud.server.federation.FederationInboxRateLimiter
+import network.lapis.cloud.server.mail.FakeFriendVerificationMailer
 import network.lapis.cloud.server.routes.registerDsgvoRoutes
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.BillingInterval
@@ -219,7 +221,13 @@ class DsgvoServiceTest :
                         // V0.4.1: exercises the only production write path for the postal address
                         // (MemberService.updateMemberAddress) -- see IMemberService KDoc.
                         post("/test/update-address/{memberId}") {
-                            val service = MemberService(call)
+                            val service =
+                                MemberService(
+                                    call = call,
+                                    friendVerificationMailer = FakeFriendVerificationMailer(),
+                                    memberCoreDataFriendMailRateLimiter = FederationInboxRateLimiter(),
+                                    memberCoreDataFriendMailActorRateLimiter = FederationInboxRateLimiter(),
+                                )
                             val query = call.request.queryParameters
                             val dto =
                                 service.updateMemberAddress(
@@ -434,7 +442,13 @@ class DsgvoServiceTest :
                             call.respondText(service.listAuditLog().joinToString(",") { it.action.name })
                         }
                         post("/test/update-address/{memberId}") {
-                            val service = MemberService(call)
+                            val service =
+                                MemberService(
+                                    call = call,
+                                    friendVerificationMailer = FakeFriendVerificationMailer(),
+                                    memberCoreDataFriendMailRateLimiter = FederationInboxRateLimiter(),
+                                    memberCoreDataFriendMailActorRateLimiter = FederationInboxRateLimiter(),
+                                )
                             val query = call.request.queryParameters
                             val dto =
                                 service.updateMemberAddress(

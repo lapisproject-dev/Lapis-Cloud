@@ -32,6 +32,7 @@ import org.jetbrains.exposed.v1.core.ResultRow
 import org.jetbrains.exposed.v1.core.and
 import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.core.inList
+import org.jetbrains.exposed.v1.jdbc.select
 import org.jetbrains.exposed.v1.jdbc.selectAll
 import org.jetbrains.exposed.v1.jdbc.transactions.transaction
 import org.jetbrains.exposed.v1.jdbc.update
@@ -202,45 +203,42 @@ class SepaBatchPoller(
      * `SepaService`'s contribution-eligibility check) -- this is purely the belt-and-suspenders
      * layer. Now reads [MemberStatusSets.MEMBERSHIP_ENDED] instead, so a future terminal status
      * gets this revocation for free too.
+     *
+     * Welle V1.2.12: the actual revocation body was extracted to the per-MEMBER
+     * [revokeMandatesForEndedMembership] (shared with `network.lapis.cloud.server.rpc
+     * .MemberService.updateMemberStatus`, see that function's own KDoc) -- this method's job is now
+     * only candidate DISCOVERY (which members currently have an ACTIVE mandate AND a
+     * MEMBERSHIP_ENDED status) and per-member error isolation. The granularity is now per MEMBER,
+     * not per MANDATE (a member has at most one ACTIVE mandate in practice, but this makes no such
+     * assumption) -- [network.lapis.cloud.server.payment.sepa.SepaBatchPollerTest]'s Phase-B
+     * assertions check RESULTS, not iteration granularity, and stay green across this refactor;
+     * that is this extraction's own regression proof.
+     *
+     * The explicit `.join(MemberTable, JoinType.INNER, SepaMandateTable.memberId, MemberTable.id)`
+     * below MUST stay explicit -- `sepa_mandate` has THREE foreign keys into `member`
+     * (`member_id`/`revoked_by`/`created_by`), so Exposed's implicit `innerJoin` throws
+     * `IllegalStateException` at runtime (see "Review Round 1" above, the exact bug that made this
+     * whole phase a silent no-op from V1.2.2 until 2026-08-19).
      */
     private fun runPhaseB(now: LocalDateTime) {
-        val candidates =
+        val candidateMemberIds =
             transaction {
                 SepaMandateTable
                     .join(MemberTable, JoinType.INNER, SepaMandateTable.memberId, MemberTable.id)
-                    .selectAll()
+                    .select(SepaMandateTable.memberId)
                     .where {
                         (SepaMandateTable.status eq SepaMandateStatus.ACTIVE) and
                             (MemberTable.status inList MemberStatusSets.MEMBERSHIP_ENDED)
-                    }.map { it[SepaMandateTable.id] }
+                    }.map { it[SepaMandateTable.memberId] }
+                    .distinct()
             }
-        for (mandateId in candidates) {
+        for (memberId in candidateMemberIds) {
             try {
                 transaction {
-                    val updated =
-                        SepaMandateTable.update({
-                            (SepaMandateTable.id eq mandateId) and
-                                (SepaMandateTable.status eq SepaMandateStatus.ACTIVE)
-                        }) {
-                            it[status] = SepaMandateStatus.REVOKED
-                            it[revokedAt] = now
-                            it[revokedBy] = null
-                            it[revocationReason] = "Mitgliedschaft beendet"
-                        }
-                    if (updated > 0) {
-                        AuditLogRecorder.record(
-                            actorMemberId = null,
-                            actorRole = null,
-                            entityType = AuditEntityType.SEPA_MANDATE,
-                            entityId = mandateId,
-                            action = AuditAction.UPDATE,
-                            occurredAt = now,
-                        )
-                        resetGeneratedBatchesForUnusableMandate(mandateId = mandateId, actorMemberId = null, actorRole = null)
-                    }
+                    revokeMandatesForEndedMembership(memberId = memberId, actorMemberId = null, actorRole = null, now = now)
                 }
             } catch (e: Throwable) {
-                logger.warn(e) { "SepaBatchPoller: phase B failed for mandate $mandateId" }
+                logger.warn(e) { "SepaBatchPoller: phase B failed for member $memberId" }
             }
         }
     }

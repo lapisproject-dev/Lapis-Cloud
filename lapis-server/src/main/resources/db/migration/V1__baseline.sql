@@ -711,7 +711,8 @@ CREATE TABLE audit_log_entry (
     entry_hash VARCHAR(64) NOT NULL,
     previous_entry_hash VARCHAR(64) NULL,
     CHECK (actor_role IN ('MEMBER', 'BOARD', 'TREASURER', 'ADMIN')),
-    CHECK (entity_type IN ('JOURNAL_ENTRY', 'PARTY_DONATION_VERDICT', 'RESOLUTION', 'BOARD_MEMBERSHIP', 'CONFERENCE_RECORDING', 'CONFERENCE_STREAM', 'CONFERENCE_STREAM_DESTINATION', 'CONFERENCE_ROOM', 'SOCIAL_POST', 'ORGANIZATION_SETTINGS', 'SEPA_MANDATE', 'SEPA_DEBIT_BATCH', 'DUNNING_NOTICE')),
+    -- V1.2.12: 'MEMBER' appended in place -- see V11__member_administration.sql, flyway repair needed.
+    CHECK (entity_type IN ('JOURNAL_ENTRY', 'PARTY_DONATION_VERDICT', 'RESOLUTION', 'BOARD_MEMBERSHIP', 'CONFERENCE_RECORDING', 'CONFERENCE_STREAM', 'CONFERENCE_STREAM_DESTINATION', 'CONFERENCE_ROOM', 'SOCIAL_POST', 'ORGANIZATION_SETTINGS', 'SEPA_MANDATE', 'SEPA_DEBIT_BATCH', 'DUNNING_NOTICE', 'MEMBER')),
     CHECK (action IN ('CREATE', 'UPDATE', 'POST'))
 );
 
@@ -1218,6 +1219,10 @@ ALTER TABLE friend_email_verification_token ADD CONSTRAINT fk_friend_email_verif
 CREATE UNIQUE INDEX uq_account_member_id ON account (member_id);
 -- V1.2.11 PdV-CSV-Import: lookup index for MemberCsvImport's idempotency check.
 CREATE INDEX idx_member_external_reference ON member (external_reference);
+-- V1.2.12: privileged roster view (IMemberService.listMembersForAdministration) -- ORDER BY
+-- display_name and the status-chip filter. See V11__member_administration.sql.
+CREATE INDEX idx_member_display_name ON member (display_name);
+CREATE INDEX idx_member_status ON member (status);
 CREATE UNIQUE INDEX uq_contribution_member_tier_period ON contribution (member_id, membership_tier_id, period_start, period_end);
 CREATE INDEX idx_contribution_member ON contribution (member_id);
 CREATE INDEX idx_contribution_status ON contribution (status);

@@ -70,6 +70,11 @@ enum class AuditAction { CREATE, UPDATE, POST }
  * path (used by both the poller and every manual RPC override) writes `entityType =
  * DUNNING_NOTICE` for every notice CREATE (issued/skipped) and UPDATE (cancelled) -- see
  * [DunningNoticeSnapshot] KDoc for why it never carries member/address data.
+ * `MEMBER` (Welle V1.2.12 "Mitgliederverwaltung: vollständige Bearbeitung + privilegiertes
+ * Roster") was appended LAST after that -- `network.lapis.cloud.server.rpc.MemberService`'s three
+ * privileged update RPCs (`updateMemberCoreData`/`updateMemberStatus`/`updateMemberRole`) each
+ * write exactly one `entityType = MEMBER`, `action = UPDATE` entry per actual mutation (never for
+ * a no-op/idempotent call, see [MemberChangeSnapshot] KDoc), `entityId` = the target member's id.
  * Additive append only -- never reorder existing literals,
  * see this enum's own "cheap to extend, expensive to reorder" note class-wide.
  */
@@ -88,6 +93,7 @@ enum class AuditEntityType {
     SEPA_MANDATE,
     SEPA_DEBIT_BATCH,
     DUNNING_NOTICE,
+    MEMBER,
 }
 
 /**
@@ -375,4 +381,45 @@ data class DunningLevelSnapshot(
     val responseDays: Int,
     val feeAmount: Decimal?,
     val active: Boolean,
+)
+
+/**
+ * Structured `before`/`after` payload for an [AuditEntityType.MEMBER] audit entry (Welle V1.2.12).
+ * [reason] is set ONLY in `after`, and ONLY by `updateMemberStatus` -- `member.rejection_reason`
+ * (see [MemberDto.rejectionReason]) is deliberately NOT reused for this: that column belongs to
+ * the admission-rejection workflow ([network.lapis.cloud.shared.rpc.IRegistrationService
+ * .rejectApplication]), a structurally different event with its own board-decision metadata
+ * ([MemberDto.reviewedById]/[MemberDto.reviewedAt]). **Never carries address, GwG, or account
+ * data** -- same PII-minimization discipline [SocialPostModerationSnapshot]/[SepaMandateSnapshot]/
+ * [DunningNoticeSnapshot] already establish for an append-only, hash-chained table: a snapshot
+ * carrying that data would preserve exactly what a later Art. 17 erasure would have to remove, and
+ * could then no longer be removed without breaking the chain.
+ *
+ * **Security fix (2026-08-27, DSGVO Art. 17/15 MAJOR)**: [displayName]/[email] were REMOVED from
+ * this type -- an earlier revision carried the SUBJECT's (not the actor's) plaintext `displayName`/
+ * `email` here, which is exactly the PII-in-an-immutable-hash-chain mistake this KDoc's own
+ * preceding paragraph warns every OTHER snapshot type in this file away from, and which
+ * [AuditLogPersonalData.erase] cannot clear (retained unconditionally for GoBD, see that object's
+ * KDoc) -- an Art. 17 erasure of the member could never actually remove their name/e-mail from the
+ * chain. [AuditLogPersonalData.export] filtered on `actorMemberId` only (not `entityId`) and so
+ * never surfaced it in the SUBJECT's own Art. 15 export either -- a SEPARATE, LOW-severity gap this
+ * same security-fix wave also closed (see that object's own "Security fix (2026-08-27, LOW DSGVO
+ * Art. 15)" KDoc paragraph): `export` now additionally includes `entityType == MEMBER`/`entityId ==
+ * memberId` rows and surfaces `status`/`role`/`reason` from them, which is safe precisely BECAUSE
+ * `displayName`/`email` no longer live in this type. [displayNameChanged]/[emailChanged] carry
+ * the GoBD-relevant FACT (something about this field changed, WHO did it via
+ * [AuditLogEntryDto.actorMemberId], WHEN via `occurredAt`) without the value itself -- the identity
+ * is already `entityId`, and the CURRENT value always lives on the (erasable) `member` row. Only
+ * [network.lapis.cloud.server.rpc.MemberService.updateMemberCoreData] ever sets a `true` here; the
+ * other two writers ([network.lapis.cloud.server.rpc.MemberService.updateMemberStatus]/
+ * [network.lapis.cloud.server.rpc.MemberService.updateMemberRole]) always write `false` for both,
+ * since they never touch either field.
+ */
+@Serializable
+data class MemberChangeSnapshot(
+    val displayNameChanged: Boolean,
+    val emailChanged: Boolean,
+    val status: MemberStatus,
+    val role: AccountRole?,
+    val reason: String? = null,
 )

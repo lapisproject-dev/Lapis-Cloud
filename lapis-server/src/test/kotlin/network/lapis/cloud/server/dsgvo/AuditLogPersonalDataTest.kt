@@ -106,6 +106,45 @@ class AuditLogPersonalDataTest :
             export.toString() shouldNotContain "secret"
         }
 
+        test(
+            "export includes MEMBER-entity rows where this member is the SUBJECT (entityId), not just rows where they were the actor, and surfaces status/role/reason for those",
+        ) {
+            // Security fix (2026-08-27, LOW DSGVO Art. 15) regression test: a board decision
+            // recorded via MemberService.updateMemberStatus/updateMemberRole names the AFFECTED
+            // member as entityId, not actorMemberId -- see AuditLogPersonalData's own "Security fix
+            // (2026-08-27, LOW DSGVO Art. 15)" KDoc for the full scenario this closes.
+            val board = createTestMember("audit-pd-subject-board@example.org")
+            val subject = createTestMember("audit-pd-subject-target@example.org")
+            transaction {
+                AuditLogRecorder.record(
+                    actorMemberId = board,
+                    actorRole = AccountRole.TREASURER,
+                    entityType = AuditEntityType.MEMBER,
+                    entityId = subject,
+                    action = AuditAction.UPDATE,
+                    before = """{"displayNameChanged":false,"emailChanged":false,"status":"ACTIVE","role":null}""",
+                    after =
+                        """{"displayNameChanged":false,"emailChanged":false,"status":"WITHDRAWN",""" +
+                            """"role":null,"reason":"Ausschluss wegen Beitragsrueckstand seit 2024"}""",
+                )
+            }
+
+            val export = transaction { AuditLogPersonalData.export(subject) }
+            export.size shouldBe 1
+            val entry = export.single().jsonObject
+            entry.getValue("entityType").jsonPrimitive.content shouldBe "MEMBER"
+            entry.getValue("entityId").jsonPrimitive.content shouldBe subject.toString()
+            entry.getValue("status").jsonPrimitive.content shouldBe "WITHDRAWN"
+            entry.getValue("reason").jsonPrimitive.content shouldBe "Ausschluss wegen Beitragsrueckstand seit 2024"
+
+            // The board member's OWN export must not gain this row's snapshot content just because
+            // they were the actor -- unchanged third-party-leak protection for non-subject rows.
+            val boardExport = transaction { AuditLogPersonalData.export(board) }
+            boardExport.size shouldBe 1
+            val boardEntry = boardExport.single().jsonObject
+            boardEntry.keys shouldBe setOf("id", "sequenceNumber", "occurredAt", "entityType", "entityId", "action")
+        }
+
         test("export for a member with no audit-log activity at all is an empty array") {
             val member = createTestMember("audit-pd-export-empty@example.org")
             val export = transaction { AuditLogPersonalData.export(member) }
@@ -146,5 +185,50 @@ class AuditLogPersonalDataTest :
                     AuditLogEntryTable.selectAll().where { AuditLogEntryTable.actorMemberId eq member }.count()
                 }
             remaining shouldBe 3L
+        }
+
+        test(
+            "erase counts MEMBER-entity rows where this member is the SUBJECT too, not just rows where they were the actor",
+        ) {
+            // Security fix (2026-08-27, LOW DSGVO Art. 12/17) regression test: erase() used to
+            // count only actorMemberId rows, understating what Art. 17's own erasure confirmation
+            // reports relative to what export() (see the test above, "export includes MEMBER-entity
+            // rows where this member is the SUBJECT") already discloses to the SAME member under
+            // Art. 15. A board decision recorded via MemberService.updateMemberStatus/
+            // updateMemberRole names the AFFECTED member as entityId, not actorMemberId -- exactly
+            // the three rows created below, none of which name `subject` as the actor at all.
+            val board = createTestMember("audit-pd-erase-subject-board@example.org")
+            val subject = createTestMember("audit-pd-erase-subject-target@example.org")
+            transaction {
+                repeat(3) {
+                    AuditLogRecorder.record(
+                        actorMemberId = board,
+                        actorRole = AccountRole.TREASURER,
+                        entityType = AuditEntityType.MEMBER,
+                        entityId = subject,
+                        action = AuditAction.UPDATE,
+                        before = """{"displayNameChanged":false,"emailChanged":false,"status":"ACTIVE","role":null}""",
+                        after =
+                            """{"displayNameChanged":false,"emailChanged":false,"status":"ACTIVE",""" +
+                                """"role":null,"reason":"Vorstandsbeschluss $it"}""",
+                    )
+                }
+            }
+
+            // export() already surfaces exactly these 3 rows to `subject` under Art. 15 (see the
+            // dedicated export test above) -- erase()'s Art. 17 confirmation must report the SAME
+            // count, not zero.
+            val export = transaction { AuditLogPersonalData.export(subject) }
+            export.size shouldBe 3
+
+            val outcome = transaction { AuditLogPersonalData.erase(memberId = subject, mode = ErasureMode.ANONYMIZE) }.single()
+            outcome.rowsRetained shouldBe 3
+            outcome.rowsAnonymized shouldBe 0
+            outcome.rowsDeleted shouldBe 0
+
+            // `board`, the ACTOR, is unaffected by this fix -- its own erase() still counts these
+            // same 3 rows too (it is actorMemberId on all of them), unchanged behavior.
+            val boardOutcome = transaction { AuditLogPersonalData.erase(memberId = board, mode = ErasureMode.ANONYMIZE) }.single()
+            boardOutcome.rowsRetained shouldBe 3
         }
     })

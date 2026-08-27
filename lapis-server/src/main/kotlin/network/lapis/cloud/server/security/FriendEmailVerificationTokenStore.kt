@@ -124,6 +124,27 @@ object FriendEmailVerificationTokenStore {
         }
     }
 
+    /**
+     * Consumes every still-usable (unconsumed, unexpired) verification-token row issued for
+     * [memberId] without resolving any of them to a member id -- used when an ADMIN/BOARD-driven
+     * address correction ([network.lapis.cloud.server.rpc.MemberService.updateMemberCoreData])
+     * changes [network.lapis.cloud.server.db.generated.MemberTable.email] out from under a token
+     * that was minted for the OLD address: a still-open link must not be able to verify the NEW
+     * address after the fact. Same "mark consumed" idiom [consumeToken] already uses, just without
+     * a token to look up by. Safe to call even when no such token exists.
+     */
+    fun invalidateAllForMember(memberId: Uuid): Int {
+        val now = nowLocalDateTime()
+        return transaction {
+            FriendEmailVerificationTokenTable.update({
+                (FriendEmailVerificationTokenTable.memberId eq memberId) and
+                    FriendEmailVerificationTokenTable.consumedAt.isNull()
+            }) {
+                it[consumedAt] = now
+            }
+        }
+    }
+
     /** Hard-deletes every verification-token row whose [FriendEmailVerificationTokenTable.expiresAt] is already in the past. Returns the number of rows deleted. */
     fun purgeExpired(): Int {
         val now = nowLocalDateTime()

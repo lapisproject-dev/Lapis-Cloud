@@ -374,6 +374,11 @@ fun decodeAuditSnapshot(
             // gaps") -- same "no dedicated snapshot type decoded yet" fallback as SEPA_MANDATE/
             // SEPA_DEBIT_BATCH above, falls through to the raw-text display.
             AuditEntityType.DUNNING_NOTICE -> null
+            // Welle V1.2.12 "Mitgliederverwaltung" -- MemberChangeSnapshot exists server-side (see
+            // AuditLog.kt), but this client-side decode/render pair is deliberately not extended
+            // for it this wave (backend-only wave, same posture DUNNING_NOTICE/SEPA_MANDATE already
+            // establish) -- falls through to the raw-text display.
+            AuditEntityType.MEMBER -> null
         }
     }.getOrNull()
 

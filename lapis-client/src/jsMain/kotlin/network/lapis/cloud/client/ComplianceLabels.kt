@@ -90,6 +90,9 @@ fun auditEntityTypeLabel(entityType: AuditEntityType): String =
         // den ein künftiges MahnwesenScreen.kt konsistent zu SepaMandateScreen.kt/SepaBatchScreen.kt
         // verwenden soll.
         AuditEntityType.DUNNING_NOTICE -> gettext("Mahnung")
+        // Welle V1.2.12 "Mitgliederverwaltung" -- "Mitglied" ist der Begriff, den
+        // MemberAdministrationScreen.kt durchgängig für einen Roster-Eintrag verwendet.
+        AuditEntityType.MEMBER -> gettext("Mitglied")
     }
 
 fun auditEntityTypeColor(entityType: AuditEntityType): String =
@@ -123,6 +126,9 @@ fun auditEntityTypeColor(entityType: AuditEntityType): String =
         // "danger" -- eine ausgestellte Mahnung ist eine folgenreiche, forderungseinzug-nahe
         // Eintragsart, konsistent zu SOCIAL_POST/PARTY_DONATION_VERDICT's Einstufung oben.
         AuditEntityType.DUNNING_NOTICE -> "danger"
+        // "secondary" -- a member-record edit is routine administration, the same neutral
+        // classification BOARD_MEMBERSHIP already carries above.
+        AuditEntityType.MEMBER -> "secondary"
     }
 
 // ------------------------------------------------------------------------------------------------

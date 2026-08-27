@@ -11,6 +11,7 @@ import network.lapis.cloud.server.db.generated.MembershipAgreementAcknowledgment
 import network.lapis.cloud.server.federation.FederationInboxRateLimiter
 import network.lapis.cloud.server.mail.FriendVerificationMailer
 import network.lapis.cloud.server.mail.isValidMailboxAddress
+import network.lapis.cloud.server.security.ESCALATED_ROLES
 import network.lapis.cloud.server.security.FriendEmailVerificationTokenStore
 import network.lapis.cloud.server.security.LoginRateLimiter
 import network.lapis.cloud.server.security.PasswordHasher
@@ -43,10 +44,15 @@ import kotlin.uuid.Uuid
 private val logger = KotlinLogging.logger {}
 
 private val REGISTRATION_BOARD_ROLES = arrayOf(AccountRole.BOARD, AccountRole.ADMIN)
-private val ESCALATED_ROLES = arrayOf(AccountRole.BOARD, AccountRole.TREASURER, AccountRole.ADMIN)
+// ESCALATED_ROLES moved to network.lapis.cloud.server.security.RequestContext (Welle V1.2.12) so
+// MemberService's own peer-protection check can see it too -- see that val's own KDoc.
 
-/** [MemberTable.displayName] is `VARCHAR(200)` -- reject an overlong [FriendRegistrationInput.displayName] client-side AND server-side rather than letting Postgres throw. */
-private const val MAX_DISPLAY_NAME_LENGTH = 200
+// [MemberTable.displayName] is `VARCHAR(200)` -- reject an overlong
+// [FriendRegistrationInput.displayName] client-side AND server-side rather than letting Postgres
+// throw. Review Runde 4 dedup: reuses MemberService's own MEMBER_DISPLAY_NAME_MAX_LENGTH (same
+// package, no import needed) instead of a third independent `200` literal for the same column --
+// see that constant's own KDoc for why a shared constant beats three literals silently drifting
+// apart if the column were ever resized.
 
 /**
  * V0.7.2 Beitritts-/Registrierungs-Workflow -- see [IRegistrationService] KDoc for the full
@@ -420,8 +426,8 @@ class RegistrationService(
             )
         }
         if (input.displayName.isBlank()) throw ConflictException("displayName must not be blank")
-        if (input.displayName.length > MAX_DISPLAY_NAME_LENGTH) {
-            throw ConflictException("displayName must be at most $MAX_DISPLAY_NAME_LENGTH characters")
+        if (input.displayName.length > MEMBER_DISPLAY_NAME_MAX_LENGTH) {
+            throw ConflictException("displayName must be at most $MEMBER_DISPLAY_NAME_MAX_LENGTH characters")
         }
         // CRLF-log-injection fix (security-review, V1.2.3): see registerApplication's identical
         // check for the full attack-chain writeup -- registerFriend is the unauthenticated, no-login

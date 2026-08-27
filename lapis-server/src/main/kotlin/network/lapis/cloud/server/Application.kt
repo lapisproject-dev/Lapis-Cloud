@@ -307,6 +307,20 @@ fun Application.module() {
     val friendVerificationMailer: FriendVerificationMailer =
         SmtpFriendVerificationMailer(dispatcher = mailDispatcher, branding = mailBranding)
 
+    // Security fix (2026-08-27, LOW) -- Welle V1.2.12 `MemberService.updateMemberCoreData` mints
+    // the SAME verification-token type as `RegistrationService.registerFriend` above, but had no
+    // rate limiter guarding its own outbound send -- see MemberService constructor KDoc
+    // "memberCoreDataFriendMailRateLimiter" for the full rationale. This is the TARGET-side cap
+    // (per-FRIEND anti-spam protection) -- deliberately tight.
+    val memberCoreDataFriendMailRateLimiter = FederationInboxRateLimiter(maxRequests = 5, window = 60.minutes)
+
+    // Security fix (2026-08-27, LOW, follow-up) -- SEPARATE actor-side cap, deliberately more
+    // generous than the target-side one above, see MemberService constructor KDoc
+    // "memberCoreDataFriendMailActorRateLimiter" for why a shared cap under both keys silently
+    // suppressed verification mails for a legitimate BOARD caller correcting many different
+    // FRIENDs in one sitting (e.g. after a `MemberCsvImport`).
+    val memberCoreDataFriendMailActorRateLimiter = FederationInboxRateLimiter(maxRequests = 100, window = 60.minutes)
+
     // V0.8.1 Federation-Grundgerüst -- this server's own ActivityPub Actor keypair must exist from
     // first boot onward (unconditional, not LAPIS_SEED_DEMO_DATA-gated, see
     // FederationActorKeyProvisioner KDoc), and the two in-memory inbox guards are constructed once
@@ -671,7 +685,16 @@ fun Application.module() {
     // (DuplicatePluginException).
     initRpc {
         registerService(IPingService::class) { PingService() }
-        registerService(IMemberService::class) { call -> MemberService(call) }
+        registerService(
+            IMemberService::class,
+        ) { call ->
+            MemberService(
+                call = call,
+                friendVerificationMailer = friendVerificationMailer,
+                memberCoreDataFriendMailRateLimiter = memberCoreDataFriendMailRateLimiter,
+                memberCoreDataFriendMailActorRateLimiter = memberCoreDataFriendMailActorRateLimiter,
+            )
+        }
         registerService(IContributionService::class) { call -> ContributionService(call) }
         registerService(IDocumentService::class) { call -> DocumentService(call) }
         registerService(IMailingService::class) { call -> MailingService(call) }

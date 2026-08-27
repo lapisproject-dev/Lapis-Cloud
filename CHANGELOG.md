@@ -8,6 +8,52 @@ All notable changes to this project are documented here. Format follows
 
 ### Added
 
+**Mitgliederverwaltung: vollständige Bearbeitung + privilegiertes Roster, Welle V1.2.12**
+
+- **Privilegierte Roster-Ansicht** (`IMemberService.listMembersForAdministration`, BOARD/ADMIN)
+  — echte serverseitige Paginierung (`limit`/`offset`, serverseitig auf 1-100 begrenzt), Suche über
+  Name/E-Mail/Personennummer (case-insensitiv, LIKE-Metazeichen `%`/`_` sauber escaped), Statusfilter
+  mit Zahlen je Chip (Alle/Aktiv/Ausgetreten/Spender/Verstorben). Ersetzt das alte
+  `MemberAdministrationScreen`-Mitgliederverzeichnis, das mangels privilegierter Leseschnittstelle
+  nur Namen aus dem unauthentifizierten Picker (`listMembers()`) zeigen konnte.
+- **Vollständige Bearbeitung über drei getrennt autorisierte RPCs** statt eines Sammel-Endpunkts:
+  `updateMemberCoreData` (Name/E-Mail, BOARD/ADMIN mit Peer-Schutz gegen eskalierte Rollen),
+  `updateMemberStatus` (Statuswechsel, BOARD/ADMIN, nie self, Rückweg aus Verstorben ADMIN-exklusiv),
+  `updateMemberRole` (**jede** Rollenänderung — auch eine Herabstufung — ADMIN-exklusiv, nie self,
+  race-sicherer Letzter-Admin-Schutz über `.forUpdate()`-Zeilensperren statt eines bloßen `count()`).
+- **Administrativ verwaltbarer Statusquadrant** ACTIVE/WITHDRAWN/DONOR/DECEASED
+  (`MemberStatusTransitions`) mit Pflichtbegründung (3-1000 Zeichen) — bewusst eigenständig, nicht
+  aus `MemberStatusSets` abgeleitet, damit eine spätere Erweiterung von `LOGIN_BLOCKED`/
+  `MEMBERSHIP_ENDED` die Admin-UI nicht stillschweigend mit erweitert.
+- **Synchroner SEPA-Mandatswiderruf und Gremiensitz-Beendigung** bei ACTIVE→WITHDRAWN/DECEASED über
+  dieselbe Funktion (`revokeMandatesForEndedMembership`), die auch `SepaBatchPoller`s Phase B nutzt
+  — kein Zeitfenster und keine zweite Implementierung zwischen einem administrativen Statuswechsel
+  und dem nächsten Poller-Tick.
+- **Session-Widerruf** bei Login-Sperre (`MemberStatusSets.LOGIN_BLOCKED`) und bei tatsächlicher
+  E-Mail-Änderung — bewusst **nicht** bei einem reinen Rollenwechsel: `SessionStore.resolve()` liest
+  Rolle und Status ohnehin bei jedem Request frisch aus der Datenbank, ein Rollenwechsel ist beim
+  nächsten Aufruf ohne Re-Login sichtbar.
+- **Neuer Audit-Entitätstyp `MEMBER`** — genau ein `MEMBER`/`UPDATE`-Eintrag je tatsächlicher
+  Mutation (nie bei einem No-op-Aufruf mit unverändertem Ziel), `MemberChangeSnapshot` trägt nie
+  Adress-, GwG- oder Kontodaten.
+- **Kontenlose Mitglieder werden durchgängig unterstützt** — die 407 per `MemberCsvImport`
+  (Welle V1.2.11) importierten Zeilen haben bewusst keine `account`-Zeile. `MemberAdminRowDto.role`
+  ist dafür nullable; eine Rollenänderung gegen ein solches Mitglied wird sauber mit
+  `MemberHasNoAccountException` abgelehnt statt mit einem 500er zu scheitern (vormals bekannte,
+  offene Kante aus Welle V1.2.11).
+- **Drei neue typisierte RPC-Ausnahmen** (`MemberEmailInUseException`/`MemberHasNoAccountException`/
+  `LastAdminException`) statt eines generischen `ConflictException` mit unterscheidbarer Nachricht
+  — Kilua RPCs polymorphes Ausnahme-Protokoll überträgt eine `AbstractServiceException`-Nachricht
+  nachweislich nie über die Leitung (nur den Typ-Diskriminator, siehe `AppState.guarded` KDoc);
+  dieselbe, bereits etablierte Lösung wie `WeakPasswordException`/`InvalidPasswordException`.
+- **Bewusst draußen**: Massen-Statuswechsel (Raskin-Veto), Selbstbedienungs-Änderung von Name/E-Mail
+  durch das Mitglied selbst, UI-Anbindung der bestehenden Adress-/GwG-RPCs.
+
+**Operator-Hinweis**: `V11__member_administration.sql` ändert `V1__baseline.sql` erneut in place
+(`audit_log_entry.entity_type`-CHECK-Erweiterung um `MEMBER`, zwei neue Indizes auf `member` für
+die Roster-Ansicht) — vor dem nächsten Deploy auf **pdv2 UND der ELB-Instanz**
+`./gradlew :lapis-server:flywayRepair` ausführen.
+
 **Einmaliger CSV-Mitglieder-Import, Welle V1.2.11 — operator-ausgeführtes CLI für den PdV-CRM-Export**
 
 **Nur PdV.** Dieses Werkzeug ist ausschließlich für die PdV-Produktionsinstanz bestimmt. Die

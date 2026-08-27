@@ -6,6 +6,8 @@ import kotlinx.datetime.toKotlinLocalDate
 import network.lapis.cloud.server.db.DatabaseConfig
 import network.lapis.cloud.server.db.generated.MemberTable
 import network.lapis.cloud.server.db.generated.OrganizationSettingsTable
+import network.lapis.cloud.server.rpc.MEMBER_DISPLAY_NAME_MAX_LENGTH
+import network.lapis.cloud.server.rpc.MEMBER_EMAIL_MAX_LENGTH
 import network.lapis.cloud.shared.domain.MemberStatus
 import org.jetbrains.exposed.v1.core.isNotNull
 import org.jetbrains.exposed.v1.jdbc.Database
@@ -425,11 +427,13 @@ internal fun parseGermanDate(raw: String): LocalDate? {
 
 // Target column widths -- see V1__baseline.sql / 00-foundation.kuml.kts for the authoritative
 // column definitions this table mirrors. A violation is a skip (FIELD_TOO_LONG), never a silent
-// truncation.
+// truncation. "display_name"/"email" reuse MemberService's own MEMBER_DISPLAY_NAME_MAX_LENGTH/
+// MEMBER_EMAIL_MAX_LENGTH constants (Review Runde 3 dedup) instead of a second, independently literal
+// 200/320 -- see those constants' own KDoc.
 private val FIELD_MAX_LENGTHS: Map<String, Int> =
     mapOf(
-        "display_name" to 200,
-        "email" to 320,
+        "display_name" to MEMBER_DISPLAY_NAME_MAX_LENGTH,
+        "email" to MEMBER_EMAIL_MAX_LENGTH,
         "street" to 200,
         "postal_code" to 20,
         "city" to 200,

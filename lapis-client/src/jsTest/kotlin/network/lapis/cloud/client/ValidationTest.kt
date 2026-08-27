@@ -38,6 +38,23 @@ class ValidationTest {
         assertFalse(Validation.looksLikeEmail("@example.org"))
     }
 
+    // Review Runde 4: EMAIL_MAX_LENGTH clause -- mirrors passwordHint_flagsTooLong's coverage of
+    // PASSWORD_MAX_LENGTH for the same reason (Review Runde 3 added the length clause to
+    // looksLikeEmail without a pinning test; see Validation.EMAIL_MAX_LENGTH's own KDoc).
+    @Test
+    fun looksLikeEmail_acceptsAnAddressAtExactlyMaxLength() {
+        val atMax = "a".repeat(308) + "@example.org"
+        assertEquals(Validation.EMAIL_MAX_LENGTH, atMax.length)
+        assertTrue(Validation.looksLikeEmail(atMax))
+    }
+
+    @Test
+    fun looksLikeEmail_rejectsAnAddressOverMaxLength() {
+        val overMax = "a".repeat(309) + "@example.org"
+        assertEquals(Validation.EMAIL_MAX_LENGTH + 1, overMax.length)
+        assertFalse(Validation.looksLikeEmail(overMax))
+    }
+
     @Test
     fun isNonBlank_rejectsWhitespaceOnly() {
         assertFalse(Validation.isNonBlank("   "))
