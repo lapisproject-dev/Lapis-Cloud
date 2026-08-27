@@ -201,4 +201,61 @@ interface IMemberService {
         memberId: String,
         newRole: AccountRole,
     ): MemberAdminRowDto
+
+    /**
+     * Welle V1.2.13 -- the ADMIN/BOARD editor's "Konto anlegen" section: creates a LOGIN ACCOUNT for
+     * an ALREADY EXISTING member row. Pure `account` insert -- never a `member` insert, never a
+     * `member` update (status, joinedAt, displayName, email all stay untouched).
+     *
+     * **Closes a structural gap**, not a convenience: before this wave there was literally NO path
+     * from "member row exists, no account" to "member row exists, has account". Every one of the 407
+     * rows `network.lapis.cloud.server.bootstrap.MemberCsvImport` (V1.2.11) created is in that state.
+     * [IRegistrationService.createMemberDirect] cannot be used -- it ALWAYS inserts a NEW member and
+     * rejects an already-taken e-mail with a conflict; `registerApplication`/`registerFriend` are
+     * silent no-ops on an already-taken address by deliberate anti-enumeration design. The only
+     * remaining route was a manual `INSERT INTO account` against the production database.
+     *
+     * **ADMIN-exclusive, unconditionally, checked before any existence/state check** -- the same
+     * posture and the same reasoning as [updateMemberRole] (see its KDoc): granting ACCESS AT ALL is
+     * structurally an initial role assignment with the identical consequence, so the weaker
+     * escalated-role-only gate `IRegistrationService.createMemberDirect` applies to a BRAND-NEW
+     * account is deliberately NOT reused here.
+     *
+     * [temporaryPassword] is validated by `network.lapis.cloud.server.security.PasswordPolicy.validate`
+     * against the member's e-mail **as stored in the database**, never against a client-supplied
+     * address (throws [WeakPasswordException]). It is **not e-mailed anywhere** -- the operator hands
+     * it over personally and the member changes it via `IAuthService.changePassword`. An invitation /
+     * set-your-own-password link is deliberately out of scope for this wave (it needs delivery
+     * diagnostics the enumeration-hardened `/api/auth/password-reset/request` endpoint deliberately
+     * does not provide).
+     *
+     * [role] is chosen at creation time, in this same call -- a two-step "create a MEMBER account,
+     * then change its role" would be a mode with no user-visible justification. The audit trail keeps
+     * the two facts separable regardless: the entry is `action = CREATE` (never `UPDATE`) with
+     * `before.role = null` -> `after.role = <role>`, a sentence no [updateMemberRole] entry can imitate.
+     *
+     * Rejected with [ConflictException] if the target member is DSGVO-anonymized (an anonymized member
+     * has NO account row -- `FoundationPersonalData.erase` hard-deletes it -- so without this check
+     * this RPC would be the one way to give an erased person a working login again) or has
+     * [MemberStatus.DECEASED] status. **DECEASED is the only status blocked**; DONOR/WITHDRAWN/
+     * REJECTED are deliberately allowed -- `MemberStatusSets.LOGIN_BLOCKED` remains the single,
+     * central login policy and keeps such an account entirely inert until an administrative status
+     * change (e.g. DONOR -> ACTIVE, see `MemberStatusTransitions.ADMINISTRATIVELY_MANAGED`) makes it
+     * usable. DECEASED is excluded because `/api/auth/password-reset/request` does NOT consult
+     * `LOGIN_BLOCKED` (it only requires an `account` row for the address): an account would make a
+     * deceased person's mailbox -- in practice often a relative's -- a valid recipient of
+     * password-reset mail. Correcting an erroneously recorded death is the documented route and is
+     * available to ADMIN in the very same editor dialog, one section higher.
+     *
+     * Throws [MemberAlreadyHasAccountException] if an `account` row already exists for this member
+     * (including when an ADMIN targets their own member id -- the caller by definition has one),
+     * [ForbiddenException] if the caller is not ADMIN, [NotFoundException] if `memberId` does not
+     * resolve. Deliberately does NOT revoke sessions -- there is no session to revoke for an account
+     * that did not exist a moment ago.
+     */
+    suspend fun grantMemberAccount(
+        memberId: String,
+        temporaryPassword: String,
+        role: AccountRole,
+    ): MemberAdminRowDto
 }

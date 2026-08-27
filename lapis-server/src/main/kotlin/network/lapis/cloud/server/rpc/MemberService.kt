@@ -15,6 +15,8 @@ import network.lapis.cloud.server.mail.isValidMailboxAddress
 import network.lapis.cloud.server.payment.sepa.revokeMandatesForEndedMembership
 import network.lapis.cloud.server.security.ESCALATED_ROLES
 import network.lapis.cloud.server.security.FriendEmailVerificationTokenStore
+import network.lapis.cloud.server.security.PasswordHasher
+import network.lapis.cloud.server.security.PasswordPolicy
 import network.lapis.cloud.server.security.SessionStore
 import network.lapis.cloud.server.security.isPrivileged
 import network.lapis.cloud.server.security.requireRole
@@ -36,6 +38,7 @@ import network.lapis.cloud.shared.rpc.ConflictException
 import network.lapis.cloud.shared.rpc.ForbiddenException
 import network.lapis.cloud.shared.rpc.IMemberService
 import network.lapis.cloud.shared.rpc.LastAdminException
+import network.lapis.cloud.shared.rpc.MemberAlreadyHasAccountException
 import network.lapis.cloud.shared.rpc.MemberEmailInUseException
 import network.lapis.cloud.shared.rpc.MemberEmailTooLongException
 import network.lapis.cloud.shared.rpc.MemberHasNoAccountException
@@ -56,6 +59,7 @@ import org.jetbrains.exposed.v1.core.neq
 import org.jetbrains.exposed.v1.core.notInList
 import org.jetbrains.exposed.v1.core.or
 import org.jetbrains.exposed.v1.exceptions.ExposedSQLException
+import org.jetbrains.exposed.v1.jdbc.insert
 import org.jetbrains.exposed.v1.jdbc.select
 import org.jetbrains.exposed.v1.jdbc.selectAll
 import org.jetbrains.exposed.v1.jdbc.transactions.transaction
@@ -688,6 +692,121 @@ class MemberService(
             )
             // Deliberately NO SessionStore.revokeAllForMember here -- see interface KDoc
             // "Deliberately does NOT invalidate the target's existing sessions".
+            loadMemberAdminRow(targetId)
+        }
+    }
+
+    override suspend fun grantMemberAccount(
+        memberId: String,
+        temporaryPassword: String,
+        role: AccountRole,
+    ): MemberAdminRowDto {
+        val current = resolveCurrentMember(call)
+        // ADMIN-exclusive, unconditional, before any existence/state check -- see interface KDoc.
+        // Granting ACCESS AT ALL is structurally an initial role assignment, so this mirrors
+        // updateMemberRole's gate exactly, not RegistrationService.createMemberDirect's weaker
+        // escalated-role-only one.
+        current.requireRole(AccountRole.ADMIN)
+        val targetId = memberId.toMemberUuidOrThrow()
+        // Deliberately NO self-target check -- see interface KDoc: the caller authenticated with an
+        // account row, so a self-target necessarily lands in MemberAlreadyHasAccountException below.
+
+        val now = nowLocalDateTime()
+        return transaction {
+            val memberRow =
+                MemberTable
+                    .selectAll()
+                    .where { MemberTable.id eq targetId }
+                    .forUpdate()
+                    .singleOrNull() ?: throw NotFoundException("Member $memberId not found")
+            // Load-bearing, NOT copy-paste consistency with the three V1.2.12 RPCs:
+            // FoundationPersonalData.erase HARD-DELETES the account row on an Art. 17 erasure, so an
+            // anonymized member is indistinguishable from a CSV import by `role == null` alone.
+            // Without this check, this RPC would be the one and only way to hand a DSGVO-erased
+            // person a working login again.
+            if (memberRow[MemberTable.anonymizedAt] != null) {
+                throw ConflictException("Member has been anonymized and can no longer be edited")
+            }
+            // The ONLY blocked status -- see interface KDoc for why DONOR/WITHDRAWN/REJECTED are
+            // deliberately allowed (LOGIN_BLOCKED stays the single login policy and keeps such an
+            // account inert) and why DECEASED is not (/api/auth/password-reset/request does not
+            // consult LOGIN_BLOCKED, so the account would make a deceased member's mailbox a valid
+            // password-reset recipient).
+            if (memberRow[MemberTable.status] == MemberStatus.DECEASED) {
+                throw ConflictException("Cannot grant a login account to a deceased member")
+            }
+
+            // Against the address AS STORED, never a client-supplied one -- the client does not send
+            // an e-mail on this call at all, and must not be able to weaken this check by sending a
+            // different one. Same PasswordPolicy call RegistrationService.createMemberDirect uses.
+            PasswordPolicy.validate(newPassword = temporaryPassword, email = memberRow[MemberTable.email])
+
+            // Layer 1 of the two-layer uniqueness guard. `.forUpdate()` on a row set that is normally
+            // EMPTY locks nothing -- the real serialization for two concurrent grants against the
+            // SAME member already comes from the MemberTable `.forUpdate()` above (both callers
+            // contend for that one row), and the uq_account_member_id backstop below closes the rest.
+            //
+            // This method acquires at most ONE account-row lock and never asks for a second, so it
+            // cannot participate in the member/account wait cycle updateMemberRole/updateMemberStatus
+            // close with their id-ordered union lock -- the deliberately narrow single-row lock is
+            // correct here, not an oversight.
+            val existingAccount =
+                AccountTable
+                    .selectAll()
+                    .where { AccountTable.memberId eq targetId }
+                    .forUpdate()
+                    .singleOrNull()
+            if (existingAccount != null) throw MemberAlreadyHasAccountException()
+
+            // bcrypt (PasswordHasher.hash, ~250ms at BCRYPT_COST=12) runs INSIDE the transaction on
+            // purpose: PasswordPolicy.validate needs the member's e-mail, which is only known after
+            // the row read above, and hoisting the hash out would cost a second query for no benefit
+            // at this call's frequency (one ADMIN action, not a login path). No enumeration-timing
+            // concern applies -- the caller is an authenticated ADMIN who already sees the roster.
+            try {
+                AccountTable.insert {
+                    it[id] = Uuid.random()
+                    it[AccountTable.memberId] = targetId
+                    it[AccountTable.role] = role
+                    it[passwordHash] = PasswordHasher.hash(temporaryPassword)
+                    // oidcSubject/oidcIssuer stay null -- a password account, not a federated one.
+                }
+            } catch (e: ExposedSQLException) {
+                // Layer 2: uq_account_member_id (V1__baseline.sql) is the real backstop; the
+                // pre-check above is racy on its own. Same idiom (and same "log the class name only,
+                // never the message/stacktrace -- no PII" discipline) updateMemberCoreData's own
+                // e-mail-uniqueness backstop already establishes.
+                logger.warn { "AccountTable.insert failed in grantMemberAccount: ${e::class.simpleName}" }
+                throw MemberAlreadyHasAccountException()
+            }
+
+            val beforeSnapshot =
+                MemberChangeSnapshot(
+                    displayNameChanged = false,
+                    emailChanged = false,
+                    status = memberRow[MemberTable.status],
+                    role = null,
+                )
+            val afterSnapshot = beforeSnapshot.copy(role = role)
+            AuditLogRecorder.record(
+                actorMemberId = current.memberId,
+                actorRole = current.role,
+                entityType = AuditEntityType.MEMBER,
+                entityId = targetId,
+                // CREATE, not UPDATE -- this is the ONE writer of MEMBER/CREATE. It makes "who gave
+                // this person access, and with which role" a sentence in the GoBD chain that no
+                // updateMemberRole entry can imitate (see interface KDoc). No new AuditEntityType:
+                // an ACCOUNT literal would cost a Flyway CHECK migration, another in-place edit of
+                // V1__baseline.sql and a flywayRepair on BOTH production instances for zero analytic
+                // gain -- the entity under administration is the member.
+                action = AuditAction.CREATE,
+                before = Json.encodeToString(MemberChangeSnapshot.serializer(), beforeSnapshot),
+                after = Json.encodeToString(MemberChangeSnapshot.serializer(), afterSnapshot),
+                occurredAt = now,
+            )
+            // Deliberately NO SessionStore.revokeAllForMember -- there is no session to revoke for an
+            // account that did not exist a moment ago. Stated explicitly so no reviewer "adds the
+            // missing revocation" by analogy with updateMemberStatus.
             loadMemberAdminRow(targetId)
         }
     }

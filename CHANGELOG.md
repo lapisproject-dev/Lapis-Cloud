@@ -8,6 +8,51 @@ All notable changes to this project are documented here. Format follows
 
 ### Added
 
+**Login-Konto für ein bestehendes Mitglied nachträglich vergeben, Welle V1.2.13**
+
+- **Neue ADMIN-exklusive RPC `IMemberService.grantMemberAccount`** — reines `account`-Insert für
+  ein **bestehendes** `member_id`, niemals ein neues Mitglied. Schließt eine strukturelle Lücke:
+  bis zu dieser Welle gab es **keinen** Weg, einem der 407 CSV-importierten Mitglieder
+  (Welle V1.2.11) ein Login-Konto zu geben — `createMemberDirect` verlangt eine noch freie
+  E-Mail-Adresse und legt zwingend ein neues Mitglied an, die Selbstregistrierung schweigt bei
+  bereits vergebener Adresse bewusst (Anti-Enumeration). Übrig blieb ein manuelles
+  `INSERT INTO account` gegen die Produktionsdatenbank.
+- **Autorisierung wie bei `updateMemberRole`**: `requireRole(ADMIN)` unbedingt und als erste
+  Prüfung — die Erstvergabe eines Zugangs ist strukturell eine initiale Rollenzuweisung mit
+  derselben Konsequenz, nicht das schwächere Nur-bei-eskalierter-Rolle-Gate von
+  `createMemberDirect`. Kein BOARD-Sonderweg für reine MEMBER-Konten.
+- **Rollenwahl direkt beim Anlegen** (ein Schritt, kein „erst Konto, dann Rolle"-Modus). Das
+  Protokoll bleibt trennscharf: genau ein Audit-Eintrag `MEMBER`/**`CREATE`** — der erste
+  `CREATE` dieses Entitätstyps — mit `role: null → <Rolle>`, ein Satz, den keine Rollenänderung
+  aus V1.2.12 imitieren kann. Kein neuer `AuditEntityType`, keine Klartext-PII in der Hash-Kette.
+- **DONOR erlaubt, DECEASED blockiert.** Ein DONOR-Konto bleibt durch
+  `MemberStatusSets.LOGIN_BLOCKED` vollständig wirkungslos und ist damit für einen späteren
+  administrativen Wechsel nach ACTIVE vorbereitet — `LOGIN_BLOCKED` bleibt die einzige
+  Login-Politik, es entsteht keine zweite Sperre an zweiter Stelle. DECEASED ist ausgenommen,
+  weil `/api/auth/password-reset/request` `LOGIN_BLOCKED` **nicht** konsultiert: ein Konto würde
+  die Adresse einer verstorbenen Person — faktisch oft die der Angehörigen — zum gültigen
+  Empfänger von „Passwort zurücksetzen"-Mails machen. Der Rückweg aus DECEASED steht ADMIN im
+  selben Dialog eine Sektion höher zur Verfügung; Statuskorrektur zuerst, dann Konto.
+- **DSGVO-gelöschte Mitglieder bleiben ausgeschlossen** — die Art.-17-Löschung entfernt die
+  `account`-Zeile hart, ein anonymisiertes Mitglied ist an `role == null` also nicht von einem
+  CSV-Import zu unterscheiden. Der `anonymizedAt`-Guard verhindert, dass diese RPC zum einzigen
+  Weg wird, einer gelöschten Person wieder ein funktionierendes Login zu geben.
+- **Neue typisierte Ausnahme `MemberAlreadyHasAccountException`** (strukturelles Gegenstück zu
+  `MemberHasNoAccountException`) — Kilua RPC überträgt nachweislich nur den Typ-Diskriminator,
+  nie die Nachricht. Sie trifft auch einen ADMIN, der die eigene Mitglieds-ID angibt: wer
+  aufruft, hat per Definition ein Konto, ein separater Self-Check ist deshalb unnötig.
+- **Dialog öffnet sich nach Erfolg mit der aktualisierten Zeile neu** — der „Rolle"-Abschnitt
+  steht sofort genau dort, wo eben noch das Anlege-Formular stand. Kein Hinweistext, kein
+  manuelles Neuöffnen.
+- **Keine Schemaänderung** — `account`, `uq_account_member_id`, `AuditEntityType.MEMBER` und
+  `AuditAction.CREATE` existieren unverändert. **Kein `flywayRepair` für diese Welle nötig.**
+- **Bewusst draußen**: Einladungs-/Setz-dein-Passwort-Link per E-Mail (eigene Welle — braucht
+  Zustelldiagnose, die der enumerations-gehärtete Reset-Endpunkt bewusst nicht liefert, und
+  würde mit `password_hash = NULL` einen neuen, heute nirgends getesteten Kontozustand
+  einführen); Passwort-Generator (kommt, wenn überhaupt, für **beide** Passwortfelder dieses
+  Screens gleichzeitig); BOARD-Vergabe reiner MEMBER-Konten; Massenvergabe für die 407 Zeilen;
+  Entzug eines bestehenden Kontos.
+
 **Mitgliederverwaltung: vollständige Bearbeitung + privilegiertes Roster, Welle V1.2.12**
 
 - **Privilegierte Roster-Ansicht** (`IMemberService.listMembersForAdministration`, BOARD/ADMIN)

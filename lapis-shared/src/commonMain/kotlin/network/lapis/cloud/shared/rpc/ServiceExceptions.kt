@@ -119,3 +119,22 @@ class MemberHasNoAccountException(
 class LastAdminException(
     override val message: String = "Cannot remove the last remaining ADMIN account",
 ) : AbstractServiceException()
+
+/**
+ * Welle V1.2.13 -- see [MemberEmailInUseException] KDoc for why this is a distinct type rather
+ * than a `ConflictException` message (identical wire-transparency reasoning: Kilua RPC transmits
+ * only the subclass discriminator, never the message). The structural counterpart of
+ * [MemberHasNoAccountException]: thrown by
+ * `network.lapis.cloud.server.rpc.MemberService.grantMemberAccount` when the target member ALREADY
+ * has an `account` row -- both by the explicit pre-check and by the `uq_account_member_id`
+ * unique-index race backstop (same two-layer uniqueness idiom
+ * `MemberService.updateMemberCoreData` already establishes for the e-mail column).
+ *
+ * Also the type an ADMIN targeting their OWN member id receives: the caller necessarily has an
+ * account (they authenticated with it), so `grantMemberAccount` needs no separate self-target
+ * check -- see that method's own KDoc.
+ */
+@RpcServiceException
+class MemberAlreadyHasAccountException(
+    override val message: String = "Member already has a login account",
+) : AbstractServiceException()

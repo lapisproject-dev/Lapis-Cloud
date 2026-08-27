@@ -55,11 +55,13 @@ import network.lapis.cloud.shared.domain.SepaSequenceType
 import network.lapis.cloud.shared.rpc.ConflictException
 import network.lapis.cloud.shared.rpc.ForbiddenException
 import network.lapis.cloud.shared.rpc.LastAdminException
+import network.lapis.cloud.shared.rpc.MemberAlreadyHasAccountException
 import network.lapis.cloud.shared.rpc.MemberEmailInUseException
 import network.lapis.cloud.shared.rpc.MemberEmailTooLongException
 import network.lapis.cloud.shared.rpc.MemberHasNoAccountException
 import network.lapis.cloud.shared.rpc.NotFoundException
 import network.lapis.cloud.shared.rpc.UnauthenticatedException
+import network.lapis.cloud.shared.rpc.WeakPasswordException
 import org.jetbrains.exposed.v1.core.and
 import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.core.inList
@@ -242,6 +244,35 @@ class MemberAdministrationTest :
                             (AuditLogEntryTable.entityType eq AuditEntityType.MEMBER) and
                             (AuditLogEntryTable.action eq AuditAction.UPDATE)
                     }.count()
+            }
+
+        /**
+         * Welle V1.2.13 -- identical to [auditCountFor] but for `action == CREATE`, the ONE action
+         * [MemberService.grantMemberAccount] writes. Deliberately a SEPARATE function, not a widened
+         * [auditCountFor] with an action parameter -- test 22 depends on [auditCountFor] staying
+         * hard-filtered to UPDATE.
+         */
+        fun auditCreateCountFor(memberId: Uuid): Long =
+            transaction {
+                AuditLogEntryTable
+                    .selectAll()
+                    .where {
+                        (AuditLogEntryTable.entityId eq memberId) and
+                            (AuditLogEntryTable.entityType eq AuditEntityType.MEMBER) and
+                            (AuditLogEntryTable.action eq AuditAction.CREATE)
+                    }.count()
+            }
+
+        fun accountExists(memberId: Uuid): Boolean =
+            transaction { AccountTable.selectAll().where { AccountTable.memberId eq memberId }.count() > 0 }
+
+        fun passwordHashOf(memberId: Uuid): String? =
+            transaction {
+                AccountTable
+                    .selectAll()
+                    .where { AccountTable.memberId eq memberId }
+                    .singleOrNull()
+                    ?.get(AccountTable.passwordHash)
             }
 
         // ── 1: Autz Roster ──
@@ -948,7 +979,7 @@ class MemberAdministrationTest :
         }
 
         // ── 21: anonymisiertes Mitglied ──
-        test("all three update RPCs reject an anonymized member with Conflict") {
+        test("all four member-administration RPCs reject an anonymized member with Conflict") {
             testApplication {
                 application {
                     install(StatusPages) { installMemberAdminExceptionHandlers() }
@@ -969,6 +1000,26 @@ class MemberAdministrationTest :
                 client.post("/test/status/$member?newStatus=WITHDRAWN&reason=Testgrund") { header("X-Member-Id", ADMIN_ID) }.status shouldBe
                     HttpStatusCode.Conflict
                 client.post("/test/role/$member?newRole=BOARD") { header("X-Member-Id", ADMIN_ID) }.status shouldBe HttpStatusCode.Conflict
+
+                // grantMemberAccount, Welle V1.2.13 -- the target here MUST be accountless (unlike
+                // the three RPCs above, whose target already has an account and would otherwise
+                // reach MemberAlreadyHasAccountException first, never actually exercising the
+                // anonymizedAt guard). This is the DSGVO-erasure-revival scenario the guard exists
+                // for: FoundationPersonalData.erase hard-deletes the account row, so an anonymized,
+                // accountless member is indistinguishable from a CSV import by role == null alone.
+                val anonymizedAccountless = createAccountlessTestMember("anonymized-accountless-target@example.org")
+                transaction {
+                    MemberTable.update({ MemberTable.id eq anonymizedAccountless }) {
+                        it[anonymizedAt] = DbClock.nowLocalDateTime()
+                    }
+                }
+                client
+                    .post(
+                        "/test/grant-account/$anonymizedAccountless?password=$STRONG_PASSWORD&role=MEMBER",
+                    ) { header("X-Member-Id", ADMIN_ID) }
+                    .status shouldBe
+                    HttpStatusCode.Conflict
+                accountExists(anonymizedAccountless) shouldBe false
             }
         }
 
@@ -1197,6 +1248,275 @@ class MemberAdministrationTest :
                 recordingMailer.sentTo.size shouldBe 2
             }
         }
+
+        // ══ Welle V1.2.13 -- grantMemberAccount ══════════════════════════════════════════════════
+
+        // ── 28: Erfolgsfall gegen ein kontenloses ACTIVE-Mitglied ──
+        test("grantMemberAccount: ADMIN grants a login account to an accountless ACTIVE member") {
+            testApplication {
+                application {
+                    install(StatusPages) { installMemberAdminExceptionHandlers() }
+                    routing { registerMemberAdminTestRoutes() }
+                }
+                val member =
+                    createAccountlessTestMember("grant-success@example.org", externalReference = "PN-GRANT-1")
+                val beforeStatus = statusOf(member)
+                val beforeRow =
+                    transaction { MemberTable.selectAll().where { MemberTable.id eq member }.single() }
+                val beforeDisplayName = beforeRow[MemberTable.displayName]
+                val beforeEmail = beforeRow[MemberTable.email]
+                val beforeJoinedAt = beforeRow[MemberTable.joinedAt]
+
+                client
+                    .post(
+                        "/test/grant-account/$member?password=$STRONG_PASSWORD&role=MEMBER",
+                    ) { header("X-Member-Id", ADMIN_ID) }
+                    .status shouldBe
+                    HttpStatusCode.OK
+
+                roleOf(member) shouldBe AccountRole.MEMBER
+                PasswordHasher.verify(rawPassword = STRONG_PASSWORD, storedHash = passwordHashOf(member)) shouldBe true
+                auditCreateCountFor(member) shouldBe 1L
+                auditCountFor(member) shouldBe 0L
+
+                val (beforeJson, afterJson) =
+                    transaction {
+                        val row =
+                            AuditLogEntryTable
+                                .selectAll()
+                                .where {
+                                    (AuditLogEntryTable.entityId eq member) and
+                                        (AuditLogEntryTable.entityType eq AuditEntityType.MEMBER) and
+                                        (AuditLogEntryTable.action eq AuditAction.CREATE)
+                                }.single()
+                        row[AuditLogEntryTable.beforeSnapshot] to row[AuditLogEntryTable.afterSnapshot]
+                    }
+                requireNotNull(beforeJson)
+                requireNotNull(afterJson)
+                beforeJson.contains("\"role\":null") shouldBe true
+                afterJson.contains("\"role\":\"MEMBER\"") shouldBe true
+
+                // MemberTable row itself is untouched -- a pure account insert, never a member write.
+                val afterRow = transaction { MemberTable.selectAll().where { MemberTable.id eq member }.single() }
+                afterRow[MemberTable.status] shouldBe beforeStatus
+                afterRow[MemberTable.displayName] shouldBe beforeDisplayName
+                afterRow[MemberTable.email] shouldBe beforeEmail
+                afterRow[MemberTable.joinedAt] shouldBe beforeJoinedAt
+            }
+        }
+
+        // ── 29: Autorisierung ──
+        test("grantMemberAccount: BOARD/MEMBER/TREASURER forbidden, unauthenticated rejected -- never leaves a partial account") {
+            testApplication {
+                application {
+                    install(StatusPages) { installMemberAdminExceptionHandlers() }
+                    routing { registerMemberAdminTestRoutes() }
+                }
+                val member = createAccountlessTestMember("grant-authz@example.org")
+
+                client
+                    .post(
+                        "/test/grant-account/$member?password=$STRONG_PASSWORD&role=MEMBER",
+                    ) { header("X-Member-Id", BOARD_ID) }
+                    .status shouldBe
+                    HttpStatusCode.Forbidden
+                accountExists(member) shouldBe false
+
+                client
+                    .post(
+                        "/test/grant-account/$member?password=$STRONG_PASSWORD&role=MEMBER",
+                    ) { header("X-Member-Id", MEMBER_ID) }
+                    .status shouldBe
+                    HttpStatusCode.Forbidden
+                accountExists(member) shouldBe false
+
+                client
+                    .post(
+                        "/test/grant-account/$member?password=$STRONG_PASSWORD&role=MEMBER",
+                    ) { header("X-Member-Id", TREASURER_ID) }
+                    .status shouldBe
+                    HttpStatusCode.Forbidden
+                accountExists(member) shouldBe false
+
+                client
+                    .post("/test/grant-account/$member?password=$STRONG_PASSWORD&role=MEMBER")
+                    .status shouldBe
+                    HttpStatusCode.Unauthorized
+                accountExists(member) shouldBe false
+            }
+        }
+
+        // ── 30: Ziel hat bereits ein Konto ──
+        test("grantMemberAccount: target already has an account -- MemberAlreadyHasAccountException/Conflict") {
+            testApplication {
+                application {
+                    install(StatusPages) { installMemberAdminExceptionHandlers() }
+                    routing { registerMemberAdminTestRoutes() }
+                }
+                val member = createTestMember("grant-already-has-one@example.org", role = AccountRole.MEMBER)
+                val response =
+                    client.post(
+                        "/test/grant-account/$member?password=$STRONG_PASSWORD&role=BOARD",
+                    ) { header("X-Member-Id", ADMIN_ID) }
+                response.status shouldBe HttpStatusCode.Conflict
+                response.bodyAsText() shouldBe "Member already has a login account"
+                roleOf(member) shouldBe AccountRole.MEMBER
+            }
+        }
+
+        // ── 31: ADMIN auf die eigene memberId -- kein separater Self-Check nötig ──
+        test("grantMemberAccount: ADMIN targeting their own member id hits MemberAlreadyHasAccountException, same body as test 30") {
+            testApplication {
+                application {
+                    install(StatusPages) { installMemberAdminExceptionHandlers() }
+                    routing { registerMemberAdminTestRoutes() }
+                }
+                val response =
+                    client.post(
+                        "/test/grant-account/$ADMIN_ID?password=$STRONG_PASSWORD&role=MEMBER",
+                    ) { header("X-Member-Id", ADMIN_ID) }
+                response.status shouldBe HttpStatusCode.Conflict
+                response.bodyAsText() shouldBe "Member already has a login account"
+            }
+        }
+
+        // ── 32: Passwort-Policy ──
+        test("grantMemberAccount: password policy violations are rejected, never leaving a partial account behind") {
+            testApplication {
+                application {
+                    install(StatusPages) { installMemberAdminExceptionHandlers() }
+                    routing { registerMemberAdminTestRoutes() }
+                }
+                val member = createAccountlessTestMember("grant-weak-password@example.org")
+
+                client
+                    .post(
+                        "/test/grant-account/$member?password=${"x".repeat(11)}&role=MEMBER",
+                    ) { header("X-Member-Id", ADMIN_ID) }
+                    .status shouldBe
+                    HttpStatusCode.BadRequest
+                accountExists(member) shouldBe false
+
+                client
+                    .post(
+                        "/test/grant-account/$member?password=${"x".repeat(129)}&role=MEMBER",
+                    ) { header("X-Member-Id", ADMIN_ID) }
+                    .status shouldBe
+                    HttpStatusCode.BadRequest
+                accountExists(member) shouldBe false
+
+                // Pins that validation runs against the DB-stored address, not a client-supplied
+                // one -- this RPC never even accepts an email parameter.
+                client
+                    .post(
+                        "/test/grant-account/$member?password=grant-weak-password@example.org&role=MEMBER",
+                    ) { header("X-Member-Id", ADMIN_ID) }
+                    .status shouldBe
+                    HttpStatusCode.BadRequest
+                accountExists(member) shouldBe false
+            }
+        }
+
+        // ── 33: DECEASED-Ziel blockiert, Rückweg über Statuskorrektur ──
+        test("grantMemberAccount: a DECEASED target is rejected, but succeeds after an ADMIN corrects the status back to ACTIVE") {
+            testApplication {
+                application {
+                    install(StatusPages) { installMemberAdminExceptionHandlers() }
+                    routing { registerMemberAdminTestRoutes() }
+                }
+                val member = createAccountlessTestMember("grant-deceased@example.org", status = MemberStatus.DECEASED)
+
+                val response =
+                    client.post(
+                        "/test/grant-account/$member?password=$STRONG_PASSWORD&role=MEMBER",
+                    ) { header("X-Member-Id", ADMIN_ID) }
+                response.status shouldBe HttpStatusCode.Conflict
+                response.bodyAsText() shouldBe "Cannot grant a login account to a deceased member"
+                accountExists(member) shouldBe false
+
+                client
+                    .post(
+                        "/test/status/$member?newStatus=ACTIVE&reason=Datenkorrektur",
+                    ) { header("X-Member-Id", ADMIN_ID) }
+                    .status shouldBe
+                    HttpStatusCode.OK
+
+                client
+                    .post(
+                        "/test/grant-account/$member?password=$STRONG_PASSWORD&role=MEMBER",
+                    ) { header("X-Member-Id", ADMIN_ID) }
+                    .status shouldBe
+                    HttpStatusCode.OK
+                accountExists(member) shouldBe true
+            }
+        }
+
+        // ── 34: LOGIN_BLOCKED-aber-nicht-DECEASED-Ziele sind erlaubt ──
+        listOf(MemberStatus.DONOR, MemberStatus.WITHDRAWN).forEach { blockedButAllowed ->
+            test("grantMemberAccount: a $blockedButAllowed target succeeds -- the account is created but inert (LOGIN_BLOCKED)") {
+                testApplication {
+                    application {
+                        install(StatusPages) { installMemberAdminExceptionHandlers() }
+                        routing { registerMemberAdminTestRoutes() }
+                    }
+                    // LOGIN_BLOCKED membership is documented as containing this status -- if this
+                    // ever stops being true, "the account is created but inert" is no longer an
+                    // accurate description and this test's premise should be revisited.
+                    (blockedButAllowed in MemberStatusSets.LOGIN_BLOCKED) shouldBe true
+
+                    val member =
+                        createAccountlessTestMember("grant-blocked-status-$blockedButAllowed@example.org", status = blockedButAllowed)
+                    client
+                        .post(
+                            "/test/grant-account/$member?password=$STRONG_PASSWORD&role=MEMBER",
+                        ) { header("X-Member-Id", ADMIN_ID) }
+                        .status shouldBe
+                        HttpStatusCode.OK
+                    accountExists(member) shouldBe true
+                    statusOf(member) shouldBe blockedButAllowed
+                }
+            }
+        }
+
+        // ── 36: unbekannte/ungültige memberId ──
+        test("grantMemberAccount: an unknown or syntactically invalid memberId is NotFound, never a 500") {
+            testApplication {
+                application {
+                    install(StatusPages) { installMemberAdminExceptionHandlers() }
+                    routing { registerMemberAdminTestRoutes() }
+                }
+                client
+                    .post(
+                        "/test/grant-account/${Uuid.random()}?password=$STRONG_PASSWORD&role=MEMBER",
+                    ) { header("X-Member-Id", ADMIN_ID) }
+                    .status shouldBe
+                    HttpStatusCode.NotFound
+                client
+                    .post(
+                        "/test/grant-account/not-a-uuid?password=$STRONG_PASSWORD&role=MEMBER",
+                    ) { header("X-Member-Id", ADMIN_ID) }
+                    .status shouldBe
+                    HttpStatusCode.NotFound
+            }
+        }
+
+        // ── 37: eskalierte Rolle direkt beim Anlegen -- Letzter-Admin-Schutz strukturell unbeteiligt ──
+        test("grantMemberAccount: creating the account directly with role=ADMIN succeeds -- LastAdminException never fires on a grant") {
+            testApplication {
+                application {
+                    install(StatusPages) { installMemberAdminExceptionHandlers() }
+                    routing { registerMemberAdminTestRoutes() }
+                }
+                val member = createAccountlessTestMember("grant-escalated-role@example.org")
+                client
+                    .post(
+                        "/test/grant-account/$member?password=$STRONG_PASSWORD&role=ADMIN",
+                    ) { header("X-Member-Id", ADMIN_ID) }
+                    .status shouldBe
+                    HttpStatusCode.OK
+                roleOf(member) shouldBe AccountRole.ADMIN
+            }
+        }
     })
 
 private fun StatusPagesConfig.installMemberAdminExceptionHandlers() {
@@ -1206,8 +1526,12 @@ private fun StatusPagesConfig.installMemberAdminExceptionHandlers() {
     exception<MemberEmailInUseException> { call, cause -> call.respondText(cause.message, status = HttpStatusCode.Conflict) }
     exception<MemberEmailTooLongException> { call, cause -> call.respondText(cause.message, status = HttpStatusCode.Conflict) }
     exception<MemberHasNoAccountException> { call, cause -> call.respondText(cause.message, status = HttpStatusCode.Conflict) }
+    exception<MemberAlreadyHasAccountException> { call, cause -> call.respondText(cause.message, status = HttpStatusCode.Conflict) }
     exception<LastAdminException> { call, cause -> call.respondText(cause.message, status = HttpStatusCode.Conflict) }
     exception<ConflictException> { call, cause -> call.respondText(cause.message, status = HttpStatusCode.Conflict) }
+    // Welle V1.2.13 -- without this handler, WeakPasswordException became an uncaught 500 and
+    // test 32 would assert the wrong thing entirely (a server error, not a validation rejection).
+    exception<WeakPasswordException> { call, cause -> call.respondText(cause.message, status = HttpStatusCode.BadRequest) }
 }
 
 private fun Route.registerMemberAdminTestRoutes(
@@ -1297,6 +1621,24 @@ private fun Route.registerMemberAdminTestRoutes(
         val q = call.request.queryParameters
         val dto = service.updateMemberRole(memberId = call.parameters["id"]!!, newRole = AccountRole.valueOf(q["newRole"]!!))
         call.respondText("${dto.id}:${dto.role}")
+    }
+    // Welle V1.2.13.
+    post("/test/grant-account/{id}") {
+        val service =
+            MemberService(
+                call = call,
+                friendVerificationMailer = mailer,
+                memberCoreDataFriendMailRateLimiter = memberCoreDataFriendMailRateLimiter,
+                memberCoreDataFriendMailActorRateLimiter = memberCoreDataFriendMailActorRateLimiter,
+            )
+        val q = call.request.queryParameters
+        val dto =
+            service.grantMemberAccount(
+                memberId = call.parameters["id"]!!,
+                temporaryPassword = q["password"] ?: "",
+                role = AccountRole.valueOf(q["role"] ?: "MEMBER"),
+            )
+        call.respondText("${dto.id}:${dto.role}:${dto.status}")
     }
 }
 

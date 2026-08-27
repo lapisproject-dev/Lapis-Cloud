@@ -505,9 +505,94 @@ private fun openMemberEditorDialog(
         }
     }
 
+    // ── Konto anlegen (Welle V1.2.13) ──
+    if (canGrantAccountTo(callerRole, row)) {
+        modal.div { addCssClass("mt-3") }
+        modal.h2(tr("Konto anlegen")) { addCssClass("h6") }
+        modal.p(
+            tr(
+                "Legt für dieses Mitglied ein Login-Konto an. Das vorläufige Passwort wird NICHT per " +
+                    "E-Mail versendet -- geben Sie es der Person persönlich weiter; sie kann es danach " +
+                    "selbst ändern.",
+            ),
+        )
+        grantAccountConsequence(row.status)?.let { hint ->
+            modal.div(hint) { addCssClasses("alert alert-secondary") }
+        }
+        val grantPasswordInput =
+            modal.password(label = gettext("Vorläufiges Passwort (mind. %1 Zeichen)", Validation.PASSWORD_MIN_LENGTH))
+        val grantRoleSelect =
+            modal.select(
+                options = AccountRole.entries.map { it.name to accountRoleLabel(it) },
+                value = AccountRole.MEMBER.name,
+                label = tr("Rolle"),
+            )
+        val grantError =
+            modal.div().apply {
+                addCssClass("text-danger")
+                hide()
+            }
+        val grantButton = modal.button(tr("Konto anlegen"), style = ButtonStyle.PRIMARY)
+        grantButton.onClick {
+            grantError.hide()
+            val password = grantPasswordInput.value.orEmpty()
+            val selectedRole = grantRoleSelect.value?.let { AccountRole.valueOf(it) }
+            if (selectedRole == null) {
+                grantError.content = tr("Bitte eine Rolle auswählen.")
+                grantError.show()
+                return@onClick
+            }
+            val passwordHint = Validation.passwordHint(password, row.email)
+            if (passwordHint != null) {
+                grantError.content = passwordHint
+                grantError.show()
+                return@onClick
+            }
+            grantButton.disabled = true
+            AppScope.launch {
+                val updated =
+                    memberAdminGuarded {
+                        rpcService<IMemberService>().grantMemberAccount(
+                            memberId = row.id,
+                            temporaryPassword = password,
+                            role = selectedRole,
+                        )
+                    }
+                grantButton.disabled = false
+                if (updated != null) {
+                    notifySuccess(gettext("Login-Konto für %1 angelegt.", row.displayName))
+                    modal.hide()
+                    onChanged()
+                    reopenMemberEditorAfterHide(updated, onChanged)
+                }
+            }
+        }
+    }
+
     modal.addButton(Button(tr("Schließen"), style = ButtonStyle.SECONDARY).apply { onClick { modal.hide() } })
     modal.show()
 }
+
+/**
+ * Welle V1.2.13 -- öffnet den Editor-Dialog nach einer erfolgreichen Kontoanlage sofort mit der
+ * AKTUALISIERTEN Zeile neu, damit der "Rolle"-Abschnitt genau an der Stelle steht, an der eben
+ * noch das Anlege-Formular stand (kein "bitte Dialog neu öffnen"-Hinweistext).
+ *
+ * Bewusst um einen Tick verzögert: `Modal.hide()` startet Bootstraps Fade-Transition (~150 ms);
+ * ein `show()` im SELBEN Tick lässt das `hidden.bs.modal`-Event des ALTEN Dialogs nachträglich
+ * `body.modal-open` und den `.modal-backdrop` des NEUEN Dialogs abräumen -- der neue Dialog steht
+ * dann ohne Backdrop und ohne Scroll-Lock da. Dieselbe `window.setTimeout`-Entkopplung, die
+ * [renderMemberRoster]s Such-Debounce in dieser Datei bereits verwendet.
+ */
+private fun reopenMemberEditorAfterHide(
+    row: MemberAdminRowDto,
+    onChanged: () -> Unit,
+) {
+    window.setTimeout({ openMemberEditorDialog(row, onChanged) }, MODAL_FADE_MS)
+}
+
+/** Bootstrap-5-Default für `.modal.fade` (`transition: opacity .15s linear`), plus Reserve. */
+private const val MODAL_FADE_MS = 250
 
 /**
  * Mirrors the server-internal `network.lapis.cloud.server.security.ESCALATED_ROLES` (JVM-only,
@@ -532,15 +617,16 @@ fun canEditCoreDataOf(
 }
 
 /**
- * Whether [openMemberEditorDialog] would render AT LEAST ONE of its three sections for [row] --
+ * Whether [openMemberEditorDialog] would render AT LEAST ONE of its four sections for [row] --
  * i.e. whether the "Bearbeiten" button in [renderMemberRosterRow] should be enabled at all. Purely
- * `canEditCoreDataOf(...) || canChangeStatusOf(...) || canEditRoleOf(...)`, kept as its own named
- * function (rather than inlined at the one call site) so the three predicates this depends on stay
- * a single, obviously-in-sync list with the three `if`-gates inside [openMemberEditorDialog] --
- * see this file's ESCALATED_ROLES KDoc for why the client mirrors the server's Peer-Schutz boundary
- * at all: an escalated-role target (or, for a BOARD caller, their OWN row -- BOARD/ADMIN/TREASURER
- * is itself an escalated role) can leave all three predicates `false` at once, which without this
- * check would previously open a modal with a title, an empty body, and only a "Schließen" button.
+ * `canEditCoreDataOf(...) || canChangeStatusOf(...) || canEditRoleOf(...) || canGrantAccountTo(...)`,
+ * kept as its own named function (rather than inlined at the one call site) so the four predicates
+ * this depends on stay a single, obviously-in-sync list with the four `if`-gates inside
+ * [openMemberEditorDialog] -- see this file's ESCALATED_ROLES KDoc for why the client mirrors the
+ * server's Peer-Schutz boundary at all: an escalated-role target (or, for a BOARD caller, their OWN
+ * row -- BOARD/ADMIN/TREASURER is itself an escalated role) can leave all four predicates `false`
+ * at once, which without this check would previously open a modal with a title, an empty body, and
+ * only a "Schließen" button.
  */
 fun hasAnyEditableSectionFor(
     callerRole: AccountRole?,
@@ -549,7 +635,43 @@ fun hasAnyEditableSectionFor(
 ): Boolean =
     canEditCoreDataOf(callerRole, row) ||
         canChangeStatusOf(callerRole, callerMemberId, row) ||
-        canEditRoleOf(callerRole, callerMemberId, row)
+        canEditRoleOf(callerRole, callerMemberId, row) ||
+        canGrantAccountTo(callerRole, row)
+
+/**
+ * Welle V1.2.13 -- ob der Abschnitt "Konto anlegen" in [openMemberEditorDialog] erscheint.
+ * ADMIN-exklusiv (spiegelt `MemberService.grantMemberAccount`s unbedingten
+ * `requireRole(ADMIN)`-Gate), nur für Zeilen OHNE Konto (`role == null`, siehe
+ * [MemberAdminRowDto.role] KDoc -- die 407 CSV-Importe), nie für ein anonymisiertes Mitglied
+ * (dessen `account`-Zeile hat `FoundationPersonalData.erase` hart gelöscht, `role == null` heißt
+ * hier also NICHT "kontenlos importiert") und nie für DECEASED (Statuskorrektur zuerst -- siehe
+ * `IMemberService.grantMemberAccount` KDoc). Ein Selbstziel ist strukturell ausgeschlossen: die
+ * aufrufende Person hat per Definition ein Konto, ihre eigene Zeile trägt also `role != null`.
+ */
+fun canGrantAccountTo(
+    callerRole: AccountRole?,
+    row: MemberAdminRowDto,
+): Boolean =
+    callerRole == AccountRole.ADMIN &&
+        row.role == null &&
+        !row.anonymized &&
+        row.status != MemberStatus.DECEASED
+
+/**
+ * Welle V1.2.13 -- analog zu [statusChangeConsequence]: was die Kontoanlage für DIESEN Status
+ * bedeutet, live vor dem Anlegen gerendert. `null` = nichts Besonderes zu sagen.
+ */
+fun grantAccountConsequence(status: MemberStatus): String? =
+    when (status) {
+        MemberStatus.DONOR ->
+            tr(
+                "Für Spender ist der Login gesperrt. Das Konto wird angelegt, die Person kann sich " +
+                    "aber erst anmelden, wenn der Status auf Aktiv geändert wird.",
+            )
+        MemberStatus.WITHDRAWN, MemberStatus.REJECTED ->
+            tr("Für diesen Status ist der Login gesperrt. Das Konto bleibt bis zu einer Statusänderung wirkungslos.")
+        else -> null
+    }
 
 /**
  * Nur ADMIN, und nur wenn das Mitglied überhaupt ein Login-Konto hat (siehe

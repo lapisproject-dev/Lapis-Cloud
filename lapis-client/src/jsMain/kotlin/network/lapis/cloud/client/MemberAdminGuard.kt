@@ -7,6 +7,7 @@ import network.lapis.cloud.shared.rpc.BadRequestException
 import network.lapis.cloud.shared.rpc.ConflictException
 import network.lapis.cloud.shared.rpc.ForbiddenException
 import network.lapis.cloud.shared.rpc.LastAdminException
+import network.lapis.cloud.shared.rpc.MemberAlreadyHasAccountException
 import network.lapis.cloud.shared.rpc.MemberEmailInUseException
 import network.lapis.cloud.shared.rpc.MemberEmailTooLongException
 import network.lapis.cloud.shared.rpc.MemberHasNoAccountException
@@ -18,17 +19,19 @@ import network.lapis.cloud.shared.rpc.UnauthenticatedException
  * SEPA's own "one write action, one fixed conflict message" shape. `AppState.guarded`'s own KDoc
  * documents, empirically verified, that Kilua RPC's polymorphic exception protocol never
  * transmits an `AbstractServiceException` subclass's own `message` across the wire -- only the
- * subclass discriminator itself. `updateMemberCoreData`/`updateMemberStatus`/`updateMemberRole`
- * each need to distinguish SEVERAL structurally different conflict causes (email already used,
- * no login account to change a role on, last remaining admin) -- a single fixed message per call
- * site (SEPA's shape) is not enough here, and parsing `e.message` client-side is not POSSIBLE
- * (always empty on the JS side, see the KDoc above). The only wire-visible signal is the
+ * subclass discriminator itself. `updateMemberCoreData`/`updateMemberStatus`/`updateMemberRole`/
+ * `grantMemberAccount` (Welle V1.2.13, fourth caller) each need to distinguish SEVERAL
+ * structurally different conflict causes (email already used, no login account to change a role
+ * on, last remaining admin, a member that already has a login account) -- a single fixed message
+ * per call site (SEPA's shape) is not enough here, and parsing `e.message` client-side is not
+ * POSSIBLE (always empty on the JS side, see the KDoc above). The only wire-visible signal is the
  * exception's TYPE. `network.lapis.cloud.shared.rpc.MemberEmailInUseException`/
- * [MemberHasNoAccountException]/[LastAdminException] exist specifically so this function can
- * dispatch on TYPE, exactly the way [WeakPasswordException]/[InvalidPasswordException] already do
- * in `AppState.guarded` for password validation. A plain [ConflictException] (blank name,
- * transition not allowed, reason too short, anonymized member) falls through to [guarded]'s own
- * generic conflict toast -- there is nothing more specific to say about those causes anyway.
+ * [MemberHasNoAccountException]/[LastAdminException]/[MemberAlreadyHasAccountException] exist
+ * specifically so this function can dispatch on TYPE, exactly the way [WeakPasswordException]/
+ * [InvalidPasswordException] already do in `AppState.guarded` for password validation. A plain
+ * [ConflictException] (blank name, transition not allowed, reason too short, anonymized member,
+ * deceased target of a granted account) falls through to [guarded]'s own generic conflict toast --
+ * there is nothing more specific to say about those causes anyway.
  */
 suspend fun <T> memberAdminGuarded(block: suspend () -> T): T? =
     try {
@@ -54,6 +57,9 @@ suspend fun <T> memberAdminGuarded(block: suspend () -> T): T? =
         null
     } catch (e: MemberHasNoAccountException) {
         notifyError(tr("Dieses Mitglied hat kein Login-Konto -- es gibt keine Rolle zu ändern."))
+        null
+    } catch (e: MemberAlreadyHasAccountException) {
+        notifyError(tr("Dieses Mitglied hat bereits ein Login-Konto -- bitte Ansicht aktualisieren."))
         null
     } catch (e: LastAdminException) {
         notifyError(tr("Der letzte verbleibende Administrator kann nicht entfernt werden."))

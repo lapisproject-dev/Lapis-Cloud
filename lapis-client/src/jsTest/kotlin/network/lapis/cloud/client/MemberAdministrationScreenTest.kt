@@ -235,4 +235,84 @@ class MemberAdministrationScreenTest {
     fun pagerLabel_empty() {
         assertEquals("Keine Treffer", pagerLabel(offset = 0, pageSize = 25, totalCount = 0))
     }
+
+    // ── canGrantAccountTo (Welle V1.2.13) ──
+
+    @Test
+    fun canGrantAccountTo_adminOnAccountlessRow_isTrue() {
+        assertTrue(canGrantAccountTo(AccountRole.ADMIN, row(role = null)))
+    }
+
+    @Test
+    fun canGrantAccountTo_nonAdminCallers_areFalse() {
+        assertFalse(canGrantAccountTo(AccountRole.BOARD, row(role = null)))
+        assertFalse(canGrantAccountTo(AccountRole.TREASURER, row(role = null)))
+        assertFalse(canGrantAccountTo(AccountRole.MEMBER, row(role = null)))
+        assertFalse(canGrantAccountTo(null, row(role = null)))
+    }
+
+    @Test
+    fun canGrantAccountTo_rowAlreadyHasAnAccount_isFalse() {
+        assertFalse(canGrantAccountTo(AccountRole.ADMIN, row(role = AccountRole.MEMBER)))
+    }
+
+    @Test
+    fun canGrantAccountTo_anonymizedRow_isFalseEvenForAdmin() {
+        // FoundationPersonalData.erase hard-deletes the account row on an Art. 17 erasure, so an
+        // anonymized member is indistinguishable from a CSV import by role == null alone -- this
+        // guard is what stops grantMemberAccount from becoming the one way to revive a login for a
+        // DSGVO-erased person.
+        assertFalse(canGrantAccountTo(AccountRole.ADMIN, row(role = null, anonymized = true)))
+    }
+
+    @Test
+    fun canGrantAccountTo_deceasedRow_isFalseEvenForAdmin() {
+        assertFalse(canGrantAccountTo(AccountRole.ADMIN, row(role = null, status = MemberStatus.DECEASED)))
+    }
+
+    @Test
+    fun canGrantAccountTo_loginBlockedButNotDeceasedRows_areTrue() {
+        assertTrue(canGrantAccountTo(AccountRole.ADMIN, row(role = null, status = MemberStatus.DONOR)))
+        assertTrue(canGrantAccountTo(AccountRole.ADMIN, row(role = null, status = MemberStatus.WITHDRAWN)))
+    }
+
+    @Test
+    fun canGrantAccountTo_impliesHasAnyEditableSectionFor_acrossEveryRoleAndAccountState() {
+        // The actually-provable property: canGrantAccountTo => hasAnyEditableSectionFor (an
+        // implication, not an equivalence -- canEditCoreDataOf alone already makes several of
+        // these cases true regardless of canGrantAccountTo, see the isolating test below for why
+        // no case exists where ONLY canGrantAccountTo differs the outcome).
+        val roles = listOf(AccountRole.ADMIN, AccountRole.BOARD, AccountRole.TREASURER, AccountRole.MEMBER, null)
+        val accountStates = listOf(null, AccountRole.MEMBER)
+        roles.forEach { callerRole ->
+            accountStates.forEach { accountState ->
+                val candidateRow = row(role = accountState)
+                if (canGrantAccountTo(callerRole, candidateRow)) {
+                    assertTrue(
+                        hasAnyEditableSectionFor(callerRole, callerMemberId, candidateRow),
+                        "canGrantAccountTo($callerRole, role=$accountState) was true but hasAnyEditableSectionFor was false",
+                    )
+                }
+            }
+        }
+    }
+
+    // ── grantAccountConsequence (Welle V1.2.13) ──
+
+    @Test
+    fun grantAccountConsequence_donor_mentionsLogin() {
+        val text = grantAccountConsequence(MemberStatus.DONOR)
+        assertTrue(text != null && text.contains("Login"))
+    }
+
+    @Test
+    fun grantAccountConsequence_withdrawn_mentionsLogin() {
+        val text = grantAccountConsequence(MemberStatus.WITHDRAWN)
+        assertTrue(text != null && text.contains("Login"))
+    }
+
+    @Test
+    fun grantAccountConsequence_active_isNull() {
+        assertEquals(null, grantAccountConsequence(MemberStatus.ACTIVE))
+    }
 }

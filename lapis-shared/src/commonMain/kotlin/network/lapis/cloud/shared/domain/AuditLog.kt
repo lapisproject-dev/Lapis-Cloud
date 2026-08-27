@@ -75,7 +75,10 @@ enum class AuditAction { CREATE, UPDATE, POST }
  * privileged update RPCs (`updateMemberCoreData`/`updateMemberStatus`/`updateMemberRole`) each
  * write exactly one `entityType = MEMBER`, `action = UPDATE` entry per actual mutation (never for
  * a no-op/idempotent call, see [MemberChangeSnapshot] KDoc), `entityId` = the target member's id.
- * Additive append only -- never reorder existing literals,
+ * Welle V1.2.13 added a FOURTH writer, `MemberService.grantMemberAccount`, and the first one that
+ * uses `action = CREATE` for this entity type: exactly one `MEMBER`/`CREATE` entry per granted
+ * login account, `before.role = null` -> `after.role = <granted role>`, `status` unchanged on both
+ * sides. Additive append only -- never reorder existing literals,
  * see this enum's own "cheap to extend, expensive to reorder" note class-wide.
  */
 @Serializable
@@ -411,9 +414,10 @@ data class DunningLevelSnapshot(
  * [AuditLogEntryDto.actorMemberId], WHEN via `occurredAt`) without the value itself -- the identity
  * is already `entityId`, and the CURRENT value always lives on the (erasable) `member` row. Only
  * [network.lapis.cloud.server.rpc.MemberService.updateMemberCoreData] ever sets a `true` here; the
- * other two writers ([network.lapis.cloud.server.rpc.MemberService.updateMemberStatus]/
- * [network.lapis.cloud.server.rpc.MemberService.updateMemberRole]) always write `false` for both,
- * since they never touch either field.
+ * other three writers ([network.lapis.cloud.server.rpc.MemberService.updateMemberStatus]/
+ * [network.lapis.cloud.server.rpc.MemberService.updateMemberRole]/
+ * [network.lapis.cloud.server.rpc.MemberService.grantMemberAccount]) always write `false` for both,
+ * since none of them ever touch either field.
  */
 @Serializable
 data class MemberChangeSnapshot(
