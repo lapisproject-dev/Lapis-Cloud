@@ -333,6 +333,41 @@ class ConferenceScreenTest {
     }
 
     @Test
+    fun conferenceRecordingCanDelete_terminalStatusAndModeratorStanding_isOffered() {
+        val ready = sampleRecording(status = ConferenceRecordingStatus.READY)
+        val failed = sampleRecording(status = ConferenceRecordingStatus.FAILED)
+        // Own recording (startedByMemberId == "member-1"), not privileged.
+        assertTrue(conferenceRecordingCanDelete(recording = ready, localMemberId = "member-1", isBoardOrAdmin = false))
+        assertTrue(conferenceRecordingCanDelete(recording = failed, localMemberId = "member-1", isBoardOrAdmin = false))
+        // Somebody else's recording, but BOARD/ADMIN.
+        assertTrue(conferenceRecordingCanDelete(recording = ready, localMemberId = "member-9", isBoardOrAdmin = true))
+    }
+
+    @Test
+    fun conferenceRecordingCanDelete_nonTerminalStatus_isNeverOffered() {
+        listOf(
+            ConferenceRecordingStatus.RECORDING,
+            ConferenceRecordingStatus.STOPPING,
+            ConferenceRecordingStatus.PROCESSING,
+        ).forEach { status ->
+            assertFalse(
+                conferenceRecordingCanDelete(
+                    recording = sampleRecording(status = status),
+                    localMemberId = "member-1",
+                    isBoardOrAdmin = true,
+                ),
+            )
+        }
+    }
+
+    @Test
+    fun conferenceRecordingCanDelete_strangerOrUnloadedSession_isNeverOffered() {
+        val ready = sampleRecording(status = ConferenceRecordingStatus.READY)
+        assertFalse(conferenceRecordingCanDelete(recording = ready, localMemberId = "member-9", isBoardOrAdmin = false))
+        assertFalse(conferenceRecordingCanDelete(recording = ready, localMemberId = null, isBoardOrAdmin = false))
+    }
+
+    @Test
     fun conferenceRecordingFileSizeLabel_roundsDownToWholeMegabytes() {
         assertEquals("≈ 0 MB", conferenceRecordingFileSizeLabel(0))
         assertEquals("≈ 1 MB", conferenceRecordingFileSizeLabel(500_000))

@@ -959,8 +959,8 @@ class RecordingPollerTest :
             try {
                 val member = createMember("poller-processing-fail-final@example.org")
                 val (roomId, _) = createRoom(member)
-                // Already at composeAttempts=1 -- this tick is attempt 2, the MAX_COMPOSE_ATTEMPTS ceiling.
-                val recordingId = createRecording(roomId, member, ConferenceRecordingStatus.PROCESSING, composeAttempts = 1)
+                // Already at composeAttempts=4 -- this tick is attempt 5, the MAX_COMPOSE_ATTEMPTS ceiling.
+                val recordingId = createRecording(roomId, member, ConferenceRecordingStatus.PROCESSING, composeAttempts = 4)
                 val rawDir = hostRawRoot.resolve(recordingId.toString()).apply { mkdirs() }
                 val trackFile = rawDir.resolve("alice__CAMERA__TR_a.mp4").apply { writeBytes(byteArrayOf(1, 2, 3)) }
                 createTrack(
@@ -991,7 +991,7 @@ class RecordingPollerTest :
                 val row = recordingRow(recordingId)
                 row[ConferenceRecordingTable.status] shouldBe ConferenceRecordingStatus.FAILED
                 row[ConferenceRecordingTable.failureReason] shouldBe "Die Aufzeichnung konnte nicht zusammengesetzt werden."
-                row[ConferenceRecordingTable.composeAttempts] shouldBe 2
+                row[ConferenceRecordingTable.composeAttempts] shouldBe 5
                 // The critical D13 assertion: raw files survive a FAILED terminal state even though keepRaw=false.
                 rawDir.exists() shouldBe true
                 trackFile.exists() shouldBe true
@@ -1002,14 +1002,14 @@ class RecordingPollerTest :
         }
 
         test(
-            "PROCESSING: restart reconciliation -- a row already at composeAttempts=2 is marked FAILED without ever invoking the composer again",
+            "PROCESSING: restart reconciliation -- a row already at composeAttempts=5 is marked FAILED without ever invoking the composer again",
         ) {
             val hostRawRoot = Files.createTempDirectory("poller-test-raw").toFile()
             val documentStorageRoot = Files.createTempDirectory("poller-test-docs").toFile()
             try {
                 val member = createMember("poller-processing-restart-reconciliation@example.org")
                 val (roomId, _) = createRoom(member)
-                val recordingId = createRecording(roomId, member, ConferenceRecordingStatus.PROCESSING, composeAttempts = 2)
+                val recordingId = createRecording(roomId, member, ConferenceRecordingStatus.PROCESSING, composeAttempts = 5)
 
                 val composer = FakeRecordingComposer()
                 val poller = buildPoller(FakeLiveKitAdminClient(), FakeLiveKitEgressClient(), composer, hostRawRoot, documentStorageRoot)

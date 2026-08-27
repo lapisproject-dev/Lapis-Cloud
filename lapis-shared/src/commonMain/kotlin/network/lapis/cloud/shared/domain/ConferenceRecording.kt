@@ -92,6 +92,51 @@ data class ConferenceRecordingDto(
 )
 
 /**
+ * Bündelt [network.lapis.cloud.shared.rpc.IConferenceRecordingService.listRecordings]'s filter plus
+ * its offset pagination into ONE object -- same shape [MemberAdminQuery] already establishes for
+ * `listMembersForAdministration` (this codebase's only list-with-a-real-pager precedent), and for
+ * the same two reasons: Kilua RPC's generated client `call()` overloads have a hard reified
+ * parameter-count ceiling (a query object keeps every future filter free), and one object keeps
+ * "what is filtered" and "which slice" legible at the call site.
+ *
+ * [limit]/[offset] are re-clamped SERVER-side against [MAX_LIMIT] (see
+ * `network.lapis.cloud.server.rpc.ConferenceRecordingService.listRecordings`) -- these constants are
+ * a client convenience, never a trust anchor. [roomId] `null` lists across ALL rooms (the Lobby's
+ * "Aufzeichnungen" section -- recordings OUTLIVE their rooms, so they must stay reachable long after
+ * the room itself is gone).
+ */
+@Serializable
+data class ConferenceRecordingListQuery(
+    val roomId: String? = null,
+    val limit: Int = DEFAULT_LIMIT,
+    val offset: Int = 0,
+) {
+    companion object {
+        const val DEFAULT_LIMIT = 25
+        const val MAX_LIMIT = 100
+    }
+}
+
+/**
+ * One page of [ConferenceRecordingDto]s -- mirrors [MemberAdminPageDto]'s own shape. [totalCount] is
+ * the size of the caller's OWN accessible row set (the access predicate
+ * `ConferenceRecordingAccess.mayAccess` is applied in the SQL `WHERE` clause, so `COUNT(*)`,
+ * `LIMIT` and `OFFSET` are all computed against the SAME already-filtered rows) -- never the raw
+ * table count, which would let a caller infer how many recordings exist that they may not see, and
+ * would strand the pager on pages that render empty.
+ *
+ * [limit]/[offset] are echoed back as the values the SERVER actually applied after clamping, not
+ * the ones the client asked for -- the pager must step by the real page size, not by a rejected one.
+ */
+@Serializable
+data class ConferenceRecordingPageDto(
+    val rows: List<ConferenceRecordingDto>,
+    val totalCount: Int,
+    val limit: Int,
+    val offset: Int,
+)
+
+/**
  * Result of [network.lapis.cloud.shared.rpc.IConferenceRecordingService.getRecordingAvailability]
  * -- the UI's ONE signal for whether to show any recording-related control at all, deliberately
  * separate from [network.lapis.cloud.shared.domain.ConferenceAvailabilityDto] (Wave 1) -- see

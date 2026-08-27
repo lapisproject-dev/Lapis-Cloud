@@ -43,6 +43,7 @@ import network.lapis.cloud.shared.domain.ConferenceGuestConsentDisclaimerDto
 import network.lapis.cloud.shared.domain.ConferenceGuestJoinInfoDto
 import network.lapis.cloud.shared.domain.ConferenceJoinTokenDto
 import network.lapis.cloud.shared.domain.ConferenceRecordingDto
+import network.lapis.cloud.shared.domain.ConferenceRecordingListQuery
 import network.lapis.cloud.shared.domain.ConferenceRecordingStatus
 import network.lapis.cloud.shared.domain.ConferenceRole
 import network.lapis.cloud.shared.domain.ConferenceRoomDto
@@ -2119,7 +2120,10 @@ private fun enterCall(
             val resolved =
                 try {
                     conferenceFindRecordingById(
-                        rpcService<IConferenceRecordingService>().listRecordings(room.id),
+                        // First page only, and that is sufficient: the list is newest-first and
+                        // scoped to THIS room, so the recording this call is chasing (started
+                        // moments ago, in this very call) can only be at the very front of it.
+                        rpcService<IConferenceRecordingService>().listRecordings(ConferenceRecordingListQuery(roomId = room.id)).rows,
                         stalled.id,
                     )
                 } catch (e: CancellationException) {
@@ -4267,9 +4271,45 @@ internal fun conferenceRecordingDocumentTitle(
  * newest-first ordering within either partition (Kotlin's `sortedByDescending` is a STABLE sort, so
  * "FAILED first" is the only change this makes; relative order inside "FAILED" and inside
  * "everything else" is preserved exactly as the server returned it).
+ *
+ * **Since `listRecordings` became paginated, this re-sorts the CURRENT PAGE only** -- it can no
+ * longer pull a FAILED recording from page 3 onto page 1, because the caller never has page 3's rows
+ * in hand. That is a deliberate, accepted narrowing rather than an oversight: the alternative (a
+ * server-side FAILED-first `ORDER BY`) would make the pager's own ordering depend on a status that
+ * changes underneath it while a moderator pages through, which is the worse failure mode. Within a
+ * page, D12's promise is unchanged.
  */
 internal fun conferenceRecordingListSorted(recordings: List<ConferenceRecordingDto>): List<ConferenceRecordingDto> =
     recordings.sortedByDescending { it.status == ConferenceRecordingStatus.FAILED }
+
+/**
+ * Gates the "Löschen" control on a recording row in the Lobby's "Aufzeichnungen" section -- a client-
+ * side mirror of `ConferenceRecordingService.deleteRecording`'s own server gate (moderator-or-
+ * privileged AND a terminal status), exactly like [recordingCanStart]/[conferenceIsModerator]
+ * already mirror their own server rules. The server re-checks independently; this only decides
+ * whether to OFFER the action.
+ *
+ * The mirror is deliberately CONSERVATIVE on the first half. The server's real predicate is "the
+ * ROOM's creator, or BOARD/ADMIN", but [ConferenceRecordingDto] carries no room-creator field and
+ * the room itself is usually long ended (a recording outlives its room, D9) -- so there is nothing
+ * locally to compare against. [isBoardOrAdmin] is checked as-is; for everyone else the stand-in is
+ * "I started this recording myself", which IMPLIES moderator standing at the time it was started
+ * (`startRecording` is itself creator-or-privileged-only, so a non-privileged starter can only have
+ * been the room's creator). The one direction this can be wrong is under-offering -- a room creator
+ * who did not start the recording and is not privileged sees no button even though the server would
+ * accept them -- which is the harmless direction: a refused click is a worse experience than a
+ * missing one. `localMemberId == null` (session not yet loaded) never grants anything.
+ */
+internal fun conferenceRecordingCanDelete(
+    recording: ConferenceRecordingDto,
+    localMemberId: String?,
+    isBoardOrAdmin: Boolean,
+): Boolean {
+    val terminal =
+        recording.status == ConferenceRecordingStatus.READY || recording.status == ConferenceRecordingStatus.FAILED
+    val mayModerate = isBoardOrAdmin || (localMemberId != null && localMemberId == recording.startedByMemberId)
+    return terminal && mayModerate
+}
 
 /** Rough, human-scale file-size label for the Lobby's download link (D9: "given file sizes running
  * into hundreds of MB on metered/mobile connections") -- deliberately coarse (whole megabytes, no

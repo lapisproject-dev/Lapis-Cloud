@@ -39,8 +39,22 @@ import kotlin.uuid.Uuid
 
 private val logger = KotlinLogging.logger {}
 
-/** `compose_attempts` ceiling -- see class KDoc "PROCESSING". */
-private const val MAX_COMPOSE_ATTEMPTS = 2
+/**
+ * `compose_attempts` ceiling -- see class KDoc "PROCESSING".
+ *
+ * Bug fix (live user report, 2026-08-27): a raw-file directory freshly created by `egress` can be
+ * unwritable by the composing `ffmpeg` process for up to ~30s after creation, on any deployment
+ * using the POSIX-ACL self-heal timer documented in `deploy/production/README.adoc` ("Shared
+ * lapis-egress-output volume") -- that timer only re-applies the ACL every 30s, host-side, and the
+ * in-container composer has no privilege to fix its own permission (it is deliberately non-root,
+ * cannot chgrp/setfacl a directory it does not own). At the previous ceiling of 2, two attempts
+ * spaced [ConferenceRecordingConfig.pollIntervalSeconds] (10s default) apart give up after only
+ * ~10-20s -- comfortably inside that worst-case 30s window, so a recording composed immediately
+ * after its raw directory was created could fail permanently even though the ACL fix was only
+ * seconds away. Raised so the total retry window (attempts - 1) * pollIntervalSeconds comfortably
+ * exceeds the timer's 30s worst case regardless of the configured poll interval.
+ */
+private const val MAX_COMPOSE_ATTEMPTS = 5
 
 private val TERMINAL_TRACK_STATUSES =
     setOf(ConferenceRecordingTrackStatus.COMPLETE, ConferenceRecordingTrackStatus.FAILED, ConferenceRecordingTrackStatus.ABORTED)

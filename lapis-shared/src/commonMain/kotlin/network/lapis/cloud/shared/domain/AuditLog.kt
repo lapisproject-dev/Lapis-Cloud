@@ -427,3 +427,37 @@ data class MemberChangeSnapshot(
     val role: AccountRole?,
     val reason: String? = null,
 )
+
+/**
+ * Structured `before` payload for the [AuditEntityType.CONFERENCE_RECORDING] audit entry
+ * `network.lapis.cloud.server.rpc.ConferenceRecordingService.deleteRecording` writes (V1.0
+ * Videokonferenzen, Wave 2 "Aufzeichnung"). The one snapshot in this file whose completeness is
+ * itself the point: every OTHER `UPDATE` here describes a row that SURVIVES and can be re-read, but
+ * a `conference_recording` row is HARD-deleted (`28-conference-recording.kuml.kts`'s file header
+ * forbids a soft-delete column on that table), so this entry is the ONLY surviving record that the
+ * recording ever existed -- which is exactly what the GoBD chain is for.
+ *
+ * **No PII beyond ids** -- same discipline [SepaMandateSnapshot]/[DunningNoticeSnapshot]/
+ * [MemberChangeSnapshot] establish for an append-only, hash-chained table. [startedByMemberId] is an
+ * id (the member row itself stays erasable), and [roomTitle] is a meeting title chosen by a
+ * moderator, i.e. organizational metadata of the same kind [DunningLevelSnapshot.name] already
+ * carries -- no member name, no e-mail, no media path, no raw directory. [failureReason] is safe by
+ * construction: it is the SANITIZED German text from a fixed vocabulary, never raw ffmpeg/Twirp
+ * output -- see [ConferenceRecordingDto.failureReason]'s own "a security boundary" KDoc.
+ */
+@Serializable
+data class ConferenceRecordingSnapshot(
+    val recordingId: String,
+    val roomId: String,
+    val roomTitle: String,
+    val status: ConferenceRecordingStatus,
+    val startedAt: LocalDateTime,
+    val startedByMemberId: String,
+    val accessLevel: DocumentAccessLevel,
+    val documentId: String?,
+    val durationSeconds: Long?,
+    val fileSizeBytes: Long?,
+    val failureReason: String?,
+    /** How many `conference_recording_track` children the deletion removed alongside the parent row. */
+    val trackCount: Int,
+)

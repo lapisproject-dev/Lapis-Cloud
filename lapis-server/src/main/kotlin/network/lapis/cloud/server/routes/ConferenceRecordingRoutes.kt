@@ -33,9 +33,14 @@ import kotlin.uuid.Uuid
  *   predicate [network.lapis.cloud.server.rpc.ConferenceRecordingService.listRecordings] filters on
  *   and [ConferenceRecordingDto.mediaUrl] is computed from, never re-derived independently. Checked
  *   both on the document (`isDeleted`) AND the recording (`status == READY`) -- a recording whose
- *   underlying document was soft-deleted via [network.lapis.cloud.shared.rpc.IDocumentService
- *   .deleteDocument] (this wave's only deletion path, see that interface's own KDoc "No
- *   deleteRecording method") must 404 here too, not just disappear from `listDocuments`.
+ *   underlying document was soft-deleted must 404 here too, not just disappear from
+ *   `listDocuments`. For a READY recording that soft-delete is normally driven by the DEDICATED
+ *   [network.lapis.cloud.shared.rpc.IConferenceRecordingService.deleteRecording] RPC (see that
+ *   interface's own KDoc section "deleteRecording is its OWN method, deliberately"), which
+ *   hard-deletes the `conference_recording` row in the same transaction -- so the `recordingRow ==
+ *   null` branch below already catches that case. The `isDeleted` check remains load-bearing for the
+ *   OTHER path: the generic [network.lapis.cloud.shared.rpc.IDocumentService.deleteDocument] flips
+ *   the document alone and leaves a `READY` recording row still pointing at it.
  * - **Resource leaks / large files**: `call.respond(LocalFileContent(...))` streams from disk
  *   (Ktor's `ReadChannelContent`), never buffers the whole file in memory -- the same fix applied
  *   to [registerDocumentRoutes]'s own download route in this wave (see that file's own comment).
