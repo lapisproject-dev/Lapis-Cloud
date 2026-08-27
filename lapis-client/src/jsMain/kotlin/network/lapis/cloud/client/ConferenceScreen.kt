@@ -2101,9 +2101,20 @@ private fun enterCall(
      * posture the rest of this wave's disclosed gaps already follow.
      */
     suspend fun pollInFlightRecordingStatus() {
-        while (connectionState.isLive()) {
+        // Bug fix (live user report, traced to a Wave 6 regression -- see `isLive()`'s own KDoc):
+        // the ORIGINAL pre-Wave-6 guard was `connectionState !is Ended`, which correctly starts
+        // this loop immediately (state is `Disconnected` at launch time, long before the FIRST
+        // `session.connect(...)` ever resolves) and keeps it alive through `Resolving`. Wave 6
+        // narrowed the guard to `isLive()` (Connected/Reconnecting only) to stop wasted RPC calls
+        // during `Resolving` -- but since this coroutine is launched (see call site) BEFORE the
+        // connect flow even starts, `connectionState` is ALWAYS `Disconnected` on the very FIRST
+        // `while` check, so the loop body never ran even once, for the entire lifetime of EVERY
+        // call, ever. Restored to `!is Ended` for the outer loop (so it starts immediately and
+        // survives until the call genuinely ends) with the live-check now gating only the WORK
+        // inside each tick (preserving Wave 6's actual intent: skip polling during `Resolving`).
+        while (connectionState !is ConferenceConnectionState.Ended) {
             delay(CONFERENCE_RECORDING_POLL_INTERVAL_MS)
-            if (!connectionState.isLive()) break
+            if (!connectionState.isLive()) continue
             val stalled = activeRecordingDto?.takeIf { conferenceRecordingNeedsPoll(it.status) } ?: continue
             val resolved =
                 try {
@@ -2162,9 +2173,13 @@ private fun enterCall(
      * [ConferenceConnectionState.Ended] (Wave 4, D10), same lifecycle.
      */
     suspend fun pollInFlightStreamStatus() {
-        while (connectionState.isLive()) {
+        // Bug fix -- same Wave 6 regression as `pollInFlightRecordingStatus` (see that function's
+        // own comment for the full mechanism): outer guard restored to `!is Ended` so this loop
+        // actually starts before the first connect resolves; the live-check now only gates the
+        // per-tick work.
+        while (connectionState !is ConferenceConnectionState.Ended) {
             delay(CONFERENCE_STREAM_POLL_INTERVAL_MS)
-            if (!connectionState.isLive()) break
+            if (!connectionState.isLive()) continue
             val current = activeStreamDto?.takeIf { conferenceStreamNeedsPoll(it) } ?: continue
             val refreshed =
                 try {
@@ -2336,10 +2351,20 @@ private fun enterCall(
     // sub-second speaking-level transitions and would otherwise strobe the grid at 25-person scale
     // (see file KDoc "D3"). Mirrors [pollInFlightRecordingStatus]'s own shape/lifecycle exactly.
     suspend fun sweepGridReflow() {
-        while (connectionState.isLive()) {
+        // Bug fix (live user report -- own video tile never appeared, root cause traced here): same
+        // Wave 6 regression as `pollInFlightRecordingStatus` (see that function's own comment for
+        // the full mechanism). This is the loop whose breakage the user actually hit -- launched at
+        // the top of `enterCall`, its outer `while (connectionState.isLive())` was `false` on the
+        // very first check (state is still `Disconnected`, long before `session.connect(...)`
+        // resolves), so the coroutine exited immediately and this sweep NEVER ran, for the entire
+        // lifetime of every call, ever -- meaning the local tile placed by `ensureTile`'s own
+        // one-shot `applyConferenceGridReflow()` call earlier in `enterCall` had exactly one chance
+        // to land (a genuine race against `gridDiv`'s `addAfterInsertHook`, which may not have fired
+        // yet) with no periodic self-heal behind it. Restored to `!is Ended` so the sweep starts
+        // immediately and keeps correcting the grid for the whole call.
+        while (connectionState !is ConferenceConnectionState.Ended) {
             delay(CONFERENCE_GRID_REFLOW_SWEEP_INTERVAL_MS)
-            if (!connectionState.isLive()) break
-            applyConferenceGridReflow()
+            if (connectionState.isLive()) applyConferenceGridReflow()
         }
     }
     AppScope.launch { sweepGridReflow() }
@@ -2601,15 +2626,17 @@ private fun enterCall(
 
     // V1.2.10 -- Auto-Hide der Steuerleiste, generell (nicht nur im Vollbild -- iOS Safari hat keine
     // Fullscreen-API, siehe `fullscreenApiAvailable`). Bewusste Abweichung vom Design-Review-Vorschlag
-    // eines `window.setInterval`: dieses Modul hat bereits ZWEI periodische Prüf-Schleifen
-    // (`sweepGridReflow`/`pollInFlightRecordingStatus`), beide als
-    // `AppScope.launch { while (connectionState.isLive()) { delay(...); ... } }` -- kein
-    // `setInterval`/`clearInterval`-Muster existiert irgendwo im Modul. Die Anforderung (ein
+    // eines `window.setInterval`: dieses Modul hat bereits mehrere periodische Prüf-Schleifen
+    // (`sweepGridReflow`/`pollInFlightRecordingStatus`/`pollInFlightStreamStatus`), alle als
+    // `AppScope.launch { while (connectionState !is Ended) { delay(...); if (isLive()) ... } }` --
+    // kein `setInterval`/`clearInterval`-Muster existiert irgendwo im Modul. Die Anforderung (ein
     // Reducer-Aufruf pro Sichtbarkeitswechsel, nicht pro Ereignis, throttled auf 1 Hz) wird im
     // etablierten Idiom umgesetzt -- macht ein explizites `clearInterval` beim Teardown überflüssig
-    // (die Schleife endet von selbst, sobald `connectionState.isLive()` `false` wird, exakt wie bei
-    // den beiden bestehenden Sweeps). Der Handler selbst schreibt nur eine Variable (Atkinson): kein
-    // Reducer-Aufruf bei jedem einzelnen `pointermove`, nur wenn die Leiste tatsächlich gerade
+    // (die Schleife endet von selbst, sobald `connectionState` [ConferenceConnectionState.Ended]
+    // erreicht, exakt wie bei den drei anderen Sweeps -- NICHT sobald `isLive()` `false` wird, siehe
+    // Bug-Fix-Kommentar bei `sweepGridReflow`: genau diese Verwechslung ließ alle vier Schleifen seit
+    // Wave 6 nie auch nur einmal laufen). Der Handler selbst schreibt nur eine Variable (Atkinson):
+    // kein Reducer-Aufruf bei jedem einzelnen `pointermove`, nur wenn die Leiste tatsächlich gerade
     // ausgeblendet war.
     var lastActivityMs = Clock.System.now().toEpochMilliseconds()
     val onControlsActivity: (Event) -> Unit = {
@@ -2624,10 +2651,14 @@ private fun enterCall(
     document.addEventListener("touchstart", onControlsActivity, js("({ passive: true })"))
     document.addEventListener("keydown", onControlsActivity)
 
+    // Bug fix -- same Wave 6 regression `sweepGridReflow`'s own comment documents: launched here,
+    // before the connect flow starts, `connectionState.isLive()` is `false` on the very first
+    // check, so this V1.2.10 auto-hide sweep never ran either -- the control bar built earlier
+    // this session never actually auto-hid in production. Outer guard restored to `!is Ended`.
     AppScope.launch {
-        while (connectionState.isLive()) {
+        while (connectionState !is ConferenceConnectionState.Ended) {
             delay(CONFERENCE_CONTROLS_ACTIVITY_POLL_INTERVAL_MS)
-            if (!connectionState.isLive()) break
+            if (!connectionState.isLive()) continue
             if (panelState.controlsVisible &&
                 Clock.System.now().toEpochMilliseconds() - lastActivityMs >= CONFERENCE_CONTROLS_AUTO_HIDE_MS
             ) {
@@ -2780,7 +2811,9 @@ private fun enterCall(
         micBadge.style.cssText =
             "position:absolute;right:6px;top:6px;background:rgba(0,0,0,0.55);color:#fff;" +
             "font-size:11px;padding:2px 5px;border-radius:3px;display:none;"
-        micBadge.textContent = tr("Stumm")
+        // Same "###KvI18nS###" leak `resolvedA11yText`'s own KDoc documents (V1.2.10, title/aria-label
+        // case) -- raw `.textContent` writes bypass KVision's tr() marker resolution just the same.
+        micBadge.textContent = resolvedA11yText(tr("Stumm"))
         tile.appendChild(micBadge)
 
         // V1.0 Videokonferenzen, Wave 5 "Föderations-Gastbeitritt", design review D12 -- top-left
@@ -2799,7 +2832,7 @@ private fun enterCall(
             "display:inline-block;width:8px;height:8px;border-radius:50%;background:${GuestBadgeColors.FILL};"
         guestBadgeEl.appendChild(dot)
         val guestLabel = document.createElement("span") as HTMLElement
-        guestLabel.textContent = tr("Gast")
+        guestLabel.textContent = resolvedA11yText(tr("Gast"))
         guestBadgeEl.appendChild(guestLabel)
         tile.appendChild(guestBadgeEl)
 
@@ -4761,14 +4794,25 @@ internal sealed class ConferenceConnectionEvent {
 /**
  * V1.0 Videokonferenzen, Wave 6 -- `true` only for [ConferenceConnectionState.Connected]/
  * [ConferenceConnectionState.Reconnecting], the two states in which a background poll against THIS
- * `enterCall` invocation's own room is still meaningful. Required, minimal-diff fix for
- * `pollInFlightRecordingStatus`/`pollInFlightStreamStatus`/`sweepGridReflow`'s own loop guards, which
- * pre-Wave-6 read `connectionState !is Ended` -- with [ConferenceConnectionState.Resolving] now
- * sitting between `Connected`/`Reconnecting` and `Ended`, that old guard would keep those loops
- * spinning (wasted RPC calls, and semantically wrong for the recording/streaming pollers specifically
- * -- a breakout room's target LiveKit room is never recorded/streamed at all, see
- * [network.lapis.cloud.shared.rpc.IConferenceBreakoutService] KDoc "DSGVO/transparency") for a call
- * that is already mid-relocation.
+ * `enterCall` invocation's own room is still meaningful.
+ *
+ * **Regression this function's own Wave 6 fix introduced, found and fixed by a later live user
+ * report (own video tile never appeared) -- see `sweepGridReflow`'s own comment for the full
+ * mechanism.** Wave 6 changed `pollInFlightRecordingStatus`/`pollInFlightStreamStatus`/
+ * `sweepGridReflow`'s loop guards from the pre-Wave-6 `connectionState !is Ended` to THIS function,
+ * to stop those loops spinning (wasted RPC calls, semantically wrong for a breakout room's target
+ * LiveKit room, which is never recorded/streamed, see
+ * [network.lapis.cloud.shared.rpc.IConferenceBreakoutService] KDoc "DSGVO/transparency") during
+ * [ConferenceConnectionState.Resolving]. But every one of those loops is launched via
+ * `AppScope.launch { ... }` BEFORE the connect flow even starts (`connectionState` is still
+ * [ConferenceConnectionState.Disconnected] at that point) -- since each loop's OUTER `while`
+ * condition was ALSO switched to this function, every one of them read `false` on its very FIRST
+ * check and exited immediately, never running even once, for the entire lifetime of EVERY call,
+ * from Wave 6 onward. Fixed by restoring the outer loop condition to `!is Ended` (so the loop
+ * starts immediately and survives through `Resolving`) while using THIS function only to gate the
+ * WORK inside each tick -- which is what Wave 6 actually needed, without disabling the loops
+ * themselves. All four affected loops (the three above plus the V1.2.10 controls-auto-hide sweep,
+ * which copied the same broken shape) now follow that corrected pattern.
  */
 internal fun ConferenceConnectionState.isLive(): Boolean =
     this is ConferenceConnectionState.Connected || this is ConferenceConnectionState.Reconnecting
