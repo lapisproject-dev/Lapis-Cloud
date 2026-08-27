@@ -424,7 +424,13 @@ private fun openMemberEditorDialog(
                 hide()
             }
         val reasonInput = modal.textArea(rows = 2, label = tr("Begründung (3-1000 Zeichen)"))
-        val statusChipsRow = modal.hPanel(spacing = 6)
+        // Bug fix (live user report): hPanel is a non-wrapping flex row by default -- four chip
+        // buttons ("Austrittserklärung liegt vor" / "Sterbefall gemeldet" / "Datenkorrektur
+        // CSV-Import" / "Sonstiges") together exceed the modal's width, so the last one ("Sonstiges")
+        // got clipped/pushed outside the visible dialog instead of wrapping onto a second line --
+        // same "flex-wrap" fix already used elsewhere in this codebase for a wide button row (see
+        // ConferenceScreen.kt's controlsRow).
+        val statusChipsRow = modal.hPanel(spacing = 6) { addCssClasses("flex-wrap") }
         listOf(
             tr("Austrittserklärung liegt vor"),
             tr("Sterbefall gemeldet"),
