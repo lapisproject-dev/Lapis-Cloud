@@ -339,10 +339,22 @@ class RecordingPoller(
                         it[durationMs] = fileResult.duration.toLongOrNull()?.let { nanos -> nanos / 1_000_000 }
                         it[sizeBytes] = fileResult.size.toLongOrNull()
                     }
-                    info.startedAtEpochNanos
-                        .toLongOrNull()
-                        ?.takeIf { it != 0L }
-                        ?.let { nanos -> it[startedAtEpochNanos] = nanos }
+                    // Bug fix (live user report -- A/V gap in composed recordings): prefer the FILE's
+                    // own `started_at` (`fileResult.startedAtEpochNanos`, the first-media-byte
+                    // timestamp) over the EGRESS JOB's `started_at` (`info.startedAtEpochNanos`,
+                    // seeded at StartTrackEgress-response time, before a single byte is written). The
+                    // gap between the two is systematic and asymmetric between audio and video: an
+                    // audio track can write its first packet almost immediately, while a video track
+                    // cannot write frame 0 until a keyframe arrives (PLI round-trip + IDR), routinely
+                    // several hundred ms later. `offsetSeconds` below (see its own KDoc) is only
+                    // correct if every track's `startedAtEpochNanos` means the same thing -- anchoring
+                    // to the job-level field instead of the file-level one biased every video track's
+                    // computed offset too early relative to audio by exactly that keyframe-wait delta,
+                    // which is video visibly lagging audio in the composed output.
+                    (
+                        fileResult?.startedAtEpochNanos?.toLongOrNull()?.takeIf { it != 0L }
+                            ?: info.startedAtEpochNanos.toLongOrNull()?.takeIf { it != 0L }
+                    )?.let { nanos -> it[startedAtEpochNanos] = nanos }
                     info.endedAtEpochNanos
                         .toLongOrNull()
                         ?.takeIf { it != 0L }

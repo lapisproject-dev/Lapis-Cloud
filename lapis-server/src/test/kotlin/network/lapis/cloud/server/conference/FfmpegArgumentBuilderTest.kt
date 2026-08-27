@@ -72,7 +72,7 @@ class FfmpegArgumentBuilderTest :
             joined shouldNotContain "amix"
         }
 
-        test("non-zero audio inputs -> adelay per input with correct millisecond offsets, then amix, no anullsrc") {
+        test("non-zero audio inputs -> asetpts+aresample per input with correct offsets, then amix, no anullsrc") {
             val spec =
                 RecordingComposeSpec(
                     videoInputs = listOf(RecordingComposeVideoInput(file = File("cam1.mp4"), offsetSeconds = 0.0, isScreenShare = false)),
@@ -85,10 +85,14 @@ class FfmpegArgumentBuilderTest :
                 )
             val joined = args(spec)
 
-            joined shouldContain "adelay=0|0"
-            joined shouldContain "adelay=2500|2500"
+            // Same absolute PTS rebase as the video chain (see FfmpegArgumentBuilder's own bug-fix
+            // comment) -- both must zero their own input's PTS then add the offset, or a non-zero
+            // start PTS in either chain alone becomes an uncorrected constant A/V gap.
+            joined shouldContain "asetpts=PTS-STARTPTS+0.000/TB,aresample=async=1:first_pts=0"
+            joined shouldContain "asetpts=PTS-STARTPTS+2.500/TB,aresample=async=1:first_pts=0"
             joined shouldContain "amix=inputs=2"
             joined shouldNotContain "anullsrc"
+            joined shouldNotContain "adelay"
         }
 
         test(

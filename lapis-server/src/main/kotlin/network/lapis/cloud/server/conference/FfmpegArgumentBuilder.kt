@@ -173,8 +173,20 @@ object FfmpegArgumentBuilder {
             spec.audioInputs.forEachIndexed { i, input ->
                 val inputIndex = 1 + videoInputCount + i
                 val label = "a$i"
-                val delayMs = formatDelayMs(input.offsetSeconds)
-                parts += "[$inputIndex:a]adelay=$delayMs|$delayMs[$label]"
+                val offset = formatSeconds(input.offsetSeconds)
+                // Bug fix (live user report -- A/V gap in composed recordings): this used to be
+                // `adelay=$delayMs|$delayMs`, a RELATIVE shift that prepends silence without zeroing
+                // the input's own initial PTS -- so any non-zero start PTS already present in the raw
+                // track file (MP4 edit list / initial `tfdt`, or a non-zero container start) became a
+                // constant, uncorrected gap against video's chain below, which DOES zero its own
+                // input first (`setpts=PTS-STARTPTS+...`). Switched to the same absolute rebase video
+                // uses, so both chains are anchored identically. `aresample=async=1:first_pts=0` also
+                // resamples the audio against its own PTS timeline -- WebRTC audio packet loss yields
+                // fewer samples than wall-clock time elapsed, which `amix` below would otherwise
+                // concatenate contiguously, compressing the audio timeline and widening the gap over
+                // the course of a long meeting; resampling against real PTS keeps it locked to the
+                // wall clock instead of sample count.
+                parts += "[$inputIndex:a]asetpts=PTS-STARTPTS+$offset/TB,aresample=async=1:first_pts=0[$label]"
                 audioLabels += "[$label]"
             }
             parts += "${audioLabels.joinToString("")}amix=inputs=${audioLabels.size}:dropout_transition=0:normalize=0[aout]"
@@ -185,6 +197,4 @@ object FfmpegArgumentBuilder {
 
     /** Always [Locale.ROOT] -- see class KDoc "Locale". Never negative (a track's own offset is always >= 0 relative to `t0`). */
     private fun formatSeconds(seconds: Double): String = String.format(Locale.ROOT, "%.3f", seconds.coerceAtLeast(0.0))
-
-    private fun formatDelayMs(seconds: Double): String = (seconds.coerceAtLeast(0.0) * 1000).toLong().toString()
 }
