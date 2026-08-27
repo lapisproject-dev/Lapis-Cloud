@@ -8,6 +8,45 @@ All notable changes to this project are documented here. Format follows
 
 ### Added
 
+**Öffentliche Transparenz-Startseite, Welle V1.3.0**
+
+- **Neue öffentliche, kontenlose HTML-Route `GET /transparenz`** -- ein zweiter, eigenständiger
+  unauthentifizierter Lesepfad neben `/s` (Soziales Netzwerk), server-gerendert mit
+  `kotlinx.html`, `default-src 'none'`-CSP, gecacht (`max-age=60`, bewusst OHNE
+  `stale-while-revalidate`, damit ein Widerruf nicht bis zu 300 s überdauert). Zeigt: eine
+  Kennzahlen-Leiste (aktive Mitglieder, insgesamt geminztes LTR, öffentliche Beiträge), den
+  aktuellen Vorstand (kein Opt-in -- Amtsträger stehen ohnehin im Transparenzregister), einen
+  Top-Beiträge-Teaser aus dem sozialen Netz sowie zwei OPT-IN-Ranglisten (Top-10-LTR-Halter,
+  Top-10-Spender des laufenden Kalenderjahres).
+- **Zwei getrennte, jederzeit widerrufbare Einwilligungen** (`PublicRankingKind.LTR_HOLDINGS` /
+  `.DONATIONS`) -- eine LTR-Zahl und eine EUR-Spendensumme sind unterschiedliche Aussagen mit
+  unterschiedlichen Konsequenzen und werden nie gebündelt. Neue Selbstbedienungs-Sektion
+  „Öffentliche Ranglisten" im bestehenden „Meine Daten"-Screen (`/dsgvo-rights`), zweistufige
+  DSGVO-Offenlegung (Kurzfassung + immer sichtbarer Volltext, nie hinter „Details anzeigen"),
+  exakte Beträge (keine Bänderung), Widerruf mit einem Klick ohne Bestätigungsdialog.
+- **Mindestkohorte 5**: unter fünf wirksamen Zustimmungen entfällt der gesamte Ranglisten-Abschnitt
+  inklusive Sprungmenü-Anker -- die bloße Abwesenheit einer Liste soll keine Aussage über einzelne
+  Mitglieder erlauben.
+- **Wortlautänderung setzt bestehende Zustimmungen außer Kraft**: ändert sich der Einwilligungstext
+  einer Ranglisten-Art, verlieren alle Alt-Zustimmungen ihre Wirkung, bis erneut zugestimmt wird.
+- **Externe Spender (`external_donor_id`) sind strukturell ausgeschlossen** -- kein Login, kein
+  Konsensmechanismus. Die Top-Spender-Liste kann deshalb aktuell nur ACTIVE-Mitglieder abbilden,
+  nicht die 407 CSV-importierten (`MemberStatus.DONOR`, `LOGIN_BLOCKED`) PdV-Spenderkontakte.
+- **Neue Tabelle `public_ranking_consent_event`** (append-only Ereignislog, `superseded_at`-
+  Markierung für die „current row", Migration V12, keine In-place-Änderung der Baseline). Neuer
+  DSGVO-Contributor `PublicRankingConsentPersonalData` -- diese Tabelle wird bei einer
+  Löschanfrage HART gelöscht (nicht anonymisiert/retained), da sie nur eine laufende
+  Veröffentlichung gate-t, keine abgeschlossene Verarbeitung fremder Daten dokumentiert.
+- **Vier neue `IDsgvoService`-RPCs**: `getPublicRankingConsents` (nur die eigenen, nie
+  stellvertretend), `getPublicRankingConsentDisclaimer`, `grantPublicRankingConsent`,
+  `revokePublicRankingConsent` -- Schreibpfade auf `MemberStatusSets.ORGANIZATION_MEMBER`
+  beschränkt (GUEST führt sein LTR-Konto auf dem Heimserver, FRIEND hat einen unverifizierten
+  Anzeigenamen) und member-gekeyt ratenbegrenzt (10/min).
+- **Bekannte Lücke, nicht Teil dieser Welle**: `/transparenz` ist noch nicht in `sitemap.xml`
+  aufgenommen (nur `robots.txt`-`Allow` + gegenseitige `nav`-Links zwischen `/s` und
+  `/transparenz`) -- Aufnahme in eine kleine Folgewelle verschoben, um die security-auditierte
+  Sitemap-Rendering-Datei nicht im selben Zug anzufassen.
+
 **Login-Konto für ein bestehendes Mitglied nachträglich vergeben, Welle V1.2.13**
 
 - **Neue ADMIN-exklusive RPC `IMemberService.grantMemberAccount`** — reines `account`-Insert für

@@ -491,6 +491,14 @@ fun Route.registerSocialPublicRoutes(
     // decken alles ab (G2-Fix, Review-Runde 1: /rpc/ fehlte hier bisher, obwohl die KDoc bereits
     // "verifiziert" behauptete). Bei jeder neuen Routenfamilie unter einem fünften Präfix MUSS diese
     // Liste mitgepflegt werden.
+    //
+    // Security-Fix (Review): "Disallow: /transparenz" ersetzt das vormalige "Allow: /transparenz"
+    // -- die Ranglisten-Abschnitte dieser Seite zeigen Anzeigenamen mit exaktem freien
+    // LTR-Guthaben bzw. exakter Jahres-Spendensumme unter einer widerrufbaren Einwilligung
+    // (PublicRankingConsentDisclaimer), deren Text eine binnen 60 Sekunden wirksame Löschung
+    // verspricht -- ein Versprechen, das gegenüber einem Suchmaschinen-Crawler oder einem
+    // Archivdienst (archive.org) strukturell nicht zu halten ist. Siehe begleitendes
+    // `meta(name = "robots", content = "noindex,follow")` in PublicTransparencyHtml.
     get("/robots.txt") {
         call.withPublicErrorHandling(baseUrl = baseUrl) {
             val body =
@@ -502,6 +510,7 @@ fun Route.registerSocialPublicRoutes(
                 Disallow: /.well-known/
                 Disallow: /rpc/
                 Disallow: /s/*/report
+                Disallow: /transparenz
 
                 Sitemap: $baseUrl/sitemap.xml
                 """.trimIndent() + "\n"
@@ -514,7 +523,12 @@ fun Route.registerSocialPublicRoutes(
     }
 }
 
-private val HTML_CONTENT_TYPE = ContentType.Text.Html.withParameter("charset", "utf-8")
+/**
+ * `internal` (not `private`, V1.3.0) so `PublicTransparencyRoutes` -- the second, sibling public
+ * HTML route family this Welle adds -- can reuse the SAME `Content-Type` constant rather than
+ * declaring a byte-identical duplicate. Pure visibility widening, zero behavior change.
+ */
+internal val HTML_CONTENT_TYPE = ContentType.Text.Html.withParameter("charset", "utf-8")
 private val XML_CONTENT_TYPE = ContentType.Application.Xml.withParameter("charset", "utf-8")
 
 private sealed interface PostResolution {
@@ -674,8 +688,13 @@ private fun LocalDateTime.toHumanDate(): String = "%02d.%02d.%04d".format(dayOfM
  * Kein HSTS hier -- das ist Sache des Reverse Proxy (Caddy setzt es bei automatischem HTTPS selbst).
  * Kein `Cross-Origin-Resource-Policy` -- für Top-Level-Navigation wirkungslos und ein potenzieller
  * Stolperstein für Social-Media-Vorschau-Scraper.
+ *
+ * `internal` (not `private`, V1.3.0): [PublicTransparencyRoutes] reuses this SAME function so the
+ * two public HTML route families (`/s`, `/transparenz`) keep exactly ONE definition of the shared
+ * CSP/security-header set -- never a second, driftable copy. Pure visibility widening, zero
+ * behavior change; every existing call site above is unaffected.
  */
-private fun ApplicationCall.applyPublicPageHeaders() {
+internal fun ApplicationCall.applyPublicPageHeaders() {
     response.header(
         "Content-Security-Policy",
         "default-src 'none'; style-src 'self'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'",
@@ -708,7 +727,8 @@ private fun ifNoneMatchHits(
     return headerValue.split(",").map { it.trim() }.any { candidate -> candidate.removePrefix("W/").trim('"') == target }
 }
 
-private suspend fun ApplicationCall.respondPublicCacheable(
+/** `internal` (not `private`, V1.3.0) -- shared verbatim with `PublicTransparencyRoutes`, see [applyPublicPageHeaders] KDoc for the reasoning. */
+internal suspend fun ApplicationCall.respondPublicCacheable(
     body: String,
     contentType: ContentType,
     cacheControl: String,
@@ -725,8 +745,14 @@ private suspend fun ApplicationCall.respondPublicCacheable(
     }
 }
 
-/** `no-store` (§ 5.2): verhindert, dass Caddy/ein CDN ein 404 festhält, das nach einer späteren Moderations-/DSGVO-Aktion nicht mehr gilt. */
-private suspend fun ApplicationCall.respondPublicNotFound(baseUrl: String) {
+/**
+ * `no-store` (§ 5.2): verhindert, dass Caddy/ein CDN ein 404 festhält, das nach einer späteren
+ * Moderations-/DSGVO-Aktion nicht mehr gilt.
+ *
+ * `internal` (not `private`, V1.3.0) -- shared verbatim with `PublicTransparencyRoutes`, see
+ * [applyPublicPageHeaders] KDoc for the reasoning.
+ */
+internal suspend fun ApplicationCall.respondPublicNotFound(baseUrl: String) {
     response.header(HttpHeaders.CacheControl, "no-store")
     applyPublicPageHeaders()
     respondText(text = SocialPublicHtml.notFoundPage(baseUrl = baseUrl), contentType = HTML_CONTENT_TYPE, status = HttpStatusCode.NotFound)
@@ -788,8 +814,14 @@ private suspend fun ApplicationCall.respondPublicMalformedRequest(
     respondText(text = SocialPublicHtml.malformedRequestPage(baseUrl = baseUrl), contentType = HTML_CONTENT_TYPE, status = status)
 }
 
-/** `no-store` + `Retry-After` (§ 5.2): ein 429, das nur eine IP betraf, darf nicht für andere Leser gecacht werden. */
-private suspend fun ApplicationCall.respondPublicTooManyRequests(baseUrl: String) {
+/**
+ * `no-store` + `Retry-After` (§ 5.2): ein 429, das nur eine IP betraf, darf nicht für andere Leser
+ * gecacht werden.
+ *
+ * `internal` (not `private`, V1.3.0) -- shared verbatim with `PublicTransparencyRoutes`, see
+ * [applyPublicPageHeaders] KDoc for the reasoning.
+ */
+internal suspend fun ApplicationCall.respondPublicTooManyRequests(baseUrl: String) {
     response.header(HttpHeaders.RetryAfter, "60")
     response.header(HttpHeaders.CacheControl, "no-store")
     applyPublicPageHeaders()
@@ -814,8 +846,11 @@ private suspend fun ApplicationCall.respondPublicRedirect(
  * [registerSocialPublicRoutes] (`/s`/`/s/{id}`'s unexpected-query-parameter redirect). Same
  * `Cache-Control: public, max-age=3600` and security headers on every 308 this file emits, whatever
  * triggered it.
+ *
+ * `internal` (not `private`, V1.3.0) -- shared verbatim with `PublicTransparencyRoutes`, see
+ * [applyPublicPageHeaders] KDoc for the reasoning.
  */
-private suspend fun ApplicationCall.respondPublicCanonicalRedirect(canonicalUrl: String) {
+internal suspend fun ApplicationCall.respondPublicCanonicalRedirect(canonicalUrl: String) {
     response.header(HttpHeaders.Location, canonicalUrl)
     response.header(HttpHeaders.CacheControl, "public, max-age=3600")
     applyPublicPageHeaders()
@@ -830,8 +865,12 @@ private suspend fun ApplicationCall.respondPublicCanonicalRedirect(canonicalUrl:
  * BEFORE any DB work happens: without this guard, a proxy/CDN's `Cache-Control: public,
  * max-age=300` on the canonical URL could be trivially defeated by varying an unknown parameter,
  * with every variant paying the origin's full render cost (see class KDoc "Ablauf pro Handler").
+ *
+ * `internal` (not `private`, V1.3.0) -- shared verbatim with `PublicTransparencyRoutes`, see
+ * [applyPublicPageHeaders] KDoc for the reasoning.
  */
-private fun ApplicationCall.hasOnlyAllowedQueryParams(allowed: Set<String>): Boolean = request.queryParameters.names().all { it in allowed }
+internal fun ApplicationCall.hasOnlyAllowedQueryParams(allowed: Set<String>): Boolean =
+    request.queryParameters.names().all { it in allowed }
 
 /**
  * `no-store` (§ 5.2, M1-Fix Review-Runde 1): an unexpected 500 must never be cached by a proxy/CDN --

@@ -2,8 +2,14 @@ package network.lapis.cloud.server.economy
 
 import network.lapis.cloud.server.db.generated.LtrLedgerEntryTable
 import network.lapis.cloud.server.db.generated.MemberTable
+import network.lapis.cloud.server.db.generated.PublicRankingConsentEventTable
+import network.lapis.cloud.shared.domain.MemberStatus
+import org.jetbrains.exposed.v1.core.JoinType
+import org.jetbrains.exposed.v1.core.Op
+import org.jetbrains.exposed.v1.core.and
 import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.core.inList
+import org.jetbrains.exposed.v1.core.isNull
 import org.jetbrains.exposed.v1.core.sum
 import org.jetbrains.exposed.v1.jdbc.select
 import org.jetbrains.exposed.v1.jdbc.selectAll
@@ -120,5 +126,48 @@ class LedgerBackedLtrBalanceProvider : LtrBalanceProvider {
             .forUpdate()
             .singleOrNull()
             ?: error("Member $memberId not found while locking for LTR debit -- caller must resolve/validate the member first")
+    }
+
+    /**
+     * V1.3.0 "Öffentliche Transparenz-Startseite" -- the top [limit] members by free LTR balance
+     * whose row satisfies [consentCondition] (an `Op<Boolean>` evaluated against
+     * `public_ranking_consent_event`, see `network.lapis.cloud.server.rpc.PublicRankingConsentStore
+     * .effectiveGrantCondition`), restricted to `ACTIVE`, non-anonymized members. A REAL
+     * `GROUP BY member_id` + `INNER JOIN` in SQL -- never an `inList` over a Kotlin-side set of
+     * consenting member ids (Stolperfalle 4: that would risk the ~65535 bind-parameter ceiling for
+     * a large consenting cohort, and would still require a second round trip either way). The
+     * `HAVING SUM(...) > 0` filter and the final sort/`take(limit)` happen in KOTLIN, not SQL --
+     * deliberately: the row set reaching this point is already bounded by the JOIN to the (small,
+     * opt-in) consenting cohort, so pulling it fully into memory before the cheap final filter/sort
+     * avoids depending on this Exposed version's `Query.having` API entirely. `member_id`'s natural
+     * `String` ordering is the tiebreaker for equal balances (determinism -- see
+     * `PublicTransparencyReader` KDoc "Determinismus"). `.setScale(2)` mirrors [freeBalances]'
+     * own defensive scale-normalization.
+     */
+    fun topFreeBalances(
+        consentCondition: Op<Boolean>,
+        limit: Int,
+    ): List<Pair<Uuid, BigDecimal>> {
+        val total = LtrLedgerEntryTable.amountLtr.sum()
+        val joined =
+            LtrLedgerEntryTable
+                .join(MemberTable, JoinType.INNER, LtrLedgerEntryTable.memberId, MemberTable.id)
+                .join(PublicRankingConsentEventTable, JoinType.INNER, LtrLedgerEntryTable.memberId, PublicRankingConsentEventTable.memberId)
+        val rows =
+            joined
+                .select(LtrLedgerEntryTable.memberId, total)
+                .where {
+                    consentCondition and
+                        MemberTable.anonymizedAt.isNull() and
+                        (MemberTable.status eq MemberStatus.ACTIVE)
+                }.groupBy(LtrLedgerEntryTable.memberId)
+                .mapNotNull { row ->
+                    val sum = row[total]?.setScale(2) ?: return@mapNotNull null
+                    if (sum <= BigDecimal.ZERO) return@mapNotNull null
+                    row[LtrLedgerEntryTable.memberId] to sum
+                }
+        return rows
+            .sortedWith(compareByDescending<Pair<Uuid, BigDecimal>> { it.second }.thenBy { it.first.toString() })
+            .take(limit)
     }
 }

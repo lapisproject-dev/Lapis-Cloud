@@ -120,7 +120,7 @@ class FriendPersonalDataTest :
                     }
                     routing {
                         get("/test/export-manifest/{memberId}") {
-                            val service = DsgvoService(call)
+                            val service = DsgvoService(call = call)
                             val manifest = service.exportManifest(call.parameters["memberId"]!!)
                             call.respondText(manifest.sectionCounts.entries.joinToString(",") { "${it.key}=${it.value}" })
                         }
@@ -161,7 +161,7 @@ class FriendPersonalDataTest :
                     }
                     routing {
                         post("/test/request-erasure/{subjectId}") {
-                            val service = DsgvoService(call)
+                            val service = DsgvoService(call = call)
                             val request =
                                 service.requestErasure(
                                     subjectMemberId = call.parameters["subjectId"]!!,
@@ -171,7 +171,7 @@ class FriendPersonalDataTest :
                             call.respondText(request.id)
                         }
                         post("/test/decide/{requestId}/{approve}") {
-                            val service = DsgvoService(call)
+                            val service = DsgvoService(call = call)
                             val request =
                                 service.decideErasure(
                                     requestId = call.parameters["requestId"]!!,
@@ -180,7 +180,7 @@ class FriendPersonalDataTest :
                             call.respondText(request.status.name)
                         }
                         post("/test/execute/{requestId}") {
-                            val service = DsgvoService(call)
+                            val service = DsgvoService(call = call)
                             val request = service.executeErasure(call.parameters["requestId"]!!)
                             call.respondText(request.status.name)
                         }

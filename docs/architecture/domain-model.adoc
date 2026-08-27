@@ -909,3 +909,28 @@ unused this wave); any anchor besides Bitcoin (`AnchorAsset.GOLD_XAU`/`FIAT` are
 literals -- no free, no-API-key, multi-source feed set exists for either); a payment-gateway/PSP
 webhook intake (`convertDonationToLtr` is operator-triggered); and a shared/federated quote cache
 (in-memory, per-server only -- a V0.7 federation concern).
+
+== V1.3.0 — Public Ranking Consent (`GET /transparenz`)
+
+One new table, `public_ranking_consent_event`
+(`lapis-server/src/main/kuml/35-public-ranking-consent.kuml.kts`), backing the public,
+account-less transparency page `GET /transparenz`
+(`network.lapis.cloud.server.routes.PublicTransparencyRoutes`/`PublicTransparencyReader`/
+`PublicTransparencyHtml`). Append-only event log (`GRANTED`/`REVOKED`, `superseded_at` marks the
+"current row" — same idiom `session.revoked_at`/`committee_membership.until` already establish),
+tracking two independently-revocable opt-in consents (`PublicRankingKind.LTR_HOLDINGS`/
+`.DONATIONS`) a member can grant to have their display name and free LTR balance / calendar-year
+donation total shown among the page's two Top-10 leaderboards. A partial UNIQUE index for "exactly
+one current row per `(member_id, ranking_kind)`" is not schema-enforceable (H2 in
+PostgreSQL-compatibility mode, this codebase's test path, has no partial indexes) — the invariant
+is enforced in code under a `member`-row lock instead (`PublicRankingConsentStore` KDoc
+"Concurrency"). Written via four new `IDsgvoService` RPCs (`getPublicRankingConsents`/
+`getPublicRankingConsentDisclaimer`/`grantPublicRankingConsent`/`revokePublicRankingConsent`),
+gated to `MemberStatusSets.ORGANIZATION_MEMBER`. Read via `PublicRankingConsentStore
+.effectiveGrantCondition`/`.effectiveCohortSize` — a ranking section is rendered at all only once
+at least five members hold an effective grant (D11), and only under the current, non-superseded
+disclaimer version for that kind (a wording change silently makes every prior grant ineffective
+until re-consented). Owned, for DSGVO export/erasure, by `PublicRankingConsentPersonalData` — the
+only `PersonalDataContributor` in this codebase that HARD-DELETES its rows on erasure rather than
+anonymizing/retaining them, since the table only gates an ongoing disclosure of the member's own
+data rather than documenting a already-completed act of processing someone else's.

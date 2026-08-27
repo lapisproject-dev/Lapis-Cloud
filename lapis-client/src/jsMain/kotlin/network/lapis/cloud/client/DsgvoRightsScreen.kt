@@ -1,5 +1,6 @@
 package network.lapis.cloud.client
 
+import io.kvision.form.check.checkBox
 import io.kvision.form.select.select
 import io.kvision.form.text.text
 import io.kvision.form.text.textArea
@@ -25,6 +26,9 @@ import network.lapis.cloud.shared.domain.ErasureMode
 import network.lapis.cloud.shared.domain.ErasureRequestDto
 import network.lapis.cloud.shared.domain.ErasureStatus
 import network.lapis.cloud.shared.domain.ExportManifestDto
+import network.lapis.cloud.shared.domain.PublicRankingConsentDisclaimerDto
+import network.lapis.cloud.shared.domain.PublicRankingConsentStateDto
+import network.lapis.cloud.shared.domain.PublicRankingKind
 import network.lapis.cloud.shared.rpc.IDsgvoService
 
 /**
@@ -124,11 +128,117 @@ private fun renderSelfServiceSection(root: SimplePanel) {
     }
     root.link(tr("Vollständigen Datenexport herunterladen (JSON)"), url = dsgvoExportUrl(myMemberId), target = "_blank")
 
+    // V1.3.0 "Öffentliche Transparenz-Startseite" -- additive, stacked BETWEEN "Auskunft" and
+    // "Löschung beantragen" (D10 idiom: never a second tab).
+    root.h2(tr("Öffentliche Ranglisten")) { addCssClass("h4") }
+    root.div(
+        tr(
+            "Sie können freiwillig zustimmen, dass Ihr Anzeigename zusammen mit Ihrem freien LTR-Guthaben " +
+                "bzw. Ihrer Spendensumme dieses Jahres auf der öffentlichen Transparenzseite erscheint. Beide " +
+                "Einwilligungen sind unabhängig voneinander und jederzeit mit einem Klick widerrufbar.",
+        ),
+    ) { addCssClasses("text-muted small") }
+    renderPublicRankingConsentSection(root)
+
     root.h2(tr("Löschung beantragen")) { addCssClass("h4") }
     val formHolder = root.vPanel(spacing = 6)
     val statusPanel = root.vPanel(spacing = 6)
     renderErasureRequestForm(formHolder, myMemberId) { request -> renderOwnErasureStatusCard(statusPanel, request) }
 }
+
+// ================================================================================================
+// V1.3.0 "Öffentliche Transparenz-Startseite" -- opt-in consent for the two public leaderboards
+// ================================================================================================
+
+/**
+ * Loads the caller's own current consent state once, then renders one toggle card per
+ * [PublicRankingKind]. No confirmation dialog on WIDERRUF (D9/D10 wording: "ein Klick, ohne
+ * Bestätigungsdialog-Hürde") -- a friction point here would work AGAINST the member's own privacy
+ * interest, unlike the erasure-execution confirmation dialog above (D3(b)-style bar), which guards
+ * an irreversible action working IN their favor.
+ */
+private fun renderPublicRankingConsentSection(root: SimplePanel) {
+    val panel = root.vPanel(spacing = 10)
+    AppScope.launch {
+        val states = guarded { rpcService<IDsgvoService>().getPublicRankingConsents() } ?: return@launch
+        PublicRankingKind.entries.forEach { kind ->
+            renderPublicRankingConsentToggle(panel, kind, states.firstOrNull { it.kind == kind })
+        }
+    }
+}
+
+private fun renderPublicRankingConsentToggle(
+    root: SimplePanel,
+    kind: PublicRankingKind,
+    initialState: PublicRankingConsentStateDto?,
+) {
+    val card = root.vPanel(spacing = 4) { addCssClasses("border rounded p-3") }
+    val headerRow = card.hPanel(spacing = 8) { addCssClasses("align-items-center") }
+    headerRow.div(publicRankingKindLabel(kind)) { addCssClasses("fw-bold flex-grow-1") }
+    val toggle = headerRow.checkBox(value = initialState?.effective == true, label = tr("Sichtbar"))
+
+    if (initialState?.supersededByNewVersion == true) {
+        card.div(
+            tr("Der Hinweistext wurde seither aktualisiert -- bitte erneut zustimmen, damit Ihr Name wieder erscheint."),
+        ) { addCssClasses("text-warning small") }
+    }
+
+    // D9/D10: two-layer disclosure, ALWAYS visible next to the toggle -- never behind a
+    // "Details anzeigen" link. Filled in once the disclaimer has loaded (below); the toggle stays
+    // disabled until then, so a member can never grant based on a text they have not yet seen.
+    val disclosurePanel = card.vPanel(spacing = 3)
+    toggle.disabled = true
+
+    var currentDisclaimer: PublicRankingConsentDisclaimerDto? = null
+    AppScope.launch {
+        val disclaimer = guarded { rpcService<IDsgvoService>().getPublicRankingConsentDisclaimer(kind) }
+        toggle.disabled = false
+        if (disclaimer == null) return@launch
+        currentDisclaimer = disclaimer
+        disclosurePanel.div(disclaimer.headline) { addCssClasses("small fw-bold") }
+        disclaimer.keyPoints.forEach { point -> disclosurePanel.div(point) { addCssClasses("text-muted small") } }
+        disclosurePanel.div(disclaimer.text) {
+            addCssClasses("text-muted small border rounded p-2 overflow-auto")
+            height = 140.px
+        }
+    }
+
+    card.div(tr("Ihr Name erscheint nur, wenn mindestens fünf Mitglieder in diese Rangliste eingewilligt haben.")) {
+        addCssClasses("text-muted small")
+    }
+
+    toggle.onClick {
+        val wantsGranted = toggle.value == true
+        val disclaimer = currentDisclaimer
+        if (wantsGranted && disclaimer == null) {
+            toggle.value = false
+            notifyError(tr("Einwilligungstext konnte nicht geladen werden -- bitte erneut versuchen."))
+            return@onClick
+        }
+        toggle.disabled = true
+        AppScope.launch {
+            val result =
+                if (wantsGranted) {
+                    guarded { rpcService<IDsgvoService>().grantPublicRankingConsent(kind, disclaimer!!.version, disclaimer.sha256) }
+                } else {
+                    guarded { rpcService<IDsgvoService>().revokePublicRankingConsent(kind) }
+                }
+            toggle.disabled = false
+            if (result != null) {
+                toggle.value = result.effective
+                notifySuccess(if (wantsGranted) tr("Einwilligung gespeichert.") else tr("Einwilligung widerrufen."))
+            } else {
+                toggle.value = !wantsGranted
+            }
+        }
+    }
+}
+
+private fun publicRankingKindLabel(kind: PublicRankingKind): String =
+    when (kind) {
+        PublicRankingKind.LTR_HOLDINGS -> gettext("LTR-Guthaben")
+        PublicRankingKind.DONATIONS -> gettext("Spenden")
+    }
 
 private fun renderExportManifest(
     panel: SimplePanel,

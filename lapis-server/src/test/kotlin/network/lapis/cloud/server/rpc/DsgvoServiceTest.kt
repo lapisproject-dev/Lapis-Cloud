@@ -214,7 +214,7 @@ class DsgvoServiceTest :
                             call.respondText("ok")
                         }
                         get("/test/export-manifest/{memberId}") {
-                            val service = DsgvoService(call)
+                            val service = DsgvoService(call = call)
                             val manifest = service.exportManifest(call.parameters["memberId"]!!)
                             call.respondText(manifest.sectionCounts.entries.joinToString(",") { "${it.key}=${it.value}" })
                         }
@@ -411,7 +411,7 @@ class DsgvoServiceTest :
                             call.respondText("ok")
                         }
                         post("/test/request-erasure/{subjectId}") {
-                            val service = DsgvoService(call)
+                            val service = DsgvoService(call = call)
                             val request =
                                 service.requestErasure(
                                     subjectMemberId = call.parameters["subjectId"]!!,
@@ -420,7 +420,7 @@ class DsgvoServiceTest :
                             call.respondText(request.id)
                         }
                         post("/test/decide/{requestId}/{approve}") {
-                            val service = DsgvoService(call)
+                            val service = DsgvoService(call = call)
                             val request =
                                 service.decideErasure(
                                     requestId = call.parameters["requestId"]!!,
@@ -429,16 +429,16 @@ class DsgvoServiceTest :
                             call.respondText(request.status.name)
                         }
                         post("/test/execute/{requestId}") {
-                            val service = DsgvoService(call)
+                            val service = DsgvoService(call = call)
                             val request = service.executeErasure(call.parameters["requestId"]!!)
                             call.respondText(request.status.name)
                         }
                         get("/test/list-erasure-requests") {
-                            val service = DsgvoService(call)
+                            val service = DsgvoService(call = call)
                             call.respondText(service.listErasureRequests().joinToString(",") { it.id })
                         }
                         get("/test/list-audit") {
-                            val service = DsgvoService(call)
+                            val service = DsgvoService(call = call)
                             call.respondText(service.listAuditLog().joinToString(",") { it.action.name })
                         }
                         post("/test/update-address/{memberId}") {
@@ -603,7 +603,7 @@ class DsgvoServiceTest :
                             call.respondText("ok")
                         }
                         post("/test/request-erasure/{subjectId}") {
-                            val service = DsgvoService(call)
+                            val service = DsgvoService(call = call)
                             val request =
                                 service.requestErasure(
                                     subjectMemberId = call.parameters["subjectId"]!!,
@@ -613,12 +613,12 @@ class DsgvoServiceTest :
                             call.respondText(request.id)
                         }
                         post("/test/decide/{requestId}") {
-                            val service = DsgvoService(call)
+                            val service = DsgvoService(call = call)
                             service.decideErasure(requestId = call.parameters["requestId"]!!, approve = true)
                             call.respondText("ok")
                         }
                         post("/test/execute/{requestId}") {
-                            val service = DsgvoService(call)
+                            val service = DsgvoService(call = call)
                             val request = service.executeErasure(call.parameters["requestId"]!!)
                             call.respondText(request.status.name)
                         }

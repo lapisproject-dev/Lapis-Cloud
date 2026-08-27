@@ -1020,6 +1020,11 @@ class SocialPublicRoutesTest :
                 // test never grew the matching assertion.
                 body shouldContain "Disallow: /rpc/"
                 body shouldContain "Allow: /s"
+                // Security-Fix (Review): /transparenz is now Disallow, not Allow -- the ranking
+                // sections carry revocable, widely-crawlable PII (see PublicTransparencyHtml's
+                // "noindex,follow" robots meta, the belt-and-suspenders companion to this).
+                body shouldContain "Disallow: /transparenz"
+                body shouldNotContain "Allow: /transparenz"
             }
         }
 

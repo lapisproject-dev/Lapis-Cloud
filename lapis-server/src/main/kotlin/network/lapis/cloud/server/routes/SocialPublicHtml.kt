@@ -94,6 +94,26 @@ internal object SocialPublicHtml {
         nav { display: flex; justify-content: space-between; margin-top: 1.5rem; gap: 1rem; }
         a { color: inherit; }
         .hp { position: absolute; left: -9999px; top: -9999px; }
+
+        /* V1.3.0 "Öffentliche Transparenz-Startseite" (/transparenz) -- shares this stylesheet, see
+           PublicTransparencyHtml class KDoc. */
+        nav.jump { justify-content: flex-start; flex-wrap: wrap; }
+        .stats { display: flex; flex-wrap: wrap; gap: 1.5rem; margin: 0.5rem 0 1rem 0; }
+        .stat { min-width: 8rem; }
+        .stat-value { font-size: 1.4rem; font-weight: 600; }
+        .stat-label { color: #888; font-size: 0.85rem; }
+        .rank-top { display: flex; align-items: center; gap: 0.6rem; padding: 0.4rem 0; }
+        .rank-num { font-size: 1.3rem; font-weight: 700; width: 1.6rem; text-align: right; }
+        .mono {
+            display: inline-flex; align-items: center; justify-content: center;
+            width: 2rem; height: 2rem; border-radius: 50%;
+            background: rgba(128, 128, 128, 0.2); font-size: 0.75rem; font-weight: 600;
+        }
+        .rank-name { font-weight: 600; }
+        .rank-amount { margin-left: auto; color: #888; }
+        .rank-list { padding-left: 1.6rem; }
+        .rank-list li { padding: 0.2rem 0; }
+        .section-note { color: #888; font-size: 0.8rem; font-style: italic; }
         """
 
     /** Title length ceiling -- shared by `<title>` and `og:title`. */
@@ -219,6 +239,9 @@ internal object SocialPublicHtml {
                             a(href = timelineCanonicalUrl(baseUrl = baseUrl, page = view.page + 1)) { +"Nächste Seite →" }
                         }
                     }
+                    // V1.3.0 "Öffentliche Transparenz-Startseite" -- mutual link between the two
+                    // public HTML route families, see PublicTransparencyRoutes KDoc.
+                    p { a(href = "$baseUrl/transparenz") { +"Transparenz" } }
                 }
                 footer { p { +"$brandTitle · Betrieben mit Lapis Cloud" } }
             }

@@ -12,6 +12,7 @@ import network.lapis.cloud.server.db.generated.MemberTable
 import network.lapis.cloud.server.dsgvo.PersonalDataRegistry
 import network.lapis.cloud.server.dsgvo.TableErasureOutcome
 import network.lapis.cloud.server.dsgvo.nowUtc
+import network.lapis.cloud.server.federation.FederationInboxRateLimiter
 import network.lapis.cloud.server.security.CurrentMember
 import network.lapis.cloud.server.security.requireRole
 import network.lapis.cloud.server.security.resolveCurrentMember
@@ -22,7 +23,12 @@ import network.lapis.cloud.shared.domain.ErasureMode
 import network.lapis.cloud.shared.domain.ErasureRequestDto
 import network.lapis.cloud.shared.domain.ErasureStatus
 import network.lapis.cloud.shared.domain.ExportManifestDto
+import network.lapis.cloud.shared.domain.MemberStatusSets
+import network.lapis.cloud.shared.domain.PublicRankingConsentDisclaimerDto
+import network.lapis.cloud.shared.domain.PublicRankingConsentStateDto
+import network.lapis.cloud.shared.domain.PublicRankingKind
 import network.lapis.cloud.shared.domain.TableErasureOutcomeDto
+import network.lapis.cloud.shared.rpc.BadRequestException
 import network.lapis.cloud.shared.rpc.ConflictException
 import network.lapis.cloud.shared.rpc.ForbiddenException
 import network.lapis.cloud.shared.rpc.IDsgvoService
@@ -34,6 +40,7 @@ import org.jetbrains.exposed.v1.jdbc.insert
 import org.jetbrains.exposed.v1.jdbc.selectAll
 import org.jetbrains.exposed.v1.jdbc.transactions.transaction
 import org.jetbrains.exposed.v1.jdbc.update
+import kotlin.time.Duration.Companion.minutes
 import kotlin.uuid.Uuid
 
 private val outcomeListSerializer = ListSerializer(TableErasureOutcomeDto.serializer())
@@ -47,6 +54,39 @@ private val outcomeListSerializer = ListSerializer(TableErasureOutcomeDto.serial
  */
 class DsgvoService(
     private val call: ApplicationCall,
+    /**
+     * V1.3.0 -- throttles [grantPublicRankingConsent], MEMBER-keyed (`"member:${current.memberId}"`,
+     * same [requireWithinRate] idiom `SepaService.mandateWriteRateLimiter`/
+     * `DunningService.issueRateLimiter` already establish for a comparable low-frequency
+     * authenticated self-service write) -- never IP-keyed like the ACCOUNT-LESS public read path's
+     * own limiters (`SocialPublicRoutes`/`PublicTransparencyRoutes`). Constructor default exists for
+     * tests only, same "production always passes it explicitly via `Application.module`'s
+     * `registerService`" contract every other rate-limited service constructor in this codebase
+     * follows.
+     */
+    private val consentRateLimiter: FederationInboxRateLimiter = FederationInboxRateLimiter(maxRequests = 10, window = 1.minutes),
+    /**
+     * Security-Fix (Review): a SEPARATE limiter instance for [revokePublicRankingConsent] --
+     * deliberately never [consentRateLimiter] itself. Art. 7(3) DSGVO requires that withdrawing
+     * consent be no harder than giving it; sharing one budget between grant and revoke meant a
+     * member who exhausted [consentRateLimiter] via repeated GRANT calls (e.g. toggling the
+     * `/dsgvo-rights` switch) could then have their very next REVOKE rejected with
+     * `ConflictException` -- their name staying publicly visible for up to the window length even
+     * though the revoke itself was the very first one they attempted. More generous than
+     * [consentRateLimiter] on purpose.
+     *
+     * **Correction (Review, Runde 2)**: [PublicRankingConsentStore.revoke] is idempotent ONLY when
+     * there is no current GRANTED row -- that case is a true no-op write. Whenever a current
+     * GRANTED row DOES exist (the normal "member actually revokes" case), [revoke] writes a row
+     * exactly like [PublicRankingConsentStore.grant] does. A member alternating grant/revoke
+     * therefore appends roughly TWO rows per cycle, bounded only by
+     * `min(`[consentRateLimiter]`, `[consentRevokeRateLimiter]`)` combined -- i.e. this limiter
+     * does share fully in grant's unbounded-row-growth concern for `public_ranking_consent_event`,
+     * it is not exempt from it. The export-side bound that actually protects against this now
+     * lives in `PublicRankingConsentPersonalData.export`'s `MAX_EXPORTED_EVENTS` cap -- see that
+     * KDoc.
+     */
+    private val consentRevokeRateLimiter: FederationInboxRateLimiter = FederationInboxRateLimiter(maxRequests = 30, window = 1.minutes),
 ) : IDsgvoService {
     override suspend fun exportManifest(memberId: String): ExportManifestDto {
         val current = resolveCurrentMember(call)
@@ -194,6 +234,101 @@ class DsgvoService(
                 }
             rows.map { it.toAuditLogEntryDto() }
         }
+    }
+
+    // ============================================================================================
+    // V1.3.0 "Öffentliche Transparenz-Startseite" -- opt-in consent for the two public leaderboards.
+    // See IDsgvoService KDoc on each method for the contract.
+    // ============================================================================================
+
+    override suspend fun getPublicRankingConsents(): List<PublicRankingConsentStateDto> {
+        val current = resolveCurrentMember(call)
+        return transaction { PublicRankingConsentStore.currentState(memberId = current.memberId) }
+    }
+
+    override suspend fun getPublicRankingConsentDisclaimer(kind: PublicRankingKind): PublicRankingConsentDisclaimerDto {
+        // No auth gate -- reading the disclosure text itself is not a personal-data operation, and
+        // the member must be able to see it BEFORE deciding whether to consent. requireAuth on the
+        // route (`/dsgvo-rights`) already gates the whole screen this is called from.
+        resolveCurrentMember(call)
+        val disclaimer = PublicRankingConsentDisclaimer.of(kind)
+        return PublicRankingConsentDisclaimerDto(
+            kind = disclaimer.kind,
+            version = disclaimer.version,
+            headline = disclaimer.headline,
+            keyPoints = disclaimer.keyPoints,
+            text = disclaimer.text,
+            sha256 = disclaimer.sha256,
+        )
+    }
+
+    override suspend fun grantPublicRankingConsent(
+        kind: PublicRankingKind,
+        version: String,
+        sha256: String,
+    ): PublicRankingConsentStateDto {
+        val current = resolveCurrentMember(call)
+        requireOrganizationMember(current)
+        requireWithinConsentRate(current)
+        if (!PublicRankingConsentDisclaimer.of(kind).matches(version = version, sha256 = sha256)) {
+            throw BadRequestException("Einwilligungstext stimmt nicht mit der aktuellen Fassung überein -- bitte neu laden.")
+        }
+        return transaction {
+            lockMemberRow(current.memberId)
+            PublicRankingConsentStore.grant(memberId = current.memberId, kind = kind, version = version, sha256 = sha256, now = nowUtc())
+            PublicRankingConsentStore.currentState(memberId = current.memberId).single { it.kind == kind }
+        }
+    }
+
+    override suspend fun revokePublicRankingConsent(kind: PublicRankingKind): PublicRankingConsentStateDto {
+        val current = resolveCurrentMember(call)
+        requireOrganizationMember(current)
+        requireWithinConsentRevokeRate(current)
+        return transaction {
+            lockMemberRow(current.memberId)
+            PublicRankingConsentStore.revoke(memberId = current.memberId, kind = kind, now = nowUtc())
+            PublicRankingConsentStore.currentState(memberId = current.memberId).single { it.kind == kind }
+        }
+    }
+
+    /**
+     * A GUEST has no LTR account here (it lives on their federated home server); a FRIEND's
+     * `display_name` is unverified. Neither belongs in a public leaderboard of THIS organization --
+     * `MemberStatusSets.ORGANIZATION_MEMBER` is (today) exactly `{ACTIVE}`, so this also excludes
+     * WITHDRAWN/REJECTED/DONOR/DECEASED without needing a second, hand-maintained status list.
+     */
+    private fun requireOrganizationMember(current: CurrentMember) {
+        if (current.status !in MemberStatusSets.ORGANIZATION_MEMBER) {
+            throw ForbiddenException("Nur aktive Mitglieder koennen in eine oeffentliche Rangliste einwilligen")
+        }
+    }
+
+    private fun requireWithinConsentRate(current: CurrentMember) {
+        if (!consentRateLimiter.checkAndRecord("member:${current.memberId}")) {
+            throw ConflictException("Zu viele Anfragen -- bitte spaeter erneut versuchen.")
+        }
+    }
+
+    /** Uses [consentRevokeRateLimiter] -- a budget separate from [requireWithinConsentRate]'s, see that field's KDoc. */
+    private fun requireWithinConsentRevokeRate(current: CurrentMember) {
+        if (!consentRevokeRateLimiter.checkAndRecord("member:${current.memberId}")) {
+            throw ConflictException("Zu viele Anfragen -- bitte spaeter erneut versuchen.")
+        }
+    }
+
+    /**
+     * `SELECT ... FOR UPDATE` on [MemberTable] -- same [network.lapis.cloud.server.economy
+     * .LtrBalanceProvider.lockForDebit] idiom, reused here as the per-member mutex
+     * [PublicRankingConsentStore]'s own KDoc ("Concurrency") requires its caller to hold BEFORE
+     * calling [PublicRankingConsentStore.grant]/[PublicRankingConsentStore.revoke].
+     */
+    private fun lockMemberRow(memberId: Uuid) {
+        MemberTable
+            .selectAll()
+            .where { MemberTable.id eq memberId }
+            .forUpdate()
+            .singleOrNull()
+            ?: error("Member $memberId not found while locking for a public-ranking-consent write")
     }
 
     private fun requireSelfOrAdmin(

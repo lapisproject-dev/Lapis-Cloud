@@ -35,16 +35,16 @@ class DomainModelMergerTest :
         // ── Test 1: merging the real 22 domain scripts ───────────────────────────────────
 
         test(
-            "merging the real 35 domain scripts succeeds and the uml-to-erm -> erm-to-exposed chain " +
+            "merging the real 36 domain scripts succeeds and the uml-to-erm -> erm-to-exposed chain " +
                 "produces exactly one Table file per distinct table name",
         ) {
             val scriptFiles =
                 requireNotNull(KumlModelLoader.kumlSourceDir.listFiles { f -> f.name.endsWith(".kuml.kts") }) {
                     "kUML source dir not found or not a directory: ${KumlModelLoader.kumlSourceDir.absolutePath}"
                 }.sortedBy { it.name }
-            // Zahlungsverkehr, Welle V1.2.7 "Automatisiertes Mahnwesen" -- was 34, now 35 with the
-            // addition of 34-dunning.kuml.kts.
-            scriptFiles shouldHaveSize 35
+            // V1.3.0 "Öffentliche Transparenz-Startseite" -- was 35, now 36 with the addition of
+            // 35-public-ranking-consent.kuml.kts.
+            scriptFiles shouldHaveSize 36
 
             val diagrams = scriptFiles.map { KumlModelLoader.loadUmlDiagram(it) }
 
@@ -269,7 +269,13 @@ class DomainModelMergerTest :
             // contribution/document/postal_delivery_log) -- so it contributes +7 «Entity»
             // declarations (4 stubs + 3 real tables) and 4 drops (all four stubs dedup into the
             // already-existing entities) versus the V1.2.2 baseline above (112 -> 115).
-            val distinctTableNames = 115
+            // 35-public-ranking-consent.kuml.kts (V1.3.0 "Öffentliche Transparenz-Startseite") adds
+            // exactly one more real table (public_ranking_consent_event), WITH its own cross-domain
+            // Member stub (public_ranking_consent_event.member_id resolves through it) -- so it
+            // contributes +2 «Entity» declarations (the stub + the one real table) and +1 drop (the
+            // stub dedups into the already-existing member entity) versus the V1.2.7 baseline above
+            // (115 -> 116).
+            val distinctTableNames = 116
 
             val result =
                 UmlToExposedViaErmScriptTransformer().transform(
@@ -427,6 +433,10 @@ class DomainModelMergerTest :
                     "DunningLevelTable.kt",
                     "DunningNoticeTable.kt",
                     "DunningComplianceAcknowledgmentTable.kt",
+                    // V1.3.0 "Öffentliche Transparenz-Startseite" -- one new real table
+                    // (public_ranking_consent_event); its own cross-domain Member stub dedups into
+                    // the already-real member entity, no new Table file for it.
+                    "PublicRankingConsentEventTable.kt",
                 )
         }
 

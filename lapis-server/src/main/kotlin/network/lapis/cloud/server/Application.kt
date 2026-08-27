@@ -83,6 +83,7 @@ import network.lapis.cloud.server.routes.registerDunningRoutes
 import network.lapis.cloud.server.routes.registerFederationRoutes
 import network.lapis.cloud.server.routes.registerMailmergeRoutes
 import network.lapis.cloud.server.routes.registerOidcRoutes
+import network.lapis.cloud.server.routes.registerPublicTransparencyRoutes
 import network.lapis.cloud.server.routes.registerSepaRoutes
 import network.lapis.cloud.server.routes.registerSocialPublicRoutes
 import network.lapis.cloud.server.routes.registerTrustAnchorRoutes
@@ -625,6 +626,26 @@ fun Application.module() {
     // socialPublicSitemapRateLimiter's Verhältnis zu socialPublicReadRateLimiter.
     val socialPublicReportRateLimiter = FederationInboxRateLimiter(maxRequests = 3, window = 60.minutes, maxTrackedKeys = 50_000)
 
+    // V1.3.0 "Öffentliche Transparenz-Startseite" -- GET /transparenz. Same IP-keyed,
+    // account-less-caller reasoning as socialPublicReadRateLimiter above (30/min, maxTrackedKeys
+    // bounded the same way), a SEPARATE limiter/bucket rather than reusing that one so a burst
+    // against one public route family never eats into the other's budget.
+    val publicTransparencyRateLimiter = FederationInboxRateLimiter(maxRequests = 30, window = 1.minutes, maxTrackedKeys = 50_000)
+
+    // V1.3.0 -- IDsgvoService.grantPublicRankingConsent, an AUTHENTICATED, member-keyed write path
+    // (see DsgvoService's own requireWithinRate-style guard) -- 10/min, same budget
+    // sepaMandateWriteRateLimiter/dunningIssueRateLimiter already use for a comparable
+    // low-frequency member self-service write.
+    val publicRankingConsentWriteRateLimiter = FederationInboxRateLimiter(maxRequests = 10, window = 1.minutes)
+
+    // Security-Fix (Review): .revokePublicRankingConsent gets its OWN, separate, more generous
+    // limiter/bucket -- never publicRankingConsentWriteRateLimiter itself. Art. 7(3) DSGVO requires
+    // withdrawing consent to be no harder than giving it; sharing one budget meant a member who
+    // exhausted the GRANT budget (e.g. toggling the /dsgvo-rights switch) could have their very
+    // next REVOKE rejected, leaving their name publicly visible for up to the window length. See
+    // DsgvoService.consentRevokeRateLimiter KDoc.
+    val publicRankingConsentRevokeRateLimiter = FederationInboxRateLimiter(maxRequests = 30, window = 1.minutes)
+
     // Fix (2026-08-14): must be installed BEFORE anything that reads call.request.origin (every
     // plugin/route below, plus every IP-keyed rate limiter in AuthRoutes/RegistrationService/
     // FederationRoutes/OidcRoutes) -- XForwardedHeaders overrides ApplicationRequest.origin from
@@ -699,7 +720,15 @@ fun Application.module() {
         registerService(IDocumentService::class) { call -> DocumentService(call) }
         registerService(IMailingService::class) { call -> MailingService(call) }
         registerService(IDirectMessageService::class) { call -> DirectMessageService(call) }
-        registerService(IDsgvoService::class) { call -> DsgvoService(call) }
+        registerService(
+            IDsgvoService::class,
+        ) { call ->
+            DsgvoService(
+                call = call,
+                consentRateLimiter = publicRankingConsentWriteRateLimiter,
+                consentRevokeRateLimiter = publicRankingConsentRevokeRateLimiter,
+            )
+        }
         registerService(IGovernanceService::class) { call -> GovernanceService(call = call) }
         registerService(IElectionService::class) { call -> ElectionService(call = call, streamGuard = secretBallotStreamGuard) }
         registerService(
@@ -872,6 +901,12 @@ fun Application.module() {
             readRateLimiter = socialPublicReadRateLimiter,
             sitemapRateLimiter = socialPublicSitemapRateLimiter,
             reportRateLimiter = socialPublicReportRateLimiter,
+            brandTitle = resolvedBranding.title,
+        )
+        // V1.3.0 "Öffentliche Transparenz-Startseite" -- literal route (/transparenz), same
+        // "registered before staticFiles" reasoning as registerSocialPublicRoutes' own routes.
+        registerPublicTransparencyRoutes(
+            readRateLimiter = publicTransparencyRateLimiter,
             brandTitle = resolvedBranding.title,
         )
         getAllServiceManagers().forEach { applyRoutes(it) }

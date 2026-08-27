@@ -260,18 +260,25 @@ class SocialPublicHtmlTest :
         }
 
         test(
-            "T6: source scan -- SocialPublicHtml.kt, SocialPublicRoutes.kt, and SocialPublicSitemap.kt " +
+            "T6: source scan -- SocialPublicHtml.kt, SocialPublicRoutes.kt, SocialPublicSitemap.kt, " +
+                "PublicTransparencyHtml.kt, PublicTransparencyRoutes.kt, and PublicTransparencyReader.kt " +
                 "contain no case-insensitive variant of the raw-HTML-escape-bypass token",
         ) {
             // G8-Fix (Review-Runde 1): the scan used to be case-SENSITIVE (would have missed
             // `Unsafe`/`UNSAFE`) and did not scan SocialPublicSitemap.kt at all, even though it is
             // one of the three files this welle's routing KDoc names as part of the public read path.
+            // V1.3.0: extended to the three new files backing GET /transparenz -- the second public,
+            // account-less HTML route family in this codebase, see PublicTransparencyHtml class KDoc
+            // point 1.
             val mainSourceDir = File("src/main/kotlin").let { if (it.exists()) it else File("lapis-server/src/main/kotlin") }
             val scannedFiles =
                 listOf(
                     File(mainSourceDir, "network/lapis/cloud/server/routes/SocialPublicHtml.kt"),
                     File(mainSourceDir, "network/lapis/cloud/server/routes/SocialPublicRoutes.kt"),
                     File(mainSourceDir, "network/lapis/cloud/server/routes/SocialPublicSitemap.kt"),
+                    File(mainSourceDir, "network/lapis/cloud/server/routes/PublicTransparencyHtml.kt"),
+                    File(mainSourceDir, "network/lapis/cloud/server/routes/PublicTransparencyRoutes.kt"),
+                    File(mainSourceDir, "network/lapis/cloud/server/routes/PublicTransparencyReader.kt"),
                 )
             scannedFiles.forEach { file ->
                 file.exists() shouldBe true

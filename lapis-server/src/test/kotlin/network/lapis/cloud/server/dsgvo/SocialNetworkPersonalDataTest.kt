@@ -150,7 +150,7 @@ class SocialNetworkPersonalDataTest :
                             call.respondText(p.id)
                         }
                         get("/test/export-manifest/{memberId}") {
-                            val service = DsgvoService(call)
+                            val service = DsgvoService(call = call)
                             val manifest = service.exportManifest(call.parameters["memberId"]!!)
                             call.respondText(manifest.sectionCounts.entries.joinToString(",") { "${it.key}=${it.value}" })
                         }
@@ -202,7 +202,7 @@ class SocialNetworkPersonalDataTest :
                             call.respondText(p.id)
                         }
                         post("/test/request-erasure/{subjectId}") {
-                            val service = DsgvoService(call)
+                            val service = DsgvoService(call = call)
                             val request =
                                 service.requestErasure(
                                     subjectMemberId = call.parameters["subjectId"]!!,
@@ -212,7 +212,7 @@ class SocialNetworkPersonalDataTest :
                             call.respondText(request.id)
                         }
                         post("/test/decide/{requestId}/{approve}") {
-                            val service = DsgvoService(call)
+                            val service = DsgvoService(call = call)
                             val request =
                                 service.decideErasure(
                                     requestId = call.parameters["requestId"]!!,
@@ -221,7 +221,7 @@ class SocialNetworkPersonalDataTest :
                             call.respondText(request.status.name)
                         }
                         post("/test/execute/{requestId}") {
-                            val service = DsgvoService(call)
+                            val service = DsgvoService(call = call)
                             val request = service.executeErasure(call.parameters["requestId"]!!)
                             call.respondText(request.status.name)
                         }
@@ -288,7 +288,7 @@ class SocialNetworkPersonalDataTest :
                             call.respondText(p.id)
                         }
                         post("/test/request-erasure/{subjectId}") {
-                            val service = DsgvoService(call)
+                            val service = DsgvoService(call = call)
                             val request =
                                 service.requestErasure(
                                     subjectMemberId = call.parameters["subjectId"]!!,
@@ -298,7 +298,7 @@ class SocialNetworkPersonalDataTest :
                             call.respondText(request.id)
                         }
                         post("/test/decide/{requestId}/{approve}") {
-                            val service = DsgvoService(call)
+                            val service = DsgvoService(call = call)
                             val request =
                                 service.decideErasure(
                                     requestId = call.parameters["requestId"]!!,
@@ -307,7 +307,7 @@ class SocialNetworkPersonalDataTest :
                             call.respondText(request.status.name)
                         }
                         post("/test/execute/{requestId}") {
-                            val service = DsgvoService(call)
+                            val service = DsgvoService(call = call)
                             val request = service.executeErasure(call.parameters["requestId"]!!)
                             // Review-Fund 7 (Runde 1, 2026-08-19): the test name below claims to
                             // assert `rowsAnonymized` in the RETURNED `TableErasureOutcome`, so the

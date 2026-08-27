@@ -46,6 +46,7 @@ object PersonalDataRegistry {
             SocialNetworkPersonalData,
             PaymentsPersonalData,
             DunningPersonalData,
+            PublicRankingConsentPersonalData,
         )
 
     /**
