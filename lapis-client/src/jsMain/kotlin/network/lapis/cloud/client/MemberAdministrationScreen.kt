@@ -409,10 +409,18 @@ private fun openMemberEditorDialog(
                 value = targets.firstOrNull()?.name,
                 label = tr("Neuer Status"),
             )
-        val consequenceBox = modal.div { addCssClass("alert alert-secondary") }
+        // Bug fix (live user report after V1.2.12 deploy): addCssClass() only ever adds a single
+        // literal token (classList.add() throws InvalidCharacterError on a space-containing
+        // string) -- addCssClass("alert alert-secondary") crashed uncaught inside this onClick
+        // handler (outside initRouting's render-time try/catch, see that KDoc for the identical
+        // bug shape hit before in DashboardScreen), aborting openMemberEditorDialog() before
+        // modal.show() ever ran. Every click on "Bearbeiten" for a row whose status has any
+        // allowed transition silently did nothing. Use addCssClasses() (see CssClasses.kt) for
+        // any multi-class string.
+        val consequenceBox = modal.div { addCssClasses("alert alert-secondary") }
         val warningBox =
             modal.div {
-                addCssClass("alert alert-warning")
+                addCssClasses("alert alert-warning")
                 hide()
             }
         val reasonInput = modal.textArea(rows = 2, label = tr("Begründung (3-1000 Zeichen)"))
