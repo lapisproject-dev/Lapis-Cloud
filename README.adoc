@@ -11,7 +11,13 @@ image::docs/images/lc-banner.png[Lapis Cloud — federated membership management
 Full association and party administration as the foundation, meritocratic governance as the differentiator.
 
 image:https://github.com/lapisproject-dev/Lapis-Cloud/actions/workflows/ci.yml/badge.svg?branch=master[CI,link=https://github.com/lapisproject-dev/Lapis-Cloud/actions/workflows/ci.yml]
-image:https://img.shields.io/github/license/lapisproject-dev/Lapis-Cloud[Apache 2.0]
+image:https://img.shields.io/github/v/tag/lapisproject-dev/Lapis-Cloud?sort=semver&label=version[Version,link=https://github.com/lapisproject-dev/Lapis-Cloud/releases]
+image:https://img.shields.io/badge/Kotlin-2.4.10-7F52FF.svg?logo=kotlin&logoColor=white[Kotlin,link=https://kotlinlang.org]
+image:https://img.shields.io/github/license/lapisproject-dev/Lapis-Cloud[License,link=https://github.com/lapisproject-dev/Lapis-Cloud/blob/master/LICENSE]
+image:https://img.shields.io/github/issues/lapisproject-dev/Lapis-Cloud[Issues,link=https://github.com/lapisproject-dev/Lapis-Cloud/issues]
+image:https://img.shields.io/github/issues-pr/lapisproject-dev/Lapis-Cloud[Pull Requests,link=https://github.com/lapisproject-dev/Lapis-Cloud/pulls]
+image:https://img.shields.io/github/stars/lapisproject-dev/Lapis-Cloud[Stars,link=https://github.com/lapisproject-dev/Lapis-Cloud/stargazers]
+image:https://img.shields.io/github/sponsors/betschwa[Sponsors,link=https://github.com/sponsors/betschwa]
 
 == About Lapis Cloud
 
