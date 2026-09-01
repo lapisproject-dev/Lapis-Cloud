@@ -8,6 +8,31 @@ All notable changes to this project are documented here. Format follows
 
 ### Added
 
+**Client-UI für das Mahnwesen (GitHub #5)**
+
+- Zwei neue Screens: `Mahnwesen` (`/dunning`, TREASURER/BOARD/ADMIN) listet offene Mahnvorgänge mit
+  Filter (nur offene Vorgänge, Fälligkeitsdatum, Anzahl) und öffnet je Vorgang eine Detailansicht mit
+  voller Mahnungs-Historie und Aktionsleiste (Mahnung ausstellen/vorzeitig ausstellen, Brief-Vorschau
+  als PDF, Stufe überspringen, Mahnwesen zurücksetzen, einzelne Mahnung stornieren). `Mahnwesen-
+  Konfiguration` (`/dunning-settings`, ADMIN-only) verwaltet Aktivierung/Deaktivierung (mit
+  Rechtshinweis-Bestätigung) und die konfigurierbaren Mahnstufen (Wartefrist/Antwortfrist/Gebühr).
+- `beforeDueDate` ist bewusst ein reiner Datumsfilter, kein Paginierungs-Cursor — `listDunningCases`
+  sortiert `ORDER BY dueDate ASC`, das lässt sich mit einem `less`-Filter nicht vorwärts blättern. Kein
+  „Mehr laden"; bei Erreichen der gewählten Anzahl erscheint stattdessen ein Hinweis, die Anzahl zu
+  erhöhen oder das Datum einzugrenzen.
+- „Vorzeitig ausstellen" ist bewusst nie deaktiviert (nur mit Bestätigungsdialog versehen) — die
+  manuelle Ausstellung läuft serverseitig immer mit `respectSchedule = false`, ein „noch nicht fällig"
+  ist auf diesem Pfad strukturell unerreichbar.
+- Die Stornierungs-Dialoge benennen jetzt explizit, dass der Automat nach dem Stornieren/Zurücksetzen
+  eine neue Mahnung ab Stufe 1 ausstellt — bei aktiviertem Postversand als echter, kostenpflichtiger
+  Brief (löst den in `DunningService.cancelDunningNotice`s KDoc offen benannten TODO(UI) auf).
+- Vier getrennte, nie zusammengeführte Rollen-Mengen (`DunningAuthzUi`): Lesen (TREASURER/BOARD/
+  ADMIN), Schatzmeister-Aktionen (TREASURER/ADMIN), Administration (ADMIN-only, keine
+  TREASURER-lesbare Konfiguration, anders als bei SEPA) und Datei-Zugriff (TREASURER/ADMIN, niemals
+  BOARD — eine Mahnung trägt die volle Postanschrift und den Schuldbetrag eines Mitglieds).
+- Kein Backend-/Datenmodell-Eingriff — reine Client-Welle auf dem bereits ausgerollten
+  `IDunningService`/`DunningRoutes` (V1.2.7 "Automatisiertes Mahnwesen").
+
 **Videokonferenz: Geräteauswahl während eines aktiven Calls (GitHub #2)**
 
 - Mikrofon/Kamera/Lautsprecher können jetzt WÄHREND eines laufenden Calls gewechselt werden, über

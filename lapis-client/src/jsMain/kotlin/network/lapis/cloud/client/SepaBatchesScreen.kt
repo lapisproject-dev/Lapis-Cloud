@@ -246,7 +246,10 @@ private fun selectBatch(
     }
 }
 
-private fun todayLocalDate(): LocalDate =
+/** `internal`, not `private` (Client-UI wave for GitHub Issue #5): shared with
+ * `DunningCasesScreen.kt`'s own "today" comparisons (`DunningAuthzUi.nextCaseAction`), so a second
+ * copy of this exact computation does not need to exist in this client. */
+internal fun todayLocalDate(): LocalDate =
     Clock.System
         .now()
         .toLocalDateTime(TimeZone.currentSystemDefault())

@@ -366,6 +366,9 @@ private fun refreshNavbar(navbar: Navbar) {
             // TREASURER/BOARD/ADMIN role-gate verification.
             routedDdLink(Routes.SEPA_MANDATES, tr("SEPA-Mandate"), icon = "fas fa-file-contract")
             routedDdLink(Routes.SEPA_BATCHES, tr("SEPA-Lastschrift"), icon = "fas fa-money-check-dollar")
+            // Client-UI wave for GitHub Issue #5 -- see Routes.DUNNING_CASES KDoc for the
+            // TREASURER/BOARD/ADMIN role-gate verification.
+            routedDdLink(Routes.DUNNING_CASES, tr("Mahnwesen"), icon = "fas fa-file-invoice-dollar")
         }
     }
     // BOARD/ADMIN-tier -- see `Routes.MEMBERS`/`DSGVO_COMPLIANCE`/`BOARD_MEMBERSHIP` KDoc.
@@ -394,6 +397,9 @@ private fun refreshNavbar(navbar: Navbar) {
             // V1.2.2 SEPA-Client-UI wave -- see Routes.SEPA_SETTINGS KDoc for the ADMIN-only
             // role-gate verification.
             routedDdLink(Routes.SEPA_SETTINGS, tr("SEPA-Konfiguration"), icon = "fas fa-building-columns")
+            // Client-UI wave for GitHub Issue #5 -- see Routes.DUNNING_SETTINGS KDoc for the
+            // ADMIN-only role-gate verification.
+            routedDdLink(Routes.DUNNING_SETTINGS, tr("Mahnwesen-Konfiguration"), icon = "fas fa-scale-unbalanced")
         }
     }
 

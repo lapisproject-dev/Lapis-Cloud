@@ -286,6 +286,23 @@ object Routes {
     // [BACKUP]/[CONFERENCE_STREAM_DESTINATIONS], the only other ADMIN-only routes in this client.
     const val SEPA_SETTINGS = "/sepa-settings"
 
+    // Client-UI wave for GitHub Issue #5 -- TREASURER/BOARD/ADMIN route-level guard, verified
+    // against `DunningService.DUNNING_READ_ROLES` (`DunningService.kt:71`), which gates
+    // `listDunningCases`/`getDunningCase`. The narrower TREASURER/ADMIN write tier
+    // (`DunningService.DUNNING_TREASURY_ROLES`, `issueDunningNotice`/`skipDunningLevel`/
+    // `resetDunning`/`cancelDunningNotice`) is gated IN-SCREEN via `DunningAuthzUi.canTreasuryAct`,
+    // not a second route -- same posture as [SEPA_MANDATES]/[SEPA_BATCHES].
+    const val DUNNING_CASES = "/dunning"
+
+    // Client-UI wave for GitHub Issue #5 -- ADMIN-only, verified against `DunningService.kt`:
+    // `getDunningComplianceDisclaimer`/`enableDunning`/`disableDunning`/`getDunningSettings`/
+    // `listDunningLevels`/`createDunningLevel`/`updateDunningLevel`/`deactivateDunningLevel` all
+    // call `current.requireRole(AccountRole.ADMIN)`, uniformly -- unlike [SEPA_SETTINGS], there is
+    // no TREASURER-readable settings tier here at all (plan finding B2): a TREASURER hitting
+    // `getDunningSettings()` gets a bare 403, so this route must stay ADMIN-only rather than
+    // reusing the [DUNNING_CASES] guard.
+    const val DUNNING_SETTINGS = "/dunning-settings"
+
     // V1.2.3 Echter SMTP-Versand, Option B "Client-Deep-Links" -- the password-reset/FRIEND-email-
     // verification mails MailTemplates.kt builds now link here (`#/password-reset?token=...`,
     // `#/verify-email?token=...`), NOT a raw query on the actual page URL: the "?" lives inside the
@@ -507,6 +524,16 @@ fun initRouting(pageContainer: SimplePanel) {
     routing.kvOn(Routes.SEPA_SETTINGS) {
         requireRole(routing, AccountRole.ADMIN) {
             show(Routes.SEPA_SETTINGS, ::renderSepaSettingsScreen)
+        }
+    }
+    routing.kvOn(Routes.DUNNING_CASES) {
+        requireRole(routing, AccountRole.TREASURER, AccountRole.BOARD, AccountRole.ADMIN) {
+            show(Routes.DUNNING_CASES, ::renderDunningCasesScreen)
+        }
+    }
+    routing.kvOn(Routes.DUNNING_SETTINGS) {
+        requireRole(routing, AccountRole.ADMIN) {
+            show(Routes.DUNNING_SETTINGS, ::renderDunningSettingsScreen)
         }
     }
     // V1.2.3 Echter SMTP-Versand, Option B -- deliberately UNGUARDED, see Routes.PASSWORD_RESET/
