@@ -96,6 +96,20 @@ object Validation {
     fun roundToTwoDecimalPlaces(value: Double): Double = kotlin.math.round(value * 100.0) / 100.0
 
     /**
+     * Welle V1.2.9 fix (code review round 2, test-coverage finding): [DonationCheckoutScreen]'s
+     * donation-amount cap check used to be an inline `when`-branch expression -- untestable without
+     * a full DOM/KVision component instantiation, unlike every other predicate in this object.
+     * Extracted as a pure function so the "compare the ALREADY-ROUNDED amount, not the raw typed
+     * text" fix (same review round) has a pinning test. `null` `maxCheckoutAmountEur` means the
+     * gate reported no ceiling at all (see `PaymentGatewayAvailabilityDto.maxCheckoutAmountEur`'s
+     * own KDoc) -- never exceeded in that case.
+     */
+    fun exceedsMaxCheckoutAmountEur(
+        roundedAmount: Double,
+        maxCheckoutAmountEur: Double?,
+    ): Boolean = maxCheckoutAmountEur != null && roundedAmount > maxCheckoutAmountEur
+
+    /**
      * V1.0 Videokonferenzen, Wave 5 "Föderations-Gastbeitritt" -- design review D6: a malformed
      * room-id entered in the guest lobby's own field currently produces only the generic
      * "Ungültige Anfrage."/"Nicht gefunden." toast (the exact N1 confusion this whole wave exists

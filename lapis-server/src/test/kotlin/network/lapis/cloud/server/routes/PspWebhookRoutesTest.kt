@@ -297,11 +297,17 @@ class PspWebhookRoutesTest :
             sessionId: String,
             amountTotalMinorUnits: Long,
             currency: String = "eur",
-        ): ByteArray =
-            """
-            {"id":"$eventId","type":"checkout.session.completed","data":{"object":{"id":"$sessionId",
-            "payment_intent":"pi_${eventId}_intent","amount_total":$amountTotalMinorUnits,"currency":"$currency"}}}
-            """.trimIndent().toByteArray(Charsets.UTF_8)
+            // Security audit finding (Welle V1.2.8, MINOR/hardening) test coverage -- defaults to
+            // omitting payment_status entirely, exactly like every pre-existing test body, so the
+            // decode-as-null path stays covered too (see StripeCheckoutSessionObject KDoc).
+            paymentStatus: String? = null,
+        ): ByteArray {
+            val paymentStatusField = paymentStatus?.let { ""","payment_status":"$it"""" } ?: ""
+            return """
+                {"id":"$eventId","type":"checkout.session.completed","data":{"object":{"id":"$sessionId",
+                "payment_intent":"pi_${eventId}_intent","amount_total":$amountTotalMinorUnits,"currency":"$currency"$paymentStatusField}}}
+                """.trimIndent().toByteArray(Charsets.UTF_8)
+        }
 
         fun testConfig(): PspConfigState.Configured =
             PspConfigState.Configured(
@@ -475,6 +481,92 @@ class PspWebhookRoutesTest :
                             .map { it[PspWebhookEventTable.outcome] }
                     }
                 outcomes.count { it == network.lapis.cloud.server.payment.psp.PspWebhookOutcome.DUPLICATE.name } shouldBe 1
+            }
+        }
+
+        test(
+            "second webhook with a DIFFERENT event.id for an ALREADY-COMPLETED session -> 200, still exactly " +
+                "one payment_transaction/journal entry, second delivery outcome DUPLICATE",
+        ) {
+            // Welle V1.2.9 -- closes the gap the review flagged: the existing "duplicate redelivery"
+            // test above only ever replays the IDENTICAL signed body (same event.id), which exercises
+            // the unique-index guard on (provider, provider_event_id) inside PspWebhookIngestion's
+            // step 2. This test instead sends a genuinely DIFFERENT event.id against a session that
+            // is already PaymentCheckoutSessionStatus.COMPLETED -- that is PspWebhookIngestion's
+            // EARLIER step-1 guard (a plain status-column read, not a DB unique-constraint
+            // violation), so unlike the H2-vs-Postgres-sensitive unique-index path, this assertion
+            // needs no Postgres-only exception-mapping behaviour to be meaningful on H2.
+            testApplication {
+                application { routing { registerPspWebhookRoutes(pspConfig = testConfig(), rateLimiter = FederationInboxRateLimiter()) } }
+
+                val member = createMember("psp-webhook-dup-event-${Uuid.random()}@example.org")
+                val tier = createTier()
+                val contributionId = createOpenContribution(memberId = member, tierId = tier, amountDue = BigDecimal("30.00"))
+                val bankAccountId = createLedgerAccount(number = "W5${Uuid.random().toString().take(6)}", type = LedgerAccountType.ASSET)
+                val incomeAccountId = createLedgerAccount(number = "W6${Uuid.random().toString().take(6)}", type = LedgerAccountType.INCOME)
+                enableGateway(bankAccountId = bankAccountId, incomeAccountId = incomeAccountId)
+                val sessionId = "cs_dup_event_${Uuid.random()}"
+                createCheckoutSession(
+                    memberId = member,
+                    contributionId = contributionId,
+                    amount = BigDecimal("30.00"),
+                    providerSessionId = sessionId,
+                )
+
+                val firstEventId = "evt_dup_event_first_${Uuid.random()}"
+                val firstBody = checkoutCompletedBody(eventId = firstEventId, sessionId = sessionId, amountTotalMinorUnits = 3000)
+                val first =
+                    client.post("/api/webhooks/stripe") {
+                        header("Stripe-Signature", signedHeader(body = firstBody))
+                        contentType(ContentType.Application.Json)
+                        setBody(firstBody)
+                    }
+                first.status shouldBe HttpStatusCode.OK
+
+                // A DIFFERENT event.id, same Stripe session -- Stripe itself can and does deliver
+                // more than one distinct event for one checkout (e.g. a dashboard-triggered resend
+                // mints a fresh event.id). The session is now COMPLETED, so this must hit step 1's
+                // guard, never re-process the payment a second time.
+                val secondEventId = "evt_dup_event_second_${Uuid.random()}"
+                val secondBody = checkoutCompletedBody(eventId = secondEventId, sessionId = sessionId, amountTotalMinorUnits = 3000)
+                val second =
+                    client.post("/api/webhooks/stripe") {
+                        header("Stripe-Signature", signedHeader(body = secondBody))
+                        contentType(ContentType.Application.Json)
+                        setBody(secondBody)
+                    }
+                second.status shouldBe HttpStatusCode.OK
+
+                val paymentTransactionCount =
+                    transaction {
+                        PaymentTransactionTable
+                            .selectAll()
+                            .where { PaymentTransactionTable.contributionId eq contributionId }
+                            .count()
+                    }
+                paymentTransactionCount shouldBe 1L
+                val journalEntryId =
+                    transaction {
+                        PaymentTransactionTable
+                            .selectAll()
+                            .where { PaymentTransactionTable.contributionId eq contributionId }
+                            .single()[PaymentTransactionTable.journalEntryId]
+                    }
+                journalEntryId.shouldNotBeNull()
+                val journalEntryCount =
+                    transaction { JournalEntryTable.selectAll().where { JournalEntryTable.id eq journalEntryId }.count() }
+                journalEntryCount shouldBe 1L
+
+                // Scoped by the SECOND event's own providerEventId -- see the identical-body
+                // duplicate test above for why an unscoped selectAll() here would flake.
+                val secondOutcome =
+                    transaction {
+                        PspWebhookEventTable
+                            .selectAll()
+                            .where { PspWebhookEventTable.providerEventId eq secondEventId }
+                            .single()[PspWebhookEventTable.outcome]
+                    }
+                secondOutcome shouldBe network.lapis.cloud.server.payment.psp.PspWebhookOutcome.DUPLICATE.name
             }
         }
 
@@ -723,6 +815,61 @@ class PspWebhookRoutesTest :
                         ContributionTable.selectAll().where { ContributionTable.id eq contributionId }.single()[ContributionTable.status]
                     }
                 contributionStatus shouldBe ContributionStatus.OPEN
+            }
+        }
+
+        // Security audit finding (Welle V1.2.8, MINOR/hardening) test coverage: a payment_status
+        // other than "paid" (delayed/async payment method) must NOT be booked as CAPTURED/PAID even
+        // though amount+currency match -- see PspWebhookIngestion Step 3's payment_status check.
+        test("payment_status='unpaid': amount/currency match but session not actually paid -> 200, journal_entry_id IS NULL, UNPOSTED") {
+            testApplication {
+                application { routing { registerPspWebhookRoutes(pspConfig = testConfig(), rateLimiter = FederationInboxRateLimiter()) } }
+
+                val member = createMember("psp-webhook-unpaid-${Uuid.random()}@example.org")
+                val tier = createTier()
+                val contributionId = createOpenContribution(memberId = member, tierId = tier, amountDue = BigDecimal("50.00"))
+                val bankAccountId =
+                    createLedgerAccount(number = "WF${Uuid.random().toString().take(6)}", type = LedgerAccountType.ASSET)
+                val incomeAccountId =
+                    createLedgerAccount(number = "WG${Uuid.random().toString().take(6)}", type = LedgerAccountType.INCOME)
+                enableGateway(bankAccountId = bankAccountId, incomeAccountId = incomeAccountId)
+                val sessionId = "cs_unpaid_${Uuid.random()}"
+                createCheckoutSession(
+                    memberId = member,
+                    contributionId = contributionId,
+                    amount = BigDecimal("50.00"),
+                    providerSessionId = sessionId,
+                )
+
+                val eventId = "evt_unpaid_${Uuid.random()}"
+                val body =
+                    checkoutCompletedBody(
+                        eventId = eventId,
+                        sessionId = sessionId,
+                        amountTotalMinorUnits = 5000,
+                        paymentStatus = "unpaid",
+                    )
+                val response =
+                    client.post("/api/webhooks/stripe") {
+                        header("Stripe-Signature", signedHeader(body = body))
+                        contentType(ContentType.Application.Json)
+                        setBody(body)
+                    }
+                response.status shouldBe HttpStatusCode.OK
+
+                val transactionRow =
+                    transaction {
+                        PaymentTransactionTable.selectAll().where { PaymentTransactionTable.contributionId eq contributionId }.single()
+                    }
+                transactionRow[PaymentTransactionTable.journalEntryId] shouldBe null
+                val contributionStatus =
+                    transaction {
+                        ContributionTable.selectAll().where { ContributionTable.id eq contributionId }.single()[ContributionTable.status]
+                    }
+                contributionStatus shouldBe ContributionStatus.OPEN
+                val loggedRow =
+                    transaction { PspWebhookEventTable.selectAll().where { PspWebhookEventTable.providerEventId eq eventId }.single() }
+                loggedRow[PspWebhookEventTable.outcome] shouldBe network.lapis.cloud.server.payment.psp.PspWebhookOutcome.UNPOSTED.name
             }
         }
 

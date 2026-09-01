@@ -1,6 +1,8 @@
 package network.lapis.cloud.client
 
+import dev.kilua.rpc.types.Decimal
 import dev.kilua.rpc.types.toDecimal
+import dev.kilua.rpc.types.toDouble
 import io.kvision.form.select.select
 import io.kvision.form.text.text
 import io.kvision.html.ButtonStyle
@@ -8,6 +10,7 @@ import io.kvision.html.button
 import io.kvision.html.div
 import io.kvision.html.h1
 import io.kvision.html.p
+import io.kvision.i18n.gettext
 import io.kvision.i18n.tr
 import io.kvision.panel.SimplePanel
 import io.kvision.panel.vPanel
@@ -20,11 +23,11 @@ import network.lapis.cloud.shared.rpc.IPaymentGatewayService
 
 /**
  * Welle V1.2.8 "PSP-Checkout (Stripe)" (GitHub Issue #6) -- `/donate`, any authenticated member.
- * Amount field (validated client-side: > 0, ≤ 2 decimals, ≤ the configured maximum reported by
- * `getPaymentGatewayAvailability`'s sibling gate -- the actual ceiling itself is only known
- * server-side, so this screen validates shape only and lets a too-large amount surface as the
- * server's own `BadRequestException`, same "cheap client-side check, server is the real authority"
- * posture every other form in this client follows), optional purpose, and -- when
+ * Amount field (validated client-side: > 0, ≤ 2 decimals (rounded before the cap check, see the
+ * submit handler), ≤ the configured maximum reported by `getPaymentGatewayAvailability`'s
+ * `maxCheckoutAmountEur` -- same "cheap client-side check, server is the real authority" posture
+ * every other form in this client follows: the server independently re-validates all three bounds
+ * and remains the actual authority), optional purpose, and -- when
  * `PaymentGatewayAvailabilityDto.donorCategoryRequired` -- a mandatory [DonorCategory] select with
  * the §25 PartG explanation.
  */
@@ -41,20 +44,44 @@ fun renderDonationCheckoutScreen(container: SimplePanel) {
     val formHost = root.vPanel(spacing = 8)
 
     AppScope.launch {
-        val availability = pspProbe { rpcService<IPaymentGatewayService>().getPaymentGatewayAvailability() }
-        if (availability == null || !availability.donationCheckoutAvailable) {
-            statusHost.p(tr("Online-Spenden sind für diese Organisation aktuell nicht möglich."))
-            return@launch
+        // Welle V1.2.9 fix: a probe that genuinely failed (dropped connection, expired session)
+        // must not be reported to the donor as "the organization disabled this" -- see
+        // PspProbeResult's own KDoc.
+        when (val result = pspProbe { rpcService<IPaymentGatewayService>().getPaymentGatewayAvailability() }) {
+            is PspProbeResult.TransportError -> {
+                statusHost.p(tr("Status konnte nicht geladen werden. Bitte laden Sie die Seite neu."))
+                return@launch
+            }
+            is PspProbeResult.Ok -> {
+                val availability = result.value
+                if (!availability.donationCheckoutAvailable) {
+                    statusHost.p(tr("Online-Spenden sind für diese Organisation aktuell nicht möglich."))
+                    return@launch
+                }
+                renderDonationForm(
+                    formHost,
+                    donorCategoryRequired = availability.donorCategoryRequired,
+                    maxCheckoutAmountEur = availability.maxCheckoutAmountEur,
+                )
+            }
         }
-        renderDonationForm(formHost, donorCategoryRequired = availability.donorCategoryRequired)
     }
 }
 
 private fun renderDonationForm(
     formHost: SimplePanel,
     donorCategoryRequired: Boolean,
+    maxCheckoutAmountEur: Decimal?,
 ) {
     val amountInput = formHost.text(label = tr("Betrag (EUR)"))
+    // Welle V1.2.9: shows the real, server-configured ceiling BEFORE the donor types an amount --
+    // see PaymentGatewayAvailabilityDto.maxCheckoutAmountEur's own KDoc for why this is a UX
+    // convenience only, never the enforcement point.
+    if (maxCheckoutAmountEur != null) {
+        formHost.p(gettext("Höchstbetrag pro Online-Spende: %1", formatMoney(maxCheckoutAmountEur))) {
+            addCssClasses("text-muted small")
+        }
+    }
     val purposeInput =
         formHost.text(label = tr("Verwendungszweck (optional)")) {
             // Mirrors the server-side MAX_DONATION_PURPOSE_LENGTH check in
@@ -99,9 +126,28 @@ private fun renderDonationForm(
         val amountText = amountInput.value.orEmpty().trim()
         val donorCategory = donorCategorySelect?.value?.let { runCatching { DonorCategory.valueOf(it) }.getOrNull() }
 
+        // Client-side rounding only -- the server independently validates scale<=2 and the
+        // configured maximum; see this file's own KDoc "cheap client-side check" note. Rounded
+        // BEFORE the cap check below (fix, code review Welle V1.2.9 round 2): the cap comparison
+        // must use the same value that is actually sent, or a harmless extra-decimal typo like
+        // "10000.004" (which `isPositiveDecimal` deliberately lets through and this rounding step
+        // is meant to absorb) gets rejected client-side for a value the server would have
+        // accepted once rounded. `amountText.toDouble()` is safe here (unguarded): the branch
+        // above already proved `amountText` is a positive decimal.
+        val roundedAmount =
+            if (Validation.isPositiveDecimal(amountText)) {
+                Validation.roundToTwoDecimalPlaces(amountText.toDouble())
+            } else {
+                null
+            }
+
         val validationError =
             when {
                 !Validation.isPositiveDecimal(amountText) -> tr("Bitte einen gültigen, positiven Betrag angeben.")
+                // Welle V1.2.9: catches the doomed-RPC case client-side with the REAL configured
+                // number -- see PaymentGatewayAvailabilityDto.maxCheckoutAmountEur's own KDoc.
+                roundedAmount != null && Validation.exceedsMaxCheckoutAmountEur(roundedAmount, maxCheckoutAmountEur?.toDouble()) ->
+                    gettext("Der Höchstbetrag pro Online-Spende beträgt %1.", formatMoney(requireNotNull(maxCheckoutAmountEur)))
                 donorCategoryRequired && donorCategory == null -> tr("Bitte eine Spenderkategorie auswählen.")
                 else -> null
             }
@@ -110,9 +156,7 @@ private fun renderDonationForm(
             errorBox.show()
             return@onClick
         }
-        // Client-side rounding only -- the server independently validates scale<=2 and the
-        // configured maximum; see this file's own KDoc "cheap client-side check" note.
-        val amount = Validation.roundToTwoDecimalPlaces(amountText.toDouble()).toDecimal()
+        val amount = requireNotNull(roundedAmount) { "validationError above already rejects a non-positive-decimal amountText" }.toDecimal()
 
         submitButton.disabled = true
         AppScope.launch {

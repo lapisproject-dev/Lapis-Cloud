@@ -293,4 +293,41 @@ class ValidationTest {
         val raw = "DE89370400440532013000"
         assertEquals(raw, Validation.formatIbanGroups(raw).replace(" ", ""))
     }
+
+    // ── exceedsMaxCheckoutAmountEur -- code review, Welle V1.2.9 round 2 (test-coverage finding):
+    // extracted from DonationCheckoutScreen's own submit-handler `when` branch so the "compare the
+    // ALREADY-ROUNDED amount" fix has a pinning test. ──────────────────────────────────────────────
+
+    @Test
+    fun exceedsMaxCheckoutAmountEur_nullCeilingIsNeverExceeded() {
+        assertFalse(Validation.exceedsMaxCheckoutAmountEur(roundedAmount = 1_000_000.0, maxCheckoutAmountEur = null))
+    }
+
+    @Test
+    fun exceedsMaxCheckoutAmountEur_amountBelowCeilingIsNotExceeded() {
+        assertFalse(Validation.exceedsMaxCheckoutAmountEur(roundedAmount = 9999.99, maxCheckoutAmountEur = 10000.0))
+    }
+
+    @Test
+    fun exceedsMaxCheckoutAmountEur_amountExactlyAtCeilingIsNotExceeded() {
+        assertFalse(Validation.exceedsMaxCheckoutAmountEur(roundedAmount = 10000.0, maxCheckoutAmountEur = 10000.0))
+    }
+
+    @Test
+    fun exceedsMaxCheckoutAmountEur_amountAboveCeilingIsExceeded() {
+        assertTrue(Validation.exceedsMaxCheckoutAmountEur(roundedAmount = 10000.01, maxCheckoutAmountEur = 10000.0))
+    }
+
+    /**
+     * Regression for the bug this review round fixed: rounding "10000.004" to two decimal places
+     * yields exactly the ceiling, so it must NOT be reported as exceeding it -- the caller is
+     * responsible for rounding first (see [Validation.roundToTwoDecimalPlaces]) and passing the
+     * rounded value here, never the raw typed text.
+     */
+    @Test
+    fun exceedsMaxCheckoutAmountEur_roundedValueOfAnExtraDecimalTypoIsNotExceeded() {
+        val rounded = Validation.roundToTwoDecimalPlaces(10000.004)
+        assertEquals(10000.0, rounded)
+        assertFalse(Validation.exceedsMaxCheckoutAmountEur(roundedAmount = rounded, maxCheckoutAmountEur = 10000.0))
+    }
 }

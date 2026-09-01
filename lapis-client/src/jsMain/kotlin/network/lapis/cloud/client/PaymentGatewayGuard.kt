@@ -18,14 +18,32 @@ import network.lapis.cloud.shared.rpc.UnauthenticatedException
 // honest, call-site-specific German explanation instead of one generic "im Konflikt" toast for five
 // different reasons.
 
+/**
+ * Welle V1.2.9 fix: [pspProbe] used to collapse every failure mode into a bare `null`, which every
+ * call site then read as "the gateway is off" -- indistinguishable from a REAL transport/parse
+ * failure (dropped connection, expired session mid-poll, ...). A member on a flaky connection saw
+ * the exact same "Online-Spenden sind für diese Organisation aktuell nicht möglich." wording as an
+ * org that genuinely disabled the gate. [PspProbeResult] separates the two: [PspProbeResult.Ok]
+ * carries the real DTO (whose OWN boolean fields already say "gate off", "not available", etc. --
+ * that business-level distinction was never the problem), [PspProbeResult.TransportError] means the
+ * call itself never completed and the caller should say so honestly instead of guessing.
+ */
+sealed interface PspProbeResult<out T> {
+    data class Ok<out T>(
+        val value: T,
+    ) : PspProbeResult<T>
+
+    data object TransportError : PspProbeResult<Nothing>
+}
+
 /** Stille Probe -- exaktes Muster [sepaProbe]s: für `getPaymentGatewayAvailability`, das häufigste Lese-Aufkommen dieser Welle (jede Beitragsseite jedes Mitglieds). */
-suspend fun <T> pspProbe(block: suspend () -> T): T? =
+suspend fun <T> pspProbe(block: suspend () -> T): PspProbeResult<T> =
     try {
-        block()
+        PspProbeResult.Ok(block())
     } catch (e: CancellationException) {
         throw e
     } catch (e: Throwable) {
-        null
+        PspProbeResult.TransportError
     }
 
 /** Wie `AppState.guarded()`, aber [ConflictException] bekommt [conflictMessage] statt des generischen "im Konflikt"-Texts. */

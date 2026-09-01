@@ -13,6 +13,7 @@ import network.lapis.cloud.server.db.generated.PaymentCheckoutSessionTable
 import network.lapis.cloud.server.db.generated.PaymentGatewayComplianceAcknowledgmentTable
 import network.lapis.cloud.server.db.generated.PaymentTransactionTable
 import network.lapis.cloud.server.federation.FederationConfig
+import network.lapis.cloud.server.federation.FederationInboxRateLimiter
 import network.lapis.cloud.server.payment.psp.PspCheckoutSessions
 import network.lapis.cloud.server.payment.psp.PspConfig
 import network.lapis.cloud.server.payment.psp.PspConfigState
@@ -71,12 +72,21 @@ private const val MAX_DONATION_PURPOSE_LENGTH = 200
  * **Constructor default exists for tests only -- production MUST pass shared instances**, same
  * "one instance per RPC dispatch, shared collaborators threaded through explicitly" discipline
  * [SepaService] establishes for its own `sepaConfig`/`mandateWriteRateLimiter`.
+ *
+ * [checkoutCreateRateLimiter] throttles [createDonationCheckout]/[createContributionCheckout] --
+ * both are member-reachable and each triggers one outbound Stripe API call
+ * ([StripeCheckoutClient.createCheckoutSession]); without a limiter, a single low-privilege member
+ * (`AccountRole.MEMBER`, no `requireRole` gate on either method) could loop either call and exhaust
+ * Stripe's write quota for every other member. Same per-member "member:\$memberId" keying, reusing
+ * [FederationInboxRateLimiter] as a plain per-member counter, as [SepaService.mandateWriteRateLimiter]
+ * (security audit finding, Welle V1.2.8, MAJOR).
  */
 class PaymentGatewayService(
     private val call: ApplicationCall,
     private val pspConfigState: PspConfigState = PspConfig.load(),
     private val checkoutClient: StripeCheckoutClient? =
         (pspConfigState as? PspConfigState.Configured)?.let { StripeCheckoutClient(pspConfig = it.config) },
+    private val checkoutCreateRateLimiter: FederationInboxRateLimiter = FederationInboxRateLimiter(maxRequests = 10, window = 1.minutes),
 ) : IPaymentGatewayService {
     override suspend fun getPaymentGatewayComplianceDisclaimer(): PaymentGatewayComplianceDisclaimerDto {
         val current = resolveCurrentMember(call)
@@ -170,6 +180,10 @@ class PaymentGatewayService(
                 contributionCheckoutAvailable = usable,
                 donationCheckoutAvailable = usable,
                 donorCategoryRequired = usable && isPoliticalParty,
+                // Welle V1.2.9: only when usable -- `usable` already proved pspConfigState is
+                // Configured, so this cast cannot fail; a disabled/misconfigured gate reports no
+                // ceiling at all rather than a number from a dead config path.
+                maxCheckoutAmountEur = if (usable) (pspConfigState as PspConfigState.Configured).config.maxCheckoutAmountEur else null,
             )
         }
     }
@@ -181,6 +195,7 @@ class PaymentGatewayService(
      */
     override suspend fun createContributionCheckout(input: ContributionCheckoutInput): CheckoutSessionDto {
         val current = resolveCurrentMember(call)
+        requireWithinCheckoutCreateRate(current.memberId)
         val contributionId = input.contributionId.toContributionUuid()
         val contributionRow =
             transaction { ContributionTable.selectAll().where { ContributionTable.id eq contributionId }.singleOrNull() }
@@ -238,6 +253,7 @@ class PaymentGatewayService(
      */
     override suspend fun createDonationCheckout(input: DonationCheckoutInput): CheckoutSessionDto {
         val current = resolveCurrentMember(call)
+        requireWithinCheckoutCreateRate(current.memberId)
         requirePaymentGatewayUsable()
         val client = requireNotNull(checkoutClient) { "requirePaymentGatewayUsable already guaranteed pspConfigState is Configured" }
         val pspConfig = (pspConfigState as PspConfigState.Configured).config
@@ -384,6 +400,18 @@ class PaymentGatewayService(
     // ════════════════════════════════════════════════════════════════════
     // Internal helpers
     // ════════════════════════════════════════════════════════════════════
+
+    /**
+     * See class KDoc "[checkoutCreateRateLimiter]" -- throws [ConflictException] once the per-member
+     * budget is exceeded. Modelled on [SepaService]'s own `requireWithinRate` helper. Called BEFORE
+     * any outbound Stripe call (and before [requirePaymentGatewayUsable]'s own DB reads) so an
+     * over-budget caller is rejected as cheaply as possible.
+     */
+    private fun requireWithinCheckoutCreateRate(memberId: Uuid) {
+        if (!checkoutCreateRateLimiter.checkAndRecord("member:$memberId")) {
+            throw ConflictException("Zu viele Anfragen -- bitte spaeter erneut versuchen.")
+        }
+    }
 
     /**
      * The three-part usability gate -- see [IPaymentGatewayService] class KDoc. Modelled exactly on

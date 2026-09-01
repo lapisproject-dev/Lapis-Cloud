@@ -296,9 +296,24 @@ fun Application.module() {
             else -> null
         }
     // Own instance, own tuning -- same discipline as dunningPreviewRateLimiter/sepaMandateWriteRateLimiter
-    // below. 120/min is generous for genuine Stripe delivery bursts (a checkout completing plus any
-    // immediately-following unrelated event) while still bounding an unauthenticated flood.
-    val pspWebhookRateLimiter = FederationInboxRateLimiter(maxRequests = 120, window = 1.minutes)
+    // below. Security audit finding (Welle V1.2.8, MINOR) -- tightened from a prior 120/min: that
+    // budget was sized for genuine Stripe delivery bursts, but MISSING_SIGNATURE and failed-signature
+    // deliveries (steps 5/6 below) are UNauthenticated and still write a `psp_webhook_event` row each
+    // (see PspWebhookRoutes.kt class KDoc "Writes exactly one ... row for every branch from step 4
+    // onward") -- so this limiter is the ONLY bound on that table's growth from unauthenticated
+    // traffic, not merely a burst-smoothing knob. Stripe delivers from a small, well-known set of
+    // source IPs (https://docs.stripe.com/ips#webhook-notifications), so 20/min/IP comfortably covers
+    // genuine bursts (a checkout completing plus any immediately-following unrelated event) while
+    // meaningfully bounding a single-IP flood; per-IP keying (see rateLimitKeyFor below) means it does
+    // NOT bound a multi-IP flood -- see that file's own KDoc for the accepted-risk framing.
+    val pspWebhookRateLimiter = FederationInboxRateLimiter(maxRequests = 20, window = 1.minutes)
+    // Security audit finding (Welle V1.2.8, MAJOR) -- createDonationCheckout/createContributionCheckout
+    // both call out to Stripe's live API; unlike the SEPA/dunning writes above, this class had NO
+    // limiter at all, so a single low-privilege member could loop createDonationCheckout and exhaust
+    // Stripe's write quota for everyone. Same per-member "member:$memberId" keying and 10/min budget
+    // as sepaMandateWriteRateLimiter -- checkout creation is a rare, deliberate action, not a
+    // high-frequency read.
+    val paymentCheckoutCreateRateLimiter = FederationInboxRateLimiter(maxRequests = 10, window = 1.minutes)
 
     val mailDispatcher = MailDispatcher(transport = mailTransport)
     // Bind mailDispatcher's dedicated CoroutineScope to Ktor's own lifecycle -- without this hook
@@ -783,7 +798,12 @@ fun Application.module() {
             )
         }
         registerService(IPaymentGatewayService::class) { call ->
-            PaymentGatewayService(call = call, pspConfigState = pspConfigState, checkoutClient = checkoutClient)
+            PaymentGatewayService(
+                call = call,
+                pspConfigState = pspConfigState,
+                checkoutClient = checkoutClient,
+                checkoutCreateRateLimiter = paymentCheckoutCreateRateLimiter,
+            )
         }
         registerService(
             IDunningService::class,

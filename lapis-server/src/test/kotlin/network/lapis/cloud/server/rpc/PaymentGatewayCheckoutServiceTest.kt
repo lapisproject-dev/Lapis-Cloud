@@ -3,10 +3,15 @@ package network.lapis.cloud.server.rpc
 import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
+import io.ktor.client.HttpClient
+import io.ktor.client.engine.mock.MockEngine
+import io.ktor.client.engine.mock.respond
 import io.ktor.client.request.header
 import io.ktor.client.request.post
 import io.ktor.client.statement.bodyAsText
+import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
+import io.ktor.http.headersOf
 import io.ktor.server.application.call
 import io.ktor.server.application.install
 import io.ktor.server.plugins.statuspages.StatusPages
@@ -23,9 +28,12 @@ import network.lapis.cloud.server.db.generated.LedgerAccountTable
 import network.lapis.cloud.server.db.generated.MemberTable
 import network.lapis.cloud.server.db.generated.MembershipTierTable
 import network.lapis.cloud.server.db.generated.OrganizationSettingsTable
+import network.lapis.cloud.server.db.generated.PaymentCheckoutSessionTable
 import network.lapis.cloud.server.db.generated.PaymentGatewayComplianceAcknowledgmentTable
+import network.lapis.cloud.server.federation.FederationInboxRateLimiter
 import network.lapis.cloud.server.payment.psp.PspConfig
 import network.lapis.cloud.server.payment.psp.PspConfigState
+import network.lapis.cloud.server.payment.psp.StripeCheckoutClient
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.BillingInterval
 import network.lapis.cloud.shared.domain.ContributionCheckoutInput
@@ -51,9 +59,13 @@ import kotlin.uuid.Uuid
  * Welle V1.2.8 "PSP-Checkout (Stripe)" (GitHub Issue #6) -- exercises [PaymentGatewayService]'s new
  * checkout-creation/listing methods over a real `testApplication`, same house style
  * [ContributionPaymentRpcTest]/[PaymentGatewayServiceTest] establish. `checkoutClient = null`
- * throughout (`pspConfigState` also `NotConfigured` unless a test explicitly wires it) -- these
- * tests exercise the GATE/VALIDATION logic that runs BEFORE any Stripe call, never the outbound
- * HTTP itself (that is [network.lapis.cloud.server.payment.psp.StripeCheckoutClientTest]'s job).
+ * throughout (`pspConfigState` also `NotConfigured` unless a test explicitly wires it) for every
+ * test that means to exercise the GATE/VALIDATION logic that runs BEFORE any Stripe call -- never
+ * the outbound HTTP itself (that is [network.lapis.cloud.server.payment.psp.StripeCheckoutClientTest]'s
+ * job). One test (below, the maxCheckoutAmountEur regression pin) deliberately runs a real
+ * `createContributionCheckout` call PAST that gate against a [fakeSuccessfulCheckoutClient] --
+ * MockEngine-backed, never the real network -- because it is proving something about behavior on
+ * the SUCCESS path, not about a gate rejecting the call.
  */
 class PaymentGatewayCheckoutServiceTest :
     FunSpec({
@@ -77,6 +89,12 @@ class PaymentGatewayCheckoutServiceTest :
         afterSpec {
             transaction {
                 if (createdContributionIds.isNotEmpty()) {
+                    // The new maxCheckoutAmountEur regression pin (below) is the first test in this
+                    // file to actually run createContributionCheckout PAST the gate with a working
+                    // checkoutClient -- it persists a real payment_checkout_session row referencing
+                    // its contribution, which must go first or ContributionTable's delete below
+                    // fails its FK constraint.
+                    PaymentCheckoutSessionTable.deleteWhere { PaymentCheckoutSessionTable.contributionId inList createdContributionIds }
                     ContributionTable.deleteWhere { ContributionTable.id inList createdContributionIds }
                 }
                 if (createdTierIds.isNotEmpty()) {
@@ -166,7 +184,11 @@ class PaymentGatewayCheckoutServiceTest :
         // this file actually means to exercise. Fixture config, checkoutClient stays null (never
         // dereferenced -- every test below either throws before reaching it or asserts a
         // BadRequestException/ConflictException raised earlier in the method).
-        fun testPspConfigState(): PspConfigState.Configured =
+        //
+        // maxCheckoutAmountEur is overridable (mirrors PaymentGatewayAvailabilityTest's own
+        // testPspConfigState) so a test can pin a known, deliberately-low cap -- see
+        // "createContributionCheckout succeeds for an amount ABOVE maxCheckoutAmountEur" below.
+        fun testPspConfigState(maxCheckoutAmountEur: String = "10000.00"): PspConfigState.Configured =
             PspConfigState.Configured(
                 config =
                     requireNotNull(
@@ -175,10 +197,29 @@ class PaymentGatewayCheckoutServiceTest :
                                 when (it) {
                                     PspConfig.ENV_SECRET_KEY -> "sk_test_checkout_service_test"
                                     PspConfig.ENV_WEBHOOK_SIGNING_SECRET -> "whsec_test_checkout_service_test"
+                                    PspConfig.ENV_MAX_CHECKOUT_AMOUNT_EUR -> maxCheckoutAmountEur
                                     else -> null
                                 }
                             } as? PspConfigState.Configured
                         )?.config,
+                    ),
+            )
+
+        // Stripe-response-shaped MockEngine client so createContributionCheckout can run to a real
+        // success outcome without ever touching the network -- same MockEngine house style
+        // StripeCheckoutClientTest establishes for exercising StripeCheckoutClient itself.
+        fun fakeSuccessfulCheckoutClient(pspConfigState: PspConfigState.Configured): StripeCheckoutClient =
+            StripeCheckoutClient(
+                pspConfig = pspConfigState.config,
+                httpClient =
+                    HttpClient(
+                        MockEngine { _ ->
+                            respond(
+                                """{"id":"cs_test_fake","url":"https://checkout.stripe.com/c/pay/cs_test_fake"}""",
+                                HttpStatusCode.OK,
+                                headersOf(HttpHeaders.ContentType, "application/json"),
+                            )
+                        },
                     ),
             )
 
@@ -294,6 +335,46 @@ class PaymentGatewayCheckoutServiceTest :
             }
         }
 
+        // Regression pin (code review, Welle V1.2.9 round 2 -- MINOR finding: the test that was
+        // supposed to prove this in PaymentGatewayAvailabilityTest never actually called
+        // createContributionCheckout at all, it only checked getPaymentGatewayAvailability's
+        // reported ceiling). PspConfig.maxCheckoutAmountEur is documented ONLY as an
+        // "Abuse/DoS cap on createDonationCheckout" -- this proves createContributionCheckout
+        // really does ignore it end-to-end: a contribution well above a deliberately tiny cap still
+        // produces a successful CheckoutSessionDto for the contribution's own amountDue, never a
+        // BadRequestException.
+        test("createContributionCheckout succeeds for an amount ABOVE maxCheckoutAmountEur -- the cap is donation-only") {
+            testApplication {
+                application {
+                    routing {
+                        post("/test/checkout-above-cap") {
+                            val id = call.request.queryParameters["contributionId"]!!
+                            val pspConfigState = testPspConfigState(maxCheckoutAmountEur = "10.00")
+                            val session =
+                                PaymentGatewayService(
+                                    call = call,
+                                    pspConfigState = pspConfigState,
+                                    checkoutClient = fakeSuccessfulCheckoutClient(pspConfigState),
+                                ).createContributionCheckout(ContributionCheckoutInput(contributionId = id))
+                            call.respondText("${session.amount}")
+                        }
+                    }
+                }
+                val member = createMember("checkout-above-cap-${Uuid.random()}@example.org")
+                val tier = createTier()
+                enableGate()
+                // amountDue fixed at 50.00 by createContribution() -- comfortably above the 10.00
+                // cap configured above.
+                val contributionId = createContribution(memberId = member, tierId = tier)
+                val response =
+                    client.post("/test/checkout-above-cap?contributionId=$contributionId") {
+                        header("X-Member-Id", member.toString())
+                    }
+                response.status shouldBe HttpStatusCode.OK
+                response.bodyAsText() shouldBe "50.00"
+            }
+        }
+
         test("createContributionCheckout for ANOTHER member's contribution by a plain MEMBER -> NotFoundException") {
             testApplication {
                 application {
@@ -344,6 +425,49 @@ class PaymentGatewayCheckoutServiceTest :
                 val member = createMember("checkout-donation-longpurpose-${Uuid.random()}@example.org")
                 enableGate()
                 val response = client.post("/test/donate-long-purpose") { header("X-Member-Id", member.toString()) }
+                response.status shouldBe HttpStatusCode.OK
+            }
+        }
+
+        // Security audit finding (Welle V1.2.8, MAJOR) test coverage -- checkoutCreateRateLimiter must
+        // actually be consulted, and BEFORE any Stripe call: checkoutClient stays null throughout
+        // (testPspConfigState() default), so a fake-passing test would have thrown NotFoundException
+        // (checkoutClient == null) or ConflictException (usability gate) at some LATER point instead --
+        // this pins that the rate-limit rejection happens first, per-member.
+        test("createDonationCheckout: over checkoutCreateRateLimiter budget -> ConflictException, before any Stripe call") {
+            testApplication {
+                application {
+                    routing {
+                        post("/test/donate-rate-limited") {
+                            PaymentGatewayService(
+                                call = call,
+                                pspConfigState = testPspConfigState(),
+                                checkoutCreateRateLimiter =
+                                    FederationInboxRateLimiter(maxRequests = 1, window = kotlin.time.Duration.INFINITE),
+                            ).let { service ->
+                                // First call consumes the sole budget slot; NOT expected to succeed all
+                                // the way through (checkoutClient is null / gate disabled) -- only that
+                                // it does NOT fail with ConflictException("Zu viele Anfragen...").
+                                runCatching {
+                                    service.createDonationCheckout(
+                                        DonationCheckoutInput(amount = BigDecimal("10.00"), donorCategory = null, purpose = null),
+                                    )
+                                }
+                                val second =
+                                    shouldThrow<ConflictException> {
+                                        service.createDonationCheckout(
+                                            DonationCheckoutInput(amount = BigDecimal("10.00"), donorCategory = null, purpose = null),
+                                        )
+                                    }
+                                second.message shouldBe "Zu viele Anfragen -- bitte spaeter erneut versuchen."
+                            }
+                            call.respondText("ok")
+                        }
+                    }
+                }
+                val member = createMember("checkout-donation-ratelimited-${Uuid.random()}@example.org")
+                enableGate()
+                val response = client.post("/test/donate-rate-limited") { header("X-Member-Id", member.toString()) }
                 response.status shouldBe HttpStatusCode.OK
             }
         }

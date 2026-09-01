@@ -211,6 +211,15 @@ data class PspConfigStatusDto(
  * deliberately separate from [PaymentGatewaySettingsDto] (ADMIN-only, carries the acknowledgment
  * history). Mirrors the reasoning behind `SepaMandateSection`'s own `sepaProbe` call site: a plain
  * MEMBER must be able to learn "can I pay online?" without an ADMIN-tier RPC.
+ *
+ * Welle V1.2.9: [maxCheckoutAmountEur] surfaces the server-side abuse/DoS cap
+ * (`PspConfig.maxCheckoutAmountEur`) so a donor learns the real ceiling BEFORE submitting a
+ * doomed `createDonationCheckout` call, instead of only from that RPC's own
+ * `BadRequestException` after a round-trip. `null` when the gate is not [enabled] (a disabled gate
+ * has no meaningful ceiling to show) -- **not** authoritative, purely a UX convenience; the server
+ * remains the sole enforcer, see `PaymentGatewayService.createDonationCheckout`'s own check.
+ * Declared with a default so this additive field never breaks an older client's deserialization of
+ * an already-shipped DTO.
  */
 @Serializable
 data class PaymentGatewayAvailabilityDto(
@@ -219,4 +228,5 @@ data class PaymentGatewayAvailabilityDto(
     val contributionCheckoutAvailable: Boolean,
     val donationCheckoutAvailable: Boolean,
     val donorCategoryRequired: Boolean,
+    val maxCheckoutAmountEur: Decimal? = null,
 )

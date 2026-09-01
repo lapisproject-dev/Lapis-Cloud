@@ -36,6 +36,15 @@ internal data class StripeEventData(
  * by the caller, NEVER via `Double`. `clientReferenceId` carries this server's own
  * `payment_checkout_session.id` (set at session-creation time), the join key back to the
  * server-authoritative row.
+ *
+ * `paymentStatus` (security audit finding, Welle V1.2.8, MINOR/hardening) -- Stripe fires
+ * `checkout.session.completed` even for `payment_status in {"unpaid", "no_payment_required"}` when a
+ * checkout uses a delayed/asynchronous payment method (e.g. bank debits); decoding and checking this
+ * field in [PspWebhookIngestion] Step 3 stops such a session from being booked as `CAPTURED` before
+ * money has actually arrived. **Not currently reachable**: [StripeCheckoutClient] hard-codes
+ * `payment_method_types[0] = "card"`, and for card payments `completed` always implies `paid` -- this
+ * field exists so that invariant is checked explicitly rather than left implicit in a single line of
+ * a different file (see [PspWebhookIngestion]'s own KDoc on this check).
  */
 @Serializable
 internal data class StripeCheckoutSessionObject(
@@ -44,6 +53,7 @@ internal data class StripeCheckoutSessionObject(
     @SerialName("payment_intent") val paymentIntent: String? = null,
     @SerialName("amount_total") val amountTotal: Long? = null,
     val currency: String? = null,
+    @SerialName("payment_status") val paymentStatus: String? = null,
     @SerialName("customer") val customer: String? = null,
     @SerialName("customer_details") val customerDetails: StripeCustomerDetails? = null,
 )

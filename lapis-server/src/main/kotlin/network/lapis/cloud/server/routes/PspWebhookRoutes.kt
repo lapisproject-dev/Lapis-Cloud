@@ -55,12 +55,21 @@ private const val MAX_JSON_NESTING_DEPTH = 20
  * object's own KDoc). MINOR fix (code review, Welle V1.2.8) -- corrected from a prior "always
  * exactly one row per request" claim: the THREE early-exit guards ahead of step 4 (rate limit,
  * `Content-Length` pre-check, oversized-body streaming read) respond directly and write no row --
- * there is nothing yet worth forensically logging at that point (no signature has been checked, so
- * an unauthenticated flood would itself become the thing being logged). Any exception besides
- * [ConflictException] escaping [PspWebhookIngestion.ingestCheckoutCompleted] (e.g. a constraint
- * violation, or an `IllegalArgumentException` from one of the posting bridges) is now also caught
- * below and recorded as `REJECTED`/`"INTERNAL_ERROR"` rather than escaping as a bare 500 with no
- * `psp_webhook_event` row.
+ * there is nothing yet worth forensically logging at that point.
+ *
+ * **This does NOT make the table immune to unauthenticated growth** (security audit finding, Welle
+ * V1.2.8, MINOR) -- steps 5 (`MISSING_SIGNATURE`) and 6 (failed signature verification) run AFTER the
+ * rate limiter but BEFORE any authentication succeeds, and both DO write a row each via
+ * [recordDeliveryAndRespond]. An attacker who never presents a valid signature can therefore still
+ * make `psp_webhook_event` grow, one row per accepted request, for as long as they keep sending
+ * traffic -- what actually bounds this is `rateLimiter` (per-source-IP, see `rateLimitKeyFor` below
+ * and its tuning in `Application.kt`), not the absence of logging. That limiter is per-IP, so a
+ * flood spread across many IPs is bounded only by the size of the attacker's IP pool, and there is
+ * currently no retention/purge job for this table -- accepted as a bounded, not eliminated, risk for
+ * this welle. Any exception besides [ConflictException] escaping
+ * [PspWebhookIngestion.ingestCheckoutCompleted] (e.g. a constraint violation, or an
+ * `IllegalArgumentException` from one of the posting bridges) is now also caught below and recorded
+ * as `REJECTED`/`"INTERNAL_ERROR"` rather than escaping as a bare 500 with no `psp_webhook_event` row.
  *
  * **The webhook route is deliberately unauthenticated** -- no `resolveCurrentMember` call anywhere
  * in this file; the Stripe signature IS the authentication, and the ingestion path never trusts

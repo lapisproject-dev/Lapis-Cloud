@@ -37,8 +37,20 @@ fun renderPspCheckoutSection(root: SimplePanel) {
     fun refresh() {
         panel.removeAll()
         AppScope.launch {
-            val availability = pspProbe { rpcService<IPaymentGatewayService>().getPaymentGatewayAvailability() }
-            if (availability == null || !availability.contributionCheckoutAvailable) {
+            // Welle V1.2.9 fix: a probe that genuinely failed (dropped connection, expired
+            // session) must not be reported as "the organization disabled this" -- see
+            // PspProbeResult's own KDoc. Symmetric with DonationCheckoutScreen's own handling.
+            val availability =
+                when (val result = pspProbe { rpcService<IPaymentGatewayService>().getPaymentGatewayAvailability() }) {
+                    is PspProbeResult.TransportError -> {
+                        panel.div(tr("Status konnte nicht geladen werden. Bitte laden Sie die Seite neu.")) {
+                            addCssClasses("text-muted small")
+                        }
+                        return@launch
+                    }
+                    is PspProbeResult.Ok -> result.value
+                }
+            if (!availability.contributionCheckoutAvailable) {
                 if (AppState.hasRole(AccountRole.TREASURER, AccountRole.BOARD, AccountRole.ADMIN)) {
                     val notice = panel.hPanel(spacing = 8) { addCssClasses("align-items-center") }
                     notice.div(tr("Online-Zahlung ist für diese Organisation nicht aktiviert.")) {
@@ -54,9 +66,20 @@ fun renderPspCheckoutSection(root: SimplePanel) {
             }
 
             val session = AppState.session ?: return@launch
-            val myContributions = pspProbe { rpcService<IContributionService>().getMemberContributionSummary(session.memberId) }
-            val outstanding = myContributions?.contributions?.filter { it.status in ContributionStatusSets.OUTSTANDING }.orEmpty()
-            outstanding.forEach { contribution -> renderCheckoutButton(panel, contribution) }
+            val myContributions =
+                when (val result = pspProbe { rpcService<IContributionService>().getMemberContributionSummary(session.memberId) }) {
+                    is PspProbeResult.TransportError -> {
+                        panel.div(tr("Status konnte nicht geladen werden. Bitte laden Sie die Seite neu.")) {
+                            addCssClasses("text-muted small")
+                        }
+                        return@launch
+                    }
+                    is PspProbeResult.Ok -> result.value
+                }
+            val outstanding = myContributions.contributions.filter { it.status in ContributionStatusSets.OUTSTANDING }
+            outstanding.forEach { contribution ->
+                renderCheckoutButton(panel, contribution)
+            }
         }
     }
     refresh()
@@ -68,6 +91,17 @@ private fun renderCheckoutButton(
 ) {
     val row = panel.hPanel(spacing = 8) { addCssClasses("align-items-center") }
     row.div(formatMoney(contribution.amountDue)) { addCssClasses("small") }
+    // Welle V1.2.9 fix, reverted (code review, Welle V1.2.9 round 2): `maxCheckoutAmountEur`
+    // (`PspConfig.maxCheckoutAmountEur`) is explicitly documented as an "Abuse/DoS cap on
+    // `createDonationCheckout`" -- `createContributionCheckout` (PaymentGatewayService.kt) never
+    // reads it and never rejects on it. A contribution amount is server-derived (never
+    // donor-typed) and can legitimately exceed the donation-abuse cap (e.g. an annual
+    // corporate/Förder-Beitrag) -- gating the button here on that donation-only cap blocked a
+    // payment the server would happily accept, contradicting this function's own removed comment
+    // that claimed the RPC "could only ever fail server-side" for amounts above the cap. If a
+    // real ceiling for contributions is ever wanted, it has to be enforced in
+    // `createContributionCheckout` itself first; only then does a matching client-side pre-check
+    // belong here again.
     val payButton = row.button(tr("Online bezahlen"), style = ButtonStyle.PRIMARY)
     payButton.onClick {
         payButton.disabled = true

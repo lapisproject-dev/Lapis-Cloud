@@ -202,6 +202,25 @@ object PspWebhookIngestion {
                 logger.warn { "PspWebhookIngestion: amount/currency mismatch for payment_transaction $paymentTransactionId -- $note" }
                 return@transaction CheckoutCompletedIngestionOutcome.Unposted(paymentTransactionId = paymentTransactionId, note = note)
             }
+            // Security audit finding (Welle V1.2.8, MINOR/hardening) -- checkout.session.completed
+            // fires even for payment_status in {"unpaid", "no_payment_required"} on delayed/async
+            // payment methods; NOT reachable today because StripeCheckoutClient hard-codes
+            // payment_method_types[0]="card" (completed always implies paid for card), but this makes
+            // that assumption explicit here instead of leaving it implicit in a single line of a
+            // different file. A null payment_status (older/mocked payloads) is treated as acceptable
+            // rather than rejected, to avoid breaking existing fixtures/tests that predate this field.
+            if (session.paymentStatus != null && session.paymentStatus != "paid") {
+                val note =
+                    "Stripe payment_status ist '${session.paymentStatus}', nicht 'paid' -- vermutlich eine " +
+                        "verzoegerte Zahlart, deren Geld noch nicht eingetroffen ist."
+                PaymentTransactionTable.update({ PaymentTransactionTable.id eq paymentTransactionId }) {
+                    it[reconciliationNote] = note
+                }
+                logger.warn {
+                    "PspWebhookIngestion: payment_status '${session.paymentStatus}' != paid for payment_transaction $paymentTransactionId -- $note"
+                }
+                return@transaction CheckoutCompletedIngestionOutcome.Unposted(paymentTransactionId = paymentTransactionId, note = note)
+            }
 
             // Step 4.
             PspCheckoutSessions.markCompleted(id = sessionId, completedAt = now)
