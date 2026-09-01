@@ -71,9 +71,14 @@
 //    (degrades, does not throw) and `markContributionPaid` behaves exactly as before this wave --
 //    see `ContributionPostingBridge` KDoc. UNLIKE the two gates above, these ARE part of the
 //    generic `updateOrganizationSettings` write-set (plain configuration, not a liability-relevant
-//    feature toggle) -- see `OrganizationSettingsService` KDoc. `donationIncomeAccountId` (plan §
-//    3.5, needed once PSP-sourced donations exist) is DELIBERATELY NOT added here -- V1.2.1 books
-//    contributions only, donations arrive with the PSP reconciliation flow in V1.2.4.
+//    feature toggle) -- see `OrganizationSettingsService` KDoc.
+//
+// **Welle V1.2.8 "PSP-Checkout (Stripe)"** (GitHub Issue #6) adds the fourth ledger-account mapping
+// this file's header previously deferred under the placeholder name "V1.2.4" (renumbered away
+// before that work started -- every such reference in this repo has been corrected to V1.2.8):
+// `donationIncomeAccountId`, where `DonationPostingBridge` books a gateway donation's brutto
+// amount as income. Same nullable/degrades-to-no-op/generic-write-set treatment as the three
+// existing V1.2.1 mapping columns above.
 import dev.kuml.profile.erm.ermMappingProfile
 import dev.kuml.uml.Multiplicity
 import dev.kuml.uml.dsl.applyProfile
@@ -230,6 +235,13 @@ classDiagram(name = "OrganizationSettings") {
         attribute(name = "contributionIncomeAccountId", type = "UUID") {
             multiplicity = Multiplicity(0, 1)
             stereotype("Column") { "columnName" to "contribution_income_account_id"; "fkEntity" to "LedgerAccount" }
+        }
+        // V1.2.8 PSP-Checkout (Stripe). Nullable FK -> ledger_account -- where a gateway donation's
+        // brutto amount is booked as income. See DonationPostingBridge KDoc for the full booking
+        // shape.
+        attribute(name = "donationIncomeAccountId", type = "UUID") {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") { "columnName" to "donation_income_account_id"; "fkEntity" to "LedgerAccount" }
         }
         // V1.2.2 SEPA-Lastschriftmandate (plan D-4/E-11). Nullable -- unset until an ADMIN applies
         // for and enters the Bundesbank Gläubiger-Identifikationsnummer. Settable ONLY via

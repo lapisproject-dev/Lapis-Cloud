@@ -93,6 +93,9 @@ fun auditEntityTypeLabel(entityType: AuditEntityType): String =
         // Welle V1.2.12 "Mitgliederverwaltung" -- "Mitglied" ist der Begriff, den
         // MemberAdministrationScreen.kt durchgängig für einen Roster-Eintrag verwendet.
         AuditEntityType.MEMBER -> gettext("Mitglied")
+        // Welle V1.2.8 "PSP-Checkout (Stripe)" (GitHub Issue #6) -- "Zahlungseingang" is the term
+        // `PaymentTransactionsScreen.kt` uses throughout for a `payment_transaction` row.
+        AuditEntityType.PAYMENT_TRANSACTION -> gettext("Zahlungseingang")
     }
 
 fun auditEntityTypeColor(entityType: AuditEntityType): String =
@@ -129,6 +132,9 @@ fun auditEntityTypeColor(entityType: AuditEntityType): String =
         // "secondary" -- a member-record edit is routine administration, the same neutral
         // classification BOARD_MEMBERSHIP already carries above.
         AuditEntityType.MEMBER -> "secondary"
+        // "primary" -- a confirmed gateway receipt is a financially central event, same tier as
+        // JOURNAL_ENTRY/SEPA_MANDATE above.
+        AuditEntityType.PAYMENT_TRANSACTION -> "primary"
     }
 
 // ------------------------------------------------------------------------------------------------

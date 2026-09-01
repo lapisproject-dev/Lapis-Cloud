@@ -146,7 +146,8 @@ class PaymentComplianceGateTest :
         }
 
         test(
-            "Payment-gateway gate: provider=MANUAL rejected, wrong hash rejected, correct hash+PAYPAL enables + records provider",
+            "Payment-gateway gate: provider=MANUAL rejected, wrong hash rejected, correct hash+STRIPE enables + records provider " +
+                "(Welle V1.2.8: provider=PAYPAL is now ALSO rejected -- see IPaymentGatewayService class KDoc)",
         ) {
             testApplication {
                 application {
@@ -163,18 +164,26 @@ class PaymentComplianceGateTest :
                     }
                 manualRejected.status shouldBe HttpStatusCode.BadRequest
 
+                // Welle V1.2.8 scope decision -- PayPal stays a valid PaymentProvider literal
+                // (enum-order-pinned by PaymentsSchemaDriftTest) but is no longer accepted here.
+                val paypalRejected =
+                    client.post("/test/gateway-enable?provider=PAYPAL&version=$version&sha256=$sha256") {
+                        header("X-Member-Id", ADMIN_ID)
+                    }
+                paypalRejected.status shouldBe HttpStatusCode.BadRequest
+
                 val wrongHash =
-                    client.post("/test/gateway-enable?provider=PAYPAL&version=$version&sha256=deadbeef") {
+                    client.post("/test/gateway-enable?provider=STRIPE&version=$version&sha256=deadbeef") {
                         header("X-Member-Id", ADMIN_ID)
                     }
                 wrongHash.status shouldBe HttpStatusCode.Conflict
 
                 val correct =
-                    client.post("/test/gateway-enable?provider=PAYPAL&version=$version&sha256=$sha256") {
+                    client.post("/test/gateway-enable?provider=STRIPE&version=$version&sha256=$sha256") {
                         header("X-Member-Id", ADMIN_ID)
                     }
                 correct.status shouldBe HttpStatusCode.OK
-                correct.bodyAsText() shouldBe "true|PAYPAL"
+                correct.bodyAsText() shouldBe "true|STRIPE"
             }
         }
     })

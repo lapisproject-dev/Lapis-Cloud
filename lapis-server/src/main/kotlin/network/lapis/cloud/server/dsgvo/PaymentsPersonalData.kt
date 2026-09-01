@@ -4,6 +4,7 @@ import kotlinx.serialization.json.buildJsonArray
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 import network.lapis.cloud.server.db.generated.ContributionTable
+import network.lapis.cloud.server.db.generated.PaymentCheckoutSessionTable
 import network.lapis.cloud.server.db.generated.PaymentGatewayComplianceAcknowledgmentTable
 import network.lapis.cloud.server.db.generated.PaymentTransactionTable
 import network.lapis.cloud.server.db.generated.SepaComplianceAcknowledgmentTable
@@ -38,16 +39,21 @@ import kotlin.uuid.Uuid
  * just the six fields the pre-round export had -- before this fix, [erase] cleared
  * `reconciliation_note` because it may contain personal data ABOUT the subject (see its own KDoc
  * below), but [export] never surfaced that same field, so a data subject could have a remark about
- * them erased without ever having had the chance to see it via their own Art. 15 request first. No
- * V1.2.1 code path writes rows into this table yet (webhook ingestion is V1.2.4, see
- * `33-payments.kuml.kts` file header) -- these fields are exported now so the export/erase pair
- * stays symmetric from the first real row onward, not retrofitted later once real payment data
- * exists.
+ * them erased without ever having had the chance to see it via their own Art. 15 request first. At
+ * the time of that fix, no code path wrote rows into this table yet (webhook ingestion was still a
+ * future sub-wave, then tracked under the placeholder name "V1.2.4") -- these fields were exported
+ * ahead of that first real row, so the export/erase pair was symmetric from the start rather than
+ * retrofitted later. That sub-wave is now Welle V1.2.8 "PSP-Checkout (Stripe)" (GitHub Issue #6),
+ * see [PaymentCheckoutSessionTable] below for its own coverage.
  *
  * [SepaComplianceAcknowledgmentTable]/[PaymentGatewayComplianceAcknowledgmentTable] retain
  * everything, no field cleared -- same reasoning [AuctionPersonalData] gives for
  * `auction_compliance_acknowledgment`: who acknowledged which disclaimer version and when is the
  * ADMIN's own compliance-accountability record (Art. 5(2) DSGVO).
+ *
+ * [PaymentCheckoutSessionTable] (Welle V1.2.8) is covered here too -- see [coveredTables] KDoc
+ * comment (F12) and [erase]'s own treatment (only the free-text `purpose` column is cleared, same
+ * accounting-retention duty as [PaymentTransactionTable]).
  */
 object PaymentsPersonalData : PersonalDataContributor {
     override val sectionKey = "payments"
@@ -65,6 +71,10 @@ object PaymentsPersonalData : PersonalDataContributor {
             SepaDebitBatchTable,
             SepaDebitItemTable,
             SepaReturnTable,
+            // Welle V1.2.8 "PSP-Checkout (Stripe)" -- new FK on member(id): payment_checkout_session
+            // .member_id. PersonalDataCoverageTest walks information_schema for every such FK and
+            // fails if the owning table is not covered by SOME contributor -- covered here (F12).
+            PaymentCheckoutSessionTable,
         )
 
     override fun export(memberId: Uuid) =
@@ -92,6 +102,38 @@ object PaymentsPersonalData : PersonalDataContributor {
                                     put("feeAmount", row[PaymentTransactionTable.feeAmount]?.toPlainString())
                                     put("payerReference", row[PaymentTransactionTable.payerReference])
                                     put("reconciliationNote", row[PaymentTransactionTable.reconciliationNote])
+                                    // Welle V1.2.8 export/erase symmetry (plan's own rule, same
+                                    // reasoning as the Security Round 1 SHOULD-2 fix above): the two
+                                    // new payment_transaction columns are exported now, from the
+                                    // first row that can ever carry them.
+                                    put("checkoutSessionId", row[PaymentTransactionTable.checkoutSessionId]?.toString())
+                                    put("donorCategory", row[PaymentTransactionTable.donorCategory]?.name)
+                                },
+                            )
+                        }
+                },
+            )
+            put(
+                "paymentCheckoutSessions",
+                buildJsonArray {
+                    PaymentCheckoutSessionTable
+                        .selectAll()
+                        .where { PaymentCheckoutSessionTable.memberId eq memberId }
+                        .forEach { row ->
+                            add(
+                                buildJsonObject {
+                                    put("id", row[PaymentCheckoutSessionTable.id].toString())
+                                    put("provider", row[PaymentCheckoutSessionTable.provider].name)
+                                    put("status", row[PaymentCheckoutSessionTable.status].name)
+                                    put("intent", row[PaymentCheckoutSessionTable.intent].name)
+                                    put("contributionId", row[PaymentCheckoutSessionTable.contributionId]?.toString())
+                                    put("amount", row[PaymentCheckoutSessionTable.amount].toPlainString())
+                                    put("currency", row[PaymentCheckoutSessionTable.currency])
+                                    put("donorCategory", row[PaymentCheckoutSessionTable.donorCategory]?.name)
+                                    put("purpose", row[PaymentCheckoutSessionTable.purpose])
+                                    put("createdAt", row[PaymentCheckoutSessionTable.createdAt].toString())
+                                    put("expiresAt", row[PaymentCheckoutSessionTable.expiresAt].toString())
+                                    put("completedAt", row[PaymentCheckoutSessionTable.completedAt]?.toString())
                                 },
                             )
                         }
@@ -248,6 +290,17 @@ object PaymentsPersonalData : PersonalDataContributor {
             it[reconciliationNote] = null
         }
 
+        // Welle V1.2.8 "PSP-Checkout (Stripe)". Same accounting retention duty (GoBD/HGB/AO, 10
+        // Jahre) as payment_transaction above -- only the free-text `purpose` column (a donor's own
+        // optional note, may carry personal context) is cleared; the rest (amount/currency/status/
+        // donorCategory/timestamps) is retained as the server-authoritative anchor a completed
+        // checkout's PaymentTransaction row still references.
+        val checkoutSessionCondition = PaymentCheckoutSessionTable.memberId eq memberId
+        val checkoutSessionCount = PaymentCheckoutSessionTable.selectAll().where { checkoutSessionCondition }.count()
+        PaymentCheckoutSessionTable.update({ checkoutSessionCondition }) {
+            it[purpose] = null
+        }
+
         val sepaAckCount =
             SepaComplianceAcknowledgmentTable
                 .selectAll()
@@ -316,6 +369,11 @@ object PaymentsPersonalData : PersonalDataContributor {
             TableErasureOutcome(
                 table = "payment_transaction",
                 rowsRetained = transactionCount.toInt(),
+                retentionReason = "Handelsrechtliche Aufbewahrungspflicht (GoBD/HGB/AO, 10 Jahre).",
+            ),
+            TableErasureOutcome(
+                table = "payment_checkout_session",
+                rowsRetained = checkoutSessionCount.toInt(),
                 retentionReason = "Handelsrechtliche Aufbewahrungspflicht (GoBD/HGB/AO, 10 Jahre).",
             ),
             TableErasureOutcome(

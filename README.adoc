@@ -321,6 +321,75 @@ speaking-priority reflow above ~12 participants) and D10 (a fully named client-s
 state machine) as still-open polish items for the next Videokonferenzen step — not yet built, see
 `ConferenceScreen.kt`'s own file KDoc.
 
+== Payment service provider (Stripe)
+
+Welle V1.2.8 (GitHub Issue #6) lets members pay contributions and leave donations through a
+Stripe-hosted Checkout (card only, EUR). **Scoped to Stripe only** this wave — PayPal stays a valid
+`PaymentProvider` literal but `enablePaymentGateway(PAYPAL, ...)` is rejected; see
+`IPaymentGatewayService` KDoc for the reasoning (Stripe's webhook signature is a self-contained,
+dependency-free HMAC; PayPal's own verification needs either a live outbound call inside the
+webhook path or manual certificate-chain validation).
+
+=== Three independent gates
+
+MINOR fix (code review, Welle V1.2.8) — this list previously named the ledger-account mapping as a
+third checked gate; it is not one of `requirePaymentGatewayUsable()`'s checks (see
+`IPaymentGatewayService` KDoc, "The three-part usability gate", the authoritative source this list
+now mirrors). Payment acceptance is only possible when **all three** hold — checked both at
+checkout creation and again when the webhook arrives, so a gate flipped off mid-flight stops the
+posting:
+
+1. **`organization_settings.payment_gateway_enabled`** — an ADMIN acknowledges a versioned
+   legal-risk disclaimer (`PaymentGatewayComplianceDisclaimer`) via `enablePaymentGateway`/
+   `disablePaymentGateway`, same auditable acknowledgment mechanism as the auction opt-in above.
+2. **The CURRENT disclaimer version was acknowledged** — same "stale acknowledgment blocks writes"
+   posture `SepaService.requireSepaUsable` already establishes for SEPA; a newly published
+   disclaimer version blocks writes again until re-acknowledged.
+3. **Deployment secrets present AND `STRIPE` configured** —
+   `LAPIS_STRIPE_SECRET_KEY`/`LAPIS_STRIPE_WEBHOOK_SIGNING_SECRET` both set and well-formed
+   (`PspConfigState.Configured`), AND `organization_settings.payment_gateway_provider` is `STRIPE`
+   (`PAYPAL` is a valid literal but rejected by `enablePaymentGateway`, see above).
+
+A **complete ledger-account mapping** (`paymentBankAccountId`/`contributionIncomeAccountId`/
+`donationIncomeAccountId`/`paymentFeeAccountId`, the fee account only mattering once a provider fee
+is ever captured, which this wave does not do) is configured via the ordinary
+`updateOrganizationSettings` RPC, but is **not** one of the three gates above — an incomplete
+mapping instead degrades a webhook-confirmed payment to an `UNPOSTED` row in the treasurer's
+`Zahlungseingänge` reconciliation queue rather than losing it silently, and rather than blocking
+checkout creation up front.
+
+=== Environment variables — secrets are ENV-ONLY, never persisted
+
+Same discipline as `LAPIS_SMTP_*` above: `PspConfig.load()` is the ONLY place any of these are read,
+never persisted to the database, never `SecretBox`-sealed (that mechanism is reserved for
+credentials that live in a database row — a Stripe API key is a single org-wide deployment
+credential, not per-row data). All-or-nothing: either both `LAPIS_STRIPE_SECRET_KEY`/
+`LAPIS_STRIPE_WEBHOOK_SIGNING_SECRET` are set, or neither — a half configuration fails the server's
+startup with an explicit `IllegalStateException` naming the missing/invalid variable by NAME ONLY,
+never its value. See `deploy/production/.env.example`/`deploy/production-elb/.env.example` for the
+full block including the optional numeric overrides (webhook timestamp tolerance, per-donation
+maximum, checkout-session TTL).
+
+There is **no RPC that writes these secrets** — `getPspConfigStatus()` (ADMIN-only) reports only
+whether each is present as a boolean, never a prefix/suffix/length/value.
+
+=== Stripe dashboard webhook configuration
+
+Register this URL in the Stripe dashboard for the `checkout.session.completed` event (and
+optionally `checkout.session.expired`):
+
+----
+<LAPIS_PUBLIC_BASE_URL>/api/webhooks/stripe
+----
+
+Copy the signing secret Stripe displays there (`whsec_...`) into `LAPIS_STRIPE_WEBHOOK_SIGNING_SECRET`.
+
+=== What doesn't work yet (this wave)
+
+Deliberately out of scope, see `CHANGELOG.md` for the full list: PayPal, refunds/chargebacks,
+capturing the PSP's own transaction fee (the full gross amount posts to the bank/income accounts),
+recurring/subscription billing, currencies other than EUR, and anonymous (non-member) donations.
+
 == Documentation Convention
 
 Consistent across all Lapis and kUML projects (see `CLAUDE.md`):

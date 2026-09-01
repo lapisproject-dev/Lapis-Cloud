@@ -68,7 +68,7 @@ class PaymentsRegressionScanTest :
         // ltr_ledger_entry landen. Structural guard: none of this wave's new files import the LTR
         // ledger's own table/enum types, and the enum itself has not silently grown a Euro-adjacent
         // literal.
-        test("no V1.2.1/V1.2.2 payments file imports LtrLedgerEntryTable/LtrLedgerEntryType/LtrLedgerReferenceType") {
+        test("no V1.2.1/V1.2.2/V1.2.8 payments file imports LtrLedgerEntryTable/LtrLedgerEntryType/LtrLedgerReferenceType") {
             val paymentsFiles =
                 listOf(
                     "ContributionPostingBridge.kt",
@@ -76,10 +76,17 @@ class PaymentsRegressionScanTest :
                     "SepaService.kt",
                     "PaymentGatewayComplianceDisclaimer.kt",
                     "PaymentGatewayService.kt",
+                    "DonationPostingBridge.kt",
                 ).map { File(serverMainDir, "network/lapis/cloud/server/rpc/$it") } +
                     File(serverMainDir, "network/lapis/cloud/server/dsgvo/PaymentsPersonalData.kt") +
+                    File(serverMainDir, "network/lapis/cloud/server/routes/PspWebhookRoutes.kt") +
                     (
                         File(serverMainDir, "network/lapis/cloud/server/payment/sepa").listFiles { f ->
+                            f.extension == "kt"
+                        } ?: emptyArray()
+                    ).toList() +
+                    (
+                        File(serverMainDir, "network/lapis/cloud/server/payment/psp").listFiles { f ->
                             f.extension == "kt"
                         } ?: emptyArray()
                     ).toList()
@@ -118,6 +125,43 @@ class PaymentsRegressionScanTest :
                         if (loggerLinePattern.containsMatchIn(line)) "${file.path}:${index + 1}: $line" else null
                     }
                 }
+            offenders.shouldBeEmpty()
+        }
+
+        // Welle V1.2.8 "PSP-Checkout (Stripe)" -- forward-looking guard, same idiom as the Sepa* scan
+        // above: no file under server/payment/psp/ nor PspWebhookRoutes.kt ever interpolates a
+        // variable whose name suggests it holds a secret/key/signature/token/bearer value into a
+        // logger.* call. Security-review checklist item 3 "Secret leakage".
+        test("no psp file interpolates a secret/key/signature/token/bearer-named variable in a logger.* call") {
+            val pspFiles =
+                (File(serverMainDir, "network/lapis/cloud/server/payment/psp").listFiles { f -> f.extension == "kt" } ?: emptyArray())
+                    .toList() +
+                    File(serverMainDir, "network/lapis/cloud/server/routes/PspWebhookRoutes.kt")
+            val loggerLinePattern =
+                Regex("""logger\.\w+\s*\{[^}]*\$\{?\w*(secret|key|signature|token|bearer)\w*""", RegexOption.IGNORE_CASE)
+            val offenders =
+                pspFiles.flatMap { file ->
+                    if (!file.exists()) return@flatMap emptyList()
+                    file.readLines().mapIndexedNotNull { index, line ->
+                        if (loggerLinePattern.containsMatchIn(line)) "${file.path}:${index + 1}: $line" else null
+                    }
+                }
+            offenders.shouldBeEmpty()
+        }
+
+        // Welle V1.2.8 -- PspConfig.load() is documented as the ONLY place any LAPIS_STRIPE_* value
+        // is ever read (see that class's own KDoc "Read location"). A second reader would risk a
+        // second, drifting validation path for the same secret.
+        test("no System.getenv(\"LAPIS_STRIPE\") call exists outside PspConfig.kt") {
+            val pattern = Regex("""System\.getenv\(\s*"LAPIS_STRIPE""")
+            val offenders =
+                listOf(sharedMainDir, serverMainDir, clientMainDir)
+                    .flatMap { dir -> dir.walkTopDown().filter { it.isFile && it.extension == "kt" && it.name != "PspConfig.kt" } }
+                    .flatMap { file ->
+                        file.readLines().mapIndexedNotNull { index, line ->
+                            if (pattern.containsMatchIn(line)) "${file.path}:${index + 1}: $line" else null
+                        }
+                    }
             offenders.shouldBeEmpty()
         }
 

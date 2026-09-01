@@ -12,6 +12,7 @@ import network.lapis.cloud.server.db.generated.AccountTable
 import network.lapis.cloud.server.db.generated.ContributionTable
 import network.lapis.cloud.server.db.generated.MemberTable
 import network.lapis.cloud.server.db.generated.MembershipTierTable
+import network.lapis.cloud.server.db.generated.PaymentCheckoutSessionTable
 import network.lapis.cloud.server.db.generated.PaymentTransactionTable
 import network.lapis.cloud.server.db.generated.SepaDebitBatchTable
 import network.lapis.cloud.server.db.generated.SepaDebitItemTable
@@ -23,6 +24,7 @@ import network.lapis.cloud.shared.domain.ContributionPaymentMethod
 import network.lapis.cloud.shared.domain.ContributionStatus
 import network.lapis.cloud.shared.domain.ErasureMode
 import network.lapis.cloud.shared.domain.MemberStatus
+import network.lapis.cloud.shared.domain.PaymentCheckoutSessionStatus
 import network.lapis.cloud.shared.domain.PaymentIntent
 import network.lapis.cloud.shared.domain.PaymentProvider
 import network.lapis.cloud.shared.domain.PaymentTransactionStatus
@@ -80,6 +82,7 @@ class PaymentsPersonalDataTest :
                 }
                 if (createdMemberIds.isNotEmpty()) {
                     PaymentTransactionTable.deleteWhere { PaymentTransactionTable.memberId inList createdMemberIds }
+                    PaymentCheckoutSessionTable.deleteWhere { PaymentCheckoutSessionTable.memberId inList createdMemberIds }
                     SepaMandateTable.deleteWhere { SepaMandateTable.memberId inList createdMemberIds }
                     AccountTable.deleteWhere { AccountTable.memberId inList createdMemberIds }
                     MemberTable.deleteWhere { MemberTable.id inList createdMemberIds }
@@ -387,5 +390,110 @@ class PaymentsPersonalDataTest :
                 .single()
                 .jsonObject["revocationReason"]
                 .toString() shouldBe "null"
+        }
+
+        // ════════════════════════════════════════════════════════════════
+        // Welle V1.2.8 "PSP-Checkout (Stripe)" (GitHub Issue #6) -- export/erase symmetry for the
+        // new payment_checkout_session table (F12), plus the two new payment_transaction columns.
+        // ════════════════════════════════════════════════════════════════
+
+        fun insertCheckoutSession(memberId: Uuid): Uuid {
+            val id = Uuid.random()
+            val now = LocalDateTime(2026, 4, 1, 10, 0)
+            transaction {
+                PaymentCheckoutSessionTable.insert {
+                    it[PaymentCheckoutSessionTable.id] = id
+                    it[provider] = PaymentProvider.STRIPE
+                    it[providerSessionId] = "cs_test_${id.toString().take(8)}"
+                    it[status] = PaymentCheckoutSessionStatus.CREATED
+                    it[intent] = PaymentIntent.DONATION
+                    it[contributionId] = null
+                    it[PaymentCheckoutSessionTable.memberId] = memberId
+                    it[amount] = BigDecimal("25.00")
+                    it[currency] = "EUR"
+                    it[donorCategory] = null
+                    it[purpose] = "Free-text purpose remark about this member -- must be cleared on erase"
+                    it[createdAt] = now
+                    it[expiresAt] = now
+                    it[completedAt] = null
+                    it[providerIdempotencyKey] = "idem-${id.toString().take(8)}"
+                    it[redirectUrl] = "https://checkout.stripe.com/c/pay/cs_test_${id.toString().take(8)}"
+                }
+            }
+            return id
+        }
+
+        test("export includes paymentCheckoutSessions for the member (F12)") {
+            val member = createTestMember("payments-pd-checkout-session-export@example.org")
+            insertCheckoutSession(member)
+
+            val export = transaction { PaymentsPersonalData.export(member) }
+            val sessions = export.jsonObject.getValue("paymentCheckoutSessions").jsonArray
+            sessions.size shouldBe 1
+            sessions
+                .single()
+                .jsonObject
+                .getValue("purpose")
+                .jsonPrimitive.content shouldBe
+                "Free-text purpose remark about this member -- must be cleared on erase"
+            sessions
+                .single()
+                .jsonObject
+                .getValue("currency")
+                .jsonPrimitive.content shouldBe "EUR"
+        }
+
+        test("erase clears payment_checkout_session.purpose but retains the row and amount/currency/status (GoBD retention)") {
+            val member = createTestMember("payments-pd-checkout-session-erase@example.org")
+            val sessionId = insertCheckoutSession(member)
+
+            val outcomes = transaction { PaymentsPersonalData.erase(memberId = member, mode = ErasureMode.ANONYMIZE) }
+            outcomes.single { it.table == "payment_checkout_session" }.rowsRetained shouldBe 1
+
+            transaction {
+                val row = PaymentCheckoutSessionTable.selectAll().where { PaymentCheckoutSessionTable.id eq sessionId }.single()
+                row[PaymentCheckoutSessionTable.purpose] shouldBe null
+                row[PaymentCheckoutSessionTable.amount] shouldBe BigDecimal("25.00")
+                row[PaymentCheckoutSessionTable.currency] shouldBe "EUR"
+            }
+        }
+
+        test("export includes the two new payment_transaction columns (checkoutSessionId/donorCategory) -- symmetry with the new table") {
+            val member = createTestMember("payments-pd-transaction-new-columns@example.org")
+            val sessionId = insertCheckoutSession(member)
+            transaction {
+                PaymentTransactionTable.insert {
+                    it[id] = Uuid.random()
+                    it[provider] = PaymentProvider.STRIPE
+                    it[providerEventId] = "evt-${Uuid.random()}"
+                    it[providerPaymentId] = "pi-${Uuid.random()}"
+                    it[status] = PaymentTransactionStatus.CAPTURED
+                    it[amount] = BigDecimal("25.00")
+                    it[currency] = "EUR"
+                    it[feeAmount] = null
+                    it[intent] = PaymentIntent.DONATION
+                    it[contributionId] = null
+                    it[PaymentTransactionTable.memberId] = member
+                    it[payerReference] = null
+                    it[receivedAt] = LocalDateTime(2026, 4, 1, 10, 0)
+                    it[reconciledAt] = null
+                    it[reconciledBy] = null
+                    it[journalEntryId] = null
+                    it[reconciliationNote] = null
+                    it[rawPayloadDigest] = "0".repeat(64)
+                    it[checkoutSessionId] = sessionId
+                    it[donorCategory] = null
+                }
+            }
+
+            val export = transaction { PaymentsPersonalData.export(member) }
+            val entry =
+                export.jsonObject
+                    .getValue("paymentTransactions")
+                    .jsonArray
+                    .single()
+                    .jsonObject
+            entry.containsKey("checkoutSessionId") shouldBe true
+            entry.containsKey("donorCategory") shouldBe true
         }
     })

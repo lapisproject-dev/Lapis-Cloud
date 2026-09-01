@@ -1300,51 +1300,24 @@ class AccountingService(
      * [postDraftEntry] transition). Returns `ZERO` when both ids are `null` -- an anonymous donation
      * cannot be correlated to a specific donor, and the §25 PartG anonymous-forwarding rule is
      * per-donation, not aggregate, see [PartyDonationComplianceCalculator] KDoc.
+     *
+     * Delegates to the top-level [network.lapis.cloud.server.rpc.priorPostedDonationTotalThisYear]
+     * (extracted below, outside this class, Welle V1.2.8) so [DonationPostingBridge] can reuse the
+     * SAME query rather than duplicating it -- see that top-level function's own KDoc for the
+     * reasoning and the original implementation this delegates to unchanged.
      */
     private fun priorPostedDonationTotalThisYear(
         donorMemberId: Uuid?,
         externalDonorId: Uuid?,
         year: Int,
         excludeEntryId: Uuid?,
-    ): BigDecimal {
-        if (donorMemberId == null && externalDonorId == null) return BigDecimal.ZERO
-        val yearStart = LocalDate(year, 1, 1)
-        val yearEnd = LocalDate(year, 12, 31)
-        val donorCondition: Op<Boolean> =
-            if (donorMemberId != null) {
-                JournalEntryTable.donorMemberId eq donorMemberId
-            } else {
-                JournalEntryTable.externalDonorId eq externalDonorId
-            }
-        val conditions =
-            mutableListOf<Op<Boolean>>(
-                JournalEntryTable.status eq JournalEntryStatus.POSTED,
-                JournalEntryTable.entryDate greaterEq yearStart,
-                JournalEntryTable.entryDate lessEq yearEnd,
-                donorCondition,
-            )
-        if (excludeEntryId != null) conditions += (JournalEntryTable.id neq excludeEntryId)
-
-        val rows =
-            (PostingTable innerJoin JournalEntryTable innerJoin LedgerAccountTable)
-                .selectAll()
-                .where { conditions.reduce { a, b -> a and b } }
-                .toList()
-
-        val normalSide = GeneralLedgerCalculator.normalBalanceSideOf(LedgerAccountType.INCOME)
-        return rows
-            .filter { it[LedgerAccountTable.type] == LedgerAccountType.INCOME }
-            .groupBy { it[JournalEntryTable.id] }
-            .values
-            .fold(BigDecimal.ZERO) { acc, group ->
-                acc +
-                    group.fold(BigDecimal.ZERO) { acc2, row ->
-                        val amount = row[PostingTable.amount]
-                        val signed = if (row[PostingTable.side] == normalSide) amount else amount.negate()
-                        acc2 + signed
-                    }
-            }
-    }
+    ): BigDecimal =
+        network.lapis.cloud.server.rpc.priorPostedDonationTotalThisYear(
+            donorMemberId = donorMemberId,
+            externalDonorId = externalDonorId,
+            year = year,
+            excludeEntryId = excludeEntryId,
+        )
 
     /**
      * V0.5.1 §25 PartG hard-enforcement point: hard-blocks posting with [ConflictException] when
@@ -1660,4 +1633,65 @@ class AccountingService(
             donorCategory = this[JournalEntryTable.donorCategory],
         )
     }
+}
+
+/**
+ * V0.5.1 §25 PartG, extracted to top-level + `internal` (Welle V1.2.8): the same donor's
+ * ([donorMemberId] or [externalDonorId] -- at most one is non-null for a real identified donor)
+ * other already-`POSTED` donation income total within calendar year [year], excluding
+ * [excludeEntryId] (the entry being posted itself, for [AccountingService.postDraftEntry]'s
+ * transition). Returns `ZERO` when both ids are `null` -- an anonymous donation cannot be
+ * correlated to a specific donor, and the §25 PartG anonymous-forwarding rule is per-donation, not
+ * aggregate, see [PartyDonationComplianceCalculator] KDoc.
+ *
+ * Originally a private member of [AccountingService] (V0.5.1); hoisted out to a top-level function
+ * in this SAME file/package (Welle V1.2.8, GitHub #6) so [DonationPostingBridge] -- which has no
+ * [AccountingService] instance to call into, deliberately (see that bridge's own class KDoc "Bewusst
+ * KEIN Aufruf von `AccountingService.postJournalEntry`") -- can reuse the EXACT same query rather
+ * than duplicating it. [AccountingService]'s own two call sites now delegate to this function
+ * unchanged; no behavior change versus the pre-extraction version.
+ */
+internal fun priorPostedDonationTotalThisYear(
+    donorMemberId: Uuid?,
+    externalDonorId: Uuid?,
+    year: Int,
+    excludeEntryId: Uuid?,
+): BigDecimal {
+    if (donorMemberId == null && externalDonorId == null) return BigDecimal.ZERO
+    val yearStart = LocalDate(year, 1, 1)
+    val yearEnd = LocalDate(year, 12, 31)
+    val donorCondition: Op<Boolean> =
+        if (donorMemberId != null) {
+            JournalEntryTable.donorMemberId eq donorMemberId
+        } else {
+            JournalEntryTable.externalDonorId eq externalDonorId
+        }
+    val conditions =
+        mutableListOf<Op<Boolean>>(
+            JournalEntryTable.status eq JournalEntryStatus.POSTED,
+            JournalEntryTable.entryDate greaterEq yearStart,
+            JournalEntryTable.entryDate lessEq yearEnd,
+            donorCondition,
+        )
+    if (excludeEntryId != null) conditions += (JournalEntryTable.id neq excludeEntryId)
+
+    val rows =
+        (PostingTable innerJoin JournalEntryTable innerJoin LedgerAccountTable)
+            .selectAll()
+            .where { conditions.reduce { a, b -> a and b } }
+            .toList()
+
+    val normalSide = GeneralLedgerCalculator.normalBalanceSideOf(LedgerAccountType.INCOME)
+    return rows
+        .filter { it[LedgerAccountTable.type] == LedgerAccountType.INCOME }
+        .groupBy { it[JournalEntryTable.id] }
+        .values
+        .fold(BigDecimal.ZERO) { acc, group ->
+            acc +
+                group.fold(BigDecimal.ZERO) { acc2, row ->
+                    val amount = row[PostingTable.amount]
+                    val signed = if (row[PostingTable.side] == normalSide) amount else amount.negate()
+                    acc2 + signed
+                }
+        }
 }

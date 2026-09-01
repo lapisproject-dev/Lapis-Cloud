@@ -15,10 +15,12 @@ import java.security.MessageDigest
  * V1.2 -- Zahlungsverkehr" § 2.4). **This is NOT a reviewed legal conclusion and NOT automated
  * Rechtsberatung.**
  *
- * Welle V1.2.1 "Zahlungs-Fundament" ships ONLY this disclaimer and the enable/disable gate --
- * `paymentGatewayEnabled` has no real functionality behind it yet (no PSP HTTP client, no checkout
- * session, no webhook route -- those are V1.2.4). The gate exists now so that sub-wave finds it
- * already built and reviewed.
+ * Welle V1.2.1 "Zahlungs-Fundament" shipped ONLY this disclaimer and the enable/disable gate --
+ * `paymentGatewayEnabled` had no real functionality behind it yet (no PSP HTTP client, no checkout
+ * session, no webhook route). Welle V1.2.8 "PSP-Checkout (Stripe)" (GitHub Issue #6) is that
+ * promised sub-wave -- the gate/disclaimer mechanism here is unchanged, `PaymentGatewayService
+ * .requirePaymentGatewayUsable()`/`network.lapis.cloud.server.routes.PspWebhookRoutes` now both
+ * check [paymentGatewayDisclaimerIsCurrentlyAcknowledged] for real.
  */
 object PaymentGatewayComplianceDisclaimer {
     const val VERSION: String = "2026-08-19.v1"

@@ -147,7 +147,7 @@ class PaymentGatewayServiceTest :
                 application {
                     routing {
                         post("/test/enable") {
-                            val service = PaymentGatewayService(call)
+                            val service = PaymentGatewayService(call = call)
                             val dto =
                                 service.enablePaymentGateway(
                                     provider = PaymentProvider.STRIPE,
@@ -160,11 +160,11 @@ class PaymentGatewayServiceTest :
                             call.respondText("${dto.paymentGatewayEnabled}:${dto.paymentGatewayProvider}")
                         }
                         post("/test/disable") {
-                            val dto = PaymentGatewayService(call).disablePaymentGateway()
+                            val dto = PaymentGatewayService(call = call).disablePaymentGateway()
                             call.respondText("${dto.paymentGatewayEnabled}:${dto.paymentGatewayProvider}")
                         }
                         get("/test/get") {
-                            val dto = PaymentGatewayService(call).getPaymentGatewaySettings()
+                            val dto = PaymentGatewayService(call = call).getPaymentGatewaySettings()
                             call.respondText("${dto.paymentGatewayEnabled}:${dto.paymentGatewayProvider}")
                         }
                     }

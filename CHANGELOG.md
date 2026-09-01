@@ -8,6 +8,66 @@ All notable changes to this project are documented here. Format follows
 
 ### Added
 
+**Online-Zahlung von Beiträgen und Spenden über Stripe (GitHub #6, Welle V1.2.8)**
+
+- **Mitglieder können ihren Beitrag jetzt online bezahlen und Spenden online leisten** — über einen
+  von Stripe gehosteten Checkout (Kartenzahlung, EUR). Der Beitragsbetrag wird dabei ausschließlich
+  serverseitig aus der Beitragszeile gelesen, nie vom Client übernommen; bei Spenden wird der
+  eingegebene Betrag serverseitig gegen Vorzeichen, Nachkommastellen und einen konfigurierbaren
+  Höchstbetrag geprüft.
+- **Neue Webhook-Route `POST /api/webhooks/stripe`** — die erste Webhook-Empfangsstelle dieses
+  Repos überhaupt. Verifiziert die Stripe-Signatur (HMAC-SHA256 über `<timestamp>.<rohe Bytes>`,
+  konstantzeitiger Vergleich, Toleranzfenster erst NACH der Signaturprüfung), begrenzt die
+  Body-Größe vor dem Parsen, prüft die JSON-Verschachtelungstiefe mit einem linearen, nicht
+  rekursiven Scan und ist ratenbegrenzt — dieselbe Reihenfolge und dieselben Schutzmaßnahmen wie
+  `POST /federation/inbox`. Jede Zustellung, verifiziert oder nicht, hinterlässt genau eine Zeile in
+  der neuen Tabelle `psp_webhook_event`.
+- **Eine bestätigte Zahlung bucht automatisch ins Rechnungswesen** — über den bereits in V1.2.1
+  angelegten `ContributionPostingBridge` (`source = GATEWAY`), also über exakt dieselbe Stelle, die
+  auch `markContributionPaid` benutzt. Das manuelle Als-bezahlt-Markieren bleibt für alle anderen
+  Zahlungswege unverändert erhalten. Für Spenden gibt es neu den `DonationPostingBridge`, der die
+  §25-PartG-Prüfung (`PartyDonationComplianceCalculator`) wiederverwendet, statt sie zu duplizieren.
+- **Eine erneut zugestellte Webhook-Nachricht bucht nicht doppelt.** Anker ist der bereits in V1.2.1
+  angelegte eindeutige Index `uq_payment_transaction_provider_event` — eine Datenbank-Zusage, kein
+  In-Memory-Zustand: die Einfügung wird zuerst versucht, ein Unique-Verstoß gilt als Duplikat.
+  Stripe erhält in diesem Fall bewusst ein `200`, damit es die Zustellung nicht endlos wiederholt.
+- **Der Buchungsbetrag stammt niemals aus der Webhook-Nachricht**, sondern aus der zuvor
+  serverseitig erzeugten `payment_checkout_session`. Weicht der gemeldete Betrag oder die Währung
+  davon ab, wird die Zahlung als eingegangen, aber **nicht gebucht** vermerkt und erscheint mit
+  Begründung in der neuen Schatzmeister-Ansicht „Zahlungseingänge" — statt still falsch gebucht zu
+  werden. Dasselbe gilt, wenn die Kontenzuordnung unvollständig ist oder der Beitrag bereits
+  ausgeglichen war.
+- **Zahlungsannahme bleibt vollständig abgeschaltet**, bis der Rechtshinweis bestätigt und das
+  Gate aktiviert ist (unverändertes `IPaymentGatewayService`-Gate aus V1.2.1) — geprüft sowohl beim
+  Erzeugen eines Checkouts als auch erneut beim Eintreffen des Webhooks.
+- **Zugangsdaten ausschließlich aus der Umgebung** (`LAPIS_STRIPE_SECRET_KEY`,
+  `LAPIS_STRIPE_WEBHOOK_SIGNING_SECRET`) — niemals in der Datenbank, niemals in einem Log, niemals
+  in einer Fehlermeldung oder einem DTO. Dieselbe Konvention wie bei `LAPIS_SMTP_*`; `SecretBox`/
+  `LAPIS_SECRET_ENCRYPTION_KEY` sind bewusst nicht beteiligt, weil hier nichts gespeichert wird.
+  Halbe Konfiguration bricht den Start ab (fail-fast), gar keine Konfiguration ist ein zulässiger
+  Zustand.
+- **Neue Bildschirme:** `Spenden` (`/donate`, alle Mitglieder), `Zahlungseingänge`
+  (`/payment-transactions`, TREASURER/BOARD/ADMIN, mit Filter „nur nicht gebucht"),
+  `Zahlungs-Konfiguration` (`/payment-gateway-settings`, ADMIN — Gate, Kontenzuordnung und eine
+  reine Ja/Nein-Anzeige, ob die Umgebungsvariablen gesetzt sind, nie deren Werte) sowie eine
+  Rückkehrseite nach dem Checkout. Auf der Beitragsübersicht erscheint für jede offene Beitragszeile
+  ein „Online bezahlen"-Knopf — und für ein einfaches Mitglied ohne aktivierten Zahlungsweg
+  bewusst gar nichts.
+- **Neue Tabellen** `payment_checkout_session` und `psp_webhook_event`, zwei neue Spalten auf
+  `payment_transaction` (`checkout_session_id`, `donor_category`), eine neue Spalte
+  `organization_settings.donation_income_account_id` sowie das neue Audit-Literal
+  `PAYMENT_TRANSACTION` — Migration `V13__psp_checkout.sql`, idempotent wie V2–V12.
+- **Bewusst nicht in dieser Welle:** PayPal, Rückerstattungen/Chargebacks, das Erfassen der
+  PSP-Gebühr (der volle Bruttobetrag wird gebucht), wiederkehrende Zahlungen, andere Währungen als
+  EUR, Spenden ohne Anmeldung und externe Spender.
+- **BETRIEBSHINWEIS:** `V1__baseline.sql`s `audit_log_entry.entity_type`-CHECK wurde in place um
+  `'PAYMENT_TRANSACTION'` erweitert (gleiches Vorgehen wie bei `'MEMBER'` in V1.2.12) — nötig, weil
+  auf einer frischen/Test-Datenbank weiterhin die ursprüngliche, unbenannte Inline-CHECK aus V1
+  greift (H2 vergibt dafür intern einen Namen wie `CONSTRAINT_407`); `V13__psp_checkout.sql`s
+  DROP/ADD auf `chk_audit_log_entry_entity_type` erreicht nur eine bereits real migrierte Instanz.
+  Auf einer bereits migrierten Instanz (pdv2/ELB) ist danach `./gradlew :lapis-server:flywayRepair`
+  nötig, bevor `V13__psp_checkout.sql` dort ausgeführt wird.
+
 **Client-UI für das Mahnwesen (GitHub #5)**
 
 - Zwei neue Screens: `Mahnwesen` (`/dunning`, TREASURER/BOARD/ADMIN) listet offene Mahnvorgänge mit

@@ -76,6 +76,13 @@ import kotlinx.serialization.Serializable
  * as [sepaDebitEnabled] -- absent from [OrganizationSettingsInput], settable ONLY via
  * [network.lapis.cloud.shared.rpc.IDunningService.enableDunning] (disclaimer-acknowledgment)/
  * `disableDunning`.
+ *
+ * [donationIncomeAccountId] (Welle V1.2.8 "PSP-Checkout (Stripe)") is a fourth ordinary,
+ * ADMIN-writable configuration field -- same treatment as [paymentBankAccountId]/
+ * [paymentFeeAccountId]/[contributionIncomeAccountId] above, part of [OrganizationSettingsInput].
+ * Which SKR42 `LedgerAccount` `network.lapis.cloud.server.rpc.DonationPostingBridge` books a gateway
+ * donation's brutto amount into. `null` degrades the bridge to a no-op, same "unconfigured mapping"
+ * treatment as the other three.
  */
 @Serializable
 data class OrganizationSettingsDto(
@@ -101,6 +108,7 @@ data class OrganizationSettingsDto(
     val paymentFeeAccountId: String? = null,
     val contributionIncomeAccountId: String? = null,
     val dunningEnabled: Boolean = false,
+    val donationIncomeAccountId: String? = null,
 )
 
 /** Replaces every field of the single [OrganizationSettingsDto] row wholesale (no partial update). */
@@ -126,4 +134,6 @@ data class OrganizationSettingsInput(
     val paymentFeeAccountId: String? = null,
     /** V1.2.1. See [OrganizationSettingsDto.contributionIncomeAccountId] KDoc. */
     val contributionIncomeAccountId: String? = null,
+    /** V1.2.8. See [OrganizationSettingsDto.donationIncomeAccountId] KDoc. */
+    val donationIncomeAccountId: String? = null,
 )

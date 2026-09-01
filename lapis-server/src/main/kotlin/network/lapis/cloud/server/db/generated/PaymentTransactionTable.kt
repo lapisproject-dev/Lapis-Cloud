@@ -5,6 +5,7 @@ package network.lapis.cloud.server.db.generated
 import java.math.BigDecimal
 import kotlin.uuid.Uuid
 import kotlinx.datetime.LocalDateTime
+import network.lapis.cloud.shared.domain.DonorCategory
 import network.lapis.cloud.shared.domain.PaymentIntent
 import network.lapis.cloud.shared.domain.PaymentProvider
 import network.lapis.cloud.shared.domain.PaymentTransactionStatus
@@ -31,6 +32,8 @@ public object PaymentTransactionTable : Table("payment_transaction") {
     public val journalEntryId: Column<Uuid?> = optReference("journal_entry_id", JournalEntryTable.id)
     public val reconciliationNote: Column<String?> = varchar("reconciliation_note", 2000).nullable()
     public val rawPayloadDigest: Column<String> = varchar("raw_payload_digest", 64)
+    public val checkoutSessionId: Column<Uuid?> = optReference("checkout_session_id", PaymentCheckoutSessionTable.id)
+    public val donorCategory: Column<DonorCategory?> = enumerationByName<DonorCategory>("donor_category", 41).nullable()
 
     override val primaryKey: PrimaryKey = PrimaryKey(id)
 

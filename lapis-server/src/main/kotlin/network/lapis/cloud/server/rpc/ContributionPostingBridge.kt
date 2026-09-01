@@ -49,9 +49,12 @@ private val logger = KotlinLogging.logger {}
  * checked by the RPC-level caller) UND würde bei einer Parteispende über
  * `requirePartyDonationAllowed` werfen. Ein Mitgliedsbeitrag ist KEINE Spende --
  * `donorCategory`/`donorMemberId`/`externalDonorId` bleiben hier IMMER `null`, der §25-PartG-Pfad
- * wird nie berührt. Spenden laufen ausschliesslich über `AccountingService.postJournalEntry` mit
- * einem echten menschlichen Akteur (siehe Plan § 3.5) -- das bleibt V1.2.4-Scope, dieser Bridge
- * betrifft nur Beiträge.
+ * wird nie berührt. Eine von einem echten, angemeldeten Mitglied selbst mit `AccountingService
+ * .postJournalEntry` erfasste Spende läuft weiterhin über diesen menschlichen Akteur-Pfad. Eine über
+ * den Zahlungsdienstleister eingegangene Spende (Welle V1.2.8, `PspWebhookIngestion`) läuft dagegen
+ * über den eigenständigen `DonationPostingBridge` -- dasselbe "kein `CurrentMember`, kein Aufruf von
+ * `postJournalEntry`" Muster wie hier, aber mit `donorCategory`/`donorMemberId` GESETZT (siehe dessen
+ * eigene KDoc); dieser Bridge betrifft ausschliesslich Beiträge.
  *
  * **Verhält sich degradierend statt scheiternd.** Sind [OrganizationSettingsTable.paymentBankAccountId]/
  * `.paymentFeeAccountId`/`.contributionIncomeAccountId` nicht (vollständig) konfiguriert, wird
@@ -92,7 +95,7 @@ private val logger = KotlinLogging.logger {}
  * [postContributionPayment] sehr wohl [ConflictException] (siehe `requireBalanced` unten, Round-2-
  * Fix) -- und reisst damit die GESAMTE aufrufende Transaktion zurück, inklusive des
  * Contribution-Statuswechsels in [ContributionService.markContributionPaid]. Zukünftige Aufrufer
- * (V1.2.2/V1.2.4) müssen diesen Unterschied kennen, um zu entscheiden, ob sie einen Aufruf dieser
+ * (V1.2.2/V1.2.8) müssen diesen Unterschied kennen, um zu entscheiden, ob sie einen Aufruf dieser
  * Bridge in eigene Fehlerbehandlung einpacken müssen.
  *
  * Buchungssätze (SKR42, Sphäre [GemeinnuetzigkeitSphere.IDEELLER_BEREICH] -- ein Mitgliedsbeitrag
@@ -104,21 +107,25 @@ private val logger = KotlinLogging.logger {}
  * ```
  * Brutto/Netto bewusst getrennt gebucht, nicht saldiert -- dieselbe Begründung wie bei einer
  * Spendenbescheinigung: der volle zugewendete/geschuldete Betrag muss im Hauptbuch sichtbar sein,
- * eine PSP-Gebühr ist eigener Aufwand der Organisation. Kein V1.2.1-Aufrufer setzt [providerFee]
- * ungleich `null` (nur `ContributionService.markContributionPaid`, `source = MANUAL`, ruft diese
- * Funktion in dieser Welle auf) -- der Parameter existiert bereits jetzt, damit V1.2.2 (SEPA-
- * Rücklastschriftgebühr) und V1.2.4 (PSP-Gebühr) dieselbe Funktion ohne Signaturänderung nutzen.
+ * eine PSP-Gebühr ist eigener Aufwand der Organisation. [providerFee] bleibt für JEDEN V1.2.8-Aufrufer
+ * (`PspWebhookIngestion`, `source = GATEWAY`) `null` -- siehe Welle V1.2.8's eigenen Scope-Cut
+ * "PSP-Gebühr wird nicht erfasst" (`checkout.session.completed` trägt keine Balance-Transaction-
+ * Gebühr; ein synchroner Zusatzaufruf innerhalb der Webhook-Transaktion wäre nötig, um sie zu
+ * erfassen -- bewusst nicht in dieser Welle). Der Parameter existiert bereits seit V1.2.1, damit
+ * V1.2.2 (SEPA-Rücklastschriftgebühr) und ein späterer PSP-Gebühren-Abgleich dieselbe Funktion ohne
+ * Signaturänderung nutzen können.
  *
- * **Offene Anschlussfrage für V1.2.2/V1.2.4 (bewusst NICHT in V1.2.1 entschieden):**
- * [JournalEntryTable.createdBy] ist `NOT NULL` (FK auf `member`) -- diese Funktion verlangt deshalb
- * [actorMemberId] aktuell als nicht-nullbaren Parameter, obwohl der übergeordnete Plan für einen
- * künftigen System-/Poller-/Webhook-Akteur (`actorMemberId = null`, das Muster
- * `RecordingPoller.transitionToStopping` bereits für [AuditLogRecorder] selbst etabliert) vorsieht.
- * Ein System-Akteur kann `journal_entry.created_by` in seiner heutigen Form nicht befüllen. Diese
- * Welle löst das nicht (kein `SEPA_DEBIT`/`GATEWAY`-Aufrufer existiert noch) -- die spätere Welle,
- * die den ersten System-Akteur-Aufrufer einführt, muss entweder einen Sentinel-"System"-Member
- * anlegen oder `journal_entry.created_by` nullable machen. Menschliche Entscheidung, nicht hier
- * geraten.
+ * **V1.2.2/V1.2.4-Anschlussfrage aufgelöst (V1.2.8, kein Schema-Wechsel nötig):** [JournalEntryTable.createdBy]
+ * ist weiterhin `NOT NULL` (FK auf `member`) -- [actorMemberId] bleibt deshalb ein nicht-nullbarer
+ * Parameter. Der ursprünglich erwogene Sentinel-"System"-Member bzw. eine nullable Spalte war NICHT
+ * nötig: `PspWebhookIngestion` (der erste `source = GATEWAY`-Aufrufer dieser Bridge) verlangt eine
+ * authentifizierte Session für JEDE Checkout-Erzeugung (`createContributionCheckout`/
+ * `createDonationCheckout`), sodass die auslösende `member_id` bereits auf `payment_checkout_session`
+ * persistiert ist, BEVOR der Webhook je eintrifft -- diese `member_id` wird beim Webhook-Empfang
+ * als `actorMemberId`/`created_by` wiederverwendet. Ein anonymer/nicht angemeldeter Checkout ist
+ * daher ein expliziter Scope-Cut dieser Welle (siehe `IPaymentGatewayService` KDoc), nicht nur eine
+ * unvollständige Implementierung -- ein künftiger anonymer Spenden-Weg müsste die hier aufgeschobene
+ * Sentinel-Member-oder-nullable-Spalten-Entscheidung tatsächlich treffen.
  */
 object ContributionPostingBridge {
     fun postContributionPayment(
@@ -211,8 +218,9 @@ object ContributionPostingBridge {
         // (private) requireBalanced/JournalEntryBalance.validateBalanced BEFORE this bridge existed
         // to bypass it. Balanced by construction today (netAmount + providerFee == paidAmount) for
         // any input this wave's only caller (markContributionPaid, providerFee always null) can
-        // produce -- but providerFee is a real, non-validated-for-scale parameter future callers
-        // (V1.2.2 Ruecklastschriftgebuehr, V1.2.4 PSP-Gebuehr) WILL pass, and paidAmount/providerFee
+        // produce -- but providerFee is a real, non-validated-for-scale parameter a future caller
+        // (V1.2.2 Ruecklastschriftgebuehr; a later PSP-fee-reconciliation wave, see V1.2.8's own
+        // documented scope cut) WILL pass, and paidAmount/providerFee
         // are caller-supplied BigDecimals with no scale guard above. Reusing
         // JournalEntryBalance.validateBalanced (internal, same package) rather than duplicating its
         // logic also re-establishes the scale<=2 guard for free, matching PostingTable's

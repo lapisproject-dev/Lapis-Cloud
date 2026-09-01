@@ -34,6 +34,7 @@ public object OrganizationSettingsTable : Table("organization_settings") {
     public val paymentBankAccountId: Column<Uuid?> = optReference("payment_bank_account_id", LedgerAccountTable.id)
     public val paymentFeeAccountId: Column<Uuid?> = optReference("payment_fee_account_id", LedgerAccountTable.id)
     public val contributionIncomeAccountId: Column<Uuid?> = optReference("contribution_income_account_id", LedgerAccountTable.id)
+    public val donationIncomeAccountId: Column<Uuid?> = optReference("donation_income_account_id", LedgerAccountTable.id)
     public val sepaCreditorId: Column<String?> = varchar("sepa_creditor_id", 35).nullable()
     public val sepaCreditorName: Column<String?> = varchar("sepa_creditor_name", 70).nullable()
     public val sepaPrenotificationDays: Column<Int> = integer("sepa_prenotification_days")

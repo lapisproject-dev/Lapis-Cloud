@@ -25,6 +25,7 @@ import network.lapis.cloud.shared.domain.BoardMembershipSnapshot
 import network.lapis.cloud.shared.domain.JournalEntrySnapshot
 import network.lapis.cloud.shared.domain.OrganizationSettingsPaymentMappingSnapshot
 import network.lapis.cloud.shared.domain.PartyDonationVerdictSnapshot
+import network.lapis.cloud.shared.domain.PaymentTransactionSnapshot
 import network.lapis.cloud.shared.domain.ResolutionSnapshot
 import network.lapis.cloud.shared.domain.SocialPostModerationSnapshot
 import network.lapis.cloud.shared.rpc.IAuditLogService
@@ -379,6 +380,9 @@ fun decodeAuditSnapshot(
             // for it this wave (backend-only wave, same posture DUNNING_NOTICE/SEPA_MANDATE already
             // establish) -- falls through to the raw-text display.
             AuditEntityType.MEMBER -> null
+            // Welle V1.2.8 "PSP-Checkout (Stripe)" (GitHub Issue #6) -- PspWebhookIngestion writes
+            // PaymentTransactionSnapshot (see AuditLog.kt).
+            AuditEntityType.PAYMENT_TRANSACTION -> lenientSnapshotJson.decodeFromString<PaymentTransactionSnapshot>(raw)
         }
     }.getOrNull()
 
@@ -393,6 +397,7 @@ private fun renderSnapshotBody(
         is BoardMembershipSnapshot -> renderBoardMembershipSnapshotBody(panel, decoded)
         is PartyDonationVerdictSnapshot -> renderPartyDonationVerdictSnapshotBody(panel, decoded)
         is OrganizationSettingsPaymentMappingSnapshot -> renderOrganizationSettingsPaymentMappingSnapshotBody(panel, decoded)
+        is PaymentTransactionSnapshot -> renderPaymentTransactionSnapshotBody(panel, decoded)
         else -> renderRawSnapshotFallback(panel, raw)
     }
 }
@@ -537,6 +542,25 @@ private fun renderOrganizationSettingsPaymentMappingSnapshotBody(
         gettext("Beitragserlöskonto (LedgerAccount-ID)"),
         snapshot.contributionIncomeAccountId ?: tr("nicht konfiguriert"),
     )
+}
+
+/** Welle V1.2.8 "PSP-Checkout (Stripe)" (GitHub Issue #6) -- see [PaymentTransactionSnapshot] KDoc: no card/IBAN/payload data, only ids and the pre-hashed digest. */
+private fun renderPaymentTransactionSnapshotBody(
+    panel: SimplePanel,
+    snapshot: PaymentTransactionSnapshot,
+) {
+    panel.labelTypeBadgeRow(gettext("Anbieter"), paymentProviderLabel(snapshot.provider), paymentProviderColor(snapshot.provider))
+    panel.labelStatusBadgeRow(
+        gettext("Status"),
+        paymentTransactionStatusLabel(snapshot.status),
+        paymentTransactionStatusColor(snapshot.status),
+    )
+    panel.labelValueRow(gettext("Betrag"), formatMoney(snapshot.amount))
+    panel.labelTypeBadgeRow(gettext("Art"), paymentIntentLabel(snapshot.intent), paymentIntentColor(snapshot.intent))
+    snapshot.contributionId?.let { panel.labelValueRow(gettext("Beitrag (ID)"), it) }
+    snapshot.memberId?.let { panel.labelValueRow(gettext("Mitglied (ID)"), it) }
+    snapshot.donorCategory?.let { panel.labelTypeBadgeRow(gettext("Spenderkategorie"), donorCategoryLabel(it), donorCategoryColor(it)) }
+    snapshot.journalEntryId?.let { panel.labelValueRow(gettext("Journalbuchung (ID)"), it) }
 }
 
 /** D2: never silently drop the data -- a future `entityType` this client predates, or malformed

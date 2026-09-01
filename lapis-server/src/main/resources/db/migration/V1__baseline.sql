@@ -712,7 +712,14 @@ CREATE TABLE audit_log_entry (
     previous_entry_hash VARCHAR(64) NULL,
     CHECK (actor_role IN ('MEMBER', 'BOARD', 'TREASURER', 'ADMIN')),
     -- V1.2.12: 'MEMBER' appended in place -- see V11__member_administration.sql, flyway repair needed.
-    CHECK (entity_type IN ('JOURNAL_ENTRY', 'PARTY_DONATION_VERDICT', 'RESOLUTION', 'BOARD_MEMBERSHIP', 'CONFERENCE_RECORDING', 'CONFERENCE_STREAM', 'CONFERENCE_STREAM_DESTINATION', 'CONFERENCE_ROOM', 'SOCIAL_POST', 'ORGANIZATION_SETTINGS', 'SEPA_MANDATE', 'SEPA_DEBIT_BATCH', 'DUNNING_NOTICE', 'MEMBER')),
+    -- V1.2.8 (GitHub #6): 'PAYMENT_TRANSACTION' appended in place -- see V13__psp_checkout.sql's own
+    -- DROP/ADD dance on the NAMED chk_audit_log_entry_entity_type constraint, which only ever existed
+    -- on an already-migrated real instance (pdv2/ELB); this inline, still-unnamed (H2 auto-generated
+    -- name, e.g. CONSTRAINT_407) constraint is the one that actually governs every FRESH/test
+    -- database, so it must carry every literal too, or an INSERT with entity_type = 'PAYMENT_TRANSACTION'
+    -- fails the check even after V13 runs (H2 enforces both constraints independently). Flyway repair
+    -- needed on an already-migrated instance, same as the V1.2.12 precedent above.
+    CHECK (entity_type IN ('JOURNAL_ENTRY', 'PARTY_DONATION_VERDICT', 'RESOLUTION', 'BOARD_MEMBERSHIP', 'CONFERENCE_RECORDING', 'CONFERENCE_STREAM', 'CONFERENCE_STREAM_DESTINATION', 'CONFERENCE_ROOM', 'SOCIAL_POST', 'ORGANIZATION_SETTINGS', 'SEPA_MANDATE', 'SEPA_DEBIT_BATCH', 'DUNNING_NOTICE', 'MEMBER', 'PAYMENT_TRANSACTION')),
     CHECK (action IN ('CREATE', 'UPDATE', 'POST'))
 );
 

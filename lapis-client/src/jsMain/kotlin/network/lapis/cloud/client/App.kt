@@ -302,6 +302,9 @@ private fun refreshNavbar(navbar: Navbar) {
             routedDdLink(Routes.CONTRIBUTIONS, tr("Beiträge"), icon = "fas fa-coins")
             routedDdLink(Routes.DOCUMENTS, tr("Dokumente"), icon = "fas fa-file-lines")
             routedDdLink(Routes.COMMUNICATION, tr("Kommunikation"), icon = "fas fa-envelope")
+            // Welle V1.2.8 "PSP-Checkout (Stripe)" (GitHub Issue #6) -- reachable by every
+            // authenticated member, see Routes.DONATE KDoc.
+            routedDdLink(Routes.DONATE, tr("Spenden"), icon = "fas fa-hand-holding-heart")
             routedDdLink(Routes.DSGVO_RIGHTS, tr("Meine Daten"), icon = "fas fa-shield-halved")
         }
     } else if (NavVisibility.showsDsgvoRights(session.status)) {
@@ -369,6 +372,9 @@ private fun refreshNavbar(navbar: Navbar) {
             // Client-UI wave for GitHub Issue #5 -- see Routes.DUNNING_CASES KDoc for the
             // TREASURER/BOARD/ADMIN role-gate verification.
             routedDdLink(Routes.DUNNING_CASES, tr("Mahnwesen"), icon = "fas fa-file-invoice-dollar")
+            // Welle V1.2.8 "PSP-Checkout (Stripe)" (GitHub Issue #6) -- see
+            // Routes.PAYMENT_TRANSACTIONS KDoc for the TREASURER/BOARD/ADMIN role-gate verification.
+            routedDdLink(Routes.PAYMENT_TRANSACTIONS, tr("Zahlungseingänge"), icon = "fas fa-credit-card")
         }
     }
     // BOARD/ADMIN-tier -- see `Routes.MEMBERS`/`DSGVO_COMPLIANCE`/`BOARD_MEMBERSHIP` KDoc.
@@ -397,6 +403,9 @@ private fun refreshNavbar(navbar: Navbar) {
             // V1.2.2 SEPA-Client-UI wave -- see Routes.SEPA_SETTINGS KDoc for the ADMIN-only
             // role-gate verification.
             routedDdLink(Routes.SEPA_SETTINGS, tr("SEPA-Konfiguration"), icon = "fas fa-building-columns")
+            // Welle V1.2.8 "PSP-Checkout (Stripe)" (GitHub Issue #6) -- see
+            // Routes.PAYMENT_GATEWAY_SETTINGS KDoc for the ADMIN-only role-gate verification.
+            routedDdLink(Routes.PAYMENT_GATEWAY_SETTINGS, tr("Zahlungs-Konfiguration"), icon = "fas fa-hand-holding-dollar")
             // Client-UI wave for GitHub Issue #5 -- see Routes.DUNNING_SETTINGS KDoc for the
             // ADMIN-only role-gate verification.
             routedDdLink(Routes.DUNNING_SETTINGS, tr("Mahnwesen-Konfiguration"), icon = "fas fa-scale-unbalanced")

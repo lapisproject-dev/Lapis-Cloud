@@ -195,7 +195,16 @@ class ContributionService(
      * scheiternd". This is **not** true for every bridge outcome, though (Review Round 3,
      * 2026-08-19, SHOULD-1): if the mapping IS configured but the constructed postings would be
      * unbalanced, the bridge's `requireBalanced` check throws [ConflictException], which rolls back
-     * this WHOLE transaction -- including the status/paidAt/paidAmount/note write. Callers must not
+     * this WHOLE transaction -- including the status/paidAt/paidAmount/note write.
+     *
+     * **Welle V1.2.8 "PSP-Checkout (Stripe)"**: this method is no longer [ContributionPostingBridge]'s
+     * only caller -- `network.lapis.cloud.server.payment.psp.PspWebhookIngestion` is the second,
+     * calling with `source = GATEWAY` once a Stripe `checkout.session.completed` webhook is
+     * ingested. No behaviour change here: manual marking (this method, `source = MANUAL`) stays
+     * available for every non-gateway channel (cash, bank transfer, other), and the two callers
+     * share the exact same bridge, guard, and audit discipline.
+     *
+     * Callers must not
      * assume `markContributionPaid` always succeeds in flipping the status just because the bridge
      * "only degrades, never throws" -- that guarantee only covers the unconfigured-mapping/
      * inactive-account cases, not the unbalanced-postings case.

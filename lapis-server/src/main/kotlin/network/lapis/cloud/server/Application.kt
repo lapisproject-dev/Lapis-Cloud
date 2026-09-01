@@ -71,6 +71,10 @@ import network.lapis.cloud.server.mail.SmtpPasswordResetMailer
 import network.lapis.cloud.server.mail.SmtpStartupCheck
 import network.lapis.cloud.server.payment.dunning.DunningConfig
 import network.lapis.cloud.server.payment.dunning.DunningPoller
+import network.lapis.cloud.server.payment.psp.PspConfig
+import network.lapis.cloud.server.payment.psp.PspConfigState
+import network.lapis.cloud.server.payment.psp.PspStartupCheck
+import network.lapis.cloud.server.payment.psp.StripeCheckoutClient
 import network.lapis.cloud.server.payment.sepa.SepaBatchPoller
 import network.lapis.cloud.server.payment.sepa.SepaConfig
 import network.lapis.cloud.server.postal.LetterxpressPostalMailProvider
@@ -83,6 +87,7 @@ import network.lapis.cloud.server.routes.registerDunningRoutes
 import network.lapis.cloud.server.routes.registerFederationRoutes
 import network.lapis.cloud.server.routes.registerMailmergeRoutes
 import network.lapis.cloud.server.routes.registerOidcRoutes
+import network.lapis.cloud.server.routes.registerPspWebhookRoutes
 import network.lapis.cloud.server.routes.registerPublicTransparencyRoutes
 import network.lapis.cloud.server.routes.registerSepaRoutes
 import network.lapis.cloud.server.routes.registerSocialPublicRoutes
@@ -277,6 +282,24 @@ fun Application.module() {
                 )
             else -> MailBranding.notConfigured()
         }
+    // Welle V1.2.8 "PSP-Checkout (Stripe)" (GitHub Issue #6) -- exact mirror of the
+    // SmtpConfig/SmtpStartupCheck wiring above: PspStartupCheck.verifyAndLog throws
+    // IllegalStateException for an Incomplete configuration (fail-fast, same "opt-in via ANY
+    // LAPIS_STRIPE_* variable" reasoning). checkoutClient stays null when pspConfigState is
+    // NotConfigured/Incomplete -- PaymentGatewayService.requirePaymentGatewayUsable() rejects every
+    // checkout-creation call before it would ever be needed in that state.
+    val pspConfigState = PspConfig.load()
+    PspStartupCheck.verifyAndLog(pspConfigState)
+    val checkoutClient: StripeCheckoutClient? =
+        when (pspConfigState) {
+            is PspConfigState.Configured -> StripeCheckoutClient(pspConfig = pspConfigState.config)
+            else -> null
+        }
+    // Own instance, own tuning -- same discipline as dunningPreviewRateLimiter/sepaMandateWriteRateLimiter
+    // below. 120/min is generous for genuine Stripe delivery bursts (a checkout completing plus any
+    // immediately-following unrelated event) while still bounding an unauthenticated flood.
+    val pspWebhookRateLimiter = FederationInboxRateLimiter(maxRequests = 120, window = 1.minutes)
+
     val mailDispatcher = MailDispatcher(transport = mailTransport)
     // Bind mailDispatcher's dedicated CoroutineScope to Ktor's own lifecycle -- without this hook
     // the scope is never cancelled deliberately (see MailDispatcher KDoc "Lifecycle"), which lets
@@ -759,7 +782,9 @@ fun Application.module() {
                 mandateWriteRateLimiter = sepaMandateWriteRateLimiter,
             )
         }
-        registerService(IPaymentGatewayService::class) { call -> PaymentGatewayService(call = call) }
+        registerService(IPaymentGatewayService::class) { call ->
+            PaymentGatewayService(call = call, pspConfigState = pspConfigState, checkoutClient = checkoutClient)
+        }
         registerService(
             IDunningService::class,
         ) { call ->
@@ -891,6 +916,11 @@ fun Application.module() {
             friendEmailVerifyRateLimiter = friendEmailVerifyRateLimiter,
         )
         registerFederationRoutes(inboxRateLimiter = federationInboxRateLimiter, replayGuard = federationReplayGuard)
+        // Welle V1.2.8 "PSP-Checkout (Stripe)" (GitHub Issue #6) -- literal route
+        // (/api/webhooks/stripe), registered before staticFiles below, same "literal beats
+        // catch-all" reasoning as registerSocialPublicRoutes' own routes. Unauthenticated by design
+        // -- see PspWebhookRoutes KDoc.
+        registerPspWebhookRoutes(pspConfig = pspConfigState, rateLimiter = pspWebhookRateLimiter)
         registerOidcRoutes(cookieSecure = cookieSecure, registrationRateLimiter = oidcRegistrationRateLimiter)
         registerTrustAnchorRoutes()
         // V1.1.3 Soziales Netzwerk "Öffentlicher SEO-Lesepfad" -- literal routes (/s, /s/{id}, ...),

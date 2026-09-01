@@ -75,6 +75,11 @@ fun renderContributionsScreen(container: SimplePanel) {
     // renders nothing at all for a plain MEMBER when SEPA is disabled for this organization.
     renderSepaMandateSection(root)
 
+    // Welle V1.2.8 "PSP-Checkout (Stripe)" (GitHub Issue #6) -- see PspCheckoutSection.kt file
+    // KDoc. Owns its own panel, renders nothing at all for a plain MEMBER when online payment is
+    // disabled for this organization -- same S-16/K1 treatment as renderSepaMandateSection above.
+    renderPspCheckoutSection(root)
+
     renderOwnSummary(root, session.memberId)
 
     if (AppState.hasRole(AccountRole.TREASURER, AccountRole.ADMIN)) {

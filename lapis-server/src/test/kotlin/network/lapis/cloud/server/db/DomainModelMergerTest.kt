@@ -275,7 +275,13 @@ class DomainModelMergerTest :
             // contributes +2 «Entity» declarations (the stub + the one real table) and +1 drop (the
             // stub dedups into the already-existing member entity) versus the V1.2.7 baseline above
             // (115 -> 116).
-            val distinctTableNames = 116
+            // Zahlungsverkehr, Welle V1.2.8 "PSP-Checkout (Stripe)" (GitHub Issue #6) adds exactly two
+            // more real tables to 33-payments.kuml.kts (payment_checkout_session/psp_webhook_event) --
+            // no new cross-domain stubs (both entities' own FKs -- Member/Contribution -- resolve
+            // through stubs already declared earlier in the same file) -- so it contributes +2
+            // «Entity» declarations (both real tables), no drop, versus the V1.3.0 baseline above
+            // (116 -> 118).
+            val distinctTableNames = 118
 
             val result =
                 UmlToExposedViaErmScriptTransformer().transform(
@@ -437,6 +443,11 @@ class DomainModelMergerTest :
                     // (public_ranking_consent_event); its own cross-domain Member stub dedups into
                     // the already-real member entity, no new Table file for it.
                     "PublicRankingConsentEventTable.kt",
+                    // Zahlungsverkehr, Welle V1.2.8 "PSP-Checkout (Stripe)" (GitHub Issue #6) -- two
+                    // new real tables; no new cross-domain stubs (both entities' own FKs resolve
+                    // through Member/Contribution stubs already declared earlier in the same file).
+                    "PaymentCheckoutSessionTable.kt",
+                    "PspWebhookEventTable.kt",
                 )
         }
 

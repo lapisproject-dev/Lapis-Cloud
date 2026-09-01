@@ -313,6 +313,31 @@ object Routes {
     // which is the entire point.
     const val PASSWORD_RESET = "/password-reset"
     const val VERIFY_EMAIL = "/verify-email"
+
+    // Welle V1.2.8 "PSP-Checkout (Stripe)" (GitHub Issue #6) -- reachable by ANY authenticated
+    // member, verified against `IPaymentGatewayService.createDonationCheckout` (no `requireRole`
+    // call at all, only `resolveCurrentMember`). Same `requireAuth`-not-`requireRole` posture as
+    // [CONTRIBUTIONS]/[DOCUMENTS]/[COMMUNICATION].
+    const val DONATE = "/donate"
+
+    // Welle V1.2.8 -- same `requireAuth` posture as [DONATE]: the member returns here from Stripe
+    // WITH their session cookie intact (same-tab redirect, not a logged-out mail-link landing like
+    // [PASSWORD_RESET]/[VERIFY_EMAIL]), so this route stays authenticated rather than open.
+    // `session`/`cancelled` are read via [hashQueryParam], same pattern as `PASSWORD_RESET`'s
+    // `token` -- see `StripeCheckoutClient` KDoc for why the session id lives in the hash fragment.
+    const val PAYMENT_RETURN = "/payment-return"
+
+    // Welle V1.2.8 -- TREASURER/BOARD/ADMIN route-level guard, verified against
+    // `PaymentGatewayService.listPaymentTransactions`'s `TREASURY_READ_ROLES` tier -- same posture
+    // as [SEPA_MANDATES]/[SEPA_BATCHES]/[DUNNING_CASES].
+    const val PAYMENT_TRANSACTIONS = "/payment-transactions"
+
+    // Welle V1.2.8 -- ADMIN-only, verified against `PaymentGatewayService.kt`:
+    // `enablePaymentGateway`/`disablePaymentGateway`/`getPspConfigStatus`/`getPaymentGatewaySettings`
+    // all call `current.requireRole(AccountRole.ADMIN)`, uniformly -- same posture as
+    // [SEPA_SETTINGS]/[DUNNING_SETTINGS]. The ledger-account mapping fields on this same screen go
+    // through the existing `IOrganizationSettingsService.updateOrganizationSettings` (also ADMIN).
+    const val PAYMENT_GATEWAY_SETTINGS = "/payment-gateway-settings"
 }
 
 private var appRouting: Routing? = null
@@ -544,6 +569,26 @@ fun initRouting(pageContainer: SimplePanel) {
     }
     routing.kvOn(Routes.VERIFY_EMAIL) {
         show(Routes.VERIFY_EMAIL) { container -> renderVerifyEmailScreen(container, hashQueryParam("token")) }
+    }
+    routing.kvOn(Routes.DONATE) {
+        requireAuth(routing) { show(Routes.DONATE, ::renderDonationCheckoutScreen) }
+    }
+    routing.kvOn(Routes.PAYMENT_RETURN) {
+        requireAuth(routing) {
+            show(Routes.PAYMENT_RETURN) { container ->
+                renderPaymentReturnScreen(container, hashQueryParam("session"), hashQueryParam("cancelled"))
+            }
+        }
+    }
+    routing.kvOn(Routes.PAYMENT_TRANSACTIONS) {
+        requireRole(routing, AccountRole.TREASURER, AccountRole.BOARD, AccountRole.ADMIN) {
+            show(Routes.PAYMENT_TRANSACTIONS, ::renderPaymentTransactionsScreen)
+        }
+    }
+    routing.kvOn(Routes.PAYMENT_GATEWAY_SETTINGS) {
+        requireRole(routing, AccountRole.ADMIN) {
+            show(Routes.PAYMENT_GATEWAY_SETTINGS, ::renderPaymentGatewaySettingsScreen)
+        }
     }
     routing.kvOn("/") {
         routing.navigate(if (AppState.isAuthenticated) Routes.DASHBOARD else Routes.LOGIN)

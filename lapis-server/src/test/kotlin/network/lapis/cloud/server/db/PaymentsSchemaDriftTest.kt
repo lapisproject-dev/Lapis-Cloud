@@ -6,13 +6,16 @@ import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldContain
 import io.kotest.matchers.collections.shouldContainExactlyInAnyOrder
 import io.kotest.matchers.shouldBe
+import network.lapis.cloud.server.db.generated.PaymentCheckoutSessionTable
 import network.lapis.cloud.server.db.generated.PaymentGatewayComplianceAcknowledgmentTable
 import network.lapis.cloud.server.db.generated.PaymentTransactionTable
+import network.lapis.cloud.server.db.generated.PspWebhookEventTable
 import network.lapis.cloud.server.db.generated.SepaComplianceAcknowledgmentTable
 import network.lapis.cloud.server.db.generated.SepaDebitBatchTable
 import network.lapis.cloud.server.db.generated.SepaDebitItemTable
 import network.lapis.cloud.server.db.generated.SepaMandateTable
 import network.lapis.cloud.server.db.generated.SepaReturnTable
+import network.lapis.cloud.shared.domain.PaymentCheckoutSessionStatus
 import network.lapis.cloud.shared.domain.PaymentIntent
 import network.lapis.cloud.shared.domain.PaymentProvider
 import network.lapis.cloud.shared.domain.PaymentTransactionStatus
@@ -46,8 +49,8 @@ class PaymentsSchemaDriftTest :
 
         test(
             "model declares exactly the payment_transaction/sepa_compliance_acknowledgment/" +
-                "payment_gateway_compliance_acknowledgment/sepa_mandate/sepa_debit_batch/sepa_debit_item/sepa_return " +
-                "entities plus the Member/Contribution/JournalEntry/Document stubs",
+                "payment_gateway_compliance_acknowledgment/sepa_mandate/sepa_debit_batch/sepa_debit_item/sepa_return/" +
+                "payment_checkout_session/psp_webhook_event entities plus the Member/Contribution/JournalEntry/Document stubs",
         ) {
             model.entities.map { it.name }.toSet() shouldBe
                 setOf(
@@ -62,6 +65,8 @@ class PaymentsSchemaDriftTest :
                     "sepa_debit_batch",
                     "sepa_debit_item",
                     "sepa_return",
+                    "payment_checkout_session",
+                    "psp_webhook_event",
                 )
         }
 
@@ -103,6 +108,11 @@ class PaymentsSchemaDriftTest :
                     externalFqName = "network.lapis.cloud.shared.domain.PaymentIntent",
                 )
             entity.attributeByName("amount")?.type shouldBe ErmDataType.Decimal(14, 2)
+
+            // Welle V1.2.8 -- the two new columns.
+            real.foreignKeys["checkout_session_id"] shouldBe "payment_checkout_session"
+            entity.attributeByName("checkout_session_id")?.nullable shouldBe true
+            entity.attributeByName("donor_category")?.nullable shouldBe true
         }
 
         test(
@@ -161,6 +171,67 @@ class PaymentsSchemaDriftTest :
                     byIndex.values
                 }
             uniqueIndexColumnSets shouldContain setOf("provider", "provider_event_id")
+        }
+
+        // ── V1.2.8 "PSP-Checkout (Stripe)" ────────────────────────────────────────────────
+
+        test("payment_checkout_session table shape matches the real migrated schema and PaymentCheckoutSessionTable 1:1") {
+            val entity = model.entities.single { it.name == "payment_checkout_session" }
+            val real = transaction { introspectGenericTable("payment_checkout_session") }
+
+            entity.attributes.map { it.name }.toSet() shouldBe real.columns.keys
+            entity.attributes.forEach { attr ->
+                withClue(clue = "column '${attr.name}'") {
+                    real.columns.getValue(attr.name!!).nullable shouldBe attr.nullable
+                }
+            }
+            entity.attributes.map { it.name } shouldContainExactlyInAnyOrder PaymentCheckoutSessionTable.columns.map { it.name }
+
+            real.foreignKeys["member_id"] shouldBe "member"
+            real.foreignKeys["contribution_id"] shouldBe "contribution"
+
+            entity.attributeByName("member_id")?.nullable shouldBe false
+            entity.attributeByName("contribution_id")?.nullable shouldBe true
+            entity.attributeByName("status")?.type shouldBe
+                ErmDataType.Enum(
+                    name = "PaymentCheckoutSessionStatus",
+                    values = PaymentCheckoutSessionStatus.entries.map { it.name },
+                    externalFqName = "network.lapis.cloud.shared.domain.PaymentCheckoutSessionStatus",
+                )
+            entity.attributeByName("amount")?.type shouldBe ErmDataType.Decimal(14, 2)
+
+            val uniqueIndexColumnSets =
+                transaction {
+                    val byIndex = mutableMapOf<String, MutableSet<String>>()
+                    exec(
+                        """
+                        SELECT i.index_name AS name, ic.column_name
+                        FROM information_schema.index_columns ic
+                        JOIN information_schema.indexes i
+                            ON ic.index_name = i.index_name AND ic.table_name = i.table_name
+                        WHERE i.index_type_name = 'UNIQUE INDEX' AND ic.table_name = 'payment_checkout_session'
+                        """.trimIndent(),
+                    ) { rs ->
+                        while (rs.next()) {
+                            byIndex.getOrPut(rs.getString("name")) { mutableSetOf() }.add(rs.getString("column_name"))
+                        }
+                    }
+                    byIndex.values
+                }
+            uniqueIndexColumnSets shouldContain setOf("provider", "provider_session_id")
+        }
+
+        test("psp_webhook_event table shape matches the real migrated schema and PspWebhookEventTable 1:1") {
+            val entity = model.entities.single { it.name == "psp_webhook_event" }
+            val real = transaction { introspectGenericTable("psp_webhook_event") }
+
+            entity.attributes.map { it.name }.toSet() shouldBe real.columns.keys
+            entity.attributes.map { it.name } shouldContainExactlyInAnyOrder PspWebhookEventTable.columns.map { it.name }
+
+            real.foreignKeys["payment_transaction_id"] shouldBe "payment_transaction"
+            entity.attributeByName("payment_transaction_id")?.nullable shouldBe true
+            entity.attributeByName("provider_event_id")?.nullable shouldBe true
+            entity.attributeByName("signature_verified")?.nullable shouldBe false
         }
 
         // ── V1.2.2 "SEPA-Lastschriftmandate" ─────────────────────────────────────────────

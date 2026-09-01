@@ -7,13 +7,11 @@ import io.ktor.server.application.call
 import io.ktor.server.plugins.origin
 import io.ktor.server.request.host
 import io.ktor.server.request.path
-import io.ktor.server.request.receiveChannel
 import io.ktor.server.response.respond
 import io.ktor.server.response.respondText
 import io.ktor.server.routing.Route
 import io.ktor.server.routing.get
 import io.ktor.server.routing.post
-import io.ktor.utils.io.readAvailable
 import kotlinx.datetime.LocalDateTime
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
@@ -49,7 +47,6 @@ import org.jetbrains.exposed.v1.core.inList
 import org.jetbrains.exposed.v1.jdbc.insert
 import org.jetbrains.exposed.v1.jdbc.selectAll
 import org.jetbrains.exposed.v1.jdbc.transactions.transaction
-import java.security.MessageDigest
 import kotlin.uuid.Uuid
 
 /** Hard cap on a raw `POST /federation/inbox` body -- DoS guard, enforced BEFORE any JSON parsing (see class KDoc "Ordering"). Generous for a small Activity + `lapis:` extension block, far below the 25 MiB document-upload cap. */
@@ -452,57 +449,11 @@ private fun transitionOnMatchingOutboundFollow(
     }
 }
 
-/** Bounded streaming read, mirrors [network.lapis.cloud.server.routes.registerDocumentRoutes]'/[registerBackupRoutes]'s own `MAX_UPLOAD_BYTES`/`MAX_RESTORE_BUNDLE_BYTES` byte-counting-loop idiom -- returns `null` if [MAX_INBOX_BODY_BYTES] is exceeded, the body discarded rather than partially processed. */
-private suspend fun readCappedInboxBody(call: ApplicationCall): ByteArray? {
-    val channel = call.receiveChannel()
-    val buffer = ByteArray(MAX_INBOX_BODY_BYTES + 1)
-    var total = 0
-    while (total < buffer.size) {
-        val read = channel.readAvailable(buffer, total, buffer.size - total)
-        if (read == -1) break
-        total += read
-    }
-    return if (total > MAX_INBOX_BODY_BYTES) null else buffer.copyOf(total)
-}
-
 /**
- * `true` iff [text]'s `{`/`[`/`}`/`]` nesting ever exceeds [maxDepth] -- a single linear pass over
- * the raw characters (bracket counting with minimal string-literal awareness so a bracket inside a
- * quoted JSON string value is never miscounted), deliberately NOT using any JSON parser: even
- * building a [kotlinx.serialization.json.JsonElement] tree is itself a RECURSIVE-descent operation
- * that could overflow the stack on sufficiently deep (but small-in-bytes) attacker-crafted input
- * before this function would ever get a chance to reject it. This scan is the actual DoS defense;
- * [MAX_INBOX_BODY_BYTES] alone does not bound nesting depth (a few KiB of `[[[[...]]]]` can nest
- * thousands of levels deep).
+ * Delegates to [readCappedBody] (extracted to `JsonBodyGuards.kt`, Welle V1.2.8, pure move -- see
+ * that file's own KDoc) -- returns `null` if [MAX_INBOX_BODY_BYTES] is exceeded, the body discarded
+ * rather than partially processed.
  */
-private fun exceedsMaxJsonNestingDepth(
-    text: String,
-    maxDepth: Int,
-): Boolean {
-    var depth = 0
-    var inString = false
-    var escaped = false
-    for (c in text) {
-        if (inString) {
-            when {
-                escaped -> escaped = false
-                c == '\\' -> escaped = true
-                c == '"' -> inString = false
-            }
-            continue
-        }
-        when (c) {
-            '"' -> inString = true
-            '{', '[' -> {
-                depth++
-                if (depth > maxDepth) return true
-            }
-            '}', ']' -> depth--
-        }
-    }
-    return false
-}
-
-private fun sha256Hex(bytes: ByteArray): String = MessageDigest.getInstance("SHA-256").digest(bytes).joinToString("") { "%02x".format(it) }
+private suspend fun readCappedInboxBody(call: ApplicationCall): ByteArray? = readCappedBody(call = call, maxBytes = MAX_INBOX_BODY_BYTES)
 
 private fun nowLocalDateTime(): LocalDateTime = DbClock.nowLocalDateTime()

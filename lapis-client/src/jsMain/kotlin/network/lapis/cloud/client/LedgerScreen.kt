@@ -304,8 +304,16 @@ fun renderLedgerScreen(container: SimplePanel) {
  * While unconfigured (any of the three still unset), a paid contribution's status still transitions
  * but no journal entry is booked -- the empty option in each select IS a valid, savable choice
  * (clears that mapping back to `null`), not merely a placeholder.
+ *
+ * **Welle V1.2.8 "PSP-Checkout (Stripe)" (GitHub Issue #6)** added a FOURTH mapping,
+ * `donationIncomeAccountId` -- where [DonationPostingBridge][network.lapis.cloud.server.rpc.DonationPostingBridge]
+ * books a gateway donation's brutto amount. Kept on THIS SAME section (not duplicated onto
+ * `PaymentGatewaySettingsScreen.kt`, which calls this function too, `internal` visibility) --
+ * single source of truth for "which ledger accounts does a payment channel book into", same
+ * reasoning [OrganizationSettingsService.updateOrganizationSettings] already gives for treating
+ * all four fields identically (plain configuration, ADMIN-only).
  */
-private fun renderPaymentAccountMappingSection(
+internal fun renderPaymentAccountMappingSection(
     root: SimplePanel,
     canManage: Boolean,
 ) {
@@ -324,10 +332,11 @@ private fun renderPaymentAccountMappingSection(
                 val unconfigured = tr("(nicht konfiguriert)")
                 panel.p(
                     gettext(
-                        "Bankkonto: %1 · Gebührenkonto: %2 · Beitragserlöskonto: %3",
+                        "Bankkonto: %1 · Gebührenkonto: %2 · Beitragserlöskonto: %3 · Spendenerlöskonto: %4",
                         accounts.find { it.id == settings.paymentBankAccountId }?.name ?: unconfigured,
                         accounts.find { it.id == settings.paymentFeeAccountId }?.name ?: unconfigured,
                         accounts.find { it.id == settings.contributionIncomeAccountId }?.name ?: unconfigured,
+                        accounts.find { it.id == settings.donationIncomeAccountId }?.name ?: unconfigured,
                     ),
                 )
                 return@launch
@@ -356,6 +365,12 @@ private fun renderPaymentAccountMappingSection(
                     value = settings.contributionIncomeAccountId.orEmpty(),
                     label = tr("Beitragserlöskonto"),
                 )
+            val donationIncomeSelect =
+                panel.select(
+                    options = accountOptions,
+                    value = settings.donationIncomeAccountId.orEmpty(),
+                    label = tr("Spendenerlöskonto"),
+                )
 
             val saveButton = panel.button(tr("Kontenzuordnung speichern"), style = ButtonStyle.PRIMARY)
             saveButton.onClick {
@@ -369,6 +384,7 @@ private fun renderPaymentAccountMappingSection(
                                         paymentBankAccountId = bankSelect.value?.takeIf { it.isNotBlank() },
                                         paymentFeeAccountId = feeSelect.value?.takeIf { it.isNotBlank() },
                                         contributionIncomeAccountId = incomeSelect.value?.takeIf { it.isNotBlank() },
+                                        donationIncomeAccountId = donationIncomeSelect.value?.takeIf { it.isNotBlank() },
                                     ),
                                 )
                             }
@@ -396,6 +412,7 @@ private fun OrganizationSettingsDto.toInputWithPaymentAccountMapping(
     paymentBankAccountId: String?,
     paymentFeeAccountId: String?,
     contributionIncomeAccountId: String?,
+    donationIncomeAccountId: String?,
 ) = OrganizationSettingsInput(
     name = name,
     street = street,
@@ -412,6 +429,7 @@ private fun OrganizationSettingsDto.toInputWithPaymentAccountMapping(
     paymentBankAccountId = paymentBankAccountId,
     paymentFeeAccountId = paymentFeeAccountId,
     contributionIncomeAccountId = contributionIncomeAccountId,
+    donationIncomeAccountId = donationIncomeAccountId,
 )
 
 // ============================================================================================

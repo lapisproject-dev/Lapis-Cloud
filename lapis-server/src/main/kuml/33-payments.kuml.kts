@@ -15,11 +15,19 @@
 // in this repo yet:
 //  - `dunning_level`/`dunning_notice` (automatisiertes Mahnwesen) -- V1.2.7, modelled in
 //    34-dunning.kuml.kts, which owns those tables.
-//  - `payment_checkout_session` and any PSP-webhook/HTTP-client-specific extension of
-//    `payment_transaction` (e.g. real webhook ingestion writing rows here) -- V1.2.4. No code path
-//    yet inserts into `payment_transaction`; it exists now as the schema skeleton later sub-waves
-//    write into, same "table before its first writer" precedent `ledger_account.reserve_type`
-//    (V0.3.4) already set in this codebase.
+//
+// **Welle V1.2.8 "PSP-Checkout (Stripe)"** (GitHub Issue #6) delivers the "later sub-wave" this file's
+// original header pointed at (previously tracked under the placeholder name "V1.2.4", which was
+// renumbered away before that work started -- every such reference in this repo has been corrected
+// to V1.2.8): `payment_checkout_session` (the server-authoritative record of what a member was
+// SUPPOSED to pay, created before any redirect to Stripe -- the anchor against amount/currency
+// tampering at webhook time) and `psp_webhook_event` (a forensic log, direct analogue of
+// `federation_inbox_delivery_log` -- one row per delivery attempt, verified or not). Two new columns
+// on `payment_transaction` (`checkoutSessionId`, `donorCategory`) and the new
+// `PaymentCheckoutSessionStatus` enum are added below. `AuditEntityType` gains `PAYMENT_TRANSACTION`,
+// appended LAST (see `AuditLog.kt`'s own KDoc) -- `ContributionPostingBridge`'s own audit entry
+// still reuses the existing `AuditEntityType.JOURNAL_ENTRY` literal; `PAYMENT_TRANSACTION` is written
+// by `PspWebhookIngestion` alongside it, see that class's KDoc for the exact ordering.
 //
 // Cross-domain stubs: minimal id-only Member/Contribution/JournalEntry/Document (each owned
 // elsewhere -- 00-foundation.kuml.kts/01-contribution.kuml.kts/10-accounting.kuml.kts/
@@ -27,12 +35,10 @@
 // establishes -- purely so UmlToErmTransformer can resolve this file's associations within its own
 // single-file evaluation.
 //
-// No `AuditEntityType.PAYMENT_TRANSACTION` literal exists yet, and `audit_log_entry.entity_type`'s
-// CHECK constraint was NOT widened by V1.2.1 for it. No code path ever writes an audit-log row
-// referencing `payment_transaction` (`ContributionPostingBridge`'s own audit entry reuses the
-// EXISTING `AuditEntityType.JOURNAL_ENTRY` literal, see that class's KDoc) -- adding an unused enum
-// literal now would be exactly the kind of build-ahead-of-need this sub-wave's scope boundary
-// otherwise avoids. `AuditEntityType` gains `PAYMENT_TRANSACTION` in V1.2.4.
+// V1.2.1 itself added no `AuditEntityType.PAYMENT_TRANSACTION` literal (build-ahead-of-need would
+// have added an unused enum value -- no writer existed yet). `AuditEntityType` gains
+// `PAYMENT_TRANSACTION` in V1.2.8, once `PspWebhookIngestion` becomes its first writer -- see the
+// V1.2.8 addendum above.
 //
 // **Welle V1.2.2 "SEPA-Lastschriftmandate"** (vault "sepa_v1.2.2_plan.md") adds the four tables this
 // file's own header previously named as out of scope: `sepa_mandate`, `sepa_debit_batch`,
@@ -107,6 +113,129 @@ classDiagram(name = "Payments") {
     val paymentIntent = enumOf(name = "PaymentIntent") {
         literal(name = "CONTRIBUTION")
         literal(name = "DONATION")
+    }
+
+    // Welle V1.2.8. Literal order is load-bearing, same reason as above -- matches
+    // network.lapis.cloud.shared.domain.PaymentCheckoutSessionStatus. Longest literal COMPLETED (9)
+    // -> VARCHAR(9).
+    val paymentCheckoutSessionStatus = enumOf(name = "PaymentCheckoutSessionStatus") {
+        literal(name = "CREATED")
+        literal(name = "COMPLETED")
+        literal(name = "EXPIRED")
+        literal(name = "FAILED")
+    }
+
+    // Welle V1.2.8. Local re-declaration of network.lapis.cloud.shared.domain.DonorCategory -- same
+    // single-file-evaluation reason 10-accounting.kuml.kts's own `donorCategory` enum exists (each
+    // .kuml.kts file is evaluated independently by UmlToErmTransformer). Literal order is
+    // load-bearing, matching that file's own copy exactly.
+    val donorCategory = enumOf(name = "DonorCategory") {
+        literal(name = "GERMAN_NATURAL_PERSON")
+        literal(name = "EU_NATURAL_PERSON")
+        literal(name = "NON_EU_FOREIGN_NATURAL_PERSON")
+        literal(name = "GERMAN_COMPANY_OR_ORGANIZATION")
+        literal(name = "PUBLIC_LAW_CORPORATION")
+        literal(name = "OVER_25_PERCENT_STATE_OWNED_COMPANY")
+        literal(name = "OTHER_PARTY_OR_PARLIAMENTARY_GROUP_ENTITY")
+        literal(name = "PROFESSIONAL_OR_TRADE_ASSOCIATION")
+        literal(name = "ANONYMOUS")
+    }
+
+    // Welle V1.2.8 -- the server-authoritative record of what a member was SUPPOSED to pay, created
+    // before any redirect to Stripe. The anchor against amount/currency tampering at webhook time
+    // (see PspWebhookIngestion KDoc): the webhook's own numbers are only ever compared against this
+    // row's amount/currency, never trusted as the posting basis.
+    val paymentCheckoutSession = classOf(name = "PaymentCheckoutSession") {
+        stereotype("Entity") { "tableName" to "payment_checkout_session"; "kotlinObjectName" to "PaymentCheckoutSessionTable" }
+        stereotype("Index") {
+            "columns" to listOf("provider", "provider_session_id")
+            "unique" to true
+            "name" to "uq_payment_checkout_session_provider_session"
+        }
+        stereotype("Index") { "columns" to listOf("member_id"); "name" to "idx_payment_checkout_session_member" }
+        stereotype("Index") { "columns" to listOf("contribution_id"); "name" to "idx_payment_checkout_session_contribution" }
+        stereotype("Index") { "columns" to listOf("status"); "name" to "idx_payment_checkout_session_status" }
+
+        attribute(name = "id", type = "UUID") {
+            stereotype("Id")
+            stereotype("Column") { "columnName" to "id" }
+        }
+        attribute(name = "provider", type = paymentProvider) {
+            stereotype("Column") { "columnName" to "provider"; "enumType" to "network.lapis.cloud.shared.domain.PaymentProvider" }
+        }
+        attribute(name = "providerSessionId", type = "String") {
+            stereotype("Column") { "columnName" to "provider_session_id"; "sqlType" to "VARCHAR(255)" }
+        }
+        attribute(name = "status", type = paymentCheckoutSessionStatus) {
+            stereotype("Column") {
+                "columnName" to "status"
+                "enumType" to "network.lapis.cloud.shared.domain.PaymentCheckoutSessionStatus"
+            }
+        }
+        attribute(name = "intent", type = paymentIntent) {
+            stereotype("Column") { "columnName" to "intent"; "enumType" to "network.lapis.cloud.shared.domain.PaymentIntent" }
+        }
+        // Real FK -> contribution (id), nullable -- set only for intent = CONTRIBUTION.
+        attribute(name = "contributionId", type = "UUID") {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") { "columnName" to "contribution_id"; "fkEntity" to "Contribution" }
+        }
+        // Real FK -> member (id), NOT NULL -- every checkout session is created by an authenticated
+        // member; this is how a webhook-time system actor can populate journal_entry.created_by
+        // (NOT NULL, FK -> member) without a sentinel member or a schema change, see
+        // ContributionPostingBridge KDoc "Offene Anschlussfrage" (resolved here, F4).
+        attribute(name = "memberId", type = "UUID") {
+            stereotype("Column") { "columnName" to "member_id"; "fkEntity" to "Member" }
+        }
+        attribute(name = "amount", type = "BigDecimal") {
+            stereotype("Column") { "columnName" to "amount"; "sqlType" to "DECIMAL(14,2)" }
+        }
+        attribute(name = "currency", type = "String") {
+            stereotype("Column") { "columnName" to "currency"; "sqlType" to "VARCHAR(3)" }
+        }
+        // Nullable -- required (validated at RPC level) only for intent = DONATION when
+        // organization_settings.is_political_party is true.
+        attribute(name = "donorCategory", type = donorCategory) {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") {
+                "columnName" to "donor_category"
+                "enumType" to "network.lapis.cloud.shared.domain.DonorCategory"
+            }
+        }
+        attribute(name = "purpose", type = "String") {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") { "columnName" to "purpose"; "sqlType" to "VARCHAR(200)" }
+        }
+        attribute(name = "createdAt", type = "LocalDateTime") {
+            stereotype("Column") { "columnName" to "created_at" }
+        }
+        attribute(name = "expiresAt", type = "LocalDateTime") {
+            stereotype("Column") { "columnName" to "expires_at" }
+        }
+        attribute(name = "completedAt", type = "LocalDateTime") {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") { "columnName" to "completed_at" }
+        }
+        // MINOR fix (code review, Welle V1.2.8): the Idempotency-Key actually sent to Stripe's
+        // POST /v1/checkout/sessions for THIS row -- persisted for forensics only (matches
+        // StripeCheckoutResult.Success.idempotencyKey's own KDoc). NOT reused across calls:
+        // StripeCheckoutClient.createCheckoutSession mints a fresh random key
+        // (randomIdempotencyKey()) on EVERY call and never reads a prior stored value back, so a
+        // retried createContributionCheckout/createDonationCheckout call (e.g. a client-side
+        // double-submit) does NOT dedupe via this key -- the corrected description below of what
+        // the code actually does. See createContributionCheckout's own "reuses an existing
+        // non-expired CREATED session" KDoc for how double-submits are ACTUALLY handled instead.
+        attribute(name = "providerIdempotencyKey", type = "String") {
+            stereotype("Column") { "columnName" to "provider_idempotency_key"; "sqlType" to "VARCHAR(64)" }
+        }
+        // Implementation-time addition (not in the original wave plan's column list) -- the
+        // Stripe-hosted checkout URL, needed so createContributionCheckout's documented session-
+        // REUSE path can still hand the client a redirect target without a second outbound Stripe
+        // call. Not a secret -- a Stripe-hosted, expiring, single-use-by-design URL.
+        attribute(name = "redirectUrl", type = "String") {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") { "columnName" to "redirect_url"; "sqlType" to "VARCHAR(2048)" }
+        }
     }
 
     val paymentTransaction = classOf(name = "PaymentTransaction") {
@@ -202,6 +331,85 @@ classDiagram(name = "Payments") {
         // raw payload itself (which can carry payer email/name/address) is NEVER persisted anywhere.
         attribute(name = "rawPayloadDigest", type = "String") {
             stereotype("Column") { "columnName" to "raw_payload_digest"; "sqlType" to "VARCHAR(64)" }
+        }
+        // Welle V1.2.8. Real FK -> payment_checkout_session (id), nullable -- deliberately
+        // ONE-DIRECTIONAL (no mirrored payment_checkout_session.payment_transaction_id column), same
+        // reasoning that keeps sepa_debit_batch's two document FKs one-directional (see
+        // SepaRoutes.kt NIT-5).
+        attribute(name = "checkoutSessionId", type = "UUID") {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") { "columnName" to "checkout_session_id"; "fkEntity" to "PaymentCheckoutSession" }
+        }
+        // Welle V1.2.8. Nullable SNAPSHOT of the effective DonorCategory at receipt time, for a
+        // DONATION-intent row -- mirrors journal_entry.donorCategory's own "snapshot, not a live
+        // FK" treatment (see 10-accounting.kuml.kts file header).
+        attribute(name = "donorCategory", type = donorCategory) {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") {
+                "columnName" to "donor_category"
+                "enumType" to "network.lapis.cloud.shared.domain.DonorCategory"
+            }
+        }
+    }
+
+    // Welle V1.2.8 -- forensic log, direct analogue of federation_inbox_delivery_log (see
+    // 24-federation.kuml.kts): one row per DELIVERY ATTEMPT, verified or not, accepted or rejected.
+    // Deliberately NO unique constraint -- repeated deliveries must each leave a trace. Idempotency
+    // lives exclusively on paymentTransaction's own uq_payment_transaction_provider_event unique
+    // index above (see PspWebhookIngestion KDoc). No FK into member -- same "no PersonalDataContributor
+    // coverage needed" reasoning federation_inbox_delivery_log's own file header gives.
+    // outcome/rejectReason/eventType/providerEventId are plain Strings, not enums -- same treatment
+    // FederationInboxDeliveryLogTable's own rejectReason/activityType already establish for a
+    // forensic-log column drawn from a small, code-side vocabulary (network.lapis.cloud.server
+    // .payment.psp.PspWebhookOutcome is a server-internal-only Kotlin enum, never sent over RPC, so
+    // it is not modelled as a shared enumOf here).
+    val pspWebhookEvent = classOf(name = "PspWebhookEvent") {
+        stereotype("Entity") { "tableName" to "psp_webhook_event"; "kotlinObjectName" to "PspWebhookEventTable" }
+        stereotype("Index") { "columns" to listOf("received_at"); "name" to "idx_psp_webhook_event_received_at" }
+        stereotype("Index") {
+            "columns" to listOf("provider", "provider_event_id")
+            "name" to "idx_psp_webhook_event_provider_event"
+        }
+
+        attribute(name = "id", type = "UUID") {
+            stereotype("Id")
+            stereotype("Column") { "columnName" to "id" }
+        }
+        attribute(name = "provider", type = paymentProvider) {
+            stereotype("Column") { "columnName" to "provider"; "enumType" to "network.lapis.cloud.shared.domain.PaymentProvider" }
+        }
+        attribute(name = "providerEventId", type = "String") {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") { "columnName" to "provider_event_id"; "sqlType" to "VARCHAR(255)" }
+        }
+        attribute(name = "eventType", type = "String") {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") { "columnName" to "event_type"; "sqlType" to "VARCHAR(100)" }
+        }
+        attribute(name = "receivedAt", type = "LocalDateTime") {
+            stereotype("Column") { "columnName" to "received_at" }
+        }
+        attribute(name = "signatureVerified", type = "Boolean") {
+            stereotype("Column") { "columnName" to "signature_verified" }
+        }
+        attribute(name = "rejectReason", type = "String") {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") { "columnName" to "reject_reason"; "sqlType" to "VARCHAR(40)" }
+        }
+        attribute(name = "outcome", type = "String") {
+            stereotype("Column") { "columnName" to "outcome"; "sqlType" to "VARCHAR(20)" }
+        }
+        // Real FK -> payment_transaction (id), nullable -- set only when this delivery actually
+        // resulted in (or matched) a PaymentTransaction row.
+        attribute(name = "paymentTransactionId", type = "UUID") {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") { "columnName" to "payment_transaction_id"; "fkEntity" to "PaymentTransaction" }
+        }
+        attribute(name = "bodySha256", type = "String") {
+            stereotype("Column") { "columnName" to "body_sha256"; "sqlType" to "VARCHAR(64)" }
+        }
+        attribute(name = "bodyByteSize", type = "Int") {
+            stereotype("Column") { "columnName" to "body_byte_size" }
         }
     }
 

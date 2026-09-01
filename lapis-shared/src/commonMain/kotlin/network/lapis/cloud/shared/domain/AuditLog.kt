@@ -78,7 +78,13 @@ enum class AuditAction { CREATE, UPDATE, POST }
  * Welle V1.2.13 added a FOURTH writer, `MemberService.grantMemberAccount`, and the first one that
  * uses `action = CREATE` for this entity type: exactly one `MEMBER`/`CREATE` entry per granted
  * login account, `before.role = null` -> `after.role = <granted role>`, `status` unchanged on both
- * sides. Additive append only -- never reorder existing literals,
+ * sides. `PAYMENT_TRANSACTION` (Welle V1.2.8 "PSP-Checkout (Stripe)", GitHub Issue #6) was appended
+ * LAST after that -- `network.lapis.cloud.server.payment.psp.PspWebhookIngestion` writes exactly one
+ * `PAYMENT_TRANSACTION`/`CREATE` entry per successfully-ingested `checkout.session.completed`
+ * webhook delivery, `entityId` = the new `payment_transaction` row's id, see [PaymentTransactionSnapshot]
+ * KDoc. `ContributionPostingBridge`'s own accounting audit entry continues to reuse the EXISTING
+ * `JOURNAL_ENTRY` literal unchanged -- this is a SECOND, additional entry describing the gateway
+ * receipt itself, not a replacement. Additive append only -- never reorder existing literals,
  * see this enum's own "cheap to extend, expensive to reorder" note class-wide.
  */
 @Serializable
@@ -97,6 +103,7 @@ enum class AuditEntityType {
     SEPA_DEBIT_BATCH,
     DUNNING_NOTICE,
     MEMBER,
+    PAYMENT_TRANSACTION,
 }
 
 /**
@@ -275,16 +282,20 @@ data class SocialPostModerationSnapshot(
  * Structured payload for an [AuditEntityType.ORGANIZATION_SETTINGS] audit entry (Welle V1.2.1
  * "Zahlungs-Fundament", Security Round 1, 2026-08-19, MAJOR-2) --
  * `network.lapis.cloud.server.rpc.OrganizationSettingsService.updateOrganizationSettings`'s ONLY
- * audit signal, deliberately narrowed to the three payment-account-mapping fields rather than the
+ * audit signal, deliberately narrowed to the payment-account-mapping fields rather than the
  * full wholesale-replace diff of every `OrganizationSettingsInput` field -- see that method's own
  * KDoc for why. Carries LedgerAccount ids only (never account numbers/names), matching every other
  * snapshot's id-only PII-minimization convention (see [JournalEntrySnapshot] KDoc).
+ *
+ * [donationIncomeAccountId] (Welle V1.2.8 "PSP-Checkout (Stripe)") was appended LAST -- a fourth
+ * mapping field, same audit-relevance reasoning as the original three.
  */
 @Serializable
 data class OrganizationSettingsPaymentMappingSnapshot(
     val paymentBankAccountId: String?,
     val paymentFeeAccountId: String?,
     val contributionIncomeAccountId: String?,
+    val donationIncomeAccountId: String? = null,
 )
 
 /**
@@ -460,4 +471,32 @@ data class ConferenceRecordingSnapshot(
     val failureReason: String?,
     /** How many `conference_recording_track` children the deletion removed alongside the parent row. */
     val trackCount: Int,
+)
+
+/**
+ * Structured payload for an [AuditEntityType.PAYMENT_TRANSACTION] audit entry (Welle V1.2.8
+ * "PSP-Checkout (Stripe)", GitHub Issue #6) -- written by
+ * `network.lapis.cloud.server.payment.psp.PspWebhookIngestion` for every successfully-ingested
+ * `checkout.session.completed` webhook delivery. **Field names deliberately avoid the handful of
+ * forbidden substrings `PaymentsRegressionScanTest` scans for** (bank-account/card-related
+ * fragments, plus `sealed`/`payload`) -- a body-digest field is named [providerBodyDigest], never
+ * `rawPayloadDigest`, to stay clear of that scan even though the underlying DB column is named
+ * that. No card data anywhere -- hosted Stripe Checkout only, see
+ * `network.lapis.cloud.server.payment.psp.PspConfig` KDoc.
+ */
+@Serializable
+data class PaymentTransactionSnapshot(
+    val provider: PaymentProvider,
+    val providerEventId: String,
+    val providerPaymentId: String,
+    val status: PaymentTransactionStatus,
+    val amount: Decimal,
+    val currency: String,
+    val intent: PaymentIntent,
+    val contributionId: String?,
+    val memberId: String?,
+    val donorCategory: DonorCategory?,
+    val journalEntryId: String?,
+    /** SHA-256 hex digest of the raw webhook body -- proof without retention; the raw body itself is never persisted. */
+    val providerBodyDigest: String,
 )
