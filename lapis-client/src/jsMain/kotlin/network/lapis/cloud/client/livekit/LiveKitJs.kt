@@ -156,6 +156,19 @@ external object RoomEvent {
     val LocalTrackUnpublished: String
     val DataReceived: String
 
+    /** Bug fix (GitHub issue #3, "Audio Mute and Camera Toggle Controls Are Unreliable") -- fires
+     * `(publication: TrackPublication, participant: Participant) => void` for EVERY track mute state
+     * change in the room, local or remote, regardless of cause (this client's own `setMicrophoneEnabled`/
+     * `setCameraEnabled` call, LiveKit's own reconnect re-publish, a device error, a permission
+     * revocation mid-call). `LiveKitRoomSession.wireEvents` filters to the LOCAL participant and uses
+     * this as the single source of truth for `micEnabled`/`cameraEnabled` -- see that file's KDoc
+     * "Local mute state is event-driven, never purely optimistic" for why the previous click-only
+     * update left the button lying about the real track state. */
+    val TrackMuted: String
+
+    /** See [TrackMuted] KDoc -- same event, opposite direction. */
+    val TrackUnmuted: String
+
     /** V1.0 Videokonferenzen (Kleinsitzung), Wave 2 "Aufzeichnung" -- see [Room.isRecording] KDoc.
      * Fires with a single JS `boolean` argument (`(isRecording: boolean) => void`), unlike this
      * file's other events -- `LiveKitRoomSession.wireEvents` reads that single argument off the

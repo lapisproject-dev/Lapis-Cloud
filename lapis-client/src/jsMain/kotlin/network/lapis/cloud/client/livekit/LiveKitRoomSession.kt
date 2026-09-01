@@ -69,6 +69,30 @@ private external interface PublishDataOptions {
  * [RoomEvent.Disconnected] below. `ConferenceScreen.kt`'s own named connection-state machine (not this
  * class) owns what a transition means for the UI -- this class only relays the raw LiveKit signal.
  *
+ * **Local mute state is event-driven, never purely optimistic** (bug fix, GitHub issue #3 "Audio
+ * Mute and Camera Toggle Controls Are Unreliable"). [onLocalTrackMuteChanged] relays
+ * [RoomEvent.TrackMuted]/[RoomEvent.TrackUnmuted], filtered in [wireEvents] to events whose
+ * `participant.identity` equals [Room.localParticipant]'s own -- LiveKit fires this event for BOTH
+ * local and remote participants on the same room-wide listener, so this class, not
+ * `ConferenceScreen.kt`, is the one place that already knows which `identity` is "me". Before this
+ * fix, `ConferenceScreen.kt`'s `micEnabled`/`cameraEnabled` were written ONLY from the button
+ * click handler's own optimistic "the call to [setMicrophone]/[setCamera] didn't throw" branch --
+ * correct for a click-caused change, but silently stale for every OTHER cause LiveKit can mute/
+ * unmute a local track on its own (a reconnect that re-publishes with a different enabled state, a
+ * device error ending the track, a mid-call permission revocation). [onLocalTrackMuteChanged] is now
+ * the single source of truth the button state derives from; the click handlers still flip
+ * optimistically for instant feedback, but the very next event this class relays reconciles that
+ * against LiveKit's own authoritative state regardless of what caused the change.
+ *
+ * **[setCamera]/[setMicrophone]/[setScreenShare] now throw on a null [room], instead of silently
+ * doing nothing.** The previous `room?.localParticipant?.setMicrophoneEnabled(enabled)?.await()`
+ * shape returned `Unit` (a non-null success value) via the safe-call chain even when [room] was
+ * `null` and nothing was ever asked of LiveKit -- the button click handler's `result != null` check
+ * then can't tell "the toggle actually happened" from "there was no room to toggle anything on",
+ * and would flip the UI to claim success for a call that silently did nothing. Each now requires a
+ * non-null [room] explicitly and throws [IllegalStateException] otherwise, which `guarded {}`'s
+ * catch-all surfaces as a real error toast instead of a false "on".
+ *
  * **Whiteboard trust boundary** (V1.0 Videokonferenzen Wave 7 "Whiteboard", see
  * [network.lapis.cloud.shared.rpc.IConferenceWhiteboardService] KDoc): [onWhiteboardPreview]/
  * [onWhiteboardCommit] mirror [onChat]'s own trust-boundary discipline -- the AUTHOR is always the
@@ -125,6 +149,7 @@ class LiveKitRoomSession(
     private val onParticipantJoined: (identity: String, displayName: String) -> Unit,
     private val onParticipantLeft: (identity: String) -> Unit,
     private val onLocalVideoTrack: (Track?) -> Unit,
+    private val onLocalTrackMuteChanged: (source: String, muted: Boolean) -> Unit,
     private val onRecordingStatusChanged: (isRecording: Boolean) -> Unit,
     private val onActiveSpeakersChanged: (identities: List<String>) -> Unit,
     private val onChat: (ConferenceChatMessage) -> Unit,
@@ -200,6 +225,18 @@ class LiveKitRoomSession(
             val publication = p1.unsafeCast<TrackPublication>()
             val participant = p2.unsafeCast<RemoteParticipant>()
             onRemoteTrackGone(participant.identity, track, publication)
+        }
+        room.on(RoomEvent.TrackMuted) { p0, p1, _, _ ->
+            val publication = p0.unsafeCast<TrackPublication>()
+            // p1's static shape doesn't matter -- LocalParticipant/RemoteParticipant both carry
+            // `identity` at runtime, see this class's own KDoc "Local mute state is event-driven".
+            val identity = p1.unsafeCast<RemoteParticipant>().identity
+            if (identity == room.localParticipant.identity) onLocalTrackMuteChanged(publication.source, true)
+        }
+        room.on(RoomEvent.TrackUnmuted) { p0, p1, _, _ ->
+            val publication = p0.unsafeCast<TrackPublication>()
+            val identity = p1.unsafeCast<RemoteParticipant>().identity
+            if (identity == room.localParticipant.identity) onLocalTrackMuteChanged(publication.source, false)
         }
         room.on(RoomEvent.Disconnected) { _, _, _, _ -> onDisconnected() }
         room.on(RoomEvent.Reconnecting) { _, _, _, _ -> onReconnecting() }
@@ -279,20 +316,25 @@ class LiveKitRoomSession(
         room.remoteParticipants.forEach(forEachCallback)
     }
 
-    /** See class KDoc "Local self-view". */
+    /** See class KDoc "Local self-view" and "[setCamera]/[setMicrophone]/[setScreenShare] now throw
+     * on a null [room]". */
     suspend fun setCamera(enabled: Boolean) {
-        val currentRoom = room ?: return
+        val currentRoom = room ?: throw IllegalStateException("setCamera called with no active room")
         val result = currentRoom.localParticipant.setCameraEnabled(enabled).await()
         val rawTrack = if (enabled) result?.track else null
         onLocalVideoTrack(if (rawTrack != null) rawTrack.unsafeCast<Track>() else null)
     }
 
+    /** See class KDoc "[setCamera]/[setMicrophone]/[setScreenShare] now throw on a null [room]". */
     suspend fun setMicrophone(enabled: Boolean) {
-        room?.localParticipant?.setMicrophoneEnabled(enabled)?.await()
+        val currentRoom = room ?: throw IllegalStateException("setMicrophone called with no active room")
+        currentRoom.localParticipant.setMicrophoneEnabled(enabled).await()
     }
 
+    /** See class KDoc "[setCamera]/[setMicrophone]/[setScreenShare] now throw on a null [room]". */
     suspend fun setScreenShare(enabled: Boolean) {
-        room?.localParticipant?.setScreenShareEnabled(enabled)?.await()
+        val currentRoom = room ?: throw IllegalStateException("setScreenShare called with no active room")
+        currentRoom.localParticipant.setScreenShareEnabled(enabled).await()
     }
 
     suspend fun sendChat(message: ConferenceChatMessage) {

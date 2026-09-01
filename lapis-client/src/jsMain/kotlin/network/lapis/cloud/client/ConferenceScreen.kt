@@ -3090,6 +3090,26 @@ private fun enterCall(
                 val entry = ensureTile(joinToken.identity, joinToken.displayName, isLocal = true)
                 setTileVideo(entry, track?.attach())
             },
+            // Bug fix (GitHub issue #3, "Audio Mute and Camera Toggle Controls Are Unreliable") --
+            // see LiveKitRoomSession KDoc "Local mute state is event-driven, never purely optimistic".
+            // The click handlers below still flip `micEnabled`/`cameraEnabled` optimistically for
+            // instant feedback; this callback is the authoritative correction for every OTHER cause
+            // LiveKit can change a local track's mute state (reconnect re-publish, device error,
+            // mid-call permission revocation) -- redundant-but-harmless when it merely confirms what
+            // the click handler already set.
+            onLocalTrackMuteChanged = { source, muted ->
+                when (source) {
+                    "microphone" -> {
+                        micEnabled = !muted
+                        setTileMic(tiles.getValue(joinToken.identity), micEnabled)
+                        updateMicButtonState()
+                    }
+                    "camera" -> {
+                        cameraEnabled = !muted
+                        updateCameraButtonState()
+                    }
+                }
+            },
             // Wave 3, D8: the raw pushed boolean is used PURELY as an instant "something changed, go
             // check" trigger -- see [onMediaStatusPush] KDoc for the full rationale (finding 7:
             // LiveKit's `active_recording` flag is true for a STREAMING-only egress too, so the
