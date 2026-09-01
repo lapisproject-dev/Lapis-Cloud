@@ -64,10 +64,20 @@ interface IDunningService {
     suspend fun deactivateDunningLevel(levelId: String): DunningLevelDto
 
     // ── Uebersicht (TREASURER/BOARD/ADMIN) ──────────────────────────
+
+    /**
+     * Bug fix (GitHub #7): was `beforeDueDate` paired with `ORDER BY dueDate ASC` -- a `less`
+     * filter against an ascending sort can never advance a page, it only re-narrows toward rows
+     * already shown. [afterDueDate]/[afterContributionId] together are a real keyset cursor: pass
+     * the last row's own `dueDate`/`contributionId` from the previous page to get the next one.
+     * `dueDate` alone is not unique, so the tiebreaker `afterContributionId` is required together
+     * with `afterDueDate` -- both null (the default) starts from the first page.
+     */
     suspend fun listDunningCases(
         onlyOpen: Boolean = true,
         limit: Int = 50,
-        beforeDueDate: LocalDate? = null,
+        afterDueDate: LocalDate? = null,
+        afterContributionId: String? = null,
     ): List<DunningCaseDto>
 
     /** Empty list instead of a nullable DTO return -- kilua-rpc-KSP cannot generate a nullable DTO return. */

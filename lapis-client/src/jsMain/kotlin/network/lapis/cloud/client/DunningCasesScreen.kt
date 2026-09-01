@@ -2,7 +2,6 @@ package network.lapis.cloud.client
 
 import io.kvision.form.check.checkBox
 import io.kvision.form.select.select
-import io.kvision.form.text.text
 import io.kvision.html.Button
 import io.kvision.html.ButtonStyle
 import io.kvision.html.button
@@ -43,11 +42,13 @@ import network.lapis.cloud.shared.rpc.IDunningService
  * acknowledged disclaimer stale" without a backend change -- same open question this wave shares
  * with `SepaBatchesScreen.kt`'s own documented O-1.
  *
- * `beforeDueDate` is deliberately a plain DATE FILTER, never a pagination cursor (plan finding B1):
- * `listDunningCases` sorts `ORDER BY dueDate ASC` while filtering `dueDate < beforeDueDate` -- the
- * two together cannot page forward. There is no "load more" button here; when the result hits the
- * chosen `limit`, a muted hint row tells the treasurer to raise the count or narrow the date
- * instead.
+ * **Real keyset pagination** (GitHub #7 fix): `listDunningCases`'s `afterDueDate`/
+ * `afterContributionId` pair is a genuine continuation cursor now (`ORDER BY dueDate, id ASC` with
+ * a matching `(dueDate, id) > (afterDueDate, afterContributionId)` filter, see `DunningService.kt`
+ * for the compound-condition reasoning) -- so this screen appends pages via a "Weitere laden"
+ * button, seeded from the last row's own `dueDate`/`contributionId`, rather than the old ad-hoc
+ * date-filter-as-workaround this screen previously shipped with (see git history for the earlier
+ * plan finding B1 this superseded).
  */
 fun renderDunningCasesScreen(container: SimplePanel) {
     val root =
@@ -67,63 +68,40 @@ fun renderDunningCasesScreen(container: SimplePanel) {
     root.h2(tr("Offene Mahnvorgänge")) { addCssClass("h5") }
     val filterRow = root.hPanel(spacing = 8) { addCssClasses("align-items-center flex-wrap") }
     val onlyOpenCheck = filterRow.checkBox(value = true, label = tr("Nur offene Vorgänge"))
-    val beforeDueDateInput = filterRow.text(label = tr("Fällig vor (JJJJ-MM-TT, optional)"))
     val limitSelect =
         filterRow.select(
             options = listOf("50" to "50", "100" to "100", "200" to "200"),
             value = "50",
-            label = tr("Anzahl"),
+            label = tr("Seitengröße"),
         )
-    val filterButton = filterRow.button(tr("Filter anwenden"), style = ButtonStyle.OUTLINESECONDARY)
+    val refreshButton = filterRow.button(tr("Aktualisieren"), style = ButtonStyle.OUTLINESECONDARY)
     val errorBox =
         root.div().apply {
             addCssClass("text-danger")
             hide()
         }
-    val hintBox =
-        root.div().apply {
-            addCssClasses("text-muted small")
-            hide()
-        }
     val listPanel = root.vPanel(spacing = 6)
+    val loadMoreRow = root.hPanel(spacing = 8) { addCssClasses("align-items-center") }
+    val loadMoreButton = loadMoreRow.button(tr("Weitere laden"), style = ButtonStyle.OUTLINESECONDARY)
+    loadMoreButton.hide()
 
     root.h2(tr("Details")) { addCssClass("h5") }
     val detailPanel = root.vPanel(spacing = 10)
     detailPanel.p(tr("Vorgang oben auswählen, um Details zu sehen.")) { addCssClasses("text-muted small") }
 
-    fun loadCases() {
-        errorBox.hide()
-        hintBox.hide()
-        val beforeDueDateText = beforeDueDateInput.value.orEmpty().trim()
-        val beforeDueDate: LocalDate?
-        if (beforeDueDateText.isBlank()) {
-            beforeDueDate = null
-        } else {
-            val parsed = runCatching { LocalDate.parse(beforeDueDateText) }.getOrNull()
-            if (parsed == null) {
-                errorBox.content = tr("Bitte ein gültiges Datum (JJJJ-MM-TT) angeben oder das Feld leer lassen.")
-                errorBox.show()
-                return
-            }
-            beforeDueDate = parsed
-        }
-        val limit = limitSelect.value?.toIntOrNull() ?: 50
-        listPanel.removeAll()
-        AppScope.launch {
-            val cases =
-                guarded {
-                    rpcService<IDunningService>().listDunningCases(
-                        onlyOpen = onlyOpenCheck.value,
-                        limit = limit,
-                        beforeDueDate = beforeDueDate,
-                    )
-                } ?: return@launch
-            listPanel.removeAll()
-            if (cases.isEmpty()) {
-                listPanel.p(tr("Keine Mahnvorgänge für diese Filter."))
-                return@launch
-            }
-            val table =
+    // Continuation cursor for "Weitere laden" -- seeded from the last row of the last page loaded,
+    // see the file KDoc above and `DunningService.listDunningCases`'s own compound-cursor comment.
+    var cursorDueDate: LocalDate? = null
+    var cursorContributionId: String? = null
+    var table: Table? = null
+
+    fun appendCase(
+        case: DunningCaseDto,
+        reload: () -> Unit,
+    ) {
+        var t = table
+        if (t == null) {
+            t =
                 listPanel.table(
                     headerNames =
                         listOf(
@@ -139,24 +117,54 @@ fun renderDunningCasesScreen(container: SimplePanel) {
                         ),
                     types = setOf(TableType.STRIPED, TableType.HOVER),
                 )
-            cases.forEach { case ->
-                renderDunningCaseRow(table, case) { contributionId ->
-                    selectDunningCase(detailPanel, role, contributionId, ::loadCases)
-                }
-            }
-            if (cases.size == limit) {
-                hintBox.content =
-                    gettext(
-                        "Es werden die ältesten %1 Vorgänge gezeigt -- Anzahl erhöhen oder das Datum eingrenzen, " +
-                            "um weitere zu sehen.",
-                        limit,
-                    )
-                hintBox.show()
-            }
+            table = t
+        }
+        renderDunningCaseRow(t, case) { contributionId ->
+            selectDunningCase(detailPanel, role, contributionId, reload)
         }
     }
-    filterButton.onClick { loadCases() }
-    loadCases()
+
+    fun loadPage(reset: Boolean) {
+        errorBox.hide()
+        if (reset) {
+            listPanel.removeAll()
+            table = null
+            cursorDueDate = null
+            cursorContributionId = null
+        }
+        val limit = limitSelect.value?.toIntOrNull() ?: 50
+        loadMoreButton.disabled = true
+        AppScope.launch {
+            val cases =
+                guarded {
+                    rpcService<IDunningService>().listDunningCases(
+                        onlyOpen = onlyOpenCheck.value,
+                        limit = limit,
+                        afterDueDate = cursorDueDate,
+                        afterContributionId = cursorContributionId,
+                    )
+                }
+            loadMoreButton.disabled = false
+            if (cases == null) return@launch
+            if (cases.isEmpty() && reset) {
+                listPanel.p(tr("Keine Mahnvorgänge für diese Filter."))
+                loadMoreButton.hide()
+                return@launch
+            }
+            cases.forEach { appendCase(it) { loadPage(reset = true) } }
+            cases.lastOrNull()?.let { last ->
+                cursorDueDate = last.dueDate
+                cursorContributionId = last.contributionId
+            }
+            // Same size-vs-limit heuristic the previous version used to decide whether more rows
+            // might exist -- exact (not `>=`), since `listDunningCases` never returns more than
+            // `limit` rows itself.
+            if (cases.size == limit) loadMoreButton.show() else loadMoreButton.hide()
+        }
+    }
+    refreshButton.onClick { loadPage(reset = true) }
+    loadMoreButton.onClick { loadPage(reset = false) }
+    loadPage(reset = true)
 }
 
 // ================================================================================================

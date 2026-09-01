@@ -50,11 +50,12 @@ import org.jetbrains.exposed.v1.core.ResultRow
 import org.jetbrains.exposed.v1.core.SortOrder
 import org.jetbrains.exposed.v1.core.and
 import org.jetbrains.exposed.v1.core.eq
+import org.jetbrains.exposed.v1.core.greater
 import org.jetbrains.exposed.v1.core.inList
 import org.jetbrains.exposed.v1.core.inSubQuery
-import org.jetbrains.exposed.v1.core.less
 import org.jetbrains.exposed.v1.core.neq
 import org.jetbrains.exposed.v1.core.notInList
+import org.jetbrains.exposed.v1.core.or
 import org.jetbrains.exposed.v1.exceptions.ExposedSQLException
 import org.jetbrains.exposed.v1.jdbc.insert
 import org.jetbrains.exposed.v1.jdbc.select
@@ -152,7 +153,11 @@ class DunningService(
 
     override suspend fun getDunningSettings(): DunningSettingsDto {
         val current = resolveCurrentMember(call)
-        current.requireRole(AccountRole.ADMIN)
+        // Bug fix (GitHub #8): this is a READ method -- the interface's own KDoc has always
+        // documented "Übersicht (TREASURER/BOARD/ADMIN)", but the implementation required ADMIN.
+        // A Treasurer running the dunning workflow day-to-day could not see whether it was even
+        // enabled. Write methods (enableDunning/disableDunning) remain ADMIN-only, unchanged.
+        current.requireRole(*DUNNING_READ_ROLES)
         return transaction { loadDunningSettingsDto() }
     }
 
@@ -162,7 +167,9 @@ class DunningService(
 
     override suspend fun listDunningLevels(includeInactive: Boolean): List<DunningLevelDto> {
         val current = resolveCurrentMember(call)
-        current.requireRole(AccountRole.ADMIN)
+        // Bug fix (GitHub #8) -- same as getDunningSettings above: a read method wrongly required
+        // ADMIN. Write methods below (create/update/deactivateDunningLevel) remain ADMIN-only.
+        current.requireRole(*DUNNING_READ_ROLES)
         return transaction {
             val rows =
                 if (includeInactive) {
@@ -320,7 +327,8 @@ class DunningService(
     override suspend fun listDunningCases(
         onlyOpen: Boolean,
         limit: Int,
-        beforeDueDate: LocalDate?,
+        afterDueDate: LocalDate?,
+        afterContributionId: String?,
     ): List<DunningCaseDto> {
         val current = resolveCurrentMember(call)
         current.requireRole(*DUNNING_READ_ROLES)
@@ -336,17 +344,31 @@ class DunningService(
                     .orderBy(DunningLevelTable.levelNumber, SortOrder.ASC)
                     .toList()
 
-            // `limit`/`orderBy`/`beforeDueDate` pushed into SQL (not applied in Kotlin after
-            // loading everything) -- an organization with thousands of DUNNABLE contributions used
-            // to build an `inList` with as many bind parameters AND load every one of them into the
-            // heap before sorting/capping. Condition built up-front as one `Op<Boolean>`, not a
+            // Bug fix (GitHub #7): this used to be a `beforeDueDate`/`less` filter paired with
+            // `ORDER BY dueDate ASC` -- a `less` filter against an ASCENDING sort can never
+            // advance a page, it only re-narrows toward rows already shown (the exact inverse of
+            // `AuditLogService.listAuditLog`'s correct `less` + DESC pairing). `dueDate` is not
+            // unique, so a real keyset cursor needs the `(dueDate, id)` COMPOUND comparison below
+            // -- `afterContributionId` is the tiebreaker, required together with `afterDueDate`.
+            val cursorId = afterContributionId?.let { runCatching { Uuid.parse(it) }.getOrNull() }
+            val cursor: Op<Boolean>? =
+                if (afterDueDate != null && cursorId != null) {
+                    (ContributionTable.dueDate greater afterDueDate) or
+                        ((ContributionTable.dueDate eq afterDueDate) and (ContributionTable.id greater cursorId))
+                } else {
+                    null
+                }
+
+            // `limit`/`orderBy`/cursor pushed into SQL (not applied in Kotlin after loading
+            // everything) -- an organization with thousands of DUNNABLE contributions used to build
+            // an `inList` with as many bind parameters AND load every one of them into the heap
+            // before sorting/capping. Condition built up-front as one `Op<Boolean>`, not a
             // `.where {}.andWhere {}` chain -- same convention `PoliticianService
             // .loadWeightHistory`/`FederationService`'s own comments already establish for this
             // codebase.
             val dunnableCondition =
-                if (beforeDueDate != null) {
-                    (ContributionTable.status inList ContributionStatusSets.DUNNABLE.toList()) and
-                        (ContributionTable.dueDate less beforeDueDate)
+                if (cursor != null) {
+                    (ContributionTable.status inList ContributionStatusSets.DUNNABLE.toList()) and cursor
                 } else {
                     ContributionTable.status inList ContributionStatusSets.DUNNABLE.toList()
                 }
@@ -354,7 +376,7 @@ class DunningService(
                 contributionJoin()
                     .selectAll()
                     .where { dunnableCondition }
-                    .orderBy(ContributionTable.dueDate, SortOrder.ASC)
+                    .orderBy(ContributionTable.dueDate to SortOrder.ASC, ContributionTable.id to SortOrder.ASC)
                     .limit(effectiveLimit)
                     .toList()
 
@@ -388,18 +410,18 @@ class DunningService(
                     if (alreadyIncluded.isNotEmpty()) {
                         historicCondition = historicCondition and (ContributionTable.id notInList alreadyIncluded)
                     }
-                    if (beforeDueDate != null) {
-                        historicCondition = historicCondition and (ContributionTable.dueDate less beforeDueDate)
+                    if (cursor != null) {
+                        historicCondition = historicCondition and cursor
                     }
                     val historicRows =
                         contributionJoin()
                             .selectAll()
                             .where { historicCondition }
-                            .orderBy(ContributionTable.dueDate, SortOrder.ASC)
+                            .orderBy(ContributionTable.dueDate to SortOrder.ASC, ContributionTable.id to SortOrder.ASC)
                             .limit(effectiveLimit)
                             .toList()
                     (dunnableRows + historicRows)
-                        .sortedBy { it[ContributionTable.dueDate] }
+                        .sortedWith(compareBy({ it[ContributionTable.dueDate] }, { it[ContributionTable.id].toString() }))
                         .take(effectiveLimit)
                 }
             if (rows.isEmpty()) return@transaction emptyList()

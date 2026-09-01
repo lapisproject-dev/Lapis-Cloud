@@ -281,6 +281,81 @@ class DunningServiceTest :
                     .post("/test/dunning/create-level?levelNumber=9&name=X&graceDays=1&responseDays=1") {
                         header("X-Member-Id", admin.toString())
                     }.status shouldBe HttpStatusCode.OK
+
+                // GitHub #8 regression: getDunningSettings/listDunningLevels are READ methods --
+                // TREASURER/BOARD must be able to call them (the write methods above stay
+                // ADMIN-only, unaffected by this fix).
+                client
+                    .get("/test/dunning/settings") { header("X-Member-Id", member.toString()) }
+                    .status shouldBe HttpStatusCode.Forbidden
+                client
+                    .get("/test/dunning/settings") { header("X-Member-Id", treasurer.toString()) }
+                    .status shouldBe HttpStatusCode.OK
+                client
+                    .get("/test/dunning/settings") { header("X-Member-Id", board.toString()) }
+                    .status shouldBe HttpStatusCode.OK
+                client
+                    .get("/test/dunning/levels") { header("X-Member-Id", member.toString()) }
+                    .status shouldBe HttpStatusCode.Forbidden
+                client
+                    .get("/test/dunning/levels") { header("X-Member-Id", treasurer.toString()) }
+                    .status shouldBe HttpStatusCode.OK
+                client
+                    .get("/test/dunning/levels") { header("X-Member-Id", board.toString()) }
+                    .status shouldBe HttpStatusCode.OK
+            }
+        }
+
+        test(
+            "listDunningCases: keyset pagination (afterDueDate/afterContributionId) advances across pages with no duplicate and no skipped row",
+        ) {
+            testApplication {
+                application {
+                    install(StatusPages) { installDunningExceptionHandlers() }
+                    routing { registerDunningTestRoutes() }
+                }
+                val admin = createTestMember("dun-page-admin-${Uuid.random()}@example.org", role = AccountRole.ADMIN)
+                enableDunningForOrg(admin)
+                createLevel(1)
+                val tierId = createTier()
+                // 7 contributions, each its own member, all sharing [createContribution]'s default
+                // `dueDate` -- deliberately IDENTICAL for every row, the exact scenario that makes
+                // this fix's `id` tiebreaker load-bearing rather than incidental (a fix that only
+                // worked for distinct dueDates would not actually prove the compound cursor works).
+                val allIds =
+                    (1..7).map { i ->
+                        val member = createTestMember("dun-page-member-$i-${Uuid.random()}@example.org", role = AccountRole.MEMBER)
+                        createContribution(member, tierId)
+                    }
+
+                val seen = mutableListOf<String>()
+                var afterDueDate: String? = null
+                var afterId: String? = null
+                var pages = 0
+                while (true) {
+                    pages++
+                    (pages < 10) shouldBe true // guard against an infinite loop if the fix regresses
+                    val url =
+                        buildString {
+                            append("/test/dunning/cases?limit=3")
+                            if (afterDueDate != null) append("&afterDueDate=$afterDueDate")
+                            if (afterId != null) append("&afterContributionId=$afterId")
+                        }
+                    val body = client.get(url) { header("X-Member-Id", admin.toString()) }.bodyAsText()
+                    val pageIds = if (body.isEmpty()) emptyList() else body.split(";")
+                    if (pageIds.isEmpty()) break
+                    seen += pageIds
+                    val lastId = Uuid.parse(pageIds.last())
+                    val lastRow =
+                        transaction {
+                            ContributionTable.selectAll().where { ContributionTable.id eq lastId }.single()
+                        }
+                    afterDueDate = lastRow[ContributionTable.dueDate].toString()
+                    afterId = pageIds.last()
+                    if (pageIds.size < 3) break
+                }
+                seen.size shouldBe allIds.size // no duplicate across pages (a set would silently hide dupes)
+                seen.toSet() shouldBe allIds.map { it.toString() }.toSet() // no row skipped
             }
         }
 
@@ -896,9 +971,29 @@ private fun Route.registerDunningTestRoutes(
         call.respondText(dto.id)
     }
     get("/test/dunning/cases") {
-        val onlyOpen = call.request.queryParameters["onlyOpen"]?.toBooleanStrictOrNull() ?: true
-        val dtos = service(call).listDunningCases(onlyOpen = onlyOpen)
+        val q = call.request.queryParameters
+        val onlyOpen = q["onlyOpen"]?.toBooleanStrictOrNull() ?: true
+        val limit = q["limit"]?.toIntOrNull() ?: 50
+        val afterDueDate = q["afterDueDate"]?.let { kotlinx.datetime.LocalDate.parse(it) }
+        val afterContributionId = q["afterContributionId"]
+        val dtos =
+            service(call).listDunningCases(
+                onlyOpen = onlyOpen,
+                limit = limit,
+                afterDueDate = afterDueDate,
+                afterContributionId = afterContributionId,
+            )
         call.respondText(dtos.joinToString(";") { it.contributionId })
+    }
+    // GitHub #8 regression coverage -- these two were wrongly ADMIN-only despite being read
+    // methods; the interface's own KDoc has always said TREASURER/BOARD/ADMIN.
+    get("/test/dunning/settings") {
+        val dto = service(call).getDunningSettings()
+        call.respondText("${dto.dunningEnabled};${dto.activeLevelCount}")
+    }
+    get("/test/dunning/levels") {
+        val dtos = service(call).listDunningLevels()
+        call.respondText(dtos.joinToString(";") { it.id })
     }
     get("/test/dunning/case") {
         val dtos = service(call).getDunningCase(call.request.queryParameters["contributionId"]!!)
