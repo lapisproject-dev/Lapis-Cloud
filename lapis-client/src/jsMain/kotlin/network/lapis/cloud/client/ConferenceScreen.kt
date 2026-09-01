@@ -1048,7 +1048,18 @@ private fun enterCall(
     val whiteboardToggleButton =
         if (!isBreakout) {
             val btn = moreSheet.button(tr("Whiteboard"), icon = "fas fa-chalkboard", style = ButtonStyle.OUTLINESECONDARY)
-            btn.addCssClass("w-100 text-start")
+            // Bug fix (live user report -- device-selection panel and everything else in `moreSheet`
+            // after this button silently missing from the DOM): `addCssClass` (singular) treats its
+            // whole string argument as ONE literal CSS token and hands it straight to the DOM's
+            // `classList.add`, which throws `InvalidCharacterError` for a space-containing token --
+            // see `CssClasses.kt`'s own KDoc for the exact same mistake, already fixed at nine other
+            // call sites. This uncaught exception, thrown synchronously mid-way through building
+            // `moreSheet`'s children, desynced snabbdom's insertion state for every sibling
+            // constructed afterward (confirmed live via direct DOM inspection: `deviceGroup`,
+            // `guestAccessRow`, `meetingBindingRow`, `breakoutOverviewPanel` never appeared, and an
+            // unrelated `moderatorRow` button ended up misplaced as `moreSheet`'s own child). Use the
+            // safe multi-class helper instead.
+            btn.addCssClasses("w-100 text-start")
             btn
         } else {
             null
@@ -1061,7 +1072,9 @@ private fun enterCall(
     val notesToggleButton =
         if (!isBreakout) {
             val btn = moreSheet.button(tr("Notizen"), icon = "fas fa-note-sticky", style = ButtonStyle.OUTLINESECONDARY)
-            btn.addCssClass("w-100 text-start")
+            // Same `addCssClass` -> `addCssClasses` fix as `whiteboardToggleButton` immediately above,
+            // same root cause -- see that call site's comment.
+            btn.addCssClasses("w-100 text-start")
             btn
         } else {
             null
@@ -1071,12 +1084,22 @@ private fun enterCall(
     // NIE ändert -- Kare/Norman-Regel: Handlungsknöpfe (mic/camera/screenShare/leave/backToMain)
     // bekommen KEIN `aria-pressed`; Ansichtsschalter (roster/chat/more/whiteboard/notes) bekommen
     // zusätzlich `aria-pressed`, gesetzt dynamisch in `applyPanelVisibility()`.
-    screenShareButton?.setStaticA11yLabel(tr("Bildschirm teilen"))
-    moreToggleButton.setStaticA11yLabel(tr("Mehr"))
-    leaveButton.setStaticA11yLabel(if (isBreakout) tr("Besprechung ganz verlassen") else tr("Verlassen"))
-    backToMainButton?.setStaticA11yLabel(tr("Zurück zum Hauptraum"))
-    whiteboardToggleButton?.setStaticA11yLabel(tr("Whiteboard"))
-    notesToggleButton?.setStaticA11yLabel(tr("Notizen"))
+    //
+    // Bug fix (live user report, GitHub #1 follow-up -- "Mehr-Button hat kein Tooltip, Geräteauswahl
+    // nicht auffindbar"): calling these HERE, once, at construction time, turned out to be
+    // unreliable for icon-only buttons in this control row -- confirmed live (real browser, not just
+    // this comment's own assumption) that `screenShareButton`/`moreToggleButton`/`leaveButton` ended
+    // up with NO `aria-label`/`title`/`data-label` in the actual DOM despite this call, while
+    // `fullscreenButton` (same helper, same idiom) reliably works -- the one structural difference
+    // being that `fullscreenButton`'s label is re-applied on EVERY `applyPanelVisibility()` call
+    // (see below), not just once here. `setStaticA11yLabel`'s own `addAfterInsertHook` fallback is
+    // documented to fire only once per element instance (Stolperfalle 8, see the fullscreen call
+    // site's own comment) -- if that specific vnode instance never actually mounts (e.g. discarded
+    // by an intervening re-render before the hook fires), nothing ever retries it. Moved into
+    // `applyPanelVisibility()`, called there on every invocation instead of once here, so a later
+    // call's `getElement()` gets a fresh chance regardless of what happened to any earlier one --
+    // exactly the same reasoning `fullscreenButton`'s own comment already gives, generalized to
+    // every other icon-only button in this row.
 
     // D5/D6: "end for everyone" gets its own, spatially separate row -- never adjacent to "Verlassen"
     // (Tesler: near-identical destructive actions placed next to each other is a classic slip-inducing
@@ -1151,14 +1174,27 @@ private fun enterCall(
     // Möglichkeit, das Mikrofon zu wechseln, siehe `applyPanelVisibility()` weiter unten). Platzierung
     // VOR `guestAccessRow` -- dazwischen wird `moreSheet` an keiner Stelle bestückt, DOM-Reihenfolge
     // bleibt also exakt "nach den Whiteboard/Notizen-Knöpfen, vor den Einrichtungs-Zeilen".
+    // Live user report, GitHub #2 follow-up ("keine Geräteauswahl sichtbar") -- the actual crash that
+    // hid this whole group (and every sibling after it: `guestAccessRow`/`meetingBindingRow`/
+    // `breakoutOverviewPanel`) was the pre-existing `addCssClass("w-100 text-start")` (singular) calls
+    // on `whiteboardToggleButton`/`notesToggleButton` further up in `moreSheet` -- see their own fix
+    // comments. `options = emptyList()` here was NOT the cause (confirmed live: the crash still
+    // reproduced identically after seeding a placeholder option, until the real `addCssClass` call
+    // sites were fixed) -- kept anyway as a harmless, arguably better UX than an empty dropdown while
+    // `refreshDeviceOptions()` (below) has not yet run its first enumeration.
+    val loadingPlaceholder = listOf("" to tr("Wird geladen …"))
     val deviceGroup = moreSheet.vPanel(spacing = 6) { addCssClasses("lapis-conference-device-group") }
     deviceGroup.div(tr("Geräte:")) { addCssClasses("text-muted small") }
-    val micDeviceSelect = deviceGroup.select(options = emptyList(), label = tr("Mikrofon"))
-    val cameraDeviceSelect = deviceGroup.select(options = emptyList(), label = tr("Kamera"))
+    val micDeviceSelect = deviceGroup.select(options = loadingPlaceholder, value = "", label = tr("Mikrofon"))
+    val cameraDeviceSelect = deviceGroup.select(options = loadingPlaceholder, value = "", label = tr("Kamera"))
     // V1.3.x -- Lautsprecherauswahl nur, wenn der Browser `HTMLMediaElement.setSinkId` überhaupt
     // unterstützt (Safari nicht) -- Feature-Detection-Disziplin wie bei `screenShareButton`.
     val speakerDeviceSelect: Select? =
-        if (sinkIdApiAvailable()) deviceGroup.select(options = emptyList(), label = tr("Lautsprecher")) else null
+        if (sinkIdApiAvailable()) {
+            deviceGroup.select(options = loadingPlaceholder, value = "", label = tr("Lautsprecher"))
+        } else {
+            null
+        }
 
     // Muss VOR `applyPanelVisibility()` deklariert sein (Kotlin erlaubt in lokalen Funktionen keine
     // Vorwärtsreferenz auf eine später deklarierte lokale `var`) -- durch die Platzierung hier, weit
@@ -2461,11 +2497,8 @@ private fun enterCall(
     // sichtbare `<span>`-Badge (siehe `chatBadgeEl`'s eigene `addAfterInsertHook`-Erzeugung oben)
     // trägt nur die nackte Zahl.
     fun updateChatToggleBadge() {
-        chatToggleButton.getElement()?.let { el ->
-            val label = if (unreadChatCount > 0) gettext("Chat, %1 ungelesene Nachrichten", unreadChatCount) else tr("Chat")
-            el.title = label
-            el.setAttribute("aria-label", label)
-        }
+        val label = if (unreadChatCount > 0) gettext("Chat, %1 ungelesene Nachrichten", unreadChatCount) else tr("Chat")
+        chatToggleButton.setDynamicA11yTitle(label)
         chatBadgeEl?.let { el ->
             if (unreadChatCount > 0) {
                 el.textContent = unreadChatCount.toString()
@@ -2479,11 +2512,8 @@ private fun enterCall(
     // V1.2.9 Vollbildmodus, D7 -- analog updateChatToggleBadge; V1.2.10 auf Badge statt Text
     // umgestellt, siehe dessen Kommentar oben.
     fun updateRosterToggleBadge() {
-        rosterToggleButton.getElement()?.let { el ->
-            val label = if (tiles.isEmpty()) tr("Teilnehmende") else gettext("Teilnehmende, %1", tiles.size)
-            el.title = label
-            el.setAttribute("aria-label", label)
-        }
+        val label = if (tiles.isEmpty()) tr("Teilnehmende") else gettext("Teilnehmende, %1", tiles.size)
+        rosterToggleButton.setDynamicA11yTitle(label)
         rosterBadgeEl?.let { el ->
             if (tiles.isNotEmpty()) {
                 el.textContent = tiles.size.toString()
@@ -2600,10 +2630,21 @@ private fun enterCall(
         fullscreenButton?.icon = if (panelState.fullscreen) "fas fa-compress" else "fas fa-expand"
         // title/aria-label MÜSSEN bei jedem Umschalten neu gesetzt werden -- addAfterInsertHook feuert
         // nur einmal beim initialen Insert, nicht bei jedem applyPanelVisibility()-Aufruf (Stolperfalle 8).
-        fullscreenButton?.getElement()?.let { el ->
-            el.title = fullscreenLabel
-            el.setAttribute("aria-label", fullscreenLabel)
-        }
+        // Bug fix (live user report, GitHub #1 follow-up) -- this used to write `fullscreenLabel`
+        // straight into the DOM with no `resolvedA11yText()` strip (leaking `###KvI18nS###` into
+        // the accessible name) and no `addAfterInsertHook` fallback for the very first call, before
+        // this button's real element exists -- see [setStaticA11yLabel]'s own KDoc for the idiom.
+        fullscreenButton?.setStaticA11yLabel(fullscreenLabel)
+
+        // Bug fix (live user report, GitHub #1 follow-up) -- see the KDoc at this function's own
+        // former one-time call site (now removed) for why these are re-applied on every call
+        // instead of once at construction.
+        screenShareButton?.setStaticA11yLabel(tr("Bildschirm teilen"))
+        moreToggleButton.setStaticA11yLabel(tr("Mehr"))
+        leaveButton.setStaticA11yLabel(if (isBreakout) tr("Besprechung ganz verlassen") else tr("Verlassen"))
+        backToMainButton?.setStaticA11yLabel(tr("Zurück zum Hauptraum"))
+        whiteboardToggleButton?.setStaticA11yLabel(tr("Whiteboard"))
+        notesToggleButton?.setStaticA11yLabel(tr("Notizen"))
     }
     applyPanelVisibility() // initialer Render, Default-Zustand
 
@@ -2614,37 +2655,30 @@ private fun enterCall(
     // und dieselben Funktionen werden sowohl im initialen Connect-Block als auch in den späteren
     // `micButton.onClick`/`cameraButton.onClick`-Handlern gebraucht, die textuell NACH dem
     // Connect-Block stehen.
+    // Bug fix (live user report, GitHub #1 follow-up -- "Buttons still have text, but only after
+    // clicking them"): both functions below used a bare `getElement()?.let { ... }`, no fallback,
+    // and no `resolvedA11yText()` strip. KVision's snabbdom patch cycle is asynchronous -- the very
+    // first call, made synchronously right after the buttons are constructed (see below), ran
+    // BEFORE the real `<button>` element existed in the DOM, so `getElement()` returned null and
+    // the whole block silently no-op'd; nothing ever retried it, so `title`/`aria-label`/
+    // `data-label` stayed unset until the NEXT call -- typically the click handler, by which point
+    // the element obviously already exists, matching exactly what was reported: no under-icon text
+    // on first render, text appears only after the first click. [setStaticA11yLabel] already
+    // implements the correct idiom for this (its own KDoc: "`getElement() ?: addAfterInsertHook
+    // { ... }`") -- despite its name/KDoc describing "a button whose accessible text NEVER changes
+    // after construction", nothing about its body actually assumes that; each call independently
+    // resolves and applies (or queues) the CURRENT label, so it works identically for a label that
+    // changes on every call. Reused here rather than duplicated.
     fun updateMicButtonState() {
         micButton.icon = if (micEnabled) "fas fa-microphone" else "fas fa-microphone-slash"
         if (micEnabled) micButton.removeCssClass("text-danger") else micButton.addCssClass("text-danger")
-        // Bug fix (post-V1.2.10, live browser test) -- `resolvedA11yText` strips the raw
-        // "###KvI18nS###" marker `tr()` leaves behind when its result is written straight into a
-        // DOM attribute instead of a KVision-managed widget property; see that function's own KDoc.
-        val label = resolvedA11yText(if (micEnabled) tr("Mikrofon ausschalten") else tr("Mikrofon einschalten"))
-        micButton.getElement()?.let { el ->
-            el.title = label
-            el.setAttribute("aria-label", label)
-            // Review fix (V1.2.10) -- `data-label` was never set here, so `theme.css`'s
-            // `.lapis-conference-controls-row .btn::after{content:attr(data-label)}` (under-icon
-            // text at >=768px, see `controlsRow`'s own KDoc + CHANGELOG) never applied to mic/camera,
-            // unlike every other button in this row (see `setStaticA11yLabel`, which sets all three
-            // attributes together for buttons whose label never changes).
-            el.setAttribute("data-label", label)
-        }
+        micButton.setStaticA11yLabel(if (micEnabled) tr("Mikrofon ausschalten") else tr("Mikrofon einschalten"))
     }
 
     fun updateCameraButtonState() {
         cameraButton.icon = if (cameraEnabled) "fas fa-video" else "fas fa-video-slash"
         if (cameraEnabled) cameraButton.removeCssClass("text-danger") else cameraButton.addCssClass("text-danger")
-        // Bug fix (post-V1.2.10, live browser test) -- see `updateMicButtonState`'s own comment
-        // above / `resolvedA11yText`'s KDoc for why this strip is needed.
-        val label = resolvedA11yText(if (cameraEnabled) tr("Kamera ausschalten") else tr("Kamera einschalten"))
-        cameraButton.getElement()?.let { el ->
-            el.title = label
-            el.setAttribute("aria-label", label)
-            // Review fix (V1.2.10) -- same missing `data-label` as `updateMicButtonState` above.
-            el.setAttribute("data-label", label)
-        }
+        cameraButton.setStaticA11yLabel(if (cameraEnabled) tr("Kamera ausschalten") else tr("Kamera einschalten"))
     }
     // Review fix (V1.2.10) -- `updateMicButtonState`/`updateCameraButtonState` were previously only
     // ever invoked from the initial connect block's failure branch (`!micOk`/`!cameraOk`) or from
@@ -3801,6 +3835,31 @@ private fun Button.setStaticA11yLabel(label: String) {
             title = resolved
             setAttribute("aria-label", resolved)
             setAttribute("data-label", resolved)
+        }
+    }
+}
+
+/**
+ * Bug fix (live user report, GitHub #1 follow-up): [updateChatToggleBadge]/[updateRosterToggleBadge]
+ * wrote a raw `tr(...)`/`gettext(...)` result straight into `title`/`aria-label` via a bare
+ * `getElement()?.let { ... }` -- no [resolvedA11yText] strip (so a zero-count `tr("Chat")`/
+ * `tr("Teilnehmende")` leaked `"###KvI18nS###"` verbatim into the accessible name) and no
+ * `addAfterInsertHook` fallback (so the very first call, before the button's real element exists,
+ * silently set nothing, same class of bug [setStaticA11yLabel] already avoids). Same idiom as that
+ * function, deliberately WITHOUT `data-label`: these two buttons carry a numeric `<span>` badge
+ * (see `chatBadgeEl`/`rosterBadgeEl`) instead of under-icon text, so setting `data-label` would
+ * make `theme.css`'s `.lapis-conference-controls-row .btn::after{content:attr(data-label)}` render
+ * full label text alongside that badge -- a visible layout change this fix does not intend to make.
+ */
+private fun Button.setDynamicA11yTitle(label: String) {
+    val resolved = resolvedA11yText(label)
+    getElement()?.let { el ->
+        el.title = resolved
+        el.setAttribute("aria-label", resolved)
+    } ?: addAfterInsertHook { vnode ->
+        (vnode.elm as? HTMLElement)?.apply {
+            title = resolved
+            setAttribute("aria-label", resolved)
         }
     }
 }
