@@ -8,6 +8,66 @@ All notable changes to this project are documented here. Format follows
 
 ### Added
 
+**Mitgliederverwaltung: Icon statt Text beim „Bearbeiten"-Button (GitHub #1)**
+
+- Der „Bearbeiten"-Button in der Mitglieder-Tabelle ist jetzt icon-only (Stift-Symbol), damit die
+  Aktionsspalte bei jeder Tabellenbreite schmal bleibt. Zugänglichkeit unverändert -- die
+  Beschriftung wandert von sichtbarem Text in `title` (KVision-Widget-Property, kein
+  Roh-DOM-Zugriff).
+
+**Aufzeichnungen: Löschen + Pagination**
+
+- **Neue RPC `IConferenceRecordingService.deleteRecording(recordingId)`** — Moderator (Raum-Ersteller)
+  oder BOARD/ADMIN, nur für abgeschlossene Aufnahmen (`READY`/`FAILED`), zusätzlich abgesichert
+  durch eine Dokument-Zugriffsprüfung (Moderator-Rolle allein autorisiert nicht das Löschen eines
+  archivierten Dokuments, das der Aufrufer selbst nicht lesen dürfte — via unabhängigen
+  Sicherheits-Review gefunden und vor dem Deploy behoben). Soft-löscht das verknüpfte `document`,
+  hart löscht die `conference_recording`-/`conference_recording_track`-Zeilen (das Tabellen-Design
+  verbietet eine zweite Zugriffskontroll-Spalte dort), entfernt die Rohspuren unbedingt NACH dem
+  Commit der DB-Transaktion (nicht davor — sonst könnte ein Transaktions-Rollback die Löschung der
+  Datenbankzeilen rückgängig machen, während die Dateien bereits weg sind), protokolliert als letzte
+  lock-nehmende Operation im Audit-Log mit vollständigem JSON-Snapshot.
+- **Offset-Pagination für `listRecordings`** (`ConferenceRecordingListQuery`/`PageDto`, analog
+  `MemberAdminQuery`/`PageDto`) — der bisherige Kotlin-seitige Zugriffsfilter läuft jetzt in der
+  SQL-`WHERE`-Klausel, damit `LIMIT`/`OFFSET`/`COUNT(*)` gegen dieselbe gefilterte Zeilenmenge
+  rechnen.
+
+### Fixed
+
+- **Eigene Video-Kachel erschien nie zuverlässig, Aufzeichnungs-/Stream-Status-Polling und der
+  V1.2.10-Steuerleisten-Auto-Hide liefen seit Wave 6 nie auch nur einmal** — vier
+  Hintergrund-Schleifen in `ConferenceScreen.kt`s `enterCall()` wurden per
+  `AppScope.launch { while (connectionState.isLive()) { ... } }` VOR dem eigentlichen
+  `session.connect(...)`-Aufruf gestartet; da `isLive()` nur für `Connected`/`Reconnecting` `true`
+  liefert, war die Bedingung beim allerersten Check immer `false` (Zustand war noch `Disconnected`)
+  — die Schleifen liefen seit der Wave-6-Umstellung nie, für die gesamte Lebensdauer jedes Anrufs.
+  Behoben durch Rückstellung der äußeren Bedingung auf `!is Ended` (startet sofort, überlebt
+  `Resolving`), `isLive()` gated jetzt nur noch die eigentliche Arbeit innerhalb jedes Ticks.
+- **Ton-/Bild-Versatz in zusammengesetzten Aufzeichnungen** — zwei unabhängige Ursachen in der
+  `ffmpeg`-Kompositions-Pipeline: (1) der Zeitversatz jeder Spur wurde aus dem Start des
+  Egress-JOBS berechnet statt aus dem Start der tatsächlichen DATEI — ein Video-Track kann sein
+  erstes Bild erst nach dem ersten Keyframe schreiben (oft mehrere hundert ms später als Audio),
+  wodurch Video systematisch zu früh im Ergebnis lag; (2) Video wurde per `setpts` absolut neu
+  verankert, Audio nur relativ per `adelay` verschoben — ein bereits vorhandener Zeitstempel-Versatz
+  in der rohen Audiodatei blieb dadurch als konstanter Fehler stehen. Audio nutzt jetzt dieselbe
+  absolute Verankerung wie Video, plus `aresample=async=1` gegen eine über die Zeit wachsende Drift
+  bei Paketverlust.
+- **Aufzeichnung konnte dauerhaft fehlschlagen, obwohl die Rohspuren vorhanden waren** —
+  `MAX_COMPOSE_ATTEMPTS` (2) war zu niedrig relativ zum host-seitigen POSIX-ACL-Self-Heal-Timer für
+  das gemeinsame Egress-Output-Volume (feuert alle 30s), während zwei Kompositionsversuche im
+  10s-Standard-Poll-Abstand nach nur ~10-20s aufgaben — ein frisch angelegtes Rohspur-Verzeichnis
+  konnte also permanent scheitern, obwohl der ACL-Fix nur Sekunden entfernt war. Auf 5 erhöht, damit
+  das Gesamt-Retry-Fenster den 30s-Worst-Case des Timers komfortabel übersteigt.
+- **Mikrofon-/Kamera-Buttons zeigten unzuverlässig den falschen Zustand** — es gab keinen Listener
+  auf LiveKits eigene `RoomEvent.TrackMuted`/`TrackUnmuted`-Events für den lokalen Teilnehmer; der
+  Button-Zustand wurde ausschließlich optimistisch nach dem eigenen Klick gesetzt und blieb daher
+  dauerhaft falsch, sobald sich der reale Track-Zustand aus einem anderen Grund änderte (Reconnect,
+  Gerätefehler, Berechtigungsentzug mitten im Gespräch). Zusätzlich konnten `setCamera`/
+  `setMicrophone`/`setScreenShare` bei fehlendem `room`-Objekt still nichts tun (`Unit` als
+  „Erfolg" gewertet) statt einen Fehler zu werfen. Behoben: LiveKits Mute-Events sind jetzt die
+  Quelle der Wahrheit, auf die der Button-Zustand abgeglichen wird; die drei Setter werfen jetzt
+  `IllegalStateException` statt still nichts zu tun.
+
 **Öffentliche Transparenz-Startseite, Welle V1.3.0**
 
 - **Neue öffentliche, kontenlose HTML-Route `GET /transparenz`** -- ein zweiter, eigenständiger

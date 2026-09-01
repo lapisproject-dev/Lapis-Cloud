@@ -317,7 +317,12 @@ private fun renderMemberRosterRow(
         }
         cell(row.joinedAt.toString())
         val actionsCell = cell()
-        val editButton = actionsCell.button(tr("Bearbeiten"), style = ButtonStyle.OUTLINEPRIMARY)
+        // GitHub issue #1 -- icon instead of text, so the actions column stays narrow at any table
+        // width; `title` is set unconditionally right below and is KVision's own `Widget.title`
+        // property (not a raw DOM write), so no `###KvI18nS###` marker-leak risk -- see
+        // `ConferenceScreen.kt`'s own KDoc on that bug class for why the distinction matters.
+        val editButton = actionsCell.button("", icon = "fas fa-pen", style = ButtonStyle.OUTLINEPRIMARY)
+        editButton.title = tr("Bearbeiten")
         val callerRole = AppState.session?.role
         val callerMemberId = AppState.session?.memberId
         if (row.anonymized) {
