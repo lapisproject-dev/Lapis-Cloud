@@ -410,14 +410,10 @@ body {
   position: relative;
 }
 
-/* Ab 768px: Beschriftung unter dem Icon, aus `data-label` (siehe ConferenceScreen.kt's
-   `setStaticA11yLabel`/`updateMicButtonState` etc.) statt `Button.text` -- die Steuerleiste selbst
-   bleibt icon-only, aber ein größerer Viewport hat Platz für die Wörter darunter (Norman). */
-.lapis-conference-controls-row .btn::after {
-  content: attr(data-label);
-  font-size: 11px;
-  line-height: 1;
-}
+/* Bewusst KEIN sichtbarer Beschriftungstext unter dem Icon (Nutzer-Entscheidung 2026-09-01, revidiert
+   die vorherige "ab 768px Beschriftung" -- die Steuerleiste bleibt icon-only in jeder Breite,
+   `data-label` bedient ausschließlich `title`/`aria-label` in ConferenceScreen.kt's
+   `setStaticA11yLabel`/`updateMicButtonState` etc., nie sichtbaren Text). */
 
 .lapis-conference-controls-hidden {
   opacity: 0;
