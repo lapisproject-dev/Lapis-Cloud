@@ -8,6 +8,23 @@ All notable changes to this project are documented here. Format follows
 
 ### Added
 
+**Videokonferenz: Geräteauswahl während eines aktiven Calls (GitHub #2)**
+
+- Mikrofon/Kamera/Lautsprecher können jetzt WÄHREND eines laufenden Calls gewechselt werden, über
+  drei neue Dropdowns im bestehenden "Mehr"-Blatt (`ConferenceScreen.kt`). Bewusst KEINE
+  Pre-Join-Geräteauswahl — deferred, siehe Datei-KDoc "D2". Die Gruppe trägt absichtlich nicht die
+  `lapis-conference-config-row`-Klasse und bleibt deshalb auch im Vollbildmodus erreichbar.
+- Neue LiveKit-Externals (`LiveKitJs.kt`): `Room.getLocalDevices`/`.getActiveDevice`/
+  `.switchActiveDevice`, `MediaDeviceFailure`, drei neue `RoomEvent`-Konstanten
+  (`ActiveDeviceChanged`/`MediaDevicesChanged`/`MediaDevicesError`).
+- `LiveKitRoomSession` (`listDevices`/`activeDeviceId`/`switchDevice`) bleibt die einzige Stelle, an
+  der ein roher LiveKit-Gerätefehler zu einem [ConferenceDeviceFailure] klassifiziert wird.
+- Die zuletzt gewählte Geräte-`deviceId` je Art wird pro Browser in `localStorage` gemerkt (Schlüssel
+  `lapis-cloud-device-<audioinput|videoinput|audiooutput>`) — NIEMALS der Geräte-Klartextname
+  (`MediaDeviceInfo.label`), der oft personenbezogen ist (z. B. "Iraklis iPhone-Mikrofon").
+- Ein fehlgeschlagener Wechsel zeigt einen Fehler-Toast und springt sichtbar auf das zuvor aktive
+  Gerät zurück; ein Hotplug-Verschwinden des aktiven Geräts löst einen informativen Toast aus.
+
 **Mitgliederverwaltung: Icon statt Text beim „Bearbeiten"-Button (GitHub #1)**
 
 - Der „Bearbeiten"-Button in der Mitglieder-Tabelle ist jetzt icon-only (Stift-Symbol), damit die

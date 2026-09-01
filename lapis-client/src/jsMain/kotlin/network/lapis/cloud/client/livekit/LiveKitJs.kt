@@ -6,6 +6,7 @@ package network.lapis.cloud.client.livekit
 
 import org.khronos.webgl.Uint8Array
 import org.w3c.dom.HTMLMediaElement
+import org.w3c.dom.mediacapture.MediaDeviceInfo
 import kotlin.js.Promise
 
 /**
@@ -51,6 +52,20 @@ import kotlin.js.Promise
  * it is not a livekit-specific shape. [RTCConfiguration]/[RTCIceServer] below are declared minimally
  * here (only `iceServers`/`urls`/`username`/`credential`) rather than pulled from a browser-DOM
  * WebRTC binding, same "deliberately minimal" discipline as every other type in this file.
+ *
+ * **V1.3.x Geräteauswahl -- device-kind strings, never [org.w3c.dom.mediacapture.MediaDeviceKind].**
+ * [Room.getLocalDevices]/[Room.getActiveDevice]/[Room.switchActiveDevice] are declared here with
+ * `kind: String` (verified against the pinned `livekit-client` 2.21.0 `Room.d.ts`, where the
+ * parameter's *declared* TypeScript type is the union `MediaDeviceKind`, but that type is itself
+ * nothing more than the string-literal union `"audioinput" | "audiooutput" | "videoinput"` --
+ * functionally a plain string at the JS runtime boundary this file crosses) -- same "no dedicated
+ * enum type here" discipline [TrackPublication.source] already documents for `"screen_share"`.
+ * [network.lapis.cloud.client.livekit.LiveKitRoomSession.ConferenceDeviceKind] is the ONE place
+ * those three literals are named on the Kotlin side. Reading [MediaDeviceInfo.kind] back OFF a
+ * result array element is different -- that field's static type is fixed by the stdlib
+ * `org.w3c.dom.mediacapture` binding, not by this file, so [kotlin.js.unsafeCast] (never `==`
+ * against a `String`) is required there too -- see
+ * [network.lapis.cloud.client.livekit.LiveKitRoomSession.listDevices] KDoc.
  */
 external interface RoomOptions {
     var adaptiveStream: Boolean?
@@ -101,6 +116,43 @@ external class Room(
         event: String,
         listener: (dynamic, dynamic, dynamic, dynamic) -> Unit,
     ): Room
+
+    /** V1.3.x Geräteauswahl -- current active device id for [kind] ("audioinput"/"videoinput"/
+     * "audiooutput"), or `undefined` (surfaces as Kotlin `null`) if none is known yet. Purely a
+     * synchronous getter, no enumeration/permission side effect -- see
+     * [network.lapis.cloud.client.livekit.LiveKitRoomSession.activeDeviceId]. */
+    fun getActiveDevice(kind: String): String?
+
+    /** V1.3.x Geräteauswahl -- see [network.lapis.cloud.client.livekit.LiveKitRoomSession.switchDevice]
+     * for the Kotlin-side call site and its failure handling. [exact] defaults to `true` on the JS
+     * side (`livekit-client` 2.21.0's own default) -- verified against the compiled
+     * `livekit-client.esm.mjs`: a mismatched-and-`exact`-constrained device makes the underlying
+     * `MediaStreamTrack.applyConstraints`/`getUserMedia` call reject, and that rejection propagates
+     * out of this Promise (the `try { ... } catch (e) { ...; throw e }` wrapper around each
+     * device-kind branch re-throws), it does NOT silently resolve `false` -- resolves `true`/`false`
+     * only reflects the innermost `setDeviceId(...)` call's own success flag once it actually ran. */
+    fun switchActiveDevice(
+        kind: String,
+        deviceId: String,
+        exact: Boolean = definedExternally,
+    ): Promise<Boolean>
+
+    companion object {
+        /** V1.3.x Geräteauswahl -- Kotlin/JS `external class` `companion object` members compile to
+         * plain static properties on the underlying JS class (the same mechanism every other
+         * Kotlin/JS interop layer in the ecosystem relies on for a `static` TS method) -- verified
+         * against `Room.d.ts`'s own `static getLocalDevices(...)` declaration and the compiled
+         * `livekit-client.esm.mjs` class body. [requestPermissions] is always passed explicitly
+         * `false` from every call site in this codebase (see
+         * [network.lapis.cloud.client.livekit.LiveKitRoomSession.listDevices] KDoc "no second
+         * permission prompt") -- by the time this is ever called, [LiveKitRoomSession.setMicrophone]/
+         * `.setCamera` has already resolved the one-and-only browser permission prompt this screen
+         * needs. */
+        fun getLocalDevices(
+            kind: String = definedExternally,
+            requestPermissions: Boolean = definedExternally,
+        ): Promise<Array<MediaDeviceInfo>>
+    }
 }
 
 external class LocalParticipant {
@@ -180,4 +232,47 @@ external object RoomEvent {
      * (`(speakers: Array<Participant>) => void`), each element carrying at least `.identity`. See
      * `ConferenceScreen.kt`'s own KDoc "D3" for the speaking-priority reflow this feeds. */
     val ActiveSpeakersChanged: String
+
+    /** V1.3.x Geräteauswahl -- fires `(kind: string, deviceId: string) => void` ONLY as a
+     * consequence of a call to [Room.switchActiveDevice] (never from a raw OS-level hotplug alone,
+     * that is [MediaDevicesChanged] below) -- verified against the compiled
+     * `livekit-client.esm.mjs`, which emits this event from inside `switchActiveDevice` itself, past
+     * the point the new device is already active. See
+     * [network.lapis.cloud.client.livekit.LiveKitRoomSession.wireEvents]. */
+    val ActiveDeviceChanged: String
+
+    /** V1.3.x Geräteauswahl -- fires with ZERO JS arguments (verified against the compiled bundle:
+     * `this.emit(RoomEvent.MediaDevicesChanged)`) whenever the OS-level device set changes (a
+     * microphone/camera/speaker plugged or unplugged) -- the browser's own
+     * `navigator.mediaDevices.devicechange` event, relayed. This is the HOTPLUG signal; it carries
+     * no information about WHICH device kind changed, so the Kotlin side must re-enumerate all
+     * three lists on every firing. See
+     * [network.lapis.cloud.client.livekit.LiveKitRoomSession.onMediaDevicesChanged]. */
+    val MediaDevicesChanged: String
+
+    /** V1.3.x Geräteauswahl -- fires `(error: Error, kind: string | undefined) => void`. [kind] is
+     * `"audioinput"`/`"videoinput"` for a microphone/camera device error, or `undefined` (Kotlin
+     * `null`) for every other source this event's underlying `sourceToKind(...)` cannot map --
+     * verified against the compiled bundle, which derives it from the LOCAL publish attempt's own
+     * `Track.Source`, never from an explicit caller argument. This event is NEVER the source of a
+     * speaker/`audiooutput` failure -- [Room.switchActiveDevice]'s own rejected Promise is, see
+     * [network.lapis.cloud.client.livekit.LiveKitRoomSession.switchDevice]. */
+    val MediaDevicesError: String
+}
+
+/** V1.3.x Geräteauswahl -- verified against the compiled `livekit-client.esm.mjs`: exactly these
+ * four string constants (`"PermissionDenied"`/`"NotFound"`/`"DeviceInUse"`/`"Other"`), plus a single
+ * `getFailure(error: any): MediaDeviceFailure | undefined` classifier function that pattern-matches
+ * a raw `getUserMedia`/`DOMException` name. [getFailure] returning `undefined` (Kotlin `null`) is a
+ * real, expected outcome (an error `livekit-client` itself cannot classify), not a
+ * binding-incompleteness bug -- see
+ * [network.lapis.cloud.client.livekit.LiveKitRoomSession.classifyDeviceFailure] for the Kotlin-side
+ * fallback to `OTHER`. */
+external object MediaDeviceFailure {
+    val PermissionDenied: String
+    val NotFound: String
+    val DeviceInUse: String
+    val Other: String
+
+    fun getFailure(error: dynamic): String?
 }

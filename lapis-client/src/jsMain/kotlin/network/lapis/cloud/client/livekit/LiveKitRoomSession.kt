@@ -15,6 +15,35 @@ private external interface PublishDataOptions {
     var topic: String?
 }
 
+/** V1.3.x Geräteauswahl -- the ONE place `livekit-client`'s three `MediaDeviceKind` string literals
+ * ("audioinput"/"videoinput"/"audiooutput") are named on the Kotlin side, mirroring `LiveKitJs.kt`
+ * file KDoc "device-kind strings, never MediaDeviceKind". [jsKind] is passed verbatim to every
+ * [Room.getLocalDevices]/[Room.getActiveDevice]/[Room.switchActiveDevice] call. */
+enum class ConferenceDeviceKind(
+    val jsKind: String,
+) {
+    MICROPHONE("audioinput"),
+    CAMERA("videoinput"),
+    SPEAKER("audiooutput"),
+}
+
+/** V1.3.x Geräteauswahl -- Kotlin-side mirror of `livekit-client`'s `MediaDeviceFailure` string
+ * enum (see `LiveKitJs.kt`'s `MediaDeviceFailure` KDoc), plus [OTHER] as the catch-all for both a
+ * genuinely un-classifiable `getUserMedia`/`DOMException` AND [MediaDeviceFailure.getFailure]
+ * returning `null` outright -- see [LiveKitRoomSession.classifyDeviceFailure]. */
+enum class ConferenceDeviceFailure { PERMISSION_DENIED, NOT_FOUND, DEVICE_IN_USE, OTHER }
+
+/** V1.3.x Geräteauswahl -- one enumerable device, as `ConferenceScreen.kt`'s device dropdowns need
+ * it. [rawLabel] is the browser-reported device name (e.g. "Iraklis iPhone-Mikrofon") -- SECURITY:
+ * this is display-only, it must NEVER be written to `localStorage`, a log, an RPC, or a chat/error
+ * message, only [deviceId] is ever persisted (see
+ * `ConferenceScreen.kt`'s own device-selection wiring, and the Security-Audit-Prüfliste in this
+ * wave's plan). */
+data class ConferenceDeviceOption(
+    val deviceId: String,
+    val rawLabel: String,
+)
+
 /**
  * V1.0 Videokonferenzen (Kleinsitzung), Wave 1 -- owns exactly one [Room] and turns its
  * callback-shaped JS event stream into idiomatic Kotlin callbacks + `suspend` functions. This is the
@@ -84,14 +113,24 @@ private external interface PublishDataOptions {
  * optimistically for instant feedback, but the very next event this class relays reconciles that
  * against LiveKit's own authoritative state regardless of what caused the change.
  *
- * **[setCamera]/[setMicrophone]/[setScreenShare] now throw on a null [room], instead of silently
- * doing nothing.** The previous `room?.localParticipant?.setMicrophoneEnabled(enabled)?.await()`
- * shape returned `Unit` (a non-null success value) via the safe-call chain even when [room] was
- * `null` and nothing was ever asked of LiveKit -- the button click handler's `result != null` check
- * then can't tell "the toggle actually happened" from "there was no room to toggle anything on",
- * and would flip the UI to claim success for a call that silently did nothing. Each now requires a
- * non-null [room] explicitly and throws [IllegalStateException] otherwise, which `guarded {}`'s
- * catch-all surfaces as a real error toast instead of a false "on".
+ * **[setCamera]/[setMicrophone]/[setScreenShare] no longer silently do nothing on a null [room].**
+ * The previous `room?.localParticipant?.setMicrophoneEnabled(enabled)?.await()` shape returned
+ * `Unit` (a non-null success value) via the safe-call chain even when [room] was `null` and nothing
+ * was ever asked of LiveKit -- the button click handler's `result != null` check then can't tell
+ * "the toggle actually happened" from "there was no room to toggle anything on", and would flip the
+ * UI to claim success for a call that silently did nothing. Each now requires a non-null [room]
+ * explicitly. [setScreenShare] still throws [IllegalStateException] on a null [room], surfaced by
+ * `guarded {}`'s catch-all as a real error toast instead of a false "on" -- correct for that method,
+ * since its `guarded {}` call site still uses the OLD "non-null result == success" convention (see
+ * that call site in `ConferenceScreen.kt`). [setCamera]/[setMicrophone] do NOT throw on a null
+ * [room] any more (round-2 review fix, race condition) -- see their own KDoc for why: since the
+ * round-1 review fix inverted their `guarded {}` call sites to the NEW "null == success" convention
+ * (a `ConferenceDeviceFailure?` return value, not an exception, is now the failure signal), a
+ * `throw` on a null [room] would collide with that convention -- `guarded {}` catches ANY
+ * `Throwable` and returns `null` for it, indistinguishable from this method's own "null == success"
+ * return. [room] can legitimately go `null` between a click starting the coroutine and this check
+ * running (see [disconnect]), so this was a reachable false-success bug, not a theoretical one. Both
+ * methods now return [ConferenceDeviceFailure.OTHER] directly for a null [room] instead.
  *
  * **Whiteboard trust boundary** (V1.0 Videokonferenzen Wave 7 "Whiteboard", see
  * [network.lapis.cloud.shared.rpc.IConferenceWhiteboardService] KDoc): [onWhiteboardPreview]/
@@ -142,6 +181,15 @@ private external interface PublishDataOptions {
  * RECEIVING side, where `ConferenceNotesController.applyCommitBroadcast` now treats the packet purely
  * as a resync trigger and never writes its payload into local state directly.
  * [sendNotesCommit] mirrors [sendChat]/[sendWhiteboardCommit]'s shape.
+ *
+ * **Device selection during an active call** (V1.3.x Geräteauswahl, GitHub issue #2). [listDevices]/
+ * [activeDeviceId]/[switchDevice] are the ONLY new surface this wave adds -- no pre-join device
+ * picker exists (deliberately out of scope, same D2 deferral this class KDoc's own opening
+ * paragraph already documents for camera/microphone permissions). [onActiveDeviceChanged]/
+ * [onMediaDevicesChanged]/[onMediaDevicesError] relay LiveKit's own device-lifecycle events
+ * verbatim, same "this class only relays the raw signal, `ConferenceScreen.kt` owns the UI"
+ * discipline as [onReconnecting]/[onReconnected] above. See [classifyDeviceFailure] for the ONE
+ * place a raw JS device error becomes a [ConferenceDeviceFailure].
  */
 class LiveKitRoomSession(
     private val onRemoteTrack: (identity: String, displayName: String, track: Track, publication: TrackPublication) -> Unit,
@@ -152,6 +200,18 @@ class LiveKitRoomSession(
     private val onLocalTrackMuteChanged: (source: String, muted: Boolean) -> Unit,
     private val onRecordingStatusChanged: (isRecording: Boolean) -> Unit,
     private val onActiveSpeakersChanged: (identities: List<String>) -> Unit,
+    /** V1.3.x Geräteauswahl -- relays [RoomEvent.ActiveDeviceChanged] verbatim, see that constant's
+     * own KDoc: fires ONLY as a consequence of THIS client's own [switchDevice] call, never from a
+     * raw hotplug alone. */
+    private val onActiveDeviceChanged: (kind: ConferenceDeviceKind, deviceId: String) -> Unit,
+    /** V1.3.x Geräteauswahl -- relays [RoomEvent.MediaDevicesChanged] verbatim: an OS-level hotplug,
+     * carries no kind information, caller must re-enumerate all device kinds it cares about. */
+    private val onMediaDevicesChanged: () -> Unit,
+    /** V1.3.x Geräteauswahl -- relays [RoomEvent.MediaDevicesError], see that constant's own KDoc:
+     * [kind] is `null` whenever the underlying event's own `kind` argument is `undefined` (any
+     * source other than microphone/camera -- see `LiveKitJs.kt`'s own KDoc). Never fires for a
+     * speaker/[ConferenceDeviceKind.SPEAKER] failure -- see [switchDevice] for that path instead. */
+    private val onMediaDevicesError: (kind: ConferenceDeviceKind?, failure: ConferenceDeviceFailure) -> Unit,
     private val onChat: (ConferenceChatMessage) -> Unit,
     private val onWhiteboardPreview: (authorMemberId: String, authorDisplayName: String, stroke: WhiteboardStrokeWireDto) -> Unit,
     private val onWhiteboardCommit: (authorMemberId: String, authorDisplayName: String, stroke: WhiteboardStrokeWireDto) -> Unit,
@@ -257,6 +317,26 @@ class LiveKitRoomSession(
             val speakers = p0.unsafeCast<Array<dynamic>>()
             onActiveSpeakersChanged(speakers.map { it.unsafeCast<ActiveSpeaker>().identity })
         }
+        // V1.3.x Geräteauswahl -- fires `(kind: string, deviceId: string)`, see RoomEvent.ActiveDeviceChanged KDoc.
+        // An unrecognized `kind` string (should not happen -- only the three literals this file's own
+        // switchActiveDevice call sites ever pass can come back here) is silently ignored rather than
+        // crashing, same "unlisted event shape never throws" discipline as conferenceConnectionReduce.
+        room.on(RoomEvent.ActiveDeviceChanged) { p0, p1, _, _ ->
+            val kind = ConferenceDeviceKind.entries.firstOrNull { it.jsKind == p0.unsafeCast<String>() } ?: return@on
+            onActiveDeviceChanged(kind, p1.unsafeCast<String>())
+        }
+        // V1.3.x Geräteauswahl -- fires with zero JS arguments, see RoomEvent.MediaDevicesChanged KDoc.
+        room.on(RoomEvent.MediaDevicesChanged) { _, _, _, _ -> onMediaDevicesChanged() }
+        // V1.3.x Geräteauswahl -- fires `(error, kind: string | undefined)`, see RoomEvent.MediaDevicesError
+        // KDoc. `kind` is `undefined` (Kotlin `null`) for any source that isn't microphone/camera.
+        room.on(RoomEvent.MediaDevicesError) { p0, p1, _, _ ->
+            // p1 is `undefined` (unsafeCast to nullable, same "undefined-as-null" idiom as the
+            // DataReceived handler's own `p0.unsafeCast<Uint8Array?>()` below) for any source other
+            // than microphone/camera -- see RoomEvent.MediaDevicesError KDoc.
+            val rawKind = p1.unsafeCast<String?>()
+            val kind = rawKind?.let { s -> ConferenceDeviceKind.entries.firstOrNull { it.jsKind == s } }
+            onMediaDevicesError(kind, classifyDeviceFailure(p0))
+        }
         room.on(RoomEvent.DataReceived) { p0, p1, _, p3 ->
             val payload = p0.unsafeCast<org.khronos.webgl.Uint8Array?>() ?: return@on
             val participant = p1.unsafeCast<RemoteParticipant?>() ?: return@on
@@ -316,19 +396,64 @@ class LiveKitRoomSession(
         room.remoteParticipants.forEach(forEachCallback)
     }
 
-    /** See class KDoc "Local self-view" and "[setCamera]/[setMicrophone]/[setScreenShare] now throw
-     * on a null [room]". */
-    suspend fun setCamera(enabled: Boolean) {
-        val currentRoom = room ?: throw IllegalStateException("setCamera called with no active room")
-        val result = currentRoom.localParticipant.setCameraEnabled(enabled).await()
-        val rawTrack = if (enabled) result?.track else null
-        onLocalVideoTrack(if (rawTrack != null) rawTrack.unsafeCast<Track>() else null)
+    /**
+     * See class KDoc "Local self-view" and "[setCamera]/[setMicrophone]/[setScreenShare] now throw
+     * on a null [room]".
+     *
+     * **Review fix (GitHub Issue #2 review, "dupliziertes + falsch formuliertes Fehler-Toast")** --
+     * returns a [ConferenceDeviceFailure] instead of letting `setCameraEnabled`'s rejection
+     * propagate, same "classify the failure locally, never let the caller's generic `guarded {}`
+     * show an untranslated raw browser error" discipline [switchDevice] already established. The
+     * underlying `RoomEvent.MediaDevicesError` this failure ALSO triggers (LiveKit's
+     * `setTrackEnabled` emits it SYNCHRONOUSLY, before this `catch` ever runs -- verified against
+     * the vendored `livekit-client.esm.mjs`, `setTrackEnabled` is the SOLE trigger of that event for
+     * `microphone`/`camera`, `Room.switchActiveDevice` never routes through it) is deliberately left
+     * un-toasted by `ConferenceScreen.kt`'s `onMediaDevicesError` handler now -- this return value is
+     * the caller's sole, accurately-worded ("activation" failed, never "switch" failed, since this
+     * method is never reached from a dropdown device switch) signal, both for the initial join-time
+     * enable and every mic/camera button click.
+     */
+    suspend fun setCamera(enabled: Boolean): ConferenceDeviceFailure? {
+        // Race-condition fix (review, GitHub Issue #2 review round 2): a null `room` is now returned
+        // as an ordinary `ConferenceDeviceFailure.OTHER`, NOT thrown. Throwing here would escape this
+        // method's own try/catch and be caught only by the call site's outer `guarded {}`
+        // (`AppState.kt`), which returns `null` for EVERY caught `Throwable` -- the exact same `null`
+        // this method's own contract uses to mean SUCCESS since the round-1 review fix (see class
+        // KDoc "[setCamera]/[setMicrophone]/[setScreenShare] now throw on a null [room]"). `room` can
+        // legitimately turn `null` between a button click starting this coroutine and this line
+        // running, because `disconnect()` (see below) sets it AFTER awaiting -- e.g. a moderator ends
+        // the call, or the participant clicks "leave" right after clicking the mic/camera button. The
+        // old "throw unconditionally" shape made that race read as an accurate failure (any exception
+        // meant "did not happen"); the round-1 fix inverted the meaning of `guarded {}`'s `null` for
+        // the NORMAL error path but left THIS one exceptional throw still routed through the same
+        // `guarded {}`, so it now collides with the new "null == success" convention and the
+        // mic/camera button handlers in `ConferenceScreen.kt` flip to a false "on" state for a device
+        // that was never touched. Returning a typed failure directly keeps this method's own
+        // null-means-success contract true regardless of WHICH failure path is taken, and gives the
+        // caller the same accurate, translated toast (`conferenceDeviceEnableErrorMessage`) a real
+        // device error would.
+        val currentRoom = room ?: return ConferenceDeviceFailure.OTHER
+        return try {
+            val result = currentRoom.localParticipant.setCameraEnabled(enabled).await()
+            val rawTrack = if (enabled) result?.track else null
+            onLocalVideoTrack(if (rawTrack != null) rawTrack.unsafeCast<Track>() else null)
+            null
+        } catch (e: Throwable) {
+            classifyDeviceFailure(e.asDynamic())
+        }
     }
 
-    /** See class KDoc "[setCamera]/[setMicrophone]/[setScreenShare] now throw on a null [room]". */
-    suspend fun setMicrophone(enabled: Boolean) {
-        val currentRoom = room ?: throw IllegalStateException("setMicrophone called with no active room")
-        currentRoom.localParticipant.setMicrophoneEnabled(enabled).await()
+    /** See class KDoc "[setCamera]/[setMicrophone]/[setScreenShare] now throw on a null [room]" and
+     * [setCamera]'s own KDoc for the review fix this mirrors, including the round-2 race-condition
+     * fix ("a null `room` is now returned...") -- identical reasoning applies here verbatim. */
+    suspend fun setMicrophone(enabled: Boolean): ConferenceDeviceFailure? {
+        val currentRoom = room ?: return ConferenceDeviceFailure.OTHER
+        return try {
+            currentRoom.localParticipant.setMicrophoneEnabled(enabled).await()
+            null
+        } catch (e: Throwable) {
+            classifyDeviceFailure(e.asDynamic())
+        }
     }
 
     /** See class KDoc "[setCamera]/[setMicrophone]/[setScreenShare] now throw on a null [room]". */
@@ -336,6 +461,88 @@ class LiveKitRoomSession(
         val currentRoom = room ?: throw IllegalStateException("setScreenShare called with no active room")
         currentRoom.localParticipant.setScreenShareEnabled(enabled).await()
     }
+
+    /**
+     * V1.3.x Geräteauswahl -- enumerates every currently available [kind] device. Same "throws on a
+     * null [room]" discipline as [setCamera]/[setMicrophone]/[setScreenShare] -- without an active
+     * room, a device list serves no purpose in this class.
+     *
+     * [Room.getLocalDevices] is called with `requestPermissions = false` on every invocation --
+     * SECURITY: by the time this is ever called (see `ConferenceScreen.kt`'s own call site, right
+     * after the initial `setMicrophone(true)`/`setCamera(true)`), the one browser permission prompt
+     * this screen needs has already resolved (or been denied). A `true` here would trigger a SECOND,
+     * confusing permission prompt for no reason.
+     *
+     * [MediaDeviceInfo.kind] is read via [kotlin.js.unsafeCast], never `==`/`.toString()` against a
+     * `String` -- see `LiveKitJs.kt`'s file KDoc "device-kind strings, never MediaDeviceKind" for
+     * why: whatever Kotlin/JS's `org.w3c.dom.mediacapture.MediaDeviceKind` binding does internally,
+     * `unsafeCast` reads the raw runtime value the browser itself produced (spec-guaranteed to be
+     * exactly [kind]'s own [ConferenceDeviceKind.jsKind] literal), sidestepping that question
+     * entirely.
+     */
+    suspend fun listDevices(kind: ConferenceDeviceKind): List<ConferenceDeviceOption> {
+        val currentRoom = room ?: throw IllegalStateException("listDevices called with no active room")
+        // Room.getLocalDevices is a static (companion object) member -- independent of currentRoom --
+        // but the guard above stays: enumerating devices outside an active call serves no purpose for
+        // this class, and mirrors setCamera/setMicrophone/setScreenShare's own discipline.
+        val raw = Room.getLocalDevices(kind.jsKind, false).await()
+        return raw
+            .filter { it.kind.unsafeCast<String>() == kind.jsKind }
+            .map { ConferenceDeviceOption(it.deviceId, it.label) }
+    }
+
+    /** V1.3.x Geräteauswahl -- pure synchronous read, `null` if [room] is absent or LiveKit does not
+     * yet know an active device for [kind] (e.g. before the first publish attempt has resolved). */
+    fun activeDeviceId(kind: ConferenceDeviceKind): String? = room?.getActiveDevice(kind.jsKind)
+
+    /**
+     * V1.3.x Geräteauswahl -- switches the currently active [kind] device to [deviceId]. Returns
+     * `null` on success, a [ConferenceDeviceFailure] on failure -- deliberately NOT a `Boolean`, so
+     * the caller (`ConferenceScreen.kt`'s `select.subscribe {}` handler) can show a kind-specific
+     * German error message without a second round of failure classification.
+     *
+     * Two independent failure shapes exist, both handled here: (a) [Room.switchActiveDevice]'s
+     * Promise REJECTS -- verified against the compiled `livekit-client.esm.mjs`, a mismatched
+     * `exact`-constrained device (or a genuine `getUserMedia` failure such as permission revoked
+     * mid-call) makes the underlying device-apply call throw, and `switchActiveDevice` re-throws it
+     * verbatim rather than swallowing it into a `false` resolution; (b) the Promise resolves but with
+     * `false` -- kept as an explicit branch for robustness even though no currently-known
+     * `livekit-client` 2.21.0 code path produces it for an `exact = true` call (this method's own
+     * default), mapped to [ConferenceDeviceFailure.OTHER] since there is no error object to classify
+     * in that case.
+     *
+     * [exact] is always `true` (the JS-side default) -- deliberately not the "best-effort,
+     * fall back to a different device silently" mode: a participant who explicitly picked a device
+     * from the dropdown must either get exactly that device or a visible failure, never a silent
+     * substitution.
+     */
+    suspend fun switchDevice(
+        kind: ConferenceDeviceKind,
+        deviceId: String,
+    ): ConferenceDeviceFailure? {
+        val currentRoom = room ?: throw IllegalStateException("switchDevice called with no active room")
+        return try {
+            val ok = currentRoom.switchActiveDevice(kind.jsKind, deviceId, true).await()
+            if (ok) null else ConferenceDeviceFailure.OTHER
+        } catch (e: Throwable) {
+            classifyDeviceFailure(e.asDynamic())
+        }
+    }
+
+    /** V1.3.x Geräteauswahl -- the ONE place `MediaDeviceFailure.getFailure(...)`'s four string
+     * constants get mapped to [ConferenceDeviceFailure]. `getFailure` returning `null`/an
+     * unrecognized value (a JS `Error` this classifier itself does not know how to categorize) falls
+     * back to [ConferenceDeviceFailure.OTHER], never propagated as an exception -- this function is
+     * called from [switchDevice]'s `catch` block, [setCamera]'s/[setMicrophone]'s `catch` blocks
+     * (review fix, see their own KDoc), and the [RoomEvent.MediaDevicesError] handler in
+     * [wireEvents], none of which has anywhere further to throw to. */
+    private fun classifyDeviceFailure(error: dynamic): ConferenceDeviceFailure =
+        when (MediaDeviceFailure.getFailure(error)) {
+            MediaDeviceFailure.PermissionDenied -> ConferenceDeviceFailure.PERMISSION_DENIED
+            MediaDeviceFailure.NotFound -> ConferenceDeviceFailure.NOT_FOUND
+            MediaDeviceFailure.DeviceInUse -> ConferenceDeviceFailure.DEVICE_IN_USE
+            else -> ConferenceDeviceFailure.OTHER
+        }
 
     suspend fun sendChat(message: ConferenceChatMessage) {
         val currentRoom = room ?: return

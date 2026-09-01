@@ -83,3 +83,12 @@ internal fun screenShareAvailable(): Boolean {
     val md = window.navigator.asDynamic().mediaDevices ?: return false
     return md.getDisplayMedia != undefined
 }
+
+/** V1.3.x Geräteauswahl -- wörtliches Gegenstück zu [screenShareAvailable]: true nur wenn
+ * `setSinkId` am `HTMLMediaElement`-Prototyp real existiert (Safari hat das nicht). Der
+ * Lautsprecher-Dropdown wird dort gar nicht erst gerendert -- gleiche Feature-Detection-
+ * Disziplin wie beim Bildschirmteilen-Button (Forstall, Design-Review V1.2.10). */
+internal fun sinkIdApiAvailable(): Boolean {
+    val proto = window.asDynamic().HTMLMediaElement?.prototype ?: return false
+    return proto.setSinkId != undefined
+}

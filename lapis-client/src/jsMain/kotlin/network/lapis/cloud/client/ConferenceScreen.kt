@@ -2,6 +2,7 @@ package network.lapis.cloud.client
 
 import io.kvision.core.Overflow
 import io.kvision.form.check.checkBox
+import io.kvision.form.select.Select
 import io.kvision.form.select.select
 import io.kvision.form.text.text
 import io.kvision.form.text.textArea
@@ -20,6 +21,7 @@ import io.kvision.panel.vPanel
 import io.kvision.utils.perc
 import io.kvision.utils.px
 import kotlinx.browser.document
+import kotlinx.browser.localStorage
 import kotlinx.browser.window
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
@@ -30,6 +32,8 @@ import kotlinx.datetime.LocalDateTime
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.number
 import kotlinx.datetime.toLocalDateTime
+import network.lapis.cloud.client.livekit.ConferenceDeviceFailure
+import network.lapis.cloud.client.livekit.ConferenceDeviceKind
 import network.lapis.cloud.client.livekit.LiveKitRoomSession
 import network.lapis.cloud.client.livekit.Track
 import network.lapis.cloud.shared.domain.AccountRole
@@ -69,6 +73,8 @@ import org.w3c.dom.HTMLElement
 import org.w3c.dom.HTMLInputElement
 import org.w3c.dom.events.Event
 import org.w3c.dom.events.KeyboardEvent
+import org.w3c.dom.get
+import org.w3c.dom.set
 import kotlin.time.Clock
 
 /**
@@ -1138,6 +1144,41 @@ private fun enterCall(
     // guarded {} call's result confirms success" rule forbids). Built UNCONDITIONALLY -- the status
     // badge is visible to every participant (D3: an ordinary ACTIVE member deserves to know the room
     // is open to another organization's members too); only the buttons are moderator-gated.
+    // V1.3.x Geräteauswahl (GitHub Issue #2) -- Mikrofon/Kamera/Lautsprecher-Auswahl WÄHREND eines
+    // aktiven Calls, im bestehenden `moreSheet`. Bewusst KEIN `lapis-conference-config-row` -- diese
+    // Gruppe soll den Vollbildmodus ÜBERLEBEN (Jobs' Review-Korrektur der eigenen V1.2.10-Regel "im
+    // Vollbild ist das Mehr-Blatt inhaltsleer" -- ein aktiver Call verliert im Vollbild NIE die
+    // Möglichkeit, das Mikrofon zu wechseln, siehe `applyPanelVisibility()` weiter unten). Platzierung
+    // VOR `guestAccessRow` -- dazwischen wird `moreSheet` an keiner Stelle bestückt, DOM-Reihenfolge
+    // bleibt also exakt "nach den Whiteboard/Notizen-Knöpfen, vor den Einrichtungs-Zeilen".
+    val deviceGroup = moreSheet.vPanel(spacing = 6) { addCssClasses("lapis-conference-device-group") }
+    deviceGroup.div(tr("Geräte:")) { addCssClasses("text-muted small") }
+    val micDeviceSelect = deviceGroup.select(options = emptyList(), label = tr("Mikrofon"))
+    val cameraDeviceSelect = deviceGroup.select(options = emptyList(), label = tr("Kamera"))
+    // V1.3.x -- Lautsprecherauswahl nur, wenn der Browser `HTMLMediaElement.setSinkId` überhaupt
+    // unterstützt (Safari nicht) -- Feature-Detection-Disziplin wie bei `screenShareButton`.
+    val speakerDeviceSelect: Select? =
+        if (sinkIdApiAvailable()) deviceGroup.select(options = emptyList(), label = tr("Lautsprecher")) else null
+
+    // Muss VOR `applyPanelVisibility()` deklariert sein (Kotlin erlaubt in lokalen Funktionen keine
+    // Vorwärtsreferenz auf eine später deklarierte lokale `var`) -- durch die Platzierung hier, weit
+    // vor dieser Funktion, automatisch erfüllt. Aktualisiert bei jedem `refreshDeviceOptions()`-Lauf.
+    var deviceGroupHasVisibleRows = false
+    // Verhindert, dass ein `MediaDevicesChanged`-Hotplug-Sturm eine Neuenumeration mitten in einer
+    // bereits laufenden anstößt, UND (kombiniert mit dem Fokus-Check in `refreshDeviceOptions`)
+    // verschiebt einen Hotplug-getriebenen Refresh, solange der Nutzer gerade eines der drei Dropdowns
+    // offen/fokussiert hat (Tesler: ein sich unter der Maus verändendes Dropdown ist ein Slip).
+    var pendingDeviceRefresh = false
+    // Reentrancy-Guard: verhindert, dass eine PROGRAMMATISCHE `select.value = x`-Zuweisung (initiale
+    // Vorauswahl in `refreshDeviceOptions`, Revert nach einem fehlgeschlagenen Wechsel, oder das
+    // Nachziehen der Auswahl aus `onActiveDeviceChanged`) denselben `select.subscribe {}`-Handler
+    // erneut auslöst -- verifiziert gegen KVision 9.6.0s `SelectInput.value`-Setter
+    // (`kvision/src/jsMain/kotlin/io/kvision/form/select/SelectInput.kt`): JEDE Zuweisung an `value`,
+    // ob nutzergetrieben oder programmatisch, ruft `observers.forEach { ob -> ob(it) }` auf -- es gibt
+    // KEINEN eingebauten Unterschied zwischen beiden Auslösern (Stolperfalle 2 des Plans, vor der
+    // Implementierung anhand der KVision-Quelle bestätigt statt nur vermutet).
+    var applyingProgrammaticDeviceValue = false
+
     // V1.2.10 -- Empfänger `moreSheet` statt `callPanel` (Plan Abschnitt 3.8): Einrichtungs-Zeilen
     // wandern ins "Mehr"-Blatt. `lapis-conference-config-row` bleibt unverändert für die
     // Vollbild-Ausblendlogik (`applyPanelVisibility()`), die Klasse ist von der Umhängung unberührt.
@@ -2535,10 +2576,17 @@ private fun enterCall(
         if (panelState.moreOpen) moreSheet.show() else moreSheet.hide()
         if (panelState.moreOpen) moreToggleButton.addCssClass("active") else moreToggleButton.removeCssClass("active")
         moreToggleButton.getElement()?.setAttribute("aria-pressed", panelState.moreOpen.toString())
-        // Im Vollbild ist das Mehr-Blatt inhaltsleer (alles darin ist bereits
+        // Im Vollbild ist das Mehr-Blatt SONST inhaltsleer (alles darin ist bereits
         // `.lapis-conference-config-row`-ausgeblendet, siehe theme.css) -- Knopf entfernen statt ein
         // leeres Blatt anbietbar zu lassen (Jobs' Schlusswort, Design-Review V1.2.10).
-        if (panelState.fullscreen) moreToggleButton.hide() else moreToggleButton.show()
+        // V1.3.x Geräteauswahl -- Jobs' EIGENE Korrektur dieser Regel im Geräteauswahl-Review: die
+        // Geräte-Gruppe trägt bewusst NICHT `.lapis-conference-config-row` (siehe `deviceGroup`
+        // Deklaration oben) und überlebt den Vollbildmodus deshalb unverändert -- ein Teilnehmer darf
+        // im Vollbild nie die Möglichkeit verlieren, Mikrofon/Kamera/Lautsprecher zu wechseln. Der
+        // "Mehr"-Knopf bleibt im Vollbild daher sichtbar, SOLANGE die Geräte-Gruppe etwas anzuzeigen
+        // hat -- kein Rückfall auf die alte "Vollbild = leerer Knopf weg"-Regel, kein versehentliches
+        // Verstecken der einzigen im Vollbild noch erreichbaren Funktion.
+        if (panelState.fullscreen && !deviceGroupHasVisibleRows) moreToggleButton.hide() else moreToggleButton.show()
 
         // V1.2.10 -- Auto-Hide-Sichtbarkeit der gesamten Steuerleiste (generell, nicht nur im
         // Vollbild -- iOS Safari hat keine Fullscreen-API, siehe `fullscreenApiAvailable`).
@@ -3047,7 +3095,103 @@ private fun enterCall(
         renderConnectionState()
     }
 
+    // V1.3.x Geräteauswahl -- `session` muss bereits DEKLARIERT sein (Kotlin erlaubt in lokalen
+    // Funktionskörpern keine Vorwärtsreferenz auf eine später deklarierte lokale Variable, exakt
+    // dieselbe Regel wie bei `deviceGroupHasVisibleRows` weiter oben), bevor `refreshDeviceOptions`/
+    // `applyActiveDeviceToSelect` unten sie referenzieren können -- deshalb `lateinit var session`
+    // hier VORGEZOGEN, die eigentliche Zuweisung (`session = LiveKitRoomSession(...)`) bleibt weiter
+    // unten, NACH beiden Funktionen, deren Konstruktor-Callbacks (`onActiveDeviceChanged`/
+    // `onMediaDevicesChanged`) sie referenzieren. `session` ist an dieser Stelle nur DEKLARIERT, noch
+    // nicht zugewiesen -- unproblematisch, da beide Funktionskörper `session` erst bei tatsächlichem
+    // AUFRUF lesen, nicht bei ihrer eigenen Deklaration.
     lateinit var session: LiveKitRoomSession
+
+    suspend fun refreshDeviceOptions(preserveFocusedSelect: Boolean = false) {
+        // Doppelt dient als (a) einfache Mutex-Sperre gegen zwei überlappende Enumerationsläufe UND
+        // (b) das in Abschnitt 10 (Stolperfalle 7 in der Sache, hier vereinfacht) besprochene
+        // Zurückstellen, solange der Nutzer gerade eines der drei Dropdowns fokussiert hat. Bewusst
+        // OHNE Blur-Listener-basiertes Nachholen (siehe Plan Abschnitt 9 "DoS/Robustheit" -- dort als
+        // Review-Empfehlung, nicht als Pflicht-Scope eingestuft): ein während einer Fokussierung
+        // verpasster Hotplug-Event wird beim NÄCHSTEN `MediaDevicesChanged` nachgeholt, statt einen
+        // zusätzlichen Listener-Lebenszyklus verwalten zu müssen.
+        if (pendingDeviceRefresh) return
+        val kindsAndSelects =
+            buildList {
+                add(ConferenceDeviceKind.MICROPHONE to micDeviceSelect)
+                add(ConferenceDeviceKind.CAMERA to cameraDeviceSelect)
+                speakerDeviceSelect?.let { add(ConferenceDeviceKind.SPEAKER to it) }
+            }
+        if (preserveFocusedSelect) {
+            val focusedEl = document.activeElement
+            // `Select` ist ein KVision-Wrapper um Label + das eigentliche `<select>` (`Select.input`,
+            // eine `SelectInput`) -- `document.activeElement` zeigt auf das native `<select>`-Element,
+            // NICHT auf `Select.getElement()`s umschließendes `<div>` (Plan Stolperfalle 5).
+            val hasFocus = kindsAndSelects.any { (_, select) -> select.input.getElement() == focusedEl }
+            if (hasFocus) return
+        }
+        pendingDeviceRefresh = true
+        try {
+            var anyVisible = false
+            kindsAndSelects.forEach { (kind, select) ->
+                val options = guarded { session.listDevices(kind) }.orEmpty()
+                val storageKey = conferenceDeviceStorageKey(kind)
+                val stored = localStorage[storageKey]
+                val active = session.activeDeviceId(kind)
+                val availableDeviceIds = options.map { it.deviceId }
+                val preferred = conferencePreferredDeviceId(stored, active, availableDeviceIds)
+                // Hotplug-Fall (nicht die allererste Enumeration nach dem Beitritt): das bisher
+                // aktive Gerät ist aus der OS-Liste verschwunden -- rein informativ, siehe
+                // `conferenceDeviceLostMessage` KDoc. Review fix -- nur zeigen, wenn `preferred`
+                // tatsächlich ein Ersatzgerät gefunden hat, siehe `conferenceShouldNotifyDeviceLost`
+                // KDoc.
+                if (conferenceShouldNotifyDeviceLost(preserveFocusedSelect, active, availableDeviceIds, preferred)) {
+                    notifyInfo(conferenceDeviceLostMessage(kind))
+                }
+                // SECURITY: nur `option.rawLabel` fließt in die UI-Beschriftung, NIEMALS in
+                // `localStorage`/Logs/RPCs -- nur `deviceId` wird unten persistiert.
+                applyingProgrammaticDeviceValue = true
+                select.options =
+                    options.mapIndexed { index, option ->
+                        option.deviceId to conferenceDeviceOptionLabel(kind, option.rawLabel, index + 1)
+                    }
+                select.value = preferred
+                applyingProgrammaticDeviceValue = false
+                if (options.isEmpty()) {
+                    select.hide()
+                } else {
+                    select.show()
+                    anyVisible = true
+                }
+            }
+            deviceGroupHasVisibleRows = anyVisible
+            // Die Fullscreen-"Mehr"-Knopf-Sichtbarkeit hängt von `deviceGroupHasVisibleRows` ab
+            // (siehe `applyPanelVisibility()` oben) -- muss bei jeder Änderung neu angewendet werden,
+            // nicht nur beim initialen Aufruf.
+            applyPanelVisibility()
+        } finally {
+            pendingDeviceRefresh = false
+        }
+    }
+
+    /** Reiner UI-Sync, ausgelöst von [LiveKitRoomSession]'s `onActiveDeviceChanged` -- NIEMALS
+     * `localStorage` schreiben hier (Teslers Ruling: nur ein NUTZERGETRIEBENER, erfolgreicher
+     * Dropdown-Wechsel persistiert, siehe `select.subscribe {}` unten). */
+    fun applyActiveDeviceToSelect(
+        kind: ConferenceDeviceKind,
+        deviceId: String,
+    ) {
+        val select =
+            when (kind) {
+                ConferenceDeviceKind.MICROPHONE -> micDeviceSelect
+                ConferenceDeviceKind.CAMERA -> cameraDeviceSelect
+                ConferenceDeviceKind.SPEAKER -> speakerDeviceSelect
+            } ?: return
+        if (select.value == deviceId) return
+        applyingProgrammaticDeviceValue = true
+        select.value = deviceId
+        applyingProgrammaticDeviceValue = false
+    }
+
     session =
         LiveKitRoomSession(
             onRemoteTrack = { identity, displayName, track, publication ->
@@ -3125,6 +3269,31 @@ private fun enterCall(
                 val now = Clock.System.now().toEpochMilliseconds()
                 identities.forEach { identity -> lastSpokeAtMs[identity] = now }
             },
+            // V1.3.x Geräteauswahl -- nur UI-Sync (das Dropdown zeigt an, was LiveKit selbst gerade
+            // aktiv hat), NIEMALS `localStorage` schreiben hier -- das passiert ausschließlich im
+            // `select.subscribe {}`-Handler nach einem NUTZERGETRIEBENEN, erfolgreichen Wechsel.
+            onActiveDeviceChanged = { kind, deviceId -> applyActiveDeviceToSelect(kind, deviceId) },
+            // Hotplug-Signal -- re-enumeriert alle Geräte-Dropdowns, respektiert dabei einen gerade
+            // fokussierten Select (siehe `pendingDeviceRefresh` Deklaration oben).
+            onMediaDevicesChanged = { AppScope.launch { refreshDeviceOptions(preserveFocusedSelect = true) } },
+            // Review fix (GitHub Issue #2 review, "dupliziertes + falsch formuliertes Fehler-Toast")
+            // -- deliberately NO toast here any more, for `kind != null` as much as for `kind ==
+            // null`. `RoomEvent.MediaDevicesError` (relayed here verbatim) is the SAME event this
+            // codebase's own `LiveKitRoomSession.setCamera`/`.setMicrophone` calls ALWAYS trigger on
+            // an activation failure (verified against the vendored `livekit-client.esm.mjs` --
+            // `setTrackEnabled` is the sole emitter for `microphone`/`camera`, fired synchronously
+            // BEFORE the same failure re-throws into those two methods' own `catch` block), so the
+            // call sites below (`session.setMicrophone(true)`/`.setCamera(true)` at join, and each
+            // mic/camera button's `onClick`) already show the ONE accurate, correctly-worded toast
+            // via `conferenceDeviceEnableErrorMessage` and that method's own `ConferenceDeviceFailure?`
+            // return value -- a second toast from here would always be either an outright DUPLICATE
+            // or (the pre-fix bug) a wrong claim that a device SWITCH failed when no switch was ever
+            // attempted. This callback stays wired purely so `LiveKitRoomSession`'s constructor keeps
+            // relaying the raw SDK event for any future kind-specific need, not because anything here
+            // currently consumes it for `kind != null`. `kind == null` (the overwhelming majority of
+            // sources `sourceToKind(...)` has no mapping for, e.g. screen share) was already
+            // deliberately toast-free before this fix and stays that way.
+            onMediaDevicesError = { _, _ -> },
             onChat = { message -> appendChatLine(message.senderDisplayName, message.text, isOwn = false) },
             // V1.0 Wave 7 "Whiteboard" -- see LiveKitRoomSession KDoc "Whiteboard trust boundary".
             // `whiteboardController` is `null` only in the brief window before the connect-success
@@ -3311,19 +3480,33 @@ private fun enterCall(
         // `micEnabled`/`cameraEnabled` above default to `true` and the buttons below are created
         // with that same "on" label BEFORE this block ever runs -- if the initial publish attempt
         // fails (denied permission, no device), that default stays wrong forever unless corrected
-        // here. `guarded {}` returning `null` is exactly the "it failed" signal; only a non-null
-        // result means the track is actually publishing.
-        val micOk = guarded { session.setMicrophone(true) } != null
-        val cameraOk = guarded { session.setCamera(true) } != null
-        if (!micOk) {
+        // here.
+        //
+        // Review fix (GitHub Issue #2 review, "dupliziertes + falsch formuliertes Fehler-Toast") --
+        // `LiveKitRoomSession.setMicrophone`/`.setCamera` now return a `ConferenceDeviceFailure?`
+        // (`null` == success) instead of throwing on a device error, so `guarded {}` here only ever
+        // returns `null` for a genuinely unexpected exception, never as this call's own "it failed"
+        // signal any more (same convention `wireDeviceSelect`'s `switchDevice` call already used) --
+        // a non-null failure is the ONE accurate signal, and the ONLY toast shown for it, see
+        // `conferenceDeviceEnableErrorMessage` KDoc for why `onMediaDevicesError` deliberately stays
+        // silent now.
+        val micFailure = guarded { session.setMicrophone(true) }
+        val cameraFailure = guarded { session.setCamera(true) }
+        if (micFailure != null) {
+            notifyError(conferenceDeviceEnableErrorMessage(ConferenceDeviceKind.MICROPHONE, micFailure))
             micEnabled = false
             setTileMic(tiles.getValue(joinToken.identity), micEnabled)
             updateMicButtonState()
         }
-        if (!cameraOk) {
+        if (cameraFailure != null) {
+            notifyError(conferenceDeviceEnableErrorMessage(ConferenceDeviceKind.CAMERA, cameraFailure))
             cameraEnabled = false
             updateCameraButtonState()
         }
+        // V1.3.x Geräteauswahl -- erstes Enumerieren, NACHDEM `micFailure`/`cameraFailure` feststehen:
+        // vorher wären Labels leer/generisch (kein Bug, aber unnötig oft im Fallback-Pfad von
+        // `conferenceDeviceOptionLabel`), siehe Plan Abschnitt 3.6.
+        refreshDeviceOptions()
     }
 
     micButton.onClick {
@@ -3333,15 +3516,19 @@ private fun enterCall(
             // Bug found and fixed during this wave's own live-browser verification (2026-08-09): the
             // previous version flipped `micEnabled`/the button label BEFORE awaiting `setMicrophone`
             // and never checked its result -- a permission-denied click made the button claim "on"
-            // with nothing actually publishing, no error visible anywhere. `guarded {}` already shows
-            // a toast on failure (see AppState.kt); this handler now additionally reverts to the
-            // truthful state instead of pretending the click succeeded.
-            val result = guarded { session.setMicrophone(desired) }
+            // with nothing actually publishing, no error visible anywhere. This handler now reverts
+            // to the truthful state instead of pretending the click succeeded, and shows the ONE
+            // accurate error toast itself -- see the join-time block above for why `guarded {}`
+            // returning `null` here means SUCCESS (a `ConferenceDeviceFailure?` return value, not an
+            // exception, is `setMicrophone`'s failure signal since the review fix).
+            val failure = guarded { session.setMicrophone(desired) }
             micButton.disabled = false
-            if (result != null) {
+            if (failure == null) {
                 micEnabled = desired
                 setTileMic(tiles.getValue(joinToken.identity), micEnabled)
                 updateMicButtonState()
+            } else {
+                notifyError(conferenceDeviceEnableErrorMessage(ConferenceDeviceKind.MICROPHONE, failure))
             }
         }
     }
@@ -3350,11 +3537,13 @@ private fun enterCall(
         AppScope.launch {
             val desired = !cameraEnabled
             // Same fix as micButton.onClick above -- see that handler's comment.
-            val result = guarded { session.setCamera(desired) }
+            val failure = guarded { session.setCamera(desired) }
             cameraButton.disabled = false
-            if (result != null) {
+            if (failure == null) {
                 cameraEnabled = desired
                 updateCameraButtonState()
+            } else {
+                notifyError(conferenceDeviceEnableErrorMessage(ConferenceDeviceKind.CAMERA, failure))
             }
         }
     }
@@ -3377,6 +3566,39 @@ private fun enterCall(
             }
         }
     }
+
+    // V1.3.x Geräteauswahl -- ein nutzergetriebener Dropdown-Wechsel ruft `switchDevice` auf.
+    // `applyingProgrammaticDeviceValue` filtert PROGRAMMATISCHE `select.value =`-Zuweisungen heraus
+    // (Vorauswahl in `refreshDeviceOptions`, Revert nach Fehlschlag hier unten,
+    // `onActiveDeviceChanged`-Sync) -- ohne diesen Guard würde JEDE dieser Zuweisungen denselben
+    // `subscribe {}`-Callback erneut auslösen (gegen die KVision-9.6.0-Quelle verifiziert, siehe
+    // `applyingProgrammaticDeviceValue`s eigene Deklaration weiter oben) und einen zweiten,
+    // überflüssigen `switchDevice`-Aufruf verursachen. Kein Erfolgs-Toast (Jobs' Bedingung im
+    // Design-Review) -- nur ein sichtbarer Revert bei Fehlschlag.
+    fun wireDeviceSelect(
+        select: Select,
+        kind: ConferenceDeviceKind,
+    ) {
+        select.subscribe { deviceId ->
+            if (applyingProgrammaticDeviceValue || deviceId == null) return@subscribe
+            AppScope.launch {
+                val failure = guarded { session.switchDevice(kind, deviceId) }
+                if (failure != null) {
+                    notifyError(conferenceDeviceErrorMessage(kind, failure))
+                    applyingProgrammaticDeviceValue = true
+                    select.value = session.activeDeviceId(kind)
+                    applyingProgrammaticDeviceValue = false
+                } else {
+                    // SECURITY: nur die `deviceId` wird persistiert, nie `rawLabel`.
+                    localStorage[conferenceDeviceStorageKey(kind)] = deviceId
+                }
+            }
+        }
+    }
+    wireDeviceSelect(micDeviceSelect, ConferenceDeviceKind.MICROPHONE)
+    wireDeviceSelect(cameraDeviceSelect, ConferenceDeviceKind.CAMERA)
+    speakerDeviceSelect?.let { wireDeviceSelect(it, ConferenceDeviceKind.SPEAKER) }
+
     // V1.2.9 Vollbildmodus -- getrieben vom Panel-State-Reducer statt einem losen Boolean-Flag,
     // damit Normalmodus- und Vollbild-Sichtbarkeit unabhängig voneinander geführt werden (D4/D5).
     rosterToggleButton.onClick {
@@ -4108,6 +4330,150 @@ internal fun conferenceTileKind(source: String): ConferenceTileKind =
         "camera" -> ConferenceTileKind.CAMERA
         else -> ConferenceTileKind.OTHER
     }
+
+/**
+ * V1.3.x Geräteauswahl (GitHub Issue #2) -- pure, jsTest-covered device-preselection logic used by
+ * `refreshDeviceOptions()`. Precedence: a PERSISTED choice (this browser's own `localStorage`, from
+ * an earlier explicit dropdown pick) wins over LiveKit's own currently-active device, which in turn
+ * wins over no selection at all. Either candidate is discarded if it is no longer among [available]
+ * (a saved/active device that has since been unplugged) -- never pre-select a phantom device id.
+ */
+internal fun conferencePreferredDeviceId(
+    stored: String?,
+    active: String?,
+    available: List<String>,
+): String? =
+    when {
+        stored != null && available.contains(stored) -> stored
+        active != null && available.contains(active) -> active
+        else -> null
+    }
+
+/**
+ * V1.3.x Geräteauswahl -- `MediaDeviceInfo.label` is the empty string when a browser has not yet
+ * granted microphone/camera permission for THIS device (spec behaviour, not a bug) -- [rawLabel]
+ * blank falls back to a numbered, translated placeholder ("Mikrofon 1", "Kamera 2", ...) using
+ * [index] (1-based, matching the position `refreshDeviceOptions()` enumerates the device in) instead
+ * of showing an empty dropdown entry.
+ */
+internal fun conferenceDeviceOptionLabel(
+    kind: ConferenceDeviceKind,
+    rawLabel: String,
+    index: Int,
+): String {
+    if (rawLabel.isNotBlank()) return rawLabel
+    val noun =
+        when (kind) {
+            ConferenceDeviceKind.MICROPHONE -> gettext("Mikrofon")
+            ConferenceDeviceKind.CAMERA -> gettext("Kamera")
+            ConferenceDeviceKind.SPEAKER -> gettext("Lautsprecher")
+        }
+    return gettext("%1 %2", noun, index.toString())
+}
+
+/** V1.3.x Geräteauswahl -- the ONE place a [ConferenceDeviceKind]'s `localStorage` key is composed,
+ * so [network.lapis.cloud.client.ConferenceScreen]'s read (`refreshDeviceOptions()`) and write
+ * (`select.subscribe {}`'s success branch) can never drift apart. Namespaced with `lapis-cloud-`,
+ * same convention as [network.lapis.cloud.client.LANGUAGE_STORAGE_KEY] in `App.kt`. */
+internal fun conferenceDeviceStorageKey(kind: ConferenceDeviceKind): String = "lapis-cloud-device-${kind.jsKind}"
+
+/** V1.3.x Geräteauswahl -- the grammatical subject (with article) [conferenceDeviceErrorMessage]/
+ * [conferenceDeviceLostMessage] compose their sentences around. */
+internal fun conferenceDeviceSubject(kind: ConferenceDeviceKind): String =
+    when (kind) {
+        ConferenceDeviceKind.MICROPHONE -> gettext("Das Mikrofon")
+        ConferenceDeviceKind.CAMERA -> gettext("Die Kamera")
+        ConferenceDeviceKind.SPEAKER -> gettext("Der Lautsprecher")
+    }
+
+/** V1.3.x Geräteauswahl -- shown as an error toast when a user-driven dropdown pick fails, see
+ * `ConferenceScreen.kt`'s `select.subscribe {}` wiring. */
+internal fun conferenceDeviceErrorMessage(
+    kind: ConferenceDeviceKind,
+    failure: ConferenceDeviceFailure,
+): String {
+    val subject = conferenceDeviceSubject(kind)
+    return when (failure) {
+        ConferenceDeviceFailure.PERMISSION_DENIED ->
+            gettext("%1 konnte nicht gewechselt werden -- der Browser hat den Zugriff verweigert.", subject)
+        ConferenceDeviceFailure.NOT_FOUND ->
+            gettext("%1 konnte nicht gewechselt werden -- das Gerät wurde nicht gefunden.", subject)
+        ConferenceDeviceFailure.DEVICE_IN_USE ->
+            gettext("%1 konnte nicht gewechselt werden -- das Gerät wird bereits von einer anderen Anwendung verwendet.", subject)
+        ConferenceDeviceFailure.OTHER -> gettext("%1 konnte nicht gewechselt werden.", subject)
+    }
+}
+
+/**
+ * Review fix (GitHub Issue #2 review, "dupliziertes + falsch formuliertes Fehler-Toast") -- shown as
+ * an error toast when [network.lapis.cloud.client.livekit.LiveKitRoomSession.setMicrophone]/[network.lapis.cloud.client.livekit.LiveKitRoomSession.setCamera]
+ * fail to ACTIVATE a device, both at the initial join (`session.setMicrophone(true)`/`.setCamera(true)`
+ * right after `connect`) and on every subsequent mic/camera button click -- see those two methods'
+ * own KDoc for why `RoomEvent.MediaDevicesError` (relayed here as `onMediaDevicesError`) NEVER fires
+ * for a genuine dropdown device SWITCH, only for these two "enable" paths. Deliberately worded around
+ * "aktiviert", never "gewechselt" like [conferenceDeviceErrorMessage] -- the previous version of this
+ * toast reused that "gewechselt" wording for every mic/camera enable failure, including the initial
+ * join, which never involves a switch at all.
+ */
+internal fun conferenceDeviceEnableErrorMessage(
+    kind: ConferenceDeviceKind,
+    failure: ConferenceDeviceFailure,
+): String {
+    val subject = conferenceDeviceSubject(kind)
+    return when (failure) {
+        ConferenceDeviceFailure.PERMISSION_DENIED ->
+            gettext("%1 konnte nicht aktiviert werden -- der Browser hat den Zugriff verweigert.", subject)
+        ConferenceDeviceFailure.NOT_FOUND ->
+            gettext("%1 konnte nicht aktiviert werden -- das Gerät wurde nicht gefunden.", subject)
+        ConferenceDeviceFailure.DEVICE_IN_USE ->
+            gettext("%1 konnte nicht aktiviert werden -- das Gerät wird bereits von einer anderen Anwendung verwendet.", subject)
+        ConferenceDeviceFailure.OTHER -> gettext("%1 konnte nicht aktiviert werden.", subject)
+    }
+}
+
+/** V1.3.x Geräteauswahl -- shown as an info toast when a hotplug re-enumeration (`preserveFocusedSelect
+ * = true` in `refreshDeviceOptions()`) finds that the currently active device of [kind] has vanished
+ * from the OS-reported device list -- LiveKit itself silently keeps using whatever the OS gives the
+ * still-open track, this toast is purely informational, telling the participant a fallback device was
+ * selected for the DROPDOWN's own display, not a claim that audio/video actually stopped.
+ *
+ * **Only called when a replacement was actually found** -- see [conferenceShouldNotifyDeviceLost]
+ * (review fix, GitHub Issue #2 review, "irreführender Info-Toast bei Geräte-Verlust ohne
+ * Ersatzgerät"): this function's own sentence claims "es wurde ein anderes Gerät ausgewählt", which
+ * was previously shown even when [conferencePreferredDeviceId] returned `null` (no stored preference
+ * AND no other device of this kind available) -- a false claim, since the dropdown then shows no
+ * selection at all.
+ */
+internal fun conferenceDeviceLostMessage(kind: ConferenceDeviceKind): String {
+    val subject = conferenceDeviceSubject(kind)
+    return gettext("%1 ist nicht mehr verfügbar -- es wurde ein anderes Gerät ausgewählt.", subject)
+}
+
+/**
+ * V1.3.x Geräteauswahl -- pure, jsTest-covered decision extracted from `refreshDeviceOptions()`
+ * (review fix, GitHub Issue #2 review, "irreführender Info-Toast bei Geräte-Verlust ohne
+ * Ersatzgerät"): whether the "device vanished" info toast ([conferenceDeviceLostMessage]) should fire
+ * for this enumeration pass. The toast previously fired whenever the active device disappeared during
+ * a hotplug re-enumeration, REGARDLESS of whether [conferencePreferredDeviceId] actually found a
+ * replacement -- when it returns `null`, [conferenceDeviceLostMessage]'s own wording ("es wurde ein
+ * anderes Gerät ausgewählt") is a false claim.
+ *
+ * True iff [preserveFocusedSelect] (never fires on the very first post-connect enumeration, which
+ * always passes `false`), [activeBeforeRefresh] was non-null (a device WAS active before this pass),
+ * that device is no longer among [availableDeviceIds] (it actually vanished, not merely re-ordered),
+ * AND [preferredDeviceId] -- the SAME value `refreshDeviceOptions()` already computed via
+ * [conferencePreferredDeviceId] for this call -- is non-null (a replacement was actually found).
+ */
+internal fun conferenceShouldNotifyDeviceLost(
+    preserveFocusedSelect: Boolean,
+    activeBeforeRefresh: String?,
+    availableDeviceIds: List<String>,
+    preferredDeviceId: String?,
+): Boolean =
+    preserveFocusedSelect &&
+        activeBeforeRefresh != null &&
+        activeBeforeRefresh !in availableDeviceIds &&
+        preferredDeviceId != null
 
 /** Pure client-side mirror of `IConferenceService.endRoom`/`.removeParticipant`'s server-side
  * "creator OR global BOARD/ADMIN" gate (see that interface's class KDoc "Two-tier role model") --

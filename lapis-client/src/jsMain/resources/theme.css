@@ -466,6 +466,19 @@ body {
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
 }
 
+/* V1.3.x Geräteauswahl (GitHub Issue #2) -- bewusst KEINE `.lapis-conference-config-row`-Klasse auf
+   `deviceGroup` selbst (siehe ConferenceScreen.kt Deklaration): diese Gruppe soll den Vollbildmodus
+   überleben, die Ausblendregel oben (`.lapis-conference-fullscreen .lapis-conference-config-row`)
+   darf sie deshalb nicht treffen. */
+.lapis-conference-device-group {
+  display: flex;
+  flex-direction: column;
+}
+
+.lapis-conference-device-group select {
+  width: 100%;
+}
+
 @media (max-width: 767.98px) {
   .lapis-conference-more-sheet {
     left: 0;
