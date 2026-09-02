@@ -166,6 +166,115 @@ LTR-weighted guest pool isn't possible yet, since no guest LTR-earning mechanism
 client UI for Politician Profiles exists yet (backend/RPC-only, unchanged from V0.6.4). See
 `CHANGELOG.md` `[0.6.0]` for the original scope-cut reasoning and `[0.9.0]` for the closure.
 
+Seven further tags have shipped since `v0.10.0`, the last two of them (`v0.16.0`/`v0.17.0`) cut back
+to back in the same release session: `v0.16.0` was placed at the historical commit boundary matching
+an already-published website release-notes page for that version, and `v0.17.0` immediately after it
+for the newer work.
+
+**`v0.11.0`** releases the complete **Videokonferenzen (Kleinsitzung)** module in one tag — Wave 1
+(basic real-time audio/video/screen-share/chat, described below under "Videokonferenzen") together
+with seven further waves, built sequentially and shipped together: server-side recording via LiveKit
+Track Egress with asynchronous ffmpeg gallery composition (Wave 2); RTMP-composited external
+live-streaming to YouTube/Twitch/PeerTube/generic RTMP destinations, protected by this codebase's
+first at-rest-encryption primitive for stored stream keys (Wave 3); UI polish closing three items
+deferred from Wave 1's own design review — single-button room creation, a camera/microphone
+permission preflight, and a named connection-state machine (Wave 4); federated OIDC guest join under
+a versioned, two-layer DSGVO consent flow (Wave 5); moderator-driven breakout rooms (Wave 6); a
+shared live whiteboard (Wave 7); and shared, block-structured collaborative meeting notes with
+per-block optimistic-concurrency control (Wave 8). Every wave went through the mandatory review/
+security pipeline plus live-browser verification against a real running LiveKit stack — the latter is
+how several real client bugs invisible to review/security passes (neither mounts real DOM) were found
+and fixed. See `CHANGELOG.md` `[0.11.0]` for full wave-by-wave detail.
+
+**`v0.12.0`** is a production-infrastructure and internationalization release: an 8-language navbar
+switcher (German source plus English, French, Spanish, Italian, Dutch, Polish, Russian) via a custom
+`I18nCatalogManager`, written because KVision's own `kvision-i18n` module crashed the app on load
+against this project's Kotlin/JS toolchain; a two-stage Docker production deployment (root
+`Dockerfile` + `deploy/production/docker-compose.yml`) replacing the earlier bare-JVM/systemd/
+native-PostgreSQL setup, migrated end to end on the project's test VPS with the prior installation
+fully uninstalled; Videokonferenzen Wave 1 wired into that Docker stack and live-verified against a
+real external network; and a redesigned, role-gated dropdown navbar with Lapis Cloud branding
+(a "faceted gem" mark matching the marketing site), replacing a 20-entry flat list that had begun
+overflowing the viewport. A real IP-spoofing gap behind the reverse proxy was also found and closed —
+every IP-keyed rate limiter now uses Ktor's `useLastProxy()` instead of the spoofable
+`useFirstProxy()` default, verified live against a forged `X-Forwarded-For` header.
+
+**`v0.13.0`** adds `MemberStatus.FRIEND` (wave "V0.11.0" in the project's own wave numbering, released
+in this tag) — a self-registerable, board-approval-free account scoped strictly to per-room opt-in
+video-conference access, with no membership, governance, accounting, or LTR rights (see "What doesn't
+work yet" below for how far this reaches into the LTR economy). Building it surfaced and closed
+several pre-existing authorization gaps, the most severe being that OIDC federation token issuance
+had no organization-membership gate at all — any authenticated caller, including the new self-service
+FRIEND, could obtain a federation ID token asserting membership to a partner server — plus missing
+membership-status gates on direct messages, mailing-list subscriptions, and document-folder listing.
+All five `MemberStatus` literals were also renamed from German to English (`ANTRAG`→`APPLICATION`,
+`AKTIV`→`ACTIVE`, `GAST`→`GUEST`, `AUSGETRETEN`→`WITHDRAWN`, `ABGELEHNT`→`REJECTED`) — a breaking
+change for any external integration that pattern-matched the old wire values. This release also
+closes out Videokonferenzen Wave 9 "Stream-Pause bei geheimen Abstimmungen" (automatic live-stream
+pausing while a secret ballot is open, hardened across six cascading security-audit rounds against
+the same finding class — a finalizing write trusting a status flag instead of the specific confirmed
+LiveKit egress id), migrates the pilot's reverse proxy from Apache to Caddy, and fixes several
+production Videokonferenzen infrastructure bugs (GRID/SPEAKER egress hairpin-NAT and shared-memory
+failures). See `CHANGELOG.md` `[0.13.0]` for full detail.
+
+**`v0.14.0` and `v0.15.0`** deliver **Soziales Netzwerk (V1.1)**, the platform's first public
+social-posting layer, across five sub-waves. V1.1.1 adds the post core: a member composes a post with
+a positive LTR stake bound from their own free balance across three visibility tiers (`PUBLIC`/
+`MEMBERS_ONLY`/`MEMBERS_AND_EXTERNAL`), decaying 10%/day; a post is immutable once published and can
+only be hidden — never edited or refunded — by its own author. V1.1.2 adds threaded comments (full
+posts in their own right, depth-capped at 64), monetary "boosts", and recursive total-weight
+aggregation as the timeline's sort key, computed in pure Kotlin rather than SQL to keep the decay math
+off the database. V1.1.3 opens the first unauthenticated HTML read path in this codebase (`GET /s`,
+`GET /s/{id}`, a sitemap, `robots.txt`) — server-rendered, with its own stricter size caps, ETag/CSP/
+security headers, and IP-keyed rate limiting, SEO-indexable by design. V1.1.4 widens posting,
+commenting, boosting, and LTR self-service to the new `FRIEND` status via a new `LTR_ELIGIBLE`
+capability set — deliberately narrow, every other LTR-gated domain (governance, crowdfunding,
+elections, peer-transfer sending, conferencing) stays `ACTIVE`-only — under an explicit, user-confirmed
+legal-coupling condition that **V1.1.5 would ship immediately next, with nothing in between**, given
+the DSA/liability exposure of letting identity-unverified accounts publish public, search-indexed
+content. V1.1.5 honors that commitment: legal removal (`REMOVED_LEGAL`, RFC 7725 `451` responses with
+a public reason and no original content), a DSA Art. 16 report mechanism reachable both from an
+authenticated RPC and a plain, JavaScript-free public HTML form, and a post-level DSGVO Art. 17
+erasure request/decision workflow independent of the existing member-wide erasure path. See
+`CHANGELOG.md` `[0.14.0]` and `[0.15.0]` for full detail on all five sub-waves.
+
+**`v0.16.0`** is a backfill/consolidation release, not a single new numbered wave — it bundles what
+had accumulated since `v0.15.0`, plus several client-UI-only follow-ups and one earlier wave
+revisited: SEPA direct-debit mandate management and collection runs with `pain.008.001.08` file
+generation (V1.2.2, building on the V1.2.1 posting-bridge foundation that first let a manually-marked-
+paid contribution actually reach the ledger); automated dunning with a configurable escalation ladder,
+poller-driven issuance, and optional postal dispatch of PDF reminders (V1.2.7); the platform's first
+real outgoing SMTP transport for password-reset and FRIEND email verification, replacing logging-only
+stubs in place since V0.7.2/V0.11.0 (V1.2.3); a public transparency landing page with two
+independently revocable, DSGVO-consented public rankings (top LTR holders, top donors) behind a
+minimum-cohort-of-5 floor (V1.3.0); a rebuilt member administration (privileged paginated/searchable
+roster, full editing across three separately-authorized RPCs, race-safe last-admin protection) plus a
+one-time operator-run CSV import of the PdV membership CRM export and the ability to grant an existing
+CSV-imported member a login account after the fact (V1.2.11–13); white-label branding
+(deployment-configurable title/logo with a permanently unremovable "Powered by Lapis Cloud"
+attribution) and a second, fully independent Lapis Cloud instance for the ELB pilot, co-located on the
+same host (V1.2.5/V1.2.6); video-conferencing full-screen mode and a mobile-optimized icon-only
+control bar with auto-hide and bottom-sheet panels (V1.2.9/V1.2.10 — an unrelated wave from the
+payment-checkout V1.2.9 landing in `v0.17.0`, see the numbering note below); and gold (`GOLD_XAU`) and
+fiat EUR price-oracle anchors alongside the existing Bitcoin anchor, which also closed two latent
+Price-Oracle orchestrator bugs that would only have surfaced once a second anchor existed (V0.6.6).
+See `CHANGELOG.md` `[0.16.0]` for full detail on every item.
+
+NOTE: This project's own wave numbering has a documented collision — two unrelated pieces of work
+both landed the label "V1.2.9": the video-conferencing full-screen mode above (bundled into
+`v0.16.0`) and an unrelated Stripe checkout UX-hardening pass (bundled into `v0.17.0`, see below).
+Both are named here purely to avoid confusion when cross-referencing `CHANGELOG.md`.
+
+**`v0.17.0`** adds a public, read-only REST API for third-party integration (V1.3.1 "API-Fundament,
+lesend", see "Public REST API" below) and the platform's first PSP integration: online card payments
+via a Stripe-hosted checkout for contributions and donations, which post themselves into the ledger
+through the existing `ContributionPostingBridge`/a new `DonationPostingBridge`, webhook-verified and
+idempotent against redelivery (V1.2.8, GitHub issue #6, see "Payment service provider" below). A
+follow-up checkout-UX-hardening pass fixes a maximum-donation-amount gate that had wrongly also
+blocked large legitimate contributions, and closes a security-audit finding that neither checkout-
+creation RPC was rate-limited despite each triggering a real outbound Stripe API call (V1.2.9, the
+payment-checkout wave — see the numbering note above). See `CHANGELOG.md` `[0.17.0]` for full detail.
+
 === Auction opt-in (V0.6.2)
 
 The legal classification of an LTR-for-goods marketplace (payment-services supervision, trade law,
@@ -187,6 +296,10 @@ legal counsel — not something this project can decide once for everyone. See `
   honestly-disclosed `NoOpMailTransport` log-only stub `MailingService.sendMailingMessage` has had
   since V0.4/V0.1.5 when it is not. `MailingService.sendMailingMessage`'s own bulk-mailing simulation
   is unaffected — this wave only wires up the two single-recipient transactional mailers.
+  **Verify outbound connectivity before relying on this in production**: some hosting providers
+  silently drop outbound connections on SMTP ports (25/465/587) regardless of local firewall
+  configuration — a correct `LAPIS_SMTP_*` configuration and a genuinely reachable relay are two
+  separate things to confirm.
 * **FRIEND email verification now has a working delivery path AND a client landing screen (V1.2.3),
   but enforcement is still off.** `MemberStatus.FRIEND` (V0.11.0) is a self-registerable status
   (`/register-friend`, no board approval, no identity check) scoped strictly to video-conference
@@ -197,18 +310,32 @@ legal counsel — not something this project can decide once for everyone. See `
   now; `LAPIS_FRIEND_REQUIRE_EMAIL_VERIFICATION` (default `false`) stays off regardless — activating
   hard enforcement is a separate, later operational decision, not something this wave flips
   automatically.
-* **UI coverage beyond Governance and Accounting.** Compliance (Transparenzregister, §25 PartG,
-  audit log, backup/restore, DSGVO), mail-merge/postal dispatch, and the LTR economy (Crowdfunding,
-  Auction, Peer-Transfer, Politician Profiles) still have no UI — reachable only via Kilua RPC / the
-  HTTP routes. Governance and Accounting closed the same gap for their domains, see above; the
-  remaining domains are lower day-to-day usage frequency per the pilots' own prioritization and are
-  not yet scheduled as numbered waves.
+* **UI coverage has grown substantially since `v0.10.0`, but is still not complete.** Governance,
+  Accounting, SEPA direct debit (V1.2.2), automated dunning (V1.2.7), member administration
+  (V1.2.12/V1.2.13), and the Stripe checkout (V1.2.8) all now have real client screens. Still
+  reachable only via Kilua RPC / raw HTTP: Compliance (Transparenzregister, §25 PartG, audit log,
+  backup/restore, DSGVO — beyond the new public transparency page, V1.3.0), mail-merge/postal
+  dispatch, and the original LTR economy domains (Crowdfunding, Auction, Peer-Transfer, Politician
+  Profiles). These remaining domains are lower day-to-day usage frequency per the pilots' own
+  prioritization and are not yet scheduled as numbered waves.
 * **No content type is actually federated yet.** V0.8.1 built the ActivityPub-hybrid protocol
   layer; no existing content type (crowdfunding projects, politician profiles, governance
-  resolutions) is wired into outbound federation. A future wave's own explicit product decision.
+  resolutions, or the Soziales Netzwerk posts added in V1.1) is wired into outbound federation. A
+  future wave's own explicit product decision.
+* **Social-network moderation has a legal-notification gap.** DSA Art. 16 Abs. 4/5 (acknowledgment
+  and decision notices to whoever filed a report) has no automated mail yet — the real SMTP
+  transport added in V1.2.3 covers password-reset and FRIEND email verification only, not report
+  notifications. There is also no NetzDG transparency-report mechanism and no DSA Art. 20 dispute
+  procedure (small-business exception) — both deliberately out of scope so far. See `CHANGELOG.md`
+  `[0.15.0]`.
 * **No guest participation in the LTR economy.** A federated guest (V0.8.2) is authenticated and
   represented, but not wired into LTR staking/posting/earning — that mechanics is deliberately not
-  built yet, a separate scope decision from identity itself.
+  built yet, a separate scope decision from identity itself. `FRIEND` (V0.11.0, tag `v0.13.0`) is a
+  different, non-federated status and is not covered by this gap: since Soziales Netzwerk V1.1.4 a
+  FRIEND can stake, post, comment, boost, and self-serve its own LTR balance within the
+  social-network domain specifically, while every other LTR-gated domain (governance, crowdfunding,
+  elections, peer-transfer sending, conferencing) remains `ACTIVE`-only. See `CHANGELOG.md`
+  `[0.14.0]`.
 
 None of this is a secret gap. See the project vault's Lapis Cloud roadmap for the up-to-date wave
 plan.
