@@ -95,17 +95,29 @@ class ApiKeyService(
             val revoked =
                 ApiKeyStore.revoke(id = apiKeyId, revokedByMemberId = current.memberId)
                     ?: throw NotFoundException("API key $id not found or already revoked")
-            auditApiKeyRevoke(row = revoked, actorMemberId = current.memberId, actorRole = current.role)
             // Welle V1.3.2 "Webhooks" (ausgehend), S10 -- a revoked key's webhook endpoint (if any)
             // is deactivated in the SAME transaction, its remaining PENDING deliveries abandoned.
             // No notification mail here (unlike a poller-driven deactivation) -- the ADMIN/BOARD
             // caller already knows they just revoked this key; WebhookEndpointDeactivation.deactivate
             // is a no-op (returns null) when no endpoint exists.
+            //
+            // Review fix -- MUST run BEFORE auditApiKeyRevoke below, never after:
+            // WebhookEndpointDeactivation.deactivate itself takes a `webhook_endpoint` row lock
+            // (WebhookEndpointStore.deactivate's UPDATE) and THEN calls AuditLogRecorder.record
+            // (chain-state `FOR UPDATE` lock) as ITS OWN last step, in that fixed order --
+            // WebhookDeliveryPoller.abandonAndDeactivate drives the exact same function for a
+            // poller-triggered deactivation of the SAME endpoint. If this method instead took the
+            // chain-state lock first (via auditApiKeyRevoke) and only THEN called deactivate (which
+            // internally locks webhook_endpoint before re-taking the already-held chain-state lock),
+            // a concurrent poller tick locking webhook_endpoint first and chain-state second would
+            // deadlock against it (AuditLogRecorder's own KDoc "Deadlock-avoidance contract": record
+            // must always be the LAST row lock of the caller's transaction).
             WebhookEndpointDeactivation.deactivate(
                 apiKeyId = apiKeyId,
                 reason = WebhookDeactivationReason.KEY_REVOKED,
                 deactivatedByMemberId = current.memberId,
             )
+            auditApiKeyRevoke(row = revoked, actorMemberId = current.memberId, actorRole = current.role)
             revoked.toApiKeyDto()
         }
     }
@@ -120,8 +132,24 @@ class ApiKeyService(
             val revoked =
                 ApiKeyStore.revoke(id = apiKeyId, revokedByMemberId = current.memberId)
                     ?: throw NotFoundException("API key $id not found or already revoked")
-            auditApiKeyRevoke(row = revoked, actorMemberId = current.memberId, actorRole = current.role)
             val issued = ApiKeyStore.issue(label = old.label, createdByMemberId = current.memberId, expiresAt = old.expiresAt)
+            // Welle V1.3.2 "Webhooks" (ausgehend), S10 -- reissue mints a NEW key id; without this,
+            // an existing webhook endpoint's api_key_id FK would keep pointing at the just-revoked
+            // OLD key (orphaned: invisible in the UI, never polled). Migrated in the SAME
+            // transaction, active/secret left untouched -- secret and key are independent
+            // credentials (see IWebhookService.setWebhookUrl KDoc). A no-op UPDATE (0 rows) when no
+            // endpoint exists for the old key.
+            //
+            // Review fix -- MUST run BEFORE auditApiKeyRevoke/auditApiKeyCreate below, never after:
+            // migrateApiKeyId's UPDATE takes a `webhook_endpoint` row lock; both audit calls take
+            // the chain-state `FOR UPDATE` lock. Same deadlock-ordering reasoning as revokeApiKey
+            // above (see the comment there) -- AuditLogRecorder.record must always be the LAST row
+            // lock this transaction takes, and TWO record() calls back to back are fine (the
+            // chain-state lock is already held after the first).
+            if (WebhookEndpointStore.getByApiKeyId(apiKeyId) != null) {
+                WebhookEndpointStore.migrateApiKeyId(oldApiKeyId = apiKeyId, newApiKeyId = issued.id)
+            }
+            auditApiKeyRevoke(row = revoked, actorMemberId = current.memberId, actorRole = current.role)
             auditApiKeyCreate(
                 apiKeyId = issued.id,
                 label = issued.label,
@@ -132,15 +160,6 @@ class ApiKeyService(
                 actorRole = current.role,
                 occurredAt = issued.createdAt,
             )
-            // Welle V1.3.2 "Webhooks" (ausgehend), S10 -- reissue mints a NEW key id; without this,
-            // an existing webhook endpoint's api_key_id FK would keep pointing at the just-revoked
-            // OLD key (orphaned: invisible in the UI, never polled). Migrated in the SAME
-            // transaction, active/secret left untouched -- secret and key are independent
-            // credentials (see IWebhookService.setWebhookUrl KDoc). A no-op UPDATE (0 rows) when no
-            // endpoint exists for the old key.
-            if (WebhookEndpointStore.getByApiKeyId(apiKeyId) != null) {
-                WebhookEndpointStore.migrateApiKeyId(oldApiKeyId = apiKeyId, newApiKeyId = issued.id)
-            }
             ApiKeyIssueResultDto(
                 apiKey =
                     ApiKeyDto(

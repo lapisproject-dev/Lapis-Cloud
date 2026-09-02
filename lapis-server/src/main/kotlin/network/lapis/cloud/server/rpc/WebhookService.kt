@@ -66,6 +66,7 @@ class WebhookService(
     ): WebhookEndpointSetResultDto {
         val current = resolveCurrentMember(call)
         current.requireRole(*WEBHOOK_ROLES)
+        requireEnabled()
         requireWithinRate(limiter = configureRateLimiter, memberId = current.memberId)
         val keyId = apiKeyId.toWebhookApiKeyUuid()
         requireApiKeyExists(keyId)
@@ -104,6 +105,10 @@ class WebhookService(
         }
     }
 
+    /**
+     * Deliberately NOT [requireEnabled]-gated -- see [WebhookConfig] KDoc "Review fix" for why
+     * removal must keep working regardless of the current [WebhookConfig.enabled] value.
+     */
     override suspend fun removeWebhookUrl(apiKeyId: String) {
         val current = resolveCurrentMember(call)
         current.requireRole(*WEBHOOK_ROLES)
@@ -111,6 +116,15 @@ class WebhookService(
         val keyId = apiKeyId.toWebhookApiKeyUuid()
         transaction {
             val existing = WebhookEndpointStore.getByApiKeyId(keyId) ?: return@transaction
+            // Review fix -- MUST run BEFORE WebhookEndpointStore.remove: webhook_delivery.endpoint_id
+            // (V15__webhooks.sql) is a plain FK with NO ON DELETE CASCADE, so the raw DELETE below
+            // would otherwise throw a referential-integrity violation the instant this endpoint has
+            // EVER produced a single delivery row -- including its own webhook.test row from
+            // "Test-Event senden" (empirically reproduced against H2, see WebhookDeliveryQueue
+            // .deleteByEndpoint KDoc). Unlike ConferenceStreamingService.deleteDestination's
+            // "refuse deletion, historical rows are meaningful" posture, a stale delivery log for an
+            // endpoint the caller just chose to remove carries no such retention value.
+            WebhookDeliveryQueue.deleteByEndpoint(existing.id)
             WebhookEndpointStore.remove(keyId)
             auditWebhookEndpoint(
                 action = AuditAction.UPDATE,
@@ -124,6 +138,7 @@ class WebhookService(
     override suspend fun rotateWebhookSecret(apiKeyId: String): WebhookEndpointSetResultDto {
         val current = resolveCurrentMember(call)
         current.requireRole(*WEBHOOK_ROLES)
+        requireEnabled()
         requireWithinRate(limiter = secretRotateRateLimiter, memberId = current.memberId)
         val keyId = apiKeyId.toWebhookApiKeyUuid()
         val box = requireSecretBox()
@@ -139,8 +154,10 @@ class WebhookService(
     override suspend fun reactivateWebhookEndpoint(apiKeyId: String): WebhookEndpointDto {
         val current = resolveCurrentMember(call)
         current.requireRole(*WEBHOOK_ROLES)
+        requireEnabled()
         requireWithinRate(limiter = configureRateLimiter, memberId = current.memberId)
         val keyId = apiKeyId.toWebhookApiKeyUuid()
+        requireApiKeyExists(keyId)
         return transaction {
             val row =
                 WebhookEndpointStore.reactivate(apiKeyId = keyId, updatedByMemberId = current.memberId)
@@ -160,6 +177,7 @@ class WebhookService(
     override suspend fun sendWebhookTestEvent(apiKeyId: String): WebhookDeliveryDto {
         val current = resolveCurrentMember(call)
         current.requireRole(*WEBHOOK_ROLES)
+        requireEnabled()
         requireWithinRate(limiter = testRateLimiter, memberId = current.memberId)
         val keyId = apiKeyId.toWebhookApiKeyUuid()
         val box = requireSecretBox()
@@ -253,10 +271,47 @@ class WebhookService(
         }
     }
 
+    /**
+     * Review fix -- see [WebhookConfig] KDoc "Review fix" for the gap this closes:
+     * `LAPIS_WEBHOOKS_ENABLED` staying unset/false must actually refuse every write, not merely
+     * leave [WebhookEventPublisher.install]/[network.lapis.cloud.server.webhook.WebhookDeliveryPoller.start]
+     * as no-ops while [WebhookService] itself stays reachable via [requireSecretBox] alone (which can
+     * pass even with [WebhookConfig.enabled] `false` -- the encryption key is shared with
+     * `network.lapis.cloud.server.conference.ConferenceStreamingConfig`, see that KDoc's "S8").
+     */
+    private fun requireEnabled() {
+        if (!config.enabled) throw ConflictException("Webhooks are disabled on this server")
+    }
+
     private fun requireSecretBox(): SecretBox = secretBox ?: throw ConflictException("Webhooks are not configured on this server")
 
+    /**
+     * MAJOR review fix -- MUST also refuse a REVOKED key, not just an unknown one:
+     * [ApiKeyStore.getOrNull] returns a row regardless of `revokedAt` (unlike [ApiKeyStore.resolve],
+     * which is only used for REST-surface bearer authentication and already discriminates
+     * [ApiKeyStore.Resolution.Revoked]). Without this check, both call sites -- [setWebhookUrl]
+     * (create AND update) and [reactivateWebhookEndpoint] -- could re-couple a webhook endpoint to
+     * an API key an ADMIN/BOARD member just revoked, undoing the KEY_REVOKED cascade
+     * `ApiKeyService.revokeApiKey` deliberately establishes (deactivate + abandon PENDING
+     * deliveries) with a single follow-up RPC call, and the reactivated endpoint would then
+     * silently start receiving events again with its UNCHANGED signature secret -- see this
+     * method's call sites' own KDoc for the full attack scenario.
+     *
+     * **Security-Audit-Fund F7 (Runde 1, 2026-09-02, MINOR)**: the ORIGINAL check above only ever
+     * covered `revokedAt` (an explicit ADMIN action), never `expiresAt` (a purely time-based state
+     * nothing else proactively cascades on) -- an ADMIN/BOARD member could configure or reactivate a
+     * webhook endpoint against an API key that had ALREADY expired, and (this method being the only
+     * gate at configure-time) that endpoint would then sit there, `active = true`, indefinitely.
+     * Delivery-time exclusion of an expired key's endpoint is handled separately, see
+     * [WebhookEndpointStore.listActive] KDoc "Security-Audit-Fund F7".
+     */
     private fun requireApiKeyExists(apiKeyId: Uuid) {
-        ApiKeyStore.getOrNull(apiKeyId) ?: throw NotFoundException("API key $apiKeyId not found")
+        val key = ApiKeyStore.getOrNull(apiKeyId) ?: throw NotFoundException("API key $apiKeyId not found")
+        if (key.revokedAt != null) throw ConflictException("API key $apiKeyId has been revoked")
+        val expiresAt = key.expiresAt
+        if (expiresAt != null && expiresAt <= WebhookDeliveryQueue.nowLocalDateTime()) {
+            throw ConflictException("API key $apiKeyId has expired")
+        }
     }
 
     private fun requireValidUrl(url: String) {

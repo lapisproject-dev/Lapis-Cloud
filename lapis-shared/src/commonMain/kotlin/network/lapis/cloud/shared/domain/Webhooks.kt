@@ -90,6 +90,18 @@ enum class WebhookFailureReason {
     CONNECTION_REFUSED,
     DNS_OR_TLS,
     HTTP_ERROR,
+
+    /**
+     * Security-Audit-Fund F2 (Runde 1, 2026-09-02): the receiver's HTTP response could not be
+     * safely processed -- either the response itself was malformed at the wire level (e.g. an
+     * invalid status line or an oversized header, `io.ktor.http.cio.ParserException`, which
+     * inherits from `IllegalStateException` and is therefore NOT caught by [DNS_OR_TLS]'s
+     * `java.io.IOException` clause) or it announced a `Content-Length` beyond
+     * `WebhookDeliverySender`'s own read-cap (defense against a malicious receiver trying to OOM
+     * the server via an unbounded response body). Both are "the receiver said something we cannot
+     * trust", distinct from [HTTP_ERROR] (a syntactically valid, merely non-2xx status code).
+     */
+    PROTOCOL_ERROR,
     URL_REJECTED,
     ENDPOINT_DEACTIVATED,
     RETRIES_EXHAUSTED,

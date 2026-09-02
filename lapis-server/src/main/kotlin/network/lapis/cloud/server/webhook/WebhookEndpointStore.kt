@@ -11,6 +11,9 @@ import network.lapis.cloud.shared.domain.WebhookDeactivationReason
 import org.jetbrains.exposed.v1.core.ResultRow
 import org.jetbrains.exposed.v1.core.and
 import org.jetbrains.exposed.v1.core.eq
+import org.jetbrains.exposed.v1.core.greater
+import org.jetbrains.exposed.v1.core.isNull
+import org.jetbrains.exposed.v1.core.or
 import org.jetbrains.exposed.v1.jdbc.deleteWhere
 import org.jetbrains.exposed.v1.jdbc.insert
 import org.jetbrains.exposed.v1.jdbc.selectAll
@@ -221,8 +224,30 @@ internal object WebhookEndpointStore {
             joinedQuery().map { it.toEndpointRow() }
         }
 
-    /** Every currently-ACTIVE endpoint -- used by [WebhookEventPublisher.publish] to fan out one delivery row per subscriber. Must run inside the caller's already-open `transaction {}`. */
-    fun listActive(): List<EndpointRow> = joinedQuery().where { WebhookEndpointTable.active eq true }.map { it.toEndpointRow() }
+    /**
+     * Every currently-ACTIVE endpoint -- used by [WebhookEventPublisher.publish] to fan out one
+     * delivery row per subscriber. Must run inside the caller's already-open `transaction {}`.
+     *
+     * **Security-Audit-Fund F7 (Runde 1, 2026-09-02, MINOR)**: filters on the joined
+     * [ApiKeyTable] row too, not only [WebhookEndpointTable.active] -- a REVOKED key already
+     * cascades through [network.lapis.cloud.server.rpc.ApiKeyService.revokeApiKey]'s `KEY_REVOKED`
+     * deactivation (`active` becomes `false`, so `revokedAt.isNull()` here is normally redundant
+     * with that cascade, kept as defense in depth against that cascade ever being missed/raced), but
+     * an EXPIRED key has no such cascade at all -- `expiresAt` passing is a pure clock event nothing
+     * proactively reacts to. Without the `expiresAt` half of this filter, an endpoint tied to an
+     * already-expired API key kept receiving every new event indefinitely (including
+     * `contribution.paid`/`donation.received` Fat-event payloads carrying `amount`/`currency`) even
+     * though the same key can no longer authenticate a single `/api/v1` read.
+     */
+    fun listActive(): List<EndpointRow> {
+        val now = nowLocalDateTime()
+        return joinedQuery()
+            .where {
+                (WebhookEndpointTable.active eq true) and
+                    ApiKeyTable.revokedAt.isNull() and
+                    (ApiKeyTable.expiresAt.isNull() or (ApiKeyTable.expiresAt greater now))
+            }.map { it.toEndpointRow() }
+    }
 
     private fun joinedQuery() = (WebhookEndpointTable innerJoin ApiKeyTable).selectAll()
 

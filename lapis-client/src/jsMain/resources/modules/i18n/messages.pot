@@ -8282,6 +8282,9 @@ msgstr ""
 msgid "HTTP-Fehler"
 msgstr ""
 
+msgid "Protokollfehler"
+msgstr ""
+
 msgid "Adresse abgelehnt"
 msgstr ""
 
@@ -8313,4 +8316,32 @@ msgid "Die Adresse ist zu lang (maximal 2048 Zeichen)."
 msgstr ""
 
 msgid "Webhook-Endpunkt"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/WebhookGuard.kt:73
+msgid "Webhook-Daten konnten nicht geladen werden."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/WebhookGuard.kt:80
+msgid "Zustellungsprotokoll konnte nicht geladen werden -- vermutlich wurden zu viele Anfragen in kurzer Zeit gestellt."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/WebhookGuard.kt:89
+msgid "Die Webhook-Adresse konnte nicht gespeichert werden -- mögliche Gründe: Webhooks sind auf diesem Server deaktiviert, der zugehörige API-Schlüssel wurde widerrufen, es wurden zu viele Anfragen in kurzer Zeit gestellt, oder der Webhook wurde zwischenzeitlich von anderer Stelle entfernt."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/WebhookGuard.kt:98
+msgid "Das Signaturgeheimnis konnte nicht neu erzeugt werden -- mögliche Gründe: Webhooks sind auf diesem Server deaktiviert oder nicht konfiguriert, oder es wurden zu viele Anfragen in kurzer Zeit gestellt."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/WebhookGuard.kt:106
+msgid "Der Webhook konnte nicht wieder aktiviert werden -- mögliche Gründe: Webhooks sind auf diesem Server deaktiviert, der zugehörige API-Schlüssel wurde widerrufen, oder es wurden zu viele Anfragen in kurzer Zeit gestellt."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/WebhookGuard.kt:115
+msgid "Das Test-Event konnte nicht gesendet werden -- mögliche Gründe: Webhooks sind auf diesem Server deaktiviert oder nicht konfiguriert, der Webhook ist derzeit deaktiviert, oder es wurden zu viele Anfragen in kurzer Zeit gestellt."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/WebhookGuard.kt:125
+msgid "Der Webhook konnte nicht entfernt werden -- es wurden zu viele Anfragen in kurzer Zeit gestellt."
 msgstr ""

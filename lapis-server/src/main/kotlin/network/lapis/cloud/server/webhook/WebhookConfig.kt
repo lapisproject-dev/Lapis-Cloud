@@ -9,9 +9,26 @@ private val logger = KotlinLogging.logger {}
 /**
  * Welle V1.3.2 "Webhooks" (ausgehend) -- opt-in configuration, same "DB/env-flag gated, never
  * fail-fast merely because the feature exists" posture as `network.lapis.cloud.server.payment
- * .dunning.DunningConfig`. [enabled] gates EVERYTHING: `WebhookEventPublisher.install`,
- * `WebhookDeliveryPoller.start`, and every `IWebhookService` write -- with `enabled = false`, the
- * whole subsystem is a documented no-op (see `WebhookEventPublisher.publish` KDoc).
+ * .dunning.DunningConfig`. [enabled] gates: `WebhookEventPublisher.install` (a `false` install is a
+ * documented no-op, see that method's own KDoc), `WebhookDeliveryPoller.start` (a `false` `start()`
+ * never launches the poll loop at all), and every `IWebhookService` WRITE method
+ * (`network.lapis.cloud.server.rpc.WebhookService.requireEnabled`, called by `setWebhookUrl`/
+ * `rotateWebhookSecret`/`reactivateWebhookEndpoint`/`sendWebhookTestEvent`) -- each throws
+ * `ConflictException` rather than silently succeeding.
+ *
+ * **Review fix (S8-adjacent gap, found alongside the encryption-key check below)**: before this fix,
+ * `WebhookService` read [enabled] NOWHERE -- `Application.kt` registered `IWebhookService`
+ * unconditionally, and every write method's only real gate was `requireSecretBox()` (was
+ * `secretBox != null`). Because `LAPIS_SECRET_ENCRYPTION_KEY` is shared with
+ * `network.lapis.cloud.server.conference.ConferenceStreamingConfig` ("S8" below), an operator
+ * running `LAPIS_STREAMING_ENABLED=true` (which requires that key) while deliberately leaving
+ * `LAPIS_WEBHOOKS_ENABLED` unset got a webhook subsystem that LOOKED disabled (`enabled = false`,
+ * poller never starts, no events are ever published) but still let a BOARD member configure an
+ * endpoint AND fire a real outbound HTTPS POST via `sendWebhookTestEvent` -- persisting
+ * `webhook_endpoint`/`webhook_delivery` rows nobody expected to exist. `removeWebhookUrl` and the
+ * two read methods (`listWebhookEndpoints`/`listWebhookDeliveries`) are deliberately NOT gated --
+ * cleaning up / inspecting rows left over from BEFORE the flag was flipped off must keep working
+ * regardless of [enabled]'s current value.
  *
  * **S8 -- own fail-fast gate on `LAPIS_SECRET_ENCRYPTION_KEY`**: this variable is ALREADY validated
  * by `network.lapis.cloud.server.conference.ConferenceStreamingConfig.load` when
@@ -46,6 +63,21 @@ data class WebhookConfig(
         private const val DEFAULT_MAX_DELIVERIES_PER_TICK = 50
         private const val DEFAULT_MAX_CONCURRENT_DELIVERIES = 4
         private const val DEFAULT_RETENTION_DAYS = 30
+
+        /**
+         * Floor for [pollIntervalSeconds]/[retentionDays] (review fix) -- unlike
+         * [LAPIS_SECRET_ENCRYPTION_KEY], these two were taken from `env(...)?.toLongOrNull()`/
+         * `toIntOrNull()` with NO lower-bound check at all. `LAPIS_WEBHOOK_POLL_INTERVAL_SECONDS=0`
+         * (or negative) makes `delay(...)` in [WebhookDeliveryPoller]'s loop return immediately, so
+         * `while (isActive)` spins with no pause, hammering the DB continuously.
+         * `LAPIS_WEBHOOK_RETENTION_DAYS=0` makes every DELIVERED/FAILED/ABANDONED row eligible for
+         * deletion on the very next tick, emptying the delivery log the UI is supposed to show for
+         * 30 days (see [WebhookDeliveryPoller.runRetentionPhase]). `coerceAtLeast` rather than a
+         * `check {}` fail-fast (unlike the encryption key): an operator typo here degrades to "one
+         * poll a second"/"one day of retention" rather than refusing to start the whole server.
+         */
+        private const val MIN_POLL_INTERVAL_SECONDS = 1L
+        private const val MIN_RETENTION_DAYS = 1
 
         fun load(env: (String) -> String? = System::getenv): WebhookConfig {
             val enabled = env("LAPIS_WEBHOOKS_ENABLED")?.trim().equals("true", ignoreCase = true)
@@ -83,10 +115,13 @@ data class WebhookConfig(
                 enabled = enabled,
                 allowInsecureHttp = allowInsecureHttp,
                 pollIntervalSeconds =
-                    env("LAPIS_WEBHOOK_POLL_INTERVAL_SECONDS")?.trim()?.toLongOrNull() ?: DEFAULT_POLL_INTERVAL_SECONDS,
+                    (env("LAPIS_WEBHOOK_POLL_INTERVAL_SECONDS")?.trim()?.toLongOrNull() ?: DEFAULT_POLL_INTERVAL_SECONDS)
+                        .coerceAtLeast(MIN_POLL_INTERVAL_SECONDS),
                 maxDeliveriesPerTick = DEFAULT_MAX_DELIVERIES_PER_TICK,
                 maxConcurrentDeliveries = DEFAULT_MAX_CONCURRENT_DELIVERIES,
-                retentionDays = env("LAPIS_WEBHOOK_RETENTION_DAYS")?.trim()?.toIntOrNull() ?: DEFAULT_RETENTION_DAYS,
+                retentionDays =
+                    (env("LAPIS_WEBHOOK_RETENTION_DAYS")?.trim()?.toIntOrNull() ?: DEFAULT_RETENTION_DAYS)
+                        .coerceAtLeast(MIN_RETENTION_DAYS),
                 secretEncryptionKey = decodedKey,
             )
         }

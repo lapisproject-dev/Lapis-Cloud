@@ -67,7 +67,10 @@ fun renderApiKeysScreen(container: SimplePanel) {
         listSlot.div(tr("Wird geladen …")) { addCssClasses("text-muted small") }
         AppScope.launch {
             val keys = guarded { rpcService<IApiKeyService>().listApiKeys(includeRevoked = true) } ?: return@launch
-            val endpoints = webhookGuarded { rpcService<IWebhookService>().listWebhookEndpoints() }.orEmpty()
+            val endpoints =
+                webhookGuarded(conflictMessage = tr(WEBHOOK_LIST_CONFLICT_MESSAGE)) {
+                    rpcService<IWebhookService>().listWebhookEndpoints()
+                }.orEmpty()
             val endpointsByApiKeyId = endpoints.associateBy { it.apiKeyId }
             listSlot.removeAll()
             renderApiKeysList(listSlot, keys, endpointsByApiKeyId, revealCardSlot, ::loadKeysAndWebhooks)
@@ -193,20 +196,39 @@ private fun renderApiKeyCard(
         }
     }
 
-    // Webhook footer -- only offered for a NON-revoked key (a revoked key's own endpoint, if any,
-    // was already cascaded to KEY_REVOKED server-side, see ApiKeyService.revokeApiKey).
-    if (key.revokedAt == null) {
+    // Webhook footer -- for a NON-revoked key, always (offers "Webhook einrichten" even with no
+    // endpoint yet). For a REVOKED key, only when it still has a leftover endpoint row (review
+    // fix): `ApiKeyService.revokeApiKey` DEACTIVATES that endpoint but does not delete it (unlike
+    // `reissueApiKey`, which migrates the row via `migrateApiKeyId`), so its destination URL and
+    // at-rest-encrypted signature secret would otherwise sit in the database invisibly, reachable
+    // only through a raw RPC call, with no "Entfernen" the product ever offers. Rendered READ-ONLY
+    // in that case (see [renderWebhookBlock]'s own `readOnly` KDoc) -- setting up a webhook for a
+    // key that no longer authenticates anything would be pointless, and `setWebhookUrl`/
+    // `rotateWebhookSecret`/`reactivateWebhookEndpoint` all reject a revoked key server-side
+    // anyway (`WebhookService.requireApiKeyExists`, MAJOR review fix).
+    if (key.revokedAt == null || endpoint != null) {
         val footer = cardBody.vPanel(spacing = 6) { addCssClasses("border-top pt-2 mt-1") }
-        renderWebhookBlock(footer, key, endpoint, revealCardSlot, reload)
+        renderWebhookBlock(footer, key, endpoint, revealCardSlot, reload, readOnly = key.revokedAt != null)
     }
 }
 
+/**
+ * [readOnly] (review fix) -- set for a REVOKED key's leftover endpoint (see call site KDoc): shows
+ * the same status/URL/last-HTTP-status/delivery-log information as the normal footer, but offers
+ * ONLY "Entfernen", never "URL ändern"/"Signaturgeheimnis neu erzeugen"/"Test-Event senden"/"Wieder
+ * aktivieren" -- every one of those would either be pointless (the key that would receive a fresh
+ * secret authenticates nothing any more) or is already rejected server-side
+ * (`WebhookService.requireApiKeyExists`). [readOnly] is never `true` with `endpoint == null` (the
+ * call site only renders this block for a revoked key when an endpoint actually exists), so the
+ * "Kein Webhook eingerichtet." setup form below is unreachable in that combination.
+ */
 private fun renderWebhookBlock(
     footer: SimplePanel,
     key: ApiKeyDto,
     endpoint: WebhookEndpointDto?,
     revealCardSlot: SimplePanel,
     reload: () -> Unit,
+    readOnly: Boolean = false,
 ) {
     if (endpoint == null) {
         footer.div(tr("Kein Webhook eingerichtet.")) { addCssClasses("small text-muted") }
@@ -221,7 +243,10 @@ private fun renderWebhookBlock(
             }
             setupButton.disabled = true
             AppScope.launch {
-                val result = webhookGuarded { rpcService<IWebhookService>().setWebhookUrl(apiKeyId = key.id, url = url) }
+                val result =
+                    webhookGuarded(conflictMessage = tr(WEBHOOK_SET_URL_CONFLICT_MESSAGE)) {
+                        rpcService<IWebhookService>().setWebhookUrl(apiKeyId = key.id, url = url)
+                    }
                 setupButton.disabled = false
                 if (result != null) {
                     showWebhookSecretRevealCard(revealCardSlot, result)
@@ -243,95 +268,113 @@ private fun renderWebhookBlock(
         footer.div(gettext("Letzter HTTP-Status: %1", endpoint.lastHttpStatus.toString())) { addCssClasses("small text-muted") }
     }
 
-    val editRow = footer.hPanel(spacing = 8) { addCssClasses("align-items-end") }
-    val urlInput = editRow.text(label = tr("Neue Webhook-URL")) { hide() }
-    val saveUrlButton = editRow.button(tr("Speichern"), style = ButtonStyle.OUTLINEPRIMARY) { hide() }
-
     val actions = footer.hPanel(spacing = 8) { addCssClasses("flex-wrap") }
-    val changeUrlButton = actions.button(tr("URL ändern"), style = ButtonStyle.LINK)
-    changeUrlButton.onClick {
-        urlInput.value = endpoint.url
-        urlInput.show()
-        saveUrlButton.show()
-    }
-    saveUrlButton.onClick {
-        val url = urlInput.value?.trim().orEmpty()
-        if (url.isBlank()) {
-            notifyError(tr("Bitte eine Adresse angeben."))
-            return@onClick
-        }
-        saveUrlButton.disabled = true
-        AppScope.launch {
-            val result = webhookGuarded { rpcService<IWebhookService>().setWebhookUrl(apiKeyId = key.id, url = url) }
-            saveUrlButton.disabled = false
-            if (result != null) {
-                notifySuccess(tr("Webhook-Adresse aktualisiert."))
-                reload()
-            }
-        }
-    }
 
-    val rotateButton = actions.button(tr("Signaturgeheimnis neu erzeugen"), style = ButtonStyle.LINK)
-    rotateButton.onClick {
-        webhookSecretRotateConfirmDialog(key.label) {
-            rotateButton.disabled = true
+    // readOnly (review fix, revoked key) -- none of URL-change/secret-rotate/test-event/reactivate
+    // below are offered; see this function's own KDoc for why each would be either pointless or
+    // already rejected server-side.
+    if (!readOnly) {
+        val editRow = footer.hPanel(spacing = 8) { addCssClasses("align-items-end") }
+        val urlInput = editRow.text(label = tr("Neue Webhook-URL")) { hide() }
+        val saveUrlButton = editRow.button(tr("Speichern"), style = ButtonStyle.OUTLINEPRIMARY) { hide() }
+
+        val changeUrlButton = actions.button(tr("URL ändern"), style = ButtonStyle.LINK)
+        changeUrlButton.onClick {
+            urlInput.value = endpoint.url
+            urlInput.show()
+            saveUrlButton.show()
+        }
+        saveUrlButton.onClick {
+            val url = urlInput.value?.trim().orEmpty()
+            if (url.isBlank()) {
+                notifyError(tr("Bitte eine Adresse angeben."))
+                return@onClick
+            }
+            saveUrlButton.disabled = true
             AppScope.launch {
-                val result = webhookGuarded { rpcService<IWebhookService>().rotateWebhookSecret(apiKeyId = key.id) }
-                rotateButton.disabled = false
+                val result =
+                    webhookGuarded(conflictMessage = tr(WEBHOOK_SET_URL_CONFLICT_MESSAGE)) {
+                        rpcService<IWebhookService>().setWebhookUrl(apiKeyId = key.id, url = url)
+                    }
+                saveUrlButton.disabled = false
                 if (result != null) {
-                    showWebhookSecretRevealCard(revealCardSlot, result)
+                    notifySuccess(tr("Webhook-Adresse aktualisiert."))
                     reload()
                 }
             }
         }
-    }
 
-    // D2 -- three states: ruhe -> disabled "Sendet Test-Event …" -> a PERSISTENT result line
-    // under the card (never a toast, the outcome must stay visible while the operator inspects
-    // the receiving end).
-    val testButton = actions.button(tr("Test-Event senden"), style = ButtonStyle.LINK)
-    val testResultLine = footer.div("") { addCssClasses("small") }
-    testButton.onClick {
-        testButton.disabled = true
-        testButton.text = tr("Sendet Test-Event …")
-        testResultLine.content = ""
-        AppScope.launch {
-            val result = webhookGuarded { rpcService<IWebhookService>().sendWebhookTestEvent(apiKeyId = key.id) }
-            testButton.disabled = false
-            testButton.text = tr("Test-Event senden")
-            if (result != null) {
-                val delivered = result.lastHttpStatus != null && result.lastHttpStatus in 200..299
-                testResultLine.removeCssClass("text-success")
-                testResultLine.removeCssClass("text-danger")
-                testResultLine.addCssClass(if (delivered) "text-success" else "text-danger")
-                testResultLine.content =
-                    if (result.lastHttpStatus != null) {
-                        gettext(
-                            "HTTP %1 -- %2",
-                            result.lastHttpStatus.toString(),
-                            if (delivered) tr("zugestellt") else tr("fehlgeschlagen"),
-                        )
-                    } else {
-                        gettext(
-                            "Fehlgeschlagen: %1",
-                            result.lastErrorCode?.let { webhookFailureReasonLabel(it) } ?: tr("unbekannter Fehler"),
-                        )
+        val rotateButton = actions.button(tr("Signaturgeheimnis neu erzeugen"), style = ButtonStyle.LINK)
+        rotateButton.onClick {
+            webhookSecretRotateConfirmDialog(key.label) {
+                rotateButton.disabled = true
+                AppScope.launch {
+                    val result =
+                        webhookGuarded(conflictMessage = tr(WEBHOOK_ROTATE_SECRET_CONFLICT_MESSAGE)) {
+                            rpcService<IWebhookService>().rotateWebhookSecret(apiKeyId = key.id)
+                        }
+                    rotateButton.disabled = false
+                    if (result != null) {
+                        showWebhookSecretRevealCard(revealCardSlot, result)
+                        reload()
                     }
+                }
             }
         }
-    }
 
-    if (!endpoint.active) {
-        // Reaktivieren OHNE Bestätigungsdialog -- nicht destruktiv (Design-Team decision D4).
-        val reactivateButton = actions.button(tr("Wieder aktivieren"), style = ButtonStyle.OUTLINESUCCESS)
-        reactivateButton.onClick {
-            reactivateButton.disabled = true
+        // D2 -- three states: ruhe -> disabled "Sendet Test-Event …" -> a PERSISTENT result line
+        // under the card (never a toast, the outcome must stay visible while the operator inspects
+        // the receiving end).
+        val testButton = actions.button(tr("Test-Event senden"), style = ButtonStyle.LINK)
+        val testResultLine = footer.div("") { addCssClasses("small") }
+        testButton.onClick {
+            testButton.disabled = true
+            testButton.text = tr("Sendet Test-Event …")
+            testResultLine.content = ""
             AppScope.launch {
-                val result = webhookGuarded { rpcService<IWebhookService>().reactivateWebhookEndpoint(apiKeyId = key.id) }
-                reactivateButton.disabled = false
+                val result =
+                    webhookGuarded(conflictMessage = tr(WEBHOOK_TEST_EVENT_CONFLICT_MESSAGE)) {
+                        rpcService<IWebhookService>().sendWebhookTestEvent(apiKeyId = key.id)
+                    }
+                testButton.disabled = false
+                testButton.text = tr("Test-Event senden")
                 if (result != null) {
-                    notifySuccess(tr("Webhook wieder aktiviert."))
-                    reload()
+                    val delivered = result.lastHttpStatus != null && result.lastHttpStatus in 200..299
+                    testResultLine.removeCssClass("text-success")
+                    testResultLine.removeCssClass("text-danger")
+                    testResultLine.addCssClass(if (delivered) "text-success" else "text-danger")
+                    testResultLine.content =
+                        if (result.lastHttpStatus != null) {
+                            gettext(
+                                "HTTP %1 -- %2",
+                                result.lastHttpStatus.toString(),
+                                if (delivered) tr("zugestellt") else tr("fehlgeschlagen"),
+                            )
+                        } else {
+                            gettext(
+                                "Fehlgeschlagen: %1",
+                                result.lastErrorCode?.let { webhookFailureReasonLabel(it) } ?: tr("unbekannter Fehler"),
+                            )
+                        }
+                }
+            }
+        }
+
+        if (!endpoint.active) {
+            // Reaktivieren OHNE Bestätigungsdialog -- nicht destruktiv (Design-Team decision D4).
+            val reactivateButton = actions.button(tr("Wieder aktivieren"), style = ButtonStyle.OUTLINESUCCESS)
+            reactivateButton.onClick {
+                reactivateButton.disabled = true
+                AppScope.launch {
+                    val result =
+                        webhookGuarded(conflictMessage = tr(WEBHOOK_REACTIVATE_CONFLICT_MESSAGE)) {
+                            rpcService<IWebhookService>().reactivateWebhookEndpoint(apiKeyId = key.id)
+                        }
+                    reactivateButton.disabled = false
+                    if (result != null) {
+                        notifySuccess(tr("Webhook wieder aktiviert."))
+                        reload()
+                    }
                 }
             }
         }
@@ -343,7 +386,7 @@ private fun renderWebhookBlock(
             removeButton.disabled = true
             AppScope.launch {
                 val ok =
-                    webhookGuarded {
+                    webhookGuarded(conflictMessage = tr(WEBHOOK_REMOVE_CONFLICT_MESSAGE)) {
                         rpcService<IWebhookService>().removeWebhookUrl(apiKeyId = key.id)
                         true
                     }

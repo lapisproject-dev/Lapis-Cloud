@@ -5,11 +5,13 @@ import io.kotest.matchers.nulls.shouldBeNull
 import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.shouldNotBe
+import kotlinx.datetime.LocalDateTime
 import network.lapis.cloud.server.crypto.SecretBox
 import network.lapis.cloud.server.db.DatabaseConfig
 import network.lapis.cloud.server.db.DevSeedData
 import network.lapis.cloud.server.security.ApiKeyStore
 import network.lapis.cloud.shared.domain.WebhookDeactivationReason
+import org.jetbrains.exposed.v1.jdbc.transactions.transaction
 import java.security.SecureRandom
 import kotlin.uuid.Uuid
 
@@ -164,5 +166,59 @@ class WebhookEndpointStoreTest :
                     .transaction { WebhookEndpointStore.listActive().map { it.apiKeyId } }
             (activeKey.id in activeIds) shouldBe true
             (inactiveKey.id in activeIds) shouldBe false
+        }
+
+        test(
+            "F7 (Security-Audit-Fund, Runde 1, 2026-09-02): listActive() excludes an endpoint whose underlying " +
+                "API key has EXPIRED, even though the endpoint row itself is still active=true (expiry has no " +
+                "deactivation cascade the way revocation does)",
+        ) {
+            val expiredKey =
+                ApiKeyStore.issue(
+                    label = "Webhook Test Key H (expired)",
+                    createdByMemberId = ADMIN_ID,
+                    expiresAt = LocalDateTime(2020, 1, 1, 0, 0),
+                )
+            WebhookEndpointStore.create(
+                apiKeyId = expiredKey.id,
+                url = "https://example.com/expired",
+                createdByMemberId = ADMIN_ID,
+                secretBox = secretBox,
+            )
+
+            val activeIds = transaction { WebhookEndpointStore.listActive().map { it.apiKeyId } }
+            (expiredKey.id in activeIds) shouldBe false
+
+            // The endpoint row's own `active` flag is untouched by expiry -- unlike revocation,
+            // nothing proactively cascades on a key merely passing its expiresAt. listActive()'s
+            // own join filter is the ONLY thing excluding it from delivery.
+            val endpoint = requireNotNull(transaction { WebhookEndpointStore.getByApiKeyId(expiredKey.id) })
+            endpoint.active shouldBe true
+        }
+
+        test("listActive() still returns an endpoint whose API key has no expiry at all, or one that has not expired yet") {
+            val noExpiryKey = ApiKeyStore.issue(label = "Webhook Test Key I (no expiry)", createdByMemberId = ADMIN_ID)
+            val notYetExpiredKey =
+                ApiKeyStore.issue(
+                    label = "Webhook Test Key J (future expiry)",
+                    createdByMemberId = ADMIN_ID,
+                    expiresAt = LocalDateTime(2099, 1, 1, 0, 0),
+                )
+            WebhookEndpointStore.create(
+                apiKeyId = noExpiryKey.id,
+                url = "https://example.com/no-expiry",
+                createdByMemberId = ADMIN_ID,
+                secretBox = secretBox,
+            )
+            WebhookEndpointStore.create(
+                apiKeyId = notYetExpiredKey.id,
+                url = "https://example.com/future-expiry",
+                createdByMemberId = ADMIN_ID,
+                secretBox = secretBox,
+            )
+
+            val activeIds = transaction { WebhookEndpointStore.listActive().map { it.apiKeyId } }
+            (noExpiryKey.id in activeIds) shouldBe true
+            (notYetExpiredKey.id in activeIds) shouldBe true
         }
     })

@@ -51,6 +51,33 @@ class OutboundUrlGuardTest :
             result shouldBe WebhookUrlCheck.Rejected(WebhookUrlRejectionReason.TOO_LONG)
         }
 
+        // ── F4 (Security-Audit-Fund, Runde 1, 2026-09-02): IPv6-embeds-IPv4 transition/legacy ──
+        // ── forms this guard did not previously recognize -- each of these four literals would ──
+        // ── have been WRONGLY accepted (isPubliclyRoutable returned true) before the fix. ────────
+
+        test("F4: IPv4-compatible IPv6 (::203.0.113.5, RFC 4291 deprecated form) is rejected as NOT_PUBLICLY_ROUTABLE") {
+            val result = checkWebhookUrl(raw = "https://[::203.0.113.5]/hook", allowInsecureHttp = false)
+            result shouldBe WebhookUrlCheck.Rejected(WebhookUrlRejectionReason.NOT_PUBLICLY_ROUTABLE)
+        }
+
+        test("F4: 6to4 (2002::/16) is rejected as NOT_PUBLICLY_ROUTABLE") {
+            val result = checkWebhookUrl(raw = "https://[2002::1]/hook", allowInsecureHttp = false)
+            result shouldBe WebhookUrlCheck.Rejected(WebhookUrlRejectionReason.NOT_PUBLICLY_ROUTABLE)
+        }
+
+        test("F4: Teredo (2001::/32) is rejected as NOT_PUBLICLY_ROUTABLE") {
+            val result = checkWebhookUrl(raw = "https://[2001::1]/hook", allowInsecureHttp = false)
+            result shouldBe WebhookUrlCheck.Rejected(WebhookUrlRejectionReason.NOT_PUBLICLY_ROUTABLE)
+        }
+
+        test(
+            "F4: NAT64/DNS64 (64:ff9b::/96) embedding a private IPv4 target is rejected as NOT_PUBLICLY_ROUTABLE " +
+                "-- the exact IPv6-only/DNS64 bypass the audit finding described",
+        ) {
+            val result = checkWebhookUrl(raw = "https://[64:ff9b::10.0.0.5]/hook", allowInsecureHttp = false)
+            result shouldBe WebhookUrlCheck.Rejected(WebhookUrlRejectionReason.NOT_PUBLICLY_ROUTABLE)
+        }
+
         test("an unresolvable host is rejected as NOT_PUBLICLY_ROUTABLE, not as a crash") {
             val result = checkWebhookUrl(raw = "https://this-host-does-not-exist.invalid/hook", allowInsecureHttp = false)
             result shouldBe WebhookUrlCheck.Rejected(WebhookUrlRejectionReason.NOT_PUBLICLY_ROUTABLE)

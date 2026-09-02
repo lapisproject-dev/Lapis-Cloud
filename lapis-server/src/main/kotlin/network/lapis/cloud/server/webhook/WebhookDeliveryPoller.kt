@@ -156,6 +156,49 @@ internal class WebhookDeliveryPoller(
     ) {
         val delivery = WebhookDeliveryQueue.claimForDelivery(id = id, now = now) ?: return
         val endpoint = WebhookEndpointStore.getById(delivery.endpointId) ?: return
+
+        // Security-Audit-Fund F3 (Runde 1, 2026-09-02, MINOR) -- an endpoint deactivated WHILE one
+        // of its rows was DELIVERING (a race with WebhookService.removeWebhookUrl/setWebhookUrl's
+        // own deactivation paths, or the poller's own abandonAndDeactivate for a DIFFERENT row of
+        // the same endpoint in an earlier tick) must not run this claimed row through the retry
+        // ladder at all -- abandonAllPendingForEndpoint only ever touches PENDING rows at the
+        // moment of deactivation, so a row that was DELIVERING at that exact instant is missed by
+        // it and would otherwise re-enter PENDING on its next Fehlversuch and retry for up to
+        // ~4h (the full backoff ladder) against an endpoint everyone already believes is off.
+        if (!endpoint.active) {
+            WebhookDeliveryQueue.markAbandoned(
+                id = delivery.id,
+                httpStatus = null,
+                errorCode = WebhookFailureReason.ENDPOINT_DEACTIVATED.name,
+            )
+            return
+        }
+
+        // Security-Audit-Fund F2 (Runde 1, 2026-09-02, MAJOR), part 3 -- defense in depth: claiming
+        // a row whose attemptCount is ALREADY beyond MAX_ATTEMPTS should never happen (handleFailure
+        // abandons+deactivates at exactly MAX_ATTEMPTS, see below), but if some future bug or a
+        // still-uncaught exception class ever lets a row slip past that guard and back to PENDING
+        // one attempt too many times, this stops it from sending yet another live HTTP request
+        // instead of silently retrying forever. Routed through the SAME abandonAndDeactivate path
+        // handleFailure's own MAX_ATTEMPTS branch uses -- idempotent if the endpoint is already
+        // inactive (WebhookEndpointDeactivation.deactivate no-ops and abandonAndDeactivate skips the
+        // notification mail in that case).
+        if (delivery.attemptCount > MAX_ATTEMPTS) {
+            logger.warn {
+                "WebhookDeliveryPoller: delivery ${delivery.id} claimed with attemptCount=${delivery.attemptCount} " +
+                    "> MAX_ATTEMPTS=$MAX_ATTEMPTS -- abandoning without another send attempt"
+            }
+            abandonAndDeactivate(
+                endpoint = endpoint,
+                delivery = delivery,
+                httpStatus = null,
+                errorCode = WebhookFailureReason.RETRIES_EXHAUSTED.name,
+                reason = WebhookDeactivationReason.DELIVERY_FAILURES,
+                now = now,
+            )
+            return
+        }
+
         val outcome = sender.sendOnce(endpoint = endpoint, delivery = delivery, attempt = delivery.attemptCount)
         when (outcome) {
             is WebhookSendOutcome.Responded ->

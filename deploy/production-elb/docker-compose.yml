@@ -127,6 +127,17 @@ services:
       LAPIS_PSP_WEBHOOK_TOLERANCE_SECONDS: ${LAPIS_PSP_WEBHOOK_TOLERANCE_SECONDS:-}
       LAPIS_PSP_MAX_CHECKOUT_AMOUNT_EUR: ${LAPIS_PSP_MAX_CHECKOUT_AMOUNT_EUR:-}
       LAPIS_PSP_CHECKOUT_TTL_MINUTES: ${LAPIS_PSP_CHECKOUT_TTL_MINUTES:-}
+      # Ausgehende Webhooks (V1.3.2) -- OPTIONAL, default aus. LAPIS_WEBHOOKS_ENABLED=true also
+      # requires LAPIS_SECRET_ENCRYPTION_KEY above (WebhookConfig.load fails fast otherwise, same
+      # key as Wave 3 Streaming). LAPIS_WEBHOOKS_ALLOW_INSECURE intentionally omitted rather than
+      # set to "false" -- see WebhookConfig KDoc "O4" (what is absent cannot be flipped on by a
+      # copy-paste mistake). Review fix (Welle V1.3.2, Runde 2): before this fix, none of these
+      # four reached the container at all -- LAPIS_WEBHOOKS_ENABLED=true in .env silently stayed
+      # unseen by WebhookConfig.load(), same class of gap as the SEPA-Poller fix (F-2) in
+      # ../production/docker-compose.yml.
+      LAPIS_WEBHOOKS_ENABLED: ${LAPIS_WEBHOOKS_ENABLED:-}
+      LAPIS_WEBHOOK_POLL_INTERVAL_SECONDS: ${LAPIS_WEBHOOK_POLL_INTERVAL_SECONDS:-}
+      LAPIS_WEBHOOK_RETENTION_DAYS: ${LAPIS_WEBHOOK_RETENTION_DAYS:-}
       # First-admin bootstrap (see AdminBootstrap KDoc) -- only ever acts on a genuinely empty
       # `member` table, so safe to leave set permanently. Needs all three or none: bootstrap mode
       # only engages once LAPIS_BOOTSTRAP_ADMIN_DISPLAY_NAME is set.

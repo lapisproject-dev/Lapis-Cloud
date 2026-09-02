@@ -46,6 +46,7 @@ fun webhookFailureReasonLabel(reason: WebhookFailureReason): String =
         WebhookFailureReason.CONNECTION_REFUSED -> tr("Verbindung abgelehnt")
         WebhookFailureReason.DNS_OR_TLS -> tr("DNS- oder TLS-Fehler")
         WebhookFailureReason.HTTP_ERROR -> tr("HTTP-Fehler")
+        WebhookFailureReason.PROTOCOL_ERROR -> tr("Protokollfehler")
         WebhookFailureReason.URL_REJECTED -> tr("Adresse abgelehnt")
         WebhookFailureReason.ENDPOINT_DEACTIVATED -> tr("Endpunkt deaktiviert")
         WebhookFailureReason.RETRIES_EXHAUSTED -> tr("Wiederholungen erschöpft")

@@ -9307,6 +9307,9 @@ msgstr "Ошибка DNS или TLS"
 msgid "HTTP-Fehler"
 msgstr "Ошибка HTTP"
 
+msgid "Protokollfehler"
+msgstr "Ошибка протокола"
+
 msgid "Adresse abgelehnt"
 msgstr "Адрес отклонён"
 
@@ -9339,3 +9342,31 @@ msgstr "Адрес слишком длинный (максимум 2048 симв
 
 msgid "Webhook-Endpunkt"
 msgstr "Конечная точка веб-хука"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/WebhookGuard.kt:73
+msgid "Webhook-Daten konnten nicht geladen werden."
+msgstr "Не удалось загрузить данные вебхука."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/WebhookGuard.kt:80
+msgid "Zustellungsprotokoll konnte nicht geladen werden -- vermutlich wurden zu viele Anfragen in kurzer Zeit gestellt."
+msgstr "Не удалось загрузить журнал доставки -- вероятно, за короткое время было отправлено слишком много запросов."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/WebhookGuard.kt:89
+msgid "Die Webhook-Adresse konnte nicht gespeichert werden -- mögliche Gründe: Webhooks sind auf diesem Server deaktiviert, der zugehörige API-Schlüssel wurde widerrufen, es wurden zu viele Anfragen in kurzer Zeit gestellt, oder der Webhook wurde zwischenzeitlich von anderer Stelle entfernt."
+msgstr "Не удалось сохранить адрес вебхука -- возможные причины: вебхуки отключены на этом сервере, связанный API-ключ был отозван, за короткое время было отправлено слишком много запросов, либо вебхук был тем временем удалён из другого места."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/WebhookGuard.kt:98
+msgid "Das Signaturgeheimnis konnte nicht neu erzeugt werden -- mögliche Gründe: Webhooks sind auf diesem Server deaktiviert oder nicht konfiguriert, oder es wurden zu viele Anfragen in kurzer Zeit gestellt."
+msgstr "Не удалось заново создать секрет подписи -- возможные причины: вебхуки отключены или не настроены на этом сервере, либо за короткое время было отправлено слишком много запросов."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/WebhookGuard.kt:106
+msgid "Der Webhook konnte nicht wieder aktiviert werden -- mögliche Gründe: Webhooks sind auf diesem Server deaktiviert, der zugehörige API-Schlüssel wurde widerrufen, oder es wurden zu viele Anfragen in kurzer Zeit gestellt."
+msgstr "Не удалось повторно активировать вебхук -- возможные причины: вебхуки отключены на этом сервере, связанный API-ключ был отозван, либо за короткое время было отправлено слишком много запросов."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/WebhookGuard.kt:115
+msgid "Das Test-Event konnte nicht gesendet werden -- mögliche Gründe: Webhooks sind auf diesem Server deaktiviert oder nicht konfiguriert, der Webhook ist derzeit deaktiviert, oder es wurden zu viele Anfragen in kurzer Zeit gestellt."
+msgstr "Не удалось отправить тестовое событие -- возможные причины: вебхуки отключены или не настроены на этом сервере, вебхук в данный момент деактивирован, либо за короткое время было отправлено слишком много запросов."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/WebhookGuard.kt:125
+msgid "Der Webhook konnte nicht entfernt werden -- es wurden zu viele Anfragen in kurzer Zeit gestellt."
+msgstr "Не удалось удалить вебхук -- за короткое время было отправлено слишком много запросов."

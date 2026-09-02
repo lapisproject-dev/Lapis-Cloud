@@ -533,6 +533,52 @@ multi-tenancy, distributed rate limiting, OpenAPI/Swagger, ETag/caching, CORS, f
 selection/sorting/full-text search/cursor pagination, bulk endpoints, automatic key rotation/expiry
 mail/cleanup.
 
+== Outbound Webhooks (V1.3.2)
+
+Ten fixed events (`committee.created`/`.updated`, `meeting.created`/`.held`, `resolution.adopted`,
+`motion.scheduled`, `member.created`, `contribution.paid`, `donation.received`, `webhook.test`) fan
+out as signed HTTPS POSTs, one webhook endpoint per existing `Authorization: Bearer lapis_<key>` API
+key from the Public REST API above — there is no separate webhook-only credential namespace.
+Board/Admin members configure the endpoint URL, rotate the signing secret, send a synchronous test
+event, and inspect a 30-day delivery log, all under *Verwaltung → API-Schlüssel*. Full header
+grammar, event catalog, retry schedule and known limitations: `docs/api/public-api-v1.adoc`,
+section "Webhooks (outbound)".
+
+=== Environment variables — OPTIONAL, off by default
+
+`WebhookConfig.load()` is the only place these are read. `LAPIS_WEBHOOKS_ENABLED=true` gates
+delivery entirely: the outbox publisher, the retry poller, and every webhook-management write RPC
+(`setWebhookUrl`/`rotateWebhookSecret`/`reactivateWebhookEndpoint`/`sendWebhookTestEvent`) refuse to
+run while it is unset — reading and removing an existing endpoint stay available regardless, so
+cleanup never depends on the flag. Enabling it additionally REQUIRES
+`LAPIS_SECRET_ENCRYPTION_KEY` above (the same AES-256-GCM key Wave 3 Streaming's destination
+secrets use) — missing, malformed, or wrong-length fails the server's startup with an explicit
+error naming the variable, never its value.
+
+[cols="1,3", options="header"]
+|===
+|Variable |Purpose
+
+|`LAPIS_WEBHOOKS_ENABLED`
+|`true` to turn the whole subsystem on. Anything else (including unset) leaves it off — no failure, no partial state.
+
+|`LAPIS_WEBHOOKS_ALLOW_INSECURE`
+|Development only — accepts plain `http://` endpoint URLs when set to `true`. Deliberately absent from both `docker-compose.yml` files rather than pinned to `"false"`, so a stray copy-paste in `.env` cannot flip it on by accident. A WARN is logged at startup whenever it is set at all.
+
+|`LAPIS_WEBHOOK_POLL_INTERVAL_SECONDS`
+|Retry-queue poll cadence. Default 10, floored at 1 (a `0` or negative value would spin the poll loop with no pause).
+
+|`LAPIS_WEBHOOK_RETENTION_DAYS`
+|How long a `DELIVERED`/`FAILED`/`ABANDONED` delivery-log row survives. Default 30, floored at 1 (a `0` value would empty the log on the very next poller tick).
+|===
+
+=== What doesn't work yet (this wave)
+
+Deliberately out of scope, see `CHANGELOG.md`: an "entity removed" event (reconciliation needs a
+periodic re-fetch of the relevant `/api/v1` list), multi-instance-safe deactivation
+notification/retention cleanup (the poller assumes exactly one running server instance), and a
+grace-period dual-secret transition during signing-secret rotation.
+
 == Documentation Convention
 
 Consistent across all Lapis and kUML projects (see `CLAUDE.md`):

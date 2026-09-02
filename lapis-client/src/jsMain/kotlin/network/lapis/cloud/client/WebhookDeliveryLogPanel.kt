@@ -52,7 +52,10 @@ private fun loadWebhookDeliveryLog(
     body.removeAll()
     body.div(tr("Wird geladen …")) { addCssClasses("text-muted small") }
     AppScope.launch {
-        val page = webhookGuarded { rpcService<IWebhookService>().listWebhookDeliveries(apiKeyId = apiKeyId, limit = 25, offset = 0) }
+        val page =
+            webhookGuarded(conflictMessage = tr(WEBHOOK_DELIVERIES_CONFLICT_MESSAGE)) {
+                rpcService<IWebhookService>().listWebhookDeliveries(apiKeyId = apiKeyId, limit = 25, offset = 0)
+            }
         body.removeAll()
         if (page == null) return@launch
         renderWebhookDeliveryTable(body, page.items)

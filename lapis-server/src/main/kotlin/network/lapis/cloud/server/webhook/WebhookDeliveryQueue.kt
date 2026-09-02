@@ -6,6 +6,7 @@ import network.lapis.cloud.server.db.DbClock
 import network.lapis.cloud.server.db.generated.WebhookDeliveryTable
 import network.lapis.cloud.shared.domain.WebhookDeliveryStatus
 import network.lapis.cloud.shared.domain.WebhookEventType
+import network.lapis.cloud.shared.domain.WebhookFailureReason
 import org.jetbrains.exposed.v1.core.ResultRow
 import org.jetbrains.exposed.v1.core.SortOrder
 import org.jetbrains.exposed.v1.core.and
@@ -13,6 +14,7 @@ import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.core.inList
 import org.jetbrains.exposed.v1.core.less
 import org.jetbrains.exposed.v1.core.lessEq
+import org.jetbrains.exposed.v1.core.neq
 import org.jetbrains.exposed.v1.core.or
 import org.jetbrains.exposed.v1.jdbc.deleteWhere
 import org.jetbrains.exposed.v1.jdbc.insert
@@ -58,7 +60,14 @@ internal object WebhookDeliveryQueue {
      * (the signed body and the row it lives in must agree on this id from the very first write).
      * `status` starts `PENDING` with `nextAttemptAt = now` (immediate first pickup) UNLESS
      * [initialStatus] overrides this (used by the synchronous test-event path -- see
-     * `WebhookService.sendWebhookTestEvent`, S22 in the plan's Stolperfallen list).
+     * `WebhookService.sendWebhookTestEvent`, S22 in the plan's Stolperfallen list). When
+     * [initialStatus] is `DELIVERING`, [lastAttemptAt] is ALSO seeded to [now] (review fix) -- a
+     * `null` [lastAttemptAt] on a `DELIVERING` row is invisible to [reapStaleClaims] (`less
+     * staleCutoff` never matches SQL `NULL`), so a server restart between this insert and the
+     * synchronous send's own `markTestDelivered`/`markTestFailed` call would otherwise strand the
+     * row `DELIVERING` forever -- never reaped, never completed, and (being non-terminal)
+     * permanently exempt from [deleteExpired] too, so it would keep shadowing every later delivery
+     * as the endpoint's "most recent" one via [latestByEndpoint]'s `createdAt DESC` ordering.
      */
     fun insert(
         endpointId: Uuid,
@@ -82,7 +91,7 @@ internal object WebhookDeliveryQueue {
             it[status] = initialStatus.name
             it[attemptCount] = if (initialStatus == WebhookDeliveryStatus.DELIVERING) 1 else 0
             it[nextAttemptAt] = if (initialStatus == WebhookDeliveryStatus.PENDING) now else null
-            it[lastAttemptAt] = null
+            it[lastAttemptAt] = if (initialStatus == WebhookDeliveryStatus.DELIVERING) now else null
             it[lastHttpStatus] = null
             it[lastError] = null
             it[createdAt] = now
@@ -143,19 +152,51 @@ internal object WebhookDeliveryQueue {
                 .map { it[WebhookDeliveryTable.id] }
         }
 
-    /** Phase A0 -- resets any row stuck `DELIVERING` past [staleCutoff] back to `PENDING` (a crash mid-attempt, see [WebhookDeliveryPoller] KDoc). Returns how many rows were reset. */
+    /**
+     * Phase A0 -- reclaims any row stuck `DELIVERING` past [staleCutoff] (a crash mid-attempt, see
+     * [WebhookDeliveryPoller] KDoc). Returns the TOTAL number of rows reclaimed, across both of the
+     * two disjoint outcomes below (the caller only logs the sum, see `WebhookDeliveryPoller
+     * .reapStaleClaims`'s own log line) -- ordinary rows and `WEBHOOK_TEST` rows are deliberately
+     * NOT reclaimed the same way:
+     *
+     * - An ordinary row is reset back to `PENDING`, due immediately, so Phase A's own candidate scan
+     *   can pick it back up in the SAME tick.
+     * - A [WebhookEventType.WEBHOOK_TEST] row is instead force-completed TERMINALLY as `FAILED`
+     *   (review fix, regression from the [insert] KDoc's own "review fix" that first made a
+     *   `DELIVERING` test row visible to this reaper at all by seeding [DeliveryRow.lastAttemptAt]
+     *   on it). `WebhookService.sendWebhookTestEvent`/D2/S22 promise a test is "synchronous, exactly
+     *   one attempt ... NEVER enters the retry queue and NEVER deactivates the endpoint on failure".
+     *   Resetting a stale test row to `PENDING` like any other row breaks that promise the moment a
+     *   server restart/crash lands between the synchronous `insert(initialStatus = DELIVERING)` and
+     *   its own `markTestDelivered`/`markTestFailed` call: the very next poller tick would pick the
+     *   row up as an ordinary delivery, run it through the full 6-attempt retry/backoff ladder, and
+     *   ultimately auto-deactivate the endpoint over a diagnostic test that was never meant to retry.
+     */
     fun reapStaleClaims(
         staleCutoff: LocalDateTime,
         now: LocalDateTime,
     ): Int =
         transaction {
-            WebhookDeliveryTable.update({
-                (WebhookDeliveryTable.status eq WebhookDeliveryStatus.DELIVERING.name) and
-                    (WebhookDeliveryTable.lastAttemptAt less staleCutoff)
-            }) {
-                it[status] = WebhookDeliveryStatus.PENDING.name
-                it[nextAttemptAt] = now
-            }
+            val reapedTest =
+                WebhookDeliveryTable.update({
+                    (WebhookDeliveryTable.status eq WebhookDeliveryStatus.DELIVERING.name) and
+                        (WebhookDeliveryTable.lastAttemptAt less staleCutoff) and
+                        (WebhookDeliveryTable.eventType eq WebhookEventType.WEBHOOK_TEST.name)
+                }) {
+                    it[status] = WebhookDeliveryStatus.FAILED.name
+                    it[lastError] = WebhookFailureReason.TIMEOUT.name
+                    it[nextAttemptAt] = null
+                }
+            val reapedOrdinary =
+                WebhookDeliveryTable.update({
+                    (WebhookDeliveryTable.status eq WebhookDeliveryStatus.DELIVERING.name) and
+                        (WebhookDeliveryTable.lastAttemptAt less staleCutoff) and
+                        (WebhookDeliveryTable.eventType neq WebhookEventType.WEBHOOK_TEST.name)
+                }) {
+                    it[status] = WebhookDeliveryStatus.PENDING.name
+                    it[nextAttemptAt] = now
+                }
+            reapedTest + reapedOrdinary
         }
 
     fun markDelivered(
@@ -239,6 +280,19 @@ internal object WebhookDeliveryQueue {
             it[nextAttemptAt] = null
         }
     }
+
+    /**
+     * ALL delivery rows of [endpointId], regardless of status -- unlike [deleteExpired] (which only
+     * ever touches terminal rows within the retention window), this is the unconditional cleanup an
+     * endpoint REMOVAL needs. Must run inside the CALLER's already-open `transaction {}`, and MUST
+     * run BEFORE the caller's own `WebhookEndpointStore.remove` in that same transaction -- see
+     * `WebhookService.removeWebhookUrl` call site. Without this, `webhook_delivery.endpoint_id`
+     * (`V15__webhooks.sql`, a plain `REFERENCES webhook_endpoint(id)` with NO `ON DELETE CASCADE`)
+     * makes the endpoint's row un-deletable via a raw FK violation the instant it has EVER produced
+     * a single delivery -- including its own `webhook.test` row from "Test-Event senden" (review
+     * finding, empirically reproduced against H2). Returns how many rows were deleted.
+     */
+    fun deleteByEndpoint(endpointId: Uuid): Int = WebhookDeliveryTable.deleteWhere { WebhookDeliveryTable.endpointId eq endpointId }
 
     /** Retention sweep -- deletes terminal rows ([WebhookDeliveryStatus.DELIVERED]/[WebhookDeliveryStatus.ABANDONED]/[WebhookDeliveryStatus.FAILED]) older than [olderThan], capped at [limit]. `PENDING`/`DELIVERING` are NEVER touched. Returns how many were deleted. */
     fun deleteExpired(

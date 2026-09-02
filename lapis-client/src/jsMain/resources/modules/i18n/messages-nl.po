@@ -9325,6 +9325,9 @@ msgstr "DNS- of TLS-fout"
 msgid "HTTP-Fehler"
 msgstr "HTTP-fout"
 
+msgid "Protokollfehler"
+msgstr "Protocolfout"
+
 msgid "Adresse abgelehnt"
 msgstr "Adres geweigerd"
 
@@ -9357,3 +9360,31 @@ msgstr "Het adres is te lang (maximaal 2048 tekens)."
 
 msgid "Webhook-Endpunkt"
 msgstr "Webhook-endpoint"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/WebhookGuard.kt:73
+msgid "Webhook-Daten konnten nicht geladen werden."
+msgstr "Webhookgegevens konden niet worden geladen."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/WebhookGuard.kt:80
+msgid "Zustellungsprotokoll konnte nicht geladen werden -- vermutlich wurden zu viele Anfragen in kurzer Zeit gestellt."
+msgstr "Bezorglogboek kon niet worden geladen -- waarschijnlijk zijn er te veel verzoeken in korte tijd gedaan."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/WebhookGuard.kt:89
+msgid "Die Webhook-Adresse konnte nicht gespeichert werden -- mögliche Gründe: Webhooks sind auf diesem Server deaktiviert, der zugehörige API-Schlüssel wurde widerrufen, es wurden zu viele Anfragen in kurzer Zeit gestellt, oder der Webhook wurde zwischenzeitlich von anderer Stelle entfernt."
+msgstr "Het webhookadres kon niet worden opgeslagen -- mogelijke oorzaken: webhooks zijn uitgeschakeld op deze server, de bijbehorende API-sleutel is ingetrokken, er zijn te veel verzoeken in korte tijd gedaan, of de webhook is intussen door iemand anders verwijderd."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/WebhookGuard.kt:98
+msgid "Das Signaturgeheimnis konnte nicht neu erzeugt werden -- mögliche Gründe: Webhooks sind auf diesem Server deaktiviert oder nicht konfiguriert, oder es wurden zu viele Anfragen in kurzer Zeit gestellt."
+msgstr "Het ondertekeningsgeheim kon niet opnieuw worden gegenereerd -- mogelijke oorzaken: webhooks zijn uitgeschakeld of niet geconfigureerd op deze server, of er zijn te veel verzoeken in korte tijd gedaan."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/WebhookGuard.kt:106
+msgid "Der Webhook konnte nicht wieder aktiviert werden -- mögliche Gründe: Webhooks sind auf diesem Server deaktiviert, der zugehörige API-Schlüssel wurde widerrufen, oder es wurden zu viele Anfragen in kurzer Zeit gestellt."
+msgstr "De webhook kon niet opnieuw worden geactiveerd -- mogelijke oorzaken: webhooks zijn uitgeschakeld op deze server, de bijbehorende API-sleutel is ingetrokken, of er zijn te veel verzoeken in korte tijd gedaan."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/WebhookGuard.kt:115
+msgid "Das Test-Event konnte nicht gesendet werden -- mögliche Gründe: Webhooks sind auf diesem Server deaktiviert oder nicht konfiguriert, der Webhook ist derzeit deaktiviert, oder es wurden zu viele Anfragen in kurzer Zeit gestellt."
+msgstr "Het testevenement kon niet worden verzonden -- mogelijke oorzaken: webhooks zijn uitgeschakeld of niet geconfigureerd op deze server, de webhook is momenteel gedeactiveerd, of er zijn te veel verzoeken in korte tijd gedaan."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/WebhookGuard.kt:125
+msgid "Der Webhook konnte nicht entfernt werden -- es wurden zu viele Anfragen in kurzer Zeit gestellt."
+msgstr "De webhook kon niet worden verwijderd -- er zijn te veel verzoeken in korte tijd gedaan."

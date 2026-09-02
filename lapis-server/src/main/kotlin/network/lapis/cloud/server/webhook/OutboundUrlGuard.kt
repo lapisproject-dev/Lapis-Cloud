@@ -5,6 +5,7 @@ import io.ktor.http.Url
 import network.lapis.cloud.server.federation.SafeFederationTarget
 import network.lapis.cloud.server.federation.isIpv6UniqueLocalAddress
 import java.net.Inet4Address
+import java.net.Inet6Address
 import java.net.InetAddress
 
 /** Design-Team decision D6 -- the four (and ONLY four) rejection reasons a caller ever sees. */
@@ -59,7 +60,13 @@ private const val MAX_WEBHOOK_URL_LENGTH = 2048
  * predicate), CGNAT (`100.64.0.0/10`), the two IANA "Reserved for future protocol assignments /
  * benchmarking / documentation" ranges most likely to appear in internal tooling
  * (`192.0.0.0/24`, `198.18.0.0/15`), the `240.0.0.0/4` reserved range including the
- * `255.255.255.255` broadcast address, and `0.0.0.0/8`.
+ * `255.255.255.255` broadcast address, and `0.0.0.0/8`. Security-Audit-Fund F4 (Runde 1,
+ * 2026-09-02) added four more IPv6-embeds-IPv4 transition/legacy forms, rejected wholesale by
+ * prefix rather than unwrapped-and-rechecked (see [isPubliclyRoutable]'s `Inet6Address` branch):
+ * IPv4-compatible (`::a.b.c.d`, deprecated but real), 6to4 (`2002::/16`), Teredo (`2001::/32`),
+ * and NAT64/DNS64 (`64:ff9b::/96`) -- the last of these matters most on an IPv6-only deployment
+ * with DNS64, where a hostname could otherwise carry a private IPv4 target past every
+ * `Inet4Address`-specific predicate entirely.
  *
  * Called from `network.lapis.cloud.server.rpc.WebhookService.setWebhookUrl` (before EVERY save,
  * Design-Team decision D6) AND from [WebhookDeliverySender.sendOnce] (before EVERY delivery
@@ -102,6 +109,36 @@ private fun isPubliclyRoutable(addrIn: InetAddress): Boolean {
         isIpv6UniqueLocalAddress(addr)
     ) {
         return false
+    }
+    if (addr is Inet6Address) {
+        // Security-Audit-Fund F4 (Runde 1, 2026-09-02, MINOR) -- four IPv6-embeds-IPv4 forms this
+        // guard did not previously recognize. On an IPv6-only deployment with DNS64, a hostname
+        // resolving to one of these can carry a private IPv4 target straight past every
+        // Inet4Address-specific predicate below (that branch never runs for an Inet6Address at
+        // all). Rejected wholesale by prefix -- same "byte-compare the fixed prefix, no unwrap"
+        // style [isIpv6UniqueLocalAddress] already uses -- regardless of whether the embedded IPv4
+        // address would itself have been public: an admin-supplied webhook URL has no legitimate
+        // reason to use any of these legacy/transition forms.
+        val bytes = addr.address
+        // IPv4-compatible (RFC 4291 §2.5.5.1, deprecated but still real): ::a.b.c.d -- first 96
+        // bits zero. `::`/any-local is already excluded above, so this cannot double-reject it;
+        // `::ffff:a.b.c.d` (IPv4-mapped) is unwrapped to an Inet4Address before this function's
+        // Inet6Address branch is ever reached (see [unwrapIpv4MappedOrSelf]), so it never appears
+        // here either -- this branch only ever matches the genuine IPv4-compatible form.
+        if ((0..11).all { bytes[it] == 0.toByte() }) return false
+        // 6to4 (RFC 3056): 2002::/16
+        if (bytes[0] == 0x20.toByte() && bytes[1] == 0x02.toByte()) return false
+        // Teredo (RFC 4380): 2001::/32
+        if (bytes[0] == 0x20.toByte() && bytes[1] == 0x01.toByte() && bytes[2] == 0x00.toByte() && bytes[3] == 0x00.toByte()) return false
+        // NAT64/DNS64 (RFC 6052 "Well-Known Prefix"): 64:ff9b::/96
+        if (bytes[0] == 0x00.toByte() &&
+            bytes[1] == 0x64.toByte() &&
+            bytes[2] == 0xFF.toByte() &&
+            bytes[3] == 0x9B.toByte() &&
+            (4..11).all { bytes[it] == 0.toByte() }
+        ) {
+            return false
+        }
     }
     if (addr is Inet4Address) {
         val octets = addr.address.map { it.toInt() and 0xFF }

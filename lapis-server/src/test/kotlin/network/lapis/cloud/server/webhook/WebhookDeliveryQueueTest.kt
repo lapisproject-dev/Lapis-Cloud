@@ -110,6 +110,41 @@ class WebhookDeliveryQueueTest :
             (WebhookDeliveryQueue.dueForDelivery(now = n, limit = 100).contains(id)) shouldBe false
         }
 
+        test(
+            "insert() with initialStatus = DELIVERING seeds lastAttemptAt = now (review fix) -- a row stranded " +
+                "DELIVERING by a crash mid-test-event is reapable, not stuck forever, and is force-completed " +
+                "TERMINALLY (FAILED) rather than re-entering the retry queue (D2/S22 -- a test never retries)",
+        ) {
+            val endpointId = freshEndpointId(secretBox)
+            val n = now()
+            val id =
+                insertDelivery(
+                    endpointId = endpointId,
+                    eventType = WebhookEventType.WEBHOOK_TEST,
+                    entityId = endpointId,
+                    occurredAt = n,
+                    now = n,
+                    initialStatus = WebhookDeliveryStatus.DELIVERING,
+                )
+            val row = requireNotNull(WebhookDeliveryQueue.getById(id))
+            row.lastAttemptAt shouldBe n
+
+            // Simulate the server crashing before markTestDelivered/markTestFailed ever ran -- 10
+            // minutes later, the stale-claim reaper must be able to find this row and terminate it,
+            // WITHOUT handing it back to the ordinary delivery/retry path (see the
+            // "reapStaleClaims() resets a DELIVERING row" test below for the non-test counterpart).
+            val staleCutoff = n.toInstantUtc().plus(4.minutes).toLocalDateTimeUtc()
+            val laterNow = n.toInstantUtc().plus(10.minutes).toLocalDateTimeUtc()
+            val reaped = WebhookDeliveryQueue.reapStaleClaims(staleCutoff = staleCutoff, now = laterNow)
+            (reaped >= 1) shouldBe true
+            val reapedRow = requireNotNull(WebhookDeliveryQueue.getById(id))
+            reapedRow.status shouldBe WebhookDeliveryStatus.FAILED
+            reapedRow.nextAttemptAt.shouldBeNull()
+            // Never falls back into the poller's ordinary due-for-delivery scan -- confirms this is a
+            // genuine terminal state, not a disguised retry.
+            (WebhookDeliveryQueue.dueForDelivery(now = laterNow, limit = 100).contains(id)) shouldBe false
+        }
+
         test("claimForDelivery() is atomic -- a second claim of an already-claimed row returns null") {
             val endpointId = freshEndpointId(secretBox)
             val n = now()
