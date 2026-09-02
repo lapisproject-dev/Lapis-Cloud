@@ -390,6 +390,22 @@ Deliberately out of scope, see `CHANGELOG.md` for the full list: PayPal, refunds
 capturing the PSP's own transaction fee (the full gross amount posts to the bank/income accounts),
 recurring/subscription billing, currencies other than EUR, and anonymous (non-member) donations.
 
+== Public REST API (V1.3.1)
+
+A read-only REST API under `/api/v1` — `/members`, `/committees`, `/meetings`, `/meetings/{id}`,
+`/resolutions`, `/motions` — for external, machine-to-machine consumption, independent of the
+Kilua-RPC layer `lapis-client` uses. Authenticated via `Authorization: Bearer lapis_<key>`, a
+credential namespace kept structurally separate from session cookies/tokens. Board/Admin members
+issue and manage keys under *Verwaltung → API-Schlüssel*. Full endpoint/field/rate-limit reference:
+`docs/api/public-api-v1.adoc`.
+
+=== What doesn't work yet (this wave)
+
+Deliberately out of scope, see `CHANGELOG.md`: any write endpoint, webhooks, OAuth2/OIDC/scopes,
+multi-tenancy, distributed rate limiting, OpenAPI/Swagger, ETag/caching, CORS, field
+selection/sorting/full-text search/cursor pagination, bulk endpoints, automatic key rotation/expiry
+mail/cleanup.
+
 == Documentation Convention
 
 Consistent across all Lapis and kUML projects (see `CLAUDE.md`):

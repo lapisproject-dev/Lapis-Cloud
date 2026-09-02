@@ -389,6 +389,10 @@ private fun refreshNavbar(navbar: Navbar) {
             )
             // Welle V1.1.5 -- siehe `Routes.SOCIAL_MODERATION` KDoc für die Rollen-Verifikation.
             routedDdLink(Routes.SOCIAL_MODERATION, tr("Moderation"), icon = "fas fa-flag")
+            // Welle V1.3.1 "API-Fundament, lesend" -- siehe `Routes.API_KEYS` KDoc für die
+            // Rollen-Verifikation. Kein eigener Hauptmenüpunkt (Design-Team-Entscheidung #10) --
+            // Einstieg über dieses bereits vorhandene BOARD/ADMIN-Dropdown.
+            routedDdLink(Routes.API_KEYS, tr("API-Schlüssel"), icon = "fas fa-key")
         }
     }
     // ADMIN-only-tier -- see `Routes.BACKUP`/`CONFERENCE_STREAM_DESTINATIONS` KDoc.

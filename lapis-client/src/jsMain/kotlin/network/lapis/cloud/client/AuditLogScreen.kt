@@ -383,6 +383,12 @@ fun decodeAuditSnapshot(
             // Welle V1.2.8 "PSP-Checkout (Stripe)" (GitHub Issue #6) -- PspWebhookIngestion writes
             // PaymentTransactionSnapshot (see AuditLog.kt).
             AuditEntityType.PAYMENT_TRANSACTION -> lenientSnapshotJson.decodeFromString<PaymentTransactionSnapshot>(raw)
+            // Welle V1.3.1 "API-Fundament, lesend" -- ApiKeyService writes ApiKeySnapshot (see
+            // AuditLog.kt), but this client-side decode/render pair is deliberately not extended
+            // for it this wave (backend+admin-screen wave, same posture MEMBER/DUNNING_NOTICE
+            // already establish for their own audit entries) -- falls through to the raw-text
+            // display, which already shows label/keyPrefix/timestamps safely (never a hash).
+            AuditEntityType.API_KEY -> null
         }
     }.getOrNull()
 

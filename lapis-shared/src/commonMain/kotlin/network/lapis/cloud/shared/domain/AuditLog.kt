@@ -104,6 +104,15 @@ enum class AuditEntityType {
     DUNNING_NOTICE,
     MEMBER,
     PAYMENT_TRANSACTION,
+
+    /**
+     * Welle V1.3.1 "API-Fundament, lesend" -- [network.lapis.cloud.server.rpc.ApiKeyService]'s
+     * `issueApiKey`/`revokeApiKey`/`reissueApiKey` each write exactly one `API_KEY` entry per
+     * lifecycle event (`CREATE` for issue, `UPDATE` for revoke; `reissueApiKey` writes both: an
+     * `UPDATE` for the revoked old key followed by a `CREATE` for the freshly issued one). See
+     * [ApiKeySnapshot] KDoc for why it never carries the token hash. Appended LAST, additive only.
+     */
+    API_KEY,
 }
 
 /**
@@ -499,4 +508,24 @@ data class PaymentTransactionSnapshot(
     val journalEntryId: String?,
     /** SHA-256 hex digest of the raw webhook body -- proof without retention; the raw body itself is never persisted. */
     val providerBodyDigest: String,
+)
+
+/**
+ * Structured payload for an [AuditEntityType.API_KEY] audit entry (Welle V1.3.1 "API-Fundament,
+ * lesend"). **Never carries [network.lapis.cloud.server.security.ApiKeyStore]'s `tokenHash` or the
+ * raw key** -- same PII-/secret-minimization discipline [SepaMandateSnapshot]/[DunningNoticeSnapshot]
+ * establish for an append-only, hash-chained table: a snapshot carrying the hash would preserve
+ * exactly the material a later key revocation is supposed to invalidate the *usefulness* of, and
+ * -- unlike a session token -- an API key's hash is a permanent secret-adjacent artifact, not
+ * something that should ever live in a retained audit trail. [keyPrefix] alone (already
+ * non-secret, display-only) is enough for an admin reading the log to tell which key an entry is
+ * about.
+ */
+@Serializable
+data class ApiKeySnapshot(
+    val label: String,
+    val keyPrefix: String,
+    val createdByMemberId: String,
+    val expiresAt: LocalDateTime?,
+    val revokedAt: LocalDateTime?,
 )

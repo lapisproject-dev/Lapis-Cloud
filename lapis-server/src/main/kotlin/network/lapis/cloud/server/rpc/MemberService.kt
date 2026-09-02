@@ -125,17 +125,9 @@ class MemberService(
     // was rejected/left).
     override suspend fun listMembers(): List<MemberSummaryDto> {
         resolveCurrentMember(call)
-        return transaction {
-            MemberTable
-                .select(MemberTable.id, MemberTable.displayName)
-                .where { MemberTable.status eq MemberStatus.ACTIVE }
-                .map {
-                    MemberSummaryDto(
-                        id = it[MemberTable.id].toString(),
-                        displayName = it[MemberTable.displayName],
-                    )
-                }
-        }
+        // V1.3.1 "API-Fundament, lesend" -- delegates to MemberReads (see that object's KDoc), which
+        // now also backs `/api/v1/members`; byte-identical behavior for this RPC call site.
+        return transaction { MemberReads.listActiveMembers() }
     }
 
     override suspend fun getCurrentMember(): MemberDto {

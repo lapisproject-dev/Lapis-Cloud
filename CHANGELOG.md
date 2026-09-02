@@ -8,6 +8,32 @@ All notable changes to this project are documented here. Format follows
 
 ### Added
 
+**Öffentliche, schreibgeschützte REST-API (Welle V1.3.1 "API-Fundament, lesend")**
+
+- **Neue REST-API unter `/api/v1`** — `GET /api/v1/members` (nur `id`+`displayName`, DSGVO-Datenminimierung,
+  dauerhaft — siehe `docs/api/public-api-v1.adoc`), `/api/v1/committees`, `/api/v1/meetings`,
+  `/api/v1/meetings/{id}`, `/api/v1/resolutions`, `/api/v1/motions` — jede Ressource paginiert
+  (`?limit=`/`?offset=`, standardmäßig 25/max. 100, nie ablehnend, immer geklemmt). `/api/v1/motions`
+  liefert ausschließlich `SCHEDULED`/`RESOLVED`/`REJECTED`/`POSTPONED` — interne Arbeitsstatus wie
+  `SUBMITTED` sind strukturell unerreichbar, nicht nur standardmäßig ausgeblendet.
+- **Authentifizierung über API-Schlüssel** (`Authorization: Bearer lapis_<schlüssel>`) — ein eigener,
+  von Sitzungs-Cookies/-Tokens vollständig getrennter Credential-Namensraum (per Code+Test erzwungen,
+  nicht nur Konvention): ein Sitzungs-Token kann nie als API-Schlüssel aufgelöst werden und
+  umgekehrt. Nur ein SHA-256-Hash wird gespeichert, der Rohschlüssel wird nur beim Ausstellen einmal
+  angezeigt.
+- **BOARD/ADMIN verwalten API-Schlüssel** unter „Verwaltung → API-Schlüssel" — Ausstellen, Widerrufen,
+  Neu-Ausstellen (widerruft den alten Schlüssel und stellt atomar einen neuen mit gleicher
+  Bezeichnung/Ablauf aus — kein Wiederherstellen des alten Rohschlüssels, der ohnehin nie erneut
+  abrufbar ist). Jede Aktion schreibt einen `API_KEY`-Eintrag ins GoBD-Prüfprotokoll, niemals mit
+  dem Schlüssel-Hash.
+- **Zwei unabhängige Rate-Limits pro Endpunkt** — IP-basiert vor der Schlüssel-Prüfung, danach pro
+  Schlüssel; `429`-Antworten tragen ein echtes `Retry-After` (keine feste Zahl). Jede Antwort trägt
+  `Cache-Control: no-store` und `Vary: Authorization`.
+- **Interne Lese-Logik entdoppelt**: `GovernanceService`/`MemberService` und die neue REST-API teilen
+  sich jetzt dieselbe `GovernanceReads`/`MemberReads`-Fassade statt zweier driftender Kopien — dabei
+  behoben: `listMeetings` löste bislang für jede Zeile bis zu drei zusätzliche Namens-Lookups auf,
+  selbst wenn die Anzeigenamen gar nicht gebraucht wurden.
+
 **Online-Zahlung von Beiträgen und Spenden über Stripe (GitHub #6, Welle V1.2.8)**
 
 - **Mitglieder können ihren Beitrag jetzt online bezahlen und Spenden online leisten** — über einen

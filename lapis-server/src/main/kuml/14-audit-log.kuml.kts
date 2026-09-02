@@ -170,6 +170,14 @@ classDiagram(name = "AuditLog") {
         literal(name = "SOCIAL_POST") // Soziales Netzwerk, Welle V1.1.5 -- rechtliche Entfernung + Melde-Entscheidung
         literal(name = "ORGANIZATION_SETTINGS") // Welle V1.2.1, Security Round 1 -- Konten-Zuordnungs-Aenderung
         literal(name = "DUNNING_NOTICE") // Welle V1.2.7 Automatisiertes Mahnwesen -- siehe DunningService/DunningPoller KDoc
+        // Welle V1.3.1 "API-Fundament, lesend" -- ApiKeyService.issueApiKey/revokeApiKey/reissueApiKey.
+        // NOTE: this model file's own literal set predates (and was never updated for) the MEMBER/
+        // PAYMENT_TRANSACTION literals that network.lapis.cloud.shared.domain.AuditEntityType/
+        // V1__baseline.sql's CHECK constraint already carry (pre-existing drift, out of scope for
+        // this wave) -- API_KEY is appended here after the model's own last literal (DUNNING_NOTICE),
+        // matching how this file's literal ORDER, not the real enum's full membership, is what
+        // AuditLogSchemaDriftTest actually pins.
+        literal(name = "API_KEY")
     }
 
     // Genesis-singleton row (see file header) -- gapless sequence_number + hash-chain

@@ -338,6 +338,13 @@ object Routes {
     // [SEPA_SETTINGS]/[DUNNING_SETTINGS]. The ledger-account mapping fields on this same screen go
     // through the existing `IOrganizationSettingsService.updateOrganizationSettings` (also ADMIN).
     const val PAYMENT_GATEWAY_SETTINGS = "/payment-gateway-settings"
+
+    // Welle V1.3.1 "API-Fundament, lesend" -- BOARD/ADMIN, verified against `ApiKeyService.kt`:
+    // `listApiKeys`/`issueApiKey`/`revokeApiKey`/`reissueApiKey` all call
+    // `current.requireRole(*API_KEY_ROLES)` where `API_KEY_ROLES = [BOARD, ADMIN]` -- same posture
+    // as [MEMBERS]/[DSGVO_COMPLIANCE]/[BOARD_MEMBERSHIP]/[SOCIAL_MODERATION], the existing
+    // "Verwaltung" dropdown's own tier. No new top-level dropdown -- lives inside that one.
+    const val API_KEYS = "/api-keys"
 }
 
 private var appRouting: Routing? = null
@@ -588,6 +595,11 @@ fun initRouting(pageContainer: SimplePanel) {
     routing.kvOn(Routes.PAYMENT_GATEWAY_SETTINGS) {
         requireRole(routing, AccountRole.ADMIN) {
             show(Routes.PAYMENT_GATEWAY_SETTINGS, ::renderPaymentGatewaySettingsScreen)
+        }
+    }
+    routing.kvOn(Routes.API_KEYS) {
+        requireRole(routing, AccountRole.BOARD, AccountRole.ADMIN) {
+            show(Routes.API_KEYS, ::renderApiKeysScreen)
         }
     }
     routing.kvOn("/") {

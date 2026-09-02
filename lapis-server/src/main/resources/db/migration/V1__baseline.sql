@@ -719,7 +719,10 @@ CREATE TABLE audit_log_entry (
     -- database, so it must carry every literal too, or an INSERT with entity_type = 'PAYMENT_TRANSACTION'
     -- fails the check even after V13 runs (H2 enforces both constraints independently). Flyway repair
     -- needed on an already-migrated instance, same as the V1.2.12 precedent above.
-    CHECK (entity_type IN ('JOURNAL_ENTRY', 'PARTY_DONATION_VERDICT', 'RESOLUTION', 'BOARD_MEMBERSHIP', 'CONFERENCE_RECORDING', 'CONFERENCE_STREAM', 'CONFERENCE_STREAM_DESTINATION', 'CONFERENCE_ROOM', 'SOCIAL_POST', 'ORGANIZATION_SETTINGS', 'SEPA_MANDATE', 'SEPA_DEBIT_BATCH', 'DUNNING_NOTICE', 'MEMBER', 'PAYMENT_TRANSACTION')),
+    -- V1.3.1 "API-Fundament, lesend": 'API_KEY' appended in place, same reasoning -- see
+    -- V14__public_api.sql's own DROP/ADD dance on the NAMED constraint. Flyway repair needed on an
+    -- already-migrated instance, same as the precedents above.
+    CHECK (entity_type IN ('JOURNAL_ENTRY', 'PARTY_DONATION_VERDICT', 'RESOLUTION', 'BOARD_MEMBERSHIP', 'CONFERENCE_RECORDING', 'CONFERENCE_STREAM', 'CONFERENCE_STREAM_DESTINATION', 'CONFERENCE_ROOM', 'SOCIAL_POST', 'ORGANIZATION_SETTINGS', 'SEPA_MANDATE', 'SEPA_DEBIT_BATCH', 'DUNNING_NOTICE', 'MEMBER', 'PAYMENT_TRANSACTION', 'API_KEY')),
     CHECK (action IN ('CREATE', 'UPDATE', 'POST'))
 );
 

@@ -85,12 +85,32 @@ fun resolveCurrentMember(call: ApplicationCall): CurrentMember {
     throw UnauthenticatedException()
 }
 
-/** Exposed (not `private`) so [network.lapis.cloud.server.rpc.AuthService.changePassword] can pass the caller's OWN current raw token as the `exceptRawToken` to [SessionStore.revokeAllForMember] -- see that function's call site. */
+/**
+ * Exposed (not `private`) so [network.lapis.cloud.server.rpc.AuthService.changePassword] can pass
+ * the caller's OWN current raw token as the `exceptRawToken` to [SessionStore.revokeAllForMember]
+ * -- see that function's call site.
+ *
+ * **V1.3.1 "API-Fundament, lesend" -- two changes, both now zwingend (Design-Team decision #3, the
+ * "harte Trennung" package):**
+ * 1. `startsWith("Bearer ", ignoreCase = true)` replaces the former `removePrefix("Bearer ")` --
+ *    the old code was a silent no-op for a header that did NOT start with `"Bearer "` (it just
+ *    returned the whole header value unchanged as the "token"), which never rejected a
+ *    malformed/wrong-schema `Authorization` header. `substring(7)`, not `removePrefix`, so a
+ *    case-insensitively-matched `"BEARER "`/`"bearer "` still has its literal 7-character prefix
+ *    cut, never the case-sensitive literal `"Bearer "` again (see S15 in the implementation plan).
+ * 2. A token that starts with [ApiKeyStore.API_KEY_TOKEN_PREFIX] is rejected here (`null`) --
+ *    an API key must NEVER resolve as a session token, regardless of whether it happens to hash to
+ *    a real (or no) [SessionTable] row. See [ApiKeyAuth.extractApiKeyToken] for the mirror-image
+ *    guarantee in the other direction, and that file's KDoc for the "four guarantees" this pair of
+ *    functions jointly establishes.
+ */
 internal fun extractSessionToken(call: ApplicationCall): String? {
     val cookieToken = call.request.cookies[SESSION_COOKIE_NAME]
     if (!cookieToken.isNullOrBlank()) return cookieToken
     val authHeader = call.request.headers["Authorization"] ?: return null
-    val bearerToken = authHeader.removePrefix("Bearer ").trim()
+    if (!authHeader.startsWith("Bearer ", ignoreCase = true)) return null
+    val bearerToken = authHeader.substring(7).trim()
+    if (bearerToken.startsWith(ApiKeyStore.API_KEY_TOKEN_PREFIX)) return null
     return bearerToken.ifBlank { null }
 }
 

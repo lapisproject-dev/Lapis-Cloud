@@ -138,6 +138,7 @@ class AuditLogSchemaDriftTest :
                             "SOCIAL_POST",
                             "ORGANIZATION_SETTINGS",
                             "DUNNING_NOTICE",
+                            "API_KEY",
                         ),
                     externalFqName = "network.lapis.cloud.shared.domain.AuditEntityType",
                 )

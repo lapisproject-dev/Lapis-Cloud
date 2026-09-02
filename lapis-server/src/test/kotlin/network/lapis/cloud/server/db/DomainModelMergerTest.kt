@@ -35,16 +35,16 @@ class DomainModelMergerTest :
         // ── Test 1: merging the real 22 domain scripts ───────────────────────────────────
 
         test(
-            "merging the real 36 domain scripts succeeds and the uml-to-erm -> erm-to-exposed chain " +
+            "merging the real 37 domain scripts succeeds and the uml-to-erm -> erm-to-exposed chain " +
                 "produces exactly one Table file per distinct table name",
         ) {
             val scriptFiles =
                 requireNotNull(KumlModelLoader.kumlSourceDir.listFiles { f -> f.name.endsWith(".kuml.kts") }) {
                     "kUML source dir not found or not a directory: ${KumlModelLoader.kumlSourceDir.absolutePath}"
                 }.sortedBy { it.name }
-            // V1.3.0 "Öffentliche Transparenz-Startseite" -- was 35, now 36 with the addition of
-            // 35-public-ranking-consent.kuml.kts.
-            scriptFiles shouldHaveSize 36
+            // V1.3.1 "API-Fundament, lesend" -- was 36, now 37 with the addition of
+            // 36-api-key.kuml.kts.
+            scriptFiles shouldHaveSize 37
 
             val diagrams = scriptFiles.map { KumlModelLoader.loadUmlDiagram(it) }
 
@@ -281,7 +281,12 @@ class DomainModelMergerTest :
             // through stubs already declared earlier in the same file) -- so it contributes +2
             // «Entity» declarations (both real tables), no drop, versus the V1.3.0 baseline above
             // (116 -> 118).
-            val distinctTableNames = 118
+            // Welle V1.3.1 "API-Fundament, lesend" adds 36-api-key.kuml.kts's one real table
+            // (api_key) plus an id-only Member stub (same cross-domain-stub pattern as
+            // 35-public-ranking-consent.kuml.kts) -- +2 «Entity» declarations, +1 drop (the stub
+            // dedups into the already-existing member entity), net +1 distinct table name versus
+            // the V1.2.8 baseline above (118 -> 119).
+            val distinctTableNames = 119
 
             val result =
                 UmlToExposedViaErmScriptTransformer().transform(
@@ -448,6 +453,10 @@ class DomainModelMergerTest :
                     // through Member/Contribution stubs already declared earlier in the same file).
                     "PaymentCheckoutSessionTable.kt",
                     "PspWebhookEventTable.kt",
+                    // Welle V1.3.1 "API-Fundament, lesend" -- one new real table (api_key); its own
+                    // cross-domain Member stub dedups into the already-real member entity, no new
+                    // Table file for it (same pattern as PublicRankingConsentEventTable above).
+                    "ApiKeyTable.kt",
                 )
         }
 

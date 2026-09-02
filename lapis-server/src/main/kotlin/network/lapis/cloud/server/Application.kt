@@ -88,11 +88,13 @@ import network.lapis.cloud.server.routes.registerFederationRoutes
 import network.lapis.cloud.server.routes.registerMailmergeRoutes
 import network.lapis.cloud.server.routes.registerOidcRoutes
 import network.lapis.cloud.server.routes.registerPspWebhookRoutes
+import network.lapis.cloud.server.routes.registerPublicApiRoutes
 import network.lapis.cloud.server.routes.registerPublicTransparencyRoutes
 import network.lapis.cloud.server.routes.registerSepaRoutes
 import network.lapis.cloud.server.routes.registerSocialPublicRoutes
 import network.lapis.cloud.server.routes.registerTrustAnchorRoutes
 import network.lapis.cloud.server.rpc.AccountingService
+import network.lapis.cloud.server.rpc.ApiKeyService
 import network.lapis.cloud.server.rpc.AuctionService
 import network.lapis.cloud.server.rpc.AuditLogService
 import network.lapis.cloud.server.rpc.AuthService
@@ -133,6 +135,7 @@ import network.lapis.cloud.server.security.LoginRateLimiter
 import network.lapis.cloud.shared.Greeting
 import network.lapis.cloud.shared.rpc.ForbiddenException
 import network.lapis.cloud.shared.rpc.IAccountingService
+import network.lapis.cloud.shared.rpc.IApiKeyService
 import network.lapis.cloud.shared.rpc.IAuctionService
 import network.lapis.cloud.shared.rpc.IAuditLogService
 import network.lapis.cloud.shared.rpc.IAuthService
@@ -684,6 +687,20 @@ fun Application.module() {
     // DsgvoService.consentRevokeRateLimiter KDoc.
     val publicRankingConsentRevokeRateLimiter = FederationInboxRateLimiter(maxRequests = 30, window = 1.minutes)
 
+    // V1.3.1 "API-Fundament, lesend" -- GET /api/v1/*. Pre-auth (IP-keyed, before the API-key hash
+    // lookup) mirrors socialPublicReadRateLimiter/publicTransparencyRateLimiter's own
+    // maxTrackedKeys=50_000 posture (unbounded-by-membership key space, see FederationInboxRateLimiter
+    // KDoc "Bounded-eviction hardening"). Post-auth (per-API-key) is a SEPARATE, more generous budget
+    // -- a legitimate authenticated integration must not share the anonymous-caller budget.
+    val publicApiPreAuthRateLimiter = FederationInboxRateLimiter(maxRequests = 30, window = 1.minutes, maxTrackedKeys = 50_000)
+    val publicApiPostAuthRateLimiter = FederationInboxRateLimiter(maxRequests = 60, window = 1.minutes)
+
+    // V1.3.1 -- IApiKeyService's three SEPARATE budgets, see ApiKeyService's own KDoc for why
+    // issue/revoke/reissue never share an instance/cap.
+    val apiKeyIssueRateLimiter = FederationInboxRateLimiter(maxRequests = 10, window = 1.minutes)
+    val apiKeyRevokeRateLimiter = FederationInboxRateLimiter(maxRequests = 30, window = 1.minutes)
+    val apiKeyReissueRateLimiter = FederationInboxRateLimiter(maxRequests = 20, window = 1.minutes)
+
     // Fix (2026-08-14): must be installed BEFORE anything that reads call.request.origin (every
     // plugin/route below, plus every IP-keyed rate limiter in AuthRoutes/RegistrationService/
     // FederationRoutes/OidcRoutes) -- XForwardedHeaders overrides ApplicationRequest.origin from
@@ -912,6 +929,15 @@ fun Application.module() {
                 readRateLimiter = streamingReadRateLimiter,
             )
         }
+        // V1.3.1 "API-Fundament, lesend".
+        registerService(IApiKeyService::class) { call ->
+            ApiKeyService(
+                call = call,
+                issueRateLimiter = apiKeyIssueRateLimiter,
+                revokeRateLimiter = apiKeyRevokeRateLimiter,
+                reissueRateLimiter = apiKeyReissueRateLimiter,
+            )
+        }
     }
 
     routing {
@@ -958,6 +984,13 @@ fun Application.module() {
         registerPublicTransparencyRoutes(
             readRateLimiter = publicTransparencyRateLimiter,
             brandTitle = resolvedBranding.title,
+        )
+        // V1.3.1 "API-Fundament, lesend" -- literal routes (/api/v1/*), same "registered before
+        // staticFiles" reasoning as registerSocialPublicRoutes'/registerPublicTransparencyRoutes' own
+        // routes.
+        registerPublicApiRoutes(
+            preAuthRateLimiter = publicApiPreAuthRateLimiter,
+            postAuthRateLimiter = publicApiPostAuthRateLimiter,
         )
         getAllServiceManagers().forEach { applyRoutes(it) }
         // V1.2.5 White-Label-Branding -- literal routes, registered before staticFiles below for

@@ -96,6 +96,9 @@ fun auditEntityTypeLabel(entityType: AuditEntityType): String =
         // Welle V1.2.8 "PSP-Checkout (Stripe)" (GitHub Issue #6) -- "Zahlungseingang" is the term
         // `PaymentTransactionsScreen.kt` uses throughout for a `payment_transaction` row.
         AuditEntityType.PAYMENT_TRANSACTION -> gettext("Zahlungseingang")
+        // Welle V1.3.1 "API-Fundament, lesend" -- "API-Schlüssel" is the term `ApiKeysScreen.kt`
+        // uses throughout for an `api_key` row.
+        AuditEntityType.API_KEY -> gettext("API-Schlüssel")
     }
 
 fun auditEntityTypeColor(entityType: AuditEntityType): String =
@@ -135,6 +138,10 @@ fun auditEntityTypeColor(entityType: AuditEntityType): String =
         // "primary" -- a confirmed gateway receipt is a financially central event, same tier as
         // JOURNAL_ENTRY/SEPA_MANDATE above.
         AuditEntityType.PAYMENT_TRANSACTION -> "primary"
+        // "dark" -- an API-key lifecycle event (issue/revoke/reissue) is a security-relevant
+        // administrative act, the same "not routine, but not a violation either" tier RESOLUTION
+        // already carries above.
+        AuditEntityType.API_KEY -> "dark"
     }
 
 // ------------------------------------------------------------------------------------------------

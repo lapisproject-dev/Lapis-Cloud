@@ -1,0 +1,235 @@
+= Public API — V1.3.1 "API-Fundament, lesend"
+:description: Read-only REST API under /api/v1 — authentication, rate limits, pagination, endpoints.
+:toc:
+:toc-placement: preamble
+:icons: font
+
+== Overview
+
+`/api/v1` is a read-only REST API for external, machine-to-machine consumption of a Lapis Cloud
+organization's public governance data — independent of the Kilua-RPC layer `lapis-client` uses
+internally. It is served by the same Ktor process as the rest of this application, registered
+before the SPA's own static-file fallback (see `network.lapis.cloud.server.routes.PublicApiRoutes`).
+
+Every endpoint is `GET`. There is no write endpoint on this surface — see <<scope>>.
+
+== Authentication
+
+Every request must carry:
+
+----
+Authorization: Bearer lapis_<key>
+----
+
+The key is issued by a BOARD or ADMIN member under *Verwaltung → API-Schlüssel* in the web UI (or
+via the `IApiKeyService` RPC interface). It is a long-lived credential, structurally distinct from
+this server's session cookies/tokens: both travel as `Authorization: Bearer <token>`, but a session
+token and an API key are code-enforced to never resolve as each other, regardless of their content —
+see `network.lapis.cloud.server.security.ApiKeyAuth`/`RequestContext.extractSessionToken`. A session
+cookie alone, without this header, never authenticates this API.
+
+The raw key is shown to the operator **exactly once**, at issuance/re-issuance time. It cannot be
+retrieved again afterwards — only a SHA-256 hash of it is ever stored. If a key is lost, issue a new
+one ("Neu ausstellen" in the UI, `reissueApiKey` over RPC) — this revokes the old key and mints a
+replacement with the same label and expiry in one atomic step.
+
+=== Error responses
+
+Every error response (auth, rate limit, not found, bad request) is a flat JSON object:
+
+[source,json]
+----
+{ "error": "<code>", "message": "<human-readable text>" }
+----
+
+[cols="1,1,3", options="header"]
+|===
+| HTTP status | `error` | Meaning
+
+| 401
+| `unauthorized`
+| Missing/malformed `Authorization` header, wrong prefix, or an unknown key. `WWW-Authenticate` is
+  always present on a 401.
+
+| 401
+| `key_revoked`
+| The key's hash matched a row, and that row is revoked.
+
+| 401
+| `key_expired`
+| The key's hash matched a row, and that row's expiry has passed.
+
+| 429
+| `rate_limited`
+| Rate limit exceeded — see <<rate-limits>>. `Retry-After` names the actual remaining seconds in the
+  current window, never a fixed placeholder value.
+
+| 404
+| `not_found`
+| A well-formed path parameter (e.g. a meeting id) that does not resolve to an existing record.
+
+| 400
+| `bad_request`
+| A malformed path parameter, or a `?status=` value outside the documented whitelist for that
+  endpoint.
+|===
+
+`unauthorized` deliberately does not distinguish "no header at all" from "a syntactically valid but
+completely unknown key" — both carry identical risk of enabling enumeration, so both collapse into
+the same response. `key_revoked`/`key_expired` are only ever returned once a key's hash has actually
+matched an existing row — the caller already possesses that key at that point, so naming the reason
+does not itself leak anything a determined caller couldn't already infer.
+
+Every response, success or error, carries `Cache-Control: no-store` and `Vary: Authorization`.
+
+[[rate-limits]]
+== Rate limits
+
+Two independent limits apply, in this order:
+
+1. **Pre-authentication, per IP address** — checked before the `Authorization` header is even
+   parsed. Bounds anonymous request volume regardless of whether a caller has a key at all.
+2. **Post-authentication, per API key** — checked after a key resolves successfully. Bounds a single
+   integration's volume independently of every other caller's IP or key.
+
+A `429` from either limit carries a `Retry-After` header with the actual remaining seconds in that
+limiter's current window.
+
+== Pagination
+
+Every list endpoint accepts `?limit=` and `?offset=`. Neither is ever rejected — both are silently
+clamped:
+
+* `limit` — missing, non-numeric, or `<= 0` defaults to 25; anything above 100 is clamped down to
+  100.
+* `offset` — missing, non-numeric, or negative defaults to 0.
+
+Every page response has the shape:
+
+[source,json]
+----
+{ "items": [ ... ], "totalCount": <int>, "limit": <int>, "offset": <int> }
+----
+
+`totalCount` is the total number of matching records (before pagination), not the count of `items`
+in this page.
+
+== Endpoints
+
+=== `GET /api/v1/members`
+
+**Returns `id` and `displayName` only — permanently, by design, for DSGVO Datenminimierung.** No
+e-mail address, postal address, membership status, role, or any other field is ever exposed here,
+and this is not planned to change: an external caller has no legitimate need for a member's contact
+or status data through this read-only surface, and the shape below is the API's documented contract,
+not an incomplete first cut.
+
+Only members whose status is `ACTIVE` are included.
+
+[source,json]
+----
+{
+  "items": [ { "id": "<uuid>", "displayName": "..." } ],
+  "totalCount": 42, "limit": 25, "offset": 0
+}
+----
+
+=== `GET /api/v1/committees`
+
+Query parameters: `?activeOnly=` (`true`/`false`, default `true`).
+
+[source,json]
+----
+{
+  "items": [
+    {
+      "id": "<uuid>", "name": "...", "type": "WORKING_GROUP", "description": "...",
+      "active": true, "quorumPercent": 50
+    }
+  ],
+  "totalCount": 1, "limit": 25, "offset": 0
+}
+----
+
+`type` is one of `EXECUTIVE_BOARD`, `WORKING_GROUP`, `COMMISSION`, `OTHER`, `GENERAL_ASSEMBLY`.
+
+=== `GET /api/v1/meetings`
+
+Query parameters: `?committeeId=<uuid>`, `?status=` (one of `PLANNED`, `HELD`, `CANCELLED`).
+
+[source,json]
+----
+{
+  "items": [
+    {
+      "id": "<uuid>", "committeeId": "<uuid>", "committeeName": "...", "title": "...",
+      "scheduledAt": "2026-03-01T18:00:00", "location": "Online", "format": "ONLINE",
+      "status": "PLANNED"
+    }
+  ],
+  "totalCount": 1, "limit": 25, "offset": 0
+}
+----
+
+`format` is one of `IN_PERSON`, `ONLINE`, `HYBRID`.
+
+=== `GET /api/v1/meetings/{id}`
+
+Returns a single meeting object (same shape as one `items` entry above), or `404 not_found`.
+
+=== `GET /api/v1/resolutions`
+
+Query parameters: `?committeeId=<uuid>`, `?meetingId=<uuid>`.
+
+[source,json]
+----
+{
+  "items": [
+    {
+      "id": "<uuid>", "meetingId": "<uuid>", "number": "WORKING_GROUP-2026-01",
+      "title": "...", "text": "...", "status": "ADOPTED", "resolutionMode": "COMMITTEE_QUORUM",
+      "decidedAt": "2026-03-01T19:00:00",
+      "votesYes": 5, "votesNo": 1, "votesAbstain": 0, "quorumMet": true
+    }
+  ],
+  "totalCount": 1, "limit": 25, "offset": 0
+}
+----
+
+`status` is one of `ADOPTED`, `REJECTED`, `POSTPONED`. `resolutionMode` is one of
+`COMMITTEE_QUORUM`, `MERITOCRATIC`, `DEMOCRATIC`, `SYSTEMIC_CONSENSUS`.
+
+=== `GET /api/v1/motions`
+
+Query parameters: `?targetCommitteeId=<uuid>`, `?status=` (see below).
+
+**`status` is restricted to a fixed whitelist — `SCHEDULED`, `RESOLVED`, `REJECTED`, `POSTPONED`.**
+These are the only statuses this endpoint will ever return, whether or not `?status=` is given: with
+no filter, results are still limited to this set (internal workflow statuses like `SUBMITTED`,
+`REVIEWED`, `REJECTED_PRELIMINARY`, `WITHDRAWN` never appear); passing a `?status=` value outside
+this whitelist is `400 bad_request`, not a silently empty result.
+
+[source,json]
+----
+{
+  "items": [
+    {
+      "id": "<uuid>", "targetCommitteeId": "<uuid>", "targetCommitteeName": "...",
+      "targetCommitteeType": "WORKING_GROUP", "title": "...", "text": "...",
+      "status": "SCHEDULED", "submittedAt": "2026-01-01T00:00:00",
+      "meetingId": "<uuid>", "resolutionId": null, "amendsMotionId": null
+    }
+  ],
+  "totalCount": 1, "limit": 25, "offset": 0
+}
+----
+
+[[scope]]
+== Out of scope (this wave)
+
+Deliberately not implemented — see `CHANGELOG.md`: any write endpoint, webhooks, OAuth2/OIDC/JWT/
+scopes, multi-tenancy, distributed (cross-instance) rate limiting, OpenAPI/Swagger generation,
+ETag/conditional-request caching, CORS, field selection, sorting, full-text search, cursor-based
+pagination, bulk endpoints, key-hash encryption at rest, automatic key rotation/expiry reminder
+mail/cleanup, and the RFC 9457 `application/problem+json` error format (this API's flat
+`{"error","message"}` body is used instead throughout).

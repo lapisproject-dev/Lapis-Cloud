@@ -101,6 +101,27 @@ class FederationInboxRateLimiter(
     internal fun trackedKeyCountForTest(): Int = requestsByKey.size
 
     /**
+     * V1.3.1 "API-Fundament, lesend" -- best-effort remaining seconds in [key]'s CURRENT window,
+     * rounded UP (`ceil`), clamped to `>= 0`. Purely READS [requestsByKey]; unlike [checkAndRecord]
+     * it never writes an entry, never consumes budget, and never evicts. `0` for an unknown/expired
+     * key (nothing to wait for). Intended call-site ordering (S19): call this AFTER a
+     * [checkAndRecord] that already returned `false` -- that call has already recorded the request
+     * that caused the rejection, so the window this function reports is the one the CALLER just got
+     * counted against, not the window before it.
+     */
+    internal fun retryAfterSeconds(key: String): Long {
+        val entry = requestsByKey[key] ?: return 0
+        val now = Clock.System.now()
+        val elapsed = now - entry.windowStart
+        val remaining = window - elapsed
+        if (remaining.isNegative()) return 0
+        return kotlin.math
+            .ceil(remaining.inWholeMilliseconds / 1000.0)
+            .toLong()
+            .coerceAtLeast(0)
+    }
+
+    /**
      * See class KDoc "Bounded-eviction hardening" for why the oldest-`windowStart` fallback exists,
      * and "Amortized batch eviction" for why it evicts down to a target BELOW [maxTrackedKeys]
      * rather than removing only the single entry that pushed the map over capacity.

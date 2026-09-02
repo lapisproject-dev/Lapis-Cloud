@@ -86,4 +86,37 @@ class FederationInboxRateLimiterTest :
             repeat(5) { i -> limiter.checkAndRecord("post-eviction-host-$i") }
             (limiter.trackedKeyCountForTest() <= maxTrackedKeys) shouldBe true
         }
+
+        // ── V1.3.1 "API-Fundament, lesend" -- retryAfterSeconds() ──────────────────────────
+
+        test("retryAfterSeconds() is 0 for a never-seen key") {
+            val limiter = FederationInboxRateLimiter()
+            limiter.retryAfterSeconds("never-seen") shouldBe 0
+        }
+
+        test("retryAfterSeconds() is positive and at most the window length right after a request") {
+            val limiter = FederationInboxRateLimiter(maxRequests = 1, window = 1.minutes)
+            val host = "203.0.113.20"
+            limiter.checkAndRecord(host)
+            val retryAfter = limiter.retryAfterSeconds(host)
+            (retryAfter in 1..60) shouldBe true
+        }
+
+        test("retryAfterSeconds() is 0 once the window has fully elapsed") {
+            val limiter = FederationInboxRateLimiter(maxRequests = 1, window = 10.milliseconds)
+            val host = "203.0.113.21"
+            limiter.checkAndRecord(host)
+            Thread.sleep(30)
+            limiter.retryAfterSeconds(host) shouldBe 0
+        }
+
+        test("retryAfterSeconds() is purely read-only -- calling it repeatedly never consumes budget or evicts the key") {
+            val limiter = FederationInboxRateLimiter(maxRequests = 1, window = 1.minutes)
+            val host = "203.0.113.22"
+            limiter.checkAndRecord(host) shouldBe true
+            repeat(5) { limiter.retryAfterSeconds(host) }
+            // Still rejected (budget of 1 already spent by the first checkAndRecord above) -- if
+            // retryAfterSeconds() had itself consumed budget or reset the window, this could pass.
+            limiter.checkAndRecord(host) shouldBe false
+        }
     })

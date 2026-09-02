@@ -120,11 +120,9 @@ class GovernanceService(
 ) : IGovernanceService {
     override suspend fun listCommittees(activeOnly: Boolean): List<CommitteeDto> {
         resolveCurrentMember(call)
-        return transaction {
-            val baseQuery = CommitteeTable.selectAll()
-            val query = if (activeOnly) baseQuery.where { CommitteeTable.active eq true } else baseQuery
-            query.map { it.toCommitteeDto() }
-        }
+        // V1.3.1 -- delegates to GovernanceReads (see that object's KDoc); byte-identical behavior,
+        // limit/offset both stay at their "unbounded"/`0` defaults for this RPC call site.
+        return transaction { GovernanceReads.listCommittees(activeOnly = activeOnly) }
     }
 
     override suspend fun createCommittee(input: CommitteeInput): CommitteeDto {
@@ -306,14 +304,10 @@ class GovernanceService(
         status: MeetingStatus?,
     ): List<MeetingDto> {
         resolveCurrentMember(call)
-        return transaction {
-            val conditions = mutableListOf<Op<Boolean>>()
-            if (committeeId != null) conditions += (MeetingTable.committeeId eq committeeId.toCommitteeUuid())
-            if (status != null) conditions += (MeetingTable.status eq status)
-            val baseQuery = (MeetingTable innerJoin CommitteeTable).selectAll()
-            val query = if (conditions.isEmpty()) baseQuery else baseQuery.where { conditions.reduce { a, b -> a and b } }
-            query.map { it.toMeetingDto() }
-        }
+        val gId = committeeId?.toCommitteeUuid()
+        // V1.3.1 -- delegates to GovernanceReads, byte-identical behavior (resolveMemberNames stays
+        // at its default `true` for this RPC call site).
+        return transaction { GovernanceReads.listMeetings(committeeId = gId, status = status) }
     }
 
     override suspend fun getMeetingDetail(meetingId: String): MeetingDetailDto {
@@ -498,22 +492,10 @@ class GovernanceService(
         meetingId: String?,
     ): List<ResolutionDto> {
         resolveCurrentMember(call)
-        return transaction {
-            when {
-                meetingId != null -> {
-                    val sId = meetingId.toMeetingUuid()
-                    ResolutionTable.selectAll().where { ResolutionTable.meetingId eq sId }.map { it.toResolutionDto() }
-                }
-                committeeId != null -> {
-                    val gId = committeeId.toCommitteeUuid()
-                    (ResolutionTable innerJoin MeetingTable)
-                        .selectAll()
-                        .where { MeetingTable.committeeId eq gId }
-                        .map { it.toResolutionDto() }
-                }
-                else -> ResolutionTable.selectAll().map { it.toResolutionDto() }
-            }
-        }
+        val gId = committeeId?.toCommitteeUuid()
+        val sId = meetingId?.toMeetingUuid()
+        // V1.3.1 -- delegates to GovernanceReads, byte-identical behavior.
+        return transaction { GovernanceReads.listResolutions(committeeId = gId, meetingId = sId) }
     }
 
     override suspend fun generateProtocolDraft(meetingId: String): ProtocolDraftDto {
@@ -616,15 +598,11 @@ class GovernanceService(
         amendsMotionId: String?,
     ): List<MotionDto> {
         resolveCurrentMember(call)
-        return transaction {
-            val conditions = mutableListOf<Op<Boolean>>()
-            if (targetCommitteeId != null) conditions += (MotionTable.targetCommitteeId eq targetCommitteeId.toCommitteeUuid())
-            if (status != null) conditions += (MotionTable.status eq status)
-            if (amendsMotionId != null) conditions += (MotionTable.amendsMotionId eq amendsMotionId.toMotionUuid())
-            val baseQuery = (MotionTable innerJoin CommitteeTable).selectAll()
-            val query = if (conditions.isEmpty()) baseQuery else baseQuery.where { conditions.reduce { a, b -> a and b } }
-            query.map { it.toMotionDto() }
-        }
+        val gId = targetCommitteeId?.toCommitteeUuid()
+        val aId = amendsMotionId?.toMotionUuid()
+        // V1.3.1 -- delegates to GovernanceReads, byte-identical behavior (allowedStatuses stays at
+        // its default `null` -- no REST-only whitelist for this RPC call site).
+        return transaction { GovernanceReads.listMotions(targetCommitteeId = gId, status = status, amendsMotionId = aId) }
     }
 
     override suspend fun getMotion(id: String): MotionDto {
@@ -1360,83 +1338,7 @@ class GovernanceService(
             .toAgendaItemDto()
     }
 
-    private fun memberDisplayName(memberId: Uuid?): String? =
-        memberId?.let { id ->
-            MemberTable
-                .selectAll()
-                .where { MemberTable.id eq id }
-                .singleOrNull()
-                ?.get(MemberTable.displayName)
-        }
-
     private fun nowLocalDateTime(): LocalDateTime = DbClock.nowLocalDateTime()
-
-    private fun ResultRow.toCommitteeDto(): CommitteeDto =
-        CommitteeDto(
-            id = this[CommitteeTable.id].toString(),
-            name = this[CommitteeTable.name],
-            type = this[CommitteeTable.type],
-            description = this[CommitteeTable.description],
-            active = this[CommitteeTable.active],
-            quorumPercent = this[CommitteeTable.quorumPercent],
-            createdAt = this[CommitteeTable.createdAt],
-        )
-
-    private fun ResultRow.toCommitteeMembershipDto(): CommitteeMembershipDto =
-        CommitteeMembershipDto(
-            id = this[CommitteeMembershipTable.id].toString(),
-            committeeId = this[CommitteeMembershipTable.committeeId].toString(),
-            memberId = this[CommitteeMembershipTable.memberId].toString(),
-            memberDisplayName = this[MemberTable.displayName],
-            role = this[CommitteeMembershipTable.role],
-            since = this[CommitteeMembershipTable.since],
-            until = this[CommitteeMembershipTable.until],
-        )
-
-    private fun ResultRow.toMeetingDto(): MeetingDto =
-        MeetingDto(
-            id = this[MeetingTable.id].toString(),
-            committeeId = this[MeetingTable.committeeId].toString(),
-            committeeName = this[CommitteeTable.name],
-            title = this[MeetingTable.title],
-            scheduledAt = this[MeetingTable.scheduledAt],
-            location = this[MeetingTable.location],
-            format = this[MeetingTable.format],
-            status = this[MeetingTable.status],
-            calledById = this[MeetingTable.calledBy]?.toString(),
-            calledByDisplayName = memberDisplayName(this[MeetingTable.calledBy]),
-            calledAt = this[MeetingTable.calledAt],
-            chairMemberId = this[MeetingTable.chairMemberId]?.toString(),
-            chairDisplayName = memberDisplayName(this[MeetingTable.chairMemberId]),
-            minuteTakerMemberId = this[MeetingTable.minuteTakerMemberId]?.toString(),
-            minuteTakerDisplayName = memberDisplayName(this[MeetingTable.minuteTakerMemberId]),
-            protocolDocumentId = this[MeetingTable.protocolDocumentId]?.toString(),
-            createdAt = this[MeetingTable.createdAt],
-        )
-
-    private fun ResultRow.toAgendaItemDto(): AgendaItemDto =
-        AgendaItemDto(
-            id = this[AgendaItemTable.id].toString(),
-            meetingId = this[AgendaItemTable.meetingId].toString(),
-            position = this[AgendaItemTable.position],
-            title = this[AgendaItemTable.title],
-            description = this[AgendaItemTable.description],
-            presenterMemberId = this[AgendaItemTable.presenterMemberId]?.toString(),
-            presenterDisplayName = memberDisplayName(this[AgendaItemTable.presenterMemberId]),
-        )
-
-    private fun ResultRow.toAttendanceDto(): AttendanceDto =
-        AttendanceDto(
-            id = this[AttendanceTable.id].toString(),
-            meetingId = this[AttendanceTable.meetingId].toString(),
-            memberId = this[AttendanceTable.memberId].toString(),
-            memberDisplayName = memberDisplayName(this[AttendanceTable.memberId]).orEmpty(),
-            status = this[AttendanceTable.status],
-            representedByMemberId = this[AttendanceTable.representedByMemberId]?.toString(),
-            representedByDisplayName = memberDisplayName(this[AttendanceTable.representedByMemberId]),
-            note = this[AttendanceTable.note],
-            recordedAt = this[AttendanceTable.recordedAt],
-        )
 
     /**
      * Follow-up-queries the options ([VoteOptionTable]) and their computed basket totals
@@ -1495,31 +1397,6 @@ class GovernanceService(
             castAt = this[VoteBallotTable.castAt],
         )
 
-    private fun ResultRow.toMotionDto(): MotionDto =
-        MotionDto(
-            id = this[MotionTable.id].toString(),
-            targetCommitteeId = this[MotionTable.targetCommitteeId].toString(),
-            targetCommitteeName = this[CommitteeTable.name],
-            targetCommitteeType = this[CommitteeTable.type],
-            title = this[MotionTable.title],
-            rationale = this[MotionTable.rationale],
-            text = this[MotionTable.text],
-            submitterMemberId = this[MotionTable.submitterMemberId].toString(),
-            submitterDisplayName = memberDisplayName(this[MotionTable.submitterMemberId]).orEmpty(),
-            status = this[MotionTable.status],
-            submittedAt = this[MotionTable.submittedAt],
-            reviewedById = this[MotionTable.reviewedBy]?.toString(),
-            reviewedByDisplayName = memberDisplayName(this[MotionTable.reviewedBy]),
-            reviewedAt = this[MotionTable.reviewedAt],
-            reviewNote = this[MotionTable.reviewNote],
-            meetingId = this[MotionTable.meetingId]?.toString(),
-            agendaItemId = this[MotionTable.agendaItemId]?.toString(),
-            resolutionId = this[MotionTable.resolutionId]?.toString(),
-            amendsMotionId = this[MotionTable.amendsMotionId]?.toString(),
-            currentText = this[MotionTable.currentText],
-            effectiveText = this[MotionTable.currentText] ?: this[MotionTable.text],
-        )
-
     private fun String.toCommitteeUuid(): Uuid = runCatching { Uuid.parse(this) }.getOrElse { throw NotFoundException("Invalid id: $this") }
 
     private fun String.toMemberUuid(): Uuid = runCatching { Uuid.parse(this) }.getOrElse { throw NotFoundException("Invalid id: $this") }
@@ -1539,6 +1416,137 @@ class GovernanceService(
     private fun String.toVoteOptionUuid(): Uuid =
         runCatching { Uuid.parse(this) }.getOrElse { throw NotFoundException("Invalid id: $this") }
 }
+
+/**
+ * V1.3.1 "API-Fundament, lesend" -- hoisted from a `private` member of [GovernanceService] to a
+ * top-level, `internal` function so [GovernanceReads] can reuse it too, without duplicating the
+ * lookup. Kotlin resolves same-package top-level declarations without an import, so every call
+ * site inside [GovernanceService] itself (unchanged, still unqualified `memberDisplayName(...)`)
+ * keeps compiling exactly as before this extraction -- purely a visibility/location change, zero
+ * behavior change.
+ */
+internal fun memberDisplayName(memberId: Uuid?): String? =
+    memberId?.let { id ->
+        MemberTable
+            .selectAll()
+            .where { MemberTable.id eq id }
+            .singleOrNull()
+            ?.get(MemberTable.displayName)
+    }
+
+/** V1.3.1 -- hoisted to top-level, `internal`, see [memberDisplayName] KDoc for the reasoning. */
+internal fun ResultRow.toCommitteeDto(): CommitteeDto =
+    CommitteeDto(
+        id = this[CommitteeTable.id].toString(),
+        name = this[CommitteeTable.name],
+        type = this[CommitteeTable.type],
+        description = this[CommitteeTable.description],
+        active = this[CommitteeTable.active],
+        quorumPercent = this[CommitteeTable.quorumPercent],
+        createdAt = this[CommitteeTable.createdAt],
+    )
+
+/** V1.3.1 -- hoisted to top-level, `internal`, see [memberDisplayName] KDoc for the reasoning. */
+internal fun ResultRow.toCommitteeMembershipDto(): CommitteeMembershipDto =
+    CommitteeMembershipDto(
+        id = this[CommitteeMembershipTable.id].toString(),
+        committeeId = this[CommitteeMembershipTable.committeeId].toString(),
+        memberId = this[CommitteeMembershipTable.memberId].toString(),
+        memberDisplayName = this[MemberTable.displayName],
+        role = this[CommitteeMembershipTable.role],
+        since = this[CommitteeMembershipTable.since],
+        until = this[CommitteeMembershipTable.until],
+    )
+
+/**
+ * V1.3.1 -- hoisted to top-level, `internal`, PLUS the S3 N+1-fix: [resolveMemberNames] (default
+ * `true`, keeping every pre-existing call site -- `toMeetingDto()` without arguments -- byte-
+ * identical) gates the three follow-up [memberDisplayName] lookups this mapper otherwise always
+ * performs (called-by/chair/minute-taker, up to 3 extra queries PER ROW). [GovernanceReads] is the
+ * only caller that ever passes `false` -- the REST `/api/v1/meetings`/`/api/v1/meetings/{id}`
+ * surface never exposes these display-name fields (see `PublicApiMeetingDto`), so resolving them
+ * for a page of meetings would be pure wasted work, not merely an unused field.
+ */
+internal fun ResultRow.toMeetingDto(resolveMemberNames: Boolean = true): MeetingDto =
+    MeetingDto(
+        id = this[MeetingTable.id].toString(),
+        committeeId = this[MeetingTable.committeeId].toString(),
+        committeeName = this[CommitteeTable.name],
+        title = this[MeetingTable.title],
+        scheduledAt = this[MeetingTable.scheduledAt],
+        location = this[MeetingTable.location],
+        format = this[MeetingTable.format],
+        status = this[MeetingTable.status],
+        calledById = this[MeetingTable.calledBy]?.toString(),
+        calledByDisplayName = if (resolveMemberNames) memberDisplayName(this[MeetingTable.calledBy]) else null,
+        calledAt = this[MeetingTable.calledAt],
+        chairMemberId = this[MeetingTable.chairMemberId]?.toString(),
+        chairDisplayName = if (resolveMemberNames) memberDisplayName(this[MeetingTable.chairMemberId]) else null,
+        minuteTakerMemberId = this[MeetingTable.minuteTakerMemberId]?.toString(),
+        minuteTakerDisplayName = if (resolveMemberNames) memberDisplayName(this[MeetingTable.minuteTakerMemberId]) else null,
+        protocolDocumentId = this[MeetingTable.protocolDocumentId]?.toString(),
+        createdAt = this[MeetingTable.createdAt],
+    )
+
+/** V1.3.1 -- hoisted to top-level, `internal`, see [memberDisplayName] KDoc for the reasoning. */
+internal fun ResultRow.toAgendaItemDto(): AgendaItemDto =
+    AgendaItemDto(
+        id = this[AgendaItemTable.id].toString(),
+        meetingId = this[AgendaItemTable.meetingId].toString(),
+        position = this[AgendaItemTable.position],
+        title = this[AgendaItemTable.title],
+        description = this[AgendaItemTable.description],
+        presenterMemberId = this[AgendaItemTable.presenterMemberId]?.toString(),
+        presenterDisplayName = memberDisplayName(this[AgendaItemTable.presenterMemberId]),
+    )
+
+/** V1.3.1 -- hoisted to top-level, `internal`, see [memberDisplayName] KDoc for the reasoning. */
+internal fun ResultRow.toAttendanceDto(): AttendanceDto =
+    AttendanceDto(
+        id = this[AttendanceTable.id].toString(),
+        meetingId = this[AttendanceTable.meetingId].toString(),
+        memberId = this[AttendanceTable.memberId].toString(),
+        memberDisplayName = memberDisplayName(this[AttendanceTable.memberId]).orEmpty(),
+        status = this[AttendanceTable.status],
+        representedByMemberId = this[AttendanceTable.representedByMemberId]?.toString(),
+        representedByDisplayName = memberDisplayName(this[AttendanceTable.representedByMemberId]),
+        note = this[AttendanceTable.note],
+        recordedAt = this[AttendanceTable.recordedAt],
+    )
+
+/**
+ * V1.3.1 -- hoisted to top-level, `internal`, no new parameter (unlike [toMeetingDto]): the REST
+ * `/api/v1/motions` surface already drops `submitterDisplayName`/`reviewedByDisplayName` from its
+ * own [network.lapis.cloud.server.routes.PublicApiMotionDto] shape, but `submitterDisplayName` is
+ * NOT nullable on [MotionDto] itself (`.orEmpty()`), so skipping the lookup would change this
+ * mapper's return type contract for every OTHER (RPC) caller too. See the implementation plan §5.1
+ * for why the resulting N+1 here is deliberately left unfixed this wave (smaller blast radius than
+ * [toMeetingDto]'s, and `/api/v1/motions` is typically filtered to one Committee).
+ */
+internal fun ResultRow.toMotionDto(): MotionDto =
+    MotionDto(
+        id = this[MotionTable.id].toString(),
+        targetCommitteeId = this[MotionTable.targetCommitteeId].toString(),
+        targetCommitteeName = this[CommitteeTable.name],
+        targetCommitteeType = this[CommitteeTable.type],
+        title = this[MotionTable.title],
+        rationale = this[MotionTable.rationale],
+        text = this[MotionTable.text],
+        submitterMemberId = this[MotionTable.submitterMemberId].toString(),
+        submitterDisplayName = memberDisplayName(this[MotionTable.submitterMemberId]).orEmpty(),
+        status = this[MotionTable.status],
+        submittedAt = this[MotionTable.submittedAt],
+        reviewedById = this[MotionTable.reviewedBy]?.toString(),
+        reviewedByDisplayName = memberDisplayName(this[MotionTable.reviewedBy]),
+        reviewedAt = this[MotionTable.reviewedAt],
+        reviewNote = this[MotionTable.reviewNote],
+        meetingId = this[MotionTable.meetingId]?.toString(),
+        agendaItemId = this[MotionTable.agendaItemId]?.toString(),
+        resolutionId = this[MotionTable.resolutionId]?.toString(),
+        amendsMotionId = this[MotionTable.amendsMotionId]?.toString(),
+        currentText = this[MotionTable.currentText],
+        effectiveText = this[MotionTable.currentText] ?: this[MotionTable.text],
+    )
 
 /**
  * Core of [GovernanceService.endCommitteeMembership] -- ends [membershipRow] (an already-loaded

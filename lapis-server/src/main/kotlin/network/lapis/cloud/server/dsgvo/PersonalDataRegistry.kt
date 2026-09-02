@@ -47,6 +47,7 @@ object PersonalDataRegistry {
             PaymentsPersonalData,
             DunningPersonalData,
             PublicRankingConsentPersonalData,
+            ApiKeyPersonalData,
         )
 
     /**
