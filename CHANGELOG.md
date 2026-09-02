@@ -6,6 +6,8 @@ All notable changes to this project are documented here. Format follows
 
 ## [Unreleased]
 
+## [0.17.0] — 2026-09-02
+
 ### Added
 
 **Öffentliche, schreibgeschützte REST-API (Welle V1.3.1 "API-Fundament, lesend")**
@@ -33,6 +35,51 @@ All notable changes to this project are documented here. Format follows
   sich jetzt dieselbe `GovernanceReads`/`MemberReads`-Fassade statt zweier driftender Kopien — dabei
   behoben: `listMeetings` löste bislang für jede Zeile bis zu drei zusätzliche Namens-Lookups auf,
   selbst wenn die Anzeigenamen gar nicht gebraucht wurden.
+- **Fehlende 7-Sprachen-Übersetzung nachgetragen** — `ApiKeysScreen.kt` sowie die beiden neuen
+  Aufrufstellen in `App.kt`/`ComplianceLabels.kt` waren zunächst nur auf Deutsch ausgeliefert,
+  obwohl der Plan volle i18n vorsah (gleiches Fehlermuster wie bei Welle V1.1.5). 18 fehlende
+  `msgid`s in `messages.pot` und allen 7 `messages-<lang>.po`-Dateien ergänzt.
+- **`AuditEntityType`-Drift im kUML-Modell geschlossen** — `14-audit-log.kuml.kts`s
+  `auditEntityType`-Enum lag bereits seit den Wellen V1.2.2 (`SEPA_MANDATE`/`SEPA_DEBIT_BATCH`) und
+  V1.2.8/V1.2.12 (`PAYMENT_TRANSACTION`/`MEMBER`) vier Literale hinter dem echten Kotlin-Enum
+  (`network.lapis.cloud.shared.domain.AuditEntityType`) und der `V1__baseline.sql`-`CHECK`-
+  Constraint zurück. `AuditLogSchemaDriftTest`s hardcodierte Erwartungsliste spiegelte bislang nur
+  das kUML-Modell statt des echten Enums und fing die Drift deshalb nie ab — rein
+  dokumentarische Lücke ohne funktionale Auswirkung, jetzt geschlossen und testabgesichert.
+
+**Checkout-UX-Härtung, Welle V1.2.9 — Höchstbetrags-Anzeige vor dem RPC, In-Place-Statuspolling, Rate-Limiting für die Checkout-Erzeugung**
+
+- **Höchstbetrag wird jetzt vor dem RPC-Aufruf angezeigt** — `PaymentGatewayAvailabilityDto` liefert
+  neu `maxCheckoutAmountEur`, damit der Client den serverseitig konfigurierten Höchstbetrag anzeigen
+  kann, statt ein zum Scheitern verurteiltes RPC zu starten.
+- **`pspProbe` unterscheidet jetzt einen echten Transportfehler von einem erfolgreich gelesenen
+  „Gateway aus"-DTO** — beide wurden vorher identisch behandelt.
+- **`PaymentReturnScreen` aktualisiert das Status-Element beim Polling in-place** statt es bei jedem
+  Poll-Tick neu zu erzeugen; Text und Folgeaktion verzweigen jetzt nach Intent (Beitrag vs. Spende).
+- **Webhook-Idempotenz-Regressionstest ergänzt** — eine zweite Zustellung desselben Events auf einer
+  bereits `COMPLETED`-Session liefert `DUPLICATE`.
+- **Review-Fix: Höchstbetrags-Gate fälschlich auch auf Beiträge angewandt** — die Kappung ist eine
+  reine Spenden-Missbrauchs-/DoS-Grenze, die der Server für Beiträge nie durchsetzt; blockierte
+  dadurch legitime große Beitragszahlungen (z. B. Förderbeiträge). Entfernt; der zugehörige
+  Regressionstest prüfte zunächst fälschlich nur den Availability-DTO statt des echten RPCs und wurde
+  korrigiert, sodass er die reale Lücke abdeckt.
+- **Review-Fix: Betragsvergleich gegen den rohen statt gerundeten Eingabetext** — harmlose
+  Zusatzdezimalstellen wurden client-seitig fälschlich abgelehnt, obwohl der Server den gerundeten
+  Wert akzeptiert hätte. Vergleich in die testbare `Validation.exceedsMaxCheckoutAmountEur`
+  extrahiert.
+- **Security-Audit MAJOR: kein Rate-Limiting auf den Checkout-RPCs** — `createDonationCheckout`/
+  `createContributionCheckout` lösen beide einen echten ausgehenden Stripe-API-Call aus; ein
+  einzelnes niedrigprivilegiertes Mitglied hätte Stripes Schreibkontingent für alle erschöpfen
+  können. Neuer, aus `Application.kt` verdrahteter Rate-Limiter (10/min pro Mitglied, dieselbe
+  Bemessung wie `sepaMandateWriteRateLimiter`) behoben.
+- **Security-Audit MINOR: Webhook-Rate-Limit verschärft** — `pspWebhookRateLimiter` von 120/min auf
+  20/min pro IP, weil auch unauthentifizierte bzw. an der Signaturprüfung scheiternde Zustellungen
+  je eine Zeile in `psp_webhook_event` schreiben und der Limiter damit die einzige Wachstumsgrenze
+  dieser Tabelle gegenüber unauthentifiziertem Traffic ist.
+- **Security-Audit MINOR/Härtung: `payment_status` aus dem Webhook-Payload wird jetzt geprüft** —
+  `checkout.session.completed` mit `payment_status != "paid"` wird vor der `CAPTURED`-Buchung
+  abgelehnt (aktuell unerreichbar, da `StripeCheckoutClient` nur Kartenzahlung hart codiert, macht
+  die Invariante aber explizit statt implizit).
 
 **Online-Zahlung von Beiträgen und Spenden über Stripe (GitHub #6, Welle V1.2.8)**
 
@@ -72,6 +119,12 @@ All notable changes to this project are documented here. Format follows
   `LAPIS_SECRET_ENCRYPTION_KEY` sind bewusst nicht beteiligt, weil hier nichts gespeichert wird.
   Halbe Konfiguration bricht den Start ab (fail-fast), gar keine Konfiguration ist ein zulässiger
   Zustand.
+- **Compose-Wiring nachgetragen:** `docker-compose.yml` in `deploy/production/` und
+  `deploy/production-elb/` reichte die fünf `LAPIS_STRIPE_*`/`LAPIS_PSP_*`-Variablen zunächst
+  nicht an den Container durch — Compose substituiert `.env`-Werte nur in die Datei, injiziert
+  aber keine beliebigen `.env`-Schlüssel automatisch in die Container-Umgebung. Ohne den
+  expliziten `environment:`-Eintrag hätte das Setzen der Stripe-Keys in `.env` still nichts
+  bewirkt und `PspStartupCheck` hätte dauerhaft „nicht konfiguriert" gemeldet.
 - **Neue Bildschirme:** `Spenden` (`/donate`, alle Mitglieder), `Zahlungseingänge`
   (`/payment-transactions`, TREASURER/BOARD/ADMIN, mit Filter „nur nicht gebucht"),
   `Zahlungs-Konfiguration` (`/payment-gateway-settings`, ADMIN — Gate, Kontenzuordnung und eine
@@ -93,6 +146,10 @@ All notable changes to this project are documented here. Format follows
   DROP/ADD auf `chk_audit_log_entry_entity_type` erreicht nur eine bereits real migrierte Instanz.
   Auf einer bereits migrierten Instanz (pdv2/ELB) ist danach `./gradlew :lapis-server:flywayRepair`
   nötig, bevor `V13__psp_checkout.sql` dort ausgeführt wird.
+
+## [0.16.0] — 2026-09-01
+
+### Added
 
 **Client-UI für das Mahnwesen (GitHub #5)**
 
