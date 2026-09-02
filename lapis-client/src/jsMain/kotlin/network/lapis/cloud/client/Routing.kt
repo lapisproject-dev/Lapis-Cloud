@@ -345,6 +345,12 @@ object Routes {
     // as [MEMBERS]/[DSGVO_COMPLIANCE]/[BOARD_MEMBERSHIP]/[SOCIAL_MODERATION], the existing
     // "Verwaltung" dropdown's own tier. No new top-level dropdown -- lives inside that one.
     const val API_KEYS = "/api-keys"
+
+    // Welle V1.4.1a "Öffentliche Website-Integration" -- ADMIN only, verified against
+    // `EmbedRoutes.kt`'s `GET /api/embed/v1/admin/status` (`current.requireRole(AccountRole.ADMIN)`)
+    // -- same "narrower than [BACKUP]" posture, lives in the existing ADMIN-only "System" dropdown,
+    // no new top-level dropdown. Read-only screen -- see `EmbedIntegrationScreen.kt` KDoc.
+    const val EMBED_INTEGRATION = "/website-integration"
 }
 
 private var appRouting: Routing? = null
@@ -478,6 +484,9 @@ fun initRouting(pageContainer: SimplePanel) {
     }
     routing.kvOn(Routes.BACKUP) {
         requireRole(routing, AccountRole.ADMIN) { show(Routes.BACKUP, ::renderBackupScreen) }
+    }
+    routing.kvOn(Routes.EMBED_INTEGRATION) {
+        requireRole(routing, AccountRole.ADMIN) { show(Routes.EMBED_INTEGRATION, ::renderEmbedIntegrationScreen) }
     }
     routing.kvOn(Routes.DSGVO_COMPLIANCE) {
         requireRole(routing, AccountRole.BOARD, AccountRole.ADMIN) {

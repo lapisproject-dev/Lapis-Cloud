@@ -1,0 +1,189 @@
+= Website Embed Widgets — V1.4.1a "Öffentliche Website-Integration"
+:description: Embeddable login/join widgets for a partner website — snippet, CORS/CSP contract, popup+postMessage login flow, environment variables.
+:toc:
+:toc-placement: preamble
+:icons: font
+
+== No-JS fallback contract
+
+Every widget host element carries a working, plain `<a>` link BEFORE the widget script ever runs.
+If `lapis-widgets.js` never loads (JavaScript disabled, the script blocked, or this visitor's
+origin not yet allowlisted), the operator's own fallback link stays exactly as they wrote it and
+keeps working. The widget script only ever *replaces* that content on a successful hydration — it
+never removes it as a first step and then fails to add anything back.
+
+== Overview
+
+Welle V1.4.1a lets a partner website (a party's or association's own site, hosted on a *different*
+origin than this server) embed two small widgets:
+
+* `data-lapis-widget="login"` — a button that opens a popup window for member login, using
+  `postMessage` to report the outcome back to the embedding page without ever sharing a session
+  cookie across the origin boundary.
+* `data-lapis-widget="join"` — a plain link to this server's own `/#/register` screen.
+
+Both are opt-in, `LAPIS_EMBED_ENABLED=false` by default (see <<environment-variables>>).
+
+== Embedding snippet
+
+[source,html]
+----
+<script src="https://<lapis-host>/embed/v1/lapis-widgets.js" async></script>
+
+<div data-lapis-widget="login">
+  <a href="https://<lapis-host>/#/login">Anmelden</a>
+</div>
+
+<div data-lapis-widget="join">
+  <a href="https://<lapis-host>/#/register">Mitglied werden</a>
+</div>
+----
+
+The exact snippet, pre-filled with this deployment's real `LAPIS_PUBLIC_BASE_URL`, is shown
+read-only on the ADMIN-only *Website-Integration* screen
+(`network.lapis.cloud.client.EmbedIntegrationScreen`), with a "Kopieren" button.
+
+== Styling
+
+Four CSS custom properties, set on the embedding page (they cross the Shadow DOM boundary the
+widget's own root uses):
+
+[cols="1,1"]
+|===
+|Property |Default
+
+|`--lapis-embed-accent`
+|`#1E56C8`
+
+|`--lapis-embed-accent-contrast`
+|`#FFFFFF`
+
+|`--lapis-embed-radius`
+|`6px`
+
+|`--lapis-embed-font`
+|`inherit`
+|===
+
+== Environment variables
+
+[cols="1,3"]
+|===
+|Variable |Meaning
+
+|`LAPIS_EMBED_ENABLED`
+|`true` to serve the `/embed/v1/*` and `/api/embed/v1/*` routes at all. Default: disabled (every
+route under those two prefixes then 404s, same as if this welle did not exist) -- with the single
+exception of the ADMIN-gated `GET /api/embed/v1/admin/status`, which stays registered so the admin
+screen can report an honest `enabled: false` instead of a 404 indistinguishable from a server error.
+
+|`LAPIS_EMBED_ALLOWED_ORIGINS`
+|Comma-separated list of exact `scheme://host[:port]` origins allowed to embed the widgets and
+complete a popup login. Required, non-empty, and every entry must canonicalize successfully when
+`LAPIS_EMBED_ENABLED=true` — an invalid or missing value fails the server start (see
+`network.lapis.cloud.server.embed.EmbedConfig` KDoc). `www.` and the bare domain are *different*
+origins — list both if both are used.
+
+|`LAPIS_EMBED_ALLOW_INSECURE`
+|Set to exactly `true` to also accept `http://` origins (local development only). Any other value,
+including `false`, still logs a WARN if the variable is set at all — the safe default is to *omit*
+it entirely, never to set it to `false` (see `WebhookConfig` KDoc "O4", the same doctrine this
+variable follows).
+|===
+
+CAUTION: The origins in `LAPIS_EMBED_ALLOWED_ORIGINS` are **publicly visible** in the downloadable
+`lapis-widgets.js` bundle — the client-side origin check the widget performs needs to see them to
+decide whether to render at all. This is not a secret leak in the ordinary sense (the partner sites
+are public by nature), but do not put an internal/staging origin in this list expecting it to stay
+unlisted.
+
+== CORS and CSP contract
+
+`/api/embed/v1/session` (and its `OPTIONS` preflight) is the only endpoint that carries CORS
+headers, and only for an `Origin` on the allowlist — `Access-Control-Allow-Origin` is always the
+*canonical* allowlist entry, never the raw request value and never `*`, and
+`Access-Control-Allow-Credentials` is never sent from anywhere in this welle's code. The popup
+login page (`GET /embed/v1/login`) carries its own, separate Content-Security-Policy:
+
+----
+Content-Security-Policy: default-src 'none'; script-src 'self'; style-src 'self';
+    connect-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'
+----
+
+`script-src 'self'` is sufficient without a per-response nonce because `/embed/v1/login.js` is a
+*constant* file — every value the page needs (the login `state`, the target origin, whether the
+visitor is already signed in, their display name) travels through `data-*` attributes, never
+interpolated into the script text itself.
+
+== Popup login flow
+
+[kuml, embed-login-flow, svg]
+----
+sequenceDiagram(name = "Embed-Widget Login-Flow (V1.4.1a)") {
+    val partnerPage = participant(name = "Partner-Seite (fremde Origin)")
+    val widget = participant(name = "lapis-widgets.js")
+    val popup = participant(name = "Popup-Fenster (/embed/v1/login)")
+    val server = participant(name = "Lapis Cloud Server")
+
+    message(from = partnerPage, to = widget, text = "Klick auf \"Anmelden\"")
+    message(from = widget, to = popup, text = "window.open(/embed/v1/login?state=<nonce>&origin=<HERE>)")
+    message(from = popup, to = server, text = "GET /embed/v1/login?state&origin")
+    message(from = server, to = popup, text = "200 Formular (Origin erlaubt) oder 403 (nicht erlaubt); signedIn immer false -- Cookie kommt bei dieser cross-site Top-Level-Navigation nie an")
+    message(from = popup, to = server, text = "fetch /api/embed/v1/session (same-origin, credentials: same-origin)")
+    message(from = server, to = popup, text = "200 {signedIn, displayName} -- ehrlich, weil dieser Aufruf same-site ist")
+    message(from = popup, to = server, text = "[falls signedIn:false] POST /api/auth/login (same-origin, credentials: include)")
+    message(from = server, to = popup, text = "200 + Set-Cookie: lapis_session (HttpOnly, Secure, SameSite=Strict)")
+    message(from = popup, to = widget, text = "window.opener.postMessage({source:'lapis-embed', state, ok:true, displayName}, targetOrigin)")
+    message(from = widget, to = partnerPage, text = "Zustand \"signed-in\" -- kein Cookie/Token verlässt die Lapis-Origin")
+    message(from = popup, to = popup, text = "window.close() nach 800ms")
+}
+----
+
+The session cookie never crosses the origin boundary — only the `postMessage` payload does, and
+that payload carries no bearer credential at all (just `ok`/`displayName`). The partner page's own
+origin never gains the ability to call any authenticated Lapis Cloud endpoint directly; every
+subsequent authenticated action still happens on this server's own origin (e.g. via the
+"Zum Mitgliederbereich →" link the widget shows after a successful login).
+
+== Known, deliberate limitation
+
+There is no "already signed in" indicator on the *partner page* on load without a click — the
+widget (`lapis-widgets.js`) never calls `GET /api/embed/v1/session` itself. An automatic status
+check on every page load, for every visitor, would be exactly the cross-site tracking channel this
+welle is designed to avoid.
+
+**Why the popup needs an extra round-trip instead of the server just rendering the right state
+straight away:** `GET /embed/v1/login` is opened via `window.open()` *from the partner origin*,
+which makes it a cross-site top-level navigation. The `lapis_session` cookie is `SameSite=Strict`
+(see `AuthRoutes.kt` KDoc "Cookie transport" — this codebase's only CSRF control), and
+`SameSite=Strict` cookies are — unlike `Lax` — never attached to a cross-site top-level navigation.
+The server-rendered popup page therefore always starts out as `signedIn: false`, regardless of
+whether the visitor actually has a session. `/embed/v1/login.js` (`EmbedAssets.loginPopupJs`)
+compensates for this once the popup document has actually loaded on the Lapis origin: it keeps the
+login form hidden, shows a "Anmeldung wird geprüft …" status text, and issues its own
+`fetch("/api/embed/v1/session", {credentials: "same-origin"})` — a request from the Lapis origin
+*to* the Lapis origin, which is same-site regardless of `SameSite=Strict` and therefore does carry
+the cookie. If that probe reports `signedIn: true`, the popup skips the login form entirely and
+closes itself the same way a fresh login would; otherwise the form is revealed and behaves exactly
+as before. A three-second timeout (`SESSION_PROBE_TIMEOUT_MS`) guards against a hanging or very
+slow probe: if no response has arrived by then, the status text clears and the login form is
+revealed anyway, so the popup never sits blank with no form and no feedback. Should the probe
+still resolve after that fallback already fired, its result is discarded — the form is already
+shown at that point. This never widens the tracking-channel concern above: the probe only ever
+fires after an explicit click already opened the popup on the Lapis origin, never from the partner
+page itself.
+
+On mobile browsers that open the popup as a new tab rather than a real popup window,
+`window.opener` can be `null` — the popup then shows "Angemeldet. Sie können dieses Fenster
+schließen." instead of auto-closing, since it has no opener to notify and no promise that the
+originating tab is even still open.
+
+== Scope of this wave
+
+This wave (V1.4.1a) ships the login/join widgets and the read-only admin status screen. It
+deliberately does *not* include an anonymous donation widget, a donation checkout endpoint, or any
+payment-adjacent embed surface — that is reserved for a future wave (tentatively V1.4.1b) building
+on the same `EmbedConfig`/`EmbedCors`/`EmbedAssets` infrastructure.
+
+See also: <<public-api-v1.adoc#,Public API — V1.3.1/V1.3.2>> for the sibling `/api/v1` read-only
+REST surface (a different audience: machine-to-machine integrations, not a browser widget).

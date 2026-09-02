@@ -188,3 +188,142 @@ tasks.register("verifyDetektCoverage") {
 }
 
 tasks.named("check") { dependsOn("verifyDetektCoverage") }
+
+// ── i18n-Katalog-Wächter (Welle V1.4.1a "Öffentliche Website-Integration") ──────────────────────
+// Alle acht gettext-Kataloge unter lapis-client/.../modules/i18n müssen dieselbe msgid-MENGE
+// tragen (Ist-Zustand verifiziert: 1906 msgid je Katalog, keine Abweichung). Bis zu dieser Welle
+// war das eine ungeprüfte Invariante -- der Fehler "neuer tr()-String nur in messages.pot und
+// messages-en.po nachgetragen" ist wiederholt aufgetreten. Analog zu verifyDetektCoverage oben:
+// hängt am Root-`check`, macht die Fehlerklasse strukturell unmöglich statt disziplinabhängig.
+val i18nCatalogDirFile = file("lapis-client/src/jsMain/resources/modules/i18n")
+val i18nCatalogNames =
+    listOf(
+        "messages.pot",
+        "messages-en.po", "messages-es.po", "messages-fr.po", "messages-it.po",
+        "messages-nl.po", "messages-pl.po", "messages-ru.po",
+    )
+
+/**
+ * Config-Cache-safe worker for [tasks.register] `verifyI18nCatalogParity`'s `doLast` -- a real
+ * `Action<Task>` object (not a script-level `fun`/lambda) so nothing here ever needs to serialize
+ * a reference to the enclosing build script instance (Stolperfalle: a top-level script `fun`
+ * called from inside a `doLast { }` lambda captures `this@Build_gradle` implicitly, which the
+ * Configuration Cache cannot serialize -- see CLAUDE.md "kUML-Repo-Konventionen" §
+ * "Configuration Cache"). Only plain `File`/`List<String>` constructor arguments are held as
+ * fields; the msgid parser itself is a local function nested inside [execute], never a
+ * script-level declaration.
+ */
+private class VerifyI18nCatalogParity(
+    private val dirFile: File,
+    private val names: List<String>,
+) : Action<Task> {
+    override fun execute(task: Task) {
+        val catalogFiles = names.map { File(dirFile, it) }
+        val missingFiles = catalogFiles.filter { !it.exists() }
+        check(missingFiles.isEmpty()) {
+            "verifyI18nCatalogParity: missing catalog file(s): ${missingFiles.joinToString { it.name }} " +
+                "under ${dirFile.path} -- expected exactly: ${names.joinToString()}."
+        }
+
+        val actualPoFiles =
+            dirFile
+                .listFiles { f -> f.isFile && (f.name.endsWith(".po") || f.name.endsWith(".pot")) }
+                ?.map { it.name }
+                ?.toSet()
+                .orEmpty()
+        val unexpected = actualPoFiles - names.toSet()
+        check(unexpected.isEmpty()) {
+            "verifyI18nCatalogParity: new catalog(s) found but not registered: ${unexpected.joinToString()} -- " +
+                "add them to i18nCatalogNames in the root build.gradle.kts (verifyI18nCatalogParity)."
+        }
+
+        /**
+         * Parses the msgid entries of a single gettext catalog file. Zeilenweise:
+         * - a line starting with `msgid ` opens a new entry; the REST of that line is its first
+         *   quoted segment, and every immediately following line that itself starts with `"` is a
+         *   continuation segment appended to it (191 entries in this repo's catalogs use
+         *   multi-line msgids -- a naive `grep '^msgid '` undercounts for exactly this reason).
+         * - segments are stripped of their surrounding `"` and concatenated WITHOUT unescaping --
+         *   the escape conventions are identical across every catalog, so comparing the raw
+         *   quoted form is both correct and simpler than decoding `\n`/`\"`/etc.
+         * - `#~ msgid` (127 obsolete entries in messages-en.po) does not start a line with
+         *   `msgid ` and is therefore correctly ignored.
+         * - the header entry `msgid ""` is counted like any other (present, identically, in all
+         *   eight).
+         * - `msgstr` lines never get collected as msgid continuations: the loop below closes the
+         *   current entry the moment it sees any line that is neither `msgid ` nor a
+         *   `"`-continuation.
+         * - `msgid_plural`/`msgctxt` do not occur in this repo (verified: zero occurrences) and
+         *   are deliberately NOT handled -- an occurrence fails this parser loudly (wrong entry
+         *   count) rather than silently mis-parsing.
+         */
+        fun parseMsgIds(file: File): List<String> {
+            val ids = mutableListOf<String>()
+            var current: MutableList<String>? = null
+            fun flush() {
+                current?.let { segments -> ids += segments.joinToString(separator = "") { it.removeSurrounding("\"") } }
+                current = null
+            }
+            file.forEachLine { rawLine ->
+                val line = rawLine.trimEnd('\r')
+                when {
+                    line.startsWith("msgid ") -> {
+                        flush()
+                        current = mutableListOf(line.removePrefix("msgid ").trim())
+                    }
+                    current != null && line.trim().startsWith("\"") -> {
+                        current!!.add(line.trim())
+                    }
+                    else -> flush()
+                }
+            }
+            flush()
+            return ids
+        }
+
+        val referenceFile = File(dirFile, "messages.pot")
+        val referenceIds = parseMsgIds(referenceFile)
+        val referenceDuplicates = referenceIds.groupingBy { it }.eachCount().filterValues { it > 1 }.keys
+        check(referenceDuplicates.isEmpty()) {
+            "verifyI18nCatalogParity: messages.pot itself contains duplicate msgid(s): " +
+                referenceDuplicates.take(10).joinToString { "\"" + it.take(120) + "\"" }
+        }
+        val referenceSet = referenceIds.toSet()
+
+        val failures = mutableListOf<String>()
+        for (name in names) {
+            if (name == "messages.pot") continue
+            val file = File(dirFile, name)
+            val ids = parseMsgIds(file)
+            val duplicates = ids.groupingBy { it }.eachCount().filterValues { it > 1 }.keys
+            if (duplicates.isNotEmpty()) {
+                failures +=
+                    "$name contains duplicate msgid(s): " +
+                        duplicates.take(10).joinToString { "\"" + it.take(120) + "\"" }
+            }
+            val idSet = ids.toSet()
+            val missing = (referenceSet - idSet).take(10)
+            val extra = (idSet - referenceSet).take(10)
+            if (missing.isNotEmpty() || extra.isNotEmpty()) {
+                failures +=
+                    "$name has ${ids.size} msgid(s), messages.pot (reference) has ${referenceIds.size}. " +
+                        (if (missing.isNotEmpty()) "Missing (up to 10): ${missing.joinToString { "\"" + it.take(120) + "\"" }}. " else "") +
+                        (if (extra.isNotEmpty()) "Extra (up to 10): ${extra.joinToString { "\"" + it.take(120) + "\"" }}." else "")
+            }
+        }
+        check(failures.isEmpty()) {
+            "verifyI18nCatalogParity: msgid set mismatch across catalogs (see CLAUDE.md \"Welle V1.4.1a\"):\n" +
+                failures.joinToString("\n")
+        }
+    }
+}
+
+tasks.register("verifyI18nCatalogParity") {
+    group = "verification"
+    description = "Fails if the eight gettext catalogs do not carry an identical msgid set."
+    val catalogFiles: List<File> = i18nCatalogNames.map { File(i18nCatalogDirFile, it) }
+    inputs.files(catalogFiles).withPropertyName("i18nCatalogs")
+    doLast(VerifyI18nCatalogParity(dirFile = i18nCatalogDirFile, names = i18nCatalogNames))
+}
+
+tasks.named("check") { dependsOn("verifyI18nCatalogParity") }

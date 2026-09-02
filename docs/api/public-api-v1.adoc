@@ -440,3 +440,9 @@ rotation/expiry reminder mail/cleanup, the RFC 9457 `application/problem+json` e
 API's flat `{"error","message"}` body is used instead throughout), a webhook "entity removed" event
 (see the Webhooks section above), multi-instance-safe deactivation notification/retention, and a
 dual-secret grace window during webhook signing-secret rotation.
+
+NOTE: "CORS" above refers specifically to this `/api/v1` surface, which stays Bearer-key-only and
+carries no CORS headers. Welle V1.4.1a added hand-rolled, allowlist-gated CORS to a completely
+separate, unauthenticated surface (`/api/embed/v1/*`) for browser-embeddable login widgets — see
+<<embed-widgets.adoc#,Website Embed Widgets — V1.4.1a>>. The two surfaces do not share any code
+path, rate limiter, or route prefix.

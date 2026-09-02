@@ -114,6 +114,16 @@ internal object SocialPublicHtml {
         .rank-list { padding-left: 1.6rem; }
         .rank-list li { padding: 0.2rem 0; }
         .section-note { color: #888; font-size: 0.8rem; font-style: italic; }
+
+        /* Welle V1.4.1a "Öffentliche Website-Integration" (/embed/v1/login) -- shares this
+           stylesheet, same reasoning as the V1.3.0 block above: no second stylesheet, no inline
+           <style>, see network.lapis.cloud.server.routes.EmbedHtml class KDoc. */
+        .embed-page { max-width: 22rem; margin: 3rem auto; }
+        .embed-field { margin-bottom: 0.9rem; }
+        .embed-field label { display: block; margin-bottom: 0.3rem; font-size: 0.9rem; }
+        .embed-field input { width: 100%; padding: 0.5rem; box-sizing: border-box; }
+        .embed-error { color: #b00020; font-size: 0.85rem; min-height: 1.2rem; }
+        .embed-submit { width: 100%; padding: 0.6rem; margin-top: 0.4rem; }
         """
 
     /** Title length ceiling -- shared by `<title>` and `og:title`. */

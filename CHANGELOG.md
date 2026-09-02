@@ -8,6 +8,44 @@ All notable changes to this project are documented here. Format follows
 
 ### Added
 
+**Öffentliche Website-Integration (Welle V1.4.1a "Fundament + Login-Widget")**
+
+- **Einbettungs-Vertrag**: ein kleines Skript-Bundle (`/embed/v1/lapis-widgets.js`, < 8 KB,
+  IIFE, keine Abhängigkeiten) für zwei Widgets auf der eigenen Vereins-/Parteiwebsite —
+  `data-lapis-widget="login"` (Popup-Login) und `data-lapis-widget="join"` (Link zu `/#/register`).
+  **No-JS-Fallback**: jeder Widget-Host trägt einen eigenen, funktionierenden `<a>`-Link, den das
+  Skript erst bei erfolgreicher Hydration ersetzt — ohne JavaScript, mit blockiertem Skript oder bei
+  nicht freigeschalteter Origin bleibt der Betreiber-eigene Link stehen und funktioniert.
+- **Popup+`postMessage`-Login ohne jeden Credential-Transfer über eine Origin-Grenze** — die
+  Anmeldung läuft in einem echten Popup-Fenster auf der Lapis-Cloud-eigenen Origin
+  (`GET /embed/v1/login`), `POST /api/auth/login` bleibt unverändert same-origin mit
+  `SameSite=Strict`/`HttpOnly`/`Secure`. Über `postMessage` an die Partner-Origin gelangen
+  ausschließlich `ok`/`displayName` — nie ein Cookie, nie ein Token. **`AuthRoutes.kt` und
+  `SessionStore.kt` wurden für diese Welle nicht angefasst.**
+- **Handgerolltes CORS ohne `Access-Control-Allow-Credentials`** (`network.lapis.cloud.server.embed
+  .EmbedCors`) — per-Handler, kein Ktor-CORS-Plugin, kein Route-Prefix-Interceptor. Nur
+  `GET/OPTIONS /api/embed/v1/session` trägt CORS-Header; `Access-Control-Allow-Origin` ist immer der
+  kanonische Allowlist-Eintrag, nie `*`, nie der rohe Request-Wert. Der ADMIN-Status-Endpunkt trägt
+  nie CORS-Header.
+- **Env-only Origin-Allowlist mit Fail-fast** (`network.lapis.cloud.server.embed.EmbedConfig`/
+  `EmbedOriginAllowlist`) — `LAPIS_EMBED_ALLOWED_ORIGINS` wird ausschließlich beim Serverstart
+  gelesen, nie in der Datenbank persistiert (ein kompromittierter ADMIN-Account kann keine fremde
+  Origin autorisieren). URI-basierte Kanonisierung (kein Substring-Vergleich) wehrt Suffix-/
+  Präfix-Angriffe ab, normalisiert Default-Ports, akzeptiert IDN/Punycode, lehnt Userinfo/Pfad/
+  Query/Fragment/Steuerzeichen ab. Drei neue Variablen: `LAPIS_EMBED_ENABLED`,
+  `LAPIS_EMBED_ALLOWED_ORIGINS`, `LAPIS_EMBED_ALLOW_INSECURE` (O4-Doktrin wie
+  `LAPIS_WEBHOOKS_ALLOW_INSECURE` — bewusst nie auf `"false"` gesetzt, nur weggelassen).
+- **ADMIN-only, read-only Screen "Website-Integration"** (`EmbedIntegrationScreen.kt`) — zeigt
+  Aktivierungszustand + freigeschaltete Origins (nicht änderbar, reine Anzeige dessen, was der
+  Server beim Start geladen hat), das vorbefüllte Einbindungs-Snippet mit Kopieren-Knopf, und eine
+  dreiteilige Prüf-Checkliste.
+- **Neuer Gradle-Wächter `verifyI18nCatalogParity`** — läuft ab sofort in jedem `check` und macht
+  strukturell unmöglich, dass ein neuer `tr()`-String nur in einem Teil der acht i18n-Kataloge
+  landet (bislang eine ungeprüfte Invariante).
+- Der anonyme Spenden-Einbettungspfad ist bewusst einer künftigen Welle (vorläufig V1.4.1b)
+  vorbehalten — diese Welle enthält keine Zahlungs-/Spenden-Fachlogik, keine neue Migration, kein
+  Schema-Diff.
+
 **Ausgehende Webhooks (Welle V1.3.2 "Webhooks")**
 
 - **Neue Tabellen `webhook_endpoint`/`webhook_delivery`** (`V15__webhooks.sql`) — ein Webhook ist 1:1

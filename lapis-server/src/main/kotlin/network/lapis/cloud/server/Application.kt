@@ -52,6 +52,8 @@ import network.lapis.cloud.server.economy.oracle.OracleSourceConfig
 import network.lapis.cloud.server.economy.oracle.PriceOracleOrchestrator
 import network.lapis.cloud.server.economy.oracle.PriceOracleStartupCheck
 import network.lapis.cloud.server.economy.oracle.defaultOracleSources
+import network.lapis.cloud.server.embed.EmbedAssets
+import network.lapis.cloud.server.embed.EmbedConfig
 import network.lapis.cloud.server.federation.FederationActorKeyProvisioner
 import network.lapis.cloud.server.federation.FederationConfig
 import network.lapis.cloud.server.federation.FederationInboxRateLimiter
@@ -85,6 +87,7 @@ import network.lapis.cloud.server.routes.registerConferenceRecordingRoutes
 import network.lapis.cloud.server.routes.registerDocumentRoutes
 import network.lapis.cloud.server.routes.registerDsgvoRoutes
 import network.lapis.cloud.server.routes.registerDunningRoutes
+import network.lapis.cloud.server.routes.registerEmbedRoutes
 import network.lapis.cloud.server.routes.registerFederationRoutes
 import network.lapis.cloud.server.routes.registerMailmergeRoutes
 import network.lapis.cloud.server.routes.registerOidcRoutes
@@ -576,6 +579,17 @@ fun Application.module() {
     // `null` whenever no key is configured -- WebhookService/WebhookDeliveryPoller both treat a
     // `null` box as "webhooks unusable" rather than crashing (see WebhookService KDoc
     // "requireSecretBox").
+    // Welle V1.4.1a "Öffentliche Website-Integration" -- EmbedConfig.load() fail-fasts on its own
+    // (analog WebhookConfig.load, siehe EmbedConfig KDoc) if LAPIS_EMBED_ENABLED=true with an
+    // unusable allowlist. Referenced unconditionally (also when disabled) so a packaging mistake
+    // in the two embed .js resources (see EmbedAssets.kt KDoc) surfaces at STARTUP.
+    val embedConfig = EmbedConfig.load()
+    // Force eager classloading/resource-packaging validation NOW, at startup -- also when
+    // embedConfig.enabled is false. EmbedAssets.loadResource throws via checkNotNull if either
+    // .js resource is missing from the built JAR (see EmbedAssets KDoc "Loaded eagerly").
+    check(EmbedAssets.widgetJsTemplate.isNotEmpty() && EmbedAssets.loginPopupJs.isNotEmpty()) {
+        "EmbedAssets: an embed .js resource loaded empty -- packaging error."
+    }
     val webhookConfig = WebhookConfig.load()
     val webhookSecretBox: SecretBox? = webhookConfig.secretEncryptionKey?.let { SecretBox(it) }
     WebhookEventPublisher.install(webhookConfig)
@@ -707,6 +721,18 @@ fun Application.module() {
     // bounded the same way), a SEPARATE limiter/bucket rather than reusing that one so a burst
     // against one public route family never eats into the other's budget.
     val publicTransparencyRateLimiter = FederationInboxRateLimiter(maxRequests = 30, window = 1.minutes, maxTrackedKeys = 50_000)
+
+    // Welle V1.4.1a "Öffentliche Website-Integration" -- vier neue, module-scoped Rate-Limiter,
+    // NIEMALS als Konstruktor-Default (Stolperfalle 8, dieselbe Begründung wie jeder andere
+    // Limiter in diesem Block). Alle vier sind internet-offen/unauthentifiziert -> maxTrackedKeys
+    // = 50_000, gleiche Begründung wie socialPublicReadRateLimiter oben -- AUCH der ADMIN-Status
+    // (Review-Fund V1.4.1a: der Handler keyt per Client-IP und prüft VOR resolveCurrentMember, ist
+    // also entgegen einer früheren Kommentar-Fassung hier NICHT member-gekeyt, sondern genauso
+    // unauthentifiziert erreichbar wie die anderen drei -- derselbe Schlüsselraum-Deckel gilt).
+    val embedAssetRateLimiter = FederationInboxRateLimiter(maxRequests = 60, window = 1.minutes, maxTrackedKeys = 50_000)
+    val embedLoginPageRateLimiter = FederationInboxRateLimiter(maxRequests = 20, window = 1.minutes, maxTrackedKeys = 50_000)
+    val embedSessionRateLimiter = FederationInboxRateLimiter(maxRequests = 30, window = 1.minutes, maxTrackedKeys = 50_000)
+    val embedAdminStatusRateLimiter = FederationInboxRateLimiter(maxRequests = 30, window = 1.minutes, maxTrackedKeys = 50_000)
 
     // V1.3.0 -- IDsgvoService.grantPublicRankingConsent, an AUTHENTICATED, member-keyed write path
     // (see DsgvoService's own requireWithinRate-style guard) -- 10/min, same budget
@@ -1038,6 +1064,20 @@ fun Application.module() {
         registerPublicApiRoutes(
             preAuthRateLimiter = publicApiPreAuthRateLimiter,
             postAuthRateLimiter = publicApiPostAuthRateLimiter,
+        )
+        // Welle V1.4.1a "Öffentliche Website-Integration" -- literale Routen (/embed/v1/*,
+        // /api/embed/v1/*), dieselbe "literal schlägt catch-all"-Begründung wie bei
+        // registerSocialPublicRoutes. Bei LAPIS_EMBED_ENABLED != true registriert der Aufruf NUR
+        // den ADMIN-Statusendpunkt (GET /api/embed/v1/admin/status, weiterhin ADMIN-gated) -- jeder
+        // ANDERE Pfad unter /embed/ bzw. /api/embed/ läuft dann in staticFiles' 404 (siehe
+        // registerEmbedRoutes KDoc).
+        registerEmbedRoutes(
+            config = embedConfig,
+            assetRateLimiter = embedAssetRateLimiter,
+            loginPageRateLimiter = embedLoginPageRateLimiter,
+            sessionRateLimiter = embedSessionRateLimiter,
+            adminStatusRateLimiter = embedAdminStatusRateLimiter,
+            brandTitle = resolvedBranding.title,
         )
         getAllServiceManagers().forEach { applyRoutes(it) }
         // V1.2.5 White-Label-Branding -- literal routes, registered before staticFiles below for

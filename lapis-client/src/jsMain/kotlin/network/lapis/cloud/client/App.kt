@@ -413,6 +413,9 @@ private fun refreshNavbar(navbar: Navbar) {
             // Client-UI wave for GitHub Issue #5 -- see Routes.DUNNING_SETTINGS KDoc for the
             // ADMIN-only role-gate verification.
             routedDdLink(Routes.DUNNING_SETTINGS, tr("Mahnwesen-Konfiguration"), icon = "fas fa-scale-unbalanced")
+            // Welle V1.4.1a "Öffentliche Website-Integration" -- see Routes.EMBED_INTEGRATION KDoc
+            // for the ADMIN-only role-gate verification.
+            routedDdLink(Routes.EMBED_INTEGRATION, tr("Website-Integration"), icon = "fas fa-code")
         }
     }
 

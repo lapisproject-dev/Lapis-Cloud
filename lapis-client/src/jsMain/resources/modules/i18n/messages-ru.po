@@ -9370,3 +9370,70 @@ msgstr "Не удалось отправить тестовое событие -
 #: src/jsMain/kotlin/network/lapis/cloud/client/WebhookGuard.kt:125
 msgid "Der Webhook konnte nicht entfernt werden -- es wurden zu viele Anfragen in kurzer Zeit gestellt."
 msgstr "Не удалось удалить вебхук -- за короткое время было отправлено слишком много запросов."
+
+# Welle V1.4.1a "Oeffentliche Website-Integration" -- neu hinzugefuegt.
+#: src/jsMain/kotlin/network/lapis/cloud/client/EmbedIntegrationScreen.kt:41
+#: src/jsMain/kotlin/network/lapis/cloud/client/App.kt:418
+msgid "Website-Integration"
+msgstr "Интеграция с веб-сайтом"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/EmbedIntegrationScreen.kt:44
+msgid "Widgets zum Einbetten auf der eigenen Vereins-/Parteiwebsite (Mitglieder-Login, Mitglied werden)."
+msgstr "Виджеты для встраивания на сайт вашей ассоциации/партии (вход для участников, стать участником)."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/EmbedIntegrationScreen.kt:49
+msgid "Lädt …"
+msgstr "Загрузка…"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/EmbedIntegrationScreen.kt:55
+msgid "Status konnte nicht geladen werden."
+msgstr "Не удалось загрузить статус."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/EmbedIntegrationScreen.kt:70
+msgid "Zustand"
+msgstr "Состояние"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/EmbedIntegrationScreen.kt:71
+msgid "Aktiviert: Ja"
+msgstr "Включено: Да"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/EmbedIntegrationScreen.kt:71
+msgid "Aktiviert: Nein"
+msgstr "Включено: Нет"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/EmbedIntegrationScreen.kt:73
+msgid "%1 freigeschaltete Origin(s):"
+msgstr "%1 разрешённых источников (origin):"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/EmbedIntegrationScreen.kt:79
+msgid "Diese Liste wird beim Serverstart aus LAPIS_EMBED_ALLOWED_ORIGINS gelesen und lässt sich hier nicht ändern."
+msgstr "Этот список считывается из LAPIS_EMBED_ALLOWED_ORIGINS при запуске сервера и не может быть изменён здесь."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/EmbedIntegrationScreen.kt:88
+msgid "Einbindungs-Code"
+msgstr "Код для встраивания"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/EmbedIntegrationScreen.kt:92
+msgid "Kopieren"
+msgstr "Копировать"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/EmbedIntegrationScreen.kt:93
+msgid "Kopiert"
+msgstr "Скопировано"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/EmbedIntegrationScreen.kt:110
+msgid "Prüf-Checkliste"
+msgstr "Контрольный список"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/EmbedIntegrationScreen.kt:112
+msgid "Skript geladen?"
+msgstr "Скрипт загружен?"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/EmbedIntegrationScreen.kt:113
+msgid "Origin freigeschaltet?"
+msgstr "Источник (origin) разрешён?"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/EmbedIntegrationScreen.kt:114
+msgid "Konsolenmeldung vorhanden?"
+msgstr "Сообщение в консоли присутствует?"
+

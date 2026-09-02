@@ -579,6 +579,49 @@ periodic re-fetch of the relevant `/api/v1` list), multi-instance-safe deactivat
 notification/retention cleanup (the poller assumes exactly one running server instance), and a
 grace-period dual-secret transition during signing-secret rotation.
 
+== Website Integration (V1.4.1a)
+
+A small (< 8 KB, no dependencies) embeddable script lets a partner website — a party's or
+association's own site, on a *different* origin — offer a member-login button and a
+"become a member" link without ever sharing a session cookie across that origin boundary. Login
+runs in a popup window on this server's own origin; only a `postMessage`-delivered
+`{ok, displayName}` crosses back to the embedding page. Every widget host carries a working No-JS
+fallback link that the script only ever replaces, never removes first. Full contract (snippet,
+CSS custom properties, CORS/CSP, the popup+`postMessage` flow, known limitations):
+`docs/api/embed-widgets.adoc`.
+
+=== Environment variables — OPTIONAL, off by default
+
+`EmbedConfig.load()` is the only place these are read; the origin allowlist lives in the
+environment only, never in the database (a compromised ADMIN account cannot authorize a new
+embedding origin at runtime). An ADMIN-only, read-only screen (*System → Website-Integration*)
+shows what was loaded at startup.
+
+[cols="1,3", options="header"]
+|===
+|Variable |Purpose
+
+|`LAPIS_EMBED_ENABLED`
+|`true` to serve the `/embed/v1/*`/`/api/embed/v1/*` routes at all. Anything else (including unset) leaves every one of those paths 404ing, as if this wave did not exist.
+
+|`LAPIS_EMBED_ALLOWED_ORIGINS`
+|Comma-separated exact `scheme://host[:port]` origins allowed to embed the widgets. Required and non-empty when `LAPIS_EMBED_ENABLED=true` — an invalid entry fails the server's startup with an explicit error naming the entry, never a silent skip. `www.` and the bare domain are different origins.
+
+|`LAPIS_EMBED_ALLOW_INSECURE`
+|Development only — accepts plain `http://` origins when set to `true`. Deliberately absent from both `docker-compose.yml` files rather than pinned to `"false"`, same "O4" doctrine as `LAPIS_WEBHOOKS_ALLOW_INSECURE` above. A WARN is logged at startup whenever it is set at all.
+|===
+
+CAUTION: The origins in `LAPIS_EMBED_ALLOWED_ORIGINS` are shipped inside the publicly downloadable
+`lapis-widgets.js` bundle — see `docs/api/embed-widgets.adoc` for why, and do not list an
+internal/staging origin expecting it to stay unlisted.
+
+=== What doesn't work yet (this wave)
+
+Deliberately out of scope, reserved for a future wave (tentatively V1.4.1b) building on this
+wave's `EmbedConfig`/`EmbedCors`/`EmbedAssets` infrastructure: an anonymous donation widget, any
+donation-checkout endpoint under `/api/embed/v1/`, and an automatic "already signed in" indicator
+on page load without a click (deliberately absent — that would be a cross-site tracking channel).
+
 == Documentation Convention
 
 Consistent across all Lapis and kUML projects (see `CLAUDE.md`):

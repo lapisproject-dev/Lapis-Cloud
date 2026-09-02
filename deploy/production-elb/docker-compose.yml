@@ -138,6 +138,10 @@ services:
       LAPIS_WEBHOOKS_ENABLED: ${LAPIS_WEBHOOKS_ENABLED:-}
       LAPIS_WEBHOOK_POLL_INTERVAL_SECONDS: ${LAPIS_WEBHOOK_POLL_INTERVAL_SECONDS:-}
       LAPIS_WEBHOOK_RETENTION_DAYS: ${LAPIS_WEBHOOK_RETENTION_DAYS:-}
+      # Oeffentliche Website-Integration (V1.4.1a) -- OPTIONAL, default aus.
+      # LAPIS_EMBED_ALLOW_INSECURE bewusst weggelassen, nicht auf "" gesetzt (WebhookConfig "O4").
+      LAPIS_EMBED_ENABLED: ${LAPIS_EMBED_ENABLED:-}
+      LAPIS_EMBED_ALLOWED_ORIGINS: ${LAPIS_EMBED_ALLOWED_ORIGINS:-}
       # First-admin bootstrap (see AdminBootstrap KDoc) -- only ever acts on a genuinely empty
       # `member` table, so safe to leave set permanently. Needs all three or none: bootstrap mode
       # only engages once LAPIS_BOOTSTRAP_ADMIN_DISPLAY_NAME is set.

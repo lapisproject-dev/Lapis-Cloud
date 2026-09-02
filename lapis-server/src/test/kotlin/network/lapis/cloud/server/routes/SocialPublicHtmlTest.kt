@@ -261,8 +261,9 @@ class SocialPublicHtmlTest :
 
         test(
             "T6: source scan -- SocialPublicHtml.kt, SocialPublicRoutes.kt, SocialPublicSitemap.kt, " +
-                "PublicTransparencyHtml.kt, PublicTransparencyRoutes.kt, and PublicTransparencyReader.kt " +
-                "contain no case-insensitive variant of the raw-HTML-escape-bypass token",
+                "PublicTransparencyHtml.kt, PublicTransparencyRoutes.kt, PublicTransparencyReader.kt, " +
+                "EmbedHtml.kt, and EmbedRoutes.kt contain no case-insensitive variant of the " +
+                "raw-HTML-escape-bypass token",
         ) {
             // G8-Fix (Review-Runde 1): the scan used to be case-SENSITIVE (would have missed
             // `Unsafe`/`UNSAFE`) and did not scan SocialPublicSitemap.kt at all, even though it is
@@ -279,6 +280,10 @@ class SocialPublicHtmlTest :
                     File(mainSourceDir, "network/lapis/cloud/server/routes/PublicTransparencyHtml.kt"),
                     File(mainSourceDir, "network/lapis/cloud/server/routes/PublicTransparencyRoutes.kt"),
                     File(mainSourceDir, "network/lapis/cloud/server/routes/PublicTransparencyReader.kt"),
+                    // Welle V1.4.1a "Öffentliche Website-Integration" -- dieselbe Erweiterung, die
+                    // V1.3.0 für die Transparenz-Dateien gemacht hat.
+                    File(mainSourceDir, "network/lapis/cloud/server/routes/EmbedHtml.kt"),
+                    File(mainSourceDir, "network/lapis/cloud/server/routes/EmbedRoutes.kt"),
                 )
             scannedFiles.forEach { file ->
                 file.exists() shouldBe true
