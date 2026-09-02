@@ -1208,6 +1208,16 @@ msgstr "Mostrar"
 msgid "Anzeigename (nicht überprüft)"
 msgstr "Nombre visible (no verificado)"
 
+#: src/jsMain/kotlin/network/lapis/cloud/client/ApiKeysScreen.kt:39
+#: src/jsMain/kotlin/network/lapis/cloud/client/App.kt:395
+#: src/jsMain/kotlin/network/lapis/cloud/client/ComplianceLabels.kt:101
+msgid "API-Schlüssel"
+msgstr "Clave de API"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ApiKeysScreen.kt:199
+msgid "API-Schlüssel widerrufen bestätigen"
+msgstr "Confirmar revocación de la clave de API"
+
 #: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:164
 msgid "Art der Löschung"
 msgstr "Tipo de eliminación"
@@ -2199,6 +2209,10 @@ msgstr "Indique una puja máxima positiva (LTR)."
 msgid "Bitte eine Begründung angeben."
 msgstr "Indique una justificación."
 
+#: src/jsMain/kotlin/network/lapis/cloud/client/ApiKeysScreen.kt:66
+msgid "Bitte eine Bezeichnung angeben."
+msgstr "Indique una denominación."
+
 #: src/jsMain/kotlin/network/lapis/cloud/client/BackupScreen.kt:199
 #: src/jsMain/kotlin/network/lapis/cloud/client/DocumentsScreen.kt:221
 msgid "Bitte eine Datei auswählen."
@@ -2819,6 +2833,12 @@ msgstr ""
 "El texto legal informativo sobre domiciliación SEPA se ha actualizado de la "
 "versión %1 (última confirmada) a la versión %2."
 
+#: src/jsMain/kotlin/network/lapis/cloud/client/ApiKeysScreen.kt:200
+msgid ""
+"Der Schlüssel „%1“ kann danach nicht mehr für Zugriffe auf /api/v1 verwendet "
+"werden."
+msgstr "La clave «%1» ya no podrá utilizarse para acceder a /api/v1."
+
 #: src/jsMain/kotlin/network/lapis/cloud/client/AuctionScreen.kt:398
 msgid "Der Sofortkaufpreis muss über dem Startpreis liegen."
 msgstr "El precio de compra inmediata debe ser superior al precio de salida."
@@ -3202,6 +3222,16 @@ msgstr ""
 "Este identificador de sala no es válido. Cópielo completo desde su "
 "invitación."
 
+#: src/jsMain/kotlin/network/lapis/cloud/client/ApiKeysScreen.kt:41
+msgid ""
+"Diese Schlüssel authentifizieren externe Zugriffe auf die schreibgeschützte "
+"REST-API (/api/v1) -- siehe die API-Dokumentation für Endpunkte und "
+"Rate-Limits."
+msgstr ""
+"Estas claves autentican los accesos externos a la API REST de solo lectura "
+"(/api/v1) -- consulte la documentación de la API para conocer los endpoints "
+"y los límites de solicitudes."
+
 #: src/jsMain/kotlin/network/lapis/cloud/client/Routing.kt:349
 msgid ""
 "Diese Seite konnte nicht geladen werden -- bitte laden Sie die Seite neu."
@@ -3250,6 +3280,14 @@ msgid ""
 "Dieser Link enthält keinen gültigen Token. Bitte fordern Sie einen neuen "
 "Link an."
 msgstr "Este enlace no contiene un token válido. Solicite un nuevo enlace."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ApiKeysScreen.kt:179
+msgid ""
+"Dieser Schlüssel wird aus Sicherheitsgründen nur dieses eine Mal angezeigt. "
+"Kopieren Sie ihn jetzt an einen sicheren Ort."
+msgstr ""
+"Por motivos de seguridad, esta clave se muestra solo esta vez. Cópiela ahora "
+"en un lugar seguro."
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/SocialNetworkScreen.kt:777
 msgid "Dieser Thread hat %1 Beiträge -- nur die ersten 5 000 werden angezeigt."
@@ -4576,6 +4614,10 @@ msgstr ""
 msgid "Ich habe den Beitrittsvertrag gelesen und akzeptiere ihn."
 msgstr "He leído el contrato de adhesión y lo acepto."
 
+#: src/jsMain/kotlin/network/lapis/cloud/client/ApiKeysScreen.kt:191
+msgid "Ich habe den Schlüssel gespeichert"
+msgstr "He guardado la clave"
+
 #: src/jsMain/kotlin/network/lapis/cloud/client/FriendRegistrationScreen.kt:76
 msgid ""
 "Ich habe die Nutzungsbedingungen für Freund-Konten gelesen und akzeptiere "
@@ -4880,6 +4922,10 @@ msgstr "Libro de caja"
 #: src/jsMain/kotlin/network/lapis/cloud/client/SocialNetworkScreen.kt:556
 msgid "Kategorie"
 msgstr "Categoría"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ApiKeysScreen.kt:114
+msgid "Kein Ablaufdatum"
+msgstr "Sin fecha de caducidad"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/SepaLabels.kt:120
 msgid "Kein aktives Mandat"
@@ -5386,6 +5432,10 @@ msgstr "Lote cancelado."
 #: src/jsMain/kotlin/network/lapis/cloud/client/SepaBatchesScreen.kt:77
 msgid "Läufe"
 msgstr "Lotes"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ApiKeysScreen.kt:113
+msgid "Läuft ab am"
+msgstr "Caduca el"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/AuditLogScreen.kt:500
 msgid "laufend"
@@ -6052,6 +6102,10 @@ msgstr "No"
 msgid "Nein-Stimmen"
 msgstr "Votos en contra"
 
+#: src/jsMain/kotlin/network/lapis/cloud/client/ApiKeysScreen.kt:133
+msgid "Neu ausstellen"
+msgstr "Reemitir"
+
 #: src/jsMain/kotlin/network/lapis/cloud/client/AuctionScreen.kt:911
 msgid ""
 "Neue Angebote können ebenfalls nicht erstellt werden, bis ein ADMIN die "
@@ -6122,6 +6176,10 @@ msgstr "Crear nueva entrada de AVV"
 msgid "Neuen Beitrag verfassen"
 msgstr "Redactar una nueva publicación"
 
+#: src/jsMain/kotlin/network/lapis/cloud/client/ApiKeysScreen.kt:62
+msgid "Neuen Schlüssel ausstellen"
+msgstr "Emitir nueva clave"
+
 #: src/jsMain/kotlin/network/lapis/cloud/client/DonorsScreen.kt:113
 msgid "Neuen Spender anlegen"
 msgstr "Crear nuevo donante"
@@ -6137,6 +6195,10 @@ msgstr "Nuevo lote"
 #: src/jsMain/kotlin/network/lapis/cloud/client/DocumentsScreen.kt:154
 msgid "Neuer Ordnername"
 msgstr "Nuevo nombre de carpeta"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ApiKeysScreen.kt:177
+msgid "Neuer Schlüssel -- jetzt speichern"
+msgstr "Nueva clave -- guárdela ahora"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceStreamDestinationsScreen.kt:259
 msgid "Neuer Stream-Schlüssel (leer lassen = unverändert lassen)"
@@ -6243,6 +6305,10 @@ msgstr "Todavía no hay mociones disponibles."
 #: src/jsMain/kotlin/network/lapis/cloud/client/MeetingsScreen.kt:696
 msgid "Noch keine Anwesenheit erfasst."
 msgstr "Todavía no se ha registrado ninguna asistencia."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ApiKeysScreen.kt:91
+msgid "Noch keine API-Schlüssel ausgestellt."
+msgstr "Todavía no se han emitido claves de API."
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceRecordingsPanel.kt:76
 msgid "Noch keine Aufzeichnungen."
@@ -6368,6 +6434,10 @@ msgstr "Todavía no se ha calculado ninguna distribución."
 #: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoComplianceScreen.kt:895
 msgid "Noch nicht festgelegt"
 msgstr "Todavía no definido"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ApiKeysScreen.kt:122
+msgid "Noch nicht genutzt"
+msgstr "Todavía no utilizado"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:2374
 msgid "Noch niemand verbunden."
@@ -7133,6 +7203,18 @@ msgstr "Cerrar"
 #: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceStreamDestinationsScreen.kt:121
 msgid "Schlüssel gesetzt am %1 von %2"
 msgstr "Clave establecida el %1 por %2"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ApiKeysScreen.kt:188
+msgid ""
+"Schlüssel verloren? Einfach neu ausstellen -- der alte wird dabei "
+"automatisch widerrufen."
+msgstr ""
+"¿Ha perdido la clave? Simplemente emita una nueva -- la anterior se revocará "
+"automáticamente."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ApiKeysScreen.kt:154
+msgid "Schlüssel widerrufen."
+msgstr "Clave revocada."
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/LedgerScreen.kt:654
 #: src/jsMain/kotlin/network/lapis/cloud/client/LedgerScreen.kt:717
@@ -8608,6 +8690,10 @@ msgstr "Vaciar pizarra"
 msgid "Widerrufen"
 msgstr "Revocado"
 
+#: src/jsMain/kotlin/network/lapis/cloud/client/ApiKeysScreen.kt:112
+msgid "Widerrufen am"
+msgstr "Revocado el"
+
 #: src/jsMain/kotlin/network/lapis/cloud/client/PoliticianScreen.kt:322
 msgid "Widerrufen am %1 von %2"
 msgstr "Revocado el %1 por %2"
@@ -8871,6 +8957,10 @@ msgstr "Editado por última vez por %1"
 msgid "Zuletzt bestätigt von %1 am %2 (Hinweistext-Version %3)."
 msgstr ""
 "Confirmado por última vez por %1 el %2 (versión del texto informativo %3)."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ApiKeysScreen.kt:120
+msgid "Zuletzt genutzt (5-Minuten-Genauigkeit): %1"
+msgstr "Último uso (precisión de 5 minutos): %1"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/MotionsScreen.kt:523
 msgid "Zum Hauptantrag"

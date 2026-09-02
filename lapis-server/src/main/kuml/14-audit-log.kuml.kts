@@ -169,15 +169,12 @@ classDiagram(name = "AuditLog") {
         literal(name = "CONFERENCE_ROOM")
         literal(name = "SOCIAL_POST") // Soziales Netzwerk, Welle V1.1.5 -- rechtliche Entfernung + Melde-Entscheidung
         literal(name = "ORGANIZATION_SETTINGS") // Welle V1.2.1, Security Round 1 -- Konten-Zuordnungs-Aenderung
+        literal(name = "SEPA_MANDATE") // Welle V1.2.2 SEPA-Lastschriftmandate -- Mandat Grant/Revoke/Ablauf, siehe SepaMandateSnapshot KDoc
+        literal(name = "SEPA_DEBIT_BATCH") // Welle V1.2.2 SEPA-Lastschriftmandate -- Batch-Statusuebergaenge, siehe SepaDebitBatchSnapshot KDoc
         literal(name = "DUNNING_NOTICE") // Welle V1.2.7 Automatisiertes Mahnwesen -- siehe DunningService/DunningPoller KDoc
-        // Welle V1.3.1 "API-Fundament, lesend" -- ApiKeyService.issueApiKey/revokeApiKey/reissueApiKey.
-        // NOTE: this model file's own literal set predates (and was never updated for) the MEMBER/
-        // PAYMENT_TRANSACTION literals that network.lapis.cloud.shared.domain.AuditEntityType/
-        // V1__baseline.sql's CHECK constraint already carry (pre-existing drift, out of scope for
-        // this wave) -- API_KEY is appended here after the model's own last literal (DUNNING_NOTICE),
-        // matching how this file's literal ORDER, not the real enum's full membership, is what
-        // AuditLogSchemaDriftTest actually pins.
-        literal(name = "API_KEY")
+        literal(name = "MEMBER") // Welle V1.2.12 Mitgliederverwaltung -- privilegierte Aenderungen, siehe MemberChangeSnapshot KDoc
+        literal(name = "PAYMENT_TRANSACTION") // Welle V1.2.8 PSP-Checkout (Stripe) -- siehe PaymentTransactionSnapshot KDoc
+        literal(name = "API_KEY") // Welle V1.3.1 "API-Fundament, lesend" -- ApiKeyService.issueApiKey/revokeApiKey/reissueApiKey
     }
 
     // Genesis-singleton row (see file header) -- gapless sequence_number + hash-chain
