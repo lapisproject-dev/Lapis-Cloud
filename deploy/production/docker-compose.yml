@@ -134,6 +134,15 @@ services:
       LAPIS_DUNNING_POLL_INTERVAL_SECONDS: ${LAPIS_DUNNING_POLL_INTERVAL_SECONDS:-}
       LAPIS_DUNNING_MAX_NOTICES_PER_TICK: ${LAPIS_DUNNING_MAX_NOTICES_PER_TICK:-}
       LAPIS_DUNNING_POSTAL_DISPATCH_ENABLED: ${LAPIS_DUNNING_POSTAL_DISPATCH_ENABLED:-}
+      # PSP-Checkout via Stripe (V1.2.8) -- ALL optional, but ALL-OR-NOTHING for the two required
+      # secrets: either both LAPIS_STRIPE_SECRET_KEY and LAPIS_STRIPE_WEBHOOK_SIGNING_SECRET or
+      # neither. A half configuration deliberately fails startup -- see PspConfig KDoc and
+      # .env.example. LAPIS_STRIPE_API_BASE_URL is override-only for tests, never set here.
+      LAPIS_STRIPE_SECRET_KEY: ${LAPIS_STRIPE_SECRET_KEY:-}
+      LAPIS_STRIPE_WEBHOOK_SIGNING_SECRET: ${LAPIS_STRIPE_WEBHOOK_SIGNING_SECRET:-}
+      LAPIS_PSP_WEBHOOK_TOLERANCE_SECONDS: ${LAPIS_PSP_WEBHOOK_TOLERANCE_SECONDS:-}
+      LAPIS_PSP_MAX_CHECKOUT_AMOUNT_EUR: ${LAPIS_PSP_MAX_CHECKOUT_AMOUNT_EUR:-}
+      LAPIS_PSP_CHECKOUT_TTL_MINUTES: ${LAPIS_PSP_CHECKOUT_TTL_MINUTES:-}
     volumes:
       # Named volumes, not bind mounts -- survive `docker compose up -d --build` image rebuilds/
       # recreations, which a container's own writable layer would not. lapis-document-storage
