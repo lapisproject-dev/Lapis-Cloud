@@ -9132,3 +9132,210 @@ msgstr "Кэшировано"
 
 #~ msgid "Rolle: %1 · Sitzung gültig bis %2"
 #~ msgstr "Роль: %1 · Сессия действительна до %2"
+
+msgid "Diese Schlüssel authentifizieren externe Zugriffe auf die schreibgeschützte REST-API (/api/v1) -- siehe die API-Dokumentation für Endpunkte und Rate-Limits. Optional kann je Schlüssel ein Webhook konfiguriert werden, der bei bestimmten Ereignissen automatisch einen HTTP-POST an eine von Ihnen angegebene Adresse sendet."
+msgstr "Эти ключи авторизуют внешний доступ к доступному только для чтения REST API (/api/v1) -- см. документацию API для эндпоинтов и ограничений частоты запросов. При желании для каждого ключа можно настроить веб-хук, который при определённых событиях автоматически отправляет HTTP POST на указанный вами адрес."
+
+msgid "Webhook für „%1“ deaktiviert: %2."
+msgstr "Веб-хук для «%1» отключён: %2."
+
+msgid "unbekannter Grund"
+msgstr "неизвестная причина"
+
+msgid "Kein Webhook eingerichtet."
+msgstr "Веб-хук не настроен."
+
+msgid "Webhook-URL (https://…)"
+msgstr "URL веб-хука (https://…)"
+
+msgid "Webhook einrichten"
+msgstr "Настроить веб-хук"
+
+msgid "Bitte eine Adresse angeben."
+msgstr "Укажите адрес."
+
+msgid "Letzter HTTP-Status: %1"
+msgstr "Последний HTTP-статус: %1"
+
+msgid "Neue Webhook-URL"
+msgstr "Новый URL веб-хука"
+
+msgid "URL ändern"
+msgstr "Изменить URL"
+
+msgid "Webhook-Adresse aktualisiert."
+msgstr "Адрес веб-хука обновлён."
+
+msgid "Signaturgeheimnis neu erzeugen"
+msgstr "Создать новый секрет подписи"
+
+msgid "Test-Event senden"
+msgstr "Отправить тестовое событие"
+
+msgid "Sendet Test-Event …"
+msgstr "Отправка тестового события…"
+
+msgid "HTTP %1 -- %2"
+msgstr "HTTP %1 -- %2"
+
+msgid "zugestellt"
+msgstr "доставлено"
+
+msgid "Fehlgeschlagen: %1"
+msgstr "Ошибка: %1"
+
+msgid "unbekannter Fehler"
+msgstr "неизвестная ошибка"
+
+msgid "Wieder aktivieren"
+msgstr "Активировать заново"
+
+msgid "Webhook wieder aktiviert."
+msgstr "Веб-хук снова активирован."
+
+msgid "Webhook entfernt."
+msgstr "Веб-хук удалён."
+
+msgid "Neues Signaturgeheimnis -- jetzt speichern"
+msgstr "Новый секрет подписи -- сохраните его сейчас"
+
+msgid "Dieses Signaturgeheimnis wird aus Sicherheitsgründen nur dieses eine Mal angezeigt. Kopieren Sie es jetzt an einen sicheren Ort."
+msgstr "Из соображений безопасности этот секрет подписи показывается только один раз. Скопируйте его сейчас в надёжное место."
+
+msgid "Verloren? Nur ein neues Geheimnis erzeugen -- das alte wird dabei sofort ungültig, laufende Integrationen brechen bis zur Umstellung ab."
+msgstr "Потеряли? Просто создайте новый секрет -- старый сразу становится недействительным, а работающие интеграции перестанут работать до обновления."
+
+msgid "Ich habe das Geheimnis gespeichert"
+msgstr "Я сохранил(а) секрет"
+
+msgid "Signaturgeheimnis neu erzeugen bestätigen"
+msgstr "Подтвердите создание нового секрета подписи"
+
+msgid "Das aktuelle Signaturgeheimnis für den Webhook von „%1“ wird sofort ungültig -- laufende Integrationen brechen bis zur Umstellung ab."
+msgstr "Текущий секрет подписи для веб-хука «%1» сразу становится недействительным -- работающие интеграции перестанут работать до обновления."
+
+msgid "Neu erzeugen"
+msgstr "Создать заново"
+
+msgid "Webhook entfernen bestätigen"
+msgstr "Подтвердите удаление веб-хука"
+
+msgid "Der Webhook für „%1“ wird vollständig entfernt, inklusive Signaturgeheimnis und Zustellungsprotokoll."
+msgstr "Веб-хук для «%1» будет полностью удалён, включая секрет подписи и журнал доставки."
+
+msgid "Zustellungsprotokoll anzeigen"
+msgstr "Показать журнал доставки"
+
+msgid "Zustellungsprotokoll ausblenden"
+msgstr "Скрыть журнал доставки"
+
+msgid "Noch keine Zustellungen."
+msgstr "Пока нет доставок."
+
+msgid "Einträge werden nach 30 Tagen automatisch gelöscht."
+msgstr "Записи автоматически удаляются через 30 дней."
+
+msgid "Zeitpunkt"
+msgstr "Время"
+
+msgid "Event"
+msgstr "Событие"
+
+msgid "Versuch"
+msgstr "Попытка"
+
+msgid "Nächster Versuch"
+msgstr "Следующая попытка"
+
+msgid "in Kürze"
+msgstr "скоро"
+
+msgid "in %1 Min."
+msgstr "через %1 мин."
+
+msgid "in %1 Std."
+msgstr "через %1 ч"
+
+msgid "Zugestellt"
+msgstr "Доставлено"
+
+msgid "Wird zugestellt"
+msgstr "Доставляется"
+
+msgid "Abgebrochen"
+msgstr "Прервано"
+
+msgid "Gremium angelegt"
+msgstr "Комитет создан"
+
+msgid "Gremium geändert"
+msgstr "Комитет обновлён"
+
+msgid "Sitzung angelegt"
+msgstr "Заседание создано"
+
+msgid "Sitzung abgehalten"
+msgstr "Заседание проведено"
+
+msgid "Beschluss gefasst"
+msgstr "Решение принято"
+
+msgid "Antrag terminiert"
+msgstr "Заявка запланирована"
+
+msgid "Mitglied angelegt"
+msgstr "Участник создан"
+
+msgid "Beitrag bezahlt"
+msgstr "Взнос оплачен"
+
+msgid "Spende erhalten"
+msgstr "Пожертвование получено"
+
+msgid "Test-Ereignis"
+msgstr "Тестовое событие"
+
+msgid "Zeitüberschreitung"
+msgstr "Тайм-аут"
+
+msgid "Verbindung abgelehnt"
+msgstr "Соединение отклонено"
+
+msgid "DNS- oder TLS-Fehler"
+msgstr "Ошибка DNS или TLS"
+
+msgid "HTTP-Fehler"
+msgstr "Ошибка HTTP"
+
+msgid "Adresse abgelehnt"
+msgstr "Адрес отклонён"
+
+msgid "Endpunkt deaktiviert"
+msgstr "Конечная точка отключена"
+
+msgid "Wiederholungen erschöpft"
+msgstr "Попытки исчерпаны"
+
+msgid "wiederholte Zustellfehler"
+msgstr "повторяющиеся сбои доставки"
+
+msgid "manuell deaktiviert"
+msgstr "отключено вручную"
+
+msgid "Ziel meldet dauerhaft nicht mehr erreichbar (410)"
+msgstr "цель сообщает о постоянной недоступности (410)"
+
+msgid "Die Adresse muss mit https:// beginnen."
+msgstr "Адрес должен начинаться с https://."
+
+msgid "Die Adresse ist keine gültige URL."
+msgstr "Адрес не является допустимым URL."
+
+msgid "Diese Adresse ist als Ziel nicht zulässig -- sie muss öffentlich im Internet erreichbar sein."
+msgstr "Этот адрес недопустим в качестве назначения -- он должен быть публично доступен в интернете."
+
+msgid "Die Adresse ist zu lang (maximal 2048 Zeichen)."
+msgstr "Адрес слишком длинный (максимум 2048 символов)."
+
+msgid "Webhook-Endpunkt"
+msgstr "Конечная точка веб-хука"

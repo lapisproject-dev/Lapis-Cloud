@@ -138,3 +138,37 @@ class LastAdminException(
 class MemberAlreadyHasAccountException(
     override val message: String = "Member already has a login account",
 ) : AbstractServiceException()
+
+/**
+ * Welle V1.3.2 "Webhooks" (ausgehend) -- see [MemberEmailInUseException] KDoc for why this is FOUR
+ * distinct types rather than one `WebhookUrlRejectedException(reason: WebhookUrlRejectionReason)`:
+ * the identical wire-transparency constraint applies to ANY non-discriminator field, not just
+ * `message` -- Kilua RPC's polymorphic exception protocol transmits only the subclass type itself,
+ * so a `reason` property would never arrive at the client either. Thrown by
+ * `network.lapis.cloud.server.rpc.WebhookService.setWebhookUrl`/`.rotateWebhookSecret`... no,
+ * `rotateWebhookSecret` never validates a URL -- only `setWebhookUrl`, via
+ * `network.lapis.cloud.server.webhook.OutboundUrlGuard.checkWebhookUrl`'s four
+ * [WebhookUrlRejectionReason] outcomes (Design-Team decision D6). The client
+ * (`network.lapis.cloud.client.ApiKeysScreen`) catches each type separately and shows the
+ * corresponding one of D6's four fixed German sentences -- never an IP address, hostname, or DNS
+ * detail (same non-leaking discipline the guard itself enforces server-side).
+ */
+@RpcServiceException
+class WebhookUrlNotHttpsException(
+    override val message: String = "Webhook URL must use https://",
+) : AbstractServiceException()
+
+@RpcServiceException
+class WebhookUrlMalformedException(
+    override val message: String = "Webhook URL is not a valid URL",
+) : AbstractServiceException()
+
+@RpcServiceException
+class WebhookUrlNotPubliclyRoutableException(
+    override val message: String = "Webhook URL does not resolve to a publicly routable address",
+) : AbstractServiceException()
+
+@RpcServiceException
+class WebhookUrlTooLongException(
+    override val message: String = "Webhook URL exceeds the maximum length",
+) : AbstractServiceException()

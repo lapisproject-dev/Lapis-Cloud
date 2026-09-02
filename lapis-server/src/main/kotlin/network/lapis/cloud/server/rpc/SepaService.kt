@@ -1442,6 +1442,15 @@ class SepaService(
                     it[status] = SepaDebitItemStatus.SETTLED
                     it[SepaDebitItemTable.journalEntryId] = journalEntryId
                 }
+                // Welle V1.3.2 "Webhooks" (ausgehend) -- see ContributionPaymentEvents KDoc. The
+                // SEPA debit item's own id is the transactionId (no payment_transaction row exists
+                // for this settlement source).
+                ContributionPaymentEvents.publishPaid(
+                    contributionId = contributionId,
+                    paidAt = paidAt,
+                    amount = amount,
+                    transactionId = itemId.toString(),
+                )
             }
             return true
         } catch (e: ConflictException) {

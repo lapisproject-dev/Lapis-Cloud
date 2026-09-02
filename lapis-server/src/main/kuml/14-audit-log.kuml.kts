@@ -175,6 +175,7 @@ classDiagram(name = "AuditLog") {
         literal(name = "MEMBER") // Welle V1.2.12 Mitgliederverwaltung -- privilegierte Aenderungen, siehe MemberChangeSnapshot KDoc
         literal(name = "PAYMENT_TRANSACTION") // Welle V1.2.8 PSP-Checkout (Stripe) -- siehe PaymentTransactionSnapshot KDoc
         literal(name = "API_KEY") // Welle V1.3.1 "API-Fundament, lesend" -- ApiKeyService.issueApiKey/revokeApiKey/reissueApiKey
+        literal(name = "WEBHOOK_ENDPOINT") // Welle V1.3.2 "Webhooks" (ausgehend) -- WebhookService lifecycle + WebhookDeliveryPoller auto-deactivation
     }
 
     // Genesis-singleton row (see file header) -- gapless sequence_number + hash-chain

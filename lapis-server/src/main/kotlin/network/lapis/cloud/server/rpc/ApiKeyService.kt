@@ -8,12 +8,15 @@ import network.lapis.cloud.server.federation.FederationInboxRateLimiter
 import network.lapis.cloud.server.security.ApiKeyStore
 import network.lapis.cloud.server.security.requireRole
 import network.lapis.cloud.server.security.resolveCurrentMember
+import network.lapis.cloud.server.webhook.WebhookEndpointDeactivation
+import network.lapis.cloud.server.webhook.WebhookEndpointStore
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.ApiKeyDto
 import network.lapis.cloud.shared.domain.ApiKeyIssueResultDto
 import network.lapis.cloud.shared.domain.ApiKeySnapshot
 import network.lapis.cloud.shared.domain.AuditAction
 import network.lapis.cloud.shared.domain.AuditEntityType
+import network.lapis.cloud.shared.domain.WebhookDeactivationReason
 import network.lapis.cloud.shared.rpc.ConflictException
 import network.lapis.cloud.shared.rpc.IApiKeyService
 import network.lapis.cloud.shared.rpc.NotFoundException
@@ -93,6 +96,16 @@ class ApiKeyService(
                 ApiKeyStore.revoke(id = apiKeyId, revokedByMemberId = current.memberId)
                     ?: throw NotFoundException("API key $id not found or already revoked")
             auditApiKeyRevoke(row = revoked, actorMemberId = current.memberId, actorRole = current.role)
+            // Welle V1.3.2 "Webhooks" (ausgehend), S10 -- a revoked key's webhook endpoint (if any)
+            // is deactivated in the SAME transaction, its remaining PENDING deliveries abandoned.
+            // No notification mail here (unlike a poller-driven deactivation) -- the ADMIN/BOARD
+            // caller already knows they just revoked this key; WebhookEndpointDeactivation.deactivate
+            // is a no-op (returns null) when no endpoint exists.
+            WebhookEndpointDeactivation.deactivate(
+                apiKeyId = apiKeyId,
+                reason = WebhookDeactivationReason.KEY_REVOKED,
+                deactivatedByMemberId = current.memberId,
+            )
             revoked.toApiKeyDto()
         }
     }
@@ -119,6 +132,15 @@ class ApiKeyService(
                 actorRole = current.role,
                 occurredAt = issued.createdAt,
             )
+            // Welle V1.3.2 "Webhooks" (ausgehend), S10 -- reissue mints a NEW key id; without this,
+            // an existing webhook endpoint's api_key_id FK would keep pointing at the just-revoked
+            // OLD key (orphaned: invisible in the UI, never polled). Migrated in the SAME
+            // transaction, active/secret left untouched -- secret and key are independent
+            // credentials (see IWebhookService.setWebhookUrl KDoc). A no-op UPDATE (0 rows) when no
+            // endpoint exists for the old key.
+            if (WebhookEndpointStore.getByApiKeyId(apiKeyId) != null) {
+                WebhookEndpointStore.migrateApiKeyId(oldApiKeyId = apiKeyId, newApiKeyId = issued.id)
+            }
             ApiKeyIssueResultDto(
                 apiKey =
                     ApiKeyDto(

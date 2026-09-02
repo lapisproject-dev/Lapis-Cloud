@@ -35,16 +35,16 @@ class DomainModelMergerTest :
         // ── Test 1: merging the real 22 domain scripts ───────────────────────────────────
 
         test(
-            "merging the real 37 domain scripts succeeds and the uml-to-erm -> erm-to-exposed chain " +
+            "merging the real 38 domain scripts succeeds and the uml-to-erm -> erm-to-exposed chain " +
                 "produces exactly one Table file per distinct table name",
         ) {
             val scriptFiles =
                 requireNotNull(KumlModelLoader.kumlSourceDir.listFiles { f -> f.name.endsWith(".kuml.kts") }) {
                     "kUML source dir not found or not a directory: ${KumlModelLoader.kumlSourceDir.absolutePath}"
                 }.sortedBy { it.name }
-            // V1.3.1 "API-Fundament, lesend" -- was 36, now 37 with the addition of
-            // 36-api-key.kuml.kts.
-            scriptFiles shouldHaveSize 37
+            // Welle V1.3.2 "Webhooks" (ausgehend) -- was 37, now 38 with the addition of
+            // 37-webhook.kuml.kts.
+            scriptFiles shouldHaveSize 38
 
             val diagrams = scriptFiles.map { KumlModelLoader.loadUmlDiagram(it) }
 
@@ -286,7 +286,14 @@ class DomainModelMergerTest :
             // 35-public-ranking-consent.kuml.kts) -- +2 «Entity» declarations, +1 drop (the stub
             // dedups into the already-existing member entity), net +1 distinct table name versus
             // the V1.2.8 baseline above (118 -> 119).
-            val distinctTableNames = 119
+            // Welle V1.3.2 "Webhooks" (ausgehend) adds 37-webhook.kuml.kts's TWO real tables
+            // (webhook_endpoint, webhook_delivery), WITH TWO cross-domain stubs (Member, ApiKey --
+            // webhook_endpoint's three member FKs resolve through Member, webhook_endpoint.api_key_id
+            // resolves through ApiKey) -- both stubs dedup into already-real entities
+            // (00-foundation.kuml.kts's member, 36-api-key.kuml.kts's api_key) -- so it contributes
+            // +4 «Entity» declarations (2 stubs + 2 real tables) and 2 drops, net +2 distinct table
+            // names versus the V1.3.1 baseline above (119 -> 121).
+            val distinctTableNames = 121
 
             val result =
                 UmlToExposedViaErmScriptTransformer().transform(
@@ -457,6 +464,11 @@ class DomainModelMergerTest :
                     // cross-domain Member stub dedups into the already-real member entity, no new
                     // Table file for it (same pattern as PublicRankingConsentEventTable above).
                     "ApiKeyTable.kt",
+                    // Welle V1.3.2 "Webhooks" (ausgehend) -- two new real tables
+                    // (webhook_endpoint, webhook_delivery); their Member/ApiKey cross-domain stubs
+                    // both dedup into already-real entities, no new Table file for them.
+                    "WebhookEndpointTable.kt",
+                    "WebhookDeliveryTable.kt",
                 )
         }
 

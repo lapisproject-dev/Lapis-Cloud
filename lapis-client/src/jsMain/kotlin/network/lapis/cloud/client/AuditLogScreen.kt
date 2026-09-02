@@ -389,6 +389,12 @@ fun decodeAuditSnapshot(
             // already establish for their own audit entries) -- falls through to the raw-text
             // display, which already shows label/keyPrefix/timestamps safely (never a hash).
             AuditEntityType.API_KEY -> null
+            // Welle V1.3.2 "Webhooks" (ausgehend) -- WebhookService/WebhookEndpointDeactivation
+            // write WebhookEndpointSnapshot (see AuditLog.kt), but this client-side decode/render
+            // pair is deliberately not extended for it this wave (backend+admin-screen wave, same
+            // posture API_KEY already establishes) -- falls through to the raw-text display, which
+            // already shows url/active/timestamps safely (never the signature secret).
+            AuditEntityType.WEBHOOK_ENDPOINT -> null
         }
     }.getOrNull()
 

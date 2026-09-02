@@ -257,6 +257,11 @@ class ContributionService(
                 actorRole = current.role,
                 voucherReference = null,
             )
+            // Welle V1.3.2 "Webhooks" (ausgehend) -- see ContributionPaymentEvents KDoc for why
+            // this fires alongside the status flip above rather than depending on the accounting
+            // bridge's own (possibly no-op) outcome. No payment_transaction row exists for a
+            // MANUAL settlement, so the contribution's own id doubles as the transactionId.
+            ContributionPaymentEvents.publishPaid(contributionId = id, paidAt = paidAt, amount = paidAmount, transactionId = id.toString())
             loadContribution(id)
         }
     }

@@ -110,9 +110,21 @@ enum class AuditEntityType {
      * `issueApiKey`/`revokeApiKey`/`reissueApiKey` each write exactly one `API_KEY` entry per
      * lifecycle event (`CREATE` for issue, `UPDATE` for revoke; `reissueApiKey` writes both: an
      * `UPDATE` for the revoked old key followed by a `CREATE` for the freshly issued one). See
-     * [ApiKeySnapshot] KDoc for why it never carries the token hash. Appended LAST, additive only.
+     * [ApiKeySnapshot] KDoc for why it never carries the token hash.
      */
     API_KEY,
+
+    /**
+     * Welle V1.3.2 "Webhooks" (ausgehend) -- `network.lapis.cloud.server.rpc.WebhookService`'s
+     * `setWebhookUrl`/`removeWebhookUrl`/`rotateWebhookSecret`/`reactivateWebhookEndpoint` each
+     * write exactly one `WEBHOOK_ENDPOINT` entry (`CREATE` for the endpoint's first `setWebhookUrl`
+     * call, `UPDATE` for every subsequent lifecycle change), and
+     * `network.lapis.cloud.server.webhook.WebhookDeliveryPoller`'s auto-deactivation writes a
+     * SYSTEM-actor (`actorMemberId = null`) `UPDATE` for `DELIVERY_FAILURES`/`RECEIVER_GONE`. See
+     * [WebhookEndpointSnapshot] KDoc for why it never carries the signature secret. Appended LAST,
+     * additive only.
+     */
+    WEBHOOK_ENDPOINT,
 }
 
 /**
@@ -528,4 +540,30 @@ data class ApiKeySnapshot(
     val createdByMemberId: String,
     val expiresAt: LocalDateTime?,
     val revokedAt: LocalDateTime?,
+)
+
+/**
+ * Structured payload for an [AuditEntityType.WEBHOOK_ENDPOINT] audit entry (Welle V1.3.2
+ * "Webhooks", ausgehend). **Never carries `secret_sealed`/`secret_prefix`/the raw signature
+ * secret** -- same discipline [ApiKeySnapshot] establishes for `token_hash`: a hash-chained,
+ * append-only table must never preserve material a later rotation/revocation is supposed to
+ * invalidate the usefulness of. [url] itself IS carried (unlike a secret, an endpoint URL is not
+ * secret-adjacent, and knowing which URL was configured when is exactly the accountability fact
+ * this entry exists to record).
+ *
+ * [notifiedRecipients]/[totalRecipients] are set ONLY on the auto-deactivation `UPDATE` entry
+ * `network.lapis.cloud.server.webhook.WebhookDeactivationNotifier` writes (both `null` on every
+ * `WebhookService`-authored entry) -- Design-Team decision D4d: when the 20-recipient mail cap
+ * (`WebhookDeactivationNotifier.MAX_RECIPIENTS`) actually bites, the true recipient count is
+ * recorded here so a silently-capped notification is forensically visible instead of invisible
+ * (see `MailDispatcher.enqueue` KDoc "DoS deckel" -- a saturated dispatcher drops mail silently).
+ */
+@Serializable
+data class WebhookEndpointSnapshot(
+    val apiKeyId: String,
+    val url: String,
+    val active: Boolean,
+    val deactivationReason: WebhookDeactivationReason?,
+    val notifiedRecipients: Int? = null,
+    val totalRecipients: Int? = null,
 )

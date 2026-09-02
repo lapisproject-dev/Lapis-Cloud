@@ -48,6 +48,7 @@ object PersonalDataRegistry {
             DunningPersonalData,
             PublicRankingConsentPersonalData,
             ApiKeyPersonalData,
+            WebhookPersonalData,
         )
 
     /**
@@ -95,6 +96,10 @@ object PersonalDataRegistry {
                 "Persists after execution as a procedural record -- same posture as erasure_request " +
                 "for the mitglieds-bezogenen Pfad. Andernfalls waere ein Loeschantrag durch seine " +
                 "eigene Ausfuehrung loeschbar.",
+            "webhook_delivery" to
+                "Welle V1.3.2 Webhooks (ausgehend). Traegt nur Entitaets-UUIDs und Zustellmetadaten, " +
+                "keinen Mitglieds-FK -- die referenzierte Entitaets-UUID selbst ist bereits ueber die " +
+                "jeweilige Fach-Tabelle abgedeckt (z. B. GovernancePersonalData fuer eine Resolution-Id).",
         )
 
     init {

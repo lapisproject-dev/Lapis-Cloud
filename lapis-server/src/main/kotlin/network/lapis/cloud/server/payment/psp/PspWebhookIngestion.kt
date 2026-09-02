@@ -9,8 +9,11 @@ import network.lapis.cloud.server.db.generated.ContributionTable
 import network.lapis.cloud.server.db.generated.PaymentCheckoutSessionTable
 import network.lapis.cloud.server.db.generated.PaymentTransactionTable
 import network.lapis.cloud.server.routes.sha256Hex
+import network.lapis.cloud.server.rpc.ContributionPaymentEvents
 import network.lapis.cloud.server.rpc.ContributionPostingBridge
 import network.lapis.cloud.server.rpc.DonationPostingBridge
+import network.lapis.cloud.server.webhook.WebhookEventPublisher
+import network.lapis.cloud.server.webhook.WebhookPayloads
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.AuditAction
 import network.lapis.cloud.shared.domain.AuditEntityType
@@ -22,6 +25,7 @@ import network.lapis.cloud.shared.domain.PaymentIntent
 import network.lapis.cloud.shared.domain.PaymentProvider
 import network.lapis.cloud.shared.domain.PaymentTransactionSnapshot
 import network.lapis.cloud.shared.domain.PaymentTransactionStatus
+import network.lapis.cloud.shared.domain.WebhookEventType
 import org.jetbrains.exposed.v1.core.and
 import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.core.notInList
@@ -299,6 +303,36 @@ object PspWebhookIngestion {
                     paymentTransactionId = paymentTransactionId,
                     note = "Kontenzuordnung unvollstaendig -- bitte in der Zahlungs-Konfiguration nachziehen.",
                 )
+            }
+
+            // Welle V1.3.2 "Webhooks" (ausgehend) -- fires only once the payment is actually
+            // posted to accounting (journalEntryId confirmed non-null above), for BOTH intents.
+            // Placed here (not immediately after Step 5's ContributionTable.update) so a
+            // CONTRIBUTION whose posting fails for an unconfigured-mapping reason (still `Unposted`,
+            // see the branch above) does not fire a webhook for a payment this org's own ledger
+            // never actually recorded.
+            when (sessionIntent) {
+                PaymentIntent.CONTRIBUTION ->
+                    requireNotNull(sessionContributionId).let { contributionId ->
+                        ContributionPaymentEvents.publishPaid(
+                            contributionId = contributionId,
+                            paidAt = now,
+                            amount = sessionAmount,
+                            transactionId = paymentTransactionId.toString(),
+                        )
+                    }
+                PaymentIntent.DONATION ->
+                    WebhookEventPublisher.publish(
+                        eventType = WebhookEventType.DONATION_RECEIVED,
+                        entityId = paymentTransactionId,
+                        occurredAt = now,
+                        payment =
+                            WebhookPayloads.PaymentEventDetails(
+                                amount = sessionAmount,
+                                currency = sessionCurrency,
+                                transactionId = paymentTransactionId.toString(),
+                            ),
+                    )
             }
 
             // Step 7 -- our own PAYMENT_TRANSACTION audit entry, AFTER the bridge's own ledger_account

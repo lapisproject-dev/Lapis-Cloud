@@ -53,6 +53,14 @@ internal object GovernanceReads {
         return query.count()
     }
 
+    /** Welle V1.3.2 "Webhooks" (ausgehend), plan §8.3 -- `null` = not found. NO status/active filter, same as the list variant's own `activeOnly` being a caller-supplied parameter (default `true`, but `false` is legitimate) rather than a hard gate -- see `network.lapis.cloud.server.routes.PublicApiRoutes`' `/api/v1/committees/{id}` handler KDoc for why this is not a status oracle the way `/members/{id}`/`/motions/{id}` would be without their own hard filters. */
+    fun getCommittee(id: Uuid): CommitteeDto? =
+        CommitteeTable
+            .selectAll()
+            .where { CommitteeTable.id eq id }
+            .singleOrNull()
+            ?.toCommitteeDto()
+
     fun listMeetings(
         committeeId: Uuid? = null,
         status: MeetingStatus? = null,
@@ -130,6 +138,14 @@ internal object GovernanceReads {
             else -> ResolutionTable.selectAll().count()
         }
 
+    /** Welle V1.3.2 "Webhooks" (ausgehend), plan §8.3 -- `null` = not found. No filter, same as [listResolutions] (the list variant shows every Resolution unconditionally). */
+    fun getResolution(id: Uuid): ResolutionDto? =
+        ResolutionTable
+            .selectAll()
+            .where { ResolutionTable.id eq id }
+            .singleOrNull()
+            ?.toResolutionDto()
+
     /**
      * `allowedStatuses`: `null` (the RPC default, [GovernanceService.listMotions]) means NO
      * restriction beyond [status] itself -- every pre-existing RPC call site's behavior stays
@@ -176,6 +192,29 @@ internal object GovernanceReads {
             )
         val baseQuery = (MotionTable innerJoin CommitteeTable).selectAll()
         return if (conditions.isEmpty()) baseQuery.count() else baseQuery.where { conditions.reduce { a, b -> a and b } }.count()
+    }
+
+    /**
+     * Welle V1.3.2 "Webhooks" (ausgehend), plan §8.3 -- `null` = not found OR outside
+     * [allowedStatuses] (the caller cannot distinguish the two, same "no status oracle" reasoning
+     * [MemberReads.getActiveMember] KDoc gives). `null` [allowedStatuses] (the RPC default) means
+     * no restriction beyond [id] itself -- identical semantics to [listMotions]'s own
+     * [allowedStatuses] parameter, reusing the SAME [motionConditions] builder so the whitelist is
+     * never formulated a second time.
+     */
+    fun getMotion(
+        id: Uuid,
+        allowedStatuses: Set<MotionStatus>? = null,
+    ): MotionDto? {
+        val conditions =
+            motionConditions(targetCommitteeId = null, status = null, amendsMotionId = null, allowedStatuses = allowedStatuses)
+        var condition: Op<Boolean> = MotionTable.id eq id
+        conditions.forEach { condition = condition and it }
+        return (MotionTable innerJoin CommitteeTable)
+            .selectAll()
+            .where { condition }
+            .singleOrNull()
+            ?.toMotionDto()
     }
 
     private fun motionConditions(

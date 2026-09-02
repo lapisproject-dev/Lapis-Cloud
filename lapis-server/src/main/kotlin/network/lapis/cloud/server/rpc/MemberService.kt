@@ -21,6 +21,7 @@ import network.lapis.cloud.server.security.SessionStore
 import network.lapis.cloud.server.security.isPrivileged
 import network.lapis.cloud.server.security.requireRole
 import network.lapis.cloud.server.security.resolveCurrentMember
+import network.lapis.cloud.server.webhook.WebhookEventPublisher
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.AuditAction
 import network.lapis.cloud.shared.domain.AuditEntityType
@@ -34,6 +35,7 @@ import network.lapis.cloud.shared.domain.MemberStatus
 import network.lapis.cloud.shared.domain.MemberStatusSets
 import network.lapis.cloud.shared.domain.MemberStatusTransitions
 import network.lapis.cloud.shared.domain.MemberSummaryDto
+import network.lapis.cloud.shared.domain.WebhookEventType
 import network.lapis.cloud.shared.rpc.ConflictException
 import network.lapis.cloud.shared.rpc.ForbiddenException
 import network.lapis.cloud.shared.rpc.IMemberService
@@ -541,6 +543,15 @@ class MemberService(
                 }
 
                 MemberTable.update({ MemberTable.id eq targetId }) { it[status] = newStatus }
+
+                // Welle V1.3.2 "Webhooks" (ausgehend), D8/S24 -- fires ONLY on a genuine transition
+                // INTO ACTIVE (the no-op guard above already returned early for newStatus ==
+                // fromStatus, so this is never a redundant re-confirmation of an already-ACTIVE
+                // member). GET /api/v1/members/{id} hard-filters on ACTIVE, so this is exactly the
+                // moment this member becomes visible on that endpoint.
+                if (newStatus == MemberStatus.ACTIVE) {
+                    WebhookEventPublisher.publish(eventType = WebhookEventType.MEMBER_CREATED, entityId = targetId, occurredAt = now)
+                }
 
                 // Same shared side-effect ordering RegistrationService.leaveMembership/
                 // rejectApplication already establish: committee/mandate cleanup INSIDE this

@@ -9107,3 +9107,210 @@ msgstr "Cached"
 
 #~ msgid "Rolle: %1 · Sitzung gültig bis %2"
 #~ msgstr "Role: %1 · Session valid until %2"
+
+msgid "Diese Schlüssel authentifizieren externe Zugriffe auf die schreibgeschützte REST-API (/api/v1) -- siehe die API-Dokumentation für Endpunkte und Rate-Limits. Optional kann je Schlüssel ein Webhook konfiguriert werden, der bei bestimmten Ereignissen automatisch einen HTTP-POST an eine von Ihnen angegebene Adresse sendet."
+msgstr "These keys authenticate external access to the read-only REST API (/api/v1) -- see the API documentation for endpoints and rate limits. Optionally, a webhook can be configured per key that automatically sends an HTTP POST to an address you specify when certain events occur."
+
+msgid "Webhook für „%1“ deaktiviert: %2."
+msgstr "Webhook for \"%1\" deactivated: %2."
+
+msgid "unbekannter Grund"
+msgstr "unknown reason"
+
+msgid "Kein Webhook eingerichtet."
+msgstr "No webhook configured."
+
+msgid "Webhook-URL (https://…)"
+msgstr "Webhook URL (https://…)"
+
+msgid "Webhook einrichten"
+msgstr "Set up webhook"
+
+msgid "Bitte eine Adresse angeben."
+msgstr "Please specify an address."
+
+msgid "Letzter HTTP-Status: %1"
+msgstr "Last HTTP status: %1"
+
+msgid "Neue Webhook-URL"
+msgstr "New webhook URL"
+
+msgid "URL ändern"
+msgstr "Change URL"
+
+msgid "Webhook-Adresse aktualisiert."
+msgstr "Webhook address updated."
+
+msgid "Signaturgeheimnis neu erzeugen"
+msgstr "Regenerate signing secret"
+
+msgid "Test-Event senden"
+msgstr "Send test event"
+
+msgid "Sendet Test-Event …"
+msgstr "Sending test event …"
+
+msgid "HTTP %1 -- %2"
+msgstr "HTTP %1 -- %2"
+
+msgid "zugestellt"
+msgstr "delivered"
+
+msgid "Fehlgeschlagen: %1"
+msgstr "Failed: %1"
+
+msgid "unbekannter Fehler"
+msgstr "unknown error"
+
+msgid "Wieder aktivieren"
+msgstr "Reactivate"
+
+msgid "Webhook wieder aktiviert."
+msgstr "Webhook reactivated."
+
+msgid "Webhook entfernt."
+msgstr "Webhook removed."
+
+msgid "Neues Signaturgeheimnis -- jetzt speichern"
+msgstr "New signing secret -- save it now"
+
+msgid "Dieses Signaturgeheimnis wird aus Sicherheitsgründen nur dieses eine Mal angezeigt. Kopieren Sie es jetzt an einen sicheren Ort."
+msgstr "For security reasons this signing secret is shown only this one time. Copy it to a safe place now."
+
+msgid "Verloren? Nur ein neues Geheimnis erzeugen -- das alte wird dabei sofort ungültig, laufende Integrationen brechen bis zur Umstellung ab."
+msgstr "Lost it? Just generate a new secret -- the old one becomes invalid immediately, and running integrations will fail until they are updated."
+
+msgid "Ich habe das Geheimnis gespeichert"
+msgstr "I have saved the secret"
+
+msgid "Signaturgeheimnis neu erzeugen bestätigen"
+msgstr "Confirm regenerating the signing secret"
+
+msgid "Das aktuelle Signaturgeheimnis für den Webhook von „%1“ wird sofort ungültig -- laufende Integrationen brechen bis zur Umstellung ab."
+msgstr "The current signing secret for \"%1\"'s webhook becomes invalid immediately -- running integrations will fail until they are updated."
+
+msgid "Neu erzeugen"
+msgstr "Regenerate"
+
+msgid "Webhook entfernen bestätigen"
+msgstr "Confirm removing the webhook"
+
+msgid "Der Webhook für „%1“ wird vollständig entfernt, inklusive Signaturgeheimnis und Zustellungsprotokoll."
+msgstr "The webhook for \"%1\" will be removed completely, including its signing secret and delivery log."
+
+msgid "Zustellungsprotokoll anzeigen"
+msgstr "Show delivery log"
+
+msgid "Zustellungsprotokoll ausblenden"
+msgstr "Hide delivery log"
+
+msgid "Noch keine Zustellungen."
+msgstr "No deliveries yet."
+
+msgid "Einträge werden nach 30 Tagen automatisch gelöscht."
+msgstr "Entries are automatically deleted after 30 days."
+
+msgid "Zeitpunkt"
+msgstr "Time"
+
+msgid "Event"
+msgstr "Event"
+
+msgid "Versuch"
+msgstr "Attempt"
+
+msgid "Nächster Versuch"
+msgstr "Next attempt"
+
+msgid "in Kürze"
+msgstr "shortly"
+
+msgid "in %1 Min."
+msgstr "in %1 min."
+
+msgid "in %1 Std."
+msgstr "in %1 h"
+
+msgid "Zugestellt"
+msgstr "Delivered"
+
+msgid "Wird zugestellt"
+msgstr "Delivering"
+
+msgid "Abgebrochen"
+msgstr "Abandoned"
+
+msgid "Gremium angelegt"
+msgstr "Committee created"
+
+msgid "Gremium geändert"
+msgstr "Committee updated"
+
+msgid "Sitzung angelegt"
+msgstr "Meeting created"
+
+msgid "Sitzung abgehalten"
+msgstr "Meeting held"
+
+msgid "Beschluss gefasst"
+msgstr "Resolution adopted"
+
+msgid "Antrag terminiert"
+msgstr "Motion scheduled"
+
+msgid "Mitglied angelegt"
+msgstr "Member created"
+
+msgid "Beitrag bezahlt"
+msgstr "Contribution paid"
+
+msgid "Spende erhalten"
+msgstr "Donation received"
+
+msgid "Test-Ereignis"
+msgstr "Test event"
+
+msgid "Zeitüberschreitung"
+msgstr "Timeout"
+
+msgid "Verbindung abgelehnt"
+msgstr "Connection refused"
+
+msgid "DNS- oder TLS-Fehler"
+msgstr "DNS or TLS error"
+
+msgid "HTTP-Fehler"
+msgstr "HTTP error"
+
+msgid "Adresse abgelehnt"
+msgstr "Address rejected"
+
+msgid "Endpunkt deaktiviert"
+msgstr "Endpoint deactivated"
+
+msgid "Wiederholungen erschöpft"
+msgstr "Retries exhausted"
+
+msgid "wiederholte Zustellfehler"
+msgstr "repeated delivery failures"
+
+msgid "manuell deaktiviert"
+msgstr "manually deactivated"
+
+msgid "Ziel meldet dauerhaft nicht mehr erreichbar (410)"
+msgstr "target permanently reports unreachable (410)"
+
+msgid "Die Adresse muss mit https:// beginnen."
+msgstr "The address must start with https://."
+
+msgid "Die Adresse ist keine gültige URL."
+msgstr "The address is not a valid URL."
+
+msgid "Diese Adresse ist als Ziel nicht zulässig -- sie muss öffentlich im Internet erreichbar sein."
+msgstr "This address is not permitted as a destination -- it must be publicly reachable on the internet."
+
+msgid "Die Adresse ist zu lang (maximal 2048 Zeichen)."
+msgstr "The address is too long (2048 characters maximum)."
+
+msgid "Webhook-Endpunkt"
+msgstr "Webhook endpoint"

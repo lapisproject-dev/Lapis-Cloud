@@ -1,5 +1,5 @@
-= Public API — V1.3.1 "API-Fundament, lesend"
-:description: Read-only REST API under /api/v1 — authentication, rate limits, pagination, endpoints.
+= Public API — V1.3.1/V1.3.2 "API-Fundament, lesend" + "Webhooks (ausgehend)"
+:description: Read-only REST API under /api/v1, plus outbound webhooks — authentication, rate limits, pagination, endpoints, event catalogue.
 :toc:
 :toc-placement: preamble
 :icons: font
@@ -134,6 +134,18 @@ Only members whose status is `ACTIVE` are included.
 }
 ----
 
+=== `GET /api/v1/members/{id}`
+
+Returns a single member object (same two-field shape as one `items` entry above), or
+`404 not_found` -- for BOTH an unknown id AND a well-formed id belonging to a member whose status is
+NOT `ACTIVE`. These two cases are deliberately indistinguishable: a caller holding a member's UUID
+must not be able to learn, by comparing a `404` against a `200`, whether that member is
+`WITHDRAWN`/`APPLICATION`/`FRIEND`/`DECEASED` -- the SAME hard `ACTIVE`-only filter the list endpoint
+above already applies, applied here too rather than relaxed "because it's just one record".
+
+A syntactically malformed `{id}` (not a UUID) is `400 bad_request`, not `404` -- a parse failure is a
+caller error, not an existence question.
+
 === `GET /api/v1/committees`
 
 Query parameters: `?activeOnly=` (`true`/`false`, default `true`).
@@ -152,6 +164,14 @@ Query parameters: `?activeOnly=` (`true`/`false`, default `true`).
 ----
 
 `type` is one of `EXECUTIVE_BOARD`, `WORKING_GROUP`, `COMMISSION`, `OTHER`, `GENERAL_ASSEMBLY`.
+
+=== `GET /api/v1/committees/{id}`
+
+Returns a single committee object, or `404 not_found` (unknown or malformed-then-400, see
+`/members/{id}` above for the general 400-vs-404 rule). Unlike `/members/{id}`, this endpoint applies
+**no** status filter at all -- an inactive committee is already reachable through the list endpoint
+above via `?activeOnly=false`, so a single-resource lookup applying no filter here is not a status
+oracle the way it would be for `/members/{id}`/`/motions/{id}`.
 
 === `GET /api/v1/meetings`
 
@@ -199,6 +219,11 @@ Query parameters: `?committeeId=<uuid>`, `?meetingId=<uuid>`.
 `status` is one of `ADOPTED`, `REJECTED`, `POSTPONED`. `resolutionMode` is one of
 `COMMITTEE_QUORUM`, `MERITOCRATIC`, `DEMOCRATIC`, `SYSTEMIC_CONSENSUS`.
 
+=== `GET /api/v1/resolutions/{id}`
+
+Returns a single resolution object, or `404 not_found` (unknown or malformed-then-400). No status
+filter -- same as the list endpoint above, which shows every resolution unconditionally.
+
 === `GET /api/v1/motions`
 
 Query parameters: `?targetCommitteeId=<uuid>`, `?status=` (see below).
@@ -224,12 +249,194 @@ this whitelist is `400 bad_request`, not a silently empty result.
 }
 ----
 
+=== `GET /api/v1/motions/{id}`
+
+Returns a single motion object, or `404 not_found` -- for BOTH an unknown id AND a well-formed id
+whose current status is outside the SAME fixed whitelist (`SCHEDULED`, `RESOLVED`, `REJECTED`,
+`POSTPONED`) the list endpoint above enforces. Same reasoning as `/members/{id}`: an internal-only
+status (`SUBMITTED`, `REVIEWED`, `REJECTED_PRELIMINARY`, `WITHDRAWN`) must stay structurally
+unreachable through this endpoint too, not merely absent by default -- comparing a `404` against a
+`200` must never let a caller learn which internal status a motion is actually in.
+
+[[webhooks]]
+== Webhooks (outbound) — V1.3.2
+
+In addition to the pull-based `/api/v1` surface above, a Lapis Cloud organization can configure ONE
+outbound webhook per API key: an HTTP `POST` this server sends automatically whenever one of a fixed
+set of events happens, so an integration does not need to poll `/api/v1` on a schedule to notice new
+governance/membership/payment activity.
+
+Configured under **Verwaltung → API-Schlüssel** in the web UI, or via the `IWebhookService` RPC
+interface (`setWebhookUrl`/`removeWebhookUrl`/`rotateWebhookSecret`/`reactivateWebhookEndpoint`/
+`sendWebhookTestEvent`/`listWebhookDeliveries`) — there is no `/api/v1` REST surface for webhook
+*configuration* itself, only for the events it announces.
+
+=== Request shape
+
+Every delivery is an HTTP `POST` with a JSON body and these headers:
+
+[source]
+----
+Lapis-Signature:        t=<unix-seconds>,v1=<hex-hmac-sha256>
+Lapis-Webhook-Id:       <uuid>              (stable across every retry attempt of the SAME delivery)
+Lapis-Webhook-Event:    resolution.adopted
+Lapis-Delivery-Attempt: 1
+Content-Type:           application/json
+User-Agent:             LapisCloud-Webhook/1
+----
+
+No other header is ever sent — in particular, no `Authorization` header and no cookie. **Redirects
+are never followed** (`3xx` counts as a failed delivery attempt) — this is deliberately the single
+most common integration mistake with any webhook consumer, so it is called out here explicitly:
+point the configured URL directly at its final destination.
+
+=== Verifying the signature
+
+`Lapis-Signature`'s grammar is byte-for-byte the same as Stripe's own `Stripe-Signature` header:
+
+[source]
+----
+t=<unix seconds>,v1=<lowercase hex HMAC-SHA256>
+----
+
+The signed material is `HMAC-SHA256(key = <your signing secret>, data = "<t>." + <raw request body
+bytes>)`. Verify by recomputing that HMAC over the exact bytes you received (never a re-serialized
+copy) and comparing it, in constant time, against the `v1` value. Reject the request if they don't
+match, or if `t` is further in the past/future than your own freshness tolerance allows.
+
+The signing secret (`whsec_lapis_…`) is shown to you **exactly once**, at configuration/rotation
+time, the same "shown once, never retrievable again" discipline the API key itself already follows.
+Rotating it (`rotateWebhookSecret`) invalidates the old secret immediately — there is no dual-secret
+grace window.
+
+=== Idempotency
+
+`Lapis-Webhook-Id` is stable across every retry attempt of the SAME delivery (unlike the HTTP
+request itself, which is a new connection each time) — use it as your idempotency key so a retried
+delivery that you already processed once is safely ignored rather than double-applied.
+
+=== Event catalogue
+
+Every event's JSON body carries at least `id` (== `Lapis-Webhook-Id`), `eventType`, `entityId`, and
+`occurredAt`:
+
+[source,json]
+----
+{ "id": "<uuid>", "eventType": "resolution.adopted", "entityId": "<uuid>", "occurredAt": "2026-09-02T11:14:51.123456" }
+----
+
+For a **Thin** event (every event below except the two payment ones), that's the whole body — fetch
+the current state of `entityId` from the corresponding `/api/v1` endpoint above if you need more than
+the bare fact that something happened. For the two **Fat** (self-contained) payment events, the body
+additionally carries `amount` (a decimal STRING, scale 2, e.g. `"42.00"` — never a JSON number),
+`currency`, and `transactionId` — there is no `/api/v1/payments` endpoint to fetch further detail
+from, so the payload is self-sufficient instead. Neither payment event ever carries `memberId`,
+donor/payer identity, or any other personal data.
+
+[cols="2,2,4", options="header"]
+|===
+| `eventType` | Fires from | Entity `/api/v1` endpoint
+
+| `committee.created`
+| A committee is created
+| `GET /api/v1/committees/{id}`
+
+| `committee.updated`
+| A committee is edited
+| `GET /api/v1/committees/{id}`
+
+| `meeting.created`
+| A meeting is scheduled
+| `GET /api/v1/meetings/{id}`
+
+| `meeting.held`
+| A meeting's status transitions INTO `HELD` (never on a redundant re-confirmation)
+| `GET /api/v1/meetings/{id}`
+
+| `resolution.adopted`
+| A resolution is recorded
+| `GET /api/v1/resolutions/{id}`
+
+| `motion.scheduled`
+| A motion's status transitions to `SCHEDULED`
+| `GET /api/v1/motions/{id}`
+
+| `member.created`
+| A member becomes `ACTIVE` (direct admin creation, or an approved application) — **never** for a
+  self-registration landing in `APPLICATION`, which `/api/v1/members` never surfaces anyway
+| `GET /api/v1/members/{id}`
+
+| `contribution.paid`
+| A contribution is marked paid (manual settlement, SEPA collection, or Stripe checkout) — **Fat**
+  event, see above
+| _(none — self-contained payload)_
+
+| `donation.received`
+| A donation is captured via Stripe checkout — **Fat** event, see above
+| _(none — self-contained payload)_
+
+| `webhook.test`
+| `sendWebhookTestEvent` only — synchronous, one attempt, never queued/retried
+| _(none — diagnostic only)_
+|===
+
+**Known limitation**: there is no "entity removed/left" event. A member leaving `ACTIVE` status (or
+any other entity leaving the visible-through-`/api/v1` set) is not announced — a consumer that needs
+to detect removals must periodically re-poll the corresponding `/api/v1` list endpoint and diff it
+against its own local copy.
+
+=== Retry policy
+
+A failed attempt (any non-`2xx` response, a timeout, a connection/TLS/DNS failure, or a `3xx`
+redirect) is retried up to 5 more times (6 attempts total), with this fixed backoff — no jitter:
+
+[cols="1,2,2", options="header"]
+|===
+| Attempt | Wait before this attempt | Cumulative
+
+| 1 | — (immediate)| 0:00
+| 2 | 30 s | 0:00:30
+| 3 | 2 min | 0:02:30
+| 4 | 10 min | 0:12:30
+| 5 | 45 min | 0:57:30
+| 6 | 3 h | 3:57:30
+|===
+
+A `410 Gone` response is treated as permanent — no further attempts, and the endpoint is deactivated
+immediately (see below). After all 6 attempts fail, the delivery is abandoned AND the whole webhook
+endpoint is deactivated (`active: false`) — every BOARD/ADMIN member is notified by e-mail, and the
+endpoint stays deactivated until an operator reviews and reactivates it in the UI.
+
+=== URL requirements
+
+The configured URL must be `https://` (no `http://` unless the OPERATOR of this server instance has
+explicitly opted into an insecure development mode — never something a webhook consumer can control),
+must resolve to a publicly routable address (no loopback/private/link-local/reserved range — the same
+class of restriction any outbound-webhook feature needs to guard against SSRF), and must be at most
+2048 characters. Rejected for any other reason returns one of four fixed, non-leaking messages — never
+an IP address, resolved hostname, or DNS detail.
+
+=== Retention
+
+Delivery history (`listWebhookDeliveries`) is retained for 30 days after reaching a terminal state
+(`DELIVERED`/`ABANDONED`), then deleted automatically. A delivery still `PENDING`/being retried is
+never deleted regardless of age.
+
+=== Operating assumption
+
+Exactly one server instance is assumed to run the delivery poller. Delivery itself is safe under
+multiple instances (each attempt is claimed atomically), but the deactivation-notification e-mail and
+the retention sweep are not additionally guarded against running twice — see the poller's own KDoc if
+this server is ever operated in a multi-instance configuration.
+
 [[scope]]
 == Out of scope (this wave)
 
-Deliberately not implemented — see `CHANGELOG.md`: any write endpoint, webhooks, OAuth2/OIDC/JWT/
-scopes, multi-tenancy, distributed (cross-instance) rate limiting, OpenAPI/Swagger generation,
-ETag/conditional-request caching, CORS, field selection, sorting, full-text search, cursor-based
-pagination, bulk endpoints, key-hash encryption at rest, automatic key rotation/expiry reminder
-mail/cleanup, and the RFC 9457 `application/problem+json` error format (this API's flat
-`{"error","message"}` body is used instead throughout).
+Deliberately not implemented — see `CHANGELOG.md`: any write endpoint on the `/api/v1` REST surface
+itself, OAuth2/OIDC/JWT/scopes, multi-tenancy, distributed (cross-instance) rate limiting,
+OpenAPI/Swagger generation, ETag/conditional-request caching, CORS, field selection, sorting,
+full-text search, cursor-based pagination, bulk endpoints, key-hash encryption at rest, automatic key
+rotation/expiry reminder mail/cleanup, the RFC 9457 `application/problem+json` error format (this
+API's flat `{"error","message"}` body is used instead throughout), a webhook "entity removed" event
+(see the Webhooks section above), multi-instance-safe deactivation notification/retention, and a
+dual-secret grace window during webhook signing-secret rotation.

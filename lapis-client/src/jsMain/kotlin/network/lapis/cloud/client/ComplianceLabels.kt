@@ -99,6 +99,10 @@ fun auditEntityTypeLabel(entityType: AuditEntityType): String =
         // Welle V1.3.1 "API-Fundament, lesend" -- "API-Schlüssel" is the term `ApiKeysScreen.kt`
         // uses throughout for an `api_key` row.
         AuditEntityType.API_KEY -> gettext("API-Schlüssel")
+        // Welle V1.3.2 "Webhooks" (ausgehend) -- "Webhook-Endpunkt" is the term `ApiKeysScreen.kt`/
+        // `WebhookDeliveryLogPanel.kt` use throughout (D9 terminology lock: "Endpunkt" statt
+        // "Endpoint").
+        AuditEntityType.WEBHOOK_ENDPOINT -> gettext("Webhook-Endpunkt")
     }
 
 fun auditEntityTypeColor(entityType: AuditEntityType): String =
@@ -142,6 +146,9 @@ fun auditEntityTypeColor(entityType: AuditEntityType): String =
         // administrative act, the same "not routine, but not a violation either" tier RESOLUTION
         // already carries above.
         AuditEntityType.API_KEY -> "dark"
+        // "dark" -- same "security-relevant administrative act" tier as API_KEY above; the two are
+        // conceptually linked (an endpoint is 1:1 with an API key).
+        AuditEntityType.WEBHOOK_ENDPOINT -> "dark"
     }
 
 // ------------------------------------------------------------------------------------------------

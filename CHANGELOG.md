@@ -6,6 +6,65 @@ All notable changes to this project are documented here. Format follows
 
 ## [Unreleased]
 
+### Added
+
+**Ausgehende Webhooks (Welle V1.3.2 "Webhooks")**
+
+- **Neue Tabellen `webhook_endpoint`/`webhook_delivery`** (`V15__webhooks.sql`) — ein Webhook ist 1:1
+  an einen bestehenden API-Schlüssel gebunden (`uq_webhook_endpoint_api_key`); `webhook_delivery` ist
+  die Outbox-/Retry-Warteschlange, ein Eintrag pro (Endpunkt, Ereignis)-Paar
+  (`uq_webhook_delivery_event`).
+- **HMAC-SHA256-Signatur, zeichengleich zu Stripes `Stripe-Signature`** — `Lapis-Signature:
+  t=<unix-sekunden>,v1=<hex>`, verifizierbar mit derselben Grammatik jeder Stripe-Integration.
+  Zusätzlich `Lapis-Webhook-Id` (stabil über alle Zustellversuche, die Idempotenz-Kennung für den
+  Empfänger), `Lapis-Webhook-Event`, `Lapis-Delivery-Attempt`. Das Signaturgeheimnis wird
+  verschlüsselt gespeichert (`SecretBox`/AES-256-GCM) und genau einmal im Klartext angezeigt — bei
+  Neuanlage und bei Rotation, danach nie wieder abrufbar.
+- **SSRF-Guard eigens für Webhook-Ziele** (`OutboundUrlGuard`) — HTTPS-Pflicht (per
+  `LAPIS_WEBHOOKS_ALLOW_INSECURE` in Entwicklung abschaltbar), DNS-Pinning gegen Rebinding
+  (denselben Mechanismus wie die Föderations-HTTP-Absicherung wiederverwendet), Sperrliste über
+  Loopback/Link-Local (inkl. `169.254.169.254`)/RFC-1918/Multicast/IPv6-ULA hinaus zusätzlich um
+  IPv4-mapped-IPv6, CGNAT (`100.64.0.0/10`) und mehrere reservierte Bereiche erweitert. Ablehnungen
+  nennen ausschließlich einen von vier fixen Gründen — nie eine IP, einen Hostnamen oder ein
+  DNS-Detail.
+- **Zehn feste Ereignisse**: `committee.created`/`.updated`, `meeting.created`/`.held`,
+  `resolution.adopted`, `motion.scheduled`, `member.created`, `contribution.paid`,
+  `donation.received`, `webhook.test`. Acht davon sind „Thin" (nur `id`/`eventType`/`entityId`/
+  `occurredAt`, der Empfänger holt sich Details selbst über `/api/v1`), die beiden Zahlungs-Ereignisse
+  sind „Fat" (Betrag als Dezimalstring, Währung, Transaktions-Id — es gibt kein `/api/v1/payments`).
+  Nie personenbezogene Daten im Payload.
+- **Zustellung mit Rückversuch** — 6 Versuche, feste Wartezeiten 30s/2min/10min/45min/3h, danach
+  automatische Deaktivierung des Endpunkts + E-Mail an alle BOARD/ADMIN-Mitglieder (gedeckelt auf 20
+  Empfänger, die tatsächliche Empfängerzahl bleibt im GoBD-Prüfprotokoll nachvollziehbar). `410 Gone`
+  deaktiviert sofort. Ein bei einem Absturz mitten in der Zustellung hängengebliebener Versuch wird
+  nach 5 Minuten automatisch zurückgesetzt.
+- **Vier neue schreibgeschützte Einzel-Endpunkte** unter `/api/v1` — `/members/{id}`,
+  `/committees/{id}`, `/resolutions/{id}`, `/motions/{id}`. Eine nicht parsebare Id ist `400`, eine
+  unbekannte oder (bei Mitgliedern/Anträgen) nicht sichtbare Id ist `404` — kein Statusorakel: ein
+  `WITHDRAWN`/`APPLICATION`-Mitglied oder ein `SUBMITTED`-Antrag ist über diese Endpunkte strukturell
+  genauso unerreichbar wie über die jeweilige Listen-Variante.
+- **BOARD/ADMIN verwalten Webhooks** unter „Verwaltung → API-Schlüssel" (keine neue Seite) — Adresse
+  einrichten/ändern, Signaturgeheimnis rotieren, Test-Event senden (synchron, ein Versuch, landet nie
+  in der Retry-Warteschlange), Zustellungsprotokoll einsehen (30 Tage Aufbewahrung), deaktivierten
+  Endpunkt wieder aktivieren, entfernen.
+- **`ApiKeyService.revokeApiKey`/`.reissueApiKey` erweitert** — ein Widerruf deaktiviert den
+  zugehörigen Webhook mit; ein Neu-Ausstellen hängt den bestehenden Webhook auf die neue Schlüssel-Id
+  um, statt ihn verwaist zurückzulassen.
+- **DSGVO-Erfassung ergänzt** (`WebhookPersonalData`) — dieselbe „organisatorische Nachvollziehbarkeit,
+  keine Geheimnis-Preisgabe"-Behandlung wie bei API-Schlüsseln.
+- **Dokumentation**: neues Kapitel „Webhooks (outbound)" in `docs/api/public-api-v1.adoc` (Header-
+  Grammatik, Verifikationsbeispiel, Ereigniskatalog, Rückversuch-Fenster, URL-Anforderungen,
+  Aufbewahrungsfrist, bekannte Grenzen).
+
+**Bekannte Grenzen dieser Welle**
+
+- Kein „Entität entfernt"-Ereignis — ein Bestandsabgleich erfordert periodisches erneutes Abrufen der
+  jeweiligen `/api/v1`-Liste.
+- Der Zustellungs-Poller geht von genau einer laufenden Serverinstanz aus; die
+  Deaktivierungsbenachrichtigung und die Aufbewahrungs-Bereinigung sind nicht zusätzlich gegen
+  gleichzeitigen Mehrinstanzbetrieb abgesichert.
+- Keine Karenzfrist bei der Signaturgeheimnis-Rotation (kein Zwei-Geheimnisse-Übergang).
+
 ## [0.17.0] — 2026-09-02
 
 ### Added

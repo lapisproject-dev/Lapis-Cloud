@@ -143,6 +143,7 @@ class AuditLogSchemaDriftTest :
                             "MEMBER",
                             "PAYMENT_TRANSACTION",
                             "API_KEY",
+                            "WEBHOOK_ENDPOINT",
                         ),
                     externalFqName = "network.lapis.cloud.shared.domain.AuditEntityType",
                 )

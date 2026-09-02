@@ -722,7 +722,13 @@ CREATE TABLE audit_log_entry (
     -- V1.3.1 "API-Fundament, lesend": 'API_KEY' appended in place, same reasoning -- see
     -- V14__public_api.sql's own DROP/ADD dance on the NAMED constraint. Flyway repair needed on an
     -- already-migrated instance, same as the precedents above.
-    CHECK (entity_type IN ('JOURNAL_ENTRY', 'PARTY_DONATION_VERDICT', 'RESOLUTION', 'BOARD_MEMBERSHIP', 'CONFERENCE_RECORDING', 'CONFERENCE_STREAM', 'CONFERENCE_STREAM_DESTINATION', 'CONFERENCE_ROOM', 'SOCIAL_POST', 'ORGANIZATION_SETTINGS', 'SEPA_MANDATE', 'SEPA_DEBIT_BATCH', 'DUNNING_NOTICE', 'MEMBER', 'PAYMENT_TRANSACTION', 'API_KEY')),
+    -- V1.3.2 "Webhooks" (ausgehend): 'WEBHOOK_ENDPOINT' appended in place, same reasoning -- see
+    -- V15__webhooks.sql's own DROP/ADD dance on the NAMED constraint. Flyway repair needed on an
+    -- already-migrated instance, same as the precedents above. Confirmed live (not just by
+    -- inference) during this wave's own implementation: a fresh/test database rejected an
+    -- entity_type = 'WEBHOOK_ENDPOINT' INSERT with V15's named constraint ALREADY widened, because
+    -- this inline constraint -- unnamed, still governing every fresh database -- had not been.
+    CHECK (entity_type IN ('JOURNAL_ENTRY', 'PARTY_DONATION_VERDICT', 'RESOLUTION', 'BOARD_MEMBERSHIP', 'CONFERENCE_RECORDING', 'CONFERENCE_STREAM', 'CONFERENCE_STREAM_DESTINATION', 'CONFERENCE_ROOM', 'SOCIAL_POST', 'ORGANIZATION_SETTINGS', 'SEPA_MANDATE', 'SEPA_DEBIT_BATCH', 'DUNNING_NOTICE', 'MEMBER', 'PAYMENT_TRANSACTION', 'API_KEY', 'WEBHOOK_ENDPOINT')),
     CHECK (action IN ('CREATE', 'UPDATE', 'POST'))
 );
 

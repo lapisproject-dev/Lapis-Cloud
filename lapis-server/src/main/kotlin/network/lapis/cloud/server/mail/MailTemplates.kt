@@ -106,6 +106,55 @@ object MailTemplates {
     }
 
     /**
+     * Welle V1.3.2 "Webhooks" (ausgehend) -- `network.lapis.cloud.server.webhook
+     * .WebhookDeactivationNotifier`'s one mail, sent to every BOARD/ADMIN member (capped, see that
+     * class KDoc) after the poller auto-deactivates an endpoint. **Never the signature secret,
+     * never the endpoint's full URL** -- only [urlHost] (Design-Team decision, plan §5.6: path/
+     * query segments can carry a receiver-chosen secret token of their own, e.g.
+     * `https://example.com/webhooks/<their-own-secret>`, which this org's mail transport has no
+     * business retaining).
+     */
+    fun webhookEndpointDeactivated(
+        apiKeyLabel: String,
+        urlHost: String,
+        eventTypeLabel: String,
+        attemptCount: Int,
+        lastHttpStatus: Int?,
+        branding: MailBranding,
+    ): RenderedMail {
+        val link = "${branding.publicBaseUrl}/#/api-keys"
+        val statusLine = if (lastHttpStatus != null) "letzter HTTP-Status: $lastHttpStatus" else "kein HTTP-Status erhalten"
+        val subject = "Webhook deaktiviert – ${branding.fromDisplayName}"
+        val plainText =
+            "Der Webhook für den API-Schlüssel „$apiKeyLabel“ (Ziel-Host: $urlHost) wurde nach " +
+                "wiederholten Zustellfehlern automatisch deaktiviert.\n\n" +
+                "Letztes Ereignis: $eventTypeLabel, Versuch $attemptCount, $statusLine.\n\n" +
+                "Öffnen Sie die API-Schlüssel-Verwaltung, um den Webhook zu prüfen und ggf. wieder zu " +
+                "aktivieren:\n$link\n\n" +
+                footer(branding)
+        val html =
+            createHTML().html {
+                head { title { +subject } }
+                body {
+                    h1 { +"Webhook deaktiviert" }
+                    p {
+                        +(
+                            "Der Webhook für den API-Schlüssel „$apiKeyLabel“ (Ziel-Host: $urlHost) wurde nach " +
+                                "wiederholten Zustellfehlern automatisch deaktiviert."
+                        )
+                    }
+                    p { +"Letztes Ereignis: $eventTypeLabel, Versuch $attemptCount, $statusLine." }
+                    p {
+                        +"Öffnen Sie die API-Schlüssel-Verwaltung, um den Webhook zu prüfen und ggf. wieder zu aktivieren: "
+                        a(href = link) { +"API-Schlüssel-Verwaltung öffnen" }
+                    }
+                    p { +footer(branding) }
+                }
+            }
+        return RenderedMail(subject = subject, plainText = plainText, html = html)
+    }
+
+    /**
      * Letzte Zeile in beiden Templates, Plaintext UND HTML identisch (V1.2.3 Design-Review, Punkt
      * 4b: keine Mail ohne Rückweg). Geht im HTML-Zweig durch kotlinx-html's Auto-Escaping ([p]-Block
      * mit `+`-Operator) -- [MailBranding.replyTo]/[MailBranding.publicBaseUrl] sind beide

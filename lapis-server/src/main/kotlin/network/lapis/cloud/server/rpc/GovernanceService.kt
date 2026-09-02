@@ -18,11 +18,13 @@ import network.lapis.cloud.server.db.generated.VoteOptionTable
 import network.lapis.cloud.server.db.generated.VoteTable
 import network.lapis.cloud.server.economy.LedgerBackedLtrBalanceProvider
 import network.lapis.cloud.server.economy.LtrBalanceProvider
+import network.lapis.cloud.server.routes.PUBLIC_API_MOTION_STATUSES
 import network.lapis.cloud.server.security.CurrentMember
 import network.lapis.cloud.server.security.canRecordForMeeting
 import network.lapis.cloud.server.security.canSubmitMotion
 import network.lapis.cloud.server.security.requireRole
 import network.lapis.cloud.server.security.resolveCurrentMember
+import network.lapis.cloud.server.webhook.WebhookEventPublisher
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.AgendaItemDto
 import network.lapis.cloud.shared.domain.AgendaItemInput
@@ -56,6 +58,7 @@ import network.lapis.cloud.shared.domain.VoteDto
 import network.lapis.cloud.shared.domain.VoteOpenInput
 import network.lapis.cloud.shared.domain.VoteOptionDto
 import network.lapis.cloud.shared.domain.VoteStatus
+import network.lapis.cloud.shared.domain.WebhookEventType
 import network.lapis.cloud.shared.rpc.ConflictException
 import network.lapis.cloud.shared.rpc.ForbiddenException
 import network.lapis.cloud.shared.rpc.IGovernanceService
@@ -69,6 +72,7 @@ import org.jetbrains.exposed.v1.core.inList
 import org.jetbrains.exposed.v1.core.isNull
 import org.jetbrains.exposed.v1.jdbc.deleteWhere
 import org.jetbrains.exposed.v1.jdbc.insert
+import org.jetbrains.exposed.v1.jdbc.select
 import org.jetbrains.exposed.v1.jdbc.selectAll
 import org.jetbrains.exposed.v1.jdbc.transactions.transaction
 import org.jetbrains.exposed.v1.jdbc.update
@@ -140,6 +144,10 @@ class GovernanceService(
                 it[quorumPercent] = input.quorumPercent
                 it[createdAt] = now
             }
+            // Welle V1.3.2 "Webhooks" (ausgehend) -- Thin event, D8-konform: GET /api/v1/committees/{id}
+            // liefert dieses Gremium unmittelbar danach aus (kein Sichtbarkeitsfilter, siehe
+            // PublicApiRoutes' /committees/{id}-Handler).
+            WebhookEventPublisher.publish(eventType = WebhookEventType.COMMITTEE_CREATED, entityId = id, occurredAt = now)
             CommitteeTable
                 .selectAll()
                 .where { CommitteeTable.id eq id }
@@ -165,6 +173,11 @@ class GovernanceService(
                     it[quorumPercent] = input.quorumPercent
                 }
             if (updated == 0) throw NotFoundException("Committee $id not found")
+            WebhookEventPublisher.publish(
+                eventType = WebhookEventType.COMMITTEE_UPDATED,
+                entityId = committeeId,
+                occurredAt = nowLocalDateTime(),
+            )
             CommitteeTable
                 .selectAll()
                 .where { CommitteeTable.id eq committeeId }
@@ -354,6 +367,7 @@ class GovernanceService(
                 it[protocolDocumentId] = null
                 it[createdAt] = now
             }
+            WebhookEventPublisher.publish(eventType = WebhookEventType.MEETING_CREATED, entityId = id, occurredAt = now)
             loadMeeting(id)
         }
     }
@@ -367,7 +381,14 @@ class GovernanceService(
         return transaction {
             val committeeId = requireMeetingCommitteeId(sId)
             if (!current.canRecordForMeeting(committeeId)) throw ForbiddenException()
+            // Welle V1.3.2 "Webhooks" (ausgehend), S3 -- this method previously never read the
+            // meeting's pre-update status; a dedicated read is needed so `meeting.held` fires only
+            // on a REAL transition into HELD, not on a redundant HELD -> HELD call.
+            val previousStatus = MeetingTable.select(MeetingTable.status).where { MeetingTable.id eq sId }.single()[MeetingTable.status]
             MeetingTable.update({ MeetingTable.id eq sId }) { it[MeetingTable.status] = status }
+            if (status == MeetingStatus.HELD && previousStatus != MeetingStatus.HELD) {
+                WebhookEventPublisher.publish(eventType = WebhookEventType.MEETING_HELD, entityId = sId, occurredAt = nowLocalDateTime())
+            }
             loadMeeting(sId)
         }
     }
@@ -478,6 +499,14 @@ class GovernanceService(
                     input = input,
                     current = current,
                 )
+            // Welle V1.3.2 "Webhooks" (ausgehend) -- MUST run before auditResolutionCreate (S2:
+            // AuditLogRecorder's own deadlock-avoidance contract requires its write to be the LAST
+            // one in the transaction).
+            WebhookEventPublisher.publish(
+                eventType = WebhookEventType.RESOLUTION_ADOPTED,
+                entityId = Uuid.parse(resolution.id),
+                occurredAt = resolution.decidedAt,
+            )
             // V0.5.3 GoBD audit log: CREATE only -- a Resolution is never mutated after recording
             // (no update path exists in this codebase), see 14-audit-log.kuml.kts file header.
             // This is the last database write of this transaction, satisfying AuditLogRecorder's
@@ -747,6 +776,11 @@ class GovernanceService(
                 it[MotionTable.meetingId] = sId
                 it[MotionTable.agendaItemId] = topId
             }
+            // Welle V1.3.2 "Webhooks" (ausgehend) -- D8-konform: SCHEDULED ist Teil von
+            // PUBLIC_API_MOTION_STATUSES, GET /api/v1/motions/{id} liefert diesen Antrag also
+            // unmittelbar danach aus.
+            check(MotionStatus.SCHEDULED in PUBLIC_API_MOTION_STATUSES)
+            WebhookEventPublisher.publish(eventType = WebhookEventType.MOTION_SCHEDULED, entityId = aId, occurredAt = nowLocalDateTime())
             loadMotion(aId)
         }
     }

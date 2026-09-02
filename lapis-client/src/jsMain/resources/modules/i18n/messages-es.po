@@ -9191,3 +9191,210 @@ msgstr "Almacenado en caché"
 
 #~ msgid "Rolle: %1 · Sitzung gültig bis %2"
 #~ msgstr "Rol: %1 · Sesión válida hasta %2"
+
+msgid "Diese Schlüssel authentifizieren externe Zugriffe auf die schreibgeschützte REST-API (/api/v1) -- siehe die API-Dokumentation für Endpunkte und Rate-Limits. Optional kann je Schlüssel ein Webhook konfiguriert werden, der bei bestimmten Ereignissen automatisch einen HTTP-POST an eine von Ihnen angegebene Adresse sendet."
+msgstr "Estas claves autentican el acceso externo a la API REST de solo lectura (/api/v1) -- consulte la documentación de la API para conocer los puntos finales y los límites de frecuencia. Opcionalmente, se puede configurar un webhook por clave que envía automáticamente un HTTP POST a una dirección que usted indique cuando ocurran determinados eventos."
+
+msgid "Webhook für „%1“ deaktiviert: %2."
+msgstr "Webhook de «%1» desactivado: %2."
+
+msgid "unbekannter Grund"
+msgstr "motivo desconocido"
+
+msgid "Kein Webhook eingerichtet."
+msgstr "No hay ningún webhook configurado."
+
+msgid "Webhook-URL (https://…)"
+msgstr "URL del webhook (https://…)"
+
+msgid "Webhook einrichten"
+msgstr "Configurar webhook"
+
+msgid "Bitte eine Adresse angeben."
+msgstr "Indique una dirección."
+
+msgid "Letzter HTTP-Status: %1"
+msgstr "Último estado HTTP: %1"
+
+msgid "Neue Webhook-URL"
+msgstr "Nueva URL del webhook"
+
+msgid "URL ändern"
+msgstr "Cambiar URL"
+
+msgid "Webhook-Adresse aktualisiert."
+msgstr "Dirección del webhook actualizada."
+
+msgid "Signaturgeheimnis neu erzeugen"
+msgstr "Regenerar secreto de firma"
+
+msgid "Test-Event senden"
+msgstr "Enviar evento de prueba"
+
+msgid "Sendet Test-Event …"
+msgstr "Enviando evento de prueba…"
+
+msgid "HTTP %1 -- %2"
+msgstr "HTTP %1 -- %2"
+
+msgid "zugestellt"
+msgstr "entregado"
+
+msgid "Fehlgeschlagen: %1"
+msgstr "Fallido: %1"
+
+msgid "unbekannter Fehler"
+msgstr "error desconocido"
+
+msgid "Wieder aktivieren"
+msgstr "Reactivar"
+
+msgid "Webhook wieder aktiviert."
+msgstr "Webhook reactivado."
+
+msgid "Webhook entfernt."
+msgstr "Webhook eliminado."
+
+msgid "Neues Signaturgeheimnis -- jetzt speichern"
+msgstr "Nuevo secreto de firma -- guárdelo ahora"
+
+msgid "Dieses Signaturgeheimnis wird aus Sicherheitsgründen nur dieses eine Mal angezeigt. Kopieren Sie es jetzt an einen sicheren Ort."
+msgstr "Por razones de seguridad, este secreto de firma se muestra únicamente esta vez. Cópielo ahora en un lugar seguro."
+
+msgid "Verloren? Nur ein neues Geheimnis erzeugen -- das alte wird dabei sofort ungültig, laufende Integrationen brechen bis zur Umstellung ab."
+msgstr "¿Lo ha perdido? Genere simplemente un nuevo secreto -- el anterior queda invalidado de inmediato y las integraciones activas fallarán hasta que se actualicen."
+
+msgid "Ich habe das Geheimnis gespeichert"
+msgstr "He guardado el secreto"
+
+msgid "Signaturgeheimnis neu erzeugen bestätigen"
+msgstr "Confirmar la regeneración del secreto de firma"
+
+msgid "Das aktuelle Signaturgeheimnis für den Webhook von „%1“ wird sofort ungültig -- laufende Integrationen brechen bis zur Umstellung ab."
+msgstr "El secreto de firma actual del webhook de «%1» quedará invalidado de inmediato -- las integraciones activas fallarán hasta que se actualicen."
+
+msgid "Neu erzeugen"
+msgstr "Regenerar"
+
+msgid "Webhook entfernen bestätigen"
+msgstr "Confirmar la eliminación del webhook"
+
+msgid "Der Webhook für „%1“ wird vollständig entfernt, inklusive Signaturgeheimnis und Zustellungsprotokoll."
+msgstr "El webhook de «%1» se eliminará por completo, incluidos el secreto de firma y el registro de entregas."
+
+msgid "Zustellungsprotokoll anzeigen"
+msgstr "Mostrar registro de entregas"
+
+msgid "Zustellungsprotokoll ausblenden"
+msgstr "Ocultar registro de entregas"
+
+msgid "Noch keine Zustellungen."
+msgstr "Todavía no hay entregas."
+
+msgid "Einträge werden nach 30 Tagen automatisch gelöscht."
+msgstr "Las entradas se eliminan automáticamente después de 30 días."
+
+msgid "Zeitpunkt"
+msgstr "Momento"
+
+msgid "Event"
+msgstr "Evento"
+
+msgid "Versuch"
+msgstr "Intento"
+
+msgid "Nächster Versuch"
+msgstr "Próximo intento"
+
+msgid "in Kürze"
+msgstr "en breve"
+
+msgid "in %1 Min."
+msgstr "en %1 min."
+
+msgid "in %1 Std."
+msgstr "en %1 h"
+
+msgid "Zugestellt"
+msgstr "Entregado"
+
+msgid "Wird zugestellt"
+msgstr "Entregando"
+
+msgid "Abgebrochen"
+msgstr "Abandonado"
+
+msgid "Gremium angelegt"
+msgstr "Comité creado"
+
+msgid "Gremium geändert"
+msgstr "Comité actualizado"
+
+msgid "Sitzung angelegt"
+msgstr "Reunión creada"
+
+msgid "Sitzung abgehalten"
+msgstr "Reunión celebrada"
+
+msgid "Beschluss gefasst"
+msgstr "Resolución adoptada"
+
+msgid "Antrag terminiert"
+msgstr "Moción programada"
+
+msgid "Mitglied angelegt"
+msgstr "Miembro creado"
+
+msgid "Beitrag bezahlt"
+msgstr "Cuota pagada"
+
+msgid "Spende erhalten"
+msgstr "Donación recibida"
+
+msgid "Test-Ereignis"
+msgstr "Evento de prueba"
+
+msgid "Zeitüberschreitung"
+msgstr "Tiempo de espera agotado"
+
+msgid "Verbindung abgelehnt"
+msgstr "Conexión rechazada"
+
+msgid "DNS- oder TLS-Fehler"
+msgstr "Error de DNS o TLS"
+
+msgid "HTTP-Fehler"
+msgstr "Error HTTP"
+
+msgid "Adresse abgelehnt"
+msgstr "Dirección rechazada"
+
+msgid "Endpunkt deaktiviert"
+msgstr "Endpunkto desactivado"
+
+msgid "Wiederholungen erschöpft"
+msgstr "Reintentos agotados"
+
+msgid "wiederholte Zustellfehler"
+msgstr "fallos de entrega repetidos"
+
+msgid "manuell deaktiviert"
+msgstr "desactivado manualmente"
+
+msgid "Ziel meldet dauerhaft nicht mehr erreichbar (410)"
+msgstr "el destino informa de forma permanente que no está disponible (410)"
+
+msgid "Die Adresse muss mit https:// beginnen."
+msgstr "La dirección debe comenzar con https://."
+
+msgid "Die Adresse ist keine gültige URL."
+msgstr "La dirección no es una URL válida."
+
+msgid "Diese Adresse ist als Ziel nicht zulässig -- sie muss öffentlich im Internet erreichbar sein."
+msgstr "Esta dirección no está permitida como destino -- debe ser accesible públicamente en internet."
+
+msgid "Die Adresse ist zu lang (maximal 2048 Zeichen)."
+msgstr "La dirección es demasiado larga (máximo 2048 caracteres)."
+
+msgid "Webhook-Endpunkt"
+msgstr "Endpunto de webhook"

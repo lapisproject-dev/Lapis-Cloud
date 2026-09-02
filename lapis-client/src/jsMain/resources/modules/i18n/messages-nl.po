@@ -9150,3 +9150,210 @@ msgstr "Tijdelijk opgeslagen (cached)"
 
 #~ msgid "Rolle: %1 · Sitzung gültig bis %2"
 #~ msgstr "Rol: %1 · Sessie geldig tot %2"
+
+msgid "Diese Schlüssel authentifizieren externe Zugriffe auf die schreibgeschützte REST-API (/api/v1) -- siehe die API-Dokumentation für Endpunkte und Rate-Limits. Optional kann je Schlüssel ein Webhook konfiguriert werden, der bei bestimmten Ereignissen automatisch einen HTTP-POST an eine von Ihnen angegebene Adresse sendet."
+msgstr "Deze sleutels authenticeren externe toegang tot de alleen-lezen REST-API (/api/v1) -- zie de API-documentatie voor endpoints en snelheidslimieten. Optioneel kan per sleutel een webhook worden geconfigureerd die bij bepaalde gebeurtenissen automatisch een HTTP-POST stuurt naar een door u opgegeven adres."
+
+msgid "Webhook für „%1“ deaktiviert: %2."
+msgstr "Webhook voor \"%1\" gedeactiveerd: %2."
+
+msgid "unbekannter Grund"
+msgstr "onbekende reden"
+
+msgid "Kein Webhook eingerichtet."
+msgstr "Geen webhook ingesteld."
+
+msgid "Webhook-URL (https://…)"
+msgstr "Webhook-URL (https://…)"
+
+msgid "Webhook einrichten"
+msgstr "Webhook instellen"
+
+msgid "Bitte eine Adresse angeben."
+msgstr "Geef een adres op."
+
+msgid "Letzter HTTP-Status: %1"
+msgstr "Laatste HTTP-status: %1"
+
+msgid "Neue Webhook-URL"
+msgstr "Nieuwe webhook-URL"
+
+msgid "URL ändern"
+msgstr "URL wijzigen"
+
+msgid "Webhook-Adresse aktualisiert."
+msgstr "Webhookadres bijgewerkt."
+
+msgid "Signaturgeheimnis neu erzeugen"
+msgstr "Ondertekeningsgeheim opnieuw genereren"
+
+msgid "Test-Event senden"
+msgstr "Testgebeurtenis verzenden"
+
+msgid "Sendet Test-Event …"
+msgstr "Testgebeurtenis wordt verzonden…"
+
+msgid "HTTP %1 -- %2"
+msgstr "HTTP %1 -- %2"
+
+msgid "zugestellt"
+msgstr "afgeleverd"
+
+msgid "Fehlgeschlagen: %1"
+msgstr "Mislukt: %1"
+
+msgid "unbekannter Fehler"
+msgstr "onbekende fout"
+
+msgid "Wieder aktivieren"
+msgstr "Opnieuw activeren"
+
+msgid "Webhook wieder aktiviert."
+msgstr "Webhook opnieuw geactiveerd."
+
+msgid "Webhook entfernt."
+msgstr "Webhook verwijderd."
+
+msgid "Neues Signaturgeheimnis -- jetzt speichern"
+msgstr "Nieuw ondertekeningsgeheim -- nu opslaan"
+
+msgid "Dieses Signaturgeheimnis wird aus Sicherheitsgründen nur dieses eine Mal angezeigt. Kopieren Sie es jetzt an einen sicheren Ort."
+msgstr "Om veiligheidsredenen wordt dit ondertekeningsgeheim slechts dit ene keer getoond. Kopieer het nu naar een veilige plek."
+
+msgid "Verloren? Nur ein neues Geheimnis erzeugen -- das alte wird dabei sofort ungültig, laufende Integrationen brechen bis zur Umstellung ab."
+msgstr "Kwijt? Genereer gewoon een nieuw geheim -- het oude wordt dan direct ongeldig en lopende integraties werken niet meer totdat ze zijn bijgewerkt."
+
+msgid "Ich habe das Geheimnis gespeichert"
+msgstr "Ik heb het geheim opgeslagen"
+
+msgid "Signaturgeheimnis neu erzeugen bestätigen"
+msgstr "Bevestig het opnieuw genereren van het ondertekeningsgeheim"
+
+msgid "Das aktuelle Signaturgeheimnis für den Webhook von „%1“ wird sofort ungültig -- laufende Integrationen brechen bis zur Umstellung ab."
+msgstr "Het huidige ondertekeningsgeheim voor de webhook van \"%1\" wordt direct ongeldig -- lopende integraties werken niet meer totdat ze zijn bijgewerkt."
+
+msgid "Neu erzeugen"
+msgstr "Opnieuw genereren"
+
+msgid "Webhook entfernen bestätigen"
+msgstr "Bevestig het verwijderen van de webhook"
+
+msgid "Der Webhook für „%1“ wird vollständig entfernt, inklusive Signaturgeheimnis und Zustellungsprotokoll."
+msgstr "De webhook voor \"%1\" wordt volledig verwijderd, inclusief het ondertekeningsgeheim en het bezorglogboek."
+
+msgid "Zustellungsprotokoll anzeigen"
+msgstr "Bezorglogboek weergeven"
+
+msgid "Zustellungsprotokoll ausblenden"
+msgstr "Bezorglogboek verbergen"
+
+msgid "Noch keine Zustellungen."
+msgstr "Nog geen bezorgingen."
+
+msgid "Einträge werden nach 30 Tagen automatisch gelöscht."
+msgstr "Items worden na 30 dagen automatisch verwijderd."
+
+msgid "Zeitpunkt"
+msgstr "Tijdstip"
+
+msgid "Event"
+msgstr "Gebeurtenis"
+
+msgid "Versuch"
+msgstr "Poging"
+
+msgid "Nächster Versuch"
+msgstr "Volgende poging"
+
+msgid "in Kürze"
+msgstr "binnenkort"
+
+msgid "in %1 Min."
+msgstr "over %1 min."
+
+msgid "in %1 Std."
+msgstr "over %1 u"
+
+msgid "Zugestellt"
+msgstr "Afgeleverd"
+
+msgid "Wird zugestellt"
+msgstr "Wordt afgeleverd"
+
+msgid "Abgebrochen"
+msgstr "Afgebroken"
+
+msgid "Gremium angelegt"
+msgstr "Commissie aangemaakt"
+
+msgid "Gremium geändert"
+msgstr "Commissie bijgewerkt"
+
+msgid "Sitzung angelegt"
+msgstr "Vergadering aangemaakt"
+
+msgid "Sitzung abgehalten"
+msgstr "Vergadering gehouden"
+
+msgid "Beschluss gefasst"
+msgstr "Besluit aangenomen"
+
+msgid "Antrag terminiert"
+msgstr "Motie ingepland"
+
+msgid "Mitglied angelegt"
+msgstr "Lid aangemaakt"
+
+msgid "Beitrag bezahlt"
+msgstr "Bijdrage betaald"
+
+msgid "Spende erhalten"
+msgstr "Donatie ontvangen"
+
+msgid "Test-Ereignis"
+msgstr "Testgebeurtenis"
+
+msgid "Zeitüberschreitung"
+msgstr "Time-out"
+
+msgid "Verbindung abgelehnt"
+msgstr "Verbinding geweigerd"
+
+msgid "DNS- oder TLS-Fehler"
+msgstr "DNS- of TLS-fout"
+
+msgid "HTTP-Fehler"
+msgstr "HTTP-fout"
+
+msgid "Adresse abgelehnt"
+msgstr "Adres geweigerd"
+
+msgid "Endpunkt deaktiviert"
+msgstr "Endpoint gedeactiveerd"
+
+msgid "Wiederholungen erschöpft"
+msgstr "Nieuwe pogingen uitgeput"
+
+msgid "wiederholte Zustellfehler"
+msgstr "herhaalde bezorgfouten"
+
+msgid "manuell deaktiviert"
+msgstr "handmatig gedeactiveerd"
+
+msgid "Ziel meldet dauerhaft nicht mehr erreichbar (410)"
+msgstr "doel meldt permanent onbereikbaar (410)"
+
+msgid "Die Adresse muss mit https:// beginnen."
+msgstr "Het adres moet beginnen met https://."
+
+msgid "Die Adresse ist keine gültige URL."
+msgstr "Het adres is geen geldige URL."
+
+msgid "Diese Adresse ist als Ziel nicht zulässig -- sie muss öffentlich im Internet erreichbar sein."
+msgstr "Dit adres is niet toegestaan als bestemming -- het moet openbaar bereikbaar zijn op internet."
+
+msgid "Die Adresse ist zu lang (maximal 2048 Zeichen)."
+msgstr "Het adres is te lang (maximaal 2048 tekens)."
+
+msgid "Webhook-Endpunkt"
+msgstr "Webhook-endpoint"

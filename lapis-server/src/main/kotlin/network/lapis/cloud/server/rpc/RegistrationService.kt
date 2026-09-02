@@ -19,6 +19,7 @@ import network.lapis.cloud.server.security.PasswordPolicy
 import network.lapis.cloud.server.security.SessionStore
 import network.lapis.cloud.server.security.requireRole
 import network.lapis.cloud.server.security.resolveCurrentMember
+import network.lapis.cloud.server.webhook.WebhookEventPublisher
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.AdminCreateMemberInput
 import network.lapis.cloud.shared.domain.FriendRegistrationInput
@@ -27,6 +28,7 @@ import network.lapis.cloud.shared.domain.MemberDto
 import network.lapis.cloud.shared.domain.MemberStatus
 import network.lapis.cloud.shared.domain.MembershipAgreementDto
 import network.lapis.cloud.shared.domain.RegistrationInput
+import network.lapis.cloud.shared.domain.WebhookEventType
 import network.lapis.cloud.shared.rpc.ConflictException
 import network.lapis.cloud.shared.rpc.IRegistrationService
 import network.lapis.cloud.shared.rpc.NotFoundException
@@ -252,6 +254,18 @@ class RegistrationService(
             if (updated == 0) {
                 throw ConflictException("Application $memberId was concurrently decided -- retry")
             }
+            // Welle V1.3.2 "Webhooks" (ausgehend), D8 -- the APPLICATION -> ACTIVE transition this
+            // function performs is a raw MemberTable.update, NOT a call into
+            // MemberService.updateMemberStatus (MemberStatusTransitions.allowedTargets(APPLICATION)
+            // is deliberately empty -- applications have their own dedicated approve/reject
+            // workflow, see that object's KDoc), so MemberService's own D8 hook (guarded by
+            // `newStatus == MemberStatus.ACTIVE`) structurally never fires for this, the MOST COMMON
+            // path a new member reaches ACTIVE (self-registration, then BOARD approval). Firing it
+            // HERE closes that gap: GET /api/v1/members/{id} hard-filters on ACTIVE, so this is
+            // exactly the moment this member becomes visible on that endpoint -- identical semantics
+            // to MemberService.updateMemberStatus's own D8 comment, just for the other code path
+            // that can produce the same transition.
+            WebhookEventPublisher.publish(eventType = WebhookEventType.MEMBER_CREATED, entityId = targetId, occurredAt = now)
             loadMember(targetId)
         }
     }
@@ -347,6 +361,11 @@ class RegistrationService(
                 it[role] = input.role
                 it[passwordHash] = PasswordHasher.hash(input.temporaryPassword)
             }
+            // Welle V1.3.2 "Webhooks" (ausgehend) -- this path creates the member directly as
+            // ACTIVE (unlike self-registration/leaveMembership's own APPLICATION status, which
+            // /api/v1/members never surfaces -- D8, deliberately NOT hooked here or in
+            // RegistrationService.registerFriend).
+            WebhookEventPublisher.publish(eventType = WebhookEventType.MEMBER_CREATED, entityId = memberId, occurredAt = now)
             loadMember(memberId)
         }
     }

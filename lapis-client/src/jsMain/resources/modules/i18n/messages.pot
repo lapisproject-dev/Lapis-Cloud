@@ -8107,3 +8107,210 @@ msgstr ""
 #: src/jsMain/kotlin/network/lapis/cloud/client/PriceOracleScreen.kt:705
 msgid "Zwischengespeichert (Cached)"
 msgstr ""
+
+msgid "Diese Schlüssel authentifizieren externe Zugriffe auf die schreibgeschützte REST-API (/api/v1) -- siehe die API-Dokumentation für Endpunkte und Rate-Limits. Optional kann je Schlüssel ein Webhook konfiguriert werden, der bei bestimmten Ereignissen automatisch einen HTTP-POST an eine von Ihnen angegebene Adresse sendet."
+msgstr ""
+
+msgid "Webhook für „%1“ deaktiviert: %2."
+msgstr ""
+
+msgid "unbekannter Grund"
+msgstr ""
+
+msgid "Kein Webhook eingerichtet."
+msgstr ""
+
+msgid "Webhook-URL (https://…)"
+msgstr ""
+
+msgid "Webhook einrichten"
+msgstr ""
+
+msgid "Bitte eine Adresse angeben."
+msgstr ""
+
+msgid "Letzter HTTP-Status: %1"
+msgstr ""
+
+msgid "Neue Webhook-URL"
+msgstr ""
+
+msgid "URL ändern"
+msgstr ""
+
+msgid "Webhook-Adresse aktualisiert."
+msgstr ""
+
+msgid "Signaturgeheimnis neu erzeugen"
+msgstr ""
+
+msgid "Test-Event senden"
+msgstr ""
+
+msgid "Sendet Test-Event …"
+msgstr ""
+
+msgid "HTTP %1 -- %2"
+msgstr ""
+
+msgid "zugestellt"
+msgstr ""
+
+msgid "Fehlgeschlagen: %1"
+msgstr ""
+
+msgid "unbekannter Fehler"
+msgstr ""
+
+msgid "Wieder aktivieren"
+msgstr ""
+
+msgid "Webhook wieder aktiviert."
+msgstr ""
+
+msgid "Webhook entfernt."
+msgstr ""
+
+msgid "Neues Signaturgeheimnis -- jetzt speichern"
+msgstr ""
+
+msgid "Dieses Signaturgeheimnis wird aus Sicherheitsgründen nur dieses eine Mal angezeigt. Kopieren Sie es jetzt an einen sicheren Ort."
+msgstr ""
+
+msgid "Verloren? Nur ein neues Geheimnis erzeugen -- das alte wird dabei sofort ungültig, laufende Integrationen brechen bis zur Umstellung ab."
+msgstr ""
+
+msgid "Ich habe das Geheimnis gespeichert"
+msgstr ""
+
+msgid "Signaturgeheimnis neu erzeugen bestätigen"
+msgstr ""
+
+msgid "Das aktuelle Signaturgeheimnis für den Webhook von „%1“ wird sofort ungültig -- laufende Integrationen brechen bis zur Umstellung ab."
+msgstr ""
+
+msgid "Neu erzeugen"
+msgstr ""
+
+msgid "Webhook entfernen bestätigen"
+msgstr ""
+
+msgid "Der Webhook für „%1“ wird vollständig entfernt, inklusive Signaturgeheimnis und Zustellungsprotokoll."
+msgstr ""
+
+msgid "Zustellungsprotokoll anzeigen"
+msgstr ""
+
+msgid "Zustellungsprotokoll ausblenden"
+msgstr ""
+
+msgid "Noch keine Zustellungen."
+msgstr ""
+
+msgid "Einträge werden nach 30 Tagen automatisch gelöscht."
+msgstr ""
+
+msgid "Zeitpunkt"
+msgstr ""
+
+msgid "Event"
+msgstr ""
+
+msgid "Versuch"
+msgstr ""
+
+msgid "Nächster Versuch"
+msgstr ""
+
+msgid "in Kürze"
+msgstr ""
+
+msgid "in %1 Min."
+msgstr ""
+
+msgid "in %1 Std."
+msgstr ""
+
+msgid "Zugestellt"
+msgstr ""
+
+msgid "Wird zugestellt"
+msgstr ""
+
+msgid "Abgebrochen"
+msgstr ""
+
+msgid "Gremium angelegt"
+msgstr ""
+
+msgid "Gremium geändert"
+msgstr ""
+
+msgid "Sitzung angelegt"
+msgstr ""
+
+msgid "Sitzung abgehalten"
+msgstr ""
+
+msgid "Beschluss gefasst"
+msgstr ""
+
+msgid "Antrag terminiert"
+msgstr ""
+
+msgid "Mitglied angelegt"
+msgstr ""
+
+msgid "Beitrag bezahlt"
+msgstr ""
+
+msgid "Spende erhalten"
+msgstr ""
+
+msgid "Test-Ereignis"
+msgstr ""
+
+msgid "Zeitüberschreitung"
+msgstr ""
+
+msgid "Verbindung abgelehnt"
+msgstr ""
+
+msgid "DNS- oder TLS-Fehler"
+msgstr ""
+
+msgid "HTTP-Fehler"
+msgstr ""
+
+msgid "Adresse abgelehnt"
+msgstr ""
+
+msgid "Endpunkt deaktiviert"
+msgstr ""
+
+msgid "Wiederholungen erschöpft"
+msgstr ""
+
+msgid "wiederholte Zustellfehler"
+msgstr ""
+
+msgid "manuell deaktiviert"
+msgstr ""
+
+msgid "Ziel meldet dauerhaft nicht mehr erreichbar (410)"
+msgstr ""
+
+msgid "Die Adresse muss mit https:// beginnen."
+msgstr ""
+
+msgid "Die Adresse ist keine gültige URL."
+msgstr ""
+
+msgid "Diese Adresse ist als Ziel nicht zulässig -- sie muss öffentlich im Internet erreichbar sein."
+msgstr ""
+
+msgid "Die Adresse ist zu lang (maximal 2048 Zeichen)."
+msgstr ""
+
+msgid "Webhook-Endpunkt"
+msgstr ""

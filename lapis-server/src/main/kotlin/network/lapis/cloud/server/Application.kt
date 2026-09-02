@@ -45,6 +45,7 @@ import network.lapis.cloud.server.conference.RecordingComposer
 import network.lapis.cloud.server.conference.RecordingPoller
 import network.lapis.cloud.server.conference.SecretBallotStreamGuard
 import network.lapis.cloud.server.conference.StreamPoller
+import network.lapis.cloud.server.crypto.SecretBox
 import network.lapis.cloud.server.db.DatabaseConfig
 import network.lapis.cloud.server.db.DevSeedData
 import network.lapis.cloud.server.economy.oracle.OracleSourceConfig
@@ -131,7 +132,12 @@ import network.lapis.cloud.server.rpc.SepaService
 import network.lapis.cloud.server.rpc.SocialNetworkService
 import network.lapis.cloud.server.rpc.SystemicConsensusService
 import network.lapis.cloud.server.rpc.TrustAnchorService
+import network.lapis.cloud.server.rpc.WebhookService
 import network.lapis.cloud.server.security.LoginRateLimiter
+import network.lapis.cloud.server.webhook.WebhookConfig
+import network.lapis.cloud.server.webhook.WebhookDeactivationNotifier
+import network.lapis.cloud.server.webhook.WebhookDeliveryPoller
+import network.lapis.cloud.server.webhook.WebhookEventPublisher
 import network.lapis.cloud.shared.Greeting
 import network.lapis.cloud.shared.rpc.ForbiddenException
 import network.lapis.cloud.shared.rpc.IAccountingService
@@ -172,6 +178,7 @@ import network.lapis.cloud.shared.rpc.ISepaService
 import network.lapis.cloud.shared.rpc.ISocialNetworkService
 import network.lapis.cloud.shared.rpc.ISystemicConsensusService
 import network.lapis.cloud.shared.rpc.ITrustAnchorService
+import network.lapis.cloud.shared.rpc.IWebhookService
 import network.lapis.cloud.shared.rpc.UnauthenticatedException
 import java.io.File
 import kotlin.time.Duration.Companion.minutes
@@ -563,6 +570,34 @@ fun Application.module() {
     // wired independently here.
     val dunningPreviewRateLimiter = FederationInboxRateLimiter(maxRequests = 10, window = 1.minutes)
 
+    // Welle V1.3.2 "Webhooks" (ausgehend) -- WebhookConfig.load() fail-fasts on its own if
+    // LAPIS_WEBHOOKS_ENABLED=true but LAPIS_SECRET_ENCRYPTION_KEY is missing/malformed (see that
+    // class' own KDoc "S8"), same posture as ConferenceStreamingConfig above. webhookSecretBox is
+    // `null` whenever no key is configured -- WebhookService/WebhookDeliveryPoller both treat a
+    // `null` box as "webhooks unusable" rather than crashing (see WebhookService KDoc
+    // "requireSecretBox").
+    val webhookConfig = WebhookConfig.load()
+    val webhookSecretBox: SecretBox? = webhookConfig.secretEncryptionKey?.let { SecretBox(it) }
+    WebhookEventPublisher.install(webhookConfig)
+    val webhookDeactivationNotifier = WebhookDeactivationNotifier(mailDispatcher = mailDispatcher, branding = mailBranding)
+    val webhookDeliveryPoller =
+        WebhookDeliveryPoller(
+            config = webhookConfig,
+            secretBox = webhookSecretBox ?: SecretBox(ByteArray(SecretBox.KEY_SIZE_BYTES)),
+            deactivationNotifier = webhookDeactivationNotifier,
+        )
+    // `.start()` itself is a no-op unless webhookConfig.enabled (see that method's own KDoc) -- the
+    // placeholder all-zero key above is never actually used to seal/open anything in that case
+    // (WebhookConfig.load already fail-fasts before enabled can be true with a null key).
+    webhookDeliveryPoller.start()
+    monitor.subscribe(ApplicationStopping) { webhookDeliveryPoller.stop() }
+    val webhookConfigureRateLimiter = FederationInboxRateLimiter(maxRequests = 10, window = 1.minutes)
+    val webhookSecretRotateRateLimiter = FederationInboxRateLimiter(maxRequests = 10, window = 1.minutes)
+    // D2 -- deliberately its own, tighter budget: a synchronous diagnostic call must not share the
+    // configuration-mutation budget.
+    val webhookTestRateLimiter = FederationInboxRateLimiter(maxRequests = 5, window = 1.minutes)
+    val webhookDeliveryLogRateLimiter = FederationInboxRateLimiter(maxRequests = 60, window = 1.minutes)
+
     // V1.0 Videokonferenzen, Wave 9 "Stream-Pause bei geheimen Abstimmungen" (D6) -- constructed here,
     // NOT left to ElectionService's/SystemicConsensusService's own constructor defaults (there ARE
     // none -- see those classes' own `streamGuard` KDoc): reuses the SAME liveKitEgressClient/
@@ -936,6 +971,18 @@ fun Application.module() {
                 issueRateLimiter = apiKeyIssueRateLimiter,
                 revokeRateLimiter = apiKeyRevokeRateLimiter,
                 reissueRateLimiter = apiKeyReissueRateLimiter,
+            )
+        }
+        // Welle V1.3.2 "Webhooks" (ausgehend).
+        registerService(IWebhookService::class) { call ->
+            WebhookService(
+                call = call,
+                config = webhookConfig,
+                secretBox = webhookSecretBox,
+                configureRateLimiter = webhookConfigureRateLimiter,
+                secretRotateRateLimiter = webhookSecretRotateRateLimiter,
+                testRateLimiter = webhookTestRateLimiter,
+                deliveryLogRateLimiter = webhookDeliveryLogRateLimiter,
             )
         }
     }
