@@ -166,9 +166,9 @@ LTR-weighted guest pool isn't possible yet, since no guest LTR-earning mechanism
 client UI for Politician Profiles exists yet (backend/RPC-only, unchanged from V0.6.4). See
 `CHANGELOG.md` `[0.6.0]` for the original scope-cut reasoning and `[0.9.0]` for the closure.
 
-Seven further tags have shipped since `v0.10.0`, the last two of them (`v0.16.0`/`v0.17.0`) cut back
-to back in the same release session: `v0.16.0` was placed at the historical commit boundary matching
-an already-published website release-notes page for that version, and `v0.17.0` immediately after it
+Eight further tags have shipped since `v0.10.0`, two of them (`v0.16.0`/`v0.17.0`) cut back to back
+in the same release session: `v0.16.0` was placed at the historical commit boundary matching an
+already-published website release-notes page for that version, and `v0.17.0` immediately after it
 for the newer work.
 
 **`v0.11.0`** releases the complete **Videokonferenzen (Kleinsitzung)** module in one tag — Wave 1
@@ -274,6 +274,15 @@ follow-up checkout-UX-hardening pass fixes a maximum-donation-amount gate that h
 blocked large legitimate contributions, and closes a security-audit finding that neither checkout-
 creation RPC was rate-limited despite each triggering a real outbound Stripe API call (V1.2.9, the
 payment-checkout wave — see the numbering note above). See `CHANGELOG.md` `[0.17.0]` for full detail.
+
+**`v0.18.0`** adds outbound webhooks for the V1.3.1 REST API (V1.3.2, see "Outbound Webhooks"
+below); the "Öffentliche Website-Integration" pair — an embeddable login/join widget with a
+same-origin popup so no session cookie ever crosses the partner site's origin (V1.4.1a), and an
+anonymous, unauthenticated donation widget on the same infrastructure (V1.4.1b, see "Website
+Integration" below); and a standalone Interessenten-/Sympathisanten-CRM for people who are not
+members, which extends the DSGVO erasure/export framework beyond members for the first time rather
+than repeating the `external_donor` gap (V1.4.2, see "Interessenten-/Sympathisanten-CRM" below). See
+`CHANGELOG.md` `[0.18.0]` for full detail.
 
 === Auction opt-in (V0.6.2)
 
@@ -634,6 +643,44 @@ Deliberately still absent: an automatic "already signed in" indicator on page lo
 click (deliberately absent — that would be a cross-site tracking channel), and donor
 recognition/aggregation across multiple anonymous donations (DSGVO data minimization — every
 widget donation is a fresh, unlinked `external_donor` row by design).
+
+== Interessenten-/Sympathisanten-CRM (V1.4.2)
+
+A standalone contact entity (`crm_contact`/`crm_interaction`) for people who are not members —
+Interessenten, Sympathisanten, Förderer, ehemalige Mitglieder, press contacts — deliberately kept
+separate from `ExternalDonor` (stays §25-PartG-tax-focused) and `MemberStatus.FRIEND` (stays scoped
+to conference/LTR access). Optionally linkable to either. Every contact carries a mandatory Art. 6
+DSGVO lawful basis (`CONSENT`/`LEGITIMATE_INTEREST`/`CONTRACT`); choosing `CONSENT` requires a
+recorded source and timestamp. An append-only interaction log (`CALL`/`MEETING`/`EMAIL`/`LETTER`/
+`EVENT`/`NOTE`, free-text summary, author + timestamp) is the "closer to a real CRM" scope this wave
+was explicitly asked for, rather than a single free-text note field. Board/Admin members manage
+contacts under *Verwaltung → Kontakte & Interessenten*; only Admin can erase one (Art. 17, a real
+`DELETE`, name-typing confirmation instead of a single click — the only place in this codebase that
+truly deletes a row rather than anonymizing it).
+
+`mayReceiveEmail` is computed server-side only (consent given, not withdrawn) — there is
+deliberately no CRM mailing path in this wave; this flag is the one place a future one must consult.
+A withdrawal (Art. 7(3)) is reversible by a genuinely later, new consent, but a mere correction of
+an existing timestamp (Art. 16) or a backdated older consent form can never silently undo a standing
+withdrawal — the chronology is checked, not just "did the value change".
+
+=== DSGVO framework extended to non-member subjects
+
+Every other `PersonalDataContributor` in this codebase keyed erasure/export by a member's `Uuid`
+alone — `ExternalDonor` (V0.5.1) is a known, deliberately deferred gap because of that (see its own
+KDoc in `10-accounting.kuml.kts`). Rather than repeat that gap for a wave whose whole point is
+carrying MORE personal data about non-members (an interaction history, not just a donor
+classification), the interface now takes a `DataSubject` (`Member` or `CrmContact`), and
+`PersonalDataCoverageTest`'s `information_schema` walk covers both roots. `external_donor` remains
+outside it — the pre-existing gap is unchanged — but is now surfaced by a named, tested constant
+(`PersonalDataRegistry.knownUncoveredSubjectRoots`) instead of only a comment.
+
+=== What doesn't work yet (this wave)
+
+Deliberately out of scope, see `CHANGELOG.md`: any CRM mailing/newsletter path (`mayReceiveEmail` is
+computed but nothing sends yet), self-service access/erasure for the contact themselves (both are
+admin-only), tagging/segmentation beyond the fixed `CrmContactType` enum, and `external_donor`'s own
+long-deferred DSGVO gap (unchanged by this wave, now merely visible instead of silent).
 
 == Documentation Convention
 

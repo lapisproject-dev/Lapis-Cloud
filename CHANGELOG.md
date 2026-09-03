@@ -6,6 +6,8 @@ All notable changes to this project are documented here. Format follows
 
 ## [Unreleased]
 
+## [0.18.0] — 2026-09-03
+
 ### Added
 
 **Interessenten-/Sympathisanten-CRM (Welle V1.4.2)**
