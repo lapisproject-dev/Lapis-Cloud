@@ -26,6 +26,14 @@ class EmbedIntegrationScreenTest {
     }
 
     @Test
+    fun buildEmbedSnippet_containsTheDonateWidgetNoJsFallbackAnchor() {
+        val snippet = buildEmbedSnippet("https://cloud.example.org")
+        assertTrue(snippet.contains("data-lapis-widget=\"donate\""))
+        assertTrue(snippet.contains("data-lapis-fallback-url=\"\""))
+        assertTrue(snippet.contains("<a href=\"https://cloud.example.org/#/donate\">"))
+    }
+
+    @Test
     fun buildEmbedSnippet_isDeterministic() {
         val first = buildEmbedSnippet("https://cloud.example.org")
         val second = buildEmbedSnippet("https://cloud.example.org")

@@ -184,6 +184,7 @@ import network.lapis.cloud.shared.rpc.ITrustAnchorService
 import network.lapis.cloud.shared.rpc.IWebhookService
 import network.lapis.cloud.shared.rpc.UnauthenticatedException
 import java.io.File
+import kotlin.time.Duration.Companion.hours
 import kotlin.time.Duration.Companion.minutes
 
 fun main() {
@@ -734,6 +735,27 @@ fun Application.module() {
     val embedSessionRateLimiter = FederationInboxRateLimiter(maxRequests = 30, window = 1.minutes, maxTrackedKeys = 50_000)
     val embedAdminStatusRateLimiter = FederationInboxRateLimiter(maxRequests = 30, window = 1.minutes, maxTrackedKeys = 50_000)
 
+    // Welle V1.4.1b "Öffentliche Website-Integration -- anonymer Spenden-Pfad" -- der schärfste
+    // Limiter dieser Codebase. Der EINZIGE unauthentifizierte Endpunkt, der auf Zuruf eines Fremden
+    // einen echten Stripe-API-Aufruf und zwei DB-INSERTs auslöst. embedDonationPageRateLimiter
+    // (die beiden Rückkehr-Seiten UND der OPTIONS-Preflight des Checkout-Endpunkts, siehe
+    // EmbedDonationRoutes.kt) ist bewusst ein SEPARATER, deutlich großzügigerer Limiter, damit ein
+    // Browser-Preflight nicht das 3/Stunde-Checkout-Budget verbrennt.
+    //
+    // Fix (Review MAJOR #4, 2026-09): embedDonationCheckoutRateLimiter wird NICHT mehr vom
+    // Route-Handler selbst geprüft, sondern von AnonymousDonationCheckout.create, unmittelbar VOR
+    // dem echten Stripe-Aufruf -- ein Honeypot-Treffer, ein nicht nutzbares Gateway, ein Betrag
+    // außerhalb des Rahmens oder ein §25-PROHIBITED-Verdikt kosten dieses knappe 3/Stunde-Kontingent
+    // dadurch nicht mehr. embedDonationCheckoutAttemptRateLimiter ist der NEUE, davon unabhängige
+    // frühe Zulassungs-Filter (weiterhin im Route-Handler, vor dem JSON-Decode) -- eine reine
+    // Flut-/DoS-Bremse, deutlich großzügiger, damit ein paar clientseitige Fehlversuche (Tippfehler
+    // im Betrag, ein abgebrochener Stripe-Checkout) niemals das knappe echte Budget verbrauchen.
+    val embedDonationCheckoutRateLimiter =
+        FederationInboxRateLimiter(maxRequests = 3, window = 1.hours, maxTrackedKeys = 50_000)
+    val embedDonationCheckoutAttemptRateLimiter =
+        FederationInboxRateLimiter(maxRequests = 20, window = 1.hours, maxTrackedKeys = 50_000)
+    val embedDonationPageRateLimiter = FederationInboxRateLimiter(maxRequests = 60, window = 1.minutes, maxTrackedKeys = 50_000)
+
     // V1.3.0 -- IDsgvoService.grantPublicRankingConsent, an AUTHENTICATED, member-keyed write path
     // (see DsgvoService's own requireWithinRate-style guard) -- 10/min, same budget
     // sepaMandateWriteRateLimiter/dunningIssueRateLimiter already use for a comparable
@@ -1077,6 +1099,11 @@ fun Application.module() {
             loginPageRateLimiter = embedLoginPageRateLimiter,
             sessionRateLimiter = embedSessionRateLimiter,
             adminStatusRateLimiter = embedAdminStatusRateLimiter,
+            pspConfigState = pspConfigState,
+            checkoutClient = checkoutClient,
+            donationCheckoutRateLimiter = embedDonationCheckoutRateLimiter,
+            donationCheckoutAttemptRateLimiter = embedDonationCheckoutAttemptRateLimiter,
+            donationPageRateLimiter = embedDonationPageRateLimiter,
             brandTitle = resolvedBranding.title,
         )
         getAllServiceManagers().forEach { applyRoutes(it) }

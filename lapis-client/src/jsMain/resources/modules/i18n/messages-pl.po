@@ -9450,3 +9450,11 @@ msgstr "Źródło (origin) dozwolone?"
 msgid "Konsolenmeldung vorhanden?"
 msgstr "Komunikat w konsoli obecny?"
 
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/EmbedIntegrationScreen.kt:83
+msgid "Spenden-Widget: verfügbar"
+msgstr "Widżet darowizn: dostępny"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/EmbedIntegrationScreen.kt:85
+msgid "Spenden-Widget: nicht verfügbar (Grund: %1)"
+msgstr "Widżet darowizn: niedostępny (powód: %1)"

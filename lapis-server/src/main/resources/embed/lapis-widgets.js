@@ -169,6 +169,114 @@
     root.appendChild(link);
   }
 
+  // ── Spenden-Widget (V1.4.1b) ─────────────────────────────────────────────────────────
+  var DT = {
+    other: "Anderer Betrag", submit: "Jetzt spenden", pending: "Bitte warten …",
+    fb: "Andere Wege",
+    eGeneric: "Bitte erneut versuchen.", retryIn: "Erneut in %s Sek."
+  };
+  var DCSS =
+    ".amt{display:flex;flex-wrap:wrap;gap:.6rem;margin:0 0 .5rem}.amt label,.oth{min-height:44px}" +
+    ".hp{position:absolute;left:-9999px;width:1px;height:1px;overflow:hidden}" +
+    ".hint{display:block;margin:.3rem 0;font-size:.85em}.err{color:#B00020}";
+
+  function el(tag, props) {
+    var e = document.createElement(tag), k;
+    for (k in props) { if (k.indexOf("-") > -1) e.setAttribute(k, props[k]); else e[k] = props[k]; }
+    return e;
+  }
+
+  function hydrateDonate(host) {
+    var root = mount(host);
+    root.querySelector("style").textContent += DCSS;
+
+    // Fix (Review MINOR, V1.4.1b): server-baked effective range from FIRST paint (see
+    // EmbedAssets.widgetJs KDoc), not only after a guaranteed-to-fail submit.
+    var RANGE = window.__lapisEmbedDonationRangeV1 || null;
+    var minA = RANGE ? parseFloat(RANGE.min) : 5, maxA = RANGE ? parseFloat(RANGE.max) : 500;
+    var rangeText = (RANGE ? RANGE.min + "–" + RANGE.max : "5–500") + " €";
+    var hintText = rangeText + ", anonym via Stripe. Ihre Daten erreichen uns nie.";
+    var eRangeText = rangeText + " wählen.";
+
+    var amounts = (host.getAttribute("data-lapis-amounts") || "10,25,50,100").split(",")
+      .map(function (s) { return parseFloat(s); }).filter(function (n) { return !isNaN(n) && n > 0 && n <= maxA; });
+    // Fix (Round 3): defaults first, minA if still empty.
+    if (amounts.length === 0) amounts = [10, 25, 50, 100].filter(function (n) { return n <= maxA; });
+    if (amounts.length === 0) amounts = [minA];
+    var fbUrl = host.getAttribute("data-lapis-fallback-url") || "";
+    var name = "a" + Math.floor(Date.now() % 100000);
+
+    var amt = el("div", { className: "amt" });
+    amounts.concat(["other"]).forEach(function (a, i) {
+      var v = String(a), label = el("label", {});
+      label.appendChild(el("input", { type: "radio", name: name, value: v, checked: i === 0 }));
+      label.appendChild(el("span", { textContent: v === "other" ? DT.other : v + " €" }));
+      amt.appendChild(label);
+    });
+    root.appendChild(amt);
+
+    var oI = el("input", { type: "text", inputMode: "decimal", className: "oth", hidden: true, "aria-label": DT.other });
+    root.appendChild(oI);
+    amt.addEventListener("change", function (e) {
+      oI.hidden = e.target.value !== "other";
+      if (!oI.hidden) oI.focus();
+    });
+
+    var hp = el("input", { type: "text", name: "kommentar", className: "hp", autocomplete: "off", tabIndex: -1, "aria-hidden": "true" });
+    root.appendChild(hp);
+
+    var button = el("button", { type: "button", className: "b f", textContent: DT.submit });
+    root.appendChild(button);
+    var status = el("span", { className: "s", "aria-live": "polite" });
+    root.appendChild(status);
+    root.appendChild(el("span", { className: "hint", textContent: hintText }));
+    var fbA = el("a", { className: "l", textContent: DT.fb, hidden: true });
+    if (fbUrl) fbA.href = fbUrl;
+    root.appendChild(fbA);
+
+    var DMSG = {
+      503: "Derzeit nicht verfügbar.", 409: "Spende nicht möglich.", 502: "Zahlungsanbieter nicht erreichbar."
+    };
+
+    function showError(message, showFallback) {
+      button.disabled = false;
+      status.className = "s err";
+      status.textContent = message;
+      fbA.hidden = !(showFallback && fbUrl);
+    }
+
+    // 400: server may echo the real, possibly-lowered range (AMOUNT_OUT_OF_RANGE) -- use it.
+    // showFallback=true (Fix Review TRIVIAL regression) -- same as every other rejection below.
+    function showBadRequest(b) {
+      showError(b && b.error === "AMOUNT_OUT_OF_RANGE" && b.minAmount && b.maxAmount ?
+        b.minAmount + "–" + b.maxAmount + " € wählen." : eRangeText, true);
+    }
+
+    button.addEventListener("click", function () {
+      var checked = amt.querySelector("input:checked");
+      var amount = checked && (checked.value === "other" ? oI.value.trim().replace(",", ".") : checked.value);
+      if (!amount) { showError(eRangeText, false); return; }
+      button.disabled = true;
+      status.className = "s";
+      status.textContent = DT.pending;
+      fbA.hidden = true;
+      fetch(LAPIS_ORIGIN + "/api/embed/v1/donation/checkout", {
+        method: "POST", credentials: "omit", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ amount: amount, kommentar: hp.value })
+      }).then(function (res) {
+        if (res.status === 200) return res.json().then(function (d) { window.location.assign(d.redirectUrl); });
+        if (res.status === 429) {
+          var ra = res.headers.get("Retry-After");
+          showError(ra ? DT.retryIn.replace("%s", ra) : DT.eGeneric, true);
+        } else if (res.status === 400) {
+          res.json().then(showBadRequest).catch(function () { showBadRequest(null); });
+        } else {
+          showError(DMSG[res.status] || DT.eGeneric, res.status !== 409);
+        }
+      }).catch(function () { showError(DT.eGeneric, true); });
+    });
+  }
+
   function scan() {
     var hosts = document.querySelectorAll("[data-lapis-widget]");
     for (var i = 0; i < hosts.length; i++) {
@@ -176,6 +284,7 @@
       var kind = host.getAttribute("data-lapis-widget");
       if (kind === "login") hydrateLogin(host);
       else if (kind === "join") hydrateJoin(host);
+      else if (kind === "donate") hydrateDonate(host);
     }
   }
 

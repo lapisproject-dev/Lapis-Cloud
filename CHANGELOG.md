@@ -42,9 +42,57 @@ All notable changes to this project are documented here. Format follows
 - **Neuer Gradle-Wächter `verifyI18nCatalogParity`** — läuft ab sofort in jedem `check` und macht
   strukturell unmöglich, dass ein neuer `tr()`-String nur in einem Teil der acht i18n-Kataloge
   landet (bislang eine ungeprüfte Invariante).
-- Der anonyme Spenden-Einbettungspfad ist bewusst einer künftigen Welle (vorläufig V1.4.1b)
-  vorbehalten — diese Welle enthält keine Zahlungs-/Spenden-Fachlogik, keine neue Migration, kein
-  Schema-Diff.
+- Der anonyme Spenden-Einbettungspfad war bewusst dieser Welle vorbehalten — siehe den eigenen
+  Block "Öffentliche Website-Integration, anonymer Spenden-Pfad (Welle V1.4.1b)" direkt darunter.
+
+**Öffentliche Website-Integration, anonymer Spenden-Pfad (Welle V1.4.1b)**
+
+- **Drittes Widget `data-lapis-widget="donate"`** — ein Ein-Feld-Formular (nur Betrag, 5–500 EUR)
+  auf `lapis-widgets.js`, ohne Kategorie-/Zweck-/Namens-/E-Mail-Feld. Volle Weiterleitung
+  (`window.location.assign`) auf die Stripe-Checkout-Seite statt eines Popups — anders als beim
+  Login-Widget fließt hier kein Credential über die Origin-Grenze, und ein Popup übersteht Stripes
+  eigene Redirects auf mobilen Zahlarten (Apple/Google Pay, 3-D-Secure) nicht zuverlässig.
+  Betrags-Presets `10/25/50/100 €` (überschreibbar via `data-lapis-amounts`), Honeypot-Feld
+  `kommentar` (unsichtbar, `aria-hidden`), Doppelklick-Schutz, `data-lapis-fallback-url` als
+  Sackgassen-Link bei Rate-Limit/Betragsgrenze/Nichtverfügbarkeit. Bundle-Budget bewusst von 8 auf
+  12 KB angehoben (`EmbedAssetTest`), weiterhin unminifiziert.
+- **`POST /api/embed/v1/donation/checkout`** — der einzige unauthentifizierte Endpunkt dieser
+  Codebase, der auf Zuruf eines Fremden einen echten Stripe-API-Aufruf und zwei DB-`INSERT`s
+  auslöst: eigener 3/Stunde-pro-IP-Limiter (der schärfste dieser Codebase), CORS mit einer
+  bewussten Abweichung von `/api/embed/v1/session` (auch ein fehlender `Origin`-Header wird
+  abgelehnt — dieser Endpunkt bewegt Geld und hat keinen legitimen same-origin Anwendungsfall),
+  Content-Length-Deckel + gedrosselter Body-Read vor jedem Parsing, `amount` ausschließlich als
+  String über die Leitung (nie eine JSON-Zahl). Fehlerantworten nennen nie eine Env-Variable, einen
+  Stripe-Fehlertext, einen §25-PartG-Grund oder einen Allowlist-Inhalt.
+- **`GET /embed/v1/spende/danke` und `/abgebrochen`** — die beiden Stripe-Rückkehr-Seiten, ohne
+  Session-Kennung in der URL. Eine unbekannte oder fehlende `?origin=` liefert immer `HTTP 200` ohne
+  Rücklink, nie einen Fehlerstatus — ein 403 unmittelbar nach einer Zahlung wäre der schlechteste
+  Moment, den dieses Produkt erzeugen könnte.
+- **`V16__embed_anonymous_donation.sql`** — `payment_checkout_session.member_id` wird nullable,
+  zwei neue Spalten `external_donor_id`/`embed_origin`, drei CHECK-Constraints erzwingen genau eine
+  Spender-Identität (Mitglied XOR `external_donor`, nie beide, nie keine), dass `embed_origin` nur
+  auf dem externen Pfad gesetzt ist, und dass dort `donor_category` immer `ANONYMOUS` ist. Jede
+  Widget-Spende legt genau eine neue `external_donor`-Zeile an (`display_name = "Online-Spende ohne
+  Namensangabe"`) — bewusst keine Spender-Wiedererkennung über mehrere Spenden hinweg (DSGVO-
+  Datenminimierung).
+- **`journal_entry.created_by` bei einer anonymen Spende**: das Mitglied, das zuletzt den
+  Zahlungsdienstleister-Compliance-Disclaimer bestätigt hat
+  (`lastPaymentGatewayComplianceAcknowledgerMemberIdOrNull()`, exakter Mechanismus-Zwilling zu
+  `lastComplianceAcknowledgerMemberId()` im Mahnwesen) — statt eines Phantom-Mitglieds oder einer
+  Änderung des Buchhaltungs-Kernschemas. Fehlt eine gültige Bestätigung, wird die Buchung
+  degradierend statt scheiternd behandelt (`Unposted` mit `reconciliation_note`), die
+  Zahlungsaufzeichnung selbst bleibt erhalten.
+- **500-EUR-Deckel = §25-PartG-Weiterleitungsschwelle** (`EmbedDonationLimits`, per Assertion an
+  `PartyDonationComplianceCalculator.ANONYMOUS_FORWARDING_THRESHOLD_EUR` gekoppelt) — gilt für JEDE
+  Organisation, nicht nur für politische Parteien: eine Widget-Spende soll nie die
+  Weiterleitungspflicht an die Bundestagsverwaltung auslösen. Der Mindestbetrag (5 EUR) ist eine
+  reine Missbrauchsökonomie-Grenze (Card Testing), keine Rechtsvorgabe.
+- **Keine neue Umgebungsvariable** — die Welle nutzt ausschließlich die bereits vorhandenen
+  `LAPIS_EMBED_*`/`LAPIS_STRIPE_*`/`LAPIS_PSP_*`-Variablen, in beiden `docker-compose.yml`
+  (`deploy/production`, `deploy/production-elb`) bereits durchgereicht.
+- **ADMIN-Status um zwei Felder erweitert** (`donationWidgetAvailable`/
+  `donationWidgetUnavailableReason`) — anders als am öffentlichen Endpunkt darf der Grund hier
+  genannt werden (same-origin, ADMIN-gated).
 
 **Ausgehende Webhooks (Welle V1.3.2 "Webhooks")**
 

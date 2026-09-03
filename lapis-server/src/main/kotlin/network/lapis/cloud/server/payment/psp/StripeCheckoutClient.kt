@@ -12,7 +12,6 @@ import io.ktor.client.statement.bodyAsChannel
 import io.ktor.http.ContentType
 import io.ktor.http.contentType
 import io.ktor.utils.io.readAvailable
-import network.lapis.cloud.server.federation.FederationConfig
 import java.io.IOException
 import java.math.BigDecimal
 import java.net.URLEncoder
@@ -22,6 +21,49 @@ private val logger = KotlinLogging.logger {}
 
 /** Hard cap on how many bytes of a Stripe response body are ever read into memory -- see [readCappedStripeBody]. */
 private const val MAX_STRIPE_RESPONSE_BYTES = 64 * 1024
+
+/**
+ * Wohin Stripe den Zahlenden nach Erfolg/Abbruch zurückschickt -- a value class instead of two loose
+ * `String` parameters so the two can never be transposed at a call site (Welle V1.4.1b). See the two
+ * factories for the two shapes this codebase actually produces.
+ */
+internal data class StripeReturnUrls(
+    val successUrl: String,
+    val cancelUrl: String,
+) {
+    companion object {
+        /**
+         * The unchanged V1.2.8 behaviour for the member path: the session id travels in the HASH
+         * FRAGMENT, never a query parameter -- see [StripeCheckoutClient.createCheckoutSession]
+         * KDoc "`success_url`/`cancel_url`".
+         */
+        fun memberSpa(
+            baseUrl: String,
+            checkoutSessionId: String,
+        ): StripeReturnUrls =
+            StripeReturnUrls(
+                successUrl = "$baseUrl/#/payment-return?session=$checkoutSessionId",
+                cancelUrl = "$baseUrl/#/payment-return?session=$checkoutSessionId&cancelled=true",
+            )
+
+        /**
+         * Welle V1.4.1b -- two fixed, public paths WITHOUT a session identifier: no new token-/
+         * polling surface for an anonymous donor. [canonicalOrigin] is ALWAYS the
+         * [network.lapis.cloud.server.embed.EmbedOriginAllowlist]-resolved canonical entry, never a
+         * raw request-supplied value.
+         */
+        fun embedDonation(
+            baseUrl: String,
+            canonicalOrigin: String,
+        ): StripeReturnUrls {
+            val encodedOrigin = URLEncoder.encode(canonicalOrigin, Charsets.UTF_8)
+            return StripeReturnUrls(
+                successUrl = "$baseUrl/embed/v1/spende/danke?origin=$encodedOrigin",
+                cancelUrl = "$baseUrl/embed/v1/spende/abgebrochen?origin=$encodedOrigin",
+            )
+        }
+    }
+}
 
 /** Outcome of [StripeCheckoutClient.createCheckoutSession]. */
 sealed interface StripeCheckoutResult {
@@ -59,23 +101,32 @@ class StripeCheckoutClient(
     /**
      * Creates a Stripe Checkout Session for [amount] (EUR, exact decimal, converted to Stripe's own
      * integer MINOR-UNITS `unit_amount` -- e.g. `12.34` -> `1234`, NEVER via [Double]).
-     * [checkoutSessionId] is this server's own `payment_checkout_session.id`, sent as BOTH Stripe's
-     * `client_reference_id` (the join key a webhook delivery carries back) and embedded into
-     * `success_url`/`cancel_url` in the HASH FRAGMENT (never a query parameter -- see
-     * `hashQueryParam` precedent, `01-contribution.kuml.kts`/client `Routing.kt`: a hash fragment
-     * never reaches a server log or `Referer` header). `Idempotency-Key` is a fresh random value per
-     * call -- the CALLER (`PaymentGatewayService`) is responsible for not calling this twice for the
-     * same logical checkout (see that class's own session-reuse guard).
+     * [checkoutSessionId] is this server's own `payment_checkout_session.id`, sent as Stripe's
+     * `client_reference_id` (the join key a webhook delivery carries back). [returnUrls] carries
+     * `success_url`/`cancel_url` -- **no default value, Welle V1.4.1b**: every caller must state
+     * explicitly where its own donor/payer returns to (a money path -- a hidden default is the
+     * wrong ergonomics here). The member path's own [StripeReturnUrls.memberSpa] embeds
+     * [checkoutSessionId] in the HASH FRAGMENT (never a query parameter -- see `hashQueryParam`
+     * precedent, `01-contribution.kuml.kts`/client `Routing.kt`: a hash fragment never reaches a
+     * server log or `Referer` header); the embed-widget path's [StripeReturnUrls.embedDonation]
+     * carries no session identifier at all. `Idempotency-Key` is a fresh random value per call --
+     * the CALLER (`PaymentGatewayService`/`AnonymousDonationCheckout`) is responsible for not
+     * calling this twice for the same logical checkout (see `PaymentGatewayService`'s own
+     * session-reuse guard). Deliberately does NOT send Stripe an `expires_at` form parameter --
+     * [PspConfig.checkoutTtlMinutes]'s 10-minute floor sits below Stripe's own 30-minute minimum
+     * for that field, so this server's `payment_checkout_session.expires_at` and Stripe's own
+     * session expiry are two independent clocks; see [PspConfig.checkoutTtlMinutes] KDoc.
      */
-    suspend fun createCheckoutSession(
+    internal suspend fun createCheckoutSession(
         checkoutSessionId: String,
         amount: BigDecimal,
         currency: String,
         description: String,
+        returnUrls: StripeReturnUrls,
     ): StripeCheckoutResult {
         val unitAmountMinorUnits = amount.movePointRight(2).longValueExact()
-        val successUrl = "${FederationConfig.publicBaseUrl}/#/payment-return?session=$checkoutSessionId"
-        val cancelUrl = "${FederationConfig.publicBaseUrl}/#/payment-return?session=$checkoutSessionId&cancelled=true"
+        val successUrl = returnUrls.successUrl
+        val cancelUrl = returnUrls.cancelUrl
         val idempotencyKey = randomIdempotencyKey()
 
         val formBody =

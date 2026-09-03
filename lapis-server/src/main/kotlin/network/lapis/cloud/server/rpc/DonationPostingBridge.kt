@@ -75,17 +75,33 @@ private val logger = KotlinLogging.logger {}
  * for a donation this organization was legally required to refuse.
  */
 object DonationPostingBridge {
+    /**
+     * **Exactly one donor identity, Welle V1.4.1b**: exactly one of [donorMemberId]/
+     * [externalDonorId] must be non-null -- the Kotlin-side mirror of the
+     * `chk_payment_checkout_session_donor_identity` CHECK constraint one hop upstream
+     * (`V16__embed_anonymous_donation.sql`). [actorMemberId] stays non-null regardless: for the
+     * member-less (anonymous) path the caller ([network.lapis.cloud.server.payment.psp
+     * .PspWebhookIngestion]) resolves it via
+     * [lastPaymentGatewayComplianceAcknowledgerMemberIdOrNull] before ever calling this function --
+     * see that function's own KDoc for why a named, responsible human is used instead of a
+     * `journal_entry.created_by` schema change.
+     */
     fun postDonationPayment(
         paymentTransactionId: Uuid,
         paidAmount: BigDecimal,
         paidAt: LocalDateTime,
         providerFee: BigDecimal?,
-        donorMemberId: Uuid,
+        donorMemberId: Uuid?,
+        externalDonorId: Uuid?,
         donorCategory: DonorCategory?,
         actorMemberId: Uuid,
         actorRole: AccountRole,
         voucherReference: String?,
     ): Uuid? {
+        require((donorMemberId == null) != (externalDonorId == null)) {
+            "exactly one of donorMemberId/externalDonorId must be set (was donorMemberId=$donorMemberId, " +
+                "externalDonorId=$externalDonorId)"
+        }
         require(paidAmount > BigDecimal.ZERO) { "paidAmount must be positive, was $paidAmount" }
         if (providerFee != null) {
             require(providerFee >= BigDecimal.ZERO) { "providerFee must not be negative, was $providerFee" }
@@ -144,7 +160,7 @@ object DonationPostingBridge {
             val priorTotal =
                 priorPostedDonationTotalThisYear(
                     donorMemberId = donorMemberId,
-                    externalDonorId = null,
+                    externalDonorId = externalDonorId,
                     year = paidAt.year,
                     excludeEntryId = null,
                 )
@@ -225,7 +241,7 @@ object DonationPostingBridge {
             it[postedAt] = paidAt
             it[createdAt] = DbClock.nowLocalDateTime()
             it[JournalEntryTable.donorMemberId] = donorMemberId
-            it[externalDonorId] = null
+            it[JournalEntryTable.externalDonorId] = externalDonorId
             it[JournalEntryTable.donorCategory] = donorCategory
         }
 
@@ -281,8 +297,8 @@ object DonationPostingBridge {
                         status = JournalEntryStatus.POSTED,
                         postedAt = paidAt,
                         createdBy = actorMemberId.toString(),
-                        donorMemberId = donorMemberId.toString(),
-                        externalDonorId = null,
+                        donorMemberId = donorMemberId?.toString(),
+                        externalDonorId = externalDonorId?.toString(),
                         donorCategory = donorCategory,
                         postings = postingSnapshots,
                     ),

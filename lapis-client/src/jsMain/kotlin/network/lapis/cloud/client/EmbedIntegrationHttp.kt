@@ -23,6 +23,9 @@ data class EmbedAdminStatus(
     val allowedOrigins: List<String>,
     val publicBaseUrl: String,
     val allowInsecureOrigins: Boolean,
+    /** Welle V1.4.1b. */
+    val donationWidgetAvailable: Boolean,
+    val donationWidgetUnavailableReason: String?,
 )
 
 object EmbedIntegrationHttp {
@@ -60,6 +63,10 @@ fun buildEmbedSnippet(publicBaseUrl: String): String {
         |
         |<div data-lapis-widget="join">
         |  <a href="$base/#/register">Mitglied werden</a>
+        |</div>
+        |
+        |<div data-lapis-widget="donate" data-lapis-fallback-url="">
+        |  <a href="$base/#/donate">Spenden</a>
         |</div>
         """.trimMargin()
 }

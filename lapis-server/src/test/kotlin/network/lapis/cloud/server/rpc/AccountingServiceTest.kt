@@ -2905,6 +2905,40 @@ class AccountingServiceTest :
             }
         }
 
+        test(
+            "Fix (Review MINOR, Welle V1.4.1b): listExternalDonors(activeOnly=false) sorts active " +
+                "donors BEFORE inactive ones -- an inactive/PENDING donor whose displayName sorts " +
+                "alphabetically EARLIER must never precede an active donor in the returned list, so a " +
+                "flood of alphabetically-early PENDING orphan rows (see PspWebhookIngestion " +
+                "ingestCheckoutExpired KDoc) can never push a real active donor past the LIMIT cap",
+        ) {
+            testApplication {
+                application {
+                    install(StatusPages) { installAccountingExceptionHandlers() }
+                    routing { registerAccountingTestRoutes() }
+                }
+                val treasurer = createTestMember("acct-treasurer-ed-sort@example.org", AccountRole.TREASURER)
+
+                // Deliberately alphabetically EARLIER than the active donor below, so the OLD plain
+                // "displayName ASC" ordering would have listed it first.
+                val inactiveEarly =
+                    createExternalDonorDirect("AAA PENDING Online-Spende", DonorCategory.ANONYMOUS, active = false)
+                val activeLate =
+                    createExternalDonorDirect("ZZZ Real Donor", DonorCategory.GERMAN_NATURAL_PERSON, active = true)
+
+                val all =
+                    client
+                        .get("/test/list-external-donors?activeOnly=false") { header("X-Member-Id", treasurer.toString()) }
+                        .bodyAsText()
+                val ids = all.split(";").map { it.substringBefore(":") }
+                val activeIndex = ids.indexOf(activeLate.toString())
+                val inactiveIndex = ids.indexOf(inactiveEarly.toString())
+                activeIndex shouldNotBe -1
+                inactiveIndex shouldNotBe -1
+                (activeIndex < inactiveIndex) shouldBe true
+            }
+        }
+
         test("donor-identity mutual exclusion and category validation: every invalid combination is rejected with BadRequest") {
             testApplication {
                 application {

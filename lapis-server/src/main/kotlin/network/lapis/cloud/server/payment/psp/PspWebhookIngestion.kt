@@ -6,12 +6,14 @@ import network.lapis.cloud.server.audit.AuditLogRecorder
 import network.lapis.cloud.server.db.DbClock
 import network.lapis.cloud.server.db.generated.AccountTable
 import network.lapis.cloud.server.db.generated.ContributionTable
+import network.lapis.cloud.server.db.generated.ExternalDonorTable
 import network.lapis.cloud.server.db.generated.PaymentCheckoutSessionTable
 import network.lapis.cloud.server.db.generated.PaymentTransactionTable
 import network.lapis.cloud.server.routes.sha256Hex
 import network.lapis.cloud.server.rpc.ContributionPaymentEvents
 import network.lapis.cloud.server.rpc.ContributionPostingBridge
 import network.lapis.cloud.server.rpc.DonationPostingBridge
+import network.lapis.cloud.server.rpc.lastPaymentGatewayComplianceAcknowledgerMemberIdOrNull
 import network.lapis.cloud.server.webhook.WebhookEventPublisher
 import network.lapis.cloud.server.webhook.WebhookPayloads
 import network.lapis.cloud.shared.domain.AccountRole
@@ -30,6 +32,7 @@ import org.jetbrains.exposed.v1.core.and
 import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.core.notInList
 import org.jetbrains.exposed.v1.exceptions.ExposedSQLException
+import org.jetbrains.exposed.v1.jdbc.deleteWhere
 import org.jetbrains.exposed.v1.jdbc.insert
 import org.jetbrains.exposed.v1.jdbc.selectAll
 import org.jetbrains.exposed.v1.jdbc.transactions.transaction
@@ -145,7 +148,9 @@ object PspWebhookIngestion {
             val sessionCurrency = sessionRow[PaymentCheckoutSessionTable.currency]
             val sessionIntent = sessionRow[PaymentCheckoutSessionTable.intent]
             val sessionContributionId = sessionRow[PaymentCheckoutSessionTable.contributionId]
+            // Welle V1.4.1b -- nullable since V16: an anonymous embed-widget donation has no member.
             val sessionMemberId = sessionRow[PaymentCheckoutSessionTable.memberId]
+            val sessionExternalDonorId = sessionRow[PaymentCheckoutSessionTable.externalDonorId]
             val sessionDonorCategory = sessionRow[PaymentCheckoutSessionTable.donorCategory]
             val sessionId = sessionRow[PaymentCheckoutSessionTable.id]
 
@@ -229,11 +234,60 @@ object PspWebhookIngestion {
             // Step 4.
             PspCheckoutSessions.markCompleted(id = sessionId, completedAt = now)
 
-            val actorMemberId = sessionMemberId
+            // Fix (Review MAJOR #1, Welle V1.4.1b): the money has now genuinely arrived (amount/
+            // currency reconciled, payment_status acceptable, session flipped COMPLETED above) --
+            // promote the anonymous embed-widget donor from PENDING (see AnonymousDonationCheckout
+            // KDoc) to a real, visible donor. Unconditional on whether the posting below itself
+            // succeeds or degrades: the donor identity is real regardless of an unrelated accounting-
+            // configuration gap.
+            if (sessionExternalDonorId != null) {
+                ExternalDonorTable.update({ ExternalDonorTable.id eq sessionExternalDonorId }) {
+                    it[active] = true
+                }
+            }
+
+            // V1.4.1b -- Abzweig VOR accountRoleFor()/jedem Zugriff auf die Account-Tabelle und VOR
+            // jeder Senke, die ein nicht-nullables Mitglied verlangt (journal_entry.created_by ist
+            // NOT NULL, siehe V16-Migrationskopf). Ein einziger Elvis-Operator-Ausdruck mit EINER
+            // gemeinsamen reconciliation_note fuer beide degradierenden Ursachen (kein Mitglied in
+            // der Session, keine Zahlungsgateway-Disclaimer-Bestaetigung mehr vorhanden) -- der
+            // Kassenwart erkennt am Notiztext, dass keine verantwortliche Person ermittelbar war,
+            // unabhaengig davon, welche der beiden Ursachen zutraf.
+            val actorMemberId: Uuid =
+                sessionMemberId
+                    ?: lastPaymentGatewayComplianceAcknowledgerMemberIdOrNull()
+                    ?: return@transaction unpostedWithNote(
+                        paymentTransactionId = paymentTransactionId,
+                        note =
+                            "Anonyme Spende ohne bestaetigten Zahlungsdienstleister-Disclaimer -- " +
+                                "keine verantwortliche Person fuer die Buchung ermittelbar.",
+                    )
             val actorRole = accountRoleFor(memberId = actorMemberId)
 
             // Step 5 -- CONTRIBUTION: guarded status flip, same idiom as ContributionService.markContributionPaid.
             if (sessionIntent == PaymentIntent.CONTRIBUTION) {
+                // V1.4.1b -- an anonymous CONTRIBUTION-intent session is structurally unreachable:
+                // the anonymous embed-widget checkout endpoint (AnonymousDonationCheckout) always
+                // sets intent = DONATION, and chk_payment_checkout_session_embed_anonymous requires
+                // donor_category = ANONYMOUS whenever embed_origin is set, which in turn only ever
+                // pairs with a DONATION-intent session in practice.
+                //
+                // Fix (Review MINOR/LATENT #5): this invariant used to be asserted with `check(...)`,
+                // the only throwing call anywhere in this webhook-ingestion transaction -- an
+                // IllegalStateException here would roll back the very payment_transaction INSERT this
+                // function's own KDoc calls the idempotency anchor (step 2), leaving NO trace the
+                // money ever arrived while Stripe retries the same webhook delivery for days. Same
+                // "degradierend statt scheiternd" posture every OTHER branch of this function already
+                // follows -- degrade to Unposted with an actionable reconciliation_note instead.
+                if (sessionMemberId == null) {
+                    return@transaction unpostedWithNote(
+                        paymentTransactionId = paymentTransactionId,
+                        note =
+                            "Zahlungssitzung mit intent=CONTRIBUTION aber ohne Mitglieds-Referenz " +
+                                "(unerwarteter Zustand, sollte durch die Checkout-Erzeugung ausgeschlossen sein) " +
+                                "-- Zahlung nicht gebucht, manuell pruefen.",
+                    )
+                }
                 val contributionId =
                     sessionContributionId
                         ?: return@transaction unpostedWithNote(
@@ -290,7 +344,13 @@ object PspWebhookIngestion {
                             paidAmount = sessionAmount,
                             paidAt = now,
                             providerFee = null,
-                            donorMemberId = actorMemberId,
+                            // V1.4.1b -- sessionMemberId (NOT actorMemberId): a real donor's own
+                            // identity for the member path, null for an anonymous embed-widget
+                            // donation, where sessionExternalDonorId carries the donor identity
+                            // instead. actorMemberId is the responsible-human bookkeeping actor,
+                            // never the donor -- these two diverge exactly for the anonymous case.
+                            donorMemberId = sessionMemberId,
+                            externalDonorId = sessionExternalDonorId,
                             donorCategory = sessionDonorCategory,
                             actorMemberId = actorMemberId,
                             actorRole = actorRole,
@@ -356,7 +416,7 @@ object PspWebhookIngestion {
                             currency = sessionCurrency,
                             intent = sessionIntent,
                             contributionId = sessionContributionId?.toString(),
-                            memberId = sessionMemberId.toString(),
+                            memberId = sessionMemberId?.toString(),
                             donorCategory = sessionDonorCategory,
                             journalEntryId = journalEntryId.toString(),
                             providerBodyDigest = sha256Hex(bodyBytes),
@@ -374,14 +434,64 @@ object PspWebhookIngestion {
             CheckoutCompletedIngestionOutcome.Processed(paymentTransactionId = paymentTransactionId, journalEntryId = journalEntryId)
         }
 
-    /** Marks `checkout.session.expired` -- no accounting touched. `internal`, same reason as [ingestCheckoutCompleted]. */
+    /**
+     * Marks `checkout.session.expired` -- no accounting touched. `internal`, same reason as
+     * [ingestCheckoutCompleted].
+     *
+     * **Fix (Review MAJOR #1, Welle V1.4.1b, orphan `external_donor` growth)**: an anonymous
+     * embed-widget donor row is inserted as `active = false` (PENDING) the moment the checkout
+     * session is created (see [AnonymousDonationCheckout] KDoc), before Stripe has confirmed
+     * anything. If the donor abandons the checkout, Stripe delivers `checkout.session.expired` on
+     * ITS OWN schedule (this server never sends Stripe an `expires_at` override -- see
+     * [StripeCheckoutClient.createCheckoutSession] KDoc -- so in practice that is Stripe's 24-hour
+     * default, NOT [PspConfig.checkoutTtlMinutes]) -- this codebase has NO scheduler/background-job
+     * infrastructure to sweep for orphans separately (see
+     * [network.lapis.cloud.server.federation.OidcBackChannelLogoutNotifier] KDoc), so this webhook
+     * delivery IS the cleanup hook: locking the row here (rather than trusting
+     * [PspCheckoutSessions.markExpiredIfStillCreated] blindly) both flips the session AND deletes it
+     * together with its paired `external_donor` row in the SAME transaction, rather than leaving a
+     * `PENDING` donor stranded forever. **This means an abandoned anonymous checkout stays visible
+     * as a PENDING orphan for up to ~24 h, not [PspConfig.checkoutTtlMinutes]** -- the operator-
+     * facing docs (README/`.env.example`) name `checkout.session.expired` as a MANDATORY dashboard
+     * subscription precisely because this is the only cleanup path.
+     *
+     * Deleting both rows unconditionally assumes neither has any OTHER FK dependent at this point:
+     * true for `external_donor` (nothing else references it before `active` flips true), but for
+     * `payment_checkout_session` this holds only as long as [ingestCheckoutCompleted]'s step 2
+     * (the `payment_transaction` INSERT with `checkout_session_id` set) never ran while the session
+     * stayed `CREATED` -- which is the case for every branch reachable via a real
+     * `checkout.session.expired` delivery today, since Stripe never re-expires a session it already
+     * reported `completed` for. If a future change makes that reachable, the `deleteWhere` below
+     * would violate `fk_payment_transaction_checkout_session_id` and surface as a loud 500/retry
+     * loop rather than silently corrupting anything -- fail-closed, not a silent hazard.
+     */
     internal fun ingestCheckoutExpired(event: StripeWebhookEvent): Boolean =
         transaction {
-            PspCheckoutSessions.markExpiredIfStillCreated(
-                provider = PaymentProvider.STRIPE,
-                providerSessionId = event.data.eventObject.id,
-            ) >
-                0
+            val providerSessionId = event.data.eventObject.id
+            val sessionRow =
+                PspCheckoutSessions.findByProviderSessionForUpdate(
+                    provider = PaymentProvider.STRIPE,
+                    providerSessionId = providerSessionId,
+                )
+            // Same "never downgrade a COMPLETED session" guard markExpiredIfStillCreated's own KDoc
+            // documents -- re-checked explicitly here because this function now branches on the
+            // row's contents instead of trusting a blind conditional UPDATE's affected-row count.
+            if (sessionRow == null || sessionRow[PaymentCheckoutSessionTable.status] != PaymentCheckoutSessionStatus.CREATED) {
+                return@transaction false
+            }
+            val sessionId = sessionRow[PaymentCheckoutSessionTable.id]
+            val externalDonorId = sessionRow[PaymentCheckoutSessionTable.externalDonorId]
+            if (externalDonorId != null) {
+                PaymentCheckoutSessionTable.deleteWhere { PaymentCheckoutSessionTable.id eq sessionId }
+                ExternalDonorTable.deleteWhere { ExternalDonorTable.id eq externalDonorId }
+                logger.info {
+                    "PspWebhookIngestion: abandoned anonymous checkout session $sessionId (external_donor " +
+                        "$externalDonorId) expired unconfirmed -- both rows deleted rather than left as orphans."
+                }
+            } else {
+                PspCheckoutSessions.markExpiredIfStillCreated(provider = PaymentProvider.STRIPE, providerSessionId = providerSessionId)
+            }
+            true
         }
 
     private fun unpostedWithNote(

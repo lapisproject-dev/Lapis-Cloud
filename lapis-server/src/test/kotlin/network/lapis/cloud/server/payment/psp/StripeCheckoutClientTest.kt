@@ -63,6 +63,7 @@ class StripeCheckoutClientTest :
                     amount = BigDecimal("12.34"),
                     currency = "EUR",
                     description = "Mitgliedsbeitrag",
+                    returnUrls = StripeReturnUrls.memberSpa(baseUrl = "https://lapis.example", checkoutSessionId = "checkout-session-id"),
                 )
 
             capturedAuth shouldBe "Bearer $TEST_SECRET_KEY"
@@ -97,6 +98,8 @@ class StripeCheckoutClientTest :
                 amount = BigDecimal("5.00"),
                 currency = "EUR",
                 description = "Spende",
+                returnUrls =
+                    StripeReturnUrls.memberSpa(baseUrl = "https://lapis.example", checkoutSessionId = "checkout-session-hash-test"),
             )
 
             capturedBody.contains("success_url=") shouldBe true
@@ -122,6 +125,7 @@ class StripeCheckoutClientTest :
                     amount = BigDecimal("1.00"),
                     currency = "EUR",
                     description = "Test",
+                    returnUrls = StripeReturnUrls.memberSpa(baseUrl = "https://lapis.example", checkoutSessionId = "checkout-session-400"),
                 )
 
             (result is StripeCheckoutResult.Failure) shouldBe true
@@ -140,6 +144,7 @@ class StripeCheckoutClientTest :
                     amount = BigDecimal("1.00"),
                     currency = "EUR",
                     description = "Test",
+                    returnUrls = StripeReturnUrls.memberSpa(baseUrl = "https://lapis.example", checkoutSessionId = "checkout-session-500"),
                 )
 
             (result is StripeCheckoutResult.Failure) shouldBe true

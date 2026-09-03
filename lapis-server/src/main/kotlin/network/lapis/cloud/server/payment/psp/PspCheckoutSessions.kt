@@ -28,6 +28,14 @@ object PspCheckoutSessions {
      * Inserts a new `CREATED` [PaymentCheckoutSessionTable] row. [id] is caller-supplied
      * (`Uuid.random()`) so the caller can reference it (e.g. as Stripe's `client_reference_id`)
      * before this function returns.
+     *
+     * **Exactly one donor identity, Welle V1.4.1b**: exactly one of [memberId]/[externalDonorId]
+     * must be non-null -- mirrors the `chk_payment_checkout_session_donor_identity` CHECK
+     * constraint (`V16__embed_anonymous_donation.sql`). Neither parameter carries a default value,
+     * so every call site must write out `externalDonorId = null`/`embedOrigin = null` explicitly
+     * for the (still overwhelmingly common) member path -- deliberate, this is a money path where a
+     * hidden default is the wrong ergonomics. [embedOrigin] must be `null` unless [externalDonorId]
+     * is set (`chk_payment_checkout_session_embed_origin_external`).
      */
     fun create(
         id: Uuid,
@@ -35,7 +43,9 @@ object PspCheckoutSessions {
         providerSessionId: String,
         intent: PaymentIntent,
         contributionId: Uuid?,
-        memberId: Uuid,
+        memberId: Uuid?,
+        externalDonorId: Uuid?,
+        embedOrigin: String?,
         amount: BigDecimal,
         currency: String,
         donorCategory: DonorCategory?,
@@ -45,6 +55,12 @@ object PspCheckoutSessions {
         providerIdempotencyKey: String,
         redirectUrl: String?,
     ) {
+        require((memberId == null) != (externalDonorId == null)) {
+            "exactly one of memberId/externalDonorId must be set (was memberId=$memberId, externalDonorId=$externalDonorId)"
+        }
+        require(embedOrigin == null || externalDonorId != null) {
+            "embedOrigin must be null unless externalDonorId is set"
+        }
         PaymentCheckoutSessionTable.insert {
             it[PaymentCheckoutSessionTable.id] = id
             it[PaymentCheckoutSessionTable.provider] = provider
@@ -53,6 +69,8 @@ object PspCheckoutSessions {
             it[PaymentCheckoutSessionTable.intent] = intent
             it[PaymentCheckoutSessionTable.contributionId] = contributionId
             it[PaymentCheckoutSessionTable.memberId] = memberId
+            it[PaymentCheckoutSessionTable.externalDonorId] = externalDonorId
+            it[PaymentCheckoutSessionTable.embedOrigin] = embedOrigin
             it[PaymentCheckoutSessionTable.amount] = amount
             it[PaymentCheckoutSessionTable.currency] = currency
             it[PaymentCheckoutSessionTable.donorCategory] = donorCategory

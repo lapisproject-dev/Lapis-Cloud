@@ -19,6 +19,7 @@ import network.lapis.cloud.server.payment.psp.PspConfig
 import network.lapis.cloud.server.payment.psp.PspConfigState
 import network.lapis.cloud.server.payment.psp.StripeCheckoutClient
 import network.lapis.cloud.server.payment.psp.StripeCheckoutResult
+import network.lapis.cloud.server.payment.psp.StripeReturnUrls
 import network.lapis.cloud.server.security.requireRole
 import network.lapis.cloud.server.security.resolveCurrentMember
 import network.lapis.cloud.shared.domain.AccountRole
@@ -233,6 +234,11 @@ class PaymentGatewayService(
                 amount = amount,
                 currency = "EUR",
                 description = "Mitgliedsbeitrag",
+                returnUrls =
+                    StripeReturnUrls.memberSpa(
+                        baseUrl = FederationConfig.publicBaseUrl,
+                        checkoutSessionId = checkoutSessionId.toString(),
+                    ),
             )
         return persistCheckoutSessionOrThrow(
             stripeResult = stripeResult,
@@ -240,6 +246,8 @@ class PaymentGatewayService(
             intent = PaymentIntent.CONTRIBUTION,
             contributionId = contributionId,
             memberId = ownerMemberId,
+            externalDonorId = null,
+            embedOrigin = null,
             amount = amount,
             donorCategory = null,
             purpose = null,
@@ -311,6 +319,11 @@ class PaymentGatewayService(
                 amount = amount,
                 currency = "EUR",
                 description = input.purpose?.takeIf { it.isNotBlank() } ?: "Spende",
+                returnUrls =
+                    StripeReturnUrls.memberSpa(
+                        baseUrl = FederationConfig.publicBaseUrl,
+                        checkoutSessionId = checkoutSessionId.toString(),
+                    ),
             )
         return persistCheckoutSessionOrThrow(
             stripeResult = stripeResult,
@@ -318,6 +331,8 @@ class PaymentGatewayService(
             intent = PaymentIntent.DONATION,
             contributionId = null,
             memberId = current.memberId,
+            externalDonorId = null,
+            embedOrigin = null,
             amount = amount,
             donorCategory = input.donorCategory,
             purpose = input.purpose,
@@ -451,7 +466,9 @@ class PaymentGatewayService(
         checkoutSessionId: Uuid,
         intent: PaymentIntent,
         contributionId: Uuid?,
-        memberId: Uuid,
+        memberId: Uuid?,
+        externalDonorId: Uuid?,
+        embedOrigin: String?,
         amount: BigDecimal,
         donorCategory: DonorCategory?,
         purpose: String?,
@@ -472,6 +489,8 @@ class PaymentGatewayService(
                 intent = intent,
                 contributionId = contributionId,
                 memberId = memberId,
+                externalDonorId = externalDonorId,
+                embedOrigin = embedOrigin,
                 amount = amount.setScale(2, RoundingMode.UNNECESSARY),
                 currency = "EUR",
                 donorCategory = donorCategory,
@@ -586,3 +605,29 @@ fun paymentGatewayDisclaimerIsCurrentlyAcknowledged(): Boolean =
             .singleOrNull()
             ?.get(PaymentGatewayComplianceAcknowledgmentTable.disclaimerVersion) == PaymentGatewayComplianceDisclaimer.VERSION
     }
+
+/**
+ * Welle V1.4.1b "Öffentliche Website-Integration -- anonymer Spenden-Pfad" -- the member who last
+ * acknowledged the payment-gateway compliance disclaimer, the verantwortliche Mensch hinter einer
+ * systemausgelösten Gateway-Buchung ohne handelndes Mitglied (anonyme Widget-Spende). Exakt
+ * dieselbe Rolle, die [network.lapis.cloud.server.payment.dunning.lastComplianceAcknowledgerMemberId]
+ * im Mahnwesen spielt -- diese Funktion ist deren `null`-zurückgebende Schwester für den
+ * Zahlungsgateway-Disclaimer statt des Mahnwesen-Disclaimers.
+ *
+ * **transaction-frei** (anders als das benachbarte [paymentGatewayDisclaimerIsCurrentlyAcknowledged],
+ * das seine eigene `transaction {}` öffnet) -- der einzige Aufrufer ist [network.lapis.cloud.server
+ * .payment.psp.PspWebhookIngestion] INNERHALB seiner einen umschließenden `transaction {}`.
+ *
+ * `null` statt `error(...)` bei fehlender Zeile -- anders als die Mahnwesen-Schwester. Ein throw
+ * hier würde die gesamte Zahlungsaufzeichnung zurückrollen und die Tatsache verlieren, dass das
+ * Geld überhaupt angekommen ist; der Aufrufer degradiert stattdessen auf `Unposted` mit
+ * `reconciliation_note` (Haus-Posture "degradierend statt scheiternd", [DonationPostingBridge]
+ * KDoc).
+ */
+internal fun lastPaymentGatewayComplianceAcknowledgerMemberIdOrNull(): Uuid? =
+    PaymentGatewayComplianceAcknowledgmentTable
+        .selectAll()
+        .orderBy(PaymentGatewayComplianceAcknowledgmentTable.acknowledgedAt, SortOrder.DESC)
+        .limit(1)
+        .singleOrNull()
+        ?.get(PaymentGatewayComplianceAcknowledgmentTable.acknowledgedByMemberId)

@@ -1,5 +1,5 @@
-= Website Embed Widgets — V1.4.1a "Öffentliche Website-Integration"
-:description: Embeddable login/join widgets for a partner website — snippet, CORS/CSP contract, popup+postMessage login flow, environment variables.
+= Website Embed Widgets — V1.4.1a/V1.4.1b "Öffentliche Website-Integration"
+:description: Embeddable login/join/donate widgets for a partner website — snippet, CORS/CSP contract, popup+postMessage login flow, anonymous donation checkout, environment variables.
 :toc:
 :toc-placement: preamble
 :icons: font
@@ -15,14 +15,16 @@ never removes it as a first step and then fails to add anything back.
 == Overview
 
 Welle V1.4.1a lets a partner website (a party's or association's own site, hosted on a *different*
-origin than this server) embed two small widgets:
+origin than this server) embed three small widgets:
 
 * `data-lapis-widget="login"` — a button that opens a popup window for member login, using
   `postMessage` to report the outcome back to the embedding page without ever sharing a session
   cookie across the origin boundary.
 * `data-lapis-widget="join"` — a plain link to this server's own `/#/register` screen.
+* `data-lapis-widget="donate"` — a one-field, anonymous donation form (Welle V1.4.1b, see
+  <<anonymous-donation-widget>>).
 
-Both are opt-in, `LAPIS_EMBED_ENABLED=false` by default (see <<environment-variables>>).
+All three are opt-in, `LAPIS_EMBED_ENABLED=false` by default (see <<environment-variables>>).
 
 == Embedding snippet
 
@@ -37,7 +39,20 @@ Both are opt-in, `LAPIS_EMBED_ENABLED=false` by default (see <<environment-varia
 <div data-lapis-widget="join">
   <a href="https://<lapis-host>/#/register">Mitglied werden</a>
 </div>
+
+<div data-lapis-widget="donate" data-lapis-fallback-url="">
+  <a href="https://<lapis-host>/#/donate">Spenden</a>
+</div>
 ----
+
+`data-lapis-fallback-url` (optional, on the `donate` host only) is a link the widget offers as
+"Andere Wege" when the checkout endpoint is rate-limited, over the amount ceiling, or unavailable —
+see <<anonymous-donation-widget>>. `data-lapis-amounts` (optional, comma-separated) overrides the
+four preset amounts (default `10,25,50,100`); an unparsable list falls back to the default
+silently. Presets above the effective ceiling (the lower of `LAPIS_PSP_MAX_CHECKOUT_AMOUNT_EUR` and
+this widget's own 500&#160;€ cap, see <<anonymous-donation-widget>>) are silently dropped -- if that
+removes every preset (custom or default), the widget falls back to a single button at the
+floor (5&#160;€ by default).
 
 The exact snippet, pre-filled with this deployment's real `LAPIS_PUBLIC_BASE_URL`, is shown
 read-only on the ADMIN-only *Website-Integration* screen
@@ -178,12 +193,123 @@ On mobile browsers that open the popup as a new tab rather than a real popup win
 schließen." instead of auto-closing, since it has no opener to notify and no promise that the
 originating tab is even still open.
 
+[[anonymous-donation-widget]]
+== Spenden-Widget (anonymous donation, Welle V1.4.1b)
+
+`data-lapis-widget="donate"` renders a single-field form — an amount, nothing else. No category
+choice, no purpose field, no email, no name. Clicking "Jetzt spenden" calls
+`POST /api/embed/v1/donation/checkout` and, on success, does a full top-level redirect
+(`window.location.assign`, never a popup — unlike the login widget, no credential crosses an
+origin boundary here, and a popup does not survive Stripe's own redirects reliably on mobile
+payment methods) to the Stripe-hosted checkout page.
+
+=== Amount range
+
+*5–500 EUR inclusive.* The ceiling is deliberately set to the SAME figure as
+`network.lapis.cloud.server.rpc.PartyDonationComplianceCalculator.ANONYMOUS_FORWARDING_THRESHOLD_EUR`
+(currently the current best understanding of the §25 PartG anonymous-donation-forwarding
+threshold, itself an unverified starting point — see that class's own KDoc disclaimer) — a widget
+donation is designed to never trigger the duty to forward an anonymous donation to the Bundestag
+administration. This applies to every deployment, political party or not, for product simplicity.
+The floor exists purely as an abuse-economics guard (card testing runs at cent/one-euro amounts),
+not a legal requirement. A deployment's own `LAPIS_PSP_MAX_CHECKOUT_AMOUNT_EUR` can only LOWER the
+effective ceiling, never raise it above 500 EUR.
+
+=== `POST /api/embed/v1/donation/checkout`
+
+CORS-gated exactly like the rest of this welle's endpoints, with ONE deliberate deviation: a
+request with NO `Origin` header at all is *also* rejected (`403`), unlike
+`/api/embed/v1/session` — this endpoint moves money and has no legitimate same-origin caller.
+
+Request body (`application/json`, at most 2048 bytes):
+
+[source,json]
+----
+{"amount": "25.00", "kommentar": ""}
+----
+
+`amount` travels as a *string*, never a JSON number (this codebase never represents money as a
+floating-point type). `kommentar` is a honeypot — a hidden field a real donor never sees or fills;
+a bot that fills every field in a scraped, RENDERED form does. A non-blank `kommentar` is treated
+identically to a real cancellation (see below), never reported back as detected. Scope note: this
+only catches a bot that renders and fills the widget's HTML — a bot calling this JSON endpoint
+directly (the realistic case, since the endpoint and its shape are documented right here) never
+sends `kommentar` at all and passes trivially. The actual defense against that case is the rate
+limit below plus the CORS origin allowlist, not the honeypot.
+
+Rate limit: *two separate budgets* (fix, review finding, so a client mistake or an abandoned
+checkout can never lock a legitimate donor out of a real attempt). A generous admission limit (20
+per hour per source IP) is checked first, before the body is even JSON-decoded, and rejects a flood
+of malformed/garbage requests cheaply. The strict *3 requests per hour per source IP* budget — the
+tightest limiter in this codebase, because this is the only unauthenticated endpoint anywhere in it
+that triggers a real outbound Stripe API call and two database writes on a stranger's say-so — is
+checked separately, immediately before the actual Stripe call: a honeypot hit, an unusable gateway,
+an out-of-range amount, or a §25 PartG rejection never consumes it. A `CORS` preflight (`OPTIONS`)
+is throttled separately again (60/minute) so a browser's own preflight request never eats into
+either budget.
+
+[cols="1,2"]
+|===
+|Response |Meaning
+
+|`200 {"redirectUrl": "..."}`
+|Success, or the honeypot was filled — both cases return this exact shape and redirect to a real
+page (the honeypot case redirects to the *cancelled* page below), so the response itself is never
+an oracle telling a bot it was detected.
+
+|`400 {"error":"BAD_REQUEST"}`
+|Malformed JSON body, or a non-numeric `amount`.
+
+|`400 {"error":"AMOUNT_OUT_OF_RANGE","minAmount":"5.00","maxAmount":"..."}`
+|More than 2 fractional digits, or outside the 5–500 EUR range (the effective ceiling, which may be
+lower than 500, is echoed back so the widget can show the real number instead of an assumed one).
+
+|`413`
+|Body exceeds the 2048-byte cap (checked before the body is even read, or while streaming it in) —
+no JSON body at all, just the status.
+
+|`429 {"error":"RATE_LIMITED","retryAfterSeconds":N}`
+|Either rate limit exceeded (see above); also carries a `Retry-After` header.
+
+|`503 {"error":"UNAVAILABLE"}`
+|The payment gateway is not usable (disabled, unconfigured, or the compliance disclaimer is stale)
+— deliberately never says WHICH condition is missing.
+
+|`409 {"error":"NOT_ACCEPTED"}`
+|A §25 PartG verdict rejected the donation. The reason is logged server-side only, never returned.
+
+|`502 {"error":"GATEWAY_ERROR"}`
+|Stripe itself rejected or could not be reached. Stripe's own error text is logged server-side only.
+|===
+
+=== Return pages
+
+`GET /embed/v1/spende/danke` and `GET /embed/v1/spende/abgebrochen` are the `success_url`/
+`cancel_url` Stripe redirects the donor's browser to — two fixed, public paths, deliberately
+carrying NO session identifier (no new token/polling surface). Both accept an optional
+`?origin=` query parameter (the ORIGIN the widget was embedded on, so the page can offer a link
+back); an unknown or missing value renders the page WITHOUT a return link, still at `HTTP 200` —
+never an error status, because the visitor has just paid, or just cancelled, and that is the worst
+possible moment for this product to fail loudly.
+
+The thank-you page deliberately does not say "gebucht" — the webhook that actually posts the
+donation to the ledger arrives asynchronously, after the redirect, so the server does not yet know
+at that point whether it succeeded.
+
+=== DSGVO / what is stored
+
+An anonymous widget donation creates exactly one `external_donor` row (`display_name = "Online-
+Spende ohne Namensangabe"`, `donor_category = ANONYMOUS`, every address field `NULL`) per donation
+— there is no donor de-duplication or recognition across donations by design (DSGVO data
+minimization). Neither the widget, the checkout endpoint, nor the return pages ever collect or
+store a name or an email address; Stripe handles the payment method and any payment confirmation
+email entirely on its own side.
+
 == Scope of this wave
 
-This wave (V1.4.1a) ships the login/join widgets and the read-only admin status screen. It
-deliberately does *not* include an anonymous donation widget, a donation checkout endpoint, or any
-payment-adjacent embed surface — that is reserved for a future wave (tentatively V1.4.1b) building
-on the same `EmbedConfig`/`EmbedCors`/`EmbedAssets` infrastructure.
+Welle V1.4.1a shipped the login/join widgets and the read-only admin status screen. Welle V1.4.1b
+adds the anonymous donation widget above, on the SAME `EmbedConfig`/`EmbedCors`/`EmbedAssets`
+infrastructure — no new environment variable was needed (see <<environment-variables>>).
 
 See also: <<public-api-v1.adoc#,Public API — V1.3.1/V1.3.2>> for the sibling `/api/v1` read-only
 REST surface (a different audience: machine-to-machine integrations, not a browser widget).

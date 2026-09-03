@@ -8412,3 +8412,11 @@ msgstr ""
 msgid "Konsolenmeldung vorhanden?"
 msgstr ""
 
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/EmbedIntegrationScreen.kt:83
+msgid "Spenden-Widget: verfügbar"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/EmbedIntegrationScreen.kt:85
+msgid "Spenden-Widget: nicht verfügbar (Grund: %1)"
+msgstr ""

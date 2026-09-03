@@ -9538,3 +9538,11 @@ msgstr "Origine autorisée ?"
 msgid "Konsolenmeldung vorhanden?"
 msgstr "Message dans la console présent ?"
 
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/EmbedIntegrationScreen.kt:83
+msgid "Spenden-Widget: verfügbar"
+msgstr "Widget de don : disponible"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/EmbedIntegrationScreen.kt:85
+msgid "Spenden-Widget: nicht verfügbar (Grund: %1)"
+msgstr "Widget de don : indisponible (raison : %1)"

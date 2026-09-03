@@ -135,6 +135,11 @@ class EmbedLoginFlowTest :
                             loginPageRateLimiter = generousLimiter(),
                             sessionRateLimiter = generousLimiter(),
                             adminStatusRateLimiter = generousLimiter(),
+                            pspConfigState = network.lapis.cloud.server.payment.psp.PspConfigState.NotConfigured,
+                            checkoutClient = null,
+                            donationCheckoutRateLimiter = generousLimiter(),
+                            donationCheckoutAttemptRateLimiter = generousLimiter(),
+                            donationPageRateLimiter = generousLimiter(),
                         )
                     }
                 }

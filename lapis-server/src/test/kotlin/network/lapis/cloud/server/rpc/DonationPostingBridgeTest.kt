@@ -152,6 +152,7 @@ class DonationPostingBridgeTest :
                         paidAt = LocalDateTime(2026, 4, 1, 10, 0),
                         providerFee = BigDecimal("2.90"),
                         donorMemberId = donorId,
+                        externalDonorId = null,
                         donorCategory = null,
                         actorMemberId = donorId,
                         actorRole = AccountRole.TREASURER,
@@ -186,6 +187,7 @@ class DonationPostingBridgeTest :
                         paidAt = LocalDateTime(2026, 4, 1, 10, 0),
                         providerFee = null,
                         donorMemberId = donorId,
+                        externalDonorId = null,
                         donorCategory = null,
                         actorMemberId = donorId,
                         actorRole = AccountRole.TREASURER,
@@ -212,6 +214,7 @@ class DonationPostingBridgeTest :
                         paidAt = LocalDateTime(2026, 4, 1, 10, 0),
                         providerFee = null,
                         donorMemberId = donorId,
+                        externalDonorId = null,
                         donorCategory = null,
                         actorMemberId = donorId,
                         actorRole = AccountRole.TREASURER,
@@ -239,6 +242,7 @@ class DonationPostingBridgeTest :
                         paidAt = LocalDateTime(2026, 4, 1, 10, 0),
                         providerFee = null,
                         donorMemberId = donorId,
+                        externalDonorId = null,
                         donorCategory = null,
                         actorMemberId = donorId,
                         actorRole = AccountRole.TREASURER,
@@ -264,6 +268,7 @@ class DonationPostingBridgeTest :
                         paidAt = LocalDateTime(2026, 4, 1, 10, 0),
                         providerFee = BigDecimal("0.005"),
                         donorMemberId = donorId,
+                        externalDonorId = null,
                         donorCategory = null,
                         actorMemberId = donorId,
                         actorRole = AccountRole.TREASURER,
@@ -292,6 +297,7 @@ class DonationPostingBridgeTest :
                         paidAt = LocalDateTime(2026, 4, 1, 10, 0),
                         providerFee = null,
                         donorMemberId = donorId,
+                        externalDonorId = null,
                         donorCategory = DonorCategory.PUBLIC_LAW_CORPORATION,
                         actorMemberId = donorId,
                         actorRole = AccountRole.TREASURER,
@@ -322,6 +328,7 @@ class DonationPostingBridgeTest :
                         paidAt = LocalDateTime(2026, 4, 1, 10, 0),
                         providerFee = null,
                         donorMemberId = donorId,
+                        externalDonorId = null,
                         donorCategory = DonorCategory.PUBLIC_LAW_CORPORATION,
                         actorMemberId = donorId,
                         actorRole = AccountRole.TREASURER,
@@ -352,6 +359,7 @@ class DonationPostingBridgeTest :
                         paidAt = LocalDateTime(2026, 4, 1, 10, 0),
                         providerFee = null,
                         donorMemberId = donorId,
+                        externalDonorId = null,
                         donorCategory = null,
                         actorMemberId = donorId,
                         actorRole = AccountRole.TREASURER,
@@ -383,6 +391,7 @@ class DonationPostingBridgeTest :
                         paidAt = LocalDateTime(2026, 4, 1, 10, 0),
                         providerFee = null,
                         donorMemberId = donorId,
+                        externalDonorId = null,
                         donorCategory = DonorCategory.GERMAN_NATURAL_PERSON,
                         actorMemberId = donorId,
                         actorRole = AccountRole.TREASURER,
@@ -421,6 +430,7 @@ class DonationPostingBridgeTest :
                         paidAt = LocalDateTime(2000, 1, 1, 0, 0),
                         providerFee = null,
                         donorMemberId = donorId,
+                        externalDonorId = null,
                         donorCategory = null,
                         actorMemberId = donorId,
                         actorRole = AccountRole.TREASURER,
@@ -433,5 +443,48 @@ class DonationPostingBridgeTest :
                     JournalEntryTable.selectAll().where { JournalEntryTable.id eq journalEntryId }.single()[JournalEntryTable.createdAt]
                 }
             (createdAt.year >= 2026) shouldBe true
+        }
+
+        // Welle V1.4.1b "Öffentliche Website-Integration -- anonymer Spenden-Pfad".
+        test("both donorMemberId and externalDonorId null -> IllegalArgumentException") {
+            val actorId = createTestMember("donation-neither-identity-${Uuid.random()}@example.org")
+
+            shouldThrow<IllegalArgumentException> {
+                transaction {
+                    DonationPostingBridge.postDonationPayment(
+                        paymentTransactionId = Uuid.random(),
+                        paidAmount = BigDecimal("10.00"),
+                        paidAt = LocalDateTime(2026, 4, 1, 10, 0),
+                        providerFee = null,
+                        donorMemberId = null,
+                        externalDonorId = null,
+                        donorCategory = null,
+                        actorMemberId = actorId,
+                        actorRole = AccountRole.TREASURER,
+                        voucherReference = null,
+                    )
+                }
+            }
+        }
+
+        test("both donorMemberId and externalDonorId set -> IllegalArgumentException") {
+            val donorId = createTestMember("donation-both-identity-${Uuid.random()}@example.org")
+
+            shouldThrow<IllegalArgumentException> {
+                transaction {
+                    DonationPostingBridge.postDonationPayment(
+                        paymentTransactionId = Uuid.random(),
+                        paidAmount = BigDecimal("10.00"),
+                        paidAt = LocalDateTime(2026, 4, 1, 10, 0),
+                        providerFee = null,
+                        donorMemberId = donorId,
+                        externalDonorId = Uuid.random(),
+                        donorCategory = null,
+                        actorMemberId = donorId,
+                        actorRole = AccountRole.TREASURER,
+                        voucherReference = null,
+                    )
+                }
+            }
         }
     })

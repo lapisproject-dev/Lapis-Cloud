@@ -16,13 +16,19 @@ import io.ktor.server.testing.testApplication
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.LocalDateTime
 import network.lapis.cloud.server.db.DatabaseConfig
+import network.lapis.cloud.server.db.DbClock
 import network.lapis.cloud.server.db.generated.AccountTable
+import network.lapis.cloud.server.db.generated.ExternalDonorTable
 import network.lapis.cloud.server.db.generated.MemberTable
 import network.lapis.cloud.server.db.generated.OrganizationSettingsTable
+import network.lapis.cloud.server.db.generated.PaymentCheckoutSessionTable
 import network.lapis.cloud.server.db.generated.PaymentGatewayComplianceAcknowledgmentTable
 import network.lapis.cloud.shared.domain.AccountRole
+import network.lapis.cloud.shared.domain.DonorCategory
 import network.lapis.cloud.shared.domain.MemberStatus
+import network.lapis.cloud.shared.domain.PaymentCheckoutSessionStatus
 import network.lapis.cloud.shared.domain.PaymentGatewayComplianceAcknowledgmentInput
+import network.lapis.cloud.shared.domain.PaymentIntent
 import network.lapis.cloud.shared.domain.PaymentProvider
 import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.core.inList
@@ -30,6 +36,7 @@ import org.jetbrains.exposed.v1.jdbc.deleteWhere
 import org.jetbrains.exposed.v1.jdbc.insert
 import org.jetbrains.exposed.v1.jdbc.transactions.transaction
 import org.jetbrains.exposed.v1.jdbc.update
+import java.math.BigDecimal
 import kotlin.uuid.Uuid
 
 /**
@@ -42,6 +49,8 @@ import kotlin.uuid.Uuid
 class PaymentGatewayServiceTest :
     FunSpec({
         val createdMemberIds = mutableListOf<Uuid>()
+        val createdExternalDonorIds = mutableListOf<Uuid>()
+        val createdCheckoutSessionIds = mutableListOf<Uuid>()
 
         beforeSpec { DatabaseConfig.connect() }
 
@@ -64,6 +73,12 @@ class PaymentGatewayServiceTest :
                     it[paymentGatewayEnabled] = false
                     it[paymentGatewayProvider] = null
                 }
+                if (createdCheckoutSessionIds.isNotEmpty()) {
+                    PaymentCheckoutSessionTable.deleteWhere { PaymentCheckoutSessionTable.id inList createdCheckoutSessionIds }
+                }
+                if (createdExternalDonorIds.isNotEmpty()) {
+                    ExternalDonorTable.deleteWhere { ExternalDonorTable.id inList createdExternalDonorIds }
+                }
                 if (createdMemberIds.isNotEmpty()) {
                     PaymentGatewayComplianceAcknowledgmentTable.deleteWhere {
                         PaymentGatewayComplianceAcknowledgmentTable.acknowledgedByMemberId inList createdMemberIds
@@ -74,7 +89,10 @@ class PaymentGatewayServiceTest :
             }
         }
 
-        fun createTestMember(email: String): Uuid {
+        fun createTestMember(
+            email: String,
+            role: AccountRole = AccountRole.ADMIN,
+        ): Uuid {
             val id = Uuid.random()
             transaction {
                 MemberTable.insert {
@@ -88,7 +106,7 @@ class PaymentGatewayServiceTest :
                 AccountTable.insert {
                     it[AccountTable.id] = Uuid.random()
                     it[memberId] = id
-                    it[AccountTable.role] = AccountRole.ADMIN
+                    it[AccountTable.role] = role
                 }
             }
             createdMemberIds += id
@@ -184,6 +202,79 @@ class PaymentGatewayServiceTest :
 
                 val getAfterDisable = client.get("/test/get") { header("X-Member-Id", admin.toString()) }
                 getAfterDisable.bodyAsText() shouldBe "false:null"
+            }
+        }
+
+        // Welle V1.4.1b "Öffentliche Website-Integration -- anonymer Spenden-Pfad" -- Falle 15: die
+        // Eigentümerprüfung in getCheckoutSession (`ownerMemberId != current.memberId`) darf durch
+        // die jetzt nullable member_id-Spalte nicht versehentlich zu `null == null` verkommen.
+        test(
+            "getCheckoutSession on an anonymous (member_id NULL) session -> NotFoundException for an ordinary member, visible for TREASURY roles",
+        ) {
+            testApplication {
+                application {
+                    routing {
+                        get("/test/get-checkout-session/{id}") {
+                            val id = requireNotNull(call.parameters["id"])
+                            runCatching { PaymentGatewayService(call = call).getCheckoutSession(id) }
+                                .fold(
+                                    onSuccess = { dto -> call.respondText("OK:${dto.id}") },
+                                    onFailure = { e -> call.respondText("ERROR:${e::class.simpleName}") },
+                                )
+                        }
+                    }
+                }
+
+                val externalDonorId = Uuid.random()
+                transaction {
+                    ExternalDonorTable.insert {
+                        it[id] = externalDonorId
+                        it[displayName] = "PaymentGatewayServiceTest Online-Spende ohne Namensangabe"
+                        it[donorCategory] = DonorCategory.ANONYMOUS
+                        it[street] = null
+                        it[postalCode] = null
+                        it[city] = null
+                        it[country] = null
+                        it[active] = true
+                    }
+                }
+                createdExternalDonorIds += externalDonorId
+
+                val checkoutSessionId = Uuid.random()
+                transaction {
+                    PaymentCheckoutSessionTable.insert {
+                        it[id] = checkoutSessionId
+                        it[provider] = PaymentProvider.STRIPE
+                        it[providerSessionId] = "cs_pgw_test_$checkoutSessionId"
+                        it[status] = PaymentCheckoutSessionStatus.CREATED
+                        it[intent] = PaymentIntent.DONATION
+                        it[contributionId] = null
+                        it[memberId] = null
+                        it[PaymentCheckoutSessionTable.externalDonorId] = externalDonorId
+                        it[embedOrigin] = "https://partei.example"
+                        it[amount] = BigDecimal("25.00")
+                        it[currency] = "EUR"
+                        it[donorCategory] = DonorCategory.ANONYMOUS
+                        it[purpose] = null
+                        it[createdAt] = DbClock.nowLocalDateTime()
+                        it[expiresAt] = DbClock.nowLocalDateTime()
+                        it[completedAt] = null
+                        it[providerIdempotencyKey] = "pgw-test-key-$checkoutSessionId"
+                        it[redirectUrl] = null
+                    }
+                }
+                createdCheckoutSessionIds += checkoutSessionId
+
+                val ordinaryMember = createTestMember("gateway-checkout-owner-${Uuid.random()}@example.org", role = AccountRole.MEMBER)
+                val treasurer = createTestMember("gateway-checkout-treasurer-${Uuid.random()}@example.org", role = AccountRole.TREASURER)
+
+                val asMember =
+                    client.get("/test/get-checkout-session/$checkoutSessionId") { header("X-Member-Id", ordinaryMember.toString()) }
+                asMember.bodyAsText() shouldBe "ERROR:NotFoundException"
+
+                val asTreasurer =
+                    client.get("/test/get-checkout-session/$checkoutSessionId") { header("X-Member-Id", treasurer.toString()) }
+                asTreasurer.bodyAsText() shouldBe "OK:$checkoutSessionId"
             }
         }
     })

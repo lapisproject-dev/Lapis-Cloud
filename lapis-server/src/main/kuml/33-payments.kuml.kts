@@ -16,6 +16,19 @@
 //  - `dunning_level`/`dunning_notice` (automatisiertes Mahnwesen) -- V1.2.7, modelled in
 //    34-dunning.kuml.kts, which owns those tables.
 //
+// **Welle V1.4.1b "Öffentliche Website-Integration -- anonymer Spenden-Pfad"** makes
+// `payment_checkout_session.member_id` NULLABLE and adds `external_donor_id` (real FK ->
+// external_donor, owned by 10-accounting.kuml.kts) plus `embed_origin` (the canonical embedding
+// origin, set only on the external/anonymous path). A checkout session now has EXACTLY ONE donor
+// identity -- member XOR external_donor, enforced by a CHECK constraint in
+// V16__embed_anonymous_donation.sql, mirrored in Kotlin by DonationPostingBridge's own
+// `require((donorMemberId == null) != (externalDonorId == null))`. `embed_origin` is non-null only
+// together with `external_donor_id`, and whenever it is set `donor_category` is always ANONYMOUS
+// (the widget offers no other category -- see docs/api/embed-widgets.adoc "Spenden-Widget"). A new
+// `ExternalDonor` cross-domain stub (id-only, same pattern as Member/Contribution/JournalEntry/
+// Document below) exists purely so UmlToErmTransformer can resolve this FK within this file's own
+// single-file evaluation -- external_donor itself is owned by 10-accounting.kuml.kts.
+//
 // **Welle V1.2.8 "PSP-Checkout (Stripe)"** (GitHub Issue #6) delivers the "later sub-wave" this file's
 // original header pointed at (previously tracked under the placeholder name "V1.2.4", which was
 // renumbered away before that work started -- every such reference in this repo has been corrected
@@ -81,6 +94,18 @@ classDiagram(name = "Payments") {
 
     val journalEntry = classOf(name = "JournalEntry") {
         stereotype("Entity") { "tableName" to "journal_entry"; "kotlinObjectName" to "JournalEntryTable" }
+        attribute(name = "id", type = "UUID") {
+            stereotype("Id")
+            stereotype("Column") { "columnName" to "id" }
+        }
+    }
+
+    // Accounting-owned stub — id-only, mirrors the Member/Contribution/JournalEntry stubs above.
+    // Only exists here so UmlToErmTransformer can resolve
+    // paymentCheckoutSession.externalDonorId's FK target within this file's own single-file
+    // evaluation (Welle V1.4.1b). external_donor itself is owned by 10-accounting.kuml.kts.
+    val externalDonor = classOf(name = "ExternalDonor") {
+        stereotype("Entity") { "tableName" to "external_donor"; "kotlinObjectName" to "ExternalDonorTable" }
         attribute(name = "id", type = "UUID") {
             stereotype("Id")
             stereotype("Column") { "columnName" to "id" }
@@ -155,6 +180,11 @@ classDiagram(name = "Payments") {
         stereotype("Index") { "columns" to listOf("member_id"); "name" to "idx_payment_checkout_session_member" }
         stereotype("Index") { "columns" to listOf("contribution_id"); "name" to "idx_payment_checkout_session_contribution" }
         stereotype("Index") { "columns" to listOf("status"); "name" to "idx_payment_checkout_session_status" }
+        // Welle V1.4.1b.
+        stereotype("Index") {
+            "columns" to listOf("external_donor_id")
+            "name" to "idx_payment_checkout_session_external_donor"
+        }
 
         attribute(name = "id", type = "UUID") {
             stereotype("Id")
@@ -180,12 +210,30 @@ classDiagram(name = "Payments") {
             multiplicity = Multiplicity(0, 1)
             stereotype("Column") { "columnName" to "contribution_id"; "fkEntity" to "Contribution" }
         }
-        // Real FK -> member (id), NOT NULL -- every checkout session is created by an authenticated
-        // member; this is how a webhook-time system actor can populate journal_entry.created_by
-        // (NOT NULL, FK -> member) without a sentinel member or a schema change, see
-        // ContributionPostingBridge KDoc "Offene Anschlussfrage" (resolved here, F4).
+        // Real FK -> member (id). Nullable since Welle V1.4.1b -- an anonymous embed-widget
+        // donation has no member at all, only an external_donor (see externalDonorId below). Was
+        // NOT NULL through V1.2.8-V1.4.1a with the justification that a webhook-time system actor
+        // needed SOME member to populate journal_entry.created_by (NOT NULL, FK -> member); that
+        // role is now filled by lastPaymentGatewayComplianceAcknowledgerMemberIdOrNull() in
+        // PaymentGatewayService.kt for the member-less path (see that function's own KDoc).
         attribute(name = "memberId", type = "UUID") {
+            multiplicity = Multiplicity(0, 1)
             stereotype("Column") { "columnName" to "member_id"; "fkEntity" to "Member" }
+        }
+        // Real FK -> external_donor (id), nullable -- set only for an anonymous embed-widget
+        // donation (Welle V1.4.1b). Mutually exclusive with memberId (CHECK constraint in
+        // V16__embed_anonymous_donation.sql, mirrored by DonationPostingBridge's own
+        // `require((donorMemberId == null) != (externalDonorId == null))`).
+        attribute(name = "externalDonorId", type = "UUID") {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") { "columnName" to "external_donor_id"; "fkEntity" to "ExternalDonor" }
+        }
+        // The canonical (EmbedOriginAllowlist-resolved) embedding origin this session was created
+        // from -- non-null only on the external/anonymous path (Welle V1.4.1b). Never the raw
+        // request-supplied Origin header value.
+        attribute(name = "embedOrigin", type = "String") {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") { "columnName" to "embed_origin"; "sqlType" to "VARCHAR(255)" }
         }
         attribute(name = "amount", type = "BigDecimal") {
             stereotype("Column") { "columnName" to "amount"; "sqlType" to "DECIMAL(14,2)" }

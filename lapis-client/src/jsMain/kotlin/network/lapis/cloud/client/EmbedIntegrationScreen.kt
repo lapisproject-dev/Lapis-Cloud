@@ -79,6 +79,11 @@ private fun renderStatusBlock(
             "Diese Liste wird beim Serverstart aus LAPIS_EMBED_ALLOWED_ORIGINS gelesen und lässt sich hier nicht ändern.",
         ),
     ) { addCssClasses("text-muted small") }
+    if (status.donationWidgetAvailable) {
+        panel.p(tr("Spenden-Widget: verfügbar"))
+    } else {
+        panel.p(gettext("Spenden-Widget: nicht verfügbar (Grund: %1)", status.donationWidgetUnavailableReason ?: "?"))
+    }
 }
 
 private fun renderSnippetBlock(

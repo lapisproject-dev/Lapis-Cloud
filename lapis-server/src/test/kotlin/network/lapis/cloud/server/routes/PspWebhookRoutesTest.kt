@@ -3,6 +3,7 @@ package network.lapis.cloud.server.routes
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
+import io.kotest.matchers.types.shouldBeInstanceOf
 import io.ktor.client.request.header
 import io.ktor.client.request.post
 import io.ktor.client.request.setBody
@@ -17,6 +18,7 @@ import network.lapis.cloud.server.db.DatabaseConfig
 import network.lapis.cloud.server.db.generated.AccountTable
 import network.lapis.cloud.server.db.generated.AuditLogEntryTable
 import network.lapis.cloud.server.db.generated.ContributionTable
+import network.lapis.cloud.server.db.generated.ExternalDonorTable
 import network.lapis.cloud.server.db.generated.JournalEntryTable
 import network.lapis.cloud.server.db.generated.LedgerAccountTable
 import network.lapis.cloud.server.db.generated.MemberTable
@@ -28,14 +30,19 @@ import network.lapis.cloud.server.db.generated.PaymentTransactionTable
 import network.lapis.cloud.server.db.generated.PostingTable
 import network.lapis.cloud.server.db.generated.PspWebhookEventTable
 import network.lapis.cloud.server.federation.FederationInboxRateLimiter
+import network.lapis.cloud.server.payment.psp.CheckoutCompletedIngestionOutcome
 import network.lapis.cloud.server.payment.psp.PspConfig
 import network.lapis.cloud.server.payment.psp.PspConfigState
+import network.lapis.cloud.server.payment.psp.PspWebhookIngestion
+import network.lapis.cloud.server.payment.psp.STRIPE_JSON
+import network.lapis.cloud.server.payment.psp.StripeWebhookEvent
 import network.lapis.cloud.server.rpc.ORGANIZATION_SETTINGS_ID
 import network.lapis.cloud.server.rpc.PaymentGatewayComplianceDisclaimer
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.BillingInterval
 import network.lapis.cloud.shared.domain.ContributionPaymentMethod
 import network.lapis.cloud.shared.domain.ContributionStatus
+import network.lapis.cloud.shared.domain.DonorCategory
 import network.lapis.cloud.shared.domain.LedgerAccountType
 import network.lapis.cloud.shared.domain.MemberStatus
 import network.lapis.cloud.shared.domain.PaymentCheckoutSessionStatus
@@ -88,6 +95,7 @@ class PspWebhookRoutesTest :
         val createdTierIds = mutableListOf<Uuid>()
         val createdContributionIds = mutableListOf<Uuid>()
         val createdCheckoutSessionIds = mutableListOf<Uuid>()
+        val createdExternalDonorIds = mutableListOf<Uuid>()
 
         beforeSpec { DatabaseConfig.connect() }
 
@@ -136,6 +144,12 @@ class PspWebhookRoutesTest :
                         }
                     }
                     PaymentCheckoutSessionTable.deleteWhere { PaymentCheckoutSessionTable.id inList createdCheckoutSessionIds }
+                }
+                if (createdExternalDonorIds.isNotEmpty()) {
+                    // Some of these may already be gone -- PspWebhookIngestion.ingestCheckoutExpired
+                    // deletes an abandoned anonymous donor row itself (Fix, Review MAJOR #1). A
+                    // deleteWhere matching zero remaining rows is a harmless no-op.
+                    ExternalDonorTable.deleteWhere { ExternalDonorTable.id inList createdExternalDonorIds }
                 }
                 if (createdContributionIds.isNotEmpty()) {
                     ContributionTable.deleteWhere { ContributionTable.id inList createdContributionIds }
@@ -258,6 +272,66 @@ class PspWebhookRoutesTest :
                     it[PaymentCheckoutSessionTable.amount] = amount
                     it[currency] = "EUR"
                     it[donorCategory] = null
+                    it[purpose] = null
+                    it[createdAt] = LocalDateTime(2026, 4, 1, 10, 0)
+                    it[expiresAt] = LocalDateTime(2026, 4, 1, 11, 0)
+                    it[completedAt] = null
+                    it[providerIdempotencyKey] = "idem-${id.toString().take(8)}"
+                    it[redirectUrl] = "https://checkout.stripe.com/c/pay/$providerSessionId"
+                }
+            }
+            createdCheckoutSessionIds += id
+            return id
+        }
+
+        /** Direct-DB-insert counterpart of [AnonymousDonationCheckout]'s own persistence step -- see that class's KDoc for the real (HTTP-reachable) construction path. */
+        fun createExternalDonor(active: Boolean): Uuid {
+            val id = Uuid.random()
+            transaction {
+                ExternalDonorTable.insert {
+                    it[ExternalDonorTable.id] = id
+                    it[displayName] = "PspWebhookRoutesTest Anonymous Donor"
+                    it[donorCategory] = DonorCategory.ANONYMOUS
+                    it[street] = null
+                    it[postalCode] = null
+                    it[city] = null
+                    it[country] = null
+                    it[ExternalDonorTable.active] = active
+                }
+            }
+            createdExternalDonorIds += id
+            return id
+        }
+
+        /**
+         * Anonymous-donor counterpart of [createCheckoutSession] -- `member_id` stays `NULL`,
+         * `external_donor_id` is set instead, same shape [AnonymousDonationCheckout] produces on the
+         * real HTTP path. [contributionId] non-null here builds a structurally-impossible-in-
+         * production CONTRIBUTION-intent-without-member row (see [PspWebhookIngestion] KDoc "Fix
+         * Review MINOR/LATENT #5") -- reachable only via this direct DB insert, exactly like this
+         * function's own callers need it to be.
+         */
+        fun createAnonymousCheckoutSession(
+            externalDonorId: Uuid,
+            contributionId: Uuid?,
+            amount: BigDecimal,
+            providerSessionId: String,
+        ): Uuid {
+            val id = Uuid.random()
+            transaction {
+                PaymentCheckoutSessionTable.insert {
+                    it[PaymentCheckoutSessionTable.id] = id
+                    it[provider] = PaymentProvider.STRIPE
+                    it[PaymentCheckoutSessionTable.providerSessionId] = providerSessionId
+                    it[status] = PaymentCheckoutSessionStatus.CREATED
+                    it[intent] = if (contributionId != null) PaymentIntent.CONTRIBUTION else PaymentIntent.DONATION
+                    it[PaymentCheckoutSessionTable.contributionId] = contributionId
+                    it[PaymentCheckoutSessionTable.memberId] = null
+                    it[PaymentCheckoutSessionTable.externalDonorId] = externalDonorId
+                    it[embedOrigin] = null
+                    it[PaymentCheckoutSessionTable.amount] = amount
+                    it[currency] = "EUR"
+                    it[donorCategory] = DonorCategory.ANONYMOUS
                     it[purpose] = null
                     it[createdAt] = LocalDateTime(2026, 4, 1, 10, 0)
                     it[expiresAt] = LocalDateTime(2026, 4, 1, 11, 0)
@@ -919,6 +993,169 @@ class PspWebhookRoutesTest :
                 val loggedRow =
                     transaction { PspWebhookEventTable.selectAll().where { PspWebhookEventTable.providerEventId eq eventId }.single() }
                 loggedRow[PspWebhookEventTable.outcome] shouldBe network.lapis.cloud.server.payment.psp.PspWebhookOutcome.PROCESSED.name
+            }
+        }
+
+        test(
+            "Fix (Review MAJOR #1): checkout.session.expired for an abandoned ANONYMOUS embed-widget " +
+                "session -> both the session AND its PENDING external_donor row are deleted, not just " +
+                "marked EXPIRED, closing the unbounded-orphan-row growth this finding reported",
+        ) {
+            testApplication {
+                application { routing { registerPspWebhookRoutes(pspConfig = testConfig(), rateLimiter = FederationInboxRateLimiter()) } }
+
+                val bankAccountId =
+                    createLedgerAccount(number = "WF${Uuid.random().toString().take(6)}", type = LedgerAccountType.ASSET)
+                val incomeAccountId =
+                    createLedgerAccount(number = "WG${Uuid.random().toString().take(6)}", type = LedgerAccountType.INCOME)
+                enableGateway(bankAccountId = bankAccountId, incomeAccountId = incomeAccountId)
+                val donorId = createExternalDonor(active = false)
+                val sessionId = "cs_anon_expired_${Uuid.random()}"
+                val checkoutSessionId =
+                    createAnonymousCheckoutSession(
+                        externalDonorId = donorId,
+                        contributionId = null,
+                        amount = BigDecimal("25.00"),
+                        providerSessionId = sessionId,
+                    )
+
+                val eventId = "evt_anon_expired_${Uuid.random()}"
+                val body =
+                    """
+                    {"id":"$eventId","type":"checkout.session.expired","data":{"object":{"id":"$sessionId"}}}
+                    """.trimIndent().toByteArray(Charsets.UTF_8)
+                val response =
+                    client.post("/api/webhooks/stripe") {
+                        header("Stripe-Signature", signedHeader(body = body))
+                        contentType(ContentType.Application.Json)
+                        setBody(body)
+                    }
+                response.status shouldBe HttpStatusCode.OK
+
+                transaction {
+                    PaymentCheckoutSessionTable.selectAll().where { PaymentCheckoutSessionTable.id eq checkoutSessionId }.singleOrNull()
+                } shouldBe null
+                transaction {
+                    ExternalDonorTable.selectAll().where { ExternalDonorTable.id eq donorId }.singleOrNull()
+                } shouldBe null
+                val loggedRow =
+                    transaction { PspWebhookEventTable.selectAll().where { PspWebhookEventTable.providerEventId eq eventId }.single() }
+                loggedRow[PspWebhookEventTable.outcome] shouldBe network.lapis.cloud.server.payment.psp.PspWebhookOutcome.PROCESSED.name
+            }
+        }
+
+        test(
+            "Fix (Review MINOR/LATENT #5): checkout.session.completed for a CONTRIBUTION session " +
+                "without a member_id (structurally impossible in production, direct-DB-insert-only) " +
+                "-> 200, UNPOSTED, payment_transaction row still exists (idempotency anchor kept), " +
+                "no 500/exception",
+        ) {
+            testApplication {
+                application { routing { registerPspWebhookRoutes(pspConfig = testConfig(), rateLimiter = FederationInboxRateLimiter()) } }
+
+                val bankAccountId =
+                    createLedgerAccount(number = "WH${Uuid.random().toString().take(6)}", type = LedgerAccountType.ASSET)
+                val incomeAccountId =
+                    createLedgerAccount(number = "WI${Uuid.random().toString().take(6)}", type = LedgerAccountType.INCOME)
+                enableGateway(bankAccountId = bankAccountId, incomeAccountId = incomeAccountId)
+                val member = createMember("psp-webhook-memberless-contrib-${Uuid.random()}@example.org")
+                val tier = createTier()
+                val contributionId = createOpenContribution(memberId = member, tierId = tier, amountDue = BigDecimal("50.00"))
+                val donorId = createExternalDonor(active = false)
+                val sessionId = "cs_memberless_contrib_${Uuid.random()}"
+                createAnonymousCheckoutSession(
+                    externalDonorId = donorId,
+                    contributionId = contributionId,
+                    amount = BigDecimal("50.00"),
+                    providerSessionId = sessionId,
+                )
+
+                val eventId = "evt_memberless_contrib_${Uuid.random()}"
+                val body = checkoutCompletedBody(eventId = eventId, sessionId = sessionId, amountTotalMinorUnits = 5000)
+                val response =
+                    client.post("/api/webhooks/stripe") {
+                        header("Stripe-Signature", signedHeader(body = body))
+                        contentType(ContentType.Application.Json)
+                        setBody(body)
+                    }
+                response.status shouldBe HttpStatusCode.OK
+
+                val transactionRow =
+                    transaction {
+                        PaymentTransactionTable.selectAll().where { PaymentTransactionTable.providerEventId eq eventId }.single()
+                    }
+                transactionRow[PaymentTransactionTable.journalEntryId] shouldBe null
+                val contributionStatus =
+                    transaction {
+                        ContributionTable.selectAll().where { ContributionTable.id eq contributionId }.single()[ContributionTable.status]
+                    }
+                contributionStatus shouldBe ContributionStatus.OPEN
+                val loggedRow =
+                    transaction { PspWebhookEventTable.selectAll().where { PspWebhookEventTable.providerEventId eq eventId }.single() }
+                loggedRow[PspWebhookEventTable.outcome] shouldBe network.lapis.cloud.server.payment.psp.PspWebhookOutcome.UNPOSTED.name
+            }
+        }
+
+        test(
+            "Vorbefund #6b (Review, Welle V1.4.1b): PspWebhookIngestion.ingestCheckoutCompleted for " +
+                "an ANONYMOUS DONATION session with NO payment-gateway-compliance acknowledgment row " +
+                "at all -> UNPOSTED with the 'kein bestaetigter Disclaimer' reconciliation_note, " +
+                "payment_transaction row still exists (idempotency anchor kept), no exception/NPE. " +
+                "Called DIRECTLY (bypassing PspWebhookRoutes' own POST /api/webhooks/stripe) -- " +
+                "PspWebhookRoutes' own gate check (step 9, `paymentGatewayDisclaimerIsCurrentlyAcknowledged`) " +
+                "reads the SAME table and 503s before dispatch whenever no CURRENT acknowledgment " +
+                "exists, so this exact state is unreachable through that route; the branch under test " +
+                "here is a defensive backstop for a narrower TOCTOU window (the gate's own read and " +
+                "this function's later, separate read of the same table are two different SELECTs, " +
+                "not one locked read) -- worth covering at this level regardless, per this finding, " +
+                "as a regression guard against a refactor silently breaking this null-check.",
+        ) {
+            testApplication {
+                application { routing { registerPspWebhookRoutes(pspConfig = testConfig(), rateLimiter = FederationInboxRateLimiter()) } }
+
+                // Deliberately NO enableGateway()/compliance-acknowledgment row of our own -- calling
+                // ingestCheckoutCompleted directly means PspWebhookRoutes' own gate (which enableGateway
+                // exists to satisfy) is never consulted, and the early return under test (sessionMemberId
+                // == null, no acknowledger) is reached before any accounting-mapping lookup, so no
+                // ledger accounts are needed either. This spec's own afterTest hook only resets
+                // OrganizationSettingsTable between tests (cleanup of members/acknowledgment rows is
+                // afterSpec-only, see that hook's own comment) -- an EARLIER test's enableGateway() call
+                // can therefore leave a still-present acknowledgment row in the table at this point, so
+                // clear it explicitly to reach the exact state under test.
+                transaction {
+                    PaymentGatewayComplianceAcknowledgmentTable.deleteWhere {
+                        PaymentGatewayComplianceAcknowledgmentTable.provider eq PaymentProvider.STRIPE
+                    }
+                }
+                val donorId = createExternalDonor(active = false)
+                val sessionId = "cs_anon_no_disclaimer_${Uuid.random()}"
+                createAnonymousCheckoutSession(
+                    externalDonorId = donorId,
+                    contributionId = null,
+                    amount = BigDecimal("15.00"),
+                    providerSessionId = sessionId,
+                )
+
+                val eventId = "evt_anon_no_disclaimer_${Uuid.random()}"
+                val body = checkoutCompletedBody(eventId = eventId, sessionId = sessionId, amountTotalMinorUnits = 1500)
+                val event = STRIPE_JSON.decodeFromString(StripeWebhookEvent.serializer(), body.toString(Charsets.UTF_8))
+                val outcome = PspWebhookIngestion.ingestCheckoutCompleted(event = event, bodyBytes = body)
+                outcome.shouldBeInstanceOf<CheckoutCompletedIngestionOutcome.Unposted>()
+                val note = outcome.note
+                note.contains("Anonyme Spende ohne") shouldBe true
+
+                val transactionRow =
+                    transaction {
+                        PaymentTransactionTable.selectAll().where { PaymentTransactionTable.providerEventId eq eventId }.single()
+                    }
+                transactionRow[PaymentTransactionTable.journalEntryId] shouldBe null
+                transactionRow[PaymentTransactionTable.reconciliationNote] shouldBe note
+                // The anonymous donor still gets promoted (Fix Review MAJOR #1's own unconditional
+                // "money genuinely arrived" promotion runs BEFORE this actor-resolution branch) --
+                // only the accounting posting degrades, the donor-visibility fix is independent of it.
+                val donorRow =
+                    transaction { ExternalDonorTable.selectAll().where { ExternalDonorTable.id eq donorId }.single() }
+                donorRow[ExternalDonorTable.active] shouldBe true
             }
         }
 

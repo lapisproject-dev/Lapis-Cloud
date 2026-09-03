@@ -6,6 +6,8 @@ import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldContain
 import io.kotest.matchers.collections.shouldContainExactlyInAnyOrder
 import io.kotest.matchers.shouldBe
+import network.lapis.cloud.server.db.generated.ExternalDonorTable
+import network.lapis.cloud.server.db.generated.MemberTable
 import network.lapis.cloud.server.db.generated.PaymentCheckoutSessionTable
 import network.lapis.cloud.server.db.generated.PaymentGatewayComplianceAcknowledgmentTable
 import network.lapis.cloud.server.db.generated.PaymentTransactionTable
@@ -24,7 +26,12 @@ import network.lapis.cloud.shared.domain.SepaDebitItemStatus
 import network.lapis.cloud.shared.domain.SepaMandateStatus
 import network.lapis.cloud.shared.domain.SepaReturnReason
 import network.lapis.cloud.shared.domain.SepaSequenceType
+import org.jetbrains.exposed.v1.core.eq
+import org.jetbrains.exposed.v1.core.inList
 import org.jetbrains.exposed.v1.jdbc.JdbcTransaction
+import org.jetbrains.exposed.v1.jdbc.deleteWhere
+import org.jetbrains.exposed.v1.jdbc.insert
+import org.jetbrains.exposed.v1.jdbc.selectAll
 import org.jetbrains.exposed.v1.jdbc.transactions.transaction
 import java.io.File
 
@@ -50,7 +57,8 @@ class PaymentsSchemaDriftTest :
         test(
             "model declares exactly the payment_transaction/sepa_compliance_acknowledgment/" +
                 "payment_gateway_compliance_acknowledgment/sepa_mandate/sepa_debit_batch/sepa_debit_item/sepa_return/" +
-                "payment_checkout_session/psp_webhook_event entities plus the Member/Contribution/JournalEntry/Document stubs",
+                "payment_checkout_session/psp_webhook_event entities plus the Member/Contribution/JournalEntry/Document/" +
+                "ExternalDonor stubs",
         ) {
             model.entities.map { it.name }.toSet() shouldBe
                 setOf(
@@ -58,6 +66,7 @@ class PaymentsSchemaDriftTest :
                     "contribution",
                     "journal_entry",
                     "document",
+                    "external_donor",
                     "payment_transaction",
                     "sepa_compliance_acknowledgment",
                     "payment_gateway_compliance_acknowledgment",
@@ -189,9 +198,15 @@ class PaymentsSchemaDriftTest :
 
             real.foreignKeys["member_id"] shouldBe "member"
             real.foreignKeys["contribution_id"] shouldBe "contribution"
+            // Welle V1.4.1b.
+            real.foreignKeys["external_donor_id"] shouldBe "external_donor"
 
-            entity.attributeByName("member_id")?.nullable shouldBe false
+            // Welle V1.4.1b: member_id is now nullable (an anonymous embed-widget donation has no
+            // member, only an external_donor) -- both in the model AND the real, migrated schema.
+            entity.attributeByName("member_id")?.nullable shouldBe true
             entity.attributeByName("contribution_id")?.nullable shouldBe true
+            entity.attributeByName("external_donor_id")?.nullable shouldBe true
+            entity.attributeByName("embed_origin")?.nullable shouldBe true
             entity.attributeByName("status")?.type shouldBe
                 ErmDataType.Enum(
                     name = "PaymentCheckoutSessionStatus",
@@ -219,6 +234,128 @@ class PaymentsSchemaDriftTest :
                     byIndex.values
                 }
             uniqueIndexColumnSets shouldContain setOf("provider", "provider_session_id")
+        }
+
+        // Welle V1.4.1b "Öffentliche Website-Integration -- anonymer Spenden-Pfad": the three new
+        // CHECK constraints from V16__embed_anonymous_donation.sql exist for real and actually
+        // reject both a "both set" and a "neither set" donor identity, plus the embed_origin/
+        // donor_category coupling -- verified by direct INSERT attempts through the real generated
+        // Table objects, not just by their presence in information_schema (Security-Loop gate 4).
+        test("payment_checkout_session CHECK constraints enforce exactly one donor identity and embed_origin/donor_category coupling") {
+            val checkConstraintNames =
+                transaction {
+                    mutableSetOf<String>().also { names ->
+                        exec(
+                            """
+                            SELECT constraint_name
+                            FROM information_schema.table_constraints
+                            WHERE constraint_type = 'CHECK' AND table_name = 'payment_checkout_session'
+                            """.trimIndent(),
+                        ) { rs ->
+                            while (rs.next()) names += rs.getString("constraint_name").lowercase()
+                        }
+                    }
+                }
+            checkConstraintNames shouldContain "chk_payment_checkout_session_donor_identity"
+            checkConstraintNames shouldContain "chk_payment_checkout_session_embed_origin_external"
+            checkConstraintNames shouldContain "chk_payment_checkout_session_embed_anonymous"
+
+            val realMemberId =
+                transaction {
+                    MemberTable
+                        .selectAll()
+                        .limit(1)
+                        .map { it[MemberTable.id] }
+                        .single()
+                }
+            val externalDonorId = kotlin.uuid.Uuid.random()
+            val insertedSessionIds = mutableListOf<kotlin.uuid.Uuid>()
+
+            fun probeInsert(
+                memberId: kotlin.uuid.Uuid?,
+                externalDonorIdArg: kotlin.uuid.Uuid?,
+                embedOrigin: String?,
+                donorCategory: network.lapis.cloud.shared.domain.DonorCategory?,
+            ): Boolean {
+                val sessionId = kotlin.uuid.Uuid.random()
+                return runCatching {
+                    transaction {
+                        PaymentCheckoutSessionTable.insert {
+                            it[id] = sessionId
+                            it[provider] = PaymentProvider.STRIPE
+                            it[providerSessionId] = "cs_schema_drift_$sessionId"
+                            it[status] = PaymentCheckoutSessionStatus.CREATED
+                            it[intent] = PaymentIntent.DONATION
+                            it[contributionId] = null
+                            it[PaymentCheckoutSessionTable.memberId] = memberId
+                            it[PaymentCheckoutSessionTable.externalDonorId] = externalDonorIdArg
+                            it[PaymentCheckoutSessionTable.embedOrigin] = embedOrigin
+                            it[amount] = java.math.BigDecimal("10.00")
+                            it[currency] = "EUR"
+                            it[PaymentCheckoutSessionTable.donorCategory] = donorCategory
+                            it[purpose] = null
+                            it[createdAt] = DbClock.nowLocalDateTime()
+                            it[expiresAt] = DbClock.nowLocalDateTime()
+                            it[completedAt] = null
+                            it[providerIdempotencyKey] = "schema-drift-test-key-$sessionId"
+                            it[redirectUrl] = null
+                        }
+                    }
+                }.onSuccess { insertedSessionIds += sessionId }.isSuccess
+            }
+
+            try {
+                transaction {
+                    ExternalDonorTable.insert {
+                        it[id] = externalDonorId
+                        it[displayName] = "Schema-Drift-Test-Spender"
+                        it[donorCategory] = network.lapis.cloud.shared.domain.DonorCategory.ANONYMOUS
+                        it[street] = null
+                        it[postalCode] = null
+                        it[city] = null
+                        it[country] = null
+                        it[active] = true
+                    }
+                }
+
+                // Neither donor identity set -> rejected.
+                probeInsert(memberId = null, externalDonorIdArg = null, embedOrigin = null, donorCategory = null) shouldBe false
+                // Both donor identities set -> rejected.
+                probeInsert(
+                    memberId = realMemberId,
+                    externalDonorIdArg = externalDonorId,
+                    embedOrigin = null,
+                    donorCategory = null,
+                ) shouldBe false
+                // embed_origin set without external_donor_id (member path) -> rejected.
+                probeInsert(
+                    memberId = realMemberId,
+                    externalDonorIdArg = null,
+                    embedOrigin = "https://partei.example",
+                    donorCategory = null,
+                ) shouldBe false
+                // external_donor_id set, embed_origin set, but donor_category != ANONYMOUS -> rejected.
+                probeInsert(
+                    memberId = null,
+                    externalDonorIdArg = externalDonorId,
+                    embedOrigin = "https://partei.example",
+                    donorCategory = network.lapis.cloud.shared.domain.DonorCategory.GERMAN_NATURAL_PERSON,
+                ) shouldBe false
+                // Positive control: the shape a real anonymous embed donation actually has -> accepted.
+                probeInsert(
+                    memberId = null,
+                    externalDonorIdArg = externalDonorId,
+                    embedOrigin = "https://partei.example",
+                    donorCategory = network.lapis.cloud.shared.domain.DonorCategory.ANONYMOUS,
+                ) shouldBe true
+            } finally {
+                transaction {
+                    if (insertedSessionIds.isNotEmpty()) {
+                        PaymentCheckoutSessionTable.deleteWhere { PaymentCheckoutSessionTable.id inList insertedSessionIds }
+                    }
+                    ExternalDonorTable.deleteWhere { ExternalDonorTable.id eq externalDonorId }
+                }
+            }
         }
 
         test("psp_webhook_event table shape matches the real migrated schema and PspWebhookEventTable 1:1") {

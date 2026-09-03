@@ -75,6 +75,9 @@ import kotlin.uuid.Uuid
 private val TREASURY_ROLES = arrayOf(AccountRole.TREASURER, AccountRole.ADMIN)
 private val ACCOUNTING_READ_ROLES = arrayOf(AccountRole.TREASURER, AccountRole.BOARD, AccountRole.ADMIN)
 
+/** Defensive backstop for [AccountingService.listExternalDonors] -- see that function's own KDoc. */
+private const val EXTERNAL_DONOR_LIST_LIMIT = 2000
+
 /** Smallest/largest calendar year [getAnnualFinancialStatement] accepts as a `fiscalYear`. */
 private val FISCAL_YEAR_RANGE = 1000..9999
 
@@ -256,7 +259,30 @@ class AccountingService(
         return transaction {
             val baseQuery = ExternalDonorTable.selectAll()
             val query = if (activeOnly) baseQuery.where { ExternalDonorTable.active eq true } else baseQuery
-            query.orderBy(ExternalDonorTable.displayName, SortOrder.ASC).map { it.toExternalDonorDto() }
+            // Defensive cap (Review MAJOR #1, Welle V1.4.1b): the root cause of unbounded
+            // external_donor growth (an anonymous embed-widget checkout leaving an orphan row
+            // forever) is closed at the source -- see AnonymousDonationCheckout/PspWebhookIngestion
+            // KDoc -- so this endpoint no longer needs to worry about the DEFAULT (activeOnly=true)
+            // case growing without bound. This LIMIT is a backstop for the activeOnly=false path
+            // only (DonorsScreen's explicit "include inactive" toggle, ACCOUNTING_READ_ROLES-gated,
+            // not the public internet), so a genuinely large real-donor history still returns a
+            // bounded RPC response rather than growing unbounded -- true pagination (cursor/offset)
+            // does not exist anywhere in this RPC surface yet and is a disproportionate addition for
+            // this fix; revisit if an org's real (non-orphan) donor count ever approaches this cap.
+            //
+            // Fix (Review MINOR, Welle V1.4.1b, "truncation can crowd out real donors"): `active
+            // DESC` as the PRIMARY sort key, `displayName ASC` only as the tie-breaker within each
+            // group -- every ACTIVE donor therefore sorts strictly before every inactive one and can
+            // never be pushed past the LIMIT by an unbounded pile of PENDING (`active=false`)
+            // anonymous-checkout placeholder rows, however many a slow-to-expire abandoned-checkout
+            // window (see PspWebhookIngestion.ingestCheckoutExpired KDoc) lets accumulate before
+            // `checkout.session.expired` cleans them up. Only the activeOnly=false "also show
+            // inactive" tail can still be truncated -- unavoidable without real pagination, but no
+            // longer at the cost of hiding genuinely active donors.
+            query
+                .orderBy(ExternalDonorTable.active to SortOrder.DESC, ExternalDonorTable.displayName to SortOrder.ASC)
+                .limit(EXTERNAL_DONOR_LIST_LIMIT)
+                .map { it.toExternalDonorDto() }
         }
     }
 

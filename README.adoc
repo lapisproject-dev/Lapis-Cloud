@@ -502,8 +502,12 @@ whether each is present as a boolean, never a prefix/suffix/length/value.
 
 === Stripe dashboard webhook configuration
 
-Register this URL in the Stripe dashboard for the `checkout.session.completed` event (and
-optionally `checkout.session.expired`):
+Register this URL in the Stripe dashboard for **both** the `checkout.session.completed` event
+**and** the `checkout.session.expired` event. Neither is optional: `checkout.session.expired`
+is the only hook that ever cleans up an abandoned anonymous-donation checkout (the placeholder
+`external_donor` row and the `payment_checkout_session` row it left behind) — see
+`PspWebhookIngestion.ingestCheckoutExpired`. Skipping it means every abandoned widget checkout
+leaves orphaned rows behind forever:
 
 ----
 <LAPIS_PUBLIC_BASE_URL>/api/webhooks/stripe
@@ -579,12 +583,12 @@ periodic re-fetch of the relevant `/api/v1` list), multi-instance-safe deactivat
 notification/retention cleanup (the poller assumes exactly one running server instance), and a
 grace-period dual-secret transition during signing-secret rotation.
 
-== Website Integration (V1.4.1a)
+== Website Integration (V1.4.1a/V1.4.1b)
 
-A small (< 8 KB, no dependencies) embeddable script lets a partner website — a party's or
-association's own site, on a *different* origin — offer a member-login button and a
-"become a member" link without ever sharing a session cookie across that origin boundary. Login
-runs in a popup window on this server's own origin; only a `postMessage`-delivered
+A small (< 12 KB, no dependencies) embeddable script lets a partner website — a party's or
+association's own site, on a *different* origin — offer a member-login button, a
+"become a member" link, and an anonymous donation form, without ever sharing a session cookie
+across that origin boundary. Login runs in a popup window on this server's own origin; only a `postMessage`-delivered
 `{ok, displayName}` crosses back to the embedding page. Every widget host carries a working No-JS
 fallback link that the script only ever replaces, never removes first. Full contract (snippet,
 CSS custom properties, CORS/CSP, the popup+`postMessage` flow, known limitations):
@@ -615,12 +619,21 @@ CAUTION: The origins in `LAPIS_EMBED_ALLOWED_ORIGINS` are shipped inside the pub
 `lapis-widgets.js` bundle — see `docs/api/embed-widgets.adoc` for why, and do not list an
 internal/staging origin expecting it to stay unlisted.
 
+=== Anonymous donation widget (Welle V1.4.1b)
+
+A third widget, `data-lapis-widget="donate"`, on the same infrastructure: a one-field (amount
+only, 5–500 EUR) anonymous donation form, `POST /api/embed/v1/donation/checkout`
+(3 requests/hour/IP — the strictest limiter in this codebase), and two fixed Stripe return pages
+(`GET /embed/v1/spende/danke`/`/abgebrochen`, never a session identifier in the URL). No new
+environment variable — it reuses `LAPIS_EMBED_*`/`LAPIS_STRIPE_*`/`LAPIS_PSP_*` verbatim. Full
+contract: `docs/api/embed-widgets.adoc`.
+
 === What doesn't work yet (this wave)
 
-Deliberately out of scope, reserved for a future wave (tentatively V1.4.1b) building on this
-wave's `EmbedConfig`/`EmbedCors`/`EmbedAssets` infrastructure: an anonymous donation widget, any
-donation-checkout endpoint under `/api/embed/v1/`, and an automatic "already signed in" indicator
-on page load without a click (deliberately absent — that would be a cross-site tracking channel).
+Deliberately still absent: an automatic "already signed in" indicator on page load without a
+click (deliberately absent — that would be a cross-site tracking channel), and donor
+recognition/aggregation across multiple anonymous donations (DSGVO data minimization — every
+widget donation is a fresh, unlinked `external_donor` row by design).
 
 == Documentation Convention
 

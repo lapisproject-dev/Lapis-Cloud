@@ -63,7 +63,16 @@ class PspConfig private constructor(
     val webhookToleranceSeconds: Long,
     /** `LAPIS_PSP_MAX_CHECKOUT_AMOUNT_EUR`, default [DEFAULT_MAX_CHECKOUT_AMOUNT_EUR], clamped to [MIN_MAX_CHECKOUT_AMOUNT_EUR]..[MAX_MAX_CHECKOUT_AMOUNT_EUR]. Abuse/DoS cap on `createDonationCheckout`. */
     val maxCheckoutAmountEur: BigDecimal,
-    /** `LAPIS_PSP_CHECKOUT_TTL_MINUTES`, default [DEFAULT_CHECKOUT_TTL_MINUTES], clamped to [MIN_CHECKOUT_TTL_MINUTES]..[MAX_CHECKOUT_TTL_MINUTES]. Drives `payment_checkout_session.expires_at` and Stripe's own `expires_at`. */
+    /**
+     * `LAPIS_PSP_CHECKOUT_TTL_MINUTES`, default [DEFAULT_CHECKOUT_TTL_MINUTES], clamped to
+     * [MIN_CHECKOUT_TTL_MINUTES]..[MAX_CHECKOUT_TTL_MINUTES]. Drives ONLY this server's own
+     * `payment_checkout_session.expires_at` column -- [StripeCheckoutClient.createCheckoutSession]
+     * never sends Stripe an `expires_at` form parameter (see its own KDoc), so Stripe's session
+     * expires on ITS OWN default schedule (24 h after creation), independent of this value. A
+     * short `checkoutTtlMinutes` therefore does NOT shorten the wait for the
+     * `checkout.session.expired` webhook that [PspWebhookIngestion.ingestCheckoutExpired] relies on
+     * to clean up an abandoned anonymous-donation checkout.
+     */
     val checkoutTtlMinutes: Long,
 ) {
     /** Redacts [secretKey]/[webhookSigningSecret] -- everything else is operationally useful to see in a startup log and carries no secret. */
