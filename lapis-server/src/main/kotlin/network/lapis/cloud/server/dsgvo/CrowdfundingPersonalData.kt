@@ -28,7 +28,7 @@ import kotlin.uuid.Uuid
  * none are purely personal data, and every FK pointer resolves to the now-anonymized
  * [network.lapis.cloud.server.db.generated.MemberTable] row post-erasure.
  */
-object CrowdfundingPersonalData : PersonalDataContributor {
+object CrowdfundingPersonalData : MemberPersonalDataContributor {
     override val sectionKey = "crowdfunding"
     override val displayName = "Internes Crowdfunding"
     override val coveredTables =
@@ -38,7 +38,7 @@ object CrowdfundingPersonalData : PersonalDataContributor {
             CrowdfundingDistributionTable,
         )
 
-    override fun export(memberId: Uuid) =
+    override fun exportMember(memberId: Uuid) =
         buildJsonObject {
             putJsonArray("projectsSubmitted") {
                 CrowdfundingProjectTable
@@ -84,7 +84,7 @@ object CrowdfundingPersonalData : PersonalDataContributor {
             }
         }
 
-    override fun erase(
+    override fun eraseMember(
         memberId: Uuid,
         mode: ErasureMode,
     ): List<TableErasureOutcome> {

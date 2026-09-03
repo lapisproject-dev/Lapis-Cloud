@@ -351,6 +351,16 @@ object Routes {
     // -- same "narrower than [BACKUP]" posture, lives in the existing ADMIN-only "System" dropdown,
     // no new top-level dropdown. Read-only screen -- see `EmbedIntegrationScreen.kt` KDoc.
     const val EMBED_INTEGRATION = "/website-integration"
+
+    // Welle V1.4.2 "Interessenten-/Sympathisanten-CRM" -- BOARD/ADMIN, verified against
+    // `CrmService.kt`: `listContacts`/`getContact`/`createContact`/`updateContact`/
+    // `archiveContact`/`unarchiveContact`/`listInteractions`/`recordInteraction` all call
+    // `current.requireRole(*CRM_READ_WRITE_ROLES)` where `CRM_READ_WRITE_ROLES = [BOARD, ADMIN]`;
+    // `eraseContact` alone is ADMIN-only (enforced server-side, `CrmContactsScreen.kt` merely hides
+    // the button for a non-ADMIN caller). Route-level gate here is `requireRole(BOARD, ADMIN)`, not
+    // `requireAuth` -- there is no MEMBER-readable CRM method, same posture as [API_KEYS]. No new
+    // top-level dropdown -- lives inside the existing "Verwaltung" dropdown, next to [API_KEYS].
+    const val CRM = "/crm"
 }
 
 private var appRouting: Routing? = null
@@ -609,6 +619,11 @@ fun initRouting(pageContainer: SimplePanel) {
     routing.kvOn(Routes.API_KEYS) {
         requireRole(routing, AccountRole.BOARD, AccountRole.ADMIN) {
             show(Routes.API_KEYS, ::renderApiKeysScreen)
+        }
+    }
+    routing.kvOn(Routes.CRM) {
+        requireRole(routing, AccountRole.BOARD, AccountRole.ADMIN) {
+            show(Routes.CRM, ::renderCrmContactsScreen)
         }
     }
     routing.kvOn("/") {

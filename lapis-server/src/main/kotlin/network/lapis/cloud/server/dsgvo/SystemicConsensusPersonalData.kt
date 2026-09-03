@@ -29,7 +29,7 @@ import kotlin.uuid.Uuid
  * (without revealing *what* resistance they cast, on the secret path) are all
  * accountability-relevant electoral records, not purely personal data.
  */
-object SystemicConsensusPersonalData : PersonalDataContributor {
+object SystemicConsensusPersonalData : MemberPersonalDataContributor {
     override val sectionKey = "systemic_consensus"
     override val displayName = "Systemic Consensus"
     override val coveredTables =
@@ -41,7 +41,7 @@ object SystemicConsensusPersonalData : PersonalDataContributor {
             SystemicConsensusBallotTable,
         )
 
-    override fun export(memberId: Uuid) =
+    override fun exportMember(memberId: Uuid) =
         buildJsonObject {
             putJsonArray("systemicConsensusesOpened") {
                 SystemicConsensusTable
@@ -120,7 +120,7 @@ object SystemicConsensusPersonalData : PersonalDataContributor {
             }
         }
 
-    override fun erase(
+    override fun eraseMember(
         memberId: Uuid,
         mode: ErasureMode,
     ): List<TableErasureOutcome> {

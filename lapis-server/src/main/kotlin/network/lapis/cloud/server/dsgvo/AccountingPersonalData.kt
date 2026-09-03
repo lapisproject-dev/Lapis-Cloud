@@ -34,12 +34,12 @@ import kotlin.uuid.Uuid
  * export, and it must still be counted as retained on erasure, for the same GoBD/§257 HGB/§147 AO
  * reasoning as every other field of a posted journal entry.
  */
-object AccountingPersonalData : PersonalDataContributor {
+object AccountingPersonalData : MemberPersonalDataContributor {
     override val sectionKey = "accounting"
     override val displayName = "Buchhaltung"
     override val coveredTables = setOf(JournalEntryTable)
 
-    override fun export(memberId: Uuid) =
+    override fun exportMember(memberId: Uuid) =
         buildJsonArray {
             JournalEntryTable
                 .selectAll()
@@ -59,7 +59,7 @@ object AccountingPersonalData : PersonalDataContributor {
                 }
         }
 
-    override fun erase(
+    override fun eraseMember(
         memberId: Uuid,
         mode: ErasureMode,
     ): List<TableErasureOutcome> {

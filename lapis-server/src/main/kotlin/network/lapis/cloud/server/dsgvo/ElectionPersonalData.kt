@@ -35,7 +35,7 @@ import kotlin.uuid.Uuid
  * for the same reason [GovernancePersonalData] retains `vote_ballot`) are all
  * accountability-relevant electoral records, not purely personal data.
  */
-object ElectionPersonalData : PersonalDataContributor {
+object ElectionPersonalData : MemberPersonalDataContributor {
     override val sectionKey = "elections"
     override val displayName = "Democratic Elections"
     override val coveredTables =
@@ -49,7 +49,7 @@ object ElectionPersonalData : PersonalDataContributor {
             ElectionBallotTable,
         )
 
-    override fun export(memberId: Uuid) =
+    override fun exportMember(memberId: Uuid) =
         buildJsonObject {
             putJsonArray("electionsOpened") {
                 ElectionTable
@@ -155,7 +155,7 @@ object ElectionPersonalData : PersonalDataContributor {
             }
         }
 
-    override fun erase(
+    override fun eraseMember(
         memberId: Uuid,
         mode: ErasureMode,
     ): List<TableErasureOutcome> {

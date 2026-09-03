@@ -34,7 +34,7 @@ import kotlin.uuid.Uuid
  * business-rule side effect ("Bewertungsstatistik wird geloescht") -- that is unrelated to, and
  * runs independently of, DSGVO erasure of a RATER's or ADMIN-actor's own member row.
  */
-object PoliticianPersonalData : PersonalDataContributor {
+object PoliticianPersonalData : MemberPersonalDataContributor {
     override val sectionKey = "politician"
     override val displayName = "Politiker-Profile und Politiker-Ranking"
     override val coveredTables =
@@ -44,7 +44,7 @@ object PoliticianPersonalData : PersonalDataContributor {
             PoliticianWeightSnapshotTable,
         )
 
-    override fun export(memberId: Uuid) =
+    override fun exportMember(memberId: Uuid) =
         buildJsonObject {
             putJsonArray("politicianProfilesHeld") {
                 PoliticianProfileTable
@@ -96,7 +96,7 @@ object PoliticianPersonalData : PersonalDataContributor {
             }
         }
 
-    override fun erase(
+    override fun eraseMember(
         memberId: Uuid,
         mode: ErasureMode,
     ): List<TableErasureOutcome> {

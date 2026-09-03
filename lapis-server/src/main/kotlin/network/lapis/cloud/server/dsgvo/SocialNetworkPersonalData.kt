@@ -37,12 +37,12 @@ import kotlin.uuid.Uuid
  * Verfahrensdatensatz zu einer gesetzlichen Pflicht (DSA Art. 16), dessen Aufbewahrung eigene
  * Rechtsgrundlage hat.
  */
-object SocialNetworkPersonalData : PersonalDataContributor {
+object SocialNetworkPersonalData : MemberPersonalDataContributor {
     override val sectionKey = "social_network"
     override val displayName = "Soziales Netzwerk"
     override val coveredTables = setOf(SocialPostTable, SocialPostBoostTable, SocialPostReportTable)
 
-    override fun export(memberId: Uuid) =
+    override fun exportMember(memberId: Uuid) =
         buildJsonObject {
             putJsonArray("postsAuthored") {
                 SocialPostTable
@@ -64,7 +64,7 @@ object SocialNetworkPersonalData : PersonalDataContributor {
             }
         }
 
-    override fun erase(
+    override fun eraseMember(
         memberId: Uuid,
         mode: ErasureMode,
     ): List<TableErasureOutcome> {

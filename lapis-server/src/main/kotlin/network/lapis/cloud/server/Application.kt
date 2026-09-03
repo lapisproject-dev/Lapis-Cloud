@@ -84,6 +84,7 @@ import network.lapis.cloud.server.postal.LetterxpressPostalMailProvider
 import network.lapis.cloud.server.routes.registerAuthRoutes
 import network.lapis.cloud.server.routes.registerBackupRoutes
 import network.lapis.cloud.server.routes.registerConferenceRecordingRoutes
+import network.lapis.cloud.server.routes.registerCrmRoutes
 import network.lapis.cloud.server.routes.registerDocumentRoutes
 import network.lapis.cloud.server.routes.registerDsgvoRoutes
 import network.lapis.cloud.server.routes.registerDunningRoutes
@@ -111,6 +112,7 @@ import network.lapis.cloud.server.rpc.ConferenceService
 import network.lapis.cloud.server.rpc.ConferenceStreamingService
 import network.lapis.cloud.server.rpc.ConferenceWhiteboardService
 import network.lapis.cloud.server.rpc.ContributionService
+import network.lapis.cloud.server.rpc.CrmService
 import network.lapis.cloud.server.rpc.CrowdfundingService
 import network.lapis.cloud.server.rpc.DirectMessageService
 import network.lapis.cloud.server.rpc.DocumentService
@@ -157,6 +159,7 @@ import network.lapis.cloud.shared.rpc.IConferenceService
 import network.lapis.cloud.shared.rpc.IConferenceStreamingService
 import network.lapis.cloud.shared.rpc.IConferenceWhiteboardService
 import network.lapis.cloud.shared.rpc.IContributionService
+import network.lapis.cloud.shared.rpc.ICrmService
 import network.lapis.cloud.shared.rpc.ICrowdfundingService
 import network.lapis.cloud.shared.rpc.IDirectMessageService
 import network.lapis.cloud.shared.rpc.IDocumentService
@@ -613,6 +616,14 @@ fun Application.module() {
     val webhookTestRateLimiter = FederationInboxRateLimiter(maxRequests = 5, window = 1.minutes)
     val webhookDeliveryLogRateLimiter = FederationInboxRateLimiter(maxRequests = 60, window = 1.minutes)
 
+    // Welle V1.4.2 "Interessenten-/Sympathisanten-CRM" -- module-scoped, NEVER a constructor
+    // default (same reasoning as every other limiter in this block: registerService's factory
+    // lambda constructs a fresh CrmService per RPC call). Member-keyed (authenticated BOARD/ADMIN
+    // path, never IP-keyed). recordInteraction gets a more generous budget than contact writes --
+    // logging a call/meeting is expected to happen far more often than creating/editing a contact.
+    val crmContactWriteRateLimiter = FederationInboxRateLimiter(maxRequests = 60, window = 1.minutes)
+    val crmInteractionWriteRateLimiter = FederationInboxRateLimiter(maxRequests = 120, window = 1.minutes)
+
     // V1.0 Videokonferenzen, Wave 9 "Stream-Pause bei geheimen Abstimmungen" (D6) -- constructed here,
     // NOT left to ElectionService's/SystemicConsensusService's own constructor defaults (there ARE
     // none -- see those classes' own `streamGuard` KDoc): reuses the SAME liveKitEgressClient/
@@ -1033,6 +1044,14 @@ fun Application.module() {
                 deliveryLogRateLimiter = webhookDeliveryLogRateLimiter,
             )
         }
+        // Welle V1.4.2 "Interessenten-/Sympathisanten-CRM".
+        registerService(ICrmService::class) { call ->
+            CrmService(
+                call = call,
+                contactWriteRateLimiter = crmContactWriteRateLimiter,
+                interactionWriteRateLimiter = crmInteractionWriteRateLimiter,
+            )
+        }
     }
 
     routing {
@@ -1045,6 +1064,7 @@ fun Application.module() {
         registerDocumentRoutes(documentStorageRoot)
         registerConferenceRecordingRoutes(documentStorageRoot)
         registerDsgvoRoutes()
+        registerCrmRoutes()
         registerMailmergeRoutes(documentStorageRoot)
         registerSepaRoutes(documentStorageRoot = documentStorageRoot, sepaConfig = sepaConfig)
         registerDunningRoutes(storageRoot = documentStorageRoot, previewRateLimiter = dunningPreviewRateLimiter)

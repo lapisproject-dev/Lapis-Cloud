@@ -68,7 +68,7 @@ class DsgvoCompliancePersonalDataTest :
 
             val exported =
                 transaction {
-                    DsgvoCompliancePersonalData.export(ADMIN_ID)
+                    DsgvoCompliancePersonalData.exportMember(ADMIN_ID)
                 }
             val agreements = exported["processingAgreements"]!!.jsonArray
             (agreements.any { it.jsonObject["id"]!!.jsonPrimitive.content == agreementId.toString() }) shouldBe true
@@ -77,7 +77,7 @@ class DsgvoCompliancePersonalDataTest :
 
             val exportedForUnrelatedMember =
                 transaction {
-                    DsgvoCompliancePersonalData.export(BOARD_ID)
+                    DsgvoCompliancePersonalData.exportMember(BOARD_ID)
                 }
             val unrelatedAgreements = exportedForUnrelatedMember["processingAgreements"]!!.jsonArray
             (unrelatedAgreements.any { it.jsonObject["id"]!!.jsonPrimitive.content == agreementId.toString() }) shouldBe false
@@ -108,7 +108,7 @@ class DsgvoCompliancePersonalDataTest :
             listOf(ErasureMode.ANONYMIZE, ErasureMode.HARD_DELETE_WHERE_UNCONSTRAINED).forEach { mode ->
                 val outcomes =
                     transaction {
-                        DsgvoCompliancePersonalData.erase(memberId = BOARD_ID, mode = mode)
+                        DsgvoCompliancePersonalData.eraseMember(memberId = BOARD_ID, mode = mode)
                     }
                 outcomes.size shouldBe 4
                 outcomes.forEach { outcome ->

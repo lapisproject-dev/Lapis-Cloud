@@ -6,6 +6,7 @@ import kotlin.uuid.Uuid
 import kotlinx.datetime.LocalDateTime
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.DsgvoAuditAction
+import network.lapis.cloud.shared.domain.DsgvoSubjectKind
 import org.jetbrains.exposed.v1.core.Column
 import org.jetbrains.exposed.v1.core.Table
 import org.jetbrains.exposed.v1.datetime.datetime
@@ -16,16 +17,22 @@ public object DsgvoAuditLogTable : Table("dsgvo_audit_log") {
     public val actorMemberId: Column<Uuid?> = optReference("actor_member_id", MemberTable.id)
     public val actorRole: Column<AccountRole?> = enumerationByName<AccountRole>("actor_role", 9).nullable()
     public val action: Column<DsgvoAuditAction> = enumerationByName<DsgvoAuditAction>("action", 17)
-    public val subjectMemberId: Column<Uuid> = reference("subject_member_id", MemberTable.id)
+    // Welle V1.4.2 -- no longer a `reference(...)` (real FK dropped, V17__crm_contacts.sql): this
+    // column now polymorphically holds either a member id or a crm_contact id, discriminated by
+    // the sibling `subjectKind` column. See that migration's own comment.
+    public val subjectMemberId: Column<Uuid> = uuid("subject_member_id")
     public val requestId: Column<Uuid?> = optReference("request_id", ErasureRequestTable.id)
     public val outcomeSummary: Column<String?> = text("outcome_summary").nullable()
     public val legalBasis: Column<String?> = varchar("legal_basis", 500).nullable()
+    // Welle V1.4.2 "Interessenten-/Sympathisanten-CRM" -- see network.lapis.cloud.server.dsgvo
+    // .DataSubject KDoc. Carries no payload, same doctrine as every other column on this table.
+    public val subjectKind: Column<DsgvoSubjectKind> = enumerationByName<DsgvoSubjectKind>("subject_kind", 11)
 
     override val primaryKey: PrimaryKey = PrimaryKey(id)
 
     // Note: 2 index(es) declared on this entity are not emitted —
     // Exposed's index {} DSL needs typed column references, not wired up in this wave.
 
-    // Note: 2 check constraint(s) declared on this entity are not
+    // Note: 3 check constraint(s) declared on this entity are not
     // emitted — Exposed's check {} DSL needs a typed Op<Boolean>, not a raw SQL string.
 }

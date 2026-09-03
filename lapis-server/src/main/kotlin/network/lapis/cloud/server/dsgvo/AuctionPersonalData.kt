@@ -34,7 +34,7 @@ import kotlin.uuid.Uuid
  * AUCTION_SALE_OUT/AUCTION_SALE_IN) are already covered by [LtrPersonalData] and not duplicated
  * here.
  */
-object AuctionPersonalData : PersonalDataContributor {
+object AuctionPersonalData : MemberPersonalDataContributor {
     override val sectionKey = "auction"
     override val displayName = "LTR-Auktion"
     override val coveredTables =
@@ -44,7 +44,7 @@ object AuctionPersonalData : PersonalDataContributor {
             AuctionComplianceAcknowledgmentTable,
         )
 
-    override fun export(memberId: Uuid) =
+    override fun exportMember(memberId: Uuid) =
         buildJsonObject {
             putJsonArray("auctionsSold") {
                 AuctionTable
@@ -89,7 +89,7 @@ object AuctionPersonalData : PersonalDataContributor {
             }
         }
 
-    override fun erase(
+    override fun eraseMember(
         memberId: Uuid,
         mode: ErasureMode,
     ): List<TableErasureOutcome> {

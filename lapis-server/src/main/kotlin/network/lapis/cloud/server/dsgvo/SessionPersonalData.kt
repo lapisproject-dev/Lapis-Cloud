@@ -26,12 +26,12 @@ import kotlin.uuid.Uuid
  * meaningful personal data on its own, and exporting it (even hashed) serves no purpose for the
  * data subject while adding a security-adjacent value to the export payload for no benefit.
  */
-object SessionPersonalData : PersonalDataContributor {
+object SessionPersonalData : MemberPersonalDataContributor {
     override val sectionKey = "sessions"
     override val displayName = "Login-Sitzungen"
     override val coveredTables = setOf(SessionTable)
 
-    override fun export(memberId: Uuid) =
+    override fun exportMember(memberId: Uuid) =
         buildJsonArray {
             SessionTable
                 .selectAll()
@@ -49,7 +49,7 @@ object SessionPersonalData : PersonalDataContributor {
                 }
         }
 
-    override fun erase(
+    override fun eraseMember(
         memberId: Uuid,
         mode: ErasureMode,
     ): List<TableErasureOutcome> {

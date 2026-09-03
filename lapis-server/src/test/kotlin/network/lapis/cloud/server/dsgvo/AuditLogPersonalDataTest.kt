@@ -93,7 +93,7 @@ class AuditLogPersonalDataTest :
                 )
             }
 
-            val export = transaction { AuditLogPersonalData.export(member) }
+            val export = transaction { AuditLogPersonalData.exportMember(member) }
             export.size shouldBe 1
             val entry = export.single().jsonObject
             entry.keys shouldBe setOf("id", "sequenceNumber", "occurredAt", "entityType", "entityId", "action")
@@ -129,7 +129,7 @@ class AuditLogPersonalDataTest :
                 )
             }
 
-            val export = transaction { AuditLogPersonalData.export(subject) }
+            val export = transaction { AuditLogPersonalData.exportMember(subject) }
             export.size shouldBe 1
             val entry = export.single().jsonObject
             entry.getValue("entityType").jsonPrimitive.content shouldBe "MEMBER"
@@ -139,7 +139,7 @@ class AuditLogPersonalDataTest :
 
             // The board member's OWN export must not gain this row's snapshot content just because
             // they were the actor -- unchanged third-party-leak protection for non-subject rows.
-            val boardExport = transaction { AuditLogPersonalData.export(board) }
+            val boardExport = transaction { AuditLogPersonalData.exportMember(board) }
             boardExport.size shouldBe 1
             val boardEntry = boardExport.single().jsonObject
             boardEntry.keys shouldBe setOf("id", "sequenceNumber", "occurredAt", "entityType", "entityId", "action")
@@ -147,7 +147,7 @@ class AuditLogPersonalDataTest :
 
         test("export for a member with no audit-log activity at all is an empty array") {
             val member = createTestMember("audit-pd-export-empty@example.org")
-            val export = transaction { AuditLogPersonalData.export(member) }
+            val export = transaction { AuditLogPersonalData.exportMember(member) }
             export.size shouldBe 0
         }
 
@@ -168,7 +168,7 @@ class AuditLogPersonalDataTest :
             }
 
             listOf(ErasureMode.ANONYMIZE, ErasureMode.HARD_DELETE_WHERE_UNCONSTRAINED).forEach { mode ->
-                val outcomes = transaction { AuditLogPersonalData.erase(memberId = member, mode = mode) }
+                val outcomes = transaction { AuditLogPersonalData.eraseMember(memberId = member, mode = mode) }
                 outcomes.size shouldBe 1
                 val outcome = outcomes.single()
                 outcome.table shouldBe "audit_log_entry"
@@ -218,17 +218,17 @@ class AuditLogPersonalDataTest :
             // export() already surfaces exactly these 3 rows to `subject` under Art. 15 (see the
             // dedicated export test above) -- erase()'s Art. 17 confirmation must report the SAME
             // count, not zero.
-            val export = transaction { AuditLogPersonalData.export(subject) }
+            val export = transaction { AuditLogPersonalData.exportMember(subject) }
             export.size shouldBe 3
 
-            val outcome = transaction { AuditLogPersonalData.erase(memberId = subject, mode = ErasureMode.ANONYMIZE) }.single()
+            val outcome = transaction { AuditLogPersonalData.eraseMember(memberId = subject, mode = ErasureMode.ANONYMIZE) }.single()
             outcome.rowsRetained shouldBe 3
             outcome.rowsAnonymized shouldBe 0
             outcome.rowsDeleted shouldBe 0
 
             // `board`, the ACTOR, is unaffected by this fix -- its own erase() still counts these
             // same 3 rows too (it is actorMemberId on all of them), unchanged behavior.
-            val boardOutcome = transaction { AuditLogPersonalData.erase(memberId = board, mode = ErasureMode.ANONYMIZE) }.single()
+            val boardOutcome = transaction { AuditLogPersonalData.eraseMember(memberId = board, mode = ErasureMode.ANONYMIZE) }.single()
             boardOutcome.rowsRetained shouldBe 3
         }
     })

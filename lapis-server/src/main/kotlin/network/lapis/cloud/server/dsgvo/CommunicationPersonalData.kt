@@ -35,7 +35,7 @@ import kotlin.uuid.Uuid
  * redacting those would edit the counterparty's copy of their own words without the
  * counterparty's request.
  */
-object CommunicationPersonalData : PersonalDataContributor {
+object CommunicationPersonalData : MemberPersonalDataContributor {
     override val sectionKey = "communication"
     override val displayName = "Kommunikation"
     override val coveredTables =
@@ -47,7 +47,7 @@ object CommunicationPersonalData : PersonalDataContributor {
             DirectMessageTable,
         )
 
-    override fun export(memberId: Uuid) =
+    override fun exportMember(memberId: Uuid) =
         buildJsonObject {
             putJsonArray("createdMailingLists") {
                 MailingListTable
@@ -110,7 +110,7 @@ object CommunicationPersonalData : PersonalDataContributor {
             }
         }
 
-    override fun erase(
+    override fun eraseMember(
         memberId: Uuid,
         mode: ErasureMode,
     ): List<TableErasureOutcome> {

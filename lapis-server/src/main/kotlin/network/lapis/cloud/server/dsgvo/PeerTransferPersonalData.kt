@@ -26,12 +26,12 @@ import kotlin.uuid.Uuid
  * request erasure. The corresponding `ltr_ledger_entry` rows (PEER_TRANSFER_OUT/PEER_TRANSFER_IN)
  * are already covered by [LtrPersonalData] and not duplicated here.
  */
-object PeerTransferPersonalData : PersonalDataContributor {
+object PeerTransferPersonalData : MemberPersonalDataContributor {
     override val sectionKey = "peerTransfer"
     override val displayName = "LTR-Peer-to-Peer-Uebertragungen"
     override val coveredTables = setOf(PeerTransferTable)
 
-    override fun export(memberId: Uuid) =
+    override fun exportMember(memberId: Uuid) =
         buildJsonObject {
             putJsonArray("transfersSent") {
                 PeerTransferTable
@@ -53,7 +53,7 @@ object PeerTransferPersonalData : PersonalDataContributor {
             }
         }
 
-    override fun erase(
+    override fun eraseMember(
         memberId: Uuid,
         mode: ErasureMode,
     ): List<TableErasureOutcome> {

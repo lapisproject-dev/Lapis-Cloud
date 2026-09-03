@@ -137,6 +137,16 @@ classDiagram(name = "Dsgvo") {
         literal(name = "ADMIN")
     }
 
+    // Welle V1.4.2 "Interessenten-/Sympathisanten-CRM" — see
+    // network.lapis.cloud.server.dsgvo.DataSubject KDoc for why dsgvo_audit_log needed a subject
+    // TYPE discriminator once a row could describe either a member or a crm_contact. Added via
+    // V17__crm_contacts.sql's `ALTER TABLE ... ADD COLUMN ... DEFAULT 'MEMBER'`, so every
+    // pre-V1.4.2 row is retroactively (and correctly) MEMBER.
+    val dsgvoSubjectKind = enumOf(name = "DsgvoSubjectKind") {
+        literal(name = "MEMBER")
+        literal(name = "CRM_CONTACT")
+    }
+
     val erasureRequest = classOf(name = "ErasureRequest") {
         stereotype("Entity") { "tableName" to "erasure_request"; "kotlinObjectName" to "ErasureRequestTable" }
         stereotype("Index") { "columns" to listOf("subject_member_id"); "name" to "idx_erasure_request_subject" }
@@ -223,10 +233,16 @@ classDiagram(name = "Dsgvo") {
         attribute(name = "action", type = dsgvoAuditAction) {
             stereotype("Column") { "columnName" to "action"; "enumType" to "network.lapis.cloud.shared.domain.DsgvoAuditAction" }
         }
-        // Real FK -> member (id), NOT NULL. Plain «Column» UUID attribute — see the file header
-        // comment.
+        // Welle V1.4.2 -- NO LONGER a hard FK. Was `fkEntity to "Member"` (real FK -> member(id))
+        // before this wave; V17__crm_contacts.sql DROPs `fk_dsgvo_audit_log_subject_member_id`
+        // because this column now polymorphically holds EITHER a member id OR a crm_contact id,
+        // discriminated by the sibling `subjectKind` column (see that attribute's own comment and
+        // network.lapis.cloud.server.dsgvo.DataSubject KDoc) -- a single-target FK can no longer be
+        // correct for both cases. `erasure_request.subject_member_id` (above) is UNAFFECTED and
+        // keeps its real FK -> member: that workflow stays mitglieds-exklusiv (see
+        // network.lapis.cloud.server.rpc.CrmService KDoc "eraseContact").
         attribute(name = "subjectMemberId", type = "UUID") {
-            stereotype("Column") { "columnName" to "subject_member_id"; "fkEntity" to "Member" }
+            stereotype("Column") { "columnName" to "subject_member_id" }
         }
         // Real FK -> erasure_request (id), nullable. Plain «Column» UUID attribute — see the file
         // header comment (association-to-FK naming would derive "erasure_request_id", not the
@@ -243,6 +259,13 @@ classDiagram(name = "Dsgvo") {
         attribute(name = "legalBasis", type = "String") {
             multiplicity = Multiplicity(0, 1)
             stereotype("Column") { "columnName" to "legal_basis"; "sqlType" to "VARCHAR(500)" }
+        }
+        // Welle V1.4.2 -- see the file header addition above for why this column exists.
+        attribute(name = "subjectKind", type = dsgvoSubjectKind) {
+            stereotype("Column") {
+                "columnName" to "subject_kind"
+                "enumType" to "network.lapis.cloud.shared.domain.DsgvoSubjectKind"
+            }
         }
     }
 }

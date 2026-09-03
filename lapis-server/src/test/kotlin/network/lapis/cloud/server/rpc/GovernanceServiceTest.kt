@@ -1091,13 +1091,13 @@ class GovernanceServiceTest :
             }
             createdCommitteeIds += committeeId
 
-            val exportSubmitter = transaction { GovernancePersonalData.export(submitter) }.toString()
+            val exportSubmitter = transaction { GovernancePersonalData.exportMember(submitter) }.toString()
             exportSubmitter shouldContain "DSGVO-Testmotion"
 
-            val exportReviewer = transaction { GovernancePersonalData.export(reviewer) }.toString()
+            val exportReviewer = transaction { GovernancePersonalData.exportMember(reviewer) }.toString()
             exportReviewer shouldContain "DSGVO-Testmotion"
 
-            val outcomes = transaction { GovernancePersonalData.erase(memberId = submitter, mode = ErasureMode.ANONYMIZE) }
+            val outcomes = transaction { GovernancePersonalData.eraseMember(memberId = submitter, mode = ErasureMode.ANONYMIZE) }
             val motionOutcome = outcomes.single { it.table == "motion" }
             motionOutcome.rowsRetained shouldBe 1
 
@@ -1941,13 +1941,13 @@ class GovernanceServiceTest :
             }
             createdCommitteeIds += committeeId
 
-            val exportOpener = transaction { GovernancePersonalData.export(opener) }.toString()
+            val exportOpener = transaction { GovernancePersonalData.exportMember(opener) }.toString()
             exportOpener shouldContain "DSGVO-Testvote"
 
-            val exportVoter = transaction { GovernancePersonalData.export(voter) }.toString()
+            val exportVoter = transaction { GovernancePersonalData.exportMember(voter) }.toString()
             exportVoter shouldContain "12.34"
 
-            val outcomes = transaction { GovernancePersonalData.erase(memberId = voter, mode = ErasureMode.ANONYMIZE) }
+            val outcomes = transaction { GovernancePersonalData.eraseMember(memberId = voter, mode = ErasureMode.ANONYMIZE) }
             val ballotOutcome = outcomes.single { it.table == "vote_ballot" }
             ballotOutcome.rowsRetained shouldBe 1
 

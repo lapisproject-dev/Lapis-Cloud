@@ -8,6 +8,52 @@ All notable changes to this project are documented here. Format follows
 
 ### Added
 
+**Interessenten-/Sympathisanten-CRM (Welle V1.4.2)**
+
+- **Eigenständige Kontakt-Entität** (`crm_contact`) für Interessenten, Sympathisanten, Förderer,
+  ehemalige Mitglieder und Presse-Kontakte — bewusst **nicht** mit `external_donor` (§25-PartG-
+  Spendenrecht) oder `MemberStatus.FRIEND` (Videokonferenz-/LTR-Zugang) vermischt, siehe
+  `38-crm.kuml.kts` Dateikopf für die volle Begründung. Optional mit einem Spender- oder
+  Mitgliedsdatensatz verknüpfbar (`external_donor_id`/`member_id`, je eindeutig indiziert).
+- **Append-only Interaktionshistorie** (`crm_interaction`) — Anruf/Treffen/E-Mail/Brief/
+  Veranstaltung/Notiz, ein Freitextfeld, kein Update-/Löschpfad außerhalb der Art.-17-Löschung.
+- **Rechtsgrundlagen-Pflichtfeld** (`CrmLawfulBasis`: Einwilligung/berechtigtes Interesse/Vertrag)
+  bei jeder Kontaktanlage — bei „Einwilligung" sind Herkunft und Zeitpunkt Pflicht (DB-CHECK-
+  abgesichert). `mayReceiveEmail` wird ausschließlich server-seitig berechnet und ist die einzige
+  Stelle, an die ein künftiger CRM-Mailingpfad andocken darf.
+- **DSGVO-Framework für Nicht-Mitglieds-Subjekte geöffnet**: `PersonalDataContributor` ist jetzt
+  subjekt-agnostisch (`DataSubject`, nicht mehr eine bloße Mitglieds-`Uuid`); `crm_contact` ist eine
+  zweite DSGVO-Subjekt-Wurzel neben `member`. `PersonalDataCoverageTest`s `information_schema`-Walk
+  deckt beide Wurzeln ab. `external_donor` bleibt bewusst außen vor (V0.5.4-Altlast), jetzt aber
+  testgeprüft sichtbar gemacht statt nur kommentiert (`PersonalDataRegistry.knownUncoveredSubjectRoots`).
+  `dsgvo_audit_log` trägt eine neue `subject_kind`-Spalte (MEMBER/CRM_CONTACT); die vormalige
+  `subject_member_id`-FK auf `member` musste dafür entfallen (der Spalteninhalt ist jetzt
+  polymorph — Mitglieds- oder Kontakt-Id, unterschieden über `subject_kind`).
+- Admin-Oberfläche „Kontakte & Interessenten" (BOARD/ADMIN lesen/schreiben, **ADMIN-only** Löschen)
+  — Liste mit Typ-/Wiedervorlage-/Archiv-Filtern, Detail-Akkordeon mit modelloser
+  Interaktions-Erfassung (ein Pflichtfeld), Datenschutz-Block mit Auskunfts-Export (JSON) und
+  Löschung nach Art. 17 DSGVO (Namens-Tippbestätigung statt Einzelklick — die einzige Stelle in
+  diesem Codebase, die eine Zeile echt und unwiderruflich löscht, nicht anonymisiert).
+- Keine Selbstbedienung für Nicht-Mitglieder in dieser Welle: Auskunft/Löschung laufen
+  ausschließlich administrativ; `crm_contact.email` ist bereits eindeutig indiziert, damit ein
+  späterer Token-Selbstbedienungspfad ohne Migration nachrüstbar bleibt.
+- **Einwilligungswiderruf nach Art. 7(3) DSGVO** — im Kontakt-Detail erscheint, solange eine
+  dokumentierte Einwilligung vorliegt und noch nicht widerrufen wurde, ein „Einwilligung
+  widerrufen"-Knopf. Setzt `consentWithdrawnAt` und schaltet `mayReceiveEmail` sofort auf `false`.
+  **Ein Widerruf ist reversibel** (Art. 7(3) Satz 2 DSGVO): trägt ein Sympathisant später erneut
+  eine Einwilligung nach (über „Bearbeiten" mit einem neuen, vom Bestand abweichenden Zeitpunkt der
+  Einwilligung), löscht `updateContact` den vormaligen Widerruf und `mayReceiveEmail` greift wieder
+  — ein unveränderter, erneut eingereichter Zeitpunkt lässt einen bestehenden Widerruf dagegen
+  unangetastet.
+- **Stammdaten-Bearbeitung nach Art. 16 DSGVO** — das server-seitig bereits vorhandene, aber aus der
+  Oberfläche unerreichbare `updateContact` ist jetzt über einen „Bearbeiten"-Knopf im Kontakt-Detail
+  erreichbar. Ein Wechsel der Rechtsgrundlage löscht dabei nie eine bereits dokumentierte
+  Einwilligung: `consentSource`/`consentGivenAt` bleiben als Art.-7(1)-Nachweis erhalten, auch wenn
+  die aktuell gewählte Rechtsgrundlage nicht mehr „Einwilligung" ist.
+- **„Mehr laden"-Paginierung** für die Kontaktliste und die Interaktions-Zeitleiste — löst den
+  vormals stillen Abbruch bei 200 Einträgen ab (echtes Offset-Paging, Kontaktliste zusätzlich mit
+  `total`-Auswertung).
+
 **Öffentliche Website-Integration (Welle V1.4.1a "Fundament + Login-Widget")**
 
 - **Einbettungs-Vertrag**: ein kleines Skript-Bundle (`/embed/v1/lapis-widgets.js`, < 8 KB,

@@ -351,7 +351,7 @@ class SocialNetworkPersonalDataTest :
 
         // Addendum-Test 52, zweiter Teil (Review-Fund 6, Runde 1 2026-08-19): "erster Schreiber
         // gewinnt" cross-path -- ein per (A) `executeContentErasure` bereits getombstoneter Post
-        // darf vom (B) mitglieds-weiten `SocialNetworkPersonalData.erase(HARD_DELETE_WHERE_
+        // darf vom (B) mitglieds-weiten `SocialNetworkPersonalData.eraseMember(HARD_DELETE_WHERE_
         // UNCONSTRAINED)` NICHT erneut ueberschrieben werden. Ruft [SocialNetworkPersonalData.erase]
         // direkt auf (statt ueber den vollen `DsgvoService`-Antragsfluss) -- dasselbe Package, siehe
         // Klassen-KDoc "läuft in der Transaktion des Aufrufers".
@@ -438,7 +438,7 @@ class SocialNetworkPersonalDataTest :
                 // (B) mitglieds-weiter Antrag fuer denselben Autor, direkt am Contributor.
                 val outcome =
                     transaction {
-                        SocialNetworkPersonalData.erase(memberId = author, mode = ErasureMode.HARD_DELETE_WHERE_UNCONSTRAINED)
+                        SocialNetworkPersonalData.eraseMember(memberId = author, mode = ErasureMode.HARD_DELETE_WHERE_UNCONSTRAINED)
                     }
                 val socialOutcome = outcome.single { it.table == "social_post" }
                 socialOutcome.rowsAnonymized shouldBe 0

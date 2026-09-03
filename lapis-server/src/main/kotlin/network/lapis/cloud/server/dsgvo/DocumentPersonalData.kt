@@ -23,12 +23,12 @@ import kotlin.uuid.Uuid
  * organization's only copy of a governance record (e.g. Vereinssatzung) authored by the member
  * being erased — see `docs/architecture/dsgvo.adoc` "Bewusst nicht umgesetzt in dieser Welle".
  */
-object DocumentPersonalData : PersonalDataContributor {
+object DocumentPersonalData : MemberPersonalDataContributor {
     override val sectionKey = "documents"
     override val displayName = "Dokumente"
     override val coveredTables = setOf(DocumentTable, DocumentVersionTable)
 
-    override fun export(memberId: Uuid) =
+    override fun exportMember(memberId: Uuid) =
         buildJsonObject {
             putJsonArray("authoredDocuments") {
                 DocumentTable
@@ -63,7 +63,7 @@ object DocumentPersonalData : PersonalDataContributor {
             }
         }
 
-    override fun erase(
+    override fun eraseMember(
         memberId: Uuid,
         mode: ErasureMode,
     ): List<TableErasureOutcome> {

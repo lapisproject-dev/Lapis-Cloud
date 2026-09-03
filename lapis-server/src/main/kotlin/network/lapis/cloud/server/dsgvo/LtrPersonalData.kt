@@ -21,12 +21,12 @@ import kotlin.uuid.Uuid
  * [network.lapis.cloud.server.db.generated.MemberTable] row post-erasure, same as every other
  * retain-with-reason contributor.
  */
-object LtrPersonalData : PersonalDataContributor {
+object LtrPersonalData : MemberPersonalDataContributor {
     override val sectionKey = "ltrLedger"
     override val displayName = "LTR-Konto"
     override val coveredTables = setOf(LtrLedgerEntryTable)
 
-    override fun export(memberId: Uuid) =
+    override fun exportMember(memberId: Uuid) =
         buildJsonObject {
             putJsonArray("ledgerEntries") {
                 LtrLedgerEntryTable
@@ -63,7 +63,7 @@ object LtrPersonalData : PersonalDataContributor {
             }
         }
 
-    override fun erase(
+    override fun eraseMember(
         memberId: Uuid,
         mode: ErasureMode,
     ): List<TableErasureOutcome> {

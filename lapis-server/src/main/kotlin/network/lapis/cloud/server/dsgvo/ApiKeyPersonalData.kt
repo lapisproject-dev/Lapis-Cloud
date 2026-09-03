@@ -20,12 +20,12 @@ import kotlin.uuid.Uuid
  * `network.lapis.cloud.server.security.ApiKeyStore.ApiKeyRow` KDoc -- the hash stays a secret-
  * adjacent artefact, not personal data to disclose even to the subject themselves).
  */
-object ApiKeyPersonalData : PersonalDataContributor {
+object ApiKeyPersonalData : MemberPersonalDataContributor {
     override val sectionKey = "apiKeys"
     override val displayName = "API-Schlüssel"
     override val coveredTables = setOf(ApiKeyTable)
 
-    override fun export(memberId: Uuid) =
+    override fun exportMember(memberId: Uuid) =
         buildJsonArray {
             ApiKeyTable
                 .selectAll()
@@ -46,7 +46,7 @@ object ApiKeyPersonalData : PersonalDataContributor {
                 }
         }
 
-    override fun erase(
+    override fun eraseMember(
         memberId: Uuid,
         mode: ErasureMode,
     ): List<TableErasureOutcome> {

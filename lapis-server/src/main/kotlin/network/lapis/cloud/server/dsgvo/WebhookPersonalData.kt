@@ -23,12 +23,12 @@ import kotlin.uuid.Uuid
  * `webhook_delivery` carries NO member FK at all -- see `PersonalDataRegistry.noPersonalDataAllowlist`'s
  * own entry for that table.
  */
-object WebhookPersonalData : PersonalDataContributor {
+object WebhookPersonalData : MemberPersonalDataContributor {
     override val sectionKey = "webhookEndpoints"
     override val displayName = "Webhook-Endpunkte"
     override val coveredTables = setOf(WebhookEndpointTable)
 
-    override fun export(memberId: Uuid) =
+    override fun exportMember(memberId: Uuid) =
         buildJsonArray {
             WebhookEndpointTable
                 .selectAll()
@@ -55,7 +55,7 @@ object WebhookPersonalData : PersonalDataContributor {
                 }
         }
 
-    override fun erase(
+    override fun eraseMember(
         memberId: Uuid,
         mode: ErasureMode,
     ): List<TableErasureOutcome> {

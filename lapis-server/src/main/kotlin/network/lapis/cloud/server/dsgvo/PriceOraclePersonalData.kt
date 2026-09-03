@@ -28,12 +28,12 @@ import kotlin.uuid.Uuid
  * `price_oracle_config` (the single-row, ADMIN-tunable policy row) has NO member FK at all and is
  * therefore not covered by any contributor -- see [PersonalDataRegistry.noPersonalDataAllowlist].
  */
-object PriceOraclePersonalData : PersonalDataContributor {
+object PriceOraclePersonalData : MemberPersonalDataContributor {
     override val sectionKey = "priceOracleConversions"
     override val displayName = "Price-Oracle-Konvertierungen"
     override val coveredTables = setOf(PriceOracleConversionTable)
 
-    override fun export(memberId: Uuid) =
+    override fun exportMember(memberId: Uuid) =
         buildJsonObject {
             putJsonArray("conversionsReceived") {
                 PriceOracleConversionTable
@@ -49,7 +49,7 @@ object PriceOraclePersonalData : PersonalDataContributor {
             }
         }
 
-    override fun erase(
+    override fun eraseMember(
         memberId: Uuid,
         mode: ErasureMode,
     ): List<TableErasureOutcome> {

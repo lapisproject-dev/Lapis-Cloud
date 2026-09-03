@@ -23,12 +23,12 @@ import kotlin.uuid.Uuid
  * through the anonymized [network.lapis.cloud.server.db.generated.MemberTable] row post-erasure,
  * same as every other retain-with-reason contributor (see [FoundationPersonalData]).
  */
-object PostalMailPersonalData : PersonalDataContributor {
+object PostalMailPersonalData : MemberPersonalDataContributor {
     override val sectionKey = "postalMail"
     override val displayName = "Briefpostversand"
     override val coveredTables = setOf(PostalDeliveryLogTable)
 
-    override fun export(memberId: Uuid) =
+    override fun exportMember(memberId: Uuid) =
         buildJsonArray {
             PostalDeliveryLogTable
                 .selectAll()
@@ -46,7 +46,7 @@ object PostalMailPersonalData : PersonalDataContributor {
                 }
         }
 
-    override fun erase(
+    override fun eraseMember(
         memberId: Uuid,
         mode: ErasureMode,
     ): List<TableErasureOutcome> {

@@ -18,12 +18,12 @@ import kotlin.uuid.Uuid
  * now resolves to the anonymized [network.lapis.cloud.server.db.generated.MemberTable] row — see
  * [FoundationPersonalData].
  */
-object ContributionPersonalData : PersonalDataContributor {
+object ContributionPersonalData : MemberPersonalDataContributor {
     override val sectionKey = "contributions"
     override val displayName = "Beitraege"
     override val coveredTables = setOf(ContributionTable)
 
-    override fun export(memberId: Uuid) =
+    override fun exportMember(memberId: Uuid) =
         buildJsonArray {
             ContributionTable
                 .selectAll()
@@ -44,7 +44,7 @@ object ContributionPersonalData : PersonalDataContributor {
                 }
         }
 
-    override fun erase(
+    override fun eraseMember(
         memberId: Uuid,
         mode: ErasureMode,
     ): List<TableErasureOutcome> {

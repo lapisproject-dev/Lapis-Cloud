@@ -4,6 +4,7 @@ import kotlinx.datetime.LocalDateTime
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.DsgvoAuditAction
 import network.lapis.cloud.shared.domain.DsgvoAuditLogEntryDto
+import network.lapis.cloud.shared.domain.DsgvoSubjectKind
 import network.lapis.cloud.shared.domain.ErasureMode
 import network.lapis.cloud.shared.domain.ErasureRequestDto
 import network.lapis.cloud.shared.domain.ErasureStatus
@@ -188,6 +189,7 @@ class DsgvoRightsScreenTest {
             requestId = null,
             outcome = emptyList(),
             legalBasis = "Art. 15/20 DSGVO",
+            subjectKind = DsgvoSubjectKind.MEMBER,
         )
 
     // ---- dsgvoExportUrl ---------------------------------------------------------------------

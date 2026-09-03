@@ -107,7 +107,7 @@ class PublicRankingConsentPersonalDataTest :
             writeEvent(member, PublicRankingKind.LTR_HOLDINGS, PublicRankingConsentEventType.GRANTED)
             writeEvent(member, PublicRankingKind.LTR_HOLDINGS, PublicRankingConsentEventType.REVOKED)
 
-            val export = transaction { PublicRankingConsentPersonalData.export(member) }
+            val export = transaction { PublicRankingConsentPersonalData.exportMember(member) }
             val events = export.jsonObject.getValue("events").jsonArray
             events.size shouldBe 2
             val eventTypes =
@@ -127,7 +127,7 @@ class PublicRankingConsentPersonalDataTest :
 
         test("export for a member with no consent events has an empty events array") {
             val member = createTestMember("prc-pd-export-empty@example.org")
-            val export = transaction { PublicRankingConsentPersonalData.export(member) }
+            val export = transaction { PublicRankingConsentPersonalData.exportMember(member) }
             export.jsonObject
                 .getValue("events")
                 .jsonArray.size shouldBe 0
@@ -136,7 +136,7 @@ class PublicRankingConsentPersonalDataTest :
         test("export sets truncated=false while at/under the cap") {
             val member = createTestMember("prc-pd-export-not-truncated@example.org")
             writeEvent(member, PublicRankingKind.LTR_HOLDINGS, PublicRankingConsentEventType.GRANTED)
-            val export = transaction { PublicRankingConsentPersonalData.export(member) }
+            val export = transaction { PublicRankingConsentPersonalData.exportMember(member) }
             export.jsonObject
                 .getValue("truncated")
                 .jsonPrimitive.boolean shouldBe false
@@ -166,7 +166,7 @@ class PublicRankingConsentPersonalDataTest :
                 }
             }
 
-            val export = transaction { PublicRankingConsentPersonalData.export(member) }
+            val export = transaction { PublicRankingConsentPersonalData.exportMember(member) }
             export.jsonObject
                 .getValue("truncated")
                 .jsonPrimitive.boolean shouldBe true
@@ -180,7 +180,7 @@ class PublicRankingConsentPersonalDataTest :
             writeEvent(member, PublicRankingKind.LTR_HOLDINGS, PublicRankingConsentEventType.GRANTED)
             writeEvent(member, PublicRankingKind.DONATIONS, PublicRankingConsentEventType.REVOKED)
 
-            val outcomes = transaction { PublicRankingConsentPersonalData.erase(memberId = member, mode = ErasureMode.ANONYMIZE) }
+            val outcomes = transaction { PublicRankingConsentPersonalData.eraseMember(memberId = member, mode = ErasureMode.ANONYMIZE) }
             val outcome = outcomes.single()
             outcome.table shouldBe "public_ranking_consent_event"
             outcome.rowsDeleted shouldBe 2
@@ -198,7 +198,7 @@ class PublicRankingConsentPersonalDataTest :
         test("erase is a silent no-op (rowsDeleted == 0) for a member with no consent events, for both ErasureMode values") {
             val member = createTestMember("prc-pd-erase-empty@example.org")
             listOf(ErasureMode.ANONYMIZE, ErasureMode.HARD_DELETE_WHERE_UNCONSTRAINED).forEach { mode ->
-                val outcome = transaction { PublicRankingConsentPersonalData.erase(memberId = member, mode = mode) }.single()
+                val outcome = transaction { PublicRankingConsentPersonalData.eraseMember(memberId = member, mode = mode) }.single()
                 outcome.rowsDeleted shouldBe 0
             }
         }

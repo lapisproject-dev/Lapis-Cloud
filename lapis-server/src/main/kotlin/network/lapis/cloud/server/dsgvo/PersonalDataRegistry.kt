@@ -49,7 +49,42 @@ object PersonalDataRegistry {
             PublicRankingConsentPersonalData,
             ApiKeyPersonalData,
             WebhookPersonalData,
+            CrmPersonalData,
         )
+
+    /**
+     * Welle V1.4.2 "Interessenten-/Sympathisanten-CRM" -- tables whose PK IS a DSGVO subject
+     * (`member`, now also `crm_contact`). Feeds `PersonalDataCoverageTest`'s
+     * `information_schema` FK walk: every table with an FK to ANY of these must be covered by a
+     * contributor or explicitly listed in [noPersonalDataAllowlist] (or, for the non-member case
+     * specifically, [knownUncoveredSubjectRoots]).
+     */
+    val subjectRootTables: Set<String> = setOf("member", "crm_contact")
+
+    /**
+     * Tables that carry PII of a data subject who is NOT a member, have NO FK to `member(id)`,
+     * and are therefore invisible to [subjectRootTables]'s FK walk -- each with a written reason
+     * AND the wave that is expected to close the gap (checked by `PersonalDataCoverageTest`).
+     * Every entry here must also appear in [nonMemberPiiTables] (checked structurally, see that
+     * test) -- this map exists so a genuine, deliberate gap stays visible and testgeprüft instead
+     * of living only in a KDoc comment nobody re-reads.
+     */
+    val knownUncoveredSubjectRoots: Map<String, String> =
+        mapOf(
+            "external_donor" to
+                "Welle V0.5.1. Traegt PII eines Nicht-Mitglieds (Name/Anschrift), hat bewusst keinen " +
+                "member-FK und faellt daher aus dem Auskunfts-/Loeschframework heraus. Bewusst in " +
+                "dieser Welle (V1.4.2) NICHT funktional angefasst -- Vollausbau bleibt V0.5.4. " +
+                "Sichtbar gemacht, nicht geschlossen.",
+        )
+
+    /**
+     * Kuratiert: jede Tabelle mit PII eines NICHT-Mitglieds. Jede muss entweder in
+     * [subjectRootTables] (als eigene Subjekt-Wurzel, wie `crm_contact`) ODER in
+     * [knownUncoveredSubjectRoots] (dokumentierte Luecke, wie `external_donor`) stehen -- niemals in
+     * beiden, niemals in keinem (siehe `PersonalDataCoverageTest`'s Test C).
+     */
+    internal val nonMemberPiiTables: Set<String> = setOf("external_donor", "crm_contact")
 
     /**
      * Tables that are not covered by a [PersonalDataContributor] on purpose, each with a written

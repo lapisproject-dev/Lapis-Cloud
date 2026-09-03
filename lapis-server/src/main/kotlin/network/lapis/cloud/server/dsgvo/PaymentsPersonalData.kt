@@ -55,7 +55,7 @@ import kotlin.uuid.Uuid
  * comment (F12) and [erase]'s own treatment (only the free-text `purpose` column is cleared, same
  * accounting-retention duty as [PaymentTransactionTable]).
  */
-object PaymentsPersonalData : PersonalDataContributor {
+object PaymentsPersonalData : MemberPersonalDataContributor {
     override val sectionKey = "payments"
     override val displayName = "Zahlungsverkehr"
     override val coveredTables =
@@ -77,7 +77,7 @@ object PaymentsPersonalData : PersonalDataContributor {
             PaymentCheckoutSessionTable,
         )
 
-    override fun export(memberId: Uuid) =
+    override fun exportMember(memberId: Uuid) =
         buildJsonObject {
             put(
                 "paymentTransactions",
@@ -280,7 +280,7 @@ object PaymentsPersonalData : PersonalDataContributor {
             )
         }
 
-    override fun erase(
+    override fun eraseMember(
         memberId: Uuid,
         mode: ErasureMode,
     ): List<TableErasureOutcome> {

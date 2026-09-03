@@ -32,12 +32,12 @@ import kotlin.uuid.Uuid
  * V0.8.1's `federation_relationship`/`federation_actor_key` already get) -- no contributor or
  * allowlist entry needed for them either.
  */
-object OidcGuestPersonalData : PersonalDataContributor {
+object OidcGuestPersonalData : MemberPersonalDataContributor {
     override val sectionKey = "oidc_guest_federation"
     override val displayName = "OIDC-Gastzugang"
     override val coveredTables = setOf(OidcGuestProfileTable, OidcAuthorizationCodeTable, OidcIssuedTokenTable)
 
-    override fun export(memberId: Uuid) =
+    override fun exportMember(memberId: Uuid) =
         buildJsonObject {
             val profileRow = OidcGuestProfileTable.selectAll().where { OidcGuestProfileTable.memberId eq memberId }.singleOrNull()
             if (profileRow != null) {
@@ -90,7 +90,7 @@ object OidcGuestPersonalData : PersonalDataContributor {
             )
         }
 
-    override fun erase(
+    override fun eraseMember(
         memberId: Uuid,
         mode: ErasureMode,
     ): List<TableErasureOutcome> {

@@ -145,7 +145,7 @@ class PaymentsPersonalDataTest :
             val member = createTestMember("payments-pd-export@example.org")
             insertTransaction(member)
 
-            val export = transaction { PaymentsPersonalData.export(member) }
+            val export = transaction { PaymentsPersonalData.exportMember(member) }
             val transactions = export.jsonObject.getValue("paymentTransactions").jsonArray
             transactions.size shouldBe 1
             val entry = transactions.single().jsonObject
@@ -167,7 +167,7 @@ class PaymentsPersonalDataTest :
             val member = createTestMember("payments-pd-erase@example.org")
             val transactionId = insertTransaction(member)
 
-            val outcomes = transaction { PaymentsPersonalData.erase(memberId = member, mode = ErasureMode.ANONYMIZE) }
+            val outcomes = transaction { PaymentsPersonalData.eraseMember(memberId = member, mode = ErasureMode.ANONYMIZE) }
             outcomes.single { it.table == "payment_transaction" }.rowsRetained shouldBe 1
 
             transaction {
@@ -178,7 +178,7 @@ class PaymentsPersonalDataTest :
             }
 
             // export afterward must reflect the cleared field, not the pre-erasure value.
-            val exportAfterErase = transaction { PaymentsPersonalData.export(member) }
+            val exportAfterErase = transaction { PaymentsPersonalData.exportMember(member) }
             val entryAfterErase =
                 exportAfterErase.jsonObject
                     .getValue("paymentTransactions")
@@ -309,7 +309,7 @@ class PaymentsPersonalDataTest :
             val member = createTestMember("payments-pd-sepa-export@example.org")
             createFullSepaChain(member)
 
-            val export = transaction { PaymentsPersonalData.export(member) }
+            val export = transaction { PaymentsPersonalData.exportMember(member) }
 
             val mandates = export.jsonObject.getValue("sepaMandates").jsonArray
             mandates.size shouldBe 1
@@ -362,7 +362,7 @@ class PaymentsPersonalDataTest :
             val member = createTestMember("payments-pd-sepa-erase@example.org")
             createFullSepaChain(member)
 
-            val outcomes = transaction { PaymentsPersonalData.erase(memberId = member, mode = ErasureMode.ANONYMIZE) }
+            val outcomes = transaction { PaymentsPersonalData.eraseMember(memberId = member, mode = ErasureMode.ANONYMIZE) }
             outcomes.single { it.table == "sepa_mandate" }.rowsRetained shouldBe 1
             outcomes.single { it.table == "sepa_debit_batch" }.rowsRetained shouldBe 1
             outcomes.single { it.table == "sepa_debit_item" }.rowsRetained shouldBe 1
@@ -383,7 +383,7 @@ class PaymentsPersonalDataTest :
             }
 
             // export afterward must reflect the cleared fields, not the pre-erasure values.
-            val exportAfterErase = transaction { PaymentsPersonalData.export(member) }
+            val exportAfterErase = transaction { PaymentsPersonalData.exportMember(member) }
             exportAfterErase.jsonObject
                 .getValue("sepaMandates")
                 .jsonArray
@@ -427,7 +427,7 @@ class PaymentsPersonalDataTest :
             val member = createTestMember("payments-pd-checkout-session-export@example.org")
             insertCheckoutSession(member)
 
-            val export = transaction { PaymentsPersonalData.export(member) }
+            val export = transaction { PaymentsPersonalData.exportMember(member) }
             val sessions = export.jsonObject.getValue("paymentCheckoutSessions").jsonArray
             sessions.size shouldBe 1
             sessions
@@ -447,7 +447,7 @@ class PaymentsPersonalDataTest :
             val member = createTestMember("payments-pd-checkout-session-erase@example.org")
             val sessionId = insertCheckoutSession(member)
 
-            val outcomes = transaction { PaymentsPersonalData.erase(memberId = member, mode = ErasureMode.ANONYMIZE) }
+            val outcomes = transaction { PaymentsPersonalData.eraseMember(memberId = member, mode = ErasureMode.ANONYMIZE) }
             outcomes.single { it.table == "payment_checkout_session" }.rowsRetained shouldBe 1
 
             transaction {
@@ -486,7 +486,7 @@ class PaymentsPersonalDataTest :
                 }
             }
 
-            val export = transaction { PaymentsPersonalData.export(member) }
+            val export = transaction { PaymentsPersonalData.exportMember(member) }
             val entry =
                 export.jsonObject
                     .getValue("paymentTransactions")

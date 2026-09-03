@@ -9,12 +9,16 @@ import org.jetbrains.exposed.v1.jdbc.transactions.transaction
 
 /**
  * The actual enforcement mechanism referenced throughout the `dsgvo` package's KDoc (see
- * [PersonalDataRegistry]): walks the `information_schema` for every foreign key that targets
- * `member(id)` and asserts the referencing table is either covered by some
- * [PersonalDataContributor] in [PersonalDataRegistry.contributors] or explicitly listed in
- * [PersonalDataRegistry.noPersonalDataAllowlist] with a written reason. A future wave that adds
- * e.g. `event_registration.member_id` without registering a contributor (or allowlisting it) goes
- * red here — `./gradlew clean check` catches the rot a hand-maintained list alone could not.
+ * [PersonalDataRegistry]): walks the `information_schema` for every foreign key that targets a
+ * [PersonalDataRegistry.subjectRootTables] table and asserts the referencing table is either
+ * covered by some [PersonalDataContributor] in [PersonalDataRegistry.contributors] or explicitly
+ * listed in [PersonalDataRegistry.noPersonalDataAllowlist] with a written reason. A future wave that
+ * adds e.g. `event_registration.member_id` without registering a contributor (or allowlisting it)
+ * goes red here — `./gradlew clean check` catches the rot a hand-maintained list alone could not.
+ *
+ * **Welle V1.4.2 "Interessenten-/Sympathisanten-CRM"**: the walk now covers every table in
+ * [PersonalDataRegistry.subjectRootTables] (`member` AND `crm_contact`), not just `member` — see
+ * that object's KDoc for why `crm_contact` needed to become a subject root rather than a leaf.
  *
  * Runs against the H2 in-memory test database (house rule: tests never touch a real deployment).
  * The ANSI `information_schema` views queried here (`table_constraints`, `key_column_usage`,
@@ -25,10 +29,10 @@ class PersonalDataCoverageTest :
     FunSpec({
         beforeSpec { DatabaseConfig.connect() }
 
-        test("every table with a FK to member(id) is covered by a contributor or allowlisted") {
+        test("every table with a FK to a subject-root table is covered by a contributor or allowlisted") {
             val uncovered =
                 transaction {
-                    tablesReferencingMember().filterNot { tableName ->
+                    tablesReferencingSubjectRoots(PersonalDataRegistry.subjectRootTables).filterNot { tableName ->
                         tableName in PersonalDataRegistry.coveredTableNames() ||
                             tableName in PersonalDataRegistry.noPersonalDataAllowlist.keys
                     }
@@ -36,8 +40,10 @@ class PersonalDataCoverageTest :
             uncovered.shouldBeEmpty()
         }
 
-        test("member itself is covered even though it is the PK side, not the FK side, of every relationship") {
-            ("member" in PersonalDataRegistry.coveredTableNames()) shouldBe true
+        test("every subject-root table is itself covered even though it is the PK side, not the FK side, of every relationship") {
+            PersonalDataRegistry.subjectRootTables.forEach { root ->
+                (root in PersonalDataRegistry.coveredTableNames()) shouldBe true
+            }
         }
 
         test("no table is covered by more than one contributor (regression guard for PersonalDataRegistry's init check)") {
@@ -47,6 +53,27 @@ class PersonalDataCoverageTest :
 
         test("every noPersonalDataAllowlist entry carries a non-blank written reason") {
             PersonalDataRegistry.noPersonalDataAllowlist.values.all { it.isNotBlank() } shouldBe true
+        }
+
+        // ── Welle V1.4.2: knownUncoveredSubjectRoots / nonMemberPiiTables ────────────────────
+
+        test("knownUncoveredSubjectRoots is disjoint from subjectRootTables") {
+            (PersonalDataRegistry.knownUncoveredSubjectRoots.keys intersect PersonalDataRegistry.subjectRootTables).shouldBeEmpty()
+        }
+
+        test("every knownUncoveredSubjectRoots reason is non-blank and names a wave number") {
+            val waveRegex = Regex("""V\d+\.\d+""")
+            PersonalDataRegistry.knownUncoveredSubjectRoots.forEach { (table, reason) ->
+                (reason.isNotBlank() && waveRegex.containsMatchIn(reason)) shouldBe true
+            }
+        }
+
+        test("every non-member PII table is either a subject root or a documented, wave-numbered gap -- never both, never neither") {
+            PersonalDataRegistry.nonMemberPiiTables.forEach { table ->
+                val isRoot = table in PersonalDataRegistry.subjectRootTables
+                val isKnownGap = table in PersonalDataRegistry.knownUncoveredSubjectRoots
+                (isRoot xor isKnownGap) shouldBe true
+            }
         }
 
         test("dsgvo_audit_log rows never carry payload -- only the columns declared on DsgvoAuditLogTable exist") {
@@ -70,6 +97,7 @@ class PersonalDataCoverageTest :
                     "request_id",
                     "outcome_summary",
                     "legal_basis",
+                    "subject_kind",
                 )
             columnNames shouldBe allowedColumns
         }
@@ -77,12 +105,15 @@ class PersonalDataCoverageTest :
 
 /**
  * ANSI `information_schema` walk (see class KDoc) — table names of every FK column whose target
- * table is `member`. Deliberately does not rely on constraint-naming conventions: joins
+ * table is one of [roots]. Deliberately does not rely on constraint-naming conventions: joins
  * `table_constraints` (the FK side) through `referential_constraints` to the target
  * `table_constraints` row (the unique/PK constraint on the referenced table) instead, which is
- * portable across H2 and real Postgres.
+ * portable across H2 and real Postgres. A root that references itself (e.g. a future
+ * `crm_contact.referred_by -> crm_contact`) would be reported as referencing a subject root too —
+ * harmless for `PersonalDataRegistry.coveredTableNames()`'s membership check (the root already
+ * covers itself), and no such self-reference exists today.
  */
-private fun JdbcTransaction.tablesReferencingMember(): Set<String> {
+private fun JdbcTransaction.tablesReferencingSubjectRoots(roots: Set<String>): Set<String> {
     val tables = mutableSetOf<String>()
     exec(
         """
@@ -101,7 +132,7 @@ private fun JdbcTransaction.tablesReferencingMember(): Set<String> {
         """.trimIndent(),
     ) { rs ->
         while (rs.next()) {
-            if (rs.getString("ref_table") == "member") {
+            if (rs.getString("ref_table") in roots) {
                 tables += rs.getString("fk_table")
             }
         }

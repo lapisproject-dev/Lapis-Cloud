@@ -88,7 +88,7 @@ import kotlin.uuid.Uuid
  * platform/rtmpUrl/timestamps), matching `network.lapis.cloud.server.crypto.SecretBox`'s own
  * "the plaintext key is never returned to any RPC caller" posture end to end.
  */
-object ConferencePersonalData : PersonalDataContributor {
+object ConferencePersonalData : MemberPersonalDataContributor {
     override val sectionKey = "conference"
     override val displayName = "Videokonferenzen"
     override val coveredTables =
@@ -105,7 +105,7 @@ object ConferencePersonalData : PersonalDataContributor {
             ConferenceBreakoutAssignmentTable,
         )
 
-    override fun export(memberId: Uuid) =
+    override fun exportMember(memberId: Uuid) =
         buildJsonObject {
             putJsonArray("roomsCreated") {
                 ConferenceRoomTable
@@ -242,7 +242,7 @@ object ConferencePersonalData : PersonalDataContributor {
             }
         }
 
-    override fun erase(
+    override fun eraseMember(
         memberId: Uuid,
         mode: ErasureMode,
     ): List<TableErasureOutcome> {

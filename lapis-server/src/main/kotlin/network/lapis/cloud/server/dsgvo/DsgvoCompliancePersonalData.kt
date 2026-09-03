@@ -54,7 +54,7 @@ import kotlin.uuid.Uuid
  * categories and would otherwise leak into an unrelated data subject's export (same rationale as
  * [AuditLogPersonalData]'s own before/after-snapshot exclusion).
  */
-object DsgvoCompliancePersonalData : PersonalDataContributor {
+object DsgvoCompliancePersonalData : MemberPersonalDataContributor {
     override val sectionKey = "dsgvoCompliance"
     override val displayName = "DSGVO-Compliance (AVV/TOMs/DSFA/Datenpannen)"
     override val coveredTables =
@@ -65,7 +65,7 @@ object DsgvoCompliancePersonalData : PersonalDataContributor {
             DataBreachIncidentTable,
         )
 
-    override fun export(memberId: Uuid) =
+    override fun exportMember(memberId: Uuid) =
         buildJsonObject {
             put(
                 "processingAgreements",
@@ -145,7 +145,7 @@ object DsgvoCompliancePersonalData : PersonalDataContributor {
             )
         }
 
-    override fun erase(
+    override fun eraseMember(
         memberId: Uuid,
         mode: ErasureMode,
     ): List<TableErasureOutcome> {

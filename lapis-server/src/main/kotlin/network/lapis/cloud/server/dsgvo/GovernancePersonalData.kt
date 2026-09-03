@@ -43,7 +43,7 @@ import kotlin.uuid.Uuid
  * [network.lapis.cloud.server.db.generated.MemberTable] row post-erasure (see
  * [FoundationPersonalData]).
  */
-object GovernancePersonalData : PersonalDataContributor {
+object GovernancePersonalData : MemberPersonalDataContributor {
     override val sectionKey = "governance"
     override val displayName = "Committees and Meetings"
     override val coveredTables =
@@ -58,7 +58,7 @@ object GovernancePersonalData : PersonalDataContributor {
             VoteBallotTable,
         )
 
-    override fun export(memberId: Uuid) =
+    override fun exportMember(memberId: Uuid) =
         buildJsonObject {
             putJsonArray("committeeMemberships") {
                 (CommitteeMembershipTable innerJoin CommitteeTable)
@@ -182,7 +182,7 @@ object GovernancePersonalData : PersonalDataContributor {
             }
         }
 
-    override fun erase(
+    override fun eraseMember(
         memberId: Uuid,
         mode: ErasureMode,
     ): List<TableErasureOutcome> {

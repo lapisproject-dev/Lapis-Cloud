@@ -12,11 +12,13 @@ import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 import network.lapis.cloud.server.db.generated.DsgvoAuditLogTable
+import network.lapis.cloud.server.dsgvo.DataSubject
 import network.lapis.cloud.server.dsgvo.PersonalDataRegistry
 import network.lapis.cloud.server.dsgvo.nowUtc
 import network.lapis.cloud.server.security.resolveCurrentMember
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.DsgvoAuditAction
+import network.lapis.cloud.shared.domain.DsgvoSubjectKind
 import network.lapis.cloud.shared.rpc.ForbiddenException
 import org.jetbrains.exposed.v1.jdbc.insert
 import org.jetbrains.exposed.v1.jdbc.transactions.transaction
@@ -63,9 +65,11 @@ fun Route.registerDsgvoRoutes() {
             transaction {
                 val sections =
                     buildJsonObject {
-                        PersonalDataRegistry.contributors.forEach { contributor ->
-                            put(contributor.sectionKey, contributor.export(subjectId))
-                        }
+                        PersonalDataRegistry.contributors
+                            .filter { DsgvoSubjectKind.MEMBER in it.handledSubjects }
+                            .forEach { contributor ->
+                                put(contributor.sectionKey, contributor.export(DataSubject.Member(subjectId)))
+                            }
                     }
                 DsgvoAuditLogTable.insert {
                     it[id] = Uuid.random()
@@ -77,6 +81,7 @@ fun Route.registerDsgvoRoutes() {
                     it[requestId] = null
                     it[outcomeSummary] = null
                     it[legalBasis] = "Art. 15/20 DSGVO"
+                    it[subjectKind] = DsgvoSubjectKind.MEMBER
                 }
                 buildJsonObject {
                     put("subjectMemberId", subjectId.toString())

@@ -25,12 +25,12 @@ import kotlin.uuid.Uuid
  * a §20 GwG beneficial-owner history is exactly the kind of record whose deletion would remove the
  * organization's own evidence of who its Vorstand was and when the Transparenzregister was told.
  */
-object BoardMembershipPersonalData : PersonalDataContributor {
+object BoardMembershipPersonalData : MemberPersonalDataContributor {
     override val sectionKey = "boardMembership"
     override val displayName = "Vorstand / Transparenzregister"
     override val coveredTables = setOf(BoardMembershipTable, TransparenzregisterReminderTable)
 
-    override fun export(memberId: Uuid) =
+    override fun exportMember(memberId: Uuid) =
         buildJsonObject {
             putJsonArray("boardMemberships") {
                 BoardMembershipTable
@@ -72,7 +72,7 @@ object BoardMembershipPersonalData : PersonalDataContributor {
             }
         }
 
-    override fun erase(
+    override fun eraseMember(
         memberId: Uuid,
         mode: ErasureMode,
     ): List<TableErasureOutcome> {

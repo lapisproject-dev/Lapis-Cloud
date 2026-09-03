@@ -31,12 +31,12 @@ import kotlin.uuid.Uuid
  * party's accountability trail out of an unrelated erasure" reasoning
  * [AuditLogPersonalData] already establishes for its own domain.
  */
-object FoundationPersonalData : PersonalDataContributor {
+object FoundationPersonalData : MemberPersonalDataContributor {
     override val sectionKey = "foundation"
     override val displayName = "Stammdaten"
     override val coveredTables = setOf(MemberTable, AccountTable)
 
-    override fun export(memberId: Uuid) =
+    override fun exportMember(memberId: Uuid) =
         buildJsonObject {
             val memberRow = MemberTable.selectAll().where { MemberTable.id eq memberId }.singleOrNull() ?: return@buildJsonObject
             put("displayName", memberRow[MemberTable.displayName])
@@ -77,7 +77,7 @@ object FoundationPersonalData : PersonalDataContributor {
             }
         }
 
-    override fun erase(
+    override fun eraseMember(
         memberId: Uuid,
         mode: ErasureMode,
     ): List<TableErasureOutcome> {

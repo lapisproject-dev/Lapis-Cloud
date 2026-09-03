@@ -27,6 +27,18 @@ msgstr " (vous)"
 msgid " bei %1"
 msgstr " chez %1"
 
+#: src/jsMain/kotlin/network/lapis/cloud/client/CrmContactsScreen.kt:81
+msgid "-- Alle Typen --"
+msgstr "-- Tous les types --"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/CrmContactsScreen.kt:333
+msgid "-- Rechtsgrundlage wählen --"
+msgstr "-- Choisir la base légale --"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/CrmContactsScreen.kt:331
+msgid "-- Typ wählen --"
+msgstr "-- Choisir le type --"
+
 #: src/jsMain/kotlin/network/lapis/cloud/client/MeetingsScreen.kt:638
 msgid "-- kein --"
 msgstr "-- aucun --"
@@ -64,6 +76,278 @@ msgstr "-- Choisir une catégorie de donateur --"
 #: src/jsMain/kotlin/network/lapis/cloud/client/LedgerScreen.kt:978
 msgid "-- Sphäre wählen --"
 msgstr "-- Choisir une sphère --"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/CrmContactsScreen.kt:185
+msgid "Adresse: %1"
+msgstr "Adresse : %1"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/CrmLabels.kt:42
+msgid "Anruf"
+msgstr "Appel"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/CrmContactsScreen.kt:137
+msgid "Archivieren"
+msgstr "Archiver"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/CrmContactsScreen.kt:134
+msgid "Archiviert"
+msgstr "Archivé"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/CrmContactsScreen.kt:84
+msgid "Archivierte anzeigen"
+msgstr "Afficher les archivés"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/CrmContactsScreen.kt:239
+msgid "Art"
+msgstr "Type"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/CrmContactsScreen.kt:207
+msgid "Auskunft exportieren (JSON)"
+msgstr "Exporter les informations (JSON)"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/CrmContactsScreen.kt:361
+msgid "Bei Rechtsgrundlage 'Einwilligung' ist der Zeitpunkt der Einwilligung Pflicht."
+msgstr "Lorsque la base légale est « Consentement », la date du consentement est obligatoire."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/CrmLabels.kt:36
+msgid "Berechtigtes Interesse (Art. 6 Abs. 1 lit. f)"
+msgstr "Intérêt légitime (art. 6, § 1, point f)"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/CrmContactsScreen.kt:352
+msgid "Bitte Name, Typ und Rechtsgrundlage angeben."
+msgstr "Veuillez indiquer le nom, le type et la base légale."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/CrmContactsScreen.kt:249
+msgid "Bitte eine Notiz eingeben."
+msgstr "Veuillez saisir une note."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/CrmLabels.kt:45
+msgid "Brief"
+msgstr "Courrier"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/CrmContactsScreen.kt:205
+msgid "Datenschutz"
+msgstr "Protection des données"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/CrmContactsScreen.kt:214
+msgid "Dieser Kontakt und alle erfassten Interaktionen werden UNWIDERRUFLICH gelöscht -- keine Anonymisierung, ein echtes Löschen ohne Wiederherstellung."
+msgstr "Ce contact et toutes les interactions enregistrées seront supprimés de façon IRRÉVOCABLE -- pas une anonymisation, une suppression réelle et définitive."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/CrmContactsScreen.kt:325
+msgid "E-Mail (optional)"
+msgstr "E-mail (facultatif)"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/CrmContactsScreen.kt:189
+msgid "E-Mail-Ansprache erlaubt: %1"
+msgstr "Contact par e-mail autorisé : %1"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/CrmContactsScreen.kt:183
+msgid "E-Mail: %1"
+msgstr "E-mail : %1"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/CrmLabels.kt:20
+msgid "Ehemaliges Mitglied"
+msgstr "Ancien membre"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/CrmLabels.kt:35
+msgid "Einwilligung (Art. 6 Abs. 1 lit. a)"
+msgstr "Consentement (art. 6, § 1, point a)"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/CrmContactsScreen.kt:187
+msgid "Einwilligung erteilt via: %1"
+msgstr "Consentement donné via : %1"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/CrmContactsScreen.kt:222
+msgid "Einwilligung ist aktiv."
+msgstr "Le consentement est actif."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/CrmContactsScreen.kt:223
+msgid "Einwilligung widerrufen"
+msgstr "Retirer le consentement"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/CrmContactsScreen.kt:228
+msgid "Einwilligung wurde als widerrufen erfasst."
+msgstr "Le retrait du consentement a été enregistré."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/CrmContactsScreen.kt:188
+msgid "Einwilligung wurde widerrufen."
+msgstr "Le consentement a été retiré."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/CrmContactsScreen.kt:137
+msgid "Entarchivieren"
+msgstr "Désarchiver"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/CrmContactsScreen.kt:568
+msgid "Fälschlich erfasste Einwilligung entfernen (Art. 16 DSGVO)"
+msgstr "Supprimer le consentement enregistré par erreur (art. 16 du RGPD)"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/CrmLabels.kt:19
+msgid "Förderer"
+msgstr "Bienfaiteur"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/CrmContactsScreen.kt:335
+msgid "Herkunft der Einwilligung (z. B. \"Infostand Braunschweig\")"
+msgstr "Origine du consentement (par ex. « Infostand Braunschweig »)"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/CrmContactsScreen.kt:243
+msgid "Interaktion speichern"
+msgstr "Enregistrer l'interaction"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/CrmContactsScreen.kt:277
+msgid "Interaktion wurde gespeichert."
+msgstr "L'interaction a été enregistrée."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/CrmContactsScreen.kt:198
+msgid "Interaktionsverlauf"
+msgstr "Historique des interactions"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/CrmLabels.kt:17
+msgid "Interessent"
+msgstr "Prospect"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/CrmContactsScreen.kt:73
+msgid "Interessenten, Sympathisanten und sonstige Kontakte, die weder Mitglied noch (notwendigerweise) ein erfasster Spender sind -- eine eigenständige Adressverwaltung, getrennt von der Mitgliederverwaltung und dem Spenderstamm."
+msgstr "Prospects, sympathisants et autres contacts qui ne sont ni membres ni (nécessairement) des donateurs enregistrés -- un carnet d'adresses autonome, distinct de la gestion des membres et du registre des donateurs."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/CrmContactsScreen.kt:103
+msgid "Keine Kontakte gefunden."
+msgstr "Aucun contact trouvé."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/CrmContactsScreen.kt:628
+msgid "Kontakt \"%1\" wurde aktualisiert."
+msgstr "Le contact « %1 » a été mis à jour."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/CrmContactsScreen.kt:399
+msgid "Kontakt \"%1\" wurde angelegt."
+msgstr "Le contact « %1 » a été créé."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/CrmContactsScreen.kt:343
+msgid "Kontakt anlegen"
+msgstr "Créer un contact"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/CrmContactsScreen.kt:212
+msgid "Kontakt endgültig löschen"
+msgstr "Supprimer définitivement le contact"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/CrmContactsScreen.kt:223
+msgid "Kontakt wurde gelöscht."
+msgstr "Le contact a été supprimé."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/CrmContactsScreen.kt:71
+msgid "Kontakte & Interessenten"
+msgstr "Contacts et prospects"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/CrmContactsScreen.kt:442
+msgid "Letzter Kontakt vor %1 Jahren"
+msgstr "Dernier contact il y a %1 ans"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/CrmContactsScreen.kt:441
+msgid "Letzter Kontakt vor %1 Monaten"
+msgstr "Dernier contact il y a %1 mois"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/CrmContactsScreen.kt:440
+msgid "Letzter Kontakt vor %1 Tagen"
+msgstr "Dernier contact il y a %1 jours"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/CrmContactsScreen.kt:439
+msgid "Letzter Kontakt: gestern"
+msgstr "Dernier contact : hier"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/CrmContactsScreen.kt:438
+msgid "Letzter Kontakt: heute"
+msgstr "Dernier contact : aujourd'hui"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/CrmContactsScreen.kt:209
+msgid "Löschen nach Art. 17 DSGVO"
+msgstr "Supprimer conformément à l'art. 17 du RGPD"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/CrmContactsScreen.kt:193
+msgid "Neue Interaktion erfassen"
+msgstr "Enregistrer une nouvelle interaction"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/CrmContactsScreen.kt:115
+msgid "Neuen Kontakt anlegen"
+msgstr "Créer un nouveau contact"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/CrmContactsScreen.kt:433
+msgid "Noch kein Kontakt"
+msgstr "Aucun contact pour l'instant"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/CrmContactsScreen.kt:296
+msgid "Noch keine Interaktionen erfasst."
+msgstr "Aucune interaction enregistrée pour l'instant."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/CrmLabels.kt:47
+msgid "Notiz"
+msgstr "Note"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/CrmContactsScreen.kt:241
+msgid "Notiz (Pflichtfeld)"
+msgstr "Note (obligatoire)"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/CrmLabels.kt:21
+msgid "Presse"
+msgstr "Presse"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/CrmContactsScreen.kt:334
+msgid "Rechtsgrundlage (Art. 6 DSGVO)"
+msgstr "Base légale (art. 6 du RGPD)"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/CrmContactsScreen.kt:205
+msgid "Stammdaten"
+msgstr "Données de base"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/CrmLabels.kt:18
+msgid "Sympathisant"
+msgstr "Sympathisant"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/CrmContactsScreen.kt:326
+msgid "Telefon (optional)"
+msgstr "Téléphone (facultatif)"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/CrmContactsScreen.kt:184
+msgid "Telefon: %1"
+msgstr "Téléphone : %1"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/CrmLabels.kt:43
+msgid "Treffen"
+msgstr "Rencontre"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/CrmLabels.kt:46
+msgid "Veranstaltung"
+msgstr "Événement"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/CrmLabels.kt:37
+msgid "Vertrag (Art. 6 Abs. 1 lit. b)"
+msgstr "Contrat (art. 6, § 1, point b)"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/CrmContactsScreen.kt:190
+msgid "Wiedervorlage fällig: %1"
+msgstr "Révision prévue : %1"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/CrmContactsScreen.kt:83
+msgid "Wiedervorlage überfällig"
+msgstr "Révision en retard"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/CrmContactsScreen.kt:240
+msgid "Zeitpunkt (optional, ISO -- leer = jetzt, z. B. 2026-09-14T10:00)"
+msgstr "Horodatage (facultatif, ISO -- vide = maintenant, par ex. 2026-09-14T10:00)"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/CrmContactsScreen.kt:336
+msgid "Zeitpunkt der Einwilligung (ISO, z. B. 2026-09-14T10:00)"
+msgstr "Horodatage du consentement (ISO, par ex. 2026-09-14T10:00)"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/CrmContactsScreen.kt:261
+msgid "Zeitpunkt ist kein gültiges ISO-Format (z. B. 2026-09-14T10:00)."
+msgstr "L'horodatage n'est pas au format ISO valide (par ex. 2026-09-14T10:00)."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConfirmDialog.kt:109
+msgid "Zum Bestätigen bitte \"%1\" eingeben:"
+msgstr "Pour confirmer, veuillez saisir « %1 » :"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/CrmContactsScreen.kt:311
+msgid "erfasst von %1"
+msgstr "saisi par %1"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/CostCentersScreen.kt:275
 msgid "— Nicht zugeordnet —"
@@ -951,6 +1235,10 @@ msgstr "Autre parti/groupe parlementaire"
 #: src/jsMain/kotlin/network/lapis/cloud/client/MotionsScreen.kt:300
 msgid "Ändert bestehenden Antrag (optional)"
 msgstr "Modifie une motion existante (facultatif)"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/CrmContactsScreen.kt:570
+msgid "Änderungen speichern"
+msgstr "Enregistrer les modifications"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/MotionsScreen.kt:263
 #: src/jsMain/kotlin/network/lapis/cloud/client/MotionsScreen.kt:444

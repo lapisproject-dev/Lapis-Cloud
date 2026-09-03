@@ -176,7 +176,7 @@ class ConferenceStreamPersonalDataTest :
             val admin = createTestMember("cspd-export-dest@example.org")
             val destinationId = createDestination(admin, label = "PD-Test-Kanal")
 
-            val export = transaction { ConferencePersonalData.export(admin) }
+            val export = transaction { ConferencePersonalData.exportMember(admin) }
             val destinations = export.jsonObject.getValue("streamDestinationsCreated").jsonArray
             destinations.size shouldBe 1
             val entry = destinations.single().jsonObject
@@ -193,7 +193,7 @@ class ConferenceStreamPersonalDataTest :
             val destinationId = createDestination(member, label = "PD-Test-Kanal-2")
             val streamId = createStreamWithTargets(roomId, member, listOf(destinationId))
 
-            val export = transaction { ConferencePersonalData.export(member) }
+            val export = transaction { ConferencePersonalData.exportMember(member) }
             val streamsStarted = export.jsonObject.getValue("streamsStarted").jsonArray
             streamsStarted.size shouldBe 1
             val entry = streamsStarted.single().jsonObject
@@ -204,7 +204,7 @@ class ConferenceStreamPersonalDataTest :
 
         test("export for a member who never created a destination or started a stream has empty arrays for both") {
             val member = createTestMember("cspd-export-empty@example.org")
-            val export = transaction { ConferencePersonalData.export(member) }
+            val export = transaction { ConferencePersonalData.exportMember(member) }
             export.jsonObject
                 .getValue("streamDestinationsCreated")
                 .jsonArray.size shouldBe 0
@@ -224,7 +224,7 @@ class ConferenceStreamPersonalDataTest :
             createStreamWithTargets(roomId, member, listOf(destinationOne, destinationTwo))
 
             listOf(ErasureMode.ANONYMIZE, ErasureMode.HARD_DELETE_WHERE_UNCONSTRAINED).forEach { mode ->
-                val outcomes = transaction { ConferencePersonalData.erase(memberId = member, mode = mode) }
+                val outcomes = transaction { ConferencePersonalData.eraseMember(memberId = member, mode = mode) }
 
                 val destinationOutcome = outcomes.single { it.table == "conference_stream_destination" }
                 destinationOutcome.rowsRetained shouldBe 2

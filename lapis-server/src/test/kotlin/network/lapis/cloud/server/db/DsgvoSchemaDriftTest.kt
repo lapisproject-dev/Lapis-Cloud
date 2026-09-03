@@ -76,16 +76,23 @@ class DsgvoSchemaDriftTest :
                     col.nullable shouldBe attr.nullable
                 }
             }
-            // actor_member_id (nullable) and subject_member_id (NOT NULL) both -> member; neither
-            // matches the association-derived "member_id" default. request_id (nullable) ->
-            // erasure_request, but the derived default would be "erasure_request_id", not
-            // "request_id". All three modelled as plain «Column» attributes — see the .kuml.kts
-            // file header comment — pinned instead via «Column».fkEntity.
+            // actor_member_id (nullable) -> member; request_id (nullable) -> erasure_request, but
+            // the derived default would be "erasure_request_id", not "request_id". Both modelled as
+            // plain «Column» attributes — see the .kuml.kts file header comment — pinned instead via
+            // «Column».fkEntity.
+            //
+            // subject_member_id (NOT NULL) is Welle V1.4.2's deliberate exception: it used to be a
+            // real FK -> member too, but V17__crm_contacts.sql DROPs that constraint
+            // (`fk_dsgvo_audit_log_subject_member_id`) because the column now polymorphically holds
+            // EITHER a member id OR a crm_contact id, discriminated by the sibling `subject_kind`
+            // column -- see 04-dsgvo.kuml.kts's own comment on that attribute and
+            // network.lapis.cloud.server.dsgvo.DataSubject KDoc. No real FK exists for it anymore,
+            // on either side (model or real schema).
             real.foreignKeys["actor_member_id"] shouldBe "member"
-            real.foreignKeys["subject_member_id"] shouldBe "member"
+            real.foreignKeys.containsKey("subject_member_id") shouldBe false
             real.foreignKeys["request_id"] shouldBe "erasure_request"
             entityNameOf(entity.attributeByName("actor_member_id")?.foreignKey?.targetEntityId) shouldBe "member"
-            entityNameOf(entity.attributeByName("subject_member_id")?.foreignKey?.targetEntityId) shouldBe "member"
+            entity.attributeByName("subject_member_id")?.foreignKey shouldBe null
             entityNameOf(entity.attributeByName("request_id")?.foreignKey?.targetEntityId) shouldBe "erasure_request"
         }
 

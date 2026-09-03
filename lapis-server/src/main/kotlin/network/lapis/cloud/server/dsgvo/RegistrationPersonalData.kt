@@ -43,7 +43,7 @@ import kotlin.uuid.Uuid
  * - **[FriendEmailVerificationTokenTable]**: same "purely transient access-control artifact" reasoning
  *   as [PasswordResetTokenTable] -- hard-deleted regardless of [ErasureMode].
  */
-object RegistrationPersonalData : PersonalDataContributor {
+object RegistrationPersonalData : MemberPersonalDataContributor {
     override val sectionKey = "registration"
     override val displayName = "Beitritts-/Registrierungs-Workflow"
     override val coveredTables =
@@ -54,7 +54,7 @@ object RegistrationPersonalData : PersonalDataContributor {
             FriendEmailVerificationTokenTable,
         )
 
-    override fun export(memberId: Uuid) =
+    override fun exportMember(memberId: Uuid) =
         buildJsonObject {
             put(
                 "membershipAgreementAcknowledgments",
@@ -96,7 +96,7 @@ object RegistrationPersonalData : PersonalDataContributor {
             )
         }
 
-    override fun erase(
+    override fun eraseMember(
         memberId: Uuid,
         mode: ErasureMode,
     ): List<TableErasureOutcome> {

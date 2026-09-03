@@ -1,0 +1,152 @@
+= DSGVO Framework — Subject Roots and Contributors
+:description: How Lapis Cloud's Art. 15/17/20 DSGVO export/erasure framework is structured, and how it was widened in Welle V1.4.2 to cover non-member subjects.
+:toc:
+:toc-placement: preamble
+:icons: font
+
+== Context
+
+Every table in this codebase that carries personal data about a `member` participates in Art.
+15/17/20 DSGVO export and erasure through exactly one mechanism: a
+`network.lapis.cloud.server.dsgvo.PersonalDataContributor` registered in
+`network.lapis.cloud.server.dsgvo.PersonalDataRegistry`, enforced by
+`PersonalDataCoverageTest`'s `information_schema` walk — a future table with a foreign key into a
+DSGVO subject that is neither covered by a contributor nor explicitly allowlisted with a written
+reason fails `./gradlew clean check`, not merely a code review.
+
+Through V1.4.1, that walk covered exactly one table: `member`. Welle V1.4.2
+("Interessenten-/Sympathisanten-CRM") introduced the first DSGVO subject that is **not** a member —
+a `crm_contact` — and widened the framework accordingly rather than bolting on a second,
+parallel mechanism. This document describes the resulting shape.
+
+== Why one framework, not two
+
+A second, CRM-specific export/erasure mechanism running alongside the existing one would have no
+machine-checked completeness guarantee: `PersonalDataCoverageTest` is effective precisely because
+it is a single `information_schema` walk over real foreign keys, not a hand-maintained list. A
+second mechanism next to it is a second list that can silently drift from the schema — exactly the
+failure mode the existing framework was built to prevent. Widening the one mechanism costs a
+one-time refactor (see below); a parallel mechanism costs that same completeness guarantee forever.
+
+== `DataSubject` and the subject-root walk
+
+`network.lapis.cloud.server.dsgvo.DataSubject` is a sealed interface with two cases,
+`DataSubject.Member` and `DataSubject.CrmContact`, each wrapping a `kotlin.uuid.Uuid`. It is
+server-only — `lapis-shared` uses `kotlin.uuid.Uuid` nowhere, and the wire-visible discriminator is
+the plain `@Serializable` enum `network.lapis.cloud.shared.domain.DsgvoSubjectKind` (`MEMBER`,
+`CRM_CONTACT`), which travels on `DsgvoAuditLogEntryDto.subjectKind`.
+
+`PersonalDataContributor.export`/`.erase` now take a `DataSubject`, not a bare member `Uuid`, and
+every contributor declares `val handledSubjects: Set<DsgvoSubjectKind>`. A caller
+(`DsgvoService`/`DsgvoRoutes` for members, `CrmService`/`CrmRoutes` for CRM contacts) filters
+`PersonalDataRegistry.contributors` by `handledSubjects` before dispatch — a contributor that does
+not handle the given subject kind is simply skipped, never called with a subject it cannot service.
+
+`PersonalDataRegistry.subjectRootTables` now lists **two** tables (`member`, `crm_contact`), and
+`PersonalDataCoverageTest`'s walk (`tablesReferencingSubjectRoots`) covers foreign keys into either
+one. A table with a foreign key to `crm_contact` therefore goes red exactly the same way a table
+with a foreign key to `member` always has, the moment it lacks a contributor or allowlist entry.
+
+The two DSGVO subject roots and the audit log's discriminator column, in the same `[kuml]`-macro,
+`ermMappingProfile` DSL this codebase's persistence model itself is authored in (see
+`38-crm.kuml.kts`/`04-dsgvo.kuml.kts` for the full, real schema this is a deliberately narrowed
+excerpt of):
+
+[kuml, dsgvo-subject-roots, svg]
+----
+import dev.kuml.profile.erm.ermMappingProfile
+import dev.kuml.uml.dsl.applyProfile
+import dev.kuml.uml.dsl.stereotype
+
+classDiagram(name = "DSGVO Subject Roots") {
+    applyProfile(ermMappingProfile)
+
+    val dsgvoSubjectKind = enumOf(name = "DsgvoSubjectKind") {
+        literal(name = "MEMBER")
+        literal(name = "CRM_CONTACT")
+    }
+
+    val member = classOf(name = "Member") {
+        stereotype("Entity") { "tableName" to "member"; "kotlinObjectName" to "MemberTable" }
+        attribute(name = "id", type = "UUID") { stereotype("Id"); stereotype("Column") { "columnName" to "id" } }
+    }
+
+    val crmContact = classOf(name = "CrmContact") {
+        stereotype("Entity") { "tableName" to "crm_contact"; "kotlinObjectName" to "CrmContactTable" }
+        attribute(name = "id", type = "UUID") { stereotype("Id"); stereotype("Column") { "columnName" to "id" } }
+    }
+
+    // subject_member_id is DELIBERATELY not modelled with a fkEntity override here -- since V1.4.2
+    // it is a plain, polymorphic UUID column (see "dsgvo_audit_log.subject_kind" below), not a real
+    // foreign key to either entity above.
+    val dsgvoAuditLog = classOf(name = "DsgvoAuditLog") {
+        stereotype("Entity") { "tableName" to "dsgvo_audit_log"; "kotlinObjectName" to "DsgvoAuditLogTable" }
+        attribute(name = "id", type = "UUID") { stereotype("Id"); stereotype("Column") { "columnName" to "id" } }
+        attribute(name = "subjectMemberId", type = "UUID") { stereotype("Column") { "columnName" to "subject_member_id" } }
+        attribute(name = "subjectKind", type = dsgvoSubjectKind) {
+            stereotype("Column") { "columnName" to "subject_kind"; "enumType" to "network.lapis.cloud.shared.domain.DsgvoSubjectKind" }
+        }
+    }
+}
+----
+
+== `MemberPersonalDataContributor`: an adapter, not a rewrite
+
+Widening the raw `PersonalDataContributor` interface to `DataSubject` would have forced every one
+of the 29 pre-existing contributors into a `when (subject) { ... }` they have no use for — every one
+of them, before this wave, only ever handled members. `MemberPersonalDataContributor` is a thin
+adapter interface: it declares abstract `exportMember(memberId: Uuid)`/`eraseMember(memberId: Uuid,
+mode: ErasureMode)` (the exact shape every existing contributor already had) and implements
+`export`/`erase`/`handledSubjects` itself by unwrapping a `DataSubject.Member` (see
+`DataSubject.asMember` for the one unsafe cast this whole framework contains, defensively checked
+and reachable only through a caller bug, never a data condition).
+
+Because `exportMember`/`eraseMember` are `abstract`, the compiler — not a person — forces every one
+of the 29 contributors to be touched by this migration; nothing can be silently left behind. The
+migration itself was mechanical: `: PersonalDataContributor` → `: MemberPersonalDataContributor`,
+`override fun export(memberId: Uuid)` → `override fun exportMember(memberId: Uuid)`, `erase` →
+`eraseMember` — no change to any contributor's actual query logic.
+
+`CrmPersonalData` is the one contributor that implements the raw `PersonalDataContributor`
+interface directly, because it genuinely handles both `MEMBER` and `CRM_CONTACT` subjects with
+structurally different behaviour per kind — see its own KDoc for the full semantics (a real
+`DELETE` for a `CRM_CONTACT` subject; retain-with-reason for rows a `MEMBER` subject only created or
+recorded, not rows describing them).
+
+== The `external_donor` gap: sichtbar, nicht geschlossen
+
+`external_donor` (Welle V0.5.1, `10-accounting.kuml.kts`) carries PII of a non-member donor and has
+no foreign key to `member` by design — it never entered the FK walk to begin with, and this wave
+does not change that. What changes is how that gap is recorded: `PersonalDataRegistry
+.knownUncoveredSubjectRoots` is a `Map<String, String>` (table name → written reason, naming the
+wave expected to close it), checked by `PersonalDataCoverageTest` to be non-blank, to name a wave
+number, and to be disjoint from `subjectRootTables`. `PersonalDataRegistry.nonMemberPiiTables` then
+asserts every curated non-member-PII table is in exactly one of the two mechanisms — a future table
+added to that set without a corresponding contributor or allowlist entry fails the build. The gap
+was previously a KDoc comment nobody re-reads; it is now a row in a map a test reads on every build.
+
+== `dsgvo_audit_log.subject_kind`
+
+A `dsgvo_audit_log` row's `subject_member_id` column now polymorphically holds either a member id
+or a `crm_contact` id — the sibling `subject_kind` column (`MEMBER`/`CRM_CONTACT`) says which. This
+required dropping `fk_dsgvo_audit_log_subject_member_id` (`V17__crm_contacts.sql`): a single-target
+foreign key can no longer be correct once the column's referent depends on a sibling column's
+value. `erasure_request.subject_member_id` is unaffected and keeps its real FK to `member` — that
+workflow (request → approve/reject → execute) stays a member self-service/ADMIN process; a CRM
+contact has no login to request anything through, so `CrmService.eraseContact` executes directly
+under ADMIN authority instead (see its own KDoc).
+
+`subject_kind` carries no payload — same doctrine every other column on this table has always
+followed (see `PersonalDataCoverageTest`'s "dsgvo_audit_log rows never carry payload" test, updated
+in this wave to include the new column in its allowlist).
+
+== See also
+
+* `network.lapis.cloud.server.dsgvo.PersonalDataContributor`/`PersonalDataRegistry`/`DataSubject` — the
+  framework itself, in full KDoc detail.
+* `network.lapis.cloud.server.dsgvo.PersonalDataCoverageTest` — the actual enforcement mechanism.
+* `network.lapis.cloud.server.dsgvo.CrmPersonalData` — the one contributor implementing both
+  subject kinds.
+* `docs/architecture/domain-model.adoc` — the wider persistence-model documentation this file
+  intentionally does not duplicate (this document is scoped to the DSGVO framework's own shape, not
+  the CRM entity's full column-level schema — see `38-crm.kuml.kts` for that).

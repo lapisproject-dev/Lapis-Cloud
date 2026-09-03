@@ -4,6 +4,7 @@ import io.kvision.form.text.text
 import io.kvision.html.Button
 import io.kvision.html.ButtonStyle
 import io.kvision.html.div
+import io.kvision.i18n.gettext
 import io.kvision.i18n.tr
 import io.kvision.modal.Modal
 
@@ -82,6 +83,43 @@ fun confirmWithReasonDialog(
     }
     // Raskin-Auflage: Abbrechen links, die eigentliche (rote) Aktion rechts -- kein Knopf an der
     // Stelle des Auslösers, unabhängig davon, wo im Bildschirm dieses Modal geöffnet wurde.
+    modal.addButton(cancelButton)
+    modal.addButton(confirmButton)
+    modal.show()
+}
+
+/**
+ * Welle V1.4.2 "Interessenten-/Sympathisanten-CRM" -- a THIRD, stricter confirmation grammar for
+ * the single most irreversible action this codebase has: [CrmContactsScreen]'s Art.-17 contact
+ * erasure. Unlike [confirmDialog]/[confirmWithReasonDialog] (one click past a modal), the confirm
+ * button here stays disabled until the caller has TYPED [expectedText] (typically the contact's own
+ * display name) exactly -- the same "make the destructive path deliberately slower than the safe
+ * one" posture, one notch stricter because there is no undo (see `CrmPersonalData.erase` KDoc: a
+ * real DELETE, not anonymize-with-retained-row).
+ */
+fun confirmWithTypedConfirmationDialog(
+    title: String,
+    message: String,
+    expectedText: String,
+    confirmLabel: String = tr("Endgültig löschen"),
+    onConfirm: () -> Unit,
+) {
+    val modal = Modal(caption = title)
+    modal.div(message)
+    modal.div(gettext("Zum Bestätigen bitte \"%1\" eingeben:", expectedText)) { addCssClasses("fw-bold") }
+    val typedInput = modal.text()
+
+    val cancelButton = Button(tr("Abbrechen"), style = ButtonStyle.SECONDARY).apply { onClick { modal.hide() } }
+    val confirmButton =
+        Button(confirmLabel, style = ButtonStyle.DANGER).apply {
+            disabled = true
+            onClick {
+                if (typedInput.value != expectedText) return@onClick
+                modal.hide()
+                onConfirm()
+            }
+        }
+    typedInput.subscribe { value -> confirmButton.disabled = value != expectedText }
     modal.addButton(cancelButton)
     modal.addButton(confirmButton)
     modal.show()

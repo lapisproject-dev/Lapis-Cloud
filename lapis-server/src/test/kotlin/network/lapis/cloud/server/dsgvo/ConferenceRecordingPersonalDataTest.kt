@@ -174,7 +174,7 @@ class ConferenceRecordingPersonalDataTest :
             val roomId = createRoom(member)
             val recordingId = createRecordingWithTracks(roomId, member, trackCount = 2)
 
-            val export = transaction { ConferencePersonalData.export(member) }
+            val export = transaction { ConferencePersonalData.exportMember(member) }
             val recordingsStarted = export.jsonObject.getValue("recordingsStarted").jsonArray
             recordingsStarted.size shouldBe 1
             val entry = recordingsStarted.single().jsonObject
@@ -185,7 +185,7 @@ class ConferenceRecordingPersonalDataTest :
 
         test("export for a member who never started a recording has an empty recordingsStarted array") {
             val member = createTestMember("crpd-export-empty@example.org")
-            val export = transaction { ConferencePersonalData.export(member) }
+            val export = transaction { ConferencePersonalData.exportMember(member) }
             export.jsonObject
                 .getValue("recordingsStarted")
                 .jsonArray.size shouldBe 0
@@ -199,7 +199,7 @@ class ConferenceRecordingPersonalDataTest :
             createRecordingWithTracks(roomId, member, trackCount = 3)
 
             listOf(ErasureMode.ANONYMIZE, ErasureMode.HARD_DELETE_WHERE_UNCONSTRAINED).forEach { mode ->
-                val outcomes = transaction { ConferencePersonalData.erase(memberId = member, mode = mode) }
+                val outcomes = transaction { ConferencePersonalData.eraseMember(memberId = member, mode = mode) }
                 val recordingOutcome = outcomes.single { it.table == "conference_recording" }
                 recordingOutcome.rowsRetained shouldBe 1
                 recordingOutcome.retentionReason?.isNotBlank() shouldBe true

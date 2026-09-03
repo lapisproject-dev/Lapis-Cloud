@@ -2,6 +2,7 @@ package network.lapis.cloud.shared.rpc
 
 import dev.kilua.rpc.annotations.RpcService
 import network.lapis.cloud.shared.domain.DsgvoAuditLogEntryDto
+import network.lapis.cloud.shared.domain.DsgvoSubjectKind
 import network.lapis.cloud.shared.domain.ErasureMode
 import network.lapis.cloud.shared.domain.ErasureRequestDto
 import network.lapis.cloud.shared.domain.ErasureStatus
@@ -62,8 +63,16 @@ interface IDsgvoService {
      */
     suspend fun executeErasure(requestId: String): ErasureRequestDto
 
-    /** Role: ADMIN. Metadata/counts only — see [DsgvoAuditLogEntryDto] KDoc. */
-    suspend fun listAuditLog(subjectMemberId: String? = null): List<DsgvoAuditLogEntryDto>
+    /**
+     * Role: ADMIN. Metadata/counts only — see [DsgvoAuditLogEntryDto] KDoc. [subjectKind]
+     * (Welle V1.4.2) additionally filters by whether the row describes a member or a `crm_contact`
+     * -- `CrmContactsScreen`'s own audit view passes `CRM_CONTACT`, the DSGVO-compliance screen's
+     * member view passes `MEMBER` (or leaves it `null` to see both).
+     */
+    suspend fun listAuditLog(
+        subjectMemberId: String? = null,
+        subjectKind: DsgvoSubjectKind? = null,
+    ): List<DsgvoAuditLogEntryDto>
 
     // ============================================================================================
     // V1.3.0 "Öffentliche Transparenz-Startseite" -- opt-in consent for the two public leaderboards

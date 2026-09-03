@@ -26,6 +26,19 @@ enum class DsgvoAuditAction {
 }
 
 /**
+ * Welle V1.4.2 "Interessenten-/Sympathisanten-CRM" -- which kind of subject a
+ * [DsgvoAuditLogEntryDto.subjectMemberId] actually names, now that a `dsgvo_audit_log` row can
+ * describe either a member (Art. 15/17/20 DSGVO self-service/ADMIN workflow,
+ * `network.lapis.cloud.server.rpc.DsgvoService`) or a CRM contact (admin-only export/erasure,
+ * `network.lapis.cloud.server.dsgvo.CrmPersonalData`). See
+ * `network.lapis.cloud.server.dsgvo.DataSubject` (server-only, not mirrored here -- see that
+ * sealed interface's own KDoc for why) for the server-side type this enum is the wire-visible
+ * discriminator for.
+ */
+@Serializable
+enum class DsgvoSubjectKind { MEMBER, CRM_CONTACT }
+
+/**
  * Per-table erasure outcome — counts and a retention rationale, never payload. Persisted as a
  * JSON array in `erasure_request.outcome_summary` / `dsgvo_audit_log.outcome_summary`.
  */
@@ -78,4 +91,5 @@ data class DsgvoAuditLogEntryDto(
     val requestId: String?,
     val outcome: List<TableErasureOutcomeDto>,
     val legalBasis: String?,
+    val subjectKind: DsgvoSubjectKind,
 )

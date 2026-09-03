@@ -58,12 +58,12 @@ import kotlin.uuid.Uuid
  * still never surface `beforeSnapshot`/`afterSnapshot` -- the third-party-leak reasoning above is
  * unchanged for those.
  */
-object AuditLogPersonalData : PersonalDataContributor {
+object AuditLogPersonalData : MemberPersonalDataContributor {
     override val sectionKey = "auditLog"
     override val displayName = "Audit-Log (GoBD)"
     override val coveredTables = setOf(AuditLogEntryTable)
 
-    override fun export(memberId: Uuid) =
+    override fun exportMember(memberId: Uuid) =
         buildJsonArray {
             AuditLogEntryTable
                 .selectAll()
@@ -102,7 +102,7 @@ object AuditLogPersonalData : PersonalDataContributor {
                 }
         }
 
-    override fun erase(
+    override fun eraseMember(
         memberId: Uuid,
         mode: ErasureMode,
     ): List<TableErasureOutcome> {

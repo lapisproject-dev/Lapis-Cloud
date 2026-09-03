@@ -393,6 +393,10 @@ private fun refreshNavbar(navbar: Navbar) {
             // Rollen-Verifikation. Kein eigener Hauptmenüpunkt (Design-Team-Entscheidung #10) --
             // Einstieg über dieses bereits vorhandene BOARD/ADMIN-Dropdown.
             routedDdLink(Routes.API_KEYS, tr("API-Schlüssel"), icon = "fas fa-key")
+            // Welle V1.4.2 "Interessenten-/Sympathisanten-CRM" -- siehe `Routes.CRM` KDoc für die
+            // Rollen-Verifikation. Kein eigener Hauptmenüpunkt, gleiche Entscheidung wie bei
+            // "API-Schlüssel".
+            routedDdLink(Routes.CRM, tr("Kontakte & Interessenten"), icon = "fas fa-address-book")
         }
     }
     // ADMIN-only-tier -- see `Routes.BACKUP`/`CONFERENCE_STREAM_DESTINATIONS` KDoc.

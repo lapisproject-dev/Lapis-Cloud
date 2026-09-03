@@ -26,12 +26,12 @@ import kotlin.uuid.Uuid
  * [memberId] was the actor -- never bundle content, which never lived in this table anyway (see
  * `BackupOperationLogDto` KDoc's own "counts only, never payload" note).
  */
-object BackupOperationPersonalData : PersonalDataContributor {
+object BackupOperationPersonalData : MemberPersonalDataContributor {
     override val sectionKey = "backupOperations"
     override val displayName = "Backup-/Restore-Vorgaenge"
     override val coveredTables = setOf(BackupOperationLogTable)
 
-    override fun export(memberId: Uuid) =
+    override fun exportMember(memberId: Uuid) =
         buildJsonArray {
             BackupOperationLogTable
                 .selectAll()
@@ -51,7 +51,7 @@ object BackupOperationPersonalData : PersonalDataContributor {
                 }
         }
 
-    override fun erase(
+    override fun eraseMember(
         memberId: Uuid,
         mode: ErasureMode,
     ): List<TableErasureOutcome> {

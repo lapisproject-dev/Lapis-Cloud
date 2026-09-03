@@ -179,6 +179,9 @@
 // it and no PersonalDataRegistry/allowlist entry is required for the build to stay green. Full
 // erasure/export coverage of external donors is deliberately deferred to the later V0.5.4 DSGVO-
 // Vollausbau wave -- this is a known, intentional gap for this wave, not an oversight.
+// Seit Welle V1.4.2 ("Interessenten-/Sympathisanten-CRM") ist diese Luecke zusaetzlich testgeprueft
+// sichtbar gemacht in `PersonalDataRegistry.knownUncoveredSubjectRoots` -- siehe
+// docs/architecture/dsgvo.adoc.
 import dev.kuml.profile.erm.ermMappingProfile
 import dev.kuml.uml.Multiplicity
 import dev.kuml.uml.dsl.applyProfile

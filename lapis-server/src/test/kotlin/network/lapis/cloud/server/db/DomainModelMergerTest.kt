@@ -35,16 +35,16 @@ class DomainModelMergerTest :
         // ── Test 1: merging the real 22 domain scripts ───────────────────────────────────
 
         test(
-            "merging the real 38 domain scripts succeeds and the uml-to-erm -> erm-to-exposed chain " +
+            "merging the real 39 domain scripts succeeds and the uml-to-erm -> erm-to-exposed chain " +
                 "produces exactly one Table file per distinct table name",
         ) {
             val scriptFiles =
                 requireNotNull(KumlModelLoader.kumlSourceDir.listFiles { f -> f.name.endsWith(".kuml.kts") }) {
                     "kUML source dir not found or not a directory: ${KumlModelLoader.kumlSourceDir.absolutePath}"
                 }.sortedBy { it.name }
-            // Welle V1.3.2 "Webhooks" (ausgehend) -- was 37, now 38 with the addition of
-            // 37-webhook.kuml.kts.
-            scriptFiles shouldHaveSize 38
+            // Welle V1.4.2 "Interessenten-/Sympathisanten-CRM" -- was 38, now 39 with the addition
+            // of 38-crm.kuml.kts.
+            scriptFiles shouldHaveSize 39
 
             val diagrams = scriptFiles.map { KumlModelLoader.loadUmlDiagram(it) }
 
@@ -293,7 +293,15 @@ class DomainModelMergerTest :
             // (00-foundation.kuml.kts's member, 36-api-key.kuml.kts's api_key) -- so it contributes
             // +4 «Entity» declarations (2 stubs + 2 real tables) and 2 drops, net +2 distinct table
             // names versus the V1.3.1 baseline above (119 -> 121).
-            val distinctTableNames = 121
+            // Welle V1.4.2 "Interessenten-/Sympathisanten-CRM" adds 38-crm.kuml.kts's TWO real
+            // tables (crm_contact, crm_interaction), WITH TWO cross-domain stubs (Member,
+            // ExternalDonor -- crm_contact.member_id/created_by and crm_interaction.recorded_by
+            // resolve through Member, crm_contact.external_donor_id resolves through ExternalDonor)
+            // -- both stubs dedup into already-real entities (00-foundation.kuml.kts's member,
+            // 10-accounting.kuml.kts's external_donor) -- so it contributes +4 «Entity»
+            // declarations (2 stubs + 2 real tables) and 2 drops, net +2 distinct table names versus
+            // the V1.3.2 baseline above (121 -> 123).
+            val distinctTableNames = 123
 
             val result =
                 UmlToExposedViaErmScriptTransformer().transform(
@@ -469,6 +477,11 @@ class DomainModelMergerTest :
                     // both dedup into already-real entities, no new Table file for them.
                     "WebhookEndpointTable.kt",
                     "WebhookDeliveryTable.kt",
+                    // Welle V1.4.2 "Interessenten-/Sympathisanten-CRM" -- two new real tables
+                    // (crm_contact, crm_interaction); their Member/ExternalDonor cross-domain stubs
+                    // both dedup into already-real entities, no new Table file for them.
+                    "CrmContactTable.kt",
+                    "CrmInteractionTable.kt",
                 )
         }
 

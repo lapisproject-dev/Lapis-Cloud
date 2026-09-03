@@ -9,6 +9,7 @@ import kotlinx.serialization.json.JsonObject
 import network.lapis.cloud.server.db.generated.DsgvoAuditLogTable
 import network.lapis.cloud.server.db.generated.ErasureRequestTable
 import network.lapis.cloud.server.db.generated.MemberTable
+import network.lapis.cloud.server.dsgvo.DataSubject
 import network.lapis.cloud.server.dsgvo.PersonalDataRegistry
 import network.lapis.cloud.server.dsgvo.TableErasureOutcome
 import network.lapis.cloud.server.dsgvo.nowUtc
@@ -19,6 +20,7 @@ import network.lapis.cloud.server.security.resolveCurrentMember
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.DsgvoAuditAction
 import network.lapis.cloud.shared.domain.DsgvoAuditLogEntryDto
+import network.lapis.cloud.shared.domain.DsgvoSubjectKind
 import network.lapis.cloud.shared.domain.ErasureMode
 import network.lapis.cloud.shared.domain.ErasureRequestDto
 import network.lapis.cloud.shared.domain.ErasureStatus
@@ -35,6 +37,7 @@ import network.lapis.cloud.shared.rpc.IDsgvoService
 import network.lapis.cloud.shared.rpc.NotFoundException
 import org.jetbrains.exposed.v1.core.JoinType
 import org.jetbrains.exposed.v1.core.ResultRow
+import org.jetbrains.exposed.v1.core.and
 import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.jdbc.insert
 import org.jetbrains.exposed.v1.jdbc.selectAll
@@ -94,9 +97,11 @@ class DsgvoService(
         requireSelfOrAdmin(current = current, subjectId = subjectId)
         return transaction {
             val sectionCounts =
-                PersonalDataRegistry.contributors.associate { contributor ->
-                    contributor.sectionKey to contributor.export(subjectId).elementCount()
-                }
+                PersonalDataRegistry.contributors
+                    .filter { DsgvoSubjectKind.MEMBER in it.handledSubjects }
+                    .associate { contributor ->
+                        contributor.sectionKey to contributor.export(DataSubject.Member(subjectId)).elementCount()
+                    }
             writeAuditLog(
                 actor = current,
                 action = DsgvoAuditAction.EXPORT,
@@ -203,7 +208,11 @@ class DsgvoService(
             }
             val subjectId = row[ErasureRequestTable.subjectMemberId]
             val mode = row[ErasureRequestTable.mode]
-            val outcomeDtos = PersonalDataRegistry.contributors.flatMap { it.erase(memberId = subjectId, mode = mode) }.map { it.toDto() }
+            val outcomeDtos =
+                PersonalDataRegistry.contributors
+                    .filter { DsgvoSubjectKind.MEMBER in it.handledSubjects }
+                    .flatMap { it.erase(subject = DataSubject.Member(subjectId), mode = mode) }
+                    .map { it.toDto() }
             ErasureRequestTable.update({ ErasureRequestTable.id eq id }) {
                 it[status] = ErasureStatus.COMPLETED
                 it[executedAt] = nowUtc()
@@ -221,18 +230,27 @@ class DsgvoService(
         }
     }
 
-    override suspend fun listAuditLog(subjectMemberId: String?): List<DsgvoAuditLogEntryDto> {
+    override suspend fun listAuditLog(
+        subjectMemberId: String?,
+        subjectKind: DsgvoSubjectKind?,
+    ): List<DsgvoAuditLogEntryDto> {
         val current = resolveCurrentMember(call)
         current.requireRole(AccountRole.ADMIN)
         return transaction {
-            val baseQuery = DsgvoAuditLogTable.selectAll()
-            val rows =
-                if (subjectMemberId != null) {
-                    baseQuery.where { DsgvoAuditLogTable.subjectMemberId eq subjectMemberId.toDsgvoUuid() }
-                } else {
-                    baseQuery
+            // Condition built up-front, not a `.where {}.andWhere {}` chain -- same idiom
+            // FederationService.listFederationRelationships establishes, this codebase does not use
+            // Exposed's separate `andWhere` extension anywhere.
+            val subjectIdCondition = subjectMemberId?.let { DsgvoAuditLogTable.subjectMemberId eq it.toDsgvoUuid() }
+            val subjectKindCondition = subjectKind?.let { DsgvoAuditLogTable.subjectKind eq it }
+            val condition =
+                when {
+                    subjectIdCondition != null && subjectKindCondition != null -> subjectIdCondition and subjectKindCondition
+                    subjectIdCondition != null -> subjectIdCondition
+                    subjectKindCondition != null -> subjectKindCondition
+                    else -> null
                 }
-            rows.map { it.toAuditLogEntryDto() }
+            val query = if (condition != null) DsgvoAuditLogTable.selectAll().where { condition } else DsgvoAuditLogTable.selectAll()
+            query.map { it.toAuditLogEntryDto() }
         }
     }
 
@@ -347,6 +365,10 @@ class DsgvoService(
         requestId: Uuid?,
         outcome: List<TableErasureOutcomeDto>,
         legalBasis: String?,
+        // Every call site in THIS class describes an actual member -- CrmService/CrmRoutes write
+        // their own CRM_CONTACT-kind rows directly (see those classes' own KDoc), this default
+        // exists purely so DsgvoService's five pre-existing call sites stay unchanged.
+        subjectKind: DsgvoSubjectKind = DsgvoSubjectKind.MEMBER,
     ) {
         DsgvoAuditLogTable.insert {
             it[id] = Uuid.random()
@@ -358,6 +380,7 @@ class DsgvoService(
             it[DsgvoAuditLogTable.requestId] = requestId
             it[outcomeSummary] = if (outcome.isEmpty()) null else Json.encodeToString(outcomeListSerializer, outcome)
             it[DsgvoAuditLogTable.legalBasis] = legalBasis
+            it[DsgvoAuditLogTable.subjectKind] = subjectKind
         }
     }
 
@@ -427,4 +450,5 @@ private fun ResultRow.toAuditLogEntryDto(): DsgvoAuditLogEntryDto =
         requestId = this[DsgvoAuditLogTable.requestId]?.toString(),
         outcome = this[DsgvoAuditLogTable.outcomeSummary]?.let { Json.decodeFromString(outcomeListSerializer, it) } ?: emptyList(),
         legalBasis = this[DsgvoAuditLogTable.legalBasis],
+        subjectKind = this[DsgvoAuditLogTable.subjectKind],
     )

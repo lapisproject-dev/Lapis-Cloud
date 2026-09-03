@@ -33,7 +33,7 @@ private const val MAX_EXPORTED_EVENTS = 2_000
  * this consent to gate, and no accountability interest in keeping it -- so it is hard-deleted, not
  * anonymized (`rowsDeleted`, never `rowsAnonymized`/`rowsRetained`).
  */
-object PublicRankingConsentPersonalData : PersonalDataContributor {
+object PublicRankingConsentPersonalData : MemberPersonalDataContributor {
     override val sectionKey = "publicRankingConsent"
     override val displayName = "Öffentliche Ranglisten -- Einwilligungen"
     override val coveredTables = setOf(PublicRankingConsentEventTable)
@@ -53,7 +53,7 @@ object PublicRankingConsentPersonalData : PersonalDataContributor {
      * route. This is a defensive cap against abuse, not a claim that Art. 15/20 completeness never
      * matters -- a legitimate member's real consent history never approaches 2000 rows.
      */
-    override fun export(memberId: Uuid) =
+    override fun exportMember(memberId: Uuid) =
         buildJsonObject {
             val rows =
                 PublicRankingConsentEventTable
@@ -80,7 +80,7 @@ object PublicRankingConsentPersonalData : PersonalDataContributor {
             }
         }
 
-    override fun erase(
+    override fun eraseMember(
         memberId: Uuid,
         mode: ErasureMode,
     ): List<TableErasureOutcome> {

@@ -24,12 +24,12 @@ import kotlin.uuid.Uuid
  * `cancellation_reason` (may contain a remark about a person) is cleared -- same "export/erase
  * symmetry" discipline [SocialPostModerationSnapshot]-adjacent contributors already follow.
  */
-object DunningPersonalData : PersonalDataContributor {
+object DunningPersonalData : MemberPersonalDataContributor {
     override val sectionKey = "dunning"
     override val displayName = "Mahnwesen"
     override val coveredTables = setOf(DunningNoticeTable, DunningComplianceAcknowledgmentTable)
 
-    override fun export(memberId: Uuid) =
+    override fun exportMember(memberId: Uuid) =
         buildJsonObject {
             put(
                 "notices",
@@ -79,7 +79,7 @@ object DunningPersonalData : PersonalDataContributor {
             )
         }
 
-    override fun erase(
+    override fun eraseMember(
         memberId: Uuid,
         mode: ErasureMode,
     ): List<TableErasureOutcome> {
