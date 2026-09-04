@@ -214,6 +214,7 @@ internal class AnonymousDonationCheckout(
                 contributionId = null,
                 memberId = null,
                 externalDonorId = externalDonorId,
+                eventRegistrationId = null,
                 embedOrigin = canonicalOrigin,
                 amount = amountEur.setScale(2, RoundingMode.UNNECESSARY),
                 currency = "EUR",

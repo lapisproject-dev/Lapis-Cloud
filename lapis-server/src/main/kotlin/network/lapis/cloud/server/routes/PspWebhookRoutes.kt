@@ -11,6 +11,8 @@ import io.ktor.server.routing.Route
 import io.ktor.server.routing.post
 import network.lapis.cloud.server.db.generated.OrganizationSettingsTable
 import network.lapis.cloud.server.federation.FederationInboxRateLimiter
+import network.lapis.cloud.server.mail.MailDispatcher
+import network.lapis.cloud.server.mail.NoOpMailTransport
 import network.lapis.cloud.server.payment.psp.CheckoutCompletedIngestionOutcome
 import network.lapis.cloud.server.payment.psp.PspConfigState
 import network.lapis.cloud.server.payment.psp.PspWebhookEventLog
@@ -78,6 +80,12 @@ private const val MAX_JSON_NESTING_DEPTH = 20
 fun Route.registerPspWebhookRoutes(
     pspConfig: PspConfigState,
     rateLimiter: FederationInboxRateLimiter,
+    // Defaults to a throwaway NoOp-backed dispatcher so the ~dozen `testApplication` call sites in
+    // PspWebhookRoutesTest that never touch the EVENT_FEE/checkout.session.expired mailing path
+    // don't all need updating -- `Application.module()` always passes the REAL, application-wide
+    // mailDispatcher explicitly (see that file). Used exclusively by ingestCheckoutExpired's
+    // EVENT_FEE branch (Review MAJOR fix) -- every other branch in this file remains mail-free.
+    mailDispatcher: MailDispatcher = MailDispatcher(transport = NoOpMailTransport()),
 ) {
     post("/api/webhooks/stripe") {
         val remoteHost = call.request.origin.remoteHost
@@ -271,7 +279,7 @@ fun Route.registerPspWebhookRoutes(
                 // other branch. Same synchronous, already-committed `transaction {}` shape, so the
                 // same "no coroutine-cancellation-swallowing concern" reasoning applies verbatim.
                 try {
-                    PspWebhookIngestion.ingestCheckoutExpired(event = event)
+                    PspWebhookIngestion.ingestCheckoutExpired(event = event, mailDispatcher = mailDispatcher)
                 } catch (e: Exception) {
                     logger.error(e) {
                         "PspWebhookRoutes: unexpected exception ingesting checkout.session.expired (event ${event.id})"

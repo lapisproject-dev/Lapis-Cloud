@@ -6,6 +6,51 @@ All notable changes to this project are documented here. Format follows
 
 ## [Unreleased]
 
+### Added
+
+**Veranstaltungen: Kernschleife + Anmeldegebühren-Zahlung (Welle V1.4.3.1)**
+
+- **Neue Entitäten `event`/`event_registration`** — eine öffentlich ankündbare Veranstaltung mit
+  optionaler Teilnahmegebühr und optionaler Kapazität; eine Anmeldung (Mitglied oder Gast per
+  Name+E-Mail) belegt entweder einen Platz oder landet auf der Warteliste. Siehe
+  `39-events.kuml.kts` Dateikopf für die Abgrenzung zu `meeting` (Gremiensitzung) und
+  `external_donor` (§25-PartG-Spendenrecht).
+- **`active_participant_key`-Schattenspalte** als Missbrauchsschutz-Primärgrenze (statt eines
+  partiellen Unique-Index, den H2s `MODE=PostgreSQL` nicht unterstützt) — höchstens eine aktive
+  Anmeldung pro Veranstaltung und Person (`m:<memberId>`/`g:<normalisierte E-Mail>`).
+- **Dritte Zahler-Identität auf `payment_checkout_session`** (`event_registration_id`, neben
+  Mitglied/`external_donor`) — die bisherige zweiwertige XOR-Bedingung wird zu einer
+  dreiwertigen „genau eine Identität"-Bedingung; `PaymentIntent` gewinnt das Literal `EVENT_FEE`.
+- **Serverseitig unter Zeilensperre kapazitätsgeprüfte Selbstanmeldung** (`IEventService
+  .registerSelf`) — der Betrag stammt ausschließlich aus `event.fee_amount`, niemals vom Client.
+  Bei freiem Platz sofortige Bestätigung (kostenlos) bzw. Stripe-Checkout mit 30-Minuten-Hold
+  (kostenpflichtig); bei ausgebuchter Veranstaltung Warteliste (Deckel 500). Automatisches
+  Nachrücken lazy bei jeder Sperren-Übernahme, beim `checkout.session.expired`-Webhook und über
+  einen manuellen BOARD/ADMIN-Sweep-Knopf — dieses Codebase hat keine Scheduler-Infrastruktur.
+  `EventFeePostingBridge` bucht eine bestätigte Zahlung als Ertrag (Sphäre konfigurierbar über
+  `organization_settings.event_income_sphere`, Default Zweckbetrieb).
+- **Öffentlicher, unauthentifizierter Anmeldepfad** (`GET`/`POST /veranstaltung/{slug}[...]`) —
+  klassisches serverseitig gerendertes `<form>`, kein JavaScript, kein Kilua-RPC-Client. Vier
+  Schutzschichten: der eindeutige Index, ein Honeypot-Feld, zwei getrennte Rate-Limiter (großzügige
+  Flut-Bremse vor dem Body-Lesen, strenges Kontingent unmittelbar vor der DB-/Stripe-Arbeit) und ein
+  Content-Length-Deckel. Stornierung über einen signierten, nur gehasht gespeicherten Link
+  (SHA-256, konstante Zeit verglichen); die Belegungsanzeige ist bewusst binär („Plätze frei" /
+  „Warteliste"), nie eine genaue Restzahl.
+- **DSGVO**: `EventPersonalData` deckt `event`/`event_registration` für den Mitglieds-Pfad ab
+  (retain-with-reason, kein Feld trägt PII direkt außerhalb der FK). Der Gast-Pfad
+  (`guest_name`/`guest_email` ohne `member_id`) bleibt eine testgeprüft sichtbare, dokumentierte
+  Lücke (`PersonalDataRegistry.knownUncoveredSubjectRoots`) — Selbstbedienungs-Auskunft/-Löschung
+  für Gäste ist für V1.4.3.2 vorgesehen.
+- **Bewusst nicht in dieser Welle**: der JSON-Anmeldeendpunkt für ein künftiges Embed-Widget
+  (`POST /api/public/v1/event/{slug}/registration`) und die BOARD/ADMIN-Verwaltungsoberfläche
+  (KVision-Screen) — beides für eine Folgewelle vorgesehen, siehe Session-Notizen. Die
+  RPC-Schnittstelle (`IEventService`) ist bereits vollständig für einen späteren Client-Screen
+  nutzbar.
+- **Offene Fragen, im Code markiert**: ob eine Teilnahmegebühr deutlich über den Veranstaltungs-
+  kosten als verdeckte Parteispende zu behandeln ist (dieses System prüft das nicht — siehe
+  `39-events.kuml.kts` Dateikopf); die Gemeinnützigkeits-Sphäre ist aktuell organisationsweit, nicht
+  pro Veranstaltung, konfigurierbar.
+
 ## [0.18.0] — 2026-09-03
 
 ### Added

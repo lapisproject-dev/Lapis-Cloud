@@ -310,6 +310,12 @@ data class SocialPostModerationSnapshot(
  *
  * [donationIncomeAccountId] (Welle V1.2.8 "PSP-Checkout (Stripe)") was appended LAST -- a fourth
  * mapping field, same audit-relevance reasoning as the original three.
+ *
+ * [eventIncomeAccountId] (Welle V1.4.3.1 "Veranstaltungen", Review MAJOR fix) is a fifth mapping
+ * field, same audit-relevance reasoning -- id only, never the sphere (`event_income_sphere` is a
+ * classification, not a "which account did money move to" fact, so it stays outside this
+ * deliberately narrow snapshot, same as every other non-account-id field `updateOrganizationSettings`
+ * writes).
  */
 @Serializable
 data class OrganizationSettingsPaymentMappingSnapshot(
@@ -317,6 +323,7 @@ data class OrganizationSettingsPaymentMappingSnapshot(
     val paymentFeeAccountId: String?,
     val contributionIncomeAccountId: String?,
     val donationIncomeAccountId: String? = null,
+    val eventIncomeAccountId: String? = null,
 )
 
 /**

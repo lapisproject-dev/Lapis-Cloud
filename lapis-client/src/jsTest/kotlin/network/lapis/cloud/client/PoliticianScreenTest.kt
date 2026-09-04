@@ -2,6 +2,7 @@ package network.lapis.cloud.client
 
 import dev.kilua.rpc.types.toDecimal
 import kotlinx.datetime.LocalDate
+import network.lapis.cloud.shared.domain.GemeinnuetzigkeitSphere
 import network.lapis.cloud.shared.domain.OrganizationSettingsDto
 import network.lapis.cloud.shared.domain.PoliticianProfileStatus
 import network.lapis.cloud.shared.domain.PoliticianRaterType
@@ -49,6 +50,13 @@ class PoliticianScreenTest {
             paymentBankAccountId = "account-bank-1",
             paymentFeeAccountId = "account-fee-1",
             contributionIncomeAccountId = "account-income-1",
+            // Review MAJOR fix regression coverage: these two (and donationIncomeAccountId, already
+            // present in OrganizationSettingsDto's own default but asserted here too) used to be
+            // silently dropped by toInputWithPoliticianRankingEnabled -- a non-default value for
+            // every one of them here means a re-introduced copy-bug fails loudly.
+            donationIncomeAccountId = "account-donation-1",
+            eventIncomeAccountId = "account-event-1",
+            eventIncomeSphere = GemeinnuetzigkeitSphere.WIRTSCHAFTLICHER_GESCHAEFTSBETRIEB,
         )
 
     @Test
@@ -68,6 +76,9 @@ class PoliticianScreenTest {
         assertEquals(fullSettings.paymentBankAccountId, input.paymentBankAccountId)
         assertEquals(fullSettings.paymentFeeAccountId, input.paymentFeeAccountId)
         assertEquals(fullSettings.contributionIncomeAccountId, input.contributionIncomeAccountId)
+        assertEquals(fullSettings.donationIncomeAccountId, input.donationIncomeAccountId)
+        assertEquals(fullSettings.eventIncomeAccountId, input.eventIncomeAccountId)
+        assertEquals(fullSettings.eventIncomeSphere, input.eventIncomeSphere)
         assertTrue(input.politicianRankingEnabled, "expected politicianRankingEnabled to be flipped to true")
     }
 
@@ -88,6 +99,9 @@ class PoliticianScreenTest {
         assertEquals(fullSettings.paymentBankAccountId, input.paymentBankAccountId)
         assertEquals(fullSettings.paymentFeeAccountId, input.paymentFeeAccountId)
         assertEquals(fullSettings.contributionIncomeAccountId, input.contributionIncomeAccountId)
+        assertEquals(fullSettings.donationIncomeAccountId, input.donationIncomeAccountId)
+        assertEquals(fullSettings.eventIncomeAccountId, input.eventIncomeAccountId)
+        assertEquals(fullSettings.eventIncomeSphere, input.eventIncomeSphere)
         assertFalse(input.politicianRankingEnabled, "expected politicianRankingEnabled to be flipped to false")
     }
 
@@ -119,6 +133,9 @@ class PoliticianScreenTest {
         assertEquals(null, input.paymentBankAccountId)
         assertEquals(null, input.paymentFeeAccountId)
         assertEquals(null, input.contributionIncomeAccountId)
+        assertEquals(null, input.donationIncomeAccountId)
+        assertEquals(null, input.eventIncomeAccountId)
+        assertEquals(GemeinnuetzigkeitSphere.ZWECKBETRIEB, input.eventIncomeSphere)
         assertFalse(input.isPoliticalParty)
         assertFalse(input.postalMailEnabled)
         assertTrue(input.politicianRankingEnabled)

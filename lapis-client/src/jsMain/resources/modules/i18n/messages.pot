@@ -8555,6 +8555,15 @@ msgstr ""
 msgid "Spende erhalten"
 msgstr ""
 
+msgid "Anmeldegebühr bezahlt"
+msgstr ""
+
+msgid "Veranstaltungsgebühr"
+msgstr ""
+
+msgid "Der Status konnte nicht rechtzeitig bestätigt werden. Bitte prüfen Sie es in einigen Minuten erneut."
+msgstr ""
+
 msgid "Test-Ereignis"
 msgstr ""
 

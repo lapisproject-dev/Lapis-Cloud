@@ -50,6 +50,7 @@ object PersonalDataRegistry {
             ApiKeyPersonalData,
             WebhookPersonalData,
             CrmPersonalData,
+            EventPersonalData,
         )
 
     /**
@@ -76,6 +77,12 @@ object PersonalDataRegistry {
                 "member-FK und faellt daher aus dem Auskunfts-/Loeschframework heraus. Bewusst in " +
                 "dieser Welle (V1.4.2) NICHT funktional angefasst -- Vollausbau bleibt V0.5.4. " +
                 "Sichtbar gemacht, nicht geschlossen.",
+            "event_registration" to
+                "Welle V1.4.3.1. Traegt PII eines Nicht-Mitglieds (Gastname/-E-Mail) fuer eine " +
+                "Anmeldung ohne member_id, hat fuer diesen Fall keinen member-FK und faellt daher " +
+                "aus dem Auskunfts-/Loeschframework heraus. Ein Selbstbedienungs-Auskunfts-/" +
+                "Loeschpfad fuer Gaeste sowie eine automatische Aufbewahrungsfrist sind fuer " +
+                "V1.4.3.2 vorgesehen. Sichtbar gemacht, nicht geschlossen.",
         )
 
     /**
@@ -84,7 +91,7 @@ object PersonalDataRegistry {
      * [knownUncoveredSubjectRoots] (dokumentierte Luecke, wie `external_donor`) stehen -- niemals in
      * beiden, niemals in keinem (siehe `PersonalDataCoverageTest`'s Test C).
      */
-    internal val nonMemberPiiTables: Set<String> = setOf("external_donor", "crm_contact")
+    internal val nonMemberPiiTables: Set<String> = setOf("external_donor", "crm_contact", "event_registration")
 
     /**
      * Tables that are not covered by a [PersonalDataContributor] on purpose, each with a written

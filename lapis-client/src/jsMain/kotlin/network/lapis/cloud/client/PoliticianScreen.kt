@@ -814,6 +814,15 @@ internal fun OrganizationSettingsDto.toInputWithPoliticianRankingEnabled(newValu
         paymentBankAccountId = paymentBankAccountId,
         paymentFeeAccountId = paymentFeeAccountId,
         contributionIncomeAccountId = contributionIncomeAccountId,
+        // Review MAJOR fix: `donationIncomeAccountId` was already silently dropped here before this
+        // round (never listed by PoliticianScreenTest's own field-by-field assertions either) --
+        // `eventIncomeAccountId`/`eventIncomeSphere` (V1.4.3.1) would otherwise have joined it as a
+        // THIRD field this "wholesale-replace, one flag flipped" helper quietly resets to its
+        // Kotlin default the next time a BOARD/ADMIN merely toggles politician ranking. All three are
+        // fixed together -- see this function's own KDoc "never silently drop/reset a field".
+        donationIncomeAccountId = donationIncomeAccountId,
+        eventIncomeAccountId = eventIncomeAccountId,
+        eventIncomeSphere = eventIncomeSphere,
     )
 
 // ================================================================================================

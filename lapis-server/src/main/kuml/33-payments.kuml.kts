@@ -53,6 +53,17 @@
 // `PAYMENT_TRANSACTION` in V1.2.8, once `PspWebhookIngestion` becomes its first writer -- see the
 // V1.2.8 addendum above.
 //
+// **Welle V1.4.3.1 "Veranstaltungen: Kernschleife + Anmeldegebuehren-Zahlung"** adds a THIRD payer
+// identity to `payment_checkout_session`: `eventRegistrationId` (real FK -> event_registration,
+// owned by 39-events.kuml.kts). The two-way XOR CHECK (member_id/external_donor_id) widens to a
+// three-way "exactly one of member_id/external_donor_id/event_registration_id" CHECK in
+// V18__events.sql -- see that migration's own header. `paymentIntent` gains a third literal,
+// EVENT_FEE, appended LAST (load-bearing order, PaymentsSchemaDriftTest pins it) -- fits the
+// existing VARCHAR(12) width (CONTRIBUTION, 12 chars, remains the longest literal). A new
+// `EventRegistration` cross-domain stub (id-only, same pattern as ExternalDonor above) exists purely
+// so UmlToErmTransformer can resolve this file's own FK within this file's single-file evaluation --
+// event_registration itself is owned by 39-events.kuml.kts.
+//
 // **Welle V1.2.2 "SEPA-Lastschriftmandate"** (vault "sepa_v1.2.2_plan.md") adds the four tables this
 // file's own header previously named as out of scope: `sepa_mandate`, `sepa_debit_batch`,
 // `sepa_debit_item`, `sepa_return` -- plus five new enums (`SepaMandateStatus`/`SepaSequenceType`/
@@ -112,6 +123,17 @@ classDiagram(name = "Payments") {
         }
     }
 
+    // 39-events.kuml.kts-owned stub -- id-only. Resolves
+    // paymentCheckoutSession.eventRegistrationId's FK target within this file's own single-file
+    // evaluation (Welle V1.4.3.1).
+    val eventRegistration = classOf(name = "EventRegistration") {
+        stereotype("Entity") { "tableName" to "event_registration"; "kotlinObjectName" to "EventRegistrationTable" }
+        attribute(name = "id", type = "UUID") {
+            stereotype("Id")
+            stereotype("Column") { "columnName" to "id" }
+        }
+    }
+
     // Literal order is load-bearing (PaymentsSchemaDriftTest pins ErmDataType.Enum.values against
     // network.lapis.cloud.shared.domain.PaymentProvider in exactly this order). Longest literal
     // STRIPE/PAYPAL/MANUAL are all 6 chars -> VARCHAR(8), matching plan § 2.3.
@@ -138,6 +160,9 @@ classDiagram(name = "Payments") {
     val paymentIntent = enumOf(name = "PaymentIntent") {
         literal(name = "CONTRIBUTION")
         literal(name = "DONATION")
+        // Welle V1.4.3.1. Appended LAST -- see network.lapis.cloud.shared.domain.PaymentIntent KDoc,
+        // this literal order is load-bearing (PaymentsSchemaDriftTest).
+        literal(name = "EVENT_FEE")
     }
 
     // Welle V1.2.8. Literal order is load-bearing, same reason as above -- matches
@@ -184,6 +209,11 @@ classDiagram(name = "Payments") {
         stereotype("Index") {
             "columns" to listOf("external_donor_id")
             "name" to "idx_payment_checkout_session_external_donor"
+        }
+        // Welle V1.4.3.1.
+        stereotype("Index") {
+            "columns" to listOf("event_registration_id")
+            "name" to "idx_payment_checkout_session_event_registration"
         }
 
         attribute(name = "id", type = "UUID") {
@@ -234,6 +264,14 @@ classDiagram(name = "Payments") {
         attribute(name = "embedOrigin", type = "String") {
             multiplicity = Multiplicity(0, 1)
             stereotype("Column") { "columnName" to "embed_origin"; "sqlType" to "VARCHAR(255)" }
+        }
+        // Real FK -> event_registration (id), nullable -- set only for intent = EVENT_FEE (Welle
+        // V1.4.3.1). Mutually exclusive with memberId/externalDonorId (three-way CHECK in
+        // V18__events.sql, mirrored by PspCheckoutSessions.create's own
+        // `require(listOfNotNull(memberId, externalDonorId, eventRegistrationId).size == 1)`).
+        attribute(name = "eventRegistrationId", type = "UUID") {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") { "columnName" to "event_registration_id"; "fkEntity" to "EventRegistration" }
         }
         attribute(name = "amount", type = "BigDecimal") {
             stereotype("Column") { "columnName" to "amount"; "sqlType" to "DECIMAL(14,2)" }

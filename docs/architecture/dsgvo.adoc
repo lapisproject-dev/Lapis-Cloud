@@ -140,6 +140,28 @@ under ADMIN authority instead (see its own KDoc).
 followed (see `PersonalDataCoverageTest`'s "dsgvo_audit_log rows never carry payload" test, updated
 in this wave to include the new column in its allowlist).
 
+== Events (`event`/`event_registration`, Welle V1.4.3.1)
+
+`EventPersonalData` is an ordinary `MemberPersonalDataContributor` covering `event`/
+`event_registration` — the member-registration and event-creation paths only. Both tables are
+**retained, not deleted, regardless of `ErasureMode`**: neither stores a member's name/email
+directly, only the `member_id`/`created_by` FK, and that FK survives erasure as an ordinary anchor
+(the referenced `member` row itself is anonymized elsewhere, same invariant every other
+retain-with-reason contributor in this codebase relies on). Deleting the FK instead would either
+orphan a `payment_transaction`/`journal_entry`'s own accounting trail for a paid registration, or
+corrupt capacity/waitlist accounting for a still-`PENDING_PAYMENT`/`WAITLISTED` row.
+
+A **guest** registration (`event_registration.guest_name`/`guest_email`, no `member_id`) is PII of a
+person who is not a member and has no FK to `member` — invisible to the FK walk entirely.
+`event_registration` therefore appears in BOTH `PersonalDataRegistry.nonMemberPiiTables` (as a
+non-member-PII table) and `knownUncoveredSubjectRoots` (as the documented, wave-numbered gap for
+that guest path) — not a contradiction: the XOR check
+(`PersonalDataCoverageTest`, "every non-member PII table is either a subject root or a documented,
+wave-numbered gap") is evaluated against `subjectRootTables`, while the table is separately, and
+correctly, covered by `EventPersonalData` for its member-FK side (`coveredTableNames()`). A
+self-service Auskunft/Löschung path for guests, plus an automatic retention limit for
+`guest_name`/`guest_email` (Art. 5(1)(e) DSGVO), is deferred to a follow-up wave.
+
 == See also
 
 * `network.lapis.cloud.server.dsgvo.PersonalDataContributor`/`PersonalDataRegistry`/`DataSubject` — the

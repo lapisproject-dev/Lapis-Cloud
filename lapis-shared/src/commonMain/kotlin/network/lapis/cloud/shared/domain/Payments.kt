@@ -20,9 +20,13 @@ enum class PaymentProvider { PAYPAL, STRIPE, MANUAL }
 @Serializable
 enum class PaymentTransactionStatus { PENDING, CAPTURED, FAILED, REFUNDED, DISPUTED }
 
-/** Literal order load-bearing, same reason as [PaymentProvider]. */
+/**
+ * Literal order load-bearing, same reason as [PaymentProvider]. [EVENT_FEE] (Welle V1.4.3.1) is
+ * appended LAST, never inserted -- see `33-payments.kuml.kts` file header addendum. Fits the
+ * existing VARCHAR(12) column width (`CONTRIBUTION`, 12 chars, remains the longest literal).
+ */
 @Serializable
-enum class PaymentIntent { CONTRIBUTION, DONATION }
+enum class PaymentIntent { CONTRIBUTION, DONATION, EVENT_FEE }
 
 // ================================================================================================
 // Compliance-gate DTOs -- SEPA and Payment-Gateway each get their own disclaimer/acknowledgment/
@@ -204,6 +208,8 @@ data class PspConfigStatusDto(
     val contributionIncomeAccountConfigured: Boolean,
     val donationIncomeAccountConfigured: Boolean,
     val paymentFeeAccountConfigured: Boolean,
+    /** Welle V1.4.3.1. Whether `organization_settings.event_income_account_id` is set -- diagnosis only, never the account id itself. */
+    val eventIncomeAccountConfigured: Boolean = false,
 )
 
 /**

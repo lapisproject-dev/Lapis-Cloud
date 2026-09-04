@@ -9639,6 +9639,15 @@ msgstr "Cuota pagada"
 msgid "Spende erhalten"
 msgstr "Donación recibida"
 
+msgid "Anmeldegebühr bezahlt"
+msgstr "Cuota de inscripción pagada"
+
+msgid "Veranstaltungsgebühr"
+msgstr "Cuota del evento"
+
+msgid "Der Status konnte nicht rechtzeitig bestätigt werden. Bitte prüfen Sie es in einigen Minuten erneut."
+msgstr "El estado no pudo confirmarse a tiempo. Vuelva a comprobarlo en unos minutos."
+
 msgid "Test-Ereignis"
 msgstr "Evento de prueba"
 

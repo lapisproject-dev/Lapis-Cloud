@@ -9555,6 +9555,15 @@ msgstr "Contribution paid"
 msgid "Spende erhalten"
 msgstr "Donation received"
 
+msgid "Anmeldegebühr bezahlt"
+msgstr "Registration fee paid"
+
+msgid "Veranstaltungsgebühr"
+msgstr "Event fee"
+
+msgid "Der Status konnte nicht rechtzeitig bestätigt werden. Bitte prüfen Sie es in einigen Minuten erneut."
+msgstr "The status could not be confirmed in time. Please check again in a few minutes."
+
 msgid "Test-Ereignis"
 msgstr "Test event"
 

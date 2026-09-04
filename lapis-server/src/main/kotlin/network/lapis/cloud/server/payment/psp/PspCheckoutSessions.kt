@@ -29,13 +29,14 @@ object PspCheckoutSessions {
      * (`Uuid.random()`) so the caller can reference it (e.g. as Stripe's `client_reference_id`)
      * before this function returns.
      *
-     * **Exactly one donor identity, Welle V1.4.1b**: exactly one of [memberId]/[externalDonorId]
-     * must be non-null -- mirrors the `chk_payment_checkout_session_donor_identity` CHECK
-     * constraint (`V16__embed_anonymous_donation.sql`). Neither parameter carries a default value,
-     * so every call site must write out `externalDonorId = null`/`embedOrigin = null` explicitly
-     * for the (still overwhelmingly common) member path -- deliberate, this is a money path where a
-     * hidden default is the wrong ergonomics. [embedOrigin] must be `null` unless [externalDonorId]
-     * is set (`chk_payment_checkout_session_embed_origin_external`).
+     * **Exactly one payer identity, Welle V1.4.3.1** (widened from the two-way V1.4.1b XOR):
+     * exactly one of [memberId]/[externalDonorId]/[eventRegistrationId] must be non-null -- mirrors
+     * the `chk_payment_checkout_session_payer_identity` CHECK constraint (`V18__events.sql`). No
+     * parameter carries a default value, so every call site must write out
+     * `externalDonorId = null`/`eventRegistrationId = null`/`embedOrigin = null` explicitly for
+     * whichever paths do not apply -- deliberate, this is a money path where a hidden default is
+     * the wrong ergonomics. [embedOrigin] must be `null` unless [externalDonorId] or
+     * [eventRegistrationId] is set (`chk_payment_checkout_session_embed_origin_external`).
      */
     fun create(
         id: Uuid,
@@ -45,6 +46,7 @@ object PspCheckoutSessions {
         contributionId: Uuid?,
         memberId: Uuid?,
         externalDonorId: Uuid?,
+        eventRegistrationId: Uuid?,
         embedOrigin: String?,
         amount: BigDecimal,
         currency: String,
@@ -55,11 +57,12 @@ object PspCheckoutSessions {
         providerIdempotencyKey: String,
         redirectUrl: String?,
     ) {
-        require((memberId == null) != (externalDonorId == null)) {
-            "exactly one of memberId/externalDonorId must be set (was memberId=$memberId, externalDonorId=$externalDonorId)"
+        require(listOfNotNull(memberId, externalDonorId, eventRegistrationId).size == 1) {
+            "exactly one of memberId/externalDonorId/eventRegistrationId must be set (was memberId=$memberId, " +
+                "externalDonorId=$externalDonorId, eventRegistrationId=$eventRegistrationId)"
         }
-        require(embedOrigin == null || externalDonorId != null) {
-            "embedOrigin must be null unless externalDonorId is set"
+        require(embedOrigin == null || externalDonorId != null || eventRegistrationId != null) {
+            "embedOrigin must be null unless externalDonorId or eventRegistrationId is set"
         }
         PaymentCheckoutSessionTable.insert {
             it[PaymentCheckoutSessionTable.id] = id
@@ -70,6 +73,7 @@ object PspCheckoutSessions {
             it[PaymentCheckoutSessionTable.contributionId] = contributionId
             it[PaymentCheckoutSessionTable.memberId] = memberId
             it[PaymentCheckoutSessionTable.externalDonorId] = externalDonorId
+            it[PaymentCheckoutSessionTable.eventRegistrationId] = eventRegistrationId
             it[PaymentCheckoutSessionTable.embedOrigin] = embedOrigin
             it[PaymentCheckoutSessionTable.amount] = amount
             it[PaymentCheckoutSessionTable.currency] = currency
@@ -112,6 +116,27 @@ object PspCheckoutSessions {
             .selectAll()
             .where {
                 (PaymentCheckoutSessionTable.contributionId eq contributionId) and
+                    (PaymentCheckoutSessionTable.status eq PaymentCheckoutSessionStatus.CREATED) and
+                    (PaymentCheckoutSessionTable.expiresAt greater now)
+            }.orderBy(PaymentCheckoutSessionTable.createdAt, SortOrder.DESC)
+            .limit(1)
+            .singleOrNull()
+
+    /**
+     * The most recent non-expired `CREATED` session for [eventRegistrationId] -- same "reuse instead
+     * of minting a second Stripe checkout" idiom [findReusableForContribution] already establishes,
+     * used by `EventRegistrationSubmission.startStripeCheckout` (Review MINOR fix, Welle
+     * events-core-Runde-3): without this, two clicks on the same payment-resume link within one hold
+     * window each created their own session, and nothing ever superseded the older one.
+     */
+    fun findReusableForRegistration(
+        eventRegistrationId: Uuid,
+        now: LocalDateTime,
+    ): ResultRow? =
+        PaymentCheckoutSessionTable
+            .selectAll()
+            .where {
+                (PaymentCheckoutSessionTable.eventRegistrationId eq eventRegistrationId) and
                     (PaymentCheckoutSessionTable.status eq PaymentCheckoutSessionStatus.CREATED) and
                     (PaymentCheckoutSessionTable.expiresAt greater now)
             }.orderBy(PaymentCheckoutSessionTable.createdAt, SortOrder.DESC)

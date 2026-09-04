@@ -22,6 +22,8 @@ public object PaymentCheckoutSessionTable : Table("payment_checkout_session") {
     public val contributionId: Column<Uuid?> = optReference("contribution_id", ContributionTable.id)
     public val memberId: Column<Uuid?> = optReference("member_id", MemberTable.id)
     public val externalDonorId: Column<Uuid?> = optReference("external_donor_id", ExternalDonorTable.id)
+    // Welle V1.4.3.1 -- hand-edited, see 33-payments.kuml.kts file header addendum.
+    public val eventRegistrationId: Column<Uuid?> = optReference("event_registration_id", EventRegistrationTable.id)
     public val embedOrigin: Column<String?> = varchar("embed_origin", 255).nullable()
     public val amount: Column<BigDecimal> = decimal("amount", 14, 2)
     public val currency: Column<String> = varchar("currency", 3)
@@ -35,6 +37,6 @@ public object PaymentCheckoutSessionTable : Table("payment_checkout_session") {
 
     override val primaryKey: PrimaryKey = PrimaryKey(id)
 
-    // Note: 4 index(es) declared on this entity are not emitted —
+    // Note: 5 index(es) declared on this entity are not emitted —
     // Exposed's index {} DSL needs typed column references, not wired up in this wave.
 }

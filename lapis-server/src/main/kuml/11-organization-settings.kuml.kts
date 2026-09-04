@@ -271,5 +271,27 @@ classDiagram(name = "OrganizationSettings") {
             defaultValue = "FALSE"
             stereotype("Column") { "columnName" to "dunning_enabled" }
         }
+        // Welle V1.4.3.1 "Veranstaltungen". Nullable FK -> ledger_account -- where a confirmed
+        // participation-fee payment's brutto amount is booked as income (see
+        // network.lapis.cloud.server.rpc.EventFeePostingBridge). Part of the GENERIC
+        // updateOrganizationSettings write-set, same treatment as paymentBankAccountId above.
+        attribute(name = "eventIncomeAccountId", type = "UUID") {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") { "columnName" to "event_income_account_id"; "fkEntity" to "LedgerAccount" }
+        }
+        // Welle V1.4.3.1. NOT NULL, defaults to ZWECKBETRIEB (a satzungsgemaesse Bildungs-/
+        // Informationsveranstaltung, §65 AO) -- the organization-wide Gemeinnuetzigkeit sphere every
+        // confirmed event-fee payment is booked under. Deliberately a plain String column here (type
+        // "String", not a locally re-declared enum) rather than a per-event field -- see
+        // 39-events.kuml.kts file header "OF-1"; the actual VALUES reuse
+        // network.lapis.cloud.shared.domain.GemeinnuetzigkeitSphere's four literals (10-accounting
+        // .kuml.kts), hand-wired onto OrganizationSettingsTable.eventIncomeSphere as an
+        // enumerationByName<GemeinnuetzigkeitSphere> column -- same "type=String in the model,
+        // enum-typed in the hand-edited generated Table" pattern this file's own paymentGatewayProvider
+        // attribute already establishes.
+        attribute(name = "eventIncomeSphere", type = "String") {
+            defaultValue = "ZWECKBETRIEB"
+            stereotype("Column") { "columnName" to "event_income_sphere"; "sqlType" to "VARCHAR(34)" }
+        }
     }
 }

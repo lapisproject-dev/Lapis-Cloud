@@ -5,6 +5,7 @@ import dev.kuml.erm.model.ErmModel
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldContain
 import io.kotest.matchers.collections.shouldContainExactlyInAnyOrder
+import io.kotest.matchers.collections.shouldNotContain
 import io.kotest.matchers.shouldBe
 import network.lapis.cloud.server.db.generated.ExternalDonorTable
 import network.lapis.cloud.server.db.generated.MemberTable
@@ -76,6 +77,11 @@ class PaymentsSchemaDriftTest :
                     "sepa_return",
                     "payment_checkout_session",
                     "psp_webhook_event",
+                    // Welle V1.4.3.1 "Veranstaltungen" -- id-only stub for
+                    // paymentCheckoutSession.eventRegistrationId, dedups into 39-events.kuml.kts's
+                    // own real event_registration entity at merge time (not exercised by this
+                    // single-file model load).
+                    "event_registration",
                 )
         }
 
@@ -200,12 +206,15 @@ class PaymentsSchemaDriftTest :
             real.foreignKeys["contribution_id"] shouldBe "contribution"
             // Welle V1.4.1b.
             real.foreignKeys["external_donor_id"] shouldBe "external_donor"
+            // Welle V1.4.3.1 -- the third payer identity.
+            real.foreignKeys["event_registration_id"] shouldBe "event_registration"
 
             // Welle V1.4.1b: member_id is now nullable (an anonymous embed-widget donation has no
             // member, only an external_donor) -- both in the model AND the real, migrated schema.
             entity.attributeByName("member_id")?.nullable shouldBe true
             entity.attributeByName("contribution_id")?.nullable shouldBe true
             entity.attributeByName("external_donor_id")?.nullable shouldBe true
+            entity.attributeByName("event_registration_id")?.nullable shouldBe true
             entity.attributeByName("embed_origin")?.nullable shouldBe true
             entity.attributeByName("status")?.type shouldBe
                 ErmDataType.Enum(
@@ -256,7 +265,11 @@ class PaymentsSchemaDriftTest :
                         }
                     }
                 }
-            checkConstraintNames shouldContain "chk_payment_checkout_session_donor_identity"
+            // Welle V1.4.3.1: chk_payment_checkout_session_donor_identity (two-way XOR) was DROPPED
+            // and replaced by chk_payment_checkout_session_payer_identity (three-way) -- the old
+            // name must be GONE (a lingering old constraint would block every EVENT_FEE insert).
+            checkConstraintNames shouldNotContain "chk_payment_checkout_session_donor_identity"
+            checkConstraintNames shouldContain "chk_payment_checkout_session_payer_identity"
             checkConstraintNames shouldContain "chk_payment_checkout_session_embed_origin_external"
             checkConstraintNames shouldContain "chk_payment_checkout_session_embed_anonymous"
 
@@ -269,11 +282,14 @@ class PaymentsSchemaDriftTest :
                         .single()
                 }
             val externalDonorId = kotlin.uuid.Uuid.random()
+            val eventId = kotlin.uuid.Uuid.random()
+            val eventRegistrationId = kotlin.uuid.Uuid.random()
             val insertedSessionIds = mutableListOf<kotlin.uuid.Uuid>()
 
             fun probeInsert(
                 memberId: kotlin.uuid.Uuid?,
                 externalDonorIdArg: kotlin.uuid.Uuid?,
+                eventRegistrationIdArg: kotlin.uuid.Uuid? = null,
                 embedOrigin: String?,
                 donorCategory: network.lapis.cloud.shared.domain.DonorCategory?,
             ): Boolean {
@@ -285,10 +301,11 @@ class PaymentsSchemaDriftTest :
                             it[provider] = PaymentProvider.STRIPE
                             it[providerSessionId] = "cs_schema_drift_$sessionId"
                             it[status] = PaymentCheckoutSessionStatus.CREATED
-                            it[intent] = PaymentIntent.DONATION
+                            it[intent] = if (eventRegistrationIdArg != null) PaymentIntent.EVENT_FEE else PaymentIntent.DONATION
                             it[contributionId] = null
                             it[PaymentCheckoutSessionTable.memberId] = memberId
                             it[PaymentCheckoutSessionTable.externalDonorId] = externalDonorIdArg
+                            it[PaymentCheckoutSessionTable.eventRegistrationId] = eventRegistrationIdArg
                             it[PaymentCheckoutSessionTable.embedOrigin] = embedOrigin
                             it[amount] = java.math.BigDecimal("10.00")
                             it[currency] = "EUR"
@@ -315,6 +332,44 @@ class PaymentsSchemaDriftTest :
                         it[city] = null
                         it[country] = null
                         it[active] = true
+                    }
+                    // Welle V1.4.3.1 -- minimal event/event_registration pair so the third payer
+                    // identity's FK (event_registration_id) has something real to reference.
+                    network.lapis.cloud.server.db.generated.EventTable.insert {
+                        it[id] = eventId
+                        it[slug] = "schema-drift-test-$eventId"
+                        it[title] = "Schema-Drift-Test-Event"
+                        it[description] = "test"
+                        it[locationText] = "Testort"
+                        it[onlineUrl] = null
+                        it[startsAt] = DbClock.nowLocalDateTime()
+                        it[endsAt] = DbClock.nowLocalDateTime()
+                        it[capacity] = null
+                        it[feeAmount] = java.math.BigDecimal("10.00")
+                        it[feeCurrency] = "EUR"
+                        it[status] = network.lapis.cloud.shared.domain.EventStatus.PUBLISHED
+                        it[visibility] = network.lapis.cloud.shared.domain.EventVisibility.PUBLIC
+                        it[registrationClosesAt] = null
+                        it[createdAt] = DbClock.nowLocalDateTime()
+                        it[createdBy] = realMemberId
+                        it[cancelledAt] = null
+                    }
+                    network.lapis.cloud.server.db.generated.EventRegistrationTable.insert {
+                        it[id] = eventRegistrationId
+                        it[network.lapis.cloud.server.db.generated.EventRegistrationTable.eventId] = eventId
+                        it[memberId] = null
+                        it[guestName] = "Schema-Drift-Test-Gast"
+                        it[guestEmail] = "schema-drift-test@example.invalid"
+                        it[activeParticipantKey] = "g:schema-drift-test@example.invalid"
+                        it[status] = network.lapis.cloud.shared.domain.EventRegistrationStatus.PENDING_PAYMENT
+                        it[feeAmount] = java.math.BigDecimal("10.00")
+                        it[holdExpiresAt] = DbClock.nowLocalDateTime()
+                        it[waitlistPosition] = null
+                        it[cancelTokenSha256] = null
+                        it[registeredAt] = DbClock.nowLocalDateTime()
+                        it[confirmedAt] = null
+                        it[cancelledAt] = null
+                        it[waitlistOfferedAt] = null
                     }
                 }
 
@@ -348,12 +403,44 @@ class PaymentsSchemaDriftTest :
                     embedOrigin = "https://partei.example",
                     donorCategory = network.lapis.cloud.shared.domain.DonorCategory.ANONYMOUS,
                 ) shouldBe true
+
+                // Welle V1.4.3.1 -- the third payer identity, exactly-one enforcement.
+                // eventRegistrationId + memberId both set -> rejected.
+                probeInsert(
+                    memberId = realMemberId,
+                    externalDonorIdArg = null,
+                    eventRegistrationIdArg = eventRegistrationId,
+                    embedOrigin = null,
+                    donorCategory = null,
+                ) shouldBe false
+                // eventRegistrationId + externalDonorId both set -> rejected.
+                probeInsert(
+                    memberId = null,
+                    externalDonorIdArg = externalDonorId,
+                    eventRegistrationIdArg = eventRegistrationId,
+                    embedOrigin = null,
+                    donorCategory = null,
+                ) shouldBe false
+                // Positive control: the shape a real event-fee checkout actually has -> accepted.
+                probeInsert(
+                    memberId = null,
+                    externalDonorIdArg = null,
+                    eventRegistrationIdArg = eventRegistrationId,
+                    embedOrigin = null,
+                    donorCategory = null,
+                ) shouldBe true
             } finally {
                 transaction {
                     if (insertedSessionIds.isNotEmpty()) {
                         PaymentCheckoutSessionTable.deleteWhere { PaymentCheckoutSessionTable.id inList insertedSessionIds }
                     }
                     ExternalDonorTable.deleteWhere { ExternalDonorTable.id eq externalDonorId }
+                    network.lapis.cloud.server.db.generated.EventRegistrationTable.deleteWhere {
+                        network.lapis.cloud.server.db.generated.EventRegistrationTable.id eq eventRegistrationId
+                    }
+                    network.lapis.cloud.server.db.generated.EventTable.deleteWhere {
+                        network.lapis.cloud.server.db.generated.EventTable.id eq eventId
+                    }
                 }
             }
         }

@@ -5,6 +5,7 @@ package network.lapis.cloud.server.db.generated
 import java.math.BigDecimal
 import kotlin.uuid.Uuid
 import kotlinx.datetime.LocalDate
+import network.lapis.cloud.shared.domain.GemeinnuetzigkeitSphere
 import network.lapis.cloud.shared.domain.PaymentProvider
 import org.jetbrains.exposed.v1.core.Column
 import org.jetbrains.exposed.v1.core.Table
@@ -41,6 +42,10 @@ public object OrganizationSettingsTable : Table("organization_settings") {
     // TODO default = "14"
     public val dunningEnabled: Column<Boolean> = bool("dunning_enabled")
     // TODO default = "FALSE"
+    public val eventIncomeAccountId: Column<Uuid?> = optReference("event_income_account_id", LedgerAccountTable.id)
+    // Welle V1.4.3.1 -- hand-edited enum typing, see 11-organization-settings.kuml.kts file header addendum.
+    public val eventIncomeSphere: Column<GemeinnuetzigkeitSphere> = enumerationByName<GemeinnuetzigkeitSphere>("event_income_sphere", 34)
+    // TODO default = "ZWECKBETRIEB"
 
     override val primaryKey: PrimaryKey = PrimaryKey(id)
 }

@@ -81,6 +81,10 @@ class ContributionPaymentRpcTest :
                     it[paymentBankAccountId] = null
                     it[paymentFeeAccountId] = null
                     it[contributionIncomeAccountId] = null
+                    // eventIncomeAccountId (Review MAJOR fix regression coverage below) -- must be
+                    // reset BEFORE the LedgerAccountTable delete further down, same FK reasoning as
+                    // the three fields above.
+                    it[eventIncomeAccountId] = null
                 }
                 if (createdMemberIds.isNotEmpty()) {
                     AuditLogEntryTable.update({ AuditLogEntryTable.actorMemberId inList createdMemberIds }) {
@@ -566,6 +570,75 @@ class ContributionPaymentRpcTest :
                 auditCountFor(adminId) shouldBe 2L
             }
         }
+
+        test(
+            "updateOrganizationSettings round-trips eventIncomeAccountId/eventIncomeSphere via the real RPC " +
+                "(Review MAJOR fix -- these two organization_settings columns existed since V18__events.sql " +
+                "but had no write path anywhere in this codebase before this fix)",
+        ) {
+            testApplication {
+                application {
+                    install(StatusPages) {
+                        exception<ConflictException> { call, cause -> call.respondText(cause.message, status = HttpStatusCode.Conflict) }
+                    }
+                    routing { registerContributionPaymentTestRoutes() }
+                }
+
+                val adminId = createMember(email = "rpc-event-income-admin-${Uuid.random()}@example.org", role = AccountRole.ADMIN)
+                val eventIncomeAccountId =
+                    createLedgerAccount(number = "RG${Uuid.random().toString().take(6)}", type = LedgerAccountType.INCOME)
+
+                val before = client.get("/test/org-settings/event-income") { header("X-Member-Id", adminId.toString()) }
+                before.bodyAsText() shouldBe "null:ZWECKBETRIEB"
+
+                val updateResponse =
+                    client.post(
+                        "/test/org-settings/update?bankAccountId=&feeAccountId=&incomeAccountId=&eventAccountId=$eventIncomeAccountId",
+                    ) {
+                        header("X-Member-Id", adminId.toString())
+                    }
+                updateResponse.status shouldBe HttpStatusCode.OK
+
+                val after = client.get("/test/org-settings/event-income") { header("X-Member-Id", adminId.toString()) }
+                after.bodyAsText() shouldBe "$eventIncomeAccountId:ZWECKBETRIEB"
+            }
+        }
+
+        test(
+            "updateOrganizationSettings rejects a non-INCOME LedgerAccount as eventIncomeAccountId, same MAJOR-1 " +
+                "guard the three pre-existing mapping fields already get",
+        ) {
+            testApplication {
+                application {
+                    install(StatusPages) {
+                        exception<ConflictException> { call, cause -> call.respondText(cause.message, status = HttpStatusCode.Conflict) }
+                    }
+                    routing { registerContributionPaymentTestRoutes() }
+                }
+
+                val adminId =
+                    createMember(email = "rpc-event-income-wrongtype-admin-${Uuid.random()}@example.org", role = AccountRole.ADMIN)
+                val wrongTypeAccountId =
+                    createLedgerAccount(number = "RH${Uuid.random().toString().take(6)}", type = LedgerAccountType.EXPENSE)
+
+                // `organization_settings` is a process-wide singleton row (see `ORGANIZATION_SETTINGS_ID`
+                // KDoc) shared by every test in this Spec -- captures whatever the PREVIOUS test left
+                // behind rather than assuming an absolute "unset" baseline, same "before/after, not a
+                // literal" idiom the pre-existing rejection test above already uses.
+                val before = client.get("/test/org-settings/event-income") { header("X-Member-Id", adminId.toString()) }
+
+                val response =
+                    client.post(
+                        "/test/org-settings/update?bankAccountId=&feeAccountId=&incomeAccountId=&eventAccountId=$wrongTypeAccountId",
+                    ) {
+                        header("X-Member-Id", adminId.toString())
+                    }
+                response.status shouldBe HttpStatusCode.Conflict
+
+                val after = client.get("/test/org-settings/event-income") { header("X-Member-Id", adminId.toString()) }
+                after.bodyAsText() shouldBe before.bodyAsText()
+            }
+        }
     })
 
 /** Shared throwaway routes for [ContributionPaymentRpcTest]. */
@@ -573,6 +646,14 @@ private fun Route.registerContributionPaymentTestRoutes() {
     get("/test/org-settings") {
         val dto = OrganizationSettingsService(call).getOrganizationSettings()
         call.respondText("${dto.paymentBankAccountId}:${dto.paymentFeeAccountId}:${dto.contributionIncomeAccountId}")
+    }
+    // Review MAJOR fix regression coverage: eventIncomeAccountId/eventIncomeSphere are read back
+    // via their OWN route (rather than folded into the response string above) so the pre-existing
+    // exact-string-match assertions on `/test/org-settings`/`/test/org-settings/update` above stay
+    // untouched.
+    get("/test/org-settings/event-income") {
+        val dto = OrganizationSettingsService(call).getOrganizationSettings()
+        call.respondText("${dto.eventIncomeAccountId}:${dto.eventIncomeSphere}")
     }
     post("/test/org-settings/update") {
         val q = call.request.queryParameters
@@ -583,6 +664,7 @@ private fun Route.registerContributionPaymentTestRoutes() {
                     paymentBankAccountId = q["bankAccountId"]?.takeIf { it.isNotBlank() },
                     paymentFeeAccountId = q["feeAccountId"]?.takeIf { it.isNotBlank() },
                     contributionIncomeAccountId = q["incomeAccountId"]?.takeIf { it.isNotBlank() },
+                    eventIncomeAccountId = q["eventAccountId"]?.takeIf { it.isNotBlank() },
                 ),
             )
         call.respondText("${dto.paymentBankAccountId}:${dto.paymentFeeAccountId}:${dto.contributionIncomeAccountId}")

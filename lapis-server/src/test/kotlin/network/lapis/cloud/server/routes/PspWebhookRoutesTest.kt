@@ -12,12 +12,20 @@ import io.ktor.http.HttpStatusCode
 import io.ktor.http.contentType
 import io.ktor.server.routing.routing
 import io.ktor.server.testing.testApplication
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withTimeout
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.LocalDateTime
 import network.lapis.cloud.server.db.DatabaseConfig
 import network.lapis.cloud.server.db.generated.AccountTable
 import network.lapis.cloud.server.db.generated.AuditLogEntryTable
 import network.lapis.cloud.server.db.generated.ContributionTable
+import network.lapis.cloud.server.db.generated.EventRegistrationTable
+import network.lapis.cloud.server.db.generated.EventTable
 import network.lapis.cloud.server.db.generated.ExternalDonorTable
 import network.lapis.cloud.server.db.generated.JournalEntryTable
 import network.lapis.cloud.server.db.generated.LedgerAccountTable
@@ -30,6 +38,9 @@ import network.lapis.cloud.server.db.generated.PaymentTransactionTable
 import network.lapis.cloud.server.db.generated.PostingTable
 import network.lapis.cloud.server.db.generated.PspWebhookEventTable
 import network.lapis.cloud.server.federation.FederationInboxRateLimiter
+import network.lapis.cloud.server.mail.MailDispatcher
+import network.lapis.cloud.server.mail.MailSendOutcome
+import network.lapis.cloud.server.mail.MailTransport
 import network.lapis.cloud.server.payment.psp.CheckoutCompletedIngestionOutcome
 import network.lapis.cloud.server.payment.psp.PspConfig
 import network.lapis.cloud.server.payment.psp.PspConfigState
@@ -43,11 +54,15 @@ import network.lapis.cloud.shared.domain.BillingInterval
 import network.lapis.cloud.shared.domain.ContributionPaymentMethod
 import network.lapis.cloud.shared.domain.ContributionStatus
 import network.lapis.cloud.shared.domain.DonorCategory
+import network.lapis.cloud.shared.domain.EventRegistrationStatus
+import network.lapis.cloud.shared.domain.EventStatus
+import network.lapis.cloud.shared.domain.EventVisibility
 import network.lapis.cloud.shared.domain.LedgerAccountType
 import network.lapis.cloud.shared.domain.MemberStatus
 import network.lapis.cloud.shared.domain.PaymentCheckoutSessionStatus
 import network.lapis.cloud.shared.domain.PaymentIntent
 import network.lapis.cloud.shared.domain.PaymentProvider
+import org.jetbrains.exposed.v1.core.and
 import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.core.inList
 import org.jetbrains.exposed.v1.jdbc.deleteWhere
@@ -60,6 +75,7 @@ import javax.crypto.Mac
 import javax.crypto.spec.SecretKeySpec
 import kotlin.time.Clock
 import kotlin.time.Duration.Companion.minutes
+import kotlin.time.Duration.Companion.seconds
 import kotlin.uuid.Uuid
 
 private const val TEST_WEBHOOK_SECRET = "whsec_psp_webhook_routes_test"
@@ -96,6 +112,7 @@ class PspWebhookRoutesTest :
         val createdContributionIds = mutableListOf<Uuid>()
         val createdCheckoutSessionIds = mutableListOf<Uuid>()
         val createdExternalDonorIds = mutableListOf<Uuid>()
+        val createdEventIds = mutableListOf<Uuid>()
 
         beforeSpec { DatabaseConfig.connect() }
 
@@ -144,6 +161,13 @@ class PspWebhookRoutesTest :
                         }
                     }
                     PaymentCheckoutSessionTable.deleteWhere { PaymentCheckoutSessionTable.id inList createdCheckoutSessionIds }
+                }
+                if (createdEventIds.isNotEmpty()) {
+                    // event_registration BEFORE event (fk_event_registration_event) -- the
+                    // payment_checkout_session rows referencing these registrations are already gone
+                    // via createdCheckoutSessionIds above.
+                    EventRegistrationTable.deleteWhere { eventId inList createdEventIds }
+                    EventTable.deleteWhere { id inList createdEventIds }
                 }
                 if (createdExternalDonorIds.isNotEmpty()) {
                     // Some of these may already be gone -- PspWebhookIngestion.ingestCheckoutExpired
@@ -332,6 +356,103 @@ class PspWebhookRoutesTest :
                     it[PaymentCheckoutSessionTable.amount] = amount
                     it[currency] = "EUR"
                     it[donorCategory] = DonorCategory.ANONYMOUS
+                    it[purpose] = null
+                    it[createdAt] = LocalDateTime(2026, 4, 1, 10, 0)
+                    it[expiresAt] = LocalDateTime(2026, 4, 1, 11, 0)
+                    it[completedAt] = null
+                    it[providerIdempotencyKey] = "idem-${id.toString().take(8)}"
+                    it[redirectUrl] = "https://checkout.stripe.com/c/pay/$providerSessionId"
+                }
+            }
+            createdCheckoutSessionIds += id
+            return id
+        }
+
+        // ── EVENT_FEE fixtures (Review MAJOR fix: PspWebhookIngestion.ingestCheckoutExpired's
+        // EVENT_FEE branch now mails the waitlist promotions its sweep causes) ──────────────────
+
+        val farFutureStartsAt = LocalDateTime(2030, 1, 1, 18, 0)
+        val farFutureEndsAt = LocalDateTime(2030, 1, 1, 22, 0)
+
+        fun createEvent(
+            createdBy: Uuid,
+            capacity: Int?,
+        ): Uuid {
+            val id = Uuid.random()
+            transaction {
+                EventTable.insert {
+                    it[EventTable.id] = id
+                    it[slug] = "psp-webhook-test-$id"
+                    it[title] = "PspWebhookRoutes-Test-Event"
+                    it[description] = "test"
+                    it[locationText] = "Testort"
+                    it[onlineUrl] = null
+                    it[startsAt] = farFutureStartsAt
+                    it[endsAt] = farFutureEndsAt
+                    it[EventTable.capacity] = capacity
+                    it[feeAmount] = BigDecimal("15.00")
+                    it[feeCurrency] = "EUR"
+                    it[status] = EventStatus.PUBLISHED
+                    it[visibility] = EventVisibility.PUBLIC
+                    it[registrationClosesAt] = null
+                    it[EventTable.createdAt] = LocalDateTime(2026, 1, 1, 0, 0)
+                    it[EventTable.createdBy] = createdBy
+                    it[cancelledAt] = null
+                }
+            }
+            createdEventIds += id
+            return id
+        }
+
+        fun insertEventRegistration(
+            eventId: Uuid,
+            memberId: Uuid,
+            status: EventRegistrationStatus,
+            waitlistPosition: Int? = null,
+            holdExpiresAt: LocalDateTime? = null,
+        ): Uuid {
+            val id = Uuid.random()
+            transaction {
+                EventRegistrationTable.insert {
+                    it[EventRegistrationTable.id] = id
+                    it[EventRegistrationTable.eventId] = eventId
+                    it[EventRegistrationTable.memberId] = memberId
+                    it[guestName] = null
+                    it[guestEmail] = null
+                    it[activeParticipantKey] = "m:$memberId"
+                    it[EventRegistrationTable.status] = status
+                    it[feeAmount] = BigDecimal("15.00")
+                    it[EventRegistrationTable.holdExpiresAt] = holdExpiresAt
+                    it[EventRegistrationTable.waitlistPosition] = waitlistPosition
+                    it[cancelTokenSha256] = null
+                    it[registeredAt] = LocalDateTime(2026, 1, 1, 0, 0)
+                    it[confirmedAt] = null
+                    it[cancelledAt] = null
+                    it[waitlistOfferedAt] = null
+                }
+            }
+            return id
+        }
+
+        /** [PaymentCheckoutSessionTable.eventRegistrationId] counterpart of [createCheckoutSession]/[createAnonymousCheckoutSession] above. */
+        fun createEventFeeCheckoutSession(
+            eventRegistrationId: Uuid,
+            amount: BigDecimal,
+            providerSessionId: String,
+        ): Uuid {
+            val id = Uuid.random()
+            transaction {
+                PaymentCheckoutSessionTable.insert {
+                    it[PaymentCheckoutSessionTable.id] = id
+                    it[provider] = PaymentProvider.STRIPE
+                    it[PaymentCheckoutSessionTable.providerSessionId] = providerSessionId
+                    it[status] = PaymentCheckoutSessionStatus.CREATED
+                    it[intent] = PaymentIntent.EVENT_FEE
+                    it[PaymentCheckoutSessionTable.eventRegistrationId] = eventRegistrationId
+                    it[embedOrigin] = null
+                    it[PaymentCheckoutSessionTable.amount] = amount
+                    it[currency] = "EUR"
+                    it[donorCategory] = null
                     it[purpose] = null
                     it[createdAt] = LocalDateTime(2026, 4, 1, 10, 0)
                     it[expiresAt] = LocalDateTime(2026, 4, 1, 11, 0)
@@ -1040,6 +1161,115 @@ class PspWebhookRoutesTest :
                 } shouldBe null
                 val loggedRow =
                     transaction { PspWebhookEventTable.selectAll().where { PspWebhookEventTable.providerEventId eq eventId }.single() }
+                loggedRow[PspWebhookEventTable.outcome] shouldBe network.lapis.cloud.server.payment.psp.PspWebhookOutcome.PROCESSED.name
+            }
+        }
+
+        test(
+            "Fix (Review MAJOR): checkout.session.expired for an EVENT_FEE session -- the PENDING_PAYMENT " +
+                "registration is freed AND the waitlisted head is promoted AND mailed, all from this single " +
+                "webhook delivery",
+        ) {
+            testApplication {
+                val received = CompletableDeferred<String>()
+                val recordingTransport =
+                    object : MailTransport {
+                        override suspend fun send(
+                            to: String,
+                            subject: String,
+                            plainTextBody: String,
+                            htmlBody: String,
+                        ): MailSendOutcome {
+                            received.complete(to)
+                            return MailSendOutcome.Sent
+                        }
+                    }
+                val mailDispatcher =
+                    MailDispatcher(transport = recordingTransport, scope = CoroutineScope(SupervisorJob() + Dispatchers.IO))
+                application {
+                    routing {
+                        registerPspWebhookRoutes(
+                            pspConfig = testConfig(),
+                            rateLimiter = FederationInboxRateLimiter(),
+                            mailDispatcher = mailDispatcher,
+                        )
+                    }
+                }
+
+                // Step 9's gate check (payment_gateway_enabled + disclaimer ack) applies to EVERY
+                // dispatch branch, including checkout.session.expired -- the account mapping itself
+                // is irrelevant to this test (EVENT_FEE's expiry path never touches accounting).
+                val bankAccountId = createLedgerAccount(number = "WJ${Uuid.random().toString().take(6)}", type = LedgerAccountType.ASSET)
+                val incomeAccountId =
+                    createLedgerAccount(number = "WK${Uuid.random().toString().take(6)}", type = LedgerAccountType.INCOME)
+                enableGateway(bankAccountId = bankAccountId, incomeAccountId = incomeAccountId)
+
+                val organizer = createMember("psp-webhook-event-organizer-${Uuid.random()}@example.org")
+                val payer = createMember("psp-webhook-event-payer-${Uuid.random()}@example.org")
+                val waitlistedEmail = "psp-webhook-event-waitlisted-${Uuid.random()}@example.org"
+                val waitlisted = createMember(waitlistedEmail)
+                val eventId = createEvent(createdBy = organizer, capacity = 1)
+                val payerRegistrationId =
+                    insertEventRegistration(
+                        eventId = eventId,
+                        memberId = payer,
+                        status = EventRegistrationStatus.PENDING_PAYMENT,
+                        holdExpiresAt = LocalDateTime(2026, 4, 1, 10, 30),
+                    )
+                insertEventRegistration(
+                    eventId = eventId,
+                    memberId = waitlisted,
+                    status = EventRegistrationStatus.WAITLISTED,
+                    waitlistPosition = 1,
+                )
+                val sessionId = "cs_event_fee_expired_${Uuid.random()}"
+                createEventFeeCheckoutSession(
+                    eventRegistrationId = payerRegistrationId,
+                    amount = BigDecimal("15.00"),
+                    providerSessionId = sessionId,
+                )
+
+                val stripeEventId = "evt_event_fee_expired_${Uuid.random()}"
+                val body =
+                    """
+                    {"id":"$stripeEventId","type":"checkout.session.expired","data":{"object":{"id":"$sessionId"}}}
+                    """.trimIndent().toByteArray(Charsets.UTF_8)
+                val response =
+                    client.post("/api/webhooks/stripe") {
+                        header("Stripe-Signature", signedHeader(body = body))
+                        contentType(ContentType.Application.Json)
+                        setBody(body)
+                    }
+                response.status shouldBe HttpStatusCode.OK
+
+                // The payer's own seat is freed (EXPIRED)...
+                val payerStatus =
+                    transaction {
+                        EventRegistrationTable.selectAll().where { EventRegistrationTable.id eq payerRegistrationId }.single()[
+                            EventRegistrationTable.status,
+                        ]
+                    }
+                payerStatus shouldBe EventRegistrationStatus.EXPIRED
+                // ...the waitlist head is promoted onto it (a free event... no wait, this event has a
+                // nonzero fee, so the promotion is PENDING_PAYMENT with a fresh hold, not CONFIRMED).
+                val waitlistedStatus =
+                    transaction {
+                        EventRegistrationTable
+                            .selectAll()
+                            .where { (EventRegistrationTable.eventId eq eventId) and (EventRegistrationTable.memberId eq waitlisted) }
+                            .single()[EventRegistrationTable.status]
+                    }
+                waitlistedStatus shouldBe EventRegistrationStatus.PENDING_PAYMENT
+
+                // ...AND mailed -- before the fix, this promotion's mail was discarded outright (the
+                // webhook handler had "no MailDispatcher access"), never sent by anything else either.
+                val recipient = runBlocking { withTimeout(5.seconds) { received.await() } }
+                recipient shouldBe waitlistedEmail
+
+                val loggedRow =
+                    transaction {
+                        PspWebhookEventTable.selectAll().where { PspWebhookEventTable.providerEventId eq stripeEventId }.single()
+                    }
                 loggedRow[PspWebhookEventTable.outcome] shouldBe network.lapis.cloud.server.payment.psp.PspWebhookOutcome.PROCESSED.name
             }
         }

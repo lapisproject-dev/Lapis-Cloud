@@ -70,7 +70,7 @@ fun renderPaymentReturnScreen(
                 val link = actionHost.button(tr("Zur Beitragsübersicht"), style = ButtonStyle.LINK)
                 link.onClick { navigateTo(Routes.CONTRIBUTIONS) }
             }
-            PaymentIntent.DONATION -> {
+            PaymentIntent.DONATION, PaymentIntent.EVENT_FEE -> {
                 val link = actionHost.button(tr("Zur Startseite"), style = ButtonStyle.LINK)
                 link.onClick { navigateTo(Routes.DASHBOARD) }
             }
@@ -97,7 +97,7 @@ fun renderPaymentReturnScreen(
                 PaymentCheckoutSessionStatus.COMPLETED -> {
                     statusText.content =
                         when (session.intent) {
-                            PaymentIntent.CONTRIBUTION -> tr("Zahlung erfolgreich abgeschlossen. Vielen Dank!")
+                            PaymentIntent.CONTRIBUTION, PaymentIntent.EVENT_FEE -> tr("Zahlung erfolgreich abgeschlossen. Vielen Dank!")
                             PaymentIntent.DONATION ->
                                 tr("Vielen Dank für Ihre Spende! Die Zahlung wurde erfolgreich abgeschlossen.")
                         }
@@ -107,7 +107,7 @@ fun renderPaymentReturnScreen(
                 PaymentCheckoutSessionStatus.EXPIRED, PaymentCheckoutSessionStatus.FAILED -> {
                     statusText.content =
                         when (session.intent) {
-                            PaymentIntent.CONTRIBUTION ->
+                            PaymentIntent.CONTRIBUTION, PaymentIntent.EVENT_FEE ->
                                 tr("Die Zahlung konnte nicht abgeschlossen werden. Bitte versuchen Sie es erneut.")
                             PaymentIntent.DONATION ->
                                 tr("Die Spende konnte nicht abgeschlossen werden. Bitte versuchen Sie es erneut.")
@@ -138,6 +138,8 @@ fun renderPaymentReturnScreen(
                         "Der Status konnte nicht rechtzeitig bestätigt werden. Bitte prüfen Sie in einigen " +
                             "Minuten erneut, ob Ihre Spende verbucht wurde.",
                     )
+                PaymentIntent.EVENT_FEE ->
+                    tr("Der Status konnte nicht rechtzeitig bestätigt werden. Bitte prüfen Sie es in einigen Minuten erneut.")
             }
         renderFollowUpAction(lastIntent)
     }

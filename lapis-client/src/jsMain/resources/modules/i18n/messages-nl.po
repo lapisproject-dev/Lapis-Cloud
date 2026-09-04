@@ -9598,6 +9598,15 @@ msgstr "Bijdrage betaald"
 msgid "Spende erhalten"
 msgstr "Donatie ontvangen"
 
+msgid "Anmeldegebühr bezahlt"
+msgstr "Inschrijfgeld betaald"
+
+msgid "Veranstaltungsgebühr"
+msgstr "Evenementbijdrage"
+
+msgid "Der Status konnte nicht rechtzeitig bestätigt werden. Bitte prüfen Sie es in einigen Minuten erneut."
+msgstr "De status kon niet op tijd worden bevestigd. Controleer het over enkele minuten opnieuw."
+
 msgid "Test-Ereignis"
 msgstr "Testgebeurtenis"
 

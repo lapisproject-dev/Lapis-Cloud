@@ -408,6 +408,7 @@ class PaymentGatewayService(
                 contributionIncomeAccountConfigured = settingsRow?.get(OrganizationSettingsTable.contributionIncomeAccountId) != null,
                 donationIncomeAccountConfigured = settingsRow?.get(OrganizationSettingsTable.donationIncomeAccountId) != null,
                 paymentFeeAccountConfigured = settingsRow?.get(OrganizationSettingsTable.paymentFeeAccountId) != null,
+                eventIncomeAccountConfigured = settingsRow?.get(OrganizationSettingsTable.eventIncomeAccountId) != null,
             )
         }
     }
@@ -490,6 +491,7 @@ class PaymentGatewayService(
                 contributionId = contributionId,
                 memberId = memberId,
                 externalDonorId = externalDonorId,
+                eventRegistrationId = null,
                 embedOrigin = embedOrigin,
                 amount = amount.setScale(2, RoundingMode.UNNECESSARY),
                 currency = "EUR",

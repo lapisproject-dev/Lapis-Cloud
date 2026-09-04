@@ -9647,6 +9647,15 @@ msgstr "Contributo pagato"
 msgid "Spende erhalten"
 msgstr "Donazione ricevuta"
 
+msgid "Anmeldegebühr bezahlt"
+msgstr "Quota di iscrizione pagata"
+
+msgid "Veranstaltungsgebühr"
+msgstr "Quota evento"
+
+msgid "Der Status konnte nicht rechtzeitig bestätigt werden. Bitte prüfen Sie es in einigen Minuten erneut."
+msgstr "Lo stato non ha potuto essere confermato in tempo. Si prega di controllare di nuovo tra qualche minuto."
+
 msgid "Test-Ereignis"
 msgstr "Evento di prova"
 

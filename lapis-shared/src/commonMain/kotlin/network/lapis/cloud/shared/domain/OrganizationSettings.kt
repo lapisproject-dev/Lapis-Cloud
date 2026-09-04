@@ -83,6 +83,19 @@ import kotlinx.serialization.Serializable
  * Which SKR42 `LedgerAccount` `network.lapis.cloud.server.rpc.DonationPostingBridge` books a gateway
  * donation's brutto amount into. `null` degrades the bridge to a no-op, same "unconfigured mapping"
  * treatment as the other three.
+ *
+ * [eventIncomeAccountId]/[eventIncomeSphere] (Welle V1.4.3.1 "Veranstaltungen") are a fifth
+ * ordinary, ADMIN-writable configuration pair, same treatment as [donationIncomeAccountId] above --
+ * part of [OrganizationSettingsInput]. Which SKR42 `LedgerAccount`
+ * `network.lapis.cloud.server.rpc.EventFeePostingBridge` books a confirmed participation-fee
+ * payment's brutto amount into, and under which of the four §§51-68 AO Gemeinnuetzigkeit spheres
+ * (default [GemeinnuetzigkeitSphere.ZWECKBETRIEB], mirroring `organization_settings
+ * .event_income_sphere`'s own `DEFAULT` in `V18__events.sql`). `eventIncomeAccountId == null`
+ * degrades the bridge to a no-op (a WARN-logged, unbooked payment_transaction), same "unconfigured
+ * mapping" treatment as the other four -- **Review MAJOR fix**: these two columns existed in the
+ * database since `V18__events.sql` but had no write path anywhere in this codebase before this fix
+ * (`OrganizationSettingsInput` never carried them), so no ADMIN could ever configure them through
+ * the application -- every confirmed event-fee payment was silently left unbooked.
  */
 @Serializable
 data class OrganizationSettingsDto(
@@ -109,6 +122,8 @@ data class OrganizationSettingsDto(
     val contributionIncomeAccountId: String? = null,
     val dunningEnabled: Boolean = false,
     val donationIncomeAccountId: String? = null,
+    val eventIncomeAccountId: String? = null,
+    val eventIncomeSphere: GemeinnuetzigkeitSphere = GemeinnuetzigkeitSphere.ZWECKBETRIEB,
 )
 
 /** Replaces every field of the single [OrganizationSettingsDto] row wholesale (no partial update). */
@@ -136,4 +151,8 @@ data class OrganizationSettingsInput(
     val contributionIncomeAccountId: String? = null,
     /** V1.2.8. See [OrganizationSettingsDto.donationIncomeAccountId] KDoc. */
     val donationIncomeAccountId: String? = null,
+    /** V1.4.3.1 (Review MAJOR fix). See [OrganizationSettingsDto.eventIncomeAccountId] KDoc. */
+    val eventIncomeAccountId: String? = null,
+    /** V1.4.3.1 (Review MAJOR fix). See [OrganizationSettingsDto.eventIncomeSphere] KDoc. */
+    val eventIncomeSphere: GemeinnuetzigkeitSphere = GemeinnuetzigkeitSphere.ZWECKBETRIEB,
 )

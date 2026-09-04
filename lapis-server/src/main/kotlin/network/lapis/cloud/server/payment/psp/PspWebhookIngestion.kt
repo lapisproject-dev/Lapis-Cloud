@@ -6,13 +6,20 @@ import network.lapis.cloud.server.audit.AuditLogRecorder
 import network.lapis.cloud.server.db.DbClock
 import network.lapis.cloud.server.db.generated.AccountTable
 import network.lapis.cloud.server.db.generated.ContributionTable
+import network.lapis.cloud.server.db.generated.EventRegistrationTable
 import network.lapis.cloud.server.db.generated.ExternalDonorTable
 import network.lapis.cloud.server.db.generated.PaymentCheckoutSessionTable
 import network.lapis.cloud.server.db.generated.PaymentTransactionTable
+import network.lapis.cloud.server.events.EventCapacityGuard
+import network.lapis.cloud.server.events.EventStore
+import network.lapis.cloud.server.events.WaitlistPromotion
+import network.lapis.cloud.server.events.mailPromotion
+import network.lapis.cloud.server.mail.MailDispatcher
 import network.lapis.cloud.server.routes.sha256Hex
 import network.lapis.cloud.server.rpc.ContributionPaymentEvents
 import network.lapis.cloud.server.rpc.ContributionPostingBridge
 import network.lapis.cloud.server.rpc.DonationPostingBridge
+import network.lapis.cloud.server.rpc.EventFeePostingBridge
 import network.lapis.cloud.server.rpc.lastPaymentGatewayComplianceAcknowledgerMemberIdOrNull
 import network.lapis.cloud.server.webhook.WebhookEventPublisher
 import network.lapis.cloud.server.webhook.WebhookPayloads
@@ -153,6 +160,8 @@ object PspWebhookIngestion {
             val sessionExternalDonorId = sessionRow[PaymentCheckoutSessionTable.externalDonorId]
             val sessionDonorCategory = sessionRow[PaymentCheckoutSessionTable.donorCategory]
             val sessionId = sessionRow[PaymentCheckoutSessionTable.id]
+            // Welle V1.4.3.1 -- non-null only for intent = EVENT_FEE.
+            val sessionEventRegistrationId = sessionRow[PaymentCheckoutSessionTable.eventRegistrationId]
 
             // Step 2 -- the idempotency anchor: attempt the INSERT first, a unique violation IS the
             // duplicate detector (F2/§4.4) -- no pre-check SELECT against payment_transaction.
@@ -321,6 +330,36 @@ object PspWebhookIngestion {
                 }
             }
 
+            // Step 5b -- EVENT_FEE (Welle V1.4.3.1): guarded confirm, same "0 rows -> Unposted"
+            // idiom as the CONTRIBUTION branch above. **Race the implementer must handle**: the
+            // webhook can arrive AFTER the 30-minute hold (EventPolicy.STANDARD_HOLD) already
+            // expired -- Stripe pays out regardless. By then the row may already be EXPIRED and the
+            // seat possibly re-offered to a waitlist successor. The guarded
+            // `WHERE status = 'PENDING_PAYMENT'` update catches exactly that and degrades to
+            // Unposted with a refund-pointing note -- NEVER silently flip to CONFIRMED and risk
+            // over-committing capacity. The money is still recorded via `payment_transaction`; the
+            // refund itself is a human process. This is the documented exception to "never post a
+            // payment without confirming the seat", not the normal case.
+            if (sessionIntent == PaymentIntent.EVENT_FEE) {
+                val registrationId =
+                    sessionEventRegistrationId
+                        ?: return@transaction unpostedWithNote(
+                            paymentTransactionId = paymentTransactionId,
+                            note =
+                                "Zahlungssitzung mit intent=EVENT_FEE aber ohne Anmeldungs-Referenz " +
+                                    "(unerwarteter Zustand) -- Zahlung nicht gebucht, manuell pruefen.",
+                        )
+                val confirmed = EventStore.confirmRegistrationIfPending(id = registrationId, now = now)
+                if (confirmed == 0) {
+                    return@transaction unpostedWithNote(
+                        paymentTransactionId = paymentTransactionId,
+                        note =
+                            "Anmeldung war bereits storniert/abgelaufen, als die Zahlung eintraf -- " +
+                                "Zahlung nicht gebucht, Rueckerstattung pruefen.",
+                    )
+                }
+            }
+
             // Step 6 -- post to accounting. A thrown ConflictException (unbalanced) is deliberately
             // NOT caught here, see class KDoc.
             val journalEntryId =
@@ -356,6 +395,17 @@ object PspWebhookIngestion {
                             actorRole = actorRole,
                             voucherReference = "PSP-STRIPE-${session.paymentIntent ?: session.id}",
                         )
+                    PaymentIntent.EVENT_FEE ->
+                        EventFeePostingBridge.postEventFeePayment(
+                            paymentTransactionId = paymentTransactionId,
+                            eventRegistrationId = requireNotNull(sessionEventRegistrationId),
+                            paidAmount = sessionAmount,
+                            paidAt = now,
+                            providerFee = null,
+                            actorMemberId = actorMemberId,
+                            actorRole = actorRole,
+                            voucherReference = "PSP-STRIPE-${session.paymentIntent ?: session.id}",
+                        )
                 }
 
             if (journalEntryId == null) {
@@ -384,6 +434,18 @@ object PspWebhookIngestion {
                 PaymentIntent.DONATION ->
                     WebhookEventPublisher.publish(
                         eventType = WebhookEventType.DONATION_RECEIVED,
+                        entityId = paymentTransactionId,
+                        occurredAt = now,
+                        payment =
+                            WebhookPayloads.PaymentEventDetails(
+                                amount = sessionAmount,
+                                currency = sessionCurrency,
+                                transactionId = paymentTransactionId.toString(),
+                            ),
+                    )
+                PaymentIntent.EVENT_FEE ->
+                    WebhookEventPublisher.publish(
+                        eventType = WebhookEventType.EVENT_REGISTRATION_PAID,
                         entityId = paymentTransactionId,
                         occurredAt = now,
                         payment =
@@ -465,34 +527,83 @@ object PspWebhookIngestion {
      * would violate `fk_payment_transaction_checkout_session_id` and surface as a loud 500/retry
      * loop rather than silently corrupting anything -- fail-closed, not a silent hazard.
      */
-    internal fun ingestCheckoutExpired(event: StripeWebhookEvent): Boolean =
-        transaction {
-            val providerSessionId = event.data.eventObject.id
-            val sessionRow =
-                PspCheckoutSessions.findByProviderSessionForUpdate(
-                    provider = PaymentProvider.STRIPE,
-                    providerSessionId = providerSessionId,
-                )
-            // Same "never downgrade a COMPLETED session" guard markExpiredIfStillCreated's own KDoc
-            // documents -- re-checked explicitly here because this function now branches on the
-            // row's contents instead of trusting a blind conditional UPDATE's affected-row count.
-            if (sessionRow == null || sessionRow[PaymentCheckoutSessionTable.status] != PaymentCheckoutSessionStatus.CREATED) {
-                return@transaction false
-            }
-            val sessionId = sessionRow[PaymentCheckoutSessionTable.id]
-            val externalDonorId = sessionRow[PaymentCheckoutSessionTable.externalDonorId]
-            if (externalDonorId != null) {
-                PaymentCheckoutSessionTable.deleteWhere { PaymentCheckoutSessionTable.id eq sessionId }
-                ExternalDonorTable.deleteWhere { ExternalDonorTable.id eq externalDonorId }
-                logger.info {
-                    "PspWebhookIngestion: abandoned anonymous checkout session $sessionId (external_donor " +
-                        "$externalDonorId) expired unconfirmed -- both rows deleted rather than left as orphans."
+    internal fun ingestCheckoutExpired(
+        event: StripeWebhookEvent,
+        mailDispatcher: MailDispatcher,
+    ): Boolean {
+        val (handled, promotions) =
+            transaction {
+                val providerSessionId = event.data.eventObject.id
+                val sessionRow =
+                    PspCheckoutSessions.findByProviderSessionForUpdate(
+                        provider = PaymentProvider.STRIPE,
+                        providerSessionId = providerSessionId,
+                    )
+                // Same "never downgrade a COMPLETED session" guard markExpiredIfStillCreated's own
+                // KDoc documents -- re-checked explicitly here because this function now branches on
+                // the row's contents instead of trusting a blind conditional UPDATE's affected-row
+                // count.
+                if (sessionRow == null || sessionRow[PaymentCheckoutSessionTable.status] != PaymentCheckoutSessionStatus.CREATED) {
+                    return@transaction false to emptyList<WaitlistPromotion>()
                 }
-            } else {
-                PspCheckoutSessions.markExpiredIfStillCreated(provider = PaymentProvider.STRIPE, providerSessionId = providerSessionId)
+                val sessionId = sessionRow[PaymentCheckoutSessionTable.id]
+                val externalDonorId = sessionRow[PaymentCheckoutSessionTable.externalDonorId]
+                val eventRegistrationId = sessionRow[PaymentCheckoutSessionTable.eventRegistrationId]
+                if (externalDonorId != null) {
+                    PaymentCheckoutSessionTable.deleteWhere { PaymentCheckoutSessionTable.id eq sessionId }
+                    ExternalDonorTable.deleteWhere { ExternalDonorTable.id eq externalDonorId }
+                    logger.info {
+                        "PspWebhookIngestion: abandoned anonymous checkout session $sessionId (external_donor " +
+                            "$externalDonorId) expired unconfirmed -- both rows deleted rather than left as orphans."
+                    }
+                    true to emptyList()
+                } else if (eventRegistrationId != null) {
+                    // Welle V1.4.3.1 -- EVENT_FEE: NEVER deletes (a registration is a fachlich
+                    // workflow record, not a throwaway donor stub, see 39-events.kuml.kts file
+                    // header). Marks the session EXPIRED, then the registration itself EXPIRED
+                    // (freeing its seat) and sweeps the waitlist for a successor, all under the event
+                    // row lock -- see EventCapacityGuard.expireHoldAndSweep KDoc.
+                    //
+                    // Note: [KDoc addendum to ingestCheckoutExpired's own "no FK dependents" claim
+                    // below] this branch means payment_checkout_session CAN now have an FK dependent
+                    // (event_registration, one-directionally referenced FROM this table, not the
+                    // other way -- see 33-payments.kuml.kts) that the `externalDonorId != null`
+                    // branch's `deleteWhere` never has to worry about, because THIS branch never
+                    // deletes the session row at all.
+                    PspCheckoutSessions.markExpiredIfStillCreated(provider = PaymentProvider.STRIPE, providerSessionId = providerSessionId)
+                    val registrationRow = EventStore.getRegistrationOrNull(eventRegistrationId)
+                    val sweepPromotions =
+                        if (registrationRow != null) {
+                            // Review MAJOR fix: this promotion list used to be discarded outright
+                            // ("a webhook handler has no MailDispatcher access") -- the inline
+                            // comment claiming "the next registration attempt on this event re-sweeps
+                            // anyway" was wrong: `EventWaitlist.promoteWhileCapacityFree` only ever
+                            // promotes the CURRENT `findWaitlistHead`, so once THIS sweep has already
+                            // promoted that head off the waitlist, a later sweep simply never
+                            // generates a `WaitlistPromotion` for them again -- their "a seat freed
+                            // up" mail was lost for good, not merely delayed. `PspWebhookRoutes` now
+                            // threads a real `MailDispatcher` down to this function so the mail can
+                            // be sent AFTER this transaction commits, same discipline every other
+                            // `EventCapacityGuard`/`EventWaitlist` trigger already follows.
+                            EventCapacityGuard.expireHoldAndSweep(
+                                eventId = registrationRow[EventRegistrationTable.eventId],
+                                registrationId = eventRegistrationId,
+                                now = DbClock.nowLocalDateTime(),
+                            )
+                        } else {
+                            emptyList()
+                        }
+                    true to sweepPromotions
+                } else {
+                    PspCheckoutSessions.markExpiredIfStillCreated(provider = PaymentProvider.STRIPE, providerSessionId = providerSessionId)
+                    true to emptyList()
+                }
             }
-            true
-        }
+        // MailDispatcher.enqueue must never run inside an open transaction {} -- see
+        // EventCapacityGuard KDoc -- so this runs only after the transaction {} above has committed.
+        promotions.forEach { it.mailPromotion(mailDispatcher) }
+        return handled
+    }
 
     private fun unpostedWithNote(
         paymentTransactionId: Uuid,

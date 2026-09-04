@@ -9593,6 +9593,15 @@ msgstr "Składka opłacona"
 msgid "Spende erhalten"
 msgstr "Otrzymano darowiznę"
 
+msgid "Anmeldegebühr bezahlt"
+msgstr "Opłata rejestracyjna zapłacona"
+
+msgid "Veranstaltungsgebühr"
+msgstr "Opłata za wydarzenie"
+
+msgid "Der Status konnte nicht rechtzeitig bestätigt werden. Bitte prüfen Sie es in einigen Minuten erneut."
+msgstr "Status nie mógł zostać potwierdzony na czas. Sprawdź ponownie za kilka minut."
+
 msgid "Test-Ereignis"
 msgstr "Zdarzenie testowe"
 

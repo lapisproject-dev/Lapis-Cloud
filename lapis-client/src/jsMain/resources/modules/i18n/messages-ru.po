@@ -9580,6 +9580,15 @@ msgstr "Взнос оплачен"
 msgid "Spende erhalten"
 msgstr "Пожертвование получено"
 
+msgid "Anmeldegebühr bezahlt"
+msgstr "Регистрационный взнос оплачен"
+
+msgid "Veranstaltungsgebühr"
+msgstr "Взнос за мероприятие"
+
+msgid "Der Status konnte nicht rechtzeitig bestätigt werden. Bitte prüfen Sie es in einigen Minuten erneut."
+msgstr "Статус не удалось подтвердить вовремя. Пожалуйста, проверьте снова через несколько минут."
+
 msgid "Test-Ereignis"
 msgstr "Тестовое событие"
 

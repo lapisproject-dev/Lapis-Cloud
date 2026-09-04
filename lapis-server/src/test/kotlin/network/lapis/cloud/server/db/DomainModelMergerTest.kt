@@ -35,16 +35,16 @@ class DomainModelMergerTest :
         // ── Test 1: merging the real 22 domain scripts ───────────────────────────────────
 
         test(
-            "merging the real 39 domain scripts succeeds and the uml-to-erm -> erm-to-exposed chain " +
+            "merging the real 40 domain scripts succeeds and the uml-to-erm -> erm-to-exposed chain " +
                 "produces exactly one Table file per distinct table name",
         ) {
             val scriptFiles =
                 requireNotNull(KumlModelLoader.kumlSourceDir.listFiles { f -> f.name.endsWith(".kuml.kts") }) {
                     "kUML source dir not found or not a directory: ${KumlModelLoader.kumlSourceDir.absolutePath}"
                 }.sortedBy { it.name }
-            // Welle V1.4.2 "Interessenten-/Sympathisanten-CRM" -- was 38, now 39 with the addition
-            // of 38-crm.kuml.kts.
-            scriptFiles shouldHaveSize 39
+            // Welle V1.4.3.1 "Veranstaltungen" -- was 39, now 40 with the addition of
+            // 39-events.kuml.kts.
+            scriptFiles shouldHaveSize 40
 
             val diagrams = scriptFiles.map { KumlModelLoader.loadUmlDiagram(it) }
 
@@ -301,7 +301,19 @@ class DomainModelMergerTest :
             // 10-accounting.kuml.kts's external_donor) -- so it contributes +4 «Entity»
             // declarations (2 stubs + 2 real tables) and 2 drops, net +2 distinct table names versus
             // the V1.3.2 baseline above (121 -> 123).
-            val distinctTableNames = 123
+            // Welle V1.4.3.1 "Veranstaltungen: Kernschleife + Anmeldegebuehren-Zahlung" adds
+            // 39-events.kuml.kts's TWO real tables (event, event_registration), WITH its own
+            // cross-domain Member stub (event.created_by/event_registration.member_id resolve
+            // through it) -- the stub dedups into the already-real member entity -- so it
+            // contributes +3 «Entity» declarations (the stub + 2 real tables) and 1 drop, net +2
+            // distinct table names versus the V1.4.2 baseline above (123 -> 125). 33-payments
+            // .kuml.kts also gains its own id-only EventRegistration stub (for
+            // paymentCheckoutSession.eventRegistrationId) -- it dedups into 39-events.kuml.kts's
+            // now-real event_registration entity (the fuller declaration always wins as canonical,
+            // regardless of file processing order -- see DomainModelMerger KDoc step 3 "most
+            // attributes wins"), so it contributes +1 «Entity» declaration and +1 drop, net 0
+            // change to distinctTableNames.
+            val distinctTableNames = 125
 
             val result =
                 UmlToExposedViaErmScriptTransformer().transform(
@@ -482,6 +494,13 @@ class DomainModelMergerTest :
                     // both dedup into already-real entities, no new Table file for them.
                     "CrmContactTable.kt",
                     "CrmInteractionTable.kt",
+                    // Welle V1.4.3.1 "Veranstaltungen: Kernschleife + Anmeldegebuehren-Zahlung" --
+                    // two new real tables (event, event_registration); the Member cross-domain stub
+                    // (39-events.kuml.kts) and the EventRegistration cross-domain stub
+                    // (33-payments.kuml.kts) both dedup into already-real entities, no new Table
+                    // file for either.
+                    "EventTable.kt",
+                    "EventRegistrationTable.kt",
                 )
         }
 

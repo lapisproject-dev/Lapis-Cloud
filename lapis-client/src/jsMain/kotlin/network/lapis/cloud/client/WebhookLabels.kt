@@ -37,6 +37,7 @@ fun webhookEventTypeLabel(eventType: WebhookEventType): String =
         WebhookEventType.MEMBER_CREATED -> tr("Mitglied angelegt")
         WebhookEventType.CONTRIBUTION_PAID -> tr("Beitrag bezahlt")
         WebhookEventType.DONATION_RECEIVED -> tr("Spende erhalten")
+        WebhookEventType.EVENT_REGISTRATION_PAID -> tr("Anmeldegebühr bezahlt")
         WebhookEventType.WEBHOOK_TEST -> tr("Test-Ereignis")
     }
 

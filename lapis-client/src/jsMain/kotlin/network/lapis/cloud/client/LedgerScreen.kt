@@ -332,11 +332,13 @@ internal fun renderPaymentAccountMappingSection(
                 val unconfigured = tr("(nicht konfiguriert)")
                 panel.p(
                     gettext(
-                        "Bankkonto: %1 · Gebührenkonto: %2 · Beitragserlöskonto: %3 · Spendenerlöskonto: %4",
+                        "Bankkonto: %1 · Gebührenkonto: %2 · Beitragserlöskonto: %3 · Spendenerlöskonto: %4 · Veranstaltungserlöskonto: %5 (%6)",
                         accounts.find { it.id == settings.paymentBankAccountId }?.name ?: unconfigured,
                         accounts.find { it.id == settings.paymentFeeAccountId }?.name ?: unconfigured,
                         accounts.find { it.id == settings.contributionIncomeAccountId }?.name ?: unconfigured,
                         accounts.find { it.id == settings.donationIncomeAccountId }?.name ?: unconfigured,
+                        accounts.find { it.id == settings.eventIncomeAccountId }?.name ?: unconfigured,
+                        sphereLabel(settings.eventIncomeSphere),
                     ),
                 )
                 return@launch
@@ -371,12 +373,32 @@ internal fun renderPaymentAccountMappingSection(
                     value = settings.donationIncomeAccountId.orEmpty(),
                     label = tr("Spendenerlöskonto"),
                 )
+            // Review MAJOR fix -- previously reachable only via a direct RPC call, no UI field at
+            // all (see EventFeePostingBridge KDoc); this panel already establishes the pattern every
+            // OTHER account-mapping field uses.
+            val eventIncomeSelect =
+                panel.select(
+                    options = accountOptions,
+                    value = settings.eventIncomeAccountId.orEmpty(),
+                    label = tr("Veranstaltungserlöskonto"),
+                )
+            val eventIncomeSphereOptions = GemeinnuetzigkeitSphere.entries.map { it.name to sphereLabel(it) }
+            val eventIncomeSphereSelect =
+                panel.select(
+                    options = eventIncomeSphereOptions,
+                    value = settings.eventIncomeSphere.name,
+                    label = tr("Sphäre der Veranstaltungserlöse"),
+                )
 
             val saveButton = panel.button(tr("Kontenzuordnung speichern"), style = ButtonStyle.PRIMARY)
             saveButton.onClick {
                 saveButton.disabled = true
                 AppScope.launch {
                     try {
+                        val selectedEventIncomeSphere =
+                            eventIncomeSphereSelect.value
+                                ?.let { runCatching { GemeinnuetzigkeitSphere.valueOf(it) }.getOrNull() }
+                                ?: GemeinnuetzigkeitSphere.ZWECKBETRIEB
                         val result =
                             guarded {
                                 rpcService<IOrganizationSettingsService>().updateOrganizationSettings(
@@ -385,6 +407,8 @@ internal fun renderPaymentAccountMappingSection(
                                         paymentFeeAccountId = feeSelect.value?.takeIf { it.isNotBlank() },
                                         contributionIncomeAccountId = incomeSelect.value?.takeIf { it.isNotBlank() },
                                         donationIncomeAccountId = donationIncomeSelect.value?.takeIf { it.isNotBlank() },
+                                        eventIncomeAccountId = eventIncomeSelect.value?.takeIf { it.isNotBlank() },
+                                        eventIncomeSphere = selectedEventIncomeSphere,
                                     ),
                                 )
                             }
@@ -413,6 +437,8 @@ private fun OrganizationSettingsDto.toInputWithPaymentAccountMapping(
     paymentFeeAccountId: String?,
     contributionIncomeAccountId: String?,
     donationIncomeAccountId: String?,
+    eventIncomeAccountId: String?,
+    eventIncomeSphere: GemeinnuetzigkeitSphere,
 ) = OrganizationSettingsInput(
     name = name,
     street = street,
@@ -430,6 +456,8 @@ private fun OrganizationSettingsDto.toInputWithPaymentAccountMapping(
     paymentFeeAccountId = paymentFeeAccountId,
     contributionIncomeAccountId = contributionIncomeAccountId,
     donationIncomeAccountId = donationIncomeAccountId,
+    eventIncomeAccountId = eventIncomeAccountId,
+    eventIncomeSphere = eventIncomeSphere,
 )
 
 // ============================================================================================

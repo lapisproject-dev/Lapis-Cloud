@@ -48,12 +48,14 @@ fun paymentIntentLabel(intent: PaymentIntent): String =
     when (intent) {
         PaymentIntent.CONTRIBUTION -> gettext("Mitgliedsbeitrag")
         PaymentIntent.DONATION -> gettext("Spende")
+        PaymentIntent.EVENT_FEE -> gettext("Veranstaltungsgebühr")
     }
 
 fun paymentIntentColor(intent: PaymentIntent): String =
     when (intent) {
         PaymentIntent.CONTRIBUTION -> "primary"
         PaymentIntent.DONATION -> "info"
+        PaymentIntent.EVENT_FEE -> "warning"
     }
 
 fun paymentProviderLabel(provider: PaymentProvider): String =

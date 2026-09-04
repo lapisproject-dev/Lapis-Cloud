@@ -9681,6 +9681,15 @@ msgstr "Cotisation payée"
 msgid "Spende erhalten"
 msgstr "Don reçu"
 
+msgid "Anmeldegebühr bezahlt"
+msgstr "Frais d'inscription payés"
+
+msgid "Veranstaltungsgebühr"
+msgstr "Frais d'événement"
+
+msgid "Der Status konnte nicht rechtzeitig bestätigt werden. Bitte prüfen Sie es in einigen Minuten erneut."
+msgstr "Le statut n'a pas pu être confirmé à temps. Veuillez vérifier à nouveau dans quelques minutes."
+
 msgid "Test-Ereignis"
 msgstr "Événement de test"
 

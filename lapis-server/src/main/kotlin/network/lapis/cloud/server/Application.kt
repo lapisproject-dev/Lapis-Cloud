@@ -89,6 +89,7 @@ import network.lapis.cloud.server.routes.registerDocumentRoutes
 import network.lapis.cloud.server.routes.registerDsgvoRoutes
 import network.lapis.cloud.server.routes.registerDunningRoutes
 import network.lapis.cloud.server.routes.registerEmbedRoutes
+import network.lapis.cloud.server.routes.registerEventPublicRoutes
 import network.lapis.cloud.server.routes.registerFederationRoutes
 import network.lapis.cloud.server.routes.registerMailmergeRoutes
 import network.lapis.cloud.server.routes.registerOidcRoutes
@@ -120,6 +121,7 @@ import network.lapis.cloud.server.rpc.DsgvoComplianceService
 import network.lapis.cloud.server.rpc.DsgvoService
 import network.lapis.cloud.server.rpc.DunningService
 import network.lapis.cloud.server.rpc.ElectionService
+import network.lapis.cloud.server.rpc.EventService
 import network.lapis.cloud.server.rpc.FederationService
 import network.lapis.cloud.server.rpc.GovernanceService
 import network.lapis.cloud.server.rpc.LtrLedgerService
@@ -167,6 +169,7 @@ import network.lapis.cloud.shared.rpc.IDsgvoComplianceService
 import network.lapis.cloud.shared.rpc.IDsgvoService
 import network.lapis.cloud.shared.rpc.IDunningService
 import network.lapis.cloud.shared.rpc.IElectionService
+import network.lapis.cloud.shared.rpc.IEventService
 import network.lapis.cloud.shared.rpc.IFederationService
 import network.lapis.cloud.shared.rpc.IGovernanceService
 import network.lapis.cloud.shared.rpc.ILtrLedgerService
@@ -624,6 +627,20 @@ fun Application.module() {
     val crmContactWriteRateLimiter = FederationInboxRateLimiter(maxRequests = 60, window = 1.minutes)
     val crmInteractionWriteRateLimiter = FederationInboxRateLimiter(maxRequests = 120, window = 1.minutes)
 
+    // Welle V1.4.3.1 "Veranstaltungen: Kernschleife + Anmeldegebuehren-Zahlung". eventWriteRateLimiter
+    // gates every authenticated IEventService write (create/update/publish/cancel/registerSelf/
+    // cancelOwnRegistration/sweepEvent), member-keyed. The three PUBLIC route limiters are IP-keyed,
+    // large maxTrackedKeys (unauthenticated surface, same posture as the embed-donation limiters):
+    // eventRegistrationAttemptRateLimiter is the generous flood/DoS gate checked BEFORE the form
+    // body is even read; eventRegistrationRateLimiter is the strict per-real-attempt budget
+    // EventRegistrationSubmission itself is NOT gated by (checked by the route handler immediately
+    // before the DB/Stripe work); eventPageRateLimiter is the soft limiter for the read-only GET
+    // routes (detail page, the four return pages).
+    val eventWriteRateLimiter = FederationInboxRateLimiter(maxRequests = 60, window = 1.minutes)
+    val eventRegistrationAttemptRateLimiter = FederationInboxRateLimiter(maxRequests = 30, window = 60.minutes, maxTrackedKeys = 50_000)
+    val eventRegistrationRateLimiter = FederationInboxRateLimiter(maxRequests = 5, window = 60.minutes, maxTrackedKeys = 50_000)
+    val eventPageRateLimiter = FederationInboxRateLimiter(maxRequests = 60, window = 1.minutes, maxTrackedKeys = 50_000)
+
     // V1.0 Videokonferenzen, Wave 9 "Stream-Pause bei geheimen Abstimmungen" (D6) -- constructed here,
     // NOT left to ElectionService's/SystemicConsensusService's own constructor defaults (there ARE
     // none -- see those classes' own `streamGuard` KDoc): reuses the SAME liveKitEgressClient/
@@ -1052,6 +1069,17 @@ fun Application.module() {
                 interactionWriteRateLimiter = crmInteractionWriteRateLimiter,
             )
         }
+        // Welle V1.4.3.1 "Veranstaltungen: Kernschleife + Anmeldegebuehren-Zahlung".
+        registerService(IEventService::class) { call ->
+            EventService(
+                call = call,
+                pspConfigState = pspConfigState,
+                checkoutClient = checkoutClient,
+                baseUrl = FederationConfig.publicBaseUrl.trimEnd('/'),
+                mailDispatcher = mailDispatcher,
+                writeRateLimiter = eventWriteRateLimiter,
+            )
+        }
     }
 
     routing {
@@ -1081,7 +1109,7 @@ fun Application.module() {
         // (/api/webhooks/stripe), registered before staticFiles below, same "literal beats
         // catch-all" reasoning as registerSocialPublicRoutes' own routes. Unauthenticated by design
         // -- see PspWebhookRoutes KDoc.
-        registerPspWebhookRoutes(pspConfig = pspConfigState, rateLimiter = pspWebhookRateLimiter)
+        registerPspWebhookRoutes(pspConfig = pspConfigState, rateLimiter = pspWebhookRateLimiter, mailDispatcher = mailDispatcher)
         registerOidcRoutes(cookieSecure = cookieSecure, registrationRateLimiter = oidcRegistrationRateLimiter)
         registerTrustAnchorRoutes()
         // V1.1.3 Soziales Netzwerk "Öffentlicher SEO-Lesepfad" -- literal routes (/s, /s/{id}, ...),
@@ -1106,6 +1134,18 @@ fun Application.module() {
         registerPublicApiRoutes(
             preAuthRateLimiter = publicApiPreAuthRateLimiter,
             postAuthRateLimiter = publicApiPostAuthRateLimiter,
+        )
+        // Welle V1.4.3.1 "Veranstaltungen" -- literal routes (/veranstaltung/*), same "registered
+        // before staticFiles" reasoning as registerSocialPublicRoutes' own routes.
+        registerEventPublicRoutes(
+            pspConfigState = pspConfigState,
+            checkoutClient = checkoutClient,
+            baseUrl = FederationConfig.publicBaseUrl.trimEnd('/'),
+            mailDispatcher = mailDispatcher,
+            brandTitle = resolvedBranding.title,
+            pageRateLimiter = eventPageRateLimiter,
+            attemptRateLimiter = eventRegistrationAttemptRateLimiter,
+            registrationRateLimiter = eventRegistrationRateLimiter,
         )
         // Welle V1.4.1a "Öffentliche Website-Integration" -- literale Routen (/embed/v1/*,
         // /api/embed/v1/*), dieselbe "literal schlägt catch-all"-Begründung wie bei

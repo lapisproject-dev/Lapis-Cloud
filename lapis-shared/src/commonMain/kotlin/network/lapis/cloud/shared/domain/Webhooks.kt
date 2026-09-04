@@ -136,6 +136,15 @@ enum class WebhookEventType(
     /** Fat event -- see class KDoc. */
     DONATION_RECEIVED("donation.received"),
 
+    /**
+     * Welle V1.4.3.1 "Veranstaltungen". Fires once a participation-fee payment is confirmed AND
+     * posted to accounting (`journalEntryId != null`) -- same "only after the ledger actually
+     * recorded it" gate `DONATION_RECEIVED`/`CONTRIBUTION_PAID` already follow. NOT a Fat event
+     * (see class KDoc) -- carries [network.lapis.cloud.server.webhook.WebhookPayloads
+     * .PaymentEventDetails], same as [DONATION_RECEIVED].
+     */
+    EVENT_REGISTRATION_PAID("event.registration.paid"),
+
     /** Synchronous-only, never queued/retried -- see `IWebhookService.sendWebhookTestEvent` KDoc. */
     WEBHOOK_TEST("webhook.test"),
     ;

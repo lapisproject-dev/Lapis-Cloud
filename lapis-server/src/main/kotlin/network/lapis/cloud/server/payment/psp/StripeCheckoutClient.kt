@@ -62,6 +62,26 @@ internal data class StripeReturnUrls(
                 cancelUrl = "$baseUrl/embed/v1/spende/abgebrochen?origin=$encodedOrigin",
             )
         }
+
+        /**
+         * Welle V1.4.3.1 -- the server-rendered, same-origin event-registration return pages.
+         * [registrationId] travels as a plain query parameter (not the hash fragment the member SPA
+         * path uses): unlike [memberSpa], this destination is a classic multi-page `<form>` flow with
+         * no client-side router to read a hash fragment at all. Not a secret -- a checkout-return
+         * page for a random UUID a stranger does not already hold is functionally the same "empty
+         * confirmation" a not-found registration would show.
+         */
+        fun eventRegistration(
+            baseUrl: String,
+            slug: String,
+            registrationId: String,
+        ): StripeReturnUrls {
+            val encodedRegistrationId = URLEncoder.encode(registrationId, Charsets.UTF_8)
+            return StripeReturnUrls(
+                successUrl = "$baseUrl/veranstaltung/$slug/danke?r=$encodedRegistrationId",
+                cancelUrl = "$baseUrl/veranstaltung/$slug/abgebrochen?r=$encodedRegistrationId",
+            )
+        }
     }
 }
 
