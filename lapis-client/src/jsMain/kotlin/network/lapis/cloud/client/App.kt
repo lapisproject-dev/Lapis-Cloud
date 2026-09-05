@@ -397,6 +397,10 @@ private fun refreshNavbar(navbar: Navbar) {
             // Rollen-Verifikation. Kein eigener Hauptmenüpunkt, gleiche Entscheidung wie bei
             // "API-Schlüssel".
             routedDdLink(Routes.CRM, tr("Kontakte & Interessenten"), icon = "fas fa-address-book")
+            // Welle V1.4.3.2 "Veranstaltungen: Ticketing/QR-Codes" -- siehe `Routes.EVENT_CHECKIN`
+            // KDoc für die Rollen-Verifikation. Kein eigener Hauptmenüpunkt, gleiche Entscheidung
+            // wie bei "Kontakte & Interessenten"/"API-Schlüssel".
+            routedDdLink(Routes.EVENT_CHECKIN, tr("Veranstaltungs-Check-in"), icon = "fas fa-qrcode")
         }
     }
     // ADMIN-only-tier -- see `Routes.BACKUP`/`CONFERENCE_STREAM_DESTINATIONS` KDoc.

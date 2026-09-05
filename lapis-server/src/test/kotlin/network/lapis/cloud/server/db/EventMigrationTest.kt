@@ -129,17 +129,30 @@ class EventMigrationTest :
             status: String = "CONFIRMED",
             holdExpiresAt: String? = null,
             feeAmount: String = "0",
+            // Welle V1.4.3.2 -- all four default NULL (omitted entirely would work the same way for
+            // an INSERT with an explicit column list, but spelling them out here keeps every probe
+            // below self-documenting about which of the four it is actually exercising).
+            ticketCodeSha256: String? = null,
+            ticketIssuedAt: String? = null,
+            checkedInAt: String? = null,
+            checkedInBy: Uuid? = null,
         ): String {
             val memberSql = memberId?.let { "'$it'" } ?: "NULL"
             val guestNameSql = guestName?.let { "'$it'" } ?: "NULL"
             val guestEmailSql = guestEmail?.let { "'$it'" } ?: "NULL"
             val keySql = activeParticipantKey?.let { "'$it'" } ?: "NULL"
             val holdSql = holdExpiresAt?.let { "TIMESTAMP '$it'" } ?: "NULL"
+            val ticketHashSql = ticketCodeSha256?.let { "'$it'" } ?: "NULL"
+            val ticketIssuedSql = ticketIssuedAt?.let { "TIMESTAMP '$it'" } ?: "NULL"
+            val checkedInAtSql = checkedInAt?.let { "TIMESTAMP '$it'" } ?: "NULL"
+            val checkedInBySql = checkedInBy?.let { "'$it'" } ?: "NULL"
             return "INSERT INTO event_registration (id, event_id, member_id, guest_name, guest_email, " +
                 "active_participant_key, status, fee_amount, hold_expires_at, waitlist_position, " +
-                "cancel_token_sha256, registered_at, confirmed_at, cancelled_at, waitlist_offered_at) VALUES (" +
+                "cancel_token_sha256, registered_at, confirmed_at, cancelled_at, waitlist_offered_at, " +
+                "ticket_code_sha256, ticket_issued_at, checked_in_at, checked_in_by) VALUES (" +
                 "'$id', '$eventId', $memberSql, $guestNameSql, $guestEmailSql, $keySql, '$status', $feeAmount, " +
-                "$holdSql, NULL, NULL, TIMESTAMP '2026-01-01 00:00:00', NULL, NULL, NULL)"
+                "$holdSql, NULL, NULL, TIMESTAMP '2026-01-01 00:00:00', NULL, NULL, NULL, " +
+                "$ticketHashSql, $ticketIssuedSql, $checkedInAtSql, $checkedInBySql)"
         }
 
         test("chk_event_registration_identity rejects both member_id and guest fields set") {
@@ -248,5 +261,157 @@ class EventMigrationTest :
             first shouldBe null
             val second = probeInsert(registrationColumns(id = Uuid.random(), eventId = eventId, activeParticipantKey = sharedKey))
             (second is ExposedSQLException) shouldBe true
+        }
+
+        // ── Welle V1.4.3.2 "Veranstaltungen: Ticketing/QR-Codes" -- V19__event_tickets.sql ────────
+
+        test("chk_event_registration_ticket_issued rejects a hash without an issued_at") {
+            val eventId = createRealEvent()
+            val exception =
+                probeInsert(
+                    registrationColumns(
+                        id = Uuid.random(),
+                        eventId = eventId,
+                        ticketCodeSha256 = "a".repeat(64),
+                        ticketIssuedAt = null,
+                    ),
+                )
+            (exception is ExposedSQLException) shouldBe true
+            (exception?.message ?: "").contains("chk_event_registration_ticket_issued", ignoreCase = true) shouldBe true
+        }
+
+        test("chk_event_registration_ticket_issued rejects an issued_at without a hash") {
+            val eventId = createRealEvent()
+            val exception =
+                probeInsert(
+                    registrationColumns(
+                        id = Uuid.random(),
+                        eventId = eventId,
+                        ticketCodeSha256 = null,
+                        ticketIssuedAt = "2026-01-01 00:00:00",
+                    ),
+                )
+            (exception is ExposedSQLException) shouldBe true
+            (exception?.message ?: "").contains("chk_event_registration_ticket_issued", ignoreCase = true) shouldBe true
+        }
+
+        test("chk_event_registration_ticket_issued accepts both set together") {
+            val eventId = createRealEvent()
+            val exception =
+                probeInsert(
+                    registrationColumns(
+                        id = Uuid.random(),
+                        eventId = eventId,
+                        ticketCodeSha256 = "b".repeat(64),
+                        ticketIssuedAt = "2026-01-01 00:00:00",
+                    ),
+                )
+            exception shouldBe null
+        }
+
+        test("chk_event_registration_checkin_pair rejects checked_in_at without checked_in_by") {
+            val eventId = createRealEvent()
+            val exception =
+                probeInsert(
+                    registrationColumns(
+                        id = Uuid.random(),
+                        eventId = eventId,
+                        ticketCodeSha256 = "c".repeat(64),
+                        ticketIssuedAt = "2026-01-01 00:00:00",
+                        checkedInAt = "2026-01-01 12:00:00",
+                        checkedInBy = null,
+                    ),
+                )
+            (exception is ExposedSQLException) shouldBe true
+            (exception?.message ?: "").contains("chk_event_registration_checkin_pair", ignoreCase = true) shouldBe true
+        }
+
+        test("chk_event_registration_checkin_pair rejects checked_in_by without checked_in_at") {
+            val eventId = createRealEvent()
+            val exception =
+                probeInsert(
+                    registrationColumns(
+                        id = Uuid.random(),
+                        eventId = eventId,
+                        ticketCodeSha256 = "d".repeat(64),
+                        ticketIssuedAt = "2026-01-01 00:00:00",
+                        checkedInAt = null,
+                        checkedInBy = ADMIN_UUID,
+                    ),
+                )
+            (exception is ExposedSQLException) shouldBe true
+            (exception?.message ?: "").contains("chk_event_registration_checkin_pair", ignoreCase = true) shouldBe true
+        }
+
+        test("chk_event_registration_checkin_ticket rejects a check-in without a ticket") {
+            val eventId = createRealEvent()
+            val exception =
+                probeInsert(
+                    registrationColumns(
+                        id = Uuid.random(),
+                        eventId = eventId,
+                        ticketCodeSha256 = null,
+                        ticketIssuedAt = null,
+                        checkedInAt = "2026-01-01 12:00:00",
+                        checkedInBy = ADMIN_UUID,
+                    ),
+                )
+            (exception is ExposedSQLException) shouldBe true
+            (exception?.message ?: "").contains("chk_event_registration_checkin_ticket", ignoreCase = true) shouldBe true
+        }
+
+        test("chk_event_registration_checkin_ticket accepts a check-in WITH a ticket") {
+            val eventId = createRealEvent()
+            val exception =
+                probeInsert(
+                    registrationColumns(
+                        id = Uuid.random(),
+                        eventId = eventId,
+                        ticketCodeSha256 = "e".repeat(64),
+                        ticketIssuedAt = "2026-01-01 00:00:00",
+                        checkedInAt = "2026-01-01 12:00:00",
+                        checkedInBy = ADMIN_UUID,
+                    ),
+                )
+            exception shouldBe null
+        }
+
+        test("uq_event_registration_ticket_code is global -- rejects the same hash on a DIFFERENT event") {
+            val eventA = createRealEvent()
+            val eventB = createRealEvent()
+            val sharedHash = "f".repeat(64)
+            val first =
+                probeInsert(
+                    registrationColumns(
+                        id = Uuid.random(),
+                        eventId = eventA,
+                        activeParticipantKey = "g:ticket-dup-a@example.org",
+                        ticketCodeSha256 = sharedHash,
+                        ticketIssuedAt = "2026-01-01 00:00:00",
+                    ),
+                )
+            first shouldBe null
+            val second =
+                probeInsert(
+                    registrationColumns(
+                        id = Uuid.random(),
+                        eventId = eventB,
+                        activeParticipantKey = "g:ticket-dup-b@example.org",
+                        ticketCodeSha256 = sharedHash,
+                        ticketIssuedAt = "2026-01-01 00:00:00",
+                    ),
+                )
+            (second is ExposedSQLException) shouldBe true
+            (second?.message ?: "").contains("uq_event_registration_ticket_code", ignoreCase = true) shouldBe true
+        }
+
+        test("uq_event_registration_ticket_code allows multiple NULL hashes") {
+            val eventId = createRealEvent()
+            val first =
+                probeInsert(registrationColumns(id = Uuid.random(), eventId = eventId, activeParticipantKey = "g:null-a@example.org"))
+            val second =
+                probeInsert(registrationColumns(id = Uuid.random(), eventId = eventId, activeParticipantKey = "g:null-b@example.org"))
+            first shouldBe null
+            second shouldBe null
         }
     })

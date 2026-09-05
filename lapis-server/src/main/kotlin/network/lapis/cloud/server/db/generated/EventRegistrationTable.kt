@@ -26,9 +26,13 @@ public object EventRegistrationTable : Table("event_registration") {
     public val confirmedAt: Column<LocalDateTime?> = datetime("confirmed_at").nullable()
     public val cancelledAt: Column<LocalDateTime?> = datetime("cancelled_at").nullable()
     public val waitlistOfferedAt: Column<LocalDateTime?> = datetime("waitlist_offered_at").nullable()
+    public val ticketCodeSha256: Column<String?> = varchar("ticket_code_sha256", 64).nullable()
+    public val ticketIssuedAt: Column<LocalDateTime?> = datetime("ticket_issued_at").nullable()
+    public val checkedInAt: Column<LocalDateTime?> = datetime("checked_in_at").nullable()
+    public val checkedInBy: Column<Uuid?> = optReference("checked_in_by", MemberTable.id)
 
     override val primaryKey: PrimaryKey = PrimaryKey(id)
 
-    // Note: 4 index(es) declared on this entity are not emitted —
+    // Note: 6 index(es) declared on this entity are not emitted —
     // Exposed's index {} DSL needs typed column references, not wired up in this wave.
 }

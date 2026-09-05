@@ -1,6 +1,7 @@
 package network.lapis.cloud.server.routes
 
 import io.github.oshai.kotlinlogging.KotlinLogging
+import io.ktor.http.ContentDisposition
 import io.ktor.http.ContentType
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
@@ -13,28 +14,40 @@ import io.ktor.server.request.path
 import io.ktor.server.request.receiveParameters
 import io.ktor.server.response.header
 import io.ktor.server.response.respond
+import io.ktor.server.response.respondBytes
 import io.ktor.server.response.respondText
 import io.ktor.server.routing.Route
 import io.ktor.server.routing.get
 import io.ktor.server.routing.post
 import kotlinx.coroutines.CancellationException
+import kotlinx.datetime.LocalDateTime
 import network.lapis.cloud.server.db.DbClock
 import network.lapis.cloud.server.db.generated.EventRegistrationTable
 import network.lapis.cloud.server.db.generated.EventTable
+import network.lapis.cloud.server.db.generated.OrganizationSettingsTable
 import network.lapis.cloud.server.events.EventCapacityGuard
 import network.lapis.cloud.server.events.EventParticipant
 import network.lapis.cloud.server.events.EventPolicy
 import network.lapis.cloud.server.events.EventRegistrationResult
 import network.lapis.cloud.server.events.EventRegistrationSubmission
 import network.lapis.cloud.server.events.EventStore
+import network.lapis.cloud.server.events.EventTicketPolicy
+import network.lapis.cloud.server.events.QrCodeEncoder
 import network.lapis.cloud.server.events.mailPromotion
 import network.lapis.cloud.server.federation.FederationInboxRateLimiter
 import network.lapis.cloud.server.mail.MailDispatcher
 import network.lapis.cloud.server.payment.psp.PspConfigState
 import network.lapis.cloud.server.payment.psp.StripeCheckoutClient
+import network.lapis.cloud.server.pdf.EventTicketPdfGenerator
+import network.lapis.cloud.server.rpc.ORGANIZATION_SETTINGS_ID
+import network.lapis.cloud.server.rpc.toOrganizationSettingsDto
+import network.lapis.cloud.server.security.LoginRateLimiter
 import network.lapis.cloud.shared.domain.EventRegistrationStatus
 import network.lapis.cloud.shared.domain.EventStatus
+import network.lapis.cloud.shared.domain.EventTicketCode
 import network.lapis.cloud.shared.domain.EventVisibility
+import org.jetbrains.exposed.v1.core.eq
+import org.jetbrains.exposed.v1.jdbc.selectAll
 import org.jetbrains.exposed.v1.jdbc.transactions.transaction
 import java.math.BigDecimal
 import java.security.MessageDigest
@@ -87,6 +100,10 @@ internal fun Route.registerEventPublicRoutes(
     pageRateLimiter: FederationInboxRateLimiter,
     attemptRateLimiter: FederationInboxRateLimiter,
     registrationRateLimiter: FederationInboxRateLimiter,
+    // Welle V1.4.3.2 "Veranstaltungen: Ticketing/QR-Codes" -- see EventTicketRoutes' own KDoc block
+    // below for the rationale (soft per-IP page budget vs. a failures-only code-guessing guard).
+    ticketPageRateLimiter: FederationInboxRateLimiter,
+    ticketCodeFailureLimiter: LoginRateLimiter,
 ) {
     val submission =
         EventRegistrationSubmission(
@@ -374,30 +391,285 @@ internal fun Route.registerEventPublicRoutes(
             }
         }
     }
+
+    // ── Ticket routes (Welle V1.4.3.2 "Veranstaltungen: Ticketing/QR-Codes") ─────────────────────
+    //
+    // Unlike every route above, a ticket code is a BEARER CREDENTIAL scoped to one specific
+    // registration (not a name+email the caller already knows) -- so the code-lookup failure path
+    // gets its OWN, stricter guard ([ticketCodeFailureLimiter], failures-only, `LoginRateLimiter`-
+    // shaped) layered UNDER the generic per-IP page budget ([ticketPageRateLimiter], every-request,
+    // `FederationInboxRateLimiter`-shaped): a ticket holder who reloads their own valid ticket
+    // twenty times must never be punished the way a code-guessing attacker is. See
+    // `resolveTicket`'s own KDoc for the full lookup order.
+    //
+    // **No `<script>`, no inline styles for the QR fill** -- `EventTicketSvg` renders fill color as
+    // an SVG attribute for exactly this reason (see that object's own KDoc), so
+    // `applyEventTicketPageHeaders`' `img-src 'self'` addition never needs an `unsafe-inline` CSP
+    // relaxation alongside it.
+
+    get("/veranstaltung/{slug}/ticket") {
+        call.withEventPublicErrorHandling(brandTitle = brandTitle) {
+            if (!ticketPageRateLimiter.checkAndRecord(rateLimitKeyFor(remoteHost = call.request.origin.remoteHost))) {
+                call.respondEventTooManyRequests(brandTitle)
+                return@withEventPublicErrorHandling
+            }
+            val slug = call.parameters["slug"].orEmpty()
+            val remoteKey = "ip:${rateLimitKeyFor(remoteHost = call.request.origin.remoteHost)}"
+            when (
+                val resolution =
+                    resolveTicket(
+                        slug = slug,
+                        rawCode = call.parameters["code"],
+                        remoteKey = remoteKey,
+                        failureLimiter = ticketCodeFailureLimiter,
+                    )
+            ) {
+                TicketResolution.TooManyRequests -> call.respondEventTooManyRequests(brandTitle)
+                TicketResolution.NotFound -> call.respondEventNotFound(brandTitle)
+                is TicketResolution.NotConfirmedYet -> {
+                    call.response.header(HttpHeaders.CacheControl, "no-store")
+                    call.applyEventPublicPageHeaders()
+                    call.respondText(
+                        text = EventPublicHtml.ticketNotConfirmedPage(brandTitle = brandTitle, status = resolution.status),
+                        contentType = HTML_CONTENT_TYPE,
+                    )
+                }
+                is TicketResolution.Ticket -> {
+                    call.response.header(HttpHeaders.CacheControl, "no-store")
+                    call.applyEventTicketPageHeaders()
+                    call.respondText(
+                        text = EventPublicHtml.ticketPage(brandTitle = brandTitle, view = resolution.toView()),
+                        contentType = HTML_CONTENT_TYPE,
+                    )
+                }
+            }
+        }
+    }
+
+    get("/veranstaltung/{slug}/ticket.svg") {
+        call.withEventPublicErrorHandling(brandTitle = brandTitle) {
+            if (!ticketPageRateLimiter.checkAndRecord(rateLimitKeyFor(remoteHost = call.request.origin.remoteHost))) {
+                call.respondEventTicketBinaryStatus(HttpStatusCode.TooManyRequests)
+                return@withEventPublicErrorHandling
+            }
+            val slug = call.parameters["slug"].orEmpty()
+            val remoteKey = "ip:${rateLimitKeyFor(remoteHost = call.request.origin.remoteHost)}"
+            val resolution =
+                resolveTicket(
+                    slug = slug,
+                    rawCode = call.parameters["code"],
+                    remoteKey = remoteKey,
+                    failureLimiter = ticketCodeFailureLimiter,
+                )
+            val ticket = resolution as? TicketResolution.Ticket
+            if (resolution == TicketResolution.TooManyRequests) {
+                call.respondEventTicketBinaryStatus(HttpStatusCode.TooManyRequests)
+                return@withEventPublicErrorHandling
+            }
+            if (ticket == null) {
+                call.respondEventTicketBinaryStatus(HttpStatusCode.NotFound)
+                return@withEventPublicErrorHandling
+            }
+            val content = EventTicketPolicy.ticketUrl(baseUrl = baseUrl, slug = slug, rawCode = ticket.canonicalCode)
+            val svg = EventTicketSvg.render(matrix = QrCodeEncoder.encode(content), sizePx = 320)
+            call.response.header(HttpHeaders.CacheControl, "no-store")
+            call.response.header("Content-Security-Policy", "default-src 'none'")
+            call.response.header("X-Content-Type-Options", "nosniff")
+            call.respondText(text = svg, contentType = ContentType.Image.SVG)
+        }
+    }
+
+    get("/veranstaltung/{slug}/ticket.pdf") {
+        call.withEventPublicErrorHandling(brandTitle = brandTitle) {
+            if (!ticketPageRateLimiter.checkAndRecord(rateLimitKeyFor(remoteHost = call.request.origin.remoteHost))) {
+                call.respondEventTicketBinaryStatus(HttpStatusCode.TooManyRequests)
+                return@withEventPublicErrorHandling
+            }
+            val slug = call.parameters["slug"].orEmpty()
+            val remoteKey = "ip:${rateLimitKeyFor(remoteHost = call.request.origin.remoteHost)}"
+            val resolution =
+                resolveTicket(
+                    slug = slug,
+                    rawCode = call.parameters["code"],
+                    remoteKey = remoteKey,
+                    failureLimiter = ticketCodeFailureLimiter,
+                )
+            if (resolution == TicketResolution.TooManyRequests) {
+                call.respondEventTicketBinaryStatus(HttpStatusCode.TooManyRequests)
+                return@withEventPublicErrorHandling
+            }
+            val ticket = resolution as? TicketResolution.Ticket
+            if (ticket == null) {
+                call.respondEventTicketBinaryStatus(HttpStatusCode.NotFound)
+                return@withEventPublicErrorHandling
+            }
+            val content = EventTicketPolicy.ticketUrl(baseUrl = baseUrl, slug = slug, rawCode = ticket.canonicalCode)
+            val matrix = QrCodeEncoder.encode(content)
+            val organization =
+                transaction {
+                    OrganizationSettingsTable
+                        .selectAll()
+                        .where { OrganizationSettingsTable.id eq ORGANIZATION_SETTINGS_ID }
+                        .singleOrNull()
+                        ?.toOrganizationSettingsDto()
+                }
+            if (organization == null) {
+                call.respondEventTicketBinaryStatus(HttpStatusCode.InternalServerError)
+                return@withEventPublicErrorHandling
+            }
+            val pdfBytes =
+                EventTicketPdfGenerator.generate(
+                    eventTitle = ticket.eventTitle,
+                    startsAt = ticket.startsAt,
+                    endsAt = ticket.endsAt,
+                    locationText = ticket.locationText,
+                    onlineUrl = ticket.onlineUrl,
+                    displayCode = EventTicketCode.formatForDisplay(ticket.canonicalCode),
+                    qr = matrix,
+                    organization = organization,
+                )
+            call.response.header(HttpHeaders.CacheControl, "no-store")
+            call.response.header(
+                HttpHeaders.ContentDisposition,
+                ContentDisposition.Attachment
+                    .withParameter(ContentDisposition.Parameters.FileName, "Ticket-$slug.pdf")
+                    .toString(),
+            )
+            call.respondBytes(bytes = pdfBytes, contentType = ContentType.Application.Pdf)
+        }
+    }
+}
+
+/** Resolved-vs-rejected outcome of a ticket-code lookup -- shared by all three ticket routes above. */
+private sealed interface TicketResolution {
+    data class Ticket(
+        val eventTitle: String,
+        val startsAt: LocalDateTime,
+        val endsAt: LocalDateTime,
+        val locationText: String?,
+        val onlineUrl: String?,
+        val slug: String,
+        val canonicalCode: String,
+    ) : TicketResolution {
+        fun toView(): EventPublicHtml.TicketView =
+            EventPublicHtml.TicketView(
+                title = eventTitle,
+                startsAt = startsAt,
+                endsAt = endsAt,
+                locationText = locationText,
+                onlineUrl = onlineUrl,
+                slug = slug,
+                canonicalCode = canonicalCode,
+            )
+    }
+
+    data class NotConfirmedYet(
+        val status: EventRegistrationStatus,
+    ) : TicketResolution
+
+    data object NotFound : TicketResolution
+
+    data object TooManyRequests : TicketResolution
+}
+
+/**
+ * The single lookup path all three ticket routes share -- **verbindliche Reihenfolge**:
+ * 1. [failureLimiter.checkAllowed] -- checked BEFORE any canonicalization/DB work, so an
+ *    already-exhausted attacker's further attempts cost this server nothing beyond a map lookup.
+ * 2. [EventTicketCode.extractAndCanonicalize] -- failure records a [failureLimiter] hit and returns
+ *    [TicketResolution.NotFound], WITHOUT any database access (same DoS-defense-first posture
+ *    `EventCheckIn.byCode` establishes server-side for the authenticated door-scan path).
+ * 3. Hash lookup (global, via [EventStore.findByTicketCodeHash]) + [MessageDigest.isEqual] defense-
+ *    in-depth -- a miss records a [failureLimiter] hit and returns [TicketResolution.NotFound].
+ * 4. The looked-up registration's event must resolve AND its slug must equal [slug] -- a mismatch
+ *    (a code from a DIFFERENT event's ticket) records a [failureLimiter] hit and returns
+ *    [TicketResolution.NotFound] -- no oracle over which event a code actually belongs to.
+ * 5. Non-CONFIRMED status -> [TicketResolution.NotConfirmedYet] (NO failure recorded -- the code
+ *    itself was genuine, the caller is simply not there yet; see class KDoc for why this differs
+ *    from the neutral 404 above).
+ */
+private fun resolveTicket(
+    slug: String,
+    rawCode: String?,
+    remoteKey: String,
+    failureLimiter: LoginRateLimiter,
+): TicketResolution {
+    if (!failureLimiter.checkAllowed(remoteKey)) return TicketResolution.TooManyRequests
+    val canonical = EventTicketCode.extractAndCanonicalize(rawCode)
+    if (canonical == null) {
+        failureLimiter.recordFailure(remoteKey)
+        return TicketResolution.NotFound
+    }
+    val hash = sha256Hex(canonical.toByteArray(Charsets.US_ASCII))
+    return transaction {
+        val registration = EventStore.findByTicketCodeHash(hash)
+        val storedHash = registration?.get(EventRegistrationTable.ticketCodeSha256)
+        if (registration == null ||
+            storedHash == null ||
+            !MessageDigest.isEqual(hash.toByteArray(Charsets.US_ASCII), storedHash.toByteArray(Charsets.US_ASCII))
+        ) {
+            failureLimiter.recordFailure(remoteKey)
+            return@transaction TicketResolution.NotFound
+        }
+        val event = EventStore.getEventOrNull(registration[EventRegistrationTable.eventId])
+        if (event == null || event[EventTable.slug] != slug) {
+            failureLimiter.recordFailure(remoteKey)
+            return@transaction TicketResolution.NotFound
+        }
+        val status = registration[EventRegistrationTable.status]
+        if (status != EventRegistrationStatus.CONFIRMED) {
+            return@transaction TicketResolution.NotConfirmedYet(status)
+        }
+        TicketResolution.Ticket(
+            eventTitle = event[EventTable.title],
+            startsAt = event[EventTable.startsAt],
+            endsAt = event[EventTable.endsAt],
+            locationText = event[EventTable.locationText],
+            onlineUrl = event[EventTable.onlineUrl],
+            slug = slug,
+            canonicalCode = canonical,
+        )
+    }
+}
+
+/** Minimal, no-body status response for the two binary ticket endpoints ([ticket.svg]/[ticket.pdf]) -- neither has an HTML error page to render. */
+private suspend fun ApplicationCall.respondEventTicketBinaryStatus(status: HttpStatusCode) {
+    response.header(HttpHeaders.CacheControl, "no-store")
+    respond(status)
 }
 
 /**
  * Shared handler body for the three always-200 return pages (`danke`/`warteliste`/`abgebrochen`) --
  * same "never an error status at the exact moment the visitor just registered/cancelled" reasoning
- * `EmbedDonationRoutes.respondDonationReturnPage` KDoc documents. Wrapped in its own `runCatching`
+ * `EmbedDonationRoutes.respondDonationReturnPage` KDoc documents. Wrapped in its own `try`/`catch`
  * (not just the caller's [withEventPublicErrorHandling]) so a late failure here still gets this
  * file's own security headers rather than Ktor's bare default.
+ *
+ * Plain `try`/`catch`, not `runCatching` (Security-audit INFO fix): `runCatching` catches
+ * [CancellationException] too, and this used to `.onFailure` into `respondEventServerError` on a
+ * cancelled call as well -- e.g. the client aborting the connection while this handler is still
+ * running. That silently swallows the cancellation (violating structured concurrency -- the
+ * coroutine hierarchy never learns this call was cancelled) AND then attempts a second `respond*`
+ * on an already-dead call, which itself fails and only obscures the original cancellation in the
+ * logs. Same fix, same reasoning [withEventPublicErrorHandling] below already applies.
  */
 private suspend fun ApplicationCall.respondEventReturnPage(
     brandTitle: String,
     rateLimiter: FederationInboxRateLimiter,
     render: () -> String,
 ) {
-    runCatching {
+    try {
         response.header(HttpHeaders.CacheControl, "no-store")
         if (!rateLimiter.checkAndRecord(rateLimitKeyFor(remoteHost = request.origin.remoteHost))) {
             applyEventPublicPageHeaders()
             respondText(text = render(), contentType = HTML_CONTENT_TYPE, status = HttpStatusCode.TooManyRequests)
-            return@runCatching
+            return
         }
         applyEventPublicPageHeaders()
         respondText(text = render(), contentType = HTML_CONTENT_TYPE)
-    }.onFailure {
+    } catch (e: CancellationException) {
+        throw e
+    } catch (e: Exception) {
         runCatching { respondEventServerError(brandTitle) }
     }
 }
@@ -439,6 +711,24 @@ internal fun ApplicationCall.applyEventPublicPageHeaders() {
     response.header(
         "Content-Security-Policy",
         "default-src 'none'; style-src 'self'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'",
+    )
+    response.header("X-Content-Type-Options", "nosniff")
+    response.header("Referrer-Policy", "no-referrer")
+    response.header("X-Frame-Options", "DENY")
+    response.header("Permissions-Policy", "geolocation=(), microphone=(), camera=()")
+}
+
+/**
+ * Welle V1.4.3.2 -- like [applyEventPublicPageHeaders], plus `img-src 'self'`. The ONLY page in this
+ * family that loads an image at all (the QR code, from the same origin, via `ticket.svg`).
+ * Deliberately NOT `img-src data:` (would require a raster/PNG encoder this file never needed) and
+ * deliberately no `unsafe { }` inline-SVG-in-HTML shortcut (`EventPublicHtml` forbids raw HTML
+ * categorically, see that file's own KDoc) -- the QR stays a separate, same-origin `<img>` request.
+ */
+internal fun ApplicationCall.applyEventTicketPageHeaders() {
+    response.header(
+        "Content-Security-Policy",
+        "default-src 'none'; img-src 'self'; style-src 'self'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'",
     )
     response.header("X-Content-Type-Options", "nosniff")
     response.header("Referrer-Policy", "no-referrer")

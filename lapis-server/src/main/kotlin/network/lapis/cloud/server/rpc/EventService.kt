@@ -6,25 +6,33 @@ import network.lapis.cloud.server.db.DbClock
 import network.lapis.cloud.server.db.generated.EventRegistrationTable
 import network.lapis.cloud.server.db.generated.EventTable
 import network.lapis.cloud.server.events.EventCapacityGuard
+import network.lapis.cloud.server.events.EventCheckIn
 import network.lapis.cloud.server.events.EventParticipant
 import network.lapis.cloud.server.events.EventPolicy
 import network.lapis.cloud.server.events.EventRegistrationResult
 import network.lapis.cloud.server.events.EventRegistrationSubmission
 import network.lapis.cloud.server.events.EventStore
+import network.lapis.cloud.server.events.EventTicketIssuer
+import network.lapis.cloud.server.events.EventTicketPolicy
 import network.lapis.cloud.server.events.mailPromotion
 import network.lapis.cloud.server.federation.FederationInboxRateLimiter
 import network.lapis.cloud.server.mail.MailDispatcher
+import network.lapis.cloud.server.mail.htmlEscape
 import network.lapis.cloud.server.payment.psp.PspConfigState
 import network.lapis.cloud.server.payment.psp.StripeCheckoutClient
 import network.lapis.cloud.server.security.requireRole
 import network.lapis.cloud.server.security.resolveCurrentMember
 import network.lapis.cloud.shared.domain.AccountRole
+import network.lapis.cloud.shared.domain.EventCheckInResultDto
+import network.lapis.cloud.shared.domain.EventCheckInRosterDto
+import network.lapis.cloud.shared.domain.EventCheckInRowDto
 import network.lapis.cloud.shared.domain.EventDto
 import network.lapis.cloud.shared.domain.EventInput
 import network.lapis.cloud.shared.domain.EventPageDto
 import network.lapis.cloud.shared.domain.EventQuery
 import network.lapis.cloud.shared.domain.EventRegistrationDto
 import network.lapis.cloud.shared.domain.EventRegistrationResultDto
+import network.lapis.cloud.shared.domain.EventRegistrationStatus
 import network.lapis.cloud.shared.domain.EventRegistrationStatusSets
 import network.lapis.cloud.shared.domain.EventStatus
 import network.lapis.cloud.shared.domain.EventVisibility
@@ -55,6 +63,11 @@ class EventService(
     private val baseUrl: String,
     private val mailDispatcher: MailDispatcher,
     private val writeRateLimiter: FederationInboxRateLimiter,
+    // Welle V1.4.3.2 -- deliberately SEPARATE from [writeRateLimiter]: a door check-in can produce
+    // hundreds of scans in a few minutes, which writeRateLimiter's 60/min budget (tuned for ordinary
+    // BOARD/ADMIN event-management clicks) would throttle mid-event. See `IEventService.checkInByCode`
+    // KDoc call sites' own rationale.
+    private val checkInRateLimiter: FederationInboxRateLimiter,
 ) : IEventService {
     private val submission by lazy {
         EventRegistrationSubmission(
@@ -255,6 +268,10 @@ class EventService(
     override suspend fun listRegistrations(eventId: String): List<EventRegistrationDto> {
         val current = resolveCurrentMember(call)
         current.requireRole(*EVENT_MANAGE_ROLES)
+        // Security-Review LOW fix (Welle V1.4.3.2 Fix-Runde): this call had no rate limit at all
+        // since V1.4.3.1 -- every other BOARD/ADMIN management call in this class goes through
+        // requireWithinRate (60/min); this one was simply missed.
+        requireWithinRate(current.memberId)
         val id = eventId.toEventUuid()
         return transaction {
             EventStore.getEventOrThrow(id)
@@ -327,8 +344,170 @@ class EventService(
         return dto
     }
 
+    override suspend fun openCheckIn(eventId: String): EventCheckInRosterDto {
+        val current = resolveCurrentMember(call)
+        current.requireRole(*EVENT_MANAGE_ROLES)
+        // NOT requireWithinRate/writeRateLimiter (60/min) -- the client re-calls this after EVERY
+        // successful checkInByCode/checkInRegistration to refresh the roster (see
+        // EventCheckInScreen.refreshRoster/submitCode), so it needs the same 240/min door-scanning
+        // budget as the check-in calls themselves, or a busy door desk starts throwing "too many
+        // requests" on the roster refresh alone even though every check-in itself still succeeds
+        // (review finding, Welle V1.4.3.2).
+        requireWithinCheckInRate(current.memberId)
+        val id = eventId.toEventUuid()
+        val now = DbClock.nowLocalDateTime()
+        return transaction {
+            val event = EventStore.getEventOrThrow(id)
+            // Idempotent nachausstellung: every CONFIRMED row without a ticket yet gets one -- a
+            // no-op on every call after the first (EventTicketIssuer.issueIfMissing's own guard).
+            // The minted raw codes themselves are deliberately discarded here -- this sweep exists
+            // to satisfy chk_event_registration_checkin_ticket / enable list-based check-in for
+            // V1.4.3.1-era registrations, NOT to (re-)deliver a ticket mail; a registrant who wants
+            // their ticket link uses `reissueTicket`.
+            EventTicketIssuer.listConfirmedWithoutTicket(id).forEach { row ->
+                EventTicketIssuer.issueIfMissing(registrationId = row[EventRegistrationTable.id], now = now)
+            }
+            // Security-Review LOW fix (Welle V1.4.3.2 Fix-Runde): capped roster read, NOT the plain
+            // `EventStore.listByEvent` -- see `EventStore.listByEventForCheckIn` KDoc for why an
+            // unbounded roster here is a response-size/egress concern on this exact endpoint.
+            val rows = EventStore.listByEventForCheckIn(id)
+            // Security-Review MAJOR fix (N+1 / DoS): resolve every participant's and every
+            // check-in actor's member info in ONE bulk query up front instead of up to three
+            // single-row lookups PER row below -- see `EventStore.memberInfoByIds` KDoc.
+            val memberIds =
+                rows.flatMap { row -> listOfNotNull(row[EventRegistrationTable.memberId], row[EventRegistrationTable.checkedInBy]) }
+            val memberInfo = EventStore.memberInfoByIds(memberIds)
+            val checkInRows =
+                rows.map { row ->
+                    val memberId = row[EventRegistrationTable.memberId]
+                    val displayName =
+                        (memberId?.let { memberInfo[it]?.displayName } ?: row[EventRegistrationTable.guestName])
+                            ?: "(ohne Namen)"
+                    val checkedInBy = row[EventRegistrationTable.checkedInBy]
+                    EventCheckInRowDto(
+                        registrationId = row[EventRegistrationTable.id].toString(),
+                        displayName = displayName,
+                        status = row[EventRegistrationTable.status],
+                        email = memberId?.let { memberInfo[it]?.email } ?: row[EventRegistrationTable.guestEmail],
+                        checkedInAt = row[EventRegistrationTable.checkedInAt],
+                        checkedInByDisplayName = checkedInBy?.let { memberInfo[it]?.displayName },
+                        hasTicket = row[EventRegistrationTable.ticketCodeSha256] != null,
+                    )
+                }
+            EventCheckInRosterDto(
+                eventId = id.toString(),
+                eventTitle = event[EventTable.title],
+                startsAt = event[EventTable.startsAt],
+                locationText = event[EventTable.locationText],
+                rows = checkInRows,
+                confirmedCount = checkInRows.count { it.status == EventRegistrationStatus.CONFIRMED },
+                checkedInCount = checkInRows.count { it.checkedInAt != null },
+            )
+        }
+    }
+
+    override suspend fun checkInByCode(
+        eventId: String,
+        code: String,
+    ): EventCheckInResultDto {
+        val current = resolveCurrentMember(call)
+        current.requireRole(*EVENT_MANAGE_ROLES)
+        requireWithinCheckInRate(current.memberId)
+        val id = eventId.toEventUuid()
+        val now = DbClock.nowLocalDateTime()
+        return transaction {
+            EventStore.getEventOrThrow(id)
+            EventCheckIn.byCode(eventId = id, rawInput = code, actorMemberId = current.memberId, now = now)
+        }
+    }
+
+    override suspend fun checkInRegistration(
+        eventId: String,
+        registrationId: String,
+    ): EventCheckInResultDto {
+        val current = resolveCurrentMember(call)
+        current.requireRole(*EVENT_MANAGE_ROLES)
+        requireWithinCheckInRate(current.memberId)
+        val id = registrationId.toEventUuid()
+        val boundEventId = eventId.toEventUuid()
+        val now = DbClock.nowLocalDateTime()
+        return transaction {
+            EventCheckIn.byRegistration(eventId = boundEventId, registrationId = id, actorMemberId = current.memberId, now = now)
+        }
+    }
+
+    override suspend fun reissueTicket(registrationId: String) {
+        val current = resolveCurrentMember(call)
+        current.requireRole(*EVENT_MANAGE_ROLES)
+        requireWithinRate(current.memberId)
+        val id = registrationId.toEventUuid()
+        val now = DbClock.nowLocalDateTime()
+        // Resolve the recipient/event details INSIDE the transaction (member email/display-name
+        // lookups need one, see EventService.cancelEvent's own CRITICAL-fix KDoc), send the mail
+        // only AFTER it commits.
+        val mail =
+            transaction {
+                val registration = EventStore.getRegistrationOrThrow(id)
+                val ticket =
+                    EventTicketIssuer.reissue(registrationId = id, now = now)
+                        ?: throw ConflictException("Ticket kann nur für eine bestätigte Anmeldung neu ausgestellt werden.")
+                val memberId = registration[EventRegistrationTable.memberId]
+                val to = memberId?.let { EventStore.memberEmailOrNull(it) } ?: registration[EventRegistrationTable.guestEmail]
+                val name = memberId?.let { EventStore.memberDisplayNameOrNull(it) } ?: registration[EventRegistrationTable.guestName]
+                val event = EventStore.getEventOrThrow(registration[EventRegistrationTable.eventId])
+                if (to == null) {
+                    null
+                } else {
+                    ReissueMail(
+                        to = to,
+                        recipientName = name ?: to,
+                        eventTitle = event[EventTable.title],
+                        slug = event[EventTable.slug],
+                        rawCode = ticket.rawCode,
+                    )
+                }
+            }
+        if (mail != null) {
+            val ticketUrl = EventTicketPolicy.ticketUrl(baseUrl = baseUrl, slug = mail.slug, rawCode = mail.rawCode)
+            val subject = "Neues Ticket: ${mail.eventTitle}"
+            val body =
+                "Für Ihre Anmeldung zu \"${mail.eventTitle}\" wurde ein neues Ticket ausgestellt. " +
+                    "Ihr vorheriges Ticket ist ab sofort ungültig."
+            // Security-Review MINOR fix: `mail.recipientName`/`mail.eventTitle` can originate from
+            // an unauthenticated guest form / a BOARD-supplied event title -- htmlEscape() every
+            // such value before it goes into `htmlBody` (see `htmlEscape` KDoc). `plainTextBody`
+            // stays unescaped -- HTML entities have no meaning there and would only clutter a plain
+            // mail client's rendering.
+            val bodyHtml =
+                "Für Ihre Anmeldung zu \"${htmlEscape(mail.eventTitle)}\" wurde ein neues Ticket ausgestellt. " +
+                    "Ihr vorheriges Ticket ist ab sofort ungültig."
+            mailDispatcher.enqueue(
+                to = mail.to,
+                subject = subject,
+                plainTextBody = "Hallo ${mail.recipientName},\n\n$body\n\nIhr Ticket: $ticketUrl\n",
+                htmlBody = "<p>Hallo ${htmlEscape(mail.recipientName)},</p><p>$bodyHtml</p><p><a href=\"$ticketUrl\">Ihr Ticket</a></p>",
+                purpose = "event-ticket-reissue",
+            )
+        }
+    }
+
+    /** Resolved recipient details for [reissueTicket]'s mail -- gathered inside the transaction, sent after commit. */
+    private data class ReissueMail(
+        val to: String,
+        val recipientName: String,
+        val eventTitle: String,
+        val slug: String,
+        val rawCode: String,
+    )
+
     private fun requireWithinRate(memberId: Uuid) {
         if (!writeRateLimiter.checkAndRecord("member:$memberId")) {
+            throw ConflictException("Zu viele Anfragen -- bitte spaeter erneut versuchen.")
+        }
+    }
+
+    private fun requireWithinCheckInRate(memberId: Uuid) {
+        if (!checkInRateLimiter.checkAndRecord("member:$memberId")) {
             throw ConflictException("Zu viele Anfragen -- bitte spaeter erneut versuchen.")
         }
     }
@@ -349,11 +528,15 @@ class EventService(
     ) {
         val subject = "Abgesagt: $eventTitle"
         val body = "Die Veranstaltung \"$eventTitle\" wurde abgesagt.\n\nBegründung: $reason"
+        // Security-Review MINOR fix: `eventTitle`/`reason` are BOARD/ADMIN-supplied free text
+        // (see `htmlEscape` KDoc "Fehlerszenario B") -- htmlEscape() both before they reach every
+        // registrant's `htmlBody`.
+        val bodyHtml = "Die Veranstaltung \"${htmlEscape(eventTitle)}\" wurde abgesagt.\n\nBegründung: ${htmlEscape(reason)}"
         mailDispatcher.enqueue(
             to = notice.to,
             subject = subject,
             plainTextBody = "Hallo ${notice.recipientName},\n\n$body\n",
-            htmlBody = "<p>Hallo ${notice.recipientName},</p><p>${body.replace("\n", "<br>")}</p>",
+            htmlBody = "<p>Hallo ${htmlEscape(notice.recipientName)},</p><p>${bodyHtml.replace("\n", "<br>")}</p>",
             purpose = "event-cancelled",
         )
     }
@@ -410,6 +593,7 @@ private fun ResultRow.toRegistrationDto(): EventRegistrationDto {
     val id = this[EventRegistrationTable.id]
     val memberId = this[EventRegistrationTable.memberId]
     val (paymentTransactionId, journalEntryId) = EventStore.findPaymentInfo(id)
+    val checkedInBy = this[EventRegistrationTable.checkedInBy]
     return EventRegistrationDto(
         id = id.toString(),
         eventId = this[EventRegistrationTable.eventId].toString(),
@@ -423,5 +607,8 @@ private fun ResultRow.toRegistrationDto(): EventRegistrationDto {
         registeredAt = this[EventRegistrationTable.registeredAt],
         paymentTransactionId = paymentTransactionId?.toString(),
         journalEntryId = journalEntryId?.toString(),
+        ticketIssuedAt = this[EventRegistrationTable.ticketIssuedAt],
+        checkedInAt = this[EventRegistrationTable.checkedInAt],
+        checkedInByDisplayName = checkedInBy?.let { EventStore.memberDisplayNameOrNull(it) },
     )
 }

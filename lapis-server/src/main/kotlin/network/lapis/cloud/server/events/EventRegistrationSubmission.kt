@@ -8,6 +8,7 @@ import network.lapis.cloud.server.db.generated.EventTable
 import network.lapis.cloud.server.db.generated.OrganizationSettingsTable
 import network.lapis.cloud.server.db.generated.PaymentCheckoutSessionTable
 import network.lapis.cloud.server.mail.MailDispatcher
+import network.lapis.cloud.server.mail.htmlEscape
 import network.lapis.cloud.server.payment.psp.PspCheckoutSessions
 import network.lapis.cloud.server.payment.psp.PspConfigState
 import network.lapis.cloud.server.payment.psp.StripeCheckoutClient
@@ -187,6 +188,11 @@ internal class EventRegistrationSubmission(
                         val holdExpiresAt = if (gatewayNeeded) now.plusDuration(EventPolicy.STANDARD_HOLD) else null
                         val initialStatus =
                             if (gatewayNeeded) EventRegistrationStatus.PENDING_PAYMENT else EventRegistrationStatus.CONFIRMED
+                        // Welle V1.4.3.2 -- a free registration is CONFIRMED immediately, so its
+                        // ticket is minted right here, in the SAME insert, so the row is never
+                        // observably CONFIRMED without one. A paid registration gets its ticket
+                        // later, from PspWebhookIngestion, once the money actually arrives.
+                        val ticket = if (!gatewayNeeded) EventTicketIssuer.mint() else null
                         insertRegistration(
                             registrationId = registrationId,
                             eventId = eventId,
@@ -199,8 +205,10 @@ internal class EventRegistrationSubmission(
                             cancelTokenHash = cancelTokenHash,
                             now = now,
                             confirmedAt = if (gatewayNeeded) null else now,
+                            ticketCodeSha256 = ticket?.sha256,
+                            ticketIssuedAt = if (ticket != null) now else null,
                         )
-                        Placement.Placed(needsPayment = gatewayNeeded, feeAmount = feeAmount)
+                        Placement.Placed(needsPayment = gatewayNeeded, feeAmount = feeAmount, ticketRawCode = ticket?.rawCode)
                     } else {
                         val waitlistCount = EventStore.countWaitlisted(eventId)
                         if (waitlistCount >= EventPolicy.MAX_WAITLIST) return@withEventLock Placement.WaitlistFull
@@ -267,12 +275,16 @@ internal class EventRegistrationSubmission(
             }
             is Placement.Placed -> {
                 if (!placement.needsPayment) {
+                    // ticketRawCode is always set for a !needsPayment placement -- see Placement.Placed KDoc.
+                    val ticketUrl =
+                        placement.ticketRawCode?.let { EventTicketPolicy.ticketUrl(baseUrl = baseUrl, slug = slug, rawCode = it) }
                     mailRegistrationReceived(
                         participant = participant,
                         title = title,
                         slug = slug,
                         cancelToken = cancelToken,
                         mode = RegistrationMailMode.CONFIRMED,
+                        ticketUrl = ticketUrl,
                     )
                     EventRegistrationResult.Confirmed(registrationId = registrationId)
                 } else {
@@ -530,6 +542,8 @@ internal class EventRegistrationSubmission(
         cancelTokenHash: String,
         now: LocalDateTime,
         confirmedAt: LocalDateTime?,
+        ticketCodeSha256: String? = null,
+        ticketIssuedAt: LocalDateTime? = null,
     ) {
         EventStore.insertRegistration(
             id = registrationId,
@@ -545,6 +559,8 @@ internal class EventRegistrationSubmission(
             cancelTokenSha256 = cancelTokenHash,
             registeredAt = now,
             confirmedAt = confirmedAt,
+            ticketCodeSha256 = ticketCodeSha256,
+            ticketIssuedAt = ticketIssuedAt,
         )
     }
 
@@ -568,6 +584,11 @@ internal class EventRegistrationSubmission(
         slug: String,
         cancelToken: String,
         mode: RegistrationMailMode,
+        // Welle V1.4.3.2 -- non-null exactly for RegistrationMailMode.CONFIRMED (a free registration
+        // is ticketed immediately, see the class KDoc "step 4"); PAYMENT_PENDING/WAITLISTED get no
+        // ticket link here -- the paid path's ticket mail is sent separately, once the money
+        // actually arrives (PspWebhookIngestion); a waitlisted registrant has no seat yet at all.
+        ticketUrl: String? = null,
     ) {
         val to = participant.emailForMail() ?: return
         val name = participant.displayNameForMail()
@@ -587,8 +608,26 @@ internal class EventRegistrationSubmission(
                     "Ihr Platz für \"$title\" ist reserviert. Bitte schließen Sie die Zahlung innerhalb von " +
                         "${EventPolicy.STANDARD_HOLD.inWholeMinutes} Minuten ab, sonst wird der Platz wieder freigegeben."
             }
-        val plainText = "Hallo $name,\n\n$statusLine\n\nAnmeldung stornieren: $cancelUrl\n"
-        val html = "<p>Hallo $name,</p><p>$statusLine</p><p><a href=\"$cancelUrl\">Anmeldung stornieren</a></p>"
+        val ticketLine = if (ticketUrl != null) "\n\nIhr Ticket: $ticketUrl" else ""
+        val ticketHtml = if (ticketUrl != null) "<p><a href=\"$ticketUrl\">Ihr Ticket</a></p>" else ""
+        val plainText = "Hallo $name,\n\n$statusLine$ticketLine\n\nAnmeldung stornieren: $cancelUrl\n"
+        // Security-Review MINOR fix: `name` (guest display name from the unauthenticated public
+        // registration form)/`title` (BOARD/ADMIN-supplied event title) -- htmlEscape() both,
+        // separately from the plain-text `statusLine` above (see
+        // `network.lapis.cloud.server.mail.htmlEscape` KDoc). `cancelUrl`/`ticketUrl` stay
+        // unescaped -- both are built by this server itself from a slug + generated token.
+        val escapedTitle = htmlEscape(title)
+        val statusLineHtml =
+            when (mode) {
+                RegistrationMailMode.CONFIRMED -> "Ihre Anmeldung für \"$escapedTitle\" ist bestätigt."
+                RegistrationMailMode.WAITLISTED ->
+                    "Sie stehen auf der Warteliste für \"$escapedTitle\". Wir melden uns, sobald ein Platz frei wird."
+                RegistrationMailMode.PAYMENT_PENDING ->
+                    "Ihr Platz für \"$escapedTitle\" ist reserviert. Bitte schließen Sie die Zahlung innerhalb von " +
+                        "${EventPolicy.STANDARD_HOLD.inWholeMinutes} Minuten ab, sonst wird der Platz wieder freigegeben."
+            }
+        val html =
+            "<p>Hallo ${htmlEscape(name)},</p><p>$statusLineHtml</p>$ticketHtml<p><a href=\"$cancelUrl\">Anmeldung stornieren</a></p>"
         mailDispatcher.enqueue(to = to, subject = subject, plainTextBody = plainText, htmlBody = html, purpose = "event-registration")
     }
 
@@ -624,6 +663,8 @@ internal class EventRegistrationSubmission(
         data class Placed(
             val needsPayment: Boolean,
             val feeAmount: BigDecimal,
+            /** Welle V1.4.3.2 -- non-null exactly when `!needsPayment` (a free registration, ticketed immediately). */
+            val ticketRawCode: String? = null,
         ) : Placement
 
         data class Waitlisted(

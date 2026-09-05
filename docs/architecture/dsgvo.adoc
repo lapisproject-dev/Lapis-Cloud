@@ -140,16 +140,18 @@ under ADMIN authority instead (see its own KDoc).
 followed (see `PersonalDataCoverageTest`'s "dsgvo_audit_log rows never carry payload" test, updated
 in this wave to include the new column in its allowlist).
 
-== Events (`event`/`event_registration`, Welle V1.4.3.1)
+== Events (`event`/`event_registration`, Welle V1.4.3.1 + V1.4.3.2)
 
 `EventPersonalData` is an ordinary `MemberPersonalDataContributor` covering `event`/
 `event_registration` — the member-registration and event-creation paths only. Both tables are
 **retained, not deleted, regardless of `ErasureMode`**: neither stores a member's name/email
-directly, only the `member_id`/`created_by` FK, and that FK survives erasure as an ordinary anchor
-(the referenced `member` row itself is anonymized elsewhere, same invariant every other
-retain-with-reason contributor in this codebase relies on). Deleting the FK instead would either
-orphan a `payment_transaction`/`journal_entry`'s own accounting trail for a paid registration, or
-corrupt capacity/waitlist accounting for a still-`PENDING_PAYMENT`/`WAITLISTED` row.
+directly, only the `member_id`/`created_by` FK (plus, since Welle V1.4.3.2, `checked_in_by`), and
+that FK survives erasure as an ordinary anchor (the referenced `member` row itself is anonymized
+elsewhere, same invariant every other retain-with-reason contributor in this codebase relies on).
+Deleting the `member_id`/`created_by` FK instead would either orphan a `payment_transaction`/
+`journal_entry`'s own accounting trail for a paid registration, or corrupt capacity/waitlist
+accounting for a still-`PENDING_PAYMENT`/`WAITLISTED` row; deleting `checked_in_by` would erase who
+let a person into an event they attended — organisatorische Nachvollziehbarkeit, not accounting.
 
 A **guest** registration (`event_registration.guest_name`/`guest_email`, no `member_id`) is PII of a
 person who is not a member and has no FK to `member` — invisible to the FK walk entirely.

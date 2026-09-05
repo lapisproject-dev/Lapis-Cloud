@@ -640,6 +640,16 @@ fun Application.module() {
     val eventRegistrationAttemptRateLimiter = FederationInboxRateLimiter(maxRequests = 30, window = 60.minutes, maxTrackedKeys = 50_000)
     val eventRegistrationRateLimiter = FederationInboxRateLimiter(maxRequests = 5, window = 60.minutes, maxTrackedKeys = 50_000)
     val eventPageRateLimiter = FederationInboxRateLimiter(maxRequests = 60, window = 1.minutes, maxTrackedKeys = 50_000)
+    // Welle V1.4.3.2 "Veranstaltungen: Ticketing/QR-Codes" -- a door check-in can produce hundreds of
+    // scans in a few minutes, distinct from eventWriteRateLimiter's 60/min (tuned for ordinary
+    // event-management clicks). Same rationale for the public-surface ones as
+    // eventRegistrationAttemptRateLimiter/eventRegistrationRateLimiter: a soft page-read budget
+    // ([eventTicketPageRateLimiter]) and a stricter one for failed code lookups only
+    // ([eventTicketCodeFailureLimiter]) -- keyed by IP, so `LoginRateLimiter`'s
+    // failures-only-count shape fits it, not FederationInboxRateLimiter's every-request shape.
+    val eventCheckInRateLimiter = FederationInboxRateLimiter(maxRequests = 240, window = 1.minutes)
+    val eventTicketPageRateLimiter = FederationInboxRateLimiter(maxRequests = 60, window = 1.minutes, maxTrackedKeys = 50_000)
+    val eventTicketCodeFailureLimiter = LoginRateLimiter(maxFailures = 20, window = 15.minutes)
 
     // V1.0 Videokonferenzen, Wave 9 "Stream-Pause bei geheimen Abstimmungen" (D6) -- constructed here,
     // NOT left to ElectionService's/SystemicConsensusService's own constructor defaults (there ARE
@@ -1078,6 +1088,7 @@ fun Application.module() {
                 baseUrl = FederationConfig.publicBaseUrl.trimEnd('/'),
                 mailDispatcher = mailDispatcher,
                 writeRateLimiter = eventWriteRateLimiter,
+                checkInRateLimiter = eventCheckInRateLimiter,
             )
         }
     }
@@ -1146,6 +1157,8 @@ fun Application.module() {
             pageRateLimiter = eventPageRateLimiter,
             attemptRateLimiter = eventRegistrationAttemptRateLimiter,
             registrationRateLimiter = eventRegistrationRateLimiter,
+            ticketPageRateLimiter = eventTicketPageRateLimiter,
+            ticketCodeFailureLimiter = eventTicketCodeFailureLimiter,
         )
         // Welle V1.4.1a "Öffentliche Website-Integration" -- literale Routen (/embed/v1/*,
         // /api/embed/v1/*), dieselbe "literal schlägt catch-all"-Begründung wie bei

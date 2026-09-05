@@ -361,6 +361,14 @@ object Routes {
     // `requireAuth` -- there is no MEMBER-readable CRM method, same posture as [API_KEYS]. No new
     // top-level dropdown -- lives inside the existing "Verwaltung" dropdown, next to [API_KEYS].
     const val CRM = "/crm"
+
+    // Welle V1.4.3.2 "Veranstaltungen: Ticketing/QR-Codes" -- BOARD/ADMIN, verified against
+    // `EventService.kt`: `openCheckIn`/`checkInByCode`/`checkInRegistration`/`reissueTicket` all
+    // call `current.requireRole(*EVENT_MANAGE_ROLES)` where `EVENT_MANAGE_ROLES = [BOARD, ADMIN]` --
+    // same tier as [CRM]/[API_KEYS]. [EVENT_CHECKIN] lists upcoming events to check in for;
+    // [EVENT_CHECKIN_EVENT] is the door itself, parameterized like [SOCIAL_NETWORK_POST].
+    const val EVENT_CHECKIN = "/event-checkin"
+    const val EVENT_CHECKIN_EVENT = "/event-checkin/:id"
 }
 
 private var appRouting: Routing? = null
@@ -624,6 +632,22 @@ fun initRouting(pageContainer: SimplePanel) {
     routing.kvOn(Routes.CRM) {
         requireRole(routing, AccountRole.BOARD, AccountRole.ADMIN) {
             show(Routes.CRM, ::renderCrmContactsScreen)
+        }
+    }
+    routing.kvOn(Routes.EVENT_CHECKIN) {
+        requireRole(routing, AccountRole.BOARD, AccountRole.ADMIN) {
+            show(Routes.EVENT_CHECKIN, ::renderEventCheckInSelectionScreen)
+        }
+    }
+    // `:id` read off Navigo's own `Match.data`, same idiom as `Routes.SOCIAL_NETWORK_POST` above.
+    routing.kvOn(Routes.EVENT_CHECKIN_EVENT) { params ->
+        val id = params.asDynamic().data.id as? String
+        requireRole(routing, AccountRole.BOARD, AccountRole.ADMIN) {
+            if (id.isNullOrBlank()) {
+                routing.navigate(Routes.EVENT_CHECKIN)
+            } else {
+                show(Routes.EVENT_CHECKIN_EVENT) { container -> renderEventCheckInScreen(container, id) }
+            }
         }
     }
     routing.kvOn("/") {

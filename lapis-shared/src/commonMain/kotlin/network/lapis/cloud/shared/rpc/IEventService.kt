@@ -1,6 +1,8 @@
 package network.lapis.cloud.shared.rpc
 
 import dev.kilua.rpc.annotations.RpcService
+import network.lapis.cloud.shared.domain.EventCheckInResultDto
+import network.lapis.cloud.shared.domain.EventCheckInRosterDto
 import network.lapis.cloud.shared.domain.EventDto
 import network.lapis.cloud.shared.domain.EventInput
 import network.lapis.cloud.shared.domain.EventPageDto
@@ -66,4 +68,45 @@ interface IEventService {
      * This is the human-operated safety net for an event nobody happens to touch otherwise.
      */
     suspend fun sweepEvent(id: String): EventDto
+
+    /**
+     * Welle V1.4.3.2 "Veranstaltungen: Ticketing/QR-Codes". Role: BOARD/ADMIN. Opens the door: issues
+     * a ticket, idempotently, for every CONFIRMED registration on [eventId] that does not have one
+     * yet (a V1.4.3.1-era registration, or the result of a later re-open) and returns the resulting
+     * guest list. Safe to call repeatedly (e.g. every time the check-in screen is opened) -- a second
+     * call is a no-op for any row that already has a ticket.
+     */
+    suspend fun openCheckIn(eventId: String): EventCheckInRosterDto
+
+    /**
+     * Role: BOARD/ADMIN. Looks [code] up (globally, not scoped to [eventId] -- see
+     * [network.lapis.cloud.server.events.EventCheckIn] KDoc for why) and, if it resolves to a
+     * CONFIRMED, not-yet-checked-in registration on THIS event, marks it checked in. Never throws
+     * for a fachlich outcome -- see [EventCheckInResultDto]/`EventCheckInOutcome`.
+     */
+    suspend fun checkInByCode(
+        eventId: String,
+        code: String,
+    ): EventCheckInResultDto
+
+    /**
+     * Role: BOARD/ADMIN. The list-based counterpart of [checkInByCode] -- for a guest without a
+     * phone/printed code, checked in straight off the roster. [eventId] is the SAME "which
+     * check-in screen is this call coming from" binding [checkInByCode] gets from its own
+     * parameter -- without it, this call has no way to enforce the check-in screen's own event
+     * scope, and [network.lapis.cloud.server.events.EventCheckIn]'s WRONG_EVENT guard becomes a
+     * tautology on this path (fix, review MINOR: see that class's KDoc "verbindliche Reihenfolge"
+     * step 4).
+     */
+    suspend fun checkInRegistration(
+        eventId: String,
+        registrationId: String,
+    ): EventCheckInResultDto
+
+    /**
+     * Role: BOARD/ADMIN. Rotates [registrationId]'s ticket code (the previously issued one stops
+     * working) and mails the new ticket link to the registrant. A recovery path, not the normal
+     * route -- see `network.lapis.cloud.server.events.EventTicketIssuer.reissue` KDoc.
+     */
+    suspend fun reissueTicket(registrationId: String)
 }

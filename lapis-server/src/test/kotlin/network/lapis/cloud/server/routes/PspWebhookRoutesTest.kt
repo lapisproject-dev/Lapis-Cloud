@@ -3,6 +3,7 @@ package network.lapis.cloud.server.routes
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
+import io.kotest.matchers.string.shouldContain
 import io.kotest.matchers.types.shouldBeInstanceOf
 import io.ktor.client.request.header
 import io.ktor.client.request.post
@@ -123,6 +124,11 @@ class PspWebhookRoutesTest :
                     it[paymentGatewayProvider] = null
                     it[paymentBankAccountId] = null
                     it[contributionIncomeAccountId] = null
+                    // Added alongside the EVENT_FEE happy-path/unposted-with-ticket tests below --
+                    // without this reset, a test that sets it via enableEventFeeAccounting() would
+                    // otherwise leak a configured event_income_account_id into every later test in
+                    // this Spec (they all share one OrganizationSettingsTable row).
+                    it[eventIncomeAccountId] = null
                 }
             }
         }
@@ -487,6 +493,15 @@ class PspWebhookRoutesTest :
             }
         }
 
+        /** [EventFeePostingBridge][network.lapis.cloud.server.rpc.EventFeePostingBridge]'s own account mapping -- separate from [enableGateway]'s `contributionIncomeAccountId`. */
+        fun setEventIncomeAccount(incomeAccountId: Uuid?) {
+            transaction {
+                OrganizationSettingsTable.update({ OrganizationSettingsTable.id eq ORGANIZATION_SETTINGS_ID }) {
+                    it[eventIncomeAccountId] = incomeAccountId
+                }
+            }
+        }
+
         fun checkoutCompletedBody(
             eventId: String,
             sessionId: String,
@@ -599,6 +614,220 @@ class PspWebhookRoutesTest :
                             .single()[PspWebhookEventTable.outcome]
                     }
                 webhookEventOutcome shouldBe network.lapis.cloud.server.payment.psp.PspWebhookOutcome.PROCESSED.name
+            }
+        }
+
+        test(
+            "happy path (event fee): signed checkout.session.completed confirms the registration, " +
+                "mints+mails a ticket, and posts a balanced journal entry",
+        ) {
+            // Regression test for a review finding (MAJOR, Welle V1.4.3.2): the EVENT_FEE branch of
+            // ingestCheckoutCompleted -- confirmRegistrationIfPendingAndIssueTicket plus the ticket
+            // mail PspWebhookRoutes sends afterwards -- had NO test at all before this. Without it,
+            // a paying event registrant's confirmation mail never carried a ticket link (the wave
+            // plan's own OF-2 gap this code closes).
+            testApplication {
+                val received = CompletableDeferred<Pair<String, String>>()
+                val recordingTransport =
+                    object : MailTransport {
+                        override suspend fun send(
+                            to: String,
+                            subject: String,
+                            plainTextBody: String,
+                            htmlBody: String,
+                        ): MailSendOutcome {
+                            received.complete(to to plainTextBody)
+                            return MailSendOutcome.Sent
+                        }
+                    }
+                val mailDispatcher =
+                    MailDispatcher(transport = recordingTransport, scope = CoroutineScope(SupervisorJob() + Dispatchers.IO))
+                application {
+                    routing {
+                        registerPspWebhookRoutes(
+                            pspConfig = testConfig(),
+                            rateLimiter = FederationInboxRateLimiter(),
+                            mailDispatcher = mailDispatcher,
+                        )
+                    }
+                }
+
+                val bankAccountId = createLedgerAccount(number = "WM${Uuid.random().toString().take(6)}", type = LedgerAccountType.ASSET)
+                val incomeAccountId =
+                    createLedgerAccount(number = "WN${Uuid.random().toString().take(6)}", type = LedgerAccountType.INCOME)
+                enableGateway(bankAccountId = bankAccountId, incomeAccountId = incomeAccountId)
+                val eventIncomeAccountId =
+                    createLedgerAccount(number = "WO${Uuid.random().toString().take(6)}", type = LedgerAccountType.INCOME)
+                setEventIncomeAccount(eventIncomeAccountId)
+
+                val organizer = createMember("psp-webhook-eventfee-organizer-${Uuid.random()}@example.org")
+                val payerEmail = "psp-webhook-eventfee-payer-${Uuid.random()}@example.org"
+                val payer = createMember(payerEmail)
+                val eventId = createEvent(createdBy = organizer, capacity = null)
+                val registrationId =
+                    insertEventRegistration(
+                        eventId = eventId,
+                        memberId = payer,
+                        status = EventRegistrationStatus.PENDING_PAYMENT,
+                        holdExpiresAt = LocalDateTime(2026, 4, 1, 10, 30),
+                    )
+                val sessionId = "cs_eventfee_happy_${Uuid.random()}"
+                createEventFeeCheckoutSession(
+                    eventRegistrationId = registrationId,
+                    amount = BigDecimal("15.00"),
+                    providerSessionId = sessionId,
+                )
+
+                val stripeEventId = "evt_eventfee_happy_${Uuid.random()}"
+                val body = checkoutCompletedBody(eventId = stripeEventId, sessionId = sessionId, amountTotalMinorUnits = 1500)
+                val response =
+                    client.post("/api/webhooks/stripe") {
+                        header("Stripe-Signature", signedHeader(body = body))
+                        contentType(ContentType.Application.Json)
+                        setBody(body)
+                    }
+                response.status shouldBe HttpStatusCode.OK
+
+                val registrationRow =
+                    transaction { EventRegistrationTable.selectAll().where { EventRegistrationTable.id eq registrationId }.single() }
+                registrationRow[EventRegistrationTable.status] shouldBe EventRegistrationStatus.CONFIRMED
+                registrationRow[EventRegistrationTable.ticketCodeSha256].shouldNotBeNull()
+
+                val transactionRow =
+                    transaction {
+                        PaymentTransactionTable.selectAll().where { PaymentTransactionTable.providerEventId eq stripeEventId }.single()
+                    }
+                transactionRow[PaymentTransactionTable.journalEntryId].shouldNotBeNull()
+                val postingsBalanced =
+                    transaction {
+                        val postings =
+                            PostingTable
+                                .selectAll()
+                                .where {
+                                    PostingTable.journalEntryId eq requireNotNull(transactionRow[PaymentTransactionTable.journalEntryId])
+                                }.toList()
+                        val debit =
+                            postings
+                                .filter { it[PostingTable.side] == network.lapis.cloud.shared.domain.PostingSide.DEBIT }
+                                .fold(BigDecimal.ZERO) { acc, row -> acc + row[PostingTable.amount] }
+                        val credit =
+                            postings
+                                .filter { it[PostingTable.side] == network.lapis.cloud.shared.domain.PostingSide.CREDIT }
+                                .fold(BigDecimal.ZERO) { acc, row -> acc + row[PostingTable.amount] }
+                        debit.compareTo(credit) == 0
+                    }
+                postingsBalanced shouldBe true
+
+                // ...AND the confirmation mail actually carries a ticket link -- before the fix, this
+                // mail path (PspWebhookRoutes.mailEventTicket) did not exist at all.
+                val (recipient, plainTextBody) = runBlocking { withTimeout(5.seconds) { received.await() } }
+                recipient shouldBe payerEmail
+                plainTextBody shouldContain "Ihr Ticket:"
+
+                val loggedOutcome =
+                    transaction {
+                        PspWebhookEventTable.selectAll().where { PspWebhookEventTable.providerEventId eq stripeEventId }.single()[
+                            PspWebhookEventTable.outcome,
+                        ]
+                    }
+                loggedOutcome shouldBe network.lapis.cloud.server.payment.psp.PspWebhookOutcome.PROCESSED.name
+            }
+        }
+
+        test(
+            "EVENT_FEE checkout.session.completed with an unconfigured accounting mapping -> UNPOSTED, " +
+                "but the registration is still confirmed and the ticket is still minted and mailed",
+        ) {
+            // Regression test for review finding item (c): the `journalEntryId == null` branch was
+            // rewritten this wave to keep returning `ticketMail` instead of falling back to
+            // `unpostedWithNote` (which would have discarded it) -- per `CheckoutCompletedIngestionResult`
+            // KDoc, this is the exact scenario that wrapper type exists for: a registrant is genuinely
+            // entitled to a ticket even when the org's own ledger-account mapping is incomplete, and an
+            // unrelated, separately-fixable accounting gap must not silently cost them their ticket.
+            testApplication {
+                val received = CompletableDeferred<String>()
+                val recordingTransport =
+                    object : MailTransport {
+                        override suspend fun send(
+                            to: String,
+                            subject: String,
+                            plainTextBody: String,
+                            htmlBody: String,
+                        ): MailSendOutcome {
+                            received.complete(to)
+                            return MailSendOutcome.Sent
+                        }
+                    }
+                val mailDispatcher =
+                    MailDispatcher(transport = recordingTransport, scope = CoroutineScope(SupervisorJob() + Dispatchers.IO))
+                application {
+                    routing {
+                        registerPspWebhookRoutes(
+                            pspConfig = testConfig(),
+                            rateLimiter = FederationInboxRateLimiter(),
+                            mailDispatcher = mailDispatcher,
+                        )
+                    }
+                }
+
+                // enableGateway() sets paymentBankAccountId/contributionIncomeAccountId, but
+                // deliberately NOT eventIncomeAccountId (never calling setEventIncomeAccount) --
+                // EventFeePostingBridge.postEventFeePayment degrades to `null` on exactly this gap.
+                val bankAccountId = createLedgerAccount(number = "WP${Uuid.random().toString().take(6)}", type = LedgerAccountType.ASSET)
+                val incomeAccountId =
+                    createLedgerAccount(number = "WQ${Uuid.random().toString().take(6)}", type = LedgerAccountType.INCOME)
+                enableGateway(bankAccountId = bankAccountId, incomeAccountId = incomeAccountId)
+
+                val organizer = createMember("psp-webhook-eventfee-unposted-organizer-${Uuid.random()}@example.org")
+                val payerEmail = "psp-webhook-eventfee-unposted-payer-${Uuid.random()}@example.org"
+                val payer = createMember(payerEmail)
+                val eventId = createEvent(createdBy = organizer, capacity = null)
+                val registrationId =
+                    insertEventRegistration(
+                        eventId = eventId,
+                        memberId = payer,
+                        status = EventRegistrationStatus.PENDING_PAYMENT,
+                        holdExpiresAt = LocalDateTime(2026, 4, 1, 10, 30),
+                    )
+                val sessionId = "cs_eventfee_unposted_${Uuid.random()}"
+                createEventFeeCheckoutSession(
+                    eventRegistrationId = registrationId,
+                    amount = BigDecimal("15.00"),
+                    providerSessionId = sessionId,
+                )
+
+                val stripeEventId = "evt_eventfee_unposted_${Uuid.random()}"
+                val body = checkoutCompletedBody(eventId = stripeEventId, sessionId = sessionId, amountTotalMinorUnits = 1500)
+                val response =
+                    client.post("/api/webhooks/stripe") {
+                        header("Stripe-Signature", signedHeader(body = body))
+                        contentType(ContentType.Application.Json)
+                        setBody(body)
+                    }
+                response.status shouldBe HttpStatusCode.OK
+
+                // The registration is confirmed and the ticket minted regardless of the accounting gap...
+                val registrationRow =
+                    transaction { EventRegistrationTable.selectAll().where { EventRegistrationTable.id eq registrationId }.single() }
+                registrationRow[EventRegistrationTable.status] shouldBe EventRegistrationStatus.CONFIRMED
+                registrationRow[EventRegistrationTable.ticketCodeSha256].shouldNotBeNull()
+
+                // ...the payment_transaction itself is marked UNPOSTED (no journal entry)...
+                val transactionRow =
+                    transaction {
+                        PaymentTransactionTable.selectAll().where { PaymentTransactionTable.providerEventId eq stripeEventId }.single()
+                    }
+                transactionRow[PaymentTransactionTable.journalEntryId] shouldBe null
+                val loggedRow =
+                    transaction {
+                        PspWebhookEventTable.selectAll().where { PspWebhookEventTable.providerEventId eq stripeEventId }.single()
+                    }
+                loggedRow[PspWebhookEventTable.outcome] shouldBe network.lapis.cloud.server.payment.psp.PspWebhookOutcome.UNPOSTED.name
+
+                // ...but the ticket mail was still sent -- this is the fix under test: an earlier
+                // version of this branch called unpostedWithNote() here, which discards ticketMail.
+                val recipient = runBlocking { withTimeout(5.seconds) { received.await() } }
+                recipient shouldBe payerEmail
             }
         }
 
@@ -1369,7 +1598,7 @@ class PspWebhookRoutesTest :
                 val eventId = "evt_anon_no_disclaimer_${Uuid.random()}"
                 val body = checkoutCompletedBody(eventId = eventId, sessionId = sessionId, amountTotalMinorUnits = 1500)
                 val event = STRIPE_JSON.decodeFromString(StripeWebhookEvent.serializer(), body.toString(Charsets.UTF_8))
-                val outcome = PspWebhookIngestion.ingestCheckoutCompleted(event = event, bodyBytes = body)
+                val outcome = PspWebhookIngestion.ingestCheckoutCompleted(event = event, bodyBytes = body).outcome
                 outcome.shouldBeInstanceOf<CheckoutCompletedIngestionOutcome.Unposted>()
                 val note = outcome.note
                 note.contains("Anonyme Spende ohne") shouldBe true

@@ -14,6 +14,7 @@ import kotlinx.html.h2
 import kotlinx.html.head
 import kotlinx.html.hiddenInput
 import kotlinx.html.html
+import kotlinx.html.img
 import kotlinx.html.label
 import kotlinx.html.link
 import kotlinx.html.meta
@@ -23,6 +24,8 @@ import kotlinx.html.submitInput
 import kotlinx.html.textArea
 import kotlinx.html.textInput
 import kotlinx.html.title
+import network.lapis.cloud.shared.domain.EventRegistrationStatus
+import network.lapis.cloud.shared.domain.EventTicketCode
 
 /**
  * Welle V1.4.3.1 "Veranstaltungen" -- the server-rendered, unauthenticated public surface (see
@@ -186,6 +189,65 @@ internal object EventPublicHtml {
                 submitInput { value = "Weiter zur Zahlung" }
             }
         }
+
+    /**
+     * Welle V1.4.3.2 "Veranstaltungen: Ticketing/QR-Codes" -- the public ticket page's view model.
+     * [canonicalCode] is the raw ticket code (canonical form, no separators) -- carried through so
+     * the page's own `<img>`/PDF-download links can build the `?code=` query string; NEVER logged
+     * (see `EventPublicRoutes`' own "never logs the full URI" discipline).
+     *
+     * **Carries NO personally identifying detail** (no name, no email, no registration id) -- the
+     * strongest reading of the data-protection requirement in the wave plan: if this page's URL
+     * leaks, it leaks nothing about who holds the ticket, only which event and when.
+     */
+    data class TicketView(
+        val title: String,
+        val startsAt: LocalDateTime,
+        val endsAt: LocalDateTime,
+        val locationText: String?,
+        val onlineUrl: String?,
+        val slug: String,
+        val canonicalCode: String,
+    )
+
+    /**
+     * Deliberately server-rendered, not a KVision screen -- see `39-events.kuml.kts` file header
+     * addendum "Why the ticket page is server-rendered, not KVision" for the full reasoning (the
+     * ticket holder has no account and gets none).
+     */
+    fun ticketPage(
+        brandTitle: String,
+        view: TicketView,
+    ): String =
+        skeleton(brandTitle = brandTitle, heading = view.title) {
+            p { +"Beginn: ${view.startsAt}" }
+            p { +"Ende: ${view.endsAt}" }
+            if (view.locationText != null) p { +"Ort: ${view.locationText}" }
+            if (view.onlineUrl != null) p { +"Online: ${view.onlineUrl}" }
+            img(src = "/veranstaltung/${view.slug}/ticket.svg?code=${view.canonicalCode}", alt = "QR-Code für den Einlass") {
+                attributes["width"] = "260"
+                attributes["height"] = "260"
+            }
+            p { +EventTicketCode.formatForDisplay(view.canonicalCode) }
+            p { a(href = "/veranstaltung/${view.slug}/ticket.pdf?code=${view.canonicalCode}") { +"Als PDF herunterladen" } }
+        }
+
+    /** A valid-code-but-not-yet-ticketable status -- rendered with the TRUE reason (the caller holds a genuine code, so an honest status line is the right posture here, unlike the neutral 404 an unknown/wrong-event code gets). */
+    fun ticketNotConfirmedPage(
+        brandTitle: String,
+        status: EventRegistrationStatus,
+    ): String {
+        val message =
+            when (status) {
+                EventRegistrationStatus.PENDING_PAYMENT -> "Die Zahlung für diese Anmeldung ist noch nicht abgeschlossen."
+                EventRegistrationStatus.WAITLISTED -> "Diese Anmeldung steht auf der Warteliste -- es wurde noch kein Ticket ausgestellt."
+                EventRegistrationStatus.CANCELLED -> "Diese Anmeldung wurde storniert."
+                EventRegistrationStatus.EXPIRED -> "Diese Anmeldung ist abgelaufen."
+                // CONFIRMED never reaches this function -- EventPublicRoutes renders ticketPage() instead.
+                EventRegistrationStatus.CONFIRMED -> "Diese Anmeldung ist bestätigt."
+            }
+        return skeleton(brandTitle = brandTitle, heading = "Kein Ticket verfügbar") { p { +message } }
+    }
 
     private fun skeleton(
         brandTitle: String,

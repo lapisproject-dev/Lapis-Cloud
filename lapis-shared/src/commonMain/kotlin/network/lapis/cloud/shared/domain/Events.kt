@@ -93,6 +93,55 @@ data class EventRegistrationDto(
     val registeredAt: LocalDateTime,
     val paymentTransactionId: String?,
     val journalEntryId: String?,
+    /** Welle V1.4.3.2 -- additive, defaulted so no pre-existing caller/test breaks. Non-null iff a ticket has ever been issued for this registration. */
+    val ticketIssuedAt: LocalDateTime? = null,
+    val checkedInAt: LocalDateTime? = null,
+    val checkedInByDisplayName: String? = null,
+)
+
+/**
+ * Welle V1.4.3.2 "Veranstaltungen: Ticketing/QR-Codes" -- outcome of a door check-in attempt.
+ * Deliberately a typed result, never an exception, for every FACHLICH state (see
+ * `network.lapis.cloud.server.events.EventCheckIn` KDoc "verbindliche Reihenfolge") -- an exception
+ * is reserved for a genuinely unparsable/unknown `eventId`/`registrationId` (a caller bug), not for
+ * "this ticket is not valid right now", which a door volunteer hits routinely and needs rendered as
+ * a calm status line, not a crash toast.
+ */
+@Serializable
+enum class EventCheckInOutcome { OK, ALREADY_CHECKED_IN, WRONG_EVENT, NOT_CONFIRMED, CANCELLED_REGISTRATION, UNKNOWN_CODE }
+
+@Serializable
+data class EventCheckInResultDto(
+    val outcome: EventCheckInOutcome,
+    /** `null` for [EventCheckInOutcome.UNKNOWN_CODE] and [EventCheckInOutcome.WRONG_EVENT] -- no oracle over a fremdes Event's registrations. */
+    val registrationId: String? = null,
+    val participantName: String? = null,
+    val checkedInAt: LocalDateTime? = null,
+    val checkedInByDisplayName: String? = null,
+)
+
+@Serializable
+data class EventCheckInRowDto(
+    val registrationId: String,
+    /** `memberDisplayName` or `guestName` -- the ONLY thing the list shows by default (design decision "die Liste zeigt keine E-Mail-Adressen"). */
+    val displayName: String,
+    val status: EventRegistrationStatus,
+    /** Only rendered by the client after the row is explicitly expanded -- carried in the DTO so expanding needs no second round-trip. */
+    val email: String?,
+    val checkedInAt: LocalDateTime? = null,
+    val checkedInByDisplayName: String? = null,
+    val hasTicket: Boolean = false,
+)
+
+@Serializable
+data class EventCheckInRosterDto(
+    val eventId: String,
+    val eventTitle: String,
+    val startsAt: LocalDateTime,
+    val locationText: String?,
+    val rows: List<EventCheckInRowDto>,
+    val confirmedCount: Int,
+    val checkedInCount: Int,
 )
 
 @Serializable

@@ -255,6 +255,9 @@ class EventServiceRpcTest :
                     baseUrl = "https://example.org",
                     mailDispatcher = mailDispatcher,
                     writeRateLimiter = writeRateLimiter,
+                    // Welle V1.4.3.2 -- a generous, never-tripping budget; this file's own tests
+                    // exercise none of the check-in RPCs (see EventCheckInRpcTest for those).
+                    checkInRateLimiter = FederationInboxRateLimiter(maxRequests = 10_000, window = 1.minutes),
                 )
             post("/test/event/{id}/cancel") {
                 val reason = call.request.queryParameters["reason"] ?: "Testgrund"

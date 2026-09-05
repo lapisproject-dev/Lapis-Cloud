@@ -60,6 +60,13 @@ detekt                  = "2.0.0-alpha.5"
 # htmlEscape() der falsche Sicherheitsmechanismus wäre.
 kotlinx-html            = "0.12.0"
 
+# V1.4.3.2 Veranstaltungs-Ticketing: QR-Code-Erzeugung. Apache-2.0, reines JVM, laut eigenem POM nur
+# eine test-scoped JUnit-Dependency -- dieselbe Latte "permissive license / keine nativen oder
+# transitiven Deps", die pdfbox/bcrypt/nimbus-jose-jwt hier schon passiert haben. Bewusst NUR
+# :core, NICHT :javase -- letzteres zieht jai-imageio nach und wuerde die Latte reissen; das
+# Rendern nach SVG/PDF passiert in QrCodeMatrix/LetterPdfBuilder von Hand, ohne AWT/ImageIO.
+zxing-core              = "3.5.4"
+
 [plugins]
 kotlin-multiplatform    = { id = "org.jetbrains.kotlin.multiplatform", version.ref = "kotlin" }
 kotlin-jvm              = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }
@@ -147,6 +154,9 @@ hikaricp                        = { module = "com.zaxxer:HikariCP", version.ref 
 # LetterPdfBuilder KDoc for why this was picked over openhtmltopdf (dual/LGPL-flavoured
 # licensing per-module, too ambiguous for this product's hard permissive-license-only constraint).
 pdfbox                           = { module = "org.apache.pdfbox:pdfbox", version.ref = "pdfbox" }
+
+# V1.4.3.2 Veranstaltungs-Ticketing -- see [versions] entry above for the library-choice rationale.
+zxing-core                       = { module = "com.google.zxing:core", version.ref = "zxing-core" }
 
 # V0.7.1 Authentifizierung: password hashing -- see PasswordHasher KDoc for why bcrypt over
 # Argon2id (pure-JVM, zero JNI/native code, one Apache-2.0 transitive dependency, matching this

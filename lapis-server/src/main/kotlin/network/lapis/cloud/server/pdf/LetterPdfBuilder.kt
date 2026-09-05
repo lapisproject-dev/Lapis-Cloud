@@ -1,6 +1,7 @@
 package network.lapis.cloud.server.pdf
 
 import kotlinx.datetime.LocalDate
+import network.lapis.cloud.server.events.QrCodeMatrix
 import org.apache.pdfbox.pdmodel.PDDocument
 import org.apache.pdfbox.pdmodel.PDPage
 import org.apache.pdfbox.pdmodel.PDPageContentStream
@@ -159,6 +160,81 @@ internal class LetterPdfBuilder {
         contentStream.stroke()
         cursorY -= LINE_HEIGHT
         writeLine(text = sanitizeForFont(text = label, font = regularFont), font = regularFont, size = SMALL_FONT_SIZE)
+    }
+
+    /**
+     * Welle V1.4.3.2 "Veranstaltungen: Ticketing/QR-Codes" -- draws [matrix] centered horizontally,
+     * [sizePt] points square, as vector rectangles (`addRect`/`fill`, one PDFBox operation per
+     * [QrCodeMatrix.horizontalRuns] run -- same run-length rasterization `EventTicketSvg` applies to
+     * its own SVG output). Deliberately NOT a raster image -- no `PDImageXObject`/`BufferedImage`
+     * anywhere in this path, keeping ticket-PDF generation exactly as headless-safe (no AWT
+     * `Toolkit`/font-metrics-via-`Graphics2D` dependency) as the rest of this class already is. The
+     * default PDFBox fill color is already black and this class never changes it, so no explicit
+     * `setNonStrokingColor` call is made here -- see the wave plan's own "API-Verifikationsauflage"
+     * note for why that call would need re-checking against the pinned PDFBox version if ever added.
+     */
+    fun qrCode(
+        matrix: QrCodeMatrix,
+        sizePt: Float,
+    ) {
+        ensureSpace(sizePt)
+        val moduleSize = sizePt / matrix.size
+        val left = MARGIN_LEFT + (CONTENT_WIDTH - sizePt) / 2f
+        val top = cursorY
+        for (run in matrix.horizontalRuns()) {
+            val x = left + run.x * moduleSize
+            // PDF y-axis grows upward; row 0 of the matrix is the TOP of the code, hence `top - (y+1)*moduleSize`.
+            val y = top - (run.y + 1) * moduleSize
+            contentStream.addRect(x, y, run.length * moduleSize, moduleSize)
+        }
+        contentStream.fill()
+        // Deliberately a FULL `LINE_HEIGHT` gap plus the usual inter-element half-line (matching
+        // the gap `heading()` leaves, not the smaller gap a same-size text line leaves after
+        // itself) -- see [emphasisLine] KDoc for why a graphic's exact bottom edge needs a bigger
+        // safety margin here than one text baseline leaves for the next.
+        cursorY -= sizePt + LINE_HEIGHT + LINE_HEIGHT / 2
+    }
+
+    /**
+     * A single, larger-than-body-text line, centered -- used for the ticket code beneath the QR.
+     *
+     * Every other text primitive in this class draws directly at `cursorY` as the baseline,
+     * relying on the previous element having left enough clearance above it -- an assumption
+     * that only holds because those primitives are never asked to draw text taller than
+     * [LINE_HEIGHT]. [emphasisLine] is the one caller-facing exception (see
+     * `EventTicketPdfGenerator`'s 18pt ticket code, bigger than [LINE_HEIGHT]'s 14pt), so it
+     * additionally checks its own cap height against [LINE_HEIGHT] and, if [size] would make the
+     * glyphs taller than that budget, nudges its own baseline further down first -- independent
+     * of how much clearance the preceding element happened to leave. Without this, oversized
+     * emphasis text can render on top of whatever was drawn immediately above it (found in review
+     * for the QR-code/ticket-code pairing this method exists for).
+     */
+    fun emphasisLine(
+        text: String,
+        size: Float,
+    ) {
+        val capHeight = boldFont.fontDescriptor.capHeight / 1000f * size
+        val extraAscent = (capHeight - LINE_HEIGHT).coerceAtLeast(0f)
+        ensureSpace(LINE_HEIGHT * 1.5f + extraAscent)
+        cursorY -= extraAscent
+        val sanitized = sanitizeForFont(text = text, font = boldFont)
+        val width = textWidth(text = sanitized, font = boldFont, size = size)
+        val x = MARGIN_LEFT + (CONTENT_WIDTH - width) / 2f
+        contentStream.beginText()
+        contentStream.setFont(boldFont, size)
+        contentStream.newLineAtOffset(x, cursorY)
+        contentStream.showText(sanitized)
+        contentStream.endText()
+        cursorY -= size + LINE_HEIGHT / 2
+    }
+
+    /** A single centered body-text line -- e.g. the event title/date beneath the ticket code. */
+    fun centeredParagraph(text: String) {
+        ensureSpace(LINE_HEIGHT)
+        val sanitized = sanitizeForFont(text = text, font = regularFont)
+        val width = textWidth(text = sanitized, font = regularFont, size = BODY_FONT_SIZE)
+        val x = MARGIN_LEFT + (CONTENT_WIDTH - width) / 2f
+        writeLineAt(text = sanitized, font = regularFont, size = BODY_FONT_SIZE, x = x)
     }
 
     /** Closes the current content stream and serializes the whole document. Terminal -- do not reuse the builder after this. */

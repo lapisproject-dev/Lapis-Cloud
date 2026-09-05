@@ -18,6 +18,9 @@ import org.jetbrains.exposed.v1.core.SortOrder
 import org.jetbrains.exposed.v1.core.and
 import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.core.greater
+import org.jetbrains.exposed.v1.core.inList
+import org.jetbrains.exposed.v1.core.isNotNull
+import org.jetbrains.exposed.v1.core.isNull
 import org.jetbrains.exposed.v1.core.less
 import org.jetbrains.exposed.v1.core.lessEq
 import org.jetbrains.exposed.v1.core.neq
@@ -261,6 +264,31 @@ internal object EventStore {
             .orderBy(EventRegistrationTable.registeredAt to SortOrder.ASC)
             .toList()
 
+    /**
+     * Security-Review LOW fix (Welle V1.4.3.2 Fix-Runde): [EventService.openCheckIn] re-calls
+     * [listByEvent] after EVERY successful door scan (see its own KDoc) and its result feeds both
+     * the JSON roster response AND [memberInfoByIds]'s `inList`. Uncapped, an event with an
+     * unusually large confirmed-registration count would (a) make each roster refresh grow the
+     * response body/egress without bound, scaled by the 240/min check-in-rate budget, and (b) could
+     * in principle hand [memberInfoByIds] more distinct member ids than Postgres' bind-parameter
+     * limit (65535) tolerates in one `inList`. [MAX_CHECKIN_ROSTER_SIZE] is a hard ceiling, not a
+     * navigable page -- the door desk needs the WHOLE roster to look up any registrant by name/code,
+     * so this deliberately does not paginate (a paginated roster would hide registrants from the
+     * check-in screen, which is worse than the DoS risk it defends against). It stays generous
+     * enough to be a structural backstop rather than a real-world limit; [listByEvent]'s other two
+     * callers ([EventService.cancelEvent], [EventService.listRegistrations]) must still see every
+     * row and therefore keep calling the uncapped [listByEvent] above.
+     */
+    private const val MAX_CHECKIN_ROSTER_SIZE = 10_000
+
+    fun listByEventForCheckIn(eventId: Uuid): List<ResultRow> =
+        EventRegistrationTable
+            .selectAll()
+            .where { EventRegistrationTable.eventId eq eventId }
+            .orderBy(EventRegistrationTable.registeredAt to SortOrder.ASC)
+            .limit(MAX_CHECKIN_ROSTER_SIZE)
+            .toList()
+
     fun insertRegistration(
         id: Uuid,
         eventId: Uuid,
@@ -275,6 +303,11 @@ internal object EventStore {
         cancelTokenSha256: String?,
         registeredAt: LocalDateTime,
         confirmedAt: LocalDateTime?,
+        // Welle V1.4.3.2 -- set together, only when `status == CONFIRMED` (a brand-new, immediately-
+        // confirmed free registration); both `null` otherwise. See `EventTicketIssuer`/
+        // `EventRegistrationSubmission` call site.
+        ticketCodeSha256: String? = null,
+        ticketIssuedAt: LocalDateTime? = null,
     ) {
         EventRegistrationTable.insert {
             it[EventRegistrationTable.id] = id
@@ -292,6 +325,8 @@ internal object EventStore {
             it[EventRegistrationTable.confirmedAt] = confirmedAt
             it[cancelledAt] = null
             it[waitlistOfferedAt] = null
+            it[EventRegistrationTable.ticketCodeSha256] = ticketCodeSha256
+            it[EventRegistrationTable.ticketIssuedAt] = ticketIssuedAt
         }
     }
 
@@ -329,6 +364,27 @@ internal object EventStore {
         }) {
             it[status] = EventRegistrationStatus.CONFIRMED
             it[confirmedAt] = now
+        }
+
+    /**
+     * Welle V1.4.3.2 -- the paid-registration counterpart of [confirmRegistrationIfPending]: flips
+     * PENDING_PAYMENT -> CONFIRMED AND writes the ticket in the SAME statement/transaction, so a
+     * paying registrant's row is never observably CONFIRMED-without-a-ticket even for an instant.
+     * Used exclusively by `PspWebhookIngestion.ingestCheckoutCompleted`'s EVENT_FEE branch --
+     * `confirmRegistrationIfPending` itself stays in place, unmodified, for any other/older caller.
+     */
+    fun confirmRegistrationIfPendingAndIssueTicket(
+        id: Uuid,
+        ticketCodeSha256: String,
+        now: LocalDateTime,
+    ): Int =
+        EventRegistrationTable.update({
+            (EventRegistrationTable.id eq id) and (EventRegistrationTable.status eq EventRegistrationStatus.PENDING_PAYMENT)
+        }) {
+            it[status] = EventRegistrationStatus.CONFIRMED
+            it[confirmedAt] = now
+            it[EventRegistrationTable.ticketCodeSha256] = ticketCodeSha256
+            it[ticketIssuedAt] = now
         }
 
     /** Moves a `PENDING_PAYMENT`/`WAITLISTED`/`CONFIRMED` registration to `CANCELLED`, freeing its `active_participant_key`. */
@@ -399,10 +455,15 @@ internal object EventStore {
         }
     }
 
-    /** A free event's waitlist promotion confirms directly -- there is nothing to pay. */
+    /**
+     * A free event's waitlist promotion confirms directly -- there is nothing to pay. [ticketCodeSha256]
+     * is written in the SAME statement (Welle V1.4.3.2), same "never observably CONFIRMED without a
+     * ticket" reasoning as [confirmRegistrationIfPendingAndIssueTicket].
+     */
     fun promoteToConfirmedDirectly(
         id: Uuid,
         activeParticipantKey: String,
+        ticketCodeSha256: String,
         now: LocalDateTime,
     ) {
         EventRegistrationTable.update({ EventRegistrationTable.id eq id }) {
@@ -410,6 +471,8 @@ internal object EventStore {
             it[EventRegistrationTable.activeParticipantKey] = activeParticipantKey
             it[confirmedAt] = now
             it[waitlistOfferedAt] = now
+            it[EventRegistrationTable.ticketCodeSha256] = ticketCodeSha256
+            it[ticketIssuedAt] = now
         }
     }
 
@@ -463,6 +526,106 @@ internal object EventStore {
             .where { MemberTable.id eq memberId }
             .firstOrNull()
             ?.get(MemberTable.email)
+
+    /** Display name + e-mail, bulk-resolved for a whole set of member ids in ONE query. */
+    data class MemberInfo(
+        val displayName: String,
+        val email: String,
+    )
+
+    /**
+     * Bulk counterpart of [memberDisplayNameOrNull]/[memberEmailOrNull] -- Security-Review MAJOR
+     * fix (Welle V1.4.3.2 Fix-Runde): `IEventService.openCheckIn` used to call those two
+     * single-row lookups (plus a THIRD for `checkedInBy`) once per registration row, an N+1 inside
+     * one transaction. An event with thousands of confirmed registrations turned every roster
+     * refresh into thousands of extra round-trips against the same DB connection -- and the
+     * check-in screen re-calls `openCheckIn` after every single scan on a 240/min budget, so a
+     * busy door (several helpers scanning in parallel) could exhaust the connection pool for the
+     * whole server, not just check-in. Callers collect every `memberId`/`checkedInBy` id they need
+     * up front and resolve them all here at once; an empty [memberIds] is a deliberate no-op
+     * (skips the round-trip entirely -- relevant for an all-guest event).
+     */
+    fun memberInfoByIds(memberIds: Collection<Uuid>): Map<Uuid, MemberInfo> {
+        if (memberIds.isEmpty()) return emptyMap()
+        return MemberTable
+            .select(MemberTable.id, MemberTable.displayName, MemberTable.email)
+            .where { MemberTable.id inList memberIds.distinct() }
+            .associate { it[MemberTable.id] to MemberInfo(displayName = it[MemberTable.displayName], email = it[MemberTable.email]) }
+    }
+
+    // ── event_registration ticketing/check-in (Welle V1.4.3.2) ────────────────────────────────────
+
+    fun findByTicketCodeHash(ticketCodeSha256: String): ResultRow? =
+        EventRegistrationTable.selectAll().where { EventRegistrationTable.ticketCodeSha256 eq ticketCodeSha256 }.singleOrNull()
+
+    /** Guarded: only a CONFIRMED row with NO ticket yet is affected -- returns the row count so the caller ([EventTicketIssuer]) can distinguish a genuine issuance from a no-op. */
+    fun issueTicketIfMissing(
+        id: Uuid,
+        ticketCodeSha256: String,
+        now: LocalDateTime,
+    ): Int =
+        EventRegistrationTable.update({
+            (EventRegistrationTable.id eq id) and
+                (EventRegistrationTable.status eq EventRegistrationStatus.CONFIRMED) and
+                (EventRegistrationTable.ticketCodeSha256.isNull())
+        }) {
+            it[EventRegistrationTable.ticketCodeSha256] = ticketCodeSha256
+            it[ticketIssuedAt] = now
+        }
+
+    /** Rotation -- only a CONFIRMED row is affected, overwrites any existing hash. */
+    fun rotateTicket(
+        id: Uuid,
+        ticketCodeSha256: String,
+        now: LocalDateTime,
+    ): Int =
+        EventRegistrationTable.update({
+            (EventRegistrationTable.id eq id) and (EventRegistrationTable.status eq EventRegistrationStatus.CONFIRMED)
+        }) {
+            it[EventRegistrationTable.ticketCodeSha256] = ticketCodeSha256
+            it[ticketIssuedAt] = now
+        }
+
+    /**
+     * Atomic check-in transition -- see `EventCheckIn.byCode`/`byRegistration` KDoc "verbindliche
+     * Reihenfolge" step 7 for why this must be one guarded UPDATE, not a read-then-write.
+     *
+     * The `ticketCodeSha256.isNotNull()` guard (Security-Review LOW fix) mirrors
+     * `chk_event_registration_checkin_ticket` (`V19__event_tickets.sql`) -- without it, checking in
+     * a CONFIRMED row that has no ticket yet (a legacy V1.4.3.1-era row, or one for which
+     * `EventTicketIssuer.issueIfMissing` returned `null`) would violate that CHECK constraint and
+     * throw an uncaught [org.jetbrains.exposed.v1.exceptions.ExposedSQLException] straight out of
+     * this `UPDATE`, aborting the whole RPC transaction as an unhandled 500 instead of the guard
+     * simply matching 0 rows the way every other "can this transition happen at all" guard here
+     * does. `EventCheckIn.classifyAndCheckIn` calls `EventTicketIssuer.issueIfMissing` first
+     * precisely so this guard essentially never actually excludes a row in practice -- this is the
+     * belt to that suspenders, matching the DB's own invariant exactly rather than relying solely
+     * on the call-site ordering.
+     */
+    fun checkInIfNotCheckedIn(
+        id: Uuid,
+        byMemberId: Uuid,
+        now: LocalDateTime,
+    ): Int =
+        EventRegistrationTable.update({
+            (EventRegistrationTable.id eq id) and
+                (EventRegistrationTable.status eq EventRegistrationStatus.CONFIRMED) and
+                (EventRegistrationTable.checkedInAt.isNull()) and
+                (EventRegistrationTable.ticketCodeSha256.isNotNull())
+        }) {
+            it[checkedInAt] = now
+            it[checkedInBy] = byMemberId
+        }
+
+    /** Every CONFIRMED row on [eventId] without a ticket -- the input set for `IEventService.openCheckIn`'s idempotent nachausstellung sweep. */
+    fun listConfirmedWithoutTicket(eventId: Uuid): List<ResultRow> =
+        EventRegistrationTable
+            .selectAll()
+            .where {
+                (EventRegistrationTable.eventId eq eventId) and
+                    (EventRegistrationTable.status eq EventRegistrationStatus.CONFIRMED) and
+                    (EventRegistrationTable.ticketCodeSha256.isNull())
+            }.toList()
 }
 
 /** ANDs [this] onto [existing] (or returns [this] alone if [existing] is `null`) -- same idiom `CrmContactStore`'s own `andWith` establishes. */

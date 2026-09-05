@@ -7,11 +7,13 @@ import network.lapis.cloud.server.db.DbClock
 import network.lapis.cloud.server.db.generated.AccountTable
 import network.lapis.cloud.server.db.generated.ContributionTable
 import network.lapis.cloud.server.db.generated.EventRegistrationTable
+import network.lapis.cloud.server.db.generated.EventTable
 import network.lapis.cloud.server.db.generated.ExternalDonorTable
 import network.lapis.cloud.server.db.generated.PaymentCheckoutSessionTable
 import network.lapis.cloud.server.db.generated.PaymentTransactionTable
 import network.lapis.cloud.server.events.EventCapacityGuard
 import network.lapis.cloud.server.events.EventStore
+import network.lapis.cloud.server.events.EventTicketIssuer
 import network.lapis.cloud.server.events.WaitlistPromotion
 import network.lapis.cloud.server.events.mailPromotion
 import network.lapis.cloud.server.mail.MailDispatcher
@@ -66,6 +68,34 @@ sealed interface CheckoutCompletedIngestionOutcome {
         val note: String,
     ) : CheckoutCompletedIngestionOutcome
 }
+
+/**
+ * Welle V1.4.3.2 "Veranstaltungen: Ticketing/QR-Codes" -- the return type of
+ * [PspWebhookIngestion.ingestCheckoutCompleted], wrapping the pre-existing [outcome] with an
+ * optional [ticketMail] the caller ([PspWebhookRoutes]) must send AFTER this function's transaction
+ * has committed (`MailDispatcher.enqueue` must never run inside an open `transaction {}`, same rule
+ * every other mail in this domain follows -- see `EventCapacityGuard` KDoc).
+ *
+ * **Why a wrapper around [outcome] rather than a field ON [CheckoutCompletedIngestionOutcome.Processed]**:
+ * a confirmed, ticketed EVENT_FEE registration can still end this function as
+ * [CheckoutCompletedIngestionOutcome.Unposted] (`journalEntryId == null` -> "Kontenzuordnung
+ * unvollstaendig" -- the accounting posting degraded, but the CONFIRMED flip and the ticket already
+ * committed). A field confined to `Processed` would silently drop the ticket mail in exactly that
+ * case -- the one case this wrapper exists to not lose.
+ */
+internal data class CheckoutCompletedIngestionResult(
+    val outcome: CheckoutCompletedIngestionOutcome,
+    val ticketMail: EventTicketMail? = null,
+)
+
+/** The one piece of the ticket-issuance mail [PspWebhookRoutes] needs, resolved INSIDE the ingestion transaction (member email/display-name lookups require an open transaction, see `EventService.cancelEvent`'s own CRITICAL-fix KDoc for the same pitfall) and carried out to be sent after commit. */
+internal data class EventTicketMail(
+    val to: String,
+    val recipientName: String,
+    val eventTitle: String,
+    val slug: String,
+    val rawTicketCode: String,
+)
 
 /**
  * Welle V1.2.8 "PSP-Checkout (Stripe)" (GitHub Issue #6) -- the single place a gateway payment
@@ -128,7 +158,7 @@ object PspWebhookIngestion {
     internal fun ingestCheckoutCompleted(
         event: StripeWebhookEvent,
         bodyBytes: ByteArray,
-    ): CheckoutCompletedIngestionOutcome =
+    ): CheckoutCompletedIngestionResult =
         transaction {
             val session = event.data.eventObject
 
@@ -142,13 +172,16 @@ object PspWebhookIngestion {
                 logger.warn {
                     "PspWebhookIngestion: no payment_checkout_session found for Stripe session ${session.id} (event ${event.id})"
                 }
-                return@transaction CheckoutCompletedIngestionOutcome.Unposted(
-                    paymentTransactionId = null,
-                    note = "Unbekannte Checkout-Session",
+                return@transaction CheckoutCompletedIngestionResult(
+                    outcome =
+                        CheckoutCompletedIngestionOutcome.Unposted(
+                            paymentTransactionId = null,
+                            note = "Unbekannte Checkout-Session",
+                        ),
                 )
             }
             if (sessionRow[PaymentCheckoutSessionTable.status] == PaymentCheckoutSessionStatus.COMPLETED) {
-                return@transaction CheckoutCompletedIngestionOutcome.Duplicate
+                return@transaction CheckoutCompletedIngestionResult(outcome = CheckoutCompletedIngestionOutcome.Duplicate)
             }
 
             val sessionAmount = sessionRow[PaymentCheckoutSessionTable.amount]
@@ -200,7 +233,7 @@ object PspWebhookIngestion {
                 // DunningIssuance/RegistrationService/AccountingService/PoliticianService/
                 // ElectionService already establish for their own first-write races.
                 if (cause is ExposedSQLException) {
-                    return@transaction CheckoutCompletedIngestionOutcome.Duplicate
+                    return@transaction CheckoutCompletedIngestionResult(outcome = CheckoutCompletedIngestionOutcome.Duplicate)
                 }
                 throw cause ?: IllegalStateException("payment_transaction insert failed with no exception")
             }
@@ -218,7 +251,9 @@ object PspWebhookIngestion {
                     it[reconciliationNote] = note
                 }
                 logger.warn { "PspWebhookIngestion: amount/currency mismatch for payment_transaction $paymentTransactionId -- $note" }
-                return@transaction CheckoutCompletedIngestionOutcome.Unposted(paymentTransactionId = paymentTransactionId, note = note)
+                return@transaction CheckoutCompletedIngestionResult(
+                    outcome = CheckoutCompletedIngestionOutcome.Unposted(paymentTransactionId = paymentTransactionId, note = note),
+                )
             }
             // Security audit finding (Welle V1.2.8, MINOR/hardening) -- checkout.session.completed
             // fires even for payment_status in {"unpaid", "no_payment_required"} on delayed/async
@@ -237,7 +272,9 @@ object PspWebhookIngestion {
                 logger.warn {
                     "PspWebhookIngestion: payment_status '${session.paymentStatus}' != paid for payment_transaction $paymentTransactionId -- $note"
                 }
-                return@transaction CheckoutCompletedIngestionOutcome.Unposted(paymentTransactionId = paymentTransactionId, note = note)
+                return@transaction CheckoutCompletedIngestionResult(
+                    outcome = CheckoutCompletedIngestionOutcome.Unposted(paymentTransactionId = paymentTransactionId, note = note),
+                )
             }
 
             // Step 4.
@@ -340,6 +377,7 @@ object PspWebhookIngestion {
             // over-committing capacity. The money is still recorded via `payment_transaction`; the
             // refund itself is a human process. This is the documented exception to "never post a
             // payment without confirming the seat", not the normal case.
+            var pendingTicketMail: EventTicketMail? = null
             if (sessionIntent == PaymentIntent.EVENT_FEE) {
                 val registrationId =
                     sessionEventRegistrationId
@@ -349,7 +387,26 @@ object PspWebhookIngestion {
                                 "Zahlungssitzung mit intent=EVENT_FEE aber ohne Anmeldungs-Referenz " +
                                     "(unerwarteter Zustand) -- Zahlung nicht gebucht, manuell pruefen.",
                         )
-                val confirmed = EventStore.confirmRegistrationIfPending(id = registrationId, now = now)
+                // Welle V1.4.3.2 -- the missing counterpart the wave plan's OF-2 flags: without this,
+                // a paying registrant's confirmation mail never carried a ticket link at all (the
+                // pre-existing mail path stops at "you're confirmed", see `EventRegistrationSubmission`
+                // KDoc -- that class never runs for THIS confirmation, the webhook does). The ticket is
+                // minted and written in the SAME guarded UPDATE that flips PENDING_PAYMENT -> CONFIRMED
+                // (`confirmRegistrationIfPendingAndIssueTicket`), so the row is never observably
+                // CONFIRMED without one -- same "0 rows -> Unposted" guard as before.
+                val registrationRow =
+                    EventStore.getRegistrationOrNull(registrationId)
+                        ?: return@transaction unpostedWithNote(
+                            paymentTransactionId = paymentTransactionId,
+                            note = "Anmeldung $registrationId nicht gefunden -- Zahlung nicht gebucht, manuell pruefen.",
+                        )
+                val ticket = EventTicketIssuer.mint()
+                val confirmed =
+                    EventStore.confirmRegistrationIfPendingAndIssueTicket(
+                        id = registrationId,
+                        ticketCodeSha256 = ticket.sha256,
+                        now = now,
+                    )
                 if (confirmed == 0) {
                     return@transaction unpostedWithNote(
                         paymentTransactionId = paymentTransactionId,
@@ -357,6 +414,27 @@ object PspWebhookIngestion {
                             "Anmeldung war bereits storniert/abgelaufen, als die Zahlung eintraf -- " +
                                 "Zahlung nicht gebucht, Rueckerstattung pruefen.",
                     )
+                }
+                // Resolve the mail recipient/event details HERE, inside the still-open transaction
+                // (member email/display-name lookups run their own fresh Exposed query and throw
+                // outside one -- the exact CRITICAL pitfall `EventService.cancelEvent`'s own KDoc
+                // documents at length). PspWebhookRoutes sends this AFTER the transaction commits.
+                val memberId = registrationRow[EventRegistrationTable.memberId]
+                val recipientEmail =
+                    memberId?.let { EventStore.memberEmailOrNull(it) } ?: registrationRow[EventRegistrationTable.guestEmail]
+                val recipientName =
+                    (memberId?.let { EventStore.memberDisplayNameOrNull(it) } ?: registrationRow[EventRegistrationTable.guestName])
+                        ?: recipientEmail
+                val eventRow = EventStore.getEventOrNull(registrationRow[EventRegistrationTable.eventId])
+                if (recipientEmail != null && eventRow != null) {
+                    pendingTicketMail =
+                        EventTicketMail(
+                            to = recipientEmail,
+                            recipientName = recipientName ?: recipientEmail,
+                            eventTitle = eventRow[EventTable.title],
+                            slug = eventRow[EventTable.slug],
+                            rawTicketCode = ticket.rawCode,
+                        )
                 }
             }
 
@@ -409,9 +487,19 @@ object PspWebhookIngestion {
                 }
 
             if (journalEntryId == null) {
-                return@transaction unpostedWithNote(
-                    paymentTransactionId = paymentTransactionId,
-                    note = "Kontenzuordnung unvollstaendig -- bitte in der Zahlungs-Konfiguration nachziehen.",
+                // Deliberately NOT `unpostedWithNote` here (Review point OF-2's own reasoning, see
+                // `CheckoutCompletedIngestionResult` KDoc): the CONFIRMED flip and, for EVENT_FEE, the
+                // ticket, already committed above -- an unconfigured accounting mapping is an
+                // unrelated, separately-fixable gap, and must not also silently swallow a ticket the
+                // registrant is genuinely entitled to.
+                val note = "Kontenzuordnung unvollstaendig -- bitte in der Zahlungs-Konfiguration nachziehen."
+                PaymentTransactionTable.update({ PaymentTransactionTable.id eq paymentTransactionId }) {
+                    it[reconciliationNote] = note
+                }
+                logger.warn { "PspWebhookIngestion: payment_transaction $paymentTransactionId not posted -- $note" }
+                return@transaction CheckoutCompletedIngestionResult(
+                    outcome = CheckoutCompletedIngestionOutcome.Unposted(paymentTransactionId = paymentTransactionId, note = note),
+                    ticketMail = pendingTicketMail,
                 )
             }
 
@@ -493,7 +581,14 @@ object PspWebhookIngestion {
                 it[reconciledBy] = actorMemberId
             }
 
-            CheckoutCompletedIngestionOutcome.Processed(paymentTransactionId = paymentTransactionId, journalEntryId = journalEntryId)
+            CheckoutCompletedIngestionResult(
+                outcome =
+                    CheckoutCompletedIngestionOutcome.Processed(
+                        paymentTransactionId = paymentTransactionId,
+                        journalEntryId = journalEntryId,
+                    ),
+                ticketMail = pendingTicketMail,
+            )
         }
 
     /**
@@ -608,12 +703,14 @@ object PspWebhookIngestion {
     private fun unpostedWithNote(
         paymentTransactionId: Uuid,
         note: String,
-    ): CheckoutCompletedIngestionOutcome.Unposted {
+    ): CheckoutCompletedIngestionResult {
         PaymentTransactionTable.update({ PaymentTransactionTable.id eq paymentTransactionId }) {
             it[reconciliationNote] = note
         }
         logger.warn { "PspWebhookIngestion: payment_transaction $paymentTransactionId not posted -- $note" }
-        return CheckoutCompletedIngestionOutcome.Unposted(paymentTransactionId = paymentTransactionId, note = note)
+        return CheckoutCompletedIngestionResult(
+            outcome = CheckoutCompletedIngestionOutcome.Unposted(paymentTransactionId = paymentTransactionId, note = note),
+        )
     }
 
     private fun accountRoleFor(memberId: Uuid): AccountRole =

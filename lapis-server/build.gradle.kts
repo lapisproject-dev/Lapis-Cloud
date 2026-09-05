@@ -56,6 +56,10 @@ dependencies {
     implementation(libs.hikaricp)
     implementation(libs.pdfbox)
 
+    // V1.4.3.2 Veranstaltungs-Ticketing — see gradle/libs.versions.toml for the library-choice
+    // rationale (Apache-2.0, :core only, no javase/jai-imageio).
+    implementation(libs.zxing.core)
+
     // V0.7.1 Authentifizierung — see PasswordHasher KDoc for why bcrypt over Argon2id.
     implementation(libs.bcrypt)
 

@@ -8,6 +8,7 @@ import network.lapis.cloud.server.db.generated.EventRegistrationTable
 import network.lapis.cloud.server.db.generated.EventTable
 import network.lapis.cloud.server.federation.FederationConfig
 import network.lapis.cloud.server.mail.MailDispatcher
+import network.lapis.cloud.server.mail.htmlEscape
 import network.lapis.cloud.server.routes.sha256Hex
 import org.jetbrains.exposed.v1.core.ResultRow
 import java.math.BigDecimal
@@ -41,6 +42,14 @@ internal data class WaitlistPromotion(
     val payNowRequired: Boolean,
     val paymentResumeUrl: String?,
     val cancelUrl: String?,
+    /**
+     * Welle V1.4.3.2 -- non-null EXACTLY when [payNowRequired] is `false`: a free-event promotion
+     * confirms (and therefore issues a ticket) immediately, so its "a seat freed up" mail can carry
+     * the ticket link right away. `null` when [payNowRequired] is `true` -- that registrant has not
+     * paid yet, so no ticket exists for them to receive; they get one once
+     * `PspWebhookIngestion.ingestCheckoutCompleted` confirms their payment.
+     */
+    val ticketUrl: String?,
 )
 
 /**
@@ -109,6 +118,7 @@ internal object EventWaitlist {
             // `registerEventPublicRoutes`'s `POST /veranstaltung/{slug}/zahlung` route accepts.
             val paymentResumeUrl: String?
             val cancelUrl: String?
+            val ticketUrl: String?
             if (payNowRequired) {
                 val holdExpiresAt = now.plusDuration(EventPolicy.WAITLIST_OFFER_WINDOW)
                 val rawToken = EventPolicy.randomToken()
@@ -125,10 +135,26 @@ internal object EventWaitlist {
                 // registrant's ORIGINAL storno link (see `WaitlistPromotion.cancelUrl` KDoc) -- this
                 // fresh one, built from the SAME `rawToken`, replaces it in the promotion mail.
                 cancelUrl = "$publicBaseUrl/veranstaltung/$slug/storno?token=$rawToken"
+                // No ticket yet -- this registrant has not paid. See `WaitlistPromotion.ticketUrl` KDoc.
+                ticketUrl = null
             } else {
-                EventStore.promoteToConfirmedDirectly(id = registrationId, activeParticipantKey = key, now = now)
+                // Welle V1.4.3.2 -- a free-event promotion confirms immediately, so a ticket is
+                // issued in the SAME statement (never observably CONFIRMED without one).
+                val ticket = EventTicketIssuer.mint()
+                EventStore.promoteToConfirmedDirectly(
+                    id = registrationId,
+                    activeParticipantKey = key,
+                    ticketCodeSha256 = ticket.sha256,
+                    now = now,
+                )
                 paymentResumeUrl = null
                 cancelUrl = null
+                ticketUrl =
+                    EventTicketPolicy.ticketUrl(
+                        baseUrl = FederationConfig.publicBaseUrl.trimEnd('/'),
+                        slug = slug,
+                        rawCode = ticket.rawCode,
+                    )
             }
             if (recipientEmail != null) {
                 promotions +=
@@ -142,6 +168,7 @@ internal object EventWaitlist {
                         payNowRequired = payNowRequired,
                         paymentResumeUrl = paymentResumeUrl,
                         cancelUrl = cancelUrl,
+                        ticketUrl = ticketUrl,
                     )
             }
         }
@@ -181,14 +208,25 @@ internal fun WaitlistPromotion.mailPromotion(mailDispatcher: MailDispatcher) {
                 "innerhalb von ${EventPolicy.WAITLIST_OFFER_WINDOW.inWholeHours} Stunden ab, sonst rückt " +
                 "die nächste Person nach."
         plainText = "Hallo $recipientDisplayName,\n\n$body\n\nZahlung abschließen: $url\n\nAnmeldung stornieren: $cancel\n"
+        // Security-Review MINOR fix: `recipientDisplayName`/`eventTitle` can originate from an
+        // unauthenticated guest form / a BOARD-supplied event title -- htmlEscape() both before
+        // they reach `html` (see `network.lapis.cloud.server.mail.htmlEscape` KDoc). `url`/`cancel`
+        // stay unescaped -- both are built by this server itself from a slug + generated token.
+        val bodyHtml =
+            "Ein Platz für \"${htmlEscape(eventTitle)}\" ist frei geworden. Bitte schließen Sie die Zahlung " +
+                "innerhalb von ${EventPolicy.WAITLIST_OFFER_WINDOW.inWholeHours} Stunden ab, sonst rückt " +
+                "die nächste Person nach."
         html =
-            "<p>Hallo $recipientDisplayName,</p><p>$body</p>" +
+            "<p>Hallo ${htmlEscape(recipientDisplayName)},</p><p>$bodyHtml</p>" +
             "<p><a href=\"$url\">Zahlung abschließen</a></p>" +
             "<p><a href=\"$cancel\">Anmeldung stornieren</a></p>"
     } else {
         val body = "Ein Platz für \"$eventTitle\" ist frei geworden -- Ihre Teilnahme ist bestätigt."
-        plainText = "Hallo $recipientDisplayName,\n\n$body\n"
-        html = "<p>Hallo $recipientDisplayName,</p><p>$body</p>"
+        // ticketUrl is always set alongside payNowRequired = false -- see promoteWhileCapacityFree.
+        val url = checkNotNull(ticketUrl) { "non-payNowRequired promotion $registrationId has no ticketUrl" }
+        plainText = "Hallo $recipientDisplayName,\n\n$body\n\nIhr Ticket: $url\n"
+        val bodyHtml = "Ein Platz für \"${htmlEscape(eventTitle)}\" ist frei geworden -- Ihre Teilnahme ist bestätigt."
+        html = "<p>Hallo ${htmlEscape(recipientDisplayName)},</p><p>$bodyHtml</p><p><a href=\"$url\">Ihr Ticket</a></p>"
     }
     mailDispatcher.enqueue(
         to = recipientEmail,

@@ -72,6 +72,60 @@
 // external_donor) and `organization_settings.eventIncomeAccountId`/`eventIncomeSphere` are modelled
 // as addenda in `33-payments.kuml.kts`/`11-organization-settings.kuml.kts` respectively -- those
 // files own those tables, not this one; see their own file header addenda.
+//
+// **Welle V1.4.3.2 "Veranstaltungen: Ticketing/QR-Codes" addendum** (`V19__event_tickets.sql`) --
+// four new `event_registration` attributes below.
+//
+// **Why `ticketCodeSha256`, not `ticketCode` in the clear.** Every other bearer credential in this
+// repo (`SessionTokens.hash`, `ApiKeyTable.tokenHash`, this very table's own `cancelTokenSha256`) is
+// stored exclusively as a SHA-256 hash and handed to the holder exactly once -- a QR/ticket code that
+// a door scanner checks against the database is architecturally the same kind of secret and follows
+// the same rule. The raw 120-bit code is generated in `EventTicketPolicy`, embedded once into a
+// mailed link/QR image, and never written to any column. Re-issuing a ticket (`issueOwnTicket`)
+// overwrites this column and therefore ROTATES the credential -- any previously printed/saved QR
+// stops working the moment a new one is issued. See `EventStore.issueTicketIfConfirmed`.
+//
+// **Why no `audit_log_entry` for the check-in itself.** Consistent with this file's existing "Why no
+// audit_log_entry coverage" section above: `checkedInAt`/`checkedInBy` on the row ARE the
+// nachvollziehbarkeit trail for who let this person in and when -- a GoBD-grade hash-chained ledger
+// entry is reserved for money movements (`payment_transaction`/`journal_entry`), and a door check-in
+// moves no money.
+//
+// **Why check-in does NOT go through `EventCapacityGuard`.** `EventCapacityGuard`'s own KDoc
+// documents itself as "the only permitted entry point into CAPACITY-CHANGING operations" (seat
+// counting, waitlist promotion + its mail side effects). Checking a ticket in changes neither the
+// confirmed-seat count nor the waitlist -- the seat was already held the moment the registration
+// became CONFIRMED. Routing check-in through the guard would trigger a waitlist sweep (and its mail
+// dispatch) on every door scan for no reason. `EventStore.checkInIfNotCheckedIn` is therefore its own
+// guarded, atomic `UPDATE ... WHERE checked_in_at IS NULL AND status = 'CONFIRMED'` -- see that
+// function's own KDoc.
+//
+// **Why 16 characters (80 bits), not the originally-planned 24.** See
+// `network.lapis.cloud.shared.domain.EventTicketCode` KDoc "Why 16 characters" for the entropy/
+// threat-model reasoning, and `V19__event_tickets.sql`'s own header for why this decision lives in
+// Kotlin, not SQL.
+//
+// **Why the public ticket page (`GET /veranstaltung/{slug}/ticket`) is server-rendered, not
+// KVision.** The ticket holder has no account and is never asked to create one -- the entire
+// registration flow already runs through `EventPublicRoutes`/`EventPublicHtml` as a classic
+// server-rendered `<form>` (see this file's own "unauthenticated public registration path"
+// reference above), for exactly the same reason: a KVision screen requires the KVision SPA bundle
+// and, in practice, a session -- neither of which an anonymous ticket holder (or a guest
+// registrant who was never a member to begin with) ever has.
+//
+// **Why the ticket PDF is never attached to a mail.** `MailDispatcher.enqueue` has no attachment
+// parameter (see its own KDoc) and adding one is out of scope for this wave -- every ticket mail
+// therefore carries a LINK to the ticket page, and the PDF itself is one button on that page
+// (`GET .../ticket.pdf?code=...`), not a mail attachment.
+//
+// **Bewusst aufgeschoben, eigene Wellen mit eigenem Security-Loop:** eine Helfer-Rolle bzw. ein
+// eigener Helfer-Türlink (heute check-in ausschliesslich BOARD/ADMIN); Offline-Check-in mit
+// Nachsynchronisierung (ein Verbindungsverlust am Einlass zeigt heute nur einen Hinweistext, siehe
+// `EventCheckInScreen`); Ticketübertragung/Namensänderung; Sitzplatzvergabe; Catering;
+// Raumverwaltung; Schichtplanung; Rechnungsstellung an Externe. Ebenfalls bewusst NICHT Teil dieser
+// Welle: ein Check-in-Formular AUF der öffentlichen Ticketseite selbst -- das Türpersonal nutzt
+// stattdessen den eigenen, authentifizierten `EventCheckInScreen` (Gästeliste + Codefeld), was die
+// Notwendigkeit einer Session-Auflösung auf einer ansonsten vollständig anonymen Seite entfällt.
 import dev.kuml.profile.erm.ermMappingProfile
 import dev.kuml.uml.Multiplicity
 import dev.kuml.uml.dsl.applyProfile
@@ -195,6 +249,12 @@ classDiagram(name = "Events") {
         stereotype("Index") { "columns" to listOf("event_id", "status"); "name" to "idx_event_registration_event_status" }
         stereotype("Index") { "columns" to listOf("member_id"); "name" to "idx_event_registration_member" }
         stereotype("Index") { "columns" to listOf("event_id", "waitlist_position"); "name" to "idx_event_registration_waitlist" }
+        stereotype("Index") {
+            "columns" to listOf("ticket_code_sha256")
+            "name" to "uq_event_registration_ticket_code"
+            "unique" to true
+        }
+        stereotype("Index") { "columns" to listOf("event_id", "checked_in_at"); "name" to "idx_event_registration_checked_in" }
 
         attribute(name = "id", type = "UUID") {
             stereotype("Id")
@@ -267,6 +327,24 @@ classDiagram(name = "Events") {
         attribute(name = "waitlistOfferedAt", type = "LocalDateTime") {
             multiplicity = Multiplicity(0, 1)
             stereotype("Column") { "columnName" to "waitlist_offered_at" }
+        }
+        // SHA-256 hex of the ticket code -- the raw code is NEVER persisted, only issued once
+        // (mail/QR). Global unique index above; see file header addendum for the rotation rule.
+        attribute(name = "ticketCodeSha256", type = "String") {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") { "columnName" to "ticket_code_sha256"; "sqlType" to "VARCHAR(64)" }
+        }
+        attribute(name = "ticketIssuedAt", type = "LocalDateTime") {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") { "columnName" to "ticket_issued_at" }
+        }
+        attribute(name = "checkedInAt", type = "LocalDateTime") {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") { "columnName" to "checked_in_at" }
+        }
+        attribute(name = "checkedInBy", type = "UUID") {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") { "columnName" to "checked_in_by"; "fkEntity" to "Member" }
         }
     }
 }

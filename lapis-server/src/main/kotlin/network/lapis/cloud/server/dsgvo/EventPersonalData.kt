@@ -14,17 +14,21 @@ import kotlin.uuid.Uuid
  * Owns [EventTable]/[EventRegistrationTable] (Welle V1.4.3.1 "Veranstaltungen"). See
  * `39-events.kuml.kts` file header for why this contributor only ever handles
  * [network.lapis.cloud.shared.domain.DsgvoSubjectKind.MEMBER] subjects (a `MemberPersonalDataContributor`,
- * not the raw interface) -- `event_registration.member_id`/`event.created_by` are the only two
- * member-FK-bearing columns in this domain. A GUEST registration (`guest_name`/`guest_email`, no
+ * not the raw interface) -- `event_registration.member_id`/`.checked_in_by`/`event.created_by` are the
+ * only THREE member-FK-bearing columns in this domain (Welle V1.4.3.2 added `checked_in_by`
+ * alongside the pre-existing two). A GUEST registration (`guest_name`/`guest_email`, no
  * `member_id`) carries PII of a person who is NOT a member and is therefore invisible to this
  * contributor entirely -- see [PersonalDataRegistry.knownUncoveredSubjectRoots]'s `event_registration`
  * entry for that documented, deliberate gap.
  *
  * **Retained, not deleted -- for BOTH tables, regardless of [ErasureMode].** Neither table stores
- * a member's name/email/address directly; `event_registration.member_id`/`event.created_by` are the
- * ONLY member-identifying data either row carries, and both survive erasure as ordinary FK anchors
- * (the referenced `member` row itself is anonymized elsewhere -- see `FoundationPersonalData` KDoc
- * for that invariant every other retain-with-reason contributor in this codebase already relies on).
+ * a member's name/email/address directly; `event_registration.member_id`/`.checked_in_by`/
+ * `event.created_by` are the ONLY member-identifying data either row carries, and all three survive
+ * erasure as ordinary FK anchors (the referenced `member` row itself is anonymized elsewhere -- see
+ * `FoundationPersonalData` KDoc for that invariant every other retain-with-reason contributor in
+ * this codebase already relies on). `checked_in_by`'s own retention reason is organisatorische
+ * Nachvollziehbarkeit ("who let this person in and when" -- same posture `event.created_by`
+ * already establishes for "who created this event"), not accounting.
  * Deleting/nulling the FK instead would either orphan a `payment_transaction`/`journal_entry`'s own
  * accounting trail (for a CONFIRMED, possibly PAID registration) or corrupt capacity/waitlist
  * accounting for an event this member is still `PENDING_PAYMENT`/`WAITLISTED` on -- so this

@@ -178,6 +178,13 @@ class EventPublicRoutesTest :
 
         fun generousLimiter() = FederationInboxRateLimiter(maxRequests = 10_000, window = 1.minutes)
 
+        // Welle V1.4.3.2 -- registerEventPublicRoutes gained two ticket-route-only parameters;
+        // this file's own routes never exercise them, so a generous budget that never actually
+        // trips is all this test file needs.
+        fun generousFailureLimiter() =
+            network.lapis.cloud.server.security
+                .LoginRateLimiter(maxFailures = 10_000)
+
         val farFutureStartsAt = LocalDateTime(2030, 1, 1, 18, 0)
         val farFutureEndsAt = LocalDateTime(2030, 1, 1, 22, 0)
 
@@ -263,6 +270,8 @@ class EventPublicRoutesTest :
                             pageRateLimiter = generousLimiter(),
                             attemptRateLimiter = generousLimiter(),
                             registrationRateLimiter = generousLimiter(),
+                            ticketPageRateLimiter = generousLimiter(),
+                            ticketCodeFailureLimiter = generousFailureLimiter(),
                         )
                     }
                 }

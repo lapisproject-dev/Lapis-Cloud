@@ -10,10 +10,14 @@ import io.ktor.server.response.respond
 import io.ktor.server.routing.Route
 import io.ktor.server.routing.post
 import network.lapis.cloud.server.db.generated.OrganizationSettingsTable
+import network.lapis.cloud.server.events.EventTicketPolicy
+import network.lapis.cloud.server.federation.FederationConfig
 import network.lapis.cloud.server.federation.FederationInboxRateLimiter
 import network.lapis.cloud.server.mail.MailDispatcher
 import network.lapis.cloud.server.mail.NoOpMailTransport
+import network.lapis.cloud.server.mail.htmlEscape
 import network.lapis.cloud.server.payment.psp.CheckoutCompletedIngestionOutcome
+import network.lapis.cloud.server.payment.psp.EventTicketMail
 import network.lapis.cloud.server.payment.psp.PspConfigState
 import network.lapis.cloud.server.payment.psp.PspWebhookEventLog
 import network.lapis.cloud.server.payment.psp.PspWebhookIngestion
@@ -212,7 +216,7 @@ fun Route.registerPspWebhookRoutes(
         // 10. Dispatch by event.type.
         when (event.type) {
             "checkout.session.completed" -> {
-                val outcome =
+                val result =
                     try {
                         PspWebhookIngestion.ingestCheckoutCompleted(event = event, bodyBytes = bodyBytes)
                     } catch (e: ConflictException) {
@@ -253,11 +257,17 @@ fun Route.registerPspWebhookRoutes(
                         return@post
                     }
                 val (outcomeKind, paymentTransactionId) =
-                    when (outcome) {
+                    when (val outcome = result.outcome) {
                         is CheckoutCompletedIngestionOutcome.Processed -> PspWebhookOutcome.PROCESSED to outcome.paymentTransactionId
                         is CheckoutCompletedIngestionOutcome.Duplicate -> PspWebhookOutcome.DUPLICATE to null
                         is CheckoutCompletedIngestionOutcome.Unposted -> PspWebhookOutcome.UNPOSTED to outcome.paymentTransactionId
                     }
+                // Welle V1.4.3.2 -- sent AFTER ingestCheckoutCompleted's own transaction has already
+                // committed (this call site is outside it), same "MailDispatcher.enqueue never inside
+                // an open transaction" rule the whole domain follows. Closes the gap the wave plan's
+                // OF-2 flags: without this, a paying event registrant had no way to ever receive their
+                // ticket link.
+                result.ticketMail?.let { mailEventTicket(mail = it, mailDispatcher = mailDispatcher) }
                 recordDeliveryAndRespond(
                     call = call,
                     status = HttpStatusCode.OK,
@@ -324,6 +334,36 @@ fun Route.registerPspWebhookRoutes(
             }
         }
     }
+}
+
+/**
+ * Welle V1.4.3.2 -- sends the "your payment is confirmed, here is your ticket" mail for a paid
+ * event registration. Deliberately its OWN, minimal mail (not `EventRegistrationSubmission`'s
+ * `mailRegistrationReceived`, which never runs for this confirmation path at all -- the webhook
+ * confirms the registration, not that class) -- kept in `PspWebhookRoutes` rather than
+ * `PspWebhookIngestion` because building the URL needs [network.lapis.cloud.server.events
+ * .EventTicketPolicy.ticketUrl], and this is the one call site in this file with a concrete
+ * `baseUrl` available.
+ */
+private fun mailEventTicket(
+    mail: EventTicketMail,
+    mailDispatcher: MailDispatcher,
+) {
+    val baseUrl = FederationConfig.publicBaseUrl.trimEnd('/')
+    val ticketUrl = EventTicketPolicy.ticketUrl(baseUrl = baseUrl, slug = mail.slug, rawCode = mail.rawTicketCode)
+    val subject = "Zahlung bestätigt: ${mail.eventTitle}"
+    val body = "Ihre Zahlung für \"${mail.eventTitle}\" ist eingegangen -- Ihre Teilnahme ist bestätigt."
+    // Security-Review MINOR fix: `mail.recipientName`/`mail.eventTitle` can originate from an
+    // unauthenticated guest form / a BOARD-supplied event title -- htmlEscape() both before they
+    // reach `htmlBody` (see `network.lapis.cloud.server.mail.htmlEscape` KDoc).
+    val bodyHtml = "Ihre Zahlung für \"${htmlEscape(mail.eventTitle)}\" ist eingegangen -- Ihre Teilnahme ist bestätigt."
+    mailDispatcher.enqueue(
+        to = mail.to,
+        subject = subject,
+        plainTextBody = "Hallo ${mail.recipientName},\n\n$body\n\nIhr Ticket: $ticketUrl\n",
+        htmlBody = "<p>Hallo ${htmlEscape(mail.recipientName)},</p><p>$bodyHtml</p><p><a href=\"$ticketUrl\">Ihr Ticket</a></p>",
+        purpose = "event-ticket",
+    )
 }
 
 /** Writes exactly one [PspWebhookEventLog] row (its own transaction) and responds [status] to [call] -- the one place every branch of the handler above converges. */

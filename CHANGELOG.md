@@ -40,7 +40,8 @@ All notable changes to this project are documented here. Format follows
   (retain-with-reason, kein Feld trägt PII direkt außerhalb der FK). Der Gast-Pfad
   (`guest_name`/`guest_email` ohne `member_id`) bleibt eine testgeprüft sichtbare, dokumentierte
   Lücke (`PersonalDataRegistry.knownUncoveredSubjectRoots`) — Selbstbedienungs-Auskunft/-Löschung
-  für Gäste ist für V1.4.3.2 vorgesehen.
+  für Gäste ist für eine spätere Sub-Welle vorgesehen (Korrektur: nicht V1.4.3.2, siehe deren
+  eigenen Changelog-Block unten — diese Welle war Ticketing/QR-Codes).
 - **Bewusst nicht in dieser Welle**: der JSON-Anmeldeendpunkt für ein künftiges Embed-Widget
   (`POST /api/public/v1/event/{slug}/registration`) und die BOARD/ADMIN-Verwaltungsoberfläche
   (KVision-Screen) — beides für eine Folgewelle vorgesehen, siehe Session-Notizen. Die
@@ -50,6 +51,39 @@ All notable changes to this project are documented here. Format follows
   kosten als verdeckte Parteispende zu behandeln ist (dieses System prüft das nicht — siehe
   `39-events.kuml.kts` Dateikopf); die Gemeinnützigkeits-Sphäre ist aktuell organisationsweit, nicht
   pro Veranstaltung, konfigurierbar.
+
+**Veranstaltungen: Ticketing/QR-Codes (Welle V1.4.3.2)**
+
+- **Ticket-Code** (`event_registration.ticket_code_sha256`, 16-stelliger Crockford-Base32-Code,
+  80 Bit) — nur der SHA-256-Hash wird gespeichert, der Rohcode existiert nur einmalig im Moment der
+  Ausstellung (Mail-Link/QR). Automatische Ausstellung in derselben Transaktion, die eine Anmeldung
+  auf `CONFIRMED` setzt (kostenlose Sofortbestätigung, kostenlose Wartelisten-Nachrückung, bezahlte
+  Bestätigung über den Stripe-Webhook) — eine Zeile ist nie beobachtbar `CONFIRMED` ohne Ticket.
+  Neuausgabe (`reissueTicket`, BOARD/ADMIN) rotiert den Code; das alte Ticket wird sofort ungültig.
+- **Öffentliche Ticketseite** (`GET /veranstaltung/{slug}/ticket?code=…`, serverseitig gerendert,
+  kein KVision-Screen — der Ticketinhaber hat kein Konto) mit QR-Code (`ticket.svg`, eigener
+  same-origin-Endpunkt statt Inline-SVG) und PDF-Download (`ticket.pdf`, Apache-PDFBox, vektorbasiert
+  ohne Rasterbild). Trägt bewusst **keine** personenbezogenen Daten (kein Name, keine E-Mail, keine
+  Registrierungs-ID) — leakt die URL, leakt nichts über den Inhaber.
+- **QR-Erzeugung**: `com.google.zxing:core` (Apache-2.0, rein JVM, keine transitiven Abhängigkeiten
+  außer test-scoped JUnit) — bewusst nur `:core`, nicht `:javase` (zieht `jai-imageio` nach). Beide
+  Renderer (SVG, PDF) zeichnen die Modul-Geometrie direkt als Rechtecke, ohne AWT/`ImageIO`.
+- **Check-in als Gästeliste** (`EventCheckInScreen`, BOARD/ADMIN) — Codefeld für den Türscan plus
+  durchsuchbare Anmeldeliste mit Direkt-Einchecken-Knopf pro Zeile; E-Mail-Adressen erst nach
+  bewusstem Aufklappen einer Zeile sichtbar. Sechs typisierte Ergebniszustände (nie eine Exception
+  für einen Fachzustand) — „bereits eingecheckt" wird bewusst neutral, nicht als Fehler, dargestellt.
+  Check-in läuft **nicht** über `EventCapacityGuard` (ändert weder Sitzplatzzahl noch Warteliste) und
+  ist über eine eigene, separate Ratenbegrenzung von normalen Verwaltungsaktionen abgekoppelt (ein
+  Türscan kann in Minuten hunderte Anfragen erzeugen).
+- **Bestätigungsmail im bezahlten Pfad** — schließt eine Lücke aus V1.4.3.1: `PspWebhookIngestion
+  .ingestCheckoutCompleted` versendet jetzt den Ticket-Link, sobald eine Zahlung bestätigt wird
+  (vorher hatte ein zahlender Teilnehmer keinen Weg zu seinem Ticket).
+- **Bewusst nicht in dieser Welle**: Helfer-Rolle/eigener Helfer-Türlink; Offline-Check-in mit
+  Nachsynchronisierung; Ticketübertragung/Namensänderung; Sitzplatzvergabe; Catering;
+  Raumverwaltung; Schichtplanung; Rechnungsstellung an Externe; ein Check-in-Formular direkt auf der
+  öffentlichen Ticketseite (stattdessen: der eigene, authentifizierte Check-in-Screen); ein eigener
+  Board-Anmeldelisten-Vollscreen (Neuausgabe läuft stattdessen über die aufgeklappte Zeile des
+  Check-in-Screens).
 
 ## [0.18.0] — 2026-09-03
 
