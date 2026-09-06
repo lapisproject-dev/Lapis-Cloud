@@ -378,6 +378,15 @@ object Routes {
     // Optionaler Query-Parameter `?member=<uuid>` im Hash-Fragment (Muster [PAYMENT_RETURN]); ohne
     // Parameter = eigene Historie.
     const val MEMBER_FINANCES = "/member-finances"
+
+    // Welle V1.4.4.2 "Geburtstage & Jubiläen" -- BOARD/ADMIN, verified against
+    // `MemberAnniversaryService.kt`: `getUpcomingAnniversaries` calls
+    // `current.requireRole(*ANNIVERSARY_READ_ROLES)` (BOARD, ADMIN) -- same tier as [CRM]/
+    // [EVENT_CHECKIN], route-level `requireRole`, NOT `requireAuth` -- anders als [MEMBER_FINANCES]
+    // gibt es hier bewusst KEINE Selbstauskunft-Variante (Design-Review: kein fachlicher Grund, einem
+    // Mitglied die gesammelte Geburtstagsliste aller anderen zu zeigen). Lebt in der bestehenden
+    // "Verwaltung"-Dropdown, direkt neben [EVENT_CHECKIN].
+    const val MEMBER_ANNIVERSARIES = "/anniversaries"
 }
 
 private var appRouting: Routing? = null
@@ -662,6 +671,11 @@ fun initRouting(pageContainer: SimplePanel) {
     routing.kvOn(Routes.MEMBER_FINANCES) {
         requireAuth(routing) {
             show(Routes.MEMBER_FINANCES) { container -> renderMemberFinancialHistoryScreen(container, hashQueryParam("member")) }
+        }
+    }
+    routing.kvOn(Routes.MEMBER_ANNIVERSARIES) {
+        requireRole(routing, AccountRole.BOARD, AccountRole.ADMIN) {
+            show(Routes.MEMBER_ANNIVERSARIES, ::renderMemberAnniversariesScreen)
         }
     }
     routing.kvOn("/") {

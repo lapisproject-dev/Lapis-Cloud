@@ -401,6 +401,10 @@ private fun refreshNavbar(navbar: Navbar) {
             // KDoc für die Rollen-Verifikation. Kein eigener Hauptmenüpunkt, gleiche Entscheidung
             // wie bei "Kontakte & Interessenten"/"API-Schlüssel".
             routedDdLink(Routes.EVENT_CHECKIN, tr("Veranstaltungs-Check-in"), icon = "fas fa-qrcode")
+            // Welle V1.4.4.2 "Geburtstage & Jubiläen" -- siehe `Routes.MEMBER_ANNIVERSARIES` KDoc
+            // für die Rollen-Verifikation. Kein eigener Hauptmenüpunkt, gleiche Entscheidung wie bei
+            // "Veranstaltungs-Check-in"/"Kontakte & Interessenten"/"API-Schlüssel".
+            routedDdLink(Routes.MEMBER_ANNIVERSARIES, tr("Geburtstage & Jubiläen"), icon = "fas fa-cake-candles")
         }
     }
     // ADMIN-only-tier -- see `Routes.BACKUP`/`CONFERENCE_STREAM_DESTINATIONS` KDoc.

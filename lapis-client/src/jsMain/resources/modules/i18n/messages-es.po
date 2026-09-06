@@ -9859,3 +9859,62 @@ msgstr "%1 · Cuotas %2 · Donaciones %3"
 #: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt
 msgid "DSGVO-gelöscht"
 msgstr "Eliminado (RGPD)"
+
+# Welle V1.4.4.2 "Geburtstage & Jubiläen" -- appended, not interleaved alphabetically (see CLAUDE.md i18n note).
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/App.kt
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAnniversariesScreen.kt
+msgid "Geburtstage & Jubiläen"
+msgstr "Cumpleaños y aniversarios"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAnniversariesScreen.kt
+msgid "Bevorstehende Geburtstage und Mitgliedschafts-/Förderer-Jubiläen -- eine gemeinsame, chronologische Liste für den Vorstand."
+msgstr "Próximos cumpleaños y aniversarios de membresía/donante -- una lista cronológica única para la junta directiva."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAnniversariesScreen.kt
+msgid "%1 Tage"
+msgstr "%1 días"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAnniversariesScreen.kt
+msgid "-- Alle --"
+msgstr "-- Todos --"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAnniversariesScreen.kt
+msgid "Nur Geburtstage"
+msgstr "Solo cumpleaños"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAnniversariesScreen.kt
+msgid "Nur Jubiläen"
+msgstr "Solo aniversarios"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAnniversariesScreen.kt
+msgid "Anlass"
+msgstr "Motivo"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAnniversariesScreen.kt
+msgid "Keine Treffer in diesem Zeitraum."
+msgstr "Sin coincidencias en este período."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAnniversariesScreen.kt
+msgid "Heute"
+msgstr "Hoy"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAnniversariesScreen.kt
+msgid "wird %1"
+msgstr "cumple %1"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAnniversariesScreen.kt
+msgid "%1 Jahre Förderer"
+msgstr "%1 años como donante"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAnniversariesScreen.kt
+msgid "%1 Jahre Mitgliedschaft"
+msgstr "%1 años de membresía"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAnniversariesScreen.kt
+msgid "29.02. · in diesem Jahr am %1"
+msgstr "29/02 · este año el %1"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAnniversariesScreen.kt
+msgid "Für %1 von %2 berücksichtigten Personen ist kein Geburtsdatum hinterlegt -- deren Geburtstage fehlen in dieser Liste."
+msgstr "Para %1 de %2 personas consideradas no hay fecha de nacimiento registrada -- sus cumpleaños faltan en esta lista."

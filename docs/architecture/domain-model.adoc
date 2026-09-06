@@ -1104,3 +1104,126 @@ NOTE: This `[kuml]` block is not rendered or validated by any Gradle task in thi
 Asciidoctor plugin is wired into the build) -- its syntax was hand-verified against the existing
 blocks above (`classOf`/`enumOf`/`attribute(name=, type=)`/`association(source=, target=) { source
 { multiplicity(spec="..."); role="..." } }`) rather than compiled.
+
+== V1.4.4.2 — Member anniversaries (read view)
+
+No new table, no migration. `IMemberAnniversaryService.getUpcomingAnniversaries` is a pure,
+BOARD/ADMIN-only read across `member` alone (`dateOfBirth`, `joinedAt`, `status`, `anonymizedAt`) --
+no other table is touched.
+
+**Eligibility, not membership**: the set of members this view considers at all is
+`MemberStatusSets.ANNIVERSARY_ELIGIBLE` (`ACTIVE`, `DONOR`) -- deliberately WIDER than
+`ORGANIZATION_MEMBER` (`ACTIVE` alone). A `DONOR` supports this organization without holding formal
+membership, and the Design-Team review judged that a real reason to remind the board of a donor's
+anniversary too. `FRIEND` is deliberately excluded -- an unverified self-registration
+(see `LTR_ELIGIBLE` KDoc "Akzeptiertes Restrisiko") is not a relationship one congratulates.
+`anonymizedAt IS NULL` is a SEPARATE, explicit exclusion, not something inferred from `status`:
+`FoundationPersonalData.eraseMember` nulls `dateOfBirth` on erasure but leaves `joinedAt` and
+`status` untouched, so an erased member with a still-`ACTIVE` status would otherwise keep generating
+a membership anniversary row years after their DSGVO erasure -- an outcome the Design-Team review
+named explicitly as unacceptable.
+
+**One chronological list, not two**: birthdays and membership anniversaries share one
+`occursOn`-sorted list (a client-side kind filter narrows it, never two separate loaded lists) --
+the dominant ordering dimension is "when is this due", the kind is a secondary, form-only (never
+color-only) marker on each row.
+
+**Labelling follows status, not the field name**: a `MEMBERSHIP_ANNIVERSARY` row for a `DONOR`
+renders "N Jahre Förderer", never "N Jahre Mitgliedschaft" -- a `DONOR` never held formal
+membership, and a client rendering the field name unconditionally would let the board send a letter
+asserting a legal status a person never had. `AnniversaryEntryDto.memberStatus` carries the status
+into the DTO specifically so the label can be derived from it.
+
+**No birthday year is ever returned or shown**: `AnniversaryEntryDto.years` is already the derived
+number (age reached / years of affiliation); the exact date of birth stays in the member record
+where it belongs. This is restraint, not anonymization -- the full `dateOfBirth` is unchanged and
+fully visible on the member's own record; this aggregated view simply shows the minimum the task
+needs.
+
+**Coverage line is mandatory, not optional**: `dateOfBirth` is a nullable field, originally
+introduced as a Transparenzregister beneficial-owner attribute (V0.5.2), not a universally-collected
+membership attribute -- coverage is structurally incomplete. `membersWithoutDateOfBirth` (against
+`eligibleMemberCount`) is returned specifically so the client can say "N of M have no date of birth
+on file" rather than silently presenting an incomplete list as if it were complete.
+
+**Calendar-wraparound and leap-day arithmetic run entirely in Kotlin, never in SQL**:
+`AnniversaryCalendar.nextOccurrence` computes each member's next real calendar occurrence as an
+actual date >= today, then filters on `<= today + windowDays` -- a naive "month/day between X and Y"
+SQL predicate would silently return nothing across a year boundary (e.g. Dec 20 + 30 days). This
+also sidesteps this schema's own H2-vs-PostgreSQL dialect-parity discipline (see `DbClock` KDoc) for
+date arithmetic specifically, at member-table scale (~600 rows as of this wave; should this ever
+need reconsidering at a much larger scale, that threshold is roughly 50,000 members). A Feb-29
+anniversary in a non-leap year is shown on Feb 28 (`shiftedFromLeapDay = true`, `originalDate`
+stays Feb 29) -- this is a reminder, not a legal deadline computation.
+
+`windowDays` is validated server-side against `AnniversaryCalendar.MAX_WINDOW_DAYS` (90) --
+`BadRequestException` outside `1..90` -- a server invariant, not merely a client dropdown
+convenience; a caller bypassing the UI cannot silently widen the read.
+
+**Deliberately NOT part of this wave** (Design-Team review, Jobs): no CSV/PDF export (a second
+output path for personal data is its own future decision, not a button added incidentally here), no
+mail/notification dispatch of any kind, no free-form date-range picker (no reusable date-input
+component exists in this codebase yet, same limitation `CrmContactsScreen.kt`'s own KDoc documents;
+window presets close this gap without inventing one), family memberships, honors management,
+deceased-member workflow (each its own later sub-wave with its own scoping decision).
+
+[kuml, member-anniversaries, svg]
+----
+classDiagram(name = "Lapis Cloud Domain Model — Member Anniversaries read path (V1.4.4.2)") {
+
+    val memberStatus = enumOf(name = "MemberStatus") {
+        literal(name = "APPLICATION")
+        literal(name = "ACTIVE")
+        literal(name = "GUEST")
+        literal(name = "WITHDRAWN")
+        literal(name = "REJECTED")
+        literal(name = "FRIEND")
+        literal(name = "DONOR")
+        literal(name = "DECEASED")
+    }
+
+    val member = classOf(name = "Member") {
+        attribute(name = "id", type = "UUID")
+        attribute(name = "displayName", type = "String")
+        attribute(name = "status", type = memberStatus)
+        attribute(name = "joinedAt", type = "LocalDate")
+        attribute(name = "dateOfBirth", type = "LocalDate")
+        attribute(name = "anonymizedAt", type = "LocalDateTime")
+    }
+
+    val anniversaryEntryKind = enumOf(name = "AnniversaryEntryKind") {
+        literal(name = "BIRTHDAY")
+        literal(name = "MEMBERSHIP_ANNIVERSARY")
+    }
+
+    val anniversaryEmphasis = enumOf(name = "AnniversaryEmphasis") {
+        literal(name = "STANDARD")
+        literal(name = "FIRST_YEAR")
+        literal(name = "NOTABLE")
+        literal(name = "MAJOR")
+    }
+
+    val anniversaryEntry = classOf(name = "AnniversaryEntryDto") {
+        attribute(name = "kind", type = anniversaryEntryKind)
+        attribute(name = "memberId", type = "UUID")
+        attribute(name = "memberStatus", type = memberStatus)
+        attribute(name = "occursOn", type = "LocalDate")
+        attribute(name = "originalDate", type = "LocalDate")
+        attribute(name = "shiftedFromLeapDay", type = "Boolean")
+        attribute(name = "years", type = "Int")
+        attribute(name = "emphasis", type = anniversaryEmphasis)
+    }
+
+    // Member -> AnniversaryEntryDto is a computed read (AnniversaryCalendar), not a stored
+    // relationship -- filtered by MemberStatusSets.ANNIVERSARY_ELIGIBLE + anonymizedAt IS NULL,
+    // zero or two entries per member per query window (one birthday, one membership milestone).
+    association(source = member, target = anniversaryEntry) {
+        source { multiplicity(spec = "1"); navigable = false }
+        target { multiplicity(spec = "0..2"); role = "anniversaryEntries" }
+    }
+}
+----
+
+NOTE: This `[kuml]` block is not rendered or validated by any Gradle task in this repository (no
+Asciidoctor plugin is wired into the build) -- its syntax was hand-verified against the existing
+blocks above rather than compiled.

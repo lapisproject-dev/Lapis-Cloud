@@ -114,4 +114,23 @@ class MemberStatusSetsTest {
     fun membershipEnded_excludesDonor() {
         assertFalse(MemberStatus.DONOR in MemberStatusSets.MEMBERSHIP_ENDED)
     }
+
+    @Test
+    fun anniversaryEligible_isExactlyActiveAndDonor() {
+        assertEquals(setOf(MemberStatus.ACTIVE, MemberStatus.DONOR), MemberStatusSets.ANNIVERSARY_ELIGIBLE)
+    }
+
+    @Test
+    fun anniversaryEligible_excludesFriendGuestAndTerminalStatuses() {
+        setOf(
+            MemberStatus.FRIEND,
+            MemberStatus.GUEST,
+            MemberStatus.APPLICATION,
+            MemberStatus.WITHDRAWN,
+            MemberStatus.REJECTED,
+            MemberStatus.DECEASED,
+        ).forEach {
+            assertFalse(it in MemberStatusSets.ANNIVERSARY_ELIGIBLE)
+        }
+    }
 }

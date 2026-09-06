@@ -135,6 +135,40 @@ All notable changes to this project are documented here. Format follows
   (`PublicTransparencyReader.loadTopDonors`) in den gemeinsam genutzten
   `network.lapis.cloud.server.rpc.DonationIncomeAmount`, damit beide Sichten dieselbe Regel nutzen.
 
+**Geburtstage & Jubiläen je Mitglied (Welle V1.4.4.2)**
+
+- **Neue, rein lesende BOARD/ADMIN-Sicht** (`IMemberAnniversaryService.getUpcomingAnniversaries`,
+  keine Migration, keine neue Tabelle) -- eine chronologische Liste bevorstehender Geburtstage und
+  Mitgliedschafts-/Förderer-Jubiläen innerhalb eines wählbaren Zeitfensters (30/60/90 Tage, serverseitig
+  gedeckelt bei 90). Keine Selbstauskunft -- anders als die Beitragshistorie gibt es keinen fachlichen
+  Grund, einem Mitglied die gesammelte Geburtstagsliste aller anderen zu zeigen.
+- **Neues `MemberStatusSets.ANNIVERSARY_ELIGIBLE`** (`ACTIVE`, `DONOR`) -- bewusst WEITER als
+  `ORGANIZATION_MEMBER`: ein Förderer ist keine Vollmitgliedschaft, aber eine Person, der man zu einem
+  Jubiläum gratuliert. `FRIEND` bleibt aussen (unverifizierte Selbstregistrierung).
+- **Reine Kotlin-Kalenderarithmetik** (`AnniversaryCalendar`, ohne jede DB-/Ktor-Abhängigkeit): das
+  nächste tatsächliche Vorkommen wird immer als echtes Datum >= heute berechnet, dann gegen
+  `heute + windowDays` gefiltert -- ein naives "Monat/Tag zwischen X und Y"-SQL-Prädikat würde über
+  einen Jahreswechsel hinweg (z. B. 20. Dezember + 30 Tage) fälschlich nichts finden. Ein 29.02.-
+  Jubiläum wird in einem Nicht-Schaltjahr auf den 28.02. angezeigt (`shiftedFromLeapDay = true`, das
+  ursprüngliche Datum bleibt der 29.02.) -- eine Erinnerung, keine Rechtsfrist-Berechnung.
+- **`anonymizedAt IS NULL`-Ausschluss, separat vom Status geprüft**: eine DSGVO-Löschung setzt
+  `dateOfBirth` auf `null`, lässt `joinedAt`/`status` aber unverändert -- ohne diesen Filter würde ein
+  gelöschtes, weiterhin `ACTIVE` geführtes Mitglied jahrelang ein Mitgliedschaftsjubiläum erzeugen.
+- **Beschriftung folgt Status, nicht dem Feldnamen**: `AnniversaryEntryDto.memberStatus` ist Teil des
+  DTOs, damit ein `MEMBERSHIP_ANNIVERSARY`-Eintrag mit `memberStatus == DONOR` immer "N Jahre
+  Förderer" heisst, niemals "N Jahre Mitgliedschaft" -- ein Förderer war nie Vollmitglied.
+- **Kein Geburtsjahr im DTO**: nur das abgeleitete Alter bzw. die Zugehörigkeitsjahre (`years`), das
+  exakte Geburtsdatum bleibt im Mitgliedersatz.
+- **Abdeckungszeile ist Pflicht**: `membersWithoutDateOfBirth`/`eligibleMemberCount` machen sichtbar,
+  wenn `dateOfBirth` (ein nullable Transparenzregister-Feld) bei einem Teil der berücksichtigten
+  Mitglieder fehlt, statt eine unvollständige Liste stillschweigend als vollständig darzustellen.
+- **Ein-Mal-Jubiläen**: 1 Jahr ("erstes Jahr") oder jedes 5. Jahr -- kein Vielfaches von 5 und nicht
+  das erste Jahr erzeugt keine Mitgliedschafts-Jubiläumszeile.
+- **Ausdrücklich nicht in dieser Welle** (Design-Team-Review): kein CSV-/PDF-Export, kein Mail-/
+  Benachrichtigungsversand, kein freier Datumsbereich (Presets statt Freitext, gleiche Vereinfachung
+  wie beim CRM), Familienmitgliedschaften, Ehrungen und ein Sterbefall-Workflow -- jedes davon eine
+  eigene, spätere Scoping-Entscheidung.
+
 **Kontoauszugs-Import CSV/MT940, Welle V1.4.5.1 — Backend + automatische Beitragsverbuchung (Server-seitig; UI/i18n als Scope-Cut, siehe unten)**
 
 - **Neue Entitäten `bank_statement_import`/`bank_statement_line`** — ein hochgeladener

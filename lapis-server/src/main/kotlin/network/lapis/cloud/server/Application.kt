@@ -128,6 +128,7 @@ import network.lapis.cloud.server.rpc.FederationService
 import network.lapis.cloud.server.rpc.GovernanceService
 import network.lapis.cloud.server.rpc.LtrLedgerService
 import network.lapis.cloud.server.rpc.MailingService
+import network.lapis.cloud.server.rpc.MemberAnniversaryService
 import network.lapis.cloud.server.rpc.MemberFinancialHistoryService
 import network.lapis.cloud.server.rpc.MemberService
 import network.lapis.cloud.server.rpc.OrganizationSettingsService
@@ -178,6 +179,7 @@ import network.lapis.cloud.shared.rpc.IFederationService
 import network.lapis.cloud.shared.rpc.IGovernanceService
 import network.lapis.cloud.shared.rpc.ILtrLedgerService
 import network.lapis.cloud.shared.rpc.IMailingService
+import network.lapis.cloud.shared.rpc.IMemberAnniversaryService
 import network.lapis.cloud.shared.rpc.IMemberFinancialHistoryService
 import network.lapis.cloud.shared.rpc.IMemberService
 import network.lapis.cloud.shared.rpc.IOrganizationSettingsService
@@ -906,6 +908,7 @@ fun Application.module() {
         }
         registerService(IContributionService::class) { call -> ContributionService(call) }
         registerService(IMemberFinancialHistoryService::class) { call -> MemberFinancialHistoryService(call) }
+        registerService(IMemberAnniversaryService::class) { call -> MemberAnniversaryService(call = call) }
         registerService(IDocumentService::class) { call -> DocumentService(call) }
         registerService(IMailingService::class) { call -> MailingService(call) }
         registerService(IDirectMessageService::class) { call -> DirectMessageService(call) }

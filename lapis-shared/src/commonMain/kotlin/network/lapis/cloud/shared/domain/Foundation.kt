@@ -171,6 +171,23 @@ object MemberStatusSets {
      */
     val MEMBERSHIP_ENDED: Set<MemberStatus> =
         setOf(MemberStatus.WITHDRAWN, MemberStatus.REJECTED, MemberStatus.DECEASED)
+
+    /**
+     * Wem der Vorstand zum Geburtstag/Mitgliedschaftsjubiläum gratuliert (Welle V1.4.4.2). Bewusst
+     * WEITER als [ORGANIZATION_MEMBER]: ein Förderer ([MemberStatus.DONOR]) ist keine
+     * Vollmitgliedschaft, aber eine Person, der dieser Verein etwas verdankt -- ein Jubiläum "10
+     * Jahre Förderer" ist eine berechtigte Erinnerung. [MemberStatus.FRIEND] bleibt bewusst AUSSEN:
+     * eine unverifizierte Selbstregistrierung (siehe [LTR_ELIGIBLE] KDoc "Akzeptiertes Restrisiko")
+     * ist keine Beziehung, der man gratuliert. [MemberStatus.GUEST]/[MemberStatus.APPLICATION]/
+     * [MemberStatus.WITHDRAWN]/[MemberStatus.REJECTED]/[MemberStatus.DECEASED] ebenfalls aussen --
+     * keine laufende Beziehung (bei DECEASED zusätzlich pietätlos).
+     *
+     * Wichtig: ein Eintrag hier sagt NICHTS über den Rechtsstatus einer Beschriftung aus -- ein
+     * `ANNIVERSARY_ELIGIBLE`-Treffer mit `status == DONOR` darf nie als "N Jahre Mitgliedschaft"
+     * beschriftet werden, siehe `MemberAnniversaryOverviewDto`/`AnniversaryEntryDto` KDoc
+     * "Beschriftung folgt Status".
+     */
+    val ANNIVERSARY_ELIGIBLE: Set<MemberStatus> = setOf(MemberStatus.ACTIVE, MemberStatus.DONOR)
 }
 
 /**
