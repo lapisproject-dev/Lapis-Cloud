@@ -289,6 +289,17 @@ class MemberFamilyService(
                 MemberFamilyLinkTable.selectAll().where { MemberFamilyLinkTable.id eq linkUuid }.singleOrNull()
                     ?: throw NotFoundException("MemberFamilyLink $linkId not found")
             val familyUuid = row[MemberFamilyLinkTable.familyId]
+            val targetMemberId = row[MemberFamilyLinkTable.memberId]
+            // Security fix (MINOR, Peer-Schutz) -- this method never touches membership_tier_id (see
+            // KDoc below), so the self-target/ESCALATED_ROLES guard here is not about the tier-null
+            // side effect addFamilyMember/changePayer guard against -- it's the same peer-protection
+            // posture this file establishes everywhere else that mutates a family link: a BOARD
+            // caller should not be able to unilaterally sever a fellow ADMIN's/TREASURER's family
+            // membership without ADMIN involvement, purely to keep this method's authorization
+            // symmetric with its two siblings rather than being the one unguarded mutation path.
+            if (targetMemberId == current.memberId) throw ForbiddenException()
+            val targetRole = currentAccountRole(targetMemberId)
+            if (targetRole != null && targetRole in ESCALATED_ROLES) current.requireRole(AccountRole.ADMIN)
             // Setzt bewusst KEINEN Tarif -- siehe IMemberFamilyService.removeFamilyMember KDoc. Die
             // Familie bleibt bestehen, auch wenn sie danach leer oder zahlerlos ist.
             MemberFamilyLinkTable.deleteWhere { MemberFamilyLinkTable.id eq linkUuid }
@@ -318,16 +329,29 @@ class MemberFamilyService(
             // anything this method itself checks -- restated here structurally, consistent with its
             // two sibling methods.
             requireExistingEligibleMember(newPayerUuid)
+            // Security fix (MAJOR, TOCTOU): `.forUpdate()` on both reads -- without it, a concurrent
+            // `removeFamilyMember` deleting the very link either of these two SELECTs is about to
+            // read can commit in the gap between this plain SELECT and the UPDATE below. The UPDATE
+            // would then silently affect 0 rows (Exposed does not throw on a no-op UPDATE), and this
+            // method would go on to call MembershipTierAssignment.apply for a member who, by then, is
+            // no longer in this family at all -- nulling the tier of what may be a fully independent,
+            // ACTIVE, paying member with no error and no audit contradiction. `.forUpdate()` here
+            // forces this transaction to either see the row before the concurrent DELETE takes its
+            // lock (and finish first), or block until that DELETE commits and then correctly observe
+            // the row as gone -- same serialization idiom `currentAccountRole` below already
+            // establishes against `AccountTable`.
             val newPayerLink =
                 MemberFamilyLinkTable
                     .selectAll()
                     .where { (MemberFamilyLinkTable.familyId eq familyUuid) and (MemberFamilyLinkTable.memberId eq newPayerUuid) }
+                    .forUpdate()
                     .singleOrNull()
                     ?: throw BadRequestException("Member $newPayerMemberId is not a link of family $familyId")
             val oldPayerLink =
                 MemberFamilyLinkTable
                     .selectAll()
                     .where { (MemberFamilyLinkTable.familyId eq familyUuid) and (MemberFamilyLinkTable.role eq FamilyMemberRole.PAYER) }
+                    .forUpdate()
                     .singleOrNull()
 
             // Reihenfolge zwingend (S2 im Plan): erst den ALTEN Zahler demoten, dann den NEUEN
@@ -345,6 +369,11 @@ class MemberFamilyService(
                 if (oldPayerMemberId == current.memberId) throw ForbiddenException()
                 val oldPayerRole = currentAccountRole(oldPayerMemberId)
                 if (oldPayerRole != null && oldPayerRole in ESCALATED_ROLES) current.requireRole(AccountRole.ADMIN)
+                // No row-count check needed on this UPDATE: `oldPayerLink` was read via `.forUpdate()`
+                // above, in this SAME transaction -- Postgres holds that row's lock until this
+                // transaction commits or rolls back, so no concurrent DELETE/UPDATE can make this
+                // predicate match 0 rows between the read and here. Checking for 0 anyway would be
+                // dead defensive code for a state the lock has already made unreachable.
                 MemberFamilyLinkTable.update({ MemberFamilyLinkTable.id eq oldPayerLinkId }) {
                     it[role] = FamilyMemberRole.DEPENDENT
                     it[payerFamilyId] = null

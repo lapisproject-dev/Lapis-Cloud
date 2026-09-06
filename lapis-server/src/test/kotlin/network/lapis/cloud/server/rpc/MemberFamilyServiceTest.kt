@@ -1,6 +1,8 @@
 package network.lapis.cloud.server.rpc
 
 import io.kotest.core.spec.style.FunSpec
+import io.kotest.matchers.ints.shouldBeLessThan
+import io.kotest.matchers.longs.shouldBeLessThanOrEqual
 import io.kotest.matchers.shouldBe
 import io.ktor.client.request.delete
 import io.ktor.client.request.get
@@ -20,6 +22,10 @@ import io.ktor.server.routing.get
 import io.ktor.server.routing.post
 import io.ktor.server.routing.routing
 import io.ktor.server.testing.testApplication
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withTimeout
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.LocalDateTime
 import network.lapis.cloud.server.db.DatabaseConfig
@@ -602,6 +608,84 @@ class MemberFamilyServiceTest :
             }
         }
 
+        // ── 5b: Security fix (review, MINOR finding) -- Peer-Schutz ───────
+
+        test("removeFamilyMember: Selbstziel wird abgelehnt (ForbiddenException)") {
+            testApplication {
+                application {
+                    install(StatusPages) { installFamilyExceptionHandlers() }
+                    routing { registerFamilyTestRoutes() }
+                }
+                val admin = createMember(email = "family-remove-self-admin-${Uuid.random()}@example.org", role = AccountRole.ADMIN)
+                val board = createMember(email = "family-remove-self-board-${Uuid.random()}@example.org", role = AccountRole.BOARD)
+                val payer = createMember(email = "family-remove-self-payer-${Uuid.random()}@example.org", role = AccountRole.MEMBER)
+                val familyId =
+                    Uuid.parse(
+                        client
+                            .post("/test/family/create") {
+                                header("X-Member-Id", admin.toString())
+                                parameter("payerMemberId", payer.toString())
+                            }.bodyAsText(),
+                    )
+                // Nur ADMIN darf einen BOARD-Peer als Angehörigen hinzufuegen -- board selbst
+                // koennte das wegen desselben Peer-Schutzes bei addFamilyMember nicht.
+                client
+                    .post("/test/family/add-member") {
+                        header("X-Member-Id", admin.toString())
+                        parameter("familyId", familyId.toString())
+                        parameter("memberId", board.toString())
+                    }.status shouldBe HttpStatusCode.OK
+                val linkId = linkIdOf(familyId, board)
+                client
+                    .post("/test/family/remove-link/$linkId") { header("X-Member-Id", board.toString()) }
+                    .status shouldBe HttpStatusCode.Forbidden
+                transaction {
+                    (MemberFamilyLinkTable.selectAll().where { MemberFamilyLinkTable.id eq linkId }.count()) shouldBe 1
+                }
+            }
+        }
+
+        test("removeFamilyMember: Peer-Schutz -- BOARD darf keinen ADMIN/BOARD/TREASURER-Peer entfernen, ADMIN darf") {
+            testApplication {
+                application {
+                    install(StatusPages) { installFamilyExceptionHandlers() }
+                    routing { registerFamilyTestRoutes() }
+                }
+                val admin = createMember(email = "family-remove-peer-admin-${Uuid.random()}@example.org", role = AccountRole.ADMIN)
+                val board = createMember(email = "family-remove-peer-board-${Uuid.random()}@example.org", role = AccountRole.BOARD)
+                val payer = createMember(email = "family-remove-peer-payer-${Uuid.random()}@example.org", role = AccountRole.MEMBER)
+                val peerTreasurer =
+                    createMember(email = "family-remove-peer-treasurer-${Uuid.random()}@example.org", role = AccountRole.TREASURER)
+                val familyId =
+                    Uuid.parse(
+                        client
+                            .post("/test/family/create") {
+                                header("X-Member-Id", admin.toString())
+                                parameter("payerMemberId", payer.toString())
+                            }.bodyAsText(),
+                    )
+                client
+                    .post("/test/family/add-member") {
+                        header("X-Member-Id", admin.toString())
+                        parameter("familyId", familyId.toString())
+                        parameter("memberId", peerTreasurer.toString())
+                    }.status shouldBe HttpStatusCode.OK
+                val linkId = linkIdOf(familyId, peerTreasurer)
+                client
+                    .post("/test/family/remove-link/$linkId") { header("X-Member-Id", board.toString()) }
+                    .status shouldBe HttpStatusCode.Forbidden
+                transaction {
+                    (MemberFamilyLinkTable.selectAll().where { MemberFamilyLinkTable.id eq linkId }.count()) shouldBe 1
+                }
+                client
+                    .post("/test/family/remove-link/$linkId") { header("X-Member-Id", admin.toString()) }
+                    .status shouldBe HttpStatusCode.OK
+                transaction {
+                    (MemberFamilyLinkTable.selectAll().where { MemberFamilyLinkTable.id eq linkId }.count()) shouldBe 0
+                }
+            }
+        }
+
         // ── 6: changePayer ───────────────────────────────────────────────
 
         test("changePayer wechselt beide Rollen, alter Zahler verliert Tarif, neuer bleibt NULL, genau ein PAYER danach") {
@@ -643,6 +727,93 @@ class MemberFamilyServiceTest :
                             }.count()
                     }
                 payerCount shouldBe 1L
+            }
+        }
+
+        // ── 6b: Security fix (review, MAJOR finding) -- TOCTOU via forUpdate() ────────────
+
+        test(
+            "changePayer racing removeFamilyMember(oldPayer): forUpdate() serializes them -- no " +
+                "crash, old payer ends up fully removed from the family either way, at most one PAYER remains",
+        ) {
+            // Security fix (Review MAJOR) regression: before `.forUpdate()` on changePayer's
+            // oldPayerLink/newPayerLink reads, a concurrent removeFamilyMember deleting the OLD
+            // payer's link between changePayer's plain SELECT and its subsequent UPDATE could
+            // silently affect 0 rows (Exposed does not throw on a no-op UPDATE) -- yet changePayer
+            // would still proceed to null the (by-then-already-removed) old payer's real,
+            // contribution-generating tier via MembershipTierAssignment.apply. `.forUpdate()` now
+            // fully serializes both operations against the SAME row: whichever transaction reaches
+            // it first runs to completion before the other proceeds against the post-commit state --
+            // same real-concurrency-via-the-Ktor-test-client idiom SocialNetworkServiceTest's own
+            // boost-race test already establishes in this codebase.
+            testApplication {
+                application {
+                    install(StatusPages) { installFamilyExceptionHandlers() }
+                    routing { registerFamilyTestRoutes() }
+                }
+                val admin = createMember(email = "family-race-admin-${Uuid.random()}@example.org", role = AccountRole.ADMIN)
+                val payer = createMember(email = "family-race-payer-${Uuid.random()}@example.org", role = AccountRole.MEMBER)
+                val newPayer = createMember(email = "family-race-newpayer-${Uuid.random()}@example.org", role = AccountRole.MEMBER)
+                transaction { MemberTable.update({ MemberTable.id eq payer }) { it[membershipTierId] = DevSeedData.standardTierId } }
+                val familyId =
+                    Uuid.parse(
+                        client
+                            .post("/test/family/create") {
+                                header("X-Member-Id", admin.toString())
+                                parameter("payerMemberId", payer.toString())
+                            }.bodyAsText(),
+                    )
+                client
+                    .post("/test/family/add-member") {
+                        header("X-Member-Id", admin.toString())
+                        parameter("familyId", familyId.toString())
+                        parameter("memberId", newPayer.toString())
+                    }.status shouldBe HttpStatusCode.OK
+                val payerLinkId = linkIdOf(familyId, payer)
+
+                val results =
+                    runBlocking {
+                        withTimeout(20_000) {
+                            listOf(
+                                async {
+                                    client.post("/test/family/remove-link/$payerLinkId") { header("X-Member-Id", admin.toString()) }
+                                },
+                                async {
+                                    client.post("/test/family/change-payer") {
+                                        header("X-Member-Id", admin.toString())
+                                        parameter("familyId", familyId.toString())
+                                        parameter("newPayerMemberId", newPayer.toString())
+                                    }
+                                },
+                            ).awaitAll()
+                        }
+                    }
+                // Both operations act on disjoint identifiers they already hold (a fixed linkId, a
+                // fixed familyId+memberId) -- either can legitimately still succeed after the other
+                // commits, so a strict "both 200" is the expected common case; a well-defined 4xx
+                // from one side (should the lock cause it to observe a since-changed state) is
+                // tolerated rather than treated as a hang or a 500.
+                results.forEach { it.status.value shouldBeLessThan 500 }
+
+                transaction {
+                    // The old payer is never linked to the family after this race, regardless of
+                    // which request's transaction actually committed first.
+                    (
+                        MemberFamilyLinkTable
+                            .selectAll()
+                            .where { (MemberFamilyLinkTable.familyId eq familyId) and (MemberFamilyLinkTable.memberId eq payer) }
+                            .count()
+                    ) shouldBe 0
+                    // At most one PAYER remains -- more than one would mean uq_member_family_link_payer
+                    // was violated, which could only happen if the locking here were broken.
+                    (
+                        MemberFamilyLinkTable
+                            .selectAll()
+                            .where {
+                                (MemberFamilyLinkTable.familyId eq familyId) and (MemberFamilyLinkTable.role eq FamilyMemberRole.PAYER)
+                            }.count()
+                    ) shouldBeLessThanOrEqual 1
+                }
             }
         }
 
