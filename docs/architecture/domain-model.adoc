@@ -1164,8 +1164,9 @@ convenience; a caller bypassing the UI cannot silently widen the read.
 output path for personal data is its own future decision, not a button added incidentally here), no
 mail/notification dispatch of any kind, no free-form date-range picker (no reusable date-input
 component exists in this codebase yet, same limitation `CrmContactsScreen.kt`'s own KDoc documents;
-window presets close this gap without inventing one), family memberships, honors management,
-deceased-member workflow (each its own later sub-wave with its own scoping decision).
+window presets close this gap without inventing one), family memberships,
+deceased-member workflow (each its own later sub-wave with its own scoping decision). Honors
+management shipped as V1.4.4.3, see below.
 
 [kuml, member-anniversaries, svg]
 ----
@@ -1220,6 +1221,112 @@ classDiagram(name = "Lapis Cloud Domain Model — Member Anniversaries read path
     association(source = member, target = anniversaryEntry) {
         source { multiplicity(spec = "1"); navigable = false }
         target { multiplicity(spec = "0..2"); role = "anniversaryEntries" }
+    }
+}
+----
+
+NOTE: This `[kuml]` block is not rendered or validated by any Gradle task in this repository (no
+Asciidoctor plugin is wired into the build) -- its syntax was hand-verified against the existing
+blocks above rather than compiled.
+
+== V1.4.4.3 — Member honors (honors management)
+
+One new table, `member_honor` (`V21__member_honors.sql`, model in `41-member-honor.kuml.kts`) --
+records that the organization awarded a member an honor (Ehrenmitgliedschaft,
+Verdienst-/Treueauszeichnung, or a free-form "sonstige" category), on a given date, optionally
+naming who/what body awarded it, with a free-text note a board member can attach. Backed directly
+by `MemberHonorService` -- no separate Store/Policy pair, unlike `CrmContactStore`/
+`CrmContactPolicy` (see that class's own KDoc "Architektur-Entscheidung" for why: a single simple
+table with five validation rules and no concurrency problem does not warrant the extra
+indirection, the same shape `BoardMembershipService` already established for itself).
+
+**`category` (enum) and `title` (free text) both exist, deliberately**: `category` is the stable,
+filterable/reportable axis (four fixed literals); `title` is the volatile, human-authored display
+text a board minute actually used. Collapsing these into one field would either make
+filtering/reporting by kind impossible, or force every award into one of four generic labels with
+no room for the real wording. Same split `crm_contact.contact_type` (closed) vs.
+`crm_interaction.summary` (free text) already establishes one hop over.
+
+**No `revoked_at`/`revoked_reason` column**: aberkennung (revoking an honor) is a rare,
+exceptional, governance-relevant PROCESS -- a Vorstandsbeschluss -- not a flag flip on this row.
+Modelling it would additionally require deciding whether a revoked honor still counts in a public
+member roster or a printed Urkunde, neither of which this wave answers. If aberkennung is ever
+built, it is its own later wave's decision.
+
+**All fields are editable on update, not just `note`** -- a deliberate departure from
+`crm_interaction`'s append-only shape: an honor is a rare, deliberately-entered record a board
+member reviews before saving, not a high-volume interaction log. A mis-entered date or a typo'd
+title must be fully correctable, not only its free-text note.
+
+**`awarded_by` is a plain free-text column, never a member FK** -- the body that awarded an honor
+(the board, the Mitgliederversammlung, a named external party) very often cannot be represented as
+a single `member` row. `recorded_by` IS a member FK -- the operator who entered the row (always
+BOARD/ADMIN), tracked for the same accountability reason every other domain file's
+`created_by`/`recorded_by` column exists.
+
+**Hybrid DSGVO erasure, honoree role only** (`MemberHonorPersonalData`): the row itself
+(that an honor was awarded, when, of what category) is an Art. 5(2) DSGVO accountability record
+and is RETAINED regardless of erasure mode -- same posture `BoardMembershipPersonalData` already
+takes for board service history. `note`, however, is unconditionally nulled on the *honoree's*
+erasure (it is Vorstandskommentar über die Person). Erasing the *recorder* role does not touch
+`note` -- it is fachlich fremd to that role. `member_id` and `recorded_by` can coincide on the
+same row (a board member honoring themselves is not excluded by any FK constraint); the
+contributor counts rows via a single `OR` condition rather than summing two separate counts, so an
+overlapping row is never double-counted (see `MemberHonorPersonalData` KDoc "Row-counting").
+
+**No `dsgvo_audit_log` entry on `deleteHonor`**: unlike `CrmService.eraseContact`, `deleteHonor` is
+a plain data-correction DELETE for a mis-entered row (wrong member, duplicate entry) -- not an
+Art. 17 erasure. A `dsgvo_audit_log` entry would misrepresent what happened. ADMIN-only, both
+server-side (`current.requireRole(AccountRole.ADMIN)`) and client-side (the delete button is not
+rendered at all for a BOARD caller, mirroring `CrmContactsScreen`'s own posture).
+
+**No Selbstauskunft variant, same as V1.4.4.2**: `Routes.MEMBER_HONORS` is route-level
+`requireRole(BOARD, ADMIN)`, not `requireAuth` -- there is no fachlicher Grund for a member to see
+the organization's collected list of who was honored when.
+
+**Deliberately NOT part of this wave**: CSV/PDF export, Serienbrief/Urkundengenerierung, a
+link to the V1.4.4.2 anniversary automation (an honor is never auto-suggested from a milestone
+anniversary), an "aberkannt" state, a Selbstauskunft path, bulk/CSV import of historical honors,
+and any accounting-side booking. Each is its own later scoping decision.
+
+[kuml, member-honors, svg]
+----
+classDiagram(name = "Lapis Cloud Domain Model — Member Honors (V1.4.4.3)") {
+
+    val member = classOf(name = "Member") {
+        attribute(name = "id", type = "UUID")
+        attribute(name = "displayName", type = "String")
+    }
+
+    val memberHonorCategory = enumOf(name = "MemberHonorCategory") {
+        literal(name = "HONORARY_MEMBERSHIP")
+        literal(name = "SERVICE_AWARD")
+        literal(name = "LOYALTY_AWARD")
+        literal(name = "OTHER")
+    }
+
+    val memberHonor = classOf(name = "MemberHonor") {
+        attribute(name = "id", type = "UUID")
+        attribute(name = "category", type = memberHonorCategory)
+        attribute(name = "title", type = "String")
+        attribute(name = "awardedAt", type = "LocalDate")
+        attribute(name = "awardedBy", type = "String")
+        attribute(name = "note", type = "String")
+        attribute(name = "recordedAt", type = "LocalDateTime")
+    }
+
+    // Honoree role -- member_honor.member_id.
+    association(source = member, target = memberHonor) {
+        source { multiplicity(spec = "1"); navigable = false }
+        target { multiplicity(spec = "0..*"); role = "honorsReceived" }
+    }
+
+    // Recorder role -- member_honor.recorded_by. A second, independent association to the SAME
+    // Member class (both FKs target `member`, same posture BoardMembershipPersonalData's own
+    // two-role KDoc documents for `TransparenzregisterReminderTable.member_id`/`resolved_by`).
+    association(source = member, target = memberHonor) {
+        source { multiplicity(spec = "1"); navigable = false; role = "recordedBy" }
+        target { multiplicity(spec = "0..*"); role = "honorsRecorded" }
     }
 }
 ----

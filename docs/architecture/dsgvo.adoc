@@ -164,6 +164,37 @@ correctly, covered by `EventPersonalData` for its member-FK side (`coveredTableN
 self-service Auskunft/Löschung path for guests, plus an automatic retention limit for
 `guest_name`/`guest_email` (Art. 5(1)(e) DSGVO), is deferred to a follow-up wave.
 
+== Member honors (`member_honor`, Welle V1.4.4.3)
+
+`MemberHonorPersonalData` is an ordinary `MemberPersonalDataContributor` covering `member_honor`
+alone. The table carries a member in TWO roles — `member_id` (the honoree) and `recorded_by`
+(whoever entered the row, always BOARD/ADMIN) — and the two roles are treated differently on
+erasure, same "hybrid" posture `CommunicationPersonalData` already establishes for
+`direct_message.body` (sender vs. recipient):
+
+* The row itself (that an honor was awarded, when, of what category) is **retained regardless of
+  `ErasureMode`** — an Art. 5(2) DSGVO accountability record, same posture
+  `BoardMembershipPersonalData` already takes for board service history.
+* `note` — a free-text Vorstandskommentar über die honorierte Person — is **unconditionally nulled**
+  on the *honoree's* own erasure, unconditionally (not gated on `ErasureMode` the way
+  `direct_message.body` is), because there is no third party's own interest in this particular free
+  text the way a message recipient has an interest in their copy of a conversation.
+* Erasing the *recorder* role does **not** touch `note` — for the person who merely entered the row,
+  the note is fachlich fremd (it is not commentary about them); only the row's existence
+  (`recorded_by = memberId`) is retained as an accountability record of who entered it.
+
+`member_id` and `recorded_by` can coincide on the same row (a board member honoring themselves is
+not excluded by any FK constraint) — `MemberHonorPersonalData.eraseMember` computes its row total
+via a single `OR` condition rather than summing two separate `COUNT` queries, so an overlapping row
+is never double-counted. See that class's own KDoc "Row-counting, not naive double-counting" for
+the exact contract.
+
+`deleteHonor` (`IMemberHonorService`, ADMIN-only) is a plain data-correction DELETE for a
+mis-entered row and writes **no** `dsgvo_audit_log` entry — unlike `CrmService.eraseContact`, it is
+not an Art. 17 erasure, and logging it as one would misrepresent what happened. The only DSGVO
+erasure path for `member_honor` data is the ordinary member-wide Auskunft/Löschung workflow via
+`MemberHonorPersonalData`, never this RPC method.
+
 == See also
 
 * `network.lapis.cloud.server.dsgvo.PersonalDataContributor`/`PersonalDataRegistry`/`DataSubject` — the
@@ -171,6 +202,8 @@ self-service Auskunft/Löschung path for guests, plus an automatic retention lim
 * `network.lapis.cloud.server.dsgvo.PersonalDataCoverageTest` — the actual enforcement mechanism.
 * `network.lapis.cloud.server.dsgvo.CrmPersonalData` — the one contributor implementing both
   subject kinds.
+* `network.lapis.cloud.server.dsgvo.MemberHonorPersonalData` — the two-role, hybrid-erasure
+  contributor for `member_honor`.
 * `docs/architecture/domain-model.adoc` — the wider persistence-model documentation this file
   intentionally does not duplicate (this document is scoped to the DSGVO framework's own shape, not
   the CRM entity's full column-level schema — see `38-crm.kuml.kts` for that).

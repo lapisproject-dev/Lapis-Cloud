@@ -359,6 +359,27 @@ private fun renderMemberRosterRow(
             financesButton.title = tr("Beitragshistorie")
             financesButton.onClick { navigateTo(memberFinancesRoute(row.id)) }
         }
+
+        // Welle V1.4.4.3 "Mitgliederlebenszyklus: Ehrungsverwaltung" -- der zweite von zwei
+        // Einstiegen in MemberHonorsScreen.kt (der erste ist die board-weite Liste unter
+        // `Routes.MEMBER_HONORS` ohne Parameter). Gleicher Rollen-Kommentar wie beim
+        // `financesButton` oben: `/members` selbst ist bereits requireRole(BOARD, ADMIN), ein
+        // TREASURER erreicht diesen Screen also ohnehin nicht -- der Rollen-Check hier dokumentiert
+        // absichtlich die eigentlich beabsichtigte, engere Schwelle. Anders als `financesButton`
+        // (der KEIN `row.anonymized`-Gate hat, weil `MemberFinancialHistoryScreen` selbst mit einem
+        // "DSGVO-gelöscht"-Badge umgehen kann) wird dieser Knopf für ein anonymisiertes Mitglied
+        // deaktiviert -- `MemberHonorsScreen` hat keine eigene Anzeige-Logik für einen
+        // anonymisierten Zielmember (Welle-Plan §13 "S5").
+        if (AppState.hasRole(AccountRole.TREASURER, AccountRole.BOARD, AccountRole.ADMIN)) {
+            val honorsButton = actionsCell.button("", icon = "fas fa-medal", style = ButtonStyle.OUTLINESECONDARY)
+            honorsButton.title = tr("Ehrungen")
+            if (row.anonymized) {
+                honorsButton.disabled = true
+                honorsButton.title = tr("DSGVO-gelöscht")
+            } else {
+                honorsButton.onClick { navigateTo(memberHonorsRoute(row.id)) }
+            }
+        }
     }
 }
 

@@ -387,6 +387,17 @@ object Routes {
     // Mitglied die gesammelte Geburtstagsliste aller anderen zu zeigen). Lebt in der bestehenden
     // "Verwaltung"-Dropdown, direkt neben [EVENT_CHECKIN].
     const val MEMBER_ANNIVERSARIES = "/anniversaries"
+
+    // Welle V1.4.4.3 "Mitgliederlebenszyklus: Ehrungsverwaltung" -- BOARD/ADMIN, verified against
+    // `MemberHonorService.kt`: every method calls `current.requireRole(*HONOR_READ_WRITE_ROLES)`
+    // (BOARD, ADMIN), `deleteHonor` alone narrows to ADMIN -- same tier as [MEMBER_ANNIVERSARIES],
+    // route-level `requireRole`, NOT `requireAuth` -- es gibt bewusst KEINE Selbstauskunft-Variante
+    // (gleiche Design-Entscheidung wie bei [MEMBER_ANNIVERSARIES], kein fachlicher Grund, einem
+    // Mitglied die gesammelte Ehrungsliste aller anderen zu zeigen). Optionaler Query-Parameter
+    // `?member=<uuid>` im Hash-Fragment (Muster [MEMBER_FINANCES]) filtert auf ein einzelnes
+    // Mitglied; ohne Parameter = board-weite Liste. Lebt in der bestehenden "Verwaltung"-Dropdown,
+    // direkt neben [MEMBER_ANNIVERSARIES].
+    const val MEMBER_HONORS = "/honors"
 }
 
 private var appRouting: Routing? = null
@@ -676,6 +687,11 @@ fun initRouting(pageContainer: SimplePanel) {
     routing.kvOn(Routes.MEMBER_ANNIVERSARIES) {
         requireRole(routing, AccountRole.BOARD, AccountRole.ADMIN) {
             show(Routes.MEMBER_ANNIVERSARIES, ::renderMemberAnniversariesScreen)
+        }
+    }
+    routing.kvOn(Routes.MEMBER_HONORS) {
+        requireRole(routing, AccountRole.BOARD, AccountRole.ADMIN) {
+            show(Routes.MEMBER_HONORS) { container -> renderMemberHonorsScreen(container, hashQueryParam("member")) }
         }
     }
     routing.kvOn("/") {

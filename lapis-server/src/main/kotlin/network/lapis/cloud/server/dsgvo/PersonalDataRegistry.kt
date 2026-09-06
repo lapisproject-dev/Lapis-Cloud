@@ -51,6 +51,7 @@ object PersonalDataRegistry {
             WebhookPersonalData,
             CrmPersonalData,
             EventPersonalData,
+            MemberHonorPersonalData,
         )
 
     /**
