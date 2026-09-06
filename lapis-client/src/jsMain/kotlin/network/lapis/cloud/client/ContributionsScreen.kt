@@ -99,6 +99,11 @@ private fun renderOwnSummary(
     AppScope.launch {
         val summary = guarded { rpcService<IContributionService>().getMemberContributionSummary(memberId) } ?: return@launch
         panel.div(gettext("Offen: %1 | Bezahlt: %2 | Gesamt: %3", summary.totalOpen, summary.totalPaid, summary.totalDue))
+        // Welle V1.4.4.1 "Beitragshistorie" -- der zweite von zwei Einstiegen in
+        // MemberFinancialHistoryScreen.kt (der erste ist der Roster-Button in
+        // MemberAdministrationScreen.kt). memberFinancesRoute(null) -> die eigene Historie.
+        val historyLink = panel.button(tr("Vollständige Beitragshistorie"), style = ButtonStyle.LINK)
+        historyLink.onClick { navigateTo(memberFinancesRoute(null)) }
         if (summary.contributions.isEmpty()) {
             panel.p(tr("Keine Beiträge vorhanden."))
         } else {

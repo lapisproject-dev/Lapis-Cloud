@@ -9809,3 +9809,61 @@ msgstr "Widget di donazione: disponibile"
 #: src/jsMain/kotlin/network/lapis/cloud/client/EmbedIntegrationScreen.kt:85
 msgid "Spenden-Widget: nicht verfügbar (Grund: %1)"
 msgstr "Widget di donazione: non disponibile (motivo: %1)"
+
+# Welle V1.4.4.1 "Beitragshistorie" -- appended, not interleaved alphabetically (see CLAUDE.md i18n note).
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt
+msgid "Beitragshistorie"
+msgstr "Cronologia dei contributi"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberFinancialHistoryScreen.kt
+msgid "Ihre Beitragshistorie"
+msgstr "La tua cronologia dei contributi"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ContributionsScreen.kt
+msgid "Vollständige Beitragshistorie"
+msgstr "Cronologia completa dei contributi"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberFinancialHistoryScreen.kt
+msgid "Gezahlte Beiträge seit %1"
+msgstr "Contributi pagati dal %1"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberFinancialHistoryScreen.kt
+msgid "Gespendet"
+msgstr "Donato"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberFinancialHistoryScreen.kt
+msgid "Mitglied seit %1"
+msgstr "Socio dal %1"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberFinancialHistoryScreen.kt
+msgid "Förderer seit %1"
+msgstr "Sostenitore dal %1"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberFinancialHistoryScreen.kt
+msgid "Offene Beiträge bezahlen"
+msgstr "Paga i contributi in sospeso"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberFinancialHistoryScreen.kt
+msgid "Noch keine Zahlungen erfasst — Mitglied seit %1."
+msgstr "Nessun pagamento ancora registrato -- socio dal %1."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberFinancialHistoryScreen.kt
+msgid "Beitrag offen"
+msgstr "Contributo in sospeso"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberFinancialHistoryScreen.kt
+msgid "Lastschrift läuft"
+msgstr "Addebito in corso"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberFinancialHistoryScreen.kt
+msgid "Spende"
+msgstr "Donazione"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberFinancialHistoryScreen.kt
+msgid "%1 · Beiträge %2 · Spenden %3"
+msgstr "%1 · Contributi %2 · Donazioni %3"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt
+msgid "DSGVO-gelöscht"
+msgstr "Cancellato (GDPR)"

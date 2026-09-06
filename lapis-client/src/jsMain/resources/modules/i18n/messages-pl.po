@@ -9755,3 +9755,61 @@ msgstr "Widżet darowizn: dostępny"
 #: src/jsMain/kotlin/network/lapis/cloud/client/EmbedIntegrationScreen.kt:85
 msgid "Spenden-Widget: nicht verfügbar (Grund: %1)"
 msgstr "Widżet darowizn: niedostępny (powód: %1)"
+
+# Welle V1.4.4.1 "Beitragshistorie" -- appended, not interleaved alphabetically (see CLAUDE.md i18n note).
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt
+msgid "Beitragshistorie"
+msgstr "Historia składek"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberFinancialHistoryScreen.kt
+msgid "Ihre Beitragshistorie"
+msgstr "Twoja historia składek"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ContributionsScreen.kt
+msgid "Vollständige Beitragshistorie"
+msgstr "Pełna historia składek"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberFinancialHistoryScreen.kt
+msgid "Gezahlte Beiträge seit %1"
+msgstr "Składki opłacone od %1"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberFinancialHistoryScreen.kt
+msgid "Gespendet"
+msgstr "Przekazano darowizny"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberFinancialHistoryScreen.kt
+msgid "Mitglied seit %1"
+msgstr "Członek od %1"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberFinancialHistoryScreen.kt
+msgid "Förderer seit %1"
+msgstr "Sympatyk od %1"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberFinancialHistoryScreen.kt
+msgid "Offene Beiträge bezahlen"
+msgstr "Zapłać zaległe składki"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberFinancialHistoryScreen.kt
+msgid "Noch keine Zahlungen erfasst — Mitglied seit %1."
+msgstr "Nie odnotowano jeszcze żadnych płatności -- członek od %1."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberFinancialHistoryScreen.kt
+msgid "Beitrag offen"
+msgstr "Składka zaległa"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberFinancialHistoryScreen.kt
+msgid "Lastschrift läuft"
+msgstr "Trwa polecenie zapłaty"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberFinancialHistoryScreen.kt
+msgid "Spende"
+msgstr "Darowizna"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberFinancialHistoryScreen.kt
+msgid "%1 · Beiträge %2 · Spenden %3"
+msgstr "%1 · Składki %2 · Darowizny %3"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt
+msgid "DSGVO-gelöscht"
+msgstr "Usunięte (RODO)"

@@ -115,6 +115,12 @@ data class MemberContributionSummaryDto(
     val memberId: String,
     val totalDue: Decimal,
     val totalPaid: Decimal,
+    /**
+     * Bugfix, Welle V1.4.4.1 "Beitragshistorie" (Befund B-1): Summe über
+     * [ContributionStatusSets.OUTSTANDING] (`OPEN`/`OVERDUE`/`RETURNED`/`IN_DUNNING`), NICHT nur
+     * über [ContributionStatus.OPEN] -- vorher erschien ein bereits gemahntes Mitglied hier als
+     * schuldenfrei.
+     */
     val totalOpen: Decimal,
     val contributions: List<ContributionDto>,
 )

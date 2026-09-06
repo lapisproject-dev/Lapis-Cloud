@@ -369,6 +369,15 @@ object Routes {
     // [EVENT_CHECKIN_EVENT] is the door itself, parameterized like [SOCIAL_NETWORK_POST].
     const val EVENT_CHECKIN = "/event-checkin"
     const val EVENT_CHECKIN_EVENT = "/event-checkin/:id"
+
+    // Welle V1.4.4.1 "Beitragshistorie" -- `requireAuth`, NICHT `requireRole`: jedes authentifizierte
+    // Mitglied erreicht diese Route für die EIGENE Historie (Selbstauskunft), die engere
+    // TREASURER/BOARD/ADMIN-Schwelle für eine FREMDE Mitglieds-Id wird ausschließlich serverseitig in
+    // `MemberFinancialHistoryService` durchgesetzt (ForbiddenException) -- gleiche Haltung wie
+    // [DSGVO_RIGHTS]/[CONTRIBUTIONS], nicht die Accounting-Welle mit Route-Level-`requireRole`.
+    // Optionaler Query-Parameter `?member=<uuid>` im Hash-Fragment (Muster [PAYMENT_RETURN]); ohne
+    // Parameter = eigene Historie.
+    const val MEMBER_FINANCES = "/member-finances"
 }
 
 private var appRouting: Routing? = null
@@ -648,6 +657,11 @@ fun initRouting(pageContainer: SimplePanel) {
             } else {
                 show(Routes.EVENT_CHECKIN_EVENT) { container -> renderEventCheckInScreen(container, id) }
             }
+        }
+    }
+    routing.kvOn(Routes.MEMBER_FINANCES) {
+        requireAuth(routing) {
+            show(Routes.MEMBER_FINANCES) { container -> renderMemberFinancialHistoryScreen(container, hashQueryParam("member")) }
         }
     }
     routing.kvOn("/") {

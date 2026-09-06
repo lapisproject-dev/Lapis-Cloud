@@ -10,6 +10,7 @@ import network.lapis.cloud.server.db.generated.MemberTable
 import network.lapis.cloud.server.db.generated.PostingTable
 import network.lapis.cloud.server.db.generated.PublicRankingConsentEventTable
 import network.lapis.cloud.server.economy.LedgerBackedLtrBalanceProvider
+import network.lapis.cloud.server.rpc.DonationIncomeAmount
 import network.lapis.cloud.server.rpc.GeneralLedgerCalculator
 import network.lapis.cloud.server.rpc.PublicRankingConsentStore
 import network.lapis.cloud.shared.domain.CommitteeRole
@@ -19,7 +20,6 @@ import network.lapis.cloud.shared.domain.LedgerAccountType
 import network.lapis.cloud.shared.domain.LtrLedgerEntryType
 import network.lapis.cloud.shared.domain.MemberStatus
 import network.lapis.cloud.shared.domain.PublicRankingKind
-import org.jetbrains.exposed.v1.core.Case
 import org.jetbrains.exposed.v1.core.JoinType
 import org.jetbrains.exposed.v1.core.ResultRow
 import org.jetbrains.exposed.v1.core.and
@@ -30,7 +30,6 @@ import org.jetbrains.exposed.v1.core.isNotNull
 import org.jetbrains.exposed.v1.core.isNull
 import org.jetbrains.exposed.v1.core.lessEq
 import org.jetbrains.exposed.v1.core.sum
-import org.jetbrains.exposed.v1.core.times
 import org.jetbrains.exposed.v1.jdbc.select
 import org.jetbrains.exposed.v1.jdbc.selectAll
 import java.math.BigDecimal
@@ -186,7 +185,10 @@ internal object PublicTransparencyReader {
      * normalSide THEN amount ELSE -amount END` signed-sum mirrors
      * [GeneralLedgerCalculator.normalBalanceSideOf]'s sign rule in SQL instead of folding it in
      * Kotlin -- `normalSide` for `INCOME` is a compile-time-fixed [PostingSide] (not itself a
-     * per-row value), so it is safe to bake into the `CASE` as a literal comparison.
+     * per-row value), so it is safe to bake into the `CASE` as a literal comparison. Welle
+     * V1.4.4.1 "Beitragshistorie" extracted this `CASE`/`normalSide` pair into
+     * [network.lapis.cloud.server.rpc.DonationIncomeAmount] so the new per-member financial
+     * history reuses the exact same signed-amount computation rather than re-deriving it.
      */
     fun loadTopDonors(
         year: Int,
@@ -195,11 +197,7 @@ internal object PublicTransparencyReader {
         val cohortSize = PublicRankingConsentStore.effectiveCohortSize(PublicRankingKind.DONATIONS)
         val yearStart = LocalDate(year, 1, 1)
         val yearEnd = LocalDate(year, 12, 31)
-        val normalSide = GeneralLedgerCalculator.normalBalanceSideOf(LedgerAccountType.INCOME)
-        val signedAmount =
-            Case()
-                .When(PostingTable.side eq normalSide, PostingTable.amount)
-                .Else(PostingTable.amount times BigDecimal(-1))
+        val signedAmount = DonationIncomeAmount.signedAmount()
         val donorTotal = signedAmount.sum()
         val joined =
             JournalEntryTable

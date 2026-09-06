@@ -85,6 +85,63 @@ All notable changes to this project are documented here. Format follows
   Board-Anmeldelisten-Vollscreen (Neuausgabe läuft stattdessen über die aufgeklappte Zeile des
   Check-in-Screens).
 
+**Beitragshistorie je Mitglied (Welle V1.4.4.1)**
+
+- **Neue, rein lesende Sicht** (`IMemberFinancialHistoryService.getMemberFinancialHistory`, keine
+  Migration, keine neue Tabelle) — vier getrennt ausgewiesene Größen (gezahlte, erlassene und offene
+  Beiträge sowie Spenden), bewusst nie zu einer Gesamtsumme addiert, gruppiert nach Kalenderjahr auf
+  einer Zeitachse, die je Eintragsart unterschiedlich verankert ist (bezahlt → Zahlungsdatum,
+  erlassen/offen/Lastschrift-läuft → Zeitraum bzw. Fälligkeit, Spende → Buchungsdatum). Eine laufende
+  SEPA-Lastschrift (`DEBIT_SCHEDULED`/`DEBIT_SUBMITTED`, `ContributionStatusSets.DEBIT_IN_FLIGHT`)
+  erscheint als eigene fünfte Zeilenart `CONTRIBUTION_DEBIT_IN_FLIGHT` (verankert auf `dueDate`) —
+  weder bezahlt, erlassen noch (nach demselben Status-Set) wirklich offen, fließt sie deshalb in
+  keine der vier Summen ein, ohne die fünfte Zeile fiele ein Mitglied mit ausschließlich laufender
+  Lastschrift auf eine leere Historie zurück.
+- **Spenden-Netting über alle Journal-Einträge des Jahres statt pro Einzeleintrag** (Review-MAJOR-Fix):
+  `donationsTotal` und `FinancialHistoryYearDto.donationsTotal` netten jetzt je Mitglied/Jahr über
+  ALLE gebuchten, spenderzugeordneten `journal_entry`-Zeilen — nicht mehr pro einzelnem Eintrag —,
+  exakt wie `AccountingService.priorPostedDonationTotalThisYear` und
+  `PublicTransparencyReader.loadTopDonors` es bereits tun. Ein Storno/eine Korrektur (dieses Schema
+  kennt keinen `REVERSED`-Status, eine Korrektur ist immer ein zweiter Eintrag) rechnet sich so
+  gegen den Originaleintrag; nur Einträge mit positivem Eigen-Netto erscheinen als eigene Zeile, ein
+  auf null oder negativ nettender Eintrag zählt trotzdem korrekt in die Summe.
+- **Sichtbarkeitsregel für Jahresblöcke** (Review MINOR): ein Kalenderjahr erscheint in
+  `MemberFinancialHistoryDto.years` nur, wenn es entweder mindestens eine Anzeigezeile trägt ODER
+  einen von null verschiedenen genetteten Spenden-Saldo hat (`entries.isNotEmpty() ||
+  donationsTotal.signum() != 0`) — bewusst `!= 0`, nicht `> 0`: ein Jahr, dessen Spenden-Saldo durch
+  ein im FOLGEJAHR gebuchtes Storno negativ nettet, bleibt sichtbar (der Screen zeigt dafür die
+  Jahresüberschrift mit dem negativen Betrag, aber ohne Tabellenkörper — keine Zeile trägt diesen
+  Saldo). Ein Jahr ohne jede Zeile UND mit exakt auf null genettetem Saldo trägt dagegen keine
+  Information und erzeugt keinen Block; ohne diese Regel würde ein in sich vollständig
+  gegengebuchter `journal_entry` einen leeren Jahresblock erzeugen.
+- **Zwei Einstiege, ein Screen** (`MemberFinancialHistoryScreen`) — "Vollständige Beitragshistorie"
+  in der eigenen Beitragsübersicht (`ContributionsScreen`) und ein Beitragshistorie-Knopf pro Zeile
+  in der Mitgliederverwaltung (`MemberAdministrationScreen`, TREASURER/BOARD/ADMIN).
+- **Enge Zugriffsschwelle**: ein Mitglied sieht nur die eigene Historie; TREASURER/BOARD/ADMIN jede.
+  Ein fremdbezogener Lesezugriff wird per `kotlin-logging` protokolliert (Akteur/Rolle/betroffenes
+  Mitglied, nie ein Betrag) — bewusst kein Eintrag in der GoBD-Prüfprotokoll-Hashkette, da ein
+  Seitenaufruf keine buchungsrelevante Veränderung ist.
+- **Ausdrückliche Ausschlüsse**: Veranstaltungsgebühren (das Journal führt für sie keine
+  Zahleridentität) und `ExternalDonor`-Spenden erscheinen hier nie — ebenso wenig eine
+  organisationsweite Rangliste, ein CSV-/PDF-Export, oder Familienmitgliedschaften (vorgesehen für
+  eine spätere Welle). Bei Veranstaltungsgebühren ist der Ausschluss strukturell (`journal_entry
+  .donor_member_id` ist dafür immer `NULL`); bei `ExternalDonor`-Spenden dagegen NICHT
+  schema-garantiert — `journal_entry` trägt dafür keinen CHECK-Constraint, die gegenseitige
+  Exklusivität von `donor_member_id`/`external_donor_id` wird ausschließlich anwendungsseitig durch
+  `AccountingService.requireDonorMutualExclusionAndCategory` erzwungen (Review MINOR: eine frühere
+  Revision dieses Changelogs/der KDoc zitierte hierfür fälschlich einen inzwischen entfernten
+  Constraint auf `payment_checkout_session`).
+- Extrahiert die vorzeichenrichtige Ertrags-Betragsberechnung der öffentlichen Spenden-Rangliste
+  (`PublicTransparencyReader.loadTopDonors`) in den gemeinsam genutzten
+  `network.lapis.cloud.server.rpc.DonationIncomeAmount`, damit beide Sichten dieselbe Regel nutzen.
+
+### Fixed
+
+- **`getMemberContributionSummary.totalOpen` zählte nur `OPEN`** und ignorierte
+  `OVERDUE`/`RETURNED`/`IN_DUNNING` — ein bereits gemahntes Mitglied erschien in seiner eigenen
+  Beitragsübersicht mit "Offen: 0,00 €". Zählt jetzt über `ContributionStatusSets.OUTSTANDING`,
+  dieselbe Menge, die `PspCheckoutSection` bereits korrekt verwendet hat (Welle V1.4.4.1, Befund B-1).
+
 ## [0.18.0] — 2026-09-03
 
 ### Added

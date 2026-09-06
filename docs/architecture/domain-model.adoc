@@ -934,3 +934,173 @@ until re-consented). Owned, for DSGVO export/erasure, by `PublicRankingConsentPe
 only `PersonalDataContributor` in this codebase that HARD-DELETES its rows on erasure rather than
 anonymizing/retaining them, since the table only gates an ongoing disclosure of the member's own
 data rather than documenting a already-completed act of processing someone else's.
+
+== V1.4.4.1 — Member financial history (read view)
+
+No new table, no migration. `IMemberFinancialHistoryService.getMemberFinancialHistory` is a pure
+read across two already-existing table families — `contribution` (see the Contribution management
+diagram above) and `journal_entry ⋈ posting ⋈ ledger_account` (see the Accounting diagram above) —
+gated `MEMBER` (own id only) / `TREASURER`/`BOARD`/`ADMIN` (any member).
+
+Four amounts are returned, deliberately never summed into a `total`: `contributionsPaid` (Σ
+`contribution.paid_amount`, `PAID`), `contributionsWaived` (Σ `amount_due`, `WAIVED`),
+`contributionsOutstanding` (Σ `amount_due` over `ContributionStatusSets.OUTSTANDING` —
+`OPEN`/`OVERDUE`/`RETURNED`/`IN_DUNNING`), and `donationsTotal` (Σ the same
+vorzeichenrichtige-Ertragsbetragsspalte the public donor ranking uses, now extracted into
+`network.lapis.cloud.server.rpc.DonationIncomeAmount` so the two views can never derive the sign
+rule differently). `DEBIT_SCHEDULED`/`DEBIT_SUBMITTED` (`ContributionStatusSets.DEBIT_IN_FLIGHT`)
+appear in none of the four — neither paid, waived, nor (per that same status-set object) genuinely
+outstanding yet — but (Review MEDIUM fix) they still surface as their own row kind,
+`CONTRIBUTION_DEBIT_IN_FLIGHT`, dated by `due_date`, so a running SEPA collection is visible in the
+history instead of vanishing between the collection run's creation and its reconciliation.
+
+Each entry's place on the year-grouped timeline is chosen per kind, not by a single "the" date:
+`PAID` → `paid_at` (falling back to `period_start` for a pre-V1.2.1-bridge legacy row with no
+`paid_at`, logged once as a WARN — never a hard failure of the whole read), `WAIVED` →
+`period_start`, an outstanding or debit-in-flight line → `due_date`, a donation →
+`journal_entry.entry_date`.
+
+One exclusion is structural, not a filter that could be loosened later without a schema change:
+`EventFeePostingBridge` writes `journal_entry.donor_member_id = NULL` for every event-fee entry, so
+an event fee can never carry a payer identity to attribute it to a member in the first place. The
+`donor_member_id`/`external_donor_id` mutual exclusion is, by contrast, NOT a schema-level
+guarantee — `journal_entry` carries no CHECK constraint for it at all (an earlier revision of this
+paragraph wrongly cited `chk_payment_checkout_session_donor_identity`, which lived one hop upstream
+on `payment_checkout_session` and was itself dropped in `V18__events.sql`). The exclusivity is
+enforced purely application-side, by `AccountingService.requireDonorMutualExclusionAndCategory` and
+`DonationPostingBridge`, on every path that writes a `journal_entry` row. As long as that rule
+holds, `donor_member_id = :requestedMemberId` excludes every `external_donor`-attributed donation —
+a donation an `ExternalDonor` (no `Member` relationship at all, see the Accounting/Donor-CRM
+diagrams) made can never surface in a `Member`'s own financial history — but a future write path
+that bypasses `AccountingService` could violate it silently.
+
+A donation's row amount (and the two totals it feeds, `donationsTotal` and each
+`FinancialHistoryYearDto.donationsTotal`) is netted per member across ALL of that member's posted,
+donor-attributed `journal_entry` rows — not per individual entry. A Storno/correction booked as its
+own `journal_entry` (this schema has no `REVERSED` status; a correction is always a second, separate
+entry) nets against the original at the totals level exactly like
+`AccountingService.priorPostedDonationTotalThisYear` and `PublicTransparencyReader.loadTopDonors`
+already do for their own purposes — only entries whose OWN net is positive become a displayed row;
+an entry that nets to zero or negative (e.g. a full-amount Storno) still counts correctly toward the
+totals, it simply has no row of its own to show.
+
+A calendar year surfaces in `MemberFinancialHistoryDto.years` at all only if it carries at least one
+displayed row OR a non-zero netted `donationsTotal` for that year (`entries.isNotEmpty() ||
+donationsTotal.signum() != 0`) — deliberately `!= 0`, not `> 0`: a year whose own donation net is
+negative because a later year's Storno was booked against it stays visible, so its non-zero total is
+never silently dropped, even though that year then has zero entries of its own (the client renders
+the year heading with that negative amount but no table body for it). A year with no row at all AND
+an exactly-zero netted total carries no information and produces no block — without this rule, a
+`journal_entry` that is fully offset within itself (net exactly 0.00) would otherwise surface as an
+empty year block.
+
+A cross-member read (a TREASURER/BOARD/ADMIN viewing someone else's history) is recorded via
+`kotlin-logging`, one INFO line naming actor/actorRole/subject — never a booking-relevant GoBD
+audit-log entry (`AuditLogChainStateTable`'s hash chain exists for buchungsrelevante Veränderungen,
+and a page view changes nothing), and never with an amount in the log line.
+
+[kuml, member-financial-history, svg]
+----
+classDiagram(name = "Lapis Cloud Domain Model — Member Financial History read path (V1.4.4.1)") {
+
+    val member = classOf(name = "Member") {
+        attribute(name = "id", type = "UUID")
+        attribute(name = "displayName", type = "String")
+        attribute(name = "joinedAt", type = "LocalDate")
+        attribute(name = "friendSince", type = "LocalDate")
+        attribute(name = "anonymizedAt", type = "LocalDateTime")
+    }
+
+    val contributionStatus = enumOf(name = "ContributionStatus") {
+        literal(name = "OPEN")
+        literal(name = "PAID")
+        literal(name = "WAIVED")
+        literal(name = "OVERDUE")
+        literal(name = "DEBIT_SCHEDULED")
+        literal(name = "DEBIT_SUBMITTED")
+        literal(name = "RETURNED")
+        literal(name = "IN_DUNNING")
+    }
+
+    val contribution = classOf(name = "Contribution") {
+        attribute(name = "id", type = "UUID")
+        attribute(name = "memberId", type = "UUID")
+        attribute(name = "periodStart", type = "LocalDate")
+        attribute(name = "periodEnd", type = "LocalDate")
+        attribute(name = "amountDue", type = "Decimal")
+        attribute(name = "status", type = contributionStatus)
+        attribute(name = "paidAt", type = "LocalDateTime")
+        attribute(name = "paidAmount", type = "Decimal")
+        attribute(name = "dueDate", type = "LocalDate")
+    }
+
+    association(source = member, target = contribution) {
+        source { multiplicity(spec = "1"); navigable = false }
+        target { multiplicity(spec = "0..*"); role = "contributions" }
+    }
+
+    val journalEntryStatus = enumOf(name = "JournalEntryStatus") {
+        literal(name = "DRAFT")
+        literal(name = "POSTED")
+    }
+
+    val journalEntry = classOf(name = "JournalEntry") {
+        attribute(name = "id", type = "UUID")
+        attribute(name = "entryDate", type = "LocalDate")
+        attribute(name = "description", type = "String")
+        attribute(name = "status", type = journalEntryStatus)
+        attribute(name = "donorMemberId", type = "UUID")
+        attribute(name = "donorCategory", type = "String")
+    }
+
+    // donorMemberId is optional and mutually exclusive with externalDonorId (see the Accounting
+    // diagram's own JournalEntry) -- this read path never touches the ExternalDonor branch at all,
+    // that IS the point: donor_member_id = :requestedMemberId structurally excludes it.
+    association(source = member, target = journalEntry) {
+        source { multiplicity(spec = "0..1"); navigable = false }
+        target { multiplicity(spec = "0..*"); role = "donations" }
+    }
+
+    val postingSide = enumOf(name = "PostingSide") {
+        literal(name = "DEBIT")
+        literal(name = "CREDIT")
+    }
+
+    val posting = classOf(name = "Posting") {
+        attribute(name = "id", type = "UUID")
+        attribute(name = "journalEntryId", type = "UUID")
+        attribute(name = "ledgerAccountId", type = "UUID")
+        attribute(name = "side", type = postingSide)
+        attribute(name = "amount", type = "Decimal")
+    }
+
+    association(source = journalEntry, target = posting) {
+        aggregation = AggregationKind.COMPOSITE
+        source { multiplicity(spec = "1") }
+        target { multiplicity(spec = "0..*"); role = "postings" }
+    }
+
+    val ledgerAccountType = enumOf(name = "LedgerAccountType") {
+        literal(name = "ASSET")
+        literal(name = "LIABILITY")
+        literal(name = "EQUITY")
+        literal(name = "INCOME")
+        literal(name = "EXPENSE")
+    }
+
+    val ledgerAccount = classOf(name = "LedgerAccount") {
+        attribute(name = "id", type = "UUID")
+        attribute(name = "type", type = ledgerAccountType)
+    }
+
+    association(source = ledgerAccount, target = posting) {
+        source { multiplicity(spec = "1"); navigable = false }
+        target { multiplicity(spec = "0..*"); role = "postings" }
+    }
+}
+----
+
+NOTE: This `[kuml]` block is not rendered or validated by any Gradle task in this repository (no
+Asciidoctor plugin is wired into the build) -- its syntax was hand-verified against the existing
+blocks above (`classOf`/`enumOf`/`attribute(name=, type=)`/`association(source=, target=) { source
+{ multiplicity(spec="..."); role="..." } }`) rather than compiled.

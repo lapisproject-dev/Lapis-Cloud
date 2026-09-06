@@ -347,6 +347,18 @@ private fun renderMemberRosterRow(
         } else {
             editButton.onClick { openMemberEditorDialog(row, onChanged) }
         }
+
+        // Welle V1.4.4.1 "Beitragshistorie" -- der erste von zwei Einstiegen in
+        // MemberFinancialHistoryScreen.kt (der zweite ist der Link in ContributionsScreen.kt für
+        // die eigene Historie). `/members` selbst ist bereits requireRole(BOARD, ADMIN) -- ein
+        // TREASURER erreicht diesen Screen also ohnehin nicht; der Rollen-Check hier dokumentiert
+        // absichtlich die eigentlich beabsichtigte, engere Schwelle für den Fall, dass `/members`
+        // je für TREASURER geöffnet wird, und kostet nichts -- nicht als redundant entfernen.
+        if (AppState.hasRole(AccountRole.TREASURER, AccountRole.BOARD, AccountRole.ADMIN)) {
+            val financesButton = actionsCell.button("", icon = "fas fa-receipt", style = ButtonStyle.OUTLINESECONDARY)
+            financesButton.title = tr("Beitragshistorie")
+            financesButton.onClick { navigateTo(memberFinancesRoute(row.id)) }
+        }
     }
 }
 

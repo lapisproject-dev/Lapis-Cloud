@@ -306,6 +306,16 @@ class ContributionService(
         }
     }
 
+    /**
+     * **Bugfix, Befund B-1 (Design-Review V1.4.4.1 "Beitragshistorie"):** [totalOpen] used to sum
+     * only [ContributionStatus.OPEN] rows -- a contribution that had progressed to
+     * [ContributionStatus.OVERDUE]/[ContributionStatus.RETURNED]/[ContributionStatus.IN_DUNNING]
+     * (still genuinely owed, per [ContributionStatusSets.OUTSTANDING]) silently vanished from this
+     * summary's "offen" figure, even though `PspCheckoutSection.kt` already filtered its own donor-
+     * facing "still owed" check on [ContributionStatusSets.OUTSTANDING] correctly -- the two views
+     * of the same member's finances disagreed. Now sums the full [ContributionStatusSets.OUTSTANDING]
+     * set, matching [PspCheckoutSection]'s own posture.
+     */
     override suspend fun getMemberContributionSummary(memberId: String): MemberContributionSummaryDto {
         val current = resolveCurrentMember(call)
         val requestedId = memberId.toMemberUuid()
@@ -320,7 +330,7 @@ class ContributionService(
                     .map { it.toContributionDto() }
             val totalDue = contributions.sumAmount { it.amountDue }
             val totalPaid = contributions.filter { it.status == ContributionStatus.PAID }.sumAmount { it.paidAmount ?: it.amountDue }
-            val totalOpen = contributions.filter { it.status == ContributionStatus.OPEN }.sumAmount { it.amountDue }
+            val totalOpen = contributions.filter { it.status in ContributionStatusSets.OUTSTANDING }.sumAmount { it.amountDue }
             MemberContributionSummaryDto(
                 memberId = memberId,
                 totalDue = totalDue,
