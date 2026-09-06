@@ -293,5 +293,21 @@ classDiagram(name = "OrganizationSettings") {
             defaultValue = "ZWECKBETRIEB"
             stereotype("Column") { "columnName" to "event_income_sphere"; "sqlType" to "VARCHAR(34)" }
         }
+        // Welle V1.4.5.2 "DATEV-Format-Export". Die zwei Kopfzeilen-Pflichtangaben des DATEV-EXTF-
+        // Buchungsstapels (Felder 11/12), die der Steuerberater vergibt -- nicht der Verein. Beide
+        // nullable: solange sie unkonfiguriert sind, verweigert der Export mit einem benannten
+        // Blocker (kein stiller Teilexport). Teil des GENERISCHEN updateOrganizationSettings-
+        // Write-Sets, gleiche Stufe wie paymentBankAccountId -- kein Disclaimer-Gate, kein
+        // Haftungs-Toggle. Die Sachkontenlaenge (Kopfzeilenfeld 14) ist BEWUSST kein Attribut hier
+        // -- sie wird aus ledger_account.account_number abgeleitet, siehe
+        // DatevBuchungsstapelWriter KDoc.
+        attribute(name = "datevBeraterNummer", type = "Int") {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") { "columnName" to "datev_berater_nummer" }
+        }
+        attribute(name = "datevMandantNummer", type = "Int") {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") { "columnName" to "datev_mandant_nummer" }
+        }
     }
 }

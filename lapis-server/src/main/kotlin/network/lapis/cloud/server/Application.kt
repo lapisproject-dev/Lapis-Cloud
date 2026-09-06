@@ -86,6 +86,7 @@ import network.lapis.cloud.server.routes.registerBackupRoutes
 import network.lapis.cloud.server.routes.registerBankStatementRoutes
 import network.lapis.cloud.server.routes.registerConferenceRecordingRoutes
 import network.lapis.cloud.server.routes.registerCrmRoutes
+import network.lapis.cloud.server.routes.registerDatevRoutes
 import network.lapis.cloud.server.routes.registerDocumentRoutes
 import network.lapis.cloud.server.routes.registerDsgvoRoutes
 import network.lapis.cloud.server.routes.registerDunningRoutes
@@ -595,6 +596,14 @@ fun Application.module() {
     // budget shape as dunningIssueRateLimiter, because the RPC service and this raw Ktor route are
     // wired independently here.
     val dunningPreviewRateLimiter = FederationInboxRateLimiter(maxRequests = 10, window = 1.minutes)
+
+    // Welle V1.4.5.2 "DATEV-Format-Export" -- own instance, same budget shape as
+    // dunningPreviewRateLimiter/dunningIssueRateLimiter, because the raw Ktor download route and
+    // the RPC preview service are wired independently here (the RPC preview itself carries no rate
+    // limit of its own, same posture as every other read-only ACCOUNTING_READ_ROLES statement
+    // method -- only the byte-serializing file route, which does real per-request CSV rendering
+    // work, is limited).
+    val datevExportRateLimiter = FederationInboxRateLimiter(maxRequests = 10, window = 1.minutes)
 
     // Welle V1.3.2 "Webhooks" (ausgehend) -- WebhookConfig.load() fail-fasts on its own if
     // LAPIS_WEBHOOKS_ENABLED=true but LAPIS_SECRET_ENCRYPTION_KEY is missing/malformed (see that
@@ -1132,6 +1141,8 @@ fun Application.module() {
         // Welle V1.4.5.1 "Kontoauszugs-Import (CSV/MT940)".
         registerBankStatementRoutes(secretBox = bankStatementSecretBox, rateLimiter = bankStatementUploadRateLimiter)
         registerDunningRoutes(storageRoot = documentStorageRoot, previewRateLimiter = dunningPreviewRateLimiter)
+        // Welle V1.4.5.2 "DATEV-Format-Export".
+        registerDatevRoutes(exportRateLimiter = datevExportRateLimiter)
         registerBackupRoutes(database = DatabaseConfig.connect(), documentStorageRoot = documentStorageRoot)
         registerAuthRoutes(
             rateLimiter = loginRateLimiter,

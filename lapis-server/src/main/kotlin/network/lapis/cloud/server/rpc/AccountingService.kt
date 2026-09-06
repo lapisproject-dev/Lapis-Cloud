@@ -3,6 +3,8 @@ import io.ktor.server.application.ApplicationCall
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.LocalDateTime
 import kotlinx.serialization.json.Json
+import network.lapis.cloud.server.accounting.datev.DatevBuchungsstapelWriter
+import network.lapis.cloud.server.accounting.datev.buildDatevExportRequest
 import network.lapis.cloud.server.audit.AuditLogRecorder
 import network.lapis.cloud.server.db.DbClock
 import network.lapis.cloud.server.db.generated.CostCenterTable
@@ -24,6 +26,7 @@ import network.lapis.cloud.shared.domain.BalanceSheetDto
 import network.lapis.cloud.shared.domain.CostCenterDto
 import network.lapis.cloud.shared.domain.CostCenterInput
 import network.lapis.cloud.shared.domain.CostCenterReportDto
+import network.lapis.cloud.shared.domain.DatevExportPreviewDto
 import network.lapis.cloud.shared.domain.DonationDuty
 import network.lapis.cloud.shared.domain.DonationDutyReportDto
 import network.lapis.cloud.shared.domain.DonorCategory
@@ -81,6 +84,12 @@ private const val EXTERNAL_DONOR_LIST_LIMIT = 2000
 /** Smallest/largest calendar year [getAnnualFinancialStatement] accepts as a `fiscalYear`. */
 private val FISCAL_YEAR_RANGE = 1000..9999
 
+/** Mirrors `LedgerAccountTable.accountNumber` (`VARCHAR(10)`, see `V1__baseline.sql`) -- ASCII
+ * digits only, matching [LedgerAccountDto] KDoc ("SKR42 number whose leading digit is the
+ * Kontenklasse"). See [AccountingService.requireValidAccountNumberFormat] for why this is
+ * enforced here and not just by the column length. */
+private val ACCOUNT_NUMBER_FORMAT = Regex("^[0-9]{1,10}$")
+
 /**
  * SKR42 chart of accounts + double-entry bookkeeping (V0.3.1, chart swapped from SKR49 in
  * V0.3.1.1). Implements [IAccountingService] --
@@ -105,6 +114,7 @@ class AccountingService(
     override suspend fun createLedgerAccount(input: LedgerAccountInput): LedgerAccountDto {
         val current = resolveCurrentMember(call)
         current.requireRole(*TREASURY_ROLES)
+        requireValidAccountNumberFormat(input.accountNumber)
         requireReserveTypeOnlyOnEquity(type = input.type, reserveType = input.reserveType)
         requireCashRegisterOnlyOnAsset(type = input.type, isCashRegister = input.isCashRegister)
         return transaction {
@@ -1443,6 +1453,26 @@ class AccountingService(
     }
 
     /**
+     * Review Runde 4 MINOR: [DatevBuchungsstapelWriter.plan] only ever checks an account number's
+     * LENGTH (`VALID_ACCOUNT_LENGTH_RANGE`), never its character set, and its data-line rendering
+     * writes `Konto`/`Gegenkonto` UNQUOTED ("nackt", see that object's KDoc "Feldbelegung" table)
+     * straight into the DATEV data row. A `;`, `"`, CR or LF smuggled into an account number would
+     * therefore silently shift every DATEV field after it on export -- a stealth field-count
+     * corruption DATEV either rejects outright or silently misbooks. Enforced here, at the ONE
+     * place a [LedgerAccountTable] row is ever created (this
+     * class's lifecycle is create/deactivate/list only, see [LedgerAccountDto] KDoc), rather than
+     * trying to sanitize or re-quote it back out at export time -- the same "reject at the source"
+     * choice as [requireReserveTypeOnlyOnEquity]/[requireCashRegisterOnlyOnAsset] just below.
+     */
+    private fun requireValidAccountNumberFormat(accountNumber: String) {
+        if (!ACCOUNT_NUMBER_FORMAT.matches(accountNumber)) {
+            throw BadRequestException(
+                "accountNumber must consist of 1 to 10 ASCII digits, got '$accountNumber'",
+            )
+        }
+    }
+
+    /**
      * §62 AO [ReserveType] is only meaningful on an `EQUITY`-typed [LedgerAccountTable] row (see
      * [ReserveType] KDoc: reserves are modelled as ordinary equity accounts) -- this is a
      * cross-column rule that no single-row `CHECK` constraint can express, so it is enforced here,
@@ -1659,6 +1689,43 @@ class AccountingService(
             donorCategory = this[JournalEntryTable.donorCategory],
         )
     }
+
+    /**
+     * Role: TREASURER/BOARD/ADMIN. Welle V1.4.5.2 "DATEV-Format-Export" -- see
+     * [IAccountingService.previewDatevExport] KDoc for the full role-split rationale. `from > to`
+     * is a [BadRequestException] here (a static input-shape problem), never a
+     * [network.lapis.cloud.shared.domain.DatevExportBlockerDto] -- [DatevBuchungsstapelWriter.plan]
+     * assumes an already-ordered range.
+     */
+    override suspend fun previewDatevExport(
+        from: LocalDate,
+        to: LocalDate,
+    ): DatevExportPreviewDto {
+        val current = resolveCurrentMember(call)
+        current.requireRole(*ACCOUNTING_READ_ROLES)
+        if (from > to) throw BadRequestException("from ($from) must not be after to ($to)")
+        return transaction {
+            val request = buildDatevExportRequest(from = from, to = to, exportedBy = current.displayName())
+            val plan = DatevBuchungsstapelWriter.plan(request)
+            DatevExportPreviewDto(
+                from = from,
+                to = to,
+                entryCount = request.entries.size,
+                rowCount = plan.rows.size,
+                debitTotal = plan.debitTotal,
+                creditTotal = plan.creditTotal,
+                derivedSachkontenlaenge = plan.derivedSachkontenlaenge,
+                transliteratedEntryCount = plan.transliteratedEntryCount,
+                leadingZeroAccountCount = plan.leadingZeroAccountCount,
+                blockers = plan.blockers,
+                exportable = plan.exportable,
+            )
+        }
+    }
+
+    /** [CurrentMember] carries no display name of its own -- same "look it up by id" idiom every
+     * other `memberDisplayName(Uuid)` call in this class already uses. */
+    private fun CurrentMember.displayName(): String = memberDisplayName(memberId)
 }
 
 /**

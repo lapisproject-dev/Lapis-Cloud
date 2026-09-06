@@ -9926,3 +9926,113 @@ msgstr "29/02 · quest'anno il %1"
 #: src/jsMain/kotlin/network/lapis/cloud/client/MemberAnniversariesScreen.kt
 msgid "Für %1 von %2 berücksichtigten Personen ist kein Geburtsdatum hinterlegt -- deren Geburtstage fehlen in dieser Liste."
 msgstr "Per %1 persone su %2 considerate non è registrata alcuna data di nascita -- i loro compleanni mancano in questo elenco."
+
+# Welle V1.4.5.2 "DATEV-Format-Export" -- neue Strings, siehe FinancialReportsScreen.kt/AccountingLabels.kt/LedgerScreen.kt.
+#: src/jsMain/kotlin/network/lapis/cloud/client/FinancialReportsScreen.kt:79
+msgid "DATEV-Export"
+msgstr "Esportazione DATEV"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/FinancialReportsScreen.kt:118
+msgid "DATEV-Buchungsstapel-Export"
+msgstr "Esportazione del giornale di prima nota DATEV"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/FinancialReportsScreen.kt:120
+msgid "Von (JJJJ-MM-TT)"
+msgstr "Dal (AAAA-MM-GG)"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/FinancialReportsScreen.kt:123
+msgid "Prüfen"
+msgstr "Verifica"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/FinancialReportsScreen.kt:136
+msgid "Bitte Von- und Bis-Datum angeben (JJJJ-MM-TT) -- beide sind für den DATEV-Export Pflicht."
+msgstr "Indicare una data \"Dal\" e \"Al\" (AAAA-MM-GG) -- entrambe sono obbligatorie per l'esportazione DATEV."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/FinancialReportsScreen.kt:141
+msgid "Wird geprüft …"
+msgstr "Verifica in corso …"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/FinancialReportsScreen.kt:160
+msgid "Buchungen: %1"
+msgstr "Registrazioni: %1"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/FinancialReportsScreen.kt:161
+msgid "Zeilen: %1"
+msgstr "Righe: %1"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/FinancialReportsScreen.kt:162
+msgid "Σ Soll: %1"
+msgstr "Σ Dare: %1"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/FinancialReportsScreen.kt:163
+msgid "Σ Haben: %1"
+msgstr "Σ Avere: %1"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/FinancialReportsScreen.kt:165
+msgid "Sachkontenlänge: %1"
+msgstr "Lunghezza numero conto: %1"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/FinancialReportsScreen.kt:186
+msgid "Dieser Zeitraum kann nicht exportiert werden:"
+msgstr "Questo periodo non può essere esportato:"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/FinancialReportsScreen.kt:201
+#: src/jsMain/kotlin/network/lapis/cloud/client/FinancialReportsScreen.kt:206
+msgid "Buchungsstapel herunterladen (.csv)"
+msgstr "Scarica il giornale di prima nota (.csv)"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/FinancialReportsScreen.kt:169
+msgid "%1 Buchungstext(e) werden für DATEV umgeschrieben (Sonderzeichen außerhalb des Windows-1252-Zeichensatzes)."
+msgstr "%1 testo/i di registrazione verranno riscritti per DATEV (caratteri al di fuori del set Windows-1252)."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/FinancialReportsScreen.kt:175
+msgid "Hinweis: mindestens eine Kontonummer im Zeitraum beginnt mit einer führenden Null -- prüfen Sie, dass Ihr Kontenrahmen beim Steuerberater ohne führende Nullen geführt wird."
+msgstr "Nota: almeno un numero di conto in questo periodo inizia con uno zero iniziale -- verificare che il piano dei conti presso il commercialista sia gestito senza zeri iniziali."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AccountingLabels.kt:111
+msgid "Zeitraum überspannt ein Kalenderjahresende"
+msgstr "Il periodo attraversa un cambio di anno solare"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AccountingLabels.kt:112
+msgid "Berater-/Mandantennummer nicht konfiguriert"
+msgstr "Numero commercialista/cliente non configurato"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AccountingLabels.kt:113
+msgid "Unterschiedliche Kontonummer-Längen"
+msgstr "Lunghezze dei numeri di conto diverse"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AccountingLabels.kt:114
+msgid "Kontonummer-Länge außerhalb des gültigen Bereichs"
+msgstr "Lunghezza del numero di conto fuori dall'intervallo valido"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AccountingLabels.kt:115
+msgid "Buchung nicht abbildbar (mehrere Konten auf beiden Seiten)"
+msgstr "Registrazione non rappresentabile (più conti su entrambi i lati)"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AccountingLabels.kt:116
+msgid "Keine Buchungen im Zeitraum"
+msgstr "Nessuna registrazione nel periodo"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AccountingLabels.kt:117
+msgid "Zeitraum ergäbe zu viele Zeilen"
+msgstr "Il periodo produrrebbe troppe righe"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/LedgerScreen.kt:398
+msgid "Berater- und Mandantennummer erhalten Sie von Ihrem Steuerberater."
+msgstr "Il numero del commercialista e del cliente vengono forniti dal proprio commercialista."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/LedgerScreen.kt:403
+msgid "DATEV-Beraternummer"
+msgstr "Numero commercialista DATEV"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/LedgerScreen.kt:408
+msgid "DATEV-Mandantennummer"
+msgstr "Numero cliente DATEV"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/LedgerScreen.kt:426
+msgid "DATEV-Beraternummer ist keine gültige Zahl."
+msgstr "Il numero commercialista DATEV non è un numero valido."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/LedgerScreen.kt:430
+msgid "DATEV-Mandantennummer ist keine gültige Zahl."
+msgstr "Il numero cliente DATEV non è un numero valido."

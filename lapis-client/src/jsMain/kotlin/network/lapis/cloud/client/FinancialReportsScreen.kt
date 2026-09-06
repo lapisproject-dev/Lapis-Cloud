@@ -8,6 +8,7 @@ import io.kvision.html.button
 import io.kvision.html.div
 import io.kvision.html.h1
 import io.kvision.html.h2
+import io.kvision.html.link
 import io.kvision.html.p
 import io.kvision.i18n.gettext
 import io.kvision.i18n.tr
@@ -19,8 +20,10 @@ import kotlinx.coroutines.launch
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
+import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.AnnualFinancialStatementDto
 import network.lapis.cloud.shared.domain.BalanceSheetDto
+import network.lapis.cloud.shared.domain.DatevExportPreviewDto
 import network.lapis.cloud.shared.domain.IncomeStatementDto
 import network.lapis.cloud.shared.domain.StatementLineDto
 import network.lapis.cloud.shared.rpc.IAccountingService
@@ -69,6 +72,11 @@ fun renderFinancialReportsScreen(container: SimplePanel) {
     val guvButton = toggleRow.button(tr("GuV"), style = ButtonStyle.OUTLINEPRIMARY)
     val bilanzButton = toggleRow.button(tr("Bilanz"), style = ButtonStyle.OUTLINEPRIMARY)
     val jahresabschlussButton = toggleRow.button(tr("Jahresabschluss"), style = ButtonStyle.OUTLINEPRIMARY)
+    // Welle V1.4.5.2 "DATEV-Format-Export" -- fourth toggle, same row, no new navigation point or
+    // `Routes` constant: `Routes.FINANCIAL_REPORTS` is already `ACCOUNTING_READ_ROLES`-gated, which
+    // is exactly `DatevAuthzUi.PREVIEW_ROLES` (TREASURER/BOARD/ADMIN) -- see that object's KDoc for
+    // why the narrower file-download tier is still enforced INSIDE the view, not at the route level.
+    val datevButton = toggleRow.button(tr("DATEV-Export"), style = ButtonStyle.OUTLINEPRIMARY)
     val contentPanel = root.vPanel(spacing = 10)
 
     guvButton.onClick {
@@ -83,8 +91,121 @@ fun renderFinancialReportsScreen(container: SimplePanel) {
         contentPanel.removeAll()
         renderAnnualFinancialStatementView(contentPanel)
     }
+    datevButton.onClick {
+        contentPanel.removeAll()
+        renderDatevExportView(contentPanel)
+    }
 
     renderIncomeStatementView(contentPanel)
+}
+
+// ============================================================================================
+// DATEV-Export (Welle V1.4.5.2)
+// ============================================================================================
+
+/**
+ * Modeless "Prüfen"-then-review flow (Raskin/Tesler: no dialog) -- both date fields are PFLICHT
+ * (unlike the GuV/Kassenbuch filters' optional `from`), because [IAccountingService
+ * .previewDatevExport]'s KDoc explains WHY: the DATEV `Belegdatum` field carries no year, so the
+ * period must fit inside one calendar year. Pre-filled to Jan 1 of the current year through today,
+ * same "show a meaningful first render" reasoning [renderIncomeStatementView] already applies.
+ *
+ * The download link/button is rendered but `disabled` (not hidden) while `!exportable` -- a
+ * treasurer should see WHERE the export will eventually appear, not hunt for it once the period is
+ * fixed. BOARD never sees the download control at all -- see [DatevAuthzUi.canDownload].
+ */
+private fun renderDatevExportView(panel: SimplePanel) {
+    panel.h2(tr("DATEV-Buchungsstapel-Export"))
+    val role = AppState.session?.role
+    val filterControls = panel.dateRangeFilter(fromLabel = tr("Von (JJJJ-MM-TT)"), toLabel = tr("Bis (JJJJ-MM-TT)"))
+    filterControls.fromInput.value = "${currentYear()}-01-01"
+    filterControls.toInput.value = todayIso()
+    val checkButton = panel.button(tr("Prüfen"), style = ButtonStyle.OUTLINESECONDARY)
+    val errorBox =
+        panel.div().apply {
+            addCssClass("text-danger")
+            hide()
+        }
+    val resultPanel = panel.vPanel(spacing = 8)
+
+    fun check() {
+        errorBox.hide()
+        val from = filterControls.parseFrom()
+        val to = filterControls.parseTo()
+        if (from == null || to == null) {
+            errorBox.content = tr("Bitte Von- und Bis-Datum angeben (JJJJ-MM-TT) -- beide sind für den DATEV-Export Pflicht.")
+            errorBox.show()
+            return
+        }
+        resultPanel.removeAll()
+        resultPanel.p(tr("Wird geprüft …")) { addCssClasses("text-muted small") }
+        AppScope.launch {
+            val preview = guarded { rpcService<IAccountingService>().previewDatevExport(from, to) } ?: return@launch
+            resultPanel.removeAll()
+            renderDatevExportPreviewBody(resultPanel, preview, role)
+        }
+    }
+    checkButton.onClick { check() }
+    if (DatevAuthzUi.canPreview(role)) check()
+}
+
+private fun renderDatevExportPreviewBody(
+    panel: SimplePanel,
+    preview: DatevExportPreviewDto,
+    role: AccountRole?,
+) {
+    panel.div(periodRangeCaption(preview.from, preview.to)) { addCssClasses("text-muted small") }
+
+    val summaryRow = panel.hPanel(spacing = 16) { addCssClasses("flex-wrap") }
+    summaryRow.div(gettext("Buchungen: %1", preview.entryCount))
+    summaryRow.div(gettext("Zeilen: %1", preview.rowCount))
+    summaryRow.div(gettext("Σ Soll: %1", formatMoney(preview.debitTotal)))
+    summaryRow.div(gettext("Σ Haben: %1", formatMoney(preview.creditTotal)))
+    preview.derivedSachkontenlaenge?.let { length ->
+        summaryRow.div(gettext("Sachkontenlänge: %1", length))
+    }
+
+    if (preview.transliteratedEntryCount > 0) {
+        panel.div(
+            gettext(
+                "%1 Buchungstext(e) werden für DATEV umgeschrieben (Sonderzeichen außerhalb des Windows-1252-Zeichensatzes).",
+                preview.transliteratedEntryCount,
+            ),
+        ) { addCssClasses("text-muted small") }
+    }
+    if (preview.leadingZeroAccountCount > 0) {
+        panel.div(
+            tr(
+                "Hinweis: mindestens eine Kontonummer im Zeitraum beginnt mit einer führenden Null -- " +
+                    "prüfen Sie, dass Ihr Kontenrahmen beim Steuerberater ohne führende Nullen geführt wird.",
+            ),
+        ) { addCssClasses("text-warning small") }
+    }
+
+    if (preview.blockers.isNotEmpty()) {
+        panel.p(tr("Dieser Zeitraum kann nicht exportiert werden:")) { addCssClasses("fw-bold text-danger") }
+        preview.blockers.forEach { blocker ->
+            val blockerBox = panel.div { addCssClasses("text-danger small mb-1") }
+            blockerBox.div(datevExportBlockerLabel(blocker.kind)) { addCssClass("fw-bold") }
+            blockerBox.div(blocker.detail)
+        }
+    }
+
+    if (DatevAuthzUi.canDownload(role)) {
+        // `Link` has no `disabled` state of its own (unlike a form Button) -- while the period is
+        // NOT exportable, this renders the SAME caption as plain, non-clickable text instead of an
+        // anchor, so a treasurer sees WHERE the download will appear without a dead link that would
+        // just come back 409 if clicked.
+        if (DatevAuthzUi.canDownloadNow(role, preview.exportable)) {
+            panel.link(
+                tr("Buchungsstapel herunterladen (.csv)"),
+                url = DatevHttp.buchungsstapelUrl(preview.from, preview.to),
+                target = "_blank",
+            )
+        } else {
+            panel.div(tr("Buchungsstapel herunterladen (.csv)")) { addCssClasses("text-muted") }
+        }
+    }
 }
 
 // ============================================================================================

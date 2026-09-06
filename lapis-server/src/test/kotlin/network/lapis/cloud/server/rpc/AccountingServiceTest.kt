@@ -5,6 +5,7 @@ import io.kotest.matchers.shouldBe
 import io.kotest.matchers.shouldNotBe
 import io.ktor.client.request.get
 import io.ktor.client.request.header
+import io.ktor.client.request.parameter
 import io.ktor.client.request.post
 import io.ktor.client.statement.bodyAsText
 import io.ktor.http.HttpStatusCode
@@ -1773,6 +1774,35 @@ class AccountingServiceTest :
                         "/test/create-ledger-account?number=0961&name=Falsch&class=4&type=INCOME&isCashRegister=true",
                     ) { header("X-Member-Id", treasurer.toString()) }
                 response.status shouldBe HttpStatusCode.BadRequest
+
+                val countAfter = transaction { LedgerAccountTable.selectAll().count() }
+                countAfter shouldBe countBefore
+            }
+        }
+
+        test(
+            "createLedgerAccount rejects an accountNumber containing a semicolon or a quote with BadRequest; " +
+                "nothing persisted (Review Runde 4 MINOR -- DatevBuchungsstapelWriter writes Konto/Gegenkonto unquoted)",
+        ) {
+            testApplication {
+                application {
+                    install(StatusPages) { installAccountingExceptionHandlers() }
+                    routing { registerAccountingTestRoutes() }
+                }
+                val treasurer = createTestMember("acct-treasurer-format-invalid@example.org", AccountRole.TREASURER)
+                val countBefore = transaction { LedgerAccountTable.selectAll().count() }
+
+                listOf("12;34", "12\"34").forEach { malformedAccountNumber ->
+                    val response =
+                        client.post("/test/create-ledger-account") {
+                            header("X-Member-Id", treasurer.toString())
+                            parameter("number", malformedAccountNumber)
+                            parameter("name", "Unterwandert")
+                            parameter("class", "1")
+                            parameter("type", "ASSET")
+                        }
+                    response.status shouldBe HttpStatusCode.BadRequest
+                }
 
                 val countAfter = transaction { LedgerAccountTable.selectAll().count() }
                 countAfter shouldBe countBefore

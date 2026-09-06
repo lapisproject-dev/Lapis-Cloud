@@ -1,0 +1,233 @@
+= DATEV Format Export — Welle V1.4.5.2
+:description: DATEV-EXTF-Buchungsstapel export — field layout, encoding, and the alles-oder-nichts export rule.
+:toc:
+:toc-placement: preamble
+:icons: font
+
+== Context
+
+`docs/architecture/bank-statement-import.adoc` (Welle V1.4.5.1) named DATEV export as a deliberate
+scope-cut. This wave closes it: a read-only export of `[from, to]`'s `POSTED` journal entries as a
+DATEV-EXTF-Buchungsstapel CSV file, the format DATEV's own `pro`/`Kanzlei-Rechnungswesen` products
+import directly. No new table exists for it — the export reads `journal_entry`/`posting`/
+`ledger_account` exactly as they already stand; the only schema change is two nullable columns on
+`organization_settings` (`datev_berater_nummer`/`datev_mandant_nummer`) the DATEV header itself
+requires.
+
+**Client scope-cut, deliberate**: DATEV Connect (a live API integration), Debitoren-/
+Kreditorenkonten (accounts-receivable/-payable sub-ledgers), USt-Schlüssel (VAT codes),
+Kostenstellenübergabe (cost-center hand-off into DATEV's own KOST1/KOST2 fields), an abweichendes
+Wirtschaftsjahr (a fiscal year other than the calendar year), and re-export/duplicate-marking are
+all out of scope — see the sections below for why each one specifically does not exist yet.
+
+== Format basis (byte-verified)
+
+Verified against the `ledermann/datev` reference `EXTF_Buchungsstapel.csv` sample, byte-measured
+with `python3` before implementation:
+
+[cols="1,3"]
+|===
+| Encoding | **Windows-1252**, never ISO-8859-1 — the fixed column-header row itself carries an
+en-dash (`Beleginfo – Art 1`, byte `0x96`), which is a C1 control byte under ISO-8859-1.
+| Line endings | CRLF after every line, including the last.
+| BOM | None.
+| Header row | 31 fields (30 semicolons).
+| Column-name row | 125 fields (124 semicolons), no trailing semicolon (last field
+`Abw. Skontokonto` is non-empty).
+| Data rows | 125 fields (124 semicolons); the trailing semicolon a data row visually ends with is
+simply the natural result of its 125th field (`Abw. Skontokonto`) being empty — both row shapes are
+produced by the exact same `fields.joinToString(";")`.
+| `Belegdatum` (data row, field 10) | **TTMM** — four digits, no year.
+| Header dates (fields 15/16, WJ-Beginn field 13) | **JJJJMMTT** — eight digits, full year first.
+This is a DIFFERENT format from `Belegdatum` above; do not conflate the two.
+| Amount (field 1) | Comma decimal separator, always positive, no thousands separator, unquoted.
+|===
+
+CAUTION: An earlier draft of this feature's task description said "date format TTMMJJJJ" for both
+the header dates and `Belegdatum`. That is wrong for `Belegdatum`, which is genuinely four-digit
+TTMM with no year at all — and it is the reason a DATEV-Buchungsstapel export can never cover a
+period spanning a calendar-year boundary (see "Alles-oder-nichts" below).
+
+== Field layout (data row, 125 fields total)
+
+Only seven of the 125 fields are ever populated. Everything else — including three fields easy to
+mistake for populated — stays empty:
+
+[cols="1,2,3,1"]
+|===
+| # | Field | Value | Quoting
+
+| 1 | Umsatz (amount) | Absolute value, comma decimal separator | unquoted
+| 2 | Soll/Haben-Kennzeichen | `S` for a DEBIT row, `H` for a CREDIT row | quoted
+| 7 | Konto | The row's own account number, verbatim (leading zeros preserved) | unquoted
+| 8 | Gegenkonto | The row's contra account number, verbatim | unquoted
+| 9 | BU-Schlüssel | **Empty** — Lapis tracks no VAT/Buchungsschlüssel codes; guessing one would
+mis-book the entry at the tax advisor's end | —
+| 10 | Belegdatum | TTMM | unquoted
+| 11 | Belegfeld 1 | The journal entry's voucher reference, filtered to
+`[A-Za-z0-9$%&*+-/]`, truncated to 36 characters | quoted
+| 14 | Buchungstext | The journal entry's description, CP1252-sanitized, truncated to 60 characters
+| quoted
+| 37 | KOST1 – Kostenstelle | **Empty** — Lapis cost centers have no agreed mapping to the tax
+advisor's own KOST1/KOST2 scheme yet; an unknown KOST1 value is a hard DATEV import failure | —
+| 114 | Festschreibung | **Empty on the DATA row** — not to be confused with the HEADER row's own
+field 21, also called Festschreibung, which this export always sets to `0` (see below) | —
+|===
+
+== Sammelbuchung (collective-entry) row derivation
+
+A DATEV data row carries exactly one `Konto` and one `Gegenkonto`. `DatevBuchungsstapelWriter.plan`
+derives rows from a journal entry's postings by **aggregating multiple postings on the same
+account of the same side into one account** first, then classifying:
+
+* **1:1** (one DEBIT account, one CREDIT account) → one row.
+* **n:1 / 1:n** (one side has exactly one account, the other has several) → one row per account on
+the "many" side, each carrying the single account of the other side as its contra account.
+* **n:m** (more than one account on *both* sides) → the format cannot express this at all. The
+whole entry is reported as `UNMAPPABLE_MANY_TO_MANY_ENTRY` and blocks the export — see
+"Alles-oder-nichts" below.
+
+== Header row (31 fields)
+
+[source]
+----
+"EXTF";700;21;"Buchungsstapel";13;{generatedAt};;"LC";"{exportedBy}";;{berater};{mandant};{JJJJ}0101;{sachkontenlaenge};{from};{to};"{organizationName}";;1;;0;"EUR";;;;;;;;;
+----
+
+* Field 5 (`13`) and field 3 (`21`) are DATEV's own fixed format-version constants for a
+Buchungsstapel, not Lapis-specific.
+* Field 6 is a 17-digit `yyyyMMddHHmmssSSS` timestamp, taken from `DbClock.nowLocalDateTime()` —
+never `System.currentTimeMillis()` (same testability rule this codebase applies everywhere a
+timestamp is captured).
+* Field 13 (`{JJJJ}0101`) is the Wirtschaftsjahr-Beginn — hard-coded to 1 January of the export
+period's own year. Lapis assumes Geschäftsjahr = Kalenderjahr everywhere (see
+`IAccountingService.getAnnualFinancialStatement` KDoc) — an association with a genuinely deviating
+fiscal year would need this hard-coded assumption revisited, which is out of scope here.
+* Field 14 (Sachkontenlänge) is **derived**, never entered by an ADMIN: the one common digit-length
+of every account number the export actually uses. A mixed-length period (`ACCOUNT_NUMBER_LENGTH`)
+or an out-of-range length (`ACCOUNT_NUMBER_LENGTH_OUT_OF_RANGE`, valid range 4–8) blocks the
+export rather than guessing.
+* Field 21 (Festschreibung, **header row**) is always `0` — do not confuse this with the data row's
+own field 114 of the same name (see the field table above).
+
+== Alles-oder-nichts (all-or-nothing)
+
+`DatevBuchungsstapelWriter.plan` collects **every** applicable blocker for a period — it never
+stops at the first one, so a treasurer sees the whole picture in one preview call. If
+`blockers.isEmpty()` is false, the export is refused outright: `GET
+/api/accounting/datev/buchungsstapel.csv` answers `409 Conflict` with the blocker list as plain
+text, and produces no file at all — never a partial or best-effort one.
+
+[cols="1,3"]
+|===
+| Blocker | Cause
+| `PERIOD_CROSSES_CALENDAR_YEAR` | `from.year != to.year` — `Belegdatum` (TTMM) carries no year.
+| `BERATER_MANDANT_NOT_CONFIGURED` | `OrganizationSettingsDto.datevBeraterNummer`/
+`datevMandantNummer` is unset.
+| `MIXED_ACCOUNT_NUMBER_LENGTHS` | Not every account number used in the period has the same digit
+length.
+| `ACCOUNT_NUMBER_LENGTH_OUT_OF_RANGE` | The one common length found is outside DATEV's 4–8 digit
+range.
+| `ACCOUNT_NUMBER_CONTAINS_INVALID_CHARACTERS` | An account/contra-account used in the period
+contains a non-digit character (`;`, `"`, CR, LF, …). New accounts are rejected at creation time
+(`AccountingService.requireValidAccountNumberFormat`), but this catches an account number that
+predates that guard — `Konto`/`Gegenkonto` are rendered UNQUOTED, so such a character would
+silently shift every following field in the row.
+| `UNMAPPABLE_MANY_TO_MANY_ENTRY` | A journal entry has more than one account on both the DEBIT and
+CREDIT side.
+| `EMPTY_PERIOD` | No `POSTED` journal entries fall inside `[from, to]`.
+| `TOO_MANY_ROWS` | The period would produce more than `DatevBuchungsstapelWriter.MAX_ROWS`
+(50,000) rows — a DoS backstop, not a realistic real-world case.
+|===
+
+Below `plan`'s own `TOO_MANY_ROWS` blocker sits one more, lower-level DoS backstop:
+`buildDatevExportRequest`'s `MAX_TOTAL_POSTINGS` (200,000) bounds the total number of POSTINGS
+loaded across the whole period, independent of `MAX_ROWS`'s entry-count cap — a single
+Sammelbuchung entry can carry an arbitrary number of postings, so the entry cap alone cannot bound
+memory against one pathological entry. Exceeding it throws a `ConflictException` (caught and turned
+into `409 Conflict` by the file route, propagated as-is through the RPC preview) rather than a
+`DatevExportBlockerDto`, since it is a technical guard against a data shape `plan` never even gets
+to see, not a business rule.
+
+`IAccountingService.previewDatevExport` (TREASURER/BOARD/ADMIN) runs the exact same `plan` call the
+file route (TREASURER/ADMIN only, see "Role split" below) uses — the preview can never claim a
+period is exportable when the file route would in fact refuse it, because both call the same
+`buildDatevExportRequest` + `DatevBuchungsstapelWriter.plan` functions inside their own
+transaction.
+
+== Character encoding
+
+`network.lapis.cloud.server.accounting.datev.DatevCharacterSet.sanitize` prepares every free-text
+field (Buchungstext, the exporting member's name, the organization name) for Windows-1252.
+Belegfeld 1 is deliberately NOT one of them — it never runs through `sanitize` at all, only through
+its own `[A-Za-z0-9$%&*+-/]` allow-list regex plus a leading-formula-trigger strip (see field 11 in
+the table above and "CSV/formula injection" below); a voucher reference is meant to match an
+external document's ID exactly, not gain the typographic folding a free-text description benefits
+from.
+
+* A character CP1252 already encodes natively (this includes German umlauts, `ß`, and most
+Latin-1 accented letters — CP1252 is a superset of ISO-8859-1's letters) passes through unchanged.
+* A small set of typographic characters (`€`, curly quotes, en/em dash, ellipsis, bullet, NBSP) is
+folded to a plain-ASCII equivalent **even though CP1252 can represent most of them natively** — a
+deliberately conservative choice against any downstream tool that only understands the ISO-8859-1
+subset.
+* A character with no CP1252 representation at all (e.g. a Czech `ř`, a Cyrillic or CJK character)
+is first NFD-decomposed and its combining marks stripped, keeping the result only if the stripped
+base character IS CP1252-safe (`Dvořák` → `Dvorák`, since `á` is already native); otherwise the
+character is **dropped entirely**.
+* The default `CharsetEncoder` behaviour of silently substituting `?` is never used — a
+Buchungstext containing a stray `?` an accountant did not type is worse than one silently missing a
+character it could never represent.
+* `DatevExportPreviewDto.transliteratedEntryCount` reports how many journal entries had at least one
+character folded or dropped this way, so a treasurer can spot-check before downloading.
+
+=== CSV/formula injection (OWASP)
+
+A DATEV Buchungsstapel crosses a trust boundary to an EXTERNAL Steuerberater who both opens the
+file directly in Excel/LibreOffice AND re-imports the very same bytes into DATEV accounting
+software — plain RFC4180 quoting (doubling an embedded `"`) does **not** by itself stop a
+spreadsheet from evaluating a cell whose first character is `=`/`+`/`-`/`@` as a formula, regardless
+of the surrounding quotes (the classic `=cmd|'/c calc.exe'!A1` / `=WEBSERVICE(...)` DDE and
+data-exfiltration vectors).
+
+* **Buchungstext (field 14)** — `DatevCharacterSet.sanitize` folds a LEADING `=`/`+`/`-`/`@` to a
+single space (the same "protect the format, report via `transliterated`" idiom the embedded-CR/LF
+fold already established) rather than rejecting the export or prefixing an apostrophe: posted
+journal entries are immutable (GoBD/§257 HGB), so an apostrophe — which is the correct escape for a
+purely internal, once-opened CSV report like `MemberCsvImport`'s — would instead land literally
+inside the re-imported booking text of an already-posted, un-editable entry.
+* **Belegfeld 1 (field 11)** — the `[A-Za-z0-9$%&*+-/]` allow-list already rules out any
+DDE/command-execution payload (no `(`, `!`, `'`, `|` survive), but a leading `+`/`-`/`*`/`/` still
+would silently corrupt the DISPLAYED value as an arithmetic expression; every leading occurrence is
+stripped outright (a short reference code, unlike Buchungstext, has no prose meaning worth
+preserving).
+
+== Role split
+
+Deliberately **two** role tiers, mirroring the SEPA pain.008 download's own narrowing precedent
+(`SepaRoutes.SEPA_FILE_DOWNLOAD_ROLES`):
+
+* `IAccountingService.previewDatevExport` — TREASURER/BOARD/ADMIN (`ACCOUNTING_READ_ROLES`, same as
+every other financial-statement read method). A BOARD member may see THAT a period is exportable,
+its row/entry counts, and its blockers — but never a single Buchungstext.
+* `GET /api/accounting/datev/buchungsstapel.csv` — TREASURER/ADMIN only
+(`DatevRoutes.DATEV_FILE_DOWNLOAD_ROLES`). This file carries the full, plaintext Buchungstext of
+every posted entry in the period, including donation bookings that can name a donor — the same
+sensitivity tier the pain.008 file already established.
+
+== What doesn't work yet
+
+* **DATEV Connect / a live API integration** — this is a file export only, not a push integration.
+* **Debitoren-/Kreditorenkonten** — no accounts-receivable/-payable sub-ledger export.
+* **USt-Schlüssel** — field 9 (BU-Schlüssel) is always empty; Lapis tracks no VAT codes.
+* **Kostenstellenübergabe** — field 37 (KOST1) is always empty; no agreed cost-center mapping to
+the tax advisor's own scheme exists.
+* **Abweichendes Wirtschaftsjahr** — the header's WJ-Beginn is hard-coded to 1 January, matching
+this codebase's existing "Geschäftsjahr = Kalenderjahr" assumption everywhere else.
+* **Wiederholexport-Kennzeichnung** — DATEV itself has no "this was already imported" marker in the
+EXTF format for this tool to set, and re-downloading the same period does NOT produce
+byte-identical output: header field 6 always carries the CURRENT `DbClock.nowLocalDateTime()` as
+the generation timestamp (`DatevBuchungsstapelWriter.buildHeaderLine`), so two downloads of the
+exact same period differ in that one field on every call. Do not rely on a file hash to detect
+whether a period was already exported — compare `rowCount`/the data rows instead, or hash the file
+with header field 6 excluded.

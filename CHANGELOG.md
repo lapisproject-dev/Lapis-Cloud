@@ -8,6 +8,50 @@ All notable changes to this project are documented here. Format follows
 
 ### Added
 
+**DATEV-Format-Export, Welle V1.4.5.2 — DATEV-EXTF-Buchungsstapel-Export für den Steuerberater**
+
+- **`GET /api/accounting/datev/buchungsstapel.csv?from=...&to=...`** (TREASURER/ADMIN) — reiner
+  Lesezugriff, KEINE neue Tabelle: exportiert `[from, to]`s gebuchte (`POSTED`) Journalbuchungen als
+  DATEV-EXTF-Buchungsstapel-CSV (Windows-1252, CRLF, 125-Felder-Format), das DATEVs eigene
+  Rechnungswesen-Produkte direkt importieren. Byte-genau gegen die `ledermann/datev`-Referenzdatei
+  verifiziert vor der Implementierung — siehe `docs/architecture/datev-export.adoc`.
+- **`IAccountingService.previewDatevExport`** (TREASURER/BOARD/ADMIN) — Trockenlauf-Vorschau, die
+  exakt dieselbe `DatevBuchungsstapelWriter.plan`-Berechnung wie die Datei-Route durchläuft (nur
+  ohne Byte-Serialisierung): Buchungs-/Zeilenzahl, Σ Soll/Haben, abgeleitete Sachkontenlänge, Anzahl
+  transliterierter Buchungstexte und jeder Export-Blocker. Absichtlich WEITER gefasst als die
+  Datei-Route (BOARD darf sehen, DASS ein Zeitraum exportierbar ist, ohne die Buchungstexte jeder
+  Spende zu erhalten) — mirrors `SepaRoutes`/`DunningRoutes`' eigene Rollen-Trennung.
+- **Alles-oder-nichts-Export**: `DatevBuchungsstapelWriter.plan` sammelt ALLE Blocker eines
+  Zeitraums (`PERIOD_CROSSES_CALENDAR_YEAR`, `BERATER_MANDANT_NOT_CONFIGURED`,
+  `MIXED_ACCOUNT_NUMBER_LENGTHS`, `ACCOUNT_NUMBER_LENGTH_OUT_OF_RANGE`,
+  `UNMAPPABLE_MANY_TO_MANY_ENTRY`, `EMPTY_PERIOD`, `TOO_MANY_ROWS`) statt beim ersten abzubrechen;
+  ein nicht-leerer Blocker-Satz erzeugt niemals eine Teil-Datei (409 statt Bytes).
+- **`DatevCharacterSet`**: CP1252-Zeichenaufbereitung für Buchungstext/Belegfeld/Exporteur/
+  Organisationsname — behält Umlaute/ß (CP1252-nativ), faltet typografische Zeichen (€, Anführungs-
+  zeichen, Gedankenstrich, Ellipse) bewusst konservativ auf ASCII, und verwirft nicht abbildbare
+  Zeichen (Kyrillisch/CJK) vollständig statt sie durch `?` zu ersetzen.
+- **Zwei neue `organization_settings`-Felder** (`datevBeraterNummer`/`datevMandantNummer`,
+  `V22__datev_export.sql`) — die zwei DATEV-Kopfzeilen-Pflichtangaben, die der Steuerberater
+  vergibt. Nullable; solange unkonfiguriert, verweigert der Export mit einem benannten Blocker
+  statt eines stillen Teilexports. Eingabe im bestehenden Kontenzuordnungs-Panel
+  (`LedgerScreen.kt`) — keine neue Bildschirmseite.
+- **Sammelbuchungs-Zeilenbildung**: eine Journalbuchung mit genau einem Konto je Seite wird zu
+  einer Zeile; eine mit einem Konto auf einer und mehreren auf der anderen Seite (Sammelbuchung) zu
+  mehreren Zeilen mit gemeinsamem Gegenkonto; eine echte n:m-Buchung (mehrere Konten auf BEIDEN
+  Seiten) ist strukturell nicht abbildbar und blockiert den Export für diese Buchung.
+- **Client**: vierter Reiter "DATEV-Export" auf `Finanzberichte` (`FinancialReportsScreen.kt`,
+  keine neue Route) — Zeitraumfilter (beide Felder Pflicht, anders als die GuV), Vorschau mit
+  Blocker-Anzeige, Download-Link nur bei `exportable = true` und TREASURER/ADMIN. Sieben
+  Sprachkataloge (EN/ES/FR/IT/NL/PL/RU) vollständig aktualisiert.
+- **Testabdeckung**: über 35 neue Tests (`DatevBuchungsstapelWriterTest`, `DatevCharacterSetTest`,
+  `DatevIntegrationTest`, Client-`DatevAuthzUiTest`/`DatevHttpTest`) — Feldzahl-Invarianten,
+  Belegdatum-Format, Beträge, Sammelbuchungen, alle sieben Blocker-Arten, führende Nullen,
+  Transliteration, CRLF/BOM, Rollen-Gates, und die Vorschau-Zeilenzahl-Parität zur echten Datei.
+- **Bewusst nicht implementiert (Scope-Cut)**: eine echte DATEV-Connect-API-Anbindung, Debitoren-/
+  Kreditorenkonten, USt-Schlüssel, Kostenstellenübergabe, ein abweichendes Wirtschaftsjahr, und
+  Wiederholexport-Kennzeichnung — siehe `docs/architecture/datev-export.adoc` "What doesn't work
+  yet" für die Begründung je Punkt.
+
 **Veranstaltungen: Kernschleife + Anmeldegebühren-Zahlung (Welle V1.4.3.1)**
 
 - **Neue Entitäten `event`/`event_registration`** — eine öffentlich ankündbare Veranstaltung mit

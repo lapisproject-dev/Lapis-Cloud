@@ -823,6 +823,10 @@ internal fun OrganizationSettingsDto.toInputWithPoliticianRankingEnabled(newValu
         donationIncomeAccountId = donationIncomeAccountId,
         eventIncomeAccountId = eventIncomeAccountId,
         eventIncomeSphere = eventIncomeSphere,
+        // Welle V1.4.5.2 "DATEV-Format-Export" -- same "never silently drop/reset a field" fix,
+        // applied at the moment the two new fields were introduced instead of after the fact.
+        datevBeraterNummer = datevBeraterNummer,
+        datevMandantNummer = datevMandantNummer,
     )
 
 // ================================================================================================

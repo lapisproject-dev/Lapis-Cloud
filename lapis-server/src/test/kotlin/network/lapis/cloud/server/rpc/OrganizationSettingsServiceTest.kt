@@ -62,6 +62,10 @@ class OrganizationSettingsServiceTest :
                     it[isPoliticalParty] = false
                     it[postalMailEnabled] = false
                     it[politicianRankingEnabled] = false
+                    // V1.4.5.2 DATEV-Format-Export -- reset so the range-validation tests below stay
+                    // order-independent, same reasoning as every other field reset here.
+                    it[datevBeraterNummer] = null
+                    it[datevMandantNummer] = null
                 }
             }
         }
@@ -253,6 +257,85 @@ class OrganizationSettingsServiceTest :
                 afterUpdate.bodyAsText() shouldBe "true"
             }
         }
+        // V1.4.5.2 "DATEV-Format-Export" (Review-Runde finding, 2026-09): the range-validation
+        // branches in updateOrganizationSettings (DATEV_BERATER_NUMMER_RANGE/
+        // DATEV_MANDANT_NUMMER_RANGE) had zero test coverage -- neither the happy path nor either
+        // rejection branch -- despite the DB CHECK constraint (V22__datev_export.sql) existing as a
+        // silent backstop that would surface as a raw HTTP 500 the moment this check ever drifted
+        // from it (e.g. an edit that narrows or removes the range). Mirrors the bankIban/bankBic
+        // ConflictException test above exactly.
+        test("updateOrganizationSettings accepts a valid datevBeraterNummer/datevMandantNummer and round-trips them") {
+            testApplication {
+                application {
+                    install(StatusPages) {
+                        exception<ConflictException> { call, cause -> call.respondText(cause.message, status = HttpStatusCode.Conflict) }
+                    }
+                    routing { registerOrgSettingsTestRoutes() }
+                }
+
+                val updated =
+                    client.post(
+                        "/test/update?name=Testverein%20e.V.&datevBeraterNummer=1001&datevMandantNummer=1",
+                    ) { header("X-Member-Id", ADMIN_ID) }
+                updated.status shouldBe HttpStatusCode.OK
+
+                val afterUpdate = client.get("/test/get-datev") { header("X-Member-Id", TREASURER_ID) }
+                afterUpdate.bodyAsText() shouldBe "1001:1"
+            }
+        }
+
+        test("updateOrganizationSettings rejects a datevBeraterNummer outside 1001..9999999 with ConflictException") {
+            testApplication {
+                application {
+                    install(StatusPages) {
+                        exception<ConflictException> { call, cause -> call.respondText(cause.message, status = HttpStatusCode.Conflict) }
+                    }
+                    routing { registerOrgSettingsTestRoutes() }
+                }
+
+                val tooLow =
+                    client.post(
+                        "/test/update?name=Testverein%20e.V.&datevBeraterNummer=1000",
+                    ) { header("X-Member-Id", ADMIN_ID) }
+                tooLow.status shouldBe HttpStatusCode.Conflict
+
+                val tooHigh =
+                    client.post(
+                        "/test/update?name=Testverein%20e.V.&datevBeraterNummer=10000000",
+                    ) { header("X-Member-Id", ADMIN_ID) }
+                tooHigh.status shouldBe HttpStatusCode.Conflict
+
+                // Rejected requests must never persist a partial write -- the row stays unconfigured.
+                val afterRejection = client.get("/test/get-datev") { header("X-Member-Id", TREASURER_ID) }
+                afterRejection.bodyAsText() shouldBe "null:null"
+            }
+        }
+
+        test("updateOrganizationSettings rejects a datevMandantNummer outside 1..99999 with ConflictException") {
+            testApplication {
+                application {
+                    install(StatusPages) {
+                        exception<ConflictException> { call, cause -> call.respondText(cause.message, status = HttpStatusCode.Conflict) }
+                    }
+                    routing { registerOrgSettingsTestRoutes() }
+                }
+
+                val tooLow =
+                    client.post(
+                        "/test/update?name=Testverein%20e.V.&datevMandantNummer=0",
+                    ) { header("X-Member-Id", ADMIN_ID) }
+                tooLow.status shouldBe HttpStatusCode.Conflict
+
+                val tooHigh =
+                    client.post(
+                        "/test/update?name=Testverein%20e.V.&datevMandantNummer=100000",
+                    ) { header("X-Member-Id", ADMIN_ID) }
+                tooHigh.status shouldBe HttpStatusCode.Conflict
+
+                val afterRejection = client.get("/test/get-datev") { header("X-Member-Id", TREASURER_ID) }
+                afterRejection.bodyAsText() shouldBe "null:null"
+            }
+        }
     })
 
 /** Shared throwaway routes for [OrganizationSettingsServiceTest] -- mirrors [AccountingServiceTest]'s own idiom. */
@@ -261,6 +344,11 @@ private fun Route.registerOrgSettingsTestRoutes() {
         val service = OrganizationSettingsService(call)
         val dto = service.getOrganizationSettings()
         call.respondText("${dto.id}:${dto.name}:${dto.street}:${dto.bankIban}")
+    }
+    get("/test/get-datev") {
+        val service = OrganizationSettingsService(call)
+        val dto = service.getOrganizationSettings()
+        call.respondText("${dto.datevBeraterNummer}:${dto.datevMandantNummer}")
     }
     get("/test/get-is-political-party") {
         val service = OrganizationSettingsService(call)
@@ -292,6 +380,8 @@ private fun Route.registerOrgSettingsTestRoutes() {
                     isPoliticalParty = q["isPoliticalParty"]?.toBoolean() ?: false,
                     postalMailEnabled = q["postalMailEnabled"]?.toBoolean() ?: false,
                     politicianRankingEnabled = q["politicianRankingEnabled"]?.toBoolean() ?: false,
+                    datevBeraterNummer = q["datevBeraterNummer"]?.toInt(),
+                    datevMandantNummer = q["datevMandantNummer"]?.toInt(),
                 ),
             )
         call.respondText("${dto.name}:${dto.street}:${dto.taxExemptionAuthority}:${dto.taxExemptionDate}")

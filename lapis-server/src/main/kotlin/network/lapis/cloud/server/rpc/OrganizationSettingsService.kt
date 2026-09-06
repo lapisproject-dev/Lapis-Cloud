@@ -28,6 +28,10 @@ import kotlin.uuid.Uuid
 
 private val READ_ROLES = arrayOf(AccountRole.TREASURER, AccountRole.BOARD, AccountRole.ADMIN)
 
+/** Welle V1.4.5.2 "DATEV-Format-Export" -- mirrors `V22__datev_export.sql`'s own CHECK ranges. */
+private val DATEV_BERATER_NUMMER_RANGE = 1001..9999999
+private val DATEV_MANDANT_NUMMER_RANGE = 1..99999
+
 /**
  * The single seeded [OrganizationSettingsTable] row's fixed id -- see
  * `lapis-server/src/main/resources/db/migration/V1__baseline.sql`'s unconditional seed `INSERT`
@@ -123,6 +127,19 @@ class OrganizationSettingsService(
                 throw ConflictException("Die BIC der Organisation (bankBic) hat kein gueltiges Format.")
             }
         }
+        // Welle V1.4.5.2 "DATEV-Format-Export". Serverside range validation, mirroring the
+        // IbanValidator/BicValidator checks above -- the DB CHECK constraint (V22__datev_export.sql)
+        // is the backstop, not the error message a caller actually sees.
+        input.datevBeraterNummer?.let {
+            if (it !in DATEV_BERATER_NUMMER_RANGE) {
+                throw ConflictException("Die DATEV-Beraternummer muss zwischen 1001 und 9999999 liegen, war $it.")
+            }
+        }
+        input.datevMandantNummer?.let {
+            if (it !in DATEV_MANDANT_NUMMER_RANGE) {
+                throw ConflictException("Die DATEV-Mandantennummer muss zwischen 1 und 99999 liegen, war $it.")
+            }
+        }
         return transaction {
             requireValidPaymentAccountMapping(
                 role = "paymentBankAccountId",
@@ -183,6 +200,10 @@ class OrganizationSettingsService(
                 it[donationIncomeAccountId] = donationAccountId
                 it[eventIncomeAccountId] = eventAccountId
                 it[eventIncomeSphere] = input.eventIncomeSphere
+                // V1.4.5.2 DATEV-Format-Export -- ordinary ADMIN-writable configuration, same tier
+                // as the mapping fields above.
+                it[datevBeraterNummer] = input.datevBeraterNummer
+                it[datevMandantNummer] = input.datevMandantNummer
                 // auctionEnabled/auctionMaxValueLtr are DELIBERATELY absent from this write-set --
                 // see OrganizationSettingsDto.auctionEnabled KDoc. The generic update path must
                 // never be able to flip the auction gate; only AuctionService.enableAuction
@@ -311,4 +332,7 @@ fun ResultRow.toOrganizationSettingsDto(): OrganizationSettingsDto =
         // V1.4.3.1 Veranstaltungen (Review MAJOR fix) -- same tier again.
         eventIncomeAccountId = this[OrganizationSettingsTable.eventIncomeAccountId]?.toString(),
         eventIncomeSphere = this[OrganizationSettingsTable.eventIncomeSphere],
+        // V1.4.5.2 DATEV-Format-Export -- ordinary ADMIN-writable configuration, same tier again.
+        datevBeraterNummer = this[OrganizationSettingsTable.datevBeraterNummer],
+        datevMandantNummer = this[OrganizationSettingsTable.datevMandantNummer],
     )

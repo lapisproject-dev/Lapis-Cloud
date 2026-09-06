@@ -46,6 +46,9 @@ public object OrganizationSettingsTable : Table("organization_settings") {
     // Welle V1.4.3.1 -- hand-edited enum typing, see 11-organization-settings.kuml.kts file header addendum.
     public val eventIncomeSphere: Column<GemeinnuetzigkeitSphere> = enumerationByName<GemeinnuetzigkeitSphere>("event_income_sphere", 34)
     // TODO default = "ZWECKBETRIEB"
+    // Welle V1.4.5.2 -- hand-edited, see 11-organization-settings.kuml.kts file header addendum.
+    public val datevBeraterNummer: Column<Int?> = integer("datev_berater_nummer").nullable()
+    public val datevMandantNummer: Column<Int?> = integer("datev_mandant_nummer").nullable()
 
     override val primaryKey: PrimaryKey = PrimaryKey(id)
 }

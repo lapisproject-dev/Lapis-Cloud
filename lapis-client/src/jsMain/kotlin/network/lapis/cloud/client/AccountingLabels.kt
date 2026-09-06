@@ -1,6 +1,8 @@
 package network.lapis.cloud.client
 
 import io.kvision.i18n.gettext
+import io.kvision.i18n.tr
+import network.lapis.cloud.shared.domain.DatevExportBlockerKind
 import network.lapis.cloud.shared.domain.DonorCategory
 import network.lapis.cloud.shared.domain.GemeinnuetzigkeitSphere
 import network.lapis.cloud.shared.domain.ReserveType
@@ -96,4 +98,22 @@ fun donorCategoryColor(category: DonorCategory): String =
         DonorCategory.OTHER_PARTY_OR_PARLIAMENTARY_GROUP_ENTITY -> "danger"
         DonorCategory.PROFESSIONAL_OR_TRADE_ASSOCIATION -> "danger"
         DonorCategory.ANONYMOUS -> "dark"
+    }
+
+/**
+ * Welle V1.4.5.2 "DATEV-Format-Export" -- German label for each
+ * [network.lapis.cloud.shared.domain.DatevExportBlockerDto.kind]. Always rendered together with the
+ * server-supplied `detail` string verbatim (never replacing it) -- this label is only the fixed
+ * heading, the detail carries the case-specific facts (dates, account numbers, lengths).
+ */
+fun datevExportBlockerLabel(kind: DatevExportBlockerKind): String =
+    when (kind) {
+        DatevExportBlockerKind.PERIOD_CROSSES_CALENDAR_YEAR -> tr("Zeitraum überspannt ein Kalenderjahresende")
+        DatevExportBlockerKind.BERATER_MANDANT_NOT_CONFIGURED -> tr("Berater-/Mandantennummer nicht konfiguriert")
+        DatevExportBlockerKind.MIXED_ACCOUNT_NUMBER_LENGTHS -> tr("Unterschiedliche Kontonummer-Längen")
+        DatevExportBlockerKind.ACCOUNT_NUMBER_LENGTH_OUT_OF_RANGE -> tr("Kontonummer-Länge außerhalb des gültigen Bereichs")
+        DatevExportBlockerKind.ACCOUNT_NUMBER_CONTAINS_INVALID_CHARACTERS -> tr("Kontonummer enthält unzulässige Zeichen")
+        DatevExportBlockerKind.UNMAPPABLE_MANY_TO_MANY_ENTRY -> tr("Buchung nicht abbildbar (mehrere Konten auf beiden Seiten)")
+        DatevExportBlockerKind.EMPTY_PERIOD -> tr("Keine Buchungen im Zeitraum")
+        DatevExportBlockerKind.TOO_MANY_ROWS -> tr("Zeitraum ergäbe zu viele Zeilen")
     }

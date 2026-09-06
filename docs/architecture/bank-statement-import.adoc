@@ -17,7 +17,10 @@ against open contributions.
 **Scope-cut, deliberate**: DATEV/lexoffice/sevDesk export, camt.052/053/054 XML, FinTS/HBCI direct
 bank connectivity, splitting one bank line across multiple contributions, and automatic *donation*
 posting are all out of scope this wave — see `40-bank-statement.kuml.kts`'s file header for the
-full list and reasoning. Of the CSV dialects modelled (`network.lapis.cloud.shared.domain
+full list and reasoning. The DATEV export half of that cut was closed in Welle V1.4.5.2 — see
+`docs/architecture/datev-export.adoc` for the DATEV-EXTF-Buchungsstapel export this repo now has;
+lexoffice/sevDesk export, camt.052/053/054 XML, and FinTS/HBCI remain out of scope. Of the CSV
+dialects modelled (`network.lapis.cloud.shared.domain
 .BankCsvDialect`), only `SPARKASSE_CAMT` and a broad `GENERIC` fallback are actually recognized;
 `VR_BANK`/`DKB`/`POSTBANK`/`COMDIRECT` exist as enum literals without a header signature, because no
 real (anonymized) export sample was available to verify a layout against — a *guessed* signature

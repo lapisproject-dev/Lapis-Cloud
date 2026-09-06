@@ -698,10 +698,31 @@ Deliberately out of scope, see `CHANGELOG.md`: the KVision operator screen (`/ba
 full seven-language i18n catalog update — the server-side surface (migration, kUML model, parsers,
 matcher, booking path, `IBankStatementService` RPC, and the
 `POST /api/bank-statements/import` upload route) is complete and tested, only the UI is deferred.
-Also out of scope: DATEV/lexoffice/sevDesk export, camt.052/053/054 XML, FinTS/HBCI, splitting one
-bank line across multiple contributions, automatic *donation* posting (§25 PartG: a donor category
-cannot be derived from a bank line alone), and header signatures for the `VR_BANK`/`DKB`/
-`POSTBANK`/`COMDIRECT` CSV dialects (no real export sample was available to verify one against).
+Also out of scope: DATEV/lexoffice/sevDesk export (see the next section — the DATEV half is closed
+as of V1.4.5.2), camt.052/053/054 XML, FinTS/HBCI, splitting one bank line across multiple
+contributions, automatic *donation* posting (§25 PartG: a donor category cannot be derived from a
+bank line alone), and header signatures for the `VR_BANK`/`DKB`/`POSTBANK`/`COMDIRECT` CSV
+dialects (no real export sample was available to verify one against).
+
+== DATEV Export (V1.4.5.2)
+
+Read-only export of a period's `POSTED` journal entries as a DATEV-EXTF-Buchungsstapel CSV file
+(Windows-1252, CRLF, the exact format DATEV's own accounting products import directly) —
+`GET /api/accounting/datev/buchungsstapel.csv?from=...&to=...` (TREASURER/ADMIN) plus a
+BOARD-readable dry-run preview (`IAccountingService.previewDatevExport`, TREASURER/BOARD/ADMIN)
+that reports the same row/blocker computation the file route uses, so the preview can never promise
+an export the file route would in fact refuse. See `docs/architecture/datev-export.adoc` for the
+full field layout, the Sammelbuchung row-derivation rules, the CP1252 character-sanitization
+policy, and every alles-oder-nichts export blocker.
+
+=== What doesn't work yet (this wave)
+
+A live DATEV Connect API integration, Debitoren-/Kreditorenkonten (accounts-receivable/-payable
+sub-ledgers), USt-Schlüssel (VAT codes), Kostenstellenübergabe (cost-center hand-off into DATEV's
+own KOST1/KOST2 fields), an abweichendes Wirtschaftsjahr (fiscal year other than the calendar
+year), and re-export/duplicate-marking are all deliberately out of scope — see
+`docs/architecture/datev-export.adoc`'s own "What doesn't work yet" section for why each one
+specifically does not exist yet.
 
 == Documentation Convention
 

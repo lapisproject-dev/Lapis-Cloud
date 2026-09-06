@@ -96,6 +96,14 @@ import kotlinx.serialization.Serializable
  * database since `V18__events.sql` but had no write path anywhere in this codebase before this fix
  * (`OrganizationSettingsInput` never carried them), so no ADMIN could ever configure them through
  * the application -- every confirmed event-fee payment was silently left unbooked.
+ *
+ * [datevBeraterNummer]/[datevMandantNummer] (Welle V1.4.5.2 "DATEV-Format-Export") are a sixth
+ * ordinary, ADMIN-writable configuration pair, same tier as [eventIncomeAccountId] above -- part of
+ * [OrganizationSettingsInput]. The Berater-/Mandantennummer the issuing Steuerberater assigns,
+ * required by the DATEV-EXTF-Buchungsstapel header (fields 11/12) --
+ * `network.lapis.cloud.server.accounting.datev.DatevBuchungsstapelWriter` refuses with a named
+ * `BERATER_MANDANT_NOT_CONFIGURED` blocker while either is `null`, rather than emitting a file
+ * DATEV would reject anyway.
  */
 @Serializable
 data class OrganizationSettingsDto(
@@ -124,6 +132,8 @@ data class OrganizationSettingsDto(
     val donationIncomeAccountId: String? = null,
     val eventIncomeAccountId: String? = null,
     val eventIncomeSphere: GemeinnuetzigkeitSphere = GemeinnuetzigkeitSphere.ZWECKBETRIEB,
+    val datevBeraterNummer: Int? = null,
+    val datevMandantNummer: Int? = null,
 )
 
 /** Replaces every field of the single [OrganizationSettingsDto] row wholesale (no partial update). */
@@ -155,4 +165,8 @@ data class OrganizationSettingsInput(
     val eventIncomeAccountId: String? = null,
     /** V1.4.3.1 (Review MAJOR fix). See [OrganizationSettingsDto.eventIncomeSphere] KDoc. */
     val eventIncomeSphere: GemeinnuetzigkeitSphere = GemeinnuetzigkeitSphere.ZWECKBETRIEB,
+    /** V1.4.5.2. See [OrganizationSettingsDto.datevBeraterNummer] KDoc. */
+    val datevBeraterNummer: Int? = null,
+    /** V1.4.5.2. See [OrganizationSettingsDto.datevMandantNummer] KDoc. */
+    val datevMandantNummer: Int? = null,
 )

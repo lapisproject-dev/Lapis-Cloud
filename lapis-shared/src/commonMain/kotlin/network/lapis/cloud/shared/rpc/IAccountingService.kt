@@ -7,6 +7,7 @@ import network.lapis.cloud.shared.domain.BalanceSheetDto
 import network.lapis.cloud.shared.domain.CostCenterDto
 import network.lapis.cloud.shared.domain.CostCenterInput
 import network.lapis.cloud.shared.domain.CostCenterReportDto
+import network.lapis.cloud.shared.domain.DatevExportPreviewDto
 import network.lapis.cloud.shared.domain.DonationDutyReportDto
 import network.lapis.cloud.shared.domain.ExternalDonorDto
 import network.lapis.cloud.shared.domain.ExternalDonorInput
@@ -236,4 +237,28 @@ interface IAccountingService {
      * KDoc.
      */
     suspend fun getDonationDutyReport(calendarYear: Int): DonationDutyReportDto
+
+    /**
+     * Role: TREASURER/BOARD/ADMIN. Welle V1.4.5.2 "DATEV-Format-Export". Trockenlauf des
+     * DATEV-EXTF-Buchungsstapel-Exports ueber `[from, to]` (beide inklusive, beide PFLICHT --
+     * anders als [getIncomeStatement]s optionales `from`, weil das DATEV-Belegdatum kein Jahr
+     * traegt und der Zeitraum deshalb innerhalb eines Kalenderjahres liegen muss). Nur
+     * [JournalEntryStatus.POSTED] Buchungen zaehlen -- gleiche "DRAFT ist provisorisch"-Regel wie
+     * jede andere Auswertungsmethode.
+     *
+     * Laeuft durch EXAKT dieselbe Generator-Funktion wie die Download-Route
+     * (`network.lapis.cloud.server.routes.registerDatevRoutes`), nur ohne Byte-Serialisierung --
+     * die Vorschau kann deshalb strukturell nicht behaupten, was die Datei nicht enthaelt. Ein
+     * nicht-leeres [DatevExportPreviewDto.blockers] bedeutet: die Route antwortet fuer denselben
+     * Zeitraum mit 409 und erzeugt KEINE Teil-Datei. Alles-oder-nichts, siehe
+     * [network.lapis.cloud.shared.domain.DatevExportPreviewDto] KDoc.
+     *
+     * Absichtlich WEITER gefasst als die Datei-Route selbst (die nur TREASURER/ADMIN zulaesst,
+     * siehe `DatevRoutes.DATEV_FILE_DOWNLOAD_ROLES`): ein BOARD-Mitglied darf sehen, DASS der
+     * Zeitraum exportierbar ist, ohne die Buchungstexte jeder Spende zu erhalten.
+     */
+    suspend fun previewDatevExport(
+        from: LocalDate,
+        to: LocalDate,
+    ): DatevExportPreviewDto
 }

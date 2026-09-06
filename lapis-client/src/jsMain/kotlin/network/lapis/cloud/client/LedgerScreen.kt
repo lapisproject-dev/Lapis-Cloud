@@ -390,11 +390,46 @@ internal fun renderPaymentAccountMappingSection(
                     label = tr("Sphäre der Veranstaltungserlöse"),
                 )
 
+            // Welle V1.4.5.2 "DATEV-Format-Export". Kein Fehlertext bei leerem Zustand -- eine
+            // Anweisung (Zhuo/Jobs): der Steuerberater vergibt beide Nummern, nicht der Verein
+            // selbst. Diese zwei Felder gehören hierher, weil dies bereits die einzige
+            // ADMIN-Schreiboberfläche für `organization_settings` ist.
+            panel.p(
+                tr("Berater- und Mandantennummer erhalten Sie von Ihrem Steuerberater."),
+            ) { addCssClasses("text-muted small") }
+            val datevBeraterInput =
+                panel.text(
+                    value = settings.datevBeraterNummer?.toString().orEmpty(),
+                    label = tr("DATEV-Beraternummer"),
+                )
+            val datevMandantInput =
+                panel.text(
+                    value = settings.datevMandantNummer?.toString().orEmpty(),
+                    label = tr("DATEV-Mandantennummer"),
+                )
+
             val saveButton = panel.button(tr("Kontenzuordnung speichern"), style = ButtonStyle.PRIMARY)
             saveButton.onClick {
                 saveButton.disabled = true
                 AppScope.launch {
                     try {
+                        // Review-Fund (2026-09): distinguish "field left empty" from "field
+                        // contains something that isn't a whole number" -- `.toIntOrNull()` alone
+                        // collapsed both into the same `null`, and updateOrganizationSettings
+                        // replaces the whole field set wholesale, so a typo (`1OO1`) silently reset
+                        // an already-configured Beraternummer to unconfigured with no error shown
+                        // and no visible symptom until the next DATEV export failed cold. See
+                        // [parseDatevNumberInput] KDoc.
+                        val beraterInput = parseDatevNumberInput(datevBeraterInput.value)
+                        val mandantInput = parseDatevNumberInput(datevMandantInput.value)
+                        if (beraterInput is DatevNumberInput.Invalid) {
+                            notifyError(tr("DATEV-Beraternummer ist keine gültige Zahl."))
+                            return@launch
+                        }
+                        if (mandantInput is DatevNumberInput.Invalid) {
+                            notifyError(tr("DATEV-Mandantennummer ist keine gültige Zahl."))
+                            return@launch
+                        }
                         val selectedEventIncomeSphere =
                             eventIncomeSphereSelect.value
                                 ?.let { runCatching { GemeinnuetzigkeitSphere.valueOf(it) }.getOrNull() }
@@ -409,6 +444,8 @@ internal fun renderPaymentAccountMappingSection(
                                         donationIncomeAccountId = donationIncomeSelect.value?.takeIf { it.isNotBlank() },
                                         eventIncomeAccountId = eventIncomeSelect.value?.takeIf { it.isNotBlank() },
                                         eventIncomeSphere = selectedEventIncomeSphere,
+                                        datevBeraterNummer = (beraterInput as? DatevNumberInput.Valid)?.value,
+                                        datevMandantNummer = (mandantInput as? DatevNumberInput.Valid)?.value,
                                     ),
                                 )
                             }
@@ -432,13 +469,45 @@ internal fun renderPaymentAccountMappingSection(
     load()
 }
 
-private fun OrganizationSettingsDto.toInputWithPaymentAccountMapping(
+/**
+ * Result of parsing ONE DATEV-Berater-/Mandantennummer text field -- distinguishes "field left
+ * empty" ([Empty], a valid state: the number is simply not configured yet) from "field contains
+ * something that is not a whole number" ([Invalid], an error the user must be told about instead
+ * of silently saving `null`). `internal` (not `private`) so [LedgerScreenTest] can cover this
+ * directly without a DOM harness -- same testability reasoning [toInputWithPaymentAccountMapping]'s
+ * own KDoc gives.
+ */
+internal sealed interface DatevNumberInput {
+    data object Empty : DatevNumberInput
+
+    data class Valid(
+        val value: Int,
+    ) : DatevNumberInput
+
+    data object Invalid : DatevNumberInput
+}
+
+/** See [DatevNumberInput] KDoc. Trims first so a value that is only whitespace counts as [DatevNumberInput.Empty],
+ * not [DatevNumberInput.Invalid]. */
+internal fun parseDatevNumberInput(raw: String?): DatevNumberInput {
+    val trimmed = raw?.trim().orEmpty()
+    if (trimmed.isEmpty()) return DatevNumberInput.Empty
+    val parsed = trimmed.toIntOrNull() ?: return DatevNumberInput.Invalid
+    return DatevNumberInput.Valid(parsed)
+}
+
+/** `internal` (not `private`) so [LedgerScreenTest] can cover the "never silently drop/reset a
+ * field" contract directly -- same testability reasoning [PoliticianScreen.kt]'s own
+ * `toInputWithPoliticianRankingEnabled` KDoc gives for its `internal` visibility. */
+internal fun OrganizationSettingsDto.toInputWithPaymentAccountMapping(
     paymentBankAccountId: String?,
     paymentFeeAccountId: String?,
     contributionIncomeAccountId: String?,
     donationIncomeAccountId: String?,
     eventIncomeAccountId: String?,
     eventIncomeSphere: GemeinnuetzigkeitSphere,
+    datevBeraterNummer: Int?,
+    datevMandantNummer: Int?,
 ) = OrganizationSettingsInput(
     name = name,
     street = street,
@@ -458,6 +527,8 @@ private fun OrganizationSettingsDto.toInputWithPaymentAccountMapping(
     donationIncomeAccountId = donationIncomeAccountId,
     eventIncomeAccountId = eventIncomeAccountId,
     eventIncomeSphere = eventIncomeSphere,
+    datevBeraterNummer = datevBeraterNummer,
+    datevMandantNummer = datevMandantNummer,
 )
 
 // ============================================================================================

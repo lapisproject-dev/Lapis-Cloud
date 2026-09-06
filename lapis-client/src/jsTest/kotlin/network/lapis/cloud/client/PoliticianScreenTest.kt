@@ -57,6 +57,11 @@ class PoliticianScreenTest {
             donationIncomeAccountId = "account-donation-1",
             eventIncomeAccountId = "account-event-1",
             eventIncomeSphere = GemeinnuetzigkeitSphere.WIRTSCHAFTLICHER_GESCHAEFTSBETRIEB,
+            // Welle V1.4.5.2 "DATEV-Format-Export" -- same regression-coverage reasoning as
+            // donationIncomeAccountId/eventIncomeAccountId above: a non-default value here means a
+            // future copy-bug in toInputWithPoliticianRankingEnabled fails loudly.
+            datevBeraterNummer = 1001,
+            datevMandantNummer = 42,
         )
 
     @Test
@@ -79,6 +84,8 @@ class PoliticianScreenTest {
         assertEquals(fullSettings.donationIncomeAccountId, input.donationIncomeAccountId)
         assertEquals(fullSettings.eventIncomeAccountId, input.eventIncomeAccountId)
         assertEquals(fullSettings.eventIncomeSphere, input.eventIncomeSphere)
+        assertEquals(fullSettings.datevBeraterNummer, input.datevBeraterNummer)
+        assertEquals(fullSettings.datevMandantNummer, input.datevMandantNummer)
         assertTrue(input.politicianRankingEnabled, "expected politicianRankingEnabled to be flipped to true")
     }
 
@@ -102,6 +109,8 @@ class PoliticianScreenTest {
         assertEquals(fullSettings.donationIncomeAccountId, input.donationIncomeAccountId)
         assertEquals(fullSettings.eventIncomeAccountId, input.eventIncomeAccountId)
         assertEquals(fullSettings.eventIncomeSphere, input.eventIncomeSphere)
+        assertEquals(fullSettings.datevBeraterNummer, input.datevBeraterNummer)
+        assertEquals(fullSettings.datevMandantNummer, input.datevMandantNummer)
         assertFalse(input.politicianRankingEnabled, "expected politicianRankingEnabled to be flipped to false")
     }
 
@@ -136,6 +145,8 @@ class PoliticianScreenTest {
         assertEquals(null, input.donationIncomeAccountId)
         assertEquals(null, input.eventIncomeAccountId)
         assertEquals(GemeinnuetzigkeitSphere.ZWECKBETRIEB, input.eventIncomeSphere)
+        assertEquals(null, input.datevBeraterNummer)
+        assertEquals(null, input.datevMandantNummer)
         assertFalse(input.isPoliticalParty)
         assertFalse(input.postalMailEnabled)
         assertTrue(input.politicianRankingEnabled)
