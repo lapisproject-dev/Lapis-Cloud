@@ -601,3 +601,30 @@ data class BankStatementImportSnapshot(
     val duplicateCount: Int,
     val autoPostedCount: Int,
 )
+
+/**
+ * Structured `before`/`after` payload for an [AuditEntityType.MEMBER] audit entry, written by
+ * `network.lapis.cloud.server.rpc.MembershipTierAssignment.apply` (Welle V1.4.4.4
+ * "Familienmitgliedschaften") -- the ONE write path for `member.membership_tier_id` in this whole
+ * codebase (see that object's own KDoc for why a second implementation must never exist). A
+ * dedicated type rather than an added field on [MemberChangeSnapshot]: that type's three existing
+ * writers (`updateMemberCoreData`/`updateMemberStatus`/`updateMemberRole`) would otherwise write a
+ * new field with a `null` default even for a member who genuinely HAS a tier -- a silently false
+ * statement inside an append-only, hash-chained ledger.
+ *
+ * **No PII beyond ids** -- same discipline every other snapshot in this file establishes.
+ * [familyId] is set only when the change originated from `MemberFamilyService`
+ * (`addFamilyMember`/`changePayer`) -- an id only, never a family NAME (a family name is
+ * board-authored free text about a household, not something this ledger needs to retain).
+ * [reason] carries ONLY the manual `IMemberService.updateMemberMembershipTier` path's
+ * board-authored justification -- the family-origin path always writes the SAME fixed machine
+ * string (`"family-dependent"`), NEVER a person's or family's name, so this field can never
+ * become a vector for the kind of PII-in-a-hash-chain mistake [MemberChangeSnapshot]'s own
+ * "Security fix" KDoc paragraph documents.
+ */
+@Serializable
+data class MemberMembershipTierSnapshot(
+    val membershipTierId: String?,
+    val familyId: String? = null,
+    val reason: String? = null,
+)

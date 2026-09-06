@@ -12,8 +12,10 @@ import kotlin.test.assertTrue
 /**
  * Welle V1.2.12 "Mitgliederverwaltung" -- covers [MemberAdministrationScreen.kt]'s pure, DOM-free
  * predicates/formatters: [canEditCoreDataOf], [canEditRoleOf], [canChangeStatusOf],
- * [statusChangeConsequence], [pagerLabel]. Same DOM-free unit-test posture as [NavVisibilityTest] -- there is no rendering
- * harness in this module, only the logic feeding the actual screen is directly testable.
+ * [canGrantAccountTo], [canEditMembershipTierOf], [hasAnyEditableSectionFor],
+ * [statusChangeConsequence], [grantAccountConsequence], [pagerLabel]. Same DOM-free unit-test
+ * posture as [NavVisibilityTest] -- there is no rendering harness in this module, only the logic
+ * feeding the actual screen is directly testable.
  */
 class MemberAdministrationScreenTest {
     private val otherMemberId = "00000000-0000-0000-0000-000000000099"
@@ -24,6 +26,7 @@ class MemberAdministrationScreenTest {
         role: AccountRole? = AccountRole.MEMBER,
         anonymized: Boolean = false,
         id: String = otherMemberId,
+        membershipTierId: String? = null,
     ) = MemberAdminRowDto(
         id = id,
         displayName = "Test Mitglied",
@@ -32,6 +35,7 @@ class MemberAdministrationScreenTest {
         role = role,
         joinedAt = LocalDate(2026, 1, 1),
         anonymized = anonymized,
+        membershipTierId = membershipTierId,
     )
 
     // ── canEditCoreDataOf ──
@@ -178,6 +182,97 @@ class MemberAdministrationScreenTest {
     fun hasAnyEditableSectionFor_adminCaller_isTrueEvenOnAnEscalatedRow() {
         val row = row(status = MemberStatus.ACTIVE, role = AccountRole.BOARD, id = otherMemberId)
         assertTrue(hasAnyEditableSectionFor(AccountRole.ADMIN, callerMemberId, row))
+    }
+
+    @Test
+    fun hasAnyEditableSectionFor_boardCallerOnEscalatedTargetRowWithARemovableTier_isFalse() {
+        // Security fix (Welle V1.4.4.4 review, MAJOR finding): `canEditMembershipTierOf` now applies
+        // the SAME Peer-Schutz as every other section, so a BOARD caller must not be able to strip a
+        // fellow BOARD/TREASURER/ADMIN peer's membership tier (removing their payment obligation) any
+        // more than they may edit that peer's core data, status, or role -- see
+        // MemberService.updateMemberMembershipTier's own ESCALATED_ROLES peer gate. This SUPERSEDES
+        // the pre-fix test of the same shape (which pinned the vulnerable behaviour: BOARD could
+        // remove an escalated peer's tier even though all four other sections were correctly
+        // blocked) -- all FIVE predicates are false now, so the "Bearbeiten" button stays disabled.
+        val row = row(status = MemberStatus.ACTIVE, role = AccountRole.BOARD, id = otherMemberId, membershipTierId = "tier-1")
+        assertFalse(canEditCoreDataOf(AccountRole.BOARD, row))
+        assertFalse(canChangeStatusOf(AccountRole.BOARD, callerMemberId, row))
+        assertFalse(canEditRoleOf(AccountRole.BOARD, callerMemberId, row))
+        assertFalse(canGrantAccountTo(AccountRole.BOARD, row))
+        assertFalse(canEditMembershipTierOf(AccountRole.BOARD, callerMemberId, row))
+        assertFalse(hasAnyEditableSectionFor(AccountRole.BOARD, callerMemberId, row))
+    }
+
+    @Test
+    fun canEditMembershipTierOf_adminCaller_stillTrueOnEscalatedPeerRow() {
+        // ADMIN is exempt from the Peer-Schutz gate (only a SELF-target stays forbidden, see
+        // canEditMembershipTierOf_selfTarget_isAlwaysFalseRegardlessOfRole below) -- same asymmetry
+        // canEditCoreDataOf/canChangeStatusOf already establish.
+        val row = row(status = MemberStatus.ACTIVE, role = AccountRole.BOARD, id = otherMemberId, membershipTierId = "tier-1")
+        assertTrue(canEditMembershipTierOf(AccountRole.ADMIN, callerMemberId, row))
+    }
+
+    // ── canEditMembershipTierOf (Welle V1.4.4.4) ──
+    // Rollen-Asymmetrie gemirrort an `IMemberService.updateMemberMembershipTier`s eigener KDoc:
+    // Zuweisen eines echten Tarifs braucht TREASURER/ADMIN, Entfernen (Tarif = null) nur
+    // `isPrivileged` (BOARD/ADMIN) -- dieser Abschnitt hier gated nur die SICHTBARKEIT des
+    // "Beitragstarif"-Abschnitts, nicht welche der beiden Aktionen darin freigeschaltet ist.
+
+    @Test
+    fun canEditMembershipTierOf_treasurer_isTrueRegardlessOfCurrentTier() {
+        // TREASURER darf jederzeit einen (anderen) Tarif zuweisen, unabhaengig vom aktuellen --
+        // bewusst KEIN `membershipTierId != null`-Gate, siehe Funktions-KDoc.
+        assertTrue(canEditMembershipTierOf(AccountRole.TREASURER, callerMemberId, row(membershipTierId = null)))
+        assertTrue(canEditMembershipTierOf(AccountRole.TREASURER, callerMemberId, row(membershipTierId = "tier-1")))
+    }
+
+    @Test
+    fun canEditMembershipTierOf_board_onlyWhenARemovableTierExists() {
+        // BOARD darf nur entfernen (Tarif = null), niemals zuweisen -- also nur true, wenn
+        // aktuell ein Tarif existiert, den es entfernen koennte.
+        assertTrue(canEditMembershipTierOf(AccountRole.BOARD, callerMemberId, row(membershipTierId = "tier-1")))
+        assertFalse(canEditMembershipTierOf(AccountRole.BOARD, callerMemberId, row(membershipTierId = null)))
+    }
+
+    @Test
+    fun canEditMembershipTierOf_admin_isAlwaysTrueRegardlessOfCurrentTier() {
+        assertTrue(canEditMembershipTierOf(AccountRole.ADMIN, callerMemberId, row(membershipTierId = null)))
+        assertTrue(canEditMembershipTierOf(AccountRole.ADMIN, callerMemberId, row(membershipTierId = "tier-1")))
+    }
+
+    @Test
+    fun canEditMembershipTierOf_plainMemberOrNullCaller_isAlwaysFalse() {
+        assertFalse(canEditMembershipTierOf(AccountRole.MEMBER, callerMemberId, row(membershipTierId = "tier-1")))
+        assertFalse(canEditMembershipTierOf(null, callerMemberId, row(membershipTierId = "tier-1")))
+    }
+
+    @Test
+    fun canEditMembershipTierOf_anonymizedMember_isFalseEvenForAdminOrTreasurer() {
+        assertFalse(canEditMembershipTierOf(AccountRole.ADMIN, callerMemberId, row(membershipTierId = "tier-1", anonymized = true)))
+        assertFalse(canEditMembershipTierOf(AccountRole.TREASURER, callerMemberId, row(membershipTierId = "tier-1", anonymized = true)))
+    }
+
+    @Test
+    fun canEditMembershipTierOf_selfTarget_isAlwaysFalseRegardlessOfRole() {
+        // Security fix (Welle V1.4.4.4 review, MAJOR finding) -- unconditional, mirrors
+        // MemberService.updateMemberMembershipTier's own self-target ForbiddenException: even ADMIN
+        // may not edit their OWN membership tier through this dialog.
+        val ownRow = row(id = callerMemberId, membershipTierId = "tier-1")
+        assertFalse(canEditMembershipTierOf(AccountRole.ADMIN, callerMemberId, ownRow))
+        assertFalse(canEditMembershipTierOf(AccountRole.TREASURER, callerMemberId, ownRow))
+        assertFalse(canEditMembershipTierOf(AccountRole.BOARD, callerMemberId, ownRow))
+    }
+
+    @Test
+    fun canEditMembershipTierOf_escalatedPeerRow_isFalseUnlessCallerIsAdmin() {
+        // Security fix (Welle V1.4.4.4 review, MAJOR finding) -- same ESCALATED_ROLES peer gate
+        // canEditCoreDataOf/canChangeStatusOf already establish, now also for the tier section.
+        listOf(AccountRole.BOARD, AccountRole.TREASURER, AccountRole.ADMIN).forEach { escalatedRole ->
+            val row = row(id = otherMemberId, role = escalatedRole, membershipTierId = "tier-1")
+            assertFalse(canEditMembershipTierOf(AccountRole.BOARD, callerMemberId, row))
+            assertFalse(canEditMembershipTierOf(AccountRole.TREASURER, callerMemberId, row))
+            assertTrue(canEditMembershipTierOf(AccountRole.ADMIN, callerMemberId, row))
+        }
     }
 
     // ── statusChangeConsequence ──

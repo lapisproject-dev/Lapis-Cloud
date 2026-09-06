@@ -398,6 +398,14 @@ object Routes {
     // Mitglied; ohne Parameter = board-weite Liste. Lebt in der bestehenden "Verwaltung"-Dropdown,
     // direkt neben [MEMBER_ANNIVERSARIES].
     const val MEMBER_HONORS = "/honors"
+
+    // Welle V1.4.4.4 "Mitgliederlebenszyklus: Familienmitgliedschaften" -- BOARD/ADMIN, verified
+    // against `MemberFamilyService.kt`: every method calls `current.requireRole(*FAMILY_ROLES)`
+    // (BOARD, ADMIN), `deleteFamily` alone narrows to ADMIN -- same tier as [MEMBER_HONORS],
+    // route-level `requireRole`, NOT `requireAuth`; bewusst KEINE Selbstauskunft-Variante. Optionaler
+    // Query-Parameter `?family=<uuid>` (Muster [MEMBER_HONORS]/[MEMBER_FINANCES]) öffnet eine Familie
+    // direkt. Lebt in der bestehenden "Verwaltung"-Dropdown, direkt neben [MEMBER_HONORS].
+    const val MEMBER_FAMILIES = "/families"
 }
 
 private var appRouting: Routing? = null
@@ -477,7 +485,13 @@ fun initRouting(pageContainer: SimplePanel) {
         requireAuth(routing) { show(Routes.DASHBOARD, ::renderDashboardScreen) }
     }
     routing.kvOn(Routes.MEMBERS) {
-        requireRole(routing, AccountRole.BOARD, AccountRole.ADMIN) {
+        // Welle V1.4.4.4 review fix (MAJOR finding): TREASURER added alongside BOARD/ADMIN so a
+        // Schatzmeister can reach the roster's "Beitragstarif" section (assign a real tier --
+        // `MemberService.updateMemberMembershipTier` already requires TREASURER/ADMIN for that
+        // action). `renderMemberAdministrationScreen` itself hides the two BOARD/ADMIN-exclusive
+        // sections (pending applications, direct member creation) from a TREASURER caller -- see
+        // that function's class KDoc.
+        requireRole(routing, AccountRole.TREASURER, AccountRole.BOARD, AccountRole.ADMIN) {
             show(Routes.MEMBERS, ::renderMemberAdministrationScreen)
         }
     }
@@ -692,6 +706,11 @@ fun initRouting(pageContainer: SimplePanel) {
     routing.kvOn(Routes.MEMBER_HONORS) {
         requireRole(routing, AccountRole.BOARD, AccountRole.ADMIN) {
             show(Routes.MEMBER_HONORS) { container -> renderMemberHonorsScreen(container, hashQueryParam("member")) }
+        }
+    }
+    routing.kvOn(Routes.MEMBER_FAMILIES) {
+        requireRole(routing, AccountRole.BOARD, AccountRole.ADMIN) {
+            show(Routes.MEMBER_FAMILIES) { container -> renderMemberFamiliesScreen(container, hashQueryParam("family")) }
         }
     }
     routing.kvOn("/") {

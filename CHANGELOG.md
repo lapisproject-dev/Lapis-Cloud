@@ -8,6 +8,56 @@ All notable changes to this project are documented here. Format follows
 
 ### Added
 
+**Mitgliederlebenszyklus: Familienmitgliedschaften (Welle V1.4.4.4)**
+
+- **Zwei neue Tabellen** `member_family`/`member_family_link` (`V23__member_family.sql`) —
+  Haushalts-/Familienverbünde mit genau einem Zahler (`PAYER`) und beliebig vielen beitragsfreien
+  Angehörigen (`DEPENDENT`). Ein Mitglied gehört höchstens einer Familie an
+  (`uq_member_family_link_member`); „genau ein Zahler pro Familie" wird über eine
+  applikationsgepflegte Schatten-Spalte (`payer_family_id`) plus CHECK-Constraint erzwungen, nicht
+  über einen partiellen Unique-Index — H2s Test-Modus (`MODE=PostgreSQL`) kann `CREATE UNIQUE
+  INDEX ... WHERE` nicht, siehe `docs/architecture/domain-model.adoc` „V1.4.4.4" für die volle
+  Begründung samt einer dabei gefundenen Drei-Wertige-Logik-Falle im ersten CHECK-Entwurf.
+- **`MembershipTierAssignment`** — der EINZIGE Schreibpfad für `member.membership_tier_id` in
+  diesem gesamten Repository, bisher setzten alle Schreibstellen (`AdminBootstrap`,
+  `MemberCsvImport`, `RegistrationService`, `OidcGuestMemberStore`) diesen ausschließlich auf
+  `null`. Genutzt von zwei Aufrufern: `IMemberService.updateMemberMembershipTier` (manuell, mit
+  Rollen-Asymmetrie: einen Tarif ZUWEISEN erfordert TREASURER/ADMIN, einen Tarif ENTFERNEN nur
+  BOARD/ADMIN) und `MemberFamilyService` (automatischer Seiteneffekt beim Hinzufügen/Entfernen
+  eines Angehörigen). Schreibt genau einen bedingten Audit-Log-Eintrag
+  (`MemberMembershipTierSnapshot`, `AuditEntityType.MEMBER`) pro tatsächlicher Änderung — ein
+  No-op-Aufruf erzeugt keinen Eintrag. Bereits erzeugte `contribution`-Zeilen werden NIE
+  rückwirkend gelöscht oder umgeschrieben.
+- **`IMemberFamilyService`** (BOARD/ADMIN, `deleteFamily` ADMIN-exklusiv) —
+  `listFamilies`/`getFamily`/`createFamily`/`renameFamily`/`addFamilyMember`/`removeFamilyMember`/
+  `changePayer`/`deleteFamily`/`listUpcomingMajorities`. `removeFamilyMember` weist bewusst KEINEN
+  Tarif zu — eine verbleibende Zahlungspflicht bzw. deren Fehlen ist ein zweiter, bewusster Akt.
+  `changePayer` demotet den alten Zahler IMMER vor der Beförderung des neuen (nicht-deferrable
+  Unique-Index).
+- **Volljährigkeits-Arbeitsliste** (`listUpcomingMajorities`) — alle Angehörigen, die innerhalb
+  eines wählbaren Zeitfensters (30/60/90 Tage) 18 Jahre alt werden, PLUS alle bereits Volljährigen
+  unabhängig vom Zeitfenster (bewusste Plan-Ergänzung — ohne diesen Zweig verschwindet ein
+  Angehöriger, den 90 Tage niemand ansieht, lautlos aus der Liste). Pflicht-Abdeckungszeile für
+  Angehörige ohne hinterlegtes Geburtsdatum. Kein Hintergrund-Poller — reine Lese-Berechnung bei
+  jedem Aufruf.
+- **Client**: neuer Screen `MemberFamiliesScreen` (`/families`, „Verwaltung"-Dropdown) mit
+  Volljährigkeits-Arbeitsliste, Familienliste (zahlerlose Familien zuerst, Warn-Badge), Detail-
+  Dialog. Mitglieds-Picker nutzt `listMembersForAdministration` (nicht `listMembers()`, das nur
+  ACTIVE-Mitglieder ohne Suche liefert). In `MemberAdministrationScreen`: unaufdringliches
+  Familien-Badge in der Namens-Zelle (nur sichtbar, wenn eine Verknüpfung existiert) plus ein
+  neuer, unabhängig gespeicherter Editor-Abschnitt „Beitragstarif" (ADMIN: volle Auswahl inkl.
+  „beitragsfrei"; BOARD: nur „Tarif entfernen").
+- **DSGVO**: `MemberFamilyPersonalData` — anders als `member_honor` eine HARTE Löschung der
+  eigenen Verknüpfung (keine Retain-und-Leeren-Logik), weil ein Familien-Link eine Aussage über
+  ZWEI Personen ist. Eine dadurch vollständig linklos gewordene Familie wird mitgelöscht; eine
+  Familie mit verbleibenden Mitgliedern bleibt bestehen (ggf. zahlerlos). `created_by`/`linked_by`
+  bleiben aus Rechenschaftsgründen erhalten.
+- **Bewusst NICHT Teil dieser Welle**: rückwirkende Stornierung bereits erzeugter Beiträge, wenn
+  ein Mitglied zum Angehörigen wird; eine Einschränkung der Angehörigen-Berechtigung auf
+  `MemberStatusSets.ORGANIZATION_MEMBER`. (Ein für TREASURER erreichbarer Tarif-Zuordnungs-Einstieg
+  über `Routes.MEMBERS` war ursprünglich ebenfalls als bewusste Lücke dokumentiert — siehe
+  Review-Fix unten, das ist inzwischen behoben.)
+
 **DATEV-Format-Export, Welle V1.4.5.2 — DATEV-EXTF-Buchungsstapel-Export für den Steuerberater**
 
 - **`GET /api/accounting/datev/buchungsstapel.csv?from=...&to=...`** (TREASURER/ADMIN) — reiner
@@ -265,6 +315,42 @@ All notable changes to this project are documented here. Format follows
   `OVERDUE`/`RETURNED`/`IN_DUNNING` — ein bereits gemahntes Mitglied erschien in seiner eigenen
   Beitragsübersicht mit "Offen: 0,00 €". Zählt jetzt über `ContributionStatusSets.OUTSTANDING`,
   dieselbe Menge, die `PspCheckoutSection` bereits korrekt verwendet hat (Welle V1.4.4.1, Befund B-1).
+
+### Fixed (Review-Fix, Welle V1.4.4.4 „Familienmitgliedschaften", 2026-09-06)
+
+- **Fehlender Navigations-Einstieg für TREASURER (Runde-1-Befund #3, jetzt vollständig behoben)**
+  — `App.kt`s „Verwaltung"-Dropdown war trotz `Routes.MEMBERS`-Erweiterung auf TREASURER (siehe
+  oben) weiterhin `requireRole(BOARD, ADMIN)`-only, die neue Oberfläche für einen Schatzmeister war
+  damit über die UI unerreichbar (nur per manuell eingetippter URL). Der Dropdown-Einstieg selbst
+  ist jetzt TREASURER/BOARD/ADMIN, jeder EINZELNE Eintrag darin außer „Mitgliederverwaltung" bleibt
+  jedoch strikt BOARD/ADMIN — ein Schatzmeister sieht also ein „Verwaltung"-Dropdown mit genau
+  einem Eintrag.
+- **Regression: TREASURER bekam zwei Aktionen angeboten, die Route und Server ablehnen** — der
+  Ehrungen-Knopf und der Familien-Badge-Link in `MemberAdministrationScreen` waren versehentlich
+  auf TREASURER erweitert worden, obwohl `Routes.MEMBER_HONORS`/`Routes.MEMBER_FAMILIES` und die
+  jeweiligen Server-Services (`MemberHonorService`/`MemberFamilyService`) beide BOARD/ADMIN-only
+  bleiben. Beide Gates sind wieder BOARD/ADMIN-exklusiv.
+- **Autorisierungslücke: `listMembersForAdministration` gab TREASURER Familien-Zugehörigkeitsdaten
+  preis**, die ihm über `IMemberFamilyService.listFamilies`/`getFamily` (BOARD/ADMIN-only)
+  ausdrücklich verweigert werden — `MemberAdminRowDto.familyId`/`familyName`/`familyRole` werden
+  serverseitig jetzt für einen nicht-`isPrivileged` (also TREASURER-)Aufrufer auf `null` gesetzt
+  (`MemberService.toMemberAdminRowDto`s neuer `includeFamilyDetails`-Parameter, angewandt an allen
+  acht Call-Sites inkl. `updateMemberMembershipTier`), jetzt mit gezielten Tests für genau diesen
+  Rollen-Kontrast abgesichert (`MemberAdministrationTest`, TREASURER vs. ADMIN, sowohl über das
+  Roster als auch über `updateMemberMembershipTier`s eigene Rückgabe).
+  **Bekannte Restlücke (keine Regression dieser Welle, vorbestehende Architekturentscheidung)**:
+  ein TREASURER hat weiterhin lesenden Zugriff auf `IAuditLogService.listAuditLog`
+  (`AuditLogService.AUDIT_READ_ROLES`) und kann darüber, für jedes Mitglied mit einem
+  familienbedingten Tarifwechsel, `entityId` (Mitglieds-Id) und `afterSnapshot.familyId`
+  (`MemberMembershipTierSnapshot`, geschrieben in `MembershipTierAssignment.apply`) korrelieren —
+  die Mitglied-zu-Familie-Zuordnung bleibt damit über diesen Weg ableitbar, auch wenn Familienname
+  und Payer/Dependent-Rolle verborgen bleiben. Diese Lücke zu schließen würde bedeuten, `familyId`
+  entweder aus dem Audit-Snapshot zu entfernen oder den Audit-Lesezugriff für TREASURER
+  einzuschränken — beides außerhalb des Scopes dieser Welle.
+- **Fehlende Testabdeckung für `canEditMembershipTierOf`/`hasAnyEditableSectionFor`** —
+  `MemberAdministrationScreenTest` deckt jetzt beide Prädikate gezielt ab (TREASURER/BOARD-mit-
+  Tarif/BOARD-ohne-Tarif/ADMIN/anonymisiert, plus der OR-Ketten-Regressionstest für einen
+  BOARD-Aufrufer auf einer eskalierten Zielrolle mit entfernbarem Tarif).
 
 ## [0.18.0] — 2026-09-03
 

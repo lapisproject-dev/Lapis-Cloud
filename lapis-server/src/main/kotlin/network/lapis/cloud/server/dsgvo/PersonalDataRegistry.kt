@@ -52,6 +52,7 @@ object PersonalDataRegistry {
             CrmPersonalData,
             EventPersonalData,
             MemberHonorPersonalData,
+            MemberFamilyPersonalData,
         )
 
     /**

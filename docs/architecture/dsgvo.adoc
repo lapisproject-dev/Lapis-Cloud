@@ -195,6 +195,33 @@ not an Art. 17 erasure, and logging it as one would misrepresent what happened. 
 erasure path for `member_honor` data is the ordinary member-wide Auskunft/Löschung workflow via
 `MemberHonorPersonalData`, never this RPC method.
 
+== Family memberships (`member_family`, `member_family_link`, Welle V1.4.4.4)
+
+`MemberFamilyPersonalData` covers both `member_family` and `member_family_link`. Unlike
+`member_honor`, this is a **hard DELETE, not a retain-and-null pattern**: a `member_family_link`
+row is a statement about a relationship between TWO people (the household grouping), not an
+organizational fact about the organization's own actions the way "the organization awarded member
+X an honor" is. Retaining it would preserve exactly the relationship information of a THIRD PARTY
+(the other family members) that nobody but the erased person's own data-subject request ever
+consented to disclose. It also carries no accounting weight to retain FOR — no money flows through
+this table, and (from this wave onward) any tier change it triggers is separately recorded in
+`AuditEntityType.MEMBER`'s `MemberMembershipTierSnapshot`.
+
+* `member_family_link.member_id = memberId` is hard-deleted (`rowsDeleted`).
+* A family that loses its LAST link through this erasure is deleted too (a second
+  `TableErasureOutcome` for `member_family`, `rowsDeleted`) — pure orphan data with no further
+  purpose. A family that still has other members after this erasure is left standing, possibly now
+  payerless — a visible, actionable state (see `IMemberFamilyService.removeFamilyMember` KDoc),
+  never silently hidden data debris.
+* `member_family.created_by` and `member_family_link.linked_by` are **retained**, same
+  accountability posture every other `created_by`/`recorded_by` column in this codebase takes —
+  only the membership-role facts about the erased person themselves are removed, not the record of
+  who administered a family they did not belong to.
+* `member_id`, `linked_by`, and `created_by` (on the owning family) can all name the SAME person on
+  the same row/family — `export`/`erase` both filter with a single `OR` across all three roles, per
+  table, never as a summed count, same "Row-counting, not naive double-counting" discipline
+  `MemberHonorPersonalData` already establishes.
+
 == See also
 
 * `network.lapis.cloud.server.dsgvo.PersonalDataContributor`/`PersonalDataRegistry`/`DataSubject` — the
@@ -204,6 +231,8 @@ erasure path for `member_honor` data is the ordinary member-wide Auskunft/Lösch
   subject kinds.
 * `network.lapis.cloud.server.dsgvo.MemberHonorPersonalData` — the two-role, hybrid-erasure
   contributor for `member_honor`.
+* `network.lapis.cloud.server.dsgvo.MemberFamilyPersonalData` — the three-role, hard-delete
+  contributor for `member_family`/`member_family_link`.
 * `docs/architecture/domain-model.adoc` — the wider persistence-model documentation this file
   intentionally does not duplicate (this document is scoped to the DSGVO framework's own shape, not
   the CRM entity's full column-level schema — see `38-crm.kuml.kts` for that).

@@ -6,6 +6,7 @@ import io.kotest.matchers.shouldNotBe
 import io.ktor.client.HttpClient
 import io.ktor.client.request.get
 import io.ktor.client.request.header
+import io.ktor.client.request.parameter
 import io.ktor.client.request.post
 import io.ktor.client.statement.bodyAsText
 import io.ktor.http.HttpStatusCode
@@ -29,6 +30,8 @@ import network.lapis.cloud.server.db.generated.AuditLogEntryTable
 import network.lapis.cloud.server.db.generated.CommitteeMembershipTable
 import network.lapis.cloud.server.db.generated.CommitteeTable
 import network.lapis.cloud.server.db.generated.FriendEmailVerificationTokenTable
+import network.lapis.cloud.server.db.generated.MemberFamilyLinkTable
+import network.lapis.cloud.server.db.generated.MemberFamilyTable
 import network.lapis.cloud.server.db.generated.MemberTable
 import network.lapis.cloud.server.db.generated.SepaMandateTable
 import network.lapis.cloud.server.db.generated.SessionTable
@@ -52,6 +55,7 @@ import network.lapis.cloud.shared.domain.MemberStatus
 import network.lapis.cloud.shared.domain.MemberStatusSets
 import network.lapis.cloud.shared.domain.SepaMandateStatus
 import network.lapis.cloud.shared.domain.SepaSequenceType
+import network.lapis.cloud.shared.rpc.BadRequestException
 import network.lapis.cloud.shared.rpc.ConflictException
 import network.lapis.cloud.shared.rpc.ForbiddenException
 import network.lapis.cloud.shared.rpc.LastAdminException
@@ -276,7 +280,7 @@ class MemberAdministrationTest :
             }
 
         // ── 1: Autz Roster ──
-        test("listMembersForAdministration: MEMBER forbidden, unauthenticated rejected, BOARD/ADMIN ok") {
+        test("listMembersForAdministration: MEMBER forbidden, unauthenticated rejected, BOARD/ADMIN/TREASURER ok") {
             testApplication {
                 application {
                     install(StatusPages) { installMemberAdminExceptionHandlers() }
@@ -286,11 +290,13 @@ class MemberAdministrationTest :
                 client.get("/test/roster").status shouldBe HttpStatusCode.Unauthorized
                 client.get("/test/roster") { header("X-Member-Id", BOARD_ID) }.status shouldBe HttpStatusCode.OK
                 client.get("/test/roster") { header("X-Member-Id", ADMIN_ID) }.status shouldBe HttpStatusCode.OK
-                // TREASURER is in ESCALATED_ROLES but NOT isPrivileged (RequestContext.isPrivileged
-                // is BOARD/ADMIN only) -- pins that boundary against an accidental future widening
-                // of isPrivileged to include TREASURER, which would silently grant the treasurer
-                // full roster/email/role/status access to every member.
-                client.get("/test/roster") { header("X-Member-Id", TREASURER_ID) }.status shouldBe HttpStatusCode.Forbidden
+                // Welle V1.4.4.4 review fix (MAJOR finding) deliberately widened this ONE method from
+                // `!current.isPrivileged` (BOARD/ADMIN) to `requireRole(TREASURER, BOARD, ADMIN)` --
+                // see IMemberService.listMembersForAdministration KDoc -- purely so a Schatzmeister can
+                // search/pick a member to call updateMemberMembershipTier on. `isPrivileged` itself
+                // (RequestContext) stays BOARD/ADMIN-only and untouched by this -- every OTHER
+                // BOARD/ADMIN-gated member-administration action is unaffected.
+                client.get("/test/roster") { header("X-Member-Id", TREASURER_ID) }.status shouldBe HttpStatusCode.OK
             }
         }
 
@@ -1517,7 +1523,377 @@ class MemberAdministrationTest :
                 roleOf(member) shouldBe AccountRole.ADMIN
             }
         }
+
+        // ── Welle V1.4.4.4 "Familienmitgliedschaften" -- updateMemberMembershipTier ─────────────
+
+        fun tierOf(memberId: Uuid): Uuid? =
+            transaction { MemberTable.selectAll().where { MemberTable.id eq memberId }.single()[MemberTable.membershipTierId] }
+
+        test("updateMemberMembershipTier: assigning a real tier as BOARD is forbidden") {
+            testApplication {
+                application {
+                    install(StatusPages) { installMemberAdminExceptionHandlers() }
+                    routing { registerMemberAdminTestRoutes() }
+                }
+                val target = createTestMember(email = "tier-board-forbidden@example.org")
+                client
+                    .post("/test/tier/$target?tierId=${DevSeedData.standardTierId}") { header("X-Member-Id", BOARD_ID) }
+                    .status shouldBe HttpStatusCode.Forbidden
+                tierOf(target) shouldBe null
+            }
+        }
+
+        listOf(TREASURER_ID, ADMIN_ID).forEach { actorId ->
+            test("updateMemberMembershipTier: assigning a real tier as $actorId (TREASURER/ADMIN) succeeds") {
+                testApplication {
+                    application {
+                        install(StatusPages) { installMemberAdminExceptionHandlers() }
+                        routing { registerMemberAdminTestRoutes() }
+                    }
+                    val target = createTestMember(email = "tier-assign-$actorId@example.org")
+                    client
+                        .post("/test/tier/$target?tierId=${DevSeedData.standardTierId}") { header("X-Member-Id", actorId) }
+                        .status shouldBe HttpStatusCode.OK
+                    tierOf(target) shouldBe DevSeedData.standardTierId
+                }
+            }
+        }
+
+        test("updateMemberMembershipTier: removing a tier (null) as BOARD succeeds") {
+            testApplication {
+                application {
+                    install(StatusPages) { installMemberAdminExceptionHandlers() }
+                    routing { registerMemberAdminTestRoutes() }
+                }
+                val target = createTestMember(email = "tier-remove-board@example.org")
+                transaction { MemberTable.update({ MemberTable.id eq target }) { it[membershipTierId] = DevSeedData.standardTierId } }
+                client.post("/test/tier/$target") { header("X-Member-Id", BOARD_ID) }.status shouldBe HttpStatusCode.OK
+                tierOf(target) shouldBe null
+            }
+        }
+
+        test("updateMemberMembershipTier: on an anonymized target is rejected (ConflictException)") {
+            testApplication {
+                application {
+                    install(StatusPages) { installMemberAdminExceptionHandlers() }
+                    routing { registerMemberAdminTestRoutes() }
+                }
+                val target = createTestMember(email = "tier-anon@example.org")
+                transaction { MemberTable.update({ MemberTable.id eq target }) { it[anonymizedAt] = DbClock.nowLocalDateTime() } }
+                client
+                    .post("/test/tier/$target?tierId=${DevSeedData.standardTierId}") { header("X-Member-Id", ADMIN_ID) }
+                    .status shouldBe HttpStatusCode.Conflict
+            }
+        }
+
+        test("updateMemberMembershipTier: blank or too-long reason is rejected (ConflictException)") {
+            testApplication {
+                application {
+                    install(StatusPages) { installMemberAdminExceptionHandlers() }
+                    routing { registerMemberAdminTestRoutes() }
+                }
+                val target = createTestMember(email = "tier-badreason@example.org")
+                client
+                    .post("/test/tier/$target?tierId=${DevSeedData.standardTierId}&reason=") { header("X-Member-Id", ADMIN_ID) }
+                    .status shouldBe HttpStatusCode.Conflict
+            }
+        }
+
+        test("updateMemberMembershipTier: unknown tier id is rejected (BadRequestException)") {
+            testApplication {
+                application {
+                    install(StatusPages) { installMemberAdminExceptionHandlers() }
+                    routing { registerMemberAdminTestRoutes() }
+                }
+                val target = createTestMember(email = "tier-unknown@example.org")
+                client
+                    .post("/test/tier/$target?tierId=${Uuid.random()}") { header("X-Member-Id", ADMIN_ID) }
+                    .status shouldBe HttpStatusCode.BadRequest
+            }
+        }
+
+        test("updateMemberMembershipTier: a no-op call (same tier again) writes no audit entry") {
+            testApplication {
+                application {
+                    install(StatusPages) { installMemberAdminExceptionHandlers() }
+                    routing { registerMemberAdminTestRoutes() }
+                }
+                val target = createTestMember(email = "tier-noop@example.org")
+                transaction { MemberTable.update({ MemberTable.id eq target }) { it[membershipTierId] = DevSeedData.standardTierId } }
+                val before =
+                    transaction {
+                        AuditLogEntryTable
+                            .selectAll()
+                            .where { (AuditLogEntryTable.entityType eq AuditEntityType.MEMBER) and (AuditLogEntryTable.entityId eq target) }
+                            .count()
+                    }
+                client
+                    .post("/test/tier/$target?tierId=${DevSeedData.standardTierId}") { header("X-Member-Id", ADMIN_ID) }
+                    .status shouldBe HttpStatusCode.OK
+                val after =
+                    transaction {
+                        AuditLogEntryTable
+                            .selectAll()
+                            .where { (AuditLogEntryTable.entityType eq AuditEntityType.MEMBER) and (AuditLogEntryTable.entityId eq target) }
+                            .count()
+                    }
+                after shouldBe before
+            }
+        }
+
+        // ── Security fixes (review): self-target + Peer-Schutz + Statuskorrektur-vor-Tarif ────────
+
+        test("updateMemberMembershipTier: self-target is forbidden regardless of role or direction") {
+            testApplication {
+                application {
+                    install(StatusPages) { installMemberAdminExceptionHandlers() }
+                    routing { registerMemberAdminTestRoutes() }
+                }
+                // Fresh fixtures, not the shared DevSeedData ADMIN_ID/BOARD_ID accounts (those are
+                // seeded WITH DevSeedData.standardTierId already and reused by every other test in
+                // this file -- mutating them here would leak state across tests).
+                val selfAdmin = createTestMember(email = "tier-self-admin@example.org", role = AccountRole.ADMIN)
+                // ADMIN assigning a REAL tier to themselves.
+                client
+                    .post("/test/tier/$selfAdmin?tierId=${DevSeedData.standardTierId}") { header("X-Member-Id", selfAdmin.toString()) }
+                    .status shouldBe HttpStatusCode.Forbidden
+                tierOf(selfAdmin) shouldBe null
+
+                // BOARD removing their OWN tier (membershipTierId == null only needs isPrivileged) --
+                // the actual self-benefit scenario the finding describes: escaping the next
+                // contribution run without TREASURER/ADMIN involvement.
+                val selfBoard = createTestMember(email = "tier-self-board@example.org", role = AccountRole.BOARD)
+                transaction { MemberTable.update({ MemberTable.id eq selfBoard }) { it[membershipTierId] = DevSeedData.standardTierId } }
+                client.post("/test/tier/$selfBoard") { header("X-Member-Id", selfBoard.toString()) }.status shouldBe
+                    HttpStatusCode.Forbidden
+                tierOf(selfBoard) shouldBe DevSeedData.standardTierId
+            }
+        }
+
+        test("updateMemberMembershipTier: TREASURER may not ASSIGN a real tier to a fellow ADMIN/BOARD/TREASURER peer, ADMIN may") {
+            testApplication {
+                application {
+                    install(StatusPages) { installMemberAdminExceptionHandlers() }
+                    routing { registerMemberAdminTestRoutes() }
+                }
+                // TREASURER passes the method's own role gate (assigning a real tier needs
+                // TREASURER/ADMIN) but must still be rejected by the Peer-Schutz check below it --
+                // this is the scenario the fix actually targets, not the pre-existing role gate.
+                val peerAdmin = createTestMember(email = "tier-peer-admin-assign@example.org", role = AccountRole.ADMIN)
+                client
+                    .post("/test/tier/$peerAdmin?tierId=${DevSeedData.standardTierId}") { header("X-Member-Id", TREASURER_ID) }
+                    .status shouldBe HttpStatusCode.Forbidden
+                tierOf(peerAdmin) shouldBe null
+                client
+                    .post("/test/tier/$peerAdmin?tierId=${DevSeedData.standardTierId}") { header("X-Member-Id", ADMIN_ID) }
+                    .status shouldBe HttpStatusCode.OK
+                tierOf(peerAdmin) shouldBe DevSeedData.standardTierId
+            }
+        }
+
+        test("updateMemberMembershipTier: BOARD may not REMOVE a fellow ADMIN/BOARD/TREASURER peer's tier, ADMIN may") {
+            testApplication {
+                application {
+                    install(StatusPages) { installMemberAdminExceptionHandlers() }
+                    routing { registerMemberAdminTestRoutes() }
+                }
+                // BOARD passes the method's own role gate (removing a tier only needs isPrivileged)
+                // but must still be rejected by the Peer-Schutz check below it.
+                val peerAdmin = createTestMember(email = "tier-peer-admin-remove@example.org", role = AccountRole.ADMIN)
+                transaction { MemberTable.update({ MemberTable.id eq peerAdmin }) { it[membershipTierId] = DevSeedData.standardTierId } }
+                client.post("/test/tier/$peerAdmin") { header("X-Member-Id", BOARD_ID) }.status shouldBe HttpStatusCode.Forbidden
+                tierOf(peerAdmin) shouldBe DevSeedData.standardTierId
+                client.post("/test/tier/$peerAdmin") { header("X-Member-Id", ADMIN_ID) }.status shouldBe HttpStatusCode.OK
+                tierOf(peerAdmin) shouldBe null
+            }
+        }
+
+        listOf(MemberStatus.WITHDRAWN, MemberStatus.REJECTED, MemberStatus.DECEASED).forEach { endedStatus ->
+            test("updateMemberMembershipTier: assigning a real tier to a $endedStatus member is rejected (ConflictException)") {
+                testApplication {
+                    application {
+                        install(StatusPages) { installMemberAdminExceptionHandlers() }
+                        routing { registerMemberAdminTestRoutes() }
+                    }
+                    val target = createTestMember(email = "tier-ended-$endedStatus@example.org", status = endedStatus)
+                    client
+                        .post("/test/tier/$target?tierId=${DevSeedData.standardTierId}") { header("X-Member-Id", ADMIN_ID) }
+                        .status shouldBe HttpStatusCode.Conflict
+                    tierOf(target) shouldBe null
+                    // Removing (null) stays allowed regardless of status -- never blocked by this guard.
+                    transaction { MemberTable.update({ MemberTable.id eq target }) { it[membershipTierId] = DevSeedData.standardTierId } }
+                    client.post("/test/tier/$target") { header("X-Member-Id", BOARD_ID) }.status shouldBe HttpStatusCode.OK
+                    tierOf(target) shouldBe null
+                }
+            }
+        }
+
+        test(
+            "listMembersForAdministration: family/tier LEFT JOINs surface correctly and totalCount is unaffected (no row multiplication)",
+        ) {
+            testApplication {
+                application {
+                    install(StatusPages) { installMemberAdminExceptionHandlers() }
+                    routing {
+                        registerMemberAdminTestRoutes()
+                        registerFamilyHelperRoutesForMemberAdminTests()
+                    }
+                }
+                val withoutFamily = createTestMember(email = "roster-family-none-${Uuid.random()}@example.org")
+                val payer = createTestMember(email = "roster-family-payer-${Uuid.random()}@example.org")
+                transaction { MemberTable.update({ MemberTable.id eq payer }) { it[membershipTierId] = DevSeedData.standardTierId } }
+
+                val baselineTotal =
+                    client
+                        .get("/test/roster?search=roster-family-") { header("X-Member-Id", ADMIN_ID) }
+                        .bodyAsText()
+                        .split("|")[1]
+                        .toInt()
+
+                val familyId =
+                    client
+                        .post("/test/family/create") {
+                            header("X-Member-Id", ADMIN_ID)
+                            parameter("payerMemberId", payer.toString())
+                            parameter("name", "Roster-Testfamilie")
+                        }.bodyAsText()
+
+                val response = client.get("/test/roster?search=roster-family-") { header("X-Member-Id", ADMIN_ID) }.bodyAsText()
+                val (rowsPart, totalCount) = response.split("|")
+                totalCount.toInt() shouldBe baselineTotal
+
+                val rows = rowsPart.split(";").filter { it.isNotBlank() }
+                rows.any { it.startsWith("$withoutFamily:") && it.endsWith(":null:null:null:null") } shouldBe true
+                rows.any {
+                    it.contains(
+                        "$payer:",
+                    ) &&
+                        it.contains(":$familyId:Roster-Testfamilie:PAYER:${DevSeedData.standardTierId}")
+                } shouldBe
+                    true
+
+                // Cleanup BEFORE this file's shared afterSpec deletes `payer` -- MemberFamilyLinkTable
+                // .member_id has an FK to member(id) with no ON DELETE CASCADE, same class of fixup
+                // this file's afterSpec already applies to AuditLogEntryTable.actorMemberId.
+                transaction {
+                    val familyUuid = Uuid.parse(familyId)
+                    MemberFamilyLinkTable.deleteWhere { MemberFamilyLinkTable.familyId eq familyUuid }
+                    MemberFamilyTable.deleteWhere { MemberFamilyTable.id eq familyUuid }
+                }
+            }
+        }
+
+        // Review fix (Runde 4, MEDIUM finding): the two tests below are the missing regression
+        // guard for MemberService.toMemberAdminRowDto's `includeFamilyDetails = current.isPrivileged`
+        // gate (see its KDoc) -- without them, reverting that gate to `true` (or defaulting the
+        // parameter) left `./gradlew clean check` fully green. Both reuse the exact same
+        // registerFamilyHelperRoutesForMemberAdminTests()/createTestMember fixture shape as the
+        // "family/tier LEFT JOINs" test directly above, just read back as TREASURER instead of ADMIN.
+        test(
+            "listMembersForAdministration: TREASURER caller gets the three family fields nulled out, membershipTierId stays populated (security fix regression guard)",
+        ) {
+            testApplication {
+                application {
+                    install(StatusPages) { installMemberAdminExceptionHandlers() }
+                    routing {
+                        registerMemberAdminTestRoutes()
+                        registerFamilyHelperRoutesForMemberAdminTests()
+                    }
+                }
+                val payer = createTestMember(email = "roster-treasurer-family-${Uuid.random()}@example.org")
+                transaction { MemberTable.update({ MemberTable.id eq payer }) { it[membershipTierId] = DevSeedData.standardTierId } }
+
+                val familyId =
+                    client
+                        .post("/test/family/create") {
+                            header("X-Member-Id", ADMIN_ID)
+                            parameter("payerMemberId", payer.toString())
+                            parameter("name", "Treasurer-Sichtbarkeits-Testfamilie")
+                        }.bodyAsText()
+
+                // Sanity check first: as ADMIN the three family fields ARE populated -- otherwise the
+                // TREASURER assertion below (`null`) would trivially pass even if the gate were gone.
+                val adminRows =
+                    client
+                        .get("/test/roster?search=roster-treasurer-family-") { header("X-Member-Id", ADMIN_ID) }
+                        .bodyAsText()
+                        .split("|")[0]
+                        .split(";")
+                        .filter { it.isNotBlank() }
+                adminRows.any {
+                    it.contains("$payer:") &&
+                        it.endsWith(":$familyId:Treasurer-Sichtbarkeits-Testfamilie:PAYER:${DevSeedData.standardTierId}")
+                } shouldBe true
+
+                val treasurerRows =
+                    client
+                        .get("/test/roster?search=roster-treasurer-family-") { header("X-Member-Id", TREASURER_ID) }
+                        .bodyAsText()
+                        .split("|")[0]
+                        .split(";")
+                        .filter { it.isNotBlank() }
+                treasurerRows.any {
+                    it.contains("$payer:") && it.endsWith(":null:null:null:${DevSeedData.standardTierId}")
+                } shouldBe true
+
+                transaction {
+                    val familyUuid = Uuid.parse(familyId)
+                    MemberFamilyLinkTable.deleteWhere { MemberFamilyLinkTable.familyId eq familyUuid }
+                    MemberFamilyTable.deleteWhere { MemberFamilyTable.id eq familyUuid }
+                }
+            }
+        }
+
+        test(
+            "updateMemberMembershipTier: TREASURER caller's own returned row also has the three family fields nulled out",
+        ) {
+            testApplication {
+                application {
+                    install(StatusPages) { installMemberAdminExceptionHandlers() }
+                    routing {
+                        registerMemberAdminTestRoutes()
+                        registerFamilyHelperRoutesForMemberAdminTests()
+                    }
+                }
+                val payer = createTestMember(email = "tier-treasurer-family-${Uuid.random()}@example.org")
+                val familyId =
+                    client
+                        .post("/test/family/create") {
+                            header("X-Member-Id", ADMIN_ID)
+                            parameter("payerMemberId", payer.toString())
+                            parameter("name", "Tier-Treasurer-Testfamilie")
+                        }.bodyAsText()
+
+                // Same actor, same call, as ADMIN first -- sanity check that the fixture actually
+                // carries non-null family fields before proving the TREASURER path nulls them.
+                client
+                    .post("/test/tier/$payer?tierId=${DevSeedData.standardTierId}") { header("X-Member-Id", ADMIN_ID) }
+                    .bodyAsText() shouldBe
+                    "$payer:${DevSeedData.standardTierId}:$familyId:Tier-Treasurer-Testfamilie:PAYER"
+
+                client
+                    .post("/test/tier/$payer?tierId=${DevSeedData.standardTierId}") { header("X-Member-Id", TREASURER_ID) }
+                    .bodyAsText() shouldBe
+                    "$payer:${DevSeedData.standardTierId}:null:null:null"
+
+                transaction {
+                    val familyUuid = Uuid.parse(familyId)
+                    MemberFamilyLinkTable.deleteWhere { MemberFamilyLinkTable.familyId eq familyUuid }
+                    MemberFamilyTable.deleteWhere { MemberFamilyTable.id eq familyUuid }
+                }
+            }
+        }
     })
+
+/** Welle V1.4.4.4 -- minimal helper route so [MemberAdministrationTest] can create a family fixture without duplicating [MemberFamilyServiceTest]'s full route set. */
+private fun Route.registerFamilyHelperRoutesForMemberAdminTests() {
+    post("/test/family/create") {
+        val service = MemberFamilyService(call = call)
+        val q = call.request.queryParameters
+        val dto = service.createFamily(name = q["name"] ?: "Testfamilie", payerMemberId = q["payerMemberId"]!!)
+        call.respondText(dto.id)
+    }
+}
 
 private fun StatusPagesConfig.installMemberAdminExceptionHandlers() {
     exception<UnauthenticatedException> { call, cause -> call.respondText(cause.message, status = HttpStatusCode.Unauthorized) }
@@ -1532,6 +1908,8 @@ private fun StatusPagesConfig.installMemberAdminExceptionHandlers() {
     // Welle V1.2.13 -- without this handler, WeakPasswordException became an uncaught 500 and
     // test 32 would assert the wrong thing entirely (a server error, not a validation rejection).
     exception<WeakPasswordException> { call, cause -> call.respondText(cause.message, status = HttpStatusCode.BadRequest) }
+    // Welle V1.4.4.4 "Familienmitgliedschaften" -- updateMemberMembershipTier's unknown-tier case.
+    exception<BadRequestException> { call, cause -> call.respondText(cause.message, status = HttpStatusCode.BadRequest) }
 }
 
 private fun Route.registerMemberAdminTestRoutes(
@@ -1572,7 +1950,10 @@ private fun Route.registerMemberAdminTestRoutes(
                     offset = q["offset"]?.toInt() ?: 0,
                 ),
             )
-        val rowsPart = page.rows.joinToString(";") { "${it.id}:${it.status}:${it.role}:${it.anonymized}" }
+        val rowsPart =
+            page.rows.joinToString(";") {
+                "${it.id}:${it.status}:${it.role}:${it.anonymized}:${it.familyId}:${it.familyName}:${it.familyRole}:${it.membershipTierId}"
+            }
         val countsPart = page.statusCounts.entries.joinToString(",") { "${it.key}=${it.value}" }
         call.respondText("$rowsPart|${page.totalCount}|${page.limit}|${page.offset}|$countsPart")
     }
@@ -1639,6 +2020,28 @@ private fun Route.registerMemberAdminTestRoutes(
                 role = AccountRole.valueOf(q["role"] ?: "MEMBER"),
             )
         call.respondText("${dto.id}:${dto.role}:${dto.status}")
+    }
+    // Welle V1.4.4.4 "Familienmitgliedschaften".
+    post("/test/tier/{id}") {
+        val service =
+            MemberService(
+                call = call,
+                friendVerificationMailer = mailer,
+                memberCoreDataFriendMailRateLimiter = memberCoreDataFriendMailRateLimiter,
+                memberCoreDataFriendMailActorRateLimiter = memberCoreDataFriendMailActorRateLimiter,
+            )
+        val q = call.request.queryParameters
+        val dto =
+            service.updateMemberMembershipTier(
+                memberId = call.parameters["id"]!!,
+                membershipTierId = q["tierId"],
+                reason = q["reason"] ?: "Testbegründung",
+            )
+        // Review fix (Runde 4, MEDIUM finding): the three family fields were added to this response
+        // so a test can assert the `includeFamilyDetails` gate (MemberService.toMemberAdminRowDto
+        // KDoc) also holds for THIS call site's own returned row, not only for the roster read --
+        // see the two "TREASURER caller ... family fields nulled out" tests above.
+        call.respondText("${dto.id}:${dto.membershipTierId}:${dto.familyId}:${dto.familyName}:${dto.familyRole}")
     }
 }
 

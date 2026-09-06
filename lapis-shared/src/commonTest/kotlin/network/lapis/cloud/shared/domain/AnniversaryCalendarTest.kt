@@ -141,4 +141,40 @@ class AnniversaryCalendarTest {
             AnniversaryCalendar.windowEnd(today = LocalDate(2026, 1, 1), windowDays = 30),
         )
     }
+
+    // ── Welle V1.4.4.4 "Familienmitgliedschaften" -- nthAnniversary ─────────────────────────────
+
+    @Test
+    fun nthAnniversary_normalCase_addsYearsToBirthdate() {
+        assertEquals(
+            LocalDate(2026, 3, 1),
+            AnniversaryCalendar.nthAnniversary(anniversary = LocalDate(2008, 3, 1), years = 18),
+        )
+    }
+
+    @Test
+    fun nthAnniversary_monthEnd_staysOnSameDay() {
+        assertEquals(
+            LocalDate(2026, 1, 31),
+            AnniversaryCalendar.nthAnniversary(anniversary = LocalDate(2008, 1, 31), years = 18),
+        )
+    }
+
+    @Test
+    fun nthAnniversary_leapDayBirthdate_inLeapTargetYear_staysFeb29() {
+        // 2008 is a leap year, +20 years = 2028, also a leap year.
+        assertEquals(
+            LocalDate(2028, 2, 29),
+            AnniversaryCalendar.nthAnniversary(anniversary = LocalDate(2008, 2, 29), years = 20),
+        )
+    }
+
+    @Test
+    fun nthAnniversary_leapDayBirthdate_inNonLeapTargetYear_shiftsToFeb28() {
+        // 2008 is a leap year, +18 years = 2026, NOT a leap year.
+        assertEquals(
+            LocalDate(2026, 2, 28),
+            AnniversaryCalendar.nthAnniversary(anniversary = LocalDate(2008, 2, 29), years = 18),
+        )
+    }
 }

@@ -8,7 +8,10 @@ import kotlinx.serialization.json.Json
 import network.lapis.cloud.server.audit.AuditLogRecorder
 import network.lapis.cloud.server.db.DbClock
 import network.lapis.cloud.server.db.generated.AccountTable
+import network.lapis.cloud.server.db.generated.MemberFamilyLinkTable
+import network.lapis.cloud.server.db.generated.MemberFamilyTable
 import network.lapis.cloud.server.db.generated.MemberTable
+import network.lapis.cloud.server.db.generated.MembershipTierTable
 import network.lapis.cloud.server.federation.FederationInboxRateLimiter
 import network.lapis.cloud.server.mail.FriendVerificationMailer
 import network.lapis.cloud.server.mail.isValidMailboxAddress
@@ -36,6 +39,7 @@ import network.lapis.cloud.shared.domain.MemberStatusSets
 import network.lapis.cloud.shared.domain.MemberStatusTransitions
 import network.lapis.cloud.shared.domain.MemberSummaryDto
 import network.lapis.cloud.shared.domain.WebhookEventType
+import network.lapis.cloud.shared.rpc.BadRequestException
 import network.lapis.cloud.shared.rpc.ConflictException
 import network.lapis.cloud.shared.rpc.ForbiddenException
 import network.lapis.cloud.shared.rpc.IMemberService
@@ -197,7 +201,10 @@ class MemberService(
 
     override suspend fun listMembersForAdministration(query: MemberAdminQuery): MemberAdminPageDto {
         val current = resolveCurrentMember(call)
-        if (!current.isPrivileged) throw ForbiddenException()
+        // Welle V1.4.4.4 review fix (MAJOR finding): widened from `!current.isPrivileged`
+        // (BOARD/ADMIN) to also admit TREASURER -- see interface KDoc. `requireRole` (not
+        // `isPrivileged`) precisely because this is now a THREE-role, not a two-role, gate.
+        current.requireRole(AccountRole.TREASURER, AccountRole.BOARD, AccountRole.ADMIN)
 
         val limit = query.limit.coerceIn(1, MemberAdminQuery.MAX_LIMIT)
         val offset = query.offset.coerceAtLeast(0)
@@ -248,7 +255,7 @@ class MemberService(
                     .orderBy(*orderColumns)
                     .limit(limit)
                     .offset(offset.toLong())
-                    .map { it.toMemberAdminRowDto() }
+                    .map { it.toMemberAdminRowDto(includeFamilyDetails = current.isPrivileged) }
 
             val totalCount =
                 adminRosterSource
@@ -383,7 +390,7 @@ class MemberService(
                     after = Json.encodeToString(MemberChangeSnapshot.serializer(), afterSnapshot),
                     occurredAt = now,
                 )
-                loadMemberAdminRow(targetId)
+                loadMemberAdminRow(id = targetId, includeFamilyDetails = current.isPrivileged)
             }
         // The email IS the login identifier -- revoke every live session only when it actually
         // changed. A bare name correction has no such consequence. Runs AFTER commit, same
@@ -476,7 +483,9 @@ class MemberService(
 
                 // Idempotent no-op: DTO back, no update, no audit entry, no side effect -- a call
                 // repeated with the SAME target status must have no additional consequence.
-                if (newStatus == fromStatus) return@transaction loadMemberAdminRow(targetId)
+                if (newStatus == fromStatus) {
+                    return@transaction loadMemberAdminRow(id = targetId, includeFamilyDetails = current.isPrivileged)
+                }
 
                 val allowedTargets = MemberStatusTransitions.allowedTargets(fromStatus)
                 if (newStatus !in allowedTargets) {
@@ -585,7 +594,7 @@ class MemberService(
                     after = Json.encodeToString(MemberChangeSnapshot.serializer(), afterSnapshot),
                     occurredAt = now,
                 )
-                loadMemberAdminRow(targetId)
+                loadMemberAdminRow(id = targetId, includeFamilyDetails = current.isPrivileged)
             }
         // resolveCurrentMember does not itself re-check MemberStatusSets.LOGIN_BLOCKED per call --
         // AuthRoutes' login gate blocks a NEW login, but does nothing about a session that already
@@ -640,7 +649,7 @@ class MemberService(
             val currentRole = accountRow[AccountTable.role]
 
             // Idempotent no-op: DTO back, no update, no audit entry.
-            if (newRole == currentRole) return@transaction loadMemberAdminRow(targetId)
+            if (newRole == currentRole) return@transaction loadMemberAdminRow(id = targetId, includeFamilyDetails = current.isPrivileged)
 
             if (newRole != AccountRole.ADMIN) {
                 // Security fix (2026-08-27, MEDIUM) -- the invariant is "at least one ADMIN with a
@@ -695,7 +704,7 @@ class MemberService(
             )
             // Deliberately NO SessionStore.revokeAllForMember here -- see interface KDoc
             // "Deliberately does NOT invalidate the target's existing sessions".
-            loadMemberAdminRow(targetId)
+            loadMemberAdminRow(id = targetId, includeFamilyDetails = current.isPrivileged)
         }
     }
 
@@ -810,7 +819,61 @@ class MemberService(
             // Deliberately NO SessionStore.revokeAllForMember -- there is no session to revoke for an
             // account that did not exist a moment ago. Stated explicitly so no reviewer "adds the
             // missing revocation" by analogy with updateMemberStatus.
-            loadMemberAdminRow(targetId)
+            loadMemberAdminRow(id = targetId, includeFamilyDetails = current.isPrivileged)
+        }
+    }
+
+    // ── Welle V1.4.4.4 "Familienmitgliedschaften" ──────────────────────────────────────────────
+
+    override suspend fun updateMemberMembershipTier(
+        memberId: String,
+        membershipTierId: String?,
+        reason: String,
+    ): MemberAdminRowDto {
+        val current = resolveCurrentMember(call)
+        // Rollen-Asymmetrie, checked BEFORE any existence/state/reason validation -- see interface
+        // KDoc. Assigning a REAL tier creates a payment obligation (TREASURER/ADMIN); removing one
+        // only requires the lighter-weight isPrivileged (BOARD/ADMIN).
+        if (membershipTierId != null) {
+            current.requireRole(AccountRole.TREASURER, AccountRole.ADMIN)
+        } else if (!current.isPrivileged) {
+            throw ForbiddenException()
+        }
+        val targetId = memberId.toMemberUuidOrThrow()
+        // Security fix (MAJOR, self-target) -- always forbidden, regardless of role/direction, same
+        // "a privileged self-*-change must never be a self-service action" posture updateMemberStatus
+        // (line ~462) and updateMemberRole already enforce for THEIR own write paths. Without this, a
+        // BOARD caller could null their OWN membership_tier_id (membershipTierId == null only needs
+        // isPrivileged, not TREASURER/ADMIN) and silently escape their own next contribution run.
+        if (targetId == current.memberId) throw ForbiddenException()
+        val tierUuid =
+            membershipTierId?.let {
+                runCatching { Uuid.parse(it) }.getOrElse { throw BadRequestException("Invalid MembershipTier id: $it") }
+            }
+
+        val trimmedReason = reason.trim()
+        if (trimmedReason.length < MIN_REASON_LENGTH || trimmedReason.length > MAX_REASON_LENGTH) {
+            throw ConflictException("A reason is required ($MIN_REASON_LENGTH-$MAX_REASON_LENGTH characters)")
+        }
+
+        val now = nowLocalDateTime()
+        return transaction {
+            // Security fix (MAJOR, Peer-Schutz) -- same ESCALATED_ROLES boundary
+            // updateMemberCoreData/updateMemberStatus already draw: a BOARD (or TREASURER) caller may
+            // not change a fellow ADMIN/BOARD/TREASURER account's tier either, only ADMIN may. Read
+            // with the SAME `.forUpdate()`-locked helper those two methods use, so this can never
+            // observe a stale pre-escalation role racing a concurrent updateMemberRole commit.
+            val existingRole = currentAccountRole(targetId)
+            if (existingRole != null && existingRole in ESCALATED_ROLES) current.requireRole(AccountRole.ADMIN)
+            MembershipTierAssignment.apply(
+                targetMemberId = targetId,
+                newTierId = tierUuid,
+                actor = current,
+                reason = trimmedReason,
+                familyId = null,
+                now = now,
+            )
+            loadMemberAdminRow(id = targetId, includeFamilyDetails = current.isPrivileged)
         }
     }
 
@@ -858,11 +921,48 @@ private const val MAX_REASON_LENGTH = 1000
  * the 407 `MemberCsvImport`-created rows that have no `account` at all (see [MemberAdminRowDto
  * .role] KDoc). [ResultRow.toMemberAdminRowDto] below uses `getOrNull` on the joined columns for
  * exactly the same reason -- `row[AccountTable.role]` would throw for those rows.
+ *
+ * Welle V1.4.4.4 "Familienmitgliedschaften" added THREE further LEFT JOINs, every one explicit
+ * (`join(table, JoinType.LEFT, onColumn, otherColumn)`, never `innerJoin`/implicit inference) --
+ * `MemberFamilyLinkTable` carries TWO FKs to `MemberTable` (`member_id`, `linked_by`), the same
+ * shape `MemberHonorService.honorMemberJoin`'s own KDoc documents as fatal for Exposed's implicit
+ * join inference. **Row multiplication is structurally excluded**, so `.count()` in
+ * `listMembersForAdministration` stays correct: `uq_member_family_link_member` guarantees at most
+ * one `member_family_link` row per `member_id`, and the two further joins (`family_id` ->
+ * `member_family.id`, `membership_tier_id` -> `membership_tier.id`) are both PK-side joins, each
+ * matching at most one row by construction. Every added join is therefore, at most, 1:1.
  */
 private val adminRosterSource: ColumnSet =
-    MemberTable.join(AccountTable, JoinType.LEFT, MemberTable.id, AccountTable.memberId)
+    MemberTable
+        .join(AccountTable, JoinType.LEFT, MemberTable.id, AccountTable.memberId)
+        .join(MemberFamilyLinkTable, JoinType.LEFT, MemberTable.id, MemberFamilyLinkTable.memberId)
+        .join(MemberFamilyTable, JoinType.LEFT, MemberFamilyLinkTable.familyId, MemberFamilyTable.id)
+        .join(MembershipTierTable, JoinType.LEFT, MemberTable.membershipTierId, MembershipTierTable.id)
 
-private fun ResultRow.toMemberAdminRowDto(): MemberAdminRowDto =
+/**
+ * Review fix (Welle V1.4.4.4, MEDIUM finding): [includeFamilyDetails] gates the THREE
+ * family-membership fields, not just their presence in the SQL join -- `IMemberFamilyService`
+ * (`MemberFamilyService.FAMILY_ROLES`) restricts every dedicated family endpoint to BOARD/ADMIN,
+ * so a TREASURER caller (the one role [network.lapis.cloud.server.rpc.MemberService
+ * .listMembersForAdministration] and [network.lapis.cloud.server.rpc.MemberService
+ * .updateMemberMembershipTier] admit besides BOARD/ADMIN) must not receive who-lives-with-whom
+ * data through this DTO either -- that would let a TREASURER learn family composition for the
+ * ENTIRE roster via a route the dedicated family endpoints deny outright with 403. Every call site
+ * passes `current.isPrivileged` (BOARD/ADMIN) explicitly rather than defaulting to `true`, so a
+ * future TREASURER-admitting call site cannot forget this gate by omission. Regression-tested in
+ * [MemberAdministrationTest] (TREASURER vs. ADMIN, both via the roster read and via
+ * [network.lapis.cloud.server.rpc.MemberService.updateMemberMembershipTier]'s own returned row) --
+ * without those tests, reverting [includeFamilyDetails] to always-`true` left `./gradlew clean
+ * check` fully green.
+ *
+ * This gate does NOT make the who-lives-with-whom link unreachable for a TREASURER in general: it
+ * remains derivable via [network.lapis.cloud.server.rpc.AuditLogService.listAuditLog] (TREASURER
+ * is one of that service's own read roles), whose `afterSnapshot` for a family-driven tier change
+ * still carries `familyId` (`MembershipTierAssignment.apply`'s
+ * `network.lapis.cloud.shared.domain.MemberMembershipTierSnapshot`). Closing that residual path is
+ * out of scope for this fix -- see the CHANGELOG entry for Welle V1.4.4.4's review fixes.
+ */
+private fun ResultRow.toMemberAdminRowDto(includeFamilyDetails: Boolean): MemberAdminRowDto =
     MemberAdminRowDto(
         id = this[MemberTable.id].toString(),
         displayName = this[MemberTable.displayName],
@@ -872,14 +972,22 @@ private fun ResultRow.toMemberAdminRowDto(): MemberAdminRowDto =
         joinedAt = this[MemberTable.joinedAt],
         externalReference = this[MemberTable.externalReference],
         anonymized = this[MemberTable.anonymizedAt] != null,
+        membershipTierId = this[MemberTable.membershipTierId]?.toString(),
+        membershipTierName = this.getOrNull(MembershipTierTable.name),
+        familyId = if (includeFamilyDetails) this.getOrNull(MemberFamilyLinkTable.familyId)?.toString() else null,
+        familyName = if (includeFamilyDetails) this.getOrNull(MemberFamilyTable.name) else null,
+        familyRole = if (includeFamilyDetails) this.getOrNull(MemberFamilyLinkTable.role) else null,
     )
 
-private fun loadMemberAdminRow(id: Uuid): MemberAdminRowDto =
+private fun loadMemberAdminRow(
+    id: Uuid,
+    includeFamilyDetails: Boolean,
+): MemberAdminRowDto =
     adminRosterSource
         .selectAll()
         .where { MemberTable.id eq id }
         .single()
-        .toMemberAdminRowDto()
+        .toMemberAdminRowDto(includeFamilyDetails)
 
 /**
  * `%`/`_` in the raw search text are LIKE metacharacters -- without escaping, a single `%` turns

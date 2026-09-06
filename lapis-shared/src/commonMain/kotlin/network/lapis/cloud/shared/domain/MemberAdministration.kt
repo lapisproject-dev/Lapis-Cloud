@@ -29,6 +29,24 @@ data class MemberAdminRowDto(
     val joinedAt: LocalDate,
     val externalReference: String? = null,
     val anonymized: Boolean = false,
+    /** Welle V1.4.4.4 "Familienmitgliedschaften" -- `member.membership_tier_id`, joined for display. All five new fields default so this DTO stays source-compatible. */
+    val membershipTierId: String? = null,
+    val membershipTierName: String? = null,
+    /**
+     * Review fix (MEDIUM finding, family-field leak): unlike [membershipTierId]/[membershipTierName],
+     * these three fields are ALSO null for a TREASURER caller of
+     * [network.lapis.cloud.shared.rpc.IMemberService.listMembersForAdministration] -- not merely
+     * "null when no family exists". `IMemberFamilyService.listFamilies`/`getFamily` reject TREASURER
+     * outright (BOARD/ADMIN only), so this DTO must not become a back door to the same
+     * who-lives-with-whom data. See `MemberService.toMemberAdminRowDto`'s `includeFamilyDetails`
+     * parameter for the server-side nulling. Residual gap (not closed by this DTO, see
+     * [network.lapis.cloud.shared.rpc.IMemberService.listMembersForAdministration] KDoc): a
+     * TREASURER can still derive who-lives-with-whom from `IAuditLogService.listAuditLog`, whose
+     * `afterSnapshot` for a family-driven tier change still carries `familyId`.
+     */
+    val familyId: String? = null,
+    val familyName: String? = null,
+    val familyRole: FamilyMemberRole? = null,
 )
 
 /** Sortierschlüssel für [network.lapis.cloud.shared.rpc.IMemberService.listMembersForAdministration] -- niemals ein roher Client-Spaltenname (keine SQL-Injection-Fläche über die Sortierung). */

@@ -1334,3 +1334,118 @@ classDiagram(name = "Lapis Cloud Domain Model — Member Honors (V1.4.4.3)") {
 NOTE: This `[kuml]` block is not rendered or validated by any Gradle task in this repository (no
 Asciidoctor plugin is wired into the build) -- its syntax was hand-verified against the existing
 blocks above rather than compiled.
+
+== V1.4.4.4 — Family memberships
+
+Two new tables, `member_family` and `member_family_link` (`V23__member_family.sql`, model in
+`42-member-family.kuml.kts`) -- a household grouping of members with exactly one PAYER and any
+number of DEPENDENTs. Backed directly by `MemberFamilyService` -- no separate Store/Policy pair,
+same "single, simple table, no concurrency problem" reasoning `MemberHonorService` already
+establishes for its own shape.
+
+**Exactly two role literals, `PAYER`/`DEPENDENT` -- never a kinship classification**
+(`GUARDIAN`/`CHILD`/`SPOUSE`): the only fact this domain needs is "who is billed" vs. "who is
+covered by someone else's billing"; a relationship/kinship classification is sensitive personal
+data with no beitragswesen-relevant use in this wave.
+
+**No new `MemberStatus` literal for a dependent**: `MemberStatusSets.ORGANIZATION_MEMBER =
+setOf(ACTIVE)` -- a parallel status would silently strip a dependent of voting rights, LTR
+participation, and governance eligibility. A dependent's `member.status` is untouched; only their
+`membership_tier_id` is nulled.
+
+**The tragende Entscheidung -- `payer_family_id`, an application-maintained shadow column instead
+of a partial unique index**: the natural invariant "genau ein Zahler pro Familie" would ideally be
+a `UNIQUE (family_id) WHERE role = 'PAYER'` partial index. **Not buildable here**: H2's
+`MODE=PostgreSQL` -- the mode the whole test suite runs against -- rejects `CREATE UNIQUE INDEX
+... WHERE`, and the generated-column cross-dialect workaround fails too (Postgres requires
+`STORED`, H2 rejects `STORED`), both already verified empirically in `V8__sepa_mandates.sql`/
+`V9__dunning.sql`. Instead, `payer_family_id` is NULL for a DEPENDENT link and equals `family_id`
+for a PAYER link -- a plain (non-partial) UNIQUE index on `payer_family_id` then enforces "at most
+one PAYER per family" (multiple NULLs are allowed under a unique index on both H2 and Postgres,
+the same property `uq_crm_contact_email` already relies on). A CHECK constraint additionally
+forbids the shadow value from ever disagreeing with `role`/`family_id`, stronger than a bare
+partial index would have given. **Three-valued-logic trap found while implementing this wave**: a
+naive `CHECK (role='PAYER' AND payer_family_id=family_id) OR (...)` does NOT reject a PAYER row
+with a NULL shadow value -- `NULL = family_id` evaluates to `NULL`, and a CHECK that evaluates to
+`NULL` counts as *satisfied* in SQL, not violated. The migration adds an explicit
+`payer_family_id IS NOT NULL` conjunct to close this gap.
+
+**One link per member (`uq_member_family_link_member`)**: a member belongs to at most one family
+at a time. Changing families is remove-then-add, two separate, auditable steps.
+
+**`MembershipTierAssignment` -- the one write path for `member.membership_tier_id`**: shared by
+both `IMemberService.updateMemberMembershipTier` (manual, TREASURER/ADMIN-vs-BOARD role split
+depending on direction) and `MemberFamilyService` (`addFamilyMember`/`changePayer`'s tier-nulling
+side effect). Never a second implementation. Writes exactly one conditional `AuditEntityType.MEMBER`
+audit entry (`MemberMembershipTierSnapshot`) per actual change -- a no-op call writes nothing.
+Never rewrites or deletes an already-generated `contribution` row -- an existing charge is a
+bookkeeping fact corrected only through the regular storno path.
+
+**No feature flag**: unlike `auctionEnabled`/`dunningEnabled`/`sepaDebitEnabled` (each gated behind
+a Vorstandsbestätigung compliance disclaimer), a family link has no comparable Rechtsfolge. The
+UI's own visibility rule already achieves the same effect for an organization that never uses this
+feature: no family link -> no badge, no arbeitsliste row, an empty screen.
+
+**Deliberately NOT part of this wave**: retroactive storno of an already-generated contribution
+when a member becomes a dependent, a `TREASURER`-reachable tier-assignment entry point (server
+already permits it; `Routes.MEMBERS` itself stays `requireRole(BOARD, ADMIN)`, a documented, not
+accidental, gap), and restricting DEPENDENT eligibility to `MemberStatusSets.ORGANIZATION_MEMBER`
+(any non-anonymized member may currently become a dependent).
+
+[kuml, member-families, svg]
+----
+classDiagram(name = "Lapis Cloud Domain Model — Family Memberships (V1.4.4.4)") {
+
+    val member = classOf(name = "Member") {
+        attribute(name = "id", type = "UUID")
+        attribute(name = "displayName", type = "String")
+    }
+
+    val familyMemberRole = enumOf(name = "FamilyMemberRole") {
+        literal(name = "PAYER")
+        literal(name = "DEPENDENT")
+    }
+
+    val memberFamily = classOf(name = "MemberFamily") {
+        attribute(name = "id", type = "UUID")
+        attribute(name = "name", type = "String")
+        attribute(name = "createdAt", type = "LocalDateTime")
+    }
+
+    val memberFamilyLink = classOf(name = "MemberFamilyLink") {
+        attribute(name = "id", type = "UUID")
+        attribute(name = "role", type = familyMemberRole)
+        attribute(name = "payerFamilyId", type = "UUID")
+        attribute(name = "linkedAt", type = "LocalDateTime")
+    }
+
+    // member_family.created_by.
+    association(source = member, target = memberFamily) {
+        source { multiplicity(spec = "1"); navigable = false; role = "createdBy" }
+        target { multiplicity(spec = "0..*"); role = "familiesCreated" }
+    }
+
+    // member_family_link.family_id.
+    association(source = memberFamily, target = memberFamilyLink) {
+        source { multiplicity(spec = "1"); navigable = false }
+        target { multiplicity(spec = "0..*"); role = "links" }
+    }
+
+    // member_family_link.member_id -- the roster member (payer or dependent).
+    association(source = member, target = memberFamilyLink) {
+        source { multiplicity(spec = "1"); navigable = false }
+        target { multiplicity(spec = "0..1"); role = "familyLink" }
+    }
+
+    // member_family_link.linked_by -- a THIRD, independent association to the SAME Member class
+    // (all three FKs target `member`), same posture MemberHonor's honoree/recorder split documents.
+    association(source = member, target = memberFamilyLink) {
+        source { multiplicity(spec = "1"); navigable = false; role = "linkedBy" }
+        target { multiplicity(spec = "0..*"); role = "linksRecorded" }
+    }
+}
+----
+
+NOTE: This `[kuml]` block is not rendered or validated by any Gradle task in this repository (no
+Asciidoctor plugin is wired into the build) -- its syntax was hand-verified against the existing
+blocks above rather than compiled.

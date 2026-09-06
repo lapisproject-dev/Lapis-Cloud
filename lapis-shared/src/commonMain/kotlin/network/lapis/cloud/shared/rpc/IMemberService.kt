@@ -76,17 +76,40 @@ interface IMemberService {
     ): MemberDto
 
     /**
-     * Welle V1.2.12 -- the privileged member roster read. BOARD/ADMIN only (`isPrivileged`), never
+     * Welle V1.2.12 -- the privileged member roster read. BOARD/ADMIN/TREASURER only, never
      * reachable by a plain MEMBER -- unlike [listMembers], this returns email/role/anonymization
      * state, real PII a picker must never expose. Server-side pagination/search/status-filter
      * (see [MemberAdminQuery]) -- with 407 CSV-imported rows (`MemberCsvImport`, V1.2.11) plus every
      * organically created member, shipping the full roster to the client and filtering there does
      * not scale and would defeat the whole point of a searchable admin view.
      *
+     * **Welle V1.4.4.4 review fix (MAJOR finding) widened this from `isPrivileged` (BOARD/ADMIN) to
+     * also admit TREASURER** -- purely so a Schatzmeister can search/pick a member to call
+     * [updateMemberMembershipTier] on (that method's own Rollen-Asymmetrie KDoc already lets
+     * TREASURER assign a real tier; without this, TREASURER had no way to even FIND a member id to
+     * call it with). Every OTHER member-administration action stays exactly as gated as before.
+     *
+     * **Review fix (MEDIUM finding, family-field leak)**: [MemberAdminRowDto.familyId]/
+     * [MemberAdminRowDto.familyName]/[MemberAdminRowDto.familyRole] are the one exception to "no
+     * field a TREASURER could not already see elsewhere" -- `IMemberFamilyService.listFamilies`/
+     * `getFamily` reject a TREASURER caller with [ForbiddenException] (BOARD/ADMIN only, see that
+     * interface's own KDoc), so the roster read must not hand the same who-lives-with-whom data to
+     * a TREASURER through this DTO. The server nulls all three fields for a non-`isPrivileged`
+     * (i.e. TREASURER) caller before returning a row -- see `MemberService.toMemberAdminRowDto`'s
+     * `includeFamilyDetails` parameter -- and this gate is now regression-tested (`MemberAdministrationTest`,
+     * TREASURER vs. ADMIN, roster read AND [updateMemberMembershipTier]'s own returned row).
+     * **This is not a full back door closure**: a TREASURER can still read `IAuditLogService
+     * .listAuditLog` (`AccountRole.TREASURER` is in its own read-role set) and correlate a member's
+     * `entityId` with `afterSnapshot.familyId` on any audit entry `MembershipTierAssignment.apply`
+     * wrote for a family-driven tier change -- deriving the same who-lives-with-whom link this DTO
+     * withholds, minus the family name and PAYER/DEPENDENT role. Closing that would mean either
+     * scrubbing `familyId` from the audit snapshot or narrowing audit-log read access, both out of
+     * scope here -- see the CHANGELOG entry for Welle V1.4.4.4's review fixes.
+     *
      * [MemberAdminQuery.limit]/[MemberAdminQuery.offset]/[MemberAdminQuery.search] are re-clamped
      * server-side ([MemberAdminQuery.MAX_LIMIT]/[MemberAdminQuery.MAX_SEARCH_LENGTH]) -- never
      * trust a client-supplied limit/offset/search length directly into a query. Throws
-     * [ForbiddenException] if the caller is not privileged.
+     * [ForbiddenException] if the caller is not BOARD, ADMIN, or TREASURER.
      */
     suspend fun listMembersForAdministration(query: MemberAdminQuery): MemberAdminPageDto
 
@@ -257,5 +280,40 @@ interface IMemberService {
         memberId: String,
         temporaryPassword: String,
         role: AccountRole,
+    ): MemberAdminRowDto
+
+    /**
+     * Welle V1.4.4.4 "Familienmitgliedschaften" -- the ONE production write path for
+     * [MemberAdminRowDto.membershipTierId] (delegates to
+     * `network.lapis.cloud.server.rpc.MembershipTierAssignment.apply` -- see that object's own
+     * KDoc: there is deliberately no second implementation).
+     *
+     * **Rollen-Asymmetrie, checked BEFORE any other validation**: assigning a real tier
+     * (`membershipTierId != null`) requires TREASURER or ADMIN -- setting a tier creates a
+     * payment obligation, the same threshold `IAccountingService`'s own posting-authority methods
+     * apply. REMOVING a tier (`membershipTierId == null`) only requires [isPrivileged]
+     * (BOARD/ADMIN) -- taking away an obligation is the lighter-weight direction, same asymmetry
+     * `network.lapis.cloud.shared.domain.MemberStatusTransitions.requiresAdmin` already applies
+     * for a DIFFERENT direction-dependent gate.
+     *
+     * [reason] is required (same length bounds `updateMemberStatus` enforces, 3-1000 characters,
+     * trimmed) and recorded ONLY in the audit trail's `after` snapshot
+     * (`network.lapis.cloud.shared.domain.MemberMembershipTierSnapshot.reason`).
+     *
+     * A no-op call (`membershipTierId` unchanged) writes NO audit entry -- same idempotence
+     * discipline [updateMemberStatus]/[updateMemberRole] already establish. Does **not** touch any
+     * already-generated `contribution` row -- see `MembershipTierAssignment` KDoc "Ausdrücklich
+     * NICHT Teil dieser Welle": an existing charge is a bookkeeping fact, corrected only through
+     * the regular storno path, never rewritten by a later tier change.
+     *
+     * Throws [ForbiddenException] if the caller lacks the role this specific direction requires,
+     * [NotFoundException] if `memberId` does not resolve, [ConflictException] if the target is
+     * DSGVO-anonymized or `reason` is blank/too long, [BadRequestException] if `membershipTierId`
+     * does not resolve to an existing `membership_tier`.
+     */
+    suspend fun updateMemberMembershipTier(
+        memberId: String,
+        membershipTierId: String?,
+        reason: String,
     ): MemberAdminRowDto
 }

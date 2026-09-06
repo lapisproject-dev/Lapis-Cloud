@@ -71,6 +71,19 @@ object AnniversaryCalendar {
         today: LocalDate,
         windowDays: Int,
     ): LocalDate = today.plus(DatePeriod(days = windowDays))
+
+    /**
+     * Welle V1.4.4.4 "Familienmitgliedschaften" -- das N-te tatsächliche Vorkommen von
+     * [anniversary] als echtes Datum (z. B. `years = 18` für die Volljährigkeit). Wiederverwendet
+     * [occurrenceInYear] -- dieselbe Schaltjahr-Behandlung wie [nextOccurrence]: ein 29.02.-Datum
+     * fällt in einem Nicht-Schaltjahr auf den 28.02., niemals auf den 1. März. Der einzige weitere
+     * öffentliche Einstieg neben [nextOccurrence] -- die Schaltjahr-Logik lebt weiterhin an genau
+     * einer Stelle ([occurrenceInYear] bleibt `private`).
+     */
+    fun nthAnniversary(
+        anniversary: LocalDate,
+        years: Int,
+    ): LocalDate = occurrenceInYear(anniversary = anniversary, year = anniversary.year + years)
 }
 
 @Serializable

@@ -377,38 +377,52 @@ private fun refreshNavbar(navbar: Navbar) {
             routedDdLink(Routes.PAYMENT_TRANSACTIONS, tr("Zahlungseingänge"), icon = "fas fa-credit-card")
         }
     }
-    // BOARD/ADMIN-tier -- see `Routes.MEMBERS`/`DSGVO_COMPLIANCE`/`BOARD_MEMBERSHIP` KDoc.
-    if (AppState.hasRole(AccountRole.BOARD, AccountRole.ADMIN)) {
+    // TREASURER/BOARD/ADMIN-tier fuer den Dropdown-Einstieg selbst, aber NICHT fuer jeden
+    // einzelnen Eintrag darin: `Routes.MEMBERS` erlaubt seit Welle V1.4.4.4 auch TREASURER
+    // (siehe `Routes.MEMBERS` KDoc), rein damit ein Schatzmeister ein Mitglied suchen/auswaehlen
+    // und darauf `updateMemberMembershipTier` aufrufen kann -- der `MemberAdministrationScreen`
+    // selbst blendet die BOARD/ADMIN-only-Aktionen (Ehrungen-Knopf, Familien-Badge-Link) fuer
+    // TREASURER intern aus. Alle uebrigen Eintraege bleiben strikt BOARD/ADMIN, weil ihre
+    // Ziel-Routen genau das serverseitig verlangen -- sie duerfen TREASURER nicht einmal als
+    // Link angeboten werden (Hausregel: kein Client-Angebot fuer eine vom Server ohnehin
+    // abgelehnte Aktion).
+    if (AppState.hasRole(AccountRole.TREASURER, AccountRole.BOARD, AccountRole.ADMIN)) {
         leftNav.dropDown(tr("Verwaltung"), icon = "fas fa-user-gear", forNavbar = true) {
             routedDdLink(Routes.MEMBERS, tr("Mitgliederverwaltung"), icon = "fas fa-users-gear")
-            routedDdLink(Routes.DSGVO_COMPLIANCE, tr("DSGVO-Compliance"), icon = "fas fa-shield-halved")
-            routedDdLink(
-                Routes.BOARD_MEMBERSHIP,
-                tr("Vorstand & Transparenzregister"),
-                icon = "fas fa-landmark-flag",
-            )
-            // Welle V1.1.5 -- siehe `Routes.SOCIAL_MODERATION` KDoc für die Rollen-Verifikation.
-            routedDdLink(Routes.SOCIAL_MODERATION, tr("Moderation"), icon = "fas fa-flag")
-            // Welle V1.3.1 "API-Fundament, lesend" -- siehe `Routes.API_KEYS` KDoc für die
-            // Rollen-Verifikation. Kein eigener Hauptmenüpunkt (Design-Team-Entscheidung #10) --
-            // Einstieg über dieses bereits vorhandene BOARD/ADMIN-Dropdown.
-            routedDdLink(Routes.API_KEYS, tr("API-Schlüssel"), icon = "fas fa-key")
-            // Welle V1.4.2 "Interessenten-/Sympathisanten-CRM" -- siehe `Routes.CRM` KDoc für die
-            // Rollen-Verifikation. Kein eigener Hauptmenüpunkt, gleiche Entscheidung wie bei
-            // "API-Schlüssel".
-            routedDdLink(Routes.CRM, tr("Kontakte & Interessenten"), icon = "fas fa-address-book")
-            // Welle V1.4.3.2 "Veranstaltungen: Ticketing/QR-Codes" -- siehe `Routes.EVENT_CHECKIN`
-            // KDoc für die Rollen-Verifikation. Kein eigener Hauptmenüpunkt, gleiche Entscheidung
-            // wie bei "Kontakte & Interessenten"/"API-Schlüssel".
-            routedDdLink(Routes.EVENT_CHECKIN, tr("Veranstaltungs-Check-in"), icon = "fas fa-qrcode")
-            // Welle V1.4.4.2 "Geburtstage & Jubiläen" -- siehe `Routes.MEMBER_ANNIVERSARIES` KDoc
-            // für die Rollen-Verifikation. Kein eigener Hauptmenüpunkt, gleiche Entscheidung wie bei
-            // "Veranstaltungs-Check-in"/"Kontakte & Interessenten"/"API-Schlüssel".
-            routedDdLink(Routes.MEMBER_ANNIVERSARIES, tr("Geburtstage & Jubiläen"), icon = "fas fa-cake-candles")
-            // Welle V1.4.4.3 "Mitgliederlebenszyklus: Ehrungsverwaltung" -- siehe `Routes.MEMBER_HONORS`
-            // KDoc für die Rollen-Verifikation. Kein eigener Hauptmenüpunkt, gleiche Entscheidung wie
-            // bei "Geburtstage & Jubiläen"/"Veranstaltungs-Check-in"/"Kontakte & Interessenten".
-            routedDdLink(Routes.MEMBER_HONORS, tr("Ehrungen & Auszeichnungen"), icon = "fas fa-medal")
+            if (AppState.hasRole(AccountRole.BOARD, AccountRole.ADMIN)) {
+                routedDdLink(Routes.DSGVO_COMPLIANCE, tr("DSGVO-Compliance"), icon = "fas fa-shield-halved")
+                routedDdLink(
+                    Routes.BOARD_MEMBERSHIP,
+                    tr("Vorstand & Transparenzregister"),
+                    icon = "fas fa-landmark-flag",
+                )
+                // Welle V1.1.5 -- siehe `Routes.SOCIAL_MODERATION` KDoc für die Rollen-Verifikation.
+                routedDdLink(Routes.SOCIAL_MODERATION, tr("Moderation"), icon = "fas fa-flag")
+                // Welle V1.3.1 "API-Fundament, lesend" -- siehe `Routes.API_KEYS` KDoc für die
+                // Rollen-Verifikation. Kein eigener Hauptmenüpunkt (Design-Team-Entscheidung #10) --
+                // Einstieg über dieses bereits vorhandene BOARD/ADMIN-Dropdown.
+                routedDdLink(Routes.API_KEYS, tr("API-Schlüssel"), icon = "fas fa-key")
+                // Welle V1.4.2 "Interessenten-/Sympathisanten-CRM" -- siehe `Routes.CRM` KDoc für die
+                // Rollen-Verifikation. Kein eigener Hauptmenüpunkt, gleiche Entscheidung wie bei
+                // "API-Schlüssel".
+                routedDdLink(Routes.CRM, tr("Kontakte & Interessenten"), icon = "fas fa-address-book")
+                // Welle V1.4.3.2 "Veranstaltungen: Ticketing/QR-Codes" -- siehe `Routes.EVENT_CHECKIN`
+                // KDoc für die Rollen-Verifikation. Kein eigener Hauptmenüpunkt, gleiche Entscheidung
+                // wie bei "Kontakte & Interessenten"/"API-Schlüssel".
+                routedDdLink(Routes.EVENT_CHECKIN, tr("Veranstaltungs-Check-in"), icon = "fas fa-qrcode")
+                // Welle V1.4.4.2 "Geburtstage & Jubiläen" -- siehe `Routes.MEMBER_ANNIVERSARIES` KDoc
+                // für die Rollen-Verifikation. Kein eigener Hauptmenüpunkt, gleiche Entscheidung wie bei
+                // "Veranstaltungs-Check-in"/"Kontakte & Interessenten"/"API-Schlüssel".
+                routedDdLink(Routes.MEMBER_ANNIVERSARIES, tr("Geburtstage & Jubiläen"), icon = "fas fa-cake-candles")
+                // Welle V1.4.4.3 "Mitgliederlebenszyklus: Ehrungsverwaltung" -- siehe `Routes.MEMBER_HONORS`
+                // KDoc für die Rollen-Verifikation. Kein eigener Hauptmenüpunkt, gleiche Entscheidung wie
+                // bei "Geburtstage & Jubiläen"/"Veranstaltungs-Check-in"/"Kontakte & Interessenten".
+                routedDdLink(Routes.MEMBER_HONORS, tr("Ehrungen & Auszeichnungen"), icon = "fas fa-medal")
+                // Welle V1.4.4.4 "Familienmitgliedschaften" -- siehe `Routes.MEMBER_FAMILIES` KDoc für
+                // die Rollen-Verifikation. Kein eigener Hauptmenüpunkt, gleiche Entscheidung wie bei
+                // "Ehrungen & Auszeichnungen"/"Geburtstage & Jubiläen"/"Veranstaltungs-Check-in".
+                routedDdLink(Routes.MEMBER_FAMILIES, tr("Familienmitgliedschaften"), icon = "fas fa-people-roof")
+            }
         }
     }
     // ADMIN-only-tier -- see `Routes.BACKUP`/`CONFERENCE_STREAM_DESTINATIONS` KDoc.

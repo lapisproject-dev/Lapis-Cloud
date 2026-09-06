@@ -11,6 +11,7 @@ import io.kvision.html.button
 import io.kvision.html.div
 import io.kvision.html.h1
 import io.kvision.html.h2
+import io.kvision.html.link
 import io.kvision.html.p
 import io.kvision.html.span
 import io.kvision.i18n.gettext
@@ -29,12 +30,15 @@ import kotlinx.browser.window
 import kotlinx.coroutines.launch
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.AdminCreateMemberInput
+import network.lapis.cloud.shared.domain.FamilyMemberRole
 import network.lapis.cloud.shared.domain.MemberAdminQuery
 import network.lapis.cloud.shared.domain.MemberAdminRowDto
 import network.lapis.cloud.shared.domain.MemberAdminSort
 import network.lapis.cloud.shared.domain.MemberDto
 import network.lapis.cloud.shared.domain.MemberStatus
 import network.lapis.cloud.shared.domain.MemberStatusTransitions
+import network.lapis.cloud.shared.domain.MembershipTierDto
+import network.lapis.cloud.shared.rpc.IContributionService
 import network.lapis.cloud.shared.rpc.IMemberService
 import network.lapis.cloud.shared.rpc.IRegistrationService
 
@@ -44,6 +48,13 @@ import network.lapis.cloud.shared.rpc.IRegistrationService
  * existing `renderXSection` grouping convention the old `App.kt` already used: pending
  * applications (approve/reject), the privileged member roster (Welle V1.2.12 -- see
  * [renderMemberRoster]), and direct member creation.
+ *
+ * **Welle V1.4.4.4 "Familienmitgliedschaften" widened this to also admit TREASURER** -- but only
+ * for the roster, and only so a Schatzmeister can reach the "Beitragstarif" section of
+ * [openMemberEditorDialog] ([canEditMembershipTierOf] KDoc has the full Rollen-Asymmetrie). The
+ * other two sections stay BOARD/ADMIN-exclusive, both server-side (`IRegistrationService
+ * .listPendingApplications`/`createMemberDirect` both `requireRole(BOARD, ADMIN)`) and here on the
+ * client, so a TREASURER caller is never offered a section the server would reject anyway.
  */
 fun renderMemberAdministrationScreen(container: SimplePanel) {
     val root =
@@ -54,9 +65,11 @@ fun renderMemberAdministrationScreen(container: SimplePanel) {
         }
     root.h1(tr("Mitgliederverwaltung"))
 
-    renderPendingApplications(root)
+    val callerRole = AppState.session?.role
+    val isBoardOrAdmin = callerRole == AccountRole.BOARD || callerRole == AccountRole.ADMIN
+    if (isBoardOrAdmin) renderPendingApplications(root)
     renderMemberRoster(root)
-    renderDirectMemberCreation(root)
+    if (isBoardOrAdmin) renderDirectMemberCreation(root)
 }
 
 private fun renderPendingApplications(root: SimplePanel) {
@@ -189,8 +202,10 @@ private val STATUS_CHIPS: List<MemberStatus?> =
 /**
  * Replaces the old `renderMemberDirectory` -- that function's own KDoc ("dafür existiert aktuell
  * keine privilegierte Leseschnittstelle") is, as of this wave, no longer true:
- * `IMemberService.listMembersForAdministration` is exactly that interface. BOARD/ADMIN only (the
- * whole screen already is, per this file's own class KDoc) -- server-side re-enforces this
+ * `IMemberService.listMembersForAdministration` is exactly that interface. BOARD/ADMIN/TREASURER
+ * (Welle V1.4.4.4 widened `listMembersForAdministration`'s own server-side gate from `isPrivileged`
+ * to also admit TREASURER, purely so a Schatzmeister can reach the "Beitragstarif" section --
+ * see this file's class KDoc and [canEditMembershipTierOf]) -- server-side re-enforces this
  * independently, this is not the only gate.
  */
 private fun renderMemberRoster(root: SimplePanel) {
@@ -301,7 +316,33 @@ private fun renderMemberRosterRow(
     onChanged: () -> Unit,
 ) {
     table.row {
-        cell(row.displayName)
+        cell {
+            span(row.displayName)
+            // Welle V1.4.4.4 "Familienmitgliedschaften" -- unaufdringliches Badge, NUR wenn eine
+            // Familienverknüpfung existiert (kein Pixel für ein Mitglied ohne Familie). Kein
+            // eigener Knopf/Schalter -- der Badge selbst öffnet die gefilterte Familienansicht.
+            // Zusätzlich BOARD/ADMIN-only (Review-Fix, Regression): Ziel-Route
+            // `Routes.MEMBER_FAMILIES` (Routing.kt) und der Server (`MemberFamilyService.
+            // FAMILY_ROLES`) verlangen beide BOARD/ADMIN -- die V1.4.4.4-Erweiterung von
+            // `Routes.MEMBERS` auf TREASURER erlaubt einem Schatzmeister nur das Roster selbst zu
+            // sehen, nicht die Familienverwaltung dahinter. Ohne dieses Gate wuerde JEDE Zeile mit
+            // Familienbezug einem TREASURER einen Link anbieten, den Route-Guard und Server
+            // ohnehin ablehnen (Hausregel: kein Client-Angebot für eine vom Server ohnehin
+            // abgelehnte Aktion).
+            val familyId = row.familyId
+            if (familyId != null && AppState.hasRole(AccountRole.BOARD, AccountRole.ADMIN)) {
+                // `link` (not a manual onClick) -- the app's hash-based routing already intercepts
+                // href="#..." navigation, same idiom every other cross-screen link in this codebase
+                // uses (see e.g. MemberHonorsScreen's "Alle Ehrungen anzeigen").
+                div { addCssClasses("small mt-1") }.link("", url = "#${memberFamiliesRoute(familyId)}") {
+                    addCssClass("text-decoration-none")
+                    typeBadge(
+                        familyRosterBadgeText(row.familyName.orEmpty(), row.familyRole),
+                        familyRoleBadgeColor(row.familyRole ?: FamilyMemberRole.DEPENDENT),
+                    )
+                }
+            }
+        }
         cell(row.email)
         cell { memberStatusRoleBadge(row.status) }
         cell {
@@ -331,13 +372,19 @@ private fun renderMemberRosterRow(
         } else if (!hasAnyEditableSectionFor(callerRole, callerMemberId, row)) {
             // Regression fix (Review Runde 3): before the per-section gating in openMemberEditorDialog
             // existed, "Stammdaten" was rendered UNCONDITIONALLY, so the modal could never be empty.
-            // Now that all three sections are individually gated (Peer-Schutz), a BOARD caller on an
+            // Now that all five sections are individually gated (Peer-Schutz), a BOARD caller on an
             // escalated-role target (or their OWN row, which is itself BOARD/ADMIN/TREASURER-scoped)
-            // can hit a state where NONE of the three predicates allow anything -- opening the dialog
+            // can hit a state where NONE of the five predicates allow anything -- opening the dialog
             // would show only a title and a "Schließen" button. Same house rule this file's own KDoc
             // on ESCALATED_ROLES already states: "the client does not OFFER an action the server's
             // peer-protection rejects anyway" -- consequently applied here to the button itself, not
             // just to the sections inside a dialog the caller would otherwise be free to open.
+            // Review fix (Welle V1.4.4.4, MAJOR finding): `hasAnyEditableSectionFor` did NOT
+            // originally include `canEditMembershipTierOf` -- a BOARD caller on an escalated-role
+            // target (TREASURER/BOARD/ADMIN, including their own row) with a removable tier
+            // (`row.membershipTierId != null`) has all four OTHER predicates false, so the button
+            // was wrongly disabled even though `canEditMembershipTierOf` alone would allow the
+            // "Tarif entfernen" action -- see [canEditMembershipTierOf] KDoc.
             editButton.disabled = true
             editButton.title =
                 tr(
@@ -350,10 +397,10 @@ private fun renderMemberRosterRow(
 
         // Welle V1.4.4.1 "Beitragshistorie" -- der erste von zwei Einstiegen in
         // MemberFinancialHistoryScreen.kt (der zweite ist der Link in ContributionsScreen.kt für
-        // die eigene Historie). `/members` selbst ist bereits requireRole(BOARD, ADMIN) -- ein
-        // TREASURER erreicht diesen Screen also ohnehin nicht; der Rollen-Check hier dokumentiert
-        // absichtlich die eigentlich beabsichtigte, engere Schwelle für den Fall, dass `/members`
-        // je für TREASURER geöffnet wird, und kostet nichts -- nicht als redundant entfernen.
+        // die eigene Historie). Seit Welle V1.4.4.4 erreicht ein TREASURER `/members` tatsächlich
+        // (Routing.kt lässt TREASURER inzwischen zusätzlich zu BOARD/ADMIN zu, siehe dieser Datei
+        // Klassen-KDoc) -- der Rollen-Check hier ist also kein reines Zukunfts-Dokument mehr,
+        // sondern der tatsächlich wirksame Gate für diesen Knopf.
         if (AppState.hasRole(AccountRole.TREASURER, AccountRole.BOARD, AccountRole.ADMIN)) {
             val financesButton = actionsCell.button("", icon = "fas fa-receipt", style = ButtonStyle.OUTLINESECONDARY)
             financesButton.title = tr("Beitragshistorie")
@@ -362,15 +409,20 @@ private fun renderMemberRosterRow(
 
         // Welle V1.4.4.3 "Mitgliederlebenszyklus: Ehrungsverwaltung" -- der zweite von zwei
         // Einstiegen in MemberHonorsScreen.kt (der erste ist die board-weite Liste unter
-        // `Routes.MEMBER_HONORS` ohne Parameter). Gleicher Rollen-Kommentar wie beim
-        // `financesButton` oben: `/members` selbst ist bereits requireRole(BOARD, ADMIN), ein
-        // TREASURER erreicht diesen Screen also ohnehin nicht -- der Rollen-Check hier dokumentiert
-        // absichtlich die eigentlich beabsichtigte, engere Schwelle. Anders als `financesButton`
+        // `Routes.MEMBER_HONORS` ohne Parameter). Anders als `financesButton` oben bleibt dieser
+        // Knopf bewusst BOARD/ADMIN-only: Ziel-Route `Routes.MEMBER_HONORS` (Routing.kt) und der
+        // Server (`MemberHonorService.HONOR_READ_WRITE_ROLES`) verlangen beide weiterhin BOARD/ADMIN,
+        // die V1.4.4.4-Erweiterung von `Routes.MEMBERS`/`updateMemberMembershipTier` auf TREASURER
+        // hat daran nichts geändert -- ein TREASURER erreicht `/members` seit Welle V1.4.4.4 zwar
+        // tatsächlich, aber NICHT die Ehrungsverwaltung. Review-Fix (Regression): dieser Knopf war
+        // versehentlich auf TREASURER erweitert worden, obwohl weder Route noch Server das erlauben
+        // (Hausregel: kein Client-Angebot für eine vom Server ohnehin abgelehnte Aktion).
+        // Anders als `financesButton`
         // (der KEIN `row.anonymized`-Gate hat, weil `MemberFinancialHistoryScreen` selbst mit einem
         // "DSGVO-gelöscht"-Badge umgehen kann) wird dieser Knopf für ein anonymisiertes Mitglied
         // deaktiviert -- `MemberHonorsScreen` hat keine eigene Anzeige-Logik für einen
         // anonymisierten Zielmember (Welle-Plan §13 "S5").
-        if (AppState.hasRole(AccountRole.TREASURER, AccountRole.BOARD, AccountRole.ADMIN)) {
+        if (AppState.hasRole(AccountRole.BOARD, AccountRole.ADMIN)) {
             val honorsButton = actionsCell.button("", icon = "fas fa-medal", style = ButtonStyle.OUTLINESECONDARY)
             honorsButton.title = tr("Ehrungen")
             if (row.anonymized) {
@@ -543,6 +595,134 @@ private fun openMemberEditorDialog(
         }
     }
 
+    // ── Beitragstarif (Welle V1.4.4.4) ──
+    if (canEditMembershipTierOf(callerRole, callerMemberId, row)) {
+        modal.div { addCssClass("mt-3") }
+        modal.h2(tr("Beitragstarif")) { addCssClass("h6") }
+        val tierError =
+            modal.div().apply {
+                addCssClass("text-danger")
+                hide()
+            }
+        val tierWarning =
+            modal.div {
+                addCssClasses("alert alert-warning")
+                hide()
+            }
+
+        fun showTierConsequence(assigningRealTier: Boolean) {
+            if (assigningRealTier) {
+                tierWarning.content =
+                    tr(
+                        "Ab der nächsten Beitragserzeugung entsteht für dieses Mitglied eine Forderung. Bereits " +
+                            "erzeugte Beiträge werden nicht rückwirkend berührt.",
+                    )
+                tierWarning.show()
+            } else {
+                tierWarning.hide()
+            }
+        }
+
+        if (callerRole == AccountRole.ADMIN) {
+            val tierSelect =
+                modal.select(
+                    options = listOf("" to tr("— beitragsfrei / kein Tarif —")),
+                    value = row.membershipTierId ?: "",
+                    label = tr("Tarif"),
+                )
+            AppScope.launch {
+                val tiers: List<MembershipTierDto> = guarded { rpcService<IContributionService>().listMembershipTiers() } ?: emptyList()
+                tierSelect.options = listOf("" to tr("— beitragsfrei / kein Tarif —")) + tiers.map { it.id to it.name }
+                tierSelect.value = row.membershipTierId ?: ""
+            }
+            tierSelect.subscribe { value -> showTierConsequence(!value.isNullOrBlank()) }
+            val tierReasonInput = modal.textArea(rows = 2, label = tr("Begründung (3-1000 Zeichen)"))
+            val saveTierButton = modal.button(tr("Tarif speichern"), style = ButtonStyle.PRIMARY)
+            saveTierButton.onClick {
+                tierError.hide()
+                val reason = tierReasonInput.value.orEmpty().trim()
+                if (reason.length < 3 || reason.length > 1000) {
+                    tierError.content = tr("Bitte eine Begründung (3-1000 Zeichen) angeben.")
+                    tierError.show()
+                    return@onClick
+                }
+                val chosenTierId = tierSelect.value?.takeIf { it.isNotBlank() }
+                AppScope.launch {
+                    val result =
+                        memberAdminGuarded { rpcService<IMemberService>().updateMemberMembershipTier(row.id, chosenTierId, reason) }
+                    if (result != null) {
+                        notifySuccess(tr("Beitragstarif gespeichert."))
+                        modal.hide()
+                        onChanged()
+                    }
+                }
+            }
+        } else if (callerRole == AccountRole.TREASURER) {
+            // TREASURER (Welle V1.4.4.4 review fix, MAJOR finding): nur die Zuweisung eines ECHTEN
+            // Tarifs -- KEIN "— beitragsfrei / kein Tarif —"-Eintrag, weil der Server
+            // (`updateMemberMembershipTier`, `membershipTierId == null`-Zweig) das Entfernen einem
+            // TREASURER-Aufrufer verweigert (nur `isPrivileged`, also BOARD/ADMIN) -- siehe
+            // [canEditMembershipTierOf] KDoc. Anders als beim ADMIN-Zweig oben ist die Select-Liste
+            // deshalb NIE leer wählbar; ein no-op-Klick ohne Tiers geladen wird unten abgefangen.
+            modal.p(gettext("Aktueller Tarif: %1", row.membershipTierName ?: tr("beitragsfrei")))
+            val tierSelect = modal.select(options = emptyList(), label = tr("Neuer Tarif"))
+            AppScope.launch {
+                val tiers: List<MembershipTierDto> = guarded { rpcService<IContributionService>().listMembershipTiers() } ?: emptyList()
+                tierSelect.options = tiers.map { it.id to it.name }
+                tierSelect.value = row.membershipTierId ?: tiers.firstOrNull()?.id
+            }
+            tierSelect.subscribe { value -> showTierConsequence(!value.isNullOrBlank()) }
+            val tierReasonInput = modal.textArea(rows = 2, label = tr("Begründung (3-1000 Zeichen)"))
+            val saveTierButton = modal.button(tr("Tarif zuweisen"), style = ButtonStyle.PRIMARY)
+            saveTierButton.onClick {
+                tierError.hide()
+                val chosenTierId = tierSelect.value?.takeIf { it.isNotBlank() }
+                if (chosenTierId == null) {
+                    tierError.content = tr("Bitte einen Tarif auswählen.")
+                    tierError.show()
+                    return@onClick
+                }
+                val reason = tierReasonInput.value.orEmpty().trim()
+                if (reason.length < 3 || reason.length > 1000) {
+                    tierError.content = tr("Bitte eine Begründung (3-1000 Zeichen) angeben.")
+                    tierError.show()
+                    return@onClick
+                }
+                AppScope.launch {
+                    val result =
+                        memberAdminGuarded { rpcService<IMemberService>().updateMemberMembershipTier(row.id, chosenTierId, reason) }
+                    if (result != null) {
+                        notifySuccess(tr("Beitragstarif zugewiesen."))
+                        modal.hide()
+                        onChanged()
+                    }
+                }
+            }
+        } else {
+            // BOARD: nur die Schaltfläche "Tarif entfernen" -- siehe canEditMembershipTierOf KDoc.
+            modal.p(gettext("Aktueller Tarif: %1", row.membershipTierName ?: tr("beitragsfrei")))
+            val tierReasonInput = modal.textArea(rows = 2, label = tr("Begründung (3-1000 Zeichen)"))
+            val removeTierButton = modal.button(tr("Tarif entfernen"), style = ButtonStyle.WARNING)
+            removeTierButton.onClick {
+                tierError.hide()
+                val reason = tierReasonInput.value.orEmpty().trim()
+                if (reason.length < 3 || reason.length > 1000) {
+                    tierError.content = tr("Bitte eine Begründung (3-1000 Zeichen) angeben.")
+                    tierError.show()
+                    return@onClick
+                }
+                AppScope.launch {
+                    val result = memberAdminGuarded { rpcService<IMemberService>().updateMemberMembershipTier(row.id, null, reason) }
+                    if (result != null) {
+                        notifySuccess(tr("Beitragstarif entfernt."))
+                        modal.hide()
+                        onChanged()
+                    }
+                }
+            }
+        }
+    }
+
     // ── Konto anlegen (Welle V1.2.13) ──
     if (canGrantAccountTo(callerRole, row)) {
         modal.div { addCssClass("mt-3") }
@@ -655,16 +835,31 @@ fun canEditCoreDataOf(
 }
 
 /**
- * Whether [openMemberEditorDialog] would render AT LEAST ONE of its four sections for [row] --
+ * Whether [openMemberEditorDialog] would render AT LEAST ONE of its five sections for [row] --
  * i.e. whether the "Bearbeiten" button in [renderMemberRosterRow] should be enabled at all. Purely
- * `canEditCoreDataOf(...) || canChangeStatusOf(...) || canEditRoleOf(...) || canGrantAccountTo(...)`,
- * kept as its own named function (rather than inlined at the one call site) so the four predicates
- * this depends on stay a single, obviously-in-sync list with the four `if`-gates inside
- * [openMemberEditorDialog] -- see this file's ESCALATED_ROLES KDoc for why the client mirrors the
- * server's Peer-Schutz boundary at all: an escalated-role target (or, for a BOARD caller, their OWN
- * row -- BOARD/ADMIN/TREASURER is itself an escalated role) can leave all four predicates `false`
- * at once, which without this check would previously open a modal with a title, an empty body, and
- * only a "Schließen" button.
+ * `canEditCoreDataOf(...) || canChangeStatusOf(...) || canEditRoleOf(...) || canGrantAccountTo(...)
+ * || canEditMembershipTierOf(...)`, kept as its own named function (rather than inlined at the one
+ * call site) so the five predicates this depends on stay a single, obviously-in-sync list with the
+ * five `if`-gates inside [openMemberEditorDialog] -- see this file's ESCALATED_ROLES KDoc for why
+ * the client mirrors the server's Peer-Schutz boundary at all: an escalated-role target (or, for a
+ * BOARD caller, their OWN row -- BOARD/ADMIN/TREASURER is itself an escalated role) can leave all
+ * five predicates `false` at once, which without this check would previously open a modal with a
+ * title, an empty body, and only a "Schließen" button.
+ *
+ * Review fix (Welle V1.4.4.4, MAJOR finding): `canEditMembershipTierOf` was originally left OUT of
+ * this OR-chain, so a BOARD caller on an escalated-role target (TREASURER/BOARD/ADMIN, including
+ * their own row) with a removable tier (`row.membershipTierId != null`) saw a disabled "Bearbeiten"
+ * button even though `canEditMembershipTierOf` alone would have allowed the "Tarif entfernen"
+ * action -- the newly added "Beitragstarif" section was, for exactly the rows it was built for,
+ * unreachable.
+ *
+ * Security fix (Welle V1.4.4.4 review, MAJOR finding, follow-up): `canEditMembershipTierOf` itself
+ * now applies the SAME self-target/Peer-Schutz gate as the other four predicates (see its own
+ * KDoc), so the specific scenario the paragraph above describes -- an escalated-role target with a
+ * removable tier -- is once again correctly `false` for a non-ADMIN caller across ALL FIVE
+ * predicates: the earlier fix had accidentally re-opened exactly the self-/peer-benefit hole this
+ * function exists to close, just through the newest of the five sections instead of one of the
+ * original four.
  */
 fun hasAnyEditableSectionFor(
     callerRole: AccountRole?,
@@ -674,7 +869,42 @@ fun hasAnyEditableSectionFor(
     canEditCoreDataOf(callerRole, row) ||
         canChangeStatusOf(callerRole, callerMemberId, row) ||
         canEditRoleOf(callerRole, callerMemberId, row) ||
-        canGrantAccountTo(callerRole, row)
+        canGrantAccountTo(callerRole, row) ||
+        canEditMembershipTierOf(callerRole, callerMemberId, row)
+
+/**
+ * Welle V1.4.4.4 "Familienmitgliedschaften" -- ob der Abschnitt "Beitragstarif" in
+ * [openMemberEditorDialog] erscheint, gespiegelt an `IMemberService.updateMemberMembershipTier`s
+ * eigener Rollen-Asymmetrie (siehe dessen KDoc/`MemberService`-Implementierung): Zuweisen eines
+ * ECHTEN Tarifs braucht TREASURER/ADMIN, Entfernen (Tarif = `null`) braucht nur `isPrivileged`
+ * (BOARD/ADMIN) -- TREASURER darf also zuweisen, aber NICHT entfernen, und BOARD darf entfernen,
+ * aber NICHT zuweisen. ADMIN sieht den Abschnitt immer (beide Aktionen); TREASURER immer (nur
+ * Zuweisen -- KEIN `row.membershipTierId != null`-Gate, weil TREASURER unabhängig vom aktuellen
+ * Tarif jederzeit einen anderen zuweisen darf); BOARD nur, wenn ein Tarif zum Entfernen existiert
+ * (die einzige Aktion, die dieser Rolle erlaubt ist). Nie für ein anonymisiertes Mitglied.
+ */
+fun canEditMembershipTierOf(
+    callerRole: AccountRole?,
+    callerMemberId: String?,
+    row: MemberAdminRowDto,
+): Boolean {
+    if (row.anonymized) return false
+    // Security fix (Welle V1.4.4.4 review, MAJOR finding) -- self-target and Peer-Schutz, mirroring
+    // canChangeStatusOf/canEditCoreDataOf: never for the caller's OWN row (unconditionally, mirrors
+    // MemberService.updateMemberMembershipTier's own self-target ForbiddenException, checked
+    // regardless of role/direction), and never for a fellow ADMIN/BOARD/TREASURER account unless the
+    // caller is themselves ADMIN (mirrors that same method's ESCALATED_ROLES peer gate). Without
+    // these, a BOARD caller could remove their OWN membership tier (a self-benefit -- no payment
+    // obligation from the next contribution run) or a peer's.
+    if (row.id == callerMemberId) return false
+    if (row.role != null && row.role in ESCALATED_ROLES && callerRole != AccountRole.ADMIN) return false
+    return when (callerRole) {
+        AccountRole.ADMIN -> true
+        AccountRole.TREASURER -> true
+        AccountRole.BOARD -> row.membershipTierId != null
+        else -> false
+    }
+}
 
 /**
  * Welle V1.2.13 -- ob der Abschnitt "Konto anlegen" in [openMemberEditorDialog] erscheint.
