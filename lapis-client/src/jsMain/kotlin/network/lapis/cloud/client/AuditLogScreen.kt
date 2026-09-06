@@ -395,6 +395,11 @@ fun decodeAuditSnapshot(
             // posture API_KEY already establishes) -- falls through to the raw-text display, which
             // already shows url/active/timestamps safely (never the signature secret).
             AuditEntityType.WEBHOOK_ENDPOINT -> null
+            // Welle V1.4.5.1 "Kontoauszugs-Import" -- BankStatementImportService writes
+            // BankStatementImportSnapshot (see AuditLog.kt), but this client-side decode/render
+            // pair is deliberately not extended for it this wave (backend-only wave, same posture
+            // API_KEY/WEBHOOK_ENDPOINT already establish) -- falls through to the raw-text display.
+            AuditEntityType.BANK_STATEMENT_IMPORT -> null
         }
     }.getOrNull()
 

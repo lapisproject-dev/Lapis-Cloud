@@ -682,6 +682,27 @@ computed but nothing sends yet), self-service access/erasure for the contact the
 admin-only), tagging/segmentation beyond the fixed `CrmContactType` enum, and `external_donor`'s own
 long-deferred DSGVO gap (unchanged by this wave, now merely visible instead of silent).
 
+== Bank Statement Import (V1.4.5.1)
+
+CSV (Sparkassen-CAMT export, plus a broad generic fallback) and MT940 bank-statement upload,
+matched against open contributions by four rules (a printed `LC-XXXXXX` reference in the transfer
+purpose, an IBAN match against an active SEPA mandate, a first+last name token match, or no match
+at all) — only the reference rule ever books automatically. See
+`docs/architecture/bank-statement-import.adoc` for the full design (data shape, the GF(2⁵)-checksum
+payment-reference grammar, the matching pipeline, and the two-phase booking transaction that keeps
+`ContributionPostingBridge`'s single-row-lock-per-transaction contract).
+
+=== What doesn't work yet (this wave)
+
+Deliberately out of scope, see `CHANGELOG.md`: the KVision operator screen (`/bank-import`) and the
+full seven-language i18n catalog update — the server-side surface (migration, kUML model, parsers,
+matcher, booking path, `IBankStatementService` RPC, and the
+`POST /api/bank-statements/import` upload route) is complete and tested, only the UI is deferred.
+Also out of scope: DATEV/lexoffice/sevDesk export, camt.052/053/054 XML, FinTS/HBCI, splitting one
+bank line across multiple contributions, automatic *donation* posting (§25 PartG: a donor category
+cannot be derived from a bank line alone), and header signatures for the `VR_BANK`/`DKB`/
+`POSTBANK`/`COMDIRECT` CSV dialects (no real export sample was available to verify one against).
+
 == Documentation Convention
 
 Consistent across all Lapis and kUML projects (see `CLAUDE.md`):

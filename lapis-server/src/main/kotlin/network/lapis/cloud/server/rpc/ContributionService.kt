@@ -9,6 +9,7 @@ import network.lapis.cloud.server.db.DbClock
 import network.lapis.cloud.server.db.generated.ContributionTable
 import network.lapis.cloud.server.db.generated.MemberTable
 import network.lapis.cloud.server.db.generated.MembershipTierTable
+import network.lapis.cloud.server.payment.bankstatement.PaymentReferenceAllocator
 import network.lapis.cloud.server.security.isPrivileged
 import network.lapis.cloud.server.security.requireRole
 import network.lapis.cloud.server.security.resolveCurrentMember
@@ -131,9 +132,10 @@ class ContributionService(
 
             var created = 0
             activeMembers.forEach { memberId ->
+                val newContributionId = Uuid.random()
                 val inserted =
                     ContributionTable.insertIgnore {
-                        it[id] = Uuid.random()
+                        it[id] = newContributionId
                         it[ContributionTable.memberId] = memberId
                         it[ContributionTable.membershipTierId] = tierId
                         it[ContributionTable.periodStart] = periodStart
@@ -144,7 +146,15 @@ class ContributionService(
                         it[ContributionTable.dueDate] = dueDate
                         it[paymentMethod] = ContributionPaymentMethod.MANUAL
                     }
-                if (inserted.insertedCount > 0) created++
+                if (inserted.insertedCount > 0) {
+                    created++
+                    // Welle V1.4.5.1 "Kontoauszugs-Import" -- allocated eagerly here (not left to
+                    // the invoice-render lazy path alone) so a treasurer generating a period's
+                    // contributions can see the reference immediately, e.g. via a mail-merge that
+                    // reads it before any single invoice PDF is ever rendered. See
+                    // PaymentReferenceAllocator KDoc for why this is never a Postgres SEQUENCE.
+                    PaymentReferenceAllocator.allocate(newContributionId)
+                }
             }
             created
         }
@@ -398,4 +408,5 @@ private fun ResultRow.toContributionDto(): ContributionDto =
         createdAt = this[ContributionTable.createdAt],
         dueDate = this[ContributionTable.dueDate],
         paymentMethod = this[ContributionTable.paymentMethod],
+        paymentReference = this[ContributionTable.paymentReference],
     )

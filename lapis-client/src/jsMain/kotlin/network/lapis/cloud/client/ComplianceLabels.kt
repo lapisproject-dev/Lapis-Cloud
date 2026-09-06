@@ -103,6 +103,11 @@ fun auditEntityTypeLabel(entityType: AuditEntityType): String =
         // `WebhookDeliveryLogPanel.kt` use throughout (D9 terminology lock: "Endpunkt" statt
         // "Endpoint").
         AuditEntityType.WEBHOOK_ENDPOINT -> gettext("Webhook-Endpunkt")
+        // Welle V1.4.5.1 "Kontoauszugs-Import" -- "Kontoauszugs-Import" is the term
+        // `docs/architecture/bank-statement-import.adoc` uses throughout for a
+        // `bank_statement_import` row; no dedicated screen exists yet this wave (backend-only,
+        // same posture API_KEY/WEBHOOK_ENDPOINT already establish for their own waves).
+        AuditEntityType.BANK_STATEMENT_IMPORT -> gettext("Kontoauszugs-Import")
     }
 
 fun auditEntityTypeColor(entityType: AuditEntityType): String =
@@ -149,6 +154,9 @@ fun auditEntityTypeColor(entityType: AuditEntityType): String =
         // "dark" -- same "security-relevant administrative act" tier as API_KEY above; the two are
         // conceptually linked (an endpoint is 1:1 with an API key).
         AuditEntityType.WEBHOOK_ENDPOINT -> "dark"
+        // "primary" -- an automatic bank-statement booking is a financially central event, same
+        // tier as JOURNAL_ENTRY/SEPA_MANDATE/PAYMENT_TRANSACTION above.
+        AuditEntityType.BANK_STATEMENT_IMPORT -> "primary"
     }
 
 // ------------------------------------------------------------------------------------------------

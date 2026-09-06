@@ -108,6 +108,13 @@ data class ContributionDto(
     val dueDate: LocalDate,
     /** V1.2.1. See [ContributionPaymentMethod]. */
     val paymentMethod: ContributionPaymentMethod = ContributionPaymentMethod.MANUAL,
+    /**
+     * V1.4.5.1 "Kontoauszugs-Import". `"LC-XXXXXX"` (see [PaymentReferenceCode]) -- allocated lazily
+     * on first invoice generation, `null` for a contribution whose invoice was never printed/whose
+     * period predates this wave. Declared with a default so this additive field never breaks an
+     * older client's deserialization of an already-shipped DTO.
+     */
+    val paymentReference: String? = null,
 )
 
 @Serializable

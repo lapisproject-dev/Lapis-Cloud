@@ -3,6 +3,8 @@ package network.lapis.cloud.server.dsgvo
 import kotlinx.serialization.json.buildJsonArray
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
+import network.lapis.cloud.server.db.generated.BankStatementImportTable
+import network.lapis.cloud.server.db.generated.BankStatementLineTable
 import network.lapis.cloud.server.db.generated.ContributionTable
 import network.lapis.cloud.server.db.generated.PaymentCheckoutSessionTable
 import network.lapis.cloud.server.db.generated.PaymentGatewayComplianceAcknowledgmentTable
@@ -75,6 +77,14 @@ object PaymentsPersonalData : MemberPersonalDataContributor {
             // .member_id. PersonalDataCoverageTest walks information_schema for every such FK and
             // fails if the owning table is not covered by SOME contributor -- covered here (F12).
             PaymentCheckoutSessionTable,
+            // Welle V1.4.5.1 "Kontoauszugs-Import" -- new FKs on member(id): bank_statement_import
+            // .uploaded_by, bank_statement_line.resolved_by. PersonalDataCoverageTest walks
+            // information_schema for every such FK and fails if the owning table is not covered by
+            // SOME contributor -- both covered here. bank_statement_line ALSO carries PII of a
+            // NON-member (counterparty_name/counterparty_iban_last4) -- see PersonalDataRegistry's
+            // own knownUncoveredSubjectRoots entry for that half of the table's PII.
+            BankStatementImportTable,
+            BankStatementLineTable,
         )
 
     override fun exportMember(memberId: Uuid) =
@@ -278,6 +288,49 @@ object PaymentsPersonalData : MemberPersonalDataContributor {
                         }
                 },
             )
+            // Welle V1.4.5.1 "Kontoauszugs-Import" -- rows this member uploaded or resolved (as an
+            // actor), plus lines whose matched_contribution_id belongs to a contribution of theirs
+            // (export/erase symmetry, same lesson SHOULD-2 already taught for reconciliation_note).
+            put(
+                "bankStatementImports",
+                buildJsonArray {
+                    BankStatementImportTable
+                        .selectAll()
+                        .where { BankStatementImportTable.uploadedBy eq memberId }
+                        .forEach { row ->
+                            add(
+                                buildJsonObject {
+                                    put("id", row[BankStatementImportTable.id].toString())
+                                    put("fileName", row[BankStatementImportTable.fileName])
+                                    put("uploadedAt", row[BankStatementImportTable.uploadedAt].toString())
+                                },
+                            )
+                        }
+                },
+            )
+            put(
+                "bankStatementLines",
+                buildJsonArray {
+                    // LEFT JOIN, deliberately -- an INNER JOIN would silently drop every line whose
+                    // matchedContributionId is null (UNMATCHED/IGNORED lines), even when resolvedBy
+                    // matches memberId.
+                    BankStatementLineTable
+                        .join(ContributionTable, JoinType.LEFT, BankStatementLineTable.matchedContributionId, ContributionTable.id)
+                        .selectAll()
+                        .where { (BankStatementLineTable.resolvedBy eq memberId) or (ContributionTable.memberId eq memberId) }
+                        .forEach { row ->
+                            add(
+                                buildJsonObject {
+                                    put("id", row[BankStatementLineTable.id].toString())
+                                    put("status", row[BankStatementLineTable.status].name)
+                                    put("matchExplanation", row[BankStatementLineTable.matchExplanation])
+                                    put("resolutionNote", row[BankStatementLineTable.resolutionNote])
+                                    put("resolvedAt", row[BankStatementLineTable.resolvedAt]?.toString())
+                                },
+                            )
+                        }
+                },
+            )
         }
 
     override fun eraseMember(
@@ -365,6 +418,20 @@ object PaymentsPersonalData : MemberPersonalDataContributor {
             SepaReturnTable.update({ SepaReturnTable.id inList returnIds }) { it[reasonText] = null }
         }
 
+        // Welle V1.4.5.1 "Kontoauszugs-Import" -- same accounting-retention duty as
+        // payment_transaction above (every posted line's payment_transaction row IS one); only the
+        // free-text resolutionNote (may carry a treasurer's remark about another member) is cleared.
+        // matchExplanation is deliberately RETAINED, not cleared -- it is the GoBD-relevant "why was
+        // this line matched/not matched" reasoning the plan requires to survive a later re-read, and
+        // never carries more than a member display name/period/amount already visible elsewhere in
+        // the (retained) contribution/member rows.
+        val importCondition = BankStatementImportTable.uploadedBy eq memberId
+        val importCount = BankStatementImportTable.selectAll().where { importCondition }.count()
+
+        val lineCondition = BankStatementLineTable.resolvedBy eq memberId
+        val lineCount = BankStatementLineTable.selectAll().where { lineCondition }.count()
+        BankStatementLineTable.update({ lineCondition }) { it[resolutionNote] = null }
+
         return listOf(
             TableErasureOutcome(
                 table = "payment_transaction",
@@ -413,6 +480,18 @@ object PaymentsPersonalData : MemberPersonalDataContributor {
                 table = "sepa_return",
                 rowsRetained = returnCount,
                 retentionReason = "Handelsrechtliche Aufbewahrungspflicht (GoBD/HGB/AO, 10 Jahre).",
+            ),
+            TableErasureOutcome(
+                table = "bank_statement_import",
+                rowsRetained = importCount.toInt(),
+                retentionReason = "Handelsrechtliche Aufbewahrungspflicht (GoBD/HGB/AO, 10 Jahre).",
+            ),
+            TableErasureOutcome(
+                table = "bank_statement_line",
+                rowsRetained = lineCount.toInt(),
+                retentionReason =
+                    "Handelsrechtliche Aufbewahrungspflicht (GoBD/HGB/AO, 10 Jahre) -- matchExplanation " +
+                        "bleibt als GoBD-Nachvollziehbarkeitsspur erhalten, nur resolutionNote wird geleert.",
             ),
         )
     }

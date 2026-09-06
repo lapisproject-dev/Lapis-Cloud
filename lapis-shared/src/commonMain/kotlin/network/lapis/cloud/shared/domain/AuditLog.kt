@@ -125,6 +125,15 @@ enum class AuditEntityType {
      * additive only.
      */
     WEBHOOK_ENDPOINT,
+
+    /**
+     * Welle V1.4.5.1 "Kontoauszugs-Import (CSV/MT940)" --
+     * `network.lapis.cloud.server.payment.bankstatement.BankStatementImportService` writes exactly
+     * one `BANK_STATEMENT_IMPORT`/`CREATE` entry per completed import (auto-posted or not),
+     * `entityId` = the new `bank_statement_import` row's id. See [BankStatementImportSnapshot] KDoc
+     * for why it never carries a counterparty name/IBAN.
+     */
+    BANK_STATEMENT_IMPORT,
 }
 
 /**
@@ -573,4 +582,22 @@ data class WebhookEndpointSnapshot(
     val deactivationReason: WebhookDeactivationReason?,
     val notifiedRecipients: Int? = null,
     val totalRecipients: Int? = null,
+)
+
+/**
+ * Structured payload for an [AuditEntityType.BANK_STATEMENT_IMPORT] audit entry (Welle V1.4.5.1
+ * "Kontoauszugs-Import"). **Never carries a counterparty name, IBAN, or the raw bank-statement
+ * line text** -- same PII-minimization discipline every other snapshot in this file establishes
+ * for an append-only, hash-chained table (see [SepaMandateSnapshot] KDoc): only aggregate counts
+ * and the file's own metadata are retained here.
+ */
+@Serializable
+data class BankStatementImportSnapshot(
+    val format: BankStatementFormat,
+    val dialect: String,
+    val fileName: String,
+    val fileSizeBytes: Long,
+    val lineCount: Int,
+    val duplicateCount: Int,
+    val autoPostedCount: Int,
 )

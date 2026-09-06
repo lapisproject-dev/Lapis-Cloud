@@ -45,6 +45,9 @@ object BeitragsrechnungPdfGenerator {
                 add("Bitte ueberweisen Sie den Betrag auf folgendes Konto:")
                 organization.bankIban?.let { add("IBAN: $it") }
                 organization.bankBic?.let { add("BIC: $it") }
+                // Welle V1.4.5.1 "Kontoauszugs-Import" -- printed so BankStatementMatcher's R1 rule
+                // can find it again in the member's own bank transfer purpose text.
+                contribution.paymentReference?.let { add("Verwendungszweck: $it") }
             }
         builder.paragraph(paymentLines.joinToString("\n"))
         builder.paragraph("Vielen Dank fuer Ihre Unterstuetzung!")

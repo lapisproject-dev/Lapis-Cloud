@@ -44,6 +44,16 @@
 // `33-payments.kuml.kts`, which introduces that table). The FK is deliberately set here, not in V7,
 // because `sepa_mandate` did not exist until this wave -- see that migration's own comment for why
 // this in-place `V1__baseline.sql` edit is mirrored, idempotently, by `V8__sepa_mandates.sql`.
+//
+// **Welle V1.4.5.1 "Kontoauszugs-Import (CSV/MT940)"** adds exactly one column:
+// `contribution.paymentReference` (nullable, UNIQUE via a class-level «Index» -- «Column».unique is
+// single-column-only, but this is already single-column, the class-level form is used purely for a
+// named index, same idiom `uq_contribution_member_tier_period` already establishes for a composite
+// key). See `network.lapis.cloud.shared.domain.PaymentReferenceCode`/
+// `network.lapis.cloud.server.payment.bankstatement.PaymentReferenceAllocator` for the "LC-XXXXXX"
+// grammar and allocation. Nullable and NOT backfilled for pre-existing rows -- see
+// `V20__bank_statement_import.sql`'s own comment for why a retroactive reference would be dead
+// weight (it can never appear in an already-sent invoice's Verwendungszweck).
 import dev.kuml.profile.erm.ermMappingProfile
 import dev.kuml.uml.Multiplicity
 import dev.kuml.uml.dsl.applyProfile
@@ -149,6 +159,13 @@ classDiagram(name = "Contribution") {
         }
         stereotype("Index") { "columns" to listOf("member_id"); "name" to "idx_contribution_member" }
         stereotype("Index") { "columns" to listOf("status"); "name" to "idx_contribution_status" }
+        // V1.4.5.1 (see file header). Multiple NULLs are allowed under this UNIQUE index on H2
+        // (MODE=PostgreSQL) as on real Postgres -- see uq_event_registration_ticket_code precedent.
+        stereotype("Index") {
+            "columns" to listOf("payment_reference")
+            "unique" to true
+            "name" to "uq_contribution_payment_reference"
+        }
 
         attribute(name = "id", type = "UUID") {
             stereotype("Id")
@@ -202,6 +219,11 @@ classDiagram(name = "Contribution") {
         attribute(name = "sepaMandateId", type = "UUID") {
             multiplicity = Multiplicity(0, 1)
             stereotype("Column") { "columnName" to "sepa_mandate_id"; "fkEntity" to "SepaMandate" }
+        }
+        // V1.4.5.1 (see file header). Nullable, unique via the class-level «Index» below.
+        attribute(name = "paymentReference", type = "String") {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") { "columnName" to "payment_reference"; "sqlType" to "VARCHAR(12)" }
         }
     }
 

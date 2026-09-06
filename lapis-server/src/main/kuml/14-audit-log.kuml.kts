@@ -157,7 +157,9 @@ classDiagram(name = "AuditLog") {
     // contributionIncomeAccountId), see that method's own KDoc. 21 chars, fits within the existing
     // VARCHAR(29) width, no further widening needed. Additive append only --
     // never reorder existing literals, see this enum's own "cheap to extend, expensive to reorder"
-    // note class-wide.
+    // note class-wide. BANK_STATEMENT_IMPORT (Welle V1.4.5.1 "Kontoauszugs-Import") is appended
+    // LAST after that -- BankStatementImportService writes one CREATE entry per completed import,
+    // entityId = the new bank_statement_import row's id.
     val auditEntityType = enumOf(name = "AuditEntityType") {
         literal(name = "JOURNAL_ENTRY")
         literal(name = "PARTY_DONATION_VERDICT")
@@ -176,6 +178,7 @@ classDiagram(name = "AuditLog") {
         literal(name = "PAYMENT_TRANSACTION") // Welle V1.2.8 PSP-Checkout (Stripe) -- siehe PaymentTransactionSnapshot KDoc
         literal(name = "API_KEY") // Welle V1.3.1 "API-Fundament, lesend" -- ApiKeyService.issueApiKey/revokeApiKey/reissueApiKey
         literal(name = "WEBHOOK_ENDPOINT") // Welle V1.3.2 "Webhooks" (ausgehend) -- WebhookService lifecycle + WebhookDeliveryPoller auto-deactivation
+        literal(name = "BANK_STATEMENT_IMPORT") // Welle V1.4.5.1 "Kontoauszugs-Import" -- BankStatementImportService writes one CREATE entry per completed import; 21 chars, fits within the existing VARCHAR(29) width
     }
 
     // Genesis-singleton row (see file header) -- gapless sequence_number + hash-chain

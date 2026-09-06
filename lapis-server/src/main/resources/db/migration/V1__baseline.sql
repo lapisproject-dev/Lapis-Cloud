@@ -728,7 +728,13 @@ CREATE TABLE audit_log_entry (
     -- inference) during this wave's own implementation: a fresh/test database rejected an
     -- entity_type = 'WEBHOOK_ENDPOINT' INSERT with V15's named constraint ALREADY widened, because
     -- this inline constraint -- unnamed, still governing every fresh database -- had not been.
-    CHECK (entity_type IN ('JOURNAL_ENTRY', 'PARTY_DONATION_VERDICT', 'RESOLUTION', 'BOARD_MEMBERSHIP', 'CONFERENCE_RECORDING', 'CONFERENCE_STREAM', 'CONFERENCE_STREAM_DESTINATION', 'CONFERENCE_ROOM', 'SOCIAL_POST', 'ORGANIZATION_SETTINGS', 'SEPA_MANDATE', 'SEPA_DEBIT_BATCH', 'DUNNING_NOTICE', 'MEMBER', 'PAYMENT_TRANSACTION', 'API_KEY', 'WEBHOOK_ENDPOINT')),
+    -- V1.4.5.1 "Kontoauszugs-Import": 'BANK_STATEMENT_IMPORT' appended in place, same reasoning --
+    -- see V20__bank_statement_import.sql's own DROP/ADD dance on the NAMED constraint. Confirmed
+    -- live (not just by inference) during this wave's own implementation:
+    -- BankStatementImportServiceTest's fresh H2 test database rejected an
+    -- entity_type = 'BANK_STATEMENT_IMPORT' INSERT until this inline constraint was widened too.
+    -- Flyway repair needed on an already-migrated instance, same as the precedents above.
+    CHECK (entity_type IN ('JOURNAL_ENTRY', 'PARTY_DONATION_VERDICT', 'RESOLUTION', 'BOARD_MEMBERSHIP', 'CONFERENCE_RECORDING', 'CONFERENCE_STREAM', 'CONFERENCE_STREAM_DESTINATION', 'CONFERENCE_ROOM', 'SOCIAL_POST', 'ORGANIZATION_SETTINGS', 'SEPA_MANDATE', 'SEPA_DEBIT_BATCH', 'DUNNING_NOTICE', 'MEMBER', 'PAYMENT_TRANSACTION', 'API_KEY', 'WEBHOOK_ENDPOINT', 'BANK_STATEMENT_IMPORT')),
     CHECK (action IN ('CREATE', 'UPDATE', 'POST'))
 );
 

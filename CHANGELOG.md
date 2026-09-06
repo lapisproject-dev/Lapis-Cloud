@@ -135,6 +135,52 @@ All notable changes to this project are documented here. Format follows
   (`PublicTransparencyReader.loadTopDonors`) in den gemeinsam genutzten
   `network.lapis.cloud.server.rpc.DonationIncomeAmount`, damit beide Sichten dieselbe Regel nutzen.
 
+**Kontoauszugs-Import CSV/MT940, Welle V1.4.5.1 — Backend + automatische Beitragsverbuchung (Server-seitig; UI/i18n als Scope-Cut, siehe unten)**
+
+- **Neue Entitäten `bank_statement_import`/`bank_statement_line`** — ein hochgeladener
+  Kontoauszug (Sparkassen-CAMT-CSV, ein generischer CSV-Auffangdialekt, oder MT940) wird
+  zeilenweise gegen offene Beiträge abgeglichen. Siehe `40-bank-statement.kuml.kts` Dateikopf für
+  den Scope-Cut (DATEV/lexoffice/sevDesk-Export, camt.052/053/054-XML, FinTS/HBCI,
+  Teilzahlung/Splitting, automatische Spendenverbuchung — keins davon in dieser Welle).
+- **`LC-XXXXXX`-Zahlungsreferenz** (`network.lapis.cloud.shared.domain.PaymentReferenceCode`,
+  `contribution.payment_reference`) — 5 Crockford-Base32-Nutzlastzeichen + 1 GF(2⁵)-gewichtetes
+  Prüfzeichen (bewusste, dokumentierte Abweichung von einer ursprünglich erwogenen XOR-Prüfsumme,
+  die Vertauschungen zweier Zeichen algebraisch nicht erkennen kann). `PaymentReferenceAllocator`
+  vergibt per `SecureRandom` + Kollisions-Retry gegen `uq_contribution_payment_reference` — bewusst
+  **keine** Postgres-`SEQUENCE`, siehe dessen KDoc für die drei Gründe. Auf jeder Beitragsrechnung
+  im Verwendungszweck aufgedruckt (`BeitragsrechnungPdfGenerator`).
+- **Vier Matching-Regeln, erste greifende gewinnt** (`BankStatementMatcher`): R1 Referenz im
+  Verwendungszweck (einzige Regel, die automatisch bucht), R2 IBAN-Abgleich gegen aktive
+  SEPA-Mandate (nur bei konfiguriertem `LAPIS_SECRET_ENCRYPTION_KEY`, sonst übersprungen mit
+  Warnhinweis), R3 Vor-/Nachname-Tokenabgleich, R4 kein Treffer (nie automatisch als Spende
+  gebucht — §25 PartG: eine Spenderkategorie ist aus einer Bankzeile nicht ableitbar).
+- **Zwei-Phasen-Transaktionsschnitt**: Phase 1 (eine Transaktion) parst, dedupliziert
+  (`bank_statement_line.fingerprint`, SHA-256 über die normalisierten Feldwerte) und matched jede
+  Zeile, schreibt Status/Begründung VOR jeder Buchung; Phase 2 bucht jede automatisch zu buchende
+  Zeile in einer EIGENEN Transaktion (`ContributionPostingBridge.postContributionPayment` muss die
+  letzte zeilensperrende Operation ihrer Transaktion sein — 200 Buchungen in einer Transaktion
+  wären ein struktureller Deadlock).
+- **Gegenpartei-IBAN verschlüsselt, nie im Klartext** — `counterparty_iban_last4` (Klartext-
+  Vorfilter) + `counterparty_iban_ciphertext` (`SecretBox`, AAD = Zeilen-Id), spiegelt
+  `sepa_mandate.debtor_iban_ciphertext` exakt. Die Rohzeile eines Kontoauszugs wird NIE
+  persistiert (DSGVO) — sie erscheint nur transient im HTTP-Body eines abgelehnten Imports (422).
+- **Harte Ablehnungen** (nichts importiert, nichts gebucht): Datei > 5 MiB (413), Format nicht
+  erkannt/nicht parsbar (422, mit Zeilennummer + gekürzter Rohzeile im Body), MT940-Saldenbruch
+  (422), fremdes Konto (422), > 2000 Zeilen (422), bereits importierte Datei (409, Datei-Digest).
+  Rollen: TREASURER/BOARD/ADMIN lesend, TREASURER/ADMIN für Upload/Zuordnung — bewusst OHNE BOARD
+  bei den buchenden Aktionen, gleiche Rollenmenge wie `AccountingService.postJournalEntry`.
+- **DSGVO**: `PaymentsPersonalData` deckt beide neuen Tabellen ab (GoBD-Aufbewahrung, nur
+  `resolution_note` wird bei Löschung geleert). `bank_statement_line` trägt zusätzlich PII eines
+  Nicht-Mitglieds (Auftraggebername/IBAN-Suffix) — testgeprüft sichtbare, dokumentierte Lücke
+  (`PersonalDataRegistry.knownUncoveredSubjectRoots`), analog `external_donor`/`event_registration`.
+- **Bewusst nicht in dieser Welle (Scope-Cut, siehe Session-Notizen)**: die KVision-Bedienoberfläche
+  (`/bank-import`) und die vollständige 7-Sprachen-i18n-Übersetzung — Backend (Migration, kUML-
+  Modell, Parser, Matcher, Buchungspfad, RPC-Service `IBankStatementService`, Ktor-Upload-Route
+  `POST /api/bank-statements/import`) ist vollständig implementiert und getestet, die Bedienung
+  bleibt für eine Folgewelle. Von den vier CSV-Dialekt-Enum-Literalen `VR_BANK`/`DKB`/`POSTBANK`/
+  `COMDIRECT` ist bisher keiner mit einer Header-Signatur hinterlegt (keine echte Exportdatei
+  verfügbar) — nur `SPARKASSE_CAMT` und ein breiter `GENERIC`-Auffangdialekt sind aktiv.
+
 ### Fixed
 
 - **`getMemberContributionSummary.totalOpen` zählte nur `OPEN`** und ignorierte

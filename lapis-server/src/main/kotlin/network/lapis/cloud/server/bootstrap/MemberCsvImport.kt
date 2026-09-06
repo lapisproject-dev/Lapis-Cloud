@@ -104,9 +104,20 @@ object MemberCsvImport
  * exact behavior.
  */
 internal object DelimitedCsvParser {
+    /**
+     * [maxRows] -- Review fix (MEDIUM): when set, parsing stops (scanning of [text] itself halts,
+     * not merely truncation of an already-fully-built result) the instant [maxRows] LOGICAL rows
+     * have been completed, so a caller that only needs a bounded preamble window (see
+     * `BankStatementFormatDetector`, which used to materialize the ENTIRE file -- twice, once per
+     * candidate delimiter -- just to inspect its first ~21 logical rows) never allocates a
+     * `List<List<String>>` proportional to a multi-megabyte upload. `null` (the default, and every
+     * pre-existing caller e.g. `MemberCsvImport`/`BankCsvParser`) preserves the original
+     * whole-file behavior exactly.
+     */
     fun parse(
         text: String,
         delimiter: Char = ';',
+        maxRows: Int? = null,
     ): List<List<String>> {
         val input = if (text.isNotEmpty() && text[0] == '﻿') text.substring(1) else text
         val rows = mutableListOf<List<String>>()
@@ -174,11 +185,13 @@ internal object DelimitedCsvParser {
                     endRow()
                     i++
                     if (i < input.length && input[i] == '\n') i++
+                    if (maxRows != null && rows.size >= maxRows) return rows
                 }
 
                 '\n' -> {
                     endRow()
                     i++
+                    if (maxRows != null && rows.size >= maxRows) return rows
                 }
 
                 else -> {

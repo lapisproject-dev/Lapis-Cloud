@@ -83,6 +83,7 @@ import network.lapis.cloud.server.payment.sepa.SepaConfig
 import network.lapis.cloud.server.postal.LetterxpressPostalMailProvider
 import network.lapis.cloud.server.routes.registerAuthRoutes
 import network.lapis.cloud.server.routes.registerBackupRoutes
+import network.lapis.cloud.server.routes.registerBankStatementRoutes
 import network.lapis.cloud.server.routes.registerConferenceRecordingRoutes
 import network.lapis.cloud.server.routes.registerCrmRoutes
 import network.lapis.cloud.server.routes.registerDocumentRoutes
@@ -105,6 +106,7 @@ import network.lapis.cloud.server.rpc.AuctionService
 import network.lapis.cloud.server.rpc.AuditLogService
 import network.lapis.cloud.server.rpc.AuthService
 import network.lapis.cloud.server.rpc.BackupService
+import network.lapis.cloud.server.rpc.BankStatementService
 import network.lapis.cloud.server.rpc.BoardMembershipService
 import network.lapis.cloud.server.rpc.ConferenceBreakoutService
 import network.lapis.cloud.server.rpc.ConferenceNotesService
@@ -154,6 +156,7 @@ import network.lapis.cloud.shared.rpc.IAuctionService
 import network.lapis.cloud.shared.rpc.IAuditLogService
 import network.lapis.cloud.shared.rpc.IAuthService
 import network.lapis.cloud.shared.rpc.IBackupService
+import network.lapis.cloud.shared.rpc.IBankStatementService
 import network.lapis.cloud.shared.rpc.IBoardMembershipService
 import network.lapis.cloud.shared.rpc.IConferenceBreakoutService
 import network.lapis.cloud.shared.rpc.IConferenceNotesService
@@ -556,6 +559,13 @@ fun Application.module() {
     // SepaService.grantMandate/revokeMandate; see that class' own "Rate limiting" KDoc for why a
     // constructor-default instance would be non-functional in production.
     val sepaMandateWriteRateLimiter = FederationInboxRateLimiter(maxRequests = 10, window = 1.minutes)
+
+    // Welle V1.4.5.1 "Kontoauszugs-Import (CSV/MT940)" -- reuses the SAME LAPIS_SECRET_ENCRYPTION_KEY
+    // as sepaConfig (see BankStatementMatcher KDoc "R2 IBAN"); `null` (never a plaintext fallback)
+    // when that key is unconfigured, exactly the same posture SepaService/ConferenceStreamingService
+    // already establish for their own SecretBox instances.
+    val bankStatementSecretBox: SecretBox? = sepaConfig.secretEncryptionKey?.let { SecretBox(it) }
+    val bankStatementUploadRateLimiter = FederationInboxRateLimiter(maxRequests = 10, window = 1.minutes)
 
     // V1.2.7 Automatisiertes Mahnwesen -- DunningConfig.load() is pure string parsing, same
     // deliberately-non-fail-fast posture as SepaConfig (see that class' own KDoc): the feature is
@@ -1094,6 +1104,10 @@ fun Application.module() {
                 checkInRateLimiter = eventCheckInRateLimiter,
             )
         }
+        // Welle V1.4.5.1 "Kontoauszugs-Import (CSV/MT940)".
+        registerService(IBankStatementService::class) { call ->
+            BankStatementService(call = call, secretBox = bankStatementSecretBox)
+        }
     }
 
     routing {
@@ -1109,6 +1123,8 @@ fun Application.module() {
         registerCrmRoutes()
         registerMailmergeRoutes(documentStorageRoot)
         registerSepaRoutes(documentStorageRoot = documentStorageRoot, sepaConfig = sepaConfig)
+        // Welle V1.4.5.1 "Kontoauszugs-Import (CSV/MT940)".
+        registerBankStatementRoutes(secretBox = bankStatementSecretBox, rateLimiter = bankStatementUploadRateLimiter)
         registerDunningRoutes(storageRoot = documentStorageRoot, previewRateLimiter = dunningPreviewRateLimiter)
         registerBackupRoutes(database = DatabaseConfig.connect(), documentStorageRoot = documentStorageRoot)
         registerAuthRoutes(

@@ -29,10 +29,11 @@ public object ContributionTable : Table("contribution") {
     public val paymentMethod: Column<ContributionPaymentMethod> = enumerationByName<ContributionPaymentMethod>("payment_method", 12)
     // TODO default = "MANUAL"
     public val sepaMandateId: Column<Uuid?> = optReference("sepa_mandate_id", SepaMandateTable.id)
+    public val paymentReference: Column<String?> = varchar("payment_reference", 12).nullable()
 
     override val primaryKey: PrimaryKey = PrimaryKey(id)
 
-    // Note: 3 index(es) declared on this entity are not emitted —
+    // Note: 4 index(es) declared on this entity are not emitted —
     // Exposed's index {} DSL needs typed column references, not wired up in this wave.
 
     // Note: 2 check constraint(s) declared on this entity are not

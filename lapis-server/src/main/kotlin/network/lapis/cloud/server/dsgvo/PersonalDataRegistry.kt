@@ -83,6 +83,11 @@ object PersonalDataRegistry {
                 "aus dem Auskunfts-/Loeschframework heraus. Ein Selbstbedienungs-Auskunfts-/" +
                 "Loeschpfad fuer Gaeste sowie eine automatische Aufbewahrungsfrist sind fuer " +
                 "V1.4.3.2 vorgesehen. Sichtbar gemacht, nicht geschlossen.",
+            "bank_statement_line" to
+                "Welle V1.4.5.1. Traegt PII eines Nicht-Mitglieds (Auftraggebername, IBAN-Suffix) " +
+                "aus einem Bankkontoauszug, hat fuer diesen Fall keinen member-FK und faellt daher " +
+                "aus dem Auskunfts-/Loeschframework heraus. GoBD-/AO-Aufbewahrung (10 Jahre) steht " +
+                "einer Loeschung ohnehin entgegen. Sichtbar gemacht, nicht geschlossen.",
         )
 
     /**
@@ -91,7 +96,7 @@ object PersonalDataRegistry {
      * [knownUncoveredSubjectRoots] (dokumentierte Luecke, wie `external_donor`) stehen -- niemals in
      * beiden, niemals in keinem (siehe `PersonalDataCoverageTest`'s Test C).
      */
-    internal val nonMemberPiiTables: Set<String> = setOf("external_donor", "crm_contact", "event_registration")
+    internal val nonMemberPiiTables: Set<String> = setOf("external_donor", "crm_contact", "event_registration", "bank_statement_line")
 
     /**
      * Tables that are not covered by a [PersonalDataContributor] on purpose, each with a written

@@ -24,6 +24,7 @@ import network.lapis.cloud.server.db.generated.MemberTable
 import network.lapis.cloud.server.db.generated.MembershipTierTable
 import network.lapis.cloud.server.db.generated.OrganizationSettingsTable
 import network.lapis.cloud.server.db.generated.PostingTable
+import network.lapis.cloud.server.payment.bankstatement.PaymentReferenceAllocator
 import network.lapis.cloud.server.pdf.BeitragsrechnungPdfGenerator
 import network.lapis.cloud.server.pdf.EinladungPdfGenerator
 import network.lapis.cloud.server.pdf.SpendenbescheinigungPdfGenerator
@@ -257,6 +258,11 @@ internal fun generateBeitragsrechnung(
                 .where { ContributionTable.id eq contributionId }
                 .singleOrNull() ?: throw NotFoundException("Contribution $contributionId not found")
 
+        // Welle V1.4.5.1 "Kontoauszugs-Import" -- lazily allocated on first invoice render (Plan
+        // OF-5: no retroactive backfill, see V20__bank_statement_import.sql's own comment). Idempotent:
+        // a re-rendered invoice for the same contribution always shows the SAME reference.
+        val paymentReference = PaymentReferenceAllocator.ensureReference(contributionId)
+
         val contribution =
             ContributionDto(
                 id = row[ContributionTable.id].toString(),
@@ -274,6 +280,7 @@ internal fun generateBeitragsrechnung(
                 createdAt = row[ContributionTable.createdAt],
                 dueDate = row[ContributionTable.dueDate],
                 paymentMethod = row[ContributionTable.paymentMethod],
+                paymentReference = paymentReference,
             )
         val member =
             loadMailmergeMember(row[ContributionTable.memberId])

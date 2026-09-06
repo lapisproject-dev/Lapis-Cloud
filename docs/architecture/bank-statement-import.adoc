@@ -1,0 +1,200 @@
+= Bank Statement Import (CSV/MT940) — Welle V1.4.5.1
+:description: Format detection, parsing, matching, and the two-phase booking transaction shape for the bank-statement-import feature.
+:toc:
+:toc-placement: preamble
+:icons: font
+
+== Context
+
+Before this wave, a paid membership contribution could only reach `PAID` status through a
+treasurer's manual click (`ContributionService.markContributionPaid`), a settled SEPA direct-debit
+collection, or a PSP checkout (`PspWebhookIngestion`). A treasurer receiving a plain bank transfer
+(the common case for a member who does not hold a SEPA mandate and does not use the online-payment
+gateway) had no way to reconcile it automatically. This wave adds a CSV/MT940 bank-statement upload
+that parses, matches, and — for the one unambiguous rule — automatically books incoming transfers
+against open contributions.
+
+**Scope-cut, deliberate**: DATEV/lexoffice/sevDesk export, camt.052/053/054 XML, FinTS/HBCI direct
+bank connectivity, splitting one bank line across multiple contributions, and automatic *donation*
+posting are all out of scope this wave — see `40-bank-statement.kuml.kts`'s file header for the
+full list and reasoning. Of the CSV dialects modelled (`network.lapis.cloud.shared.domain
+.BankCsvDialect`), only `SPARKASSE_CAMT` and a broad `GENERIC` fallback are actually recognized;
+`VR_BANK`/`DKB`/`POSTBANK`/`COMDIRECT` exist as enum literals without a header signature, because no
+real (anonymized) export sample was available to verify a layout against — a *guessed* signature
+that silently shifts columns would book the wrong amount, which is worse than an honest rejection.
+
+**Client scope-cut**: this wave delivers the complete server-side surface — migration, kUML model,
+parsers, matcher, the two-phase booking transaction, the RPC read/disposition service
+(`IBankStatementService`), and the upload route (`POST /api/bank-statements/import`) — fully
+implemented and tested. The KVision operator screen (`/bank-import`) and the full seven-language
+i18n catalog update are left to a follow-up wave; the RPC surface is already complete enough for
+that screen to be built against without any server-side changes.
+
+== Data shape
+
+Two new tables, `bank_statement_import` (one row per uploaded file) and `bank_statement_line` (one
+row per transaction line), plus one new column on the existing `contribution` table
+(`payment_reference`). See `lapis-server/src/main/kuml/40-bank-statement.kuml.kts` for the full
+kUML model and `V20__bank_statement_import.sql` for the migration.
+
+[kuml, bank-statement-erm, svg]
+----
+classDiagram(name = "Bank Statement Import — ERM excerpt") {
+    class(name = "BankStatementImport") {
+        attribute(name = "id", type = "UUID")
+        attribute(name = "format", type = "String") { note = "CSV | MT940" }
+        attribute(name = "dialect", type = "String")
+        attribute(name = "fileDigest", type = "String") { note = "SHA-256, whole-file idempotency" }
+        attribute(name = "lineCount", type = "Int")
+        attribute(name = "duplicateCount", type = "Int")
+        attribute(name = "autoPostedCount", type = "Int")
+        attribute(name = "uploadedBy", type = "UUID")
+    }
+    class(name = "BankStatementLine") {
+        attribute(name = "id", type = "UUID")
+        attribute(name = "fingerprint", type = "String") { note = "SHA-256, per-line idempotency" }
+        attribute(name = "amount", type = "BigDecimal") { note = "signed; +credit / -debit" }
+        attribute(name = "counterpartyIbanLast4", type = "String")
+        attribute(name = "counterpartyIbanCiphertext", type = "String") { note = "SecretBox, AAD = line id" }
+        attribute(name = "status", type = "String") { note = "UNMATCHED|SUGGESTED|AMBIGUOUS|POSTED|IGNORED" }
+        attribute(name = "matchExplanation", type = "String")
+    }
+    class(name = "Contribution") {
+        attribute(name = "id", type = "UUID")
+        attribute(name = "paymentReference", type = "String") { note = "LC-XXXXXX, nullable, unique" }
+    }
+    class(name = "PaymentTransaction") { attribute(name = "id", type = "UUID") }
+
+    association(source = BankStatementImport, target = BankStatementLine) { target { multiplicity("0..*") } }
+    association(source = BankStatementLine, target = Contribution, id = "matched") { target { multiplicity("0..1") } }
+    association(source = BankStatementLine, target = PaymentTransaction, id = "posted") { target { multiplicity("0..1") } }
+}
+----
+
+Notable design choices, all documented at length in the code itself:
+
+* **No `raw_line` column.** The raw bank-statement line text is never persisted (DSGVO
+  minimization) — it surfaces only transiently in a `422` rejection's HTTP response body
+  (`network.lapis.cloud.server.payment.bankstatement.BankStatementRejectedException`), never in the
+  database, never in a log line.
+* **Counterparty IBAN encrypted, not plaintext.** `counterparty_iban_last4` (a plaintext prefilter)
+  plus `counterparty_iban_ciphertext` (`SecretBox`, AAD = the line's own id) mirror
+  `sepa_mandate.debtor_iban_ciphertext` exactly. Without `LAPIS_SECRET_ENCRYPTION_KEY` configured,
+  the IBAN is not stored at all and the IBAN-matching rule is skipped — never a silent plaintext
+  fallback.
+* **`contribution.payment_reference` is never backfilled** for pre-existing rows — a reference
+  allocated retroactively could never appear in an already-mailed invoice's Verwendungszweck, so it
+  would be dead weight. It is allocated eagerly when a new contribution row is generated
+  (`ContributionService.generateContributionsForPeriod`) and, lazily, the first time an invoice is
+  actually rendered (`generateBeitragsrechnung`).
+* **Two independent idempotency layers.** `bank_statement_line.fingerprint`
+  (`uq_bank_statement_line_fingerprint`) dedups a re-imported/overlapping statement file before
+  matching ever runs; `payment_transaction`'s existing `uq_payment_transaction_provider_event`
+  (provider `MANUAL`, event id = the line's fingerprint) is the separate, pre-existing anchor that
+  prevents a double booking at the accounting layer itself.
+
+== The `LC-XXXXXX` payment reference
+
+`network.lapis.cloud.shared.domain.PaymentReferenceCode` defines the grammar: `LC-` plus six
+Crockford-Base32 characters — five payload symbols (25 bits) and one check symbol. The check symbol
+is a GF(2⁵)-weighted checksum (`check = α¹·d₀ ⊕ α²·d₁ ⊕ α³·d₂ ⊕ α⁴·d₃ ⊕ α⁵·d₄`, field generator
+`α = 2` under the primitive polynomial `x⁵+x²+1`), which detects every single-character
+substitution and every transposition of two characters — a plain XOR of the five payload symbols
+(the originally specified approach) cannot detect a transposition, because XOR is commutative. Form,
+alphabet, and length are unchanged from the original grammar; only the checksum formula differs.
+`PaymentReferenceAllocator` allocates via `SecureRandom` plus collision retry against
+`uq_contribution_payment_reference` — deliberately not a Postgres `SEQUENCE` (this codebase has
+none, an `insertIgnore`-based generation loop would burn sequence values on every skip, and the
+GF(2⁵) check symbol cannot be computed in portable SQL for a migration backfill anyway).
+
+== Matching pipeline
+
+`network.lapis.cloud.server.payment.bankstatement.BankStatementMatcher` applies four rules, first
+match wins:
+
+[kuml, bank-statement-matching, svg]
+----
+activityDiagram(name = "Bank Statement Matching") {
+    initial()
+    decision(name = "amount <= 0?") {
+        yes { activity(name = "IGNORED (Ausgangsbuchung)"); final() }
+    }
+    activity(name = "R1: reference in purpose text, checksum valid?")
+    decision(name = "contribution found, OUTSTANDING, exact amount?") {
+        yes { activity(name = "POSTED, auto-post"); final() }
+    }
+    activity(name = "R2: counterparty IBAN matches an ACTIVE SEPA mandate?")
+    decision(name = "exactly one member, exactly one matching open contribution?") {
+        yes { activity(name = "SUGGESTED"); final() }
+    }
+    activity(name = "R3: first+last name tokens match, exact amount?")
+    decision(name = "exactly one candidate?") {
+        yes { activity(name = "SUGGESTED"); final() }
+    }
+    activity(name = "R4: no rule matched")
+    activity(name = "UNMATCHED — assignable as a donation only by a human")
+    final()
+}
+----
+
+Only R1 ever sets `autoPost = true`. R4 is never auto-posted as a donation — a
+`network.lapis.cloud.shared.domain.DonorCategory` cannot be derived from a bank line alone, and
+posting one without a category would silently bypass the §25 PartG compliance check
+`DonationPostingBridge.postDonationPayment` otherwise always applies.
+
+== Transaction shape
+
+`BankStatementImportService.import` runs in two phases:
+
+* **Phase 1 (one transaction)**: account/duplicate checks, the `bank_statement_import` insert,
+  every line's `insertIgnore` (the fingerprint unique index is the dedup detector), and
+  `BankStatementMatcher.match` for every newly-inserted line — status and explanation are persisted
+  *before* any booking happens.
+* **Phase 2 (one transaction per auto-postable line)**: `ContributionPostingBridge
+  .postContributionPayment` must be the last row-locking operation of its own transaction (see that
+  object's KDoc) — booking every line of a large file inside a single transaction would deadlock
+  against the ledger-account locking order that bridge relies on. Each line therefore gets its own
+  transaction, structurally mirroring `network.lapis.cloud.server.payment.psp.PspWebhookIngestion`'s
+  own "one `payment_transaction` insert + one guarded contribution update + one bridge call, all in
+  one transaction" shape. A single line's booking failure (a thrown `ConflictException` from an
+  unbalanced posting, for instance) is caught and logged by line id only — the rest of the file
+  keeps processing.
+
+== Limits
+
+[cols="1,1"]
+|===
+| Limit | Value
+
+| Max upload size
+| 5 MiB (enforced while streaming, before the file is buffered)
+
+| Max statement lines per file
+| 2,000
+
+| Max purpose length stored
+| 2,000 characters (longer values truncated, not rejected)
+
+| Upload rate limit
+| 10 requests / minute per remote host
+
+| Roles (read)
+| TREASURER, BOARD, ADMIN
+
+| Roles (upload / assign / ignore)
+| TREASURER, ADMIN — deliberately narrower than read, matching every other booking-capable
+  RPC in this codebase (`AccountingService.postJournalEntry`,
+  `ContributionService.generateContributionsForPeriod`)
+|===
+
+== DSGVO
+
+`network.lapis.cloud.server.dsgvo.PaymentsPersonalData` covers both new tables under the existing
+GoBD/HGB/AO ten-year retention duty (same posture as `payment_transaction`) — only the free-text
+`resolution_note` column is cleared on erasure; `match_explanation` is retained deliberately, since
+it never carries more than a member display name/period/amount already visible elsewhere in the
+(also retained) `contribution`/`member` rows. `bank_statement_line` additionally carries personal
+data of a *non*-member (the counterparty's name and IBAN suffix) with no `member` foreign key for
+that half of the row — a documented, test-checked gap in
+`network.lapis.cloud.server.dsgvo.PersonalDataRegistry.knownUncoveredSubjectRoots`, the same
+treatment already applied to `external_donor` and `event_registration`.

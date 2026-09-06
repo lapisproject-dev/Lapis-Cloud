@@ -35,16 +35,16 @@ class DomainModelMergerTest :
         // ── Test 1: merging the real 22 domain scripts ───────────────────────────────────
 
         test(
-            "merging the real 40 domain scripts succeeds and the uml-to-erm -> erm-to-exposed chain " +
+            "merging the real 41 domain scripts succeeds and the uml-to-erm -> erm-to-exposed chain " +
                 "produces exactly one Table file per distinct table name",
         ) {
             val scriptFiles =
                 requireNotNull(KumlModelLoader.kumlSourceDir.listFiles { f -> f.name.endsWith(".kuml.kts") }) {
                     "kUML source dir not found or not a directory: ${KumlModelLoader.kumlSourceDir.absolutePath}"
                 }.sortedBy { it.name }
-            // Welle V1.4.3.1 "Veranstaltungen" -- was 39, now 40 with the addition of
-            // 39-events.kuml.kts.
-            scriptFiles shouldHaveSize 40
+            // Welle V1.4.5.1 "Kontoauszugs-Import" -- was 40, now 41 with the addition of
+            // 40-bank-statement.kuml.kts.
+            scriptFiles shouldHaveSize 41
 
             val diagrams = scriptFiles.map { KumlModelLoader.loadUmlDiagram(it) }
 
@@ -313,7 +313,15 @@ class DomainModelMergerTest :
             // regardless of file processing order -- see DomainModelMerger KDoc step 3 "most
             // attributes wins"), so it contributes +1 «Entity» declaration and +1 drop, net 0
             // change to distinctTableNames.
-            val distinctTableNames = 125
+            // Welle V1.4.5.1 "Kontoauszugs-Import (CSV/MT940)" adds 40-bank-statement.kuml.kts's TWO
+            // real tables (bank_statement_import, bank_statement_line), WITH THREE cross-domain
+            // stubs (Member, Contribution, PaymentTransaction -- all three FK targets used by
+            // bank_statement_import.uploaded_by / bank_statement_line.matched_contribution_id /
+            // .payment_transaction_id / .resolved_by) -- all three stubs dedup into already-real
+            // entities (member/contribution/payment_transaction) -- so it contributes +5 «Entity»
+            // declarations (3 stubs + 2 real tables) and 3 drops, net +2 distinct table names versus
+            // the V1.4.3.1 baseline above (125 -> 127).
+            val distinctTableNames = 127
 
             val result =
                 UmlToExposedViaErmScriptTransformer().transform(
@@ -501,6 +509,12 @@ class DomainModelMergerTest :
                     // file for either.
                     "EventTable.kt",
                     "EventRegistrationTable.kt",
+                    // Welle V1.4.5.1 "Kontoauszugs-Import (CSV/MT940)" -- two new real tables
+                    // (bank_statement_import, bank_statement_line); their Member/Contribution/
+                    // PaymentTransaction cross-domain stubs all dedup into already-real entities, no
+                    // new Table file for any of them.
+                    "BankStatementImportTable.kt",
+                    "BankStatementLineTable.kt",
                 )
         }
 
