@@ -12,6 +12,7 @@ import network.lapis.cloud.shared.domain.AccountingExportItemStatus
 import network.lapis.cloud.shared.domain.AccountingExportProvider
 import network.lapis.cloud.shared.domain.AccountingExportRunStatus
 import network.lapis.cloud.shared.domain.AccountingExportUnknownItemResolution
+import network.lapis.cloud.shared.domain.displayName
 import org.jetbrains.exposed.v1.core.SortOrder
 import org.jetbrains.exposed.v1.core.and
 import org.jetbrains.exposed.v1.core.eq
@@ -52,6 +53,13 @@ internal object AccountingExportStore {
         val lastTestedAt: LocalDateTime?,
         val zeroVatAcknowledgedAt: LocalDateTime?,
         val zeroVatDisclaimerVersion: String?,
+        // Security-Audit-Fund 2026-09-07 (Runde 6): read back alongside the version so a caller can
+        // require BOTH `zeroVatDisclaimerVersion == VERSION` AND `zeroVatDisclaimerSha256 ==
+        // sha256For(provider)`, not the version alone -- see `ZeroVatExportDisclaimer.sha256For`
+        // KDoc. Without this column round-tripping, a `displayName`/text edit in a later wave that
+        // does NOT also bump `VERSION` would silently stop matching the stored hash while every gate
+        // that checks only the version keeps treating the connection as acknowledged.
+        val zeroVatDisclaimerSha256: String?,
     )
 
     fun getOrCreateConnection(
@@ -88,6 +96,7 @@ internal object AccountingExportStore {
             lastTestedAt = this[AccountingExportConnectionTable.lastTestedAt],
             zeroVatAcknowledgedAt = this[AccountingExportConnectionTable.zeroVatAcknowledgedAt],
             zeroVatDisclaimerVersion = this[AccountingExportConnectionTable.zeroVatDisclaimerVersion],
+            zeroVatDisclaimerSha256 = this[AccountingExportConnectionTable.zeroVatDisclaimerSha256],
         )
 
     /** Row id stays STABLE across a token replacement -- an `UPDATE`, never a delete+insert (see
@@ -818,7 +827,10 @@ internal object AccountingExportStore {
                             it[status] = AccountingExportItemStatus.FAILED
                             it[errorCode] = "CONFIRMED_NOT_SENT_TO_PROVIDER"
                             it[errorMessage] =
-                                "Manuell durch Schatzmeister/Admin geprüft: Beleg wurde nicht bei Lexware Office gefunden."
+                                // Welle V1.4.5.4 "sevDesk-Live-Anbindung" (Fund): `provider` is
+                                // already resolved above -- this note used to hardcode "Lexware
+                                // Office", which would have been wrong for a SEVDESK item.
+                                "Manuell durch Schatzmeister/Admin geprüft: Beleg wurde nicht bei ${provider.displayName} gefunden."
                         }
                         AccountingExportUnknownItemResolution.CONFIRMED_SENT -> {
                             it[status] = AccountingExportItemStatus.SUCCEEDED
@@ -827,7 +839,7 @@ internal object AccountingExportStore {
                                 externalVoucherId?.take(MAX_EXTERNAL_VOUCHER_ID_LENGTH)
                             it[errorCode] = null
                             it[errorMessage] =
-                                "Manuell durch Schatzmeister/Admin geprüft: Beleg wurde bei Lexware Office gefunden."
+                                "Manuell durch Schatzmeister/Admin geprüft: Beleg wurde bei ${provider.displayName} gefunden."
                         }
                     }
                     it[finishedAt] = now

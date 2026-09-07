@@ -1,0 +1,312 @@
+= Live Accounting Export to sevDesk — Welle V1.4.5.4
+:description: The second provider behind the AccountingExportProviderAdapter seam — sevDesk's wire-format divergences from lexoffice, the composite category key it forces, and the spec inconsistencies live-verified against the raw OpenAPI document.
+:toc:
+:toc-placement: preamble
+:icons: font
+
+== Context
+
+Welle V1.4.5.3 delivered the live accounting-export path against lexoffice, behind the
+provider-neutral `network.lapis.cloud.server.accounting.export.AccountingExportProviderAdapter`
+seam — see `accounting-export-lexoffice.adoc` for that wave's own full writeup, which this document
+does not repeat. This wave adds the second provider, sevDesk, as
+`network.lapis.cloud.server.accounting.export.sevdesk.SevDeskAdapter` — a second implementation of
+the SAME seam, plugged in without touching `AccountingExportPoller`/`AccountingExportService`/
+`AccountingExportPlanner` at all. `AccountingExportProvider` is a two-literal enum from this wave on
+(`LEXOFFICE`, `SEVDESK`), and every persistence key that carries a provider
+(`accounting_export_run.active_key`, `accounting_export_item.exported_key`) was already
+provider-prefixed from the first wave — see xref:no-schema-change[] below.
+
+== Verified API facts
+
+The following facts were live-verified against `https://api.sevdesk.de/openapi.yaml` (HTTP 200,
+672 KB, retrieved 2026-09-07) — the RAW spec file, not the Redoc-rendered page at
+`https://api.sevdesk.de/`, which a `WebFetch` attempt during this wave's planning confirmed only
+serves an empty single-page-app shell (no usable content without executing its JavaScript). Nothing
+in this table is assumed from the design memo that preceded this wave — every row was checked
+against the spec text itself.
+
+[cols="2,5,1"]
+|===
+|Fact |Detail |Status
+
+|Base URL
+|`https://my.sevdesk.de/api/v1` (`servers[0].url`)
+|Verified
+
+|Auth
+|`securitySchemes.api_key: {type: apiKey, name: Authorization, in: header}` — the RAW token, **no**
+`Bearer ` prefix (the single biggest wire-format difference from the lexoffice client). The spec's
+own description states every sevDesk administrator has exactly ONE API token, with NO
+permission-scoping of its own — a stored token has full account access.
+|Verified
+
+|`creditDebit`
+|`"D"` (debit = "You sold something") = Einnahme; `"C"` (credit = "You bought something") = Ausgabe
+— the OPPOSITE of the naive "C wie Credit wie Einnahme" reading. Getting this backwards would book
+every donation as an expense.
+|Verified
+
+|`status`
+|Enum `50` / `100` / `1000`. Endpoint description: "The only valid status values for this endpoint
+are 50 (draft) and 100 (open). You can only update draft vouchers." This wave sends `50` — see
+xref:status-draft[] below.
+|Verified
+
+|`voucherDate`
+|`type: string, format: date-time, example: 01.01.2022` → `dd.MM.yyyy`, **not** ISO-8601 — distinct
+from the lexoffice endpoint's `yyyy-MM-dd`.
+|Verified
+
+|`supplier`
+|`nullable: true` — "If you don't have a contact as a supplier, you can set this object to null."
+`supplierName` is a separate, nullable, free-text string.
+|Verified
+
+|`taxRule.id`
+|`type: string`, enum `'1'`,`'2'`,`'3'`,`'4'`,`'5'`,`'11'`
+|Verified
+
+|Amounts (`sumGross`/`sumNet`/`taxRate`)
+|`type: number, format: float` — a JSON NUMBER on the wire, never a string (the opposite convention
+from lexoffice's decimal-formatted STRING amounts).
+|Verified
+
+|`net`
+|"Determines whether 'sumNet' or 'sumGross' is regarded" — `sumGross` only governs when `net = false`.
+|Verified
+
+|Voucher-position required fields
+|`accountDatev, accountingType, voucher, taxRate, sumGross, sumNet, net, mapAll, objectName`
+|Verified (spec `required` list)
+
+|Voucher required fields
+|`creditDebit, taxType, taxRule, status, voucherType, mapAll, objectName`
+|Verified (spec `required` list)
+
+|Bookkeeping-version gate
+|`GET /Tools/bookkeepingSystemVersion` → `{"objects":{"version":"1.0"\|"2.0"}}`. `accountDatev` (the
+field a voucher position needs) only exists under `"2.0"`.
+|Verified
+
+|Category catalogue
+|`GET /ReceiptGuidance/forRevenue` / `GET /ReceiptGuidance/forExpense` →
+`{"objects":[ReceiptGuideDto]}`, each with `accountDatevId` (int), `accountNumber`, `accountName`,
+`allowedTaxRules[].{id (int), name, description, taxRates[]}` — `"ZERO"` is one possible `taxRates`
+value.
+|Verified
+
+|Error envelope
+|`422` → `{"error":{"message": string, "exceptionUUID": string}}`.
+|Verified
+
+|Rate limit
+|**Not documented anywhere in the spec** — no `429` response declared on any operation, no
+"requests per ..." text anywhere in the document (full-text search, negative).
+|Verified absent
+|===
+
+=== Spec inconsistencies (live-verified, not design-memo assumptions)
+
+Four inconsistencies in the raw OpenAPI document, each with a concrete consequence for this
+codebase:
+
+1. **`voucherPos` vs `voucherPosSave`.** `saveVoucher.required` lists `[voucher, voucherPos]`, but
+   the actual request schema defines ONLY a `voucherPosSave` property — `voucherPos` does not exist
+   as a property at all. `SevDeskSaveVoucherRequest` follows the real property name.
+2. **`taxType` AND `taxRule` both required.** `Model_Voucher.required` lists both, despite the
+   endpoint description stating they are mutually exclusive (Buchhaltung 1.0 vs. 2.0). This wave
+   sends only `taxRule` (the 2.0 field) — the version gate above already excludes 1.0 accounts.
+3. **`accountDatev` AND `accountingType` both required.** Same 2.0-vs-1.0 split on
+   `Model_VoucherPos.required`, plus a `voucher` field the Factory endpoint resolves itself. This
+   wave sends only `accountDatev`.
+4. **Response envelope.** Every OTHER endpoint this client calls wraps its payload in
+   `{"objects": ...}`; `saveVoucherResponse` is documented UNWRAPPED (`{voucher, voucherPos,
+   filename}`). `SevDeskApiClient.createVoucher` tolerates BOTH shapes — tries wrapped first, falls
+   back to unwrapped — rather than picking one and risking a false `MISSING_ID` the day sevDesk's
+   own docs turn out to match reality after all.
+
+== Differences from the lexoffice adapter
+
+[cols="2,3,3"]
+|===
+|Aspect |lexoffice |sevDesk
+
+|Auth header
+|`Authorization: Bearer <token>`
+|`Authorization: <token>` — no prefix
+
+|Amount wire format
+|Decimal STRING (`"119.00"`)
+|JSON NUMBER, unquoted (`119.00`) — via `JsonUnquotedLiteral`, never `.toDouble()`
+
+|Date format
+|`yyyy-MM-dd`
+|`dd.MM.yyyy`
+
+|Direction encoding
+|Two voucher TYPES (`salesinvoice`/`purchaseinvoice`)
+|One voucher TYPE (`VOU`) + `creditDebit` (`D`/`C`)
+
+|Draft/final status
+|`voucherStatus = "open"` (finalized)
+|`status = 50` (draft — see xref:status-draft[])
+
+|Pre-send gate
+|None
+|`GET /Tools/bookkeepingSystemVersion` must be `"2.0"`
+
+|Category key shape
+|Provider's own opaque `categoryId`
+|Composite `"<accountDatevId>:<taxRuleId>"` — see xref:composite-category[]
+
+|Rate limit basis
+|Documented (2 req/s) — `LexofficeRateLimiter`'s 600ms gap is a safety margin under a KNOWN ceiling
+|**Undocumented** — `SevDeskRateLimiter`'s 600ms gap is a self-imposed default carried over from the
+lexoffice figure, not derived from any sevDesk-published number
+|===
+
+[[status-draft]]
+=== `status = 50` (draft), not `100` (open)
+
+A deliberate departure from the lexoffice path's `voucherStatus = "open"`. The endpoint description
+states plainly: "You can only update draft vouchers." A draft is changeable/deletable inside sevDesk
+itself; `100` is only reversible via an explicit `resetToDraft` call this wave does not implement.
+This codebase has repeatedly documented (`LexofficeApiClient`, `resolveUnknownItem`,
+`AccountingExportBlockerKind.UNRESOLVED_UNKNOWN_ITEMS`) that a live push is otherwise unwitherable
+once sent — when a provider offers a return ticket, it is taken. The consequence for the operator:
+belege arrive in sevDesk as drafts and the Steuerberater (or the operator) must explicitly finalize
+them there. If that friction is unwanted, `SevDeskVoucherMapper.VOUCHER_STATUS_DRAFT` is a
+one-constant change to `100` — a decision the plan deliberately left to the operator (see that
+mapper's own KDoc).
+
+[[composite-category]]
+=== Why the external category id is composite
+
+`ExternalCategory`/`accounting_export_category_map.external_category_id VARCHAR(64)` have no field
+for a `taxRule` id. sevDesk requires `taxRule` as a REQUIRED field on the voucher, and the legal tax
+rules are themselves ACCOUNT-dependent (`ReceiptGuideDto.allowedTaxRules`) — a hardcoded
+`taxRule.id = "1"` would be a guess with real tax-classification consequences this software is not
+positioned to make. The chosen fix, without any schema or DTO change:
+
+....
+externalCategoryId := "<accountDatevId>:<taxRuleId>"      e.g. "1234:4"
+....
+
+`listReceiptGuidance` therefore surfaces one `ExternalCategory` row per (account × ZERO-capable
+`taxRule`), filtered to ONLY rules whose `taxRates` contains the literal `"ZERO"` — an account that
+cannot post at 0% VAT is not offered at all, rather than offered and rejected mid-send. The
+accounts-mapping dropdown is roughly twice as long as the lexoffice equivalent as a direct result
+(≈40 accounts × ≈2 eligible rules ≈ 80 entries) — a deliberate trade: the tax-rule choice stays
+visible to a human, never silently defaulted.
+
+**Warning for future maintainers:** `externalCategoryId` is a PERSISTED value written by real
+category-mapping actions. A later refactor of the `":"` separator format invalidates every existing
+mapping silently (each becomes `Unmappable` at send time, not at mapping time) — see
+`SevDeskVoucherMapper`'s own KDoc for the same warning at the source.
+
+== Data minimisation
+
+No deviation from the lexoffice path's own posture (see that document's "Security" section) —
+`supplier` is always `null` (never a member/donor object reference), `supplierName` is the constant
+string `"Sammelbuchung Lapis Cloud"` with no personal reference, and `comment` on the voucher
+position is `OutboundVoucher.remark` (the voucher number/reference), never
+`journal_entry.description`. There is no additional data-minimisation concern specific to sevDesk —
+the same guarantees apply unchanged.
+
+[[no-schema-change]]
+== No schema change beyond the provider literal
+
+`V27__accounting_export_sevdesk_provider.sql` widens exactly the four `provider` CHECK constraints
+(`accounting_export_connection`, `_run`, `_item`, `_category_map`) to accept `'SEVDESK'` alongside
+`'LEXOFFICE'`. `V25__accounting_export.sql` itself is NOT touched (deployed, checksum consumed —
+same discipline that file's own header already applies to `V24`). No column width change was needed
+— `provider VARCHAR(9)` already fits `SEVDESK` (7 characters). No index or key change was needed
+either: `AccountingExportStore.activeKeyOf`/`.exportedKeyOf` were ALREADY provider-prefixed from
+Welle V1.4.5.3 (`active_key = <PROVIDER>`, `exported_key = <PROVIDER>:<journalEntryId>`) — the same
+journal entry can already be exported to both providers independently, and two non-terminal runs for
+different providers already coexist, entirely as a consequence of that earlier design, not anything
+new this wave added. See `AccountingExportConstraintTest`'s own `V27:` -prefixed tests for the
+real-database probes.
+
+== Adapter family
+
+[kuml, accounting-export-adapter-family, svg]
+----
+classDiagram(name = "Accounting Export — provider adapter family") {
+    class(name = "AccountingExportProviderAdapter") {
+        attribute(name = "provider", type = "AccountingExportProvider") { note = "the interface every caller depends on" }
+    }
+    class(name = "LexofficeAdapter") { attribute(name = "implements", type = "AccountingExportProviderAdapter") }
+    class(name = "LexofficeApiClient")
+    class(name = "LexofficeVoucherMapper")
+    class(name = "LexofficeRateLimiter")
+    class(name = "SevDeskAdapter") { attribute(name = "implements", type = "AccountingExportProviderAdapter") }
+    class(name = "SevDeskApiClient")
+    class(name = "SevDeskVoucherMapper")
+    class(name = "SevDeskRateLimiter")
+    association(from = "LexofficeAdapter", to = "AccountingExportProviderAdapter", label = "implements")
+    association(from = "SevDeskAdapter", to = "AccountingExportProviderAdapter", label = "implements")
+    association(from = "LexofficeAdapter", to = "LexofficeApiClient", label = "delegates to")
+    association(from = "LexofficeApiClient", to = "LexofficeVoucherMapper", label = "uses")
+    association(from = "LexofficeApiClient", to = "LexofficeRateLimiter", label = "uses")
+    association(from = "SevDeskAdapter", to = "SevDeskApiClient", label = "delegates to")
+    association(from = "SevDeskApiClient", to = "SevDeskVoucherMapper", label = "uses")
+    association(from = "SevDeskApiClient", to = "SevDeskRateLimiter", label = "uses")
+}
+----
+
+`AccountingExportPoller`/`AccountingExportService`/`AccountingExportPlanner` depend only on the
+interface at the top — none of the eight classes below it are visible to those three at all.
+
+== Rate limiting
+
+Same two-layer shape `accounting-export-lexoffice.adoc` establishes (poller cadence as the primary
+throttle, `SevDeskRateLimiter` as the synchronous-RPC-path safety net) — but see the table above:
+`SevDeskRateLimiter`'s 600ms minimum gap is **not derived from any documented sevDesk limit**. The
+spec declares none. The value is carried over from the lexoffice path's own figure purely as a
+conservative default. `AccountingExportPoller.MAX_ITEMS_PER_TICK` is a GLOBAL budget shared across
+every provider (`duePendingItemIds(providers = adaptersByProvider.keys, ...)`) — with two providers
+both sending, each gets roughly half the tick capacity it would alone. This is correct and harmless
+(the two rate limiters are fully independent), but is worth knowing before assuming a "sevDesk is
+slow" symptom is a bug.
+
+== Idempotency and the `UNKNOWN` state
+
+Identical doctrine to the lexoffice path (`accounting-export-lexoffice.adoc` "Idempotency and the
+UNKNOWN state") — `saveVoucher` carries no idempotency key either, so the SAME
+Retryable/Indeterminate/Rejected classification discipline applies, down to the "only a failure
+GUARANTEED to have happened before any byte left this process is Retryable" rule. See
+`SevDeskApiClient` class KDoc "Klassifikation" for the full status-code mapping, and that class'
+"`\"401\"` vs `\"UNAUTHORIZED\"`" note for the one place two different error-code CONVENTIONS
+coexist deliberately within the same class (mirroring lexoffice exactly).
+
+== UI
+
+`AccountingExportScreen` is now provider-parameterized rather than lexoffice-only — a two-button
+provider picker at the top of the screen (active provider styled `PRIMARY`, inactive
+`OUTLINEPRIMARY`, the same toggle-row idiom `FinancialReportsScreen` already establishes), a
+permanent `h2` heading naming the current provider, and a MODELESS switch — selecting the other
+provider just reloads the connection/export sections for it, no confirmation dialog. See
+`renderAccountingExportView` KDoc "Welle V1.4.5.4" for the full UI-Design-Team rationale.
+`AccountingExportProvider.displayName` (`network.lapis.cloud.shared.domain`) is the single shared
+source for the anbieter's user-facing name — read by both the server (blocker detail texts,
+`ZeroVatExportDisclaimer`) and the client, so the two surfaces cannot drift apart.
+
+== `ZeroVatExportDisclaimer` is now provider-parameterized
+
+`textFor`/`sha256For`/`matches` all take an `AccountingExportProvider` now — the disclaimer text
+names the actual target provider (`"an einen externen Buchhaltungsdienst (sevDesk)"` rather than a
+generic "z. B. Lexware Office"), so the hash differs per provider by construction. **This is NOT a
+security fix** — the quittance was already structurally per-provider before this wave
+(`accounting_export_connection` carries `uq_accounting_export_connection_provider` and its own
+`zero_vat_*` columns per row); this is a pure honesty/UX improvement, so a sevDesk-only operator
+reads a hint about their actual target, not lexoffice's name. The disclaimer `VERSION` itself was
+bumped (`"2026-09-08.v2"`) as a direct consequence of the text change — every existing lexoffice
+connection's quittance goes stale and must be re-acknowledged once, the same "acknowledgment must
+match the CURRENT version" gate `buildPreview` already enforces for any wording revision.
+
+== Related
+
+* `docs/architecture/accounting-export-lexoffice.adoc` — the first provider behind this seam, and
+  the shared idempotency/rate-limiting/security doctrine this document does not repeat.

@@ -16,7 +16,8 @@ inside the connected lexoffice account via `POST /v1/vouchers`.
 lexoffice was chosen first over sevDesk because it offers a pure self-service personal-access-token
 flow (`app.lexware.de/addons/public-api`) with no partner-registration process. The adapter seam
 (`network.lapis.cloud.server.accounting.export.AccountingExportProviderAdapter`) is deliberately
-provider-neutral so a `sevdesk.SevDeskAdapter` (planned for V1.4.5.4) plugs in without touching
+provider-neutral: a `sevdesk.SevDeskAdapter` was delivered in Welle V1.4.5.4, see
+`accounting-export-sevdesk.adoc`, without touching
 `AccountingExportPoller`/`AccountingExportService`/`AccountingExportPlanner` at all.
 
 == Verified API facts
@@ -101,7 +102,7 @@ Four new tables plus three cross-domain stubs (`Member`, `JournalEntry`, `Ledger
 classDiagram(name = "Accounting Export — ERM excerpt") {
     class(name = "AccountingExportConnection") {
         attribute(name = "id", type = "UUID")
-        attribute(name = "provider", type = "String") { note = "LEXOFFICE" }
+        attribute(name = "provider", type = "String") { note = "LEXOFFICE | SEVDESK" }
         attribute(name = "tokenCiphertext", type = "String") { note = "SecretBox-sealed, AAD = own id" }
         attribute(name = "tokenLast4", type = "String")
         attribute(name = "connectedCompanyName", type = "String")
@@ -237,7 +238,6 @@ given this planner's own blocking behavior (an entry is never sent half-mapped).
 
 == Scope cuts
 
-* sevDesk adapter — planned for V1.4.5.4, behind the same `AccountingExportProviderAdapter` seam.
 * No read-back/reconciliation sync from lexoffice — this is a one-way push.
 * No USt-Schlüssel modelling — every voucher travels at 0%, see `ZeroVatExportDisclaimer`.
 * No contact/Stammdaten sync — `useCollectiveContact = true` always, `contactId`/`contactName` never
@@ -248,9 +248,12 @@ given this planner's own blocking behavior (an entry is never sent half-mapped).
   donor-naming concern `network.lapis.cloud.server.routes.DatevRoutes.DATEV_FILE_DOWNLOAD_ROLES`
   already documents for the DATEV file path applies doubly to a live, unwitherable push.
 
-== Related: DATEV file export
+== Related
 
-See `docs/architecture/datev-export.adoc` — that document's own "Related" section links back here.
+* `docs/architecture/accounting-export-sevdesk.adoc` — the second provider behind this same
+  `AccountingExportProviderAdapter` seam, delivered Welle V1.4.5.4. See that document's own
+  "Differences from the lexoffice adapter" section for a side-by-side of the wire-format divergences.
+* `docs/architecture/datev-export.adoc` — that document's own "Related" section links back here.
 `network.lapis.cloud.server.accounting.datev.buildDatevExportRequest` was folded into the
 provider-neutral `network.lapis.cloud.server.accounting.export.buildJournalExportRequest` this wave
 introduces; the DATEV path itself is otherwise untouched (its own golden-file tests stayed

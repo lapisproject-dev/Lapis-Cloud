@@ -10,12 +10,24 @@ import kotlinx.serialization.Serializable
  * journal can be pushed to LIVE (as opposed to the DATEV file export, V1.4.5.2, which has no
  * provider concept at all). Literal order load-bearing -- see
  * `network.lapis.cloud.server.db.AccountingExportSchemaDriftTest`, pinned against
- * `43-accounting-export.kuml.kts`. sevDesk (V1.4.5.4) adds the second literal, appended, never
- * inserted -- see [network.lapis.cloud.server.accounting.export.AccountingExportProviderAdapter]
- * KDoc for the adapter seam this enum feeds.
+ * `43-accounting-export.kuml.kts`. sevDesk hinzugefügt in V1.4.5.4, appended, never inserted --
+ * see [network.lapis.cloud.server.accounting.export.AccountingExportProviderAdapter] KDoc for the
+ * adapter seam this enum feeds.
  */
 @Serializable
-enum class AccountingExportProvider { LEXOFFICE, }
+enum class AccountingExportProvider { LEXOFFICE, SEVDESK, }
+
+/** Der Markenname des Anbieters, wie er dem Nutzer angezeigt wird -- die EINZIGE Stelle, an der
+ * ein Fremdmarken-Name in diesem Codebase steht. Server (Blocker-Detailtexte,
+ * `network.lapis.cloud.server.rpc.ZeroVatExportDisclaimer`) und Client (UI-Beschriftungen) lesen
+ * beide hier, damit die beiden Surfaces nicht auseinanderlaufen koennen -- Welle V1.4.5.4
+ * "sevDesk-Live-Anbindung". */
+val AccountingExportProvider.displayName: String
+    get() =
+        when (this) {
+            AccountingExportProvider.LEXOFFICE -> "Lexware Office"
+            AccountingExportProvider.SEVDESK -> "sevDesk"
+        }
 
 /** Lifecycle of one `startExport` run -- see `AccountingExportPoller` class KDoc "Tick-Phasen" for
  * how a run transitions between these. Literal order load-bearing (schema drift test). */
@@ -134,15 +146,18 @@ data class UnmappedAccountDto(
 )
 
 /** One voucher as it would be (or already was) transmitted -- the preview's line-item detail
- * (Atkinson). `voucherType` is the provider's own literal (`"salesinvoice"`/`"purchaseinvoice"`),
- * carried as a plain string rather than re-modelled client-side -- see
- * `network.lapis.cloud.server.accounting.export.lexoffice.LexofficeVoucherMapper`. */
+ * (Atkinson). Welle V1.4.5.4 "sevDesk-Live-Anbindung" (§3.3 der Umsetzungsplanung): das frühere
+ * `voucherType`-Feld (der lexoffice-eigene Literal `"salesinvoice"`/`"purchaseinvoice"`) wurde
+ * ENTFERNT -- es war ein echtes DTO-Leck, kein Kosmetikpunkt: für sevDesk-Zeilen wäre es
+ * bedeutungslos gewesen (dieser Anbieter kennt keine `voucherType`-Literale), während [direction]
+ * bereits dieselbe Information anbieterneutral trägt. Ein Client-Vergleich gegen den
+ * lexoffice-spezifischen String hätte für sevDesk-Zeilen immer `false` geliefert -- jede
+ * Spendeneinnahme wäre in der Vorschau als "Ausgabe" angezeigt worden. */
 @Serializable
 data class VoucherPreviewLineDto(
     val journalEntryId: String,
     val entryDate: LocalDate,
     val voucherNumber: String,
-    val voucherType: String,
     val direction: AccountingExportDirection,
     val categoryName: String?,
     val grossAmount: Decimal,

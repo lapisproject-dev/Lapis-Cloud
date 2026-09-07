@@ -3,6 +3,7 @@ package network.lapis.cloud.server.rpc
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
+import io.kotest.matchers.shouldNotBe
 import io.kotest.matchers.string.shouldContain
 import io.ktor.client.request.get
 import io.ktor.client.request.header
@@ -531,7 +532,9 @@ class AccountingExportServiceTest :
                     .post("/test/accexp/acknowledge-zero-vat?sha256=not-the-real-hash") { header("X-Member-Id", treasurer.toString()) }
                     .status shouldBe HttpStatusCode.Conflict
                 client
-                    .post("/test/accexp/acknowledge-zero-vat?sha256=${ZeroVatExportDisclaimer.SHA256}") {
+                    .post(
+                        "/test/accexp/acknowledge-zero-vat?sha256=${ZeroVatExportDisclaimer.sha256For(AccountingExportProvider.LEXOFFICE)}",
+                    ) {
                         header("X-Member-Id", treasurer.toString())
                     }.status shouldBe HttpStatusCode.OK
 
@@ -554,7 +557,9 @@ class AccountingExportServiceTest :
                 }
                 val treasurer = createMember(AccountRole.TREASURER)
                 client
-                    .post("/test/accexp/acknowledge-zero-vat?sha256=${ZeroVatExportDisclaimer.SHA256}") {
+                    .post(
+                        "/test/accexp/acknowledge-zero-vat?sha256=${ZeroVatExportDisclaimer.sha256For(AccountingExportProvider.LEXOFFICE)}",
+                    ) {
                         header("X-Member-Id", treasurer.toString())
                     }.status shouldBe HttpStatusCode.OK
 
@@ -573,6 +578,47 @@ class AccountingExportServiceTest :
                 val body = response.bodyAsText()
                 body.contains(AccountingExportBlockerKind.ZERO_VAT_NOT_ACKNOWLEDGED.name) shouldBe true
                 body.contains("exportable=false") shouldBe true
+            }
+        }
+
+        test(
+            "previewExport re-blocks with ZERO_VAT_NOT_ACKNOWLEDGED when the stored zero_vat_disclaimer_sha256 is " +
+                "STALE even though zero_vat_disclaimer_version still equals the CURRENT VERSION (Security-Audit-Fund " +
+                "2026-09-07, Runde 6: a provider displayName edit changes what sha256For(provider) computes without " +
+                "touching VERSION -- a version-only gate would silently accept a quittance of a text nobody re-read)",
+        ) {
+            testApplication {
+                application {
+                    install(StatusPages) { installAccountingExportTestExceptionHandlers() }
+                    routing { registerAccountingExportTestRoutes(secretBox = SecretBox(TEST_KEY)) }
+                }
+                val treasurer = createMember(AccountRole.TREASURER)
+                client
+                    .post(
+                        "/test/accexp/acknowledge-zero-vat?sha256=${ZeroVatExportDisclaimer.sha256For(AccountingExportProvider.LEXOFFICE)}",
+                    ) {
+                        header("X-Member-Id", treasurer.toString())
+                    }.status shouldBe HttpStatusCode.OK
+
+                // Simulate a later displayName/text edit that leaves VERSION untouched -- exactly
+                // the scenario the KDoc on `ZeroVatExportDisclaimer.sha256For` and the buildPreview
+                // gate now guard against. The version alone still matches; only the hash is stale.
+                transaction {
+                    AccountingExportConnectionTable.update({
+                        AccountingExportConnectionTable.provider eq AccountingExportProvider.LEXOFFICE
+                    }) {
+                        it[zeroVatDisclaimerSha256] = "0".repeat(64)
+                    }
+                }
+
+                val response = client.get("/test/accexp/preview") { header("X-Member-Id", treasurer.toString()) }
+                val body = response.bodyAsText()
+                body.contains(AccountingExportBlockerKind.ZERO_VAT_NOT_ACKNOWLEDGED.name) shouldBe true
+                body.contains("exportable=false") shouldBe true
+
+                val getConnectionResponse =
+                    client.get("/test/accexp/connection") { header("X-Member-Id", treasurer.toString()) }
+                getConnectionResponse.bodyAsText() shouldContain "zeroVatAcknowledged=false"
             }
         }
 
@@ -647,7 +693,9 @@ class AccountingExportServiceTest :
                     companyName = "Testverein e.V.",
                     now = now,
                 )
-                client.post("/test/accexp/acknowledge-zero-vat?sha256=${ZeroVatExportDisclaimer.SHA256}") {
+                client.post(
+                    "/test/accexp/acknowledge-zero-vat?sha256=${ZeroVatExportDisclaimer.sha256For(AccountingExportProvider.LEXOFFICE)}",
+                ) {
                     header("X-Member-Id", treasurer.toString())
                 }
 
@@ -725,7 +773,9 @@ class AccountingExportServiceTest :
                     companyName = "Testverein e.V.",
                     now = now,
                 )
-                client.post("/test/accexp/acknowledge-zero-vat?sha256=${ZeroVatExportDisclaimer.SHA256}") {
+                client.post(
+                    "/test/accexp/acknowledge-zero-vat?sha256=${ZeroVatExportDisclaimer.sha256For(AccountingExportProvider.LEXOFFICE)}",
+                ) {
                     header("X-Member-Id", treasurer.toString())
                 }
                 createBookableEntry(treasurer)
@@ -798,7 +848,9 @@ class AccountingExportServiceTest :
                     companyName = "Testverein e.V.",
                     now = now,
                 )
-                client.post("/test/accexp/acknowledge-zero-vat?sha256=${ZeroVatExportDisclaimer.SHA256}") {
+                client.post(
+                    "/test/accexp/acknowledge-zero-vat?sha256=${ZeroVatExportDisclaimer.sha256For(AccountingExportProvider.LEXOFFICE)}",
+                ) {
                     header("X-Member-Id", treasurer.toString())
                 }
                 createBookableEntry(treasurer)
@@ -894,7 +946,9 @@ class AccountingExportServiceTest :
                     companyName = "Testverein e.V.",
                     now = now,
                 )
-                client.post("/test/accexp/acknowledge-zero-vat?sha256=${ZeroVatExportDisclaimer.SHA256}") {
+                client.post(
+                    "/test/accexp/acknowledge-zero-vat?sha256=${ZeroVatExportDisclaimer.sha256For(AccountingExportProvider.LEXOFFICE)}",
+                ) {
                     header("X-Member-Id", treasurer.toString())
                 }
                 val entryId = createBookableEntry(treasurer)
@@ -958,7 +1012,9 @@ class AccountingExportServiceTest :
                     companyName = "Testverein e.V.",
                     now = now,
                 )
-                client.post("/test/accexp/acknowledge-zero-vat?sha256=${ZeroVatExportDisclaimer.SHA256}") {
+                client.post(
+                    "/test/accexp/acknowledge-zero-vat?sha256=${ZeroVatExportDisclaimer.sha256For(AccountingExportProvider.LEXOFFICE)}",
+                ) {
                     header("X-Member-Id", treasurer.toString())
                 }
 
@@ -1081,6 +1137,71 @@ class AccountingExportServiceTest :
                     HttpStatusCode.Forbidden
             }
         }
+
+        // ── Welle V1.4.5.4 "sevDesk-Live-Anbindung" -- ZeroVatExportDisclaimer parameterization ──
+
+        test("getZeroVatDisclaimer(provider): both providers return version and a non-blank sha256") {
+            testApplication {
+                application {
+                    install(StatusPages) { installAccountingExportTestExceptionHandlers() }
+                    routing { registerAccountingExportTestRoutes(secretBox = SecretBox(TEST_KEY)) }
+                }
+                val treasurer = createMember(AccountRole.TREASURER)
+                val lexBody =
+                    client
+                        .get("/test/accexp/zero-vat-disclaimer?provider=LEXOFFICE") {
+                            header("X-Member-Id", treasurer.toString())
+                        }.bodyAsText()
+                val sevBody =
+                    client
+                        .get("/test/accexp/zero-vat-disclaimer?provider=SEVDESK") {
+                            header("X-Member-Id", treasurer.toString())
+                        }.bodyAsText()
+                lexBody shouldBe
+                    "version=${ZeroVatExportDisclaimer.VERSION};sha256=${ZeroVatExportDisclaimer.sha256For(
+                        AccountingExportProvider.LEXOFFICE,
+                    )}"
+                sevBody shouldBe
+                    "version=${ZeroVatExportDisclaimer.VERSION};sha256=${ZeroVatExportDisclaimer.sha256For(
+                        AccountingExportProvider.SEVDESK,
+                    )}"
+            }
+        }
+
+        test("sha256For(LEXOFFICE) != sha256For(SEVDESK) -- the disclaimer text names the provider, so the hash must differ") {
+            ZeroVatExportDisclaimer.sha256For(AccountingExportProvider.LEXOFFICE) shouldNotBe
+                ZeroVatExportDisclaimer.sha256For(AccountingExportProvider.SEVDESK)
+        }
+
+        test(
+            "acknowledging the zero-VAT disclaimer for LEXOFFICE does NOT acknowledge it for SEVDESK -- each " +
+                "provider's connection carries its OWN quittance, structurally independent",
+        ) {
+            testApplication {
+                application {
+                    install(StatusPages) { installAccountingExportTestExceptionHandlers() }
+                    routing { registerAccountingExportTestRoutes(secretBox = SecretBox(TEST_KEY)) }
+                }
+                val treasurer = createMember(AccountRole.TREASURER)
+                client
+                    .post(
+                        "/test/accexp/acknowledge-zero-vat?provider=LEXOFFICE" +
+                            "&sha256=${ZeroVatExportDisclaimer.sha256For(AccountingExportProvider.LEXOFFICE)}",
+                    ) { header("X-Member-Id", treasurer.toString()) }
+                    .status shouldBe HttpStatusCode.OK
+
+                val lexConnected =
+                    client
+                        .get("/test/accexp/connection?provider=LEXOFFICE") { header("X-Member-Id", treasurer.toString()) }
+                        .bodyAsText()
+                val sevConnected =
+                    client
+                        .get("/test/accexp/connection?provider=SEVDESK") { header("X-Member-Id", treasurer.toString()) }
+                        .bodyAsText()
+                lexConnected shouldBe "connected=false;zeroVatAcknowledged=true" // no token, only the disclaimer was acked
+                sevConnected shouldBe "connected=false;zeroVatAcknowledged=false"
+            }
+        }
     })
 
 private fun Route.registerAccountingExportTestRoutes(secretBox: SecretBox?) {
@@ -1099,19 +1220,31 @@ private fun Route.registerAccountingExportTestRoutes(secretBox: SecretBox?) {
             previewRateLimiter = previewLimiter,
         )
 
+    // Welle V1.4.5.4 "sevDesk-Live-Anbindung": an optional `provider` query param, default
+    // LEXOFFICE for every pre-existing call site above (backward compatible) -- lets a test target
+    // SEVDESK instead without a second route.
+    fun providerParam(callCtx: ApplicationCall): AccountingExportProvider =
+        callCtx.request.queryParameters["provider"]?.let { AccountingExportProvider.valueOf(it) } ?: AccountingExportProvider.LEXOFFICE
+
     get("/test/accexp/connection") {
-        val dto = service(call).getConnection(AccountingExportProvider.LEXOFFICE)
-        call.respondText("connected=${dto.connected}")
+        val dto = service(call).getConnection(providerParam(call))
+        call.respondText("connected=${dto.connected};zeroVatAcknowledged=${dto.zeroVatAcknowledged}")
     }
     post("/test/accexp/set-token") {
         val token = call.request.queryParameters["token"]!!
-        val dto = service(call).setToken(provider = AccountingExportProvider.LEXOFFICE, token = token)
+        val dto = service(call).setToken(provider = providerParam(call), token = token)
         call.respondText("tokenLast4=${dto.tokenLast4}")
     }
     post("/test/accexp/acknowledge-zero-vat") {
         val sha256 = call.request.queryParameters["sha256"]!!
-        val dto = service(call).acknowledgeZeroVat(provider = AccountingExportProvider.LEXOFFICE, disclaimerSha256 = sha256)
+        val dto = service(call).acknowledgeZeroVat(provider = providerParam(call), disclaimerSha256 = sha256)
         call.respondText("zeroVatAcknowledged=${dto.zeroVatAcknowledged}")
+    }
+    // Welle V1.4.5.4 "sevDesk-Live-Anbindung": new route -- getZeroVatDisclaimer(provider) has no
+    // prior test coverage at all (the old parameterless form never needed one).
+    get("/test/accexp/zero-vat-disclaimer") {
+        val dto = service(call).getZeroVatDisclaimer(providerParam(call))
+        call.respondText("version=${dto.version};sha256=${dto.sha256}")
     }
     // Security review Runde 3, Befund 3 (Fund 2026-09-07): mapAccount previously had no RPC-level
     // test coverage at all -- AccountingExportStore.mapAccount was only ever called directly (see

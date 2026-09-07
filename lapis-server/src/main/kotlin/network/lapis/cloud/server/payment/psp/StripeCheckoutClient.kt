@@ -19,7 +19,8 @@ import java.security.SecureRandom
 
 private val logger = KotlinLogging.logger {}
 
-/** Hard cap on how many bytes of a Stripe response body are ever read into memory -- see [readCappedStripeBody]. */
+/** Hard cap on how many bytes of a Stripe response body are ever read into memory -- see
+ * [readCappedStripeBody] KDoc "Scope of the guarantee" for what this cap does and does NOT bound. */
 private const val MAX_STRIPE_RESPONSE_BYTES = 64 * 1024
 
 /**
@@ -237,7 +238,21 @@ internal fun defaultStripeHttpClient(): HttpClient =
         followRedirects = false
     }
 
-/** Bounded read, same [network.lapis.cloud.server.economy.oracle.readCappedBodyOrNull] idiom -- `null` if [MAX_STRIPE_RESPONSE_BYTES] is exceeded, the body discarded rather than partially parsed. */
+/**
+ * Bounded read, same [network.lapis.cloud.server.economy.oracle.readCappedBodyOrNull] idiom --
+ * `null` if [MAX_STRIPE_RESPONSE_BYTES] is exceeded, the body discarded rather than partially
+ * parsed.
+ *
+ * **Scope of the guarantee** (same correction [network.lapis.cloud.server.economy.oracle
+ * .readCappedBodyOrNull] KDoc documents -- Security-Audit-Runde 1 / S3 -- applies verbatim here):
+ * the one call site uses the non-streaming `httpClient.post(...)` request form, under which Ktor
+ * 3.5.1's internal `SaveBody` plugin has already buffered the ENTIRE response body into memory
+ * before this function ever runs. This cap therefore bounds the copy/parse step that follows, but
+ * does **NOT** bound how much a single `pspConfig.apiBaseUrl` response can make the JVM buffer
+ * before that. Genuinely closing that gap requires the streaming
+ * `preparePost(...).execute { response -> ... }` idiom -- not done here, same deferred trade-off
+ * the oracle client's own KDoc makes.
+ */
 private suspend fun HttpResponse.readCappedStripeBody(): ByteArray? {
     val channel = bodyAsChannel()
     val buffer = ByteArray(MAX_STRIPE_RESPONSE_BYTES + 1)

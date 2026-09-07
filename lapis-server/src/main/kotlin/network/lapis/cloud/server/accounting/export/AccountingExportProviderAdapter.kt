@@ -7,15 +7,19 @@ import kotlin.time.Duration
 
 /**
  * Welle V1.4.5.3 "lexoffice-Live-Anbindung" -- the provider-neutral seam
- * `network.lapis.cloud.server.accounting.export.lexoffice.LexofficeAdapter` implements today and
- * a future `sevdesk.SevDeskAdapter` (V1.4.5.4) plugs into without touching
+ * `network.lapis.cloud.server.accounting.export.lexoffice.LexofficeAdapter` implements. Welle
+ * V1.4.5.4 "sevDesk-Live-Anbindung" adds a second implementation,
+ * `network.lapis.cloud.server.accounting.export.sevdesk.SevDeskAdapter`, WITHOUT touching
  * `AccountingExportPoller`/`AccountingExportService`/`AccountingExportPlanner` at all -- every one
  * of those three talks ONLY to this interface, never to a concrete provider's own wire types.
  *
- * Deliberately narrow: three operations, matching exactly the three lexoffice endpoints this wave
- * actually calls (`GET /v1/profile`, `GET /v1/posting-categories`, `POST /v1/vouchers`) -- no
- * generic "call any endpoint" escape hatch, so a future provider is forced to express itself in the
- * SAME three-operation shape rather than reintroducing provider-specific plumbing elsewhere.
+ * Deliberately narrow: three operations, matching exactly the three lexoffice endpoints that wave
+ * calls (`GET /v1/profile`, `GET /v1/posting-categories`, `POST /v1/vouchers`) -- the sevDesk
+ * adapter expresses itself in the SAME three-operation shape (`GET
+ * /Tools/bookkeepingSystemVersion`, `GET /ReceiptGuidance/for{Revenue,Expense}`, `POST
+ * /Voucher/Factory/saveVoucher`) rather than reintroducing provider-specific plumbing elsewhere.
+ * No generic "call any endpoint" escape hatch exists, and a THIRD provider is expected to fit the
+ * same shape too.
  */
 internal interface AccountingExportProviderAdapter {
     val provider: AccountingExportProvider

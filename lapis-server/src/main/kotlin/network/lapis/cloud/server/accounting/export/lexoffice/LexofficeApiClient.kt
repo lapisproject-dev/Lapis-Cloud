@@ -32,7 +32,8 @@ private val logger = KotlinLogging.logger {}
 /** Hard cap on how many bytes of a lexoffice response body are ever read into memory -- same
  * "bounded read, discard rather than partially parse" idiom
  * [network.lapis.cloud.server.payment.psp.StripeCheckoutClient]'s own `readCappedStripeBody`
- * establishes. */
+ * establishes. See [readCappedLexofficeBody] KDoc "Scope of the guarantee" for what this cap does
+ * and does NOT bound. */
 private const val MAX_LEXOFFICE_RESPONSE_BYTES = 64 * 1024
 
 /** Live since December 2025 (see the adoc "Verified API facts") -- deliberately a hardcoded
@@ -334,9 +335,27 @@ internal fun defaultLexofficeHttpClient(): HttpClient =
         followRedirects = false
     }
 
-/** Bounded read, same [network.lapis.cloud.server.payment.psp.StripeCheckoutClient
+/**
+ * Bounded read, same [network.lapis.cloud.server.payment.psp.StripeCheckoutClient
  * .readCappedStripeBody] idiom -- `null` if [MAX_LEXOFFICE_RESPONSE_BYTES] is exceeded, the body
- * discarded rather than partially parsed. */
+ * discarded rather than partially parsed.
+ *
+ * **Scope of the guarantee** (same correction [network.lapis.cloud.server.economy.oracle
+ * .readCappedBodyOrNull] KDoc documents for the oracle client -- Security-Audit-Runde 1 / S3 --
+ * applies verbatim here): every current call site (`getProfile`, `listPostingCategories`,
+ * `createVoucher`) uses the non-streaming `httpClient.get(...)`/`post(...)` request form, under
+ * which Ktor 3.5.1's internal `SaveBody` plugin has already buffered the ENTIRE response body into
+ * memory before this function -- or any of this class's code -- ever runs. This function's own
+ * read loop therefore bounds the cost of the copy/parse step that follows, but it does **NOT**
+ * bound how much a single `api.lexware.io` response can make the JVM buffer before that -- a
+ * malicious or compromised peer (or a CA-level MITM) streaming at line rate for the full
+ * `requestTimeoutMillis` (15s) could still make `SaveBody` buffer hundreds of MB to roughly 1GB.
+ * Genuinely closing that gap requires switching every call site to Ktor's streaming
+ * `preparePost(...)`/`prepareGet(...).execute { response -> ... }` idiom (reading/capping directly
+ * off [HttpResponse.bodyAsChannel] before the body is materialized) -- not done here, same
+ * "call-site-shape-changing restructuring, deferred" trade-off the oracle client's own KDoc makes;
+ * revisit together with that one if it is ever tackled.
+ */
 private suspend fun HttpResponse.readCappedLexofficeBody(): ByteArray? {
     val channel = bodyAsChannel()
     val buffer = ByteArray(MAX_LEXOFFICE_RESPONSE_BYTES + 1)

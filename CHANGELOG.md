@@ -8,6 +8,46 @@ All notable changes to this project are documented here. Format follows
 
 ### Added
 
+**Buchhaltungs-Export an sevDesk (Welle V1.4.5.4)**
+
+- **Zweiter Anbieter** hinter derselben, anbieterneutralen `AccountingExportProviderAdapter`-
+  Schnittstelle aus V1.4.5.3 — `SevDeskAdapter`/`SevDeskApiClient`/`SevDeskVoucherMapper`/
+  `SevDeskRateLimiter`, ohne jede Änderung an `AccountingExportPoller`/`AccountingExportService`/
+  `AccountingExportPlanner`. `AccountingExportProvider` ist ab jetzt `LEXOFFICE`/`SEVDESK`. Alle
+  Felder gegen die rohe `https://api.sevdesk.de/openapi.yaml` (672 KB, abgerufen 2026-09-07)
+  live-verifiziert, nicht aus der Design-Vorlage übernommen — inklusive vierer dokumentierter
+  Spec-Inkonsistenzen (`voucherPos`/`voucherPosSave`, doppelt-required `taxType`+`taxRule` bzw.
+  `accountDatev`+`accountingType`, sowie das unwrapped `saveVoucherResponse`-Response-Envelope),
+  siehe `docs/architecture/accounting-export-sevdesk.adoc`.
+- **Kein Schema-Umbau nötig** über die vier `provider`-CHECK-Constraints hinaus
+  (`V27__accounting_export_sevdesk_provider.sql`) — `active_key`/`exported_key` waren bereits seit
+  V1.4.5.3 anbieterpräfixiert, ein und dieselbe Journalbuchung kann schon heute unabhängig an beide
+  Anbieter exportiert werden.
+- **sevDesk-spezifische Wire-Format-Unterschiede** zu lexoffice: `Authorization`-Header trägt den
+  rohen Token ohne `Bearer`-Präfix; Beträge reisen als JSON-Zahl statt String (`JsonUnquotedLiteral`,
+  bewusst kein `.toDouble()`); Datum als `dd.MM.yyyy` statt ISO-8601; `creditDebit` (`D` = Einnahme,
+  `C` = Ausgabe — die naive Lesart ist falsch) statt zweier Belegtypen; neu angelegte Belege stehen
+  als Entwurf (`status = 50`), nicht `open`, weil sevDesk Entwürfe im Ziel-System noch änderbar
+  macht; ein vorgeschalteter Buchhaltungsversion-Check (`GET /Tools/bookkeepingSystemVersion`)
+  blockt Version-1.0-Konten vor der Kategorie-Zuordnung, nicht erst beim Senden.
+- **Zusammengesetzter Kategorie-Schlüssel** (`"<accountDatevId>:<taxRuleId>"`) für die
+  Konto-Zuordnung, weil sevDesk pro Beleg eine Steuerregel verlangt und diese kontoabhängig ist —
+  nur Regeln mit 0 %-Fähigkeit (`taxRates` enthält `"ZERO"`) erscheinen überhaupt zur Auswahl.
+- **Rate-Limit ist eine eigene Vorsichtsmaßnahme, kein Anbieter-Wert**: die sevDesk-Spezifikation
+  dokumentiert kein Rate-Limit; `SevDeskRateLimiter` übernimmt den 600-ms-Wert konservativ von
+  lexoffice, als KDoc-Kommentar ausdrücklich so markiert.
+- **`ZeroVatExportDisclaimer` ist jetzt anbieterparametrisiert** (`textFor`/`sha256For`/`matches`
+  nehmen `AccountingExportProvider`) — der Hinweistext nennt den tatsächlichen Zielanbieter statt
+  pauschal "z. B. Lexware Office". Keine Sicherheitslücke wurde geschlossen (die Quittung war schon
+  strukturell pro Anbieter), reine Ehrlichkeits-/UX-Verbesserung.
+- **Echter DTO-Fund**: `VoucherPreviewLineDto.voucherType` (der lexoffice-eigene String
+  `"salesinvoice"`/`"purchaseinvoice"`) wurde entfernt — für sevDesk-Zeilen wäre er bedeutungslos
+  gewesen, und die Client-Vorschau prüfte genau dagegen (jede Spendeneinnahme wäre als "Ausgabe"
+  angezeigt worden). `direction` (bereits vorhanden) trägt dieselbe Information anbieterneutral.
+- **Sicherheit**: identische Doktrin wie lexoffice — kein `Logging`-Ktor-Plugin (würde den
+  `Authorization`-Header loggen), 64-KiB-Antwort-Cap, Token nie in Logs (auch nicht teilweise
+  verifiziert per Logback-`ListAppender`-Test), `"401"`/`"UNAUTHORIZED"`-Konvention exakt gespiegelt.
+
 **Buchhaltungs-Export an Lexware Office (lexoffice) (Welle V1.4.5.3)**
 
 - **Live, authentifizierter Push** gebuchter (POSTED) Journalbuchungen direkt in ein verbundenes
@@ -413,6 +453,19 @@ All notable changes to this project are documented here. Format follows
   bleibt für eine Folgewelle. Von den vier CSV-Dialekt-Enum-Literalen `VR_BANK`/`DKB`/`POSTBANK`/
   `COMDIRECT` ist bisher keiner mit einer Header-Signatur hinterlegt (keine echte Exportdatei
   verfügbar) — nur `SPARKASSE_CAMT` und ein breiter `GENERIC`-Auffangdialekt sind aktiv.
+
+### Changed
+
+**Welle V1.4.5.4 "sevDesk-Live-Anbindung" — nutzersichtbare Änderungen am Buchhaltungs-Export**
+
+- Der fünfte Umschalter auf dem Finanzberichte-Bildschirm heißt jetzt "Buchhaltungs-Export" statt
+  "Lexware Office" — er öffnet eine Ansicht mit einer Anbieter-Auswahl (lexoffice/sevDesk) statt nur
+  lexoffice. Bleibt EIN Knopf, kein sechster.
+- `VoucherPreviewLineDto.voucherType` wurde entfernt (siehe "Added" oben) — ein Client, der dieses
+  Feld noch liest, muss auf `direction` umgestellt werden.
+- Der 0 %-USt-Hinweis muss von jeder bestehenden lexoffice-Verbindung EINMALIG erneut quittiert
+  werden — der Hinweistext nennt jetzt den Anbieter namentlich, die `VERSION` wurde deshalb
+  gebumpt (`"2026-09-08.v2"`).
 
 ### Fixed
 

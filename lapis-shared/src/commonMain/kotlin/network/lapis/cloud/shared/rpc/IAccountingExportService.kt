@@ -56,9 +56,12 @@ interface IAccountingExportService {
      * connection row and its zero-VAT quittance -- see `AccountingExportStore.removeToken` KDoc. */
     suspend fun removeToken(provider: AccountingExportProvider): AccountingExportConnectionDto
 
-    /** The current version/text/hash of the zero-VAT export disclaimer -- shown once before the
-     * first `startExport` for a newly connected provider. */
-    suspend fun getZeroVatDisclaimer(): AccountingExportZeroVatDisclaimerDto
+    /** The current version/text/hash of the zero-VAT export disclaimer for [provider] -- shown once
+     * before the first `startExport` for a newly connected provider. Welle V1.4.5.4
+     * "sevDesk-Live-Anbindung": [provider]-parameterized since the disclaimer text now names the
+     * target provider by [network.lapis.cloud.shared.domain.displayName] -- see
+     * `network.lapis.cloud.server.rpc.ZeroVatExportDisclaimer` KDoc. */
+    suspend fun getZeroVatDisclaimer(provider: AccountingExportProvider): AccountingExportZeroVatDisclaimerDto
 
     /** Records that a TREASURER/ADMIN was shown [disclaimerSha256] and accepted it -- throws
      * [ConflictException] if it does not match the CURRENT disclaimer's hash (the shown text has

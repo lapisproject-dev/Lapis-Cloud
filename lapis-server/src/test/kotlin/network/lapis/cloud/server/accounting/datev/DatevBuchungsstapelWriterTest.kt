@@ -101,6 +101,47 @@ class DatevBuchungsstapelWriterTest :
             text.contains("03022026") shouldBe false
         }
 
+        test("all rendered date/timestamp fields use ASCII digits (Locale.ROOT), regardless of the JVM default locale") {
+            // Regression guard: without an explicit Locale.ROOT, a JVM default locale with
+            // non-ASCII decimal digits (e.g. Arabic) would make the header timestamp, the header
+            // from/to dates, and the data line's Belegdatum render non-ASCII digits -- corrupting
+            // a DATEV import file the Steuerberater tooling expects to be plain ASCII. Only the
+            // date/timestamp FIELDS are asserted ASCII-only here -- the fixed German column-header
+            // row legitimately carries CP1252-native umlauts/en-dashes (see the "en-dash" and
+            // "umlaut" tests below) and must NOT be swept in by a blanket whole-text check.
+            val previousDefault = java.util.Locale.getDefault()
+            try {
+                java.util.Locale.setDefault(java.util.Locale.forLanguageTag("ar-EG"))
+                val e =
+                    entry(
+                        date = LocalDate(2026, 2, 3),
+                        postings =
+                            listOf(posting(PostingSide.DEBIT, "10.00", "1200"), posting(PostingSide.CREDIT, "10.00", "4940")),
+                    )
+                val req = request(from = LocalDate(2026, 2, 1), to = LocalDate(2026, 2, 28), entries = listOf(e))
+                val plan = DatevBuchungsstapelWriter.plan(req)
+                val bytes = DatevBuchungsstapelWriter.render(request = req, plan = plan)
+                val lines = String(bytes, DatevCharacterSet.CP1252).split("\r\n")
+                val headerFields = lines[0].split(";")
+                val dataLine = lines[2] // lines[0] = EXTF header, lines[1] = column-header row, lines[2] = first data row
+
+                val timestampField = headerFields[5] // JJJJMMTTHHMMSSmmm
+                val wjJahrField = headerFields[12] // "${from.year}0101"
+                val fromDateField = headerFields[14] // headerDate(from), JJJJMMTT
+                val toDateField = headerFields[15] // headerDate(to), JJJJMMTT
+
+                timestampField shouldBe "20260203102500000"
+                fromDateField shouldBe "20260201"
+                toDateField shouldBe "20260228"
+                dataLine.contains(";0302;") shouldBe true // formatBelegdatum(entryDate), TTMM
+
+                listOf(timestampField, wjJahrField, fromDateField, toDateField)
+                    .all { field -> field.all { it.code < 128 } } shouldBe true
+            } finally {
+                java.util.Locale.setDefault(previousDefault)
+            }
+        }
+
         test("amount format: comma decimal separator, no thousands separator, always positive, exactly 2 fractional digits") {
             val e =
                 entry(

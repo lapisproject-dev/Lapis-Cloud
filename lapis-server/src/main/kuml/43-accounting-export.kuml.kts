@@ -24,9 +24,10 @@
 //     `"<PROVIDER>:<journalEntryId>"`. Enforces "at most one SUCCEEDED export per (provider,
 //     journal_entry)".
 //   - `AccountingExportRun.activeKey` -- NULL unless `status` is non-terminal (PLANNED/RUNNING),
-//     then the provider name itself. Enforces "at most one non-terminal run per provider" (there is
-//     only ever one provider active at a time in this wave, but the key is provider-scoped so a
-//     future second provider running concurrently is not accidentally blocked by this one).
+//     then the provider name itself. Enforces "at most one non-terminal run per provider" -- since
+//     Welle V1.4.5.4 "sevDesk-Live-Anbindung" TWO providers can genuinely run concurrently, and
+//     that is exactly the case this key being provider-scoped (rather than a single global flag)
+//     was already designed to allow without change.
 // Both columns are written EXCLUSIVELY by `AccountingExportStore` -- same discipline V18's own
 // header states for `active_participant_key`. See `docs/architecture/accounting-export-lexoffice.adoc`
 // "Portability note: no partial unique index" for the full writeup.
@@ -82,9 +83,14 @@ classDiagram(name = "AccountingExport") {
     }
 
     // Literal order load-bearing (AccountingExportSchemaDriftTest pins it against
-    // network.lapis.cloud.shared.domain.AccountingExportProvider). Longest literal LEXOFFICE (9) ->
-    // VARCHAR(9). Only one literal this wave -- sevDesk (V1.4.5.4) adds the second.
-    val accountingExportProvider = enumOf(name = "AccountingExportProvider") { literal(name = "LEXOFFICE") }
+    // network.lapis.cloud.shared.domain.AccountingExportProvider). Laengstes Literal LEXOFFICE (9
+    // Zeichen) -> VARCHAR(9); SEVDESK (7, Welle V1.4.5.4 "sevDesk-Live-Anbindung") passt hinein,
+    // deshalb bleibt die Spaltenbreite in V27__accounting_export_sevdesk_provider.sql unveraendert.
+    val accountingExportProvider =
+        enumOf(name = "AccountingExportProvider") {
+            literal(name = "LEXOFFICE")
+            literal(name = "SEVDESK")
+        }
 
     // Literal order load-bearing, same reason. Longest literal COMPLETED_WITH_ERRORS (22) ->
     // VARCHAR(22).

@@ -80,8 +80,12 @@ fun renderFinancialReportsScreen(container: SimplePanel) {
     // Welle V1.4.5.3 "lexoffice-Live-Anbindung" -- fifth toggle, same row, same reasoning as
     // datevButton above (Routes.FINANCIAL_REPORTS is already ACCOUNTING_READ_ROLES-gated; the
     // narrower TREASURER/ADMIN-only tier is enforced inside renderAccountingExportView itself, see
-    // AccountingExportAuthzUi KDoc).
-    val lexofficeButton = toggleRow.button(tr("Lexware Office"), style = ButtonStyle.OUTLINEPRIMARY)
+    // AccountingExportAuthzUi KDoc). Welle V1.4.5.4 "sevDesk-Live-Anbindung": UMBENANNT von
+    // "Lexware Office" auf "Buchhaltungs-Export" -- der Knopf oeffnet jetzt eine
+    // anbieterparametrisierte Ansicht mit lexoffice UND sevDesk (Wahl innerhalb der Ansicht selbst,
+    // siehe AccountingExportScreen), bleibt aber der EINE fuenfte Knopf: kein sechster Knopf, keine
+    // Uebergangsphase mit "fuenf plus einem".
+    val accountingExportButton = toggleRow.button(tr("Buchhaltungs-Export"), style = ButtonStyle.OUTLINEPRIMARY)
     val contentPanel = root.vPanel(spacing = 10)
 
     guvButton.onClick {
@@ -100,7 +104,7 @@ fun renderFinancialReportsScreen(container: SimplePanel) {
         contentPanel.removeAll()
         renderDatevExportView(contentPanel)
     }
-    lexofficeButton.onClick {
+    accountingExportButton.onClick {
         contentPanel.removeAll()
         renderAccountingExportView(contentPanel)
     }

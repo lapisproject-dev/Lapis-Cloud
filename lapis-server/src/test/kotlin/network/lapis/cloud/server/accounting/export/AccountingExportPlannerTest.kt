@@ -317,6 +317,24 @@ class AccountingExportPlannerTest :
             first shouldBe "LAPIS-20260131-${id.toHexString().take(8)}"
         }
 
+        test("voucherNumber always uses ASCII digits (Locale.ROOT), regardless of the JVM default locale") {
+            // Regression guard: this string becomes both accounting_export_item.voucher_number
+            // AND (via SevDeskVoucherMapper) the sevDesk voucher's `description` field -- a JVM
+            // default locale with non-ASCII decimal digits (e.g. Arabic) would silently corrupt
+            // the reference a treasurer is told to search for after an UNKNOWN item.
+            val previousDefault = java.util.Locale.getDefault()
+            try {
+                java.util.Locale.setDefault(java.util.Locale.forLanguageTag("ar-EG"))
+                val date = LocalDate(2026, 1, 31)
+                val id = Uuid.random()
+                val voucherNumber = AccountingExportPlanner.voucherNumber(entryDate = date, journalEntryId = id)
+                voucherNumber shouldBe "LAPIS-20260131-${id.toHexString().take(8)}"
+                voucherNumber.all { it.code < 128 } shouldBe true
+            } finally {
+                java.util.Locale.setDefault(previousDefault)
+            }
+        }
+
         test("an empty period produces EMPTY_PERIOD") {
             val plan =
                 AccountingExportPlanner.plan(

@@ -33,6 +33,9 @@ import network.lapis.cloud.server.accounting.export.AccountingExportStartupCheck
 import network.lapis.cloud.server.accounting.export.lexoffice.LexofficeAdapter
 import network.lapis.cloud.server.accounting.export.lexoffice.LexofficeApiClient
 import network.lapis.cloud.server.accounting.export.lexoffice.LexofficeRateLimiter
+import network.lapis.cloud.server.accounting.export.sevdesk.SevDeskAdapter
+import network.lapis.cloud.server.accounting.export.sevdesk.SevDeskApiClient
+import network.lapis.cloud.server.accounting.export.sevdesk.SevDeskRateLimiter
 import network.lapis.cloud.server.branding.BrandConfig
 import network.lapis.cloud.server.branding.BrandingHtml
 import network.lapis.cloud.server.branding.BrandingStartupCheck
@@ -627,8 +630,16 @@ fun Application.module() {
     val accountingExportSecretBox: SecretBox? = accountingExportConfig.secretEncryptionKey?.let { SecretBox(it) }
     val lexofficeRateLimiter = LexofficeRateLimiter()
     val lexofficeApiClient = LexofficeApiClient(rateLimiter = lexofficeRateLimiter)
+    // Welle V1.4.5.4 "sevDesk-Live-Anbindung" -- je ein modulweit geteilter Rate-Limiter PRO
+    // Anbieter -- die Limits sind kontobezogen und unabhaengig voneinander, ein gemeinsamer
+    // Limiter wuerde beide unnoetig gegeneinander bremsen.
+    val sevDeskRateLimiter = SevDeskRateLimiter()
+    val sevDeskApiClient = SevDeskApiClient(rateLimiter = sevDeskRateLimiter)
     val accountingExportAdapters: Map<AccountingExportProvider, AccountingExportProviderAdapter> =
-        mapOf(AccountingExportProvider.LEXOFFICE to LexofficeAdapter(lexofficeApiClient))
+        mapOf(
+            AccountingExportProvider.LEXOFFICE to LexofficeAdapter(lexofficeApiClient),
+            AccountingExportProvider.SEVDESK to SevDeskAdapter(sevDeskApiClient),
+        )
     val accountingExportPoller =
         AccountingExportPoller(
             config = accountingExportConfig,

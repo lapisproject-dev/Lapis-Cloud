@@ -40,9 +40,14 @@ private fun LocalDateTime.plusDuration(duration: kotlin.time.Duration): LocalDat
 
 /** A controllable [AccountingExportProviderAdapter] -- no HTTP anywhere, [callCount] proves whether
  * [pushVoucher] was actually invoked ([AccountingExportPoller]'s own already-exported recheck must
- * skip the call entirely, not merely ignore its outcome). */
-private class FakeAdapter : AccountingExportProviderAdapter {
-    override val provider: AccountingExportProvider = AccountingExportProvider.LEXOFFICE
+ * skip the call entirely, not merely ignore its outcome). Welle V1.4.5.4 "sevDesk-Live-Anbindung":
+ * [provider] is now a constructor parameter (default [AccountingExportProvider.LEXOFFICE], every
+ * existing call site unaffected) so a test can register TWO independent fakes under
+ * `adaptersByProvider` and prove each provider's items reach only its own adapter -- see
+ * "two providers, two adapters" test below. */
+private class FakeAdapter(
+    override val provider: AccountingExportProvider = AccountingExportProvider.LEXOFFICE,
+) : AccountingExportProviderAdapter {
     var callCount = 0
     val outcomes = ArrayDeque<VoucherPushOutcome>()
 
@@ -149,12 +154,13 @@ class AccountingExportPollerTest :
         fun newRunWithOneItem(
             actor: Uuid,
             alreadyExported: Boolean = false,
+            provider: AccountingExportProvider = AccountingExportProvider.LEXOFFICE,
         ): Pair<Uuid, Uuid> {
             val entryId = newJournalEntry(actor)
             val now = dbClockNow()
             val runId =
                 AccountingExportStore.createRun(
-                    provider = AccountingExportProvider.LEXOFFICE,
+                    provider = provider,
                     from = LocalDate(2026, 1, 1),
                     to = LocalDate(2026, 1, 31),
                     startedBy = actor,
@@ -189,6 +195,37 @@ class AccountingExportPollerTest :
                     adaptersByProvider = mapOf(AccountingExportProvider.LEXOFFICE to adapter),
                 )
             return adapter to poller
+        }
+
+        /** Welle V1.4.5.4 "sevDesk-Live-Anbindung": TWO independent fake adapters, one per provider,
+         * both registered on the SAME poller -- see "two providers, two adapters" test below. */
+        fun connectTwoAdapters(): Triple<FakeAdapter, FakeAdapter, AccountingExportPoller> {
+            val box = SecretBox(randomKey())
+            AccountingExportStore.upsertToken(
+                provider = AccountingExportProvider.LEXOFFICE,
+                token = "test-token-lexoffice-1234567890",
+                secretBox = box,
+                now = dbClockNow(),
+            )
+            AccountingExportStore.upsertToken(
+                provider = AccountingExportProvider.SEVDESK,
+                token = "test-token-sevdesk-1234567890ab",
+                secretBox = box,
+                now = dbClockNow(),
+            )
+            val lexAdapter = FakeAdapter(provider = AccountingExportProvider.LEXOFFICE)
+            val sevAdapter = FakeAdapter(provider = AccountingExportProvider.SEVDESK)
+            val poller =
+                AccountingExportPoller(
+                    config = AccountingExportConfig(enabled = true, pollIntervalSeconds = 2, secretEncryptionKey = null),
+                    secretBox = box,
+                    adaptersByProvider =
+                        mapOf(
+                            AccountingExportProvider.LEXOFFICE to lexAdapter,
+                            AccountingExportProvider.SEVDESK to sevAdapter,
+                        ),
+                )
+            return Triple(lexAdapter, sevAdapter, poller)
         }
 
         fun itemStatus(itemId: Uuid): AccountingExportItemStatus =
@@ -548,6 +585,32 @@ class AccountingExportPollerTest :
                     row[AccountingExportItemTable.externalVoucherId]
                 }
             stored?.length shouldBe 64
+        }
+
+        // ── Welle V1.4.5.4 "sevDesk-Live-Anbindung" ─────────────────────────────────────────
+
+        test(
+            "two providers, two adapters: a SEVDESK item reaches ONLY the SEVDESK adapter, a LEXOFFICE item " +
+                "reaches ONLY the LEXOFFICE adapter -- adaptersByProvider dispatches by item.provider, never by insertion order",
+        ) {
+            val actor = newMember()
+            val (_, lexItemId) = newRunWithOneItem(actor, provider = AccountingExportProvider.LEXOFFICE)
+            val (_, sevItemId) = newRunWithOneItem(actor, provider = AccountingExportProvider.SEVDESK)
+            val (lexAdapter, sevAdapter, poller) = connectTwoAdapters()
+            lexAdapter.outcomes += VoucherPushOutcome.Succeeded(externalVoucherId = "lex-ext-1")
+            sevAdapter.outcomes += VoucherPushOutcome.Succeeded(externalVoucherId = "sev-ext-1")
+
+            poller.tick()
+
+            itemStatus(lexItemId) shouldBe AccountingExportItemStatus.SUCCEEDED
+            itemStatus(sevItemId) shouldBe AccountingExportItemStatus.SUCCEEDED
+            lexAdapter.callCount shouldBe 1
+            sevAdapter.callCount shouldBe 1
+
+            val lexRow = transaction { AccountingExportItemTable.selectAll().where { AccountingExportItemTable.id eq lexItemId }.single() }
+            val sevRow = transaction { AccountingExportItemTable.selectAll().where { AccountingExportItemTable.id eq sevItemId }.single() }
+            lexRow[AccountingExportItemTable.exportedKey]?.startsWith("LEXOFFICE:") shouldBe true
+            sevRow[AccountingExportItemTable.exportedKey]?.startsWith("SEVDESK:") shouldBe true
         }
     })
 

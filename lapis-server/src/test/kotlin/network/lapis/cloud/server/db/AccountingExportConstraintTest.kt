@@ -90,11 +90,12 @@ class AccountingExportConstraintTest :
             journalEntryId: Uuid,
             status: String,
             exportedKey: String?,
+            provider: String = "LEXOFFICE",
         ): String {
             val keySql = exportedKey?.let { "'$it'" } ?: "NULL"
             return "INSERT INTO accounting_export_item (id, run_id, provider, journal_entry_id, entry_date, " +
                 "external_category_id, voucher_number, direction, gross_amount, status, exported_key, attempts) " +
-                "VALUES ('$id', '$runId', 'LEXOFFICE', '$journalEntryId', DATE '2026-01-15', 'cat-1', " +
+                "VALUES ('$id', '$runId', '$provider', '$journalEntryId', DATE '2026-01-15', 'cat-1', " +
                 "'LAPIS-20260115-${id.toString().take(8)}', 'INCOME', 1.00, '$status', $keySql, 0)"
         }
 
@@ -103,11 +104,12 @@ class AccountingExportConstraintTest :
             status: String,
             activeKey: String?,
             startedBy: Uuid,
+            provider: String = "LEXOFFICE",
         ): String {
             val keySql = activeKey?.let { "'$it'" } ?: "NULL"
             return "INSERT INTO accounting_export_run (id, provider, period_from, period_to, status, active_key, " +
                 "started_by, started_at, total_count, succeeded_count, failed_count, skipped_count, unknown_count) " +
-                "VALUES ('$id', 'LEXOFFICE', DATE '2026-01-01', DATE '2026-01-31', '$status', $keySql, '$startedBy', " +
+                "VALUES ('$id', '$provider', DATE '2026-01-01', DATE '2026-01-31', '$status', $keySql, '$startedBy', " +
                 "TIMESTAMP '2026-01-01 00:00:00', 0, 0, 0, 0, 0)"
         }
 
@@ -199,5 +201,59 @@ class AccountingExportConstraintTest :
             val exception = probeInsert(runSql(runId, "COMPLETED", "LEXOFFICE-3", actor))
             (exception is ExposedSQLException) shouldBe true
             (exception?.message ?: "").contains("chk_accounting_export_run_active_key", ignoreCase = true) shouldBe true
+        }
+
+        // ── Welle V1.4.5.4 "sevDesk-Live-Anbindung" -- V27__accounting_export_sevdesk_provider.sql ──
+
+        test("V27: the SAME journal entry can be exported to BOTH LEXOFFICE and SEVDESK at once -- exported_key is provider-prefixed") {
+            val actor = newMember()
+            val lexRunId = Uuid.random()
+            val sevRunId = Uuid.random()
+            createdRunIds += listOf(lexRunId, sevRunId)
+            probeInsert(runSql(lexRunId, "COMPLETED", null, actor, provider = "LEXOFFICE")) shouldBe null
+            probeInsert(runSql(sevRunId, "COMPLETED", null, actor, provider = "SEVDESK")) shouldBe null
+            val entryId = newJournalEntry(actor)
+            val lexInsert =
+                probeInsert(itemSql(Uuid.random(), lexRunId, entryId, "SUCCEEDED", "LEXOFFICE:$entryId", provider = "LEXOFFICE"))
+            val sevInsert =
+                probeInsert(itemSql(Uuid.random(), sevRunId, entryId, "SUCCEEDED", "SEVDESK:$entryId", provider = "SEVDESK"))
+            lexInsert shouldBe null
+            sevInsert shouldBe null
+        }
+
+        test("V27: two non-terminal runs for DIFFERENT providers (LEXOFFICE, SEVDESK) coexist -- active_key is provider-scoped") {
+            val actor = newMember()
+            val lexRunId = Uuid.random()
+            val sevRunId = Uuid.random()
+            createdRunIds += listOf(lexRunId, sevRunId)
+            // Deliberately NOT the bare literals "LEXOFFICE"/"SEVDESK" -- "LEXOFFICE" is reserved for
+            // the dedicated uq_accounting_export_run_active collision test above, which leaves its own
+            // RUNNING row (active_key='LEXOFFICE') un-terminated for the rest of this spec (cleanup is
+            // afterSpec-only, not afterEach -- see file header). A bare-literal reuse here would
+            // collide with THAT leftover row, not prove anything about cross-provider coexistence.
+            val lexInsert = probeInsert(runSql(lexRunId, "RUNNING", "LEXOFFICE-5", actor, provider = "LEXOFFICE"))
+            val sevInsert = probeInsert(runSql(sevRunId, "RUNNING", "SEVDESK-1", actor, provider = "SEVDESK"))
+            lexInsert shouldBe null
+            sevInsert shouldBe null
+        }
+
+        test("V27: chk_accounting_export_run_provider rejects an unknown provider literal") {
+            val actor = newMember()
+            val runId = Uuid.random()
+            createdRunIds += runId
+            val exception = probeInsert(runSql(runId, "COMPLETED", null, actor, provider = "FOOBAR"))
+            (exception is ExposedSQLException) shouldBe true
+            (exception?.message ?: "").contains("chk_accounting_export_run_provider", ignoreCase = true) shouldBe true
+        }
+
+        test("V27: chk_accounting_export_item_provider rejects an unknown provider literal") {
+            val actor = newMember()
+            val runId = Uuid.random()
+            createdRunIds += runId
+            probeInsert(runSql(runId, "RUNNING", "LEXOFFICE-4", actor, provider = "LEXOFFICE")) shouldBe null
+            val entryId = newJournalEntry(actor)
+            val exception = probeInsert(itemSql(Uuid.random(), runId, entryId, "PENDING", null, provider = "FOOBAR"))
+            (exception is ExposedSQLException) shouldBe true
+            (exception?.message ?: "").contains("chk_accounting_export_item_provider", ignoreCase = true) shouldBe true
         }
     })

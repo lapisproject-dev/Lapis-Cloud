@@ -266,6 +266,7 @@ internal object AccountingExportPlanner {
         journalEntryId: Uuid,
     ): String =
         "LAPIS-%04d%02d%02d-%s".format(
+            java.util.Locale.ROOT,
             entryDate.year,
             entryDate.monthNumber,
             entryDate.dayOfMonth,

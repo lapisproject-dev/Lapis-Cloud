@@ -26,6 +26,7 @@ import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
 import network.lapis.cloud.shared.domain.AccountingExportBlockerKind
 import network.lapis.cloud.shared.domain.AccountingExportConnectionDto
+import network.lapis.cloud.shared.domain.AccountingExportDirection
 import network.lapis.cloud.shared.domain.AccountingExportItemDto
 import network.lapis.cloud.shared.domain.AccountingExportItemStatus
 import network.lapis.cloud.shared.domain.AccountingExportPreviewDto
@@ -33,6 +34,7 @@ import network.lapis.cloud.shared.domain.AccountingExportProvider
 import network.lapis.cloud.shared.domain.AccountingExportRunDto
 import network.lapis.cloud.shared.domain.AccountingExportRunStatus
 import network.lapis.cloud.shared.domain.AccountingExportUnknownItemResolution
+import network.lapis.cloud.shared.domain.displayName
 import network.lapis.cloud.shared.rpc.IAccountingExportService
 import kotlin.time.Clock
 import kotlin.time.Duration.Companion.seconds
@@ -48,32 +50,83 @@ import kotlin.time.Duration.Companion.seconds
  * split across `LedgerScreen.kt`'s Kontenzuordnung section -- one self-contained view is easier to
  * reason about and keeps this wave's client-side footprint to one new file, at the cost of the
  * connection settings not sitting next to the (unrelated) DATEV Berater-/Mandantennummer fields.
- * Revisit if a later wave (e.g. the sevDesk adapter, V1.4.5.4) makes a shared connection-settings
- * area worthwhile.
+ *
+ * **Welle V1.4.5.4 "sevDesk-Live-Anbindung"**: this view is now PARAMETRISIERT over
+ * [AccountingExportProvider] instead of hardcoding [AccountingExportProvider.LEXOFFICE] --
+ * UI-Design-Team-Entscheidung (Kare/Forstall/Duarte/Jobs): a labelled provider-picker row at the
+ * TOP (two buttons, active provider [io.kvision.html.ButtonStyle.PRIMARY], inactive
+ * [io.kvision.html.ButtonStyle.OUTLINEPRIMARY] -- the same toggle-row idiom
+ * `FinancialReportsScreen` already establishes for its five top-level buttons), a permanent
+ * `h2` heading naming the CURRENT provider ([AccountingExportProvider.displayName]) so the target
+ * is always visible, not just at the moment of selection (Kare), and switching providers is
+ * MODELESS -- it just re-runs [reloadConnection], the SAME code path a saved token already
+ * triggers, no confirmation dialog, no "ungespeicherte Änderungen"-Prompt (Raskin/Tesler). Because
+ * [renderExportSection] already loads the latest run via `getLatestRun` on its own (Duarte: a
+ * reload survives the run), the provider switch shows the new provider's connection AND last run
+ * immediately, with no extra "Prüfen" click required.
  */
 fun renderAccountingExportView(panel: SimplePanel) {
     val role = AppState.session?.role
-    panel.h2(tr("Lexware Office"))
     if (!AccountingExportAuthzUi.canManage(role)) {
+        panel.h2(tr("Buchhaltungs-Export"))
         panel.p(tr("Diese Ansicht ist Schatzmeister/Admin vorbehalten.")) { addCssClasses("text-muted") }
         return
     }
 
-    val provider = AccountingExportProvider.LEXOFFICE
+    var provider = AccountingExportProvider.LEXOFFICE
+    val providerRow = panel.hPanel(spacing = 8) { addCssClass("mb-2") }
+    val heading = panel.h2(provider.displayName)
     val connectionPanel = panel.vPanel(spacing = 6)
     panel.div { addCssClass("mt-3") }
     val exportPanel = panel.vPanel(spacing = 10)
 
+    // Generation counter guards against a stale in-flight `getConnection` response rendering
+    // over a NEWER provider's panels after a fast provider switch -- see review finding
+    // "Race beim Anbieterwechsel" (Welle V1.4.5.4 Review Round N). Every `reloadConnection`
+    // call claims the next generation before suspending; a response that returns after a later
+    // call has already claimed a newer generation is discarded instead of rendered.
+    var loadGeneration = 0
+
     fun reloadConnection() {
+        val requestedProvider = provider
+        val generation = ++loadGeneration
+        heading.content = requestedProvider.displayName
         connectionPanel.removeAll()
         exportPanel.removeAll()
         AppScope.launch {
-            val connection = guarded { rpcService<IAccountingExportService>().getConnection(provider) } ?: return@launch
-            renderConnectionSection(connectionPanel, provider, connection) { reloadConnection() }
-            renderExportSection(exportPanel, provider, connection)
+            val connection =
+                guarded { rpcService<IAccountingExportService>().getConnection(requestedProvider) } ?: return@launch
+            if (generation != loadGeneration) return@launch
+            renderConnectionSection(connectionPanel, requestedProvider, connection) { reloadConnection() }
+            renderExportSection(exportPanel, requestedProvider, connection)
         }
     }
+
+    fun switchProvider(target: AccountingExportProvider) {
+        if (provider == target) return
+        provider = target
+        renderProviderButtons(providerRow, provider) { switchProvider(it) }
+        reloadConnection()
+    }
+    renderProviderButtons(providerRow, provider) { switchProvider(it) }
     reloadConnection()
+}
+
+/** The two-button provider picker row -- see [renderAccountingExportView] KDoc "Welle V1.4.5.4".
+ * Rebuilt on every switch (cheap: two buttons) rather than merely re-styled, matching the
+ * "removeAll then rebuild" idiom every other panel on this screen already uses. */
+private fun renderProviderButtons(
+    row: SimplePanel,
+    active: AccountingExportProvider,
+    onSelect: (AccountingExportProvider) -> Unit,
+) {
+    row.removeAll()
+    AccountingExportProvider.entries.forEach { candidate ->
+        val style = if (candidate == active) ButtonStyle.PRIMARY else ButtonStyle.OUTLINEPRIMARY
+        val button = row.button(candidate.displayName, style = style)
+        button.disabled = candidate == active
+        button.onClick { onSelect(candidate) }
+    }
 }
 
 // ============================================================================================
@@ -91,7 +144,8 @@ private fun renderConnectionSection(
         panel.div(
             gettext(
                 "Verbunden mit: %1",
-                connection.connectedCompanyName ?: tr("(Name unbekannt -- lexoffice hat keinen Firmennamen geliefert)"),
+                connection.connectedCompanyName
+                    ?: gettext("(Name unbekannt -- %1 hat keinen Firmennamen geliefert)", provider.displayName),
             ),
         ) { addCssClasses("text-success") }
     } else if (connection.tokenLast4 != null) {
@@ -101,12 +155,35 @@ private fun renderConnectionSection(
     }
     connection.tokenLast4?.let { last4 -> panel.div(gettext("Token: ••••%1", last4)) { addCssClasses("text-muted small") } }
 
-    panel.p(
-        tr(
-            "Ihr persönliches API-Zugangstoken erzeugen Sie in Ihrem eigenen Lexware-Office-Konto unter " +
-                "Einstellungen → Erweiterungen → Public API (app.lexware.de/addons/public-api).",
-        ),
-    ) { addCssClasses("text-muted small") }
+    // Welle V1.4.5.4 "sevDesk-Live-Anbindung": Token-Hilfetext pro Anbieter, gleiche
+    // "text-muted small"-Tonalität wie zuvor -- kein Sonderfall in der Darstellung, nur im Inhalt.
+    when (provider) {
+        AccountingExportProvider.LEXOFFICE ->
+            panel.p(
+                tr(
+                    "Ihr persönliches API-Zugangstoken erzeugen Sie in Ihrem eigenen Lexware-Office-Konto unter " +
+                        "Einstellungen → Erweiterungen → Public API (app.lexware.de/addons/public-api).",
+                ),
+            ) { addCssClasses("text-muted small") }
+        AccountingExportProvider.SEVDESK -> {
+            panel.p(
+                tr(
+                    "Ihr persönliches API-Zugangstoken erzeugen Sie in Ihrem eigenen sevDesk-Konto unter " +
+                        "Einstellungen → Benutzer → API-Token.",
+                ),
+            ) { addCssClasses("text-muted small") }
+            // Verified fact about the PROVIDER's own product (openapi.yaml security scheme
+            // description, retrieved 2026-09-07: "every sevdesk administrator has one API
+            // token") -- deliberately the SAME quiet tone as the sentence above, no warning
+            // color, no icon. The Schatzmeister needs to know this before pasting the token in.
+            panel.p(
+                tr(
+                    "Ihr sevDesk-API-Token hat vollen Zugriff auf Ihr sevDesk-Konto -- sevDesk kennt keine " +
+                        "eingeschränkten Token.",
+                ),
+            ) { addCssClasses("text-muted small") }
+        }
+    }
 
     // Security review Runde 3, Befund 2 (Fund 2026-09-07): this codebase's own convention for
     // exactly this secret-input shape is `password(...)`, not `text(...)` -- see
@@ -201,7 +278,7 @@ private fun renderZeroVatSection(
     ackButton.disabled = true
 
     AppScope.launch {
-        val disclaimer = guarded { rpcService<IAccountingExportService>().getZeroVatDisclaimer() } ?: return@launch
+        val disclaimer = guarded { rpcService<IAccountingExportService>().getZeroVatDisclaimer(provider) } ?: return@launch
         textBox.content = disclaimer.text
         disclaimerSha256 = disclaimer.sha256
     }
@@ -271,7 +348,7 @@ private fun renderExportSection(
     // "Prüfen" first.
     AppScope.launch {
         val latest = guarded { rpcService<IAccountingExportService>().getLatestRun(provider) }?.firstOrNull()
-        if (latest != null) renderRunSection(runPanel, latest)
+        if (latest != null) renderRunSection(runPanel, provider, latest)
     }
 }
 
@@ -349,7 +426,7 @@ private fun renderPreviewBody(
             table.row {
                 cell(line.entryDate.toString())
                 cell(line.voucherNumber)
-                cell(if (line.voucherType == "salesinvoice") tr("Einnahme") else tr("Ausgabe"))
+                cell(if (line.direction == AccountingExportDirection.INCOME) tr("Einnahme") else tr("Ausgabe"))
                 cell(line.categoryName ?: tr("(keine Zuordnung)"))
                 cell(formatMoney(line.grossAmount))
                 cell(if (line.alreadyExported) tr("bereits übertragen") else tr("wird gesendet"))
@@ -379,7 +456,7 @@ private fun renderStartButton(
                 val run = guarded { rpcService<IAccountingExportService>().startExport(provider, from, to) }
                 if (run != null) {
                     runPanel.removeAll()
-                    renderRunSection(runPanel, run)
+                    renderRunSection(runPanel, provider, run)
                 }
             } finally {
                 startButton.disabled = false
@@ -408,10 +485,11 @@ private fun renderUnknownItemsSection(
             if (items.isEmpty()) return@launch
             panel.h3(tr("Ungeklärte Belege (alle Läufe)"))
             panel.p(
-                tr(
-                    "Diese Belege haben einen ungeklärten lexoffice-Sendestatus aus einem früheren Lauf. Bitte in " +
-                        "Lexware Office prüfen und hier auflösen -- die betroffenen Zeiträume bleiben sonst dauerhaft " +
+                gettext(
+                    "Diese Belege haben einen ungeklärten %1-Sendestatus aus einem früheren Lauf. Bitte in " +
+                        "%1 prüfen und hier auflösen -- die betroffenen Zeiträume bleiben sonst dauerhaft " +
                         "nicht erneut übertragbar.",
+                    provider.displayName,
                 ),
             ) { addCssClasses("text-muted small") }
             val table =
@@ -425,9 +503,9 @@ private fun renderUnknownItemsSection(
                     cell(item.voucherNumber)
                     cell(formatMoney(item.grossAmount))
                     cell(
-                        gettext("Status unklar -- bitte in Lexware Office unter Belegnummer %1 prüfen.", item.voucherNumber),
+                        gettext("Status unklar -- bitte in %1 unter Belegnummer %2 prüfen.", provider.displayName, item.voucherNumber),
                     ) { addCssClasses("text-muted small") }
-                    cell { renderResolveUnknownActions(item) { reload() } }
+                    cell { renderResolveUnknownActions(provider, item) { reload() } }
                 }
             }
         }
@@ -437,6 +515,7 @@ private fun renderUnknownItemsSection(
 
 private fun renderRunSection(
     panel: SimplePanel,
+    provider: AccountingExportProvider,
     initialRun: AccountingExportRunDto,
 ) {
     panel.removeAll()
@@ -477,7 +556,7 @@ private fun renderRunSection(
     fun refreshRun() {
         AppScope.launch {
             val updated = guarded { rpcService<IAccountingExportService>().getRun(initialRun.id) }
-            if (updated != null) renderRunSection(panel, updated)
+            if (updated != null) renderRunSection(panel, provider, updated)
         }
     }
 
@@ -499,13 +578,17 @@ private fun renderRunSection(
                     cell(
                         when (item.status) {
                             AccountingExportItemStatus.UNKNOWN ->
-                                gettext("Status unklar -- bitte in Lexware Office unter Belegnummer %1 prüfen.", item.voucherNumber)
+                                gettext(
+                                    "Status unklar -- bitte in %1 unter Belegnummer %2 prüfen.",
+                                    provider.displayName,
+                                    item.voucherNumber,
+                                )
                             else -> item.errorMessage ?: ""
                         },
                     ) { addCssClasses("text-muted small") }
                     cell {
                         if (item.status == AccountingExportItemStatus.UNKNOWN) {
-                            renderResolveUnknownActions(item) { refreshRun() }
+                            renderResolveUnknownActions(provider, item) { refreshRun() }
                         }
                     }
                 }
@@ -517,20 +600,20 @@ private fun renderRunSection(
         retryButton.disabled = true
         AppScope.launch {
             val updated = guarded { rpcService<IAccountingExportService>().retryFailed(initialRun.id) }
-            if (updated != null) pollRun(panel, updated)
+            if (updated != null) pollRun(panel, provider, updated)
         }
     }
     abortButton.onClick {
         abortButton.disabled = true
         AppScope.launch {
             val updated = guarded { rpcService<IAccountingExportService>().abortRun(initialRun.id) }
-            if (updated != null) renderRunSection(panel, updated)
+            if (updated != null) renderRunSection(panel, provider, updated)
         }
     }
 
     loadItems(initialRun.id)
     if (initialRun.status == AccountingExportRunStatus.PLANNED || initialRun.status == AccountingExportRunStatus.RUNNING) {
-        pollRun(panel, initialRun)
+        pollRun(panel, provider, initialRun)
     }
 }
 
@@ -539,6 +622,7 @@ private fun renderRunSection(
  * RUNNING, only a terminal status stops the loop. */
 private fun pollRun(
     panel: SimplePanel,
+    provider: AccountingExportProvider,
     run: AccountingExportRunDto,
 ) {
     AppScope.launch {
@@ -547,7 +631,7 @@ private fun pollRun(
             delay(3.seconds)
             current = guarded { rpcService<IAccountingExportService>().getRun(current.id) } ?: return@launch
         }
-        renderRunSection(panel, current)
+        renderRunSection(panel, provider, current)
     }
 }
 
@@ -590,17 +674,19 @@ private fun todayIso(): String =
  * `IAccountingExportService.resolveUnknownItem` -- the only UI path to resolve an
  * [AccountingExportItemStatus.UNKNOWN] item (and thereby lift
  * [AccountingExportBlockerKind.UNRESOLVED_UNKNOWN_ITEMS] for its journal entry). A single small
- * optional text field for the lexoffice voucher id, plus two buttons -- both disable each other
- * while a request is in flight, same idiom every other action button on this screen already uses.
- * [onResolved] re-renders the WHOLE run section (see [refreshRun]), not just this row -- resolving
- * can change the run's own summary counts. */
+ * optional text field for the provider's own voucher id, plus two buttons -- both disable each
+ * other while a request is in flight, same idiom every other action button on this screen already
+ * uses. [onResolved] re-renders the WHOLE run section (see [refreshRun]), not just this row --
+ * resolving can change the run's own summary counts. */
 private fun SimplePanel.renderResolveUnknownActions(
+    provider: AccountingExportProvider,
     item: AccountingExportItemDto,
     onResolved: () -> Unit,
 ) {
-    val voucherIdInput = text(label = tr("Lexoffice-Belegnummer (optional)")) { addCssClasses("form-control-sm") }
+    val voucherIdInput =
+        text(label = gettext("%1-Belegnummer (optional)", provider.displayName)) { addCssClasses("form-control-sm") }
     val actions = hPanel(spacing = 4) { addCssClass("mt-1") }
-    val foundButton = actions.button(tr("In Lexoffice gefunden"), style = ButtonStyle.OUTLINESUCCESS)
+    val foundButton = actions.button(gettext("In %1 gefunden", provider.displayName), style = ButtonStyle.OUTLINESUCCESS)
     val notFoundButton = actions.button(tr("Nicht gefunden"), style = ButtonStyle.OUTLINEDANGER)
 
     fun resolve(resolution: AccountingExportUnknownItemResolution) {

@@ -494,6 +494,7 @@ internal object DatevBuchungsstapelWriter {
         val generatedAt = request.generatedAt
         val timestamp =
             "%04d%02d%02d%02d%02d%02d%03d".format(
+                java.util.Locale.ROOT,
                 generatedAt.year,
                 generatedAt.monthNumber,
                 generatedAt.dayOfMonth,
@@ -557,10 +558,11 @@ internal object DatevBuchungsstapelWriter {
 
     /** JJJJMMTT (voll, mit Jahr) -- NUR fuer Kopfzeilen-Datumsfelder, NICHT das Belegdatum (TTMM,
      * siehe [formatBelegdatum]). Die Aufgabenstellung nennt beide fälschlich "TTMMJJJJ". */
-    private fun headerDate(date: LocalDate): String = "%04d%02d%02d".format(date.year, date.monthNumber, date.dayOfMonth)
+    private fun headerDate(date: LocalDate): String =
+        "%04d%02d%02d".format(java.util.Locale.ROOT, date.year, date.monthNumber, date.dayOfMonth)
 
     /** TTMM -- vierstellig, OHNE Jahr. Das eigentliche Belegdatum-Format der Datenzeile. */
-    private fun formatBelegdatum(date: LocalDate): String = "%02d%02d".format(date.dayOfMonth, date.monthNumber)
+    private fun formatBelegdatum(date: LocalDate): String = "%02d%02d".format(java.util.Locale.ROOT, date.dayOfMonth, date.monthNumber)
 
     /** Immer positiv, Komma statt Punkt, kein Tausendertrenner. `DECIMAL(15,2)` ist die maximale
      * Praezision dieses Betrags in der DB -- `RoundingMode.UNNECESSARY` wirft, statt still zu

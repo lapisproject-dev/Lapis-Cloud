@@ -33,6 +33,7 @@ import network.lapis.cloud.shared.domain.AuditEntityType
 import network.lapis.cloud.shared.domain.ExternalCategoryDto
 import network.lapis.cloud.shared.domain.UnmappedAccountDto
 import network.lapis.cloud.shared.domain.VoucherPreviewLineDto
+import network.lapis.cloud.shared.domain.displayName
 import network.lapis.cloud.shared.rpc.BadRequestException
 import network.lapis.cloud.shared.rpc.ConflictException
 import network.lapis.cloud.shared.rpc.IAccountingExportService
@@ -136,13 +137,13 @@ class AccountingExportService internal constructor(
         return row.toDto()
     }
 
-    override suspend fun getZeroVatDisclaimer(): AccountingExportZeroVatDisclaimerDto {
+    override suspend fun getZeroVatDisclaimer(provider: AccountingExportProvider): AccountingExportZeroVatDisclaimerDto {
         val current = resolveCurrentMember(call)
         current.requireRole(*ACCOUNTING_EXPORT_ROLES)
         return AccountingExportZeroVatDisclaimerDto(
             version = ZeroVatExportDisclaimer.VERSION,
-            text = ZeroVatExportDisclaimer.TEXT,
-            sha256 = ZeroVatExportDisclaimer.SHA256,
+            text = ZeroVatExportDisclaimer.textFor(provider),
+            sha256 = ZeroVatExportDisclaimer.sha256For(provider),
         )
     }
 
@@ -152,7 +153,7 @@ class AccountingExportService internal constructor(
     ): AccountingExportConnectionDto {
         val current = resolveCurrentMember(call)
         current.requireRole(*ACCOUNTING_EXPORT_ROLES)
-        if (!ZeroVatExportDisclaimer.matches(version = ZeroVatExportDisclaimer.VERSION, sha256 = disclaimerSha256)) {
+        if (!ZeroVatExportDisclaimer.matches(provider = provider, version = ZeroVatExportDisclaimer.VERSION, sha256 = disclaimerSha256)) {
             throw ConflictException("Der quittierte Hinweistext entspricht nicht dem aktuellen -- bitte Seite neu laden.")
         }
         val now = DbClock.nowLocalDateTime()
@@ -161,7 +162,7 @@ class AccountingExportService internal constructor(
                 provider = provider,
                 memberId = current.memberId,
                 disclaimerVersion = ZeroVatExportDisclaimer.VERSION,
-                disclaimerSha256 = ZeroVatExportDisclaimer.SHA256,
+                disclaimerSha256 = ZeroVatExportDisclaimer.sha256For(provider),
                 now = now,
             )
         transaction {
@@ -508,7 +509,19 @@ class AccountingExportService internal constructor(
         // paymentGatewayDisclaimerIsCurrentlyAcknowledged). Without this, revising
         // ZeroVatExportDisclaimer.VERSION/TEXT after a security/tax review would silently NOT
         // require re-quittance from any already-connected organization.
-        if (connection.zeroVatAcknowledgedAt == null || connection.zeroVatDisclaimerVersion != ZeroVatExportDisclaimer.VERSION) {
+        //
+        // Security-Audit-Fund 2026-09-07 (Runde 6, MINOR): the version check ALONE is not enough
+        // since Welle V1.4.5.4 parametrized textFor()/sha256For() over the target provider's
+        // displayName -- a displayName edit in `lapis-shared` (rebrand, typo fix) changes what
+        // sha256For(provider) computes WITHOUT touching VERSION, so a stored hash from before the
+        // edit would silently stop matching the text the code would show today while this
+        // version-only gate kept the connection acknowledged. Comparing the stored hash against
+        // ZeroVatExportDisclaimer.sha256For(provider) closes that gap -- exactly what the stored
+        // `zero_vat_disclaimer_sha256` column exists to prove.
+        if (connection.zeroVatAcknowledgedAt == null ||
+            connection.zeroVatDisclaimerVersion != ZeroVatExportDisclaimer.VERSION ||
+            connection.zeroVatDisclaimerSha256 != ZeroVatExportDisclaimer.sha256For(provider)
+        ) {
             connectionBlockers +=
                 AccountingExportBlockerDto(
                     kind = AccountingExportBlockerKind.ZERO_VAT_NOT_ACKNOWLEDGED,
@@ -559,9 +572,10 @@ class AccountingExportService internal constructor(
                     AccountingExportBlockerDto(
                         kind = AccountingExportBlockerKind.UNRESOLVED_UNKNOWN_ITEMS,
                         detail =
-                            "${unresolvedUnknown.size} Journalbuchung(en) haben einen ungeklärten lexoffice-Sendestatus " +
-                                "aus einem vorherigen Lauf. Bitte im Lauf-Detail unter \"Status unklar\" manuell prüfen " +
-                                "und auflösen, bevor dieser Zeitraum erneut übertragen werden kann.",
+                            "${unresolvedUnknown.size} Journalbuchung(en) haben einen ungeklärten " +
+                                "${provider.displayName}-Sendestatus aus einem vorherigen Lauf. Bitte im Lauf-Detail " +
+                                "unter \"Status unklar\" manuell prüfen und auflösen, bevor dieser Zeitraum erneut " +
+                                "übertragen werden kann.",
                     )
             }
 
@@ -572,14 +586,6 @@ class AccountingExportService internal constructor(
                     journalEntryId = v.journalEntryId.toString(),
                     entryDate = v.entryDate,
                     voucherNumber = v.voucherNumber,
-                    voucherType =
-                        if (v.direction ==
-                            network.lapis.cloud.shared.domain.AccountingExportDirection.INCOME
-                        ) {
-                            "salesinvoice"
-                        } else {
-                            "purchaseinvoice"
-                        },
                     direction = v.direction,
                     categoryName = v.externalCategoryName,
                     grossAmount = v.grossAmount,
@@ -650,7 +656,13 @@ private fun AccountingExportStore.ConnectionRow.toDto(): AccountingExportConnect
         // Fund 2026-09-07: version-checked, same gate buildPreview's own blocker now applies -- a
         // stale-version acknowledgment must read as "not (currently) acknowledged" here too, not
         // just at the export-blocker level.
-        zeroVatAcknowledged = zeroVatAcknowledgedAt != null && zeroVatDisclaimerVersion == ZeroVatExportDisclaimer.VERSION,
+        //
+        // Security-Audit-Fund 2026-09-07 (Runde 6, MINOR): also hash-checked now, same reasoning
+        // as buildPreview's own gate above -- see that call site's comment.
+        zeroVatAcknowledged =
+            zeroVatAcknowledgedAt != null &&
+                zeroVatDisclaimerVersion == ZeroVatExportDisclaimer.VERSION &&
+                zeroVatDisclaimerSha256 == ZeroVatExportDisclaimer.sha256For(provider),
         zeroVatAcknowledgedAt = zeroVatAcknowledgedAt,
     )
 

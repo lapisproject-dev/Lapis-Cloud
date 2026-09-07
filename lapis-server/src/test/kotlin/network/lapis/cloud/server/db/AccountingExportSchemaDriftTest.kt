@@ -120,7 +120,7 @@ class AccountingExportSchemaDriftTest :
             connectionEntity.attributeByName("provider")?.type shouldBe
                 ErmDataType.Enum(
                     name = "AccountingExportProvider",
-                    values = listOf("LEXOFFICE"),
+                    values = listOf("LEXOFFICE", "SEVDESK"),
                     externalFqName = "network.lapis.cloud.shared.domain.AccountingExportProvider",
                 )
             runEntity.attributeByName("status")?.type shouldBe
