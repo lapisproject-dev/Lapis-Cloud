@@ -44,10 +44,14 @@ import kotlinx.serialization.Serializable
  * (imported from the CRM export as a bulk contact list), that is a booking entity tied to actual
  * ledger postings. The two are never linked and must not be confused.
  *
- * [DECEASED] = verstorben: a terminal status, login-blocked, imported as-is from the source CRM's
- * own "verstorben" literal. There is no transition path INTO this status from this codebase's own
- * admission/exit workflow (`IRegistrationService`) -- it exists purely to admit already-deceased
- * historical CRM rows without silently dropping them or misrepresenting them as [WITHDRAWN].
+ * [DECEASED] = verstorben: a terminal, login-blocked status. Originally imported as-is from the
+ * source CRM's own "verstorben" literal (V1.2.11); **since V1.2.12 it is also reachable
+ * administratively** through `MemberStatusTransitions.ADMINISTRATIVELY_MANAGED` /
+ * `IMemberService.updateMemberStatus` (BOARD/ADMIN, reason required), and since V1.4.4.5 that
+ * transition additionally records [MemberDto.dateOfDeath]. Legally the flip is **declaratory, not
+ * constitutive**: § 38 BGB ends the membership automatically with the death -- this status
+ * documents that, it does not cause it. `IRegistrationService` still has no path into it. Leaving
+ * it is a data correction and ADMIN-exclusive (`MemberStatusTransitions.requiresAdmin`).
  */
 @Serializable
 enum class MemberStatus { APPLICATION, ACTIVE, GUEST, WITHDRAWN, REJECTED, FRIEND, DONOR, DECEASED }
@@ -219,6 +223,12 @@ object MemberStatusSets {
  * exactly like any other applicant, regaining it only if/when the board approves (-> [MemberStatus
  * .ACTIVE]) or rejects back to [MemberStatus.FRIEND] via the `friendSince` fallback above. `null`
  * for every member who never went through friend self-registration.
+ *
+ * [dateOfDeath] (V1.4.4.5) documents § 38 BGB's automatic end of membership on death --
+ * declaratory, not constitutive. DB-side only settable together with [MemberStatus.DECEASED]
+ * (`chk_member_date_of_death_requires_status`). `null` means "not recorded", NOT "alive" -- the
+ * field is optional (see `IMemberService.updateMemberStatus` KDoc). Deliberately NOT nulled by
+ * `FoundationPersonalData.eraseMember` -- DSGVO ErwG 27 exempts the deceased from the Regulation.
  */
 @Serializable
 data class MemberDto(
@@ -238,6 +248,7 @@ data class MemberDto(
     val reviewedAt: LocalDateTime? = null,
     val rejectionReason: String? = null,
     val friendSince: LocalDate? = null,
+    val dateOfDeath: LocalDate? = null,
 )
 
 /**

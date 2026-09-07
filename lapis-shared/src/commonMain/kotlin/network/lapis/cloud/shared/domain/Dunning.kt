@@ -75,6 +75,15 @@ data class DunningCaseDto(
     val nextLevelNumber: Int?,
     val nextLevelDueOn: LocalDate?,
     val totalFeesCharged: Decimal,
+    /**
+     * Welle V1.4.4.5 -- der Mitgliedsstatus zum Zeitpunkt des Lesens, ausschliesslich damit die
+     * Mahn-Arbeitsliste kenntlich macht, WEN der Schatzmeister da anschreibt (ein Mahnbescheid an
+     * eine verstorbene Person wird in den Haushalt der Angehoerigen zugestellt). **Keine
+     * Verhaltensaenderung**: `listDunningCases` filtert nicht darauf, `DunningIssuance` prueft es
+     * nicht, keine Forderung wird storniert oder veraendert -- eine offene Forderung eines
+     * Verstorbenen ist eine zivilrechtliche Nachlassangelegenheit und bleibt bestehen.
+     */
+    val memberStatus: MemberStatus,
 )
 
 @Serializable

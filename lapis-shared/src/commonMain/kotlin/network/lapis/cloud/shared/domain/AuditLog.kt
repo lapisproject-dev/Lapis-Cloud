@@ -474,6 +474,15 @@ data class MemberChangeSnapshot(
     val status: MemberStatus,
     val role: AccountRole?,
     val reason: String? = null,
+    /**
+     * Welle V1.4.4.5 -- bewusst ein BOOLEAN, kein Rohdatum: dieselbe PII-Disziplin, die
+     * [displayNameChanged]/[emailChanged] fuer diese hash-verkettete, unloeschbare Tabelle bereits
+     * etablieren. Der aktuelle Wert lebt auf der `member`-Zeile, die lesbar bleibt.
+     * `true` schreiben nur `MemberService.updateMemberStatus` (wenn der Statuswechsel das Datum
+     * mitgesetzt oder -- beim Verlassen von DECEASED -- geloescht hat) und
+     * `MemberService.correctDateOfDeath`.
+     */
+    val dateOfDeathChanged: Boolean = false,
 )
 
 /**

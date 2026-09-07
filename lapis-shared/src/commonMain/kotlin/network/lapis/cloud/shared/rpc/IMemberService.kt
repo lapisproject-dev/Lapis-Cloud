@@ -184,10 +184,61 @@ interface IMemberService {
      * if `memberId` does not resolve; [ConflictException] if the transition is not in
      * `MemberStatusTransitions.allowedTargets(from)`, `reason` is blank/too long, or the target
      * member has been DSGVO-anonymized.
+     *
+     * **Welle V1.4.4.5 "Sterbefall-Workflow"**: [dateOfDeath] is only accepted when `newStatus ==
+     * `[MemberStatus.DECEASED] -- a non-`null` value for any other target status is
+     * [ConflictException]. It is itself OPTIONAL even when the target is DECEASED (`null` = "date
+     * not yet known"; a forced date in practice produces a WRONG date, not a missing one).
+     * Plausibility is checked server-side via
+     * `network.lapis.cloud.shared.domain.DeathDateRules.violation` (future date, or a date before
+     * [MemberDto.dateOfBirth] -> [ConflictException]). Deliberately **no** comparison against
+     * [MemberDto.joinedAt] -- the 407 CSV-imported rows carry unreliable join dates, and a hard
+     * gate there would let a real death go undocumented over an unrelated data-quality problem.
+     * When the transition LEAVES DECEASED, `member.date_of_death` is cleared in the SAME update
+     * (the DB `CHECK` constraint requires it, see `chk_member_date_of_death_requires_status`).
+     * Legally the flip is declaratory only -- § 38 BGB ends the membership automatically with the
+     * death; this call documents that fact, it does not cause it. There is deliberately **no**
+     * notification to relatives or other members -- out of scope, not an oversight.
+     * **The no-op/idempotence clause above is unchanged and applies literally, even when a
+     * DIFFERENT `dateOfDeath` is passed on a `newStatus == from` call** -- for correcting an
+     * already-recorded date, use [correctDateOfDeath] instead.
      */
     suspend fun updateMemberStatus(
         memberId: String,
         newStatus: MemberStatus,
+        reason: String,
+        dateOfDeath: LocalDate? = null,
+    ): MemberAdminRowDto
+
+    /**
+     * Welle V1.4.4.5 -- corrects an already-recorded date of death (or fills it in, when it was not
+     * yet known at the time of the status change). **ADMIN-exclusive**, the same asymmetry
+     * `network.lapis.cloud.shared.domain.MemberStatusTransitions.requiresAdmin` already establishes
+     * for leaving DECEASED: a lifecycle event is BOARD/ADMIN, a data correction is ADMIN.
+     *
+     * Exists as its OWN method because [updateMemberStatus] is a promised, tested no-op for
+     * `newStatus == from` (see that method's own KDoc) -- routing a date correction through the
+     * same call would break that promise. The editor UI presents both as the same input field at
+     * the same place regardless.
+     *
+     * Only valid when the member's CURRENT status is [MemberStatus.DECEASED] ([ConflictException]
+     * otherwise). `dateOfDeath == null` is allowed and retracts a mistakenly recorded date.
+     * [reason] is required (3-1000 characters, trimmed), same bounds as [updateMemberStatus].
+     * Self-targeting is always [ForbiddenException]. Writes exactly one audit entry
+     * (`AuditAction.UPDATE`, `AuditEntityType.MEMBER`,
+     * `network.lapis.cloud.shared.domain.MemberChangeSnapshot.dateOfDeathChanged = true`) -- a call
+     * that does not change the value is a no-op and writes none. No session revocation, no SEPA/
+     * committee side effect -- the status itself does not change.
+     *
+     * Throws [ForbiddenException] if the caller is not ADMIN or targets themselves,
+     * [NotFoundException] if `memberId` does not resolve, [ConflictException] if the member is not
+     * currently DECEASED, `reason` is blank/too long, the date is implausible (see
+     * `network.lapis.cloud.shared.domain.DeathDateRules.violation`), or the target member has been
+     * DSGVO-anonymized.
+     */
+    suspend fun correctDateOfDeath(
+        memberId: String,
+        dateOfDeath: LocalDate?,
         reason: String,
     ): MemberAdminRowDto
 

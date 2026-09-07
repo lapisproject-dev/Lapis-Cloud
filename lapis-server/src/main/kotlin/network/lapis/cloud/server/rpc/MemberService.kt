@@ -28,6 +28,8 @@ import network.lapis.cloud.server.webhook.WebhookEventPublisher
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.AuditAction
 import network.lapis.cloud.shared.domain.AuditEntityType
+import network.lapis.cloud.shared.domain.DeathDateRules
+import network.lapis.cloud.shared.domain.DeathDateViolation
 import network.lapis.cloud.shared.domain.MemberAdminPageDto
 import network.lapis.cloud.shared.domain.MemberAdminQuery
 import network.lapis.cloud.shared.domain.MemberAdminRowDto
@@ -452,6 +454,7 @@ class MemberService(
         memberId: String,
         newStatus: MemberStatus,
         reason: String,
+        dateOfDeath: LocalDate?,
     ): MemberAdminRowDto {
         val current = resolveCurrentMember(call)
         if (!current.isPrivileged) throw ForbiddenException()
@@ -464,6 +467,10 @@ class MemberService(
         val trimmedReason = reason.trim()
         if (trimmedReason.length < MIN_REASON_LENGTH || trimmedReason.length > MAX_REASON_LENGTH) {
             throw ConflictException("A reason is required ($MIN_REASON_LENGTH-$MAX_REASON_LENGTH characters)")
+        }
+        // Welle V1.4.4.5 -- a date of death only makes sense together with the DECEASED target.
+        if (dateOfDeath != null && newStatus != MemberStatus.DECEASED) {
+            throw ConflictException("A date of death may only be recorded together with status DECEASED")
         }
 
         val now = nowLocalDateTime()
@@ -493,6 +500,12 @@ class MemberService(
                 }
                 // Leaving DECEASED is a data correction, not a lifecycle event -- ADMIN-exclusive.
                 if (MemberStatusTransitions.requiresAdmin(fromStatus)) current.requireRole(AccountRole.ADMIN)
+
+                // Welle V1.4.4.5 -- plausibility only matters when the target is DECEASED; a null
+                // dateOfDeath is always fine (DeathDateRules.violation returns null for it too).
+                if (newStatus == MemberStatus.DECEASED) {
+                    requirePlausibleDeathDate(dateOfDeath = dateOfDeath, row = row, now = now)
+                }
 
                 // Security fix (2026-08-27, LOW deadlock) -- existingRole is now read from the SAME
                 // id-ordered union-of-{target account} ∪ {every ADMIN account} `.forUpdate()` query
@@ -551,7 +564,20 @@ class MemberService(
                     if (remainingNonBlockedAdmins == 0L) throw LastAdminException()
                 }
 
-                MemberTable.update({ MemberTable.id eq targetId }) { it[status] = newStatus }
+                // Welle V1.4.4.5 -- § 38 BGB: the membership already ended with the death; this
+                // write only records that fact. Clearing date_of_death when LEAVING DECEASED must
+                // happen in the SAME update, otherwise chk_member_date_of_death_requires_status
+                // (V24) fires and turns this into a raw 500.
+                val previousDateOfDeath = row[MemberTable.dateOfDeath]
+                MemberTable.update({ MemberTable.id eq targetId }) {
+                    it[status] = newStatus
+                    if (newStatus == MemberStatus.DECEASED) {
+                        it[MemberTable.dateOfDeath] = dateOfDeath
+                    } else if (fromStatus == MemberStatus.DECEASED) {
+                        it[MemberTable.dateOfDeath] = null
+                    }
+                }
+                val newDateOfDeath = if (newStatus == MemberStatus.DECEASED) dateOfDeath else null
 
                 // Welle V1.3.2 "Webhooks" (ausgehend), D8/S24 -- fires ONLY on a genuine transition
                 // INTO ACTIVE (the no-op guard above already returned early for newStatus ==
@@ -583,7 +609,12 @@ class MemberService(
                         status = fromStatus,
                         role = existingRole,
                     )
-                val afterSnapshot = beforeSnapshot.copy(status = newStatus, reason = trimmedReason)
+                val afterSnapshot =
+                    beforeSnapshot.copy(
+                        status = newStatus,
+                        reason = trimmedReason,
+                        dateOfDeathChanged = newDateOfDeath != previousDateOfDeath,
+                    )
                 AuditLogRecorder.record(
                     actorMemberId = current.memberId,
                     actorRole = current.role,
@@ -602,6 +633,79 @@ class MemberService(
         // documents). Revocation is the only thing that actually ends it before the 8h TTL.
         if (revokeSessions) SessionStore.revokeAllForMember(memberId = targetId)
         return result
+    }
+
+    // Welle V1.4.4.5 -- ADMIN-exclusive correction of an already-recorded date of death, see
+    // IMemberService KDoc for why this is a SEPARATE method from updateMemberStatus (whose
+    // newStatus == from no-op clause is a promised, tested idempotence guarantee this call must
+    // not break). Deliberately NO ESCALATED_ROLES peer-check and NO Letzter-Admin-Schutz -- the
+    // status itself never changes here, unlike updateMemberStatus/updateMemberRole; this is a
+    // conscious omission, not a gap, and is called out explicitly for the security audit.
+    override suspend fun correctDateOfDeath(
+        memberId: String,
+        dateOfDeath: LocalDate?,
+        reason: String,
+    ): MemberAdminRowDto {
+        val current = resolveCurrentMember(call)
+        current.requireRole(AccountRole.ADMIN)
+        val targetId = memberId.toMemberUuidOrThrow()
+        if (targetId == current.memberId) throw ForbiddenException()
+
+        val trimmedReason = reason.trim()
+        if (trimmedReason.length < MIN_REASON_LENGTH || trimmedReason.length > MAX_REASON_LENGTH) {
+            throw ConflictException("A reason is required ($MIN_REASON_LENGTH-$MAX_REASON_LENGTH characters)")
+        }
+
+        val now = nowLocalDateTime()
+        return transaction {
+            val row =
+                MemberTable
+                    .selectAll()
+                    .where { MemberTable.id eq targetId }
+                    .forUpdate()
+                    .singleOrNull() ?: throw NotFoundException("Member $memberId not found")
+            if (row[MemberTable.anonymizedAt] != null) {
+                throw ConflictException("Member has been anonymized and can no longer be edited")
+            }
+            if (row[MemberTable.status] != MemberStatus.DECEASED) {
+                throw ConflictException("A date of death can only be corrected for a DECEASED member")
+            }
+            requirePlausibleDeathDate(dateOfDeath = dateOfDeath, row = row, now = now)
+
+            val previous = row[MemberTable.dateOfDeath]
+            if (previous == dateOfDeath) {
+                // Idempotent: the same value again is a no-op -- no update, no audit entry.
+                return@transaction loadMemberAdminRow(id = targetId, includeFamilyDetails = current.isPrivileged)
+            }
+
+            MemberTable.update({ MemberTable.id eq targetId }) { it[MemberTable.dateOfDeath] = dateOfDeath }
+
+            val existingRole =
+                AccountTable
+                    .selectAll()
+                    .where { AccountTable.memberId eq targetId }
+                    .singleOrNull()
+                    ?.get(AccountTable.role)
+            val beforeSnapshot =
+                MemberChangeSnapshot(
+                    displayNameChanged = false,
+                    emailChanged = false,
+                    status = MemberStatus.DECEASED,
+                    role = existingRole,
+                )
+            val afterSnapshot = beforeSnapshot.copy(reason = trimmedReason, dateOfDeathChanged = true)
+            AuditLogRecorder.record(
+                actorMemberId = current.memberId,
+                actorRole = current.role,
+                entityType = AuditEntityType.MEMBER,
+                entityId = targetId,
+                action = AuditAction.UPDATE,
+                before = Json.encodeToString(MemberChangeSnapshot.serializer(), beforeSnapshot),
+                after = Json.encodeToString(MemberChangeSnapshot.serializer(), afterSnapshot),
+                occurredAt = now,
+            )
+            loadMemberAdminRow(id = targetId, includeFamilyDetails = current.isPrivileged)
+        }
     }
 
     override suspend fun updateMemberRole(
@@ -893,6 +997,25 @@ class MemberService(
             ?.get(AccountTable.role)
 
     private fun nowLocalDateTime(): LocalDateTime = DbClock.nowLocalDateTime()
+
+    // Welle V1.4.4.5 -- shared by updateMemberStatus (ACTIVE->DECEASED) and correctDateOfDeath.
+    private fun requirePlausibleDeathDate(
+        dateOfDeath: LocalDate?,
+        row: ResultRow,
+        now: LocalDateTime,
+    ) {
+        when (
+            DeathDateRules.violation(
+                dateOfDeath = dateOfDeath,
+                dateOfBirth = row[MemberTable.dateOfBirth],
+                today = now.date,
+            )
+        ) {
+            DeathDateViolation.IN_FUTURE -> throw ConflictException("A date of death cannot be in the future")
+            DeathDateViolation.BEFORE_BIRTH -> throw ConflictException("A date of death cannot precede the date of birth")
+            null -> Unit
+        }
+    }
 }
 
 /**
@@ -977,6 +1100,7 @@ private fun ResultRow.toMemberAdminRowDto(includeFamilyDetails: Boolean): Member
         familyId = if (includeFamilyDetails) this.getOrNull(MemberFamilyLinkTable.familyId)?.toString() else null,
         familyName = if (includeFamilyDetails) this.getOrNull(MemberFamilyTable.name) else null,
         familyRole = if (includeFamilyDetails) this.getOrNull(MemberFamilyLinkTable.role) else null,
+        dateOfDeath = this[MemberTable.dateOfDeath],
     )
 
 private fun loadMemberAdminRow(
@@ -1022,4 +1146,5 @@ fun ResultRow.toMemberDto(): MemberDto =
         reviewedAt = this[MemberTable.reviewedAt],
         rejectionReason = this[MemberTable.rejectionReason],
         friendSince = this[MemberTable.friendSince],
+        dateOfDeath = this[MemberTable.dateOfDeath],
     )

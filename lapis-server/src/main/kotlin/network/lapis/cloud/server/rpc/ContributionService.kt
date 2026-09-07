@@ -122,6 +122,10 @@ class ContributionService(
             // must not silently shift every member's due date by that same week).
             val dueDate = periodStart.plus(tierRow[MembershipTierTable.paymentTermDays], DateTimeUnit.DAY)
 
+            // Welle V1.4.4.5 Sterbefall-Workflow -- no code change needed here: the ACTIVE-only
+            // filter below already structurally excludes MemberStatus.DECEASED (and every other
+            // non-ACTIVE status) from ever generating a new contribution line. See
+            // ContributionServiceTest for the verification test added by that wave.
             val activeMembers =
                 MemberTable
                     .selectAll()

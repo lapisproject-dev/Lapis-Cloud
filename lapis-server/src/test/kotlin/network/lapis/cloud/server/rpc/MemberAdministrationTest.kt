@@ -21,7 +21,9 @@ import io.ktor.server.routing.post
 import io.ktor.server.routing.routing
 import io.ktor.server.testing.testApplication
 import kotlinx.coroutines.runBlocking
+import kotlinx.datetime.DateTimeUnit
 import kotlinx.datetime.LocalDate
+import kotlinx.datetime.plus
 import network.lapis.cloud.server.db.DatabaseConfig
 import network.lapis.cloud.server.db.DbClock
 import network.lapis.cloud.server.db.DevSeedData
@@ -143,6 +145,9 @@ class MemberAdministrationTest :
             role: AccountRole = AccountRole.MEMBER,
             displayName: String = "Roster Testmitglied",
             externalReference: String? = null,
+            // Welle V1.4.4.5 -- optional, only relevant for the death-date-before-birth plausibility
+            // tests; defaults to null so every pre-existing call site stays unaffected.
+            dateOfBirth: LocalDate? = null,
         ): Uuid {
             val id = Uuid.random()
             transaction {
@@ -154,6 +159,7 @@ class MemberAdministrationTest :
                     it[joinedAt] = LocalDate(2026, 1, 1)
                     it[membershipTierId] = null
                     it[MemberTable.externalReference] = externalReference
+                    it[MemberTable.dateOfBirth] = dateOfBirth
                 }
                 AccountTable.insert {
                     it[AccountTable.id] = Uuid.random()
@@ -190,6 +196,10 @@ class MemberAdministrationTest :
 
         fun statusOf(memberId: Uuid): MemberStatus =
             transaction { MemberTable.selectAll().where { MemberTable.id eq memberId }.single()[MemberTable.status] }
+
+        /** Welle V1.4.4.5. */
+        fun dateOfDeathOf(memberId: Uuid): LocalDate? =
+            transaction { MemberTable.selectAll().where { MemberTable.id eq memberId }.single()[MemberTable.dateOfDeath] }
 
         fun roleOf(memberId: Uuid): AccountRole? =
             transaction {
@@ -866,6 +876,306 @@ class MemberAdministrationTest :
                     .status shouldBe
                     HttpStatusCode.OK
                 statusOf(deceased) shouldBe MemberStatus.ACTIVE
+            }
+        }
+
+        // ── V1.4.4.5 Sterbefall-Workflow ──────────────────────────────────────────────────────
+
+        test("updateMemberStatus: ACTIVE -> DECEASED with a valid dateOfDeath sets the column") {
+            testApplication {
+                application {
+                    install(StatusPages) { installMemberAdminExceptionHandlers() }
+                    routing { registerMemberAdminTestRoutes() }
+                }
+                val active = createTestMember("dod-set@example.org", status = MemberStatus.ACTIVE)
+                client
+                    .post("/test/status/$active?newStatus=DECEASED&reason=Sterbefall+gemeldet&dateOfDeath=2026-01-15") {
+                        header("X-Member-Id", BOARD_ID)
+                    }.status shouldBe
+                    HttpStatusCode.OK
+                statusOf(active) shouldBe MemberStatus.DECEASED
+                dateOfDeathOf(active) shouldBe LocalDate(2026, 1, 15)
+            }
+        }
+
+        test("updateMemberStatus: ACTIVE -> DECEASED without a dateOfDeath leaves the column NULL") {
+            testApplication {
+                application {
+                    install(StatusPages) { installMemberAdminExceptionHandlers() }
+                    routing { registerMemberAdminTestRoutes() }
+                }
+                val active = createTestMember("dod-unset@example.org", status = MemberStatus.ACTIVE)
+                client
+                    .post("/test/status/$active?newStatus=DECEASED&reason=Sterbefall+gemeldet") {
+                        header("X-Member-Id", BOARD_ID)
+                    }.status shouldBe
+                    HttpStatusCode.OK
+                statusOf(active) shouldBe MemberStatus.DECEASED
+                dateOfDeathOf(active) shouldBe null
+            }
+        }
+
+        test("updateMemberStatus: ACTIVE -> DECEASED with a dateOfDeath in the future is Conflict") {
+            testApplication {
+                application {
+                    install(StatusPages) { installMemberAdminExceptionHandlers() }
+                    routing { registerMemberAdminTestRoutes() }
+                }
+                val active = createTestMember("dod-future@example.org", status = MemberStatus.ACTIVE)
+                val tomorrow = DbClock.nowLocalDateTime().date.plus(1, DateTimeUnit.DAY)
+                client
+                    .post("/test/status/$active?newStatus=DECEASED&reason=Sterbefall+gemeldet&dateOfDeath=$tomorrow") {
+                        header("X-Member-Id", BOARD_ID)
+                    }.status shouldBe
+                    HttpStatusCode.Conflict
+                statusOf(active) shouldBe MemberStatus.ACTIVE
+                dateOfDeathOf(active) shouldBe null
+            }
+        }
+
+        test("updateMemberStatus: ACTIVE -> DECEASED with a dateOfDeath before dateOfBirth is Conflict") {
+            testApplication {
+                application {
+                    install(StatusPages) { installMemberAdminExceptionHandlers() }
+                    routing { registerMemberAdminTestRoutes() }
+                }
+                val active =
+                    createTestMember(
+                        "dod-before-birth@example.org",
+                        status = MemberStatus.ACTIVE,
+                        dateOfBirth = LocalDate(1990, 1, 1),
+                    )
+                client
+                    .post("/test/status/$active?newStatus=DECEASED&reason=Sterbefall+gemeldet&dateOfDeath=1980-01-01") {
+                        header("X-Member-Id", BOARD_ID)
+                    }.status shouldBe
+                    HttpStatusCode.Conflict
+                statusOf(active) shouldBe MemberStatus.ACTIVE
+            }
+        }
+
+        test("updateMemberStatus: ACTIVE -> WITHDRAWN with a dateOfDeath is Conflict (wrong target status)") {
+            testApplication {
+                application {
+                    install(StatusPages) { installMemberAdminExceptionHandlers() }
+                    routing { registerMemberAdminTestRoutes() }
+                }
+                val active = createTestMember("dod-wrong-target@example.org", status = MemberStatus.ACTIVE)
+                client
+                    .post("/test/status/$active?newStatus=WITHDRAWN&reason=Austritt&dateOfDeath=2026-01-15") {
+                        header("X-Member-Id", BOARD_ID)
+                    }.status shouldBe
+                    HttpStatusCode.Conflict
+                statusOf(active) shouldBe MemberStatus.ACTIVE
+            }
+        }
+
+        test(
+            "updateMemberStatus: DECEASED -> DECEASED (no-op) with a different dateOfDeath leaves the date unchanged and writes no audit entry",
+        ) {
+            testApplication {
+                application {
+                    install(StatusPages) { installMemberAdminExceptionHandlers() }
+                    routing { registerMemberAdminTestRoutes() }
+                }
+                val deceased =
+                    transaction {
+                        val id = createTestMember("dod-noop@example.org", status = MemberStatus.DECEASED)
+                        MemberTable.update({ MemberTable.id eq id }) { it[dateOfDeath] = LocalDate(2026, 1, 1) }
+                        id
+                    }
+                val beforeAuditCount = auditCountFor(deceased)
+                client
+                    .post("/test/status/$deceased?newStatus=DECEASED&reason=Erneuter+Versuch&dateOfDeath=2026-06-01") {
+                        header("X-Member-Id", BOARD_ID)
+                    }.status shouldBe
+                    HttpStatusCode.OK
+                // Idempotence promise from IMemberService.updateMemberStatus KDoc holds literally --
+                // even a DIFFERENT dateOfDeath on a newStatus == from call changes nothing.
+                dateOfDeathOf(deceased) shouldBe LocalDate(2026, 1, 1)
+                auditCountFor(deceased) shouldBe beforeAuditCount
+            }
+        }
+
+        test("updateMemberStatus: DECEASED -> ACTIVE (ADMIN) clears dateOfDeath, does not raise a raw 500") {
+            testApplication {
+                application {
+                    install(StatusPages) { installMemberAdminExceptionHandlers() }
+                    routing { registerMemberAdminTestRoutes() }
+                }
+                val deceased =
+                    transaction {
+                        val id = createTestMember("dod-clear-on-leave@example.org", status = MemberStatus.DECEASED)
+                        MemberTable.update({ MemberTable.id eq id }) { it[dateOfDeath] = LocalDate(2026, 1, 1) }
+                        id
+                    }
+                client
+                    .post("/test/status/$deceased?newStatus=ACTIVE&reason=Datenkorrektur") {
+                        header("X-Member-Id", ADMIN_ID)
+                    }.status shouldBe
+                    HttpStatusCode.OK
+                statusOf(deceased) shouldBe MemberStatus.ACTIVE
+                dateOfDeathOf(deceased) shouldBe null
+            }
+        }
+
+        test("correctDateOfDeath: BOARD forbidden, TREASURER forbidden, ADMIN succeeds") {
+            testApplication {
+                application {
+                    install(StatusPages) { installMemberAdminExceptionHandlers() }
+                    routing { registerMemberAdminTestRoutes() }
+                }
+                val deceased = createTestMember("dod-correct-authz@example.org", status = MemberStatus.DECEASED)
+                client
+                    .post("/test/death-date/$deceased?dateOfDeath=2026-01-01&reason=Korrektur") {
+                        header("X-Member-Id", BOARD_ID)
+                    }.status shouldBe
+                    HttpStatusCode.Forbidden
+                client
+                    .post("/test/death-date/$deceased?dateOfDeath=2026-01-01&reason=Korrektur") {
+                        header("X-Member-Id", TREASURER_ID)
+                    }.status shouldBe
+                    HttpStatusCode.Forbidden
+                client
+                    .post("/test/death-date/$deceased?dateOfDeath=2026-01-01&reason=Korrektur") {
+                        header("X-Member-Id", ADMIN_ID)
+                    }.status shouldBe
+                    HttpStatusCode.OK
+                dateOfDeathOf(deceased) shouldBe LocalDate(2026, 1, 1)
+            }
+        }
+
+        test("correctDateOfDeath: dateOfDeath = null retracts an already-recorded date") {
+            testApplication {
+                application {
+                    install(StatusPages) { installMemberAdminExceptionHandlers() }
+                    routing { registerMemberAdminTestRoutes() }
+                }
+                val deceased =
+                    transaction {
+                        val id = createTestMember("dod-retract@example.org", status = MemberStatus.DECEASED)
+                        MemberTable.update({ MemberTable.id eq id }) { it[dateOfDeath] = LocalDate(2026, 1, 1) }
+                        id
+                    }
+                client
+                    .post("/test/death-date/$deceased?reason=Irrtuemlich+erfasst") { header("X-Member-Id", ADMIN_ID) }
+                    .status shouldBe
+                    HttpStatusCode.OK
+                dateOfDeathOf(deceased) shouldBe null
+            }
+        }
+
+        test("correctDateOfDeath: on an ACTIVE (non-DECEASED) member is Conflict") {
+            testApplication {
+                application {
+                    install(StatusPages) { installMemberAdminExceptionHandlers() }
+                    routing { registerMemberAdminTestRoutes() }
+                }
+                val active = createTestMember("dod-correct-wrong-status@example.org", status = MemberStatus.ACTIVE)
+                client
+                    .post("/test/death-date/$active?dateOfDeath=2026-01-01&reason=Korrektur") {
+                        header("X-Member-Id", ADMIN_ID)
+                    }.status shouldBe
+                    HttpStatusCode.Conflict
+            }
+        }
+
+        test("correctDateOfDeath: blank or too-long reason is rejected (Conflict)") {
+            testApplication {
+                application {
+                    install(StatusPages) { installMemberAdminExceptionHandlers() }
+                    routing { registerMemberAdminTestRoutes() }
+                }
+                val deceased = createTestMember("dod-correct-reason@example.org", status = MemberStatus.DECEASED)
+                client
+                    .post("/test/death-date/$deceased?dateOfDeath=2026-01-01&reason=ab") { header("X-Member-Id", ADMIN_ID) }
+                    .status shouldBe
+                    HttpStatusCode.Conflict
+                client
+                    .post("/test/death-date/$deceased?dateOfDeath=2026-01-01&reason=${"x".repeat(1001)}") {
+                        header("X-Member-Id", ADMIN_ID)
+                    }.status shouldBe
+                    HttpStatusCode.Conflict
+            }
+        }
+
+        test("correctDateOfDeath: self-targeting is always Forbidden") {
+            testApplication {
+                application {
+                    install(StatusPages) { installMemberAdminExceptionHandlers() }
+                    routing { registerMemberAdminTestRoutes() }
+                }
+                client
+                    .post("/test/death-date/$ADMIN_ID?dateOfDeath=2026-01-01&reason=Selbstversuch") {
+                        header("X-Member-Id", ADMIN_ID)
+                    }.status shouldBe
+                    HttpStatusCode.Forbidden
+            }
+        }
+
+        test("correctDateOfDeath: an identical value is idempotent -- 200, no additional audit entry") {
+            testApplication {
+                application {
+                    install(StatusPages) { installMemberAdminExceptionHandlers() }
+                    routing { registerMemberAdminTestRoutes() }
+                }
+                val deceased =
+                    transaction {
+                        val id = createTestMember("dod-correct-noop@example.org", status = MemberStatus.DECEASED)
+                        MemberTable.update({ MemberTable.id eq id }) { it[dateOfDeath] = LocalDate(2026, 1, 1) }
+                        id
+                    }
+                val beforeAuditCount = auditCountFor(deceased)
+                client
+                    .post("/test/death-date/$deceased?dateOfDeath=2026-01-01&reason=Erneut+dasselbe+Datum") {
+                        header("X-Member-Id", ADMIN_ID)
+                    }.status shouldBe
+                    HttpStatusCode.OK
+                auditCountFor(deceased) shouldBe beforeAuditCount
+            }
+        }
+
+        test("correctDateOfDeath: on an anonymized member is Conflict") {
+            testApplication {
+                application {
+                    install(StatusPages) { installMemberAdminExceptionHandlers() }
+                    routing { registerMemberAdminTestRoutes() }
+                }
+                val deceased = createTestMember("dod-correct-anon@example.org", status = MemberStatus.DECEASED)
+                transaction { MemberTable.update({ MemberTable.id eq deceased }) { it[anonymizedAt] = DbClock.nowLocalDateTime() } }
+                client
+                    .post("/test/death-date/$deceased?dateOfDeath=2026-01-01&reason=Korrektur") {
+                        header("X-Member-Id", ADMIN_ID)
+                    }.status shouldBe
+                    HttpStatusCode.Conflict
+            }
+        }
+
+        test("audit: a genuine dateOfDeath change carries dateOfDeathChanged=true and no raw date value in the JSON snapshot") {
+            testApplication {
+                application {
+                    install(StatusPages) { installMemberAdminExceptionHandlers() }
+                    routing { registerMemberAdminTestRoutes() }
+                }
+                val active = createTestMember("dod-audit@example.org", status = MemberStatus.ACTIVE)
+                client
+                    .post("/test/status/$active?newStatus=DECEASED&reason=Sterbefall+gemeldet&dateOfDeath=2026-03-03") {
+                        header("X-Member-Id", BOARD_ID)
+                    }.status shouldBe
+                    HttpStatusCode.OK
+
+                val afterJson =
+                    transaction {
+                        AuditLogEntryTable
+                            .selectAll()
+                            .where { (AuditLogEntryTable.entityId eq active) and (AuditLogEntryTable.entityType eq AuditEntityType.MEMBER) }
+                            .single()[AuditLogEntryTable.afterSnapshot]
+                    }
+                requireNotNull(afterJson)
+                afterJson.contains("\"dateOfDeathChanged\":true") shouldBe true
+                // PII-Disziplin (siehe MemberChangeSnapshot KDoc): das Rohdatum selbst darf NIE in
+                // der hash-verketteten Audit-Kette landen.
+                afterJson.contains("2026-03-03") shouldBe false
             }
         }
 
@@ -1988,8 +2298,27 @@ private fun Route.registerMemberAdminTestRoutes(
                 memberId = call.parameters["id"]!!,
                 newStatus = MemberStatus.valueOf(q["newStatus"]!!),
                 reason = q["reason"] ?: "",
+                dateOfDeath = q["dateOfDeath"]?.let { LocalDate.parse(it) },
             )
-        call.respondText("${dto.id}:${dto.status}")
+        call.respondText("${dto.id}:${dto.status}:${dto.dateOfDeath}")
+    }
+    // Welle V1.4.4.5 -- Testroute fuer IMemberService.correctDateOfDeath, Muster wie /test/status/{id}.
+    post("/test/death-date/{id}") {
+        val service =
+            MemberService(
+                call = call,
+                friendVerificationMailer = mailer,
+                memberCoreDataFriendMailRateLimiter = memberCoreDataFriendMailRateLimiter,
+                memberCoreDataFriendMailActorRateLimiter = memberCoreDataFriendMailActorRateLimiter,
+            )
+        val q = call.request.queryParameters
+        val dto =
+            service.correctDateOfDeath(
+                memberId = call.parameters["id"]!!,
+                dateOfDeath = q["dateOfDeath"]?.let { LocalDate.parse(it) },
+                reason = q["reason"] ?: "",
+            )
+        call.respondText("${dto.id}:${dto.status}:${dto.dateOfDeath}")
     }
     post("/test/role/{id}") {
         val service =

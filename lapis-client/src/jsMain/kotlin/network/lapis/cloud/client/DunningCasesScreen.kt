@@ -10,6 +10,7 @@ import io.kvision.html.h1
 import io.kvision.html.h2
 import io.kvision.html.link
 import io.kvision.html.p
+import io.kvision.html.span
 import io.kvision.i18n.gettext
 import io.kvision.i18n.tr
 import io.kvision.panel.SimplePanel
@@ -28,6 +29,7 @@ import network.lapis.cloud.shared.domain.ContributionStatusSets
 import network.lapis.cloud.shared.domain.DunningCaseDetailDto
 import network.lapis.cloud.shared.domain.DunningCaseDto
 import network.lapis.cloud.shared.domain.DunningNoticeDto
+import network.lapis.cloud.shared.domain.MemberStatus
 import network.lapis.cloud.shared.rpc.IDunningService
 
 /**
@@ -216,7 +218,17 @@ private fun renderDunningCaseRow(
     onSelect: (String) -> Unit,
 ) {
     table.row {
-        cell(case.memberDisplayName)
+        cell {
+            span(case.memberDisplayName)
+            // Welle V1.4.4.5 -- kein Filter, keine Aktions-Sperre: wer einen Verstorbenen mahnt,
+            // mahnt wissentlich (Zustellung an den Nachlass, siehe DunningCaseDto.memberStatus KDoc).
+            if (case.memberStatus == MemberStatus.DECEASED) {
+                typeBadge(tr("Verstorben"), "dark")
+                span(tr("Zustellung an den Nachlass — offene Forderung besteht fort.")) {
+                    addCssClasses("text-muted small d-block")
+                }
+            }
+        }
         cell(gettext("%1 – %2", case.periodStart, case.periodEnd))
         cell { moneySpan(case.amountDue) }
         cell(case.dueDate.toString())
@@ -277,8 +289,13 @@ private fun renderDunningCaseDetail(
 
     val headerRow = panel.hPanel(spacing = 8) { addCssClasses("align-items-center flex-wrap") }
     headerRow.div(case.memberDisplayName) { addCssClasses("fw-bold flex-grow-1") }
+    // Welle V1.4.4.5 -- siehe renderDunningCaseRow's identischer Kommentar.
+    if (case.memberStatus == MemberStatus.DECEASED) headerRow.typeBadge(tr("Verstorben"), "dark")
     headerRow.statusBadge(contributionStatusLabel(case.contributionStatus), contributionStatusColor(case.contributionStatus))
     panel.div(gettext("Zeitraum %1 – %2", case.periodStart, case.periodEnd)) { addCssClasses("text-muted small") }
+    if (case.memberStatus == MemberStatus.DECEASED) {
+        panel.div(tr("Zustellung an den Nachlass — offene Forderung besteht fort.")) { addCssClasses("text-muted small") }
+    }
     val amountRow = panel.hPanel(spacing = 8) { addCssClasses("align-items-center") }
     amountRow.div(tr("Betrag:")) { addCssClasses("text-muted small") }
     amountRow.moneySpan(case.amountDue)

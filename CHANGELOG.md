@@ -8,6 +8,43 @@ All notable changes to this project are documented here. Format follows
 
 ### Added
 
+**Mitgliederlebenszyklus: Sterbefall-Workflow (Welle V1.4.4.5)**
+
+- **`member.date_of_death`** (`V24__member_date_of_death.sql`, nullable) — dokumentiert § 38 BGB's
+  automatisches Erlöschen der Mitgliedschaft mit dem Tod. Rein deklaratorisch, nicht konstitutiv:
+  die Spalte hält den Sterbefall fest, sie bewirkt ihn nicht. DB-seitig über einen benannten CHECK
+  (`chk_member_date_of_death_requires_status`) an `status = 'DECEASED'` gebunden.
+- **`IMemberService.updateMemberStatus`** um einen optionalen `dateOfDeath`-Parameter erweitert —
+  nur zusammen mit `newStatus == DECEASED` zulässig (sonst `ConflictException`), serverseitig auf
+  Plausibilität geprüft (`DeathDateRules.violation`: nicht in der Zukunft, nicht vor
+  `dateOfBirth` — bewusst KEIN Abgleich gegen `joinedAt`, siehe `DeathDateRules` KDoc). Verlässt die
+  Mitgliedschaft DECEASED, wird `date_of_death` im selben UPDATE genullt. Die bestehende
+  Idempotenz-Zusage (`newStatus == from` ist ein No-op) bleibt wörtlich unverändert — auch bei
+  einem abweichenden `dateOfDeath`.
+- **`IMemberService.correctDateOfDeath`** (neu, ADMIN-exklusiv) — Korrektur eines bereits erfassten
+  Sterbedatums (oder Nachtrag), getrennt von `updateMemberStatus`, damit dessen No-op-Zusage nicht
+  gebrochen wird. Nur für ein aktuell als DECEASED geführtes Mitglied, `dateOfDeath = null` nimmt
+  ein irrtümlich erfasstes Datum zurück. Schreibt genau einen Audit-Eintrag
+  (`MemberChangeSnapshot.dateOfDeathChanged = true`) bei tatsächlicher Änderung, sonst keinen.
+- **Kein Rohdatum in der Audit-Kette**: `MemberChangeSnapshot.dateOfDeathChanged` ist ein Boolean,
+  dieselbe PII-Disziplin wie `displayNameChanged`/`emailChanged` — der aktuelle Wert lebt auf der
+  (löschbaren) `member`-Zeile.
+- **DSGVO**: `date_of_death` wird im Art.-15-Export ausgegeben, aber von
+  `FoundationPersonalData.eraseMember` bewusst NICHT genullt — ErwG 27 nimmt Verstorbene von der
+  DSGVO aus.
+- **Client** (`MemberAdministrationScreen`): neues, bewusst LEER vorbefülltes Sterbedatumsfeld im
+  Status-Dialog (nur sichtbar bei Zielstatus „Verstorben"), neue ADMIN-exklusive Sektion
+  „Sterbedatum" für nachträgliche Korrekturen, Roster-Zelle zeigt „verstorben am …" bzw.
+  „Sterbedatum fehlt" hinter dem Status-Badge. `statusChangeConsequence` trennt DECEASED von
+  WITHDRAWN: eigener Text mit § 38 BGB, „es wird niemand benachrichtigt" und — bei einem
+  Familien-Zahler — dem Hinweis auf einen fehlenden neuen Zahler.
+- **`DunningCaseDto.memberStatus`** (neu) — reine Kennzeichnung in der Mahn-Arbeitsliste, WEN der
+  Schatzmeister anschreibt (Zustellung an den Nachlass bei einem Verstorbenen). Keine
+  Verhaltensänderung: kein Filter, keine Sperre, offene Forderungen eines Verstorbenen bleiben eine
+  zivilrechtliche Nachlassangelegenheit und bestehen fort.
+- Bewusste Nicht-Ziele: keine Benachrichtigung von Angehörigen oder Mitgliedern, keine
+  Storno-Automatik für offene Forderungen, kein Mahnwesen-Filter auf DECEASED.
+
 **Mitgliederlebenszyklus: Familienmitgliedschaften (Welle V1.4.4.4)**
 
 - **Zwei neue Tabellen** `member_family`/`member_family_link` (`V23__member_family.sql`) —

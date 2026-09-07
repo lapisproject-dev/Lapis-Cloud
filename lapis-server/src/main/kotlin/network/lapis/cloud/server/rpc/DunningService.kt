@@ -1071,5 +1071,7 @@ private fun ResultRow.toDunningCaseDto(
         nextLevelNumber = nextLevel?.get(DunningLevelTable.levelNumber),
         nextLevelDueOn = nextLevelDueOn,
         totalFeesCharged = totalFees,
+        // Welle V1.4.4.5 -- kein Filter, keine Verhaltensaenderung, siehe DunningCaseDto.memberStatus KDoc.
+        memberStatus = this[MemberTable.status],
     )
 }

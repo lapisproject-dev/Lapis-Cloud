@@ -7,6 +7,7 @@ import network.lapis.cloud.shared.domain.ContributionPaymentMethod
 import network.lapis.cloud.shared.domain.ContributionStatus
 import network.lapis.cloud.shared.domain.DunningCaseDto
 import network.lapis.cloud.shared.domain.DunningNoticeStatus
+import network.lapis.cloud.shared.domain.MemberStatus
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -45,6 +46,7 @@ class DunningAuthzUiTest {
             nextLevelNumber = nextLevelNumber,
             nextLevelDueOn = nextLevelDueOn,
             totalFeesCharged = 0.0.toDecimal(),
+            memberStatus = MemberStatus.ACTIVE,
         )
 
     // ── canAccessDunningFiles vs. canReadDunning -- the reason FILE_ACCESS_ROLES is its own

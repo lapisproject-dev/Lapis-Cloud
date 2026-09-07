@@ -28,8 +28,10 @@ import io.kvision.table.table
 import io.kvision.utils.px
 import kotlinx.browser.window
 import kotlinx.coroutines.launch
+import kotlinx.datetime.LocalDate
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.AdminCreateMemberInput
+import network.lapis.cloud.shared.domain.DeathDateRules
 import network.lapis.cloud.shared.domain.FamilyMemberRole
 import network.lapis.cloud.shared.domain.MemberAdminQuery
 import network.lapis.cloud.shared.domain.MemberAdminRowDto
@@ -344,7 +346,14 @@ private fun renderMemberRosterRow(
             }
         }
         cell(row.email)
-        cell { memberStatusRoleBadge(row.status) }
+        cell {
+            memberStatusRoleBadge(row.status)
+            // Welle V1.4.4.5 -- zeigt hinter dem "Verstorben"-Badge, ob (und ggf. welches)
+            // Sterbedatum erfasst ist.
+            deceasedDateNote(row.status, row.dateOfDeath)?.let { note ->
+                span(note) { addCssClasses("text-muted small ms-1") }
+            }
+        }
         cell {
             val role = row.role
             if (role != null) {
@@ -513,6 +522,17 @@ private fun openMemberEditorDialog(
                 addCssClasses("alert alert-warning")
                 hide()
             }
+        // Welle V1.4.4.5 -- nur sichtbar, wenn der Zielstatus "Verstorben" ist. BEWUSST NICHT mit
+        // todayLocalDate() vorbefüllt (anders als BoardMembershipScreen.todayIso()): ein
+        // vorbefülltes heutiges Datum in einem Sterbedatumsfeld ist eine Behauptung, die die
+        // Software aufstellt und der Mensch nur noch bestätigt -- übersieht er das Feld, hat dieses
+        // System aus eigenem Antrieb einen Todestag erfunden und in eine GoBD-unveränderliche
+        // Buchhaltung geschrieben. Leer. Immer leer.
+        val deathDatePanel = modal.div { hide() }
+        val deathDateInput = deathDatePanel.text(label = tr("Sterbedatum (JJJJ-MM-TT, optional)"))
+        deathDatePanel.div(tr("Leer lassen, wenn das genaue Datum noch nicht feststeht — später korrigierbar.")) {
+            addCssClasses("form-text text-muted")
+        }
         val reasonInput = modal.textArea(rows = 2, label = tr("Begründung (3-1000 Zeichen)"))
         // Bug fix (live user report): hPanel is a non-wrapping flex row by default -- four chip
         // buttons ("Austrittserklärung liegt vor" / "Sterbefall gemeldet" / "Datenkorrektur
@@ -534,7 +554,10 @@ private fun openMemberEditorDialog(
 
         fun refreshConsequence() {
             val target = statusSelect.value?.let { MemberStatus.valueOf(it) } ?: return
-            consequenceBox.content = statusChangeConsequence(row.status, target, hasAccount = row.role != null)
+            consequenceBox.content =
+                statusChangeConsequence(row.status, target, hasAccount = row.role != null, familyRole = row.familyRole)
+            // Welle V1.4.4.5 -- das Sterbedatumsfeld erscheint nur, wenn der Zielstatus DECEASED ist.
+            if (target == MemberStatus.DECEASED) deathDatePanel.show() else deathDatePanel.hide()
             if (MemberStatusTransitions.requiresAdmin(row.status)) {
                 warningBox.content =
                     tr(
@@ -565,10 +588,83 @@ private fun openMemberEditorDialog(
                 statusError.show()
                 return@onClick
             }
+            // Welle V1.4.4.5 -- nur relevant, wenn der Zielstatus DECEASED ist; leer bleibt erlaubt
+            // ("Datum noch nicht bekannt", siehe deathDatePanel-Kommentar oben).
+            val rawDeathDate = deathDateInput.value.orEmpty().trim()
+            val deathDate =
+                if (target == MemberStatus.DECEASED && rawDeathDate.isNotEmpty()) {
+                    val parsed = runCatching { LocalDate.parse(rawDeathDate) }.getOrNull()
+                    if (parsed == null ||
+                        DeathDateRules.violation(dateOfDeath = parsed, dateOfBirth = null, today = todayLocalDate()) != null
+                    ) {
+                        statusError.content = tr("Bitte ein gültiges Datum (JJJJ-MM-TT) angeben, das nicht in der Zukunft liegt.")
+                        statusError.show()
+                        return@onClick
+                    }
+                    parsed
+                } else {
+                    null
+                }
             AppScope.launch {
-                val result = memberAdminGuarded { rpcService<IMemberService>().updateMemberStatus(row.id, target, reason) }
+                val result =
+                    memberAdminGuarded { rpcService<IMemberService>().updateMemberStatus(row.id, target, reason, deathDate) }
                 if (result != null) {
                     notifySuccess(tr("Status geändert."))
+                    modal.hide()
+                    onChanged()
+                }
+            }
+        }
+    }
+
+    // ── Sterbedatum (Welle V1.4.4.5) ──
+    // Datenkorrektur, ADMIN-exklusiv, eigener RPC-Aufruf (correctDateOfDeath). Bewusst getrennt von
+    // "Status ändern": updateMemberStatus ist für newStatus == from ein zugesagtes No-op (siehe
+    // IMemberService KDoc) und kann eine Datumskorrektur strukturell nicht ausführen. Direkt NACH
+    // der Status-Sektion, damit Feld und Begriff optisch an derselben Stelle stehen.
+    if (canCorrectDateOfDeathOf(callerRole, callerMemberId, row)) {
+        modal.div { addCssClass("mt-3") }
+        modal.h2(tr("Sterbedatum")) { addCssClass("h6") }
+        val correctionInput =
+            modal.text(value = row.dateOfDeath?.toString(), label = tr("Sterbedatum (JJJJ-MM-TT, optional)"))
+        modal.div(tr("Leer lassen nimmt ein irrtümlich erfasstes Datum zurück.")) {
+            addCssClasses("form-text text-muted")
+        }
+        val correctionReason = modal.textArea(rows = 2, label = tr("Begründung (3-1000 Zeichen)"))
+        val correctionError =
+            modal.div().apply {
+                addCssClass("text-danger")
+                hide()
+            }
+        val correctButton = modal.button(tr("Sterbedatum korrigieren"), style = ButtonStyle.WARNING)
+        correctButton.onClick {
+            correctionError.hide()
+            val reason = correctionReason.value.orEmpty().trim()
+            if (reason.length < 3 || reason.length > 1000) {
+                correctionError.content = tr("Bitte eine Begründung (3-1000 Zeichen) angeben.")
+                correctionError.show()
+                return@onClick
+            }
+            val raw = correctionInput.value.orEmpty().trim()
+            val parsedDate =
+                if (raw.isEmpty()) {
+                    null
+                } else {
+                    val parsed = runCatching { LocalDate.parse(raw) }.getOrNull()
+                    if (parsed == null ||
+                        DeathDateRules.violation(dateOfDeath = parsed, dateOfBirth = null, today = todayLocalDate()) != null
+                    ) {
+                        correctionError.content = tr("Bitte ein gültiges Datum (JJJJ-MM-TT) angeben, das nicht in der Zukunft liegt.")
+                        correctionError.show()
+                        return@onClick
+                    }
+                    parsed
+                }
+            AppScope.launch {
+                val result =
+                    memberAdminGuarded { rpcService<IMemberService>().correctDateOfDeath(row.id, parsedDate, reason) }
+                if (result != null) {
+                    notifySuccess(tr("Sterbedatum korrigiert."))
                     modal.hide()
                     onChanged()
                 }
@@ -835,16 +931,17 @@ fun canEditCoreDataOf(
 }
 
 /**
- * Whether [openMemberEditorDialog] would render AT LEAST ONE of its five sections for [row] --
+ * Whether [openMemberEditorDialog] would render AT LEAST ONE of its six sections for [row] --
  * i.e. whether the "Bearbeiten" button in [renderMemberRosterRow] should be enabled at all. Purely
  * `canEditCoreDataOf(...) || canChangeStatusOf(...) || canEditRoleOf(...) || canGrantAccountTo(...)
- * || canEditMembershipTierOf(...)`, kept as its own named function (rather than inlined at the one
- * call site) so the five predicates this depends on stay a single, obviously-in-sync list with the
- * five `if`-gates inside [openMemberEditorDialog] -- see this file's ESCALATED_ROLES KDoc for why
- * the client mirrors the server's Peer-Schutz boundary at all: an escalated-role target (or, for a
- * BOARD caller, their OWN row -- BOARD/ADMIN/TREASURER is itself an escalated role) can leave all
- * five predicates `false` at once, which without this check would previously open a modal with a
- * title, an empty body, and only a "Schließen" button.
+ * || canEditMembershipTierOf(...) || canCorrectDateOfDeathOf(...)` (the sixth predicate, added
+ * V1.4.4.5, follows the exact same reasoning as the other five), kept as its own named function
+ * (rather than inlined at the one call site) so the six predicates this depends on stay a single,
+ * obviously-in-sync list with the six `if`-gates inside [openMemberEditorDialog] -- see this
+ * file's ESCALATED_ROLES KDoc for why the client mirrors the server's Peer-Schutz boundary at all:
+ * an escalated-role target (or, for a BOARD caller, their OWN row -- BOARD/ADMIN/TREASURER is
+ * itself an escalated role) can leave all six predicates `false` at once, which without this check
+ * would previously open a modal with a title, an empty body, and only a "Schließen" button.
  *
  * Review fix (Welle V1.4.4.4, MAJOR finding): `canEditMembershipTierOf` was originally left OUT of
  * this OR-chain, so a BOARD caller on an escalated-role target (TREASURER/BOARD/ADMIN, including
@@ -870,7 +967,8 @@ fun hasAnyEditableSectionFor(
         canChangeStatusOf(callerRole, callerMemberId, row) ||
         canEditRoleOf(callerRole, callerMemberId, row) ||
         canGrantAccountTo(callerRole, row) ||
-        canEditMembershipTierOf(callerRole, callerMemberId, row)
+        canEditMembershipTierOf(callerRole, callerMemberId, row) ||
+        canCorrectDateOfDeathOf(callerRole, callerMemberId, row)
 
 /**
  * Welle V1.4.4.4 "Familienmitgliedschaften" -- ob der Abschnitt "Beitragstarif" in
@@ -972,14 +1070,74 @@ fun canChangeStatusOf(
     return callerRole == AccountRole.BOARD || callerRole == AccountRole.ADMIN
 }
 
-/** Reine, DOM-freie Funktion -- der Konsequenztext des Editor-Dialogs, live vor dem Speichern gerendert. */
+/**
+ * Welle V1.4.4.5 -- die Liste zeigt hinter dem "Verstorben"-Badge, ob ein Sterbedatum erfasst ist.
+ * `null` für jeden anderen Status. **Kein †-Zeichen** -- dieses Haus hat sich bewusst für eine
+ * Schleife statt eines Kreuzes entschieden (religiöse Neutralität, siehe MemberStatusLabels.kt).
+ */
+fun deceasedDateNote(
+    status: MemberStatus,
+    dateOfDeath: LocalDate?,
+): String? =
+    when {
+        status != MemberStatus.DECEASED -> null
+        dateOfDeath == null -> tr("Sterbedatum fehlt")
+        else -> gettext("verstorben am %1", dateOfDeath.toString())
+    }
+
+/**
+ * Welle V1.4.4.5 -- ob die neue "Sterbedatum"-Sektion in [openMemberEditorDialog] erscheint.
+ * ADMIN-exklusiv (spiegelt `MemberService.correctDateOfDeath`s unbedingten
+ * `requireRole(ADMIN)`-Gate), nur für eine bereits als verstorben geführte, nicht anonymisierte
+ * Fremdzeile -- nie für die eigene Zeile (strukturell ohnehin ausgeschlossen: ein ADMIN kann sich
+ * selbst nicht auf DECEASED setzen, siehe [canChangeStatusOf]s Selbstziel-Sperre, aber die Prüfung
+ * steht trotzdem hier, spiegelbildlich zu [canEditRoleOf]/[canEditMembershipTierOf]).
+ */
+fun canCorrectDateOfDeathOf(
+    callerRole: AccountRole?,
+    callerMemberId: String?,
+    row: MemberAdminRowDto,
+): Boolean =
+    callerRole == AccountRole.ADMIN &&
+        !row.anonymized &&
+        row.id != callerMemberId &&
+        row.status == MemberStatus.DECEASED
+
+/**
+ * Reine, DOM-freie Funktion -- der Konsequenztext des Editor-Dialogs, live vor dem Speichern
+ * gerendert.
+ *
+ * Welle V1.4.4.5 "Sterbefall-Workflow" hat [MemberStatus.DECEASED] von [MemberStatus.WITHDRAWN]
+ * getrennt: beide teilten sich vorher denselben Text (Sitzungen/Gremien/SEPA-Mandat), aber ein
+ * Todesfall ist rechtlich etwas anderes als ein Austritt -- § 38 BGB beendet die Mitgliedschaft
+ * AUTOMATISCH, dieser Dialog dokumentiert das nur, er bewirkt es nicht. Der DECEASED-Text nennt
+ * deshalb zusätzlich die Rechtsgrundlage, macht ausdrücklich klar, dass NIEMAND benachrichtigt
+ * wird (kein Automatisierungsziel dieser Welle), und -- wenn [familyRole] bekannt ist -- weist
+ * bei einem Familien-Zahler auf den fehlenden neuen Zahler hin.
+ */
 fun statusChangeConsequence(
     from: MemberStatus,
     to: MemberStatus,
     hasAccount: Boolean,
+    familyRole: FamilyMemberRole? = null,
 ): String =
     when {
-        to == MemberStatus.WITHDRAWN || to == MemberStatus.DECEASED ->
+        to == MemberStatus.DECEASED ->
+            listOfNotNull(
+                tr("Die Mitgliedschaft endete mit dem Tod (§ 38 BGB). Dieser Eintrag hält das fest, er beendet sie nicht."),
+                tr(
+                    "Sitzungen werden beendet, offene Gremiensitze enden, ein aktives SEPA-Mandat wird " +
+                        "widerrufen. Bereits offene Forderungen bleiben bestehen — sie sind eine " +
+                        "Nachlassangelegenheit.",
+                ),
+                tr("Es wird niemand benachrichtigt."),
+                if (familyRole == FamilyMemberRole.PAYER) {
+                    tr("Diese Person ist Beitragszahler einer Familie — die Angehörigen brauchen einen neuen Zahler.")
+                } else {
+                    null
+                },
+            ).joinToString(separator = " ")
+        to == MemberStatus.WITHDRAWN ->
             tr(
                 "Alle Sitzungen werden sofort beendet, offene Gremien-Mitgliedschaften werden beendet, " +
                     "ein aktives SEPA-Mandat wird widerrufen.",

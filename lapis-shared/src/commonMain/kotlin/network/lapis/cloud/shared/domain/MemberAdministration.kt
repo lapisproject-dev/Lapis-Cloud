@@ -47,7 +47,45 @@ data class MemberAdminRowDto(
     val familyId: String? = null,
     val familyName: String? = null,
     val familyRole: FamilyMemberRole? = null,
+    /**
+     * Welle V1.4.4.5 "Sterbefall-Workflow". `null` bedeutet "nicht erfasst", NICHT "lebt" -- die
+     * Angabe ist optional (siehe [network.lapis.cloud.shared.rpc.IMemberService.updateMemberStatus]).
+     * DB-seitig nur bei [MemberStatus.DECEASED] setzbar (chk_member_date_of_death_requires_status).
+     *
+     * Bewusste Entscheidung zur Expositionsflaeche: dieses Feld ist -- anders als [MemberDto.dateOfBirth]
+     * -- auch fuer einen TREASURER-Aufrufer von [network.lapis.cloud.shared.rpc.IMemberService
+     * .listMembersForAdministration] sichtbar (kein `includeFamilyDetails`-artiges Nullen).
+     * Begruendung: DSGVO ErwG 27 -- Verstorbene sind keine betroffenen Personen -- und der Status
+     * "Verstorben" selbst ist demselben Aufrufer ohnehin schon als Badge sichtbar. Das Datum fuegt
+     * keine neue Personenkategorie hinzu.
+     */
+    val dateOfDeath: LocalDate? = null,
 )
+
+/** Welle V1.4.4.5 -- rein fachliche Plausibilitaetsregeln fuer ein Sterbedatum. */
+@Serializable
+enum class DeathDateViolation { IN_FUTURE, BEFORE_BIRTH }
+
+/** Welle V1.4.4.5 -- DOM-frei, von Server UND Client genutzt (Server: `MemberService`, Client: Editor-Dialog). */
+object DeathDateRules {
+    /**
+     * `null` = zulaessig (inkl. `dateOfDeath == null`, "noch nicht bekannt").
+     * Bewusst KEIN Abgleich gegen `joinedAt` -- die 407 CSV-Altdatensaetze tragen unzuverlaessige
+     * Beitrittsdaten; ein harter Riegel wuerde die Dokumentation eines echten Sterbefalls an einem
+     * fremden Datenfehler scheitern lassen.
+     */
+    fun violation(
+        dateOfDeath: LocalDate?,
+        dateOfBirth: LocalDate?,
+        today: LocalDate,
+    ): DeathDateViolation? =
+        when {
+            dateOfDeath == null -> null
+            dateOfDeath > today -> DeathDateViolation.IN_FUTURE
+            dateOfBirth != null && dateOfDeath < dateOfBirth -> DeathDateViolation.BEFORE_BIRTH
+            else -> null
+        }
+}
 
 /** Sortierschlüssel für [network.lapis.cloud.shared.rpc.IMemberService.listMembersForAdministration] -- niemals ein roher Client-Spaltenname (keine SQL-Injection-Fläche über die Sortierung). */
 @Serializable

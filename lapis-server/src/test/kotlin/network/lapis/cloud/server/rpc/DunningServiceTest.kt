@@ -306,6 +306,33 @@ class DunningServiceTest :
             }
         }
 
+        // Welle V1.4.4.5 "Sterbefall-Workflow" -- DunningCaseDto.memberStatus KDoc: a DECEASED
+        // debtor's open case is NOT filtered out, and the DTO carries the real status.
+        test("listDunningCases: a DECEASED debtor's open case is NOT filtered out, DTO carries memberStatus == DECEASED") {
+            testApplication {
+                application {
+                    install(StatusPages) { installDunningExceptionHandlers() }
+                    routing { registerDunningTestRoutes() }
+                }
+                val admin = createTestMember("dun-deceased-admin-${Uuid.random()}@example.org", role = AccountRole.ADMIN)
+                val deceasedMember =
+                    createTestMember(
+                        "dun-deceased-target-${Uuid.random()}@example.org",
+                        role = AccountRole.MEMBER,
+                        status = MemberStatus.DECEASED,
+                    )
+                enableDunningForOrg(admin)
+                val tierId = createTier()
+                val contributionId = createContribution(deceasedMember, tierId)
+
+                val body =
+                    client
+                        .get("/test/dunning/cases-with-status") { header("X-Member-Id", admin.toString()) }
+                        .bodyAsText()
+                body.contains("$contributionId:DECEASED") shouldBe true
+            }
+        }
+
         test(
             "listDunningCases: keyset pagination (afterDueDate/afterContributionId) advances across pages with no duplicate and no skipped row",
         ) {
@@ -984,6 +1011,15 @@ private fun Route.registerDunningTestRoutes(
                 afterContributionId = afterContributionId,
             )
         call.respondText(dtos.joinToString(";") { it.contributionId })
+    }
+    // Welle V1.4.4.5 -- separate route (rather than widening the response format above, which
+    // several existing tests assert as a bare ";"-joined contributionId list) so
+    // DunningCaseDto.memberStatus is exercisable without touching any pre-existing assertion.
+    get("/test/dunning/cases-with-status") {
+        val q = call.request.queryParameters
+        val onlyOpen = q["onlyOpen"]?.toBooleanStrictOrNull() ?: true
+        val dtos = service(call).listDunningCases(onlyOpen = onlyOpen, limit = 50, afterDueDate = null, afterContributionId = null)
+        call.respondText(dtos.joinToString(";") { "${it.contributionId}:${it.memberStatus}" })
     }
     // GitHub #8 regression coverage -- these two were wrongly ADMIN-only despite being read
     // methods; the interface's own KDoc has always said TREASURER/BOARD/ADMIN.

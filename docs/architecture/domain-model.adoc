@@ -1449,3 +1449,112 @@ classDiagram(name = "Lapis Cloud Domain Model — Family Memberships (V1.4.4.4)"
 NOTE: This `[kuml]` block is not rendered or validated by any Gradle task in this repository (no
 Asciidoctor plugin is wired into the build) -- its syntax was hand-verified against the existing
 blocks above rather than compiled.
+
+== V1.4.4.5 — Deceased-member workflow
+
+One new nullable column, `member.date_of_death` (`V24__member_date_of_death.sql`, model in
+`00-foundation.kuml.kts`). No new table, no new entity -- `MemberStatus.DECEASED` already existed
+(V1.2.11 PdV-CSV-Import), and V1.2.12 already made it administratively reachable
+(`MemberStatusTransitions.ADMINISTRATIVELY_MANAGED`). This wave's whole scope is: let that
+transition optionally carry a date, and let ADMIN correct it afterwards.
+
+**Declaratory, not constitutive**: § 38 BGB ends a membership automatically with the person's
+death. `member.date_of_death` and the `DECEASED` status both *document* that fact; neither
+*causes* it. No code path in this codebase enforces a legal consequence purely because this column
+was set -- the existing `MemberStatusSets.MEMBERSHIP_ENDED`/`LOGIN_BLOCKED` side effects
+(session revocation, committee-seat/SEPA-mandate cleanup) were already wired to the `DECEASED`
+*status* since V1.2.12; this wave adds no new side effect of its own.
+
+**`chk_member_date_of_death_requires_status`**: a plain, always-two-valued CHECK (`date_of_death
+IS NULL OR status = 'DECEASED'`) -- unlike V1.4.4.4's `payer_family_id` CHECK, `status` is `NOT
+NULL`, so there is no three-valued-logic trap to guard against here. The one real trap is
+operational, not logical: a status transition that LEAVES `DECEASED` must clear `date_of_death` in
+the *same* `UPDATE` as the status change, or the very next write violates this constraint with a
+raw `ExposedSQLException` instead of a clean domain exception -- `MemberService.updateMemberStatus`
+does both columns in one `update {}` block for exactly this reason (`MemberDateOfDeathConstraintTest`
+pins the failure mode as a regression test).
+
+**Two write paths, deliberately not one**: `IMemberService.updateMemberStatus`'s existing
+`newStatus == from` no-op clause is a *tested, promised idempotence guarantee* (a repeated call
+with the same target status must have zero side effects, including zero audit entries) -- routing
+a date CORRECTION through that same call would either silently do nothing (if the status is
+unchanged) or require breaking that promise. `IMemberService.correctDateOfDeath` exists as its own,
+ADMIN-exclusive method instead: same reasoning that already separates a lifecycle event (BOARD/ADMIN)
+from a data correction (ADMIN-only) at `MemberStatusTransitions.requiresAdmin`.
+
+**Plausibility, not enforcement**: `DeathDateRules.violation` (in `lapis-shared`, used by both the
+server's `MemberService` and the client's editor dialog) rejects a future date or a date before
+`dateOfBirth`. Deliberately does **not** compare against `joinedAt` -- the 407 CSV-imported rows
+carry unreliable join dates (see V1.2.11), and a hard gate there would let a real death go
+undocumented over an unrelated data-quality problem in a column this wave does not own.
+
+**No raw date in the audit chain**: `MemberChangeSnapshot.dateOfDeathChanged` is a `Boolean`, the
+same PII-minimization discipline `displayNameChanged`/`emailChanged` already establish for this
+hash-chained, append-only table (see that type's own KDoc). The value itself lives on the
+(erasable) `member` row, readable there for as long as it is relevant.
+
+**DSGVO ErwG 27 exception**: `FoundationPersonalData.exportMember` includes `date_of_death`
+alongside every other member field (Art. 15), but `eraseMember` deliberately does **not** null it
+-- Recital 27 GDPR excludes the deceased from the Regulation's protection. Every other PII field
+this contributor owns (name, address, `dateOfBirth`, `externalReference`, …) IS nulled on erasure;
+`date_of_death` is the one deliberate exception, documented in `docs/architecture/dsgvo.adoc`.
+
+**`DunningCaseDto.memberStatus`**: a pure read-side addition to the Mahnwesen worklist, so a
+TREASURER sees *who* they are dunning (a notice to a deceased member is served on the estate).
+Deliberately no filter, no lock-out, no storno automation -- an open claim against a deceased
+member is a civil-law estate matter and remains exactly as collectible as before this wave.
+
+**Deliberately NOT part of this wave**: any notification to relatives or other members, any
+automatic write-off/storno of an open claim, any Mahnwesen filter excluding a `DECEASED` debtor,
+and any change to `ContributionService.generateContributionsForPeriod` -- its pre-existing
+`status eq MemberStatus.ACTIVE` filter already structurally excludes `DECEASED` (and every other
+non-`ACTIVE` status) from ever producing a new contribution line; `ContributionServiceDeceasedFilterTest`
+pins this as a verification test, not a behaviour change.
+
+[kuml, member-deceased, svg]
+----
+classDiagram(name = "Lapis Cloud Domain Model — Deceased Member Workflow (V1.4.4.5)") {
+
+    val memberStatus = enumOf(name = "MemberStatus") {
+        literal(name = "ACTIVE")
+        literal(name = "DECEASED")
+    }
+
+    val member = classOf(name = "Member") {
+        attribute(name = "id", type = "UUID")
+        attribute(name = "displayName", type = "String")
+        attribute(name = "status", type = memberStatus)
+        attribute(name = "dateOfBirth", type = "LocalDate") { multiplicity = Multiplicity(0, 1) }
+        attribute(name = "dateOfDeath", type = "LocalDate") { multiplicity = Multiplicity(0, 1) }
+    }
+
+    val memberChangeSnapshot = classOf(name = "MemberChangeSnapshot") {
+        attribute(name = "status", type = memberStatus)
+        attribute(name = "dateOfDeathChanged", type = "Boolean")
+        attribute(name = "reason", type = "String") { multiplicity = Multiplicity(0, 1) }
+    }
+
+    val contribution = classOf(name = "Contribution") {
+        attribute(name = "id", type = "UUID")
+        attribute(name = "amountDue", type = "Decimal")
+    }
+
+    // ContributionService.generateContributionsForPeriod filters MemberTable.status eq ACTIVE --
+    // a DECEASED member structurally never receives a new Contribution row.
+    association(source = member, target = contribution) {
+        source { multiplicity(spec = "1"); navigable = false; role = "billedTo" }
+        target { multiplicity(spec = "0..*"); role = "contributions" }
+    }
+
+    // MemberService.updateMemberStatus/correctDateOfDeath write exactly one MemberChangeSnapshot
+    // per actual change -- see AuditLogEntryDto.entityId = member.id.
+    association(source = member, target = memberChangeSnapshot) {
+        source { multiplicity(spec = "1"); navigable = false }
+        target { multiplicity(spec = "0..*"); role = "auditSnapshots" }
+    }
+}
+----
+
+NOTE: This `[kuml]` block is not rendered or validated by any Gradle task in this repository (no
+Asciidoctor plugin is wired into the build) -- its syntax was hand-verified against the existing
+blocks above rather than compiled.

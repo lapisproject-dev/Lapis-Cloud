@@ -222,6 +222,17 @@ this table, and (from this wave onward) any tier change it triggers is separatel
   table, never as a summed count, same "Row-counting, not naive double-counting" discipline
   `MemberHonorPersonalData` already establishes.
 
+== Deceased-member exception: `member.date_of_death` (Welle V1.4.4.5)
+
+`FoundationPersonalData` treats `member.date_of_death` (`V24__member_date_of_death.sql`)
+differently from every other field it owns: `exportMember` includes it in the Art. 15 export
+alongside `dateOfBirth`/`nationality`/the postal address, but `eraseMember` deliberately does
+**not** null it on anonymization — ErwG 27 GDPR excludes the deceased from the Regulation's
+protection, so there is neither an erasure nor an anonymization duty for this one field. It
+documents the automatic end of membership under § 38 BGB and is retained as evidence of that.
+This exception is intentional and must not be "cleaned up" by a later, well-meaning refactor that
+notices it looks inconsistent with the rest of the class.
+
 == See also
 
 * `network.lapis.cloud.server.dsgvo.PersonalDataContributor`/`PersonalDataRegistry`/`DataSubject` — the

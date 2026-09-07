@@ -53,6 +53,9 @@ object FoundationPersonalData : MemberPersonalDataContributor {
             // V0.4.1 postal address.
             put("dateOfBirth", memberRow[MemberTable.dateOfBirth]?.toString())
             put("nationality", memberRow[MemberTable.nationality])
+            // V1.4.4.5 Sterbefall-Workflow -- included alongside the other member fields above; see
+            // eraseMember below for why it is deliberately NOT nulled on erasure (DSGVO ErwG 27).
+            put("dateOfDeath", memberRow[MemberTable.dateOfDeath]?.toString())
             // V0.7.2 Beitritts-Workflow board-decision metadata -- PII (who decided, when, why),
             // exported alongside the other member fields above.
             put("reviewedBy", memberRow[MemberTable.reviewedBy]?.toString())
@@ -95,6 +98,11 @@ object FoundationPersonalData : MemberPersonalDataContributor {
                 // V0.5.2 Transparenzregister beneficial-owner fields -- PII, nulled out the same way.
                 it[dateOfBirth] = null
                 it[nationality] = null
+                // V1.4.4.5 Sterbefall-Workflow -- `date_of_death` wird hier BEWUSST NICHT genullt. DSGVO
+                // Erwaegungsgrund 27: die Verordnung gilt nicht fuer Verstorbene; es gibt fuer dieses Feld
+                // weder eine Loesch- noch eine Anonymisierungspflicht. Es dokumentiert das automatische
+                // Erloeschen der Mitgliedschaft nach § 38 BGB und bleibt als Beleg erhalten. Diese Ausnahme
+                // ist absichtlich und darf nicht spaeter "aufgeraeumt" werden.
                 // V0.7.2 Beitritts-Workflow board-decision metadata -- PII, nulled out the same
                 // way. Only THIS member's own reviewedBy/reviewedAt/rejectionReason -- see class
                 // KDoc for why a different member's reviewedBy pointing AT this member is

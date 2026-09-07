@@ -2,11 +2,13 @@ package network.lapis.cloud.client
 
 import kotlinx.datetime.LocalDate
 import network.lapis.cloud.shared.domain.AccountRole
+import network.lapis.cloud.shared.domain.FamilyMemberRole
 import network.lapis.cloud.shared.domain.MemberAdminRowDto
 import network.lapis.cloud.shared.domain.MemberStatus
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 /**
@@ -27,6 +29,9 @@ class MemberAdministrationScreenTest {
         anonymized: Boolean = false,
         id: String = otherMemberId,
         membershipTierId: String? = null,
+        // Welle V1.4.4.5
+        dateOfDeath: LocalDate? = null,
+        familyRole: FamilyMemberRole? = null,
     ) = MemberAdminRowDto(
         id = id,
         displayName = "Test Mitglied",
@@ -36,6 +41,8 @@ class MemberAdministrationScreenTest {
         joinedAt = LocalDate(2026, 1, 1),
         anonymized = anonymized,
         membershipTierId = membershipTierId,
+        dateOfDeath = dateOfDeath,
+        familyRole = familyRole,
     )
 
     // ── canEditCoreDataOf ──
@@ -278,14 +285,39 @@ class MemberAdministrationScreenTest {
     // ── statusChangeConsequence ──
 
     @Test
-    fun statusChangeConsequence_toWithdrawnOrDeceased_mentionsSessionsCommitteesAndMandate() {
-        val toWithdrawn = statusChangeConsequence(MemberStatus.ACTIVE, MemberStatus.WITHDRAWN, hasAccount = true)
-        val toDeceased = statusChangeConsequence(MemberStatus.ACTIVE, MemberStatus.DECEASED, hasAccount = true)
-        listOf(toWithdrawn, toDeceased).forEach { text ->
-            assertTrue(text.contains("Sitzungen"), text)
-            assertTrue(text.contains("Gremien"), text)
-            assertTrue(text.contains("SEPA-Mandat"), text)
-        }
+    fun statusChangeConsequence_toWithdrawn_mentionsSessionsCommitteesAndMandate() {
+        val text = statusChangeConsequence(MemberStatus.ACTIVE, MemberStatus.WITHDRAWN, hasAccount = true)
+        assertTrue(text.contains("Sitzungen"), text)
+        assertTrue(text.contains("Gremien"), text)
+        assertTrue(text.contains("SEPA-Mandat"), text)
+        assertFalse(text.contains("§ 38 BGB"), text)
+    }
+
+    // Welle V1.4.4.5 -- DECEASED was split off from the WITHDRAWN case above; it now carries its
+    // own, legally-grounded text (see statusChangeConsequence KDoc).
+    @Test
+    fun statusChangeConsequence_toDeceased_mentionsLegalBasisAndNoNotificationAndStillSessionsCommitteesAndMandate() {
+        val text = statusChangeConsequence(MemberStatus.ACTIVE, MemberStatus.DECEASED, hasAccount = true)
+        assertTrue(text.contains("§ 38 BGB"), text)
+        assertTrue(text.contains("Sitzungen"), text)
+        assertTrue(text.contains("Gremien"), text)
+        assertTrue(text.contains("SEPA-Mandat"), text)
+        assertTrue(text.contains("Nachlassangelegenheit"), text)
+        assertTrue(text.contains("niemand benachrichtigt"), text)
+    }
+
+    @Test
+    fun statusChangeConsequence_toDeceased_payerFamilyRole_mentionsMissingNewPayer() {
+        val withPayer =
+            statusChangeConsequence(MemberStatus.ACTIVE, MemberStatus.DECEASED, hasAccount = true, familyRole = FamilyMemberRole.PAYER)
+        assertTrue(withPayer.contains("neuen Zahler"), withPayer)
+
+        val withDependent =
+            statusChangeConsequence(MemberStatus.ACTIVE, MemberStatus.DECEASED, hasAccount = true, familyRole = FamilyMemberRole.DEPENDENT)
+        assertFalse(withDependent.contains("neuen Zahler"), withDependent)
+
+        val withoutFamily = statusChangeConsequence(MemberStatus.ACTIVE, MemberStatus.DECEASED, hasAccount = true, familyRole = null)
+        assertFalse(withoutFamily.contains("neuen Zahler"), withoutFamily)
     }
 
     @Test
@@ -307,6 +339,72 @@ class MemberAdministrationScreenTest {
         val text = statusChangeConsequence(MemberStatus.DONOR, MemberStatus.ACTIVE, hasAccount = true)
         assertFalse(text.contains("kein Login-Konto"))
         assertFalse(text.contains("SEPA-Mandat"))
+    }
+
+    // ── deceasedDateNote (Welle V1.4.4.5) ──
+
+    @Test
+    fun deceasedDateNote_nonDeceasedStatus_isNull() {
+        assertNull(deceasedDateNote(MemberStatus.ACTIVE, null))
+        assertNull(deceasedDateNote(MemberStatus.ACTIVE, LocalDate(2026, 1, 1)))
+        assertNull(deceasedDateNote(MemberStatus.WITHDRAWN, null))
+    }
+
+    @Test
+    fun deceasedDateNote_deceasedWithoutDate_saysDateMissing() {
+        val note = deceasedDateNote(MemberStatus.DECEASED, null)
+        // .contains, not assertEquals -- tr() (no substitution args) prefixes the KVision
+        // extraction-tooling marker "###KvI18nS###" onto its return value in this test's bare
+        // I18nCatalogManager setup (see TestI18nSetup.kt); every other bare-tr() assertion in this
+        // file already follows the same .contains posture for exactly this reason.
+        assertTrue(note!!.contains("Sterbedatum fehlt"))
+    }
+
+    @Test
+    fun deceasedDateNote_deceasedWithDate_containsTheDateAndNeverACross() {
+        val note = deceasedDateNote(MemberStatus.DECEASED, LocalDate(2026, 3, 3))
+        assertTrue(note!!.contains("2026-03-03"))
+        assertFalse(note.contains("†"), "must never use a religiously-coded cross symbol")
+    }
+
+    // ── canCorrectDateOfDeathOf (Welle V1.4.4.5) ──
+
+    @Test
+    fun canCorrectDateOfDeathOf_adminOnDeceasedForeignRow_isTrue() {
+        assertTrue(canCorrectDateOfDeathOf(AccountRole.ADMIN, callerMemberId, row(status = MemberStatus.DECEASED)))
+    }
+
+    @Test
+    fun canCorrectDateOfDeathOf_boardOrTreasurer_isFalse() {
+        assertFalse(canCorrectDateOfDeathOf(AccountRole.BOARD, callerMemberId, row(status = MemberStatus.DECEASED)))
+        assertFalse(canCorrectDateOfDeathOf(AccountRole.TREASURER, callerMemberId, row(status = MemberStatus.DECEASED)))
+    }
+
+    @Test
+    fun canCorrectDateOfDeathOf_adminOnNonDeceasedRow_isFalse() {
+        assertFalse(canCorrectDateOfDeathOf(AccountRole.ADMIN, callerMemberId, row(status = MemberStatus.ACTIVE)))
+    }
+
+    @Test
+    fun canCorrectDateOfDeathOf_adminOnOwnRow_isFalse() {
+        assertFalse(
+            canCorrectDateOfDeathOf(AccountRole.ADMIN, callerMemberId, row(status = MemberStatus.DECEASED, id = callerMemberId)),
+        )
+    }
+
+    @Test
+    fun canCorrectDateOfDeathOf_adminOnAnonymizedRow_isFalse() {
+        assertFalse(
+            canCorrectDateOfDeathOf(AccountRole.ADMIN, callerMemberId, row(status = MemberStatus.DECEASED, anonymized = true)),
+        )
+    }
+
+    // Regression against the V1.4.4.4 finding (see hasAnyEditableSectionFor KDoc): an ADMIN on a
+    // DECEASED row must have an editable section (here: the new "Sterbedatum" one), so the
+    // "Bearbeiten" button stays enabled.
+    @Test
+    fun hasAnyEditableSectionFor_adminOnDeceasedRow_isTrue() {
+        assertTrue(hasAnyEditableSectionFor(AccountRole.ADMIN, callerMemberId, row(status = MemberStatus.DECEASED)))
     }
 
     // ── pagerLabel ──

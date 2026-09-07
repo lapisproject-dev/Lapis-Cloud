@@ -45,6 +45,13 @@
 // Flyway `V10__member_donor_deceased_and_external_reference.sql` for the real-data migration on an
 // already-`V1` baseline.
 //
+// V1.4.4.5 (Sterbefall-Workflow): `member` gains a nullable dateOfDeath field. Fachlich rein
+// deklaratorisch -- § 38 BGB beendet die Mitgliedschaft AUTOMATISCH mit dem Tod, dieses Feld haelt
+// das nur fest, es bewirkt es nicht. Nullable: das genaue Datum steht bei der Meldung haeufig noch
+// nicht fest. DB-seitig an status = 'DECEASED' gebunden (chk_member_date_of_death_requires_status,
+// V24__member_date_of_death.sql). DSGVO ErwG 27 -- Verstorbene sind keine betroffenen Personen --
+// deshalb bewusst NICHT Teil der FoundationPersonalData.eraseMember-Loeschung, siehe dort.
+//
 // This is the versioned source-of-truth *model* for the schema shape (ADR-0016), verified
 // against both the real Flyway-migrated H2 schema and the hand-written Exposed Table objects
 // (network.lapis.cloud.server.db.tables.FoundationTables.kt) by SchemaDriftTest. Per ADR-0016's
@@ -156,6 +163,12 @@ classDiagram(name = "Foundation") {
         attribute(name = "dateOfBirth", type = "LocalDate") {
             multiplicity = Multiplicity(0, 1)
             stereotype("Column") { "columnName" to "date_of_birth" }
+        }
+        // V1.4.4.5 Sterbefall-Workflow -- siehe Datei-Header. Nullable, DB-seitig an status = 'DECEASED'
+        // gebunden (chk_member_date_of_death_requires_status, V24__member_date_of_death.sql).
+        attribute(name = "dateOfDeath", type = "LocalDate") {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") { "columnName" to "date_of_death" }
         }
         attribute(name = "nationality", type = "String") {
             multiplicity = Multiplicity(0, 1)

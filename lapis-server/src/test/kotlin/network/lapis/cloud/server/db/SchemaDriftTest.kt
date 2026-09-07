@@ -131,6 +131,16 @@ class SchemaDriftTest :
             }
         }
 
+        test("member.date_of_death is nullable (V1.4.4.5 Sterbefall-Workflow)") {
+            val entity = model.entities.single { it.name == "member" }
+            val real = transaction { introspectTable("member") }
+
+            withClue(clue = "column 'date_of_death'") {
+                entity.attributeByName("date_of_death")?.nullable shouldBe true
+                real.columns.getValue("date_of_death").nullable shouldBe true
+            }
+        }
+
         test("account table shape matches the real migrated schema") {
             val entity = model.entities.single { it.name == "account" }
             val real = transaction { introspectTable("account") }

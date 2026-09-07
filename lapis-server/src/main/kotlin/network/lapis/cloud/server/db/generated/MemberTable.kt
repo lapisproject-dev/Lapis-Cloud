@@ -23,6 +23,12 @@ public object MemberTable : Table("member") {
     public val city: Column<String?> = varchar("city", 200).nullable()
     public val country: Column<String?> = varchar("country", 100).nullable()
     public val dateOfBirth: Column<LocalDate?> = date("date_of_birth").nullable()
+
+    // Welle V1.4.4.5 "Sterbefall-Workflow" -- § 38 BGB: die Mitgliedschaft erlischt automatisch mit
+    // dem Tod; diese Spalte dokumentiert das Datum, sie bewirkt es nicht. Nullable: das genaue Datum
+    // steht bei der Meldung haeufig noch nicht fest (siehe IMemberService.updateMemberStatus KDoc).
+    // DB-seitig an status = 'DECEASED' gebunden (chk_member_date_of_death_requires_status, V24).
+    public val dateOfDeath: Column<LocalDate?> = date("date_of_death").nullable()
     public val nationality: Column<String?> = varchar("nationality", 100).nullable()
     public val membershipTierId: Column<Uuid?> = optReference("membership_tier_id", MembershipTierTable.id)
 
