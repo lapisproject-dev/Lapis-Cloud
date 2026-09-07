@@ -1,43 +1,30 @@
 package network.lapis.cloud.server.accounting.datev
 
 import kotlinx.datetime.LocalDate
-import kotlinx.datetime.LocalDateTime
+import network.lapis.cloud.server.accounting.export.JournalExportEntry
+import network.lapis.cloud.server.accounting.export.JournalExportRequest
 import network.lapis.cloud.shared.domain.DatevExportBlockerDto
 import network.lapis.cloud.shared.domain.DatevExportBlockerKind
 import network.lapis.cloud.shared.domain.PostingSide
 import java.math.BigDecimal
 import java.math.RoundingMode
 
-/** One posting line as seen by [DatevBuchungsstapelWriter], entirely DB-free -- see
- * `network.lapis.cloud.server.accounting.datev.loadDatevSourceEntries` for how these are read. */
-internal data class DatevSourcePosting(
-    val side: PostingSide,
-    val amount: BigDecimal,
-    val accountNumber: String,
-)
+/**
+ * Welle V1.4.5.3 "lexoffice-Live-Anbindung" -- [DatevExportRequest]/[DatevSourceEntry]/
+ * [DatevSourcePosting] were folded into the provider-neutral
+ * [network.lapis.cloud.server.accounting.export.JournalExportRequest]/[JournalExportEntry]/
+ * `JournalExportPosting` (see that file's KDoc). [DatevBuchungsstapelWriter] below now consumes
+ * [JournalExportRequest] directly -- the type aliases exist ONLY so this object's own
+ * long-established internal vocabulary (`DatevExportRequest`, `DatevSourceEntry`) keeps working at
+ * every existing call site (`AccountingService.previewDatevExport`, `DatevRoutes`, both DATEV test
+ * files) without a mechanical rename that would touch files this wave's plan explicitly does not
+ * intend to change.
+ */
+internal typealias DatevExportRequest = JournalExportRequest
 
-/** One journal entry as seen by [DatevBuchungsstapelWriter] -- deliberately NOT the full
- * `JournalEntryDto` shape (no id/status/donor fields): only what a DATEV row can ever carry. */
-internal data class DatevSourceEntry(
-    val entryDate: LocalDate,
-    val description: String,
-    val voucherReference: String?,
-    val postings: List<DatevSourcePosting>,
-)
+internal typealias DatevSourceEntry = JournalExportEntry
 
-/** Everything [DatevBuchungsstapelWriter.plan]/[DatevBuchungsstapelWriter.render] need -- built once
- * by `buildDatevExportRequest` and shared verbatim between the preview RPC and the file route, so
- * neither can ever see a different world than the other. */
-internal data class DatevExportRequest(
-    val from: LocalDate,
-    val to: LocalDate,
-    val beraterNummer: Int?,
-    val mandantNummer: Int?,
-    val organizationName: String,
-    val exportedBy: String,
-    val generatedAt: LocalDateTime,
-    val entries: List<DatevSourceEntry>,
-)
+internal typealias DatevSourcePosting = network.lapis.cloud.server.accounting.export.JournalExportPosting
 
 /** One rendered DATEV Buchungsstapel data row -- the seven fields this wave actually populates
  * (see [DatevBuchungsstapelWriter] class KDoc "Feldbelegung"). */

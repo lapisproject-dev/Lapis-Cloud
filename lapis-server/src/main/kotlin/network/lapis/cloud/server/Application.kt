@@ -26,6 +26,13 @@ import io.ktor.server.response.respond
 import io.ktor.server.response.respondText
 import io.ktor.server.routing.get
 import io.ktor.server.routing.routing
+import network.lapis.cloud.server.accounting.export.AccountingExportConfig
+import network.lapis.cloud.server.accounting.export.AccountingExportPoller
+import network.lapis.cloud.server.accounting.export.AccountingExportProviderAdapter
+import network.lapis.cloud.server.accounting.export.AccountingExportStartupCheck
+import network.lapis.cloud.server.accounting.export.lexoffice.LexofficeAdapter
+import network.lapis.cloud.server.accounting.export.lexoffice.LexofficeApiClient
+import network.lapis.cloud.server.accounting.export.lexoffice.LexofficeRateLimiter
 import network.lapis.cloud.server.branding.BrandConfig
 import network.lapis.cloud.server.branding.BrandingHtml
 import network.lapis.cloud.server.branding.BrandingStartupCheck
@@ -101,6 +108,7 @@ import network.lapis.cloud.server.routes.registerPublicTransparencyRoutes
 import network.lapis.cloud.server.routes.registerSepaRoutes
 import network.lapis.cloud.server.routes.registerSocialPublicRoutes
 import network.lapis.cloud.server.routes.registerTrustAnchorRoutes
+import network.lapis.cloud.server.rpc.AccountingExportService
 import network.lapis.cloud.server.rpc.AccountingService
 import network.lapis.cloud.server.rpc.ApiKeyService
 import network.lapis.cloud.server.rpc.AuctionService
@@ -153,7 +161,9 @@ import network.lapis.cloud.server.webhook.WebhookDeactivationNotifier
 import network.lapis.cloud.server.webhook.WebhookDeliveryPoller
 import network.lapis.cloud.server.webhook.WebhookEventPublisher
 import network.lapis.cloud.shared.Greeting
+import network.lapis.cloud.shared.domain.AccountingExportProvider
 import network.lapis.cloud.shared.rpc.ForbiddenException
+import network.lapis.cloud.shared.rpc.IAccountingExportService
 import network.lapis.cloud.shared.rpc.IAccountingService
 import network.lapis.cloud.shared.rpc.IApiKeyService
 import network.lapis.cloud.shared.rpc.IAuctionService
@@ -607,6 +617,41 @@ fun Application.module() {
     // work, is limited).
     val datevExportRateLimiter = FederationInboxRateLimiter(maxRequests = 10, window = 1.minutes)
 
+    // Welle V1.4.5.3 "lexoffice-Live-Anbindung" -- deliberately NOT fail-fast (see
+    // AccountingExportConfig KDoc). accountingExportSecretBox is `null` whenever
+    // LAPIS_SECRET_ENCRYPTION_KEY is unset/invalid -- AccountingExportService/AccountingExportPoller
+    // both treat a `null` box as "provider token storage unusable" rather than crashing, same
+    // posture SepaService/WebhookService already establish for their own SecretBox instances.
+    val accountingExportConfig = AccountingExportConfig.load()
+    AccountingExportStartupCheck.verifyAndLog(accountingExportConfig)
+    val accountingExportSecretBox: SecretBox? = accountingExportConfig.secretEncryptionKey?.let { SecretBox(it) }
+    val lexofficeRateLimiter = LexofficeRateLimiter()
+    val lexofficeApiClient = LexofficeApiClient(rateLimiter = lexofficeRateLimiter)
+    val accountingExportAdapters: Map<AccountingExportProvider, AccountingExportProviderAdapter> =
+        mapOf(AccountingExportProvider.LEXOFFICE to LexofficeAdapter(lexofficeApiClient))
+    val accountingExportPoller =
+        AccountingExportPoller(
+            config = accountingExportConfig,
+            secretBox = accountingExportSecretBox,
+            adaptersByProvider = accountingExportAdapters,
+        )
+    accountingExportPoller.start()
+    monitor.subscribe(ApplicationStopping) { accountingExportPoller.stop() }
+    // D2-shaped: the synchronous testConnection/listCategories RPC path gets its own, tighter
+    // budget, separate from a future write-mutation budget -- same split
+    // webhookTestRateLimiter/webhookConfigureRateLimiter already establish.
+    val accountingExportTestRateLimiter = FederationInboxRateLimiter(maxRequests = 5, window = 1.minutes)
+    val accountingExportStartRateLimiter = FederationInboxRateLimiter(maxRequests = 10, window = 1.minutes)
+    // Security review Runde 3, Befund 5 (Fund 2026-09-07): previewExport was the only expensive
+    // AccountingExportService method with NO budget of its own -- it runs the full
+    // buildJournalExportRequest (up to MAX_TOTAL_POSTINGS = 200,000 posting rows,
+    // JournalExportSource.kt) plus one extra LedgerAccountTable roundtrip per unmapped account. A
+    // looping/misbehaving TREASURER/ADMIN client could otherwise hold the DB connection pool under
+    // sustained load with no throttle at all. Slightly looser than accountingExportStartRateLimiter
+    // (previewExport is the read-only, repeatedly-called-while-adjusting-a-date-range half of the
+    // same UI flow that leads up to a single startExport click).
+    val accountingExportPreviewRateLimiter = FederationInboxRateLimiter(maxRequests = 20, window = 1.minutes)
+
     // Welle V1.3.2 "Webhooks" (ausgehend) -- WebhookConfig.load() fail-fasts on its own if
     // LAPIS_WEBHOOKS_ENABLED=true but LAPIS_SECRET_ENCRYPTION_KEY is missing/malformed (see that
     // class' own KDoc "S8"), same posture as ConferenceStreamingConfig above. webhookSecretBox is
@@ -942,6 +987,16 @@ fun Application.module() {
             ISystemicConsensusService::class,
         ) { call -> SystemicConsensusService(call = call, streamGuard = secretBallotStreamGuard) }
         registerService(IAccountingService::class) { call -> AccountingService(call) }
+        registerService(IAccountingExportService::class) { call ->
+            AccountingExportService(
+                call = call,
+                secretBox = accountingExportSecretBox,
+                adaptersByProvider = accountingExportAdapters,
+                testRateLimiter = accountingExportTestRateLimiter,
+                startExportRateLimiter = accountingExportStartRateLimiter,
+                previewRateLimiter = accountingExportPreviewRateLimiter,
+            )
+        }
         registerService(IOrganizationSettingsService::class) { call -> OrganizationSettingsService(call) }
         registerService(
             IPostalMailService::class,

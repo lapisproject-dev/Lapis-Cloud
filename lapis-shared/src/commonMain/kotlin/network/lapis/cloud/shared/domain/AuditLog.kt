@@ -134,6 +134,46 @@ enum class AuditEntityType {
      * for why it never carries a counterparty name/IBAN.
      */
     BANK_STATEMENT_IMPORT,
+
+    /**
+     * Welle V1.4.5.3 "lexoffice-Live-Anbindung" --
+     * `network.lapis.cloud.server.rpc.AccountingExportService`'s `setToken`/`removeToken`/
+     * `acknowledgeZeroVat` each write exactly one `ACCOUNTING_EXPORT_CONNECTION` entry
+     * (`CREATE` for the connection's first `setToken` call, `UPDATE` for every subsequent
+     * lifecycle change), `entityId` = the `accounting_export_connection` row's id. Never carries
+     * the token itself, sealed or plain -- see `AccountingExportConnectionDto` KDoc for why.
+     */
+    ACCOUNTING_EXPORT_CONNECTION,
+
+    /**
+     * Security review Runde 3, Befund 4 (Fund 2026-09-07) -- `AccountingExportService`'s
+     * `startExport`/`abortRun`/`retryFailed` each write exactly one `ACCOUNTING_EXPORT_RUN`
+     * `CREATE`/`UPDATE`/`UPDATE` entry respectively, `entityId` = the `accounting_export_run`
+     * row's id. `retryFailed` is the operation most in need of this: it is what resends an
+     * aborted/reaped run's items to the external accounting service, so after any incident
+     * involving a duplicate voucher, this is the only record of WHO triggered that resend and
+     * WHEN -- `accounting_export_run`/`accounting_export_item` themselves carry no actor column
+     * for abort/retry (unlike `started_by` for the original `startExport`). Appended LAST, after
+     * `ACCOUNTING_EXPORT_CONNECTION`, additive only.
+     *
+     * Security review Fund 2026-09-07 (Runde 4, Befund 2) -- `resolveUnknownItem` writes a fourth
+     * `UPDATE` entry here too (`entityId` = the item's OWN `accounting_export_run`, i.e. the run
+     * that item belongs to, same as `retryFailed`/`abortRun`): it is the one action that turns an
+     * `UNKNOWN` item's outcome into a human-asserted fact (lexoffice does or does not have the
+     * voucher), which is precisely the kind of judgment call an audit trail needs to attribute.
+     */
+    ACCOUNTING_EXPORT_RUN,
+
+    /**
+     * Security review Runde 3, Befund 4 (Fund 2026-09-07) -- `AccountingExportService.mapAccount`
+     * writes one `ACCOUNTING_EXPORT_MAPPING` `CREATE`/`UPDATE` entry per call (`CREATE` for a
+     * ledger account's first mapping, `UPDATE` for every remapping), `entityId` =
+     * the `accounting_export_category_map` row's id. `accounting_export_category_map` already
+     * carries `mapped_by`/`mapped_at` on the row itself (unlike the run-lifecycle actions above),
+     * so this entry is a secondary, append-only trail rather than the only record. Appended LAST,
+     * after `ACCOUNTING_EXPORT_RUN`, additive only.
+     */
+    ACCOUNTING_EXPORT_MAPPING,
 }
 
 /**

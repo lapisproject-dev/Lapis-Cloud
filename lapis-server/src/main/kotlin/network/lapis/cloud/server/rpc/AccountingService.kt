@@ -4,7 +4,7 @@ import kotlinx.datetime.LocalDate
 import kotlinx.datetime.LocalDateTime
 import kotlinx.serialization.json.Json
 import network.lapis.cloud.server.accounting.datev.DatevBuchungsstapelWriter
-import network.lapis.cloud.server.accounting.datev.buildDatevExportRequest
+import network.lapis.cloud.server.accounting.export.buildJournalExportRequest
 import network.lapis.cloud.server.audit.AuditLogRecorder
 import network.lapis.cloud.server.db.DbClock
 import network.lapis.cloud.server.db.generated.CostCenterTable
@@ -1705,7 +1705,7 @@ class AccountingService(
         current.requireRole(*ACCOUNTING_READ_ROLES)
         if (from > to) throw BadRequestException("from ($from) must not be after to ($to)")
         return transaction {
-            val request = buildDatevExportRequest(from = from, to = to, exportedBy = current.displayName())
+            val request = buildJournalExportRequest(from = from, to = to, exportedBy = current.displayName())
             val plan = DatevBuchungsstapelWriter.plan(request)
             DatevExportPreviewDto(
                 from = from,

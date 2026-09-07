@@ -8,6 +8,74 @@ All notable changes to this project are documented here. Format follows
 
 ### Added
 
+**Buchhaltungs-Export an Lexware Office (lexoffice) (Welle V1.4.5.3)**
+
+- **Live, authentifizierter Push** gebuchter (POSTED) Journalbuchungen direkt in ein verbundenes
+  Lexware-Office-Konto (`POST /v1/vouchers`) — im Unterschied zum Datei-Export der DATEV-Welle
+  (V1.4.5.2) kein manueller Datei-Umweg: ein Schatzmeister hinterlegt einmalig ein persönliches
+  API-Token, danach entstehen Belege direkt im verbundenen Konto. lexoffice zuerst, weil der
+  Anbieter einen reinen Self-Service-Token-Flow ohne Partner-Registrierung bietet
+  (`app.lexware.de/addons/public-api`); sevDesk folgt in V1.4.5.4 hinter derselben,
+  anbieterneutralen `AccountingExportProviderAdapter`-Schnittstelle.
+- **Vier neue Tabellen** `accounting_export_connection`/`_run`/`_item`/`_category_map`
+  (`V25__accounting_export.sql`, `43-accounting-export.kuml.kts`). Idempotenz ("ein
+  `journal_entry` wird höchstens einmal erfolgreich exportiert", "höchstens ein aktiver Lauf pro
+  Anbieter") wieder über applikationsgepflegte Schatten-Spalten statt eines partiellen
+  Unique-Index gelöst — dieselbe H2-`MODE=PostgreSQL`-Portabilitätsgrenze, die
+  `V8__sepa_mandates.sql`/`V18__events.sql` bereits dokumentieren, siehe
+  `docs/architecture/accounting-export-lexoffice.adoc` für die volle Begründung.
+- **`AccountingExportPlanner`**: jede Journalbuchung wird zu höchstens EINEM Beleg mit dem
+  Summenbetrag verdichtet — bewusst ANDERS als der DATEV-Export, der eine n:1/1:n-Sammelbuchung in
+  N Zeilen auflöst. Ein lexoffice-Beleg trägt genau eine `categoryId` für seinen Gesamtbetrag und
+  kann nicht je Konto aufgeschlüsselt werden; eine echte n:m-Buchung bleibt weiterhin unexportierbar.
+- **0 %-Umsatzsteuer-Übertragung**: Lapis Cloud führt keine USt-Schlüssel, jeder Beleg wird
+  ausnahmslos mit `taxType = gross` und `taxRatePercent = 0` übertragen. Ein Schatzmeister muss den
+  neuen `ZeroVatExportDisclaimer`-Rechtshinweis einmalig quittieren, bevor der erste Export für eine
+  Verbindung läuft (nicht bei jedem einzelnen Lauf).
+- **`AccountingExportPoller`**: eigenständiger Hintergrund-Task, sendet strikt sequenziell (kein
+  `async`/`awaitAll` wie beim Webhook-Versand) — bereits die Takt-Kadenz (3 Belege je 2 Sekunden)
+  bleibt komfortabel unter dem dokumentierten Lexware-Office-Limit von 2 Anfragen/Sekunde;
+  `LexofficeRateLimiter` sichert zusätzlich auch den synchronen Verbindungstest-Pfad ab. Ein
+  Netzwerkfehler NACH dem Absenden oder ein Poller-Absturz mitten im Versuch führt zu
+  `AccountingExportItemStatus.UNKNOWN` (niemals automatischem Retry) — lexoffice kennt keinen
+  Idempotency-Key, ein Blindversuch riskiert einen echten doppelten Beleg.
+- **Sicherheit**: Ziel-URL fest im Code (kein Umgebungsvariablen-Override, keine SSRF-Angriffsfläche
+  überhaupt), Token AES-256-GCM-versiegelt (`SecretBox`, AAD = eigene Zeilen-ID), niemals Token/
+  `Authorization`-Header/Spendernamen in Logs, `remark` trägt niemals `journal_entry.description`.
+  Jede `IAccountingExportService`-Methode verlangt TREASURER/ADMIN — bewusst OHNE BOARD, enger als
+  `IAccountingService`s eigene Lese-Rolle (TREASURER/BOARD/ADMIN), weil bereits die Vorschau
+  Buchungstext-Freitext trägt.
+- **Client**: fünfter Umschalter "Lexware Office" auf dem Finanzberichte-Bildschirm — Verbindung
+  (Token, Verbindungstest, Entfernen), 0 %-USt-Quittung, inline Konto-Kategorie-Zuordnung,
+  Export-Vorschau mit Blockern/Beispielzeilen, Übertragen-Knopf, Lauf-Status mit Polling und
+  "nur fehlgeschlagene erneut versuchen"/"Lauf abbrechen".
+- Bewusste Scope-Cuts: kein sevDesk (folgt V1.4.5.4), kein Rück-Sync aus lexoffice, keine
+  Kontakt-/Stammdatensynchronisation (`useCollectiveContact = true` immer), kein Beleg-Datei-Upload.
+- **Security-Review Runde 4 (Fund 2026-09-07)**: `LexofficeApiClient.createVoucher` klassifizierte
+  jede `IOException` beim Senden pauschal als `Retryable` — `HttpRequestTimeoutException`/
+  `SocketTimeoutException` können aber auch NACH vollständig gesendetem Request auftreten (während
+  auf die Antwort gewartet wird), sind also genauso mehrdeutig wie ein Lesefehler nach dem Senden;
+  nur noch `ConnectException`/`UnknownHostException` (Verbindungsaufbau, garantiert vor jedem
+  gesendeten Byte) gelten als `Retryable`, alles andere als `Indeterminate`. Zusätzlich neuer
+  Blocker `UNRESOLVED_UNKNOWN_ITEMS`: `previewExport`/`startExport` verweigern jetzt einen Zeitraum,
+  solange eine Journalbuchung darin ein `UNKNOWN`-Item aus einem früheren Lauf hat (`retryFailed`
+  weigerte sich bereits, ein solches Item stillschweigend erneut zu senden, aber "Prüfen" →
+  "Übertragen" konnte denselben Beleg über einen NEUEN Lauf trotzdem erneut planen). Neue Methode
+  `resolveUnknownItem` (TREASURER/ADMIN) löst ein `UNKNOWN`-Item nach manueller Prüfung in
+  lexoffice auf (`CONFIRMED_NOT_SENT` → `FAILED`, normal per `retryFailed` erneut sendbar;
+  `CONFIRMED_SENT` → `SUCCEEDED` mit `exported_key`, dauerhaft von der Idempotenzsperre erfasst) —
+  der einzige Weg, den neuen Blocker für eine Buchung aufzuheben. Schreibt einen
+  `ACCOUNTING_EXPORT_RUN`/`UPDATE`-Audit-Eintrag, gleiche Konvention wie `retryFailed`/`abortRun`.
+  `AccountingExportItemDto` trägt jetzt zusätzlich die eigene Item-`id` (vorher nur
+  `journalEntryId`) — nötig, um ein einzelnes Item gezielt anzusprechen.
+  > [!warning] Flyway-repair vor dem nächsten Deploy
+  > `V1__baseline.sql` wurde für diese Runde erneut in place editiert (`audit_log_entry`s
+  > inline-CHECK-Constraint um `ACCOUNTING_EXPORT_RUN`/`ACCOUNTING_EXPORT_MAPPING` erweitert, siehe
+  > `V26__accounting_export_run_audit_entity_types.sql`) — auf einer bereits migrierten Instanz vor
+  > dem Deploy `flyway repair` ausführen, sonst scheitert `flyway migrate` an einem
+  > Prüfsummen-Mismatch für `V1`. Gleiche Disziplin wie bei jeder früheren Erweiterung dieser
+  > Constraint (siehe `V1__baseline.sql`s eigene Kommentare bei `audit_log_entry`).
+
 **Mitgliederlebenszyklus: Sterbefall-Workflow (Welle V1.4.4.5)**
 
 - **`member.date_of_death`** (`V24__member_date_of_death.sql`, nullable) — dokumentiert § 38 BGB's

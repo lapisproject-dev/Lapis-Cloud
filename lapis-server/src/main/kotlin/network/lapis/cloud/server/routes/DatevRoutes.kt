@@ -15,7 +15,7 @@ import io.ktor.server.routing.get
 import kotlinx.datetime.LocalDate
 import network.lapis.cloud.server.accounting.datev.DatevBuchungsstapelWriter
 import network.lapis.cloud.server.accounting.datev.DatevCharacterSet
-import network.lapis.cloud.server.accounting.datev.buildDatevExportRequest
+import network.lapis.cloud.server.accounting.export.buildJournalExportRequest
 import network.lapis.cloud.server.db.generated.MemberTable
 import network.lapis.cloud.server.federation.FederationInboxRateLimiter
 import network.lapis.cloud.server.security.requireRole
@@ -59,7 +59,7 @@ private sealed interface DatevRouteOutcome {
  * Ktor (JSON-RPC is the wrong shape for a CP1252-encoded CSV file), mirroring
  * [registerSepaRoutes]/[registerDunningRoutes]'s own idiom for binary payloads.
  *
- * Runs [buildDatevExportRequest] + [DatevBuchungsstapelWriter.plan] -- THE SAME calls
+ * Runs [buildJournalExportRequest] + [DatevBuchungsstapelWriter.plan] -- THE SAME calls
  * `AccountingService.previewDatevExport` makes -- inside its own `transaction {}`, so this route
  * cannot structurally produce a file the preview did not already describe. A non-empty
  * `plan.blockers` never produces a partial file: this route answers 409 with a plaintext listing of
@@ -89,7 +89,7 @@ fun Route.registerDatevRoutes(exportRateLimiter: FederationInboxRateLimiter) {
             try {
                 transaction {
                     val exportedBy = memberDisplayNameOrEmpty(current.memberId)
-                    val request = buildDatevExportRequest(from = from, to = to, exportedBy = exportedBy)
+                    val request = buildJournalExportRequest(from = from, to = to, exportedBy = exportedBy)
                     val plan = DatevBuchungsstapelWriter.plan(request)
                     if (!plan.exportable) {
                         DatevRouteOutcome.Blocked(plan.blockers.joinToString("\n") { "${it.kind}: ${it.detail}" })
@@ -101,7 +101,7 @@ fun Route.registerDatevRoutes(exportRateLimiter: FederationInboxRateLimiter) {
                     }
                 }
             } catch (e: ConflictException) {
-                // Security fix (MINOR, DoS/Heap) -- `buildDatevExportRequest`'s MAX_TOTAL_POSTINGS
+                // Security fix (MINOR, DoS/Heap) -- `buildJournalExportRequest`'s MAX_TOTAL_POSTINGS
                 // backstop throws [ConflictException] (the RPC-service convention), but this raw
                 // Ktor route has no StatusPages mapping for it (see Application.module's
                 // StatusPages block, which only maps Unauthenticated/Forbidden) -- same "caught and

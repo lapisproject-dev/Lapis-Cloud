@@ -159,7 +159,14 @@ classDiagram(name = "AuditLog") {
     // never reorder existing literals, see this enum's own "cheap to extend, expensive to reorder"
     // note class-wide. BANK_STATEMENT_IMPORT (Welle V1.4.5.1 "Kontoauszugs-Import") is appended
     // LAST after that -- BankStatementImportService writes one CREATE entry per completed import,
-    // entityId = the new bank_statement_import row's id.
+    // entityId = the new bank_statement_import row's id. ACCOUNTING_EXPORT_CONNECTION (Welle
+    // V1.4.5.3) was appended LAST after that. ACCOUNTING_EXPORT_RUN/ACCOUNTING_EXPORT_MAPPING
+    // (Security review Runde 3, Befund 4, 2026-09-07) were appended LAST after that, in this order
+    // -- AccountingExportService.startExport/abortRun/retryFailed previously wrote no audit entry
+    // at all, closing the same forensic gap the file header describes for every other entity kind
+    // here (a run's retryFailed is precisely what resends items after an abort, see
+    // AuditEntityType.ACCOUNTING_EXPORT_RUN KDoc). 22/25 chars respectively, both fit within the
+    // existing VARCHAR(29) width, no further widening needed.
     val auditEntityType = enumOf(name = "AuditEntityType") {
         literal(name = "JOURNAL_ENTRY")
         literal(name = "PARTY_DONATION_VERDICT")
@@ -179,6 +186,9 @@ classDiagram(name = "AuditLog") {
         literal(name = "API_KEY") // Welle V1.3.1 "API-Fundament, lesend" -- ApiKeyService.issueApiKey/revokeApiKey/reissueApiKey
         literal(name = "WEBHOOK_ENDPOINT") // Welle V1.3.2 "Webhooks" (ausgehend) -- WebhookService lifecycle + WebhookDeliveryPoller auto-deactivation
         literal(name = "BANK_STATEMENT_IMPORT") // Welle V1.4.5.1 "Kontoauszugs-Import" -- BankStatementImportService writes one CREATE entry per completed import; 21 chars, fits within the existing VARCHAR(29) width
+        literal(name = "ACCOUNTING_EXPORT_CONNECTION") // Welle V1.4.5.3 "lexoffice-Live-Anbindung" -- AccountingExportService.setToken/removeToken/acknowledgeZeroVat; 28 chars, fits within the existing VARCHAR(29) width
+        literal(name = "ACCOUNTING_EXPORT_RUN") // Security review Runde 3, Befund 4 -- AccountingExportService.startExport/abortRun/retryFailed; 22 chars, fits within the existing VARCHAR(29) width
+        literal(name = "ACCOUNTING_EXPORT_MAPPING") // Security review Runde 3, Befund 4 -- AccountingExportService.mapAccount; 25 chars, fits within the existing VARCHAR(29) width
     }
 
     // Genesis-singleton row (see file header) -- gapless sequence_number + hash-chain

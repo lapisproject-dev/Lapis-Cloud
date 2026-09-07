@@ -400,6 +400,18 @@ fun decodeAuditSnapshot(
             // pair is deliberately not extended for it this wave (backend-only wave, same posture
             // API_KEY/WEBHOOK_ENDPOINT already establish) -- falls through to the raw-text display.
             AuditEntityType.BANK_STATEMENT_IMPORT -> null
+            // Welle V1.4.5.3 "lexoffice-Live-Anbindung" -- AccountingExportService writes no
+            // dedicated snapshot type (setToken/removeToken/acknowledgeZeroVat carry no
+            // before/after payload worth decoding -- the token itself must never appear in a
+            // snapshot), same posture API_KEY/WEBHOOK_ENDPOINT/BANK_STATEMENT_IMPORT already
+            // establish -- falls through to the raw-text display (which stays empty in practice).
+            AuditEntityType.ACCOUNTING_EXPORT_CONNECTION -> null
+            // Security review Runde 3, Befund 4 (Fund 2026-09-07) -- startExport/abortRun/
+            // retryFailed/mapAccount write no dedicated snapshot type either, same posture as
+            // ACCOUNTING_EXPORT_CONNECTION immediately above -- falls through to the raw-text
+            // display (empty in practice).
+            AuditEntityType.ACCOUNTING_EXPORT_RUN -> null
+            AuditEntityType.ACCOUNTING_EXPORT_MAPPING -> null
         }
     }.getOrNull()
 

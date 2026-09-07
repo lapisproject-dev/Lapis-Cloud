@@ -1,0 +1,257 @@
+= Live Accounting Export to Lexware Office — Welle V1.4.5.3
+:description: Live, provider-authenticated push of POSTED journal entries to Lexware Office (lexoffice), the provider-adapter seam it establishes, and the portability trick behind its idempotency guarantee.
+:toc:
+:toc-placement: preamble
+:icons: font
+
+== Context
+
+Welle V1.4.5.2 delivered a DATEV-EXTF-Buchungsstapel *file* export — a treasurer downloads a CSV and
+hands it to their Steuerberater. This wave adds a second, structurally different export path: a
+*live, authenticated push* of POSTED journal entries directly into an external bookkeeping SaaS,
+starting with lexoffice (Lexware Office). Unlike the DATEV path, there is no file, no manual handoff
+-- a TREASURER/ADMIN stores a personal API token once, and subsequent runs create vouchers directly
+inside the connected lexoffice account via `POST /v1/vouchers`.
+
+lexoffice was chosen first over sevDesk because it offers a pure self-service personal-access-token
+flow (`app.lexware.de/addons/public-api`) with no partner-registration process. The adapter seam
+(`network.lapis.cloud.server.accounting.export.AccountingExportProviderAdapter`) is deliberately
+provider-neutral so a `sevdesk.SevDeskAdapter` (planned for V1.4.5.4) plugs in without touching
+`AccountingExportPoller`/`AccountingExportService`/`AccountingExportPlanner` at all.
+
+== Verified API facts
+
+The following facts were live-verified against `https://developers.lexware.io/docs/` (retrieved
+2026-09-07) — either by direct navigation to the relevant heading, or against the live sample
+request/response bodies shown there. Nothing in this table is assumed.
+
+[cols="2,5,1"]
+|===
+|Fact |Detail |Status
+
+|Base URL
+|`https://api.lexware.io` (migrated from the legacy `api.lexoffice.io` domain in Dec. 2025; the old
+gateway stays reachable until Dec. 2026 but every call in this codebase targets the new one)
+|Verified
+
+|Auth
+|`Authorization: Bearer {accessToken}`; token created by the end user at
+`app.lexware.de/addons/public-api` — Lapis Cloud never sees an OAuth flow, only the token the user
+pastes in
+|Verified
+
+|Rate limit
+|2 requests/second, token-bucket, shared across every endpoint; a `429` is issued and *the call is
+not executed* (i.e. does not consume any other budget)
+|Verified
+
+|`GET /v1/profile`
+|Returns `organizationId`, `companyName`, `taxType`, `smallBusiness`, etc. — `companyName` backs the
+"Verbunden mit: ..." confirmation
+|Verified
+
+|`GET /v1/posting-categories`
+|Returns `[{id, name, type: "income"\|"outgo", contactRequired, splitAllowed, groupName}]`
+|Verified
+
+|`POST /v1/vouchers` — `type`
+|Enum: `salesinvoice`, `salescreditnote`, `purchaseinvoice`, `purchasecreditnote`. This wave only
+ever sends the first and third.
+|Verified (live "Create a Voucher" sample)
+
+|`POST /v1/vouchers` — `voucherStatus`
+|Enum: `blank`, `open`, `paid`, `paidoff`, `voided`, `transferred`, `sepadebit`, `unchecked`. Only
+`open` and `unchecked` are writable via the API. This wave sends `open` — a deliberate implementation
+choice, not the only valid one (see xref:idempotency-and-unknown[] "Design choice, not forced").
+|Verified
+
+|`POST /v1/vouchers` — `voucherDate`
+|`date`, format `yyyy-MM-dd` — **not** `dateTime` the way `createdDate`/`updatedDate` (and other
+lexoffice endpoints, e.g. Invoices) are. This was the plan's own flagged open question going in
+(Stolperfalle 12); resolved by reading the live "Create a Voucher" sample request directly.
+|Verified
+
+|`POST /v1/vouchers` — `taxType`
+|Enum for *this* endpoint: `net`, `gross` only (`vatfree` exists on other lexoffice endpoints such
+as Invoices/Credit Notes, not here). This wave always sends `gross` with every `voucherItems[].taxRatePercent`
+at `0` — see `network.lapis.cloud.server.rpc.ZeroVatExportDisclaimer`.
+|Verified
+
+|`POST /v1/vouchers` — error shape
+|`vouchers` (also `contacts`/`files`) uses the *legacy* error response: `{"IssueList": [{"i18nKey",
+"source", "type", ...}]}` — **not** a `{"error": {"message": ...}}` envelope the way some other
+lexoffice/PSP integrations use. `401`/`500`/`504` instead use a plain `{"message": "..."}` shape.
+`network.lapis.cloud.server.accounting.export.lexoffice.LexofficeApiClient.classifyErrorBody` tries
+the simple shape first, then the legacy one.
+|Verified
+
+|Net + `unchecked` restriction
+|lexoffice prohibits creating a voucher with `taxType: "net"` combined with `voucherStatus:
+"unchecked"`. Irrelevant to this wave -- `taxType` is always `"gross"` here, never `"net"`.
+|Verified, not applicable
+|===
+
+== Data model
+
+Four new tables plus three cross-domain stubs (`Member`, `JournalEntry`, `LedgerAccount`), all in
+`lapis-server/src/main/kuml/43-accounting-export.kuml.kts` (`V25__accounting_export.sql`).
+
+[kuml, accounting-export-erm, svg]
+----
+classDiagram(name = "Accounting Export — ERM excerpt") {
+    class(name = "AccountingExportConnection") {
+        attribute(name = "id", type = "UUID")
+        attribute(name = "provider", type = "String") { note = "LEXOFFICE" }
+        attribute(name = "tokenCiphertext", type = "String") { note = "SecretBox-sealed, AAD = own id" }
+        attribute(name = "tokenLast4", type = "String")
+        attribute(name = "connectedCompanyName", type = "String")
+        attribute(name = "zeroVatAcknowledgedAt", type = "LocalDateTime") { note = "Jobs' once-only quittance" }
+    }
+    class(name = "AccountingExportRun") {
+        attribute(name = "id", type = "UUID")
+        attribute(name = "provider", type = "String")
+        attribute(name = "status", type = "String") { note = "PLANNED|RUNNING|COMPLETED|COMPLETED_WITH_ERRORS|ABORTED" }
+        attribute(name = "activeKey", type = "String") { note = "shadow column, NULL unless non-terminal — see below" }
+    }
+    class(name = "AccountingExportItem") {
+        attribute(name = "id", type = "UUID")
+        attribute(name = "journalEntryId", type = "UUID")
+        attribute(name = "voucherNumber", type = "String") { note = "deterministic, LAPIS-YYYYMMDD-<8 hex>" }
+        attribute(name = "status", type = "String") { note = "PENDING|SENDING|SUCCEEDED|FAILED|SKIPPED_ALREADY_EXPORTED|UNKNOWN" }
+        attribute(name = "exportedKey", type = "String") { note = "shadow column, NULL unless SUCCEEDED — see below" }
+    }
+    class(name = "AccountingExportCategoryMap") {
+        attribute(name = "id", type = "UUID")
+        attribute(name = "ledgerAccountId", type = "UUID")
+        attribute(name = "externalCategoryId", type = "String")
+    }
+    association(from = "AccountingExportRun", to = "AccountingExportItem", label = "1 * items")
+}
+----
+
+[[idempotency-and-unknown]]
+== Portability note: no partial unique index
+
+The obvious idempotency anchor — "a `journal_entry` is exported to a given provider at most once,
+while `SUCCEEDED`" — reads naturally as a partial unique index
+(`CREATE UNIQUE INDEX ... WHERE status = 'SUCCEEDED'`). That syntax is **not portable** to this
+repo's test suite, which runs entirely against H2 in `MODE=PostgreSQL`
+(`network.lapis.cloud.server.db.DatabaseConfig`): H2 rejects both the partial-index syntax and the
+generated-column cross-dialect workaround (Postgres wants `STORED`, H2 rejects `STORED`) — already
+verified empirically twice in this repo, see `V8__sepa_mandates.sql`/`V9__dunning.sql`.
+
+This migration instead reuses the portable, application-maintained-shadow-column pattern
+`V18__events.sql` established for `event_registration.active_participant_key`:
+
+* `accounting_export_item.exported_key` — `NULL` unless `status = 'SUCCEEDED'`, then
+  `"<PROVIDER>:<journalEntryId>"`. A plain `UNIQUE` index enforces "at most one `SUCCEEDED` export
+  per (provider, journal entry)".
+* `accounting_export_run.active_key` — `NULL` unless the run is non-terminal (`PLANNED`/`RUNNING`),
+  then the provider name itself. Enforces "at most one non-terminal run per provider".
+
+Multiple `NULL`s are allowed under a `UNIQUE` index on both H2 and real Postgres — the same property
+`uq_crm_contact_email`/`uq_event_registration_active_participant` already rely on. Both columns are
+written *exclusively* by `AccountingExportStore`. Two CHECK constraints back the invariant at the DB
+level (`chk_accounting_export_item_exported_key`, `chk_accounting_export_run_active_key`) — see
+`AccountingExportConstraintTest` for the real-database probes against both.
+
+== Mapping rules
+
+`network.lapis.cloud.server.accounting.export.AccountingExportPlanner` derives, per journal entry:
+
+1. **n:m rejection first.** An entry with more than one account on *both* the debit and credit side
+   cannot be expressed as a single voucher — rejected outright
+   (`UNMAPPABLE_MANY_TO_MANY_ENTRY`), before direction is ever considered.
+2. **Direction.** The side with exactly one distinct account (guaranteed to exist after step 1)
+   decides: a singular `CREDIT` side whose account is `INCOME`, with no `EXPENSE` account on the
+   `DEBIT` side, is a `salesinvoice`; symmetrically a singular `DEBIT` `EXPENSE` account with no
+   `INCOME` on `CREDIT` is a `purchaseinvoice`. Neither pattern (e.g. a pure Umbuchung between two
+   balance-sheet accounts) is `UNDETERMINABLE_VOUCHER_TYPE`.
+3. **One voucher, not N rows.** Unlike `DatevBuchungsstapelWriter`, which expands an `n:1`/`1:n`
+   Sammelbuchung into *N* CSV rows, this planner always produces **exactly one** voucher per entry,
+   with the summed amount — a lexoffice voucher carries one `categoryId` for its total, it cannot be
+   itemized per underlying ledger account. This is the single most consequential divergence from the
+   DATEV mapping in this codebase.
+4. **Category mapping.** Only the *resolved* income/expense account needs an
+   `accounting_export_category_map` row — a money account (Bank/Kasse, `ASSET`) on the other side
+   never becomes a `categoryId` and never needs mapping. A missing mapping blocks
+   (`UNMAPPED_ACCOUNT`), never falls back to a default category.
+5. **Voucher number.** `LAPIS-<yyyyMMdd>-<first 8 hex chars of the journal_entry id>` — 23
+   characters, deterministic (the same entry always yields the same reference across replans/retries)
+   and locally assigned, so a treasurer can search for it inside lexoffice itself if an item ever
+   ends up `UNKNOWN`.
+
+== Idempotency and the `UNKNOWN` state
+
+lexoffice's `POST /v1/vouchers` carries no idempotency key. A network failure *after* the request
+left this server (`LexofficeApiClient.createVoucher`'s post-send `IOException` path) is therefore
+indistinguishable, from this server's own vantage point, from "sent and processed successfully but
+the response was lost" — resending risks creating a genuine duplicate voucher. The same reasoning
+applies to a poller crash mid-attempt (an item stuck `SENDING`). Both cases resolve to
+`AccountingExportItemStatus.UNKNOWN`, **never** a silent retry — the UI tells the treasurer to search
+for the deterministic `voucherNumber` inside lexoffice itself and resolve it manually. This is the
+conservative choice: a missed voucher is a visible gap a treasurer can spot and re-run; a duplicated
+voucher is a silent double-booking a Steuerberater may not catch.
+
+**Design choice, not forced:** `voucherStatus = "open"` (rather than the also-writable `"unchecked"`)
+was this wave's implementation choice, left open for the operator to revisit — see the plan's own
+§11.2. `"unchecked"` would arguably better signal "this arrived unreviewed from an automated import"
+to the Steuerberater; `"open"` claims a reviewed, finalized voucher. Both are unconditionally safe
+given this planner's own blocking behavior (an entry is never sent half-mapped).
+
+== Rate limiting — two layers
+
+1. **Poller cadence** (primary): `AccountingExportPoller` sends at most 3 items per tick, strictly
+   sequentially (no `async`/`awaitAll` the way `WebhookDeliveryPoller` uses for its own, unrelated
+   provider), at a 2-second default interval — ~1.5 req/s, comfortably under the 2 req/s ceiling.
+2. **`LexofficeRateLimiter`** (defense-in-depth): a shared, module-scoped minimum-inter-request-gap
+   guard that also covers the synchronous `testConnection`/`listCategories` RPC path, which reaches
+   lexoffice entirely outside the poller's own cadence.
+
+**Multi-instance caveat (documented, not enforced):** the atomic per-item claim
+(`AccountingExportStore.claim`) makes sending safe under multiple server instances, but
+`LexofficeRateLimiter` is process-local — two instances would each independently rate-limit to
+~1.5 req/s, summing to ~3 req/s, over the documented limit. Same operating assumption
+`WebhookDeliveryPoller` already documents for itself: exactly one server instance runs this poller.
+
+== Security
+
+* **SSRF**: `LEXOFFICE_API_BASE_URL` is a hardcoded Kotlin constant, never environment-configurable
+  and never influenced by any request input — the strongest available posture, stronger even than
+  `PspConfig`'s own validated-but-configurable `LAPIS_STRIPE_API_BASE_URL`.
+* **At rest**: the token is sealed with `SecretBox` (AES-256-GCM), AAD bound to the connection row's
+  own id — a ciphertext copied onto a different row fails to decrypt. No key configured means
+  `setToken` throws `ConflictException`, never a plaintext fallback.
+* **In transit**: `Authorization: Bearer <token>` only ever leaves via `LexofficeApiClient`, which
+  installs no Ktor logging/`ContentNegotiation` plugin (a request logger would risk the header
+  reaching a log line).
+* **Logging**: never the token, the `Authorization` header, a raw response body, or
+  `journal_entry.description`/donor names. `AccountingExportItem.remark` sent to lexoffice is only
+  ever the voucher number/reference, deliberately never the entry's own free-text description — see
+  "Scope cuts" below.
+* **Authorization**: every `IAccountingExportService` method requires TREASURER/ADMIN — deliberately
+  narrower than `IAccountingService`'s own TREASURER/BOARD/ADMIN read tier, including every read
+  method. A `VoucherPreviewLineDto` already carries the entry's description text (unlike the DATEV
+  preview, which only carries aggregate counts), so BOARD is excluded everywhere on this surface, not
+  only on a file-download route.
+
+== Scope cuts
+
+* sevDesk adapter — planned for V1.4.5.4, behind the same `AccountingExportProviderAdapter` seam.
+* No read-back/reconciliation sync from lexoffice — this is a one-way push.
+* No USt-Schlüssel modelling — every voucher travels at 0%, see `ZeroVatExportDisclaimer`.
+* No contact/Stammdaten sync — `useCollectiveContact = true` always, `contactId`/`contactName` never
+  sent; no member/donor personal data crosses the wire beyond what the voucher amount/date/category
+  itself implies.
+* No file/receipt attachment upload to the created voucher.
+* `remark` carries only the voucher number/reference, never `journal_entry.description` — the same
+  donor-naming concern `network.lapis.cloud.server.routes.DatevRoutes.DATEV_FILE_DOWNLOAD_ROLES`
+  already documents for the DATEV file path applies doubly to a live, unwitherable push.
+
+== Related: DATEV file export
+
+See `docs/architecture/datev-export.adoc` — that document's own "Related" section links back here.
+`network.lapis.cloud.server.accounting.datev.buildDatevExportRequest` was folded into the
+provider-neutral `network.lapis.cloud.server.accounting.export.buildJournalExportRequest` this wave
+introduces; the DATEV path itself is otherwise untouched (its own golden-file tests stayed
+byte-identical throughout this refactor).

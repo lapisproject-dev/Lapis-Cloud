@@ -7,8 +7,10 @@ import io.kotest.matchers.shouldBe
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.LocalDateTime
 import network.lapis.cloud.shared.domain.DatevExportBlockerKind
+import network.lapis.cloud.shared.domain.LedgerAccountType
 import network.lapis.cloud.shared.domain.PostingSide
 import java.math.BigDecimal
+import kotlin.uuid.Uuid
 
 /**
  * Pure tests of [DatevBuchungsstapelWriter] -- no DB access anywhere in this file, same
@@ -39,14 +41,28 @@ class DatevBuchungsstapelWriterTest :
             side: PostingSide,
             amount: String,
             account: String,
-        ) = DatevSourcePosting(side = side, amount = BigDecimal(amount), accountNumber = account)
+        ) = DatevSourcePosting(
+            side = side,
+            amount = BigDecimal(amount),
+            accountNumber = account,
+            // Welle V1.4.5.3 additions -- irrelevant to DatevBuchungsstapelWriter itself (it never
+            // reads either field), a fixed placeholder is fine here.
+            ledgerAccountId = Uuid.random(),
+            accountType = LedgerAccountType.ASSET,
+        )
 
         fun entry(
             date: LocalDate = LocalDate(2026, 1, 15),
             description: String = "Testbuchung",
             voucherReference: String? = "RE-2026-0001",
             postings: List<DatevSourcePosting>,
-        ) = DatevSourceEntry(entryDate = date, description = description, voucherReference = voucherReference, postings = postings)
+        ) = DatevSourceEntry(
+            id = Uuid.random(),
+            entryDate = date,
+            description = description,
+            voucherReference = voucherReference,
+            postings = postings,
+        )
 
         /** One trivial, exportable 1:1 request -- shared by tests that only care about the
          * rendered bytes' structural shape (CRLF, BOM, header content), not the booking itself. */

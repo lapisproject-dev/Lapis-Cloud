@@ -108,6 +108,15 @@ fun auditEntityTypeLabel(entityType: AuditEntityType): String =
         // `bank_statement_import` row; no dedicated screen exists yet this wave (backend-only,
         // same posture API_KEY/WEBHOOK_ENDPOINT already establish for their own waves).
         AuditEntityType.BANK_STATEMENT_IMPORT -> gettext("Kontoauszugs-Import")
+        // Welle V1.4.5.3 "lexoffice-Live-Anbindung" -- "Buchhaltungs-Export-Verbindung" is the term
+        // AccountingExportScreen.kt uses throughout for the accounting_export_connection row.
+        AuditEntityType.ACCOUNTING_EXPORT_CONNECTION -> gettext("Buchhaltungs-Export-Verbindung")
+        // Security review Runde 3, Befund 4 (Fund 2026-09-07) -- "Buchhaltungs-Export-Lauf" for a
+        // startExport/abortRun/retryFailed lifecycle event, "Buchhaltungs-Export-Zuordnung" for a
+        // mapAccount event; both match ACCOUNTING_EXPORT_CONNECTION's "Buchhaltungs-Export-*" prefix
+        // above so the three read as one family of entries on this screen.
+        AuditEntityType.ACCOUNTING_EXPORT_RUN -> gettext("Buchhaltungs-Export-Lauf")
+        AuditEntityType.ACCOUNTING_EXPORT_MAPPING -> gettext("Buchhaltungs-Export-Zuordnung")
     }
 
 fun auditEntityTypeColor(entityType: AuditEntityType): String =
@@ -157,6 +166,16 @@ fun auditEntityTypeColor(entityType: AuditEntityType): String =
         // "primary" -- an automatic bank-statement booking is a financially central event, same
         // tier as JOURNAL_ENTRY/SEPA_MANDATE/PAYMENT_TRANSACTION above.
         AuditEntityType.BANK_STATEMENT_IMPORT -> "primary"
+        // "dark" -- a token/connection lifecycle event is a security-relevant administrative act,
+        // the same tier API_KEY/WEBHOOK_ENDPOINT already carry above.
+        AuditEntityType.ACCOUNTING_EXPORT_CONNECTION -> "dark"
+        // "warning" -- a run's start/abort/retry is administrative, not itself a security event
+        // (unlike ACCOUNTING_EXPORT_CONNECTION's token handling above); same tier
+        // ORGANIZATION_SETTINGS/SEPA_DEBIT_BATCH already carry.
+        AuditEntityType.ACCOUNTING_EXPORT_RUN -> "warning"
+        // "secondary" -- a ledger-account-to-external-category mapping is routine administration,
+        // the same neutral tier MEMBER/BOARD_MEMBERSHIP already carry.
+        AuditEntityType.ACCOUNTING_EXPORT_MAPPING -> "secondary"
     }
 
 // ------------------------------------------------------------------------------------------------

@@ -149,6 +149,23 @@ object PersonalDataRegistry {
                 "Welle V1.3.2 Webhooks (ausgehend). Traegt nur Entitaets-UUIDs und Zustellmetadaten, " +
                 "keinen Mitglieds-FK -- die referenzierte Entitaets-UUID selbst ist bereits ueber die " +
                 "jeweilige Fach-Tabelle abgedeckt (z. B. GovernancePersonalData fuer eine Resolution-Id).",
+            "accounting_export_connection" to
+                "Welle V1.4.5.3 lexoffice-Live-Anbindung. zero_vat_acknowledged_by referenziert " +
+                "ausschliesslich, WER die 0-%-USt-Quittung fuer eine Anbieter-Verbindung abgezeichnet " +
+                "hat -- ein reiner Rechenschaftspflicht-Vorgang (Art. 5(2) DSGVO), keine Daten UEBER " +
+                "diese Person. Das Anbieter-Token selbst ist kein Mitglieds-PII, sondern ein " +
+                "SecretBox-versiegeltes Organisations-Credential.",
+            "accounting_export_run" to
+                "Welle V1.4.5.3 lexoffice-Live-Anbindung. started_by referenziert ausschliesslich, WER " +
+                "einen Export-Lauf gestartet hat -- dieselbe Rechenschaftspflicht-Einstufung wie " +
+                "accounting_export_connection oben. Die exportierten Belege selbst tragen keine " +
+                "Mitglieds-PII (useCollectiveContact = true, kein contactId/contactName, siehe " +
+                "docs/architecture/accounting-export-lexoffice.adoc).",
+            "accounting_export_category_map" to
+                "Welle V1.4.5.3 lexoffice-Live-Anbindung. mapped_by referenziert ausschliesslich, WER " +
+                "eine Konto-Kategorie-Zuordnung gepflegt hat -- dieselbe Rechenschaftspflicht-" +
+                "Einstufung wie accounting_export_connection/accounting_export_run oben. Die Zeile " +
+                "selbst bildet eine reine Konto-zu-Kategorie-Abbildung ohne jeden Mitgliedsbezug.",
         )
 
     init {

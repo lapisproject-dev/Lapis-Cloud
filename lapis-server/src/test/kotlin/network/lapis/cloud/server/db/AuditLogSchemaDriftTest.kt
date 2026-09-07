@@ -145,6 +145,9 @@ class AuditLogSchemaDriftTest :
                             "API_KEY",
                             "WEBHOOK_ENDPOINT",
                             "BANK_STATEMENT_IMPORT",
+                            "ACCOUNTING_EXPORT_CONNECTION",
+                            "ACCOUNTING_EXPORT_RUN",
+                            "ACCOUNTING_EXPORT_MAPPING",
                         ),
                     externalFqName = "network.lapis.cloud.shared.domain.AuditEntityType",
                 )

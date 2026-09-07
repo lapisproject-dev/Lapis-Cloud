@@ -77,6 +77,11 @@ fun renderFinancialReportsScreen(container: SimplePanel) {
     // is exactly `DatevAuthzUi.PREVIEW_ROLES` (TREASURER/BOARD/ADMIN) -- see that object's KDoc for
     // why the narrower file-download tier is still enforced INSIDE the view, not at the route level.
     val datevButton = toggleRow.button(tr("DATEV-Export"), style = ButtonStyle.OUTLINEPRIMARY)
+    // Welle V1.4.5.3 "lexoffice-Live-Anbindung" -- fifth toggle, same row, same reasoning as
+    // datevButton above (Routes.FINANCIAL_REPORTS is already ACCOUNTING_READ_ROLES-gated; the
+    // narrower TREASURER/ADMIN-only tier is enforced inside renderAccountingExportView itself, see
+    // AccountingExportAuthzUi KDoc).
+    val lexofficeButton = toggleRow.button(tr("Lexware Office"), style = ButtonStyle.OUTLINEPRIMARY)
     val contentPanel = root.vPanel(spacing = 10)
 
     guvButton.onClick {
@@ -94,6 +99,10 @@ fun renderFinancialReportsScreen(container: SimplePanel) {
     datevButton.onClick {
         contentPanel.removeAll()
         renderDatevExportView(contentPanel)
+    }
+    lexofficeButton.onClick {
+        contentPanel.removeAll()
+        renderAccountingExportView(contentPanel)
     }
 
     renderIncomeStatementView(contentPanel)

@@ -18,6 +18,7 @@ import io.ktor.server.routing.routing
 import io.ktor.server.testing.testApplication
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.LocalDateTime
+import network.lapis.cloud.server.accounting.export.buildJournalExportRequest
 import network.lapis.cloud.server.db.DatabaseConfig
 import network.lapis.cloud.server.db.generated.AccountTable
 import network.lapis.cloud.server.db.generated.JournalEntryTable
@@ -50,7 +51,7 @@ import kotlin.uuid.Uuid
  * Welle V1.4.5.2 "DATEV-Format-Export" -- DB-backed coverage of both
  * `AccountingService.previewDatevExport` and `network.lapis.cloud.server.routes.registerDatevRoutes`'s
  * binary route, in ONE spec because their whole point (test 16 below) is that they can never
- * diverge -- both call the exact same `buildDatevExportRequest` + `DatevBuchungsstapelWriter.plan`.
+ * diverge -- both call the exact same `buildJournalExportRequest` + `DatevBuchungsstapelWriter.plan`.
  * Pure formatting/blocker-derivation rules are covered DB-free in [DatevBuchungsstapelWriterTest].
  */
 class DatevIntegrationTest :
@@ -130,7 +131,7 @@ class DatevIntegrationTest :
          * Security finding fix (feature/multi-agent-pipeline-v1-4-5-2-bank-buchhaltungs-integration-d,
          * MINOR): every OTHER account number fixture in this file uses a `"DV"`/`"D"`/`"C"`-prefixed
          * hex suffix (e.g. `"DV${Uuid.random()...}"`) purely for cross-test collision avoidance --
-         * fine for the tests that exercise `buildDatevExportRequest` directly (never call `plan()`,
+         * fine for the tests that exercise `buildJournalExportRequest` directly (never call `plan()`,
          * see the multi-chunk test's own KDoc), but `DatevBuchungsstapelWriter.plan`'s NEW
          * `ACCOUNT_NUMBER_CONTAINS_INVALID_CHARACTERS` blocker (see that object's `plan` KDoc) now
          * correctly rejects any such letter-containing account number as unexportable. Tests that
@@ -344,7 +345,7 @@ class DatevIntegrationTest :
             }
         }
 
-        // Review-Runde finding (2026-09, MAJOR): `buildDatevExportRequest`'s single unbatched
+        // Review-Runde finding (2026-09, MAJOR): `buildJournalExportRequest`'s single unbatched
         // `PostingTable.journalEntryId inList entryIds` query would exceed PostgreSQL's 65 535
         // bound-parameter limit for a large period -- crashing with a raw PSQLException/HTTP 500
         // BEFORE `DatevBuchungsstapelWriter.plan`'s own `TOO_MANY_ROWS` blocker ever gets a chance
@@ -352,7 +353,7 @@ class DatevIntegrationTest :
         // path with `postingQueryChunkSize = 2` over 5 entries (3 chunks: 2/2/1) instead of needing
         // tens of thousands of real rows, and pins that postings never cross-contaminate between
         // chunks (each entry keeps exactly its OWN, distinctly-numbered accounts and amount).
-        test("buildDatevExportRequest: postings are correct across a multi-chunk inList batch, none lost or swapped") {
+        test("buildJournalExportRequest: postings are correct across a multi-chunk inList batch, none lost or swapped") {
             val treasurer = createMember("datev-chunk-treasurer@example.org", AccountRole.TREASURER)
             val entryCount = 5
 
@@ -392,7 +393,7 @@ class DatevIntegrationTest :
 
             val request =
                 transaction {
-                    buildDatevExportRequest(
+                    buildJournalExportRequest(
                         from = LocalDate(2026, 8, 1),
                         to = LocalDate(2026, 8, 31),
                         exportedBy = "Test",
@@ -443,12 +444,12 @@ class DatevIntegrationTest :
         }
 
         // Security finding fix (feature/multi-agent-pipeline-v1-4-5-2-bank-buchhaltungs-integration-d,
-        // MINOR, DoS/Heap): `buildDatevExportRequest`'s entry-count cap bounds the number of
+        // MINOR, DoS/Heap): `buildJournalExportRequest`'s entry-count cap bounds the number of
         // journal ENTRIES, never the number of POSTINGS a single Sammelbuchung entry can carry --
         // this drives that with ONE entry carrying six postings (five debit accounts, one credit
         // account) and a deliberately tiny `maxTotalPostings` so the test does not need to insert
         // hundreds of thousands of real rows to exercise the guard.
-        test("buildDatevExportRequest: a single entry's total postings exceeding maxTotalPostings throws, refusing the whole export") {
+        test("buildJournalExportRequest: a single entry's total postings exceeding maxTotalPostings throws, refusing the whole export") {
             val treasurer = createMember("datev-postingcap-treasurer@example.org", AccountRole.TREASURER)
             val creditAccount = createLedgerAccount("DV${Uuid.random().toString().take(4)}")
             val debitAccounts = (1..5).map { createLedgerAccount("DV${Uuid.random().toString().take(4)}") }
@@ -490,7 +491,7 @@ class DatevIntegrationTest :
             var threw = false
             try {
                 transaction {
-                    buildDatevExportRequest(
+                    buildJournalExportRequest(
                         from = LocalDate(2026, 9, 1),
                         to = LocalDate(2026, 9, 30),
                         exportedBy = "Test",
@@ -506,7 +507,7 @@ class DatevIntegrationTest :
             // every single one -- the guard must never truncate a legitimate, merely-large entry.
             val request =
                 transaction {
-                    buildDatevExportRequest(
+                    buildJournalExportRequest(
                         from = LocalDate(2026, 9, 1),
                         to = LocalDate(2026, 9, 30),
                         exportedBy = "Test",

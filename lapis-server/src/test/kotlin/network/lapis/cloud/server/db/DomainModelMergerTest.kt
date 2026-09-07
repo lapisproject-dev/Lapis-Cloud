@@ -35,16 +35,16 @@ class DomainModelMergerTest :
         // ── Test 1: merging the real 22 domain scripts ───────────────────────────────────
 
         test(
-            "merging the real 43 domain scripts succeeds and the uml-to-erm -> erm-to-exposed chain " +
+            "merging the real 44 domain scripts succeeds and the uml-to-erm -> erm-to-exposed chain " +
                 "produces exactly one Table file per distinct table name",
         ) {
             val scriptFiles =
                 requireNotNull(KumlModelLoader.kumlSourceDir.listFiles { f -> f.name.endsWith(".kuml.kts") }) {
                     "kUML source dir not found or not a directory: ${KumlModelLoader.kumlSourceDir.absolutePath}"
                 }.sortedBy { it.name }
-            // Welle V1.4.4.4 "Familienmitgliedschaften" -- was 42, now 43 with the addition of
-            // 42-member-family.kuml.kts.
-            scriptFiles shouldHaveSize 43
+            // Welle V1.4.5.3 "lexoffice-Live-Anbindung" -- was 43, now 44 with the addition of
+            // 43-accounting-export.kuml.kts.
+            scriptFiles shouldHaveSize 44
 
             val diagrams = scriptFiles.map { KumlModelLoader.loadUmlDiagram(it) }
 
@@ -333,7 +333,14 @@ class DomainModelMergerTest :
             // through it) -- the stub dedups into the already-real member entity -- so it
             // contributes +3 «Entity» declarations (the stub + 2 real tables) and 1 drop, net +2
             // distinct table names versus the V1.4.4.3 baseline above (128 -> 130).
-            val distinctTableNames = 130
+            // Welle V1.4.5.3 "lexoffice-Live-Anbindung" adds 43-accounting-export.kuml.kts's FOUR
+            // real tables (accounting_export_connection, accounting_export_run,
+            // accounting_export_item, accounting_export_category_map), WITH THREE cross-domain
+            // stubs (Member, JournalEntry, LedgerAccount) -- all three stubs dedup into already-real
+            // entities (member/journal_entry/ledger_account) -- so it contributes +7 «Entity»
+            // declarations (3 stubs + 4 real tables) and 3 drops, net +4 distinct table names versus
+            // the V1.4.4.4 baseline above (130 -> 134).
+            val distinctTableNames = 134
 
             val result =
                 UmlToExposedViaErmScriptTransformer().transform(
@@ -536,6 +543,14 @@ class DomainModelMergerTest :
                     // into the already-real member entity, no new Table file for it.
                     "MemberFamilyTable.kt",
                     "MemberFamilyLinkTable.kt",
+                    // Welle V1.4.5.3 "lexoffice-Live-Anbindung" -- four new real tables
+                    // (accounting_export_connection/_run/_item/_category_map); their Member/
+                    // JournalEntry/LedgerAccount cross-domain stubs all dedup into already-real
+                    // entities, no new Table file for any of them.
+                    "AccountingExportConnectionTable.kt",
+                    "AccountingExportRunTable.kt",
+                    "AccountingExportItemTable.kt",
+                    "AccountingExportCategoryMapTable.kt",
                 )
         }
 

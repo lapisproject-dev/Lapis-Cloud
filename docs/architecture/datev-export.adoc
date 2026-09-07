@@ -215,9 +215,20 @@ its row/entry counts, and its blockers — but never a single Buchungstext.
 every posted entry in the period, including donation bookings that can name a donor — the same
 sensitivity tier the pain.008 file already established.
 
+== Related: live push to Lexware Office
+
+Welle V1.4.5.3 added a second, structurally different export path — a live, authenticated push of
+POSTED journal entries directly into Lexware Office (lexoffice), no file/manual handoff involved. See
+`docs/architecture/accounting-export-lexoffice.adoc`. The two paths share their database read:
+`buildDatevExportRequest` was folded into the provider-neutral
+`network.lapis.cloud.server.accounting.export.buildJournalExportRequest` that wave introduces — this
+DATEV path's own behavior (including its golden-file tests) stayed byte-identical throughout that
+refactor.
+
 == What doesn't work yet
 
-* **DATEV Connect / a live API integration** — this is a file export only, not a push integration.
+* **DATEV Connect / a live API integration** — this is a file export only, not a push integration
+(see "Related" above for the live lexoffice push path this repo now also has).
 * **Debitoren-/Kreditorenkonten** — no accounts-receivable/-payable sub-ledger export.
 * **USt-Schlüssel** — field 9 (BU-Schlüssel) is always empty; Lapis tracks no VAT codes.
 * **Kostenstellenübergabe** — field 37 (KOST1) is always empty; no agreed cost-center mapping to
