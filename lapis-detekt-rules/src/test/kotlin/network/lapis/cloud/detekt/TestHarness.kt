@@ -10,7 +10,7 @@ import org.jetbrains.kotlin.config.LanguageVersionSettingsImpl
 
 /**
  * Minimal stand-in for `dev.detekt.test.lintWithContext`, kept local because the published
- * `dev.detekt:detekt-test:2.0.0-alpha.5` artifact cannot be resolved from outside the detekt
+ * `dev.detekt:detekt-test:2.0.0-alpha.6` artifact cannot be resolved from outside the detekt
  * monorepo (its Gradle module metadata requests the `detekt-api-test-fixtures` capability,
  * which `detekt-api` never publishes a runtime jar for — see the comment in build.gradle.kts).
  * `detekt-test-utils` (`KotlinAnalysisApiEngine`, `createEnvironment`) resolves cleanly and is

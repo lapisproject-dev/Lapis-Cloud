@@ -467,6 +467,34 @@ All notable changes to this project are documented here. Format follows
   werden — der Hinweistext nennt jetzt den Anbieter namentlich, die `VERSION` wurde deshalb
   gebumpt (`"2026-09-08.v2"`).
 
+**Wartungswelle "Dependency-Bumps" (2026-09-08) — 13 einzeln verifizierte Stages**
+
+Reine Versions-Bumps in `gradle/libs.versions.toml` (+ `gradle/wrapper/gradle-wrapper.properties`),
+keine Schema-/API-Änderungen. Jede Zeile unten ist ein eigener, per `./gradlew clean check
+--no-build-cache --rerun-tasks` verifizierter Commit auf dem Feature-Branch (3454 Testcases,
+identisch vor/nach jeder Stage):
+
+| Artefakt | Vorher | Nachher | Anmerkung |
+|---|---|---|---|
+| Gradle Wrapper | 9.6.1 | 9.7.1 | — |
+| Kotlin | 2.4.10 | 2.4.20 | `lapis-client/.kotlin-js-store/yarn.lock` neu generiert (`kotlinUpgradeYarnLock`) |
+| KSP | 2.3.10 | 2.3.11 | unabhängiger Patch, nicht mehr an Kotlin-Version gekoppelt |
+| detekt | 2.0.0-alpha.5 | 2.0.0-alpha.6 | Lockstep mit kUMLs aktuellem alpha-Pin (kUML selbst steht seit kurzem auf alpha.6) |
+| Ktor | 3.5.1 | 3.5.2 | reiner Performance-/Bugfix-Patch, keine neue Logging-Infrastruktur |
+| kotest | 6.2.2 | 6.2.4 | — |
+| logback | 1.5.38 | 1.6.3 | **behebt CVE-2026-19880** (Path-Traversal in `MDCBasedDiscriminator`, hier nicht genutzt) |
+| kotlin-logging | 7.0.7 | 8.0.4 | Quellkompatibilität vorab per Signaturvergleich verifiziert (Lambda-Formen unverändert) |
+| nimbus-jose-jwt | 10.2 | 10.9.1 | sicherheitskritisch (OIDC-Föderation) — alg-Allowlist in `OidcJwt.verifySignature` unverändert |
+| h2 | 2.4.240 | 2.5.250 | alle 43 `*SchemaDriftTest`-Klassen (27 Flyway-Migrationen) grün |
+| Exposed | 1.3.1 | 1.5.0 | `forUpdate()`-SQL-Erzeugung bytecode-identisch verifiziert (javap-Vergleich `AbstractQuery`/`ForUpdateOption`) |
+| Flyway | 12.11.0 | 13.5.0 | Re-`migrate()`-Test gegen eine mit 12.11.0 migrierte DB: sauberer No-op, kein Checksum-Mismatch |
+| kUML (12 Testartefakte) | 0.36.1 | 0.53.0 | ausschließlich `testImplementation`, kein Produktionsrisiko |
+
+Bewusst **nicht** gebumpt (RC/Milestone-Versionen zum Prüfzeitpunkt, per `maven-metadata.xml`
+verifiziert): kvision (9.7.0-RC2), kilua-rpc (0.0.46-RC), kotlinx-serialization (1.12.0-RC),
+jakarta-mail-api (2.2.0-M1), angus-mail (2.1.0-M1). postgresql/hikaricp/pdfbox/bcrypt/kotlinx-html/
+zxing-core/ktlint-plugin waren bereits aktuell.
+
 ### Fixed
 
 - **`getMemberContributionSummary.totalOpen` zählte nur `OPEN`** und ignorierte

@@ -245,8 +245,8 @@ internal fun defaultStripeHttpClient(): HttpClient =
  *
  * **Scope of the guarantee** (same correction [network.lapis.cloud.server.economy.oracle
  * .readCappedBodyOrNull] KDoc documents -- Security-Audit-Runde 1 / S3 -- applies verbatim here):
- * the one call site uses the non-streaming `httpClient.post(...)` request form, under which Ktor
- * 3.5.1's internal `SaveBody` plugin has already buffered the ENTIRE response body into memory
+ * the one call site uses the non-streaming `httpClient.post(...)` request form, under which Ktor's
+ * internal `SaveBody` plugin has already buffered the ENTIRE response body into memory
  * before this function ever runs. This cap therefore bounds the copy/parse step that follows, but
  * does **NOT** bound how much a single `pspConfig.apiBaseUrl` response can make the JVM buffer
  * before that. Genuinely closing that gap requires the streaming

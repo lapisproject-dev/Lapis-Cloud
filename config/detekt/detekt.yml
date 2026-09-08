@@ -24,7 +24,7 @@ console-reports:
 # flips a default cannot silently switch a ruleset on.
 #
 # NOTE: only the ruleset ids below are recognised by this project's classpath
-# (dev.detekt:2.0.0-alpha.5 core + the default rule modules it pulls in).
+# (dev.detekt:2.0.0-alpha.6 core + the default rule modules it pulls in).
 # "errorprone", "formatting", "libraries" and "ruleauthors" are NOT valid keys
 # here — with config.validation: true, listing them fails the build with
 # "Property '<x>' is misspelled or does not exist". Those rulesets require

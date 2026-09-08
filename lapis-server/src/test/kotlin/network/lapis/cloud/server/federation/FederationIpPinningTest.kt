@@ -42,8 +42,8 @@ private const val TLS_TEST_WRONG_HOSTNAME = "wrong-host.lapisproject.invalid"
  *   captured at [requireSafeFederationUrl] time, never re-resolving, via a [MockEngine]-backed
  *   client (application-level contract; the "CIO itself performs zero DNS lookups for a literal
  *   IP" half of the guarantee is a JDK/Ktor-source fact, verified directly against the actual
- *   pinned Ktor 3.5.1 sources -- see [FederationIpPinningPlugin] KDoc -- not something a
- *   [MockEngine] test can observe).
+ *   Ktor CIO sources for this project's pinned version -- see [FederationIpPinningPlugin] KDoc --
+ *   not something a [MockEngine] test can observe).
  * - **T3**: the requirement-3 centerpiece -- a REAL CIO+TLS connection, through the ACTUAL
  *   [FederationIpPinningPlugin] (not a hand-rolled lookalike -- the request is built against the
  *   ORIGINAL hostname, exactly like every real call site's `client.get(actorUri)`, and the plugin

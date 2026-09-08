@@ -10,10 +10,12 @@
         deliberately never installs Ktor's `Logging` plugin, specifically because two of its sources
         (MetalpriceAPI, Alpha Vantage) carry their API key in the request URL's query string, and that
         plugin would put the full URL straight into the log (see OracleHttpClient.kt's
-        oracleHttpClient() KDoc). But Ktor 3.5.1's OWN internal client plugins (SaveBody,
-        HttpTimeout, HttpCallValidator) independently log `request.url` verbatim at TRACE level on
-        code paths every oracle request always executes; avoiding the Logging plugin alone does NOT
-        prevent this. Without an explicit floor here, an operator raising the root (or `io.ktor`)
+        oracleHttpClient() KDoc). But Ktor's OWN internal client plugins (SaveBody, HttpTimeout,
+        HttpCallValidator) independently log `request.url` verbatim at TRACE level on code paths
+        every oracle request always executes; avoiding the Logging plugin alone does NOT prevent
+        this. Re-checked against the 3.5.2 changelog (dependency-bump wave, 2026-09-08): no new
+        logger names or logging-infrastructure changes landed, floor is still current. Without an
+        explicit floor here, an operator raising the root (or `io.ktor`)
         level to DEBUG/TRACE for troubleshooting, a normal, expected diagnostic step when a gold
         source starts failing, would leak the query-string API keys into stdout/the Docker log
         driver/any log aggregator in cleartext. Do NOT remove this floor "to see more Ktor detail";

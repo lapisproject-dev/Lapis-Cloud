@@ -1,21 +1,21 @@
 [versions]
-kotlin                  = "2.4.10"
+kotlin                  = "2.4.20"
 kvision                 = "9.6.0"
-ktor                    = "3.5.1"
-logback                 = "1.5.38"
-kotlin-logging          = "7.0.7"
-kotest                  = "6.2.2"
+ktor                    = "3.5.2"
+logback                 = "1.6.3"
+kotlin-logging          = "8.0.4"
+kotest                  = "6.2.4"
 ktlint-plugin           = "14.2.0"
-ksp                     = "2.3.10"
+ksp                     = "2.3.11"
 kilua-rpc               = "0.0.45"
 kotlinx-serialization   = "1.11.0"
 kotlinx-datetime        = "0.8.0"
-exposed                 = "1.3.1"
-flyway                  = "12.11.0"
+exposed                 = "1.5.0"
+flyway                  = "13.5.0"
 postgresql              = "42.7.13"
-h2                      = "2.4.240"
+h2                      = "2.5.250"
 hikaricp                = "7.1.0"
-kuml                    = "0.36.1"
+kuml                    = "0.53.0"
 pdfbox                  = "3.0.8"
 bcrypt                  = "0.10.2"
 # V0.8.2 OIDC-Gastzugang-Federation: JOSE/JWT sign+verify (ID Tokens, Logout Tokens). Deliberate
@@ -24,7 +24,7 @@ bcrypt                  = "0.10.2"
 # (attacker-controlled `alg` header, industry-wide alg-confusion/none-alg CVE history). Apache-2.0,
 # pure JVM, zero transitive deps -- matches this repo's hard permissive-license/no-native-deps
 # posture (same tier as pdfbox/bcrypt).
-nimbus-jose-jwt         = "10.2"
+nimbus-jose-jwt         = "10.9.1"
 
 # V1.2.3 Echter SMTP-Versand (Passwort-Reset + FRIEND-E-Mail-Verifizierung). Eclipse Angus ist der
 # direkte JavaMail-/Jakarta-Mail-Nachfolger und die Referenzimplementierung, auf der jeder
@@ -41,15 +41,18 @@ angus-mail              = "2.0.5"
 
 # ── Detekt (custom ruleset :lapis-detekt-rules — RequireNamedArguments gate) ──
 # Ported from kuml-dev/kUML's gradle/libs.versions.toml (same rule, same reasoning).
-# Pinned to the 2.0.0-alpha.5 K2/Analysis-API line, NOT the stable 1.23.8 line —
+# Pinned to the 2.0.0-alpha.6 K2/Analysis-API line, NOT the stable 1.23.8 line —
 # 1.23.8 pins kotlin-compiler-embeddable:2.0.21, whose shaded IntelliJ JavaVersion
 # cannot parse JDK 26's version string ("26.0.2") and crashes in the Gradle daemon
-# JVM (jvmToolchain does not help, it runs in-process). 2.0.0-alpha.5 pins a Kotlin
-# compiler matching this repo's kotlin.version line closely enough to be usable.
-# A newer 2.0.0-alpha.6 exists on Maven Central (checked 2026-08-15) but is not a
-# stable release — kept in lockstep with kUML's pinned alpha.5 for cross-repo
-# consistency rather than chasing an equally-alpha newer build.
-detekt                  = "2.0.0-alpha.5"
+# JVM (jvmToolchain does not help, it runs in-process). alpha.6 pins
+# kotlin-compiler:2.4.10 (up from alpha.5's 2.4.0) — a newer embedded compiler that
+# strengthens exactly the JDK-version-string-parsing rationale this pin exists for.
+# Bumped 2026-09-08 from alpha.5: kUML itself moved to alpha.6 (verified against
+# kuml-dev/kUML's own gradle/libs.versions.toml on that date) — staying on alpha.5
+# would now be the lockstep-BREAKING choice, not the lockstep-preserving one. No
+# stable 2.0.0 release exists yet; kept in lockstep with kUML's current alpha pin
+# for cross-repo consistency rather than freezing on an older alpha build.
+detekt                  = "2.0.0-alpha.6"
 
 # V1.1.3 Soziales Netzwerk "Öffentlicher SEO-Lesepfad": typsicherer HTML-Builder für den ersten
 # unauthentifizierten HTML-Renderpfad dieses Repos. Apache-2.0, JetBrains, reines JVM-Artefakt ohne

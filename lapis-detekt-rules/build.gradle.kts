@@ -17,7 +17,7 @@ dependencies {
 
     // NOTE: deliberately NOT depending on dev.detekt:detekt-test here. Its
     // published Gradle module metadata requests the `detekt-api-test-fixtures`
-    // capability, but dev.detekt:detekt-api 2.0.0-alpha.5 only ever published a
+    // capability, but dev.detekt:detekt-api 2.0.0-alpha.6 only ever published a
     // sources-only variant for that capability (no compiled jar) — resolving
     // detekt-test's testRuntimeClasspath fails with "No matching variant ...
     // requested capability 'dev.detekt:detekt-api-test-fixtures'". This is an

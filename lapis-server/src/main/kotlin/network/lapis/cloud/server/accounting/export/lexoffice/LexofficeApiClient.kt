@@ -344,7 +344,7 @@ internal fun defaultLexofficeHttpClient(): HttpClient =
  * .readCappedBodyOrNull] KDoc documents for the oracle client -- Security-Audit-Runde 1 / S3 --
  * applies verbatim here): every current call site (`getProfile`, `listPostingCategories`,
  * `createVoucher`) uses the non-streaming `httpClient.get(...)`/`post(...)` request form, under
- * which Ktor 3.5.1's internal `SaveBody` plugin has already buffered the ENTIRE response body into
+ * which Ktor's internal `SaveBody` plugin has already buffered the ENTIRE response body into
  * memory before this function -- or any of this class's code -- ever runs. This function's own
  * read loop therefore bounds the cost of the copy/parse step that follows, but it does **NOT**
  * bound how much a single `api.lexware.io` response can make the JVM buffer before that -- a

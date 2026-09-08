@@ -91,7 +91,7 @@ internal fun requireAllowlistedHttpsUrl(urlString: String) {
  *   logs only via [logSourceFailure] (source id + exception class name, never the URL/body).
  *
  *   **Avoiding the `Logging` plugin is NOT sufficient on its own** (Security-Audit-Runde 1 / S2):
- *   Ktor 3.5.1's OWN internal client plugins -- `SaveBody`, `HttpTimeout`, `HttpCallValidator` --
+ *   Ktor's OWN internal client plugins -- `SaveBody`, `HttpTimeout`, `HttpCallValidator` --
  *   independently log `request.url` verbatim at TRACE level on code paths every request through this
  *   client always executes (e.g. `SaveBody` logs on every response, `Logging`-plugin-free or not).
  *   An operator who raises the root or `io.ktor` logger level to DEBUG/TRACE to diagnose a failing
@@ -123,7 +123,7 @@ internal fun oracleHttpClient(): HttpClient =
  *
  * **Scope of the guarantee (corrected, Security-Audit-Runde 1 / S3)**: every current call site uses
  * the non-streaming `httpClient.get(url)`/`httpClient.get(url) { ... }` request form, under which
- * Ktor 3.5.1's internal `SaveBody` plugin has already buffered the ENTIRE response body into memory
+ * Ktor's internal `SaveBody` plugin has already buffered the ENTIRE response body into memory
  * before this function -- or any of this codebase's code -- ever runs. This cap therefore bounds the
  * cost of the PARSE/PROCESSING step that follows (and this function's own extra copy), but it does
  * **NOT** bound how much a single peer response can make the JVM buffer -- a malicious or buggy

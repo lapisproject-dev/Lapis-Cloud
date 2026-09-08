@@ -122,7 +122,7 @@ internal class FederationIpPinningConfig {
  * reaches the CIO engine -- and sets an explicit `Host:` header to the ORIGINAL hostname so
  * virtual-hosted remote servers still route the request correctly.
  *
- * **Why this closes the gap (evidence, not assumption -- read against the actual Ktor 3.5.1 JVM
+ * **Why this closes the gap (evidence, not assumption -- read against the actual Ktor JVM
  * sources for this project's pinned version, `io.ktor:ktor-client-cio` etc.)**:
  * 1. `CIOEngineConfig` (`io.ktor.client.engine.cio.CIOEngineConfig`) exposes only `endpoint {}`,
  *    `https {}` (`TLSConfigBuilder`), `maxConnectionsCount`, `requestTimeout` -- there is genuinely
