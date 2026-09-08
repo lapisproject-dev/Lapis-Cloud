@@ -33,8 +33,25 @@ object AppState {
 
     fun hasRole(vararg roles: AccountRole): Boolean = session?.role in roles
 
-    /** The single place [session] is ever mutated -- guarantees [onSessionChange] always fires. */
+    /**
+     * The single place [session] is ever mutated -- guarantees [onSessionChange] fires whenever
+     * the session actually changes.
+     *
+     * Review-Fund 2026-09-08 Runde 4 (Finding 1, KRITISCH, live verifiziert): no-op guard added --
+     * previously this fired [onSessionChange] unconditionally, including a `null` -> `null` call,
+     * which is not a theoretical edge case but the ROUTINE outcome of `App.kt`'s boot-time session
+     * probe for every anonymous first-time visitor (`App.start()`'s `AppScope.launch` block calls
+     * this with whatever the probe resolved to, right after the shell's own initial, synchronous
+     * `refreshShell()` call already rendered the anonymous state once). That redundant second
+     * [onSessionChange] call -- wired to `App.kt`'s `refreshShell` -- used to force a real
+     * unmount/remount cycle of the sidebar `Offcanvas` on a desktop viewport, which is the other
+     * half of the fix for that same finding (see `App.kt`'s `refreshShell` KDoc). [SessionInfoDto]
+     * is a plain `data class` (structural `==`), so this comparison is cheap and correct for the
+     * genuine no-op case; a real login/logout, or a session actually being refreshed with a new
+     * `expiresAt`, still compares unequal and fires as before.
+     */
     fun setSession(newSession: SessionInfoDto?) {
+        if (newSession == session) return
         session = newSession
         onSessionChange()
     }

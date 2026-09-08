@@ -179,6 +179,128 @@ body {
   color: inherit;
 }
 
+/* Vertical-Sidebar-Umbau (2026-09-08) -- UI/UX-Design-Team-Review, Jobs' final review. Replaces
+   the horizontal navbar dropdown menu with a persistent (desktop) / offcanvas (mobile) vertical
+   sidebar, PZB-style. See `Sidebar.kt`/`App.kt` for the KVision-side construction. */
+
+:root {
+  --lapis-sidebar-width: 264px;
+}
+
+.lapis-shell {
+  align-items: flex-start;
+}
+
+.lapis-content {
+  flex: 1 1 auto;
+  /* Without this, a wide table (SEPA-Lastschrift, Prüfprotokoll) sprengt den Flex-Container
+     statt zu scrollen -- a flex item's automatic `min-width` is `auto` (= its content's intrinsic
+     width), not `0`, so it never shrinks below that on its own. */
+  min-width: 0;
+}
+
+.lapis-sidebar-toggle {
+  color: var(--lapis-nav-text) !important;
+  border: none !important;
+}
+
+.lapis-sidebar-toggle:hover,
+.lapis-sidebar-toggle:focus {
+  color: #FFFFFF !important;
+  background-color: var(--lapis-nav-hover-bg);
+}
+
+.lapis-sidebar {
+  flex: 0 0 var(--lapis-sidebar-width);
+  --bs-offcanvas-width: min(86vw, 300px);
+  background-color: var(--lapis-surface);
+  border-right: 1px solid var(--lapis-border);
+}
+
+@media (min-width: 992px) {
+  /* Atkinson's finding: KVision's `Offcanvas` calls `this.hide()` in its own `init` block (sets
+     its KVision-level `visible = false`, independent of Bootstrap's own show/hide JS), and its
+     `afterInsert` unconditionally calls `showBootstrap()` once mounted regardless of that flag --
+     the two disagree, and without this override the sidebar renders permanently invisible on a
+     screen wide enough that `.offcanvas-lg` (the `responsiveType` passed to `shell.offcanvas(...)`
+     in App.kt) should have made it a normal, always-visible, non-modal panel. `!important` is
+     load-bearing here -- DO NOT remove it as unexplained "cleanup"; without it the sidebar
+     silently vanishes again on every desktop viewport. Verified against the pinned
+     kvision-bootstrap 9.6.0 `Offcanvas.kt` source, see plan Abschnitt 7 Stolperfalle 1.
+     `position: sticky` keeps it in view while `.lapis-content` scrolls past it.
+
+     Review-Fund 2026-09-08 (Finding 2, HOCH): `:not(.lapis-sidebar-empty)` -- this same
+     `!important` override that correctly forces the POPULATED sidebar visible on desktop also, by
+     construction, forced an EMPTY one visible: `Sidebar.kt`'s `clearSidebar()` (anonymous session
+     -- e.g. every visit to the unguarded LOGIN/REGISTER/PASSWORD_RESET/VERIFY_EMAIL routes) empties
+     the sidebar's content and calls `sidebar.hide()`, but `sidebar.hide()` only ever adds KVision's
+     own `.hidden` class (`display: none !important` at LOWER specificity than this rule) -- it
+     never touches the `offcanvas-lg` class this selector matches on, so this rule kept winning and
+     left a permanently visible, empty, ~264px-wide bordered column next to e.g. the login form on
+     any desktop viewport. `clearSidebar`/`buildSidebar` now toggle `.lapis-sidebar-empty` in lock
+     step with whether there is anything in the sidebar to show; exempting it here lets `.hidden`'s
+     own `display: none !important` win again for that one case, while leaving the populated-sidebar
+     desktop behavior this rule exists for completely unchanged. */
+  .lapis-sidebar.offcanvas-lg:not(.lapis-sidebar-empty) {
+    display: block !important;
+    position: sticky;
+    top: 0;
+    max-height: 100vh;
+    overflow-y: auto;
+  }
+
+  .lapis-sidebar-toggle {
+    display: none;
+  }
+
+  /* The fixed bottom conference control bar (`.lapis-conference-controls-row`, further below)
+     otherwise sits centered under the FULL viewport width, including the space the sidebar now
+     permanently occupies on desktop -- shift its left edge in by the sidebar's own width so it
+     stays centered under `.lapis-content` instead. */
+  .lapis-conference-controls-row {
+    left: var(--lapis-sidebar-width);
+  }
+}
+
+.lapis-sidebar .nav-link {
+  color: var(--lapis-text);
+  border-bottom: none;
+  padding: 0.5rem 0.5rem;
+}
+
+.lapis-sidebar .nav-link:hover,
+.lapis-sidebar .nav-link:focus {
+  background-color: var(--lapis-accent-soft);
+}
+
+.lapis-sidebar .nav-link.active {
+  background-color: var(--lapis-accent-soft);
+  color: var(--lapis-text);
+  box-shadow: inset 3px 0 0 var(--lapis-fleck-ink);
+}
+
+.lapis-sidebar-group-header {
+  color: var(--lapis-muted);
+  font-size: 0.8125rem;
+  letter-spacing: 0.02em;
+  text-decoration: none !important;
+  padding: 0.5rem 0.5rem;
+}
+
+.lapis-sidebar-group-header:hover,
+.lapis-sidebar-group-header:focus {
+  color: var(--lapis-text);
+  background-color: var(--lapis-accent-soft);
+}
+
+.lapis-sidebar-group-header.active {
+  color: var(--lapis-fleck-ink);
+}
+
+.lapis-sidebar-group-body .nav-link {
+  padding-left: 1.75rem;
+}
+
 /* Global focus ring: gold works on both black nav and white content -- the one place gold serves
    two grounds, because a focus ring's only job is "be visible everywhere". */
 :focus-visible {

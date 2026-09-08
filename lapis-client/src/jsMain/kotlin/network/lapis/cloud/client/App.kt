@@ -5,32 +5,41 @@ import io.kvision.BootstrapCssModule
 import io.kvision.BootstrapModule
 import io.kvision.CoreModule
 import io.kvision.FontAwesomeModule
-import io.kvision.dropdown.DropDown
+import io.kvision.core.AlignItems
 import io.kvision.dropdown.ddLink
 import io.kvision.dropdown.dropDown
+import io.kvision.dropdown.separator
+import io.kvision.html.ButtonStyle
 import io.kvision.html.Link
+import io.kvision.html.button
 import io.kvision.html.span
 import io.kvision.i18n.I18n
 import io.kvision.i18n.gettext
 import io.kvision.i18n.tr
 import io.kvision.navbar.Nav
 import io.kvision.navbar.Navbar
+import io.kvision.navbar.NavbarExpand
 import io.kvision.navbar.nav
 import io.kvision.navbar.navLink
-import io.kvision.navbar.navLinkDisabled
 import io.kvision.navbar.navbar
+import io.kvision.offcanvas.OffPlacement
+import io.kvision.offcanvas.OffResponsiveType
+import io.kvision.offcanvas.Offcanvas
+import io.kvision.offcanvas.offcanvas
+import io.kvision.panel.hPanel
 import io.kvision.panel.root
 import io.kvision.panel.vPanel
 import io.kvision.remote.registerRemoteTypes
 import io.kvision.startApplication
+import kotlinx.browser.document
 import kotlinx.browser.localStorage
 import kotlinx.browser.window
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.asCoroutineDispatcher
 import kotlinx.coroutines.launch
-import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.rpc.IAuthService
+import org.w3c.dom.events.Event
 import org.w3c.dom.get
 import org.w3c.dom.set
 
@@ -151,6 +160,21 @@ private fun setLanguage(code: String) {
 }
 
 /**
+ * Vertical-Sidebar-Umbau (2026-09-08): the currently-loaded hash route, read directly off
+ * `window.location.hash` -- NOT off [NavHighlight]'s own tracked `activeRoute`, which is still
+ * `null` at the point `App.start()` first needs this (the boot-time session probe resolves, and
+ * fires [AppState.onSessionChange], BEFORE `initRouting` ever calls `Routing.kt`'s `show()` the
+ * first time). Reading the raw URL fragment sidesteps that ordering entirely: it reflects
+ * whatever deep link the browser already has, independent of whether `kvResolve()` has run yet --
+ * exactly what `Sidebar.kt`'s `buildSidebar` needs to decide which group (if any) starts forced
+ * open on a fresh page load (see that function's own KDoc).
+ */
+private fun currentHashRoute(): String? =
+    window.location.hash
+        .removePrefix("#")
+        .ifBlank { null }
+
+/**
  * V0.7.3 Basis-Mehrseiten-UI: replaces the V0.1.5 single-dashboard "acting as" member-switcher
  * demo with a real, multi-screen SPA covering the core domains needed for a first deployment. Each
  * screen lives in its own file (`LoginScreen.kt`, `RegistrationScreen.kt`, `DashboardScreen.kt`,
@@ -163,7 +187,18 @@ private fun setLanguage(code: String) {
 class App : Application() {
     override fun start() {
         root("lapis-client") {
-            val navbar = navbar(label = Branding.title, link = "#${Routes.DASHBOARD}", className = "lapis-navbar")
+            // Vertical-Sidebar-Umbau (2026-09-08): `expand = ALWAYS` means the navbar itself never
+            // collapses into Bootstrap's own hamburger toggler -- there is nothing left in it that
+            // WOULD need one (language switcher + account menu are two small dropdowns, not a long
+            // link list any more), and a second, redundant hamburger next to the sidebar's own
+            // `toggleButton` below would be confusing (which one opens what?).
+            val navbar =
+                navbar(
+                    label = Branding.title,
+                    link = "#${Routes.DASHBOARD}",
+                    className = "lapis-navbar",
+                    expand = NavbarExpand.ALWAYS,
+                )
             // UI/UX-Design-Team-Review 2026-08-14 (Forstall): the brand mark reuses the exact
             // gem-glyph polygon geometry from cloud.lapisproject.dev's Logo.astro, not a
             // reinterpretation, so the deployed app and the marketing site read as one product.
@@ -196,12 +231,179 @@ class App : Application() {
                     // Custom title, no custom logo -- no mark, see comment above.
                 }
             }
-            refreshNavbar(navbar)
-            val pageContainer = vPanel()
+            // Review-Fund 2026-09-08 (Finding 1, KRITISCH): the toggle button used to be built HERE,
+            // once, as a local `val`. `Navbar.add()` (verified against pinned kvision-bootstrap
+            // 9.6.0 `Navbar.kt`) unconditionally routes every child -- this button included -- into
+            // the navbar's own private collapsible `container` panel, and `refreshNavbar`'s own
+            // `navbar.removeAll()` (see that function below) clears exactly that panel. Since
+            // `refreshShell()` (which calls `refreshNavbar`) runs synchronously a few lines below,
+            // still during boot, the button built here was deleted again before any user could ever
+            // see or click it -- live-verified: `.lapis-sidebar-toggle`/`fa-bars` had 0 DOM matches.
+            // It is now built fresh inside `refreshNavbar` itself instead, on every call, exactly
+            // like every other piece of `container` content that function already throws away and
+            // reconstructs (language switcher, account dropdown) -- see that function's own KDoc.
+
+            // `hPanel`, not `vPanel` -- `VPanel` bakes `flex-direction: column` into an INLINE
+            // style, which would silently defeat `.lapis-shell`'s side-by-side layout regardless
+            // of what theme.css says (inline style always wins over a stylesheet without
+            // `!important`). `HPanel` bakes in `flex-direction: row` instead, which is what a
+            // sidebar-beside-content layout actually needs -- see this file's own KDoc trail for
+            // why this was verified against the pinned KVision 9.6.0 source rather than assumed.
+            val shell = hPanel(alignItems = AlignItems.FLEXSTART, className = "lapis-shell")
+            // Verified against the pinned kvision-bootstrap 9.6.0 `Offcanvas.kt` source (no local
+            // sources jar was available to browse in the IDE) -- `Offcanvas` IS-A `SimplePanel`
+            // whose overridden `add()` delegates to its own private `body` panel, so `sidebar`
+            // itself (not a separate `sidebar.body`) is exactly the right `SimplePanel` to hand to
+            // `buildSidebar` below and to every DSL builder (`.link`/`.button`/...) it uses.
+            // `responsiveType = RESPONSIVELG` is the `.offcanvas-lg` class theme.css's `!important`
+            // rule (see that file's own comment) forces permanently visible from 992px up -- see
+            // plan Abschnitt 7 Stolperfalle 1, the single highest-priority pitfall of this wave.
+            val sidebar =
+                shell.offcanvas(
+                    placement = OffPlacement.START,
+                    closeButton = true,
+                    responsiveType = OffResponsiveType.RESPONSIVELG,
+                    scrollableBody = true,
+                    backdrop = true,
+                    escape = true,
+                    className = "lapis-sidebar",
+                )
+            // Review-Fund 2026-09-08 (Finding 1, KRITISCH): KVision 9.6.0's `Offcanvas.afterInsert()`
+            // unconditionally calls `showBootstrap()` the moment this widget is mounted -- it never
+            // consults the KVision-level `visible` flag `init { this.hide() }` set to `false` (see
+            // the pinned kvision-bootstrap 9.6.0 `Offcanvas.kt` source, `afterInsert` override).
+            // `showBootstrap()` is real Bootstrap 5.3 `Offcanvas.prototype.show()`, which (because
+            // `backdrop = true` above) unconditionally creates a full-viewport dark `.offcanvas-
+            // backdrop` and locks page scroll -- on EVERY app boot, EVERY viewport size including
+            // desktop, since Bootstrap's own JS never consults the `.offcanvas-lg` breakpoint CSS
+            // relies on (theme.css's `!important` desktop override is a separate, CSS-only concern,
+            // see that file's own comment). Left unfixed, the very first paint of the app -- the
+            // login form included -- is instantly covered by that backdrop until a user stumbles
+            // onto dismissing it (click-outside or Escape).
+            //
+            // Cancelled here, not compensated for after the fact (e.g. a follow-up
+            // `sidebar.hideBootstrap()`), because compensating would still flash the backdrop
+            // on-screen for one animation frame before hiding it again. Bootstrap's real `show()`
+            // (bootstrap 5.3.3 `js/src/offcanvas.js`) fires a genuine, cancelable, BUBBLING DOM
+            // event `show.bs.offcanvas` as its very first act and returns immediately -- without
+            // ever creating the backdrop -- if that event's `defaultPrevented` is true. Listening on
+            // `document` (rather than the sidebar's own element, which does not exist in the real
+            // DOM yet at this point -- `afterInsert` has not run) still catches it because the event
+            // bubbles.
+            //
+            // Review-Fund 2026-09-08 Runde 4 (Finding 1+2, beide KRITISCH, live verifiziert): the
+            // PREVIOUS version of this fix removed the listener from INSIDE the handler, after
+            // matching one `show.bs.offcanvas` event on `sidebar`'s own element. That is wrong on
+            // both sides of the breakpoint:
+            //  - Desktop (>=992px): `refreshShell()` (below) runs a SECOND time as soon as the
+            //    boot-time session probe resolves -- even when it resolves back to `null` for the
+            //    ordinary anonymous visitor, because `AppState.setSession` (see that file's own
+            //    fix) used to fire `onSessionChange` unconditionally. That second `refreshShell()`
+            //    call used to unmount-then-immediately-remount the sidebar (`sidebar.hide()`
+            //    followed by the eager-mount `sidebar.show()`), firing a SECOND `show.bs.offcanvas`
+            //    event that the already-self-removed listener could no longer catch -- Bootstrap's
+            //    real backdrop then stayed on screen over the login form. Fixed at the source below:
+            //    `refreshShell()`'s anonymous branch no longer unmounts the sidebar when it is about
+            //    to be eagerly re-mounted anyway, so `sidebar.show()` becomes the no-op KVision's own
+            //    `Widget.visible` setter already promises once nothing actually changed.
+            //  - Mobile (<992px): the sidebar never auto-mounts at boot, so the self-removing
+            //    listener stayed armed indefinitely -- and the very FIRST `show.bs.offcanvas` event
+            //    it could ever catch was the user's own first tap on the hamburger button
+            //    (`toggleButton.onClick` in `refreshNavbar` below), which it wrongly swallowed:
+            //    `preventDefault()` blocked Bootstrap's real `show()`, so the drawer never actually
+            //    became visible even though KVision's `visible` flag (and `aria-expanded`) said it
+            //    had. Fixed here instead: the listener's lifetime is now scoped EXPLICITLY to the one
+            //    synchronous `refreshShell()` call a few lines below, not to "whichever
+            //    `show.bs.offcanvas` event happens to fire first" -- it is removed unconditionally
+            //    right after that call returns, whether or not it actually intercepted anything
+            //    (mobile: it never does, and is now gone before the user's first real tap can reach
+            //    it; desktop: it catches exactly that one boot-time auto-show, same as before).
+            lateinit var cancelInitialAutoShow: (Event) -> Unit
+            cancelInitialAutoShow = { event ->
+                if (event.target == sidebar.getElement()) {
+                    event.preventDefault()
+                }
+            }
+            document.addEventListener("show.bs.offcanvas", cancelInitialAutoShow)
+
+            val pageContainer = shell.vPanel(className = "lapis-content")
+
+            // Rebuilds both the navbar (language switcher + account menu, toggle button included)
+            // and the sidebar (route list) together -- a single entry point so every trigger that
+            // needs both in sync (session change, language switch) only has one function to call,
+            // never two calls that could drift out of step with each other.
+            fun refreshShell() {
+                refreshNavbar(navbar, sidebar, onLanguageChange = ::refreshShell)
+                val session = AppState.session
+                if (session != null) {
+                    buildSidebar(sidebar, session, currentHashRoute()) { sidebar.hide() }
+                } else {
+                    // Anonymous (both "not yet known, probe still in flight" and "definitely
+                    // logged out") -- no sidebar CONTENT at all, see `refreshNavbar`'s own
+                    // `session == null` branch KDoc for why this state is reachable well past boot
+                    // (LOGIN/REGISTER/REGISTER_FRIEND/PASSWORD_RESET/VERIFY_EMAIL are all unguarded
+                    // routes).
+                    clearSidebar(sidebar)
+                    // Review-Fund 2026-09-08 Runde 4 (Finding 1, KRITISCH): this used to be an
+                    // unconditional `sidebar.hide()` here, on every single call of this function --
+                    // including the routine "session probe resolved, still anonymous" call every
+                    // ordinary visitor's boot sequence makes. On a desktop viewport that turned every
+                    // such call into a real unmount (this `hide()`) immediately followed by a real
+                    // remount (the eager-mount `sidebar.show()` below), because the sidebar was
+                    // already mounted+visible from the PRECEDING call. That second mount fires a
+                    // second, genuine `show.bs.offcanvas` event -- which by then no listener is left
+                    // to intercept (see the `cancelInitialAutoShow` comment above) -- so Bootstrap's
+                    // real backdrop stayed on screen over the login form. Only `hide()` when we are
+                    // NOT about to eagerly remount right below: on mobile this is still the ordinary
+                    // "start closed/unmounted" default it always was; on desktop it leaves an
+                    // already-mounted sidebar exactly as it is, so the `sidebar.show()` a few lines
+                    // down becomes the true no-op `Widget.visible`'s own setter already promises
+                    // (only calls `refresh()` on an actual change) instead of a real hide+show cycle.
+                    if (!shouldMountSidebarEagerly(window.innerWidth)) {
+                        sidebar.hide()
+                    }
+                }
+                // Review-Fund 2026-09-08 (Finding 2, KRITISCH): `Offcanvas` starts KVision-invisible
+                // (its own `init { hide() }`), and `SimplePanel.childrenVNodes()` (verified against
+                // pinned kvision 9.6.0 `SimplePanel.kt`) completely EXCLUDES an invisible child from
+                // the rendered DOM -- not merely CSS-hidden, genuinely never inserted. theme.css's
+                // own `@media (min-width: 992px)` `!important` override therefore had nothing to act
+                // on: live-verified, `document.querySelectorAll('[class*=offcanvas]')` had 0
+                // matches, on every viewport, for every session. Mounting it here -- on EVERY
+                // `refreshShell()` call, not just once at boot -- is what actually fixes that: a
+                // no-op once already mounted (`Widget.visible`'s own setter only calls `refresh()`
+                // on an actual change) as long as the anonymous branch above did not just force an
+                // unmount, which (see that branch's own comment) it now no longer does on desktop.
+                // Below the breakpoint this is always a no-op too (`shouldMountSidebarEagerly`
+                // returns `false`) -- the mobile toggle button owns mounting/unmounting entirely via
+                // `Offcanvas.toggle()`'s own normal open/close cycle, exactly as the library intends;
+                // nothing here fights that path. A `resize` listener that re-evaluates this
+                // mid-session (e.g. a desktop window narrowed below, or widened past, 992px without a
+                // reload) is deliberately NOT added -- out of scope for this fix, no finding asked
+                // for it, and `refreshShell()` already re-asserts this on every session/language
+                // change that happens to occur near the breakpoint.
+                if (shouldMountSidebarEagerly(window.innerWidth)) {
+                    sidebar.show()
+                }
+            }
+            refreshShell()
+            // Review-Fund 2026-09-08 Runde 4 (Finding 2, KRITISCH): removed HERE, immediately after
+            // the one synchronous call above that can ever legitimately trigger the boot-time
+            // auto-show `cancelInitialAutoShow` exists to cancel -- unconditionally, whether or not
+            // that call actually mounted the sidebar (desktop: it did, and the event was just
+            // intercepted; mobile: it never mounts at boot, so this is simply tidying up an armed
+            // listener that never fired). Explicit removal here, rather than the event handler
+            // removing itself after its first match, is what keeps this listener from also being
+            // armed for -- and wrongly swallowing -- the mobile hamburger button's own first,
+            // genuinely user-triggered `show.bs.offcanvas` event later on (`toggleButton.onClick` in
+            // `refreshNavbar` below): that first tap could otherwise become the "first `show.bs.
+            // offcanvas` event ever" the old self-removing handler was waiting to match, silently
+            // cancelling the very open the user just asked for.
+            document.removeEventListener("show.bs.offcanvas", cancelInitialAutoShow)
             lapisAttribution()
 
             initNotifications()
-            AppState.onSessionChange = { refreshNavbar(navbar) }
+            AppState.onSessionChange = ::refreshShell
 
             AppScope.launch {
                 // Boot-time session probe -- deliberately NOT routed through `guarded()`: an
@@ -226,262 +428,133 @@ class App : Application() {
 }
 
 /**
- * Nav-Highlight-Welle 2026-08-20: [Nav.navLink] wrapper that additionally registers the resulting
- * [Link] with [NavHighlight] under its target [route] -- every top-level nav link goes through
- * this instead of calling `navLink` directly, so the active-route highlight (see [NavHighlight])
- * covers it without each call site remembering to register itself.
+ * Vertical-Sidebar-Umbau (2026-09-08): shrunk from the pre-umbau version's ~230 lines (six
+ * role-gated dropdowns) down to just the navbar's own remaining chrome -- language switcher +
+ * either a bare "Anmelden" link (no session) or the account menu (session present). Every route
+ * link that used to live here now lives in `Sidebar.kt`'s `buildSidebar` instead -- see that
+ * file's own KDoc for the 1:1 role-gating correspondence. Deliberately does NOT touch
+ * [NavHighlight] any more (no `reset()`/`apply()` call here) -- none of this function's links are
+ * route destinations that should ever carry an active-route highlight (Jobs' review call: the
+ * navbar header is identity/session chrome, not "where am I", see [NavHighlight]'s own KDoc).
+ *
+ * [onLanguageChange] is `App.kt`'s `refreshShell` -- picking a language must also rebuild the
+ * sidebar (every `tr()`-marked sidebar label needs to re-render in the new language too, not just
+ * this navbar), which this function itself has no reference to.
+ *
+ * Review-Fund 2026-09-08 (Finding 1, KRITISCH) -- [sidebar]'s mobile toggle button is built HERE
+ * now, on every call, instead of once in `App.start()`: `Navbar.add()` (verified against pinned
+ * kvision-bootstrap 9.6.0 `Navbar.kt`) unconditionally routes every child added to a `Navbar` --
+ * this button included -- into the navbar's own private collapsible `container` panel, and
+ * `navbar.removeAll()` below clears exactly that panel. A button built once elsewhere and merely
+ * referenced here would still be destroyed by that call; building it fresh here, every time,
+ * keeps it in step with everything else this function already throws away and reconstructs
+ * (language switcher, account dropdown) -- see [App.start] for the live-DOM verification that
+ * found this (0 matches for `.lapis-sidebar-toggle`/`fa-bars`) and the previous, dead code.
  */
-private fun Nav.routedNavLink(
-    route: String,
-    label: String,
-    icon: String,
-): Link = navLink(label, url = "#$route", icon = icon).also { NavHighlight.register(route, it) }
-
-/**
- * Nav-Highlight-Welle 2026-08-20: [DropDown.ddLink] wrapper that additionally registers the
- * resulting [Link] with [NavHighlight] under its target [route], AND ties it to the enclosing
- * dropdown's own header button ([DropDown.button]) so the header itself also lights up when one of
- * its entries is the active route -- see [NavHighlight] KDoc.
- */
-private fun DropDown.routedDdLink(
-    route: String,
-    label: String,
-    icon: String,
-): Link = ddLink(label, url = "#$route", icon = icon).also { NavHighlight.register(route, it, button) }
-
-private fun refreshNavbar(navbar: Navbar) {
+private fun refreshNavbar(
+    navbar: Navbar,
+    sidebar: Offcanvas,
+    onLanguageChange: () -> Unit,
+) {
     navbar.removeAll()
-    NavHighlight.reset()
     // Sprachumschalter-Feature 2026-08-14: the navbar is no longer hidden for anonymous sessions
     // (previously `navbar.hide(); return` here) -- a first-time visitor on the login/registration
     // screens needs the language switcher just as much as an authenticated member does, arguably
-    // more (they haven't yet reached anything else translatable). It now always shows brand +
-    // language switcher; the rest (left-side app nav, session display, Abmelden) stays
-    // session-gated exactly as before.
+    // more (they haven't yet reached anything else translatable).
     navbar.show()
     val session = AppState.session
 
+    // Vertical-Sidebar-Umbau (2026-09-08): a real `<button>` (not a hand-rolled div), so
+    // Enter/Space/click all just work -- `ButtonStyle.LINK` strips Bootstrap's default button
+    // chrome (border/background), `.lapis-sidebar-toggle` in theme.css then paints it to match the
+    // dark navbar's other controls (and hides it entirely at >=992px, see that rule's own
+    // comment -- desktop has nothing to toggle). Built BEFORE the `session == null` early return
+    // below, not after, so it stays present regardless of session state, exactly like the
+    // language switcher -- the ORIGINAL pre-Finding-1 code also built it unconditionally.
+    val toggleButton =
+        navbar.button(
+            "",
+            icon = "fas fa-bars",
+            style = ButtonStyle.LINK,
+            className = "lapis-sidebar-toggle",
+        )
+    toggleButton.setAttribute("aria-label", tr("Menü"))
+    toggleButton.setAttribute("aria-controls", sidebar.id ?: "")
+    // Review-Fund 2026-09-08 (Finding 3, MINOR/Barrierefreiheit, carried forward): reflects
+    // [sidebar]'s ACTUAL current state, not a hardcoded "false" -- this function reruns on every
+    // language switch too, and the mobile drawer may already be open when that happens.
+    toggleButton.setAttribute("aria-expanded", sidebar.visible.toString())
+    toggleButton.onClick {
+        sidebar.toggle()
+        // `sidebar.visible` is KVision's own tracked flag, updated synchronously by `toggle()`'s
+        // `show()`/`hide()` call before this line runs, so it always reflects the state this very
+        // click just produced.
+        toggleButton.setAttribute("aria-expanded", sidebar.visible.toString())
+    }
+
     val rightNav: Nav = navbar.nav(rightAlign = true)
-    addLanguageSwitcher(rightNav, navbar)
+    addLanguageSwitcher(rightNav, onLanguageChange)
 
     if (session == null) {
+        // Design-Team-Review Runde 6 (2026-09-08): shown unconditionally whenever there is no
+        // session -- NOT only during the brief boot-time probe gap. `Routing.kt`'s `requireAuth`/
+        // `requireRole` redirect every OTHER route to `Routes.LOGIN` on a missing session, but
+        // LOGIN/REGISTER/REGISTER_FRIEND/PASSWORD_RESET/VERIFY_EMAIL themselves stay genuinely,
+        // durably reachable without one (verified against `Routing.kt` Z. 463-483/644-649) -- so
+        // this is a real, sustained anonymous state, not a theoretical millisecond window, and
+        // deserves a real way back into a session. Deliberately NOT [NavHighlight]-registered --
+        // see this function's own KDoc.
+        rightNav.navLink(tr("Anmelden"), url = "#${Routes.LOGIN}", icon = "fas fa-right-to-bracket")
         return
     }
 
-    // UI/UX-Design-Team-Review 2026-08-14 (Norman/Raskin): the previous 20-entry flat `navLink`
-    // list overflowed the viewport width and hid entries with no visual indication anything was
-    // cut off. Regrouped by mental model into dropdowns instead of narrowing/wrapping the same
-    // flat list -- "Dashboard"/"Videokonferenz" stay top-level as the two highest-frequency
-    // destinations, everything else moves into a themed dropdown. Role-gating is UNCHANGED from
-    // the prior flat list: every route/role pair below is identical to before, only the grouping
-    // changed -- the three `if (AppState.hasRole(...))` blocks map exactly onto the three
-    // role-gated dropdowns (Finanzen/Verwaltung/System) because the original flat list already
-    // grouped its role-gated entries contiguously by tier, see each dropdown's own comment for
-    // the KDoc cross-references the flat-list version carried per link.
-    val leftNav: Nav = navbar.nav()
-    leftNav.routedNavLink(Routes.DASHBOARD, tr("Dashboard"), icon = "fas fa-house")
-    leftNav.routedNavLink(Routes.CONFERENCE, tr("Videokonferenz"), icon = "fas fa-video")
-
-    // requireAuth-tier, unconditional for every authenticated ORGANIZATION member -- see
-    // `Routes.CONTRIBUTIONS`/`DOCUMENTS`/`COMMUNICATION`/`DSGVO_RIGHTS` KDoc for the per-route
-    // verification. "Meine Daten" self-adapts its content per role (ADMIN-only "Anträge verwalten"
-    // queue lives inside the screen) rather than forking the nav label, unchanged from the prior
-    // flat-list comment.
-    //
-    // V0.11.0, umgebaut in Welle V1.1.4: die drei Dropdowns unten waren bis V1.1.3 pauschal auf
-    // `session.status != MemberStatus.FRIEND` gegattert. Seit V1.1.4 ist ein FRIEND
-    // [network.lapis.cloud.shared.domain.MemberStatusSets.LTR_ELIGIBLE] und darf LTR halten/im
-    // sozialen Netz ausgeben (siehe [MembershipGuards.requireLtrEligibleMembership] KDoc) --
-    // "Wirtschaft" (LTR-Konto, Soziales Netzwerk) und "Meine Daten" (DSGVO-Betroffenenrechte)
-    // öffnen sich deshalb jetzt fein granular über [NavVisibility]s sieben Prädikate, während
-    // Governance/Crowdfunding/Auktion/Politiker/Beiträge/Dokumente/Kommunikation weiterhin
-    // ausschliesslich ORGANIZATION_MEMBER (ACTIVE) vorbehalten bleiben -- für die genau diese Sets
-    // wäre eine RPC von einem FRIEND aus weiterhin ein garantiertes 403.
-    if (NavVisibility.showsMembershipSection(session.status)) {
-        leftNav.dropDown(tr("Mitgliedschaft"), icon = "fas fa-id-card", forNavbar = true) {
-            routedDdLink(Routes.CONTRIBUTIONS, tr("Beiträge"), icon = "fas fa-coins")
-            routedDdLink(Routes.DOCUMENTS, tr("Dokumente"), icon = "fas fa-file-lines")
-            routedDdLink(Routes.COMMUNICATION, tr("Kommunikation"), icon = "fas fa-envelope")
-            // Welle V1.2.8 "PSP-Checkout (Stripe)" (GitHub Issue #6) -- reachable by every
-            // authenticated member, see Routes.DONATE KDoc.
-            routedDdLink(Routes.DONATE, tr("Spenden"), icon = "fas fa-hand-holding-heart")
-            routedDdLink(Routes.DSGVO_RIGHTS, tr("Meine Daten"), icon = "fas fa-shield-halved")
+    val accountLabel =
+        if (session.isGuest && session.homeserverUrl != null) {
+            gettext("%1 (Gast)", session.displayName)
+        } else {
+            gettext("%1 (%2)", session.displayName, session.role)
         }
-    } else if (NavVisibility.showsDsgvoRights(session.status)) {
-        // Welle V1.1.4: ein FRIEND hat kein volles "Mitgliedschaft"-Dropdown (Beiträge/Dokumente/
-        // Kommunikation bleiben ORGANIZATION_MEMBER-exklusiv), braucht aber trotzdem einen
-        // erreichbaren Betroffenenrechte-Einstieg, sobald er eigene, potenziell öffentlich
-        // indexierte Inhalte erzeugt (Art. 12 Abs. 2 DSGVO) -- siehe Plan Teil 0.7. Einzelner
-        // Top-Level-Link statt eines Ein-Eintrag-Dropdowns.
-        leftNav.routedNavLink(Routes.DSGVO_RIGHTS, tr("Meine Daten"), icon = "fas fa-shield-halved")
-    }
-    if (NavVisibility.showsSelfGovernance(session.status)) {
-        // requireAuth-tier -- see `Routes.COMMITTEES`/`MEETINGS`/`MOTIONS` KDoc.
-        leftNav.dropDown(tr("Selbstverwaltung"), icon = "fas fa-people-group", forNavbar = true) {
-            routedDdLink(Routes.COMMITTEES, tr("Gremien"), icon = "fas fa-people-group")
-            routedDdLink(Routes.MEETINGS, tr("Sitzungen"), icon = "fas fa-calendar-days")
-            routedDdLink(Routes.MOTIONS, tr("Anträge"), icon = "fas fa-file-signature")
+    rightNav.dropDown(accountLabel, icon = "fas fa-user", forNavbar = true) {
+        // V0.8.4 Guest Badge, moved here from the old disabled navbar span (Vertical-Sidebar-
+        // Umbau, 2026-09-08): the dropdown's own trigger stays plain text (no icon widget in a
+        // `DropDown`'s button label slot, see `DropDown.text`/`DropDownButton` -- only a `String`
+        // is accepted there), so the badge -- and the popover interaction it carries -- moves into
+        // the dropdown BODY as a non-interactive first item instead. `dropdown-item-text` is
+        // Bootstrap's own class for exactly this ("content row that isn't itself a clickable
+        // `.dropdown-item`"). `homeserverUrl != null` defensive guard -- see `GuestBadge.kt`
+        // `guestBadge` KDoc.
+        if (session.isGuest && session.homeserverUrl != null) {
+            span(className = "dropdown-item-text d-flex align-items-center gap-2") {
+                guestBadge(session.homeserverUrl!!)
+                span(gettext("Gast von %1", session.homeserverUrl!!))
+            }
+            separator()
         }
-    }
-    if (NavVisibility.showsEconomySection(session.status)) {
-        // requireAuth-tier -- see `Routes.LTR_LEDGER`/`CROWDFUNDING`/`AUCTION`/`POLITICIANS` KDoc for
-        // the per-route verification; narrower role-gated sub-sections inside these screens (e.g.
-        // Auktion's ADMIN-only Verwaltung, Politiker's BOARD/ADMIN Verwaltung) are unchanged, still
-        // gated INSIDE the screen, not via separate nav entries.
-        leftNav.dropDown(tr("Wirtschaft"), icon = "fas fa-coins", forNavbar = true) {
-            if (NavVisibility.showsLtrLedger(session.status)) {
-                routedDdLink(Routes.LTR_LEDGER, tr("LTR-Konto"), icon = "fas fa-wallet")
-            }
-            if (NavVisibility.showsMemberOnlyEconomy(session.status)) {
-                routedDdLink(Routes.CROWDFUNDING, tr("Crowdfunding"), icon = "fas fa-hand-holding-heart")
-                routedDdLink(Routes.AUCTION, tr("Auktion"), icon = "fas fa-gavel")
-                routedDdLink(Routes.POLITICIANS, tr("Politiker"), icon = "fas fa-landmark")
-            }
-            // Soziales Netzwerk, Welle V1.1.1 -- see `Routes.SOCIAL_NETWORK` KDoc for the role-gate
-            // verification. Placed in "Wirtschaft" (not "Mitgliedschaft"/"Selbstverwaltung") because
-            // `createPost` binds LTR from the author's free balance, same economic-weight posture as
-            // Crowdfunding/Auktion/Politiker above, not a pure membership/self-governance feature.
-            // Seit V1.1.4 auch für FRIEND (LTR_ELIGIBLE) sichtbar.
-            if (NavVisibility.showsSocialNetwork(session.status)) {
-                routedDdLink(Routes.SOCIAL_NETWORK, tr("Soziales Netzwerk"), icon = "fas fa-comments")
-            }
-        }
-    }
-    // Accounting UI wave, design decision D15 -- gated on TREASURER/BOARD/ADMIN (the same three
-    // roles the LEDGER route itself requires), so a plain MEMBER never even sees this dropdown
-    // render. See `Routes.LEDGER`/`FINANCIAL_REPORTS`/`COMPLIANCE_REPORTS`/`COST_CENTERS`/
-    // `DONORS`/`AUDIT_LOG`/`POSTAL_MAIL`/`PRICE_ORACLE` KDoc for the per-route verification.
-    if (AppState.hasRole(AccountRole.TREASURER, AccountRole.BOARD, AccountRole.ADMIN)) {
-        leftNav.dropDown(tr("Finanzen"), icon = "fas fa-chart-line", forNavbar = true) {
-            routedDdLink(Routes.LEDGER, tr("Kontenplan & Journal"), icon = "fas fa-book")
-            routedDdLink(Routes.FINANCIAL_REPORTS, tr("Finanzberichte"), icon = "fas fa-chart-pie")
-            routedDdLink(
-                Routes.COMPLIANCE_REPORTS,
-                tr("Gemeinnützigkeits-Berichte"),
-                icon = "fas fa-scale-balanced",
+        // Deliberately plain `ddLink`, NOT [NavHighlight]-registered -- see this function's own
+        // KDoc "Jobs' review call".
+        ddLink(tr("Mein Konto"), url = "#${Routes.DASHBOARD}")
+        ddLink(tr("Meine Daten"), url = "#${Routes.DSGVO_RIGHTS}")
+        separator()
+        // dataNavigo = false: rein lokaler Klick-Handler (kein Ziel-Route) -- ohne dieses Opt-out
+        // feuert navigo (globales Link.useDataNavigoForLinks = true, siehe main()) auf demselben
+        // Klick zusaetzlich seinen notFound-Handler und navigiert; funktioniert bisher nur
+        // zufaellig, weil AuthHttp.logout() ohnehin bei Routes.LOGIN landet (V1.2.4-Audit,
+        // dataNavigo-Sweep).
+        val logoutLink =
+            ddLink(
+                tr("Abmelden"),
+                url = "javascript:void(0)",
+                icon = "fas fa-right-from-bracket",
+                dataNavigo = false,
             )
-            routedDdLink(Routes.COST_CENTERS, tr("Kostenstellen"), icon = "fas fa-tags")
-            routedDdLink(Routes.DONORS, tr("Spender"), icon = "fas fa-heart")
-            routedDdLink(Routes.AUDIT_LOG, tr("Prüfprotokoll"), icon = "fas fa-magnifying-glass")
-            routedDdLink(Routes.POSTAL_MAIL, tr("Postversand"), icon = "fas fa-envelope-open-text")
-            routedDdLink(Routes.PRICE_ORACLE, tr("Price-Oracle"), icon = "fas fa-chart-simple")
-            // V1.2.2 SEPA-Client-UI wave -- see Routes.SEPA_MANDATES/SEPA_BATCHES KDoc for the
-            // TREASURER/BOARD/ADMIN role-gate verification.
-            routedDdLink(Routes.SEPA_MANDATES, tr("SEPA-Mandate"), icon = "fas fa-file-contract")
-            routedDdLink(Routes.SEPA_BATCHES, tr("SEPA-Lastschrift"), icon = "fas fa-money-check-dollar")
-            // Client-UI wave for GitHub Issue #5 -- see Routes.DUNNING_CASES KDoc for the
-            // TREASURER/BOARD/ADMIN role-gate verification.
-            routedDdLink(Routes.DUNNING_CASES, tr("Mahnwesen"), icon = "fas fa-file-invoice-dollar")
-            // Welle V1.2.8 "PSP-Checkout (Stripe)" (GitHub Issue #6) -- see
-            // Routes.PAYMENT_TRANSACTIONS KDoc for the TREASURER/BOARD/ADMIN role-gate verification.
-            routedDdLink(Routes.PAYMENT_TRANSACTIONS, tr("Zahlungseingänge"), icon = "fas fa-credit-card")
-        }
-    }
-    // TREASURER/BOARD/ADMIN-tier fuer den Dropdown-Einstieg selbst, aber NICHT fuer jeden
-    // einzelnen Eintrag darin: `Routes.MEMBERS` erlaubt seit Welle V1.4.4.4 auch TREASURER
-    // (siehe `Routes.MEMBERS` KDoc), rein damit ein Schatzmeister ein Mitglied suchen/auswaehlen
-    // und darauf `updateMemberMembershipTier` aufrufen kann -- der `MemberAdministrationScreen`
-    // selbst blendet die BOARD/ADMIN-only-Aktionen (Ehrungen-Knopf, Familien-Badge-Link) fuer
-    // TREASURER intern aus. Alle uebrigen Eintraege bleiben strikt BOARD/ADMIN, weil ihre
-    // Ziel-Routen genau das serverseitig verlangen -- sie duerfen TREASURER nicht einmal als
-    // Link angeboten werden (Hausregel: kein Client-Angebot fuer eine vom Server ohnehin
-    // abgelehnte Aktion).
-    if (AppState.hasRole(AccountRole.TREASURER, AccountRole.BOARD, AccountRole.ADMIN)) {
-        leftNav.dropDown(tr("Verwaltung"), icon = "fas fa-user-gear", forNavbar = true) {
-            routedDdLink(Routes.MEMBERS, tr("Mitgliederverwaltung"), icon = "fas fa-users-gear")
-            if (AppState.hasRole(AccountRole.BOARD, AccountRole.ADMIN)) {
-                routedDdLink(Routes.DSGVO_COMPLIANCE, tr("DSGVO-Compliance"), icon = "fas fa-shield-halved")
-                routedDdLink(
-                    Routes.BOARD_MEMBERSHIP,
-                    tr("Vorstand & Transparenzregister"),
-                    icon = "fas fa-landmark-flag",
-                )
-                // Welle V1.1.5 -- siehe `Routes.SOCIAL_MODERATION` KDoc für die Rollen-Verifikation.
-                routedDdLink(Routes.SOCIAL_MODERATION, tr("Moderation"), icon = "fas fa-flag")
-                // Welle V1.3.1 "API-Fundament, lesend" -- siehe `Routes.API_KEYS` KDoc für die
-                // Rollen-Verifikation. Kein eigener Hauptmenüpunkt (Design-Team-Entscheidung #10) --
-                // Einstieg über dieses bereits vorhandene BOARD/ADMIN-Dropdown.
-                routedDdLink(Routes.API_KEYS, tr("API-Schlüssel"), icon = "fas fa-key")
-                // Welle V1.4.2 "Interessenten-/Sympathisanten-CRM" -- siehe `Routes.CRM` KDoc für die
-                // Rollen-Verifikation. Kein eigener Hauptmenüpunkt, gleiche Entscheidung wie bei
-                // "API-Schlüssel".
-                routedDdLink(Routes.CRM, tr("Kontakte & Interessenten"), icon = "fas fa-address-book")
-                // Welle V1.4.3.2 "Veranstaltungen: Ticketing/QR-Codes" -- siehe `Routes.EVENT_CHECKIN`
-                // KDoc für die Rollen-Verifikation. Kein eigener Hauptmenüpunkt, gleiche Entscheidung
-                // wie bei "Kontakte & Interessenten"/"API-Schlüssel".
-                routedDdLink(Routes.EVENT_CHECKIN, tr("Veranstaltungs-Check-in"), icon = "fas fa-qrcode")
-                // Welle V1.4.4.2 "Geburtstage & Jubiläen" -- siehe `Routes.MEMBER_ANNIVERSARIES` KDoc
-                // für die Rollen-Verifikation. Kein eigener Hauptmenüpunkt, gleiche Entscheidung wie bei
-                // "Veranstaltungs-Check-in"/"Kontakte & Interessenten"/"API-Schlüssel".
-                routedDdLink(Routes.MEMBER_ANNIVERSARIES, tr("Geburtstage & Jubiläen"), icon = "fas fa-cake-candles")
-                // Welle V1.4.4.3 "Mitgliederlebenszyklus: Ehrungsverwaltung" -- siehe `Routes.MEMBER_HONORS`
-                // KDoc für die Rollen-Verifikation. Kein eigener Hauptmenüpunkt, gleiche Entscheidung wie
-                // bei "Geburtstage & Jubiläen"/"Veranstaltungs-Check-in"/"Kontakte & Interessenten".
-                routedDdLink(Routes.MEMBER_HONORS, tr("Ehrungen & Auszeichnungen"), icon = "fas fa-medal")
-                // Welle V1.4.4.4 "Familienmitgliedschaften" -- siehe `Routes.MEMBER_FAMILIES` KDoc für
-                // die Rollen-Verifikation. Kein eigener Hauptmenüpunkt, gleiche Entscheidung wie bei
-                // "Ehrungen & Auszeichnungen"/"Geburtstage & Jubiläen"/"Veranstaltungs-Check-in".
-                routedDdLink(Routes.MEMBER_FAMILIES, tr("Familienmitgliedschaften"), icon = "fas fa-people-roof")
+        logoutLink.onClick {
+            AppScope.launch {
+                AuthHttp.logout()
+                AppState.setSession(null)
+                navigateTo(Routes.LOGIN)
             }
         }
     }
-    // ADMIN-only-tier -- see `Routes.BACKUP`/`CONFERENCE_STREAM_DESTINATIONS` KDoc.
-    if (AppState.hasRole(AccountRole.ADMIN)) {
-        leftNav.dropDown(tr("System"), icon = "fas fa-server", forNavbar = true) {
-            routedDdLink(Routes.BACKUP, tr("Backup & Wiederherstellung"), icon = "fas fa-database")
-            routedDdLink(
-                Routes.CONFERENCE_STREAM_DESTINATIONS,
-                tr("Stream-Ziele"),
-                icon = "fas fa-satellite-dish",
-            )
-            // V1.2.2 SEPA-Client-UI wave -- see Routes.SEPA_SETTINGS KDoc for the ADMIN-only
-            // role-gate verification.
-            routedDdLink(Routes.SEPA_SETTINGS, tr("SEPA-Konfiguration"), icon = "fas fa-building-columns")
-            // Welle V1.2.8 "PSP-Checkout (Stripe)" (GitHub Issue #6) -- see
-            // Routes.PAYMENT_GATEWAY_SETTINGS KDoc for the ADMIN-only role-gate verification.
-            routedDdLink(Routes.PAYMENT_GATEWAY_SETTINGS, tr("Zahlungs-Konfiguration"), icon = "fas fa-hand-holding-dollar")
-            // Client-UI wave for GitHub Issue #5 -- see Routes.DUNNING_SETTINGS KDoc for the
-            // ADMIN-only role-gate verification.
-            routedDdLink(Routes.DUNNING_SETTINGS, tr("Mahnwesen-Konfiguration"), icon = "fas fa-scale-unbalanced")
-            // Welle V1.4.1a "Öffentliche Website-Integration" -- see Routes.EMBED_INTEGRATION KDoc
-            // for the ADMIN-only role-gate verification.
-            routedDdLink(Routes.EMBED_INTEGRATION, tr("Website-Integration"), icon = "fas fa-code")
-        }
-    }
-
-    // V0.8.4 Guest Badge: a federated OIDC guest session gets a visual indicator in place of the
-    // ordinary "(role)" display -- a non-guest session's display below is completely unchanged.
-    // homeserverUrl != null is a defensive guard (see GuestBadge.kt guestBadge KDoc): it should
-    // always be set for a real guest (OidcGuestProfileTable is 1:1 with a GUEST member), but the
-    // DTO models it as nullable, so we don't force-unwrap without a check -- falling back to the
-    // ordinary display is safer than crashing or showing a badge with no home-server text.
-    if (session.isGuest && session.homeserverUrl != null) {
-        rightNav.span(className = "nav-item nav-link disabled d-flex align-items-center gap-2") {
-            guestBadge(session.homeserverUrl!!)
-            span(gettext("%1 (Gast)", session.displayName))
-        }
-    } else {
-        rightNav.navLinkDisabled(gettext("%1 (%2)", session.displayName, session.role), icon = "fas fa-user")
-    }
-    // dataNavigo = false: rein lokaler Klick-Handler (kein Ziel-Route) -- ohne dieses Opt-out
-    // feuert navigo (globales Link.useDataNavigoForLinks = true, siehe main()) auf demselben Klick
-    // zusaetzlich seinen notFound-Handler und navigiert; funktioniert bisher nur zufaellig, weil
-    // AuthHttp.logout() ohnehin bei Routes.LOGIN landet (V1.2.4-Audit, dataNavigo-Sweep).
-    val logoutLink =
-        rightNav.navLink(
-            tr("Abmelden"),
-            url = "javascript:void(0)",
-            icon = "fas fa-right-from-bracket",
-            dataNavigo = false,
-        )
-    logoutLink.onClick {
-        AppScope.launch {
-            AuthHttp.logout()
-            AppState.setSession(null)
-            navigateTo(Routes.LOGIN)
-        }
-    }
-    NavHighlight.apply()
 }
 
 /**
@@ -491,12 +564,12 @@ private fun refreshNavbar(navbar: Navbar) {
  * in [refreshNavbar] above (everything after it in that function is session-gated). Selecting an
  * entry calls [setLanguage], which sets [io.kvision.i18n.I18n.language] -- KVision's own
  * mechanism for this re-resolves every `tr()`/`gettext()`-marked label across the WHOLE app on its
- * own (see `Root.restart()` in `I18n.language`'s setter), so this function only needs to rebuild
- * the switcher's own button text afterward, not the rest of the navbar.
+ * own (see `Root.restart()` in `I18n.language`'s setter), so this function only needs to trigger
+ * [onLanguageChange] (App.kt's `refreshShell`) afterward, not rebuild anything itself.
  */
 private fun addLanguageSwitcher(
     rightNav: Nav,
-    navbar: Navbar,
+    onLanguageChange: () -> Unit,
 ) {
     val current = SUPPORTED_LANGUAGES.firstOrNull { it.first == I18n.language } ?: SUPPORTED_LANGUAGES.first()
     rightNav.dropDown(current.first.uppercase(), icon = "fas fa-globe", forNavbar = true) {
@@ -509,7 +582,7 @@ private fun addLanguageSwitcher(
             }
             link.onClick {
                 setLanguage(code)
-                refreshNavbar(navbar)
+                onLanguageChange()
             }
         }
     }
