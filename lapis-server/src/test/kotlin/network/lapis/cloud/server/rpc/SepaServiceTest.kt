@@ -538,8 +538,17 @@ class SepaServiceTest :
 
                 val startLatch = CountDownLatch(2)
                 val doneLatch = CountDownLatch(2)
-                val results = java.util.Collections.synchronizedList(mutableListOf<HttpStatusCode>())
-                val bodies = java.util.Collections.synchronizedList(mutableListOf<String>())
+                // Bug fix 2026-09-08: a single synchronized list of [GrantRaceOutcome], not two
+                // separate `results`/`bodies` lists -- two independently synchronized lists each
+                // guarantee thread-safety for THEMSELVES, but not an atomic index correspondence
+                // BETWEEN them, so a racing thread interleaving could append to `results` before
+                // the other thread's `bodies` entry landed, silently misaligning `results[i]` with
+                // `bodies[i]`. That flaked exactly this test on CI (see CI run 34247517561,
+                // 2026-09-08): the misaligned index fed a Conflict response's error text into
+                // `Uuid.parse`, throwing `IllegalArgumentException`. A [GrantRaceOutcome] holds both
+                // fields together, appended in one synchronized call per thread, so status and body
+                // can never drift apart.
+                val outcomes = java.util.Collections.synchronizedList(mutableListOf<GrantRaceOutcome>())
 
                 fun grantThread(client: HttpClient) =
                     Thread {
@@ -551,8 +560,7 @@ class SepaServiceTest :
                                     client.post(
                                         "/test/sepa/grant?debtorName=Race+Konto&debtorIban=DE89370400440532013000&signatureDate=$today",
                                     ) { header("X-Member-Id", member.toString()) }
-                                results += response.status
-                                bodies += response.bodyAsText()
+                                outcomes += GrantRaceOutcome(status = response.status, body = response.bodyAsText())
                             }
                         } finally {
                             doneLatch.countDown()
@@ -565,10 +573,10 @@ class SepaServiceTest :
                 t2.start()
                 check(doneLatch.await(20, TimeUnit.SECONDS)) { "concurrent grant calls did not complete in time" }
 
-                results.count { it == HttpStatusCode.OK } shouldBe 1
-                results.count { it == HttpStatusCode.Conflict } shouldBe 1
-                bodies.filterIndexed { index, _ -> results[index] == HttpStatusCode.OK }.forEach {
-                    createdMandateIds += Uuid.parse(it.split("|")[0])
+                outcomes.count { it.status == HttpStatusCode.OK } shouldBe 1
+                outcomes.count { it.status == HttpStatusCode.Conflict } shouldBe 1
+                outcomes.filter { it.status == HttpStatusCode.OK }.forEach {
+                    createdMandateIds += Uuid.parse(it.body.split("|")[0])
                 }
 
                 // DB-level confirmation: exactly one ACTIVE mandate for this member.
@@ -2088,6 +2096,17 @@ class SepaServiceTest :
             }
         }
     })
+
+/**
+ * One racing thread's HTTP outcome in the "concurrent-grant guard" test above -- status and body
+ * bundled into ONE synchronized-list entry so the two can never drift out of index alignment with
+ * each other, unlike two separately synchronized lists would (see that test's own comment for the
+ * flake this replaced).
+ */
+private data class GrantRaceOutcome(
+    val status: HttpStatusCode,
+    val body: String,
+)
 
 /** Shared throwaway routes for [SepaServiceTest] -- SepaService(call, sepaConfig).methodName(...), simple pipe-delimited responses. */
 private fun Route.registerSepaTestRoutes(sepaConfig: SepaConfig) {
