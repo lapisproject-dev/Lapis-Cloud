@@ -210,6 +210,42 @@ body {
   background-color: var(--lapis-nav-hover-bg);
 }
 
+/* Mobile-Overflow-Fund 2026-09-09 (Live-Verifikation nach dem Vertical-Sidebar-Umbau): unter
+   ~576px reicht die Breite nicht mehr für Branding-Logo + Text, Sidebar-Toggle, Sprachumschalter
+   ("Globus DE") und Konto-/Login-Link ("Person Anmelden") nebeneinander -- live gemessen auf
+   pzb.parteidervernunft.de bei 375px: `document.body.scrollWidth` (413px) > `clientWidth` (375px),
+   "Anmelden" lief über den rechten Rand hinaus. Ursache: `App.kt` setzt bewusst
+   `expand = NavbarExpand.ALWAYS` (kein zweiter, verwirrender Hamburger-Toggle neben dem
+   Sidebar-Toggle) -- diese Regel behebt den dadurch fehlenden Umbruch, OHNE `expand` anzutasten.
+
+   Lösung: nur die TEXT-Label ausblenden, Icons bleiben voll sichtbar/funktionsfähig -- jedes
+   betroffene Steuerelement (Sprachumschalter, Konto-/Login-Trigger) bleibt über sein Icon +
+   `aria-label`/Screenreader-Text erreichbar, und öffnet einmal angeklickt ohnehin ein Dropdown mit
+   vollem Text. `font-size: 0` auf dem Elternelement kollabiert den nicht in ein eigenes <span>
+   gewrappten, direkt folgenden Text-Node, den KVisions Link-/DropDown-Rendering für ein
+   `label`-Argument erzeugt (verifiziert: `<i class="fas fa-globe"></i> DE` -- "DE" ist ein
+   roher Text-Node, kein Element, CSS kann ihn sonst nicht einzeln adressieren) -- ein explizites
+   `font-size` auf dem Icon selbst (Font Awesome skaliert über `font-size`) macht es davon
+   unabhängig wieder sichtbar. Betrifft NUR die eingeklappten Trigger in der Navbar selbst, NICHT
+   `.dropdown-item` (die Einträge INNERHALB eines bereits geöffneten Dropdowns) -- dort ist genug
+   Platz, volle Beschriftung bleibt. `.lapis-brand-mark`/`.lapis-brand-logo` bekommen ihre
+   font-size ebenfalls zurück, da `vertical-align: middle` sonst von der (auf 0 kollabierten)
+   Zeilenhöhe des Elternelements abhinge. */
+@media (max-width: 575.98px) {
+  .lapis-navbar .lapis-brand-text,
+  .lapis-navbar .dropdown-toggle,
+  .lapis-navbar .nav-link {
+    font-size: 0;
+  }
+
+  .lapis-navbar .lapis-brand-mark,
+  .lapis-navbar .lapis-brand-logo,
+  .lapis-navbar .dropdown-toggle i,
+  .lapis-navbar .nav-link i {
+    font-size: 1rem;
+  }
+}
+
 .lapis-sidebar {
   flex: 0 0 var(--lapis-sidebar-width);
   --bs-offcanvas-width: min(86vw, 300px);
