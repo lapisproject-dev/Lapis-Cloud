@@ -1,0 +1,173 @@
+= Public Landing Page — Welle V1.4.6 "Öffentliche Startseite"
+:description: GET / becomes a server-rendered, indexable landing page; the member SPA moves to /app; the ten in-code generators of "<base>/#/..." links move to "<base>/app#/...".
+:toc:
+:toc-placement: preamble
+:icons: font
+
+== Context
+
+Before this wave, `GET /` served the KVision/Kotlin-JS SPA shell (`index.html` + `main.bundle.js`),
+which immediately redirects an anonymous visitor to the hash route `#/login` — see
+`network.lapis.cloud.client.Routing.kvOn("/")`. A search engine, a social-media link preview
+scraper, or a human who has never logged in therefore saw an empty page (no server-side rendering,
+`default-src 'none'`-adjacent client bootstrap) with no way to learn what this server is or does.
+
+This wave adds a THIRD unauthenticated, account-less public HTML route family — sibling to `/s`
+(`network.lapis.cloud.server.routes.SocialPublicRoutes`) and `/transparenz`
+(`network.lapis.cloud.server.routes.PublicTransparencyRoutes`) — at `GET /`, and moves the SPA to
+`GET /app`.
+
+== Route table
+
+[cols="1,2,3", options="header"]
+|===
+| Route | Handler | Behavior
+
+| `GET /`
+| `network.lapis.cloud.server.routes.PublicLandingRoutes.registerPublicLandingRoutes`
+| Server-rendered HTML (`PublicLandingHtml`), always identical for a given DB state — no cookie
+  check, no `Vary: Cookie`. `Cache-Control: public, max-age=300`.
+
+| `GET /app`
+| `serveIndexHtml` (`Application.kt`)
+| The SPA shell, branding-injected `index.html`. 404 when no client build is present.
+
+| `GET /app/`
+| — (`Application.kt`)
+| 308 → `$publicBaseUrl/app`. Required: `index.html` references `main.bundle.js` with a *relative*
+  `src`, which resolves to `/main.bundle.js` under `/app` but to the nonexistent `/app/main.bundle.js`
+  under `/app/` (a blank page, no console error). No `IgnoreTrailingSlash` plugin is installed, so
+  `/app` and `/app/` are two distinct route registrations.
+
+| `GET /index.html`
+| `serveIndexHtml`
+| Unchanged — still the SPA shell.
+
+| `GET /s/assets/hash-bridge.js`
+| `network.lapis.cloud.server.routes.SocialPublicRoutes` (`LANDING_HASH_BRIDGE_SCRIPT`)
+| Optional hash-bridge asset, see <<hash-bridge>>.
+|===
+
+== Why server-rendered HTML, not the SPA dashboard, at `/` (Option B)
+
+Three options were on the table:
+
+* *Cookie-sniffing at `/`* — serve the landing page to an anonymous visitor, the SPA to a logged-in
+  one, from the SAME URL. Rejected: one URL with two different meanings depending on an invisible
+  cookie is a Norman violation, and it forces `Vary: Cookie` on every response at `/`, destroying
+  the page's cacheability at any reverse proxy/CDN.
+* *Move the SPA's own dashboard to `/`* — the SPA already redirects an anonymous visitor to
+  `#/login`, which a crawler never executes (no server-side rendering). This does not solve the
+  "empty page for a crawler" problem at all.
+* *Server-rendered HTML at `/`, the SPA moves to `/app` (chosen)* — exactly the same shape `/s` and
+  `/transparenz` already establish: `kotlinx.html`-rendered from DB aggregates, cacheable,
+  crawlable, no JavaScript required to see the content.
+
+== [[data-minimization]]Data-minimization (`PublicLandingHtml`/`PublicLandingRoutes`)
+
+The landing page shows *only*:
+
+* Three aggregate stats (member count, total minted LTR, public post count) — via
+  `PublicTransparencyReader.loadStats()`, the SAME reader `/transparenz` uses, never a
+  second, independently-formulated query.
+* Up to five "Top-Beiträge" teasers — via `PublicTransparencyRoutes.loadTopPosts(limit)`, widened
+  from `private` to `internal` for exactly this reuse (Welle V1.4.6). Shows a post's author display
+  name — the SAME name `/s` itself already indexes for that post.
+
+It NEVER shows board member names, LTR-holder names, or donor names, even though `/transparenz`
+does: that page carries `meta(name="robots", content="noindex,follow")` precisely because its
+ranking sections show names under a revocable, time-bounded consent
+(`PublicRankingConsentDisclaimer`) that a search engine or an archive service cannot honor. Lifting
+any of those names onto an `index,follow` page would defeat that consent model — this is the entire
+reason `PublicRankingKind` was NOT extended with a new ranking kind for this wave (an earlier design
+option, rejected).
+
+This is also why `/` carries `meta(name="robots", content="index,follow")` — the exact OPPOSITE of
+`/transparenz`'s `noindex,follow` — and is the whole justification for rendering it server-side
+instead of simply exposing the SPA dashboard at `/`.
+
+Empty-state handling (Kare/Jobs "a leerzustand is mandatory, never three zeroes"):
+
+* `stats == null` when the installation is COMPLETELY empty (0 active members AND 0 public posts) —
+  the stat-tile block is entirely absent, not rendered as three zeroes.
+* The "Top-Beiträge" section is entirely absent (not rendered as an empty list, not even an id
+  anchor) when there are zero public posts — this also skips the `SocialReadPipeline.timelinePage`
+  query entirely on a fresh installation.
+
+== [[hash-bridge]]Hash-Bridge (optional, opt-in)
+
+Twelve call sites across this codebase build a `<base>/#/...` deep link into the SPA:
+`MailTemplates.kt` (password reset, email verification, API-keys), `StripeCheckoutClient.kt`
+(`StripeReturnUrls.memberSpa`, both `successUrl`/`cancelUrl`), `OidcRoutes.kt` (both the
+no-active-session redirect on `/federation/oidc/authorize` AND the successful-login redirect at the
+end of the RP callback, `/federation/oidc/rp/callback`), `EmbedIntegrationHttp.kt`'s three No-JS
+fallback anchors, and `lapis-widgets.js`'s two hydrated links (the login widget's "Mitgliederbereich"
+link AND the `join` widget's link). Every one of these moved to `<base>/app#/...` in this wave (see
+<<link-generator-sweep>>) — but a link ALREADY sent before this deploy (a password-reset mail in a
+recipient's inbox, an open Stripe checkout session, an embed snippet already copied onto a
+third-party site) still points at the OLD `<base>/#/...` shape, and would otherwise land on the new
+landing page and lose its fragment.
+
+`GET /s/assets/hash-bridge.js` is a small (~10-line), same-origin, non-inline `<script>`, included
+in `PublicLandingHtml`'s `<head>` and served with its own `Content-Security-Policy` widened to
+`script-src 'self'` — the ONE caller in this codebase that requests it; `/s` and `/transparenz`
+never do, and stay script-free. It reads `location.hash`, checks it against a closed allowlist
+regex (`^#\/[A-Za-z0-9_\-\/?=&%.~+]*$`), and — only on a match — calls
+`location.replace("/app" + h)`. The redirect target is a hardcoded same-origin literal, never
+constructed from request-controlled input, so this cannot become an open redirect. A crawler fetches
+`/` without executing JavaScript and without a fragment (a fragment never reaches an HTTP request in
+the first place), so it always sees the full server-rendered content, never a client-side redirect.
+
+Residual risk even with the hash-bridge: the three `EmbedIntegrationHttp.buildEmbedSnippet`
+fallback `<a>` elements that operators have ALREADY copied onto their OWN, third-party websites
+before this deploy still contain the literal old `href="<base>/#/..."` markup — the hash-bridge
+still rescues a click on them (the browser navigates to `<base>/#/...`, which the bridge then
+forwards), so this is not actually a functional gap; it only means the embedded markup itself is
+stale until the operator re-copies the current snippet from `docs/api/embed-widgets.adoc`.
+
+== [[link-generator-sweep]]Link-generator sweep
+
+Every in-code generator of a `<base>/#/...` link was updated to `<base>/app#/...` in this wave (the
+twelve call sites listed above):
+
+[cols="2,3", options="header"]
+|===
+| File | What changed
+
+| `mail/MailTemplates.kt`
+| `passwordReset`/`friendVerification`/`webhookEndpointDeactivated` links.
+
+| `payment/psp/StripeCheckoutClient.kt`
+| `StripeReturnUrls.memberSpa` (`successUrl`/`cancelUrl`). `embedDonation`/`eventRegistration` were
+  already `/embed/...`/`/veranstaltung/...` paths, not `#/...` ones — unaffected.
+
+| `routes/OidcRoutes.kt`
+| The no-active-session redirect to the login screen (`/federation/oidc/authorize`), AND the
+  successful-login redirect at the end of the RP callback (`/federation/oidc/rp/callback`, to
+  `/app#/dashboard`).
+
+| `client/EmbedIntegrationHttp.kt`
+| The three No-JS fallback `<a>` elements `buildEmbedSnippet` generates.
+
+| `resources/embed/lapis-widgets.js`
+| The login widget's "Mitgliederbereich" link (shown after `setState("signed-in", ...)`), AND the
+  `join` widget's hydrated link.
+
+| `client/ConferenceScreen.kt`
+| `conferenceInviteText`'s instructional copy (cosmetic — plain text, not a clickable link).
+|===
+
+`robots.txt` gained `Disallow: /app` — the SPA shell is an empty `<div id="lapis-client">` and its
+indexing would be pure noise, potentially competing with the new landing page for ranking. The
+sitemap (`SocialPublicSitemap.renderUrlset`) gained an `includeRoot` parameter (default `false`,
+every pre-existing call site unaffected): the unsharded `/sitemap.xml` and shard 1 of
+`/sitemap-{n}.xml` list `/` as their first `<url>` entry, deliberately WITHOUT a `<lastmod>` — the
+landing page's content changes on every write across the whole organization, so no single timestamp
+honestly represents "when this page last changed"; omitting it is the honest representation.
+
+== No migration
+
+This wave reads exclusively via existing readers (`PublicTransparencyReader.loadStats`,
+`PublicTransparencyRoutes.loadTopPosts`) — no new table, column, or enum value. `PublicRankingKind`
+is unchanged (see <<data-minimization>> above for why a new ranking kind was rejected, not merely
+deferred).

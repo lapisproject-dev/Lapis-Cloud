@@ -107,10 +107,12 @@ import network.lapis.cloud.server.routes.registerMailmergeRoutes
 import network.lapis.cloud.server.routes.registerOidcRoutes
 import network.lapis.cloud.server.routes.registerPspWebhookRoutes
 import network.lapis.cloud.server.routes.registerPublicApiRoutes
+import network.lapis.cloud.server.routes.registerPublicLandingRoutes
 import network.lapis.cloud.server.routes.registerPublicTransparencyRoutes
 import network.lapis.cloud.server.routes.registerSepaRoutes
 import network.lapis.cloud.server.routes.registerSocialPublicRoutes
 import network.lapis.cloud.server.routes.registerTrustAnchorRoutes
+import network.lapis.cloud.server.routes.respondPublicCanonicalRedirect
 import network.lapis.cloud.server.rpc.AccountingExportService
 import network.lapis.cloud.server.rpc.AccountingService
 import network.lapis.cloud.server.rpc.ApiKeyService
@@ -844,6 +846,13 @@ fun Application.module() {
     // against one public route family never eats into the other's budget.
     val publicTransparencyRateLimiter = FederationInboxRateLimiter(maxRequests = 30, window = 1.minutes, maxTrackedKeys = 50_000)
 
+    // Welle V1.4.6 "Öffentliche Startseite" -- GET /. EIGENER, GRÖSSERER Limiter als
+    // publicTransparencyRateLimiter (60/min statt 30/min): die Root-Seite trägt strukturell mehr
+    // legitimen Verkehr pro IP (NAT, Firmennetze, Social-Media-Vorschau-Scraper) als eine
+    // Detailseite -- ein Burst gegen /transparenz darf trotzdem nicht in dieses Budget einzahlen,
+    // deshalb ein eigener Bucket, nicht eine gemeinsame Erhöhung von publicTransparencyRateLimiter.
+    val publicLandingRateLimiter = FederationInboxRateLimiter(maxRequests = 60, window = 1.minutes, maxTrackedKeys = 50_000)
+
     // Welle V1.4.1a "Öffentliche Website-Integration" -- vier neue, module-scoped Rate-Limiter,
     // NIEMALS als Konstruktor-Default (Stolperfalle 8, dieselbe Begründung wie jeder andere
     // Limiter in diesem Block). Alle vier sind internet-offen/unauthentifiziert -> maxTrackedKeys
@@ -1197,7 +1206,9 @@ fun Application.module() {
     routing {
         // V0.7.3: was the placeholder `get("/") { respondText(Greeting.message()) }` -- relocated
         // rather than dropped, since ApplicationTest already exercised it as a basic
-        // server-is-alive smoke check. "/" itself is now the SPA shell, served by staticFiles below.
+        // server-is-alive smoke check. Welle V1.4.6: "/" itself is no longer the SPA shell -- see
+        // registerPublicLandingRoutes/get("/app") below for where the SPA and the landing page each
+        // now live.
         get("/api/ping") {
             call.respondText(Greeting.message())
         }
@@ -1244,6 +1255,15 @@ fun Application.module() {
             readRateLimiter = publicTransparencyRateLimiter,
             brandTitle = resolvedBranding.title,
         )
+        // Welle V1.4.6 "Öffentliche Startseite" -- literal route (GET /), same "registered before
+        // staticFiles" reasoning as registerSocialPublicRoutes'/registerPublicTransparencyRoutes'
+        // own routes. MUST be registered before the "/" -> "/app" move below (Ktor picks the first
+        // matching literal registration) -- this line, not the get("/app") block, is what answers
+        // GET / from now on.
+        registerPublicLandingRoutes(
+            readRateLimiter = publicLandingRateLimiter,
+            brandTitle = resolvedBranding.title,
+        )
         // V1.3.1 "API-Fundament, lesend" -- literal routes (/api/v1/*), same "registered before
         // staticFiles" reasoning as registerSocialPublicRoutes'/registerPublicTransparencyRoutes' own
         // routes.
@@ -1287,11 +1307,22 @@ fun Application.module() {
         getAllServiceManagers().forEach { applyRoutes(it) }
         // V1.2.5 White-Label-Branding -- literal routes, registered before staticFiles below for
         // the same "literal beats catch-all" reasoning as registerSocialPublicRoutes' own routes.
-        // "/" and "/index.html" replace staticFiles' own handling of the SPA shell so the
+        // "/app" and "/index.html" replace staticFiles' own handling of the SPA shell so the
         // branding-injected index.html (cachedIndexHtml above) is served instead of the raw file on
         // disk -- every OTHER asset (main.bundle.js, theme.css, ...) still falls through to
         // staticFiles unchanged.
-        get("/") { serveIndexHtml(call = call, cachedIndexHtml = cachedIndexHtml) }
+        //
+        // Welle V1.4.6 "Öffentliche Startseite": "/" itself is no longer the SPA shell -- it is now
+        // registerPublicLandingRoutes' server-rendered landing page (registered above, before this
+        // block). The SPA moved to "/app". "/app/" (trailing slash) MUST 308-redirect to "/app"
+        // rather than fall through to staticFiles' index-file lookup: index.html references
+        // "main.bundle.js" with a RELATIVE src, which resolves correctly to "/main.bundle.js" only
+        // when the document's own path has no trailing segment after "/app" -- under "/app/" it
+        // would resolve to the nonexistent "/app/main.bundle.js" (a blank page, no console error).
+        // No `IgnoreTrailingSlash` plugin is installed anywhere in this application, so "/app" and
+        // "/app/" are two distinct route registrations, never automatically unified.
+        get("/app") { serveIndexHtml(call = call, cachedIndexHtml = cachedIndexHtml) }
+        get("/app/") { call.respondPublicCanonicalRedirect(canonicalUrl = "${FederationConfig.publicBaseUrl.trimEnd('/')}/app") }
         get("/index.html") { serveIndexHtml(call = call, cachedIndexHtml = cachedIndexHtml) }
         get("/api/branding/logo") { serveBrandingLogo(call = call, branding = resolvedBranding) }
         // Registered last: literal routes above (/api/..., RPC service paths) always win over this
@@ -1306,6 +1337,9 @@ fun Application.module() {
  * [BrandingHtml.inject]), or 404 when no client build is present, exactly matching `staticFiles`'
  * own prior behavior for "/" in that case (see `ApplicationTest` "root route 404s when no client
  * build is present" -- that test must stay green after this route replaces `staticFiles` for "/").
+ *
+ * Welle V1.4.6: also serves `GET /app` now (the SPA moved off "/", see the class KDoc above and
+ * `registerPublicLandingRoutes`) -- same function, same 404-on-no-build behavior, new call site.
  */
 private suspend fun serveIndexHtml(
     call: ApplicationCall,

@@ -20,9 +20,9 @@ class EmbedIntegrationScreenTest {
     fun buildEmbedSnippet_containsBothNoJsFallbackAnchors() {
         val snippet = buildEmbedSnippet("https://cloud.example.org")
         assertTrue(snippet.contains("data-lapis-widget=\"login\""))
-        assertTrue(snippet.contains("<a href=\"https://cloud.example.org/#/login\">"))
+        assertTrue(snippet.contains("<a href=\"https://cloud.example.org/app#/login\">"))
         assertTrue(snippet.contains("data-lapis-widget=\"join\""))
-        assertTrue(snippet.contains("<a href=\"https://cloud.example.org/#/register\">"))
+        assertTrue(snippet.contains("<a href=\"https://cloud.example.org/app#/register\">"))
     }
 
     @Test
@@ -30,7 +30,7 @@ class EmbedIntegrationScreenTest {
         val snippet = buildEmbedSnippet("https://cloud.example.org")
         assertTrue(snippet.contains("data-lapis-widget=\"donate\""))
         assertTrue(snippet.contains("data-lapis-fallback-url=\"\""))
-        assertTrue(snippet.contains("<a href=\"https://cloud.example.org/#/donate\">"))
+        assertTrue(snippet.contains("<a href=\"https://cloud.example.org/app#/donate\">"))
     }
 
     @Test

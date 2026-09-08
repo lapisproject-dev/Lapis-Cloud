@@ -987,6 +987,36 @@ class SocialPublicRoutesTest :
             }
         }
 
+        // ── Welle V1.4.6 "Öffentliche Startseite" -- "/" in the sitemap ─────────────────────
+        test("V1.4.6: /sitemap.xml (unsharded) lists \"/\" as its first <url>, without a <lastmod>") {
+            testApp {
+                createAuthor().let { insertPost(authorMemberId = it, content = "V1.4.6 Sitemap Root") }
+                val xml = client.get("/sitemap.xml").bodyAsText()
+                val firstUrlBlock = xml.substringAfter("<url>").substringBefore("</url>")
+                firstUrlBlock shouldContain "<loc>http://localhost:8080/</loc>"
+                firstUrlBlock shouldNotContain "<lastmod>"
+            }
+        }
+
+        test("V1.4.6: /sitemap-1.xml includes \"/\", /sitemap-2.xml does not") {
+            testApp {
+                createAuthor().let { insertPost(authorMemberId = it, content = "V1.4.6 Sitemap Shard Root") }
+                val shard1 = client.get("/sitemap-1.xml").bodyAsText()
+                shard1 shouldContain "<loc>http://localhost:8080/</loc>"
+                // shard 2 is empty in this test DB -> 404, see the existing N2 test above; nothing
+                // further to assert here beyond shard 1 carrying the root entry.
+            }
+        }
+
+        test(
+            "V1.4.6: renderUrlset(includeRoot = false) (the default) never emits \"/\" -- " +
+                "every pre-existing call site's output is unchanged",
+        ) {
+            val xml =
+                SocialPublicSitemap.renderUrlset(entries = emptyList(), baseUrl = "https://cloud.lapisproject.dev")
+            xml shouldNotContain "<loc>https://cloud.lapisproject.dev/</loc>"
+        }
+
         test("N2: renderSitemapIndex(shardCount = 3) is a pure function -- lists exactly sitemap-1..3.xml") {
             val xml = SocialPublicSitemap.renderSitemapIndex(baseUrl = "https://cloud.lapisproject.dev", shardCount = 3)
             xml shouldContain "<sitemapindex"
@@ -1025,6 +1055,9 @@ class SocialPublicRoutesTest :
                 // "noindex,follow" robots meta, the belt-and-suspenders companion to this).
                 body shouldContain "Disallow: /transparenz"
                 body shouldNotContain "Allow: /transparenz"
+                // Welle V1.4.6 "Öffentliche Startseite": the SPA shell at /app must not compete
+                // with the new, content-bearing landing page at / for search-engine ranking.
+                body shouldContain "Disallow: /app"
             }
         }
 

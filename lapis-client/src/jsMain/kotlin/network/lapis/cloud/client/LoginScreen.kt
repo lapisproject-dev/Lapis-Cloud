@@ -113,6 +113,15 @@ fun renderLoginScreen(container: SimplePanel) {
         }
 
         renderForgotPasswordToggle(this)
+
+        // Welle V1.4.6 "Öffentliche Startseite" -- ein kleiner Rücklink zur neuen, server-
+        // gerenderten Landingpage unter "/". Echte volle Seitennavigation (kein Hash-Routen-Ziel),
+        // dasselbe dataNavigo = false-Opt-out wie beim OIDC-Federation-Link oben -- ohne dieses
+        // Opt-out fängt das globale Link.useDataNavigoForLinks (App.kt main()) den Klick ab.
+        div {
+            marginTop = 8.px
+            link(tr("Zur öffentlichen Startseite"), url = "/", dataNavigo = false)
+        }
     }
 }
 

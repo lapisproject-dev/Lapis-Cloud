@@ -124,6 +124,18 @@ internal object SocialPublicHtml {
         .embed-field input { width: 100%; padding: 0.5rem; box-sizing: border-box; }
         .embed-error { color: #b00020; font-size: 0.85rem; min-height: 1.2rem; }
         .embed-submit { width: 100%; padding: 0.6rem; margin-top: 0.4rem; }
+
+        /* Welle V1.4.6 "Öffentliche Startseite" (/) -- shares this stylesheet, same reasoning as
+           every block above: no second stylesheet, no inline <style>, see
+           network.lapis.cloud.server.routes.PublicLandingHtml class KDoc. body's max-width: 42rem
+           above applies here too -- the hero stays in that column, no exception. */
+        .hero { margin-bottom: 2rem; }
+        .hero p { color: #888; }
+        .cta {
+            display: inline-block; padding: 0.55rem 1.1rem; margin-right: 0.6rem;
+            border: 1px solid currentColor; border-radius: 0.35rem; text-decoration: none;
+        }
+        .cta-primary { background: rgba(128, 128, 128, 0.15); font-weight: 600; }
         """
 
     /** Title length ceiling -- shared by `<title>` and `og:title`. */

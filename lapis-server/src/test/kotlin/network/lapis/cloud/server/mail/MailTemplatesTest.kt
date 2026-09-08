@@ -36,16 +36,16 @@ class MailTemplatesTest :
             val mail = MailTemplates.passwordReset(rawToken = "TOKEN123", branding = testBranding())
             mail.plainText.countOccurrences("TOKEN123") shouldBe 2 // once in the link, once as a copy/paste code
             mail.html.countOccurrences("TOKEN123") shouldBe 2
-            mail.plainText shouldContain "https://pzb.example.org/#/password-reset?token=TOKEN123"
-            mail.html shouldContain "https://pzb.example.org/#/password-reset?token=TOKEN123"
+            mail.plainText shouldContain "https://pzb.example.org/app#/password-reset?token=TOKEN123"
+            mail.html shouldContain "https://pzb.example.org/app#/password-reset?token=TOKEN123"
         }
 
         test("friendVerification -- plain text and HTML each contain the token, plus the base URL") {
             val mail = MailTemplates.friendVerification(rawToken = "FTOKEN456", branding = testBranding())
             mail.plainText shouldContain "FTOKEN456"
             mail.html shouldContain "FTOKEN456"
-            mail.plainText shouldContain "https://pzb.example.org/#/verify-email?token=FTOKEN456"
-            mail.html shouldContain "https://pzb.example.org/#/verify-email?token=FTOKEN456"
+            mail.plainText shouldContain "https://pzb.example.org/app#/verify-email?token=FTOKEN456"
+            mail.html shouldContain "https://pzb.example.org/app#/verify-email?token=FTOKEN456"
         }
 
         test("passwordReset HTML escapes a hostile base URL -- no raw <script> tag") {

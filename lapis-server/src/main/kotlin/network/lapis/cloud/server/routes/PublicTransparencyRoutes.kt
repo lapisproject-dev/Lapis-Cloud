@@ -77,7 +77,7 @@ fun Route.registerPublicTransparencyRoutes(
 private fun buildView(): PublicTransparencyView {
     val stats = PublicTransparencyReader.loadStats()
     val board = PublicTransparencyReader.loadBoard()
-    val topPosts = loadTopPosts()
+    val topPosts = loadTopPosts(limit = TOP_POSTS_LIMIT)
     val ltrSection = PublicTransparencyReader.loadTopLtrHolders(limit = TOP_RANKING_LIMIT)
     val donationYear = DbClock.nowLocalDateTime().year
     val donationsSection = PublicTransparencyReader.loadTopDonors(year = donationYear, limit = TOP_RANKING_LIMIT)
@@ -104,15 +104,21 @@ private const val TOP_POSTS_LIMIT = 5
  * "recent", is the more honest representation for this narrower use -- `SocialReadPipeline
  * .timelinePage`'s own weight-ranking (which already factors in recency via
  * `SocialPostWeight.ownWeightUnrounded`'s time-decay) still applies.
+ *
+ * `internal` (not `private`, Welle V1.4.6) -- `PublicLandingRoutes` (`GET /`) reuses this SAME
+ * function, with its own (smaller) [limit], for its own "Top-Beiträge" teaser, rather than declaring
+ * a second, independently-formulated ranking query -- same "one definition, never a driftable copy"
+ * discipline this file's own class KDoc establishes for the CSP/security-header helpers it imports
+ * from `SocialPublicRoutes.kt`.
  */
-private fun loadTopPosts(): List<PublicPostView> {
+internal fun loadTopPosts(limit: Int): List<PublicPostView> {
     val now = DbClock.nowLocalDateTime()
     val condition = SocialVisibility.publicReadableCondition() and SocialPostTable.parentId.isNull()
     val pageDto =
         SocialReadPipeline.timelinePage(
             condition = condition,
             horizon = null,
-            limit = TOP_POSTS_LIMIT,
+            limit = limit,
             offset = 0,
             now = now,
             viewerStatus = null,

@@ -21,11 +21,12 @@ import kotlin.time.Duration
  * selbst zwar serverseitig erzeugt und opak ist, aber [FederationConfig.publicBaseUrl] letztlich
  * deployment-konfigurierbar ist.
  *
- * **Client-Deep-Links (Option B)**: beide Mails verlinken auf `#/password-reset?token=...` bzw.
- * `#/verify-email?token=...` -- der Hash-Fragment-Teil verlässt den Browser nie (siehe
- * `network.lapis.cloud.client.Routing` KDoc), der Token landet also nie in einem
- * Server-Zugriffslog oder Referer-Header. Beide URLs werden ausschließlich hier gebaut -- ein
- * späterer Wechsel des Link-Ziels ist eine Ein-Zeilen-Änderung.
+ * **Client-Deep-Links (Option B)**: beide Mails verlinken auf `/app#/password-reset?token=...` bzw.
+ * `/app#/verify-email?token=...` (Welle V1.4.6: `/app`-Präfix, seit die SPA nicht mehr unter `/`
+ * läuft, siehe `network.lapis.cloud.server.routes.PublicLandingRoutes` KDoc) -- der Hash-Fragment-Teil
+ * verlässt den Browser nie (siehe `network.lapis.cloud.client.Routing` KDoc), der Token landet also
+ * nie in einem Server-Zugriffslog oder Referer-Header. Beide URLs werden ausschließlich hier gebaut --
+ * ein späterer Wechsel des Link-Ziels ist eine Ein-Zeilen-Änderung.
  */
 object MailTemplates {
     data class RenderedMail(
@@ -38,7 +39,7 @@ object MailTemplates {
         rawToken: String,
         branding: MailBranding,
     ): RenderedMail {
-        val link = "${branding.publicBaseUrl}/#/password-reset?token=$rawToken"
+        val link = "${branding.publicBaseUrl}/app#/password-reset?token=$rawToken"
         val ttl = formatTtl(PasswordResetTokenStore.RESET_TTL)
         val subject = "Passwort zurücksetzen – ${branding.fromDisplayName}"
         val plainText =
@@ -76,7 +77,7 @@ object MailTemplates {
         rawToken: String,
         branding: MailBranding,
     ): RenderedMail {
-        val link = "${branding.publicBaseUrl}/#/verify-email?token=$rawToken"
+        val link = "${branding.publicBaseUrl}/app#/verify-email?token=$rawToken"
         val ttl = formatTtl(FriendEmailVerificationTokenStore.VERIFICATION_TTL)
         val subject = "E-Mail-Adresse bestätigen – ${branding.fromDisplayName}"
         val plainText =
@@ -122,7 +123,7 @@ object MailTemplates {
         lastHttpStatus: Int?,
         branding: MailBranding,
     ): RenderedMail {
-        val link = "${branding.publicBaseUrl}/#/api-keys"
+        val link = "${branding.publicBaseUrl}/app#/api-keys"
         val statusLine = if (lastHttpStatus != null) "letzter HTTP-Status: $lastHttpStatus" else "kein HTTP-Status erhalten"
         val subject = "Webhook deaktiviert – ${branding.fromDisplayName}"
         val plainText =

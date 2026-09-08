@@ -215,7 +215,9 @@ fun Route.registerOidcRoutes(
         val current = runCatching { resolveCurrentMember(call) }.getOrNull()
         if (current == null) {
             val returnTo = URLEncoder.encode(call.request.uri, "UTF-8")
-            call.respondRedirect("/#/login?returnTo=$returnTo")
+            // Welle V1.4.6: "/app" prefix -- the member SPA no longer lives at "/", see
+            // PublicLandingRoutes KDoc.
+            call.respondRedirect("/app#/login?returnTo=$returnTo")
             return@get
         }
 
@@ -826,7 +828,11 @@ fun Route.registerOidcRoutes(
             ),
         )
         OidcLoginAuditRecorder.record(eventType = OidcLoginEventType.RP_LOGIN_SUCCESS, memberId = memberId, remoteParty = homeServerIssuer)
-        call.respondRedirect("/")
+        // Welle V1.4.6: "/app" prefix -- the member SPA no longer lives at "/", see
+        // PublicLandingRoutes KDoc. "/" is now the anonymous, server-rendered landing page and
+        // does no cookie inspection, so a bare "/" redirect here would strand a freshly
+        // authenticated guest on marketing content instead of the dashboard.
+        call.respondRedirect("/app#/dashboard")
     }
 
     post("/federation/oidc/backchannel-logout") {

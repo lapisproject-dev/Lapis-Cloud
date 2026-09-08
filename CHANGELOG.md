@@ -8,6 +8,34 @@ All notable changes to this project are documented here. Format follows
 
 ### Added
 
+**Öffentliche Startseite (Welle V1.4.6)**
+
+- **`GET /` ist jetzt eine server-gerenderte, indexierbare Landingpage** — dritte öffentliche,
+  kontenlose HTML-Route neben `/s` und `/transparenz`. Zeigt drei Kennzahlen (Mitglieder, insgesamt
+  ausgegebene LTR, öffentliche Beiträge) und bis zu fünf "Top-Beiträge"-Teaser, jeweils aus
+  bestehenden Readern (`PublicTransparencyReader.loadStats`, `PublicTransparencyRoutes
+  .loadTopPosts`) — kein neuer Query-Pfad. `meta name="robots" content="index,follow"` (bewusst das
+  Gegenteil von `/transparenz`'s `noindex,follow`) — die Seite trägt keinen widerrufbaren,
+  einwilligungsbasierten Namen (kein Vorstand, kein LTR-Halter, kein Spender), nur bereits
+  öffentlich indexierte Beitragsautoren. Details: `docs/architecture/public-landing.adoc`.
+- **Optionaler Hash-Bridge-Baustein** (`GET /s/assets/hash-bridge.js`) rettet bereits im Umlauf
+  befindliche `<base>/#/...`-Links (versandte Passwort-Reset-/E-Mail-Verifikations-Mails, offene
+  Stripe-Checkout-Sessions, bereits eingebettete Website-Snippets) durch eine same-origin,
+  Allowlist-geprüfte Weiterleitung nach `/app`. Einziger Aufrufer, der `script-src 'self'` in der CSP
+  anfordert — `/s` und `/transparenz` bleiben skriptfrei.
+
+### Changed
+
+- **BREAKING: Die Mitglieder-SPA ist ab sofort unter `/app` erreichbar, nicht mehr unter `/`.**
+  Alte Lesezeichen auf `/#/...` landen ab diesem Release auf der neuen öffentlichen Startseite statt
+  in der Anwendung. Betreiber mit eingebettetem Website-Schnipsel
+  (`docs/api/embed-widgets.adoc`) sollten diesen neu kopieren — die alten Fallback-Links zeigen
+  weiterhin auf `/#/...`. Zwölf interne Link-Erzeuger (Passwort-Reset-/E-Mail-Verifikations-/
+  API-Schlüssel-Mails, Stripe-Checkout-Rückkehr-URLs, OIDC — sowohl der No-Active-Session-Redirect
+  als auch der Erfolgs-Redirect am Ende des RP-Callbacks —, Embed-Widget-Fallbacks, sowie beide
+  hydrierten Links des `lapis-widgets.js`-Login-Widgets und des `join`-Widgets) wurden auf
+  `/app#/...` umgestellt. `robots.txt` disallowed jetzt zusätzlich `/app`.
+
 **Buchhaltungs-Export an sevDesk (Welle V1.4.5.4)**
 
 - **Zweiter Anbieter** hinter derselben, anbieterneutralen `AccountingExportProviderAdapter`-

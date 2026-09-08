@@ -145,14 +145,34 @@ internal object SocialPublicSitemap {
         return rootIds.mapNotNull { id -> lastmodByRootId[id]?.let { SitemapEntry(id = id, lastmod = it) } }
     }
 
-    /** A plain `<urlset>` for [entries] -- used directly under `/sitemap.xml` when [entries] fits in one file, or for one shard. */
+    /**
+     * A plain `<urlset>` for [entries] -- used directly under `/sitemap.xml` when [entries] fits in
+     * one file, or for one shard.
+     *
+     * [includeRoot] (Welle V1.4.6 "Öffentliche Startseite", default `false` -- every EXISTING call
+     * site keeps its byte-identical output): `true` emits `$baseUrl/` as the FIRST `<url>` entry,
+     * WITHOUT a `<lastmod>` (the landing page's content changes on every write across the whole
+     * organization -- member count, LTR total, top posts -- so no single timestamp honestly
+     * represents "when this page last changed"; omitting `<lastmod>` entirely is the honest
+     * representation, not a stale or fabricated one). The caller is responsible for passing `true`
+     * on AT MOST one shard per full sitemap listing -- see `SocialPublicRoutes.kt`'s two call sites
+     * (`/sitemap.xml` unsharded -> always; `/sitemap-{shard}.xml` -> only `shard == 1`) -- passing it
+     * on every shard would list `/` in every one of them, which is not itself invalid XML but wastes
+     * a crawler's per-file budget and duplicates the entry across files it need not appear in twice.
+     */
     fun renderUrlset(
         entries: List<SitemapEntry>,
         baseUrl: String,
+        includeRoot: Boolean = false,
     ): String =
         buildString {
             append("<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n")
             append("<urlset xmlns=\"http://www.sitemaps.org/schemas/sitemap/0.9\">\n")
+            if (includeRoot) {
+                append("  <url>\n")
+                append("    <loc>").append(xmlEscape("$baseUrl/")).append("</loc>\n")
+                append("  </url>\n")
+            }
             entries.forEach { entry ->
                 append("  <url>\n")
                 append("    <loc>").append(xmlEscape("$baseUrl/s/${entry.id}")).append("</loc>\n")

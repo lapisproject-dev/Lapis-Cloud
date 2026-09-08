@@ -293,6 +293,33 @@ class EmbedAssetTest :
             text shouldContain "statusEl.textContent = \"Anmeldung wird geprüft"
         }
 
+        // Review-Fund MEDIUM (Multi-Agent-Pipeline "Öffentliche Root-Seite für Lapis Cloud", fehlende
+        // Testabdeckung): before this test, NO test anywhere asserted on the LINK FORM this file
+        // generates -- only on its size budget, headers, and unrelated security tokens (the tests
+        // above). That is exactly how a stale "/#/..." link generator (missing the "/app" prefix the
+        // SPA has required since Welle V1.4.6, see PublicLandingRoutes KDoc) went unnoticed here even
+        // though the Kotlin-side twin generator (EmbedIntegrationHttp.buildEmbedSnippet) DOES have a
+        // test (EmbedIntegrationScreenTest) that was updated -- this served JS asset was not. Mirrors
+        // the source-scan-for-a-forbidden-token pattern SocialPublicHtmlTest's "T6" test already
+        // establishes for the Kotlin-rendered public HTML.
+        test(
+            "lapis-widgets.js: every internal same-origin hash-route link it generates carries the " +
+                "mandatory \"/app\" prefix -- no bare \"/#/...\" link generator (a stale pre-Welle-V1.4.6 " +
+                "shape that would strand the browser on the anonymous landing page instead of the SPA)",
+        ) {
+            val text = widgetsJs.readText()
+            // Every occurrence of "#/" in the file must be immediately preceded by "/app" -- i.e. no
+            // "#/" is reachable that is NOT part of an "/app#/..." literal. A naive `shouldNotContain
+            // "/#/"` would miss this if a future edit introduced e.g. string concatenation instead of a
+            // literal; scanning every "#/" occurrence's preceding chars is stricter.
+            val hashRouteOccurrences = Regex("""#/""").findAll(text).toList()
+            hashRouteOccurrences.isEmpty() shouldBe false
+            hashRouteOccurrences.forEach { match ->
+                val precedingStart = (match.range.first - 4).coerceAtLeast(0)
+                text.substring(precedingStart, match.range.first) shouldBe "/app"
+            }
+        }
+
         test(
             "the credentials-allow header is never SET anywhere in the embed Kotlin package or in " +
                 "EmbedHtml.kt/EmbedRoutes.kt -- neither via the literal wire-format string NOR via Ktor's " +

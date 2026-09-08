@@ -51,6 +51,14 @@ object EmbedIntegrationHttp {
  * origin not yet allowlisted) still sees a WORKING link, not an empty `<div>`. The widget script
  * REPLACES this fallback content on successful hydration (see `lapis-widgets.js`'s own `mount()`);
  * it never touches it if hydration does not happen at all.
+ *
+ * Welle V1.4.6: the three fallback anchors point at `$base/app#/...`, not `$base/#/...` -- the member
+ * SPA moved off `/` to `/app` (see `network.lapis.cloud.server.routes.PublicLandingRoutes` KDoc).
+ * Operators who already copied this snippet onto their own site BEFORE that deploy keep the old
+ * `$base/#/...` links -- those are not remotely correctable (this codebase does not control
+ * third-party sites), and are documented as a known, accepted residual in the wave's release notes;
+ * see the optional hash-bridge asset (`PublicLandingHtml`/`/s/assets/hash-bridge.js`) for the mitigation
+ * that DOES cover them.
  */
 fun buildEmbedSnippet(publicBaseUrl: String): String {
     val base = publicBaseUrl.trimEnd('/')
@@ -58,15 +66,15 @@ fun buildEmbedSnippet(publicBaseUrl: String): String {
         |<script src="$base/embed/v1/lapis-widgets.js" async></script>
         |
         |<div data-lapis-widget="login">
-        |  <a href="$base/#/login">Anmelden</a>
+        |  <a href="$base/app#/login">Anmelden</a>
         |</div>
         |
         |<div data-lapis-widget="join">
-        |  <a href="$base/#/register">Mitglied werden</a>
+        |  <a href="$base/app#/register">Mitglied werden</a>
         |</div>
         |
         |<div data-lapis-widget="donate" data-lapis-fallback-url="">
-        |  <a href="$base/#/donate">Spenden</a>
+        |  <a href="$base/app#/donate">Spenden</a>
         |</div>
         """.trimMargin()
 }

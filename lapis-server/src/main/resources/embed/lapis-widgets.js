@@ -111,7 +111,8 @@
         button.hidden = true;
         status.textContent = TEXT.signedInPrefix + truncate(payload && payload.displayName);
         memberLink.textContent = TEXT.memberArea;
-        memberLink.href = LAPIS_ORIGIN + "/#/dashboard";
+        // Welle V1.4.6: "/app" prefix -- the member SPA no longer lives at "/".
+        memberLink.href = LAPIS_ORIGIN + "/app#/dashboard";
         memberLink.hidden = false;
         memberLink.focus();
       } else if (state === "blocked") {
@@ -162,7 +163,8 @@
     var root = mount(host);
     var link = document.createElement("a");
     link.className = "b o";
-    link.href = LAPIS_ORIGIN + "/#/register";
+    // Welle V1.4.6: "/app" prefix -- the member SPA no longer lives at "/".
+    link.href = LAPIS_ORIGIN + "/app#/register";
     link.target = "_blank";
     link.rel = "noopener noreferrer";
     link.textContent = TEXT.join;

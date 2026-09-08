@@ -53,6 +53,37 @@ import kotlin.uuid.Uuid
 private val logger = KotlinLogging.logger {}
 
 /**
+ * Welle V1.4.6 "Öffentliche Startseite" -- the hash-bridge asset served under
+ * `/s/assets/hash-bridge.js` (see the `get("/s/assets/hash-bridge.js")` handler below, and
+ * `PublicLandingHtml`/`PublicLandingRoutes` class KDoc "Hash-Bridge" for the full rationale). A
+ * plain `const val`, the SAME pattern [SocialPublicHtml.STYLESHEET] already establishes for the CSS
+ * asset -- deliberately NOT a file under `src/main/resources/`: this codebase has exactly one
+ * precedent for serving a static public asset, and it is an in-code constant, never a
+ * classpath-resource read on the request path.
+ *
+ * Deliberately tiny and inert by construction:
+ * - Only ever reads `location.hash` and, on the ONE matching same-origin target (`/app`), calls
+ *   `location.replace(...)` -- never `eval`, never writes `innerHTML`, never reads any other
+ *   browser API.
+ * - The regex is a closed allowlist of characters a hash-routed URL fragment can legitimately
+ *   contain (see `network.lapis.cloud.client.Routing`'s own route table) -- anything else (in
+ *   particular a fragment starting with anything other than `#/`) is left untouched, so a crawler
+ *   or a human visiting the bare `/` (no fragment at all) never triggers a redirect at all.
+ * - The redirect TARGET is the literal string `"/app"` plus the (already-validated) hash --
+ *   never constructed from `location.host`/`document.referrer`/any other request-controlled input,
+ *   so this can never become an open redirect.
+ */
+internal const val LANDING_HASH_BRIDGE_SCRIPT: String =
+    """
+    (function () {
+      var h = location.hash;
+      if (/^#\/[A-Za-z0-9_\-\/?=&%.~+]*$/.test(h)) {
+        location.replace("/app" + h);
+      }
+    })();
+    """
+
+/**
  * Feste Seitengröße -- der öffentliche Pfad bietet KEINEN client-steuerbaren `limit`-Parameter (der
  * authentifizierte hat `MAX_TIMELINE_LIMIT` = 100; kontenlos gibt es keinen Grund, die Arbeitsmenge
  * einem anonymen Aufrufer in die Hand zu geben).
@@ -419,6 +450,24 @@ fun Route.registerSocialPublicRoutes(
         }
     }
 
+    // Welle V1.4.6 "Öffentliche Startseite" -- the optional hash-bridge asset (see
+    // PublicLandingHtml/PublicLandingRoutes class KDoc "Hash-Bridge"): a same-origin, non-inline
+    // `<script>` that rescues an already-in-flight `<base>/#/...` link (a bookmark, a password-
+    // reset/email-verification/Stripe-return mail sent before this deploy, an embedded website
+    // snippet copied before this deploy) by forwarding its hash fragment to `/app`. Same "cheap and
+    // constant, not rate-limited" reasoning as the CSS asset above -- a plain, in-memory, unchanging
+    // string, zero DB access. Still wrapped in withPublicErrorHandling (M1) for the same reason
+    // documented there.
+    get("/s/assets/hash-bridge.js") {
+        call.withPublicErrorHandling(baseUrl = baseUrl) {
+            call.respondPublicCacheable(
+                body = LANDING_HASH_BRIDGE_SCRIPT,
+                contentType = ContentType.Application.JavaScript.withParameter("charset", "utf-8"),
+                cacheControl = "public, max-age=86400",
+            )
+        }
+    }
+
     get("/sitemap.xml") {
         call.withPublicErrorHandling(baseUrl = baseUrl) {
             if (!sitemapRateLimiter.checkAndRecord(rateLimitKeyFor(remoteHost = call.request.origin.remoteHost))) {
@@ -433,7 +482,10 @@ fun Route.registerSocialPublicRoutes(
             val body =
                 if (totalCount <= SocialPublicSitemap.MAX_URLS_PER_FILE) {
                     val entries = transaction { SocialPublicSitemap.loadEntriesForShard(shard = 1) }
-                    SocialPublicSitemap.renderUrlset(entries = entries, baseUrl = baseUrl)
+                    // Welle V1.4.6: the unsharded /sitemap.xml always includes "/" (the landing
+                    // page) as its first entry -- see SocialPublicSitemap.renderUrlset KDoc
+                    // "includeRoot".
+                    SocialPublicSitemap.renderUrlset(entries = entries, baseUrl = baseUrl, includeRoot = true)
                 } else {
                     // N7-Fix (Review-Runde 2): MAX_URLS_PER_FILE (45 000) x MAX_SHARDS (10) ==
                     // MAX_TOTAL_URLS exactly -- that many roots still fit losslessly across all 10
@@ -477,7 +529,9 @@ fun Route.registerSocialPublicRoutes(
                 call.respondPublicNotFound(baseUrl = baseUrl)
                 return@withPublicErrorHandling
             }
-            val body = SocialPublicSitemap.renderUrlset(entries = entries, baseUrl = baseUrl)
+            // Welle V1.4.6: "/" appears in shard 1 only -- never in shard 2+, see
+            // SocialPublicSitemap.renderUrlset KDoc "includeRoot".
+            val body = SocialPublicSitemap.renderUrlset(entries = entries, baseUrl = baseUrl, includeRoot = shard == 1)
             call.respondPublicCacheable(body = body, contentType = XML_CONTENT_TYPE, cacheControl = "public, max-age=3600")
         }
     }
@@ -499,6 +553,11 @@ fun Route.registerSocialPublicRoutes(
     // verspricht -- ein Versprechen, das gegenüber einem Suchmaschinen-Crawler oder einem
     // Archivdienst (archive.org) strukturell nicht zu halten ist. Siehe begleitendes
     // `meta(name = "robots", content = "noindex,follow")` in PublicTransparencyHtml.
+    //
+    // Welle V1.4.6 "Öffentliche Startseite": "Disallow: /app" -- die SPA-Shell unter /app ist ein
+    // leeres <div id="lapis-client">, ihre Indexierung wäre reines Rauschen und könnte im
+    // Suchmaschinen-Ranking mit der neuen, inhaltstragenden Landingpage unter / konkurrieren (siehe
+    // PublicLandingHtml's "index,follow" -- das Gegenstück dieser Disallow-Zeile).
     get("/robots.txt") {
         call.withPublicErrorHandling(baseUrl = baseUrl) {
             val body =
@@ -511,6 +570,7 @@ fun Route.registerSocialPublicRoutes(
                 Disallow: /rpc/
                 Disallow: /s/*/report
                 Disallow: /transparenz
+                Disallow: /app
 
                 Sitemap: $baseUrl/sitemap.xml
                 """.trimIndent() + "\n"
@@ -693,11 +753,19 @@ private fun LocalDateTime.toHumanDate(): String = "%02d.%02d.%04d".format(dayOfM
  * two public HTML route families (`/s`, `/transparenz`) keep exactly ONE definition of the shared
  * CSP/security-header set -- never a second, driftable copy. Pure visibility widening, zero
  * behavior change; every existing call site above is unaffected.
+ *
+ * [scriptSrcSelf] (Welle V1.4.6, default `false` -- every EXISTING call site keeps its byte-identical
+ * CSP): `true` adds `script-src 'self'` to the directive list, used ONLY by `GET /` (the landing
+ * page) to load the optional hash-bridge asset (`PublicLandingRoutes`/`/s/assets/hash-bridge.js`) --
+ * an externally-served, non-inline `<script>`, never a CSP inline-script exemption keyword. `/s`
+ * and `/transparenz` stay
+ * script-free (`scriptSrcSelf = false`, the default), exactly as before this wave.
  */
-internal fun ApplicationCall.applyPublicPageHeaders() {
+internal fun ApplicationCall.applyPublicPageHeaders(scriptSrcSelf: Boolean = false) {
+    val scriptDirective = if (scriptSrcSelf) " script-src 'self';" else ""
     response.header(
         "Content-Security-Policy",
-        "default-src 'none'; style-src 'self'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'",
+        "default-src 'none'; style-src 'self';$scriptDirective base-uri 'none'; form-action 'self'; frame-ancestors 'none'",
     )
     response.header("X-Content-Type-Options", "nosniff")
     response.header("Referrer-Policy", "no-referrer")
@@ -727,17 +795,22 @@ private fun ifNoneMatchHits(
     return headerValue.split(",").map { it.trim() }.any { candidate -> candidate.removePrefix("W/").trim('"') == target }
 }
 
-/** `internal` (not `private`, V1.3.0) -- shared verbatim with `PublicTransparencyRoutes`, see [applyPublicPageHeaders] KDoc for the reasoning. */
+/**
+ * `internal` (not `private`, V1.3.0) -- shared verbatim with `PublicTransparencyRoutes`, see
+ * [applyPublicPageHeaders] KDoc for the reasoning. [scriptSrcSelf] (Welle V1.4.6, default `false`)
+ * passes straight through to [applyPublicPageHeaders] -- see that function's own KDoc.
+ */
 internal suspend fun ApplicationCall.respondPublicCacheable(
     body: String,
     contentType: ContentType,
     cacheControl: String,
+    scriptSrcSelf: Boolean = false,
 ) {
     val etag = computeETag(body = body)
     response.header(HttpHeaders.ETag, etag)
     response.header(HttpHeaders.Vary, HttpHeaders.AcceptEncoding)
     response.header(HttpHeaders.CacheControl, cacheControl)
-    applyPublicPageHeaders()
+    applyPublicPageHeaders(scriptSrcSelf = scriptSrcSelf)
     if (ifNoneMatchHits(headerValue = request.headers[HttpHeaders.IfNoneMatch], etag = etag)) {
         respond(HttpStatusCode.NotModified)
     } else {

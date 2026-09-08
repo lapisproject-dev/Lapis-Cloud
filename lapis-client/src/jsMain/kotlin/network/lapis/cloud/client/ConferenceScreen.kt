@@ -779,7 +779,7 @@ internal fun conferenceInviteText(
     return gettext(
         "Sie sind zur Besprechung „%1\"%2 eingeladen.\n" +
             "1. Melden Sie sich über Ihren eigenen Heimserver an.\n" +
-            "2. Öffnen Sie %3/#/conference\n" +
+            "2. Öffnen Sie %3/app#/conference\n" +
             "3. Geben Sie dort diese Raum-Kennung ein: %4",
         roomTitle,
         hostedByClause,

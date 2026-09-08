@@ -262,15 +262,16 @@ class SocialPublicHtmlTest :
         test(
             "T6: source scan -- SocialPublicHtml.kt, SocialPublicRoutes.kt, SocialPublicSitemap.kt, " +
                 "PublicTransparencyHtml.kt, PublicTransparencyRoutes.kt, PublicTransparencyReader.kt, " +
-                "EmbedHtml.kt, and EmbedRoutes.kt contain no case-insensitive variant of the " +
-                "raw-HTML-escape-bypass token",
+                "EmbedHtml.kt, EmbedRoutes.kt, PublicLandingHtml.kt, and PublicLandingRoutes.kt " +
+                "contain no case-insensitive variant of the raw-HTML-escape-bypass token",
         ) {
             // G8-Fix (Review-Runde 1): the scan used to be case-SENSITIVE (would have missed
             // `Unsafe`/`UNSAFE`) and did not scan SocialPublicSitemap.kt at all, even though it is
             // one of the three files this welle's routing KDoc names as part of the public read path.
             // V1.3.0: extended to the three new files backing GET /transparenz -- the second public,
             // account-less HTML route family in this codebase, see PublicTransparencyHtml class KDoc
-            // point 1.
+            // point 1. Welle V1.4.6: extended again to the two new files backing GET / -- the THIRD
+            // public, account-less HTML route family, see PublicLandingHtml class KDoc point 1.
             val mainSourceDir = File("src/main/kotlin").let { if (it.exists()) it else File("lapis-server/src/main/kotlin") }
             val scannedFiles =
                 listOf(
@@ -284,6 +285,10 @@ class SocialPublicHtmlTest :
                     // V1.3.0 für die Transparenz-Dateien gemacht hat.
                     File(mainSourceDir, "network/lapis/cloud/server/routes/EmbedHtml.kt"),
                     File(mainSourceDir, "network/lapis/cloud/server/routes/EmbedRoutes.kt"),
+                    // Welle V1.4.6 "Öffentliche Startseite" -- dieselbe Erweiterung, diesmal für die
+                    // dritte öffentliche HTML-Routenfamilie (GET /).
+                    File(mainSourceDir, "network/lapis/cloud/server/routes/PublicLandingHtml.kt"),
+                    File(mainSourceDir, "network/lapis/cloud/server/routes/PublicLandingRoutes.kt"),
                 )
             scannedFiles.forEach { file ->
                 file.exists() shouldBe true

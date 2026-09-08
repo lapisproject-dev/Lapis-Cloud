@@ -36,15 +36,17 @@ internal data class StripeReturnUrls(
         /**
          * The unchanged V1.2.8 behaviour for the member path: the session id travels in the HASH
          * FRAGMENT, never a query parameter -- see [StripeCheckoutClient.createCheckoutSession]
-         * KDoc "`success_url`/`cancel_url`".
+         * KDoc "`success_url`/`cancel_url`". Welle V1.4.6: `/app` prefix, since the member SPA no
+         * longer lives at `$baseUrl/` -- see `network.lapis.cloud.server.routes.PublicLandingRoutes`
+         * KDoc.
          */
         fun memberSpa(
             baseUrl: String,
             checkoutSessionId: String,
         ): StripeReturnUrls =
             StripeReturnUrls(
-                successUrl = "$baseUrl/#/payment-return?session=$checkoutSessionId",
-                cancelUrl = "$baseUrl/#/payment-return?session=$checkoutSessionId&cancelled=true",
+                successUrl = "$baseUrl/app#/payment-return?session=$checkoutSessionId",
+                cancelUrl = "$baseUrl/app#/payment-return?session=$checkoutSessionId&cancelled=true",
             )
 
         /**

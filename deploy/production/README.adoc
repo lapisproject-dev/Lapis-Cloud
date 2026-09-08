@@ -472,7 +472,8 @@ messages land in recipients' spam folders even though the SMTP transaction itsel
 a DNS/deployment concern, not something this codebase can verify.
 
 **`LAPIS_PUBLIC_BASE_URL` must be correct** before enabling SMTP -- every link
-`network.lapis.cloud.server.mail.MailTemplates` builds is `$LAPIS_PUBLIC_BASE_URL/#/...`. A
+`network.lapis.cloud.server.mail.MailTemplates` builds is `$LAPIS_PUBLIC_BASE_URL/app#/...` (Welle
+V1.4.6: `/app`, since the member SPA moved off `/` -- see `docs/architecture/public-landing.adoc`). A
 deployment with SMTP configured but a stale/default `LAPIS_PUBLIC_BASE_URL` sends real mail
 containing unusable `http://localhost:8080` links -- `SmtpStartupCheck` logs a `WARN` for exactly
 this case, but only a WARN, not a startup failure (an operator can legitimately be mid-migration).

@@ -329,7 +329,7 @@ class OidcRoutesTest :
                 val response = noRedirectClient.get(authorizeUrl)
                 response.status shouldBe HttpStatusCode.Found
                 val location = requireNotNull(response.headers[HttpHeaders.Location])
-                location shouldContain "/#/login"
+                location shouldContain "/app#/login"
                 location shouldContain "returnTo="
             }
         }

@@ -20,7 +20,7 @@ origin than this server) embed three small widgets:
 * `data-lapis-widget="login"` — a button that opens a popup window for member login, using
   `postMessage` to report the outcome back to the embedding page without ever sharing a session
   cookie across the origin boundary.
-* `data-lapis-widget="join"` — a plain link to this server's own `/#/register` screen.
+* `data-lapis-widget="join"` — a plain link to this server's own `/app#/register` screen.
 * `data-lapis-widget="donate"` — a one-field, anonymous donation form (Welle V1.4.1b, see
   <<anonymous-donation-widget>>).
 
@@ -33,17 +33,22 @@ All three are opt-in, `LAPIS_EMBED_ENABLED=false` by default (see <<environment-
 <script src="https://<lapis-host>/embed/v1/lapis-widgets.js" async></script>
 
 <div data-lapis-widget="login">
-  <a href="https://<lapis-host>/#/login">Anmelden</a>
+  <a href="https://<lapis-host>/app#/login">Anmelden</a>
 </div>
 
 <div data-lapis-widget="join">
-  <a href="https://<lapis-host>/#/register">Mitglied werden</a>
+  <a href="https://<lapis-host>/app#/register">Mitglied werden</a>
 </div>
 
 <div data-lapis-widget="donate" data-lapis-fallback-url="">
-  <a href="https://<lapis-host>/#/donate">Spenden</a>
+  <a href="https://<lapis-host>/app#/donate">Spenden</a>
 </div>
 ----
+
+NOTE: Welle V1.4.6 "Öffentliche Startseite" moved the member SPA from `/` to `/app` — the fallback
+links above changed accordingly. If you embedded this snippet before that release, re-copy it: the
+old `/#/...` links now land on the new public landing page at `/` instead of the SPA, and lose their
+hash fragment there.
 
 `data-lapis-fallback-url` (optional, on the `donate` host only) is a link the widget offers as
 "Andere Wege" when the checkout endpoint is rate-limited, over the amount ceiling, or unavailable —
