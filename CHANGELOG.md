@@ -8,6 +8,29 @@ All notable changes to this project are documented here. Format follows
 
 ### Added
 
+**Vertikale Sidebar-Navigation statt horizontalem Menü (2026-09-08)**
+
+- Die sechs rollenbasierten Menügruppen (Mitgliedschaft/Selbstverwaltung/Wirtschaft/Finanzen/
+  Verwaltung/System) sind aus den bisherigen Navbar-Dropdowns in eine kollabierbare, persistente
+  Sidebar (Bootstrap Offcanvas) umgezogen — ab 992 px dauerhaft sichtbar, darunter ein
+  Off-canvas-Panel mit Hamburger-Toggle. Gruppen-Zustand (offen/zu) wird pro Gruppe in
+  `localStorage` gemerkt (stabile Enum-IDs statt übersetzter Beschriftung); ein Deep-Link auf eine
+  Route innerhalb einer Gruppe öffnet diese beim Laden automatisch. Rollen-/Sichtbarkeitslogik
+  (`NavVisibility`) unverändert — nur die Präsentation ändert sich.
+- Der Kopfbereich reduziert sich auf Sprachumschalter + Login-Link (anonym) bzw. ein
+  Konto-Dropdown (Mein Konto/Meine Daten/Abmelden, inkl. Gast-Badge) — die bisherige, rein
+  informative „Name (Rolle)"-Anzeige ist jetzt ein echtes klickbares Dropdown.
+- **Vier Review-Runden deckten vier echte, teils kritische Bugs an der KVision/Bootstrap-
+  Offcanvas-Integration auf** (live gegen die gepinnten Library-Quellen und im echten DOM
+  verifiziert): ein nicht wegklickbarer Backdrop über der Login-Seite bei praktisch jedem
+  App-Start (`Offcanvas.afterInsert()` ruft `showBootstrap()` unconditional auf, unabhängig vom
+  KVision-`visible`-Flag), eine leere, aber sichtbare Sidebar-Spalte neben Login/Registrierung,
+  ein Hamburger-Toggle-Button der schon vor dem ersten Render verschwand (`navbar.removeAll()`
+  räumte ihn jeden `refreshNavbar()`-Aufruf weg), sowie eine Sidebar, die auf KEINEM Viewport im
+  DOM erschien (KVision schließt unsichtbare Kinder komplett aus dem Renderbaum aus, nicht nur
+  CSS-versteckt). Details siehe Commit-Message.
+
+
 **Öffentliche Startseite (Welle V1.4.6)**
 
 - **`GET /` ist jetzt eine server-gerenderte, indexierbare Landingpage** — dritte öffentliche,
