@@ -1,0 +1,155 @@
+= Legal Pages (Impressum & Datenschutz)
+:description: GET /impressum and GET /datenschutz -- operator-configured Impressum/Datenschutzerklärung templates, the fourth and fifth unauthenticated public HTML route family.
+:toc:
+:toc-placement: preamble
+:icons: font
+
+== Context
+
+Welle V1.4.7 "Rechtstexte" adds `GET /impressum` and `GET /datenschutz` -- German
+statutory notices (§ 5 TMG Impressum, Art. 13 DSGVO Datenschutzerklärung) that every
+operator of a Lapis Cloud installation is legally required to provide, but which the
+codebase had no place for before this wave. Both routes share
+xref:public-chrome.adoc[]'s chrome and footer helper -- see that document for the shared
+navigation/language-switcher/footer mechanics this document does not repeat.
+
+**These are templates, not legal advice.** Both pages end with the same disclaimer
+sentence the pre-existing `PublicRankingConsentDisclaimer` already established as this
+codebase's precedent for that posture -- a real deployment must have its own text
+reviewed by counsel.
+
+== `LegalConfig` (`network.lapis.cloud.server.legal`)
+
+Pure `LAPIS_LEGAL_*` environment-variable validation, no I/O -- the same posture
+`network.lapis.cloud.server.branding.BrandConfig` establishes. `load()` never throws;
+`LegalStartupCheck.check()` logs variable **names** only, at WARN, never a rejected
+value (the value may be exactly what got it rejected -- a header-/log-injection
+payload).
+
+[cols="2,1,1,3", options="header"]
+|===
+| Variable | Mandatory? | Max length | Notes
+
+| `LAPIS_LEGAL_OPERATOR_NAME` | yes | 200 | Operator name (§ 5 Abs. 1 Nr. 1 TMG)
+| `LAPIS_LEGAL_STREET` | yes | 200 |
+| `LAPIS_LEGAL_POSTAL_CODE` | yes | 200 |
+| `LAPIS_LEGAL_CITY` | yes | 200 |
+| `LAPIS_LEGAL_COUNTRY` | yes | 200 |
+| `LAPIS_LEGAL_CONTACT_EMAIL` | yes | 200 | Also form-validated (one `@`, a `.` after it, no whitespace) -- no RFC 5322 regex, no DNS/MX lookup (no I/O)
+| `LAPIS_LEGAL_REPRESENTATIVE` | yes | 600, multi-line | `\n` allowed (several named persons); `\r` and every other C0 control character rejected
+| `LAPIS_LEGAL_PHONE` | no | 200 |
+| `LAPIS_LEGAL_REGISTER_COURT` | no | 200 | Imprint only
+| `LAPIS_LEGAL_REGISTER_NUMBER` | no | 200 | Imprint only
+| `LAPIS_LEGAL_VAT_ID` | no | 200 | Imprint only
+| `LAPIS_LEGAL_DPO_CONTACT` | no | 600, multi-line | Privacy notice only (Art. 37 DSGVO)
+| `LAPIS_LEGAL_MSTV_RESPONSIBLE` | no | 200 | Imprint only (§ 18 Abs. 2 MStV) -- see below
+| `LAPIS_LEGAL_SUPERVISORY_AUTHORITY` | no | 200 | Privacy notice only (Art. 13 Abs. 2 lit. d DSGVO)
+|===
+
+Every value is `trim()`med; a blank value behaves exactly like an unset one (`null`, no
+`invalid` entry, but still counted in `missingMandatory` if mandatory). Single-line
+fields reject **every** character with `code < 0x20`; the two multi-line fields
+(`representative`, `dpoContact`) additionally allow `\n` but still reject `\r` and every
+other C0 control character -- `\r\n` is rejected outright, never silently normalized
+(a silent repair would blur the header-injection guard this exists for). No defaults are
+substituted for any legal field (unlike `BrandConfig.DEFAULT_TITLE`) -- a fabricated
+default operator name would itself be a false legal statement.
+
+**Docker Compose `.env` quoting for `representative`/`dpoContact`:** both `deploy/*/.env.example`
+files spell a literal `\n` inline (e.g. `LAPIS_LEGAL_DPO_CONTACT="Datenschutz-Team\nDSB Meier"`)
+for the case of several named persons. Docker Compose only expands `\n` to an actual line break
+when the value is wrapped in double quotes in the `.env` file -- an unquoted value keeps the
+literal backslash-n, which then renders on `/impressum`/`/datenschutz` verbatim (visible
+`\n` instead of a line break), because `LegalHtml` renders these two fields with the
+`legal-multiline` CSS class (`white-space: pre-wrap`) and therefore does not collapse or
+reinterpret the character it was actually given. An operator setting either field to a single
+person's name does not need the quotes.
+
+**`LAPIS_LEGAL_MSTV_RESPONSIBLE`**: whether an installation's `/s` social-network surface
+counts as journalistic-editorial content under § 18 Abs. 2 MStV depends on how the
+*operator* actually uses it, not on anything the code can determine -- this field stays
+optional, and an operator running such content is responsible for setting it themselves.
+
+== Missing mandatory data: an operator notice, never a placeholder
+
+If any of the seven mandatory fields ends up `null` (unset, blank, or rejected),
+`LegalConfig.missingMandatory` is non-empty and `LegalHtml` renders a
+`.legal-incomplete` notice block **in place of** the responsible-party section -- never
+next to it, never as an empty-looking line ("Anschrift:" with nothing after it), never a
+`[Straße]`-style placeholder literal. The block addresses two audiences in one message:
+the operator (which `LAPIS_LEGAL_*` variables to set, then restart the process) and a
+visitor (who to contact directly in the meantime). The server never fails to start and
+never returns an HTTP 500 over this -- see `LegalConfig`'s own KDoc "Never fail-fast,
+never throwing."
+
+An *optional* field being unset simply omits its section/line entirely -- no notice
+block, no empty heading.
+
+== Routes (`LegalRoutes.kt`, `LegalHtml.kt`)
+
+`registerLegalRoutes` reuses `SocialPublicRoutes.kt`'s shared plumbing verbatim
+(`withPublicErrorHandling`/`applyPublicPageHeaders`/`respondPublicCacheable`/
+`respondPublicTooManyRequests`/`respondPublicCanonicalRedirect`/
+`hasOnlyAllowedQueryParams`/`HTML_CONTENT_TYPE`/`rateLimitKeyFor`) -- never a second copy
+of the CSP/security-header set. Its own rate limiter (`legalPageRateLimiter`, 60/min per
+IP) never shares a budget with `/`, `/s`, or `/transparenz`.
+
+**No `transaction {}`, no database access at all.** The rendered body is a pure function
+of `(LegalConfig, ResolvedBranding, PublicLanguage)` -- all three are fixed at process
+startup. Because of that, all 2 × 8 render variants are computed **once**, at route
+registration time, and served from an immutable `Map<PublicLanguage, String>` -- this
+makes the byte-identity `respondPublicCacheable` relies on for its ETag/304 mechanism
+trivially guaranteed, and needs no cache invalidation of any kind.
+
+`Cache-Control: public, max-age=3600` -- the content only ever changes on a restart with
+different configuration, so there is neither `/transparenz`'s 60-second revocation
+promise nor `/`'s shorter, data-driven window to match. `meta robots` is
+`noindex,follow` (like `/transparenz`): a legal-text page must be reachable *from* the
+page a visitor is on, not from a search index. No `hreflang` alternates -- the full text
+exists in German only (see below).
+
+== Why German-only
+
+The full legal text on both pages is German, regardless of the surrounding chrome's
+language -- wrapped in `<div lang="de">`, with one sentence at the top
+(`PublicUiStrings.legalGermanOnlyNote`) telling the reader so in whatever language the
+chrome is currently in. Only the footer link **labels**
+(`PublicUiStrings.legalImprint`/`legalPrivacy`) are translated into all 8 languages; the
+`<a>` itself additionally carries `hreflang="de"`. This mirrors the pre-existing
+precedent `PublicChrome.kt`'s own KDoc documents for the ranking-consent disclaimer and
+the DSA Art. 16 report form: German statutory/legal text stays German, translating it
+would itself introduce legal risk this template is trying to avoid.
+
+== Datenschutzerklärung content: derived from the code, not invented
+
+The "Zwecke und Rechtsgrundlagen" section of `/datenschutz` is a direct description of
+what `network.lapis.cloud.server.dsgvo`'s `PersonalDataContributor` implementations
+already say this application processes -- nothing is added to that list that is not
+backed by an actual contributor, and nothing already processed is omitted. Whoever adds
+a new kind of personal-data processing to this codebase (a new `PersonalDataContributor`)
+must update `LegalHtml.renderPrivacyBody`'s list in the same change.
+
+Retention: the "Speicherdauer" section describes the same posture xref:dsgvo.adoc[]'s
+own erasure mechanism implements -- a DSGVO erasure request is honored, but data subject
+to statutory retention (accounting records above all) is anonymized or retained with a
+documented `retentionReason` instead of deleted outright.
+
+== Security posture
+
+* **HTML injection** -- all 14 configuration values reach the output exclusively through
+  `kotlinx.html`'s escaping text-node/attribute API, never `unsafe { }` (the same
+  source-scan test `SocialPublicHtmlTest` "T6" that covers every other public-HTML file
+  in this package now also scans `LegalHtml.kt`/`LegalRoutes.kt`).
+* **`mailto:` construction** -- `contactEmail`'s own form check (one `@`, a `.` after it,
+  no whitespace) already excludes `\r`/`\n`/multiple `@`; the value additionally reaches
+  the `href` only through the same escaping API as everything else.
+* **No information leak beyond configuration** -- these pages show nothing from the
+  database: no member count, no name, no statistic. `LegalRoutes.kt`/`LegalHtml.kt`
+  contain no `transaction {}` and no `*Reader` import.
+* **SSRF** -- not applicable; `LegalConfig` resolves no URL and performs no I/O.
+  Deliberately no `LAPIS_LEGAL_*_URL` field, the same reasoning `BrandConfig`'s own KDoc
+  gives against a `LAPIS_BRAND_LOGO_URL`.
+
+Diagrams for this feature, if ever needed, use the `[kuml]` macro (`kuml-asciidoc`,
+Maven Central) -- no PlantUML/Mermaid/draw.io, per the repository-wide documentation
+convention.

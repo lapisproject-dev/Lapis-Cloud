@@ -520,6 +520,31 @@ logo shows no mark at all next to it, rather than a mark that would misleadingly
 `LAPIS_BRAND_*` rebrands the deployment's own presentation, it does not white-label away where the
 platform itself comes from.
 
+== Impressum & Datenschutz (V1.4.7)
+
+`GET /impressum` and `GET /datenschutz` render templates for the statutory Impressum
+(§ 5 TMG) and Datenschutzerklärung (Art. 13 DSGVO) every German operator is legally
+required to provide. Full field reference, validation rules, and content rationale:
+see xref:../../docs/architecture/legal-pages.adoc[legal-pages.adoc].
+
+**Seven `LAPIS_LEGAL_*` variables are mandatory**: `LAPIS_LEGAL_OPERATOR_NAME`,
+`LAPIS_LEGAL_STREET`, `LAPIS_LEGAL_POSTAL_CODE`, `LAPIS_LEGAL_CITY`,
+`LAPIS_LEGAL_COUNTRY`, `LAPIS_LEGAL_CONTACT_EMAIL`, `LAPIS_LEGAL_REPRESENTATIVE`. Seven
+more are optional (`LAPIS_LEGAL_PHONE`, `LAPIS_LEGAL_REGISTER_COURT`,
+`LAPIS_LEGAL_REGISTER_NUMBER`, `LAPIS_LEGAL_VAT_ID`, `LAPIS_LEGAL_DPO_CONTACT`,
+`LAPIS_LEGAL_MSTV_RESPONSIBLE`, `LAPIS_LEGAL_SUPERVISORY_AUTHORITY`).
+
+**Never fail-fast, exactly like `LAPIS_BRAND_*` above**: a missing mandatory variable
+does NOT stop the server from starting and does NOT produce an HTTP 500 -- the affected
+page renders an operator-addressed notice in place of the missing data instead (see
+`network.lapis.cloud.server.legal.LegalConfig` KDoc). The server still logs a `WARN` at
+startup naming which variables are missing, never their values.
+
+**This is a template, not legal advice.** Review the rendered `/impressum` and
+`/datenschutz` pages against your own jurisdiction's requirements (and, for a political
+party, § 25 PartG where relevant) before going live -- both pages carry an explicit
+disclaimer to this effect, but the disclaimer alone does not discharge that obligation.
+
 == SEPA-Lastschriftlauf-Poller (optional)
 
 `LAPIS_SEPA_POLLER_ENABLED` (default `false`) starts the background poller

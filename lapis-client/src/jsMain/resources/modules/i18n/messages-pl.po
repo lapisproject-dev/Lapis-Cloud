@@ -9982,3 +9982,7 @@ msgstr "Numer doradcy DATEV nie jest prawidłową liczbą."
 #: src/jsMain/kotlin/network/lapis/cloud/client/LedgerScreen.kt:430
 msgid "DATEV-Mandantennummer ist keine gültige Zahl."
 msgstr "Numer klienta DATEV nie jest prawidłową liczbą."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/LapisAttribution.kt:57
+msgid "Impressum"
+msgstr "Nota prawna"

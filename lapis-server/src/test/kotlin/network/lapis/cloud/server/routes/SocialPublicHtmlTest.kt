@@ -262,8 +262,9 @@ class SocialPublicHtmlTest :
         test(
             "T6: source scan -- SocialPublicHtml.kt, SocialPublicRoutes.kt, SocialPublicSitemap.kt, " +
                 "PublicTransparencyHtml.kt, PublicTransparencyRoutes.kt, PublicTransparencyReader.kt, " +
-                "EmbedHtml.kt, EmbedRoutes.kt, PublicLandingHtml.kt, PublicLandingRoutes.kt, and " +
-                "PublicChrome.kt contain no case-insensitive variant of the raw-HTML-escape-bypass token",
+                "EmbedHtml.kt, EmbedRoutes.kt, PublicLandingHtml.kt, PublicLandingRoutes.kt, " +
+                "PublicChrome.kt, LegalHtml.kt, and LegalRoutes.kt contain no case-insensitive " +
+                "variant of the raw-HTML-escape-bypass token",
         ) {
             // G8-Fix (Review-Runde 1): the scan used to be case-SENSITIVE (would have missed
             // `Unsafe`/`UNSAFE`) and did not scan SocialPublicSitemap.kt at all, even though it is
@@ -292,6 +293,10 @@ class SocialPublicHtmlTest :
                     // Welle "Einheitlicher Kopfbereich + Sprachumschalter" -- der gemeinsame Kopfbereich
                     // aller drei öffentlichen Seiten lebt in dieser neuen Datei.
                     File(mainSourceDir, "network/lapis/cloud/server/routes/PublicChrome.kt"),
+                    // Welle V1.4.7 "Rechtstexte" -- dieselbe Erweiterung, diesmal für die vierte und
+                    // fünfte öffentliche HTML-Routenfamilie (GET /impressum, GET /datenschutz).
+                    File(mainSourceDir, "network/lapis/cloud/server/routes/LegalHtml.kt"),
+                    File(mainSourceDir, "network/lapis/cloud/server/routes/LegalRoutes.kt"),
                 )
             scannedFiles.forEach { file ->
                 file.exists() shouldBe true
@@ -325,5 +330,16 @@ class SocialPublicHtmlTest :
         test("Stylesheet is a plain constant, contains no script or interpolation markers") {
             SocialPublicHtml.STYLESHEET shouldNotContain "<script"
             SocialPublicHtml.STYLESHEET shouldNotContain "javascript:"
+        }
+
+        test("has-chrome column rule keeps .hero's own bottom margin (regression guard, V1.4.7)") {
+            // The shared "body.has-chrome > main, > .hero, > footer" rule must center via
+            // margin-inline, NOT the "margin: 0 auto" shorthand -- that shorthand also sets
+            // margin-bottom: 0 at higher specificity than the plain ".hero { margin-bottom: 2rem; }"
+            // rule below it, silently collapsing the gap between the hero CTA and the stats block
+            // on "/". See the "Wartungsregel (V1.4.7)" comment above this selector in the stylesheet.
+            SocialPublicHtml.STYLESHEET shouldContain "body.has-chrome > .hero"
+            SocialPublicHtml.STYLESHEET shouldContain "margin-inline: auto"
+            SocialPublicHtml.STYLESHEET shouldNotContain "margin: 0 auto; padding: 0 1.5rem"
         }
     })

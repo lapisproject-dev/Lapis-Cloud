@@ -29,6 +29,9 @@ fun renderVerifyEmailScreen(
             width = 100.perc
             marginTop = 64.px
         }
+    // V1.4.7 "Root-Verlinkung" -- Marken-Lockup über der Karte, siehe LoginScreen.kt für dasselbe
+    // Muster. root.h1 bleibt unverändert der screenspezifische Titel.
+    root.brandLockup()
     root.h1(tr("E-Mail-Adresse bestätigen"))
 
     if (token.isNullOrBlank()) {

@@ -36,7 +36,10 @@ fun renderLoginScreen(container: SimplePanel) {
         width = 100.perc
         marginTop = 64.px
 
-        h1(Branding.title)
+        // V1.4.7 "Root-Verlinkung": das Marken-Lockup ersetzt hier `h1(Branding.title)` -- der
+        // Screen behält dafür ein eigenes, screenspezifisches h1 (Design-Team-Review V1.4.7).
+        brandLockup()
+        h1(tr("Anmelden"))
         p(tr("Bitte melden Sie sich mit Ihrer E-Mail-Adresse an."))
 
         val errorBox =

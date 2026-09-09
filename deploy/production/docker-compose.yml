@@ -122,6 +122,23 @@ services:
       # "White-Label-Branding".
       LAPIS_BRAND_TITLE: ${LAPIS_BRAND_TITLE:-}
       LAPIS_BRAND_LOGO_PATH: ${LAPIS_BRAND_LOGO_PATH:-}
+      # Rechtstexte (V1.4.7) -- fuellen GET /impressum + GET /datenschutz, siehe .env.example und
+      # README.adoc "Impressum & Datenschutz". Erste sieben PFLICHT (fehlend -> Betreiber-Hinweis
+      # statt HTTP 500), Rest optional. Nie werfend, nie fail-fast.
+      LAPIS_LEGAL_OPERATOR_NAME: ${LAPIS_LEGAL_OPERATOR_NAME:-}
+      LAPIS_LEGAL_STREET: ${LAPIS_LEGAL_STREET:-}
+      LAPIS_LEGAL_POSTAL_CODE: ${LAPIS_LEGAL_POSTAL_CODE:-}
+      LAPIS_LEGAL_CITY: ${LAPIS_LEGAL_CITY:-}
+      LAPIS_LEGAL_COUNTRY: ${LAPIS_LEGAL_COUNTRY:-}
+      LAPIS_LEGAL_CONTACT_EMAIL: ${LAPIS_LEGAL_CONTACT_EMAIL:-}
+      LAPIS_LEGAL_REPRESENTATIVE: ${LAPIS_LEGAL_REPRESENTATIVE:-}
+      LAPIS_LEGAL_PHONE: ${LAPIS_LEGAL_PHONE:-}
+      LAPIS_LEGAL_REGISTER_COURT: ${LAPIS_LEGAL_REGISTER_COURT:-}
+      LAPIS_LEGAL_REGISTER_NUMBER: ${LAPIS_LEGAL_REGISTER_NUMBER:-}
+      LAPIS_LEGAL_VAT_ID: ${LAPIS_LEGAL_VAT_ID:-}
+      LAPIS_LEGAL_DPO_CONTACT: ${LAPIS_LEGAL_DPO_CONTACT:-}
+      LAPIS_LEGAL_MSTV_RESPONSIBLE: ${LAPIS_LEGAL_MSTV_RESPONSIBLE:-}
+      LAPIS_LEGAL_SUPERVISORY_AUTHORITY: ${LAPIS_LEGAL_SUPERVISORY_AUTHORITY:-}
       # SEPA-Lastschriftlauf-Poller (V1.2.2) -- Bugfix (F-2, 2026-08-26): war seit V1.2.2 nirgends
       # durchgereicht, der Poller war damit in Produktion nie einschaltbar. ALLE optional, default
       # aus -- darf auf höchstens EINER Instanz aktiviert werden (siehe SepaBatchPoller KDoc).

@@ -94,33 +94,9 @@ internal const val LAPIS_GEM_MARK_SVG = """<svg width="22" height="22" viewBox="
     <polyline points="7,23 12,8 17,23" stroke="currentColor" stroke-width="1" opacity="0.55" />
 </svg>"""
 
-/**
- * V1.2.5 White-Label-Branding -- builds a real `<img>` tag for [App.start]'s navbar brand-mark
- * `rich = true` span (see that call site's own comment for why this path, not `Link.image`).
- * `src`/`alt` are HTML-attribute-escaped even though both ultimately derive from server-injected,
- * already-escaped values (`Branding.logoUrl`/`Branding.title`, themselves sourced from
- * `network.lapis.cloud.server.branding.BrandingHtml`'s own JSON-context escaping) -- defense in
- * depth costs nothing here and this function has no other caller to rely on that upstream
- * discipline never changing.
- */
-private fun brandLogoImgHtml(
-    src: String,
-    alt: String,
-): String = """<img src="${escapeHtmlAttribute(src)}" alt="${escapeHtmlAttribute(alt)}">"""
-
-private fun escapeHtmlAttribute(value: String): String =
-    buildString {
-        for (ch in value) {
-            when (ch) {
-                '&' -> append("&amp;")
-                '<' -> append("&lt;")
-                '>' -> append("&gt;")
-                '"' -> append("&quot;")
-                '\'' -> append("&#39;")
-                else -> append(ch)
-            }
-        }
-    }
+// brandLogoImgHtml/escapeHtmlAttribute moved to BrandLockup.kt (V1.4.7 "Root-Verlinkung") -- the
+// navbar brand mark below and BrandLockup.kt's brandLockup() now share the same two functions
+// instead of each carrying its own copy.
 
 /**
  * Sprachumschalter-Feature 2026-08-14: supported UI languages, in the order shown in the
@@ -195,7 +171,18 @@ class App : Application() {
             val navbar =
                 navbar(
                     label = Branding.title,
-                    link = "#${Routes.DASHBOARD}",
+                    // Nutzer-Entscheidung V1.4.7 ("überall, auch eingeloggt"): der Marken-Klick
+                    // führt konsequent auf die öffentliche Startseite "/", auch aus einer
+                    // eingeloggten Tiefenansicht heraus. Echte volle Seitennavigation, KEIN
+                    // SPA-Hash-Ziel.
+                    link = "/",
+                    // MUSS gesetzt sein: main() setzt weiter unten global
+                    // `Link.useDataNavigoForLinks = true`. Ohne dieses Opt-out emittiert der
+                    // Brand-<a> `data-navigo`, navigo fängt den Klick ab, behandelt "/" als
+                    // unbekannte Client-Route und feuert seinen notFound-Handler -- der Link zeigt
+                    // dann auf Root und TUT NICHTS. Dasselbe Opt-out-Muster wie LoginScreen.kt's
+                    // OIDC-Link und BrandLockup.kt.
+                    dataNavigo = false,
                     className = "lapis-navbar",
                     expand = NavbarExpand.ALWAYS,
                 )

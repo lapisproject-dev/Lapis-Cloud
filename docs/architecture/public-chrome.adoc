@@ -20,6 +20,10 @@ families, plus an `?lang=` query-parameter switcher across 8 languages (`de` def
 `en`, `fr`, `es`, `it`, `nl`, `pl`, `ru` — the exact same set and order as the SPA's own
 `SUPPORTED_LANGUAGES`).
 
+NOTE: V1.4.7 "Rechtstexte" extended this to **five** route families — `GET /impressum`
+and `GET /datenschutz` (see xref:legal-pages.adoc[]) share the same chrome and the same
+footer helper described below.
+
 == `PublicChrome.kt`
 
 * `PublicLanguage` — an 8-value enum (`code`, `nativeName`), `DEFAULT = DE`. `parse(raw)`
@@ -46,6 +50,19 @@ families, plus an `?lang=` query-parameter switcher across 8 languages (`de` def
 * `renderHreflangAlternates(baseUrl, currentPath)` — 8 `<link rel="alternate" hreflang="…">`
   entries + one `x-default`, emitted only on `index,follow` pages (`/`, `/s`, `/s/{id}`),
   never on `/transparenz` (stays `noindex,follow`).
+* `renderPublicFooter(lang, baseUrl, branding, extra)` — V1.4.7 "Rechtstexte": the shared
+  footer of every `body.has-chrome` page (`<footer><p>{title} · {operatedBy}</p><p
+  class="footer-legal">Impressum · Datenschutz</p></footer>`). Replaces eleven word-for-word
+  copies that used to live across `PublicLandingHtml`, `PublicTransparencyHtml`, and
+  `SocialPublicHtml` (eight call sites there alone). The two legal links are same-origin,
+  `hreflang="de"` (their full text is German-only, see xref:legal-pages.adoc[]), and
+  deliberately unparameterized — no `?lang=` — because the target pages have only one
+  language version of the full text. `extra`, when given, renders BEFORE the brand/legal
+  line; its one caller is `SocialPublicHtml.legallyRemovedPage`, whose footer additionally
+  carries a "back to timeline" link. Not used by `EmbedHtml`/`EmbedDonationHtml`/
+  `EventPublicHtml` (no `has-chrome`, own `<body>` shapes) — `EventPublicHtml` instead
+  carries a chrome-less, site-relative Impressum/Datenschutz line of its own, see
+  xref:legal-pages.adoc[].
 
 **Deliberately excluded from `PublicUiStrings`**: the ranking-consent disclaimer
 ("Ihr Name erscheint nur, wenn mindestens fünf Mitglieder zugestimmt haben.",

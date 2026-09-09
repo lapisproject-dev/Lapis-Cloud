@@ -5,7 +5,6 @@ import kotlinx.html.HTML
 import kotlinx.html.a
 import kotlinx.html.body
 import kotlinx.html.div
-import kotlinx.html.footer
 import kotlinx.html.h1
 import kotlinx.html.head
 import kotlinx.html.html
@@ -102,7 +101,7 @@ internal object PublicLandingHtml {
                     if (view.topPosts.isNotEmpty()) renderTopPosts(posts = view.topPosts, baseUrl = baseUrl, lang = lang, strings = strings)
                     renderFurtherLinks(baseUrl = baseUrl, lang = lang, strings = strings)
                 }
-                footer { p { +"${branding.title} · ${strings.operatedBy}" } }
+                with(PublicChrome) { renderPublicFooter(lang = lang, baseUrl = baseUrl, branding = branding) }
             }
         }
     }

@@ -179,6 +179,36 @@ body {
   color: inherit;
 }
 
+/* V1.4.7 "Root-Verlinkung": das Marken-Lockup über jeder unauthentifizierten Karte
+   (BrandLockup.kt). Bewusst zurückhaltend -- die Marke, nicht die Seitenüberschrift. */
+.lapis-lockup {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4em;
+  text-decoration: none;
+  color: inherit;
+  font-weight: 600;
+}
+
+.lapis-lockup:hover {
+  text-decoration: underline;
+}
+
+/* V1.4.7 "Rechtstexte": die Impressum-/Datenschutz-Links unter der unentfernbaren
+   Lapis-Cloud-Herkunftsangabe (LapisAttribution.kt). Herkunftsangabe zuerst, Recht danach. */
+.lapis-legal-links {
+  display: flex;
+  justify-content: center;
+  gap: 0.4em;
+  font-size: 0.8rem;
+  color: var(--lapis-muted);
+  margin-top: 0.75rem;
+}
+
+.lapis-legal-links a {
+  color: inherit;
+}
+
 /* Vertical-Sidebar-Umbau (2026-09-08) -- UI/UX-Design-Team-Review, Jobs' final review. Replaces
    the horizontal navbar dropdown menu with a persistent (desktop) / offcanvas (mobile) vertical
    sidebar, PZB-style. See `Sidebar.kt`/`App.kt` for the KVision-side construction. */

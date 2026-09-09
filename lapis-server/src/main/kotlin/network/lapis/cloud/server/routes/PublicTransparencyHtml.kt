@@ -5,7 +5,6 @@ import kotlinx.html.HTML
 import kotlinx.html.a
 import kotlinx.html.body
 import kotlinx.html.div
-import kotlinx.html.footer
 import kotlinx.html.h1
 import kotlinx.html.h2
 import kotlinx.html.head
@@ -100,7 +99,7 @@ internal object PublicTransparencyHtml {
                         )
                     }
                 }
-                footer { p { +"${branding.title} · ${strings.operatedBy}" } }
+                with(PublicChrome) { renderPublicFooter(lang = lang, baseUrl = baseUrl, branding = branding) }
             }
         }
     }

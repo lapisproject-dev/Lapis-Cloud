@@ -70,6 +70,8 @@ import network.lapis.cloud.server.federation.FederationInboxRateLimiter
 import network.lapis.cloud.server.federation.FederationReplayGuard
 import network.lapis.cloud.server.federation.OidcSigningKeyProvisioner
 import network.lapis.cloud.server.federation.TrustAnchorSigningKeyProvisioner
+import network.lapis.cloud.server.legal.LegalConfig
+import network.lapis.cloud.server.legal.LegalStartupCheck
 import network.lapis.cloud.server.mail.FriendVerificationMailer
 import network.lapis.cloud.server.mail.JakartaMailTransport
 import network.lapis.cloud.server.mail.MailBranding
@@ -103,6 +105,7 @@ import network.lapis.cloud.server.routes.registerDunningRoutes
 import network.lapis.cloud.server.routes.registerEmbedRoutes
 import network.lapis.cloud.server.routes.registerEventPublicRoutes
 import network.lapis.cloud.server.routes.registerFederationRoutes
+import network.lapis.cloud.server.routes.registerLegalRoutes
 import network.lapis.cloud.server.routes.registerMailmergeRoutes
 import network.lapis.cloud.server.routes.registerOidcRoutes
 import network.lapis.cloud.server.routes.registerPspWebhookRoutes
@@ -263,6 +266,13 @@ fun Application.module() {
     // (a bad title, a missing/oversized logo file) must never stop this server from starting.
     val brandConfig = BrandConfig.load()
     val resolvedBranding = BrandingStartupCheck.resolve(config = brandConfig)
+
+    // V1.4.7 "Rechtstexte" -- operator-supplied Impressum/Datenschutz details (see LegalConfig
+    // KDoc). Same "never fail-fast" posture as BrandConfig/BrandingStartupCheck above: broken or
+    // missing legal configuration must never stop this server from starting -- the affected pages
+    // render an operator-addressed notice instead (see LegalHtml).
+    val legalConfig = LegalConfig.load()
+    LegalStartupCheck.check(config = legalConfig)
     // Injected exactly ONCE, not per-request -- branding is process-constant for the lifetime of
     // this deployment (no restart-free hot-reload). Unlike staticFiles' own per-request file
     // resolution, a deployment whose client build appears on disk only AFTER this `by lazy` first
@@ -853,6 +863,10 @@ fun Application.module() {
     // deshalb ein eigener Bucket, nicht eine gemeinsame Erhöhung von publicTransparencyRateLimiter.
     val publicLandingRateLimiter = FederationInboxRateLimiter(maxRequests = 60, window = 1.minutes, maxTrackedKeys = 50_000)
 
+    // V1.4.7 "Rechtstexte" -- GET /impressum, GET /datenschutz. Own budget, never that of /, /s or
+    // /transparenz -- a burst against one public route family must not eat into another's.
+    val legalPageRateLimiter = FederationInboxRateLimiter(maxRequests = 60, window = 1.minutes, maxTrackedKeys = 50_000)
+
     // Welle V1.4.1a "Öffentliche Website-Integration" -- vier neue, module-scoped Rate-Limiter,
     // NIEMALS als Konstruktor-Default (Stolperfalle 8, dieselbe Begründung wie jeder andere
     // Limiter in diesem Block). Alle vier sind internet-offen/unauthentifiziert -> maxTrackedKeys
@@ -1263,6 +1277,13 @@ fun Application.module() {
         registerPublicLandingRoutes(
             readRateLimiter = publicLandingRateLimiter,
             branding = resolvedBranding,
+        )
+        // V1.4.7 "Rechtstexte" -- literal routes (/impressum, /datenschutz), same "registered
+        // before staticFiles" reasoning as registerSocialPublicRoutes' own routes.
+        registerLegalRoutes(
+            readRateLimiter = legalPageRateLimiter,
+            branding = resolvedBranding,
+            legal = legalConfig,
         )
         // V1.3.1 "API-Fundament, lesend" -- literal routes (/api/v1/*), same "registered before
         // staticFiles" reasoning as registerSocialPublicRoutes'/registerPublicTransparencyRoutes' own

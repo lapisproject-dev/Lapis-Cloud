@@ -9987,3 +9987,7 @@ msgstr "DATEV-adviseursnummer is geen geldig getal."
 #: src/jsMain/kotlin/network/lapis/cloud/client/LedgerScreen.kt:430
 msgid "DATEV-Mandantennummer ist keine gültige Zahl."
 msgstr "DATEV-cliëntnummer is geen geldig getal."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/LapisAttribution.kt:57
+msgid "Impressum"
+msgstr "Colofon"

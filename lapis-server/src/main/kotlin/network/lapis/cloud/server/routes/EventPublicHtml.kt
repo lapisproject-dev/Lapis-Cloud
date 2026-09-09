@@ -37,6 +37,13 @@ import network.lapis.cloud.shared.domain.EventTicketCode
  *
  * **Occupancy is always BINARY** ("Plätze frei" / "Warteliste"), never an exact remaining count --
  * no digit of a remaining-seats count may ever appear in the rendered HTML.
+ *
+ * V1.4.7 "Rechtstexte" (Plan § 11/OF-1): [skeleton]'s footer carries plain-text Impressum/
+ * Datenschutz links, site-relative (`/impressum`/`/datenschutz`, no [PublicChrome] chrome, no
+ * `baseUrl` parameter in scope here) -- the `/veranstaltung` route family is the ONE public route
+ * family in this codebase where a visitor enters personal data (guest name/email), so it is the
+ * most urgent place for this link, despite carrying none of [PublicChrome.renderPublicFooter]'s
+ * shared chrome.
  */
 internal object EventPublicHtml {
     /** One event's publicly-safe view -- assembled by the route handler OUTSIDE any transaction (Slowloris rule, see `SocialPublicRoutes` KDoc). */
@@ -268,6 +275,11 @@ internal object EventPublicHtml {
                     h2 { +heading }
                     content()
                     p { a(href = "/") { +"Zur Startseite" } }
+                    p(classes = "section-note") {
+                        a(href = "/impressum") { +"Impressum" }
+                        +" · "
+                        a(href = "/datenschutz") { +"Datenschutz" }
+                    }
                 }
             }
         }

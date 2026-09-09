@@ -10,7 +10,6 @@ import kotlinx.html.checkBoxInput
 import kotlinx.html.div
 import kotlinx.html.em
 import kotlinx.html.emailInput
-import kotlinx.html.footer
 import kotlinx.html.form
 import kotlinx.html.h1
 import kotlinx.html.h2
@@ -127,8 +126,9 @@ internal object SocialPublicHtml {
 
         /* Welle V1.4.6 "Öffentliche Startseite" (/) -- shares this stylesheet, same reasoning as
            every block above: no second stylesheet, no inline <style>, see
-           network.lapis.cloud.server.routes.PublicLandingHtml class KDoc. body's max-width: 42rem
-           above applies here too -- the hero stays in that column, no exception. */
+           network.lapis.cloud.server.routes.PublicLandingHtml class KDoc. Column width for
+           .hero is handled by the "body.has-chrome > .hero" rule further below, alongside main
+           and footer -- see the maintenance rule attached there (V1.4.7). */
         .hero { margin-bottom: 2rem; }
         .hero p { color: #888; }
         .cta {
@@ -143,11 +143,30 @@ internal object SocialPublicHtml {
            erfundener Hex-Wert), damit /app und die drei server-gerenderten Seiten visuell konsistent
            wirken. Additiv -- body's max-width bleibt für .page erhalten, EmbedHtml/EventPublicHtml
            setzen "has-chrome" nie und sind von diesem Block unberührt (Byte-Identitäts-Regressionstest
-           in SocialPublicHtmlTest). */
+           in SocialPublicHtmlTest).
+
+           Wartungsregel (V1.4.7): die Selektorliste unten führt ABSCHLIESSEND jedes direkte Kind
+           von body.has-chrome auf, das die 42rem-Spalte trägt. Wer ein weiteres direktes Kind
+           hinzufügt (heute: <main>, <section class="hero">, <footer> -- in dieser DOM-Reihenfolge),
+           trägt es HIER ein, sonst fällt es an den linken Bildschirmrand: genau das war der
+           Hero-Bug, den Nutzer-Feedback 2026-09-09 auf der Live-Instanz gefunden hat, weil ein
+           Kommentar an dieser Stelle das Gegenteil versprach. */
         body.has-chrome { max-width: none; margin: 0; padding: 0; }
         body.has-chrome > main,
-        body.has-chrome > footer { max-width: 42rem; margin: 0 auto; padding: 0 1.5rem; }
+        body.has-chrome > .hero,
+        body.has-chrome > footer { max-width: 42rem; margin-inline: auto; padding: 0 1.5rem; }
         body.has-chrome > footer { padding-bottom: 1.5rem; }
+        /* V1.4.7 "Rechtstexte" -- the second footer line (PublicChrome.renderPublicFooter's
+           Impressum/Datenschutz links). footer already inherits font-size/color from the base
+           `footer` rule near the top of this stylesheet. */
+        .footer-legal { margin-top: 0.35rem; }
+        .footer-legal a { color: inherit; }
+        /* V1.4.7 "Rechtstexte" -- LegalConfig.representative/dpoContact are the only two fields
+           LegalConfig explicitly allows multiple "\n"-separated lines for (one named person per
+           line, see LegalConfig.MULTILINE_FIELDS KDoc). Without this, HTML collapses that "\n" to
+           a single space and the operator's line breaks are silently lost -- see LegalHtml's
+           renderResponsiblePartyFields/renderPrivacyBody call sites. */
+        .legal-multiline { white-space: pre-wrap; }
         .chrome { background: #14181E; color: #EDEAE3; }
         .chrome-inner {
             max-width: 42rem; margin: 0 auto; padding: 0.6rem 1.5rem;
@@ -202,6 +221,17 @@ internal object SocialPublicHtml {
         .skip-link { position: absolute; left: -9999px; top: 0; }
         .skip-link:focus { position: static; display: block; padding: 0.5rem 1.5rem; background: #C9A227; color: #14181E; }
         @media (max-width: 30rem) { .chrome-nav { order: 3; width: 100%; } }
+
+        /* V1.4.7 "Rechtstexte" (/impressum, /datenschutz) -- shares this stylesheet, same reasoning
+           as every block above: no second stylesheet, no inline <style>, see
+           network.lapis.cloud.server.routes.LegalHtml class KDoc. */
+        .lang-note { color: #888; font-size: 0.85rem; margin-bottom: 1.5rem; }
+        /* #C9A227 is the same gold accent already used for aria-current in the chrome block above
+           (Z. 161/200) -- no new, freshly invented hex value, same discipline as that block. */
+        .legal-incomplete {
+            border-left: 3px solid #C9A227; background: rgba(201, 162, 39, 0.08);
+            padding: 0.8rem 1rem; margin: 1rem 0;
+        }
         """
 
     /** Title length ceiling -- shared by `<title>` and `og:title`. */
@@ -378,7 +408,7 @@ internal object SocialPublicHtml {
                         ) { +strings.navTransparency }
                     }
                 }
-                footer { p { +"${branding.title} · ${strings.operatedBy}" } }
+                with(PublicChrome) { renderPublicFooter(lang = lang, baseUrl = baseUrl, branding = branding) }
             }
         }
     }
@@ -453,7 +483,7 @@ internal object SocialPublicHtml {
                         }
                     }
                 }
-                footer { p { +"${branding.title} · ${strings.operatedBy}" } }
+                with(PublicChrome) { renderPublicFooter(lang = lang, baseUrl = baseUrl, branding = branding) }
             }
         }
 
@@ -486,7 +516,7 @@ internal object SocialPublicHtml {
                     p { +"Dieser Beitrag ist nicht (mehr) öffentlich verfügbar." }
                     a(href = PublicChrome.languageUrl(baseUrl = baseUrl, currentPath = "/s", lang = lang)) { +strings.backToTimeline }
                 }
-                footer { p { +"${branding.title} · ${strings.operatedBy}" } }
+                with(PublicChrome) { renderPublicFooter(lang = lang, baseUrl = baseUrl, branding = branding) }
             }
         }
     }
@@ -514,7 +544,7 @@ internal object SocialPublicHtml {
                     p { +"Bitte versuchen Sie es in Kürze erneut." }
                     a(href = PublicChrome.languageUrl(baseUrl = baseUrl, currentPath = "/s", lang = lang)) { +strings.backToTimeline }
                 }
-                footer { p { +"${branding.title} · ${strings.operatedBy}" } }
+                with(PublicChrome) { renderPublicFooter(lang = lang, baseUrl = baseUrl, branding = branding) }
             }
         }
     }
@@ -550,7 +580,7 @@ internal object SocialPublicHtml {
                     p { +"Diese Anfrage konnte nicht verarbeitet werden. Bitte versuchen Sie es erneut." }
                     a(href = PublicChrome.languageUrl(baseUrl = baseUrl, currentPath = "/s", lang = lang)) { +strings.backToTimeline }
                 }
-                footer { p { +"${branding.title} · ${strings.operatedBy}" } }
+                with(PublicChrome) { renderPublicFooter(lang = lang, baseUrl = baseUrl, branding = branding) }
             }
         }
     }
@@ -589,7 +619,7 @@ internal object SocialPublicHtml {
                     p { +"Bei der Verarbeitung dieser Anfrage ist ein Fehler aufgetreten. Bitte versuchen Sie es später erneut." }
                     a(href = "$baseUrl/s") { +"Zur Timeline" }
                 }
-                footer { p { +"${branding.title} · Betrieben mit Lapis Cloud" } }
+                with(PublicChrome) { renderPublicFooter(lang = PublicLanguage.DEFAULT, baseUrl = baseUrl, branding = branding) }
             }
         }
 
@@ -647,11 +677,13 @@ internal object SocialPublicHtml {
                     }
                     p { +"Die Entfernung erfolgt nach den Vorgaben des Digital Services Act (Verordnung (EU) 2022/2065)." }
                 }
-                footer {
-                    p {
-                        a(
-                            href = PublicChrome.languageUrl(baseUrl = baseUrl, currentPath = "/s", lang = lang),
-                        ) { +strings.backToTimeline }
+                with(PublicChrome) {
+                    renderPublicFooter(lang = lang, baseUrl = baseUrl, branding = branding) {
+                        p {
+                            a(
+                                href = PublicChrome.languageUrl(baseUrl = baseUrl, currentPath = "/s", lang = lang),
+                            ) { +strings.backToTimeline }
+                        }
                     }
                 }
             }
@@ -795,7 +827,7 @@ internal object SocialPublicHtml {
                         )
                     }
                 }
-                footer { p { +"${branding.title} · ${strings.operatedBy}" } }
+                with(PublicChrome) { renderPublicFooter(lang = lang, baseUrl = baseUrl, branding = branding) }
             }
         }
 
@@ -832,7 +864,7 @@ internal object SocialPublicHtml {
                     p { +"Vielen Dank. Ihre Meldung wird geprüft." }
                     a(href = PublicChrome.languageUrl(baseUrl = baseUrl, currentPath = "/s", lang = lang)) { +strings.backToTimeline }
                 }
-                footer { p { +"${branding.title} · ${strings.operatedBy}" } }
+                with(PublicChrome) { renderPublicFooter(lang = lang, baseUrl = baseUrl, branding = branding) }
             }
         }
 

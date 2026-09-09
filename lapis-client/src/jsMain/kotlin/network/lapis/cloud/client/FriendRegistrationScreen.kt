@@ -42,6 +42,9 @@ fun renderFriendRegistrationScreen(container: SimplePanel) {
             width = 100.perc
             marginTop = 32.px
         }
+    // V1.4.7 "Root-Verlinkung" -- Marken-Lockup über der Karte, siehe LoginScreen.kt für dasselbe
+    // Muster. root.h1 bleibt unverändert der screenspezifische Titel.
+    root.brandLockup()
     root.h1(tr("Freund-Konto anlegen"))
     root.p(
         tr(
@@ -148,6 +151,10 @@ private fun renderFriendRegistrationForm(
 }
 
 private fun renderFriendRegistrationConfirmation(root: SimplePanel) {
+    // V1.4.7: root.removeAll() (caller) cleared the lockup added in
+    // renderFriendRegistrationScreen too -- re-add it here, this is the SAME card, a follow-up
+    // state, not a new screen (S13).
+    root.brandLockup()
     root.h1(tr("Freund-Konto angelegt"))
     root.p(
         tr(

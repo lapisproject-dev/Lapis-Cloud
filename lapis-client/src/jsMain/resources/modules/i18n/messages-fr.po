@@ -10070,3 +10070,7 @@ msgstr "Le numéro d'expert-comptable DATEV n'est pas un nombre valide."
 #: src/jsMain/kotlin/network/lapis/cloud/client/LedgerScreen.kt:430
 msgid "DATEV-Mandantennummer ist keine gültige Zahl."
 msgstr "Le numéro de dossier DATEV n'est pas un nombre valide."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/LapisAttribution.kt:57
+msgid "Impressum"
+msgstr "Mentions légales"

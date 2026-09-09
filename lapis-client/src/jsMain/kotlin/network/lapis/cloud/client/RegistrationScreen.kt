@@ -43,6 +43,9 @@ fun renderRegistrationScreen(container: SimplePanel) {
             width = 100.perc
             marginTop = 32.px
         }
+    // V1.4.7 "Root-Verlinkung" -- Marken-Lockup über der Karte, siehe LoginScreen.kt für dasselbe
+    // Muster. root.h1 bleibt unverändert der screenspezifische Titel.
+    root.brandLockup()
     root.h1(tr("Mitglied werden"))
     val loadingNotice = root.p(tr("Beitrittsvertrag wird geladen ..."))
 
@@ -140,6 +143,9 @@ private fun renderRegistrationForm(
 }
 
 private fun renderRegistrationPending(root: SimplePanel) {
+    // V1.4.7: root.removeAll() (caller) cleared the lockup added in renderRegistrationScreen too --
+    // re-add it here, this is the SAME card, a follow-up state, not a new screen (S13).
+    root.brandLockup()
     root.h1(tr("Antrag eingereicht"))
     root.p(
         tr(

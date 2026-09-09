@@ -24,26 +24,41 @@ import io.kvision.panel.SimplePanel
  * .PLATFORM_NAME` via `gettext("...%1", ...)` -- that would move "Lapis Cloud" out of the
  * translatable msgid entirely, and this file's own `.po` coverage would no longer catch a
  * mistranslation.
+ *
+ * V1.4.7 "Rechtstexte": [lapisAttribution] now also renders a second row underneath, with the SPA's
+ * Impressum/Datenschutz links -- see [lapisAttribution]'s own KDoc for why this location (not the
+ * sidebar) and why the ordering (attribution first, legal second).
  */
-fun SimplePanel.lapisAttribution(): SimplePanel =
-    div(className = "lapis-attribution") {
-        span(content = LAPIS_GEM_MARK_SVG, rich = true, className = "lapis-brand-mark lapis-attribution-mark")
-        val attributionLink: Link =
-            link(
-                label = tr("Betrieben mit Lapis Cloud"),
-                url = Branding.PLATFORM_URL,
-                target = "_blank",
-                // Real full-page navigation to a DIFFERENT origin -- not an SPA hash route, so this
-                // must opt out of the global `Link.useDataNavigoForLinks = true` (App.kt main()),
-                // same reasoning every other external `link(...)` call in this app already follows
-                // (see e.g. LoginScreen.kt's OIDC entry point).
-                dataNavigo = false,
-            )
-        // target="_blank" without rel="noopener noreferrer" lets the opened page's JavaScript
-        // reach back into this tab via `window.opener` (reverse tabnabbing) -- KVision's `Link`
-        // has no dedicated `rel` property, so this is set via the generic attribute API every
-        // other KVision widget in this codebase already uses for a non-modeled attribute (see
-        // `NavHighlight.kt`'s own `setAttribute("aria-current", "page")`).
-        attributionLink.setAttribute("rel", "noopener noreferrer")
-        attributionLink.setAttribute("title", Branding.PLATFORM_NAME)
+fun SimplePanel.lapisAttribution(): SimplePanel {
+    val attribution =
+        div(className = "lapis-attribution") {
+            span(content = LAPIS_GEM_MARK_SVG, rich = true, className = "lapis-brand-mark lapis-attribution-mark")
+            val attributionLink: Link =
+                link(
+                    label = tr("Betrieben mit Lapis Cloud"),
+                    url = Branding.PLATFORM_URL,
+                    target = "_blank",
+                    // Real full-page navigation to a DIFFERENT origin -- not an SPA hash route, so this
+                    // must opt out of the global `Link.useDataNavigoForLinks = true` (App.kt main()),
+                    // same reasoning every other external `link(...)` call in this app already follows
+                    // (see e.g. LoginScreen.kt's OIDC entry point).
+                    dataNavigo = false,
+                )
+            // target="_blank" without rel="noopener noreferrer" lets the opened page's JavaScript
+            // reach back into this tab via `window.opener` (reverse tabnabbing) -- KVision's `Link`
+            // has no dedicated `rel` property, so this is set via the generic attribute API every
+            // other KVision widget in this codebase already uses for a non-modeled attribute (see
+            // `NavHighlight.kt`'s own `setAttribute("aria-current", "page")`).
+            attributionLink.setAttribute("rel", "noopener noreferrer")
+            attributionLink.setAttribute("title", Branding.PLATFORM_NAME)
+        }
+    // V1.4.7 "Rechtstexte" -- see class KDoc. Second row, below the attribution line.
+    div(className = "lapis-legal-links") {
+        val imprintLink = link(tr("Impressum"), url = "/impressum", dataNavigo = false)
+        imprintLink.setAttribute("hreflang", "de")
+        span(" · ")
+        val privacyLink = link(tr("Datenschutz"), url = "/datenschutz", dataNavigo = false)
+        privacyLink.setAttribute("hreflang", "de")
     }
+    return attribution
+}

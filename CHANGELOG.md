@@ -8,6 +8,48 @@ All notable changes to this project are documented here. Format follows
 
 ### Added
 
+**Root-Verlinkung, Rechtstexte + Hero-Layout-Fix (V1.4.7, 2026-09-09)**
+
+- `GET /impressum` und `GET /datenschutz` — Vorlagen für die gesetzlich vorgeschriebenen
+  Anbieterangaben und die Datenschutzerklärung, befüllt aus neuen `LAPIS_LEGAL_*`-Umgebungs-
+  variablen (`LegalConfig`, reine String-Validierung, nie werfend, nie fail-fast — analog
+  `BrandConfig`). Sieben Pflichtangaben (Betreibername, Anschrift, Land, Vertretung, Kontakt-E-Mail),
+  sieben optionale (Telefon, Registereintrag, USt-IdNr., Datenschutzbeauftragte(r), § 18 Abs. 2
+  MStV-Verantwortliche(r), Aufsichtsbehörde). Fehlen Pflichtangaben, zeigt die Seite an deren Stelle
+  einen an den Betreiber adressierten Hinweisblock statt leerer, aber gültig aussehender Felder —
+  niemals ein Platzhalter-Literal, niemals ein HTTP 500. Beide Seiten sind vollständig Deutsch (der
+  Chrome bleibt mehrsprachig, ein Hinweissatz macht das kenntlich), `noindex,follow`, ohne
+  Datenbankzugriff, Inhalt pro Sprache einmal beim Serverstart vorberechnet.
+- Footer-Links auf **allen** öffentlichen Seiten (`/`, `/s`, `/transparenz`, `/impressum`,
+  `/datenschutz`, alle Fehlerseiten) über einen neuen gemeinsamen Helfer
+  (`PublicChrome.renderPublicFooter`) — ersetzt elf wortgleiche Kopien in drei Dateien. Zusätzlich
+  eine schlichte, chromlose Zeile auf `/veranstaltung/*` (der einzigen öffentlichen Seitenfamilie mit
+  echter Dateneingabe — Gastname/-E-Mail bei der Veranstaltungsanmeldung).
+- Rechtslinks auch in der angemeldeten Anwendung — unter der unentfernbaren
+  „Betrieben mit Lapis Cloud"-Zeile, sichtbar sowohl ausgeloggt (wo die Seitenleiste sonst leer ist)
+  als auch eingeloggt.
+- Marken-Lockup auf allen fünf unauthentifizierten Bildschirmen (Anmeldung, Registrierung,
+  Freund-Registrierung, Passwort-Reset, E-Mail-Bestätigung) — auf vier davon gab es zuvor überhaupt
+  kein klickbares Markenelement.
+- `LAPIS_LEGAL_*`-Variablen in allen vier Deployment-Konfigurationen ergänzt
+  (`deploy/production/`, `deploy/production-elb/`, jeweils `.env.example` + `docker-compose.yml`).
+
+### Changed
+
+- Der Markenname im Kopfbereich der angemeldeten Anwendung führt jetzt konsequent auf die
+  öffentliche Startseite `/` — auch aus einer bereits angemeldeten Tiefenansicht heraus (vorher nur
+  auf das Dashboard innerhalb der Anwendung). Bekannte, bewusst zurückgestellte Einschränkung:
+  ungespeicherte Formularinhalte sind generell (nicht nur bei diesem Link) gegen Navigation
+  ungeschützt — eine `beforeunload`-Absicherung wird als eigene, seitenübergreifende Welle behandelt.
+
+### Fixed
+
+- Der Marken-Claim auf der Startseite (`<h1>` im Hero) klebte am linken Bildschirmrand statt in der
+  gemeinsamen Spalte mit Kopf- und Fußbereich zu stehen — `.hero` fehlte in der
+  `body.has-chrome`-Spaltenregel. Ein Kommentar an dieser Stelle hatte fälschlich das Gegenteil
+  versprochen; er ist jetzt durch eine Wartungsregel ersetzt, die künftige direkte Kinder von
+  `body.has-chrome` verbindlich an derselben Stelle einträgt.
+
 **Feinschliff am öffentlichen Kopfbereich (2026-09-09)**
 
 - Passende Icons je Reiter (Startseite/Transparenz/Soziales Netzwerk) in der Navigation — rein

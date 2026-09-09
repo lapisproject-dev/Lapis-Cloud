@@ -5,10 +5,12 @@ import kotlinx.html.HEAD
 import kotlinx.html.a
 import kotlinx.html.details
 import kotlinx.html.div
+import kotlinx.html.footer
 import kotlinx.html.header
 import kotlinx.html.img
 import kotlinx.html.link
 import kotlinx.html.nav
+import kotlinx.html.p
 import kotlinx.html.span
 import kotlinx.html.summary
 import network.lapis.cloud.server.branding.ResolvedBranding
@@ -16,9 +18,10 @@ import network.lapis.cloud.server.branding.ResolvedBranding
 /**
  * Welle "Einheitlicher Kopfbereich + Sprachumschalter" -- the shared visual chrome (skip-link,
  * branded header, primary nav, language switcher, login CTA) rendered as the FIRST
- * children of `<body class="has-chrome">` on all three unauthenticated, account-less public HTML
+ * children of `<body class="has-chrome">` on all five unauthenticated, account-less public HTML
  * route families this codebase has ([SocialPublicHtml] `/s`, [PublicTransparencyHtml]
- * `/transparenz`, [PublicLandingHtml] `/`). Never used by [EmbedHtml]/[EmbedDonationHtml]/
+ * `/transparenz`, [PublicLandingHtml] `/`, and, since V1.4.7 "Rechtstexte", [LegalHtml]
+ * `/impressum` + `/datenschutz`). Never used by [EmbedHtml]/[EmbedDonationHtml]/
  * [EventPublicHtml] -- those keep their own, narrower `<body>` shape unchanged (see
  * `SocialPublicHtmlTest`'s Embed byte-identity regression test).
  *
@@ -82,6 +85,20 @@ internal data class PublicUiStrings(
     val skipToContent: String,
     /** Footer line, e.g. "Powered by Lapis Cloud". */
     val operatedBy: String,
+    /**
+     * V1.4.7 "Rechtstexte" -- footer link LABEL for `/impressum`. The FULL TEXT behind this link is
+     * German-only regardless of [PublicLanguage] (see [LegalHtml]); only this label is translated,
+     * with `hreflang="de"` on the `<a>` itself making the discrepancy explicit rather than silent.
+     */
+    val legalImprint: String,
+    /** V1.4.7 "Rechtstexte" -- footer link LABEL for `/datenschutz`, see [legalImprint] KDoc. */
+    val legalPrivacy: String,
+    /**
+     * V1.4.7 "Rechtstexte" -- ONE sentence at the top of `/impressum`/`/datenschutz`, in the CHROME
+     * language, telling the reader the full text below is German-only. Deliberately no more than one
+     * sentence (Design-Team-Sitzung V1.4.7, Jobs).
+     */
+    val legalGermanOnlyNote: String,
     // -- "/" (PublicLandingHtml) --
     val tagline: String,
     val statMembers: String,
@@ -149,6 +166,9 @@ internal object PublicChrome {
                     languageLabel = "Sprache",
                     skipToContent = "Zum Inhalt springen",
                     operatedBy = "Betrieben mit Lapis Cloud",
+                    legalImprint = "Impressum",
+                    legalPrivacy = "Datenschutz",
+                    legalGermanOnlyNote = "Dieser Rechtstext liegt ausschließlich auf Deutsch vor.",
                     tagline = "Mitgliederverwaltung -- föderiert, transparent, in Ihrer Hand.",
                     statMembers = "Mitglieder",
                     statLtr = "Insgesamt ausgegebene LTR",
@@ -188,6 +208,9 @@ internal object PublicChrome {
                     languageLabel = "Language",
                     skipToContent = "Skip to content",
                     operatedBy = "Powered by Lapis Cloud",
+                    legalImprint = "Legal notice",
+                    legalPrivacy = "Privacy",
+                    legalGermanOnlyNote = "This legal text is available in German only.",
                     tagline = "Membership management -- federated, transparent, in your hands.",
                     statMembers = "Members",
                     statLtr = "Total LTR issued",
@@ -227,6 +250,9 @@ internal object PublicChrome {
                     languageLabel = "Langue",
                     skipToContent = "Aller au contenu",
                     operatedBy = "Propulsé par Lapis Cloud",
+                    legalImprint = "Mentions légales",
+                    legalPrivacy = "Confidentialité",
+                    legalGermanOnlyNote = "Ce texte juridique n'est disponible qu'en allemand.",
                     tagline = "Gestion des membres -- fédérée, transparente, entre vos mains.",
                     statMembers = "Membres",
                     statLtr = "Total des LTR émis",
@@ -266,6 +292,9 @@ internal object PublicChrome {
                     languageLabel = "Idioma",
                     skipToContent = "Saltar al contenido",
                     operatedBy = "Desarrollado con Lapis Cloud",
+                    legalImprint = "Aviso legal",
+                    legalPrivacy = "Privacidad",
+                    legalGermanOnlyNote = "Este texto legal solo está disponible en alemán.",
                     tagline = "Gestión de miembros -- federada, transparente, en sus manos.",
                     statMembers = "Miembros",
                     statLtr = "Total de LTR emitidos",
@@ -305,6 +334,9 @@ internal object PublicChrome {
                     languageLabel = "Lingua",
                     skipToContent = "Vai al contenuto",
                     operatedBy = "Realizzato con Lapis Cloud",
+                    legalImprint = "Note legali",
+                    legalPrivacy = "Privacy",
+                    legalGermanOnlyNote = "Questo testo legale è disponibile solo in tedesco.",
                     tagline = "Gestione dei soci -- federata, trasparente, nelle vostre mani.",
                     statMembers = "Membri",
                     statLtr = "Totale LTR emessi",
@@ -344,6 +376,9 @@ internal object PublicChrome {
                     languageLabel = "Taal",
                     skipToContent = "Naar de inhoud",
                     operatedBy = "Mogelijk gemaakt door Lapis Cloud",
+                    legalImprint = "Colofon",
+                    legalPrivacy = "Privacybeleid",
+                    legalGermanOnlyNote = "Deze juridische tekst is alleen in het Duits beschikbaar.",
                     tagline = "Ledenbeheer -- gefedereerd, transparant, in uw handen.",
                     statMembers = "Leden",
                     statLtr = "Totaal uitgegeven LTR",
@@ -383,6 +418,9 @@ internal object PublicChrome {
                     languageLabel = "Język",
                     skipToContent = "Przejdź do treści",
                     operatedBy = "Obsługiwane przez Lapis Cloud",
+                    legalImprint = "Nota prawna",
+                    legalPrivacy = "Prywatność",
+                    legalGermanOnlyNote = "Ten tekst prawny jest dostępny wyłącznie w języku niemieckim.",
                     tagline = "Zarządzanie członkostwem -- sfederowane, przejrzyste, w Twoich rękach.",
                     statMembers = "Członkowie",
                     statLtr = "Łącznie wyemitowane LTR",
@@ -422,6 +460,9 @@ internal object PublicChrome {
                     languageLabel = "Язык",
                     skipToContent = "Перейти к содержимому",
                     operatedBy = "Работает на базе Lapis Cloud",
+                    legalImprint = "Правовая информация",
+                    legalPrivacy = "Конфиденциальность",
+                    legalGermanOnlyNote = "Этот правовой текст доступен только на немецком языке.",
                     tagline = "Управление членством -- федеративно, прозрачно, в ваших руках.",
                     statMembers = "Участники",
                     statLtr = "Всего выпущено LTR",
@@ -540,6 +581,57 @@ internal object PublicChrome {
                     }
                 }
                 a(href = "$baseUrl/app#/login", classes = "chrome-cta") { +strings.login }
+            }
+        }
+    }
+
+    /**
+     * V1.4.7 "Rechtstexte" -- the shared footer of ALL `body.has-chrome` pages. Up to this wave,
+     * `footer { p { +"${branding.title} · ${strings.operatedBy}" } }` stood WORD FOR WORD in ten
+     * render methods across three files ([PublicLandingHtml], [PublicTransparencyHtml],
+     * [SocialPublicHtml] eight times) -- adding two legal links would have meant the same edit ten
+     * times, and forgetting the eleventh (Kay, Design-Team-Sitzung V1.4.7; Jobs: "Vorbedingung,
+     * nicht Nachbereitung"). Head and foot are ONE component, hence living next to [renderChrome]
+     * (Raskin).
+     *
+     * Deliberately NOT used by [EmbedHtml]/[EmbedDonationHtml]/[EventPublicHtml] -- those never set
+     * `has-chrome` and have their own `<body>` shapes (see [renderChrome] KDoc).
+     *
+     * The Impressum/Datenschutz FULL TEXTS are German-only (see [LegalHtml]); only these LINK
+     * LABELS are translated. `hreflang="de"` on the link is the standard mechanism that makes this
+     * discrepancy explicit rather than silent (Tesler vs. Kare, Jobs decided for Tesler).
+     *
+     * Deliberately NO `?lang=` parameter on either link -- the target pages have only one language
+     * version of the full text, so the footer link always points at the canonical, unparameterized
+     * URL even when the surrounding chrome is currently in another language.
+     *
+     * [extra], when given, renders BEFORE the brand/legal line -- its one caller is
+     * [SocialPublicHtml.legallyRemovedPage], whose footer additionally carries the "back to
+     * timeline" link.
+     */
+    fun FlowContent.renderPublicFooter(
+        lang: PublicLanguage,
+        baseUrl: String,
+        branding: ResolvedBranding,
+        extra: (FlowContent.() -> Unit)? = null,
+    ) {
+        val strings = stringsFor(lang)
+        footer {
+            extra?.invoke(this)
+            p { +"${branding.title} · ${strings.operatedBy}" }
+            p(classes = "footer-legal") {
+                a(href = "$baseUrl/impressum") {
+                    attributes["hreflang"] = "de"
+                    +strings.legalImprint
+                }
+                span {
+                    attributes["aria-hidden"] = "true"
+                    +" · "
+                }
+                a(href = "$baseUrl/datenschutz") {
+                    attributes["hreflang"] = "de"
+                    +strings.legalPrivacy
+                }
             }
         }
     }

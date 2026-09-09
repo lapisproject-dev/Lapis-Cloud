@@ -10028,3 +10028,7 @@ msgstr "El número de asesor DATEV no es un número válido."
 #: src/jsMain/kotlin/network/lapis/cloud/client/LedgerScreen.kt:430
 msgid "DATEV-Mandantennummer ist keine gültige Zahl."
 msgstr "El número de cliente DATEV no es un número válido."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/LapisAttribution.kt:57
+msgid "Impressum"
+msgstr "Aviso legal"

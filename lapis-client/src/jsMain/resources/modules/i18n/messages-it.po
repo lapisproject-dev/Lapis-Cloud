@@ -10036,3 +10036,7 @@ msgstr "Il numero commercialista DATEV non è un numero valido."
 #: src/jsMain/kotlin/network/lapis/cloud/client/LedgerScreen.kt:430
 msgid "DATEV-Mandantennummer ist keine gültige Zahl."
 msgstr "Il numero cliente DATEV non è un numero valido."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/LapisAttribution.kt:57
+msgid "Impressum"
+msgstr "Note legali"
