@@ -8,6 +8,23 @@ All notable changes to this project are documented here. Format follows
 
 ### Added
 
+**Feinschliff am öffentlichen Kopfbereich (2026-09-09)**
+
+- Passende Icons je Reiter (Startseite/Transparenz/Soziales Netzwerk) in der Navigation — rein
+  dekorativ per CSS `mask-image` (keine `<img>`/`<svg>`-Elemente im Markup, keine
+  Barrierefreiheits-Auswirkung, der Linktext bleibt für Screenreader unverändert die einzige
+  Quelle).
+- **CSP-Fund dabei**: die neuen Icons hätten auf jeder Installation ohne konfiguriertes
+  Betreiber-Logo von der Content-Security-Policy stillschweigend blockiert werden können (`img-src`
+  war bisher nur bei vorhandenem Logo überhaupt gesetzt) — `img-src` trägt jetzt unconditional
+  `data:`, `'self'` bleibt weiterhin an das optionale Logo gebunden.
+- Der „Mitglied werden"-Button ist aus dem Kopfbereich entfernt — er blieb der primäre
+  Call-to-Action im Hero-Bereich der Startseite (redundant im Kopfbereich, dort reicht „Anmelden").
+- Der Marken-Claim auf der Startseite (`<h1>`) war zu lang (vier Zeilen auf schmalen Bildschirmen) —
+  in allen acht Sprachen gekürzt, z. B. Deutsch: „Mitgliederverwaltung -- föderiert, transparent, in
+  Ihrer Hand." statt vormals „Mitgliederverwaltung und Governance für Vereine und Parteien --
+  föderiert, transparent, in Ihrer Hand.".
+
 **Einheitlicher Kopfbereich + Sprachumschalter für `/`, `/transparenz`, `/s` (2026-09-09)**
 
 - Alle drei öffentlichen, kontenlosen HTML-Routenfamilien (`GET /`, `GET /s` + Nachfahren,

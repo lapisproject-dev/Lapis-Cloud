@@ -15,7 +15,7 @@ import network.lapis.cloud.server.branding.ResolvedBranding
 
 /**
  * Welle "Einheitlicher Kopfbereich + Sprachumschalter" -- the shared visual chrome (skip-link,
- * branded header, primary nav, language switcher, login/register CTAs) rendered as the FIRST
+ * branded header, primary nav, language switcher, login CTA) rendered as the FIRST
  * children of `<body class="has-chrome">` on all three unauthenticated, account-less public HTML
  * route families this codebase has ([SocialPublicHtml] `/s`, [PublicTransparencyHtml]
  * `/transparenz`, [PublicLandingHtml] `/`). Never used by [EmbedHtml]/[EmbedDonationHtml]/
@@ -149,7 +149,7 @@ internal object PublicChrome {
                     languageLabel = "Sprache",
                     skipToContent = "Zum Inhalt springen",
                     operatedBy = "Betrieben mit Lapis Cloud",
-                    tagline = "Mitgliederverwaltung und Governance für Vereine und Parteien -- föderiert, transparent, in Ihrer Hand.",
+                    tagline = "Mitgliederverwaltung -- föderiert, transparent, in Ihrer Hand.",
                     statMembers = "Mitglieder",
                     statLtr = "Insgesamt ausgegebene LTR",
                     statPosts = "Öffentliche Beiträge",
@@ -188,7 +188,7 @@ internal object PublicChrome {
                     languageLabel = "Language",
                     skipToContent = "Skip to content",
                     operatedBy = "Powered by Lapis Cloud",
-                    tagline = "Membership management and governance for associations and parties -- federated, transparent, in your hands.",
+                    tagline = "Membership management -- federated, transparent, in your hands.",
                     statMembers = "Members",
                     statLtr = "Total LTR issued",
                     statPosts = "Public posts",
@@ -227,7 +227,7 @@ internal object PublicChrome {
                     languageLabel = "Langue",
                     skipToContent = "Aller au contenu",
                     operatedBy = "Propulsé par Lapis Cloud",
-                    tagline = "Gestion des membres et gouvernance pour associations et partis -- fédéré, transparent, entre vos mains.",
+                    tagline = "Gestion des membres -- fédérée, transparente, entre vos mains.",
                     statMembers = "Membres",
                     statLtr = "Total des LTR émis",
                     statPosts = "Publications publiques",
@@ -266,7 +266,7 @@ internal object PublicChrome {
                     languageLabel = "Idioma",
                     skipToContent = "Saltar al contenido",
                     operatedBy = "Desarrollado con Lapis Cloud",
-                    tagline = "Gestión de miembros y gobernanza para asociaciones y partidos -- federado, transparente, en sus manos.",
+                    tagline = "Gestión de miembros -- federada, transparente, en sus manos.",
                     statMembers = "Miembros",
                     statLtr = "Total de LTR emitidos",
                     statPosts = "Publicaciones públicas",
@@ -305,7 +305,7 @@ internal object PublicChrome {
                     languageLabel = "Lingua",
                     skipToContent = "Vai al contenuto",
                     operatedBy = "Realizzato con Lapis Cloud",
-                    tagline = "Gestione dei soci e governance per associazioni e partiti -- federato, trasparente, nelle vostre mani.",
+                    tagline = "Gestione dei soci -- federata, trasparente, nelle vostre mani.",
                     statMembers = "Membri",
                     statLtr = "Totale LTR emessi",
                     statPosts = "Post pubblici",
@@ -344,7 +344,7 @@ internal object PublicChrome {
                     languageLabel = "Taal",
                     skipToContent = "Naar de inhoud",
                     operatedBy = "Mogelijk gemaakt door Lapis Cloud",
-                    tagline = "Ledenbeheer en governance voor verenigingen en partijen -- gefedereerd, transparant, in uw handen.",
+                    tagline = "Ledenbeheer -- gefedereerd, transparant, in uw handen.",
                     statMembers = "Leden",
                     statLtr = "Totaal uitgegeven LTR",
                     statPosts = "Openbare berichten",
@@ -383,8 +383,7 @@ internal object PublicChrome {
                     languageLabel = "Język",
                     skipToContent = "Przejdź do treści",
                     operatedBy = "Obsługiwane przez Lapis Cloud",
-                    tagline =
-                        "Zarządzanie członkostwem i governance dla stowarzyszeń i partii -- sfederowane, przejrzyste, w Twoich rękach.",
+                    tagline = "Zarządzanie członkostwem -- sfederowane, przejrzyste, w Twoich rękach.",
                     statMembers = "Członkowie",
                     statLtr = "Łącznie wyemitowane LTR",
                     statPosts = "Publiczne wpisy",
@@ -423,8 +422,7 @@ internal object PublicChrome {
                     languageLabel = "Язык",
                     skipToContent = "Перейти к содержимому",
                     operatedBy = "Работает на базе Lapis Cloud",
-                    tagline =
-                        "Управление членством и governance для объединений и партий -- федеративно, прозрачно, в ваших руках.",
+                    tagline = "Управление членством -- федеративно, прозрачно, в ваших руках.",
                     statMembers = "Участники",
                     statLtr = "Всего выпущено LTR",
                     statPosts = "Публичные записи",
@@ -483,6 +481,14 @@ internal object PublicChrome {
      * used ONLY to build the language-switcher links ([languageUrl]) -- never echoed back into any
      * `href`/`src` untransformed (it is always one of a small, caller-constructed set of fixed
      * shapes, never raw request input, see each route file's own "Ablauf" KDoc).
+     *
+     * Nutzer-Feedback 2026-09-09: nur EIN CTA hier -- "Anmelden". [PublicUiStrings.register]
+     * ("Mitglied werden") lebte hier zusätzlich zum bereits eigenen, primären Hero-CTA auf `/`
+     * ([PublicLandingHtml.renderHero]) -- auf `/transparenz` und `/s` gab es dafür GAR keinen Hero,
+     * die Chrome-Kopie war dort der einzige Beleg. Ergebnis: doppelt auf der Startseite, aber nicht
+     * konsequent überall. Jetzt einheitlich: "Mitglied werden" bleibt ausschließlich der primäre
+     * Hero-CTA von `/`, der Kopfbereich zeigt nur noch den seitenübergreifend sinnvollen "Anmelden"-
+     * Link. [PublicUiStrings.register] selbst bleibt im Datensatz (weiterhin vom Hero verwendet).
      */
     fun FlowContent.renderChrome(
         lang: PublicLanguage,
@@ -534,7 +540,6 @@ internal object PublicChrome {
                     }
                 }
                 a(href = "$baseUrl/app#/login", classes = "chrome-cta") { +strings.login }
-                a(href = "$baseUrl/app#/register", classes = "chrome-cta") { +strings.register }
             }
         }
     }

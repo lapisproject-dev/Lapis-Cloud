@@ -156,8 +156,9 @@ internal object PublicLandingHtml {
         strings: PublicUiStrings,
     ) {
         section(classes = "hero") {
-            // TODO(Nutzer-Freigabe, Plan § 10 Punkt 4): Marken-Claim -- Platzhalter bis zur
-            // Freigabe, gehört dem Nutzer, nicht dem Umsetzungsteam.
+            // Nutzer-Freigabe 2026-09-09: der ursprüngliche Marken-Claim-Platzhalter war zu lang
+            // (wickelte über vier Zeilen), auf Nutzerwunsch gekürzt -- siehe [PublicUiStrings.tagline]
+            // für alle acht Sprachfassungen.
             h1 { +strings.tagline }
             a(href = "$baseUrl/app#/register", classes = "cta cta-primary") { +strings.register }
         }

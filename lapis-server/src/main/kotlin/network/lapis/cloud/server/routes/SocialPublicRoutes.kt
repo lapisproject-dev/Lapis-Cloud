@@ -823,15 +823,25 @@ private fun LocalDateTime.toHumanDate(): String = "%02d.%02d.%04d".format(dayOfM
 internal fun ApplicationCall.applyPublicPageHeaders(
     scriptSrcSelf: Boolean = false,
     /**
-     * Sprachumschalter-Welle: `true` adds `img-src 'self'` -- the chrome header's optional operator
-     * logo (`/api/branding/logo`, [network.lapis.cloud.server.branding.ResolvedBranding.logoAvailable])
-     * is the only image this whole route family ever serves. Default `false` -- every call site that
-     * does not pass `branding.logoAvailable` explicitly keeps its byte-identical, image-free CSP.
+     * Sprachumschalter-Welle: `true` adds `'self'` to `img-src` on top of the `data:` scheme every
+     * call site already gets unconditionally (see below) -- for the chrome header's optional
+     * operator logo (`/api/branding/logo`,
+     * [network.lapis.cloud.server.branding.ResolvedBranding.logoAvailable]), the only `'self'`-hosted
+     * image this route family ever serves. Default `false` -- a call site that does not pass
+     * `branding.logoAvailable` explicitly just gets the unconditional `data:` allowance below.
      */
     imgSrcSelf: Boolean = false,
 ) {
     val scriptDirective = if (scriptSrcSelf) " script-src 'self';" else ""
-    val imgDirective = if (imgSrcSelf) " img-src 'self';" else ""
+    // Nutzer-Feedback 2026-09-09 (passende Icons je Nav-Reiter): `img-src` trägt jetzt IMMER
+    // `data:` -- PublicChrome.renderChrome's `.chrome-nav a::before`-Regeln (theme via
+    // SocialPublicHtml.STYLESHEET) setzen unconditional `mask-image: url("data:image/svg+xml,...")`
+    // je Reiter, auf JEDER Installation, unabhängig vom optionalen Betreiber-Logo -- ohne dieses
+    // `data:` waeren die Icons auf jeder Installation OHNE konfiguriertes Logo (`imgSrcSelf = false`)
+    // von der CSP stillschweigend blockiert worden, exakt dieselbe Fallenklasse wie B1 aus dem
+    // Umsetzungsplan dieser Welle (siehe designNotes), nur fuer `mask-image` statt `<img>`.
+    // `'self'` bleibt weiterhin bedingt (nur das optionale Logo braucht es).
+    val imgDirective = if (imgSrcSelf) " img-src 'self' data:;" else " img-src data:;"
     response.header(
         "Content-Security-Policy",
         "default-src 'none'; style-src 'self';$scriptDirective$imgDirective base-uri 'none'; form-action 'self'; frame-ancestors 'none'",

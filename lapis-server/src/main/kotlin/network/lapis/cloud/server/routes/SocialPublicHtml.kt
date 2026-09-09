@@ -157,8 +157,35 @@ internal object SocialPublicHtml {
         .chrome-logo { max-height: 22px; width: auto; vertical-align: middle; }
         .chrome-wordmark { font-family: Georgia, serif; letter-spacing: 0.01em; }
         .chrome-nav { display: flex; gap: 0.9rem; margin: 0; }
-        .chrome-nav a { border-bottom: 2px solid transparent; padding: 0.2rem 0; }
+        .chrome-nav a { display: inline-flex; align-items: center; border-bottom: 2px solid transparent; padding: 0.2rem 0; }
         .chrome-nav a[aria-current="page"] { color: #C9A227; border-bottom-color: #C9A227; }
+        /* Nutzer-Feedback 2026-09-09: passende Icons je Reiter -- rein dekorativ (CSS
+           mask-image, kein <img>/<svg> im Markup), deshalb ohne jede a11y-Auswirkung: ein
+           Screenreader sieht weiterhin nur den Linktext. currentColor via background-color +
+           mask übernimmt automatisch die aktive-Seite-Goldfarbe (siehe Regel oben) ohne eigene
+           Farbregel je Icon. Feste nth-child-Reihenfolge, weil PublicChrome.renderChrome die
+           drei Links immer in genau dieser Reihenfolge rendert (Start/Transparenz/Soziales
+           Netzwerk) -- siehe dessen eigene KDoc. */
+        .chrome-nav a::before {
+            content: ""; display: inline-block; width: 1.05em; height: 1.05em; margin-right: 0.4em;
+            background-color: currentColor;
+            -webkit-mask-repeat: no-repeat; mask-repeat: no-repeat;
+            -webkit-mask-position: center; mask-position: center;
+            -webkit-mask-size: contain; mask-size: contain;
+            flex-shrink: 0;
+        }
+        .chrome-nav a:nth-child(1)::before {
+            -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M3 11.5 12 4l9 7.5'/%3E%3Cpath d='M5.5 10v9h13v-9'/%3E%3C/svg%3E");
+            mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M3 11.5 12 4l9 7.5'/%3E%3Cpath d='M5.5 10v9h13v-9'/%3E%3C/svg%3E");
+        }
+        .chrome-nav a:nth-child(2)::before {
+            -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round'%3E%3Cpath d='M4 20V10M12 20V4M20 20v-7'/%3E%3C/svg%3E");
+            mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round'%3E%3Cpath d='M4 20V10M12 20V4M20 20v-7'/%3E%3C/svg%3E");
+        }
+        .chrome-nav a:nth-child(3)::before {
+            -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round'%3E%3Ccircle cx='8' cy='8' r='3'/%3E%3Ccircle cx='17' cy='9' r='2.5'/%3E%3Cpath d='M3 20c0-3 2.5-5 5-5s5 2 5 5'/%3E%3Cpath d='M14.5 20c0-2.2 1.8-4 4-4s4 1.8 4 4'/%3E%3C/svg%3E");
+            mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round'%3E%3Ccircle cx='8' cy='8' r='3'/%3E%3Ccircle cx='17' cy='9' r='2.5'/%3E%3Cpath d='M3 20c0-3 2.5-5 5-5s5 2 5 5'/%3E%3Cpath d='M14.5 20c0-2.2 1.8-4 4-4s4 1.8 4 4'/%3E%3C/svg%3E");
+        }
         .chrome-lang { margin-left: auto; position: relative; }
         .chrome-lang summary {
             cursor: pointer; list-style: none; padding: 0.5rem 0.6rem; min-height: 44px;
