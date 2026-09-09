@@ -262,8 +262,8 @@ class SocialPublicHtmlTest :
         test(
             "T6: source scan -- SocialPublicHtml.kt, SocialPublicRoutes.kt, SocialPublicSitemap.kt, " +
                 "PublicTransparencyHtml.kt, PublicTransparencyRoutes.kt, PublicTransparencyReader.kt, " +
-                "EmbedHtml.kt, EmbedRoutes.kt, PublicLandingHtml.kt, and PublicLandingRoutes.kt " +
-                "contain no case-insensitive variant of the raw-HTML-escape-bypass token",
+                "EmbedHtml.kt, EmbedRoutes.kt, PublicLandingHtml.kt, PublicLandingRoutes.kt, and " +
+                "PublicChrome.kt contain no case-insensitive variant of the raw-HTML-escape-bypass token",
         ) {
             // G8-Fix (Review-Runde 1): the scan used to be case-SENSITIVE (would have missed
             // `Unsafe`/`UNSAFE`) and did not scan SocialPublicSitemap.kt at all, even though it is
@@ -289,6 +289,9 @@ class SocialPublicHtmlTest :
                     // dritte öffentliche HTML-Routenfamilie (GET /).
                     File(mainSourceDir, "network/lapis/cloud/server/routes/PublicLandingHtml.kt"),
                     File(mainSourceDir, "network/lapis/cloud/server/routes/PublicLandingRoutes.kt"),
+                    // Welle "Einheitlicher Kopfbereich + Sprachumschalter" -- der gemeinsame Kopfbereich
+                    // aller drei öffentlichen Seiten lebt in dieser neuen Datei.
+                    File(mainSourceDir, "network/lapis/cloud/server/routes/PublicChrome.kt"),
                 )
             scannedFiles.forEach { file ->
                 file.exists() shouldBe true

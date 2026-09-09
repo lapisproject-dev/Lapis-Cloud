@@ -8,6 +8,35 @@ All notable changes to this project are documented here. Format follows
 
 ### Added
 
+**Einheitlicher Kopfbereich + Sprachumschalter für `/`, `/transparenz`, `/s` (2026-09-09)**
+
+- Alle drei öffentlichen, kontenlosen HTML-Routenfamilien (`GET /`, `GET /s` + Nachfahren,
+  `GET /transparenz`) teilen sich jetzt einen gemeinsamen Kopfbereich (Skip-Link, Marken-Wortmarke/
+  -Logo, primäre Navigation mit `aria-current`, Sprachumschalter, Anmelden-/Mitglied-werden-CTAs) —
+  neue Datei `PublicChrome.kt`. Der `Anmelden`-Link auf der Startseite lebt jetzt ausschließlich im
+  Kopfbereich statt (auch) im Hero.
+- **8-sprachiger `?lang=`-Query-Parameter-Umschalter** (`de` Default, `en`, `fr`, `es`, `it`, `nl`,
+  `pl`, `ru` — dieselbe Menge/Reihenfolge wie die bereits bestehende SPA-Sprachauswahl). Kein Cookie,
+  keine Session — jede Seite bleibt allein über ihre URL cachebar. Ein unbekannter/mehrfacher/exakt
+  auf den Default lautender `lang`-Wert 308-redirected auf die kanonische URL, vor jedem DB-Zugriff.
+  `/` und `/s`/`/s/{id}` (beide `index,follow`) tragen zusätzlich vollständige 8+1-`hreflang`-
+  Alternates; `/transparenz` bleibt `noindex,follow` und bekommt kein `hreflang`.
+- CSP-Erweiterung: `img-src 'self'` wird jetzt gesetzt, wenn der Kopfbereich das konfigurierte
+  Betreiber-Logo zeigt (`ResolvedBranding.logoAvailable`) — vorher fehlte diese Direktive
+  vollständig, das Logo-`<img>` wäre auf jeder öffentlichen Seite von der CSP blockiert worden.
+- `registerSocialPublicRoutes`/`registerPublicTransparencyRoutes`/`registerPublicLandingRoutes`
+  nehmen jetzt `branding: ResolvedBranding` statt `brandTitle: String` entgegen, **ohne Default**
+  (bewusster Breaking Change auf Routing-Ebene) — ein fehlendes Branding-Argument wäre ein
+  Production-Bug, kein Test-Komfortfall. Die drei `*Html.kt`-Pure-Render-Funktionen behalten einen
+  Default bei (siehe `docs/architecture/public-chrome.adoc`).
+- `PublicLandingRoutes`' Body-Memoisierung wechselt von einem einzelnen `AtomicReference` auf eine
+  `ConcurrentHashMap<PublicLanguage, CachedLandingBody>` — ein Cache-Eintrag pro Sprache, hart auf
+  8 Einträge begrenzt (Enum-Schlüssel, nie der Roh-String).
+- Rechtstext bleibt bewusst Deutsch, unabhängig von der Chrome-Sprache: das DSA-Art.-16-Meldeformular
+  (`GET`/`POST /s/{id}/report`) und der Ranglisten-Einwilligungshinweis auf `/transparenz`, beide in
+  ein `lang="de"`-Attribut gewrappt.
+- Details, Architekturentscheidungen und offene Übersetzungs-Fragen: `docs/architecture/public-chrome.adoc`.
+
 **Vertikale Sidebar-Navigation statt horizontalem Menü (2026-09-08)**
 
 - Die sechs rollenbasierten Menügruppen (Mitgliedschaft/Selbstverwaltung/Wirtschaft/Finanzen/

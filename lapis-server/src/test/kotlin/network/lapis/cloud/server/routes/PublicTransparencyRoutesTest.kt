@@ -15,6 +15,8 @@ import io.ktor.server.testing.ApplicationTestBuilder
 import io.ktor.server.testing.testApplication
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.LocalDateTime
+import network.lapis.cloud.server.branding.BrandConfig
+import network.lapis.cloud.server.branding.ResolvedBranding
 import network.lapis.cloud.server.db.DatabaseConfig
 import network.lapis.cloud.server.db.DbClock
 import network.lapis.cloud.server.db.DevSeedData
@@ -276,7 +278,12 @@ class PublicTransparencyRoutesTest :
                 application {
                     install(XForwardedHeaders) { useLastProxy() }
                     install(AutoHeadResponse)
-                    routing { registerPublicTransparencyRoutes(readRateLimiter = readLimiter) }
+                    routing {
+                        registerPublicTransparencyRoutes(
+                            readRateLimiter = readLimiter,
+                            branding = ResolvedBranding(title = BrandConfig.DEFAULT_TITLE, logoAvailable = false, logoPath = null),
+                        )
+                    }
                 }
                 block()
             }

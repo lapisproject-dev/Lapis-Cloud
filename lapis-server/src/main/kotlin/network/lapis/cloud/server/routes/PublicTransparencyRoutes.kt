@@ -4,7 +4,7 @@ import io.ktor.server.application.call
 import io.ktor.server.plugins.origin
 import io.ktor.server.routing.Route
 import io.ktor.server.routing.get
-import network.lapis.cloud.server.branding.BrandConfig
+import network.lapis.cloud.server.branding.ResolvedBranding
 import network.lapis.cloud.server.db.DbClock
 import network.lapis.cloud.server.db.generated.SocialPostTable
 import network.lapis.cloud.server.economy.LedgerBackedLtrBalanceProvider
@@ -52,24 +52,42 @@ private val MIN_RANKING_COHORT = 5L
 
 fun Route.registerPublicTransparencyRoutes(
     readRateLimiter: FederationInboxRateLimiter,
-    /** V1.2.5 White-Label-Branding -- see `registerSocialPublicRoutes`'s own `brandTitle` KDoc. */
-    brandTitle: String = BrandConfig.DEFAULT_TITLE,
+    /**
+     * V1.2.5 White-Label-Branding, seit der Sprachumschalter-Welle das volle [ResolvedBranding]
+     * statt nur `brandTitle: String` -- siehe `registerSocialPublicRoutes`'s eigene `branding` KDoc.
+     * **Kein Default mehr** (Breaking Change, bewusst), analog zu `registerSocialPublicRoutes`.
+     */
+    branding: ResolvedBranding,
 ) {
     val baseUrl = FederationConfig.publicBaseUrl.trimEnd('/')
 
     get("/transparenz") {
-        call.withPublicErrorHandling(baseUrl = baseUrl) {
+        call.withPublicErrorHandling(baseUrl = baseUrl, branding = branding) {
             if (!readRateLimiter.checkAndRecord(rateLimitKeyFor(remoteHost = call.request.origin.remoteHost))) {
-                call.respondPublicTooManyRequests(baseUrl = baseUrl)
+                call.respondPublicTooManyRequests(baseUrl = baseUrl, branding = branding, lang = call.resolvePublicLanguage())
                 return@withPublicErrorHandling
             }
-            if (!call.hasOnlyAllowedQueryParams(allowed = emptySet())) {
-                call.respondPublicCanonicalRedirect(canonicalUrl = "$baseUrl/transparenz")
+            // Sprachumschalter-Welle: `lang` ist der EINZIGE zusätzlich erlaubte Query-Parameter.
+            if (!call.hasOnlyAllowedQueryParams(allowed = setOf("lang")) || call.publicLangNeedsCanonicalization()) {
+                call.respondPublicCanonicalRedirect(
+                    canonicalUrl =
+                        PublicChrome.languageUrl(
+                            baseUrl = baseUrl,
+                            currentPath = "/transparenz",
+                            lang = call.resolvePublicLanguage(),
+                        ),
+                )
                 return@withPublicErrorHandling
             }
+            val lang = call.resolvePublicLanguage()
             val view = transaction { buildView() }
-            val body = PublicTransparencyHtml.page(view = view, baseUrl = baseUrl, brandTitle = brandTitle)
-            call.respondPublicCacheable(body = body, contentType = HTML_CONTENT_TYPE, cacheControl = "public, max-age=60")
+            val body = PublicTransparencyHtml.page(view = view, baseUrl = baseUrl, branding = branding, lang = lang)
+            call.respondPublicCacheable(
+                body = body,
+                contentType = HTML_CONTENT_TYPE,
+                cacheControl = "public, max-age=60",
+                imgSrcSelf = branding.logoAvailable,
+            )
         }
     }
 }

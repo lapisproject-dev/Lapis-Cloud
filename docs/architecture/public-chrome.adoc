@@ -1,0 +1,116 @@
+= Public Chrome & Language Switcher
+:description: A shared header (skip-link, branded nav, language switcher, login/register CTAs) across /, /s and /transparenz, plus an 8-language ?lang= query-parameter switcher.
+:toc:
+:toc-placement: preamble
+:icons: font
+
+== Context
+
+Before this wave, the three unauthenticated, account-less public HTML route families
+(`GET /`, `GET /s` + descendants, `GET /transparenz`) each rendered their own, slightly
+different `<body>` shape — no shared navigation between them, no way to reach `/s` from
+`/`, no way to reach `/` from `/s`'s footer, and the `/`-only login/register CTAs sat
+inside the hero, not reachable from `/s`/`/transparenz` at all. Every page was hard-coded
+German, with no language switcher, even though the authenticated SPA
+(`network.lapis.cloud.client.App.kt`) already offers 8 UI languages.
+
+This wave adds a single, shared chrome component — `network.lapis.cloud.server.routes.PublicChrome`
+— rendered as the first children of `<body class="has-chrome">` on all three route
+families, plus an `?lang=` query-parameter switcher across 8 languages (`de` default,
+`en`, `fr`, `es`, `it`, `nl`, `pl`, `ru` — the exact same set and order as the SPA's own
+`SUPPORTED_LANGUAGES`).
+
+== `PublicChrome.kt`
+
+* `PublicLanguage` — an 8-value enum (`code`, `nativeName`), `DEFAULT = DE`. `parse(raw)`
+  never throws; an unknown/missing code resolves to `null`, which every caller then falls
+  back to `DEFAULT`.
+* `PublicUiStrings` — a `data class` (not a `Map<String, String>`) holding every
+  translatable chrome/page string. Completeness across all 8 languages is enforced by the
+  compiler (a missing field is a compile error), never a runtime blank/fallback.
+* `PublicChrome.STRINGS: Map<PublicLanguage, PublicUiStrings>` — the 8 translated
+  instances. See the file's own KDoc for translation provenance: chrome-level strings
+  (nav labels, login/register, committee roles, "Powered by …") were cross-checked
+  against `lapis-client/src/jsMain/resources/modules/i18n/messages-*.po` where an
+  unambiguous match exists; `/transparenz`- and `/s`-specific strings have no SPA
+  precedent and are best-effort translations, not yet reviewed by a native speaker of
+  each language.
+* `renderChrome(lang, active, baseUrl, branding, currentPath)` — a `FlowContent`
+  extension rendering the skip-link + `<header class="chrome">` (brand wordmark/logo,
+  primary nav with `aria-current="page"` on the active entry, an 8-entry
+  `<details class="chrome-lang">` language switcher, login/register CTAs).
+* `languageUrl(baseUrl, currentPath, lang)` — `"$baseUrl$currentPath"`, with a
+  `?lang=`/`&lang=` suffix appended UNLESS `lang == PublicLanguage.DEFAULT` — German is
+  the unparameterized, canonical default, the same "no `?page=1`" convention
+  `SocialPublicRoutes.timelinePathOnly` already established for pagination.
+* `renderHreflangAlternates(baseUrl, currentPath)` — 8 `<link rel="alternate" hreflang="…">`
+  entries + one `x-default`, emitted only on `index,follow` pages (`/`, `/s`, `/s/{id}`),
+  never on `/transparenz` (stays `noindex,follow`).
+
+**Deliberately excluded from `PublicUiStrings`**: the ranking-consent disclaimer
+("Ihr Name erscheint nur, wenn mindestens fünf Mitglieder zugestimmt haben.",
+`PublicTransparencyHtml.renderRankingSection`) and the entire DSA Art. 16 report form
+(`SocialPublicHtml.reportFormPage`) — both are German legal text, wrapped in an explicit
+`lang="de"` attribute regardless of the surrounding chrome's language, and stay
+untranslated by design.
+
+== Query-parameter architecture: `?lang=`, not a cookie
+
+`lang` is a plain query parameter, resolved per-request
+(`ApplicationCall.resolvePublicLanguage()`), never a cookie or session value:
+
+* Keeps every page cacheable at a reverse proxy/CDN by URL alone (`Vary: Cookie` is never
+  needed for language).
+* `ApplicationCall.publicLangNeedsCanonicalization()` — analogous to
+  `SocialPublicRoutes.pageQueryValueNeedsCanonicalization` — decides whether the raw
+  `lang` value needs a 308 redirect to its canonical form: missing → never (this is the
+  only way `DEFAULT` is reached without a redirect); multiple values → always; unknown
+  value or exactly the default code (`de`) → always (the canonical German URL never
+  carries `?lang=de`).
+* The query-parameter allowlist on every affected route (`/`, `/s`, `/s/{id}`,
+  `/s/{id}/report`, `/transparenz`) was extended to include `lang` alongside each
+  route's existing parameters (`page` on `/s`).
+* `PublicLandingRoutes`'s body-memoization cache changed from a single
+  `AtomicReference<CachedLandingBody?>` to `ConcurrentHashMap<PublicLanguage, CachedLandingBody>`
+  — keyed exclusively by the already-validated enum value, hard-capped at 8 entries
+  regardless of how many distinct/garbage `?lang=` values a request carries (those are
+  308-redirected away before the cache is ever consulted).
+
+== CSP: `img-src 'self'`
+
+`SocialPublicRoutes.applyPublicPageHeaders`/`respondPublicCacheable` gained a new
+`imgSrcSelf: Boolean = false` parameter — `true` adds `img-src 'self'` to the
+Content-Security-Policy, used exclusively when the chrome renders the operator's logo
+(`ResolvedBranding.logoAvailable`, served at `GET /api/branding/logo`). Every existing
+call site that does not pass `branding.logoAvailable` explicitly keeps its
+byte-identical, image-free CSP — this is additive, not a loosening of the default.
+
+== Branding threading: `ResolvedBranding`, not `brandTitle: String`
+
+`registerSocialPublicRoutes`/`registerPublicTransparencyRoutes`/`registerPublicLandingRoutes`
+now take a `branding: ResolvedBranding` parameter with **no default** (a breaking
+change, deliberate: a missing branding argument at the routing layer would be a
+production bug, not a test convenience). The three `*Html.kt` pure-render functions
+(`SocialPublicHtml`, `PublicTransparencyHtml`, `PublicLandingHtml`) keep a default
+`branding`/`lang` argument, since most of their existing tests assert on XSS-escaping/
+determinism/byte-budget behavior unrelated to branding or language.
+
+== Error pages: no natural "current path"
+
+`notFoundPage`/`tooManyRequestsPage`/`malformedRequestPage` are reachable from an
+arbitrary URL and have no meaningful "current path" to canonicalize — their chrome's
+language switcher links to `/s` instead. `legallyRemovedPage` has a real post ID and
+uses `currentPath = "/s/{id}"`. `serverErrorPage` (the `withPublicErrorHandling` 500
+fallback) takes **no** `lang` parameter at all and always renders German chrome — an
+unexpected failure can strike before `lang` was ever parsed; `branding.logoAvailable`
+still flows through so the operator's logo renders correctly even on a 500.
+
+== Not part of this wave
+
+`/app`/`App.kt`/`Sidebar.kt` are unchanged; no dynamic domain content (transparency
+figures, membership fee texts, member names) is translated; no new JavaScript beyond the
+pre-existing `hash-bridge.js`; the DSA Art. 16 report form and the ranking-consent
+disclaimer stay entirely German by design (see above).
+
+See also: <<public-landing.adoc#,Public Landing Page — Welle V1.4.6>> for the `GET /`
+route family this chrome now wraps.

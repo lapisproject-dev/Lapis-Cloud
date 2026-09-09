@@ -20,6 +20,8 @@ import io.ktor.server.routing.routing
 import io.ktor.server.testing.ApplicationTestBuilder
 import io.ktor.server.testing.testApplication
 import kotlinx.datetime.LocalDate
+import network.lapis.cloud.server.branding.BrandConfig
+import network.lapis.cloud.server.branding.ResolvedBranding
 import network.lapis.cloud.server.db.DatabaseConfig
 import network.lapis.cloud.server.db.DevSeedData
 import network.lapis.cloud.server.db.generated.AccountTable
@@ -166,8 +168,12 @@ class EmbedRoutesCorsTest :
                                 readRateLimiter = generousLimiter(),
                                 sitemapRateLimiter = generousLimiter(),
                                 reportRateLimiter = generousLimiter(),
+                                branding = ResolvedBranding(title = BrandConfig.DEFAULT_TITLE, logoAvailable = false, logoPath = null),
                             )
-                            registerPublicTransparencyRoutes(readRateLimiter = generousLimiter())
+                            registerPublicTransparencyRoutes(
+                                readRateLimiter = generousLimiter(),
+                                branding = ResolvedBranding(title = BrandConfig.DEFAULT_TITLE, logoAvailable = false, logoPath = null),
+                            )
                             registerPublicApiRoutes(preAuthRateLimiter = generousLimiter(), postAuthRateLimiter = generousLimiter())
                         }
                     }

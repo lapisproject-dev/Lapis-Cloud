@@ -8,7 +8,6 @@ import kotlinx.html.div
 import kotlinx.html.footer
 import kotlinx.html.h1
 import kotlinx.html.head
-import kotlinx.html.header
 import kotlinx.html.html
 import kotlinx.html.li
 import kotlinx.html.link
@@ -22,6 +21,7 @@ import kotlinx.html.span
 import kotlinx.html.stream.createHTML
 import kotlinx.html.title
 import network.lapis.cloud.server.branding.BrandConfig
+import network.lapis.cloud.server.branding.ResolvedBranding
 
 /**
  * Welle V1.4.6 "Öffentliche Startseite" (`GET /`) -- a THIRD unauthenticated, account-less public
@@ -72,32 +72,53 @@ internal object PublicLandingHtml {
     fun page(
         view: PublicLandingView,
         baseUrl: String,
-        brandTitle: String = BrandConfig.DEFAULT_TITLE,
-    ): String =
-        createHTML(prettyPrint = false).html {
-            attributes["lang"] = "de"
-            renderHead(baseUrl = baseUrl, brandTitle = brandTitle)
-            body {
-                renderHero(baseUrl = baseUrl, brandTitle = brandTitle)
-                main {
-                    view.stats?.let { renderStats(it) }
-                    if (view.topPosts.isNotEmpty()) renderTopPosts(posts = view.topPosts, baseUrl = baseUrl)
-                    renderFurtherLinks(baseUrl = baseUrl)
+        /**
+         * V1.2.5 White-Label-Branding, seit der Sprachumschalter-Welle das volle [ResolvedBranding]
+         * statt nur `brandTitle: String` -- Default beibehalten, siehe [SocialPublicHtml.timelinePage]
+         * eigene KDoc-Begründung (§ 4.4b).
+         */
+        branding: ResolvedBranding = ResolvedBranding(title = BrandConfig.DEFAULT_TITLE, logoAvailable = false, logoPath = null),
+        /** Sprachumschalter-Welle -- Default Deutsch. */
+        lang: PublicLanguage = PublicLanguage.DEFAULT,
+    ): String {
+        val strings = PublicChrome.stringsFor(lang)
+        return createHTML(prettyPrint = false).html {
+            attributes["lang"] = lang.code
+            renderHead(baseUrl = baseUrl, branding = branding, lang = lang)
+            body(classes = "has-chrome") {
+                with(PublicChrome) {
+                    renderChrome(
+                        lang = lang,
+                        active = PublicChrome.NavTarget.HOME,
+                        baseUrl = baseUrl,
+                        branding = branding,
+                        currentPath = "/",
+                    )
                 }
-                footer { p { +"$brandTitle · Betrieben mit Lapis Cloud" } }
+                renderHero(baseUrl = baseUrl, strings = strings)
+                main {
+                    attributes["id"] = "main"
+                    view.stats?.let { renderStats(stats = it, strings = strings) }
+                    if (view.topPosts.isNotEmpty()) renderTopPosts(posts = view.topPosts, baseUrl = baseUrl, lang = lang, strings = strings)
+                    renderFurtherLinks(baseUrl = baseUrl, lang = lang, strings = strings)
+                }
+                footer { p { +"${branding.title} · ${strings.operatedBy}" } }
             }
         }
+    }
 
     private fun HTML.renderHead(
         baseUrl: String,
-        brandTitle: String,
+        branding: ResolvedBranding,
+        lang: PublicLanguage,
     ) {
-        val description = "Mitgliederverwaltung, Beiträge und Kennzahlen von $brandTitle -- öffentlich einsehbar."
-        val canonicalUrl = "$baseUrl/"
+        val strings = PublicChrome.stringsFor(lang)
+        val description = "${strings.statMembers}, ${strings.statPosts} · ${branding.title}"
+        val canonicalUrl = PublicChrome.languageUrl(baseUrl = baseUrl, currentPath = "/", lang = lang)
         head {
             meta(charset = "utf-8")
             meta(name = "viewport", content = "width=device-width, initial-scale=1")
-            title { +brandTitle }
+            title { +branding.title }
             meta(name = "description", content = description)
             // Bewusst "index,follow" -- der EINZIGE Unterschied zu PublicTransparencyHtml's
             // "noindex,follow" (siehe dessen begleitenden Kommentar dort): diese Seite trägt KEINE
@@ -108,7 +129,8 @@ internal object PublicLandingHtml {
             meta(name = "robots", content = "index,follow")
             link(rel = "canonical", href = canonicalUrl)
             link(rel = "stylesheet", href = "/s/assets/style.css")
-            meta(content = brandTitle) { attributes["property"] = "og:title" }
+            with(PublicChrome) { renderHreflangAlternates(baseUrl = baseUrl, currentPath = "/") }
+            meta(content = branding.title) { attributes["property"] = "og:title" }
             meta(content = description) { attributes["property"] = "og:description" }
             meta(content = canonicalUrl) { attributes["property"] = "og:url" }
             meta(content = "website") { attributes["property"] = "og:type" }
@@ -122,29 +144,35 @@ internal object PublicLandingHtml {
         }
     }
 
+    /**
+     * Sprachumschalter-Welle: der Login-Link entfällt hier komplett -- er lebt jetzt ausschließlich
+     * im Chrome ([PublicChrome.renderChrome]), sonst gäbe es ihn doppelt auf der Seite. Der
+     * Marken-Claim ([PublicUiStrings.tagline]) wird zum `<h1>` des Contents (der Markenname selbst
+     * steht bereits im Chrome, siehe Umsetzungsplan § 4.6c) -- "Mitglied werden" bleibt als
+     * primärer CTA im Hero.
+     */
     private fun FlowContent.renderHero(
         baseUrl: String,
-        brandTitle: String,
+        strings: PublicUiStrings,
     ) {
-        header {
-            div(classes = "hero") {
-                h1 { +brandTitle }
-                // TODO(Nutzer-Freigabe, Plan § 10 Punkt 4): Marken-Claim -- Platzhalter bis zur
-                // Freigabe, gehört dem Nutzer, nicht dem Umsetzungsteam.
-                p { +"Mitgliederverwaltung und Governance für Vereine und Parteien -- föderiert, transparent, in Ihrer Hand." }
-                a(href = "$baseUrl/app#/login", classes = "cta cta-primary") { +"Anmelden" }
-                a(href = "$baseUrl/app#/register", classes = "cta") { +"Mitglied werden" }
-            }
+        section(classes = "hero") {
+            // TODO(Nutzer-Freigabe, Plan § 10 Punkt 4): Marken-Claim -- Platzhalter bis zur
+            // Freigabe, gehört dem Nutzer, nicht dem Umsetzungsteam.
+            h1 { +strings.tagline }
+            a(href = "$baseUrl/app#/register", classes = "cta cta-primary") { +strings.register }
         }
     }
 
-    private fun FlowContent.renderStats(stats: PublicTransparencyStats) {
+    private fun FlowContent.renderStats(
+        stats: PublicTransparencyStats,
+        strings: PublicUiStrings,
+    ) {
         section {
             attributes["id"] = "kennzahlen"
             div(classes = "stats") {
-                statTile(value = stats.activeMemberCount.toString(), label = "Mitglieder")
-                statTile(value = "${stats.mintedLtrTotal} LTR", label = "Insgesamt ausgegebene LTR")
-                statTile(value = stats.publicPostCount.toString(), label = "Öffentliche Beiträge")
+                statTile(value = stats.activeMemberCount.toString(), label = strings.statMembers)
+                statTile(value = "${stats.mintedLtrTotal} LTR", label = strings.statLtr)
+                statTile(value = stats.publicPostCount.toString(), label = strings.statPosts)
             }
         }
     }
@@ -163,25 +191,37 @@ internal object PublicLandingHtml {
     private fun FlowContent.renderTopPosts(
         posts: List<PublicPostView>,
         baseUrl: String,
+        lang: PublicLanguage,
+        strings: PublicUiStrings,
     ) {
         section {
             attributes["id"] = "beitraege"
             ol(classes = "rank-list") {
                 posts.forEach { post ->
                     li {
-                        a(href = "$baseUrl/s/${post.id}") { +post.excerptTitleForTeaser() }
+                        a(
+                            href = PublicChrome.languageUrl(baseUrl = baseUrl, currentPath = "/s/${post.id}", lang = lang),
+                        ) { +post.excerptTitleForTeaser() }
                         span(classes = "section-note") { +" · ${post.authorDisplayName} · ${post.totalWeightLtr} LTR" }
                     }
                 }
             }
-            p { a(href = "$baseUrl/s") { +"Alle Beiträge" } }
+            p { a(href = PublicChrome.languageUrl(baseUrl = baseUrl, currentPath = "/s", lang = lang)) { +strings.allPosts } }
         }
     }
 
-    private fun FlowContent.renderFurtherLinks(baseUrl: String) {
+    private fun FlowContent.renderFurtherLinks(
+        baseUrl: String,
+        lang: PublicLanguage,
+        strings: PublicUiStrings,
+    ) {
         section {
-            p { a(href = "$baseUrl/transparenz") { +"Vorstand, Ranglisten und Finanzkennzahlen" } }
-            p { a(href = "$baseUrl/s") { +"Öffentliche Beiträge" } }
+            p {
+                a(
+                    href = PublicChrome.languageUrl(baseUrl = baseUrl, currentPath = "/transparenz", lang = lang),
+                ) { +strings.linkTransparency }
+            }
+            p { a(href = PublicChrome.languageUrl(baseUrl = baseUrl, currentPath = "/s", lang = lang)) { +strings.statPosts } }
         }
     }
 

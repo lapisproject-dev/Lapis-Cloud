@@ -171,3 +171,12 @@ This wave reads exclusively via existing readers (`PublicTransparencyReader.load
 `PublicTransparencyRoutes.loadTopPosts`) — no new table, column, or enum value. `PublicRankingKind`
 is unchanged (see <<data-minimization>> above for why a new ranking kind was rejected, not merely
 deferred).
+
+== See also
+
+A later wave adds a shared header (skip-link, branded nav, language switcher,
+login/register CTAs) across `/`, `/s` and `/transparenz`, plus an 8-language `?lang=`
+switcher — see <<public-chrome.adoc#,Public Chrome & Language Switcher>>. That wave
+replaces this page's `renderHero`'s login link (moved into the shared chrome) and
+threads `ResolvedBranding` through `registerPublicLandingRoutes` instead of a bare
+`brandTitle: String`.

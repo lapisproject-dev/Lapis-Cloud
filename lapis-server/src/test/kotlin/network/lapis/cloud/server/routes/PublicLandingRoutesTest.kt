@@ -16,6 +16,8 @@ import io.ktor.server.routing.routing
 import io.ktor.server.testing.ApplicationTestBuilder
 import io.ktor.server.testing.testApplication
 import kotlinx.datetime.LocalDate
+import network.lapis.cloud.server.branding.BrandConfig
+import network.lapis.cloud.server.branding.ResolvedBranding
 import network.lapis.cloud.server.db.DatabaseConfig
 import network.lapis.cloud.server.db.DbClock
 import network.lapis.cloud.server.db.DevSeedData
@@ -121,7 +123,12 @@ class PublicLandingRoutesTest :
                 application {
                     install(XForwardedHeaders) { useLastProxy() }
                     install(AutoHeadResponse)
-                    routing { registerPublicLandingRoutes(readRateLimiter = readLimiter) }
+                    routing {
+                        registerPublicLandingRoutes(
+                            readRateLimiter = readLimiter,
+                            branding = ResolvedBranding(title = BrandConfig.DEFAULT_TITLE, logoAvailable = false, logoPath = null),
+                        )
+                    }
                 }
                 block()
             }
@@ -146,6 +153,24 @@ class PublicLandingRoutesTest :
             }
         }
 
+        // ── Regressions-Test: der Hero-Primary-CTA (nicht der gleichlautende Chrome-CTA) muss zur
+        // SPA-Registrierung verlinken. Prüft gezielt DIESES Anchor-Tag über seine "cta-primary"-Klasse
+        // (der Chrome-Link trägt "chrome-cta", siehe [PublicChrome.renderChrome]) statt nur den
+        // Body global auf irgendein Vorkommen des Links zu prüfen -- ein reiner "shouldContain"-Test
+        // auf den Body wäre blind dafür, wenn ausgerechnet DIESER Button auf den Skip-Link-Anker
+        // "#main" statt auf die Registrierung zeigt (siehe [PublicChrome.renderChrome]'s eigener
+        // Skip-Link, derselbe Anker).
+        test("GET /: hero's primary CTA (class cta-primary) links to the SPA register route, not the #main skip-link anchor") {
+            testApp {
+                val body = client.get("/").bodyAsText()
+                val heroCtaTag =
+                    Regex("""<a[^>]*class="[^"]*cta-primary[^"]*"[^>]*>""").find(body)?.value
+                        ?: error("hero CTA anchor (class contains cta-primary) not found in body")
+                heroCtaTag shouldContain "href=\"http://localhost:8080/app#/register\""
+                heroCtaTag shouldNotContain "href=\"#main\""
+            }
+        }
+
         // ── 2: Leerzustand A -- members > 0, posts == 0 -- pure unit test (see class KDoc: a
         // route-level test asserting on real DB emptiness would be flaky in a full suite run,
         // where other test classes' fixtures leave posts behind concurrently) ─────────────────
@@ -163,7 +188,7 @@ class PublicLandingRoutesTest :
                             topPosts = emptyList(),
                         ),
                     baseUrl = "https://cloud.example.org",
-                    brandTitle = "Test-Verein",
+                    branding = ResolvedBranding(title = "Test-Verein", logoAvailable = false, logoPath = null),
                 )
             html shouldContain "id=\"kennzahlen\""
             html shouldNotContain "id=\"beitraege\""
@@ -175,7 +200,7 @@ class PublicLandingRoutesTest :
                 PublicLandingHtml.page(
                     view = PublicLandingView(stats = null, topPosts = emptyList()),
                     baseUrl = "https://cloud.example.org",
-                    brandTitle = "Test-Verein",
+                    branding = ResolvedBranding(title = "Test-Verein", logoAvailable = false, logoPath = null),
                 )
             html shouldNotContain "id=\"kennzahlen\""
             html shouldNotContain "id=\"beitraege\""
@@ -293,13 +318,15 @@ class PublicLandingRoutesTest :
                     install(XForwardedHeaders) { useLastProxy() }
                     install(AutoHeadResponse)
                     routing {
-                        registerPublicLandingRoutes(readRateLimiter = generousLimiter())
+                        val branding = ResolvedBranding(title = BrandConfig.DEFAULT_TITLE, logoAvailable = false, logoPath = null)
+                        registerPublicLandingRoutes(readRateLimiter = generousLimiter(), branding = branding)
                         registerSocialPublicRoutes(
                             readRateLimiter = generousLimiter(),
                             sitemapRateLimiter = generousLimiter(),
                             reportRateLimiter = generousLimiter(),
+                            branding = branding,
                         )
-                        registerPublicTransparencyRoutes(readRateLimiter = generousLimiter())
+                        registerPublicTransparencyRoutes(readRateLimiter = generousLimiter(), branding = branding)
                     }
                 }
                 val landing = client.get("/")

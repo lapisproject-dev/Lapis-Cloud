@@ -1247,13 +1247,13 @@ fun Application.module() {
             readRateLimiter = socialPublicReadRateLimiter,
             sitemapRateLimiter = socialPublicSitemapRateLimiter,
             reportRateLimiter = socialPublicReportRateLimiter,
-            brandTitle = resolvedBranding.title,
+            branding = resolvedBranding,
         )
         // V1.3.0 "Öffentliche Transparenz-Startseite" -- literal route (/transparenz), same
         // "registered before staticFiles" reasoning as registerSocialPublicRoutes' own routes.
         registerPublicTransparencyRoutes(
             readRateLimiter = publicTransparencyRateLimiter,
-            brandTitle = resolvedBranding.title,
+            branding = resolvedBranding,
         )
         // Welle V1.4.6 "Öffentliche Startseite" -- literal route (GET /), same "registered before
         // staticFiles" reasoning as registerSocialPublicRoutes'/registerPublicTransparencyRoutes'
@@ -1262,7 +1262,7 @@ fun Application.module() {
         // GET / from now on.
         registerPublicLandingRoutes(
             readRateLimiter = publicLandingRateLimiter,
-            brandTitle = resolvedBranding.title,
+            branding = resolvedBranding,
         )
         // V1.3.1 "API-Fundament, lesend" -- literal routes (/api/v1/*), same "registered before
         // staticFiles" reasoning as registerSocialPublicRoutes'/registerPublicTransparencyRoutes' own

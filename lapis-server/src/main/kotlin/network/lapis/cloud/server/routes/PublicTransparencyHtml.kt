@@ -9,7 +9,6 @@ import kotlinx.html.footer
 import kotlinx.html.h1
 import kotlinx.html.h2
 import kotlinx.html.head
-import kotlinx.html.header
 import kotlinx.html.html
 import kotlinx.html.li
 import kotlinx.html.link
@@ -23,6 +22,7 @@ import kotlinx.html.span
 import kotlinx.html.stream.createHTML
 import kotlinx.html.title
 import network.lapis.cloud.server.branding.BrandConfig
+import network.lapis.cloud.server.branding.ResolvedBranding
 import network.lapis.cloud.shared.domain.CommitteeRole
 
 /**
@@ -53,40 +53,67 @@ internal object PublicTransparencyHtml {
     fun page(
         view: PublicTransparencyView,
         baseUrl: String,
-        brandTitle: String = BrandConfig.DEFAULT_TITLE,
-    ): String =
-        createHTML(prettyPrint = false).html {
-            attributes["lang"] = "de"
-            renderHead(baseUrl = baseUrl, brandTitle = brandTitle)
-            body {
-                header { h1 { +"Transparenz" } }
-                nav(classes = "jump") {
-                    a(href = "#kennzahlen") { +"Kennzahlen" }
-                    a(href = "#vorstand") { +"Vorstand" }
-                    a(href = "#beitraege") { +"Beiträge" }
-                    if (view.ltr != null) a(href = "#ltr") { +"LTR-Halter" }
-                    if (view.donations != null) a(href = "#spenden") { +"Spender" }
+        /**
+         * V1.2.5 White-Label-Branding, seit der Sprachumschalter-Welle das volle [ResolvedBranding]
+         * statt nur `brandTitle: String` -- Default beibehalten, siehe [SocialPublicHtml.timelinePage]
+         * eigene KDoc-Begründung (§ 4.4b).
+         */
+        branding: ResolvedBranding = ResolvedBranding(title = BrandConfig.DEFAULT_TITLE, logoAvailable = false, logoPath = null),
+        /** Sprachumschalter-Welle -- Default Deutsch. */
+        lang: PublicLanguage = PublicLanguage.DEFAULT,
+    ): String {
+        val strings = PublicChrome.stringsFor(lang)
+        val currentPath = "/transparenz"
+        return createHTML(prettyPrint = false).html {
+            attributes["lang"] = lang.code
+            renderHead(baseUrl = baseUrl, branding = branding, lang = lang)
+            body(classes = "has-chrome") {
+                with(PublicChrome) {
+                    renderChrome(
+                        lang = lang,
+                        active = PublicChrome.NavTarget.TRANSPARENCY,
+                        baseUrl = baseUrl,
+                        branding = branding,
+                        currentPath = currentPath,
+                    )
                 }
                 main {
-                    renderStats(view.stats)
-                    renderBoard(view.board)
-                    renderTopPosts(posts = view.topPosts, baseUrl = baseUrl)
-                    view.ltr?.let { renderRankingSection(id = "ltr", title = "Top-LTR-Halter", unit = "LTR", rankingSection = it) }
+                    attributes["id"] = "main"
+                    h1 { +strings.transparencyH1 }
+                    nav(classes = "jump") {
+                        a(href = "#kennzahlen") { +strings.jumpStats }
+                        a(href = "#vorstand") { +strings.jumpBoard }
+                        a(href = "#beitraege") { +strings.jumpPosts }
+                        if (view.ltr != null) a(href = "#ltr") { +strings.jumpLtr }
+                        if (view.donations != null) a(href = "#spenden") { +strings.jumpDonors }
+                    }
+                    renderStats(stats = view.stats, strings = strings)
+                    renderBoard(board = view.board, strings = strings)
+                    renderTopPosts(posts = view.topPosts, baseUrl = baseUrl, lang = lang, strings = strings)
+                    view.ltr?.let { renderRankingSection(id = "ltr", title = strings.topLtrHolders, unit = "LTR", rankingSection = it) }
                     view.donations?.let {
-                        renderRankingSection(id = "spenden", title = "Top-Spender ${view.donationYear}", unit = "€", rankingSection = it)
+                        renderRankingSection(
+                            id = "spenden",
+                            title = strings.topDonorsFormat.format(view.donationYear),
+                            unit = "€",
+                            rankingSection = it,
+                        )
                     }
                 }
-                footer { p { +"$brandTitle · Betrieben mit Lapis Cloud" } }
+                footer { p { +"${branding.title} · ${strings.operatedBy}" } }
             }
         }
+    }
 
     private fun HTML.renderHead(
         baseUrl: String,
-        brandTitle: String,
+        branding: ResolvedBranding,
+        lang: PublicLanguage,
     ) {
-        val pageTitle = "Transparenz – $brandTitle"
-        val description = "Kennzahlen, Vorstand und öffentliche Ranglisten von $brandTitle -- Transparenz ohne Anmeldung einsehbar."
-        val canonicalUrl = "$baseUrl/transparenz"
+        val strings = PublicChrome.stringsFor(lang)
+        val pageTitle = "${strings.transparencyH1} – ${branding.title}"
+        val description = "${strings.jumpStats}, ${strings.jumpBoard}, ${strings.topPosts} · ${branding.title}"
+        val canonicalUrl = PublicChrome.languageUrl(baseUrl = baseUrl, currentPath = "/transparenz", lang = lang)
         head {
             meta(charset = "utf-8")
             meta(name = "viewport", content = "width=device-width, initial-scale=1")
@@ -116,14 +143,17 @@ internal object PublicTransparencyHtml {
         }
     }
 
-    private fun FlowContent.renderStats(stats: PublicTransparencyStats) {
+    private fun FlowContent.renderStats(
+        stats: PublicTransparencyStats,
+        strings: PublicUiStrings,
+    ) {
         section {
             attributes["id"] = "kennzahlen"
-            h2 { +"Kennzahlen" }
+            h2 { +strings.jumpStats }
             div(classes = "stats") {
-                statTile(value = stats.activeMemberCount.toString(), label = "Mitglieder")
-                statTile(value = "${stats.mintedLtrTotal} LTR", label = "Insgesamt ausgegebene LTR")
-                statTile(value = stats.publicPostCount.toString(), label = "Öffentliche Beiträge")
+                statTile(value = stats.activeMemberCount.toString(), label = strings.statMembers)
+                statTile(value = "${stats.mintedLtrTotal} LTR", label = strings.statLtr)
+                statTile(value = stats.publicPostCount.toString(), label = strings.statPosts)
             }
         }
     }
@@ -138,19 +168,22 @@ internal object PublicTransparencyHtml {
         }
     }
 
-    private fun FlowContent.renderBoard(board: List<PublicBoardMemberRow>) {
+    private fun FlowContent.renderBoard(
+        board: List<PublicBoardMemberRow>,
+        strings: PublicUiStrings,
+    ) {
         section {
             attributes["id"] = "vorstand"
-            h2 { +"Vorstand" }
+            h2 { +strings.jumpBoard }
             if (board.isEmpty()) {
-                p { +"Derzeit kein besetzter Vorstand." }
+                p { +strings.boardEmpty }
             } else {
                 ol(classes = "rank-list") {
                     board.forEach { member ->
                         li {
                             span(classes = "rank-name") { +member.displayName }
                             +" — "
-                            span { +member.role.germanLabel() }
+                            span { +member.role.label(strings) }
                         }
                     }
                 }
@@ -162,22 +195,26 @@ internal object PublicTransparencyHtml {
     private fun FlowContent.renderTopPosts(
         posts: List<PublicPostView>,
         baseUrl: String,
+        lang: PublicLanguage,
+        strings: PublicUiStrings,
     ) {
         section {
             attributes["id"] = "beitraege"
-            h2 { +"Top-Beiträge" }
+            h2 { +strings.topPosts }
             if (posts.isEmpty()) {
-                p { +"Noch keine öffentlichen Beiträge." }
+                p { +strings.noPosts }
             } else {
                 ol(classes = "rank-list") {
                     posts.forEach { post ->
                         li {
-                            a(href = "$baseUrl/s/${post.id}") { +post.excerptTitleForTeaser() }
+                            a(
+                                href = PublicChrome.languageUrl(baseUrl = baseUrl, currentPath = "/s/${post.id}", lang = lang),
+                            ) { +post.excerptTitleForTeaser() }
                             span(classes = "section-note") { +" · ${post.authorDisplayName} · ${post.totalWeightLtr} LTR" }
                         }
                     }
                 }
-                p { a(href = "$baseUrl/s") { +"Alle Beiträge" } }
+                p { a(href = PublicChrome.languageUrl(baseUrl = baseUrl, currentPath = "/s", lang = lang)) { +strings.allPosts } }
             }
         }
     }
@@ -218,17 +255,23 @@ internal object PublicTransparencyHtml {
                     }
                 }
             }
-            p(classes = "section-note") { +"Ihr Name erscheint nur, wenn mindestens fünf Mitglieder zugestimmt haben." }
+            // Jobs' Ruling (Design-Team-Beschluss): dieser Einwilligungssatz ist Rechtstext und
+            // bleibt IMMER Deutsch, unabhängig von der Chrome-Sprache -- siehe PublicChrome.kt
+            // Klassen-KDoc "Deliberately EXCLUDES `consentNote`".
+            p(classes = "section-note") {
+                attributes["lang"] = "de"
+                +"Ihr Name erscheint nur, wenn mindestens fünf Mitglieder zugestimmt haben."
+            }
         }
     }
 
-    private fun CommitteeRole.germanLabel(): String =
+    private fun CommitteeRole.label(strings: PublicUiStrings): String =
         when (this) {
-            CommitteeRole.CHAIR -> "Vorsitz"
-            CommitteeRole.DEPUTY_CHAIR -> "Stellv. Vorsitz"
-            CommitteeRole.SECRETARY -> "Schriftführung"
-            CommitteeRole.ASSESSOR -> "Beisitz"
-            CommitteeRole.MEMBER -> "Mitglied"
+            CommitteeRole.CHAIR -> strings.committeeRoleChair
+            CommitteeRole.DEPUTY_CHAIR -> strings.committeeRoleDeputyChair
+            CommitteeRole.SECRETARY -> strings.committeeRoleSecretary
+            CommitteeRole.ASSESSOR -> strings.committeeRoleAssessor
+            CommitteeRole.MEMBER -> strings.committeeRoleMember
         }
 
     private fun PublicPostView.excerptTitleForTeaser(): String {

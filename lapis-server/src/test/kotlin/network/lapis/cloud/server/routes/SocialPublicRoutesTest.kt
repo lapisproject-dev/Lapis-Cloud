@@ -30,6 +30,8 @@ import io.ktor.server.testing.ApplicationTestBuilder
 import io.ktor.server.testing.testApplication
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.LocalDateTime
+import network.lapis.cloud.server.branding.BrandConfig
+import network.lapis.cloud.server.branding.ResolvedBranding
 import network.lapis.cloud.server.db.DatabaseConfig
 import network.lapis.cloud.server.db.DbClock
 import network.lapis.cloud.server.db.DevSeedData
@@ -214,6 +216,7 @@ class SocialPublicRoutesTest :
                             readRateLimiter = readLimiter,
                             sitemapRateLimiter = sitemapLimiter,
                             reportRateLimiter = reportLimiter,
+                            branding = ResolvedBranding(title = BrandConfig.DEFAULT_TITLE, logoAvailable = false, logoPath = null),
                         )
                     }
                 }
@@ -326,6 +329,25 @@ class SocialPublicRoutesTest :
         }
 
         test(
+            "T45b: der 451-<title> bleibt beschreibend (\"Beitrag aus rechtlichen Gruenden entfernt\"), " +
+                "kein knapper HTTP-Statuscode-Titel",
+        ) {
+            testApp {
+                val author = createAuthor()
+                val id = insertPost(authorMemberId = author, state = SocialPostState.REMOVED_LEGAL)
+                transaction {
+                    SocialPostTable.update({ SocialPostTable.id eq id }) {
+                        it[stateReason] = "x"
+                        it[stateChangedAt] = DbClock.nowLocalDateTime()
+                    }
+                }
+                val body = client.get("/s/$id").bodyAsText()
+                body shouldContain "<title>Beitrag aus rechtlichen Gründen entfernt – ${BrandConfig.DEFAULT_TITLE}</title>"
+                body shouldNotContain "<title>451"
+            }
+        }
+
+        test(
             "T46: kein Orakel -- ein rechtlich entfernter MEMBERS_ONLY-Post und ein HIDDEN_BY_AUTHOR-PUBLIC-Post bleiben 404, wie eine unbekannte UUID",
         ) {
             testApp {
@@ -431,6 +453,41 @@ class SocialPublicRoutesTest :
                 val membersOnly = insertPost(authorMemberId = author, visibility = SocialPostVisibility.MEMBERS_ONLY)
                 client.get("/s/$membersOnly/report").status shouldBe HttpStatusCode.NotFound
                 client.get("/s/${Uuid.random()}/report").status shouldBe HttpStatusCode.NotFound
+            }
+        }
+
+        test(
+            "SECURITY-FIX: GET /s/{id}/report with an unparseable id and an extra query param is a clean 404 " +
+                "-- the raw path segment is NEVER echoed into a redirect Location header, unlike before this fix",
+        ) {
+            testApp {
+                val noRedirectClient = createClient { followRedirects = false }
+                // `x=1` forces the query-canonicalization branch (THREAD/REPORT_FORM_ALLOWED_QUERY_PARAMS
+                // only allow `lang`) -- before the fix, this branch ran BEFORE Uuid.parse and echoed the
+                // raw, unvalidated path segment straight into the 308 Location header.
+                val response = noRedirectClient.get("/s/not-a-real-uuid/report?x=1")
+                response.status shouldBe HttpStatusCode.NotFound
+                response.headers[HttpHeaders.Location] shouldBe null
+            }
+        }
+
+        test(
+            "SECURITY-FIX: GET /s/{id}/report canonicalizes differently-cased UUIDs of the SAME post to the " +
+                "IDENTICAL redirect target -- same cache-key-collapsing guarantee as the sibling GET /s/{id} route",
+        ) {
+            testApp {
+                val author = createAuthor()
+                val id = insertPost(authorMemberId = author)
+                val noRedirectClient = createClient { followRedirects = false }
+                val lower = noRedirectClient.get("/s/${id.toString().lowercase()}/report?x=1")
+                val upper = noRedirectClient.get("/s/${id.toString().uppercase()}/report?x=1")
+                lower.status.value shouldBe 308
+                upper.status.value shouldBe 308
+                val lowerLocation = lower.headers[HttpHeaders.Location]
+                val upperLocation = upper.headers[HttpHeaders.Location]
+                lowerLocation shouldNotBe null
+                lowerLocation shouldBe upperLocation
+                (lowerLocation ?: "") shouldContain "/s/$id/report"
             }
         }
 
@@ -1107,7 +1164,10 @@ class SocialPublicRoutesTest :
                 application {
                     routing {
                         get("/n1-test-throw") {
-                            call.withPublicErrorHandling(baseUrl = "https://cloud.lapisproject.dev") {
+                            call.withPublicErrorHandling(
+                                baseUrl = "https://cloud.lapisproject.dev",
+                                branding = ResolvedBranding(title = BrandConfig.DEFAULT_TITLE, logoAvailable = false, logoPath = null),
+                            ) {
                                 throw IllegalStateException("super-secret-internal-detail-must-never-leak")
                             }
                         }

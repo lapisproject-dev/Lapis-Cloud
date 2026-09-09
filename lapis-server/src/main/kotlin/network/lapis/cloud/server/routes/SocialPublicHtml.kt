@@ -15,7 +15,6 @@ import kotlinx.html.form
 import kotlinx.html.h1
 import kotlinx.html.h2
 import kotlinx.html.head
-import kotlinx.html.header
 import kotlinx.html.html
 import kotlinx.html.label
 import kotlinx.html.link
@@ -33,6 +32,7 @@ import kotlinx.html.textInput
 import kotlinx.html.time
 import kotlinx.html.title
 import network.lapis.cloud.server.branding.BrandConfig
+import network.lapis.cloud.server.branding.ResolvedBranding
 import network.lapis.cloud.shared.domain.SocialPostReportCategory
 
 /**
@@ -136,6 +136,45 @@ internal object SocialPublicHtml {
             border: 1px solid currentColor; border-radius: 0.35rem; text-decoration: none;
         }
         .cta-primary { background: rgba(128, 128, 128, 0.15); font-weight: 600; }
+
+        /* Welle "Einheitlicher Kopfbereich + Sprachumschalter" -- der gemeinsame Kopfbereich aller
+           drei öffentlichen Seiten (/, /s, /transparenz), siehe PublicChrome class KDoc. Farbwerte
+           1:1 aus theme.css' --lapis-nav-* / --lapis-fleck-Tokens übernommen (kein neuer, frei
+           erfundener Hex-Wert), damit /app und die drei server-gerenderten Seiten visuell konsistent
+           wirken. Additiv -- body's max-width bleibt für .page erhalten, EmbedHtml/EventPublicHtml
+           setzen "has-chrome" nie und sind von diesem Block unberührt (Byte-Identitäts-Regressionstest
+           in SocialPublicHtmlTest). */
+        body.has-chrome { max-width: none; margin: 0; padding: 0; }
+        body.has-chrome > main,
+        body.has-chrome > footer { max-width: 42rem; margin: 0 auto; padding: 0 1.5rem; }
+        body.has-chrome > footer { padding-bottom: 1.5rem; }
+        .chrome { background: #14181E; color: #EDEAE3; }
+        .chrome-inner {
+            max-width: 42rem; margin: 0 auto; padding: 0.6rem 1.5rem;
+            display: flex; align-items: center; gap: 1rem; flex-wrap: wrap;
+        }
+        .chrome a { color: #EDEAE3; text-decoration: none; }
+        .chrome-logo { max-height: 22px; width: auto; vertical-align: middle; }
+        .chrome-wordmark { font-family: Georgia, serif; letter-spacing: 0.01em; }
+        .chrome-nav { display: flex; gap: 0.9rem; margin: 0; }
+        .chrome-nav a { border-bottom: 2px solid transparent; padding: 0.2rem 0; }
+        .chrome-nav a[aria-current="page"] { color: #C9A227; border-bottom-color: #C9A227; }
+        .chrome-lang { margin-left: auto; position: relative; }
+        .chrome-lang summary {
+            cursor: pointer; list-style: none; padding: 0.5rem 0.6rem; min-height: 44px;
+            display: inline-flex; align-items: center;
+        }
+        .chrome-lang summary::-webkit-details-marker { display: none; }
+        .chrome-lang[open] > div {
+            position: absolute; right: 0; z-index: 1; background: #14181E;
+            border: 1px solid #1E242E; padding: 0.3rem 0; min-width: 9rem;
+        }
+        .chrome-lang a { display: block; padding: 0.55rem 0.9rem; }
+        .chrome-lang a[aria-current="true"] { color: #C9A227; }
+        .chrome-cta { border: 1px solid currentColor; border-radius: 0.35rem; padding: 0.4rem 0.9rem; }
+        .skip-link { position: absolute; left: -9999px; top: 0; }
+        .skip-link:focus { position: static; display: block; padding: 0.5rem 1.5rem; background: #C9A227; color: #14181E; }
+        @media (max-width: 30rem) { .chrome-nav { order: 3; width: 100%; } }
         """
 
     /** Title length ceiling -- shared by `<title>` and `og:title`. */
@@ -232,40 +271,87 @@ internal object SocialPublicHtml {
     fun timelinePage(
         view: PublicTimelineView,
         baseUrl: String,
-        /** V1.2.5 White-Label-Branding -- see [registerSocialPublicRoutes]' own `brandTitle` KDoc. */
-        brandTitle: String = BrandConfig.DEFAULT_TITLE,
+        /**
+         * V1.2.5 White-Label-Branding, seit der Sprachumschalter-Welle das volle [ResolvedBranding]
+         * statt nur `brandTitle: String` -- siehe [registerSocialPublicRoutes]' eigene `branding`
+         * KDoc. Default beibehalten (anders als bei den `register*Routes`-Funktionen) -- diese
+         * Pure-Render-Funktion hat viele bestehende Tests, die mit Branding/Sprache nichts zu tun
+         * haben, siehe [PublicChrome] Klassen-KDoc "Implementierungslücken der Design-Spec § 4.4b".
+         */
+        branding: ResolvedBranding = ResolvedBranding(title = BrandConfig.DEFAULT_TITLE, logoAvailable = false, logoPath = null),
+        /** Sprachumschalter-Welle -- steuert Chrome UND Body-Text dieser Seite, Default Deutsch. */
+        lang: PublicLanguage = PublicLanguage.DEFAULT,
     ): String {
-        val pageTitle = if (view.page <= 1) "Soziales Netzwerk – Lapis Cloud" else "Soziales Netzwerk – Seite ${view.page} – Lapis Cloud"
+        val strings = PublicChrome.stringsFor(lang)
+        val pageTitle =
+            if (view.page <=
+                1
+            ) {
+                "${strings.socialH1} – ${branding.title}"
+            } else {
+                "${strings.socialH1} – ${strings.jumpPosts} ${view.page} – ${branding.title}"
+            }
+        val currentPath = timelinePathOnly(page = view.page)
         return createHTML(prettyPrint = false).html {
-            attributes["lang"] = "de"
+            attributes["lang"] = lang.code
             renderHead(
                 pageTitle = pageTitle,
-                description = "Öffentliche Beiträge im sozialen Netzwerk von Lapis Cloud, sortiert nach Gesamtgewicht.",
-                canonicalUrl = timelineCanonicalUrl(baseUrl = baseUrl, page = view.page),
+                description = "${strings.statPosts} · ${branding.title}",
+                canonicalUrl = PublicChrome.languageUrl(baseUrl = baseUrl, currentPath = currentPath, lang = lang),
                 robots = if (view.page <= 1) "index,follow" else "noindex,follow",
                 ogType = "website",
+                hreflangBaseUrl = baseUrl,
+                hreflangCurrentPath = currentPath,
             )
-            body {
-                header { h1 { +"Soziales Netzwerk" } }
+            body(classes = "has-chrome") {
+                with(PublicChrome) {
+                    renderChrome(
+                        lang = lang,
+                        active = PublicChrome.NavTarget.SOCIAL,
+                        baseUrl = baseUrl,
+                        branding = branding,
+                        currentPath = currentPath,
+                    )
+                }
                 main {
+                    attributes["id"] = "main"
+                    h1 { +strings.socialH1 }
                     if (view.posts.isEmpty()) {
-                        p { +"Noch keine öffentlichen Beiträge." }
+                        p { +strings.noPosts }
                     } else {
-                        view.posts.forEach { post -> renderTimelinePostSummary(post = post, baseUrl = baseUrl) }
+                        view.posts.forEach { post -> renderTimelinePostSummary(post = post, baseUrl = baseUrl, lang = lang) }
                     }
                     nav {
                         if (view.page > 1) {
-                            a(href = timelineCanonicalUrl(baseUrl = baseUrl, page = view.page - 1)) { +"← Vorherige Seite" }
+                            a(
+                                href =
+                                    PublicChrome.languageUrl(
+                                        baseUrl = baseUrl,
+                                        currentPath = timelinePathOnly(page = view.page - 1),
+                                        lang = lang,
+                                    ),
+                            ) { +"← ${strings.prevPage}" }
                         }
                         if (view.hasNext) {
-                            a(href = timelineCanonicalUrl(baseUrl = baseUrl, page = view.page + 1)) { +"Nächste Seite →" }
+                            a(
+                                href =
+                                    PublicChrome.languageUrl(
+                                        baseUrl = baseUrl,
+                                        currentPath = timelinePathOnly(page = view.page + 1),
+                                        lang = lang,
+                                    ),
+                            ) { +"${strings.nextPage} →" }
                         }
                     }
                     // V1.3.0 "Öffentliche Transparenz-Startseite" -- mutual link between the two
                     // public HTML route families, see PublicTransparencyRoutes KDoc.
-                    p { a(href = "$baseUrl/transparenz") { +"Transparenz" } }
+                    p {
+                        a(
+                            href = PublicChrome.languageUrl(baseUrl = baseUrl, currentPath = "/transparenz", lang = lang),
+                        ) { +strings.navTransparency }
+                    }
                 }
-                footer { p { +"$brandTitle · Betrieben mit Lapis Cloud" } }
+                footer { p { +"${branding.title} · ${strings.operatedBy}" } }
             }
         }
     }
@@ -273,89 +359,138 @@ internal object SocialPublicHtml {
     fun postPage(
         view: PublicThreadView,
         baseUrl: String,
-        /** V1.2.5 White-Label-Branding -- see [registerSocialPublicRoutes]' own `brandTitle` KDoc. */
-        brandTitle: String = BrandConfig.DEFAULT_TITLE,
+        /** V1.2.5 White-Label-Branding -- siehe [timelinePage]'s eigene `branding` KDoc. */
+        branding: ResolvedBranding = ResolvedBranding(title = BrandConfig.DEFAULT_TITLE, logoAvailable = false, logoPath = null),
+        /** Sprachumschalter-Welle -- siehe [timelinePage]'s eigene `lang` KDoc. */
+        lang: PublicLanguage = PublicLanguage.DEFAULT,
     ): String =
         createHTML(prettyPrint = false).html {
-            attributes["lang"] = "de"
+            val strings = PublicChrome.stringsFor(lang)
+            val currentPath = "/s/${view.root.id}"
+            attributes["lang"] = lang.code
             renderHead(
-                pageTitle = "${view.root.excerptTitle} – Lapis Cloud",
+                pageTitle = "${view.root.excerptTitle} – ${branding.title}",
                 description = view.root.excerpt(maxLen = DESCRIPTION_MAX_LEN),
-                canonicalUrl = "$baseUrl/s/${view.root.id}",
+                canonicalUrl = PublicChrome.languageUrl(baseUrl = baseUrl, currentPath = currentPath, lang = lang),
                 robots = "index,follow",
                 ogType = "article",
+                hreflangBaseUrl = baseUrl,
+                hreflangCurrentPath = currentPath,
             )
-            body {
-                nav { a(href = "$baseUrl/s") { +"← Zur Timeline" } }
-                article {
-                    h1 { +view.root.excerptTitle }
-                    renderPostMeta(post = view.root, baseUrl = baseUrl)
-                    renderPostContent(post = view.root, lines = view.root.contentLines)
+            body(classes = "has-chrome") {
+                with(PublicChrome) {
+                    renderChrome(
+                        lang = lang,
+                        active = PublicChrome.NavTarget.SOCIAL,
+                        baseUrl = baseUrl,
+                        branding = branding,
+                        currentPath = currentPath,
+                    )
                 }
-                if (view.descendants.isNotEmpty() || view.truncated) {
-                    section {
-                        h2 { +"Antworten" }
-                        // Security-Audit-Fund S-1 (2026-08-18): render descendants until the byte
-                        // budget is exhausted, THEN stop -- see THREAD_DESCENDANTS_BYTE_BUDGET KDoc.
-                        // `byteBudgetTruncated` deliberately ORs into the SAME notice as
-                        // `view.truncated` (the row-count cap from SocialReadPipeline) below: a
-                        // reader cannot tell, and does not need to be able to tell, which of the two
-                        // independent caps stopped the list -- both mean exactly the same thing
-                        // ("more replies exist, not shown here").
-                        var bytesUsed = 0
-                        var byteBudgetTruncated = false
-                        for (node in view.descendants) {
-                            val estimate = node.estimatedRenderedByteSize(baseUrl = baseUrl)
-                            if (bytesUsed + estimate > THREAD_DESCENDANTS_BYTE_BUDGET) {
-                                byteBudgetTruncated = true
-                                break
+                main {
+                    attributes["id"] = "main"
+                    nav {
+                        a(
+                            href = PublicChrome.languageUrl(baseUrl = baseUrl, currentPath = "/s", lang = lang),
+                        ) { +"← ${strings.backToTimeline}" }
+                    }
+                    article {
+                        h1 { +view.root.excerptTitle }
+                        renderPostMeta(post = view.root, baseUrl = baseUrl, lang = lang)
+                        renderPostContent(post = view.root, lines = view.root.contentLines)
+                    }
+                    if (view.descendants.isNotEmpty() || view.truncated) {
+                        section {
+                            h2 { +strings.replies }
+                            // Security-Audit-Fund S-1 (2026-08-18): render descendants until the byte
+                            // budget is exhausted, THEN stop -- see THREAD_DESCENDANTS_BYTE_BUDGET
+                            // KDoc. `byteBudgetTruncated` deliberately ORs into the SAME notice as
+                            // `view.truncated` (the row-count cap from SocialReadPipeline) below: a
+                            // reader cannot tell, and does not need to be able to tell, which of the
+                            // two independent caps stopped the list -- both mean exactly the same
+                            // thing ("more replies exist, not shown here").
+                            var bytesUsed = 0
+                            var byteBudgetTruncated = false
+                            for (node in view.descendants) {
+                                val estimate = node.estimatedRenderedByteSize(baseUrl = baseUrl)
+                                if (bytesUsed + estimate > THREAD_DESCENDANTS_BYTE_BUDGET) {
+                                    byteBudgetTruncated = true
+                                    break
+                                }
+                                renderThreadDescendant(post = node, baseUrl = baseUrl, lang = lang)
+                                bytesUsed += estimate
                             }
-                            renderThreadDescendant(post = node, baseUrl = baseUrl)
-                            bytesUsed += estimate
-                        }
-                        if (view.truncated || byteBudgetTruncated) {
-                            p { +"Weitere Antworten werden hier nicht angezeigt." }
+                            if (view.truncated || byteBudgetTruncated) {
+                                p { +strings.moreRepliesHidden }
+                            }
                         }
                     }
                 }
-                footer { p { +"$brandTitle · Betrieben mit Lapis Cloud" } }
+                footer { p { +"${branding.title} · ${strings.operatedBy}" } }
             }
         }
 
-    /** `robots` is `noindex` (not `noindex,follow`) -- there is nothing on a 404 page worth a crawler following. */
-    fun notFoundPage(baseUrl: String): String =
-        createHTML(prettyPrint = false).html {
-            attributes["lang"] = "de"
+    /**
+     * `robots` is `noindex` (not `noindex,follow`) -- there is nothing on a 404 page worth a crawler
+     * following. Sprachumschalter-Welle (Entscheidung § 5.2): OHNE natürlichen "aktuellen Pfad" (eine
+     * 404 ist von einer beliebigen URL erreichbar) -- der Sprachumschalter im Chrome verlinkt deshalb
+     * auf `/s`, nicht auf einen Versuch, die fehlerhafte URL erneut aufzurufen.
+     */
+    fun notFoundPage(
+        baseUrl: String,
+        branding: ResolvedBranding = ResolvedBranding(title = BrandConfig.DEFAULT_TITLE, logoAvailable = false, logoPath = null),
+        lang: PublicLanguage = PublicLanguage.DEFAULT,
+    ): String {
+        val strings = PublicChrome.stringsFor(lang)
+        return createHTML(prettyPrint = false).html {
+            attributes["lang"] = lang.code
             renderHead(
-                pageTitle = "Nicht gefunden – Lapis Cloud",
+                pageTitle = "Nicht gefunden – ${branding.title}",
                 description = "Dieser Beitrag ist nicht (mehr) öffentlich verfügbar.",
                 canonicalUrl = null,
                 robots = "noindex",
                 ogType = null,
             )
-            body {
-                h1 { +"Nicht gefunden" }
-                p { +"Dieser Beitrag ist nicht (mehr) öffentlich verfügbar." }
-                a(href = "$baseUrl/s") { +"Zur Timeline" }
+            body(classes = "has-chrome") {
+                with(PublicChrome) { renderChrome(lang = lang, active = null, baseUrl = baseUrl, branding = branding, currentPath = "/s") }
+                main {
+                    attributes["id"] = "main"
+                    h1 { +"Nicht gefunden" }
+                    p { +"Dieser Beitrag ist nicht (mehr) öffentlich verfügbar." }
+                    a(href = PublicChrome.languageUrl(baseUrl = baseUrl, currentPath = "/s", lang = lang)) { +strings.backToTimeline }
+                }
+                footer { p { +"${branding.title} · ${strings.operatedBy}" } }
             }
         }
+    }
 
-    fun tooManyRequestsPage(baseUrl: String): String =
-        createHTML(prettyPrint = false).html {
-            attributes["lang"] = "de"
+    fun tooManyRequestsPage(
+        baseUrl: String,
+        branding: ResolvedBranding = ResolvedBranding(title = BrandConfig.DEFAULT_TITLE, logoAvailable = false, logoPath = null),
+        lang: PublicLanguage = PublicLanguage.DEFAULT,
+    ): String {
+        val strings = PublicChrome.stringsFor(lang)
+        return createHTML(prettyPrint = false).html {
+            attributes["lang"] = lang.code
             renderHead(
-                pageTitle = "Zu viele Anfragen – Lapis Cloud",
+                pageTitle = "Zu viele Anfragen – ${branding.title}",
                 description = "Bitte versuchen Sie es in Kürze erneut.",
                 canonicalUrl = null,
                 robots = "noindex",
                 ogType = null,
             )
-            body {
-                h1 { +"Zu viele Anfragen" }
-                p { +"Bitte versuchen Sie es in Kürze erneut." }
-                a(href = "$baseUrl/s") { +"Zur Timeline" }
+            body(classes = "has-chrome") {
+                with(PublicChrome) { renderChrome(lang = lang, active = null, baseUrl = baseUrl, branding = branding, currentPath = "/s") }
+                main {
+                    attributes["id"] = "main"
+                    h1 { +"Zu viele Anfragen" }
+                    p { +"Bitte versuchen Sie es in Kürze erneut." }
+                    a(href = PublicChrome.languageUrl(baseUrl = baseUrl, currentPath = "/s", lang = lang)) { +strings.backToTimeline }
+                }
+                footer { p { +"${branding.title} · ${strings.operatedBy}" } }
             }
         }
+    }
 
     /**
      * Security-Audit-Fund MAJOR-1/MINOR-3 (Runde 1, 2026-08-19): the generic 400/413 page
@@ -365,22 +500,33 @@ internal object SocialPublicHtml {
      * covering every one of those reasons, same "no internals to an anonymous caller" discipline
      * as [serverErrorPage]. `robots` is `noindex` for the same reason as [notFoundPage].
      */
-    fun malformedRequestPage(baseUrl: String): String =
-        createHTML(prettyPrint = false).html {
-            attributes["lang"] = "de"
+    fun malformedRequestPage(
+        baseUrl: String,
+        branding: ResolvedBranding = ResolvedBranding(title = BrandConfig.DEFAULT_TITLE, logoAvailable = false, logoPath = null),
+        lang: PublicLanguage = PublicLanguage.DEFAULT,
+    ): String {
+        val strings = PublicChrome.stringsFor(lang)
+        return createHTML(prettyPrint = false).html {
+            attributes["lang"] = lang.code
             renderHead(
-                pageTitle = "Ungültige Anfrage – Lapis Cloud",
+                pageTitle = "Ungültige Anfrage – ${branding.title}",
                 description = "Diese Anfrage konnte nicht verarbeitet werden.",
                 canonicalUrl = null,
                 robots = "noindex",
                 ogType = null,
             )
-            body {
-                h1 { +"Ungültige Anfrage" }
-                p { +"Diese Anfrage konnte nicht verarbeitet werden. Bitte versuchen Sie es erneut." }
-                a(href = "$baseUrl/s") { +"Zur Timeline" }
+            body(classes = "has-chrome") {
+                with(PublicChrome) { renderChrome(lang = lang, active = null, baseUrl = baseUrl, branding = branding, currentPath = "/s") }
+                main {
+                    attributes["id"] = "main"
+                    h1 { +"Ungültige Anfrage" }
+                    p { +"Diese Anfrage konnte nicht verarbeitet werden. Bitte versuchen Sie es erneut." }
+                    a(href = PublicChrome.languageUrl(baseUrl = baseUrl, currentPath = "/s", lang = lang)) { +strings.backToTimeline }
+                }
+                footer { p { +"${branding.title} · ${strings.operatedBy}" } }
             }
         }
+    }
 
     /**
      * M1-Fix (Review-Runde 1): the generic 500 page every public handler falls back to via
@@ -389,22 +535,34 @@ internal object SocialPublicHtml {
      * anonymous, unauthenticated visitor should see (information disclosure), and it would also
      * break this file's own determinism guarantee (class KDoc point 4) if it varied per failure.
      * `robots` is `noindex` for the same reason as [notFoundPage] -- nothing here is worth a crawler
-     * following.
+     * following. Sprachumschalter-Welle (Entscheidung § 5.3): KEIN `lang`-Parameter -- die Chrome-
+     * Sprache ist hier IMMER Deutsch, ein unerwarteter Fehler kann bereits VOR der `lang`-Auflösung
+     * auftreten (siehe `SocialPublicRoutes.withPublicErrorHandling` KDoc).
      */
-    fun serverErrorPage(baseUrl: String): String =
+    fun serverErrorPage(
+        baseUrl: String,
+        branding: ResolvedBranding = ResolvedBranding(title = BrandConfig.DEFAULT_TITLE, logoAvailable = false, logoPath = null),
+    ): String =
         createHTML(prettyPrint = false).html {
             attributes["lang"] = "de"
             renderHead(
-                pageTitle = "Interner Fehler – Lapis Cloud",
+                pageTitle = "Interner Fehler – ${branding.title}",
                 description = "Bei der Verarbeitung dieser Anfrage ist ein Fehler aufgetreten.",
                 canonicalUrl = null,
                 robots = "noindex",
                 ogType = null,
             )
-            body {
-                h1 { +"Interner Fehler" }
-                p { +"Bei der Verarbeitung dieser Anfrage ist ein Fehler aufgetreten. Bitte versuchen Sie es später erneut." }
-                a(href = "$baseUrl/s") { +"Zur Timeline" }
+            body(classes = "has-chrome") {
+                with(PublicChrome) {
+                    renderChrome(lang = PublicLanguage.DEFAULT, active = null, baseUrl = baseUrl, branding = branding, currentPath = "/s")
+                }
+                main {
+                    attributes["id"] = "main"
+                    h1 { +"Interner Fehler" }
+                    p { +"Bei der Verarbeitung dieser Anfrage ist ein Fehler aufgetreten. Bitte versuchen Sie es später erneut." }
+                    a(href = "$baseUrl/s") { +"Zur Timeline" }
+                }
+                footer { p { +"${branding.title} · Betrieben mit Lapis Cloud" } }
             }
         }
 
@@ -417,24 +575,41 @@ internal object SocialPublicHtml {
      * können, nicht ausgestreut. `robots = "noindex"` wie [notFoundPage].
      *
      * Der Autorenname fehlt bewusst: E-B macht die BEGRÜNDUNG öffentlich, nicht die Zuordnung einer
-     * mutmaßlichen Rechtsverletzung zu einer namentlich benannten Person.
+     * mutmaßlichen Rechtsverletzung zu einer namentlich benannten Person. Sprachumschalter-Welle: der
+     * Chrome ist mehrsprachig, der eigentliche Begründungstext ([view.reasonLines]) bleibt UNVERÄNDERT
+     * (kommt aus der Domäne, nicht aus [PublicUiStrings]) -- diese Seite hat, anders als die
+     * Fehlerseiten oben, eine echte Post-ID und bekommt deshalb `currentPath = "/s/{id}"` statt "/s".
      */
     fun legallyRemovedPage(
         view: PublicRemovalNoticeView,
         baseUrl: String,
-    ): String =
-        createHTML(prettyPrint = false).html {
-            attributes["lang"] = "de"
+        branding: ResolvedBranding = ResolvedBranding(title = BrandConfig.DEFAULT_TITLE, logoAvailable = false, logoPath = null),
+        lang: PublicLanguage = PublicLanguage.DEFAULT,
+    ): String {
+        val strings = PublicChrome.stringsFor(lang)
+        val currentPath = "/s/${view.postId}"
+        return createHTML(prettyPrint = false).html {
+            attributes["lang"] = lang.code
             renderHead(
-                pageTitle = "Beitrag aus rechtlichen Gründen entfernt – Lapis Cloud",
+                pageTitle = "Beitrag aus rechtlichen Gründen entfernt – ${branding.title}",
                 description = "Dieser Beitrag wurde aus rechtlichen Gründen entfernt.",
                 canonicalUrl = null,
                 robots = "noindex",
                 ogType = null,
             )
-            body {
-                header { h1 { +"Beitrag aus rechtlichen Gründen entfernt" } }
+            body(classes = "has-chrome") {
+                with(PublicChrome) {
+                    renderChrome(
+                        lang = lang,
+                        active = PublicChrome.NavTarget.SOCIAL,
+                        baseUrl = baseUrl,
+                        branding = branding,
+                        currentPath = currentPath,
+                    )
+                }
                 main {
+                    attributes["id"] = "main"
+                    h1 { +"Beitrag aus rechtlichen Gründen entfernt" }
                     p {
                         +"Dieser Beitrag wurde am ${view.removedAtHuman} aus rechtlichen Gründen entfernt. "
                         +"Der ursprüngliche Inhalt ist nicht mehr verfügbar."
@@ -445,9 +620,16 @@ internal object SocialPublicHtml {
                     }
                     p { +"Die Entfernung erfolgt nach den Vorgaben des Digital Services Act (Verordnung (EU) 2022/2065)." }
                 }
-                footer { a(href = "$baseUrl/s") { +"Zur Timeline" } }
+                footer {
+                    p {
+                        a(
+                            href = PublicChrome.languageUrl(baseUrl = baseUrl, currentPath = "/s", lang = lang),
+                        ) { +strings.backToTimeline }
+                    }
+                }
             }
         }
+    }
 
     /**
      * Welle V1.1.5 (Plan § 4.2) -- DSA Art. 16 Meldeformular für [postId]. Ein klassisches
@@ -464,20 +646,44 @@ internal object SocialPublicHtml {
     fun reportFormPage(
         postId: String,
         baseUrl: String,
+        branding: ResolvedBranding = ResolvedBranding(title = BrandConfig.DEFAULT_TITLE, logoAvailable = false, logoPath = null),
+        /**
+         * Sprachumschalter-Welle: steuert NUR den umgebenden Chrome (Nav/Sprachumschalter/CTAs) --
+         * das eigentliche Formular (Rechtstext, DSA Art. 16) bleibt für JEDE Sprache vollständig
+         * Deutsch, in ein `<div lang="de">` gewrappt, siehe diese Funktions-KDoc.
+         */
+        lang: PublicLanguage = PublicLanguage.DEFAULT,
     ): String =
         createHTML(prettyPrint = false).html {
-            attributes["lang"] = "de"
+            val strings = PublicChrome.stringsFor(lang)
+            val currentPath = "/s/$postId/report"
+            attributes["lang"] = lang.code
             renderHead(
-                pageTitle = "Beitrag melden – Lapis Cloud",
+                pageTitle = "Beitrag melden – ${branding.title}",
                 description = "Diesen Beitrag wegen eines möglichen Rechtsverstoßes melden.",
                 canonicalUrl = null,
                 robots = "noindex",
                 ogType = null,
             )
-            body {
-                nav { a(href = "$baseUrl/s/$postId") { +"← Zurück zum Beitrag" } }
-                header { h1 { +"Beitrag melden" } }
+            body(classes = "has-chrome") {
+                with(PublicChrome) {
+                    renderChrome(
+                        lang = lang,
+                        active = PublicChrome.NavTarget.SOCIAL,
+                        baseUrl = baseUrl,
+                        branding = branding,
+                        currentPath = currentPath,
+                    )
+                }
                 main {
+                    attributes["id"] = "main"
+                    attributes["lang"] = "de"
+                    nav {
+                        a(
+                            href = PublicChrome.languageUrl(baseUrl = baseUrl, currentPath = "/s/$postId", lang = lang),
+                        ) { +"← Zurück zum Beitrag" }
+                    }
+                    h1 { +"Beitrag melden" }
                     p {
                         +(
                             "Bitte begründen Sie, warum dieser Beitrag rechtswidrig ist (Digital Services Act, " +
@@ -485,7 +691,10 @@ internal object SocialPublicHtml {
                                 "ohne Angabe können wir Ihnen den Eingang und die Entscheidung nicht mitteilen."
                         )
                     }
-                    form(action = "$baseUrl/s/$postId/report", method = FormMethod.post) {
+                    form(
+                        action = PublicChrome.languageUrl(baseUrl = baseUrl, currentPath = "/s/$postId/report", lang = lang),
+                        method = FormMethod.post,
+                    ) {
                         // Honeypot -- siehe diese Funktions-KDoc. Muss ein normales, im Markup
                         // sichtbares `<input type="text">` sein (nur per CSS ausgeblendet), damit ein
                         // simpler Scraper es tatsaechlich befuellt.
@@ -559,25 +768,44 @@ internal object SocialPublicHtml {
                         )
                     }
                 }
-                footer { a(href = "$baseUrl/s") { +"Zur Timeline" } }
+                footer { p { +"${branding.title} · ${strings.operatedBy}" } }
             }
         }
 
     /** Welle V1.1.5 -- IMMER dieselbe Antwort (Plan § 4.3), egal ob die Meldung gespeichert wurde, egal ob der Post existiert, egal ob das Honeypot-Feld ausgefüllt war. */
-    fun reportSubmittedPage(baseUrl: String): String =
+    fun reportSubmittedPage(
+        baseUrl: String,
+        branding: ResolvedBranding = ResolvedBranding(title = BrandConfig.DEFAULT_TITLE, logoAvailable = false, logoPath = null),
+        lang: PublicLanguage = PublicLanguage.DEFAULT,
+    ): String =
         createHTML(prettyPrint = false).html {
-            attributes["lang"] = "de"
+            val strings = PublicChrome.stringsFor(lang)
+            attributes["lang"] = lang.code
             renderHead(
-                pageTitle = "Meldung übermittelt – Lapis Cloud",
+                pageTitle = "Meldung übermittelt – ${branding.title}",
                 description = "Ihre Meldung wurde übermittelt.",
                 canonicalUrl = null,
                 robots = "noindex",
                 ogType = null,
             )
-            body {
-                h1 { +"Meldung übermittelt" }
-                p { +"Vielen Dank. Ihre Meldung wird geprüft." }
-                a(href = "$baseUrl/s") { +"Zur Timeline" }
+            body(classes = "has-chrome") {
+                with(PublicChrome) {
+                    renderChrome(
+                        lang = lang,
+                        active = PublicChrome.NavTarget.SOCIAL,
+                        baseUrl = baseUrl,
+                        branding = branding,
+                        currentPath = "/s",
+                    )
+                }
+                main {
+                    attributes["id"] = "main"
+                    attributes["lang"] = "de"
+                    h1 { +"Meldung übermittelt" }
+                    p { +"Vielen Dank. Ihre Meldung wird geprüft." }
+                    a(href = PublicChrome.languageUrl(baseUrl = baseUrl, currentPath = "/s", lang = lang)) { +strings.backToTimeline }
+                }
+                footer { p { +"${branding.title} · ${strings.operatedBy}" } }
             }
         }
 
@@ -592,17 +820,24 @@ internal object SocialPublicHtml {
             SocialPostReportCategory.OTHER -> "Sonstiges"
         }
 
-    private fun timelineCanonicalUrl(
-        baseUrl: String,
-        page: Int,
-    ): String = if (page <= 1) "$baseUrl/s" else "$baseUrl/s?page=$page"
+    /** Path-only-Pendant zu `SocialPublicRoutes`' privater `timelinePathOnly` -- absichtlich dupliziert, siehe Klassen-KDoc "duplication would be this welle's actual risk" (dasselbe Argument gilt hier). */
+    private fun timelinePathOnly(page: Int): String = if (page <= 1) "/s" else "/s?page=$page"
 
+    /**
+     * [hreflangBaseUrl]/[hreflangCurrentPath] (Sprachumschalter-Welle): wenn BEIDE gesetzt sind,
+     * werden [PublicChrome.renderHreflangAlternates] die vollständigen 8+1 hreflang-Alternates
+     * emittiert -- nur für `index,follow`-Seiten (`timelinePage`/`postPage`), NIEMALS für eine
+     * `noindex`-Seite (404/429/400/500/451), deren Aufrufer diese beiden Parameter deshalb `null`
+     * lässt.
+     */
     private fun HTML.renderHead(
         pageTitle: String,
         description: String,
         canonicalUrl: String?,
         robots: String,
         ogType: String?,
+        hreflangBaseUrl: String? = null,
+        hreflangCurrentPath: String? = null,
     ) {
         head {
             meta(charset = "utf-8")
@@ -614,6 +849,9 @@ internal object SocialPublicHtml {
                 link(rel = "canonical", href = canonicalUrl)
             }
             link(rel = "stylesheet", href = "/s/assets/style.css")
+            if (hreflangBaseUrl != null && hreflangCurrentPath != null) {
+                with(PublicChrome) { renderHreflangAlternates(baseUrl = hreflangBaseUrl, currentPath = hreflangCurrentPath) }
+            }
             // OpenGraph: kotlinx.html's `meta()` DSL only supports name/content/charset/http-equiv
             // directly -- `property` is set via `attributes[]`, which is escaped exactly like every
             // other attribute-value write in this library (class KDoc point 1).
@@ -641,15 +879,17 @@ internal object SocialPublicHtml {
     private fun FlowContent.renderTimelinePostSummary(
         post: PublicPostView,
         baseUrl: String,
+        lang: PublicLanguage,
     ) {
+        val postUrl = PublicChrome.languageUrl(baseUrl = baseUrl, currentPath = "/s/${post.id}", lang = lang)
         article {
-            h2 { a(href = "$baseUrl/s/${post.id}") { +post.excerptTitle } }
-            renderPostMeta(post = post, baseUrl = baseUrl)
+            h2 { a(href = postUrl) { +post.excerptTitle } }
+            renderPostMeta(post = post, baseUrl = baseUrl, lang = lang)
             renderPostContent(post = post, lines = post.contentLines.take(SUMMARY_LINE_COUNT))
             if (post.contentLines.size > SUMMARY_LINE_COUNT) {
                 p(classes = "notice") {
                     +"Gekürzt — "
-                    a(href = "$baseUrl/s/${post.id}") { +"vollständigen Beitrag ansehen" }
+                    a(href = postUrl) { +"vollständigen Beitrag ansehen" }
                 }
             }
         }
@@ -672,10 +912,11 @@ internal object SocialPublicHtml {
     private fun FlowContent.renderThreadDescendant(
         post: PublicPostView,
         baseUrl: String,
+        lang: PublicLanguage,
     ) {
         article {
-            h2 { a(href = "$baseUrl/s/${post.id}") { +post.excerptTitle } }
-            renderPostMeta(post = post, baseUrl = baseUrl)
+            h2 { a(href = PublicChrome.languageUrl(baseUrl = baseUrl, currentPath = "/s/${post.id}", lang = lang)) { +post.excerptTitle } }
+            renderPostMeta(post = post, baseUrl = baseUrl, lang = lang)
             renderPostContent(post = post, lines = post.contentLines)
         }
     }
@@ -689,6 +930,7 @@ internal object SocialPublicHtml {
     private fun FlowContent.renderPostMeta(
         post: PublicPostView,
         baseUrl: String,
+        lang: PublicLanguage,
     ) {
         p {
             +post.authorDisplayName
@@ -699,7 +941,9 @@ internal object SocialPublicHtml {
             }
             +" · Gesamtgewicht ${post.totalWeightLtr} LTR"
             +" · "
-            a(href = "$baseUrl/s/${post.id}/report") { +"Diesen Beitrag melden" }
+            a(
+                href = PublicChrome.languageUrl(baseUrl = baseUrl, currentPath = "/s/${post.id}/report", lang = lang),
+            ) { +"Diesen Beitrag melden" }
         }
     }
 

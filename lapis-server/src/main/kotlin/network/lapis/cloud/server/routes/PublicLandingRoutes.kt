@@ -4,11 +4,11 @@ import io.ktor.server.application.call
 import io.ktor.server.plugins.origin
 import io.ktor.server.routing.Route
 import io.ktor.server.routing.get
-import network.lapis.cloud.server.branding.BrandConfig
+import network.lapis.cloud.server.branding.ResolvedBranding
 import network.lapis.cloud.server.federation.FederationConfig
 import network.lapis.cloud.server.federation.FederationInboxRateLimiter
 import org.jetbrains.exposed.v1.jdbc.transactions.transaction
-import java.util.concurrent.atomic.AtomicReference
+import java.util.concurrent.ConcurrentHashMap
 import kotlin.time.Clock
 import kotlin.time.Duration.Companion.seconds
 import kotlin.time.Instant
@@ -65,29 +65,42 @@ import kotlin.time.Instant
  */
 fun Route.registerPublicLandingRoutes(
     readRateLimiter: FederationInboxRateLimiter,
-    /** Welle V1.2.5 White-Label-Branding -- see `registerSocialPublicRoutes`'s own `brandTitle` KDoc. */
-    brandTitle: String = BrandConfig.DEFAULT_TITLE,
+    /**
+     * Welle V1.2.5 White-Label-Branding, seit der Sprachumschalter-Welle das volle
+     * [ResolvedBranding] statt nur `brandTitle: String` -- siehe `registerSocialPublicRoutes`'s
+     * eigene `branding` KDoc. **Kein Default mehr** (Breaking Change, bewusst), analog zu
+     * `registerSocialPublicRoutes`.
+     */
+    branding: ResolvedBranding,
 ) {
     val baseUrl = FederationConfig.publicBaseUrl.trimEnd('/')
     // See class KDoc "Body memoization" -- a fresh holder PER [registerPublicLandingRoutes] call
     // (never a file-level/companion singleton), so production gets exactly one shared cache for the
     // route's lifetime while every `testApplication { routing { registerPublicLandingRoutes(...) } }`
     // call in `PublicLandingRoutesTest` still starts from a clean, un-poisoned cache -- each test
-    // calls this function anew, which allocates a brand-new [AtomicReference] closed over by the
-    // `get("/")` handler below.
-    val cachedBody = AtomicReference<CachedLandingBody?>(null)
+    // calls this function anew, which allocates a brand-new [ConcurrentHashMap] closed over by the
+    // `get("/")` handler below. Sprachumschalter-Welle: ONE cache entry PER [PublicLanguage] (was a
+    // single [AtomicReference] before) -- keyed exclusively by the already-validated enum value,
+    // NEVER the raw query string, so the map is hard-capped at 8 entries regardless of how many
+    // distinct/garbage `?lang=` values a request carries (those are 308-redirected away by
+    // [ApplicationCall.publicLangNeedsCanonicalization] before this cache is ever consulted).
+    val cachedBody = ConcurrentHashMap<PublicLanguage, CachedLandingBody>()
 
     get("/") {
-        call.withPublicErrorHandling(baseUrl = baseUrl) {
+        call.withPublicErrorHandling(baseUrl = baseUrl, branding = branding) {
             if (!readRateLimiter.checkAndRecord(rateLimitKeyFor(remoteHost = call.request.origin.remoteHost))) {
-                call.respondPublicTooManyRequests(baseUrl = baseUrl)
+                call.respondPublicTooManyRequests(baseUrl = baseUrl, branding = branding, lang = call.resolvePublicLanguage())
                 return@withPublicErrorHandling
             }
-            if (!call.hasOnlyAllowedQueryParams(allowed = emptySet())) {
-                call.respondPublicCanonicalRedirect(canonicalUrl = "$baseUrl/")
+            // Sprachumschalter-Welle: `lang` ist der EINZIGE zusätzlich erlaubte Query-Parameter.
+            if (!call.hasOnlyAllowedQueryParams(allowed = setOf("lang")) || call.publicLangNeedsCanonicalization()) {
+                call.respondPublicCanonicalRedirect(
+                    canonicalUrl = PublicChrome.languageUrl(baseUrl = baseUrl, currentPath = "/", lang = call.resolvePublicLanguage()),
+                )
                 return@withPublicErrorHandling
             }
-            val body = renderCachedBody(cachedBody = cachedBody, baseUrl = baseUrl, brandTitle = brandTitle)
+            val lang = call.resolvePublicLanguage()
+            val body = renderCachedBody(cachedBody = cachedBody, lang = lang, baseUrl = baseUrl, branding = branding)
             call.respondPublicCacheable(
                 body = body,
                 contentType = HTML_CONTENT_TYPE,
@@ -95,6 +108,7 @@ fun Route.registerPublicLandingRoutes(
                 // Plan § 1.2 "Hash-Bridge": the ONE caller in this whole codebase that requests
                 // script-src 'self' -- /s and /transparenz never pass this, and stay script-free.
                 scriptSrcSelf = true,
+                imgSrcSelf = branding.logoAvailable,
             )
         }
     }
@@ -137,24 +151,26 @@ private data class CachedLandingBody(
 )
 
 /**
- * Returns [cachedBody]'s current body if it is still fresh, otherwise renders a new one (via
- * [buildView] inside a fresh `transaction {}`, exactly as before this memoization was added) and
- * publishes it as the new cache entry. [AtomicReference.get]/[AtomicReference.set] rather than a
- * lock -- see [registerPublicLandingRoutes] class KDoc "Body memoization" for why a concurrent
- * cache-miss race (two callers both rendering once) is harmless here: both renders are byte-identical
- * and idempotent, so the only cost of the race is one redundant aggregation, never a correctness
- * issue. Not a `suspend fun` -- exactly like the `transaction {}` call it wraps, this blocks the
- * calling thread for the duration of the (short) DB work, unchanged from the pre-memoization behavior.
+ * Returns [cachedBody]'s current body for [lang] if it is still fresh, otherwise renders a new one
+ * (via [buildView] inside a fresh `transaction {}`, exactly as before this memoization was added)
+ * and publishes it as the new cache entry. Plain `ConcurrentHashMap.get`/`.put` rather than a lock
+ * -- see [registerPublicLandingRoutes] class KDoc "Body memoization" for why a concurrent
+ * cache-miss race (two callers both rendering once for the SAME [lang]) is harmless here: both
+ * renders are byte-identical and idempotent, so the only cost of the race is one redundant
+ * aggregation, never a correctness issue. Not a `suspend fun` -- exactly like the `transaction {}`
+ * call it wraps, this blocks the calling thread for the duration of the (short) DB work, unchanged
+ * from the pre-memoization behavior.
  */
 private fun renderCachedBody(
-    cachedBody: AtomicReference<CachedLandingBody?>,
+    cachedBody: ConcurrentHashMap<PublicLanguage, CachedLandingBody>,
+    lang: PublicLanguage,
     baseUrl: String,
-    brandTitle: String,
+    branding: ResolvedBranding,
 ): String {
     val now = Clock.System.now()
-    cachedBody.get()?.let { cached -> if (cached.expiresAt > now) return cached.body }
+    cachedBody[lang]?.let { cached -> if (cached.expiresAt > now) return cached.body }
     val view = transaction { buildView() }
-    val body = PublicLandingHtml.page(view = view, baseUrl = baseUrl, brandTitle = brandTitle)
-    cachedBody.set(CachedLandingBody(body = body, expiresAt = now + LANDING_CACHE_TTL))
+    val body = PublicLandingHtml.page(view = view, baseUrl = baseUrl, branding = branding, lang = lang)
+    cachedBody[lang] = CachedLandingBody(body = body, expiresAt = now + LANDING_CACHE_TTL)
     return body
 }

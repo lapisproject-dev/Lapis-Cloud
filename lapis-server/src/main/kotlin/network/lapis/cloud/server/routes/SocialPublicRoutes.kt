@@ -23,7 +23,7 @@ import kotlinx.datetime.LocalDateTime
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toInstant
 import kotlinx.datetime.toLocalDateTime
-import network.lapis.cloud.server.branding.BrandConfig
+import network.lapis.cloud.server.branding.ResolvedBranding
 import network.lapis.cloud.server.db.DbClock
 import network.lapis.cloud.server.db.generated.SocialPostTable
 import network.lapis.cloud.server.economy.LedgerBackedLtrBalanceProvider
@@ -98,7 +98,7 @@ private const val PUBLIC_MAX_PAGES = 25
  * parameter present on the request (e.g. `?x=<random>`) is a canonicalization candidate, see
  * [hasOnlyAllowedQueryParams]/[canonicalRedirectIfNeeded].
  */
-private val TIMELINE_ALLOWED_QUERY_PARAMS = setOf("page")
+private val TIMELINE_ALLOWED_QUERY_PARAMS = setOf("page", "lang")
 
 /**
  * Security-Audit-Fund MAJOR-1 (Runde 1, 2026-08-19): `POST /s/{id}/report`'s hard ceiling on
@@ -116,10 +116,13 @@ private val TIMELINE_ALLOWED_QUERY_PARAMS = setOf("page")
 private const val REPORT_MAX_BODY_BYTES = 16 * 1024L
 
 /**
- * Security-Audit-Fund S-3 (2026-08-18): `GET /s/{id}` accepts NO query parameters at all -- every
- * piece of routing information lives in the path.
+ * Security-Audit-Fund S-3 (2026-08-18), erweitert um die Sprachumschalter-Welle: `GET /s/{id}`
+ * akzeptiert außer `lang` KEINEN Query-Parameter -- jede sonstige Routing-Information lebt im Pfad.
  */
-private val THREAD_ALLOWED_QUERY_PARAMS = emptySet<String>()
+private val THREAD_ALLOWED_QUERY_PARAMS = setOf("lang")
+
+/** Sprachumschalter-Welle: `GET /s/{id}/report` akzeptiert außer `lang` keinen Query-Parameter. Neu -- vor dieser Welle gab es hier gar keinen Query-Guard. */
+private val REPORT_FORM_ALLOWED_QUERY_PARAMS = setOf("lang")
 
 /**
  * V1.1.3 Soziales Netzwerk "Öffentlicher SEO-Lesepfad" -- die ERSTEN unauthentifizierten,
@@ -175,20 +178,22 @@ fun Route.registerSocialPublicRoutes(
     /** Welle V1.1.5 -- `POST /s/{id}/report` (öffentlicher Melde-Weg), EIGENER, deutlich strengerer Limiter als [readRateLimiter]. */
     reportRateLimiter: FederationInboxRateLimiter,
     /**
-     * V1.2.5 White-Label-Branding -- [network.lapis.cloud.server.branding.ResolvedBranding.title],
-     * threaded through into [SocialPublicHtml.timelinePage]/[SocialPublicHtml.postPage]'s footer
-     * (see those functions' own KDoc). Defaults to [BrandConfig.DEFAULT_TITLE] so every existing
-     * test call site of this function keeps compiling/behaving unchanged.
+     * V1.2.5 White-Label-Branding, seit der Sprachumschalter-Welle das volle
+     * [ResolvedBranding] statt nur `brandTitle: String` -- [ResolvedBranding.logoAvailable] steuert
+     * die CSP-`img-src`-Direktive des Kopfbereichs ([PublicChrome.renderChrome]), [ResolvedBranding
+     * .title] geht wie bisher in Wordmark/Footer ein. **Kein Default mehr** (Breaking Change,
+     * bewusst): jeder Aufrufer -- Produktion wie Test -- muss das aufgelöste Branding explizit
+     * benennen, ein fehlendes Argument ist ein Production-Bug, kein Test-Komfort-Fall.
      */
-    brandTitle: String = BrandConfig.DEFAULT_TITLE,
+    branding: ResolvedBranding,
 ) {
     val baseUrl = FederationConfig.publicBaseUrl.trimEnd('/')
     val ltrBalanceProvider: LtrBalanceProvider = LedgerBackedLtrBalanceProvider()
 
     get("/s") {
-        call.withPublicErrorHandling(baseUrl = baseUrl) {
+        call.withPublicErrorHandling(baseUrl = baseUrl, branding = branding) {
             if (!readRateLimiter.checkAndRecord(rateLimitKeyFor(remoteHost = call.request.origin.remoteHost))) {
-                call.respondPublicTooManyRequests(baseUrl = baseUrl)
+                call.respondPublicTooManyRequests(baseUrl = baseUrl, branding = branding, lang = call.resolvePublicLanguage())
                 return@withPublicErrorHandling
             }
             val rawPage = call.request.queryParameters["page"]
@@ -206,11 +211,20 @@ fun Route.registerSocialPublicRoutes(
             // string of the already-clamped [page] (and, for page 1, requiring the parameter to be
             // absent entirely -- the canonical `/s` URL never carries `?page=1`).
             if (!call.hasOnlyAllowedQueryParams(allowed = TIMELINE_ALLOWED_QUERY_PARAMS) ||
-                pageQueryValueNeedsCanonicalization(raw = rawPage, page = page)
+                pageQueryValueNeedsCanonicalization(raw = rawPage, page = page) ||
+                call.publicLangNeedsCanonicalization()
             ) {
-                call.respondPublicCanonicalRedirect(canonicalUrl = timelineCanonicalUrl(baseUrl = baseUrl, page = page))
+                call.respondPublicCanonicalRedirect(
+                    canonicalUrl =
+                        PublicChrome.languageUrl(
+                            baseUrl = baseUrl,
+                            currentPath = timelinePathOnly(page = page),
+                            lang = call.resolvePublicLanguage(),
+                        ),
+                )
                 return@withPublicErrorHandling
             }
+            val lang = call.resolvePublicLanguage()
             val now = DbClock.nowLocalDateTime()
             val horizon = rankingHorizon(now = now)
             val condition =
@@ -236,36 +250,46 @@ fun Route.registerSocialPublicRoutes(
                     page = page,
                     hasNext = page * PUBLIC_PAGE_SIZE < pageDto.totalRankedCount,
                 )
-            val body = SocialPublicHtml.timelinePage(view = view, baseUrl = baseUrl, brandTitle = brandTitle)
+            val body = SocialPublicHtml.timelinePage(view = view, baseUrl = baseUrl, branding = branding, lang = lang)
             call.respondPublicCacheable(
                 body = body,
                 contentType = HTML_CONTENT_TYPE,
                 cacheControl = "public, max-age=300, stale-while-revalidate=3600",
+                imgSrcSelf = branding.logoAvailable,
             )
         }
     }
 
     get("/s/{id}") {
-        call.withPublicErrorHandling(baseUrl = baseUrl) {
+        call.withPublicErrorHandling(baseUrl = baseUrl, branding = branding) {
             if (!readRateLimiter.checkAndRecord(rateLimitKeyFor(remoteHost = call.request.origin.remoteHost))) {
-                call.respondPublicTooManyRequests(baseUrl = baseUrl)
+                call.respondPublicTooManyRequests(baseUrl = baseUrl, branding = branding, lang = call.resolvePublicLanguage())
                 return@withPublicErrorHandling
             }
             val postUuid = call.parameters["id"]?.let { runCatching { Uuid.parse(it) }.getOrNull() }
             if (postUuid == null) {
-                call.respondPublicNotFound(baseUrl = baseUrl)
+                call.respondPublicNotFound(baseUrl = baseUrl, branding = branding, lang = call.resolvePublicLanguage())
                 return@withPublicErrorHandling
             }
-            // S-3: same canonicalization as `/s` above -- `/s/{id}` accepts NO query parameters at
-            // all, so ANY query string present redirects to the bare path BEFORE any DB work. Uses
-            // the REQUESTED id, not a resolved root id -- if [postUuid] turns out to be a comment,
-            // the follow-up (query-free) request still 308-redirects to its root via the normal K4
-            // path below; this only removes an unexpected query string from the cache key one hop
-            // earlier, without needing to resolve the root first.
-            if (!call.hasOnlyAllowedQueryParams(allowed = THREAD_ALLOWED_QUERY_PARAMS)) {
-                call.respondPublicCanonicalRedirect(canonicalUrl = "$baseUrl/s/$postUuid")
+            // S-3: same canonicalization as `/s` above -- `/s/{id}` accepts NO query parameters
+            // beyond `lang`, so ANY OTHER query string present redirects to the bare (or
+            // lang-suffixed) path BEFORE any DB work. Uses the REQUESTED id, not a resolved root id
+            // -- if [postUuid] turns out to be a comment, the follow-up (query-free) request still
+            // 308-redirects to its root via the normal K4 path below; this only removes an
+            // unexpected query string from the cache key one hop earlier, without needing to resolve
+            // the root first.
+            if (!call.hasOnlyAllowedQueryParams(allowed = THREAD_ALLOWED_QUERY_PARAMS) || call.publicLangNeedsCanonicalization()) {
+                call.respondPublicCanonicalRedirect(
+                    canonicalUrl =
+                        PublicChrome.languageUrl(
+                            baseUrl = baseUrl,
+                            currentPath = "/s/$postUuid",
+                            lang = call.resolvePublicLanguage(),
+                        ),
+                )
                 return@withPublicErrorHandling
             }
+            val lang = call.resolvePublicLanguage()
             val now = DbClock.nowLocalDateTime()
             val resolution =
                 transaction {
@@ -313,16 +337,19 @@ fun Route.registerSocialPublicRoutes(
                     }
                 }
             when (resolution) {
-                is PostResolution.NotFound -> call.respondPublicNotFound(baseUrl = baseUrl)
-                is PostResolution.LegallyRemoved -> call.respondPublicLegallyRemoved(view = resolution.view, baseUrl = baseUrl)
-                is PostResolution.Redirect -> call.respondPublicRedirect(baseUrl = baseUrl, rootId = resolution.rootId)
+                is PostResolution.NotFound -> call.respondPublicNotFound(baseUrl = baseUrl, branding = branding, lang = lang)
+                is PostResolution.LegallyRemoved ->
+                    call.respondPublicLegallyRemoved(view = resolution.view, baseUrl = baseUrl, branding = branding, lang = lang)
+                is PostResolution.Redirect ->
+                    call.respondPublicRedirect(baseUrl = baseUrl, rootId = resolution.rootId, lang = lang)
                 is PostResolution.Found -> {
                     val view = resolution.thread.toPublicThreadView()
-                    val body = SocialPublicHtml.postPage(view = view, baseUrl = baseUrl, brandTitle = brandTitle)
+                    val body = SocialPublicHtml.postPage(view = view, baseUrl = baseUrl, branding = branding, lang = lang)
                     call.respondPublicCacheable(
                         body = body,
                         contentType = HTML_CONTENT_TYPE,
                         cacheControl = "public, max-age=300, stale-while-revalidate=3600",
+                        imgSrcSelf = branding.logoAvailable,
                     )
                 }
             }
@@ -333,16 +360,41 @@ fun Route.registerSocialPublicRoutes(
     // Kilua-RPC-Client (die CSP dieses Pfads verbietet jedes Skript) und kann
     // ISocialNetworkService.reportPost folglich nicht aufrufen -- deshalb ein klassisches
     // HTML-<form method=post>, dieselbe Kernlogik (SocialReportSubmission) wie der authentifizierte
-    // RPC-Pfad.
+    // RPC-Pfad. Das Formular selbst BLEIBT vollständig deutsch (Rechtstext, siehe
+    // SocialPublicHtml.reportFormPage KDoc) -- `lang` steuert hier NUR den umgebenden Chrome.
     get("/s/{id}/report") {
-        call.withPublicErrorHandling(baseUrl = baseUrl) {
+        call.withPublicErrorHandling(baseUrl = baseUrl, branding = branding) {
             if (!readRateLimiter.checkAndRecord(rateLimitKeyFor(remoteHost = call.request.origin.remoteHost))) {
-                call.respondPublicTooManyRequests(baseUrl = baseUrl)
+                call.respondPublicTooManyRequests(baseUrl = baseUrl, branding = branding, lang = call.resolvePublicLanguage())
                 return@withPublicErrorHandling
             }
+            // SECURITY-FIX (Review-Runde, 2026-09-09): parse+validate `id` via `Uuid.parse` BEFORE
+            // any canonicalization/redirect work -- exact same order as the sibling `GET /s/{id}`
+            // route above. Previously the raw, unvalidated path segment (`postUuidRaw`) was
+            // interpolated straight into the `Location` header of the 308 canonical redirect,
+            // which (a) violated the PublicChrome.languageUrl invariant that `currentPath` is never
+            // built from raw request input, and (b) meant two requests for the same post differing
+            // only in UUID hex casing produced two different "canonical" redirect targets instead of
+            // collapsing onto one -- defeating the whole point of this cache-key guard. `postUuid`
+            // is now the single source of truth for the path segment in both the redirect and the
+            // rest of this handler.
             val postUuid = call.parameters["id"]?.let { runCatching { Uuid.parse(it) }.getOrNull() }
+            val lang = call.resolvePublicLanguage()
             if (postUuid == null) {
-                call.respondPublicNotFound(baseUrl = baseUrl)
+                call.respondPublicNotFound(baseUrl = baseUrl, branding = branding, lang = lang)
+                return@withPublicErrorHandling
+            }
+            // Sprachumschalter-Welle: ERSTMALS ein Query-Guard auf dieser Route -- vor dieser Welle
+            // gab es hier gar keinen (siehe REPORT_FORM_ALLOWED_QUERY_PARAMS KDoc).
+            if (!call.hasOnlyAllowedQueryParams(allowed = REPORT_FORM_ALLOWED_QUERY_PARAMS) || call.publicLangNeedsCanonicalization()) {
+                call.respondPublicCanonicalRedirect(
+                    canonicalUrl =
+                        PublicChrome.languageUrl(
+                            baseUrl = baseUrl,
+                            currentPath = "/s/$postUuid/report",
+                            lang = lang,
+                        ),
+                )
                 return@withPublicErrorHandling
             }
             val exists =
@@ -353,21 +405,25 @@ fun Route.registerSocialPublicRoutes(
                         .firstOrNull() != null
                 }
             if (!exists) {
-                call.respondPublicNotFound(baseUrl = baseUrl)
+                call.respondPublicNotFound(baseUrl = baseUrl, branding = branding, lang = lang)
                 return@withPublicErrorHandling
             }
-            val body = SocialPublicHtml.reportFormPage(postId = postUuid.toString(), baseUrl = baseUrl)
+            val body = SocialPublicHtml.reportFormPage(postId = postUuid.toString(), baseUrl = baseUrl, branding = branding, lang = lang)
             call.response.header(HttpHeaders.CacheControl, "no-store")
-            call.applyPublicPageHeaders()
+            call.applyPublicPageHeaders(imgSrcSelf = branding.logoAvailable)
             call.respondText(text = body, contentType = HTML_CONTENT_TYPE)
         }
     }
 
     post("/s/{id}/report") {
-        call.withPublicErrorHandling(baseUrl = baseUrl) {
+        call.withPublicErrorHandling(baseUrl = baseUrl, branding = branding) {
+            // Sprachumschalter-Welle (Entscheidung § 5.2): KEIN Canonicalization-Redirect auf einer
+            // POST-Route (nicht cachebar) -- `lang` wird nur best-effort gelesen, ein ungültiger Wert
+            // degradiert stillschweigend auf PublicLanguage.DEFAULT statt einen Fehler auszulösen.
+            val lang = call.resolvePublicLanguage()
             // EIGENER, deutlich strengerer Limiter -- nicht der 30/min-Lese-Limiter (Plan § 4.3).
             if (!reportRateLimiter.checkAndRecord(rateLimitKeyFor(remoteHost = call.request.origin.remoteHost))) {
-                call.respondPublicTooManyRequests(baseUrl = baseUrl)
+                call.respondPublicTooManyRequests(baseUrl = baseUrl, branding = branding, lang = lang)
                 return@withPublicErrorHandling
             }
             // MAJOR-1 (Security-Audit Runde 1, 2026-08-19): reject an oversized -- or length-less,
@@ -376,7 +432,12 @@ fun Route.registerSocialPublicRoutes(
             // would otherwise bypass this check entirely. See [reportBodyExceedsLimit]/
             // [REPORT_MAX_BODY_BYTES] KDoc.
             if (reportBodyExceedsLimit(contentLength = call.request.contentLength())) {
-                call.respondPublicMalformedRequest(baseUrl = baseUrl, status = HttpStatusCode.PayloadTooLarge)
+                call.respondPublicMalformedRequest(
+                    baseUrl = baseUrl,
+                    status = HttpStatusCode.PayloadTooLarge,
+                    branding = branding,
+                    lang = lang,
+                )
                 return@withPublicErrorHandling
             }
             // MINOR-3 (Security-Audit Runde 1, 2026-08-19): `receiveParameters()` throws for any
@@ -388,7 +449,7 @@ fun Route.registerSocialPublicRoutes(
             // trigger unbounded ERROR-level log writes at will. Rejecting explicitly here, before
             // `receiveParameters()` is ever called, keeps this a clean, unlogged 400.
             if (!call.request.contentType().match(ContentType.Application.FormUrlEncoded)) {
-                call.respondPublicMalformedRequest(baseUrl = baseUrl, status = HttpStatusCode.BadRequest)
+                call.respondPublicMalformedRequest(baseUrl = baseUrl, status = HttpStatusCode.BadRequest, branding = branding, lang = lang)
                 return@withPublicErrorHandling
             }
             // Defense in depth (MAJOR-1, Security-Audit Runde 2 Fund N-1): caps Ktor's OWN form-field
@@ -424,9 +485,9 @@ fun Route.registerSocialPublicRoutes(
             // ob das Honeypot-Feld ausgefuellt war. KEIN CSRF-Token (kein Schreibpfad mit einer
             // Session/privilegierten Wirkung dahinter -- ein fremdgesteuertes Absenden ist
             // funktional identisch zu direktem Spam und wird vom IP-Limiter behandelt).
-            val body = SocialPublicHtml.reportSubmittedPage(baseUrl = baseUrl)
+            val body = SocialPublicHtml.reportSubmittedPage(baseUrl = baseUrl, branding = branding, lang = lang)
             call.response.header(HttpHeaders.CacheControl, "no-store")
-            call.applyPublicPageHeaders()
+            call.applyPublicPageHeaders(imgSrcSelf = branding.logoAvailable)
             call.respondText(text = body, contentType = HTML_CONTENT_TYPE)
         }
     }
@@ -436,7 +497,7 @@ fun Route.registerSocialPublicRoutes(
     // Still wrapped in withPublicErrorHandling (M1) -- "cheap and constant today" is not a reason to
     // exempt a handler from the blanket guarantee that NOTHING here can ever escape as a bare 500.
     get("/s/assets/style.css") {
-        call.withPublicErrorHandling(baseUrl = baseUrl) {
+        call.withPublicErrorHandling(baseUrl = baseUrl, branding = branding) {
             call.respondPublicCacheable(
                 body = SocialPublicHtml.STYLESHEET,
                 contentType = ContentType.Text.CSS.withParameter("charset", "utf-8"),
@@ -459,7 +520,7 @@ fun Route.registerSocialPublicRoutes(
     // string, zero DB access. Still wrapped in withPublicErrorHandling (M1) for the same reason
     // documented there.
     get("/s/assets/hash-bridge.js") {
-        call.withPublicErrorHandling(baseUrl = baseUrl) {
+        call.withPublicErrorHandling(baseUrl = baseUrl, branding = branding) {
             call.respondPublicCacheable(
                 body = LANDING_HASH_BRIDGE_SCRIPT,
                 contentType = ContentType.Application.JavaScript.withParameter("charset", "utf-8"),
@@ -469,9 +530,9 @@ fun Route.registerSocialPublicRoutes(
     }
 
     get("/sitemap.xml") {
-        call.withPublicErrorHandling(baseUrl = baseUrl) {
+        call.withPublicErrorHandling(baseUrl = baseUrl, branding = branding) {
             if (!sitemapRateLimiter.checkAndRecord(rateLimitKeyFor(remoteHost = call.request.origin.remoteHost))) {
-                call.respondPublicTooManyRequests(baseUrl = baseUrl)
+                call.respondPublicTooManyRequests(baseUrl = baseUrl, branding = branding, lang = PublicLanguage.DEFAULT)
                 return@withPublicErrorHandling
             }
             // M2-Fix (Review-Runde 1): decide urlset-vs-index from a cheap SQL COUNT(*), never from
@@ -511,14 +572,14 @@ fun Route.registerSocialPublicRoutes(
     }
 
     get("/sitemap-{shard}.xml") {
-        call.withPublicErrorHandling(baseUrl = baseUrl) {
+        call.withPublicErrorHandling(baseUrl = baseUrl, branding = branding) {
             if (!sitemapRateLimiter.checkAndRecord(rateLimitKeyFor(remoteHost = call.request.origin.remoteHost))) {
-                call.respondPublicTooManyRequests(baseUrl = baseUrl)
+                call.respondPublicTooManyRequests(baseUrl = baseUrl, branding = branding, lang = PublicLanguage.DEFAULT)
                 return@withPublicErrorHandling
             }
             val shard = call.parameters["shard"]?.toIntOrNull()
             if (shard == null || shard < 1 || shard > SocialPublicSitemap.MAX_SHARDS) {
-                call.respondPublicNotFound(baseUrl = baseUrl)
+                call.respondPublicNotFound(baseUrl = baseUrl, branding = branding, lang = PublicLanguage.DEFAULT)
                 return@withPublicErrorHandling
             }
             // M2-Fix (Review-Runde 1): this shard's entries are the ONLY thing loaded -- SQL-side
@@ -526,7 +587,7 @@ fun Route.registerSocialPublicRoutes(
             // roots. An empty result means shard is past the actual data -> 404.
             val entries = transaction { SocialPublicSitemap.loadEntriesForShard(shard = shard) }
             if (entries.isEmpty()) {
-                call.respondPublicNotFound(baseUrl = baseUrl)
+                call.respondPublicNotFound(baseUrl = baseUrl, branding = branding, lang = PublicLanguage.DEFAULT)
                 return@withPublicErrorHandling
             }
             // Welle V1.4.6: "/" appears in shard 1 only -- never in shard 2+, see
@@ -559,7 +620,7 @@ fun Route.registerSocialPublicRoutes(
     // Suchmaschinen-Ranking mit der neuen, inhaltstragenden Landingpage unter / konkurrieren (siehe
     // PublicLandingHtml's "index,follow" -- das Gegenstück dieser Disallow-Zeile).
     get("/robots.txt") {
-        call.withPublicErrorHandling(baseUrl = baseUrl) {
+        call.withPublicErrorHandling(baseUrl = baseUrl, branding = branding) {
             val body =
                 """
                 User-agent: *
@@ -666,18 +727,16 @@ private fun rankingHorizon(now: LocalDateTime): LocalDateTime =
     (now.toInstant(TimeZone.UTC) - SocialPostWeight.RANKING_HORIZON_DAYS.days).toLocalDateTime(TimeZone.UTC)
 
 /**
- * Security-Audit-Fund S-3 (2026-08-18): the canonical `/s` URL for [page] -- used by the
- * canonical-URL guard in `registerSocialPublicRoutes`'s `/s` handler to redirect away any unexpected
- * query parameter. Same shape as `SocialPublicHtml`'s own PRIVATE `timelineCanonicalUrl` (used there
- * for its `nav` pagination links) -- deliberately duplicated rather than shared across the two
- * files/visibility boundaries: this is a two-line, non-domain-logic URL-shape decision, not part of
- * the rendering/aggregation pipeline whose duplication would be this welle's actual risk (same
+ * Security-Audit-Fund S-3 (2026-08-18), seit der Sprachumschalter-Welle path-only (OHNE [baseUrl] --
+ * [PublicChrome.languageUrl] baut das Präfix selbst) für [page] -- genutzt vom Canonical-URL-Guard
+ * im `/s`-Handler, um jeden unerwarteten Query-Parameter wegzuleiten. Same shape as
+ * `SocialPublicHtml`'s own PRIVATE `timelineCanonicalUrl` (used there for its `nav`
+ * pagination links) -- deliberately duplicated rather than shared across the two files/visibility
+ * boundaries: this is a two-line, non-domain-logic URL-shape decision, not part of the
+ * rendering/aggregation pipeline whose duplication would be this welle's actual risk (same
  * reasoning already used for [rankingHorizon] above).
  */
-private fun timelineCanonicalUrl(
-    baseUrl: String,
-    page: Int,
-): String = if (page <= 1) "$baseUrl/s" else "$baseUrl/s?page=$page"
+private fun timelinePathOnly(page: Int): String = if (page <= 1) "/s" else "/s?page=$page"
 
 /**
  * `raw` wird NIE werfend geparst (T16) -- jede ungültige/fehlende/außerhalb-des-Bereichs-Eingabe
@@ -696,7 +755,7 @@ private fun parsePage(raw: String?): Int = (raw?.toIntOrNull() ?: 1).coerceIn(1,
  * - [raw] is `null` (parameter absent entirely) -> never needs canonicalization, regardless of
  *   [page]. This is the only way page 1 is ever reached without a redirect.
  * - [raw] is present -> for page 1, ANY presence of `?page=...` is non-canonical (the canonical `/s`
- *   URL for page 1 carries no `page` parameter at all, see [timelineCanonicalUrl]); for page > 1, the
+ *   URL for page 1 carries no `page` parameter at all, see [timelinePathOnly]); for page > 1, the
  *   raw string must be EXACTLY [page]'s decimal representation (`"2"`, not `"02"`/`"2.0"`/etc.) --
  *   anything else (leading zeros, an out-of-range value [parsePage] clamped, a non-numeric value
  *   [parsePage] defaulted, `"1e9"`, ...) redirects to the one true canonical URL for the page it
@@ -761,11 +820,21 @@ private fun LocalDateTime.toHumanDate(): String = "%02d.%02d.%04d".format(dayOfM
  * and `/transparenz` stay
  * script-free (`scriptSrcSelf = false`, the default), exactly as before this wave.
  */
-internal fun ApplicationCall.applyPublicPageHeaders(scriptSrcSelf: Boolean = false) {
+internal fun ApplicationCall.applyPublicPageHeaders(
+    scriptSrcSelf: Boolean = false,
+    /**
+     * Sprachumschalter-Welle: `true` adds `img-src 'self'` -- the chrome header's optional operator
+     * logo (`/api/branding/logo`, [network.lapis.cloud.server.branding.ResolvedBranding.logoAvailable])
+     * is the only image this whole route family ever serves. Default `false` -- every call site that
+     * does not pass `branding.logoAvailable` explicitly keeps its byte-identical, image-free CSP.
+     */
+    imgSrcSelf: Boolean = false,
+) {
     val scriptDirective = if (scriptSrcSelf) " script-src 'self';" else ""
+    val imgDirective = if (imgSrcSelf) " img-src 'self';" else ""
     response.header(
         "Content-Security-Policy",
-        "default-src 'none'; style-src 'self';$scriptDirective base-uri 'none'; form-action 'self'; frame-ancestors 'none'",
+        "default-src 'none'; style-src 'self';$scriptDirective$imgDirective base-uri 'none'; form-action 'self'; frame-ancestors 'none'",
     )
     response.header("X-Content-Type-Options", "nosniff")
     response.header("Referrer-Policy", "no-referrer")
@@ -805,12 +874,14 @@ internal suspend fun ApplicationCall.respondPublicCacheable(
     contentType: ContentType,
     cacheControl: String,
     scriptSrcSelf: Boolean = false,
+    /** Sprachumschalter-Welle -- passes straight through to [applyPublicPageHeaders], see its own KDoc. */
+    imgSrcSelf: Boolean = false,
 ) {
     val etag = computeETag(body = body)
     response.header(HttpHeaders.ETag, etag)
     response.header(HttpHeaders.Vary, HttpHeaders.AcceptEncoding)
     response.header(HttpHeaders.CacheControl, cacheControl)
-    applyPublicPageHeaders(scriptSrcSelf = scriptSrcSelf)
+    applyPublicPageHeaders(scriptSrcSelf = scriptSrcSelf, imgSrcSelf = imgSrcSelf)
     if (ifNoneMatchHits(headerValue = request.headers[HttpHeaders.IfNoneMatch], etag = etag)) {
         respond(HttpStatusCode.NotModified)
     } else {
@@ -825,10 +896,18 @@ internal suspend fun ApplicationCall.respondPublicCacheable(
  * `internal` (not `private`, V1.3.0) -- shared verbatim with `PublicTransparencyRoutes`, see
  * [applyPublicPageHeaders] KDoc for the reasoning.
  */
-internal suspend fun ApplicationCall.respondPublicNotFound(baseUrl: String) {
+internal suspend fun ApplicationCall.respondPublicNotFound(
+    baseUrl: String,
+    branding: ResolvedBranding,
+    lang: PublicLanguage = PublicLanguage.DEFAULT,
+) {
     response.header(HttpHeaders.CacheControl, "no-store")
-    applyPublicPageHeaders()
-    respondText(text = SocialPublicHtml.notFoundPage(baseUrl = baseUrl), contentType = HTML_CONTENT_TYPE, status = HttpStatusCode.NotFound)
+    applyPublicPageHeaders(imgSrcSelf = branding.logoAvailable)
+    respondText(
+        text = SocialPublicHtml.notFoundPage(baseUrl = baseUrl, branding = branding, lang = lang),
+        contentType = HTML_CONTENT_TYPE,
+        status = HttpStatusCode.NotFound,
+    )
 }
 
 /**
@@ -850,11 +929,13 @@ internal suspend fun ApplicationCall.respondPublicNotFound(baseUrl: String) {
 private suspend fun ApplicationCall.respondPublicLegallyRemoved(
     view: PublicRemovalNoticeView,
     baseUrl: String,
+    branding: ResolvedBranding,
+    lang: PublicLanguage = PublicLanguage.DEFAULT,
 ) {
     response.header(HttpHeaders.CacheControl, "no-store")
-    applyPublicPageHeaders()
+    applyPublicPageHeaders(imgSrcSelf = branding.logoAvailable)
     respondText(
-        text = SocialPublicHtml.legallyRemovedPage(view = view, baseUrl = baseUrl),
+        text = SocialPublicHtml.legallyRemovedPage(view = view, baseUrl = baseUrl, branding = branding, lang = lang),
         contentType = HTML_CONTENT_TYPE,
         status = HttpStatusCode(451, "Unavailable For Legal Reasons"),
     )
@@ -881,10 +962,16 @@ internal fun reportBodyExceedsLimit(contentLength: Long?): Boolean = contentLeng
 private suspend fun ApplicationCall.respondPublicMalformedRequest(
     baseUrl: String,
     status: HttpStatusCode,
+    branding: ResolvedBranding,
+    lang: PublicLanguage = PublicLanguage.DEFAULT,
 ) {
     response.header(HttpHeaders.CacheControl, "no-store")
-    applyPublicPageHeaders()
-    respondText(text = SocialPublicHtml.malformedRequestPage(baseUrl = baseUrl), contentType = HTML_CONTENT_TYPE, status = status)
+    applyPublicPageHeaders(imgSrcSelf = branding.logoAvailable)
+    respondText(
+        text = SocialPublicHtml.malformedRequestPage(baseUrl = baseUrl, branding = branding, lang = lang),
+        contentType = HTML_CONTENT_TYPE,
+        status = status,
+    )
 }
 
 /**
@@ -894,12 +981,16 @@ private suspend fun ApplicationCall.respondPublicMalformedRequest(
  * `internal` (not `private`, V1.3.0) -- shared verbatim with `PublicTransparencyRoutes`, see
  * [applyPublicPageHeaders] KDoc for the reasoning.
  */
-internal suspend fun ApplicationCall.respondPublicTooManyRequests(baseUrl: String) {
+internal suspend fun ApplicationCall.respondPublicTooManyRequests(
+    baseUrl: String,
+    branding: ResolvedBranding,
+    lang: PublicLanguage = PublicLanguage.DEFAULT,
+) {
     response.header(HttpHeaders.RetryAfter, "60")
     response.header(HttpHeaders.CacheControl, "no-store")
-    applyPublicPageHeaders()
+    applyPublicPageHeaders(imgSrcSelf = branding.logoAvailable)
     respondText(
-        text = SocialPublicHtml.tooManyRequestsPage(baseUrl = baseUrl),
+        text = SocialPublicHtml.tooManyRequestsPage(baseUrl = baseUrl, branding = branding, lang = lang),
         contentType = HTML_CONTENT_TYPE,
         status = HttpStatusCode.TooManyRequests,
     )
@@ -909,8 +1000,9 @@ internal suspend fun ApplicationCall.respondPublicTooManyRequests(baseUrl: Strin
 private suspend fun ApplicationCall.respondPublicRedirect(
     baseUrl: String,
     rootId: Uuid,
+    lang: PublicLanguage,
 ) {
-    respondPublicCanonicalRedirect(canonicalUrl = "$baseUrl/s/$rootId")
+    respondPublicCanonicalRedirect(canonicalUrl = PublicChrome.languageUrl(baseUrl = baseUrl, currentPath = "/s/$rootId", lang = lang))
 }
 
 /**
@@ -946,6 +1038,34 @@ internal fun ApplicationCall.hasOnlyAllowedQueryParams(allowed: Set<String>): Bo
     request.queryParameters.names().all { it in allowed }
 
 /**
+ * Sprachumschalter-Welle: resolves the requested [PublicLanguage] from the `?lang=` query
+ * parameter -- nie werfend, ein fehlender/unbekannter/mehrfacher Wert liefert
+ * [PublicLanguage.DEFAULT]. Liest bewusst den EINZELNEN Wert via `queryParameters["lang"]`
+ * (Ktor liefert dabei den ERSTEN von mehreren gleichnamigen Parametern) -- der Mehrfach-Fall selbst
+ * wird bereits von [publicLangNeedsCanonicalization] als redirect-würdig erkannt, BEVOR das
+ * Rendering diesen Wert je zu Gesicht bekommt.
+ */
+internal fun ApplicationCall.resolvePublicLanguage(): PublicLanguage =
+    PublicLanguage.parse(request.queryParameters["lang"]) ?: PublicLanguage.DEFAULT
+
+/**
+ * Sprachumschalter-Welle, analog zu [pageQueryValueNeedsCanonicalization]: `true` iff der rohe
+ * `lang`-Query-Wert kanonisiert werden muss, BEVOR gerendert wird --
+ * - fehlt der Parameter ganz -> niemals kanonisierungsbedürftig (das ist der einzige Weg, wie
+ *   [PublicLanguage.DEFAULT] je OHNE Redirect erreicht wird),
+ * - mehrfach vorhanden (`?lang=en&lang=fr`) -> immer kanonisierungsbedürftig,
+ * - unbekannter Wert (`?lang=xx`) ODER exakt der Default-Code (`?lang=de`) -> kanonisierungsbedürftig
+ *   (die kanonische deutsche URL trägt NIE einen `lang`-Parameter, exakt dieselbe "kein
+ *   `?page=1`"-Konvention wie [pageQueryValueNeedsCanonicalization] für Seite 1).
+ */
+internal fun ApplicationCall.publicLangNeedsCanonicalization(): Boolean {
+    val values = request.queryParameters.getAll("lang") ?: return false
+    if (values.size != 1) return true
+    val raw = values.single()
+    return PublicLanguage.parse(raw) == null || raw == PublicLanguage.DEFAULT.code
+}
+
+/**
  * `no-store` (§ 5.2, M1-Fix Review-Runde 1): an unexpected 500 must never be cached by a proxy/CDN --
  * it may no longer be true moments later (e.g. after a retry, or after whatever transient condition
  * caused it clears).
@@ -954,11 +1074,14 @@ internal fun ApplicationCall.hasOnlyAllowedQueryParams(allowed: Set<String>): Bo
  * [withPublicErrorHandling] -- and therefore this function -- directly against a minimal test route,
  * without needing a real handler failure deep inside [registerSocialPublicRoutes] to trigger it.
  */
-internal suspend fun ApplicationCall.respondPublicServerError(baseUrl: String) {
+internal suspend fun ApplicationCall.respondPublicServerError(
+    baseUrl: String,
+    branding: ResolvedBranding,
+) {
     response.header(HttpHeaders.CacheControl, "no-store")
-    applyPublicPageHeaders()
+    applyPublicPageHeaders(imgSrcSelf = branding.logoAvailable)
     respondText(
-        text = SocialPublicHtml.serverErrorPage(baseUrl = baseUrl),
+        text = SocialPublicHtml.serverErrorPage(baseUrl = baseUrl, branding = branding),
         contentType = HTML_CONTENT_TYPE,
         status = HttpStatusCode.InternalServerError,
     )
@@ -1018,6 +1141,12 @@ internal suspend fun ApplicationCall.respondPublicServerError(baseUrl: String) {
  */
 internal suspend fun ApplicationCall.withPublicErrorHandling(
     baseUrl: String,
+    /**
+     * Sprachumschalter-Welle: threaded through to [respondPublicServerError] so the 500 fallback
+     * page can still show the operator's logo -- see that function's own KDoc for why it takes NO
+     * `lang` (Entscheidung § 5.3): an unexpected failure can strike before `lang` was ever parsed.
+     */
+    branding: ResolvedBranding,
     handler: suspend () -> Unit,
 ) {
     try {
@@ -1026,7 +1155,7 @@ internal suspend fun ApplicationCall.withPublicErrorHandling(
         throw e
     } catch (e: Exception) {
         logger.error(e) { "Unhandled exception in a public social read handler (${request.uri})" }
-        runCatching { respondPublicServerError(baseUrl = baseUrl) }
+        runCatching { respondPublicServerError(baseUrl = baseUrl, branding = branding) }
     }
 }
 
