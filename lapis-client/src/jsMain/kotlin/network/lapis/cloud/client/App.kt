@@ -323,7 +323,22 @@ class App : Application() {
                 refreshNavbar(navbar, sidebar, onLanguageChange = ::refreshShell)
                 val session = AppState.session
                 if (session != null) {
-                    buildSidebar(sidebar, session, currentHashRoute()) { sidebar.hide() }
+                    // Live-Fund 2026-09-09 (pzb.parteidervernunft.de, ADMIN, Nachfolge-Bug von
+                    // V1.4.8): dieser `onNavigate`-Callback lief bislang UNBEDINGT auf jeden
+                    // Sidebar-Link-Klick -- korrekt fuer Mobile (Drawer nach der Navigation
+                    // schliessen), aber auf Desktop hebt `sidebar.hide()` denselben KVision-
+                    // Offcanvas-Mechanismus aus, den `shouldMountSidebarEagerly` weiter oben erst
+                    // eigens `sidebar.show()`-t: einmal versteckt, bleibt die Sidebar verschwunden,
+                    // weil ausser `refreshShell()` (nur bei Session-/Sprachwechsel) nichts sie je
+                    // wieder zeigt -- exakt das live gemeldete Symptom "Menu nur auf dem Dashboard
+                    // sichtbar, alle anderen Seiten zeigen kein Menu". Live reproduziert via
+                    // `jsBrowserDevelopmentRun` + fingierter ADMIN-Session: `.lapis-sidebar`
+                    // verschwand nachweislich aus `.lapis-shell`s Kindern nach jedem Sidebar-Link-
+                    // Klick auf einer Desktop-Breite. Guard hier spiegelt exakt das Muster, das der
+                    // anonyme Zweig unten fuer denselben Zweck schon verwendet.
+                    buildSidebar(sidebar, session, currentHashRoute()) {
+                        if (!shouldMountSidebarEagerly(window.innerWidth)) sidebar.hide()
+                    }
                 } else {
                     // Anonymous (both "not yet known, probe still in flight" and "definitely
                     // logged out") -- no sidebar CONTENT at all, see `refreshNavbar`'s own

@@ -34,15 +34,24 @@ All notable changes to this project are documented here. Format follows
   Kind von `.offcanvas-body` fungiert — plus eine dokumentierte `flex-direction: column`-
   Absicherung direkt auf `.offcanvas-body` für den Fall eines künftigen zweiten Kindes an dieser
   Stelle. Regressionstest: `SidebarStructureTest` (neu).
-- Ein separat gemeldetes drittes Symptom ("Sidebar komplett verschwunden auf der
-  Videokonferenz-Seite") ließ sich trotz gezielter Live-Reproduktion (Boot mit fingierter
-  ADMIN/ACTIVE-Session, `jsBrowserDevelopmentRun`, mobiler und Desktop-Viewport, Navigation über
-  den echten Sidebar-Link) **nicht** als eigenständiger Defekt bestätigen: die Sidebar mountet auf
-  der Konferenzseite mit vollständigem, korrektem Inhalt (alle Links/Gruppen, richtige
-  Reihenfolge); das beobachtete Verschwinden auf schmalen Viewports ist das erwartete
-  Mobile-Verhalten (die Drawer schließt sich nach jeder Navigation über einen Sidebar-Link, wie
-  bei jedem Offcanvas-Menü, und lässt sich über den Hamburger-Toggle wieder öffnen). Keine
-  Code-Änderung an `Routing.kt`/`ConferenceScreen.kt` vorgenommen.
+- **Nachtrag (2026-09-09, korrigiert)**: Das oben unter V1.4.8 zunächst als "kein eigenständiger
+  Defekt" abgeschlossene dritte Symptom ("Sidebar auf jeder Seite außer dem Dashboard komplett
+  verschwunden, auch auf dem Desktop") war live weiterhin reproduzierbar — die vorherige
+  Verifikation lief gegen einen veralteten, noch nicht neu geladenen Dev-Server-Bundle-Stand und
+  hat den Fehler dadurch fälschlich für behoben gehalten. Tatsächliche Ursache: `App.kt`s
+  `buildSidebar(sidebar, session, currentHashRoute()) { sidebar.hide() }`-Aufruf übergab
+  `sidebar.hide()` als `onNavigate`-Callback UNBEDINGT, für jeden Sidebar-Link-Klick — korrekt für
+  Mobile (Offcanvas-Drawer nach der Navigation schließen), aber auf Desktop hebt `sidebar.hide()`
+  denselben KVision-Offcanvas-Mechanismus aus, den `shouldMountSidebarEagerly` beim Start eigens
+  `sidebar.show()`-t: einmal versteckt, bleibt die Sidebar dauerhaft verschwunden, weil außer
+  `refreshShell()` (nur bei Session-/Sprachwechsel, nicht bei einfacher Navigation) nichts sie je
+  wieder zeigt. Live reproduziert (`jsBrowserDevelopmentRun` + fingierte ADMIN-Session, mit
+  korrektem Bundle-Reload diesmal): `.lapis-sidebar` verschwand nachweislich aus `.lapis-shell`s
+  Kindern nach jedem Sidebar-Link-Klick bei ≥992px. Fix: derselbe `shouldMountSidebarEagerly`-Guard,
+  den der anonyme Zweig direkt darunter schon verwendet — `sidebar.hide()` feuert jetzt nur noch
+  unterhalb des Desktop-Breakpoints. Live verifiziert: Sidebar bleibt nach Navigation zu
+  `/members`/`/conference` auf 1280px sichtbar; Mobile-Drawer schließt weiterhin korrekt nach
+  Navigation (unverändertes Verhalten).
 
 **Root-Verlinkung, Rechtstexte + Hero-Layout-Fix (V1.4.7, 2026-09-09)**
 
