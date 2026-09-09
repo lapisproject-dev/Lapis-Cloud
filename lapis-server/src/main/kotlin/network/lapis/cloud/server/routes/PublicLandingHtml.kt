@@ -94,7 +94,7 @@ internal object PublicLandingHtml {
                         currentPath = "/",
                     )
                 }
-                renderHero(baseUrl = baseUrl, strings = strings)
+                renderHero(baseUrl = baseUrl, branding = branding, strings = strings)
                 main {
                     attributes["id"] = "main"
                     view.stats?.let { renderStats(stats = it, strings = strings) }
@@ -144,21 +144,29 @@ internal object PublicLandingHtml {
     }
 
     /**
-     * Sprachumschalter-Welle: der Login-Link entfällt hier komplett -- er lebt jetzt ausschließlich
-     * im Chrome ([PublicChrome.renderChrome]), sonst gäbe es ihn doppelt auf der Seite. Der
-     * Marken-Claim ([PublicUiStrings.tagline]) wird zum `<h1>` des Contents (der Markenname selbst
-     * steht bereits im Chrome, siehe Umsetzungsplan § 4.6c) -- "Mitglied werden" bleibt als
-     * primärer CTA im Hero.
+     * V1.4.8 Startseiten-Titel-Fix (Design-Team, Norman: "Das Logo ist ein Bild, der Name steht
+     * nirgends als Text"): der Login-Link entfällt hier weiterhin komplett -- er lebt ausschließlich
+     * im Chrome ([PublicChrome.renderChrome]), sonst gäbe es ihn doppelt auf der Seite.
+     *
+     * Bis V1.4.7 wurde hier der Marken-Claim ([PublicUiStrings.tagline]) zum `<h1>` des Contents,
+     * in der Annahme, der Markenname selbst stehe bereits im Chrome. Das stimmt nur für eine
+     * Installation OHNE eigenes Logo: [PublicChrome.renderChrome] rendert den Namen dort als reinen
+     * Text-Knoten (`span.chrome-wordmark`) nur im `else`-Zweig von `branding.logoAvailable` -- ist
+     * ein Logo konfiguriert (z. B. die pzb.parteidervernunft.de-Produktivinstanz), erscheint dort
+     * stattdessen ein `<img alt="...">`, und der Organisationsname taucht auf der GESAMTEN Seite an
+     * KEINER sichtbaren Text-Stelle mehr auf -- nur im `alt`-Attribut, das Screenreadern vorbehalten
+     * ist. Der `<h1>` zeigt jetzt [branding.title], der Marken-Claim rutscht als `<p>` eine Ebene
+     * tiefer (bestehende `.hero p { color: #888; }`-Regel deckt ihn bereits ab, kein neues CSS
+     * nötig) -- "Mitglied werden" bleibt unverändert als primärer CTA im Hero.
      */
     private fun FlowContent.renderHero(
         baseUrl: String,
+        branding: ResolvedBranding,
         strings: PublicUiStrings,
     ) {
         section(classes = "hero") {
-            // Nutzer-Freigabe 2026-09-09: der ursprüngliche Marken-Claim-Platzhalter war zu lang
-            // (wickelte über vier Zeilen), auf Nutzerwunsch gekürzt -- siehe [PublicUiStrings.tagline]
-            // für alle acht Sprachfassungen.
-            h1 { +strings.tagline }
+            h1 { +branding.title }
+            p { +strings.tagline }
             a(href = "$baseUrl/app#/register", classes = "cta cta-primary") { +strings.register }
         }
     }

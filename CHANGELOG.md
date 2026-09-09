@@ -6,7 +6,43 @@ All notable changes to this project are documented here. Format follows
 
 ## [Unreleased]
 
-### Added
+### Changed
+
+**Sidebar-Layout-Fix + Startseiten-Titel (V1.4.8, 2026-09-09)**
+
+- Die Startseiten-`<h1>` zeigt jetzt den Organisationsnamen (`branding.title`) statt des
+  Marken-Claims; der Claim rutscht als `<p>` eine Ebene tiefer (die bestehende `.hero p`-Regel
+  deckt ihn bereits ab, kein neues CSS nötig). Fund: bei einer Installation mit konfiguriertem
+  Betreiber-Logo (z. B. pzb.parteidervernunft.de) rendert der Kopfbereich statt eines Text-Knotens
+  ein `<img alt="...">` — der Organisationsname tauchte dadurch an KEINER sichtbaren Text-Stelle
+  der gesamten Startseite mehr auf, nur im `alt`-Attribut. Regressionstest:
+  `PublicLandingRoutesTest`.
+
+### Fixed
+
+**Sidebar-Layout-Fix (V1.4.8, 2026-09-09)**
+
+- Live-Fund auf pzb.parteidervernunft.de: ADMIN-Accounts sahen in der Sidebar nur "Dashboard"/
+  "Videokonferenz" nebeneinander, keine der sechs Rollen-Gruppen. Ursache: `buildSidebar()` fügte
+  alle Top-Level-Einträge direkt in Bootstraps `.offcanvas-body` ein, das ab 992px
+  `display: flex` OHNE eigenes `flex-direction` setzt (Default `row`, Navbar-Muster,
+  bootstrap.css 5.3.8 Zeile 6515) — kombiniert mit `.lapis-sidebar`s eigenem `overflow-y: auto`
+  (das `overflow-x` per CSS-Spezifikation ebenfalls auf `auto` statt `visible` zwingt) wurde
+  alles ab dem zweiten Eintrag innerhalb der 264px-breiten Spalte horizontal weggescrollt, statt
+  sichtbar zu bleiben. Fix: alle Einträge liegen jetzt in einem eigenen
+  `nav.lapis-sidebar-nav`-Wrapper (`display:flex; flex-direction:column`), der als einziges
+  Kind von `.offcanvas-body` fungiert — plus eine dokumentierte `flex-direction: column`-
+  Absicherung direkt auf `.offcanvas-body` für den Fall eines künftigen zweiten Kindes an dieser
+  Stelle. Regressionstest: `SidebarStructureTest` (neu).
+- Ein separat gemeldetes drittes Symptom ("Sidebar komplett verschwunden auf der
+  Videokonferenz-Seite") ließ sich trotz gezielter Live-Reproduktion (Boot mit fingierter
+  ADMIN/ACTIVE-Session, `jsBrowserDevelopmentRun`, mobiler und Desktop-Viewport, Navigation über
+  den echten Sidebar-Link) **nicht** als eigenständiger Defekt bestätigen: die Sidebar mountet auf
+  der Konferenzseite mit vollständigem, korrektem Inhalt (alle Links/Gruppen, richtige
+  Reihenfolge); das beobachtete Verschwinden auf schmalen Viewports ist das erwartete
+  Mobile-Verhalten (die Drawer schließt sich nach jeder Navigation über einen Sidebar-Link, wie
+  bei jedem Offcanvas-Menü, und lässt sich über den Hamburger-Toggle wieder öffnen). Keine
+  Code-Änderung an `Routing.kt`/`ConferenceScreen.kt` vorgenommen.
 
 **Root-Verlinkung, Rechtstexte + Hero-Layout-Fix (V1.4.7, 2026-09-09)**
 

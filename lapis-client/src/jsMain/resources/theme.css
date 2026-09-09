@@ -283,6 +283,18 @@ body {
   border-right: 1px solid var(--lapis-border);
 }
 
+/* V1.4.8 Sidebar-Layout-Fix -- the sole own container `Sidebar.kt`'s `buildSidebar()` now wraps
+   ALL top-level entries in (`.lapis-sidebar-nav`, see that function's own comment for the full
+   Bootstrap-row-flex root cause). Stacks vertically regardless of viewport width -- this is NOT
+   the `>=992px` override below (that one guards Bootstrap's OWN `.offcanvas-body` element, a
+   different node one level up). */
+.lapis-sidebar-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+  padding: 0.75rem 0.5rem;
+}
+
 @media (min-width: 992px) {
   /* Atkinson's finding: KVision's `Offcanvas` calls `this.hide()` in its own `init` block (sets
      its KVision-level `visible = false`, independent of Bootstrap's own show/hide JS), and its
@@ -313,6 +325,18 @@ body {
     top: 0;
     max-height: 100vh;
     overflow-y: auto;
+  }
+
+  /* V1.4.8 Sidebar-Layout-Fix -- Bootstrap sets `.offcanvas-lg .offcanvas-body { display: flex }`
+     from 992px up (navbar pattern, bootstrap.css 5.3.8 line 6515), with no `flex-direction` of its
+     own (default `row`). `.lapis-sidebar-nav` (above) is today the ONLY direct child of that
+     `.offcanvas-body` and already stacks vertically via its own rule -- this line is the documented
+     safety net for the day a second direct child is added there: without it, `.offcanvas-body`'s
+     own row-flex would lay that second child out beside `.lapis-sidebar-nav` instead of below it,
+     reintroducing exactly the bug `.lapis-sidebar-nav` was created to fix (see `Sidebar.kt`'s
+     `buildSidebar()` comment for the full root-cause writeup). */
+  .lapis-sidebar .offcanvas-body {
+    flex-direction: column;
   }
 
   .lapis-sidebar-toggle {

@@ -209,6 +209,22 @@ fun buildSidebar(
     body.removeCssClass("lapis-sidebar-empty")
     NavHighlight.reset()
 
+    // V1.4.8 Sidebar-Layout-Fix (Design-Team Atkinson/Kay, Jobs' Review): EIN eigener, vertikal
+    // stapelnder Container statt Bootstraps privatem `.offcanvas-body` direkt zu befüllen. Bootstrap
+    // setzt `.offcanvas-lg .offcanvas-body { display: flex }` ab 992px (Navbar-Muster, bootstrap.css
+    // 5.3.8 Z. 6515) -- OHNE eigenes `flex-direction` (Default `row`). Weil `.lapis-sidebar` selbst
+    // `overflow-y: auto` setzt (theme.css, das per CSS-Spezifikation `overflow-x` ebenfalls auf
+    // `auto` zwingt statt `visible` zu belassen), liefen die bislang direkt in `body` eingefügten
+    // Top-Level-Einträge (2 flache Links + 6 Gruppen, siehe [GROUP_ROUTES]) in EINER horizontalen
+    // Zeile -- alles ab dem zweiten Link wurde innerhalb der 264px-breiten Spalte unsichtbar
+    // weggescrollt (Live-Fund pzb.parteidervernunft.de: ADMIN-Account sah nur "Dashboard"/
+    // "Videokonferenz" nebeneinander, keine der sechs Rollen-Gruppen). Wir besitzen unser eigenes
+    // Layout vollständig (`.lapis-sidebar-nav`, theme.css), statt gegen Bootstraps `.offcanvas-body`-
+    // Interna mit einer dritten `!important`-Schicht anzuschreiben. Siehe `SidebarStructureTest` für
+    // die Regressionsabsicherung.
+    val nav = Nav(className = "flex-column lapis-sidebar-nav")
+    body.add(nav)
+
     val openGroups = SidebarGroupStorage.load().toMutableSet()
     sidebarGroupForRoute(activeRoute)?.let { openGroups += it }
 
@@ -288,11 +304,11 @@ fun buildSidebar(
 
     // Zwei höchstfrequente Ziele bleiben flach, wie im vorherigen `leftNav` -- siehe
     // `App.kt`-Git-Historie, UI/UX-Design-Team-Review 2026-08-14 (Norman/Raskin).
-    body.sidebarLink(Routes.DASHBOARD, tr("Dashboard"), "fas fa-house")
-    body.sidebarLink(Routes.CONFERENCE, tr("Videokonferenz"), "fas fa-video")
+    nav.sidebarLink(Routes.DASHBOARD, tr("Dashboard"), "fas fa-house")
+    nav.sidebarLink(Routes.CONFERENCE, tr("Videokonferenz"), "fas fa-video")
 
     if (NavVisibility.showsMembershipSection(session.status)) {
-        body.sidebarGroup(SidebarGroupId.MEMBERSHIP, tr("Mitgliedschaft"), "fas fa-id-card") { toggle ->
+        nav.sidebarGroup(SidebarGroupId.MEMBERSHIP, tr("Mitgliedschaft"), "fas fa-id-card") { toggle ->
             sidebarLink(Routes.CONTRIBUTIONS, tr("Beiträge"), "fas fa-coins", toggle)
             sidebarLink(Routes.DOCUMENTS, tr("Dokumente"), "fas fa-file-lines", toggle)
             sidebarLink(Routes.COMMUNICATION, tr("Kommunikation"), "fas fa-envelope", toggle)
@@ -302,11 +318,11 @@ fun buildSidebar(
     } else if (NavVisibility.showsDsgvoRights(session.status)) {
         // Welle V1.1.4: ein FRIEND hat kein volles "Mitgliedschaft"-Dropdown, braucht aber
         // trotzdem einen erreichbaren Betroffenenrechte-Einstieg -- siehe Routes.DSGVO_RIGHTS KDoc.
-        body.sidebarLink(Routes.DSGVO_RIGHTS, tr("Meine Daten"), "fas fa-shield-halved")
+        nav.sidebarLink(Routes.DSGVO_RIGHTS, tr("Meine Daten"), "fas fa-shield-halved")
     }
 
     if (NavVisibility.showsSelfGovernance(session.status)) {
-        body.sidebarGroup(SidebarGroupId.SELF_GOVERNANCE, tr("Selbstverwaltung"), "fas fa-people-group") { toggle ->
+        nav.sidebarGroup(SidebarGroupId.SELF_GOVERNANCE, tr("Selbstverwaltung"), "fas fa-people-group") { toggle ->
             sidebarLink(Routes.COMMITTEES, tr("Gremien"), "fas fa-people-group", toggle)
             sidebarLink(Routes.MEETINGS, tr("Sitzungen"), "fas fa-calendar-days", toggle)
             sidebarLink(Routes.MOTIONS, tr("Anträge"), "fas fa-file-signature", toggle)
@@ -314,7 +330,7 @@ fun buildSidebar(
     }
 
     if (NavVisibility.showsEconomySection(session.status)) {
-        body.sidebarGroup(SidebarGroupId.ECONOMY, tr("Wirtschaft"), "fas fa-coins") { toggle ->
+        nav.sidebarGroup(SidebarGroupId.ECONOMY, tr("Wirtschaft"), "fas fa-coins") { toggle ->
             if (NavVisibility.showsLtrLedger(session.status)) {
                 sidebarLink(Routes.LTR_LEDGER, tr("LTR-Konto"), "fas fa-wallet", toggle)
             }
@@ -332,7 +348,7 @@ fun buildSidebar(
     // Accounting UI wave, design decision D15 -- TREASURER/BOARD/ADMIN, same tier the LEDGER route
     // itself requires.
     if (AppState.hasRole(AccountRole.TREASURER, AccountRole.BOARD, AccountRole.ADMIN)) {
-        body.sidebarGroup(SidebarGroupId.FINANCE, tr("Finanzen"), "fas fa-chart-line") { toggle ->
+        nav.sidebarGroup(SidebarGroupId.FINANCE, tr("Finanzen"), "fas fa-chart-line") { toggle ->
             sidebarLink(Routes.LEDGER, tr("Kontenplan & Journal"), "fas fa-book", toggle)
             sidebarLink(Routes.FINANCIAL_REPORTS, tr("Finanzberichte"), "fas fa-chart-pie", toggle)
             sidebarLink(Routes.COMPLIANCE_REPORTS, tr("Gemeinnützigkeits-Berichte"), "fas fa-scale-balanced", toggle)
@@ -351,7 +367,7 @@ fun buildSidebar(
     // TREASURER/BOARD/ADMIN-Tier fuer den Gruppen-Header selbst, aber NICHT fuer jeden einzelnen
     // Eintrag darin -- siehe `Routes.MEMBERS` KDoc (Welle V1.4.4.4: auch TREASURER).
     if (AppState.hasRole(AccountRole.TREASURER, AccountRole.BOARD, AccountRole.ADMIN)) {
-        body.sidebarGroup(SidebarGroupId.ADMINISTRATION, tr("Verwaltung"), "fas fa-user-gear") { toggle ->
+        nav.sidebarGroup(SidebarGroupId.ADMINISTRATION, tr("Verwaltung"), "fas fa-user-gear") { toggle ->
             sidebarLink(Routes.MEMBERS, tr("Mitgliederverwaltung"), "fas fa-users-gear", toggle)
             if (AppState.hasRole(AccountRole.BOARD, AccountRole.ADMIN)) {
                 sidebarLink(Routes.DSGVO_COMPLIANCE, tr("DSGVO-Compliance"), "fas fa-shield-halved", toggle)
@@ -373,7 +389,7 @@ fun buildSidebar(
     }
 
     if (AppState.hasRole(AccountRole.ADMIN)) {
-        body.sidebarGroup(SidebarGroupId.SYSTEM, tr("System"), "fas fa-server") { toggle ->
+        nav.sidebarGroup(SidebarGroupId.SYSTEM, tr("System"), "fas fa-server") { toggle ->
             sidebarLink(Routes.BACKUP, tr("Backup & Wiederherstellung"), "fas fa-database", toggle)
             sidebarLink(Routes.CONFERENCE_STREAM_DESTINATIONS, tr("Stream-Ziele"), "fas fa-satellite-dish", toggle)
             sidebarLink(Routes.SEPA_SETTINGS, tr("SEPA-Konfiguration"), "fas fa-building-columns", toggle)

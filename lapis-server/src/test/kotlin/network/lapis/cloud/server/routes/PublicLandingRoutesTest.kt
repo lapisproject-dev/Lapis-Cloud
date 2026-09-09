@@ -194,6 +194,26 @@ class PublicLandingRoutesTest :
             html shouldNotContain "id=\"beitraege\""
         }
 
+        // ── V1.4.8: der Hero-H1 zeigt den Organisationsnamen (branding.title), der Marken-Claim
+        // rutscht als <p> darunter -- Regressionstest fuer den Fund, dass eine Installation MIT
+        // konfiguriertem Logo (PublicChrome.renderChrome rendert dann ein <img alt="..."> statt
+        // eines Text-Knotens) den Organisationsnamen sonst an KEINER sichtbaren Text-Stelle der
+        // Seite mehr zeigte -- reiner PublicLandingHtml.page(...)-Unit-Test, siehe Klassen-KDoc.
+        test("GET /: H1 is the organization name (branding.title), tagline appears as a <p> below it, not as the H1") {
+            val html =
+                PublicLandingHtml.page(
+                    view = PublicLandingView(stats = null, topPosts = emptyList()),
+                    baseUrl = "https://cloud.example.org",
+                    branding = ResolvedBranding(title = "Partei der Vernunft", logoAvailable = true, logoPath = "/some/path"),
+                )
+            val h1Text =
+                Regex("""<h1[^>]*>([^<]*)</h1>""").find(html)?.groupValues?.get(1)
+                    ?: error("h1 not found in body")
+            h1Text shouldBe "Partei der Vernunft"
+            h1Text shouldNotContain "Mitgliederverwaltung"
+            html shouldContain "<p>Mitgliederverwaltung -- föderiert, transparent, in Ihrer Hand.</p>"
+        }
+
         // ── 3: Leerzustand B -- pure unit test, see class KDoc ─────────────────────────
         test("Leerzustand B: PublicLandingHtml.page with stats == null and empty topPosts renders neither section, no bare zero") {
             val html =
