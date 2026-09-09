@@ -166,7 +166,7 @@ LTR-weighted guest pool isn't possible yet, since no guest LTR-earning mechanism
 client UI for Politician Profiles exists yet (backend/RPC-only, unchanged from V0.6.4). See
 `CHANGELOG.md` `[0.6.0]` for the original scope-cut reasoning and `[0.9.0]` for the closure.
 
-Eight further tags have shipped since `v0.10.0`, two of them (`v0.16.0`/`v0.17.0`) cut back to back
+Nine further tags have shipped since `v0.10.0`, two of them (`v0.16.0`/`v0.17.0`) cut back to back
 in the same release session: `v0.16.0` was placed at the historical commit boundary matching an
 already-published website release-notes page for that version, and `v0.17.0` immediately after it
 for the newer work.
@@ -283,6 +283,40 @@ Integration" below); and a standalone Interessenten-/Sympathisanten-CRM for peop
 members, which extends the DSGVO erasure/export framework beyond members for the first time rather
 than repeating the `external_donor` gap (V1.4.2, see "Interessenten-/Sympathisanten-CRM" below). See
 `CHANGELOG.md` `[0.18.0]` for full detail.
+
+**`v0.19.0`** completes V1.4 "Externer Auftritt, CRM, Veranstaltungen, Mitgliederlebenszyklus,
+Buchhaltungs-Integration" and adds a fifth public route family plus a navigation redesign. Events
+(V1.4.3): a public, unauthenticated event-registration flow with optional fees (settled through the
+existing Stripe checkout bridge) and capacity/waitlist handling under row-level locking (V1.4.3.1),
+followed by hashed ticket codes with SVG/PDF QR delivery and a door-scan check-in screen (V1.4.3.2).
+Mitgliederlebenszyklus (V1.4.4): a per-member contribution/donation history view (V1.4.4.1); a
+board-only upcoming-birthdays-and-anniversaries list with leap-day handling (V1.4.4.2); honors/
+merit-award tracking with self-honoring-safe DSGVO erasure counting (V1.4.4.3); family memberships
+with exactly one payer and any number of dues-free dependents, plus an upcoming-majority worklist
+(V1.4.4.4); and a § 38 BGB deceased-member workflow — deliberately declaratory, not constitutive,
+with no notification automation and no automatic write-off of a deceased member's outstanding dues
+(V1.4.4.5). Bank/accounting integration (V1.4.5): CSV/MT940 bank-statement import with four
+match-then-post rules, an IBAN-checksum payment-reference code printed on every invoice, and
+encrypted-at-rest counterparty IBANs (V1.4.5.1); a byte-verified DATEV-EXTF Buchungsstapel export
+for the Steuerberater with an all-or-nothing blocker model (V1.4.5.2); and live, incremental
+accounting-export bridges to both Lexware Office/lexoffice and sevDesk behind one provider-neutral
+adapter interface (V1.4.5.3/V1.4.5.4). Public presence (V1.4.6/V1.4.7): `GET /` is now a
+server-rendered, SEO-indexable landing page (member/LTR/post counters plus top-post teasers) — the
+member SPA moved from `/` to `/app` as a **breaking change** for any bookmarked `/#/...` link or
+embedded website snippet, softened by a same-origin hash-bridge redirect for already-circulating
+links; `GET /impressum` and `GET /datenschutz` render the statutory German Impressum/
+Datenschutzerklärung from operator-supplied `LAPIS_LEGAL_*` configuration, degrading to an
+operator-addressed notice (never a 500, never a misleadingly empty page) when unset; and all three
+unauthenticated public route families (`/`, `/s`, `/transparenz`) now share one chrome component
+with an 8-language switcher. Navigation (2026-09-08/09): the six role-gated navbar dropdowns became
+a persistent, collapsible desktop sidebar / mobile offcanvas drawer — a wave that surfaced and fixed
+four real KVision/Bootstrap-Offcanvas integration bugs across three follow-up rounds, the last of
+which (sidebar disappearing after navigating to any page but the Dashboard) was live-reported by a
+real pilot admin, initially misdiagnosed as fixed against a stale dev-server bundle, and only
+confirmed fixed after a second live reproduction against a properly reloaded build. The Startseiten
+`<h1>` now shows the operator's own organization name (`branding.title`) instead of a generic
+tagline, closing a gap where an installation with a configured logo showed that name nowhere as
+readable text on its own landing page. See `CHANGELOG.md` `[0.19.0]` for full wave-by-wave detail.
 
 === Auction opt-in (V0.6.2)
 

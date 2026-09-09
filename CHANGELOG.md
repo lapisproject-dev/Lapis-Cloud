@@ -6,6 +6,8 @@ All notable changes to this project are documented here. Format follows
 
 ## [Unreleased]
 
+## [0.19.0] — 2026-09-09
+
 ### Changed
 
 **Sidebar-Layout-Fix + Startseiten-Titel (V1.4.8, 2026-09-09)**
@@ -336,6 +338,30 @@ All notable changes to this project are documented here. Format follows
   zivilrechtliche Nachlassangelegenheit und bestehen fort.
 - Bewusste Nicht-Ziele: keine Benachrichtigung von Angehörigen oder Mitgliedern, keine
   Storno-Automatik für offene Forderungen, kein Mahnwesen-Filter auf DECEASED.
+
+**Mitgliederlebenszyklus: Ehrungsverwaltung (Welle V1.4.4.3)** — *(dieser Eintrag hat gefehlt,
+2026-09-09 beim Release nachgetragen; Feature war bereits seit Commit `f07f7a2` im Code)*
+
+- **Neue Tabelle `member_honor`** — eine CRUD-artige Erfassung von Ehrenmitgliedschaften/Verdienst-/
+  Treueauszeichnungen je Mitglied (Typ, Freitext-Notiz, Datum, Erfasser), bewusst ohne die größeren
+  Grundsatzentscheidungen von Familienmitgliedschaften (berührt die Buchhaltung, folgte in V1.4.4.4)
+  oder Sterbefall-Workflow (DSGVO-Löschfristen, folgte in V1.4.4.5).
+- **`MemberHonorService` als direkter RPC-Service** (bewusst kein separates Store/Policy-Paar — fünf
+  Validierungsregeln ohne Nebenläufigkeitsproblem rechtfertigen keine eigene Store-Klasse). Volle
+  Rollenmatrix: MEMBER/TREASURER abgelehnt, BOARD/ADMIN dürfen anlegen/bearbeiten, `deleteHonor`
+  ADMIN-exklusiv.
+- **DSGVO-Erasure-Doppelzählung vermieden**: `member_id` (Ehrenempfänger) und `recorded_by`
+  (Erfasser) können auf derselben Zeile zusammenfallen (ein Vorstandsmitglied ehrt sich selbst — kein
+  FK verhindert das). Eine naive Zählung aus zwei getrennten `COUNT`-Summen hätte diese
+  Überlappungszeile doppelt gezählt; eine einzelne OR-Query zählt `member_id` UND `recorded_by`
+  korrekt einfach. Hybrid-Erasure: die Zeile bleibt als Art.-5(2)-Rechenschaftspflicht-Record immer
+  erhalten, das Freitextfeld `note` wird nur für die Honoree-Rolle genullt — für die reine
+  Erfasser-Rolle bleibt es unangetastet.
+- **Client**: neuer Screen `/honors` (board-weite Liste + gefilterte Sicht über `?member=<id>`),
+  Modal-basiertes Erfassen/Bearbeiten, Löschen nur für ADMIN sichtbar.
+- Schema-Drift-Test deckt alle drei Indizes gegen echte `information_schema`-Introspektion ab.
+  Service-Tests decken die vollständige Rollenmatrix plus Log-Redaction ab (keine Ehrungs-Freitexte
+  in Logs).
 
 **Mitgliederlebenszyklus: Familienmitgliedschaften (Welle V1.4.4.4)**
 
