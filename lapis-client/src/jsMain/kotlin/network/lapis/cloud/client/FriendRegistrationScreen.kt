@@ -17,6 +17,7 @@ import io.kvision.i18n.gettext
 import io.kvision.i18n.tr
 import io.kvision.panel.SimplePanel
 import io.kvision.panel.vPanel
+import io.kvision.utils.perc
 import io.kvision.utils.px
 import kotlinx.coroutines.launch
 import network.lapis.cloud.shared.domain.FriendRegistrationInput
@@ -37,7 +38,8 @@ fun renderFriendRegistrationScreen(container: SimplePanel) {
     val root =
         container.vPanel(spacing = 10) {
             addCssClass("mx-auto")
-            width = 480.px
+            maxWidth = 480.px
+            width = 100.perc
             marginTop = 32.px
         }
     root.h1(tr("Freund-Konto anlegen"))

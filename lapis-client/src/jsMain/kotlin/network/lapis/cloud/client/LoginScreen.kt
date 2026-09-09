@@ -13,6 +13,7 @@ import io.kvision.i18n.gettext
 import io.kvision.i18n.tr
 import io.kvision.panel.SimplePanel
 import io.kvision.panel.vPanel
+import io.kvision.utils.perc
 import io.kvision.utils.px
 import kotlinx.coroutines.launch
 import network.lapis.cloud.shared.rpc.IAuthService
@@ -31,7 +32,8 @@ import network.lapis.cloud.shared.rpc.IAuthService
 fun renderLoginScreen(container: SimplePanel) {
     container.vPanel(spacing = 10) {
         addCssClass("mx-auto")
-        width = 380.px
+        maxWidth = 380.px
+        width = 100.perc
         marginTop = 64.px
 
         h1(Branding.title)
