@@ -131,6 +131,19 @@ internal class EventRegistrationSubmission(
         eventId: Uuid,
         participant: EventParticipant,
         now: LocalDateTime = DbClock.nowLocalDateTime(),
+        // Security-Review MINOR fix: the STORED allowlist origin (from `applyEmbedCors`'
+        // `EmbedCorsResult.Allowed.canonicalOrigin`) for a registration that came in through
+        // `EmbedEventRoutes` -- `null` for the member-RPC (`EventService`) and server-rendered form
+        // (`EventPublicRoutes`) paths, neither of which has an embed origin at all. Threaded all the
+        // way down to `startStripeCheckout` -> `PspCheckoutSessions.create`'s own `embedOrigin`
+        // column, mirroring `AnonymousDonationCheckout`'s `canonicalOrigin` -> `embedOrigin` handling
+        // for the donation path -- see `PaymentCheckoutSessionTable`'s
+        // `chk_payment_checkout_session_embed_origin_external` constraint (V18 migration), which was
+        // widened specifically so `event_registration_id` could carry a non-null `embed_origin` too.
+        // Without this, every embed-widget checkout session was indistinguishable from a
+        // form-route one in `payment_checkout_session`, making a per-partner-origin audit/takedown
+        // impossible.
+        embedOrigin: String? = null,
     ): EventRegistrationResult {
         // 1. Resolve + a CHEAP pre-lock registration-window check (early exit for the common case
         // only -- step 3 re-checks this authoritatively against the LOCKED row).
@@ -297,6 +310,7 @@ internal class EventRegistrationSubmission(
                         cancelToken = cancelToken,
                         feeAmount = placement.feeAmount,
                         now = now,
+                        embedOrigin = embedOrigin,
                     )
                 }
             }
@@ -313,6 +327,7 @@ internal class EventRegistrationSubmission(
         cancelToken: String,
         feeAmount: BigDecimal,
         now: LocalDateTime,
+        embedOrigin: String?,
     ): EventRegistrationResult {
         val outcome =
             startStripeCheckout(
@@ -326,6 +341,7 @@ internal class EventRegistrationSubmission(
                 // (set at insertRegistration-time, see the `submit` step above) -- never a waitlist
                 // promotion's 48h WAITLIST_OFFER_WINDOW, which only ever applies to resumeCheckout.
                 holdExpiresAt = now.plusDuration(EventPolicy.STANDARD_HOLD),
+                embedOrigin = embedOrigin,
             )
         return when (outcome) {
             is CheckoutOutcome.Success -> {
@@ -411,6 +427,11 @@ internal class EventRegistrationSubmission(
                 now = now,
                 freeSeatOnFailure = false,
                 holdExpiresAt = holdExpiresAt,
+                // resumeCheckout is reached EXCLUSIVELY via registerEventPublicRoutes' own
+                // POST /veranstaltung/{slug}/zahlung (see this function's own KDoc) -- never through
+                // EmbedEventRoutes, which has no payment-resume endpoint of its own -- so there is no
+                // embed origin to carry here.
+                embedOrigin = null,
             )
         return when (outcome) {
             is CheckoutOutcome.Success ->
@@ -454,6 +475,7 @@ internal class EventRegistrationSubmission(
         now: LocalDateTime,
         freeSeatOnFailure: Boolean,
         holdExpiresAt: LocalDateTime?,
+        embedOrigin: String?,
     ): CheckoutOutcome {
         val reusable = transaction { PspCheckoutSessions.findReusableForRegistration(eventRegistrationId = registrationId, now = now) }
         val reusableRedirectUrl = reusable?.get(PaymentCheckoutSessionTable.redirectUrl)
@@ -504,7 +526,7 @@ internal class EventRegistrationSubmission(
                 memberId = null,
                 externalDonorId = null,
                 eventRegistrationId = registrationId,
-                embedOrigin = null,
+                embedOrigin = embedOrigin,
                 amount = feeAmount.setScale(2, RoundingMode.UNNECESSARY),
                 currency = "EUR",
                 donorCategory = null,

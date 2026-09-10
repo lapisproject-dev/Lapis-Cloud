@@ -758,7 +758,10 @@ fun Application.module() {
     // body is even read; eventRegistrationRateLimiter is the strict per-real-attempt budget
     // EventRegistrationSubmission itself is NOT gated by (checked by the route handler immediately
     // before the DB/Stripe work); eventPageRateLimiter is the soft limiter for the read-only GET
-    // routes (detail page, the four return pages).
+    // routes (detail page, the four return pages). Welle V1.4.3.3 -- all three of these now serve
+    // TWO callers (registerEventPublicRoutes' own form route AND registerEmbedRoutes' embed
+    // widget, see EmbedRoutes.kt's own call site) -- the shared budget is deliberate, so the
+    // embed widget cannot be used to double a real registrant's hourly cap.
     val eventWriteRateLimiter = FederationInboxRateLimiter(maxRequests = 60, window = 1.minutes)
     val eventRegistrationAttemptRateLimiter = FederationInboxRateLimiter(maxRequests = 30, window = 60.minutes, maxTrackedKeys = 50_000)
     val eventRegistrationRateLimiter = FederationInboxRateLimiter(maxRequests = 5, window = 60.minutes, maxTrackedKeys = 50_000)
@@ -1357,6 +1360,10 @@ fun Application.module() {
             donationCheckoutRateLimiter = embedDonationCheckoutRateLimiter,
             donationCheckoutAttemptRateLimiter = embedDonationCheckoutAttemptRateLimiter,
             donationPageRateLimiter = embedDonationPageRateLimiter,
+            mailDispatcher = mailDispatcher,
+            eventRegistrationAttemptRateLimiter = eventRegistrationAttemptRateLimiter,
+            eventRegistrationRateLimiter = eventRegistrationRateLimiter,
+            eventPageRateLimiter = eventPageRateLimiter,
             brandTitle = resolvedBranding.title,
         )
         getAllServiceManagers().forEach { applyRoutes(it) }

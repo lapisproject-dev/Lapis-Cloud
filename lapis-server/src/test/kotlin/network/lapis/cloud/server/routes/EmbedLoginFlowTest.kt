@@ -20,6 +20,9 @@ import io.ktor.server.response.respondText
 import io.ktor.server.routing.routing
 import io.ktor.server.testing.ApplicationTestBuilder
 import io.ktor.server.testing.testApplication
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.datetime.LocalDate
 import network.lapis.cloud.server.db.DatabaseConfig
 import network.lapis.cloud.server.db.DevSeedData
@@ -29,6 +32,8 @@ import network.lapis.cloud.server.db.generated.SessionTable
 import network.lapis.cloud.server.embed.EmbedConfig
 import network.lapis.cloud.server.embed.EmbedOriginAllowlist
 import network.lapis.cloud.server.federation.FederationInboxRateLimiter
+import network.lapis.cloud.server.mail.MailDispatcher
+import network.lapis.cloud.server.mail.NoOpMailTransport
 import network.lapis.cloud.server.mail.PasswordResetMailer
 import network.lapis.cloud.server.security.LoginRateLimiter
 import network.lapis.cloud.server.security.PasswordHasher
@@ -100,6 +105,8 @@ class EmbedLoginFlowTest :
 
         fun generousLimiter() = FederationInboxRateLimiter(maxRequests = 10_000, window = 1.minutes)
 
+        fun noOpMailDispatcher() = MailDispatcher(transport = NoOpMailTransport(), scope = CoroutineScope(SupervisorJob() + Dispatchers.IO))
+
         val enabledConfig =
             EmbedConfig(
                 enabled = true,
@@ -140,6 +147,10 @@ class EmbedLoginFlowTest :
                             donationCheckoutRateLimiter = generousLimiter(),
                             donationCheckoutAttemptRateLimiter = generousLimiter(),
                             donationPageRateLimiter = generousLimiter(),
+                            mailDispatcher = noOpMailDispatcher(),
+                            eventRegistrationAttemptRateLimiter = generousLimiter(),
+                            eventRegistrationRateLimiter = generousLimiter(),
+                            eventPageRateLimiter = generousLimiter(),
                         )
                     }
                 }

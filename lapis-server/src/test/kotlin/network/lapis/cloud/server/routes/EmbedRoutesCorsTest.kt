@@ -19,6 +19,9 @@ import io.ktor.server.response.respondText
 import io.ktor.server.routing.routing
 import io.ktor.server.testing.ApplicationTestBuilder
 import io.ktor.server.testing.testApplication
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.datetime.LocalDate
 import network.lapis.cloud.server.branding.BrandConfig
 import network.lapis.cloud.server.branding.ResolvedBranding
@@ -30,6 +33,8 @@ import network.lapis.cloud.server.db.generated.SessionTable
 import network.lapis.cloud.server.embed.EmbedConfig
 import network.lapis.cloud.server.embed.EmbedOriginAllowlist
 import network.lapis.cloud.server.federation.FederationInboxRateLimiter
+import network.lapis.cloud.server.mail.MailDispatcher
+import network.lapis.cloud.server.mail.NoOpMailTransport
 import network.lapis.cloud.server.mail.PasswordResetMailer
 import network.lapis.cloud.server.security.LoginRateLimiter
 import network.lapis.cloud.server.security.SessionStore
@@ -118,6 +123,8 @@ class EmbedRoutesCorsTest :
 
         fun generousLimiter() = FederationInboxRateLimiter(maxRequests = 10_000, window = 1.minutes)
 
+        fun noOpMailDispatcher() = MailDispatcher(transport = NoOpMailTransport(), scope = CoroutineScope(SupervisorJob() + Dispatchers.IO))
+
         val enabledConfig =
             EmbedConfig(
                 enabled = true,
@@ -155,6 +162,10 @@ class EmbedRoutesCorsTest :
                             donationCheckoutRateLimiter = generousLimiter(),
                             donationCheckoutAttemptRateLimiter = generousLimiter(),
                             donationPageRateLimiter = generousLimiter(),
+                            mailDispatcher = noOpMailDispatcher(),
+                            eventRegistrationAttemptRateLimiter = generousLimiter(),
+                            eventRegistrationRateLimiter = generousLimiter(),
+                            eventPageRateLimiter = generousLimiter(),
                         )
                         if (withOtherPublicRoutes) {
                             registerAuthRoutes(
@@ -284,6 +295,22 @@ class EmbedRoutesCorsTest :
                 // has no session cookie to resolve in this request (see the enabled-config test above
                 // for the same 401-without-a-session behaviour).
                 client.get("/api/embed/v1/admin/status").status shouldBe HttpStatusCode.Unauthorized
+            }
+        }
+
+        test(
+            "config.enabled=false: POST /api/embed/v1/event/{slug}/registration is 404 -- the fourth " +
+                "widget's route is registered by registerEmbedEventRoutes, which registerEmbedRoutes " +
+                "only ever calls INSIDE the same enabled gate the other three widgets sit behind (V1.4.3.3)",
+        ) {
+            testApp(config = EmbedConfig.DISABLED) {
+                val response =
+                    client.post("/api/embed/v1/event/x/registration") {
+                        header(HttpHeaders.Origin, "https://partei.example")
+                        header(HttpHeaders.ContentType, "application/json")
+                        setBody("""{"guestName":"A","guestEmail":"a@example.org"}""")
+                    }
+                response.status shouldBe HttpStatusCode.NotFound
             }
         }
 

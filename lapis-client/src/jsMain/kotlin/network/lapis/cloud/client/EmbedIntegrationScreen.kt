@@ -92,8 +92,11 @@ private fun renderSnippetBlock(
 ) {
     root.h2(tr("Einbindungs-Code"))
     val snippet = buildEmbedSnippet(publicBaseUrl)
-    val snippetField = root.textArea(value = snippet, rows = 9) { addCssClasses("font-monospace small") }
+    val snippetField = root.textArea(value = snippet, rows = 12) { addCssClasses("font-monospace small") }
     snippetField.getElement()?.setAttribute("readonly", "readonly")
+    root.p(
+        tr("Ersetzen Sie \"ihre-veranstaltung\" durch den Slug Ihrer Veranstaltung — sonst rendert das Anmelde-Widget nicht."),
+    ) { addCssClasses("text-muted small") }
     val copyLabel = tr("Kopieren")
     val copiedLabel = tr("Kopiert")
     lateinit var copyButton: Button

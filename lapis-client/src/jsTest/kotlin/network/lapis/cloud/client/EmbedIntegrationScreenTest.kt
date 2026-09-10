@@ -34,6 +34,23 @@ class EmbedIntegrationScreenTest {
     }
 
     @Test
+    fun buildEmbedSnippet_containsTheEventWidgetNoJsFallbackAnchor() {
+        val snippet = buildEmbedSnippet("https://cloud.example.org")
+        assertTrue(snippet.contains("data-lapis-widget=\"event\""))
+        assertTrue(snippet.contains("data-lapis-event-slug=\"ihre-veranstaltung\""))
+        assertTrue(snippet.contains("<a href=\"https://cloud.example.org/veranstaltung/ihre-veranstaltung\">"))
+    }
+
+    @Test
+    fun buildEmbedSnippet_eventWidgetCarriesNoFallbackUrlAttribute() {
+        val snippet = buildEmbedSnippet("https://cloud.example.org")
+        val eventBlockStart = snippet.indexOf("data-lapis-widget=\"event\"")
+        val eventBlockEnd = snippet.indexOf("</div>", eventBlockStart)
+        val eventBlock = snippet.substring(eventBlockStart, eventBlockEnd)
+        assertTrue(!eventBlock.contains("data-lapis-fallback-url"))
+    }
+
+    @Test
     fun buildEmbedSnippet_isDeterministic() {
         val first = buildEmbedSnippet("https://cloud.example.org")
         val second = buildEmbedSnippet("https://cloud.example.org")

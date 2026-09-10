@@ -10323,3 +10323,8 @@ msgstr "Le numéro de dossier DATEV n'est pas un nombre valide."
 msgid "Impressum"
 msgstr "Mentions légales"
 
+# Welle V1.4.3.3 "Veranstaltungs-Anmeldung als einbettbares Website-Widget" -- appended, not interleaved alphabetically (see CLAUDE.md i18n note).
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/EmbedIntegrationScreen.kt
+msgid "Ersetzen Sie \"ihre-veranstaltung\" durch den Slug Ihrer Veranstaltung — sonst rendert das Anmelde-Widget nicht."
+msgstr "Remplacez « ihre-veranstaltung » par le slug de votre événement, sinon le widget d'inscription ne s'affichera pas."

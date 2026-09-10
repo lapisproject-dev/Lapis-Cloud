@@ -10222,3 +10222,8 @@ msgstr "Номер клиента DATEV не является допустимы
 msgid "Impressum"
 msgstr "Правовая информация"
 
+# Welle V1.4.3.3 "Veranstaltungs-Anmeldung als einbettbares Website-Widget" -- appended, not interleaved alphabetically (see CLAUDE.md i18n note).
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/EmbedIntegrationScreen.kt
+msgid "Ersetzen Sie \"ihre-veranstaltung\" durch den Slug Ihrer Veranstaltung — sonst rendert das Anmelde-Widget nicht."
+msgstr "Замените «ihre-veranstaltung» на слаг вашего мероприятия — иначе виджет регистрации не отобразится."

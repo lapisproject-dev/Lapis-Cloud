@@ -10240,3 +10240,8 @@ msgstr "DATEV-cliëntnummer is geen geldig getal."
 msgid "Impressum"
 msgstr "Colofon"
 
+# Welle V1.4.3.3 "Veranstaltungs-Anmeldung als einbettbares Website-Widget" -- appended, not interleaved alphabetically (see CLAUDE.md i18n note).
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/EmbedIntegrationScreen.kt
+msgid "Ersetzen Sie \"ihre-veranstaltung\" durch den Slug Ihrer Veranstaltung — sonst rendert das Anmelde-Widget nicht."
+msgstr "Vervang \"ihre-veranstaltung\" door de slug van uw evenement — anders wordt de aanmeldwidget niet weergegeven."

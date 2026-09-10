@@ -14,9 +14,14 @@ import io.ktor.http.HttpStatusCode
 import io.ktor.server.routing.routing
 import io.ktor.server.testing.ApplicationTestBuilder
 import io.ktor.server.testing.testApplication
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import network.lapis.cloud.server.embed.EmbedConfig
 import network.lapis.cloud.server.embed.EmbedOriginAllowlist
 import network.lapis.cloud.server.federation.FederationInboxRateLimiter
+import network.lapis.cloud.server.mail.MailDispatcher
+import network.lapis.cloud.server.mail.NoOpMailTransport
 import network.lapis.cloud.server.payment.psp.PspConfig
 import network.lapis.cloud.server.payment.psp.PspConfigState
 import java.io.File
@@ -38,6 +43,8 @@ class EmbedAssetTest :
         val loginPopupJs = File(resourceDir(), "login-popup.js")
 
         fun generousLimiter() = FederationInboxRateLimiter(maxRequests = 10_000, window = 1.minutes)
+
+        fun noOpMailDispatcher() = MailDispatcher(transport = NoOpMailTransport(), scope = CoroutineScope(SupervisorJob() + Dispatchers.IO))
 
         val enabledConfig =
             EmbedConfig(
@@ -66,6 +73,10 @@ class EmbedAssetTest :
                             donationCheckoutRateLimiter = generousLimiter(),
                             donationCheckoutAttemptRateLimiter = generousLimiter(),
                             donationPageRateLimiter = generousLimiter(),
+                            mailDispatcher = noOpMailDispatcher(),
+                            eventRegistrationAttemptRateLimiter = generousLimiter(),
+                            eventRegistrationRateLimiter = generousLimiter(),
+                            eventPageRateLimiter = generousLimiter(),
                         )
                     }
                 }
@@ -111,6 +122,10 @@ class EmbedAssetTest :
                             donationCheckoutRateLimiter = generousLimiter(),
                             donationCheckoutAttemptRateLimiter = generousLimiter(),
                             donationPageRateLimiter = generousLimiter(),
+                            mailDispatcher = noOpMailDispatcher(),
+                            eventRegistrationAttemptRateLimiter = generousLimiter(),
+                            eventRegistrationRateLimiter = generousLimiter(),
+                            eventPageRateLimiter = generousLimiter(),
                         )
                     }
                 }
@@ -120,7 +135,7 @@ class EmbedAssetTest :
 
         test(
             "donationRange prelude: present with the correct min/max JSON when the PSP is Configured " +
-                "and the range is usable, and the served bundle stays within the 13824-byte budget " +
+                "and the range is usable, and the served bundle stays within the 20480-byte budget " +
                 "INCLUDING this line (Review MINOR, Round 3 -- the pre-existing budget tests below never " +
                 "exercised this branch, because testApp hardcodes PspConfigState.NotConfigured; see their " +
                 "own comment for why the budget itself had to move to accommodate this)",
@@ -131,7 +146,7 @@ class EmbedAssetTest :
                 // EmbedDonationLimits.effectiveMaxAmountEur -- and both bounds are stripped of their
                 // trailing ".00" (Review TRIVIAL fix, EmbedAssets.widgetJs).
                 body shouldContain """window.__lapisEmbedDonationRangeV1={"min":"5","max":"500"};"""
-                body.toByteArray(Charsets.UTF_8).size.toLong() shouldBeLessThanOrEqualTo 13824L
+                body.toByteArray(Charsets.UTF_8).size.toLong() shouldBeLessThanOrEqualTo 20480L
             }
         }
 
@@ -172,20 +187,27 @@ class EmbedAssetTest :
         // actually ships in production -- with that line (and the data-lapis-amounts fallback fix
         // right above), the 13312 ceiling left only single-digit bytes of headroom for a REAL
         // deployment (an operator with three allowed origins was already over it -- see the
-        // donationRange test above). 13824 restores a realistic margin for both the raw file and
+        // donationRange test above). 13824 restored a realistic margin for both the raw file and
         // the served bundle with every prelude line a real installation can carry at once.
-        // Deliberately and bounded, not stealth: the value is a named constant right here, not
-        // silently widened, and the file stays unminified/readable (no minification used to "cheat"
-        // the budget down).
-        test("lapis-widgets.js resource file is at most 13824 bytes unminified") {
+        // Raised a fourth time, 13824 -> 20480 bytes, in Welle V1.4.3.3 -- the fourth widget
+        // (`hydrateEvent()`, the embeddable event-registration form: two labelled fields, a
+        // honeypot, and a full set of German status/error strings for every outcome the
+        // `POST /api/embed/v1/event/{slug}/registration` contract defines) added roughly 4.7 KB,
+        // more than the original per-widget estimate -- German UI copy carries real weight in
+        // UTF-8, and this widget's contract (unlike donate's single amount field) needed a
+        // full name+email form with its own validation/error/success copy. Deliberately and
+        // bounded, not stealth: the value is a named constant right here, not silently widened,
+        // and the file stays unminified/readable (no minification used to "cheat" the budget
+        // down) -- see `hydrateEvent()`'s own comments in `lapis-widgets.js` for the actual code.
+        test("lapis-widgets.js resource file is at most 20480 bytes unminified") {
             widgetsJs.exists() shouldBe true
-            widgetsJs.readBytes().size.toLong() shouldBeLessThanOrEqualTo 13824L
+            widgetsJs.readBytes().size.toLong() shouldBeLessThanOrEqualTo 20480L
         }
 
-        test("served bundle body is at most 13824 bytes INCLUDING the origin-allowlist prelude") {
+        test("served bundle body is at most 20480 bytes INCLUDING the origin-allowlist prelude") {
             testApp {
                 val body = client.get("/embed/v1/lapis-widgets.js").bodyAsText()
-                body.toByteArray(Charsets.UTF_8).size.toLong() shouldBeLessThanOrEqualTo 13824L
+                body.toByteArray(Charsets.UTF_8).size.toLong() shouldBeLessThanOrEqualTo 20480L
             }
         }
 
@@ -321,6 +343,26 @@ class EmbedAssetTest :
         }
 
         test(
+            "lapis-widgets.js: hydrateEvent exists, scan() dispatches data-lapis-widget=\"event\" to it, " +
+                "the No-JS fallback is derived as /veranstaltung/<slug> (never a data-lapis-fallback-url " +
+                "attribute -- that stays donate-widget-only, Falle F-6), the fetch omits credentials, and a " +
+                "missing/placeholder slug logs a console.error instead of mounting (Falle F-5)",
+        ) {
+            val text = widgetsJs.readText()
+            text shouldContain "function hydrateEvent(host)"
+            text shouldContain "else if (kind === \"event\") hydrateEvent(host);"
+            text shouldContain "\"/veranstaltung/\" + encodeURIComponent(slug)"
+            text shouldContain "console.error(\"[lapis-widgets] data-lapis-event-slug fehlt"
+            // hydrateEvent's OWN body never reads data-lapis-fallback-url -- scoped to that
+            // function's text (not the whole file), since hydrateDonate legitimately reads it.
+            val startIdx = text.indexOf("function hydrateEvent(host)")
+            val endIdx = text.indexOf("\n  function scan()", startIdx)
+            val hydrateEventBody = text.substring(startIdx, endIdx)
+            hydrateEventBody shouldNotContain "data-lapis-fallback-url"
+            hydrateEventBody shouldContain "credentials: \"omit\""
+        }
+
+        test(
             "the credentials-allow header is never SET anywhere in the embed Kotlin package or in " +
                 "EmbedHtml.kt/EmbedRoutes.kt -- neither via the literal wire-format string NOR via Ktor's " +
                 "AccessControlAllowCredentials constant (Review-Fund V1.4.1a: a scan for only the literal " +
@@ -338,6 +380,9 @@ class EmbedAssetTest :
                     // neuen routes-Dateien).
                     File(kotlinSourceDir(), "network/lapis/cloud/server/routes/EmbedDonationRoutes.kt"),
                     File(kotlinSourceDir(), "network/lapis/cloud/server/routes/EmbedDonationHtml.kt"),
+                    // Welle V1.4.3.3 -- die vierte neue Routen-Datei lebt ebenfalls im `routes`-
+                    // Paket, nicht im `embed`-Paket (see the two entries directly above).
+                    File(kotlinSourceDir(), "network/lapis/cloud/server/routes/EmbedEventRoutes.kt"),
                 )
             val kotlinFiles = (embedPackageDir.listFiles { f -> f.extension == "kt" }?.toList().orEmpty()) + extraFiles
             kotlinFiles.isEmpty() shouldBe false

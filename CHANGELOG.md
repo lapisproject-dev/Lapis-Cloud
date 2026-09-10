@@ -8,6 +8,32 @@ All notable changes to this project are documented here. Format follows
 
 ### Added
 
+**Veranstaltungs-Anmeldung als einbettbares Website-Widget (V1.4.3.3, 2026-09-10)**
+
+- **Hinzugefügt**: `POST /api/embed/v1/event/{slug}/registration` (+ `OPTIONS`-Preflight) --
+  viertes Embed-Widget, `data-lapis-widget="event"` in `lapis-widgets.js`. Schließt die seit
+  V1.4.3.1 in `EventPublicRoutes.kt` dokumentierte, bewusst zurückgestellte Lücke (die JSON-Variante
+  der Anmeldung hatte bis jetzt keinen Konsumenten). Neuer Doku-Abschnitt
+  `docs/api/embed-widgets.adoc#event-registration-widget` mit kUML-Ablaufdiagramm, vierter
+  Snippet-Block im ADMIN-Screen „Website-Integration" (`EmbedIntegrationHttp.buildEmbedSnippet`).
+- **Sicherheit**: kein Enumerations-Orakel über bestehende Anmeldungen -- `AlreadyRegistered`
+  antwortet byte-identisch wie `Confirmed` (`{"outcome":"CONFIRMED"}`), die Antwort trägt weder
+  `registrationId` noch die Wartelisten-Position (bewusst verlustbehaftete Projektion von
+  `EventRegistrationResult`, kein Serializer -- `embedEventResponseFor`, unit-getestet über alle
+  acht Zweige inkl. `WaitlistFull`). Geteiltes Rate-Limit-Budget mit der bestehenden
+  Formular-Route `/veranstaltung/{slug}/anmeldung` (dieselben `FederationInboxRateLimiter`-
+  Instanzen aus `Application.kt`, 30/60min generös + 5/60min strikt), damit der Widget-Pfad die
+  Obergrenze nicht verdoppelt. `Content-Type: application/json` wird erzwungen (415), was zugleich
+  den CORS-Preflight -- und damit das Origin-Gate -- garantiert; die ältere Spenden-Route hat diese
+  Prüfung nicht (dokumentierte Lücke dort, keine Konvention).
+- **Migration**: keine -- alle benötigten Spalten existieren seit `V18__events.sql`/der
+  Ticketing-Welle, kein neuer Index, kein neuer Constraint, keine neue Umgebungsvariable.
+- **Bewusste Grenze**: nach der Stripe-Zahlung landet der Besucher auf dem Lapis-Host
+  (`/veranstaltung/{slug}/danke`), nicht zurück auf der Partner-Seite -- eine Reparatur würde
+  `EventRegistrationSubmission`/`StripeReturnUrls` berühren (out of scope dieser Welle). Ebenso
+  bewusst zurückgestellt: ein Ein-Klick-Kopierknopf am jeweiligen Veranstaltungs-Datensatz statt des
+  Platzhalter-Slugs `"ihre-veranstaltung"` im Snippet.
+
 **Admin-Passwort-Reset (V1.4.9, 2026-09-09)**
 
 - **Fund**: es gab keinen admin-ausgelösten Weg, einem gesperrten oder passwortlosen Mitglied

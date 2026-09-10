@@ -1,5 +1,5 @@
-= Website Embed Widgets — V1.4.1a/V1.4.1b "Öffentliche Website-Integration"
-:description: Embeddable login/join/donate widgets for a partner website — snippet, CORS/CSP contract, popup+postMessage login flow, anonymous donation checkout, environment variables.
+= Website Embed Widgets — V1.4.1a/V1.4.1b/V1.4.3.3 "Öffentliche Website-Integration"
+:description: Embeddable login/join/donate/event-registration widgets for a partner website — snippet, CORS/CSP contract, popup+postMessage login flow, anonymous donation checkout, event registration, environment variables.
 :toc:
 :toc-placement: preamble
 :icons: font
@@ -15,7 +15,7 @@ never removes it as a first step and then fails to add anything back.
 == Overview
 
 Welle V1.4.1a lets a partner website (a party's or association's own site, hosted on a *different*
-origin than this server) embed three small widgets:
+origin than this server) embed four small widgets:
 
 * `data-lapis-widget="login"` — a button that opens a popup window for member login, using
   `postMessage` to report the outcome back to the embedding page without ever sharing a session
@@ -23,8 +23,10 @@ origin than this server) embed three small widgets:
 * `data-lapis-widget="join"` — a plain link to this server's own `/app#/register` screen.
 * `data-lapis-widget="donate"` — a one-field, anonymous donation form (Welle V1.4.1b, see
   <<anonymous-donation-widget>>).
+* `data-lapis-widget="event"` — a name+email registration form for one specific, PUBLIC event
+  (Welle V1.4.3.3, see <<event-registration-widget>>).
 
-All three are opt-in, `LAPIS_EMBED_ENABLED=false` by default (see <<environment-variables>>).
+All four are opt-in, `LAPIS_EMBED_ENABLED=false` by default (see <<environment-variables>>).
 
 == Embedding snippet
 
@@ -43,6 +45,10 @@ All three are opt-in, `LAPIS_EMBED_ENABLED=false` by default (see <<environment-
 <div data-lapis-widget="donate" data-lapis-fallback-url="">
   <a href="https://<lapis-host>/app#/donate">Spenden</a>
 </div>
+
+<div data-lapis-widget="event" data-lapis-event-slug="ihre-veranstaltung">
+  <a href="https://<lapis-host>/veranstaltung/ihre-veranstaltung">Zur Anmeldung</a>
+</div>
 ----
 
 NOTE: Welle V1.4.6 "Öffentliche Startseite" moved the member SPA from `/` to `/app` — the fallback
@@ -58,6 +64,13 @@ silently. Presets above the effective ceiling (the lower of `LAPIS_PSP_MAX_CHECK
 this widget's own 500&#160;€ cap, see <<anonymous-donation-widget>>) are silently dropped -- if that
 removes every preset (custom or default), the widget falls back to a single button at the
 floor (5&#160;€ by default).
+
+`data-lapis-event-slug` (required, on the `event` host only) is the *only* attribute the event
+widget reads — it must be replaced with the target event's real slug. Leaving the placeholder
+`"ihre-veranstaltung"` in place (or omitting the attribute) is not silently wrong: the widget logs
+a `console.error` and never mounts, so the No-JS fallback link above stays visible instead of an
+empty box. There is no `data-lapis-fallback-url` on this host — the widget derives its own
+fallback link from `data-lapis-event-slug` itself, see <<event-registration-widget>>.
 
 The exact snippet, pre-filled with this deployment's real `LAPIS_PUBLIC_BASE_URL`, is shown
 read-only on the ADMIN-only *Website-Integration* screen
@@ -198,6 +211,15 @@ On mobile browsers that open the popup as a new tab rather than a real popup win
 schließen." instead of auto-closing, since it has no opener to notify and no promise that the
 originating tab is even still open.
 
+Welle V1.4.3.3: after a successful Stripe payment for a paid event, the visitor is returned to
+`\{lapis-host}/veranstaltung/{slug}/danke` — the Lapis host itself, *not* back to the partner page
+that embedded the widget (see `StripeReturnUrls.eventRegistration`). Fixing this would require
+threading the embedding page's own origin through the Stripe checkout session, touching
+`EventRegistrationSubmission`/`StripeReturnUrls` — deliberately out of scope for this wave. Also
+deliberately deferred: the snippet above carries a placeholder slug (`"ihre-veranstaltung"`) that
+must be hand-edited per event; a one-click "copy snippet" button on the event's own admin record
+(pre-filled with the real slug) is a documented follow-up wave, not built here.
+
 [[anonymous-donation-widget]]
 == Spenden-Widget (anonymous donation, Welle V1.4.1b)
 
@@ -310,11 +332,156 @@ minimization). Neither the widget, the checkout endpoint, nor the return pages e
 store a name or an email address; Stripe handles the payment method and any payment confirmation
 email entirely on its own side.
 
+[[event-registration-widget]]
+== Anmeldungs-Widget (event registration, Welle V1.4.3.3)
+
+`data-lapis-widget="event"` renders a two-field form — name and email — for exactly one, specific
+`PUBLIC` event, identified by `data-lapis-event-slug`. It is the JSON/widget counterpart of the
+server-rendered `<form method=post>` at `/veranstaltung/{slug}` — same fachlogik
+(`EventRegistrationSubmission`), same honeypot, same abuse-protection layers, different transport.
+
+=== `POST /api/embed/v1/event/{slug}/registration`
+
+CORS-gated exactly like the rest of this welle's endpoints, with the SAME deliberate deviation the
+donation checkout already establishes: a request with NO `Origin` header at all is *also* rejected
+(`403`) — this endpoint has no legitimate same-origin caller either. `Content-Type: application/json`
+is *required* (`415` otherwise) — unlike the donation checkout route, which has no such check (a
+documented gap there, not a convention this route repeats). Requiring it here has a useful side
+effect: a non-`GET`/non-simple `Content-Type` always triggers a browser CORS preflight first, so a
+successful `POST` past this check is proof the Origin gate already ran.
+
+Request body (`application/json`, at most 4096 bytes):
+
+[source,json]
+----
+{"guestName": "Anna Beispiel", "guestEmail": "anna@example.org", "kommentar": ""}
+----
+
+`kommentar` is the SAME honeypot field the server-rendered form's `params["kommentar"]` already
+uses — a hidden field a real registrant never sees or fills. A non-blank `kommentar` returns the
+identical `200 {"outcome":"CONFIRMED"}` a genuine confirmed registration would, with no database
+write and nothing logged, and is checked *before* the slug is even resolved: a bot gets the same
+`200` regardless of which slug it guessed, while an honest caller with a genuinely unknown slug
+gets `404`.
+
+Rate limit: the SAME two budgets `/veranstaltung/{slug}/anmeldung` already uses — a generous
+admission limit (30 per hour per source IP), checked before the JSON body is even decoded, and the
+strict *5 registrations per hour per source IP* budget, checked immediately before the database/
+Stripe work. Both are the SAME `FederationInboxRateLimiter` *instances* the form route uses (see
+`Application.kt`), a deliberate shared budget — the widget cannot be used to grant a caller a
+second, independent 5/60min allowance the form route doesn't already cap them to. The honeypot hit
+consumes neither budget beyond the generous one. `OPTIONS` (the CORS preflight) runs against a
+third, separate, soft 60/minute budget so a browser's own preflight before every real `POST` never
+eats into either registration budget.
+
+[cols="1,2"]
+|===
+|Response |Meaning
+
+|`200 {"outcome":"CONFIRMED"}`
+|A brand-new confirmed registration (free event, or a paid event's registration where — structurally
+impossible today, but see the fachlogik — no payment step is needed), an ALREADY-registered guest
+(same email, second attempt), or the honeypot was tripped.
++
+**The byte-identical body only holds across all three cases for a fee-free event
+(`feeAmount == 0`).** On a *paid* event, an ALREADY-registered guest still gets this exact
+`{"outcome":"CONFIRMED"}` body, but a brand-new registration instead gets
+`200 {"outcome":"PAYMENT_REQUIRED","redirectUrl":"..."}` (see below) — the two cases are
+distinguishable on the wire. Deliberately still no *literal* "you are already registered" message
+(no enumeration oracle in those exact words, and a detected bot never learns it was detected), but
+an unauthenticated caller who already knows (or can send from) an allowlisted partner origin can
+probe a specific, known e-mail address against a paid event and infer from `CONFIRMED` vs.
+`PAYMENT_REQUIRED` whether that address is already registered — capped, but not prevented, by the
+strict 5-attempts/60min `registrationRateLimiter` per source IP. The same distinguishability
+already exists, unchanged, on the server-rendered `/veranstaltung/{slug}/anmeldung` form route (not
+a regression of this widget) — closing it for both routes (e.g. by also returning a payment-resume
+redirect for an ALREADY-registered guest on a paid event) is tracked as follow-up work, not yet
+implemented.
+
+|`200 {"outcome":"WAITLISTED"}`
+|The event is full; the guest joined the waitlist. No waitlist position is ever returned.
+
+|`200 {"outcome":"PAYMENT_REQUIRED","redirectUrl":"..."}`
+|A paid event placed the guest in a `PENDING_PAYMENT` seat; `redirectUrl` is the Stripe-hosted
+checkout page the widget redirects the browser to (`window.location.assign`, full top-level
+navigation, same reasoning the donation widget's own redirect already documents).
+
+|`400 {"outcome":"BAD_REQUEST"}`
+|Malformed JSON, a blank/oversized `guestName` (over 300 characters), or a missing/oversized
+`guestEmail` (over 320 characters). `EventPolicy.normalizeGuestEmail` trims and lowercases but does
+not check the address for a valid email *shape* (no `@`/domain check) — same scope-cut
+`CrmContactPolicy.normalizeEmail` already documents for CRM contacts. The widget's own client-side
+check (`email.indexOf("@") <= 0`) and the `<input type="email">` field are the only format guard; a
+direct API caller can submit an address with no `@` at all and receive `200 CONFIRMED`.
+
+|`404 {"outcome":"NOT_AVAILABLE"}`
+|The slug does not resolve to a `PUBLIC` event at all — covers an unknown slug, `DRAFT`,
+`CANCELLED`, and `MEMBERS_ONLY` events uniformly. No existence oracle for an anonymous caller.
+
+|`409 {"outcome":"WAITLIST_FULL"}`
+|The event's waitlist is already at its cap (`EventPolicy.MAX_WAITLIST`, 500 entries).
+
+|`413`
+|Body exceeds the 4096-byte cap (checked before the body is even read, or while streaming it in) —
+no JSON body at all, just the status.
+
+|`415`
+|`Content-Type` was not `application/json` — no JSON body, just the status.
+
+|`429 {"outcome":"RATE_LIMITED","retryAfterSeconds":N}`
+|Either rate limit exceeded (see above); also carries a `Retry-After` header.
+
+|`503 {"outcome":"UNAVAILABLE"}`
+|The event has a fee and the payment gateway is not usable (disabled, unconfigured, or the
+compliance disclaimer is stale) — deliberately never says WHICH condition is missing. Also the
+generic fallback for an unhandled server-side exception (`500` never leaves this endpoint's own
+JSON envelope).
+
+|`502 {"outcome":"GATEWAY_ERROR"}`
+|Stripe itself rejected or could not be reached. Stripe's own error text is logged server-side only.
+|===
+
+Why `outcome` and not the donation checkout's `error` field: the donation contract is already
+published and frozen, and retrofitting it would be a breaking change for any code already
+integrating against it. A waitlisted registration is not an error either — a single discriminator
+that is present in *every* response body, including `400`/`429`, reads more honestly than
+overloading a field named `error` with a non-error value.
+
+=== DSGVO / what is stored
+
+Exactly what the server-rendered form already stores: the guest's name and email, nothing more.
+The widget itself sets no cookie, uses no browser storage on the partner origin, and sends
+`credentials: "omit"` on every request — no session/credential of any kind ever crosses the origin
+boundary in either direction.
+
+[kuml, embed-event-registration-flow, svg]
+----
+sequenceDiagram(name = "Embed-Widget Anmeldungs-Flow (V1.4.3.3)") {
+    val partnerPage = participant(name = "Partner-Seite (fremde Origin)")
+    val widget = participant(name = "lapis-widgets.js")
+    val server = participant(name = "Lapis Cloud Server")
+    val submission = participant(name = "EventRegistrationSubmission")
+    val stripe = participant(name = "Stripe")
+
+    message(from = partnerPage, to = widget, text = "Formular ausgefüllt, \"Anmelden\" geklickt")
+    message(from = widget, to = server, text = "POST /api/embed/v1/event/{slug}/registration (credentials: omit)")
+    message(from = server, to = server, text = "CORS-Gate -> Content-Type-Check -> Rate-Limits -> Honeypot -> Validierung -> Slug/Sichtbarkeit")
+    message(from = server, to = submission, text = "submit(eventId, Guest(name, email))")
+    message(from = submission, to = server, text = "Confirmed | Waitlisted | PaymentRequired | ...")
+    message(from = server, to = widget, text = "200 {outcome: CONFIRMED|WAITLISTED|PAYMENT_REQUIRED, redirectUrl?}")
+    message(from = widget, to = partnerPage, text = "Formular durch Bestätigungstext ersetzt")
+    message(from = widget, to = stripe, text = "[falls PAYMENT_REQUIRED] window.location.assign(redirectUrl) -- volle Top-Level-Navigation")
+}
+----
+
 == Scope of this wave
 
 Welle V1.4.1a shipped the login/join widgets and the read-only admin status screen. Welle V1.4.1b
-adds the anonymous donation widget above, on the SAME `EmbedConfig`/`EmbedCors`/`EmbedAssets`
-infrastructure — no new environment variable was needed (see <<environment-variables>>).
+added the anonymous donation widget, on the SAME `EmbedConfig`/`EmbedCors`/`EmbedAssets`
+infrastructure — no new environment variable was needed (see <<environment-variables>>). Welle
+V1.4.3.3 adds the event-registration widget above, on the SAME infrastructure again — still no new
+environment variable, and no database migration (every column it writes through
+`EventRegistrationSubmission` already existed).
 
 See also: <<public-api-v1.adoc#,Public API — V1.3.1/V1.3.2>> for the sibling `/api/v1` read-only
 REST surface (a different audience: machine-to-machine integrations, not a browser widget).

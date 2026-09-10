@@ -25,6 +25,7 @@ import network.lapis.cloud.server.embed.respondEmbedForbiddenOrigin
 import network.lapis.cloud.server.embed.respondEmbedPreflight
 import network.lapis.cloud.server.federation.FederationConfig
 import network.lapis.cloud.server.federation.FederationInboxRateLimiter
+import network.lapis.cloud.server.mail.MailDispatcher
 import network.lapis.cloud.server.payment.psp.PspConfigState
 import network.lapis.cloud.server.payment.psp.StripeCheckoutClient
 import network.lapis.cloud.server.rpc.ORGANIZATION_SETTINGS_ID
@@ -70,6 +71,16 @@ private val JSON_CONTENT_TYPE = ContentType.Application.Json.withParameter("char
  * **`baseUrl` comes exclusively from [FederationConfig.publicBaseUrl]**, never from the request's
  * `Host` header -- same Host-header-injection hardening as every other public route family in this
  * server.
+ *
+ * **Welle V1.4.3.3 "Veranstaltungs-Anmeldung als einbettbares Website-Widget"** adds the fourth
+ * widget, `POST /api/embed/v1/event/{slug}/registration` (see [registerEmbedEventRoutes]), on this
+ * SAME `EmbedConfig`/CORS infrastructure -- `EmbedConfig.enabled=false` leaves it un-registered
+ * exactly like the other three, so the widget 404s while the server-rendered
+ * `/veranstaltung/{slug}/anmeldung` form keeps working. [mailDispatcher]/
+ * [eventRegistrationAttemptRateLimiter]/[eventRegistrationRateLimiter]/[eventPageRateLimiter] are
+ * BEWUSST die SELBEN Instanzen [registerEventPublicRoutes] bereits für die Formular-Route verwendet
+ * (see `Application.kt`'s own call site) -- ein geteiltes Budget, damit der Embed-Pfad die
+ * 5/60min-Obergrenze nicht verdoppelt.
  */
 fun Route.registerEmbedRoutes(
     config: EmbedConfig,
@@ -85,6 +96,14 @@ fun Route.registerEmbedRoutes(
     donationCheckoutRateLimiter: FederationInboxRateLimiter,
     donationCheckoutAttemptRateLimiter: FederationInboxRateLimiter,
     donationPageRateLimiter: FederationInboxRateLimiter,
+    // Welle V1.4.3.3 -- Anmeldungs-Widget. Kein Default (Money-/Schreibpfad, wie die Spenden-
+    // Parameter oben). mailDispatcher ist neu in dieser Funktion; die drei Limiter sind BEWUSST
+    // dieselben Instanzen, die registerEventPublicRoutes bereits benutzt (geteiltes Budget = kein
+    // Bypass der 5/60min-Obergrenze über den Widget-Pfad).
+    mailDispatcher: MailDispatcher,
+    eventRegistrationAttemptRateLimiter: FederationInboxRateLimiter,
+    eventRegistrationRateLimiter: FederationInboxRateLimiter,
+    eventPageRateLimiter: FederationInboxRateLimiter,
     brandTitle: String = BrandConfig.DEFAULT_TITLE,
 ) {
     // Registered FIRST, unconditionally -- see this function's own KDoc "A false EmbedConfig.enabled
@@ -127,6 +146,18 @@ fun Route.registerEmbedRoutes(
         donationPageRateLimiter = donationPageRateLimiter,
         baseUrl = baseUrl,
         brandTitle = brandTitle,
+    )
+
+    // Welle V1.4.3.3 "Veranstaltungs-Anmeldung als einbettbares Website-Widget".
+    registerEmbedEventRoutes(
+        config = config,
+        pspConfigState = pspConfigState,
+        checkoutClient = checkoutClient,
+        mailDispatcher = mailDispatcher,
+        baseUrl = baseUrl,
+        attemptRateLimiter = eventRegistrationAttemptRateLimiter,
+        registrationRateLimiter = eventRegistrationRateLimiter,
+        pageRateLimiter = eventPageRateLimiter,
     )
 
     get("/embed/v1/lapis-widgets.js") {

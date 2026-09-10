@@ -279,6 +279,88 @@
     });
   }
 
+  // ── Anmeldungs-Widget (V1.4.3.3) ─────────────────────────────────────────────────────
+  var EVT = {
+    name: "Name", email: "E-Mail", submit: "Anmelden", pending: "Bitte warten …", fb: "Zur Anmeldungsseite",
+    confirmed: "Anmeldung bestätigt. Sie erhalten eine E-Mail.",
+    waitlisted: "Sie stehen auf der Warteliste. Wir melden uns, sobald ein Platz frei wird.",
+    redirecting: "Weiterleitung zur Zahlung …",
+    eGeneric: "Bitte erneut versuchen.", retryIn: "Erneut in %s Sek.",
+    eName: "Bitte einen Namen eingeben.", eEmail: "Bitte eine gültige E-Mail-Adresse eingeben.",
+    eNotAvailable: "Diese Veranstaltung ist derzeit nicht für Anmeldungen geöffnet."
+  };
+  var ECSS = ".hp{position:absolute;left:-9999px;width:1px;height:1px;overflow:hidden}" +
+    ".fld{display:block;margin:.35rem 0;min-height:44px}.err{color:#B00020}";
+
+  // Slug zuerst, mount() danach -- mount() haengt eine CLOSED Shadow Root an und verdeckt damit
+  // den No-JS-Fallback-Link; ohne Slug darf mount() nie laufen (Falle F-5).
+  function hydrateEvent(host) {
+    var slug = host.getAttribute("data-lapis-event-slug");
+    if (!slug || slug === "ihre-veranstaltung") {
+      console.error("[lapis-widgets] data-lapis-event-slug fehlt -- Anmeldungs-Widget nicht gerendert.");
+      return;
+    }
+    var root = mount(host);
+    root.querySelector("style").textContent += ECSS;
+    // Abgeleitet aus dem Slug, kein eigenes Fallback-URL-Attribut auf diesem Host (Falle F-6).
+    var fbUrl = LAPIS_ORIGIN + "/veranstaltung/" + encodeURIComponent(slug);
+
+    var form = document.createElement("form");
+    var nI = el("input", { type: "text", required: true, autocomplete: "name" });
+    nI.maxLength = 300;
+    var nL = el("label", { className: "fld", textContent: EVT.name });
+    nL.appendChild(nI);
+    form.appendChild(nL);
+    var eI = el("input", { type: "email", required: true, autocomplete: "email" });
+    eI.maxLength = 320;
+    var eL = el("label", { className: "fld", textContent: EVT.email });
+    eL.appendChild(eI);
+    form.appendChild(eL);
+    var hp = el("input", { type: "text", name: "kommentar", className: "hp", autocomplete: "off", tabIndex: -1, "aria-hidden": "true" });
+    form.appendChild(hp);
+    var button = el("button", { type: "submit", className: "b f", textContent: EVT.submit });
+    form.appendChild(button);
+    var status = el("span", { className: "s", "aria-live": "polite" });
+    form.appendChild(status);
+    var fbA = el("a", { className: "l", textContent: EVT.fb, href: fbUrl, hidden: true });
+    form.appendChild(fbA);
+    root.appendChild(form);
+
+    var EMSG = {
+      404: EVT.eNotAvailable, 409: "Anmeldung derzeit nicht möglich.", 503: "Derzeit nicht verfügbar.",
+      502: "Zahlungsanbieter nicht erreichbar.", 400: "Bitte Eingaben prüfen."
+    };
+
+    function showError(message) {
+      button.disabled = false; nI.disabled = false; eI.disabled = false;
+      status.className = "s err"; status.textContent = message; fbA.hidden = false;
+    }
+
+    form.addEventListener("submit", function (e) {
+      e.preventDefault();
+      var name = nI.value.trim(), email = eI.value.trim();
+      if (!name) { showError(EVT.eName); return; }
+      if (email.indexOf("@") <= 0) { showError(EVT.eEmail); return; }
+      button.disabled = true; nI.disabled = true; eI.disabled = true;
+      status.className = "s"; status.textContent = EVT.pending; fbA.hidden = true;
+      fetch(LAPIS_ORIGIN + "/api/embed/v1/event/" + encodeURIComponent(slug) + "/registration", {
+        method: "POST", credentials: "omit", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ guestName: name, guestEmail: email, kommentar: hp.value })
+      }).then(function (res) {
+        if (res.status === 200 || res.status === 429) {
+          return res.json().then(function (d) {
+            if (d.outcome === "CONFIRMED") { root.replaceChild(el("p", { textContent: EVT.confirmed, "aria-live": "polite" }), form); return; }
+            if (d.outcome === "WAITLISTED") { root.replaceChild(el("p", { textContent: EVT.waitlisted, "aria-live": "polite" }), form); return; }
+            if (d.outcome === "PAYMENT_REQUIRED") { status.textContent = EVT.redirecting; window.location.assign(d.redirectUrl); return; }
+            if (d.outcome === "RATE_LIMITED") { showError(d.retryAfterSeconds ? EVT.retryIn.replace("%s", d.retryAfterSeconds) : EVT.eGeneric); return; }
+            showError(EVT.eGeneric);
+          }).catch(function () { showError(EVT.eGeneric); });
+        }
+        showError(EMSG[res.status] || EVT.eGeneric);
+      }).catch(function () { showError(EVT.eGeneric); });
+    });
+  }
+
   function scan() {
     var hosts = document.querySelectorAll("[data-lapis-widget]");
     for (var i = 0; i < hosts.length; i++) {
@@ -287,6 +369,7 @@
       if (kind === "login") hydrateLogin(host);
       else if (kind === "join") hydrateJoin(host);
       else if (kind === "donate") hydrateDonate(host);
+      else if (kind === "event") hydrateEvent(host);
     }
   }
 
