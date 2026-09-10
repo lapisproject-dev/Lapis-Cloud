@@ -71,7 +71,10 @@ internal object BankStatementStore {
             val rows =
                 (BankStatementImportTable innerJoin MemberTable)
                     .selectAll()
-                    .orderBy(BankStatementImportTable.uploadedAt, SortOrder.DESC)
+                    // `id` as the tie-breaker: `uploadedAt` alone is not unique (same as the
+                    // `CrmContactStore.listContacts`/`EventStore` convention) -- gives every
+                    // offset-paged request a deterministic, non-overlapping ordering.
+                    .orderBy(BankStatementImportTable.uploadedAt to SortOrder.DESC, BankStatementImportTable.id to SortOrder.ASC)
                     .limit(cappedLimit)
                     .offset(offset.toLong())
                     .map { row ->
@@ -119,7 +122,12 @@ internal object BankStatementStore {
             val total = baseQuery.count()
             val rows =
                 baseQuery
-                    .orderBy(BankStatementLineTable.bookingDate, SortOrder.DESC)
+                    // `id` as the tie-breaker: `bookingDate` alone is not unique -- a single SEPA
+                    // collection day routinely produces dozens of rows with the same
+                    // `booking_date`, so pagination without a secondary sort column can skip or
+                    // duplicate rows across a page boundary (same convention as
+                    // `CrmContactStore.listContacts`/`EventStore`/`ConferenceBreakoutService`).
+                    .orderBy(BankStatementLineTable.bookingDate to SortOrder.DESC, BankStatementLineTable.id to SortOrder.ASC)
                     .limit(cappedLimit)
                     .offset(query.offset.toLong())
                     .map { row -> row.toLineDto(resolverAlias = resolver) }

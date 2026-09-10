@@ -1,6 +1,7 @@
 package network.lapis.cloud.server.payment.bankstatement
 
 import kotlinx.datetime.LocalDate
+import network.lapis.cloud.shared.domain.BankStatementRejectionCode
 import java.math.BigDecimal
 
 private data class Mt940Tag(
@@ -103,6 +104,7 @@ internal object Mt940Parser {
                     message =
                         "Saldenpruefung fehlgeschlagen: Anfangssaldo ${openingBalance.amount} + Summe $sum " +
                             "!= Endsaldo ${closingBalance.amount}",
+                    code = BankStatementRejectionCode.MT940_BALANCE_MISMATCH,
                 )
             }
             allLines += blockLines

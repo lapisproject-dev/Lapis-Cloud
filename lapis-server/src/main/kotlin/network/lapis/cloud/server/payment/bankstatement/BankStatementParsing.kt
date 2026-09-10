@@ -1,6 +1,7 @@
 package network.lapis.cloud.server.payment.bankstatement
 
 import kotlinx.datetime.LocalDate
+import network.lapis.cloud.shared.domain.BankStatementRejectionCode
 import java.math.BigDecimal
 
 /** One transaction line, already normalized into the shape both [BankCsvParser] and [Mt940Parser] agree on. */
@@ -53,11 +54,18 @@ internal data class ParsedStatement(
  * the whole import" condition -- [lineNumber]/[rawLineExcerpt] (max. 200 characters) surface ONLY
  * in the HTTP 422 response body ([network.lapis.cloud.server.routes.BankStatementRoutes]), NEVER
  * in a log line and NEVER persisted -- see `BankStatementImportService` KDoc "Privacy".
+ *
+ * Welle V1.4.5.1.1 -- [code] defaults to the generic [BankStatementRejectionCode.PARSE_FAILED];
+ * only the MT940 balance check (`Mt940Parser`, `:60F:`/`:61:`/`:62F:` sum mismatch) sets the more
+ * specific [BankStatementRejectionCode.MT940_BALANCE_MISMATCH] -- every other throw site in
+ * [BankCsvParser]/[Mt940Parser] stays on the default deliberately (see plan §3.3: not flattened
+ * across all of them).
  */
 internal class BankStatementParseException(
     message: String,
     val lineNumber: Int? = null,
     val rawLineExcerpt: String? = null,
+    val code: BankStatementRejectionCode = BankStatementRejectionCode.PARSE_FAILED,
 ) : Exception(message)
 
 /** Parses a `dd.MM.yyyy`, `dd.MM.yy` (pivot 2000-2099), or ISO `yyyy-MM-dd` date. Blank input returns `null`; anything else that fails to parse returns `null` too -- callers turn that into a [BankStatementParseException] themselves, since only they know the line number. */

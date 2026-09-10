@@ -96,4 +96,25 @@ class SidebarGroupStorageTest {
         // link's group, mirroring `NavRouteMatchTest.parameterizedDescendantRoute_activatesItsGroupLink`.
         assertEquals(SidebarGroupId.ECONOMY, sidebarGroupForRoute("/social-network/post/abc123"))
     }
+
+    // Welle V1.4.5.1.1 (K5-Fix): `App.kt#currentHashRoute()` liefert den ROHEN Hash inkl. Query --
+    // ohne den `substringBefore('?')`-Schnitt in `sidebarGroupForRoute` klappt die Gruppe beim
+    // Deep-Link-Seitenaufruf nicht auf. Betraf latent bereits /member-finances?member=,
+    // /honors?member=, /families?family= -- hier als Regressionstest fuer die neue Route UND als
+    // Beleg, dass der Fix den bestehenden Altbestand mitheilt.
+    @Test
+    fun sidebarGroupForRoute_bankImportRoute_resolvesToFinance() {
+        assertEquals(SidebarGroupId.FINANCE, sidebarGroupForRoute("/bank-import"))
+    }
+
+    @Test
+    fun sidebarGroupForRoute_bankImportRouteWithQueryParam_stillResolvesToFinance() {
+        assertEquals(SidebarGroupId.FINANCE, sidebarGroupForRoute("/bank-import?import=abc"))
+    }
+
+    @Test
+    fun sidebarGroupForRoute_preExistingRoutesWithQueryParams_alsoResolveNow() {
+        assertEquals(SidebarGroupId.ADMINISTRATION, sidebarGroupForRoute("/honors?member=x"))
+        assertEquals(SidebarGroupId.ADMINISTRATION, sidebarGroupForRoute("/families?family=x"))
+    }
 }

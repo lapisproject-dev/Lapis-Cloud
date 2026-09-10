@@ -406,6 +406,15 @@ object Routes {
     // Query-Parameter `?family=<uuid>` (Muster [MEMBER_HONORS]/[MEMBER_FINANCES]) öffnet eine Familie
     // direkt. Lebt in der bestehenden "Verwaltung"-Dropdown, direkt neben [MEMBER_HONORS].
     const val MEMBER_FAMILIES = "/families"
+
+    // Welle V1.4.5.1.1 "Kontoauszuege" -- TREASURER/BOARD/ADMIN auf Routenebene, verifiziert gegen
+    // `BankStatementService.kt`s `BANK_STATEMENT_READ_ROLES`. Die engere TREASURER/ADMIN-Stufe
+    // (`BANK_STATEMENT_WRITE_ROLES` = `BankStatementRoutes.BANK_STATEMENT_UPLOAD_ROLES`) wird
+    // IN-SCREEN ueber `BankStatementAuthzUi.canWrite` durchgesetzt, nie als zweite Route -- gleiche
+    // Haltung wie [SEPA_MANDATES]/[DUNNING_CASES]/[LEDGER]. Optionaler Query-Parameter
+    // `?import=<uuid>` im Hash-Fragment (Muster [MEMBER_HONORS]) waehlt einen Import direkt an --
+    // ein Zustand, den man einer Kollegin verlinken kann (Design-Team, Tesler).
+    const val BANK_IMPORT = "/bank-import"
 }
 
 private var appRouting: Routing? = null
@@ -711,6 +720,11 @@ fun initRouting(pageContainer: SimplePanel) {
     routing.kvOn(Routes.MEMBER_FAMILIES) {
         requireRole(routing, AccountRole.BOARD, AccountRole.ADMIN) {
             show(Routes.MEMBER_FAMILIES) { container -> renderMemberFamiliesScreen(container, hashQueryParam("family")) }
+        }
+    }
+    routing.kvOn(Routes.BANK_IMPORT) {
+        requireRole(routing, AccountRole.TREASURER, AccountRole.BOARD, AccountRole.ADMIN) {
+            show(Routes.BANK_IMPORT) { container -> renderBankStatementImportScreen(container, hashQueryParam("import")) }
         }
     }
     routing.kvOn("/") {

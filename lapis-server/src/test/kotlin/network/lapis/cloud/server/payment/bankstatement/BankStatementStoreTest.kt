@@ -282,10 +282,9 @@ class BankStatementStoreTest :
         }
 
         test("listLines: filters by status and paginates") {
-            // Distinct booking dates -- `listLines` orders by `bookingDate DESC` alone with no
-            // secondary tie-break column, so two same-day rows would leave which one offset=0 vs.
-            // offset=1 returns unspecified. Distinct dates make the order (and therefore this test)
-            // deterministic: 2026-04-01 sorts before 2026-03-15 under DESC.
+            // Distinct booking dates: 2026-04-01 sorts before 2026-03-15 under the primary
+            // `bookingDate DESC` key regardless of the `id` tie-break, so this test's ordering
+            // assumption holds independent of the same-day case covered separately below.
             val lineA = importOneUnmatchedLine(amount = "11,00", bookingDate = "01.04.2026")
             val lineB = importOneUnmatchedLine(amount = "12,00", bookingDate = "15.03.2026")
 
@@ -316,6 +315,40 @@ class BankStatementStoreTest :
             val scopedToLineAsImport = BankStatementStore.listLines(BankStatementLineQuery(importId = importIdOfLineA.toString()))
             scopedToLineAsImport.rows.map { it.id } shouldContain lineA.toString()
             scopedToLineAsImport.rows.map { it.id } shouldNotContain lineB.toString()
+        }
+
+        /**
+         * Review fix (MAJOR): `listLines` used to order by `bookingDate DESC` alone -- with no
+         * secondary tie-break column, PostgreSQL's top-N heapsort is free to return same-day rows
+         * in a different relative order between two separate LIMIT/OFFSET calls, so a row could
+         * fall into the skipped OFFSET window on one page and never be rendered while another row
+         * appears twice. This is the normal case for a bank statement, not the exception -- a
+         * single SEPA collection day produces dozens of rows sharing one `bookingDate`. Now that
+         * `listLines` also orders by `id ASC` as a tie-break, paging through same-day rows across a
+         * page boundary must yield the union of all rows exactly once, with no duplicates and no
+         * gaps.
+         */
+        test("listLines: same booking date across a page boundary yields every row exactly once, no dupes or gaps") {
+            val sameDayLineIds =
+                (1..5)
+                    .map { i -> importOneUnmatchedLine(amount = "${10 + i},00", bookingDate = "15.03.2026") }
+                    .toSet()
+
+            val seen = mutableListOf<String>()
+            var offset = 0
+            do {
+                val page =
+                    BankStatementStore.listLines(
+                        BankStatementLineQuery(status = BankStatementLineStatus.UNMATCHED, limit = 2, offset = offset),
+                    )
+                seen += page.rows.map { it.id }
+                offset += page.rows.size
+            } while (offset < page.totalCount && page.rows.isNotEmpty())
+
+            // No duplicates across pages.
+            seen.toSet().size shouldBe seen.size
+            // Every same-day row was seen -- none skipped into a page gap.
+            seen.filter { it in sameDayLineIds.map(Uuid::toString) }.toSet() shouldBe sameDayLineIds.map(Uuid::toString).toSet()
         }
 
         test("suggestMatches: surfaces the same open contribution BankStatementMatcher's R3 (name match) would suggest") {

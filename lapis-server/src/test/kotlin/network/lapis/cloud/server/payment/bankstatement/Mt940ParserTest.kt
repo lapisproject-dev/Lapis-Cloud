@@ -5,6 +5,7 @@ import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldHaveSize
 import io.kotest.matchers.shouldBe
 import kotlinx.datetime.LocalDate
+import network.lapis.cloud.shared.domain.BankStatementRejectionCode
 import java.math.BigDecimal
 
 private fun mt940(vararg lines: String): String = lines.joinToString("\r\n")
@@ -62,7 +63,7 @@ class Mt940ParserTest :
             result.lines.map { it.amount } shouldBe listOf(BigDecimal("10.00"), BigDecimal("5.00"))
         }
 
-        test("a broken balance check (opening + sum != closing) rejects the whole import") {
+        test("a broken balance check (opening + sum != closing) rejects the whole import with code MT940_BALANCE_MISMATCH") {
             val text =
                 mt940(
                     ":20:STMT001",
@@ -72,7 +73,8 @@ class Mt940ParserTest :
                     ":86:?20Mitgliedsbeitrag",
                     ":62F:C260331EUR9999,99", // deliberately wrong closing balance
                 )
-            shouldThrow<BankStatementParseException> { Mt940Parser.parse(text) }
+            val exception = shouldThrow<BankStatementParseException> { Mt940Parser.parse(text) }
+            exception.code shouldBe BankStatementRejectionCode.MT940_BALANCE_MISMATCH
         }
 
         test("RD (reversal of debit) inverts the sign to positive") {
@@ -89,8 +91,12 @@ class Mt940ParserTest :
             result.lines.single().amount shouldBe BigDecimal("10.00")
         }
 
-        test("a file with no :20: tag at all is rejected") {
-            shouldThrow<BankStatementParseException> { Mt940Parser.parse("some garbage that is not MT940 at all") }
+        // Welle V1.4.5.1.1 -- every OTHER BankStatementParseException throw site in this parser
+        // stays on the default PARSE_FAILED code (plan §3.3: not flattened across all of them). A
+        // missing :20: tag is one such ordinary parse failure, distinct from the balance-check case.
+        test("a file with no :20: tag at all is rejected with the default code PARSE_FAILED") {
+            val exception = shouldThrow<BankStatementParseException> { Mt940Parser.parse("some garbage that is not MT940 at all") }
+            exception.code shouldBe BankStatementRejectionCode.PARSE_FAILED
         }
 
         test(":61: field order -- Valuta (Wertstellung) and Buchungsdatum are not swapped") {

@@ -27,6 +27,18 @@ msgstr " (vous)"
 msgid " bei %1"
 msgstr " chez %1"
 
+#: src/jsMain/kotlin/network/lapis/cloud/client/BankStatementImportScreen.kt:397
+msgid "%1 -- %2, %3 – %4, %5"
+msgstr "%1 -- %2, %3 – %4, %5"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/BankStatementImportScreen.kt:314
+msgid "%1 Zeilen -- %2 automatisch gebucht, %3 Vorschläge, %4 mehrdeutig, %5 nicht zugeordnet, %6 ignoriert, %7 bereits vorhanden."
+msgstr "%1 lignes -- %2 comptabilisées automatiquement, %3 suggestions, %4 ambiguës, %5 non rapprochées, %6 ignorées, %7 déjà présentes."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/BankStatementImportScreen.kt:201
+msgid "%1 · %2 · %3 Zeilen, %4 automatisch gebucht"
+msgstr "%1 · %2 · %3 lignes, %4 comptabilisées automatiquement"
+
 #: src/jsMain/kotlin/network/lapis/cloud/client/CrmContactsScreen.kt:81
 msgid "-- Alle Typen --"
 msgstr "-- Tous les types --"
@@ -81,9 +93,17 @@ msgstr "-- Choisir une sphère --"
 msgid "Adresse: %1"
 msgstr "Adresse : %1"
 
+#: src/jsMain/kotlin/network/lapis/cloud/client/BankStatementImportScreen.kt:453
+msgid "Als Spende zuordnen"
+msgstr "Attribuer comme don"
+
 #: src/jsMain/kotlin/network/lapis/cloud/client/CrmLabels.kt:42
 msgid "Anruf"
 msgstr "Appel"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/BankStatementHttp.kt:95
+msgid "Antwort des Servers konnte nicht gelesen werden."
+msgstr "La réponse du serveur n'a pas pu être lue."
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/CrmContactsScreen.kt:137
 msgid "Archivieren"
@@ -101,9 +121,21 @@ msgstr "Afficher les archivés"
 msgid "Art"
 msgstr "Type"
 
+#: src/jsMain/kotlin/network/lapis/cloud/client/BankStatementImportScreen.kt:96
+msgid "Auch Abbuchungen anzeigen"
+msgstr "Afficher aussi les débits"
+
 #: src/jsMain/kotlin/network/lapis/cloud/client/CrmContactsScreen.kt:207
 msgid "Auskunft exportieren (JSON)"
 msgstr "Exporter les informations (JSON)"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/BankStatementImportScreen.kt:83
+msgid "Auszug hochladen"
+msgstr "Importer le relevé"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/BankStatementImportScreen.kt:285
+msgid "Auszug importiert."
+msgstr "Relevé importé."
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/CrmContactsScreen.kt:361
 msgid "Bei Rechtsgrundlage 'Einwilligung' ist der Zeitpunkt der Einwilligung Pflicht."
@@ -112,6 +144,14 @@ msgstr "Lorsque la base légale est « Consentement », la date du consentement 
 #: src/jsMain/kotlin/network/lapis/cloud/client/CrmLabels.kt:36
 msgid "Berechtigtes Interesse (Art. 6 Abs. 1 lit. f)"
 msgstr "Intérêt légitime (art. 6, § 1, point f)"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/BankStatementImportScreen.kt:499
+msgid "Bitte einen externen Spender wählen."
+msgstr "Veuillez sélectionner un donateur externe."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/BankStatementImportScreen.kt:489
+msgid "Bitte Mitglied und Spenderkategorie wählen."
+msgstr "Veuillez sélectionner un membre et une catégorie de donateur."
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/CrmContactsScreen.kt:352
 msgid "Bitte Name, Typ und Rechtsgrundlage angeben."
@@ -125,13 +165,93 @@ msgstr "Veuillez saisir une note."
 msgid "Brief"
 msgstr "Courrier"
 
+#: src/jsMain/kotlin/network/lapis/cloud/client/BankStatementImportScreen.kt:129
+msgid "Buchungsdatum"
+msgstr "Date de comptabilisation"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/BankStatementLabels.kt:48
+msgid "Comdirect"
+msgstr "Comdirect"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/BankStatementLabels.kt:38
+msgid "CSV"
+msgstr "CSV"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/BankStatementImportScreen.kt:263
+msgid "CSV (Sparkassen-CAMT-Export, generischer Auffangdialekt) oder MT940, max. 5 MB."
+msgstr "CSV (export CAMT Sparkasse, dialecte générique) ou MT940, max. 5 Mo."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/BankStatementLabels.kt:70
+msgid "Das Dateiformat wurde nicht erkannt. Gefundene Spalten: %1. Unterstützt werden Sparkassen-CAMT-CSV, ein generischer CSV-Auffangdialekt und MT940."
+msgstr "Le format du fichier n'a pas été reconnu. Colonnes trouvées : %1. Formats pris en charge : CSV CAMT Sparkasse, un dialecte CSV générique et MT940."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/BankStatementLabels.kt:68
+msgid "Das Dateiformat wurde nicht erkannt. Unterstützt werden Sparkassen-CAMT-CSV, ein generischer CSV-Auffangdialekt und MT940."
+msgstr "Le format du fichier n'a pas été reconnu. Formats pris en charge : CSV CAMT Sparkasse, un dialecte CSV générique et MT940."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/BankStatementImportScreen.kt:264
+msgid "Datei auswählen"
+msgstr "Sélectionner un fichier"
+
 #: src/jsMain/kotlin/network/lapis/cloud/client/CrmContactsScreen.kt:205
 msgid "Datenschutz"
 msgstr "Protection des données"
 
+#: src/jsMain/kotlin/network/lapis/cloud/client/BankStatementLabels.kt:84
+msgid "Der Auszug hat mehr als %1 Zeilen. Bitte einen kürzeren Zeitraum exportieren."
+msgstr "Le relevé compte plus de %1 lignes. Veuillez exporter une période plus courte."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/BankStatementLabels.kt:80
+msgid "Der Auszug ist in sich nicht schlüssig: Anfangssaldo plus Umsätze ergeben nicht den Endsaldo. Bitte den Auszug bei der Bank neu anfordern."
+msgstr "Le relevé n'est pas cohérent : le solde d'ouverture plus les opérations ne correspond pas au solde de clôture. Veuillez redemander le relevé à votre banque."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/BankStatementLabels.kt:127
+msgid "Der IBAN-Abgleich gegen SEPA-Mandate ist auf diesem Server derzeit nicht verfügbar."
+msgstr "Le rapprochement IBAN avec les mandats SEPA n'est actuellement pas disponible sur ce serveur."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/BankStatementLabels.kt:89
+msgid "Die Datei enthält ein ungültiges Steuerzeichen und kann nicht verarbeitet werden."
+msgstr "Le fichier contient un caractère de contrôle invalide et ne peut pas être traité."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/BankStatementLabels.kt:60
+msgid "Die Datei ist größer als das Limit von %1."
+msgstr "Le fichier dépasse la limite de %1."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/BankStatementLabels.kt:77
+msgid "Die Datei konnte nicht gelesen werden."
+msgstr "Le fichier n'a pas pu être lu."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/BankStatementLabels.kt:125
+msgid "Die Kontokennung des Auszugs ist keine gültige IBAN (Altformat?) -- Kontoprüfung übersprungen."
+msgstr "L'identifiant de compte du relevé n'est pas un IBAN valide (ancien format ?) -- la vérification du compte a été ignorée."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/BankStatementImportScreen.kt:528
+msgid "Diese Aktion ist unumkehrbar -- eine Korrektur ist danach nur per Storno in der Buchhaltung möglich."
+msgstr "Cette action est irréversible -- une correction ultérieure n'est possible que par une contrepassation en comptabilité."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/BankStatementLabels.kt:92
+msgid "Diese Datei wurde bereits importiert. Der frühere Import steht in der Liste oben."
+msgstr "Ce fichier a déjà été importé. L'import précédent figure dans la liste ci-dessus."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/BankStatementImportScreen.kt:527
+msgid "Diese Zeile wird als ignoriert markiert und aus der weiteren Zuordnungsarbeit entfernt."
+msgstr "Cette ligne sera marquée comme ignorée et retirée du travail d'affectation ultérieur."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/BankStatementImportScreen.kt:405
+msgid "Diesem Beitrag zuordnen"
+msgstr "Affecter à cette cotisation"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/BankStatementLabels.kt:82
+msgid "Dieser Auszug gehört zu einem anderen Konto als dem in den Organisationseinstellungen hinterlegten."
+msgstr "Ce relevé appartient à un compte différent de celui enregistré dans les paramètres de l'organisation."
+
 #: src/jsMain/kotlin/network/lapis/cloud/client/CrmContactsScreen.kt:214
 msgid "Dieser Kontakt und alle erfassten Interaktionen werden UNWIDERRUFLICH gelöscht -- keine Anonymisierung, ein echtes Löschen ohne Wiederherstellung."
 msgstr "Ce contact et toutes les interactions enregistrées seront supprimés de façon IRRÉVOCABLE -- pas une anonymisation, une suppression réelle et définitive."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/BankStatementLabels.kt:46
+msgid "DKB"
+msgstr "DKB"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/CrmContactsScreen.kt:325
 msgid "E-Mail (optional)"
@@ -177,6 +297,14 @@ msgstr "Le consentement a été retiré."
 msgid "Entarchivieren"
 msgstr "Désarchiver"
 
+#: src/jsMain/kotlin/network/lapis/cloud/client/BankStatementLabels.kt:62
+msgid "Es wurde keine Datei übertragen. Bitte eine CSV- oder MT940-Datei auswählen."
+msgstr "Aucun fichier n'a été transmis. Veuillez sélectionner un fichier CSV ou MT940."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/BankStatementImportScreen.kt:428
+msgid "Freitextsuche"
+msgstr "Recherche en texte libre"
+
 #: src/jsMain/kotlin/network/lapis/cloud/client/CrmContactsScreen.kt:568
 msgid "Fälschlich erfasste Einwilligung entfernen (Art. 16 DSGVO)"
 msgstr "Supprimer le consentement enregistré par erreur (art. 16 du RGPD)"
@@ -185,9 +313,25 @@ msgstr "Supprimer le consentement enregistré par erreur (art. 16 du RGPD)"
 msgid "Förderer"
 msgstr "Bienfaiteur"
 
+#: src/jsMain/kotlin/network/lapis/cloud/client/BankStatementImportScreen.kt:129
+msgid "Gegenpartei"
+msgstr "Contrepartie"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/BankStatementLabels.kt:49
+msgid "Generisches CSV-Format"
+msgstr "Format CSV générique"
+
 #: src/jsMain/kotlin/network/lapis/cloud/client/CrmContactsScreen.kt:335
 msgid "Herkunft der Einwilligung (z. B. \"Infostand Braunschweig\")"
 msgstr "Origine du consentement (par ex. « Infostand Braunschweig »)"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/BankStatementImportScreen.kt:522
+msgid "Ignorieren"
+msgstr "Ignorer"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/BankStatementLabels.kt:24
+msgid "Ignoriert"
+msgstr "Ignorée"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/CrmContactsScreen.kt:243
 msgid "Interaktion speichern"
@@ -208,6 +352,10 @@ msgstr "Prospect"
 #: src/jsMain/kotlin/network/lapis/cloud/client/CrmContactsScreen.kt:73
 msgid "Interessenten, Sympathisanten und sonstige Kontakte, die weder Mitglied noch (notwendigerweise) ein erfasster Spender sind -- eine eigenständige Adressverwaltung, getrennt von der Mitgliederverwaltung und dem Spenderstamm."
 msgstr "Prospects, sympathisants et autres contacts qui ne sont ni membres ni (nécessairement) des donateurs enregistrés -- un carnet d'adresses autonome, distinct de la gestion des membres et du registre des donateurs."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/BankStatementLabels.kt:123
+msgid "Kein Bankkonto in den Organisationseinstellungen hinterlegt -- Kontoprüfung übersprungen."
+msgstr "Aucun compte bancaire n'est configuré dans les paramètres de l'organisation -- la vérification du compte a été ignorée."
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/CrmContactsScreen.kt:103
 msgid "Keine Kontakte gefunden."
@@ -237,6 +385,14 @@ msgstr "Le contact a été supprimé."
 msgid "Kontakte & Interessenten"
 msgstr "Contacts et prospects"
 
+#: src/jsMain/kotlin/network/lapis/cloud/client/BankStatementImportScreen.kt:76
+msgid "Kontoauszüge"
+msgstr "Relevés bancaires"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/BankStatementImportScreen.kt:382
+msgid "Lade Vorschläge …"
+msgstr "Chargement des suggestions…"
+
 #: src/jsMain/kotlin/network/lapis/cloud/client/CrmContactsScreen.kt:442
 msgid "Letzter Kontakt vor %1 Jahren"
 msgstr "Dernier contact il y a %1 ans"
@@ -261,6 +417,18 @@ msgstr "Dernier contact : aujourd'hui"
 msgid "Löschen nach Art. 17 DSGVO"
 msgstr "Supprimer conformément à l'art. 17 du RGPD"
 
+#: src/jsMain/kotlin/network/lapis/cloud/client/BankStatementLabels.kt:22
+msgid "Mehrdeutig"
+msgstr "Ambiguë"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/BankStatementImportScreen.kt:429
+msgid "Mitgliedsname oder Beitragssatz"
+msgstr "Nom du membre ou barème de cotisation"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/BankStatementLabels.kt:39
+msgid "MT940"
+msgstr "MT940"
+
 #: src/jsMain/kotlin/network/lapis/cloud/client/CrmContactsScreen.kt:193
 msgid "Neue Interaktion erfassen"
 msgstr "Enregistrer une nouvelle interaction"
@@ -268,6 +436,10 @@ msgstr "Enregistrer une nouvelle interaction"
 #: src/jsMain/kotlin/network/lapis/cloud/client/CrmContactsScreen.kt:115
 msgid "Neuen Kontakt anlegen"
 msgstr "Créer un nouveau contact"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/BankStatementLabels.kt:20
+msgid "Nicht zugeordnet"
+msgstr "Non rapproché"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/CrmContactsScreen.kt:433
 msgid "Noch kein Kontakt"
@@ -277,6 +449,10 @@ msgstr "Aucun contact pour l'instant"
 msgid "Noch keine Interaktionen erfasst."
 msgstr "Aucune interaction enregistrée pour l'instant."
 
+#: src/jsMain/kotlin/network/lapis/cloud/client/BankStatementImportScreen.kt:220
+msgid "Noch keine Kontoauszüge importiert."
+msgstr "Aucun relevé bancaire importé pour l'instant."
+
 #: src/jsMain/kotlin/network/lapis/cloud/client/CrmLabels.kt:47
 msgid "Notiz"
 msgstr "Note"
@@ -285,6 +461,10 @@ msgstr "Note"
 msgid "Notiz (Pflichtfeld)"
 msgstr "Note (obligatoire)"
 
+#: src/jsMain/kotlin/network/lapis/cloud/client/BankStatementLabels.kt:47
+msgid "Postbank"
+msgstr "Postbank"
+
 #: src/jsMain/kotlin/network/lapis/cloud/client/CrmLabels.kt:21
 msgid "Presse"
 msgstr "Presse"
@@ -292,6 +472,14 @@ msgstr "Presse"
 #: src/jsMain/kotlin/network/lapis/cloud/client/CrmContactsScreen.kt:334
 msgid "Rechtsgrundlage (Art. 6 DSGVO)"
 msgstr "Base légale (art. 6 du RGPD)"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/BankStatementImportScreen.kt:86
+msgid "Sie sehen diese Seite mit Leserechten."
+msgstr "Vous consultez cette page avec un accès en lecture seule."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/BankStatementLabels.kt:44
+msgid "Sparkasse (CAMT-CSV)"
+msgstr "Sparkasse (CAMT-CSV)"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/CrmContactsScreen.kt:205
 msgid "Stammdaten"
@@ -313,6 +501,10 @@ msgstr "Téléphone : %1"
 msgid "Treffen"
 msgstr "Rencontre"
 
+#: src/jsMain/kotlin/network/lapis/cloud/client/BankStatementHttp.kt:101
+msgid "Unbekannter Fehler (HTTP %1)."
+msgstr "Erreur inconnue (HTTP %1)."
+
 #: src/jsMain/kotlin/network/lapis/cloud/client/CrmLabels.kt:46
 msgid "Veranstaltung"
 msgstr "Événement"
@@ -321,6 +513,30 @@ msgstr "Événement"
 msgid "Vertrag (Art. 6 Abs. 1 lit. b)"
 msgstr "Contrat (art. 6, § 1, point b)"
 
+#: src/jsMain/kotlin/network/lapis/cloud/client/BankStatementImportScreen.kt:129
+msgid "Verwendungszweck"
+msgstr "Motif"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/BankStatementLabels.kt:21
+msgid "Vorschlag"
+msgstr "Suggestion"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/BankStatementImportScreen.kt:380
+msgid "Vorschläge"
+msgstr "Suggestions"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/BankStatementLabels.kt:45
+msgid "VR-Bank"
+msgstr "VR-Bank"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/BankStatementImportScreen.kt:92
+msgid "Weitere Importe laden"
+msgstr "Charger plus d'imports"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/BankStatementImportScreen.kt:99
+msgid "Weitere Zeilen laden"
+msgstr "Charger plus de lignes"
+
 #: src/jsMain/kotlin/network/lapis/cloud/client/CrmContactsScreen.kt:190
 msgid "Wiedervorlage fällig: %1"
 msgstr "Révision prévue : %1"
@@ -328,6 +544,34 @@ msgstr "Révision prévue : %1"
 #: src/jsMain/kotlin/network/lapis/cloud/client/CrmContactsScreen.kt:83
 msgid "Wiedervorlage überfällig"
 msgstr "Révision en retard"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/BankStatementLabels.kt:87
+msgid "Zeile %1 enthält ein ungültiges Steuerzeichen und kann nicht verarbeitet werden."
+msgstr "La ligne %1 contient un caractère de contrôle invalide et ne peut pas être traitée."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/BankStatementLabels.kt:75
+msgid "Zeile %1 konnte nicht gelesen werden."
+msgstr "La ligne %1 n'a pas pu être lue."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/BankStatementImportScreen.kt:516
+msgid "Zeile als Spende zugeordnet."
+msgstr "Ligne affectée comme don."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/BankStatementImportScreen.kt:523
+msgid "Zeile ignorieren"
+msgstr "Ignorer la ligne"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/BankStatementImportScreen.kt:535
+msgid "Zeile ignoriert."
+msgstr "Ligne ignorée."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/BankStatementImportScreen.kt:376
+msgid "Zeile vom %1 -- %2"
+msgstr "Ligne du %1 -- %2"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/BankStatementImportScreen.kt:416
+msgid "Zeile zugeordnet."
+msgstr "Ligne affectée."
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/CrmContactsScreen.kt:240
 msgid "Zeitpunkt (optional, ISO -- leer = jetzt, z. B. 2026-09-14T10:00)"
@@ -340,6 +584,10 @@ msgstr "Horodatage du consentement (ISO, par ex. 2026-09-14T10:00)"
 #: src/jsMain/kotlin/network/lapis/cloud/client/CrmContactsScreen.kt:261
 msgid "Zeitpunkt ist kein gültiges ISO-Format (z. B. 2026-09-14T10:00)."
 msgstr "L'horodatage n'est pas au format ISO valide (par ex. 2026-09-14T10:00)."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/BankStatementLabels.kt:64
+msgid "Zu viele Upload-Versuche in kurzer Folge. Bitte in einigen Minuten erneut versuchen."
+msgstr "Trop de tentatives de téléversement en peu de temps. Veuillez réessayer dans quelques minutes."
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/ConfirmDialog.kt:109
 msgid "Zum Bestätigen bitte \"%1\" eingeben:"
@@ -10074,3 +10322,4 @@ msgstr "Le numéro de dossier DATEV n'est pas un nombre valide."
 #: src/jsMain/kotlin/network/lapis/cloud/client/LapisAttribution.kt:57
 msgid "Impressum"
 msgstr "Mentions légales"
+

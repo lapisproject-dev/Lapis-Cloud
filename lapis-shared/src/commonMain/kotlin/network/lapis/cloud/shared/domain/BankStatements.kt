@@ -50,8 +50,39 @@ data class BankStatementImportResultDto(
     val unmatchedCount: Int,
     val ignoredCount: Int,
     val suggestedCount: Int,
+    /**
+     * Review fix (MAJOR, Welle V1.4.5.1.1 Runde 2): technical German prose, kept ONLY as the
+     * server-internal/audit counterpart of [BankStatementImportRejectionDto.detail] -- NEVER
+     * rendered by the client (see [BankStatementImportScreen.renderResultBanner]). The DISPLAYED
+     * message always comes from [warningCodes] via `bankStatementImportWarningMessage` in
+     * `BankStatementLabels.kt`, same "code travels, detail never renders" split
+     * [BankStatementRejectionCode] already established for the rejection path.
+     */
     val warnings: List<String> = emptyList(),
+    val warningCodes: List<BankStatementImportWarningCode> = emptyList(),
 )
+
+/**
+ * Review fix (MAJOR, Welle V1.4.5.1.1 Runde 2) -- machine-readable counterpart of the three fixed
+ * [BankStatementImportResultDto.warnings] strings `BankStatementImportService` can produce, same
+ * "code instead of German prose" idiom [BankStatementRejectionCode] already established for
+ * rejections. Unlike [BankStatementLineDto.matchExplanation] (which embeds per-line dynamic data --
+ * member names, amounts, dates -- and is persisted, so a structured replacement needs its own
+ * migration and is a deliberately deferred, documented gap, see README.adoc "What doesn't work yet
+ * (this wave)"), these three warnings are always the exact same fixed German sentence with no
+ * dynamic parts, so a plain enum is enough here -- no follow-up wave needed.
+ */
+@Serializable
+enum class BankStatementImportWarningCode {
+    /** No `organization_settings.bank_iban` configured -- the account-ownership check (§ FOREIGN_ACCOUNT) was skipped entirely. */
+    NO_BANK_ACCOUNT_CONFIGURED,
+
+    /** The statement's own account identifier did not parse as a valid IBAN (legacy/foreign format) -- the account-ownership check was skipped for THIS import. */
+    LEGACY_ACCOUNT_IBAN_FORMAT,
+
+    /** `LAPIS_SECRET_ENCRYPTION_KEY` is not configured -- R2 (IBAN match against SEPA mandates) never runs. Deliberately code-only: the raw warning string used to name the env var in the UI, an internal detail no treasurer needs. */
+    IBAN_MATCHING_UNAVAILABLE,
+}
 
 /** Role: TREASURER/BOARD/ADMIN (read). */
 @Serializable
@@ -144,4 +175,48 @@ data class BankStatementDonationAssignmentInput(
     val externalDonorId: String? = null,
     val donorCategory: DonorCategory,
     val note: String? = null,
+)
+
+/**
+ * Welle V1.4.5.1.1 -- maschinenlesbare Ablehnungsursache der Upload-Route
+ * `POST /api/bank-statements/import`. Bewusst KEIN kUML-Modell-Enum (keine DB-Spalte, reines
+ * Transport-Vokabular) -- gleiche Begründung wie [BankCsvDialect].
+ *
+ * Existiert, weil der Server diese Zustände immer schon unterschieden hat und sie bis V1.4.5.1
+ * nur als deutsche Prosa formatiert hat (`bodyParts.joinToString(" -- ")`). Ein polnischsprachiger
+ * Schatzmeister bekam die einzige Meldung, die ihn interessiert, unübersetzbar.
+ */
+@Serializable
+enum class BankStatementRejectionCode {
+    FILE_TOO_LARGE, // 413, BankStatementRoutes.kt
+    NO_FILE_PART, // 400, BankStatementRoutes.kt
+    RATE_LIMITED, // 429, BankStatementRoutes.kt
+    FORMAT_UNRECOGNIZED, // 422, BankStatementImportService.kt
+    PARSE_FAILED, // 422, throwAsRejection (BankStatementImportService.kt)
+    MT940_BALANCE_MISMATCH, // 422, Mt940Parser.kt -> throwAsRejection
+    FOREIGN_ACCOUNT, // 422, BankStatementImportService.kt
+    TOO_MANY_LINES, // 422, BankStatementImportService.kt
+    CONTROL_CHARACTER, // 422, BankStatementImportService.kt
+    ALREADY_IMPORTED, // 409, BankStatementImportService.kt
+}
+
+/**
+ * Antwortkörper JEDER Ablehnung der Upload-Route -- auch der drei Pfade, die vor V1.4.5.1.1
+ * Plaintext lieferten (413/400/429), damit der Client genau EINEN Parse-Pfad hat.
+ *
+ * [rawLineExcerpt] ist eine echte Kontoauszugszeile (Name, Betrag, Verwendungszweck). Der Server
+ * persistiert sie NIE (siehe `BankStatementParseException` KDoc "Privacy"); der Client darf sie
+ * ausschliesslich transient in der Fehlerflaeche zeigen -- nie in einem Toast, nie in
+ * `localStorage`, nie in der URL.
+ *
+ * [detail] transportiert weiterhin den deutschen Servertext als technisches Beiwerk. Die
+ * ANGEZEIGTE Meldung kommt in allen Faellen aus dem Client-Katalog, nie aus diesem Feld.
+ */
+@Serializable
+data class BankStatementImportRejectionDto(
+    val code: BankStatementRejectionCode,
+    val lineNumber: Int? = null,
+    val rawLineExcerpt: String? = null,
+    val observedHeaderFields: List<String>? = null,
+    val detail: String? = null,
 )

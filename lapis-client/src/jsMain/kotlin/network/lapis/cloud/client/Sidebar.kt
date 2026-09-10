@@ -121,6 +121,7 @@ private val GROUP_ROUTES: Map<SidebarGroupId, List<String>> =
                 Routes.SEPA_BATCHES,
                 Routes.DUNNING_CASES,
                 Routes.PAYMENT_TRANSACTIONS,
+                Routes.BANK_IMPORT,
             ),
         SidebarGroupId.ADMINISTRATION to
             listOf(
@@ -155,7 +156,12 @@ private val GROUP_ROUTES: Map<SidebarGroupId, List<String>> =
  */
 fun sidebarGroupForRoute(route: String?): SidebarGroupId? {
     if (route == null) return null
-    return GROUP_ROUTES.entries.firstOrNull { (_, routes) -> routes.any { NavRouteMatch.isActive(route, it) } }?.key
+    // Welle V1.4.5.1.1: `App.kt#currentHashRoute()` liefert den ROHEN Hash inkl. Query
+    // ("/bank-import?import=abc"). `NavRouteMatch.isActive` matcht darauf nicht -- ohne diesen
+    // Schnitt klappt die Gruppe beim Deep-Link-Seitenaufruf nicht auf. Betraf latent bereits
+    // /member-finances?member=, /honors?member=, /families?family=, /payment-return?session=.
+    val path = route.substringBefore('?')
+    return GROUP_ROUTES.entries.firstOrNull { (_, routes) -> routes.any { NavRouteMatch.isActive(path, it) } }?.key
 }
 
 /**
@@ -361,6 +367,7 @@ fun buildSidebar(
             sidebarLink(Routes.SEPA_BATCHES, tr("SEPA-Lastschrift"), "fas fa-money-check-dollar", toggle)
             sidebarLink(Routes.DUNNING_CASES, tr("Mahnwesen"), "fas fa-file-invoice-dollar", toggle)
             sidebarLink(Routes.PAYMENT_TRANSACTIONS, tr("Zahlungseingänge"), "fas fa-credit-card", toggle)
+            sidebarLink(Routes.BANK_IMPORT, tr("Kontoauszüge"), "fas fa-building-columns", toggle)
         }
     }
 

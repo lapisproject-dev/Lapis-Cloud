@@ -66,6 +66,125 @@ All notable changes to this project are documented here. Format follows
   `SessionStoreTest` (`revokeAllForMember`-Rückgabewert, neues `countActiveForMember`),
   `MemberPasswordResetDialogTest` + Regressions-Pin in `MemberAdministrationScreenTest`.
 
+**Kontoauszugs-Import — Welle V1.4.5.1.1: Bedienoberfläche `/bank-import` + strukturierte Ablehnungscodes, i18n für die Bedienoberfläche (schließt den Scope‑Cut aus V1.4.5.1)**
+
+- **Korrektur (Review-Fund, Runde 2, 2026-09-10)**: diese Welle war hier ursprünglich als
+  „vollständige 7‑Sprachen‑i18n" überschrieben — die Überschrift oben ist entsprechend korrigiert.
+  Das galt für die zehn Ablehnungsmeldungen (`BankStatementRejectionCode`) und alle statischen
+  Screen-Texte, aber NICHT für zwei server-gespeiste Textkanäle: `BankStatementLineDto
+  .matchExplanation` (Zeilen-Begründung, embeddet dynamische Daten — Mitgliedsname, Beträge,
+  Zeiträume, Referenzcode — und ist persistiert) blieb unübersetzte deutsche Servertext-Prosa; eine
+  strukturierte, übersetzbare Ablösung braucht eine eigene DB-Migration (Code + Parameter statt
+  eines reinen String-Feldes) und bleibt bewusst einer Folgewelle überlassen (siehe README.adoc
+  „Bank Statement Import" > „What doesn't work yet"). `BankStatementImportResultDto.warnings` (drei
+  feste, parameterlose Sätze) IST in derselben Runde-2-Fixserie strukturiert nachgezogen worden —
+  siehe `BankStatementImportWarningCode` weiter unten in diesem Abschnitt.
+
+- **Neuer Sidebar‑Eintrag „Kontoauszüge"** in „Finanzen" (Icon `fa-building-columns`, direkt nach
+  „Zahlungseingänge"). Die Fläche unter `/bank-import` ist bewusst **eine einzige Ansicht ohne
+  Tabs** (Design-Team, Raskin/Tesler) — Standardzustand ist die Zuordnungsarbeit, nicht der Upload
+  (Duarte): der Upload ist ein Knopf oben rechts, der einen Upload-Bereich aufklappt; nach einem
+  erfolgreichen Import springt der Screen direkt zur Zeilenliste dieses Imports mit dem Filter auf
+  den ersten nicht-leeren "zu prüfen"-Status vorgewählt (`AMBIGUOUS` falls vorhanden, sonst
+  `UNMATCHED`, sonst „Alle").
+- **Verlinkbarer Zustand über `?import=<uuid>`** im Hash-Fragment (Muster `?member=`/`?family=` bei
+  `MEMBER_HONORS`/`MEMBER_FAMILIES`) — geschrieben über `window.history.replaceState`, bewusst NICHT
+  über einen `Routing`-Round-Trip (der würde den ganzen Screen per `show()`/`removeAll()` neu
+  aufbauen und den gerade in Bearbeitung befindlichen Zustand verlieren).
+- **Rollen**: lesend TREASURER/BOARD/ADMIN, schreibend (Upload, Zuordnen, Ignorieren) nur
+  TREASURER/ADMIN — `BankStatementAuthzUi` im Client spiegelt exakt die serverseitigen
+  `BANK_STATEMENT_READ_ROLES`/`BANK_STATEMENT_WRITE_ROLES`. Ein BOARD-Betrachter sieht statt des
+  Upload-Knopfs einen einzelnen Leserechte-Hinweis und die „Aktionen"-Tabellenspalte **gar nicht**
+  (nicht ausgegraut — Dieter Rams' Auflage: keine toten Knöpfe).
+- **Zuordnungs-Arbeitsfläche** je Zeile: automatische Vorschläge (`suggestMatches`), eine ab drei
+  Zeichen entprellte Freitextsuche (`searchAssignmentTargets`, 300 ms Debounce, gleiches Muster wie
+  die Mitgliedersuche in `MemberAdministrationScreen`), eine Spendenzuordnung (Mitglied ODER
+  externer Spender, Spenderkategorie ohne vorbelegten Wert — §25-PartG-Pflichtfeld bleibt Pflicht)
+  und „Zeile ignorieren" mit Pflichtbegründung über `confirmWithReasonDialog` (Bestätigen-Knopf
+  bleibt disabled bis eine Begründung eingegeben ist, „Diese Aktion ist unumkehrbar" wird explizit
+  benannt).
+  - **Bewusst KEINE `ANONYMOUS`-Spenderkategorie** in dieser Zuordnung: eine Überweisung von einem
+    benannten Konto ist nie „ausdrücklich anonym" — `LedgerScreen.collectDonor()` schließt genau
+    diese Kombination bereits an anderer Stelle aktiv aus, dieselbe Haltung wird hier übernommen.
+  - `counterpartyIbanMasked` erscheint nur als sekundäre, kleine Zeile unter dem Gegenpartei-Namen,
+    nie als eigene Hauptspalte.
+- **`BankStatementRejectionCode`/`BankStatementImportRejectionDto` als Ablösung der deutschen
+  Klartext-Fehlerantwort** (`lapis-shared`) — **Verhaltensänderung der HTTP-Route**:
+  `POST /api/bank-statements/import` antwortet bei JEDER Ablehnung (413 zu groß, 400 kein
+  Datei-Part, 429 Rate-Limit, 422 in sechs Varianten, 409 bereits importiert) jetzt mit einem
+  JSON-Body statt Plaintext. Für externe Konsumenten dieser Route ist das ein **Breaking Change**.
+  Die zehn Codes: `FILE_TOO_LARGE`, `NO_FILE_PART`, `RATE_LIMITED`, `FORMAT_UNRECOGNIZED`,
+  `PARSE_FAILED`, `MT940_BALANCE_MISMATCH`, `FOREIGN_ACCOUNT`, `TOO_MANY_LINES`,
+  `CONTROL_CHARACTER`, `ALREADY_IMPORTED` — siehe `docs/architecture/bank-statement-import.adoc`
+  Abschnitt „Rejection contract" für die vollständige HTTP-Status-Zuordnung. Der bisherige deutsche
+  Servertext reist weiterhin als `detail`-Feld mit, wird aber nie angezeigt — die im Client
+  gerenderte Meldung kommt immer aus dem übersetzten Katalog (`bankStatementRejectionMessage` in
+  `BankStatementLabels.kt`). `rawLineExcerpt` bleibt exakt so privacy-sensitiv wie zuvor: nur
+  transient in der Fehlerfläche, nie in einem Toast, `localStorage` oder der URL.
+- **Neue Client-Dateien**: `BankStatementImportScreen.kt` (der Screen selbst), `BankStatementHttp.kt`
+  (roher `fetch`-Upload-Pfad, `parseBankStatementImportOutcome` als reine, testbare
+  Status+Body→Outcome-Abbildung, nach dem Vorbild von `BackupHttp.parseRestoreOutcome`),
+  `BankStatementLabels.kt` (Label-/Farb-Tabellen plus die zehn übersetzten Ablehnungsmeldungen),
+  `BankStatementAuthzUi.kt` (die beiden Rollenstufen als eigene, nicht voneinander abgeleitete
+  Konstanten).
+- **Mit-gefixt**: `sidebarGroupForRoute` ignorierte Query-Strings im Routennamen (`App.kt`s
+  `currentHashRoute()` liefert den rohen Hash inklusive `?...`), wodurch beim Deep-Link-Aufruf von
+  `/member-finances?member=`, `/honors?member=`, `/families?family=`, `/payment-return?session=`
+  die zugehörige Sidebar-Gruppe nicht aufklappte — ein `substringBefore('?')`-Schnitt vor dem
+  bestehenden `NavRouteMatch.isActive`-Abgleich behebt das für alle betroffenen Routen auf einmal.
+- **Neuer i18n-Wächtertest** (`BankStatementI18nCatalogTest.kt`, `lapis-server`, da `jsTest` unter
+  Karma/ChromeHeadless kein Dateisystem hat): prüft ausschließlich die Textstrings DIESER Welle
+  (76 `tr()`/`gettext()`-Vorkommen, 59 davon vorher in keinem Katalog vorhanden) gegen alle sieben
+  Sprachkataloge — Vorhandensein und nicht-leere Übersetzung. Die Extraktion fügt dabei jede Kette
+  benachbarter, per `+` verbundener String-Literale zu einem `msgid` zusammen (ktlints
+  `max-line-length` von 140 Zeichen erzwingt diese Konkatenation für mehrere der zehn
+  Ablehnungsmeldungen) — dieselbe Zusammenführung, die das echte `generatePotFile`-Tooling bereits
+  beherrscht (verifiziert an einem bestehenden `BoardMembershipScreen.kt`-Katalogeintrag).
+  **`generatePotFile` wurde bewusst NICHT ausgeführt** — eine Regeneration hätte den bestehenden
+  Altbestand (siehe nächster Punkt) als neue leere `msgid`s in alle sieben Kataloge geschwemmt;
+  stattdessen wurden nur die 59 neuen Einträge von Hand an sortierter Position eingefügt — **in
+  ALLE ACHT Kataloge, inklusive `messages.pot`**. Der Wellen-Plan hatte den bestehenden Root-Gradle-
+  Task `verifyI18nCatalogParity` (hängt an `check`, erzwingt eine identische `msgid`-Menge über alle
+  sieben `.po` UND die `messages.pot`-Referenzdatei hinweg) nicht auf dem Schirm — der erste
+  `clean check`-Lauf dieser Welle schlug entsprechend sofort fehl, bis `messages.pot` denselben
+  59-Einträge-Nachtrag erhielt wie die sieben `.po`-Dateien.
+- **Ehrlich benannter Alt-Befund, nicht Teil dieser Welle**: der `.po`/`.pot`-Stand war gegenüber
+  dem Code bereits vor dieser Welle veraltet — 36 genuin leere `msgstr` je Katalog (nicht die
+  ursprünglich vermuteten 202–238, ein Artefakt eines naiven `grep '^msgstr ""$'`, der auch die
+  erste Zeile mehrzeiliger `msgstr`-Blöcke trifft) plus rund 433 im Client-Code vorhandene
+  `tr()`/`gettext()`-Literale ohne jeden Katalogeintrag (u. a. „Zahlungseingänge", „Mahnwesen",
+  „Familienmitgliedschaften", „Ehrungen & Auszeichnungen"), Stand 2026-09-10. Ein fehlender `msgid`
+  fällt in `I18nCatalogManager.lookup()` still auf den deutschen Key zurück. Bewusst nicht
+  mit-behoben (Design-Team, Zhuo; von Jobs unverändert übernommen) — eine eigene, spätere
+  „Katalog-Resynchronisation"-Welle.
+- **Review-Fixes, Runde 2 (2026-09-10)**:
+  - **Generation-Guard gegen stale In-Flight-Antworten**: weder `loadLines` noch `renderImports`
+    schützte sich gegen eine verspätet zurückkommende Antwort, die überschreibt, was ein bereits
+    NEUERER Aufruf schon gerendert hatte — dieselbe Klasse Race wie das „Race beim Anbieterwechsel"
+    in `AccountingExportScreen.kt` (`loadGeneration`), hier bisher unbehandelt. Ein schneller
+    Import-Wechsel, ein schneller Filter-Chip-Wechsel, oder ein Doppelklick auf „Weitere Zeilen
+    laden"/„Weitere Importe laden" konnte dadurch Zeilen zweier verschiedener Importe/Seiten in
+    dieselbe Tabelle verschränken oder den Offset doppelt vorrücken. Fix: `lineLoadGeneration`/
+    `importLoadGeneration`, synchron vor jedem `AppScope.launch` erhöht, nach dem Suspend-Punkt
+    geprüft. Dieselbe Race bestand unbehandelt auch in der Freitextsuche der Zuordnungs-
+    Arbeitsfläche (`searchGeneration`) — Zwei-Runden-Fund, im selben Zuge mitgefixt.
+  - **`BankStatementImportWarningCode`** (`lapis-shared`) löst die drei festen, deutschen
+    `BankStatementImportResultDto.warnings`-Sätze durch strukturierte Codes ab — gleiches Muster
+    wie `BankStatementRejectionCode`. `warnings` bleibt als serverinterne/Audit-Prosa erhalten
+    (nie mehr angezeigt), die im Ergebnis-Banner gerenderte Meldung kommt jetzt aus
+    `bankStatementImportWarningMessage` (`BankStatementLabels.kt`). Der bisherige
+    `IBAN_MATCHING_UNAVAILABLE`-Warntext nannte dabei den internen Umgebungsvariablennamen
+    `LAPIS_SECRET_ENCRYPTION_KEY` direkt in der Bedienoberfläche — die neue, übersetzte Meldung
+    tut das bewusst nicht mehr.
+  - **Auswahlmarkierung folgt jetzt dem Klick**: die blaue `border-primary`-Markierung der
+    Import-Liste wurde beim Zeilenbau EINMALIG ausgewertet und danach nie mehr aktualisiert — nach
+    einem Wechsel zeigte sie weiterhin auf den zuvor gewählten, nicht den gerade aktiven Auszug
+    (verschärft durch das gleichzeitig geleerte Ergebnis-Banner, das keine zweite Anzeige mehr für
+    „welcher Auszug gerade offen ist" übrigließ). `selectImport` pflegt die Markierung jetzt selbst
+    nach, über eine mitgeführte Import-ID → Zeilen-Referenz. Ebenfalls ergänzt: `cursor: pointer`
+    auf der klickbaren Zeile (`.lapis-clickable-row`, `theme.css`) — bis hierhin gab es für den
+    Klick keinerlei visuelle Rückmeldung.
+
 ## [0.19.0] — 2026-09-09
 
 ### Changed

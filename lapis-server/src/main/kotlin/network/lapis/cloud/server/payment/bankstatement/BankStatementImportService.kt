@@ -21,7 +21,9 @@ import network.lapis.cloud.shared.domain.BankCsvDialect
 import network.lapis.cloud.shared.domain.BankStatementFormat
 import network.lapis.cloud.shared.domain.BankStatementImportResultDto
 import network.lapis.cloud.shared.domain.BankStatementImportSnapshot
+import network.lapis.cloud.shared.domain.BankStatementImportWarningCode
 import network.lapis.cloud.shared.domain.BankStatementLineStatus
+import network.lapis.cloud.shared.domain.BankStatementRejectionCode
 import network.lapis.cloud.shared.domain.ContributionPaymentMethod
 import network.lapis.cloud.shared.domain.ContributionStatus
 import network.lapis.cloud.shared.domain.ContributionStatusSets
@@ -129,6 +131,7 @@ internal class BankStatementImportService(
                     throw BankStatementRejectedException(
                         httpStatus = 422,
                         message = "Format nicht erkannt.",
+                        code = BankStatementRejectionCode.FORMAT_UNRECOGNIZED,
                         observedHeaderFields = detection.observedHeaderFields,
                     )
                 is FormatDetection.CsvDetected -> {
@@ -145,6 +148,7 @@ internal class BankStatementImportService(
             throw BankStatementRejectedException(
                 httpStatus = 422,
                 message = "Der Auszug hat ${parsed.lines.size} Zeilen, das Limit liegt bei $MAX_STATEMENT_LINES.",
+                code = BankStatementRejectionCode.TOO_MANY_LINES,
             )
         }
 
@@ -158,12 +162,17 @@ internal class BankStatementImportService(
                 throw BankStatementRejectedException(
                     httpStatus = 422,
                     message = "Zeile ${index + 1} enthaelt ein ungueltiges Steuerzeichen.",
+                    code = BankStatementRejectionCode.CONTROL_CHARACTER,
                     lineNumber = index + 1,
                 )
             }
         }
 
         val warnings = mutableListOf<String>()
+        // Review fix (MAJOR, Welle V1.4.5.1.1 Runde 2): parallel machine-readable list -- see
+        // BankStatementImportWarningCode KDoc. `warnings` (German prose) is kept as the
+        // server-internal/audit counterpart, never rendered by the client anymore.
+        val warningCodes = mutableListOf<BankStatementImportWarningCode>()
         val normalizedAccountIban = parsed.accountIban?.let { IbanValidator.normalize(it) }
         val accountIbanIsValidIban = normalizedAccountIban != null && IbanValidator.isValid(normalizedAccountIban)
 
@@ -173,21 +182,29 @@ internal class BankStatementImportService(
                     throw BankStatementRejectedException(
                         httpStatus = 409,
                         message = "Diese Datei wurde bereits importiert (identischer Datei-Digest).",
+                        code = BankStatementRejectionCode.ALREADY_IMPORTED,
                     )
                 }
 
                 val orgSettingsRow = OrganizationSettingsTable.selectAll().singleOrNull()
                 val orgBankIban = orgSettingsRow?.get(OrganizationSettingsTable.bankIban)?.let { IbanValidator.normalize(it) }
                 if (orgBankIban != null && accountIbanIsValidIban && normalizedAccountIban != orgBankIban) {
-                    throw BankStatementRejectedException(httpStatus = 422, message = "Der Auszug gehoert zu einem anderen Konto.")
+                    throw BankStatementRejectedException(
+                        httpStatus = 422,
+                        message = "Der Auszug gehoert zu einem anderen Konto.",
+                        code = BankStatementRejectionCode.FOREIGN_ACCOUNT,
+                    )
                 }
                 if (orgBankIban == null) {
                     warnings += "Kein Bankkonto in den Organisationseinstellungen hinterlegt -- Kontopruefung uebersprungen."
+                    warningCodes += BankStatementImportWarningCode.NO_BANK_ACCOUNT_CONFIGURED
                 } else if (parsed.accountIban != null && !accountIbanIsValidIban) {
                     warnings += "Kontokennung des Auszugs ist keine gueltige IBAN (Altformat?) -- Kontopruefung uebersprungen."
+                    warningCodes += BankStatementImportWarningCode.LEGACY_ACCOUNT_IBAN_FORMAT
                 }
                 if (secretBox == null) {
                     warnings += "IBAN-Abgleich nicht verfuegbar -- LAPIS_SECRET_ENCRYPTION_KEY ist nicht konfiguriert."
+                    warningCodes += BankStatementImportWarningCode.IBAN_MATCHING_UNAVAILABLE
                 }
 
                 val importId = Uuid.random()
@@ -243,6 +260,7 @@ internal class BankStatementImportService(
                         throw BankStatementRejectedException(
                             httpStatus = 409,
                             message = "Diese Datei wurde bereits importiert (identischer Datei-Digest).",
+                            code = BankStatementRejectionCode.ALREADY_IMPORTED,
                         )
                     }
                     throw cause ?: IllegalStateException("bank_statement_import insert failed with no exception")
@@ -497,6 +515,7 @@ internal class BankStatementImportService(
             ignoredCount = ignored,
             suggestedCount = suggested,
             warnings = warnings,
+            warningCodes = warningCodes,
         )
     }
 
@@ -778,6 +797,7 @@ internal class BankStatementImportService(
                 throw BankStatementRejectedException(
                     httpStatus = 422,
                     message = e.message ?: "Zeile nicht lesbar",
+                    code = e.code,
                     lineNumber = e.lineNumber,
                     rawLineExcerpt = e.rawLineExcerpt,
                 )
@@ -805,14 +825,20 @@ internal class BankStatementImportService(
 
 /**
  * Thrown by [BankStatementImportService.import] for every "reject the whole import" condition --
- * [network.lapis.cloud.server.routes.BankStatementRoutes] maps [httpStatus]/[lineNumber]/
- * [rawLineExcerpt]/[observedHeaderFields] onto the HTTP response body. See
+ * [network.lapis.cloud.server.routes.BankStatementRoutes] maps [httpStatus]/[code]/[lineNumber]/
+ * [rawLineExcerpt]/[observedHeaderFields] onto the HTTP response body
+ * ([network.lapis.cloud.shared.domain.BankStatementImportRejectionDto]). See
  * [BankStatementParseException] KDoc "Privacy" for why [rawLineExcerpt] only ever appears here,
  * never in a log line, never persisted.
+ *
+ * Welle V1.4.5.1.1 -- [code] deliberately has NO default: all seven throw sites in this file must
+ * name their [BankStatementRejectionCode] explicitly, so the compiler (not a code reviewer) catches
+ * a forgotten one.
  */
 internal class BankStatementRejectedException(
     val httpStatus: Int,
     message: String,
+    val code: BankStatementRejectionCode,
     val lineNumber: Int? = null,
     val rawLineExcerpt: String? = null,
     val observedHeaderFields: List<String>? = null,

@@ -731,3 +731,12 @@ body {
   width: 100%;
   height: 100%;
 }
+
+/* Review fix (MAJOR, Welle V1.4.5.1.1 Runde 2): die Import-Auswahlzeile in
+   `BankStatementImportScreen.kt` trägt einen `onClick`-Handler, gab bis hierhin aber KEINE
+   sichtbare Rückmeldung, dass sie klickbar ist (kein Hover-Zustand, kein Pointer-Cursor) --
+   verschärft dadurch, dass die blaue `border-primary`-Markierung bis zu diesem Fix ohnehin nicht
+   der Auswahl folgte. */
+.lapis-clickable-row {
+  cursor: pointer;
+}

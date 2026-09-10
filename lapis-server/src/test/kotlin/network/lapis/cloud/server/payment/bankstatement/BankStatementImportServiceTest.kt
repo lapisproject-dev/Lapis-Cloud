@@ -22,6 +22,7 @@ import network.lapis.cloud.server.db.generated.PaymentTransactionTable
 import network.lapis.cloud.server.db.generated.PostingTable
 import network.lapis.cloud.server.rpc.ORGANIZATION_SETTINGS_ID
 import network.lapis.cloud.shared.domain.AccountRole
+import network.lapis.cloud.shared.domain.BankStatementImportWarningCode
 import network.lapis.cloud.shared.domain.BankStatementLineStatus
 import network.lapis.cloud.shared.domain.BillingInterval
 import network.lapis.cloud.shared.domain.ContributionPaymentMethod
@@ -544,6 +545,13 @@ class BankStatementImportServiceTest :
 
             result.warnings shouldContain
                 "Kontokennung des Auszugs ist keine gueltige IBAN (Altformat?) -- Kontopruefung uebersprungen."
+            // Review fix (MAJOR, Welle V1.4.5.1.1 Runde 2): BankStatementImportWarningCode is the
+            // machine-readable counterpart the client now renders instead of the raw German string
+            // asserted above -- see BankStatementLabels.bankStatementImportWarningMessage.
+            result.warningCodes shouldContain BankStatementImportWarningCode.LEGACY_ACCOUNT_IBAN_FORMAT
+            // secretBox = null in this test too, so R2 (IBAN match) is skipped for the same reason
+            // every other test in this file skips it -- the code fires here alongside the format one.
+            result.warningCodes shouldContain BankStatementImportWarningCode.IBAN_MATCHING_UNAVAILABLE
 
             transaction {
                 val importRow =
@@ -553,6 +561,39 @@ class BankStatementImportServiceTest :
                         .single()
                 importRow[BankStatementImportTable.accountIban] shouldBe overlongIban.take(34)
             }
+        }
+
+        test(
+            "no organization bank IBAN configured -- warningCodes carries NO_BANK_ACCOUNT_CONFIGURED, " +
+                "never the raw German warning string, and no account-ownership check runs",
+        ) {
+            // Review fix (MAJOR, Welle V1.4.5.1.1 Runde 2): BankStatementImportWarningCode -- see
+            // that enum's own KDoc for why this needed no DB migration, unlike matchExplanation.
+            // Deliberately no setOrgBankIban() call -- the default (no configured org IBAN) is what
+            // triggers this code.
+            val uploader = uploaderId()
+            val csv =
+                (
+                    listOf(SPARKASSE_HEADER) +
+                        listOf("DE00;15.03.2026;15.03.2026;Gutschrift;Spende;Spender;;;10,00;EUR;")
+                ).joinToString("\r\n")
+            val service = BankStatementImportService(secretBox = null)
+
+            val result =
+                service.import(
+                    bytes = csv.toByteArray(),
+                    fileName = "no-org-iban.csv",
+                    uploadedBy = uploader,
+                    uploaderRole = AccountRole.TREASURER,
+                )
+            createdImportIds += Uuid.parse(result.importId)
+
+            result.warningCodes shouldContain BankStatementImportWarningCode.NO_BANK_ACCOUNT_CONFIGURED
+            result.warningCodes shouldContain BankStatementImportWarningCode.IBAN_MATCHING_UNAVAILABLE
+            // LEGACY_ACCOUNT_IBAN_FORMAT is mutually exclusive with NO_BANK_ACCOUNT_CONFIGURED --
+            // BankStatementImportService's `if (orgBankIban == null) ... else if (...)` chain, see
+            // that class's Phase 1 block.
+            (BankStatementImportWarningCode.LEGACY_ACCOUNT_IBAN_FORMAT in result.warningCodes) shouldBe false
         }
 
         test(

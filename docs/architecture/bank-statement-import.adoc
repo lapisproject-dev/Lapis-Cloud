@@ -1,5 +1,5 @@
-= Bank Statement Import (CSV/MT940) — Welle V1.4.5.1
-:description: Format detection, parsing, matching, and the two-phase booking transaction shape for the bank-statement-import feature.
+= Bank Statement Import (CSV/MT940) — Welle V1.4.5.1 / V1.4.5.1.1
+:description: Format detection, parsing, matching, the two-phase booking transaction shape, the `/bank-import` operator screen, and the structured rejection contract for the bank-statement-import feature.
 :toc:
 :toc-placement: preamble
 :icons: font
@@ -26,12 +26,70 @@ dialects modelled (`network.lapis.cloud.shared.domain
 real (anonymized) export sample was available to verify a layout against — a *guessed* signature
 that silently shifts columns would book the wrong amount, which is worse than an honest rejection.
 
-**Client scope-cut**: this wave delivers the complete server-side surface — migration, kUML model,
-parsers, matcher, the two-phase booking transaction, the RPC read/disposition service
+**Client scope-cut (V1.4.5.1)**: that wave delivered the complete server-side surface — migration,
+kUML model, parsers, matcher, the two-phase booking transaction, the RPC read/disposition service
 (`IBankStatementService`), and the upload route (`POST /api/bank-statements/import`) — fully
 implemented and tested. The KVision operator screen (`/bank-import`) and the full seven-language
-i18n catalog update are left to a follow-up wave; the RPC surface is already complete enough for
-that screen to be built against without any server-side changes.
+i18n catalog update were left to a follow-up wave.
+
+**Nachziehwelle V1.4.5.1.1** closes that gap: the `/bank-import` operator screen (one page, no
+tabs — upload, import selection, line list with filters, and an assignment workbench for
+contribution/donation/ignore dispositions), a structured JSON rejection contract for the upload
+route (see "Rejection contract" below, replacing the previous German-plaintext error body), and
+seven-language coverage (`en`/`es`/`fr`/`it`/`nl`/`pl`/`ru`) for every static `tr()`/`gettext()`
+string this wave introduces (screen chrome, the ten rejection messages, and — as of the Round-2
+review fix below — the three import warnings). **Not covered, corrected by that same review
+finding (Round 2, 2026-09-10)**: `BankStatementLineDto.matchExplanation`, the per-line match
+reason, embeds dynamic data (member name, amounts, dates, a reference code) computed AND
+PERSISTED by `BankStatementMatcher`, so it stays untranslated German prose — a structured,
+translatable replacement needs its own migration and is deliberately deferred to a follow-up
+wave, not this one. See `CHANGELOG.md`'s V1.4.5.1.1 entry for the complete list of UI/UX
+decisions.
+
+== Rejection contract (V1.4.5.1.1)
+
+`POST /api/bank-statements/import` answers EVERY rejection — all five HTTP statuses, not just the
+`BankStatementRejectedException` path — with the same JSON body,
+`network.lapis.cloud.shared.domain.BankStatementImportRejectionDto`:
+
+[cols="1,1,2"]
+|===
+| Code | HTTP status | Origin
+
+| `FILE_TOO_LARGE` | 413 | Streaming upload-size cap, before the whole file is buffered
+| `NO_FILE_PART` | 400 | Multipart request carried no file part at all
+| `RATE_LIMITED` | 429 | `FederationInboxRateLimiter` (10 requests/minute per remote host)
+| `FORMAT_UNRECOGNIZED` | 422 | `BankStatementFormatDetector` — carries `observedHeaderFields` for diagnosis
+| `PARSE_FAILED` | 422 | Generic parser failure (the default `BankStatementParseException` code — every throw site except the MT940 balance check stays on this default, deliberately not split further)
+| `MT940_BALANCE_MISMATCH` | 422 | MT940 opening balance + transaction sum ≠ closing balance
+| `FOREIGN_ACCOUNT` | 422 | Statement's account IBAN does not match the organization's configured `bank_iban`
+| `TOO_MANY_LINES` | 422 | Statement exceeds `MAX_STATEMENT_LINES` (2,000)
+| `CONTROL_CHARACTER` | 422 | A raw C0/DEL control character in a free-text field — carries `lineNumber`
+| `ALREADY_IMPORTED` | 409 | File digest (or, on a rare unique-index race, the same digest constraint) already imported
+|===
+
+`detail` still carries the original German server text, but ONLY as technical fallback context —
+the client (`bankStatementRejectionMessage` in `BankStatementLabels.kt`) always renders its own,
+translated message keyed off `code`, never `detail`. `rawLineExcerpt` (present only for
+`PARSE_FAILED`/line-level failures) stays exactly as privacy-sensitive as before this wave — see
+"No `raw_line` column" above — the client shows it only transiently in the upload error box, never
+in a toast, `localStorage`, or the URL.
+
+== The `/bank-import` screen (V1.4.5.1.1)
+
+One page, no tabs (Design-Team, Raskin/Tesler) — the default view is the assignment work queue, not
+the upload form (Duarte): uploading is a single button in the header that expands an upload panel;
+the moment an import succeeds, the screen jumps straight to that import's line list with the filter
+pre-set to the first non-empty "needs attention" bucket (`AMBIGUOUS` if any, else `UNMATCHED`, else
+"all"). Selecting an import writes `?import=<uuid>` into the URL via `history.replaceState` (never
+a `Routing` round-trip, which would tear down and rebuild the whole screen and lose the in-progress
+state) — that state is directly linkable, mirroring the existing `?member=`/`?family=` pattern
+`MEMBER_HONORS`/`MEMBER_FAMILIES` already established.
+
+Roles: TREASURER/BOARD/ADMIN can read; TREASURER/ADMIN can additionally upload, assign, and ignore
+lines (`BankStatementAuthzUi` in the client mirrors the server's own `BANK_STATEMENT_READ_ROLES`/
+`BANK_STATEMENT_WRITE_ROLES` split). A BOARD viewer sees a single read-only notice instead of the
+upload button and never sees the "Aktionen" table column at all — not a disabled affordance.
 
 == Data shape
 

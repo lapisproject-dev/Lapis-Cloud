@@ -716,27 +716,47 @@ computed but nothing sends yet), self-service access/erasure for the contact the
 admin-only), tagging/segmentation beyond the fixed `CrmContactType` enum, and `external_donor`'s own
 long-deferred DSGVO gap (unchanged by this wave, now merely visible instead of silent).
 
-== Bank Statement Import (V1.4.5.1)
+== Bank Statement Import (V1.4.5.1 / V1.4.5.1.1)
 
 CSV (Sparkassen-CAMT export, plus a broad generic fallback) and MT940 bank-statement upload,
 matched against open contributions by four rules (a printed `LC-XXXXXX` reference in the transfer
 purpose, an IBAN match against an active SEPA mandate, a first+last name token match, or no match
-at all) — only the reference rule ever books automatically. See
+at all) — only the reference rule ever books automatically. A `/bank-import` operator screen
+(TREASURER/BOARD/ADMIN read, TREASURER/ADMIN upload/assign/ignore) lets a treasurer upload a
+statement, work through the resulting lines (filtered by status), assign a line to a contribution
+or a donation, or ignore it with a mandatory justification. See
 `docs/architecture/bank-statement-import.adoc` for the full design (data shape, the GF(2⁵)-checksum
-payment-reference grammar, the matching pipeline, and the two-phase booking transaction that keeps
-`ContributionPostingBridge`'s single-row-lock-per-transaction contract).
+payment-reference grammar, the matching pipeline, the two-phase booking transaction that keeps
+`ContributionPostingBridge`'s single-row-lock-per-transaction contract, the structured JSON
+rejection contract, and the screen's own UI/UX decisions).
 
 === What doesn't work yet (this wave)
 
-Deliberately out of scope, see `CHANGELOG.md`: the KVision operator screen (`/bank-import`) and the
-full seven-language i18n catalog update — the server-side surface (migration, kUML model, parsers,
-matcher, booking path, `IBankStatementService` RPC, and the
-`POST /api/bank-statements/import` upload route) is complete and tested, only the UI is deferred.
-Also out of scope: DATEV/lexoffice/sevDesk export (see the next section — the DATEV half is closed
-as of V1.4.5.2), camt.052/053/054 XML, FinTS/HBCI, splitting one bank line across multiple
-contributions, automatic *donation* posting (§25 PartG: a donor category cannot be derived from a
-bank line alone), and header signatures for the `VR_BANK`/`DKB`/`POSTBANK`/`COMDIRECT` CSV
-dialects (no real export sample was available to verify one against).
+Deliberately out of scope, see `CHANGELOG.md`: DATEV/lexoffice/sevDesk export (see the next section
+— the DATEV half is closed as of V1.4.5.2), camt.052/053/054 XML, FinTS/HBCI, splitting one bank
+line across multiple contributions, automatic *donation* posting at import time (§25 PartG: a donor
+category cannot be derived from a bank line alone — manual donation assignment through the screen
+IS possible, with the operator choosing the category), and header signatures for the
+`VR_BANK`/`DKB`/`POSTBANK`/`COMDIRECT` CSV dialects (no real export sample was available to verify
+one against). Also out of scope, and explicitly NOT part of this wave's i18n coverage: the
+pre-existing catalog drift affecting other, unrelated screens (36 genuinely empty `msgstr` entries
+per language catalog, and roughly 433 code literals with no catalog entry at all, stand
+2026-09-10) — see `BankStatementI18nCatalogTest.kt`'s own KDoc.
+
+Also NOT covered by this wave's i18n, and NOT pre-existing drift -- a genuine gap in the new
+screen itself, honestly named after a review finding (Round 2, 2026-09-10) rather than silently
+left in place: `BankStatementLineDto.matchExplanation`, the per-line reason a status was assigned
+(e.g. "IBAN-Abgleich: <member> (<tier>, <period>)"), stays untranslated German server prose,
+because it embeds per-line dynamic data (member names, amounts, dates, a payment reference code)
+computed in `BankStatementMatcher` and PERSISTED as a plain string column -- unlike the fixed,
+parameterless strings `BankStatementRejectionCode`/`BankStatementImportWarningCode` translate, a
+structured replacement for `matchExplanation` needs its own DB migration (a code plus its
+parameters, not a plain string) and is deliberately left to a follow-up wave rather than rushed
+into a review-fix commit. `BankStatementImportResultDto.warnings` -- the three fixed,
+parameterless warning sentences the import route can produce -- IS fully code-driven now
+(`BankStatementImportWarningCode`, same round of fixes), and no longer exposes the internal
+`LAPIS_SECRET_ENCRYPTION_KEY` environment-variable name in the UI, which one of its three variants
+used to do.
 
 == DATEV Export (V1.4.5.2)
 

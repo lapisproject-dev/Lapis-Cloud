@@ -1,8 +1,9 @@
 package network.lapis.cloud.server.routes
 
 import io.kotest.core.spec.style.FunSpec
+import io.kotest.matchers.collections.shouldNotBeEmpty
+import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
-import io.kotest.matchers.string.shouldContain
 import io.ktor.client.request.forms.MultiPartFormDataContent
 import io.ktor.client.request.forms.formData
 import io.ktor.client.request.header
@@ -21,14 +22,19 @@ import io.ktor.server.response.respondText
 import io.ktor.server.routing.routing
 import io.ktor.server.testing.testApplication
 import kotlinx.datetime.LocalDate
+import kotlinx.serialization.json.Json
 import network.lapis.cloud.server.db.DatabaseConfig
 import network.lapis.cloud.server.db.generated.AccountTable
 import network.lapis.cloud.server.db.generated.AuditLogEntryTable
 import network.lapis.cloud.server.db.generated.BankStatementImportTable
 import network.lapis.cloud.server.db.generated.BankStatementLineTable
 import network.lapis.cloud.server.db.generated.MemberTable
+import network.lapis.cloud.server.db.generated.OrganizationSettingsTable
 import network.lapis.cloud.server.federation.FederationInboxRateLimiter
+import network.lapis.cloud.server.rpc.ORGANIZATION_SETTINGS_ID
 import network.lapis.cloud.shared.domain.AccountRole
+import network.lapis.cloud.shared.domain.BankStatementImportRejectionDto
+import network.lapis.cloud.shared.domain.BankStatementRejectionCode
 import network.lapis.cloud.shared.domain.MemberStatus
 import network.lapis.cloud.shared.rpc.ForbiddenException
 import org.jetbrains.exposed.v1.core.eq
@@ -73,7 +79,19 @@ class BankStatementRoutesTest :
 
         beforeSpec { DatabaseConfig.connect() }
 
+        fun setOrgBankIban(iban: String?) {
+            transaction {
+                OrganizationSettingsTable.update({ OrganizationSettingsTable.id eq ORGANIZATION_SETTINGS_ID }) {
+                    it[bankIban] = iban
+                }
+            }
+        }
+
         afterEach {
+            // Same precedent BankStatementImportServiceTest's own afterTest establishes -- reset
+            // BEFORE the next test runs, so a test that sets an org IBAN never leaks into an
+            // unrelated later test in this file.
+            setOrgBankIban(null)
             transaction {
                 if (createdImportIds.isNotEmpty()) {
                     BankStatementLineTable.deleteWhere { BankStatementLineTable.importId inList createdImportIds }
@@ -153,6 +171,9 @@ class BankStatementRoutesTest :
         fun rememberImportIdsFor(memberId: Uuid) {
             transaction { importIdsUploadedBy(memberId) }.forEach { createdImportIds += it }
         }
+
+        fun decodeRejection(bodyText: String): BankStatementImportRejectionDto =
+            Json.decodeFromString(BankStatementImportRejectionDto.serializer(), bodyText)
 
         test("role gate: MEMBER and BOARD are rejected with 403 BEFORE the body is read -- TREASURER succeeds") {
             testApplication {
@@ -255,6 +276,113 @@ class BankStatementRoutesTest :
                         setBody(multipartBody(validCsvBytes(amount = "22,00")))
                     }
                 second.status shouldBe HttpStatusCode.TooManyRequests
+                decodeRejection(second.bodyAsText()).code shouldBe BankStatementRejectionCode.RATE_LIMITED
+            }
+        }
+
+        test("413: a file over MAX_UPLOAD_BYTES answers with the structured FILE_TOO_LARGE rejection DTO") {
+            testApplication {
+                application {
+                    install(ContentNegotiation) { json() }
+                    install(StatusPages) { installExceptionHandlers(this) }
+                    routing {
+                        registerBankStatementRoutes(
+                            secretBox = null,
+                            rateLimiter = FederationInboxRateLimiter(maxRequests = 1000, window = 1.minutes),
+                        )
+                    }
+                }
+                val treasurer = createMember(AccountRole.TREASURER)
+                val oversized = ByteArray((5L * 1024 * 1024 + 1).toInt())
+
+                val response =
+                    client.post("/api/bank-statements/import") {
+                        header("X-Member-Id", treasurer.toString())
+                        setBody(multipartBody(oversized))
+                    }
+                response.status shouldBe HttpStatusCode.PayloadTooLarge
+                decodeRejection(response.bodyAsText()).code shouldBe BankStatementRejectionCode.FILE_TOO_LARGE
+            }
+        }
+
+        test("400: a multipart request with no file part answers with the structured NO_FILE_PART rejection DTO") {
+            testApplication {
+                application {
+                    install(ContentNegotiation) { json() }
+                    install(StatusPages) { installExceptionHandlers(this) }
+                    routing {
+                        registerBankStatementRoutes(
+                            secretBox = null,
+                            rateLimiter = FederationInboxRateLimiter(maxRequests = 1000, window = 1.minutes),
+                        )
+                    }
+                }
+                val treasurer = createMember(AccountRole.TREASURER)
+
+                val response =
+                    client.post("/api/bank-statements/import") {
+                        header("X-Member-Id", treasurer.toString())
+                        setBody(MultiPartFormDataContent(formData { append("note", "kein Datei-Part hier") }))
+                    }
+                response.status shouldBe HttpStatusCode.BadRequest
+                decodeRejection(response.bodyAsText()).code shouldBe BankStatementRejectionCode.NO_FILE_PART
+            }
+        }
+
+        test("422: a statement over MAX_STATEMENT_LINES is rejected with the structured TOO_MANY_LINES rejection DTO") {
+            testApplication {
+                application {
+                    install(ContentNegotiation) { json() }
+                    install(StatusPages) { installExceptionHandlers(this) }
+                    routing {
+                        registerBankStatementRoutes(
+                            secretBox = null,
+                            rateLimiter = FederationInboxRateLimiter(maxRequests = 1000, window = 1.minutes),
+                        )
+                    }
+                }
+                val treasurer = createMember(AccountRole.TREASURER)
+                val tooManyLines =
+                    (
+                        listOf(SPARKASSE_HEADER) +
+                            (1..2001).map { "DE00;15.03.2026;15.03.2026;Gutschrift;Zahlung;Absender;;;1,00;EUR;" }
+                    ).joinToString("\r\n").toByteArray()
+
+                val response =
+                    client.post("/api/bank-statements/import") {
+                        header("X-Member-Id", treasurer.toString())
+                        setBody(multipartBody(tooManyLines, fileName = "zu-viele-zeilen.csv"))
+                    }
+                response.status shouldBe HttpStatusCode.UnprocessableEntity
+                decodeRejection(response.bodyAsText()).code shouldBe BankStatementRejectionCode.TOO_MANY_LINES
+            }
+        }
+
+        test("422: a control character is rejected with the structured CONTROL_CHARACTER rejection DTO, with lineNumber") {
+            testApplication {
+                application {
+                    install(ContentNegotiation) { json() }
+                    install(StatusPages) { installExceptionHandlers(this) }
+                    routing {
+                        registerBankStatementRoutes(
+                            secretBox = null,
+                            rateLimiter = FederationInboxRateLimiter(maxRequests = 1000, window = 1.minutes),
+                        )
+                    }
+                }
+                val treasurer = createMember(AccountRole.TREASURER)
+                val controlCharacterLine = "DE00;15.03.2026;15.03.2026;Gutschrift;Za${0x01.toChar()}hlung;Absender;;;1,00;EUR;"
+                val bytes = (listOf(SPARKASSE_HEADER) + listOf(controlCharacterLine)).joinToString("\r\n").toByteArray()
+
+                val response =
+                    client.post("/api/bank-statements/import") {
+                        header("X-Member-Id", treasurer.toString())
+                        setBody(multipartBody(bytes, fileName = "steuerzeichen.csv"))
+                    }
+                response.status shouldBe HttpStatusCode.UnprocessableEntity
+                val rejection = decodeRejection(response.bodyAsText())
+                rejection.code shouldBe BankStatementRejectionCode.CONTROL_CHARACTER
+                rejection.lineNumber shouldBe 1
             }
         }
 
@@ -290,7 +418,7 @@ class BankStatementRoutesTest :
                         setBody(multipartBody(bytes))
                     }
                 second.status shouldBe HttpStatusCode.Conflict
-                second.bodyAsText() shouldContain "bereits importiert"
+                decodeRejection(second.bodyAsText()).code shouldBe BankStatementRejectionCode.ALREADY_IMPORTED
             }
         }
 
@@ -315,9 +443,108 @@ class BankStatementRoutesTest :
                         setBody(multipartBody(garbage))
                     }
                 response.status shouldBe HttpStatusCode.UnprocessableEntity
-                val body = response.bodyAsText()
-                body shouldContain "Format nicht erkannt"
-                body shouldContain "Beobachtete Spalten"
+                val rejection = decodeRejection(response.bodyAsText())
+                rejection.code shouldBe BankStatementRejectionCode.FORMAT_UNRECOGNIZED
+                val observedHeaderFields = rejection.observedHeaderFields.shouldNotBeNull()
+                observedHeaderFields.shouldNotBeEmpty()
+            }
+        }
+
+        test(
+            "422: an MT940 statement whose :25: account IBAN differs from the configured org IBAN " +
+                "is rejected with the structured FOREIGN_ACCOUNT rejection DTO",
+        ) {
+            // Review fix (MINOR, "Fehlende Testabdeckung"): FOREIGN_ACCOUNT
+            // (BankStatementImportService.kt) had no coverage at all -- neither here nor in
+            // BankStatementImportServiceTest -- despite six sibling rejection codes each having a
+            // dedicated route-level test in this file. Only MT940 carries a statement-level IBAN
+            // (`:25:`) at all -- BankCsvParser always sets accountIban = null -- so this guard is
+            // only reachable via an MT940 upload, see that parser's own KDoc.
+            testApplication {
+                application {
+                    install(ContentNegotiation) { json() }
+                    install(StatusPages) { installExceptionHandlers(this) }
+                    routing {
+                        registerBankStatementRoutes(
+                            secretBox = null,
+                            rateLimiter = FederationInboxRateLimiter(maxRequests = 1000, window = 1.minutes),
+                        )
+                    }
+                }
+                val treasurer = createMember(AccountRole.TREASURER)
+                // Two DIFFERENT, individually valid (checksum-correct) German IBANs -- same
+                // precedent BankStatementImportServiceTest's own "Altformat?" test establishes for
+                // the org IBAN; "DE89370400440532013000" is the textbook example IBAN also used by
+                // BankCsvParserTest/BankStatementMatcherTest elsewhere in this module.
+                setOrgBankIban("DE02120300000000202051")
+                val foreignAccountMt940 =
+                    listOf(
+                        ":20:STMT001",
+                        ":25:DE89370400440532013000",
+                        ":60F:C260301EUR0,00",
+                        ":61:2603150315C10,00NMSCREF1",
+                        ":86:?20Spende",
+                        ":62F:C260331EUR10,00",
+                    ).joinToString("\r\n").toByteArray()
+
+                val response =
+                    client.post("/api/bank-statements/import") {
+                        header("X-Member-Id", treasurer.toString())
+                        setBody(multipartBody(foreignAccountMt940, fileName = "fremdes-konto.sta"))
+                    }
+                response.status shouldBe HttpStatusCode.UnprocessableEntity
+                decodeRejection(response.bodyAsText()).code shouldBe BankStatementRejectionCode.FOREIGN_ACCOUNT
+
+                // Nothing must have been persisted for a rejected import.
+                transaction { importIdsUploadedBy(treasurer) } shouldBe emptyList()
+            }
+        }
+
+        test(
+            "422: an MT940 statement whose opening + line sum disagrees with its closing balance is " +
+                "rejected end-to-end with the structured MT940_BALANCE_MISMATCH rejection DTO",
+        ) {
+            // Review fix (MINOR, "Fehlende Testabdeckung"): Mt940Parser's own balance check is
+            // covered at parser level (Mt940ParserTest), but the propagation
+            // BankStatementParseException.code -> BankStatementRejectedException.code in
+            // BankStatementImportService.throwAsRejection had no HTTP-boundary test -- a regression
+            // that replaced `code = e.code` with the PARSE_FAILED default in that one line would
+            // slip past `clean check` while the client showed the wrong translated message for this
+            // specific, diagnosable case.
+            testApplication {
+                application {
+                    install(ContentNegotiation) { json() }
+                    install(StatusPages) { installExceptionHandlers(this) }
+                    routing {
+                        registerBankStatementRoutes(
+                            secretBox = null,
+                            rateLimiter = FederationInboxRateLimiter(maxRequests = 1000, window = 1.minutes),
+                        )
+                    }
+                }
+                val treasurer = createMember(AccountRole.TREASURER)
+                // Opening 0,00 + line 10,00 = 10,00, but the closing balance below claims 15,00 --
+                // deliberately unbalanced.
+                val unbalancedMt940 =
+                    listOf(
+                        ":20:STMT002",
+                        ":25:DE89370400440532013000",
+                        ":60F:C260301EUR0,00",
+                        ":61:2603150315C10,00NMSCREF2",
+                        ":86:?20Spende",
+                        ":62F:C260331EUR15,00",
+                    ).joinToString("\r\n").toByteArray()
+
+                val response =
+                    client.post("/api/bank-statements/import") {
+                        header("X-Member-Id", treasurer.toString())
+                        setBody(multipartBody(unbalancedMt940, fileName = "saldo-falsch.sta"))
+                    }
+                response.status shouldBe HttpStatusCode.UnprocessableEntity
+                decodeRejection(response.bodyAsText()).code shouldBe BankStatementRejectionCode.MT940_BALANCE_MISMATCH
+
+                // Nothing must have been persisted for a rejected import.
+                transaction { importIdsUploadedBy(treasurer) } shouldBe emptyList()
             }
         }
     })
