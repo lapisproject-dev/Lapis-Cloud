@@ -6,6 +6,8 @@ All notable changes to this project are documented here. Format follows
 
 ## [Unreleased]
 
+## [0.20.0] — 2026-09-10
+
 ### Added
 
 **Veranstaltungs-Anmeldung als einbettbares Website-Widget (V1.4.3.3, 2026-09-10)**

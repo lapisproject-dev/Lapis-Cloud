@@ -318,6 +318,20 @@ confirmed fixed after a second live reproduction against a properly reloaded bui
 tagline, closing a gap where an installation with a configured logo showed that name nowhere as
 readable text on its own landing page. See `CHANGELOG.md` `[0.19.0]` for full wave-by-wave detail.
 
+**`v0.20.0`** closes three items. An admin-triggered password reset for a member who already has a
+login account (V1.4.9) — two deliberately distinct paths: an immediate, session-revoking "set a
+temporary password" action, and a non-revoking "send reset email" action that reuses the existing
+unauthenticated token mechanism, both ADMIN-only and never usable on the admin's own row. A
+Bedienoberfläche (`/bank-import`) plus full 7-language i18n for the bank-statement import feature
+that had shipped server-only in `v0.19.0`'s V1.4.5.1 (V1.4.5.1.1) — upload, per-line status
+filtering/pagination, manual assignment of an open line to a contribution or donation, and
+structured rejection/warning codes instead of raw server prose. And a fourth embed widget,
+event registration (V1.4.3.3, see "Website Integration" below), closing the gap the V1.4.3.1 wave
+had deliberately deferred: `POST /api/embed/v1/event/{slug}/registration` collapses the full
+registration-outcome type down to four visitor-facing outcomes only, specifically to avoid opening
+a membership-enumeration oracle over guest email addresses. See `CHANGELOG.md` `[0.20.0]` for full
+detail.
+
 === Auction opt-in (V0.6.2)
 
 The legal classification of an LTR-for-goods marketplace (payment-services supervision, trade law,
@@ -626,12 +640,12 @@ periodic re-fetch of the relevant `/api/v1` list), multi-instance-safe deactivat
 notification/retention cleanup (the poller assumes exactly one running server instance), and a
 grace-period dual-secret transition during signing-secret rotation.
 
-== Website Integration (V1.4.1a/V1.4.1b)
+== Website Integration (V1.4.1a/V1.4.1b/V1.4.3.3)
 
 A small (< 12 KB, no dependencies) embeddable script lets a partner website — a party's or
 association's own site, on a *different* origin — offer a member-login button, a
-"become a member" link, and an anonymous donation form, without ever sharing a session cookie
-across that origin boundary. Login runs in a popup window on this server's own origin; only a `postMessage`-delivered
+"become a member" link, an anonymous donation form, and an event-registration form, without ever
+sharing a session cookie across that origin boundary. Login runs in a popup window on this server's own origin; only a `postMessage`-delivered
 `{ok, displayName}` crosses back to the embedding page. Every widget host carries a working No-JS
 fallback link that the script only ever replaces, never removes first. Full contract (snippet,
 CSS custom properties, CORS/CSP, the popup+`postMessage` flow, known limitations):
@@ -670,6 +684,19 @@ only, 5–500 EUR) anonymous donation form, `POST /api/embed/v1/donation/checkou
 (`GET /embed/v1/spende/danke`/`/abgebrochen`, never a session identifier in the URL). No new
 environment variable — it reuses `LAPIS_EMBED_*`/`LAPIS_STRIPE_*`/`LAPIS_PSP_*` verbatim. Full
 contract: `docs/api/embed-widgets.adoc`.
+
+=== Event registration widget (Welle V1.4.3.3)
+
+A fourth widget, `data-lapis-widget="event"`, on the same infrastructure: `POST
+/api/embed/v1/event/{slug}/registration` reuses the exact same `EventRegistrationSubmission`/
+`EventPolicy` logic as the pre-existing server-rendered `/veranstaltung/{slug}` form — the JSON
+route is a parallel path for the widget, not a replacement, and the form keeps working unchanged
+as the No-JS fallback. The response deliberately collapses the full registration-outcome type down
+to four visitor-facing outcomes (confirmed / waitlisted / payment required / not available) rather
+than mirroring the backend sum type one-to-one — a byte-identical response for "already
+registered" and a genuine new registration specifically avoids opening a membership-enumeration
+oracle over guest email addresses. Shares its rate-limit budget with the form route (no doubled
+ceiling). No new environment variable. Full contract: `docs/api/embed-widgets.adoc`.
 
 === What doesn't work yet (this wave)
 
