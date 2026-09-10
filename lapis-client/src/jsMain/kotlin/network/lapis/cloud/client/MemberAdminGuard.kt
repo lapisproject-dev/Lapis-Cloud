@@ -56,7 +56,10 @@ suspend fun <T> memberAdminGuarded(block: suspend () -> T): T? =
         notifyError(gettext("Diese E-Mail-Adresse ist zu lang (höchstens %1 Zeichen).", Validation.EMAIL_MAX_LENGTH))
         null
     } catch (e: MemberHasNoAccountException) {
-        notifyError(tr("Dieses Mitglied hat kein Login-Konto -- es gibt keine Rolle zu ändern."))
+        // Welle V1.4.9 "Admin-Passwort-Reset" widened this message from the updateMemberRole-
+        // specific "keine Rolle zu ändern" wording to a neutral sentence -- setTemporaryPasswordForMember
+        // / sendPasswordResetMailToMember throw the SAME exception type and show the SAME toast.
+        notifyError(tr("Dieses Mitglied hat kein Login-Konto."))
         null
     } catch (e: MemberAlreadyHasAccountException) {
         notifyError(tr("Dieses Mitglied hat bereits ein Login-Konto -- bitte Ansicht aktualisieren."))

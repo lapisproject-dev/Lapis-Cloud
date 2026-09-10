@@ -72,6 +72,7 @@ import network.lapis.cloud.server.federation.OidcSigningKeyProvisioner
 import network.lapis.cloud.server.federation.TrustAnchorSigningKeyProvisioner
 import network.lapis.cloud.server.legal.LegalConfig
 import network.lapis.cloud.server.legal.LegalStartupCheck
+import network.lapis.cloud.server.mail.AdminPasswordResetNotificationMailer
 import network.lapis.cloud.server.mail.FriendVerificationMailer
 import network.lapis.cloud.server.mail.JakartaMailTransport
 import network.lapis.cloud.server.mail.MailBranding
@@ -79,6 +80,7 @@ import network.lapis.cloud.server.mail.MailDispatcher
 import network.lapis.cloud.server.mail.MailTransport
 import network.lapis.cloud.server.mail.NoOpMailTransport
 import network.lapis.cloud.server.mail.PasswordResetMailer
+import network.lapis.cloud.server.mail.SmtpAdminPasswordResetNotificationMailer
 import network.lapis.cloud.server.mail.SmtpConfig
 import network.lapis.cloud.server.mail.SmtpConfigState
 import network.lapis.cloud.server.mail.SmtpFriendVerificationMailer
@@ -416,6 +418,32 @@ fun Application.module() {
     // suppressed verification mails for a legitimate BOARD caller correcting many different
     // FRIENDs in one sitting (e.g. after a `MemberCsvImport`).
     val memberCoreDataFriendMailActorRateLimiter = FederationInboxRateLimiter(maxRequests = 100, window = 60.minutes)
+
+    // Welle V1.4.9 "Admin-Passwort-Reset" -- TARGET-side cap for sendPasswordResetMailToMember's
+    // reset-link mail (Weg 2) ONLY -- see MemberService constructor KDoc
+    // "adminPasswordMailTargetRateLimiter" for the full rationale, including why it is no longer
+    // shared with Weg 1's security notice (that pool is adminPasswordNotificationTargetRateLimiter
+    // below). Deliberately tighter than the actor-side cap below.
+    val adminPasswordMailTargetRateLimiter = FederationInboxRateLimiter(maxRequests = 3, window = 60.minutes)
+
+    // Welle V1.4.9 -- SEPARATE actor-side cap for sendPasswordResetMailToMember (Weg 2) ONLY,
+    // deliberately more generous -- see MemberService constructor KDoc
+    // "adminPasswordMailActorRateLimiter" for why, including the security-fix follow-up (round 2)
+    // that stopped Weg 1's security notice from consulting this same pool.
+    val adminPasswordMailActorRateLimiter = FederationInboxRateLimiter(maxRequests = 50, window = 60.minutes)
+
+    // Security fix (Welle V1.4.9 review round, MINOR) -- DEDICATED target-side pool for Weg 1's
+    // password-free security notice, no longer sharing adminPasswordMailTargetRateLimiter's budget
+    // with Weg 2's reset-link mail -- see MemberService constructor KDoc
+    // "adminPasswordNotificationTargetRateLimiter" for the full rationale. Same cap as the pool it
+    // was split from (3/60min); a SEPARATE instance is the actual fix, not a different number. Since
+    // the round-2 follow-up above, this is the ONLY rate-limit check the security notice performs --
+    // there is deliberately no actor-side counterpart anymore.
+    val adminPasswordNotificationTargetRateLimiter = FederationInboxRateLimiter(maxRequests = 3, window = 60.minutes)
+
+    // Welle V1.4.9 -- SAME mailDispatcher/mailBranding as passwordResetMailer/friendVerificationMailer above.
+    val adminPasswordResetNotificationMailer: AdminPasswordResetNotificationMailer =
+        SmtpAdminPasswordResetNotificationMailer(dispatcher = mailDispatcher, branding = mailBranding)
 
     // V0.8.1 Federation-Grundgerüst -- this server's own ActivityPub Actor keypair must exist from
     // first boot onward (unconditional, not LAPIS_SEED_DEMO_DATA-gated, see
@@ -996,6 +1024,12 @@ fun Application.module() {
                 friendVerificationMailer = friendVerificationMailer,
                 memberCoreDataFriendMailRateLimiter = memberCoreDataFriendMailRateLimiter,
                 memberCoreDataFriendMailActorRateLimiter = memberCoreDataFriendMailActorRateLimiter,
+                passwordResetMailer = passwordResetMailer,
+                adminPasswordResetNotificationMailer = adminPasswordResetNotificationMailer,
+                smtpConfigState = smtpConfigState,
+                adminPasswordMailTargetRateLimiter = adminPasswordMailTargetRateLimiter,
+                adminPasswordMailActorRateLimiter = adminPasswordMailActorRateLimiter,
+                adminPasswordNotificationTargetRateLimiter = adminPasswordNotificationTargetRateLimiter,
             )
         }
         registerService(IContributionService::class) { call -> ContributionService(call) }

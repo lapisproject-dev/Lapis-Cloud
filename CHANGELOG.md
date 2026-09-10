@@ -6,6 +6,66 @@ All notable changes to this project are documented here. Format follows
 
 ## [Unreleased]
 
+### Added
+
+**Admin-Passwort-Reset (V1.4.9, 2026-09-09)**
+
+- **Fund**: es gab keinen admin-ausgelösten Weg, einem gesperrten oder passwortlosen Mitglied
+  wieder Zugang zu verschaffen, außer über die bereits bestehende, ADMIN-exklusive Kontoanlage
+  (`grantMemberAccount`, Welle V1.2.13) — die aber nur greift, wenn noch gar kein Login-Konto
+  existiert. Für ein Mitglied mit bereits vorhandenem, aber vergessenem/kompromittiertem Passwort
+  gab es keinen administrativen Pfad.
+- **Zwei getrennte, bewusst unterschiedlich gestaltete Wege**, jeweils ADMIN-exklusiv, nie für die
+  eigene Zeile:
+  - **Weg 1 „Temporäres Passwort setzen"** (`setTemporaryPasswordForMember`) — ein sofortiger,
+    folgenreicher Zugriffs-Akt: setzt direkt ein neues Passwort (operator-gewählt oder
+    server-generiert, ein telefontaugliches vier-mal-vier-Zeichen-Format über
+    `TemporaryPasswordGenerator`, ohne Verwechslungspaare i/l/1/o/0) und **beendet alle Sitzungen**
+    des Mitglieds. Im Client roter Knopf, ein Pflicht-Begründungsfeld, eine Live-Konsequenzbox mit
+    der tatsächlichen Sitzungszahl. Blockiert nur für DECEASED (dieselbe Begründung wie
+    `grantMemberAccount`: die Sicherheits-Benachrichtigung würde sonst an das Postfach eines
+    wahrscheinlich Angehörigen gehen).
+  - **Weg 2 „Reset-E-Mail senden"** (`sendPasswordResetMailToMember`) — löst exakt denselben
+    Token-/Mail-Mechanismus wie `/api/auth/password-reset/request` aus, **revoked bewusst keine
+    Sitzung** (der Widerruf gehört erst zu `/api/auth/password-reset/confirm`). Neutraler Knopf,
+    keine Begründung nötig, keine Bestätigung. Blockiert für jeden `LOGIN_BLOCKED`-Status — eine
+    bewusste Asymmetrie zum unauthentifizierten Selbstbedienungs-Endpoint, der diese Prüfung nicht
+    kennt: der Admin-Pfad schuldet dem Betreiber ein ehrliches Ergebnis statt eines wirkungslosen
+    Tokens.
+- **SMTP-Ehrlichkeit**: `SmtpPasswordResetMailer.send()`/die neue `SmtpAdminPasswordResetNotification
+  Mailer.send()` geben strukturell **immer** `DeliveryStatus.SENT` zurück, unabhängig davon, ob SMTP
+  überhaupt konfiguriert ist (`MailDispatcher.enqueue()` wirft nie, `NoOpMailTransport` sendet
+  lautlos nicht). Einzige verlässliche Quelle ist `SmtpConfigState` — beide neuen RPC-Methoden lesen
+  es jetzt direkt, damit die Oberfläche nie „Erfolgreich versendet" für eine Mail zeigt, die nie ein
+  Postfach erreicht. Ein neuer Preflight-Read (`getMemberAccessPreflight`) liefert dem Dialog beim
+  Öffnen sowohl diesen Zustand als auch die echte aktive Sitzungszahl.
+- **Sicherheits-Benachrichtigung ohne Passwort**: Weg 1 verschickt zusätzlich eine neue, password-
+  freie Transparenz-Mail (`MailTemplates.passwordResetByAdmin`) an das Mitglied — Tatsache, Zeitpunkt,
+  kein Link, kein Token, kein Passwort. Ihr Ergebnis ist rein informativ und beeinflusst nie, ob die
+  Passwort-Aktion selbst gelingt.
+- **Zwei neue Rate-Limiter** (`FederationInboxRateLimiter`, 3/60min zielseitig, 50/60min
+  akteurseitig) gelten für JEDEN Mailversand dieser Welle — die zielseitige Kappe schützt ein
+  einzelnes Mitglied vor Mail-Spam, die akteurseitige verhindert, dass ein Betreiber nach einem
+  Datenleck bei vielen Rücksetzungen verstummt.
+- **Kein Passwort im Audit-Log**: `MemberChangeSnapshot` bekommt ein neues, optionales
+  `adminPasswordAction`-Feld (Enum `TEMPORARY_PASSWORD_SET`/`RESET_MAIL_SENT`), niemals das
+  Passwort selbst — regressionsgetestet (`audit trail: neither password, hash, nor bcrypt marker
+  ever appear ...`). Der Art.-15-DSGVO-Export (`AuditLogPersonalData`) legt dieses Feld dem
+  Betroffenen offen, weil es ihn selbst betrifft.
+- **Client**: vierter Aktionsknopf in der Mitgliederverwaltung (`fa-key`), eigener Dialog
+  (`MemberPasswordResetDialog.kt`) statt eines siebten Abschnitts im bestehenden Editor — bleibt nach
+  erfolgreichem Setzen bewusst offen (Quittung: das generierte Passwort wird nie erneut angezeigt),
+  kein `modal.hide()`. Client-seitige Passworterzeugung nutzt `window.crypto.getRandomValues` mit
+  Rejection-Sampling, niemals `kotlin.random.Random` (auf Kotlin/JS nicht kryptografisch).
+- **Migration**: keine — `MemberChangeSnapshot` wird als JSON-Text serialisiert, ein neues optionales
+  Feld mit Default ist abwärtskompatibel; kein neuer `AuditEntityType`/`AuditAction`.
+- **Tests**: `MemberAdministrationTest` (95 Fälle inkl. beider Wege — Autorisierung, Selbstziel,
+  DECEASED-/LOGIN_BLOCKED-Sperren, Sitzungswiderruf vs. dessen bewusstes Fehlen, SMTP-Zustände,
+  Rate-Limits, Audit-Inhalt ohne Passwort, Preflight), `TemporaryPasswordGeneratorTest` (Format,
+  Alphabet, Verteilung), `MailTemplatesTest` (neue `passwordResetByAdmin`-Fälle),
+  `SessionStoreTest` (`revokeAllForMember`-Rückgabewert, neues `countActiveForMember`),
+  `MemberPasswordResetDialogTest` + Regressions-Pin in `MemberAdministrationScreenTest`.
+
 ## [0.19.0] — 2026-09-09
 
 ### Changed

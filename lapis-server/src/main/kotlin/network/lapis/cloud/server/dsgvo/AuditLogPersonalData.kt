@@ -94,6 +94,13 @@ object AuditLogPersonalData : MemberPersonalDataContributor {
                                         put("status", after.status.name)
                                         put("role", after.role?.name)
                                         put("reason", after.reason)
+                                        // Welle V1.4.9 "Admin-Passwort-Reset" -- Art. 15 must disclose
+                                        // to the subject that an administrator reset their password;
+                                        // safe to expose (an enum with no PII, same reasoning as
+                                        // status/role above -- see MemberChangeSnapshot.adminPasswordAction
+                                        // KDoc: never carries the password itself, neither plaintext
+                                        // nor hash).
+                                        put("adminPasswordAction", after.adminPasswordAction?.name)
                                     }
                                 }
                             }

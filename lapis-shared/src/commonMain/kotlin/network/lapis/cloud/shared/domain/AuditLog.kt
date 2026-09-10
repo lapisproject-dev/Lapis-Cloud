@@ -523,7 +523,32 @@ data class MemberChangeSnapshot(
      * `MemberService.correctDateOfDeath`.
      */
     val dateOfDeathChanged: Boolean = false,
+    /**
+     * Welle V1.4.9 "Admin-Passwort-Reset" -- welche der beiden ADMIN-Passwort-Aktionen diesen
+     * Audit-Eintrag erzeugt hat, siehe [AdminPasswordAction]. Traegt NIEMALS das Passwort -- weder
+     * Klartext noch Hash -- dieselbe PII-/GoBD-Disziplin, die [displayNameChanged]/[emailChanged]/
+     * [dateOfDeathChanged] fuer diese hash-verkettete, unloeschbare Tabelle bereits etablieren.
+     * Nur `network.lapis.cloud.server.rpc.MemberService.setTemporaryPasswordForMember`
+     * (schreibt [AdminPasswordAction.TEMPORARY_PASSWORD_SET]) und
+     * `network.lapis.cloud.server.rpc.MemberService.sendPasswordResetMailToMember` (schreibt
+     * [AdminPasswordAction.RESET_MAIL_SENT]) setzen hier einen Wert; alle uebrigen fuenf
+     * MEMBER-Schreiber lassen `null`. Default `null`, damit jeder bestehende Konstruktionsaufruf
+     * unveraendert bleibt und die Dekodierung aelterer, bereits gespeicherter Zeilen abwaertskompatibel bleibt.
+     */
+    val adminPasswordAction: AdminPasswordAction? = null,
 )
+
+/**
+ * Welle V1.4.9 "Admin-Passwort-Reset" -- welche der beiden ADMIN-ausgeloesten Passwort-Aktionen
+ * einen [MemberChangeSnapshot] erzeugt hat. BEWUSST EIN nullable ENUM statt zweier Booleans: zwei
+ * sich gegenseitig ausschliessende Flags koennten den Unsinnszustand `true, true` kodieren, ein
+ * Enum nicht. [TEMPORARY_PASSWORD_SET] = Weg 1 (`MemberService.setTemporaryPasswordForMember`,
+ * revoked alle Sitzungen). [RESET_MAIL_SENT] = Weg 2
+ * (`MemberService.sendPasswordResetMailToMember`, revoked bewusst KEINE Sitzung -- der Widerruf
+ * gehoert zu `/api/auth/password-reset/confirm`).
+ */
+@Serializable
+enum class AdminPasswordAction { TEMPORARY_PASSWORD_SET, RESET_MAIL_SENT }
 
 /**
  * Structured `before` payload for the [AuditEntityType.CONFERENCE_RECORDING] audit entry

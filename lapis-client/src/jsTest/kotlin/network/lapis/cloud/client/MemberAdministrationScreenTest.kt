@@ -191,6 +191,20 @@ class MemberAdministrationScreenTest {
         assertTrue(hasAnyEditableSectionFor(AccountRole.ADMIN, callerMemberId, row))
     }
 
+    // Regressions-Pin (Welle V1.4.9 "Admin-Passwort-Reset"): the new fourth roster action
+    // (canResetPasswordOf, in MemberPasswordResetDialog.kt) is DELIBERATELY NOT part of this
+    // OR-chain -- it stays at SIX terms. For a BOARD caller on an escalated peer row, EVERY
+    // predicate -- including canResetPasswordOf, which is ADMIN-exclusive -- is false, so this
+    // pins that the chain's own result did not silently change once the seventh predicate started
+    // existing in this file (a widened chain would be caught here the same way it would for any
+    // of the five pre-existing predicates, see the "MAJOR finding" tests above).
+    @Test
+    fun hasAnyEditableSectionFor_boardCallerOnEscalatedPeer_canResetPasswordOfIsAlsoFalse() {
+        val escalatedPeer = row(status = MemberStatus.ACTIVE, role = AccountRole.BOARD, id = otherMemberId)
+        assertFalse(canResetPasswordOf(AccountRole.BOARD, callerMemberId, escalatedPeer))
+        assertFalse(hasAnyEditableSectionFor(AccountRole.BOARD, callerMemberId, escalatedPeer))
+    }
+
     @Test
     fun hasAnyEditableSectionFor_boardCallerOnEscalatedTargetRowWithARemovableTier_isFalse() {
         // Security fix (Welle V1.4.4.4 review, MAJOR finding): `canEditMembershipTierOf` now applies

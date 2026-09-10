@@ -13,23 +13,31 @@ import network.lapis.cloud.server.db.generated.MemberFamilyTable
 import network.lapis.cloud.server.db.generated.MemberTable
 import network.lapis.cloud.server.db.generated.MembershipTierTable
 import network.lapis.cloud.server.federation.FederationInboxRateLimiter
+import network.lapis.cloud.server.mail.AdminPasswordResetNotificationMailer
 import network.lapis.cloud.server.mail.FriendVerificationMailer
+import network.lapis.cloud.server.mail.PasswordResetMailer
+import network.lapis.cloud.server.mail.SmtpConfigState
 import network.lapis.cloud.server.mail.isValidMailboxAddress
 import network.lapis.cloud.server.payment.sepa.revokeMandatesForEndedMembership
 import network.lapis.cloud.server.security.ESCALATED_ROLES
 import network.lapis.cloud.server.security.FriendEmailVerificationTokenStore
 import network.lapis.cloud.server.security.PasswordHasher
 import network.lapis.cloud.server.security.PasswordPolicy
+import network.lapis.cloud.server.security.PasswordResetTokenStore
 import network.lapis.cloud.server.security.SessionStore
+import network.lapis.cloud.server.security.TemporaryPasswordGenerator
 import network.lapis.cloud.server.security.isPrivileged
 import network.lapis.cloud.server.security.requireRole
 import network.lapis.cloud.server.security.resolveCurrentMember
 import network.lapis.cloud.server.webhook.WebhookEventPublisher
 import network.lapis.cloud.shared.domain.AccountRole
+import network.lapis.cloud.shared.domain.AdminPasswordAction
 import network.lapis.cloud.shared.domain.AuditAction
 import network.lapis.cloud.shared.domain.AuditEntityType
 import network.lapis.cloud.shared.domain.DeathDateRules
 import network.lapis.cloud.shared.domain.DeathDateViolation
+import network.lapis.cloud.shared.domain.MailDeliveryState
+import network.lapis.cloud.shared.domain.MemberAccessPreflightDto
 import network.lapis.cloud.shared.domain.MemberAdminPageDto
 import network.lapis.cloud.shared.domain.MemberAdminQuery
 import network.lapis.cloud.shared.domain.MemberAdminRowDto
@@ -40,6 +48,8 @@ import network.lapis.cloud.shared.domain.MemberStatus
 import network.lapis.cloud.shared.domain.MemberStatusSets
 import network.lapis.cloud.shared.domain.MemberStatusTransitions
 import network.lapis.cloud.shared.domain.MemberSummaryDto
+import network.lapis.cloud.shared.domain.PasswordResetMailResultDto
+import network.lapis.cloud.shared.domain.TemporaryPasswordResultDto
 import network.lapis.cloud.shared.domain.WebhookEventType
 import network.lapis.cloud.shared.rpc.BadRequestException
 import network.lapis.cloud.shared.rpc.ConflictException
@@ -119,6 +129,71 @@ class MemberService(
      * every other rate-limiter constructor parameter on this class already establishes.
      */
     private val memberCoreDataFriendMailActorRateLimiter: FederationInboxRateLimiter,
+    /**
+     * Welle V1.4.9 "Admin-Passwort-Reset" -- Weg 2 triggers the SAME token-mint-and-mail mechanism
+     * as `/api/auth/password-reset/request`, so it reuses the SAME [PasswordResetMailer] instance
+     * that endpoint uses (wired once in `Application.kt`), never a second one. No default value on
+     * purpose, same discipline [friendVerificationMailer] already establishes.
+     */
+    private val passwordResetMailer: PasswordResetMailer,
+    /** Welle V1.4.9 -- Weg 1's password-free security notice to the target member. */
+    private val adminPasswordResetNotificationMailer: AdminPasswordResetNotificationMailer,
+    /**
+     * Welle V1.4.9 -- the ONLY reliable SMTP truth. [SmtpConfigState.NotConfigured] is the one
+     * state read here; `SmtpPasswordResetMailer.send()`/`SmtpAdminPasswordResetNotificationMailer
+     * .send()` themselves ALWAYS return `DeliveryStatus.SENT` regardless of whether SMTP is
+     * actually configured (see [PasswordResetMailer.send] KDoc "Fire-and-forget"), and
+     * [network.lapis.cloud.server.mail.MailDispatcher.enqueue] never throws either -- neither mailer
+     * CAN give this honest answer on its own. Without this parameter, the UI would report
+     * "successfully sent" for a mail that never reaches any inbox.
+     */
+    private val smtpConfigState: SmtpConfigState,
+    /**
+     * Welle V1.4.9 -- TARGET-side cap (3/60min, key `"member:<targetId>"`) for
+     * [sendPasswordResetMailToMember]'s reset-link mail (Weg 2). Since the security-fix split below,
+     * this pool is consumed ONLY by Weg 2 -- Weg 1's security notice draws from its own
+     * [adminPasswordNotificationTargetRateLimiter] instead (do not let these two names/KDocs drift
+     * back into implying a shared budget; that was the exact bug the split fixed). Deliberately NOT
+     * the IP+email limiter `network.lapis.cloud.server.routes.AuthRoutes` uses for
+     * `/api/auth/password-reset/request` -- this is an authenticated path that limiter is never
+     * consulted on, and reusing it would let a shared operator IP block genuine self-service resets.
+     * Pattern: [memberCoreDataFriendMailRateLimiter].
+     */
+    private val adminPasswordMailTargetRateLimiter: FederationInboxRateLimiter,
+    /**
+     * Welle V1.4.9 -- ACTOR-side cap (50/60min, key `"actor:<callerId>"`) for
+     * [sendPasswordResetMailToMember] ONLY, deliberately more generous than the target-side cap
+     * above. Pattern + reasoning: [memberCoreDataFriendMailActorRateLimiter] (an operator resetting
+     * many DIFFERENT members' access after a data incident must not go silent after five cases; the
+     * target-side cap above remains the actual anti-abuse protection).
+     *
+     * Security fix (Welle V1.4.9 review round, MINOR, residual/round 2) -- Weg 1's
+     * [notifyMemberOfAdminPasswordReset] no longer consults this pool at all (it used to, under the
+     * same `"actor:<id>"` key). That sharing was itself still exploitable even after round 1's
+     * target-side split: [sendPasswordResetMailToMember]'s own actor-side check runs BEFORE its
+     * existence check, so a rogue admin could burn all 50 slots here for free against
+     * well-formed-but-nonexistent member ids, then find the transparency notice for a REAL
+     * [setTemporaryPasswordForMember] call silently `RATE_LIMITED` with no trace of the setup. See
+     * [notifyMemberOfAdminPasswordReset]'s own body comment for the full scenario and why removing
+     * the check there (rather than adding yet another dedicated pool) is safe.
+     */
+    private val adminPasswordMailActorRateLimiter: FederationInboxRateLimiter,
+    /**
+     * Security fix (Welle V1.4.9 review round, MINOR) -- SEPARATE target-side pool for Weg 1's
+     * password-free security notice ([notifyMemberOfAdminPasswordReset]), no longer sharing
+     * [adminPasswordMailTargetRateLimiter]'s 3/60min budget with Weg 2's reset-link mail
+     * ([sendPasswordResetMailToMember]). That shared budget let either an innocent support flow
+     * (three "resend the link" attempts before falling back to Weg 1) or a rogue ADMIN
+     * (deliberately burning the target's quota first) silence the ONE real-time signal a member
+     * has that their account was administratively touched -- the notice would come back
+     * `RATE_LIMITED` while the password change itself always still commits regardless. A
+     * dedicated pool for the notice means a target's OWN outstanding reset-link requests can never
+     * consume the budget that protects their ability to be warned. This is now the ONLY rate-limit
+     * check [notifyMemberOfAdminPasswordReset] performs -- see that function's own comment for why
+     * there is deliberately no actor-side check alongside it. No default value on purpose, same
+     * discipline every other rate-limiter constructor parameter on this class already establishes.
+     */
+    private val adminPasswordNotificationTargetRateLimiter: FederationInboxRateLimiter,
 ) : IMemberService {
     // V1.2.11 (PdV-CSV-Import, security fix): now requires an authenticated caller -- see
     // IMemberService.listMembers KDoc for the full rationale. Only id + displayName are selected,
@@ -979,6 +1054,289 @@ class MemberService(
             )
             loadMemberAdminRow(id = targetId, includeFamilyDetails = current.isPrivileged)
         }
+    }
+
+    // ── Welle V1.4.9 "Admin-Passwort-Reset" ─────────────────────────────────────────────────────
+
+    override suspend fun getMemberAccessPreflight(memberId: String): MemberAccessPreflightDto {
+        val current = resolveCurrentMember(call)
+        current.requireRole(AccountRole.ADMIN)
+        val targetId = memberId.toMemberUuidOrThrow()
+        // Deliberately NO self-target block -- a pure read with no side effect, over data the
+        // caller already sees elsewhere on the roster; the client never even offers this dialog for
+        // the caller's own row (see network.lapis.cloud.client.canResetPasswordOf).
+        val exists = transaction { MemberTable.selectAll().where { MemberTable.id eq targetId }.count() > 0 }
+        if (!exists) throw NotFoundException("Member $memberId not found")
+        return MemberAccessPreflightDto(
+            mailDelivery =
+                if (smtpConfigState is SmtpConfigState.NotConfigured) {
+                    MailDeliveryState.NOT_CONFIGURED
+                } else {
+                    MailDeliveryState.HANDED_TO_SMTP
+                },
+            activeSessionCount = SessionStore.countActiveForMember(memberId = targetId),
+        )
+    }
+
+    override suspend fun setTemporaryPasswordForMember(
+        memberId: String,
+        newPassword: String?,
+        reason: String,
+    ): TemporaryPasswordResultDto {
+        val current = resolveCurrentMember(call)
+        // ADMIN-exclusive, unconditional, before any existence/state check -- same posture
+        // updateMemberRole/grantMemberAccount already establish for granting/changing access.
+        current.requireRole(AccountRole.ADMIN)
+        val targetId = memberId.toMemberUuidOrThrow()
+        // Always forbidden -- the caller's own path is IAuthService.changePassword.
+        if (targetId == current.memberId) throw ForbiddenException()
+
+        val trimmedReason = reason.trim()
+        if (trimmedReason.length < MIN_REASON_LENGTH || trimmedReason.length > MAX_REASON_LENGTH) {
+            throw ConflictException("A reason is required ($MIN_REASON_LENGTH-$MAX_REASON_LENGTH characters)")
+        }
+
+        val now = nowLocalDateTime()
+        val (effectivePassword, targetEmail, row) =
+            transaction {
+                val memberRow =
+                    MemberTable
+                        .selectAll()
+                        .where { MemberTable.id eq targetId }
+                        .forUpdate()
+                        .singleOrNull() ?: throw NotFoundException("Member $memberId not found")
+                if (memberRow[MemberTable.anonymizedAt] != null) {
+                    throw ConflictException("Member has been anonymized and can no longer be edited")
+                }
+                // The ONLY blocked status -- mirrors grantMemberAccount's own DECEASED exclusion
+                // exactly: the security notice below would otherwise land in what is, in practice, a
+                // relative's mailbox. DONOR/WITHDRAWN/REJECTED remain allowed -- LOGIN_BLOCKED stays
+                // the single, central login policy and keeps such an account inert regardless.
+                if (memberRow[MemberTable.status] == MemberStatus.DECEASED) {
+                    throw ConflictException("Cannot reset the password of a deceased member")
+                }
+                // Exactly ONE account-row lock, same "narrow single-row lock is correct here, not an
+                // oversight" reasoning grantMemberAccount's own KDoc gives for its identical shape --
+                // this method never asks for a second lock, so it cannot join the id-ordered union-
+                // lock wait cycle updateMemberRole/updateMemberStatus close against EACH OTHER.
+                val accountRow =
+                    AccountTable
+                        .selectAll()
+                        .where { AccountTable.memberId eq targetId }
+                        .forUpdate()
+                        .singleOrNull() ?: throw MemberHasNoAccountException()
+
+                val effectivePassword = newPassword ?: TemporaryPasswordGenerator.generate()
+                // Against the address AS STORED, never a client-supplied one -- this call does not
+                // accept an e-mail parameter at all. Same PasswordPolicy call grantMemberAccount uses.
+                PasswordPolicy.validate(newPassword = effectivePassword, email = memberRow[MemberTable.email])
+
+                AccountTable.update({ AccountTable.memberId eq targetId }) {
+                    it[passwordHash] = PasswordHasher.hash(effectivePassword)
+                }
+
+                val beforeSnapshot =
+                    MemberChangeSnapshot(
+                        displayNameChanged = false,
+                        emailChanged = false,
+                        status = memberRow[MemberTable.status],
+                        role = accountRow[AccountTable.role],
+                    )
+                val afterSnapshot =
+                    beforeSnapshot.copy(
+                        reason = trimmedReason,
+                        adminPasswordAction = AdminPasswordAction.TEMPORARY_PASSWORD_SET,
+                    )
+                // LAST sperrende Operation dieser Transaktion (Deadlock-Vertrag, AuditLogRecorder KDoc).
+                AuditLogRecorder.record(
+                    actorMemberId = current.memberId,
+                    actorRole = current.role,
+                    entityType = AuditEntityType.MEMBER,
+                    entityId = targetId,
+                    action = AuditAction.UPDATE,
+                    before = Json.encodeToString(MemberChangeSnapshot.serializer(), beforeSnapshot),
+                    after = Json.encodeToString(MemberChangeSnapshot.serializer(), afterSnapshot),
+                    occurredAt = now,
+                )
+                Triple(
+                    effectivePassword,
+                    memberRow[MemberTable.email],
+                    loadMemberAdminRow(id = targetId, includeFamilyDetails = current.isPrivileged),
+                )
+            }
+        // AFTER commit -- SessionStore writes its own transaction, same placement discipline
+        // updateMemberCoreData/updateMemberStatus already establish for session revocation.
+        val revokedCount = SessionStore.revokeAllForMember(memberId = targetId)
+        // Security fix (Welle V1.4.9 review round, MAJOR) -- an outstanding reset token minted
+        // earlier (e.g. via sendPasswordResetMailToMember, Weg 2) used to survive this call
+        // entirely: SessionStore.revokeAllForMember above only kills LIVE SESSIONS, not a
+        // still-valid bearer token for taking a NEW session over. Placed immediately alongside the
+        // session revocation, same "the whole point of this call is this account is compromised"
+        // posture the interface KDoc documents -- see PasswordResetTokenStore.invalidateAllForMember
+        // KDoc for the full attack scenario this closes.
+        PasswordResetTokenStore.invalidateAllForMember(memberId = targetId)
+        val notified =
+            notifyMemberOfAdminPasswordReset(
+                targetId = targetId,
+                email = targetEmail,
+                occurredAt = now,
+            )
+        return TemporaryPasswordResultDto(
+            member = row,
+            // The ONE and ONLY moment this value is ever visible -- non-null iff the caller left
+            // newPassword null (server-generated); never stored, logged, or retrievable again.
+            generatedPassword = if (newPassword == null) effectivePassword else null,
+            revokedSessionCount = revokedCount,
+            memberNotified = notified,
+        )
+    }
+
+    /**
+     * Welle V1.4.9 -- Weg 1's password-free security notice, sent AFTER commit (see
+     * [PasswordResetTokenStore.createToken] KDoc "nested transaction {} joins" for why store/mailer
+     * calls in this codebase consistently run after the enclosing transaction has already
+     * committed). **Never ergebnisrelevant** -- the password change already committed by the time
+     * this runs; a rate-limited or failed notice never turns a successful password reset into a
+     * failed RPC call.
+     */
+    private fun notifyMemberOfAdminPasswordReset(
+        targetId: Uuid,
+        email: String,
+        occurredAt: LocalDateTime,
+    ): MailDeliveryState {
+        if (smtpConfigState is SmtpConfigState.NotConfigured) return MailDeliveryState.NOT_CONFIGURED
+        // Security fix (Welle V1.4.9 review round, MINOR) -- target-side check uses
+        // adminPasswordNotificationTargetRateLimiter, a DEDICATED pool separate from
+        // adminPasswordMailTargetRateLimiter (which sendPasswordResetMailToMember alone consumes
+        // below). See that property's own KDoc for why sharing one pool between the two mails let
+        // either side starve the notice.
+        //
+        // Security fix (Welle V1.4.9 review round, MINOR, residual/round 2) -- NO actor-side check
+        // here at all anymore. It used to consult the SHARED adminPasswordMailActorRateLimiter
+        // (the same "actor:<adminId>" pool sendPasswordResetMailToMember below also draws from),
+        // which stayed silently exhaustible: a rogue admin could burn all 50 actor-side slots for
+        // free by calling sendPasswordResetMailToMember with well-formed but NON-EXISTENT member
+        // ids (that call's own checkAndRecord runs before its NotFoundException, see the comment
+        // there), leaving zero slots by the time a REAL setTemporaryPasswordForMember call needed
+        // one for its transparency notice -- silently suppressing the one real-time signal a victim
+        // has that their account was touched, while the password change itself still committed.
+        // Dropping the actor check here closes that without reintroducing a shared resource: this
+        // function has exactly one caller (setTemporaryPasswordForMember), which is not a "cheap"
+        // action an attacker can spam for free the way sendPasswordResetMailToMember's failure path
+        // is -- every call already writes a password hash change plus a hash-chained audit entry
+        // for a REAL member row, so it cannot be used to pre-exhaust anything at zero cost. The
+        // dedicated target-side pool below remains the actual anti-abuse cap, per victim.
+        val targetAllowed = adminPasswordNotificationTargetRateLimiter.checkAndRecord("member:$targetId")
+        if (!targetAllowed) {
+            logger.warn { "admin-password-reset notice suppressed by rate limiter (target=$targetId)" }
+            return MailDeliveryState.RATE_LIMITED
+        }
+        runCatching { adminPasswordResetNotificationMailer.send(email = email, occurredAt = occurredAt) }
+            .onFailure { e -> logger.error { "adminPasswordResetNotificationMailer.send threw: ${e::class.simpleName}" } }
+        return MailDeliveryState.HANDED_TO_SMTP
+    }
+
+    override suspend fun sendPasswordResetMailToMember(memberId: String): PasswordResetMailResultDto {
+        val current = resolveCurrentMember(call)
+        // ADMIN-exclusive, unconditional -- same gate setTemporaryPasswordForMember applies.
+        current.requireRole(AccountRole.ADMIN)
+        val targetId = memberId.toMemberUuidOrThrow()
+        if (targetId == current.memberId) throw ForbiddenException()
+
+        // Security fix (Welle V1.4.9 review round, MINOR) -- the SMTP-config check and both
+        // checkAndRecord calls used to run INSIDE the transaction { } below, alongside the
+        // hash-chained AuditLogRecorder insert. Exposed retries that whole block up to
+        // `maxAttempts` times on a transient SQLException, and checkAndRecord's own side effect
+        // is a plain in-memory counter update entirely unrelated to the SQL transaction it used
+        // to sit inside -- a retry silently double-charged both rate-limit budgets for what the
+        // caller experiences as a single request. Moved out and now run exactly once, before the
+        // transaction even opens -- same "guard clause runs before any transaction { }"
+        // placement every other checkAndRecord call site in this codebase already establishes
+        // (e.g. ConferenceBreakoutService.requireWithinRate's call sites, always the first
+        // statements of their function). No token, no audit entry -- nothing happened, so nothing
+        // is recorded. Both checkAndRecord calls still run unconditionally (no short-circuit), so
+        // cycling either side alone cannot dodge the other side's cap. NOTE: this also means the
+        // actor-side slot below is consumed even when targetId turns out not to exist (the existence
+        // check only happens inside the transaction further down) -- that is why
+        // notifyMemberOfAdminPasswordReset (Weg 1) deliberately no longer shares this actor pool; see
+        // its own comment for the exhaustion scenario that sharing enabled.
+        if (smtpConfigState is SmtpConfigState.NotConfigured) {
+            return PasswordResetMailResultDto(delivery = MailDeliveryState.NOT_CONFIGURED)
+        }
+        val actorAllowed = adminPasswordMailActorRateLimiter.checkAndRecord("actor:${current.memberId}")
+        val targetAllowed = adminPasswordMailTargetRateLimiter.checkAndRecord("member:$targetId")
+        if (!actorAllowed || !targetAllowed) {
+            logger.warn { "admin-password-reset-mail suppressed by rate limiter (target=$targetId)" }
+            return PasswordResetMailResultDto(delivery = MailDeliveryState.RATE_LIMITED)
+        }
+
+        val now = nowLocalDateTime()
+        val targetEmail =
+            transaction {
+                val memberRow =
+                    MemberTable
+                        .selectAll()
+                        .where { MemberTable.id eq targetId }
+                        .forUpdate()
+                        .singleOrNull() ?: throw NotFoundException("Member $memberId not found")
+                if (memberRow[MemberTable.anonymizedAt] != null) {
+                    throw ConflictException("Member has been anonymized and can no longer be edited")
+                }
+                val accountRow =
+                    AccountTable
+                        .selectAll()
+                        .where { AccountTable.memberId eq targetId }
+                        .forUpdate()
+                        .singleOrNull() ?: throw MemberHasNoAccountException()
+                // Deliberate ASYMMETRY with the unauthenticated self-service endpoint
+                // (/api/auth/password-reset/request), which does NOT consult LOGIN_BLOCKED at all --
+                // see interface KDoc. This ADMIN-facing call owes the operator an honest outcome
+                // instead of a token minted for an account a reset link can never actually unlock.
+                if (memberRow[MemberTable.status] in MemberStatusSets.LOGIN_BLOCKED) {
+                    throw ConflictException("Login is blocked for this member's status -- a reset link would be ineffective")
+                }
+
+                val beforeSnapshot =
+                    MemberChangeSnapshot(
+                        displayNameChanged = false,
+                        emailChanged = false,
+                        status = memberRow[MemberTable.status],
+                        role = accountRow[AccountTable.role],
+                    )
+                val afterSnapshot = beforeSnapshot.copy(adminPasswordAction = AdminPasswordAction.RESET_MAIL_SENT)
+                // LAST sperrende Operation dieser Transaktion (Deadlock-Vertrag, AuditLogRecorder KDoc).
+                AuditLogRecorder.record(
+                    actorMemberId = current.memberId,
+                    actorRole = current.role,
+                    entityType = AuditEntityType.MEMBER,
+                    entityId = targetId,
+                    action = AuditAction.UPDATE,
+                    before = Json.encodeToString(MemberChangeSnapshot.serializer(), beforeSnapshot),
+                    after = Json.encodeToString(MemberChangeSnapshot.serializer(), afterSnapshot),
+                    occurredAt = now,
+                )
+                memberRow[MemberTable.email]
+            }
+        // AFTER commit -- PasswordResetTokenStore.createToken opens its OWN transaction {}, which
+        // in Exposed JOINS an already-open one, including its 1%-purgeExpired -- a swallowed
+        // exception there could abort the surrounding transaction under Postgres and take the
+        // audit insert above down with it. Same "after commit" placement
+        // updateMemberCoreData/updateMemberStatus already establish for their own store/mailer
+        // calls.
+        //
+        // Security fix (Welle V1.4.9 review round, MINOR) -- createToken() now shares the SAME
+        // runCatching as the mailer.send() right below it, instead of running unguarded. The
+        // audit entry above already committed claiming RESET_MAIL_SENT (GoBD: hash-chained,
+        // unlöschbar) by the time this runs; letting createToken() throw uncaught would hand the
+        // admin an uncaught-exception 500 while that committed entry permanently asserts a reset
+        // mail was triggered -- neither token nor mail would actually exist. Same "must never let
+        // a post-commit side effect turn an already-committed, already-true fact into a confusing
+        // failure" posture the mail-failure branch already establishes for send() alone.
+        runCatching {
+            val rawToken = PasswordResetTokenStore.createToken(targetId)
+            passwordResetMailer.send(email = targetEmail, rawToken = rawToken)
+        }.onFailure { e -> logger.error { "password-reset-mail token creation/send threw: ${e::class.simpleName}" } }
+        return PasswordResetMailResultDto(delivery = MailDeliveryState.HANDED_TO_SMTP)
     }
 
     // Security fix (2026-08-27, LOW TOCTOU) -- `.forUpdate()` added: without it, this read raced

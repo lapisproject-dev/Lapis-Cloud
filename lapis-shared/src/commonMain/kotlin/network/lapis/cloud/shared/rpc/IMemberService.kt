@@ -3,12 +3,15 @@ package network.lapis.cloud.shared.rpc
 import dev.kilua.rpc.annotations.RpcService
 import kotlinx.datetime.LocalDate
 import network.lapis.cloud.shared.domain.AccountRole
+import network.lapis.cloud.shared.domain.MemberAccessPreflightDto
 import network.lapis.cloud.shared.domain.MemberAdminPageDto
 import network.lapis.cloud.shared.domain.MemberAdminQuery
 import network.lapis.cloud.shared.domain.MemberAdminRowDto
 import network.lapis.cloud.shared.domain.MemberDto
 import network.lapis.cloud.shared.domain.MemberStatus
 import network.lapis.cloud.shared.domain.MemberSummaryDto
+import network.lapis.cloud.shared.domain.PasswordResetMailResultDto
+import network.lapis.cloud.shared.domain.TemporaryPasswordResultDto
 
 /**
  * Foundation stub — see [network.lapis.cloud.shared.domain.MemberStatus] KDoc. Provides just
@@ -367,4 +370,111 @@ interface IMemberService {
         membershipTierId: String?,
         reason: String,
     ): MemberAdminRowDto
+
+    // ── Welle V1.4.9 "Admin-Passwort-Reset" ─────────────────────────────────────────────────────
+
+    /**
+     * Welle V1.4.9 -- what the "Zugang zuruecksetzen" dialog needs to know the moment it opens.
+     * Pure read, no side effect. ADMIN-only, same posture [setTemporaryPasswordForMember]/
+     * [sendPasswordResetMailToMember] apply for the two actions this dialog offers -- a read that
+     * only prepares an ADMIN-exclusive write needs no weaker gate of its own. Deliberately NO
+     * self-target block: this is a side-effect-free read over data the caller already sees
+     * elsewhere on the roster, and the client never offers the button for the caller's own row in
+     * the first place (see `network.lapis.cloud.client.canResetPasswordOf`).
+     *
+     * [MemberAccessPreflightDto.mailDelivery] reflects
+     * `network.lapis.cloud.server.mail.SmtpConfigState` at the moment of the call --
+     * `SmtpPasswordResetMailer.send()` itself always returns [network.lapis.cloud.shared.domain.DeliveryStatus.SENT]
+     * regardless of whether SMTP is actually configured, so this state is the only honest source
+     * for "can a mail even be sent right now". [MemberAccessPreflightDto.activeSessionCount] can go
+     * stale between this call and a subsequent click -- the ACTUAL number of revoked sessions is
+     * reported afterwards by [setTemporaryPasswordForMember]'s own return value.
+     *
+     * Throws [ForbiddenException] if the caller is not ADMIN, [NotFoundException] if `memberId`
+     * does not resolve to an existing member.
+     */
+    suspend fun getMemberAccessPreflight(memberId: String): MemberAccessPreflightDto
+
+    /**
+     * Welle V1.4.9 "Admin-Passwort-Reset", Weg 1 -- sets a NEW password for [memberId]'s existing
+     * login account directly, for the case an operator is on the phone with a locked-out member
+     * RIGHT NOW and a mail round-trip is not an option. **ADMIN-exclusive**, same unconditional
+     * posture [updateMemberRole]/[grantMemberAccount] already establish for granting/changing
+     * access -- checked before any existence/state check. Always [ForbiddenException] for a
+     * self-target: the caller's own path is [IAuthService.changePassword].
+     *
+     * [newPassword]: pass an operator-chosen password, OR `null` to have the server generate one
+     * (`network.lapis.cloud.server.security.TemporaryPasswordGenerator`, formatted in groups a
+     * human can read out over the phone). [TemporaryPasswordResultDto.generatedPassword] is
+     * non-null if and only if [newPassword] was `null` -- this is the ONE and ONLY moment that
+     * value is ever visible; it is never stored, logged, or retrievable again. Validated with
+     * `network.lapis.cloud.server.security.PasswordPolicy.validate` against the member's e-mail
+     * AS STORED (never a client-supplied one -- this call does not accept an e-mail at all), same
+     * discipline [grantMemberAccount] already establishes. Throws [WeakPasswordException] for an
+     * operator-chosen password that fails that check.
+     *
+     * [reason] is required (3-1000 characters, trimmed), same bounds [updateMemberStatus] enforces,
+     * recorded ONLY in the audit trail's `after` snapshot
+     * (`network.lapis.cloud.shared.domain.MemberChangeSnapshot.reason`/`.adminPasswordAction`).
+     *
+     * **Revokes every live session of the target member** ([TemporaryPasswordResultDto
+     * .revokedSessionCount] reports the real, `.forUpdate()`-counted number) -- the whole point of
+     * this call is "this account is compromised or the member lost their credential", the exact
+     * posture [network.lapis.cloud.server.routes.AuthRoutes]' own `/api/auth/password-reset/confirm`
+     * already establishes for the self-service reset. Deliberately DIFFERENT from
+     * [sendPasswordResetMailToMember], which revokes nothing -- see that method's own KDoc for why.
+     *
+     * Also sends a SEPARATE, password-free security notice to the member's stored address, informing
+     * them their password was changed by an administrator -- purely informational, its outcome
+     * ([TemporaryPasswordResultDto.memberNotified]) never affects whether this call itself
+     * succeeded. **Blocked for [MemberStatus.DECEASED]** ([ConflictException]) -- and ONLY that
+     * status, mirroring [grantMemberAccount]'s own exact DECEASED-exclusion reasoning: this
+     * notification would otherwise land in what is, in practice, a relative's mailbox.
+     * DONOR/WITHDRAWN/REJECTED remain allowed (the account stays inert regardless, per
+     * [network.lapis.cloud.shared.domain.MemberStatusSets.LOGIN_BLOCKED] -- the single, central
+     * login policy).
+     *
+     * Throws [ForbiddenException] if the caller is not ADMIN or targets themselves,
+     * [NotFoundException] if `memberId` does not resolve, [network.lapis.cloud.shared.rpc.MemberHasNoAccountException]
+     * if the target has no login account at all, [ConflictException] if the target is
+     * DSGVO-anonymized, is DECEASED, or `reason` is blank/too long.
+     */
+    suspend fun setTemporaryPasswordForMember(
+        memberId: String,
+        newPassword: String?,
+        reason: String,
+    ): TemporaryPasswordResultDto
+
+    /**
+     * Welle V1.4.9 "Admin-Passwort-Reset", Weg 2 -- triggers the EXACT SAME token-mint-and-mail
+     * mechanism as the unauthenticated `/api/auth/password-reset/request` endpoint, on behalf of
+     * [memberId], for the operator who would rather point the member at "check your inbox" than
+     * read a password aloud. **ADMIN-exclusive**, same unconditional gate
+     * [setTemporaryPasswordForMember] applies -- checked before any existence/state check. Always
+     * [ForbiddenException] for a self-target, same reasoning.
+     *
+     * **Deliberately does NOT revoke any session** -- unlike [setTemporaryPasswordForMember], this
+     * call changes nothing about the account until the member actually opens the link and confirms
+     * a new password; the revocation for THAT event already lives in
+     * `/api/auth/password-reset/confirm` (`network.lapis.cloud.server.security.SessionStore
+     * .revokeAllForMember`). Revoking here as well would be a needless, unannounced logout of every
+     * device for an action that has not yet had any real-world effect.
+     *
+     * Blocked ([ConflictException]) for a target whose status is in
+     * [network.lapis.cloud.shared.domain.MemberStatusSets.LOGIN_BLOCKED] -- **a deliberate
+     * asymmetry with the unauthenticated self-service endpoint**, which does NOT consult that set
+     * at all (see `network.lapis.cloud.shared.rpc.IMemberService.grantMemberAccount` KDoc for why
+     * that endpoint stays silent either way). This ADMIN-facing call owes the operator an honest
+     * outcome instead of a token minted for an account a reset link can never actually unlock.
+     *
+     * When [PasswordResetMailResultDto.delivery] is [network.lapis.cloud.shared.domain
+     * .MailDeliveryState.NOT_CONFIGURED] or `.RATE_LIMITED`, **no token is created and no audit
+     * entry is written** -- nothing happened, so nothing is recorded.
+     *
+     * Throws [ForbiddenException] if the caller is not ADMIN or targets themselves,
+     * [NotFoundException] if `memberId` does not resolve, [network.lapis.cloud.shared.rpc.MemberHasNoAccountException]
+     * if the target has no login account at all, [ConflictException] if the target is
+     * DSGVO-anonymized or its status is `LOGIN_BLOCKED`.
+     */
+    suspend fun sendPasswordResetMailToMember(memberId: String): PasswordResetMailResultDto
 }

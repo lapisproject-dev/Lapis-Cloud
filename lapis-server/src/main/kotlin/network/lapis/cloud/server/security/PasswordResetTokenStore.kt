@@ -139,6 +139,32 @@ object PasswordResetTokenStore {
         }
     }
 
+    /**
+     * Security fix (Welle V1.4.9 review round, MAJOR) -- invalidates (marks consumed, WITHOUT
+     * granting the bearer anything) every still-outstanding reset token for [memberId]. Callers
+     * that change a member's credential through some OTHER path than [consumeToken] itself --
+     * currently [network.lapis.cloud.server.rpc.MemberService.setTemporaryPasswordForMember] (Weg
+     * 1) -- MUST call this immediately alongside [SessionStore.revokeAllForMember], or a reset
+     * token minted earlier (e.g. via [createToken] from Weg 2's `sendPasswordResetMailToMember`)
+     * remains bearer-usable for up to [RESET_TTL] AFTER the admin believes the takeover has been
+     * shut down: whoever holds that token can still call [consumeToken] and set their OWN
+     * password, silently surviving the very reset meant to end their access. Same
+     * compare-and-swap-free bulk shape [SessionStore.revokeAllForMember] already establishes for
+     * the analogous session-side cleanup -- an already-consumed or already-expired row is simply
+     * left as-is (the `WHERE consumed_at IS NULL` guard makes this idempotent, not just safe to
+     * call when no token exists at all). Returns the number of rows invalidated.
+     */
+    fun invalidateAllForMember(memberId: Uuid): Int {
+        val now = nowLocalDateTime()
+        return transaction {
+            PasswordResetTokenTable.update({
+                (PasswordResetTokenTable.memberId eq memberId) and PasswordResetTokenTable.consumedAt.isNull()
+            }) {
+                it[consumedAt] = now
+            }
+        }
+    }
+
     /** Hard-deletes every reset-token row whose [PasswordResetTokenTable.expiresAt] is already in the past. Returns the number of rows deleted. */
     fun purgeExpired(): Int {
         val now = nowLocalDateTime()

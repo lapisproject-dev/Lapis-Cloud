@@ -441,6 +441,25 @@ private fun renderMemberRosterRow(
                 honorsButton.onClick { navigateTo(memberHonorsRoute(row.id)) }
             }
         }
+
+        // Welle V1.4.9 "Admin-Passwort-Reset" -- vierter Einstieg der Aktionsspalte, ADMIN-exklusiv.
+        // BEWUSST NICHT als siebter Abschnitt im Editor-Dialog und BEWUSST NICHT in
+        // hasAnyEditableSectionFor aufgenommen (die ODER-Kette bleibt bei sechs): ein Zugriffs-Akt
+        // ist kategorial etwas anderes als Stammdatenpflege, und diese Kette hat in dieser Datei
+        // bereits zweimal Regressionen produziert (V1.4.4.4-MAJOR, Review Runde 3). Ein eigenes
+        // Prädikat berührt sie nicht. Icon `fa-key`, nicht `fa-user-lock`: ein Schloss hieße
+        // "gesperrt" -- das ist der Zustand DANACH gerade nicht.
+        if (AppState.hasRole(AccountRole.ADMIN)) {
+            val accessButton = actionsCell.button("", icon = "fas fa-key", style = ButtonStyle.OUTLINEWARNING)
+            accessButton.title = tr("Zugang zurücksetzen")
+            val block = passwordResetBlockReason(callerRole, callerMemberId, row)
+            if (block != null) {
+                accessButton.disabled = true
+                accessButton.title = block
+            } else {
+                accessButton.onClick { openMemberPasswordResetDialog(row, onChanged) }
+            }
+        }
     }
 }
 

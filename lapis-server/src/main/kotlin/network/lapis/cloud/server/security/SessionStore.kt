@@ -128,20 +128,62 @@ object SessionStore {
      * [exceptRawToken] (if given) — used by [AuthService.changePassword][network.lapis.cloud.server.rpc.AuthService.changePassword]
      * so a password change kicks every OTHER device/session out while the caller's own current
      * session stays valid.
+     *
+     * @return the number of sessions actually revoked by THIS call. Welle V1.4.9 -- was previously
+     * `Unit`, even though Exposed's own `update` already returns the affected row count. The
+     * admin-password-reset receipt (`network.lapis.cloud.shared.domain.TemporaryPasswordResultDto
+     * .revokedSessionCount`) reports this REAL number to the operator instead of a guess. Every one
+     * of the seven pre-existing call sites ignores the return value, so this signature change is
+     * source-compatible.
+     *
+     * Security/consistency fix (Welle V1.4.9 review round) -- the `UPDATE` now also requires
+     * `expiresAt greater now`, matching [countActiveForMember]'s own "still-live" definition
+     * exactly. Without this, an already-EXPIRED-but-not-yet-[purgeExpired]d row (`revokedAt IS
+     * NULL`, `expiresAt` in the past) was included in the raw update count here but excluded from
+     * [countActiveForMember]'s preflight tally -- the admin-password-reset dialog could show "no
+     * active session" in the preflight and then "N session(s) ended" in the very same receipt a
+     * moment later, two contradictory numbers for what the operator reasonably reads as the same
+     * fact. Every one of the seven pre-existing call sites already treats "expired" and "revoked"
+     * as equally inert for authentication purposes (see [resolve]), so narrowing which rows get an
+     * explicit `revokedAt` stamp here changes no caller's effective behavior -- an unstamped
+     * expired row still authenticates nobody, and [purgeExpired] hard-deletes it regardless.
      */
     fun revokeAllForMember(
         memberId: Uuid,
         exceptRawToken: String? = null,
-    ) {
+    ): Int {
         val now = nowLocalDateTime()
         val exceptHash = exceptRawToken?.let { SessionTokens.hash(it) }
-        transaction {
+        return transaction {
             SessionTable.update({
-                val base = (SessionTable.memberId eq memberId) and SessionTable.revokedAt.isNull()
+                val base =
+                    (SessionTable.memberId eq memberId) and
+                        SessionTable.revokedAt.isNull() and
+                        (SessionTable.expiresAt greater now)
                 if (exceptHash != null) base and (SessionTable.tokenHash neq exceptHash) else base
             }) {
                 it[revokedAt] = now
             }
+        }
+    }
+
+    /**
+     * Welle V1.4.9 -- the number of currently LIVE sessions (neither revoked nor expired) belonging
+     * to [memberId]. Deliberately `expiresAt greater now`, unlike the plain `revokedAt IS NULL`
+     * count `MemberAdministrationTest.activeSessionCount` uses for its own assertions: an already
+     * EXPIRED session was never "ended" by a revocation, it already was one.
+     */
+    fun countActiveForMember(memberId: Uuid): Int {
+        val now = nowLocalDateTime()
+        return transaction {
+            SessionTable
+                .selectAll()
+                .where {
+                    (SessionTable.memberId eq memberId) and
+                        SessionTable.revokedAt.isNull() and
+                        (SessionTable.expiresAt greater now)
+                }.count()
+                .toInt()
         }
     }
 

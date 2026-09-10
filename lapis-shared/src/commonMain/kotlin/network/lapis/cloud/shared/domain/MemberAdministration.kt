@@ -153,3 +153,60 @@ object MemberStatusTransitions {
     /** Weg von DECEASED ist eine Datenkorrektur, kein Lebenszyklus-Ereignis -> ADMIN-exklusiv. */
     fun requiresAdmin(from: MemberStatus): Boolean = from == MemberStatus.DECEASED
 }
+
+/**
+ * Welle V1.4.9 "Admin-Passwort-Reset" -- der EHRLICHE Zustellzustand einer serverseitig
+ * ausgeloesten Mail, wie ihn die Mitgliederverwaltung dem Betreiber anzeigt. Bewusst NICHT
+ * [DeliveryStatus] wiederverwendet: das ist der Zustellprotokoll-Status eines
+ * `mailing_delivery_log`-Datensatzes, eine strukturell andere Sache.
+ *
+ * [HANDED_TO_SMTP] heisst ausdruecklich "an den SMTP-Dispatcher uebergeben", NICHT "zugestellt" --
+ * siehe `network.lapis.cloud.server.mail.PasswordResetMailer.send` KDoc "Fire-and-forget". Es gibt
+ * in dieser Architektur keinen Zustand, der echte Zustellung bezeugen koennte, und dieses Enum
+ * behauptet das auch nicht. [NOT_CONFIGURED] entspricht 1:1
+ * `network.lapis.cloud.server.mail.SmtpConfigState.NotConfigured`
+ * (`SmtpConfigState.Incomplete` erreicht die Laufzeit nie -- `SmtpStartupCheck.verifyAndLog`
+ * bricht den Start ab).
+ */
+@Serializable
+enum class MailDeliveryState { HANDED_TO_SMTP, NOT_CONFIGURED, RATE_LIMITED }
+
+/**
+ * Welle V1.4.9 -- was der Dialog "Zugang zuruecksetzen" beim OEFFNEN wissen muss. Reiner Read,
+ * keine Nebenwirkung.
+ */
+@Serializable
+data class MemberAccessPreflightDto(
+    val mailDelivery: MailDeliveryState,
+    /**
+     * Nicht widerrufene UND nicht abgelaufene Sitzungen des ZIELmitglieds im Moment des Abrufs.
+     * Kann bis zum Klick veralten -- die Quittung nennt danach die tatsaechlich widerrufene Zahl.
+     */
+    val activeSessionCount: Int,
+)
+
+/**
+ * Welle V1.4.9. [generatedPassword] ist genau dann != null, wenn der Aufrufer `newPassword = null`
+ * geschickt hat -- dann und nur dann hat der Server erzeugt und dies ist die EINZIGE Gelegenheit,
+ * den Wert zu sehen (nirgends gespeichert, nirgends geloggt, nirgends im Audit-Log).
+ */
+@Serializable
+data class TemporaryPasswordResultDto(
+    val member: MemberAdminRowDto,
+    val generatedPassword: String?,
+    val revokedSessionCount: Int,
+    /**
+     * Ergebnis der Sicherheits-Benachrichtigung an das Mitglied -- rein informativ. Beeinflusst
+     * NIE, ob die Aktion selbst gelungen ist (sie ist zu diesem Zeitpunkt bereits committet).
+     */
+    val memberNotified: MailDeliveryState,
+)
+
+/**
+ * Welle V1.4.9 -- Weg 2. Traegt bewusst KEIN `member`-Feld: dieser Aufruf aendert keine
+ * Mitgliedszeile.
+ */
+@Serializable
+data class PasswordResetMailResultDto(
+    val delivery: MailDeliveryState,
+)

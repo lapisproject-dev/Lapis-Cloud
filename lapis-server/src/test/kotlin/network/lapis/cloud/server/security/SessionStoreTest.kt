@@ -22,6 +22,7 @@ import kotlin.uuid.Uuid
 
 private val ADMIN_ID = Uuid.parse("00000000-0000-0000-0000-000000000001")
 private val BOARD_ID = Uuid.parse("00000000-0000-0000-0000-000000000002")
+private val TREASURER_ID = Uuid.parse("00000000-0000-0000-0000-000000000003")
 
 /**
  * Exercises [SessionStore] end to end against a real (H2) DB -- creation, resolution, revocation
@@ -159,5 +160,87 @@ class SessionStoreTest :
             val placeholder = SessionStore.placeholderExpiry()
             val expectedFloor: LocalDateTime = Clock.System.now().toLocalDateTime(TimeZone.UTC)
             (placeholder >= expectedFloor) shouldBe true
+        }
+
+        // ── Welle V1.4.9 "Admin-Passwort-Reset" ──
+
+        test("revokeAllForMember() returns the real number of sessions it actually revoked") {
+            // Clean slate first -- robust against leftover sessions from other test files sharing
+            // this DB; the count discarded here is irrelevant, only the delta below matters.
+            SessionStore.revokeAllForMember(memberId = TREASURER_ID)
+            SessionStore.createSession(TREASURER_ID)
+            SessionStore.createSession(TREASURER_ID)
+
+            SessionStore.revokeAllForMember(memberId = TREASURER_ID) shouldBe 2
+            // Idempotent: a second call against the now-fully-revoked member revokes nothing further.
+            SessionStore.revokeAllForMember(memberId = TREASURER_ID) shouldBe 0
+        }
+
+        test("revokeAllForMember() with exceptRawToken -- the returned count excludes the kept session") {
+            SessionStore.revokeAllForMember(memberId = TREASURER_ID)
+            val kept = SessionStore.createSession(TREASURER_ID)
+            SessionStore.createSession(TREASURER_ID)
+            SessionStore.createSession(TREASURER_ID)
+
+            SessionStore.revokeAllForMember(memberId = TREASURER_ID, exceptRawToken = kept.rawToken) shouldBe 2
+            SessionStore.resolve(kept.rawToken).shouldNotBeNull()
+        }
+
+        test("countActiveForMember() counts only live sessions -- not revoked, not expired") {
+            SessionStore.revokeAllForMember(memberId = TREASURER_ID)
+            SessionStore.countActiveForMember(TREASURER_ID) shouldBe 0
+
+            val a = SessionStore.createSession(TREASURER_ID)
+            SessionStore.createSession(TREASURER_ID)
+            SessionStore.countActiveForMember(TREASURER_ID) shouldBe 2
+
+            SessionStore.revoke(a.rawToken)
+            SessionStore.countActiveForMember(TREASURER_ID) shouldBe 1
+
+            // An EXPIRED-but-not-revoked row must not count either -- distinct from the plain
+            // `revokedAt IS NULL` tally `MemberAdministrationTest.activeSessionCount` uses for its
+            // own assertions.
+            val expiredRawToken = SessionTokens.newRawToken()
+            val nowMinusHour = (Clock.System.now() - 1.hours).toLocalDateTime(TimeZone.UTC)
+            transaction {
+                SessionTable.insert {
+                    it[id] = Uuid.random()
+                    it[tokenHash] = SessionTokens.hash(expiredRawToken)
+                    it[memberId] = TREASURER_ID
+                    it[createdAt] = nowMinusHour
+                    it[expiresAt] = nowMinusHour
+                    it[lastUsedAt] = null
+                    it[revokedAt] = null
+                }
+            }
+            SessionStore.countActiveForMember(TREASURER_ID) shouldBe 1
+        }
+
+        test(
+            "revokeAllForMember() ignores already-expired-but-unpurged rows, matching countActiveForMember()'s " +
+                "own definition of \"live\"",
+        ) {
+            // Review-round fix regression test: an expired-but-not-yet-purgeExpired()d row used to
+            // be included in revokeAllForMember()'s raw update count (`revokedAt IS NULL` only)
+            // while countActiveForMember() (`revokedAt IS NULL AND expiresAt > now`) already
+            // excluded it -- the admin-password-reset dialog could show "no active session" in the
+            // preflight and then "1 session(s) ended" in the very same receipt.
+            SessionStore.revokeAllForMember(memberId = TREASURER_ID)
+            val expiredRawToken = SessionTokens.newRawToken()
+            val nowMinusHour = (Clock.System.now() - 1.hours).toLocalDateTime(TimeZone.UTC)
+            transaction {
+                SessionTable.insert {
+                    it[id] = Uuid.random()
+                    it[tokenHash] = SessionTokens.hash(expiredRawToken)
+                    it[memberId] = TREASURER_ID
+                    it[createdAt] = nowMinusHour
+                    it[expiresAt] = nowMinusHour
+                    it[lastUsedAt] = null
+                    it[revokedAt] = null
+                }
+            }
+
+            SessionStore.countActiveForMember(TREASURER_ID) shouldBe 0
+            SessionStore.revokeAllForMember(memberId = TREASURER_ID) shouldBe 0
         }
     })

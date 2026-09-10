@@ -35,7 +35,10 @@ import network.lapis.cloud.server.db.generated.MailingMessageTable
 import network.lapis.cloud.server.db.generated.MemberTable
 import network.lapis.cloud.server.db.generated.MembershipTierTable
 import network.lapis.cloud.server.federation.FederationInboxRateLimiter
+import network.lapis.cloud.server.mail.FakeAdminPasswordResetNotificationMailer
 import network.lapis.cloud.server.mail.FakeFriendVerificationMailer
+import network.lapis.cloud.server.mail.FakePasswordResetMailer
+import network.lapis.cloud.server.mail.SmtpConfigState
 import network.lapis.cloud.server.routes.registerDsgvoRoutes
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.BillingInterval
@@ -227,6 +230,12 @@ class DsgvoServiceTest :
                                     friendVerificationMailer = FakeFriendVerificationMailer(),
                                     memberCoreDataFriendMailRateLimiter = FederationInboxRateLimiter(),
                                     memberCoreDataFriendMailActorRateLimiter = FederationInboxRateLimiter(),
+                                    passwordResetMailer = FakePasswordResetMailer(),
+                                    adminPasswordResetNotificationMailer = FakeAdminPasswordResetNotificationMailer(),
+                                    smtpConfigState = SmtpConfigState.NotConfigured,
+                                    adminPasswordMailTargetRateLimiter = FederationInboxRateLimiter(),
+                                    adminPasswordMailActorRateLimiter = FederationInboxRateLimiter(),
+                                    adminPasswordNotificationTargetRateLimiter = FederationInboxRateLimiter(),
                                 )
                             val query = call.request.queryParameters
                             val dto =
@@ -238,6 +247,31 @@ class DsgvoServiceTest :
                                     country = query["country"],
                                 )
                             call.respondText(dto.id)
+                        }
+                        // Welle V1.4.9 "Admin-Passwort-Reset": exercises the only production write
+                        // path setting MemberChangeSnapshot.adminPasswordAction -- see the export
+                        // assertion below.
+                        post("/test/admin-reset-password/{memberId}") {
+                            val service =
+                                MemberService(
+                                    call = call,
+                                    friendVerificationMailer = FakeFriendVerificationMailer(),
+                                    memberCoreDataFriendMailRateLimiter = FederationInboxRateLimiter(),
+                                    memberCoreDataFriendMailActorRateLimiter = FederationInboxRateLimiter(),
+                                    passwordResetMailer = FakePasswordResetMailer(),
+                                    adminPasswordResetNotificationMailer = FakeAdminPasswordResetNotificationMailer(),
+                                    smtpConfigState = SmtpConfigState.NotConfigured,
+                                    adminPasswordMailTargetRateLimiter = FederationInboxRateLimiter(),
+                                    adminPasswordMailActorRateLimiter = FederationInboxRateLimiter(),
+                                    adminPasswordNotificationTargetRateLimiter = FederationInboxRateLimiter(),
+                                )
+                            val result =
+                                service.setTemporaryPasswordForMember(
+                                    memberId = call.parameters["memberId"]!!,
+                                    newPassword = null,
+                                    reason = "DSGVO-Exporttest: Admin-Passwort-Reset",
+                                )
+                            call.respondText(result.member.id)
                         }
                     }
                 }
@@ -283,6 +317,11 @@ class DsgvoServiceTest :
                     "/test/update-address/$subjectHeader" +
                         "?street=Musterstrasse-1&postalCode=38100&city=Braunschweig&country=DE",
                 ) { header("X-Member-Id", subjectHeader) }
+
+                // Welle V1.4.9 "Admin-Passwort-Reset": an ADMIN resets the subject's password --
+                // Art. 15 must disclose this fact to the subject (see AuditLogPersonalData.export's
+                // own KDoc), checked below via the "adminPasswordAction" field in the bundle.
+                client.post("/test/admin-reset-password/$subjectHeader") { header("X-Member-Id", ADMIN_ID) }
 
                 // V0.4.1 donor attribution: a JournalEntry booked/created by TREASURER (not the
                 // subject) but attributed to the subject as donorMemberId must still surface in the
@@ -340,6 +379,12 @@ class DsgvoServiceTest :
                 // V1.2.11 PdV-CSV-Import: externalReference, exported alongside the other member
                 // fields above.
                 bundleText shouldContain "P-000123"
+                // Welle V1.4.9 "Admin-Passwort-Reset" (Review-Fund, Testlücke): Art. 15 must
+                // disclose that an administrator reset the subject's password -- pins the actual
+                // exported field/value, not just that DsgvoServiceTest's MemberService constructor
+                // calls compile against the new parameters (which is all the pre-existing diff
+                // covered).
+                bundleText shouldContain "\"adminPasswordAction\":\"TEMPORARY_PASSWORD_SET\""
                 // V0.4.1 donor attribution: the entry is present in the subject's own export and
                 // is correctly attributed via the "donorMemberId" role (not "createdBy", which
                 // belongs to TREASURER here) -- see AccountingPersonalData.export.
@@ -448,6 +493,12 @@ class DsgvoServiceTest :
                                     friendVerificationMailer = FakeFriendVerificationMailer(),
                                     memberCoreDataFriendMailRateLimiter = FederationInboxRateLimiter(),
                                     memberCoreDataFriendMailActorRateLimiter = FederationInboxRateLimiter(),
+                                    passwordResetMailer = FakePasswordResetMailer(),
+                                    adminPasswordResetNotificationMailer = FakeAdminPasswordResetNotificationMailer(),
+                                    smtpConfigState = SmtpConfigState.NotConfigured,
+                                    adminPasswordMailTargetRateLimiter = FederationInboxRateLimiter(),
+                                    adminPasswordMailActorRateLimiter = FederationInboxRateLimiter(),
+                                    adminPasswordNotificationTargetRateLimiter = FederationInboxRateLimiter(),
                                 )
                             val query = call.request.queryParameters
                             val dto =

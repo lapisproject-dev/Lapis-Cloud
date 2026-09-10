@@ -1,5 +1,6 @@
 package network.lapis.cloud.server.mail
 
+import kotlinx.datetime.LocalDateTime
 import kotlinx.html.a
 import kotlinx.html.body
 import kotlinx.html.h1
@@ -148,6 +149,50 @@ object MailTemplates {
                     p {
                         +"Öffnen Sie die API-Schlüssel-Verwaltung, um den Webhook zu prüfen und ggf. wieder zu aktivieren: "
                         a(href = link) { +"API-Schlüssel-Verwaltung öffnen" }
+                    }
+                    p { +footer(branding) }
+                }
+            }
+        return RenderedMail(subject = subject, plainText = plainText, html = html)
+    }
+
+    /**
+     * Welle V1.4.9 "Admin-Passwort-Reset" -- reine Transparenz-Benachrichtigung an das Mitglied,
+     * nachdem ein ADMIN dessen Passwort gesetzt hat. **Enthält weder Passwort noch Token** -- das
+     * temporäre Passwort geht ausschließlich den direkten Weg (Betreiber -> Person), siehe
+     * `network.lapis.cloud.shared.rpc.IMemberService.grantMemberAccount` KDoc "nicht e-gemailt".
+     * Diese Mail sagt nur DASS es passiert ist, WANN, und was zu tun ist, wenn das unerwartet
+     * kommt. Kein Link mit Nebenwirkung, deshalb auch kein TTL-Satz.
+     */
+    fun passwordResetByAdmin(
+        occurredAt: LocalDateTime,
+        branding: MailBranding,
+    ): RenderedMail {
+        val subject = "Ihr Passwort wurde zurückgesetzt – ${branding.fromDisplayName}"
+        val plainText =
+            "Ihr Passwort bei ${branding.fromDisplayName} wurde am $occurredAt von einer " +
+                "administrativen Person zurückgesetzt.\n\n" +
+                "Wenn Sie das erwartet haben (z. B. weil Sie telefonisch um Hilfe gebeten haben), " +
+                "müssen Sie nichts weiter tun. Wenn Sie das NICHT erwartet haben, melden Sie sich " +
+                "bitte umgehend bei uns.\n\n" +
+                footer(branding)
+        val html =
+            createHTML().html {
+                head { title { +subject } }
+                body {
+                    h1 { +"Passwort zurückgesetzt" }
+                    p {
+                        +(
+                            "Ihr Passwort bei ${branding.fromDisplayName} wurde am $occurredAt von einer " +
+                                "administrativen Person zurückgesetzt."
+                        )
+                    }
+                    p {
+                        +(
+                            "Wenn Sie das erwartet haben (z. B. weil Sie telefonisch um Hilfe gebeten haben), " +
+                                "müssen Sie nichts weiter tun. Wenn Sie das NICHT erwartet haben, melden Sie " +
+                                "sich bitte umgehend bei uns."
+                        )
                     }
                     p { +footer(branding) }
                 }

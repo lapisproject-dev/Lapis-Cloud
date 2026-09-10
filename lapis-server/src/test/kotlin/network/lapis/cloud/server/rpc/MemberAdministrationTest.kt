@@ -35,14 +35,23 @@ import network.lapis.cloud.server.db.generated.FriendEmailVerificationTokenTable
 import network.lapis.cloud.server.db.generated.MemberFamilyLinkTable
 import network.lapis.cloud.server.db.generated.MemberFamilyTable
 import network.lapis.cloud.server.db.generated.MemberTable
+import network.lapis.cloud.server.db.generated.PasswordResetTokenTable
 import network.lapis.cloud.server.db.generated.SepaMandateTable
 import network.lapis.cloud.server.db.generated.SessionTable
 import network.lapis.cloud.server.federation.FederationInboxRateLimiter
+import network.lapis.cloud.server.mail.AdminPasswordResetNotificationMailer
+import network.lapis.cloud.server.mail.FakeAdminPasswordResetNotificationMailer
 import network.lapis.cloud.server.mail.FakeFriendVerificationMailer
+import network.lapis.cloud.server.mail.FakePasswordResetMailer
 import network.lapis.cloud.server.mail.FriendVerificationMailer
+import network.lapis.cloud.server.mail.PasswordResetMailer
+import network.lapis.cloud.server.mail.SmtpConfig
+import network.lapis.cloud.server.mail.SmtpConfigState
 import network.lapis.cloud.server.security.FriendEmailVerificationTokenStore
 import network.lapis.cloud.server.security.PasswordHasher
+import network.lapis.cloud.server.security.PasswordResetTokenStore
 import network.lapis.cloud.server.security.SessionStore
+import network.lapis.cloud.server.security.TemporaryPasswordGenerator
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.AuditAction
 import network.lapis.cloud.shared.domain.AuditEntityType
@@ -51,6 +60,7 @@ import network.lapis.cloud.shared.domain.CommitteeMembershipInput
 import network.lapis.cloud.shared.domain.CommitteeRole
 import network.lapis.cloud.shared.domain.CommitteeType
 import network.lapis.cloud.shared.domain.DeliveryStatus
+import network.lapis.cloud.shared.domain.MailDeliveryState
 import network.lapis.cloud.shared.domain.MemberAdminQuery
 import network.lapis.cloud.shared.domain.MemberAdminSort
 import network.lapis.cloud.shared.domain.MemberStatus
@@ -129,6 +139,11 @@ class MemberAdministrationTest :
                     // V1__baseline.sql) -- without this, MemberTable.deleteWhere below would fail
                     // an FK-violation for that test's FRIEND member.
                     FriendEmailVerificationTokenTable.deleteWhere { FriendEmailVerificationTokenTable.memberId eq id }
+                    // Welle V1.4.9 -- sendPasswordResetMailToMember's tests mint real
+                    // PasswordResetTokenTable rows (fk_password_reset_token_member_id has no
+                    // ON DELETE CASCADE either, same V1__baseline.sql constraint shape) -- same
+                    // reasoning as the FriendEmailVerificationTokenTable cleanup right above.
+                    PasswordResetTokenTable.deleteWhere { PasswordResetTokenTable.memberId eq id }
                     AccountTable.deleteWhere { AccountTable.memberId eq id }
                     MemberTable.deleteWhere { MemberTable.id eq id }
                 }
@@ -287,6 +302,12 @@ class MemberAdministrationTest :
                     .where { AccountTable.memberId eq memberId }
                     .singleOrNull()
                     ?.get(AccountTable.passwordHash)
+            }
+
+        /** Welle V1.4.9 -- number of `password_reset_token` rows minted for [memberId] so far. */
+        fun passwordResetTokenCountFor(memberId: Uuid): Long =
+            transaction {
+                PasswordResetTokenTable.selectAll().where { PasswordResetTokenTable.memberId eq memberId }.count()
             }
 
         // ── 1: Autz Roster ──
@@ -2193,6 +2214,652 @@ class MemberAdministrationTest :
                 }
             }
         }
+
+        // ══ Welle V1.4.9 "Admin-Passwort-Reset" ══════════════════════════════════════════════════
+
+        // ── Weg 1: setTemporaryPasswordForMember ──
+
+        test("setTemporaryPasswordForMember: operator-chosen password -- hash changes, generatedPassword is null, one UPDATE audit entry") {
+            testApplication {
+                application {
+                    install(StatusPages) { installMemberAdminExceptionHandlers() }
+                    routing { registerMemberAdminTestRoutes() }
+                }
+                val member = createTestMember("temp-pw-chosen@example.org")
+                val beforeHash = passwordHashOf(member)
+                val response =
+                    client.post("/test/temp-password/$member?newPassword=$STRONG_PASSWORD&reason=Telefonat") {
+                        header("X-Member-Id", ADMIN_ID)
+                    }
+                response.status shouldBe HttpStatusCode.OK
+                val parts = response.bodyAsText().split(":")
+                parts[0] shouldBe member.toString()
+                parts[1] shouldBe "null"
+                passwordHashOf(member) shouldNotBe beforeHash
+                PasswordHasher.verify(rawPassword = STRONG_PASSWORD, storedHash = passwordHashOf(member)) shouldBe true
+                auditCountFor(member) shouldBe 1L
+            }
+        }
+
+        test(
+            "setTemporaryPasswordForMember: newPassword=null -- server generates a 19-character, hyphen-grouped password, visible exactly once",
+        ) {
+            testApplication {
+                application {
+                    install(StatusPages) { installMemberAdminExceptionHandlers() }
+                    routing { registerMemberAdminTestRoutes() }
+                }
+                val member = createTestMember("temp-pw-generated@example.org")
+                val response =
+                    client.post("/test/temp-password/$member?reason=Telefonat") { header("X-Member-Id", ADMIN_ID) }
+                response.status shouldBe HttpStatusCode.OK
+                val generated = response.bodyAsText().split(":")[1]
+                generated.length shouldBe 19
+                generated.count { it == '-' } shouldBe 3
+                generated.filter { it != '-' }.all { it in TemporaryPasswordGenerator.ALPHABET } shouldBe true
+                PasswordHasher.verify(rawPassword = generated, storedHash = passwordHashOf(member)) shouldBe true
+            }
+        }
+
+        test(
+            "setTemporaryPasswordForMember: BOARD/MEMBER/TREASURER forbidden, unauthenticated rejected -- ADMIN-exclusive, checked before existence",
+        ) {
+            testApplication {
+                application {
+                    install(StatusPages) { installMemberAdminExceptionHandlers() }
+                    routing { registerMemberAdminTestRoutes() }
+                }
+                val member = createTestMember("temp-pw-authz@example.org")
+                val beforeHash = passwordHashOf(member)
+                for (callerId in listOf(BOARD_ID, MEMBER_ID, TREASURER_ID)) {
+                    client
+                        .post("/test/temp-password/$member?newPassword=$STRONG_PASSWORD&reason=Testgrund") {
+                            header("X-Member-Id", callerId)
+                        }.status shouldBe
+                        HttpStatusCode.Forbidden
+                }
+                client.post("/test/temp-password/$member?newPassword=$STRONG_PASSWORD&reason=Testgrund").status shouldBe
+                    HttpStatusCode.Unauthorized
+                passwordHashOf(member) shouldBe beforeHash
+
+                // Rollen-Gate VOR jeder Existenzprüfung -- BOARD gegen eine unbekannte UUID ist 403, nicht 404.
+                client
+                    .post("/test/temp-password/${Uuid.random()}?newPassword=$STRONG_PASSWORD&reason=Testgrund") {
+                        header("X-Member-Id", BOARD_ID)
+                    }.status shouldBe
+                    HttpStatusCode.Forbidden
+            }
+        }
+
+        test("setTemporaryPasswordForMember: self-target is forbidden") {
+            testApplication {
+                application {
+                    install(StatusPages) { installMemberAdminExceptionHandlers() }
+                    routing { registerMemberAdminTestRoutes() }
+                }
+                client
+                    .post("/test/temp-password/$ADMIN_ID?newPassword=$STRONG_PASSWORD&reason=Testgrund") {
+                        header("X-Member-Id", ADMIN_ID)
+                    }.status shouldBe
+                    HttpStatusCode.Forbidden
+            }
+        }
+
+        test("setTemporaryPasswordForMember: anonymized member is rejected") {
+            testApplication {
+                application {
+                    install(StatusPages) { installMemberAdminExceptionHandlers() }
+                    routing { registerMemberAdminTestRoutes() }
+                }
+                val member = createTestMember("temp-pw-anonymized@example.org")
+                transaction { MemberTable.update({ MemberTable.id eq member }) { it[anonymizedAt] = DbClock.nowLocalDateTime() } }
+                client
+                    .post("/test/temp-password/$member?newPassword=$STRONG_PASSWORD&reason=Testgrund") {
+                        header("X-Member-Id", ADMIN_ID)
+                    }.status shouldBe
+                    HttpStatusCode.Conflict
+            }
+        }
+
+        test("setTemporaryPasswordForMember: accountless target -- MemberHasNoAccountException/Conflict") {
+            testApplication {
+                application {
+                    install(StatusPages) { installMemberAdminExceptionHandlers() }
+                    routing { registerMemberAdminTestRoutes() }
+                }
+                val member = createAccountlessTestMember("temp-pw-noaccount@example.org")
+                client
+                    .post("/test/temp-password/$member?newPassword=$STRONG_PASSWORD&reason=Testgrund") {
+                        header("X-Member-Id", ADMIN_ID)
+                    }.status shouldBe
+                    HttpStatusCode.Conflict
+            }
+        }
+
+        test("setTemporaryPasswordForMember: weak password is rejected, hash unchanged, no audit entry") {
+            testApplication {
+                application {
+                    install(StatusPages) { installMemberAdminExceptionHandlers() }
+                    routing { registerMemberAdminTestRoutes() }
+                }
+                val member = createTestMember("temp-pw-weak@example.org")
+                val beforeHash = passwordHashOf(member)
+                client
+                    .post("/test/temp-password/$member?newPassword=${"x".repeat(11)}&reason=Testgrund") {
+                        header("X-Member-Id", ADMIN_ID)
+                    }.status shouldBe
+                    HttpStatusCode.BadRequest
+                // Pins that validation runs against the DB-stored address -- this RPC accepts no e-mail parameter at all.
+                client
+                    .post("/test/temp-password/$member?newPassword=temp-pw-weak@example.org&reason=Testgrund") {
+                        header("X-Member-Id", ADMIN_ID)
+                    }.status shouldBe
+                    HttpStatusCode.BadRequest
+                passwordHashOf(member) shouldBe beforeHash
+                auditCountFor(member) shouldBe 0L
+            }
+        }
+
+        test("setTemporaryPasswordForMember: reason blank/too long is rejected, hash unchanged") {
+            testApplication {
+                application {
+                    install(StatusPages) { installMemberAdminExceptionHandlers() }
+                    routing { registerMemberAdminTestRoutes() }
+                }
+                val member = createTestMember("temp-pw-reason@example.org")
+                val beforeHash = passwordHashOf(member)
+                client
+                    .post("/test/temp-password/$member?newPassword=$STRONG_PASSWORD&reason=") {
+                        header("X-Member-Id", ADMIN_ID)
+                    }.status shouldBe
+                    HttpStatusCode.Conflict
+                client
+                    .post("/test/temp-password/$member?newPassword=$STRONG_PASSWORD&reason=${"x".repeat(1001)}") {
+                        header("X-Member-Id", ADMIN_ID)
+                    }.status shouldBe
+                    HttpStatusCode.Conflict
+                passwordHashOf(member) shouldBe beforeHash
+            }
+        }
+
+        test("setTemporaryPasswordForMember: DECEASED target is rejected, hash unchanged") {
+            testApplication {
+                application {
+                    install(StatusPages) { installMemberAdminExceptionHandlers() }
+                    routing { registerMemberAdminTestRoutes() }
+                }
+                val member = createTestMember("temp-pw-deceased@example.org", status = MemberStatus.DECEASED)
+                val beforeHash = passwordHashOf(member)
+                client
+                    .post("/test/temp-password/$member?newPassword=$STRONG_PASSWORD&reason=Testgrund") {
+                        header("X-Member-Id", ADMIN_ID)
+                    }.status shouldBe
+                    HttpStatusCode.Conflict
+                passwordHashOf(member) shouldBe beforeHash
+            }
+        }
+
+        test("setTemporaryPasswordForMember: revokes every live session of the target -- the receipt reports the real count") {
+            testApplication {
+                application {
+                    install(StatusPages) { installMemberAdminExceptionHandlers() }
+                    routing { registerMemberAdminTestRoutes() }
+                }
+                val member = createTestMember("temp-pw-sessions@example.org")
+                SessionStore.createSession(member)
+                SessionStore.createSession(member)
+                activeSessionCount(member) shouldBe 2L
+
+                val response =
+                    client.post("/test/temp-password/$member?newPassword=$STRONG_PASSWORD&reason=Testgrund") {
+                        header("X-Member-Id", ADMIN_ID)
+                    }
+                response.status shouldBe HttpStatusCode.OK
+                response.bodyAsText().split(":")[2] shouldBe "2"
+                activeSessionCount(member) shouldBe 0L
+            }
+        }
+
+        test("setTemporaryPasswordForMember: SMTP NotConfigured -- action still succeeds, memberNotified is NOT_CONFIGURED") {
+            testApplication {
+                application {
+                    install(StatusPages) { installMemberAdminExceptionHandlers() }
+                    routing { registerMemberAdminTestRoutes(smtpConfigState = SmtpConfigState.NotConfigured) }
+                }
+                val member = createTestMember("temp-pw-notconfigured@example.org")
+                val response =
+                    client.post("/test/temp-password/$member?newPassword=$STRONG_PASSWORD&reason=Testgrund") {
+                        header("X-Member-Id", ADMIN_ID)
+                    }
+                response.status shouldBe HttpStatusCode.OK
+                response.bodyAsText().split(":")[3] shouldBe MailDeliveryState.NOT_CONFIGURED.name
+                PasswordHasher.verify(rawPassword = STRONG_PASSWORD, storedHash = passwordHashOf(member)) shouldBe true
+            }
+        }
+
+        test("setTemporaryPasswordForMember: a throwing notification mailer never affects the result -- password still changes") {
+            testApplication {
+                application {
+                    install(StatusPages) { installMemberAdminExceptionHandlers() }
+                    routing {
+                        registerMemberAdminTestRoutes(
+                            smtpConfigState = configuredSmtpState(),
+                            adminPasswordResetNotificationMailer =
+                                object : AdminPasswordResetNotificationMailer {
+                                    override fun send(
+                                        email: String,
+                                        occurredAt: kotlinx.datetime.LocalDateTime,
+                                    ): DeliveryStatus = throw IllegalStateException("boom")
+                                },
+                        )
+                    }
+                }
+                val member = createTestMember("temp-pw-throwing-mailer@example.org")
+                val response =
+                    client.post("/test/temp-password/$member?newPassword=$STRONG_PASSWORD&reason=Testgrund") {
+                        header("X-Member-Id", ADMIN_ID)
+                    }
+                response.status shouldBe HttpStatusCode.OK
+                PasswordHasher.verify(rawPassword = STRONG_PASSWORD, storedHash = passwordHashOf(member)) shouldBe true
+            }
+        }
+
+        // ── Weg 2: sendPasswordResetMailToMember ──
+
+        test(
+            "sendPasswordResetMailToMember: happy path -- HANDED_TO_SMTP, exactly one token minted, correct recipient, no session revoked, one UPDATE audit entry",
+        ) {
+            testApplication {
+                val recordingMailer = RecordingPasswordResetMailer()
+                application {
+                    install(StatusPages) { installMemberAdminExceptionHandlers() }
+                    routing {
+                        registerMemberAdminTestRoutes(
+                            smtpConfigState = configuredSmtpState(),
+                            passwordResetMailer = recordingMailer,
+                        )
+                    }
+                }
+                val member = createTestMember("reset-mail-happy@example.org")
+                SessionStore.createSession(member)
+                activeSessionCount(member) shouldBe 1L
+
+                val response = client.post("/test/reset-mail/$member") { header("X-Member-Id", ADMIN_ID) }
+                response.status shouldBe HttpStatusCode.OK
+                response.bodyAsText() shouldBe MailDeliveryState.HANDED_TO_SMTP.name
+
+                recordingMailer.sentTo.size shouldBe 1
+                recordingMailer.sentTo.single().first shouldBe "reset-mail-happy@example.org"
+                val rawToken = recordingMailer.sentTo.single().second
+                PasswordResetTokenStore.peekMemberId(rawToken) shouldBe member
+
+                // Weg 2 revokes NOTHING -- the negative counterpart of setTemporaryPasswordForMember's own session test.
+                activeSessionCount(member) shouldBe 1L
+                auditCountFor(member) shouldBe 1L
+            }
+        }
+
+        test("sendPasswordResetMailToMember: BOARD/MEMBER/TREASURER forbidden, unauthenticated rejected, self-target forbidden") {
+            testApplication {
+                application {
+                    install(StatusPages) { installMemberAdminExceptionHandlers() }
+                    routing { registerMemberAdminTestRoutes(smtpConfigState = configuredSmtpState()) }
+                }
+                val member = createTestMember("reset-mail-authz@example.org")
+                for (callerId in listOf(BOARD_ID, MEMBER_ID, TREASURER_ID)) {
+                    client.post("/test/reset-mail/$member") { header("X-Member-Id", callerId) }.status shouldBe
+                        HttpStatusCode.Forbidden
+                }
+                client.post("/test/reset-mail/$member").status shouldBe HttpStatusCode.Unauthorized
+                client.post("/test/reset-mail/$ADMIN_ID") { header("X-Member-Id", ADMIN_ID) }.status shouldBe
+                    HttpStatusCode.Forbidden
+                auditCountFor(member) shouldBe 0L
+            }
+        }
+
+        test("sendPasswordResetMailToMember: anonymized/accountless targets are rejected, no token minted") {
+            testApplication {
+                application {
+                    install(StatusPages) { installMemberAdminExceptionHandlers() }
+                    routing { registerMemberAdminTestRoutes(smtpConfigState = configuredSmtpState()) }
+                }
+                val anonymized = createTestMember("reset-mail-anonymized@example.org")
+                transaction { MemberTable.update({ MemberTable.id eq anonymized }) { it[anonymizedAt] = DbClock.nowLocalDateTime() } }
+                client.post("/test/reset-mail/$anonymized") { header("X-Member-Id", ADMIN_ID) }.status shouldBe
+                    HttpStatusCode.Conflict
+
+                val accountless = createAccountlessTestMember("reset-mail-noaccount@example.org")
+                client.post("/test/reset-mail/$accountless") { header("X-Member-Id", ADMIN_ID) }.status shouldBe
+                    HttpStatusCode.Conflict
+            }
+        }
+
+        test(
+            "sendPasswordResetMailToMember: every LOGIN_BLOCKED status is rejected -- deliberate asymmetry with the self-service endpoint, no token minted",
+        ) {
+            testApplication {
+                application {
+                    install(StatusPages) { installMemberAdminExceptionHandlers() }
+                    routing { registerMemberAdminTestRoutes(smtpConfigState = configuredSmtpState()) }
+                }
+                for (blocked in MemberStatusSets.LOGIN_BLOCKED) {
+                    val member = createTestMember("reset-mail-blocked-$blocked@example.org", status = blocked)
+                    client.post("/test/reset-mail/$member") { header("X-Member-Id", ADMIN_ID) }.status shouldBe
+                        HttpStatusCode.Conflict
+                    auditCountFor(member) shouldBe 0L
+                }
+            }
+        }
+
+        test("sendPasswordResetMailToMember: SMTP NotConfigured -- NOT_CONFIGURED, no token minted, no audit entry") {
+            testApplication {
+                application {
+                    install(StatusPages) { installMemberAdminExceptionHandlers() }
+                    routing { registerMemberAdminTestRoutes(smtpConfigState = SmtpConfigState.NotConfigured) }
+                }
+                val member = createTestMember("reset-mail-notconfigured@example.org")
+                val response = client.post("/test/reset-mail/$member") { header("X-Member-Id", ADMIN_ID) }
+                response.status shouldBe HttpStatusCode.OK
+                response.bodyAsText() shouldBe MailDeliveryState.NOT_CONFIGURED.name
+                auditCountFor(member) shouldBe 0L
+                passwordResetTokenCountFor(member) shouldBe 0L
+            }
+        }
+
+        test(
+            "sendPasswordResetMailToMember: target-side rate limit -- 4th call against the same member is RATE_LIMITED, no token, no audit",
+        ) {
+            testApplication {
+                application {
+                    install(StatusPages) { installMemberAdminExceptionHandlers() }
+                    routing {
+                        registerMemberAdminTestRoutes(
+                            smtpConfigState = configuredSmtpState(),
+                            adminPasswordMailTargetRateLimiter = FederationInboxRateLimiter(maxRequests = 3),
+                        )
+                    }
+                }
+                val member = createTestMember("reset-mail-target-limit@example.org")
+                repeat(3) {
+                    client.post("/test/reset-mail/$member") { header("X-Member-Id", ADMIN_ID) }.bodyAsText() shouldBe
+                        MailDeliveryState.HANDED_TO_SMTP.name
+                }
+                val fourth = client.post("/test/reset-mail/$member") { header("X-Member-Id", ADMIN_ID) }
+                fourth.bodyAsText() shouldBe MailDeliveryState.RATE_LIMITED.name
+                auditCountFor(member) shouldBe 3L
+                passwordResetTokenCountFor(member) shouldBe 3L
+            }
+        }
+
+        test("sendPasswordResetMailToMember: actor-side rate limit trips even across DIFFERENT targets") {
+            testApplication {
+                application {
+                    install(StatusPages) { installMemberAdminExceptionHandlers() }
+                    routing {
+                        registerMemberAdminTestRoutes(
+                            smtpConfigState = configuredSmtpState(),
+                            adminPasswordMailActorRateLimiter = FederationInboxRateLimiter(maxRequests = 2),
+                        )
+                    }
+                }
+                val members = (1..3).map { createTestMember("reset-mail-actor-limit-$it@example.org") }
+                members.take(2).forEach { m ->
+                    client.post("/test/reset-mail/$m") { header("X-Member-Id", ADMIN_ID) }.bodyAsText() shouldBe
+                        MailDeliveryState.HANDED_TO_SMTP.name
+                }
+                client.post("/test/reset-mail/${members[2]}") { header("X-Member-Id", ADMIN_ID) }.bodyAsText() shouldBe
+                    MailDeliveryState.RATE_LIMITED.name
+            }
+        }
+
+        test("setTemporaryPasswordForMember: rate limit hits only the notification, never the action itself") {
+            testApplication {
+                application {
+                    install(StatusPages) { installMemberAdminExceptionHandlers() }
+                    routing {
+                        registerMemberAdminTestRoutes(
+                            smtpConfigState = configuredSmtpState(),
+                            adminPasswordNotificationTargetRateLimiter = FederationInboxRateLimiter(maxRequests = 0),
+                        )
+                    }
+                }
+                val member = createTestMember("temp-pw-rate-limited-notice@example.org")
+                val response =
+                    client.post("/test/temp-password/$member?newPassword=$STRONG_PASSWORD&reason=Testgrund") {
+                        header("X-Member-Id", ADMIN_ID)
+                    }
+                response.status shouldBe HttpStatusCode.OK
+                response.bodyAsText().split(":")[3] shouldBe MailDeliveryState.RATE_LIMITED.name
+                PasswordHasher.verify(rawPassword = STRONG_PASSWORD, storedHash = passwordHashOf(member)) shouldBe true
+            }
+        }
+
+        test(
+            "setTemporaryPasswordForMember: notification target pool is INDEPENDENT of the reset-mail " +
+                "target pool -- a rogue admin exhausting Weg 2's budget against a target cannot silence Weg 1's security notice (MINOR security fix)",
+        ) {
+            testApplication {
+                application {
+                    install(StatusPages) { installMemberAdminExceptionHandlers() }
+                    routing {
+                        registerMemberAdminTestRoutes(
+                            smtpConfigState = configuredSmtpState(),
+                            // Zeroed out -- every sendPasswordResetMailToMember call against this
+                            // target is RATE_LIMITED from the very first attempt.
+                            adminPasswordMailTargetRateLimiter = FederationInboxRateLimiter(maxRequests = 0),
+                        )
+                    }
+                }
+                val member = createTestMember("temp-pw-notice-not-starved@example.org")
+                client.post("/test/reset-mail/$member") { header("X-Member-Id", ADMIN_ID) }.bodyAsText() shouldBe
+                    MailDeliveryState.RATE_LIMITED.name
+
+                // Weg 1's security notice draws from its OWN, untouched pool -- it must still go out.
+                val response =
+                    client.post("/test/temp-password/$member?newPassword=$STRONG_PASSWORD&reason=Testgrund") {
+                        header("X-Member-Id", ADMIN_ID)
+                    }
+                response.bodyAsText().split(":")[3] shouldBe MailDeliveryState.HANDED_TO_SMTP.name
+            }
+        }
+
+        test(
+            "setTemporaryPasswordForMember: security notice no longer shares sendPasswordResetMailToMember's " +
+                "ACTOR-side pool -- exhausting it for FREE against non-existent targets cannot silence Weg 1's " +
+                "notice for a real member (MINOR security fix, residual round 2)",
+        ) {
+            testApplication {
+                application {
+                    install(StatusPages) { installMemberAdminExceptionHandlers() }
+                    routing {
+                        registerMemberAdminTestRoutes(
+                            smtpConfigState = configuredSmtpState(),
+                            // Only ONE actor-side slot total -- if notifyMemberOfAdminPasswordReset
+                            // still consulted this pool, the second call below would come back
+                            // RATE_LIMITED.
+                            adminPasswordMailActorRateLimiter = FederationInboxRateLimiter(maxRequests = 1),
+                        )
+                    }
+                }
+                // Burns the ONLY actor-side slot against a well-formed but NON-EXISTENT member id.
+                // sendPasswordResetMailToMember's own actor-side checkAndRecord runs before its
+                // existence check (see that function's own comment), so this leaves no token, no
+                // audit entry, and no other trace -- exactly the "free" exhaustion the finding
+                // described.
+                client.post("/test/reset-mail/${Uuid.random()}") { header("X-Member-Id", ADMIN_ID) }.status shouldBe
+                    HttpStatusCode.NotFound
+
+                // A REAL admin action against a REAL member must still trigger the security notice --
+                // it must NOT come back RATE_LIMITED just because sendPasswordResetMailToMember's
+                // (no longer shared) actor pool above is now empty.
+                val member = createTestMember("temp-pw-actor-pool-not-shared@example.org")
+                val response =
+                    client.post("/test/temp-password/$member?newPassword=$STRONG_PASSWORD&reason=Testgrund") {
+                        header("X-Member-Id", ADMIN_ID)
+                    }
+                response.status shouldBe HttpStatusCode.OK
+                response.bodyAsText().split(":")[3] shouldBe MailDeliveryState.HANDED_TO_SMTP.name
+            }
+        }
+
+        test(
+            "setTemporaryPasswordForMember: invalidates every outstanding reset token of the target -- a token " +
+                "minted earlier via Weg 2 can no longer be consumed after Weg 1 runs (MAJOR security fix)",
+        ) {
+            testApplication {
+                val recordingMailer = RecordingPasswordResetMailer()
+                application {
+                    install(StatusPages) { installMemberAdminExceptionHandlers() }
+                    routing {
+                        registerMemberAdminTestRoutes(
+                            smtpConfigState = configuredSmtpState(),
+                            passwordResetMailer = recordingMailer,
+                        )
+                    }
+                }
+                val member = createTestMember("temp-pw-invalidates-token@example.org")
+                // Weg 2 first: an outstanding, still-valid reset token exists for this member.
+                client.post("/test/reset-mail/$member") { header("X-Member-Id", ADMIN_ID) }.bodyAsText() shouldBe
+                    MailDeliveryState.HANDED_TO_SMTP.name
+                val rawToken = recordingMailer.sentTo.single().second
+                PasswordResetTokenStore.peekMemberId(rawToken) shouldBe member
+
+                // Weg 1: admin sets a temporary password directly, believing the account is now
+                // secured -- the earlier token must die with it, or whoever holds it can still take
+                // the account over via POST /api/auth/password-reset/confirm.
+                val response =
+                    client.post("/test/temp-password/$member?newPassword=$STRONG_PASSWORD&reason=Kompromittiert") {
+                        header("X-Member-Id", ADMIN_ID)
+                    }
+                response.status shouldBe HttpStatusCode.OK
+                PasswordResetTokenStore.peekMemberId(rawToken) shouldBe null
+                PasswordResetTokenStore.consumeToken(rawToken) shouldBe null
+                // The row still exists (not purged), just marked consumed -- passwordResetTokenCountFor
+                // deliberately counts ALL rows regardless of consumed state (see its own KDoc).
+                passwordResetTokenCountFor(member) shouldBe 1L
+            }
+        }
+
+        // ── Audit-Inhalt (beide Wege) ──
+
+        test("audit trail: neither password, hash, nor bcrypt marker ever appear in a before/after snapshot for either path") {
+            testApplication {
+                application {
+                    install(StatusPages) { installMemberAdminExceptionHandlers() }
+                    routing { registerMemberAdminTestRoutes(smtpConfigState = configuredSmtpState()) }
+                }
+                val member1 = createTestMember("audit-no-password-1@example.org")
+                client.post("/test/temp-password/$member1?newPassword=$STRONG_PASSWORD&reason=Telefonat") {
+                    header("X-Member-Id", ADMIN_ID)
+                }
+                val member2 = createTestMember("audit-no-password-2@example.org")
+                client.post("/test/reset-mail/$member2") { header("X-Member-Id", ADMIN_ID) }
+
+                listOf(member1, member2).forEach { member ->
+                    val (beforeJson, afterJson) =
+                        transaction {
+                            val row =
+                                AuditLogEntryTable
+                                    .selectAll()
+                                    .where {
+                                        (AuditLogEntryTable.entityId eq member) and
+                                            (AuditLogEntryTable.entityType eq AuditEntityType.MEMBER) and
+                                            (AuditLogEntryTable.action eq AuditAction.UPDATE)
+                                    }.single()
+                            row[AuditLogEntryTable.beforeSnapshot] to row[AuditLogEntryTable.afterSnapshot]
+                        }
+                    listOf(beforeJson, afterJson).forEach { json ->
+                        requireNotNull(json)
+                        json.contains(STRONG_PASSWORD) shouldBe false
+                        json.contains("\$2a$") shouldBe false
+                        json.contains("\$2b$") shouldBe false
+                        passwordHashOf(member)?.let { json.contains(it) shouldBe false }
+                    }
+                }
+            }
+        }
+
+        test("audit trail: adminPasswordAction distinguishes the two paths, reason only on Weg 1") {
+            testApplication {
+                application {
+                    install(StatusPages) { installMemberAdminExceptionHandlers() }
+                    routing { registerMemberAdminTestRoutes(smtpConfigState = configuredSmtpState()) }
+                }
+                val member1 = createTestMember("audit-content-1@example.org")
+                client.post("/test/temp-password/$member1?newPassword=$STRONG_PASSWORD&reason=Telefonat+Hilfe") {
+                    header("X-Member-Id", ADMIN_ID)
+                }
+                val afterJson1 =
+                    transaction {
+                        AuditLogEntryTable
+                            .selectAll()
+                            .where {
+                                (AuditLogEntryTable.entityId eq member1) and
+                                    (AuditLogEntryTable.entityType eq AuditEntityType.MEMBER) and
+                                    (AuditLogEntryTable.action eq AuditAction.UPDATE)
+                            }.single()[AuditLogEntryTable.afterSnapshot]
+                    }
+                requireNotNull(afterJson1)
+                afterJson1.contains("\"adminPasswordAction\":\"TEMPORARY_PASSWORD_SET\"") shouldBe true
+                afterJson1.contains("Telefonat") shouldBe true
+
+                val member2 = createTestMember("audit-content-2@example.org")
+                client.post("/test/reset-mail/$member2") { header("X-Member-Id", ADMIN_ID) }
+                val afterJson2 =
+                    transaction {
+                        AuditLogEntryTable
+                            .selectAll()
+                            .where {
+                                (AuditLogEntryTable.entityId eq member2) and
+                                    (AuditLogEntryTable.entityType eq AuditEntityType.MEMBER) and
+                                    (AuditLogEntryTable.action eq AuditAction.UPDATE)
+                            }.single()[AuditLogEntryTable.afterSnapshot]
+                    }
+                requireNotNull(afterJson2)
+                afterJson2.contains("\"adminPasswordAction\":\"RESET_MAIL_SENT\"") shouldBe true
+                // reason stays at its default (null) for Weg 2 -- kotlinx.serialization's default
+                // Json instance omits a property entirely when it equals its declared default,
+                // so the key itself is simply absent, not present as literal `null`.
+                afterJson2.contains("\"reason\"") shouldBe false
+            }
+        }
+
+        // ── Preflight ──
+
+        test(
+            "getMemberAccessPreflight: reports the real active-session count (expired sessions do not count) and mail-delivery state; ADMIN-only",
+        ) {
+            testApplication {
+                application {
+                    install(StatusPages) { installMemberAdminExceptionHandlers() }
+                    routing { registerMemberAdminTestRoutes(smtpConfigState = configuredSmtpState()) }
+                }
+                val member = createTestMember("preflight-happy@example.org")
+                SessionStore.createSession(member)
+                SessionStore.createSession(member)
+
+                val response = client.get("/test/access-preflight/$member") { header("X-Member-Id", ADMIN_ID) }
+                response.status shouldBe HttpStatusCode.OK
+                response.bodyAsText() shouldBe "${MailDeliveryState.HANDED_TO_SMTP}:2"
+
+                client.get("/test/access-preflight/$member") { header("X-Member-Id", BOARD_ID) }.status shouldBe
+                    HttpStatusCode.Forbidden
+                client.get("/test/access-preflight/${Uuid.random()}") { header("X-Member-Id", ADMIN_ID) }.status shouldBe
+                    HttpStatusCode.NotFound
+            }
+        }
+
+        test("getMemberAccessPreflight: SMTP NotConfigured is reflected honestly") {
+            testApplication {
+                application {
+                    install(StatusPages) { installMemberAdminExceptionHandlers() }
+                    routing { registerMemberAdminTestRoutes(smtpConfigState = SmtpConfigState.NotConfigured) }
+                }
+                val member = createTestMember("preflight-notconfigured@example.org")
+                client.get("/test/access-preflight/$member") { header("X-Member-Id", ADMIN_ID) }.bodyAsText() shouldBe
+                    "${MailDeliveryState.NOT_CONFIGURED}:0"
+            }
+        }
     })
 
 /** Welle V1.4.4.4 -- minimal helper route so [MemberAdministrationTest] can create a family fixture without duplicating [MemberFamilyServiceTest]'s full route set. */
@@ -2234,6 +2901,22 @@ private fun Route.registerMemberAdminTestRoutes(
     // default, same "no default in production, generous default here" shape the parameter above
     // already establishes for tests that don't care about this specific rate limit.
     memberCoreDataFriendMailActorRateLimiter: FederationInboxRateLimiter = FederationInboxRateLimiter(),
+    // Welle V1.4.9 "Admin-Passwort-Reset" -- five new parameters, all defaulted so every pre-existing
+    // call site above/below stays unaffected. `smtpConfigState` defaults to `NotConfigured` (the
+    // realistic default for a test that does not care about mail delivery at all); tests that DO
+    // care pass `SmtpConfigState.Configured(...)` explicitly.
+    passwordResetMailer: PasswordResetMailer = FakePasswordResetMailer(),
+    adminPasswordResetNotificationMailer: AdminPasswordResetNotificationMailer = FakeAdminPasswordResetNotificationMailer(),
+    smtpConfigState: SmtpConfigState = SmtpConfigState.NotConfigured,
+    // ONE instance per `registerMemberAdminTestRoutes()` call, same reasoning as
+    // memberCoreDataFriendMailRateLimiter above.
+    adminPasswordMailTargetRateLimiter: FederationInboxRateLimiter = FederationInboxRateLimiter(),
+    adminPasswordMailActorRateLimiter: FederationInboxRateLimiter = FederationInboxRateLimiter(),
+    // Security fix (Welle V1.4.9 review round, MINOR) -- DEDICATED pool for Weg 1's security
+    // notice, see MemberService constructor KDoc "adminPasswordNotificationTargetRateLimiter". A
+    // fresh instance by default, same "no default in production, generous default here" shape
+    // adminPasswordMailTargetRateLimiter above already establishes.
+    adminPasswordNotificationTargetRateLimiter: FederationInboxRateLimiter = FederationInboxRateLimiter(),
 ) {
     get("/test/roster") {
         val service =
@@ -2242,6 +2925,12 @@ private fun Route.registerMemberAdminTestRoutes(
                 friendVerificationMailer = mailer,
                 memberCoreDataFriendMailRateLimiter = memberCoreDataFriendMailRateLimiter,
                 memberCoreDataFriendMailActorRateLimiter = memberCoreDataFriendMailActorRateLimiter,
+                passwordResetMailer = passwordResetMailer,
+                adminPasswordResetNotificationMailer = adminPasswordResetNotificationMailer,
+                smtpConfigState = smtpConfigState,
+                adminPasswordMailTargetRateLimiter = adminPasswordMailTargetRateLimiter,
+                adminPasswordMailActorRateLimiter = adminPasswordMailActorRateLimiter,
+                adminPasswordNotificationTargetRateLimiter = adminPasswordNotificationTargetRateLimiter,
             )
         val q = call.request.queryParameters
         val statuses =
@@ -2274,6 +2963,12 @@ private fun Route.registerMemberAdminTestRoutes(
                 friendVerificationMailer = mailer,
                 memberCoreDataFriendMailRateLimiter = memberCoreDataFriendMailRateLimiter,
                 memberCoreDataFriendMailActorRateLimiter = memberCoreDataFriendMailActorRateLimiter,
+                passwordResetMailer = passwordResetMailer,
+                adminPasswordResetNotificationMailer = adminPasswordResetNotificationMailer,
+                smtpConfigState = smtpConfigState,
+                adminPasswordMailTargetRateLimiter = adminPasswordMailTargetRateLimiter,
+                adminPasswordMailActorRateLimiter = adminPasswordMailActorRateLimiter,
+                adminPasswordNotificationTargetRateLimiter = adminPasswordNotificationTargetRateLimiter,
             )
         val q = call.request.queryParameters
         val dto =
@@ -2291,6 +2986,12 @@ private fun Route.registerMemberAdminTestRoutes(
                 friendVerificationMailer = mailer,
                 memberCoreDataFriendMailRateLimiter = memberCoreDataFriendMailRateLimiter,
                 memberCoreDataFriendMailActorRateLimiter = memberCoreDataFriendMailActorRateLimiter,
+                passwordResetMailer = passwordResetMailer,
+                adminPasswordResetNotificationMailer = adminPasswordResetNotificationMailer,
+                smtpConfigState = smtpConfigState,
+                adminPasswordMailTargetRateLimiter = adminPasswordMailTargetRateLimiter,
+                adminPasswordMailActorRateLimiter = adminPasswordMailActorRateLimiter,
+                adminPasswordNotificationTargetRateLimiter = adminPasswordNotificationTargetRateLimiter,
             )
         val q = call.request.queryParameters
         val dto =
@@ -2310,6 +3011,12 @@ private fun Route.registerMemberAdminTestRoutes(
                 friendVerificationMailer = mailer,
                 memberCoreDataFriendMailRateLimiter = memberCoreDataFriendMailRateLimiter,
                 memberCoreDataFriendMailActorRateLimiter = memberCoreDataFriendMailActorRateLimiter,
+                passwordResetMailer = passwordResetMailer,
+                adminPasswordResetNotificationMailer = adminPasswordResetNotificationMailer,
+                smtpConfigState = smtpConfigState,
+                adminPasswordMailTargetRateLimiter = adminPasswordMailTargetRateLimiter,
+                adminPasswordMailActorRateLimiter = adminPasswordMailActorRateLimiter,
+                adminPasswordNotificationTargetRateLimiter = adminPasswordNotificationTargetRateLimiter,
             )
         val q = call.request.queryParameters
         val dto =
@@ -2327,6 +3034,12 @@ private fun Route.registerMemberAdminTestRoutes(
                 friendVerificationMailer = mailer,
                 memberCoreDataFriendMailRateLimiter = memberCoreDataFriendMailRateLimiter,
                 memberCoreDataFriendMailActorRateLimiter = memberCoreDataFriendMailActorRateLimiter,
+                passwordResetMailer = passwordResetMailer,
+                adminPasswordResetNotificationMailer = adminPasswordResetNotificationMailer,
+                smtpConfigState = smtpConfigState,
+                adminPasswordMailTargetRateLimiter = adminPasswordMailTargetRateLimiter,
+                adminPasswordMailActorRateLimiter = adminPasswordMailActorRateLimiter,
+                adminPasswordNotificationTargetRateLimiter = adminPasswordNotificationTargetRateLimiter,
             )
         val q = call.request.queryParameters
         val dto = service.updateMemberRole(memberId = call.parameters["id"]!!, newRole = AccountRole.valueOf(q["newRole"]!!))
@@ -2340,6 +3053,12 @@ private fun Route.registerMemberAdminTestRoutes(
                 friendVerificationMailer = mailer,
                 memberCoreDataFriendMailRateLimiter = memberCoreDataFriendMailRateLimiter,
                 memberCoreDataFriendMailActorRateLimiter = memberCoreDataFriendMailActorRateLimiter,
+                passwordResetMailer = passwordResetMailer,
+                adminPasswordResetNotificationMailer = adminPasswordResetNotificationMailer,
+                smtpConfigState = smtpConfigState,
+                adminPasswordMailTargetRateLimiter = adminPasswordMailTargetRateLimiter,
+                adminPasswordMailActorRateLimiter = adminPasswordMailActorRateLimiter,
+                adminPasswordNotificationTargetRateLimiter = adminPasswordNotificationTargetRateLimiter,
             )
         val q = call.request.queryParameters
         val dto =
@@ -2358,6 +3077,12 @@ private fun Route.registerMemberAdminTestRoutes(
                 friendVerificationMailer = mailer,
                 memberCoreDataFriendMailRateLimiter = memberCoreDataFriendMailRateLimiter,
                 memberCoreDataFriendMailActorRateLimiter = memberCoreDataFriendMailActorRateLimiter,
+                passwordResetMailer = passwordResetMailer,
+                adminPasswordResetNotificationMailer = adminPasswordResetNotificationMailer,
+                smtpConfigState = smtpConfigState,
+                adminPasswordMailTargetRateLimiter = adminPasswordMailTargetRateLimiter,
+                adminPasswordMailActorRateLimiter = adminPasswordMailActorRateLimiter,
+                adminPasswordNotificationTargetRateLimiter = adminPasswordNotificationTargetRateLimiter,
             )
         val q = call.request.queryParameters
         val dto =
@@ -2371,6 +3096,66 @@ private fun Route.registerMemberAdminTestRoutes(
         // KDoc) also holds for THIS call site's own returned row, not only for the roster read --
         // see the two "TREASURER caller ... family fields nulled out" tests above.
         call.respondText("${dto.id}:${dto.membershipTierId}:${dto.familyId}:${dto.familyName}:${dto.familyRole}")
+    }
+    // Welle V1.4.9 "Admin-Passwort-Reset".
+    get("/test/access-preflight/{id}") {
+        val service =
+            MemberService(
+                call = call,
+                friendVerificationMailer = mailer,
+                memberCoreDataFriendMailRateLimiter = memberCoreDataFriendMailRateLimiter,
+                memberCoreDataFriendMailActorRateLimiter = memberCoreDataFriendMailActorRateLimiter,
+                passwordResetMailer = passwordResetMailer,
+                adminPasswordResetNotificationMailer = adminPasswordResetNotificationMailer,
+                smtpConfigState = smtpConfigState,
+                adminPasswordMailTargetRateLimiter = adminPasswordMailTargetRateLimiter,
+                adminPasswordMailActorRateLimiter = adminPasswordMailActorRateLimiter,
+                adminPasswordNotificationTargetRateLimiter = adminPasswordNotificationTargetRateLimiter,
+            )
+        val dto = service.getMemberAccessPreflight(memberId = call.parameters["id"]!!)
+        call.respondText("${dto.mailDelivery}:${dto.activeSessionCount}")
+    }
+    post("/test/temp-password/{id}") {
+        val service =
+            MemberService(
+                call = call,
+                friendVerificationMailer = mailer,
+                memberCoreDataFriendMailRateLimiter = memberCoreDataFriendMailRateLimiter,
+                memberCoreDataFriendMailActorRateLimiter = memberCoreDataFriendMailActorRateLimiter,
+                passwordResetMailer = passwordResetMailer,
+                adminPasswordResetNotificationMailer = adminPasswordResetNotificationMailer,
+                smtpConfigState = smtpConfigState,
+                adminPasswordMailTargetRateLimiter = adminPasswordMailTargetRateLimiter,
+                adminPasswordMailActorRateLimiter = adminPasswordMailActorRateLimiter,
+                adminPasswordNotificationTargetRateLimiter = adminPasswordNotificationTargetRateLimiter,
+            )
+        val q = call.request.queryParameters
+        val dto =
+            service.setTemporaryPasswordForMember(
+                memberId = call.parameters["id"]!!,
+                newPassword = q["newPassword"],
+                reason = q["reason"] ?: "",
+            )
+        call.respondText(
+            "${dto.member.id}:${dto.generatedPassword}:${dto.revokedSessionCount}:${dto.memberNotified}",
+        )
+    }
+    post("/test/reset-mail/{id}") {
+        val service =
+            MemberService(
+                call = call,
+                friendVerificationMailer = mailer,
+                memberCoreDataFriendMailRateLimiter = memberCoreDataFriendMailRateLimiter,
+                memberCoreDataFriendMailActorRateLimiter = memberCoreDataFriendMailActorRateLimiter,
+                passwordResetMailer = passwordResetMailer,
+                adminPasswordResetNotificationMailer = adminPasswordResetNotificationMailer,
+                smtpConfigState = smtpConfigState,
+                adminPasswordMailTargetRateLimiter = adminPasswordMailTargetRateLimiter,
+                adminPasswordMailActorRateLimiter = adminPasswordMailActorRateLimiter,
+                adminPasswordNotificationTargetRateLimiter = adminPasswordNotificationTargetRateLimiter,
+            )
+        val dto = service.sendPasswordResetMailToMember(memberId = call.parameters["id"]!!)
+        call.respondText("${dto.delivery}")
     }
 }
 
@@ -2524,4 +3309,39 @@ private class RecordingResendFriendVerificationMailer : FriendVerificationMailer
         sentTo += email
         return DeliveryStatus.SENT
     }
+}
+
+/**
+ * Welle V1.4.9 -- records every `(email, rawToken)` pair [network.lapis.cloud.server.rpc.MemberService
+ * .sendPasswordResetMailToMember] was asked to send, distinctly named from
+ * [RecordingResendFriendVerificationMailer] for the same "no two file-private top-level classes
+ * sharing a simple name" reason that class's own KDoc documents.
+ */
+private class RecordingPasswordResetMailer : PasswordResetMailer {
+    val sentTo = mutableListOf<Pair<String, String>>()
+
+    override fun send(
+        email: String,
+        rawToken: String,
+    ): DeliveryStatus {
+        sentTo += email to rawToken
+        return DeliveryStatus.SENT
+    }
+}
+
+/**
+ * Welle V1.4.9 -- a real [SmtpConfigState.Configured] built purely from an injected env lambda (no
+ * network/filesystem I/O, see [SmtpConfig.load] KDoc "Pure string validation ONLY"), for every test
+ * in this file that needs `smtpConfigState` to report "mail CAN be sent" honestly.
+ */
+private fun configuredSmtpState(): SmtpConfigState.Configured {
+    val env =
+        mapOf(
+            SmtpConfig.ENV_HOST to "mxe9fb.netcup.net",
+            SmtpConfig.ENV_USERNAME to "no_reply@example.org",
+            SmtpConfig.ENV_PASSWORD to "s3cr3t",
+            SmtpConfig.ENV_FROM_ADDRESS to "no_reply@example.org",
+            SmtpConfig.ENV_FROM_NAME to "MemberAdministrationTest",
+        )
+    return SmtpConfig.load(env::get) as SmtpConfigState.Configured
 }

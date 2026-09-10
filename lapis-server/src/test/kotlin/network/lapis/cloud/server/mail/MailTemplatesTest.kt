@@ -4,6 +4,7 @@ import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldContain
 import io.kotest.matchers.string.shouldNotContain
+import kotlinx.datetime.LocalDateTime
 import network.lapis.cloud.server.security.FriendEmailVerificationTokenStore
 import network.lapis.cloud.server.security.PasswordResetTokenStore
 
@@ -138,5 +139,28 @@ class MailTemplatesTest :
             val hostile = "\"><script>alert(1)</script>@x"
             val mail = MailTemplates.passwordReset(rawToken = "T", branding = testBranding(replyTo = hostile))
             mail.html.shouldNotContain("<script>alert(1)</script>")
+        }
+
+        // ── Welle V1.4.9 "Admin-Passwort-Reset" -- passwordResetByAdmin ──
+
+        test("passwordResetByAdmin -- carries neither a password nor a token, in plainText or html") {
+            val occurredAt = LocalDateTime(2026, 9, 9, 14, 30)
+            val mail = MailTemplates.passwordResetByAdmin(occurredAt = occurredAt, branding = testBranding())
+            mail.plainText shouldContain occurredAt.toString()
+            mail.html shouldContain occurredAt.toString()
+            mail.plainText.shouldNotContain("href")
+            mail.html.shouldNotContain("<a ")
+            mail.plainText.shouldNotContain("token")
+            mail.html.shouldNotContain("token")
+        }
+
+        test("passwordResetByAdmin -- subject and footer follow the same branding conventions as the other templates") {
+            val mail =
+                MailTemplates.passwordResetByAdmin(
+                    occurredAt = LocalDateTime(2026, 9, 9, 14, 30),
+                    branding = testBranding(fromDisplayName = "Partei der Vernunft", replyTo = "kontakt@example.org"),
+                )
+            mail.subject shouldContain "Partei der Vernunft"
+            mail.plainText shouldContain "Fragen? Antworten Sie einfach auf diese E-Mail (kontakt@example.org)."
         }
     })
