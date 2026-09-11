@@ -237,16 +237,20 @@ services:
     volumes:
       # Rendered by render-secrets.sh from turnserver.conf.template -- see README.adoc.
       - ./turnserver.conf:/etc/coturn/turnserver.conf:ro
+      # Synced from Caddy's own certificate store by /usr/local/sbin/sync-turn-certs.sh (host-level
+      # script + daily systemd timer, not part of this repo -- see README.adoc "TURNS over TLS
+      # (port 443)") -- ./coturn-certs/ itself is gitignored, never commit real key material.
+      - ./coturn-certs:/etc/coturn/certs:ro
     ports:
       # PUBLIC -- coturn is a TURN relay; real browsers connect here directly when a direct/host
       # ICE candidate fails (restrictive NAT, symmetric firewall, etc.).
       - "3478:3478/udp"
       - "3478:3478/tcp"
       - "51000-51019:51000-51019/udp"
-      # TURNS over TLS -- PREPARED, INACTIVE. Uncomment together with turnserver.conf.template's
-      # own tls-listening-port block, and only once the Caddy SNI multiplexer on 443 exists (see
-      # README.adoc "TURNS over TLS (port 443)"). 5350 host-side here / 5350 container-side.
-      #- "127.0.0.1:5350:5350/tcp"
+      # TURNS over TLS -- ACTIVE since 2026-09-12, see README.adoc "TURNS over TLS (port 443)".
+      # 127.0.0.1-only: only sniproxy (the host's SNI multiplexer on the real public 443) ever
+      # dials this, never a real external client directly.
+      - "127.0.0.1:5350:5350/tcp"
     restart: unless-stopped
 
   # V1.0 Videokonferenzen, Wave 2 "Aufzeichnung" -- LiveKit's own self-hosting docs state the Egress

@@ -131,6 +131,16 @@ deploy/production/livekit.yaml
 deploy/production/turnserver.conf
 deploy/production/egress.yaml
 
+# TURNS over TLS (V1.0 Videokonferenzen, 2026-09-12) -- populated by the host-level
+# sync-turn-certs.sh script from Caddy's own certificate store, contains a real private key. See
+# deploy/production/README.adoc "TURNS over TLS (port 443)". .gitkeep keeps the directory itself
+# present so the bind mount has somewhere to attach to on a fresh checkout (same pattern as the
+# branding/ directories above).
+deploy/production/coturn-certs/*
+!deploy/production/coturn-certs/.gitkeep
+deploy/production-elb/coturn-certs/*
+!deploy/production-elb/coturn-certs/.gitkeep
+
 # White-Label-Branding (V1.2.5) -- operator-supplied logo file, deployment-local, never repo
 # content (see docker-compose.yml's "./branding:/app/branding:ro" bind mount). .gitkeep keeps the
 # directory itself present so the bind mount has somewhere to attach to on a fresh checkout.

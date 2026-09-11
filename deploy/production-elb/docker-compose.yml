@@ -203,6 +203,11 @@ services:
     command: ["-c", "/etc/coturn/turnserver.conf"]
     volumes:
       - ./turnserver.conf:/etc/coturn/turnserver.conf:ro
+      # Synced from Caddy's own certificate store by /usr/local/sbin/sync-turn-certs.sh (host-level
+      # script + daily systemd timer, not part of this repo -- see ../production/README.adoc
+      # "TURNS over TLS (port 443)") -- ./coturn-certs/ itself is gitignored, never commit real key
+      # material.
+      - ./coturn-certs:/etc/coturn/certs:ro
     ports:
       # listening-port itself is fine to remap (3479 host -> 3478 container) -- the client only
       # ever needs to reach it once for the initial control channel, Docker's own NAT handles the
@@ -212,12 +217,12 @@ services:
       - "3479:3478/udp"
       - "3479:3478/tcp"
       - "51020-51039:51020-51039/udp"
-      # TURNS over TLS -- PREPARED, INACTIVE. Uncomment together with turnserver.conf.template's
-      # own tls-listening-port block, and only once the Caddy SNI multiplexer on 443 exists (see
-      # ../production/README.adoc "TURNS over TLS (port 443)"). 5350 stays CONTAINER-side (same as
-      # the pdv2 instance's own copy); the HOST-side publish differs (5351 here), same remap scheme
-      # `listening-port` 3478->3479 already uses above, because both instances share one host.
-      #- "127.0.0.1:5351:5350/tcp"
+      # TURNS over TLS -- ACTIVE since 2026-09-12, see ../production/README.adoc "TURNS over TLS
+      # (port 443)". 5350 stays CONTAINER-side (same as the pdv2 instance's own copy); the HOST-side
+      # publish differs (5351 here), same remap scheme `listening-port` 3478->3479 already uses
+      # above, because both instances share one host. 127.0.0.1-only: only sniproxy (the host's SNI
+      # multiplexer on the real public 443) ever dials this, never a real external client directly.
+      - "127.0.0.1:5351:5350/tcp"
     restart: unless-stopped
 
   redis:

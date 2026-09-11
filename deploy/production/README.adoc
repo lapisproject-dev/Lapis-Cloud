@@ -349,46 +349,83 @@ fingerprinting protection blocks the direct ICE path and can also block plain TU
 3478/3479 UDP+TCP), or a corporate/hotel network whose outbound firewall only permits port 443.
 `turns:` (TURN over TLS) on port 443 looks like ordinary HTTPS on the wire and survives both.
 
-As of this wave, the client already helps on its own, **without** TURNS: `LiveKitRoomSession.connect`
-now retries automatically, exactly once, with `RTCConfiguration.iceTransportPolicy = "relay"`
-whenever the first connection attempt fails in a way a relay could plausibly fix -- see that
-method's own KDoc. This alone resolves the symptom for any participant who can reach the existing
-plain `turn:` endpoint (3478/pdv2, 3479/ELB) but was blocked only on the *direct* ICE path. It does
-**not** help a participant whose network blocks port 3478/3479 outright -- that is exactly the gap
-TURNS on 443 closes.
+The client already helps on its own, without TURNS: `LiveKitRoomSession.connect` retries
+automatically, exactly once, with `RTCConfiguration.iceTransportPolicy = "relay"` whenever the
+first connection attempt fails in a way a relay could plausibly fix -- see that method's own KDoc.
+This alone resolves the symptom for any participant who can reach the existing plain `turn:`
+endpoint (3478/pdv2, 3479/ELB) but was blocked only on the *direct* ICE path. It does NOT help a
+participant whose network blocks port 3478/3479 outright -- that is exactly the gap TURNS on 443
+closes.
 
-**Rollout approach**: Caddy already owns port 443 on this host (the reverse-proxied app vhosts, see
-"Reverse proxy" above), so coturn cannot bind 443 directly. The plan is Caddy SNI-based TCP
-multiplexing via the `caddy-l4` layer4 plugin (requires a Caddy rebuild with `xcaddy`, since `caddy-l4`
-is not part of the stock Caddy binary) -- Caddy inspects the TLS ClientHello's SNI on 443 and routes
-matching connections through to coturn's own INTERNAL TLS listener (container-side `5350`, published
-`127.0.0.1`-only so it is never reachable except through Caddy -- see `docker-compose.yml`'s own
-commented-out `ports:` entry and `turnserver.conf.template`'s own commented-out `tls-listening-port`
-block). coturn itself never listens on 443. Note TURNS is TCP-only; this does not touch QUIC/HTTP-3
-on 443/UDP, which stays exclusively the app vhosts' own concern.
-
-**DNS**: each instance needs its own A record pointing at the SAME host IP this instance already
-uses -- `turn.pzb.parteidervernunft.de` for the pdv2 instance, `turn.elb.parteidervernunft.de` for
-the ELB instance. The two names must differ even though the IP is identical, because SNI (the TLS
-ClientHello's hostname) is the ONLY signal the Caddy multiplexer has to tell the two instances'
-TURNS traffic apart on the shared 443 port. Each name needs its own real TLS certificate (Caddy's
-usual automatic Let's Encrypt issuance covers this the same way it already does for the app vhosts).
-
-[IMPORTANT]
+[NOTE]
 ====
-This rollout is the **next, separate operative step** and was **NOT** part of the code wave that
-introduced `LAPIS_TURNS_URLS` (`ConferenceConfig.turnsUrls`, the relay-fallback retry in
-`LiveKitRoomSession.connect`). As long as `LAPIS_TURNS_URLS` stays empty in `.env` -- the default --
-this deployment behaves exactly as it did before that wave: `docker-compose.yml`'s coturn TLS port is
-commented out, `turnserver.conf.template`'s `tls-listening-port` block is commented out, and
-`ConferenceConfig` simply carries no `turns:` entry in any minted TURN credential.
+**Live on both instances since 2026-09-12.** `LAPIS_TURNS_URLS` is set in both `.env` files
+(`turns:turn.pzb.parteidervernunft.de:443?transport=tcp` / `turns:turn.elb.parteidervernunft.de:443?transport=tcp`).
+If `LAPIS_TURNS_URLS` is ever unset again, this deployment falls back to exactly the pre-rollout
+behavior: `ConferenceConfig` simply carries no `turns:` entry in any minted TURN credential -- see
+that class's own KDoc, same "O4" optional-env posture as every other feature-flag-shaped variable
+in this codebase.
 ====
 
-**Operational workaround until TURNS is live** (for board members / non-technical participants hit
-by this today): in Brave, click the lion-head Shields icon in the address bar and lower the
-protection level for this one site, or go to `brave://settings/shields` and relax the fingerprinting
-protection setting there, then reload the page. This is a **temporary** workaround, not a fix -- it
-should stop being necessary once TURNS over 443 is live for this instance.
+**Rollout mechanism, as actually built (2026-09-12)**: Caddy already owned port 443 on this host
+(the reverse-proxied app vhosts, see "Reverse proxy" above), so coturn could not bind 443 directly.
+The originally planned `caddy-l4` layer4 plugin (would have needed a full Caddy rebuild via
+`xcaddy`, replacing the stock apt-managed binary) was replaced with **`sniproxy`**
+(`apt install sniproxy`, a small dedicated SNI-based TCP router that never terminates TLS itself)
+sitting in front of the real public `:443`:
+
+* Caddy no longer binds `:443` at all -- every site address in `/etc/caddy/Caddyfile` now carries
+  an explicit `:8443` (e.g. `pzb.parteidervernunft.de:8443 { ... }`). **Caddy's `bind` directive
+  cannot set a custom port** (host only, confirmed against Caddy's own docs the hard way -- an
+  earlier attempt using `bind 127.0.0.1:8443` silently ignored the port and left Caddy on the
+  default `:443`, which then collided with sniproxy's own bind attempt). Because an explicit
+  non-default port on a site address suppresses Caddy's *automatic* HTTP->HTTPS redirect, six
+  matching `http://<name> { redir https://{host}{uri} permanent }` blocks provide that redirect
+  explicitly instead -- the `{host}` template variable carries no port, so the `Location` header a
+  browser receives still says `https://pzb.parteidervernunft.de/...`, exactly the port-less URL
+  that is publicly reachable via sniproxy. Port 80 itself (ACME HTTP-01 challenges and these
+  redirects) is untouched throughout.
+* `sniproxy` (`/etc/sniproxy.conf`, a systemd service, `enabled` so it survives reboots) owns the
+  real public `:443`. Its config is a `listener 0.0.0.0:443 { protocol tls; table https_hosts;
+  fallback 127.0.0.1:8443 }` plus a `table https_hosts` with one regex-anchored entry per `turn.*`
+  name, each pointing at that instance's coturn TLS port (`127.0.0.1:5350` pdv2 / `127.0.0.1:5351`
+  ELB). Every other SNI (the four app vhosts) falls through to the `fallback`, i.e. Caddy on
+  `127.0.0.1:8443`. Plain TCP passthrough only -- sniproxy reads the ClientHello's SNI and forwards
+  the raw bytes verbatim, so Caddy and coturn each keep terminating their own TLS exactly as
+  before; sniproxy itself never sees plaintext.
+* Two DNS A records were added (`turn.pzb.parteidervernunft.de` / `turn.elb.parteidervernunft.de`,
+  both -> this host's IP) -- the two names must differ even though the IP is identical, because SNI
+  is the only signal sniproxy has to tell the two instances' TURNS traffic apart on the shared 443
+  port.
+* Each `turn.*` name gets its own real Let's Encrypt certificate, obtained (and auto-renewed) by
+  **Caddy itself**, via two minimal, cert-only Caddyfile vhosts (`turn.pzb.parteidervernunft.de:8443
+  { respond "Not a website -- TURNS relay endpoint only." 404 }` and its ELB counterpart) -- these
+  are never actually reached through sniproxy in normal operation (sniproxy diverts their SNI
+  straight to coturn), their only purpose is to make Caddy's ACME client manage the certificate.
+  `/usr/local/sbin/sync-turn-certs.sh` (installed on the host, NOT part of this repo) copies the
+  resulting cert/key pair out of Caddy's own certificate store
+  (`/var/lib/caddy/.local/share/caddy/certificates/.../<name>/`) into each instance's
+  `./coturn-certs/` directory (mounted read-only into the `coturn` container at
+  `/etc/coturn/certs/`, `0640`/group-`nogroup`-readable key so the container's `uid=65534(nobody)
+  gid=65533(nogroup)` process can read it without the key being world-readable), and restarts that
+  instance's `coturn` container ONLY when the certificate content actually changed (sha256/`cmp`
+  compare -- avoids dropping in-progress TURN relay sessions on every check). A
+  `sync-turn-certs.timer` systemd timer (`enabled`, daily, `RandomizedDelaySec=1h`) runs it
+  automatically; Caddy renews roughly 30 days before expiry, so a daily check comfortably keeps up.
+* coturn's own TLS config directive names are **`cert`/`pkey`**, NOT `cert-file`/`pkey-file` -- an
+  easy first guess to get wrong (this wave did, initially): the wrong names produce a `WARNING Bad
+  configuration format: cert-file` log line and coturn silently refuses to start the TLS listener
+  at all, while every other listener (plain `turn:`) keeps working normally, so the failure is easy
+  to miss without checking `docker logs <coturn container>` after any config change here.
+
+Note TURNS is TCP-only; none of this touches QUIC/HTTP-3 on `443/UDP`, which stays exclusively the
+app vhosts' own concern (unaffected either way, since sniproxy's listener above is TCP-only too).
+
+**Operational workaround for any remaining case** (a network that blocks port 443 itself entirely,
+or a board member on an old client build before the relay-fallback shipped): in Brave, click the
+lion-head Shields icon in the address bar and lower the protection level for this one site, or go
+to `brave://settings/shields` and relax the fingerprinting protection setting there, then reload
+the page.
 
 == Public read path (SEO)
 

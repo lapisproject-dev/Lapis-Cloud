@@ -19,31 +19,31 @@ realm=elb.parteidervernunft.de
 use-auth-secret
 static-auth-secret=${LAPIS_TURN_SECRET}
 external-ip=${LAPIS_PUBLIC_IP}
-no-tls
 no-dtls
 fingerprint
 log-file=stdout
 no-cli
 
-# ── TURNS over TLS (port 443) -- PREPARED, DELIBERATELY INACTIVE ────────────────────────────────
+# ── TURNS over TLS (port 443) -- ACTIVE since 2026-09-12 ────────────────────────────────────────
 # Why: a browser with a restrictive WebRTC privacy policy (Brave's Shields / fingerprinting
 # protection) or a network that only permits outbound 443 can block BOTH the direct ICE path AND
 # plain TURN on 3479/UDP+TCP (this instance's host-side remap, see docker-compose.yml). Symptom:
 # audio/video never start even though the camera/microphone permission was granted. Reported live
 # by an ELB board member, 2026-09-10. See ../production/README.adoc, "TURNS over TLS (port 443)".
 #
-# NOT enabled yet, and enabling it is NOT a code change: it needs (a) a DNS A record
-# (turn.elb.parteidervernunft.de -> this host's IP -- a DIFFERENT name than the pdv2 instance's,
-# see README.adoc "DNS"), (b) a real certificate for that name, and (c) Caddy SNI-based TCP
-# multiplexing on 443, because Caddy already owns port 443 on this host. coturn itself therefore
-# listens on an INTERNAL port, never on 443 directly.
+# Rollout (2026-09-12): a DNS A record (turn.elb.parteidervernunft.de -> this host's IP -- a
+# DIFFERENT name than the pdv2 instance's, see README.adoc "DNS"), a real Let's Encrypt certificate
+# obtained by Caddy itself, and `sniproxy` doing SNI-based TCP multiplexing on the host's public
+# 443 -- Caddy no longer binds 443 directly (moved to :8443, see README.adoc), coturn's TLS
+# listener stays on an INTERNAL port, never on 443 directly.
 #
 # `tls-listening-port` stays 5350 CONTAINER-side, same value as ../production/'s copy -- the
 # host-side publish differs (5351 here), same remap scheme `listening-port` 3478->3479 already
-# uses above, because both instances share one host.
-#
-# To activate, in this order: remove `no-tls` above, uncomment the three lines below, point
-# cert-file/pkey-file at the real certificate, then re-run render-secrets.sh and restart coturn.
-#tls-listening-port=5350
-#cert-file=/etc/coturn/certs/turn-fullchain.pem
-#pkey-file=/etc/coturn/certs/turn-privkey.pem
+# uses above, because both instances share one host. `cert`/`pkey` (NOT `cert-file`/`pkey-file` --
+# that was this wave's own first, wrong guess, coturn logs "Bad configuration format" and silently
+# refuses to start the TLS listener with the wrong key names) point at the files
+# `/usr/local/sbin/sync-turn-certs.sh` (run by the `sync-turn-certs.timer` systemd timer, daily)
+# copies out of Caddy's own certificate store whenever Caddy renews them.
+tls-listening-port=5350
+cert=/etc/coturn/certs/turn-fullchain.pem
+pkey=/etc/coturn/certs/turn-privkey.pem
