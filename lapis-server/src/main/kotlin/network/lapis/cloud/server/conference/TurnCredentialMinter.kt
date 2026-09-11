@@ -34,7 +34,7 @@ import kotlin.time.Instant
  * participant token vs. TURN relay credential) that happen to both be HMAC-based.
  */
 object TurnCredentialMinter {
-    /** One minted TURN credential -- [username]/[credential] are the exact `username`/`credential` fields `RTCIceServer` (WebRTC) expects; [urls] mirrors the [ConferenceConfig.turnUrls] this instance was minted for. */
+    /** One minted TURN credential -- [username]/[credential] are the exact `username`/`credential` fields `RTCIceServer` (WebRTC) expects; [urls] mirrors the [ConferenceConfig.allTurnUrls] this instance was minted for. */
     data class TurnCredential(
         val username: String,
         val credential: String,

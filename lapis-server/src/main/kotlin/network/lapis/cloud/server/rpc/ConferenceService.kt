@@ -440,13 +440,15 @@ class ConferenceService(
             )
         // Audit-round-1 fix: mint a fresh, short-lived TURN credential alongside the JWT, same TTL
         // -- see TurnCredentialMinter KDoc. Empty iff TURN is unconfigured (config.turnEnabled ==
-        // false), see ConferenceConfig KDoc "TURN is independently optional".
+        // false), see ConferenceConfig KDoc "TURN is independently optional". Uses
+        // config.allTurnUrls (not config.turnUrls) so an optionally-configured `turns:` endpoint
+        // travels in the SAME credential entry -- see ConferenceConfig.turnsUrls KDoc.
         val turnServers =
             if (config.turnEnabled) {
                 val turnCredential =
                     TurnCredentialMinter.mint(
                         sharedSecret = config.turnSharedSecret,
-                        urls = config.turnUrls,
+                        urls = config.allTurnUrls,
                         label = current.memberId.toString(),
                         ttl = effectiveTtl.minutes,
                     )

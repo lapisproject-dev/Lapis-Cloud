@@ -73,4 +73,29 @@ class TurnCredentialMinterTest :
             minted.credential.shouldNotContain(SHARED_SECRET)
             minted.username.shouldNotContain(SHARED_SECRET)
         }
+
+        // ── mixed turn:/turns: urls (relay-fallback wave, ConferenceConfig.allTurnUrls) ──────────
+
+        test("urls is passed through unchanged, turn: and turns: entries alike -- mint never inspects the scheme") {
+            val mixedUrls = URLS + listOf("turns:turn.example.org:443?transport=tcp")
+            val minted = TurnCredentialMinter.mint(sharedSecret = SHARED_SECRET, urls = mixedUrls, label = LABEL, ttl = 240.minutes)
+
+            minted.urls shouldBe mixedUrls
+        }
+
+        test(
+            "a mixed turn:+turns: url list produces the SAME username/credential as a turn:-only mint at the same now/label/ttl -- proves ONE credential authenticates every listener, coturn's REST scheme is instance-wide, not per-listener",
+        ) {
+            val now = Instant.fromEpochMilliseconds(1_700_000_000_000)
+            val mixedUrls = URLS + listOf("turns:turn.example.org:443?transport=tcp")
+            val turnOnly =
+                TurnCredentialMinter.mint(sharedSecret = SHARED_SECRET, urls = URLS, label = LABEL, ttl = 240.minutes, now = now)
+            val turnAndTurns =
+                TurnCredentialMinter.mint(sharedSecret = SHARED_SECRET, urls = mixedUrls, label = LABEL, ttl = 240.minutes, now = now)
+
+            turnAndTurns.username shouldBe turnOnly.username
+            turnAndTurns.credential shouldBe turnOnly.credential
+            turnAndTurns.urls shouldBe mixedUrls
+            turnAndTurns.urls shouldNotBe turnOnly.urls
+        }
     })

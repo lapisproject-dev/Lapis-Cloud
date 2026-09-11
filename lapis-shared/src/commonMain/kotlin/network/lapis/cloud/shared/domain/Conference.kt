@@ -95,7 +95,7 @@ data class ConferenceRoomDto(
  *
  * [turnServers] (audit-round-1 fix) is a fresh, per-join, [expiresAt]-scoped TURN relay credential
  * set -- see [network.lapis.cloud.server.conference.TurnCredentialMinter] KDoc. Empty iff
- * `LAPIS_TURN_URLS`/`LAPIS_TURN_SHARED_SECRET` are unconfigured
+ * `LAPIS_TURN_URLS`/`LAPIS_TURNS_URLS`/`LAPIS_TURN_SHARED_SECRET` are unconfigured
  * ([network.lapis.cloud.server.conference.ConferenceConfig.turnEnabled] `false`) -- the client simply
  * connects with no extra ICE servers in that case, same as before this fix existed.
  */
@@ -119,6 +119,12 @@ data class ConferenceJoinTokenDto(
  * short-lived (same TTL as the surrounding [ConferenceJoinTokenDto.token]) and MUST NOT be cached or
  * reused beyond this one join -- unlike the OLD static TURN credential this replaces, a stale
  * [ConferenceTurnServer] simply stops authenticating against coturn once its embedded expiry passes.
+ *
+ * [urls] may contain BOTH plain `turn:` entries and (optionally, if `LAPIS_TURNS_URLS` is
+ * configured) `turns:` (TURN over TLS) entries in the same list, sharing this ONE
+ * [username]/[credential] pair -- coturn's `use-auth-secret` REST scheme is instance-wide, not
+ * per-listener, so a single credential authenticates against every listener the instance exposes.
+ * See [network.lapis.cloud.server.conference.ConferenceConfig.turnsUrls] KDoc.
  */
 @Serializable
 data class ConferenceTurnServer(

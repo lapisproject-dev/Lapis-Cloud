@@ -209,6 +209,10 @@ msgstr "L'estratto conto non è coerente: il saldo iniziale più i movimenti non
 msgid "Der IBAN-Abgleich gegen SEPA-Mandate ist auf diesem Server derzeit nicht verfügbar."
 msgstr "Il confronto IBAN con i mandati SEPA non è attualmente disponibile su questo server."
 
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:4533
+msgid "Die Audio- und Videoverbindung konnte nicht aufgebaut werden -- auch nicht über einen Relay-Server. Häufigste Ursachen: eine strenge Datenschutz-Einstellung des Browsers (z. B. Braves Schutzschilde) oder ein Netzwerk, das Videoverbindungen blockiert. Bitte lockern Sie diese Einstellung für diese Seite oder versuchen Sie es in einem anderen Netzwerk oder Browser."
+msgstr "Impossibile stabilire la connessione audio e video, nemmeno tramite un server relay. Cause più comuni: un'impostazione restrittiva sulla privacy del browser (ad esempio gli Shields di Brave) o una rete che blocca le connessioni video. Allenti questa impostazione per questo sito oppure provi con un'altra rete o un altro browser."
+
 #: src/jsMain/kotlin/network/lapis/cloud/client/BankStatementLabels.kt:89
 msgid "Die Datei enthält ein ungültiges Steuerzeichen und kann nicht verarbeitet werden."
 msgstr "Il file contiene un carattere di controllo non valido e non può essere elaborato."
@@ -224,6 +228,10 @@ msgstr "Impossibile leggere il file."
 #: src/jsMain/kotlin/network/lapis/cloud/client/BankStatementLabels.kt:125
 msgid "Die Kontokennung des Auszugs ist keine gültige IBAN (Altformat?) -- Kontoprüfung übersprungen."
 msgstr "L'identificativo del conto dell'estratto conto non è un IBAN valido (formato obsoleto?) -- il controllo del conto è stato saltato."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:4536
+msgid "Die Verbindung zur Videokonferenz konnte nicht hergestellt werden. Bitte versuchen Sie es erneut."
+msgstr "Impossibile stabilire la connessione alla videoconferenza. Riprovare."
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/BankStatementImportScreen.kt:528
 msgid "Diese Aktion ist unumkehrbar -- eine Korrektur ist danach nur per Storno in der Buchhaltung möglich."
@@ -508,6 +516,10 @@ msgstr "Errore sconosciuto (HTTP %1)."
 #: src/jsMain/kotlin/network/lapis/cloud/client/CrmLabels.kt:46
 msgid "Veranstaltung"
 msgstr "Evento"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:3470
+msgid "Verbindung wird über einen Relay-Server erneut aufgebaut …"
+msgstr "Riconnessione tramite un server relay …"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/CrmLabels.kt:37
 msgid "Vertrag (Art. 6 Abs. 1 lit. b)"

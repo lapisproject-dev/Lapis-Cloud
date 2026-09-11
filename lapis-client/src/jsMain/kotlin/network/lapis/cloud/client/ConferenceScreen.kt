@@ -32,6 +32,7 @@ import kotlinx.datetime.LocalDateTime
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.number
 import kotlinx.datetime.toLocalDateTime
+import network.lapis.cloud.client.livekit.ConferenceConnectFailure
 import network.lapis.cloud.client.livekit.ConferenceDeviceFailure
 import network.lapis.cloud.client.livekit.ConferenceDeviceKind
 import network.lapis.cloud.client.livekit.LiveKitRoomSession
@@ -3356,10 +3357,32 @@ private fun enterCall(
             // are disambiguated with two cheap RPC calls.
             onDisconnected = {
                 // Security-relevant (D10, unchanged): reachable from BOTH `Connected` and
-                // `Reconnecting`. The idempotency guard below now also excludes `Resolving` (a second
-                // `RoomEvent.Disconnected` firing while the first one's resolution is still in
-                // flight must not launch a SECOND resolution race).
-                if (connectionState !is ConferenceConnectionState.Ended && connectionState !is ConferenceConnectionState.Resolving) {
+                // `Reconnecting` -- see `isLive()`'s own KDoc. A second `RoomEvent.Disconnected`
+                // firing while the first one's resolution is still in flight (state already
+                // `Resolving`) must not launch a SECOND resolution race; `isLive()` excludes that too.
+                //
+                // Security-audit fix (MAJOR, "Relay-Retry läuft gegen ConferenceScreen.onDisconnected:
+                // verwaiste Live-Session mit aktiver Kamera/Mikrofon") -- narrowed from
+                // "not Ended/Resolving" to `isLive()` (Connected/Reconnecting only), matching exactly
+                // the two states `conferenceConnectionReduce` itself handles `DisconnectedSignal` for
+                // (see that function's `Connected`/`Reconnecting` branches; every other state's branch
+                // already ignores it, `Connecting` included). The pre-fix guard let `Connecting`
+                // through: `LiveKitRoomSession.connect`'s up-to-15s relay-fallback retry (see that
+                // method's own KDoc "Relay fallback") can raise a SYNCHRONOUS `RoomEvent.Disconnected`
+                // from the peer-connection-timeout path BEFORE its own `connect()` promise ever rejects
+                // -- `connectionState` stays `Connecting` for that entire retry (see `onRelayFallback`
+                // callback above, "connectionState stays Connecting throughout"), so this callback used
+                // to launch a SECOND `resolvePostDisconnectDestination` -> `enterCall` race against the
+                // still-running first attempt. If the relay retry then won that race, the caller
+                // (`enterCall`'s own `connect()` call site below) would go on to call
+                // `session.setMicrophone(true)`/`.setCamera(true)` on a session `setActiveSession` no
+                // longer points at -- a live, unreachable camera/microphone with no UI and no
+                // "Verlassen" button, since `beforeunload`/`pagehide` only ever tears down
+                // `activeSession`. Restricting to `Connected`/`Reconnecting` closes that window
+                // entirely: a genuine kick/end/breakout-assignment always arrives while one of those two
+                // states holds, never while a connection attempt (including its relay retry) is still
+                // in flight.
+                if (connectionState.isLive()) {
                     transition(ConferenceConnectionEvent.DisconnectedSignal)
                     AppScope.launch {
                         when (val destination = resolvePostDisconnectDestination(room.id)) {
@@ -3457,6 +3480,17 @@ private fun enterCall(
                     }
                 }
             },
+            // Bug fix (ELB board-member report, 2026-09-10, "in some browsers audio and video do not
+            // start at all") -- see LiveKitRoomSession.connect KDoc "Relay fallback". Fires exactly
+            // once, right before the single automatic relay-only retry starts; swaps the status line
+            // to accurate copy for the (up to 15 s longer) second attempt. Deliberately NOT a new
+            // ConferenceConnectionState -- connectionState stays Connecting throughout, this only
+            // changes the displayed text, and renderConnectionState() overwrites it again on the very
+            // next real transition (success, failure, or a later reconnect), same "the ONE place
+            // connectionState mutates" discipline this file's D10 KDoc already establishes.
+            onRelayFallback = {
+                connectionStatusLine.content = tr("Verbindung wird über einen Relay-Server erneut aufgebaut …")
+            },
         )
     setActiveSession(session)
 
@@ -3468,9 +3502,20 @@ private fun enterCall(
 
     AppScope.launch {
         transition(ConferenceConnectionEvent.ConnectRequested)
-        val connected = guarded { session.connect(joinToken.serverUrl, joinToken.token, joinToken.turnServers) }
-        if (connected == null) {
-            transition(ConferenceConnectionEvent.ConnectFailed("connect failed"))
+        // `session.connect(...)` returns a ConferenceConnectFailure? now (null == success), the SAME
+        // "null means success" convention `setMicrophone`/`setCamera` already use (see the
+        // `guarded { setMicrophone(true) }` call site below) -- see LiveKitRoomSession.connect KDoc
+        // "@return". This reading is only safe because `connect()` deliberately NEVER throws (a
+        // CancellationException aside, which `guarded {}` re-throws rather than swallowing) -- so
+        // `guarded {}`'s own catch-all path is unreachable here, and its `null` return can ONLY mean
+        // "connect() itself returned null", i.e. success. Do NOT add an `?: ConferenceConnectFailure.OTHER`
+        // fallback here -- that would collapse a genuine success back into a false failure, exactly the
+        // `guarded{}`-vs-"null==success" collision `setCamera`'s own KDoc documents as a round-2
+        // regression this file already fixed once.
+        val connectFailure = guarded { session.connect(joinToken.serverUrl, joinToken.token, joinToken.turnServers) }
+        if (connectFailure != null) {
+            notifyError(conferenceConnectErrorMessage(connectFailure))
+            transition(ConferenceConnectionEvent.ConnectFailed(connectFailure.name))
             setActiveSession(null)
             returnToLobby(
                 callPanel = callPanel,
@@ -4489,6 +4534,29 @@ internal fun conferenceDeviceEnableErrorMessage(
         ConferenceDeviceFailure.OTHER -> gettext("%1 konnte nicht aktiviert werden.", subject)
     }
 }
+
+/**
+ * Shown as an error toast when [network.lapis.cloud.client.livekit.LiveKitRoomSession.connect]
+ * fails -- the connection-path counterpart to [conferenceDeviceEnableErrorMessage], deliberately
+ * built the same way (a typed failure in, a translated sentence out) so no raw LiveKit/WebRTC
+ * internal string can reach a participant through `AppState.kt`'s generic `guarded {}` fallback
+ * any more.
+ *
+ * The [ConferenceConnectFailure.RELAY_EXHAUSTED] wording names the two causes that actually
+ * explain the 2026-09-10 ELB board-member report ("in some browsers audio and video do not start
+ * at all") and that the participant can act on themselves, without naming any server-side
+ * configuration detail -- SECURITY: this text is IDENTICAL regardless of whether this deployment
+ * has `turns:` configured, so it never becomes an oracle for the organisation's relay setup.
+ */
+internal fun conferenceConnectErrorMessage(failure: ConferenceConnectFailure): String =
+    when (failure) {
+        ConferenceConnectFailure.RELAY_EXHAUSTED ->
+            tr(
+                "Die Audio- und Videoverbindung konnte nicht aufgebaut werden -- auch nicht über einen Relay-Server. Häufigste Ursachen: eine strenge Datenschutz-Einstellung des Browsers (z. B. Braves Schutzschilde) oder ein Netzwerk, das Videoverbindungen blockiert. Bitte lockern Sie diese Einstellung für diese Seite oder versuchen Sie es in einem anderen Netzwerk oder Browser.",
+            )
+        ConferenceConnectFailure.OTHER ->
+            tr("Die Verbindung zur Videokonferenz konnte nicht hergestellt werden. Bitte versuchen Sie es erneut.")
+    }
 
 /** V1.3.x Geräteauswahl -- shown as an info toast when a hotplug re-enumeration (`preserveFocusedSelect
  * = true` in `refreshDeviceOptions()`) finds that the currently active device of [kind] has vanished

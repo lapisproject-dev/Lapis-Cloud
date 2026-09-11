@@ -45,6 +45,75 @@ data class ConferenceDeviceOption(
 )
 
 /**
+ * Connection-level failure kinds `ConferenceScreen.kt` needs to distinguish, mirroring the
+ * established [ConferenceDeviceFailure] pattern: the ONE place a raw LiveKit/WebRTC error becomes
+ * a translatable, non-technical Kotlin value. Never carries the raw `e.message` onward --
+ * SECURITY: the previous generic `guarded {}` fallback in `AppState.kt` surfaced an untranslated
+ * SDK/browser internal string straight into a user-visible toast.
+ */
+enum class ConferenceConnectFailure {
+    /** Media transport could not be established, NOT EVEN over a forced TURN relay -- the symptom
+     * an ELB board member reported 2026-09-10. Most likely cause: a restrictive browser privacy
+     * setting (Brave Shields / fingerprinting protection) or a network that blocks WebRTC. */
+    RELAY_EXHAUSTED,
+
+    /** Every other connection failure (auth rejected, signalling unreachable, aborted). */
+    OTHER,
+}
+
+/**
+ * `livekit-client`'s own `ConnectionErrorReason` numeric enum, read off a rejected
+ * `Room.connect(...)` error via [connectionErrorReasonOf] -- the same "classify a raw JS error
+ * locally" discipline [LiveKitRoomSession.classifyDeviceFailure] already established.
+ * Verified against `dist/src/room/errors.d.ts`:
+ * `NotAllowed=0, ServerUnreachable=1, InternalError=2, Cancelled=3, LeaveRequest=4, Timeout=5,
+ * WebSocket=6, ServiceNotFound=7`.
+ *
+ * [conferenceShouldRetryOverRelay] is `true` ONLY for the two reasons a forced relay path could
+ * plausibly repair:
+ * - `InternalError (2)` -- what `ensurePCTransportConnection` throws on its 15 s
+ *   `peerConnectionTimeout` (`ConnectionError.internal('could not establish pc connection')`),
+ *   i.e. the ICE-never-established case this whole wave exists for.
+ * - `Timeout (5)`.
+ * - `null` (reason unreadable -- a non-`ConnectionError` throwable) is treated as retryable on
+ *   purpose: a missed retry costs a still-broken call, a superfluous one costs 15 s.
+ *
+ * Deliberately `false` for `NotAllowed (0)` (bad/expired token -- relay cannot help, and retrying
+ * would double the wait before the user sees a truthful error), `Cancelled (3)`/`LeaveRequest (4)`
+ * (the user or the server already ended this attempt), and `ServerUnreachable (1)`/`WebSocket (6)`/
+ * `ServiceNotFound (7)` (SIGNALLING-layer failures -- signalling runs over WSS through the reverse
+ * proxy and never touches ICE at all, so an ICE transport policy is irrelevant to them).
+ */
+internal fun conferenceShouldRetryOverRelay(connectionErrorReason: Int?): Boolean =
+    connectionErrorReason == null || connectionErrorReason == 2 || connectionErrorReason == 5
+
+/** Reads `ConnectionError.reason` off a rejected `Room.connect` error, `null` if absent/non-numeric. */
+private fun connectionErrorReasonOf(error: dynamic): Int? = (error?.reason as? Int)
+
+/**
+ * Result of one [LiveKitRoomSession.attemptConnect] call -- deliberately NOT `Int?`. A plain `Int?`
+ * return collided `null`-for-success (the happy path) with `null`-for-"failed, reason unreadable"
+ * (a rejection [connectionErrorReasonOf] cannot read a numeric `.reason` off, which real
+ * `livekit-client` 2.21.0 throwables routinely are -- `UnsupportedServer`, `NegotiationError`,
+ * `DeviceUnsupportedError`, `SignalReconnectError`, or any raw `TypeError`/`DOMException` a
+ * privacy-hardened browser's WebRTC stack throws, exactly the class of failure this whole wave
+ * exists for). That collision made every genuinely-unreadable failure silently read as success one
+ * level up in [LiveKitRoomSession.connect] -- see this type's introduction, audit finding
+ * "Sentinel-Kollision".
+ */
+internal sealed interface ConnectAttemptResult {
+    /** `room.connect(...)` resolved; [LiveKitRoomSession.room] now points at the connected [Room]. */
+    data object Success : ConnectAttemptResult
+
+    /** `room.connect(...)` rejected. [reason] is `null` when the rejection carried no readable
+     * numeric [ConnectionErrorReason] -- itself a real, expected outcome (see this interface's own
+     * KDoc), never to be confused with [Success]. */
+    data class Failed(
+        val reason: Int?,
+    ) : ConnectAttemptResult
+}
+
+/**
  * V1.0 Videokonferenzen (Kleinsitzung), Wave 1 -- owns exactly one [Room] and turns its
  * callback-shaped JS event stream into idiomatic Kotlin callbacks + `suspend` functions. This is the
  * ONLY place in the client where a raw `dynamic` value coming out of `livekit-client` is unwrapped
@@ -219,8 +288,38 @@ class LiveKitRoomSession(
     private val onReconnecting: () -> Unit,
     private val onReconnected: () -> Unit,
     private val onDisconnected: () -> Unit,
+    /** Fired exactly once per [connect] call, immediately BEFORE the single relay-fallback retry
+     * starts -- purely so `ConferenceScreen.kt` can swap its connection status line to accurate copy
+     * for the second, up-to-15-second attempt. Never fired when the first attempt succeeds, and never
+     * more than once (there is no third attempt). */
+    private val onRelayFallback: () -> Unit = {},
+    /** Test seam (audit finding "Testabdeckung" -- [attemptConnect] previously hard-constructed
+     * `Room(options)`, leaving [connect]'s own retry/orphan-guard/race-window orchestration
+     * unreachable from a `jsTest` without a real browser/WebRTC stack). Defaults to the real
+     * constructor; `jsTest` call sites inject a fake `Room`-shaped object instead (duck-typed --
+     * `Room` is an `external class`, so any JS object exposing the same method/property names
+     * works identically to the real thing at the call sites this class uses). */
+    private val roomFactory: (RoomOptions) -> Room = { options -> Room(options) },
 ) {
     private var room: Room? = null
+
+    /**
+     * True only for the (normally brief) window inside [connect]'s relay-fallback retry where
+     * [room] is intentionally `null` -- see [connect] KDoc "Orphaned first Room" -- while a
+     * connection attempt is still logically in progress: the failed first [Room] is being torn
+     * down, or the second (`iceTransportPolicy = "relay"`) attempt is already under way. [disconnect]
+     * consults this to tell that window apart from every OTHER reason [room] can be `null` (never
+     * connected yet, or already cleanly disconnected), for which it must remain the pre-existing
+     * silent no-op -- audit finding "Race (disconnect() silent no-op during relay-retry teardown)".
+     */
+    private var connectInFlight = false
+
+    /** Set by [disconnect] when it runs while [connectInFlight] is true -- there is no live [Room]
+     * for it to act on at that instant. [connect] checks this immediately after the relay retry
+     * resolves and, if set, tears down whatever [Room] the retry just established (if any) instead
+     * of silently leaving a call running that the user (or the server, via a `beforeunload`/
+     * `pagehide` teardown) already asked to leave. */
+    private var disconnectRequestedWhileConnecting = false
 
     /**
      * @param turnServers audit-round-1 fix -- fresh, short-lived TURN relay credentials from
@@ -229,86 +328,279 @@ class LiveKitRoomSession(
      *   forwards to the underlying `RTCPeerConnection` unchanged. Empty (the default) iff the server
      *   has no TURN configured -- `rtcConfig` is then left `null` entirely, matching this method's
      *   pre-fix behaviour exactly (no ICE servers beyond whatever LiveKit itself provides).
+     * @return `null` on success, a [ConferenceConnectFailure] describing why the connection could not
+     *   be established -- this method deliberately NEVER throws (a `CancellationException` is the ONE
+     *   exception re-thrown, so coroutine cancellation still works): every internal failure, INCLUDING
+     *   one that escapes the relay-fallback retry below, collapses into this return value instead. This
+     *   is the same "`null` means success" convention [setCamera]/[setMicrophone] already established
+     *   -- see class KDoc "[setCamera]/[setMicrophone]/[setScreenShare] no longer silently do nothing
+     *   on a null [room]" for why colliding this with `guarded {}`'s own `null`-on-any-`Throwable`
+     *   catch-all would be a reachable false-success bug, not a theoretical one.
+     *
+     * **Relay fallback** (bug report from an ELB board member, 2026-09-10: "in some browsers audio and
+     * video do not start at all"): `room.connect()` internally waits up to `peerConnectionTimeout`
+     * (`livekit-client` 2.21.0 default: 15 000 ms) for the WebRTC `PeerConnection` to establish, and
+     * REJECTS with a `ConnectionError` carrying a numeric `.reason` if it never does (verified against
+     * the compiled `livekit-client.esm.mjs`'s `waitForPCInitialConnection`/`ensurePCTransportConnection`
+     * chain) -- see [ConnectionErrorReason]/[conferenceShouldRetryOverRelay] KDoc for exactly which
+     * reasons this method retries. On a retryable failure, this method attempts EXACTLY ONE further
+     * `connect()`, this time with `RTCConfiguration.iceTransportPolicy = "relay"` (see `LiveKitJs.kt`'s
+     * own KDoc on that field), forcing every media packet through a TURN relay -- a browser whose
+     * privacy settings (Brave Shields) or network blocks the direct ICE path but permits a relay can
+     * often connect this way even when the unconstrained first attempt cannot. There is no third
+     * attempt and no loop: a `while`/recursive retry here would risk an unbounded wait and, worse, a
+     * client-side amplification effect against this server's own signalling endpoint.
+     *
+     * **The retry does NOT re-mint a join token or call any RPC again** (T13 in this wave's plan) --
+     * it reuses the exact same [token]/[turnServers] the caller already holds. A second `joinRoom`/
+     * `requestBreakoutJoinToken` call here would create a second `conference_participation` row and
+     * re-run the non-member-participant-cap gate for no reason; the retry is purely a client-side
+     * WebRTC transport change, nothing server-visible changes between the two attempts.
+     *
+     * **Orphaned first `Room` on retry** -- see [onOwned] KDoc for why every listener registered
+     * through [wireEvents] must go through that guard rather than a bare [Room.on]: without it, a late
+     * `RoomEvent.Disconnected` from the abandoned first-attempt `Room` (whose `disconnect()` call below
+     * is fire-and-forget, its own network teardown can still take a moment) would eject the participant
+     * from the relay attempt that is still in progress.
      */
     suspend fun connect(
         serverUrl: String,
         token: String,
         turnServers: List<ConferenceTurnServer> = emptyList(),
-    ) {
+    ): ConferenceConnectFailure? {
+        connectInFlight = true
+        try {
+            return when (val firstAttempt = attemptConnect(serverUrl, token, turnServers, forceRelay = false)) {
+                is ConnectAttemptResult.Success -> null
+                is ConnectAttemptResult.Failed -> {
+                    val firstReason = firstAttempt.reason
+                    if (!conferenceShouldRetryOverRelay(firstReason)) {
+                        ConferenceConnectFailure.OTHER
+                    } else {
+                        // SECURITY: only the numeric reason and a static string ever reach this log
+                        // line -- NEVER turnServers (carries username/credential), NEVER token,
+                        // NEVER serverUrl with its query, NEVER a raw exception message (may embed
+                        // SDK/browser-internal URLs).
+                        kotlin.js.console.warn(
+                            "LiveKit connect failed (reason=$firstReason); retrying once with " +
+                                "iceTransportPolicy=relay -- see LiveKitRoomSession.connect KDoc",
+                        )
+                        onRelayFallback()
+                        // Orphan guard: from this line on, every listener the failed first Room
+                        // registered through wireEvents/onOwned becomes a no-op -- see connect KDoc
+                        // "Orphaned first Room". [room] is `null` from here until the next
+                        // attemptConnect call sets it -- see [connectInFlight] KDoc for why
+                        // [disconnect] must not treat that window as "nothing to do".
+                        val failedRoom = room
+                        room = null
+                        if (failedRoom != null) {
+                            runCatching { failedRoom.disconnect(true).await() }
+                        }
+                        val relayAttempt = attemptConnect(serverUrl, token, turnServers, forceRelay = true)
+                        val leaveRequestedDuringRetry = disconnectRequestedWhileConnecting
+                        disconnectRequestedWhileConnecting = false
+                        if (leaveRequestedDuringRetry) {
+                            // [disconnect] ran while [room] was transiently `null` above and could not
+                            // act on anything then -- tear down whatever the relay attempt just
+                            // established (if it succeeded) instead of leaving a live call running
+                            // that the user/server already ended.
+                            val connectedRoom = room
+                            room = null
+                            if (connectedRoom != null) {
+                                runCatching { connectedRoom.disconnect(true).await() }
+                            }
+                            ConferenceConnectFailure.OTHER
+                        } else {
+                            when (relayAttempt) {
+                                is ConnectAttemptResult.Success -> null
+                                is ConnectAttemptResult.Failed -> {
+                                    val relayReason = relayAttempt.reason
+                                    // Same "the caller/server already ended this attempt, that is not
+                                    // a relay failure" distinction the FIRST attempt already makes via
+                                    // conferenceShouldRetryOverRelay above (ConnectionErrorReason
+                                    // Cancelled=3 / LeaveRequest=4) -- audit finding "relay result
+                                    // pauschal auf RELAY_EXHAUSTED ohne erneute Reason-Prüfung". A
+                                    // participant who hits "Verlassen" (not gated on connection state)
+                                    // or a server-side LeaveRequest DURING the up-to-15s relay retry
+                                    // must see the ordinary "you left" outcome, never the alarming
+                                    // "could not connect even via relay" toast.
+                                    if (relayReason == 3 || relayReason == 4) {
+                                        ConferenceConnectFailure.OTHER
+                                    } else {
+                                        ConferenceConnectFailure.RELAY_EXHAUSTED
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        } catch (e: kotlinx.coroutines.CancellationException) {
+            throw e
+        } catch (e: Throwable) {
+            return ConferenceConnectFailure.OTHER
+        } finally {
+            connectInFlight = false
+        }
+    }
+
+    /**
+     * One connection attempt -- builds a fresh [Room] (via [roomFactory]), wires its events, and
+     * awaits `room.connect(...)`. Returns [ConnectAttemptResult.Success] on success (leaving [room]
+     * pointing at the now-connected [Room], and performing the same "late-joiner seed"
+     * [onRecordingStatusChanged]/[seedRoster] calls the pre-fix [connect] always made), or
+     * [ConnectAttemptResult.Failed] carrying the failed attempt's [ConnectionErrorReason] (`null` if
+     * unreadable) on failure -- see [ConnectAttemptResult]'s own KDoc for why this is a dedicated
+     * type rather than a plain `Int?`. NEVER throws itself except for
+     * [kotlinx.coroutines.CancellationException], which propagates verbatim so coroutine cancellation
+     * still works.
+     *
+     * [forceRelay] set `RTCConfiguration.iceTransportPolicy = "relay"` with NO `iceServers` entry
+     * whenever [turnServers] is empty -- `livekit-client`'s own `makeRTCConfiguration` only ever fills
+     * `iceServers` from the server's `clientConfiguration` when the caller-supplied `rtcConfig` does
+     * NOT already set it (verified against the compiled bundle), so the relay fallback still works even
+     * for a deployment that has not configured this codebase's own TURN minting -- it falls back to
+     * whatever ICE servers LiveKit's own server-side `clientConfiguration` provides.
+     */
+    private suspend fun attemptConnect(
+        serverUrl: String,
+        token: String,
+        turnServers: List<ConferenceTurnServer>,
+        forceRelay: Boolean,
+    ): ConnectAttemptResult {
         val options =
             obj<RoomOptions> {
                 adaptiveStream = true
                 dynacast = true
-                if (turnServers.isNotEmpty()) {
+                if (turnServers.isNotEmpty() || forceRelay) {
                     rtcConfig =
                         obj<RTCConfiguration> {
-                            iceServers =
-                                turnServers
-                                    .map { server ->
-                                        obj<RTCIceServer> {
-                                            urls = server.urls.toTypedArray()
-                                            username = server.username
-                                            credential = server.credential
-                                        }
-                                    }.toTypedArray()
+                            if (turnServers.isNotEmpty()) {
+                                iceServers =
+                                    turnServers
+                                        .map { server ->
+                                            obj<RTCIceServer> {
+                                                urls = server.urls.toTypedArray()
+                                                username = server.username
+                                                credential = server.credential
+                                            }
+                                        }.toTypedArray()
+                            }
+                            if (forceRelay) {
+                                iceTransportPolicy = "relay"
+                            }
                         }
                 }
             }
-        val newRoom = Room(options)
+        val newRoom = roomFactory(options)
         wireEvents(newRoom)
         room = newRoom
-        newRoom.connect(serverUrl, token).await()
-        // See class KDoc "Recording signal" -- the late-joiner seed, fired once per connect, BEFORE
-        // seedRoster (ordering between the two does not matter functionally, but this mirrors the
-        // "recording state is a room-level fact, established before the roster is" precedence).
-        onRecordingStatusChanged(newRoom.isRecording)
-        seedRoster(newRoom)
+        return try {
+            newRoom.connect(serverUrl, token).await()
+            // Security-audit fix (MINOR, "attemptConnect klassifiziert Fehler der Nach-Erfolgs-Arbeit
+            // als Verbindungsfehler und verwirft eine bereits erfolgreiche Verbindung") -- the
+            // late-joiner seed (see class KDoc "Recording signal") now runs in its OWN try/catch,
+            // separate from the one below that classifies `newRoom.connect(...)`'s own rejection.
+            // Before this fix, both calls sat inside that same try: any exception either one threw
+            // (e.g. `seedRoster`'s `room.remoteParticipants.forEach` on an unexpected shape, or an
+            // `onParticipantJoined`/`onRecordingStatusChanged` consumer callback throwing) was
+            // indistinguishable from a genuine `connect()` rejection, fell into
+            // `connectionErrorReasonOf` (which cannot read a `.reason` off a non-`ConnectionError`,
+            // so always `null`), and `conferenceShouldRetryOverRelay(null)` is deliberately `true` --
+            // see that function's own KDoc "a missed retry costs a still-broken call". The result was
+            // an ALREADY-CONNECTED session torn down (`connect()`'s `failedRoom.disconnect(true)`) and
+            // a full, up-to-15s forced-relay retry triggered for a call that never actually failed to
+            // connect. A failure here must never retroactively turn a resolved `connect()` into
+            // `ConnectAttemptResult.Failed` -- the connection is real either way, so a seeding failure
+            // is logged and swallowed (never rethrown, `CancellationException` aside so coroutine
+            // cancellation still works) rather than reported as a connect failure the caller has no
+            // correct action for.
+            try {
+                onRecordingStatusChanged(newRoom.isRecording)
+                seedRoster(newRoom)
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                throw e
+            } catch (e: Throwable) {
+                // SECURITY: same discipline as the warning in [connect] above -- never log more than
+                // a static string here, the connection is live and stays live regardless.
+                kotlin.js.console.warn(
+                    "LiveKit post-connect seeding failed; connection stays up -- see attemptConnect KDoc",
+                )
+            }
+            ConnectAttemptResult.Success
+        } catch (e: kotlinx.coroutines.CancellationException) {
+            throw e
+        } catch (e: Throwable) {
+            ConnectAttemptResult.Failed(connectionErrorReasonOf(e.asDynamic()))
+        }
+    }
+
+    /**
+     * Registers [handler] for [event] on [this] ONLY for as long as this very [Room] instance is still
+     * the session's [room]. Introduced with the relay-fallback retry (see [connect] KDoc "Orphaned
+     * first Room"): a failed first `connect()` leaves an ORPHANED [Room] whose listeners are
+     * unreachable for [Room.off] (no retained references, all registered as inline lambdas), and whose
+     * late `RoomEvent.Disconnected` would otherwise drive `ConferenceScreen.kt`'s D10 connection-state
+     * machine into `Resolving` and eject the participant from a relay attempt that is still in
+     * progress. The identity check (`!==`, not `!=` -- these are `external interface`/`external class`
+     * instances with no meaningful structural equality) makes every orphaned listener a no-op instead
+     * of a functional no-op AND avoids ever disabling a listener on the CURRENTLY active [room].
+     */
+    private fun Room.onOwned(
+        event: String,
+        handler: (dynamic, dynamic, dynamic, dynamic) -> Unit,
+    ) {
+        val self = this
+        on(event) { p0, p1, p2, p3 ->
+            if (self !== this@LiveKitRoomSession.room) return@on
+            handler(p0, p1, p2, p3)
+        }
     }
 
     private fun wireEvents(room: Room) {
-        room.on(RoomEvent.ParticipantConnected) { p0, _, _, _ ->
+        room.onOwned(RoomEvent.ParticipantConnected) { p0, _, _, _ ->
             val participant = p0.unsafeCast<RemoteParticipant>()
             onParticipantJoined(participant.identity, participant.name ?: participant.identity)
         }
-        room.on(RoomEvent.ParticipantDisconnected) { p0, _, _, _ ->
+        room.onOwned(RoomEvent.ParticipantDisconnected) { p0, _, _, _ ->
             val participant = p0.unsafeCast<RemoteParticipant>()
             onParticipantLeft(participant.identity)
         }
-        room.on(RoomEvent.TrackSubscribed) { p0, p1, p2, _ ->
+        room.onOwned(RoomEvent.TrackSubscribed) { p0, p1, p2, _ ->
             val track = p0.unsafeCast<Track>()
             val publication = p1.unsafeCast<TrackPublication>()
             val participant = p2.unsafeCast<RemoteParticipant>()
             onRemoteTrack(participant.identity, participant.name ?: participant.identity, track, publication)
         }
-        room.on(RoomEvent.TrackUnsubscribed) { p0, p1, p2, _ ->
+        room.onOwned(RoomEvent.TrackUnsubscribed) { p0, p1, p2, _ ->
             val track = p0.unsafeCast<Track>()
             val publication = p1.unsafeCast<TrackPublication>()
             val participant = p2.unsafeCast<RemoteParticipant>()
             onRemoteTrackGone(participant.identity, track, publication)
         }
-        room.on(RoomEvent.TrackMuted) { p0, p1, _, _ ->
+        room.onOwned(RoomEvent.TrackMuted) { p0, p1, _, _ ->
             val publication = p0.unsafeCast<TrackPublication>()
             // p1's static shape doesn't matter -- LocalParticipant/RemoteParticipant both carry
             // `identity` at runtime, see this class's own KDoc "Local mute state is event-driven".
             val identity = p1.unsafeCast<RemoteParticipant>().identity
             if (identity == room.localParticipant.identity) onLocalTrackMuteChanged(publication.source, true)
         }
-        room.on(RoomEvent.TrackUnmuted) { p0, p1, _, _ ->
+        room.onOwned(RoomEvent.TrackUnmuted) { p0, p1, _, _ ->
             val publication = p0.unsafeCast<TrackPublication>()
             val identity = p1.unsafeCast<RemoteParticipant>().identity
             if (identity == room.localParticipant.identity) onLocalTrackMuteChanged(publication.source, false)
         }
-        room.on(RoomEvent.Disconnected) { _, _, _, _ -> onDisconnected() }
-        room.on(RoomEvent.Reconnecting) { _, _, _, _ -> onReconnecting() }
-        room.on(RoomEvent.Reconnected) { _, _, _, _ -> onReconnected() }
-        room.on(RoomEvent.RecordingStatusChanged) { p0, _, _, _ ->
+        room.onOwned(RoomEvent.Disconnected) { _, _, _, _ -> onDisconnected() }
+        room.onOwned(RoomEvent.Reconnecting) { _, _, _, _ -> onReconnecting() }
+        room.onOwned(RoomEvent.Reconnected) { _, _, _, _ -> onReconnected() }
+        room.onOwned(RoomEvent.RecordingStatusChanged) { p0, _, _, _ ->
             // p0 is a raw JS boolean primitive here (LiveKit calls the listener with exactly one
             // argument), not one of this file's own `external interface` types -- see
             // `LiveKitJs.kt` file KDoc "Values returned from a Promise<dynamic>..." for why
             // `unsafeCast` (not `as`/`as?`) is this codebase's uniform cast discipline regardless.
             onRecordingStatusChanged(p0.unsafeCast<Boolean>())
         }
-        room.on(RoomEvent.ActiveSpeakersChanged) { p0, _, _, _ ->
+        room.onOwned(RoomEvent.ActiveSpeakersChanged) { p0, _, _, _ ->
             // p0 is a raw JS array here (LiveKit calls the listener with exactly one argument, an
             // Array<Participant>) -- unsafeCast to Array<dynamic> first (no RTTI for the element
             // type either), then unsafeCast each element to this file's own ActiveSpeaker shape,
@@ -321,15 +613,15 @@ class LiveKitRoomSession(
         // An unrecognized `kind` string (should not happen -- only the three literals this file's own
         // switchActiveDevice call sites ever pass can come back here) is silently ignored rather than
         // crashing, same "unlisted event shape never throws" discipline as conferenceConnectionReduce.
-        room.on(RoomEvent.ActiveDeviceChanged) { p0, p1, _, _ ->
-            val kind = ConferenceDeviceKind.entries.firstOrNull { it.jsKind == p0.unsafeCast<String>() } ?: return@on
+        room.onOwned(RoomEvent.ActiveDeviceChanged) { p0, p1, _, _ ->
+            val kind = ConferenceDeviceKind.entries.firstOrNull { it.jsKind == p0.unsafeCast<String>() } ?: return@onOwned
             onActiveDeviceChanged(kind, p1.unsafeCast<String>())
         }
         // V1.3.x Geräteauswahl -- fires with zero JS arguments, see RoomEvent.MediaDevicesChanged KDoc.
-        room.on(RoomEvent.MediaDevicesChanged) { _, _, _, _ -> onMediaDevicesChanged() }
+        room.onOwned(RoomEvent.MediaDevicesChanged) { _, _, _, _ -> onMediaDevicesChanged() }
         // V1.3.x Geräteauswahl -- fires `(error, kind: string | undefined)`, see RoomEvent.MediaDevicesError
         // KDoc. `kind` is `undefined` (Kotlin `null`) for any source that isn't microphone/camera.
-        room.on(RoomEvent.MediaDevicesError) { p0, p1, _, _ ->
+        room.onOwned(RoomEvent.MediaDevicesError) { p0, p1, _, _ ->
             // p1 is `undefined` (unsafeCast to nullable, same "undefined-as-null" idiom as the
             // DataReceived handler's own `p0.unsafeCast<Uint8Array?>()` below) for any source other
             // than microphone/camera -- see RoomEvent.MediaDevicesError KDoc.
@@ -337,9 +629,9 @@ class LiveKitRoomSession(
             val kind = rawKind?.let { s -> ConferenceDeviceKind.entries.firstOrNull { it.jsKind == s } }
             onMediaDevicesError(kind, classifyDeviceFailure(p0))
         }
-        room.on(RoomEvent.DataReceived) { p0, p1, _, p3 ->
-            val payload = p0.unsafeCast<org.khronos.webgl.Uint8Array?>() ?: return@on
-            val participant = p1.unsafeCast<RemoteParticipant?>() ?: return@on
+        room.onOwned(RoomEvent.DataReceived) { p0, p1, _, p3 ->
+            val payload = p0.unsafeCast<org.khronos.webgl.Uint8Array?>() ?: return@onOwned
+            val participant = p1.unsafeCast<RemoteParticipant?>() ?: return@onOwned
             val topic = p3
             when (topic) {
                 CHAT_TOPIC ->
@@ -362,7 +654,7 @@ class LiveKitRoomSession(
                         // See class KDoc "Security-audit fix" -- the ONLY enforcement point for this
                         // transport; a decoded-but-out-of-bounds stroke is silently dropped, never
                         // forwarded.
-                        if (!stroke.isStructurallyValid()) return@on
+                        if (!stroke.isStructurallyValid()) return@onOwned
                         onWhiteboardPreview(participant.identity, participant.name ?: participant.identity, stroke)
                     }
                 WHITEBOARD_COMMIT_TOPIC ->
@@ -370,7 +662,7 @@ class LiveKitRoomSession(
                         val json = TextDecoder().decode(payload)
                         val stroke = Json.decodeFromString(WhiteboardStrokeWireDto.serializer(), json)
                         // See class KDoc "Security-audit fix".
-                        if (!stroke.isStructurallyValid()) return@on
+                        if (!stroke.isStructurallyValid()) return@onOwned
                         onWhiteboardCommit(participant.identity, participant.name ?: participant.identity, stroke)
                     }
                 NOTES_COMMIT_TOPIC ->
@@ -379,10 +671,10 @@ class LiveKitRoomSession(
                         val broadcast = Json.decodeFromString(NoteBlockBroadcastDto.serializer(), json)
                         // Same enforcement-point reasoning as the whiteboard topics above -- see class
                         // KDoc "Notes trust boundary".
-                        if (!broadcast.isStructurallyValid()) return@on
+                        if (!broadcast.isStructurallyValid()) return@onOwned
                         onNotesCommit(participant.identity, participant.name ?: participant.identity, broadcast)
                     }
-                else -> return@on
+                else -> return@onOwned
             }
         }
     }
@@ -620,9 +912,31 @@ class LiveKitRoomSession(
         currentRoom.localParticipant.publishData(bytes, options).await()
     }
 
+    /**
+     * Audit finding "Race (disconnect() silent no-op during relay-retry teardown)": before this fix,
+     * [room] was the ONLY signal this method consulted, so a call landing in the brief window
+     * [connect]'s relay-fallback retry holds it `null` (see [connectInFlight] KDoc) silently did
+     * nothing -- a connection the caller believed they had just left could go on to establish itself
+     * over the forced-relay retry regardless. This method now leaves [disconnectRequestedWhileConnecting]
+     * for [connect] to notice for that specific window; every other reason [room] can be `null`
+     * (never connected yet, or already cleanly disconnected) is still the pre-existing, correct
+     * silent no-op.
+     */
     suspend fun disconnect() {
-        room?.disconnect()?.await()
-        room = null
+        val currentRoom = room
+        if (currentRoom != null) {
+            // Deliberately awaited BEFORE nulling [room] (unchanged from the pre-fix ordering): the
+            // RoomEvent.Disconnected this call itself provokes must still pass [onOwned]'s identity
+            // guard (`self === room`) while it fires during this very await, so `onDisconnected()`
+            // still reaches `ConferenceScreen.kt`'s connection-state machine for a caller-initiated
+            // leave, exactly as before this fix.
+            currentRoom.disconnect().await()
+            room = null
+            return
+        }
+        if (connectInFlight) {
+            disconnectRequestedWhileConnecting = true
+        }
     }
 
     companion object {

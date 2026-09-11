@@ -113,6 +113,24 @@ private val ENABLED_CONFIG_WITH_TURN =
         }
     }
 
+/** Same as [ENABLED_CONFIG_WITH_TURN] plus `LAPIS_TURNS_URLS` -- relay-fallback wave coverage, see
+ * [ConferenceConfig.turnsUrls]/[ConferenceConfig.allTurnUrls] KDoc: proves BOTH schemes travel in
+ * the SAME minted [network.lapis.cloud.shared.domain.ConferenceTurnServer] entry. */
+private val ENABLED_CONFIG_WITH_TURN_AND_TURNS =
+    ConferenceConfig.load { key ->
+        when (key) {
+            "LAPIS_LIVEKIT_URL" -> "ws://localhost:7880"
+            "LAPIS_LIVEKIT_API_KEY" -> "test-livekit-key"
+            "LAPIS_LIVEKIT_API_SECRET" -> "test-livekit-secret-at-least-32-bytes-long!!"
+            "LAPIS_LIVEKIT_TOKEN_TTL_MINUTES" -> "240"
+            "LAPIS_CONFERENCE_MAX_PARTICIPANTS" -> "25"
+            "LAPIS_TURN_URLS" -> "turn:127.0.0.1:3478?transport=udp"
+            "LAPIS_TURNS_URLS" -> "turns:turn.example.org:443?transport=tcp"
+            "LAPIS_TURN_SHARED_SECRET" -> "test-turn-shared-secret-at-least-32-bytes!!"
+            else -> null
+        }
+    }
+
 /**
  * Hermetic, in-memory stand-in for [LiveKitAdminClient] -- no real LiveKit container involved, per
  * this wave's own testPlan ("Testcontainers is not introduced ... the full authorization matrix via
@@ -550,6 +568,31 @@ class ConferenceServiceTest :
 
                 val join = client.post("/test/join-room?roomId=$roomId") { header("X-Member-Id", creator.toString()) }
                 join.bodyAsText().split("|")[6] shouldBe "true"
+            }
+        }
+
+        test(
+            "joinRoom: LAPIS_TURNS_URLS configured -- ONE ConferenceTurnServer, urls has turn: entry first, turns: entry last",
+        ) {
+            testApplication {
+                application {
+                    install(StatusPages) { installConferenceExceptionHandlers() }
+                    routing {
+                        registerConferenceTestRoutes(
+                            liveKitAdminClient = FakeLiveKitAdminClient(),
+                            rateLimiter = LoginRateLimiter(),
+                            enabledConfig = ENABLED_CONFIG_WITH_TURN_AND_TURNS,
+                            disabledConfig = DISABLED_CONFIG,
+                        )
+                    }
+                }
+                val creator = createTestMember("conf-join-turn-and-turns@example.org")
+                val roomId = createRoom(client = client, creatorId = creator, title = "With-Turn-And-Turns")
+
+                val join = client.post("/test/join-room?roomId=$roomId") { header("X-Member-Id", creator.toString()) }
+                val fields = join.bodyAsText().split("|")
+                fields[6] shouldBe "true"
+                fields[8] shouldBe "turn:127.0.0.1:3478?transport=udp,turns:turn.example.org:443?transport=tcp"
             }
         }
 
@@ -2691,9 +2734,10 @@ private fun Route.registerConferenceTestRoutes(
 private fun ConferenceRoomDto.toPipeString(): String =
     "$id|$title|$livekitRoomName|$createdByMemberId|$active|$maxParticipants|$liveParticipantCount|$myRole|$allowFederationGuests"
 
-/** roomId|livekitRoomName|serverUrl|identity|role|hasToken|hasTurnServers|expiresAt -- [hasTurnServers] is audit-round-1 fix coverage, see [ConferenceServiceTest] "joinRoom: TURN credential" tests; [expiresAt] (appended last, so it never shifts any existing index) is Wave-5 security-audit guest-TTL coverage. */
+/** roomId|livekitRoomName|serverUrl|identity|role|hasToken|hasTurnServers|expiresAt|turnUrls -- [hasTurnServers] is audit-round-1 fix coverage, see [ConferenceServiceTest] "joinRoom: TURN credential" tests; [expiresAt] (appended before [turnUrls], so it never shifts any existing index) is Wave-5 security-audit guest-TTL coverage. [turnUrls] (relay-fallback wave -- TURNS over TLS -- appended LAST, so it never shifts any existing index either) is the comma-joined `urls` of the FIRST minted [network.lapis.cloud.shared.domain.ConferenceTurnServer], `"-"` if [turnServers] is empty -- see "joinRoom: TURN credential" tests' TURNS coverage. */
 private fun ConferenceJoinTokenDto.toPipeString(): String =
-    "$roomId|$livekitRoomName|$serverUrl|$identity|$role|${token.isNotBlank()}|${turnServers.isNotEmpty()}|$expiresAt"
+    "$roomId|$livekitRoomName|$serverUrl|$identity|$role|${token.isNotBlank()}|${turnServers.isNotEmpty()}|$expiresAt|" +
+        (turnServers.firstOrNull()?.urls?.joinToString(",") ?: "-")
 
 /** memberId|role|leftAtIsNull|live|homeserverUrl(or "-") */
 private fun ConferenceParticipantDto.toPipeString(): String = "$memberId|$role|${leftAt == null}|$live|${homeserverUrl ?: "-"}"

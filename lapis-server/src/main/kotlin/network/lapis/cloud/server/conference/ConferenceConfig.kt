@@ -74,6 +74,25 @@ class ConferenceConfig private constructor(
      */
     val turnUrls: List<String>,
     /**
+     * OPTIONAL `turns:` (TURN over TLS) relay URL(s), handed to the browser ALONGSIDE [turnUrls] in
+     * the same [network.lapis.cloud.shared.domain.ConferenceTurnServer] entry -- one credential
+     * covers both, because coturn's `use-auth-secret` REST scheme is instance-wide, not per-listener
+     * (see [TurnCredentialMinter] KDoc). Empty iff `LAPIS_TURNS_URLS` is unset.
+     *
+     * **Why this exists** (bug report from an ELB board member, 2026-09-10: "in some browsers audio
+     * and video do not start at all"): a browser with a restrictive WebRTC privacy policy (Brave's
+     * Shields / fingerprinting protection) or a corporate network that only permits outbound 443 can
+     * block BOTH the direct ICE path AND plain TURN on 3478/UDP+TCP. `turns:` on 443 looks like
+     * ordinary HTTPS on the wire and survives such networks. See `deploy/production/README.adoc`,
+     * "TURNS over TLS (port 443)".
+     *
+     * **Deliberately separate from [turnUrls]** rather than folded into the same env var: the
+     * `turns:` endpoint needs a DNS HOSTNAME matching a TLS certificate, whereas [turnUrls] is
+     * composed from the raw `LAPIS_PUBLIC_IP` in `docker-compose.yml` -- two structurally different
+     * values that must stay independently settable.
+     */
+    val turnsUrls: List<String>,
+    /**
      * Shared secret coturn's `use-auth-secret`/`static-auth-secret` mechanism verifies every minted
      * credential against (`deploy/local/turnserver.conf`'s `static-auth-secret` value) -- audit-
      * round-1 fix replacing the OLD forever-valid static TURN username/password pair. **Never logged,
@@ -85,8 +104,20 @@ class ConferenceConfig private constructor(
     /** `true` iff [livekitUrl], [apiKey] and [apiSecret] are all non-blank -- see [load] KDoc "Startup behaviour" for what happens when only SOME are set (that state never reaches this property; [load] throws first). */
     val enabled: Boolean = livekitUrl.isNotBlank() && apiKey.isNotBlank() && apiSecret.isNotBlank()
 
-    /** `true` iff [turnUrls] is non-empty AND [turnSharedSecret] is non-blank -- see [load] KDoc "TURN is independently optional". */
-    val turnEnabled: Boolean = turnUrls.isNotEmpty() && turnSharedSecret.isNotBlank()
+    /**
+     * The complete ICE-server URL list handed to a client, `turn:` entries first, `turns:` last --
+     * the ONE value both [network.lapis.cloud.server.rpc.ConferenceService.joinRoom] and
+     * [network.lapis.cloud.server.rpc.ConferenceBreakoutService] pass to [TurnCredentialMinter.mint].
+     * Order is deliberate, not cosmetic: a browser tries ICE servers in list order, and the cheap
+     * UDP path should stay first for the overwhelming majority of participants for whom it works.
+     *
+     * Declared BEFORE [turnEnabled] deliberately -- Kotlin initializes properties in declaration
+     * order, and [turnEnabled] reads this property.
+     */
+    val allTurnUrls: List<String> = turnUrls + turnsUrls
+
+    /** `true` iff [allTurnUrls] is non-empty AND [turnSharedSecret] is non-blank -- see [load] KDoc "TURN is independently optional". */
+    val turnEnabled: Boolean = allTurnUrls.isNotEmpty() && turnSharedSecret.isNotBlank()
 
     /** Deliberately omits [apiSecret]/[turnSharedSecret] (and, for symmetry, [apiKey]) -- see class KDoc "Never logged". Anything that DOES want to log config state should log this string, not the individual fields. */
     override fun toString(): String {
@@ -97,7 +128,7 @@ class ConferenceConfig private constructor(
             "apiKey=$keyState, apiSecret=$secretState, " +
             "tokenTtlMinutes=$tokenTtlMinutes, guestTokenTtlMinutes=$guestTokenTtlMinutes, maxParticipants=$maxParticipants, " +
             "maxNonMemberParticipants=$maxNonMemberParticipants, " +
-            "turnEnabled=$turnEnabled, turnUrls=$turnUrls, turnSharedSecret=$turnSecretState)"
+            "turnEnabled=$turnEnabled, turnUrls=$turnUrls, turnsUrls=$turnsUrls, turnSharedSecret=$turnSecretState)"
     }
 
     companion object {
@@ -165,6 +196,18 @@ class ConferenceConfig private constructor(
          * [network.lapis.cloud.server.rpc.ConferenceService.joinRoom] call, replacing the OLD
          * forever-valid static TURN username/password pair `deploy/local/livekit.yaml`'s `rtc
          * .turn_servers` block used to embed.
+         *
+         * **TURNS over TLS is a THIRD, independently-optional layer** (bug report from an ELB board
+         * member, 2026-09-10: "in some browsers audio and video do not start at all"): `LAPIS_TURNS_URLS`
+         * (comma-separated `turns:` URLs, e.g. `turns:turn.example.org:443?transport=tcp`) is purely
+         * additive to [turnUrls] -- see [turnsUrls] KDoc -- and is folded into the SAME
+         * all-or-nothing pair check against `LAPIS_TURN_SHARED_SECRET` as [turnUrls] (either of them
+         * being non-empty counts toward the pair). Unset by default; never fail-fast merely for being
+         * absent. The infrastructure this needs to actually work in production (Caddy SNI-based TCP
+         * multiplexing on port 443, a DNS record, a real TLS certificate) does **not** exist yet as of
+         * this wave -- see `deploy/production/README.adoc`, "TURNS over TLS (port 443)", for the
+         * planned rollout. Until that rollout happens, leave `LAPIS_TURNS_URLS` unset; the deployment
+         * behaves exactly as it did before this property existed.
          */
         fun load(env: (String) -> String? = System::getenv): ConferenceConfig {
             val url = env("LAPIS_LIVEKIT_URL")?.trim().orEmpty()
@@ -180,6 +223,12 @@ class ConferenceConfig private constructor(
                 env("LAPIS_CONFERENCE_MAX_NON_MEMBER_PARTICIPANTS")?.trim()?.toIntOrNull() ?: DEFAULT_MAX_NON_MEMBER_PARTICIPANTS
             val turnUrls =
                 env("LAPIS_TURN_URLS")
+                    ?.split(",")
+                    ?.map { it.trim() }
+                    ?.filter { it.isNotBlank() }
+                    .orEmpty()
+            val turnsUrls =
+                env("LAPIS_TURNS_URLS")
                     ?.split(",")
                     ?.map { it.trim() }
                     ?.filter { it.isNotBlank() }
@@ -202,11 +251,15 @@ class ConferenceConfig private constructor(
                         "deploy/local/livekit.yaml for a working example."
                 }
             }
-            val turnPresentCount = listOf(turnUrls.isNotEmpty(), turnSharedSecret.isNotBlank()).count { it }
+            validateRelayUrls(varName = "LAPIS_TURN_URLS", urls = turnUrls, allowedSchemes = listOf("turns:", "turn:"))
+            validateRelayUrls(varName = "LAPIS_TURNS_URLS", urls = turnsUrls, allowedSchemes = listOf("turns:"))
+
+            val turnPresentCount =
+                listOf((turnUrls + turnsUrls).isNotEmpty(), turnSharedSecret.isNotBlank()).count { it }
             check(turnPresentCount == 0 || turnPresentCount == 2) {
-                "Incomplete TURN configuration: LAPIS_TURN_URLS and LAPIS_TURN_SHARED_SECRET must be " +
-                    "either BOTH set or BOTH unset (got $turnPresentCount/2 set) -- see ConferenceConfig.load " +
-                    "KDoc \"TURN is independently optional\""
+                "Incomplete TURN configuration: at least one of LAPIS_TURN_URLS/LAPIS_TURNS_URLS and " +
+                    "LAPIS_TURN_SHARED_SECRET must be either BOTH set or BOTH unset (got $turnPresentCount/2 set) " +
+                    "-- see ConferenceConfig.load KDoc \"TURN is independently optional\""
             }
 
             return ConferenceConfig(
@@ -219,6 +272,7 @@ class ConferenceConfig private constructor(
                 maxParticipants = maxParticipants,
                 maxNonMemberParticipants = maxNonMemberParticipants,
                 turnUrls = turnUrls,
+                turnsUrls = turnsUrls,
                 turnSharedSecret = turnSharedSecret,
             )
         }
@@ -229,5 +283,36 @@ class ConferenceConfig private constructor(
                 wsUrl.startsWith("ws://") -> "http://" + wsUrl.removePrefix("ws://")
                 else -> wsUrl
             }
+
+        /**
+         * Rejects a syntactically impossible relay URL at STARTUP rather than letting it reach a browser
+         * as a silently-ignored `RTCIceServer.urls` entry (the browser drops an unparseable ICE URL
+         * without any observable signal -- the exact "silent misconfiguration" failure mode this wave's
+         * own root-cause bug had). Deliberately a SCHEME + non-empty-host check only, NOT a full URI
+         * parse: a TURN URL is not a `java.net.URI`-parseable shape (`turn:host:port?transport=udp` has
+         * no `//` authority), and over-strict parsing here would reject valid coturn endpoints.
+         *
+         * [allowedSchemes] must list `"turns:"` before `"turn:"` when both are allowed -- `"turn:".let
+         * { "turns:x".startsWith(it) }` is `false`, so scheme order does not matter for correctness
+         * here, but [allowedSchemes] is deliberately written `turns:` first everywhere it is called for
+         * readability (longest/most-specific scheme first).
+         */
+        private fun validateRelayUrls(
+            varName: String,
+            urls: List<String>,
+            allowedSchemes: List<String>,
+        ) {
+            urls.forEach { url ->
+                val scheme = allowedSchemes.firstOrNull { url.startsWith(it) }
+                check(scheme != null) {
+                    "$varName contains '$url', which does not start with any of " +
+                        "${allowedSchemes.joinToString("/")} -- see ConferenceConfig.load KDoc"
+                }
+                val hostAndRest = url.removePrefix(scheme)
+                check(hostAndRest.isNotBlank() && !hostAndRest.startsWith(":") && !hostAndRest.startsWith("?")) {
+                    "$varName contains '$url', which has no host component -- see ConferenceConfig.load KDoc"
+                }
+            }
+        }
     }
 }

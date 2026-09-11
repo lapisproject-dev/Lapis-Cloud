@@ -349,13 +349,20 @@ fails fast with an explanatory message (not a raw `KeyLengthException`) if a con
 
 On a single developer machine, the host/`127.0.0.1` ICE candidate almost always wins -- the TURN
 relay path is only exercised when the direct path fails (e.g. a peer genuinely behind a restrictive
-NAT, which a local Docker setup can't easily simulate). `livekit-client` does not expose an
-`iceTransportPolicy: 'relay'` option, so the relay path cannot be forced from the app side either.
+NAT, which a local Docker setup can't easily simulate). `RoomOptions.rtcConfig` is a real, standard
+`RTCConfiguration`, and since the relay-fallback wave it carries `iceTransportPolicy` too (see
+`LiveKitJs.kt`'s `RTCConfiguration.iceTransportPolicy` KDoc) -- `livekit-client` forwards it verbatim
+to the underlying `RTCPeerConnection`. `LiveKitRoomSession.connect` now uses exactly this to retry
+once with `iceTransportPolicy = "relay"` whenever the first attempt's ICE transport fails in a way a
+relay could plausibly fix (see that method's own KDoc "Relay fallback") -- the SAME lever also lets
+the relay path be forced deliberately for a local test, rather than only observed passively.
 
 coturn is included anyway because it's the component the production/multi-network deployment will
 need (per the Videokonferenzen concept note's NAT-traversal requirement) -- wiring the config surface
 now means it already exists, reviewed, before it becomes load-bearing. Verification of the relay path
-in this wave is therefore **observational only**:
+in this wave can go beyond passive observation: stop coturn (or otherwise make the direct ICE path
+fail) and confirm `LiveKitRoomSession.connect`'s own `console.warn` fires and the connection still
+comes up over the forced relay retry. Watching coturn's own logs remains useful either way:
 
 [source,bash]
 ----

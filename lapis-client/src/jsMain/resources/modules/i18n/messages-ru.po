@@ -209,6 +209,10 @@ msgstr "Выписка не сходится: начальный баланс п
 msgid "Der IBAN-Abgleich gegen SEPA-Mandate ist auf diesem Server derzeit nicht verfügbar."
 msgstr "Сопоставление IBAN с мандатами SEPA в настоящее время недоступно на этом сервере."
 
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:4533
+msgid "Die Audio- und Videoverbindung konnte nicht aufgebaut werden -- auch nicht über einen Relay-Server. Häufigste Ursachen: eine strenge Datenschutz-Einstellung des Browsers (z. B. Braves Schutzschilde) oder ein Netzwerk, das Videoverbindungen blockiert. Bitte lockern Sie diese Einstellung für diese Seite oder versuchen Sie es in einem anderen Netzwerk oder Browser."
+msgstr "Не удалось установить аудио- и видеосоединение — даже через relay-сервер. Наиболее частые причины: строгие настройки конфиденциальности браузера (например, Shields в Brave) или сеть, блокирующая видеосоединения. Пожалуйста, ослабьте это настройку для этого сайта или попробуйте другую сеть или браузер."
+
 #: src/jsMain/kotlin/network/lapis/cloud/client/BankStatementLabels.kt:89
 msgid "Die Datei enthält ein ungültiges Steuerzeichen und kann nicht verarbeitet werden."
 msgstr "Файл содержит недопустимый управляющий символ и не может быть обработан."
@@ -224,6 +228,10 @@ msgstr "Не удалось прочитать файл."
 #: src/jsMain/kotlin/network/lapis/cloud/client/BankStatementLabels.kt:125
 msgid "Die Kontokennung des Auszugs ist keine gültige IBAN (Altformat?) -- Kontoprüfung übersprungen."
 msgstr "Идентификатор счёта в выписке не является действительным IBAN (устаревший формат?) -- проверка счёта пропущена."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:4536
+msgid "Die Verbindung zur Videokonferenz konnte nicht hergestellt werden. Bitte versuchen Sie es erneut."
+msgstr "Не удалось установить связь с видеоконференцией. Повторите попытку."
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/BankStatementImportScreen.kt:528
 msgid "Diese Aktion ist unumkehrbar -- eine Korrektur ist danach nur per Storno in der Buchhaltung möglich."
@@ -508,6 +516,10 @@ msgstr "Неизвестная ошибка (HTTP %1)."
 #: src/jsMain/kotlin/network/lapis/cloud/client/CrmLabels.kt:46
 msgid "Veranstaltung"
 msgstr "Мероприятие"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:3470
+msgid "Verbindung wird über einen Relay-Server erneut aufgebaut …"
+msgstr "Повторное подключение через relay-сервер …"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/CrmLabels.kt:37
 msgid "Vertrag (Art. 6 Abs. 1 lit. b)"

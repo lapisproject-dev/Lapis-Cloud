@@ -21,3 +21,21 @@ no-dtls
 fingerprint
 log-file=stdout
 no-cli
+
+# ── TURNS over TLS (port 443) -- PREPARED, DELIBERATELY INACTIVE ────────────────────────────────
+# Why: a browser with a restrictive WebRTC privacy policy (Brave's Shields / fingerprinting
+# protection) or a network that only permits outbound 443 can block BOTH the direct ICE path AND
+# plain TURN on 3478/UDP+TCP. Symptom: audio/video never start even though the camera/microphone
+# permission was granted. Reported live by an ELB board member, 2026-09-10. See
+# ../production/README.adoc, "TURNS over TLS (port 443)".
+#
+# NOT enabled yet, and enabling it is NOT a code change: it needs (a) a DNS A record
+# (turn.pzb.parteidervernunft.de -> this host's IP), (b) a real certificate for that name, and
+# (c) Caddy SNI-based TCP multiplexing on 443, because Caddy already owns port 443 on this host.
+# coturn itself therefore listens on an INTERNAL port, never on 443 directly.
+#
+# To activate, in this order: remove `no-tls` above, uncomment the three lines below, point
+# cert-file/pkey-file at the real certificate, then re-run render-secrets.sh and restart coturn.
+#tls-listening-port=5350
+#cert-file=/etc/coturn/certs/turn-fullchain.pem
+#pkey-file=/etc/coturn/certs/turn-privkey.pem

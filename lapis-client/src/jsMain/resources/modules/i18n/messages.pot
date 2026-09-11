@@ -209,6 +209,10 @@ msgstr ""
 msgid "Der IBAN-Abgleich gegen SEPA-Mandate ist auf diesem Server derzeit nicht verfügbar."
 msgstr ""
 
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:4533
+msgid "Die Audio- und Videoverbindung konnte nicht aufgebaut werden -- auch nicht über einen Relay-Server. Häufigste Ursachen: eine strenge Datenschutz-Einstellung des Browsers (z. B. Braves Schutzschilde) oder ein Netzwerk, das Videoverbindungen blockiert. Bitte lockern Sie diese Einstellung für diese Seite oder versuchen Sie es in einem anderen Netzwerk oder Browser."
+msgstr ""
+
 #: src/jsMain/kotlin/network/lapis/cloud/client/BankStatementLabels.kt:89
 msgid "Die Datei enthält ein ungültiges Steuerzeichen und kann nicht verarbeitet werden."
 msgstr ""
@@ -223,6 +227,10 @@ msgstr ""
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/BankStatementLabels.kt:125
 msgid "Die Kontokennung des Auszugs ist keine gültige IBAN (Altformat?) -- Kontoprüfung übersprungen."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:4536
+msgid "Die Verbindung zur Videokonferenz konnte nicht hergestellt werden. Bitte versuchen Sie es erneut."
 msgstr ""
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/BankStatementImportScreen.kt:528
@@ -507,6 +515,10 @@ msgstr ""
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/CrmLabels.kt:46
 msgid "Veranstaltung"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:3470
+msgid "Verbindung wird über einen Relay-Server erneut aufgebaut …"
 msgstr ""
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/CrmLabels.kt:37

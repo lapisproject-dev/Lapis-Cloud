@@ -78,6 +78,27 @@ private val BREAKOUT_ENABLED_CONFIG =
         }
     }
 
+/** Same as [BREAKOUT_ENABLED_CONFIG] plus TURN **and** TURNS -- relay-fallback wave coverage, the
+ * K4 gap this whole test file's own plan called out: without a dedicated breakout-room test, a
+ * fix to [ConferenceService.joinRoom] alone could leave `ConferenceBreakoutService.mintJoinToken`
+ * still minting from `config.turnUrls` instead of `config.allTurnUrls`, and nothing here would
+ * catch it. See "requestBreakoutJoinToken: LAPIS_TURNS_URLS configured" below. */
+private val BREAKOUT_ENABLED_CONFIG_WITH_TURN_AND_TURNS =
+    ConferenceConfig.load { key ->
+        when (key) {
+            "LAPIS_LIVEKIT_URL" -> "ws://localhost:7880"
+            "LAPIS_LIVEKIT_API_KEY" -> "test-livekit-key"
+            "LAPIS_LIVEKIT_API_SECRET" -> "test-livekit-secret-at-least-32-bytes-long!!"
+            "LAPIS_LIVEKIT_TOKEN_TTL_MINUTES" -> "240"
+            "LAPIS_LIVEKIT_GUEST_TOKEN_TTL_MINUTES" -> "15"
+            "LAPIS_CONFERENCE_MAX_PARTICIPANTS" -> "25"
+            "LAPIS_TURN_URLS" -> "turn:127.0.0.1:3478?transport=udp"
+            "LAPIS_TURNS_URLS" -> "turns:turn.example.org:443?transport=tcp"
+            "LAPIS_TURN_SHARED_SECRET" -> "test-turn-shared-secret-at-least-32-bytes!!"
+            else -> null
+        }
+    }
+
 /**
  * Hermetic, in-memory stand-in for [LiveKitAdminClient] -- mirrors [ConferenceServiceTest]'s own
  * `FakeLiveKitAdminClient` (Kotlin top-level `private` declarations are file-scoped, so this is a
@@ -691,6 +712,45 @@ class ConferenceBreakoutServiceTest :
             }
         }
 
+        test(
+            "requestBreakoutJoinToken: LAPIS_TURNS_URLS configured -- mints ONE ConferenceTurnServer whose urls carry both turn: and turns: (K4 coverage)",
+        ) {
+            val fake = FakeBreakoutLiveKitAdminClient()
+            val moderator = createTestMember("bo-turns-mod@example.org")
+            val member = createTestMember("bo-turns-member@example.org")
+            val (roomId, _) = createTestParentRoom(fake, moderator, listOf(member))
+
+            testApplication {
+                application {
+                    install(StatusPages) { installConferenceBreakoutExceptionHandlers() }
+                    routing {
+                        registerConferenceBreakoutTestRoutes(
+                            liveKitAdminClient = fake,
+                            config = BREAKOUT_ENABLED_CONFIG_WITH_TURN_AND_TURNS,
+                        )
+                    }
+                }
+                val created =
+                    client.post("/test/create-breakout-rooms?roomId=$roomId&roomCount=1&manualMemberId=$member&manualIndex=0") {
+                        header("X-Member-Id", moderator.toString())
+                    }
+                val breakoutRoomId =
+                    created
+                        .bodyAsText()
+                        .split(";")
+                        .first()
+                        .split("|")[0]
+
+                val tokenResponse =
+                    client.post("/test/request-breakout-join-token?breakoutRoomId=$breakoutRoomId") {
+                        header("X-Member-Id", member.toString())
+                    }
+                tokenResponse.status shouldBe HttpStatusCode.OK
+                val parts = tokenResponse.bodyAsText().split("|")
+                parts[6] shouldBe "turn:127.0.0.1:3478?transport=udp,turns:turn.example.org:443?transport=tcp"
+            }
+        }
+
         test("requestBreakoutJoinToken: a participant never assigned to any breakout room is rejected with Forbidden") {
             val fake = FakeBreakoutLiveKitAdminClient()
             val moderator = createTestMember("bo-tamper-neverassigned-mod@example.org")
@@ -965,12 +1025,16 @@ private fun Route.registerConferenceBreakoutTestRoutes(
     assignRateLimiter: FederationInboxRateLimiter = FederationInboxRateLimiter(maxRequests = 20, window = 1.minutes),
     recallRateLimiter: FederationInboxRateLimiter = FederationInboxRateLimiter(maxRequests = 10, window = 1.minutes),
     tokenRateLimiter: FederationInboxRateLimiter = FederationInboxRateLimiter(maxRequests = 30, window = 1.minutes),
+    /** Relay-fallback wave -- overridable so a TURN/TURNS-enabled config can be exercised for
+     * [ConferenceBreakoutService.requestBreakoutJoinToken]/[ConferenceBreakoutService.rejoinMainRoomToken]
+     * without touching every other test's call site (default keeps the pre-existing behaviour). */
+    config: ConferenceConfig = BREAKOUT_ENABLED_CONFIG,
 ) {
     fun service(call: ApplicationCall) =
         ConferenceBreakoutService(
             call = call,
             liveKitAdminClient = liveKitAdminClient,
-            config = BREAKOUT_ENABLED_CONFIG,
+            config = config,
             createRateLimiter = createRateLimiter,
             assignRateLimiter = assignRateLimiter,
             recallRateLimiter = recallRateLimiter,
@@ -1046,5 +1110,10 @@ private fun ConferenceBreakoutRoomDto.toPipeString(): String =
 /** breakoutRoomId|breakoutRoomLabel */
 private fun ConferenceBreakoutAssignmentDto.toPipeString(): String = "$breakoutRoomId|$breakoutRoomLabel"
 
-/** roomId|livekitRoomName|identity|role|hasToken|expiresAt */
-private fun ConferenceJoinTokenDto.toPipeString(): String = "$roomId|$livekitRoomName|$identity|$role|${token.isNotBlank()}|$expiresAt"
+/** roomId|livekitRoomName|identity|role|hasToken|expiresAt|turnUrls -- [turnUrls] (relay-fallback
+ * wave, appended LAST so it never shifts any existing index) is the comma-joined `urls` of the
+ * FIRST minted [network.lapis.cloud.shared.domain.ConferenceTurnServer], `"-"` if [ConferenceJoinTokenDto.turnServers]
+ * is empty -- mirrors [ConferenceServiceTest]'s own `toPipeString` extension. */
+private fun ConferenceJoinTokenDto.toPipeString(): String =
+    "$roomId|$livekitRoomName|$identity|$role|${token.isNotBlank()}|$expiresAt|" +
+        (turnServers.firstOrNull()?.urls?.joinToString(",") ?: "-")

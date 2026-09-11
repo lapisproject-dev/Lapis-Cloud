@@ -50,7 +50,8 @@ import kotlin.js.Promise
  * [RoomOptions.rtcConfig] (audit-round-1 fix) is a real, standard WebRTC `RTCConfiguration` --
  * `livekit-client` passes it straight through to the underlying `RTCPeerConnection` it constructs,
  * it is not a livekit-specific shape. [RTCConfiguration]/[RTCIceServer] below are declared minimally
- * here (only `iceServers`/`urls`/`username`/`credential`) rather than pulled from a browser-DOM
+ * here (only `iceServers`/`urls`/`username`/`credential`, plus [RTCConfiguration.iceTransportPolicy]
+ * since the relay-fallback wave, see that field's own KDoc) rather than pulled from a browser-DOM
  * WebRTC binding, same "deliberately minimal" discipline as every other type in this file.
  *
  * **V1.3.x Geräteauswahl -- device-kind strings, never [org.w3c.dom.mediacapture.MediaDeviceKind].**
@@ -75,6 +76,21 @@ external interface RoomOptions {
 
 external interface RTCConfiguration {
     var iceServers: Array<RTCIceServer>?
+
+    /**
+     * Standard WebRTC `RTCConfiguration.iceTransportPolicy` -- `"all"` (browser default) or
+     * `"relay"` (gather ONLY relay candidates, forcing every media packet through a TURN server).
+     * `livekit-client` 2.21.0 forwards this verbatim: its `makeRTCConfiguration` does
+     * `Object.assign({}, this.rtcConfig)` and only ever WRITES this field itself when the SERVER
+     * sends `clientConfiguration.forceRelay` -- a client-supplied value is never overwritten
+     * (verified against the compiled `livekit-client.esm.mjs`). LiveKit's own `ConnectionCheck`
+     * utility uses exactly this shape for its TURN reachability probe.
+     *
+     * Used by [network.lapis.cloud.client.livekit.LiveKitRoomSession.connect]'s ONE relay-fallback
+     * retry -- see that method's KDoc for why a second attempt is warranted and why there is
+     * never a third.
+     */
+    var iceTransportPolicy: String?
 }
 
 external interface RTCIceServer {

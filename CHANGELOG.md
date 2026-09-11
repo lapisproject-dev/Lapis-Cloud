@@ -6,6 +6,41 @@ All notable changes to this project are documented here. Format follows
 
 ## [Unreleased]
 
+### Added
+
+**Videokonferenz-Zuverlässigkeit: TURN-Relay-Fallback + TURNS-Vorbereitung**
+
+- **Behoben**: Audio/Video startet in manchen Browsern gar nicht (Report ELB-Vorstand,
+  2026-09-10, reproduziert unter Brave auf Linux und Windows). `LiveKitRoomSession.connect`
+  fällt bei einem ICE-Transportfehler **genau einmal** automatisch auf erzwungenen TURN-Relay-Pfad
+  zurück (`iceTransportPolicy: "relay"`, neu in `LiveKitJs.kt`s `RTCConfiguration`). Kein
+  Endlos-Retry; Auth-/Signalling-Fehler lösen bewusst **keinen** Retry aus
+  (`conferenceShouldRetryOverRelay`, getestet über alle acht `ConnectionErrorReason`-Werte + `null`).
+  Ein neuer Ownership-Guard (`Room.onOwned`) verhindert, dass ein spätes `RoomEvent.Disconnected`
+  der verwaisten ersten `Room`-Instanz den Teilnehmer mitten im laufenden Relay-Versuch in die
+  Lobby wirft.
+- **Behoben**: Der Verbindungsaufbau zeigt keine rohe, unübersetzte LiveKit-/WebRTC-Fehlermeldung
+  mehr -- neue typisierte `ConferenceConnectFailure` + `conferenceConnectErrorMessage`, nach dem
+  etablierten `conferenceDeviceEnableErrorMessage`-Muster, in allen acht Katalogen übersetzt. Der
+  generische `guarded{}`-Fallback bleibt für alle übrigen Pfade unverändert.
+- **Hinzugefügt**: optionale Umgebungsvariable `LAPIS_TURNS_URLS` (komma-separiert, `turns:`-Schema)
+  -- fügt einen TLS-TURN-Eintrag **neben** die bestehenden `turn:`-Einträge in dieselbe geminteten
+  Credential-Liste ein (ein `username`/`credential`-Paar deckt beides, coturns REST-Schema gilt
+  instanzweit). Greift in **beiden** Mint-Pfaden (`ConferenceService.joinRoom` **und**
+  `ConferenceBreakoutService.mintJoinToken`). Neue Formatvalidierung (Schema + Host) für
+  `LAPIS_TURNS_URLS`/`LAPIS_TURN_URLS` verhindert die stille Fehlkonfiguration; fehlende Variable
+  ist nie ein Fehler.
+- **Sicherheit**: keine TURN-/TURNS-Credentials in Client-Console oder Server-Log (der
+  Fallback-Log-Eintrag trägt nur den numerischen `ConnectionErrorReason`); die Fehlermeldung ist
+  wortgleich unabhängig davon, ob die Instanz TURNS konfiguriert hat -- kein Downgrade-/
+  Konfigurations-Orakel.
+- **Migration**: keine -- keine DB-Berührung, kein neues Flyway-Skript, kein neues DTO-Feld, keine
+  Wire-Änderung.
+- **Bewusste Grenze**: Das tatsächliche Ausrollen von TURNS auf Port 443 (Caddy-`caddy-l4`-Rebuild,
+  DNS-A-Records, echte Zertifikate, coturn-TLS-Listener aktivieren) ist **nicht** Teil dieser Welle
+  -- vorbereitet und dokumentiert, aber standardmäßig inaktiv, siehe
+  `deploy/production/README.adoc`, „TURNS over TLS (port 443)".
+
 ## [0.20.0] — 2026-09-10
 
 ### Added

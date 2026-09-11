@@ -75,6 +75,14 @@ services:
       LAPIS_LIVEKIT_API_KEY: ${LAPIS_LIVEKIT_API_KEY:?LAPIS_LIVEKIT_API_KEY must be set in .env}
       LAPIS_LIVEKIT_API_SECRET: ${LAPIS_LIVEKIT_API_SECRET:?LAPIS_LIVEKIT_API_SECRET must be set in .env}
       LAPIS_TURN_URLS: turn:${LAPIS_PUBLIC_IP:?LAPIS_PUBLIC_IP must be set in .env}:3478?transport=udp,turn:${LAPIS_PUBLIC_IP}:3478?transport=tcp
+      # OPTIONAL, empty by default -- TURNS (TURN over TLS) relay endpoint for browsers/networks
+      # that block plain TURN on 3478. Unset: ConferenceConfig simply carries no `turns:` entry,
+      # no failure (same "O4" optional-env posture as LAPIS_EMBED_ALLOW_INSECURE). NOT composed
+      # from LAPIS_PUBLIC_IP like LAPIS_TURN_URLS above -- a `turns:` URL needs a DNS hostname
+      # matching the TLS certificate, not a bare IP. Example once the infra rollout has happened:
+      # turns:turn.pzb.parteidervernunft.de:443?transport=tcp
+      # See README.adoc "TURNS over TLS (port 443)".
+      LAPIS_TURNS_URLS: ${LAPIS_TURNS_URLS:-}
       LAPIS_TURN_SHARED_SECRET: ${LAPIS_TURN_SECRET:?LAPIS_TURN_SECRET must be set in .env}
       # Video conferencing (Videokonferenzen Wave 2 "Aufzeichnung" + Wave 3 "Externes Streaming")
       # -- see README.adoc "Video conferencing". LAPIS_EGRESS_OUTPUT_CONTAINER_DIR/
@@ -235,6 +243,10 @@ services:
       - "3478:3478/udp"
       - "3478:3478/tcp"
       - "51000-51019:51000-51019/udp"
+      # TURNS over TLS -- PREPARED, INACTIVE. Uncomment together with turnserver.conf.template's
+      # own tls-listening-port block, and only once the Caddy SNI multiplexer on 443 exists (see
+      # README.adoc "TURNS over TLS (port 443)"). 5350 host-side here / 5350 container-side.
+      #- "127.0.0.1:5350:5350/tcp"
     restart: unless-stopped
 
   # V1.0 Videokonferenzen, Wave 2 "Aufzeichnung" -- LiveKit's own self-hosting docs state the Egress

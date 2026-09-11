@@ -308,4 +308,149 @@ class ConferenceConfigTest :
 
             config.toString().shouldNotContain(turnSecret)
         }
+
+        // ── TURNS over TLS (relay-fallback wave) ──────────────────────────
+
+        test("LAPIS_TURNS_URLS unset -> turnsUrls empty, allTurnUrls equals turnUrls, no failure") {
+            val config = ConferenceConfig.load(envOf())
+
+            config.turnsUrls shouldBe emptyList()
+            config.allTurnUrls shouldBe config.turnUrls
+        }
+
+        test("LAPIS_TURNS_URLS empty string (the docker-compose \${VAR:-} default) -> same as unset, no failure") {
+            val config = ConferenceConfig.load(envOf("LAPIS_TURNS_URLS" to ""))
+
+            config.turnsUrls shouldBe emptyList()
+            config.turnEnabled.shouldBeFalse()
+        }
+
+        test("LAPIS_TURN_URLS + LAPIS_TURNS_URLS + secret -> allTurnUrls is turn: entries first, turns: last") {
+            val config =
+                ConferenceConfig.load(
+                    envOf(
+                        "LAPIS_TURN_URLS" to "turn:127.0.0.1:3478?transport=udp",
+                        "LAPIS_TURNS_URLS" to "turns:turn.example.org:443?transport=tcp",
+                        "LAPIS_TURN_SHARED_SECRET" to "turn-shared-secret-at-least-32-bytes-long!!",
+                    ),
+                )
+
+            config.allTurnUrls shouldBe
+                listOf("turn:127.0.0.1:3478?transport=udp", "turns:turn.example.org:443?transport=tcp")
+        }
+
+        test("only LAPIS_TURNS_URLS (no LAPIS_TURN_URLS) + secret -> turnEnabled=true, allTurnUrls has one entry") {
+            val config =
+                ConferenceConfig.load(
+                    envOf(
+                        "LAPIS_TURNS_URLS" to "turns:turn.example.org:443?transport=tcp",
+                        "LAPIS_TURN_SHARED_SECRET" to "turn-shared-secret-at-least-32-bytes-long!!",
+                    ),
+                )
+
+            config.turnEnabled.shouldBeTrue()
+            config.allTurnUrls shouldBe listOf("turns:turn.example.org:443?transport=tcp")
+        }
+
+        test("LAPIS_TURNS_URLS set without LAPIS_TURN_SHARED_SECRET fails fast with IllegalStateException") {
+            val exception =
+                shouldThrow<IllegalStateException> {
+                    ConferenceConfig.load(envOf("LAPIS_TURNS_URLS" to "turns:turn.example.org:443?transport=tcp"))
+                }
+            exception.message shouldContain "Incomplete TURN configuration"
+        }
+
+        test("LAPIS_TURNS_URLS is split, trimmed, and blank segments are filtered") {
+            val config =
+                ConferenceConfig.load(
+                    envOf(
+                        "LAPIS_TURNS_URLS" to " turns:a.example.org:443?transport=tcp , turns:b.example.org:5349 ",
+                        "LAPIS_TURN_SHARED_SECRET" to "turn-shared-secret-at-least-32-bytes-long!!",
+                    ),
+                )
+
+            config.turnsUrls shouldBe listOf("turns:a.example.org:443?transport=tcp", "turns:b.example.org:5349")
+        }
+
+        test("LAPIS_TURNS_URLS with a turn: (not turns:) entry fails fast, naming the offending URL") {
+            val exception =
+                shouldThrow<IllegalStateException> {
+                    ConferenceConfig.load(
+                        envOf(
+                            "LAPIS_TURNS_URLS" to "turn:127.0.0.1:3478",
+                            "LAPIS_TURN_SHARED_SECRET" to "turn-shared-secret-at-least-32-bytes-long!!",
+                        ),
+                    )
+                }
+            exception.message shouldContain "LAPIS_TURNS_URLS"
+            exception.message shouldContain "turn:127.0.0.1:3478"
+        }
+
+        test("LAPIS_TURNS_URLS with an unrelated scheme fails fast") {
+            val exception =
+                shouldThrow<IllegalStateException> {
+                    ConferenceConfig.load(
+                        envOf(
+                            "LAPIS_TURNS_URLS" to "https://example.org",
+                            "LAPIS_TURN_SHARED_SECRET" to "turn-shared-secret-at-least-32-bytes-long!!",
+                        ),
+                    )
+                }
+            exception.message shouldContain "LAPIS_TURNS_URLS"
+        }
+
+        test("LAPIS_TURNS_URLS with a scheme but no host fails fast with a host-component message") {
+            val exception =
+                shouldThrow<IllegalStateException> {
+                    ConferenceConfig.load(
+                        envOf(
+                            "LAPIS_TURNS_URLS" to "turns:",
+                            "LAPIS_TURN_SHARED_SECRET" to "turn-shared-secret-at-least-32-bytes-long!!",
+                        ),
+                    )
+                }
+            exception.message shouldContain "no host component"
+        }
+
+        test("toString contains turnsUrls but never the raw turnSharedSecret value") {
+            val turnSecret = "turn-shared-secret-at-least-32-bytes-long!!"
+            val config =
+                ConferenceConfig.load(
+                    envOf(
+                        "LAPIS_TURNS_URLS" to "turns:turn.example.org:443?transport=tcp",
+                        "LAPIS_TURN_SHARED_SECRET" to turnSecret,
+                    ),
+                )
+
+            config.toString() shouldContain "turns:turn.example.org:443?transport=tcp"
+            config.toString().shouldNotContain(turnSecret)
+        }
+
+        test("LAPIS_TURN_URLS with an invalid scheme fails fast, naming LAPIS_TURN_URLS") {
+            val exception =
+                shouldThrow<IllegalStateException> {
+                    ConferenceConfig.load(
+                        envOf(
+                            "LAPIS_TURN_URLS" to "foo:bar",
+                            "LAPIS_TURN_SHARED_SECRET" to "turn-shared-secret-at-least-32-bytes-long!!",
+                        ),
+                    )
+                }
+            exception.message shouldContain "LAPIS_TURN_URLS"
+        }
+
+        test("existing production-shaped LAPIS_TURN_URLS values still pass the new format validation") {
+            val config =
+                ConferenceConfig.load(
+                    envOf(
+                        "LAPIS_TURN_URLS" to
+                            "turn:203.0.113.10:3478?transport=udp,turn:203.0.113.10:3478?transport=tcp",
+                        "LAPIS_TURN_SHARED_SECRET" to "turn-shared-secret-at-least-32-bytes-long!!",
+                    ),
+                )
+
+            config.turnEnabled.shouldBeTrue()
+            config.turnUrls shouldBe
+                listOf("turn:203.0.113.10:3478?transport=udp", "turn:203.0.113.10:3478?transport=tcp")
+        }
     })
