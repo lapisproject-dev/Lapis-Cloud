@@ -327,3 +327,76 @@ tasks.register("verifyI18nCatalogParity") {
 }
 
 tasks.named("check") { dependsOn("verifyI18nCatalogParity") }
+
+// ── addCssClass-Wächter (Welle „Dunning-Warnband-Rollen + addCssClass-Sweep") ────────────────────
+// Fünfter Vorfall derselben Laufzeit-Fehlerklasse (V0.7.3, Serienbrief-Welle, Videokonferenz-Welle
+// V1.4.5.1.1, PaymentTransactionsScreen, TravelExpenseScreen): `addCssClass("a b")` (Singular)
+// wirft `InvalidCharacterError` aus KVisions Patch-Zyklus, siehe CssClasses.kt. Muss im ROOT-Build
+// hängen, nicht in lapis-detekt-rules: :lapis-client steht in lapisDetektExemptModules (Zeile 40)
+// und würde von einer Detekt-Regel nie gesehen -- genau das Modul, in dem die Klasse auftritt.
+val addCssClassJsMainRoot = file("lapis-client/src/jsMain/kotlin")
+val addCssClassJsTestRoot = file("lapis-client/src/jsTest/kotlin")
+val addCssClassScanRoots = listOf(addCssClassJsMainRoot, addCssClassJsTestRoot)
+
+/**
+ * Config-Cache-safe worker for [tasks.register] `verifyNoMultiClassAddCssClass`'s `doLast` -- same
+ * `Action<Task>` idiom as [VerifyI18nCatalogParity] above, for the same reason (no script-object
+ * capture). Only `List<File>` is held as a field; the scan logic is entirely local to [execute].
+ *
+ * Detection: `addCssClass("..."` where the quoted string contains a space or tab is flagged. The
+ * regex anchors on the literal `addCssClass(` -- NOT `addCssClasses(` (the plural helper has an
+ * extra `es` before the opening paren, so it never matches). Per-line comment stripping first: a
+ * line becomes blank when its trimmed start is a `*` (KDoc line) or the two-char sequence
+ * "slash-star" (a block-comment opener), and otherwise has its trailing `//` line-comment cut off;
+ * stripping on `//` can in principle truncate a string literal that itself contains `//`, but that
+ * can only ever shorten the scanned text, never fabricate a new
+ * `addCssClass("... ..."` match -- so the check can under-report, never false-positive, from that
+ * edge case. The per-file lines are then rejoined with `\n` *before* matching (not scanned one
+ * line at a time) so a call whose argument list is wrapped across lines --
+ * `addCssClass(\n    "alert alert-warning",\n)`, the common trailing-comma style in this codebase
+ * (see e.g. `DunningCasesScreen.kt`/`DunningSettingsScreen.kt`) -- is still caught: `\s*` between
+ * `addCssClass(` and the opening quote matches the intervening newline/indentation. The offending
+ * line number is derived from the match's offset into the rejoined text. Accepted blind spot:
+ * `addCssClass(someVariable)` is not text-detectable; the call sites of that shape in this
+ * codebase (ApiKeysScreen, SepaBatchesScreen, MemberAnniversariesScreen, ConferenceScreen) were
+ * manually verified to each pass a single class.
+ */
+private class VerifyNoMultiClassAddCssClass(
+    private val sourceRoots: List<File>,
+) : Action<Task> {
+    override fun execute(task: Task) {
+        val pattern = Regex("addCssClass\\(\\s*\"[^\"]*[ \\t][^\"]*\"")
+        val offenders = mutableListOf<String>()
+        for (rootDir in sourceRoots) {
+            if (!rootDir.isDirectory) continue
+            rootDir.walkTopDown().filter { it.isFile && it.extension == "kt" }.forEach { f ->
+                val codeLines =
+                    f.readLines().map { raw ->
+                        val trimmed = raw.trimStart()
+                        if (trimmed.startsWith("*") || trimmed.startsWith("/*")) "" else raw.substringBefore("//")
+                    }
+                val joined = codeLines.joinToString("\n")
+                pattern.findAll(joined).forEach { m ->
+                    val line = joined.substring(0, m.range.first).count { it == '\n' } + 1
+                    offenders += "${f.path}:$line"
+                }
+            }
+        }
+        check(offenders.isEmpty()) {
+            "verifyNoMultiClassAddCssClass: singular addCssClass(...) with a space-separated " +
+                "multi-class string found -- use addCssClasses(...) (lapis-client/.../CssClasses.kt) " +
+                "instead; KVision's addCssClass adds ONE literal token and the DOM throws " +
+                "InvalidCharacterError at runtime:\n" + offenders.joinToString("\n")
+        }
+    }
+}
+
+tasks.register("verifyNoMultiClassAddCssClass") {
+    group = "verification"
+    description = "Fails if a singular addCssClass(...) call passes a multi-class string."
+    inputs.dir(addCssClassJsMainRoot).withPropertyName("addCssClassJsMainSources")
+    inputs.dir(addCssClassJsTestRoot).withPropertyName("addCssClassJsTestSources")
+    doLast(VerifyNoMultiClassAddCssClass(sourceRoots = addCssClassScanRoots))
+}
+
+tasks.named("check") { dependsOn("verifyNoMultiClassAddCssClass") }

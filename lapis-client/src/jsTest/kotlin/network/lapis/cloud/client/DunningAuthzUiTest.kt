@@ -6,7 +6,9 @@ import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.ContributionPaymentMethod
 import network.lapis.cloud.shared.domain.ContributionStatus
 import network.lapis.cloud.shared.domain.DunningCaseDto
+import network.lapis.cloud.shared.domain.DunningComplianceDisclaimerDto
 import network.lapis.cloud.shared.domain.DunningNoticeStatus
+import network.lapis.cloud.shared.domain.DunningSettingsDto
 import network.lapis.cloud.shared.domain.MemberStatus
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -49,6 +51,24 @@ class DunningAuthzUiTest {
             memberStatus = MemberStatus.ACTIVE,
         )
 
+    private fun settings(
+        dunningEnabled: Boolean = true,
+        activeLevelCount: Int = 0,
+        lastDisclaimerVersion: String? = "2026-01",
+    ): DunningSettingsDto =
+        DunningSettingsDto(
+            dunningEnabled = dunningEnabled,
+            pollerEnabled = false,
+            postalDispatchEnabled = false,
+            postalMailEnabled = false,
+            activeLevelCount = activeLevelCount,
+            lastDisclaimerVersion = lastDisclaimerVersion,
+            lastAcknowledgedAt = null,
+        )
+
+    private fun disclaimer(version: String = "2026-02"): DunningComplianceDisclaimerDto =
+        DunningComplianceDisclaimerDto(version = version, text = "…", sha256 = "…")
+
     // ── canAccessDunningFiles vs. canReadDunning -- the reason FILE_ACCESS_ROLES is its own
     // constant rather than a reuse of TREASURY_ROLES/READ_ROLES. ──────────────────────────────────
 
@@ -85,6 +105,21 @@ class DunningAuthzUiTest {
         assertFalse(DunningAuthzUi.canAdminister(AccountRole.BOARD))
         assertFalse(DunningAuthzUi.canAdminister(AccountRole.TREASURER))
         assertTrue(DunningAuthzUi.canAdminister(AccountRole.ADMIN))
+    }
+
+    /** Since `f30022c`, `getDunningSettings`/`listDunningLevels` are READ_ROLES server-side --
+     * TREASURER/BOARD can read, but only ADMIN can administer. MEMBER/null can neither. */
+    @Test
+    fun dunningRoleMatrix_readVsAdminister() {
+        assertFalse(DunningAuthzUi.canAdminister(AccountRole.TREASURER))
+        assertFalse(DunningAuthzUi.canAdminister(AccountRole.BOARD))
+        assertTrue(DunningAuthzUi.canAdminister(AccountRole.ADMIN))
+
+        assertTrue(DunningAuthzUi.canReadDunning(AccountRole.TREASURER))
+        assertTrue(DunningAuthzUi.canReadDunning(AccountRole.BOARD))
+        assertTrue(DunningAuthzUi.canReadDunning(AccountRole.ADMIN))
+        assertFalse(DunningAuthzUi.canReadDunning(AccountRole.MEMBER))
+        assertFalse(DunningAuthzUi.canReadDunning(null))
     }
 
     // ── nextCaseAction ───────────────────────────────────────────────────────────────────────────
@@ -209,5 +244,113 @@ class DunningAuthzUiTest {
         assertFalse(DunningAuthzUi.canDownloadNoticePdf(AccountRole.TREASURER, documentId = null))
         assertTrue(DunningAuthzUi.canDownloadNoticePdf(AccountRole.TREASURER, documentId = "doc-1"))
         assertTrue(DunningAuthzUi.canDownloadNoticePdf(AccountRole.ADMIN, documentId = "doc-1"))
+    }
+
+    // ── showNoActiveLevelWarning -- role-INDEPENDENT by design, unlike showStaleDisclaimerWarning ─
+
+    @Test
+    fun showNoActiveLevelWarning_enabledWithZeroLevels() {
+        assertTrue(DunningAuthzUi.showNoActiveLevelWarning(settings(dunningEnabled = true, activeLevelCount = 0)))
+    }
+
+    @Test
+    fun showNoActiveLevelWarning_enabledWithOneLevel() {
+        assertFalse(DunningAuthzUi.showNoActiveLevelWarning(settings(dunningEnabled = true, activeLevelCount = 1)))
+    }
+
+    @Test
+    fun showNoActiveLevelWarning_disabled() {
+        assertFalse(DunningAuthzUi.showNoActiveLevelWarning(settings(dunningEnabled = false, activeLevelCount = 0)))
+    }
+
+    @Test
+    fun showNoActiveLevelWarning_nullSettings() {
+        assertFalse(DunningAuthzUi.showNoActiveLevelWarning(null))
+    }
+
+    // ── showDunningWarningBands -- screen-level gate for renderDunningWarningBands itself ────────
+
+    /** Regression guard for the actual `DunningCasesScreen` fix in this wave: TREASURER/BOARD/ADMIN
+     * all see the warning bands, matching [READ_ROLES] -- an earlier revision instead wrapped the
+     * `renderDunningWarningBands` call site in `if (AppState.hasRole(AccountRole.ADMIN))`, which
+     * hid band 1 ("Mahnwesen aktiviert, aber keine Mahnstufe konfiguriert") from TREASURER/BOARD
+     * even though `getDunningSettings` is READ_ROLES since `f30022c`. */
+    @Test
+    fun showDunningWarningBands_treasurerAndBoardAndAdminSeeIt() {
+        assertTrue(DunningAuthzUi.showDunningWarningBands(AccountRole.TREASURER))
+        assertTrue(DunningAuthzUi.showDunningWarningBands(AccountRole.BOARD))
+        assertTrue(DunningAuthzUi.showDunningWarningBands(AccountRole.ADMIN))
+    }
+
+    @Test
+    fun showDunningWarningBands_memberAndNullAreDenied() {
+        assertFalse(DunningAuthzUi.showDunningWarningBands(AccountRole.MEMBER))
+        assertFalse(DunningAuthzUi.showDunningWarningBands(null))
+    }
+
+    // ── showStaleDisclaimerWarning -- ADMIN-only, because getDunningComplianceDisclaimer stays so ─
+
+    @Test
+    fun showStaleDisclaimerWarning_adminWithVersionMismatch() {
+        assertTrue(
+            DunningAuthzUi.showStaleDisclaimerWarning(
+                AccountRole.ADMIN,
+                settings(lastDisclaimerVersion = "2026-01"),
+                disclaimer(version = "2026-02"),
+            ),
+        )
+    }
+
+    /** Regression guard: the disclaimer-staleness gate must NOT have been loosened alongside
+     * [showNoActiveLevelWarning] -- `getDunningComplianceDisclaimer` remains ADMIN-only. */
+    @Test
+    fun showStaleDisclaimerWarning_treasurerIsDenied() {
+        assertFalse(
+            DunningAuthzUi.showStaleDisclaimerWarning(
+                AccountRole.TREASURER,
+                settings(lastDisclaimerVersion = "2026-01"),
+                disclaimer(version = "2026-02"),
+            ),
+        )
+    }
+
+    @Test
+    fun showStaleDisclaimerWarning_boardIsDenied() {
+        assertFalse(
+            DunningAuthzUi.showStaleDisclaimerWarning(
+                AccountRole.BOARD,
+                settings(lastDisclaimerVersion = "2026-01"),
+                disclaimer(version = "2026-02"),
+            ),
+        )
+    }
+
+    @Test
+    fun showStaleDisclaimerWarning_sameVersion() {
+        assertFalse(
+            DunningAuthzUi.showStaleDisclaimerWarning(
+                AccountRole.ADMIN,
+                settings(lastDisclaimerVersion = "2026-02"),
+                disclaimer(version = "2026-02"),
+            ),
+        )
+    }
+
+    @Test
+    fun showStaleDisclaimerWarning_nullDisclaimer() {
+        assertFalse(
+            DunningAuthzUi.showStaleDisclaimerWarning(AccountRole.ADMIN, settings(lastDisclaimerVersion = "2026-01"), null),
+        )
+    }
+
+    @Test
+    fun showStaleDisclaimerWarning_disabledDunning() {
+        assertFalse(
+            DunningAuthzUi.showStaleDisclaimerWarning(
+                AccountRole.ADMIN,
+                settings(dunningEnabled = false, lastDisclaimerVersion = "2026-01"),
+                disclaimer(version = "2026-02"),
+            ),
+        )
     }
 }

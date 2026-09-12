@@ -54,7 +54,7 @@ fun renderTravelExpenseScreen(
 
     val ratesBanner = root.vPanel(spacing = 4)
     val editorPanel = root.vPanel(spacing = 10)
-    root.h2(tr("Meine Anträge")) { addCssClass("h5 mt-3") }
+    root.h2(tr("Meine Anträge")) { addCssClasses("h5 mt-3") }
     val listPanel = root.vPanel(spacing = 10)
 
     fun reload() {

@@ -34,9 +34,11 @@ import network.lapis.cloud.shared.domain.DunningSettingsDto
 import network.lapis.cloud.shared.rpc.IDunningService
 
 /**
- * Client-UI wave for GitHub Issue #5. ADMIN-only (see `Routes.DUNNING_SETTINGS` KDoc, plan finding
- * B2 -- `getDunningSettings`/`listDunningLevels`/level-CRUD are ALL `requireRole(ADMIN)`, unlike
- * SEPA's analogous read tier which admits TREASURER too).
+ * Client-UI wave for GitHub Issue #5. Route ADMIN-only (see `Routes.DUNNING_SETTINGS` KDoc) because
+ * `getDunningComplianceDisclaimer` and the level-CRUD methods stay `requireRole(ADMIN)` -- since
+ * `f30022c`, `getDunningSettings`/`listDunningLevels` themselves are READ_ROLES (TREASURER/BOARD/
+ * ADMIN), but this screen's write actions (enable/disable, level CRUD, disclaimer acknowledgment)
+ * still require an admin, so the route as a whole is not opened to TREASURER/BOARD.
  *
  * Structure mirrors `SepaSettingsScreen.kt` -- but [DunningSettingsDto] has NO
  * `lastAcknowledgedByDisplayName` field (unlike `SepaSettingsDto`), so the "last acknowledged"
@@ -153,7 +155,7 @@ private fun renderDunningSettingsSummary(
         panel.div(tr("Noch keine Bestätigung des rechtlichen Hinweistexts erfolgt.")) { addCssClasses("text-muted small") }
     }
 
-    if (settings.dunningEnabled && settings.activeLevelCount == 0) {
+    if (DunningAuthzUi.showNoActiveLevelWarning(settings)) {
         val band = panel.div { addCssClasses("alert alert-warning mt-2") }
         band.div(
             tr("Das Mahnwesen ist aktiviert, aber keine Mahnstufe ist konfiguriert -- es wird nichts gemahnt."),

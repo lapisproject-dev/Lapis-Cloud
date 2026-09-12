@@ -295,11 +295,11 @@ object Routes {
     const val DUNNING_CASES = "/dunning"
 
     // Client-UI wave for GitHub Issue #5 -- ADMIN-only, verified against `DunningService.kt`:
-    // `getDunningComplianceDisclaimer`/`enableDunning`/`disableDunning`/`getDunningSettings`/
-    // `listDunningLevels`/`createDunningLevel`/`updateDunningLevel`/`deactivateDunningLevel` all
-    // call `current.requireRole(AccountRole.ADMIN)`, uniformly -- unlike [SEPA_SETTINGS], there is
-    // no TREASURER-readable settings tier here at all (plan finding B2): a TREASURER hitting
-    // `getDunningSettings()` gets a bare 403, so this route must stay ADMIN-only rather than
+    // `getDunningComplianceDisclaimer`/`enableDunning`/`disableDunning`/`createDunningLevel`/
+    // `updateDunningLevel`/`deactivateDunningLevel` call `current.requireRole(AccountRole.ADMIN)`.
+    // Since `f30022c`, `getDunningSettings`/`listDunningLevels` are READ_ROLES (TREASURER/BOARD/
+    // ADMIN) -- but every write action this screen offers (enable/disable, level CRUD, disclaimer
+    // acknowledgment) still requires ADMIN, so the route as a whole stays ADMIN-only rather than
     // reusing the [DUNNING_CASES] guard.
     const val DUNNING_SETTINGS = "/dunning-settings"
 

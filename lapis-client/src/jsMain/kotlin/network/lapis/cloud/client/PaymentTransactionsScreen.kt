@@ -57,7 +57,7 @@ fun renderPaymentTransactionsScreen(container: SimplePanel) {
             cell { statusBadge(paymentTransactionStatusLabel(transaction.status), paymentTransactionStatusColor(transaction.status)) }
             cell(transaction.receivedAt.toString())
             cell(transaction.journalEntryId?.let { tr("Ja") } ?: tr("Nein")) {
-                if (transaction.journalEntryId == null) addCssClass("text-danger fw-bold")
+                if (transaction.journalEntryId == null) addCssClasses("text-danger fw-bold")
             }
             cell(transaction.reconciliationNote.orEmpty())
         }

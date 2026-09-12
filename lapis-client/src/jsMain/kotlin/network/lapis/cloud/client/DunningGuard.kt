@@ -18,12 +18,12 @@ import network.lapis.cloud.shared.rpc.UnauthenticatedException
 
 /**
  * Stille Probe -- exakt das `sepaProbe`-Muster: lässt [CancellationException] durch, schluckt
- * jeden anderen [Throwable] zu `null`, ohne Toast und ohne Konsolenausgabe. Für die ADMIN-only
- * Warnbänder in [renderDunningCasesScreen]/[renderDunningSettingsScreen] (`getDunningSettings`/
- * `getDunningComplianceDisclaimer` sind beide ADMIN-only, plan finding B2): ein
- * [ConflictException]/[ForbiddenException] hier bedeutet nur "diese Rolle darf das nicht sehen"
- * oder "kein Gate-Zustand abrufbar" -- kein Fehler, den ein TREASURER/BOARD bei jedem Seitenaufruf
- * gemeldet bekommen muss.
+ * jeden anderen [Throwable] zu `null`, ohne Toast und ohne Konsolenausgabe. Für die Warnbänder in
+ * [renderDunningCasesScreen]/[renderDunningSettingsScreen]: `getDunningSettings` ist seit `f30022c`
+ * eine READ_ROLES-Methode (TREASURER/BOARD/ADMIN), `getDunningComplianceDisclaimer` bleibt
+ * ADMIN-only. Ein [ConflictException]/[ForbiddenException] hier bedeutet nur "diese Rolle darf das
+ * nicht sehen" oder "kein Gate-Zustand abrufbar" -- kein Fehler, den eine erlaubte Rolle bei jedem
+ * Seitenaufruf gemeldet bekommen muss.
  */
 suspend fun <T> dunningProbe(block: suspend () -> T): T? =
     try {
@@ -130,7 +130,7 @@ internal const val DUNNING_LEVEL_CONFLICT_MESSAGE =
         "Wert liegt außerhalb des zulässigen Bereichs, oder auf der ersten Mahnstufe wurde eine Gebühr angegeben " +
         "(unzulässig, § 286 BGB)."
 
-/** Fallback read-conflict message for the ADMIN-only probes (`getDunningSettings`/
+/** Fallback read-conflict message for the dunning read probes (`getDunningSettings`/
  * `listDunningLevels`/`getDunningComplianceDisclaimer`) when they are called through
  * [dunningGuarded] rather than the silent [dunningProbe] (i.e. on an explicit user-triggered
  * reload, where a toast is actually warranted). */

@@ -150,6 +150,30 @@ All notable changes to this project are documented here. Format follows
   -- vorbereitet und dokumentiert, aber standardmäßig inaktiv, siehe
   `deploy/production/README.adoc`, „TURNS over TLS (port 443)".
 
+### Fixed
+
+**Dunning-Warnband-Rollen + addCssClass-Sweep**
+
+- **Behoben**: zwei Laufzeitabstürze durch singuläres `addCssClass(...)` mit Mehrklassen-String
+  (`PaymentTransactionsScreen`/`TravelExpenseScreen`, fünfter Vorfall derselben Fehlerklasse) --
+  `addCssClasses(...)` verwendet statt `addCssClass(...)`. Neuer Root-Gradle-Wächter
+  `verifyNoMultiClassAddCssClass` (hängt an `check`) fängt die textuell erkennbaren Fälle in
+  `lapis-client` (einzeilig wie mehrzeilig umgebrochen) ab, statt die Fehlerklasse rein
+  disziplinabhängig zu lassen -- `:lapis-client` ist von detekt ausgenommen, es gab bislang keinen
+  anderen Ort, an dem eine Lint-Regel das gesehen hätte. Kein struktureller Ausschluss: ein
+  variabler Klassen-String (`addCssClass(someVariable)`) bleibt ein dokumentierter Blind Spot, siehe
+  KDoc über `VerifyNoMultiClassAddCssClass` in `build.gradle.kts`.
+- **Behoben**: das Warnband „Mahnwesen aktiviert, aber keine Mahnstufe konfiguriert" erscheint jetzt
+  auch für TREASURER/BOARD, nicht mehr nur für ADMIN (Folgefix zu #8 -- `getDunningSettings` ist
+  serverseitig seit `f30022c` eine READ_ROLES-Methode). Statt eines Knopfes, der auf die
+  ADMIN-only-Route `/dunning-settings` führen würde, sehen TREASURER/BOARD einen Hinweistext, wer
+  handeln muss. Kein `getDunningComplianceDisclaimer`-Probe-Aufruf mehr für Nicht-Admins -- ein
+  403 wird dort nicht mehr als Kontrollfluss provoziert. Die Bandbedingungen sind als reine
+  Prädikate in `DunningAuthzUi` extrahiert (`showNoActiveLevelWarning`/`showStaleDisclaimerWarning`)
+  und getestet.
+- **Behoben**: „Weitere laden" → „Mehr laden" auf der Mahnvorgänge-Liste (in allen acht Katalogen
+  übersetzt vorhanden, das alte Label in keinem).
+
 ## [0.20.0] — 2026-09-10
 
 ### Added

@@ -4,7 +4,9 @@ import kotlinx.datetime.LocalDate
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.ContributionStatusSets
 import network.lapis.cloud.shared.domain.DunningCaseDto
+import network.lapis.cloud.shared.domain.DunningComplianceDisclaimerDto
 import network.lapis.cloud.shared.domain.DunningNoticeStatus
+import network.lapis.cloud.shared.domain.DunningSettingsDto
 
 /**
  * Client-UI wave for GitHub Issue #5 ("Client-UI für das Mahnwesen") -- pure, DOM-free client-side
@@ -16,11 +18,11 @@ import network.lapis.cloud.shared.domain.DunningNoticeStatus
  * - [TREASURY_ROLES] mirrors `DunningService.DUNNING_TREASURY_ROLES` (`DunningService.kt:70`) --
  *   TREASURER/ADMIN, gates `issueDunningNotice`/`skipDunningLevel`/`resetDunning`/
  *   `cancelDunningNotice`.
- * - [ADMIN_ROLES] mirrors every `requireRole(AccountRole.ADMIN)` in `DunningService` -- the gate
- *   (`getDunningComplianceDisclaimer`/`enableDunning`/`disableDunning`/`getDunningSettings`) AND
- *   the level-CRUD block (`listDunningLevels`/`createDunningLevel`/`updateDunningLevel`/
- *   `deactivateDunningLevel`). Deliberately ADMIN-only -- unlike SEPA's analogous settings screen,
- *   there is no TREASURER-readable settings tier here at all (plan finding B2).
+ * - [ADMIN_ROLES] mirrors every remaining `requireRole(AccountRole.ADMIN)` in `DunningService` --
+ *   the gate (`getDunningComplianceDisclaimer`/`enableDunning`/`disableDunning`) AND the level-CRUD
+ *   block (`createDunningLevel`/`updateDunningLevel`/`deactivateDunningLevel`). Since `f30022c`,
+ *   `getDunningSettings`/`listDunningLevels` moved to [READ_ROLES] -- TREASURER/BOARD can read the
+ *   dunning configuration, they just cannot change it or see the compliance disclaimer.
  * - [FILE_ACCESS_ROLES] mirrors `DunningRoutes.DUNNING_FILE_DOWNLOAD_ROLES` -- TREASURER/ADMIN,
  *   **never** BOARD. Deliberately its own constant, NEVER reused from [TREASURY_ROLES]: a dunning
  *   notice PDF carries a member's full postal address and the specific amount they owe, exactly
@@ -123,6 +125,48 @@ object DunningAuthzUi {
         role: AccountRole?,
         documentId: String?,
     ): Boolean = canAccessDunningFiles(role) && documentId != null
+
+    /**
+     * Warning band 1 on [DunningCasesScreen] ("dunning is enabled but no active level exists yet").
+     * Deliberately role-independent: `getDunningSettings` is a [READ_ROLES] call since `f30022c`,
+     * so TREASURER/BOARD see the exact same `dunningEnabled`/`activeLevelCount` fields the server
+     * already hands them -- hiding the band from them would withhold information the backend
+     * already discloses, not add a security boundary.
+     */
+    fun showNoActiveLevelWarning(settings: DunningSettingsDto?): Boolean =
+        settings != null && settings.dunningEnabled && settings.activeLevelCount == 0
+
+    /**
+     * Screen-level gate for [renderDunningWarningBands] itself, extracted so the "who sees the
+     * warning bands at all" decision is a plain, testable predicate rather than living only as an
+     * `if`/absence-of-`if` at the `renderDunningCasesScreen` call site. Same role set as
+     * [READ_ROLES]: both warning bands are meaningful to everyone who can see the Mahnwesen list at
+     * all (TREASURER/BOARD/ADMIN) -- [showStaleDisclaimerWarning] narrows further to
+     * [canAdminister] internally for band 2 specifically. Regression guard: an earlier revision
+     * wrapped the call site in `if (AppState.hasRole(AccountRole.ADMIN))`, which hid the
+     * "Mahnwesen aktiviert, aber keine Mahnstufe konfiguriert" band from TREASURER/BOARD even
+     * though `getDunningSettings` is a [READ_ROLES] method since `f30022c` -- see
+     * [DunningAuthzUiTest] for the drift-guard test on this exact predicate.
+     */
+    fun showDunningWarningBands(role: AccountRole?): Boolean = canReadDunning(role)
+
+    /**
+     * Warning band 2 on [DunningCasesScreen] ("compliance disclaimer text changed since it was last
+     * acknowledged"). Unlike [showNoActiveLevelWarning], this one IS gated on [canAdminister]: the
+     * disclaimer itself only comes from `getDunningComplianceDisclaimer`, which stayed
+     * `requireRole(ADMIN)` -- TREASURER/BOARD never receive [disclaimer] to compare against in the
+     * first place, so this predicate must not be loosened the way the sibling one was.
+     */
+    fun showStaleDisclaimerWarning(
+        role: AccountRole?,
+        settings: DunningSettingsDto?,
+        disclaimer: DunningComplianceDisclaimerDto?,
+    ): Boolean =
+        canAdminister(role) &&
+            settings != null &&
+            settings.dunningEnabled &&
+            disclaimer != null &&
+            settings.lastDisclaimerVersion != disclaimer.version
 }
 
 /** The two possible "next step" states for one dunning case from a treasurer's point of view --

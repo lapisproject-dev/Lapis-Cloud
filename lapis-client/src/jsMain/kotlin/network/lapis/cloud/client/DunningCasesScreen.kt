@@ -38,19 +38,18 @@ import network.lapis.cloud.shared.rpc.IDunningService
  * in-screen via [DunningAuthzUi] (BOARD never sees them -- `issueDunningNotice`/`skipDunningLevel`/
  * `resetDunning`/`cancelDunningNotice` are all TREASURER/ADMIN only).
  *
- * The two ADMIN-only warning bands are rendered ONLY for ADMIN -- `getDunningSettings`/
- * `getDunningComplianceDisclaimer` are both ADMIN-only server-side (plan finding B2), so a
- * TREASURER cannot compute either "is dunning enabled but has zero levels configured" or "is the
- * acknowledged disclaimer stale" without a backend change -- same open question this wave shares
- * with `SepaBatchesScreen.kt`'s own documented O-1.
+ * The two warning bands (see [renderDunningWarningBands]) are shown to every role that can see this
+ * screen at all (TREASURER/BOARD/ADMIN): `getDunningSettings` is a READ_ROLES method since
+ * `f30022c`, so "is dunning enabled but has zero levels configured" is computable for all three.
+ * The disclaimer-staleness band stays ADMIN-only, because `getDunningComplianceDisclaimer` itself
+ * remains `requireRole(ADMIN)` -- a non-admin never receives a disclaimer to compare against.
  *
  * **Real keyset pagination** (GitHub #7 fix): `listDunningCases`'s `afterDueDate`/
  * `afterContributionId` pair is a genuine continuation cursor now (`ORDER BY dueDate, id ASC` with
  * a matching `(dueDate, id) > (afterDueDate, afterContributionId)` filter, see `DunningService.kt`
- * for the compound-condition reasoning) -- so this screen appends pages via a "Weitere laden"
- * button, seeded from the last row's own `dueDate`/`contributionId`, rather than the old ad-hoc
- * date-filter-as-workaround this screen previously shipped with (see git history for the earlier
- * plan finding B1 this superseded).
+ * for the compound-condition reasoning) -- so this screen appends pages via a "Mehr laden" button
+ * (same label as every other paginated screen in this codebase), seeded from the last row's own
+ * `dueDate`/`contributionId`.
  */
 fun renderDunningCasesScreen(container: SimplePanel) {
     val root =
@@ -63,8 +62,8 @@ fun renderDunningCasesScreen(container: SimplePanel) {
 
     val role = AppState.session?.role
 
-    if (AppState.hasRole(AccountRole.ADMIN)) {
-        renderDunningAdminWarningBands(root)
+    if (DunningAuthzUi.showDunningWarningBands(role)) {
+        renderDunningWarningBands(root, role)
     }
 
     root.h2(tr("Offene Mahnvorgänge")) { addCssClass("h5") }
@@ -83,15 +82,13 @@ fun renderDunningCasesScreen(container: SimplePanel) {
             hide()
         }
     val listPanel = root.vPanel(spacing = 6)
-    val loadMoreRow = root.hPanel(spacing = 8) { addCssClasses("align-items-center") }
-    val loadMoreButton = loadMoreRow.button(tr("Weitere laden"), style = ButtonStyle.OUTLINESECONDARY)
-    loadMoreButton.hide()
+    val loadMoreButton = root.button(tr("Mehr laden"), style = ButtonStyle.OUTLINESECONDARY) { hide() }
 
     root.h2(tr("Details")) { addCssClass("h5") }
     val detailPanel = root.vPanel(spacing = 10)
     detailPanel.p(tr("Vorgang oben auswählen, um Details zu sehen.")) { addCssClasses("text-muted small") }
 
-    // Continuation cursor for "Weitere laden" -- seeded from the last row of the last page loaded,
+    // Continuation cursor for "Mehr laden" -- seeded from the last row of the last page loaded,
     // see the file KDoc above and `DunningService.listDunningCases`'s own compound-cursor comment.
     var cursorDueDate: LocalDate? = null
     var cursorContributionId: String? = null
@@ -170,36 +167,51 @@ fun renderDunningCasesScreen(container: SimplePanel) {
 }
 
 // ================================================================================================
-// ADMIN-only warning bands (plan §2.5 "1", finding B2 -- both getDunningSettings and
-// getDunningComplianceDisclaimer are ADMIN-only, so this cannot be computed for TREASURER/BOARD)
+// Warning bands -- band 1 (no active level) for every role that can see this screen (TREASURER/
+// BOARD/ADMIN, `getDunningSettings` is a READ_ROLES method since `f30022c`), band 2 (stale
+// disclaimer) ADMIN-only (`getDunningComplianceDisclaimer` remains `requireRole(ADMIN)`)
 // ================================================================================================
 
-private fun renderDunningAdminWarningBands(root: SimplePanel) {
+private fun renderDunningWarningBands(
+    root: SimplePanel,
+    role: AccountRole?,
+) {
     val bandHost = root.vPanel(spacing = 4)
     AppScope.launch {
         val settings = dunningProbe { rpcService<IDunningService>().getDunningSettings() } ?: return@launch
-        val disclaimer = dunningProbe { rpcService<IDunningService>().getDunningComplianceDisclaimer() }
+        val disclaimer =
+            if (DunningAuthzUi.canAdminister(role)) {
+                dunningProbe { rpcService<IDunningService>().getDunningComplianceDisclaimer() }
+            } else {
+                null
+            }
 
-        // Precedence band: `enableDunning` does not check `hasActiveLevel` (plan finding, mirrors
+        // Precedence band: `enableDunning` does not check `hasActiveLevel` (mirrors
         // `DunningService.kt:117-140`) -- "aktiviert" with zero configured levels is reachable and
         // silently means nothing is ever mahned. Its own band, not a footnote on the disclaimer one.
-        if (settings.dunningEnabled && settings.activeLevelCount == 0) {
+        if (DunningAuthzUi.showNoActiveLevelWarning(settings)) {
             val band = bandHost.div { addCssClasses("alert alert-warning") }
             band.div(
                 tr("Das Mahnwesen ist aktiviert, aber keine Mahnstufe ist konfiguriert -- es wird nichts gemahnt."),
             ) { addCssClass("fw-bold") }
-            val link = band.button(tr("Jetzt konfigurieren (Mahnwesen-Konfiguration)"), style = ButtonStyle.LINK)
-            link.onClick { navigateTo(Routes.DUNNING_SETTINGS) }
+            if (DunningAuthzUi.canAdminister(role)) {
+                val link = band.button(tr("Jetzt konfigurieren (Mahnwesen-Konfiguration)"), style = ButtonStyle.LINK)
+                link.onClick { navigateTo(Routes.DUNNING_SETTINGS) }
+            } else {
+                band.div(
+                    tr("Ein Administrator muss unter „Mahnwesen-Konfiguration\" mindestens eine Mahnstufe anlegen."),
+                ) { addCssClasses("text-muted small") }
+            }
         }
 
-        if (settings.dunningEnabled && disclaimer != null && settings.lastDisclaimerVersion != disclaimer.version) {
+        if (DunningAuthzUi.showStaleDisclaimerWarning(role, settings, disclaimer)) {
             val band = bandHost.div { addCssClasses("alert alert-warning") }
             band.div(
                 gettext(
                     "Der rechtliche Hinweistext für das Mahnwesen wurde seit der letzten Bestätigung (Version %1) " +
                         "auf Version %2 aktualisiert.",
                     settings.lastDisclaimerVersion ?: tr("keine"),
-                    disclaimer.version,
+                    disclaimer?.version.orEmpty(),
                 ),
             ) { addCssClass("fw-bold") }
             val link = band.button(tr("Erneut bestätigen (Mahnwesen-Konfiguration)"), style = ButtonStyle.LINK)
