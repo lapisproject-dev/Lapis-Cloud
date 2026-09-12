@@ -470,7 +470,30 @@ class LiveKitRoomSession(
     ): ConnectAttemptResult {
         val options =
             obj<RoomOptions> {
-                adaptiveStream = true
+                // Disabled (2026-09-12, live bug report): `adaptiveStream` pauses/resizes a
+                // subscribed video track's rendering based on its <video> element's visibility/size
+                // via the browser's own ResizeObserver/IntersectionObserver -- a well-known source of
+                // "video goes black until the track is re-attached" independent of any app-level DOM
+                // change, because it reacts to ANY geometry/visibility perturbation of the element,
+                // not just ones the app itself caused. Reported live by a board member: the picture
+                // goes black both when opening the "..." more-sheet (a `position: fixed` overlay that
+                // renders on top of the video area, briefly perturbing its effective visibility to the
+                // browser's observers) and when starting a recording (`updateStatusBadgesAndTitle`
+                // shows/hides `statusBadgesPanel`, a sibling ABOVE `videoArea` in DOM order, which
+                // genuinely reflows/repositions the video area beneath it) -- two otherwise unrelated
+                // UI actions whose only common thread is a visibility/geometry change near the video
+                // tiles, exactly what `adaptiveStream` watches for. Toggling the camera off/on "fixes"
+                // it only because that forces a fresh `onLocalVideoTrack`/`track.attach()`, not because
+                // it addresses a DOM bug -- an extensive investigation of `ConferenceScreen.kt`'s
+                // deliberately raw-DOM video-tile handling found no `removeAll()`/re-render touching
+                // `gridElement`'s subtree for either trigger, which is otherwise the leading cause of
+                // exactly this symptom class in this codebase. `dynacast` (a sender-side "don't encode
+                // unwatched simulcast layers" bandwidth optimization, unrelated to receiver-side
+                // rendering) stays on -- no evidence ties it to this symptom, and there is no user
+                // report of anything going wrong on the SENDING side. This is a best-effort mitigation
+                // for a hard-to-reproduce-outside-a-live-call issue, not a confirmed root-cause fix --
+                // re-open if the black-frame symptom persists after this change ships.
+                adaptiveStream = false
                 dynacast = true
                 if (turnServers.isNotEmpty() || forceRelay) {
                     rtcConfig =
