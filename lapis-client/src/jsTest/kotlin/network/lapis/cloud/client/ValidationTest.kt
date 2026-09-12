@@ -148,6 +148,28 @@ class ValidationTest {
         assertTrue(isRouteAllowed(authenticated = true, callerRole = AccountRole.ADMIN, requiredRoles = requiredRoles))
     }
 
+    // Welle V1.4.11 -- Routes.TRAVEL_EXPENSES is requireAuth (no role requirement), every
+    // authenticated member may reach the self-service page.
+    @Test
+    fun isRouteAllowed_allowsPlainMemberOnTravelExpensesSelfService() {
+        assertTrue(isRouteAllowed(authenticated = true, callerRole = AccountRole.MEMBER, requiredRoles = emptySet()))
+    }
+
+    // Welle V1.4.11 -- Routes.TRAVEL_EXPENSE_APPROVALS uses the same {BOARD, ADMIN} guard shape as
+    // Routes.CONTRIBUTION_RELIEF, deliberately NOT {TREASURER, BOARD, ADMIN} like most other
+    // FINANCE routes -- a TREASURER caller must be denied.
+    @Test
+    fun isRouteAllowed_deniesTreasurerOnTravelExpenseApprovalsBoardOrAdminGuard() {
+        val requiredRoles = setOf(AccountRole.BOARD, AccountRole.ADMIN)
+        assertFalse(isRouteAllowed(authenticated = true, callerRole = AccountRole.TREASURER, requiredRoles = requiredRoles))
+    }
+
+    @Test
+    fun isRouteAllowed_allowsBoardOnTravelExpenseApprovalsBoardOrAdminGuard() {
+        val requiredRoles = setOf(AccountRole.BOARD, AccountRole.ADMIN)
+        assertTrue(isRouteAllowed(authenticated = true, callerRole = AccountRole.BOARD, requiredRoles = requiredRoles))
+    }
+
     @Test
     fun isPositiveDecimal_acceptsAPlausibleAmount() {
         assertTrue(Validation.isPositiveDecimal("1.50"))

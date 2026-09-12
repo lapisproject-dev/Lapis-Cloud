@@ -190,6 +190,7 @@ classDiagram(name = "AuditLog") {
         literal(name = "ACCOUNTING_EXPORT_RUN") // Security review Runde 3, Befund 4 -- AccountingExportService.startExport/abortRun/retryFailed; 22 chars, fits within the existing VARCHAR(29) width
         literal(name = "ACCOUNTING_EXPORT_MAPPING") // Security review Runde 3, Befund 4 -- AccountingExportService.mapAccount; 25 chars, fits within the existing VARCHAR(29) width
         literal(name = "CONTRIBUTION_RELIEF_REQUEST") // Welle V1.4.10 "Beitragsvergünstigungen" -- ContributionReliefService state-transition writes; 27 chars, fits within the existing VARCHAR(29) width
+        literal(name = "TRAVEL_EXPENSE_REPORT") // Welle V1.4.11 "Reisekostenabrechnung" -- TravelExpenseService state-transition writes; 22 chars, fits within the existing VARCHAR(29) width
     }
 
     // Genesis-singleton row (see file header) -- gapless sequence_number + hash-chain

@@ -49,6 +49,10 @@ public object OrganizationSettingsTable : Table("organization_settings") {
     // Welle V1.4.5.2 -- hand-edited, see 11-organization-settings.kuml.kts file header addendum.
     public val datevBeraterNummer: Column<Int?> = integer("datev_berater_nummer").nullable()
     public val datevMandantNummer: Column<Int?> = integer("datev_mandant_nummer").nullable()
+    // Welle V1.4.11 -- hand-edited, see 11-organization-settings.kuml.kts file header addendum.
+    public val travelExpenseAccountId: Column<Uuid?> = optReference("travel_expense_account_id", LedgerAccountTable.id)
+    public val travelMileageRatePerKm: Column<BigDecimal?> = decimal("travel_mileage_rate_per_km", 10, 4).nullable()
+    public val travelPerDiemRate: Column<BigDecimal?> = decimal("travel_per_diem_rate", 12, 2).nullable()
 
     override val primaryKey: PrimaryKey = PrimaryKey(id)
 }

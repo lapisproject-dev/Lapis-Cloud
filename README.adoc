@@ -866,6 +866,59 @@ self-service way to do so yet. Its potentially Art. 9 DSGVO free-text reason is 
 months after execution regardless (the redaction anchor falls back to `executed_at` when
 `exemptionUntil` is null), even though the exemption's own effect keeps running.
 
+== Travel expense reimbursement (V1.4.11)
+
+Any authenticated member can file a self-service travel expense report for a board/functionary
+trip — "board and functionaries" describes the real usage, not a technical restriction. A report
+carries three kinds of lines: **mileage** (kilometers × an operator-configured rate), **per diem**
+(days × an operator-configured daily rate), and **receipted** expenses (a fixed amount plus at
+least one uploaded receipt). A line's kind is fixed once created — no dropdown, three separate
+"add line" actions instead. A draft can be edited freely; `submitReport`
+(`DRAFT -> REQUESTED`) validates every line, requires a rate to be configured for every kind
+actually used, and **freezes** each mileage/per-diem line's rate into `rate_snapshot` — a later rate
+change never retroactively changes an already-submitted report. BOARD/ADMIN decide in a queue at
+`/travel-expense-approvals` (**not** TREASURER, same narrower gate `/contribution-relief` already
+established) with a mandatory decision note on both approval and rejection, and a **four-eyes rule
+that closes a gap the contribution-relief queue leaves open**: neither the report's subject nor
+whoever submitted it "on behalf of" them may decide it (`decideReport`'s own `ForbiddenException`
+covers both `subjectMemberId` and `requestedBy`). Approval books an EXPENSE-side debit per line
+against an operator-configured `travelExpenseAccountId` and one CREDIT for the total against the
+payment bank account (`TravelExpensePostingBridge`) — the first "money out" bridge in this
+codebase — in the same transaction as the decision; a failed booking (unconfigured/inactive/
+wrong-type account, or a transient cash-register shortfall) leaves the report `APPROVED` with a
+recorded `executionError`, retryable via a dedicated RPC method exactly like the contribution-
+relief precedent. Receipt files travel over dedicated HTTP routes (never Kilua RPC), with the
+declared `Content-Type` discarded entirely in favor of a server-side magic-byte sniff
+(`application/pdf`/`image/jpeg`/`image/png` only, deliberately no `image/svg+xml`), a 10 MiB
+streaming cap, and an IDOR gate on download (subject/requester/BOARD/ADMIN only). See
+`docs/architecture/travel-expenses.adoc` for the full state machine, booking shape, and security
+model.
+
+=== What doesn't work yet (this wave)
+
+Mileage and per-diem rates are **operator-configured values with no automatic adjustment to
+changes in the law** — `NULL` means "not configured", and the affected line kind is disabled in
+the form until an ADMIN sets it; there is no rate history, only the currently configured value is
+editable, and a submitted report is immune to a later change because its rate is frozen. No
+Verpflegungsmehraufwand reduction per the full German travel-expense rules (arrival/departure-day
+special cases, cuts for meals provided by the organization) — a flat per-diem × days calculation
+is a nachweis aid for the board, not an automated compliance decision, the same framing the
+Mittelverwendungsrechnung caveat already uses elsewhere in this document. **No payout** — the end
+state reads "Zur Auszahlung gebucht" ("Posted for payout") and means exactly that: a journal
+entry. There is no payment run in this wave; the treasury arranges the transfer separately. No
+line-by-line partial approval; rejection with a mandatory reason plus "copy as draft" is the
+intended correction path (receipts are not copied — new line ids — and must be re-uploaded). No
+integration with the Übungsleiter-/Ehrenamtspauschale (a separate backlog item; no shared
+abstraction is forced until a second instance of the same shape actually exists). The
+Gemeinnützigkeit sphere every posting uses is hardcoded to `IDEELLER_BEREICH`, not configurable
+(a board trip is practically always ideeller Bereich under Rams' "one account, one field" logic
+applied to the sphere; revisit if a Zweckbetrieb-funded trip ever needs this). Receipt files are
+**not** removed by a DSGVO erasure once a report has left `DRAFT` — they *are* the accounting
+voucher (§147 AO); unlike the contribution-relief wave's Art. 9 free text, there is no automatic
+redaction sweep here, because there is no Art. 9 free text to redact and §147 AO already demands
+10 years' retention regardless. Inline receipt preview was deliberately not built (attachment-only
+download, `nosniff`, no `image/svg+xml` in the allowlist).
+
 == Documentation Convention
 
 Consistent across all Lapis and kUML projects (see `CLAUDE.md`):

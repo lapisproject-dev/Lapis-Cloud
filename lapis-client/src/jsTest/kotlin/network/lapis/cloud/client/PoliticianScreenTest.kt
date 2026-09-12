@@ -62,6 +62,10 @@ class PoliticianScreenTest {
             // future copy-bug in toInputWithPoliticianRankingEnabled fails loudly.
             datevBeraterNummer = 1001,
             datevMandantNummer = 42,
+            // Review MAJOR fix (V1.4.11 "Reisekostenabrechnung"): same regression-coverage
+            // reasoning as datevBeraterNummer/datevMandantNummer above -- a non-default value here
+            // means a future copy-bug in toInputWithPoliticianRankingEnabled fails loudly.
+            travelExpenseAccountId = "account-travel-expense-1",
         )
 
     @Test
@@ -86,6 +90,7 @@ class PoliticianScreenTest {
         assertEquals(fullSettings.eventIncomeSphere, input.eventIncomeSphere)
         assertEquals(fullSettings.datevBeraterNummer, input.datevBeraterNummer)
         assertEquals(fullSettings.datevMandantNummer, input.datevMandantNummer)
+        assertEquals(fullSettings.travelExpenseAccountId, input.travelExpenseAccountId)
         assertTrue(input.politicianRankingEnabled, "expected politicianRankingEnabled to be flipped to true")
     }
 
@@ -111,6 +116,7 @@ class PoliticianScreenTest {
         assertEquals(fullSettings.eventIncomeSphere, input.eventIncomeSphere)
         assertEquals(fullSettings.datevBeraterNummer, input.datevBeraterNummer)
         assertEquals(fullSettings.datevMandantNummer, input.datevMandantNummer)
+        assertEquals(fullSettings.travelExpenseAccountId, input.travelExpenseAccountId)
         assertFalse(input.politicianRankingEnabled, "expected politicianRankingEnabled to be flipped to false")
     }
 
@@ -147,6 +153,7 @@ class PoliticianScreenTest {
         assertEquals(GemeinnuetzigkeitSphere.ZWECKBETRIEB, input.eventIncomeSphere)
         assertEquals(null, input.datevBeraterNummer)
         assertEquals(null, input.datevMandantNummer)
+        assertEquals(null, input.travelExpenseAccountId)
         assertFalse(input.isPoliticalParty)
         assertFalse(input.postalMailEnabled)
         assertTrue(input.politicianRankingEnabled)

@@ -117,6 +117,7 @@ import network.lapis.cloud.server.routes.registerPublicLandingRoutes
 import network.lapis.cloud.server.routes.registerPublicTransparencyRoutes
 import network.lapis.cloud.server.routes.registerSepaRoutes
 import network.lapis.cloud.server.routes.registerSocialPublicRoutes
+import network.lapis.cloud.server.routes.registerTravelExpenseReceiptRoutes
 import network.lapis.cloud.server.routes.registerTrustAnchorRoutes
 import network.lapis.cloud.server.routes.respondPublicCanonicalRedirect
 import network.lapis.cloud.server.rpc.AccountingExportService
@@ -165,6 +166,7 @@ import network.lapis.cloud.server.rpc.RegistrationService
 import network.lapis.cloud.server.rpc.SepaService
 import network.lapis.cloud.server.rpc.SocialNetworkService
 import network.lapis.cloud.server.rpc.SystemicConsensusService
+import network.lapis.cloud.server.rpc.TravelExpenseService
 import network.lapis.cloud.server.rpc.TrustAnchorService
 import network.lapis.cloud.server.rpc.WebhookService
 import network.lapis.cloud.server.security.LoginRateLimiter
@@ -221,6 +223,7 @@ import network.lapis.cloud.shared.rpc.IRegistrationService
 import network.lapis.cloud.shared.rpc.ISepaService
 import network.lapis.cloud.shared.rpc.ISocialNetworkService
 import network.lapis.cloud.shared.rpc.ISystemicConsensusService
+import network.lapis.cloud.shared.rpc.ITravelExpenseService
 import network.lapis.cloud.shared.rpc.ITrustAnchorService
 import network.lapis.cloud.shared.rpc.IWebhookService
 import network.lapis.cloud.shared.rpc.UnauthenticatedException
@@ -629,6 +632,14 @@ fun Application.module() {
     // already establish for their own SecretBox instances.
     val bankStatementSecretBox: SecretBox? = sepaConfig.secretEncryptionKey?.let { SecretBox(it) }
     val bankStatementUploadRateLimiter = FederationInboxRateLimiter(maxRequests = 10, window = 1.minutes)
+
+    // Welle V1.4.11 "Reisekostenabrechnung" -- Security-Audit fix (2026-09-12, MAJOR "kein Byte-
+    // Kontingent und kein Rate-Limit"): keyed by member (see TravelExpenseReceiptRoutes), so 30/min
+    // is a generous per-MEMBER budget -- a report may legitimately need up to
+    // TravelExpenseAmountRules.MAX_RECEIPTS_PER_REPORT (50) receipts across a bulk-upload session,
+    // while still bounding a single member's sustained flood to a small multiple of every other
+    // write-capable upload route's own 10/min budget in this file.
+    val travelExpenseReceiptUploadRateLimiter = FederationInboxRateLimiter(maxRequests = 30, window = 1.minutes)
 
     // V1.2.7 Automatisiertes Mahnwesen -- DunningConfig.load() is pure string parsing, same
     // deliberately-non-fail-fast posture as SepaConfig (see that class' own KDoc): the feature is
@@ -1046,6 +1057,11 @@ fun Application.module() {
         }
         registerService(IContributionService::class) { call -> ContributionService(call) }
         registerService(IContributionReliefService::class) { call -> ContributionReliefService(call) }
+        // Welle V1.4.11 -- reuses documentStorageRoot with a "travel-expenses/" storage-key
+        // prefix, no new env var/volume (see TravelExpenseReceiptRoutes KDoc).
+        registerService(
+            ITravelExpenseService::class,
+        ) { call -> TravelExpenseService(call = call, receiptStorageRoot = documentStorageRoot) }
         registerService(IMemberFinancialHistoryService::class) { call -> MemberFinancialHistoryService(call) }
         registerService(IMemberAnniversaryService::class) { call -> MemberAnniversaryService(call = call) }
         registerService(IMemberHonorService::class) { call -> MemberHonorService(call = call) }
@@ -1274,6 +1290,7 @@ fun Application.module() {
             call.respondText(Greeting.message())
         }
         registerDocumentRoutes(documentStorageRoot)
+        registerTravelExpenseReceiptRoutes(storageRoot = documentStorageRoot, rateLimiter = travelExpenseReceiptUploadRateLimiter)
         registerConferenceRecordingRoutes(documentStorageRoot)
         registerDsgvoRoutes()
         registerCrmRoutes()

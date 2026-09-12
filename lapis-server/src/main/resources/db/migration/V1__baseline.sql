@@ -758,7 +758,15 @@ CREATE TABLE audit_log_entry (
     -- constraint had already been widened -- exactly the failure mode every comment above
     -- already predicts. Flyway repair needed on an already-migrated instance, same as the
     -- precedents above.
-    CHECK (entity_type IN ('JOURNAL_ENTRY', 'PARTY_DONATION_VERDICT', 'RESOLUTION', 'BOARD_MEMBERSHIP', 'CONFERENCE_RECORDING', 'CONFERENCE_STREAM', 'CONFERENCE_STREAM_DESTINATION', 'CONFERENCE_ROOM', 'SOCIAL_POST', 'ORGANIZATION_SETTINGS', 'SEPA_MANDATE', 'SEPA_DEBIT_BATCH', 'DUNNING_NOTICE', 'MEMBER', 'PAYMENT_TRANSACTION', 'API_KEY', 'WEBHOOK_ENDPOINT', 'BANK_STATEMENT_IMPORT', 'ACCOUNTING_EXPORT_CONNECTION', 'ACCOUNTING_EXPORT_RUN', 'ACCOUNTING_EXPORT_MAPPING', 'CONTRIBUTION_RELIEF_REQUEST')),
+    -- Welle V1.4.11 "Reisekostenabrechnung fuer Vorstand und Funktionstraeger":
+    -- 'TRAVEL_EXPENSE_REPORT' appended in place, same reasoning -- see
+    -- V29__travel_expense.sql's own DROP/ADD dance on the NAMED constraint. A fresh H2 test
+    -- database would otherwise reject a 'TRAVEL_EXPENSE_REPORT' INSERT with a 500 (H2 CHECK
+    -- constraint violation against this SAME still-unnamed inline constraint) even though V29's
+    -- named constraint had already been widened -- exactly the failure mode every comment above
+    -- already predicts. Flyway repair needed on an already-migrated instance
+    -- (./gradlew :lapis-server:flywayRepair), same as the precedents above.
+    CHECK (entity_type IN ('JOURNAL_ENTRY', 'PARTY_DONATION_VERDICT', 'RESOLUTION', 'BOARD_MEMBERSHIP', 'CONFERENCE_RECORDING', 'CONFERENCE_STREAM', 'CONFERENCE_STREAM_DESTINATION', 'CONFERENCE_ROOM', 'SOCIAL_POST', 'ORGANIZATION_SETTINGS', 'SEPA_MANDATE', 'SEPA_DEBIT_BATCH', 'DUNNING_NOTICE', 'MEMBER', 'PAYMENT_TRANSACTION', 'API_KEY', 'WEBHOOK_ENDPOINT', 'BANK_STATEMENT_IMPORT', 'ACCOUNTING_EXPORT_CONNECTION', 'ACCOUNTING_EXPORT_RUN', 'ACCOUNTING_EXPORT_MAPPING', 'CONTRIBUTION_RELIEF_REQUEST', 'TRAVEL_EXPENSE_REPORT')),
     CHECK (action IN ('CREATE', 'UPDATE', 'POST'))
 );
 

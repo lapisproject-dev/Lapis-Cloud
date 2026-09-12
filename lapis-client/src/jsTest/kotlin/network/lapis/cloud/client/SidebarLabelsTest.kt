@@ -59,4 +59,33 @@ class SidebarLabelsTest {
         assertEquals("Beitragsvergünstigungen (200+)", reliefSidebarLabel(201))
         assertEquals("Beitragsvergünstigungen (200+)", reliefSidebarLabel(9999))
     }
+
+    // Welle V1.4.11 "Reisekostenabrechnung" -- travelExpenseSidebarLabel mirrors reliefSidebarLabel's
+    // grammar exactly, same reasoning for every case above.
+    @Test
+    fun travelExpenseSidebarLabel_null_isThePlainLabelWithNoBadge() {
+        assertEquals("${kvI18nMarker}Reisekosten-Freigaben", travelExpenseSidebarLabel(null))
+    }
+
+    @Test
+    fun travelExpenseSidebarLabel_zero_isThePlainLabelWithNoBadge() {
+        assertEquals("${kvI18nMarker}Reisekosten-Freigaben", travelExpenseSidebarLabel(0))
+    }
+
+    @Test
+    fun travelExpenseSidebarLabel_belowCap_showsTheExactCount() {
+        assertEquals("Reisekosten-Freigaben (1)", travelExpenseSidebarLabel(1))
+        assertEquals("Reisekosten-Freigaben (199)", travelExpenseSidebarLabel(199))
+    }
+
+    @Test
+    fun travelExpenseSidebarLabel_atCap_showsTwoHundredPlusNotTheExactCount() {
+        assertEquals("Reisekosten-Freigaben (200+)", travelExpenseSidebarLabel(200))
+    }
+
+    @Test
+    fun travelExpenseSidebarLabel_aboveCap_stillShowsTwoHundredPlus() {
+        assertEquals("Reisekosten-Freigaben (200+)", travelExpenseSidebarLabel(201))
+        assertEquals("Reisekosten-Freigaben (200+)", travelExpenseSidebarLabel(9999))
+    }
 }

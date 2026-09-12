@@ -267,6 +267,7 @@ class LegalHtmlTest :
                     "webhookEndpoints" to "Webhooks",
                     "publicRankingConsent" to "Öffentliche Ranglisten",
                     "contributionRelief" to "Beitragsvergünstigungen",
+                    "travelExpenses" to "Reisekostenabrechnungen",
                 )
 
             // Deliberately NOT matched by their own keyword: these three LTR-economy

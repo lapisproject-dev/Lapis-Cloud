@@ -79,6 +79,26 @@
 // `donationIncomeAccountId`, where `DonationPostingBridge` books a gateway donation's brutto
 // amount as income. Same nullable/degrades-to-no-op/generic-write-set treatment as the three
 // existing V1.2.1 mapping columns above.
+//
+// **Welle V1.4.11 "Reisekostenabrechnung für Vorstand und Funktionsträger"** adds three fields:
+//  - `travelExpenseAccountId` -- a sixth ledger-account mapping, same nullable/degrades-to-no-op/
+//    generic-write-set treatment as `eventIncomeAccountId` above. Which SKR42 `LedgerAccount`
+//    `network.lapis.cloud.server.rpc.TravelExpensePostingBridge` books an approved reimbursement's
+//    debit side into (an EXPENSE account, not INCOME -- this is the first "Geld raus" mapping in
+//    this file).
+//  - `travelMileageRatePerKm`/`travelPerDiemRate` -- the two operator-configured reimbursement
+//    rates. Deliberately NOT part of `OrganizationSettingsInput`/`OrganizationSettingsDto` --
+//    unlike every ledger-account mapping above, their read path is `ITravelExpenseService
+//    .getTravelExpenseRates()` (every authenticated member -- the self-service form needs them,
+//    but `getOrganizationSettings()` is TREASURER/BOARD/ADMIN-gated) and their write path is
+//    `ITravelExpenseService.updateTravelExpenseRates()` (ADMIN) -- the same "only ever
+//    settable/readable through the owning service, invisible to the generic update path" tier
+//    `auctionEnabled`/`sepaDebitEnabled` already establish above, for the opposite reason (a
+//    narrower read gate, not a disclaimer-gated write). NO DEFAULT on either (Design-Team
+//    ruling): a pre-filled 0.30 €/km would be a legal figure frozen into the codebase that nobody
+//    would ever remember to update -- `NULL` means "not configured", and
+//    `TravelExpenseService.addLine` refuses a line of the corresponding kind while its rate is
+//    unset rather than silently booking a wrong amount.
 import dev.kuml.profile.erm.ermMappingProfile
 import dev.kuml.uml.Multiplicity
 import dev.kuml.uml.dsl.applyProfile
@@ -308,6 +328,27 @@ classDiagram(name = "OrganizationSettings") {
         attribute(name = "datevMandantNummer", type = "Int") {
             multiplicity = Multiplicity(0, 1)
             stereotype("Column") { "columnName" to "datev_mandant_nummer" }
+        }
+        // Welle V1.4.11 "Reisekostenabrechnung". Nullable FK -> ledger_account -- where an
+        // approved reimbursement's EXPENSE-side debit is booked. Part of the GENERIC
+        // updateOrganizationSettings write-set, same treatment as eventIncomeAccountId above. See
+        // network.lapis.cloud.server.rpc.TravelExpensePostingBridge KDoc for the full booking
+        // shape.
+        attribute(name = "travelExpenseAccountId", type = "UUID") {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") { "columnName" to "travel_expense_account_id"; "fkEntity" to "LedgerAccount" }
+        }
+        // Welle V1.4.11. Nullable, NO default -- see file header addendum above. Settable ONLY
+        // via ITravelExpenseService.updateTravelExpenseRates, invisible to the generic update path
+        // (same read/write-tier isolation as sepaDebitEnabled, for the opposite reason: a narrower
+        // READ gate, not a disclaimer-gated write).
+        attribute(name = "travelMileageRatePerKm", type = "BigDecimal") {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") { "columnName" to "travel_mileage_rate_per_km"; "sqlType" to "NUMERIC(10,4)" }
+        }
+        attribute(name = "travelPerDiemRate", type = "BigDecimal") {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") { "columnName" to "travel_per_diem_rate"; "sqlType" to "NUMERIC(12,2)" }
         }
     }
 }

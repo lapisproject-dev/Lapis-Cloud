@@ -418,6 +418,12 @@ fun decodeAuditSnapshot(
             // ACCOUNTING_EXPORT_RUN/API_KEY already establish) -- falls through to the raw-text
             // display.
             AuditEntityType.CONTRIBUTION_RELIEF_REQUEST -> null
+            // Welle V1.4.11 "Reisekostenabrechnung" -- TravelExpenseService writes
+            // TravelExpenseSnapshot (see AuditLog.kt), but this client-side decode/render pair is
+            // deliberately not extended for it this wave (backend-only wave, same posture
+            // CONTRIBUTION_RELIEF_REQUEST/ACCOUNTING_EXPORT_RUN already establish) -- falls
+            // through to the raw-text display.
+            AuditEntityType.TRAVEL_EXPENSE_REPORT -> null
         }
     }.getOrNull()
 

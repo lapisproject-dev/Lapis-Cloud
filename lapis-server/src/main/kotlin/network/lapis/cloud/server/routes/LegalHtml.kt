@@ -359,6 +359,15 @@ internal object LegalHtml {
                         "soweit besondere Kategorien personenbezogener Daten betroffen sind."
                 )
             }
+            li {
+                +(
+                    "Reisekostenabrechnungen für Vorstand und Funktionsträger (Zweck, Reisezeitraum, " +
+                        "Fahrt-/Tagespauschale-/Belegkosten-Zeilen, Entscheidung und ggf. daraus resultierende " +
+                        "Buchung), einschließlich der hochgeladenen Belege — Art. 6 Abs. 1 lit. b DSGVO " +
+                        "(Mitgliedschaftsvertrag/Vereinsorganisation) i. V. m. § 147 AO (Aufbewahrungspflicht " +
+                        "für Buchungsbelege)."
+                )
+            }
         }
 
         h2 { +"Empfänger" }

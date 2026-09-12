@@ -184,6 +184,20 @@ enum class AuditEntityType {
      * Appended LAST, after `ACCOUNTING_EXPORT_MAPPING`, additive only.
      */
     CONTRIBUTION_RELIEF_REQUEST,
+
+    /**
+     * Welle V1.4.11 "Reisekostenabrechnung für Vorstand und Funktionsträger" --
+     * `network.lapis.cloud.server.rpc.TravelExpenseService`'s `createDraft`/`submitReport`/
+     * `withdrawReport`/`decideReport`/`retryPosting` each write exactly one
+     * `TRAVEL_EXPENSE_REPORT` entry per state transition, `entityId` = the
+     * `travel_expense_report` row's id. The booking itself stays `JOURNAL_ENTRY` (same split
+     * `DonationPostingBridge`/`PartyDonationVerdictSnapshot` already establish) -- this literal
+     * describes only the request's own lifecycle. Draft mutations (`updateDraft`/`addLine`/
+     * `removeLine`/receipt upload/deletion) deliberately write NO entry -- a draft is not yet a
+     * transaction, see [TravelExpenseSnapshot] KDoc. Appended LAST, after
+     * `CONTRIBUTION_RELIEF_REQUEST`, additive only.
+     */
+    TRAVEL_EXPENSE_REPORT,
 }
 
 /**
@@ -375,6 +389,11 @@ data class SocialPostModerationSnapshot(
  * classification, not a "which account did money move to" fact, so it stays outside this
  * deliberately narrow snapshot, same as every other non-account-id field `updateOrganizationSettings`
  * writes).
+ *
+ * [travelExpenseAccountId] (Welle V1.4.11 "Reisekostenabrechnung") is a sixth mapping field, same
+ * audit-relevance reasoning -- the first EXPENSE-side (not INCOME-side) account this snapshot
+ * carries, but the same "which account does money move through" fact GoBD Nachvollziehbarkeit
+ * cares about.
  */
 @Serializable
 data class OrganizationSettingsPaymentMappingSnapshot(
@@ -383,6 +402,7 @@ data class OrganizationSettingsPaymentMappingSnapshot(
     val contributionIncomeAccountId: String?,
     val donationIncomeAccountId: String? = null,
     val eventIncomeAccountId: String? = null,
+    val travelExpenseAccountId: String? = null,
 )
 
 /**
@@ -711,4 +731,21 @@ data class MemberMembershipTierSnapshot(
     val membershipTierId: String?,
     val familyId: String? = null,
     val reason: String? = null,
+)
+
+/**
+ * Structured payload for an [AuditEntityType.ORGANIZATION_SETTINGS] audit entry written by
+ * `network.lapis.cloud.server.rpc.TravelExpenseService.updateTravelExpenseRates` (Welle V1.4.11)
+ * -- reuses [AuditEntityType.ORGANIZATION_SETTINGS] with `entityId =
+ * network.lapis.cloud.server.rpc.ORGANIZATION_SETTINGS_ID`, the SAME "org-wide configuration
+ * change that doesn't warrant its own [AuditEntityType] literal" idiom
+ * [SepaCreditorSettingsSnapshot]/[DunningLevelSnapshot] already establish. Only ever written on an
+ * ACTUAL change (same narrowing `OrganizationSettingsService.updateOrganizationSettings` already
+ * applies, see [OrganizationSettingsPaymentMappingSnapshot] KDoc). No PII -- both fields are an
+ * organization-wide policy figure, never a per-member fact.
+ */
+@Serializable
+data class TravelExpenseRatesSnapshot(
+    val mileageRatePerKm: Decimal?,
+    val perDiemRate: Decimal?,
 )

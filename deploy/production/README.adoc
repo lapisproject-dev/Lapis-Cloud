@@ -137,7 +137,10 @@ pg_dump -U lapiscloud -h 127.0.0.1 -d lapiscloud -F c -f /tmp/lapiscloud.dump
 ----
 
 . **Copy the old document-storage directory** (if any documents were ever uploaded -- check first;
-  on a fresh pilot this may be empty) into a location the new named volume can be seeded from:
+  on a fresh pilot this may be empty) into a location the new named volume can be seeded from.
+  Since V1.4.11, uploaded travel-expense receipts also live under this same
+  `LAPIS_DOCUMENT_STORAGE_ROOT` volume (under a `travel-expenses/` storage-key prefix, no separate
+  volume or environment variable) -- this one copy step already carries them along:
 +
 [source,bash]
 ----

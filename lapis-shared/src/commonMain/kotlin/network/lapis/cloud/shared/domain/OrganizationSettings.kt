@@ -104,6 +104,27 @@ import kotlinx.serialization.Serializable
  * `network.lapis.cloud.server.accounting.datev.DatevBuchungsstapelWriter` refuses with a named
  * `BERATER_MANDANT_NOT_CONFIGURED` blocker while either is `null`, rather than emitting a file
  * DATEV would reject anyway.
+ *
+ * [travelExpenseAccountId] (Welle V1.4.11 "Reisekostenabrechnung") is a seventh ordinary,
+ * ADMIN-writable configuration field -- same treatment as [eventIncomeAccountId] above, part of
+ * [OrganizationSettingsInput]. Which SKR42 `LedgerAccount`
+ * `network.lapis.cloud.server.rpc.TravelExpensePostingBridge` books an approved reimbursement's
+ * EXPENSE-side debit into. `null` degrades the bridge to a no-op, same "unconfigured mapping"
+ * treatment as the other six.
+ *
+ * `travelMileageRatePerKm`/`travelPerDiemRate` (Welle V1.4.11) are DELIBERATELY ABSENT from both
+ * this DTO and [OrganizationSettingsInput] -- unlike every field above, their read path is
+ * [network.lapis.cloud.shared.rpc.ITravelExpenseService.getTravelExpenseRates] (every
+ * authenticated member -- the self-service reimbursement form needs them, but
+ * [network.lapis.cloud.shared.rpc.IOrganizationSettingsService.getOrganizationSettings] is
+ * TREASURER/BOARD/ADMIN-gated) and their write path is
+ * [network.lapis.cloud.shared.rpc.ITravelExpenseService.updateTravelExpenseRates] (ADMIN) -- the
+ * same "settable/readable only through the owning service" tier [auctionEnabled]/
+ * [sepaDebitEnabled] already establish above, here for the opposite reason (a narrower READ gate,
+ * not a disclaimer-gated write). Since [network.lapis.cloud.shared.rpc.IOrganizationSettingsService
+ * .updateOrganizationSettings] only ever writes the columns [OrganizationSettingsInput] actually
+ * carries, keeping these two rates off that type makes an accidental overwrite through the generic
+ * update path structurally impossible.
  */
 @Serializable
 data class OrganizationSettingsDto(
@@ -134,6 +155,7 @@ data class OrganizationSettingsDto(
     val eventIncomeSphere: GemeinnuetzigkeitSphere = GemeinnuetzigkeitSphere.ZWECKBETRIEB,
     val datevBeraterNummer: Int? = null,
     val datevMandantNummer: Int? = null,
+    val travelExpenseAccountId: String? = null,
 )
 
 /** Replaces every field of the single [OrganizationSettingsDto] row wholesale (no partial update). */
@@ -169,4 +191,6 @@ data class OrganizationSettingsInput(
     val datevBeraterNummer: Int? = null,
     /** V1.4.5.2. See [OrganizationSettingsDto.datevMandantNummer] KDoc. */
     val datevMandantNummer: Int? = null,
+    /** V1.4.11. See [OrganizationSettingsDto.travelExpenseAccountId] KDoc. */
+    val travelExpenseAccountId: String? = null,
 )

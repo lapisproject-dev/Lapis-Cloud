@@ -1558,3 +1558,35 @@ classDiagram(name = "Lapis Cloud Domain Model — Deceased Member Workflow (V1.4
 NOTE: This `[kuml]` block is not rendered or validated by any Gradle task in this repository (no
 Asciidoctor plugin is wired into the build) -- its syntax was hand-verified against the existing
 blocks above rather than compiled.
+
+== V1.4.11 — Travel expense reimbursement
+
+Three new tables, model in `45-travel-expense.kuml.kts`, migration `V29__travel_expense.sql` --
+see `docs/architecture/travel-expenses.adoc` for the full state machine, booking shape, and
+security model this short summary points at.
+
+* **`travel_expense_report`** -- one self-service reimbursement request per row
+  (`TravelExpenseReportStatus`: `DRAFT`/`REQUESTED`/`APPROVED`/`REJECTED`/`EXECUTED`/`WITHDRAWN`).
+  `posted_journal_entry_id` is the booking idempotency anchor (plain unique index
+  `uq_ter_posted_journal_entry`); `submitted_at` is nullable but is the keyset-pagination column
+  the board queue orders by, so `listReports` hard-filters `submitted_at IS NOT NULL`
+  unconditionally regardless of any status filter.
+* **`travel_expense_line`** -- one line per report, `TravelExpenseLineKind`
+  (`MILEAGE`/`PER_DIEM`/`RECEIPTED`) fixed once created. `rate_snapshot` is provisional while the
+  report is a `DRAFT` and frozen authoritatively by `submitReport` -- no code path re-reads
+  `organization_settings` for an already-submitted report.
+* **`travel_expense_receipt`** -- one uploaded proof file per row, `storage_key` always
+  server-generated, `mime_type` always derived from magic bytes rather than the client's declared
+  `Content-Type`.
+
+`organization_settings` gains three columns: `travel_expense_account_id` (a sixth ledger-account
+mapping, the first EXPENSE-typed one), `travel_mileage_rate_per_km`, `travel_per_diem_rate` (the
+latter two deliberately absent from `OrganizationSettingsDto`/`OrganizationSettingsInput` -- see
+`travel-expenses.adoc`'s "Rate configuration and freezing" section for why they get their own,
+narrower read/write RPC pair instead).
+
+`TravelExpensePostingBridge` is the first bridge in this codebase that books money **out** (every
+prior bridge -- `ContributionPostingBridge`/`DonationPostingBridge`/`EventFeePostingBridge` --
+books income in); it is also the first caller for which `CashRegisterGuard`'s cash-register
+guards are treated as a degrading case rather than a hard failure, because a board APPROVE
+decision must survive a transient till shortfall.

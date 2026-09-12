@@ -1,0 +1,239 @@
+= Travel Expense Reimbursement (V1.4.11)
+
+NOTE: This document's `[kuml]` block is not rendered or validated by any Gradle task -- it is
+prose documentation only, kept in sync by hand with
+`lapis-server/src/main/kuml/45-travel-expense.kuml.kts` (the actual, load-bearing model). Same
+convention `docs/architecture/domain-model.adoc` already establishes.
+
+Any authenticated member can file a self-service travel expense report for a board/functionary
+trip -- "board and functionaries" describes the real usage this wave was built for, not a
+technical restriction: nothing in `TravelExpenseService` checks a caller's committee role. This
+is a deliberate departure from the V1.4.10 "Beitragsvergünstigungen" wave, which has no dedicated
+architecture document of its own (see that domain's own README section) -- the design team asked
+for one here, and `bank-statement-import.adoc`/`datev-export.adoc` are the established
+counter-precedent for a domain complex enough to warrant it.
+
+== Data shape
+
+Three new tables -- `travel_expense_report` (one row per reimbursement request),
+`travel_expense_line` (one row per mileage/per-diem/receipted-expense line), and
+`travel_expense_receipt` (one row per uploaded proof file) -- plus three new columns on the
+existing `organization_settings` table (`travel_expense_account_id`,
+`travel_mileage_rate_per_km`, `travel_per_diem_rate`). See
+`lapis-server/src/main/kuml/45-travel-expense.kuml.kts` for the full kUML model and
+`V29__travel_expense.sql` for the migration.
+
+[kuml, travel-expenses, svg]
+----
+classDiagram(name = "Travel Expense Reimbursement — ERM excerpt") {
+    class(name = "TravelExpenseReport") {
+        attribute(name = "id", type = "UUID")
+        attribute(name = "status", type = "String") { note = "DRAFT|REQUESTED|APPROVED|REJECTED|EXECUTED|WITHDRAWN" }
+        attribute(name = "purpose", type = "String")
+        attribute(name = "travelFrom", type = "LocalDate")
+        attribute(name = "travelTo", type = "LocalDate")
+        attribute(name = "totalAmount", type = "BigDecimal") { note = "Σ of every line, server-computed" }
+        attribute(name = "requestedBy", type = "UUID")
+        attribute(name = "submittedAt", type = "LocalDateTime") { note = "nullable -- keyset cursor column" }
+        attribute(name = "decisionNote", type = "String") { note = "mandatory on approve AND reject" }
+        attribute(name = "postedJournalEntryId", type = "UUID") { note = "idempotency anchor, uq_ter_posted_journal_entry" }
+        attribute(name = "executionError", type = "String") { note = "non-null iff status == APPROVED" }
+    }
+    class(name = "TravelExpenseLine") {
+        attribute(name = "id", type = "UUID")
+        attribute(name = "kind", type = "String") { note = "MILEAGE|PER_DIEM|RECEIPTED, immutable once created" }
+        attribute(name = "kilometers", type = "BigDecimal") { note = "MILEAGE only" }
+        attribute(name = "days", type = "Int") { note = "PER_DIEM only" }
+        attribute(name = "rateSnapshot", type = "BigDecimal") { note = "frozen at submitReport time" }
+        attribute(name = "amount", type = "BigDecimal") { note = "server-computed for MILEAGE/PER_DIEM" }
+    }
+    class(name = "TravelExpenseReceipt") {
+        attribute(name = "id", type = "UUID")
+        attribute(name = "storageKey", type = "String") { note = "server-generated, never client input" }
+        attribute(name = "mimeType", type = "String") { note = "derived from magic bytes, never the declared Content-Type" }
+        attribute(name = "sha256", type = "String")
+    }
+    class(name = "Member") { attribute(name = "id", type = "UUID") }
+    class(name = "JournalEntry") { attribute(name = "id", type = "UUID") }
+
+    association(source = TravelExpenseReport, target = TravelExpenseLine) { target { multiplicity("1..*") } }
+    association(source = TravelExpenseLine, target = TravelExpenseReceipt) { target { multiplicity("0..*") } }
+    association(source = TravelExpenseReport, target = Member, id = "subject") { target { multiplicity("1") } }
+    association(source = TravelExpenseReport, target = JournalEntry, id = "posted") { target { multiplicity("0..1") } }
+}
+----
+
+== State machine
+
+[cols="1,1,1,2"]
+|===
+| From | To | Method | Condition
+
+| —
+| DRAFT
+| `createDraft`
+| Subject active, < 10 open drafts
+
+| DRAFT
+| DRAFT
+| `updateDraft`/`addLine`/`removeLine`/receipt upload/deletion
+| Subject or requester
+
+| DRAFT
+| REQUESTED
+| `submitReport`
+| Full validation + rate freeze
+
+| DRAFT
+| WITHDRAWN
+| `withdrawReport`
+| Subject or requester
+
+| REQUESTED
+| WITHDRAWN
+| `withdrawReport`
+| Subject or requester
+
+| REQUESTED
+| REJECTED
+| `decideReport(false)`
+| BOARD/ADMIN, neither subject nor requester, note mandatory
+
+| REQUESTED
+| EXECUTED
+| `decideReport(true)`
+| + booking succeeded
+
+| REQUESTED
+| APPROVED
+| `decideReport(true)`
+| + booking failed -> `executionError`
+
+| APPROVED
+| EXECUTED
+| `retryPosting`
+| Booking succeeded
+
+| APPROVED
+| APPROVED
+| `retryPosting`
+| Failed again, `executionError` updated
+
+| APPROVED
+| REJECTED
+| `decideReport(false)`
+| Only way out of a permanently unbookable report ("no dead end")
+|===
+
+`submitted_at` is nullable (a draft is private) but is the keyset-pagination column
+`listReports` orders by -- the query therefore hard-filters `submitted_at IS NOT NULL`
+unconditionally, and `status = DRAFT` as a filter argument throws rather than silently returning
+an empty page.
+
+== Four-eyes, over both paths
+
+`ContributionReliefService.decideReliefRequest` blocks only `subjectMemberId == decider`. This
+wave closes the second half of that gate: `TravelExpenseService.decideReport` rejects the decider
+if they are **either** the report's subject **or** its requester (`requestedBy`) -- whoever
+submitted a report "on behalf of" someone else may not approve/reject it themselves either. A
+different BOARD/ADMIN member always can.
+
+== Rate configuration and freezing
+
+`organization_settings.travel_mileage_rate_per_km`/`travel_per_diem_rate` are deliberately
+**absent** from `OrganizationSettingsDto`/`OrganizationSettingsInput` -- their read path is
+`ITravelExpenseService.getTravelExpenseRates()` (every authenticated member; the self-service
+form needs them, but `getOrganizationSettings()` is TREASURER/BOARD/ADMIN-gated) and their write
+path is `updateTravelExpenseRates()` (ADMIN). Neither carries a default: `NULL` means "not
+configured," and the affected line kind is disabled in the self-service form until an ADMIN sets
+it. `addLine` writes a **provisional** `rate_snapshot` from the current rate (so the running total
+displays correctly while the report is still a draft); `submitReport` re-reads the rate and
+**freezes** it authoritatively into every mileage/per-diem line. No code path ever reads
+`OrganizationSettings` again for an already-submitted report -- a later rate change is never
+retroactive.
+
+== Booking (`TravelExpensePostingBridge`)
+
+The first bridge in this codebase that books money **out**. Runs inside the caller's
+(`decideReport`/`retryPosting`) already-open transaction, same "transaction-free by contract"
+idiom `DonationPostingBridge`/`ContributionPostingBridge`/`EventFeePostingBridge` establish for
+their own (income-side) bookings.
+
+[cols="1,1"]
+|===
+| Side | Account
+
+| Debit (one posting per line)
+| `organization_settings.travel_expense_account_id` (must be `EXPENSE`-typed)
+
+| Credit (one posting, the total)
+| `organization_settings.payment_bank_account_id`
+|===
+
+Sphere is hardcoded to `IDEELLER_BEREICH` (Q2 in the implementation plan) -- a board/functionary
+trip is practically always ideeller Bereich; revisit only if a Zweckbetrieb-funded trip ever needs
+its own sphere. `posting` has no memo/description column, so the line-by-line breakdown survives
+structurally as N debit postings (one per line) rather than as free text; `journal_entry
+.description` carries the report id and a per-kind line count for human traceability back to
+`travel_expense_line`.
+
+**Degrades instead of failing** (returns `Failed(code)`, WARN log, no journal entry, no audit
+entry, the APPROVED decision is preserved) for: `travel_expense_account_not_configured`,
+`payment_bank_account_not_configured`, `ledger_account_inactive`,
+`travel_expense_account_not_expense_type`, `cash_register_balance_insufficient`,
+`cash_voucher_required`. The last two are a deliberate departure from the three income-side
+bridges' own posture ("`CashRegisterGuard`'s guards are NOT degrading cases") -- this is the first
+bridge that can ever book a CREDIT against a potential cash-register account, and a board's
+APPROVE decision is a governance act that must survive a transient till shortfall; `retryPosting`
+books as soon as the till has cover again. A `JournalEntryBalance.validateBalanced` failure is
+**not** a degrading case (a code defect, not a state) and throws, rolling back the whole
+transaction.
+
+Idempotency: `posted_journal_entry_id` plus the plain (non-partial) unique index
+`uq_ter_posted_journal_entry` guarantee at most one booking per report, on top of the application-
+level status check (`retryPosting` requires `APPROVED` with a set `executionError` and no posted
+entry).
+
+== Receipt upload/download security
+
+File bytes travel over dedicated HTTP routes (`TravelExpenseReceiptRoutes`), never Kilua RPC --
+same reasoning `DocumentRoutes` KDoc gives. Security posture, mirroring that route's own
+checklist:
+
+* **Path traversal**: `storage_key` is always server-generated
+  (`travel-expenses/{reportId}/{receiptId}.bin`), never derived from the client-supplied file name.
+* **DoS cap**: 10 MiB, enforced while streaming, before the file is buffered.
+* **MIME allowlist derived from magic bytes, not the declared `Content-Type`**: the client's
+  declared type is discarded entirely. `application/pdf`/`image/jpeg`/`image/png` only --
+  deliberately **no** `image/svg+xml` (a stored-XSS vector every other MIME allowlist in this
+  codebase already excludes for the same reason).
+* **Filename sanitization**: `original_filename` is stripped of path separators and control
+  characters before it reaches the database -- pure display metadata, never used to build a
+  filesystem path (a second safeguard on top of the server-generated `storage_key`).
+* **IDOR on download**: enforced in the route itself, not only in the UI -- subject, requester,
+  or BOARD/ADMIN only. Deliberately **not** TREASURER, the same narrower tier as the decision
+  itself.
+* **Header injection / MIME confusion on download**: the `Content-Disposition` filename is
+  carried via RFC 5987 `filename*=UTF-8''...` percent-encoding (plus an ASCII `filename=`
+  fallback), and every download response carries `X-Content-Type-Options: nosniff`. `DocumentRoutes`
+  does neither today -- a pre-existing gap in that route, out of scope for this wave, flagged as a
+  follow-up rather than fixed here.
+
+== DSGVO erasure
+
+A `DRAFT` report (or a `WITHDRAWN` report that was never submitted) has no organizational
+retention interest and is deleted outright, including its lines, receipt rows, **and receipt
+files**. From `REQUESTED` on, the report is a Buchungsbeleg candidate: `purpose` and every line's
+`description` are redacted to a fixed placeholder, but status, every amount/date value, the
+decision note, and the booking reference are retained (Art. 5(2) DSGVO Rechenschaftspflicht +
+§147 Abs. 1 Nr. 4 AO, 10 years). Receipt **files** for a submitted report are never removed by
+erasure -- they *are* the accounting voucher. Unlike the V1.4.10 wave's Art. 9 free-text reason,
+there is no automatic redaction sweep here: there is no special-category free text to redact, and
+§147 AO's retention period applies regardless of any later erasure request.
+
+== What doesn't work yet (this wave)
+
+See the README's own "Travel expense reimbursement" section for the full list of deliberate
+scope boundaries (no Verpflegungsmehraufwand reduction rules, no payout/payment run, no
+line-by-line partial approval, no Übungsleiter-/Ehrenamtspauschale integration, hardcoded sphere,
+no inline receipt preview).

@@ -10527,3 +10527,289 @@ msgstr "Uitvoering herhaald."
 #: src/jsMain/kotlin/network/lapis/cloud/client/ContributionReliefQueueScreen.kt
 msgid "Wiedervorlage am %1"
 msgstr "Herbeoordelingsdatum %1"
+
+# Welle V1.4.11 "Reisekostenabrechnung fuer Vorstand und Funktionstraeger" -- angehaengt, nicht alphabetisch einsortiert.
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseScreen.kt
+msgid "%1 hinzufügen"
+msgstr "%1 toevoegen"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseScreen.kt
+msgid "%1 km × %2/km"
+msgstr "%1 km × %2/km"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseScreen.kt
+msgid "%1 Tage × %2"
+msgstr "%1 dagen × %2"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseScreen.kt
+msgid "Als Entwurf kopieren"
+msgstr "Als concept kopiëren"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseScreen.kt
+msgid "Als neuer Entwurf kopiert. Belege müssen erneut hochgeladen werden."
+msgstr "Gekopieerd als nieuw concept. Bonnen moeten opnieuw worden geüpload."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseApprovalsScreen.kt
+msgid "Antrag genehmigt und gebucht."
+msgstr "Aanvraag goedgekeurd en geboekt."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseScreen.kt
+msgid "Antrag zur Freigabe eingereicht."
+msgstr "Aanvraag ingediend ter goedkeuring."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseScreen.kt
+msgid "Beleg hochgeladen."
+msgstr "Bon geüpload."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseScreen.kt
+msgid "Beleg hochladen"
+msgstr "Bon uploaden"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseLabels.kt
+msgid "Beleg-Kosten"
+msgstr "Bonkosten"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseScreen.kt
+msgid "Bitte eine Beschreibung angeben."
+msgstr "Voer een omschrijving in."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseScreen.kt
+msgid "Bitte eine gültige Anzahl Tage angeben."
+msgstr "Voer een geldig aantal dagen in."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseScreen.kt
+msgid "Bitte eine gültige Kilometerzahl angeben."
+msgstr "Voer een geldig aantal kilometers in."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseApprovalsScreen.kt
+msgid "Bitte eine gültige Tagespauschale angeben (z. B. 14.00)."
+msgstr "Voer een geldige dagvergoeding in (bijv. 14.00)."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseScreen.kt
+msgid "Bitte einen gültigen Betrag angeben."
+msgstr "Voer een geldig bedrag in."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseApprovalsScreen.kt
+msgid "Bitte einen gültigen Kilometersatz angeben (z. B. 0.30)."
+msgstr "Voer een geldig kilometertarief in (bijv. 0.30)."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseScreen.kt
+msgid "Bitte Zweck und ein gültiges Datum (JJJJ-MM-TT) für Von/Bis angeben."
+msgstr "Geef een doel en een geldige datum (JJJJ-MM-DD) op voor Van/Tot."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseLabels.kt
+msgid "Buchung fehlgeschlagen"
+msgstr "Boeking mislukt"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseApprovalsScreen.kt
+msgid "Buchung wiederholen"
+msgstr "Boeking opnieuw proberen"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseApprovalsScreen.kt
+msgid "Buchung wiederholt."
+msgstr "Boeking opnieuw geprobeerd."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseLabels.kt
+msgid "Das Bankkonto ist noch nicht zugeordnet -- bitte einen ADMIN informieren."
+msgstr "De bankrekening is nog niet toegewezen -- informeer een ADMIN."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseScreen.kt
+msgid "Das Bis-Datum darf nicht vor dem Von-Datum liegen."
+msgstr "De einddatum mag niet vóór de startdatum liggen."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseLabels.kt
+msgid "Das Reisekosten-Aufwandskonto hat den falschen Kontentyp -- bitte einen ADMIN informieren."
+msgstr "De reiskostenrekening heeft het verkeerde rekeningtype -- informeer een ADMIN."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseLabels.kt
+msgid "Das Reisekosten-Aufwandskonto ist noch nicht zugeordnet -- bitte einen ADMIN informieren."
+msgstr "De reiskostenrekening is nog niet toegewezen -- informeer een ADMIN."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseLabels.kt
+msgid "Der Antrag hat sich seit der Genehmigung verändert und kann so nicht gebucht werden."
+msgstr "De aanvraag is gewijzigd na goedkeuring en kan zo niet worden geboekt."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseLabels.kt
+msgid "Der Kassenbestand reicht derzeit nicht aus -- ein erneuter Versuch kann später erfolgreich sein."
+msgstr "Het kassaldo is momenteel onvoldoende -- een nieuwe poging kan later slagen."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseScreen.kt
+msgid "Der Kilometersatz ist nicht konfiguriert."
+msgstr "Het kilometertarief is niet geconfigureerd."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseLabels.kt
+msgid "Die Buchung ist fehlgeschlagen (unbekannte Ursache). Bitte wenden Sie sich an die Administration."
+msgstr "De boeking is mislukt (onbekende oorzaak). Neem contact op met de administratie."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseHttp.kt
+msgid "Die Datei ist zu groß (maximal 10 MB)."
+msgstr "Het bestand is te groot (maximaal 10 MB)."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseApprovalsScreen.kt
+msgid "Diese Sätze werden nicht automatisch an Gesetzesänderungen angepasst."
+msgstr "Deze tarieven worden niet automatisch aangepast aan wetswijzigingen."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseScreen.kt
+msgid "Die Tagespauschale ist nicht konfiguriert."
+msgstr "Het dagvergoedingstarief is niet geconfigureerd."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseLabels.kt
+msgid "Die Überweisung veranlasst die Kasse separat — dieser Antrag löst keine Zahlung aus."
+msgstr "De penningmeester regelt de overboeking apart — deze aanvraag leidt niet tot een betaling."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseScreen.kt
+msgid "Ein Antrag ist möglich, aber die Buchung scheitert, bis eine Administratorin oder ein Administrator die Kontenzuordnung vervollständigt."
+msgstr "Een aanvraag is mogelijk, maar de boeking mislukt totdat een beheerder de rekeningtoewijzing voltooit."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseLabels.kt
+msgid "Eines der zugeordneten Konten ist nicht mehr aktiv -- bitte einen ADMIN informieren."
+msgstr "Een van de toegewezen rekeningen is niet meer actief -- informeer een ADMIN."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseScreen.kt
+msgid "Entwurf anlegen"
+msgstr "Concept aanmaken"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseScreen.kt
+msgid "Entwurf speichern"
+msgstr "Concept opslaan"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseScreen.kt
+msgid "Es liegt bereits ein Entwurf vor -- bitte diesen zuerst einreichen oder zurückziehen, bevor ein neuer Entwurf aus dieser Ablehnung kopiert wird."
+msgstr "Er is al een openstaand concept -- dien dit eerst in of trek het in voordat u een nieuw concept van deze afwijzing kopieert."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseScreen.kt
+msgid "Es sind noch keine Sätze konfiguriert -- bitte eine Administratorin oder einen Administrator informieren."
+msgstr "Er zijn nog geen tarieven geconfigureerd -- informeer een beheerder."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseLabels.kt
+msgid "Fahrt"
+msgstr "Rit"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseScreen.kt
+msgid "Fahrtkosten: %1 · Tagespauschalen: %2 · Belegkosten: %3 · Gesamt: %4"
+msgstr "Kilometervergoeding: %1 · Dagvergoedingen: %2 · Bonkosten: %3 · Totaal: %4"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseLabels.kt
+msgid "Für diese Buchung wird ein Belegverweis benötigt -- bitte einen ADMIN informieren."
+msgstr "Voor deze boeking is een bonverwijzing vereist -- informeer een ADMIN."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseApprovalsScreen.kt
+msgid "Genehmigen und buchen"
+msgstr "Goedkeuren en boeken"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseScreen.kt
+msgid "Jede Beleg-Kosten-Zeile benötigt mindestens einen Beleg."
+msgstr "Elke bonkostenregel heeft ten minste één bon nodig."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseScreen.kt
+msgid "Kilometer"
+msgstr "Kilometers"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseApprovalsScreen.kt
+msgid "Kilometersatz: %1 · Tagespauschale: %2"
+msgstr "Kilometertarief: %1 · Dagvergoeding: %2"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseApprovalsScreen.kt
+msgid "Kilometersatz (EUR/km)"
+msgstr "Kilometertarief (EUR/km)"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseScreen.kt
+msgid "Kilometersatz ist noch nicht konfiguriert."
+msgstr "Het kilometertarief is nog niet geconfigureerd."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseHttp.kt
+msgid "Löschen fehlgeschlagen."
+msgstr "Verwijderen mislukt."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseScreen.kt
+msgid "Meine Anträge"
+msgstr "Mijn aanvragen"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseScreen.kt
+msgid "Mindestens eine Zeile ist erforderlich."
+msgstr "Er is ten minste één regel vereist."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseScreen.kt
+msgid "Neuen Antrag anlegen"
+msgstr "Nieuwe aanvraag aanmaken"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseScreen.kt
+msgid "Noch keine eingereichten Anträge."
+msgstr "Nog geen ingediende aanvragen."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseScreen.kt
+msgid "Noch keine Zeilen erfasst."
+msgstr "Nog geen regels vastgelegd."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseScreen.kt
+msgid "Reisekosten"
+msgstr "Reiskosten"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/Sidebar.kt
+msgid "Reisekosten-Freigaben"
+msgstr "Reiskostengoedkeuringen"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseApprovalsScreen.kt
+msgid "Sätze"
+msgstr "Tarieven"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseApprovalsScreen.kt
+msgid "Sätze gespeichert."
+msgstr "Tarieven opgeslagen."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseApprovalsScreen.kt
+msgid "Sätze speichern"
+msgstr "Tarieven opslaan"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseScreen.kt
+msgid "Tage"
+msgstr "Dagen"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseLabels.kt
+msgid "Tagespauschale"
+msgstr "Dagvergoeding"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseApprovalsScreen.kt
+msgid "Tagespauschale (EUR)"
+msgstr "Dagvergoeding (EUR)"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseScreen.kt
+msgid "Tagespauschale ist noch nicht konfiguriert."
+msgstr "Het dagvergoedingstarief is nog niet geconfigureerd."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseScreen.kt
+msgid "Zeile entfernen"
+msgstr "Regel verwijderen"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseScreen.kt
+msgid "Zeile hinzufügen"
+msgstr "Regel toevoegen"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseScreen.kt
+msgid "Zeile hinzugefügt."
+msgstr "Regel toegevoegd."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseLabels.kt
+msgid "Zur Auszahlung gebucht"
+msgstr "Geboekt voor uitbetaling"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseScreen.kt
+msgid "Zur Freigabe einreichen"
+msgstr "Indienen ter goedkeuring"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseScreen.kt
+msgid "Zweck der Reise"
+msgstr "Doel van de reis"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/LedgerScreen.kt
+msgid "Reisekosten-Aufwandskonto"
+msgstr "Reiskostenrekening"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/Sidebar.kt
+msgid "Reisekosten-Freigaben (%1)"
+msgstr "Reiskostengoedkeuringen (%1)"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/LedgerScreen.kt
+msgid "Bankkonto: %1 · Gebührenkonto: %2 · Beitragserlöskonto: %3 · Spendenerlöskonto: %4 · Veranstaltungserlöskonto: %5 (%6) · Reisekosten-Aufwandskonto: %7"
+msgstr "Bankrekening: %1 · Kostenrekening: %2 · Contributie-inkomstenrekening: %3 · Donatie-inkomstenrekening: %4 · Evenementeninkomstenrekening: %5 (%6) · Reiskostenrekening: %7"
+

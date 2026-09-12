@@ -122,6 +122,10 @@ fun auditEntityTypeLabel(entityType: AuditEntityType): String =
         // row; no dedicated screen exists yet this wave (backend-only, same posture
         // BANK_STATEMENT_IMPORT/ACCOUNTING_EXPORT_CONNECTION already establish for their own waves).
         AuditEntityType.CONTRIBUTION_RELIEF_REQUEST -> gettext("Beitragsvergünstigung")
+        // Welle V1.4.11 "Reisekostenabrechnung für Vorstand und Funktionsträger" -- "Reisekosten"
+        // is the term `TravelExpenseScreen.kt`/`TravelExpenseApprovalsScreen.kt` use throughout
+        // for a `travel_expense_report` row.
+        AuditEntityType.TRAVEL_EXPENSE_REPORT -> gettext("Reisekosten")
     }
 
 fun auditEntityTypeColor(entityType: AuditEntityType): String =
@@ -185,6 +189,10 @@ fun auditEntityTypeColor(entityType: AuditEntityType): String =
         // relevant but not itself a security event, same tier ORGANIZATION_SETTINGS/
         // ACCOUNTING_EXPORT_RUN already carry.
         AuditEntityType.CONTRIBUTION_RELIEF_REQUEST -> "warning"
+        // "info" -- ein Reisekosten-Lebenszyklus-Ereignis ist administrativ und finanziell
+        // relevant, aber kein Sicherheits- oder Ablehnungs-Ereignis; dieselbe Einstufung wie
+        // CONFERENCE_RECORDING/CONFERENCE_ROOM oben.
+        AuditEntityType.TRAVEL_EXPENSE_REPORT -> "info"
     }
 
 // ------------------------------------------------------------------------------------------------

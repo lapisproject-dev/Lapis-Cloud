@@ -10576,3 +10576,289 @@ msgstr "Esecuzione ripetuta."
 #: src/jsMain/kotlin/network/lapis/cloud/client/ContributionReliefQueueScreen.kt
 msgid "Wiedervorlage am %1"
 msgstr "Data di revisione %1"
+
+# Welle V1.4.11 "Reisekostenabrechnung fuer Vorstand und Funktionstraeger" -- angehaengt, nicht alphabetisch einsortiert.
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseScreen.kt
+msgid "%1 hinzufügen"
+msgstr "Aggiungi %1"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseScreen.kt
+msgid "%1 km × %2/km"
+msgstr "%1 km × %2/km"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseScreen.kt
+msgid "%1 Tage × %2"
+msgstr "%1 giorni × %2"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseScreen.kt
+msgid "Als Entwurf kopieren"
+msgstr "Copia come bozza"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseScreen.kt
+msgid "Als neuer Entwurf kopiert. Belege müssen erneut hochgeladen werden."
+msgstr "Copiato come nuova bozza. Le ricevute devono essere caricate di nuovo."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseApprovalsScreen.kt
+msgid "Antrag genehmigt und gebucht."
+msgstr "Richiesta approvata e registrata."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseScreen.kt
+msgid "Antrag zur Freigabe eingereicht."
+msgstr "Richiesta inviata per l'approvazione."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseScreen.kt
+msgid "Beleg hochgeladen."
+msgstr "Ricevuta caricata."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseScreen.kt
+msgid "Beleg hochladen"
+msgstr "Carica ricevuta"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseLabels.kt
+msgid "Beleg-Kosten"
+msgstr "Spesa documentata"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseScreen.kt
+msgid "Bitte eine Beschreibung angeben."
+msgstr "Inserire una descrizione."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseScreen.kt
+msgid "Bitte eine gültige Anzahl Tage angeben."
+msgstr "Inserire un numero di giorni valido."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseScreen.kt
+msgid "Bitte eine gültige Kilometerzahl angeben."
+msgstr "Inserire un numero di chilometri valido."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseApprovalsScreen.kt
+msgid "Bitte eine gültige Tagespauschale angeben (z. B. 14.00)."
+msgstr "Inserire una diaria valida (ad es. 14.00)."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseScreen.kt
+msgid "Bitte einen gültigen Betrag angeben."
+msgstr "Inserire un importo valido."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseApprovalsScreen.kt
+msgid "Bitte einen gültigen Kilometersatz angeben (z. B. 0.30)."
+msgstr "Inserire una tariffa chilometrica valida (ad es. 0.30)."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseScreen.kt
+msgid "Bitte Zweck und ein gültiges Datum (JJJJ-MM-TT) für Von/Bis angeben."
+msgstr "Indicare lo scopo e una data valida (AAAA-MM-GG) per Da/A."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseLabels.kt
+msgid "Buchung fehlgeschlagen"
+msgstr "Registrazione non riuscita"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseApprovalsScreen.kt
+msgid "Buchung wiederholen"
+msgstr "Riprova la registrazione"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseApprovalsScreen.kt
+msgid "Buchung wiederholt."
+msgstr "Registrazione riprovata."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseLabels.kt
+msgid "Das Bankkonto ist noch nicht zugeordnet -- bitte einen ADMIN informieren."
+msgstr "Il conto bancario non è ancora stato mappato -- informare un ADMIN."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseScreen.kt
+msgid "Das Bis-Datum darf nicht vor dem Von-Datum liegen."
+msgstr "La data di fine non può precedere la data di inizio."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseLabels.kt
+msgid "Das Reisekosten-Aufwandskonto hat den falschen Kontentyp -- bitte einen ADMIN informieren."
+msgstr "Il conto spese di viaggio ha il tipo di conto errato -- informare un ADMIN."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseLabels.kt
+msgid "Das Reisekosten-Aufwandskonto ist noch nicht zugeordnet -- bitte einen ADMIN informieren."
+msgstr "Il conto spese di viaggio non è ancora stato mappato -- informare un ADMIN."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseLabels.kt
+msgid "Der Antrag hat sich seit der Genehmigung verändert und kann so nicht gebucht werden."
+msgstr "La richiesta è cambiata dopo l'approvazione e non può essere registrata così."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseLabels.kt
+msgid "Der Kassenbestand reicht derzeit nicht aus -- ein erneuter Versuch kann später erfolgreich sein."
+msgstr "Il saldo di cassa attualmente non è sufficiente -- un nuovo tentativo potrebbe riuscire più avanti."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseScreen.kt
+msgid "Der Kilometersatz ist nicht konfiguriert."
+msgstr "La tariffa chilometrica non è configurata."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseLabels.kt
+msgid "Die Buchung ist fehlgeschlagen (unbekannte Ursache). Bitte wenden Sie sich an die Administration."
+msgstr "La registrazione non è riuscita (causa sconosciuta). Contattare l'amministrazione."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseHttp.kt
+msgid "Die Datei ist zu groß (maximal 10 MB)."
+msgstr "Il file è troppo grande (massimo 10 MB)."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseApprovalsScreen.kt
+msgid "Diese Sätze werden nicht automatisch an Gesetzesänderungen angepasst."
+msgstr "Queste tariffe non vengono adeguate automaticamente alle modifiche di legge."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseScreen.kt
+msgid "Die Tagespauschale ist nicht konfiguriert."
+msgstr "L'indennità giornaliera non è configurata."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseLabels.kt
+msgid "Die Überweisung veranlasst die Kasse separat — dieser Antrag löst keine Zahlung aus."
+msgstr "La tesoreria dispone il bonifico separatamente — questa richiesta non genera alcun pagamento."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseScreen.kt
+msgid "Ein Antrag ist möglich, aber die Buchung scheitert, bis eine Administratorin oder ein Administrator die Kontenzuordnung vervollständigt."
+msgstr "È possibile presentare una richiesta, ma la registrazione fallirà finché un amministratore non completa la mappatura dei conti."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseLabels.kt
+msgid "Eines der zugeordneten Konten ist nicht mehr aktiv -- bitte einen ADMIN informieren."
+msgstr "Uno dei conti mappati non è più attivo -- informare un ADMIN."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseScreen.kt
+msgid "Entwurf anlegen"
+msgstr "Crea bozza"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseScreen.kt
+msgid "Entwurf speichern"
+msgstr "Salva bozza"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseScreen.kt
+msgid "Es liegt bereits ein Entwurf vor -- bitte diesen zuerst einreichen oder zurückziehen, bevor ein neuer Entwurf aus dieser Ablehnung kopiert wird."
+msgstr "Esiste già una bozza aperta -- inviarla o ritirarla prima di copiare una nuova bozza da questo rifiuto."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseScreen.kt
+msgid "Es sind noch keine Sätze konfiguriert -- bitte eine Administratorin oder einen Administrator informieren."
+msgstr "Non è ancora stata configurata alcuna tariffa -- informare un amministratore."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseLabels.kt
+msgid "Fahrt"
+msgstr "Viaggio"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseScreen.kt
+msgid "Fahrtkosten: %1 · Tagespauschalen: %2 · Belegkosten: %3 · Gesamt: %4"
+msgstr "Chilometraggio: %1 · Diarie: %2 · Spese documentate: %3 · Totale: %4"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseLabels.kt
+msgid "Für diese Buchung wird ein Belegverweis benötigt -- bitte einen ADMIN informieren."
+msgstr "Questa registrazione richiede un riferimento al documento -- informare un ADMIN."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseApprovalsScreen.kt
+msgid "Genehmigen und buchen"
+msgstr "Approva e registra"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseScreen.kt
+msgid "Jede Beleg-Kosten-Zeile benötigt mindestens einen Beleg."
+msgstr "Ogni riga di spesa documentata richiede almeno una ricevuta."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseScreen.kt
+msgid "Kilometer"
+msgstr "Chilometri"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseApprovalsScreen.kt
+msgid "Kilometersatz: %1 · Tagespauschale: %2"
+msgstr "Tariffa chilometrica: %1 · Diaria: %2"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseApprovalsScreen.kt
+msgid "Kilometersatz (EUR/km)"
+msgstr "Tariffa chilometrica (EUR/km)"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseScreen.kt
+msgid "Kilometersatz ist noch nicht konfiguriert."
+msgstr "La tariffa chilometrica non è ancora configurata."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseHttp.kt
+msgid "Löschen fehlgeschlagen."
+msgstr "Eliminazione non riuscita."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseScreen.kt
+msgid "Meine Anträge"
+msgstr "Le mie richieste"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseScreen.kt
+msgid "Mindestens eine Zeile ist erforderlich."
+msgstr "È richiesta almeno una riga."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseScreen.kt
+msgid "Neuen Antrag anlegen"
+msgstr "Crea nuova richiesta"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseScreen.kt
+msgid "Noch keine eingereichten Anträge."
+msgstr "Nessuna richiesta inviata finora."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseScreen.kt
+msgid "Noch keine Zeilen erfasst."
+msgstr "Nessuna riga registrata finora."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseScreen.kt
+msgid "Reisekosten"
+msgstr "Spese di viaggio"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/Sidebar.kt
+msgid "Reisekosten-Freigaben"
+msgstr "Approvazioni spese di viaggio"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseApprovalsScreen.kt
+msgid "Sätze"
+msgstr "Tariffe"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseApprovalsScreen.kt
+msgid "Sätze gespeichert."
+msgstr "Tariffe salvate."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseApprovalsScreen.kt
+msgid "Sätze speichern"
+msgstr "Salva tariffe"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseScreen.kt
+msgid "Tage"
+msgstr "Giorni"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseLabels.kt
+msgid "Tagespauschale"
+msgstr "Diaria"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseApprovalsScreen.kt
+msgid "Tagespauschale (EUR)"
+msgstr "Diaria (EUR)"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseScreen.kt
+msgid "Tagespauschale ist noch nicht konfiguriert."
+msgstr "L'indennità giornaliera non è ancora configurata."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseScreen.kt
+msgid "Zeile entfernen"
+msgstr "Rimuovi riga"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseScreen.kt
+msgid "Zeile hinzufügen"
+msgstr "Aggiungi riga"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseScreen.kt
+msgid "Zeile hinzugefügt."
+msgstr "Riga aggiunta."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseLabels.kt
+msgid "Zur Auszahlung gebucht"
+msgstr "Registrato per il pagamento"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseScreen.kt
+msgid "Zur Freigabe einreichen"
+msgstr "Invia per l'approvazione"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseScreen.kt
+msgid "Zweck der Reise"
+msgstr "Scopo del viaggio"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/LedgerScreen.kt
+msgid "Reisekosten-Aufwandskonto"
+msgstr "Conto spese di viaggio"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/Sidebar.kt
+msgid "Reisekosten-Freigaben (%1)"
+msgstr "Approvazioni spese di viaggio (%1)"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/LedgerScreen.kt
+msgid "Bankkonto: %1 · Gebührenkonto: %2 · Beitragserlöskonto: %3 · Spendenerlöskonto: %4 · Veranstaltungserlöskonto: %5 (%6) · Reisekosten-Aufwandskonto: %7"
+msgstr "Conto bancario: %1 · Conto commissioni: %2 · Conto ricavi da contributi: %3 · Conto ricavi da donazioni: %4 · Conto ricavi da eventi: %5 (%6) · Conto spese di viaggio: %7"
+

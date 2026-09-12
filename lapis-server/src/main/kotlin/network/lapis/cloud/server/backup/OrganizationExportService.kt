@@ -19,8 +19,13 @@ import java.util.zip.ZipOutputStream
 /** JDBC `Statement.setFetchSize` hint -- see class KDoc "streaming" note for the load-bearing property this actually rests on. */
 private const val JDBC_FETCH_SIZE = 500
 
-/** `document_version` is the one table whose rows also trigger a filesystem blob copy -- see class KDoc. */
-private const val DOCUMENT_VERSION_TABLE = "document_version"
+/**
+ * Tables whose rows also trigger a filesystem blob copy -- see class KDoc. Welle V1.4.11: a
+ * second table, `travel_expense_receipt`, joins `document_version` here -- both happen to use the
+ * same column name `storage_key` (see [STORAGE_KEY_COLUMN]), so only the table SET needed to
+ * generalize, not the column lookup itself.
+ */
+private val BLOB_TABLES: Set<String> = setOf("document_version", "travel_expense_receipt")
 private const val STORAGE_KEY_COLUMN = "storage_key"
 
 /**
@@ -197,7 +202,7 @@ class OrganizationExportService(
                 statement.executeQuery().use { rs ->
                     while (rs.next()) {
                         val row = JdbcRowCodec.rowToJson(rs = rs, columns = table.columns)
-                        if (table.tableName == DOCUMENT_VERSION_TABLE) {
+                        if (table.tableName in BLOB_TABLES) {
                             (row[STORAGE_KEY_COLUMN] as? JsonPrimitive)?.contentOrNull?.let { blobStorageKeys += it }
                         }
                         val line = Json.encodeToString(JsonObject.serializer(), row)

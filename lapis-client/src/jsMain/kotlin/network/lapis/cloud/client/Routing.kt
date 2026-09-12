@@ -428,6 +428,26 @@ object Routes {
     // [CONTRIBUTIONS] (`requireAuth`, jedes authentifizierte Mitglied), siehe
     // `ContributionsScreen.kt`.
     const val CONTRIBUTION_RELIEF = "/contribution-relief"
+
+    /**
+     * Welle V1.4.11 "Reisekostenabrechnung für Vorstand und Funktionsträger" -- Selbstbedienung,
+     * `requireAuth` (jedes authentifizierte Mitglied). "Vorstand und Funktionsträger" ist der
+     * reale Nutzungsfall, KEINE technische Schranke -- jedes Mitglied kann für sich selbst einen
+     * Antrag stellen. Optionaler Query-Parameter `?report=<uuid>` (Muster [MEMBER_HONORS]) hebt
+     * einen Antrag in der eigenen Liste hervor.
+     */
+    const val TRAVEL_EXPENSES = "/travel-expenses"
+
+    /**
+     * Welle V1.4.11 -- Freigabe-Warteschlange. BOARD/ADMIN, **NICHT TREASURER** -- verifiziert
+     * gegen `TravelExpenseService.kt`s `TRAVEL_EXPENSE_DECISION_ROLES = [BOARD, ADMIN]`, die
+     * `listReports`/`decideReport`/`retryPosting` gleichermaßen gatet. Abweichend von fast jeder
+     * anderen FINANCE-Route ([LEDGER]/[SEPA_MANDATES]/[DUNNING_CASES]/[PAYMENT_TRANSACTIONS]/
+     * [BANK_IMPORT], alle TREASURER/BOARD/ADMIN) -- ein Copy-Paste von einer Nachbarroute würde
+     * das falsche, zu weite Gate übernehmen, siehe [CONTRIBUTION_RELIEF] KDoc für den gleichen
+     * Stolperstein.
+     */
+    const val TRAVEL_EXPENSE_APPROVALS = "/travel-expense-approvals"
 }
 
 private var appRouting: Routing? = null
@@ -743,6 +763,16 @@ fun initRouting(pageContainer: SimplePanel) {
     routing.kvOn(Routes.CONTRIBUTION_RELIEF) {
         requireRole(routing, AccountRole.BOARD, AccountRole.ADMIN) {
             show(Routes.CONTRIBUTION_RELIEF, ::renderContributionReliefQueueScreen)
+        }
+    }
+    routing.kvOn(Routes.TRAVEL_EXPENSES) {
+        requireAuth(routing) {
+            show(Routes.TRAVEL_EXPENSES) { container -> renderTravelExpenseScreen(container, hashQueryParam("report")) }
+        }
+    }
+    routing.kvOn(Routes.TRAVEL_EXPENSE_APPROVALS) {
+        requireRole(routing, AccountRole.BOARD, AccountRole.ADMIN) {
+            show(Routes.TRAVEL_EXPENSE_APPROVALS, ::renderTravelExpenseApprovalsScreen)
         }
     }
     routing.kvOn("/") {

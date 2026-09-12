@@ -14,7 +14,9 @@ import kotlinx.coroutines.launch
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.ContributionReliefStatus
 import network.lapis.cloud.shared.domain.SessionInfoDto
+import network.lapis.cloud.shared.domain.TravelExpenseReportStatus
 import network.lapis.cloud.shared.rpc.IContributionReliefService
+import network.lapis.cloud.shared.rpc.ITravelExpenseService
 import org.w3c.dom.get
 import org.w3c.dom.set
 
@@ -108,7 +110,14 @@ fun shouldMountSidebarEagerly(viewportWidthPx: Int): Boolean = viewportWidthPx >
 private val GROUP_ROUTES: Map<SidebarGroupId, List<String>> =
     mapOf(
         SidebarGroupId.MEMBERSHIP to
-            listOf(Routes.CONTRIBUTIONS, Routes.DOCUMENTS, Routes.COMMUNICATION, Routes.DONATE, Routes.DSGVO_RIGHTS),
+            listOf(
+                Routes.CONTRIBUTIONS,
+                Routes.DOCUMENTS,
+                Routes.COMMUNICATION,
+                Routes.DONATE,
+                Routes.DSGVO_RIGHTS,
+                Routes.TRAVEL_EXPENSES,
+            ),
         SidebarGroupId.SELF_GOVERNANCE to listOf(Routes.COMMITTEES, Routes.MEETINGS, Routes.MOTIONS),
         SidebarGroupId.ECONOMY to
             listOf(Routes.LTR_LEDGER, Routes.CROWDFUNDING, Routes.AUCTION, Routes.POLITICIANS, Routes.SOCIAL_NETWORK),
@@ -128,6 +137,7 @@ private val GROUP_ROUTES: Map<SidebarGroupId, List<String>> =
                 Routes.PAYMENT_TRANSACTIONS,
                 Routes.BANK_IMPORT,
                 Routes.CONTRIBUTION_RELIEF,
+                Routes.TRAVEL_EXPENSE_APPROVALS,
             ),
         SidebarGroupId.ADMINISTRATION to
             listOf(
@@ -331,6 +341,9 @@ fun buildSidebar(
             sidebarLink(Routes.COMMUNICATION, tr("Kommunikation"), "fas fa-envelope", toggle)
             sidebarLink(Routes.DONATE, tr("Spenden"), "fas fa-hand-holding-heart", toggle)
             sidebarLink(Routes.DSGVO_RIGHTS, tr("Meine Daten"), "fas fa-shield-halved", toggle)
+            // Welle V1.4.11 -- Selbstbedienung, jedes Mitglied mit Mitgliedschaftsstatus kann
+            // hier einen Antrag stellen (kein Rollen-Gate innerhalb der Gruppe).
+            sidebarLink(Routes.TRAVEL_EXPENSES, tr("Reisekosten"), "fas fa-car", toggle)
         }
     } else if (NavVisibility.showsDsgvoRights(session.status)) {
         // Welle V1.1.4: ein FRIEND hat kein volles "Mitgliedschaft"-Dropdown, braucht aber
@@ -406,6 +419,21 @@ fun buildSidebar(
                         reliefLink.label = reliefSidebarLabel(openCount)
                     }
                 }
+
+                // Welle V1.4.11 -- gleiches "engerer Unter-Gate + Sidebar-Zähler"-Muster wie
+                // CONTRIBUTION_RELIEF unmittelbar oberhalb. `fas fa-route` ist frei (verifiziert
+                // per grep) und semantisch passend (Reise/Route).
+                val travelExpenseLink =
+                    sidebarLink(Routes.TRAVEL_EXPENSE_APPROVALS, travelExpenseSidebarLabel(null), "fas fa-route", toggle)
+                AppScope.launch {
+                    val openCount =
+                        runCatching {
+                            rpcService<ITravelExpenseService>().listReports(status = TravelExpenseReportStatus.REQUESTED).size
+                        }.getOrNull()
+                    if (openCount != null && openCount > 0) {
+                        travelExpenseLink.label = travelExpenseSidebarLabel(openCount)
+                    }
+                }
             }
         }
     }
@@ -467,4 +495,16 @@ internal fun reliefSidebarLabel(openCount: Int?): String =
         openCount == null || openCount == 0 -> tr("Beitragsvergünstigungen")
         openCount >= 200 -> gettext("Beitragsvergünstigungen (%1)", "200+")
         else -> gettext("Beitragsvergünstigungen (%1)", openCount)
+    }
+
+/**
+ * Welle V1.4.11 -- gleiche Grammatik wie [reliefSidebarLabel]: `null`/`0` rendert das reine Label
+ * (kein Badge), `>= 200` zeigt "200+" statt der exakten Zahl (spiegelt
+ * `TravelExpenseService.MAX_LIST_RESULTS`). Pure -- see `SidebarLabelsTest`.
+ */
+internal fun travelExpenseSidebarLabel(openCount: Int?): String =
+    when {
+        openCount == null || openCount == 0 -> tr("Reisekosten-Freigaben")
+        openCount >= 200 -> gettext("Reisekosten-Freigaben (%1)", "200+")
+        else -> gettext("Reisekosten-Freigaben (%1)", openCount)
     }

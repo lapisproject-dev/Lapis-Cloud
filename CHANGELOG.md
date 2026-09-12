@@ -65,6 +65,58 @@ All notable changes to this project are documented here. Format follows
   redigiert (Anker fällt auf `executed_at` zurück, siehe `ContributionReliefRedaction`), auch
   wenn die Befreiung selbst weiterläuft.
 
+**Reisekostenabrechnung für Vorstand und Funktionsträger (V1.4.11)**
+
+- **Hinzugefügt**: Mitglieder können über die neuen Tabellen `travel_expense_report`/
+  `travel_expense_line`/`travel_expense_receipt` eine Reisekostenabrechnung mit drei Zeilenarten
+  beantragen -- **Fahrt** (Kilometer × operator-konfigurierter Kilometersatz), **Tagespauschale**
+  (Tage × operator-konfigurierte Tagespauschale) und **Beleg-Kosten** (fester Betrag + mindestens
+  ein Beleg). Vollständiger Zustandsautomat (`DRAFT -> REQUESTED -> APPROVED/REJECTED/EXECUTED/
+  WITHDRAWN`) in `TravelExpenseService`/`TravelExpenseExecution`. `submitReport` friert den
+  Satz jeder Fahrt-/Tagespauschale-Zeile in `rate_snapshot` ein -- eine spätere Satzänderung wirkt
+  nie rückwirkend auf einen bereits eingereichten Antrag.
+- **Hinzugefügt**: `TravelExpensePostingBridge` -- die **erste** Bridge dieses Repos, die Geld
+  **raus** bucht (jede vorherige Bridge -- `ContributionPostingBridge`/`DonationPostingBridge`/
+  `EventFeePostingBridge` -- bucht Einnahmen). Ein Soll-Posting je Zeile auf das operator-
+  konfigurierte Reisekosten-Aufwandskonto, ein Haben-Posting über die Gesamtsumme auf das
+  Bankkonto, Sphäre fest `IDEELLER_BEREICH`. Degradiert statt zu scheitern (Genehmigung bleibt
+  erhalten, `retryPosting` verfügbar) bei fehlender/inaktiver/falsch-typisierter Kontenzuordnung
+  **und** -- bewusst abweichend vom Präzedenzfall der drei Einnahme-Bridges -- bei einem
+  vorübergehend unzureichenden Kassenbestand: eine Vorstandsentscheidung darf einen kurzfristigen
+  Kassenengpass überleben.
+- **Hinzugefügt**: `ITravelExpenseService.getTravelExpenseRates()`/`updateTravelExpenseRates()`
+  als eigenes, engeres Lese-/Schreib-RPC-Paar für die beiden Sätze -- bewusst **nicht** Teil von
+  `OrganizationSettingsDto`/`-Input`, damit jedes authentifizierte Mitglied die Sätze lesen kann
+  (das Selbstbedienungsformular braucht sie), ohne die TREASURER/BOARD/ADMIN-Schranke von
+  `getOrganizationSettings()` zu unterlaufen.
+- **Sicherheit**: Vier-Augen-Prinzip über **beide** Wege -- `decideReport` verweigert die
+  Entscheidung sowohl dem Antrags-Subjekt als auch demjenigen, der den Antrag „im Namen von"
+  gestellt hat (schließt eine Lücke, die `decideReliefRequest` heute offenlässt). IDOR-Gate beim
+  Beleg-Download (Subjekt/Antragsteller/BOARD/ADMIN, bewusst **nicht** TREASURER). MIME-Typ wird
+  serverseitig ausschließlich aus den Magic Bytes abgeleitet, der vom Client deklarierte
+  Content-Type wird verworfen (kein `image/svg+xml` in der Allowlist). Größendeckel (10 MiB)
+  während des Streamens erzwungen. Buchungs-Idempotenz über `posted_journal_entry_id` +
+  plain Unique-Index `uq_ter_posted_journal_entry` + bikonditionalen CHECK.
+- **Bewusste Grenzen**: Sätze sind operator-konfigurierte Werte ohne automatische Anpassung an
+  Gesetzesänderungen, kein Satz-Verlauf; keine vollständige Verpflegungsmehraufwand-Kürzung nach
+  deutschem Reisekostenrecht (einfache Tagespauschale × Tage als Nachweis-Hilfe für den Vorstand,
+  keine automatisierte Compliance-Entscheidung); **keine Auszahlung** -- der Endzustand „Zur
+  Auszahlung gebucht" bedeutet ausschließlich eine Journal-Buchung, die Überweisung veranlasst die
+  Kasse separat; keine zeilenweise Teilgenehmigung (Ablehnung mit Pflichtbegründung + „Als Entwurf
+  kopieren" ist der vorgesehene Korrekturweg, Belege werden dabei nicht mitkopiert); keine
+  Integration mit Übungsleiter-/Ehrenamtspauschale; Sphäre fest `IDEELLER_BEREICH`, nicht
+  konfigurierbar; Beleg-Dateien werden nach einer DSGVO-Löschung ab `REQUESTED` **nicht** entfernt
+  (sie sind der Buchungsbeleg, §147 AO, kein automatischer Redaktionslauf wie bei den
+  Beitragsvergünstigungen); keine Inline-Vorschau von Belegen (nur Anhang-Download,
+  MIME-Allowlist ohne SVG, `nosniff`).
+- **Migration**: `V29__travel_expense.sql` (drei neue Tabellen, drei `organization_settings`-
+  Spalten, CHECK-Constraints, Indizes); zusätzlich das inline, unbenannte
+  `audit_log_entry.entity_type`-CHECK in `V1__baseline.sql` um `TRAVEL_EXPENSE_REPORT` erweitert.
+  **`V1__baseline.sql`s Prüfsumme ändert sich damit erneut -- vor dem Deploy auf jeder migrierten
+  Instanz `flyway repair` ausführen (`./gradlew :lapis-server:flywayRepair`), Reihenfolge zwingend:
+  `flyway repair` → Deploy → `flyway migrate`.** Gleiches Muster wie bei jeder vorherigen
+  `AuditEntityType`-Welle.
+
 **Videokonferenz-Zuverlässigkeit: TURN-Relay-Fallback + TURNS-Vorbereitung**
 
 - **Behoben**: Audio/Video startet in manchen Browsern gar nicht (Report ELB-Vorstand,

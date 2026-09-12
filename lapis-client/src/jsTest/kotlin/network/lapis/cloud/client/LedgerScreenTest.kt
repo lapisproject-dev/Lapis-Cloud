@@ -66,6 +66,7 @@ class LedgerScreenTest {
                 eventIncomeSphere = GemeinnuetzigkeitSphere.ZWECKBETRIEB,
                 datevBeraterNummer = 2002,
                 datevMandantNummer = 7,
+                travelExpenseAccountId = "travel-1",
             )
         assertEquals(fullSettings.name, input.name)
         assertEquals(fullSettings.isPoliticalParty, input.isPoliticalParty)
@@ -74,6 +75,7 @@ class LedgerScreenTest {
         assertEquals(GemeinnuetzigkeitSphere.ZWECKBETRIEB, input.eventIncomeSphere)
         assertEquals(2002, input.datevBeraterNummer)
         assertEquals(7, input.datevMandantNummer)
+        assertEquals("travel-1", input.travelExpenseAccountId)
     }
 
     @Test
@@ -88,9 +90,36 @@ class LedgerScreenTest {
                 eventIncomeSphere = GemeinnuetzigkeitSphere.ZWECKBETRIEB,
                 datevBeraterNummer = null,
                 datevMandantNummer = null,
+                travelExpenseAccountId = null,
             )
         assertEquals(null, input.datevBeraterNummer)
         assertEquals(null, input.datevMandantNummer)
+        assertEquals(null, input.travelExpenseAccountId)
+    }
+
+    // Welle V1.4.11 "Reisekostenabrechnung" -- travelExpenseAccountId reaches
+    // OrganizationSettingsInput unchanged, same "own text field, not silently carried over"
+    // treatment the DATEV fields above already establish, and every OTHER field stays untouched.
+    @Test
+    fun toInputWithPaymentAccountMapping_passesTravelExpenseAccountIdThroughAndLeavesOtherFieldsUntouched() {
+        val input =
+            fullSettings.toInputWithPaymentAccountMapping(
+                paymentBankAccountId = "bank-1",
+                paymentFeeAccountId = "fee-1",
+                contributionIncomeAccountId = "income-1",
+                donationIncomeAccountId = "donation-1",
+                eventIncomeAccountId = "event-1",
+                eventIncomeSphere = GemeinnuetzigkeitSphere.ZWECKBETRIEB,
+                datevBeraterNummer = 2002,
+                datevMandantNummer = 7,
+                travelExpenseAccountId = "travel-1",
+            )
+        assertEquals("travel-1", input.travelExpenseAccountId)
+        assertEquals("bank-1", input.paymentBankAccountId)
+        assertEquals("fee-1", input.paymentFeeAccountId)
+        assertEquals("income-1", input.contributionIncomeAccountId)
+        assertEquals("donation-1", input.donationIncomeAccountId)
+        assertEquals("event-1", input.eventIncomeAccountId)
     }
 
     // Review-Fund (2026-09, MINOR): `.toIntOrNull()` alone collapsed "left empty" and "typo'd
