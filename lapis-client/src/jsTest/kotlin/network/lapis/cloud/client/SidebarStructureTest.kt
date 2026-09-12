@@ -12,6 +12,7 @@ import kotlin.test.AfterTest
 import kotlin.test.BeforeTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
 /**
@@ -126,6 +127,41 @@ class SidebarStructureTest {
         val firstGroupHeaderIndex = navChildren.indexOfFirst { it === groupHeaders.first() }
         val lastLinkIndex = navChildren.indexOfFirst { it === links.last() }
         assertTrue(lastLinkIndex < firstGroupHeaderIndex)
+    }
+
+    @Test
+    fun financeGroup_showsContributionReliefEntry_onlyForBoardAndAdmin_notTreasurer() {
+        // Review-Fund 2026-09-12 (Welle V1.4.10.1 "Beitragsvergünstigungen: Bedienoberfläche"):
+        // regression coverage for the FINANCE group's own narrower sub-gate -- BOARD/ADMIN see the
+        // new `/contribution-relief` entry, TREASURER does not, even though TREASURER sees every
+        // OTHER entry in the same FINANCE group (mirrors
+        // `IContributionReliefService.listReliefRequests`'s own role check, see `Sidebar.kt`'s
+        // comment directly above the `sidebarLink(Routes.CONTRIBUTION_RELIEF, ...)` call).
+        fun hasContributionReliefLink(session: SessionInfoDto): Boolean {
+            AppState.setSession(session)
+            val body = SimplePanel()
+            buildSidebar(body, session, activeRoute = null) {}
+            val nav = body.getChildren().single() as Nav
+            return nav
+                .getChildren()
+                .filterIsInstance<Nav>()
+                .flatMap { it.getChildren() }
+                .filterIsInstance<Link>()
+                .any { it.url == "#${Routes.CONTRIBUTION_RELIEF}" }
+        }
+
+        assertFalse(
+            hasContributionReliefLink(adminSession.copy(role = AccountRole.TREASURER)),
+            "TREASURER must NOT see the Beitragsvergünstigungen entry",
+        )
+        assertTrue(
+            hasContributionReliefLink(adminSession.copy(role = AccountRole.BOARD)),
+            "BOARD must see the Beitragsvergünstigungen entry",
+        )
+        assertTrue(
+            hasContributionReliefLink(adminSession.copy(role = AccountRole.ADMIN)),
+            "ADMIN must see the Beitragsvergünstigungen entry",
+        )
     }
 
     @Test

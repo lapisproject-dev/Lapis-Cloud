@@ -824,10 +824,31 @@ automatically nulled 12 months after the request reaches a terminal state
 `docs/architecture/dsgvo.adoc`'s own "Contribution relief" section for the full erasure/export
 contract.
 
+=== Self-service UI and board queue (V1.4.10.1)
+
+Members request a deferral directly from their own contribution table in the "Beitragsübersicht"
+screen (`ContributionsScreen.kt`) — a "Stundung beantragen" button appears next to every
+`DEFERRABLE` (OPEN/OVERDUE) row, hidden rather than merely disabled once an open DEFERRAL request
+already blocks a new one (`activeBlockingDeferralRequest`), with a single notice above the table
+and a badge on the specific blocked row instead of graying out every button on the page. The same
+screen carries a second self-service panel for exemption/reduction requests plus the member's own
+request list (step tracker, effect description, withdraw while `REQUESTED`). BOARD/ADMIN review
+and decide requests in a dedicated queue at `/contribution-relief` — **note the narrower gate**:
+BOARD/ADMIN only, not TREASURER, unlike almost every other Finance-group route, mirroring
+`IContributionReliefService.listReliefRequests`'s own role check. The queue enforces the
+Vier-Augen-Prinzip client-side too (`reliefDecisionBlockedBySelf` hides the decision panel on a
+board member's own request before a click can ever reach the server's `ForbiddenException`), and
+surfaces the `APPROVED`-with-`executionError` retry path as a distinct "Ausführung
+wiederholen"/"Ablehnen" pair — the only card state with two buttons instead of a plain
+approve/reject choice, since `EXECUTED` never carries an `executionError` (`chk_crr_execution_error_state`).
+A sidebar badge on the Finance group's new entry shows the number of `REQUESTED` requests awaiting
+decision (capped display at "200+", mirroring the RPC's own page-size cap), fetched only for
+BOARD/ADMIN and failing silently (no toast) if the call errors, so a TREASURER building the same
+sidebar never sees a stray 403.
+
 === What doesn't work yet (this wave)
 
-No self-service UI screen or board queue screen yet (backend/data model only — RPC surface is
-complete and tested); no deferral for `IN_DUNNING`/`RETURNED` contributions (would additionally
+No deferral for `IN_DUNNING`/`RETURNED` contributions (would additionally
 need a dunning-level reset, deliberately deferred, not a design decision); no anteilige
 (partial-period) exemption; a granted exemption does **not** retroactively waive contribution lines
 already generated before the exemption took effect (the board's existing waive path still applies

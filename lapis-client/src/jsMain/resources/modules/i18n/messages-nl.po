@@ -10257,3 +10257,273 @@ msgstr "Colofon"
 #: src/jsMain/kotlin/network/lapis/cloud/client/EmbedIntegrationScreen.kt
 msgid "Ersetzen Sie \"ihre-veranstaltung\" durch den Slug Ihrer Veranstaltung — sonst rendert das Anmelde-Widget nicht."
 msgstr "Vervang \"ihre-veranstaltung\" door de slug van uw evenement — anders wordt de aanmeldwidget niet weergegeven."
+
+# Welle V1.4.10.1 "Beitragsvergünstigungen: Bedienoberfläche" -- appended, not interleaved alphabetically (see CLAUDE.md i18n note).
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ContributionReliefLabels.kt
+msgid "Stundung"
+msgstr "Uitstel"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ContributionReliefLabels.kt
+msgid "Beitragsbefreiung"
+msgstr "Bijdragevrijstelling"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ContributionReliefLabels.kt
+msgid "Sozialermäßigung"
+msgstr "Sociale korting"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ContributionReliefLabels.kt
+msgid "Ausführung fehlgeschlagen"
+msgstr "Uitvoering mislukt"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ContributionReliefLabels.kt
+msgid "Zurückgezogen"
+msgstr "Ingetrokken"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ContributionReliefLabels.kt
+msgid "Finanzielle Notlage"
+msgstr "Financiële nood"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ContributionReliefLabels.kt
+msgid "Arbeitslosigkeit"
+msgstr "Werkloosheid"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ContributionReliefLabels.kt
+msgid "Schüler oder Auszubildende(r)"
+msgstr "Leerling of stagiair(e)"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ContributionReliefLabels.kt
+msgid "Krankheit oder Behinderung"
+msgstr "Ziekte of beperking"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ContributionReliefLabels.kt
+msgid "Elternzeit oder Pflege"
+msgstr "Ouderschapsverlof of zorg"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ContributionReliefLabels.kt
+msgid "Die Ausführung ist fehlgeschlagen (unbekannte Ursache). Bitte wenden Sie sich an die Administration."
+msgstr "De uitvoering is mislukt (onbekende oorzaak). Neem contact op met de administratie."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ContributionReliefLabels.kt
+msgid "Der Beitrag kann nicht gestundet werden (Status: %1)."
+msgstr "De bijdrage kan niet worden uitgesteld (status: %1)."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ContributionReliefLabels.kt
+msgid "Der Beitrag kann nicht gestundet werden."
+msgstr "De bijdrage kan niet worden uitgesteld."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ContributionReliefLabels.kt
+msgid "Der zugehörige Beitrag wurde nicht gefunden."
+msgstr "De bijbehorende bijdrage is niet gevonden."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ContributionReliefLabels.kt
+msgid "Das neue Fälligkeitsdatum liegt nicht in der Zukunft."
+msgstr "De nieuwe vervaldatum ligt niet in de toekomst."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ContributionReliefLabels.kt
+msgid "Das Mitglied wurde nicht gefunden."
+msgstr "Het lid is niet gevonden."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ContributionReliefLabels.kt
+msgid "Das Mitglied wurde DSGVO-anonymisiert."
+msgstr "Het lid is geanonimiseerd conform de AVG."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ContributionReliefLabels.kt
+msgid "Die Mitgliedschaft ist beendet."
+msgstr "Het lidmaatschap is beëindigd."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ContributionReliefLabels.kt
+msgid "Die Ziel-Beitragsstufe wurde nicht gefunden."
+msgstr "Het doelbijdrageniveau is niet gevonden."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ContributionReliefLabels.kt
+msgid "Die Ziel-Beitragsstufe ist nicht aktiv."
+msgstr "Het doelbijdrageniveau is niet actief."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ContributionReliefLabels.kt
+msgid "Das Mitglied hat keine eigene Beitragsstufe (Familienmitgliedschaft)."
+msgstr "Het lid heeft geen eigen bijdrageniveau (gezinslidmaatschap)."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ContributionReliefLabels.kt
+msgid "Die Ziel-Beitragsstufe entspricht bereits der aktuellen Stufe."
+msgstr "Het doelbijdrageniveau komt al overeen met het huidige niveau."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ContributionReliefLabels.kt
+msgid "Die Ziel-Beitragsstufe ist nicht günstiger als die aktuelle Stufe."
+msgstr "Het doelbijdrageniveau is niet voordeliger dan het huidige niveau."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ContributionReliefLabels.kt
+msgid "Fälligkeit %1 → %2"
+msgstr "Vervaldatum %1 → %2"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ContributionReliefLabels.kt
+msgid "Neue Fälligkeit: %1"
+msgstr "Nieuwe vervaldatum: %1"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ContributionReliefLabels.kt
+msgid "Beitragspflicht ausgesetzt %1 bis %2"
+msgstr "Bijdrageplicht opgeschort van %1 tot %2"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ContributionReliefLabels.kt
+msgid "Beitragspflicht ausgesetzt ab %1 (unbefristet)"
+msgstr "Bijdrageplicht opgeschort vanaf %1 (onbepaalde tijd)"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ContributionReliefLabels.kt
+msgid "Neuer Beitragssatz: %1"
+msgstr "Nieuw bijdragetarief: %1"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ContributionsScreen.kt
+msgid "Neues Fälligkeitsdatum (JJJJ-MM-TT)"
+msgstr "Nieuwe vervaldatum (JJJJ-MM-DD)"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ContributionsScreen.kt
+msgid "Begründungs-Kategorie"
+msgstr "Motiveringscategorie"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ContributionsScreen.kt
+msgid "Diese Erläuterung kann Angaben zu Gesundheit oder sozialer Situation enthalten (Art. 9 DSGVO) und ist nur für den Vorstand sichtbar."
+msgstr "Deze toelichting kan gegevens over gezondheid of sociale situatie bevatten (AVG art. 9) en is alleen zichtbaar voor het bestuur."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ContributionsScreen.kt
+msgid "Erläuterung (optional)"
+msgstr "Toelichting (optioneel)"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ContributionsScreen.kt
+msgid "Befreiung ab (JJJJ-MM-TT)"
+msgstr "Vrijstelling vanaf (JJJJ-MM-DD)"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ContributionsScreen.kt
+msgid "bis (optional, leer = unbefristet)"
+msgstr "tot (optioneel, leeg = onbepaalde tijd)"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ContributionsScreen.kt
+msgid "Wiedervorlage am (optional, JJJJ-MM-TT)"
+msgstr "Herbeoordelingsdatum (optioneel, JJJJ-MM-DD)"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ContributionsScreen.kt
+msgid "Stundung beantragen"
+msgstr "Uitstel aanvragen"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ContributionsScreen.kt
+msgid "Stundungsantrag vom %1 in Bearbeitung"
+msgstr "Uitstelaanvraag van %1 in behandeling"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ContributionsScreen.kt
+msgid "Stundung beantragt"
+msgstr "Uitstel aangevraagd"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ContributionsScreen.kt
+msgid "Beitragsvergünstigung beantragen"
+msgstr "Bijdragekorting aanvragen"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ContributionsScreen.kt
+msgid "Begründung am %1 automatisch gelöscht (12-Monats-Frist)."
+msgstr "Motivering automatisch verwijderd op %1 (termijn van 12 maanden)."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ContributionsScreen.kt
+msgid "Bitte ein gültiges, in der Zukunft liegendes Fälligkeitsdatum angeben (JJJJ-MM-TT)."
+msgstr "Geef een geldige vervaldatum in de toekomst op (JJJJ-MM-DD)."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ContributionsScreen.kt
+msgid "Bitte ein gültiges Beginn-Datum angeben (JJJJ-MM-TT)."
+msgstr "Geef een geldige startdatum op (JJJJ-MM-DD)."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ContributionsScreen.kt
+msgid "Bitte eine Ziel-Beitragsstufe auswählen."
+msgstr "Selecteer een doelbijdrageniveau."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ContributionsScreen.kt
+msgid "%1 (%2 / %3)"
+msgstr "%1 (%2 / %3)"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ContributionReliefQueueScreen.kt
+msgid "Alle Arten"
+msgstr "Alle soorten"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ContributionReliefQueueScreen.kt
+msgid "Nur zur Wiedervorlage fällig"
+msgstr "Alleen te herbeoordelen"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ContributionReliefQueueScreen.kt
+msgid "Im Namen von %1 gestellt"
+msgstr "Ingediend namens %1"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ContributionReliefQueueScreen.kt
+msgid "Eigener Antrag — Entscheidung durch ein anderes Vorstandsmitglied."
+msgstr "Eigen aanvraag — beslissing door een ander bestuurslid."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ContributionReliefQueueScreen.kt
+msgid "Entscheidungsnotiz (Pflicht)"
+msgstr "Besluitopmerking (verplicht)"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ContributionReliefQueueScreen.kt
+msgid "Genehmigen und ausführen"
+msgstr "Goedkeuren en uitvoeren"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ContributionReliefQueueScreen.kt
+msgid "Ausführung wiederholen"
+msgstr "Uitvoering opnieuw proberen"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ContributionReliefQueueScreen.kt
+msgid "Bitte eine Entscheidungsnotiz eingeben."
+msgstr "Voer een besluitopmerking in."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ContributionReliefQueueScreen.kt
+msgid "Bereits entstandene offene Beiträge bleiben bestehen und müssen ggf. einzeln erlassen werden."
+msgstr "Al ontstane openstaande bijdragen blijven bestaan en moeten indien nodig afzonderlijk worden kwijtgescholden."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ContributionReliefQueueScreen.kt
+msgid "Zur Beitragsübersicht"
+msgstr "Naar het bijdrageoverzicht"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/Sidebar.kt
+msgid "Beitragsvergünstigungen"
+msgstr "Bijdragekortingen"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/Sidebar.kt
+msgid "Beitragsvergünstigungen (%1)"
+msgstr "Bijdragekortingen (%1)"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberFinancialHistoryScreen.kt
+msgid "Beitragsbefreit ab %1"
+msgstr "Vrijgesteld van bijdrage vanaf %1"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberFinancialHistoryScreen.kt
+msgid "Beitragsbefreit ab %1 bis %2"
+msgstr "Vrijgesteld van bijdrage van %1 tot %2"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ContributionReliefLabels.kt
+msgid "unbekannte Beitragsstufe"
+msgstr "onbekend bijdrageniveau"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ContributionsScreen.kt
+msgid "Antrag gestellt."
+msgstr "Aanvraag ingediend."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ContributionsScreen.kt
+msgid "Antrag zurückgezogen."
+msgstr "Aanvraag ingetrokken."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ContributionsScreen.kt
+msgid "Noch keine eigenen Anträge gestellt."
+msgstr "Nog geen eigen aanvragen ingediend."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ContributionsScreen.kt
+msgid "Erläuterung: %1"
+msgstr "Toelichting: %1"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ContributionsScreen.kt
+msgid "Ziel-Beitragsstufe"
+msgstr "Doelbijdrageniveau"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ContributionReliefQueueScreen.kt
+msgid "Antrag genehmigt und ausgeführt."
+msgstr "Aanvraag goedgekeurd en uitgevoerd."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ContributionReliefQueueScreen.kt
+msgid "Ausführung wiederholt."
+msgstr "Uitvoering herhaald."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ContributionReliefQueueScreen.kt
+msgid "Wiedervorlage am %1"
+msgstr "Herbeoordelingsdatum %1"

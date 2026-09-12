@@ -2,14 +2,19 @@ package network.lapis.cloud.client
 
 import io.kvision.core.Widget
 import io.kvision.html.ButtonStyle
+import io.kvision.html.Link
 import io.kvision.html.button
 import io.kvision.html.link
+import io.kvision.i18n.gettext
 import io.kvision.i18n.tr
 import io.kvision.navbar.Nav
 import io.kvision.panel.SimplePanel
 import kotlinx.browser.localStorage
+import kotlinx.coroutines.launch
 import network.lapis.cloud.shared.domain.AccountRole
+import network.lapis.cloud.shared.domain.ContributionReliefStatus
 import network.lapis.cloud.shared.domain.SessionInfoDto
+import network.lapis.cloud.shared.rpc.IContributionReliefService
 import org.w3c.dom.get
 import org.w3c.dom.set
 
@@ -122,6 +127,7 @@ private val GROUP_ROUTES: Map<SidebarGroupId, List<String>> =
                 Routes.DUNNING_CASES,
                 Routes.PAYMENT_TRANSACTIONS,
                 Routes.BANK_IMPORT,
+                Routes.CONTRIBUTION_RELIEF,
             ),
         SidebarGroupId.ADMINISTRATION to
             listOf(
@@ -247,12 +253,16 @@ fun buildSidebar(
     // keep in sync with it.
     val groupOpeners = mutableMapOf<Widget, () -> Unit>()
 
+    // Welle V1.4.10.1 "Beitragsvergünstigungen: Bedienoberfläche" -- returns the [Link] widget
+    // (previously `Unit`) so the FINANCE group's new relief entry can update its own label once the
+    // open-request count has loaded (see [reliefSidebarLabel]'s call site below). Every existing
+    // call site ignores the return value, so this is source-compatible.
     fun SimplePanel.sidebarLink(
         route: String,
         label: String,
         icon: String,
         toggle: Widget? = null,
-    ) {
+    ): Link {
         val link = link(label, url = "#$route", icon = icon, className = "nav-link")
         link.onClick { onNavigate() }
         // Named arguments (CLAUDE.md "Kotlin-Code-Konvention" -- Named Parameters PFLICHT):
@@ -261,6 +271,7 @@ fun buildSidebar(
         // file's build.gradle.kts header comment) -- named by review discipline instead, since there
         // is no automated enforcement here.
         NavHighlight.register(route = route, link = link, toggle = toggle, openGroup = toggle?.let { groupOpeners[it] })
+        return link
     }
 
     /**
@@ -368,6 +379,34 @@ fun buildSidebar(
             sidebarLink(Routes.DUNNING_CASES, tr("Mahnwesen"), "fas fa-file-invoice-dollar", toggle)
             sidebarLink(Routes.PAYMENT_TRANSACTIONS, tr("Zahlungseingänge"), "fas fa-credit-card", toggle)
             sidebarLink(Routes.BANK_IMPORT, tr("Kontoauszüge"), "fas fa-building-columns", toggle)
+            // Welle V1.4.10.1: enger gegatet als der Rest der FINANCE-Gruppe (BOARD/ADMIN, NICHT
+            // TREASURER) -- verifiziert gegen `IContributionReliefService.listReliefRequests`s
+            // eigenen Rollen-Check, siehe `Routes.CONTRIBUTION_RELIEF` KDoc. Gleiches
+            // "engerer Unter-Gate innerhalb der äußeren Rollenprüfung"-Muster wie ADMINISTRATION
+            // weiter unten.
+            if (AppState.hasRole(AccountRole.BOARD, AccountRole.ADMIN)) {
+                // Icon-Kollisions-Korrektur (Plan Abschnitt 1): `fas fa-hand-holding-dollar` ist
+                // bereits an PAYMENT_GATEWAY_SETTINGS vergeben (siehe SYSTEM-Gruppe unten) --
+                // `fas fa-percent` ist frei (verifiziert per grep) und semantisch passend
+                // (Ermäßigung/Beitragssatz-Änderung).
+                val reliefLink = sidebarLink(Routes.CONTRIBUTION_RELIEF, reliefSidebarLabel(null), "fas fa-percent", toggle)
+                // Sidebar-Zähler (Jobs/Forstall-Auflage): EIN `listReliefRequests(status =
+                // REQUESTED)`-Aufruf, NUR in diesem BOARD/ADMIN-Zweig (nie für TREASURER, der 403
+                // bekäme). `runCatching`, NICHT `guarded{}` -- ein Fehlschlag hier darf niemals einen
+                // Toast beim reinen Sidebar-Aufbau auslösen (bewusste Abweichung vom `guarded{}`-
+                // Default, siehe CLAUDE.md-Plan Abschnitt 2.5). Das Label wird NACHTRÄGLICH per
+                // Coroutine überschrieben (`buildSidebar` selbst ist nicht `suspend`) -- der Link
+                // rendert zunächst ohne Zahl, genau wie jeder andere Eintrag.
+                AppScope.launch {
+                    val openCount =
+                        runCatching {
+                            rpcService<IContributionReliefService>().listReliefRequests(status = ContributionReliefStatus.REQUESTED).size
+                        }.getOrNull()
+                    if (openCount != null && openCount > 0) {
+                        reliefLink.label = reliefSidebarLabel(openCount)
+                    }
+                }
+            }
         }
     }
 
@@ -416,3 +455,16 @@ fun buildSidebar(
     // `NavHighlight.apply()`'s own KDoc documents for `refreshNavbar`.
     NavHighlight.apply()
 }
+
+/**
+ * Welle V1.4.10.1 -- `null`/`0` renders the plain label (no badge), `>= 200` shows "200+" rather
+ * than the exact count (the sidebar counter mirrors `listReliefRequests`'s own
+ * `MAX_LIST_RESULTS = 200` page-size cap -- an exact count above that would silently imply a total
+ * this one capped call never actually saw). Pure -- see `SidebarLabelsTest`.
+ */
+internal fun reliefSidebarLabel(openCount: Int?): String =
+    when {
+        openCount == null || openCount == 0 -> tr("Beitragsvergünstigungen")
+        openCount >= 200 -> gettext("Beitragsvergünstigungen (%1)", "200+")
+        else -> gettext("Beitragsvergünstigungen (%1)", openCount)
+    }

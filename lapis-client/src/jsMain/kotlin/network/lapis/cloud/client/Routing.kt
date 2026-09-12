@@ -415,6 +415,19 @@ object Routes {
     // `?import=<uuid>` im Hash-Fragment (Muster [MEMBER_HONORS]) waehlt einen Import direkt an --
     // ein Zustand, den man einer Kollegin verlinken kann (Design-Team, Tesler).
     const val BANK_IMPORT = "/bank-import"
+
+    // Welle V1.4.10.1 "Beitragsvergünstigungen: Bedienoberfläche" -- BOARD/ADMIN auf Routenebene,
+    // verifiziert gegen `ContributionReliefService.kt`s `RELIEF_DECISION_ROLES = [BOARD, ADMIN]`,
+    // die `listReliefRequests`/`decideReliefRequest`/`retryReliefExecution` gleichermaßen gatet.
+    // **Abweichend von fast jeder anderen FINANCE-Route** ([LEDGER]/[SEPA_MANDATES]/
+    // [DUNNING_CASES]/[PAYMENT_TRANSACTIONS]/[BANK_IMPORT], alle TREASURER/BOARD/ADMIN) -- ein
+    // TREASURER genehmigt/lehnt hier NICHT ab (Stolperfalle laut Plan: ein Copy-Paste von einer
+    // benachbarten FINANCE-Route würde das falsche, zu weite Gate übernehmen). Die
+    // Selbstbedienungsseite (Stundung beantragen, Beitragsvergünstigung beantragen, eigene
+    // Anträge zurückziehen) braucht KEINE eigene Route -- sie lebt als neuer Abschnitt direkt in
+    // [CONTRIBUTIONS] (`requireAuth`, jedes authentifizierte Mitglied), siehe
+    // `ContributionsScreen.kt`.
+    const val CONTRIBUTION_RELIEF = "/contribution-relief"
 }
 
 private var appRouting: Routing? = null
@@ -725,6 +738,11 @@ fun initRouting(pageContainer: SimplePanel) {
     routing.kvOn(Routes.BANK_IMPORT) {
         requireRole(routing, AccountRole.TREASURER, AccountRole.BOARD, AccountRole.ADMIN) {
             show(Routes.BANK_IMPORT) { container -> renderBankStatementImportScreen(container, hashQueryParam("import")) }
+        }
+    }
+    routing.kvOn(Routes.CONTRIBUTION_RELIEF) {
+        requireRole(routing, AccountRole.BOARD, AccountRole.ADMIN) {
+            show(Routes.CONTRIBUTION_RELIEF, ::renderContributionReliefQueueScreen)
         }
     }
     routing.kvOn("/") {

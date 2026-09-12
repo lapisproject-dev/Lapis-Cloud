@@ -20,6 +20,7 @@ import io.kvision.table.table
 import io.kvision.utils.px
 import kotlinx.coroutines.launch
 import kotlinx.datetime.LocalDate
+import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.FinancialHistoryEntryKind
 import network.lapis.cloud.shared.domain.FinancialHistoryEntryKind.CONTRIBUTION_DEBIT_IN_FLIGHT
 import network.lapis.cloud.shared.domain.FinancialHistoryEntryKind.CONTRIBUTION_OUTSTANDING
@@ -28,6 +29,7 @@ import network.lapis.cloud.shared.domain.FinancialHistoryEntryKind.CONTRIBUTION_
 import network.lapis.cloud.shared.domain.FinancialHistoryEntryKind.DONATION
 import network.lapis.cloud.shared.domain.FinancialHistoryYearDto
 import network.lapis.cloud.shared.domain.MemberFinancialHistoryDto
+import network.lapis.cloud.shared.rpc.IContributionReliefService
 import network.lapis.cloud.shared.rpc.IMemberFinancialHistoryService
 
 /**
@@ -66,8 +68,38 @@ fun renderMemberFinancialHistoryScreen(
     AppScope.launch {
         val dto = guarded { rpcService<IMemberFinancialHistoryService>().getMemberFinancialHistory(effectiveId) } ?: return@launch
         renderFinancialHistoryHead(root, dto, isSelf)
+        renderExemptionBadge(root, effectiveId, isSelf)
         renderFinancialHistoryTiles(root, dto, isSelf)
         renderFinancialHistoryYears(root, dto)
+    }
+}
+
+/**
+ * Welle V1.4.10.1, Punkt D -- **Korrektur der ursprünglichen Task-Beschreibung**: kein `MemberDto`-
+ * Feld (README/CHANGELOG bestätigen explizit "exemption data is not exposed on `MemberDto`") --
+ * separater [IContributionReliefService.getExemptionState]-RPC-Aufruf. Rollen-Gate exakt wie im
+ * Interface-KDoc dokumentiert ("Self-or-BOARD/ADMIN/TREASURER, gleiches Gate wie
+ * `IContributionService.getMemberContributionSummary`"): ein `TREASURER`, der die Historie eines
+ * FREMDEN Mitglieds ansieht, sieht auch dessen Befreiungsstatus -- ein `MEMBER`, der (per Rollen-
+ * Gate von [renderMemberFinancialHistoryScreen] selbst gar nicht erst erreichbar) versucht, die
+ * Historie eines anderen Mitglieds zu öffnen, würde stattdessen eine `ForbiddenException` von
+ * `getMemberFinancialHistory` selbst sehen -- dieser zusätzliche Check hier ist eine bewusste
+ * Verteidigung in der Tiefe, kein Ersatz für das server-seitige Gate von [IContributionReliefService
+ * .getExemptionState] selbst.
+ */
+private fun renderExemptionBadge(
+    root: SimplePanel,
+    effectiveId: String,
+    isSelf: Boolean,
+) {
+    if (!isSelf && !AppState.hasRole(AccountRole.TREASURER, AccountRole.BOARD, AccountRole.ADMIN)) return
+    AppScope.launch {
+        val state = guarded { rpcService<IContributionReliefService>().getExemptionState(effectiveId) } ?: return@launch
+        val from = state.exemptFrom ?: return@launch
+        val label =
+            state.exemptUntil?.let { until -> gettext("Beitragsbefreit ab %1 bis %2", from, until) }
+                ?: gettext("Beitragsbefreit ab %1", from)
+        root.typeBadge(label, "info")
     }
 }
 

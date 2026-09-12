@@ -34,10 +34,26 @@ All notable changes to this project are documented here. Format follows
   CHECK-Constraints + Indizes); zusätzlich das inline, unbenannte `audit_log_entry.entity_type`-CHECK
   in `V1__baseline.sql` verbreitert (gleiches Muster wie bei jeder vorherigen `AuditEntityType`-Welle
   -- betrifft nur frische/Test-Datenbanken, `flyway repair` auf bereits migrierten Instanzen nötig).
+- **Hinzugefügt (Bedienoberfläche, V1.4.10.1)**: Selbstbedienungs-Formular direkt in der
+  "Beitragsübersicht" (`ContributionsScreen.kt`) -- Stundung je Beitragszeile ("Stundung
+  beantragen"-Knopf, ausgeblendet statt nur deaktiviert, sobald ein offener Stundungsantrag bereits
+  eine neue blockiert, `activeBlockingDeferralRequest`), plus ein zweites Panel für Befreiungs-/
+  Sozialermäßigungs-Anträge und die eigene Antragsliste (Schritt-Tracker, Wirkungs-Beschreibung,
+  Zurückziehen solange `REQUESTED`). Neue Vorstands-Warteschlange unter `/contribution-relief`
+  (BOARD/ADMIN -- **enger** als fast jede andere Finanzen-Route, spiegelt
+  `IContributionReliefService.listReliefRequests`s eigenes Rollen-Gate) mit client-seitig
+  sichtbarem Vier-Augen-Prinzip (`reliefDecisionBlockedBySelf` blendet das Entscheidungs-Panel auf
+  einem eigenen Antrag aus, bevor ein Klick die Server-`ForbiddenException` erlebt) und einem
+  eigenen "Ausführung wiederholen"/"Ablehnen"-Kartenzustand für `APPROVED`-mit-`executionError`
+  (der einzige Zustand mit zwei statt einem Entscheidungs-Knopf). Sidebar-Badge mit der Anzahl
+  offener (`REQUESTED`) Anträge (gedeckelt auf "200+", spiegelt den RPC-eigenen Seitengrößen-Deckel),
+  ausschließlich für BOARD/ADMIN geladen und bei Fehlschlag lautlos ohne Toast (kein 403 beim
+  reinen Sidebar-Aufbau für einen TREASURER). Alle 8 i18n-Kataloge synchron ergänzt.
 - **Bewusste Grenze**: keine Stundung für `IN_DUNNING`/`RETURNED`-Zeilen (fehlende Mahnstufen-
   Rücksetzung, aufgeschobene Welle, kein Designprinzip); keine anteilige Befreiung für Teilperioden;
   bereits generierte offene Beitragszeilen werden bei einer Befreiung **nicht** automatisch
-  erlassen; Befreiungsdaten erscheinen nicht in `MemberDto`; **Sozialermäßigung ist für Mitglieder
+  erlassen; Befreiungsdaten erscheinen nicht in `MemberDto` (die Bedienoberfläche liest sie über
+  einen eigenen `getExemptionState`-RPC-Aufruf); **Sozialermäßigung ist für Mitglieder
   ohne eigene Beitragsstufe** (Familien-Angehörige, die über den Zahler der Familie abgerechnet
   werden) **nicht anwendbar** und wird server-seitig mit 400 abgelehnt -- sie würden sonst
   zusätzlich zur Familienrechnung direkt individuell belastet; eine **unbefristete Befreiung lässt
@@ -47,9 +63,7 @@ All notable changes to this project are documented here. Format follows
   `>= contribution_exempt_from` verschieben, nie aufheben); der potenziell Art.-9-relevante
   Freitext einer solchen unbefristeten Befreiung wird trotzdem 12 Monate nach ihrer Ausführung
   redigiert (Anker fällt auf `executed_at` zurück, siehe `ContributionReliefRedaction`), auch
-  wenn die Befreiung selbst weiterläuft; die Bedienoberfläche (Selbstbedienungs-
-  Formular + Vorstands-Warteschlange) und die 7-Sprachen-i18n sind **noch nicht** Teil dieser Welle
-  -- Backend/Datenmodell sind vollständig, das Frontend folgt in einer eigenen Welle.
+  wenn die Befreiung selbst weiterläuft.
 
 **Videokonferenz-Zuverlässigkeit: TURN-Relay-Fallback + TURNS-Vorbereitung**
 
