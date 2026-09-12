@@ -64,6 +64,15 @@ object ContributionStatusSets {
      * already-[IN_DUNNING] contribution INTO [IN_DUNNING] on its first successful notice.
      */
     val DUNNABLE: Set<ContributionStatus> = setOf(ContributionStatus.OVERDUE, ContributionStatus.RETURNED, ContributionStatus.IN_DUNNING)
+
+    /**
+     * Welle V1.4.10 "Beitragsvergünstigungen" -- welche Zeilen gestundet werden dürfen. Bewusst NUR
+     * OPEN/OVERDUE: [SETTLED] ist erledigt, [DEBIT_IN_FLIGHT] liegt als SEPA-Datei bei der Bank
+     * (ein verschobenes Fälligkeitsdatum desynchronisiert nur unsere Sicht von der der Bank), und
+     * IN_DUNNING/RETURNED brauchen zusätzlich eine Rücksetzung der Mahnstufe -- siehe CHANGELOG
+     * "bewusste Auslassung". Kein Designprinzip, eine aufgeschobene Welle.
+     */
+    val DEFERRABLE: Set<ContributionStatus> = setOf(ContributionStatus.OPEN, ContributionStatus.OVERDUE)
 }
 
 @Serializable

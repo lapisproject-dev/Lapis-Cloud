@@ -749,7 +749,16 @@ CREATE TABLE audit_log_entry (
     -- constraint, auto-named CONSTRAINT_407 in that run) even though V26's named constraint had
     -- already been widened -- exactly the failure mode every comment above already predicts.
     -- Flyway repair needed on an already-migrated instance, same as the precedents above.
-    CHECK (entity_type IN ('JOURNAL_ENTRY', 'PARTY_DONATION_VERDICT', 'RESOLUTION', 'BOARD_MEMBERSHIP', 'CONFERENCE_RECORDING', 'CONFERENCE_STREAM', 'CONFERENCE_STREAM_DESTINATION', 'CONFERENCE_ROOM', 'SOCIAL_POST', 'ORGANIZATION_SETTINGS', 'SEPA_MANDATE', 'SEPA_DEBIT_BATCH', 'DUNNING_NOTICE', 'MEMBER', 'PAYMENT_TRANSACTION', 'API_KEY', 'WEBHOOK_ENDPOINT', 'BANK_STATEMENT_IMPORT', 'ACCOUNTING_EXPORT_CONNECTION', 'ACCOUNTING_EXPORT_RUN', 'ACCOUNTING_EXPORT_MAPPING')),
+    -- Welle V1.4.10 "Beitragsvergünstigungen": 'CONTRIBUTION_RELIEF_REQUEST' appended in place,
+    -- same reasoning -- see V28__contribution_relief.sql's own DROP/ADD dance on the NAMED
+    -- constraint. Confirmed live during this wave's own implementation:
+    -- ContributionReliefRequestTest's fresh H2 test database rejected an
+    -- entity_type = 'CONTRIBUTION_RELIEF_REQUEST' INSERT with a 500 (H2 CHECK constraint
+    -- violation against this SAME still-unnamed inline constraint) even though V28's named
+    -- constraint had already been widened -- exactly the failure mode every comment above
+    -- already predicts. Flyway repair needed on an already-migrated instance, same as the
+    -- precedents above.
+    CHECK (entity_type IN ('JOURNAL_ENTRY', 'PARTY_DONATION_VERDICT', 'RESOLUTION', 'BOARD_MEMBERSHIP', 'CONFERENCE_RECORDING', 'CONFERENCE_STREAM', 'CONFERENCE_STREAM_DESTINATION', 'CONFERENCE_ROOM', 'SOCIAL_POST', 'ORGANIZATION_SETTINGS', 'SEPA_MANDATE', 'SEPA_DEBIT_BATCH', 'DUNNING_NOTICE', 'MEMBER', 'PAYMENT_TRANSACTION', 'API_KEY', 'WEBHOOK_ENDPOINT', 'BANK_STATEMENT_IMPORT', 'ACCOUNTING_EXPORT_CONNECTION', 'ACCOUNTING_EXPORT_RUN', 'ACCOUNTING_EXPORT_MAPPING', 'CONTRIBUTION_RELIEF_REQUEST')),
     CHECK (action IN ('CREATE', 'UPDATE', 'POST'))
 );
 

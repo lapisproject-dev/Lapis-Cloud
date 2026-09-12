@@ -148,6 +148,7 @@ class AuditLogSchemaDriftTest :
                             "ACCOUNTING_EXPORT_CONNECTION",
                             "ACCOUNTING_EXPORT_RUN",
                             "ACCOUNTING_EXPORT_MAPPING",
+                            "CONTRIBUTION_RELIEF_REQUEST",
                         ),
                     externalFqName = "network.lapis.cloud.shared.domain.AuditEntityType",
                 )

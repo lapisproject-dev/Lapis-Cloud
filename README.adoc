@@ -805,6 +805,46 @@ year), and re-export/duplicate-marking are all deliberately out of scope — see
 `docs/architecture/datev-export.adoc`'s own "What doesn't work yet" section for why each one
 specifically does not exist yet.
 
+== Contribution relief (deferral, exemption, reduction) (V1.4.10)
+
+Members can request one of three contribution relief measures: **deferral** (a new due date for
+one specific contribution line), **exemption** (temporarily or permanently excluded from future
+contribution generation), or **reduction** (moved to a cheaper membership tier). Requests go
+through a full state machine (`REQUESTED -> APPROVED/REJECTED/EXECUTED/WITHDRAWN`,
+`ContributionReliefService`/`ContributionReliefExecution`) with a BOARD/ADMIN decision step
+(Vier-Augen-Prinzip: no self-approval, a decision note is mandatory to approve) that decides and
+executes in one transaction — a failed under-lock recheck (e.g. the target contribution was paid
+between request and decision) leaves the request `APPROVED` with a recorded `executionError`
+instead of losing the approval, retryable via a dedicated RPC method.
+`ContributionService.generateContributionsForPeriod` skips a member exempt for the full period
+(`ContributionExemptionRules.isExemptForPeriod`). The (potentially Art. 9 DSGVO special-category)
+free-text reason is field-redacted for every viewer except BOARD/ADMIN/the subject, and
+automatically nulled 12 months after the request reaches a terminal state
+(`ContributionReliefRedaction`), independent of any DSGVO erasure request. See
+`docs/architecture/dsgvo.adoc`'s own "Contribution relief" section for the full erasure/export
+contract.
+
+=== What doesn't work yet (this wave)
+
+No self-service UI screen or board queue screen yet (backend/data model only — RPC surface is
+complete and tested); no deferral for `IN_DUNNING`/`RETURNED` contributions (would additionally
+need a dunning-level reset, deliberately deferred, not a design decision); no anteilige
+(partial-period) exemption; a granted exemption does **not** retroactively waive contribution lines
+already generated before the exemption took effect (the board's existing waive path still applies
+to those, manually); exemption data is not exposed on `MemberDto`; no reminder/automation for
+`review_due_on` (Wiedervorlage) — it is stored and filterable (`listReliefRequests(reviewDueOnly =
+true)` returns requests whose review date has actually arrived, i.e. `review_due_on <= today`, not
+merely requests that have one set), but nothing acts on it once it passes; **reduction is not
+applicable to a member with no membership tier of their own** (a family dependent billed through
+the family's payer, see `MemberFamilyService.addFamilyMember`) and is rejected with 400 rather than
+billing them directly in addition to the family invoice; **an unbounded (open-ended) exemption
+cannot be ended or shortened once executed** — there is no RPC path that later sets or clears
+`member.contribution_exempt_until` on an already-`EXECUTED` request (a fresh EXEMPTION request can
+only move it forward, never back), so a board wanting to end someone's permanent exemption has no
+self-service way to do so yet. Its potentially Art. 9 DSGVO free-text reason is still redacted 12
+months after execution regardless (the redaction anchor falls back to `executed_at` when
+`exemptionUntil` is null), even though the exemption's own effect keeps running.
+
 == Documentation Convention
 
 Consistent across all Lapis and kUML projects (see `CLAUDE.md`):

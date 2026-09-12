@@ -141,6 +141,25 @@ class SchemaDriftTest :
             }
         }
 
+        test(
+            "member.contribution_exempt_from/contribution_exempt_until/contribution_exempt_request_id are nullable (V1.4.10 Beitragsvergünstigungen)",
+        ) {
+            val entity = model.entities.single { it.name == "member" }
+            val real = transaction { introspectTable("member") }
+
+            listOf("contribution_exempt_from", "contribution_exempt_until", "contribution_exempt_request_id").forEach { name ->
+                withClue(clue = "column '$name'") {
+                    entity.attributeByName(name)?.nullable shouldBe true
+                    real.columns.getValue(name).nullable shouldBe true
+                }
+            }
+            // K-4: contribution_exempt_request_id is a forward reference to
+            // contribution_relief_request with NO FK -- a reverse FK would create a cycle with
+            // that entity's own subject_member_id -> member, which OrganizationSchemaCatalogTest's
+            // topological restoreOrder cannot resolve. Same treatment reviewed_by already gets.
+            real.foreignKeys["contribution_exempt_request_id"] shouldBe null
+        }
+
         test("account table shape matches the real migrated schema") {
             val entity = model.entities.single { it.name == "account" }
             val real = transaction { introspectTable("account") }

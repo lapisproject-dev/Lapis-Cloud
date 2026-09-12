@@ -350,6 +350,15 @@ internal object LegalHtml {
                         "DSGVO (Rechenschaftspflicht)."
                 )
             }
+            li {
+                +(
+                    "Beitragsvergünstigungen (Stundung, Befreiung, Sozialermäßigung), einschließlich des vom " +
+                        "Mitglied freiwillig angegebenen Antragsgrundes, der auch Angaben zur Gesundheit " +
+                        "enthalten kann — Art. 6 Abs. 1 lit. b DSGVO (Mitgliedschaftsvertrag) i. V. m. " +
+                        "Art. 9 Abs. 2 lit. a DSGVO (ausdrückliche Einwilligung durch die freiwillige Angabe), " +
+                        "soweit besondere Kategorien personenbezogener Daten betroffen sind."
+                )
+            }
         }
 
         h2 { +"Empfänger" }

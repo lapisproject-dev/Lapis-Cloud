@@ -31,9 +31,14 @@ import org.jetbrains.exposed.v1.core.Op
 import org.jetbrains.exposed.v1.core.ResultRow
 import org.jetbrains.exposed.v1.core.and
 import org.jetbrains.exposed.v1.core.eq
+import org.jetbrains.exposed.v1.core.greater
 import org.jetbrains.exposed.v1.core.greaterEq
+import org.jetbrains.exposed.v1.core.isNotNull
+import org.jetbrains.exposed.v1.core.isNull
+import org.jetbrains.exposed.v1.core.less
 import org.jetbrains.exposed.v1.core.lessEq
 import org.jetbrains.exposed.v1.core.notInList
+import org.jetbrains.exposed.v1.core.or
 import org.jetbrains.exposed.v1.jdbc.insert
 import org.jetbrains.exposed.v1.jdbc.insertIgnore
 import org.jetbrains.exposed.v1.jdbc.selectAll
@@ -126,12 +131,28 @@ class ContributionService(
             // filter below already structurally excludes MemberStatus.DECEASED (and every other
             // non-ACTIVE status) from ever generating a new contribution line. See
             // ContributionServiceTest for the verification test added by that wave.
+            //
+            // Welle V1.4.10 "Beitragsvergünstigungen": second structural exclusion condition next
+            // to the ACTIVE filter above -- a member exempted for THIS period generates no
+            // contribution line. "Ganz-oder-gar-nicht": the exemption must cover the FULL period
+            // (from <= periodStart AND (until == null OR until >= periodEnd)) -- no anteilige
+            // (partial-period) exemption in this wave, see ContributionExemptionRules KDoc and
+            // CHANGELOG "bewusste Auslassung". Wortgleich zu
+            // ContributionExemptionRules.isExemptForPeriod, hier als Exposed-Op formuliert, damit
+            // der Ausschluss im SQL-WHERE statt in einer Kotlin-Nachfilterung passiert -- ein Test
+            // (ContributionReliefExemptionFilterTest) verifiziert beide Formulierungen gegeneinander.
+            val notExemptForPeriod =
+                MemberTable.contributionExemptFrom.isNull() or
+                    (MemberTable.contributionExemptFrom greater periodStart) or
+                    (MemberTable.contributionExemptUntil.isNotNull() and (MemberTable.contributionExemptUntil less periodEnd))
+
             val activeMembers =
                 MemberTable
                     .selectAll()
                     .where {
                         (MemberTable.membershipTierId eq tierId) and
-                            (MemberTable.status eq MemberStatus.ACTIVE)
+                            (MemberTable.status eq MemberStatus.ACTIVE) and
+                            notExemptForPeriod
                     }.map { it[MemberTable.id] }
 
             var created = 0

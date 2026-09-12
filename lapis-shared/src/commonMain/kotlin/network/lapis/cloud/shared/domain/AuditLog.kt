@@ -174,6 +174,16 @@ enum class AuditEntityType {
      * after `ACCOUNTING_EXPORT_RUN`, additive only.
      */
     ACCOUNTING_EXPORT_MAPPING,
+
+    /**
+     * Welle V1.4.10 "Beitragsvergünstigungen" -- `network.lapis.cloud.server.rpc
+     * .ContributionReliefService`'s `requestRelief`/`withdrawReliefRequest`/`decideReliefRequest`/
+     * `retryReliefExecution` each write exactly one `CONTRIBUTION_RELIEF_REQUEST` entry per state
+     * transition, `entityId` = the `contribution_relief_request` row's id. See
+     * [ContributionReliefSnapshot] KDoc for why it never carries `reasonText`/`decisionNote`.
+     * Appended LAST, after `ACCOUNTING_EXPORT_MAPPING`, additive only.
+     */
+    CONTRIBUTION_RELIEF_REQUEST,
 }
 
 /**

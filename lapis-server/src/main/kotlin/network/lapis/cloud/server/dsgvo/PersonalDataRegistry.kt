@@ -53,6 +53,7 @@ object PersonalDataRegistry {
             EventPersonalData,
             MemberHonorPersonalData,
             MemberFamilyPersonalData,
+            ContributionReliefPersonalData,
         )
 
     /**

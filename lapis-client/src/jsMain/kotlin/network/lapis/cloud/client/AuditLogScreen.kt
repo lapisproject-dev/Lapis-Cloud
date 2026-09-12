@@ -412,6 +412,12 @@ fun decodeAuditSnapshot(
             // display (empty in practice).
             AuditEntityType.ACCOUNTING_EXPORT_RUN -> null
             AuditEntityType.ACCOUNTING_EXPORT_MAPPING -> null
+            // Welle V1.4.10 "Beitragsvergünstigungen" -- ContributionReliefService writes
+            // ContributionReliefSnapshot (see AuditLog.kt), but this client-side decode/render
+            // pair is deliberately not extended for it this wave (backend-only wave, same posture
+            // ACCOUNTING_EXPORT_RUN/API_KEY already establish) -- falls through to the raw-text
+            // display.
+            AuditEntityType.CONTRIBUTION_RELIEF_REQUEST -> null
         }
     }.getOrNull()
 

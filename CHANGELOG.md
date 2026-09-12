@@ -8,6 +8,49 @@ All notable changes to this project are documented here. Format follows
 
 ### Added
 
+**Beitragsvergünstigungen: Stundung / Befreiung / Sozialermäßigung (V1.4.10)**
+
+- **Hinzugefügt**: Mitglieder können über die neue Tabelle `contribution_relief_request` drei Arten
+  von Beitragsvergünstigungen beantragen -- **Stundung** (neues Fälligkeitsdatum für eine konkrete
+  Beitragszeile), **Befreiung** (zeitlich befristet oder unbefristet von künftigen Beitragszeilen
+  ausgenommen) und **Sozialermäßigung** (Wechsel auf eine günstigere Beitragsstufe). Vollständiger
+  Zustandsautomat (`REQUESTED -> APPROVED/REJECTED/EXECUTED/WITHDRAWN`) in
+  `ContributionReliefService`/`ContributionReliefExecution`. BOARD/ADMIN genehmigen/lehnen ab, mit
+  Vier-Augen-Prinzip (kein Selbst-Genehmigen) und Pflicht-Entscheidungsnotiz bei Genehmigung.
+- **Hinzugefügt**: `generateContributionsForPeriod` überspringt Mitglieder, die für die volle
+  Periode befreit sind (dieselbe "ganz oder gar nicht"-Regel, die `ContributionExemptionRules
+  .isExemptForPeriod` als deklarative Referenz dokumentiert und im Äquivalenztest gegenprüft --
+  die Produktionsabfrage selbst ist ein handgeschriebener Exposed-`Op`, siehe
+  `ContributionService.generateContributionsForPeriod`).
+- **Hinzugefügt**: automatische Redaktion des (potenziell Art.-9-relevanten) Freitext-Antragsgrunds
+  12 Monate nach Erreichen eines Endzustands (`ContributionReliefRedaction`), unabhängig von einem
+  DSGVO-Löschantrag; `ContributionReliefPersonalData` deckt Export/Erasure ab.
+- **Sicherheit**: „ein offener Antrag je (Mitglied, Art)" ist DB-seitig über einen plain Unique-Index
+  auf einer application-maintained Shadow-Spalte garantiert (kein partieller Index -- H2
+  MODE=PostgreSQL lehnt das ab, siehe `V28__contribution_relief.sql`). IDOR-Gate: MEMBER nur für
+  sich selbst, BOARD/ADMIN auch im Namen eines fremden Mitglieds. Feld-Level-Redaktion des
+  Antragsgrund-Freitexts für jeden Betrachter außer BOARD/ADMIN/Subjekt.
+- **Migration**: `V28__contribution_relief.sql` (neue Tabelle + drei `member`-Spalten +
+  CHECK-Constraints + Indizes); zusätzlich das inline, unbenannte `audit_log_entry.entity_type`-CHECK
+  in `V1__baseline.sql` verbreitert (gleiches Muster wie bei jeder vorherigen `AuditEntityType`-Welle
+  -- betrifft nur frische/Test-Datenbanken, `flyway repair` auf bereits migrierten Instanzen nötig).
+- **Bewusste Grenze**: keine Stundung für `IN_DUNNING`/`RETURNED`-Zeilen (fehlende Mahnstufen-
+  Rücksetzung, aufgeschobene Welle, kein Designprinzip); keine anteilige Befreiung für Teilperioden;
+  bereits generierte offene Beitragszeilen werden bei einer Befreiung **nicht** automatisch
+  erlassen; Befreiungsdaten erscheinen nicht in `MemberDto`; **Sozialermäßigung ist für Mitglieder
+  ohne eigene Beitragsstufe** (Familien-Angehörige, die über den Zahler der Familie abgerechnet
+  werden) **nicht anwendbar** und wird server-seitig mit 400 abgelehnt -- sie würden sonst
+  zusätzlich zur Familienrechnung direkt individuell belastet; eine **unbefristete Befreiung lässt
+  sich nach ihrer Ausführung nicht mehr beenden oder verkürzen** -- es gibt (noch) keinen
+  RPC-Pfad, der `member.contribution_exempt_until` nachträglich setzt oder die Befreiung
+  zurücknimmt (ein neuer EXEMPTION-Antrag kann `contribution_exempt_until` nur auf ein Datum
+  `>= contribution_exempt_from` verschieben, nie aufheben); der potenziell Art.-9-relevante
+  Freitext einer solchen unbefristeten Befreiung wird trotzdem 12 Monate nach ihrer Ausführung
+  redigiert (Anker fällt auf `executed_at` zurück, siehe `ContributionReliefRedaction`), auch
+  wenn die Befreiung selbst weiterläuft; die Bedienoberfläche (Selbstbedienungs-
+  Formular + Vorstands-Warteschlange) und die 7-Sprachen-i18n sind **noch nicht** Teil dieser Welle
+  -- Backend/Datenmodell sind vollständig, das Frontend folgt in einer eigenen Welle.
+
 **Videokonferenz-Zuverlässigkeit: TURN-Relay-Fallback + TURNS-Vorbereitung**
 
 - **Behoben**: Audio/Video startet in manchen Browsern gar nicht (Report ELB-Vorstand,

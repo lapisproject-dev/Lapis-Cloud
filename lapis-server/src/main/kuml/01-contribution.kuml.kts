@@ -45,6 +45,11 @@
 // because `sepa_mandate` did not exist until this wave -- see that migration's own comment for why
 // this in-place `V1__baseline.sql` edit is mirrored, idempotently, by `V8__sepa_mandates.sql`.
 //
+// **Welle V1.4.10 "Beitragsvergünstigungen"** adds no column here -- `contribution.dueDate`/
+// `.status` are read (never additionally modelled) by the new `contribution_relief_request`
+// entity in `44-contribution-relief.kuml.kts`, which carries its own id-only Contribution stub
+// for `deferral_contribution_id`'s FK target. See that file's own header for the full model.
+//
 // **Welle V1.4.5.1 "Kontoauszugs-Import (CSV/MT940)"** adds exactly one column:
 // `contribution.paymentReference` (nullable, UNIQUE via a class-level «Index» -- «Column».unique is
 // single-column-only, but this is already single-column, the class-level form is used purely for a

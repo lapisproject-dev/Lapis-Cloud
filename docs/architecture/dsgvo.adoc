@@ -233,6 +233,40 @@ documents the automatic end of membership under § 38 BGB and is retained as evi
 This exception is intentional and must not be "cleaned up" by a later, well-meaning refactor that
 notices it looks inconsistent with the rest of the class.
 
+== Contribution relief (`contribution_relief_request`, Welle V1.4.10)
+
+`ContributionReliefPersonalData` covers `contribution_relief_request`, which carries a member in
+THREE roles — `subject_member_id` (whose contribution obligation is affected), `requested_by`
+(whoever filed the request, self or a privileged actor on the subject's behalf), and `decided_by`
+(the BOARD/ADMIN member who approved/rejected it). Same "row-counting via a single `OR`, never a
+summed count" discipline `MemberHonorPersonalData`/`MemberFamilyPersonalData` already establish for
+their own multi-role tables.
+
+* The row itself — that a relief was requested, of what kind, and how the board decided — is
+  **retained regardless of `ErasureMode` or role**, an Art. 5(2) DSGVO accountability record; §147
+  AO additionally requires a board-authored waiver/reduction decision to stay reconstructable for a
+  Kassenprüfung.
+* `reason_text` is the one field erasure actually touches: a free-text antragsgrund that may carry
+  Art. 9 special-category data (health), authored by the SUBJECT about themselves. It is
+  **unconditionally nulled** on the subject's own erasure — regardless of `ErasureMode`, and
+  regardless of the request's current status — same "no third party's own interest in this text"
+  reasoning `MemberHonorPersonalData.note` already applies to its own honoree-role free text.
+  `decision_note` (the board's own words) is never touched by this path.
+* Erasing the `requested_by`- or `decided_by`-only role does **not** touch `reason_text` — that text
+  is fachlich about the subject, not about the person who merely filed or decided the request; only
+  the row's existence in that role is retained as an accountability record.
+* `exportMember` mirrors that same asymmetry on the OTHER side of Art. 15: `reason_text` is included
+  in the JSON export only for a row where the exporting member is the SUBJECT, even though the same
+  row is also returned (without `reason_text`) when the exporting member matches only as
+  `requested_by`/`decided_by`. Same role check `ContributionReliefService.toDto` applies over the RPC
+  surface (`viewer.isPrivileged || viewer.memberId == subjectId`) — a self-service export must not
+  become a side channel for a privileged actor to read a third party's Art. 9 disclosure after
+  losing that privilege.
+* `reason_redacted_at` is stamped by BOTH independent mechanisms that null `reason_text` — this
+  Art. 17 erasure path AND `network.lapis.cloud.server.contribution.ContributionReliefRedaction`'s
+  automatic 12-month sweep (see that class' own KDoc) — it is a factual "when was this text actually
+  removed" timestamp, true regardless of which of the two triggered it.
+
 == See also
 
 * `network.lapis.cloud.server.dsgvo.PersonalDataContributor`/`PersonalDataRegistry`/`DataSubject` — the
@@ -244,6 +278,8 @@ notices it looks inconsistent with the rest of the class.
   contributor for `member_honor`.
 * `network.lapis.cloud.server.dsgvo.MemberFamilyPersonalData` — the three-role, hard-delete
   contributor for `member_family`/`member_family_link`.
+* `network.lapis.cloud.server.dsgvo.ContributionReliefPersonalData` — the three-role,
+  single-field-redaction contributor for `contribution_relief_request` (Welle V1.4.10).
 * `docs/architecture/domain-model.adoc` — the wider persistence-model documentation this file
   intentionally does not duplicate (this document is scoped to the DSGVO framework's own shape, not
   the CRM entity's full column-level schema — see `38-crm.kuml.kts` for that).

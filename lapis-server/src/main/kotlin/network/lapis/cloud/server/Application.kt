@@ -55,6 +55,7 @@ import network.lapis.cloud.server.conference.RecordingComposer
 import network.lapis.cloud.server.conference.RecordingPoller
 import network.lapis.cloud.server.conference.SecretBallotStreamGuard
 import network.lapis.cloud.server.conference.StreamPoller
+import network.lapis.cloud.server.contribution.ContributionReliefRedactionPoller
 import network.lapis.cloud.server.crypto.SecretBox
 import network.lapis.cloud.server.db.DatabaseConfig
 import network.lapis.cloud.server.db.DevSeedData
@@ -133,6 +134,7 @@ import network.lapis.cloud.server.rpc.ConferenceRecordingService
 import network.lapis.cloud.server.rpc.ConferenceService
 import network.lapis.cloud.server.rpc.ConferenceStreamingService
 import network.lapis.cloud.server.rpc.ConferenceWhiteboardService
+import network.lapis.cloud.server.rpc.ContributionReliefService
 import network.lapis.cloud.server.rpc.ContributionService
 import network.lapis.cloud.server.rpc.CrmService
 import network.lapis.cloud.server.rpc.CrowdfundingService
@@ -188,6 +190,7 @@ import network.lapis.cloud.shared.rpc.IConferenceRecordingService
 import network.lapis.cloud.shared.rpc.IConferenceService
 import network.lapis.cloud.shared.rpc.IConferenceStreamingService
 import network.lapis.cloud.shared.rpc.IConferenceWhiteboardService
+import network.lapis.cloud.shared.rpc.IContributionReliefService
 import network.lapis.cloud.shared.rpc.IContributionService
 import network.lapis.cloud.shared.rpc.ICrmService
 import network.lapis.cloud.shared.rpc.ICrowdfundingService
@@ -652,6 +655,12 @@ fun Application.module() {
     // wired independently here.
     val dunningPreviewRateLimiter = FederationInboxRateLimiter(maxRequests = 10, window = 1.minutes)
 
+    // Welle V1.4.10 "Beitragsvergünstigungen" -- immer aktiv (kein Feature-Flag, keine externen
+    // Secrets), siehe ContributionReliefRedactionPoller KDoc.
+    val contributionReliefRedactionPoller = ContributionReliefRedactionPoller()
+    contributionReliefRedactionPoller.start()
+    monitor.subscribe(ApplicationStopping) { contributionReliefRedactionPoller.stop() }
+
     // Welle V1.4.5.2 "DATEV-Format-Export" -- own instance, same budget shape as
     // dunningPreviewRateLimiter/dunningIssueRateLimiter, because the raw Ktor download route and
     // the RPC preview service are wired independently here (the RPC preview itself carries no rate
@@ -1036,6 +1045,7 @@ fun Application.module() {
             )
         }
         registerService(IContributionService::class) { call -> ContributionService(call) }
+        registerService(IContributionReliefService::class) { call -> ContributionReliefService(call) }
         registerService(IMemberFinancialHistoryService::class) { call -> MemberFinancialHistoryService(call) }
         registerService(IMemberAnniversaryService::class) { call -> MemberAnniversaryService(call = call) }
         registerService(IMemberHonorService::class) { call -> MemberHonorService(call = call) }

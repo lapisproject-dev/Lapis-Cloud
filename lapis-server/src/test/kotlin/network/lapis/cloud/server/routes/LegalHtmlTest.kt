@@ -266,6 +266,7 @@ class LegalHtmlTest :
                     "apiKeys" to "API-Schlüssel",
                     "webhookEndpoints" to "Webhooks",
                     "publicRankingConsent" to "Öffentliche Ranglisten",
+                    "contributionRelief" to "Beitragsvergünstigungen",
                 )
 
             // Deliberately NOT matched by their own keyword: these three LTR-economy

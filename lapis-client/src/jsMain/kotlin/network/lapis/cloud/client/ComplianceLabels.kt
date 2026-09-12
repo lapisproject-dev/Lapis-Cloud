@@ -117,6 +117,11 @@ fun auditEntityTypeLabel(entityType: AuditEntityType): String =
         // above so the three read as one family of entries on this screen.
         AuditEntityType.ACCOUNTING_EXPORT_RUN -> gettext("Buchhaltungs-Export-Lauf")
         AuditEntityType.ACCOUNTING_EXPORT_MAPPING -> gettext("Buchhaltungs-Export-Zuordnung")
+        // Welle V1.4.10 "Beitragsvergünstigungen" -- "Beitragsvergünstigung" is the term a future
+        // ContributionReliefQueueScreen.kt would use throughout for a `contribution_relief_request`
+        // row; no dedicated screen exists yet this wave (backend-only, same posture
+        // BANK_STATEMENT_IMPORT/ACCOUNTING_EXPORT_CONNECTION already establish for their own waves).
+        AuditEntityType.CONTRIBUTION_RELIEF_REQUEST -> gettext("Beitragsvergünstigung")
     }
 
 fun auditEntityTypeColor(entityType: AuditEntityType): String =
@@ -176,6 +181,10 @@ fun auditEntityTypeColor(entityType: AuditEntityType): String =
         // "secondary" -- a ledger-account-to-external-category mapping is routine administration,
         // the same neutral tier MEMBER/BOARD_MEMBERSHIP already carry.
         AuditEntityType.ACCOUNTING_EXPORT_MAPPING -> "secondary"
+        // "warning" -- a relief decision (approve/reject/execute) is administrative and financially
+        // relevant but not itself a security event, same tier ORGANIZATION_SETTINGS/
+        // ACCOUNTING_EXPORT_RUN already carry.
+        AuditEntityType.CONTRIBUTION_RELIEF_REQUEST -> "warning"
     }
 
 // ------------------------------------------------------------------------------------------------

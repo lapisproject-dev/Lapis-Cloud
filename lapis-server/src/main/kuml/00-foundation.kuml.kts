@@ -45,6 +45,15 @@
 // Flyway `V10__member_donor_deceased_and_external_reference.sql` for the real-data migration on an
 // already-`V1` baseline.
 //
+// V1.4.10 (Beitragsvergünstigungen -- Stundung/Befreiung/Sozialermäßigung): `member` gains three
+// nullable columns for the EXEMPTION effect (contributionExemptFrom/contributionExemptUntil/
+// contributionExemptRequestId) -- see 44-contribution-relief.kuml.kts file header and
+// `network.lapis.cloud.server.rpc.ContributionReliefExecution` KDoc. contributionExemptRequestId
+// is a plain UUID «Column» with NO «Column».fkEntity tag -- pointing it back at
+// contribution_relief_request would create a cycle (that entity's own subject_member_id already
+// FKs -> member), which OrganizationSchemaCatalogTest's topological restoreOrder cannot resolve.
+// Same treatment reviewedBy already establishes for itself, three attributes below.
+//
 // V1.4.4.5 (Sterbefall-Workflow): `member` gains a nullable dateOfDeath field. Fachlich rein
 // deklaratorisch -- § 38 BGB beendet die Mitgliedschaft AUTOMATISCH mit dem Tod, dieses Feld haelt
 // das nur fest, es bewirkt es nicht. Nullable: das genaue Datum steht bei der Meldung haeufig noch
@@ -224,6 +233,20 @@ classDiagram(name = "Foundation") {
         attribute(name = "externalReference", type = "String") {
             multiplicity = Multiplicity(0, 1)
             stereotype("Column") { "columnName" to "external_reference"; "sqlType" to "VARCHAR(50)" }
+        }
+        // V1.4.10 Beitragsvergünstigungen -- see file header. All three nullable.
+        attribute(name = "contributionExemptFrom", type = "LocalDate") {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") { "columnName" to "contribution_exempt_from" }
+        }
+        attribute(name = "contributionExemptUntil", type = "LocalDate") {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") { "columnName" to "contribution_exempt_until" }
+        }
+        // K-4: deliberately NO fkEntity tag -- see file header "V1.4.10" addendum above.
+        attribute(name = "contributionExemptRequestId", type = "UUID") {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") { "columnName" to "contribution_exempt_request_id" }
         }
     }
 

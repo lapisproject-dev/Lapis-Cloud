@@ -35,16 +35,16 @@ class DomainModelMergerTest :
         // ── Test 1: merging the real 22 domain scripts ───────────────────────────────────
 
         test(
-            "merging the real 44 domain scripts succeeds and the uml-to-erm -> erm-to-exposed chain " +
+            "merging the real 45 domain scripts succeeds and the uml-to-erm -> erm-to-exposed chain " +
                 "produces exactly one Table file per distinct table name",
         ) {
             val scriptFiles =
                 requireNotNull(KumlModelLoader.kumlSourceDir.listFiles { f -> f.name.endsWith(".kuml.kts") }) {
                     "kUML source dir not found or not a directory: ${KumlModelLoader.kumlSourceDir.absolutePath}"
                 }.sortedBy { it.name }
-            // Welle V1.4.5.3 "lexoffice-Live-Anbindung" -- was 43, now 44 with the addition of
-            // 43-accounting-export.kuml.kts.
-            scriptFiles shouldHaveSize 44
+            // Welle V1.4.10 "Beitragsvergünstigungen" -- was 44, now 45 with the addition of
+            // 44-contribution-relief.kuml.kts.
+            scriptFiles shouldHaveSize 45
 
             val diagrams = scriptFiles.map { KumlModelLoader.loadUmlDiagram(it) }
 
@@ -340,7 +340,13 @@ class DomainModelMergerTest :
             // entities (member/journal_entry/ledger_account) -- so it contributes +7 «Entity»
             // declarations (3 stubs + 4 real tables) and 3 drops, net +4 distinct table names versus
             // the V1.4.4.4 baseline above (130 -> 134).
-            val distinctTableNames = 134
+            // Welle V1.4.10 "Beitragsvergünstigungen" adds 44-contribution-relief.kuml.kts's ONE
+            // real table (contribution_relief_request), WITH THREE cross-domain stubs (Member,
+            // Contribution, MembershipTier) -- all three stubs dedup into already-real entities
+            // (member/contribution/membership_tier) -- so it contributes +4 «Entity» declarations
+            // (3 stubs + 1 real table) and 3 drops, net +1 distinct table name versus the
+            // V1.4.5.3 baseline above (134 -> 135).
+            val distinctTableNames = 135
 
             val result =
                 UmlToExposedViaErmScriptTransformer().transform(
@@ -551,6 +557,11 @@ class DomainModelMergerTest :
                     "AccountingExportRunTable.kt",
                     "AccountingExportItemTable.kt",
                     "AccountingExportCategoryMapTable.kt",
+                    // Welle V1.4.10 "Beitragsvergünstigungen" -- one new real table
+                    // (contribution_relief_request); its Member/Contribution/MembershipTier
+                    // cross-domain stubs all dedup into already-real entities, no new Table file
+                    // for any of them.
+                    "ContributionReliefRequestTable.kt",
                 )
         }
 

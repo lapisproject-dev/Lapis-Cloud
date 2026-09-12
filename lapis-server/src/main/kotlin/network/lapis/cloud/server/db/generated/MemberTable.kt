@@ -51,8 +51,17 @@ public object MemberTable : Table("member") {
     // members; no uniqueIndex, see 00-foundation.kuml.kts.
     public val externalReference: Column<String?> = varchar("external_reference", 50).nullable()
 
+    // V1.4.10 "Beitragsvergünstigungen" -- see 44-contribution-relief.kuml.kts file header and
+    // network.lapis.cloud.server.rpc.ContributionReliefExecution KDoc. contributionExemptRequestId
+    // is genuinely a forward reference to contribution_relief_request -- NO .references() here,
+    // same treatment reviewedBy above already establishes for itself (K-4: a reverse FK would
+    // create a cycle with contribution_relief_request.subject_member_id -> member).
+    public val contributionExemptFrom: Column<LocalDate?> = date("contribution_exempt_from").nullable()
+    public val contributionExemptUntil: Column<LocalDate?> = date("contribution_exempt_until").nullable()
+    public val contributionExemptRequestId: Column<Uuid?> = uuid("contribution_exempt_request_id").nullable()
+
     override val primaryKey: PrimaryKey = PrimaryKey(id)
 
-    // Note: 1 check constraint(s) declared on this entity are not
+    // Note: 3 check constraint(s) declared on this entity are not
     // emitted — Exposed's check {} DSL needs a typed Op<Boolean>, not a raw SQL string.
 }
