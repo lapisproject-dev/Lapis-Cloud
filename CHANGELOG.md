@@ -8,6 +8,114 @@ All notable changes to this project are documented here. Format follows
 
 ### Added
 
+**Mehrere Bankkonten -- Multi-Banking-Fundament, Datei-Import je Konto (V1.4.14, Welle 1 von 2)**
+
+- **Hinzugefügt**: eine Organisation kann jetzt mehrere Bankkonten verwalten (`bank_account`) statt
+  nur der einen `organization_settings.bank_iban`/`bank_bic`-Spalte. `IBankAccountService`
+  (`BankAccountService`/`BankAccountStore`) bietet Anlegen/Bearbeiten/Löschen sowie das Setzen eines
+  Standardkontos -- genau ein Konto trägt zu jedem Zeitpunkt `isDefault = true`
+  (`chk_bank_account_default_marker` + `uq_bank_account_default`).
+- **Geändert**: sobald mindestens ein `bank_account` existiert, wird dessen Standardkonto (IBAN/BIC)
+  automatisch nach `organization_settings.bank_iban`/`bank_bic` gespiegelt -- die einzige
+  Schreibstelle dieser beiden Spalten ab diesem Zeitpunkt. `OrganizationSettingsService
+  .updateOrganizationSettings` ignoriert eingehende `bankIban`/`bankBic`-Werte in diesem Fall
+  (rückwärtskompatibel: ohne `bank_account`-Zeile exakt das Vorwellen-Verhalten).
+- **Geändert**: `BankStatementImportService.import` (Datei-Upload, CSV/MT940) ordnet einen Import
+  jetzt einem konkreten Bankkonto zu, sobald mehrere existieren -- per explizit übergebener
+  `bankAccountId`, per Abgleich der Auszugs-IBAN (`:25:`-Feld bei MT940) gegen die hinterlegten
+  Konten, oder als Fallback dem Standardkonto. Ohne jede `bank_account`-Zeile bleibt das
+  Vorwellen-Verhalten (Abgleich gegen `organization_settings.bank_iban`) unverändert. Die bereits
+  seit V1.4.5.1 bestehende Route `POST /api/bank-statements/import` akzeptiert zusätzlich optional
+  das neue Multipart-Feld `bankAccountId`.
+- **Migration**: `V32__bank_account.sql` (neue Tabelle `bank_account`,
+  `bank_statement_import.bank_account_id`, `BANK_ACCOUNT`-Erweiterung des
+  `audit_log_entry.entity_type`-CHECK); zusätzlich das inline, unbenannte
+  `audit_log_entry.entity_type`-CHECK in `V1__baseline.sql` verbreitert (gleiches Muster wie bei
+  jeder vorherigen `AuditEntityType`-Welle -- betrifft nur frische/Test-Datenbanken, `flyway repair`
+  auf bereits migrierten Instanzen nötig). Bestandsdaten: ein bereits konfiguriertes
+  `organization_settings.bank_iban` wird beim ersten Serverstart automatisch als Standardkonto
+  "Hauptkonto" in `bank_account` übernommen (`BankAccountStore.backfillLegacyDefaultAccountIfNeeded`,
+  in `main()`, nicht in `Application.module()` -- siehe Kommentar dort für die Begründung).
+- **Bewusste Grenze (Scope-Cut dieser Welle)**: FinTS/HBCI-Live-Abruf (automatischer Kontoauszugs-
+  Abruf per Online-Banking-Zugangsdaten) ist **nicht** Teil dieser Welle. Die Lizenzfrage der
+  in Frage kommenden Java-FinTS-Bibliothek (`hbci4j-core`, LGPL-2.1 -- bisher kein
+  Versionskatalog-Präzedenzfall für dieses Lizenzmodell in diesem Codebase) ist noch nicht
+  entschieden, und die eigentliche Bank-Protokoll-Implementierung braucht eine eigene, separate
+  Sicherheits- und Review-Runde (PIN-Verwahrung, TAN-Handhabung, SSRF-Schutz gegen die FinTS-URL).
+  Diese Welle liefert ausschließlich das Mehrkonten-Fundament (mehrere Konten, Datei-Import je
+  Konto) als eigenständig nutzbares Increment; der Live-Abruf folgt als eigene Welle V1.4.14.2,
+  sobald die Lizenzentscheidung getroffen ist. Es gibt noch keine Bedienoberfläche
+  (`BankAccountsScreen.kt`) -- diese Welle ist backend-only, analog zu mehreren vorherigen Wellen
+  (`BANK_STATEMENT_IMPORT`, `ACCOUNTING_EXPORT_CONNECTION` usw.).
+
+**Mehrere Bankkonten -- Review-Nachbesserung (Review Round 3)**
+
+- **Behoben (BLOCKER)**: `messages.pot` (Referenzkatalog fuer `verifyI18nCatalogParity`) fehlte der
+  in Runde 2 an alle sieben Sprachkataloge angehaengte Eintrag fuer
+  `BankStatementLabels.kt`s "Der Auszug enthält keine auswertbare Kontokennung -- automatisch dem
+  Standardkonto zugeordnet." -- `./gradlew clean check` schlug dadurch permanent (nicht nur
+  Cache-bedingt) fehl, unabhaengig vom Cache-Zustand. Ergaenzt.
+- **Behoben (MAJOR, Sicherheit)**: ein TREASURER konnte ueber `IBankAccountService` die
+  ADMIN-exklusive Organisations-IBAN/BIC indirekt aendern -- `createBankAccount` (erstes Konto),
+  `updateBankAccount`/`deleteBankAccount` (jeweils auf das aktuelle Standardkonto) und
+  `setDefaultBankAccount` spiegeln ihr Ergebnis nach `organization_settings.bank_iban`/`bank_bic`,
+  exakt das Feld, das `OrganizationSettingsService.updateOrganizationSettings` direkt ADMIN-only
+  macht. `BankAccountStore.requireAdminForMirrorChange` erzwingt jetzt ADMIN fuer genau die
+  Mutationen, die den Spiegel tatsaechlich beruehren -- gewoehnliche Mehrkonten-Verwaltung (ein
+  zweites/drittes Nicht-Standardkonto anlegen, ein Nicht-Standardkonto bearbeiten/loeschen) bleibt
+  TREASURER-erreichbar. Negativ-/Positiv-Tests in `BankAccountServiceTest`/`BankAccountStoreTest`.
+- **Behoben (MEDIUM)**: der Diskriminator aus dem CRITICAL-Fix der Runde 2
+  (`BankStatementFingerprint.bankAccountDiscriminator`) war an `bankAccountRowCount > 1` gekoppelt
+  -- eine veraenderliche Groesse, die bei jedem Wechsel der Kontenanzahl (1 → 2 Konten oder 2 → 1
+  Konten) die Fingerprint-Formel eines Kontos aenderte, dessen eigene Identitaet sich nie geaendert
+  hatte, und dabei ein Dublettenfenster oeffnete. Der Diskriminator ist jetzt unconditional (an die
+  Identitaet des aufgeloesten Kontos gebunden, nicht an die Kontenanzahl);
+  `BankStatementImportService.import` prueft je Zeile zusaetzlich den Legacy-Fingerprint (ohne
+  Diskriminator), eingeschraenkt auf Importe desselben Kontos, um mit jedem bereits gespeicherten
+  Fingerprint kompatibel zu bleiben. Zwei neue Regressionstests in `BankStatementImportServiceTest`
+  (Szenario A: 1 → 2 Konten; Szenario B: 2 → 1 Konten).
+- **Behoben (MINOR)**: `BankStatementRoutes.kt`s Multipart-Feld `bankAccountId` hatte keine
+  Testabdeckung -- der einzige Weg, auf dem ein echter Client ein Konto auswaehlt. Drei neue Tests
+  in `BankStatementRoutesTest` (gueltige explizite Zuordnung, nicht parsebare Id, wohlgeformte aber
+  unbekannte Id).
+- **Behoben (MINOR)**: drei fachlich verschiedene Ablehnungsgruende (nicht parsebares
+  `bankAccountId`, ein referenzloses `bankAccountId`, ein Auszug ohne passendes Konto) teilten sich
+  `BankStatementRejectionCode.FOREIGN_ACCOUNT` und damit einen Client-Text, der auf die
+  Organisationseinstellungen verwies -- im Mehrkonten-Betrieb nur noch ein Spiegel, nicht die
+  Fehlerursache. Zwei neue Codes (`INVALID_BANK_ACCOUNT_ID`, `UNKNOWN_BANK_ACCOUNT`) mit eigenem
+  Client-Label, alle acht Kataloge ergaenzt.
+- **Dokumentation**: `docs/architecture/bank-statement-import.adoc` beschrieb die
+  Fingerprint-Dedup weiterhin als unbedingt -- entsprechend der obigen MEDIUM-Korrektur ergaenzt.
+
+**Mehrere Bankkonten -- Review-Nachbesserung (Review Round 4)**
+
+- **Behoben (MAJOR, Doppelbuchung realer Zahlungen im Upgrade-Pfad)**: der Legacy-Fingerprint-
+  Fallback aus Runde 3 (`alreadyImportedUnderLegacyFingerprint`) war durch seine eigene
+  Kontosuche-Einschraenkung unerreichbar -- `bank_statement_import.bank_account_id` wird exakt aus
+  demselben Wert geschrieben, den auch der Diskriminator verwendet, sodass ein non-null
+  `bank_account_id` bereits einen diskriminator-behafteten Fingerprint impliziert. Legacy-Zeilen
+  (jeder Import vor dem allerersten `bank_account`-Datensatz, also jede Bestandsinstanz beim
+  Upgrade) haben `bank_account_id = NULL` und konnten den Filter `bankAccountId eq
+  discriminatorAccountId` folglich nie erfuellen -- der Fix aus Runde 3 griff in Produktion also
+  gar nie. Jeder ueberlappende Re-Import nach dem V1.4.14-Upgrade fuegte dieselbe Zeile ein zweites
+  Mal ein, was in Phase 2 zu einer doppelten Verbuchung derselben realen Zahlung gegen zwei
+  Beitragszeilen fuehren konnte. Der Filter erfasst jetzt zusaetzlich `bank_account_id IS NULL`,
+  aber nur wenn das aufgeloeste Konto aktuell das Standardkonto der Organisation ist -- eine
+  `NULL`-Zeile gehoert immer zur einzigen Vorwellen-Identitaet der Organisation (dieser Codebase ist
+  single-tenant, und die Vorwellen-eigene FOREIGN_ACCOUNT-Ablehnung liess ohnehin nur Auszuege zu,
+  die zur einzigen konfigurierten IBAN der Organisation passten), die per Backfill exakt zum neuen
+  Standardkonto wird. Fuer jedes NICHT-Standardkonto bleibt der Fallback auf dessen eigene Importe
+  beschraenkt, um die urspruengliche CRITICAL-Kollision (zwei Konten mit zufaellig identischer
+  Zeile) geschlossen zu halten.
+- **Behoben (Testabdeckung)**: der Regressionstest fuer den MEDIUM-Fix praeparierte einen in
+  Produktion unerreichbaren DB-Zustand (`bank_account_id` gesetzt UND diskriminator-loser
+  Fingerprint gleichzeitig) und gab dadurch falsches Vertrauen. Auf den tatsaechlichen
+  Bestandszustand (`bank_account_id = NULL`) korrigiert, plus einen zusaetzlichen Fall: Import vor
+  Anlegen des ersten Bankkontos, danach Konto angelegt, ueberlappender Re-Import.
+- **Dokumentation**: `docs/architecture/bank-statement-import.adoc` und
+  `BankStatementFingerprint`s KDoc korrigiert -- beide behaupteten, der Fallback aus Runde 3 decke
+  den "noch keine `bank_account`-Zeile"-Fall ab; das war genau der ausgeschlossene Fall.
+
 **Beitragsvergünstigungen: Stundung / Befreiung / Sozialermäßigung (V1.4.10)**
 
 - **Hinzugefügt**: Mitglieder können über die neue Tabelle `contribution_relief_request` drei Arten

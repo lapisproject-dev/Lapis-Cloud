@@ -788,7 +788,17 @@ CREATE TABLE audit_log_entry (
     -- THIS unnamed inline constraint even with V30's named constraint already widened. Flyway
     -- repair needed on an already-migrated instance (./gradlew :lapis-server:flywayRepair), same
     -- as every entity_type precedent above.
-    CHECK (entity_type IN ('JOURNAL_ENTRY', 'PARTY_DONATION_VERDICT', 'RESOLUTION', 'BOARD_MEMBERSHIP', 'CONFERENCE_RECORDING', 'CONFERENCE_STREAM', 'CONFERENCE_STREAM_DESTINATION', 'CONFERENCE_ROOM', 'SOCIAL_POST', 'ORGANIZATION_SETTINGS', 'SEPA_MANDATE', 'SEPA_DEBIT_BATCH', 'DUNNING_NOTICE', 'MEMBER', 'PAYMENT_TRANSACTION', 'API_KEY', 'WEBHOOK_ENDPOINT', 'BANK_STATEMENT_IMPORT', 'ACCOUNTING_EXPORT_CONNECTION', 'ACCOUNTING_EXPORT_RUN', 'ACCOUNTING_EXPORT_MAPPING', 'CONTRIBUTION_RELIEF_REQUEST', 'TRAVEL_EXPENSE_REPORT', 'VOLUNTEER_ALLOWANCE_PAYMENT', 'VOLUNTEER_DECLARATION')),
+    --
+    -- entity_type-CHECK: 'BANK_ACCOUNT' appended in place, Welle V1.4.14 "Mehrere Bankkonten" --
+    -- see V32__bank_account.sql's own DROP/ADD dance on the NAMED constraint. Same "inline check
+    -- enforced independently of any named constraint" gotcha as every entity_type precedent
+    -- above -- confirmed live during this wave's own implementation (BankAccountStoreTest):
+    -- a fresh H2 test database rejected a BankAccountStore.create/update/delete/setDefault audit
+    -- INSERT with entity_type = 'BANK_ACCOUNT' against this SAME still-unnamed inline constraint
+    -- even though V32's named constraint had already been widened. Flyway repair needed on an
+    -- already-migrated instance (./gradlew :lapis-server:flywayRepair), same as every precedent
+    -- above.
+    CHECK (entity_type IN ('JOURNAL_ENTRY', 'PARTY_DONATION_VERDICT', 'RESOLUTION', 'BOARD_MEMBERSHIP', 'CONFERENCE_RECORDING', 'CONFERENCE_STREAM', 'CONFERENCE_STREAM_DESTINATION', 'CONFERENCE_ROOM', 'SOCIAL_POST', 'ORGANIZATION_SETTINGS', 'SEPA_MANDATE', 'SEPA_DEBIT_BATCH', 'DUNNING_NOTICE', 'MEMBER', 'PAYMENT_TRANSACTION', 'API_KEY', 'WEBHOOK_ENDPOINT', 'BANK_STATEMENT_IMPORT', 'ACCOUNTING_EXPORT_CONNECTION', 'ACCOUNTING_EXPORT_RUN', 'ACCOUNTING_EXPORT_MAPPING', 'CONTRIBUTION_RELIEF_REQUEST', 'TRAVEL_EXPENSE_REPORT', 'VOLUNTEER_ALLOWANCE_PAYMENT', 'VOLUNTEER_DECLARATION', 'BANK_ACCOUNT')),
     CHECK (action IN ('CREATE', 'UPDATE', 'POST', 'VOID'))
 );
 

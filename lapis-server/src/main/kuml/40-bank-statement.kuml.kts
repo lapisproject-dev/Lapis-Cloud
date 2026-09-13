@@ -57,6 +57,14 @@ classDiagram(name = "BankStatementImport") {
             stereotype("Column") { "columnName" to "id" }
         }
     }
+    // Welle V1.4.14 "Mehrere Bankkonten" -- id-only stub, full model in 47-bank-account.kuml.kts.
+    val bankAccount = classOf(name = "BankAccount") {
+        stereotype("Entity") { "tableName" to "bank_account"; "kotlinObjectName" to "BankAccountTable" }
+        attribute(name = "id", type = "UUID") {
+            stereotype("Id")
+            stereotype("Column") { "columnName" to "id" }
+        }
+    }
 
     // Literal order load-bearing (BankStatementSchemaDriftTest pins it against
     // network.lapis.cloud.shared.domain.BankStatementFormat). Longest literal MT940 (5) -> VARCHAR(6).
@@ -149,6 +157,14 @@ classDiagram(name = "BankStatementImport") {
         }
         attribute(name = "uploadedAt", type = "LocalDateTime") {
             stereotype("Column") { "columnName" to "uploaded_at" }
+        }
+        // Welle V1.4.14 "Mehrere Bankkonten" -- nullable: every import made BEFORE this wave has no
+        // account attribution (no backfill, see V32__bank_account.sql's own comment on this column),
+        // and a fresh import without any bank_account configured yet degrades to the pre-wave
+        // "single organization account" ownership check (BankStatementImportService.ingest).
+        attribute(name = "bankAccountId", type = "UUID") {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") { "columnName" to "bank_account_id"; "fkEntity" to "BankAccount" }
         }
     }
 

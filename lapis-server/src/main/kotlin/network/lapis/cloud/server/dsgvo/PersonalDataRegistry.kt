@@ -170,6 +170,12 @@ object PersonalDataRegistry {
                 "eine Konto-Kategorie-Zuordnung gepflegt hat -- dieselbe Rechenschaftspflicht-" +
                 "Einstufung wie accounting_export_connection/accounting_export_run oben. Die Zeile " +
                 "selbst bildet eine reine Konto-zu-Kategorie-Abbildung ohne jeden Mitgliedsbezug.",
+            "bank_account" to
+                "Welle V1.4.14 Mehrere Bankkonten. created_by referenziert ausschliesslich, WER ein " +
+                "Bankkonto angelegt hat -- ein reiner Rechenschaftspflicht-Vorgang (Art. 5(2) DSGVO), " +
+                "keine Daten UEBER diese Person. Die Zeile selbst traegt die eigenen Bankdaten der " +
+                "Organisation (IBAN/BIC/Bankname), kein Mitglieds-PII -- gleiche Einstufung wie " +
+                "accounting_export_connection oben.",
         )
 
     init {

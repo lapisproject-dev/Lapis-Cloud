@@ -60,16 +60,19 @@ data class BankStatementImportResultDto(
      */
     val warnings: List<String> = emptyList(),
     val warningCodes: List<BankStatementImportWarningCode> = emptyList(),
+    /** Welle V1.4.14 "Mehrere Bankkonten". `null` when no `bank_account` row exists yet (legacy single-account behaviour) or none could be attributed. Default value keeps this additive to existing serialization. */
+    val bankAccountId: String? = null,
+    val bankAccountLabel: String? = null,
 )
 
 /**
- * Review fix (MAJOR, Welle V1.4.5.1.1 Runde 2) -- machine-readable counterpart of the three fixed
+ * Review fix (MAJOR, Welle V1.4.5.1.1 Runde 2) -- machine-readable counterpart of the fixed
  * [BankStatementImportResultDto.warnings] strings `BankStatementImportService` can produce, same
  * "code instead of German prose" idiom [BankStatementRejectionCode] already established for
  * rejections. Unlike [BankStatementLineDto.matchExplanation] (which embeds per-line dynamic data --
  * member names, amounts, dates -- and is persisted, so a structured replacement needs its own
  * migration and is a deliberately deferred, documented gap, see README.adoc "What doesn't work yet
- * (this wave)"), these three warnings are always the exact same fixed German sentence with no
+ * (this wave)"), these warnings are always one of a small, fixed set of German sentences with no
  * dynamic parts, so a plain enum is enough here -- no follow-up wave needed.
  */
 @Serializable
@@ -82,6 +85,18 @@ enum class BankStatementImportWarningCode {
 
     /** `LAPIS_SECRET_ENCRYPTION_KEY` is not configured -- R2 (IBAN match against SEPA mandates) never runs. Deliberately code-only: the raw warning string used to name the env var in the UI, an internal detail no treasurer needs. */
     IBAN_MATCHING_UNAVAILABLE,
+
+    /**
+     * Review fix (MAJOR, Welle V1.4.14 "Mehrere Bankkonten", findings #2 + #4). At least one
+     * `bank_account` row exists, but the statement carried no explicit account id and no usable
+     * account IBAN to match against -- the import was silently attributed to the DEFAULT account
+     * instead. Deliberately its own code rather than reusing [LEGACY_ACCOUNT_IBAN_FORMAT]: that
+     * code's client-rendered label ("account check skipped") is accurate for the zero-`bank_account`
+     * legacy path but was WRONG here, where an attribution actually happened. Fires whether the
+     * statement carried no identifier at all (the common CSV case) or an unparseable legacy-format
+     * one -- both are "silently picked a default" from the treasurer's point of view.
+     */
+    ATTRIBUTED_TO_DEFAULT_ACCOUNT,
 }
 
 /** Role: TREASURER/BOARD/ADMIN (read). */
@@ -99,6 +114,9 @@ data class BankStatementImportDto(
     val autoPostedCount: Int,
     val uploadedByDisplayName: String?,
     val uploadedAt: LocalDateTime,
+    /** Welle V1.4.14 "Mehrere Bankkonten". See [BankStatementImportResultDto.bankAccountId] KDoc. */
+    val bankAccountId: String? = null,
+    val bankAccountLabel: String? = null,
 )
 
 @Serializable
@@ -185,6 +203,13 @@ data class BankStatementDonationAssignmentInput(
  * Existiert, weil der Server diese Zustände immer schon unterschieden hat und sie bis V1.4.5.1
  * nur als deutsche Prosa formatiert hat (`bodyParts.joinToString(" -- ")`). Ein polnischsprachiger
  * Schatzmeister bekam die einzige Meldung, die ihn interessiert, unübersetzbar.
+ *
+ * [INVALID_BANK_ACCOUNT_ID]/[UNKNOWN_BANK_ACCOUNT] (Review fix, MINOR, Review Round 3) were split
+ * out of [FOREIGN_ACCOUNT], which all three used to share -- three fachlich distinct rejections (a
+ * malformed client-sent id; an id/IBAN matching no configured account at all; a statement genuinely
+ * belonging to a DIFFERENT, existing account) rendering the same "gehört zu einem anderen Konto"
+ * label, which for the first two sent the Kassenwart looking for the cause in the wrong place. See
+ * `network.lapis.cloud.client.bankStatementRejectionMessage` KDoc for the corrected client labels.
  */
 @Serializable
 enum class BankStatementRejectionCode {
@@ -194,10 +219,12 @@ enum class BankStatementRejectionCode {
     FORMAT_UNRECOGNIZED, // 422, BankStatementImportService.kt
     PARSE_FAILED, // 422, throwAsRejection (BankStatementImportService.kt)
     MT940_BALANCE_MISMATCH, // 422, Mt940Parser.kt -> throwAsRejection
-    FOREIGN_ACCOUNT, // 422, BankStatementImportService.kt
+    FOREIGN_ACCOUNT, // 422, BankStatementImportService.kt -- statement belongs to a DIFFERENT, EXISTING account
     TOO_MANY_LINES, // 422, BankStatementImportService.kt
     CONTROL_CHARACTER, // 422, BankStatementImportService.kt
     ALREADY_IMPORTED, // 409, BankStatementImportService.kt
+    INVALID_BANK_ACCOUNT_ID, // 400, BankStatementRoutes.kt -- bankAccountId is not a well-formed UUID
+    UNKNOWN_BANK_ACCOUNT, // 422, BankStatementImportService.kt -- no configured account matches at all
 }
 
 /**

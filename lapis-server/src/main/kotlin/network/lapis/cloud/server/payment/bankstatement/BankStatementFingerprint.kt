@@ -34,6 +34,75 @@ import java.security.MessageDigest
  * first, and `insertIgnore` then discarded it as a false "already imported" duplicate. Deriving
  * both the grouping key and the fingerprint payload from one shared, normalized function makes that
  * class of asymmetry structurally impossible.
+ *
+ * **[bankAccountDiscriminator] -- Review fix (CRITICAL, Welle V1.4.14 "Mehrere Bankkonten"):**
+ * [accountIban] alone used to be the ONLY account-dimension in this fingerprint, but a plain CSV
+ * export carries no statement-level IBAN of its own (see `BankCsvParser` KDoc) -- [accountIban] is
+ * `null` for EVERY CSV import, regardless of which of possibly several `bank_account` rows it was
+ * attributed to. Two different accounts' CSV exports that happen to share one otherwise-identical
+ * line (same date/amount/purpose/counterparty -- not implausible for a recurring fee both accounts
+ * pay, or two accounts at the same bank) therefore fingerprinted IDENTICALLY, and the second
+ * account's line silently vanished as a false "already imported" duplicate -- `insertIgnore`
+ * discarding real, distinct bookkeeping data with no error, no warning, nothing in the return DTO
+ * that says a line went missing (see `BankStatementImportServiceTest`'s dedicated regression test).
+ * [bankAccountDiscriminator] (the resolved `bank_account.id`, as a string) closes this by giving
+ * every account its OWN fingerprint space once it actually matters.
+ *
+ * **Unconditional once resolved, no row-count gate (Review fix, MEDIUM finding, Review Round 3):**
+ * this parameter defaults to `null`/blank (appended to NEITHER [groupingKey]'s nor [of]'s payload
+ * at all, not even as an empty field -- the resulting string, and therefore the fingerprint, is
+ * BYTE-IDENTICAL to the pre-wave formula whenever it stays `null`), but `BankStatementImportService`
+ * no longer gates it on "MORE THAN ONE `bank_account` row currently exists" -- an EARLIER version of
+ * this fix did, and that gate made the discriminator depend on a MUTABLE count that flips both ways
+ * (a second account added, or later deleted again), silently changing every FUTURE fingerprint for
+ * an account whose own identity never changed and re-opening the exact false-duplicate/silent-drop
+ * window this fix exists to close, just on the opposite edge of the transition. The discriminator is
+ * now unconditional whenever a `bank_account` row was actually resolved for the import; backward
+ * compatibility with every already-stored (discriminator-less, or differently-discriminated)
+ * fingerprint is instead handled explicitly, per line, by `BankStatementImportService`'s own
+ * `alreadyImportedUnderLegacyFingerprint` check -- it additionally looks up THIS SAME line's
+ * fingerprint computed WITHOUT a discriminator.
+ *
+ * **Correction (Review Round 4, MAJOR "Doppelbuchung realer Zahlungen im Upgrade-Pfad"):** an
+ * earlier version of that check scoped the legacy lookup to `bank_statement_import.bank_account_id
+ * eq <resolved account>` ONLY, reasoning it stayed within "the same resolved account" -- but
+ * `bank_account_id` is written from that identical resolved value, so a NON-NULL `bank_account_id`
+ * already implies the stored line's fingerprint carries a discriminator; a legacy
+ * (discriminator-less) fingerprint can therefore ONLY ever be stored under a NULL `bank_account_id`
+ * (every import made before the very first `bank_account` row existed -- i.e. every
+ * pre-Welle-V1.4.14 import, see the V32 migration's deliberate no-backfill decision). That scoping
+ * was consequently unreachable by construction and never matched anything, silently reopening the
+ * exact double-import/double-booking window this parameter exists to close for every upgrading
+ * installation's first overlapping re-import.
+ *
+ * **Correction (Review Round 5, residuum of finding #1 "Doppelbuchung realer Zahlungen UND stiller
+ * Verlust echter Buchungen"):** the Round 4 fix above made the lookup additionally match
+ * `bank_account_id IS NULL` rows whenever the resolved account was CURRENTLY the organization's
+ * default one -- but `isDefault` is mutable (`BankAccountStore.setDefault`, and the
+ * default-promotion in `BankAccountStore.delete`), while a `NULL`-`bank_account_id` legacy row's
+ * true owner is not: moving the default elsewhere silently mismatched every legacy row in BOTH
+ * directions (a genuine re-import of the legacy account's own history stopped deduplicating once it
+ * was no longer default; a coincidentally-identical NEW booking on whichever account was default now
+ * got wrongly swallowed as a duplicate of someone else's old line).
+ *
+ * Fixed at the root instead: `BankAccountStore.adoptLegacyBankStatementImports` (called from both
+ * `create`'s `makeDefault` branch and `backfillLegacyDefaultAccountIfNeeded`) rewrites every
+ * `bank_statement_import` row still carrying `bank_account_id IS NULL` to the organization's
+ * first-ever `bank_account` row's own id, the INSTANT that row is created. This codebase is
+ * single-tenant (one organization per server instance), and pre-wave's own FOREIGN_ACCOUNT rejection
+ * already refused any statement whose valid IBAN did not match the organization's single configured
+ * `organization_settings.bank_iban` -- so every `NULL`-`bank_account_id` row existing at that moment
+ * unambiguously belongs to that one pre-wave identity, and no row can ever become `NULL` again
+ * afterwards (`BankStatementImportService.import` only ever leaves it `NULL` while `bank_account` is
+ * still completely empty). `bank_account_id` therefore permanently records each import's real,
+ * immutable owner rather than a snapshot of whichever account happened to be default at import time
+ * -- unaffected by a LATER `setDefault` or by deleting a different, non-owning account. The lookup
+ * in [BankStatementImportService] can consequently scope the legacy match by the resolved account's
+ * own id alone (`bank_account_id eq <resolved account>`), exactly like every other, non-legacy
+ * fingerprint lookup already does: reachable (every legacy row is adopted, non-`NULL`, the moment
+ * any `bank_account` row exists) and correct (a coincidentally-identical line on a DIFFERENT account
+ * never gets absorbed into a legacy row it does not own, regardless of which account is currently
+ * default).
  */
 internal object BankStatementFingerprint {
     private const val FIELD_SEPARATOR = ''
@@ -49,6 +118,7 @@ internal object BankStatementFingerprint {
         purpose: String?,
         endToEndReference: String?,
         occurrenceIndex: Int,
+        bankAccountDiscriminator: String? = null,
     ): String {
         val payload =
             groupingKey(
@@ -61,6 +131,7 @@ internal object BankStatementFingerprint {
                 counterpartyIban = counterpartyIban,
                 purpose = purpose,
                 endToEndReference = endToEndReference,
+                bankAccountDiscriminator = bankAccountDiscriminator,
             ) + FIELD_SEPARATOR + occurrenceIndex.toString()
         val digest = MessageDigest.getInstance("SHA-256")
         val hash = digest.digest(payload.toByteArray(Charsets.UTF_8))
@@ -84,18 +155,25 @@ internal object BankStatementFingerprint {
         counterpartyIban: String?,
         purpose: String?,
         endToEndReference: String?,
-    ): String =
-        listOf(
-            accountIban?.let { normalize(it) }.orEmpty(),
-            bookingDate.toString(),
-            valueDate?.toString().orEmpty(),
-            amount.setScale(2, java.math.RoundingMode.HALF_UP).toPlainString(),
-            currency.trim().uppercase(),
-            counterpartyName?.let { normalize(it) }.orEmpty(),
-            counterpartyIban?.let { normalize(it) }.orEmpty(),
-            purpose?.let { normalize(it) }.orEmpty(),
-            endToEndReference?.let { normalize(it) }.orEmpty(),
-        ).joinToString(separator = FIELD_SEPARATOR.toString())
+        bankAccountDiscriminator: String? = null,
+    ): String {
+        val base =
+            listOf(
+                accountIban?.let { normalize(it) }.orEmpty(),
+                bookingDate.toString(),
+                valueDate?.toString().orEmpty(),
+                amount.setScale(2, java.math.RoundingMode.HALF_UP).toPlainString(),
+                currency.trim().uppercase(),
+                counterpartyName?.let { normalize(it) }.orEmpty(),
+                counterpartyIban?.let { normalize(it) }.orEmpty(),
+                purpose?.let { normalize(it) }.orEmpty(),
+                endToEndReference?.let { normalize(it) }.orEmpty(),
+            ).joinToString(separator = FIELD_SEPARATOR.toString())
+        // Deliberately NOT appended when blank -- see class KDoc "Backward-compatibility tradeoff,
+        // deliberate": appending even an empty extra field would still change the joined string
+        // (one more separator), which would change every already-stored fingerprint's hash too.
+        return if (bankAccountDiscriminator.isNullOrEmpty()) base else base + FIELD_SEPARATOR + bankAccountDiscriminator
+    }
 
     /** Uppercase, whitespace-collapsed, trimmed -- so a re-export of the same file with cosmetic whitespace/casing differences still fingerprints identically. */
     private fun normalize(text: String): String = text.trim().uppercase().replace(Regex("""\s+"""), " ")

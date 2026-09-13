@@ -91,6 +91,20 @@ fun bankStatementRejectionMessage(rejection: BankStatementImportRejectionDto): S
             )
         BankStatementRejectionCode.FOREIGN_ACCOUNT ->
             gettext("Dieser Auszug gehört zu einem anderen Konto als dem in den Organisationseinstellungen hinterlegten.")
+        // Review fix (MINOR, Review Round 3): own label, split out of FOREIGN_ACCOUNT -- a
+        // malformed/unparseable bankAccountId is a CLIENT bug, not an account-ownership mismatch;
+        // pointing the Kassenwart at "the account in the organization settings" sent them looking
+        // for the cause in the wrong place (that field is only ever a mirror once several accounts
+        // exist, see BankAccountStore KDoc "Der Default-Spiegel").
+        BankStatementRejectionCode.INVALID_BANK_ACCOUNT_ID ->
+            gettext("Das ausgewählte Bankkonto konnte nicht übermittelt werden. Bitte die Seite neu laden und erneut versuchen.")
+        // Review fix (MINOR, Review Round 3): own label, split out of FOREIGN_ACCOUNT -- covers both
+        // an explicit bankAccountId that no longer references any configured account (deleted
+        // concurrently, or a stale client) and a statement whose own account IBAN matches NONE of
+        // the configured accounts -- neither is "belongs to a DIFFERENT, existing account" (that
+        // stays FOREIGN_ACCOUNT above).
+        BankStatementRejectionCode.UNKNOWN_BANK_ACCOUNT ->
+            gettext("Das angegebene Bankkonto ist nicht (mehr) hinterlegt. Bitte ein aktuelles Bankkonto auswählen.")
         BankStatementRejectionCode.TOO_MANY_LINES ->
             gettext("Der Auszug hat mehr als %1 Zeilen. Bitte einen kürzeren Zeitraum exportieren.", MAX_STATEMENT_LINES_LABEL)
         BankStatementRejectionCode.CONTROL_CHARACTER ->
@@ -125,4 +139,9 @@ fun bankStatementImportWarningMessage(code: BankStatementImportWarningCode): Str
             gettext("Die Kontokennung des Auszugs ist keine gültige IBAN (Altformat?) -- Kontoprüfung übersprungen.")
         BankStatementImportWarningCode.IBAN_MATCHING_UNAVAILABLE ->
             gettext("Der IBAN-Abgleich gegen SEPA-Mandate ist auf diesem Server derzeit nicht verfügbar.")
+        // Review fix (MAJOR, Welle V1.4.14, findings #2 + #4): own label, distinct from
+        // LEGACY_ACCOUNT_IBAN_FORMAT's "Kontoprüfung übersprungen" -- an attribution DID happen
+        // here, so the wording must say so instead of implying nothing was checked/decided.
+        BankStatementImportWarningCode.ATTRIBUTED_TO_DEFAULT_ACCOUNT ->
+            gettext("Der Auszug enthält keine auswertbare Kontokennung -- automatisch dem Standardkonto zugeordnet.")
     }

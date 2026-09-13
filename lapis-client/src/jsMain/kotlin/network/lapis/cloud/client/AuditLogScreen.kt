@@ -431,6 +431,12 @@ fun decodeAuditSnapshot(
             // establishes) -- falls through to the raw-text display.
             AuditEntityType.VOLUNTEER_ALLOWANCE_PAYMENT -> null
             AuditEntityType.VOLUNTEER_DECLARATION -> null
+            // Welle V1.4.14 "Mehrere Bankkonten" -- BankAccountStore writes BankAccountSnapshot
+            // (see AuditLog.kt/BankAccounts.kt), but this client-side decode/render pair is
+            // deliberately not extended for it this wave (backend-only wave, same posture
+            // VOLUNTEER_ALLOWANCE_PAYMENT/VOLUNTEER_DECLARATION already establish) -- falls
+            // through to the raw-text display.
+            AuditEntityType.BANK_ACCOUNT -> null
         }
     }.getOrNull()
 

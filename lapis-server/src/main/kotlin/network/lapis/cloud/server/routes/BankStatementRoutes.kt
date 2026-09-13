@@ -21,6 +21,7 @@ import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.BankStatementImportRejectionDto
 import network.lapis.cloud.shared.domain.BankStatementRejectionCode
 import java.io.ByteArrayOutputStream
+import kotlin.uuid.Uuid
 
 /** Same TREASURER/ADMIN role set every OTHER booking-capable path in this domain uses -- see `network.lapis.cloud.server.rpc.BANK_STATEMENT_WRITE_ROLES` KDoc (plan OF-1). */
 private val BANK_STATEMENT_UPLOAD_ROLES = arrayOf(AccountRole.TREASURER, AccountRole.ADMIN)
@@ -63,6 +64,10 @@ fun Route.registerBankStatementRoutes(
         }
 
         var uploadedFileName: String? = null
+        // Welle V1.4.14 "Mehrere Bankkonten" -- optional form field, same multipart request as the
+        // file itself. `null` (field absent, or blank) means "resolve automatically" -- see
+        // `BankStatementImportService.import`'s own account-ownership resolution.
+        var bankAccountIdField: String? = null
         val buffer = ByteArrayOutputStream()
         var totalBytes = 0L
         var tooLarge = false
@@ -83,6 +88,9 @@ fun Route.registerBankStatementRoutes(
                         }
                         buffer.write(chunk, 0, read)
                     }
+                }
+                is PartData.FormItem -> {
+                    if (part.name == "bankAccountId") bankAccountIdField = part.value.ifBlank { null }
                 }
                 else -> {}
             }
@@ -107,6 +115,24 @@ fun Route.registerBankStatementRoutes(
             return@post
         }
 
+        val parsedBankAccountId =
+            bankAccountIdField?.let { raw ->
+                runCatching { Uuid.parse(raw) }.getOrElse {
+                    // Review fix (MINOR, Review Round 3): own code, split out of FOREIGN_ACCOUNT --
+                    // this is a CLIENT bug (a malformed/truncated id), not an account-ownership
+                    // mismatch, and used to render the exact same "gehört zu einem anderen Konto"
+                    // label a genuine cross-account statement gets, sending the Kassenwart looking
+                    // for the cause in the wrong place (the mirrored organization-settings IBAN,
+                    // which in multi-account operation is only ever a mirror, not the source of
+                    // truth). See BankStatementLabels.bankStatementRejectionMessage KDoc.
+                    call.respondRejection(
+                        status = HttpStatusCode.BadRequest,
+                        code = BankStatementRejectionCode.INVALID_BANK_ACCOUNT_ID,
+                        detail = "Invalid bankAccountId",
+                    )
+                    return@post
+                }
+            }
         val service = BankStatementImportService(secretBox = secretBox)
         try {
             val result =
@@ -115,6 +141,7 @@ fun Route.registerBankStatementRoutes(
                     fileName = fileName,
                     uploadedBy = current.memberId,
                     uploaderRole = current.role,
+                    bankAccountId = parsedBankAccountId,
                 )
             call.respond(HttpStatusCode.OK, result)
         } catch (e: BankStatementRejectedException) {

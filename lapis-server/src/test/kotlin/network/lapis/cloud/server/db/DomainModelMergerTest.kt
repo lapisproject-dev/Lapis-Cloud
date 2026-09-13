@@ -35,16 +35,16 @@ class DomainModelMergerTest :
         // ── Test 1: merging the real 22 domain scripts ───────────────────────────────────
 
         test(
-            "merging the real 47 domain scripts succeeds and the uml-to-erm -> erm-to-exposed chain " +
+            "merging the real 48 domain scripts succeeds and the uml-to-erm -> erm-to-exposed chain " +
                 "produces exactly one Table file per distinct table name",
         ) {
             val scriptFiles =
                 requireNotNull(KumlModelLoader.kumlSourceDir.listFiles { f -> f.name.endsWith(".kuml.kts") }) {
                     "kUML source dir not found or not a directory: ${KumlModelLoader.kumlSourceDir.absolutePath}"
                 }.sortedBy { it.name }
-            // Welle V1.4.12 "Übungsleiter- und Ehrenamtspauschale" -- was 46, now 47 with the
-            // addition of 46-volunteer-allowance.kuml.kts.
-            scriptFiles shouldHaveSize 47
+            // Welle V1.4.14 "Mehrere Bankkonten" -- was 47, now 48 with the addition of
+            // 47-bank-account.kuml.kts.
+            scriptFiles shouldHaveSize 48
 
             val diagrams = scriptFiles.map { KumlModelLoader.loadUmlDiagram(it) }
 
@@ -362,7 +362,17 @@ class DomainModelMergerTest :
             // (vat_compliance_acknowledgment, 140 -> 141). posting.vat_rate/vat_amount and
             // organization_settings.vat_enabled/is_kleinunternehmer are new columns on already-real
             // tables, no new Table file for either.
-            val distinctTableNames = 141
+            // Welle V1.4.14 "Mehrere Bankkonten" adds 47-bank-account.kuml.kts's ONE real table
+            // (bank_account), WITH its own cross-domain Member stub (bank_account.created_by
+            // resolves through it, dedups into the already-real member entity, +1 drop) -- so it
+            // contributes +2 «Entity» declarations (the stub + the real table) and +1 drop, net +1
+            // distinct table name versus the V1.4.13 baseline above (141 -> 142). 40-bank-statement
+            // .kuml.kts also gains its own id-only BankAccount stub (for
+            // bankStatementImport.bankAccountId) -- it dedups into 47-bank-account.kuml.kts's
+            // now-real bank_account entity (the fuller declaration always wins as canonical,
+            // regardless of file processing order), so it contributes +1 «Entity» declaration and
+            // +1 drop, net 0 change to distinctTableNames.
+            val distinctTableNames = 142
 
             val result =
                 UmlToExposedViaErmScriptTransformer().transform(
@@ -594,6 +604,12 @@ class DomainModelMergerTest :
                     // Welle V1.4.13 "USt-Voranmeldung (Nachweishilfe)" -- one new real table
                     // (vat_compliance_acknowledgment).
                     "VatComplianceAcknowledgmentTable.kt",
+                    // Welle V1.4.14 "Mehrere Bankkonten" -- one new real table (bank_account); its
+                    // own Member cross-domain stub, and the id-only BankAccount stub
+                    // 40-bank-statement.kuml.kts gains for bank_statement_import.bank_account_id,
+                    // both dedup into already-real/newly-real entities, no new Table file for
+                    // either.
+                    "BankAccountTable.kt",
                 )
         }
 

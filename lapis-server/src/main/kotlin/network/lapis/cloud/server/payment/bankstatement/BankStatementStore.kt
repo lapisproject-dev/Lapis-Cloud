@@ -3,6 +3,7 @@ package network.lapis.cloud.server.payment.bankstatement
 import network.lapis.cloud.server.crypto.SecretBox
 import network.lapis.cloud.server.crypto.SecretBoxException
 import network.lapis.cloud.server.db.DbClock
+import network.lapis.cloud.server.db.generated.BankAccountTable
 import network.lapis.cloud.server.db.generated.BankStatementImportTable
 import network.lapis.cloud.server.db.generated.BankStatementLineTable
 import network.lapis.cloud.server.db.generated.ContributionTable
@@ -70,6 +71,10 @@ internal object BankStatementStore {
             val total = BankStatementImportTable.selectAll().count()
             val rows =
                 (BankStatementImportTable innerJoin MemberTable)
+                    // Welle V1.4.14 "Mehrere Bankkonten" -- LEFT join: bank_account_id is nullable
+                    // (every pre-wave import, and every import with no attributable account, has
+                    // no row here at all).
+                    .join(BankAccountTable, JoinType.LEFT, BankStatementImportTable.bankAccountId, BankAccountTable.id)
                     .selectAll()
                     // `id` as the tie-breaker: `uploadedAt` alone is not unique (same as the
                     // `CrmContactStore.listContacts`/`EventStore` convention) -- gives every
@@ -91,6 +96,8 @@ internal object BankStatementStore {
                             autoPostedCount = row[BankStatementImportTable.autoPostedCount],
                             uploadedByDisplayName = row[MemberTable.displayName],
                             uploadedAt = row[BankStatementImportTable.uploadedAt],
+                            bankAccountId = row.getOrNull(BankAccountTable.id)?.toString(),
+                            bankAccountLabel = row.getOrNull(BankAccountTable.label),
                         )
                     }
             BankStatementImportPageDto(rows = rows, totalCount = total.toInt(), limit = cappedLimit, offset = offset)

@@ -6,6 +6,7 @@ import kotlinx.serialization.json.Json
 import network.lapis.cloud.server.audit.AuditLogRecorder
 import network.lapis.cloud.server.crypto.SecretBox
 import network.lapis.cloud.server.db.DbClock
+import network.lapis.cloud.server.db.generated.BankAccountTable
 import network.lapis.cloud.server.db.generated.BankStatementImportTable
 import network.lapis.cloud.server.db.generated.BankStatementLineTable
 import network.lapis.cloud.server.db.generated.ContributionTable
@@ -120,6 +121,11 @@ internal class BankStatementImportService(
         fileName: String,
         uploadedBy: Uuid,
         uploaderRole: AccountRole,
+        // Welle V1.4.14 "Mehrere Bankkonten". `null` is always valid -- see the account-ownership
+        // resolution below for the exact fallback rules (explicit id > matched statement IBAN >
+        // default account, once at least one `bank_account` row exists; EXACT pre-wave behaviour,
+        // untouched, while none exists yet).
+        bankAccountId: Uuid? = null,
     ): BankStatementImportResultDto {
         val fileDigest = sha256Hex(bytes)
         val decoded = BankStatementText.decode(bytes)
@@ -186,21 +192,99 @@ internal class BankStatementImportService(
                     )
                 }
 
-                val orgSettingsRow = OrganizationSettingsTable.selectAll().singleOrNull()
-                val orgBankIban = orgSettingsRow?.get(OrganizationSettingsTable.bankIban)?.let { IbanValidator.normalize(it) }
-                if (orgBankIban != null && accountIbanIsValidIban && normalizedAccountIban != orgBankIban) {
-                    throw BankStatementRejectedException(
-                        httpStatus = 422,
-                        message = "Der Auszug gehoert zu einem anderen Konto.",
-                        code = BankStatementRejectionCode.FOREIGN_ACCOUNT,
-                    )
-                }
-                if (orgBankIban == null) {
-                    warnings += "Kein Bankkonto in den Organisationseinstellungen hinterlegt -- Kontopruefung uebersprungen."
-                    warningCodes += BankStatementImportWarningCode.NO_BANK_ACCOUNT_CONFIGURED
-                } else if (parsed.accountIban != null && !accountIbanIsValidIban) {
-                    warnings += "Kontokennung des Auszugs ist keine gueltige IBAN (Altformat?) -- Kontopruefung uebersprungen."
-                    warningCodes += BankStatementImportWarningCode.LEGACY_ACCOUNT_IBAN_FORMAT
+                // Welle V1.4.14 "Mehrere Bankkonten" -- account-ownership resolution. While
+                // `bank_account` has zero rows, this is BYTE-FOR-BYTE the pre-wave check (against
+                // `organization_settings.bank_iban` alone) -- every existing test/behaviour stays
+                // unchanged. Once at least one `bank_account` row exists, that table becomes the
+                // sole source of truth for ownership (it mirrors `organization_settings.bank_iban`/
+                // `bank_bic` for its own default row anyway, see `BankAccountStore` KDoc), and an
+                // explicitly passed [bankAccountId] takes precedence over IBAN matching.
+                val bankAccountRowCount = BankAccountTable.selectAll().count()
+                var resolvedBankAccountId: Uuid? = null
+                var resolvedBankAccountLabel: String? = null
+
+                if (bankAccountRowCount > 0) {
+                    if (bankAccountId != null) {
+                        val explicit =
+                            BankAccountTable.selectAll().where { BankAccountTable.id eq bankAccountId }.singleOrNull()
+                                // Review fix (MINOR, Review Round 3): own code, split out of
+                                // FOREIGN_ACCOUNT -- the explicit id simply does not reference any
+                                // configured account (deleted concurrently, or a stale client), which
+                                // is a DIFFERENT situation from a statement genuinely belonging to a
+                                // different, EXISTING account (that case keeps FOREIGN_ACCOUNT below).
+                                ?: throw BankStatementRejectedException(
+                                    httpStatus = 422,
+                                    message = "Das angegebene Bankkonto existiert nicht.",
+                                    code = BankStatementRejectionCode.UNKNOWN_BANK_ACCOUNT,
+                                )
+                        val explicitIban = IbanValidator.normalize(explicit[BankAccountTable.iban])
+                        if (accountIbanIsValidIban && normalizedAccountIban != explicitIban) {
+                            throw BankStatementRejectedException(
+                                httpStatus = 422,
+                                message = "Der Auszug gehoert zu einem anderen Konto.",
+                                code = BankStatementRejectionCode.FOREIGN_ACCOUNT,
+                            )
+                        }
+                        resolvedBankAccountId = bankAccountId
+                        resolvedBankAccountLabel = explicit[BankAccountTable.label]
+                    } else if (accountIbanIsValidIban && normalizedAccountIban != null) {
+                        val matched =
+                            BankAccountTable.selectAll().where { BankAccountTable.iban eq normalizedAccountIban }.singleOrNull()
+                                // Review fix (MINOR, Review Round 3): own code, split out of
+                                // FOREIGN_ACCOUNT -- the statement's own IBAN does not match ANY
+                                // configured account (there is no single "the other account" it
+                                // could be pointed at, unlike the explicit-id-with-conflicting-IBAN
+                                // branch above, which keeps FOREIGN_ACCOUNT).
+                                ?: throw BankStatementRejectedException(
+                                    httpStatus = 422,
+                                    message = "Der Auszug gehoert zu keinem der hinterlegten Bankkonten.",
+                                    code = BankStatementRejectionCode.UNKNOWN_BANK_ACCOUNT,
+                                )
+                        resolvedBankAccountId = matched[BankAccountTable.id]
+                        resolvedBankAccountLabel = matched[BankAccountTable.label]
+                    } else {
+                        // No explicit account and no (valid) statement-level IBAN to match against
+                        // -- attribute to the default account rather than reject outright (many CSV
+                        // dialects carry no account identifier at all, same reasoning the pre-wave
+                        // NO_BANK_ACCOUNT_CONFIGURED/LEGACY_ACCOUNT_IBAN_FORMAT warnings already
+                        // apply below this account has at least the same information as before).
+                        val default = BankAccountTable.selectAll().where { BankAccountTable.isDefault eq true }.singleOrNull()
+                        resolvedBankAccountId = default?.get(BankAccountTable.id)
+                        resolvedBankAccountLabel = default?.get(BankAccountTable.label)
+                        // Review fix (MAJOR, findings #2 + #4): every silent default-account
+                        // attribution while at least one bank_account row exists gets its OWN
+                        // warning code -- previously this fired NOTHING at all when the statement
+                        // simply carried no account identifier (the common CSV case, BankCsvParser
+                        // never sets one), and reused LEGACY_ACCOUNT_IBAN_FORMAT when it carried an
+                        // unparseable one, whose client-rendered label ("Kontoprüfung übersprungen")
+                        // no longer matched what actually happened here (an attribution DID happen).
+                        // LEGACY_ACCOUNT_IBAN_FORMAT now stays reserved for the zero-bank_account
+                        // legacy branch below, where "Kontoprüfung übersprungen" is accurate (no
+                        // bank_account row exists to attribute to).
+                        if (resolvedBankAccountId != null) {
+                            warnings +=
+                                "Der Auszug enthaelt keine (gueltige) Kontokennung -- dem Standardkonto " +
+                                "\"$resolvedBankAccountLabel\" zugeordnet."
+                            warningCodes += BankStatementImportWarningCode.ATTRIBUTED_TO_DEFAULT_ACCOUNT
+                        }
+                    }
+                } else {
+                    val orgSettingsRow = OrganizationSettingsTable.selectAll().singleOrNull()
+                    val orgBankIban = orgSettingsRow?.get(OrganizationSettingsTable.bankIban)?.let { IbanValidator.normalize(it) }
+                    if (orgBankIban != null && accountIbanIsValidIban && normalizedAccountIban != orgBankIban) {
+                        throw BankStatementRejectedException(
+                            httpStatus = 422,
+                            message = "Der Auszug gehoert zu einem anderen Konto.",
+                            code = BankStatementRejectionCode.FOREIGN_ACCOUNT,
+                        )
+                    }
+                    if (orgBankIban == null) {
+                        warnings += "Kein Bankkonto in den Organisationseinstellungen hinterlegt -- Kontopruefung uebersprungen."
+                        warningCodes += BankStatementImportWarningCode.NO_BANK_ACCOUNT_CONFIGURED
+                    } else if (parsed.accountIban != null && !accountIbanIsValidIban) {
+                        warnings += "Kontokennung des Auszugs ist keine gueltige IBAN (Altformat?) -- Kontopruefung uebersprungen."
+                        warningCodes += BankStatementImportWarningCode.LEGACY_ACCOUNT_IBAN_FORMAT
+                    }
                 }
                 if (secretBox == null) {
                     warnings += "IBAN-Abgleich nicht verfuegbar -- LAPIS_SECRET_ENCRYPTION_KEY ist nicht konfiguriert."
@@ -244,6 +328,7 @@ internal class BankStatementImportService(
                             it[autoPostedCount] = 0 // updated after Phase 2
                             it[BankStatementImportTable.uploadedBy] = uploadedBy
                             it[uploadedAt] = now
+                            it[BankStatementImportTable.bankAccountId] = resolvedBankAccountId
                         }
                     }
                 if (inserted.isFailure) {
@@ -266,6 +351,24 @@ internal class BankStatementImportService(
                     throw cause ?: IllegalStateException("bank_statement_import insert failed with no exception")
                 }
 
+                // Review fix (CRITICAL, finding #1; narrowed further -- MEDIUM finding, Review
+                // Round 3): see BankStatementFingerprint KDoc "bankAccountDiscriminator" for the
+                // full rationale. Unconditional now (no longer gated on `bankAccountRowCount > 1`)
+                // -- that gate made the discriminator depend on a MUTABLE count that flips both ways
+                // (a 2nd account added, or a 2nd account later deleted again), silently changing
+                // every future fingerprint for an account whose OWN identity never changed and
+                // opening a duplicate-booking window each time it flipped. Backward-compatibility
+                // with every already-stored (discriminator-less, or differently-discriminated)
+                // fingerprint is instead handled explicitly per line below via
+                // `alreadyImportedUnderLegacyFingerprint` -- scoped to the resolved account's OWN
+                // discriminator-bearing history, see that check's own comment for why a plain
+                // per-account scope is both reachable and correct.
+                val bankAccountDiscriminator: String? = resolvedBankAccountId?.toString()
+                // Stable `val` copy of the mutable `resolvedBankAccountId` for the closure below --
+                // its value never changes again once phase 1 reaches this point, but a captured
+                // `var` cannot be smart-cast to non-null across the lambda boundary.
+                val discriminatorAccountId: Uuid? = resolvedBankAccountId
+
                 val occurrenceCounters = mutableMapOf<String, Int>()
                 var duplicateCount = 0
                 val statusCounts = mutableMapOf<BankStatementLineStatus, Int>()
@@ -287,6 +390,7 @@ internal class BankStatementImportService(
                             counterpartyIban = line.counterpartyIban,
                             purpose = line.purpose,
                             endToEndReference = line.endToEndReference,
+                            bankAccountDiscriminator = bankAccountDiscriminator,
                         )
                     val occurrenceIndex = occurrenceCounters.getOrDefault(occurrenceKeyBase, 0)
                     occurrenceCounters[occurrenceKeyBase] = occurrenceIndex + 1
@@ -303,7 +407,82 @@ internal class BankStatementImportService(
                             purpose = line.purpose,
                             endToEndReference = line.endToEndReference,
                             occurrenceIndex = occurrenceIndex,
+                            bankAccountDiscriminator = bankAccountDiscriminator,
                         )
+
+                    // Review fix (MEDIUM, Review Round 3; corrected -- Round 4, MAJOR
+                    // "Doppelbuchung realer Zahlungen im Upgrade-Pfad"): the discriminator above is
+                    // now unconditional, so a fingerprint stored BEFORE this account ever carried a
+                    // discriminator (no bank_account row yet, exactly one, or a since-deleted SECOND
+                    // account that made this one discriminator-bearing for a while) no longer matches
+                    // it -- `insertIgnore` below would then insert a genuine-looking but actually
+                    // ALREADY-imported line a second time. Closes that gap by also checking the
+                    // LEGACY (no-discriminator) fingerprint for the SAME line.
+                    //
+                    // Round 3 scoped this check to `bankAccountId eq discriminatorAccountId`, which
+                    // WAS unreachable by construction at the time: `bank_statement_import.bank_account_id`
+                    // is written exactly once (below, from this same `resolvedBankAccountId`), and the
+                    // discriminator is derived from that identical value -- so `bank_account_id`
+                    // non-null implied the stored fingerprint for that import already carried a
+                    // discriminator, while every legacy (discriminator-less) row -- imports made
+                    // before any `bank_account` row existed, see V32 migration comment -- still had
+                    // `bank_account_id IS NULL` and could therefore never satisfy that filter.
+                    //
+                    // Fixed at the ROOT instead of re-conditioning this filter a second time (Review
+                    // Round 5, residuum of finding #1 "Doppelbuchung realer Zahlungen UND stiller
+                    // Verlust echter Buchungen"): an intermediate (Round 4) version of this fix
+                    // additionally matched `bank_account_id IS NULL` rows here whenever
+                    // [discriminatorAccountId] happened to be the organization's CURRENT default --
+                    // but `isDefault` is mutable (`BankAccountStore.setDefault`, and the
+                    // default-promotion in `BankAccountStore.delete`), while a legacy row's true owner
+                    // is not, so moving the default elsewhere silently mismatched every legacy row in
+                    // BOTH directions (a genuine re-import of the legacy account's own history stopped
+                    // deduplicating once it was no longer default; a coincidentally-identical NEW
+                    // booking on whichever account was default now got wrongly swallowed as a
+                    // duplicate of someone else's old line).
+                    //
+                    // `BankAccountStore.adoptLegacyBankStatementImports` (called from both `create`'s
+                    // `makeDefault` branch and `backfillLegacyDefaultAccountIfNeeded`) closes this
+                    // properly: the INSTANT this organization's first-ever `bank_account` row is
+                    // created, every `bank_statement_import` row still carrying `bank_account_id IS
+                    // NULL` at that moment is rewritten to that account's own id -- see its KDoc for
+                    // why that is both safe (this codebase is single-tenant; no OTHER account could
+                    // ever be the true owner) and permanent (no row can ever become NULL again
+                    // afterwards, and the reassignment never changes once made, so a LATER
+                    // `setDefault`/deletion elsewhere cannot un-adopt it). `bank_account_id IS NULL`
+                    // therefore no longer occurs once any `bank_account` row exists, and the plain
+                    // Round-3 filter below is simultaneously reachable (every legacy row now carries
+                    // its real owner's id, non-NULL) and correct (that id is the row's permanent,
+                    // immutable owner, never a coincidentally-current default).
+                    val alreadyImportedUnderLegacyFingerprint =
+                        discriminatorAccountId != null &&
+                            run {
+                                val legacyFingerprint =
+                                    BankStatementFingerprint.of(
+                                        accountIban = normalizedAccountIban,
+                                        bookingDate = line.bookingDate,
+                                        valueDate = line.valueDate,
+                                        amount = line.amount,
+                                        currency = line.currency,
+                                        counterpartyName = line.counterpartyName,
+                                        counterpartyIban = line.counterpartyIban,
+                                        purpose = line.purpose,
+                                        endToEndReference = line.endToEndReference,
+                                        occurrenceIndex = occurrenceIndex,
+                                        bankAccountDiscriminator = null,
+                                    )
+                                (BankStatementLineTable innerJoin BankStatementImportTable)
+                                    .selectAll()
+                                    .where {
+                                        (BankStatementLineTable.fingerprint eq legacyFingerprint) and
+                                            (BankStatementImportTable.bankAccountId eq discriminatorAccountId)
+                                    }.limit(1)
+                                    .count() > 0
+                            }
+                    if (alreadyImportedUnderLegacyFingerprint) {
+                        duplicateCount++
+                        return@forEachIndexed
+                    }
 
                     val lineId = Uuid.random()
                     // Review fix (MINOR): capped to the longest formally possible IBAN (34 chars, the
@@ -426,6 +605,8 @@ internal class BankStatementImportService(
                     duplicateCount = duplicateCount,
                     statusCounts = statusCounts,
                     autoPostCandidates = autoPostCandidates,
+                    bankAccountId = resolvedBankAccountId,
+                    bankAccountLabel = resolvedBankAccountLabel,
                 )
             }
 
@@ -516,6 +697,8 @@ internal class BankStatementImportService(
             suggestedCount = suggested,
             warnings = warnings,
             warningCodes = warningCodes,
+            bankAccountId = phase1.bankAccountId?.toString(),
+            bankAccountLabel = phase1.bankAccountLabel,
         )
     }
 
@@ -531,6 +714,8 @@ internal class BankStatementImportService(
         val duplicateCount: Int,
         val statusCounts: Map<BankStatementLineStatus, Int>,
         val autoPostCandidates: List<AutoPostCandidate>,
+        val bankAccountId: Uuid?,
+        val bankAccountLabel: String?,
     )
 
     /**

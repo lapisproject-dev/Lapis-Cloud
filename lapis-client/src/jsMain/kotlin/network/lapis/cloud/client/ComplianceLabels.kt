@@ -138,6 +138,11 @@ fun auditEntityTypeLabel(entityType: AuditEntityType): String =
         // `volunteer_allowance_payment` row; "Ehrenamtspauschalen-Erklärung" for the self-declaration.
         AuditEntityType.VOLUNTEER_ALLOWANCE_PAYMENT -> gettext("Ehrenamtspauschale")
         AuditEntityType.VOLUNTEER_DECLARATION -> gettext("Ehrenamtspauschalen-Erklärung")
+        // Welle V1.4.14 "Mehrere Bankkonten" -- "Bankkonto" is the term a future
+        // BankAccountsScreen.kt would use throughout for a `bank_account` row; no dedicated screen
+        // exists yet this wave (backend-only, same posture BANK_STATEMENT_IMPORT/
+        // ACCOUNTING_EXPORT_CONNECTION already establish for their own waves).
+        AuditEntityType.BANK_ACCOUNT -> gettext("Bankkonto")
     }
 
 fun auditEntityTypeColor(entityType: AuditEntityType): String =
@@ -211,6 +216,10 @@ fun auditEntityTypeColor(entityType: AuditEntityType): String =
         // "secondary" -- eine Selbstauskunft ist eine reine Rechenschaftspflicht-Tatsache, keine
         // finanzielle Transaktion, gleiche neutrale Einstufung wie MEMBER/ACCOUNTING_EXPORT_MAPPING.
         AuditEntityType.VOLUNTEER_DECLARATION -> "secondary"
+        // "warning" -- a bank-account lifecycle event (create/update/delete/set-default) changes
+        // where SEPA/invoice letterhead data comes from, same administrative-but-financially-
+        // relevant tier ORGANIZATION_SETTINGS/CONTRIBUTION_RELIEF_REQUEST already carry.
+        AuditEntityType.BANK_ACCOUNT -> "warning"
     }
 
 // ------------------------------------------------------------------------------------------------

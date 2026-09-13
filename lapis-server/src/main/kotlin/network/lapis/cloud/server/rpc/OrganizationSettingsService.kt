@@ -3,6 +3,7 @@ package network.lapis.cloud.server.rpc
 import io.ktor.server.application.ApplicationCall
 import kotlinx.serialization.json.Json
 import network.lapis.cloud.server.audit.AuditLogRecorder
+import network.lapis.cloud.server.db.generated.BankAccountTable
 import network.lapis.cloud.server.db.generated.LedgerAccountTable
 import network.lapis.cloud.server.db.generated.OrganizationSettingsTable
 import network.lapis.cloud.server.payment.sepa.BicValidator
@@ -211,6 +212,18 @@ class OrganizationSettingsService(
             // "read old value first, diff after the write" shape MAJOR-2's beforeMapping/afterMapping
             // already establishes for the payment-account mapping.
             val wasKleinunternehmer = beforeRow[OrganizationSettingsTable.isKleinunternehmer]
+            // Welle V1.4.14 "Mehrere Bankkonten" -- once at least one `bank_account` row exists,
+            // that table (via `BankAccountStore.setDefault`/`create`/`delete`) becomes the SOLE
+            // writer of bankIban/bankBic; this generic update path silently keeps whatever value
+            // is already there instead of overwriting it with a possibly stale form submission
+            // (the client's own OrganizationSettings edit form still shows the mirrored value, so a
+            // resubmission is harmless, but a client that never re-reads it would otherwise clobber
+            // a change made through the bank-accounts screen a moment earlier). No behaviour change
+            // at all while `bank_account` is empty (the pre-wave codepath every existing test
+            // exercises).
+            val bankAccountRowsExist = BankAccountTable.selectAll().count() > 0
+            val effectiveBankIban = if (bankAccountRowsExist) beforeRow[OrganizationSettingsTable.bankIban] else normalizedBankIban
+            val effectiveBankBic = if (bankAccountRowsExist) beforeRow[OrganizationSettingsTable.bankBic] else input.bankBic
             val beforeMapping =
                 OrganizationSettingsPaymentMappingSnapshot(
                     paymentBankAccountId = beforeRow[OrganizationSettingsTable.paymentBankAccountId]?.toString(),
@@ -228,8 +241,8 @@ class OrganizationSettingsService(
                 it[postalCode] = input.postalCode
                 it[city] = input.city
                 it[country] = input.country
-                it[bankIban] = normalizedBankIban
-                it[bankBic] = input.bankBic
+                it[bankIban] = effectiveBankIban
+                it[bankBic] = effectiveBankBic
                 it[taxExemptionAuthority] = input.taxExemptionAuthority
                 it[taxExemptionDate] = input.taxExemptionDate
                 it[isPoliticalParty] = input.isPoliticalParty

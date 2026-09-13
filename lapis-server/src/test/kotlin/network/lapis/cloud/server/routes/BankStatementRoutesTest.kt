@@ -26,13 +26,16 @@ import kotlinx.serialization.json.Json
 import network.lapis.cloud.server.db.DatabaseConfig
 import network.lapis.cloud.server.db.generated.AccountTable
 import network.lapis.cloud.server.db.generated.AuditLogEntryTable
+import network.lapis.cloud.server.db.generated.BankAccountTable
 import network.lapis.cloud.server.db.generated.BankStatementImportTable
 import network.lapis.cloud.server.db.generated.BankStatementLineTable
 import network.lapis.cloud.server.db.generated.MemberTable
 import network.lapis.cloud.server.db.generated.OrganizationSettingsTable
 import network.lapis.cloud.server.federation.FederationInboxRateLimiter
+import network.lapis.cloud.server.payment.bankstatement.BankAccountStore
 import network.lapis.cloud.server.rpc.ORGANIZATION_SETTINGS_ID
 import network.lapis.cloud.shared.domain.AccountRole
+import network.lapis.cloud.shared.domain.BankAccountInput
 import network.lapis.cloud.shared.domain.BankStatementImportRejectionDto
 import network.lapis.cloud.shared.domain.BankStatementRejectionCode
 import network.lapis.cloud.shared.domain.MemberStatus
@@ -76,8 +79,26 @@ class BankStatementRoutesTest :
     FunSpec({
         val createdMemberIds = mutableListOf<Uuid>()
         val createdImportIds = mutableListOf<Uuid>()
+        // Welle V1.4.14 "Mehrere Bankkonten" -- Review fix (MINOR, "Fehlende Testabdeckung",
+        // Review Round 3).
+        val createdBankAccountIds = mutableListOf<Uuid>()
 
         beforeSpec { DatabaseConfig.connect() }
+
+        fun createBankAccount(
+            iban: String,
+            actorMemberId: Uuid,
+        ): Uuid {
+            val dto =
+                BankAccountStore.create(
+                    input = BankAccountInput(label = "Route-Test-Bankkonto", iban = iban),
+                    actorMemberId = actorMemberId,
+                    actorRole = AccountRole.ADMIN,
+                )
+            val id = Uuid.parse(dto.id)
+            createdBankAccountIds += id
+            return id
+        }
 
         fun setOrgBankIban(iban: String?) {
             transaction {
@@ -97,6 +118,13 @@ class BankStatementRoutesTest :
                     BankStatementLineTable.deleteWhere { BankStatementLineTable.importId inList createdImportIds }
                     BankStatementImportTable.deleteWhere { BankStatementImportTable.id inList createdImportIds }
                 }
+                if (createdBankAccountIds.isNotEmpty()) {
+                    // MUST run AFTER the bank_statement_import cleanup above --
+                    // fk_bank_statement_import_bank_account_id would otherwise still reference these
+                    // rows, and BEFORE the member deletion below -- bank_account.created_by FKs to
+                    // member.
+                    BankAccountTable.deleteWhere { BankAccountTable.id inList createdBankAccountIds }
+                }
                 if (createdMemberIds.isNotEmpty()) {
                     // A successful import writes an AuditLogRecorder entry with actor_member_id =
                     // the uploader (BankStatementImportService.import's own BANK_STATEMENT_IMPORT
@@ -115,6 +143,7 @@ class BankStatementRoutesTest :
             }
             createdMemberIds.clear()
             createdImportIds.clear()
+            createdBankAccountIds.clear()
         }
 
         fun createMember(role: AccountRole): Uuid {
@@ -145,6 +174,10 @@ class BankStatementRoutesTest :
         fun multipartBody(
             bytes: ByteArray,
             fileName: String = "kontoauszug.csv",
+            // Welle V1.4.14 "Mehrere Bankkonten" -- Review fix (MINOR, "Fehlende Testabdeckung",
+            // Review Round 3): the ONLY way a real client selects an account, see
+            // BankStatementRoutes.kt "bankAccountIdField".
+            bankAccountId: String? = null,
         ): MultiPartFormDataContent =
             MultiPartFormDataContent(
                 formData {
@@ -159,6 +192,7 @@ class BankStatementRoutesTest :
                             append(HttpHeaders.ContentDisposition, "filename=\"$fileName\"")
                         },
                     )
+                    if (bankAccountId != null) append("bankAccountId", bankAccountId)
                 },
             )
 
@@ -542,6 +576,120 @@ class BankStatementRoutesTest :
                     }
                 response.status shouldBe HttpStatusCode.UnprocessableEntity
                 decodeRejection(response.bodyAsText()).code shouldBe BankStatementRejectionCode.MT940_BALANCE_MISMATCH
+
+                // Nothing must have been persisted for a rejected import.
+                transaction { importIdsUploadedBy(treasurer) } shouldBe emptyList()
+            }
+        }
+
+        test(
+            "bankAccountId multipart field: an explicit, valid id routes the import to that account end to end",
+        ) {
+            // Review fix (MINOR, "Fehlende Testabdeckung", Welle V1.4.14, Review Round 3): this
+            // field is the ONLY way a real client selects an account (BankAccountStore.create's own
+            // default-parameter tests set it directly on the SERVICE, never through this route) --
+            // without this test, a regression in the multipart field-name match, or in
+            // `part.value.ifBlank { null }`, would silently fall back to the default account with
+            // NOTHING in the suite noticing.
+            testApplication {
+                application {
+                    install(ContentNegotiation) { json() }
+                    install(StatusPages) { installExceptionHandlers(this) }
+                    routing {
+                        registerBankStatementRoutes(
+                            secretBox = null,
+                            rateLimiter = FederationInboxRateLimiter(maxRequests = 1000, window = 1.minutes),
+                        )
+                    }
+                }
+                val treasurer = createMember(AccountRole.TREASURER)
+                val accountA = createBankAccount(iban = "DE02120300000000202051", actorMemberId = treasurer)
+                // A second account so accountA is NOT simply "the" default by virtue of being the
+                // only one -- proves the field itself, not the fallback, did the routing.
+                createBankAccount(iban = "DE89370400440532013000", actorMemberId = treasurer)
+
+                val response =
+                    client.post("/api/bank-statements/import") {
+                        header("X-Member-Id", treasurer.toString())
+                        setBody(multipartBody(validCsvBytes(amount = "31,00"), bankAccountId = accountA.toString()))
+                    }
+                response.status shouldBe HttpStatusCode.OK
+                rememberImportIdsFor(treasurer)
+
+                transaction {
+                    BankStatementImportTable
+                        .selectAll()
+                        .where { BankStatementImportTable.uploadedBy eq treasurer }
+                        .single()[BankStatementImportTable.bankAccountId]
+                } shouldBe accountA
+            }
+        }
+
+        test("400: a non-UUID bankAccountId is rejected with the structured INVALID_BANK_ACCOUNT_ID rejection DTO") {
+            // Review fix (MINOR, "Fehlende Testabdeckung", Review Round 3): pins
+            // BankStatementRoutes.kt's own `toBankAccountUuid`-style parse-or-reject branch --
+            // proves the 400 happens BEFORE the file is even parsed (the CSV body here is
+            // deliberately valid) and that it carries its OWN code, not FOREIGN_ACCOUNT (see
+            // BankStatementLabelsTest for why that split matters to the Kassenwart reading it).
+            testApplication {
+                application {
+                    install(ContentNegotiation) { json() }
+                    install(StatusPages) { installExceptionHandlers(this) }
+                    routing {
+                        registerBankStatementRoutes(
+                            secretBox = null,
+                            rateLimiter = FederationInboxRateLimiter(maxRequests = 1000, window = 1.minutes),
+                        )
+                    }
+                }
+                val treasurer = createMember(AccountRole.TREASURER)
+
+                val response =
+                    client.post("/api/bank-statements/import") {
+                        header("X-Member-Id", treasurer.toString())
+                        setBody(multipartBody(validCsvBytes(amount = "32,00"), bankAccountId = "not-a-uuid"))
+                    }
+                response.status shouldBe HttpStatusCode.BadRequest
+                decodeRejection(response.bodyAsText()).code shouldBe BankStatementRejectionCode.INVALID_BANK_ACCOUNT_ID
+
+                // Nothing must have been persisted for a rejected import.
+                transaction { importIdsUploadedBy(treasurer) } shouldBe emptyList()
+            }
+        }
+
+        test(
+            "422: a well-formed but unknown bankAccountId is rejected with the structured " +
+                "UNKNOWN_BANK_ACCOUNT rejection DTO",
+        ) {
+            // Review fix (MINOR, "Fehlende Testabdeckung", Review Round 3): a well-formed UUID that
+            // references no configured `bank_account` row (deleted concurrently, or a stale client)
+            // used to render the exact same FOREIGN_ACCOUNT label as a statement genuinely belonging
+            // to a DIFFERENT, existing account -- see BankStatementImportService.kt's own
+            // `explicit ?: throw ...` branch. At least one OTHER account must exist for this branch
+            // to even be reached (see that service's own account-ownership resolution: with zero
+            // `bank_account` rows, `bankAccountId` is ignored entirely).
+            testApplication {
+                application {
+                    install(ContentNegotiation) { json() }
+                    install(StatusPages) { installExceptionHandlers(this) }
+                    routing {
+                        registerBankStatementRoutes(
+                            secretBox = null,
+                            rateLimiter = FederationInboxRateLimiter(maxRequests = 1000, window = 1.minutes),
+                        )
+                    }
+                }
+                val treasurer = createMember(AccountRole.TREASURER)
+                createBankAccount(iban = "DE02120300000000202051", actorMemberId = treasurer)
+                val unknownAccountId = Uuid.random()
+
+                val response =
+                    client.post("/api/bank-statements/import") {
+                        header("X-Member-Id", treasurer.toString())
+                        setBody(multipartBody(validCsvBytes(amount = "33,00"), bankAccountId = unknownAccountId.toString()))
+                    }
+                response.status shouldBe HttpStatusCode.UnprocessableEntity
+                decodeRejection(response.bodyAsText()).code shouldBe BankStatementRejectionCode.UNKNOWN_BANK_ACCOUNT
 
                 // Nothing must have been persisted for a rejected import.
                 transaction { importIdsUploadedBy(treasurer) } shouldBe emptyList()

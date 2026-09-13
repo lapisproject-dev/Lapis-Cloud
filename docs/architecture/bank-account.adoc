@@ -1,0 +1,151 @@
+= Bank Accounts — Multi-Banking Foundation, Welle V1.4.14 (Wave 1 of 2)
+:description: Multiple bank accounts per organization, per-account file-import attribution, the default-account mirror into organization_settings, and the deliberate scope-cut of FinTS/HBCI live retrieval to a follow-up wave.
+:toc:
+:toc-placement: preamble
+:icons: font
+
+== Context
+
+Before this wave, an organization had exactly one bank account, represented by two scalar columns
+on the singleton `organization_settings` row (`bank_iban`/`bank_bic`). That was already load-bearing
+— the SEPA creditor identity in every generated `pain.008` file
+(`network.lapis.cloud.server.rpc.SepaService.generateBatchFile`), and the letterhead on every
+Beitragsrechnung/Mahnung PDF — but there was no way to represent an organization with more than one
+real bank account (a main operating account plus a reserve/Rücklagen account, for instance), and no
+way to attribute a bank-statement file import (Welle V1.4.5.1) to a specific account when more than
+one exists.
+
+This wave adds the `bank_account` table: an organization can now hold several accounts, exactly one
+of which is always the *default* account. `network.lapis.cloud.server.payment.bankstatement
+.BankAccountStore` is the CRUD/default-selection layer; `network.lapis.cloud.shared.rpc
+.IBankAccountService` is the RPC surface a TREASURER/BOARD/ADMIN uses to read the list (write access
+is narrower at the RPC gate: TREASURER/ADMIN only, mirroring `BANK_STATEMENT_WRITE_ROLES`). Review
+fix (MAJOR security finding): `BankAccountStore` itself adds a SECOND, narrower ADMIN-only gate
+(`requireAdminForMirrorChange`) for whichever specific mutation actually touches the
+default-account mirror below (the very first account created, editing/deleting the *current*
+default, or `setDefaultBankAccount` -- which exists solely to repoint it) -- a TREASURER must not be
+able to reach the ADMIN-only `organization_settings.bank_iban`/`bank_bic` write through this side
+door. Ordinary multi-account bookkeeping that never touches the mirror (a second/third non-default
+account, editing or deleting a non-default account) stays TREASURER-reachable end to end.
+
+== Scope
+
+**In scope this wave**:
+
+* Multiple `bank_account` rows per organization (label, IBAN, BIC, bank name).
+* Exactly one default account at any time, enforced structurally
+  (`chk_bank_account_default_marker` + the `default_marker` shadow-column's own unique index —
+  see "Why `default_marker`" below).
+* The default account's IBAN/BIC are mirrored into `organization_settings.bank_iban`/`bank_bic` —
+  every existing SEPA/letterhead consumer keeps working unmodified, reading the same two columns
+  it always has.
+* `network.lapis.cloud.server.payment.bankstatement.BankStatementImportService.import` (Welle
+  V1.4.5.1's CSV/MT940 upload) attributes each import to one of the configured accounts — an
+  explicit `bankAccountId`, a match against the statement's own account IBAN (MT940's `:25:` tag;
+  a plain CSV export never carries one), or the default account as a last resort. Without any
+  `bank_account` row configured yet, the import path is byte-for-byte the pre-wave behaviour
+  (matched against `organization_settings.bank_iban` alone).
+* A one-time, idempotent backfill (`BankAccountStore.backfillLegacyDefaultAccountIfNeeded`, called
+  from `main()`) turns an already-configured `organization_settings.bank_iban` into a "Hauptkonto"
+  default account on first startup after this wave — no organization is left with an empty accounts
+  list it never had before.
+
+**Explicitly out of scope this wave** (see "Deferred" below): FinTS/HBCI live retrieval. There is no
+UI screen yet either (`BankAccountsScreen.kt`) — this is a backend-only wave, the same posture
+several earlier waves took before their own follow-up UI wave (`BANK_STATEMENT_IMPORT`,
+`ACCOUNTING_EXPORT_CONNECTION`).
+
+== Data model
+
+`bank_account` (`47-bank-account.kuml.kts`, `V32__bank_account.sql`):
+
+[cols="1,1,3"]
+|===
+|Column |Type |Notes
+
+|`id` |UUID |PK
+|`label` |VARCHAR(120) |Free-text display name ("Hauptkonto", "Sparkonto Rücklage", …) — the only way a treasurer tells several accounts apart, IBAN alone is not memorable.
+|`iban` |VARCHAR(34) |Unique (`uq_bank_account_iban`). Validated via the existing `IbanValidator` (self-written Mod-97-10 check, no dependency).
+|`bic` |VARCHAR(11) |Nullable. Validated via `BicValidator`.
+|`bank_name` |VARCHAR(140) |Nullable, purely informational.
+|`is_default` |BOOLEAN |Exactly one row `true` at any time.
+|`default_marker` |VARCHAR(1) |Application-maintained shadow column, `'X'` exactly where `is_default = true`, else `NULL` — see below.
+|`created_by` |UUID → `member` |Accountability only (Art. 5(2) DSGVO) — see `PersonalDataRegistry.noPersonalDataAllowlist["bank_account"]`.
+|`created_at`/`updated_at` |TIMESTAMP |
+|===
+
+**Why `default_marker`**: H2 in `MODE=PostgreSQL` (this codebase's test dialect) rejects a partial
+unique index (`CREATE UNIQUE INDEX … WHERE is_default`). The shadow-column idiom
+(`chk_bank_account_default_marker` ties `is_default`/`default_marker` together, a plain
+`UNIQUE(default_marker)` index does the actual work, `NULL` values are exempt from the constraint on
+both H2 and PostgreSQL) is the same pattern `V28__contribution_relief.sql` already established for
+an analogous "at most one row flagged" constraint.
+
+`bank_statement_import.bank_account_id` (nullable FK, `idx_bank_statement_import_account`) records
+which account a file import was attributed to. Nullable because every import made before this wave,
+and any import where no account could be attributed, has none.
+
+== Default-account mirror
+
+`BankAccountStore` is the *only* writer of `organization_settings.bank_iban`/`bank_bic` once at
+least one `bank_account` row exists:
+
+* `create()` — the very first account created becomes the default automatically and is mirrored immediately.
+* `update()` — re-mirrors if the account being edited happens to be the current default.
+* `setDefault()` — unsets the previous default (two sequential statements in the same transaction:
+  clear the old row's marker before setting the new one's, since `uq_bank_account_default` allows
+  only one `'X'` at a time), sets the new one, mirrors.
+* `delete()` — if the deleted account was the default, promotes the next-oldest remaining account
+  (mirrors it); if it was the *only* account, clears the mirror back to `NULL`/`NULL` — the exact
+  pre-wave "unconfigured" state.
+
+`network.lapis.cloud.server.rpc.OrganizationSettingsService.updateOrganizationSettings` checks
+`bank_account` row existence before writing `bankIban`/`bankBic`: if any row exists, it silently
+keeps whatever the mirror already has instead of overwriting it with the submitted form value. This
+is deliberately *silent*, not a rejection — the organization-settings edit form still round-trips
+the current (mirrored) value, so a plain resubmission is harmless; only a stale client that never
+re-reads the mirror before submitting would see its own edit silently not apply, and that edit
+belongs on the (not yet built) bank-accounts screen instead.
+
+== Deferred: FinTS/HBCI live retrieval
+
+This wave does **not** add automatic bank-statement retrieval via FinTS/HBCI online-banking
+credentials. Two reasons, both requiring a decision this wave deliberately did not make on its own:
+
+1. **License**: the realistic Java FinTS library candidate, `com.github.hbci4j:hbci4j-core`, is
+   licensed LGPL-2.1. This codebase's version catalog (`gradle/libs.versions.toml`) has a documented
+   "permissive license / no native deps" doctrine, and every prior exception (e.g. `jakarta.mail`/
+   `angus-mail`, EPL-2.0) required an explicit, named user decision with its own justification
+   comment. No such decision has been made for LGPL-2.1 yet.
+2. **Scope/risk**: a live bank-protocol integration needs its own credential-storage design (PIN/
+   user-ID sealed via `network.lapis.cloud.server.crypto.SecretBox`, write-only — no RPC method may
+   ever return them in the clear), TAN-handling for a background poller (a TAN prompt with nobody to
+   answer it degrades the account to a `REAUTH_REQUIRED` state rather than blocking), an SSRF guard
+   for the FinTS URL analogous to `network.lapis.cloud.server.webhook.OutboundUrlGuard`, and its own
+   dedicated security-audit round — a materially larger and differently-risked piece of work than
+   the multi-account foundation this wave delivers.
+
+A follow-up wave (V1.4.14.2) is expected to add: `bank_account` columns for FinTS credentials/
+live-fetch state, a `FinTsClient` abstraction (the *only* seam touching a third-party FinTS library,
+with an in-repo fake for every test), a background poller reusing
+`BankStatementImportService`'s existing ingest pipeline unchanged, and the compliance-disclaimer
+gate every other opt-in, risk-bearing feature in this codebase already uses (`IVatService
+.enableVat`/`ISepaService.enableSepaDebit` pattern) — once the license question above is answered.
+
+== Testing
+
+* `network.lapis.cloud.server.db.BankAccountSchemaDriftTest` — model (`47-bank-account.kuml.kts`)
+  vs. the real migrated H2 schema vs. the hand-written `BankAccountTable`, mirroring
+  `BankStatementSchemaDriftTest`.
+* `network.lapis.cloud.server.payment.bankstatement.BankAccountStoreTest` — create/update/delete/
+  setDefault behaviour, the default-marker invariant, IBAN/BIC validation, delete-while-referenced
+  refusal, and the legacy backfill (both the "runs once" and "no-op without a configured IBAN"
+  cases).
+* `network.lapis.cloud.server.rpc.BankAccountServiceTest` — role gating (BOARD reads but never
+  writes, same tier `IBankStatementService` already establishes) and malformed-id handling.
+* `network.lapis.cloud.server.payment.bankstatement.BankStatementImportServiceTest` — regression
+  (existing tests unchanged, since none of them configure a `bank_account` row) plus new coverage
+  for account-attribution by explicit id, by statement IBAN match, by default-account fallback, and
+  the `FOREIGN_ACCOUNT` rejection when a statement matches none of the configured accounts.
+* `network.lapis.cloud.server.rpc.OrganizationSettingsServiceTest` — the mirror-freeze behaviour
+  once a `bank_account` row exists.

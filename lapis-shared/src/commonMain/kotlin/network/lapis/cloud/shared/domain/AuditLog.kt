@@ -239,6 +239,15 @@ enum class AuditEntityType {
      * `VOLUNTEER_ALLOWANCE_PAYMENT`, additive only.
      */
     VOLUNTEER_DECLARATION,
+
+    /**
+     * Welle V1.4.14 "Mehrere Bankkonten" -- `network.lapis.cloud.server.payment.bankstatement
+     * .BankAccountStore`'s `create`/`update`/`delete`/`setDefault` each write exactly one
+     * `BANK_ACCOUNT` entry per state transition, `entityId` = the `bank_account` row's id. See
+     * `network.lapis.cloud.shared.domain.BankAccountSnapshot` KDoc for why it never carries the
+     * full IBAN. Appended LAST, after `VOLUNTEER_DECLARATION`, additive only.
+     */
+    BANK_ACCOUNT,
 }
 
 /**

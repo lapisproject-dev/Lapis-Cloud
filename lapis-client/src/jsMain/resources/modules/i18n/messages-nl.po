@@ -181,6 +181,14 @@ msgstr "CSV"
 msgid "CSV (Sparkassen-CAMT-Export, generischer Auffangdialekt) oder MT940, max. 5 MB."
 msgstr "CSV (Sparkasse CAMT-export, generiek dialect) of MT940, max. 5 MB."
 
+#: src/jsMain/kotlin/network/lapis/cloud/client/BankStatementLabels.kt:107
+msgid "Das angegebene Bankkonto ist nicht (mehr) hinterlegt. Bitte ein aktuelles Bankkonto auswählen."
+msgstr "De opgegeven bankrekening is niet (meer) geregistreerd. Selecteer een actuele bankrekening."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/BankStatementLabels.kt:100
+msgid "Das ausgewählte Bankkonto konnte nicht übermittelt werden. Bitte die Seite neu laden und erneut versuchen."
+msgstr "De geselecteerde bankrekening kon niet worden verzonden. Laad de pagina opnieuw en probeer het nogmaals."
+
 #: src/jsMain/kotlin/network/lapis/cloud/client/BankStatementLabels.kt:70
 msgid "Das Dateiformat wurde nicht erkannt. Gefundene Spalten: %1. Unterstützt werden Sparkassen-CAMT-CSV, ein generischer CSV-Auffangdialekt und MT940."
 msgstr "Het bestandsformaat werd niet herkend. Gevonden kolommen: %1. Ondersteund worden Sparkasse CAMT-CSV, een generiek CSV-dialect en MT940."
@@ -196,6 +204,10 @@ msgstr "Bestand selecteren"
 #: src/jsMain/kotlin/network/lapis/cloud/client/CrmContactsScreen.kt:205
 msgid "Datenschutz"
 msgstr "Privacy"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/BankStatementLabels.kt:132
+msgid "Der Auszug enthält keine auswertbare Kontokennung -- automatisch dem Standardkonto zugeordnet."
+msgstr "Het afschrift bevat geen te evalueren rekeningkenmerk -- automatisch toegewezen aan de standaardrekening."
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/BankStatementLabels.kt:84
 msgid "Der Auszug hat mehr als %1 Zeilen. Bitte einen kürzeren Zeitraum exportieren."

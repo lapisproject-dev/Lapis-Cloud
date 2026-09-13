@@ -196,6 +196,7 @@ classDiagram(name = "AuditLog") {
         literal(name = "TRAVEL_EXPENSE_REPORT") // Welle V1.4.11 "Reisekostenabrechnung" -- TravelExpenseService state-transition writes; 22 chars, fits within the existing VARCHAR(29) width
         literal(name = "VOLUNTEER_ALLOWANCE_PAYMENT") // Welle V1.4.12 "Übungsleiter- und Ehrenamtspauschale" -- VolunteerAllowanceService state-transition writes; 27 chars, fits within the existing VARCHAR(29) width
         literal(name = "VOLUNTEER_DECLARATION") // Welle V1.4.12 -- self-declaration writes (declareSelf/recordPaperDeclaration); named this way, NOT the more literal VOLUNTEER_ALLOWANCE_SELF_DECLARATION (36 chars) or VOLUNTEER_ALLOWANCE_DECLARATION (31 chars), because both exceed the VARCHAR(29) width -- 21 chars, fits
+        literal(name = "BANK_ACCOUNT") // Welle V1.4.14 "Mehrere Bankkonten" -- BankAccountStore create/update/delete/setDefault writes; 12 chars, fits within the existing VARCHAR(29) width
     }
 
     // Genesis-singleton row (see file header) -- gapless sequence_number + hash-chain

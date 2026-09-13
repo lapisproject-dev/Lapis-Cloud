@@ -153,6 +153,7 @@ class AuditLogSchemaDriftTest :
                             "TRAVEL_EXPENSE_REPORT",
                             "VOLUNTEER_ALLOWANCE_PAYMENT",
                             "VOLUNTEER_DECLARATION",
+                            "BANK_ACCOUNT",
                         ),
                     externalFqName = "network.lapis.cloud.shared.domain.AuditEntityType",
                 )

@@ -62,13 +62,33 @@ class BankStatementLabelsTest {
     }
 
     @Test
-    fun bankStatementRejectionMessage_allTenCodes_areNonEmptyAndPairwiseDistinct() {
+    fun bankStatementRejectionMessage_allTwelveCodes_areNonEmptyAndPairwiseDistinct() {
         val messages =
             BankStatementRejectionCode.entries.map { code ->
                 bankStatementRejectionMessage(BankStatementImportRejectionDto(code = code))
             }
         messages.forEach { assertTrue(it.isNotBlank()) }
         assertEquals(messages.size, messages.toSet().size)
+    }
+
+    // Review fix (MINOR, Review Round 3, Welle V1.4.14): INVALID_BANK_ACCOUNT_ID/UNKNOWN_BANK_ACCOUNT
+    // were split out of FOREIGN_ACCOUNT specifically because all three used to render the SAME
+    // "gehört zu einem anderen Konto" label for three fachlich distinct situations (a malformed
+    // client-sent id; an id/IBAN that matches no configured account at all; a statement genuinely
+    // belonging to a DIFFERENT, existing account) -- the exhaustiveness test above already proves
+    // pairwise distinctness for every code, this pins the specific three-way split by name so a
+    // future edit that accidentally re-merges two of them back onto the same text fails loudly.
+    @Test
+    fun bankStatementRejectionMessage_invalidAndUnknownBankAccount_differFromForeignAccountAndEachOther() {
+        val foreignAccount =
+            bankStatementRejectionMessage(BankStatementImportRejectionDto(code = BankStatementRejectionCode.FOREIGN_ACCOUNT))
+        val invalidId =
+            bankStatementRejectionMessage(BankStatementImportRejectionDto(code = BankStatementRejectionCode.INVALID_BANK_ACCOUNT_ID))
+        val unknownAccount =
+            bankStatementRejectionMessage(BankStatementImportRejectionDto(code = BankStatementRejectionCode.UNKNOWN_BANK_ACCOUNT))
+        assertNotEquals(foreignAccount, invalidId)
+        assertNotEquals(foreignAccount, unknownAccount)
+        assertNotEquals(invalidId, unknownAccount)
     }
 
     @Test
@@ -107,7 +127,7 @@ class BankStatementLabelsTest {
     // Review fix (MAJOR, Welle V1.4.5.1.1 Runde 2): bankStatementImportWarningMessage regression
     // coverage, same shape as bankStatementRejectionMessage's own exhaustiveness test above.
     @Test
-    fun bankStatementImportWarningMessage_allThreeCodes_areNonEmptyAndPairwiseDistinct() {
+    fun bankStatementImportWarningMessage_allFourCodes_areNonEmptyAndPairwiseDistinct() {
         val messages = BankStatementImportWarningCode.entries.map { code -> bankStatementImportWarningMessage(code) }
         messages.forEach { assertTrue(it.isNotBlank()) }
         assertEquals(messages.size, messages.toSet().size)
@@ -119,5 +139,18 @@ class BankStatementLabelsTest {
         // LAPIS_SECRET_ENCRYPTION_KEY directly in the UI -- an internal operability detail.
         val message = bankStatementImportWarningMessage(BankStatementImportWarningCode.IBAN_MATCHING_UNAVAILABLE)
         assertTrue(!message.contains("LAPIS_SECRET_ENCRYPTION_KEY"))
+    }
+
+    // Review fix (MAJOR, Welle V1.4.14, finding #4): the two codes that both cover a
+    // "no usable account identifier" situation must render TEXTUALLY DIFFERENT labels -- the bug
+    // this regression pins was ATTRIBUTED_TO_DEFAULT_ACCOUNT's underlying scenario reusing
+    // LEGACY_ACCOUNT_IBAN_FORMAT's fixed "Kontoprüfung übersprungen" label even though an
+    // attribution had actually happened.
+    @Test
+    fun bankStatementImportWarningMessage_attributedToDefaultAccount_differsFromLegacyIbanFormat() {
+        val attributed = bankStatementImportWarningMessage(BankStatementImportWarningCode.ATTRIBUTED_TO_DEFAULT_ACCOUNT)
+        val legacyFormat = bankStatementImportWarningMessage(BankStatementImportWarningCode.LEGACY_ACCOUNT_IBAN_FORMAT)
+        assertNotEquals(legacyFormat, attributed)
+        assertTrue(attributed.contains("Standardkonto"))
     }
 }

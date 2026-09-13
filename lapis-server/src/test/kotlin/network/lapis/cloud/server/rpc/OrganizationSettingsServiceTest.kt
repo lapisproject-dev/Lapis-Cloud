@@ -19,14 +19,20 @@ import io.ktor.server.testing.testApplication
 import kotlinx.datetime.LocalDate
 import network.lapis.cloud.server.db.DatabaseConfig
 import network.lapis.cloud.server.db.DevSeedData
+import network.lapis.cloud.server.db.generated.BankAccountTable
 import network.lapis.cloud.server.db.generated.OrganizationSettingsTable
+import network.lapis.cloud.server.payment.bankstatement.BankAccountStore
+import network.lapis.cloud.shared.domain.AccountRole
+import network.lapis.cloud.shared.domain.BankAccountInput
 import network.lapis.cloud.shared.domain.OrganizationSettingsInput
 import network.lapis.cloud.shared.rpc.ConflictException
 import network.lapis.cloud.shared.rpc.ForbiddenException
 import network.lapis.cloud.shared.rpc.UnauthenticatedException
 import org.jetbrains.exposed.v1.core.eq
+import org.jetbrains.exposed.v1.jdbc.deleteWhere
 import org.jetbrains.exposed.v1.jdbc.transactions.transaction
 import org.jetbrains.exposed.v1.jdbc.update
+import kotlin.uuid.Uuid
 
 private const val ADMIN_ID = "00000000-0000-0000-0000-000000000001"
 private const val BOARD_ID = "00000000-0000-0000-0000-000000000002"
@@ -334,6 +340,54 @@ class OrganizationSettingsServiceTest :
 
                 val afterRejection = client.get("/test/get-datev") { header("X-Member-Id", TREASURER_ID) }
                 afterRejection.bodyAsText() shouldBe "null:null"
+            }
+        }
+
+        // Welle V1.4.14 "Mehrere Bankkonten" (F5): once at least one `bank_account` row exists, that
+        // table (via `BankAccountStore`) becomes the SOLE writer of bankIban/bankBic -- this generic
+        // update path must silently keep the existing (mirrored) value instead of overwriting it
+        // with whatever a stale client form still submits.
+        test("updateOrganizationSettings ignores bankIban/bankBic once a bank_account row exists") {
+            val admin = Uuid.parse(ADMIN_ID)
+            val bankAccount =
+                BankAccountStore.create(
+                    input = BankAccountInput(label = "Hauptkonto", iban = "DE02120300000000202051", bic = "BYLADEM1001"),
+                    actorMemberId = admin,
+                    actorRole = AccountRole.ADMIN,
+                )
+            try {
+                testApplication {
+                    application {
+                        install(StatusPages) {
+                            exception<ForbiddenException> {
+                                call,
+                                cause,
+                                ->
+                                call.respondText(cause.message, status = HttpStatusCode.Forbidden)
+                            }
+                        }
+                        routing { registerOrgSettingsTestRoutes() }
+                    }
+
+                    // Deliberately a DIFFERENT, still individually valid IBAN/BIC -- if this were
+                    // written through, the assertion below would see it instead of the mirrored one.
+                    client.post(
+                        "/test/update?name=Testverein%20e.V.&bankIban=DE89370400440532013000&bankBic=COBADEFFXXX",
+                    ) { header("X-Member-Id", ADMIN_ID) }
+
+                    val afterUpdate = client.get("/test/get") { header("X-Member-Id", TREASURER_ID) }
+                    afterUpdate.bodyAsText() shouldBe "$ORGANIZATION_SETTINGS_ID:Testverein e.V.:null:DE02120300000000202051"
+                }
+            } finally {
+                // MUST run even on assertion failure -- otherwise this row survives into every OTHER
+                // test file's "zero bank_account rows -> legacy behaviour" assumption.
+                transaction {
+                    BankAccountTable.deleteWhere { BankAccountTable.id eq Uuid.parse(bankAccount.id) }
+                    OrganizationSettingsTable.update({ OrganizationSettingsTable.id eq ORGANIZATION_SETTINGS_ID }) {
+                        it[bankIban] = null
+                        it[bankBic] = null
+                    }
+                }
             }
         }
     })

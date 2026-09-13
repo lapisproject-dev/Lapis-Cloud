@@ -87,6 +87,7 @@ import network.lapis.cloud.server.mail.SmtpConfigState
 import network.lapis.cloud.server.mail.SmtpFriendVerificationMailer
 import network.lapis.cloud.server.mail.SmtpPasswordResetMailer
 import network.lapis.cloud.server.mail.SmtpStartupCheck
+import network.lapis.cloud.server.payment.bankstatement.BankAccountStore
 import network.lapis.cloud.server.payment.dunning.DunningConfig
 import network.lapis.cloud.server.payment.dunning.DunningPoller
 import network.lapis.cloud.server.payment.psp.PspConfig
@@ -127,6 +128,7 @@ import network.lapis.cloud.server.rpc.AuctionService
 import network.lapis.cloud.server.rpc.AuditLogService
 import network.lapis.cloud.server.rpc.AuthService
 import network.lapis.cloud.server.rpc.BackupService
+import network.lapis.cloud.server.rpc.BankAccountService
 import network.lapis.cloud.server.rpc.BankStatementService
 import network.lapis.cloud.server.rpc.BoardMembershipService
 import network.lapis.cloud.server.rpc.ConferenceBreakoutService
@@ -186,6 +188,7 @@ import network.lapis.cloud.shared.rpc.IAuctionService
 import network.lapis.cloud.shared.rpc.IAuditLogService
 import network.lapis.cloud.shared.rpc.IAuthService
 import network.lapis.cloud.shared.rpc.IBackupService
+import network.lapis.cloud.shared.rpc.IBankAccountService
 import network.lapis.cloud.shared.rpc.IBankStatementService
 import network.lapis.cloud.shared.rpc.IBoardMembershipService
 import network.lapis.cloud.shared.rpc.IConferenceBreakoutService
@@ -238,6 +241,19 @@ import kotlin.time.Duration.Companion.minutes
 fun main() {
     DatabaseConfig.connect()
     DevSeedData.seedIfEmpty()
+    // Welle V1.4.14 "Mehrere Bankkonten" -- deliberately ONLY here, never in `module()` below.
+    // Unlike DevSeedData.seedIfEmpty() (whose "already seeded?" check is a stable, ambient-state-
+    // independent fact), this backfill's own "anything to do?" check reads
+    // `organization_settings.bank_iban` -- a value dozens of OTHER tests set/clear transiently for
+    // their own scenarios. `module()` is re-invoked on every single `testApplication { application
+    // { module() } }` across this whole test suite (thousands of times); calling this from there
+    // would non-deterministically create a real, persistent `bank_account` row depending on
+    // whichever unrelated test happened to have `bank_iban` set at that exact moment -- a row no
+    // test cleanup anywhere expects, polluting every later test that assumes an empty
+    // `bank_account` table (see BankAccountStore KDoc). `main()` is never exercised by the test
+    // suite at all, so keeping it here is both correct for real deployments (idempotent, runs once
+    // per process start, no-op thereafter) and inert for tests.
+    BankAccountStore.backfillLegacyDefaultAccountIfNeeded()
     embeddedServer(Netty, port = 8080, host = "0.0.0.0", module = Application::module)
         .start(wait = true)
 }
@@ -1285,6 +1301,8 @@ fun Application.module() {
         registerService(IBankStatementService::class) { call ->
             BankStatementService(call = call, secretBox = bankStatementSecretBox)
         }
+        // Welle V1.4.14 "Mehrere Bankkonten".
+        registerService(IBankAccountService::class) { call -> BankAccountService(call = call) }
     }
 
     routing {

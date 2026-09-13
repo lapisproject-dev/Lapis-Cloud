@@ -29,6 +29,8 @@ public object BankStatementImportTable : Table("bank_statement_import") {
     public val autoPostedCount: Column<Int> = integer("auto_posted_count")
     public val uploadedBy: Column<Uuid> = reference("uploaded_by", MemberTable.id)
     public val uploadedAt: Column<LocalDateTime> = datetime("uploaded_at")
+    // Welle V1.4.14 -- hand-edited, see 47-bank-account.kuml.kts / 40-bank-statement.kuml.kts file header addendum.
+    public val bankAccountId: Column<Uuid?> = optReference("bank_account_id", BankAccountTable.id)
 
     override val primaryKey: PrimaryKey = PrimaryKey(id)
 

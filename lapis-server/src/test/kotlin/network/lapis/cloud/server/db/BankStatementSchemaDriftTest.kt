@@ -28,9 +28,12 @@ class BankStatementSchemaDriftTest :
         val scriptFile = File(KumlModelLoader.kumlSourceDir, "40-bank-statement.kuml.kts")
         val model: ErmModel by lazy { KumlModelLoader.loadErmModel(scriptFile) }
 
-        test("model declares exactly bank_statement_import, bank_statement_line, and the member/contribution/payment_transaction stubs") {
+        test(
+            "model declares exactly bank_statement_import, bank_statement_line, and the member/contribution/" +
+                "payment_transaction/bank_account stubs",
+        ) {
             model.entities.map { it.name }.toSet() shouldBe
-                setOf("bank_statement_import", "bank_statement_line", "member", "contribution", "payment_transaction")
+                setOf("bank_statement_import", "bank_statement_line", "member", "contribution", "payment_transaction", "bank_account")
         }
 
         test("bank_statement_import table shape matches the real migrated schema") {
