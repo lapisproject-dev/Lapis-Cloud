@@ -268,6 +268,7 @@ class LegalHtmlTest :
                     "publicRankingConsent" to "Öffentliche Ranglisten",
                     "contributionRelief" to "Beitragsvergünstigungen",
                     "travelExpenses" to "Reisekostenabrechnungen",
+                    "volunteerAllowances" to "Ehrenamts- und Übungsleiterpauschalen",
                 )
 
             // Deliberately NOT matched by their own keyword: these three LTR-economy

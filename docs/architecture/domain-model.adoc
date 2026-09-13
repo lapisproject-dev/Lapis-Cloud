@@ -1590,3 +1590,27 @@ prior bridge -- `ContributionPostingBridge`/`DonationPostingBridge`/`EventFeePos
 books income in); it is also the first caller for which `CashRegisterGuard`'s cash-register
 guards are treated as a degrading case rather than a hard failure, because a board APPROVE
 decision must survive a transient till shortfall.
+
+== V1.4.12 — Volunteer/instructor allowance (§3 Nr. 26 / 26a EStG)
+
+Two new tables, model in `46-volunteer-allowance.kuml.kts`, migration `V30__volunteer_allowance.sql`
+-- see `docs/architecture/volunteer-allowance.adoc` for the full state machine, cap arithmetic,
+and booking shape this short summary points at.
+
+* **`volunteer_allowance_payment`** -- one requested tax-privileged payment per row
+  (`VolunteerAllowancePaymentStatus`: `DRAFT`/`REQUESTED`/`APPROVED`/`REJECTED`/`EXECUTED`/
+  `WITHDRAWN`), `VolunteerAllowanceCategory` (`INSTRUCTOR`/`HONORARY`) fixed once created. The
+  annual cap is enforced at decision time via `VolunteerAllowanceCalculator`, with the result
+  frozen into three snapshot columns and, when the cap is exceeded, a per-payment board
+  acknowledgment of `VolunteerAllowanceCapDisclaimer`.
+* **`volunteer_allowance_self_declaration`** -- one self-declaration per member/category/
+  calendar-year of the RECEIVING person (`IN_APP`/`ON_PAPER`), a booking precondition
+  ("Raskin's Gate") entirely separate from the board's own cap acknowledgment above.
+
+`organization_settings` gains one column: `volunteer_allowance_account_id` (a seventh
+ledger-account mapping, the second EXPENSE-typed one after `travel_expense_account_id`).
+
+`VolunteerAllowancePostingBridge` is the second bridge in this codebase that books money **out**,
+mirroring `TravelExpensePostingBridge`'s posture (degrading cash-register guards,
+`IDEELLER_BEREICH` sphere) but as its own dedicated bridge, not a shared abstraction with travel
+expenses.

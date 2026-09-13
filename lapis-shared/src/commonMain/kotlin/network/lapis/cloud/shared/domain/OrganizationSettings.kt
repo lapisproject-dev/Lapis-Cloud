@@ -112,6 +112,13 @@ import kotlinx.serialization.Serializable
  * EXPENSE-side debit into. `null` degrades the bridge to a no-op, same "unconfigured mapping"
  * treatment as the other six.
  *
+ * [volunteerAllowanceAccountId] (Welle V1.4.12 "Übungsleiter- und Ehrenamtspauschale") is an
+ * eighth ordinary, ADMIN-writable configuration field -- same treatment as [travelExpenseAccountId]
+ * above, part of [OrganizationSettingsInput]. The second EXPENSE-typed mapping this codebase has.
+ * Which SKR42 `LedgerAccount` `network.lapis.cloud.server.rpc.VolunteerAllowancePostingBridge`
+ * books an approved allowance payment's EXPENSE-side debit into. `null` degrades the bridge to a
+ * no-op, same "unconfigured mapping" treatment as the other seven.
+ *
  * `travelMileageRatePerKm`/`travelPerDiemRate` (Welle V1.4.11) are DELIBERATELY ABSENT from both
  * this DTO and [OrganizationSettingsInput] -- unlike every field above, their read path is
  * [network.lapis.cloud.shared.rpc.ITravelExpenseService.getTravelExpenseRates] (every
@@ -156,6 +163,7 @@ data class OrganizationSettingsDto(
     val datevBeraterNummer: Int? = null,
     val datevMandantNummer: Int? = null,
     val travelExpenseAccountId: String? = null,
+    val volunteerAllowanceAccountId: String? = null,
 )
 
 /** Replaces every field of the single [OrganizationSettingsDto] row wholesale (no partial update). */
@@ -193,4 +201,6 @@ data class OrganizationSettingsInput(
     val datevMandantNummer: Int? = null,
     /** V1.4.11. See [OrganizationSettingsDto.travelExpenseAccountId] KDoc. */
     val travelExpenseAccountId: String? = null,
+    /** V1.4.12. See [OrganizationSettingsDto.volunteerAllowanceAccountId] KDoc. */
+    val volunteerAllowanceAccountId: String? = null,
 )

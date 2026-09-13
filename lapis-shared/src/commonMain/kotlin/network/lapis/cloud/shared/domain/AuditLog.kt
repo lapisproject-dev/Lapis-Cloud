@@ -12,13 +12,26 @@ import kotlinx.serialization.Serializable
  * (JournalEntry lifecycle is MUST, Resolution/PartyDonationVerdict/BoardMembership are SHOULD,
  * everything else this wave is explicitly out of scope) and the hash-chain tamper-evidence design.
  *
- * Additively extensible (e.g. a future `VOID` alongside a Storno mechanism) -- same "cheap to
- * extend, expensive to reorder" note every other domain enum in this codebase carries; literal
- * order here is load-bearing (`AuditLogSchemaDriftTest` pins it against
- * `14-audit-log.kuml.kts`'s `auditAction` enum).
+ * Additively extensible -- same "cheap to extend, expensive to reorder" note every other domain
+ * enum in this codebase carries; literal order here is load-bearing (`AuditLogSchemaDriftTest`
+ * pins it against `14-audit-log.kuml.kts`'s `auditAction` enum).
+ *
+ * `VOID` (Security-Fund, Welle V1.4.12, INFORMATIONAL: "keine Korrektur-/Widerrufsmöglichkeit
+ * für eine falsch oder missbräuchlich erfasste Papier-Selbstauskunft") is the anticipated Storno
+ * mechanism this KDoc previously only mentioned as a future possibility -- appended LAST, additive
+ * only.  `network.lapis.cloud.server.rpc.VolunteerAllowanceService.voidPaperDeclaration` is the
+ * first (and, as of this wave, only) writer: it HARD-deletes an `ON_PAPER`
+ * `volunteer_allowance_self_declaration` row (there is no soft-delete/void column on that table --
+ * `uq_vasd_member_category_year` is a PLAIN unique index, so a voided-but-retained row would still
+ * block the subject's own fresh `IN_APP` declaration for the same category/year, defeating half of
+ * why this method exists) and writes exactly one `VOLUNTEER_DECLARATION`/`VOID` entry with `before`
+ * = the deleted row's [VolunteerAllowanceDeclarationSnapshot] and `after = null` -- the ONLY
+ * surviving record that the declaration ever existed, same "hard-deleted row, audit entry is the
+ * sole remaining trace" idiom [AuditEntityType.CONFERENCE_RECORDING]'s own KDoc already
+ * establishes for `deleteRecording`.
  */
 @Serializable
-enum class AuditAction { CREATE, UPDATE, POST }
+enum class AuditAction { CREATE, UPDATE, POST, VOID }
 
 /**
  * The entity kinds this wave's bounded audit-log scope covers -- see file header. Literal order
@@ -198,6 +211,34 @@ enum class AuditEntityType {
      * `CONTRIBUTION_RELIEF_REQUEST`, additive only.
      */
     TRAVEL_EXPENSE_REPORT,
+
+    /**
+     * Welle V1.4.12 "Übungsleiter- und Ehrenamtspauschale" (§3 Nr. 26 / 26a EStG) --
+     * `network.lapis.cloud.server.rpc.VolunteerAllowanceService`'s `createDraft`/`submitPayment`/
+     * `withdrawPayment`/`decidePayment`/`retryPosting` each write exactly one
+     * `VOLUNTEER_ALLOWANCE_PAYMENT` entry per state transition, `entityId` = the
+     * `volunteer_allowance_payment` row's id. The booking itself stays `JOURNAL_ENTRY`, same split
+     * `TravelExpensePostingBridge` already establishes. See [VolunteerAllowanceSnapshot] KDoc for
+     * why it never carries `activityDescription`/`decisionNote`. Deliberately 27 characters, well
+     * under the `audit_log_entry.entity_type` `VARCHAR(29)` width limit (unlike the two longer
+     * alternatives this wave considered and rejected, see [VOLUNTEER_DECLARATION] KDoc). Appended
+     * LAST, after `TRAVEL_EXPENSE_REPORT`, additive only.
+     */
+    VOLUNTEER_ALLOWANCE_PAYMENT,
+
+    /**
+     * Welle V1.4.12 -- `network.lapis.cloud.server.rpc.VolunteerAllowanceService`'s `declareSelf`/
+     * `recordPaperDeclaration` each write exactly one `VOLUNTEER_DECLARATION` entry, `entityId` =
+     * the `volunteer_allowance_self_declaration` row's id. See [VolunteerAllowanceDeclarationSnapshot]
+     * KDoc -- carries no free text at all. **Named `VOLUNTEER_DECLARATION`, not the more literal
+     * `VOLUNTEER_ALLOWANCE_SELF_DECLARATION` (36 chars) or `VOLUNTEER_ALLOWANCE_DECLARATION` (31
+     * chars)** -- both exceed the `audit_log_entry.entity_type` `VARCHAR(29)` hard limit
+     * (`AuditLogEntryTable.entityType` is `enumerationByName(..., 29)`); this 21-character literal
+     * is the shortest name that stays unambiguous. `AuditLogSchemaDriftTest` regression-guards
+     * every literal in this enum against that width. Appended LAST, after
+     * `VOLUNTEER_ALLOWANCE_PAYMENT`, additive only.
+     */
+    VOLUNTEER_DECLARATION,
 }
 
 /**
@@ -394,6 +435,9 @@ data class SocialPostModerationSnapshot(
  * audit-relevance reasoning -- the first EXPENSE-side (not INCOME-side) account this snapshot
  * carries, but the same "which account does money move through" fact GoBD Nachvollziehbarkeit
  * cares about.
+ *
+ * [volunteerAllowanceAccountId] (Welle V1.4.12 "Übungsleiter- und Ehrenamtspauschale") is a
+ * seventh mapping field, same reasoning again -- the second EXPENSE-side account.
  */
 @Serializable
 data class OrganizationSettingsPaymentMappingSnapshot(
@@ -403,6 +447,7 @@ data class OrganizationSettingsPaymentMappingSnapshot(
     val donationIncomeAccountId: String? = null,
     val eventIncomeAccountId: String? = null,
     val travelExpenseAccountId: String? = null,
+    val volunteerAllowanceAccountId: String? = null,
 )
 
 /**

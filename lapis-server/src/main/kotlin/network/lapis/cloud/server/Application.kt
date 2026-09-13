@@ -168,6 +168,7 @@ import network.lapis.cloud.server.rpc.SocialNetworkService
 import network.lapis.cloud.server.rpc.SystemicConsensusService
 import network.lapis.cloud.server.rpc.TravelExpenseService
 import network.lapis.cloud.server.rpc.TrustAnchorService
+import network.lapis.cloud.server.rpc.VolunteerAllowanceService
 import network.lapis.cloud.server.rpc.WebhookService
 import network.lapis.cloud.server.security.LoginRateLimiter
 import network.lapis.cloud.server.webhook.WebhookConfig
@@ -225,6 +226,7 @@ import network.lapis.cloud.shared.rpc.ISocialNetworkService
 import network.lapis.cloud.shared.rpc.ISystemicConsensusService
 import network.lapis.cloud.shared.rpc.ITravelExpenseService
 import network.lapis.cloud.shared.rpc.ITrustAnchorService
+import network.lapis.cloud.shared.rpc.IVolunteerAllowanceService
 import network.lapis.cloud.shared.rpc.IWebhookService
 import network.lapis.cloud.shared.rpc.UnauthenticatedException
 import java.io.File
@@ -1062,6 +1064,8 @@ fun Application.module() {
         registerService(
             ITravelExpenseService::class,
         ) { call -> TravelExpenseService(call = call, receiptStorageRoot = documentStorageRoot) }
+        // Welle V1.4.12 "Übungsleiter- und Ehrenamtspauschale".
+        registerService(IVolunteerAllowanceService::class) { call -> VolunteerAllowanceService(call) }
         registerService(IMemberFinancialHistoryService::class) { call -> MemberFinancialHistoryService(call) }
         registerService(IMemberAnniversaryService::class) { call -> MemberAnniversaryService(call = call) }
         registerService(IMemberHonorService::class) { call -> MemberHonorService(call = call) }

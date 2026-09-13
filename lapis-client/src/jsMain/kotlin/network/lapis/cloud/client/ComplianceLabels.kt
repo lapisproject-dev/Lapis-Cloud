@@ -42,6 +42,10 @@ fun auditActionLabel(action: AuditAction): String =
         AuditAction.CREATE -> gettext("Erstellt")
         AuditAction.UPDATE -> gettext("Geändert")
         AuditAction.POST -> gettext("Gebucht")
+        // VOID (Security-Fund, Welle V1.4.12) -- first writer is
+        // VolunteerAllowanceService.voidPaperDeclaration, a hard-delete of a mistakenly recorded
+        // ON_PAPER declaration; see AuditAction.VOID KDoc.
+        AuditAction.VOID -> gettext("Zurückgenommen")
     }
 
 fun auditActionColor(action: AuditAction): String =
@@ -49,6 +53,9 @@ fun auditActionColor(action: AuditAction): String =
         AuditAction.CREATE -> "info"
         AuditAction.UPDATE -> "secondary"
         AuditAction.POST -> "success"
+        // Same "irreversible/destructive" hue as revoke-style actions elsewhere in this app
+        // (e.g. apiKeyRevokeConfirmDialog's DANGER button) -- a VOID hard-deletes the underlying row.
+        AuditAction.VOID -> "danger"
     }
 
 /**
@@ -126,6 +133,11 @@ fun auditEntityTypeLabel(entityType: AuditEntityType): String =
         // is the term `TravelExpenseScreen.kt`/`TravelExpenseApprovalsScreen.kt` use throughout
         // for a `travel_expense_report` row.
         AuditEntityType.TRAVEL_EXPENSE_REPORT -> gettext("Reisekosten")
+        // Welle V1.4.12 "Übungsleiter- und Ehrenamtspauschale" -- "Ehrenamtspauschale" is the term
+        // `VolunteerAllowanceScreen.kt`/`VolunteerAllowanceApprovalsScreen.kt` use throughout for a
+        // `volunteer_allowance_payment` row; "Ehrenamtspauschalen-Erklärung" for the self-declaration.
+        AuditEntityType.VOLUNTEER_ALLOWANCE_PAYMENT -> gettext("Ehrenamtspauschale")
+        AuditEntityType.VOLUNTEER_DECLARATION -> gettext("Ehrenamtspauschalen-Erklärung")
     }
 
 fun auditEntityTypeColor(entityType: AuditEntityType): String =
@@ -193,6 +205,12 @@ fun auditEntityTypeColor(entityType: AuditEntityType): String =
         // relevant, aber kein Sicherheits- oder Ablehnungs-Ereignis; dieselbe Einstufung wie
         // CONFERENCE_RECORDING/CONFERENCE_ROOM oben.
         AuditEntityType.TRAVEL_EXPENSE_REPORT -> "info"
+        // "info" -- gleiche Einstufung wie TRAVEL_EXPENSE_REPORT oben (administrativ, finanziell
+        // relevant, kein Sicherheits-/Ablehnungs-Ereignis).
+        AuditEntityType.VOLUNTEER_ALLOWANCE_PAYMENT -> "info"
+        // "secondary" -- eine Selbstauskunft ist eine reine Rechenschaftspflicht-Tatsache, keine
+        // finanzielle Transaktion, gleiche neutrale Einstufung wie MEMBER/ACCOUNTING_EXPORT_MAPPING.
+        AuditEntityType.VOLUNTEER_DECLARATION -> "secondary"
     }
 
 // ------------------------------------------------------------------------------------------------

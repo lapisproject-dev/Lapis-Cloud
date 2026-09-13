@@ -832,6 +832,11 @@ internal fun OrganizationSettingsDto.toInputWithPoliticianRankingEnabled(newValu
         // replace, one flag flipped" helper the next time a BOARD/ADMIN merely toggles politician
         // ranking. See this function's own KDoc "never silently drop/reset a field".
         travelExpenseAccountId = travelExpenseAccountId,
+        // Welle V1.4.12 "Übungsleiter- und Ehrenamtspauschale" -- the THIRD instance of the exact
+        // same "wholesale-replace, one flag flipped" account-field-drop bug that
+        // `donationIncomeAccountId`/`eventIncomeAccountId`/`travelExpenseAccountId` already fixed
+        // here. Fixed at introduction time rather than after the fact this time.
+        volunteerAllowanceAccountId = volunteerAllowanceAccountId,
     )
 
 // ================================================================================================

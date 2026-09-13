@@ -448,6 +448,20 @@ object Routes {
      * Stolperstein.
      */
     const val TRAVEL_EXPENSE_APPROVALS = "/travel-expense-approvals"
+
+    /**
+     * Welle V1.4.12 "Übungsleiter- und Ehrenamtspauschale" -- Selbstbedienung, `requireAuth`
+     * (jedes authentifizierte Mitglied), gleiche Grammatik wie [TRAVEL_EXPENSES]. Optionaler
+     * Query-Parameter `?payment=<uuid>`.
+     */
+    const val VOLUNTEER_ALLOWANCES = "/volunteer-allowances"
+
+    /**
+     * Welle V1.4.12 -- Freigabe-Warteschlange. BOARD/ADMIN, **NICHT TREASURER** -- verifiziert
+     * gegen `VolunteerAllowanceService.kt`s `VOLUNTEER_ALLOWANCE_DECISION_ROLES = [BOARD, ADMIN]`,
+     * gleicher Copy-Paste-Stolperstein wie [CONTRIBUTION_RELIEF]/[TRAVEL_EXPENSE_APPROVALS].
+     */
+    const val VOLUNTEER_ALLOWANCE_APPROVALS = "/volunteer-allowance-approvals"
 }
 
 private var appRouting: Routing? = null
@@ -773,6 +787,16 @@ fun initRouting(pageContainer: SimplePanel) {
     routing.kvOn(Routes.TRAVEL_EXPENSE_APPROVALS) {
         requireRole(routing, AccountRole.BOARD, AccountRole.ADMIN) {
             show(Routes.TRAVEL_EXPENSE_APPROVALS, ::renderTravelExpenseApprovalsScreen)
+        }
+    }
+    routing.kvOn(Routes.VOLUNTEER_ALLOWANCES) {
+        requireAuth(routing) {
+            show(Routes.VOLUNTEER_ALLOWANCES) { container -> renderVolunteerAllowanceScreen(container, hashQueryParam("payment")) }
+        }
+    }
+    routing.kvOn(Routes.VOLUNTEER_ALLOWANCE_APPROVALS) {
+        requireRole(routing, AccountRole.BOARD, AccountRole.ADMIN) {
+            show(Routes.VOLUNTEER_ALLOWANCE_APPROVALS, ::renderVolunteerAllowanceApprovalsScreen)
         }
     }
     routing.kvOn("/") {

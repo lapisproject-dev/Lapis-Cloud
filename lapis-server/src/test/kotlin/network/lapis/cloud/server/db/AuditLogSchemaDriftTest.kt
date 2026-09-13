@@ -7,6 +7,7 @@ import io.kotest.matchers.collections.shouldContainExactlyInAnyOrder
 import io.kotest.matchers.shouldBe
 import network.lapis.cloud.server.db.generated.AuditLogChainStateTable
 import network.lapis.cloud.server.db.generated.AuditLogEntryTable
+import network.lapis.cloud.shared.domain.AuditEntityType
 import org.jetbrains.exposed.v1.jdbc.JdbcTransaction
 import org.jetbrains.exposed.v1.jdbc.transactions.transaction
 import java.io.File
@@ -150,15 +151,28 @@ class AuditLogSchemaDriftTest :
                             "ACCOUNTING_EXPORT_MAPPING",
                             "CONTRIBUTION_RELIEF_REQUEST",
                             "TRAVEL_EXPENSE_REPORT",
+                            "VOLUNTEER_ALLOWANCE_PAYMENT",
+                            "VOLUNTEER_DECLARATION",
                         ),
                     externalFqName = "network.lapis.cloud.shared.domain.AuditEntityType",
                 )
             entity.attributeByName("action")?.type shouldBe
                 ErmDataType.Enum(
                     name = "AuditAction",
-                    values = listOf("CREATE", "UPDATE", "POST"),
+                    values = listOf("CREATE", "UPDATE", "POST", "VOID"),
                     externalFqName = "network.lapis.cloud.shared.domain.AuditAction",
                 )
+        }
+
+        // Welle V1.4.12 -- regression guard for the "audit_log_entry.entity_type is VARCHAR(29)"
+        // width trap (see VOLUNTEER_DECLARATION KDoc): every literal MUST fit, or the very first
+        // INSERT for that literal fails at RUNTIME, not at compile time.
+        test("every AuditEntityType literal is at most 29 characters (audit_log_entry.entity_type width)") {
+            AuditEntityType.entries.forEach { literal ->
+                withClue(clue = "AuditEntityType.$literal (${literal.name.length} chars)") {
+                    (literal.name.length <= 29) shouldBe true
+                }
+            }
         }
     })
 

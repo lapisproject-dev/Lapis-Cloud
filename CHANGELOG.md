@@ -117,6 +117,67 @@ All notable changes to this project are documented here. Format follows
   `flyway repair` → Deploy → `flyway migrate`.** Gleiches Muster wie bei jeder vorherigen
   `AuditEntityType`-Welle.
 
+**Übungsleiter- und Ehrenamtspauschale (§3 Nr. 26 / 26a EStG) (V1.4.12)**
+
+- **Hinzugefügt**: Vorstand/Funktionsträger können über die neuen Tabellen
+  `volunteer_allowance_payment`/`volunteer_allowance_self_declaration` eine steuerbegünstigte
+  Zahlung für ein Mitglied beantragen -- zwei unabhängig gedeckelte Kategorien: **Übungsleiter-
+  pauschale** (§3 Nr. 26 EStG, 3.300 €/Jahr) und **Ehrenamtspauschale** (§3 Nr. 26a EStG, 960 €/Jahr).
+  Die Kategorie ist nach Anlage unveränderlich. Vollständiger Zustandsautomat (`DRAFT -> REQUESTED
+  -> APPROVED/REJECTED/EXECUTED/WITHDRAWN`) in `VolunteerAllowanceService`/
+  `VolunteerAllowanceExecution`. Der Jahresdeckel wird bei der **Entscheidung** geprüft (nicht bei
+  der Einreichung, da zwischenzeitlich eine zweite Zahlung gebucht worden sein kann) und beim
+  tatsächlichen Buchen unter demselben Zeilen-Lock erneut nachgerechnet
+  (`allowance_total_changed_since_decision` bei Abweichung vom eingefrorenen Snapshot).
+- **Hinzugefügt**: Buchung erfordert zwei unabhängige Voraussetzungen -- eine Selbstauskunft der
+  **empfangenden Person** je Mitglied/Kategorie/Kalenderjahr ("Raskins Gate", `IN_APP` durch die
+  Person selbst oder `ON_PAPER` durch den Vorstand mit Unterschriftsdatum), und, nur bei
+  tatsächlicher Deckelüberschreitung, eine Vorstandsbestätigung eines versionierten, gehashten
+  Rechtshinweises (`VolunteerAllowanceCapDisclaimer`, strukturell identisch zu
+  `AuctionComplianceDisclaimer`) -- ein vorsorgliches Mitsenden der Bestätigung ohne tatsächliche
+  Überschreitung wird ebenfalls abgelehnt, damit die Bremse nicht wirkungslos wird.
+- **Hinzugefügt**: `VolunteerAllowancePostingBridge` -- die **zweite** Bridge dieses Repos, die
+  Geld raus bucht (nach `TravelExpensePostingBridge`, V1.4.11), als eigenständige Bridge ohne
+  geteilte Abstraktion mit Reisekosten. Genau zwei Postings (Soll Aufwandskonto, Haben Bankkonto),
+  Sphäre fest `IDEELLER_BEREICH`; der steuerfreie/steuerpflichtige Split wird **nicht** als
+  getrennte Buchungszeilen abgebildet (kein Lohnsteuer-Konzept in diesem Repo), sondern
+  ausschließlich in `journal_entry.description` und den Snapshot-Spalten der Zahlungszeile
+  dokumentiert. Degradiert statt zu scheitern (Genehmigung bleibt erhalten, `retryPosting`
+  verfügbar) bei fehlender/inaktiver/falsch-typisierter Kontenzuordnung sowie bei einem
+  vorübergehend unzureichenden Kassenbestand, gleiche Haltung wie bei Reisekosten.
+- **Sicherheit**: Vier-Augen-Prinzip über **beide** buchungserzeugenden Methoden
+  (`decidePayment` UND `retryPosting`) -- derselbe Fund aus V1.4.11, hier von Anfang an auf
+  beide Methoden angewendet, nicht nur auf die erste. IDOR-Gate bei `createDraft`
+  (MEMBER nur für sich selbst, BOARD/ADMIN auch im Namen eines fremden Mitglieds). Buchungs-
+  Idempotenz über `posted_journal_entry_id` + plain Unique-Index `uq_vap_posted_journal_entry` +
+  bikonditionalen CHECK. `OrganizationSettingsFieldCoverageTest` als struktureller Riegel gegen
+  die wiederkehrende Fehlerklasse "neues Kontenfeld an einer von fünf Stellen vergessen"
+  (`OrganizationSettingsService`/`LedgerScreen`/`PoliticianScreen`).
+- **DSGVO**: Diskriminator für Löschung/Redaktion ist "wurde je gebucht" (`status == EXECUTED`),
+  nicht "wurde je eingereicht" -- dieselbe Lehre aus dem V1.4.11-Sicherheitsfund
+  ("DSGVO-Überaufbewahrung"). Nur die Subjekt-Rolle löst Löschung/Redaktion aus. Eine
+  Selbstauskunfts-Zeile bleibt erhalten, solange noch eine EXECUTED-Zahlung derselben
+  Person/Kategorie/desselben Jahres existiert.
+- **Bewusste Grenzen**: Die Deckelbeträge (3.300 €/960 €) sind **Konstanten im Code**, nicht
+  organisationsweit konfigurierbar und nicht jahresbezogen -- eine künftige Gesetzesänderung
+  erfordert einen Code-Edit. **Keine automatisierte Lohnsteuer-Abführung** für den übersteigenden
+  Anteil -- das bleibt Aufgabe der Organisation, wie der Vorstands-Rechtshinweis explizit
+  festhält. **Keine organisationsübergreifende Deckel-Kenntnis** -- der gesetzliche Freibetrag
+  gilt pro Person pro Kalenderjahr über alle Organisationen hinweg, Lapis Cloud kennt nur die in
+  dieser Organisation gebuchten Beträge; jeder angezeigte "verbleibend"-Wert ist deshalb ein
+  Maximum, keine Zusage (die Oberfläche darf ihn deshalb nie "Restbetrag" nennen). **Keine
+  Auszahlung** -- der Endzustand "Zur Auszahlung gebucht" bedeutet ausschließlich eine
+  Journal-Buchung. Ein einziges Aufwandskonto für beide Kategorien, kein Konten-Split.
+- **Migration**: `V30__volunteer_allowance.sql` (zwei neue Tabellen, eine `organization_settings`-
+  Spalte, CHECK-Constraints, Indizes); zusätzlich das inline, unbenannte
+  `audit_log_entry.entity_type`-CHECK in `V1__baseline.sql` um `VOLUNTEER_ALLOWANCE_PAYMENT` und
+  `VOLUNTEER_DECLARATION` erweitert (Letzteres bewusst kürzer benannt als die naheliegenderen
+  Alternativen -- beide hätten die `VARCHAR(29)`-Breitengrenze der Spalte gerissen).
+  **`V1__baseline.sql`s Prüfsumme ändert sich damit erneut -- vor dem Deploy auf jeder migrierten
+  Instanz `flyway repair` ausführen (`./gradlew :lapis-server:flywayRepair`), Reihenfolge zwingend:
+  `flyway repair` → Deploy → `flyway migrate`.** Gleiches Muster wie bei jeder vorherigen
+  `AuditEntityType`-Welle.
+
 **Videokonferenz-Zuverlässigkeit: TURN-Relay-Fallback + TURNS-Vorbereitung**
 
 - **Behoben**: Audio/Video startet in manchen Browsern gar nicht (Report ELB-Vorstand,

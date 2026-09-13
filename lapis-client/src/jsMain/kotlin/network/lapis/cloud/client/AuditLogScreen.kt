@@ -424,6 +424,13 @@ fun decodeAuditSnapshot(
             // CONTRIBUTION_RELIEF_REQUEST/ACCOUNTING_EXPORT_RUN already establish) -- falls
             // through to the raw-text display.
             AuditEntityType.TRAVEL_EXPENSE_REPORT -> null
+            // Welle V1.4.12 "Übungsleiter- und Ehrenamtspauschale" -- VolunteerAllowanceService
+            // writes VolunteerAllowanceSnapshot/VolunteerAllowanceDeclarationSnapshot (see
+            // AuditLog.kt), but this client-side decode/render pair is deliberately not extended
+            // for either this wave (backend-only wave, same posture TRAVEL_EXPENSE_REPORT already
+            // establishes) -- falls through to the raw-text display.
+            AuditEntityType.VOLUNTEER_ALLOWANCE_PAYMENT -> null
+            AuditEntityType.VOLUNTEER_DECLARATION -> null
         }
     }.getOrNull()
 

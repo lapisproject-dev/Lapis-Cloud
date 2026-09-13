@@ -350,5 +350,14 @@ classDiagram(name = "OrganizationSettings") {
             multiplicity = Multiplicity(0, 1)
             stereotype("Column") { "columnName" to "travel_per_diem_rate"; "sqlType" to "NUMERIC(12,2)" }
         }
+        // Welle V1.4.12 "Übungsleiter- und Ehrenamtspauschale". Nullable FK -> ledger_account --
+        // where an approved allowance payment's EXPENSE-side debit is booked. Part of the GENERIC
+        // updateOrganizationSettings write-set, same treatment as travelExpenseAccountId above. See
+        // network.lapis.cloud.server.rpc.VolunteerAllowancePostingBridge KDoc for the full booking
+        // shape.
+        attribute(name = "volunteerAllowanceAccountId", type = "UUID") {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") { "columnName" to "volunteer_allowance_account_id"; "fkEntity" to "LedgerAccount" }
+        }
     }
 }

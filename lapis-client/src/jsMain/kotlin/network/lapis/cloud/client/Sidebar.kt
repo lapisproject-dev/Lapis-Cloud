@@ -15,8 +15,10 @@ import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.ContributionReliefStatus
 import network.lapis.cloud.shared.domain.SessionInfoDto
 import network.lapis.cloud.shared.domain.TravelExpenseReportStatus
+import network.lapis.cloud.shared.domain.VolunteerAllowancePaymentStatus
 import network.lapis.cloud.shared.rpc.IContributionReliefService
 import network.lapis.cloud.shared.rpc.ITravelExpenseService
+import network.lapis.cloud.shared.rpc.IVolunteerAllowanceService
 import org.w3c.dom.get
 import org.w3c.dom.set
 
@@ -138,6 +140,7 @@ private val GROUP_ROUTES: Map<SidebarGroupId, List<String>> =
                 Routes.BANK_IMPORT,
                 Routes.CONTRIBUTION_RELIEF,
                 Routes.TRAVEL_EXPENSE_APPROVALS,
+                Routes.VOLUNTEER_ALLOWANCE_APPROVALS,
             ),
         SidebarGroupId.ADMINISTRATION to
             listOf(
@@ -344,6 +347,8 @@ fun buildSidebar(
             // Welle V1.4.11 -- Selbstbedienung, jedes Mitglied mit Mitgliedschaftsstatus kann
             // hier einen Antrag stellen (kein Rollen-Gate innerhalb der Gruppe).
             sidebarLink(Routes.TRAVEL_EXPENSES, tr("Reisekosten"), "fas fa-car", toggle)
+            // Welle V1.4.12 -- gleiche Grammatik wie TRAVEL_EXPENSES unmittelbar oberhalb.
+            sidebarLink(Routes.VOLUNTEER_ALLOWANCES, tr("Ehrenamtspauschalen"), "fas fa-hands-helping", toggle)
         }
     } else if (NavVisibility.showsDsgvoRights(session.status)) {
         // Welle V1.1.4: ein FRIEND hat kein volles "Mitgliedschaft"-Dropdown, braucht aber
@@ -434,6 +439,29 @@ fun buildSidebar(
                         travelExpenseLink.label = travelExpenseSidebarLabel(openCount)
                     }
                 }
+
+                // Welle V1.4.12 -- gleiches "engerer Unter-Gate + Sidebar-Zähler"-Muster wie
+                // TRAVEL_EXPENSE_APPROVALS unmittelbar oberhalb. `fas fa-hand-holding-dollar` ist
+                // bereits an PAYMENT_GATEWAY_SETTINGS vergeben, `fas fa-graduation-cap`/
+                // `fas fa-hands-helping` sind an die Kategorie-Icons vergeben (VolunteerAllowanceLabels)
+                // -- `fas fa-people-carry-box` ist frei (verifiziert per grep) und semantisch passend
+                // (gegenseitige Unterstützung/Ehrenamt).
+                val volunteerAllowanceLink =
+                    sidebarLink(
+                        Routes.VOLUNTEER_ALLOWANCE_APPROVALS,
+                        volunteerAllowanceSidebarLabel(null),
+                        "fas fa-people-carry-box",
+                        toggle,
+                    )
+                AppScope.launch {
+                    val openCount =
+                        runCatching {
+                            rpcService<IVolunteerAllowanceService>().listPayments(status = VolunteerAllowancePaymentStatus.REQUESTED).size
+                        }.getOrNull()
+                    if (openCount != null && openCount > 0) {
+                        volunteerAllowanceLink.label = volunteerAllowanceSidebarLabel(openCount)
+                    }
+                }
             }
         }
     }
@@ -507,4 +535,12 @@ internal fun travelExpenseSidebarLabel(openCount: Int?): String =
         openCount == null || openCount == 0 -> tr("Reisekosten-Freigaben")
         openCount >= 200 -> gettext("Reisekosten-Freigaben (%1)", "200+")
         else -> gettext("Reisekosten-Freigaben (%1)", openCount)
+    }
+
+/** Welle V1.4.12 -- gleiche Grammatik wie [travelExpenseSidebarLabel]. */
+internal fun volunteerAllowanceSidebarLabel(openCount: Int?): String =
+    when {
+        openCount == null || openCount == 0 -> tr("Ehrenamtspauschalen-Freigaben")
+        openCount >= 200 -> gettext("Ehrenamtspauschalen-Freigaben (%1)", "200+")
+        else -> gettext("Ehrenamtspauschalen-Freigaben (%1)", openCount)
     }

@@ -907,9 +907,10 @@ Mittelverwendungsrechnung caveat already uses elsewhere in this document. **No p
 state reads "Zur Auszahlung gebucht" ("Posted for payout") and means exactly that: a journal
 entry. There is no payment run in this wave; the treasury arranges the transfer separately. No
 line-by-line partial approval; rejection with a mandatory reason plus "copy as draft" is the
-intended correction path (receipts are not copied — new line ids — and must be re-uploaded). No
-integration with the Übungsleiter-/Ehrenamtspauschale (a separate backlog item; no shared
-abstraction is forced until a second instance of the same shape actually exists). The
+intended correction path (receipts are not copied — new line ids — and must be re-uploaded). The
+Übungsleiter-/Ehrenamtspauschale gap this section used to name here is closed by V1.4.12 as its
+own, separate feature and bridge — see "Volunteer/instructor allowance" below; no shared
+abstraction was forced between the two domains. The
 Gemeinnützigkeit sphere every posting uses is hardcoded to `IDEELLER_BEREICH`, not configurable
 (a board trip is practically always ideeller Bereich under Rams' "one account, one field" logic
 applied to the sphere; revisit if a Zweckbetrieb-funded trip ever needs this). Receipt files are
@@ -918,6 +919,46 @@ voucher (§147 AO); unlike the contribution-relief wave's Art. 9 free text, ther
 redaction sweep here, because there is no Art. 9 free text to redact and §147 AO already demands
 10 years' retention regardless. Inline receipt preview was deliberately not built (attachment-only
 download, `nosniff`, no `image/svg+xml` in the allowlist).
+
+== Volunteer/instructor allowance (V1.4.12)
+
+A board/functionary requests a tax-privileged payment for a member's volunteer activity, in one of
+two independently-capped categories: `INSTRUCTOR` (§3 Nr. 26 EStG Übungsleiterpauschale) or
+`HONORARY` (§3 Nr. 26a EStG Ehrenamtspauschale) — fixed once a payment is created, no dropdown on
+an existing one. The annual cap per category/calendar-year is checked at **decision** time, not at
+submission time (a second payment for the same person could have been booked in between), and
+re-verified again immediately before the actual booking against a snapshot frozen at decision time
+(`allowance_total_changed_since_decision` if they no longer match). Booking requires two
+independent preconditions: a self-declaration from the RECEIVING person for that
+member/category/calendar-year ("Raskin's Gate" — missing one leaves the payment `APPROVED` with a
+retryable `self_declaration_missing`, not a thrown exception), and, only when the cap is actually
+exceeded, a board acknowledgment of a versioned, hashed disclaimer
+(`VolunteerAllowanceCapDisclaimer`) that a client cannot send pre-emptively (sending one when the
+cap is *not* exceeded is itself rejected, so the gate cannot be neutralized). BOARD/ADMIN decide in
+a queue at `/volunteer-allowance-approvals` (**not** TREASURER), with the same four-eyes rule
+`TravelExpenseService` established applied to BOTH booking-producing methods (`decidePayment` AND
+`retryPosting`) — the V1.4.11 finding that a second booking-producing method needs the identical
+guard, not just the first one. Approval books a two-posting EXPENSE-side debit/bank-side credit
+against an operator-configured `volunteerAllowanceAccountId`
+(`VolunteerAllowancePostingBridge`) — the second "money out" bridge in this codebase, its own
+dedicated bridge rather than a shared abstraction with travel expenses. See
+`docs/architecture/volunteer-allowance.adoc` for the full state machine, cap arithmetic, and
+booking shape.
+
+=== What doesn't work yet (this wave)
+
+The §3 Nr. 26/26a EStG cap amounts are **hardcoded constants**, not configurable per organization
+and not year-indexed — a future statutory change requires a code edit, same posture the
+travel-expense rates section above documents its own caveat with. **No automated Lohnsteuer
+withholding** for the portion exceeding the cap — the split survives only in the journal entry's
+description and the payment row's own snapshot columns; actually withholding and remitting
+Lohnsteuer remains the organization's own responsibility, as the board acknowledgment text states
+explicitly. **No cross-organization cap awareness** — the §3 Nr. 26/26a EStG cap applies per person
+per calendar year across all organizations, but Lapis Cloud only ever knows the sum booked in the
+current one, so any "remaining" figure shown is a maximum, never a guarantee (and the UI is
+required to never call it a "Restbetrag" for exactly that reason). **No payout** — same framing as
+travel expenses: the end state means a journal entry exists, not that a bank transfer has run. A
+single EXPENSE account serves both categories — no per-category account split.
 
 == Documentation Convention
 

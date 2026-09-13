@@ -81,6 +81,11 @@ class OrganizationSettingsSchemaDriftTest :
             entity.attributeByName("travel_per_diem_rate")?.nullable shouldBe true
         }
 
+        test("volunteer_allowance_account_id is nullable -- V1.4.12 addendum") {
+            val entity = model.entities.single { it.name == "organization_settings" }
+            entity.attributeByName("volunteer_allowance_account_id")?.nullable shouldBe true
+        }
+
         test("organization_settings entity column-name set matches the generated OrganizationSettingsTable 1:1") {
             model.entities
                 .single { it.name == "organization_settings" }

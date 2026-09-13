@@ -88,4 +88,33 @@ class SidebarLabelsTest {
         assertEquals("Reisekosten-Freigaben (200+)", travelExpenseSidebarLabel(201))
         assertEquals("Reisekosten-Freigaben (200+)", travelExpenseSidebarLabel(9999))
     }
+
+    // Welle V1.4.12 "Übungsleiter- und Ehrenamtspauschale" -- volunteerAllowanceSidebarLabel mirrors
+    // travelExpenseSidebarLabel's grammar exactly, same reasoning for every case above.
+    @Test
+    fun volunteerAllowanceSidebarLabel_null_isThePlainLabelWithNoBadge() {
+        assertEquals("${kvI18nMarker}Ehrenamtspauschalen-Freigaben", volunteerAllowanceSidebarLabel(null))
+    }
+
+    @Test
+    fun volunteerAllowanceSidebarLabel_zero_isThePlainLabelWithNoBadge() {
+        assertEquals("${kvI18nMarker}Ehrenamtspauschalen-Freigaben", volunteerAllowanceSidebarLabel(0))
+    }
+
+    @Test
+    fun volunteerAllowanceSidebarLabel_belowCap_showsTheExactCount() {
+        assertEquals("Ehrenamtspauschalen-Freigaben (1)", volunteerAllowanceSidebarLabel(1))
+        assertEquals("Ehrenamtspauschalen-Freigaben (199)", volunteerAllowanceSidebarLabel(199))
+    }
+
+    @Test
+    fun volunteerAllowanceSidebarLabel_atCap_showsTwoHundredPlusNotTheExactCount() {
+        assertEquals("Ehrenamtspauschalen-Freigaben (200+)", volunteerAllowanceSidebarLabel(200))
+    }
+
+    @Test
+    fun volunteerAllowanceSidebarLabel_aboveCap_stillShowsTwoHundredPlus() {
+        assertEquals("Ehrenamtspauschalen-Freigaben (200+)", volunteerAllowanceSidebarLabel(201))
+        assertEquals("Ehrenamtspauschalen-Freigaben (200+)", volunteerAllowanceSidebarLabel(9999))
+    }
 }

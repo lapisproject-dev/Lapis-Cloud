@@ -67,6 +67,7 @@ class LedgerScreenTest {
                 datevBeraterNummer = 2002,
                 datevMandantNummer = 7,
                 travelExpenseAccountId = "travel-1",
+                volunteerAllowanceAccountId = "volunteer-1",
             )
         assertEquals(fullSettings.name, input.name)
         assertEquals(fullSettings.isPoliticalParty, input.isPoliticalParty)
@@ -76,6 +77,7 @@ class LedgerScreenTest {
         assertEquals(2002, input.datevBeraterNummer)
         assertEquals(7, input.datevMandantNummer)
         assertEquals("travel-1", input.travelExpenseAccountId)
+        assertEquals("volunteer-1", input.volunteerAllowanceAccountId)
     }
 
     @Test
@@ -91,10 +93,12 @@ class LedgerScreenTest {
                 datevBeraterNummer = null,
                 datevMandantNummer = null,
                 travelExpenseAccountId = null,
+                volunteerAllowanceAccountId = null,
             )
         assertEquals(null, input.datevBeraterNummer)
         assertEquals(null, input.datevMandantNummer)
         assertEquals(null, input.travelExpenseAccountId)
+        assertEquals(null, input.volunteerAllowanceAccountId)
     }
 
     // Welle V1.4.11 "Reisekostenabrechnung" -- travelExpenseAccountId reaches
@@ -113,6 +117,7 @@ class LedgerScreenTest {
                 datevBeraterNummer = 2002,
                 datevMandantNummer = 7,
                 travelExpenseAccountId = "travel-1",
+                volunteerAllowanceAccountId = "volunteer-1",
             )
         assertEquals("travel-1", input.travelExpenseAccountId)
         assertEquals("bank-1", input.paymentBankAccountId)
@@ -120,6 +125,31 @@ class LedgerScreenTest {
         assertEquals("income-1", input.contributionIncomeAccountId)
         assertEquals("donation-1", input.donationIncomeAccountId)
         assertEquals("event-1", input.eventIncomeAccountId)
+    }
+
+    // Welle V1.4.12 "Übungsleiter- und Ehrenamtspauschale" -- volunteerAllowanceAccountId reaches
+    // OrganizationSettingsInput unchanged, same "own text field" treatment as travelExpenseAccountId
+    // immediately above, and every OTHER field stays untouched -- the third instance of the
+    // "a new account-mapping field forgotten at one of five call sites" error class (see
+    // CLAUDE.md Stolperfalle #2), tested explicitly so a future field addition has a template.
+    @Test
+    fun toInputWithPaymentAccountMapping_passesVolunteerAllowanceAccountIdThroughAndLeavesOtherFieldsUntouched() {
+        val input =
+            fullSettings.toInputWithPaymentAccountMapping(
+                paymentBankAccountId = "bank-1",
+                paymentFeeAccountId = "fee-1",
+                contributionIncomeAccountId = "income-1",
+                donationIncomeAccountId = "donation-1",
+                eventIncomeAccountId = "event-1",
+                eventIncomeSphere = GemeinnuetzigkeitSphere.ZWECKBETRIEB,
+                datevBeraterNummer = 2002,
+                datevMandantNummer = 7,
+                travelExpenseAccountId = "travel-1",
+                volunteerAllowanceAccountId = "volunteer-1",
+            )
+        assertEquals("volunteer-1", input.volunteerAllowanceAccountId)
+        assertEquals("travel-1", input.travelExpenseAccountId)
+        assertEquals("bank-1", input.paymentBankAccountId)
     }
 
     // Review-Fund (2026-09, MINOR): `.toIntOrNull()` alone collapsed "left empty" and "typo'd

@@ -368,6 +368,15 @@ internal object LegalHtml {
                         "für Buchungsbelege)."
                 )
             }
+            li {
+                +(
+                    "Ehrenamts- und Übungsleiterpauschalen (§ 3 Nr. 26 / 26a EStG): Kategorie, Betrag, " +
+                        "Tätigkeitsbeschreibung, Zahlungsdatum, Entscheidung und ggf. daraus resultierende " +
+                        "Buchung, sowie die Selbstauskunft der empfangenden Person zum jährlichen " +
+                        "Freibetragsverbrauch — Art. 6 Abs. 1 lit. b DSGVO (Mitgliedschaftsvertrag/" +
+                        "Vereinsorganisation) i. V. m. § 147 AO (Aufbewahrungspflicht für Buchungsbelege)."
+                )
+            }
         }
 
         h2 { +"Empfänger" }

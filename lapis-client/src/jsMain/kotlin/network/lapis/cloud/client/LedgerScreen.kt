@@ -332,7 +332,7 @@ internal fun renderPaymentAccountMappingSection(
                 val unconfigured = tr("(nicht konfiguriert)")
                 panel.p(
                     gettext(
-                        "Bankkonto: %1 · Gebührenkonto: %2 · Beitragserlöskonto: %3 · Spendenerlöskonto: %4 · Veranstaltungserlöskonto: %5 (%6) · Reisekosten-Aufwandskonto: %7",
+                        "Bankkonto: %1 · Gebührenkonto: %2 · Beitragserlöskonto: %3 · Spendenerlöskonto: %4 · Veranstaltungserlöskonto: %5 (%6) · Reisekosten-Aufwandskonto: %7 · Ehrenamtspauschalen-Aufwandskonto: %8",
                         accounts.find { it.id == settings.paymentBankAccountId }?.name ?: unconfigured,
                         accounts.find { it.id == settings.paymentFeeAccountId }?.name ?: unconfigured,
                         accounts.find { it.id == settings.contributionIncomeAccountId }?.name ?: unconfigured,
@@ -340,6 +340,7 @@ internal fun renderPaymentAccountMappingSection(
                         accounts.find { it.id == settings.eventIncomeAccountId }?.name ?: unconfigured,
                         sphereLabel(settings.eventIncomeSphere),
                         accounts.find { it.id == settings.travelExpenseAccountId }?.name ?: unconfigured,
+                        accounts.find { it.id == settings.volunteerAllowanceAccountId }?.name ?: unconfigured,
                     ),
                 )
                 return@launch
@@ -397,6 +398,14 @@ internal fun renderPaymentAccountMappingSection(
                     options = accountOptions,
                     value = settings.travelExpenseAccountId.orEmpty(),
                     label = tr("Reisekosten-Aufwandskonto"),
+                )
+            // Welle V1.4.12 "Übungsleiter- und Ehrenamtspauschale" -- zweite EXPENSE-Kontenzuordnung
+            // dieses Panels, siehe VolunteerAllowancePostingBridge KDoc.
+            val volunteerAllowanceSelect =
+                panel.select(
+                    options = accountOptions,
+                    value = settings.volunteerAllowanceAccountId.orEmpty(),
+                    label = tr("Ehrenamtspauschalen-Aufwandskonto"),
                 )
 
             // Welle V1.4.5.2 "DATEV-Format-Export". Kein Fehlertext bei leerem Zustand -- eine
@@ -456,6 +465,7 @@ internal fun renderPaymentAccountMappingSection(
                                         datevBeraterNummer = (beraterInput as? DatevNumberInput.Valid)?.value,
                                         datevMandantNummer = (mandantInput as? DatevNumberInput.Valid)?.value,
                                         travelExpenseAccountId = travelExpenseSelect.value?.takeIf { it.isNotBlank() },
+                                        volunteerAllowanceAccountId = volunteerAllowanceSelect.value?.takeIf { it.isNotBlank() },
                                     ),
                                 )
                             }
@@ -519,6 +529,7 @@ internal fun OrganizationSettingsDto.toInputWithPaymentAccountMapping(
     datevBeraterNummer: Int?,
     datevMandantNummer: Int?,
     travelExpenseAccountId: String?,
+    volunteerAllowanceAccountId: String?,
 ) = OrganizationSettingsInput(
     name = name,
     street = street,
@@ -541,6 +552,7 @@ internal fun OrganizationSettingsDto.toInputWithPaymentAccountMapping(
     datevBeraterNummer = datevBeraterNummer,
     datevMandantNummer = datevMandantNummer,
     travelExpenseAccountId = travelExpenseAccountId,
+    volunteerAllowanceAccountId = volunteerAllowanceAccountId,
 )
 
 // ============================================================================================

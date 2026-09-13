@@ -766,8 +766,30 @@ CREATE TABLE audit_log_entry (
     -- named constraint had already been widened -- exactly the failure mode every comment above
     -- already predicts. Flyway repair needed on an already-migrated instance
     -- (./gradlew :lapis-server:flywayRepair), same as the precedents above.
-    CHECK (entity_type IN ('JOURNAL_ENTRY', 'PARTY_DONATION_VERDICT', 'RESOLUTION', 'BOARD_MEMBERSHIP', 'CONFERENCE_RECORDING', 'CONFERENCE_STREAM', 'CONFERENCE_STREAM_DESTINATION', 'CONFERENCE_ROOM', 'SOCIAL_POST', 'ORGANIZATION_SETTINGS', 'SEPA_MANDATE', 'SEPA_DEBIT_BATCH', 'DUNNING_NOTICE', 'MEMBER', 'PAYMENT_TRANSACTION', 'API_KEY', 'WEBHOOK_ENDPOINT', 'BANK_STATEMENT_IMPORT', 'ACCOUNTING_EXPORT_CONNECTION', 'ACCOUNTING_EXPORT_RUN', 'ACCOUNTING_EXPORT_MAPPING', 'CONTRIBUTION_RELIEF_REQUEST', 'TRAVEL_EXPENSE_REPORT')),
-    CHECK (action IN ('CREATE', 'UPDATE', 'POST'))
+    -- Welle V1.4.12 "Uebungsleiter- und Ehrenamtspauschale (Paragraph 3 Nr. 26 / 26a EStG)":
+    -- 'VOLUNTEER_ALLOWANCE_PAYMENT'/'VOLUNTEER_DECLARATION' appended in place, same reasoning --
+    -- see V30__volunteer_allowance.sql's own DROP/ADD dance on the NAMED constraint. Confirmed
+    -- live during this wave's own implementation: a fresh H2 test database rejected an
+    -- entity_type = 'VOLUNTEER_ALLOWANCE_PAYMENT' INSERT with a 500 (H2 CHECK constraint
+    -- violation against this SAME still-unnamed inline constraint, auto-named CONSTRAINT_407 in
+    -- that run) even though V30's named constraint had already been widened -- exactly the
+    -- failure mode every comment above already predicts (an earlier draft of V30's own migration
+    -- comment incorrectly assumed the named constraint "functionally overrides" this one; it does
+    -- not -- H2 enforces both independently). Flyway repair needed on an already-migrated
+    -- instance (./gradlew :lapis-server:flywayRepair), same as the precedents above.
+    --
+    -- `action`-CHECK: 'VOID' appended in place, Security-Fund dieser Welle (Welle V1.4.12,
+    -- INFORMATIONAL: "keine Korrektur-/Widerrufsmoeglichkeit fuer eine falsch oder
+    -- missbraeuchlich erfasste Papier-Selbstauskunft") -- see V30__volunteer_allowance.sql's own
+    -- (FIRST-EVER, `action` was never widened before) DROP/ADD dance establishing
+    -- chk_audit_log_entry_action as a named constraint. Same "inline check enforced
+    -- independently of any named constraint" gotcha as entity_type above -- confirmed live the
+    -- same way: a fresh H2 test database rejects an action = 'VOID' INSERT with a 500 against
+    -- THIS unnamed inline constraint even with V30's named constraint already widened. Flyway
+    -- repair needed on an already-migrated instance (./gradlew :lapis-server:flywayRepair), same
+    -- as every entity_type precedent above.
+    CHECK (entity_type IN ('JOURNAL_ENTRY', 'PARTY_DONATION_VERDICT', 'RESOLUTION', 'BOARD_MEMBERSHIP', 'CONFERENCE_RECORDING', 'CONFERENCE_STREAM', 'CONFERENCE_STREAM_DESTINATION', 'CONFERENCE_ROOM', 'SOCIAL_POST', 'ORGANIZATION_SETTINGS', 'SEPA_MANDATE', 'SEPA_DEBIT_BATCH', 'DUNNING_NOTICE', 'MEMBER', 'PAYMENT_TRANSACTION', 'API_KEY', 'WEBHOOK_ENDPOINT', 'BANK_STATEMENT_IMPORT', 'ACCOUNTING_EXPORT_CONNECTION', 'ACCOUNTING_EXPORT_RUN', 'ACCOUNTING_EXPORT_MAPPING', 'CONTRIBUTION_RELIEF_REQUEST', 'TRAVEL_EXPENSE_REPORT', 'VOLUNTEER_ALLOWANCE_PAYMENT', 'VOLUNTEER_DECLARATION')),
+    CHECK (action IN ('CREATE', 'UPDATE', 'POST', 'VOID'))
 );
 
 -- V0.5.4 Backup-/Restore-/Datenexport-Garantie: one row per completed (or failed) full-organization

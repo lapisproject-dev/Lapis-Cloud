@@ -1,0 +1,242 @@
+= Volunteer/Instructor Allowance (§3 Nr. 26 / 26a EStG) (V1.4.12)
+
+NOTE: This document's `[kuml]` block is not rendered or validated by any Gradle task -- it is
+prose documentation only, kept in sync by hand with
+`lapis-server/src/main/kuml/46-volunteer-allowance.kuml.kts` (the actual, load-bearing model). Same
+convention `travel-expenses.adoc`/`domain-model.adoc` already establish.
+
+A board/functionary requests a tax-privileged payment for a member's volunteer activity, in one of
+two mutually exclusive categories: `INSTRUCTOR` (§3 Nr. 26 EStG Übungsleiterpauschale, an
+independent annual cap) or `HONORARY` (§3 Nr. 26a EStG Ehrenamtspauschale, its own independent
+annual cap). The category is fixed once a payment is created -- no dropdown, `updateDraft` will
+not accept a different one. This wave is the second "money out" bridge in this codebase (after
+`TravelExpensePostingBridge`), and closes the "no integration with the Übungsleiter-/
+Ehrenamtspauschale" scope boundary that wave's own README section named as a deliberate gap --
+deliberately as its own, separate bridge, not a shared abstraction with travel expenses (the two
+domains' booking shapes and legal constraints differ enough that forcing them together would cost
+more clarity than it would save).
+
+== Data shape
+
+Two new tables -- `volunteer_allowance_payment` (one row per requested payment) and
+`volunteer_allowance_self_declaration` (one row per member/category/calendar-year self-declaration
+of the receiving person) -- plus one new column on `organization_settings`
+(`volunteer_allowance_account_id`). See
+`lapis-server/src/main/kuml/46-volunteer-allowance.kuml.kts` for the full kUML model and
+`V30__volunteer_allowance.sql` for the migration.
+
+[kuml, volunteer-allowance, svg]
+----
+classDiagram(name = "Volunteer/Instructor Allowance — ERM excerpt") {
+    class(name = "VolunteerAllowancePayment") {
+        attribute(name = "id", type = "UUID")
+        attribute(name = "category", type = "String") { note = "INSTRUCTOR|HONORARY, immutable once created" }
+        attribute(name = "status", type = "String") { note = "DRAFT|REQUESTED|APPROVED|REJECTED|EXECUTED|WITHDRAWN" }
+        attribute(name = "amount", type = "BigDecimal")
+        attribute(name = "activityDescription", type = "String")
+        attribute(name = "paymentDate", type = "LocalDate") { note = "Zuflussprinzip -- the calendar-year key for the cap" }
+        attribute(name = "requestedBy", type = "UUID")
+        attribute(name = "postedJournalEntryId", type = "UUID") { note = "idempotency anchor, uq_vap_posted_journal_entry" }
+        attribute(name = "executionError", type = "String") { note = "non-null iff status == APPROVED" }
+        attribute(name = "priorTotalSnapshot", type = "BigDecimal") { note = "frozen at decision time" }
+        attribute(name = "freeAmountSnapshot", type = "BigDecimal") { note = "frozen at decision time" }
+        attribute(name = "exceedingAmountSnapshot", type = "BigDecimal") { note = "frozen at decision time" }
+        attribute(name = "capDisclaimerVersion", type = "String") { note = "set iff a board acknowledgment was required" }
+        attribute(name = "capAcknowledgedBy", type = "UUID") { note = "set iff a board acknowledgment was required" }
+    }
+    class(name = "VolunteerAllowanceSelfDeclaration") {
+        attribute(name = "id", type = "UUID")
+        attribute(name = "category", type = "String") { note = "INSTRUCTOR|HONORARY" }
+        attribute(name = "calendarYear", type = "Int")
+        attribute(name = "source", type = "String") { note = "IN_APP|ON_PAPER" }
+        attribute(name = "signedOn", type = "LocalDate") { note = "ON_PAPER only" }
+        attribute(name = "recordedBy", type = "UUID") { note = "== memberId for IN_APP, != memberId for ON_PAPER" }
+    }
+    class(name = "Member") { attribute(name = "id", type = "UUID") }
+    class(name = "JournalEntry") { attribute(name = "id", type = "UUID") }
+
+    association(source = VolunteerAllowancePayment, target = Member, id = "subject") { target { multiplicity("1") } }
+    association(source = VolunteerAllowancePayment, target = JournalEntry, id = "posted") { target { multiplicity("0..1") } }
+    association(source = VolunteerAllowanceSelfDeclaration, target = Member, id = "declarant") { target { multiplicity("1") } }
+}
+----
+
+== State machine
+
+[cols="1,1,1,2"]
+|===
+| From | To | Method | Condition
+
+| —
+| DRAFT
+| `createDraft`
+| Subject active, < 10 open payments
+
+| DRAFT
+| DRAFT
+| `updateDraft`
+| Subject or requester; category unchangeable
+
+| DRAFT
+| REQUESTED
+| `submitPayment`
+| Formal validation only -- the annual cap is NOT checked here
+
+| DRAFT/REQUESTED
+| WITHDRAWN
+| `withdrawPayment`
+| Subject or requester
+
+| REQUESTED
+| REJECTED
+| `decidePayment(false)`
+| BOARD/ADMIN, neither subject nor requester, note mandatory
+
+| REQUESTED
+| EXECUTED
+| `decidePayment(true)`
+| + self-declaration exists + cap acknowledgment if required + booking succeeded
+
+| REQUESTED
+| APPROVED
+| `decidePayment(true)`
+| + declaration missing, or booking failed -> `executionError`
+
+| APPROVED
+| EXECUTED
+| `retryPosting`
+| Booking succeeded
+
+| APPROVED
+| APPROVED
+| `retryPosting`
+| Failed again, `executionError` updated
+
+| APPROVED
+| REJECTED
+| `decidePayment(false)`
+| Only way out of a permanently unbookable payment ("no dead end")
+|===
+
+Four-eyes over both paths, both booking-producing methods (`decidePayment` AND `retryPosting`):
+`VolunteerAllowanceService` rejects the decider/retryer if they are **either** the payment's
+subject **or** its requester -- the same fix `TravelExpenseService` already applies to both of its
+own booking-producing methods (the V1.4.11 security finding: `retryPosting` is a SECOND
+booking-producing method and must be guarded identically, not just `decidePayment`).
+
+== The annual §3 Nr. 26/26a EStG cap
+
+`VolunteerAllowanceCalculator` is pure, DB-free arithmetic: given a category, a requested amount,
+and the prior EXECUTED total for that member/category/calendar-year, it splits the requested
+amount into a tax-free portion and an exceeding (taxable) portion, using `BigDecimal.compareTo`
+throughout -- never `equals`, which would treat `BigDecimal("960")` and `BigDecimal("960.00")` as
+different values. **The cap is checked at decision time, not at `submitPayment` time** (a second
+payment for the same subject/category/year may have been booked in between), and re-checked again
+inside `VolunteerAllowanceExecution` immediately before the actual booking, comparing the freshly
+recomputed prior total against the snapshot `decidePayment` froze
+(`allowance_total_changed_since_decision` if they no longer match) -- the same "decide, then
+re-verify under the same lock at execute time" idiom `TravelExpenseExecution` establishes.
+
+Only `EXECUTED` payments count toward the annual total (`COUNTS_TOWARD_CAP`), mirroring
+`priorPostedDonationTotalThisYear`'s own `POSTED`-only filter -- a `REQUESTED`/`APPROVED` payment
+has not yet actually paid out and must not shrink another payment's headroom. **The calendar-year
+key is `payment_date.year` (Zuflussprinzip), not the decision/booking date** -- the one deliberate
+difference from the donation-total precedent, which uses `journal_entry.entry_date`: a payment
+made on 31 December but booked in January must still consume the OLD year's cap.
+
+When the under-lock recheck yields `EXCEEDS_CAP`, `decidePayment` requires a
+`capAcknowledgment` that echoes the CURRENT `VolunteerAllowanceCapDisclaimer.VERSION`/`SHA256`
+back unchanged (structurally identical to `AuctionComplianceDisclaimer`) -- and REJECTS an
+acknowledgment sent when the payment does **not** exceed the cap, so a client cannot neutralize the
+gate by always sending one pre-emptively. Unlike the organization-wide, once-per-org disclaimer
+tables this codebase already has, this acknowledgment is **per payment** and lives directly on the
+`volunteer_allowance_payment` row (`cap_disclaimer_version`/`cap_disclaimer_sha256`/
+`cap_acknowledged_by`/`cap_acknowledged_at`), written atomically with the decision so
+`chk_vap_exceeding_needs_ack` can guarantee the invariant DB-side without a cross-table race.
+
+The §3 Nr. 26/26a EStG cap applies **per person per calendar year across ALL organizations** --
+Lapis Cloud only ever knows the sum booked in the current organization, so
+`VolunteerAllowanceYearStatusDto.remainingInThisOrganization` is a maximum, never a guarantee. The
+UI must never label it "Restbetrag" for this reason (enforced by a string assertion in
+`VolunteerAllowanceLabelsTest`).
+
+== Self-declaration ("Raskin's Gate")
+
+Every payment requires a self-declaration for `(subjectMemberId, category, paymentDate.year)`
+before it can ever be booked -- missing one leaves the payment `APPROVED` with
+`executionError = self_declaration_missing`, a retryable resting state, not a thrown exception (the
+board's decision was legitimate; the declaration can be supplied afterwards). This is a
+**completely separate object from the board's cap-acknowledgment disclaimer**: the board
+disclaimer is the board confirming something about itself/its own booking decision; the
+self-declaration is the RECEIVING PERSON confirming something about themselves. The class
+deliberately does not carry the word "Disclaimer" and does not live alongside
+`VolunteerAllowanceCapDisclaimer`.
+
+Two sources: `IN_APP` (the member declares for themselves in Lapis -- `recordedBy` is server-set to
+the caller, never accepted from the client, closing the exact self-service forgery scenario a
+naive "recordedBy from input" design would open) and `ON_PAPER` (BOARD/ADMIN records a signed
+paper declaration on behalf of someone else -- `recordedBy` must differ from the declaring member
+and `signedOn` is mandatory). `uq_vasd_member_category_year` enforces at most one declaration per
+triple; a declaration for year X does not cover year X+1.
+
+== Booking (`VolunteerAllowancePostingBridge`)
+
+[cols="1,1"]
+|===
+| Side | Account
+
+| Debit
+| `organization_settings.volunteer_allowance_account_id` (must be `EXPENSE`-typed)
+
+| Credit
+| `organization_settings.payment_bank_account_id`
+|===
+
+Sphere is hardcoded to `IDEELLER_BEREICH`, same as `TravelExpensePostingBridge`. **Exactly two
+postings, always** -- unlike travel expenses (one debit per line), the tax-free/taxable split is
+NOT booked as two separate ledger lines: this codebase has no payroll/Lohnsteuer concept, and
+splitting the debit would misleadingly imply one portion is already payroll-processed. The split
+survives structurally only in `journal_entry.description` (which spells out `frei <freeAmount> /
+steuerpflichtig <exceedingAmount>`) and in the payment row's own snapshot columns -- a deliberate
+scope boundary: actually withholding and remitting Lohnsteuer for the exceeding portion remains the
+organization's own responsibility, exactly as `VolunteerAllowanceCapDisclaimer.TEXT` states to the
+board at acknowledgment time.
+
+**Degrades instead of failing** (`Failed(code)`, WARN log, no journal entry, no audit entry, the
+APPROVED decision is preserved) for: `volunteer_allowance_account_not_configured`,
+`payment_bank_account_not_configured`, `ledger_account_inactive`,
+`volunteer_allowance_account_not_expense_type`, `cash_register_balance_insufficient`,
+`cash_voucher_required` -- the same posture `TravelExpensePostingBridge` established. A
+`JournalEntryBalance.validateBalanced` failure is **not** a degrading case and throws, rolling back
+the whole transaction.
+
+Idempotency: `posted_journal_entry_id` plus the plain (non-partial) unique index
+`uq_vap_posted_journal_entry` guarantee at most one booking per payment.
+
+== DSGVO erasure
+
+The discriminator is **"was this payment ever actually booked"** (`status == EXECUTED`), not "was
+it ever submitted" -- the same lesson `TravelExpensePersonalData` documents from its own prior
+"DSGVO-Überaufbewahrung" finding. Every non-`EXECUTED` status is fully deleted regardless of how far
+it progressed (a `DRAFT`, `REQUESTED`, `APPROVED`, `REJECTED`, or `WITHDRAWN` payment has no
+Buchungsbeleg -- `chk_vap_posted_entry_state` guarantees `posted_journal_entry_id IS NULL` for all
+of them). An `EXECUTED` payment is redacted, not deleted: `activity_description` becomes
+`"[gelöscht]"`; `decision_note` is RETAINED, not nulled (`chk_vap_decided_needs_note` requires it
+non-null for every EXECUTED row, and it is the board's own text about its decision, not the
+subject's own free text). Amount/date/category/status/every snapshot/the booking reference remain
+too (Art. 5(2) DSGVO Rechenschaftspflicht + §147 Abs. 1 Nr. 4 AO, 10 years).
+Only the SUBJECT role triggers deletion/redaction -- `requestedBy`/`decidedBy`/
+`capAcknowledgedBy` are counted in the export but leave the row untouched.
+
+A self-declaration row is deleted unless an `EXECUTED` payment of the same
+member/category/calendar-year still exists, in which case it remains as that payment's
+(freitext-free) legal-basis evidence. No periodic redaction sweep -- unlike the V1.4.10 wave's Art.
+9 free-text reason, there is no special-category free text anywhere in this domain, and §147 AO's
+10-year retention applies regardless of any later erasure request.
+
+== What doesn't work yet (this wave)
+
+See the README's own "Volunteer/instructor allowance" section for the full list of deliberate scope
+boundaries (no configurable/jahresbezogene Deckel, no automated Lohnsteuer withholding for the
+exceeding portion, no cross-organization cap awareness, no payout/payment run, single EXPENSE
+account for both categories).

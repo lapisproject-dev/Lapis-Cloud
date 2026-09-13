@@ -128,12 +128,15 @@ classDiagram(name = "AuditLog") {
 
     // Literal order is load-bearing: AuditLogSchemaDriftTest asserts ErmDataType.Enum.values in
     // exactly this order, matching network.lapis.cloud.shared.domain.AuditAction. Additively
-    // extensible (e.g. a future VOID literal alongside a Storno mechanism) -- same "cheap to
-    // extend, expensive to reorder" note every other domain enum in this codebase carries.
+    // extensible -- same "cheap to extend, expensive to reorder" note every other domain enum in
+    // this codebase carries. VOID (Security-Fund, Welle V1.4.12) was appended LAST -- the Storno
+    // mechanism this comment previously only anticipated; see AuditAction's own KDoc for the one
+    // writer (VolunteerAllowanceService.voidPaperDeclaration).
     val auditAction = enumOf(name = "AuditAction") {
         literal(name = "CREATE")
         literal(name = "UPDATE")
         literal(name = "POST")
+        literal(name = "VOID")
     }
 
     // The entity kinds this wave's bounded scope audits -- see file header. Literal order is
@@ -191,6 +194,8 @@ classDiagram(name = "AuditLog") {
         literal(name = "ACCOUNTING_EXPORT_MAPPING") // Security review Runde 3, Befund 4 -- AccountingExportService.mapAccount; 25 chars, fits within the existing VARCHAR(29) width
         literal(name = "CONTRIBUTION_RELIEF_REQUEST") // Welle V1.4.10 "Beitragsvergünstigungen" -- ContributionReliefService state-transition writes; 27 chars, fits within the existing VARCHAR(29) width
         literal(name = "TRAVEL_EXPENSE_REPORT") // Welle V1.4.11 "Reisekostenabrechnung" -- TravelExpenseService state-transition writes; 22 chars, fits within the existing VARCHAR(29) width
+        literal(name = "VOLUNTEER_ALLOWANCE_PAYMENT") // Welle V1.4.12 "Übungsleiter- und Ehrenamtspauschale" -- VolunteerAllowanceService state-transition writes; 27 chars, fits within the existing VARCHAR(29) width
+        literal(name = "VOLUNTEER_DECLARATION") // Welle V1.4.12 -- self-declaration writes (declareSelf/recordPaperDeclaration); named this way, NOT the more literal VOLUNTEER_ALLOWANCE_SELF_DECLARATION (36 chars) or VOLUNTEER_ALLOWANCE_DECLARATION (31 chars), because both exceed the VARCHAR(29) width -- 21 chars, fits
     }
 
     // Genesis-singleton row (see file header) -- gapless sequence_number + hash-chain
