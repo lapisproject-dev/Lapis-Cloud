@@ -269,6 +269,7 @@ class LegalHtmlTest :
                     "contributionRelief" to "Beitragsvergünstigungen",
                     "travelExpenses" to "Reisekostenabrechnungen",
                     "volunteerAllowances" to "Ehrenamts- und Übungsleiterpauschalen",
+                    "vat" to "Umsatzsteuer-Voranmeldung",
                 )
 
             // Deliberately NOT matched by their own keyword: these three LTR-economy

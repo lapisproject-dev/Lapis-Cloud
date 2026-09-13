@@ -105,6 +105,19 @@ enum class AccountingExportBlockerKind {
      * and confirms one way or the other.
      */
     UNRESOLVED_UNKNOWN_ITEMS,
+
+    /**
+     * Welle V1.4.13: mindestens ein POSTED-Eintrag im Zeitraum tragt eine Buchung mit
+     * [network.lapis.cloud.shared.domain.VatRate.REDUCED]/[network.lapis.cloud.shared.domain
+     * .VatRate.STANDARD]. Jeder an lexoffice/sevDesk uebertragene Beleg geht unveraendert mit 0 %
+     * USt hinaus (`LexofficeVoucherMapper.TAX_TYPE`/`ZERO_TAX_RATE_PERCENT`, `SevDeskVoucherMapper
+     * .ZERO_TAX_RATE`) -- sobald Lapis Cloud den echten Satz KENNT, waere das eine bewusste
+     * Falschangabe an eine Maschine, die sie als Tatsache verbucht. Deshalb blockiert der Export,
+     * statt zu senden (Fehlervermeidung statt Fehlermeldung). Der DATEV-Pfad blockiert NICHT --
+     * siehe [network.lapis.cloud.shared.domain.DatevExportPreviewDto.vatBearingEntryCount] fuer die
+     * begruendete Asymmetrie.
+     */
+    VAT_BEARING_ENTRY,
 }
 
 @Serializable

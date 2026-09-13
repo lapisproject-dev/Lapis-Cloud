@@ -128,6 +128,8 @@ internal object VolunteerAllowancePostingBridge {
             return VolunteerAllowancePostingOutcome.Failed("volunteer_allowance_account_not_expense_type")
         }
 
+        // V1.4.13: no `vatRate` set below on purpose -- this automated bridge makes no tax
+        // classification, so postings stay VatRate.UNCLASSIFIED (the PostingInput default).
         val postingInputs =
             listOf(
                 PostingInput(

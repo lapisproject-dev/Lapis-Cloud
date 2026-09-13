@@ -6,6 +6,7 @@ import java.math.BigDecimal
 import kotlin.uuid.Uuid
 import network.lapis.cloud.shared.domain.GemeinnuetzigkeitSphere
 import network.lapis.cloud.shared.domain.PostingSide
+import network.lapis.cloud.shared.domain.VatRate
 import org.jetbrains.exposed.v1.core.Column
 import org.jetbrains.exposed.v1.core.Table
 
@@ -14,6 +15,9 @@ public object PostingTable : Table("posting") {
     public val side: Column<PostingSide> = enumerationByName<PostingSide>("side", 6)
     public val amount: Column<BigDecimal> = decimal("amount", 15, 2)
     public val sphere: Column<GemeinnuetzigkeitSphere> = enumerationByName<GemeinnuetzigkeitSphere>("sphere", 34)
+    // Welle V1.4.13 -- hand-edited, see 10-accounting.kuml.kts file header addendum.
+    public val vatRate: Column<VatRate> = enumerationByName<VatRate>("vat_rate", 12)
+    public val vatAmount: Column<BigDecimal> = decimal("vat_amount", 15, 2)
     public val journalEntryId: Column<Uuid> = reference("journal_entry_id", JournalEntryTable.id)
     public val ledgerAccountId: Column<Uuid> = reference("ledger_account_id", LedgerAccountTable.id)
     public val costCenterId: Column<Uuid?> = optReference("cost_center_id", CostCenterTable.id)
@@ -23,6 +27,6 @@ public object PostingTable : Table("posting") {
     // Note: 2 index(es) declared on this entity are not emitted —
     // Exposed's index {} DSL needs typed column references, not wired up in this wave.
 
-    // Note: 2 check constraint(s) declared on this entity are not
+    // Note: 3 check constraint(s) declared on this entity are not
     // emitted — Exposed's check {} DSL needs a typed Op<Boolean>, not a raw SQL string.
 }

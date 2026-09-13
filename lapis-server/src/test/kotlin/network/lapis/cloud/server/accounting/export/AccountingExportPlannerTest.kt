@@ -10,6 +10,7 @@ import network.lapis.cloud.shared.domain.AccountingExportBlockerKind
 import network.lapis.cloud.shared.domain.AccountingExportDirection
 import network.lapis.cloud.shared.domain.LedgerAccountType
 import network.lapis.cloud.shared.domain.PostingSide
+import network.lapis.cloud.shared.domain.VatRate
 import java.math.BigDecimal
 import kotlin.uuid.Uuid
 
@@ -32,12 +33,14 @@ class AccountingExportPlannerTest :
             ledgerAccountId: Uuid,
             accountNumber: String,
             accountType: LedgerAccountType,
+            vatRate: VatRate = VatRate.UNCLASSIFIED,
         ) = JournalExportPosting(
             side = side,
             amount = BigDecimal(amount),
             accountNumber = accountNumber,
             ledgerAccountId = ledgerAccountId,
             accountType = accountType,
+            vatRate = vatRate,
         )
 
         fun entry(
@@ -344,5 +347,150 @@ class AccountingExportPlannerTest :
                 )
             plan.blockers.map { it.kind } shouldBe listOf(AccountingExportBlockerKind.EMPTY_PERIOD)
             plan.exportable shouldBe false
+        }
+
+        // ── Welle V1.4.13 "USt-Voranmeldung" -- VAT_BEARING_ENTRY blocker ────────
+
+        test("a REDUCED-taxed posting blocks the export with VAT_BEARING_ENTRY, not exportable") {
+            val vatEntry =
+                entry(
+                    postings =
+                        listOf(
+                            posting(
+                                side = PostingSide.CREDIT,
+                                amount = "119.00",
+                                ledgerAccountId = incomeAccountId,
+                                accountNumber = "4000",
+                                accountType = LedgerAccountType.INCOME,
+                                vatRate = VatRate.REDUCED,
+                            ),
+                            posting(
+                                side = PostingSide.DEBIT,
+                                amount = "119.00",
+                                ledgerAccountId = bankAccountId,
+                                accountNumber = "1200",
+                                accountType = LedgerAccountType.ASSET,
+                            ),
+                        ),
+                )
+            val plan =
+                AccountingExportPlanner.plan(
+                    request = request(listOf(vatEntry)),
+                    alreadyExportedJournalEntryIds = emptySet(),
+                    categoryByLedgerAccount = fullMapping,
+                )
+            plan.blockers.map { it.kind } shouldBe listOf(AccountingExportBlockerKind.VAT_BEARING_ENTRY)
+            plan.exportable shouldBe false
+        }
+
+        test("NOT_SUBJECT/UNCLASSIFIED/ZERO postings never trigger VAT_BEARING_ENTRY") {
+            listOf(VatRate.NOT_SUBJECT, VatRate.UNCLASSIFIED, VatRate.ZERO).forEach { rate ->
+                val untaxedEntry =
+                    entry(
+                        postings =
+                            listOf(
+                                posting(
+                                    side = PostingSide.CREDIT,
+                                    amount = "100.00",
+                                    ledgerAccountId = incomeAccountId,
+                                    accountNumber = "4000",
+                                    accountType = LedgerAccountType.INCOME,
+                                    vatRate = rate,
+                                ),
+                                posting(
+                                    side = PostingSide.DEBIT,
+                                    amount = "100.00",
+                                    ledgerAccountId = bankAccountId,
+                                    accountNumber = "1200",
+                                    accountType = LedgerAccountType.ASSET,
+                                ),
+                            ),
+                    )
+                val plan =
+                    AccountingExportPlanner.plan(
+                        request = request(listOf(untaxedEntry)),
+                        alreadyExportedJournalEntryIds = emptySet(),
+                        categoryByLedgerAccount = fullMapping,
+                    )
+                (AccountingExportBlockerKind.VAT_BEARING_ENTRY in plan.blockers.map { it.kind }) shouldBe false
+            }
+        }
+
+        test("VAT_BEARING_ENTRY detail never contains the journal entry's description (DSGVO/BOARD-readability guard)") {
+            val secretDescription = "Spende von Erika Musterfrau, sehr vertraulich"
+            val vatEntry =
+                entry(
+                    description = secretDescription,
+                    postings =
+                        listOf(
+                            posting(
+                                side = PostingSide.CREDIT,
+                                amount = "119.00",
+                                ledgerAccountId = incomeAccountId,
+                                accountNumber = "4000",
+                                accountType = LedgerAccountType.INCOME,
+                                vatRate = VatRate.STANDARD,
+                            ),
+                            posting(
+                                side = PostingSide.DEBIT,
+                                amount = "119.00",
+                                ledgerAccountId = bankAccountId,
+                                accountNumber = "1200",
+                                accountType = LedgerAccountType.ASSET,
+                            ),
+                        ),
+                )
+            val plan =
+                AccountingExportPlanner.plan(
+                    request = request(listOf(vatEntry)),
+                    alreadyExportedJournalEntryIds = emptySet(),
+                    categoryByLedgerAccount = fullMapping,
+                )
+            val blockerDetail = plan.blockers.single { it.kind == AccountingExportBlockerKind.VAT_BEARING_ENTRY }.detail
+            (secretDescription in blockerDetail) shouldBe false
+        }
+
+        // Security Round 2 (MINOR): a vatRate accidentally set on the ASSET/bank leg (rather than
+        // the INCOME/EXPENSE leg) must never trigger VAT_BEARING_ENTRY -- see
+        // AccountingService.loadVatPostingLines, which restricts the USt-Vorschau to the same
+        // INCOME/EXPENSE subset. Before this fix, the blocker checked EVERY posting regardless of
+        // account type, so this exact scenario blocked every future export of the period forever
+        // (POSTED entries are immutable) with no view anywhere showing why -- while the preview
+        // itself never showed the offending line at all (ASSET is filtered out there).
+        test(
+            "a vatRate accidentally set on the ASSET leg (not INCOME/EXPENSE) never triggers " +
+                "VAT_BEARING_ENTRY -- must match the same INCOME/EXPENSE subset the USt-Vorschau uses",
+        ) {
+            val misclassifiedEntry =
+                entry(
+                    postings =
+                        listOf(
+                            posting(
+                                side = PostingSide.CREDIT,
+                                amount = "100.00",
+                                ledgerAccountId = incomeAccountId,
+                                accountNumber = "4000",
+                                accountType = LedgerAccountType.INCOME,
+                                // The INCOME leg itself is untaxed here -- only the ASSET/bank leg
+                                // below carries a (mistaken) STANDARD rate.
+                            ),
+                            posting(
+                                side = PostingSide.DEBIT,
+                                amount = "100.00",
+                                ledgerAccountId = bankAccountId,
+                                accountNumber = "1200",
+                                accountType = LedgerAccountType.ASSET,
+                                vatRate = VatRate.STANDARD,
+                            ),
+                        ),
+                )
+            val plan =
+                AccountingExportPlanner.plan(
+                    request = request(listOf(misclassifiedEntry)),
+                    alreadyExportedJournalEntryIds = emptySet(),
+                    categoryByLedgerAccount = fullMapping,
+                )
+            (AccountingExportBlockerKind.VAT_BEARING_ENTRY in plan.blockers.map { it.kind }) shouldBe false
+            plan.exportable shouldBe true
         }
     })

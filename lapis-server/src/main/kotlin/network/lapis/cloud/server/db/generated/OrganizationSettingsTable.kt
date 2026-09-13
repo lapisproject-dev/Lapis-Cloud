@@ -55,6 +55,11 @@ public object OrganizationSettingsTable : Table("organization_settings") {
     public val travelPerDiemRate: Column<BigDecimal?> = decimal("travel_per_diem_rate", 12, 2).nullable()
     // Welle V1.4.12 -- hand-edited, see 11-organization-settings.kuml.kts file header addendum.
     public val volunteerAllowanceAccountId: Column<Uuid?> = optReference("volunteer_allowance_account_id", LedgerAccountTable.id)
+    // Welle V1.4.13 -- hand-edited, see 11-organization-settings.kuml.kts file header addendum.
+    public val vatEnabled: Column<Boolean> = bool("vat_enabled")
+    // TODO default = "FALSE"
+    public val isKleinunternehmer: Column<Boolean> = bool("is_kleinunternehmer")
+    // TODO default = "FALSE"
 
     override val primaryKey: PrimaryKey = PrimaryKey(id)
 }

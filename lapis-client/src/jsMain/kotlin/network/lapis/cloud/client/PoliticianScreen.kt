@@ -837,6 +837,13 @@ internal fun OrganizationSettingsDto.toInputWithPoliticianRankingEnabled(newValu
         // `donationIncomeAccountId`/`eventIncomeAccountId`/`travelExpenseAccountId` already fixed
         // here. Fixed at introduction time rather than after the fact this time.
         volunteerAllowanceAccountId = volunteerAllowanceAccountId,
+        // Review MAJOR fix (V1.4.13 "USt-Voranmeldung"): `isKleinunternehmer` was silently dropped
+        // here the same way -- a BOARD/ADMIN merely toggling politician ranking would unset a
+        // Kleinunternehmer org's §19-UStG status back to `false`, which (given `vatEnabled = true`)
+        // flips `AccountingService.vatActive()` from inactive to active with immediate effects on
+        // journal-entry VAT normalization, the VAT return preview, and export blocking. Same
+        // "never silently drop/reset a field" fix as every account field above.
+        isKleinunternehmer = isKleinunternehmer,
     )
 
 // ================================================================================================

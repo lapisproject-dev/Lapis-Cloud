@@ -48,6 +48,11 @@ internal data class DatevExportPlan(
     val creditTotal: BigDecimal,
     val transliteratedEntryCount: Int,
     val leadingZeroAccountCount: Int,
+    /** Welle V1.4.13: Anzahl POSTED-Eintraege im Zeitraum mit mindestens einer USt-tragenden
+     *  Buchung. KEIN Blocker -- siehe [DatevBuchungsstapelWriter] class KDoc "USt-Asymmetrie zu
+     *  lexoffice/sevDesk". */
+    val vatBearingEntryCount: Int = 0,
+    val vatBearingGrossTotal: BigDecimal = BigDecimal.ZERO.setScale(2),
 ) {
     val exportable: Boolean get() = blockers.isEmpty()
 }
@@ -101,6 +106,19 @@ internal data class DatevExportPlan(
  * auf DASSELBE Konto derselben Seite zaehlen als EIN Konto (aggregiert nach Kontonummer, nicht
  * nach Buchungszeilen-Anzahl). Eine echte n:m-Buchung (mehr als ein Konto auf BEIDEN Seiten) kann
  * das Format nicht abbilden -- [DatevExportBlockerKind.UNMAPPABLE_MANY_TO_MANY_ENTRY].
+ *
+ * ## USt-Asymmetrie zu lexoffice/sevDesk (Welle V1.4.13)
+ *
+ * Anders als [network.lapis.cloud.server.accounting.export.AccountingExportPlanner] (die
+ * lexoffice-/sevDesk-Planer, die eine USt-tragende Buchung MIT einem eigenen Blocker
+ * ([network.lapis.cloud.shared.domain.AccountingExportBlockerKind.VAT_BEARING_ENTRY]) ablehnen)
+ * blockiert [plan] den DATEV-Export NICHT, wenn eine Buchung im Zeitraum einen USt-Satz traegt.
+ * Grund: Feld 9 (BU-Schluessel) bleibt seit V1.4.5.2 ohnehin IMMER leer -- eine CSV fuer einen
+ * Steuerberater, der den Schluessel selbst setzt, ist mit einem leeren Feld 9 gelebte Praxis und
+ * keine Falschaussage (anders als eine an lexoffice/sevDesk uebertragene, hart auf 0 % gesetzte
+ * `taxRatePercent`, die dort als FAKT verbucht wird). [DatevExportPlan.vatBearingEntryCount]/
+ * [DatevExportPlan.vatBearingGrossTotal] tragen die Zahl trotzdem in die Vorschau, damit der Mensch
+ * weiss, was er dem Steuerberater zusaetzlich mitteilen muss.
  */
 internal object DatevBuchungsstapelWriter {
     /** DoS-Deckel (Review-Vorgabe) -- ein unbegrenzter Jahresexport darf den Heap nicht sprengen. */
@@ -440,6 +458,15 @@ internal object DatevBuchungsstapelWriter {
 
         val leadingZeroAccountCount = accountsUsed.count { it.startsWith("0") }
 
+        // Welle V1.4.13: informational only -- see class KDoc "USt-Asymmetrie zu lexoffice/
+        // sevDesk". grossAmount is the sum of the entry's DEBIT-side amounts, same derivation
+        // AccountingExportPlanner.plan uses for its own grossAmount.
+        val vatBearingEntries = request.entries.filter { entry -> entry.postings.any { it.vatRate.bearsVat } }
+        val vatBearingGrossTotal =
+            vatBearingEntries.fold(BigDecimal.ZERO) { acc, entry ->
+                acc + entry.postings.filter { it.side == PostingSide.DEBIT }.fold(BigDecimal.ZERO) { a, p -> a + p.amount }
+            }
+
         return DatevExportPlan(
             blockers = blockers,
             rows = rows,
@@ -448,6 +475,8 @@ internal object DatevBuchungsstapelWriter {
             creditTotal = creditTotal,
             transliteratedEntryCount = transliteratedEntryCount,
             leadingZeroAccountCount = leadingZeroAccountCount,
+            vatBearingEntryCount = vatBearingEntries.size,
+            vatBearingGrossTotal = vatBearingGrossTotal.setScale(2, RoundingMode.UNNECESSARY),
         )
     }
 

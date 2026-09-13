@@ -1,0 +1,146 @@
+= USt-Voranmeldung (Proof-of-Filing Aid) (V1.4.13)
+
+NOTE: This document's `[kuml]` block is not rendered or validated by any Gradle task -- it is
+prose documentation only, kept in sync by hand with
+`lapis-server/src/main/kuml/10-accounting.kuml.kts` (the actual, load-bearing model). Same
+convention `travel-expenses.adoc`/`volunteer-allowance.adoc` already establish.
+
+This wave lets an organization record a Umsatzsteuer (VAT) rate per booking line and produces a
+read-only preview report (`getVatReturnPreview`) that aggregates POSTED bookings into the shape of
+a German Umsatzsteuer-Voranmeldung -- **a proof-of-filing aid for the board/tax advisor, never an
+actual filing**. There is no ELSTER/ERiC transmission, no deadline scheduler, and no automated VAT
+split-booking. It is opt-in per organization (`organization_settings.vat_enabled`), gated the same
+way as `dunning_enabled` (settable only via `IVatService.enableVat`/`disableVat`, never through the
+generic `updateOrganizationSettings`), and short-circuits to "not applicable" for a Kleinunternehmer
+(§ 19 UStG), regardless of whether VAT-bearing bookings exist.
+
+== Data shape
+
+Two new columns on `posting` (`vat_rate`, `vat_amount`), two new columns on
+`organization_settings` (`vat_enabled`, `is_kleinunternehmer`), and one new append-only table
+(`vat_compliance_acknowledgment`, structurally a mirror of
+`dunning_compliance_acknowledgment`/`sepa_compliance_acknowledgment`). See
+`lapis-server/src/main/kuml/10-accounting.kuml.kts` and
+`lapis-server/src/main/kuml/11-organization-settings.kuml.kts` for the full kUML model and
+`V31__vat.sql` for the migration.
+
+[kuml, vat-return, svg]
+----
+classDiagram(name = "USt-Voranmeldung — ERM excerpt") {
+    class(name = "Posting") {
+        attribute(name = "id", type = "UUID")
+        attribute(name = "amount", type = "BigDecimal") { note = "gross -- unchanged semantics" }
+        attribute(name = "vatRate", type = "String") { note = "UNCLASSIFIED|NOT_SUBJECT|ZERO|REDUCED|STANDARD" }
+        attribute(name = "vatAmount", type = "BigDecimal") { note = "snapshot, frozen when posted" }
+    }
+    class(name = "OrganizationSettings") {
+        attribute(name = "vatEnabled", type = "Boolean") { note = "READ-ONLY here -- see IVatService" }
+        attribute(name = "isKleinunternehmer", type = "Boolean") { note = "ordinary ADMIN field" }
+    }
+    class(name = "VatComplianceAcknowledgment") {
+        attribute(name = "id", type = "UUID")
+        attribute(name = "acknowledgedByMemberId", type = "UUID")
+        attribute(name = "acknowledgedAt", type = "LocalDateTime")
+        attribute(name = "disclaimerVersion", type = "String")
+        attribute(name = "disclaimerSha256", type = "String")
+    }
+    class(name = "Member") { attribute(name = "id", type = "UUID") }
+
+    association(source = VatComplianceAcknowledgment, target = Member, id = "acknowledgedBy") { target { multiplicity("1") } }
+}
+----
+
+== Gross stays gross
+
+`posting.amount` is, and remains, the gross (VAT-inclusive) invoice amount -- this wave does not
+touch that semantics, and it must not: every existing POSTED row and every existing report (GuV,
+balance sheet, four-sphere income statement, cash book, Mittelverwendungsrechnung) relies on it, and
+POSTED data is immutable. A semantic change would retroactively reinterpret closed periods.
+`JournalEntryBalance` keeps validating Soll/Haben balance on gross amounts only, unchanged.
+
+== Rounding, one direction
+
+`VatCalculator` is the single place a VAT amount is ever derived from a gross amount:
+
+* `net = ROUND_HALF_UP(gross / (1 + percent/100), 2)`
+* `vat = gross - net`
+
+Never compute VAT directly as `gross * percent/(100+percent)` and round net separately -- the two
+results can drift apart by a cent. This formula guarantees `net + vat == gross` by construction,
+for every amount, always. Example: EUR 100.00 gross at 19 % -> net EUR 84.03, VAT EUR 15.97 (not
+15.96, which a naive direct-VAT-then-round-net computation could produce).
+
+== Storno/correction postings are signed correctly, not doubled
+
+A `POSTED` entry is immutable -- the only correction path is a manual storno booked on the
+non-normal side of the same account (e.g. `Ertrag` DEBIT instead of its normal CREDIT, see
+`BankStatementMatcher` KDoc "the only correction path is a manual storno"). `VatReturnCalculator`
+signs every `VatPostingLine` by `GeneralLedgerCalculator.normalBalanceSideOf(accountType)` before
+summing (`VatPostingLine.signedGross`/`signedVatAmount`) -- exactly the same `if (side ==
+normalSide) amount else amount.negate()` idiom `AccountingService.loadAccountBalances` already
+uses for every other INCOME/EXPENSE aggregation in this codebase. A storno therefore *reduces* the
+reported output/input VAT back towards zero, not away from it; without this, a storno would double
+the reported VAT instead of cancelling it, in `getVatReturnPreview`'s totals AND in
+`priorYearVatBalance` (which can shift the § 18 Abs. 2 UStG MONTHLY/QUARTERLY classification).
+
+== Why `vat_amount` is a snapshot
+
+`posting.vat_amount` is computed at INSERT time (both DRAFT and POSTED) and re-frozen with an
+explicit update at the DRAFT -> POSTED transition (`postDraftEntry` does not re-insert postings, so
+without this second write the value would remain forever pinned to whatever it was as a draft) --
+the same doctrine `journal_entry.donor_category`'s own snapshot already establishes. Reports read
+the stored snapshot and never re-derive it: a later change to the rounding rule or to a booking's
+own `amount` must never retroactively rewrite an already-POSTED reporting period.
+
+== Five enum members, and why `UNCLASSIFIED` is not `0 %`
+
+`VatRate` has five literals: `UNCLASSIFIED`, `NOT_SUBJECT`, `ZERO`, `REDUCED` (7 %), `STANDARD`
+(19 %). `UNCLASSIFIED` means "never asked" -- every pre-V1.4.13 booking and every booking produced
+by one of the five automated posting bridges (Contribution/Donation/EventFee/TravelExpense/
+VolunteerAllowance, none of which make a tax classification) carries it, and the preview report
+counts and surfaces these bookings separately rather than silently summing them in as non-taxable.
+`NOT_SUBJECT` (outside the scope of VAT entirely -- ideeller Bereich, Vermögensverwaltung) and
+`ZERO` (taxable, 0 %) are deliberately two distinct literals: in a real Voranmeldung they belong on
+different lines.
+
+There is deliberately **no** (Sphäre × VatRate) plausibility check: the § 12 Abs. 2 Nr. 8a UStG
+Wettbewerbsvorbehalt that would justify a Zweckbetrieb's 7 % rate is a board judgment call this
+platform cannot make. All twenty combinations are accepted server-side
+(`VatRateSphereIndependenceTest` holds this down as a regression guard against a well-meaning future
+"validation" being added).
+
+== Export asymmetry
+
+The lexoffice and sevDesk live-export bridges send every voucher with `taxType = "gross"` /
+`taxRatePercent = 0` unconditionally (see `LexofficeVoucherMapper`/`SevDeskVoucherMapper` KDoc) --
+not a single byte of that wire format changes in this wave. Instead, `AccountingExportPlanner.plan`
+now blocks the export whenever the period contains a POSTED booking with `REDUCED`/`STANDARD`
+(`AccountingExportBlockerKind.VAT_BEARING_ENTRY`): once Lapis Cloud actually *knows* a real VAT rate
+for a booking, sending it onward as an explicit "0 % VAT" claim to a bookkeeping API that records
+that as fact would be a deliberate false statement. Blocking is fail-safe; the accompanying
+`ZeroVatExportDisclaimer` version bump (see CHANGELOG) makes every existing connection re-read and
+re-acknowledge this before its next export.
+
+DATEV does **not** block: `DatevBuchungsstapelWriter` leaves BU-Schlüssel (field 9) empty, as it has
+since V1.4.5.2 -- a CSV meant for a Steuerberater who fills in the key by hand is not misrepresenting
+anything with an empty field. `DatevExportPreviewDto.vatBearingEntryCount`/
+`vatBearingGrossTotal` surface the count/total so the human knows what to add by hand.
+
+== Known contradiction: the four-sphere income statement shows gross income including VAT
+
+The `FourSphereIncomeStatementDto` reports income at its booked gross amount (unchanged, see
+"Gross stays gross" above), while this wave's USt-Voranmeldung preview reports net/VAT splits for
+the same underlying bookings. **These two reports will not reconcile to the same "income" figure**,
+and that is not a bug: they answer different questions (economic result per Gemeinnützigkeits-Sphäre
+vs. VAT owed to the Finanzamt). Building an actual VAT split-booking (net revenue account + VAT
+liability account) is the only way to remove this contradiction, and is explicitly out of scope for
+this wave (see Non-goals below).
+
+== Non-goals
+
+* No ELSTER/ERiC transmission -- this report is never submitted anywhere automatically.
+* No automated VAT split-booking (net revenue / VAT liability / input VAT accounts).
+* No filing-deadline scheduler or reminder.
+* No Kleinunternehmer threshold monitoring (EUR 25,000 prior year / EUR 100,000 current year) --
+  `is_kleinunternehmer` is a stored board statement, not a computed or monitored fact.
+* No line-item/invoice engine -- VAT is classified per booking line, not per invoice line item.

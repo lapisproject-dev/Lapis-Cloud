@@ -85,6 +85,9 @@ class ContributionPaymentRpcTest :
                     // reset BEFORE the LedgerAccountTable delete further down, same FK reasoning as
                     // the three fields above.
                     it[eventIncomeAccountId] = null
+                    // Security Round 2 (MAJOR-3) regression coverage below -- reset for the next
+                    // test class sharing this row, same discipline as every other field here.
+                    it[isKleinunternehmer] = false
                 }
                 if (createdMemberIds.isNotEmpty()) {
                     AuditLogEntryTable.update({ AuditLogEntryTable.actorMemberId inList createdMemberIds }) {
@@ -572,6 +575,74 @@ class ContributionPaymentRpcTest :
         }
 
         test(
+            "updateOrganizationSettings writes an ORGANIZATION_SETTINGS audit entry reflecting the actual " +
+                "isKleinunternehmer value whenever it changes (Security Round 2, MAJOR-3) -- before this fix, " +
+                "NOT ONE line in audit_log_entry would ever say who flipped this flag or when",
+        ) {
+            testApplication {
+                application {
+                    install(StatusPages) {
+                        exception<ForbiddenException> { call, cause -> call.respondText(cause.message, status = HttpStatusCode.Forbidden) }
+                    }
+                    routing { registerContributionPaymentTestRoutes() }
+                }
+
+                val adminId = createMember(email = "rpc-admin-major3-${Uuid.random()}@example.org", role = AccountRole.ADMIN)
+
+                // Content-based, not count-based -- deliberately: `organization_settings` is a single
+                // GLOBAL singleton row shared by every test class in this suite (several of which,
+                // e.g. VatServiceTest/AccountingServiceVatTest/OrganizationSettingsFieldCoverageTest,
+                // toggle this SAME isKleinunternehmer flag as their own primary subject), and Kotest
+                // may run specs concurrently in this JVM (see EmbedRoutesCorsTest/DevSeedData KDoc) --
+                // unlike MAJOR-2's own mapping-field audit test above (random per-test UUIDs, so a
+                // collision with another spec's concurrent write is astronomically unlikely), a plain
+                // Boolean has only two values, so an exact "before/after count" assertion around this
+                // one flag is flaky under that same concurrency model. Checking the MOST RECENT audit
+                // row's actual content after each call is immune to that: it is correct regardless of
+                // how many rows another concurrently-running spec's own admin may have appended.
+                fun latestOrganizationSettingsAudit(): String? =
+                    transaction {
+                        AuditLogEntryTable
+                            .selectAll()
+                            .where {
+                                (AuditLogEntryTable.actorMemberId eq adminId) and
+                                    (AuditLogEntryTable.entityType eq AuditEntityType.ORGANIZATION_SETTINGS)
+                            }.toList()
+                            .maxByOrNull { it[AuditLogEntryTable.sequenceNumber] }
+                            ?.get(AuditLogEntryTable.afterSnapshot)
+                    }
+
+                latestOrganizationSettingsAudit() shouldBe null
+
+                // Direct write, immediately followed by the RPC call with no other await in between --
+                // narrows (does not, and structurally cannot, fully eliminate) the same shared-row
+                // race window, same "shrinks the window" idiom as resetGate()/VatServiceTest.
+                transaction {
+                    OrganizationSettingsTable.update({ OrganizationSettingsTable.id eq ORGANIZATION_SETTINGS_ID }) {
+                        it[isKleinunternehmer] = false
+                    }
+                }
+                // Flips isKleinunternehmer to true -- the most recent audit entry for THIS admin must
+                // now exist and correctly reflect it, where before this fix none ever would have.
+                client.post(
+                    "/test/org-settings/update?bankAccountId=&feeAccountId=&incomeAccountId=&isKleinunternehmer=true",
+                ) { header("X-Member-Id", adminId.toString()) }
+                latestOrganizationSettingsAudit() shouldBe "{\"isKleinunternehmer\":true}"
+
+                transaction {
+                    OrganizationSettingsTable.update({ OrganizationSettingsTable.id eq ORGANIZATION_SETTINGS_ID }) {
+                        it[isKleinunternehmer] = true
+                    }
+                }
+                // Flips it back to false -- the most recent entry now reflects THAT value instead.
+                client.post(
+                    "/test/org-settings/update?bankAccountId=&feeAccountId=&incomeAccountId=&isKleinunternehmer=false",
+                ) { header("X-Member-Id", adminId.toString()) }
+                latestOrganizationSettingsAudit() shouldBe "{\"isKleinunternehmer\":false}"
+            }
+        }
+
+        test(
             "updateOrganizationSettings round-trips eventIncomeAccountId/eventIncomeSphere via the real RPC " +
                 "(Review MAJOR fix -- these two organization_settings columns existed since V18__events.sql " +
                 "but had no write path anywhere in this codebase before this fix)",
@@ -665,6 +736,8 @@ private fun Route.registerContributionPaymentTestRoutes() {
                     paymentFeeAccountId = q["feeAccountId"]?.takeIf { it.isNotBlank() },
                     contributionIncomeAccountId = q["incomeAccountId"]?.takeIf { it.isNotBlank() },
                     eventIncomeAccountId = q["eventAccountId"]?.takeIf { it.isNotBlank() },
+                    // Security Round 2 (MAJOR-3) regression coverage below.
+                    isKleinunternehmer = q["isKleinunternehmer"]?.toBoolean() ?: false,
                 ),
             )
         call.respondText("${dto.paymentBankAccountId}:${dto.paymentFeeAccountId}:${dto.contributionIncomeAccountId}")

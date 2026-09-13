@@ -119,6 +119,18 @@ import kotlinx.serialization.Serializable
  * books an approved allowance payment's EXPENSE-side debit into. `null` degrades the bridge to a
  * no-op, same "unconfigured mapping" treatment as the other seven.
  *
+ * [vatEnabled] (Welle V1.4.13 "USt-Voranmeldung (Nachweishilfe)") is **READ-ONLY here**, same
+ * treatment as [dunningEnabled] -- absent from [OrganizationSettingsInput], settable ONLY via
+ * [network.lapis.cloud.shared.rpc.IVatService.enableVat] (disclaimer-acknowledgment)/`disableVat`.
+ *
+ * [isKleinunternehmer] (Welle V1.4.13) is a ninth ordinary, ADMIN-writable configuration field --
+ * same treatment as [volunteerAllowanceAccountId] above, part of [OrganizationSettingsInput]. Only
+ * has an observable effect while [vatEnabled] is `true` -- see
+ * [network.lapis.cloud.shared.rpc.IAccountingService.getVatReturnPreview] KDoc. There is
+ * deliberately NO automatic 25.000 €/100.000 € Kleinunternehmer-Schwellenwertueberwachung anywhere
+ * in this codebase -- this field records a fact the organization/its Steuerberater has already
+ * determined, it does not derive one.
+ *
  * `travelMileageRatePerKm`/`travelPerDiemRate` (Welle V1.4.11) are DELIBERATELY ABSENT from both
  * this DTO and [OrganizationSettingsInput] -- unlike every field above, their read path is
  * [network.lapis.cloud.shared.rpc.ITravelExpenseService.getTravelExpenseRates] (every
@@ -164,6 +176,8 @@ data class OrganizationSettingsDto(
     val datevMandantNummer: Int? = null,
     val travelExpenseAccountId: String? = null,
     val volunteerAllowanceAccountId: String? = null,
+    val vatEnabled: Boolean = false,
+    val isKleinunternehmer: Boolean = false,
 )
 
 /** Replaces every field of the single [OrganizationSettingsDto] row wholesale (no partial update). */
@@ -203,4 +217,7 @@ data class OrganizationSettingsInput(
     val travelExpenseAccountId: String? = null,
     /** V1.4.12. See [OrganizationSettingsDto.volunteerAllowanceAccountId] KDoc. */
     val volunteerAllowanceAccountId: String? = null,
+    /** V1.4.13. See [OrganizationSettingsDto.isKleinunternehmer] KDoc. `vatEnabled` is deliberately
+     *  NOT a field here -- see that field's own KDoc, settable only via `IVatService`. */
+    val isKleinunternehmer: Boolean = false,
 )

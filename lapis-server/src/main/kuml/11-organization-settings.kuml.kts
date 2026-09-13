@@ -99,6 +99,18 @@
 //    would ever remember to update -- `NULL` means "not configured", and
 //    `TravelExpenseService.addLine` refuses a line of the corresponding kind while its rate is
 //    unset rather than silently booking a wrong amount.
+//
+// **Welle V1.4.13 "USt-Voranmeldung (Nachweishilfe)"** adds two fields:
+//  - `vatEnabled` -- opt-in gate, NOT NULL, defaults to FALSE. Same READ-ONLY-here treatment as
+//    `dunningEnabled` above -- absent from `OrganizationSettingsInput`, settable ONLY via
+//    `IVatService.enableVat` (disclaimer-acknowledgment)/`disableVat`. See 10-accounting.kuml.kts
+//    file header addendum and `network.lapis.cloud.server.rpc.VatService` KDoc.
+//  - `isKleinunternehmer` -- an ORDINARY ADMIN-writable field (part of the generic
+//    `updateOrganizationSettings` write-set, same tier as `isPoliticalParty`), NOT NULL, defaults
+//    to FALSE. Only has an observable effect while `vatEnabled == true` -- see
+//    `IAccountingService.getVatReturnPreview` KDoc. Deliberately NOT gated by a disclaimer of its
+//    own: it is a factual §19 UStG status the organization already holds or does not, not a new
+//    liability this platform introduces -- the risk-relevant act is `enableVat` itself.
 import dev.kuml.profile.erm.ermMappingProfile
 import dev.kuml.uml.Multiplicity
 import dev.kuml.uml.dsl.applyProfile
@@ -358,6 +370,20 @@ classDiagram(name = "OrganizationSettings") {
         attribute(name = "volunteerAllowanceAccountId", type = "UUID") {
             multiplicity = Multiplicity(0, 1)
             stereotype("Column") { "columnName" to "volunteer_allowance_account_id"; "fkEntity" to "LedgerAccount" }
+        }
+        // Welle V1.4.13 "USt-Voranmeldung (Nachweishilfe)". Opt-in gate, NOT NULL, defaults to
+        // FALSE. READ-ONLY-here treatment, same tier as dunningEnabled above -- see file header
+        // addendum. Settable ONLY via IVatService.enableVat (disclaimer-acknowledgment)/disableVat.
+        attribute(name = "vatEnabled", type = "Boolean") {
+            defaultValue = "FALSE"
+            stereotype("Column") { "columnName" to "vat_enabled" }
+        }
+        // Welle V1.4.13. Ordinary ADMIN-writable field, NOT NULL, defaults to FALSE -- part of the
+        // GENERIC updateOrganizationSettings write-set, same tier as isPoliticalParty. See file
+        // header addendum.
+        attribute(name = "isKleinunternehmer", type = "Boolean") {
+            defaultValue = "FALSE"
+            stereotype("Column") { "columnName" to "is_kleinunternehmer" }
         }
     }
 }

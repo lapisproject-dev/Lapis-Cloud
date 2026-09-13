@@ -115,6 +115,8 @@ object EventFeePostingBridge {
 
         val netAmount = if (providerFee != null) paidAmount - providerFee else paidAmount
 
+        // V1.4.13: no `vatRate` set below on purpose -- this automated bridge makes no tax
+        // classification, so postings stay VatRate.UNCLASSIFIED (the PostingInput default).
         val postingInputs =
             listOfNotNull(
                 PostingInput(ledgerAccountId = bankAccountId.toString(), side = PostingSide.DEBIT, amount = netAmount, sphere = sphere),

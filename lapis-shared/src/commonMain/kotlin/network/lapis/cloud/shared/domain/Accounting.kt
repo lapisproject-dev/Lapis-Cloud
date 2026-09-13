@@ -179,6 +179,11 @@ data class PostingDto(
     val costCenterId: String? = null,
     val costCenterCode: String? = null,
     val costCenterName: String? = null,
+    /** V1.4.13. Nie `null` -- "keine USt-Einordnung" ist [VatRate.UNCLASSIFIED], nicht `null`. */
+    val vatRate: VatRate = VatRate.UNCLASSIFIED,
+    /** V1.4.13. SNAPSHOT (beim Posten eingefroren, siehe `network.lapis.cloud.server.rpc
+     *  .AccountingService`), immer `0.00` wenn `!vatRate.bearsVat`. */
+    val vatAmount: Decimal,
 )
 
 /**
@@ -187,6 +192,12 @@ data class PostingDto(
  * defaults to `null` -- deliberately the OPPOSITE default-value policy from [sphere]: most postings
  * have no project/campaign association, so requiring every call site to pass one would misrepresent
  * how rarely a cost center actually applies -- see [CostCenterDto] KDoc.
+ *
+ * [vatRate] (V1.4.13) **has -- anders als [sphere] -- einen Default**, und das ist beabsichtigt: die
+ * fuenf automatisierten Buchungs-Bridges (Contribution/Donation/EventFee/TravelExpense/
+ * VolunteerAllowance) treffen keine steuerliche Einordnung und sollen auch keine vortaeuschen --
+ * [VatRate.UNCLASSIFIED] ist die wahrheitsgemaesse Aussage "nicht gefragt". [sphere]s
+ * "kein Default"-Politik bleibt unberuehrt.
  */
 @Serializable
 data class PostingInput(
@@ -195,6 +206,7 @@ data class PostingInput(
     val amount: Decimal,
     val sphere: GemeinnuetzigkeitSphere,
     val costCenterId: String? = null,
+    val vatRate: VatRate = VatRate.UNCLASSIFIED,
 )
 
 /**

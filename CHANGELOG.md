@@ -178,6 +178,58 @@ All notable changes to this project are documented here. Format follows
   `flyway repair` → Deploy → `flyway migrate`.** Gleiches Muster wie bei jeder vorherigen
   `AuditEntityType`-Welle.
 
+**USt-Voranmeldung (Nachweishilfe) (V1.4.13)**
+
+- **Hinzugefügt**: Buchungszeilen (`posting`) können jetzt einen Umsatzsteuersatz tragen
+  (`vat_rate`: `UNCLASSIFIED`/`NOT_SUBJECT`/`ZERO`/`REDUCED`/`STANDARD`) plus den daraus berechneten
+  `vat_amount`-Betrag. Ein neuer, rein lesender Bericht `getVatReturnPreview` (TREASURER/BOARD/ADMIN)
+  aggregiert POSTED-Buchungen eines Zeitraums zu einer **Vorschau/Nachweishilfe** im Aufbau einer
+  USt-Voranmeldung (Umsatzsteuer-/Vorsteuer-Zeilen je Satz, Zahllast/Erstattung, §18-Abs.2-Einstufung
+  MONTHLY/QUARTERLY informativ) -- **keine** ELSTER-/ERiC-Übermittlung, kein Scheduler, keine
+  automatisierte USt-Splitbuchung. Neue Bedienoberfläche „USt-Voranmeldung — Vorschau" in
+  `NonprofitComplianceReportsScreen`.
+- **Hinzugefügt**: Opt-in-Gate `organization_settings.vat_enabled` (READ-ONLY-Tier, settable
+  ausschließlich über neuen `IVatService.enableVat`/`disableVat` mit
+  `VatComplianceDisclaimer`-Quittungspflicht -- exakt das `dunning_enabled`-Muster) sowie das
+  gewöhnliche ADMIN-Feld `is_kleinunternehmer` (§ 19 UStG, keine automatisierte
+  25.000-€/100.000-€-Schwellenwertüberwachung). Ist die Organisation Kleinunternehmer oder das
+  Modul deaktiviert, liefert die Vorschau `applicable = false` mit leeren Listen -- unabhängig
+  davon, ob USt-tragende Buchungen existieren.
+- **Rechenregel**: `VatCalculator` ist die einzige Stelle, an der aus einem Bruttobetrag ein
+  USt-Betrag wird -- `net = ROUND_HALF_UP(gross / (1 + Satz/100), 2)`, `vat = gross - net`, sodass
+  `net + vat == gross` für jeden Betrag garantiert gilt. `posting.amount` bleibt unverändert brutto
+  (inkl. USt) -- diese Welle ändert diese Semantik NICHT.
+- **Snapshot-Prinzip**: `vat_amount` wird beim Anlegen berechnet und beim DRAFT→POSTED-Übergang
+  erneut eingefroren (`postDraftEntry` schreibt Postings nicht neu, ohne diesen expliziten
+  Re-Freeze bliebe der Betrag für immer auf dem Draft-Wert stehen). Berichte lesen ausschließlich
+  den gespeicherten Snapshot, nie eine Neuberechnung -- dieselbe Doktrin wie
+  `journal_entry.donor_category`.
+- **Keine (Sphäre × USt-Satz)-Plausibilisierung**: alle 20 Kombinationen sind serverseitig
+  zulässig (`VatRateSphereIndependenceTest`) -- die 7-%-Zweckbetrieb-Berechtigung hängt am
+  Wettbewerbsvorbehalt (§ 12 Abs. 2 Nr. 8a UStG), einer Ermessensfrage, die diese Plattform nicht
+  entscheiden kann.
+- **Export-Bridges**: lexoffice-/sevDesk-Live-Export blockieren jetzt (`AccountingExportBlockerKind
+  .VAT_BEARING_ENTRY`), sobald der Zeitraum eine POSTED-Buchung mit `REDUCED`/`STANDARD` enthält --
+  kein Byte der ausgehenden 0-%-Belege ändert sich, aber eine USt-tragende Buchung wird nicht mehr
+  unbesehen als „0 % USt" an eine externe Buchhaltungs-API übertragen. Der DATEV-Export blockiert
+  **nicht** (Feld 9/BU-Schlüssel bleibt wie seit V1.4.5.2 leer, gelebte Steuerberater-Praxis) und
+  weist stattdessen `vatBearingEntryCount`/`vatBearingGrossTotal` in der Vorschau aus.
+- **Migration**: `V31__vat.sql` (zwei neue `posting`-Spalten + drei CHECK-Constraints, zwei neue
+  `organization_settings`-Spalten, neue Tabelle `vat_compliance_acknowledgment`). Bestandsbuchungen
+  migrieren auf `UNCLASSIFIED`/`0,00` (ausdrücklich nicht auf `NOT_SUBJECT` -- das wäre eine
+  steuerliche Behauptung über nie beurteilte Altdaten), `vat_enabled`/`is_kleinunternehmer` beide
+  `FALSE` -- der Zustand nach dieser Migration ist für jeden Bestandsnutzer nicht von V1.4.12 zu
+  unterscheiden.
+- **Bewusste Grenzen**: keine ELSTER-/ERiC-Übermittlung, keine automatisierte USt-Splitbuchung
+  (Erlöse netto/USt-Verbindlichkeit/Vorsteuer-Konto -- deshalb bleibt die Vier-Sphären-
+  Ergebnisrechnung brutto inkl. USt und widerspricht der USt-Vorschau bewusst, siehe
+  `docs/architecture/vat-return.adoc`), keine Fristen-Erinnerung, keine
+  Kleinunternehmer-Schwellenwertüberwachung. Der Befreiungsschwellenwert nach § 18 Abs. 2 S. 3 UStG
+  (`VatReturnCalculator.EXEMPTION_THRESHOLD_EUR`, 2.000 €) gilt für Voranmeldungszeiträume ab 2025 --
+  dieselbe JStG-2024-Reform, die auch `MONTHLY_THRESHOLD_EUR` von 7.500 € auf 9.000 € angehoben hat,
+  hat diesen Wert zeitgleich von vormals 1.000 € auf 2.000 € angehoben. Beide Konstanten sind damit
+  konsistent auf demselben Reformstand; der vorherige `TODO(F1)`-Vorbehalt ist geklärt.
+
 **Videokonferenz-Zuverlässigkeit: TURN-Relay-Fallback + TURNS-Vorbereitung**
 
 - **Behoben**: Audio/Video startet in manchen Browsern gar nicht (Report ELB-Vorstand,
@@ -211,6 +263,14 @@ All notable changes to this project are documented here. Format follows
   -- vorbereitet und dokumentiert, aber standardmäßig inaktiv, siehe
   `deploy/production/README.adoc`, „TURNS over TLS (port 443)".
 
+### Changed
+
+- **`ZeroVatExportDisclaimer.VERSION` → `"2026-09-13.v3"` (V1.4.13)**: der Hinweistext wurde um
+  einen Absatz zum neuen `VAT_BEARING_ENTRY`-Exportblocker ergänzt (eine materielle
+  Verhaltensänderung, nicht nur Kosmetik). **Jede bestehende lexoffice-/sevDesk-Verbindung muss den
+  Hinweis einmalig erneut quittieren**, bevor der nächste `previewExport`/`startExport`-Aufruf
+  durchläuft -- das ist eine beabsichtigte Folge des Version-Bumps, keine Regression.
+
 ### Fixed
 
 **Dunning-Warnband-Rollen + addCssClass-Sweep**
@@ -234,6 +294,32 @@ All notable changes to this project are documented here. Format follows
   und getestet.
 - **Behoben**: „Weitere laden" → „Mehr laden" auf der Mahnvorgänge-Liste (in allen acht Katalogen
   übersetzt vorhanden, das alte Label in keinem).
+
+**`is_kleinunternehmer` (V1.4.13 Review-Nachbesserung)**
+
+- **Behoben (MAJOR)**: die beiden bestehenden Wholesale-Replace-Hilfsfunktionen
+  `LedgerScreen.toInputWithPaymentAccountMapping` (Kontenzuordnung Zahlungsverkehr) und
+  `PoliticianScreen.toInputWithPoliticianRankingEnabled` (Politiker-Ranking-Umschalter) listeten
+  das neue Feld `isKleinunternehmer` nicht auf und setzten es dadurch beim nächsten Speichern über
+  einen dieser beiden Screens unbemerkt auf den Kotlin-Default `false` zurück -- unabhängig davon,
+  was tatsächlich geändert werden sollte. Bei `vat_enabled = true` kippte
+  `AccountingService.vatActive()` dadurch von inaktiv auf aktiv: neue Buchungen wurden nicht mehr
+  auf `UNCLASSIFIED`/`0,00` normalisiert, `getVatReturnPreview` zeigte eine echte Zahllast statt
+  `KLEINUNTERNEHMER`, die USt-Satz-Auswahl erschien im Buchungsformular, und lexoffice-/
+  sevDesk-Exporte wurden blockiert -- für einen Verein, der nach § 19 UStG gar keine Umsatzsteuer
+  schuldet. Beide Helfer listen `isKleinunternehmer` jetzt explizit auf; je ein feldweiser
+  Regressionstest (`LedgerScreenTest`/`PoliticianScreenTest`) pinnt das nach demselben Muster, das
+  `travelExpenseAccountId` (V1.4.11) und `volunteerAllowanceAccountId` (V1.4.12) bereits etabliert
+  haben.
+- **Behoben (MINOR)**: `isKleinunternehmer` war serverseitig ADMIN-schreibbar
+  (`OrganizationSettingsService.updateOrganizationSettings`), aber im Client gab es keinen
+  Bedienpfad dafür -- der Status war nur per direktem DB-/RPC-Zugriff erreichbar. Neue Checkbox
+  „Kleinunternehmer nach § 19 UStG" direkt in der USt-Gate-Zusammenfassung
+  (`NonprofitComplianceReportsScreen.renderVatGateSummary`, dort, wo der zugehörige Hinweistext
+  schon stand), gespeist über einen dritten Wholesale-Replace-Helfer
+  (`toInputWithKleinunternehmerFlag`) nach demselben Muster wie die beiden oben -- kein
+  Disclaimer nötig, da dies eine Tatsachenangabe über die Organisation ist, kein risikobehafteter
+  Feature-Schalter wie `vatEnabled`.
 
 ## [0.20.0] — 2026-09-10
 

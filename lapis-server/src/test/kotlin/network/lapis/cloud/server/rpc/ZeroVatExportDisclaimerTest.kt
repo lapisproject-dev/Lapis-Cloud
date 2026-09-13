@@ -1,6 +1,7 @@
 package network.lapis.cloud.server.rpc
 
 import io.kotest.core.spec.style.FunSpec
+import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldContain
 import io.kotest.matchers.string.shouldNotContain
 import network.lapis.cloud.shared.domain.AccountingExportProvider
@@ -34,6 +35,29 @@ class ZeroVatExportDisclaimerTest :
         test("neither rendered text leaves the format placeholder unsubstituted") {
             AccountingExportProvider.entries.forEach { provider ->
                 ZeroVatExportDisclaimer.textFor(provider) shouldNotContain "%s"
+            }
+        }
+
+        // Welle V1.4.13 "USt-Voranmeldung" -- VERSION bump + new exclusion paragraph.
+        test("VERSION was bumped to 2026-09-13.v3 (V1.4.13)") {
+            ZeroVatExportDisclaimer.VERSION shouldBe "2026-09-13.v3"
+        }
+
+        test("every provider's text names the new V1.4.13 VAT-bearing exclusion") {
+            AccountingExportProvider.entries.forEach { provider ->
+                ZeroVatExportDisclaimer.textFor(provider) shouldContain "V1.4.13"
+                ZeroVatExportDisclaimer.textFor(provider) shouldContain "werden von diesem Export NICHT"
+            }
+        }
+
+        test("an acknowledgment made against the PRIOR version (2026-09-08.v2) no longer matches -- documents the required re-quittance") {
+            val staleHash = "0".repeat(64)
+            AccountingExportProvider.entries.forEach { provider ->
+                ZeroVatExportDisclaimer.matches(
+                    provider = provider,
+                    version = "2026-09-08.v2",
+                    sha256 = staleHash,
+                ) shouldBe false
             }
         }
     })

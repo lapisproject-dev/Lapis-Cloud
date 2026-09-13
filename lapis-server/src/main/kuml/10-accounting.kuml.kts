@@ -182,6 +182,38 @@
 // Seit Welle V1.4.2 ("Interessenten-/Sympathisanten-CRM") ist diese Luecke zusaetzlich testgeprueft
 // sichtbar gemacht in `PersonalDataRegistry.knownUncoveredSubjectRoots` -- siehe
 // docs/architecture/dsgvo.adoc.
+//
+// **Welle V1.4.13 (USt-Voranmeldung, Nachweishilfe)** fuegt `posting.vat_rate`/`posting.vat_amount`
+// und die Entity `vat_compliance_acknowledgment` hinzu. Vollstaendiges fachliches Modell, siehe
+// docs/architecture/vat-return.adoc:
+// - **Brutto bleibt brutto**: `posting.amount` ist und bleibt der Rechnungsbetrag INKLUSIVE USt --
+//   diese Welle aendert diese Semantik NICHT (die Balance-Pruefung/jeder bestehende Bericht rechnet
+//   weiterhin mit Bruttobetraegen). `vat_amount` ist ein zusaetzlich abgespaltener USt-ANTEIL des
+//   ohnehin schon gebuchten Bruttobetrags, keine zweite, separate Buchung.
+// - **Rundung, EINE Richtung**: `net = ROUND_HALF_UP(gross / (1 + p/100), 2)`, `vat = gross - net`
+//   -- siehe `network.lapis.cloud.server.rpc.VatCalculator` KDoc. So gilt `net + vat == gross`
+//   IMMER, per Konstruktion.
+// - **Fuenf VatRate-Literale**: UNCLASSIFIED (nie klassifiziert -- NICHT "0 %"), NOT_SUBJECT (nicht
+//   steuerbar, z. B. ideeller Bereich/Vermoegensverwaltung), ZERO (steuerbar, 0 %), REDUCED (7 %),
+//   STANDARD (19 %). UNCLASSIFIED vs. NOT_SUBJECT ist bewusst zweigeteilt: eine echte UStVA fuehrt
+//   "nicht klassifiziert" (Datenqualitaetsluecke) und "nicht steuerbar" (Rechtsaussage) in
+//   verschiedenen Zeilen.
+// - **Snapshot, nicht live abgeleitet**: `vat_amount` wird beim Posten (bzw. beim DRAFT->POSTED-
+//   Uebergang erneut) aus `amount`/`vat_rate` berechnet und dann EINGEFROREN -- ein Bericht liest
+//   immer den gespeicherten Wert, leitet ihn nie neu ab (dieselbe Doktrin wie
+//   `journal_entry.donor_category`).
+// - **Bewusst KEINE USt-Splitbuchung**: es entsteht keine automatische Netto-Erloes-/USt-
+//   Verbindlichkeits-Buchung. Die Vier-Sphaeren-Ergebnisrechnung (FourSphereIncomeStatementDto)
+//   zeigt Einnahmen deshalb weiterhin BRUTTO inklusive USt und widerspricht der USt-Vorschau
+//   zwangslaeufig in der Zahlenhoehe -- beide Berichte sind fuer sich richtig, sie beantworten
+//   verschiedene Fragen. Siehe docs/architecture/vat-return.adoc "Known contradiction".
+// - **Keine (Sphaere x VatRate)-Plausibilisierung**: jede der 20 Kombinationen ist serverseitig
+//   zulaessig (`VatRateSphereIndependenceTest`) -- die 7-%-Zweckbetrieb-Berechtigung haengt am
+//   Wettbewerbsvorbehalt (§12 Abs.2 Nr.8a UStG), einer Ermessensfrage, die diese Software nicht
+//   entscheidet.
+// - `vat_compliance_acknowledgment` ist der exakte strukturelle Spiegel von
+//   `dunning_compliance_acknowledgment` (34-dunning.kuml.kts) -- siehe der Entity-Kommentar dort
+//   fuer die volle append-only-Begruendung.
 import dev.kuml.profile.erm.ermMappingProfile
 import dev.kuml.uml.Multiplicity
 import dev.kuml.uml.dsl.applyProfile
@@ -281,6 +313,23 @@ classDiagram(name = "Accounting") {
         literal(name = "OTHER_PARTY_OR_PARLIAMENTARY_GROUP_ENTITY")
         literal(name = "PROFESSIONAL_OR_TRADE_ASSOCIATION")
         literal(name = "ANONYMOUS")
+    }
+
+    // Welle V1.4.13 "USt-Voranmeldung (Nachweishilfe)". Fuenf Literale, NOT NULL, kein Default-
+    // Fallback in der Domaene selbst. UNCLASSIFIED ist NICHT "0 %", sondern "nie gefragt" -- jede
+    // Bestandsbuchung tragt dieses Literal (V31__vat.sql DEFAULT) und wird im UStVA-Bericht separat
+    // GEZAEHLT statt stillschweigend als nicht steuerbar mitsummiert. NOT_SUBJECT (nicht steuerbar,
+    // ausserhalb der Umsatzsteuer: ideeller Bereich/Vermoegensverwaltung) und ZERO (steuerbar, 0 %)
+    // sind bewusst zwei Literale: sie landen in einer echten UStVA in verschiedenen Zeilen.
+    // Literalreihenfolge load-bearing (Schema-Drift-Test). Kein sqlType-Override -- der Generator
+    // auto-sized VARCHAR(12) auf 'UNCLASSIFIED'; ein Override wuerde das ueberstimmen und den
+    // Enum-Fallback-Pfad fuer die CHECK-Constraint unterdruecken (siehe posting.sphere-Kommentar).
+    val vatRate = enumOf(name = "VatRate") {
+        literal(name = "UNCLASSIFIED")
+        literal(name = "NOT_SUBJECT")
+        literal(name = "ZERO")
+        literal(name = "REDUCED")
+        literal(name = "STANDARD")
     }
 
     // V0.5.1 §25 PartG donor identity for a NON-member donor -- see file header for why a free-text
@@ -527,6 +576,49 @@ classDiagram(name = "Accounting") {
         // suppress the enum-fallback path that emits the CHECK constraint.
         attribute(name = "sphere", type = gemeinnuetzigkeitSphere) {
             stereotype("Column") { "columnName" to "sphere"; "enumType" to "network.lapis.cloud.shared.domain.GemeinnuetzigkeitSphere" }
+        }
+        // Welle V1.4.13. NOT NULL, kein multiplicity(0,1) -- "keine USt-Einordnung" ist ein Literal
+        // (UNCLASSIFIED), nicht NULL: EIN Ort der Wahrheit, kein Report-/Mapper-/Testpfad muss je
+        // `null` UND ein Enum-Literal behandeln (Tesler-Entscheidung).
+        attribute(name = "vatRate", type = vatRate) {
+            stereotype("Column") { "columnName" to "vat_rate"; "enumType" to "network.lapis.cloud.shared.domain.VatRate" }
+        }
+        // Welle V1.4.13. SNAPSHOT, beim Posten eingefroren -- dieselbe Doktrin wie
+        // journal_entry.donor_category (siehe dessen Kommentar): ein POSTED-Eintrag ist unveraenderlich,
+        // also darf eine spaetere Aenderung der Rundungsregel oder eines Steuersatzes keinen bereits
+        // eingereichten Berichtszeitraum rueckwirkend umschreiben. DECIMAL(15,2) wie amount.
+        attribute(name = "vatAmount", type = "BigDecimal") {
+            stereotype("Column") { "columnName" to "vat_amount"; "sqlType" to "DECIMAL(15,2)" }
+        }
+    }
+
+    // Welle V1.4.13 "USt-Voranmeldung (Nachweishilfe)". Exakter struktureller Spiegel von
+    // dunning_compliance_acknowledgment (34-dunning.kuml.kts) / sepa_compliance_acknowledgment
+    // (33-payments.kuml.kts) -- append-only Nachweis, WER WELCHE VatComplianceDisclaimer-Version
+    // quittiert hat, niemals ein blosses Boolean-Umschalten. Platziert HIER (nicht in einer eigenen
+    // 47-vat.kuml.kts) weil dieses File den Member-Stub schon hat und AccountingSchemaDriftTest nur
+    // um eine Entity erweitert werden muss -- die zwei tragenden Spalten (vat_rate/vat_amount) liegen
+    // ohnehin auf `posting` in diesem File.
+    val vatComplianceAcknowledgment = classOf(name = "VatComplianceAcknowledgment") {
+        stereotype("Entity") {
+            "tableName" to "vat_compliance_acknowledgment"
+            "kotlinObjectName" to "VatComplianceAcknowledgmentTable"
+        }
+        attribute(name = "id", type = "UUID") {
+            stereotype("Id")
+            stereotype("Column") { "columnName" to "id" }
+        }
+        attribute(name = "acknowledgedByMemberId", type = "UUID") {
+            stereotype("Column") { "columnName" to "acknowledged_by_member_id"; "fkEntity" to "Member" }
+        }
+        attribute(name = "acknowledgedAt", type = "LocalDateTime") {
+            stereotype("Column") { "columnName" to "acknowledged_at" }
+        }
+        attribute(name = "disclaimerVersion", type = "String") {
+            stereotype("Column") { "columnName" to "disclaimer_version"; "sqlType" to "VARCHAR(20)" }
+        }
+        attribute(name = "disclaimerSha256", type = "String") {
+            stereotype("Column") { "columnName" to "disclaimer_sha256"; "sqlType" to "VARCHAR(64)" }
         }
     }
 

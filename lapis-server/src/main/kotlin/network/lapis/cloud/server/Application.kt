@@ -168,6 +168,7 @@ import network.lapis.cloud.server.rpc.SocialNetworkService
 import network.lapis.cloud.server.rpc.SystemicConsensusService
 import network.lapis.cloud.server.rpc.TravelExpenseService
 import network.lapis.cloud.server.rpc.TrustAnchorService
+import network.lapis.cloud.server.rpc.VatService
 import network.lapis.cloud.server.rpc.VolunteerAllowanceService
 import network.lapis.cloud.server.rpc.WebhookService
 import network.lapis.cloud.server.security.LoginRateLimiter
@@ -226,6 +227,7 @@ import network.lapis.cloud.shared.rpc.ISocialNetworkService
 import network.lapis.cloud.shared.rpc.ISystemicConsensusService
 import network.lapis.cloud.shared.rpc.ITravelExpenseService
 import network.lapis.cloud.shared.rpc.ITrustAnchorService
+import network.lapis.cloud.shared.rpc.IVatService
 import network.lapis.cloud.shared.rpc.IVolunteerAllowanceService
 import network.lapis.cloud.shared.rpc.IWebhookService
 import network.lapis.cloud.shared.rpc.UnauthenticatedException
@@ -1140,6 +1142,7 @@ fun Application.module() {
                 issueRateLimiter = dunningIssueRateLimiter,
             )
         }
+        registerService(IVatService::class) { call -> VatService(call) }
         registerService(
             ISocialNetworkService::class,
         ) { call ->

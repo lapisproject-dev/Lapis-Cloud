@@ -337,7 +337,13 @@ data class JournalEntrySnapshot(
     val postings: List<PostingSnapshot>,
 )
 
-/** One Soll/Haben line within a [JournalEntrySnapshot] -- mirrors [PostingDto]'s own shape, id-only. */
+/** One Soll/Haben line within a [JournalEntrySnapshot] -- mirrors [PostingDto]'s own shape, id-only.
+ *  [vatRate]/[vatAmount] (V1.4.13) carry DEFAULTS -- unlike [PostingDto], where [PostingDto
+ *  .vatAmount] has none -- so that historical audit-log JSON payloads written BEFORE this wave
+ *  (`audit_log_entry.after`) remain deserializable: [vatAmount] is nullable (a pre-V1.4.13 posting
+ *  has no meaningful "unknown VAT amount" value; `Decimal` has no sentinel for that), [vatRate]
+ *  defaults to [VatRate.UNCLASSIFIED] (the truthful "not asked" reading for any snapshot written
+ *  before this field existed). */
 @Serializable
 data class PostingSnapshot(
     val ledgerAccountId: String,
@@ -345,6 +351,8 @@ data class PostingSnapshot(
     val amount: Decimal,
     val sphere: GemeinnuetzigkeitSphere,
     val costCenterId: String?,
+    val vatRate: VatRate = VatRate.UNCLASSIFIED,
+    val vatAmount: Decimal? = null,
 )
 
 /** Structured payload for an [AuditEntityType.RESOLUTION] audit entry -- CREATE only, see file header. */

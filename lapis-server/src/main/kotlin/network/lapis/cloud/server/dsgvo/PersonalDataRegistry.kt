@@ -56,6 +56,7 @@ object PersonalDataRegistry {
             ContributionReliefPersonalData,
             TravelExpensePersonalData,
             VolunteerAllowancePersonalData,
+            VatPersonalData,
         )
 
     /**

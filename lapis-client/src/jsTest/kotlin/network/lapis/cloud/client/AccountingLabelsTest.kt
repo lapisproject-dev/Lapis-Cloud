@@ -3,8 +3,10 @@ package network.lapis.cloud.client
 import network.lapis.cloud.shared.domain.DonorCategory
 import network.lapis.cloud.shared.domain.GemeinnuetzigkeitSphere
 import network.lapis.cloud.shared.domain.ReserveType
+import network.lapis.cloud.shared.domain.VatRate
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
 /**
@@ -97,5 +99,34 @@ class AccountingLabelsTest {
         DonorCategory.entries.filter { it !in structurallyProhibited }.forEach { category ->
             assertTrue(donorCategoryColor(category) != "danger", "did not expect \"danger\" for $category")
         }
+    }
+
+    // Welle V1.4.13 "USt-Voranmeldung" -- vatRateLabel.
+    @Test
+    fun vatRateLabel_isNonBlankForEveryValue() {
+        VatRate.entries.forEach { rate ->
+            assertTrue(vatRateLabel(rate).isNotBlank(), "expected a non-blank label for $rate")
+        }
+    }
+
+    @Test
+    fun vatRateLabel_zeroAndNotSubjectAreDistinct() {
+        assertTrue(vatRateLabel(VatRate.ZERO) != vatRateLabel(VatRate.NOT_SUBJECT))
+    }
+
+    @Test
+    fun vatRateLabel_notSubjectContainsNoPercentSign() {
+        assertFalse(vatRateLabel(VatRate.NOT_SUBJECT).contains("%"), "NOT_SUBJECT's label must never look like a percentage")
+    }
+
+    @Test
+    fun vatRateLabel_unclassifiedContainsNoPercentSign() {
+        assertFalse(vatRateLabel(VatRate.UNCLASSIFIED).contains("%"), "UNCLASSIFIED's label must never look like a percentage")
+    }
+
+    @Test
+    fun vatRateLabel_reducedAndStandardCarryTheirOwnPercentage() {
+        assertTrue(vatRateLabel(VatRate.REDUCED).contains("7"))
+        assertTrue(vatRateLabel(VatRate.STANDARD).contains("19"))
     }
 }

@@ -2,6 +2,9 @@ package network.lapis.cloud.client
 
 import dev.kilua.rpc.types.Decimal
 import dev.kilua.rpc.types.toDouble
+import io.kvision.core.Overflow
+import io.kvision.form.check.checkBox
+import io.kvision.html.Button
 import io.kvision.html.ButtonStyle
 import io.kvision.html.button
 import io.kvision.html.div
@@ -10,6 +13,7 @@ import io.kvision.html.h2
 import io.kvision.html.p
 import io.kvision.i18n.gettext
 import io.kvision.i18n.tr
+import io.kvision.modal.Modal
 import io.kvision.panel.SimplePanel
 import io.kvision.panel.hPanel
 import io.kvision.panel.vPanel
@@ -17,14 +21,26 @@ import io.kvision.utils.px
 import kotlinx.coroutines.launch
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
+import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.FourSphereIncomeStatementDto
+import network.lapis.cloud.shared.domain.OrganizationSettingsDto
+import network.lapis.cloud.shared.domain.OrganizationSettingsInput
 import network.lapis.cloud.shared.domain.ReserveMovementDto
 import network.lapis.cloud.shared.domain.ReserveType
 import network.lapis.cloud.shared.domain.SphereAmountDto
 import network.lapis.cloud.shared.domain.SphereResultDto
 import network.lapis.cloud.shared.domain.UseOfFundsStatementDto
 import network.lapis.cloud.shared.domain.UseOfFundsYearDto
+import network.lapis.cloud.shared.domain.VatComplianceAcknowledgmentInput
+import network.lapis.cloud.shared.domain.VatComplianceDisclaimerDto
+import network.lapis.cloud.shared.domain.VatFilingPeriodicity
+import network.lapis.cloud.shared.domain.VatNotApplicableReason
+import network.lapis.cloud.shared.domain.VatRateLineDto
+import network.lapis.cloud.shared.domain.VatReturnPreviewDto
+import network.lapis.cloud.shared.domain.VatSettingsDto
 import network.lapis.cloud.shared.rpc.IAccountingService
+import network.lapis.cloud.shared.rpc.IOrganizationSettingsService
+import network.lapis.cloud.shared.rpc.IVatService
 import kotlin.time.Clock
 
 /**
@@ -71,6 +87,8 @@ fun renderNonprofitComplianceReportsScreen(container: SimplePanel) {
     val toggleRow = root.hPanel(spacing = 8)
     val fourSphereButton = toggleRow.button(tr("Vier-Sphären-Ergebnisrechnung"), style = ButtonStyle.OUTLINEPRIMARY)
     val useOfFundsButton = toggleRow.button(tr("Mittelverwendungsrechnung"), style = ButtonStyle.OUTLINEPRIMARY)
+    // Welle V1.4.13 "USt-Voranmeldung (Nachweishilfe)".
+    val vatReturnButton = toggleRow.button(tr("USt-Voranmeldung — Vorschau"), style = ButtonStyle.OUTLINEPRIMARY)
     val contentPanel = root.vPanel(spacing = 10)
 
     fourSphereButton.onClick {
@@ -80,6 +98,10 @@ fun renderNonprofitComplianceReportsScreen(container: SimplePanel) {
     useOfFundsButton.onClick {
         contentPanel.removeAll()
         renderUseOfFundsView(contentPanel)
+    }
+    vatReturnButton.onClick {
+        contentPanel.removeAll()
+        renderVatReturnPreviewView(contentPanel)
     }
 
     renderFourSphereIncomeStatementView(contentPanel)
@@ -371,6 +393,360 @@ private fun renderSphereAmountTable(
         row.moneySpan(entry.amount).width = 120.px
     }
 }
+
+// ============================================================================================
+// USt-Voranmeldung (Nachweishilfe) -- Welle V1.4.13
+// ============================================================================================
+
+private fun renderVatReturnPreviewView(panel: SimplePanel) {
+    panel.h2(tr("USt-Voranmeldung — Vorschau (Nachweishilfe)"))
+    panel.div(
+        tr(
+            "Keine Übermittlung an ELSTER. Diese Ansicht ist eine Nachweishilfe aus in Lapis Cloud " +
+                "erfassten Buchungen für Vorstand und Steuerberatung -- keine Voranmeldung im Sinne des § 18 UStG.",
+        ),
+    ) { addCssClasses("alert alert-warning") }
+
+    if (AppState.hasRole(AccountRole.ADMIN)) {
+        renderVatAdminGateSection(panel)
+    }
+
+    // Both bounds required -- see load()'s own comment. fromLabel overridden to drop the shared
+    // helper's default "(optional)" suffix, which would be misleading here.
+    val filterControls = panel.dateRangeFilter(fromLabel = tr("Von (JJJJ-MM-TT)"))
+    filterControls.fromInput.value = "${currentYear()}-01-01"
+    filterControls.toInput.value = todayIso()
+    val loadButton = panel.button(tr("Berechnen"), style = ButtonStyle.OUTLINESECONDARY)
+    val errorBox =
+        panel.div().apply {
+            addCssClass("text-danger")
+            hide()
+        }
+    val resultPanel = panel.vPanel(spacing = 8)
+
+    fun load() {
+        errorBox.hide()
+        // getVatReturnPreview requires BOTH bounds (unlike listJournal/getFourSphereIncomeStatement's
+        // optional `from` -- "seit Gründung" has no defensible meaning for a UStVA-shaped period,
+        // which is always a specific Voranmeldungszeitraum, never an open-ended one).
+        val to = filterControls.parseTo()
+        val from = filterControls.parseFrom()
+        if (to == null || from == null) {
+            errorBox.content = tr("Bitte ein gültiges \"Von\"- und \"Bis\"-Datum angeben (JJJJ-MM-TT).")
+            errorBox.show()
+            return
+        }
+        resultPanel.removeAll()
+        resultPanel.p(tr("Wird geladen …")) { addCssClasses("text-muted small") }
+        AppScope.launch {
+            val preview =
+                guarded { rpcService<IAccountingService>().getVatReturnPreview(from = from, to = to) } ?: return@launch
+            resultPanel.removeAll()
+            renderVatReturnPreviewBody(resultPanel, preview)
+        }
+    }
+    loadButton.onClick { load() }
+    load()
+}
+
+/**
+ * ADMIN-only USt-Gate (aktivieren/deaktivieren), analog zum Aufbau in `DunningSettingsScreen.kt`
+ * (Status-Zeile + Disclaimer-Modal vor `enableVat`). Bewusst DIREKT in dieser Ansicht platziert
+ * (nicht auf einem eigenen Screen), weil es hier -- und nur hier -- einen konkreten Kontext gibt,
+ * in dem die Aktivierung sofort etwas verändert.
+ */
+private fun renderVatAdminGateSection(root: SimplePanel) {
+    val gatePanel = root.vPanel(spacing = 4) { addCssClasses("border rounded p-2") }
+    gatePanel.div(tr("Wird geladen …")) { addCssClasses("text-muted small") }
+
+    fun loadSettings() {
+        gatePanel.removeAll()
+        gatePanel.div(tr("Wird geladen …")) { addCssClasses("text-muted small") }
+        AppScope.launch {
+            val settings = guarded { rpcService<IVatService>().getVatSettings() } ?: return@launch
+            gatePanel.removeAll()
+            renderVatGateSummary(gatePanel, settings, onChanged = ::loadSettings)
+        }
+    }
+    loadSettings()
+}
+
+private fun renderVatGateSummary(
+    panel: SimplePanel,
+    settings: VatSettingsDto,
+    onChanged: () -> Unit,
+) {
+    val statusRow = panel.hPanel(spacing = 8) { addCssClasses("align-items-center") }
+    statusRow.div(tr("USt-Modul:")) { addCssClasses("text-muted small") }
+    statusRow.statusBadge(
+        if (settings.vatEnabled) tr("Aktiviert") else tr("Deaktiviert"),
+        if (settings.vatEnabled) "success" else "secondary",
+    )
+    if (settings.vatEnabled && settings.isKleinunternehmer) {
+        statusRow.div(tr("(Kleinunternehmer -- Berechnung bleibt ausgesetzt)")) { addCssClasses("text-muted small") }
+    }
+
+    // Review MINOR fix (V1.4.13 follow-up): isKleinunternehmer had no client Bedienpfad at all --
+    // ADMIN-writable server-side (OrganizationSettingsService.updateOrganizationSettings treats it
+    // as an "ordinary ADMIN-writable configuration field", NOT a disclaimer-gated feature switch
+    // like vatEnabled/auctionEnabled -- see that method's own inline comment) but only reachable via
+    // direct DB/RPC access, so a Kleinunternehmer org that activated the USt-Modul via the button
+    // below had no way to record its own §19-UStG status and got a real Zahllast-Vorschau instead
+    // of the "Berechnung bleibt ausgesetzt" short-circuit. Wired here, next to the status text it
+    // already controls, via the SAME generic wholesale-replace path (IOrganizationSettingsService.
+    // updateOrganizationSettings) LedgerScreen.kt/PoliticianScreen.kt already use for their own
+    // "ordinary tier" fields -- no disclaimer needed, this is a factual statement the org makes
+    // about itself, not a risk-bearing feature gate.
+    val kleinunternehmerRow = panel.hPanel(spacing = 8) { addCssClasses("align-items-center mt-1") }
+    val kleinunternehmerToggle =
+        kleinunternehmerRow.checkBox(value = settings.isKleinunternehmer, label = tr("Kleinunternehmer nach § 19 UStG"))
+    kleinunternehmerToggle.onClick {
+        val newValue = kleinunternehmerToggle.value == true
+        kleinunternehmerToggle.disabled = true
+        AppScope.launch {
+            val result =
+                guarded {
+                    val orgSettings = rpcService<IOrganizationSettingsService>().getOrganizationSettings()
+                    rpcService<IOrganizationSettingsService>().updateOrganizationSettings(
+                        orgSettings.toInputWithKleinunternehmerFlag(newValue),
+                    )
+                }
+            kleinunternehmerToggle.disabled = false
+            if (result != null) {
+                notifySuccess(
+                    if (newValue) {
+                        tr("Kleinunternehmer-Status gesetzt.")
+                    } else {
+                        tr("Kleinunternehmer-Status entfernt.")
+                    },
+                )
+                onChanged()
+            } else {
+                kleinunternehmerToggle.value = !newValue
+            }
+        }
+    }
+
+    val actionsRow = panel.hPanel(spacing = 8) { addCssClasses("mt-1") }
+    if (settings.vatEnabled) {
+        val disableButton = actionsRow.button(tr("USt-Modul deaktivieren"), style = ButtonStyle.OUTLINEDANGER)
+        disableButton.onClick {
+            disableButton.disabled = true
+            AppScope.launch {
+                val result = guarded { rpcService<IVatService>().disableVat() }
+                disableButton.disabled = false
+                if (result != null) {
+                    notifySuccess(tr("USt-Modul deaktiviert."))
+                    onChanged()
+                }
+            }
+        }
+    } else {
+        val enableButton = actionsRow.button(tr("USt-Modul aktivieren …"), style = ButtonStyle.PRIMARY)
+        enableButton.onClick {
+            enableButton.disabled = true
+            AppScope.launch {
+                val disclaimer = guarded { rpcService<IVatService>().getVatComplianceDisclaimer() }
+                enableButton.disabled = false
+                if (disclaimer != null) {
+                    vatEnableDisclaimerModal(disclaimer) {
+                        AppScope.launch {
+                            val result =
+                                guarded {
+                                    rpcService<IVatService>().enableVat(
+                                        VatComplianceAcknowledgmentInput(
+                                            disclaimerVersion = disclaimer.version,
+                                            disclaimerSha256 = disclaimer.sha256,
+                                        ),
+                                    )
+                                }
+                            if (result != null) {
+                                notifySuccess(tr("USt-Modul aktiviert."))
+                                onChanged()
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+/**
+ * Wholesale-replace helper for the Kleinunternehmer checkbox wired in [renderVatGateSummary] above --
+ * same "never silently drop/reset a field" contract as `LedgerScreen.kt`'s
+ * `toInputWithPaymentAccountMapping` and `PoliticianScreen.kt`'s `toInputWithPoliticianRankingEnabled`
+ * (both of which had exactly this bug for `isKleinunternehmer` itself until the same review round
+ * that added this toggle -- see their own KDoc/inline comments). `internal` (not `private`) for the
+ * same testability reasoning those two give.
+ */
+internal fun OrganizationSettingsDto.toInputWithKleinunternehmerFlag(newValue: Boolean) =
+    OrganizationSettingsInput(
+        name = name,
+        street = street,
+        postalCode = postalCode,
+        city = city,
+        country = country,
+        bankIban = bankIban,
+        bankBic = bankBic,
+        taxExemptionAuthority = taxExemptionAuthority,
+        taxExemptionDate = taxExemptionDate,
+        isPoliticalParty = isPoliticalParty,
+        postalMailEnabled = postalMailEnabled,
+        politicianRankingEnabled = politicianRankingEnabled,
+        paymentBankAccountId = paymentBankAccountId,
+        paymentFeeAccountId = paymentFeeAccountId,
+        contributionIncomeAccountId = contributionIncomeAccountId,
+        donationIncomeAccountId = donationIncomeAccountId,
+        eventIncomeAccountId = eventIncomeAccountId,
+        eventIncomeSphere = eventIncomeSphere,
+        datevBeraterNummer = datevBeraterNummer,
+        datevMandantNummer = datevMandantNummer,
+        travelExpenseAccountId = travelExpenseAccountId,
+        volunteerAllowanceAccountId = volunteerAllowanceAccountId,
+        isKleinunternehmer = newValue,
+    )
+
+private fun vatEnableDisclaimerModal(
+    disclaimer: VatComplianceDisclaimerDto,
+    onConfirm: () -> Unit,
+) {
+    val modal = Modal(caption = gettext("USt-Modul aktivieren -- rechtlicher Hinweis (Version %1)", disclaimer.version))
+    modal.div(
+        tr(
+            "Bitte lesen Sie den folgenden rechtlichen Hinweistext vollständig, bevor Sie das USt-Modul " +
+                "aktivieren. Diese Plattform führt keine automatisierte Rechtsberatung durch -- die steuerliche " +
+                "Einordnung liegt bei Ihrer Organisation bzw. deren Steuerberatung.",
+        ),
+    ) { addCssClasses("text-muted small mb-2") }
+    modal.div {
+        addCssClasses("border rounded p-2 mb-2")
+        maxHeight = 300.px
+        overflow = Overflow.AUTO
+        disclaimer.text.lines().forEach { line -> p(line) { addCssClasses("small mb-1") } }
+    }
+    modal.addButton(Button(tr("Abbrechen"), style = ButtonStyle.SECONDARY).apply { onClick { modal.hide() } })
+    modal.addButton(
+        Button(tr("Gelesen -- USt-Modul aktivieren"), style = ButtonStyle.PRIMARY).apply {
+            onClick {
+                modal.hide()
+                onConfirm()
+            }
+        },
+    )
+    modal.show()
+}
+
+private fun renderVatReturnPreviewBody(
+    panel: SimplePanel,
+    preview: VatReturnPreviewDto,
+) {
+    panel.div(periodRangeCaption(preview.from, preview.to)) { addCssClasses("text-muted small") }
+
+    if (!preview.applicable) {
+        panel.div(vatNotApplicableText(preview.notApplicableReason)) { addCssClasses("alert alert-light border") }
+        return
+    }
+
+    panel.div(
+        tr("Steuerbare Umsätze aus in Lapis Cloud erfassten POSTED-Buchungen im Zeitraum. Beträge sind BRUTTO inkl. USt."),
+    ) { addCssClasses("text-muted small") }
+
+    renderVatRateLinesTable(panel, tr("Umsatzsteuer (Ausgangsseite)"), preview.outputVatLines, preview.totalOutputVat)
+    renderVatRateLinesTable(panel, tr("Vorsteuer (Eingangsseite)"), preview.inputVatLines, preview.totalInputVat)
+
+    val balanceRow = panel.hPanel(spacing = 8) { addCssClasses("fw-bold border-top pt-2 mt-1 align-items-center") }
+    balanceRow.div(vatBalanceLabel(preview.balance)) { addCssClasses("flex-grow-1") }
+    balanceRow.moneySpan(preview.balance, warnIfNegative = false)
+
+    if (preview.unclassifiedPostingCount > 0) {
+        panel.div(
+            gettext(
+                "%1 Buchungen ohne USt-Einordnung (Σ brutto %2).",
+                preview.unclassifiedPostingCount,
+                formatMoney(preview.unclassifiedGrossTotal),
+            ),
+        ) { addCssClasses("alert alert-light border mt-1") }
+    }
+
+    panel.div(vatFilingPeriodicityText(preview.filingPeriodicity)) { addCssClasses("text-muted small mt-1") }
+    if (preview.exemptionOnRequestPossible) {
+        panel.div(
+            tr("Eine Befreiung von der Voranmeldungspflicht ist nur auf Antrag und im Ermessen des Finanzamts möglich."),
+        ) { addCssClasses("text-muted small") }
+    }
+}
+
+private fun renderVatRateLinesTable(
+    panel: SimplePanel,
+    title: String,
+    lines: List<VatRateLineDto>,
+    total: Decimal,
+) {
+    panel.p(title) { addCssClasses("fw-bold small mt-2") }
+    if (lines.isEmpty()) {
+        panel.p(tr("Keine Buchungen in dieser Kategorie.")) { addCssClasses("text-muted small") }
+        return
+    }
+    val headerRow = panel.hPanel(spacing = 8) { addCssClasses("fw-bold border-bottom pb-1 small") }
+    headerRow.div(tr("Satz")) { width = 100.px }
+    headerRow.div(tr("Brutto")) { width = 120.px }
+    headerRow.div(tr("Netto")) { width = 120.px }
+    headerRow.div(tr("USt")) { width = 120.px }
+    headerRow.div(tr("Anzahl")) { width = 80.px }
+    headerRow.div("") { addCssClasses("flex-grow-1") }
+
+    lines.forEach { line ->
+        val row = panel.hPanel(spacing = 8) { addCssClasses("border-bottom py-1 align-items-center small") }
+        row.div(vatRateLabel(line.rate)) { width = 100.px }
+        row.moneySpan(line.grossTotal).width = 120.px
+        row.moneySpan(line.netTotal).width = 120.px
+        row.moneySpan(line.vatTotal).width = 120.px
+        row.div(line.postingCount.toString()) { width = 80.px }
+        row.div("") { addCssClasses("flex-grow-1") }
+    }
+    val totalRow = panel.hPanel(spacing = 8) { addCssClasses("fw-bold border-top pt-1 small") }
+    totalRow.div(tr("Gesamt")) { width = 100.px }
+    totalRow.div("") { width = 120.px }
+    totalRow.div("") { width = 120.px }
+    totalRow.moneySpan(total).width = 120.px
+    totalRow.div("") { width = 80.px }
+    totalRow.div("") { addCssClasses("flex-grow-1") }
+}
+
+// Not `private` -- covered by NonprofitComplianceReportsScreenTest.kt, same posture as
+// mittelverwendungsBannerText/useOfFundsPeriodCaption/hasOverdueAmount below (top-level `private`
+// in Kotlin is file-scoped, not module-scoped, so a test in a different file could not otherwise
+// reach these).
+fun vatNotApplicableText(reason: VatNotApplicableReason?): String =
+    when (reason) {
+        VatNotApplicableReason.VAT_DISABLED ->
+            tr(
+                "Das Umsatzsteuer-Modul ist für diese Organisation nicht aktiviert. Es wird keine Umsatzsteuer " +
+                    "berechnet oder ausgewiesen.",
+            )
+        VatNotApplicableReason.KLEINUNTERNEHMER ->
+            tr(
+                "Diese Organisation ist als Kleinunternehmer nach § 19 UStG eingetragen. Es wird keine " +
+                    "Umsatzsteuer berechnet oder ausgewiesen -- auch nicht für Buchungen, die einen Steuersatz tragen.",
+            )
+        null -> tr("Für diesen Zeitraum wird keine Umsatzsteuer berechnet oder ausgewiesen.")
+    }
+
+fun vatBalanceLabel(balance: Decimal): String =
+    when {
+        balance.toDouble() > 0.0 -> tr("Zahllast")
+        balance.toDouble() < 0.0 -> tr("Erstattungsanspruch")
+        else -> tr("Keine Zahllast")
+    }
+
+fun vatFilingPeriodicityText(periodicity: VatFilingPeriodicity): String =
+    when (periodicity) {
+        VatFilingPeriodicity.MONTHLY -> tr("Voranmeldungszeitraum (informativ): monatlich (Vorjahres-Zahllast über 9.000 €).")
+        VatFilingPeriodicity.QUARTERLY -> tr("Voranmeldungszeitraum (informativ): vierteljährlich.")
+        VatFilingPeriodicity.UNKNOWN ->
+            tr("Lapis Cloud deckt das Vorjahr nicht vollständig ab -- Voranmeldungszeitraum nicht ableitbar.")
+    }
 
 // ============================================================================================
 // Pure helpers -- covered by NonprofitComplianceReportsScreenTest.kt

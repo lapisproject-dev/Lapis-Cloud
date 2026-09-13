@@ -152,6 +152,36 @@ class LedgerScreenTest {
         assertEquals("bank-1", input.paymentBankAccountId)
     }
 
+    // Review MAJOR fix (V1.4.13 "USt-Voranmeldung"): isKleinunternehmer is read from `this` --
+    // unlike the DATEV/account-mapping fields above it has no dedicated form field on this screen
+    // -- and was forgotten at this call site, silently resetting a Kleinunternehmer org's §19-UStG
+    // status to `false` on the NEXT unrelated save (e.g. just changing the DATEV Beraternummer).
+    // With `vatEnabled = true` that flips `AccountingService.vatActive()` from inactive to active,
+    // with immediate effects on journal-entry VAT normalization, the VAT return preview, and export
+    // blocking. `fullSettings` defaults `isKleinunternehmer` to `false`, so this test uses an
+    // explicit `true` copy -- otherwise the assertion would pass even with the bug present.
+    @Test
+    fun toInputWithPaymentAccountMapping_passesIsKleinunternehmerThroughAndLeavesOtherFieldsUntouched() {
+        val kleinunternehmerSettings = fullSettings.copy(isKleinunternehmer = true)
+        val input =
+            kleinunternehmerSettings.toInputWithPaymentAccountMapping(
+                paymentBankAccountId = "bank-1",
+                paymentFeeAccountId = "fee-1",
+                contributionIncomeAccountId = "income-1",
+                donationIncomeAccountId = "donation-1",
+                eventIncomeAccountId = "event-1",
+                eventIncomeSphere = GemeinnuetzigkeitSphere.ZWECKBETRIEB,
+                datevBeraterNummer = 2002,
+                datevMandantNummer = 7,
+                travelExpenseAccountId = "travel-1",
+                volunteerAllowanceAccountId = "volunteer-1",
+            )
+        assertEquals(true, input.isKleinunternehmer)
+        assertEquals("volunteer-1", input.volunteerAllowanceAccountId)
+        assertEquals("travel-1", input.travelExpenseAccountId)
+        assertEquals("bank-1", input.paymentBankAccountId)
+    }
+
     // Review-Fund (2026-09, MINOR): `.toIntOrNull()` alone collapsed "left empty" and "typo'd
     // garbage" into the same `null`, silently resetting an already-configured Beraternummer/
     // Mandantennummer on save with no error shown. These tests pin [parseDatevNumberInput]'s three-

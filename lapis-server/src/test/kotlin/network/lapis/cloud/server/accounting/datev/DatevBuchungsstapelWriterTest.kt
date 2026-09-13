@@ -9,6 +9,7 @@ import kotlinx.datetime.LocalDateTime
 import network.lapis.cloud.shared.domain.DatevExportBlockerKind
 import network.lapis.cloud.shared.domain.LedgerAccountType
 import network.lapis.cloud.shared.domain.PostingSide
+import network.lapis.cloud.shared.domain.VatRate
 import java.math.BigDecimal
 import kotlin.uuid.Uuid
 
@@ -41,14 +42,16 @@ class DatevBuchungsstapelWriterTest :
             side: PostingSide,
             amount: String,
             account: String,
+            vatRate: VatRate = VatRate.UNCLASSIFIED,
         ) = DatevSourcePosting(
             side = side,
             amount = BigDecimal(amount),
             accountNumber = account,
             // Welle V1.4.5.3 additions -- irrelevant to DatevBuchungsstapelWriter itself (it never
-            // reads either field), a fixed placeholder is fine here.
+            // reads either field for its OWN rows/blockers), a fixed placeholder is fine here.
             ledgerAccountId = Uuid.random(),
             accountType = LedgerAccountType.ASSET,
+            vatRate = vatRate,
         )
 
         fun entry(
@@ -509,6 +512,47 @@ class DatevBuchungsstapelWriterTest :
                 threw = true
             }
             threw shouldBe true
+        }
+
+        // ── Welle V1.4.13 "USt-Voranmeldung" -- vatBearingEntryCount/vatBearingGrossTotal ────
+
+        test("a REDUCED-taxed posting is exportable=true (NO blocker), but counted in vatBearingEntryCount/vatBearingGrossTotal") {
+            val e =
+                entry(
+                    postings =
+                        listOf(
+                            posting(PostingSide.DEBIT, "119.00", "1200"),
+                            posting(PostingSide.CREDIT, "119.00", "4000", vatRate = VatRate.REDUCED),
+                        ),
+                )
+            val plan = DatevBuchungsstapelWriter.plan(request(entries = listOf(e)))
+            plan.exportable shouldBe true
+            plan.blockers shouldBe emptyList()
+            plan.vatBearingEntryCount shouldBe 1
+            plan.vatBearingGrossTotal shouldBe BigDecimal("119.00")
+        }
+
+        test("field 9 (BU-Schluessel) stays empty even for a VAT-bearing entry") {
+            val e =
+                entry(
+                    postings =
+                        listOf(
+                            posting(PostingSide.DEBIT, "119.00", "1200"),
+                            posting(PostingSide.CREDIT, "119.00", "4000", vatRate = VatRate.STANDARD),
+                        ),
+                )
+            val req = request(entries = listOf(e))
+            val plan = DatevBuchungsstapelWriter.plan(req)
+            val bytes = DatevBuchungsstapelWriter.render(request = req, plan = plan)
+            val lines = String(bytes, DatevCharacterSet.CP1252).split("\r\n").filter { it.isNotEmpty() }
+            lines[2].split(";")[8] shouldBe ""
+        }
+
+        test("no VAT-bearing postings in the period -> vatBearingEntryCount is 0, vatBearingGrossTotal is 0.00") {
+            val e = entry(postings = listOf(posting(PostingSide.DEBIT, "50.00", "1200"), posting(PostingSide.CREDIT, "50.00", "4940")))
+            val plan = DatevBuchungsstapelWriter.plan(request(entries = listOf(e)))
+            plan.vatBearingEntryCount shouldBe 0
+            plan.vatBearingGrossTotal shouldBe BigDecimal("0.00")
         }
     })
 

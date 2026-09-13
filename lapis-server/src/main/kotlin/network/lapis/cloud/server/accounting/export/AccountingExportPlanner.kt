@@ -242,6 +242,36 @@ internal object AccountingExportPlanner {
                 )
         }
 
+        // Welle V1.4.13: at least one entry in the period carries a REDUCED/STANDARD-taxed posting
+        // -- every voucher this planner ever sends travels with a hard-coded 0 % USt line
+        // (LexofficeVoucherMapper.TAX_TYPE/ZERO_TAX_RATE_PERCENT, SevDeskVoucherMapper.ZERO_TAX_RATE).
+        // Blocks BOTH providers via this one shared `plan`, no provider branch needed.
+        //
+        // Security Round 2 (MINOR): restricted to INCOME/EXPENSE postings -- same subset
+        // AccountingService.loadVatPostingLines already restricts the USt-Vorschau to (ASSET/
+        // LIABILITY/EQUITY never carry USt; a bank/asset leg is never a taxable supply). Without
+        // this restriction, a STANDARD/REDUCED rate accidentally set on e.g. the ASSET/bank leg of
+        // a two-line posting would never surface in ANY VAT-return line (the preview filters it
+        // out), yet would still trip this blocker on every export of that period forever --
+        // because POSTED entries are immutable, not even a storno un-trips it, with no view
+        // anywhere showing why. Matching the same INCOME/EXPENSE subset keeps the blocker and the
+        // preview it accompanies consistent with each other.
+        val vatBearingEntries =
+            request.entries.filter { entry ->
+                entry.postings.any {
+                    it.vatRate.bearsVat && (it.accountType == LedgerAccountType.INCOME || it.accountType == LedgerAccountType.EXPENSE)
+                }
+            }
+        if (vatBearingEntries.isNotEmpty()) {
+            blockers +=
+                AccountingExportBlockerDto(
+                    kind = AccountingExportBlockerKind.VAT_BEARING_ENTRY,
+                    // describeEntries() never includes `description` -- see that helper's own KDoc
+                    // reasoning ("BOARD-readable, must never leak a donation's booking text").
+                    detail = describeEntries(vatBearingEntries),
+                )
+        }
+
         return AccountingExportPlan(
             blockers = blockers,
             vouchers = vouchers,

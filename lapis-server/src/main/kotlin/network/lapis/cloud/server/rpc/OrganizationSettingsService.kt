@@ -85,6 +85,18 @@ class OrganizationSettingsService(
      * separate, deliberate future decision, not an oversight of this fix. Must be the LAST database
      * operation of this transaction that takes a row lock (see [AuditLogRecorder] KDoc) -- the
      * `OrganizationSettingsTable.update` below always runs first.
+     *
+     * **MAJOR-3 (Security Round 2, GoBD Nachvollziehbarkeit)**: writes a second, independent
+     * [AuditEntityType.ORGANIZATION_SETTINGS] `UPDATE` audit entry -- ONLY when `isKleinunternehmer`
+     * actually changed -- for the exact same reason MAJOR-2 audits the payment-account mapping:
+     * `isKleinunternehmer` flips `AccountingService.vatActive()` (`vatEnabled && !isKleinunternehmer`)
+     * exactly the same way `vatEnabled` itself does, so from that moment on new bookings are
+     * normalized to UNCLASSIFIED/0.00 and the VAT_BEARING_ENTRY export blocker stops firing.
+     * `IVatService.enableVat`/`disableVat` already audit their own half of this gate (`vatEnabled`);
+     * before this fix, flipping the OTHER half through this generic ADMIN-writable field left no
+     * trace at all of who did it or when. Kept as a separate `record` call rather than folded into
+     * the mapping snapshot above -- same "narrower than the whole diff" reasoning, this is a
+     * different concern from contribution-account routing.
      */
     override suspend fun updateOrganizationSettings(input: OrganizationSettingsInput): OrganizationSettingsDto {
         val current = resolveCurrentMember(call)
@@ -194,6 +206,11 @@ class OrganizationSettingsService(
                     .selectAll()
                     .where { OrganizationSettingsTable.id eq ORGANIZATION_SETTINGS_ID }
                     .single()
+            // Security Round 2 (MAJOR, isKleinunternehmer Nachvollziehbarkeit): captured BEFORE the
+            // update below so it can be compared against input.isKleinunternehmer afterwards -- same
+            // "read old value first, diff after the write" shape MAJOR-2's beforeMapping/afterMapping
+            // already establishes for the payment-account mapping.
+            val wasKleinunternehmer = beforeRow[OrganizationSettingsTable.isKleinunternehmer]
             val beforeMapping =
                 OrganizationSettingsPaymentMappingSnapshot(
                     paymentBankAccountId = beforeRow[OrganizationSettingsTable.paymentBankAccountId]?.toString(),
@@ -230,6 +247,11 @@ class OrganizationSettingsService(
                 // as the mapping fields above.
                 it[datevBeraterNummer] = input.datevBeraterNummer
                 it[datevMandantNummer] = input.datevMandantNummer
+                // V1.4.13 "USt-Voranmeldung" -- ordinary ADMIN-writable configuration, same tier
+                // again. `vatEnabled` is DELIBERATELY absent from this write-set -- see
+                // OrganizationSettingsDto.vatEnabled KDoc. Only IVatService.enableVat (disclaimer-
+                // acknowledgment required)/disableVat may flip it.
+                it[isKleinunternehmer] = input.isKleinunternehmer
                 // auctionEnabled/auctionMaxValueLtr are DELIBERATELY absent from this write-set --
                 // see OrganizationSettingsDto.auctionEnabled KDoc. The generic update path must
                 // never be able to flip the auction gate; only AuctionService.enableAuction
@@ -260,6 +282,29 @@ class OrganizationSettingsService(
                     action = AuditAction.UPDATE,
                     before = Json.encodeToString(OrganizationSettingsPaymentMappingSnapshot.serializer(), beforeMapping),
                     after = Json.encodeToString(OrganizationSettingsPaymentMappingSnapshot.serializer(), afterMapping),
+                )
+            }
+
+            // Security Round 2 (MAJOR, GoBD Nachvollziehbarkeit): isKleinunternehmer flips
+            // AccountingService.vatActive() (vatEnabled && !isKleinunternehmer) exactly the same way
+            // vatEnabled itself does -- from that moment on, new bookings are normalized to
+            // UNCLASSIFIED/0.00, getVatReturnPreview reports applicable=false, and the
+            // VAT_BEARING_ENTRY export blocker no longer fires. VatService.enableVat/disableVat
+            // already audit their own side of this same gate; this is the missing other half --
+            // separate from the beforeMapping/afterMapping entry above (deliberately -- see that
+            // block's own KDoc for why this method does not audit its many purely administrative
+            // fields) and, like vatEnabledSnapshotJson, deliberately a plain inline JSON string
+            // rather than its own `@Serializable` snapshot type -- there is exactly one field that
+            // ever changes here.
+            if (wasKleinunternehmer != input.isKleinunternehmer) {
+                AuditLogRecorder.record(
+                    actorMemberId = current.memberId,
+                    actorRole = current.role,
+                    entityType = AuditEntityType.ORGANIZATION_SETTINGS,
+                    entityId = ORGANIZATION_SETTINGS_ID,
+                    action = AuditAction.UPDATE,
+                    before = "{\"isKleinunternehmer\":$wasKleinunternehmer}",
+                    after = "{\"isKleinunternehmer\":${input.isKleinunternehmer}}",
                 )
             }
 
@@ -367,4 +412,8 @@ fun ResultRow.toOrganizationSettingsDto(): OrganizationSettingsDto =
         travelExpenseAccountId = this[OrganizationSettingsTable.travelExpenseAccountId]?.toString(),
         // V1.4.12 Übungsleiter- und Ehrenamtspauschale -- ordinary ADMIN-writable configuration, same tier again.
         volunteerAllowanceAccountId = this[OrganizationSettingsTable.volunteerAllowanceAccountId]?.toString(),
+        // V1.4.13 USt-Voranmeldung -- vatEnabled read-only here (settable ONLY via IVatService
+        // .enableVat/disableVat), isKleinunternehmer ordinary ADMIN-writable configuration.
+        vatEnabled = this[OrganizationSettingsTable.vatEnabled],
+        isKleinunternehmer = this[OrganizationSettingsTable.isKleinunternehmer],
     )

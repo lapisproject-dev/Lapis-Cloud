@@ -12,6 +12,7 @@ import network.lapis.cloud.server.rpc.ORGANIZATION_SETTINGS_ID
 import network.lapis.cloud.shared.domain.JournalEntryStatus
 import network.lapis.cloud.shared.domain.LedgerAccountType
 import network.lapis.cloud.shared.domain.PostingSide
+import network.lapis.cloud.shared.domain.VatRate
 import network.lapis.cloud.shared.rpc.ConflictException
 import network.lapis.cloud.shared.rpc.NotFoundException
 import org.jetbrains.exposed.v1.core.SortOrder
@@ -51,6 +52,11 @@ internal data class JournalExportPosting(
     val accountNumber: String,
     val ledgerAccountId: Uuid,
     val accountType: LedgerAccountType,
+    // Welle V1.4.13: another already-loaded ResultRow column, no new join, no new query -- "Query
+    // shape unchanged" (see buildJournalExportRequest KDoc) still holds. Feeds
+    // AccountingExportPlanner's VAT_BEARING_ENTRY blocker and DatevBuchungsstapelWriter's
+    // vatBearingEntryCount/vatBearingGrossTotal (informational only there, no DATEV blocker).
+    val vatRate: VatRate,
 )
 
 /**
@@ -172,6 +178,7 @@ internal fun buildJournalExportRequest(
                     accountNumber = row[LedgerAccountTable.accountNumber],
                     ledgerAccountId = row[LedgerAccountTable.id],
                     accountType = row[LedgerAccountTable.type],
+                    vatRate = row[PostingTable.vatRate],
                 )
             }.forEach { (entryId, postings) -> postingsByEntry[entryId] = postings }
     }

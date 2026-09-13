@@ -86,6 +86,16 @@ class OrganizationSettingsSchemaDriftTest :
             entity.attributeByName("volunteer_allowance_account_id")?.nullable shouldBe true
         }
 
+        test("vat_enabled/is_kleinunternehmer are NOT NULL -- V1.4.13 addendum") {
+            val entity = model.entities.single { it.name == "organization_settings" }
+            entity.attributeByName("vat_enabled")?.nullable shouldBe false
+            entity.attributeByName("is_kleinunternehmer")?.nullable shouldBe false
+
+            val real = transaction { introspectOrganizationSettingsTable() }
+            real.columns.getValue("vat_enabled").nullable shouldBe false
+            real.columns.getValue("is_kleinunternehmer").nullable shouldBe false
+        }
+
         test("organization_settings entity column-name set matches the generated OrganizationSettingsTable 1:1") {
             model.entities
                 .single { it.name == "organization_settings" }

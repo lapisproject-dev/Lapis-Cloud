@@ -40,9 +40,19 @@ import java.security.MessageDigest
  * `"2026-09-08.v2"` bedeutet, dass jede bestehende (lexoffice-)Verbindung den Hinweis einmalig
  * erneut quittieren muss, sobald sie das nächste Mal `previewExport`/`startExport` aufruft
  * (`buildPreview` verlangt ausdrücklich "acknowledgment must match the CURRENT version").
+ *
+ * **Welle V1.4.13 "USt-Voranmeldung"**: [VERSION]-Bump auf `"2026-09-13.v3"` -- eine materielle
+ * Tatsaenderung ueber das Export-VERHALTEN (nicht nur Kosmetik): seit dieser Welle blockiert
+ * [network.lapis.cloud.server.accounting.export.AccountingExportPlanner.plan] jede Buchung mit
+ * einem echten USt-Satz ([network.lapis.cloud.shared.domain.AccountingExportBlockerKind
+ * .VAT_BEARING_ENTRY]), statt sie -- wie bisher jede Buchung -- unbesehen mit 0 % zu uebertragen.
+ * Die urspruengliche Aussage des Textes bleibt dadurch WAHR (jeder tatsaechlich uebertragene Beleg
+ * traegt weiterhin 0 %), aber jede bestehende Verbindung muss den erweiterten Text einmalig neu
+ * quittieren -- siehe CHANGELOG "Geändert" (an erster Stelle, damit das nicht wie eine Regression
+ * wirkt).
  */
 object ZeroVatExportDisclaimer {
-    const val VERSION: String = "2026-09-08.v2"
+    const val VERSION: String = "2026-09-13.v3"
 
     private val TEXT_TEMPLATE: String =
         """
@@ -65,6 +75,12 @@ object ZeroVatExportDisclaimer {
           Cloud stattfindet.
         - Dass die Verantwortung fuer die materielle Richtigkeit der Buchungen -- einschliesslich
           der Umsatzsteuer -- ausschliesslich bei Ihrer Organisation bzw. deren Steuerberater liegt.
+
+        Seit Welle V1.4.13 kann in Lapis Cloud pro Buchungszeile ein Umsatzsteuersatz erfasst
+        werden. Buchungen mit einem Satz von 7 %% oder 19 %% werden von diesem Export NICHT
+        uebertragen -- sie erzeugen in der Vorschau einen ausdruecklichen Blocker. Damit bleibt die
+        obige Aussage unveraendert wahr: jeder tatsaechlich uebertragene Beleg traegt 0 %%
+        Umsatzsteuer. Die betroffenen Buchungen muessen in der Zielsoftware von Hand erfasst werden.
 
         Dieser Hinweis stellt KEINE Rechtsberatung dar und ersetzt keine Pruefung durch eine
         Steuerberaterin/einen Steuerberater. Die Plattform selbst nimmt keine steuerliche Einordnung

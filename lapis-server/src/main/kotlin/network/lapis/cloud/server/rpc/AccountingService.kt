@@ -53,6 +53,9 @@ import network.lapis.cloud.shared.domain.PostingSide
 import network.lapis.cloud.shared.domain.PostingSnapshot
 import network.lapis.cloud.shared.domain.ReserveType
 import network.lapis.cloud.shared.domain.UseOfFundsStatementDto
+import network.lapis.cloud.shared.domain.VatNotApplicableReason
+import network.lapis.cloud.shared.domain.VatRate
+import network.lapis.cloud.shared.domain.VatReturnPreviewDto
 import network.lapis.cloud.shared.rpc.BadRequestException
 import network.lapis.cloud.shared.rpc.ConflictException
 import network.lapis.cloud.shared.rpc.IAccountingService
@@ -307,6 +310,16 @@ class AccountingService(
         val current = resolveCurrentMember(call)
         current.requireRole(*TREASURY_ROLES)
         return transaction {
+            // A draft need not balance yet ([requireBalanced] is deliberately NOT called here,
+            // unlike postJournalEntry/postDraftEntry), but every amount must still round-trip
+            // through DECIMAL(15,2) unchanged -- see [requireValidScale] KDoc for why skipping
+            // this one check alone (Welle V1.4.13 regression) turned into an HTTP 500 instead of a
+            // clean 400 -- and must still be strictly positive, see [requireNonNegativeAmounts]
+            // KDoc (Security Round 2 MINOR, the same regression class for the sign instead of the
+            // scale: a negative amount reaches VatCalculator.vatAmountOf and can produce a negative
+            // vat_amount, tripping chk_posting_vat_amount_non_negative as an uncaught 500).
+            requireValidScale(input.postings)
+            requireNonNegativeAmounts(input.postings)
             val donorMemberId = input.donorMemberId?.toAccountingUuid("Member")
             val externalDonorId = input.externalDonorId?.toAccountingUuid("ExternalDonor")
             if (donorMemberId != null) requireExistingMember(donorMemberId)
@@ -417,21 +430,33 @@ class AccountingService(
             if (entryRow[JournalEntryTable.status] != JournalEntryStatus.DRAFT) {
                 throw ConflictException("JournalEntry $id is ${entryRow[JournalEntryTable.status]}, expected DRAFT")
             }
-            val postings =
+            // Welle V1.4.13: the ResultRows themselves are kept (not just mapped away into
+            // PostingInput) -- postDraftEntry does NOT re-insert postings (unlike postJournalEntry/
+            // saveDraftEntry via insertJournalEntry), so `vat_amount` must be re-frozen on these
+            // EXISTING rows after the status flips to POSTED (see the explicit PostingTable.update
+            // loop below).
+            val postingRows =
                 PostingTable
                     .selectAll()
                     .where { PostingTable.journalEntryId eq entryId }
-                    .map { row ->
-                        PostingInput(
-                            ledgerAccountId = row[PostingTable.ledgerAccountId].toString(),
-                            side = row[PostingTable.side],
-                            amount = row[PostingTable.amount],
-                            // JournalEntryBalance ignores sphere, but PostingInput now requires it
-                            // -- see class KDoc for the no-silent-default rationale.
-                            sphere = row[PostingTable.sphere],
-                            costCenterId = row[PostingTable.costCenterId]?.toString(),
-                        )
-                    }
+                    .toList()
+            val postings =
+                postingRows.map { row ->
+                    PostingInput(
+                        ledgerAccountId = row[PostingTable.ledgerAccountId].toString(),
+                        side = row[PostingTable.side],
+                        amount = row[PostingTable.amount],
+                        // JournalEntryBalance ignores sphere, but PostingInput now requires it
+                        // -- see class KDoc for the no-silent-default rationale.
+                        sphere = row[PostingTable.sphere],
+                        costCenterId = row[PostingTable.costCenterId]?.toString(),
+                        // Welle V1.4.13: read the STORED vat_rate. Without this the re-read used to
+                        // silently drop it (PostingInput.vatRate defaults to UNCLASSIFIED), so the
+                        // audit snapshot of the DRAFT->POSTED transition would falsely show
+                        // UNCLASSIFIED even for a draft that carried a real rate.
+                        vatRate = row[PostingTable.vatRate],
+                    )
+                }
             requireBalanced(postings)
             requireActiveLedgerAccounts(postings.map { it.ledgerAccountId.toAccountingUuid("LedgerAccount") })
             requireActiveCostCenters(postings.mapNotNull { it.costCenterId?.toAccountingUuid("CostCenter") })
@@ -481,13 +506,57 @@ class AccountingService(
                     donorMemberId = entryRow[JournalEntryTable.donorMemberId]?.toString(),
                     externalDonorId = entryRow[JournalEntryTable.externalDonorId]?.toString(),
                     donorCategory = donorCategory,
-                    postings = postings.map { it.toAuditSnapshot() },
+                    postings =
+                        postingRows.map { row ->
+                            PostingSnapshot(
+                                ledgerAccountId = row[PostingTable.ledgerAccountId].toString(),
+                                side = row[PostingTable.side],
+                                amount = row[PostingTable.amount],
+                                sphere = row[PostingTable.sphere],
+                                costCenterId = row[PostingTable.costCenterId]?.toString(),
+                                vatRate = row[PostingTable.vatRate],
+                                vatAmount = row[PostingTable.vatAmount],
+                            )
+                        },
                 )
 
             JournalEntryTable.update({ JournalEntryTable.id eq entryId }) {
                 it[status] = JournalEntryStatus.POSTED
                 it[postedAt] = now
             }
+
+            // Welle V1.4.13: vat_rate/vat_amount are re-frozen at the DRAFT->POSTED transition --
+            // the moment of POSTING is the moment both freeze (same donor_category doctrine as
+            // journal_entry.donor_category's own snapshot). For an unchanged vatActive()/rounding
+            // rule this is idempotent (recomputes the identical values); it exists so (a) a future
+            // rounding-rule change can never retroactively rewrite an already-POSTED period, only
+            // affect entries posted from then on, and (b) `vatActive()` is re-checked NOW, not at
+            // save-draft time -- a draft saved while VAT was active, then posted after ADMIN
+            // disabled the module (or flipped is_kleinunternehmer), is normalized to UNCLASSIFIED/
+            // 0.00 exactly like [insertJournalEntry] normalizes a fresh posting, instead of carrying
+            // a real rate into an organization for which VAT is (now) off -- see
+            // [vatActive]'s own KDoc "byte-for-byte indistinguishable from a pre-V1.4.13 one". One
+            // PostingTable.update per row -- the postings of one entry are a handful, never a batch
+            // worth optimizing.
+            val vatActiveNow = vatActive()
+            val effectivePostingSnapshots =
+                postingRows.map { row ->
+                    val effectiveRate = if (vatActiveNow) row[PostingTable.vatRate] else VatRate.UNCLASSIFIED
+                    val effectiveVatAmount = VatCalculator.vatAmountOf(gross = row[PostingTable.amount], rate = effectiveRate)
+                    PostingTable.update({ PostingTable.id eq row[PostingTable.id] }) {
+                        it[vatRate] = effectiveRate
+                        it[vatAmount] = effectiveVatAmount
+                    }
+                    PostingSnapshot(
+                        ledgerAccountId = row[PostingTable.ledgerAccountId].toString(),
+                        side = row[PostingTable.side],
+                        amount = row[PostingTable.amount],
+                        sphere = row[PostingTable.sphere],
+                        costCenterId = row[PostingTable.costCenterId]?.toString(),
+                        vatRate = effectiveRate,
+                        vatAmount = effectiveVatAmount,
+                    )
+                }
 
             AuditLogRecorder.record(
                 actorMemberId = current.memberId,
@@ -496,10 +565,15 @@ class AccountingService(
                 entityId = entryId,
                 action = AuditAction.POST,
                 before = Json.encodeToString(JournalEntrySnapshot.serializer(), beforeSnapshot),
+                // Built from effectivePostingSnapshots (the values just WRITTEN above), never from
+                // beforeSnapshot.copy(...) -- beforeSnapshot.postings carries the pre-re-freeze
+                // vat_rate/vat_amount, which the GoBD "after" record of a DRAFT->POSTED transition
+                // must not repeat once the DB and the audit trail have diverged (see this
+                // function's KDoc for why the two can disagree at all).
                 after =
                     Json.encodeToString(
                         JournalEntrySnapshot.serializer(),
-                        beforeSnapshot.copy(status = JournalEntryStatus.POSTED, postedAt = now),
+                        beforeSnapshot.copy(status = JournalEntryStatus.POSTED, postedAt = now, postings = effectivePostingSnapshots),
                     ),
                 occurredAt = now,
             )
@@ -1107,7 +1181,25 @@ class AccountingService(
             it[JournalEntryTable.externalDonorId] = externalDonorId
             it[JournalEntryTable.donorCategory] = donorCategory
         }
-        input.postings.forEach { posting ->
+        // Welle V1.4.13: while VAT is not active for this organization (feature disabled OR
+        // Kleinunternehmer), EVERY posting is normalized to UNCLASSIFIED/0.00, unconditionally --
+        // no BadRequestException, a silent normalization, because the field has a default and an
+        // old/unaware client legitimately sends nothing. This is the SERVER-side half of the gate:
+        // a manipulated client cannot smuggle VAT data into an organization that never activated
+        // the feature (see VatRateSphereIndependenceTest's sibling AccountingServiceVatTest for the
+        // regression guard).
+        val vatActive = vatActive()
+        val effectivePostings =
+            input.postings.map { posting ->
+                val effectiveRate = if (vatActive) posting.vatRate else VatRate.UNCLASSIFIED
+                EffectivePosting(
+                    posting = posting,
+                    vatRate = effectiveRate,
+                    vatAmount = VatCalculator.vatAmountOf(gross = posting.amount, rate = effectiveRate),
+                )
+            }
+        effectivePostings.forEach { effective ->
+            val posting = effective.posting
             PostingTable.insert {
                 it[PostingTable.id] = Uuid.random()
                 it[journalEntryId] = id
@@ -1116,6 +1208,8 @@ class AccountingService(
                 it[amount] = posting.amount
                 it[sphere] = posting.sphere
                 it[costCenterId] = posting.costCenterId?.toAccountingUuid("CostCenter")
+                it[vatRate] = effective.vatRate
+                it[vatAmount] = effective.vatAmount
             }
         }
         val dto = loadJournalEntry(id)
@@ -1139,21 +1233,34 @@ class AccountingService(
                         donorMemberId = donorMemberId?.toString(),
                         externalDonorId = externalDonorId?.toString(),
                         donorCategory = donorCategory,
-                        postings = input.postings.map { it.toAuditSnapshot() },
+                        postings = effectivePostings.map { it.toAuditSnapshot() },
                     ),
                 ),
         )
         return dto
     }
 
-    /** [PostingInput] -> [PostingSnapshot], id-only for referenced entities (PII minimization, see [JournalEntrySnapshot] KDoc). */
-    private fun PostingInput.toAuditSnapshot(): PostingSnapshot =
+    /** Welle V1.4.13: `posting.vatRate`/`vatAmount` AFTER the [vatActive] server-side normalization
+     *  -- see [insertJournalEntry]. Carried alongside the original [PostingInput] rather than
+     *  mutating a copy of it, so every downstream reader (the insert itself, the audit snapshot)
+     *  reads the SAME already-normalized pair. */
+    private data class EffectivePosting(
+        val posting: PostingInput,
+        val vatRate: VatRate,
+        val vatAmount: BigDecimal,
+    )
+
+    /** [EffectivePosting] -> [PostingSnapshot], id-only for referenced entities (PII minimization,
+     *  see [JournalEntrySnapshot] KDoc). */
+    private fun EffectivePosting.toAuditSnapshot(): PostingSnapshot =
         PostingSnapshot(
-            ledgerAccountId = ledgerAccountId,
-            side = side,
-            amount = amount,
-            sphere = sphere,
-            costCenterId = costCenterId,
+            ledgerAccountId = posting.ledgerAccountId,
+            side = posting.side,
+            amount = posting.amount,
+            sphere = posting.sphere,
+            costCenterId = posting.costCenterId,
+            vatRate = vatRate,
+            vatAmount = vatAmount,
         )
 
     /**
@@ -1196,6 +1303,30 @@ class AccountingService(
     private fun requireBalanced(postings: List<PostingInput>) {
         val result = JournalEntryBalance.validateBalanced(postings)
         if (!result.balanced) throw ConflictException(result.reason ?: "Journal entry not balanced")
+    }
+
+    /** Throws [BadRequestException] if any [postings] amount has more than 2 fractional digits --
+     *  see [JournalEntryBalance.tooFinelyScaledAmounts] KDoc for why [saveDraftEntry] needs this
+     *  check on its own, independently of the full [requireBalanced]. */
+    private fun requireValidScale(postings: List<PostingInput>) {
+        val tooFinelyScaled = JournalEntryBalance.tooFinelyScaledAmounts(postings)
+        if (tooFinelyScaled.isNotEmpty()) {
+            throw BadRequestException(JournalEntryBalance.scaleViolationMessage(tooFinelyScaled))
+        }
+    }
+
+    /**
+     * Security Round 2 (MINOR): throws [BadRequestException] if any [postings] amount is zero or
+     * negative -- see [JournalEntryBalance.nonPositiveAmounts] KDoc for why [saveDraftEntry] needs
+     * this check on its own, independently of the full [requireBalanced], exactly the same
+     * "draft need not balance yet, but must still never produce a value that blows up further down
+     * the pipeline" reasoning [requireValidScale] already established for scale.
+     */
+    private fun requireNonNegativeAmounts(postings: List<PostingInput>) {
+        val nonPositive = JournalEntryBalance.nonPositiveAmounts(postings)
+        if (nonPositive.isNotEmpty()) {
+            throw BadRequestException(JournalEntryBalance.nonPositiveViolationMessage(nonPositive))
+        }
     }
 
     /**
@@ -1394,6 +1525,23 @@ class AccountingService(
             ?.get(OrganizationSettingsTable.isPoliticalParty) ?: false
 
     /**
+     * Welle V1.4.13 -- `true` iff `vat_enabled` AND NOT `is_kleinunternehmer`. This is the
+     * SERVER-side gate [insertJournalEntry] normalizes every posting's VAT fields against, and
+     * [postDraftEntry]'s DRAFT->POSTED re-freeze re-checks it -- while `false`, a POSTED/DRAFT
+     * entry is byte-for-byte indistinguishable from a pre-V1.4.13 one, even if a client sends a
+     * non-UNCLASSIFIED [network.lapis.cloud.shared.domain.VatRate], and even if a draft was saved
+     * while this gate used to be `true`. Same `?: false` short-circuit idiom as [isPoliticalParty]
+     * for the (practically unreachable, seed row always exists) missing-row case.
+     */
+    private fun vatActive(): Boolean =
+        OrganizationSettingsTable
+            .selectAll()
+            .where { OrganizationSettingsTable.id eq ORGANIZATION_SETTINGS_ID }
+            .singleOrNull()
+            ?.let { row -> row[OrganizationSettingsTable.vatEnabled] && !row[OrganizationSettingsTable.isKleinunternehmer] }
+            ?: false
+
+    /**
      * One `POSTED` [JournalEntryTable] row within a calendar year whose `donor_category` is
      * non-null (i.e. a donation-subject entry, per [network.lapis.cloud.shared.domain
      * .JournalEntryDto] KDoc), paired with that entry's own [donationIncomeAmount] -- feeds
@@ -1501,6 +1649,15 @@ class AccountingService(
             throw BadRequestException("isCashRegister may only be set on an ASSET LedgerAccount, got $type")
         }
     }
+
+    // Welle V1.4.13: deliberately NO requireVatRateMatchesSphere()-style guard here, next to
+    // requireReserveTypeOnlyOnEquity/requireCashRegisterOnlyOnAsset above, where one might expect
+    // it. Every one of the 20 (GemeinnuetzigkeitSphere x VatRate) combinations is intentionally
+    // ACCEPTED -- the 7-%-Zweckbetrieb eligibility hinges on the Wettbewerbsvorbehalt (§12 Abs.2
+    // Nr.8a UStG), a Vorstands-Ermessensfrage this software cannot adjudicate (see
+    // VatComplianceDisclaimer TEXT). VatRateSphereIndependenceTest posts all 20 combinations and
+    // asserts every one succeeds -- it exists precisely so a later "plausibilisation" cannot be
+    // quietly re-introduced here.
 
     // loadCashRegisterAccountIds/requireVoucherForCashPostings/requireNonNegativeCashBalances/
     // lockCashRegisterAccounts/currentPostedBalance moved to CashRegisterGuard -- Security Round 1
@@ -1665,6 +1822,8 @@ class AccountingService(
             costCenterId = this.getOrNull(CostCenterTable.id)?.toString(),
             costCenterCode = this.getOrNull(CostCenterTable.code),
             costCenterName = this.getOrNull(CostCenterTable.name),
+            vatRate = this[PostingTable.vatRate],
+            vatAmount = this[PostingTable.vatAmount],
         )
 
     private fun ResultRow.toJournalEntryDto(postings: List<PostingDto>): JournalEntryDto {
@@ -1719,9 +1878,114 @@ class AccountingService(
                 leadingZeroAccountCount = plan.leadingZeroAccountCount,
                 blockers = plan.blockers,
                 exportable = plan.exportable,
+                vatBearingEntryCount = plan.vatBearingEntryCount,
+                vatBearingGrossTotal = plan.vatBearingGrossTotal,
             )
         }
     }
+
+    /**
+     * Role: TREASURER/BOARD/ADMIN. Welle V1.4.13 "USt-Voranmeldung": VORSCHAU/NACHWEISHILFE, keine
+     * Voranmeldung -- see [IAccountingService.getVatReturnPreview] KDoc for the full "no ELSTER"
+     * abgrenzung. Aggregiert ausschliesslich POSTED-Buchungen aus dem gespeicherten
+     * `posting.vat_amount`-Snapshot -- [VatReturnCalculator] leitet nichts neu ab.
+     */
+    override suspend fun getVatReturnPreview(
+        from: LocalDate,
+        to: LocalDate,
+    ): VatReturnPreviewDto {
+        val current = resolveCurrentMember(call)
+        current.requireRole(*ACCOUNTING_READ_ROLES)
+        if (from > to) throw BadRequestException("from ($from) must not be after to ($to)")
+        // Security Round 2 (MINOR): this method derives a PRIOR-YEAR period from `from.year - 1`
+        // (below, and again inside VatReturnCalculator.preview's own `priorYearCovered` check) --
+        // an unvalidated `from` at/near LocalDate's representable minimum year makes that
+        // subtraction construct an out-of-range LocalDate, throwing an uncaught DateTimeException
+        // (HTTP 500 leaking a java.time-internal message). Same FISCAL_YEAR_RANGE guard
+        // getAnnualFinancialStatement already applies to its own year-shaped inputs -- a VAT
+        // return preview is calendar-year-scoped by construction, so any request outside this
+        // range is nonsensical anyway, not just unsafe.
+        if (from.year !in FISCAL_YEAR_RANGE || to.year !in FISCAL_YEAR_RANGE) {
+            throw BadRequestException(
+                "from.year/to.year must be 4-digit calendar years in $FISCAL_YEAR_RANGE, got ${from.year}/${to.year}",
+            )
+        }
+        return transaction {
+            val settingsRow =
+                OrganizationSettingsTable
+                    .selectAll()
+                    .where { OrganizationSettingsTable.id eq ORGANIZATION_SETTINGS_ID }
+                    .single()
+            val vatEnabled = settingsRow[OrganizationSettingsTable.vatEnabled]
+            val isKleinunternehmer = settingsRow[OrganizationSettingsTable.isKleinunternehmer]
+            val reason =
+                when {
+                    !vatEnabled -> VatNotApplicableReason.VAT_DISABLED
+                    isKleinunternehmer -> VatNotApplicableReason.KLEINUNTERNEHMER
+                    else -> null
+                }
+            if (reason != null) {
+                return@transaction VatReturnCalculator.notApplicable(
+                    from = from,
+                    to = to,
+                    reason = reason,
+                    disclaimerVersion = VatComplianceDisclaimer.VERSION,
+                )
+            }
+            VatReturnCalculator.preview(
+                from = from,
+                to = to,
+                lines = loadVatPostingLines(from = from, to = to),
+                priorYear =
+                    loadVatPostingLines(
+                        from = LocalDate(from.year - 1, 1, 1),
+                        to = LocalDate(from.year - 1, 12, 31),
+                    ),
+                earliestPostedEntryDate = earliestPostedEntryDate(),
+                disclaimerVersion = VatComplianceDisclaimer.VERSION,
+            )
+        }
+    }
+
+    /**
+     * POSTED-only, `[from, to]`, `PostingTable innerJoin JournalEntryTable innerJoin
+     * LedgerAccountTable`, gefiltert auf [LedgerAccountType.INCOME]/[LedgerAccountType.EXPENSE]
+     * (ASSET/LIABILITY/EQUITY tragen nie USt -- eine Kontenbewegung dorthin ist nie eine
+     * umsatzsteuerbare Lieferung/Leistung). Liest `posting.vat_amount` als SNAPSHOT, leitet nie neu
+     * ab (siehe [VatCalculator] KDoc).
+     */
+    private fun loadVatPostingLines(
+        from: LocalDate,
+        to: LocalDate,
+    ): List<VatReturnCalculator.VatPostingLine> =
+        (PostingTable innerJoin JournalEntryTable innerJoin LedgerAccountTable)
+            .selectAll()
+            .where {
+                (JournalEntryTable.status eq JournalEntryStatus.POSTED) and
+                    (JournalEntryTable.entryDate greaterEq from) and
+                    (JournalEntryTable.entryDate lessEq to) and
+                    (LedgerAccountTable.type inList listOf(LedgerAccountType.INCOME, LedgerAccountType.EXPENSE))
+            }.map { row ->
+                VatReturnCalculator.VatPostingLine(
+                    accountType = row[LedgerAccountTable.type],
+                    side = row[PostingTable.side],
+                    rate = row[PostingTable.vatRate],
+                    gross = row[PostingTable.amount],
+                    vatAmount = row[PostingTable.vatAmount],
+                )
+            }
+
+    /** Aeltestes `journal_entry.entry_date` unter POSTED -- entscheidet, ob das Vorjahr
+     *  vollstaendig von Lapis-Cloud-Daten gedeckt ist (sonst [VatFilingPeriodicity.UNKNOWN] /
+     *  `priorYearVatBalance = null`, siehe [VatReturnCalculator.preview]). */
+    private fun earliestPostedEntryDate(): LocalDate? =
+        JournalEntryTable
+            .selectAll()
+            .where { JournalEntryTable.status eq JournalEntryStatus.POSTED }
+            .orderBy(JournalEntryTable.entryDate, SortOrder.ASC)
+            .limit(1)
+            .singleOrNull()
+            ?.get(JournalEntryTable.entryDate)
 
     /** [CurrentMember] carries no display name of its own -- same "look it up by id" idiom every
      * other `memberDisplayName(Uuid)` call in this class already uses. */

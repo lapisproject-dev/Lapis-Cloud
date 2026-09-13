@@ -21,6 +21,7 @@ import network.lapis.cloud.shared.domain.KassenbuchDto
 import network.lapis.cloud.shared.domain.LedgerAccountDto
 import network.lapis.cloud.shared.domain.LedgerAccountInput
 import network.lapis.cloud.shared.domain.UseOfFundsStatementDto
+import network.lapis.cloud.shared.domain.VatReturnPreviewDto
 
 /**
  * SKR42 chart of accounts + double-entry bookkeeping (V0.3.1, chart swapped from SKR49 in
@@ -261,4 +262,25 @@ interface IAccountingService {
         from: LocalDate,
         to: LocalDate,
     ): DatevExportPreviewDto
+
+    /**
+     * Role: TREASURER/BOARD/ADMIN. Welle V1.4.13 "USt-Voranmeldung": **VORSCHAU / NACHWEISHILFE**,
+     * KEINE Voranmeldung. Es findet KEINE ELSTER-/ERiC-Uebermittlung statt, keine Frist wird
+     * berechnet, kein Bescheid erzeugt. Aggregiert ausschliesslich [JournalEntryStatus.POSTED]
+     * Buchungen in `[from, to]` aus den GESPEICHERTEN `posting.vat_amount`-Snapshots -- leitet
+     * niemals aus `posting.amount` neu ab (siehe `network.lapis.cloud.server.rpc.VatCalculator`
+     * KDoc).
+     *
+     * Kurzschluss auf `applicable = false` (alle Listen leer, alle Summen `0,00`), wenn
+     * `!OrganizationSettingsDto.vatEnabled` ODER `OrganizationSettingsDto.isKleinunternehmer` --
+     * auch dann, wenn USt-tragende Buchungen existieren; exakt das
+     * `DonationDutyReportDto.partyRulesApply = false`-Muster.
+     *
+     * `from > to` ist ein [BadRequestException] (statisches Eingabeformat-Problem, kein
+     * [network.lapis.cloud.shared.domain.VatReturnPreviewDto]-Feld).
+     */
+    suspend fun getVatReturnPreview(
+        from: LocalDate,
+        to: LocalDate,
+    ): VatReturnPreviewDto
 }

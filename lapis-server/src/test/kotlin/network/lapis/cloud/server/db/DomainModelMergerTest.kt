@@ -358,7 +358,11 @@ class DomainModelMergerTest :
             // JournalEntry) -- both stubs dedup into already-real entities (member/journal_entry)
             // -- so it contributes +4 «Entity» declarations (2 stubs + 2 real tables) and 2 drops,
             // net +2 distinct table names versus the V1.4.11 baseline above (138 -> 140).
-            val distinctTableNames = 140
+            // Welle V1.4.13 "USt-Voranmeldung (Nachweishilfe)" -- +1 new real table
+            // (vat_compliance_acknowledgment, 140 -> 141). posting.vat_rate/vat_amount and
+            // organization_settings.vat_enabled/is_kleinunternehmer are new columns on already-real
+            // tables, no new Table file for either.
+            val distinctTableNames = 141
 
             val result =
                 UmlToExposedViaErmScriptTransformer().transform(
@@ -587,6 +591,9 @@ class DomainModelMergerTest :
                     // no new Table file for either.
                     "VolunteerAllowancePaymentTable.kt",
                     "VolunteerAllowanceSelfDeclarationTable.kt",
+                    // Welle V1.4.13 "USt-Voranmeldung (Nachweishilfe)" -- one new real table
+                    // (vat_compliance_acknowledgment).
+                    "VatComplianceAcknowledgmentTable.kt",
                 )
         }
 

@@ -23,6 +23,7 @@ import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.core.inList
 import org.jetbrains.exposed.v1.jdbc.deleteWhere
 import org.jetbrains.exposed.v1.jdbc.insert
+import org.jetbrains.exposed.v1.jdbc.selectAll
 import org.jetbrains.exposed.v1.jdbc.transactions.transaction
 import org.jetbrains.exposed.v1.jdbc.update
 import kotlin.uuid.Uuid
@@ -86,6 +87,8 @@ class OrganizationSettingsFieldCoverageTest :
                     it[travelExpenseAccountId] = null
                     it[volunteerAllowanceAccountId] = null
                     it[isPoliticalParty] = false
+                    it[isKleinunternehmer] = false
+                    it[vatEnabled] = false
                 }
                 if (createdLedgerAccountIds.isNotEmpty()) {
                     LedgerAccountTable.deleteWhere { LedgerAccountTable.id inList createdLedgerAccountIds }
@@ -136,12 +139,12 @@ class OrganizationSettingsFieldCoverageTest :
                             "/test/coverage/update?paymentBankAccountId=$bankAccount&paymentFeeAccountId=$feeAccount" +
                                 "&contributionIncomeAccountId=$contributionAccount&donationIncomeAccountId=$donationAccount" +
                                 "&eventIncomeAccountId=$eventAccount&travelExpenseAccountId=$travelAccount" +
-                                "&volunteerAllowanceAccountId=$volunteerAccount&isPoliticalParty=false",
+                                "&volunteerAllowanceAccountId=$volunteerAccount&isPoliticalParty=false&isKleinunternehmer=true",
                         ) { header("X-Member-Id", ADMIN_ID) }
                         .bodyAsText()
                         .split("|")
 
-                withClue(clue = "field order: bank|fee|contribution|donation|event|travel|volunteer") {
+                withClue(clue = "field order: bank|fee|contribution|donation|event|travel|volunteer|isKleinunternehmer") {
                     updated[0] shouldBe bankAccount.toString()
                     updated[1] shouldBe feeAccount.toString()
                     updated[2] shouldBe contributionAccount.toString()
@@ -149,22 +152,27 @@ class OrganizationSettingsFieldCoverageTest :
                     updated[4] shouldBe eventAccount.toString()
                     updated[5] shouldBe travelAccount.toString()
                     updated[6] shouldBe volunteerAccount.toString()
+                    updated[7] shouldBe "true"
                 }
 
-                // Toggle an UNRELATED field (isPoliticalParty) and re-send the SAME account ids --
-                // every prior instance of this bug class silently dropped exactly one field at
-                // exactly this kind of "mostly unrelated update" call site.
+                // Toggle an UNRELATED field (isPoliticalParty) and re-send the SAME account ids AND
+                // the same isKleinunternehmer=true -- every prior instance of this bug class
+                // silently dropped exactly one field at exactly this kind of "mostly unrelated
+                // update" call site (Security Round 1's own MAJOR finding was a BOOLEAN field
+                // dropped this way -- folded in here, not just covered by its own isolated
+                // round-trip test, so this "toggle something else, resend the rest" idiom also
+                // exercises a non-Uuid field, not only the seven Column<Uuid?> mapping fields).
                 val afterToggle =
                     client
                         .post(
                             "/test/coverage/update?paymentBankAccountId=$bankAccount&paymentFeeAccountId=$feeAccount" +
                                 "&contributionIncomeAccountId=$contributionAccount&donationIncomeAccountId=$donationAccount" +
                                 "&eventIncomeAccountId=$eventAccount&travelExpenseAccountId=$travelAccount" +
-                                "&volunteerAllowanceAccountId=$volunteerAccount&isPoliticalParty=true",
+                                "&volunteerAllowanceAccountId=$volunteerAccount&isPoliticalParty=true&isKleinunternehmer=true",
                         ) { header("X-Member-Id", ADMIN_ID) }
                         .bodyAsText()
                         .split("|")
-                withClue(clue = "after toggling isPoliticalParty, every mapping field must still be present") {
+                withClue(clue = "after toggling isPoliticalParty, every mapping field AND isKleinunternehmer must still be present") {
                     afterToggle[0] shouldBe bankAccount.toString()
                     afterToggle[1] shouldBe feeAccount.toString()
                     afterToggle[2] shouldBe contributionAccount.toString()
@@ -172,18 +180,74 @@ class OrganizationSettingsFieldCoverageTest :
                     afterToggle[4] shouldBe eventAccount.toString()
                     afterToggle[5] shouldBe travelAccount.toString()
                     afterToggle[6] shouldBe volunteerAccount.toString()
+                    afterToggle[7] shouldBe "true"
                 }
 
                 val readBack = client.post("/test/coverage/get") { header("X-Member-Id", ADMIN_ID) }.bodyAsText().split("|")
-                withClue(clue = "a fresh read reflects the same seven fields") {
+                withClue(clue = "a fresh read reflects the same seven mapping fields plus isKleinunternehmer") {
                     readBack[0] shouldBe bankAccount.toString()
                     readBack[6] shouldBe volunteerAccount.toString()
+                    readBack[7] shouldBe "true"
                 }
 
                 // Reset for the next test in this class (shared DevSeedData row).
                 client.post(
-                    "/test/coverage/update?isPoliticalParty=false",
+                    "/test/coverage/update?isPoliticalParty=false&isKleinunternehmer=false",
                 ) { header("X-Member-Id", ADMIN_ID) }
+            }
+        }
+
+        test("isKleinunternehmer round-trips through updateOrganizationSettings -> getOrganizationSettings (V1.4.13)") {
+            testApplication {
+                routing { registerFieldCoverageTestRoutes() }
+
+                val afterEnable =
+                    client
+                        .post("/test/coverage/update-vat?isKleinunternehmer=true") { header("X-Member-Id", ADMIN_ID) }
+                        .bodyAsText()
+                afterEnable shouldBe "true"
+
+                val readBack = client.post("/test/coverage/get-vat") { header("X-Member-Id", ADMIN_ID) }.bodyAsText()
+                readBack shouldBe "true"
+
+                // Reset for the next test in this class.
+                client.post("/test/coverage/update-vat?isKleinunternehmer=false") { header("X-Member-Id", ADMIN_ID) }
+            }
+        }
+
+        test(
+            "vatEnabled is structurally read-only from updateOrganizationSettings -- " +
+                "OrganizationSettingsInput has no such field (V1.4.13)",
+        ) {
+            // OrganizationSettingsInput does not carry vatEnabled at all -- this is a compile-time
+            // guarantee (see class KDoc point 1's "structural riegel" idiom, here without needing a
+            // separate allowlist because the field is simply absent from the type). A direct DB read
+            // after any update through this test class's own route below proves updateOrganizationSettings
+            // never touches vat_enabled.
+            testApplication {
+                routing { registerFieldCoverageTestRoutes() }
+                transaction {
+                    OrganizationSettingsTable.update({ OrganizationSettingsTable.id eq ORGANIZATION_SETTINGS_ID }) {
+                        it[vatEnabled] = true
+                    }
+                }
+                client.post("/test/coverage/update-vat?isKleinunternehmer=true") { header("X-Member-Id", ADMIN_ID) }
+                val stillEnabled =
+                    transaction {
+                        OrganizationSettingsTable
+                            .selectAll()
+                            .where { OrganizationSettingsTable.id eq ORGANIZATION_SETTINGS_ID }
+                            .single()[OrganizationSettingsTable.vatEnabled]
+                    }
+                stillEnabled shouldBe true
+
+                // Reset.
+                transaction {
+                    OrganizationSettingsTable.update({ OrganizationSettingsTable.id eq ORGANIZATION_SETTINGS_ID }) {
+                        it[vatEnabled] = false
+                        it[isKleinunternehmer] = false
+                    }
+                }
             }
         }
 
@@ -252,6 +316,15 @@ private fun Route.registerFieldCoverageTestRoutes() {
                     eventIncomeAccountId = q["eventIncomeAccountId"],
                     travelExpenseAccountId = q["travelExpenseAccountId"],
                     volunteerAllowanceAccountId = q["volunteerAllowanceAccountId"],
+                    // Security Round 2 (HARDENING): folded in here too -- see this test class'
+                    // "every known ledger-account mapping field round-trips" test, extended to also
+                    // carry isKleinunternehmer through the SAME wholesale-update + "toggle an
+                    // unrelated field" round trip as the seven Uuid mapping fields, rather than
+                    // ONLY its own isolated round-trip test. The MAJOR finding this fixed (Security
+                    // Round 1) was exactly a BOOLEAN field silently dropped at a wholesale-replace
+                    // call site -- an isolated round-trip test alone would not have caught that
+                    // shape of regression the way this combined one now does.
+                    isKleinunternehmer = q["isKleinunternehmer"]?.toBoolean() ?: false,
                 ),
             )
         call.respondText(
@@ -263,6 +336,7 @@ private fun Route.registerFieldCoverageTestRoutes() {
                 dto.eventIncomeAccountId ?: "-",
                 dto.travelExpenseAccountId ?: "-",
                 dto.volunteerAllowanceAccountId ?: "-",
+                dto.isKleinunternehmer.toString(),
             ).joinToString("|"),
         )
     }
@@ -278,7 +352,25 @@ private fun Route.registerFieldCoverageTestRoutes() {
                 dto.eventIncomeAccountId ?: "-",
                 dto.travelExpenseAccountId ?: "-",
                 dto.volunteerAllowanceAccountId ?: "-",
+                dto.isKleinunternehmer.toString(),
             ).joinToString("|"),
         )
+    }
+    // V1.4.13 -- isKleinunternehmer round-trip + vatEnabled read-only regression guard.
+    post("/test/coverage/update-vat") {
+        val service = OrganizationSettingsService(call)
+        val q = call.request.queryParameters
+        val dto =
+            service.updateOrganizationSettings(
+                OrganizationSettingsInput(
+                    name = "Feldabdeckungs-Testverein e.V.",
+                    isKleinunternehmer = q["isKleinunternehmer"]?.toBoolean() ?: false,
+                ),
+            )
+        call.respondText(dto.isKleinunternehmer.toString())
+    }
+    post("/test/coverage/get-vat") {
+        val service = OrganizationSettingsService(call)
+        call.respondText(service.getOrganizationSettings().isKleinunternehmer.toString())
     }
 }

@@ -646,6 +646,10 @@ private fun accountingExportBlockerLabel(kind: AccountingExportBlockerKind): Str
         AccountingExportBlockerKind.TOO_MANY_ENTRIES -> tr("Zu viele Buchungen im Zeitraum")
         AccountingExportBlockerKind.RUN_ALREADY_IN_PROGRESS -> tr("Export läuft bereits")
         AccountingExportBlockerKind.UNRESOLVED_UNKNOWN_ITEMS -> tr("Ungeklärter Sendestatus aus einem vorherigen Lauf")
+        // Welle V1.4.13 "USt-Voranmeldung" -- mindestens eine Buchung im Zeitraum trägt einen
+        // echten USt-Satz (7 %/19 %); jeder Beleg an lexoffice/sevDesk ginge sonst mit 0 % USt
+        // hinaus, siehe AccountingExportBlockerKind.VAT_BEARING_ENTRY KDoc.
+        AccountingExportBlockerKind.VAT_BEARING_ENTRY -> tr("Buchungen mit Umsatzsteuersatz können nicht übertragen werden")
     }
 
 private fun accountingExportRunStatusLabel(status: AccountingExportRunStatus): String =

@@ -10,6 +10,7 @@ import network.lapis.cloud.server.db.generated.ExternalDonorTable
 import network.lapis.cloud.server.db.generated.JournalEntryTable
 import network.lapis.cloud.server.db.generated.LedgerAccountTable
 import network.lapis.cloud.server.db.generated.PostingTable
+import network.lapis.cloud.server.db.generated.VatComplianceAcknowledgmentTable
 import org.jetbrains.exposed.v1.jdbc.JdbcTransaction
 import org.jetbrains.exposed.v1.jdbc.transactions.transaction
 import java.io.File
@@ -36,9 +37,20 @@ class AccountingSchemaDriftTest :
 
         fun ErmModel.entityNameOf(entityId: String): String? = entities.firstOrNull { it.id == entityId }?.name
 
-        test("model declares exactly ledger_account, journal_entry, posting, cost_center, external_donor and the member stub") {
+        test(
+            "model declares exactly ledger_account, journal_entry, posting, cost_center, external_donor, " +
+                "vat_compliance_acknowledgment and the member stub",
+        ) {
             model.entities.map { it.name }.toSet() shouldBe
-                setOf("member", "ledger_account", "journal_entry", "posting", "cost_center", "external_donor")
+                setOf(
+                    "member",
+                    "ledger_account",
+                    "journal_entry",
+                    "posting",
+                    "cost_center",
+                    "external_donor",
+                    "vat_compliance_acknowledgment",
+                )
         }
 
         // ── (1) Model vs. real H2-migrated schema ───────────────────────────────
@@ -243,6 +255,44 @@ class AccountingSchemaDriftTest :
             real.columns.getValue("is_cash_register").nullable shouldBe false
         }
 
+        // ── V1.4.13 "USt-Voranmeldung (Nachweishilfe)" addendum ─────────────────
+
+        test("posting.vat_rate/posting.vat_amount are NOT NULL -- V1.4.13-Addendum") {
+            val entity = model.entities.single { it.name == "posting" }
+            entity.attributeByName("vat_rate")?.nullable shouldBe false
+            entity.attributeByName("vat_amount")?.nullable shouldBe false
+
+            val real = transaction { introspectAccountingTable("posting") }
+            real.columns.getValue("vat_rate").nullable shouldBe false
+            real.columns.getValue("vat_amount").nullable shouldBe false
+        }
+
+        test("posting.vat_amount is modelled with DECIMAL(15,2) precision, same as posting.amount") {
+            val entity = model.entities.single { it.name == "posting" }
+            entity.attributeByName("vat_amount")?.type shouldBe ErmDataType.Decimal(15, 2)
+        }
+
+        test("vat_compliance_acknowledgment table shape matches the real migrated schema (V1.4.13)") {
+            val entity = model.entities.single { it.name == "vat_compliance_acknowledgment" }
+            val real = transaction { introspectAccountingTable("vat_compliance_acknowledgment") }
+
+            entity.attributes.map { it.name }.toSet() shouldBe real.columns.keys
+            entity.attributes.forEach { attr ->
+                val col = real.columns.getValue(attr.name!!)
+                withClue(clue = "column '${attr.name}'") {
+                    col.nullable shouldBe attr.nullable
+                }
+            }
+            real.foreignKeys["acknowledged_by_member_id"] shouldBe "member"
+        }
+
+        test("vat_compliance_acknowledgment entity column-name set matches the generated VatComplianceAcknowledgmentTable 1:1") {
+            model.entities
+                .single { it.name == "vat_compliance_acknowledgment" }
+                .attributes
+                .map { it.name } shouldContainExactlyInAnyOrder VatComplianceAcknowledgmentTable.columns.map { it.name }
+        }
+
         // ── (2) Model vs. generated Exposed Table objects ────────────────────
 
         test("ledger_account entity column-name set matches the generated LedgerAccountTable 1:1") {
@@ -301,6 +351,17 @@ class AccountingSchemaDriftTest :
                             "WIRTSCHAFTLICHER_GESCHAEFTSBETRIEB",
                         ),
                     externalFqName = "network.lapis.cloud.shared.domain.GemeinnuetzigkeitSphere",
+                )
+        }
+
+        test("posting.vat_rate is modelled as a real ErmDataType.Enum column, load-bearing literal order (V1.4.13)") {
+            val vatRate = model.entities.single { it.name == "posting" }.attributeByName("vat_rate")
+
+            vatRate?.type shouldBe
+                ErmDataType.Enum(
+                    name = "VatRate",
+                    values = listOf("UNCLASSIFIED", "NOT_SUBJECT", "ZERO", "REDUCED", "STANDARD"),
+                    externalFqName = "network.lapis.cloud.shared.domain.VatRate",
                 )
         }
 

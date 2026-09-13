@@ -6,6 +6,7 @@ import network.lapis.cloud.shared.domain.DatevExportBlockerKind
 import network.lapis.cloud.shared.domain.DonorCategory
 import network.lapis.cloud.shared.domain.GemeinnuetzigkeitSphere
 import network.lapis.cloud.shared.domain.ReserveType
+import network.lapis.cloud.shared.domain.VatRate
 
 // Accounting UI wave -- German label/badge-color tables for enums shared by *more than one*
 // Accounting screen, design decision D9. GemeinnuetzigkeitSphere is needed by both
@@ -98,6 +99,22 @@ fun donorCategoryColor(category: DonorCategory): String =
         DonorCategory.OTHER_PARTY_OR_PARLIAMENTARY_GROUP_ENTITY -> "danger"
         DonorCategory.PROFESSIONAL_OR_TRADE_ASSOCIATION -> "danger"
         DonorCategory.ANONYMOUS -> "dark"
+    }
+
+/**
+ * Welle V1.4.13 "USt-Voranmeldung" -- USt-Satz als TEXT, niemals als Farbcode: das
+ * Sphären-Farbsystem ([sphereColor]) bleibt das einzige Farbsystem der Buchungszeile, zwei
+ * konkurrierende Farbcodes nebeneinander werden als einer gelesen und verwechselt (Kare-Ruling).
+ * "0 %" und "nicht steuerbar" dürfen nie gleich aussehen -- das Wort für den Nicht-Fall enthält
+ * bewusst KEINE Prozentzahl. Deliberately no `vatRateColor` companion function.
+ */
+fun vatRateLabel(rate: VatRate): String =
+    when (rate) {
+        VatRate.UNCLASSIFIED -> gettext("Keine USt-Einordnung")
+        VatRate.NOT_SUBJECT -> gettext("nicht steuerbar")
+        VatRate.ZERO -> gettext("0 %")
+        VatRate.REDUCED -> gettext("7 %")
+        VatRate.STANDARD -> gettext("19 %")
     }
 
 /**

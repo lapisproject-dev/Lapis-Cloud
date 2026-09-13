@@ -51,6 +51,8 @@ import network.lapis.cloud.shared.domain.PostingDto
 import network.lapis.cloud.shared.domain.PostingInput
 import network.lapis.cloud.shared.domain.PostingSide
 import network.lapis.cloud.shared.domain.ReserveType
+import network.lapis.cloud.shared.domain.VatRate
+import network.lapis.cloud.shared.domain.suggestedVatRate
 import network.lapis.cloud.shared.rpc.IAccountingService
 import network.lapis.cloud.shared.rpc.IMemberService
 import network.lapis.cloud.shared.rpc.IOrganizationSettingsService
@@ -270,6 +272,8 @@ fun renderLedgerScreen(container: SimplePanel) {
                     members,
                     externalDonors,
                     settings?.isPoliticalParty ?: false,
+                    settings?.vatEnabled ?: false,
+                    settings?.isKleinunternehmer ?: false,
                     onSaved = { refreshJournal() },
                 )
         }
@@ -543,6 +547,13 @@ internal fun OrganizationSettingsDto.toInputWithPaymentAccountMapping(
     isPoliticalParty = isPoliticalParty,
     postalMailEnabled = postalMailEnabled,
     politicianRankingEnabled = politicianRankingEnabled,
+    // Review MAJOR fix (V1.4.13 "USt-Voranmeldung"): isKleinunternehmer has no dedicated form field
+    // on this screen and was forgotten here, silently resetting a Kleinunternehmer org's §19-UStG
+    // status to `false` the next time an ADMIN merely saves the payment account mapping. With
+    // `vatEnabled = true` that flips `AccountingService.vatActive()` from inactive to active, with
+    // immediate effects on journal-entry VAT normalization, the VAT return preview, and export
+    // blocking -- same "never silently drop/reset a field" bug class as every account field below.
+    isKleinunternehmer = isKleinunternehmer,
     paymentBankAccountId = paymentBankAccountId,
     paymentFeeAccountId = paymentFeeAccountId,
     contributionIncomeAccountId = contributionIncomeAccountId,
@@ -1059,7 +1070,7 @@ private fun renderPostingsTable(
     }
     val table =
         panel.table(
-            headerNames = listOf(tr("Konto"), tr("Soll"), tr("Haben"), tr("Sphäre"), tr("Kostenstelle")),
+            headerNames = listOf(tr("Konto"), tr("Soll"), tr("Haben"), tr("Sphäre"), tr("Kostenstelle"), tr("USt")),
             types = setOf(TableType.STRIPED, TableType.HOVER),
         )
     postings.forEach { posting ->
@@ -1071,6 +1082,10 @@ private fun renderPostingsTable(
             cell(posting.costCenterCode?.let { gettext("%1 · %2", it, posting.costCenterName) } ?: "--") {
                 addCssClasses("text-muted small")
             }
+            // Welle V1.4.13 "USt-Voranmeldung" -- Text, nie eine Farbe (siehe vatRateLabel KDoc).
+            // Bewusst ohne Betrag zusaetzlich -- der Betrag oben ist BRUTTO inkl. USt, siehe
+            // NonprofitComplianceReportsScreen.kt fuer den ausdruecklichen Brutto-Hinweis.
+            cell(vatRateLabel(posting.vatRate)) { addCssClasses("text-muted small") }
         }
     }
 }
@@ -1086,6 +1101,14 @@ private class PostingLineRow(
     val amountInput: Text,
     val sphereSelect: Select,
     val costCenterSelect: Select,
+    /** Welle V1.4.13 -- `null` when USt is not usable for this organization (`!vatEnabled ||
+     *  isKleinunternehmer`), matching the server's own [VatRate.UNCLASSIFIED] normalization for
+     *  that case (`AccountingService.insertJournalEntry`'s `vatActive` gate). */
+    val vatRateSelect: Select?,
+    /** Welle V1.4.13 -- `true` once the treasurer has touched [vatRateSelect] themselves; the
+     *  sphere-change auto-suggestion (see [renderPostingLinesRow]) then stops overwriting their
+     *  choice. */
+    var vatRateUserTouched: Boolean = false,
 )
 
 /**
@@ -1100,8 +1123,14 @@ private fun renderNewEntryForm(
     members: List<MemberSummaryDto>,
     externalDonors: List<ExternalDonorDto>,
     isPoliticalParty: Boolean,
+    // Welle V1.4.13 "USt-Voranmeldung" -- mirrors the server's own `vatActive` gate
+    // (`AccountingService.insertJournalEntry`): the per-line USt control is only rendered while
+    // both hold, exactly the condition under which the server would keep a sent rate anyway.
+    vatEnabled: Boolean,
+    isKleinunternehmer: Boolean,
     onSaved: () -> Unit,
 ): (JournalEntryDto) -> Unit {
+    val vatUsable = vatEnabled && !isKleinunternehmer
     val panel = root.vPanel(spacing = 8)
     val dateInput = panel.text(value = todayIso(), label = tr("Datum (JJJJ-MM-TT)"))
     val descriptionInput = panel.text(label = tr("Beschreibung"))
@@ -1118,6 +1147,10 @@ private fun renderNewEntryForm(
     // option makes "not yet chosen" visible in the actual rendered <select>, not just internally.
     val sphereOptions = listOf("" to tr("-- Sphäre wählen --")) + GemeinnuetzigkeitSphere.entries.map { it.name to sphereLabel(it) }
     val costCenterOptions = listOf("" to tr("-- keine --")) + costCenters.map { it.id to gettext("%1 · %2", it.code, it.name) }
+    // UNCLASSIFIED is NEVER offered here -- see VatRate KDoc "kein Guard, aber auch keine
+    // Wahlmoeglichkeit fuer 'nie klassifiziert'". A treasurer either names a real classification
+    // or the sphere-derived suggestion pre-fills one; there is no user-facing "unset" choice.
+    val vatRateOptions = listOf(VatRate.NOT_SUBJECT, VatRate.ZERO, VatRate.REDUCED, VatRate.STANDARD).map { it.name to vatRateLabel(it) }
 
     fun addRow(
         accountId: String = "",
@@ -1125,6 +1158,7 @@ private fun renderNewEntryForm(
         amount: String = "",
         sphere: GemeinnuetzigkeitSphere? = null,
         costCenterId: String = "",
+        vatRate: VatRate? = null,
     ) {
         renderPostingLinesRow(
             rowsPanel,
@@ -1132,11 +1166,14 @@ private fun renderNewEntryForm(
             sideOptions,
             sphereOptions,
             costCenterOptions,
+            vatRateOptions,
+            vatUsable,
             accountId,
             side,
             amount,
             sphere,
             costCenterId,
+            vatRate,
             rows,
         )
     }
@@ -1201,13 +1238,25 @@ private fun renderNewEntryForm(
             if (!Validation.isPositiveDecimal(amountText)) return null
             val sphere = row.sphereSelect.value?.let { runCatching { GemeinnuetzigkeitSphere.valueOf(it) }.getOrNull() } ?: return null
             val costCenterId = row.costCenterSelect.value?.takeIf { it.isNotBlank() }
+            // Welle V1.4.13: hidden control (row.vatRateSelect == null, USt not usable for this
+            // organization) -> UNCLASSIFIED, exactly the server's own vatActive-gate normalization
+            // -- see AccountingService.insertJournalEntry KDoc.
+            val vatRate =
+                row.vatRateSelect?.value?.let { runCatching { VatRate.valueOf(it) }.getOrNull() } ?: VatRate.UNCLASSIFIED
             result.add(
                 PostingInput(
                     ledgerAccountId = accountId,
                     side = side,
-                    amount = amountText.toDouble().toDecimal(),
+                    // Rounded client-side, same as every other Decimal-producing input in this
+                    // client (Validation.roundToTwoDecimalPlaces, see SepaBatchesScreen/
+                    // SocialNetworkScreen/DunningSettingsScreen) -- Validation.isPositiveDecimal
+                    // above accepts a 3+-decimal string, which without this rounding step reaches
+                    // the server as a scale>2 BigDecimal and trips VatCalculator.vatAmountOf's
+                    // RoundingMode.UNNECESSARY guard with an uncaught 500 instead of posting.
+                    amount = Validation.roundToTwoDecimalPlaces(amountText.toDouble()).toDecimal(),
                     sphere = sphere,
                     costCenterId = costCenterId,
+                    vatRate = vatRate,
                 ),
             )
         }
@@ -1338,6 +1387,7 @@ private fun renderNewEntryForm(
                 amount = posting.amount.toString(),
                 sphere = posting.sphere,
                 costCenterId = posting.costCenterId.orEmpty(),
+                vatRate = posting.vatRate.takeIf { it != VatRate.UNCLASSIFIED },
             )
         }
         if (entry.postings.isEmpty()) {
@@ -1373,11 +1423,14 @@ private fun renderPostingLinesRow(
     sideOptions: List<Pair<String, String>>,
     sphereOptions: List<Pair<String, String>>,
     costCenterOptions: List<Pair<String, String>>,
+    vatRateOptions: List<Pair<String, String>>,
+    vatUsable: Boolean,
     accountId: String,
     side: PostingSide,
     amount: String,
     sphere: GemeinnuetzigkeitSphere?,
     costCenterId: String,
+    vatRate: VatRate?,
     rows: MutableList<PostingLineRow>,
 ) {
     val rowPanel = rowsPanel.hPanel(spacing = 8) { addCssClasses("align-items-end border-bottom pb-2") }
@@ -1386,10 +1439,56 @@ private fun renderPostingLinesRow(
     val amountInput = rowPanel.text(value = amount.ifBlank { null }, label = tr("Betrag"))
     val sphereSelect = rowPanel.select(options = sphereOptions, value = sphere?.name ?: "", label = tr("Sphäre"))
     val costCenterSelect = rowPanel.select(options = costCenterOptions, value = costCenterId, label = tr("Kostenstelle"))
+    // Welle V1.4.13 "USt-Voranmeldung" -- sechstes Control, NUR gerendert wenn USt fuer diese
+    // Organisation nutzbar ist (vatUsable). UNCLASSIFIED ist absichtlich nicht waehlbar (siehe
+    // vatRateOptions KDoc am Aufrufer) -- ein Vorschlag aus der Sphaere ist vorausgewaehlt, siehe
+    // unten.
+    val vatRateSelect =
+        if (vatUsable) {
+            rowPanel.select(
+                options = vatRateOptions,
+                value = (vatRate ?: sphere?.let { suggestedVatRate(it) })?.name,
+                label = tr("USt"),
+            )
+        } else {
+            null
+        }
     val removeButton = rowPanel.button(tr("Entfernen"), style = ButtonStyle.OUTLINEDANGER)
 
-    val row = PostingLineRow(rowPanel, accountSelect, sideSelect, amountInput, sphereSelect, costCenterSelect)
+    val row = PostingLineRow(rowPanel, accountSelect, sideSelect, amountInput, sphereSelect, costCenterSelect, vatRateSelect)
     rows.add(row)
+
+    if (vatRateSelect != null) {
+        // Duarte-Ruling: die USt-Auswahl folgt der Sphaere nur so lange, wie der Behandler sie
+        // nicht selbst angefasst hat -- danach nie wieder ueberschrieben, auch nicht bei einem
+        // weiteren Sphaerenwechsel. Ein sichtbarer Kurzhinweis erklaert die Herkunft des
+        // Vorschlags; er verschwindet in dem Moment, in dem die Person selbst waehlt.
+        val suggestionHint =
+            rowPanel.div(tr("Vorschlag aus der Sphäre -- jederzeit überschreibbar")) {
+                addCssClasses("text-muted small")
+            }
+        if (vatRate != null) suggestionHint.hide()
+        // Guards against the programmatic `vatRateSelect.value = ...` write below itself firing
+        // `vatRateSelect`'s own `subscribe` callback -- KVision's reactive `.value` setter cannot
+        // distinguish "the user picked this" from "code just set this", so without this flag the
+        // very first auto-suggestion would immediately mark itself as user-touched and the
+        // suggestion would never update again on a later sphere change.
+        var applyingSuggestion = false
+        sphereSelect.subscribe {
+            if (row.vatRateUserTouched) return@subscribe
+            val newSphere = it?.let { name -> runCatching { GemeinnuetzigkeitSphere.valueOf(name) }.getOrNull() }
+            applyingSuggestion = true
+            vatRateSelect.value = newSphere?.let { s -> suggestedVatRate(s) }?.name
+            applyingSuggestion = false
+            if (newSphere != null) suggestionHint.show() else suggestionHint.hide()
+        }
+        vatRateSelect.subscribe {
+            if (applyingSuggestion) return@subscribe
+            row.vatRateUserTouched = true
+            suggestionHint.hide()
+        }
+    }
+
     removeButton.onClick {
         rowsPanel.remove(rowPanel)
         rows.remove(row)
@@ -1406,6 +1505,16 @@ private data class PostingLineDisplay(
     val amount: Decimal,
     val sphereLabel: String,
     val costCenterLabel: String?,
+    /** Welle V1.4.13. `null` only when USt is not usable for this organization at all (every line
+     *  would show UNCLASSIFIED, a column of nothing but "Keine USt-Einordnung" adds noise without
+     *  information) -- see [postingConfirmDialog]'s own column-visibility check. */
+    val vatRateLabel: String? = null,
+    /** Welle V1.4.13. Only ever set from an already-loaded [PostingDto] ([postingDtosToDisplay]) --
+     *  [postingInputsToDisplay] leaves this `null` on principle: a not-yet-posted [PostingInput]
+     *  has no server-computed `vatAmount` yet, and this modal never re-derives a persisted
+     *  monetary figure on its own (see [sumPostingLines] KDoc for the one narrow exception this
+     *  file already documents, which does not apply here). */
+    val vatAmount: Decimal? = null,
 )
 
 private fun postingDtosToDisplay(postings: List<PostingDto>): List<PostingLineDisplay> =
@@ -1416,6 +1525,13 @@ private fun postingDtosToDisplay(postings: List<PostingDto>): List<PostingLineDi
             amount = posting.amount,
             sphereLabel = sphereLabel(posting.sphere),
             costCenterLabel = posting.costCenterCode?.let { gettext("%1 · %2", it, posting.costCenterName) },
+            // null (both fields together) for UNCLASSIFIED -- see PostingLineDisplay KDoc: a set
+            // of lines where every single one reads "Keine USt-Einordnung" (USt not usable for
+            // this organization at all) should not even show the column, not show it full of that
+            // one repeated label. Kept paired (never one null, the other set) so the rendering
+            // code never has to handle a "label missing but amount present" half-state.
+            vatRateLabel = posting.vatRate.takeIf { it != VatRate.UNCLASSIFIED }?.let { vatRateLabel(it) },
+            vatAmount = posting.vatAmount.takeIf { posting.vatRate != VatRate.UNCLASSIFIED },
         )
     }
 
@@ -1433,6 +1549,7 @@ private fun postingInputsToDisplay(
             amount = posting.amount,
             sphereLabel = sphereLabel(posting.sphere),
             costCenterLabel = costCenter?.let { gettext("%1 · %2", it.code, it.name) },
+            vatRateLabel = posting.vatRate.takeIf { it != VatRate.UNCLASSIFIED }?.let { vatRateLabel(it) },
         )
     }
 
@@ -1478,12 +1595,22 @@ private fun postingConfirmDialog(
         addCssClasses("text-muted small mb-2")
     }
 
+    // Welle V1.4.13: the USt column only earns its place when at least one line actually carries a
+    // real classification -- an all-UNCLASSIFIED set (USt not usable for this organization) would
+    // otherwise add a column of pure noise. `vatRateLabel` is only ever non-null when USt is
+    // usable (see PostingLineDisplay KDoc), so this also doubles as the "is USt usable here" check.
+    val showVatColumn = lines.any { it.vatRateLabel != null }
+    if (showVatColumn) {
+        modal.div(tr("Beträge oben sind BRUTTO (inkl. USt).")) { addCssClasses("text-muted small") }
+    }
+
     val headerRow = modal.hPanel(spacing = 8) { addCssClasses("fw-bold border-bottom pb-1") }
     headerRow.div(tr("Konto")) { addCssClasses("flex-grow-1") }
     headerRow.div(tr("Soll")) { width = 100.px }
     headerRow.div(tr("Haben")) { width = 100.px }
     headerRow.div(tr("Sphäre")) { width = 170.px }
     headerRow.div(tr("Kostenstelle")) { width = 130.px }
+    if (showVatColumn) headerRow.div(tr("USt")) { width = 110.px }
 
     lines.forEach { line ->
         val row = modal.hPanel(spacing = 8) { addCssClasses("border-bottom py-1") }
@@ -1498,6 +1625,18 @@ private fun postingConfirmDialog(
             width = 130.px
             addCssClasses("text-muted small")
         }
+        if (showVatColumn) {
+            val vatText =
+                if (line.vatAmount != null) {
+                    gettext("%1 (%2)", line.vatRateLabel, formatMoney(line.vatAmount))
+                } else {
+                    line.vatRateLabel.orEmpty()
+                }
+            row.div(vatText) {
+                width = 110.px
+                addCssClasses("text-muted small")
+            }
+        }
     }
 
     val footerRow = modal.hPanel(spacing = 8) { addCssClasses("fw-bold border-top pt-1") }
@@ -1506,6 +1645,7 @@ private fun postingConfirmDialog(
     footerRow.div(formatMoney(sumPostingLines(lines, PostingSide.CREDIT))) { width = 100.px }
     footerRow.div("") { width = 170.px }
     footerRow.div("") { width = 130.px }
+    if (showVatColumn) footerRow.div("") { width = 110.px }
 
     modal.addButton(Button(tr("Abbrechen"), style = ButtonStyle.SECONDARY).apply { onClick { modal.hide() } })
     modal.addButton(

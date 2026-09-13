@@ -43,16 +43,13 @@ internal object JournalEntryBalance {
         if (postings.size < MIN_POSTING_LINES) {
             return BalanceResult.invalid("A journal entry requires at least $MIN_POSTING_LINES postings, got ${postings.size}")
         }
-        val nonPositive = postings.filter { it.amount <= ZERO }
+        val nonPositive = nonPositiveAmounts(postings)
         if (nonPositive.isNotEmpty()) {
-            return BalanceResult.invalid("Every posting amount must be strictly positive, got ${nonPositive.map { it.amount }}")
+            return BalanceResult.invalid(nonPositiveViolationMessage(nonPositive))
         }
-        val tooFinelyScaled = postings.filter { it.amount.scale() > MAX_AMOUNT_SCALE }
+        val tooFinelyScaled = tooFinelyScaledAmounts(postings)
         if (tooFinelyScaled.isNotEmpty()) {
-            return BalanceResult.invalid(
-                "Every posting amount must have at most $MAX_AMOUNT_SCALE fractional digits, got " +
-                    tooFinelyScaled.map { it.amount.toPlainString() },
-            )
+            return BalanceResult.invalid(scaleViolationMessage(tooFinelyScaled))
         }
 
         val debitTotal = postings.filter { it.side == PostingSide.DEBIT }.sumAmounts()
@@ -73,6 +70,40 @@ internal object JournalEntryBalance {
     }
 
     private fun List<PostingInput>.sumAmounts(): BigDecimal = fold(ZERO) { acc, posting -> acc + posting.amount }
+
+    /**
+     * The scale portion of [validateBalanced], extracted so [AccountingService.saveDraftEntry]
+     * can enforce it WITHOUT the rest of the balance check -- a draft need not balance yet, but
+     * must still never carry a client-supplied amount with more than [MAX_AMOUNT_SCALE] fractional
+     * digits: a scale-3+ `posting.amount` reaching [VatCalculator.vatAmountOf]'s
+     * `RoundingMode.UNNECESSARY` guard throws an uncaught `ArithmeticException` (HTTP 500) instead
+     * of the clean validation error this function lets a caller raise instead. Never throws --
+     * same "callers decide" posture as [validateBalanced] itself.
+     */
+    fun tooFinelyScaledAmounts(postings: List<PostingInput>): List<PostingInput> = postings.filter { it.amount.scale() > MAX_AMOUNT_SCALE }
+
+    /** Shared message text for [validateBalanced] and [AccountingService.requireValidScale] -- one wording, two callers. */
+    fun scaleViolationMessage(tooFinelyScaled: List<PostingInput>): String =
+        "Every posting amount must have at most $MAX_AMOUNT_SCALE fractional digits, got " +
+            tooFinelyScaled.map { it.amount.toPlainString() }
+
+    /**
+     * Security Round 2 (MINOR, regression of the same class [requireValidScale]/[tooFinelyScaledAmounts]
+     * already fixed for scale): the non-positive-amount portion of [validateBalanced], extracted
+     * so [AccountingService.saveDraftEntry] can enforce it WITHOUT the rest of the balance check --
+     * a draft need not balance yet, but a non-positive [PostingInput.amount] still reaches
+     * [network.lapis.cloud.server.accounting.vat.VatCalculator.vatAmountOf] with `vatRate` set,
+     * which can then compute a NEGATIVE `vat_amount` -- violating the DB's
+     * `chk_posting_vat_amount_non_negative` CHECK constraint (`V31__vat.sql`) with an uncaught
+     * `ExposedSQLException` (HTTP 500) instead of the clean validation error this function lets a
+     * caller raise instead. Never throws -- same "callers decide" posture as [validateBalanced]/
+     * [tooFinelyScaledAmounts].
+     */
+    fun nonPositiveAmounts(postings: List<PostingInput>): List<PostingInput> = postings.filter { it.amount <= ZERO }
+
+    /** Shared message text for [validateBalanced] and [AccountingService.requireNonNegativeAmounts] -- one wording, two callers. */
+    fun nonPositiveViolationMessage(nonPositive: List<PostingInput>): String =
+        "Every posting amount must be strictly positive, got ${nonPositive.map { it.amount.toPlainString() }}"
 
     private const val MIN_POSTING_LINES = 2
 }

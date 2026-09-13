@@ -1,6 +1,11 @@
 package network.lapis.cloud.client
 
 import dev.kilua.rpc.types.toDecimal
+import kotlinx.datetime.LocalDate
+import network.lapis.cloud.shared.domain.GemeinnuetzigkeitSphere
+import network.lapis.cloud.shared.domain.OrganizationSettingsDto
+import network.lapis.cloud.shared.domain.VatFilingPeriodicity
+import network.lapis.cloud.shared.domain.VatNotApplicableReason
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -60,5 +65,101 @@ class NonprofitComplianceReportsScreenTest {
         // overdueAmount is documented as never negative, but the typed comparison must not
         // misbehave if it ever were.
         assertFalse(hasOverdueAmount((-1.0).toDecimal()))
+    }
+
+    // Welle V1.4.13 "USt-Voranmeldung" -- pure helper coverage.
+    @Test
+    fun vatNotApplicableText_isDistinctPerReasonAndNamesTheRightRule() {
+        val vatDisabled = vatNotApplicableText(VatNotApplicableReason.VAT_DISABLED)
+        val kleinunternehmer = vatNotApplicableText(VatNotApplicableReason.KLEINUNTERNEHMER)
+        assertTrue(vatDisabled.contains("nicht aktiviert"))
+        assertTrue(kleinunternehmer.contains("Kleinunternehmer"))
+        assertTrue(kleinunternehmer.contains("§ 19 UStG"))
+        assertTrue(vatDisabled != kleinunternehmer)
+    }
+
+    @Test
+    fun vatBalanceLabel_zahllastForPositive_erstattungForNegative_keineForZero() {
+        // Not assertEquals against the literal German word -- the test environment's `tr()` stub
+        // prefixes untranslated keys with a marker (same reason mittelverwendungsBannerText's own
+        // tests above use `.contains(...)`, not exact equality).
+        assertTrue(vatBalanceLabel(19.0.toDecimal()).contains("Zahllast"))
+        assertTrue(vatBalanceLabel((-19.0).toDecimal()).contains("Erstattungsanspruch"))
+        assertTrue(vatBalanceLabel(0.0.toDecimal()).contains("Keine Zahllast"))
+    }
+
+    @Test
+    fun vatFilingPeriodicityText_isNonBlankAndDistinctForEveryValue() {
+        val texts = VatFilingPeriodicity.entries.map { vatFilingPeriodicityText(it) }
+        texts.forEach { assertTrue(it.isNotBlank()) }
+        assertEquals(texts.size, texts.toSet().size, "expected a distinct text per VatFilingPeriodicity value")
+    }
+
+    @Test
+    fun vatFilingPeriodicityText_unknownNamesThePriorYearCoverageGap() {
+        assertTrue(vatFilingPeriodicityText(VatFilingPeriodicity.UNKNOWN).contains("Vorjahr"))
+    }
+
+    // Review MINOR fix (V1.4.13 follow-up): the Kleinunternehmer checkbox wired in
+    // renderVatGateSummary saves via this wholesale-replace helper, same "never silently drop/reset
+    // a field" regression-coverage reasoning as LedgerScreenTest's toInputWithPaymentAccountMapping
+    // tests and PoliticianScreenTest's toInputWithPoliticianRankingEnabled tests -- both of which
+    // had exactly this bug for isKleinunternehmer itself until this same review round.
+    private val fullOrganizationSettings =
+        OrganizationSettingsDto(
+            id = "org-1",
+            name = "Verein Testverein e.V.",
+            street = "Vereinsstrasse 1",
+            postalCode = "38100",
+            city = "Braunschweig",
+            country = "Deutschland",
+            bankIban = "DE02120300000000202051",
+            bankBic = "BYLADEM1001",
+            taxExemptionAuthority = "Finanzamt Braunschweig-Wilhelmstrasse",
+            taxExemptionDate = LocalDate(2025, 1, 15),
+            isPoliticalParty = true,
+            postalMailEnabled = true,
+            politicianRankingEnabled = true,
+            paymentBankAccountId = "account-bank-1",
+            paymentFeeAccountId = "account-fee-1",
+            contributionIncomeAccountId = "account-income-1",
+            donationIncomeAccountId = "account-donation-1",
+            eventIncomeAccountId = "account-event-1",
+            eventIncomeSphere = GemeinnuetzigkeitSphere.WIRTSCHAFTLICHER_GESCHAEFTSBETRIEB,
+            datevBeraterNummer = 1001,
+            datevMandantNummer = 42,
+            travelExpenseAccountId = "account-travel-expense-1",
+            volunteerAllowanceAccountId = "account-volunteer-allowance-1",
+            isKleinunternehmer = false,
+        )
+
+    @Test
+    fun toInputWithKleinunternehmerFlag_flipsOnlyThatOneFieldToTrue() {
+        val input = fullOrganizationSettings.toInputWithKleinunternehmerFlag(true)
+        assertEquals(fullOrganizationSettings.name, input.name)
+        assertEquals(fullOrganizationSettings.isPoliticalParty, input.isPoliticalParty)
+        assertEquals(fullOrganizationSettings.politicianRankingEnabled, input.politicianRankingEnabled)
+        assertEquals(fullOrganizationSettings.paymentBankAccountId, input.paymentBankAccountId)
+        assertEquals(fullOrganizationSettings.paymentFeeAccountId, input.paymentFeeAccountId)
+        assertEquals(fullOrganizationSettings.contributionIncomeAccountId, input.contributionIncomeAccountId)
+        assertEquals(fullOrganizationSettings.donationIncomeAccountId, input.donationIncomeAccountId)
+        assertEquals(fullOrganizationSettings.eventIncomeAccountId, input.eventIncomeAccountId)
+        assertEquals(fullOrganizationSettings.eventIncomeSphere, input.eventIncomeSphere)
+        assertEquals(fullOrganizationSettings.datevBeraterNummer, input.datevBeraterNummer)
+        assertEquals(fullOrganizationSettings.datevMandantNummer, input.datevMandantNummer)
+        assertEquals(fullOrganizationSettings.travelExpenseAccountId, input.travelExpenseAccountId)
+        assertEquals(fullOrganizationSettings.volunteerAllowanceAccountId, input.volunteerAllowanceAccountId)
+        assertTrue(input.isKleinunternehmer, "expected isKleinunternehmer to be flipped to true")
+    }
+
+    @Test
+    fun toInputWithKleinunternehmerFlag_flipsOnlyThatOneFieldToFalse() {
+        val kleinunternehmerSettings = fullOrganizationSettings.copy(isKleinunternehmer = true)
+        val input = kleinunternehmerSettings.toInputWithKleinunternehmerFlag(false)
+        assertEquals(kleinunternehmerSettings.name, input.name)
+        assertEquals(kleinunternehmerSettings.paymentBankAccountId, input.paymentBankAccountId)
+        assertEquals(kleinunternehmerSettings.travelExpenseAccountId, input.travelExpenseAccountId)
+        assertEquals(kleinunternehmerSettings.volunteerAllowanceAccountId, input.volunteerAllowanceAccountId)
+        assertFalse(input.isKleinunternehmer, "expected isKleinunternehmer to be flipped to false")
     }
 }

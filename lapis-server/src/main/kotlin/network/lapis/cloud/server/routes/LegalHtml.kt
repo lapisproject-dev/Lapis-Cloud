@@ -260,9 +260,10 @@ internal object LegalHtml {
             li { +"Freund-/Fördererkonten — Art. 6 Abs. 1 lit. b DSGVO." }
             li {
                 +(
-                    "Buchhaltung, Beitrags-/Spendenkonto, Prüfpfad, Zahlungsverkehr, interne Verrechnung und " +
-                        "Auktionen — Art. 6 Abs. 1 lit. c DSGVO (handels-/steuerrechtliche Aufbewahrungspflichten, " +
-                        "GoBD/HGB/AO; bei politischen Parteien zusätzlich § 25 PartG)."
+                    "Buchhaltung, Beitrags-/Spendenkonto, Prüfpfad, Zahlungsverkehr, interne Verrechnung, " +
+                        "Umsatzsteuer-Voranmeldung (Nachweishilfe) und Auktionen — Art. 6 Abs. 1 lit. c DSGVO " +
+                        "(handels-/steuerrechtliche Aufbewahrungspflichten, GoBD/HGB/AO; bei politischen " +
+                        "Parteien zusätzlich § 25 PartG)."
                 )
             }
             li {

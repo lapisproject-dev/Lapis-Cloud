@@ -86,4 +86,12 @@ data class DatevExportPreviewDto(
     val blockers: List<DatevExportBlockerDto>,
     /** `blockers.isEmpty()` -- computed server-side so the client never re-implements the rule. */
     val exportable: Boolean,
+    /** V1.4.13: Anzahl POSTED-Eintraege im Zeitraum mit mindestens einer USt-tragenden Buchung.
+     *  KEIN Blocker: Feld 9 (BU-Schluessel) bleibt leer, wie seit V1.4.5.2 -- eine CSV fuer einen
+     *  Steuerberater, der den Schluessel selbst setzt, ist mit einem leeren Feld 9 gelebte Praxis
+     *  und keine Falschaussage (anders als eine 0-%-Zahl an eine Buchhaltungs-API, siehe
+     *  [AccountingExportBlockerKind.VAT_BEARING_ENTRY]). Die Zahl steht in der Vorschau, damit der
+     *  Mensch weiss, was er zu ergaenzen hat. */
+    val vatBearingEntryCount: Int = 0,
+    val vatBearingGrossTotal: Decimal,
 )

@@ -66,6 +66,11 @@ class PoliticianScreenTest {
             // reasoning as datevBeraterNummer/datevMandantNummer above -- a non-default value here
             // means a future copy-bug in toInputWithPoliticianRankingEnabled fails loudly.
             travelExpenseAccountId = "account-travel-expense-1",
+            // Review MAJOR fix (V1.4.13 "USt-Voranmeldung"): same regression-coverage reasoning as
+            // travelExpenseAccountId above -- a non-default (`true`) value here means a future
+            // copy-bug that forgets isKleinunternehmer in toInputWithPoliticianRankingEnabled fails
+            // loudly instead of hiding behind the field's own Kotlin default of `false`.
+            isKleinunternehmer = true,
         )
 
     @Test
@@ -91,6 +96,7 @@ class PoliticianScreenTest {
         assertEquals(fullSettings.datevBeraterNummer, input.datevBeraterNummer)
         assertEquals(fullSettings.datevMandantNummer, input.datevMandantNummer)
         assertEquals(fullSettings.travelExpenseAccountId, input.travelExpenseAccountId)
+        assertEquals(fullSettings.isKleinunternehmer, input.isKleinunternehmer)
         assertTrue(input.politicianRankingEnabled, "expected politicianRankingEnabled to be flipped to true")
     }
 
@@ -117,6 +123,7 @@ class PoliticianScreenTest {
         assertEquals(fullSettings.datevBeraterNummer, input.datevBeraterNummer)
         assertEquals(fullSettings.datevMandantNummer, input.datevMandantNummer)
         assertEquals(fullSettings.travelExpenseAccountId, input.travelExpenseAccountId)
+        assertEquals(fullSettings.isKleinunternehmer, input.isKleinunternehmer)
         assertFalse(input.politicianRankingEnabled, "expected politicianRankingEnabled to be flipped to false")
     }
 
@@ -156,6 +163,7 @@ class PoliticianScreenTest {
         assertEquals(null, input.travelExpenseAccountId)
         assertFalse(input.isPoliticalParty)
         assertFalse(input.postalMailEnabled)
+        assertFalse(input.isKleinunternehmer)
         assertTrue(input.politicianRankingEnabled)
     }
 
