@@ -158,6 +158,7 @@ import network.lapis.cloud.server.rpc.DunningService
 import network.lapis.cloud.server.rpc.ElectionService
 import network.lapis.cloud.server.rpc.EventRoomService
 import network.lapis.cloud.server.rpc.EventService
+import network.lapis.cloud.server.rpc.EventVolunteerService
 import network.lapis.cloud.server.rpc.FederationService
 import network.lapis.cloud.server.rpc.GovernanceService
 import network.lapis.cloud.server.rpc.LtrLedgerService
@@ -221,6 +222,7 @@ import network.lapis.cloud.shared.rpc.IDunningService
 import network.lapis.cloud.shared.rpc.IElectionService
 import network.lapis.cloud.shared.rpc.IEventRoomService
 import network.lapis.cloud.shared.rpc.IEventService
+import network.lapis.cloud.shared.rpc.IEventVolunteerService
 import network.lapis.cloud.shared.rpc.IFederationService
 import network.lapis.cloud.shared.rpc.IGovernanceService
 import network.lapis.cloud.shared.rpc.ILtrLedgerService
@@ -875,6 +877,13 @@ fun Application.module() {
     val eventCheckInRateLimiter = FederationInboxRateLimiter(maxRequests = 240, window = 1.minutes)
     val eventTicketPageRateLimiter = FederationInboxRateLimiter(maxRequests = 60, window = 1.minutes, maxTrackedKeys = 50_000)
     val eventTicketCodeFailureLimiter = LoginRateLimiter(maxFailures = 20, window = 15.minutes)
+    // Welle V1.4.3.7 "Helfer-/Schichtplanung für Veranstaltungen" -- gates ONLY
+    // IEventVolunteerService's two self-service methods (signUpSelf/cancelOwnSignup), member-keyed
+    // -- same rate-limiting posture eventWriteRateLimiter establishes for
+    // registerSelf/cancelOwnRegistration above. The BOARD/ADMIN shift-management methods are
+    // deliberately NOT rate-limited (mirrors EventRoomService/CateringService, neither of which
+    // rate-limits their own equally BOARD/ADMIN-only management methods).
+    val eventVolunteerWriteRateLimiter = FederationInboxRateLimiter(maxRequests = 60, window = 1.minutes)
 
     // V1.0 Videokonferenzen, Wave 9 "Stream-Pause bei geheimen Abstimmungen" (D6) -- constructed here,
     // NOT left to ElectionService's/SystemicConsensusService's own constructor defaults (there ARE
@@ -1374,6 +1383,10 @@ fun Application.module() {
         registerService(IEventRoomService::class) { call -> EventRoomService(call) }
         // Welle V1.4.3.5 "Catering-Management für Veranstaltungen".
         registerService(ICateringService::class) { call -> CateringService(call) }
+        // Welle V1.4.3.7 "Helfer-/Schichtplanung für Veranstaltungen".
+        registerService(IEventVolunteerService::class) { call ->
+            EventVolunteerService(call = call, writeRateLimiter = eventVolunteerWriteRateLimiter)
+        }
     }
 
     routing {

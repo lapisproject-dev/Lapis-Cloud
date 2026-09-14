@@ -10017,3 +10017,111 @@ msgstr ""
 #: src/jsMain/kotlin/network/lapis/cloud/client/EventCheckInScreen.kt:1
 msgid "Rechnung gestellt am %1 durch %2 (Offener Posten)."
 msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventVolunteerShiftsScreen.kt:1
+msgid "Helfer-Schichten"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventVolunteerShiftsScreen.kt:1
+msgid "Neue Schicht anlegen"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventVolunteerShiftsScreen.kt:1
+msgid "Noch keine Schichten für diese Veranstaltung."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventVolunteerShiftsScreen.kt:1
+msgid "Besetzung: %1 von %2"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventVolunteerShiftsScreen.kt:1
+msgid "\"%1\" wirklich stornieren? Bestehende Zusagen bleiben als Historie erhalten."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventVolunteerShiftsScreen.kt:1
+msgid "Schicht stornieren"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventVolunteerShiftsScreen.kt:1
+msgid "Zusagen anzeigen"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventVolunteerShiftsScreen.kt:1
+msgid "Noch keine Zusagen für diese Schicht."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventVolunteerShiftsScreen.kt:1
+msgid "Beginn (JJJJ-MM-TTThh:mm)"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventVolunteerShiftsScreen.kt:1
+msgid "Ende (JJJJ-MM-TTThh:mm)"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventVolunteerShiftsScreen.kt:1
+msgid "Benötigte Anzahl"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventVolunteerShiftsScreen.kt:1
+msgid "Schicht \"%1\" wurde aktualisiert."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventVolunteerShiftsScreen.kt:1
+msgid "Bitte einen gültigen Beginn im Format JJJJ-MM-TTThh:mm angeben."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventVolunteerShiftsScreen.kt:1
+msgid "Bitte ein gültiges Ende im Format JJJJ-MM-TTThh:mm angeben."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventVolunteerShiftsScreen.kt:1
+msgid "Das Ende der Schicht muss nach ihrem Beginn liegen."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventVolunteerShiftsScreen.kt:1
+msgid "Die benötigte Anzahl muss eine positive ganze Zahl sein."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventVolunteerShiftsScreen.kt:1
+msgid "Schicht anlegen"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventVolunteerShiftsScreen.kt:1
+msgid "Schicht \"%1\" wurde angelegt."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventVolunteerShiftsScreen.kt:1
+msgid "Zugesagt"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventVolunteerShiftsScreen.kt:1
+msgid "Helferschichten"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventVolunteerShiftsScreen.kt:1
+msgid "Verfügbare Schichten"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventVolunteerShiftsScreen.kt:1
+msgid "Für diese Veranstaltung sind aktuell keine Schichten offen."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventVolunteerShiftsScreen.kt:1
+msgid "Sie sind für diese Schicht angemeldet."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventVolunteerShiftsScreen.kt:1
+msgid "Zusage zurückziehen"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventVolunteerShiftsScreen.kt:1
+msgid "Ihre Zusage wurde zurückgezogen."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventVolunteerShiftsScreen.kt:1
+msgid "Diese Schicht ist bereits voll besetzt."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventVolunteerShiftsScreen.kt:1
+msgid "Sie haben sich für \"%1\" angemeldet."
+msgstr ""

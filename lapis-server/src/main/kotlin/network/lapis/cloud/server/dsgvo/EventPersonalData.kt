@@ -7,6 +7,8 @@ import network.lapis.cloud.server.db.generated.EventCateringOrderTable
 import network.lapis.cloud.server.db.generated.EventRegistrationTable
 import network.lapis.cloud.server.db.generated.EventRoomTable
 import network.lapis.cloud.server.db.generated.EventTable
+import network.lapis.cloud.server.db.generated.EventVolunteerShiftTable
+import network.lapis.cloud.server.db.generated.EventVolunteerSignupTable
 import network.lapis.cloud.shared.domain.ErasureMode
 import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.jdbc.selectAll
@@ -69,11 +71,32 @@ import kotlin.uuid.Uuid
  * Counted in [eraseMember] below, same "createdBy"-style outcome the Room/Catering addenda above
  * already establish (unlike `.checked_in_by`, which -- pre-existing gap, not introduced here --
  * has no dedicated [eraseMember] outcome of its own).
+ *
+ * **Welle V1.4.3.7 "Helfer-/Schichtplanung" addendum.** [EventVolunteerShiftTable] gained a sixth
+ * member-FK-bearing column, `created_by` (same retain-with-reason posture as
+ * [EventCateringOrderTable.createdBy]/[EventRoomTable.createdBy] -- "who created this shift", pure
+ * organisatorische Nachvollziehbarkeit, the shift itself describes no person) and
+ * [EventVolunteerSignupTable] gained its own, `member_id` -- a genuine Personenbezug ("wer hat
+ * sich für welche Schicht eingetragen"), same retain-with-reason posture as
+ * [EventRegistrationTable.memberId] ("member_id-FK bleibt als Anker erhalten"). KEINE Art.-9-
+ * DSGVO-Sonderkategorie -- eine Schichtzusage ist eine unkritische Planungsangabe (wer hilft wann
+ * mit), kein Gesundheits-/Sonderkategoriedatum wie bei der bewusst NICHT pro-Person erfassten
+ * `event_catering_order`. Extending this existing contributor rather than adding a new
+ * `EventVolunteerPersonalData` one: same "small satellite of the event domain" posture the
+ * Room/Catering addenda above already establish (see `51-event-volunteer.kuml.kts` file header).
  */
 object EventPersonalData : MemberPersonalDataContributor {
     override val sectionKey = "events"
     override val displayName = "Veranstaltungen"
-    override val coveredTables = setOf(EventTable, EventRegistrationTable, EventRoomTable, EventCateringOrderTable)
+    override val coveredTables =
+        setOf(
+            EventTable,
+            EventRegistrationTable,
+            EventRoomTable,
+            EventCateringOrderTable,
+            EventVolunteerShiftTable,
+            EventVolunteerSignupTable,
+        )
 
     /** Export bundle cap -- same posture `CrmPersonalData.MAX_EXPORTED_INTERACTIONS` establishes. */
     internal const val MAX_EXPORTED_REGISTRATIONS = 2_000
@@ -156,6 +179,44 @@ object EventPersonalData : MemberPersonalDataContributor {
                         }
                 },
             )
+            put(
+                "createdVolunteerShifts",
+                buildJsonArray {
+                    EventVolunteerShiftTable
+                        .selectAll()
+                        .where { EventVolunteerShiftTable.createdBy eq memberId }
+                        .limit(MAX_EXPORTED_REGISTRATIONS)
+                        .forEach { row ->
+                            add(
+                                buildJsonObject {
+                                    put("id", row[EventVolunteerShiftTable.id].toString())
+                                    put("eventId", row[EventVolunteerShiftTable.eventId].toString())
+                                    put("description", row[EventVolunteerShiftTable.description])
+                                    put("createdAt", row[EventVolunteerShiftTable.createdAt].toString())
+                                },
+                            )
+                        }
+                },
+            )
+            put(
+                "volunteerSignups",
+                buildJsonArray {
+                    EventVolunteerSignupTable
+                        .selectAll()
+                        .where { EventVolunteerSignupTable.memberId eq memberId }
+                        .limit(MAX_EXPORTED_REGISTRATIONS)
+                        .forEach { row ->
+                            add(
+                                buildJsonObject {
+                                    put("id", row[EventVolunteerSignupTable.id].toString())
+                                    put("shiftId", row[EventVolunteerSignupTable.shiftId].toString())
+                                    put("status", row[EventVolunteerSignupTable.status].name)
+                                    put("signedUpAt", row[EventVolunteerSignupTable.signedUpAt].toString())
+                                },
+                            )
+                        }
+                },
+            )
         }
 
     override fun eraseMember(
@@ -190,6 +251,18 @@ object EventPersonalData : MemberPersonalDataContributor {
             EventRegistrationTable
                 .selectAll()
                 .where { EventRegistrationTable.invoiceIssuedBy eq memberId }
+                .count()
+                .toInt()
+        val createdVolunteerShiftCount =
+            EventVolunteerShiftTable
+                .selectAll()
+                .where { EventVolunteerShiftTable.createdBy eq memberId }
+                .count()
+                .toInt()
+        val volunteerSignupCount =
+            EventVolunteerSignupTable
+                .selectAll()
+                .where { EventVolunteerSignupTable.memberId eq memberId }
                 .count()
                 .toInt()
         val outcomes = mutableListOf<TableErasureOutcome>()
@@ -246,6 +319,27 @@ object EventPersonalData : MemberPersonalDataContributor {
                         "Buchhalterische/organisatorische Nachvollziehbarkeit, wer eine externe Rechnung " +
                             "ausgestellt hat -- invoice_issued_by bleibt als FK-Anker erhalten, der resultierende " +
                             "offene Posten ist Teil der GoBD-Buchführung.",
+                )
+        }
+        if (createdVolunteerShiftCount > 0) {
+            outcomes +=
+                TableErasureOutcome(
+                    table = "event_volunteer_shift",
+                    rowsRetained = createdVolunteerShiftCount,
+                    retentionReason =
+                        "Organisatorische Nachvollziehbarkeit, wer eine Helferschicht angelegt hat -- created_by " +
+                            "bleibt als FK-Anker erhalten, die Schicht selbst beschreibt keine Person.",
+                )
+        }
+        if (volunteerSignupCount > 0) {
+            outcomes +=
+                TableErasureOutcome(
+                    table = "event_volunteer_signup",
+                    rowsRetained = volunteerSignupCount,
+                    retentionReason =
+                        "member_id-FK bleibt als Anker erhalten -- eine Schichtzusage ist eine unkritische " +
+                            "Planungsangabe (wer hilft wann mit), kein Gesundheits-/Sonderkategoriedatum. Das " +
+                            "referenzierte member-Datum wird an anderer Stelle anonymisiert.",
                 )
         }
         return outcomes

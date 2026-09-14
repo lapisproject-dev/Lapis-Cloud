@@ -11143,3 +11143,111 @@ msgstr "Facture émise."
 #: src/jsMain/kotlin/network/lapis/cloud/client/EventCheckInScreen.kt:1
 msgid "Rechnung gestellt am %1 durch %2 (Offener Posten)."
 msgstr "Facture émise le %1 par %2 (poste ouvert)."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventVolunteerShiftsScreen.kt:1
+msgid "Helfer-Schichten"
+msgstr "Créneaux de bénévoles"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventVolunteerShiftsScreen.kt:1
+msgid "Neue Schicht anlegen"
+msgstr "Créer un nouveau créneau"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventVolunteerShiftsScreen.kt:1
+msgid "Noch keine Schichten für diese Veranstaltung."
+msgstr "Aucun créneau pour cet événement pour l'instant."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventVolunteerShiftsScreen.kt:1
+msgid "Besetzung: %1 von %2"
+msgstr "Occupation : %1 sur %2"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventVolunteerShiftsScreen.kt:1
+msgid "\"%1\" wirklich stornieren? Bestehende Zusagen bleiben als Historie erhalten."
+msgstr "Vraiment annuler « %1 » ? Les inscriptions existantes restent conservées comme historique."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventVolunteerShiftsScreen.kt:1
+msgid "Schicht stornieren"
+msgstr "Annuler le créneau"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventVolunteerShiftsScreen.kt:1
+msgid "Zusagen anzeigen"
+msgstr "Afficher les inscriptions"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventVolunteerShiftsScreen.kt:1
+msgid "Noch keine Zusagen für diese Schicht."
+msgstr "Aucune inscription pour ce créneau pour l'instant."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventVolunteerShiftsScreen.kt:1
+msgid "Beginn (JJJJ-MM-TTThh:mm)"
+msgstr "Début (AAAA-MM-JJThh:mm)"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventVolunteerShiftsScreen.kt:1
+msgid "Ende (JJJJ-MM-TTThh:mm)"
+msgstr "Fin (AAAA-MM-JJThh:mm)"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventVolunteerShiftsScreen.kt:1
+msgid "Benötigte Anzahl"
+msgstr "Nombre requis"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventVolunteerShiftsScreen.kt:1
+msgid "Schicht \"%1\" wurde aktualisiert."
+msgstr "Le créneau « %1 » a été mis à jour."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventVolunteerShiftsScreen.kt:1
+msgid "Bitte einen gültigen Beginn im Format JJJJ-MM-TTThh:mm angeben."
+msgstr "Merci d'indiquer un début valide au format AAAA-MM-JJThh:mm."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventVolunteerShiftsScreen.kt:1
+msgid "Bitte ein gültiges Ende im Format JJJJ-MM-TTThh:mm angeben."
+msgstr "Merci d'indiquer une fin valide au format AAAA-MM-JJThh:mm."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventVolunteerShiftsScreen.kt:1
+msgid "Das Ende der Schicht muss nach ihrem Beginn liegen."
+msgstr "La fin du créneau doit être après son début."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventVolunteerShiftsScreen.kt:1
+msgid "Die benötigte Anzahl muss eine positive ganze Zahl sein."
+msgstr "Le nombre requis doit être un nombre entier positif."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventVolunteerShiftsScreen.kt:1
+msgid "Schicht anlegen"
+msgstr "Créer un créneau"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventVolunteerShiftsScreen.kt:1
+msgid "Schicht \"%1\" wurde angelegt."
+msgstr "Le créneau « %1 » a été créé."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventVolunteerShiftsScreen.kt:1
+msgid "Zugesagt"
+msgstr "Confirmé"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventVolunteerShiftsScreen.kt:1
+msgid "Helferschichten"
+msgstr "Mes créneaux de bénévole"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventVolunteerShiftsScreen.kt:1
+msgid "Verfügbare Schichten"
+msgstr "Créneaux disponibles"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventVolunteerShiftsScreen.kt:1
+msgid "Für diese Veranstaltung sind aktuell keine Schichten offen."
+msgstr "Aucun créneau n'est actuellement ouvert pour cet événement."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventVolunteerShiftsScreen.kt:1
+msgid "Sie sind für diese Schicht angemeldet."
+msgstr "Vous êtes inscrit à ce créneau."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventVolunteerShiftsScreen.kt:1
+msgid "Zusage zurückziehen"
+msgstr "Retirer l'inscription"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventVolunteerShiftsScreen.kt:1
+msgid "Ihre Zusage wurde zurückgezogen."
+msgstr "Votre inscription a été retirée."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventVolunteerShiftsScreen.kt:1
+msgid "Diese Schicht ist bereits voll besetzt."
+msgstr "Ce créneau est déjà complet."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventVolunteerShiftsScreen.kt:1
+msgid "Sie haben sich für \"%1\" angemeldet."
+msgstr "Vous vous êtes inscrit à « %1 »."

@@ -119,6 +119,7 @@ private val GROUP_ROUTES: Map<SidebarGroupId, List<String>> =
                 Routes.DONATE,
                 Routes.DSGVO_RIGHTS,
                 Routes.TRAVEL_EXPENSES,
+                Routes.MY_VOLUNTEER_SHIFTS,
             ),
         SidebarGroupId.SELF_GOVERNANCE to listOf(Routes.COMMITTEES, Routes.MEETINGS, Routes.MOTIONS),
         SidebarGroupId.ECONOMY to
@@ -153,6 +154,7 @@ private val GROUP_ROUTES: Map<SidebarGroupId, List<String>> =
                 Routes.EVENT_CHECKIN,
                 Routes.EVENT_ROOMS,
                 Routes.CATERING,
+                Routes.EVENT_VOLUNTEERS,
                 Routes.MEMBER_ANNIVERSARIES,
                 Routes.MEMBER_HONORS,
                 Routes.MEMBER_FAMILIES,
@@ -351,6 +353,10 @@ fun buildSidebar(
             sidebarLink(Routes.TRAVEL_EXPENSES, tr("Reisekosten"), "fas fa-car", toggle)
             // Welle V1.4.12 -- gleiche Grammatik wie TRAVEL_EXPENSES unmittelbar oberhalb.
             sidebarLink(Routes.VOLUNTEER_ALLOWANCES, tr("Ehrenamtspauschalen"), "fas fa-hands-helping", toggle)
+            // Welle V1.4.3.7 -- gleiche Grammatik wie TRAVEL_EXPENSES/VOLUNTEER_ALLOWANCES: reine
+            // Selbstbedienung, kein Rollen-Gate innerhalb der Gruppe (jedes Mitglied kann sich für
+            // eine Schicht an-/abmelden).
+            sidebarLink(Routes.MY_VOLUNTEER_SHIFTS, tr("Helferschichten"), "fas fa-calendar-check", toggle)
         }
     } else if (NavVisibility.showsDsgvoRights(session.status)) {
         // Welle V1.1.4: ein FRIEND hat kein volles "Mitgliedschaft"-Dropdown, braucht aber
@@ -490,6 +496,7 @@ fun buildSidebar(
                 sidebarLink(Routes.EVENT_CHECKIN, tr("Veranstaltungs-Check-in"), "fas fa-qrcode", toggle)
                 sidebarLink(Routes.EVENT_ROOMS, tr("Raumverwaltung"), "fas fa-door-open", toggle)
                 sidebarLink(Routes.CATERING, tr("Catering"), "fas fa-utensils", toggle)
+                sidebarLink(Routes.EVENT_VOLUNTEERS, tr("Helfer-Schichten"), "fas fa-clipboard-check", toggle)
                 sidebarLink(Routes.MEMBER_ANNIVERSARIES, tr("Geburtstage & Jubiläen"), "fas fa-cake-candles", toggle)
                 sidebarLink(Routes.MEMBER_HONORS, tr("Ehrungen & Auszeichnungen"), "fas fa-medal", toggle)
                 sidebarLink(Routes.MEMBER_FAMILIES, tr("Familienmitgliedschaften"), "fas fa-people-roof", toggle)

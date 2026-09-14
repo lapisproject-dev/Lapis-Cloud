@@ -11055,3 +11055,111 @@ msgstr "Faktura wystawiona."
 #: src/jsMain/kotlin/network/lapis/cloud/client/EventCheckInScreen.kt:1
 msgid "Rechnung gestellt am %1 durch %2 (Offener Posten)."
 msgstr "Faktura wystawiona %1 przez %2 (otwarta pozycja)."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventVolunteerShiftsScreen.kt:1
+msgid "Helfer-Schichten"
+msgstr "Zmiany wolontariuszy"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventVolunteerShiftsScreen.kt:1
+msgid "Neue Schicht anlegen"
+msgstr "Utwórz nową zmianę"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventVolunteerShiftsScreen.kt:1
+msgid "Noch keine Schichten für diese Veranstaltung."
+msgstr "Jeszcze brak zmian dla tego wydarzenia."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventVolunteerShiftsScreen.kt:1
+msgid "Besetzung: %1 von %2"
+msgstr "Obsada: %1 z %2"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventVolunteerShiftsScreen.kt:1
+msgid "\"%1\" wirklich stornieren? Bestehende Zusagen bleiben als Historie erhalten."
+msgstr "Czy naprawdę odwołać „%1”? Istniejące zgłoszenia zostają zachowane jako historia."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventVolunteerShiftsScreen.kt:1
+msgid "Schicht stornieren"
+msgstr "Odwołaj zmianę"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventVolunteerShiftsScreen.kt:1
+msgid "Zusagen anzeigen"
+msgstr "Pokaż zgłoszenia"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventVolunteerShiftsScreen.kt:1
+msgid "Noch keine Zusagen für diese Schicht."
+msgstr "Jeszcze brak zgłoszeń na tę zmianę."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventVolunteerShiftsScreen.kt:1
+msgid "Beginn (JJJJ-MM-TTThh:mm)"
+msgstr "Początek (RRRR-MM-DDThh:mm)"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventVolunteerShiftsScreen.kt:1
+msgid "Ende (JJJJ-MM-TTThh:mm)"
+msgstr "Koniec (RRRR-MM-DDThh:mm)"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventVolunteerShiftsScreen.kt:1
+msgid "Benötigte Anzahl"
+msgstr "Wymagana liczba"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventVolunteerShiftsScreen.kt:1
+msgid "Schicht \"%1\" wurde aktualisiert."
+msgstr "Zmiana „%1” została zaktualizowana."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventVolunteerShiftsScreen.kt:1
+msgid "Bitte einen gültigen Beginn im Format JJJJ-MM-TTThh:mm angeben."
+msgstr "Podaj prawidłowy początek w formacie RRRR-MM-DDThh:mm."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventVolunteerShiftsScreen.kt:1
+msgid "Bitte ein gültiges Ende im Format JJJJ-MM-TTThh:mm angeben."
+msgstr "Podaj prawidłowy koniec w formacie RRRR-MM-DDThh:mm."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventVolunteerShiftsScreen.kt:1
+msgid "Das Ende der Schicht muss nach ihrem Beginn liegen."
+msgstr "Koniec zmiany musi być po jej początku."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventVolunteerShiftsScreen.kt:1
+msgid "Die benötigte Anzahl muss eine positive ganze Zahl sein."
+msgstr "Wymagana liczba musi być liczbą całkowitą dodatnią."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventVolunteerShiftsScreen.kt:1
+msgid "Schicht anlegen"
+msgstr "Utwórz zmianę"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventVolunteerShiftsScreen.kt:1
+msgid "Schicht \"%1\" wurde angelegt."
+msgstr "Zmiana „%1” została utworzona."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventVolunteerShiftsScreen.kt:1
+msgid "Zugesagt"
+msgstr "Potwierdzone"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventVolunteerShiftsScreen.kt:1
+msgid "Helferschichten"
+msgstr "Moje zmiany wolontariatu"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventVolunteerShiftsScreen.kt:1
+msgid "Verfügbare Schichten"
+msgstr "Dostępne zmiany"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventVolunteerShiftsScreen.kt:1
+msgid "Für diese Veranstaltung sind aktuell keine Schichten offen."
+msgstr "Obecnie nie ma otwartych zmian dla tego wydarzenia."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventVolunteerShiftsScreen.kt:1
+msgid "Sie sind für diese Schicht angemeldet."
+msgstr "Jesteś zapisany na tę zmianę."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventVolunteerShiftsScreen.kt:1
+msgid "Zusage zurückziehen"
+msgstr "Wycofaj zgłoszenie"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventVolunteerShiftsScreen.kt:1
+msgid "Ihre Zusage wurde zurückgezogen."
+msgstr "Twoje zgłoszenie zostało wycofane."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventVolunteerShiftsScreen.kt:1
+msgid "Diese Schicht ist bereits voll besetzt."
+msgstr "Ta zmiana jest już w pełni obsadzona."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventVolunteerShiftsScreen.kt:1
+msgid "Sie haben sich für \"%1\" angemeldet."
+msgstr "Zapisałeś się na „%1”."

@@ -385,6 +385,21 @@ object Routes {
     // `CateringOrderInput` KDoc für die Art.-9-DSGVO-Begründung, warum dies aggregiert bleibt.
     const val CATERING = "/catering"
 
+    // Welle V1.4.3.7 "Helfer-/Schichtplanung für Veranstaltungen" -- BOARD/ADMIN für die
+    // Schicht-VERWALTUNG, verified against `EventVolunteerService.kt`: `createShift`/`updateShift`/
+    // `cancelShift`/`getShiftRoster` all call `current.requireRole(*EVENT_VOLUNTEER_MANAGE_ROLES)`
+    // where `EVENT_VOLUNTEER_MANAGE_ROLES = [BOARD, ADMIN]` -- same tier as [EVENT_ROOMS]/
+    // [CATERING]. Die Selbstbedienungs-Route [MY_VOLUNTEER_SHIFTS] ist bewusst getrennt
+    // (`requireAuth`, siehe deren eigenen KDoc-Kommentar unten) -- `listShifts`/`signUpSelf`/
+    // `cancelOwnSignup` verlangen KEINE Rolle, nur `resolveCurrentMember`.
+    const val EVENT_VOLUNTEERS = "/event-volunteers"
+
+    // Welle V1.4.3.7 -- `requireAuth`, NICHT `requireRole`: jedes authentifizierte Mitglied kann
+    // sich selbst für eine Schicht an-/abmelden (Selbstbedienung, mirrors [IEventService
+    // .registerSelf]/[.cancelOwnRegistration]) -- gleiche Haltung wie [MEMBER_FINANCES]/
+    // [TRAVEL_EXPENSES], nicht die BOARD/ADMIN-Schicht-VERWALTUNG unter [EVENT_VOLUNTEERS].
+    const val MY_VOLUNTEER_SHIFTS = "/my-volunteer-shifts"
+
     // Welle V1.4.4.1 "Beitragshistorie" -- `requireAuth`, NICHT `requireRole`: jedes authentifizierte
     // Mitglied erreicht diese Route für die EIGENE Historie (Selbstauskunft), die engere
     // TREASURER/BOARD/ADMIN-Schwelle für eine FREMDE Mitglieds-Id wird ausschließlich serverseitig in
@@ -773,6 +788,14 @@ fun initRouting(pageContainer: SimplePanel) {
         requireRole(routing, AccountRole.BOARD, AccountRole.ADMIN) {
             show(Routes.CATERING, ::renderCateringScreen)
         }
+    }
+    routing.kvOn(Routes.EVENT_VOLUNTEERS) {
+        requireRole(routing, AccountRole.BOARD, AccountRole.ADMIN) {
+            show(Routes.EVENT_VOLUNTEERS, ::renderEventVolunteerShiftsScreen)
+        }
+    }
+    routing.kvOn(Routes.MY_VOLUNTEER_SHIFTS) {
+        requireAuth(routing) { show(Routes.MY_VOLUNTEER_SHIFTS, ::renderMyVolunteerShiftsScreen) }
     }
     // `:id` read off Navigo's own `Match.data`, same idiom as `Routes.SOCIAL_NETWORK_POST` above.
     routing.kvOn(Routes.EVENT_CHECKIN_EVENT) { params ->

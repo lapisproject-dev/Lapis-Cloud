@@ -3,6 +3,7 @@ package network.lapis.cloud.server.dsgvo
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import kotlinx.datetime.LocalDate
+import kotlinx.datetime.LocalDateTime
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import network.lapis.cloud.server.db.DatabaseConfig
@@ -11,6 +12,8 @@ import network.lapis.cloud.server.db.generated.AccountTable
 import network.lapis.cloud.server.db.generated.EventCateringOrderTable
 import network.lapis.cloud.server.db.generated.EventRegistrationTable
 import network.lapis.cloud.server.db.generated.EventTable
+import network.lapis.cloud.server.db.generated.EventVolunteerShiftTable
+import network.lapis.cloud.server.db.generated.EventVolunteerSignupTable
 import network.lapis.cloud.server.db.generated.MemberTable
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.CateringOrderStatus
@@ -18,6 +21,8 @@ import network.lapis.cloud.shared.domain.ErasureMode
 import network.lapis.cloud.shared.domain.EventRegistrationStatus
 import network.lapis.cloud.shared.domain.EventStatus
 import network.lapis.cloud.shared.domain.EventVisibility
+import network.lapis.cloud.shared.domain.EventVolunteerShiftStatus
+import network.lapis.cloud.shared.domain.EventVolunteerSignupStatus
 import network.lapis.cloud.shared.domain.MemberStatus
 import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.core.inList
@@ -42,8 +47,14 @@ class EventPersonalDataTest :
 
         beforeSpec { DatabaseConfig.connect() }
 
+        val createdVolunteerShiftIds = mutableListOf<Uuid>()
+
         afterSpec {
             transaction {
+                if (createdVolunteerShiftIds.isNotEmpty()) {
+                    EventVolunteerSignupTable.deleteWhere { shiftId inList createdVolunteerShiftIds }
+                    EventVolunteerShiftTable.deleteWhere { id inList createdVolunteerShiftIds }
+                }
                 if (createdEventIds.isNotEmpty()) {
                     EventCateringOrderTable.deleteWhere { eventId inList createdEventIds }
                     EventRegistrationTable.deleteWhere { eventId inList createdEventIds }
@@ -352,6 +363,119 @@ class EventPersonalDataTest :
             val stillThere =
                 transaction {
                     EventRegistrationTable.selectAll().where { EventRegistrationTable.id eq registrationId }.count()
+                }
+            stillThere shouldBe 1L
+        }
+
+        // ── Welle V1.4.3.7 "Helfer-/Schichtplanung für Veranstaltungen" addendum ────────────────
+
+        fun createTestEventForVolunteer(organizer: Uuid): Uuid {
+            val eventId = Uuid.random()
+            val now = DbClock.nowLocalDateTime()
+            transaction {
+                EventTable.insert {
+                    it[EventTable.id] = eventId
+                    it[slug] = "event-pd-volunteer-test-$eventId"
+                    it[title] = "PD-Volunteer-Test-Event"
+                    it[description] = "test"
+                    it[locationText] = "Testort"
+                    it[onlineUrl] = null
+                    it[startsAt] = now
+                    it[endsAt] = now
+                    it[capacity] = null
+                    it[feeAmount] = BigDecimal.ZERO
+                    it[feeCurrency] = "EUR"
+                    it[status] = EventStatus.PUBLISHED
+                    it[visibility] = EventVisibility.PUBLIC
+                    it[registrationClosesAt] = null
+                    it[EventTable.createdAt] = now
+                    it[EventTable.createdBy] = organizer
+                    it[cancelledAt] = null
+                }
+            }
+            createdEventIds += eventId
+            return eventId
+        }
+
+        test("exportMember includes the member's own created volunteer shifts and signups") {
+            val organizer = createTestMember("event-pd-volunteer-export-${Uuid.random()}@example.org")
+            val now = DbClock.nowLocalDateTime()
+            val eventId = createTestEventForVolunteer(organizer)
+            val shiftId = Uuid.random()
+            transaction {
+                EventVolunteerShiftTable.insert {
+                    it[id] = shiftId
+                    it[EventVolunteerShiftTable.eventId] = eventId
+                    it[description] = "Aufbau"
+                    it[startsAt] = now
+                    it[endsAt] = LocalDateTime(2030, 6, 1, 20, 0)
+                    it[neededCount] = 2
+                    it[status] = EventVolunteerShiftStatus.ACTIVE
+                    it[EventVolunteerShiftTable.createdAt] = now
+                    it[createdBy] = organizer
+                }
+                EventVolunteerSignupTable.insert {
+                    it[id] = Uuid.random()
+                    it[EventVolunteerSignupTable.shiftId] = shiftId
+                    it[memberId] = organizer
+                    it[status] = EventVolunteerSignupStatus.CONFIRMED
+                    it[signedUpAt] = now
+                    it[cancelledAt] = null
+                    it[activeMemberKey] = organizer.toString()
+                }
+            }
+            createdVolunteerShiftIds += shiftId
+
+            val export = transaction { EventPersonalData.exportMember(organizer) }
+            val createdShifts = export.jsonObject["createdVolunteerShifts"]!!.jsonArray
+            val signups = export.jsonObject["volunteerSignups"]!!.jsonArray
+            createdShifts.size shouldBe 1
+            signups.size shouldBe 1
+        }
+
+        test("eraseMember retains event_volunteer_shift and event_volunteer_signup rows with a written reason, never deletes") {
+            val organizer = createTestMember("event-pd-volunteer-erase-${Uuid.random()}@example.org")
+            val now = DbClock.nowLocalDateTime()
+            val eventId = createTestEventForVolunteer(organizer)
+            val shiftId = Uuid.random()
+            transaction {
+                EventVolunteerShiftTable.insert {
+                    it[id] = shiftId
+                    it[EventVolunteerShiftTable.eventId] = eventId
+                    it[description] = "Abbau"
+                    it[startsAt] = now
+                    it[endsAt] = LocalDateTime(2030, 6, 1, 20, 0)
+                    it[neededCount] = 1
+                    it[status] = EventVolunteerShiftStatus.ACTIVE
+                    it[EventVolunteerShiftTable.createdAt] = now
+                    it[createdBy] = organizer
+                }
+                EventVolunteerSignupTable.insert {
+                    it[id] = Uuid.random()
+                    it[EventVolunteerSignupTable.shiftId] = shiftId
+                    it[memberId] = organizer
+                    it[status] = EventVolunteerSignupStatus.CONFIRMED
+                    it[signedUpAt] = now
+                    it[cancelledAt] = null
+                    it[activeMemberKey] = organizer.toString()
+                }
+            }
+            createdVolunteerShiftIds += shiftId
+
+            val outcomes = transaction { EventPersonalData.eraseMember(memberId = organizer, mode = ErasureMode.ANONYMIZE) }
+            val shiftOutcome = outcomes.single { it.table == "event_volunteer_shift" }
+            val signupOutcome = outcomes.single { it.table == "event_volunteer_signup" }
+            shiftOutcome.rowsRetained shouldBe 1
+            shiftOutcome.rowsDeleted shouldBe 0
+            shiftOutcome.retentionReason?.isNotBlank() shouldBe true
+            signupOutcome.rowsRetained shouldBe 1
+            signupOutcome.rowsDeleted shouldBe 0
+            signupOutcome.retentionReason?.isNotBlank() shouldBe true
+
+            // Rows genuinely still exist -- "retained" is not a euphemism for silently deleted.
+            val stillThere =
+                transaction {
+                    EventVolunteerSignupTable.selectAll().where { EventVolunteerSignupTable.shiftId eq shiftId }.count()
                 }
             stillThere shouldBe 1L
         }

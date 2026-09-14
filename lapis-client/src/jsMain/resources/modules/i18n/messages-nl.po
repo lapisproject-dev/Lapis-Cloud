@@ -11060,3 +11060,111 @@ msgstr "Factuur opgesteld."
 #: src/jsMain/kotlin/network/lapis/cloud/client/EventCheckInScreen.kt:1
 msgid "Rechnung gestellt am %1 durch %2 (Offener Posten)."
 msgstr "Factuur opgesteld op %1 door %2 (openstaande post)."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventVolunteerShiftsScreen.kt:1
+msgid "Helfer-Schichten"
+msgstr "Vrijwilligersdiensten"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventVolunteerShiftsScreen.kt:1
+msgid "Neue Schicht anlegen"
+msgstr "Nieuwe dienst aanmaken"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventVolunteerShiftsScreen.kt:1
+msgid "Noch keine Schichten für diese Veranstaltung."
+msgstr "Nog geen diensten voor dit evenement."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventVolunteerShiftsScreen.kt:1
+msgid "Besetzung: %1 von %2"
+msgstr "Bezetting: %1 van %2"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventVolunteerShiftsScreen.kt:1
+msgid "\"%1\" wirklich stornieren? Bestehende Zusagen bleiben als Historie erhalten."
+msgstr "\"%1\" echt annuleren? Bestaande aanmeldingen blijven bewaard als geschiedenis."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventVolunteerShiftsScreen.kt:1
+msgid "Schicht stornieren"
+msgstr "Dienst annuleren"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventVolunteerShiftsScreen.kt:1
+msgid "Zusagen anzeigen"
+msgstr "Aanmeldingen weergeven"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventVolunteerShiftsScreen.kt:1
+msgid "Noch keine Zusagen für diese Schicht."
+msgstr "Nog geen aanmeldingen voor deze dienst."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventVolunteerShiftsScreen.kt:1
+msgid "Beginn (JJJJ-MM-TTThh:mm)"
+msgstr "Begin (JJJJ-MM-DDThh:mm)"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventVolunteerShiftsScreen.kt:1
+msgid "Ende (JJJJ-MM-TTThh:mm)"
+msgstr "Einde (JJJJ-MM-DDThh:mm)"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventVolunteerShiftsScreen.kt:1
+msgid "Benötigte Anzahl"
+msgstr "Benodigd aantal"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventVolunteerShiftsScreen.kt:1
+msgid "Schicht \"%1\" wurde aktualisiert."
+msgstr "Dienst \"%1\" is bijgewerkt."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventVolunteerShiftsScreen.kt:1
+msgid "Bitte einen gültigen Beginn im Format JJJJ-MM-TTThh:mm angeben."
+msgstr "Voer een geldig begin in het formaat JJJJ-MM-DDThh:mm in."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventVolunteerShiftsScreen.kt:1
+msgid "Bitte ein gültiges Ende im Format JJJJ-MM-TTThh:mm angeben."
+msgstr "Voer een geldig einde in het formaat JJJJ-MM-DDThh:mm in."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventVolunteerShiftsScreen.kt:1
+msgid "Das Ende der Schicht muss nach ihrem Beginn liegen."
+msgstr "Het einde van de dienst moet na het begin liggen."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventVolunteerShiftsScreen.kt:1
+msgid "Die benötigte Anzahl muss eine positive ganze Zahl sein."
+msgstr "Het benodigde aantal moet een positief geheel getal zijn."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventVolunteerShiftsScreen.kt:1
+msgid "Schicht anlegen"
+msgstr "Dienst aanmaken"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventVolunteerShiftsScreen.kt:1
+msgid "Schicht \"%1\" wurde angelegt."
+msgstr "Dienst \"%1\" is aangemaakt."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventVolunteerShiftsScreen.kt:1
+msgid "Zugesagt"
+msgstr "Bevestigd"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventVolunteerShiftsScreen.kt:1
+msgid "Helferschichten"
+msgstr "Mijn vrijwilligersdiensten"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventVolunteerShiftsScreen.kt:1
+msgid "Verfügbare Schichten"
+msgstr "Beschikbare diensten"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventVolunteerShiftsScreen.kt:1
+msgid "Für diese Veranstaltung sind aktuell keine Schichten offen."
+msgstr "Er staan momenteel geen diensten open voor dit evenement."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventVolunteerShiftsScreen.kt:1
+msgid "Sie sind für diese Schicht angemeldet."
+msgstr "U bent aangemeld voor deze dienst."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventVolunteerShiftsScreen.kt:1
+msgid "Zusage zurückziehen"
+msgstr "Aanmelding intrekken"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventVolunteerShiftsScreen.kt:1
+msgid "Ihre Zusage wurde zurückgezogen."
+msgstr "Uw aanmelding is ingetrokken."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventVolunteerShiftsScreen.kt:1
+msgid "Diese Schicht ist bereits voll besetzt."
+msgstr "Deze dienst is al volledig bezet."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventVolunteerShiftsScreen.kt:1
+msgid "Sie haben sich für \"%1\" angemeldet."
+msgstr "U heeft zich aangemeld voor \"%1\"."
