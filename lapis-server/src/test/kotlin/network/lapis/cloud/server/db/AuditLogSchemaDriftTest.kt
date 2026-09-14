@@ -154,6 +154,9 @@ class AuditLogSchemaDriftTest :
                             "VOLUNTEER_ALLOWANCE_PAYMENT",
                             "VOLUNTEER_DECLARATION",
                             "BANK_ACCOUNT",
+                            "OPEN_ITEM",
+                            "OPEN_ITEM_NETTING",
+                            "RECEIVABLE_DUNNING_NOTICE",
                         ),
                     externalFqName = "network.lapis.cloud.shared.domain.AuditEntityType",
                 )

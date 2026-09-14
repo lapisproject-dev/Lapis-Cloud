@@ -96,6 +96,18 @@ class OrganizationSettingsSchemaDriftTest :
             real.columns.getValue("is_kleinunternehmer").nullable shouldBe false
         }
 
+        test("receivables_account_id/payables_account_id are nullable, receivable_dunning_enabled is NOT NULL -- V1.4.15 addendum") {
+            val entity = model.entities.single { it.name == "organization_settings" }
+            entity.attributeByName("receivables_account_id")?.nullable shouldBe true
+            entity.attributeByName("payables_account_id")?.nullable shouldBe true
+            entity.attributeByName("receivable_dunning_enabled")?.nullable shouldBe false
+
+            val real = transaction { introspectOrganizationSettingsTable() }
+            real.columns.getValue("receivables_account_id").nullable shouldBe true
+            real.columns.getValue("payables_account_id").nullable shouldBe true
+            real.columns.getValue("receivable_dunning_enabled").nullable shouldBe false
+        }
+
         test("organization_settings entity column-name set matches the generated OrganizationSettingsTable 1:1") {
             model.entities
                 .single { it.name == "organization_settings" }

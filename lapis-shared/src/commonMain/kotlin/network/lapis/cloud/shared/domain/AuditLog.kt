@@ -248,6 +248,39 @@ enum class AuditEntityType {
      * full IBAN. Appended LAST, after `VOLUNTEER_DECLARATION`, additive only.
      */
     BANK_ACCOUNT,
+
+    /**
+     * Welle V1.4.15 "Kreditoren-/Debitorenbuchhaltung" --
+     * `network.lapis.cloud.server.rpc.OpenItemService`'s `createOpenItem`/`retryOpenItemPosting`/
+     * `settleOpenItem`/`reverseSettlement`/`cancelOpenItem` each write exactly one `OPEN_ITEM`
+     * `CREATE`/`UPDATE` entry per state transition, `entityId` = the `open_item` row's id. See
+     * [OpenItemSnapshot] KDoc for why it never carries the free-text counterparty name/reference/
+     * note. Appended LAST, after `BANK_ACCOUNT`, additive only.
+     */
+    OPEN_ITEM,
+
+    /**
+     * Welle V1.4.15 -- `network.lapis.cloud.server.rpc.OpenItemService`'s `executeNetting`/
+     * `reverseNetting` each write exactly one `OPEN_ITEM_NETTING` `CREATE`/`VOID` entry,
+     * `entityId` = the `open_item_netting` row's id. See [OpenItemNettingSnapshot] KDoc -- carries
+     * both paired item ids and the netted amount, never free text. Appended LAST, after
+     * `OPEN_ITEM`, additive only.
+     */
+    OPEN_ITEM_NETTING,
+
+    /**
+     * Welle V1.4.15 -- `network.lapis.cloud.server.openitem.dunning.ReceivableDunningService`'s
+     * `issueReceivableDunningNotice`/`skipReceivableDunningLevel`/`cancelReceivableDunningNotice`
+     * (and the poller's own automated issuance path) each write exactly one
+     * `RECEIVABLE_DUNNING_NOTICE` `CREATE`/`UPDATE` entry, `entityId` = the
+     * `receivable_dunning_notice` row's id. See [ReceivableDunningNoticeSnapshot] KDoc. Deliberately
+     * a SEPARATE literal from `DUNNING_NOTICE` (the pre-existing member-contribution dunning
+     * domain) -- this wave's receivable dunning is a structurally independent domain, see
+     * `network.lapis.cloud.server.rpc.ReceivableDunningService` KDoc. 25 characters, well under the
+     * `audit_log_entry.entity_type` `VARCHAR(29)` width limit. Appended LAST, after
+     * `OPEN_ITEM_NETTING`, additive only.
+     */
+    RECEIVABLE_DUNNING_NOTICE,
 }
 
 /**
@@ -465,6 +498,9 @@ data class OrganizationSettingsPaymentMappingSnapshot(
     val eventIncomeAccountId: String? = null,
     val travelExpenseAccountId: String? = null,
     val volunteerAllowanceAccountId: String? = null,
+    /** V1.4.15. See `OrganizationSettingsDto.receivablesAccountId`/`.payablesAccountId` KDoc. */
+    val receivablesAccountId: String? = null,
+    val payablesAccountId: String? = null,
 )
 
 /**

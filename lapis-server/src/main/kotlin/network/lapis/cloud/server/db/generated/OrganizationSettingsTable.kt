@@ -60,6 +60,11 @@ public object OrganizationSettingsTable : Table("organization_settings") {
     // TODO default = "FALSE"
     public val isKleinunternehmer: Column<Boolean> = bool("is_kleinunternehmer")
     // TODO default = "FALSE"
+    // Welle V1.4.15 -- hand-edited, see 11-organization-settings.kuml.kts file header addendum.
+    public val receivablesAccountId: Column<Uuid?> = optReference("receivables_account_id", LedgerAccountTable.id)
+    public val payablesAccountId: Column<Uuid?> = optReference("payables_account_id", LedgerAccountTable.id)
+    public val receivableDunningEnabled: Column<Boolean> = bool("receivable_dunning_enabled")
+    // TODO default = "FALSE"
 
     override val primaryKey: PrimaryKey = PrimaryKey(id)
 }

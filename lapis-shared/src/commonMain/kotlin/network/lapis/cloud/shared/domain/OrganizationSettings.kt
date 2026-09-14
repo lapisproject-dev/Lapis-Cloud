@@ -178,6 +178,9 @@ data class OrganizationSettingsDto(
     val volunteerAllowanceAccountId: String? = null,
     val vatEnabled: Boolean = false,
     val isKleinunternehmer: Boolean = false,
+    val receivablesAccountId: String? = null,
+    val payablesAccountId: String? = null,
+    val receivableDunningEnabled: Boolean = false,
 )
 
 /** Replaces every field of the single [OrganizationSettingsDto] row wholesale (no partial update). */
@@ -220,4 +223,13 @@ data class OrganizationSettingsInput(
     /** V1.4.13. See [OrganizationSettingsDto.isKleinunternehmer] KDoc. `vatEnabled` is deliberately
      *  NOT a field here -- see that field's own KDoc, settable only via `IVatService`. */
     val isKleinunternehmer: Boolean = false,
+    /** V1.4.15. See [OrganizationSettingsDto.receivablesAccountId] KDoc. */
+    val receivablesAccountId: String? = null,
+    /** V1.4.15. See [OrganizationSettingsDto.payablesAccountId] KDoc. */
+    val payablesAccountId: String? = null,
+    /** V1.4.15. Deliberately NOT disclaimer-gated (unlike `dunningEnabled`/`vatEnabled`) -- see
+     *  `network.lapis.cloud.server.rpc.ReceivableDunningService` KDoc "drei Sicherungen" for why a
+     *  plain ADMIN-writable opt-in flag is sufficient for this wave's scope (no PDF/postal
+     *  dispatch). */
+    val receivableDunningEnabled: Boolean = false,
 )

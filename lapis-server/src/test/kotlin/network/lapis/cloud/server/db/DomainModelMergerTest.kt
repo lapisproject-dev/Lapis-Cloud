@@ -43,8 +43,9 @@ class DomainModelMergerTest :
                     "kUML source dir not found or not a directory: ${KumlModelLoader.kumlSourceDir.absolutePath}"
                 }.sortedBy { it.name }
             // Welle V1.4.14 "Mehrere Bankkonten" -- was 47, now 48 with the addition of
-            // 47-bank-account.kuml.kts.
-            scriptFiles shouldHaveSize 48
+            // 47-bank-account.kuml.kts. Welle V1.4.15 "Kreditoren-/Debitorenbuchhaltung" -- was
+            // 48, now 49 with the addition of 48-open-item.kuml.kts.
+            scriptFiles shouldHaveSize 49
 
             val diagrams = scriptFiles.map { KumlModelLoader.loadUmlDiagram(it) }
 
@@ -377,7 +378,14 @@ class DomainModelMergerTest :
             // Member -- both dedup into already-real entities, net +1 distinct table name versus
             // the Wave 1 baseline above (142 -> 143). bank_account's eleven new fintsXxx columns are
             // new columns on an already-real table, no new Table file.
-            val distinctTableNames = 143
+            // Welle V1.4.15 "Kreditoren-/Debitorenbuchhaltung" adds 48-open-item.kuml.kts's FIVE
+            // real tables (open_item, open_item_netting, open_item_settlement,
+            // receivable_dunning_level, receivable_dunning_notice), WITH FIVE cross-domain stubs
+            // (Member, JournalEntry, CrmContact, Document, LedgerAccount) -- all five dedup into
+            // already-real entities (member/journal_entry/crm_contact/document/ledger_account) --
+            // so it contributes +10 «Entity» declarations (5 stubs + 5 real tables) and 5 drops,
+            // net +5 distinct table names versus the V1.4.14-Wave-2 baseline above (143 -> 148).
+            val distinctTableNames = 148
 
             val result =
                 UmlToExposedViaErmScriptTransformer().transform(
@@ -617,6 +625,12 @@ class DomainModelMergerTest :
                     "BankAccountTable.kt",
                     // Welle V1.4.14 Wave 2 "FinTS/HBCI-Live-Kontoabruf" -- ONE new real table.
                     "BankAccountFinTsAcknowledgmentTable.kt",
+                    // Welle V1.4.15 "Kreditoren-/Debitorenbuchhaltung" -- FIVE new real tables.
+                    "OpenItemTable.kt",
+                    "OpenItemNettingTable.kt",
+                    "OpenItemSettlementTable.kt",
+                    "ReceivableDunningLevelTable.kt",
+                    "ReceivableDunningNoticeTable.kt",
                 )
         }
 

@@ -88,6 +88,9 @@ import network.lapis.cloud.server.mail.SmtpFinTsReauthNotificationMailer
 import network.lapis.cloud.server.mail.SmtpFriendVerificationMailer
 import network.lapis.cloud.server.mail.SmtpPasswordResetMailer
 import network.lapis.cloud.server.mail.SmtpStartupCheck
+import network.lapis.cloud.server.openitem.dunning.ReceivableDunningConfig
+import network.lapis.cloud.server.openitem.dunning.ReceivableDunningPoller
+import network.lapis.cloud.server.openitem.dunning.ReceivableDunningService
 import network.lapis.cloud.server.payment.bankstatement.BankAccountStore
 import network.lapis.cloud.server.payment.bankstatement.BankStatementImportService
 import network.lapis.cloud.server.payment.dunning.DunningConfig
@@ -162,6 +165,7 @@ import network.lapis.cloud.server.rpc.MemberFamilyService
 import network.lapis.cloud.server.rpc.MemberFinancialHistoryService
 import network.lapis.cloud.server.rpc.MemberHonorService
 import network.lapis.cloud.server.rpc.MemberService
+import network.lapis.cloud.server.rpc.OpenItemService
 import network.lapis.cloud.server.rpc.OrganizationSettingsService
 import network.lapis.cloud.server.rpc.PaymentGatewayService
 import network.lapis.cloud.server.rpc.PeerTransferService
@@ -222,6 +226,7 @@ import network.lapis.cloud.shared.rpc.IMemberFamilyService
 import network.lapis.cloud.shared.rpc.IMemberFinancialHistoryService
 import network.lapis.cloud.shared.rpc.IMemberHonorService
 import network.lapis.cloud.shared.rpc.IMemberService
+import network.lapis.cloud.shared.rpc.IOpenItemService
 import network.lapis.cloud.shared.rpc.IOrganizationSettingsService
 import network.lapis.cloud.shared.rpc.IPaymentGatewayService
 import network.lapis.cloud.shared.rpc.IPeerTransferService
@@ -229,6 +234,7 @@ import network.lapis.cloud.shared.rpc.IPingService
 import network.lapis.cloud.shared.rpc.IPoliticianService
 import network.lapis.cloud.shared.rpc.IPostalMailService
 import network.lapis.cloud.shared.rpc.IPriceOracleService
+import network.lapis.cloud.shared.rpc.IReceivableDunningService
 import network.lapis.cloud.shared.rpc.IRegistrationService
 import network.lapis.cloud.shared.rpc.ISepaService
 import network.lapis.cloud.shared.rpc.ISocialNetworkService
@@ -719,6 +725,15 @@ fun Application.module() {
         dunningPoller.start()
     }
     monitor.subscribe(ApplicationStopping) { dunningPoller.stop() }
+    // Welle V1.4.15 "Kreditoren-/Debitorenbuchhaltung" -- structurally independent poller, same
+    // "constructed unconditionally, .start() gated on pollerEnabled" pattern as dunningPoller
+    // above. See ReceivableDunningService KDoc for why this is NOT the same poller/domain.
+    val receivableDunningConfig = ReceivableDunningConfig.load()
+    val receivableDunningPoller = ReceivableDunningPoller(config = receivableDunningConfig)
+    if (receivableDunningConfig.pollerEnabled) {
+        receivableDunningPoller.start()
+    }
+    monitor.subscribe(ApplicationStopping) { receivableDunningPoller.stop() }
     val dunningIssueRateLimiter = FederationInboxRateLimiter(maxRequests = 10, window = 1.minutes)
     // Security review LOW finding -- `POST /api/dunning/contributions/{id}/preview.pdf` had no rate
     // limit at all (see registerDunningRoutes' own `previewRateLimiter` KDoc). Own instance, same
@@ -1348,6 +1363,9 @@ fun Application.module() {
         registerService(IBankAccountService::class) { call ->
             BankAccountService(call = call, finTsSetupClient = finTsClient, secretBox = bankStatementSecretBox)
         }
+        // Welle V1.4.15 "Kreditoren-/Debitorenbuchhaltung".
+        registerService(IOpenItemService::class) { call -> OpenItemService(call) }
+        registerService(IReceivableDunningService::class) { call -> ReceivableDunningService(call) }
     }
 
     routing {

@@ -58,6 +58,7 @@ object PersonalDataRegistry {
             VolunteerAllowancePersonalData,
             VatPersonalData,
             BankAccountFinTsPersonalData,
+            OpenItemPersonalData,
         )
 
     /**
@@ -95,6 +96,14 @@ object PersonalDataRegistry {
                 "aus einem Bankkontoauszug, hat fuer diesen Fall keinen member-FK und faellt daher " +
                 "aus dem Auskunfts-/Loeschframework heraus. GoBD-/AO-Aufbewahrung (10 Jahre) steht " +
                 "einer Loeschung ohnehin entgegen. Sichtbar gemacht, nicht geschlossen.",
+            "open_item" to
+                "Welle V1.4.15. Traegt PII eines Nicht-Mitglieds (counterparty_name, die Gegenpartei " +
+                "eines Kreditoren-/Debitorenpostens), hat fuer dieses Feld keinen eigenen Subjekt-FK " +
+                "und faellt daher aus dem Auskunfts-/Loeschframework heraus (die member-FKs " +
+                "created_by_member_id/cancelled_by_member_id sind separat ueber OpenItemPersonalData " +
+                "abgedeckt -- das betrifft nur den Akteur, nicht die Gegenpartei). GoBD-/AO-" +
+                "Aufbewahrung (10 Jahre) steht einer Loeschung ohnehin entgegen -- wortgleiche " +
+                "Begruendung wie bank_statement_line. Sichtbar gemacht, nicht geschlossen.",
         )
 
     /**
@@ -103,7 +112,8 @@ object PersonalDataRegistry {
      * [knownUncoveredSubjectRoots] (dokumentierte Luecke, wie `external_donor`) stehen -- niemals in
      * beiden, niemals in keinem (siehe `PersonalDataCoverageTest`'s Test C).
      */
-    internal val nonMemberPiiTables: Set<String> = setOf("external_donor", "crm_contact", "event_registration", "bank_statement_line")
+    internal val nonMemberPiiTables: Set<String> =
+        setOf("external_donor", "crm_contact", "event_registration", "bank_statement_line", "open_item")
 
     /**
      * Tables that are not covered by a [PersonalDataContributor] on purpose, each with a written

@@ -387,6 +387,14 @@ internal object LegalHtml {
                         "Vereinsorganisation) i. V. m. § 147 AO (Aufbewahrungspflicht für Buchungsbelege)."
                 )
             }
+            li {
+                +(
+                    "Kreditoren-/Debitorenbuchhaltung (offene Posten): Gegenparteiname, Referenz, Betrag, " +
+                        "Fälligkeit, Zahlungs-/Verrechnungshistorie und ggf. Mahnstufen-Eskalation — Art. 6 " +
+                        "Abs. 1 lit. b DSGVO (Vereinsorganisation) i. V. m. § 147 AO (Aufbewahrungspflicht " +
+                        "für Buchungsbelege)."
+                )
+            }
         }
 
         h2 { +"Empfänger" }

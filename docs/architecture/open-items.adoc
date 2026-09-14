@@ -1,0 +1,193 @@
+= Kreditoren-/Debitorenbuchhaltung — Open Items (V1.4.15)
+
+NOTE: This document's `[kuml]` block is not rendered or validated by any Gradle task -- it is
+prose documentation only, kept in sync by hand with
+`lapis-server/src/main/kuml/48-open-item.kuml.kts` (the actual, load-bearing model). Same
+convention `travel-expenses.adoc`/`domain-model.adoc` already establish.
+
+Any `TREASURER`/`ADMIN` may create and settle an open item (a single payable or receivable line);
+`BOARD` may read but not write. This document explains the four decisions the design team made
+that depart from a naive reading of the original brief, and the reasoning behind each.
+
+== Data shape
+
+Five new tables -- `open_item` (one row per payable/receivable line), `open_item_netting` (one row
+per pairing of exactly one payable and one receivable settled against each other),
+`open_item_settlement` (one row per `PAYMENT` or `NETTING` applied to an `open_item`),
+`receivable_dunning_level` and `receivable_dunning_notice` (a second, independent dunning domain,
+see below) -- plus three new columns on `organization_settings` (`receivables_account_id`,
+`payables_account_id`, `receivable_dunning_enabled`). See
+`lapis-server/src/main/kuml/48-open-item.kuml.kts` for the full kUML model and
+`V35__open_items.sql` for the migration.
+
+[kuml, open-items, svg]
+----
+classDiagram(name = "Open Items — ERM excerpt") {
+    class(name = "OpenItem") {
+        attribute(name = "id", type = "UUID")
+        attribute(name = "direction", type = "String") { note = "PAYABLE|RECEIVABLE" }
+        attribute(name = "counterpartyName", type = "String")
+        attribute(name = "counterpartyKey", type = "String") { note = "normalized, used for netting-candidate matching" }
+        attribute(name = "amount", type = "BigDecimal") { note = "frozen invoice amount, never changed" }
+        attribute(name = "status", type = "String") { note = "OPEN|PARTIALLY_SETTLED|SETTLED|CANCELLED, materialized but never the source of truth" }
+        attribute(name = "creationJournalEntryId", type = "UUID") { note = "idempotency anchor, uq_oi_creation_journal_entry" }
+        attribute(name = "creationPostingError", type = "String") { note = "degraded-booking reason, retryable" }
+    }
+    class(name = "OpenItemSettlement") {
+        attribute(name = "id", type = "UUID")
+        attribute(name = "kind", type = "String") { note = "PAYMENT|NETTING" }
+        attribute(name = "amount", type = "BigDecimal")
+        attribute(name = "nettingId", type = "UUID") { note = "non-null iff kind == NETTING" }
+    }
+    class(name = "OpenItemNetting") {
+        attribute(name = "id", type = "UUID")
+        attribute(name = "amount", type = "BigDecimal")
+        attribute(name = "payableItemId", type = "UUID")
+        attribute(name = "receivableItemId", type = "UUID")
+        attribute(name = "journalEntryId", type = "UUID") { note = "idempotency anchor, uq_oin_journal_entry" }
+    }
+    class(name = "ReceivableDunningLevel") {
+        attribute(name = "id", type = "UUID")
+        attribute(name = "levelNumber", type = "Int")
+        attribute(name = "graceDays", type = "Int")
+        attribute(name = "feeAmount", type = "BigDecimal") { note = "optional, max 25.00" }
+    }
+    class(name = "ReceivableDunningNotice") {
+        attribute(name = "id", type = "UUID")
+        attribute(name = "levelNumber", type = "Int")
+        attribute(name = "status", type = "String") { note = "ISSUED|SKIPPED|CANCELLED" }
+    }
+
+    association(source = OpenItem, target = OpenItemSettlement) { target { multiplicity("0..*") } }
+    association(source = OpenItemNetting, target = OpenItemSettlement) { target { multiplicity("2") } }
+    association(source = OpenItem, target = ReceivableDunningNotice) { target { multiplicity("0..*") } }
+    association(source = ReceivableDunningLevel, target = ReceivableDunningNotice) { target { multiplicity("0..*") } }
+}
+----
+
+== The two-booking rule
+
+The original brief described a single booking, made "when the item is marked paid". The design
+team overruled this (Jobs/Atkinson-Ruling) and requires **two** bookings:
+
+[cols="1,2,2"]
+|===
+| Event | Debit | Credit
+
+| Payable created
+| `contraAccountId` (must be `EXPENSE`)
+| `payablesAccountId` (must be `LIABILITY`)
+
+| Payable settled
+| `payablesAccountId`
+| bank account
+
+| Receivable created
+| `receivablesAccountId` (must be `ASSET`)
+| `contraAccountId` (must be `INCOME`)
+
+| Receivable settled
+| bank account
+| `receivablesAccountId`
+
+| Netting
+| `payablesAccountId`
+| `receivablesAccountId`
+
+| Any reversal
+| exact opposite of the original entry, as its own new `journal_entry`
+|
+|===
+
+The reason is structural, not stylistic: netting two open items against each other only makes
+sense once BOTH sides already exist as real accounting facts. A payable and a receivable that were
+never booked have nothing for a netting entry to reference. Booking at creation also means
+`contraAccountId` is a mandatory field on the creation form -- a deliberate, visible consequence of
+this ruling, not an oversight.
+
+A missing account mapping (`payablesAccountId`/`receivablesAccountId` not yet configured in
+Organization Settings) degrades the booking attempt rather than failing the whole creation: the
+open item is still recorded, with `creationPostingError` set to a named reason
+(`payables_account_not_configured`, `receivables_account_not_configured`,
+`ledger_account_inactive`, `contra_account_wrong_type`, `receivables_account_not_asset_type`,
+`payables_account_not_liability_type`, `cash_voucher_required`,
+`cash_register_balance_insufficient`). `retryOpenItemPosting`/`retrySettlementPosting` re-attempt
+the booking once the configuration is fixed.
+
+== Netting without four-eyes
+
+A single `TREASURER`/`ADMIN` may execute a netting -- there is no second approver, unlike SEPA
+batch submission or a large manual journal entry elsewhere in this codebase. The Jobs-Ruling
+justification: four-eyes exists to protect money that *leaves the house* (a bank transfer, a SEPA
+debit run); a netting moves nothing out, it only reclassifies which internal drawer an already-
+booked payable and an already-booked receivable sit in.
+
+Two safeguards replace the missing second approver:
+
+1. **Mandatory preview** (`previewNetting`) -- writes nothing, returns the literal debit/credit
+   account numbers and names, the amount, and both items' resulting open amount and status. The
+   client is expected to show this verbatim before offering an execute button.
+2. **GoBD-compliant reversal** (`reverseNetting`) -- never deletes or edits the original booking,
+   always posts an exact opposite entry as its own new `journal_entry`. A netting can be reversed
+   exactly once; `open_item_netting.reversed_at` guards a second attempt.
+
+Double-netting the same open item under the same netting is additionally impossible at the schema
+level: `uq_ois_netting_item`, a plain unique index on `open_item_settlement (netting_id,
+open_item_id)`.
+
+== Aging is always server-computed
+
+`OpenItemDto.daysOverdue`/`.asOf` are computed server-side against `DbClock`, never re-derived by
+the client -- a client-side clock/timezone drift must never disagree with which
+`ReceivableDunningLevel` the server is about to escalate to. The UI shows exactly one overdue
+badge (Ive-Ruling) with the exact day count in plain text next to it, never a four-color traffic
+light.
+
+In the aggregate summary (`getOpenItemSummary`), the payables total and the receivables total are
+**never netted against each other** (Jobs-Ruling) -- "what we owe" and "what we are owed" answer
+two different questions, and collapsing them into one number would hide which one dominates.
+
+== A second, independent dunning domain
+
+`ReceivableDunningService`/`ReceivableDunningPoller`/`ReceivableDunningEngine` deliberately share
+no code, no table, and no configuration with the pre-existing member-contribution dunning domain
+(`DunningService`/`DunningPoller`, V1.2.7, `dunning_notice`). A receivable open item is a single,
+non-recurring invoice -- unlike a membership contribution, there is no "dunning cycle" concept:
+`receivable_dunning_notice.cycle_number` is always `1`, and `uq_rdn_slot` on `(open_item_id,
+cycle_number, level_number)` still fully guards against re-issuing the same level twice.
+
+Three independent safeguards replace the disclaimer-acknowledgment flow the member-contribution
+domain has:
+
+* `LAPIS_RECEIVABLE_DUNNING_POLLER_ENABLED` (env, one instance only),
+* `organization_settings.receivable_dunning_enabled` (DB flag, ADMIN-writable, defaults `false`),
+* zero active `receivable_dunning_level` rows on a fresh organization.
+
+A dunning fee (if configured on the level) books as its own journal entry (Debit
+`receivablesAccountId`, Credit the item's own `contraAccountId`) but deliberately does **not**
+increase the original item's `amount`/`openAmount` -- the fee is a separate, recorded accounting
+fact (`receivable_dunning_notice.fee_amount`/`.fee_journal_entry_id`), not a retroactive change to
+the frozen original invoice.
+
+== Deferred / out of scope
+
+* **Automatic bank-statement reconciliation.** `BankStatementMatcher` is unchanged -- its
+  `MatchOutcome` carries a single `contributionId` field, all three matching strategies query
+  `ContributionTable` directly. Extending it to also match against `open_item` is a structural
+  change to a live core system, left for a future wave.
+* **Rebuilding the member-contribution dunning domain into a polymorphic one.** `DunningService`/
+  `DunningPoller`/`Dunning.kt`/`V9__dunning.sql` are bit-for-bit unchanged.
+* **Default interest (§288 BGB).** Explicitly struck from scope by the design review.
+* **Counter badges on dashboard tiles.** Explicitly struck from scope.
+* **Dedicated counterparty master data.** `counterpartyName` stays free text, optionally linked to
+  an existing `crm_contact` (V1.4.2); no new master-data entity was introduced.
+* **PDF/postal dispatch for receivable dunning notices.** No `MahnungPdfGenerator` equivalent, no
+  `postal_delivery_log` integration -- and therefore no compliance-disclaimer-acknowledgment flow
+  either (see above): no letter leaves the building in this wave.
+* **VAT/input-tax split on a payable.** Every posting this wave's bridge writes stays
+  `VatRate.UNCLASSIFIED`, the same posture all six pre-existing posting bridges already have.
+* **The KVision client screens.** As of this wave's implementation session, only the DOM-free
+  building blocks (`OpenItemLabels.kt`, `OpenItemAuthzUi.kt`, both tested) exist client-side. The
+  list/detail screens, the creation form, the netting dialog with its mandatory preview, the
+  dunning-level administration UI, and the sidebar/routing/dashboard wiring are not yet built --
+  see `CHANGELOG.md`'s "Bekannte Lücke" note for this wave.

@@ -385,5 +385,26 @@ classDiagram(name = "OrganizationSettings") {
             defaultValue = "FALSE"
             stereotype("Column") { "columnName" to "is_kleinunternehmer" }
         }
+        // Welle V1.4.15 "Kreditoren-/Debitorenbuchhaltung". Nullable FKs -> ledger_account -- which
+        // account a debitor's/kreditor's counter-posting books into (see
+        // network.lapis.cloud.server.rpc.OpenItemPostingBridge KDoc "Buchungssaetze"). Part of the
+        // GENERIC updateOrganizationSettings write-set, same treatment as travelExpenseAccountId/
+        // volunteerAllowanceAccountId above -- see 48-open-item.kuml.kts file header.
+        attribute(name = "receivablesAccountId", type = "UUID") {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") { "columnName" to "receivables_account_id"; "fkEntity" to "LedgerAccount" }
+        }
+        attribute(name = "payablesAccountId", type = "UUID") {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") { "columnName" to "payables_account_id"; "fkEntity" to "LedgerAccount" }
+        }
+        // Welle V1.4.15. Opt-in gate, NOT NULL, defaults to FALSE -- unlike dunningEnabled/
+        // vatEnabled this is NOT disclaimer-acknowledgment-gated (see ReceivableDunningService KDoc
+        // "drei Sicherungen" for why a disclaimer is not required for this wave's scope), so it IS
+        // part of the GENERIC updateOrganizationSettings write-set, same tier as isKleinunternehmer.
+        attribute(name = "receivableDunningEnabled", type = "Boolean") {
+            defaultValue = "FALSE"
+            stereotype("Column") { "columnName" to "receivable_dunning_enabled" }
+        }
     }
 }

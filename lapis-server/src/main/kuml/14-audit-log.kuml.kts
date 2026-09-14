@@ -197,6 +197,9 @@ classDiagram(name = "AuditLog") {
         literal(name = "VOLUNTEER_ALLOWANCE_PAYMENT") // Welle V1.4.12 "Übungsleiter- und Ehrenamtspauschale" -- VolunteerAllowanceService state-transition writes; 27 chars, fits within the existing VARCHAR(29) width
         literal(name = "VOLUNTEER_DECLARATION") // Welle V1.4.12 -- self-declaration writes (declareSelf/recordPaperDeclaration); named this way, NOT the more literal VOLUNTEER_ALLOWANCE_SELF_DECLARATION (36 chars) or VOLUNTEER_ALLOWANCE_DECLARATION (31 chars), because both exceed the VARCHAR(29) width -- 21 chars, fits
         literal(name = "BANK_ACCOUNT") // Welle V1.4.14 "Mehrere Bankkonten" -- BankAccountStore create/update/delete/setDefault writes; 12 chars, fits within the existing VARCHAR(29) width
+        literal(name = "OPEN_ITEM") // Welle V1.4.15 "Kreditoren-/Debitorenbuchhaltung" -- OpenItemService writes; 9 chars, fits within VARCHAR(29)
+        literal(name = "OPEN_ITEM_NETTING") // Welle V1.4.15 -- OpenItemService.executeNetting/reverseNetting writes; 17 chars, fits within VARCHAR(29)
+        literal(name = "RECEIVABLE_DUNNING_NOTICE") // Welle V1.4.15 -- ReceivableDunningEngine writes; 25 chars, fits within VARCHAR(29)
     }
 
     // Genesis-singleton row (see file header) -- gapless sequence_number + hash-chain

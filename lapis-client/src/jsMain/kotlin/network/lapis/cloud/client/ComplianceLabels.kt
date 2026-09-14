@@ -143,6 +143,13 @@ fun auditEntityTypeLabel(entityType: AuditEntityType): String =
         // exists yet this wave (backend-only, same posture BANK_STATEMENT_IMPORT/
         // ACCOUNTING_EXPORT_CONNECTION already establish for their own waves).
         AuditEntityType.BANK_ACCOUNT -> gettext("Bankkonto")
+        // Welle V1.4.15 "Kreditoren-/Debitorenbuchhaltung" -- "Offener Posten"/"Verrechnung"/
+        // "Mahnung (Debitor)" are the terms a future OpenItemsScreen.kt would use throughout;
+        // "Mahnung (Debitor)" is deliberately distinct from DUNNING_NOTICE's plain "Mahnung" above
+        // -- two structurally independent dunning domains, see ReceivableDunningService KDoc.
+        AuditEntityType.OPEN_ITEM -> gettext("Offener Posten")
+        AuditEntityType.OPEN_ITEM_NETTING -> gettext("Verrechnung")
+        AuditEntityType.RECEIVABLE_DUNNING_NOTICE -> gettext("Mahnung (Debitor)")
     }
 
 fun auditEntityTypeColor(entityType: AuditEntityType): String =
@@ -220,6 +227,15 @@ fun auditEntityTypeColor(entityType: AuditEntityType): String =
         // where SEPA/invoice letterhead data comes from, same administrative-but-financially-
         // relevant tier ORGANIZATION_SETTINGS/CONTRIBUTION_RELIEF_REQUEST already carry.
         AuditEntityType.BANK_ACCOUNT -> "warning"
+        // "primary" -- an open item's own creation/settlement/cancellation is a financially
+        // central booking event, same tier as JOURNAL_ENTRY/SEPA_MANDATE/PAYMENT_TRANSACTION above.
+        AuditEntityType.OPEN_ITEM -> "primary"
+        // "warning" -- a netting is administrative (no money leaves/enters the organization), same
+        // tier ORGANIZATION_SETTINGS/SEPA_DEBIT_BATCH already carry.
+        AuditEntityType.OPEN_ITEM_NETTING -> "warning"
+        // "danger" -- an issued dunning notice is a folgenreiche, forderungseinzug-nahe entry,
+        // same tier as the pre-existing DUNNING_NOTICE above.
+        AuditEntityType.RECEIVABLE_DUNNING_NOTICE -> "danger"
     }
 
 // ------------------------------------------------------------------------------------------------

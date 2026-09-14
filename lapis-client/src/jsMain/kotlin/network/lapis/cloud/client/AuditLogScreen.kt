@@ -437,6 +437,18 @@ fun decodeAuditSnapshot(
             // VOLUNTEER_ALLOWANCE_PAYMENT/VOLUNTEER_DECLARATION already establish) -- falls
             // through to the raw-text display.
             AuditEntityType.BANK_ACCOUNT -> null
+            // Welle V1.4.15 "Kreditoren-/Debitorenbuchhaltung" -- OpenItemService writes
+            // OpenItemSnapshot/OpenItemNettingSnapshot (see AuditLog.kt), but this client-side
+            // decode/render pair is deliberately not extended for either this wave (backend-only
+            // wave, same posture BANK_ACCOUNT/VOLUNTEER_DECLARATION already establish) -- falls
+            // through to the raw-text display.
+            AuditEntityType.OPEN_ITEM -> null
+            AuditEntityType.OPEN_ITEM_NETTING -> null
+            // ReceivableDunningEngine writes ReceivableDunningNoticeSnapshot (see AuditLog.kt),
+            // same "backend-only wave" posture as DUNNING_NOTICE above (the pre-existing
+            // member-contribution dunning domain's own notice snapshot is likewise not decoded
+            // here).
+            AuditEntityType.RECEIVABLE_DUNNING_NOTICE -> null
         }
     }.getOrNull()
 

@@ -8,6 +8,71 @@ All notable changes to this project are documented here. Format follows
 
 ### Added
 
+**Kreditoren-/Debitorenbuchhaltung -- offene Posten, Verrechnung, Debitoren-Mahnwesen (V1.4.15)**
+
+- **Hinzugefügt**: `IOpenItemService` (`OpenItemService`) verwaltet offene Posten
+  (`OpenItemDirection.PAYABLE`/`RECEIVABLE`, `open_item`) -- Anlegen, Bearbeiten der Metadaten,
+  Stornieren, Zahlung erfassen (`settleOpenItem`, Voll-/Teilzahlung), Zahlungsstorno
+  (`reverseSettlement`), Nachbuchung nach Konfigurationslücke (`retryOpenItemPosting`/
+  `retrySettlementPosting`). Der offene Betrag (`openAmount`) wird **nie gespeichert**, sondern bei
+  jeder Anfrage aus `amount - Σ(nicht stornierte Ausgleichszeilen)` neu berechnet
+  (`OpenItemMath.openAmount`); `status` wird bei jedem Schreibvorgang materialisiert, ist aber nie
+  Grundlage einer Betrags-Entscheidung.
+- **Hinzugefügt**: Zwei-Buchungs-Regel (Design-Team-Entscheidung, abweichend vom ursprünglichen
+  Auftragstext "nur beim Bezahlt-Markieren buchen"): ein offener Posten wird bereits bei ANLAGE
+  gebucht (Kreditor: Soll Aufwandskonto / Haben `payablesAccountId`; Debitor: Soll
+  `receivablesAccountId` / Haben Erlöskonto), eine zweite Buchung bei Zahlung. Grund: eine
+  Verrechnung zweier offener Posten setzt voraus, dass beide Seiten bereits gebucht sind --
+  andernfalls hätte eine Verrechnung nichts, wogegen sie bucht. `contraAccountId` ist daher bei der
+  Erfassung Pflichtfeld. Siehe `docs/architecture/open-items.adoc`.
+- **Hinzugefügt**: Verrechnung (`executeNetting`/`previewNetting`/`reverseNetting`/
+  `listNettingCandidates`) zweier offener Posten unterschiedlicher Gegenparteien-Zuordnung
+  (`crm_contact_id` oder normalisierter `counterparty_key`) gegeneinander, **ohne
+  Vier-Augen-Prinzip** (Jobs-Ruling: Vier-Augen schützt Geld, das das Haus verlässt, nicht Geld, das
+  intern die Schublade wechselt) -- dafür zwei nicht verhandelbare Auflagen: eine Pflicht-Vorschau
+  vor jeder Ausführung (`previewNetting`, schreibt nichts) und ein GoBD-konformes Storno mit exakter
+  Gegenbuchung als eigenem Journal-Eintrag (`reverseNetting`) statt Löschen/Ändern. Doppelverrechnung
+  ist durch `uq_ois_netting_item` (plain Unique-Index auf `(netting_id, open_item_id)`)
+  DB-strukturell unmöglich.
+- **Hinzugefügt**: serverseitig berechnete Altersstruktur (`getOpenItemSummary`) -- vier
+  Alterungs-Buckets (nicht fällig · 1–30 · 31–90 · über 90 Tage) je Anzahl und Betrag, getrennt für
+  Kreditoren und Debitoren; im Segment "Alle" werden die beiden Summen **nie** saldiert
+  (Jobs-Ruling).
+- **Hinzugefügt**: eigenständiges, von der bestehenden Mitgliedsbeitrags-Mahnung (`DunningService`/
+  `DunningPoller`, V1.2.7) strukturell unabhängiges Debitoren-Mahnwesen: `IReceivableDunningService`
+  (`ReceivableDunningService`), konfigurierbare Mahnstufen (`receivable_dunning_level`,
+  Gebühr optional, max. 25 €) und ein eigener Poller (`ReceivableDunningPoller`/
+  `ReceivableDunningEngine`) mit `LAPIS_RECEIVABLE_DUNNING_POLLER_ENABLED`-Gate und
+  `organization_settings.receivable_dunning_enabled`-DB-Flag. Kein PDF, kein Postversand, kein
+  Compliance-Disclaimer in dieser Welle (siehe "Bewusste Grenze" unten).
+- **Migration**: `V35__open_items.sql` (fünf neue Tabellen: `open_item`, `open_item_netting`,
+  `open_item_settlement`, `receivable_dunning_level`, `receivable_dunning_notice`; drei neue
+  `organization_settings`-Spalten: `receivables_account_id`, `payables_account_id`,
+  `receivable_dunning_enabled`; `OPEN_ITEM`/`OPEN_ITEM_NETTING`/`RECEIVABLE_DUNNING_NOTICE`-
+  Erweiterung des `audit_log_entry.entity_type`-CHECK); zusätzlich das inline, unbenannte
+  `audit_log_entry.entity_type`-CHECK in `V1__baseline.sql` verbreitert (gleiches Muster wie bei
+  jeder vorherigen `AuditEntityType`-Welle -- betrifft nur frische/Test-Datenbanken, `flyway repair`
+  auf bereits migrierten Instanzen nötig).
+- **Bewusste Grenze (Scope-Cut dieser Welle)**: kein automatischer Bankabgleich für offene Posten
+  (`BankStatementMatcher` bleibt unangetastet); das bestehende Mitgliedsbeitrags-Mahnwesen wird
+  nicht umgebaut/polymorphisiert; keine Verzugszinsen (§288 BGB); keine Zählerbadges auf
+  Dashboard-Kacheln; keine eigene Gegenparteien-Stammdatenverwaltung (Freitext-Name, optional mit
+  einem CRM-Kontakt verknüpft); kein PDF/Postversand für Debitoren-Mahnungen, deshalb auch kein
+  Compliance-Disclaimer-Acknowledgment (anders als beim Mitgliedsbeitrags-Mahnwesen); keine
+  Vorsteuer-/USt-Aufteilung eines Kreditoren-Postens (Buchungen bleiben `VatRate.UNCLASSIFIED`, wie
+  bei allen sechs bestehenden Buchungsbrücken); `DevSeedData` verdrahtet die beiden SKR42-
+  Demo-Seed-Konten `12000`/`34000` **nicht** automatisch in die neuen `organization_settings`-Felder
+  -- gleiche Zurückhaltung wie bei `travel_expense_account_id`/`volunteer_allowance_account_id`
+  zuvor, ein ADMIN konfiguriert die Zuordnung bewusst explizit.
+- **Bekannte Lücke (Session 2026-09-14)**: die vollständige KVision-Client-Oberfläche (Listen-
+  Screen mit Segmented Control/Kennzahlenzeile, Erfassungsformular, Verrechnungs-Dialog mit
+  Vorschau, Mahnstufen-Verwaltung, Sidebar-/Routing-/Dashboard-Einbindung) ist **noch nicht
+  implementiert** -- nur die reinen, DOM-freien Bausteine `OpenItemLabels.kt`/`OpenItemAuthzUi.kt`
+  (inkl. Tests) existieren bereits. Backend (Migration, Domänenmodell, RPC-Services,
+  Buchungslogik, Verrechnung, Mahnwesen, DSGVO-Registrierung, Datenschutzerklärung) ist vollständig
+  implementiert und getestet (`OpenItemSchemaDriftTest`, `OpenItemServiceTest`,
+  `OpenItemNettingTest`, `ReceivableDunningTest`).
+
 **Mehrere Bankkonten -- Multi-Banking-Fundament, Datei-Import je Konto (V1.4.14, Welle 1 von 2)**
 
 - **Hinzugefügt**: eine Organisation kann jetzt mehrere Bankkonten verwalten (`bank_account`) statt
