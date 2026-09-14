@@ -16,12 +16,18 @@ import kotlin.uuid.Uuid
  * Owns [EventTable]/[EventRegistrationTable] (Welle V1.4.3.1 "Veranstaltungen"). See
  * `39-events.kuml.kts` file header for why this contributor only ever handles
  * [network.lapis.cloud.shared.domain.DsgvoSubjectKind.MEMBER] subjects (a `MemberPersonalDataContributor`,
- * not the raw interface) -- `event_registration.member_id`/`.checked_in_by`/`event.created_by` are the
- * only THREE member-FK-bearing columns in this domain (Welle V1.4.3.2 added `checked_in_by`
- * alongside the pre-existing two). A GUEST registration (`guest_name`/`guest_email`, no
- * `member_id`) carries PII of a person who is NOT a member and is therefore invisible to this
- * contributor entirely -- see [PersonalDataRegistry.knownUncoveredSubjectRoots]'s `event_registration`
- * entry for that documented, deliberate gap.
+ * not the raw interface) -- `event_registration.member_id`/`.checked_in_by`/`.invoice_issued_by`/
+ * `event.created_by` are the only FOUR member-FK-bearing columns in this domain (Welle V1.4.3.2
+ * added `checked_in_by`, Welle V1.4.3.6 added `invoice_issued_by`, alongside the original two). A
+ * GUEST registration (`guest_name`/`guest_email`, no `member_id`) carries PII of a person who is
+ * NOT a member and is therefore invisible to this contributor entirely -- see
+ * [PersonalDataRegistry.knownUncoveredSubjectRoots]'s `event_registration` entry for that
+ * documented, deliberate gap. **Welle V1.4.3.6's `billing_street`/`billing_postal_code`/
+ * `billing_city`/`billing_country`** fall into the SAME gap for a GUEST registration (a guest's
+ * billing address is exactly as much "PII of a person who is not a member" as their name/email
+ * already are); for a MEMBER registration these columns may duplicate/override that member's own
+ * address on file, which IS covered elsewhere (`FoundationPersonalData`'s own `member` coverage) --
+ * so no separate handling is added here either way.
  *
  * **Retained, not deleted -- for BOTH tables, regardless of [ErasureMode].** Neither table stores
  * a member's name/email/address directly; `event_registration.member_id`/`.checked_in_by`/
@@ -54,6 +60,15 @@ import kotlin.uuid.Uuid
  * Personenbezug at all, Art.-9-DSGVO included). Extending this existing contributor rather than
  * adding a new `CateringPersonalData` one: same "small satellite of the event domain" posture the
  * Room addendum above already establishes (see `50-event-catering.kuml.kts` file header).
+ *
+ * **Welle V1.4.3.6 "Externe Rechnungsstellung" addendum.** [EventRegistrationTable] gained a
+ * fourth member-FK-bearing column, `invoice_issued_by` -- same retain-with-reason posture as
+ * `.checked_in_by` ("who issued this invoice", organisatorische/buchhalterische
+ * Nachvollziehbarkeit -- the resulting `open_item`/`journal_entry` is itself part of the GoBD
+ * ledger and must stay traceable to who booked it, same as every other `OpenItemService` write).
+ * Counted in [eraseMember] below, same "createdBy"-style outcome the Room/Catering addenda above
+ * already establish (unlike `.checked_in_by`, which -- pre-existing gap, not introduced here --
+ * has no dedicated [eraseMember] outcome of its own).
  */
 object EventPersonalData : MemberPersonalDataContributor {
     override val sectionKey = "events"
@@ -171,6 +186,12 @@ object EventPersonalData : MemberPersonalDataContributor {
                 .where { EventCateringOrderTable.createdBy eq memberId }
                 .count()
                 .toInt()
+        val issuedInvoiceCount =
+            EventRegistrationTable
+                .selectAll()
+                .where { EventRegistrationTable.invoiceIssuedBy eq memberId }
+                .count()
+                .toInt()
         val outcomes = mutableListOf<TableErasureOutcome>()
         if (registrationCount > 0) {
             outcomes +=
@@ -214,6 +235,17 @@ object EventPersonalData : MemberPersonalDataContributor {
                         "Organisatorische Nachvollziehbarkeit, wer eine Catering-Bestellposition angelegt hat -- " +
                             "created_by bleibt als FK-Anker erhalten, die Bestellposition selbst beschreibt keine " +
                             "Person (aggregierte Planungsangabe, kein Personenbezug).",
+                )
+        }
+        if (issuedInvoiceCount > 0) {
+            outcomes +=
+                TableErasureOutcome(
+                    table = "event_registration",
+                    rowsRetained = issuedInvoiceCount,
+                    retentionReason =
+                        "Buchhalterische/organisatorische Nachvollziehbarkeit, wer eine externe Rechnung " +
+                            "ausgestellt hat -- invoice_issued_by bleibt als FK-Anker erhalten, der resultierende " +
+                            "offene Posten ist Teil der GoBD-Buchführung.",
                 )
         }
         return outcomes

@@ -18,15 +18,20 @@ import io.ktor.server.routing.post
 import kotlinx.datetime.LocalDateTime
 import network.lapis.cloud.server.db.generated.AccountTable
 import network.lapis.cloud.server.db.generated.ContributionTable
+import network.lapis.cloud.server.db.generated.EventRegistrationTable
+import network.lapis.cloud.server.db.generated.EventTable
 import network.lapis.cloud.server.db.generated.JournalEntryTable
 import network.lapis.cloud.server.db.generated.LedgerAccountTable
 import network.lapis.cloud.server.db.generated.MemberTable
 import network.lapis.cloud.server.db.generated.MembershipTierTable
+import network.lapis.cloud.server.db.generated.OpenItemTable
 import network.lapis.cloud.server.db.generated.OrganizationSettingsTable
 import network.lapis.cloud.server.db.generated.PostingTable
+import network.lapis.cloud.server.events.EventStore
 import network.lapis.cloud.server.payment.bankstatement.PaymentReferenceAllocator
 import network.lapis.cloud.server.pdf.BeitragsrechnungPdfGenerator
 import network.lapis.cloud.server.pdf.EinladungPdfGenerator
+import network.lapis.cloud.server.pdf.EventInvoicePdfGenerator
 import network.lapis.cloud.server.pdf.SpendenbescheinigungPdfGenerator
 import network.lapis.cloud.server.rpc.ORGANIZATION_SETTINGS_ID
 import network.lapis.cloud.server.rpc.toOrganizationSettingsDto
@@ -143,6 +148,31 @@ fun Route.registerMailmergeRoutes(storageRoot: File) {
             val doc =
                 generateSpendenbescheinigung(journalEntryId = journalEntryId, storageRoot = storageRoot, uploadedBy = current.memberId)
             call.respondPdf(bytes = doc.bytes, fileName = doc.fileName)
+        } catch (e: NotFoundException) {
+            call.respond(HttpStatusCode.NotFound, e.message)
+        } catch (e: ConflictException) {
+            call.respond(HttpStatusCode.Conflict, e.message)
+        }
+    }
+
+    // Welle V1.4.3.6 "Externe Rechnungsstellung" -- same authenticated-Ktor-route idiom (NOT Kilua
+    // RPC) every other binary PDF payload in this file already uses; see class KDoc "PDF bytes
+    // travel over these plain Ktor HTTP routes". FINANCIAL_DOC_ROLES (TREASURER/BOARD/ADMIN), same
+    // read tier as the Beitragsrechnung/Spendenbescheinigung downloads above -- deliberately more
+    // permissive than `EventService.issueEventInvoice` itself (TREASURER/ADMIN only, see that
+    // method's KDoc): downloading an already-issued invoice is a read, not the write that creates
+    // the underlying open item.
+    get("/api/mailmerge/events/registrations/{registrationId}/invoice.pdf") {
+        val registrationId = call.parameters["registrationId"]?.let { runCatching { Uuid.parse(it) }.getOrNull() }
+        if (registrationId == null) {
+            call.respond(HttpStatusCode.BadRequest, "Invalid registrationId")
+            return@get
+        }
+        val current = resolveCurrentMember(call)
+        current.requireRole(*FINANCIAL_DOC_ROLES)
+        try {
+            val bytes = generateEventInvoice(registrationId)
+            call.respondPdf(bytes = bytes, fileName = "Rechnung-Veranstaltung-$registrationId.pdf")
         } catch (e: NotFoundException) {
             call.respond(HttpStatusCode.NotFound, e.message)
         } catch (e: ConflictException) {
@@ -402,6 +432,51 @@ private fun generateEinladung(
             location = location,
             bodyText = bodyText,
             recipients = recipients,
+            organization = organization,
+        )
+    }
+
+/**
+ * Welle V1.4.3.6 "Externe Rechnungsstellung" -- renders the invoice PDF for an ALREADY-issued
+ * event invoice (`EventRegistrationTable.openItemId != null`, set by
+ * [network.lapis.cloud.server.rpc.EventService.issueEventInvoice]). This function never creates
+ * an open item itself -- it is a pure read/render path, re-callable any number of times (a
+ * treasurer re-downloading the same invoice later gets byte-identical content every time, since
+ * every field it renders is a frozen snapshot already committed by `issueEventInvoice`).
+ */
+internal fun generateEventInvoice(registrationId: Uuid): ByteArray =
+    transaction {
+        val registration =
+            EventRegistrationTable
+                .selectAll()
+                .where { EventRegistrationTable.id eq registrationId }
+                .singleOrNull() ?: throw NotFoundException("Event registration $registrationId not found")
+        val openItemId =
+            registration[EventRegistrationTable.openItemId]
+                ?: throw ConflictException("Event registration $registrationId has no invoice/open item yet")
+        val openItem =
+            OpenItemTable.selectAll().where { OpenItemTable.id eq openItemId }.singleOrNull()
+                ?: throw NotFoundException("OpenItem $openItemId not found")
+        val event =
+            EventTable.selectAll().where { EventTable.id eq registration[EventRegistrationTable.eventId] }.singleOrNull()
+                ?: throw NotFoundException("Event ${registration[EventRegistrationTable.eventId]} not found")
+
+        val memberId = registration[EventRegistrationTable.memberId]
+        val recipientName =
+            (memberId?.let { EventStore.memberDisplayNameOrNull(it) } ?: registration[EventRegistrationTable.guestName])
+                ?: "Unbekannt"
+
+        val organization = loadOrganizationSettingsDto()
+        EventInvoicePdfGenerator.generate(
+            recipientName = recipientName,
+            billingStreet = registration[EventRegistrationTable.billingStreet],
+            billingPostalCode = registration[EventRegistrationTable.billingPostalCode],
+            billingCity = registration[EventRegistrationTable.billingCity],
+            billingCountry = registration[EventRegistrationTable.billingCountry],
+            eventTitle = event[EventTable.title],
+            amount = openItem[OpenItemTable.amount],
+            dueDate = openItem[OpenItemTable.dueDate],
+            reference = openItem[OpenItemTable.reference] ?: "EVENT-$registrationId",
             organization = organization,
         )
     }

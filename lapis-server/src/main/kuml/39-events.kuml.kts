@@ -132,11 +132,28 @@
 // **Bewusst aufgeschoben, eigene Wellen mit eigenem Security-Loop:** eine Helfer-Rolle bzw. ein
 // eigener Helfer-Türlink (heute check-in ausschliesslich BOARD/ADMIN); Offline-Check-in mit
 // Nachsynchronisierung (ein Verbindungsverlust am Einlass zeigt heute nur einen Hinweistext, siehe
-// `EventCheckInScreen`); Ticketübertragung/Namensänderung; Sitzplatzvergabe; Catering;
-// Raumverwaltung; Schichtplanung; Rechnungsstellung an Externe. Ebenfalls bewusst NICHT Teil dieser
-// Welle: ein Check-in-Formular AUF der öffentlichen Ticketseite selbst -- das Türpersonal nutzt
+// `EventCheckInScreen`); Ticketübertragung/Namensänderung; Sitzplatzvergabe; Schichtplanung.
+// Catering/Raumverwaltung/Rechnungsstellung an Externe sind inzwischen eigene Wellen (V1.4.3.4/
+// V1.4.3.5/V1.4.3.6, siehe die beiden Addenda unten). Ebenfalls bewusst NICHT Teil dieser Welle:
+// ein Check-in-Formular AUF der öffentlichen Ticketseite selbst -- das Türpersonal nutzt
 // stattdessen den eigenen, authentifizierten `EventCheckInScreen` (Gästeliste + Codefeld), was die
 // Notwendigkeit einer Session-Auflösung auf einer ansonsten vollständig anonymen Seite entfällt.
+//
+// **Welle V1.4.3.6 "Externe Rechnungsstellung für Veranstaltungen" addendum** (`V38__event_invoice
+// .sql`) adds seven new `event_registration` columns: a billing address (`billingStreet`/
+// `billingPostalCode`/`billingCity`/`billingCountry`, all nullable -- filled in only when an
+// invoice is actually issued) and a nullable FK -> `open_item` (owned by `48-open-item.kuml.kts`,
+// Welle V1.4.15) plus `invoiceIssuedAt`/`invoiceIssuedBy`. **No new booking logic** -- this is a
+// small orchestrating bridge ("Admin stellt Rechnung statt Stripe-Zahlung"), not a new ledger
+// entity: `network.lapis.cloud.server.rpc.EventService.issueEventInvoice` calls straight into the
+// EXISTING `OpenItemPostingBridge.postItemCreation`/debtor open-item machinery, the same one
+// `OpenItemService.createOpenItem` uses for every other receivable in this codebase. A new
+// `OpenItem` cross-domain stub (id-only, same pattern as the Member/EventRoom stubs above) exists
+// purely so `UmlToErmTransformer` can resolve this FK within THIS file's own single-file
+// evaluation -- `open_item` itself is owned by `48-open-item.kuml.kts`. `open_item_id`/
+// `invoice_issued_at` are set together or not at all (SQL-only CHECK
+// `chk_event_registration_invoice_consistency`, not modelled here -- same "cross-field CHECK
+// constraints are SQL-only" posture this file's own header already documents).
 import dev.kuml.profile.erm.ermMappingProfile
 import dev.kuml.uml.Multiplicity
 import dev.kuml.uml.dsl.applyProfile
@@ -160,6 +177,17 @@ classDiagram(name = "Events") {
     // file's own single-file evaluation (Welle V1.4.3.4 addendum, see file header).
     val eventRoom = classOf(name = "EventRoom") {
         stereotype("Entity") { "tableName" to "event_room"; "kotlinObjectName" to "EventRoomTable" }
+        attribute(name = "id", type = "UUID") {
+            stereotype("Id")
+            stereotype("Column") { "columnName" to "id" }
+        }
+    }
+
+    // 48-open-item.kuml.kts-owned stub -- id-only. Resolves event_registration.openItemId's FK
+    // target within this file's own single-file evaluation (Welle V1.4.3.6 addendum, see file
+    // header).
+    val openItem = classOf(name = "OpenItem") {
+        stereotype("Entity") { "tableName" to "open_item"; "kotlinObjectName" to "OpenItemTable" }
         attribute(name = "id", type = "UUID") {
             stereotype("Id")
             stereotype("Column") { "columnName" to "id" }
@@ -373,6 +401,39 @@ classDiagram(name = "Events") {
         attribute(name = "checkedInBy", type = "UUID") {
             multiplicity = Multiplicity(0, 1)
             stereotype("Column") { "columnName" to "checked_in_by"; "fkEntity" to "Member" }
+        }
+        // V1.4.3.6 addendum (see file header). Billing address, filled in only when an invoice is
+        // actually issued -- deliberately separate from any member's own postal address (a guest
+        // may have none, and a member's invoice address may differ from their membership address).
+        attribute(name = "billingStreet", type = "String") {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") { "columnName" to "billing_street"; "sqlType" to "VARCHAR(200)" }
+        }
+        attribute(name = "billingPostalCode", type = "String") {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") { "columnName" to "billing_postal_code"; "sqlType" to "VARCHAR(20)" }
+        }
+        attribute(name = "billingCity", type = "String") {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") { "columnName" to "billing_city"; "sqlType" to "VARCHAR(200)" }
+        }
+        attribute(name = "billingCountry", type = "String") {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") { "columnName" to "billing_country"; "sqlType" to "VARCHAR(100)" }
+        }
+        // Set together with invoiceIssuedAt, or not at all (chk_event_registration_invoice_
+        // consistency, SQL-only -- see file header).
+        attribute(name = "openItemId", type = "UUID") {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") { "columnName" to "open_item_id"; "fkEntity" to "OpenItem" }
+        }
+        attribute(name = "invoiceIssuedAt", type = "LocalDateTime") {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") { "columnName" to "invoice_issued_at" }
+        }
+        attribute(name = "invoiceIssuedBy", type = "UUID") {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") { "columnName" to "invoice_issued_by"; "fkEntity" to "Member" }
         }
     }
 }

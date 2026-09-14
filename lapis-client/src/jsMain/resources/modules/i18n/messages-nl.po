@@ -11036,3 +11036,27 @@ msgstr "Besteld"
 #: src/jsMain/kotlin/network/lapis/cloud/client/CateringScreen.kt
 msgid "Geliefert"
 msgstr "Geleverd"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventCheckInScreen.kt:1
+msgid "Rechnung stellen"
+msgstr "Factuur opstellen"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventCheckInScreen.kt:1
+msgid "Rechnung stellen: %1"
+msgstr "Factuur opstellen: %1"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventCheckInScreen.kt:1
+msgid "Fälligkeitsfrist (Tage)"
+msgstr "Betalingstermijn (dagen)"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventCheckInScreen.kt:1
+msgid "Fälligkeitsfrist muss eine positive Zahl von Tagen sein."
+msgstr "De betalingstermijn moet een positief aantal dagen zijn."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventCheckInScreen.kt:1
+msgid "Rechnung wurde gestellt."
+msgstr "Factuur opgesteld."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventCheckInScreen.kt:1
+msgid "Rechnung gestellt am %1 durch %2 (Offener Posten)."
+msgstr "Factuur opgesteld op %1 door %2 (openstaande post)."

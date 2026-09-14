@@ -2,14 +2,25 @@ package network.lapis.cloud.server.db
 
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
+import kotlinx.datetime.LocalDate
+import kotlinx.datetime.LocalDateTime
 import network.lapis.cloud.server.db.generated.EventCateringOrderTable
 import network.lapis.cloud.server.db.generated.EventRegistrationTable
 import network.lapis.cloud.server.db.generated.EventRoomTable
 import network.lapis.cloud.server.db.generated.EventTable
+import network.lapis.cloud.server.db.generated.LedgerAccountTable
+import network.lapis.cloud.server.db.generated.OpenItemTable
+import network.lapis.cloud.shared.domain.GemeinnuetzigkeitSphere
+import network.lapis.cloud.shared.domain.LedgerAccountType
+import network.lapis.cloud.shared.domain.OpenItemDirection
+import network.lapis.cloud.shared.domain.OpenItemStatus
 import org.jetbrains.exposed.v1.core.inList
 import org.jetbrains.exposed.v1.exceptions.ExposedSQLException
 import org.jetbrains.exposed.v1.jdbc.deleteWhere
+import org.jetbrains.exposed.v1.jdbc.insert
 import org.jetbrains.exposed.v1.jdbc.transactions.transaction
+import org.jetbrains.exposed.v1.jdbc.update
+import java.math.BigDecimal
 import kotlin.uuid.Uuid
 
 private val ADMIN_UUID = Uuid.parse("00000000-0000-0000-0000-000000000001")
@@ -556,6 +567,175 @@ class EventMigrationTest :
             val eventId = createRealEvent()
             val exception = probeInsert(cateringOrderColumns(id = newOrderId(), eventId = eventId))
             exception shouldBe null
+        }
+
+        // ── Welle V1.4.3.6 "Externe Rechnungsstellung für Veranstaltungen" -- V38__event_invoice.sql ──
+
+        val createdOpenItemIds = mutableListOf<Uuid>()
+        val createdLedgerAccountIds = mutableListOf<Uuid>()
+
+        afterSpec {
+            transaction {
+                if (createdOpenItemIds.isNotEmpty()) {
+                    // event_registration.open_item_id FK-references open_item(id) -- clear it
+                    // before deleting the referenced open_item row, same ordering reasoning the
+                    // Catering-order cleanup above already documents.
+                    EventRegistrationTable.update({ EventRegistrationTable.openItemId inList createdOpenItemIds }) {
+                        it[openItemId] = null
+                        it[invoiceIssuedAt] = null
+                        it[invoiceIssuedBy] = null
+                    }
+                    OpenItemTable.deleteWhere { OpenItemTable.id inList createdOpenItemIds }
+                }
+                if (createdLedgerAccountIds.isNotEmpty()) {
+                    LedgerAccountTable.deleteWhere { LedgerAccountTable.id inList createdLedgerAccountIds }
+                }
+            }
+        }
+
+        fun newIncomeLedgerAccount(): Uuid {
+            val id = Uuid.random()
+            val number = "I${id.toString().filter { it.isDigit() }.take(9)}"
+            transaction {
+                LedgerAccountTable.insert {
+                    it[LedgerAccountTable.id] = id
+                    it[accountNumber] = number
+                    it[name] = "Test-Ertragskonto $number"
+                    it[accountClass] = 4
+                    it[type] = LedgerAccountType.INCOME
+                    it[active] = true
+                    it[reserveType] = null
+                    it[isCashRegister] = false
+                }
+            }
+            createdLedgerAccountIds += id
+            return id
+        }
+
+        fun newOpenItem(contraAccountId: Uuid): Uuid {
+            val id = Uuid.random()
+            transaction {
+                OpenItemTable.insert {
+                    it[OpenItemTable.id] = id
+                    it[direction] = OpenItemDirection.RECEIVABLE
+                    it[counterpartyName] = "Testgast"
+                    it[counterpartyKey] = "testgast"
+                    it[crmContactId] = null
+                    it[reference] = null
+                    it[itemDate] = LocalDate(2026, 1, 1)
+                    it[dueDate] = LocalDate(2026, 1, 15)
+                    it[amount] = BigDecimal("10.00")
+                    it[OpenItemTable.contraAccountId] = contraAccountId
+                    it[sphere] = GemeinnuetzigkeitSphere.ZWECKBETRIEB
+                    it[status] = OpenItemStatus.OPEN
+                    it[note] = null
+                    it[createdByMemberId] = ADMIN_UUID
+                    it[createdAt] = LocalDateTime(2026, 1, 1, 0, 0)
+                }
+            }
+            createdOpenItemIds += id
+            return id
+        }
+
+        test("chk_event_registration_invoice_consistency rejects invoice_issued_at set without open_item_id") {
+            val eventId = createRealEvent()
+            val registrationId = Uuid.random()
+            val insertException = probeInsert(registrationColumns(id = registrationId, eventId = eventId))
+            insertException shouldBe null
+            val exception =
+                probeInsert(
+                    "UPDATE event_registration SET invoice_issued_at = TIMESTAMP '2026-01-01 00:00:00' WHERE id = '$registrationId'",
+                )
+            (exception is ExposedSQLException) shouldBe true
+            (exception?.message ?: "").contains("chk_event_registration_invoice_consistency", ignoreCase = true) shouldBe true
+        }
+
+        // Review MINOR fix: the constraint's own `(open_item_id IS NULL) = (invoice_issued_at IS
+        // NULL)` shape is symmetric, but only the ONE direction above (invoice_issued_at set
+        // without open_item_id) had a probe -- the mirror-image asymmetry (open_item_id set,
+        // invoice_issued_at left NULL) was never actually exercised. `open_item_id` also has its
+        // own FK against a real `open_item` row, so this probe needs one (via [newOpenItem]) --
+        // otherwise a bogus id would fail on `fk_event_registration_open_item` first and never
+        // reach the CHECK constraint this test targets.
+        test("chk_event_registration_invoice_consistency rejects open_item_id set without invoice_issued_at") {
+            val eventId = createRealEvent()
+            val registrationId = Uuid.random()
+            val insertException = probeInsert(registrationColumns(id = registrationId, eventId = eventId))
+            insertException shouldBe null
+            val accountId = newIncomeLedgerAccount()
+            val openItemId = newOpenItem(accountId)
+            val exception =
+                probeInsert(
+                    "UPDATE event_registration SET open_item_id = '$openItemId' WHERE id = '$registrationId'",
+                )
+            (exception is ExposedSQLException) shouldBe true
+            (exception?.message ?: "").contains("chk_event_registration_invoice_consistency", ignoreCase = true) shouldBe true
+        }
+
+        test("fk_event_registration_open_item rejects an unknown open_item_id") {
+            val eventId = createRealEvent()
+            val registrationId = Uuid.random()
+            val insertException = probeInsert(registrationColumns(id = registrationId, eventId = eventId))
+            insertException shouldBe null
+            val bogusOpenItemId = Uuid.random()
+            val exception =
+                probeInsert(
+                    "UPDATE event_registration SET open_item_id = '$bogusOpenItemId', " +
+                        "invoice_issued_at = TIMESTAMP '2026-01-01 00:00:00' WHERE id = '$registrationId'",
+                )
+            (exception is ExposedSQLException) shouldBe true
+            (exception?.message ?: "").contains("fk_event_registration_open_item", ignoreCase = true) shouldBe true
+        }
+
+        test("event_registration.open_item_id accepts a real open_item id, together with invoice_issued_at/invoice_issued_by") {
+            val eventId = createRealEvent()
+            val registrationId = Uuid.random()
+            val insertException = probeInsert(registrationColumns(id = registrationId, eventId = eventId))
+            insertException shouldBe null
+            val accountId = newIncomeLedgerAccount()
+            val openItemId = newOpenItem(accountId)
+            val exception =
+                probeInsert(
+                    "UPDATE event_registration SET open_item_id = '$openItemId', " +
+                        "invoice_issued_at = TIMESTAMP '2026-01-01 00:00:00', invoice_issued_by = '$ADMIN_UUID' " +
+                        "WHERE id = '$registrationId'",
+                )
+            exception shouldBe null
+        }
+
+        test("event_registration billing_* columns accept a full address") {
+            val eventId = createRealEvent()
+            val registrationId = Uuid.random()
+            val insertException = probeInsert(registrationColumns(id = registrationId, eventId = eventId))
+            insertException shouldBe null
+            val exception =
+                probeInsert(
+                    "UPDATE event_registration SET billing_street = 'Teststrasse 1', billing_postal_code = '38100', " +
+                        "billing_city = 'Braunschweig', billing_country = 'Deutschland' WHERE id = '$registrationId'",
+                )
+            exception shouldBe null
+        }
+
+        test("V38 migration is idempotent -- a billing_*/open_item UPDATE round-trip still succeeds against the already-migrated schema") {
+            val eventId = createRealEvent()
+            val registrationId = Uuid.random()
+            val insertException = probeInsert(registrationColumns(id = registrationId, eventId = eventId))
+            insertException shouldBe null
+            val accountId = newIncomeLedgerAccount()
+            val openItemId = newOpenItem(accountId)
+            val updateException =
+                probeInsert(
+                    "UPDATE event_registration SET billing_city = 'Braunschweig', open_item_id = '$openItemId', " +
+                        "invoice_issued_at = TIMESTAMP '2026-01-01 00:00:00', invoice_issued_by = '$ADMIN_UUID' " +
+                        "WHERE id = '$registrationId'",
+                )
+            updateException shouldBe null
+            val revertException =
+                probeInsert(
+                    "UPDATE event_registration SET billing_city = NULL, open_item_id = NULL, invoice_issued_at = NULL, " +
+                        "invoice_issued_by = NULL WHERE id = '$registrationId'",
+                )
+            revertException shouldBe null
         }
 
         test("V37 migration is idempotent -- re-running the DDL on an already-migrated schema does not fail") {

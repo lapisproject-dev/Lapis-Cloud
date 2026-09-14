@@ -5,6 +5,7 @@ import network.lapis.cloud.shared.domain.EventCheckInResultDto
 import network.lapis.cloud.shared.domain.EventCheckInRosterDto
 import network.lapis.cloud.shared.domain.EventDto
 import network.lapis.cloud.shared.domain.EventInput
+import network.lapis.cloud.shared.domain.EventInvoiceRequestDto
 import network.lapis.cloud.shared.domain.EventPageDto
 import network.lapis.cloud.shared.domain.EventQuery
 import network.lapis.cloud.shared.domain.EventRegistrationDto
@@ -109,4 +110,17 @@ interface IEventService {
      * route -- see `network.lapis.cloud.server.events.EventTicketIssuer.reissue` KDoc.
      */
     suspend fun reissueTicket(registrationId: String)
+
+    /**
+     * Welle V1.4.3.6 "Externe Rechnungsstellung für Veranstaltungen". Role: TREASURER/ADMIN. The
+     * small orchestrating bridge "Admin stellt Rechnung statt Stripe-Zahlung": books
+     * [EventInvoiceRequestDto.registrationId]'s frozen `feeAmount` as a new RECEIVABLE via the
+     * EXISTING `OpenItemService`/`OpenItemPostingBridge` debtor bookkeeping (Welle V1.4.15) --
+     * NO new booking logic. Only permitted for a CONFIRMED registration that does not already have
+     * an open item (`EventRegistrationDto.openItemId == null`) and whose `feeAmount > 0`. Every
+     * billing-address field is optional; when present, each is server-length-validated against the
+     * `event_registration.billing_*` `VARCHAR` widths. [EventInvoiceRequestDto.dueInDays] must be
+     * `> 0` and becomes the resulting `OpenItem.dueDate` (itemDate = today).
+     */
+    suspend fun issueEventInvoice(input: EventInvoiceRequestDto): EventRegistrationDto
 }

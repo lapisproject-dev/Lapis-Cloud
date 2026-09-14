@@ -264,7 +264,7 @@ class OpenItemService(
                     actorMemberId = current.memberId,
                     actorRole = current.role,
                 )
-            applyPostingOutcome(itemId = itemId, outcome = outcome)
+            applyOpenItemPostingOutcome(itemId = itemId, outcome = outcome)
 
             AuditLogRecorder.record(
                 actorMemberId = current.memberId,
@@ -620,7 +620,7 @@ class OpenItemService(
                     actorMemberId = current.memberId,
                     actorRole = current.role,
                 )
-            applyPostingOutcome(itemId = id, outcome = outcome)
+            applyOpenItemPostingOutcome(itemId = id, outcome = outcome)
             // Security fix (MINOR, first review pass): createOpenItem audits BOTH outcomes
             // (embedding creationPostingError specifically so two consecutive failed retries are
             // not byte-identical, see OpenItemSnapshot KDoc) -- this retry path previously only
@@ -1021,21 +1021,6 @@ class OpenItemService(
 
     // ── Internal helpers ───────────────────────────────────────────────────────────
 
-    private fun applyPostingOutcome(
-        itemId: Uuid,
-        outcome: OpenItemPostingOutcome,
-    ) {
-        when (outcome) {
-            is OpenItemPostingOutcome.Posted ->
-                OpenItemTable.update({ OpenItemTable.id eq itemId }) {
-                    it[creationJournalEntryId] = outcome.journalEntryId
-                    it[creationPostingError] = null
-                }
-            is OpenItemPostingOutcome.Failed ->
-                OpenItemTable.update({ OpenItemTable.id eq itemId }) { it[creationPostingError] = outcome.reason }
-        }
-    }
-
     private fun loadNettingPair(
         payableId: Uuid,
         receivableId: Uuid,
@@ -1415,3 +1400,32 @@ private fun String.toOpenItemUuid(role: String): Uuid =
     runCatching {
         Uuid.parse(this)
     }.getOrElse { throw NotFoundException("Invalid $role: $this") }
+
+/**
+ * Review MINOR fix (Welle V1.4.3.6 "Externe Rechnungsstellung für Veranstaltungen"): the
+ * `OpenItemTable.update { creationJournalEntryId/creationPostingError }` step of a "just created a
+ * new RECEIVABLE/PAYABLE open item, now record how [OpenItemPostingBridge.postItemCreation] went"
+ * flow used to be duplicated verbatim between `OpenItemService.createOpenItem` and
+ * `EventService.issueEventInvoice` (the latter is a deliberately thin bridge into this SAME
+ * open-item bookkeeping, see that method's own KDoc). Lifted out of [OpenItemService] (where it was
+ * a private instance method touching no instance state) to a top-level `internal` function so both
+ * callers -- and any future one -- share ONE place this bookkeeping step is written. Deliberately
+ * NOT extended to the settlement/cancellation/reversal/netting call sites elsewhere in
+ * [OpenItemService] (`journalEntryId`/`postingError` on `OpenItemSettlementTable`/
+ * `OpenItemNettingTable`, not `creationJournalEntryId`/`creationPostingError` on [OpenItemTable]) --
+ * those are a structurally different table/column shape, not the same duplication.
+ */
+internal fun applyOpenItemPostingOutcome(
+    itemId: Uuid,
+    outcome: OpenItemPostingOutcome,
+) {
+    when (outcome) {
+        is OpenItemPostingOutcome.Posted ->
+            OpenItemTable.update({ OpenItemTable.id eq itemId }) {
+                it[creationJournalEntryId] = outcome.journalEntryId
+                it[creationPostingError] = null
+            }
+        is OpenItemPostingOutcome.Failed ->
+            OpenItemTable.update({ OpenItemTable.id eq itemId }) { it[creationPostingError] = outcome.reason }
+    }
+}

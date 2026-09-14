@@ -27,6 +27,17 @@ object MailmergeHttp {
     fun receiptUrl(journalEntryId: String): String = "/api/mailmerge/donations/$journalEntryId/receipt.pdf"
 
     /**
+     * Welle V1.4.3.6 "Externe Rechnungsstellung für Veranstaltungen" -- the GET download route
+     * `registerMailmergeRoutes` registers for an ALREADY-issued event invoice (see that file's own
+     * KDoc "Welle V1.4.3.6" call-site comment). Same D3 idiom as [invoiceUrl]/[receiptUrl] above: a
+     * plain same-origin GET that streams a `Content-Disposition: attachment` PDF, so a
+     * `root.link(url = ..., target = "_blank")` is sufficient. Gated `FINANCIAL_DOC_ROLES`
+     * (TREASURER/BOARD/ADMIN) server-side -- only ever render this on the check-in screen's own
+     * invoice section, which is itself gated to that same tier client-side.
+     */
+    fun eventInvoiceUrl(registrationId: String): String = "/api/mailmerge/events/registrations/$registrationId/invoice.pdf"
+
+    /**
      * Design decision D4 -- first POST-triggered-file-download idiom in this client (every existing
      * download -- [DocumentHttp]'s `downloadUrl`, `BackupHttp.EXPORT_URL`, `dsgvoExportUrl` -- is a
      * plain GET link; `POST /api/mailmerge/invitations` is a multipart POST, so a plain `<a href>`

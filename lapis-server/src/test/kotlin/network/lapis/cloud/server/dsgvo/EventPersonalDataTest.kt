@@ -284,4 +284,75 @@ class EventPersonalDataTest :
                 }
             stillThere shouldBe 1L
         }
+
+        // ── Welle V1.4.3.6 "Externe Rechnungsstellung für Veranstaltungen" addendum ─────────────
+
+        test("eraseMember retains event_registration rows referenced via invoice_issued_by, with a written reason") {
+            val treasurer = createTestMember("event-pd-invoice-erase-${Uuid.random()}@example.org")
+            val guest = createTestMember("event-pd-invoice-guest-${Uuid.random()}@example.org")
+            val now = DbClock.nowLocalDateTime()
+            val eventId = Uuid.random()
+            val registrationId = Uuid.random()
+            transaction {
+                EventTable.insert {
+                    it[EventTable.id] = eventId
+                    it[slug] = "event-pd-invoice-erase-test-$eventId"
+                    it[title] = "PD-Invoice-Erase-Test-Event"
+                    it[description] = "test"
+                    it[locationText] = "Testort"
+                    it[onlineUrl] = null
+                    it[startsAt] = now
+                    it[endsAt] = now
+                    it[capacity] = null
+                    it[feeAmount] = BigDecimal("10.00")
+                    it[feeCurrency] = "EUR"
+                    it[status] = EventStatus.PUBLISHED
+                    it[visibility] = EventVisibility.PUBLIC
+                    it[registrationClosesAt] = null
+                    it[EventTable.createdAt] = now
+                    it[EventTable.createdBy] = treasurer
+                    it[cancelledAt] = null
+                }
+                // A registration this treasurer did NOT register for themselves (guest-owned) but
+                // DID invoice -- proves invoice_issued_by is counted independently of memberId/
+                // registrations-of-their-own (the pre-existing `registrationCount` query above).
+                EventRegistrationTable.insert {
+                    it[id] = registrationId
+                    it[EventRegistrationTable.eventId] = eventId
+                    it[memberId] = guest
+                    it[guestName] = null
+                    it[guestEmail] = null
+                    it[activeParticipantKey] = "m:$guest"
+                    it[status] = EventRegistrationStatus.CONFIRMED
+                    it[feeAmount] = BigDecimal("10.00")
+                    it[holdExpiresAt] = null
+                    it[waitlistPosition] = null
+                    it[cancelTokenSha256] = null
+                    it[registeredAt] = now
+                    it[confirmedAt] = now
+                    it[cancelledAt] = null
+                    it[waitlistOfferedAt] = null
+                    // Deliberately invoiceIssuedBy ALONE, no invoiceIssuedAt/openItemId -- this
+                    // test only needs to prove invoice_issued_by's own FK-retention behavior, and
+                    // setting invoiceIssuedAt without a real open_item_id would trip
+                    // chk_event_registration_invoice_consistency (see V38__event_invoice.sql);
+                    // EventInvoiceIssuanceTest already covers the real three-columns-together path.
+                    it[invoiceIssuedBy] = treasurer
+                }
+            }
+            createdEventIds += eventId
+
+            val outcomes = transaction { EventPersonalData.eraseMember(memberId = treasurer, mode = ErasureMode.ANONYMIZE) }
+            val invoiceOutcome = outcomes.single { it.retentionReason?.contains("invoice_issued_by") == true }
+            invoiceOutcome.table shouldBe "event_registration"
+            invoiceOutcome.rowsRetained shouldBe 1
+            invoiceOutcome.rowsDeleted shouldBe 0
+
+            // Row genuinely still exists -- "retained" is not a euphemism for silently deleted.
+            val stillThere =
+                transaction {
+                    EventRegistrationTable.selectAll().where { EventRegistrationTable.id eq registrationId }.count()
+                }
+            stillThere shouldBe 1L
+        }
     })

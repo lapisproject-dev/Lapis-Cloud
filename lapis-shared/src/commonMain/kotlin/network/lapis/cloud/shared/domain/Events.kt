@@ -103,6 +103,32 @@ data class EventRegistrationDto(
     val ticketIssuedAt: LocalDateTime? = null,
     val checkedInAt: LocalDateTime? = null,
     val checkedInByDisplayName: String? = null,
+    /** Welle V1.4.3.6 "Externe Rechnungsstellung" -- additive, defaulted so no pre-existing caller/test breaks. Non-null iff [network.lapis.cloud.shared.rpc.IEventService.issueEventInvoice] was ever called for this registration -- see that method's KDoc. */
+    val billingStreet: String? = null,
+    val billingPostalCode: String? = null,
+    val billingCity: String? = null,
+    val billingCountry: String? = null,
+    val openItemId: String? = null,
+    val invoiceIssuedAt: LocalDateTime? = null,
+    val invoiceIssuedByDisplayName: String? = null,
+)
+
+/**
+ * Welle V1.4.3.6 "Externe Rechnungsstellung für Veranstaltungen" -- input to
+ * [network.lapis.cloud.shared.rpc.IEventService.issueEventInvoice]. The billing address fields are
+ * ALL optional (a guest without a mailing address is still invoiceable -- the invoice PDF simply
+ * omits the address block, same defensive posture [network.lapis.cloud.server.pdf
+ * .LetterPdfBuilder]'s own KDoc documents for other letter templates) but are server-length-
+ * validated when present -- see `EventService.issueEventInvoice` KDoc.
+ */
+@Serializable
+data class EventInvoiceRequestDto(
+    val registrationId: String,
+    val billingStreet: String? = null,
+    val billingPostalCode: String? = null,
+    val billingCity: String? = null,
+    val billingCountry: String? = null,
+    val dueInDays: Int = 14,
 )
 
 /**

@@ -11031,3 +11031,27 @@ msgstr "Zamówione"
 #: src/jsMain/kotlin/network/lapis/cloud/client/CateringScreen.kt
 msgid "Geliefert"
 msgstr "Dostarczone"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventCheckInScreen.kt:1
+msgid "Rechnung stellen"
+msgstr "Wystaw fakturę"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventCheckInScreen.kt:1
+msgid "Rechnung stellen: %1"
+msgstr "Wystaw fakturę: %1"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventCheckInScreen.kt:1
+msgid "Fälligkeitsfrist (Tage)"
+msgstr "Termin płatności (dni)"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventCheckInScreen.kt:1
+msgid "Fälligkeitsfrist muss eine positive Zahl von Tagen sein."
+msgstr "Termin płatności musi być dodatnią liczbą dni."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventCheckInScreen.kt:1
+msgid "Rechnung wurde gestellt."
+msgstr "Faktura wystawiona."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventCheckInScreen.kt:1
+msgid "Rechnung gestellt am %1 durch %2 (Offener Posten)."
+msgstr "Faktura wystawiona %1 przez %2 (otwarta pozycja)."

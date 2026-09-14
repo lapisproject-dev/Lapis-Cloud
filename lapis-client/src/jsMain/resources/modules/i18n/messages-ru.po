@@ -11018,3 +11018,27 @@ msgstr "Заказано"
 #: src/jsMain/kotlin/network/lapis/cloud/client/CateringScreen.kt
 msgid "Geliefert"
 msgstr "Доставлено"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventCheckInScreen.kt:1
+msgid "Rechnung stellen"
+msgstr "Выставить счёт"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventCheckInScreen.kt:1
+msgid "Rechnung stellen: %1"
+msgstr "Выставить счёт: %1"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventCheckInScreen.kt:1
+msgid "Fälligkeitsfrist (Tage)"
+msgstr "Срок оплаты (дни)"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventCheckInScreen.kt:1
+msgid "Fälligkeitsfrist muss eine positive Zahl von Tagen sein."
+msgstr "Срок оплаты должен быть положительным числом дней."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventCheckInScreen.kt:1
+msgid "Rechnung wurde gestellt."
+msgstr "Счёт выставлен."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventCheckInScreen.kt:1
+msgid "Rechnung gestellt am %1 durch %2 (Offener Posten)."
+msgstr "Счёт выставлен %1 пользователем %2 (открытая позиция)."

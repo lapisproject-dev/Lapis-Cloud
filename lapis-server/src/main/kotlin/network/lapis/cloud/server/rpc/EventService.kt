@@ -1,10 +1,16 @@
 package network.lapis.cloud.server.rpc
 
 import io.ktor.server.application.ApplicationCall
+import kotlinx.datetime.DateTimeUnit
 import kotlinx.datetime.LocalDateTime
+import kotlinx.datetime.plus
+import kotlinx.serialization.json.Json
+import network.lapis.cloud.server.audit.AuditLogRecorder
 import network.lapis.cloud.server.db.DbClock
 import network.lapis.cloud.server.db.generated.EventRegistrationTable
 import network.lapis.cloud.server.db.generated.EventTable
+import network.lapis.cloud.server.db.generated.OpenItemTable
+import network.lapis.cloud.server.db.generated.OrganizationSettingsTable
 import network.lapis.cloud.server.events.EventCapacityGuard
 import network.lapis.cloud.server.events.EventCheckIn
 import network.lapis.cloud.server.events.EventParticipant
@@ -25,11 +31,15 @@ import network.lapis.cloud.server.payment.psp.StripeCheckoutClient
 import network.lapis.cloud.server.security.requireRole
 import network.lapis.cloud.server.security.resolveCurrentMember
 import network.lapis.cloud.shared.domain.AccountRole
+import network.lapis.cloud.shared.domain.AuditAction
+import network.lapis.cloud.shared.domain.AuditEntityType
+import network.lapis.cloud.shared.domain.CounterpartyKey
 import network.lapis.cloud.shared.domain.EventCheckInResultDto
 import network.lapis.cloud.shared.domain.EventCheckInRosterDto
 import network.lapis.cloud.shared.domain.EventCheckInRowDto
 import network.lapis.cloud.shared.domain.EventDto
 import network.lapis.cloud.shared.domain.EventInput
+import network.lapis.cloud.shared.domain.EventInvoiceRequestDto
 import network.lapis.cloud.shared.domain.EventPageDto
 import network.lapis.cloud.shared.domain.EventQuery
 import network.lapis.cloud.shared.domain.EventRegistrationDto
@@ -38,15 +48,46 @@ import network.lapis.cloud.shared.domain.EventRegistrationStatus
 import network.lapis.cloud.shared.domain.EventRegistrationStatusSets
 import network.lapis.cloud.shared.domain.EventStatus
 import network.lapis.cloud.shared.domain.EventVisibility
+import network.lapis.cloud.shared.domain.OpenItemDirection
+import network.lapis.cloud.shared.domain.OpenItemSnapshot
+import network.lapis.cloud.shared.domain.OpenItemStatus
 import network.lapis.cloud.shared.rpc.BadRequestException
 import network.lapis.cloud.shared.rpc.ConflictException
 import network.lapis.cloud.shared.rpc.IEventService
 import network.lapis.cloud.shared.rpc.NotFoundException
 import org.jetbrains.exposed.v1.core.ResultRow
+import org.jetbrains.exposed.v1.core.eq
+import org.jetbrains.exposed.v1.jdbc.insert
+import org.jetbrains.exposed.v1.jdbc.selectAll
 import org.jetbrains.exposed.v1.jdbc.transactions.transaction
+import org.jetbrains.exposed.v1.jdbc.update
+import java.math.BigDecimal
 import kotlin.uuid.Uuid
 
 private val EVENT_MANAGE_ROLES = arrayOf(AccountRole.BOARD, AccountRole.ADMIN)
+private val EVENT_INVOICE_ROLES = arrayOf(AccountRole.TREASURER, AccountRole.ADMIN)
+
+/** Matches `billing_street VARCHAR(200)` in V38__event_invoice.sql. */
+private const val MAX_BILLING_STREET_LENGTH = 200
+
+/** Matches `billing_postal_code VARCHAR(20)` in V38__event_invoice.sql. */
+private const val MAX_BILLING_POSTAL_CODE_LENGTH = 20
+
+/** Matches `billing_city VARCHAR(200)` in V38__event_invoice.sql. */
+private const val MAX_BILLING_CITY_LENGTH = 200
+
+/** Matches `billing_country VARCHAR(100)` in V38__event_invoice.sql. */
+private const val MAX_BILLING_COUNTRY_LENGTH = 100
+
+private fun requireMaxLength(
+    value: String?,
+    max: Int,
+    fieldName: String,
+) {
+    if (value != null && value.length > max) {
+        throw BadRequestException("$fieldName must be at most $max characters")
+    }
+}
 
 /**
  * Welle V1.4.3.1 "Veranstaltungen: Kernschleife + Anmeldegebuehren-Zahlung" -- the authenticated RPC
@@ -545,6 +586,148 @@ class EventService(
     private fun fetchRegistrationDto(registrationId: Uuid): EventRegistrationDto =
         transaction { EventStore.getRegistrationOrThrow(registrationId).toRegistrationDto() }
 
+    /**
+     * Welle V1.4.3.6 "Externe Rechnungsstellung" -- see [IEventService.issueEventInvoice] KDoc.
+     * Deliberately a THIN bridge: this method contains no new booking logic of its own, it only
+     * assembles the same inputs [OpenItemService.createOpenItem] would need and calls straight
+     * into [OpenItemPostingBridge.postItemCreation] (the "transaction-free by contract" idiom that
+     * bridge's own KDoc documents) from inside ITS own `transaction {}` -- no nested-transaction
+     * question arises because [OpenItemPostingBridge] is a plain object with no `transaction {}`
+     * of its own, unlike [OpenItemService.createOpenItem] (a full RPC method that opens one).
+     */
+    override suspend fun issueEventInvoice(input: EventInvoiceRequestDto): EventRegistrationDto {
+        val current = resolveCurrentMember(call)
+        current.requireRole(*EVENT_INVOICE_ROLES)
+        requireWithinRate(current.memberId)
+        requireMaxLength(value = input.billingStreet, max = MAX_BILLING_STREET_LENGTH, fieldName = "billingStreet")
+        requireMaxLength(value = input.billingPostalCode, max = MAX_BILLING_POSTAL_CODE_LENGTH, fieldName = "billingPostalCode")
+        requireMaxLength(value = input.billingCity, max = MAX_BILLING_CITY_LENGTH, fieldName = "billingCity")
+        requireMaxLength(value = input.billingCountry, max = MAX_BILLING_COUNTRY_LENGTH, fieldName = "billingCountry")
+        if (input.dueInDays <= 0) throw BadRequestException("dueInDays must be positive")
+        val registrationId = input.registrationId.toEventUuid()
+        val now = DbClock.nowLocalDateTime()
+
+        return transaction {
+            val row =
+                EventRegistrationTable
+                    .selectAll()
+                    .where { EventRegistrationTable.id eq registrationId }
+                    .forUpdate()
+                    .singleOrNull()
+                    ?: throw NotFoundException("Event registration $registrationId not found")
+            if (row[EventRegistrationTable.status] != EventRegistrationStatus.CONFIRMED) {
+                throw ConflictException(
+                    "Event registration $registrationId is ${row[EventRegistrationTable.status]}, only CONFIRMED registrations can be invoiced.",
+                )
+            }
+            if (row[EventRegistrationTable.openItemId] != null) {
+                throw ConflictException("Event registration $registrationId already has an invoice/open item.")
+            }
+            val feeAmount = row[EventRegistrationTable.feeAmount]
+            if (feeAmount <= BigDecimal.ZERO) {
+                throw ConflictException("Event registration $registrationId has feeAmount $feeAmount, nothing to invoice.")
+            }
+
+            val settingsRow =
+                OrganizationSettingsTable
+                    .selectAll()
+                    .where { OrganizationSettingsTable.id eq ORGANIZATION_SETTINGS_ID }
+                    .singleOrNull()
+            val eventIncomeAccountId =
+                settingsRow?.get(OrganizationSettingsTable.eventIncomeAccountId)
+                    ?: throw ConflictException(
+                        "organization_settings.event_income_account_id is not configured -- cannot issue an event invoice.",
+                    )
+            val sphere = settingsRow[OrganizationSettingsTable.eventIncomeSphere]
+
+            val memberId = row[EventRegistrationTable.memberId]
+            val counterpartyName =
+                (memberId?.let { EventStore.memberDisplayNameOrNull(it) } ?: row[EventRegistrationTable.guestName])
+                    ?: "Unbekannt"
+
+            val itemId = Uuid.random()
+            val itemDate = now.date
+            val dueDate = itemDate.plus(input.dueInDays, DateTimeUnit.DAY)
+            val counterpartyKey = CounterpartyKey.of(counterpartyName)
+            // Grep-able payment reference, printed on EventInvoicePdfGenerator's "Verwendungszweck"
+            // line -- same idea PaymentReferenceAllocator establishes for Beitragsrechnungen, just
+            // deterministic from the registration id rather than allocated (no bank-statement-
+            // matcher rule exists yet for event invoices this wave).
+            val reference = "EVENT-$registrationId"
+
+            OpenItemTable.insert {
+                it[id] = itemId
+                it[direction] = OpenItemDirection.RECEIVABLE
+                it[OpenItemTable.counterpartyName] = counterpartyName
+                it[OpenItemTable.counterpartyKey] = counterpartyKey
+                it[crmContactId] = null
+                it[OpenItemTable.reference] = reference
+                it[OpenItemTable.itemDate] = itemDate
+                it[OpenItemTable.dueDate] = dueDate
+                it[amount] = feeAmount
+                it[contraAccountId] = eventIncomeAccountId
+                it[OpenItemTable.sphere] = sphere
+                it[status] = OpenItemStatus.OPEN
+                it[note] = "Anmeldegebühr · Event-Registrierung $registrationId (extern in Rechnung gestellt)"
+                it[createdByMemberId] = current.memberId
+                it[createdAt] = now
+            }
+
+            val outcome =
+                OpenItemPostingBridge.postItemCreation(
+                    itemId = itemId,
+                    direction = OpenItemDirection.RECEIVABLE,
+                    counterpartyName = counterpartyName,
+                    reference = reference,
+                    amount = feeAmount,
+                    contraAccountId = eventIncomeAccountId,
+                    sphere = sphere,
+                    itemDate = itemDate,
+                    actorMemberId = current.memberId,
+                    actorRole = current.role,
+                )
+            // Review MINOR fix (booking-logic duplication): this used to repeat the same
+            // `when (outcome) { Posted -> ...; Failed -> ... }` `OpenItemTable.update` block
+            // `OpenItemService.createOpenItem` already has -- now both share
+            // [applyOpenItemPostingOutcome] (see that function's own KDoc).
+            applyOpenItemPostingOutcome(itemId = itemId, outcome = outcome)
+
+            AuditLogRecorder.record(
+                actorMemberId = current.memberId,
+                actorRole = current.role,
+                entityType = AuditEntityType.OPEN_ITEM,
+                entityId = itemId,
+                action = AuditAction.CREATE,
+                before = null,
+                after =
+                    Json.encodeToString(
+                        OpenItemSnapshot.serializer(),
+                        OpenItemSnapshot(
+                            openItemId = itemId.toString(),
+                            direction = OpenItemDirection.RECEIVABLE,
+                            counterpartyKey = counterpartyKey,
+                            status = OpenItemStatus.OPEN,
+                            amount = feeAmount,
+                            creationJournalEntryId = (outcome as? OpenItemPostingOutcome.Posted)?.journalEntryId?.toString(),
+                            creationPostingError = (outcome as? OpenItemPostingOutcome.Failed)?.reason,
+                        ),
+                    ),
+            )
+
+            EventRegistrationTable.update({ EventRegistrationTable.id eq registrationId }) {
+                it[billingStreet] = input.billingStreet?.trim()?.takeIf { s -> s.isNotBlank() }
+                it[billingPostalCode] = input.billingPostalCode?.trim()?.takeIf { s -> s.isNotBlank() }
+                it[billingCity] = input.billingCity?.trim()?.takeIf { s -> s.isNotBlank() }
+                it[billingCountry] = input.billingCountry?.trim()?.takeIf { s -> s.isNotBlank() }
+                it[openItemId] = itemId
+                it[invoiceIssuedAt] = now
+                it[invoiceIssuedBy] = current.memberId
+            }
+
+            EventStore.getRegistrationOrThrow(registrationId).toRegistrationDto()
+        }
+    }
+
     /** A cancellation-notice recipient, already resolved to a plain value INSIDE the triggering transaction -- see `cancelEvent`'s own KDoc comment for why this indirection exists at all (CRITICAL review fix). */
     private data class EventCancellationNotice(
         val to: String,
@@ -627,6 +810,7 @@ private fun ResultRow.toRegistrationDto(): EventRegistrationDto {
     val memberId = this[EventRegistrationTable.memberId]
     val (paymentTransactionId, journalEntryId) = EventStore.findPaymentInfo(id)
     val checkedInBy = this[EventRegistrationTable.checkedInBy]
+    val invoiceIssuedBy = this[EventRegistrationTable.invoiceIssuedBy]
     return EventRegistrationDto(
         id = id.toString(),
         eventId = this[EventRegistrationTable.eventId].toString(),
@@ -643,5 +827,12 @@ private fun ResultRow.toRegistrationDto(): EventRegistrationDto {
         ticketIssuedAt = this[EventRegistrationTable.ticketIssuedAt],
         checkedInAt = this[EventRegistrationTable.checkedInAt],
         checkedInByDisplayName = checkedInBy?.let { EventStore.memberDisplayNameOrNull(it) },
+        billingStreet = this[EventRegistrationTable.billingStreet],
+        billingPostalCode = this[EventRegistrationTable.billingPostalCode],
+        billingCity = this[EventRegistrationTable.billingCity],
+        billingCountry = this[EventRegistrationTable.billingCountry],
+        openItemId = this[EventRegistrationTable.openItemId]?.toString(),
+        invoiceIssuedAt = this[EventRegistrationTable.invoiceIssuedAt],
+        invoiceIssuedByDisplayName = invoiceIssuedBy?.let { EventStore.memberDisplayNameOrNull(it) },
     )
 }
