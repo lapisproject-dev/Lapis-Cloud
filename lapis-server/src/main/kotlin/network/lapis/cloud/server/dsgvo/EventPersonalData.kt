@@ -3,6 +3,7 @@ package network.lapis.cloud.server.dsgvo
 import kotlinx.serialization.json.buildJsonArray
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
+import network.lapis.cloud.server.db.generated.EventCateringOrderTable
 import network.lapis.cloud.server.db.generated.EventRegistrationTable
 import network.lapis.cloud.server.db.generated.EventRoomTable
 import network.lapis.cloud.server.db.generated.EventTable
@@ -44,11 +45,20 @@ import kotlin.uuid.Uuid
  * Extending this existing contributor rather than adding a new `EventRoomPersonalData` one: the
  * room domain is a small satellite of the event domain (see `49-event-room.kuml.kts` file header),
  * not an independent PII surface of its own.
+ *
+ * **Welle V1.4.3.5 "Catering-Management" addendum.** [EventCateringOrderTable] gained a fifth
+ * member-FK-bearing column, `created_by` -- same retain-with-reason posture as
+ * [EventRoomTable.createdBy]/[EventTable.createdBy] ("who created this catering order", pure
+ * organisatorische Nachvollziehbarkeit; the order itself describes no person -- see
+ * `CateringOrderInput.allergenNotes` KDoc for why the aggregated Bestellposition carries no
+ * Personenbezug at all, Art.-9-DSGVO included). Extending this existing contributor rather than
+ * adding a new `CateringPersonalData` one: same "small satellite of the event domain" posture the
+ * Room addendum above already establishes (see `50-event-catering.kuml.kts` file header).
  */
 object EventPersonalData : MemberPersonalDataContributor {
     override val sectionKey = "events"
     override val displayName = "Veranstaltungen"
-    override val coveredTables = setOf(EventTable, EventRegistrationTable, EventRoomTable)
+    override val coveredTables = setOf(EventTable, EventRegistrationTable, EventRoomTable, EventCateringOrderTable)
 
     /** Export bundle cap -- same posture `CrmPersonalData.MAX_EXPORTED_INTERACTIONS` establishes. */
     internal const val MAX_EXPORTED_REGISTRATIONS = 2_000
@@ -112,6 +122,25 @@ object EventPersonalData : MemberPersonalDataContributor {
                         }
                 },
             )
+            put(
+                "createdCateringOrders",
+                buildJsonArray {
+                    EventCateringOrderTable
+                        .selectAll()
+                        .where { EventCateringOrderTable.createdBy eq memberId }
+                        .limit(MAX_EXPORTED_REGISTRATIONS)
+                        .forEach { row ->
+                            add(
+                                buildJsonObject {
+                                    put("id", row[EventCateringOrderTable.id].toString())
+                                    put("eventId", row[EventCateringOrderTable.eventId].toString())
+                                    put("description", row[EventCateringOrderTable.description])
+                                    put("createdAt", row[EventCateringOrderTable.createdAt].toString())
+                                },
+                            )
+                        }
+                },
+            )
         }
 
     override fun eraseMember(
@@ -134,6 +163,12 @@ object EventPersonalData : MemberPersonalDataContributor {
             EventRoomTable
                 .selectAll()
                 .where { EventRoomTable.createdBy eq memberId }
+                .count()
+                .toInt()
+        val createdCateringOrderCount =
+            EventCateringOrderTable
+                .selectAll()
+                .where { EventCateringOrderTable.createdBy eq memberId }
                 .count()
                 .toInt()
         val outcomes = mutableListOf<TableErasureOutcome>()
@@ -168,6 +203,17 @@ object EventPersonalData : MemberPersonalDataContributor {
                     retentionReason =
                         "Organisatorische Nachvollziehbarkeit, wer einen Raum angelegt hat -- created_by " +
                             "bleibt als FK-Anker erhalten, der Raum selbst beschreibt keine Person.",
+                )
+        }
+        if (createdCateringOrderCount > 0) {
+            outcomes +=
+                TableErasureOutcome(
+                    table = "event_catering_order",
+                    rowsRetained = createdCateringOrderCount,
+                    retentionReason =
+                        "Organisatorische Nachvollziehbarkeit, wer eine Catering-Bestellposition angelegt hat -- " +
+                            "created_by bleibt als FK-Anker erhalten, die Bestellposition selbst beschreibt keine " +
+                            "Person (aggregierte Planungsangabe, kein Personenbezug).",
                 )
         }
         return outcomes

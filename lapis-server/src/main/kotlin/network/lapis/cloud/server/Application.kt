@@ -139,6 +139,7 @@ import network.lapis.cloud.server.rpc.BackupService
 import network.lapis.cloud.server.rpc.BankAccountService
 import network.lapis.cloud.server.rpc.BankStatementService
 import network.lapis.cloud.server.rpc.BoardMembershipService
+import network.lapis.cloud.server.rpc.CateringService
 import network.lapis.cloud.server.rpc.ConferenceBreakoutService
 import network.lapis.cloud.server.rpc.ConferenceNotesService
 import network.lapis.cloud.server.rpc.ConferenceRecordingService
@@ -201,6 +202,7 @@ import network.lapis.cloud.shared.rpc.IBackupService
 import network.lapis.cloud.shared.rpc.IBankAccountService
 import network.lapis.cloud.shared.rpc.IBankStatementService
 import network.lapis.cloud.shared.rpc.IBoardMembershipService
+import network.lapis.cloud.shared.rpc.ICateringService
 import network.lapis.cloud.shared.rpc.IConferenceBreakoutService
 import network.lapis.cloud.shared.rpc.IConferenceNotesService
 import network.lapis.cloud.shared.rpc.IConferenceRecordingService
@@ -1370,6 +1372,8 @@ fun Application.module() {
         registerService(IReceivableDunningService::class) { call -> ReceivableDunningService(call) }
         // Welle V1.4.3.4 "Raumverwaltung für Veranstaltungen".
         registerService(IEventRoomService::class) { call -> EventRoomService(call) }
+        // Welle V1.4.3.5 "Catering-Management für Veranstaltungen".
+        registerService(ICateringService::class) { call -> CateringService(call) }
     }
 
     routing {

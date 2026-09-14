@@ -2,6 +2,7 @@ package network.lapis.cloud.server.db
 
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
+import network.lapis.cloud.server.db.generated.EventCateringOrderTable
 import network.lapis.cloud.server.db.generated.EventRegistrationTable
 import network.lapis.cloud.server.db.generated.EventRoomTable
 import network.lapis.cloud.server.db.generated.EventTable
@@ -33,6 +34,13 @@ class EventMigrationTest :
         afterSpec {
             transaction {
                 if (createdEventIds.isNotEmpty()) {
+                    // Welle V1.4.3.5 "Catering-Management" addendum -- event_catering_order.event_id
+                    // FK-references event(id) (V37__event_catering.sql), so any catering order this
+                    // spec created (see the "V1.4.3.5" section below) must be deleted BEFORE the
+                    // events themselves, in this SAME transaction -- otherwise this delete fails with
+                    // a referential-integrity violation and rolls back, which in turn leaves the
+                    // room-referencing events undeleted for the Room section's own afterSpec below.
+                    EventCateringOrderTable.deleteWhere { eventId inList createdEventIds }
                     EventRegistrationTable.deleteWhere { eventId inList createdEventIds }
                     EventTable.deleteWhere { id inList createdEventIds }
                 }
@@ -484,5 +492,84 @@ class EventMigrationTest :
             roomInsert shouldBe null
             val exception = probeInsert("UPDATE event SET room_id = '$roomId' WHERE id = '$eventId'")
             exception shouldBe null
+        }
+
+        // ── Welle V1.4.3.5 "Catering-Management für Veranstaltungen" -- V37__event_catering.sql ──
+
+        val createdOrderIds = mutableListOf<Uuid>()
+
+        afterSpec {
+            transaction {
+                if (createdOrderIds.isNotEmpty()) {
+                    EventCateringOrderTable.deleteWhere { EventCateringOrderTable.id inList createdOrderIds }
+                }
+            }
+        }
+
+        fun newOrderId(): Uuid = Uuid.random().also { createdOrderIds += it }
+
+        fun cateringOrderColumns(
+            id: Uuid,
+            eventId: Uuid,
+            quantity: Int = 10,
+            status: String = "PLANNED",
+        ): String =
+            "INSERT INTO event_catering_order (id, event_id, description, quantity, allergen_notes, status, " +
+                "created_at, created_by) VALUES ('$id', '$eventId', 'Probe-Position', $quantity, NULL, '$status', " +
+                "TIMESTAMP '2026-01-01 00:00:00', '$ADMIN_UUID')"
+
+        test("chk_event_catering_order_quantity rejects a zero quantity") {
+            val eventId = createRealEvent()
+            val exception = probeInsert(cateringOrderColumns(id = newOrderId(), eventId = eventId, quantity = 0))
+            (exception is ExposedSQLException) shouldBe true
+            (exception?.message ?: "").contains("chk_event_catering_order_quantity", ignoreCase = true) shouldBe true
+        }
+
+        test("chk_event_catering_order_quantity rejects a negative quantity") {
+            val eventId = createRealEvent()
+            val exception = probeInsert(cateringOrderColumns(id = newOrderId(), eventId = eventId, quantity = -1))
+            (exception is ExposedSQLException) shouldBe true
+            (exception?.message ?: "").contains("chk_event_catering_order_quantity", ignoreCase = true) shouldBe true
+        }
+
+        test("chk_event_catering_order_quantity accepts a positive quantity") {
+            val eventId = createRealEvent()
+            val exception = probeInsert(cateringOrderColumns(id = newOrderId(), eventId = eventId, quantity = 1))
+            exception shouldBe null
+        }
+
+        test("chk_event_catering_order_status rejects an invalid literal that still fits VARCHAR(9)") {
+            val eventId = createRealEvent()
+            val exception = probeInsert(cateringOrderColumns(id = newOrderId(), eventId = eventId, status = "BOGUSSSS"))
+            (exception is ExposedSQLException) shouldBe true
+            (exception?.message ?: "").contains("chk_event_catering_order_status", ignoreCase = true) shouldBe true
+        }
+
+        test("fk_event_catering_order_event rejects an unknown event id") {
+            val bogusEventId = Uuid.random()
+            val exception = probeInsert(cateringOrderColumns(id = newOrderId(), eventId = bogusEventId))
+            (exception is ExposedSQLException) shouldBe true
+            (exception?.message ?: "").contains("fk_event_catering_order_event", ignoreCase = true) shouldBe true
+        }
+
+        test("fk_event_catering_order_event accepts a real event id") {
+            val eventId = createRealEvent()
+            val exception = probeInsert(cateringOrderColumns(id = newOrderId(), eventId = eventId))
+            exception shouldBe null
+        }
+
+        test("V37 migration is idempotent -- re-running the DDL on an already-migrated schema does not fail") {
+            // Same "CREATE TABLE/INDEX IF NOT EXISTS, DROP CONSTRAINT IF EXISTS before ADD" idiom
+            // every migration in this repo follows (see V37__event_catering.sql header) -- probing
+            // a second, real INSERT/DELETE round-trip after the schema is already live is the
+            // simplest proof that the constraints Flyway already applied are still exactly the ones
+            // this test suite expects (an actual second `flyway migrate` run is exercised by
+            // `DatabaseConfig.connect()` itself at `beforeSpec` time across the whole test suite).
+            val eventId = createRealEvent()
+            val orderId = newOrderId()
+            val insertException = probeInsert(cateringOrderColumns(id = orderId, eventId = eventId))
+            insertException shouldBe null
+            val deleteException = probeInsert("DELETE FROM event_catering_order WHERE id = '$orderId'")
+            deleteException shouldBe null
         }
     })

@@ -378,6 +378,13 @@ object Routes {
     // comment), not here.
     const val EVENT_ROOMS = "/event-rooms"
 
+    // Welle V1.4.3.5 "Catering-Management für Veranstaltungen" -- BOARD/ADMIN, verified against
+    // `CateringService.kt`: every `ICateringService` method calls
+    // `current.requireRole(*CATERING_MANAGE_ROLES)` where `CATERING_MANAGE_ROLES = [BOARD, ADMIN]`
+    // -- same tier as [EVENT_ROOMS]/[CRM]. Aggregierte Bestellpositions-CRUD nur; siehe
+    // `CateringOrderInput` KDoc für die Art.-9-DSGVO-Begründung, warum dies aggregiert bleibt.
+    const val CATERING = "/catering"
+
     // Welle V1.4.4.1 "Beitragshistorie" -- `requireAuth`, NICHT `requireRole`: jedes authentifizierte
     // Mitglied erreicht diese Route für die EIGENE Historie (Selbstauskunft), die engere
     // TREASURER/BOARD/ADMIN-Schwelle für eine FREMDE Mitglieds-Id wird ausschließlich serverseitig in
@@ -760,6 +767,11 @@ fun initRouting(pageContainer: SimplePanel) {
     routing.kvOn(Routes.EVENT_ROOMS) {
         requireRole(routing, AccountRole.BOARD, AccountRole.ADMIN) {
             show(Routes.EVENT_ROOMS, ::renderEventRoomsScreen)
+        }
+    }
+    routing.kvOn(Routes.CATERING) {
+        requireRole(routing, AccountRole.BOARD, AccountRole.ADMIN) {
+            show(Routes.CATERING, ::renderCateringScreen)
         }
     }
     // `:id` read off Navigo's own `Match.data`, same idiom as `Routes.SOCIAL_NETWORK_POST` above.

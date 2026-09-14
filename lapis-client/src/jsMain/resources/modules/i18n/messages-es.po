@@ -11001,3 +11001,79 @@ msgstr "Aprobaciones de gastos de viaje (%1)"
 msgid "Bankkonto: %1 · Gebührenkonto: %2 · Beitragserlöskonto: %3 · Spendenerlöskonto: %4 · Veranstaltungserlöskonto: %5 (%6) · Reisekosten-Aufwandskonto: %7"
 msgstr "Cuenta bancaria: %1 · Cuenta de comisiones: %2 · Cuenta de ingresos por cuotas: %3 · Cuenta de ingresos por donaciones: %4 · Cuenta de ingresos por eventos: %5 (%6) · Cuenta de gastos de viaje: %7"
 
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/CateringScreen.kt
+msgid "Catering"
+msgstr "Catering"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/CateringScreen.kt
+msgid "Neue Bestellposition anlegen"
+msgstr "Crear nueva posición de pedido"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/CateringScreen.kt
+msgid "Noch keine Bestellpositionen für diese Veranstaltung."
+msgstr "Todavía no hay posiciones de pedido para este evento."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/CateringScreen.kt
+msgid "Menge"
+msgstr "Cantidad"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/CateringScreen.kt
+msgid "Menge: %1"
+msgstr "Cantidad: %1"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/CateringScreen.kt
+msgid "Allergene/Hinweise: %1"
+msgstr "Alérgenos/notas: %1"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/CateringScreen.kt
+msgid "Allergene/Hinweise (optional)"
+msgstr "Alérgenos/notas (opcional)"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/CateringScreen.kt
+msgid "Status wurde aktualisiert."
+msgstr "El estado se ha actualizado."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/CateringScreen.kt
+msgid "Bestellposition löschen"
+msgstr "Eliminar posición de pedido"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/CateringScreen.kt
+msgid "\"%1\" wirklich endgültig löschen? Dies kann nicht rückgängig gemacht werden."
+msgstr "¿Realmente eliminar \"%1\" de forma permanente? Esto no se puede deshacer."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/CateringScreen.kt
+msgid "Bestellposition wurde gelöscht."
+msgstr "La posición de pedido se ha eliminado."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/CateringScreen.kt
+msgid "Die Menge muss eine positive ganze Zahl sein."
+msgstr "La cantidad debe ser un número entero positivo."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/CateringScreen.kt
+msgid "Bitte eine Veranstaltung auswählen."
+msgstr "Por favor seleccione un evento."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/CateringScreen.kt
+msgid "Position anlegen"
+msgstr "Crear posición"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/CateringScreen.kt
+msgid "Bestellposition \"%1\" wurde aktualisiert."
+msgstr "La posición de pedido \"%1\" se ha actualizado."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/CateringScreen.kt
+msgid "Bestellposition \"%1\" wurde angelegt."
+msgstr "La posición de pedido \"%1\" se ha creado."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/CateringScreen.kt
+msgid "Geplant"
+msgstr "Planificado"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/CateringScreen.kt
+msgid "Bestellt"
+msgstr "Pedido"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/CateringScreen.kt
+msgid "Geliefert"
+msgstr "Entregado"

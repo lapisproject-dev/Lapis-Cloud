@@ -8,10 +8,12 @@ import kotlinx.serialization.json.jsonObject
 import network.lapis.cloud.server.db.DatabaseConfig
 import network.lapis.cloud.server.db.DbClock
 import network.lapis.cloud.server.db.generated.AccountTable
+import network.lapis.cloud.server.db.generated.EventCateringOrderTable
 import network.lapis.cloud.server.db.generated.EventRegistrationTable
 import network.lapis.cloud.server.db.generated.EventTable
 import network.lapis.cloud.server.db.generated.MemberTable
 import network.lapis.cloud.shared.domain.AccountRole
+import network.lapis.cloud.shared.domain.CateringOrderStatus
 import network.lapis.cloud.shared.domain.ErasureMode
 import network.lapis.cloud.shared.domain.EventRegistrationStatus
 import network.lapis.cloud.shared.domain.EventStatus
@@ -43,6 +45,7 @@ class EventPersonalDataTest :
         afterSpec {
             transaction {
                 if (createdEventIds.isNotEmpty()) {
+                    EventCateringOrderTable.deleteWhere { eventId inList createdEventIds }
                     EventRegistrationTable.deleteWhere { eventId inList createdEventIds }
                     EventTable.deleteWhere { id inList createdEventIds }
                 }
@@ -183,6 +186,101 @@ class EventPersonalDataTest :
             val stillThere =
                 transaction {
                     EventRegistrationTable.selectAll().where { EventRegistrationTable.eventId eq eventId }.count()
+                }
+            stillThere shouldBe 1L
+        }
+
+        // ── Welle V1.4.3.5 "Catering-Management für Veranstaltungen" addendum ───────────────────
+
+        test("exportMember includes the member's own created catering orders") {
+            val organizer = createTestMember("event-pd-catering-export-${Uuid.random()}@example.org")
+            val now = DbClock.nowLocalDateTime()
+            val eventId = Uuid.random()
+            transaction {
+                EventTable.insert {
+                    it[EventTable.id] = eventId
+                    it[slug] = "event-pd-catering-export-test-$eventId"
+                    it[title] = "PD-Catering-Export-Test-Event"
+                    it[description] = "test"
+                    it[locationText] = "Testort"
+                    it[onlineUrl] = null
+                    it[startsAt] = now
+                    it[endsAt] = now
+                    it[capacity] = null
+                    it[feeAmount] = BigDecimal.ZERO
+                    it[feeCurrency] = "EUR"
+                    it[status] = EventStatus.PUBLISHED
+                    it[visibility] = EventVisibility.PUBLIC
+                    it[registrationClosesAt] = null
+                    it[EventTable.createdAt] = now
+                    it[EventTable.createdBy] = organizer
+                    it[cancelledAt] = null
+                }
+                EventCateringOrderTable.insert {
+                    it[id] = Uuid.random()
+                    it[EventCateringOrderTable.eventId] = eventId
+                    it[description] = "Vegetarisches Buffet"
+                    it[quantity] = 20
+                    it[allergenNotes] = "Nüsse"
+                    it[status] = CateringOrderStatus.PLANNED
+                    it[EventCateringOrderTable.createdAt] = now
+                    it[createdBy] = organizer
+                }
+            }
+            createdEventIds += eventId
+
+            val export = transaction { EventPersonalData.exportMember(organizer) }
+            val createdCateringOrders = export.jsonObject["createdCateringOrders"]!!.jsonArray
+            createdCateringOrders.size shouldBe 1
+        }
+
+        test("eraseMember retains event_catering_order rows with a written reason, never deletes") {
+            val organizer = createTestMember("event-pd-catering-erase-${Uuid.random()}@example.org")
+            val now = DbClock.nowLocalDateTime()
+            val eventId = Uuid.random()
+            transaction {
+                EventTable.insert {
+                    it[EventTable.id] = eventId
+                    it[slug] = "event-pd-catering-erase-test-$eventId"
+                    it[title] = "PD-Catering-Erase-Test-Event"
+                    it[description] = "test"
+                    it[locationText] = "Testort"
+                    it[onlineUrl] = null
+                    it[startsAt] = now
+                    it[endsAt] = now
+                    it[capacity] = null
+                    it[feeAmount] = BigDecimal.ZERO
+                    it[feeCurrency] = "EUR"
+                    it[status] = EventStatus.PUBLISHED
+                    it[visibility] = EventVisibility.PUBLIC
+                    it[registrationClosesAt] = null
+                    it[EventTable.createdAt] = now
+                    it[EventTable.createdBy] = organizer
+                    it[cancelledAt] = null
+                }
+                EventCateringOrderTable.insert {
+                    it[id] = Uuid.random()
+                    it[EventCateringOrderTable.eventId] = eventId
+                    it[description] = "Veganes Buffet"
+                    it[quantity] = 15
+                    it[allergenNotes] = null
+                    it[status] = CateringOrderStatus.PLANNED
+                    it[EventCateringOrderTable.createdAt] = now
+                    it[createdBy] = organizer
+                }
+            }
+            createdEventIds += eventId
+
+            val outcomes = transaction { EventPersonalData.eraseMember(memberId = organizer, mode = ErasureMode.ANONYMIZE) }
+            val cateringOutcome = outcomes.single { it.table == "event_catering_order" }
+            cateringOutcome.rowsRetained shouldBe 1
+            cateringOutcome.rowsDeleted shouldBe 0
+            cateringOutcome.retentionReason?.isNotBlank() shouldBe true
+
+            // Rows genuinely still exist -- "retained" is not a euphemism for silently deleted.
+            val stillThere =
+                transaction {
+                    EventCateringOrderTable.selectAll().where { EventCateringOrderTable.eventId eq eventId }.count()
                 }
             stillThere shouldBe 1L
         }

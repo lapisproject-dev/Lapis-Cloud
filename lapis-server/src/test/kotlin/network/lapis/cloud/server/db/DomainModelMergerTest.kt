@@ -35,7 +35,7 @@ class DomainModelMergerTest :
         // ── Test 1: merging the real 22 domain scripts ───────────────────────────────────
 
         test(
-            "merging the real 49 domain scripts succeeds and the uml-to-erm -> erm-to-exposed chain " +
+            "merging the real 50 domain scripts succeeds and the uml-to-erm -> erm-to-exposed chain " +
                 "produces exactly one Table file per distinct table name",
         ) {
             val scriptFiles =
@@ -46,8 +46,9 @@ class DomainModelMergerTest :
             // 47-bank-account.kuml.kts. Welle V1.4.15 "Kreditoren-/Debitorenbuchhaltung" -- was
             // 48, now 49 with the addition of 48-open-item.kuml.kts. Welle V1.4.3.4
             // "Raumverwaltung für Veranstaltungen" -- was 49, now 50 with the addition of
-            // 49-event-room.kuml.kts.
-            scriptFiles shouldHaveSize 50
+            // 49-event-room.kuml.kts. Welle V1.4.3.5 "Catering-Management für Veranstaltungen" --
+            // was 50, now 51 with the addition of 50-event-catering.kuml.kts.
+            scriptFiles shouldHaveSize 51
 
             val diagrams = scriptFiles.map { KumlModelLoader.loadUmlDiagram(it) }
 
@@ -396,7 +397,15 @@ class DomainModelMergerTest :
             // event_room entity (the fuller declaration always wins as canonical, regardless of
             // file processing order), so it contributes +1 «Entity» declaration and +1 drop, net 0
             // change to distinctTableNames -- versus the V1.4.15 baseline above (148 -> 149).
-            val distinctTableNames = 149
+            // Welle V1.4.3.5 "Catering-Management für Veranstaltungen" adds
+            // 50-event-catering.kuml.kts's ONE real table (event_catering_order), WITH TWO
+            // cross-domain stubs (Member, Event -- both dedup into already-real entities:
+            // 00-foundation.kuml.kts's member and 39-events.kuml.kts's event) -- so it contributes
+            // +3 «Entity» declarations (2 stubs + 1 real table) and 2 drops, net +1 distinct table
+            // name. Unlike the Room wave, `event` itself gains NO new column/stub addendum here --
+            // event_catering_order.event_id is an ordinary 1:n FK, not a new column on `event` --
+            // versus the V1.4.3.4 baseline above (149 -> 150).
+            val distinctTableNames = 150
 
             val result =
                 UmlToExposedViaErmScriptTransformer().transform(
@@ -646,6 +655,10 @@ class DomainModelMergerTest :
                     // (event_room); its Member/Event cross-domain stubs both dedup into
                     // already-real entities, no new Table file for either.
                     "EventRoomTable.kt",
+                    // Welle V1.4.3.5 "Catering-Management für Veranstaltungen" -- ONE new real
+                    // table (event_catering_order); its Member/Event cross-domain stubs both
+                    // dedup into already-real entities, no new Table file for either.
+                    "EventCateringOrderTable.kt",
                 )
         }
 
