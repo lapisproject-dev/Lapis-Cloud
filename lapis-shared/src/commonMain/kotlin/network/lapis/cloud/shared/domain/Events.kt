@@ -49,6 +49,8 @@ data class EventInput(
     val feeCurrency: String = "EUR",
     val visibility: EventVisibility,
     val registrationClosesAt: LocalDateTime? = null,
+    /** Welle V1.4.3.4 "Raumverwaltung" -- additive, defaulted so no pre-existing caller/test breaks. Server-validated: must reference an ACTIVE `EventRoom` with no overlapping booking (see `EventRoomCollisionGuard`). */
+    val roomId: String? = null,
 )
 
 @Serializable
@@ -77,6 +79,10 @@ data class EventDto(
     val ownRegistrationStatus: EventRegistrationStatus?,
     /** Non-null only when `visibility == PUBLIC && status == PUBLISHED`. */
     val publicUrl: String?,
+    /** Welle V1.4.3.4 "Raumverwaltung" -- additive, defaulted so no pre-existing caller/test breaks. Mirrors [EventInput.roomId]. */
+    val roomId: String? = null,
+    /** Welle V1.4.3.4 "Raumverwaltung" -- denormalized `EventRoom.name` for display, server-computed, never client-supplied. Null iff [roomId] is null. */
+    val roomName: String? = null,
 )
 
 @Serializable

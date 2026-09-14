@@ -35,7 +35,7 @@ class DomainModelMergerTest :
         // ── Test 1: merging the real 22 domain scripts ───────────────────────────────────
 
         test(
-            "merging the real 48 domain scripts succeeds and the uml-to-erm -> erm-to-exposed chain " +
+            "merging the real 49 domain scripts succeeds and the uml-to-erm -> erm-to-exposed chain " +
                 "produces exactly one Table file per distinct table name",
         ) {
             val scriptFiles =
@@ -44,8 +44,10 @@ class DomainModelMergerTest :
                 }.sortedBy { it.name }
             // Welle V1.4.14 "Mehrere Bankkonten" -- was 47, now 48 with the addition of
             // 47-bank-account.kuml.kts. Welle V1.4.15 "Kreditoren-/Debitorenbuchhaltung" -- was
-            // 48, now 49 with the addition of 48-open-item.kuml.kts.
-            scriptFiles shouldHaveSize 49
+            // 48, now 49 with the addition of 48-open-item.kuml.kts. Welle V1.4.3.4
+            // "Raumverwaltung für Veranstaltungen" -- was 49, now 50 with the addition of
+            // 49-event-room.kuml.kts.
+            scriptFiles shouldHaveSize 50
 
             val diagrams = scriptFiles.map { KumlModelLoader.loadUmlDiagram(it) }
 
@@ -385,7 +387,16 @@ class DomainModelMergerTest :
             // already-real entities (member/journal_entry/crm_contact/document/ledger_account) --
             // so it contributes +10 «Entity» declarations (5 stubs + 5 real tables) and 5 drops,
             // net +5 distinct table names versus the V1.4.14-Wave-2 baseline above (143 -> 148).
-            val distinctTableNames = 148
+            // Welle V1.4.3.4 "Raumverwaltung für Veranstaltungen" adds 49-event-room.kuml.kts's ONE
+            // real table (event_room), WITH TWO cross-domain stubs (Member, Event -- both dedup
+            // into already-real entities: 00-foundation.kuml.kts's member and 39-events.kuml.kts's
+            // event) -- so it contributes +3 «Entity» declarations (2 stubs + 1 real table) and 2
+            // drops, net +1 distinct table name. 39-events.kuml.kts also gains its own id-only
+            // EventRoom stub (for event.roomId) -- it dedups into 49-event-room.kuml.kts's now-real
+            // event_room entity (the fuller declaration always wins as canonical, regardless of
+            // file processing order), so it contributes +1 «Entity» declaration and +1 drop, net 0
+            // change to distinctTableNames -- versus the V1.4.15 baseline above (148 -> 149).
+            val distinctTableNames = 149
 
             val result =
                 UmlToExposedViaErmScriptTransformer().transform(
@@ -631,6 +642,10 @@ class DomainModelMergerTest :
                     "OpenItemSettlementTable.kt",
                     "ReceivableDunningLevelTable.kt",
                     "ReceivableDunningNoticeTable.kt",
+                    // Welle V1.4.3.4 "Raumverwaltung für Veranstaltungen" -- ONE new real table
+                    // (event_room); its Member/Event cross-domain stubs both dedup into
+                    // already-real entities, no new Table file for either.
+                    "EventRoomTable.kt",
                 )
         }
 

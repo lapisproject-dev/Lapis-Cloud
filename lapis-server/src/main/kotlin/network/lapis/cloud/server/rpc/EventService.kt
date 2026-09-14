@@ -11,6 +11,8 @@ import network.lapis.cloud.server.events.EventParticipant
 import network.lapis.cloud.server.events.EventPolicy
 import network.lapis.cloud.server.events.EventRegistrationResult
 import network.lapis.cloud.server.events.EventRegistrationSubmission
+import network.lapis.cloud.server.events.EventRoomCollisionGuard
+import network.lapis.cloud.server.events.EventRoomStore
 import network.lapis.cloud.server.events.EventStore
 import network.lapis.cloud.server.events.EventTicketIssuer
 import network.lapis.cloud.server.events.EventTicketPolicy
@@ -116,7 +118,19 @@ class EventService(
         requireWithinRate(current.memberId)
         val now = DbClock.nowLocalDateTime()
         EventPolicy.validate(input = input, now = now)
+        val roomId = input.roomId?.toEventUuid()
         return transaction {
+            // Room-collision check, AFTER EventPolicy.validate, BEFORE the insert -- see
+            // EventRoomCollisionGuard KDoc. No event-row lock exists yet to order against (this is
+            // a brand-new event), so only the room row itself is locked here.
+            if (roomId != null) {
+                EventRoomCollisionGuard.assertNoOverlap(
+                    roomId = roomId,
+                    startsAt = input.startsAt,
+                    endsAt = input.endsAt,
+                    excludingEventId = null,
+                )
+            }
             val id = Uuid.random()
             val slug = EventPolicy.slugFor(title = input.title) { candidate -> EventStore.slugTaken(slug = candidate, excludingId = null) }
             EventStore.insertEvent(
@@ -135,6 +149,7 @@ class EventService(
                 registrationClosesAt = input.registrationClosesAt,
                 createdAt = now,
                 createdBy = current.memberId,
+                roomId = roomId,
             )
             EventStore.getEventOrThrow(id).toEventDto(now = now, memberId = current.memberId, baseUrl = baseUrl)
         }
@@ -170,6 +185,20 @@ class EventService(
                     "Die Teilnahmegebühr kann nicht mehr geändert werden -- es bestehen bereits Anmeldungen für diese Veranstaltung.",
                 )
             }
+            val roomId = input.roomId?.toEventUuid()
+            // Room-collision check, AFTER EventPolicy.validate, BEFORE the update -- see
+            // EventRoomCollisionGuard KDoc. The `event` row lock above is already held (this
+            // function's very first operation) -- locking the room row here, AFTER it, follows the
+            // same lock ordering every other multi-lock path in this class establishes (never
+            // acquire a narrower-scoped lock before the wider one it nests inside).
+            if (roomId != null) {
+                EventRoomCollisionGuard.assertNoOverlap(
+                    roomId = roomId,
+                    startsAt = input.startsAt,
+                    endsAt = input.endsAt,
+                    excludingEventId = eventId,
+                )
+            }
             EventStore.updateEvent(
                 id = eventId,
                 title = input.title.trim(),
@@ -183,6 +212,7 @@ class EventService(
                 feeCurrency = if (feeChanged) input.feeCurrency else null,
                 visibility = input.visibility,
                 registrationClosesAt = input.registrationClosesAt,
+                roomId = roomId,
             )
             EventStore.getEventOrThrow(eventId).toEventDto(now = now, memberId = current.memberId, baseUrl = baseUrl)
         }
@@ -565,6 +595,7 @@ private fun ResultRow.toEventDto(
         } else {
             null
         }
+    val roomId = this[EventTable.roomId]
     return EventDto(
         id = id.toString(),
         slug = slug,
@@ -586,6 +617,8 @@ private fun ResultRow.toEventDto(
         feeEditable = feeEditable,
         ownRegistrationStatus = ownStatus,
         publicUrl = publicUrl,
+        roomId = roomId?.toString(),
+        roomName = EventRoomStore.roomNameOrNull(roomId),
     )
 }
 

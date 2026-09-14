@@ -155,6 +155,7 @@ import network.lapis.cloud.server.rpc.DsgvoComplianceService
 import network.lapis.cloud.server.rpc.DsgvoService
 import network.lapis.cloud.server.rpc.DunningService
 import network.lapis.cloud.server.rpc.ElectionService
+import network.lapis.cloud.server.rpc.EventRoomService
 import network.lapis.cloud.server.rpc.EventService
 import network.lapis.cloud.server.rpc.FederationService
 import network.lapis.cloud.server.rpc.GovernanceService
@@ -216,6 +217,7 @@ import network.lapis.cloud.shared.rpc.IDsgvoComplianceService
 import network.lapis.cloud.shared.rpc.IDsgvoService
 import network.lapis.cloud.shared.rpc.IDunningService
 import network.lapis.cloud.shared.rpc.IElectionService
+import network.lapis.cloud.shared.rpc.IEventRoomService
 import network.lapis.cloud.shared.rpc.IEventService
 import network.lapis.cloud.shared.rpc.IFederationService
 import network.lapis.cloud.shared.rpc.IGovernanceService
@@ -1366,6 +1368,8 @@ fun Application.module() {
         // Welle V1.4.15 "Kreditoren-/Debitorenbuchhaltung".
         registerService(IOpenItemService::class) { call -> OpenItemService(call) }
         registerService(IReceivableDunningService::class) { call -> ReceivableDunningService(call) }
+        // Welle V1.4.3.4 "Raumverwaltung für Veranstaltungen".
+        registerService(IEventRoomService::class) { call -> EventRoomService(call) }
     }
 
     routing {

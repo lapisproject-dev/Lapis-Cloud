@@ -62,6 +62,17 @@
 // this file's `event.created_by`/`event_registration.member_id` FKs within this file's own
 // evaluation.
 //
+// **Welle V1.4.3.4 "Raumverwaltung für Veranstaltungen" addendum** (`V36__event_rooms.sql`) adds
+// exactly one column here: `event.roomId`, nullable FK -> `event_room` (owned by
+// `49-event-room.kuml.kts`, which introduces that table). Same "FK set where the referencing
+// column lives, not where the target table lives" convention `01-contribution.kuml.kts`'s own
+// `sepaMandateId`/`33-payments.kuml.kts` addendum already establishes. A new `EventRoom`
+// cross-domain stub (id-only, same pattern as the Member stub above) exists purely so
+// `UmlToErmTransformer` can resolve this FK within THIS file's own single-file evaluation --
+// `event_room` itself is owned by `49-event-room.kuml.kts`. Overlap/collision-checking for the
+// assignment is NOT modelled here (no DB constraint exists for it either) -- see that file's own
+// header and `network.lapis.cloud.server.events.EventRoomCollisionGuard`.
+//
 // Cross-field CHECK constraints (identity XOR, active-key/status consistency, the three-way payer-
 // identity CHECK on `payment_checkout_session`) are SQL-only, not modelled here -- same posture every
 // later domain file's header documents (most recently `38-crm.kuml.kts`'s own "Cross-field CHECK
@@ -139,6 +150,16 @@ classDiagram(name = "Events") {
     // own single-file evaluation.
     val member = classOf(name = "Member") {
         stereotype("Entity") { "tableName" to "member"; "kotlinObjectName" to "MemberTable" }
+        attribute(name = "id", type = "UUID") {
+            stereotype("Id")
+            stereotype("Column") { "columnName" to "id" }
+        }
+    }
+
+    // 49-event-room.kuml.kts-owned stub -- id-only. Resolves event.roomId's FK target within this
+    // file's own single-file evaluation (Welle V1.4.3.4 addendum, see file header).
+    val eventRoom = classOf(name = "EventRoom") {
+        stereotype("Entity") { "tableName" to "event_room"; "kotlinObjectName" to "EventRoomTable" }
         attribute(name = "id", type = "UUID") {
             stereotype("Id")
             stereotype("Column") { "columnName" to "id" }
@@ -236,6 +257,13 @@ classDiagram(name = "Events") {
         attribute(name = "cancelledAt", type = "LocalDateTime") {
             multiplicity = Multiplicity(0, 1)
             stereotype("Column") { "columnName" to "cancelled_at" }
+        }
+        // V1.4.3.4 addendum (see file header). Nullable FK -> event_room -- not every event has a
+        // room assigned. Overlap-checked serverside, not by a DB constraint (see EventRoom stub
+        // comment above).
+        attribute(name = "roomId", type = "UUID") {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") { "columnName" to "room_id"; "fkEntity" to "EventRoom" }
         }
     }
 

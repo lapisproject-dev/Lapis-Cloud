@@ -3,6 +3,7 @@ package network.lapis.cloud.server.db
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import network.lapis.cloud.server.db.generated.EventRegistrationTable
+import network.lapis.cloud.server.db.generated.EventRoomTable
 import network.lapis.cloud.server.db.generated.EventTable
 import org.jetbrains.exposed.v1.core.inList
 import org.jetbrains.exposed.v1.exceptions.ExposedSQLException
@@ -413,5 +414,75 @@ class EventMigrationTest :
                 probeInsert(registrationColumns(id = Uuid.random(), eventId = eventId, activeParticipantKey = "g:null-b@example.org"))
             first shouldBe null
             second shouldBe null
+        }
+
+        // ── Welle V1.4.3.4 "Raumverwaltung für Veranstaltungen" -- V36__event_rooms.sql ───────────
+
+        val createdRoomIds = mutableListOf<Uuid>()
+
+        afterSpec {
+            transaction {
+                if (createdRoomIds.isNotEmpty()) {
+                    EventRoomTable.deleteWhere { EventRoomTable.id inList createdRoomIds }
+                }
+            }
+        }
+
+        fun newRoomId(): Uuid = Uuid.random().also { createdRoomIds += it }
+
+        fun roomColumns(
+            id: Uuid,
+            name: String = "Probe-Raum-$id",
+            capacity: Int? = 10,
+            status: String = "ACTIVE",
+        ): String {
+            val capacitySql = capacity?.toString() ?: "NULL"
+            return "INSERT INTO event_room (id, name, capacity, equipment_tags, status, created_at, created_by) VALUES (" +
+                "'$id', '$name', $capacitySql, '', '$status', TIMESTAMP '2026-01-01 00:00:00', '$ADMIN_UUID')"
+        }
+
+        test("chk_event_room_capacity rejects a zero capacity") {
+            val exception = probeInsert(roomColumns(id = newRoomId(), capacity = 0))
+            (exception is ExposedSQLException) shouldBe true
+            (exception?.message ?: "").contains("chk_event_room_capacity", ignoreCase = true) shouldBe true
+        }
+
+        test("chk_event_room_capacity accepts a NULL capacity") {
+            val exception = probeInsert(roomColumns(id = newRoomId(), capacity = null))
+            exception shouldBe null
+        }
+
+        test("chk_event_room_status rejects an invalid literal that still fits VARCHAR(8)") {
+            val exception = probeInsert(roomColumns(id = newRoomId(), status = "BOGUS"))
+            (exception is ExposedSQLException) shouldBe true
+            (exception?.message ?: "").contains("chk_event_room_status", ignoreCase = true) shouldBe true
+        }
+
+        test("uq_event_room_name rejects a duplicate name") {
+            val sharedName = "Duplikat-Raum-${Uuid.random()}"
+            val first = probeInsert(roomColumns(id = newRoomId(), name = sharedName))
+            first shouldBe null
+            val second = probeInsert(roomColumns(id = newRoomId(), name = sharedName))
+            (second is ExposedSQLException) shouldBe true
+        }
+
+        test("event.room_id is nullable and FK-references event_room, fk_event_room rejects an unknown id") {
+            val eventId = createRealEvent()
+            val bogusRoomId = Uuid.random()
+            val exception =
+                probeInsert(
+                    "UPDATE event SET room_id = '$bogusRoomId' WHERE id = '$eventId'",
+                )
+            (exception is ExposedSQLException) shouldBe true
+            (exception?.message ?: "").contains("fk_event_room", ignoreCase = true) shouldBe true
+        }
+
+        test("event.room_id accepts a real event_room id") {
+            val eventId = createRealEvent()
+            val roomId = newRoomId()
+            val roomInsert = probeInsert(roomColumns(id = roomId))
+            roomInsert shouldBe null
+            val exception = probeInsert("UPDATE event SET room_id = '$roomId' WHERE id = '$eventId'")
+            exception shouldBe null
         }
     })

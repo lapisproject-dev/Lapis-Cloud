@@ -111,6 +111,8 @@ internal object EventStore {
         registrationClosesAt: LocalDateTime?,
         createdAt: LocalDateTime,
         createdBy: Uuid,
+        // Welle V1.4.3.4 "Raumverwaltung" -- additive, defaulted so no pre-existing caller/test breaks.
+        roomId: Uuid? = null,
     ) {
         EventTable.insert {
             it[EventTable.id] = id
@@ -130,6 +132,7 @@ internal object EventStore {
             it[EventTable.createdAt] = createdAt
             it[EventTable.createdBy] = createdBy
             it[cancelledAt] = null
+            it[EventTable.roomId] = roomId
         }
     }
 
@@ -146,6 +149,8 @@ internal object EventStore {
         feeCurrency: String?,
         visibility: EventVisibility,
         registrationClosesAt: LocalDateTime?,
+        // Welle V1.4.3.4 "Raumverwaltung" -- additive, defaulted so no pre-existing caller/test breaks.
+        roomId: Uuid? = null,
     ) {
         EventTable.update({ EventTable.id eq id }) {
             it[EventTable.title] = title
@@ -159,6 +164,7 @@ internal object EventStore {
             if (feeCurrency != null) it[EventTable.feeCurrency] = feeCurrency
             it[EventTable.visibility] = visibility
             it[EventTable.registrationClosesAt] = registrationClosesAt
+            it[EventTable.roomId] = roomId
         }
     }
 

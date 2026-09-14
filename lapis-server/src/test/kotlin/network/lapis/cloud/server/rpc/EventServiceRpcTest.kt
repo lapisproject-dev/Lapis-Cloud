@@ -26,6 +26,7 @@ import network.lapis.cloud.server.db.DatabaseConfig
 import network.lapis.cloud.server.db.DbClock
 import network.lapis.cloud.server.db.generated.AccountTable
 import network.lapis.cloud.server.db.generated.EventRegistrationTable
+import network.lapis.cloud.server.db.generated.EventRoomTable
 import network.lapis.cloud.server.db.generated.EventTable
 import network.lapis.cloud.server.db.generated.MemberTable
 import network.lapis.cloud.server.federation.FederationInboxRateLimiter
@@ -36,6 +37,7 @@ import network.lapis.cloud.server.payment.psp.PspConfigState
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.EventInput
 import network.lapis.cloud.shared.domain.EventRegistrationStatus
+import network.lapis.cloud.shared.domain.EventRoomStatus
 import network.lapis.cloud.shared.domain.EventStatus
 import network.lapis.cloud.shared.domain.EventVisibility
 import network.lapis.cloud.shared.rpc.BadRequestException
@@ -50,6 +52,9 @@ import org.jetbrains.exposed.v1.jdbc.selectAll
 import org.jetbrains.exposed.v1.jdbc.transactions.transaction
 import org.jetbrains.exposed.v1.jdbc.update
 import java.math.BigDecimal
+import java.util.Collections
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.TimeUnit
 import kotlin.time.Duration.Companion.minutes
 import kotlin.time.Duration.Companion.seconds
 import kotlin.uuid.Uuid
@@ -73,11 +78,20 @@ import kotlin.uuid.Uuid
  * - MINOR: `eventWriteRateLimiter` was documented (`Application.kt`) as gating every authenticated
  *   `IEventService` write, but `publishEvent`/`cancelEvent`/`cancelOwnRegistration`/`sweepEvent`
  *   never actually called `requireWithinRate`.
+ *
+ * Welle V1.4.3.4 "Raumverwaltung für Veranstaltungen" review-round addendum -- MAJOR: no test
+ * called `createEvent`/`updateEvent` (the actual RPC endpoints) WITH a `roomId` at all;
+ * `EventRoomCollisionGuardTest` only ever exercised `EventRoomCollisionGuard.assertNoOverlap`
+ * directly. The tests below close that gap over the real RPC surface (`/test/event/create`,
+ * `/test/event/{id}/update`, both extended with a `roomId` query param): a happy-path
+ * create/assign, a real end-to-end collision rejection (sequential AND concurrent), and a
+ * self-update that must never conflict with its own, not-yet-updated row.
  */
 class EventServiceRpcTest :
     FunSpec({
         val createdMemberIds = mutableListOf<Uuid>()
         val createdEventIds = mutableListOf<Uuid>()
+        val createdRoomIds = mutableListOf<Uuid>()
 
         beforeSpec { DatabaseConfig.connect() }
 
@@ -86,6 +100,9 @@ class EventServiceRpcTest :
                 if (createdEventIds.isNotEmpty()) {
                     EventRegistrationTable.deleteWhere { eventId inList createdEventIds }
                     EventTable.deleteWhere { id inList createdEventIds }
+                }
+                if (createdRoomIds.isNotEmpty()) {
+                    EventRoomTable.deleteWhere { id inList createdRoomIds }
                 }
                 if (createdMemberIds.isNotEmpty()) {
                     AccountTable.deleteWhere { AccountTable.memberId inList createdMemberIds }
@@ -125,6 +142,9 @@ class EventServiceRpcTest :
         fun createEvent(
             createdBy: Uuid,
             capacity: Int?,
+            roomId: Uuid? = null,
+            startsAt: LocalDateTime = farFutureStartsAt,
+            endsAt: LocalDateTime = farFutureEndsAt,
         ): Uuid {
             val id = Uuid.random()
             transaction {
@@ -135,8 +155,8 @@ class EventServiceRpcTest :
                     it[description] = "test"
                     it[locationText] = "Testort"
                     it[onlineUrl] = null
-                    it[startsAt] = farFutureStartsAt
-                    it[endsAt] = farFutureEndsAt
+                    it[EventTable.startsAt] = startsAt
+                    it[EventTable.endsAt] = endsAt
                     it[EventTable.capacity] = capacity
                     it[feeAmount] = BigDecimal.ZERO
                     it[feeCurrency] = "EUR"
@@ -146,9 +166,28 @@ class EventServiceRpcTest :
                     it[EventTable.createdAt] = DbClock.nowLocalDateTime()
                     it[EventTable.createdBy] = createdBy
                     it[cancelledAt] = null
+                    it[EventTable.roomId] = roomId
                 }
             }
             createdEventIds += id
+            return id
+        }
+
+        /** Direct row insert into `event_room` -- mirrors `EventRoomCollisionGuardTest.createRoom`, ACTIVE by default. */
+        fun createRoom(createdBy: Uuid): Uuid {
+            val id = Uuid.random()
+            transaction {
+                EventRoomTable.insert {
+                    it[EventRoomTable.id] = id
+                    it[name] = "RPC-Test-Room-$id"
+                    it[capacity] = null
+                    it[equipmentTags] = ""
+                    it[status] = EventRoomStatus.ACTIVE
+                    it[createdAt] = DbClock.nowLocalDateTime()
+                    it[EventRoomTable.createdBy] = createdBy
+                }
+            }
+            createdRoomIds += id
             return id
         }
 
@@ -259,6 +298,36 @@ class EventServiceRpcTest :
                     // exercise none of the check-in RPCs (see EventCheckInRpcTest for those).
                     checkInRateLimiter = FederationInboxRateLimiter(maxRequests = 10_000, window = 1.minutes),
                 )
+            // Test-only route for `createEvent` -- lets the MAJOR-regression room tests below drive
+            // `EventRoomCollisionGuard`/room-name resolution through the REAL RPC surface (not just
+            // `EventRoomCollisionGuardTest`'s isolated `assertNoOverlap` calls). Responds with
+            // `id|roomId|roomName` (pipe-delimited, no JSON serializer wired into this test scaffold)
+            // so a caller can assert on all three without a second lookup.
+            post("/test/event/create") {
+                val title = call.request.queryParameters["title"] ?: "RPC-Create-Test-Event"
+                val startsAt =
+                    call.request.queryParameters["startsAt"]?.let { LocalDateTime.parse(it) } ?: farFutureStartsAt
+                val endsAt = call.request.queryParameters["endsAt"]?.let { LocalDateTime.parse(it) } ?: farFutureEndsAt
+                val roomId = call.request.queryParameters["roomId"]
+                val input =
+                    EventInput(
+                        title = title,
+                        description = "test",
+                        locationText = "Testort",
+                        onlineUrl = null,
+                        startsAt = startsAt,
+                        endsAt = endsAt,
+                        capacity = null,
+                        feeAmount = BigDecimal.ZERO,
+                        feeCurrency = "EUR",
+                        visibility = EventVisibility.PUBLIC,
+                        registrationClosesAt = null,
+                        roomId = roomId,
+                    )
+                val dto = serviceFor(call).createEvent(input)
+                createdEventIds += Uuid.parse(dto.id)
+                call.respondText("${dto.id}|${dto.roomId}|${dto.roomName}")
+            }
             post("/test/event/{id}/cancel") {
                 val reason = call.request.queryParameters["reason"] ?: "Testgrund"
                 val dto = serviceFor(call).cancelEvent(id = call.parameters["id"]!!, reason = reason)
@@ -289,6 +358,10 @@ class EventServiceRpcTest :
                     call.request.queryParameters["startsAt"]?.let { LocalDateTime.parse(it) } ?: LocalDateTime(2020, 1, 1, 18, 0)
                 val endsAt =
                     call.request.queryParameters["endsAt"]?.let { LocalDateTime.parse(it) } ?: LocalDateTime(2020, 1, 1, 22, 0)
+                // roomId query param -- MAJOR-regression room tests below use this to exercise
+                // EventRoomCollisionGuard through the real `updateEvent` RPC path (see `create`
+                // route's own comment for why pipe-delimited text instead of JSON).
+                val roomId = call.request.queryParameters["roomId"]
                 val input =
                     EventInput(
                         title = title,
@@ -302,9 +375,10 @@ class EventServiceRpcTest :
                         feeCurrency = "EUR",
                         visibility = EventVisibility.PUBLIC,
                         registrationClosesAt = null,
+                        roomId = roomId,
                     )
                 val dto = serviceFor(call).updateEvent(id = eventId, input = input)
-                call.respondText(dto.title)
+                call.respondText("${dto.title}|${dto.roomId}|${dto.roomName}")
             }
         }
 
@@ -414,7 +488,7 @@ class EventServiceRpcTest :
                         header("X-Member-Id", organizer.toString())
                     }
                 response.status shouldBe HttpStatusCode.OK
-                response.bodyAsText() shouldBe "Korrigierter Titel"
+                response.bodyAsText() shouldBe "Korrigierter Titel|null|null"
 
                 val storedTitle = transaction { EventTable.selectAll().where { EventTable.id eq eventId }.single()[EventTable.title] }
                 storedTitle shouldBe "Korrigierter Titel"
@@ -562,4 +636,183 @@ class EventServiceRpcTest :
                 }
             }
         }
+
+        // ── MAJOR regression: room collision must be enforced over the REAL createEvent/updateEvent
+        // RPC path, not only when EventRoomCollisionGuard.assertNoOverlap is called in isolation
+        // (that isolated coverage already exists in EventRoomCollisionGuardTest). ─────────────────
+
+        test("createEvent with a valid roomId succeeds and EventDto.roomId/roomName are populated (MAJOR regression)") {
+            testApplication {
+                val writeRateLimiter = FederationInboxRateLimiter(maxRequests = 60, window = 1.minutes)
+                application { routing { registerEventTestRoutes(defaultMailDispatcher(), writeRateLimiter) } }
+
+                val organizer = createMember(email = "room-create-organizer-${Uuid.random()}@example.org", role = AccountRole.BOARD)
+                val room = createRoom(organizer)
+
+                val response =
+                    client.post("/test/event/create?roomId=$room") { header("X-Member-Id", organizer.toString()) }
+                response.status shouldBe HttpStatusCode.OK
+                val (eventId, returnedRoomId, returnedRoomName) = response.bodyAsText().split("|", limit = 3)
+                returnedRoomId shouldBe room.toString()
+                returnedRoomName shouldBe "RPC-Test-Room-$room"
+
+                // DB-level confirmation, not just the DTO the RPC call happened to hand back.
+                val storedRoomId =
+                    transaction { EventTable.selectAll().where { EventTable.id eq Uuid.parse(eventId) }.single()[EventTable.roomId] }
+                storedRoomId shouldBe room
+            }
+        }
+
+        test("updateEvent can assign a room to an existing event that previously had none (MAJOR regression)") {
+            testApplication {
+                val writeRateLimiter = FederationInboxRateLimiter(maxRequests = 60, window = 1.minutes)
+                application { routing { registerEventTestRoutes(defaultMailDispatcher(), writeRateLimiter) } }
+
+                val organizer = createMember(email = "room-assign-organizer-${Uuid.random()}@example.org", role = AccountRole.BOARD)
+                val room = createRoom(organizer)
+                // No roomId at creation -- direct insert, deliberately bypassing the RPC surface for
+                // the SETUP so this test isolates `updateEvent`'s own room-assignment behaviour.
+                val eventId = createEvent(createdBy = organizer, capacity = null, roomId = null)
+
+                val response =
+                    client.post(
+                        "/test/event/$eventId/update?roomId=$room&startsAt=$farFutureStartsAt&endsAt=$farFutureEndsAt",
+                    ) { header("X-Member-Id", organizer.toString()) }
+                response.status shouldBe HttpStatusCode.OK
+                val (_, returnedRoomId, returnedRoomName) = response.bodyAsText().split("|", limit = 3)
+                returnedRoomId shouldBe room.toString()
+                returnedRoomName shouldBe "RPC-Test-Room-$room"
+
+                val storedRoomId = transaction { EventTable.selectAll().where { EventTable.id eq eventId }.single()[EventTable.roomId] }
+                storedRoomId shouldBe room
+            }
+        }
+
+        test(
+            "two createEvent calls with an overlapping window on the SAME room -- the second is rejected " +
+                "with ConflictException over the REAL RPC path (MAJOR regression)",
+        ) {
+            testApplication {
+                val writeRateLimiter = FederationInboxRateLimiter(maxRequests = 60, window = 1.minutes)
+                application {
+                    install(StatusPages) {
+                        exception<ConflictException> { call, cause -> call.respondText(cause.message, status = HttpStatusCode.Conflict) }
+                    }
+                    routing { registerEventTestRoutes(defaultMailDispatcher(), writeRateLimiter) }
+                }
+
+                val organizer = createMember(email = "room-collision-organizer-${Uuid.random()}@example.org", role = AccountRole.BOARD)
+                val room = createRoom(organizer)
+
+                val first =
+                    client.post("/test/event/create?roomId=$room") { header("X-Member-Id", organizer.toString()) }
+                first.status shouldBe HttpStatusCode.OK
+
+                // Same window (both default to farFutureStartsAt/farFutureEndsAt), same room --
+                // before the room-assignment feature this could never happen at all; the point of
+                // this test is that the SECOND createEvent call itself (not a directly-invoked guard)
+                // is what throws.
+                val second =
+                    client.post("/test/event/create?roomId=$room") { header("X-Member-Id", organizer.toString()) }
+                second.status shouldBe HttpStatusCode.Conflict
+
+                // DB-level confirmation: exactly one event actually got the room.
+                val bookedCount = transaction { EventTable.selectAll().where { EventTable.roomId eq room }.count() }
+                bookedCount shouldBe 1L
+            }
+        }
+
+        test(
+            "updateEvent that keeps its own room/window unchanged (only changes the title) never " +
+                "conflicts with itself over the REAL RPC path (MAJOR regression)",
+        ) {
+            testApplication {
+                val writeRateLimiter = FederationInboxRateLimiter(maxRequests = 60, window = 1.minutes)
+                application { routing { registerEventTestRoutes(defaultMailDispatcher(), writeRateLimiter) } }
+
+                val organizer = createMember(email = "room-selfupdate-organizer-${Uuid.random()}@example.org", role = AccountRole.BOARD)
+                val room = createRoom(organizer)
+                val eventId = createEvent(createdBy = organizer, capacity = null, roomId = room)
+
+                val response =
+                    client.post(
+                        "/test/event/$eventId/update?roomId=$room&startsAt=$farFutureStartsAt&endsAt=$farFutureEndsAt&title=Neuer+Titel",
+                    ) { header("X-Member-Id", organizer.toString()) }
+                // Before EventRoomCollisionGuard's excludingEventId exclusion, this exact call would
+                // have found its own, not-yet-updated row as an "overlapping" booking on the same room
+                // and rejected the update with a false-positive ConflictException.
+                response.status shouldBe HttpStatusCode.OK
+                response.bodyAsText() shouldBe "Neuer Titel|$room|RPC-Test-Room-$room"
+            }
+        }
+
+        // ── Lock-order/serialization check over the REAL RPC path: mirrors
+        // EventRoomCollisionGuardTest's own two-thread race test, but drives it through
+        // EventService.createEvent's full transaction (event-policy validation + insert), not just
+        // the isolated guard call -- proving the room lock the guard takes still serializes two
+        // concurrent bookings when it is exercised from inside that larger transaction. ────────────
+
+        test(
+            "two concurrent createEvent RPC calls booking the SAME room/window -- only one succeeds, " +
+                "confirmed at the DB level (MAJOR regression)",
+        ) {
+            testApplication {
+                val writeRateLimiter = FederationInboxRateLimiter(maxRequests = 60, window = 1.minutes)
+                application {
+                    install(StatusPages) {
+                        exception<ConflictException> { call, cause -> call.respondText(cause.message, status = HttpStatusCode.Conflict) }
+                    }
+                    routing { registerEventTestRoutes(defaultMailDispatcher(), writeRateLimiter) }
+                }
+
+                val organizer = createMember(email = "room-race-organizer-${Uuid.random()}@example.org", role = AccountRole.BOARD)
+                val room = createRoom(organizer)
+
+                val startLatch = CountDownLatch(2)
+                val doneLatch = CountDownLatch(2)
+                val statuses = Collections.synchronizedList(mutableListOf<HttpStatusCode>())
+
+                fun bookingThread() =
+                    Thread {
+                        try {
+                            startLatch.countDown()
+                            startLatch.await(20, TimeUnit.SECONDS)
+                            val status =
+                                runBlocking {
+                                    client.post("/test/event/create?roomId=$room") { header("X-Member-Id", organizer.toString()) }.status
+                                }
+                            statuses += status
+                        } finally {
+                            doneLatch.countDown()
+                        }
+                    }
+
+                val t1 = bookingThread()
+                val t2 = bookingThread()
+                t1.start()
+                t2.start()
+                check(doneLatch.await(20, TimeUnit.SECONDS)) { "concurrent createEvent RPC calls did not complete in time" }
+
+                statuses.count { it == HttpStatusCode.OK } shouldBe 1
+                statuses.count { it == HttpStatusCode.Conflict } shouldBe 1
+
+                val bookedCount = transaction { EventTable.selectAll().where { EventTable.roomId eq room }.count() }
+                bookedCount shouldBe 1L
+            }
+        }
     })
+
+/** Plain [MailDispatcher] with a transport that never records anything -- for tests that don't care about mail. */
+private fun defaultMailDispatcher(): MailDispatcher =
+    MailDispatcher(
+        transport =
+            object : MailTransport {
+                override suspend fun send(
+                    to: String,
+                    subject: String,
+                    plainTextBody: String,
+                    htmlBody: String,
+                ): MailSendOutcome = MailSendOutcome.Sent
+            },
+        scope = CoroutineScope(SupervisorJob() + Dispatchers.IO),
+    )

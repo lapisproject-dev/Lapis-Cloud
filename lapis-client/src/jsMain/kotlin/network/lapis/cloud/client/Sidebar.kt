@@ -151,6 +151,7 @@ private val GROUP_ROUTES: Map<SidebarGroupId, List<String>> =
                 Routes.API_KEYS,
                 Routes.CRM,
                 Routes.EVENT_CHECKIN,
+                Routes.EVENT_ROOMS,
                 Routes.MEMBER_ANNIVERSARIES,
                 Routes.MEMBER_HONORS,
                 Routes.MEMBER_FAMILIES,
@@ -486,6 +487,7 @@ fun buildSidebar(
                 sidebarLink(Routes.API_KEYS, tr("API-Schlüssel"), "fas fa-key", toggle)
                 sidebarLink(Routes.CRM, tr("Kontakte & Interessenten"), "fas fa-address-book", toggle)
                 sidebarLink(Routes.EVENT_CHECKIN, tr("Veranstaltungs-Check-in"), "fas fa-qrcode", toggle)
+                sidebarLink(Routes.EVENT_ROOMS, tr("Raumverwaltung"), "fas fa-door-open", toggle)
                 sidebarLink(Routes.MEMBER_ANNIVERSARIES, tr("Geburtstage & Jubiläen"), "fas fa-cake-candles", toggle)
                 sidebarLink(Routes.MEMBER_HONORS, tr("Ehrungen & Auszeichnungen"), "fas fa-medal", toggle)
                 sidebarLink(Routes.MEMBER_FAMILIES, tr("Familienmitgliedschaften"), "fas fa-people-roof", toggle)

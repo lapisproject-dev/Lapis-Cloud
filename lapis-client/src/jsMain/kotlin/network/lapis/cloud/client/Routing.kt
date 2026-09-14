@@ -370,6 +370,14 @@ object Routes {
     const val EVENT_CHECKIN = "/event-checkin"
     const val EVENT_CHECKIN_EVENT = "/event-checkin/:id"
 
+    // Welle V1.4.3.4 "Raumverwaltung für Veranstaltungen" -- BOARD/ADMIN, verified against
+    // `EventRoomService.kt`: every `IEventRoomService` method calls
+    // `current.requireRole(*EVENT_ROOM_MANAGE_ROLES)` where `EVENT_ROOM_MANAGE_ROLES = [BOARD, ADMIN]`
+    // -- same tier as [EVENT_CHECKIN]/[CRM]. Room master-data CRUD only; assigning a room to an
+    // event happens on `EventCheckInSelectionScreen.kt`'s own event rows (see that screen's own
+    // comment), not here.
+    const val EVENT_ROOMS = "/event-rooms"
+
     // Welle V1.4.4.1 "Beitragshistorie" -- `requireAuth`, NICHT `requireRole`: jedes authentifizierte
     // Mitglied erreicht diese Route für die EIGENE Historie (Selbstauskunft), die engere
     // TREASURER/BOARD/ADMIN-Schwelle für eine FREMDE Mitglieds-Id wird ausschließlich serverseitig in
@@ -747,6 +755,11 @@ fun initRouting(pageContainer: SimplePanel) {
     routing.kvOn(Routes.EVENT_CHECKIN) {
         requireRole(routing, AccountRole.BOARD, AccountRole.ADMIN) {
             show(Routes.EVENT_CHECKIN, ::renderEventCheckInSelectionScreen)
+        }
+    }
+    routing.kvOn(Routes.EVENT_ROOMS) {
+        requireRole(routing, AccountRole.BOARD, AccountRole.ADMIN) {
+            show(Routes.EVENT_ROOMS, ::renderEventRoomsScreen)
         }
     }
     // `:id` read off Navigo's own `Match.data`, same idiom as `Routes.SOCIAL_NETWORK_POST` above.
